@@ -6,12 +6,14 @@
 #include "core/hle/service/am/service/all_system_applet_proxies_service.h"
 #include "core/hle/service/am/service/library_applet_proxy.h"
 #include "core/hle/service/am/service/system_applet_proxy.h"
+#include "core/hle/service/am/window_system.h"
 #include "core/hle/service/cmif_serialization.h"
 
 namespace Service::AM {
 
-IAllSystemAppletProxiesService::IAllSystemAppletProxiesService(Core::System& system_)
-    : ServiceFramework{system_, "appletAE"} {
+IAllSystemAppletProxiesService::IAllSystemAppletProxiesService(Core::System& system_,
+                                                               WindowSystem& window_system)
+    : ServiceFramework{system_, "appletAE"}, m_window_system{window_system} {
     // clang-format off
     static const FunctionInfo functions[] = {
         {100, D<&IAllSystemAppletProxiesService::OpenSystemAppletProxy>, "OpenSystemAppletProxy"},
@@ -36,8 +38,8 @@ Result IAllSystemAppletProxiesService::OpenSystemAppletProxy(
     LOG_DEBUG(Service_AM, "called");
 
     if (const auto applet = this->GetAppletFromProcessId(pid); applet) {
-        *out_system_applet_proxy =
-            std::make_shared<ISystemAppletProxy>(system, applet, process_handle.Get());
+        *out_system_applet_proxy = std::make_shared<ISystemAppletProxy>(
+            system, applet, process_handle.Get(), m_window_system);
         R_SUCCEED();
     } else {
         UNIMPLEMENTED();
@@ -52,8 +54,8 @@ Result IAllSystemAppletProxiesService::OpenLibraryAppletProxy(
     LOG_DEBUG(Service_AM, "called");
 
     if (const auto applet = this->GetAppletFromProcessId(pid); applet) {
-        *out_library_applet_proxy =
-            std::make_shared<ILibraryAppletProxy>(system, applet, process_handle.Get());
+        *out_library_applet_proxy = std::make_shared<ILibraryAppletProxy>(
+            system, applet, process_handle.Get(), m_window_system);
         R_SUCCEED();
     } else {
         UNIMPLEMENTED();
@@ -73,7 +75,7 @@ Result IAllSystemAppletProxiesService::OpenLibraryAppletProxyOld(
 
 std::shared_ptr<Applet> IAllSystemAppletProxiesService::GetAppletFromProcessId(
     ProcessId process_id) {
-    return system.GetAppletManager().GetByAppletResourceUserId(process_id.pid);
+    return m_window_system.GetByAppletResourceUserId(process_id.pid);
 }
 
 } // namespace Service::AM

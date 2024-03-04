@@ -12,10 +12,12 @@ namespace Service::AM {
 struct Applet;
 class ILibraryAppletAccessor;
 class IStorage;
+class WindowSystem;
 
 class ILibraryAppletCreator final : public ServiceFramework<ILibraryAppletCreator> {
 public:
-    explicit ILibraryAppletCreator(Core::System& system_, std::shared_ptr<Applet> applet);
+    explicit ILibraryAppletCreator(Core::System& system_, std::shared_ptr<Applet> applet,
+                                   WindowSystem& window_system);
     ~ILibraryAppletCreator() override;
 
 private:
@@ -29,6 +31,7 @@ private:
     Result CreateHandleStorage(Out<SharedPointer<IStorage>> out_storage, s64 size,
                                InCopyHandle<Kernel::KTransferMemory> transfer_memory_handle);
 
+    WindowSystem& m_window_system;
     const std::shared_ptr<Applet> m_applet;
 };
 

@@ -9,12 +9,16 @@
 #include "core/hle/service/am/service/application_accessor.h"
 #include "core/hle/service/am/service/library_applet_accessor.h"
 #include "core/hle/service/am/service/storage.h"
+#include "core/hle/service/am/window_system.h"
 #include "core/hle/service/cmif_serialization.h"
+#include "core/hle/service/glue/glue_manager.h"
 
 namespace Service::AM {
 
-IApplicationAccessor::IApplicationAccessor(Core::System& system_, std::shared_ptr<Applet> applet)
-    : ServiceFramework{system_, "IApplicationAccessor"}, m_applet(std::move(applet)) {
+IApplicationAccessor::IApplicationAccessor(Core::System& system_, std::shared_ptr<Applet> applet,
+                                           WindowSystem& window_system)
+    : ServiceFramework{system_, "IApplicationAccessor"}, m_window_system(window_system),
+      m_applet(std::move(applet)) {
     // clang-format off
     static const FunctionInfo functions[] = {
         {0, D<&IApplicationAccessor::GetAppletStateChangedEvent>, "GetAppletStateChangedEvent"},
@@ -59,7 +63,15 @@ Result IApplicationAccessor::Start() {
 
 Result IApplicationAccessor::RequestExit() {
     LOG_INFO(Service_AM, "called");
-    m_applet->message_queue.RequestExit();
+
+    std::scoped_lock lk{m_applet->lock};
+    if (m_applet->exit_locked) {
+        m_applet->lifecycle_manager.RequestExit();
+        m_applet->UpdateSuspensionStateLocked(true);
+    } else {
+        m_applet->process->Terminate();
+    }
+
     R_SUCCEED();
 }
 
@@ -71,13 +83,14 @@ Result IApplicationAccessor::Terminate() {
 
 Result IApplicationAccessor::GetResult() {
     LOG_INFO(Service_AM, "called");
-    R_SUCCEED();
+    std::scoped_lock lk{m_applet->lock};
+    R_RETURN(m_applet->terminate_result);
 }
 
 Result IApplicationAccessor::GetAppletStateChangedEvent(
     OutCopyHandle<Kernel::KReadableEvent> out_event) {
     LOG_INFO(Service_AM, "called");
-    *out_event = m_applet->caller_applet_broker->GetStateChangedEvent().GetHandle();
+    *out_event = m_applet->state_changed_event.GetHandle();
     R_SUCCEED();
 }
 
@@ -96,8 +109,15 @@ Result IApplicationAccessor::PushLaunchParameter(LaunchParameterKind kind,
 
 Result IApplicationAccessor::GetApplicationControlProperty(
     OutBuffer<BufferAttr_HipcMapAlias> out_control_property) {
-    LOG_WARNING(Service_AM, "(STUBBED) called");
-    R_THROW(ResultUnknown);
+    LOG_INFO(Service_AM, "called");
+
+    std::vector<u8> nacp;
+    R_TRY(system.GetARPManager().GetControlProperty(&nacp, m_applet->program_id));
+
+    std::memcpy(out_control_property.data(), nacp.data(),
+                std::min(out_control_property.size(), nacp.size()));
+
+    R_SUCCEED();
 }
 
 Result IApplicationAccessor::SetUsers(bool enable,
@@ -114,8 +134,9 @@ Result IApplicationAccessor::GetCurrentLibraryApplet(
 }
 
 Result IApplicationAccessor::RequestForApplicationToGetForeground() {
-    LOG_WARNING(Service_AM, "(STUBBED) called");
-    R_THROW(ResultUnknown);
+    LOG_INFO(Service_AM, "called");
+    m_window_system.RequestApplicationToGetForeground();
+    R_SUCCEED();
 }
 
 Result IApplicationAccessor::CheckRightsEnvironmentAvailable(Out<bool> out_is_available) {

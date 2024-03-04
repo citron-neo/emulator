@@ -86,8 +86,7 @@ ISelfController::~ISelfController() {
 Result ISelfController::Exit() {
     LOG_DEBUG(Service_AM, "called");
 
-    // TODO
-    system.Exit();
+    m_applet->process->Terminate();
 
     R_SUCCEED();
 }
@@ -95,7 +94,16 @@ Result ISelfController::Exit() {
 Result ISelfController::LockExit() {
     LOG_DEBUG(Service_AM, "called");
 
-    system.SetExitLocked(true);
+    std::scoped_lock lk{m_applet->lock};
+
+    if (m_applet->lifecycle_manager.GetExitRequested()) {
+        // With exit already requested, ignore and terminate immediately.
+        m_applet->process->Terminate();
+    } else {
+        // Otherwise, set exit lock state.
+        m_applet->exit_locked = true;
+        system.SetExitLocked(true);
+    }
 
     R_SUCCEED();
 }
@@ -103,10 +111,13 @@ Result ISelfController::LockExit() {
 Result ISelfController::UnlockExit() {
     LOG_DEBUG(Service_AM, "called");
 
+    std::scoped_lock lk{m_applet->lock};
+
+    m_applet->exit_locked = false;
     system.SetExitLocked(false);
 
-    if (system.GetExitRequested()) {
-        system.Exit();
+    if (m_applet->lifecycle_manager.GetExitRequested()) {
+        m_applet->process->Terminate();
     }
 
     R_SUCCEED();
@@ -155,7 +166,7 @@ Result ISelfController::SetOperationModeChangedNotification(bool enabled) {
     LOG_INFO(Service_AM, "called, enabled={}", enabled);
 
     std::scoped_lock lk{m_applet->lock};
-    m_applet->operation_mode_changed_notification_enabled = enabled;
+    m_applet->lifecycle_manager.SetOperationModeChangedNotificationEnabled(enabled);
 
     R_SUCCEED();
 }
@@ -164,17 +175,18 @@ Result ISelfController::SetPerformanceModeChangedNotification(bool enabled) {
     LOG_INFO(Service_AM, "called, enabled={}", enabled);
 
     std::scoped_lock lk{m_applet->lock};
-    m_applet->performance_mode_changed_notification_enabled = enabled;
+    m_applet->lifecycle_manager.SetPerformanceModeChangedNotificationEnabled(enabled);
 
     R_SUCCEED();
 }
 
 Result ISelfController::SetFocusHandlingMode(bool notify, bool background, bool suspend) {
-    LOG_WARNING(Service_AM, "(STUBBED) called, notify={} background={} suspend={}", notify,
-                background, suspend);
+    LOG_INFO(Service_AM, "called, notify={} background={} suspend={}", notify, background, suspend);
 
     std::scoped_lock lk{m_applet->lock};
-    m_applet->focus_handling_mode = {notify, background, suspend};
+    m_applet->lifecycle_manager.SetFocusStateChangedNotificationEnabled(notify);
+    m_applet->lifecycle_manager.SetFocusHandlingMode(suspend);
+    m_applet->UpdateSuspensionStateLocked(true);
 
     R_SUCCEED();
 }
@@ -183,7 +195,7 @@ Result ISelfController::SetRestartMessageEnabled(bool enabled) {
     LOG_INFO(Service_AM, "called, enabled={}", enabled);
 
     std::scoped_lock lk{m_applet->lock};
-    m_applet->restart_message_enabled = enabled;
+    m_applet->lifecycle_manager.SetResumeNotificationEnabled(enabled);
 
     R_SUCCEED();
 }
@@ -202,7 +214,8 @@ Result ISelfController::SetOutOfFocusSuspendingEnabled(bool enabled) {
     LOG_INFO(Service_AM, "called, enabled={}", enabled);
 
     std::scoped_lock lk{m_applet->lock};
-    m_applet->out_of_focus_suspension_enabled = enabled;
+    m_applet->lifecycle_manager.SetOutOfFocusSuspendingEnabled(enabled);
+    m_applet->UpdateSuspensionStateLocked(false);
 
     R_SUCCEED();
 }

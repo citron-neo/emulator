@@ -401,14 +401,16 @@ add_library(core STATIC
     hle/service/am/am_types.h
     hle/service/am/applet.cpp
     hle/service/am/applet.h
+    hle/service/am/applet_manager.cpp
     hle/service/am/applet_data_broker.cpp
     hle/service/am/applet_data_broker.h
-    hle/service/am/applet_manager.cpp
     hle/service/am/applet_manager.h
-    hle/service/am/applet_message_queue.cpp
-    hle/service/am/applet_message_queue.h
+    hle/service/am/button_poller.cpp
+    hle/service/am/button_poller.h
     hle/service/am/display_layer_manager.cpp
     hle/service/am/display_layer_manager.h
+    hle/service/am/event_observer.cpp
+    hle/service/am/event_observer.h
     hle/service/am/frontend/applet_cabinet.cpp
     hle/service/am/frontend/applet_cabinet.h
     hle/service/am/frontend/applet_controller.cpp
@@ -434,8 +436,12 @@ add_library(core STATIC
     hle/service/am/hid_registration.h
     hle/service/am/library_applet_storage.cpp
     hle/service/am/library_applet_storage.h
-    hle/service/am/process.cpp
-    hle/service/am/process.h
+    hle/service/am/lifecycle_manager.cpp
+    hle/service/am/lifecycle_manager.h
+    hle/service/am/process_creation.cpp
+    hle/service/am/process_creation.h
+    hle/service/am/process_holder.cpp
+    hle/service/am/process_holder.h
     hle/service/am/service/all_system_applet_proxies_service.cpp
     hle/service/am/service/all_system_applet_proxies_service.h
     hle/service/am/service/applet_common_functions.cpp
@@ -486,6 +492,8 @@ add_library(core STATIC
     hle/service/am/service/system_applet_proxy.h
     hle/service/am/service/window_controller.cpp
     hle/service/am/service/window_controller.h
+    hle/service/am/window_system.cpp
+    hle/service/am/window_system.h
     hle/service/aoc/addon_content_manager.cpp
     hle/service/aoc/addon_content_manager.h
     hle/service/aoc/purchase_event_manager.cpp
@@ -918,6 +926,8 @@ add_library(core STATIC
     hle/service/os/multi_wait_utils.h
     hle/service/os/mutex.cpp
     hle/service/os/mutex.h
+    hle/service/os/process.cpp
+    hle/service/os/process.h
     hle/service/pcie/pcie.cpp
     hle/service/pcie/pcie.h
     hle/service/pctl/parental_control_service_factory.cpp

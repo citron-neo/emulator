@@ -44,24 +44,8 @@ Kernel::KReadableEvent* AppletStorageChannel::GetEvent() {
 
 AppletDataBroker::AppletDataBroker(Core::System& system_)
     : system(system_), context(system_, "AppletDataBroker"), in_data(context),
-      interactive_in_data(context), out_data(context), interactive_out_data(context),
-      state_changed_event(context), is_completed(false) {}
+      interactive_in_data(context), out_data(context), interactive_out_data(context) {}
 
 AppletDataBroker::~AppletDataBroker() = default;
-
-void AppletDataBroker::SignalCompletion() {
-    {
-        std::scoped_lock lk{lock};
-
-        if (is_completed) {
-            return;
-        }
-
-        is_completed = true;
-        state_changed_event.Signal();
-    }
-
-    system.GetAppletManager().FocusStateChanged();
-}
 
 } // namespace Service::AM

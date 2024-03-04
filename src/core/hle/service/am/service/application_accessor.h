@@ -13,10 +13,12 @@ namespace Service::AM {
 struct Applet;
 class ILibraryAppletAccessor;
 class IStorage;
+class WindowSystem;
 
 class IApplicationAccessor final : public ServiceFramework<IApplicationAccessor> {
 public:
-    explicit IApplicationAccessor(Core::System& system_, std::shared_ptr<Applet> applet);
+    explicit IApplicationAccessor(Core::System& system_, std::shared_ptr<Applet> applet,
+                                  WindowSystem& window_system);
     ~IApplicationAccessor() override;
 
 private:
@@ -34,6 +36,7 @@ private:
     Result GetNsRightsEnvironmentHandle(Out<u64> out_handle);
     Result ReportApplicationExitTimeout();
 
+    WindowSystem& m_window_system;
     const std::shared_ptr<Applet> m_applet;
 };
 

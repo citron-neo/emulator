@@ -23,11 +23,7 @@ void LoopProcess(Core::System& system) {
     std::shared_ptr<ResourceManager> resource_manager =
         std::make_shared<ResourceManager>(system, firmware_settings);
 
-    // TODO: Remove this hack when am is emulated properly.
     resource_manager->Initialize();
-    resource_manager->RegisterAppletResourceUserId(system.ApplicationProcess()->GetProcessId(),
-                                                   true);
-    resource_manager->SetAruidValidForVibration(system.ApplicationProcess()->GetProcessId(), true);
 
     server_manager->RegisterNamedService(
         "hid", std::make_shared<IHidServer>(system, resource_manager, firmware_settings));

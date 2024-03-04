@@ -3,65 +3,24 @@
 
 #include "common/scope_exit.h"
 
-#include "core/file_sys/content_archive.h"
-#include "core/file_sys/nca_metadata.h"
-#include "core/file_sys/registered_cache.h"
 #include "core/hle/kernel/k_process.h"
-#include "core/hle/service/am/process.h"
-#include "core/hle/service/filesystem/filesystem.h"
+#include "core/hle/kernel/svc_types.h"
+#include "core/hle/service/os/process.h"
 #include "core/loader/loader.h"
 
-namespace Service::AM {
+namespace Service {
 
 Process::Process(Core::System& system)
     : m_system(system), m_process(), m_main_thread_priority(), m_main_thread_stack_size(),
-      m_program_id(), m_process_started() {}
+      m_process_started() {}
 
 Process::~Process() {
     this->Finalize();
 }
 
-bool Process::Initialize(u64 program_id, u8 minimum_key_generation, u8 maximum_key_generation) {
+bool Process::Initialize(Loader::AppLoader& loader, Loader::ResultStatus& out_load_result) {
     // First, ensure we are not holding another process.
     this->Finalize();
-
-    // Get the filesystem controller.
-    auto& fsc = m_system.GetFileSystemController();
-
-    // Attempt to load program NCA.
-    const FileSys::RegisteredCache* bis_system{};
-    FileSys::VirtualFile nca_raw{};
-
-    // Get the program NCA from built-in storage.
-    bis_system = fsc.GetSystemNANDContents();
-    if (bis_system) {
-        nca_raw = bis_system->GetEntryRaw(program_id, FileSys::ContentRecordType::Program);
-    }
-
-    // Ensure we retrieved a program NCA.
-    if (!nca_raw) {
-        return false;
-    }
-
-    // Ensure we have a suitable version.
-    if (minimum_key_generation > 0) {
-        FileSys::NCA nca(nca_raw);
-        if (nca.GetStatus() == Loader::ResultStatus::Success &&
-            (nca.GetKeyGeneration() < minimum_key_generation ||
-             nca.GetKeyGeneration() > maximum_key_generation)) {
-            LOG_WARNING(Service_LDR, "Skipping program {:016X} with generation {}", program_id,
-                        nca.GetKeyGeneration());
-            return false;
-        }
-    }
-
-    // Get the appropriate loader to parse this NCA.
-    auto app_loader = Loader::GetLoader(m_system, nca_raw, program_id, 0);
-
-    // Ensure we have a loader which can parse the NCA.
-    if (!app_loader) {
-        return false;
-    }
 
     // Create the process.
     auto* const process = Kernel::KProcess::Create(m_system.Kernel());
@@ -73,7 +32,8 @@ bool Process::Initialize(u64 program_id, u8 minimum_key_generation, u8 maximum_k
     };
 
     // Insert process modules into memory.
-    const auto [load_result, load_parameters] = app_loader->Load(*process, m_system);
+    const auto [load_result, load_parameters] = loader.Load(*process, m_system);
+    out_load_result = load_result;
 
     // Ensure loading was successful.
     if (load_result != Loader::ResultStatus::Success) {
@@ -114,7 +74,6 @@ void Process::Finalize() {
     m_process = nullptr;
     m_main_thread_priority = 0;
     m_main_thread_stack_size = 0;
-    m_program_id = 0;
     m_process_started = false;
 }
 
@@ -142,6 +101,31 @@ void Process::Terminate() {
     }
 }
 
+void Process::ResetSignal() {
+    if (m_process) {
+        m_process->Reset();
+    }
+}
+
+bool Process::IsRunning() const {
+    if (m_process) {
+        const auto state = m_process->GetState();
+        return state == Kernel::KProcess::State::Running ||
+               state == Kernel::KProcess::State::RunningAttached ||
+               state == Kernel::KProcess::State::DebugBreak;
+    }
+
+    return false;
+}
+
+bool Process::IsTerminated() const {
+    if (m_process) {
+        return m_process->IsTerminated();
+    }
+
+    return false;
+}
+
 u64 Process::GetProcessId() const {
     if (m_process) {
         return m_process->GetProcessId();
@@ -150,4 +134,19 @@ u64 Process::GetProcessId() const {
     return 0;
 }
 
-} // namespace Service::AM
+u64 Process::GetProgramId() const {
+    if (m_process) {
+        return m_process->GetProgramId();
+    }
+
+    return 0;
+}
+
+void Process::Suspend(bool suspended) {
+    if (m_process) {
+        m_process->SetActivity(suspended ? Kernel::Svc::ProcessActivity::Paused
+                                         : Kernel::Svc::ProcessActivity::Runnable);
+    }
+}
+
+} // namespace Service

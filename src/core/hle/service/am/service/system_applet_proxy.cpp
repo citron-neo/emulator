@@ -19,9 +19,9 @@
 namespace Service::AM {
 
 ISystemAppletProxy::ISystemAppletProxy(Core::System& system_, std::shared_ptr<Applet> applet,
-                                       Kernel::KProcess* process)
-    : ServiceFramework{system_, "ISystemAppletProxy"}, m_process{process}, m_applet{
-                                                                               std::move(applet)} {
+                                       Kernel::KProcess* process, WindowSystem& window_system)
+    : ServiceFramework{system_, "ISystemAppletProxy"},
+      m_window_system{window_system}, m_process{process}, m_applet{std::move(applet)} {
     // clang-format off
     static const FunctionInfo functions[] = {
         {0, D<&ISystemAppletProxy::GetCommonStateGetter>, "GetCommonStateGetter"},
@@ -75,7 +75,7 @@ Result ISystemAppletProxy::GetDebugFunctions(
 Result ISystemAppletProxy::GetWindowController(
     Out<SharedPointer<IWindowController>> out_window_controller) {
     LOG_DEBUG(Service_AM, "called");
-    *out_window_controller = std::make_shared<IWindowController>(system, m_applet);
+    *out_window_controller = std::make_shared<IWindowController>(system, m_applet, m_window_system);
     R_SUCCEED();
 }
 
@@ -96,14 +96,15 @@ Result ISystemAppletProxy::GetCommonStateGetter(
 Result ISystemAppletProxy::GetLibraryAppletCreator(
     Out<SharedPointer<ILibraryAppletCreator>> out_library_applet_creator) {
     LOG_DEBUG(Service_AM, "called");
-    *out_library_applet_creator = std::make_shared<ILibraryAppletCreator>(system, m_applet);
+    *out_library_applet_creator =
+        std::make_shared<ILibraryAppletCreator>(system, m_applet, m_window_system);
     R_SUCCEED();
 }
 
 Result ISystemAppletProxy::GetApplicationCreator(
     Out<SharedPointer<IApplicationCreator>> out_application_creator) {
     LOG_DEBUG(Service_AM, "called");
-    *out_application_creator = std::make_shared<IApplicationCreator>(system);
+    *out_application_creator = std::make_shared<IApplicationCreator>(system, m_window_system);
     R_SUCCEED();
 }
 
@@ -117,7 +118,8 @@ Result ISystemAppletProxy::GetAppletCommonFunctions(
 Result ISystemAppletProxy::GetHomeMenuFunctions(
     Out<SharedPointer<IHomeMenuFunctions>> out_home_menu_functions) {
     LOG_DEBUG(Service_AM, "called");
-    *out_home_menu_functions = std::make_shared<IHomeMenuFunctions>(system, m_applet);
+    *out_home_menu_functions =
+        std::make_shared<IHomeMenuFunctions>(system, m_applet, m_window_system);
     R_SUCCEED();
 }
 

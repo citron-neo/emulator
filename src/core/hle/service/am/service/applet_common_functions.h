@@ -16,6 +16,7 @@ public:
     ~IAppletCommonFunctions() override;
 
 private:
+    Result SetHomeButtonDoubleClickEnabled(bool home_button_double_click_enabled);
     Result GetHomeButtonDoubleClickEnabled(Out<bool> out_home_button_double_click_enabled);
     Result SetCpuBoostRequestPriority(s32 priority);
     Result GetCurrentApplicationId(Out<u64> out_application_id);

@@ -47,20 +47,21 @@ ILibraryAppletAccessor::~ILibraryAppletAccessor() = default;
 Result ILibraryAppletAccessor::GetAppletStateChangedEvent(
     OutCopyHandle<Kernel::KReadableEvent> out_event) {
     LOG_DEBUG(Service_AM, "called");
-    *out_event = m_broker->GetStateChangedEvent().GetHandle();
+    *out_event = m_applet->state_changed_event.GetHandle();
     R_SUCCEED();
 }
 
 Result ILibraryAppletAccessor::IsCompleted(Out<bool> out_is_completed) {
     LOG_DEBUG(Service_AM, "called");
-    *out_is_completed = m_broker->IsCompleted();
+    std::scoped_lock lk{m_applet->lock};
+    *out_is_completed = m_applet->is_completed;
     R_SUCCEED();
 }
 
-Result ILibraryAppletAccessor::GetResult(Out<Result> out_result) {
+Result ILibraryAppletAccessor::GetResult() {
     LOG_DEBUG(Service_AM, "called");
-    *out_result = m_applet->terminate_result;
-    R_SUCCEED();
+    std::scoped_lock lk{m_applet->lock};
+    R_RETURN(m_applet->terminate_result);
 }
 
 Result ILibraryAppletAccessor::PresetLibraryAppletGpuTimeSliceZero() {
@@ -77,7 +78,10 @@ Result ILibraryAppletAccessor::Start() {
 
 Result ILibraryAppletAccessor::RequestExit() {
     LOG_DEBUG(Service_AM, "called");
-    m_applet->message_queue.RequestExit();
+    {
+        std::scoped_lock lk{m_applet->lock};
+        m_applet->lifecycle_manager.RequestExit();
+    }
     FrontendRequestExit();
     R_SUCCEED();
 }

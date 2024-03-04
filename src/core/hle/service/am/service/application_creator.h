@@ -10,14 +10,17 @@ namespace Service::AM {
 
 class IApplicationAccessor;
 struct Applet;
+class WindowSystem;
 
 class IApplicationCreator final : public ServiceFramework<IApplicationCreator> {
 public:
-    explicit IApplicationCreator(Core::System& system_);
+    explicit IApplicationCreator(Core::System& system_, WindowSystem& window_system);
     ~IApplicationCreator() override;
 
 private:
     Result CreateApplication(Out<SharedPointer<IApplicationAccessor>>, u64 application_id);
+
+    WindowSystem& m_window_system;
 };
 
 } // namespace Service::AM

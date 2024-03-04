@@ -21,7 +21,7 @@ public:
 private:
     Result GetAppletStateChangedEvent(OutCopyHandle<Kernel::KReadableEvent> out_event);
     Result IsCompleted(Out<bool> out_is_completed);
-    Result GetResult(Out<Result> out_result);
+    Result GetResult();
     Result PresetLibraryAppletGpuTimeSliceZero();
     Result Start();
     Result RequestExit();

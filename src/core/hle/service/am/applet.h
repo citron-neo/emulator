@@ -3,25 +3,28 @@
 
 #pragma once
 
+#include <deque>
 #include <mutex>
 
 #include "common/math_util.h"
 #include "core/hle/service/apm/apm_controller.h"
 #include "core/hle/service/caps/caps_types.h"
+#include "core/hle/service/cmif_types.h"
 #include "core/hle/service/kernel_helpers.h"
 #include "core/hle/service/os/event.h"
+#include "core/hle/service/os/process.h"
 #include "core/hle/service/service.h"
 
 #include "core/hle/service/am/am_types.h"
-#include "core/hle/service/am/applet_message_queue.h"
 #include "core/hle/service/am/display_layer_manager.h"
 #include "core/hle/service/am/hid_registration.h"
-#include "core/hle/service/am/process.h"
+#include "core/hle/service/am/lifecycle_manager.h"
+#include "core/hle/service/am/process_holder.h"
 
 namespace Service::AM {
 
 struct Applet {
-    explicit Applet(Core::System& system, std::unique_ptr<Process> process_);
+    explicit Applet(Core::System& system, std::unique_ptr<Process> process_, bool is_application);
     ~Applet();
 
     // Lock
@@ -30,11 +33,13 @@ struct Applet {
     // Event creation helper
     KernelHelpers::ServiceContext context;
 
-    // Applet message queue
-    AppletMessageQueue message_queue;
+    // Lifecycle manager
+    LifecycleManager lifecycle_manager;
 
     // Process
     std::unique_ptr<Process> process;
+    std::optional<ProcessHolder> process_holder;
+    bool is_process_running{};
 
     // Creation state
     AppletId applet_id{};
@@ -75,11 +80,9 @@ struct Applet {
     bool game_play_recording_supported{};
     GamePlayRecordingState game_play_recording_state{GamePlayRecordingState::Disabled};
     bool jit_service_launched{};
-    bool is_running{};
     bool application_crash_report_enabled{};
 
     // Common state
-    FocusState focus_state{};
     bool sleep_lock_enabled{};
     bool vr_mode_enabled{};
     bool lcd_backlight_off_enabled{};
@@ -93,15 +96,12 @@ struct Applet {
     // Caller applet
     std::weak_ptr<Applet> caller_applet{};
     std::shared_ptr<AppletDataBroker> caller_applet_broker{};
+    std::list<std::shared_ptr<Applet>> child_applets{};
+    bool is_completed{};
 
     // Self state
     bool exit_locked{};
     s32 fatal_section_count{};
-    bool operation_mode_changed_notification_enabled{true};
-    bool performance_mode_changed_notification_enabled{true};
-    FocusHandlingMode focus_handling_mode{};
-    bool restart_message_enabled{};
-    bool out_of_focus_suspension_enabled{true};
     Capture::AlbumImageOrientation album_image_orientation{};
     bool handles_request_to_display{};
     ScreenshotPermission screenshot_permission{};
@@ -110,6 +110,9 @@ struct Applet {
     u64 suspended_ticks{};
     bool album_image_taken_notification_enabled{};
     bool record_volume_muted{};
+    bool is_activity_runnable{};
+    bool is_interactible{true};
+    bool window_visible{true};
 
     // Events
     Event gpu_error_detected_event;
@@ -121,9 +124,15 @@ struct Applet {
     Event library_applet_launchable_event;
     Event accumulated_suspended_tick_changed_event;
     Event sleep_lock_event;
+    Event state_changed_event;
 
     // Frontend state
     std::shared_ptr<Frontend::FrontendApplet> frontend{};
+
+    // Process state management
+    void UpdateSuspensionStateLocked(bool force_message);
+    void SetInteractibleLocked(bool interactible);
+    void OnProcessTerminatedLocked();
 };
 
 } // namespace Service::AM

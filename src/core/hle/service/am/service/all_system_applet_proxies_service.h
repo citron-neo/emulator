@@ -14,11 +14,12 @@ struct Applet;
 struct AppletAttribute;
 class ILibraryAppletProxy;
 class ISystemAppletProxy;
+class WindowSystem;
 
 class IAllSystemAppletProxiesService final
     : public ServiceFramework<IAllSystemAppletProxiesService> {
 public:
-    explicit IAllSystemAppletProxiesService(Core::System& system_);
+    explicit IAllSystemAppletProxiesService(Core::System& system_, WindowSystem& window_system);
     ~IAllSystemAppletProxiesService() override;
 
 private:
@@ -35,6 +36,8 @@ private:
 
 private:
     std::shared_ptr<Applet> GetAppletFromProcessId(ProcessId pid);
+
+    WindowSystem& m_window_system;
 };
 
 } // namespace AM

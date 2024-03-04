@@ -19,7 +19,7 @@ IAppletCommonFunctions::IAppletCommonFunctions(Core::System& system_,
         {21, nullptr, "TryPopFromAppletBoundChannel"},
         {40, nullptr, "GetDisplayLogicalResolution"},
         {42, nullptr, "SetDisplayMagnification"},
-        {50, nullptr, "SetHomeButtonDoubleClickEnabled"},
+        {50, D<&IAppletCommonFunctions::SetHomeButtonDoubleClickEnabled>, "SetHomeButtonDoubleClickEnabled"},
         {51, D<&IAppletCommonFunctions::GetHomeButtonDoubleClickEnabled>, "GetHomeButtonDoubleClickEnabled"},
         {52, nullptr, "IsHomeButtonShortPressedBlocked"},
         {60, nullptr, "IsVrModeCurtainRequired"},
@@ -39,6 +39,13 @@ IAppletCommonFunctions::IAppletCommonFunctions(Core::System& system_,
 }
 
 IAppletCommonFunctions::~IAppletCommonFunctions() = default;
+
+Result IAppletCommonFunctions::SetHomeButtonDoubleClickEnabled(
+    bool home_button_double_click_enabled) {
+    LOG_WARNING(Service_AM, "(STUBBED) called, home_button_double_click_enabled={}",
+                home_button_double_click_enabled);
+    R_SUCCEED();
+}
 
 Result IAppletCommonFunctions::GetHomeButtonDoubleClickEnabled(
     Out<bool> out_home_button_double_click_enabled) {

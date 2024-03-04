@@ -49,8 +49,7 @@ struct Memory::Impl {
     void SetCurrentPageTable(Kernel::KProcess& process) {
         current_page_table = &process.GetPageTable().GetImpl();
 
-        if (std::addressof(process) == system.ApplicationProcess() &&
-            Settings::IsFastmemEnabled()) {
+        if (process.IsApplication() && Settings::IsFastmemEnabled()) {
             current_page_table->fastmem_arena = system.DeviceMemory().buffer.VirtualBasePointer();
         } else {
             current_page_table->fastmem_arena = nullptr;

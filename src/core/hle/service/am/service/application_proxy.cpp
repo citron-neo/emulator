@@ -17,9 +17,9 @@
 namespace Service::AM {
 
 IApplicationProxy::IApplicationProxy(Core::System& system_, std::shared_ptr<Applet> applet,
-                                     Kernel::KProcess* process)
-    : ServiceFramework{system_, "IApplicationProxy"}, m_process{process}, m_applet{
-                                                                              std::move(applet)} {
+                                     Kernel::KProcess* process, WindowSystem& window_system)
+    : ServiceFramework{system_, "IApplicationProxy"},
+      m_window_system{window_system}, m_process{process}, m_applet{std::move(applet)} {
     // clang-format off
     static const FunctionInfo functions[] = {
         {0, D<&IApplicationProxy::GetCommonStateGetter>, "GetCommonStateGetter"},
@@ -70,7 +70,7 @@ Result IApplicationProxy::GetDebugFunctions(
 Result IApplicationProxy::GetWindowController(
     Out<SharedPointer<IWindowController>> out_window_controller) {
     LOG_DEBUG(Service_AM, "called");
-    *out_window_controller = std::make_shared<IWindowController>(system, m_applet);
+    *out_window_controller = std::make_shared<IWindowController>(system, m_applet, m_window_system);
     R_SUCCEED();
 }
 
@@ -91,7 +91,8 @@ Result IApplicationProxy::GetCommonStateGetter(
 Result IApplicationProxy::GetLibraryAppletCreator(
     Out<SharedPointer<ILibraryAppletCreator>> out_library_applet_creator) {
     LOG_DEBUG(Service_AM, "called");
-    *out_library_applet_creator = std::make_shared<ILibraryAppletCreator>(system, m_applet);
+    *out_library_applet_creator =
+        std::make_shared<ILibraryAppletCreator>(system, m_applet, m_window_system);
     R_SUCCEED();
 }
 

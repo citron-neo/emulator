@@ -21,11 +21,12 @@ class ILibraryAppletCreator;
 class IProcessWindingController;
 class ISelfController;
 class IWindowController;
+class WindowSystem;
 
 class ISystemAppletProxy final : public ServiceFramework<ISystemAppletProxy> {
 public:
     explicit ISystemAppletProxy(Core::System& system, std::shared_ptr<Applet> applet,
-                                Kernel::KProcess* process);
+                                Kernel::KProcess* process, WindowSystem& window_system);
     ~ISystemAppletProxy();
 
 private:
@@ -46,6 +47,7 @@ private:
     Result GetGlobalStateController(
         Out<SharedPointer<IGlobalStateController>> out_global_state_controller);
 
+    WindowSystem& m_window_system;
     Kernel::KProcess* const m_process;
     const std::shared_ptr<Applet> m_applet;
 };
