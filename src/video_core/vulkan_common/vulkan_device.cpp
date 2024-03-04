@@ -40,6 +40,12 @@ constexpr std::array DEPTH24_UNORM_STENCIL8_UINT{
     VK_FORMAT_UNDEFINED,
 };
 
+constexpr std::array DEPTH24_UNORM_DONTCARE8{
+    VK_FORMAT_D32_SFLOAT,
+    VK_FORMAT_D16_UNORM,
+    VK_FORMAT_UNDEFINED,
+};
+
 constexpr std::array DEPTH16_UNORM_STENCIL8_UINT{
     VK_FORMAT_D24_UNORM_S8_UINT,
     VK_FORMAT_D32_SFLOAT_S8_UINT,
@@ -95,6 +101,8 @@ constexpr const VkFormat* GetFormatAlternatives(VkFormat format) {
         return Alternatives::STENCIL8_UINT.data();
     case VK_FORMAT_D24_UNORM_S8_UINT:
         return Alternatives::DEPTH24_UNORM_STENCIL8_UINT.data();
+    case VK_FORMAT_X8_D24_UNORM_PACK32:
+        return Alternatives::DEPTH24_UNORM_DONTCARE8.data();
     case VK_FORMAT_D16_UNORM_S8_UINT:
         return Alternatives::DEPTH16_UNORM_STENCIL8_UINT.data();
     case VK_FORMAT_B5G6R5_UNORM_PACK16:
