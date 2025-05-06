@@ -1,4 +1,5 @@
 # SPDX-FileCopyrightText: 2017 yuzu Emulator Project
+# SPDX-FileCopyrightText: 2025 citron Emulator Project
 # SPDX-License-Identifier: GPL-2.0-or-later
 
 # This function downloads a binary library package from our external repo.
@@ -7,7 +8,7 @@
 #   prefix_var: name of a variable which will be set with the path to the extracted contents
 function(download_bundled_external remote_path lib_name prefix_var)
 
-set(package_base_url "https://github.com/citron-emu/")
+set(package_base_url "https://github.com/yuzu-mirror/")
 set(package_repo "no_platform")
 set(package_extension "no_platform")
 if (WIN32)
@@ -16,7 +17,7 @@ if (WIN32)
 elseif (${CMAKE_SYSTEM_NAME} STREQUAL "Linux")
     set(package_repo "ext-linux-bin/raw/main/")
     set(package_extension ".tar.xz")
-elseif (ANDROID)    
+elseif (ANDROID)
     set(package_repo "ext-android-bin/raw/main/")
     set(package_extension ".tar.xz")
 else()
