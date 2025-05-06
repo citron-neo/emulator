@@ -138,7 +138,7 @@ void PrintMessageToLogcat(const Entry& entry) {
     case Level::Count:
         UNREACHABLE();
     }
-    __android_log_print(android_log_priority, "YuzuNative", "%s", str.c_str());
+    __android_log_print(android_log_priority, "CitronNative", "%s", str.c_str());
 #endif
 }
 } // namespace Common::Log

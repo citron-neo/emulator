@@ -356,35 +356,35 @@ jfieldID GetPlayerInputUseSystemVibratorField() {
     return s_player_input_use_system_vibrator_field;
 }
 
-jclass GetYuzuInputDeviceInterface() {
+jclass GetCitronInputDeviceInterface() {
     return s_citron_input_device_interface;
 }
 
-jmethodID GetYuzuDeviceGetName() {
+jmethodID GetCitronDeviceGetName() {
     return s_citron_input_device_get_name;
 }
 
-jmethodID GetYuzuDeviceGetGUID() {
+jmethodID GetCitronDeviceGetGUID() {
     return s_citron_input_device_get_guid;
 }
 
-jmethodID GetYuzuDeviceGetPort() {
+jmethodID GetCitronDeviceGetPort() {
     return s_citron_input_device_get_port;
 }
 
-jmethodID GetYuzuDeviceGetSupportsVibration() {
+jmethodID GetCitronDeviceGetSupportsVibration() {
     return s_citron_input_device_get_supports_vibration;
 }
 
-jmethodID GetYuzuDeviceVibrate() {
+jmethodID GetCitronDeviceVibrate() {
     return s_citron_input_device_vibrate;
 }
 
-jmethodID GetYuzuDeviceGetAxes() {
+jmethodID GetCitronDeviceGetAxes() {
     return s_citron_input_device_get_axes;
 }
 
-jmethodID GetYuzuDeviceHasKeys() {
+jmethodID GetCitronDeviceHasKeys() {
     return s_citron_input_device_has_keys;
 }
 
@@ -531,7 +531,7 @@ jint JNI_OnLoad(JavaVM* vm, void* reserved) {
     env->DeleteLocalRef(player_input_class);
 
     const jclass citron_input_device_interface =
-        env->FindClass("org/citron/citron_emu/features/input/YuzuInputDevice");
+        env->FindClass("org/citron/citron_emu/features/input/CitronInputDevice");
     s_citron_input_device_interface =
         reinterpret_cast<jclass>(env->NewGlobalRef(citron_input_device_interface));
     s_citron_input_device_get_name =

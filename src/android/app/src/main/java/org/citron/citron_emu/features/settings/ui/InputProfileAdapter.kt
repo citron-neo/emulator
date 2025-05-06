@@ -6,7 +6,7 @@ package org.citron.citron_emu.features.settings.ui
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import org.citron.citron_emu.YuzuApplication
+import org.citron.citron_emu.CitronApplication
 import org.citron.citron_emu.adapters.AbstractListAdapter
 import org.citron.citron_emu.databinding.ListItemInputProfileBinding
 import org.citron.citron_emu.viewholder.AbstractViewHolder
@@ -57,7 +57,7 @@ sealed interface ProfileItem {
 data class NewProfileItem(
     val createNewProfile: () -> Unit
 ) : ProfileItem {
-    override val name: String = YuzuApplication.appContext.getString(R.string.create_new_profile)
+    override val name: String = CitronApplication.appContext.getString(R.string.create_new_profile)
 }
 
 data class ExistingProfileItem(

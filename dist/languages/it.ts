@@ -2763,7 +2763,7 @@ When a guest attempts to open the controller applet, it is immediately closed.</
     <message>
         <location filename="../../src/citron/configuration/configure_hotkeys.cpp" line="341"/>
         <source>An error occurred. Please report this issue on github.</source>
-        <translation>Errore durante la configurazione. Segnala quest&apos;errore alla pagina Github di Yuzu.</translation>
+        <translation>Errore durante la configurazione. Segnala quest&apos;errore alla pagina Github di Citron.</translation>
     </message>
     <message>
         <location filename="../../src/citron/configuration/configure_hotkeys.cpp" line="381"/>

@@ -1308,25 +1308,25 @@ Result ISystemSettingsServer::SetPanelCrcMode(s32 panel_crc_mode) {
 
 void ISystemSettingsServer::SetupSettings() {
     auto system_dir =
-        Common::FS::GetYuzuPath(Common::FS::YuzuPath::NANDDir) / "system/save/8000000000000050";
+        Common::FS::GetCitronPath(Common::FS::CitronPath::NANDDir) / "system/save/8000000000000050";
     if (!LoadSettingsFile(system_dir, []() { return DefaultSystemSettings(); })) {
         ASSERT(false);
     }
 
     auto private_dir =
-        Common::FS::GetYuzuPath(Common::FS::YuzuPath::NANDDir) / "system/save/8000000000000052";
+        Common::FS::GetCitronPath(Common::FS::CitronPath::NANDDir) / "system/save/8000000000000052";
     if (!LoadSettingsFile(private_dir, []() { return DefaultPrivateSettings(); })) {
         ASSERT(false);
     }
 
     auto device_dir =
-        Common::FS::GetYuzuPath(Common::FS::YuzuPath::NANDDir) / "system/save/8000000000000053";
+        Common::FS::GetCitronPath(Common::FS::CitronPath::NANDDir) / "system/save/8000000000000053";
     if (!LoadSettingsFile(device_dir, []() { return DefaultDeviceSettings(); })) {
         ASSERT(false);
     }
 
     auto appln_dir =
-        Common::FS::GetYuzuPath(Common::FS::YuzuPath::NANDDir) / "system/save/8000000000000054";
+        Common::FS::GetCitronPath(Common::FS::CitronPath::NANDDir) / "system/save/8000000000000054";
     if (!LoadSettingsFile(appln_dir, []() { return DefaultApplnSettings(); })) {
         ASSERT(false);
     }
@@ -1334,25 +1334,25 @@ void ISystemSettingsServer::SetupSettings() {
 
 void ISystemSettingsServer::StoreSettings() {
     auto system_dir =
-        Common::FS::GetYuzuPath(Common::FS::YuzuPath::NANDDir) / "system/save/8000000000000050";
+        Common::FS::GetCitronPath(Common::FS::CitronPath::NANDDir) / "system/save/8000000000000050";
     if (!StoreSettingsFile(system_dir, m_system_settings)) {
         LOG_ERROR(Service_SET, "Failed to store System settings");
     }
 
     auto private_dir =
-        Common::FS::GetYuzuPath(Common::FS::YuzuPath::NANDDir) / "system/save/8000000000000052";
+        Common::FS::GetCitronPath(Common::FS::CitronPath::NANDDir) / "system/save/8000000000000052";
     if (!StoreSettingsFile(private_dir, m_private_settings)) {
         LOG_ERROR(Service_SET, "Failed to store Private settings");
     }
 
     auto device_dir =
-        Common::FS::GetYuzuPath(Common::FS::YuzuPath::NANDDir) / "system/save/8000000000000053";
+        Common::FS::GetCitronPath(Common::FS::CitronPath::NANDDir) / "system/save/8000000000000053";
     if (!StoreSettingsFile(device_dir, m_device_settings)) {
         LOG_ERROR(Service_SET, "Failed to store Device settings");
     }
 
     auto appln_dir =
-        Common::FS::GetYuzuPath(Common::FS::YuzuPath::NANDDir) / "system/save/8000000000000054";
+        Common::FS::GetCitronPath(Common::FS::CitronPath::NANDDir) / "system/save/8000000000000054";
     if (!StoreSettingsFile(appln_dir, m_appln_settings)) {
         LOG_ERROR(Service_SET, "Failed to store ApplLn settings");
     }

@@ -7,12 +7,12 @@ import android.app.ActivityManager
 import android.content.Context
 import android.os.Build
 import org.citron.citron_emu.R
-import org.citron.citron_emu.YuzuApplication
+import org.citron.citron_emu.CitronApplication
 import java.util.Locale
 import kotlin.math.ceil
 
 object MemoryUtil {
-    private val context get() = YuzuApplication.appContext
+    private val context get() = CitronApplication.appContext
 
     private val Float.hundredths: String
         get() = String.format(Locale.ROOT, "%.2f", this)

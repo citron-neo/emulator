@@ -31,7 +31,7 @@ import org.citron.citron_emu.BuildConfig
 import org.citron.citron_emu.HomeNavigationDirections
 import org.citron.citron_emu.NativeLibrary
 import org.citron.citron_emu.R
-import org.citron.citron_emu.YuzuApplication
+import org.citron.citron_emu.CitronApplication
 import org.citron.citron_emu.adapters.HomeSettingAdapter
 import org.citron.citron_emu.databinding.FragmentHomeSettingsBinding
 import org.citron.citron_emu.features.DocumentProvider
@@ -180,7 +180,7 @@ class HomeSettingsFragment : Fragment() {
                                 )
                             } else {
                                 val failedNames = result.joinToString("\n")
-                                val errorMessage = YuzuApplication.appContext.getString(
+                                val errorMessage = CitronApplication.appContext.getString(
                                     R.string.verification_failed_for,
                                     failedNames
                                 )

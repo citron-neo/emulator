@@ -13,22 +13,22 @@
         <item name="android:paddingRight">32dp</item>
     </style>
 
-    <style name="YuzuSlider" parent="Widget.Material3.Slider">
+    <style name="CitronSlider" parent="Widget.Material3.Slider">
         <item name="tickVisible">false</item>
         <item name="labelBehavior">gone</item>
     </style>
 
-    <style name="YuzuMaterialDialog" parent="ThemeOverlay.Material3.MaterialAlertDialog">
+    <style name="CitronMaterialDialog" parent="ThemeOverlay.Material3.MaterialAlertDialog">
         <item name="colorPrimary">@color/citron_primaryContainer</item>
         <item name="colorSurface">@color/citron_primaryContainer</item>
         <item name="colorSecondary">@color/citron_primary</item>
         <item name="android:textColorLink">@color/citron_primary</item>
-        <item name="buttonBarPositiveButtonStyle">@style/YuzuButton</item>
-        <item name="buttonBarNegativeButtonStyle">@style/YuzuButton</item>
-        <item name="buttonBarNeutralButtonStyle">@style/YuzuButton</item>
+        <item name="buttonBarPositiveButtonStyle">@style/CitronButton</item>
+        <item name="buttonBarNegativeButtonStyle">@style/CitronButton</item>
+        <item name="buttonBarNeutralButtonStyle">@style/CitronButton</item>
     </style>
 
-    <style name="YuzuButton" parent="Widget.Material3.Button.TextButton.Dialog">
+    <style name="CitronButton" parent="Widget.Material3.Button.TextButton.Dialog">
         <item name="android:textColor">@color/citron_primary</item>
         <item name="rippleColor">@color/citron_inversePrimary</item>
     </style>

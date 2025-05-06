@@ -82,7 +82,7 @@ void Tas::LoadTasFile(size_t player_index, size_t file_index) {
     commands[player_index].clear();
 
     std::string file = Common::FS::ReadStringFromFile(
-        Common::FS::GetYuzuPath(Common::FS::YuzuPath::TASDir) /
+        Common::FS::GetCitronPath(Common::FS::CitronPath::TASDir) /
             fmt::format("script{}-{}.txt", file_index, player_index + 1),
         Common::FS::FileType::BinaryFile);
     std::istringstream command_line(file);
@@ -137,7 +137,7 @@ void Tas::WriteTasFile(std::u8string_view file_name) {
                                    WriteCommandAxis(line.l_axis), WriteCommandAxis(line.r_axis));
     }
 
-    const auto tas_file_name = Common::FS::GetYuzuPath(Common::FS::YuzuPath::TASDir) / file_name;
+    const auto tas_file_name = Common::FS::GetCitronPath(Common::FS::CitronPath::TASDir) / file_name;
     const auto bytes_written =
         Common::FS::WriteStringToFile(tas_file_name, Common::FS::FileType::TextFile, output_text);
     if (bytes_written == output_text.size()) {

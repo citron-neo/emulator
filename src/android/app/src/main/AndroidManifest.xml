@@ -17,7 +17,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
     <uses-permission android:name="android.permission.VIBRATE" />
 
     <application
-        android:name="org.citron.citron_emu.YuzuApplication"
+        android:name="org.citron.citron_emu.CitronApplication"
         android:label="@string/app_name_suffixed"
         android:icon="@drawable/ic_launcher"
         android:allowBackup="true"
@@ -36,7 +36,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
         <activity
             android:name="org.citron.citron_emu.ui.main.MainActivity"
             android:exported="true"
-            android:theme="@style/Theme.Yuzu.Splash.Main">
+            android:theme="@style/Theme.Citron.Splash.Main">
 
             <!-- This intentfilter marks this Activity as the one that gets launched from Home screen. -->
             <intent-filter>
@@ -49,12 +49,12 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
         <activity
             android:name="org.citron.citron_emu.features.settings.ui.SettingsActivity"
-            android:theme="@style/Theme.Yuzu.Main"
+            android:theme="@style/Theme.Citron.Main"
             android:label="@string/preferences_settings"/>
 
         <activity
             android:name="org.citron.citron_emu.activities.EmulationActivity"
-            android:theme="@style/Theme.Yuzu.Main"
+            android:theme="@style/Theme.Citron.Main"
             android:launchMode="singleTop"
             android:supportsPictureInPicture="true"
             android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|uiMode"

@@ -54,7 +54,7 @@ if(WIN32)
 endif()
 
 if (MSVC)
-    include(CopyYuzuSDLDeps)
+    include(CopyCitronSDLDeps)
     copy_citron_SDL_deps(citron-cmd)
 endif()
 

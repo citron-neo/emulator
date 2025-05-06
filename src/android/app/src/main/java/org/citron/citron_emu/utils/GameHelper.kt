@@ -9,7 +9,7 @@ import androidx.preference.PreferenceManager
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import org.citron.citron_emu.NativeLibrary
-import org.citron.citron_emu.YuzuApplication
+import org.citron.citron_emu.CitronApplication
 import org.citron.citron_emu.model.Game
 import org.citron.citron_emu.model.GameDir
 import org.citron.citron_emu.model.MinimalDocumentFile
@@ -22,7 +22,7 @@ object GameHelper {
 
     fun getGames(): List<Game> {
         val games = mutableListOf<Game>()
-        val context = YuzuApplication.appContext
+        val context = CitronApplication.appContext
         preferences = PreferenceManager.getDefaultSharedPreferences(context)
 
         val gameDirs = mutableListOf<GameDir>()

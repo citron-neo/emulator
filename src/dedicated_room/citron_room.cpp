@@ -72,7 +72,7 @@ static void PrintVersion() {
 }
 
 /// The magic text at the beginning of a citron-room ban list file.
-static constexpr char BanListMagic[] = "YuzuRoom-BanList-1";
+static constexpr char BanListMagic[] = "CitronRoom-BanList-1";
 
 static constexpr char token_delimiter{':'};
 

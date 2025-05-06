@@ -32,7 +32,7 @@
     <string name="search_and_filter_games">Procura e filtra jogos.</string>
     <string name="select_games_folder">Seleciona a pasta de jogos.</string>
     <string name="manage_game_folders">Gerencie as pastas de jogos</string>
-    <string name="select_games_folder_description">Permite que o Yuzu preencha a lista de jogos</string>
+    <string name="select_games_folder_description">Permite que o Citron preencha a lista de jogos</string>
     <string name="add_games_warning">Ignorar a seleção da pasta de jogos?</string>
     <string name="add_games_warning_description">Os jogos não serão exibidos na lista de jogos se uma pasta não estiver selecionada.</string>
     <string name="add_games_warning_help">https://citron-emu.org/help/quickstart/#dumping-games</string>
@@ -48,7 +48,7 @@
     <string name="notifications_description">Conceda a permissão de notificação com o botão abaixo.</string>
     <string name="give_permission">Conceda permissão</string>
     <string name="notification_warning">Saltar a concessão da permissão de notificação?</string>
-    <string name="notification_warning_description">Yuzu não conseguirá te notificar de informações importantes. </string>
+    <string name="notification_warning_description">Citron não conseguirá te notificar de informações importantes. </string>
     <string name="permission_denied">Permissão negada</string>
     <string name="permission_denied_description">Você negou essa permissão muitas vezes e agora precisa concedê-la manualmente nas configurações do sistema.</string>
     <string name="about">Sobre</string>
@@ -76,11 +76,11 @@
     <string name="search_recently_added">Adicionado recentemente</string>
     <string name="search_retail">Jogos comerciais</string>
     <string name="search_homebrew">Homebrew</string>
-    <string name="open_user_folder">Abre a pasta Yuzu</string>
-    <string name="open_user_folder_description">Gere os ficheiro internos do Yuzu</string>
+    <string name="open_user_folder">Abre a pasta Citron</string>
+    <string name="open_user_folder_description">Gere os ficheiro internos do Citron</string>
     <string name="theme_and_color_description">Modifica a aparência da App</string>
     <string name="no_file_manager">Nenhum gestor de ficheiros encontrado</string>
-    <string name="notification_no_directory_link">Impossível abrir pasta Yuzu</string>
+    <string name="notification_no_directory_link">Impossível abrir pasta Citron</string>
     <string name="notification_no_directory_link_description">Localiza a pasta de utilizador manualmente com o painel lateral do gestor de ficheiros.</string>
     <string name="manage_save_data">Gerir dados guardados</string>
     <string name="manage_save_data_description">Dados não encontrados. Por favor seleciona uma opção abaixo.</string>
@@ -166,7 +166,7 @@
     <string name="copied_to_clipboard">Copiado para a área de transferência</string>
     <string name="about_app_description">Um emulador Switch de código aberto</string>
     <string name="contributors">Contribuidores</string>
-    <string name="contributors_description">Feito com \u2764 da equipa do Yuzu</string>
+    <string name="contributors_description">Feito com \u2764 da equipa do Citron</string>
     <string name="contributors_link">https://github.com/citron-emu/citron/graphs/contributors</string>
     <string name="licenses_description">Projetos que tornam o citron para Android possível</string>
     <string name="build">Versão</string>

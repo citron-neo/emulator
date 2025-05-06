@@ -60,7 +60,7 @@ static void PruneDumpDirectory(const std::filesystem::path& dump_path) {
 
 void InstallCrashHandler() {
     // Write crash dumps to profile directory.
-    const auto dump_path = GetYuzuPath(Common::FS::YuzuPath::CrashDumpsDir);
+    const auto dump_path = GetCitronPath(Common::FS::CitronPath::CrashDumpsDir);
     PruneDumpDirectory(dump_path);
 
 #if defined(_WIN32)

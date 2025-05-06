@@ -377,7 +377,7 @@ private slots:
     void OnToggleAdaptingFilter();
     void OnConfigurePerGame();
     void OnLoadAmiibo();
-    void OnOpenYuzuFolder();
+    void OnOpenCitronFolder();
     void OnVerifyInstalledContents();
     void OnInstallFirmware();
     void OnInstallDecryptionKeys();

@@ -8,7 +8,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import org.citron.citron_emu.R
-import org.citron.citron_emu.YuzuApplication
+import org.citron.citron_emu.CitronApplication
 import org.citron.citron_emu.features.settings.model.view.SettingsItem
 import org.citron.citron_emu.model.Game
 import org.citron.citron_emu.utils.InputHandler
@@ -73,7 +73,7 @@ class SettingsViewModel : ViewModel() {
     fun setSliderTextValue(value: Float, units: String) {
         _sliderProgress.value = value.toInt()
         _sliderTextValue.value = String.format(
-            YuzuApplication.appContext.getString(R.string.value_with_units),
+            CitronApplication.appContext.getString(R.string.value_with_units),
             value.toInt().toString(),
             units
         )

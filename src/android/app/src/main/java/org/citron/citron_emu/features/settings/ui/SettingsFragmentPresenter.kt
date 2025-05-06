@@ -8,7 +8,7 @@ import android.os.Build
 import android.widget.Toast
 import org.citron.citron_emu.NativeLibrary
 import org.citron.citron_emu.R
-import org.citron.citron_emu.YuzuApplication
+import org.citron.citron_emu.CitronApplication
 import org.citron.citron_emu.features.input.NativeInput
 import org.citron.citron_emu.features.input.model.AnalogDirection
 import org.citron.citron_emu.features.input.model.NativeAnalog
@@ -35,7 +35,7 @@ class SettingsFragmentPresenter(
 ) {
     private var settingsList = ArrayList<SettingsItem>()
 
-    private val context get() = YuzuApplication.appContext
+    private val context get() = CitronApplication.appContext
 
     // Extension for altering settings list based on each setting's properties
     fun ArrayList<SettingsItem>.add(key: String) {

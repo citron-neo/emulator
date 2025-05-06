@@ -4514,7 +4514,7 @@ UUID : %2</translation>
     <message>
         <location filename="../../src/citron/configuration/configure_tas.ui" line="17"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Reads controller input from scripts in the same format as TAS-nx scripts.&lt;br/&gt;For a more detailed explanation, please consult the &lt;a href=&quot;https://citron-emu.org/help/feature/tas/&quot;&gt;&lt;span style=&quot; text-decoration: underline; color:#039be5;&quot;&gt;help page&lt;/span&gt;&lt;/a&gt; on the citron website.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Lit l&apos;entrée du contrôleur à partir des scripts dans le même format que &apos;TAS-nx&apos; &lt;br/&gt; Pour une explication plus détaillée, veuillez consulter le &lt;a href=&quot;https://citron-emu.org/help/feature/tas/&quot;&gt;&lt;span style=&quot; text-decoration: underline; color:#039be5;&quot;&gt;page d&apos;aide&lt;/span&gt;&lt;/a&gt; sur le site Yuzu.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Lit l&apos;entrée du contrôleur à partir des scripts dans le même format que &apos;TAS-nx&apos; &lt;br/&gt; Pour une explication plus détaillée, veuillez consulter le &lt;a href=&quot;https://citron-emu.org/help/feature/tas/&quot;&gt;&lt;span style=&quot; text-decoration: underline; color:#039be5;&quot;&gt;page d&apos;aide&lt;/span&gt;&lt;/a&gt; sur le site Citron.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
         <location filename="../../src/citron/configuration/configure_tas.ui" line="27"/>
@@ -7399,7 +7399,7 @@ Message de débogage : </translation>
     <message>
         <location filename="../../src/citron/main.ui" line="379"/>
         <source>Open &amp;citron Folder</source>
-        <translation>Ouvrir le &amp;dossier de Yuzu</translation>
+        <translation>Ouvrir le &amp;dossier de Citron</translation>
     </message>
     <message>
         <location filename="../../src/citron/main.ui" line="387"/>

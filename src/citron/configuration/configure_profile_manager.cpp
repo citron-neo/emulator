@@ -35,7 +35,7 @@ constexpr std::array<u8, 107> backup_jpeg{
 
 QString GetImagePath(const Common::UUID& uuid) {
     const auto path =
-        Common::FS::GetYuzuPath(Common::FS::YuzuPath::NANDDir) /
+        Common::FS::GetCitronPath(Common::FS::CitronPath::NANDDir) /
         fmt::format("system/save/8000000000000010/su/avators/{}.jpg", uuid.FormattedString());
     return QString::fromStdString(Common::FS::PathToUTF8String(path));
 }
@@ -288,7 +288,7 @@ void ConfigureProfileManager::SetUserImage() {
     }
 
     const auto raw_path = QString::fromStdString(Common::FS::PathToUTF8String(
-        Common::FS::GetYuzuPath(Common::FS::YuzuPath::NANDDir) / "system/save/8000000000000010"));
+        Common::FS::GetCitronPath(Common::FS::CitronPath::NANDDir) / "system/save/8000000000000010"));
     const QFileInfo raw_info{raw_path};
     if (raw_info.exists() && !raw_info.isDir() && !QFile::remove(raw_path)) {
         QMessageBox::warning(this, tr("Error deleting file"),

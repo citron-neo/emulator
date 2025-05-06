@@ -23,12 +23,12 @@ object ThemeHelper {
     fun setTheme(activity: AppCompatActivity) {
         setThemeMode(activity)
         when (Theme.from(IntSetting.THEME.getInt())) {
-            Theme.Default -> activity.setTheme(R.style.Theme_Yuzu_Main)
+            Theme.Default -> activity.setTheme(R.style.Theme_Citron_Main)
             Theme.MaterialYou -> {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                    activity.setTheme(R.style.Theme_Yuzu_Main_MaterialYou)
+                    activity.setTheme(R.style.Theme_Citron_Main_MaterialYou)
                 } else {
-                    activity.setTheme(R.style.Theme_Yuzu_Main)
+                    activity.setTheme(R.style.Theme_Citron_Main)
                 }
             }
         }
@@ -37,7 +37,7 @@ object ThemeHelper {
         // light app mode, dark system mode, and black backgrounds. Launching the settings activity
         // will then show light mode colors/navigation bars but with black backgrounds.
         if (BooleanSetting.BLACK_BACKGROUNDS.getBoolean() && isNightMode(activity)) {
-            activity.setTheme(R.style.ThemeOverlay_Yuzu_Dark)
+            activity.setTheme(R.style.ThemeOverlay_Citron_Dark)
         }
     }
 

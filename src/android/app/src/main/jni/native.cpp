@@ -659,7 +659,7 @@ void Java_org_citron_citron_1emu_NativeLibrary_submitInlineKeyboardInput(JNIEnv*
 
 void Java_org_citron_citron_1emu_NativeLibrary_initializeEmptyUserDirectory(JNIEnv* env,
                                                                         jobject instance) {
-    const auto nand_dir = Common::FS::GetYuzuPath(Common::FS::YuzuPath::NANDDir);
+    const auto nand_dir = Common::FS::GetCitronPath(Common::FS::CitronPath::NANDDir);
     auto vfs_nand_dir = EmulationSession::GetInstance().System().GetFilesystem()->OpenDirectory(
         Common::FS::PathToUTF8String(nand_dir), FileSys::OpenMode::Read);
 
@@ -831,7 +831,7 @@ jstring Java_org_citron_citron_1emu_NativeLibrary_getSavePath(JNIEnv* env, jobje
     const auto user_id = manager.GetUser(static_cast<std::size_t>(0));
     ASSERT(user_id);
 
-    const auto nandDir = Common::FS::GetYuzuPath(Common::FS::YuzuPath::NANDDir);
+    const auto nandDir = Common::FS::GetCitronPath(Common::FS::CitronPath::NANDDir);
     auto vfsNandDir = system.GetFilesystem()->OpenDirectory(Common::FS::PathToUTF8String(nandDir),
                                                             FileSys::OpenMode::Read);
 

@@ -177,9 +177,9 @@ object NativeInput {
 
     /**
      * Registers a controller to be used with mapping
-     * @param device An [InputDevice] or the input overlay wrapped with [YuzuInputDevice]
+     * @param device An [InputDevice] or the input overlay wrapped with [CitronInputDevice]
      */
-    external fun registerController(device: YuzuInputDevice)
+    external fun registerController(device: CitronInputDevice)
 
     /**
      * Gets the names of input devices that have been registered with the input subsystem via [registerController]

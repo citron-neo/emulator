@@ -2301,7 +2301,7 @@ When a guest attempts to open the controller applet, it is immediately closed.</
     <message>
         <location filename="../../src/citron/configuration/configure_debug.ui" line="549"/>
         <source>**This will be reset automatically when citron closes.</source>
-        <translation>**Yuzu가 종료되면 자동으로 재설정됩니다.</translation>
+        <translation>**Citron가 종료되면 자동으로 재설정됩니다.</translation>
     </message>
     <message>
         <location filename="../../src/citron/configuration/configure_debug.cpp" line="82"/>

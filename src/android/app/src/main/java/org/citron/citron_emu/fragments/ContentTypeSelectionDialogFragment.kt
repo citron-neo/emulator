@@ -11,7 +11,7 @@ import androidx.fragment.app.activityViewModels
 import androidx.preference.PreferenceManager
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import org.citron.citron_emu.R
-import org.citron.citron_emu.YuzuApplication
+import org.citron.citron_emu.CitronApplication
 import org.citron.citron_emu.model.AddonViewModel
 import org.citron.citron_emu.ui.main.MainActivity
 
@@ -19,7 +19,7 @@ class ContentTypeSelectionDialogFragment : DialogFragment() {
     private val addonViewModel: AddonViewModel by activityViewModels()
 
     private val preferences get() =
-        PreferenceManager.getDefaultSharedPreferences(YuzuApplication.appContext)
+        PreferenceManager.getDefaultSharedPreferences(CitronApplication.appContext)
 
     private var selectedItem = 0
 

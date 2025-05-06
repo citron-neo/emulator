@@ -4,7 +4,7 @@
     <message>
         <location filename="../../src/citron/aboutdialog.ui" line="14"/>
         <source>About citron</source>
-        <translation>Yuzu hakkında</translation>
+        <translation>Citron hakkında</translation>
     </message>
     <message>
         <location filename="../../src/citron/aboutdialog.ui" line="72"/>
@@ -29,7 +29,7 @@ p, li { white-space: pre-wrap; }
 &lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
 p, li { white-space: pre-wrap; }
 &lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:&apos;Ubuntu&apos;; font-size:11pt; font-weight:400; font-style:normal;&quot;&gt;
-&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;span style=&quot; font-family:&apos;MS Shell Dlg 2&apos;; font-size:12pt;&quot;&gt;Yuzu GPLv3.0+ ile lisanslanmış Nintendo Switch için açık kaynak bir deneysel emülatördür.&lt;/span&gt;&lt;/p&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;span style=&quot; font-family:&apos;MS Shell Dlg 2&apos;; font-size:12pt;&quot;&gt;Citron GPLv3.0+ ile lisanslanmış Nintendo Switch için açık kaynak bir deneysel emülatördür.&lt;/span&gt;&lt;/p&gt;
 &lt;p style=&quot;-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px; font-family:&apos;MS Shell Dlg 2&apos;; font-size:8pt;&quot;&gt;&lt;br /&gt;&lt;/p&gt;
 &lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;span style=&quot; font-family:&apos;MS Shell Dlg 2&apos;; font-size:12pt;&quot;&gt;Bu yazılım yasal yollarla edinilmemiş oyunları çalıştırmak için kullanılmamalı.&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
@@ -3102,7 +3102,7 @@ When a guest attempts to open the controller applet, it is immediately closed.</
         <location filename="../../src/citron/configuration/configure_input_advanced.ui" line="2701"/>
         <location filename="../../src/citron/configuration/configure_input_advanced.ui" line="2717"/>
         <source>Requires restarting citron</source>
-        <translation>Yuzu&apos;yu yeniden başlatmayı gerektirir </translation>
+        <translation>Citron&apos;yu yeniden başlatmayı gerektirir </translation>
     </message>
     <message>
         <location filename="../../src/citron/configuration/configure_input_advanced.ui" line="2668"/>
@@ -4993,7 +4993,7 @@ Noktanın konumunu değiştirmek için sürükleyin ya da sayıların üstüne �
     <message>
         <location filename="../../src/citron/configuration/configure_web.ui" line="134"/>
         <source>Share anonymous usage data with the citron team</source>
-        <translation>Yuzu ekibiyle anonim kullanım verilerini paylaş</translation>
+        <translation>Citron ekibiyle anonim kullanım verilerini paylaş</translation>
     </message>
     <message>
         <location filename="../../src/citron/configuration/configure_web.ui" line="141"/>
@@ -5270,7 +5270,7 @@ Noktanın konumunu değiştirmek için sürükleyin ya da sayıların üstüne �
     <message>
         <location filename="../../src/citron/main.cpp" line="1818"/>
         <source>You are using the deconstructed ROM directory format for this game, which is an outdated format that has been superseded by others such as NCA, NAX, XCI, or NSP. Deconstructed ROM directories lack icons, metadata, and update support.&lt;br&gt;&lt;br&gt;For an explanation of the various Switch formats citron supports, &lt;a href=&apos;https://citron-emu.org/wiki/overview-of-switch-game-formats&apos;&gt;check out our wiki&lt;/a&gt;. This message will not be shown again.</source>
-        <translation>Bu oyun için dekonstrükte ROM formatı kullanıyorsunuz, bu fromatın yerine NCA, NAX, XCI ve NSP formatları kullanılmaktadır. Dekonstrükte ROM formatları ikon, üst veri ve güncelleme desteği içermemektedir.&lt;br&gt;&lt;br&gt;Yuzu&apos;nun desteklediği çeşitli Switch formatları için&lt;a href=&apos;https://citron-emu.org/wiki/overview-of-switch-game-formats&apos;&gt;Wiki&apos;yi ziyaret edin&lt;/a&gt;. Bu mesaj yeniden gösterilmeyecektir.</translation>
+        <translation>Bu oyun için dekonstrükte ROM formatı kullanıyorsunuz, bu fromatın yerine NCA, NAX, XCI ve NSP formatları kullanılmaktadır. Dekonstrükte ROM formatları ikon, üst veri ve güncelleme desteği içermemektedir.&lt;br&gt;&lt;br&gt;Citron&apos;nun desteklediği çeşitli Switch formatları için&lt;a href=&apos;https://citron-emu.org/wiki/overview-of-switch-game-formats&apos;&gt;Wiki&apos;yi ziyaret edin&lt;/a&gt;. Bu mesaj yeniden gösterilmeyecektir.</translation>
     </message>
     <message>
         <location filename="../../src/citron/main.cpp" line="1830"/>
@@ -5884,7 +5884,7 @@ Lütfen bu özelliği sadece güncelleme ve DLC yüklemek için kullanın.</tran
     <message>
         <location filename="../../src/citron/main.cpp" line="3565"/>
         <source>In order to submit a game compatibility test case, you must link your citron account.&lt;br&gt;&lt;br/&gt;To link your citron account, go to Emulation &amp;gt; Configuration &amp;gt; Web.</source>
-        <translation>Oyun uyumluluk test çalışması göndermek için öncelikle citron hesabınla giriş yapmanız gerekiyor.&lt;br&gt;&lt;br/&gt;Yuzu hesabınızla giriş yapmak için, Emülasyon &amp;gt; Yapılandırma &amp;gt; Web&apos;e gidiniz.</translation>
+        <translation>Oyun uyumluluk test çalışması göndermek için öncelikle citron hesabınla giriş yapmanız gerekiyor.&lt;br&gt;&lt;br/&gt;Citron hesabınızla giriş yapmak için, Emülasyon &amp;gt; Yapılandırma &amp;gt; Web&apos;e gidiniz.</translation>
     </message>
     <message>
         <location filename="../../src/citron/main.cpp" line="3580"/>
@@ -6290,7 +6290,7 @@ Lütfen bu özelliği sadece güncelleme ve DLC yüklemek için kullanın.</tran
         <source>The currently running application has requested citron to not exit.
 
 Would you like to bypass this and exit anyway?</source>
-        <translation>Şu an çalışan uygulamadan dolayı Yuzu kapatılamıyor.
+        <translation>Şu an çalışan uygulamadan dolayı Citron kapatılamıyor.
 
 Görmezden gelip kapatmak ister misiniz?</translation>
     </message>
@@ -6406,7 +6406,7 @@ Görmezden gelip kapatmak ister misiniz?</translation>
     <message>
         <location filename="../../src/citron/bootmanager.cpp" line="1037"/>
         <source>citron has not been compiled with OpenGL support.</source>
-        <translation>Yuzu OpenGL desteklememektedir.</translation>
+        <translation>Citron OpenGL desteklememektedir.</translation>
     </message>
     <message>
         <location filename="../../src/citron/bootmanager.cpp" line="1061"/>
@@ -6877,7 +6877,7 @@ Debug Message: </source>
     <message>
         <location filename="../../src/citron/uisettings.h" line="242"/>
         <source>Exit citron</source>
-        <translation>Yuzu&apos;dan çık</translation>
+        <translation>Citron&apos;dan çık</translation>
     </message>
     <message>
         <location filename="../../src/citron/uisettings.h" line="243"/>
@@ -7255,7 +7255,7 @@ Debug Message: </source>
     <message>
         <location filename="../../src/citron/main.ui" line="244"/>
         <source>&amp;About citron</source>
-        <translation>&amp;Yuzu Hakkında</translation>
+        <translation>&amp;Citron Hakkında</translation>
     </message>
     <message>
         <location filename="../../src/citron/main.ui" line="252"/>
@@ -7575,7 +7575,7 @@ Debug Bilgisi:</translation>
     <message>
         <location filename="../../src/citron/multiplayer/message.cpp" line="32"/>
         <source>Creating a room failed. Please retry. Restarting citron might be necessary.</source>
-        <translation>Odayı oluşturma başarısız oldu. Lütfen tekrar deneyin. Yuzu&apos;yu yeniden başlatmak gerekebilir.</translation>
+        <translation>Odayı oluşturma başarısız oldu. Lütfen tekrar deneyin. Citron&apos;yu yeniden başlatmak gerekebilir.</translation>
     </message>
     <message>
         <location filename="../../src/citron/multiplayer/message.cpp" line="34"/>

@@ -4625,7 +4625,7 @@ Przeciągnij punkty, aby zmienić pozycję, lub kliknij dwukrotnie komórki tabe
     <message>
         <location filename="../../src/citron/configuration/configure_touchscreen_advanced.ui" line="26"/>
         <source>Warning: The settings in this page affect the inner workings of citron&apos;s emulated touchscreen. Changing them may result in undesirable behavior, such as the touchscreen partially or not working. You should only use this page if you know what you are doing.</source>
-        <translation>Ostrzeżenie: Ustawienia na tej stronie mają wpływ na działanie emulowanego ekranu dotykowego Yuzu. ch zmiana może spowodować niepożądane zachowanie, takie jak  częściowo lub całkowicie nie działający ekran dotykowy. Powinieneś/naś używać tej strony tylko wtedy, gdy wiesz, co robisz.</translation>
+        <translation>Ostrzeżenie: Ustawienia na tej stronie mają wpływ na działanie emulowanego ekranu dotykowego Citron. ch zmiana może spowodować niepożądane zachowanie, takie jak  częściowo lub całkowicie nie działający ekran dotykowy. Powinieneś/naś używać tej strony tylko wtedy, gdy wiesz, co robisz.</translation>
     </message>
     <message>
         <location filename="../../src/citron/configuration/configure_touchscreen_advanced.ui" line="52"/>
@@ -5878,7 +5878,7 @@ Proszę, używaj tej funkcji tylko do instalowania łatek i DLC.</translation>
     <message>
         <location filename="../../src/citron/main.cpp" line="3564"/>
         <source>Missing citron Account</source>
-        <translation>Brakuje konta Yuzu</translation>
+        <translation>Brakuje konta Citron</translation>
     </message>
     <message>
         <location filename="../../src/citron/main.cpp" line="3565"/>

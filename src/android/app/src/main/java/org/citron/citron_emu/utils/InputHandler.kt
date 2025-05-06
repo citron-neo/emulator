@@ -7,11 +7,11 @@ import android.view.InputDevice
 import android.view.KeyEvent
 import android.view.MotionEvent
 import org.citron.citron_emu.features.input.NativeInput
-import org.citron.citron_emu.features.input.YuzuInputOverlayDevice
-import org.citron.citron_emu.features.input.YuzuPhysicalDevice
+import org.citron.citron_emu.features.input.CitronInputOverlayDevice
+import org.citron.citron_emu.features.input.CitronPhysicalDevice
 
 object InputHandler {
-    var androidControllers = mapOf<Int, YuzuPhysicalDevice>()
+    var androidControllers = mapOf<Int, CitronPhysicalDevice>()
     var registeredControllers = mutableListOf<ParamPackage>()
 
     fun dispatchKeyEvent(event: KeyEvent): Boolean {
@@ -50,8 +50,8 @@ object InputHandler {
         return true
     }
 
-    fun getDevices(): Map<Int, YuzuPhysicalDevice> {
-        val gameControllerDeviceIds = mutableMapOf<Int, YuzuPhysicalDevice>()
+    fun getDevices(): Map<Int, CitronPhysicalDevice> {
+        val gameControllerDeviceIds = mutableMapOf<Int, CitronPhysicalDevice>()
         val deviceIds = InputDevice.getDeviceIds()
         var port = 0
         val inputSettings = NativeConfig.getInputSettings(true)
@@ -62,7 +62,7 @@ object InputHandler {
                     sources and InputDevice.SOURCE_JOYSTICK == InputDevice.SOURCE_JOYSTICK
                 ) {
                     if (!gameControllerDeviceIds.contains(controllerNumber)) {
-                        gameControllerDeviceIds[controllerNumber] = YuzuPhysicalDevice(
+                        gameControllerDeviceIds[controllerNumber] = CitronPhysicalDevice(
                             this,
                             port,
                             inputSettings[port].useSystemVibrator
@@ -82,7 +82,7 @@ object InputHandler {
         }
 
         // Register the input overlay on a dedicated port for all player 1 vibrations
-        NativeInput.registerController(YuzuInputOverlayDevice(androidControllers.isEmpty(), 100))
+        NativeInput.registerController(CitronInputOverlayDevice(androidControllers.isEmpty(), 100))
         registeredControllers.clear()
         NativeInput.getInputDevices().forEach {
             registeredControllers.add(ParamPackage(it))

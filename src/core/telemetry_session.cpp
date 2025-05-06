@@ -114,7 +114,7 @@ static constexpr const char* TranslateASTCDecodeMode(Settings::AstcDecodeMode mo
 
 u64 GetTelemetryId() {
     u64 telemetry_id{};
-    const auto filename = Common::FS::GetYuzuPath(Common::FS::YuzuPath::ConfigDir) / "telemetry_id";
+    const auto filename = Common::FS::GetCitronPath(Common::FS::CitronPath::ConfigDir) / "telemetry_id";
 
     bool generate_new_id = !Common::FS::Exists(filename);
 
@@ -156,7 +156,7 @@ u64 GetTelemetryId() {
 
 u64 RegenerateTelemetryId() {
     const u64 new_telemetry_id{GenerateTelemetryId()};
-    const auto filename = Common::FS::GetYuzuPath(Common::FS::YuzuPath::ConfigDir) / "telemetry_id";
+    const auto filename = Common::FS::GetCitronPath(Common::FS::CitronPath::ConfigDir) / "telemetry_id";
 
     Common::FS::IOFile file{filename, Common::FS::FileAccessMode::Write,
                             Common::FS::FileType::BinaryFile};

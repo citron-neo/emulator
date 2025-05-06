@@ -10,8 +10,8 @@
 
 namespace Common::FS {
 
-enum class YuzuPath {
-    YuzuDir,        // Where citron stores its data.
+enum class CitronPath {
+    CitronDir,        // Where citron stores its data.
     AmiiboDir,      // Where Amiibo backups are stored.
     CacheDir,       // Where cached filesystem data is stored.
     ConfigDir,      // Where config files are stored.
@@ -193,39 +193,39 @@ template <typename Path>
 void SetAppDirectory(const std::string& app_directory);
 
 /**
- * Gets the filesystem path associated with the YuzuPath enum.
+ * Gets the filesystem path associated with the CitronPath enum.
  *
- * @param citron_path YuzuPath enum
+ * @param citron_path CitronPath enum
  *
- * @returns The filesystem path associated with the YuzuPath enum.
+ * @returns The filesystem path associated with the CitronPath enum.
  */
-[[nodiscard]] const std::filesystem::path& GetYuzuPath(YuzuPath citron_path);
+[[nodiscard]] const std::filesystem::path& GetCitronPath(CitronPath citron_path);
 
 /**
- * Gets the filesystem path associated with the YuzuPath enum as a UTF-8 encoded std::string.
+ * Gets the filesystem path associated with the CitronPath enum as a UTF-8 encoded std::string.
  *
- * @param citron_path YuzuPath enum
+ * @param citron_path CitronPath enum
  *
- * @returns The filesystem path associated with the YuzuPath enum as a UTF-8 encoded std::string.
+ * @returns The filesystem path associated with the CitronPath enum as a UTF-8 encoded std::string.
  */
-[[nodiscard]] std::string GetYuzuPathString(YuzuPath citron_path);
+[[nodiscard]] std::string GetCitronPathString(CitronPath citron_path);
 
 /**
- * Sets a new filesystem path associated with the YuzuPath enum.
+ * Sets a new filesystem path associated with the CitronPath enum.
  * If the filesystem object at new_path is not a directory, this function will not do anything.
  *
- * @param citron_path YuzuPath enum
+ * @param citron_path CitronPath enum
  * @param new_path New filesystem path
  */
-void SetYuzuPath(YuzuPath citron_path, const std::filesystem::path& new_path);
+void SetCitronPath(CitronPath citron_path, const std::filesystem::path& new_path);
 
 #ifdef _WIN32
 template <typename Path>
-void SetYuzuPath(YuzuPath citron_path, const Path& new_path) {
+void SetCitronPath(CitronPath citron_path, const Path& new_path) {
     if constexpr (IsChar<typename Path::value_type>) {
-        SetYuzuPath(citron_path, ToU8String(new_path));
+        SetCitronPath(citron_path, ToU8String(new_path));
     } else {
-        SetYuzuPath(citron_path, std::filesystem::path{new_path});
+        SetCitronPath(citron_path, std::filesystem::path{new_path});
     }
 }
 #endif
@@ -288,11 +288,11 @@ enum class DirectorySeparator {
 };
 
 // Splits the path on '/' or '\' and put the components into a vector
-// i.e. "C:\Users\Yuzu\Documents\save.bin" becomes {"C:", "Users", "Yuzu", "Documents", "save.bin" }
+// i.e. "C:\Users\Citron\Documents\save.bin" becomes {"C:", "Users", "Citron", "Documents", "save.bin" }
 [[nodiscard]] std::vector<std::string_view> SplitPathComponents(std::string_view filename);
 
 // Splits the path on '/' or '\' and put the components into a vector
-// i.e. "C:\Users\Yuzu\Documents\save.bin" becomes {"C:", "Users", "Yuzu", "Documents", "save.bin" }
+// i.e. "C:\Users\Citron\Documents\save.bin" becomes {"C:", "Users", "Citron", "Documents", "save.bin" }
 [[nodiscard]] std::vector<std::string> SplitPathComponentsCopy(std::string_view filename);
 
 // Removes trailing slash, makes all '\\' into '/', and removes duplicate '/'. Makes '/' into '\\'

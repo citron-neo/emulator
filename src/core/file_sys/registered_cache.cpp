@@ -437,7 +437,7 @@ void RegisteredCache::ProcessFiles(const std::vector<NcaID>& ids) {
     }
 }
 
-void RegisteredCache::AccumulateYuzuMeta() {
+void RegisteredCache::AccumulateCitronMeta() {
     const auto meta_dir = dir->GetSubdirectory("citron_meta");
     if (meta_dir == nullptr) {
         return;
@@ -460,7 +460,7 @@ void RegisteredCache::Refresh() {
 
     const auto ids = AccumulateFiles();
     ProcessFiles(ids);
-    AccumulateYuzuMeta();
+    AccumulateCitronMeta();
 }
 
 RegisteredCache::RegisteredCache(VirtualDir dir_, ContentProviderParsingFunction parsing_function)
@@ -668,7 +668,7 @@ InstallResult RegisteredCache::InstallEntry(const NCA& nca, TitleType type,
     mbedtls_sha256_ret(data.data(), data.size(), c_rec.hash.data(), 0);
     std::memcpy(&c_rec.nca_id, &c_rec.hash, 16);
     const CNMT new_cnmt(header, opt_header, {c_rec}, {});
-    if (!RawInstallYuzuMeta(new_cnmt)) {
+    if (!RawInstallCitronMeta(new_cnmt)) {
         return InstallResult::ErrorMetaFailed;
     }
     return RawInstallNCA(nca, copy, overwrite_if_exists, c_rec.nca_id);
@@ -693,7 +693,7 @@ InstallResult RegisteredCache::InstallEntry(const NCA& nca, const CNMTHeader& ba
     };
     const OptionalHeader opt_header{0, 0};
     const CNMT new_cnmt(header, opt_header, {base_record}, {});
-    if (!RawInstallYuzuMeta(new_cnmt)) {
+    if (!RawInstallCitronMeta(new_cnmt)) {
         return InstallResult::ErrorMetaFailed;
     }
     return RawInstallNCA(nca, copy, overwrite_if_exists, base_record.nca_id);
@@ -802,7 +802,7 @@ InstallResult RegisteredCache::RawInstallNCA(const NCA& nca, const VfsCopyFuncti
                                                   : InstallResult::ErrorCopyFailed;
 }
 
-bool RegisteredCache::RawInstallYuzuMeta(const CNMT& cnmt) {
+bool RegisteredCache::RawInstallCitronMeta(const CNMT& cnmt) {
     // Reasoning behind this method can be found in the comment for InstallEntry, NCA overload.
     const auto meta_dir = dir->CreateDirectoryRelative("citron_meta");
     const auto filename = GetCNMTName(cnmt.GetType(), cnmt.GetTitleID());

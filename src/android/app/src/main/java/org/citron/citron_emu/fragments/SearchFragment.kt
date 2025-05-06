@@ -22,7 +22,7 @@ import info.debatty.java.stringsimilarity.Jaccard
 import info.debatty.java.stringsimilarity.JaroWinkler
 import java.util.Locale
 import org.citron.citron_emu.R
-import org.citron.citron_emu.YuzuApplication
+import org.citron.citron_emu.CitronApplication
 import org.citron.citron_emu.adapters.GameAdapter
 import org.citron.citron_emu.databinding.FragmentSearchBinding
 import org.citron.citron_emu.layout.AutofitGridLayoutManager
@@ -58,7 +58,7 @@ class SearchFragment : Fragment() {
         super.onViewCreated(view, savedInstanceState)
         homeViewModel.setNavigationVisibility(visible = true, animated = true)
         homeViewModel.setStatusBarShadeVisibility(true)
-        preferences = PreferenceManager.getDefaultSharedPreferences(YuzuApplication.appContext)
+        preferences = PreferenceManager.getDefaultSharedPreferences(CitronApplication.appContext)
 
         if (savedInstanceState != null) {
             binding.searchText.setText(savedInstanceState.getString(SEARCH_TEXT))

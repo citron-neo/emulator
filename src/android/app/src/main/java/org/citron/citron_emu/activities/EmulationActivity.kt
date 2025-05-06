@@ -37,7 +37,7 @@ import androidx.navigation.fragment.NavHostFragment
 import androidx.preference.PreferenceManager
 import org.citron.citron_emu.NativeLibrary
 import org.citron.citron_emu.R
-import org.citron.citron_emu.YuzuApplication
+import org.citron.citron_emu.CitronApplication
 import org.citron.citron_emu.databinding.ActivityEmulationBinding
 import org.citron.citron_emu.features.input.NativeInput
 import org.citron.citron_emu.features.settings.model.BooleanSetting
@@ -123,7 +123,7 @@ class EmulationActivity : AppCompatActivity(), SensorEventListener {
         nfcReader = NfcReader(this)
         nfcReader.initialize()
 
-        val preferences = PreferenceManager.getDefaultSharedPreferences(YuzuApplication.appContext)
+        val preferences = PreferenceManager.getDefaultSharedPreferences(CitronApplication.appContext)
         if (!preferences.getBoolean(Settings.PREF_MEMORY_WARNING_SHOWN, false)) {
             if (MemoryUtil.isLessThan(MemoryUtil.REQUIRED_MEMORY, MemoryUtil.totalMemory)) {
                 Toast.makeText(

@@ -91,7 +91,7 @@ static std::string_view StageToPrefix(Shader::Stage stage) {
 static void DumpImpl(u64 pipeline_hash, u64 shader_hash, std::span<const u64> code,
                      [[maybe_unused]] u32 read_highest, [[maybe_unused]] u32 read_lowest,
                      u32 initial_offset, Shader::Stage stage) {
-    const auto shader_dir{Common::FS::GetYuzuPath(Common::FS::YuzuPath::DumpDir)};
+    const auto shader_dir{Common::FS::GetCitronPath(Common::FS::CitronPath::DumpDir)};
     const auto base_dir{shader_dir / "shaders"};
     if (!Common::FS::CreateDir(shader_dir) || !Common::FS::CreateDir(base_dir)) {
         LOG_ERROR(Common_Filesystem, "Failed to create shader dump directories");

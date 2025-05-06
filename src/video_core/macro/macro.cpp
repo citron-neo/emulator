@@ -28,7 +28,7 @@ MICROPROFILE_DEFINE(MacroHLE, "GPU", "Execute macro HLE", MP_RGB(128, 192, 192))
 namespace Tegra {
 
 static void Dump(u64 hash, std::span<const u32> code, bool decompiled = false) {
-    const auto base_dir{Common::FS::GetYuzuPath(Common::FS::YuzuPath::DumpDir)};
+    const auto base_dir{Common::FS::GetCitronPath(Common::FS::CitronPath::DumpDir)};
     const auto macro_dir{base_dir / "macros"};
     if (!Common::FS::CreateDir(base_dir) || !Common::FS::CreateDir(macro_dir)) {
         LOG_ERROR(Common_Filesystem, "Failed to create macro dump directories");

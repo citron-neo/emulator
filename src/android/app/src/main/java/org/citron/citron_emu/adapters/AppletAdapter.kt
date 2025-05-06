@@ -12,7 +12,7 @@ import androidx.navigation.findNavController
 import org.citron.citron_emu.HomeNavigationDirections
 import org.citron.citron_emu.NativeLibrary
 import org.citron.citron_emu.R
-import org.citron.citron_emu.YuzuApplication
+import org.citron.citron_emu.CitronApplication
 import org.citron.citron_emu.databinding.CardSimpleOutlinedBinding
 import org.citron.citron_emu.model.Applet
 import org.citron.citron_emu.model.AppletInfo
@@ -64,7 +64,7 @@ class AppletAdapter(val activity: FragmentActivity, applets: List<Applet>) :
 
             NativeLibrary.setCurrentAppletId(applet.appletInfo.appletId)
             val appletGame = Game(
-                title = YuzuApplication.appContext.getString(applet.titleId),
+                title = CitronApplication.appContext.getString(applet.titleId),
                 path = appletPath
             )
             val action = HomeNavigationDirections.actionGlobalEmulationActivity(appletGame)

@@ -80,7 +80,7 @@ void ConfigurePerGameAddons::ApplyConfiguration() {
     std::sort(disabled_addons.begin(), disabled_addons.end());
     std::sort(current.begin(), current.end());
     if (disabled_addons != current) {
-        Common::FS::RemoveFile(Common::FS::GetYuzuPath(Common::FS::YuzuPath::CacheDir) /
+        Common::FS::RemoveFile(Common::FS::GetCitronPath(Common::FS::CitronPath::CacheDir) /
                                "game_list" / fmt::format("{:016X}.pv.txt", title_id));
     }
 

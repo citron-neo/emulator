@@ -5296,7 +5296,7 @@ Ziehe die Punkte mit deiner Maus, um ihre Position zu ändern. Doppelklicke auf 
     <message>
         <location filename="../../src/citron/main.cpp" line="1836"/>
         <source>citron has encountered an error while running the video core. This is usually caused by outdated GPU drivers, including integrated ones. Please see the log for more details. For more information on accessing the log, please see the following page: &lt;a href=&apos;https://citron-emu.org/help/reference/log-files/&apos;&gt;How to Upload the Log File&lt;/a&gt;. </source>
-        <translation>Yuzu ist auf einen Fehler gestoßen beim Ausführen des Videokerns.
+        <translation>Citron ist auf einen Fehler gestoßen beim Ausführen des Videokerns.
 Dies ist in der Regel auf veraltete GPU Treiber zurückzuführen, integrierte GPUs eingeschlossen.
 Bitte öffnen Sie die Log Datei für weitere Informationen. Für weitere Informationen wie Sie auf die Log Datei zugreifen, öffnen Sie bitte die folgende Seite: &lt;a href=&apos;https://citron-emu.org/help/reference/log-files/&apos;&gt;Wie wird eine Log Datei hochgeladen?&lt;/a&gt;.</translation>
     </message>

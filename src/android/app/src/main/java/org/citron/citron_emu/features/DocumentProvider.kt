@@ -16,12 +16,12 @@ import android.webkit.MimeTypeMap
 import java.io.*
 import org.citron.citron_emu.BuildConfig
 import org.citron.citron_emu.R
-import org.citron.citron_emu.YuzuApplication
+import org.citron.citron_emu.CitronApplication
 import org.citron.citron_emu.getPublicFilesDir
 
 class DocumentProvider : DocumentsProvider() {
     private val baseDirectory: File
-        get() = File(YuzuApplication.application.getPublicFilesDir().canonicalPath)
+        get() = File(CitronApplication.application.getPublicFilesDir().canonicalPath)
 
     companion object {
         private val DEFAULT_ROOT_PROJECTION: Array<String> = arrayOf(

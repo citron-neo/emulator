@@ -3122,7 +3122,7 @@ Ha egy vendég megpróbálja megnyitni a vezérlő appletet, az azonnal bezárul
         <location filename="../../src/citron/configuration/configure_input_advanced.ui" line="2701"/>
         <location filename="../../src/citron/configuration/configure_input_advanced.ui" line="2717"/>
         <source>Requires restarting citron</source>
-        <translation>Yuzu újraindítása szükséges</translation>
+        <translation>Citron újraindítása szükséges</translation>
     </message>
     <message>
         <location filename="../../src/citron/configuration/configure_input_advanced.ui" line="2668"/>

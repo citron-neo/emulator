@@ -28,8 +28,8 @@ void Android::RegisterController(jobject j_input_device) {
     auto env = Common::Android::GetEnvForThread();
     const std::string guid = Common::Android::GetJString(
         env, static_cast<jstring>(
-                 env->CallObjectMethod(j_input_device, Common::Android::GetYuzuDeviceGetGUID())));
-    const s32 port = env->CallIntMethod(j_input_device, Common::Android::GetYuzuDeviceGetPort());
+                 env->CallObjectMethod(j_input_device, Common::Android::GetCitronDeviceGetGUID())));
+    const s32 port = env->CallIntMethod(j_input_device, Common::Android::GetCitronDeviceGetPort());
     const auto identifier = GetIdentifier(guid, static_cast<size_t>(port));
     PreSetController(identifier);
 
@@ -81,7 +81,7 @@ bool Android::IsVibrationEnabled([[maybe_unused]] const PadIdentifier& identifie
     if (device != input_devices.end()) {
         return Common::Android::RunJNIOnFiber<bool>([&](JNIEnv* env) {
             return static_cast<bool>(env->CallBooleanMethod(
-                device->second, Common::Android::GetYuzuDeviceGetSupportsVibration()));
+                device->second, Common::Android::GetCitronDeviceGetSupportsVibration()));
         });
     }
     return false;
@@ -92,7 +92,7 @@ std::vector<Common::ParamPackage> Android::GetInputDevices() const {
     auto env = Common::Android::GetEnvForThread();
     for (const auto& [key, value] : input_devices) {
         auto name_object = static_cast<jstring>(
-            env->CallObjectMethod(value, Common::Android::GetYuzuDeviceGetName()));
+            env->CallObjectMethod(value, Common::Android::GetCitronDeviceGetName()));
         const std::string name =
             fmt::format("{} {}", Common::Android::GetJString(env, name_object), key.port);
         devices.emplace_back(Common::ParamPackage{
@@ -107,7 +107,7 @@ std::vector<Common::ParamPackage> Android::GetInputDevices() const {
 
 std::set<s32> Android::GetDeviceAxes(JNIEnv* env, jobject& j_device) const {
     auto j_axes = static_cast<jobjectArray>(
-        env->CallObjectMethod(j_device, Common::Android::GetYuzuDeviceGetAxes()));
+        env->CallObjectMethod(j_device, Common::Android::GetCitronDeviceGetAxes()));
     std::set<s32> axes;
     for (int i = 0; i < env->GetArrayLength(j_axes); ++i) {
         jobject axis = env->GetObjectArrayElement(j_axes, i);
@@ -215,7 +215,7 @@ ButtonMapping Android::GetButtonMappingForDevice(const Common::ParamPackage& par
     jintArray j_keys = env->NewIntArray(static_cast<int>(keycode_ids.size()));
     env->SetIntArrayRegion(j_keys, 0, static_cast<int>(keycode_ids.size()), keycode_ids.data());
     auto j_has_keys_object = static_cast<jbooleanArray>(
-        env->CallObjectMethod(j_device, Common::Android::GetYuzuDeviceHasKeys(), j_keys));
+        env->CallObjectMethod(j_device, Common::Android::GetCitronDeviceHasKeys(), j_keys));
     jboolean isCopy = false;
     jboolean* j_has_keys = env->GetBooleanArrayElements(j_has_keys_object, &isCopy);
 
@@ -359,7 +359,7 @@ void Android::SendVibrations(JNIEnv* env, std::stop_token token) {
     if (device != input_devices.end()) {
         float average_intensity = static_cast<float>(
             (request.vibration.high_amplitude + request.vibration.low_amplitude) / 2.0);
-        env->CallVoidMethod(device->second, Common::Android::GetYuzuDeviceVibrate(),
+        env->CallVoidMethod(device->second, Common::Android::GetCitronDeviceVibrate(),
                             average_intensity);
     }
 }

@@ -26,7 +26,7 @@ std::optional<std::filesystem::path> GetCurrentUserPlayTimePath(
     if (!uuid.has_value()) {
         return std::nullopt;
     }
-    return Common::FS::GetYuzuPath(Common::FS::YuzuPath::PlayTimeDir) /
+    return Common::FS::GetCitronPath(Common::FS::CitronPath::PlayTimeDir) /
            uuid->RawString().append(".bin");
 }
 

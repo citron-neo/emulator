@@ -117,7 +117,7 @@
     <string name="install_game_content_help_link">https://citron-emu.org/help/quickstart/#dumping-installed-updates</string>
     <string name="custom_driver_not_supported">Driver kustom tidak didukung</string>
     <string name="custom_driver_not_supported_description">Driver kustom saat ini tidak dapat digunakan pada perangkat ini. \nCek opsi ini lain waktu untuk mengetahui apakah dapat digunakan!</string>
-    <string name="manage_citron_data">Kelola data Yuzu.</string>
+    <string name="manage_citron_data">Kelola data Citron.</string>
     <string name="manage_citron_data_description">Impor/expor firmware, key, data pengguna, dan sebagainya!</string>
     <string name="share_save_file">Bagikan file simpanan.</string>
     <string name="export_save_failed">Gagal mengekspor simpanan.</string>

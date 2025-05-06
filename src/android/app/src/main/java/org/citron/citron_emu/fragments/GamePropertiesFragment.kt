@@ -26,7 +26,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.citron.citron_emu.HomeNavigationDirections
 import org.citron.citron_emu.R
-import org.citron.citron_emu.YuzuApplication
+import org.citron.citron_emu.CitronApplication
 import org.citron.citron_emu.adapters.GamePropertiesAdapter
 import org.citron.citron_emu.databinding.FragmentGamePropertiesBinding
 import org.citron.citron_emu.features.settings.model.Settings
@@ -224,7 +224,7 @@ class GamePropertiesFragment : Fragment() {
                                     negativeAction = {
                                         File(args.game.saveDir).deleteRecursively()
                                         Toast.makeText(
-                                            YuzuApplication.appContext,
+                                            CitronApplication.appContext,
                                             R.string.save_data_deleted_successfully,
                                             Toast.LENGTH_SHORT
                                         ).show()
@@ -263,7 +263,7 @@ class GamePropertiesFragment : Fragment() {
                                 positiveAction = {
                                     shaderCacheDir.deleteRecursively()
                                     Toast.makeText(
-                                        YuzuApplication.appContext,
+                                        CitronApplication.appContext,
                                         R.string.cleared_shaders_successfully,
                                         Toast.LENGTH_SHORT
                                     ).show()
@@ -374,7 +374,7 @@ class GamePropertiesFragment : Fragment() {
                             return@withContext
                         }
                         Toast.makeText(
-                            YuzuApplication.appContext,
+                            CitronApplication.appContext,
                             getString(R.string.save_file_imported_success),
                             Toast.LENGTH_LONG
                         ).show()
@@ -384,7 +384,7 @@ class GamePropertiesFragment : Fragment() {
                     cacheSaveDir.deleteRecursively()
                 } catch (e: Exception) {
                     Toast.makeText(
-                        YuzuApplication.appContext,
+                        CitronApplication.appContext,
                         getString(R.string.fatal_error),
                         Toast.LENGTH_LONG
                     ).show()

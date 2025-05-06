@@ -117,7 +117,7 @@
     <string name="install_game_content_help_link">https://citron-emu.org/help/quickstart/#dumping-installed-updates</string>
     <string name="custom_driver_not_supported">I driver personalizzati non sono supportati.</string>
     <string name="custom_driver_not_supported_description">I driver personalizzati non sono attualmente supportati su questo dispositivo.\n Ricontrolla in futuro.</string>
-    <string name="manage_citron_data">Gestisci i dati di Yuzu</string>
+    <string name="manage_citron_data">Gestisci i dati di Citron</string>
     <string name="manage_citron_data_description">Importa/Esporta il firmware, le keys, i dati utente, e altro!</string>
     <string name="share_save_file">Condividi i tuoi dati di salvataggio</string>
     <string name="export_save_failed">Errore durante l\'esportazione del salvataggio</string>
@@ -163,7 +163,7 @@
     <string name="exporting_user_data">Esportazione dei Dati Utente...</string>
     <string name="importing_user_data">Importazione dei Dati Utente...</string>
     <string name="import_user_data">Importa i Dati Utente</string>
-    <string name="invalid_citron_backup">Backup di Yuzu Invalido</string>
+    <string name="invalid_citron_backup">Backup di Citron Invalido</string>
     <string name="user_data_export_success">Dati Utente esportati con successo</string>
     <string name="user_data_import_success">Dati Utente importati con successo.</string>
     <string name="user_data_export_cancelled">Esportazione annullata</string>

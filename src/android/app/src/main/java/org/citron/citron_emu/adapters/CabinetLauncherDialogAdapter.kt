@@ -11,7 +11,7 @@ import androidx.navigation.fragment.findNavController
 import org.citron.citron_emu.HomeNavigationDirections
 import org.citron.citron_emu.NativeLibrary
 import org.citron.citron_emu.R
-import org.citron.citron_emu.YuzuApplication
+import org.citron.citron_emu.CitronApplication
 import org.citron.citron_emu.databinding.DialogListItemBinding
 import org.citron.citron_emu.model.CabinetMode
 import org.citron.citron_emu.adapters.CabinetLauncherDialogAdapter.CabinetModeViewHolder
@@ -49,7 +49,7 @@ class CabinetLauncherDialogAdapter(val fragment: Fragment) :
             NativeLibrary.setCurrentAppletId(AppletInfo.Cabinet.appletId)
             NativeLibrary.setCabinetMode(mode.id)
             val appletGame = Game(
-                title = YuzuApplication.appContext.getString(R.string.cabinet_applet),
+                title = CitronApplication.appContext.getString(R.string.cabinet_applet),
                 path = appletPath
             )
             val action = HomeNavigationDirections.actionGlobalEmulationActivity(appletGame)

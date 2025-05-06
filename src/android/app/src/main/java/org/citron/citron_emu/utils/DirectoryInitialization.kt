@@ -6,7 +6,7 @@ package org.citron.citron_emu.utils
 import androidx.preference.PreferenceManager
 import java.io.IOException
 import org.citron.citron_emu.NativeLibrary
-import org.citron.citron_emu.YuzuApplication
+import org.citron.citron_emu.CitronApplication
 import org.citron.citron_emu.features.settings.model.BooleanSetting
 import org.citron.citron_emu.features.settings.model.IntSetting
 import org.citron.citron_emu.features.settings.model.Settings
@@ -38,7 +38,7 @@ object DirectoryInitialization {
 
     private fun initializeInternalStorage() {
         try {
-            userPath = YuzuApplication.appContext.getExternalFilesDir(null)!!.canonicalPath
+            userPath = CitronApplication.appContext.getExternalFilesDir(null)!!.canonicalPath
             NativeLibrary.setAppDirectory(userPath!!)
         } catch (e: IOException) {
             e.printStackTrace()
@@ -46,7 +46,7 @@ object DirectoryInitialization {
     }
 
     private fun migrateSettings() {
-        val preferences = PreferenceManager.getDefaultSharedPreferences(YuzuApplication.appContext)
+        val preferences = PreferenceManager.getDefaultSharedPreferences(CitronApplication.appContext)
         var saveConfig = false
         val theme = preferences.migratePreference<Int>(Settings.PREF_THEME)
         if (theme != null) {

@@ -24,7 +24,7 @@ import org.citron.citron_emu.model.GameVerificationResult
 
 /**
  * Class which contains methods that interact
- * with the native side of the Yuzu code.
+ * with the native side of the Citron code.
  */
 object NativeLibrary {
     @JvmField
@@ -42,7 +42,7 @@ object NativeLibrary {
     @JvmStatic
     fun openContentUri(path: String?, openmode: String?): Int {
         return if (DocumentsTree.isNativePath(path!!)) {
-            YuzuApplication.documentsTree!!.openContentUri(path, openmode)
+            CitronApplication.documentsTree!!.openContentUri(path, openmode)
         } else {
             FileUtil.openContentUri(path, openmode)
         }
@@ -52,7 +52,7 @@ object NativeLibrary {
     @JvmStatic
     fun getSize(path: String?): Long {
         return if (DocumentsTree.isNativePath(path!!)) {
-            YuzuApplication.documentsTree!!.getFileSize(path)
+            CitronApplication.documentsTree!!.getFileSize(path)
         } else {
             FileUtil.getFileSize(path)
         }
@@ -62,7 +62,7 @@ object NativeLibrary {
     @JvmStatic
     fun exists(path: String?): Boolean {
         return if (DocumentsTree.isNativePath(path!!)) {
-            YuzuApplication.documentsTree!!.exists(path)
+            CitronApplication.documentsTree!!.exists(path)
         } else {
             FileUtil.exists(path, suppressLog = true)
         }
@@ -72,7 +72,7 @@ object NativeLibrary {
     @JvmStatic
     fun isDirectory(path: String?): Boolean {
         return if (DocumentsTree.isNativePath(path!!)) {
-            YuzuApplication.documentsTree!!.isDirectory(path)
+            CitronApplication.documentsTree!!.isDirectory(path)
         } else {
             FileUtil.isDirectory(path)
         }
@@ -82,7 +82,7 @@ object NativeLibrary {
     @JvmStatic
     fun getParentDirectory(path: String): String =
         if (DocumentsTree.isNativePath(path)) {
-            YuzuApplication.documentsTree!!.getParentDirectory(path)
+            CitronApplication.documentsTree!!.getParentDirectory(path)
         } else {
             path
         }
@@ -91,7 +91,7 @@ object NativeLibrary {
     @JvmStatic
     fun getFilename(path: String): String =
         if (DocumentsTree.isNativePath(path)) {
-            YuzuApplication.documentsTree!!.getFilename(path)
+            CitronApplication.documentsTree!!.getFilename(path)
         } else {
             FileUtil.getFilename(Uri.parse(path))
         }
@@ -326,7 +326,7 @@ object NativeLibrary {
     }
 
     /**
-     * Logs the Yuzu version, Android version and, CPU.
+     * Logs the Citron version, Android version and, CPU.
      */
     external fun logDeviceInfo()
 

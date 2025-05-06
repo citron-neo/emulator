@@ -15,7 +15,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.citron.citron_emu.R
-import org.citron.citron_emu.YuzuApplication
+import org.citron.citron_emu.CitronApplication
 import org.citron.citron_emu.features.settings.model.StringSetting
 import org.citron.citron_emu.features.settings.utils.SettingsFile
 import org.citron.citron_emu.model.Driver.Companion.toDriver
@@ -70,7 +70,7 @@ class DriverViewModel : ViewModel() {
         val newDriverList = mutableListOf(
             Driver(
                 selectedDriver == GpuDriverMetadata(),
-                YuzuApplication.appContext.getString(R.string.system_gpu_driver),
+                CitronApplication.appContext.getString(R.string.system_gpu_driver),
                 systemDriverData?.get(0) ?: "",
                 systemDriverData?.get(1) ?: ""
             )
@@ -186,7 +186,7 @@ class DriverViewModel : ViewModel() {
 
     private fun updateName() {
         _selectedDriverTitle.value = GpuDriverHelper.customDriverSettingData.name
-            ?: YuzuApplication.appContext.getString(R.string.system_gpu_driver)
+            ?: CitronApplication.appContext.getString(R.string.system_gpu_driver)
     }
 
     private fun setDriverReady() {

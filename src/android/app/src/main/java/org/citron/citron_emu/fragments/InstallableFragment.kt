@@ -22,7 +22,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.citron.citron_emu.NativeLibrary
 import org.citron.citron_emu.R
-import org.citron.citron_emu.YuzuApplication
+import org.citron.citron_emu.CitronApplication
 import org.citron.citron_emu.adapters.InstallableAdapter
 import org.citron.citron_emu.databinding.FragmentInstallablesBinding
 import org.citron.citron_emu.model.HomeViewModel
@@ -109,7 +109,7 @@ class InstallableFragment : Fragment() {
                     )
                     if (!oldSaveDataFolder.exists() && !futureSaveDataFolder.exists()) {
                         Toast.makeText(
-                            YuzuApplication.appContext,
+                            CitronApplication.appContext,
                             R.string.no_save_data_found,
                             Toast.LENGTH_SHORT
                         ).show()
@@ -262,7 +262,7 @@ class InstallableFragment : Fragment() {
                     cacheSaveDir.deleteRecursively()
                 } catch (e: Exception) {
                     Toast.makeText(
-                        YuzuApplication.appContext,
+                        CitronApplication.appContext,
                         getString(R.string.fatal_error),
                         Toast.LENGTH_LONG
                     ).show()

@@ -14,7 +14,7 @@ import java.io.InputStream
 import java.net.URLDecoder
 import java.util.zip.ZipEntry
 import java.util.zip.ZipInputStream
-import org.citron.citron_emu.YuzuApplication
+import org.citron.citron_emu.CitronApplication
 import org.citron.citron_emu.model.MinimalDocumentFile
 import org.citron.citron_emu.model.TaskState
 import java.io.BufferedOutputStream
@@ -31,7 +31,7 @@ object FileUtil {
     const val APPLICATION_OCTET_STREAM = "application/octet-stream"
     const val TEXT_PLAIN = "text/plain"
 
-    private val context get() = YuzuApplication.appContext
+    private val context get() = CitronApplication.appContext
 
     /**
      * Create a file from directory with filename.
@@ -195,7 +195,7 @@ object FileUtil {
      * @return String display name
      */
     fun getFilename(uri: Uri): String {
-        val resolver = YuzuApplication.appContext.contentResolver
+        val resolver = CitronApplication.appContext.contentResolver
         val columns = arrayOf(
             DocumentsContract.Document.COLUMN_DISPLAY_NAME
         )
@@ -408,10 +408,10 @@ object FileUtil {
             val newFile = File(file, it.name!!)
             if (it.isDirectory) {
                 newFile.mkdirs()
-                DocumentFile.fromTreeUri(YuzuApplication.appContext, it.uri)?.copyFilesTo(newFile)
+                DocumentFile.fromTreeUri(CitronApplication.appContext, it.uri)?.copyFilesTo(newFile)
             } else {
                 val inputStream =
-                    YuzuApplication.appContext.contentResolver.openInputStream(it.uri)
+                    CitronApplication.appContext.contentResolver.openInputStream(it.uri)
                 BufferedInputStream(inputStream).use { bos ->
                     if (!newFile.exists()) {
                         newFile.createNewFile()
@@ -487,17 +487,17 @@ object FileUtil {
         String(stream.readBytes(), StandardCharsets.UTF_8)
 
     fun DocumentFile.inputStream(): InputStream =
-        YuzuApplication.appContext.contentResolver.openInputStream(uri)!!
+        CitronApplication.appContext.contentResolver.openInputStream(uri)!!
 
     fun DocumentFile.outputStream(): OutputStream =
-        YuzuApplication.appContext.contentResolver.openOutputStream(uri)!!
+        CitronApplication.appContext.contentResolver.openOutputStream(uri)!!
 
     fun Uri.inputStream(): InputStream =
-        YuzuApplication.appContext.contentResolver.openInputStream(this)!!
+        CitronApplication.appContext.contentResolver.openInputStream(this)!!
 
     fun Uri.outputStream(): OutputStream =
-        YuzuApplication.appContext.contentResolver.openOutputStream(this)!!
+        CitronApplication.appContext.contentResolver.openOutputStream(this)!!
 
     fun Uri.asDocumentFile(): DocumentFile? =
-        DocumentFile.fromSingleUri(YuzuApplication.appContext, this)
+        DocumentFile.fromSingleUri(CitronApplication.appContext, this)
 }

@@ -1,13 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
 
-    <style name="Theme.Yuzu.Splash.Main" parent="Theme.SplashScreen">
+    <style name="Theme.Citron.Splash.Main" parent="Theme.SplashScreen">
         <item name="windowSplashScreenBackground">@color/citron_surface</item>
         <item name="windowSplashScreenAnimatedIcon">@drawable/ic_citron</item>
-        <item name="postSplashScreenTheme">@style/Theme.Yuzu.Main</item>
+        <item name="postSplashScreenTheme">@style/Theme.Citron.Main</item>
     </style>
 
-    <style name="Theme.Yuzu.Main" parent="Theme.Material3.DayNight.NoActionBar">
+    <style name="Theme.Citron.Main" parent="Theme.Material3.DayNight.NoActionBar">
         <item name="colorPrimary">@color/citron_primary</item>
         <item name="colorOnPrimary">@color/citron_onPrimary</item>
         <item name="colorPrimaryContainer">@color/citron_primaryContainer</item>
@@ -39,8 +39,8 @@
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
 
-        <item name="sliderStyle">@style/YuzuSlider</item>
-        <item name="materialAlertDialogTheme">@style/YuzuMaterialDialog</item>
+        <item name="sliderStyle">@style/CitronSlider</item>
+        <item name="materialAlertDialogTheme">@style/CitronMaterialDialog</item>
 
         <item name="android:windowLayoutInDisplayCutoutMode">shortEdges</item>
 

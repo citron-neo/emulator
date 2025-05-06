@@ -16,7 +16,7 @@ import org.citron.citron_emu.utils.Log
 
 fun Context.getPublicFilesDir(): File = getExternalFilesDir(null) ?: filesDir
 
-class YuzuApplication : Application() {
+class CitronApplication : Application() {
     private fun createNotificationChannels() {
         val noticeChannel = NotificationChannel(
             getString(R.string.notice_notification_channel_id),
@@ -47,7 +47,7 @@ class YuzuApplication : Application() {
 
     companion object {
         var documentsTree: DocumentsTree? = null
-        lateinit var application: YuzuApplication
+        lateinit var application: CitronApplication
 
         val appContext: Context
             get() = application.applicationContext

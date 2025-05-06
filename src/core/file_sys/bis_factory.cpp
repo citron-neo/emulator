@@ -83,7 +83,7 @@ VirtualFile BISFactory::OpenPartitionStorage(BisPartitionId id,
                                              VirtualFilesystem file_system) const {
     auto& keys = Core::Crypto::KeyManager::Instance();
     Core::Crypto::PartitionDataManager pdm{file_system->OpenDirectory(
-        Common::FS::GetYuzuPathString(Common::FS::YuzuPath::NANDDir), OpenMode::Read)};
+        Common::FS::GetCitronPathString(Common::FS::CitronPath::NANDDir), OpenMode::Read)};
     keys.PopulateFromPartitionData(pdm);
 
     switch (id) {

@@ -41,7 +41,7 @@ p, li { white-space: pre-wrap; }
     <message>
         <location filename="../../src/citron/aboutdialog.ui" line="146"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; font-size:7pt;&quot;&gt;&amp;quot;Nintendo Switch&amp;quot; is a trademark of Nintendo. citron is not affiliated with Nintendo in any way.&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; font-size:7pt;&quot;&gt;&amp;quot;Nintendo Switch&amp;quot; é uma marca comercial da Nintendo. Yuzu não é afiliado com a Nintendo de qualquer forma.&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; font-size:7pt;&quot;&gt;&amp;quot;Nintendo Switch&amp;quot; é uma marca comercial da Nintendo. Citron não é afiliado com a Nintendo de qualquer forma.&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
 </context>
 <context>
@@ -4991,7 +4991,7 @@ Arrasta os pontos para mudar a posição, ou dá duplo-clique nas células da ta
     <message>
         <location filename="../../src/citron/configuration/configure_web.ui" line="25"/>
         <source>citron Web Service</source>
-        <translation>Serviço Web do Yuzu</translation>
+        <translation>Serviço Web do Citron</translation>
     </message>
     <message>
         <location filename="../../src/citron/configuration/configure_web.ui" line="31"/>
@@ -5037,7 +5037,7 @@ Arrasta os pontos para mudar a posição, ou dá duplo-clique nas células da ta
     <message>
         <location filename="../../src/citron/configuration/configure_web.ui" line="134"/>
         <source>Share anonymous usage data with the citron team</source>
-        <translation>Compartilhar dados de uso anônimos com a equipa Yuzu</translation>
+        <translation>Compartilhar dados de uso anônimos com a equipa Citron</translation>
     </message>
     <message>
         <location filename="../../src/citron/configuration/configure_web.ui" line="141"/>
@@ -5917,7 +5917,7 @@ Por favor, use esse recurso apenas para instalar atualizações e DLC.</translat
     <message>
         <location filename="../../src/citron/main.cpp" line="3564"/>
         <source>Missing citron Account</source>
-        <translation>Conta Yuzu Ausente</translation>
+        <translation>Conta Citron Ausente</translation>
     </message>
     <message>
         <location filename="../../src/citron/main.cpp" line="3565"/>

@@ -30,7 +30,7 @@ import kotlinx.coroutines.launch
 import org.citron.citron_emu.NativeLibrary
 import java.io.File
 import org.citron.citron_emu.R
-import org.citron.citron_emu.YuzuApplication
+import org.citron.citron_emu.CitronApplication
 import org.citron.citron_emu.adapters.SetupAdapter
 import org.citron.citron_emu.databinding.FragmentSetupBinding
 import org.citron.citron_emu.features.settings.model.Settings
@@ -343,7 +343,7 @@ class SetupFragment : Fragment() {
         }
 
     private fun finishSetup() {
-        PreferenceManager.getDefaultSharedPreferences(YuzuApplication.appContext).edit()
+        PreferenceManager.getDefaultSharedPreferences(CitronApplication.appContext).edit()
             .putBoolean(Settings.PREF_FIRST_APP_LAUNCH, false)
             .apply()
         mainActivity.finishSetup(binding.root.findNavController())

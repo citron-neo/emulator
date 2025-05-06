@@ -11,7 +11,7 @@ import kotlinx.parcelize.Parcelize
 import kotlinx.serialization.Serializable
 import org.citron.citron_emu.NativeLibrary
 import org.citron.citron_emu.R
-import org.citron.citron_emu.YuzuApplication
+import org.citron.citron_emu.CitronApplication
 import org.citron.citron_emu.activities.EmulationActivity
 import org.citron.citron_emu.utils.DirectoryInitialization
 import org.citron.citron_emu.utils.FileUtil
@@ -52,7 +52,7 @@ class Game(
         }
 
     val saveZipName: String
-        get() = "$title ${YuzuApplication.appContext.getString(R.string.save_data).lowercase()} - ${
+        get() = "$title ${CitronApplication.appContext.getString(R.string.save_data).lowercase()} - ${
         LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"))
         }.zip"
 
@@ -64,7 +64,7 @@ class Game(
         get() = DirectoryInitialization.userDirectory + "/load/" + programIdHex + "/"
 
     val launchIntent: Intent
-        get() = Intent(YuzuApplication.appContext, EmulationActivity::class.java).apply {
+        get() = Intent(CitronApplication.appContext, EmulationActivity::class.java).apply {
             action = Intent.ACTION_VIEW
             data = Uri.parse(path)
         }

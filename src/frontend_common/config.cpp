@@ -25,7 +25,7 @@ Config::Config(const ConfigType config_type)
     : type(config_type), global{config_type == ConfigType::GlobalConfig} {}
 
 void Config::Initialize(const std::string& config_name) {
-    const std::filesystem::path fs_config_loc = FS::GetYuzuPath(FS::YuzuPath::ConfigDir);
+    const std::filesystem::path fs_config_loc = FS::GetCitronPath(FS::CitronPath::ConfigDir);
     const auto config_file = fmt::format("{}.ini", config_name);
 
     switch (type) {
@@ -51,7 +51,7 @@ void Config::Initialize(const std::string& config_name) {
 
 void Config::Initialize(const std::optional<std::string> config_path) {
     const std::filesystem::path default_sdl_config_path =
-        FS::GetYuzuPath(FS::YuzuPath::ConfigDir) / "sdl2-config.ini";
+        FS::GetCitronPath(FS::CitronPath::ConfigDir) / "sdl2-config.ini";
     config_loc = config_path.value_or(FS::PathToUTF8String(default_sdl_config_path));
     void(FS::CreateParentDir(config_loc));
     SetUpIni();
@@ -275,11 +275,11 @@ void Config::ReadCoreValues() {
 void Config::ReadDataStorageValues() {
     BeginGroup(Settings::TranslateCategory(Settings::Category::DataStorage));
 
-    FS::SetYuzuPath(FS::YuzuPath::NANDDir, ReadStringSetting(std::string("nand_directory")));
-    FS::SetYuzuPath(FS::YuzuPath::SDMCDir, ReadStringSetting(std::string("sdmc_directory")));
-    FS::SetYuzuPath(FS::YuzuPath::LoadDir, ReadStringSetting(std::string("load_directory")));
-    FS::SetYuzuPath(FS::YuzuPath::DumpDir, ReadStringSetting(std::string("dump_directory")));
-    FS::SetYuzuPath(FS::YuzuPath::TASDir, ReadStringSetting(std::string("tas_directory")));
+    FS::SetCitronPath(FS::CitronPath::NANDDir, ReadStringSetting(std::string("nand_directory")));
+    FS::SetCitronPath(FS::CitronPath::SDMCDir, ReadStringSetting(std::string("sdmc_directory")));
+    FS::SetCitronPath(FS::CitronPath::LoadDir, ReadStringSetting(std::string("load_directory")));
+    FS::SetCitronPath(FS::CitronPath::DumpDir, ReadStringSetting(std::string("dump_directory")));
+    FS::SetCitronPath(FS::CitronPath::TASDir, ReadStringSetting(std::string("tas_directory")));
 
     ReadCategory(Settings::Category::DataStorage);
 
@@ -371,7 +371,7 @@ void Config::ReadScreenshotValues() {
     BeginGroup(Settings::TranslateCategory(Settings::Category::Screenshots));
 
     ReadCategory(Settings::Category::Screenshots);
-    FS::SetYuzuPath(FS::YuzuPath::ScreenshotsDir,
+    FS::SetCitronPath(FS::CitronPath::ScreenshotsDir,
                     ReadStringSetting(std::string("screenshot_path")));
 
     EndGroup();
@@ -577,16 +577,16 @@ void Config::SaveCoreValues() {
 void Config::SaveDataStorageValues() {
     BeginGroup(Settings::TranslateCategory(Settings::Category::DataStorage));
 
-    WriteStringSetting(std::string("nand_directory"), FS::GetYuzuPathString(FS::YuzuPath::NANDDir),
-                       std::make_optional(FS::GetYuzuPathString(FS::YuzuPath::NANDDir)));
-    WriteStringSetting(std::string("sdmc_directory"), FS::GetYuzuPathString(FS::YuzuPath::SDMCDir),
-                       std::make_optional(FS::GetYuzuPathString(FS::YuzuPath::SDMCDir)));
-    WriteStringSetting(std::string("load_directory"), FS::GetYuzuPathString(FS::YuzuPath::LoadDir),
-                       std::make_optional(FS::GetYuzuPathString(FS::YuzuPath::LoadDir)));
-    WriteStringSetting(std::string("dump_directory"), FS::GetYuzuPathString(FS::YuzuPath::DumpDir),
-                       std::make_optional(FS::GetYuzuPathString(FS::YuzuPath::DumpDir)));
-    WriteStringSetting(std::string("tas_directory"), FS::GetYuzuPathString(FS::YuzuPath::TASDir),
-                       std::make_optional(FS::GetYuzuPathString(FS::YuzuPath::TASDir)));
+    WriteStringSetting(std::string("nand_directory"), FS::GetCitronPathString(FS::CitronPath::NANDDir),
+                       std::make_optional(FS::GetCitronPathString(FS::CitronPath::NANDDir)));
+    WriteStringSetting(std::string("sdmc_directory"), FS::GetCitronPathString(FS::CitronPath::SDMCDir),
+                       std::make_optional(FS::GetCitronPathString(FS::CitronPath::SDMCDir)));
+    WriteStringSetting(std::string("load_directory"), FS::GetCitronPathString(FS::CitronPath::LoadDir),
+                       std::make_optional(FS::GetCitronPathString(FS::CitronPath::LoadDir)));
+    WriteStringSetting(std::string("dump_directory"), FS::GetCitronPathString(FS::CitronPath::DumpDir),
+                       std::make_optional(FS::GetCitronPathString(FS::CitronPath::DumpDir)));
+    WriteStringSetting(std::string("tas_directory"), FS::GetCitronPathString(FS::CitronPath::TASDir),
+                       std::make_optional(FS::GetCitronPathString(FS::CitronPath::TASDir)));
 
     WriteCategory(Settings::Category::DataStorage);
 
@@ -679,7 +679,7 @@ void Config::SaveScreenshotValues() {
     BeginGroup(Settings::TranslateCategory(Settings::Category::Screenshots));
 
     WriteStringSetting(std::string("screenshot_path"),
-                       FS::GetYuzuPathString(FS::YuzuPath::ScreenshotsDir));
+                       FS::GetCitronPathString(FS::CitronPath::ScreenshotsDir));
     WriteCategory(Settings::Category::Screenshots);
 
     EndGroup();

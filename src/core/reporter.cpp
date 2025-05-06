@@ -27,7 +27,7 @@
 namespace {
 
 std::filesystem::path GetPath(std::string_view type, u64 title_id, std::string_view timestamp) {
-    return Common::FS::GetYuzuPath(Common::FS::YuzuPath::LogDir) / type /
+    return Common::FS::GetCitronPath(Common::FS::CitronPath::LogDir) / type /
            fmt::format("{:016X}_{}.json", title_id, timestamp);
 }
 
@@ -51,7 +51,7 @@ void SaveToFile(const json& json, const std::filesystem::path& filename) {
     file << std::setw(4) << json << std::endl;
 }
 
-json GetYuzuVersionData() {
+json GetCitronVersionData() {
     return {
         {"scm_rev", std::string(Common::g_scm_rev)},
         {"scm_branch", std::string(Common::g_scm_branch)},
@@ -112,7 +112,7 @@ json GetProcessorStateData(const std::string& architecture, u64 entry_point, u64
 json GetFullDataAuto(const std::string& timestamp, u64 title_id, Core::System& system) {
     json out;
 
-    out["citron_version"] = GetYuzuVersionData();
+    out["citron_version"] = GetCitronVersionData();
     out["report_common"] = GetReportCommonData(title_id, ResultSuccess, timestamp);
 
     return out;
@@ -180,7 +180,7 @@ void Reporter::SaveCrashReport(u64 title_id, Result result, u64 set_flags, u64 e
     const auto timestamp = GetTimestamp();
     json out;
 
-    out["citron_version"] = GetYuzuVersionData();
+    out["citron_version"] = GetCitronVersionData();
     out["report_common"] = GetReportCommonData(title_id, result, timestamp);
 
     auto proc_out = GetProcessorStateData(arch, entry_point, sp, pc, pstate, registers, backtrace);
@@ -291,7 +291,7 @@ void Reporter::SavePlayReport(PlayReportType type, u64 title_id,
     const auto timestamp = GetTimestamp();
     json out;
 
-    out["citron_version"] = GetYuzuVersionData();
+    out["citron_version"] = GetCitronVersionData();
     out["report_common"] = GetReportCommonData(title_id, ResultSuccess, timestamp, user_id);
 
     auto data_out = json::array();
@@ -319,7 +319,7 @@ void Reporter::SaveErrorReport(u64 title_id, Result result,
     const auto timestamp = GetTimestamp();
     json out;
 
-    out["citron_version"] = GetYuzuVersionData();
+    out["citron_version"] = GetCitronVersionData();
     out["report_common"] = GetReportCommonData(title_id, result, timestamp);
 
     out["error_custom_text"] = {
@@ -332,7 +332,7 @@ void Reporter::SaveErrorReport(u64 title_id, Result result,
 
 void Reporter::SaveFSAccessLog(std::string_view log_message) const {
     const auto access_log_path =
-        Common::FS::GetYuzuPath(Common::FS::YuzuPath::SDMCDir) / "FsAccessLog.txt";
+        Common::FS::GetCitronPath(Common::FS::CitronPath::SDMCDir) / "FsAccessLog.txt";
 
     void(Common::FS::AppendStringToFile(access_log_path, Common::FS::FileType::TextFile,
                                         log_message));
@@ -352,7 +352,7 @@ void Reporter::SaveUserReport() const {
 
 void Reporter::ClearFSAccessLog() const {
     const auto access_log_path =
-        Common::FS::GetYuzuPath(Common::FS::YuzuPath::SDMCDir) / "FsAccessLog.txt";
+        Common::FS::GetCitronPath(Common::FS::CitronPath::SDMCDir) / "FsAccessLog.txt";
 
     Common::FS::IOFile access_log_file{access_log_path, Common::FS::FileAccessMode::Write,
                                        Common::FS::FileType::TextFile};

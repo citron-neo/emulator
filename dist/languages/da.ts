@@ -29,7 +29,7 @@ p, li { white-space: pre-wrap; }
 &lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
 p, li { white-space: pre-wrap; }
 &lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:&apos;Ubuntu&apos;; font-size:11pt; font-weight:400; font-style:normal;&quot;&gt;
-&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;span style=&quot; font-family:&apos;MS Shell Dlg 2&apos;; font-size:12pt;&quot;&gt;Yuzu er en eksperimentel åben emulator til Nintendo Switch, under GPLv3.0+ licensen.&lt;/span&gt;&lt;/p&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;span style=&quot; font-family:&apos;MS Shell Dlg 2&apos;; font-size:12pt;&quot;&gt;Citron er en eksperimentel åben emulator til Nintendo Switch, under GPLv3.0+ licensen.&lt;/span&gt;&lt;/p&gt;
 &lt;p style=&quot;-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px; font-family:&apos;MS Shell Dlg 2&apos;; font-size:8pt;&quot;&gt;&lt;br /&gt;&lt;/p&gt;
 &lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;span style=&quot; font-family:&apos;MS Shell Dlg 2&apos;; font-size:12pt;&quot;&gt;Denne programvare bør ikke bruges til, at spille spil, du ikke har anskaffet på lovlig vis.&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
@@ -41,7 +41,7 @@ p, li { white-space: pre-wrap; }
     <message>
         <location filename="../../src/citron/aboutdialog.ui" line="146"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; font-size:7pt;&quot;&gt;&amp;quot;Nintendo Switch&amp;quot; is a trademark of Nintendo. citron is not affiliated with Nintendo in any way.&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; font-size:7pt;&quot;&gt;&amp;quot;Nintendo Switch&amp;quot; er et varemærke tilhørende Nintendo. Yuzu er ikke tilknyttet Nintendo på nogen måde.&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; font-size:7pt;&quot;&gt;&amp;quot;Nintendo Switch&amp;quot; er et varemærke tilhørende Nintendo. Citron er ikke tilknyttet Nintendo på nogen måde.&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
 </context>
 <context>
@@ -2229,7 +2229,7 @@ When a guest attempts to open the controller applet, it is immediately closed.</
     <message>
         <location filename="../../src/citron/configuration/configure_debug.ui" line="403"/>
         <source>Enables citron to check for a working Vulkan environment when the program starts up. Disable this if this is causing issues with external programs seeing citron.</source>
-        <translation>Gør Yuzu i stand til at kontrollere for et funktionelt Vulkan-miljø, når programmet starter op. Deaktivering af dette forårsager problemer med at eksterne programmer ser Yuzu.</translation>
+        <translation>Gør Citron i stand til at kontrollere for et funktionelt Vulkan-miljø, når programmet starter op. Deaktivering af dette forårsager problemer med at eksterne programmer ser Citron.</translation>
     </message>
     <message>
         <location filename="../../src/citron/configuration/configure_debug.ui" line="406"/>

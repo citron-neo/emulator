@@ -5,7 +5,7 @@ package org.citron.citron_emu.overlay.model
 
 import androidx.annotation.IntegerRes
 import org.citron.citron_emu.R
-import org.citron.citron_emu.YuzuApplication
+import org.citron.citron_emu.CitronApplication
 
 enum class OverlayControl(
     val id: String,
@@ -136,7 +136,7 @@ enum class OverlayControl(
 
     fun getDefaultPositionForLayout(layout: OverlayLayout): Pair<Double, Double> {
         val rawResourcePair: Pair<Int, Int>
-        YuzuApplication.appContext.resources.apply {
+        CitronApplication.appContext.resources.apply {
             rawResourcePair = when (layout) {
                 OverlayLayout.Landscape -> {
                     Pair(

@@ -22,7 +22,7 @@ import coil.memory.MemoryCache
 import coil.request.ImageRequest
 import coil.request.Options
 import org.citron.citron_emu.R
-import org.citron.citron_emu.YuzuApplication
+import org.citron.citron_emu.CitronApplication
 import org.citron.citron_emu.model.Game
 
 class GameIconFetcher(
@@ -58,20 +58,20 @@ class GameIconKeyer : Keyer<Game> {
 }
 
 object GameIconUtils {
-    private val imageLoader = ImageLoader.Builder(YuzuApplication.appContext)
+    private val imageLoader = ImageLoader.Builder(CitronApplication.appContext)
         .components {
             add(GameIconKeyer())
             add(GameIconFetcher.Factory())
         }
         .memoryCache {
-            MemoryCache.Builder(YuzuApplication.appContext)
+            MemoryCache.Builder(CitronApplication.appContext)
                 .maxSizePercent(0.25)
                 .build()
         }
         .build()
 
     fun loadGameIcon(game: Game, imageView: ImageView) {
-        val request = ImageRequest.Builder(YuzuApplication.appContext)
+        val request = ImageRequest.Builder(CitronApplication.appContext)
             .data(game)
             .target(imageView)
             .error(R.drawable.default_icon)
@@ -80,7 +80,7 @@ object GameIconUtils {
     }
 
     suspend fun getGameIcon(lifecycleOwner: LifecycleOwner, game: Game): Bitmap {
-        val request = ImageRequest.Builder(YuzuApplication.appContext)
+        val request = ImageRequest.Builder(CitronApplication.appContext)
             .data(game)
             .lifecycle(lifecycleOwner)
             .error(R.drawable.default_icon)
@@ -91,15 +91,15 @@ object GameIconUtils {
 
     suspend fun getShortcutIcon(lifecycleOwner: LifecycleOwner, game: Game): IconCompat {
         val layerDrawable = ResourcesCompat.getDrawable(
-            YuzuApplication.appContext.resources,
+            CitronApplication.appContext.resources,
             R.drawable.shortcut,
             null
         ) as LayerDrawable
         layerDrawable.setDrawableByLayerId(
             R.id.shortcut_foreground,
-            getGameIcon(lifecycleOwner, game).toDrawable(YuzuApplication.appContext.resources)
+            getGameIcon(lifecycleOwner, game).toDrawable(CitronApplication.appContext.resources)
         )
-        val inset = YuzuApplication.appContext.resources
+        val inset = CitronApplication.appContext.resources
             .getDimensionPixelSize(R.dimen.icon_inset)
         layerDrawable.setLayerInset(1, inset, inset, inset, inset)
         return IconCompat.createWithAdaptiveBitmap(

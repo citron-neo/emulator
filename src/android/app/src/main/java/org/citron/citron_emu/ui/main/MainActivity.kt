@@ -642,18 +642,18 @@ class MainActivity : AppCompatActivity(), ThemeProvider {
             ) { progressCallback, _ ->
                 val checkStream =
                     ZipInputStream(BufferedInputStream(contentResolver.openInputStream(result)))
-                var isYuzuBackup = false
+                var isCitronBackup = false
                 checkStream.use { stream ->
                     var ze: ZipEntry? = null
                     while (stream.nextEntry?.also { ze = it } != null) {
                         val itemName = ze!!.name.trim()
                         if (itemName == "/config/config.ini" || itemName == "config/config.ini") {
-                            isYuzuBackup = true
+                            isCitronBackup = true
                             return@use
                         }
                     }
                 }
-                if (!isYuzuBackup) {
+                if (!isCitronBackup) {
                     return@newInstance MessageDialogFragment.newInstance(
                         this,
                         titleId = R.string.invalid_citron_backup,

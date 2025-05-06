@@ -4,7 +4,7 @@
     <message>
         <location filename="../../src/citron/aboutdialog.ui" line="14"/>
         <source>About citron</source>
-        <translation>Tietoa Yuzu:sta</translation>
+        <translation>Tietoa Citron:sta</translation>
     </message>
     <message>
         <location filename="../../src/citron/aboutdialog.ui" line="30"/>
@@ -4789,7 +4789,7 @@ Haluatko silti ohittaa tämän ja sulkea?</translation>
     <message>
         <location filename="../../src/citron/bootmanager.cpp" line="974"/>
         <source>citron has not been compiled with OpenGL support.</source>
-        <translation>Yuzua ei ole koottu OpenGL-yhteensopivuuden kanssa.</translation>
+        <translation>Citrona ei ole koottu OpenGL-yhteensopivuuden kanssa.</translation>
     </message>
     <message>
         <location filename="../../src/citron/bootmanager.cpp" line="993"/>

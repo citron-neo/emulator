@@ -5,7 +5,7 @@ package org.citron.citron_emu.features.settings.model.view
 
 import androidx.annotation.StringRes
 import org.citron.citron_emu.R
-import org.citron.citron_emu.YuzuApplication
+import org.citron.citron_emu.CitronApplication
 import org.citron.citron_emu.features.input.NativeInput
 import org.citron.citron_emu.features.input.model.ButtonName
 import org.citron.citron_emu.features.input.model.InputType
@@ -19,7 +19,7 @@ sealed class InputSetting(
     abstract val inputType: InputType
     abstract val playerIndex: Int
 
-    protected val context get() = YuzuApplication.appContext
+    protected val context get() = CitronApplication.appContext
 
     abstract fun getSelectedValue(): String
 

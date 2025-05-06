@@ -184,13 +184,13 @@ private:
                             std::function<bool(const CNMT&, const ContentRecord&)> filter) const;
     std::vector<NcaID> AccumulateFiles() const;
     void ProcessFiles(const std::vector<NcaID>& ids);
-    void AccumulateYuzuMeta();
+    void AccumulateCitronMeta();
     std::optional<NcaID> GetNcaIDFromMetadata(u64 title_id, ContentRecordType type) const;
     VirtualFile GetFileAtID(NcaID id) const;
     VirtualFile OpenFileOrDirectoryConcat(const VirtualDir& open_dir, std::string_view path) const;
     InstallResult RawInstallNCA(const NCA& nca, const VfsCopyFunction& copy,
                                 bool overwrite_if_exists, std::optional<NcaID> override_id = {});
-    bool RawInstallYuzuMeta(const CNMT& cnmt);
+    bool RawInstallCitronMeta(const CNMT& cnmt);
 
     VirtualDir dir;
     ContentProviderParsingFunction parser;

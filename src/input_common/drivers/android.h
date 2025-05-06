@@ -21,7 +21,7 @@ public:
 
     /**
      * Registers controller number to accept new inputs.
-     * @param j_input_device YuzuInputDevice object from the Android frontend to register.
+     * @param j_input_device CitronInputDevice object from the Android frontend to register.
      */
     void RegisterController(jobject j_input_device);
 
@@ -62,9 +62,9 @@ public:
     std::vector<Common::ParamPackage> GetInputDevices() const override;
 
     /**
-     * Gets the axes reported by the YuzuInputDevice.
+     * Gets the axes reported by the CitronInputDevice.
      * @param env JNI environment pointer.
-     * @param j_device YuzuInputDevice from the Android frontend.
+     * @param j_device CitronInputDevice from the Android frontend.
      * @return Set of the axes reported by the underlying Android InputDevice
      */
     std::set<s32> GetDeviceAxes(JNIEnv* env, jobject& j_device) const;

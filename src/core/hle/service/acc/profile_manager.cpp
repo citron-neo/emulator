@@ -377,7 +377,7 @@ bool ProfileManager::SetProfileBaseAndData(Common::UUID uuid, const ProfileBase&
 }
 
 void ProfileManager::ParseUserSaveFile() {
-    const auto save_path(FS::GetYuzuPath(FS::YuzuPath::NANDDir) / ACC_SAVE_AVATORS_BASE_PATH /
+    const auto save_path(FS::GetCitronPath(FS::CitronPath::NANDDir) / ACC_SAVE_AVATORS_BASE_PATH /
                          "profiles.dat");
     const FS::IOFile save(save_path, FS::FileAccessMode::Read, FS::FileType::BinaryFile);
 
@@ -429,12 +429,12 @@ void ProfileManager::WriteUserSaveFile() {
         };
     }
 
-    const auto raw_path(FS::GetYuzuPath(FS::YuzuPath::NANDDir) / "system/save/8000000000000010");
+    const auto raw_path(FS::GetCitronPath(FS::CitronPath::NANDDir) / "system/save/8000000000000010");
     if (FS::IsFile(raw_path) && !FS::RemoveFile(raw_path)) {
         return;
     }
 
-    const auto save_path(FS::GetYuzuPath(FS::YuzuPath::NANDDir) / ACC_SAVE_AVATORS_BASE_PATH /
+    const auto save_path(FS::GetCitronPath(FS::CitronPath::NANDDir) / ACC_SAVE_AVATORS_BASE_PATH /
                          "profiles.dat");
 
     if (!FS::CreateParentDirs(save_path)) {

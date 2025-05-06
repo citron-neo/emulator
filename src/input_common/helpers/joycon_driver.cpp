@@ -42,7 +42,7 @@ Common::Input::DriverResult JoyconDriver::RequestDeviceAccess(SDL_hid_device_inf
         SDL_hid_open(device_info->vendor_id, device_info->product_id, device_info->serial_number);
     std::memcpy(&handle_serial_number, device_info->serial_number, 15);
     if (!hidapi_handle->handle) {
-        LOG_ERROR(Input, "Yuzu can't gain access to this device: ID {:04X}:{:04X}.",
+        LOG_ERROR(Input, "Citron can't gain access to this device: ID {:04X}:{:04X}.",
                   device_info->vendor_id, device_info->product_id);
         return Common::Input::DriverResult::HandleInUse;
     }

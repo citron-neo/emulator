@@ -100,13 +100,13 @@ jfieldID GetPlayerInputButtonColorRightField();
 jfieldID GetPlayerInputProfileNameField();
 jfieldID GetPlayerInputUseSystemVibratorField();
 
-jclass GetYuzuInputDeviceInterface();
-jmethodID GetYuzuDeviceGetName();
-jmethodID GetYuzuDeviceGetGUID();
-jmethodID GetYuzuDeviceGetPort();
-jmethodID GetYuzuDeviceGetSupportsVibration();
-jmethodID GetYuzuDeviceVibrate();
-jmethodID GetYuzuDeviceGetAxes();
-jmethodID GetYuzuDeviceHasKeys();
+jclass GetCitronInputDeviceInterface();
+jmethodID GetCitronDeviceGetName();
+jmethodID GetCitronDeviceGetGUID();
+jmethodID GetCitronDeviceGetPort();
+jmethodID GetCitronDeviceGetSupportsVibration();
+jmethodID GetCitronDeviceVibrate();
+jmethodID GetCitronDeviceGetAxes();
+jmethodID GetCitronDeviceHasKeys();
 
 } // namespace Common::Android

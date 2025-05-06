@@ -386,7 +386,7 @@ bool IsCubebSuitable() {
     // Test opening a device with standard parameters
     cubeb_devid output_device{0};
     cubeb_devid input_device{0};
-    std::string name{"Yuzu test"};
+    std::string name{"Citron test"};
     cubeb_stream* stream{nullptr};
 
     if (cubeb_stream_init(ctx, &stream, name.c_str(), input_device, nullptr, output_device, &params,

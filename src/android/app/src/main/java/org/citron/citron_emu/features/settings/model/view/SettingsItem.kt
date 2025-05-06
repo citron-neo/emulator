@@ -6,7 +6,7 @@ package org.citron.citron_emu.features.settings.model.view
 import androidx.annotation.StringRes
 import org.citron.citron_emu.NativeLibrary
 import org.citron.citron_emu.R
-import org.citron.citron_emu.YuzuApplication
+import org.citron.citron_emu.CitronApplication
 import org.citron.citron_emu.features.input.NativeInput
 import org.citron.citron_emu.features.input.model.NpadStyleIndex
 import org.citron.citron_emu.features.settings.model.AbstractBooleanSetting
@@ -37,14 +37,14 @@ abstract class SettingsItem(
 
     val title: String by lazy {
         if (titleId != 0) {
-            return@lazy YuzuApplication.appContext.getString(titleId)
+            return@lazy CitronApplication.appContext.getString(titleId)
         }
         return@lazy titleString
     }
 
     val description: String by lazy {
         if (descriptionId != 0) {
-            return@lazy YuzuApplication.appContext.getString(descriptionId)
+            return@lazy CitronApplication.appContext.getString(descriptionId)
         }
         return@lazy descriptionString
     }

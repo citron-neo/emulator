@@ -144,8 +144,8 @@ ConfigureUi::ConfigureUi(Core::System& system_, QWidget* parent)
     connect(ui->screenshot_path_button, &QToolButton::pressed, this, [this] {
         auto dir =
             QFileDialog::getExistingDirectory(this, tr("Select Screenshots Path..."),
-                                              QString::fromStdString(Common::FS::GetYuzuPathString(
-                                                  Common::FS::YuzuPath::ScreenshotsDir)));
+                                              QString::fromStdString(Common::FS::GetCitronPathString(
+                                                  Common::FS::CitronPath::ScreenshotsDir)));
         if (!dir.isEmpty()) {
             if (dir.back() != QChar::fromLatin1('/')) {
                 dir.append(QChar::fromLatin1('/'));
@@ -176,7 +176,7 @@ void ConfigureUi::ApplyConfiguration() {
     UISettings::values.row_2_text_id = ui->row_2_text_combobox->currentData().toUInt();
 
     UISettings::values.enable_screenshot_save_as = ui->enable_screenshot_save_as->isChecked();
-    Common::FS::SetYuzuPath(Common::FS::YuzuPath::ScreenshotsDir,
+    Common::FS::SetCitronPath(Common::FS::CitronPath::ScreenshotsDir,
                             ui->screenshot_path_edit->text().toStdString());
 
     const u32 height = ScreenshotDimensionToInt(ui->screenshot_height->currentText());
@@ -208,7 +208,7 @@ void ConfigureUi::SetConfiguration() {
     ui->enable_screenshot_save_as->setChecked(
         UISettings::values.enable_screenshot_save_as.GetValue());
     ui->screenshot_path_edit->setText(QString::fromStdString(
-        Common::FS::GetYuzuPathString(Common::FS::YuzuPath::ScreenshotsDir)));
+        Common::FS::GetCitronPathString(Common::FS::CitronPath::ScreenshotsDir)));
 
     const auto height = UISettings::values.screenshot_height.GetValue();
     if (height == 0) {

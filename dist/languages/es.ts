@@ -5932,7 +5932,7 @@ Por favor, utiliza esta función sólo para instalar actualizaciones y DLCs.</tr
     <message>
         <location filename="../../src/citron/main.cpp" line="3564"/>
         <source>Missing citron Account</source>
-        <translation>Falta la cuenta de Yuzu</translation>
+        <translation>Falta la cuenta de Citron</translation>
     </message>
     <message>
         <location filename="../../src/citron/main.cpp" line="3565"/>

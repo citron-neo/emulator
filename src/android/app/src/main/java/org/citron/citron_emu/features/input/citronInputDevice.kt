@@ -5,12 +5,12 @@ package org.citron.citron_emu.features.input
 
 import android.view.InputDevice
 import androidx.annotation.Keep
-import org.citron.citron_emu.YuzuApplication
+import org.citron.citron_emu.CitronApplication
 import org.citron.citron_emu.R
 import org.citron.citron_emu.utils.InputHandler.getGUID
 
 @Keep
-interface YuzuInputDevice {
+interface CitronInputDevice {
     fun getName(): String
 
     fun getGUID(): String
@@ -25,15 +25,15 @@ interface YuzuInputDevice {
     fun hasKeys(keys: IntArray): BooleanArray = BooleanArray(0)
 }
 
-class YuzuPhysicalDevice(
+class CitronPhysicalDevice(
     private val device: InputDevice,
     private val port: Int,
     useSystemVibrator: Boolean
-) : YuzuInputDevice {
+) : CitronInputDevice {
     private val vibrator = if (useSystemVibrator) {
-        YuzuVibrator.getSystemVibrator()
+        CitronVibrator.getSystemVibrator()
     } else {
-        YuzuVibrator.getControllerVibrator(device)
+        CitronVibrator.getControllerVibrator(device)
     }
 
     override fun getName(): String {
@@ -60,14 +60,14 @@ class YuzuPhysicalDevice(
     override fun hasKeys(keys: IntArray): BooleanArray = device.hasKeys(*keys)
 }
 
-class YuzuInputOverlayDevice(
+class CitronInputOverlayDevice(
     private val vibration: Boolean,
     private val port: Int
-) : YuzuInputDevice {
-    private val vibrator = YuzuVibrator.getSystemVibrator()
+) : CitronInputDevice {
+    private val vibrator = CitronVibrator.getSystemVibrator()
 
     override fun getName(): String {
-        return YuzuApplication.appContext.getString(R.string.input_overlay)
+        return CitronApplication.appContext.getString(R.string.input_overlay)
     }
 
     override fun getGUID(): String {

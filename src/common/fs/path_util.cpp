@@ -56,10 +56,10 @@ namespace fs = std::filesystem;
 
 /**
  * The PathManagerImpl is a singleton allowing to manage the mapping of
- * YuzuPath enums to real filesystem paths.
- * This class provides 2 functions: GetYuzuPathImpl and SetYuzuPathImpl.
- * These are used by GetYuzuPath and SetYuzuPath respectively to get or modify
- * the path mapped by the YuzuPath enum.
+ * CitronPath enums to real filesystem paths.
+ * This class provides 2 functions: GetCitronPathImpl and SetCitronPathImpl.
+ * These are used by GetCitronPath and SetCitronPath respectively to get or modify
+ * the path mapped by the CitronPath enum.
  */
 class PathManagerImpl {
 public:
@@ -75,11 +75,11 @@ public:
     PathManagerImpl(PathManagerImpl&&) = delete;
     PathManagerImpl& operator=(PathManagerImpl&&) = delete;
 
-    [[nodiscard]] const fs::path& GetYuzuPathImpl(YuzuPath citron_path) {
+    [[nodiscard]] const fs::path& GetCitronPathImpl(CitronPath citron_path) {
         return citron_paths.at(citron_path);
     }
 
-    void SetYuzuPathImpl(YuzuPath citron_path, const fs::path& new_path) {
+    void SetCitronPathImpl(CitronPath citron_path, const fs::path& new_path) {
         citron_paths.insert_or_assign(citron_path, new_path);
     }
 
@@ -115,22 +115,22 @@ public:
         }
 #endif
 
-        GenerateYuzuPath(YuzuPath::YuzuDir, citron_path);
-        GenerateYuzuPath(YuzuPath::AmiiboDir, citron_path / AMIIBO_DIR);
-        GenerateYuzuPath(YuzuPath::CacheDir, citron_path_cache);
-        GenerateYuzuPath(YuzuPath::ConfigDir, citron_path_config);
-        GenerateYuzuPath(YuzuPath::CrashDumpsDir, citron_path / CRASH_DUMPS_DIR);
-        GenerateYuzuPath(YuzuPath::DumpDir, citron_path / DUMP_DIR);
-        GenerateYuzuPath(YuzuPath::KeysDir, citron_path / KEYS_DIR);
-        GenerateYuzuPath(YuzuPath::LoadDir, citron_path / LOAD_DIR);
-        GenerateYuzuPath(YuzuPath::LogDir, citron_path / LOG_DIR);
-        GenerateYuzuPath(YuzuPath::NANDDir, citron_path / NAND_DIR);
-        GenerateYuzuPath(YuzuPath::PlayTimeDir, citron_path / PLAY_TIME_DIR);
-        GenerateYuzuPath(YuzuPath::ScreenshotsDir, citron_path / SCREENSHOTS_DIR);
-        GenerateYuzuPath(YuzuPath::SDMCDir, citron_path / SDMC_DIR);
-        GenerateYuzuPath(YuzuPath::ShaderDir, citron_path / SHADER_DIR);
-        GenerateYuzuPath(YuzuPath::TASDir, citron_path / TAS_DIR);
-        GenerateYuzuPath(YuzuPath::IconsDir, citron_path / ICONS_DIR);
+        GenerateCitronPath(CitronPath::CitronDir, citron_path);
+        GenerateCitronPath(CitronPath::AmiiboDir, citron_path / AMIIBO_DIR);
+        GenerateCitronPath(CitronPath::CacheDir, citron_path_cache);
+        GenerateCitronPath(CitronPath::ConfigDir, citron_path_config);
+        GenerateCitronPath(CitronPath::CrashDumpsDir, citron_path / CRASH_DUMPS_DIR);
+        GenerateCitronPath(CitronPath::DumpDir, citron_path / DUMP_DIR);
+        GenerateCitronPath(CitronPath::KeysDir, citron_path / KEYS_DIR);
+        GenerateCitronPath(CitronPath::LoadDir, citron_path / LOAD_DIR);
+        GenerateCitronPath(CitronPath::LogDir, citron_path / LOG_DIR);
+        GenerateCitronPath(CitronPath::NANDDir, citron_path / NAND_DIR);
+        GenerateCitronPath(CitronPath::PlayTimeDir, citron_path / PLAY_TIME_DIR);
+        GenerateCitronPath(CitronPath::ScreenshotsDir, citron_path / SCREENSHOTS_DIR);
+        GenerateCitronPath(CitronPath::SDMCDir, citron_path / SDMC_DIR);
+        GenerateCitronPath(CitronPath::ShaderDir, citron_path / SHADER_DIR);
+        GenerateCitronPath(CitronPath::TASDir, citron_path / TAS_DIR);
+        GenerateCitronPath(CitronPath::IconsDir, citron_path / ICONS_DIR);
     }
 
 private:
@@ -140,13 +140,13 @@ private:
 
     ~PathManagerImpl() = default;
 
-    void GenerateYuzuPath(YuzuPath citron_path, const fs::path& new_path) {
+    void GenerateCitronPath(CitronPath citron_path, const fs::path& new_path) {
         void(FS::CreateDir(new_path));
 
-        SetYuzuPathImpl(citron_path, new_path);
+        SetCitronPathImpl(citron_path, new_path);
     }
 
-    std::unordered_map<YuzuPath, fs::path> citron_paths;
+    std::unordered_map<CitronPath, fs::path> citron_paths;
 };
 
 bool ValidatePath(const fs::path& path) {
@@ -230,22 +230,22 @@ void SetAppDirectory(const std::string& app_directory) {
     PathManagerImpl::GetInstance().Reinitialize(app_directory);
 }
 
-const fs::path& GetYuzuPath(YuzuPath citron_path) {
-    return PathManagerImpl::GetInstance().GetYuzuPathImpl(citron_path);
+const fs::path& GetCitronPath(CitronPath citron_path) {
+    return PathManagerImpl::GetInstance().GetCitronPathImpl(citron_path);
 }
 
-std::string GetYuzuPathString(YuzuPath citron_path) {
-    return PathToUTF8String(GetYuzuPath(citron_path));
+std::string GetCitronPathString(CitronPath citron_path) {
+    return PathToUTF8String(GetCitronPath(citron_path));
 }
 
-void SetYuzuPath(YuzuPath citron_path, const fs::path& new_path) {
+void SetCitronPath(CitronPath citron_path, const fs::path& new_path) {
     if (!FS::IsDir(new_path)) {
         LOG_ERROR(Common_Filesystem, "Filesystem object at new_path={} is not a directory",
                   PathToUTF8String(new_path));
         return;
     }
 
-    PathManagerImpl::GetInstance().SetYuzuPathImpl(citron_path, new_path);
+    PathManagerImpl::GetInstance().SetCitronPathImpl(citron_path, new_path);
 }
 
 #ifdef _WIN32
