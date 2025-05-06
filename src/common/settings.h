@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: Copyright 2021 yuzu Emulator Project
+// SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #pragma once
@@ -609,8 +610,8 @@ struct Values {
                                            Category::Network};
 
     // WebService
-    Setting<bool> enable_telemetry{linkage, true, "enable_telemetry", Category::WebService};
-    Setting<std::string> web_api_url{linkage, "https://api.citron-emu.org", "web_api_url",
+    Setting<bool> enable_telemetry{linkage, false, "enable_telemetry", Category::WebService};
+    Setting<std::string> web_api_url{linkage, "https://api.ynet-fun.xyz", "web_api_url",
                                      Category::WebService};
     Setting<std::string> citron_username{linkage, std::string(), "citron_username",
                                        Category::WebService};
