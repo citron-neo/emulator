@@ -197,7 +197,7 @@ void ConfigureInputAdvanced::UpdateUIEnabled() {
     ui->debug_configure->setEnabled(ui->debug_enabled->isChecked());
     ui->touchscreen_advanced->setEnabled(ui->touchscreen_enabled->isChecked());
     ui->ring_controller_configure->setEnabled(ui->enable_ring_controller->isChecked());
-#if QT_VERSION > QT_VERSION_CHECK(6, 0, 0) || !defined(YUZU_USE_QT_MULTIMEDIA)
+#if QT_VERSION > QT_VERSION_CHECK(6, 0, 0) || !defined(CITRON_USE_QT_MULTIMEDIA)
     ui->enable_ir_sensor->setEnabled(false);
     ui->camera_configure->setEnabled(false);
 #endif

@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: Copyright 2020 yuzu Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
-#ifdef YUZU_USE_QT_WEB_ENGINE
+#ifdef CITRON_USE_QT_WEB_ENGINE
 
 #include "citron/util/url_request_interceptor.h"
 

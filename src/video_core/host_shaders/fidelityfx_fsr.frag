@@ -39,7 +39,7 @@ layout(set=0,binding=0) uniform sampler2D InputTexture;
 #define A_GLSL 1
 #define FSR_RCAS_PASSTHROUGH_ALPHA 1
 
-#ifndef YUZU_USE_FP16
+#ifndef CITRON_USE_FP16
     #include "ffx_a.h"
 
     #if USE_EASU
@@ -77,7 +77,7 @@ layout (location = 0) out vec4 frag_color;
 
 void CurrFilter(AU2 pos) {
 #if USE_EASU
-    #ifndef YUZU_USE_FP16
+    #ifndef CITRON_USE_FP16
         AF3 c;
         FsrEasuF(c, pos, Const0, Const1, Const2, Const3);
         frag_color = AF4(c, texture(InputTexture, frag_texcoord).a);
@@ -88,7 +88,7 @@ void CurrFilter(AU2 pos) {
     #endif
 #endif
 #if USE_RCAS
-    #ifndef YUZU_USE_FP16
+    #ifndef CITRON_USE_FP16
         AF4 c;
         FsrRcasF(c.r, c.g, c.b, c.a, pos, Const0);
         frag_color = c;

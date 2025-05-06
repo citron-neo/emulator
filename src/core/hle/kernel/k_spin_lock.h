@@ -14,8 +14,8 @@ class KSpinLock {
 public:
     explicit KSpinLock() = default;
 
-    YUZU_NON_COPYABLE(KSpinLock);
-    YUZU_NON_MOVEABLE(KSpinLock);
+    CITRON_NON_COPYABLE(KSpinLock);
+    CITRON_NON_MOVEABLE(KSpinLock);
 
     void Lock();
     void Unlock();

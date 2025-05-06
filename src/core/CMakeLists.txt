@@ -1233,11 +1233,11 @@ else()
         hle/service/ssl/ssl_backend_none.cpp)
 endif()
 
-if (YUZU_USE_PRECOMPILED_HEADERS)
+if (CITRON_USE_PRECOMPILED_HEADERS)
     target_precompile_headers(core PRIVATE precompiled_headers.h)
 endif()
 
-if (YUZU_ENABLE_LTO)
+if (CITRON_ENABLE_LTO)
   set_property(TARGET core PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
 endif()
 

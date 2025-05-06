@@ -163,7 +163,7 @@ static FileSys::VirtualFile VfsDirectoryCreateFileWrapper(const FileSys::Virtual
 #include "citron/util/clickable_label.h"
 #include "citron/vk_device_info.h"
 
-#ifdef YUZU_CRASH_DUMPS
+#ifdef CITRON_CRASH_DUMPS
 #include "citron/breakpad.h"
 #endif
 
@@ -848,7 +848,7 @@ void GMainWindow::SoftwareKeyboardExit() {
 
 void GMainWindow::WebBrowserOpenWebPage(const std::string& main_url,
                                         const std::string& additional_args, bool is_local) {
-#ifdef YUZU_USE_QT_WEB_ENGINE
+#ifdef CITRON_USE_QT_WEB_ENGINE
 
     // Raw input breaks with the web applet, Disable web applets if enabled
     if (UISettings::values.disable_web_applet || Settings::values.enable_raw_input) {
@@ -989,7 +989,7 @@ void GMainWindow::WebBrowserOpenWebPage(const std::string& main_url,
 }
 
 void GMainWindow::WebBrowserRequestExit() {
-#ifdef YUZU_USE_QT_WEB_ENGINE
+#ifdef CITRON_USE_QT_WEB_ENGINE
     if (web_applet) {
         web_applet->SetExitReason(Service::AM::Frontend::WebExitReason::ExitRequested);
         web_applet->SetFinished(true);
@@ -998,7 +998,7 @@ void GMainWindow::WebBrowserRequestExit() {
 }
 
 void GMainWindow::InitializeWidgets() {
-#ifdef YUZU_ENABLE_COMPATIBILITY_REPORTING
+#ifdef CITRON_ENABLE_COMPATIBILITY_REPORTING
     ui->action_Report_Compatibility->setVisible(true);
 #endif
     render_window = new GRenderWindow(this, emu_thread.get(), input_subsystem, *system);
@@ -5258,7 +5258,7 @@ int main(int argc, char* argv[]) {
         return 0;
     }
 
-#ifdef YUZU_CRASH_DUMPS
+#ifdef CITRON_CRASH_DUMPS
     Breakpad::InstallCrashHandler();
 #endif
 

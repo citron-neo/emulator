@@ -152,7 +152,7 @@ NvResult nvhost_as_gpu::AllocateSpace(IoctlAllocSpace& params) {
         return NvResult::BadValue;
     }
 
-    if (params.page_size != VM::YUZU_PAGESIZE && params.page_size != vm.big_page_size) {
+    if (params.page_size != VM::CITRON_PAGESIZE && params.page_size != vm.big_page_size) {
         return NvResult::BadValue;
     }
 
@@ -162,10 +162,10 @@ NvResult nvhost_as_gpu::AllocateSpace(IoctlAllocSpace& params) {
         return NvResult::NotImplemented;
     }
 
-    const u32 page_size_bits{params.page_size == VM::YUZU_PAGESIZE ? VM::PAGE_SIZE_BITS
+    const u32 page_size_bits{params.page_size == VM::CITRON_PAGESIZE ? VM::PAGE_SIZE_BITS
                                                                    : vm.big_page_size_bits};
 
-    auto& allocator{params.page_size == VM::YUZU_PAGESIZE ? *vm.small_page_allocator
+    auto& allocator{params.page_size == VM::CITRON_PAGESIZE ? *vm.small_page_allocator
                                                           : *vm.big_page_allocator};
 
     if ((params.flags & MappingFlags::Fixed) != MappingFlags::None) {
@@ -189,7 +189,7 @@ NvResult nvhost_as_gpu::AllocateSpace(IoctlAllocSpace& params) {
         .mappings{},
         .page_size = params.page_size,
         .sparse = (params.flags & MappingFlags::Sparse) != MappingFlags::None,
-        .big_pages = params.page_size != VM::YUZU_PAGESIZE,
+        .big_pages = params.page_size != VM::CITRON_PAGESIZE,
     };
 
     return NvResult::Success;
@@ -201,7 +201,7 @@ void nvhost_as_gpu::FreeMappingLocked(u64 offset) {
     if (!mapping->fixed) {
         auto& allocator{mapping->big_page ? *vm.big_page_allocator : *vm.small_page_allocator};
         u32 page_size_bits{mapping->big_page ? vm.big_page_size_bits : VM::PAGE_SIZE_BITS};
-        u32 page_size{mapping->big_page ? vm.big_page_size : VM::YUZU_PAGESIZE};
+        u32 page_size{mapping->big_page ? vm.big_page_size : VM::CITRON_PAGESIZE};
         u64 aligned_size{Common::AlignUp(mapping->size, page_size)};
 
         allocator.Free(static_cast<u32>(mapping->offset >> page_size_bits),
@@ -248,9 +248,9 @@ NvResult nvhost_as_gpu::FreeSpace(IoctlFreeSpace& params) {
             gmmu->Unmap(params.offset, allocation.size);
         }
 
-        auto& allocator{params.page_size == VM::YUZU_PAGESIZE ? *vm.small_page_allocator
+        auto& allocator{params.page_size == VM::CITRON_PAGESIZE ? *vm.small_page_allocator
                                                               : *vm.big_page_allocator};
-        u32 page_size_bits{params.page_size == VM::YUZU_PAGESIZE ? VM::PAGE_SIZE_BITS
+        u32 page_size_bits{params.page_size == VM::CITRON_PAGESIZE ? VM::PAGE_SIZE_BITS
                                                                  : vm.big_page_size_bits};
 
         allocator.Free(static_cast<u32>(params.offset >> page_size_bits),
@@ -360,7 +360,7 @@ NvResult nvhost_as_gpu::MapBufferEx(IoctlMapBufferEx& params) {
     bool big_page{[&]() {
         if (Common::IsAligned(handle->align, vm.big_page_size)) {
             return true;
-        } else if (Common::IsAligned(handle->align, VM::YUZU_PAGESIZE)) {
+        } else if (Common::IsAligned(handle->align, VM::CITRON_PAGESIZE)) {
             return false;
         } else {
             ASSERT(false);
@@ -387,7 +387,7 @@ NvResult nvhost_as_gpu::MapBufferEx(IoctlMapBufferEx& params) {
         mapping_map[params.offset] = mapping;
     } else {
         auto& allocator{big_page ? *vm.big_page_allocator : *vm.small_page_allocator};
-        u32 page_size{big_page ? vm.big_page_size : VM::YUZU_PAGESIZE};
+        u32 page_size{big_page ? vm.big_page_size : VM::CITRON_PAGESIZE};
         u32 page_size_bits{big_page ? vm.big_page_size_bits : VM::PAGE_SIZE_BITS};
 
         params.offset = static_cast<u64>(allocator.Allocate(
@@ -461,7 +461,7 @@ void nvhost_as_gpu::GetVARegionsImpl(IoctlGetVaRegions& params) {
     params.regions = std::array<VaRegion, 2>{
         VaRegion{
             .offset = vm.small_page_allocator->GetVAStart() << VM::PAGE_SIZE_BITS,
-            .page_size = VM::YUZU_PAGESIZE,
+            .page_size = VM::CITRON_PAGESIZE,
             ._pad0_{},
             .pages = vm.small_page_allocator->GetVALimit() - vm.small_page_allocator->GetVAStart(),
         },

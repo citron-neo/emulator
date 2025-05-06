@@ -8,7 +8,7 @@
 
 #include <QObject>
 
-#ifdef YUZU_USE_QT_WEB_ENGINE
+#ifdef CITRON_USE_QT_WEB_ENGINE
 #include <QWebEngineView>
 #endif
 
@@ -30,7 +30,7 @@ namespace InputCommon {
 class InputSubsystem;
 }
 
-#ifdef YUZU_USE_QT_WEB_ENGINE
+#ifdef CITRON_USE_QT_WEB_ENGINE
 
 enum class UserAgent {
     WebApplet,

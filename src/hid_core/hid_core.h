@@ -21,8 +21,8 @@ public:
     explicit HIDCore();
     ~HIDCore();
 
-    YUZU_NON_COPYABLE(HIDCore);
-    YUZU_NON_MOVEABLE(HIDCore);
+    CITRON_NON_COPYABLE(HIDCore);
+    CITRON_NON_MOVEABLE(HIDCore);
 
     EmulatedController* GetEmulatedController(NpadIdType npad_id_type);
     const EmulatedController* GetEmulatedController(NpadIdType npad_id_type) const;

@@ -5,7 +5,7 @@
 
 // citron data directories
 
-#define YUZU_DIR "citron"
+#define CITRON_DIR "citron"
 #define PORTABLE_DIR "user"
 
 // Sub-directories contained within a citron data directory

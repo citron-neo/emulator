@@ -3,7 +3,7 @@
 
 #pragma once
 
-#ifdef YUZU_USE_QT_WEB_ENGINE
+#ifdef CITRON_USE_QT_WEB_ENGINE
 
 #include <QObject>
 #include <QWebEngineUrlRequestInterceptor>

@@ -161,6 +161,6 @@ endif()
 create_target_directory_groups(hid_core)
 target_link_libraries(hid_core PUBLIC core)
 
-if (YUZU_USE_PRECOMPILED_HEADERS)
+if (CITRON_USE_PRECOMPILED_HEADERS)
     target_precompile_headers(hid_core PRIVATE precompiled_headers.h)
 endif()

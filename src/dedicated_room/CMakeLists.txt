@@ -23,7 +23,7 @@ if(UNIX AND NOT APPLE)
     install(TARGETS citron-room)
 endif()
 
-if (YUZU_USE_PRECOMPILED_HEADERS)
+if (CITRON_USE_PRECOMPILED_HEADERS)
     target_precompile_headers(citron-room PRIVATE precompiled_headers.h)
 endif()
 

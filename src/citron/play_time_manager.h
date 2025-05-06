@@ -26,8 +26,8 @@ public:
     explicit PlayTimeManager(Service::Account::ProfileManager& profile_manager);
     ~PlayTimeManager();
 
-    YUZU_NON_COPYABLE(PlayTimeManager);
-    YUZU_NON_MOVEABLE(PlayTimeManager);
+    CITRON_NON_COPYABLE(PlayTimeManager);
+    CITRON_NON_MOVEABLE(PlayTimeManager);
 
     u64 GetPlayTime(u64 program_id) const;
     void ResetProgramPlayTime(u64 program_id);

@@ -262,7 +262,7 @@ if (ANDROID)
     target_compile_definitions(audio_core PRIVATE HAVE_OBOE)
 endif()
 
-if (YUZU_USE_PRECOMPILED_HEADERS)
+if (CITRON_USE_PRECOMPILED_HEADERS)
     target_precompile_headers(audio_core PRIVATE precompiled_headers.h)
 endif()
 

@@ -228,10 +228,10 @@ struct ProcessContext {
         R_UNLESS(bss_size == expected_bss_size, RO::ResultInvalidNro);
 
         // Validate all sizes are aligned.
-        R_UNLESS(Common::IsAligned(text_size, Core::Memory::YUZU_PAGESIZE), RO::ResultInvalidNro);
-        R_UNLESS(Common::IsAligned(ro_size, Core::Memory::YUZU_PAGESIZE), RO::ResultInvalidNro);
-        R_UNLESS(Common::IsAligned(rw_size, Core::Memory::YUZU_PAGESIZE), RO::ResultInvalidNro);
-        R_UNLESS(Common::IsAligned(bss_size, Core::Memory::YUZU_PAGESIZE), RO::ResultInvalidNro);
+        R_UNLESS(Common::IsAligned(text_size, Core::Memory::CITRON_PAGESIZE), RO::ResultInvalidNro);
+        R_UNLESS(Common::IsAligned(ro_size, Core::Memory::CITRON_PAGESIZE), RO::ResultInvalidNro);
+        R_UNLESS(Common::IsAligned(rw_size, Core::Memory::CITRON_PAGESIZE), RO::ResultInvalidNro);
+        R_UNLESS(Common::IsAligned(bss_size, Core::Memory::CITRON_PAGESIZE), RO::ResultInvalidNro);
 
         // Validate sections are in order.
         R_UNLESS(text_ofs <= ro_ofs, RO::ResultInvalidNro);
@@ -286,16 +286,16 @@ private:
 };
 
 Result ValidateAddressAndNonZeroSize(u64 address, u64 size) {
-    R_UNLESS(Common::IsAligned(address, Core::Memory::YUZU_PAGESIZE), RO::ResultInvalidAddress);
+    R_UNLESS(Common::IsAligned(address, Core::Memory::CITRON_PAGESIZE), RO::ResultInvalidAddress);
     R_UNLESS(size != 0, RO::ResultInvalidSize);
-    R_UNLESS(Common::IsAligned(size, Core::Memory::YUZU_PAGESIZE), RO::ResultInvalidSize);
+    R_UNLESS(Common::IsAligned(size, Core::Memory::CITRON_PAGESIZE), RO::ResultInvalidSize);
     R_UNLESS(address < address + size, RO::ResultInvalidSize);
     R_SUCCEED();
 }
 
 Result ValidateAddressAndSize(u64 address, u64 size) {
-    R_UNLESS(Common::IsAligned(address, Core::Memory::YUZU_PAGESIZE), RO::ResultInvalidAddress);
-    R_UNLESS(Common::IsAligned(size, Core::Memory::YUZU_PAGESIZE), RO::ResultInvalidSize);
+    R_UNLESS(Common::IsAligned(address, Core::Memory::CITRON_PAGESIZE), RO::ResultInvalidAddress);
+    R_UNLESS(Common::IsAligned(size, Core::Memory::CITRON_PAGESIZE), RO::ResultInvalidSize);
     R_UNLESS(size == 0 || address < address + size, RO::ResultInvalidSize);
     R_SUCCEED();
 }
@@ -369,7 +369,7 @@ public:
         ASSERT(context != nullptr);
 
         // Validate address.
-        R_UNLESS(Common::IsAligned(nrr_address, Core::Memory::YUZU_PAGESIZE),
+        R_UNLESS(Common::IsAligned(nrr_address, Core::Memory::CITRON_PAGESIZE),
                  RO::ResultInvalidAddress);
 
         // Check the NRR is loaded.
@@ -436,7 +436,7 @@ public:
         ASSERT(context != nullptr);
 
         // Validate address.
-        R_UNLESS(Common::IsAligned(nro_address, Core::Memory::YUZU_PAGESIZE),
+        R_UNLESS(Common::IsAligned(nro_address, Core::Memory::CITRON_PAGESIZE),
                  RO::ResultInvalidAddress);
 
         // Check the NRO is loaded.

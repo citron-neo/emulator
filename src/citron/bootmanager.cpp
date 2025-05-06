@@ -13,7 +13,7 @@
 #include <QtCore/qglobal.h>
 #include "common/settings_enums.h"
 #include "uisettings.h"
-#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0)) && YUZU_USE_QT_MULTIMEDIA
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0)) && CITRON_USE_QT_MULTIMEDIA
 #include <QCamera>
 #include <QCameraImageCapture>
 #include <QCameraInfo>
@@ -760,7 +760,7 @@ void GRenderWindow::TouchEndEvent() {
 }
 
 void GRenderWindow::InitializeCamera() {
-#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0)) && YUZU_USE_QT_MULTIMEDIA
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0)) && CITRON_USE_QT_MULTIMEDIA
     constexpr auto camera_update_ms = std::chrono::milliseconds{50}; // (50ms, 20Hz)
     if (!Settings::values.enable_ir_sensor) {
         return;
@@ -821,7 +821,7 @@ void GRenderWindow::InitializeCamera() {
 }
 
 void GRenderWindow::FinalizeCamera() {
-#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0)) && YUZU_USE_QT_MULTIMEDIA
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0)) && CITRON_USE_QT_MULTIMEDIA
     if (camera_timer) {
         camera_timer->stop();
     }
@@ -832,7 +832,7 @@ void GRenderWindow::FinalizeCamera() {
 }
 
 void GRenderWindow::RequestCameraCapture() {
-#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0)) && YUZU_USE_QT_MULTIMEDIA
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0)) && CITRON_USE_QT_MULTIMEDIA
     if (!Settings::values.enable_ir_sensor) {
         return;
     }
@@ -853,7 +853,7 @@ void GRenderWindow::RequestCameraCapture() {
 }
 
 void GRenderWindow::OnCameraCapture(int requestId, const QImage& img) {
-#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0)) && YUZU_USE_QT_MULTIMEDIA
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0)) && CITRON_USE_QT_MULTIMEDIA
     // TODO: Capture directly in the format and resolution needed
     const auto camera_width = input_subsystem->GetCamera()->getImageWidth();
     const auto camera_height = input_subsystem->GetCamera()->getImageHeight();

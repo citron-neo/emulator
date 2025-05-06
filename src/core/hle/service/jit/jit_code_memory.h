@@ -11,7 +11,7 @@ namespace Service::JIT {
 
 class CodeMemory {
 public:
-    YUZU_NON_COPYABLE(CodeMemory);
+    CITRON_NON_COPYABLE(CodeMemory);
 
     explicit CodeMemory() = default;
 

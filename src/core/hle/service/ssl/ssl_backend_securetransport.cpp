@@ -23,7 +23,7 @@ template <typename T>
 struct CFReleaser {
     T ptr;
 
-    YUZU_NON_COPYABLE(CFReleaser);
+    CITRON_NON_COPYABLE(CFReleaser);
     constexpr CFReleaser() : ptr(nullptr) {}
     constexpr CFReleaser(T ptr) : ptr(ptr) {}
     constexpr operator T() {

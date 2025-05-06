@@ -253,8 +253,8 @@ private:
             return cache_begin < addr_end && addr_begin < cache_end;
         };
 
-        const u64 page_end = addr_end >> YUZU_PAGEBITS;
-        for (u64 page = addr_begin >> YUZU_PAGEBITS; page <= page_end; ++page) {
+        const u64 page_end = addr_end >> CITRON_PAGEBITS;
+        for (u64 page = addr_begin >> CITRON_PAGEBITS; page <= page_end; ++page) {
             const auto& it = cached_queries.find(page);
             if (it == std::end(cached_queries)) {
                 continue;
@@ -281,14 +281,14 @@ private:
 
     /// Registers the passed parameters as cached and returns a pointer to the stored cached query.
     CachedQuery* Register(VideoCore::QueryType type, VAddr cpu_addr, u8* host_ptr, bool timestamp) {
-        const u64 page = static_cast<u64>(cpu_addr) >> YUZU_PAGEBITS;
+        const u64 page = static_cast<u64>(cpu_addr) >> CITRON_PAGEBITS;
         return &cached_queries[page].emplace_back(static_cast<QueryCache&>(*this), type, cpu_addr,
                                                   host_ptr);
     }
 
     /// Tries to a get a cached query. Returns nullptr on failure.
     CachedQuery* TryGet(VAddr addr) {
-        const u64 page = static_cast<u64>(addr) >> YUZU_PAGEBITS;
+        const u64 page = static_cast<u64>(addr) >> CITRON_PAGEBITS;
         const auto it = cached_queries.find(page);
         if (it == std::end(cached_queries)) {
             return nullptr;
@@ -338,8 +338,8 @@ private:
         rasterizer.SyncOperation(std::move(operation));
     }
 
-    static constexpr std::uintptr_t YUZU_PAGESIZE = 4096;
-    static constexpr unsigned YUZU_PAGEBITS = 12;
+    static constexpr std::uintptr_t CITRON_PAGESIZE = 4096;
+    static constexpr unsigned CITRON_PAGEBITS = 12;
 
     Common::SlotVector<AsyncJob> slot_async_jobs;
 

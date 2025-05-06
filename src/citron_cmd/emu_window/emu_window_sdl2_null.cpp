@@ -12,7 +12,7 @@
 #include "video_core/renderer_null/renderer_null.h"
 #include "citron_cmd/emu_window/emu_window_sdl2_null.h"
 
-#ifdef YUZU_USE_EXTERNAL_SDL2
+#ifdef CITRON_USE_EXTERNAL_SDL2
 // Include this before SDL.h to prevent the external from including a dummy
 #define USING_GENERATED_CONFIG_H
 #include <SDL_config.h>

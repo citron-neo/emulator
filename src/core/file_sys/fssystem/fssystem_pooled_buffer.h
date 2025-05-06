@@ -16,7 +16,7 @@ constexpr inline size_t BufferPoolAlignment = 4_KiB;
 constexpr inline size_t BufferPoolWorkSize = 320;
 
 class PooledBuffer {
-    YUZU_NON_COPYABLE(PooledBuffer);
+    CITRON_NON_COPYABLE(PooledBuffer);
 
 public:
     // Constructor/Destructor.

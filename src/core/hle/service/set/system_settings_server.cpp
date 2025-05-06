@@ -932,7 +932,7 @@ Result ISystemSettingsServer::SetPrimaryAlbumStorage(PrimaryAlbumStorage primary
 Result ISystemSettingsServer::GetBatteryLot(Out<BatteryLot> out_battery_lot) {
     LOG_INFO(Service_SET, "called");
 
-    *out_battery_lot = {"YUZU0EMULATOR14022024"};
+    *out_battery_lot = {"CITRON0EMULATOR14022024"};
     R_SUCCEED();
 }
 

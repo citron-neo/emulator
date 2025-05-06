@@ -75,7 +75,7 @@ void ConfigureDebug::SetConfiguration() {
     ui->extended_logging->setChecked(Settings::values.extended_logging.GetValue());
     ui->perform_vulkan_check->setChecked(Settings::values.perform_vulkan_check.GetValue());
 
-#ifdef YUZU_USE_QT_WEB_ENGINE
+#ifdef CITRON_USE_QT_WEB_ENGINE
     ui->disable_web_applet->setChecked(UISettings::values.disable_web_applet.GetValue());
 #else
     ui->disable_web_applet->setEnabled(false);

@@ -261,7 +261,7 @@ private:
     bool first_frame = false;
     InputCommon::TasInput::TasState last_tas_state;
 
-#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0)) && YUZU_USE_QT_MULTIMEDIA
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0)) && CITRON_USE_QT_MULTIMEDIA
     bool is_virtual_camera;
     int pending_camera_snapshots;
     std::vector<u32> camera_data;

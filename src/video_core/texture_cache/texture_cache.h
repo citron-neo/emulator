@@ -732,7 +732,7 @@ template <class P>
 std::pair<typename P::ImageView*, bool> TextureCache<P>::TryFindFramebufferImageView(
     const Tegra::FramebufferConfig& config, DAddr cpu_addr) {
     // TODO: Properly implement this
-    const auto it = page_table.find(cpu_addr >> YUZU_PAGEBITS);
+    const auto it = page_table.find(cpu_addr >> CITRON_PAGEBITS);
     if (it == page_table.end()) {
         return {};
     }
@@ -2039,14 +2039,14 @@ void TextureCache<P>::UnregisterImage(ImageId image_id) {
                        selected_page_table) {
             const auto page_it = selected_page_table.find(page);
             if (page_it == selected_page_table.end()) {
-                ASSERT_MSG(false, "Unregistering unregistered page=0x{:x}", page << YUZU_PAGEBITS);
+                ASSERT_MSG(false, "Unregistering unregistered page=0x{:x}", page << CITRON_PAGEBITS);
                 return;
             }
             std::vector<ImageId>& image_ids = page_it->second;
             const auto vector_it = std::ranges::find(image_ids, image_id);
             if (vector_it == image_ids.end()) {
                 ASSERT_MSG(false, "Unregistering unregistered image in page=0x{:x}",
-                           page << YUZU_PAGEBITS);
+                           page << CITRON_PAGEBITS);
                 return;
             }
             image_ids.erase(vector_it);
@@ -2059,14 +2059,14 @@ void TextureCache<P>::UnregisterImage(ImageId image_id) {
         ForEachCPUPage(image.cpu_addr, image.guest_size_bytes, [this, map_id](u64 page) {
             const auto page_it = page_table.find(page);
             if (page_it == page_table.end()) {
-                ASSERT_MSG(false, "Unregistering unregistered page=0x{:x}", page << YUZU_PAGEBITS);
+                ASSERT_MSG(false, "Unregistering unregistered page=0x{:x}", page << CITRON_PAGEBITS);
                 return;
             }
             std::vector<ImageMapId>& image_map_ids = page_it->second;
             const auto vector_it = std::ranges::find(image_map_ids, map_id);
             if (vector_it == image_map_ids.end()) {
                 ASSERT_MSG(false, "Unregistering unregistered image in page=0x{:x}",
-                           page << YUZU_PAGEBITS);
+                           page << CITRON_PAGEBITS);
                 return;
             }
             image_map_ids.erase(vector_it);
@@ -2087,7 +2087,7 @@ void TextureCache<P>::UnregisterImage(ImageId image_id) {
         ForEachCPUPage(cpu_addr, size, [this, image_id](u64 page) {
             const auto page_it = page_table.find(page);
             if (page_it == page_table.end()) {
-                ASSERT_MSG(false, "Unregistering unregistered page=0x{:x}", page << YUZU_PAGEBITS);
+                ASSERT_MSG(false, "Unregistering unregistered page=0x{:x}", page << CITRON_PAGEBITS);
                 return;
             }
             std::vector<ImageMapId>& image_map_ids = page_it->second;

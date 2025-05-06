@@ -3,7 +3,7 @@
 
 #include <memory>
 #include <QtCore>
-#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0)) && YUZU_USE_QT_MULTIMEDIA
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0)) && CITRON_USE_QT_MULTIMEDIA
 #include <QCameraImageCapture>
 #include <QCameraInfo>
 #endif
@@ -36,7 +36,7 @@ ConfigureCamera::ConfigureCamera(QWidget* parent, InputCommon::InputSubsystem* i
 ConfigureCamera::~ConfigureCamera() = default;
 
 void ConfigureCamera::PreviewCamera() {
-#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0)) && YUZU_USE_QT_MULTIMEDIA
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0)) && CITRON_USE_QT_MULTIMEDIA
     const auto index = ui->ir_sensor_combo_box->currentIndex();
     bool camera_found = false;
     const QList<QCameraInfo> cameras = QCameraInfo::availableCameras();
@@ -138,7 +138,7 @@ void ConfigureCamera::LoadConfiguration() {
     ui->ir_sensor_combo_box->clear();
     input_devices.push_back("Auto");
     ui->ir_sensor_combo_box->addItem(tr("Auto"));
-#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0)) && YUZU_USE_QT_MULTIMEDIA
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0)) && CITRON_USE_QT_MULTIMEDIA
     const auto cameras = QCameraInfo::availableCameras();
     for (const QCameraInfo& cameraInfo : cameras) {
         input_devices.push_back(cameraInfo.deviceName().toStdString());

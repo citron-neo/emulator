@@ -13,7 +13,7 @@
 
 #ifdef _WIN32
 #include <winsock2.h>
-#elif YUZU_UNIX
+#elif CITRON_UNIX
 #include <netinet/in.h>
 #endif
 
@@ -104,7 +104,7 @@ constexpr IPv4Address TranslateIPv4(in_addr addr) {
     auto& bytes = addr.S_un.S_un_b;
     return IPv4Address{bytes.s_b1, bytes.s_b2, bytes.s_b3, bytes.s_b4};
 }
-#elif YUZU_UNIX
+#elif CITRON_UNIX
 constexpr IPv4Address TranslateIPv4(in_addr addr) {
     const u32 bytes = addr.s_addr;
     return IPv4Address{static_cast<u8>(bytes), static_cast<u8>(bytes >> 8),

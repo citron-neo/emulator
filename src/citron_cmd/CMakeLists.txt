@@ -58,7 +58,7 @@ if (MSVC)
     copy_citron_SDL_deps(citron-cmd)
 endif()
 
-if (YUZU_USE_PRECOMPILED_HEADERS)
+if (CITRON_USE_PRECOMPILED_HEADERS)
     target_precompile_headers(citron-cmd PRIVATE precompiled_headers.h)
 endif()
 

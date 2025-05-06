@@ -8,7 +8,7 @@ set(CMAKE_INCLUDE_CURRENT_DIR ON)
 
 # Set the RPATH for Qt Libraries
 # This must be done before the `citron` target is created
-if (YUZU_USE_BUNDLED_QT AND (${CMAKE_SYSTEM_NAME} STREQUAL "Linux"))
+if (CITRON_USE_BUNDLED_QT AND (${CMAKE_SYSTEM_NAME} STREQUAL "Linux"))
     set(CMAKE_BUILD_RPATH "${CMAKE_BINARY_DIR}/bin/lib/")
 endif()
 
@@ -233,14 +233,14 @@ add_executable(citron
     citron.rc
 )
 
-if (YUZU_CRASH_DUMPS)
+if (CITRON_CRASH_DUMPS)
     target_sources(citron PRIVATE
         breakpad.cpp
         breakpad.h
     )
 
     target_link_libraries(citron PRIVATE libbreakpad_client)
-    target_compile_definitions(citron PRIVATE YUZU_CRASH_DUMPS)
+    target_compile_definitions(citron PRIVATE CITRON_CRASH_DUMPS)
 endif()
 
 if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
@@ -256,7 +256,7 @@ file(GLOB_RECURSE ICONS ${PROJECT_SOURCE_DIR}/dist/icons/*)
 file(GLOB_RECURSE THEMES ${PROJECT_SOURCE_DIR}/dist/qt_themes/*)
 
 if (ENABLE_QT_TRANSLATION)
-    set(YUZU_QT_LANGUAGES "${PROJECT_SOURCE_DIR}/dist/languages" CACHE PATH "Path to the translation bundle for the Qt frontend")
+    set(CITRON_QT_LANGUAGES "${PROJECT_SOURCE_DIR}/dist/languages" CACHE PATH "Path to the translation bundle for the Qt frontend")
     option(GENERATE_QT_TRANSLATION "Generate en.ts as the translation source file" OFF)
     option(WORKAROUND_BROKEN_LUPDATE "Run lupdate directly through CMake if Qt's convenience wrappers don't work" OFF)
 
@@ -265,15 +265,15 @@ if (ENABLE_QT_TRANSLATION)
         get_target_property(SRCS citron SOURCES)
         # these calls to qt_create_translation also creates a rule to generate en.qm which conflicts with providing english plurals
         # so we have to set a OUTPUT_LOCATION so that we don't have multiple rules to generate en.qm
-        set_source_files_properties(${YUZU_QT_LANGUAGES}/en.ts PROPERTIES OUTPUT_LOCATION "${CMAKE_CURRENT_BINARY_DIR}/translations")
+        set_source_files_properties(${CITRON_QT_LANGUAGES}/en.ts PROPERTIES OUTPUT_LOCATION "${CMAKE_CURRENT_BINARY_DIR}/translations")
         if (WORKAROUND_BROKEN_LUPDATE)
-            add_custom_command(OUTPUT ${YUZU_QT_LANGUAGES}/en.ts
+            add_custom_command(OUTPUT ${CITRON_QT_LANGUAGES}/en.ts
                 COMMAND lupdate
                     -source-language en_US
                     -target-language en_US
                     ${SRCS}
                     ${UIS}
-                    -ts ${YUZU_QT_LANGUAGES}/en.ts
+                    -ts ${CITRON_QT_LANGUAGES}/en.ts
                 DEPENDS
                     ${SRCS}
                     ${UIS}
@@ -284,7 +284,7 @@ if (ENABLE_QT_TRANSLATION)
             qt_create_translation(QM_FILES
                 ${SRCS}
                 ${UIS}
-                ${YUZU_QT_LANGUAGES}/en.ts
+                ${CITRON_QT_LANGUAGES}/en.ts
             OPTIONS
                 -source-language en_US
                 -target-language en_US
@@ -312,12 +312,12 @@ if (ENABLE_QT_TRANSLATION)
             qt_create_translation(QM_FILES ${SRCS} ${UIS} ${GENERATED_PLURALS_FILE} OPTIONS -pluralonly -source-language en_US -target-language en_US)
         endif()
 
-        add_custom_target(translation ALL DEPENDS ${YUZU_QT_LANGUAGES}/en.ts ${GENERATED_PLURALS_FILE})
+        add_custom_target(translation ALL DEPENDS ${CITRON_QT_LANGUAGES}/en.ts ${GENERATED_PLURALS_FILE})
     endif()
 
     # Find all TS files except en.ts
-    file(GLOB_RECURSE LANGUAGES_TS ${YUZU_QT_LANGUAGES}/*.ts)
-    list(REMOVE_ITEM LANGUAGES_TS ${YUZU_QT_LANGUAGES}/en.ts)
+    file(GLOB_RECURSE LANGUAGES_TS ${CITRON_QT_LANGUAGES}/*.ts)
+    list(REMOVE_ITEM LANGUAGES_TS ${CITRON_QT_LANGUAGES}/en.ts)
 
     # Compile TS files to QM files
     qt_add_translation(LANGUAGES_QM ${LANGUAGES_TS})
@@ -412,8 +412,8 @@ target_compile_definitions(citron PRIVATE
     -DQT_NO_URL_CAST_FROM_STRING
 )
 
-if (YUZU_ENABLE_COMPATIBILITY_REPORTING)
-    target_compile_definitions(citron PRIVATE -DYUZU_ENABLE_COMPATIBILITY_REPORTING)
+if (CITRON_ENABLE_COMPATIBILITY_REPORTING)
+    target_compile_definitions(citron PRIVATE -DCITRON_ENABLE_COMPATIBILITY_REPORTING)
 endif()
 
 if (USE_DISCORD_PRESENCE)
@@ -429,14 +429,14 @@ if (ENABLE_WEB_SERVICE)
     target_compile_definitions(citron PRIVATE -DENABLE_WEB_SERVICE)
 endif()
 
-if (YUZU_USE_QT_MULTIMEDIA)
+if (CITRON_USE_QT_MULTIMEDIA)
     target_link_libraries(citron PRIVATE Qt${QT_MAJOR_VERSION}::Multimedia)
-    target_compile_definitions(citron PRIVATE -DYUZU_USE_QT_MULTIMEDIA)
+    target_compile_definitions(citron PRIVATE -DCITRON_USE_QT_MULTIMEDIA)
 endif ()
 
-if (YUZU_USE_QT_WEB_ENGINE)
+if (CITRON_USE_QT_WEB_ENGINE)
     target_link_libraries(citron PRIVATE Qt${QT_MAJOR_VERSION}::WebEngineCore Qt${QT_MAJOR_VERSION}::WebEngineWidgets)
-    target_compile_definitions(citron PRIVATE -DYUZU_USE_QT_WEB_ENGINE)
+    target_compile_definitions(citron PRIVATE -DCITRON_USE_QT_WEB_ENGINE)
 endif ()
 
 if(UNIX AND NOT APPLE)
@@ -444,11 +444,11 @@ if(UNIX AND NOT APPLE)
 endif()
 
 if (WIN32 AND QT_VERSION VERSION_GREATER_EQUAL 6)
-    set(YUZU_EXE_DIR "$<TARGET_FILE_DIR:citron>")
-    add_custom_command(TARGET citron POST_BUILD COMMAND ${WINDEPLOYQT_EXECUTABLE} "${YUZU_EXE_DIR}/citron.exe" --dir "${YUZU_EXE_DIR}" --libdir "${YUZU_EXE_DIR}" --plugindir "${YUZU_EXE_DIR}/plugins" --no-compiler-runtime --no-opengl-sw --no-system-d3d-compiler --no-translations --verbose 0)
+    set(CITRON_EXE_DIR "$<TARGET_FILE_DIR:citron>")
+    add_custom_command(TARGET citron POST_BUILD COMMAND ${WINDEPLOYQT_EXECUTABLE} "${CITRON_EXE_DIR}/citron.exe" --dir "${CITRON_EXE_DIR}" --libdir "${CITRON_EXE_DIR}" --plugindir "${CITRON_EXE_DIR}/plugins" --no-compiler-runtime --no-opengl-sw --no-system-d3d-compiler --no-translations --verbose 0)
 endif()
 
-if (YUZU_USE_BUNDLED_QT AND QT_VERSION VERSION_LESS 6)
+if (CITRON_USE_BUNDLED_QT AND QT_VERSION VERSION_LESS 6)
     include(CopyCitronQt5Deps)
     copy_citron_Qt5_deps(citron)
 endif()
@@ -473,7 +473,7 @@ if (ARCHITECTURE_x86_64 OR ARCHITECTURE_arm64)
     target_link_libraries(citron PRIVATE dynarmic::dynarmic)
 endif()
 
-if (YUZU_USE_PRECOMPILED_HEADERS)
+if (CITRON_USE_PRECOMPILED_HEADERS)
     target_precompile_headers(citron PRIVATE precompiled_headers.h)
 endif()
 

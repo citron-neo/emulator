@@ -7,7 +7,7 @@
 
 #extension GL_ARB_separate_shader_objects : enable
 
-#ifdef YUZU_USE_FP16
+#ifdef CITRON_USE_FP16
 
 #extension GL_AMD_gpu_shader_half_float : enable
 #extension GL_NV_gpu_shader5 : enable

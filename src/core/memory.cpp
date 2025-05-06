@@ -66,11 +66,11 @@ struct Memory::Impl {
     void MapMemoryRegion(Common::PageTable& page_table, Common::ProcessAddress base, u64 size,
                          Common::PhysicalAddress target, Common::MemoryPermission perms,
                          bool separate_heap) {
-        ASSERT_MSG((size & YUZU_PAGEMASK) == 0, "non-page aligned size: {:016X}", size);
-        ASSERT_MSG((base & YUZU_PAGEMASK) == 0, "non-page aligned base: {:016X}", GetInteger(base));
+        ASSERT_MSG((size & CITRON_PAGEMASK) == 0, "non-page aligned size: {:016X}", size);
+        ASSERT_MSG((base & CITRON_PAGEMASK) == 0, "non-page aligned base: {:016X}", GetInteger(base));
         ASSERT_MSG(target >= DramMemoryMap::Base, "Out of bounds target: {:016X}",
                    GetInteger(target));
-        MapPages(page_table, base / YUZU_PAGESIZE, size / YUZU_PAGESIZE, target,
+        MapPages(page_table, base / CITRON_PAGESIZE, size / CITRON_PAGESIZE, target,
                  Common::PageType::Memory);
 
         if (current_page_table->fastmem_arena) {
@@ -81,9 +81,9 @@ struct Memory::Impl {
 
     void UnmapRegion(Common::PageTable& page_table, Common::ProcessAddress base, u64 size,
                      bool separate_heap) {
-        ASSERT_MSG((size & YUZU_PAGEMASK) == 0, "non-page aligned size: {:016X}", size);
-        ASSERT_MSG((base & YUZU_PAGEMASK) == 0, "non-page aligned base: {:016X}", GetInteger(base));
-        MapPages(page_table, base / YUZU_PAGESIZE, size / YUZU_PAGESIZE, 0,
+        ASSERT_MSG((size & CITRON_PAGEMASK) == 0, "non-page aligned size: {:016X}", size);
+        ASSERT_MSG((base & CITRON_PAGEMASK) == 0, "non-page aligned base: {:016X}", GetInteger(base));
+        MapPages(page_table, base / CITRON_PAGESIZE, size / CITRON_PAGESIZE, 0,
                  Common::PageType::Unmapped);
 
         if (current_page_table->fastmem_arena) {
@@ -93,8 +93,8 @@ struct Memory::Impl {
 
     void ProtectRegion(Common::PageTable& page_table, VAddr vaddr, u64 size,
                        Common::MemoryPermission perms) {
-        ASSERT_MSG((size & YUZU_PAGEMASK) == 0, "non-page aligned size: {:016X}", size);
-        ASSERT_MSG((vaddr & YUZU_PAGEMASK) == 0, "non-page aligned base: {:016X}", vaddr);
+        ASSERT_MSG((size & CITRON_PAGEMASK) == 0, "non-page aligned size: {:016X}", size);
+        ASSERT_MSG((vaddr & CITRON_PAGEMASK) == 0, "non-page aligned base: {:016X}", vaddr);
 
         if (!current_page_table->fastmem_arena) {
             return;
@@ -102,9 +102,9 @@ struct Memory::Impl {
 
         u64 protect_bytes{};
         u64 protect_begin{};
-        for (u64 addr = vaddr; addr < vaddr + size; addr += YUZU_PAGESIZE) {
+        for (u64 addr = vaddr; addr < vaddr + size; addr += CITRON_PAGESIZE) {
             const Common::PageType page_type{
-                current_page_table->pointers[addr >> YUZU_PAGEBITS].Type()};
+                current_page_table->pointers[addr >> CITRON_PAGEBITS].Type()};
             switch (page_type) {
             case Common::PageType::RasterizerCachedMemory:
                 if (protect_bytes > 0) {
@@ -116,7 +116,7 @@ struct Memory::Impl {
                 if (protect_bytes == 0) {
                     protect_begin = addr;
                 }
-                protect_bytes += YUZU_PAGESIZE;
+                protect_bytes += CITRON_PAGESIZE;
             }
         }
 
@@ -127,7 +127,7 @@ struct Memory::Impl {
 
     [[nodiscard]] u8* GetPointerFromRasterizerCachedMemory(u64 vaddr) const {
         const Common::PhysicalAddress paddr{
-            current_page_table->backing_addr[vaddr >> YUZU_PAGEBITS]};
+            current_page_table->backing_addr[vaddr >> CITRON_PAGEBITS]};
 
         if (!paddr) {
             return {};
@@ -138,7 +138,7 @@ struct Memory::Impl {
 
     [[nodiscard]] u8* GetPointerFromDebugMemory(u64 vaddr) const {
         const Common::PhysicalAddress paddr{
-            current_page_table->backing_addr[vaddr >> YUZU_PAGEBITS]};
+            current_page_table->backing_addr[vaddr >> CITRON_PAGEBITS]};
 
         if (paddr == 0) {
             return {};
@@ -247,8 +247,8 @@ struct Memory::Impl {
                    auto on_memory, auto on_rasterizer, auto increment) {
         const auto& page_table = *current_page_table;
         std::size_t remaining_size = size;
-        std::size_t page_index = addr >> YUZU_PAGEBITS;
-        std::size_t page_offset = addr & YUZU_PAGEMASK;
+        std::size_t page_index = addr >> CITRON_PAGEBITS;
+        std::size_t page_offset = addr & CITRON_PAGEMASK;
         bool user_accessible = true;
 
         if (!AddressSpaceContains(page_table, addr, size)) [[unlikely]] {
@@ -258,9 +258,9 @@ struct Memory::Impl {
 
         while (remaining_size) {
             const std::size_t copy_amount =
-                std::min(static_cast<std::size_t>(YUZU_PAGESIZE) - page_offset, remaining_size);
+                std::min(static_cast<std::size_t>(CITRON_PAGESIZE) - page_offset, remaining_size);
             const auto current_vaddr =
-                static_cast<u64>((page_index << YUZU_PAGEBITS) + page_offset);
+                static_cast<u64>((page_index << CITRON_PAGEBITS) + page_offset);
 
             const auto [pointer, type] = page_table.pointers[page_index].PointerType();
             switch (type) {
@@ -271,7 +271,7 @@ struct Memory::Impl {
             }
             case Common::PageType::Memory: {
                 u8* mem_ptr =
-                    reinterpret_cast<u8*>(pointer + page_offset + (page_index << YUZU_PAGEBITS));
+                    reinterpret_cast<u8*>(pointer + page_offset + (page_index << CITRON_PAGEBITS));
                 on_memory(copy_amount, mem_ptr);
                 break;
             }
@@ -336,16 +336,16 @@ struct Memory::Impl {
     }
 
     const u8* GetSpan(const VAddr src_addr, const std::size_t size) const {
-        if (current_page_table->blocks[src_addr >> YUZU_PAGEBITS] ==
-            current_page_table->blocks[(src_addr + size) >> YUZU_PAGEBITS]) {
+        if (current_page_table->blocks[src_addr >> CITRON_PAGEBITS] ==
+            current_page_table->blocks[(src_addr + size) >> CITRON_PAGEBITS]) {
             return GetPointerSilent(src_addr);
         }
         return nullptr;
     }
 
     u8* GetSpan(const VAddr src_addr, const std::size_t size) {
-        if (current_page_table->blocks[src_addr >> YUZU_PAGEBITS] ==
-            current_page_table->blocks[(src_addr + size) >> YUZU_PAGEBITS]) {
+        if (current_page_table->blocks[src_addr >> CITRON_PAGEBITS] ==
+            current_page_table->blocks[(src_addr + size) >> CITRON_PAGEBITS]) {
             return GetPointerSilent(src_addr);
         }
         return nullptr;
@@ -499,10 +499,10 @@ struct Memory::Impl {
         // Iterate over a contiguous CPU address space, marking/unmarking the region.
         // The region is at a granularity of CPU pages.
 
-        const u64 num_pages = ((vaddr + size - 1) >> YUZU_PAGEBITS) - (vaddr >> YUZU_PAGEBITS) + 1;
-        for (u64 i = 0; i < num_pages; ++i, vaddr += YUZU_PAGESIZE) {
+        const u64 num_pages = ((vaddr + size - 1) >> CITRON_PAGEBITS) - (vaddr >> CITRON_PAGEBITS) + 1;
+        for (u64 i = 0; i < num_pages; ++i, vaddr += CITRON_PAGESIZE) {
             const Common::PageType page_type{
-                current_page_table->pointers[vaddr >> YUZU_PAGEBITS].Type()};
+                current_page_table->pointers[vaddr >> CITRON_PAGEBITS].Type()};
             if (debug) {
                 // Switch page type to debug if now debug
                 switch (page_type) {
@@ -514,7 +514,7 @@ struct Memory::Impl {
                     // Page is already marked.
                     break;
                 case Common::PageType::Memory:
-                    current_page_table->pointers[vaddr >> YUZU_PAGEBITS].Store(
+                    current_page_table->pointers[vaddr >> CITRON_PAGEBITS].Store(
                         0, Common::PageType::DebugMemory);
                     break;
                 default:
@@ -531,9 +531,9 @@ struct Memory::Impl {
                     // Don't mess with already non-debug or rasterizer memory.
                     break;
                 case Common::PageType::DebugMemory: {
-                    u8* const pointer{GetPointerFromDebugMemory(vaddr & ~YUZU_PAGEMASK)};
-                    current_page_table->pointers[vaddr >> YUZU_PAGEBITS].Store(
-                        reinterpret_cast<uintptr_t>(pointer) - (vaddr & ~YUZU_PAGEMASK),
+                    u8* const pointer{GetPointerFromDebugMemory(vaddr & ~CITRON_PAGEMASK)};
+                    current_page_table->pointers[vaddr >> CITRON_PAGEBITS].Store(
+                        reinterpret_cast<uintptr_t>(pointer) - (vaddr & ~CITRON_PAGEMASK),
                         Common::PageType::Memory);
                     break;
                 }
@@ -565,10 +565,10 @@ struct Memory::Impl {
         // granularity of CPU pages, hence why we iterate on a CPU page basis (note: GPU page size
         // is different). This assumes the specified GPU address region is contiguous as well.
 
-        const u64 num_pages = ((vaddr + size - 1) >> YUZU_PAGEBITS) - (vaddr >> YUZU_PAGEBITS) + 1;
-        for (u64 i = 0; i < num_pages; ++i, vaddr += YUZU_PAGESIZE) {
+        const u64 num_pages = ((vaddr + size - 1) >> CITRON_PAGEBITS) - (vaddr >> CITRON_PAGEBITS) + 1;
+        for (u64 i = 0; i < num_pages; ++i, vaddr += CITRON_PAGESIZE) {
             const Common::PageType page_type{
-                current_page_table->pointers[vaddr >> YUZU_PAGEBITS].Type()};
+                current_page_table->pointers[vaddr >> CITRON_PAGEBITS].Type()};
             if (cached) {
                 // Switch page type to cached if now cached
                 switch (page_type) {
@@ -578,7 +578,7 @@ struct Memory::Impl {
                     break;
                 case Common::PageType::DebugMemory:
                 case Common::PageType::Memory:
-                    current_page_table->pointers[vaddr >> YUZU_PAGEBITS].Store(
+                    current_page_table->pointers[vaddr >> CITRON_PAGEBITS].Store(
                         0, Common::PageType::RasterizerCachedMemory);
                     break;
                 case Common::PageType::RasterizerCachedMemory:
@@ -601,16 +601,16 @@ struct Memory::Impl {
                     // that this area is already unmarked as cached.
                     break;
                 case Common::PageType::RasterizerCachedMemory: {
-                    u8* const pointer{GetPointerFromRasterizerCachedMemory(vaddr & ~YUZU_PAGEMASK)};
+                    u8* const pointer{GetPointerFromRasterizerCachedMemory(vaddr & ~CITRON_PAGEMASK)};
                     if (pointer == nullptr) {
                         // It's possible that this function has been called while updating the
                         // pagetable after unmapping a VMA. In that case the underlying VMA will no
                         // longer exist, and we should just leave the pagetable entry blank.
-                        current_page_table->pointers[vaddr >> YUZU_PAGEBITS].Store(
+                        current_page_table->pointers[vaddr >> CITRON_PAGEBITS].Store(
                             0, Common::PageType::Unmapped);
                     } else {
-                        current_page_table->pointers[vaddr >> YUZU_PAGEBITS].Store(
-                            reinterpret_cast<uintptr_t>(pointer) - (vaddr & ~YUZU_PAGEMASK),
+                        current_page_table->pointers[vaddr >> CITRON_PAGEBITS].Store(
+                            reinterpret_cast<uintptr_t>(pointer) - (vaddr & ~CITRON_PAGEMASK),
                             Common::PageType::Memory);
                     }
                     break;
@@ -636,7 +636,7 @@ struct Memory::Impl {
         auto base = GetInteger(base_address);
 
         LOG_DEBUG(HW_Memory, "Mapping {:016X} onto {:016X}-{:016X}", GetInteger(target),
-                  base * YUZU_PAGESIZE, (base + size) * YUZU_PAGESIZE);
+                  base * CITRON_PAGESIZE, (base + size) * CITRON_PAGESIZE);
 
         const auto end = base + size;
         ASSERT_MSG(end <= page_table.pointers.size(), "out of range mapping at {:016X}",
@@ -644,7 +644,7 @@ struct Memory::Impl {
 
         if (!target) {
             ASSERT_MSG(type != Common::PageType::Memory,
-                       "Mapping memory page without a pointer @ {:016x}", base * YUZU_PAGESIZE);
+                       "Mapping memory page without a pointer @ {:016x}", base * CITRON_PAGESIZE);
 
             while (base != end) {
                 page_table.pointers[base].Store(0, type);
@@ -657,17 +657,17 @@ struct Memory::Impl {
             while (base != end) {
                 auto host_ptr =
                     reinterpret_cast<uintptr_t>(system.DeviceMemory().GetPointer<u8>(target)) -
-                    (base << YUZU_PAGEBITS);
-                auto backing = GetInteger(target) - (base << YUZU_PAGEBITS);
+                    (base << CITRON_PAGEBITS);
+                auto backing = GetInteger(target) - (base << CITRON_PAGEBITS);
                 page_table.pointers[base].Store(host_ptr, type);
                 page_table.backing_addr[base] = backing;
-                page_table.blocks[base] = orig_base << YUZU_PAGEBITS;
+                page_table.blocks[base] = orig_base << CITRON_PAGEBITS;
 
                 ASSERT_MSG(page_table.pointers[base].Pointer(),
                            "memory mapping base yield a nullptr within the table");
 
                 base += 1;
-                target += YUZU_PAGESIZE;
+                target += CITRON_PAGESIZE;
             }
         }
     }
@@ -682,7 +682,7 @@ struct Memory::Impl {
         }
 
         // Avoid adding any extra logic to this fast-path block
-        const uintptr_t raw_pointer = current_page_table->pointers[vaddr >> YUZU_PAGEBITS].Raw();
+        const uintptr_t raw_pointer = current_page_table->pointers[vaddr >> CITRON_PAGEBITS].Raw();
         if (const uintptr_t pointer = Common::PageTable::PageInfo::ExtractPointer(raw_pointer)) {
             return reinterpret_cast<u8*>(pointer + vaddr);
         }
@@ -837,7 +837,7 @@ struct Memory::Impl {
         };
         gpu_device_memory->ApplyOpOnPointer(p, scratch_buffers[core], [&](DAddr address) {
             auto& current_area = rasterizer_write_areas[core];
-            PAddr subaddress = address >> YUZU_PAGEBITS;
+            PAddr subaddress = address >> CITRON_PAGEBITS;
             bool do_collection = current_area.last_address == subaddress;
             if (!do_collection) [[unlikely]] {
                 do_collection = system.GPU().OnCPUWrite(address, size);
@@ -925,7 +925,7 @@ void Memory::ProtectRegion(Common::PageTable& page_table, Common::ProcessAddress
 
 bool Memory::IsValidVirtualAddress(const Common::ProcessAddress vaddr) const {
     const auto& page_table = *impl->current_page_table;
-    const size_t page = vaddr >> YUZU_PAGEBITS;
+    const size_t page = vaddr >> CITRON_PAGEBITS;
     if (page >= page_table.pointers.size()) {
         return false;
     }
@@ -936,9 +936,9 @@ bool Memory::IsValidVirtualAddress(const Common::ProcessAddress vaddr) const {
 
 bool Memory::IsValidVirtualAddressRange(Common::ProcessAddress base, u64 size) const {
     Common::ProcessAddress end = base + size;
-    Common::ProcessAddress page = Common::AlignDown(GetInteger(base), YUZU_PAGESIZE);
+    Common::ProcessAddress page = Common::AlignDown(GetInteger(base), CITRON_PAGESIZE);
 
-    for (; page < end; page += YUZU_PAGESIZE) {
+    for (; page < end; page += CITRON_PAGESIZE) {
         if (!IsValidVirtualAddress(page)) {
             return false;
         }
