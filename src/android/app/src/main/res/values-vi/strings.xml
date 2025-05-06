@@ -1,14 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources xmlns:tools="http://schemas.android.com/tools" tools:ignore="MissingTranslation">
 
-    <string name="app_disclaimer">Phần mềm này sẽ chạy trò chơi cho máy chơi game Nintendo Switch. Không có game titles hoặc keys được bao gồm.&lt;br /&gt;&lt;br /&gt;Trước khi bạn bắt đầu, hãy tìm file <![CDATA[<b> prod.keys </b>]]> trên bộ nhớ thiết bị của bạn.&lt;br /&gt;&lt;br /&gt;<![CDATA[<a href=\"https://yuzu-emu.org/help/quickstart\">Tìm hiểu thêm</a>]]></string>
+    <string name="app_disclaimer">Phần mềm này sẽ chạy trò chơi cho máy chơi game Nintendo Switch. Không có game titles hoặc keys được bao gồm.&lt;br /&gt;&lt;br /&gt;Trước khi bạn bắt đầu, hãy tìm file <![CDATA[<b> prod.keys </b>]]> trên bộ nhớ thiết bị của bạn.&lt;br /&gt;&lt;br /&gt;<![CDATA[<a href=\"https://citron-emu.org/help/quickstart\">Tìm hiểu thêm</a>]]></string>
     <string name="notice_notification_channel_name">Thông báo và lỗi</string>
     <string name="notice_notification_channel_description">Hiển thị thông báo khi có sự cố xảy ra</string>
     <string name="notification_permission_not_granted">Ứng dụng không được cấp quyền thông báo!</string>
 
     <!-- Setup strings -->
     <string name="welcome">Chào mừng!</string>
-    <string name="welcome_description">Tìm hiểu cách cài đặt &lt;b>yuzu&lt;/b> và bắt đầu giả lập.</string>
+    <string name="welcome_description">Tìm hiểu cách cài đặt &lt;b>citron&lt;/b> và bắt đầu giả lập.</string>
     <string name="get_started">Bắt đầu</string>
     <string name="keys">Chìa khóa</string>
     <string name="keys_description">Chọn file &lt;b>prod.keys&lt;/b> của bạn bằng nút bên dưới.</string>
@@ -29,22 +29,22 @@
     <string name="empty_gamelist">Không tìm thấy files hoặc chưa có thư mục trò chơi nào được chọn.</string>
     <string name="search_and_filter_games">Tìm và lọc trò chơi</string>
     <string name="select_games_folder">Chọn thư mục trò chơi</string>
-    <string name="select_games_folder_description">Cho phép yuzu thêm các trò chơi vào danh sách</string>
+    <string name="select_games_folder_description">Cho phép citron thêm các trò chơi vào danh sách</string>
     <string name="add_games_warning">Bỏ qua lựa chọn thư mục trò chơi?</string>
     <string name="add_games_warning_description">Trò chơi sẽ không hiển thị trong danh sách nếu một thư mục không được chọn</string>
-    <string name="add_games_warning_help">https://yuzu-emu.org/help/quickstart/#dumping-games</string>
+    <string name="add_games_warning_help">https://citron-emu.org/help/quickstart/#dumping-games</string>
     <string name="home_search_games">Tìm kiếm games</string>
     <string name="games_dir_selected">Thư mục trò chơi đã được chọn</string>
     <string name="install_prod_keys">Cài prod.keys</string>
     <string name="install_prod_keys_description">Yêu cầu để giải mã các game bán lẻ</string>
     <string name="install_prod_keys_warning">Bỏ qua thêm chìa khóa?</string>
     <string name="install_prod_keys_warning_description">Cần có chìa khóa hợp lệ để giả lập trò chơi. Chỉ có các ứng dụng homebrew có thể vận hành nếu bạn tiếp tục</string>
-    <string name="install_prod_keys_warning_help">https://yuzu-emu.org/help/quickstart/#guide-introduction</string>
+    <string name="install_prod_keys_warning_help">https://citron-emu.org/help/quickstart/#guide-introduction</string>
     <string name="notifications">Thông báo</string>
     <string name="notifications_description">Ấn vào nút bên dưới để cấp quyền ứng dụng gửi thông báo</string>
     <string name="give_permission">Cấp quyền</string>
     <string name="notification_warning">Bỏ qua cấp quyền thông báo?</string>
-    <string name="notification_warning_description">yuzu sẽ không thể gửi những thông báo quan trọng đến bạn.</string>
+    <string name="notification_warning_description">citron sẽ không thể gửi những thông báo quan trọng đến bạn.</string>
     <string name="permission_denied">Đã từ chối cấp quyền</string>
     <string name="permission_denied_description">Bạn từ chối cấp quyền này quá nhiều lần và giờ bạn phải cấp quyền thủ công trong cài đặt máy.</string>
     <string name="about">Thông tin</string>
@@ -60,7 +60,7 @@
     <string name="install_prod_keys_failure_extension_description">Xác minh rằng tệp keys của bạn có đuôi .keys và thử lại.</string>
     <string name="install_amiibo_keys_failure_extension_description">Xác minh rằng tệp keys của bạn có đuôi .bin và thử lại.</string>
     <string name="invalid_keys_error">Keys mã hoá không hợp lệ</string>
-    <string name="dumping_keys_quickstart_link">https://yuzu-emu.org/help/quickstart/#dumping-decryption-keys</string>
+    <string name="dumping_keys_quickstart_link">https://citron-emu.org/help/quickstart/#dumping-decryption-keys</string>
     <string name="install_keys_failure_description">Chọn file sai hoặc bị hỏng. Hãy xuất chìa khóa khác</string>
     <string name="install_gpu_driver">Cài đặt driver GPU</string>
     <string name="install_gpu_driver_description">Cài đặt driver thay thế để có thể có hiệu suất tốt và chính xác hơn</string>
@@ -70,11 +70,11 @@
     <string name="search_recently_added">Đã thêm gần đây</string>
     <string name="search_retail">Bán lẻ</string>
     <string name="search_homebrew">Homebrew</string>
-    <string name="open_user_folder">Mở thư mục yuzu</string>
-    <string name="open_user_folder_description">Quản lý file nội bộ của yuzu</string>
+    <string name="open_user_folder">Mở thư mục citron</string>
+    <string name="open_user_folder_description">Quản lý file nội bộ của citron</string>
     <string name="theme_and_color_description">Thay đổi giao diện ứng dụng</string>
     <string name="no_file_manager">Không tìm thấy trình quản lý tệp</string>
-    <string name="notification_no_directory_link">Không thể mở thư mục yuzu</string>
+    <string name="notification_no_directory_link">Không thể mở thư mục citron</string>
     <string name="notification_no_directory_link_description">Vui lòng xác định thư mục người dùng với bảng điều khiển bên của trình quản lý tệp thủ công.</string>
     <string name="manage_save_data">Quản lý dữ liệu save</string>
     <string name="manage_save_data_description">Đã tìm thấy dữ liệu save. Vui lòng chọn một tuỳ chọn bên dưới.</string>
@@ -90,30 +90,30 @@
     <string name="firmware_installed_success">Cài đặt firmware thành công</string>
     <string name="firmware_installed_failure">Cài đặt firmware thất bại</string>
     <string name="share_log">Chia sẽ log gỡ lỗi</string>
-    <string name="share_log_description">Chia sẻ tệp log của yuzu để gỡ lỗi vấn đề</string>
+    <string name="share_log_description">Chia sẻ tệp log của citron để gỡ lỗi vấn đề</string>
     <string name="share_log_missing">Không tìm thấy tệp log</string>
     <string name="install_game_content">Cài đặt nội dung game</string>
     <string name="install_game_content_description">Cài đặt cập nhật game hoặc DLC</string>
-    <string name="install_game_content_help_link">https://yuzu-emu.org/help/quickstart/#dumping-installed-updates</string>
-    <string name="keys_missing_help">https://yuzu-emu.org/help/quickstart/#dumping-decryption-keys</string>
+    <string name="install_game_content_help_link">https://citron-emu.org/help/quickstart/#dumping-installed-updates</string>
+    <string name="keys_missing_help">https://citron-emu.org/help/quickstart/#dumping-decryption-keys</string>
 
     <!-- About screen strings -->
     <string name="gaia_is_not_real">Gaia không có thật</string>
     <string name="copied_to_clipboard">Đã sao chép vào bộ nhớ tạm</string>
     <string name="about_app_description">Một giả lập Switch mã nguồn mở</string>
     <string name="contributors">Người đóng góp</string>
-    <string name="contributors_description">Được làm với \u2764 từ nhóm yuzu</string>
-    <string name="contributors_link">https://github.com/yuzu-emu/yuzu/graphs/contributors</string>
-    <string name="licenses_description">Các dự án làm cho yuzu trên Android trở thành điều có thể</string>
+    <string name="contributors_description">Được làm với \u2764 từ nhóm citron</string>
+    <string name="contributors_link">https://github.com/citron-emu/citron/graphs/contributors</string>
+    <string name="licenses_description">Các dự án làm cho citron trên Android trở thành điều có thể</string>
     <string name="build">Dựng</string>
     <string name="support_link">https://discord.gg/u77vRWY</string>
-    <string name="website_link">https://yuzu-emu.org/</string>
-    <string name="github_link">https://github.com/yuzu-emu</string>
+    <string name="website_link">https://citron-emu.org/</string>
+    <string name="github_link">https://github.com/citron-emu</string>
 
     <!-- Early access upgrade strings -->
     <string name="early_access">Early Access</string>
     <string name="get_early_access">Tải Early Access</string>
-    <string name="play_store_link">https://play.google.com/store/apps/details?id=org.yuzu.yuzu_emu.ea</string>
+    <string name="play_store_link">https://play.google.com/store/apps/details?id=org.citron.citron_emu.ea</string>
     <string name="get_early_access_description">Các tính năng tiên tiến, truy cập sớm vào các cập nhật và nhiều hơn nữa</string>
     <string name="early_access_benefits">Lợi ích của Early Access</string>
     <string name="cutting_edge_features">Tính năng tiên tiến</string>
@@ -259,7 +259,7 @@
     <string name="verify_failure">Kiểm tra tính toàn vẹn thất bại!</string>
     <!-- ROM loading errors -->
     <string name="loader_error_encrypted">ROM của bạn đã bị mã hoá</string>
-    <string name="loader_error_encrypted_keys_description"><![CDATA[Vui lòng đảm bảo file <a href=\"https://yuzu-emu.org/help/quickstart/#dumping-prodkeys-and-titlekeys\">prod.keys</a> đã được cài đặt để game có thể được giải mã.]]></string>
+    <string name="loader_error_encrypted_keys_description"><![CDATA[Vui lòng đảm bảo file <a href=\"https://citron-emu.org/help/quickstart/#dumping-prodkeys-and-titlekeys\">prod.keys</a> đã được cài đặt để game có thể được giải mã.]]></string>
     <string name="loader_error_video_core">Đã xảy ra lỗi khi khởi tạo lõi video</string>
     <string name="loader_error_video_core_description">Việc này thường do driver GPU không tương thích. Cài đặt một driver GPU tùy chỉnh có thể giải quyết vấn đề này.</string>
     <string name="loader_error_invalid_format">Không thể tải ROM</string>

@@ -6,14 +6,14 @@
 
     <fragment
         android:id="@+id/settingsFragment"
-        android:name="org.yuzu.yuzu_emu.features.settings.ui.SettingsFragment"
+        android:name="org.citron.citron_emu.features.settings.ui.SettingsFragment"
         android:label="SettingsFragment">
         <argument
             android:name="menuTag"
-            app:argType="org.yuzu.yuzu_emu.features.settings.model.Settings$MenuTag" />
+            app:argType="org.citron.citron_emu.features.settings.model.Settings$MenuTag" />
         <argument
             android:name="game"
-            app:argType="org.yuzu.yuzu_emu.model.Game"
+            app:argType="org.citron.citron_emu.model.Game"
             app:nullable="true" />
         <action
             android:id="@+id/action_settingsFragment_to_settingsSearchFragment"
@@ -26,7 +26,7 @@
 
     <fragment
         android:id="@+id/settingsSearchFragment"
-        android:name="org.yuzu.yuzu_emu.features.settings.ui.SettingsSearchFragment"
+        android:name="org.citron.citron_emu.features.settings.ui.SettingsSearchFragment"
         android:label="SettingsSearchFragment" />
 
 </navigation>

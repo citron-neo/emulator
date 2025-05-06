@@ -46,7 +46,7 @@
                 android:layout_marginTop="24dp"
                 android:layout_marginBottom="28dp"
                 android:layout_gravity="center_horizontal"
-                android:src="@drawable/ic_yuzu_title" />
+                android:src="@drawable/ic_citron_title" />
 
             <com.google.android.material.divider.MaterialDivider
                 android:layout_width="match_parent"

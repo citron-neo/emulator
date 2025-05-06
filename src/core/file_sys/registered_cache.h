@@ -164,8 +164,8 @@ public:
                                const VfsCopyFunction& copy = &VfsRawCopy);
 
     // Due to the fact that we must use Meta-type NCAs to determine the existence of files, this
-    // poses quite a challenge. Instead of creating a new meta NCA for this file, yuzu will create a
-    // dir inside the NAND called 'yuzu_meta' and store the raw CNMT there.
+    // poses quite a challenge. Instead of creating a new meta NCA for this file, citron will create a
+    // dir inside the NAND called 'citron_meta' and store the raw CNMT there.
     // TODO(DarkLordZach): Author real meta-type NCAs and install those.
     InstallResult InstallEntry(const NCA& nca, TitleType type, bool overwrite_if_exists = false,
                                const VfsCopyFunction& copy = &VfsRawCopy);
@@ -199,8 +199,8 @@ private:
     std::map<u64, NcaID> meta_id;
     // maps tid -> meta
     std::map<u64, CNMT> meta;
-    // maps tid -> meta for CNMT in yuzu_meta
-    std::map<u64, CNMT> yuzu_meta;
+    // maps tid -> meta for CNMT in citron_meta
+    std::map<u64, CNMT> citron_meta;
 };
 
 enum class ContentProviderUnionSlot {

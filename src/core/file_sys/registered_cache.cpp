@@ -370,7 +370,7 @@ std::optional<NcaID> RegisteredCache::GetNcaIDFromMetadata(u64 title_id,
     if (type == ContentRecordType::Meta && meta_id.find(title_id) != meta_id.end())
         return meta_id.at(title_id);
 
-    const auto res1 = CheckMapForContentRecord(yuzu_meta, title_id, type);
+    const auto res1 = CheckMapForContentRecord(citron_meta, title_id, type);
     if (res1)
         return res1;
     return CheckMapForContentRecord(meta, title_id, type);
@@ -438,7 +438,7 @@ void RegisteredCache::ProcessFiles(const std::vector<NcaID>& ids) {
 }
 
 void RegisteredCache::AccumulateYuzuMeta() {
-    const auto meta_dir = dir->GetSubdirectory("yuzu_meta");
+    const auto meta_dir = dir->GetSubdirectory("citron_meta");
     if (meta_dir == nullptr) {
         return;
     }
@@ -449,7 +449,7 @@ void RegisteredCache::AccumulateYuzuMeta() {
         }
 
         CNMT cnmt(file);
-        yuzu_meta.insert_or_assign(cnmt.GetTitleID(), std::move(cnmt));
+        citron_meta.insert_or_assign(cnmt.GetTitleID(), std::move(cnmt));
     }
 }
 
@@ -485,9 +485,9 @@ std::optional<u32> RegisteredCache::GetEntryVersion(u64 title_id) const {
         return meta_iter->second.GetTitleVersion();
     }
 
-    const auto yuzu_meta_iter = yuzu_meta.find(title_id);
-    if (yuzu_meta_iter != yuzu_meta.cend()) {
-        return yuzu_meta_iter->second.GetTitleVersion();
+    const auto citron_meta_iter = citron_meta.find(title_id);
+    if (citron_meta_iter != citron_meta.cend()) {
+        return citron_meta_iter->second.GetTitleVersion();
     }
 
     return std::nullopt;
@@ -519,7 +519,7 @@ void RegisteredCache::IterateAllMetadata(
             }
         }
     }
-    for (const auto& kv : yuzu_meta) {
+    for (const auto& kv : citron_meta) {
         const auto& cnmt = kv.second;
         for (const auto& rec : cnmt.GetContentRecords()) {
             if (GetFileAtID(rec.nca_id) != nullptr && filter(cnmt, rec)) {
@@ -749,9 +749,9 @@ bool RegisteredCache::RemoveExistingEntry(u64 title_id) const {
                          deleted_html || deleted_legal);
     }
 
-    // If patch entries for any program exist in yuzu meta, remove them
+    // If patch entries for any program exist in citron meta, remove them
     for (u8 i = 0; i < 0x10; i++) {
-        const auto meta_dir = dir->CreateDirectoryRelative("yuzu_meta");
+        const auto meta_dir = dir->CreateDirectoryRelative("citron_meta");
         const auto filename = GetCNMTName(TitleType::Update, title_id + i);
         if (meta_dir->GetFile(filename)) {
             removed_data |= meta_dir->DeleteFile(filename);
@@ -804,7 +804,7 @@ InstallResult RegisteredCache::RawInstallNCA(const NCA& nca, const VfsCopyFuncti
 
 bool RegisteredCache::RawInstallYuzuMeta(const CNMT& cnmt) {
     // Reasoning behind this method can be found in the comment for InstallEntry, NCA overload.
-    const auto meta_dir = dir->CreateDirectoryRelative("yuzu_meta");
+    const auto meta_dir = dir->CreateDirectoryRelative("citron_meta");
     const auto filename = GetCNMTName(cnmt.GetType(), cnmt.GetTitleID());
     if (meta_dir->GetFile(filename) == nullptr) {
         auto out = meta_dir->CreateFile(filename);
@@ -823,11 +823,11 @@ bool RegisteredCache::RawInstallYuzuMeta(const CNMT& cnmt) {
         }
     }
     Refresh();
-    return std::find_if(yuzu_meta.begin(), yuzu_meta.end(),
+    return std::find_if(citron_meta.begin(), citron_meta.end(),
                         [&cnmt](const std::pair<u64, CNMT>& kv) {
                             return kv.second.GetType() == cnmt.GetType() &&
                                    kv.second.GetTitleID() == cnmt.GetTitleID();
-                        }) != yuzu_meta.end();
+                        }) != citron_meta.end();
 }
 
 ContentProviderUnion::~ContentProviderUnion() = default;

@@ -7,12 +7,12 @@
 
     <fragment
         android:id="@+id/emulationFragment"
-        android:name="org.yuzu.yuzu_emu.fragments.EmulationFragment"
+        android:name="org.citron.citron_emu.fragments.EmulationFragment"
         android:label="fragment_emulation"
         tools:layout="@layout/fragment_emulation" >
         <argument
             android:name="game"
-            app:argType="org.yuzu.yuzu_emu.model.Game"
+            app:argType="org.citron.citron_emu.model.Game"
             app:nullable="true"
             android:defaultValue="@null" />
         <argument
@@ -23,15 +23,15 @@
 
     <activity
         android:id="@+id/settingsActivity"
-        android:name="org.yuzu.yuzu_emu.features.settings.ui.SettingsActivity"
+        android:name="org.citron.citron_emu.features.settings.ui.SettingsActivity"
         android:label="SettingsActivity">
         <argument
             android:name="game"
-            app:argType="org.yuzu.yuzu_emu.model.Game"
+            app:argType="org.citron.citron_emu.model.Game"
             app:nullable="true" />
         <argument
             android:name="menuTag"
-            app:argType="org.yuzu.yuzu_emu.features.settings.model.Settings$MenuTag" />
+            app:argType="org.citron.citron_emu.features.settings.model.Settings$MenuTag" />
     </activity>
 
     <action

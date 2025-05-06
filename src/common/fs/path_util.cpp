@@ -75,62 +75,62 @@ public:
     PathManagerImpl(PathManagerImpl&&) = delete;
     PathManagerImpl& operator=(PathManagerImpl&&) = delete;
 
-    [[nodiscard]] const fs::path& GetYuzuPathImpl(YuzuPath yuzu_path) {
-        return yuzu_paths.at(yuzu_path);
+    [[nodiscard]] const fs::path& GetYuzuPathImpl(YuzuPath citron_path) {
+        return citron_paths.at(citron_path);
     }
 
-    void SetYuzuPathImpl(YuzuPath yuzu_path, const fs::path& new_path) {
-        yuzu_paths.insert_or_assign(yuzu_path, new_path);
+    void SetYuzuPathImpl(YuzuPath citron_path, const fs::path& new_path) {
+        citron_paths.insert_or_assign(citron_path, new_path);
     }
 
-    void Reinitialize(fs::path yuzu_path = {}) {
-        fs::path yuzu_path_cache;
-        fs::path yuzu_path_config;
+    void Reinitialize(fs::path citron_path = {}) {
+        fs::path citron_path_cache;
+        fs::path citron_path_config;
 
 #ifdef _WIN32
 #ifdef YUZU_ENABLE_PORTABLE
-        yuzu_path = GetExeDirectory() / PORTABLE_DIR;
+        citron_path = GetExeDirectory() / PORTABLE_DIR;
 #endif
-        if (!IsDir(yuzu_path)) {
-            yuzu_path = GetAppDataRoamingDirectory() / YUZU_DIR;
+        if (!IsDir(citron_path)) {
+            citron_path = GetAppDataRoamingDirectory() / YUZU_DIR;
         }
 
-        yuzu_path_cache = yuzu_path / CACHE_DIR;
-        yuzu_path_config = yuzu_path / CONFIG_DIR;
+        citron_path_cache = citron_path / CACHE_DIR;
+        citron_path_config = citron_path / CONFIG_DIR;
 #elif ANDROID
-        ASSERT(!yuzu_path.empty());
-        yuzu_path_cache = yuzu_path / CACHE_DIR;
-        yuzu_path_config = yuzu_path / CONFIG_DIR;
+        ASSERT(!citron_path.empty());
+        citron_path_cache = citron_path / CACHE_DIR;
+        citron_path_config = citron_path / CONFIG_DIR;
 #else
 #ifdef YUZU_ENABLE_PORTABLE
-        yuzu_path = GetCurrentDir() / PORTABLE_DIR;
+        citron_path = GetCurrentDir() / PORTABLE_DIR;
 #endif
-        if (Exists(yuzu_path) && IsDir(yuzu_path)) {
-            yuzu_path_cache = yuzu_path / CACHE_DIR;
-            yuzu_path_config = yuzu_path / CONFIG_DIR;
+        if (Exists(citron_path) && IsDir(citron_path)) {
+            citron_path_cache = citron_path / CACHE_DIR;
+            citron_path_config = citron_path / CONFIG_DIR;
         } else {
-            yuzu_path = GetDataDirectory("XDG_DATA_HOME") / YUZU_DIR;
-            yuzu_path_cache = GetDataDirectory("XDG_CACHE_HOME") / YUZU_DIR;
-            yuzu_path_config = GetDataDirectory("XDG_CONFIG_HOME") / YUZU_DIR;
+            citron_path = GetDataDirectory("XDG_DATA_HOME") / YUZU_DIR;
+            citron_path_cache = GetDataDirectory("XDG_CACHE_HOME") / YUZU_DIR;
+            citron_path_config = GetDataDirectory("XDG_CONFIG_HOME") / YUZU_DIR;
         }
 #endif
 
-        GenerateYuzuPath(YuzuPath::YuzuDir, yuzu_path);
-        GenerateYuzuPath(YuzuPath::AmiiboDir, yuzu_path / AMIIBO_DIR);
-        GenerateYuzuPath(YuzuPath::CacheDir, yuzu_path_cache);
-        GenerateYuzuPath(YuzuPath::ConfigDir, yuzu_path_config);
-        GenerateYuzuPath(YuzuPath::CrashDumpsDir, yuzu_path / CRASH_DUMPS_DIR);
-        GenerateYuzuPath(YuzuPath::DumpDir, yuzu_path / DUMP_DIR);
-        GenerateYuzuPath(YuzuPath::KeysDir, yuzu_path / KEYS_DIR);
-        GenerateYuzuPath(YuzuPath::LoadDir, yuzu_path / LOAD_DIR);
-        GenerateYuzuPath(YuzuPath::LogDir, yuzu_path / LOG_DIR);
-        GenerateYuzuPath(YuzuPath::NANDDir, yuzu_path / NAND_DIR);
-        GenerateYuzuPath(YuzuPath::PlayTimeDir, yuzu_path / PLAY_TIME_DIR);
-        GenerateYuzuPath(YuzuPath::ScreenshotsDir, yuzu_path / SCREENSHOTS_DIR);
-        GenerateYuzuPath(YuzuPath::SDMCDir, yuzu_path / SDMC_DIR);
-        GenerateYuzuPath(YuzuPath::ShaderDir, yuzu_path / SHADER_DIR);
-        GenerateYuzuPath(YuzuPath::TASDir, yuzu_path / TAS_DIR);
-        GenerateYuzuPath(YuzuPath::IconsDir, yuzu_path / ICONS_DIR);
+        GenerateYuzuPath(YuzuPath::YuzuDir, citron_path);
+        GenerateYuzuPath(YuzuPath::AmiiboDir, citron_path / AMIIBO_DIR);
+        GenerateYuzuPath(YuzuPath::CacheDir, citron_path_cache);
+        GenerateYuzuPath(YuzuPath::ConfigDir, citron_path_config);
+        GenerateYuzuPath(YuzuPath::CrashDumpsDir, citron_path / CRASH_DUMPS_DIR);
+        GenerateYuzuPath(YuzuPath::DumpDir, citron_path / DUMP_DIR);
+        GenerateYuzuPath(YuzuPath::KeysDir, citron_path / KEYS_DIR);
+        GenerateYuzuPath(YuzuPath::LoadDir, citron_path / LOAD_DIR);
+        GenerateYuzuPath(YuzuPath::LogDir, citron_path / LOG_DIR);
+        GenerateYuzuPath(YuzuPath::NANDDir, citron_path / NAND_DIR);
+        GenerateYuzuPath(YuzuPath::PlayTimeDir, citron_path / PLAY_TIME_DIR);
+        GenerateYuzuPath(YuzuPath::ScreenshotsDir, citron_path / SCREENSHOTS_DIR);
+        GenerateYuzuPath(YuzuPath::SDMCDir, citron_path / SDMC_DIR);
+        GenerateYuzuPath(YuzuPath::ShaderDir, citron_path / SHADER_DIR);
+        GenerateYuzuPath(YuzuPath::TASDir, citron_path / TAS_DIR);
+        GenerateYuzuPath(YuzuPath::IconsDir, citron_path / ICONS_DIR);
     }
 
 private:
@@ -140,13 +140,13 @@ private:
 
     ~PathManagerImpl() = default;
 
-    void GenerateYuzuPath(YuzuPath yuzu_path, const fs::path& new_path) {
+    void GenerateYuzuPath(YuzuPath citron_path, const fs::path& new_path) {
         void(FS::CreateDir(new_path));
 
-        SetYuzuPathImpl(yuzu_path, new_path);
+        SetYuzuPathImpl(citron_path, new_path);
     }
 
-    std::unordered_map<YuzuPath, fs::path> yuzu_paths;
+    std::unordered_map<YuzuPath, fs::path> citron_paths;
 };
 
 bool ValidatePath(const fs::path& path) {
@@ -230,22 +230,22 @@ void SetAppDirectory(const std::string& app_directory) {
     PathManagerImpl::GetInstance().Reinitialize(app_directory);
 }
 
-const fs::path& GetYuzuPath(YuzuPath yuzu_path) {
-    return PathManagerImpl::GetInstance().GetYuzuPathImpl(yuzu_path);
+const fs::path& GetYuzuPath(YuzuPath citron_path) {
+    return PathManagerImpl::GetInstance().GetYuzuPathImpl(citron_path);
 }
 
-std::string GetYuzuPathString(YuzuPath yuzu_path) {
-    return PathToUTF8String(GetYuzuPath(yuzu_path));
+std::string GetYuzuPathString(YuzuPath citron_path) {
+    return PathToUTF8String(GetYuzuPath(citron_path));
 }
 
-void SetYuzuPath(YuzuPath yuzu_path, const fs::path& new_path) {
+void SetYuzuPath(YuzuPath citron_path, const fs::path& new_path) {
     if (!FS::IsDir(new_path)) {
         LOG_ERROR(Common_Filesystem, "Filesystem object at new_path={} is not a directory",
                   PathToUTF8String(new_path));
         return;
     }
 
-    PathManagerImpl::GetInstance().SetYuzuPathImpl(yuzu_path, new_path);
+    PathManagerImpl::GetInstance().SetYuzuPathImpl(citron_path, new_path);
 }
 
 #ifdef _WIN32

@@ -1,13 +1,13 @@
 [main]
 host = https://www.transifex.com
 
-[o:yuzu-emulator:p:yuzu:r:emulator]
+[o:citron-emulator:p:citron:r:emulator]
 file_filter = <lang>.ts
 source_file = en.ts
 source_lang = en
 type = QT
 
-[o:yuzu-emulator:p:yuzu:r:yuzu-android]
+[o:citron-emulator:p:citron:r:citron-android]
 file_filter = ../../src/android/app/src/main/res/values-<lang>/strings.xml
 source_file = ../../src/android/app/src/main/res/values/strings.xml
 type = ANDROID

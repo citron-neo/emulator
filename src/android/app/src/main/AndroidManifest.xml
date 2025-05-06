@@ -17,7 +17,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
     <uses-permission android:name="android.permission.VIBRATE" />
 
     <application
-        android:name="org.yuzu.yuzu_emu.YuzuApplication"
+        android:name="org.citron.citron_emu.YuzuApplication"
         android:label="@string/app_name_suffixed"
         android:icon="@drawable/ic_launcher"
         android:allowBackup="true"
@@ -34,7 +34,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
             android:resource="@xml/game_mode_config" />
 
         <activity
-            android:name="org.yuzu.yuzu_emu.ui.main.MainActivity"
+            android:name="org.citron.citron_emu.ui.main.MainActivity"
             android:exported="true"
             android:theme="@style/Theme.Yuzu.Splash.Main">
 
@@ -48,12 +48,12 @@ SPDX-License-Identifier: GPL-3.0-or-later
         </activity>
 
         <activity
-            android:name="org.yuzu.yuzu_emu.features.settings.ui.SettingsActivity"
+            android:name="org.citron.citron_emu.features.settings.ui.SettingsActivity"
             android:theme="@style/Theme.Yuzu.Main"
             android:label="@string/preferences_settings"/>
 
         <activity
-            android:name="org.yuzu.yuzu_emu.activities.EmulationActivity"
+            android:name="org.citron.citron_emu.activities.EmulationActivity"
             android:theme="@style/Theme.Yuzu.Main"
             android:launchMode="singleTop"
             android:supportsPictureInPicture="true"

@@ -1,14 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources xmlns:tools="http://schemas.android.com/tools" tools:ignore="MissingTranslation">
 
-    <string name="app_disclaimer">Ez a szoftver Nintendo Switch játékkonzolhoz készült játékokat futtat. Nem tartalmaz játékokat vagy kulcsokat. .&lt;br /&gt;&lt;br /&gt;Mielőtt hozzákezdenél, kérjük, válaszd ki a <![CDATA[<b>prod.keys</b>]]> fájl helyét a készülék tárhelyén&lt;br /&gt;&lt;br /&gt;<![CDATA[<a href=\"https://yuzu-emu.org/help/quickstart\">Tudj meg többet</a>]]></string>
+    <string name="app_disclaimer">Ez a szoftver Nintendo Switch játékkonzolhoz készült játékokat futtat. Nem tartalmaz játékokat vagy kulcsokat. .&lt;br /&gt;&lt;br /&gt;Mielőtt hozzákezdenél, kérjük, válaszd ki a <![CDATA[<b>prod.keys</b>]]> fájl helyét a készülék tárhelyén&lt;br /&gt;&lt;br /&gt;<![CDATA[<a href=\"https://citron-emu.org/help/quickstart\">Tudj meg többet</a>]]></string>
     <string name="notice_notification_channel_name">Megjegyzések és hibák</string>
     <string name="notice_notification_channel_description">Értesítések megjelenítése, ha valami rosszul sül el.</string>
     <string name="notification_permission_not_granted">Nincs engedély az értesítés megjelenítéséhez!</string>
 
     <!-- Setup strings -->
     <string name="welcome">Üdvözöljük!</string>
-    <string name="welcome_description">Ismerkedj meg a &lt;b>yuzu&lt;/b> beállításával és ugorj bele az emulációba.</string>
+    <string name="welcome_description">Ismerkedj meg a &lt;b>citron&lt;/b> beállításával és ugorj bele az emulációba.</string>
     <string name="get_started">Vágjunk bele</string>
     <string name="keys">Kulcsok</string>
     <string name="keys_description">Válaszd ki a &lt;b>prod.keys&lt;/b> fájlodat az alábbi gombbal.</string>
@@ -34,7 +34,7 @@
     <string name="manage_game_folders">Játékmappák kezelése</string>
     <string name="add_games_warning">Kihagyod a játékok mappa kiválasztását?</string>
     <string name="add_games_warning_description">A játékok nem jelennek meg a Játékok listában, ha egy mappa nincs kijelölve.</string>
-    <string name="add_games_warning_help">https://yuzu-emu.org/help/quickstart/#dumping-games</string>
+    <string name="add_games_warning_help">https://citron-emu.org/help/quickstart/#dumping-games</string>
     <string name="home_search_games">Játékok keresése</string>
     <string name="search_settings">Beállítások keresése</string>
     <string name="games_dir_selected">Játékok könyvtár kiválasztva</string>
@@ -42,12 +42,12 @@
     <string name="install_prod_keys_description">Kiskereskedelmi játékok dekódolásához szükséges</string>
     <string name="install_prod_keys_warning">Kihagyod a kulcsok hozzáadását?</string>
     <string name="install_prod_keys_warning_description">A kiskereskedelmi játékok emulálásához érvényes kulcsokra van szükség. Csak a homebrew alkalmazások fognak működni, ha folytatod.</string>
-    <string name="install_prod_keys_warning_help">https://yuzu-emu.org/help/quickstart/#guide-introduction</string>
+    <string name="install_prod_keys_warning_help">https://citron-emu.org/help/quickstart/#guide-introduction</string>
     <string name="notifications">Értesítések</string>
     <string name="notifications_description">Értesítési engedélyek megadása az alábbi gombbal.</string>
     <string name="give_permission">Engedély megadása</string>
     <string name="notification_warning">Kihagyod az értesítési engedély megadását?</string>
-    <string name="notification_warning_description">yuzu nem fog tudni értesíteni a fontos információkról</string>
+    <string name="notification_warning_description">citron nem fog tudni értesíteni a fontos információkról</string>
     <string name="permission_denied">Engedély megtagadva</string>
     <string name="permission_denied_description">Túl gyakran utasítottad el a hozzáférést, így manuálisan kell jóváhagynod a rendszer beállításokban.</string>
     <string name="about">Névjegy</string>
@@ -63,7 +63,7 @@
     <string name="install_prod_keys_failure_extension_description">Győződj meg róla, hogy a titkosító fájlod .keys kiterjesztéssel rendelkezik, majd próbáld újra.</string>
     <string name="install_amiibo_keys_failure_extension_description">Győződj meg róla, hogy a titkosító fájlod .bin kiterjesztéssel rendelkezik, majd próbáld újra.</string>
     <string name="invalid_keys_error">Érvénytelen titkosítókulcsok</string>
-    <string name="dumping_keys_quickstart_link">https://yuzu-emu.org/help/quickstart/#dumping-decryption-keys</string>
+    <string name="dumping_keys_quickstart_link">https://citron-emu.org/help/quickstart/#dumping-decryption-keys</string>
     <string name="install_keys_failure_description">A kiválasztott fájl helytelen, vagy sérült. Állíts össze egy új kulcsot.</string>
     <string name="gpu_driver_manager">GPU illesztőprogram-kezelő</string>
     <string name="install_gpu_driver">GPU illesztőprogram telepítése</string>
@@ -74,11 +74,11 @@
     <string name="search_recently_played">Nemrég játszva</string>
     <string name="search_recently_added">Nemrég hozzáadva</string>
     <string name="search_retail">Kiskereskedelmi</string>
-    <string name="open_user_folder">yuzu mappa megnyitása</string>
-    <string name="open_user_folder_description">yuzu belső fájljainak kezelése</string>
+    <string name="open_user_folder">citron mappa megnyitása</string>
+    <string name="open_user_folder_description">citron belső fájljainak kezelése</string>
     <string name="theme_and_color_description">Az alkalmazás megjelenésének módosítása</string>
     <string name="no_file_manager">Nem található fájlkezelő</string>
-    <string name="notification_no_directory_link">Nem sikerült megnyitni a yuzu könyvtárat</string>
+    <string name="notification_no_directory_link">Nem sikerült megnyitni a citron könyvtárat</string>
     <string name="notification_no_directory_link_description">Kérjük, manuálisan keresd meg a felhasználói mappát a fájlkezelő oldalsó paneljével.</string>
     <string name="manage_save_data">Mentésadatok kezelése</string>
     <string name="manage_save_data_description">Mentés található. Kérjük, válassz egyet az alábbi opciók közül.</string>
@@ -99,7 +99,7 @@
     <string name="firmware_installed_failure">Firmware telepítése sikertelen</string>
     <string name="firmware_installed_failure_description">Győződj meg róla, hogy a firmware nca fájlok a zip gyökerénél vannak, és próbáld meg újra.</string>
     <string name="share_log">Hibakereső logok megosztása</string>
-    <string name="share_log_description">A yuzu naplófájl megosztása a problémák elhárításához</string>
+    <string name="share_log_description">A citron naplófájl megosztása a problémák elhárításához</string>
     <string name="share_log_missing">Nem található log fájl</string>
     <string name="install_game_content">Játéktartalom telepítése</string>
     <string name="install_game_content_description">Játékfrissítések vagy DLC telepítése</string>
@@ -112,11 +112,11 @@
     <string name="install_game_content_success">Játéktartalom sikeresen telepítve</string>
     <string name="install_game_content_success_install">%1$d sikeresen telepítve</string>
     <string name="install_game_content_success_overwrite">%1$d sikeresen felülírva</string>
-    <string name="install_game_content_help_link">https://yuzu-emu.org/help/quickstart/#dumping-installed-updates</string>
+    <string name="install_game_content_help_link">https://citron-emu.org/help/quickstart/#dumping-installed-updates</string>
     <string name="custom_driver_not_supported">Egyéni illesztőprogramok nem támogatottak</string>
     <string name="custom_driver_not_supported_description">Egyéni illesztőprogram telepítése jelenleg nem támogatott ezen az eszközön.\nNézz vissza később, hátha hozzáadtuk a támogatását!</string>
-    <string name="manage_yuzu_data">yuzu adatok kezelése</string>
-    <string name="manage_yuzu_data_description">Firmware, kulcsok, felhasználói adatok és egyebek importálása/exportálása</string>
+    <string name="manage_citron_data">citron adatok kezelése</string>
+    <string name="manage_citron_data_description">Firmware, kulcsok, felhasználói adatok és egyebek importálása/exportálása</string>
     <string name="share_save_file">Mentési fájl megosztása</string>
     <string name="export_save_failed">A mentés exportálása sikertelen</string>
     <string name="game_folders">Játékmappák</string>
@@ -137,14 +137,14 @@
     <string name="verify_installed_content_description">A telepített tartalom épségét ellenőrzi</string>
     <string name="keys_missing">Hiányzó titkosítókulcsok</string>
     <string name="keys_missing_description">A Firmware és a kiskereskedelmi (retail) játékok nem dekódolhatók</string>
-    <string name="keys_missing_help">https://yuzu-emu.org/help/quickstart/#dumping-decryption-keys</string>
+    <string name="keys_missing_help">https://citron-emu.org/help/quickstart/#dumping-decryption-keys</string>
 
     <!-- Applet launcher strings -->
     <string name="applets">Applet indító</string>
     <string name="applets_description">Rendszer appletek indítása a telepített firmware-rel</string>
     <string name="applets_error_firmware">Firmware nincs telepítve</string>
     <string name="applets_error_applet">Applet nem elérhető</string>
-    <string name="applets_error_description"><![CDATA[Kérjük, győződj meg róla, hogy a <a href=\"https://yuzu-emu.org/help/quickstart/#dumping-prodkeys-and-titlekeys\">prod.keys</a> fájl és a <a href=\"https://yuzu-emu.org/help/quickstart/#dumping-system-firmware\">firmware</a> telepítve van, majd próbáld újra.]]></string>
+    <string name="applets_error_description"><![CDATA[Kérjük, győződj meg róla, hogy a <a href=\"https://citron-emu.org/help/quickstart/#dumping-prodkeys-and-titlekeys\">prod.keys</a> fájl és a <a href=\"https://citron-emu.org/help/quickstart/#dumping-system-firmware\">firmware</a> telepítve van, majd próbáld újra.]]></string>
     <string name="album_applet">Album</string>
     <string name="album_applet_description">Képernyőképek megtekintése a rendszer fényképnézegetőjével</string>
     <string name="mii_edit_applet">Mii szerkesztés</string>
@@ -162,27 +162,27 @@
     <string name="copied_to_clipboard">Másolva a vágólapra</string>
     <string name="about_app_description">Egy nyílt forráskódú Switch emulátor</string>
     <string name="contributors">Hozzájárulók</string>
-    <string name="contributors_description">\u2764 által készítve a yuzu csapattól</string>
-    <string name="contributors_link">https://github.com/yuzu-emu/yuzu/graphs/contributors</string>
-    <string name="licenses_description">Projektek, amik nélkül a yuzu nem jöhetett volna létre Androidra</string>
+    <string name="contributors_description">\u2764 által készítve a citron csapattól</string>
+    <string name="contributors_link">https://github.com/citron-emu/citron/graphs/contributors</string>
+    <string name="licenses_description">Projektek, amik nélkül a citron nem jöhetett volna létre Androidra</string>
     <string name="user_data">Felhasználói adatok</string>
     <string name="user_data_description">Az összes alkalmazásadat importálása/exportálása.\n\nA felhasználói adatok importálásakor az összes meglévő felhasználói adat törlődik!</string>
     <string name="exporting_user_data">Felhasználói adatok exportálása...</string>
     <string name="importing_user_data">Felhasználói adatok importálása...</string>
     <string name="import_user_data">Felhasználói adatok importálása</string>
-    <string name="invalid_yuzu_backup">Érvénytelen yuzu biztonsági másolat</string>
+    <string name="invalid_citron_backup">Érvénytelen citron biztonsági másolat</string>
     <string name="user_data_export_success">Felhasználói adatok sikeresen exportálva</string>
     <string name="user_data_import_success">Felhasználói adatok sikeresen importálva</string>
     <string name="user_data_export_cancelled">Exportálás megszakítva</string>
     <string name="user_data_import_failed_description">Ellenőrizd, hogy a felhasználói adatok mappái a zip mappa gyökerében vannak, és tartalmaznak egy konfig fájlt a config/config.ini címen, majd próbáld meg újra.</string>
     <string name="support_link">https://discord.gg/u77vRWY</string>
-    <string name="website_link">https://yuzu-emu.org/</string>
-    <string name="github_link">https://github.com/yuzu-emu</string>
+    <string name="website_link">https://citron-emu.org/</string>
+    <string name="github_link">https://github.com/citron-emu</string>
 
     <!-- Early access upgrade strings -->
     <string name="early_access">Korai hozzáférés</string>
     <string name="get_early_access">Szerezz korai hozzáférést</string>
-    <string name="play_store_link">https://play.google.com/store/apps/details?id=org.yuzu.yuzu_emu.ea</string>
+    <string name="play_store_link">https://play.google.com/store/apps/details?id=org.citron.citron_emu.ea</string>
     <string name="get_early_access_description">Legújabb funkciók, korai hozzáférés a frissítésekhez, és sok más</string>
     <string name="early_access_benefits">Korai hozzáférés előnyei</string>
     <string name="cutting_edge_features">Legújabb funkciók</string>
@@ -448,7 +448,7 @@
 
     <!-- ROM loading errors -->
     <string name="loader_error_encrypted">ROM titkosítva</string>
-    <string name="loader_error_encrypted_keys_description"><![CDATA[Győződj meg róla, hogy a <a href=\"https://yuzu-emu.org/help/quickstart/#dumping-prodkeys-and-titlekeys\">prod.keys</a> fájl telepítve van, hogy a játékok visszafejthetők legyenek.]]></string>
+    <string name="loader_error_encrypted_keys_description"><![CDATA[Győződj meg róla, hogy a <a href=\"https://citron-emu.org/help/quickstart/#dumping-prodkeys-and-titlekeys\">prod.keys</a> fájl telepítve van, hogy a játékok visszafejthetők legyenek.]]></string>
     <string name="loader_error_video_core">Hiba lépett fel a videómag inicializása során</string>
     <string name="loader_error_video_core_description">Ezt általában egy nem kompatibilis GPU illesztő okozza. Egyéni GPU illesztőprogram telepítése megoldhatja a problémát.</string>
     <string name="loader_error_invalid_format">Nem sikerült betölteni a ROM-ot</string>

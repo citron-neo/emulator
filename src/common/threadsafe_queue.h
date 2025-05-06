@@ -52,7 +52,7 @@ public:
         // cv_mutex must be held or else there will be a missed wakeup if the other thread is in the
         // line before cv.wait
         // TODO(bunnei): This can be replaced with C++20 waitable atomics when properly supported.
-        // See discussion on https://github.com/yuzu-emu/yuzu/pull/3173 for details.
+        // See discussion on https://github.com/citron-emu/citron/pull/3173 for details.
         std::scoped_lock lock{cv_mutex};
         cv.notify_one();
     }

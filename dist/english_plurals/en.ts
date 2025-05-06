@@ -4,7 +4,7 @@
 <context>
     <name>GMainWindow</name>
     <message numerus="yes">
-        <location filename="../../src/yuzu/main.cpp" line="2322"/>
+        <location filename="../../src/citron/main.cpp" line="2322"/>
         <source>%n file(s) remaining</source>
         <translation>
             <numerusform>%n file remaining</numerusform>
@@ -12,7 +12,7 @@
         </translation>
     </message>
     <message numerus="yes">
-        <location filename="../../src/yuzu/main.cpp" line="2377"/>
+        <location filename="../../src/citron/main.cpp" line="2377"/>
         <source>%n file(s) were newly installed
 </source>
         <translation>
@@ -23,7 +23,7 @@
         </translation>
     </message>
     <message numerus="yes">
-        <location filename="../../src/yuzu/main.cpp" line="2380"/>
+        <location filename="../../src/citron/main.cpp" line="2380"/>
         <source>%n file(s) were overwritten
 </source>
         <translation>
@@ -34,7 +34,7 @@
         </translation>
     </message>
     <message numerus="yes">
-        <location filename="../../src/yuzu/main.cpp" line="2382"/>
+        <location filename="../../src/citron/main.cpp" line="2382"/>
         <source>%n file(s) failed to install
 </source>
         <translation>
@@ -45,7 +45,7 @@
         </translation>
     </message>
     <message numerus="yes">
-        <location filename="../../src/yuzu/main.cpp" line="3264"/>
+        <location filename="../../src/citron/main.cpp" line="3264"/>
         <source>Building: %n shader(s)</source>
         <translation>
             <numerusform>Building: %n shader</numerusform>
@@ -56,7 +56,7 @@
 <context>
     <name>GameListSearchField</name>
     <message numerus="yes">
-        <location filename="../../src/yuzu/game_list.cpp" line="87"/>
+        <location filename="../../src/citron/game_list.cpp" line="87"/>
         <source>%1 of %n result(s)</source>
         <translation>
             <numerusform>%1 of %n result</numerusform>

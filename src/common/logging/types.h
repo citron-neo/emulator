@@ -128,7 +128,7 @@ enum class Class : u8 {
     Crypto,             ///< Cryptographic engine/functions
     Input,              ///< Input emulation
     Network,            ///< Network emulation
-    WebService,         ///< Interface to yuzu Web Services
+    WebService,         ///< Interface to citron Web Services
     Count               ///< Total number of logging classes
 };
 

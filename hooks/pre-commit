@@ -3,7 +3,7 @@
 # SPDX-FileCopyrightText: 2015 Citra Emulator Project
 # SPDX-License-Identifier: GPL-2.0-or-later
 
-# Enforce yuzu's whitespace policy
+# Enforce citron's whitespace policy
 git config --local core.whitespace tab-in-indent,trailing-space
 
 paths_to_check="src/ CMakeLists.txt"

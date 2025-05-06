@@ -80,14 +80,14 @@ static jfieldID s_player_input_button_color_right_field;
 static jfieldID s_player_input_profile_name_field;
 static jfieldID s_player_input_use_system_vibrator_field;
 
-static jclass s_yuzu_input_device_interface;
-static jmethodID s_yuzu_input_device_get_name;
-static jmethodID s_yuzu_input_device_get_guid;
-static jmethodID s_yuzu_input_device_get_port;
-static jmethodID s_yuzu_input_device_get_supports_vibration;
-static jmethodID s_yuzu_input_device_vibrate;
-static jmethodID s_yuzu_input_device_get_axes;
-static jmethodID s_yuzu_input_device_has_keys;
+static jclass s_citron_input_device_interface;
+static jmethodID s_citron_input_device_get_name;
+static jmethodID s_citron_input_device_get_guid;
+static jmethodID s_citron_input_device_get_port;
+static jmethodID s_citron_input_device_get_supports_vibration;
+static jmethodID s_citron_input_device_vibrate;
+static jmethodID s_citron_input_device_get_axes;
+static jmethodID s_citron_input_device_has_keys;
 
 static constexpr jint JNI_VERSION = JNI_VERSION_1_6;
 
@@ -357,35 +357,35 @@ jfieldID GetPlayerInputUseSystemVibratorField() {
 }
 
 jclass GetYuzuInputDeviceInterface() {
-    return s_yuzu_input_device_interface;
+    return s_citron_input_device_interface;
 }
 
 jmethodID GetYuzuDeviceGetName() {
-    return s_yuzu_input_device_get_name;
+    return s_citron_input_device_get_name;
 }
 
 jmethodID GetYuzuDeviceGetGUID() {
-    return s_yuzu_input_device_get_guid;
+    return s_citron_input_device_get_guid;
 }
 
 jmethodID GetYuzuDeviceGetPort() {
-    return s_yuzu_input_device_get_port;
+    return s_citron_input_device_get_port;
 }
 
 jmethodID GetYuzuDeviceGetSupportsVibration() {
-    return s_yuzu_input_device_get_supports_vibration;
+    return s_citron_input_device_get_supports_vibration;
 }
 
 jmethodID GetYuzuDeviceVibrate() {
-    return s_yuzu_input_device_vibrate;
+    return s_citron_input_device_vibrate;
 }
 
 jmethodID GetYuzuDeviceGetAxes() {
-    return s_yuzu_input_device_get_axes;
+    return s_citron_input_device_get_axes;
 }
 
 jmethodID GetYuzuDeviceHasKeys() {
-    return s_yuzu_input_device_has_keys;
+    return s_citron_input_device_has_keys;
 }
 
 #ifdef __cplusplus
@@ -400,14 +400,14 @@ jint JNI_OnLoad(JavaVM* vm, void* reserved) {
         return JNI_ERR;
 
     // Initialize Java classes
-    const jclass native_library_class = env->FindClass("org/yuzu/yuzu_emu/NativeLibrary");
+    const jclass native_library_class = env->FindClass("org/citron/citron_emu/NativeLibrary");
     s_native_library_class = reinterpret_cast<jclass>(env->NewGlobalRef(native_library_class));
     s_disk_cache_progress_class = reinterpret_cast<jclass>(env->NewGlobalRef(
-        env->FindClass("org/yuzu/yuzu_emu/disk_shader_cache/DiskShaderCacheProgress")));
+        env->FindClass("org/citron/citron_emu/disk_shader_cache/DiskShaderCacheProgress")));
     s_load_callback_stage_class = reinterpret_cast<jclass>(env->NewGlobalRef(env->FindClass(
-        "org/yuzu/yuzu_emu/disk_shader_cache/DiskShaderCacheProgress$LoadCallbackStage")));
+        "org/citron/citron_emu/disk_shader_cache/DiskShaderCacheProgress$LoadCallbackStage")));
 
-    const jclass game_dir_class = env->FindClass("org/yuzu/yuzu_emu/model/GameDir");
+    const jclass game_dir_class = env->FindClass("org/citron/citron_emu/model/GameDir");
     s_game_dir_class = reinterpret_cast<jclass>(env->NewGlobalRef(game_dir_class));
     s_game_dir_constructor = env->GetMethodID(game_dir_class, "<init>", "(Ljava/lang/String;Z)V");
     env->DeleteLocalRef(game_dir_class);
@@ -424,7 +424,7 @@ jint JNI_OnLoad(JavaVM* vm, void* reserved) {
     s_on_program_changed =
         env->GetStaticMethodID(s_native_library_class, "onProgramChanged", "(I)V");
 
-    const jclass game_class = env->FindClass("org/yuzu/yuzu_emu/model/Game");
+    const jclass game_class = env->FindClass("org/citron/citron_emu/model/Game");
     s_game_class = reinterpret_cast<jclass>(env->NewGlobalRef(game_class));
     s_game_constructor = env->GetMethodID(game_class, "<init>",
                                           "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/"
@@ -450,7 +450,7 @@ jint JNI_OnLoad(JavaVM* vm, void* reserved) {
     env->DeleteLocalRef(pair_class);
 
     const jclass overlay_control_data_class =
-        env->FindClass("org/yuzu/yuzu_emu/overlay/model/OverlayControlData");
+        env->FindClass("org/citron/citron_emu/overlay/model/OverlayControlData");
     s_overlay_control_data_class =
         reinterpret_cast<jclass>(env->NewGlobalRef(overlay_control_data_class));
     s_overlay_control_data_constructor =
@@ -468,7 +468,7 @@ jint JNI_OnLoad(JavaVM* vm, void* reserved) {
         env->GetFieldID(overlay_control_data_class, "foldablePosition", "Lkotlin/Pair;");
     env->DeleteLocalRef(overlay_control_data_class);
 
-    const jclass patch_class = env->FindClass("org/yuzu/yuzu_emu/model/Patch");
+    const jclass patch_class = env->FindClass("org/citron/citron_emu/model/Patch");
     s_patch_class = reinterpret_cast<jclass>(env->NewGlobalRef(patch_class));
     s_patch_constructor = env->GetMethodID(
         patch_class, "<init>",
@@ -500,7 +500,7 @@ jint JNI_OnLoad(JavaVM* vm, void* reserved) {
     env->DeleteLocalRef(boolean_class);
 
     const jclass player_input_class =
-        env->FindClass("org/yuzu/yuzu_emu/features/input/model/PlayerInput");
+        env->FindClass("org/citron/citron_emu/features/input/model/PlayerInput");
     s_player_input_class = reinterpret_cast<jclass>(env->NewGlobalRef(player_input_class));
     s_player_input_constructor = env->GetMethodID(
         player_input_class, "<init>",
@@ -530,23 +530,23 @@ jint JNI_OnLoad(JavaVM* vm, void* reserved) {
         env->GetFieldID(player_input_class, "useSystemVibrator", "Z");
     env->DeleteLocalRef(player_input_class);
 
-    const jclass yuzu_input_device_interface =
-        env->FindClass("org/yuzu/yuzu_emu/features/input/YuzuInputDevice");
-    s_yuzu_input_device_interface =
-        reinterpret_cast<jclass>(env->NewGlobalRef(yuzu_input_device_interface));
-    s_yuzu_input_device_get_name =
-        env->GetMethodID(yuzu_input_device_interface, "getName", "()Ljava/lang/String;");
-    s_yuzu_input_device_get_guid =
-        env->GetMethodID(yuzu_input_device_interface, "getGUID", "()Ljava/lang/String;");
-    s_yuzu_input_device_get_port = env->GetMethodID(yuzu_input_device_interface, "getPort", "()I");
-    s_yuzu_input_device_get_supports_vibration =
-        env->GetMethodID(yuzu_input_device_interface, "getSupportsVibration", "()Z");
-    s_yuzu_input_device_vibrate = env->GetMethodID(yuzu_input_device_interface, "vibrate", "(F)V");
-    s_yuzu_input_device_get_axes =
-        env->GetMethodID(yuzu_input_device_interface, "getAxes", "()[Ljava/lang/Integer;");
-    s_yuzu_input_device_has_keys =
-        env->GetMethodID(yuzu_input_device_interface, "hasKeys", "([I)[Z");
-    env->DeleteLocalRef(yuzu_input_device_interface);
+    const jclass citron_input_device_interface =
+        env->FindClass("org/citron/citron_emu/features/input/YuzuInputDevice");
+    s_citron_input_device_interface =
+        reinterpret_cast<jclass>(env->NewGlobalRef(citron_input_device_interface));
+    s_citron_input_device_get_name =
+        env->GetMethodID(citron_input_device_interface, "getName", "()Ljava/lang/String;");
+    s_citron_input_device_get_guid =
+        env->GetMethodID(citron_input_device_interface, "getGUID", "()Ljava/lang/String;");
+    s_citron_input_device_get_port = env->GetMethodID(citron_input_device_interface, "getPort", "()I");
+    s_citron_input_device_get_supports_vibration =
+        env->GetMethodID(citron_input_device_interface, "getSupportsVibration", "()Z");
+    s_citron_input_device_vibrate = env->GetMethodID(citron_input_device_interface, "vibrate", "(F)V");
+    s_citron_input_device_get_axes =
+        env->GetMethodID(citron_input_device_interface, "getAxes", "()[Ljava/lang/Integer;");
+    s_citron_input_device_has_keys =
+        env->GetMethodID(citron_input_device_interface, "hasKeys", "([I)[Z");
+    env->DeleteLocalRef(citron_input_device_interface);
 
     // Initialize Android Storage
     Common::FS::Android::RegisterCallbacks(env, s_native_library_class);
@@ -578,7 +578,7 @@ void JNI_OnUnload(JavaVM* vm, void* reserved) {
     env->DeleteGlobalRef(s_integer_class);
     env->DeleteGlobalRef(s_boolean_class);
     env->DeleteGlobalRef(s_player_input_class);
-    env->DeleteGlobalRef(s_yuzu_input_device_interface);
+    env->DeleteGlobalRef(s_citron_input_device_interface);
 
     // UnInitialize applets
     SoftwareKeyboard::CleanupJNI(env);

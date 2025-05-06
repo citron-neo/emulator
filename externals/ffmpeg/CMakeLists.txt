@@ -143,7 +143,7 @@ if (NOT WIN32 AND NOT ANDROID)
         )
     endif()
 
-    # `configure` parameters builds only exactly what yuzu needs from FFmpeg
+    # `configure` parameters builds only exactly what citron needs from FFmpeg
     # `--disable-vdpau` is needed to avoid linking issues
     set(FFmpeg_CC ${CMAKE_C_COMPILER_LAUNCHER}  ${CMAKE_C_COMPILER})
     set(FFmpeg_CXX ${CMAKE_CXX_COMPILER_LAUNCHER}  ${CMAKE_CXX_COMPILER})
@@ -222,7 +222,7 @@ if (NOT WIN32 AND NOT ANDROID)
         message(FATAL_ERROR "FFmpeg not found")
     endif()
 elseif(ANDROID)
-    # Use yuzu FFmpeg binaries
+    # Use citron FFmpeg binaries
     if (ARCHITECTURE_arm64)
         set(FFmpeg_EXT_NAME "ffmpeg-android-v5.1.LTS-aarch64")
     elseif (ARCHITECTURE_x86_64)
@@ -253,7 +253,7 @@ elseif(ANDROID)
     set(FFmpeg_LIBRARIES "${FFmpeg_LIBRARIES}" PARENT_SCOPE)
     set(FFmpeg_INCLUDE_DIR "${FFmpeg_INCLUDE_DIR}" PARENT_SCOPE)
 elseif(WIN32)
-    # Use yuzu FFmpeg binaries
+    # Use citron FFmpeg binaries
     set(FFmpeg_EXT_NAME "ffmpeg-6.0")
     set(FFmpeg_PATH "${CMAKE_BINARY_DIR}/externals/${FFmpeg_EXT_NAME}")
     download_bundled_external("ffmpeg/" ${FFmpeg_EXT_NAME} "")

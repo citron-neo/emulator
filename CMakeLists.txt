@@ -3,7 +3,7 @@
 
 cmake_minimum_required(VERSION 3.22)
 
-project(yuzu)
+project(citron)
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/CMakeModules")
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/externals/cmake-modules")
@@ -56,7 +56,7 @@ CMAKE_DEPENDENT_OPTION(YUZU_ROOM "Compile LDN room server" ON "NOT ANDROID" OFF)
 
 CMAKE_DEPENDENT_OPTION(YUZU_CRASH_DUMPS "Compile crash dump (Minidump) support" OFF "WIN32 OR LINUX" OFF)
 
-option(YUZU_USE_BUNDLED_VCPKG "Use vcpkg for yuzu dependencies" "${MSVC}")
+option(YUZU_USE_BUNDLED_VCPKG "Use vcpkg for citron dependencies" "${MSVC}")
 
 option(YUZU_CHECK_SUBMODULES "Check if submodules are present" ON)
 
@@ -64,7 +64,7 @@ option(YUZU_ENABLE_LTO "Enable link-time optimization" OFF)
 
 option(YUZU_DOWNLOAD_TIME_ZONE_DATA "Always download time zone binaries" OFF)
 
-option(YUZU_ENABLE_PORTABLE "Allow yuzu to enable portable mode if a user folder is found in the CWD" ON)
+option(YUZU_ENABLE_PORTABLE "Allow citron to enable portable mode if a user folder is found in the CWD" ON)
 
 CMAKE_DEPENDENT_OPTION(YUZU_USE_FASTER_LD "Check if a faster linker is available" ON "NOT WIN32" OFF)
 
@@ -126,7 +126,7 @@ if (YUZU_USE_BUNDLED_VCPKG)
         set(VCPKG_DOWNLOADS_PATH ${PROJECT_SOURCE_DIR}/externals/vcpkg/downloads)
         set(NASM_VERSION "2.16.01")
         set(NASM_DESTINATION_PATH ${VCPKG_DOWNLOADS_PATH}/nasm-${NASM_VERSION}-win64.zip)
-        set(NASM_DOWNLOAD_URL "https://github.com/yuzu-emu/ext-windows-bin/raw/master/nasm/nasm-${NASM_VERSION}-win64.zip")
+        set(NASM_DOWNLOAD_URL "https://github.com/citron-emu/ext-windows-bin/raw/master/nasm/nasm-${NASM_VERSION}-win64.zip")
 
         if (NOT EXISTS ${NASM_DESTINATION_PATH})
             file(DOWNLOAD ${NASM_DOWNLOAD_URL} ${NASM_DESTINATION_PATH} SHOW_PROGRESS STATUS NASM_STATUS)
@@ -139,7 +139,7 @@ if (YUZU_USE_BUNDLED_VCPKG)
     endif()
 
     if (YUZU_TESTS)
-        list(APPEND VCPKG_MANIFEST_FEATURES "yuzu-tests")
+        list(APPEND VCPKG_MANIFEST_FEATURES "citron-tests")
     endif()
     if (ENABLE_WEB_SERVICE)
         list(APPEND VCPKG_MANIFEST_FEATURES "web-service")
@@ -211,9 +211,9 @@ if (EXISTS ${PROJECT_SOURCE_DIR}/dist/compatibility_list/compatibility_list.json
                    COPYONLY)
 endif()
 if (ENABLE_COMPATIBILITY_LIST_DOWNLOAD AND NOT EXISTS ${PROJECT_BINARY_DIR}/dist/compatibility_list/compatibility_list.json)
-    message(STATUS "Downloading compatibility list for yuzu...")
+    message(STATUS "Downloading compatibility list for citron...")
     file(DOWNLOAD
-        https://api.yuzu-emu.org/gamedb/
+        https://api.citron-emu.org/gamedb/
         "${PROJECT_BINARY_DIR}/dist/compatibility_list/compatibility_list.json" SHOW_PROGRESS)
 endif()
 if (NOT EXISTS ${PROJECT_BINARY_DIR}/dist/compatibility_list/compatibility_list.json)
@@ -365,7 +365,7 @@ if(ENABLE_QT6 AND Qt6_LOCATION)
     list(APPEND CMAKE_PREFIX_PATH "${Qt6_LOCATION}")
 endif()
 
-function(set_yuzu_qt_components)
+function(set_citron_qt_components)
     # Best practice is to ask for all components at once, so they are from the same version
     set(YUZU_QT_COMPONENTS2 Core Widgets Concurrent)
     if (${CMAKE_SYSTEM_NAME} STREQUAL "Linux")
@@ -384,7 +384,7 @@ function(set_yuzu_qt_components)
         list(APPEND YUZU_QT_COMPONENTS2 Network)
     endif()
     set(YUZU_QT_COMPONENTS ${YUZU_QT_COMPONENTS2} PARENT_SCOPE)
-endfunction(set_yuzu_qt_components)
+endfunction(set_citron_qt_components)
 
 # Qt5 requires that we find components, so it doesn't fit our pretty little find package function
 if(ENABLE_QT)
@@ -393,18 +393,18 @@ if(ENABLE_QT)
     set(QT5_VERSION 5.15)
     set(QT6_VERSION 6.3.1)
 
-    set_yuzu_qt_components()
+    set_citron_qt_components()
     if (ENABLE_QT6)
         find_package(Qt6 ${QT6_VERSION} COMPONENTS ${YUZU_QT_COMPONENTS})
     endif()
     if (Qt6_FOUND)
-        message(STATUS "yuzu/CMakeLists.txt: Qt6Widgets_VERSION ${Qt6Widgets_VERSION}, setting QT_VERSION")
+        message(STATUS "citron/CMakeLists.txt: Qt6Widgets_VERSION ${Qt6Widgets_VERSION}, setting QT_VERSION")
         set(QT_VERSION ${Qt6Widgets_VERSION})
         set(QT_MAJOR_VERSION 6)
         # Qt6 sets cxx_std_17 and we need to undo that
         set_target_properties(Qt6::Platform PROPERTIES INTERFACE_COMPILE_FEATURES "")
     else()
-        message(STATUS "yuzu/CMakeLists.txt: Qt6 not found/not selected, trying for Qt5")
+        message(STATUS "citron/CMakeLists.txt: Qt6 not found/not selected, trying for Qt5")
         # When Qt6 partially found, need this set to use Qt5 when not specifying version
         set(QT_DEFAULT_MAJOR_VERSION 5)
         set(QT_MAJOR_VERSION 5)
@@ -519,13 +519,13 @@ if(ENABLE_QT)
             set(YUZU_USE_QT_MULTIMEDIA ON CACHE BOOL "Use Qt Multimedia" FORCE)
         endif()
 
-        set_yuzu_qt_components()
+        set_citron_qt_components()
         find_package(Qt5 ${QT5_VERSION} COMPONENTS ${YUZU_QT_COMPONENTS} ${QT_PREFIX_HINT} ${YUZU_QT_NO_CMAKE_SYSTEM_PATH})
     endif()
 
 endif()
 
-# find SDL2 exports a bunch of variables that are needed, so its easier to do this outside of the yuzu_find_package
+# find SDL2 exports a bunch of variables that are needed, so its easier to do this outside of the citron_find_package
 if (ENABLE_SDL2)
     if (YUZU_USE_BUNDLED_SDL2)
         # Detect toolchain and platform
@@ -620,7 +620,7 @@ if (NOT CLANG_FORMAT)
         message(STATUS "Clang format not found! Downloading...")
         set(CLANG_FORMAT "${PROJECT_BINARY_DIR}/externals/clang-format${CLANG_FORMAT_POSTFIX}.exe")
         file(DOWNLOAD
-            https://github.com/yuzu-emu/ext-windows-bin/raw/master/clang-format${CLANG_FORMAT_POSTFIX}.exe
+            https://github.com/citron-emu/ext-windows-bin/raw/master/clang-format${CLANG_FORMAT_POSTFIX}.exe
             "${CLANG_FORMAT}" SHOW_PROGRESS
             STATUS DOWNLOAD_SUCCESS)
         if (NOT DOWNLOAD_SUCCESS EQUAL 0)
@@ -703,11 +703,11 @@ endif()
 add_subdirectory(externals)
 add_subdirectory(src)
 
-# Set yuzu project or yuzu-cmd project as default StartUp Project in Visual Studio depending on whether QT is enabled or not
+# Set citron project or citron-cmd project as default StartUp Project in Visual Studio depending on whether QT is enabled or not
 if(ENABLE_QT)
-    set_property(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT yuzu)
+    set_property(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT citron)
 else()
-    set_property(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT yuzu-cmd)
+    set_property(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT citron-cmd)
 endif()
 
 
@@ -720,13 +720,13 @@ endif()
 # https://specifications.freedesktop.org/shared-mime-info-spec/shared-mime-info-spec-latest.html
 # https://www.freedesktop.org/software/appstream/docs/
 if(ENABLE_QT AND UNIX AND NOT APPLE)
-    install(FILES "dist/org.yuzu_emu.yuzu.desktop"
+    install(FILES "dist/org.citron_emu.citron.desktop"
             DESTINATION "share/applications")
-    install(FILES "dist/yuzu.svg"
+    install(FILES "dist/citron.svg"
             DESTINATION "share/icons/hicolor/scalable/apps"
-            RENAME "org.yuzu_emu.yuzu.svg")
-    install(FILES "dist/org.yuzu_emu.yuzu.xml"
+            RENAME "org.citron_emu.citron.svg")
+    install(FILES "dist/org.citron_emu.citron.xml"
             DESTINATION "share/mime/packages")
-    install(FILES "dist/org.yuzu_emu.yuzu.metainfo.xml"
+    install(FILES "dist/org.citron_emu.citron.metainfo.xml"
             DESTINATION "share/metainfo")
 endif()

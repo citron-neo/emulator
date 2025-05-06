@@ -112,7 +112,7 @@ json GetProcessorStateData(const std::string& architecture, u64 entry_point, u64
 json GetFullDataAuto(const std::string& timestamp, u64 title_id, Core::System& system) {
     json out;
 
-    out["yuzu_version"] = GetYuzuVersionData();
+    out["citron_version"] = GetYuzuVersionData();
     out["report_common"] = GetReportCommonData(title_id, ResultSuccess, timestamp);
 
     return out;
@@ -180,7 +180,7 @@ void Reporter::SaveCrashReport(u64 title_id, Result result, u64 set_flags, u64 e
     const auto timestamp = GetTimestamp();
     json out;
 
-    out["yuzu_version"] = GetYuzuVersionData();
+    out["citron_version"] = GetYuzuVersionData();
     out["report_common"] = GetReportCommonData(title_id, result, timestamp);
 
     auto proc_out = GetProcessorStateData(arch, entry_point, sp, pc, pstate, registers, backtrace);
@@ -291,7 +291,7 @@ void Reporter::SavePlayReport(PlayReportType type, u64 title_id,
     const auto timestamp = GetTimestamp();
     json out;
 
-    out["yuzu_version"] = GetYuzuVersionData();
+    out["citron_version"] = GetYuzuVersionData();
     out["report_common"] = GetReportCommonData(title_id, ResultSuccess, timestamp, user_id);
 
     auto data_out = json::array();
@@ -319,7 +319,7 @@ void Reporter::SaveErrorReport(u64 title_id, Result result,
     const auto timestamp = GetTimestamp();
     json out;
 
-    out["yuzu_version"] = GetYuzuVersionData();
+    out["citron_version"] = GetYuzuVersionData();
     out["report_common"] = GetReportCommonData(title_id, result, timestamp);
 
     out["error_custom_text"] = {

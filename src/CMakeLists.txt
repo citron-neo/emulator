@@ -201,11 +201,11 @@ if (YUZU_TESTS)
 endif()
 
 if (ENABLE_SDL2)
-    add_subdirectory(yuzu_cmd)
+    add_subdirectory(citron_cmd)
 endif()
 
 if (ENABLE_QT)
-    add_subdirectory(yuzu)
+    add_subdirectory(citron)
 endif()
 
 if (ENABLE_WEB_SERVICE)
@@ -214,5 +214,5 @@ endif()
 
 if (ANDROID)
     add_subdirectory(android/app/src/main/jni)
-    target_include_directories(yuzu-android PRIVATE android/app/src/main)
+    target_include_directories(citron-android PRIVATE android/app/src/main)
 endif()

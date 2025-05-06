@@ -35,7 +35,7 @@ struct RoomInformation {
     u16 port;                  ///< The port of this room
     GameInfo preferred_game;   ///< Game to advertise that you want to play
     std::string host_username; ///< Forum username of the host
-    bool enable_yuzu_mods;     ///< Allow yuzu Moderators to moderate on this room
+    bool enable_citron_mods;     ///< Allow citron Moderators to moderate on this room
 };
 
 struct Room {

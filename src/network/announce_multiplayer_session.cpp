@@ -23,8 +23,8 @@ AnnounceMultiplayerSession::AnnounceMultiplayerSession(Network::RoomNetwork& roo
     : room_network{room_network_} {
 #ifdef ENABLE_WEB_SERVICE
     backend = std::make_unique<WebService::RoomJson>(Settings::values.web_api_url.GetValue(),
-                                                     Settings::values.yuzu_username.GetValue(),
-                                                     Settings::values.yuzu_token.GetValue());
+                                                     Settings::values.citron_username.GetValue(),
+                                                     Settings::values.citron_token.GetValue());
 #else
     backend = std::make_unique<AnnounceMultiplayerRoom::NullBackend>();
 #endif
@@ -156,8 +156,8 @@ void AnnounceMultiplayerSession::UpdateCredentials() {
 
 #ifdef ENABLE_WEB_SERVICE
     backend = std::make_unique<WebService::RoomJson>(Settings::values.web_api_url.GetValue(),
-                                                     Settings::values.yuzu_username.GetValue(),
-                                                     Settings::values.yuzu_token.GetValue());
+                                                     Settings::values.citron_username.GetValue(),
+                                                     Settings::values.citron_token.GetValue());
 #endif
 }
 

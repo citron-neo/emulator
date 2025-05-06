@@ -45,7 +45,7 @@
                 android:layout_height="200dp"
                 android:layout_gravity="center_horizontal"
                 android:padding="20dp"
-                android:src="@drawable/ic_yuzu_title" />
+                android:src="@drawable/ic_citron_title" />
 
             <LinearLayout
                 android:layout_width="wrap_content"

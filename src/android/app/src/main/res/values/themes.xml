@@ -2,39 +2,39 @@
 <resources>
 
     <style name="Theme.Yuzu.Splash.Main" parent="Theme.SplashScreen">
-        <item name="windowSplashScreenBackground">@color/yuzu_surface</item>
-        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_yuzu</item>
+        <item name="windowSplashScreenBackground">@color/citron_surface</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_citron</item>
         <item name="postSplashScreenTheme">@style/Theme.Yuzu.Main</item>
     </style>
 
     <style name="Theme.Yuzu.Main" parent="Theme.Material3.DayNight.NoActionBar">
-        <item name="colorPrimary">@color/yuzu_primary</item>
-        <item name="colorOnPrimary">@color/yuzu_onPrimary</item>
-        <item name="colorPrimaryContainer">@color/yuzu_primaryContainer</item>
-        <item name="colorOnPrimaryContainer">@color/yuzu_onPrimaryContainer</item>
-        <item name="colorSecondary">@color/yuzu_secondary</item>
-        <item name="colorOnSecondary">@color/yuzu_onSecondary</item>
-        <item name="colorSecondaryContainer">@color/yuzu_secondaryContainer</item>
-        <item name="colorOnSecondaryContainer">@color/yuzu_onSecondaryContainer</item>
-        <item name="colorTertiary">@color/yuzu_tertiary</item>
-        <item name="colorOnTertiary">@color/yuzu_onTertiary</item>
-        <item name="colorTertiaryContainer">@color/yuzu_tertiaryContainer</item>
-        <item name="colorOnTertiaryContainer">@color/yuzu_onTertiaryContainer</item>
-        <item name="colorError">@color/yuzu_error</item>
-        <item name="colorErrorContainer">@color/yuzu_errorContainer</item>
-        <item name="colorOnError">@color/yuzu_onError</item>
-        <item name="colorOnErrorContainer">@color/yuzu_onErrorContainer</item>
-        <item name="android:colorBackground">@color/yuzu_background</item>
-        <item name="colorOnBackground">@color/yuzu_onBackground</item>
-        <item name="colorSurface">@color/yuzu_surface</item>
-        <item name="colorOnSurface">@color/yuzu_onSurface</item>
-        <item name="colorSurfaceVariant">@color/yuzu_surfaceVariant</item>
-        <item name="colorOnSurfaceVariant">@color/yuzu_onSurfaceVariant</item>
-        <item name="colorOutline">@color/yuzu_outline</item>
-        <item name="colorOnSurfaceInverse">@color/yuzu_inverseOnSurface</item>
-        <item name="colorSurfaceInverse">@color/yuzu_inverseSurface</item>
-        <item name="colorPrimaryInverse">@color/yuzu_inversePrimary</item>
-        <item name="android:shadowColor">@color/yuzu_shadow</item>
+        <item name="colorPrimary">@color/citron_primary</item>
+        <item name="colorOnPrimary">@color/citron_onPrimary</item>
+        <item name="colorPrimaryContainer">@color/citron_primaryContainer</item>
+        <item name="colorOnPrimaryContainer">@color/citron_onPrimaryContainer</item>
+        <item name="colorSecondary">@color/citron_secondary</item>
+        <item name="colorOnSecondary">@color/citron_onSecondary</item>
+        <item name="colorSecondaryContainer">@color/citron_secondaryContainer</item>
+        <item name="colorOnSecondaryContainer">@color/citron_onSecondaryContainer</item>
+        <item name="colorTertiary">@color/citron_tertiary</item>
+        <item name="colorOnTertiary">@color/citron_onTertiary</item>
+        <item name="colorTertiaryContainer">@color/citron_tertiaryContainer</item>
+        <item name="colorOnTertiaryContainer">@color/citron_onTertiaryContainer</item>
+        <item name="colorError">@color/citron_error</item>
+        <item name="colorErrorContainer">@color/citron_errorContainer</item>
+        <item name="colorOnError">@color/citron_onError</item>
+        <item name="colorOnErrorContainer">@color/citron_onErrorContainer</item>
+        <item name="android:colorBackground">@color/citron_background</item>
+        <item name="colorOnBackground">@color/citron_onBackground</item>
+        <item name="colorSurface">@color/citron_surface</item>
+        <item name="colorOnSurface">@color/citron_onSurface</item>
+        <item name="colorSurfaceVariant">@color/citron_surfaceVariant</item>
+        <item name="colorOnSurfaceVariant">@color/citron_onSurfaceVariant</item>
+        <item name="colorOutline">@color/citron_outline</item>
+        <item name="colorOnSurfaceInverse">@color/citron_inverseOnSurface</item>
+        <item name="colorSurfaceInverse">@color/citron_inverseSurface</item>
+        <item name="colorPrimaryInverse">@color/citron_inversePrimary</item>
+        <item name="android:shadowColor">@color/citron_shadow</item>
 
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>

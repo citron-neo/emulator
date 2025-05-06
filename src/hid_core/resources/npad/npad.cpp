@@ -405,7 +405,7 @@ void NPad::RequestPadStateUpdate(u64 aruid, Core::HID::NpadIdType npad_id) {
         InitNewlyAddedController(aruid, npad_id);
     }
 
-    // This function is unique to yuzu for the turbo buttons and motion to work properly
+    // This function is unique to citron for the turbo buttons and motion to work properly
     controller.device->StatusUpdate();
 
     auto& pad_entry = controller.npad_pad_state;

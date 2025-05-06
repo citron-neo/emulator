@@ -3,12 +3,12 @@
 
 #pragma once
 
-// yuzu data directories
+// citron data directories
 
-#define YUZU_DIR "yuzu"
+#define YUZU_DIR "citron"
 #define PORTABLE_DIR "user"
 
-// Sub-directories contained within a yuzu data directory
+// Sub-directories contained within a citron data directory
 
 #define AMIIBO_DIR "amiibo"
 #define CACHE_DIR "cache"
@@ -26,6 +26,6 @@
 #define TAS_DIR "tas"
 #define ICONS_DIR "icons"
 
-// yuzu-specific files
+// citron-specific files
 
-#define LOG_FILE "yuzu_log.txt"
+#define LOG_FILE "citron_log.txt"

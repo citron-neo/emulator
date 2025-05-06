@@ -19,18 +19,18 @@
     </style>
 
     <style name="YuzuMaterialDialog" parent="ThemeOverlay.Material3.MaterialAlertDialog">
-        <item name="colorPrimary">@color/yuzu_primaryContainer</item>
-        <item name="colorSurface">@color/yuzu_primaryContainer</item>
-        <item name="colorSecondary">@color/yuzu_primary</item>
-        <item name="android:textColorLink">@color/yuzu_primary</item>
+        <item name="colorPrimary">@color/citron_primaryContainer</item>
+        <item name="colorSurface">@color/citron_primaryContainer</item>
+        <item name="colorSecondary">@color/citron_primary</item>
+        <item name="android:textColorLink">@color/citron_primary</item>
         <item name="buttonBarPositiveButtonStyle">@style/YuzuButton</item>
         <item name="buttonBarNegativeButtonStyle">@style/YuzuButton</item>
         <item name="buttonBarNeutralButtonStyle">@style/YuzuButton</item>
     </style>
 
     <style name="YuzuButton" parent="Widget.Material3.Button.TextButton.Dialog">
-        <item name="android:textColor">@color/yuzu_primary</item>
-        <item name="rippleColor">@color/yuzu_inversePrimary</item>
+        <item name="android:textColor">@color/citron_primary</item>
+        <item name="rippleColor">@color/citron_inversePrimary</item>
     </style>
 
 </resources>

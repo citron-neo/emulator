@@ -2,8 +2,8 @@
 <resources xmlns:tools="http://schemas.android.com/tools" tools:ignore="MissingTranslation">
 
     <!-- General application strings -->
-    <string name="app_name" translatable="false">yuzu</string>
-    <string name="app_disclaimer">This software will run games for the Nintendo Switch game console. No game titles or keys are included.&lt;br /&gt;&lt;br /&gt;Before you begin, please locate your <![CDATA[<b> prod.keys </b>]]> file on your device storage.&lt;br /&gt;&lt;br /&gt;<![CDATA[<a href="https://yuzu-emu.org/help/quickstart">Learn more</a>]]></string>
+    <string name="app_name" translatable="false">citron</string>
+    <string name="app_disclaimer">This software will run games for the Nintendo Switch game console. No game titles or keys are included.&lt;br /&gt;&lt;br /&gt;Before you begin, please locate your <![CDATA[<b> prod.keys </b>]]> file on your device storage.&lt;br /&gt;&lt;br /&gt;<![CDATA[<a href="https://citron-emu.org/help/quickstart">Learn more</a>]]></string>
     <string name="notice_notification_channel_name">Notices and errors</string>
     <string name="notice_notification_channel_id" translatable="false">noticesAndErrors</string>
     <string name="notice_notification_channel_description">Shows notifications when something goes wrong.</string>
@@ -11,7 +11,7 @@
 
     <!-- Setup strings -->
     <string name="welcome">Welcome!</string>
-    <string name="welcome_description">Learn how to setup &lt;b>yuzu&lt;/b> and jump into emulation.</string>
+    <string name="welcome_description">Learn how to setup &lt;b>citron&lt;/b> and jump into emulation.</string>
     <string name="get_started">Get started</string>
     <string name="keys">Keys</string>
     <string name="keys_description">Select your &lt;b>prod.keys&lt;/b> file with the button below.</string>
@@ -35,10 +35,10 @@
     <string name="search_and_filter_games">Search and filter games</string>
     <string name="select_games_folder">Select games folder</string>
     <string name="manage_game_folders">Manage game folders</string>
-    <string name="select_games_folder_description">Allows yuzu to populate the games list</string>
+    <string name="select_games_folder_description">Allows citron to populate the games list</string>
     <string name="add_games_warning">Skip selecting games folder?</string>
     <string name="add_games_warning_description">Games won\'t be displayed in the Games list if a folder isn\'t selected.</string>
-    <string name="add_games_warning_help">https://yuzu-emu.org/help/quickstart/#dumping-games</string>
+    <string name="add_games_warning_help">https://citron-emu.org/help/quickstart/#dumping-games</string>
     <string name="home_search_games">Search games</string>
     <string name="search_settings">Search settings</string>
     <string name="games_dir_selected">Games directory selected</string>
@@ -46,12 +46,12 @@
     <string name="install_prod_keys_description">Required to decrypt retail games</string>
     <string name="install_prod_keys_warning">Skip adding keys?</string>
     <string name="install_prod_keys_warning_description">Valid keys are required to emulate retail games. Only homebrew apps will function if you continue.</string>
-    <string name="install_prod_keys_warning_help">https://yuzu-emu.org/help/quickstart/#guide-introduction</string>
+    <string name="install_prod_keys_warning_help">https://citron-emu.org/help/quickstart/#guide-introduction</string>
     <string name="notifications">Notifications</string>
     <string name="notifications_description">Grant the notification permission with the button below.</string>
     <string name="give_permission">Grant permission</string>
     <string name="notification_warning">Skip granting the notification permission?</string>
-    <string name="notification_warning_description">yuzu won\'t be able to notify you of important information.</string>
+    <string name="notification_warning_description">citron won\'t be able to notify you of important information.</string>
     <string name="permission_denied">Permission denied</string>
     <string name="permission_denied_description">You denied this permission too many times and now you have to manually grant it in system settings.</string>
     <string name="about">About</string>
@@ -67,7 +67,7 @@
     <string name="install_prod_keys_failure_extension_description">Verify your keys file has a .keys extension and try again.</string>
     <string name="install_amiibo_keys_failure_extension_description">Verify your keys file has a .bin extension and try again.</string>
     <string name="invalid_keys_error">Invalid encryption keys</string>
-    <string name="dumping_keys_quickstart_link">https://yuzu-emu.org/help/quickstart/#dumping-decryption-keys</string>
+    <string name="dumping_keys_quickstart_link">https://citron-emu.org/help/quickstart/#dumping-decryption-keys</string>
     <string name="install_keys_failure_description">The selected file is incorrect or corrupt. Please redump your keys.</string>
     <string name="gpu_driver_manager">GPU driver manager</string>
     <string name="install_gpu_driver">Install GPU driver</string>
@@ -79,11 +79,11 @@
     <string name="search_recently_added">Recently added</string>
     <string name="search_retail">Retail</string>
     <string name="search_homebrew">Homebrew</string>
-    <string name="open_user_folder">Open yuzu folder</string>
-    <string name="open_user_folder_description">Manage yuzu\'s internal files</string>
+    <string name="open_user_folder">Open citron folder</string>
+    <string name="open_user_folder_description">Manage citron\'s internal files</string>
     <string name="theme_and_color_description">Modify the look of the app</string>
     <string name="no_file_manager">No file manager found</string>
-    <string name="notification_no_directory_link">Could not open yuzu directory</string>
+    <string name="notification_no_directory_link">Could not open citron directory</string>
     <string name="notification_no_directory_link_description">Please locate the user folder with the file manager\'s side panel manually.</string>
     <string name="manage_save_data">Manage save data</string>
     <string name="manage_save_data_description">Save data found. Please select an option below.</string>
@@ -104,7 +104,7 @@
     <string name="firmware_installed_failure">Firmware installation failed</string>
     <string name="firmware_installed_failure_description">Make sure the firmware nca files are at the root of the zip and try again.</string>
     <string name="share_log">Share debug logs</string>
-    <string name="share_log_description">Share yuzu\'s log file to debug issues</string>
+    <string name="share_log_description">Share citron\'s log file to debug issues</string>
     <string name="share_log_missing">No log file found</string>
     <string name="install_game_content">Install game content</string>
     <string name="install_game_content_description">Install game updates or DLC</string>
@@ -117,11 +117,11 @@
     <string name="install_game_content_success">Game content(s) installed successfully</string>
     <string name="install_game_content_success_install">%1$d installed successfully</string>
     <string name="install_game_content_success_overwrite">%1$d overwritten successfully</string>
-    <string name="install_game_content_help_link">https://yuzu-emu.org/help/quickstart/#dumping-installed-updates</string>
+    <string name="install_game_content_help_link">https://citron-emu.org/help/quickstart/#dumping-installed-updates</string>
     <string name="custom_driver_not_supported">Custom drivers not supported</string>
     <string name="custom_driver_not_supported_description">Custom driver loading isn\'t currently supported for this device.\nCheck this option again in the future to see if support was added!</string>
-    <string name="manage_yuzu_data">Manage yuzu data</string>
-    <string name="manage_yuzu_data_description">Import/export firmware, keys, user data, and more!</string>
+    <string name="manage_citron_data">Manage citron data</string>
+    <string name="manage_citron_data_description">Import/export firmware, keys, user data, and more!</string>
     <string name="share_save_file">Share save file</string>
     <string name="export_save_failed">Failed to export save</string>
     <string name="game_folders">Game folders</string>
@@ -142,14 +142,14 @@
     <string name="verify_installed_content_description">Checks all installed content for corruption</string>
     <string name="keys_missing">Encryption keys are missing</string>
     <string name="keys_missing_description">Firmware and retail games cannot be decrypted</string>
-    <string name="keys_missing_help">https://yuzu-emu.org/help/quickstart/#dumping-decryption-keys</string>
+    <string name="keys_missing_help">https://citron-emu.org/help/quickstart/#dumping-decryption-keys</string>
 
     <!-- Applet launcher strings -->
     <string name="applets">Applet launcher</string>
     <string name="applets_description">Launch system applets using installed firmware</string>
     <string name="applets_error_firmware">Firmware not installed</string>
     <string name="applets_error_applet">Applet not available</string>
-    <string name="applets_error_description"><![CDATA[Please ensure your <a href="https://yuzu-emu.org/help/quickstart/#dumping-prodkeys-and-titlekeys">prod.keys</a> file and <a href="https://yuzu-emu.org/help/quickstart/#dumping-system-firmware">firmware</a> are installed and try again.]]></string>
+    <string name="applets_error_description"><![CDATA[Please ensure your <a href="https://citron-emu.org/help/quickstart/#dumping-prodkeys-and-titlekeys">prod.keys</a> file and <a href="https://citron-emu.org/help/quickstart/#dumping-system-firmware">firmware</a> are installed and try again.]]></string>
     <string name="album_applet">Album</string>
     <string name="album_applet_description">See images stored in the user screenshots folder with the system photo viewer</string>
     <string name="mii_edit_applet">Mii edit</string>
@@ -167,28 +167,28 @@
     <string name="copied_to_clipboard">Copied to clipboard</string>
     <string name="about_app_description">An open-source Switch emulator</string>
     <string name="contributors">Contributors</string>
-    <string name="contributors_description">Made with \u2764 from the yuzu team</string>
-    <string name="contributors_link">https://github.com/yuzu-emu/yuzu/graphs/contributors</string>
-    <string name="licenses_description">Projects that make yuzu for Android possible</string>
+    <string name="contributors_description">Made with \u2764 from the citron team</string>
+    <string name="contributors_link">https://github.com/citron-emu/citron/graphs/contributors</string>
+    <string name="licenses_description">Projects that make citron for Android possible</string>
     <string name="build">Build</string>
     <string name="user_data">User data</string>
     <string name="user_data_description">Import/export all app data.\n\nWhen importing user data, all existing user data will be deleted!</string>
     <string name="exporting_user_data">Exporting user data…</string>
     <string name="importing_user_data">Importing user data…</string>
     <string name="import_user_data">Import user data</string>
-    <string name="invalid_yuzu_backup">Invalid yuzu backup</string>
+    <string name="invalid_citron_backup">Invalid citron backup</string>
     <string name="user_data_export_success">User data exported successfully</string>
     <string name="user_data_import_success">User data imported successfully</string>
     <string name="user_data_export_cancelled">Export cancelled</string>
     <string name="user_data_import_failed_description">Make sure the user data folders are at the root of the zip folder and contain a config file at config/config.ini and try again.</string>
     <string name="support_link">https://discord.gg/u77vRWY</string>
-    <string name="website_link">https://yuzu-emu.org/</string>
-    <string name="github_link">https://github.com/yuzu-emu</string>
+    <string name="website_link">https://citron-emu.org/</string>
+    <string name="github_link">https://github.com/citron-emu</string>
 
     <!-- Early access upgrade strings -->
     <string name="early_access">Early Access</string>
     <string name="get_early_access">Get Early Access</string>
-    <string name="play_store_link">https://play.google.com/store/apps/details?id=org.yuzu.yuzu_emu.ea</string>
+    <string name="play_store_link">https://play.google.com/store/apps/details?id=org.citron.citron_emu.ea</string>
     <string name="get_early_access_description">Cutting-edge features, early access to updates, and more</string>
     <string name="early_access_benefits">Early Access Benefits</string>
     <string name="cutting_edge_features">Cutting-edge features</string>
@@ -461,8 +461,8 @@
 
     <!-- ROM loading errors -->
     <string name="loader_error_encrypted">Your ROM is encrypted</string>
-    <string name="loader_error_encrypted_roms_description"><![CDATA[Please follow the guides to redump your <a href="https://yuzu-emu.org/help/quickstart/#dumping-physical-titles-game-cards">game cartidges</a> or <a href="https://yuzu-emu.org/help/quickstart/#dumping-digital-titles-eshop">installed titles</a>.]]></string>
-    <string name="loader_error_encrypted_keys_description"><![CDATA[Please ensure your <a href="https://yuzu-emu.org/help/quickstart/#dumping-prodkeys-and-titlekeys">prod.keys</a> file is installed so that games can be decrypted.]]></string>
+    <string name="loader_error_encrypted_roms_description"><![CDATA[Please follow the guides to redump your <a href="https://citron-emu.org/help/quickstart/#dumping-physical-titles-game-cards">game cartidges</a> or <a href="https://citron-emu.org/help/quickstart/#dumping-digital-titles-eshop">installed titles</a>.]]></string>
+    <string name="loader_error_encrypted_keys_description"><![CDATA[Please ensure your <a href="https://citron-emu.org/help/quickstart/#dumping-prodkeys-and-titlekeys">prod.keys</a> file is installed so that games can be decrypted.]]></string>
     <string name="loader_error_video_core">An error occurred initializing the video core</string>
     <string name="loader_error_video_core_description">This is usually caused by an incompatible GPU driver. Installing a custom GPU driver may resolve this problem.</string>
     <string name="loader_error_invalid_format">Unable to load ROM</string>

@@ -12,11 +12,11 @@ Files: dist/english_plurals/*
 Copyright: yuzu Emulator Project
 License: GPL-2.0-or-later
 
-Files: dist/qt_themes/default/icons/256x256/yuzu.png
-       dist/yuzu.bmp
-       dist/yuzu.icns
-       dist/yuzu.ico
-       dist/yuzu.svg
+Files: dist/qt_themes/default/icons/256x256/citron.png
+       dist/citron.bmp
+       dist/citron.icns
+       dist/citron.ico
+       dist/citron.svg
 Copyright: yuzu Emulator Project
 License: GPL-2.0-or-later
 
@@ -108,22 +108,22 @@ Files: externals/FidelityFX-FSR/*
 Copyright: 2021 Advanced Micro Devices, Inc.
 License: MIT
 
-Files: src/yuzu/*.ui
+Files: src/citron/*.ui
 Copyright: 2018-2022 yuzu Emulator Project
 License: GPL-2.0-or-later
 
-Files: src/yuzu/compatdb.ui
-       src/yuzu/main.ui
+Files: src/citron/compatdb.ui
+       src/citron/main.ui
 Copyright: 2014-2017 Citra Emulator Project
 License: GPL-2.0-or-later
 
-Files: src/yuzu/loading_screen.ui
+Files: src/citron/loading_screen.ui
 Copyright: 2019 James Rowe <jroweboy@gmail.com>
 License: GPL-2.0-or-later
 
-Files: src/yuzu/applets/aboutdialog.ui
-       src/yuzu/applets/qt_software_keyboard.ui
-       src/yuzu/util/overlay_dialog.ui
+Files: src/citron/applets/aboutdialog.ui
+       src/citron/applets/qt_software_keyboard.ui
+       src/citron/util/overlay_dialog.ui
 Copyright: 2020-2021 Its-Rei <kupfel@gmail.com>
            2020-2021 yuzu Emulator Project
 License: GPL-2.0-or-later

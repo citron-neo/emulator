@@ -253,19 +253,19 @@ void AndroidKeyboard::SubmitNormalText(const ResultData& data) const {
 
 void InitJNI(JNIEnv* env) {
     s_software_keyboard_class = reinterpret_cast<jclass>(
-        env->NewGlobalRef(env->FindClass("org/yuzu/yuzu_emu/applets/keyboard/SoftwareKeyboard")));
+        env->NewGlobalRef(env->FindClass("org/citron/citron_emu/applets/keyboard/SoftwareKeyboard")));
     s_keyboard_config_class = reinterpret_cast<jclass>(env->NewGlobalRef(
-        env->FindClass("org/yuzu/yuzu_emu/applets/keyboard/SoftwareKeyboard$KeyboardConfig")));
+        env->FindClass("org/citron/citron_emu/applets/keyboard/SoftwareKeyboard$KeyboardConfig")));
     s_keyboard_data_class = reinterpret_cast<jclass>(env->NewGlobalRef(
-        env->FindClass("org/yuzu/yuzu_emu/applets/keyboard/SoftwareKeyboard$KeyboardData")));
+        env->FindClass("org/citron/citron_emu/applets/keyboard/SoftwareKeyboard$KeyboardData")));
 
     s_swkbd_execute_normal = env->GetStaticMethodID(
         s_software_keyboard_class, "executeNormal",
-        "(Lorg/yuzu/yuzu_emu/applets/keyboard/SoftwareKeyboard$KeyboardConfig;)Lorg/yuzu/yuzu_emu/"
+        "(Lorg/citron/citron_emu/applets/keyboard/SoftwareKeyboard$KeyboardConfig;)Lorg/citron/citron_emu/"
         "applets/keyboard/SoftwareKeyboard$KeyboardData;");
     s_swkbd_execute_inline = env->GetStaticMethodID(
         s_software_keyboard_class, "executeInline",
-        "(Lorg/yuzu/yuzu_emu/applets/keyboard/SoftwareKeyboard$KeyboardConfig;)V");
+        "(Lorg/citron/citron_emu/applets/keyboard/SoftwareKeyboard$KeyboardConfig;)V");
 }
 
 void CleanupJNI(JNIEnv* env) {

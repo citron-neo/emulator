@@ -18,7 +18,7 @@ SPDX-License-Identifier: GPL-2.0-or-later
         <file alias="48x48/sd_card.png">icons/48x48/sd_card.png</file>
         <file alias="48x48/star.png">icons/48x48/star.png</file>
         <file alias="256x256/plus_folder.png">icons/256x256/plus_folder.png</file>
-        <file alias="256x256/yuzu.png">icons/256x256/yuzu.png</file>
+        <file alias="256x256/citron.png">icons/256x256/citron.png</file>
     </qresource>
     <qresource prefix="default">
         <file>style.qss</file>

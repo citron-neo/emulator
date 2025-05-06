@@ -114,10 +114,10 @@ void LogSettings() {
         LOG_INFO(Config, "{}: {}", name, Common::FS::PathToUTF8String(path));
     };
 
-    LOG_INFO(Config, "yuzu Configuration:");
+    LOG_INFO(Config, "citron Configuration:");
     for (auto& [category, settings] : values.linkage.by_category) {
         for (const auto& setting : settings) {
-            if (setting->Id() == values.yuzu_token.Id()) {
+            if (setting->Id() == values.citron_token.Id()) {
                 // Hide the token secret, for security reasons.
                 continue;
             }

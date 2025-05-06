@@ -208,7 +208,7 @@ CubebSink::CubebSink(std::string_view target_device_name) {
     com_init_result = CoInitializeEx(nullptr, COINIT_MULTITHREADED);
 #endif
 
-    if (cubeb_init(&ctx, "yuzu", nullptr) != CUBEB_OK) {
+    if (cubeb_init(&ctx, "citron", nullptr) != CUBEB_OK) {
         LOG_CRITICAL(Audio_Sink, "cubeb_init failed");
         return;
     }
@@ -304,7 +304,7 @@ std::vector<std::string> ListCubebSinkDevices(bool capture) {
     auto com_init_result = CoInitializeEx(nullptr, COINIT_MULTITHREADED);
 #endif
 
-    if (cubeb_init(&ctx, "yuzu Device Enumerator", nullptr) != CUBEB_OK) {
+    if (cubeb_init(&ctx, "citron Device Enumerator", nullptr) != CUBEB_OK) {
         LOG_CRITICAL(Audio_Sink, "cubeb_init failed");
         return {};
     }
@@ -352,7 +352,7 @@ bool IsCubebSuitable() {
 #endif
 
     // Init cubeb
-    if (cubeb_init(&ctx, "yuzu Latency Getter", nullptr) != CUBEB_OK) {
+    if (cubeb_init(&ctx, "citron Latency Getter", nullptr) != CUBEB_OK) {
         LOG_ERROR(Audio_Sink, "Cubeb failed to init, it is not suitable.");
         return false;
     }

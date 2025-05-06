@@ -1,14 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources xmlns:tools="http://schemas.android.com/tools" tools:ignore="MissingTranslation">
 
-    <string name="app_disclaimer">此軟體可以執行 Nintendo Switch 主機遊戲，但不包含任何遊戲和金鑰。&lt;br /&gt;&lt;br /&gt;在您開始前，請找到放置於您的裝置儲存空間的 <![CDATA[<b> prod.keys </b>]]> 檔案。&lt;br /&gt;&lt;br /&gt;<![CDATA[<a href=\"https://yuzu-emu.org/help/quickstart\">深入瞭解</a>]]></string>
+    <string name="app_disclaimer">此軟體可以執行 Nintendo Switch 主機遊戲，但不包含任何遊戲和金鑰。&lt;br /&gt;&lt;br /&gt;在您開始前，請找到放置於您的裝置儲存空間的 <![CDATA[<b> prod.keys </b>]]> 檔案。&lt;br /&gt;&lt;br /&gt;<![CDATA[<a href=\"https://citron-emu.org/help/quickstart\">深入瞭解</a>]]></string>
     <string name="notice_notification_channel_name">通知和錯誤</string>
     <string name="notice_notification_channel_description">發生錯誤時顯示通知。</string>
     <string name="notification_permission_not_granted">未授予通知權限！</string>
 
     <!-- Setup strings -->
     <string name="welcome">歡迎！</string>
-    <string name="welcome_description">瞭解如何設定 &lt;b>yuzu&lt;/b> 並進入模擬。</string>
+    <string name="welcome_description">瞭解如何設定 &lt;b>citron&lt;/b> 並進入模擬。</string>
     <string name="get_started">開始使用</string>
     <string name="keys">金鑰</string>
     <string name="keys_description">使用下方的按鈕選取您的 &lt;b>prod.keys&lt;/b> 檔案。</string>
@@ -32,10 +32,10 @@
     <string name="search_and_filter_games">搜尋並篩選遊戲</string>
     <string name="select_games_folder">選取遊戲資料夾</string>
     <string name="manage_game_folders">管理遊戲資料夾</string>
-    <string name="select_games_folder_description">允許 yuzu 填入遊戲清單</string>
+    <string name="select_games_folder_description">允許 citron 填入遊戲清單</string>
     <string name="add_games_warning">跳過選取遊戲資料夾？</string>
     <string name="add_games_warning_description">如果資料夾未選取，遊戲將不會顯示在遊戲清單。</string>
-    <string name="add_games_warning_help">https://yuzu-emu.org/help/quickstart/#dumping-games</string>
+    <string name="add_games_warning_help">https://citron-emu.org/help/quickstart/#dumping-games</string>
     <string name="home_search_games">搜尋遊戲</string>
     <string name="search_settings">搜尋設定</string>
     <string name="games_dir_selected">遊戲目錄已選取</string>
@@ -43,12 +43,12 @@
     <string name="install_prod_keys_description">需要解密零售遊戲</string>
     <string name="install_prod_keys_warning">跳過新增金鑰？</string>
     <string name="install_prod_keys_warning_description">模擬零售遊戲需要有效的金鑰，若要繼續，將僅有自製遊戲應用程式可以運作。</string>
-    <string name="install_prod_keys_warning_help">https://yuzu-emu.org/help/quickstart/#guide-introduction</string>
+    <string name="install_prod_keys_warning_help">https://citron-emu.org/help/quickstart/#guide-introduction</string>
     <string name="notifications">通知</string>
     <string name="notifications_description">使用下方的按鈕授予通知權限。</string>
     <string name="give_permission">授予權限</string>
     <string name="notification_warning">跳過授予通知權限？</string>
-    <string name="notification_warning_description">yuzu 將無法通知您重要資訊。</string>
+    <string name="notification_warning_description">citron 將無法通知您重要資訊。</string>
     <string name="permission_denied">權限遭拒</string>
     <string name="permission_denied_description">您曾多次拒絕了權限要求，現在您需要在系統設定中手動授予權限。</string>
     <string name="about">關於</string>
@@ -64,7 +64,7 @@
     <string name="install_prod_keys_failure_extension_description">驗證您的金鑰檔案是否具有 .keys 副檔名並再試一次。</string>
     <string name="install_amiibo_keys_failure_extension_description">驗證您的金鑰檔案是否具有 .bin 副檔名並再試一次。</string>
     <string name="invalid_keys_error">無效的加密金鑰</string>
-    <string name="dumping_keys_quickstart_link">https://yuzu-emu.org/help/quickstart/#dumping-decryption-keys</string>
+    <string name="dumping_keys_quickstart_link">https://citron-emu.org/help/quickstart/#dumping-decryption-keys</string>
     <string name="install_keys_failure_description">選取的檔案不正確或已損毀，請重新傾印您的金鑰。</string>
     <string name="gpu_driver_manager">GPU 驅動程式管理員</string>
     <string name="install_gpu_driver">安裝 GPU 驅動程式</string>
@@ -76,11 +76,11 @@
     <string name="search_recently_added">最近新增</string>
     <string name="search_retail">零售</string>
     <string name="search_homebrew">自製遊戲</string>
-    <string name="open_user_folder">開啟 yuzu 資料夾</string>
-    <string name="open_user_folder_description">管理 yuzu 的內部檔案</string>
+    <string name="open_user_folder">開啟 citron 資料夾</string>
+    <string name="open_user_folder_description">管理 citron 的內部檔案</string>
     <string name="theme_and_color_description">修改應用程式外觀</string>
     <string name="no_file_manager">找不到檔案管理員</string>
-    <string name="notification_no_directory_link">無法開啟 yuzu 目錄</string>
+    <string name="notification_no_directory_link">無法開啟 citron 目錄</string>
     <string name="notification_no_directory_link_description">請使用檔案管理員的側邊面板手動定位到使用者資料夾。</string>
     <string name="manage_save_data">管理儲存資料</string>
     <string name="manage_save_data_description">已找到儲存資料，請選取下方的選項。</string>
@@ -101,7 +101,7 @@
     <string name="firmware_installed_failure">韌體安裝失敗</string>
     <string name="firmware_installed_failure_description">請確保韌體 nca 檔案位於 zip 壓縮檔的根目錄，然後再試一次。</string>
     <string name="share_log">分享偵錯記錄</string>
-    <string name="share_log_description">分享 yuzu 的記錄檔以便對相關問題進行偵錯</string>
+    <string name="share_log_description">分享 citron 的記錄檔以便對相關問題進行偵錯</string>
     <string name="share_log_missing">找不到記錄檔</string>
     <string name="install_game_content">安裝遊戲內容</string>
     <string name="install_game_content_description">安裝遊戲更新或 DLC</string>
@@ -114,11 +114,11 @@
     <string name="install_game_content_success">遊戲內容已成功安裝</string>
     <string name="install_game_content_success_install">%1$d 安裝成功</string>
     <string name="install_game_content_success_overwrite">%1$d 覆寫成功</string>
-    <string name="install_game_content_help_link">https://yuzu-emu.org/help/quickstart/#dumping-installed-updates</string>
+    <string name="install_game_content_help_link">https://citron-emu.org/help/quickstart/#dumping-installed-updates</string>
     <string name="custom_driver_not_supported">不支援自訂的驅動程式</string>
     <string name="custom_driver_not_supported_description">此裝置不支援自訂的驅動程式。\n請以後再來查看是否已新增支援！</string>
-    <string name="manage_yuzu_data">管理 yuzu 資料</string>
-    <string name="manage_yuzu_data_description">匯入/匯出韌體、金鑰、使用者資料及其他項目！</string>
+    <string name="manage_citron_data">管理 citron 資料</string>
+    <string name="manage_citron_data_description">匯入/匯出韌體、金鑰、使用者資料及其他項目！</string>
     <string name="share_save_file">分享儲存檔案</string>
     <string name="export_save_failed">無法匯出儲存檔案</string>
     <string name="game_folders">遊戲資料夾</string>
@@ -137,14 +137,14 @@
     <string name="verify_installed_content_description">检查所有安装的内容是否有损坏</string>
     <string name="keys_missing">密钥缺失</string>
     <string name="keys_missing_description">无法解密固件和商业游戏</string>
-    <string name="keys_missing_help">https://yuzu-emu.org/help/quickstart/#dumping-decryption-keys</string>
+    <string name="keys_missing_help">https://citron-emu.org/help/quickstart/#dumping-decryption-keys</string>
 
     <!-- Applet launcher strings -->
     <string name="applets">小程式啟動器</string>
     <string name="applets_description">使用已安裝的韌體啟動系統小程式</string>
     <string name="applets_error_firmware">未安裝韌體</string>
     <string name="applets_error_applet">無法使用小程式</string>
-    <string name="applets_error_description"><![CDATA[請確保您的 <a href=\"https://yuzu-emu.org/help/quickstart/#dumping-prodkeys-and-titlekeys\">prod.keys</a> 檔案和<a href=\"https://yuzu-emu.org/help/quickstart/#dumping-system-firmware\">韌體</a>已安裝，然後再試一次。]]></string>
+    <string name="applets_error_description"><![CDATA[請確保您的 <a href=\"https://citron-emu.org/help/quickstart/#dumping-prodkeys-and-titlekeys\">prod.keys</a> 檔案和<a href=\"https://citron-emu.org/help/quickstart/#dumping-system-firmware\">韌體</a>已安裝，然後再試一次。]]></string>
     <string name="album_applet">相簿</string>
     <string name="album_applet_description">使用系統相片檢視器查看儲存在使用者螢幕截圖資料夾中的影像</string>
     <string name="mii_edit_applet">Mii 編輯</string>
@@ -162,28 +162,28 @@
     <string name="copied_to_clipboard">已複製到剪貼簿</string>
     <string name="about_app_description">一個開放原始碼的 Switch 模擬器</string>
     <string name="contributors">參與者</string>
-    <string name="contributors_description">使用來自 yuzu 團隊的 \u2764 製作</string>
-    <string name="contributors_link">https://github.com/yuzu-emu/yuzu/graphs/contributors</string>
-    <string name="licenses_description">這些專案使 yuzu Android 版成為可能</string>
+    <string name="contributors_description">使用來自 citron 團隊的 \u2764 製作</string>
+    <string name="contributors_link">https://github.com/citron-emu/citron/graphs/contributors</string>
+    <string name="licenses_description">這些專案使 citron Android 版成為可能</string>
     <string name="build">組建</string>
     <string name="user_data">使用者資料</string>
     <string name="user_data_description">匯入/匯出所有應用程式資料。\n\n匯入使用者資料時，現有的使用者資料將被刪除！</string>
     <string name="exporting_user_data">正在匯出使用者資料…</string>
     <string name="importing_user_data">正在匯入使用者資料…</string>
     <string name="import_user_data">匯入使用者資料</string>
-    <string name="invalid_yuzu_backup">無效的 yuzu 備份</string>
+    <string name="invalid_citron_backup">無效的 citron 備份</string>
     <string name="user_data_export_success">使用者資料匯出成功</string>
     <string name="user_data_import_success">使用者資料匯入成功</string>
     <string name="user_data_export_cancelled">匯出已取消</string>
     <string name="user_data_import_failed_description">請確保使用者資料夾位於 zip 壓縮檔的根目錄，並在 config/config.ini 路徑中包含組態檔案，並再試一次。</string>
     <string name="support_link">https://discord.gg/u77vRWY</string>
-    <string name="website_link">https://yuzu-emu.org/</string>
-    <string name="github_link">https://github.com/yuzu-emu</string>
+    <string name="website_link">https://citron-emu.org/</string>
+    <string name="github_link">https://github.com/citron-emu</string>
 
     <!-- Early access upgrade strings -->
     <string name="early_access">搶先體驗</string>
     <string name="get_early_access">搶先體驗新功能</string>
-    <string name="play_store_link">https://play.google.com/store/apps/details?id=org.yuzu.yuzu_emu.ea</string>
+    <string name="play_store_link">https://play.google.com/store/apps/details?id=org.citron.citron_emu.ea</string>
     <string name="get_early_access_description">最新的功能、搶先版更新、以及更多</string>
     <string name="early_access_benefits">搶先體驗權益</string>
     <string name="cutting_edge_features">最新功能</string>
@@ -456,8 +456,8 @@
 
     <!-- ROM loading errors -->
     <string name="loader_error_encrypted">您的 ROM 已加密</string>
-    <string name="loader_error_encrypted_roms_description"><![CDATA[請依循指南重新傾印您的<a href=\"https://yuzu-emu.org/help/quickstart/#dumping-physical-titles-game-cards\">遊戲卡匣</a>或<a href=\"https://yuzu-emu.org/help/quickstart/#dumping-digital-titles-eshop\">已安裝的遊戲</a>。]]></string>
-    <string name="loader_error_encrypted_keys_description"><![CDATA[請確保您的 <a href=\"https://yuzu-emu.org/help/quickstart/#dumping-prodkeys-and-titlekeys\">prod.keys</a> 檔案已安裝，讓遊戲可以解密。]]></string>
+    <string name="loader_error_encrypted_roms_description"><![CDATA[請依循指南重新傾印您的<a href=\"https://citron-emu.org/help/quickstart/#dumping-physical-titles-game-cards\">遊戲卡匣</a>或<a href=\"https://citron-emu.org/help/quickstart/#dumping-digital-titles-eshop\">已安裝的遊戲</a>。]]></string>
+    <string name="loader_error_encrypted_keys_description"><![CDATA[請確保您的 <a href=\"https://citron-emu.org/help/quickstart/#dumping-prodkeys-and-titlekeys\">prod.keys</a> 檔案已安裝，讓遊戲可以解密。]]></string>
     <string name="loader_error_video_core">初始化視訊核心時發生錯誤</string>
     <string name="loader_error_video_core_description">這經常由不相容的 GPU 驅動程式造成，安裝自訂 GPU 驅動程式可能會解決此問題。</string>
     <string name="loader_error_invalid_format">無法載入 ROM</string>

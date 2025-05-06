@@ -76,9 +76,9 @@ struct UUID {
     u128 AsU128() const;
 
     /**
-     * Creates a default UUID "yuzu Default UID".
+     * Creates a default UUID "citron Default UID".
      *
-     * @returns A UUID with its bytes set to the ASCII values of "yuzu Default UID".
+     * @returns A UUID with its bytes set to the ASCII values of "citron Default UID".
      */
     static constexpr UUID MakeDefault() {
         return UUID{
