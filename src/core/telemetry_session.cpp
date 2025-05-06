@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: 2017 Citra Emulator Project
+// SPDX-FileCopyrightText: 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <array>
@@ -35,7 +36,7 @@ static u64 GenerateTelemetryId() {
     mbedtls_entropy_context entropy;
     mbedtls_entropy_init(&entropy);
     mbedtls_ctr_drbg_context ctr_drbg;
-    static constexpr std::array<char, 18> personalization{{"citron Telemetry ID"}};
+    static constexpr std::array<char, 20> personalization{{"citron Telemetry ID"}};
 
     mbedtls_ctr_drbg_init(&ctr_drbg);
     ASSERT(mbedtls_ctr_drbg_seed(&ctr_drbg, mbedtls_entropy_func, &entropy,
