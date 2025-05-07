@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: Copyright 2018 yuzu Emulator Project
+// SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "core/hle/service/friend/friend_interface.h"
@@ -10,7 +11,7 @@ Friend::Friend(std::shared_ptr<Module> module_, Core::System& system_, const cha
     static const FunctionInfo functions[] = {
         {0, &Friend::CreateFriendService, "CreateFriendService"},
         {1, &Friend::CreateNotificationService, "CreateNotificationService"},
-        {2, nullptr, "CreateDaemonSuspendSessionService"},
+        {2, &Friend::CreateDaemonSuspendSessionService, "CreateDaemonSuspendSessionService"},
     };
     RegisterHandlers(functions);
 }
