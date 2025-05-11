@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: Copyright 2020 yuzu Emulator Project
+// SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #pragma once
@@ -153,6 +154,7 @@ enum class InfoType : u32 {
     ThreadTickCount = 25,
     IsSvcPermitted = 26,
     IoRegionHint = 27,
+    TLSCapability = 28,  // ID 0x1C used for TLS capability check
 
     MesosphereMeta = 65000,
     MesosphereCurrentProcess = 65001,
