@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: Copyright 2018 yuzu Emulator Project
+// SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <chrono>
@@ -81,17 +82,17 @@ public:
     explicit NIM(Core::System& system_) : ServiceFramework{system_, "nim"} {
         // clang-format off
         static const FunctionInfo functions[] = {
-            {0, nullptr, "CreateSystemUpdateTask"},
+            {0, &NIM::CreateSystemUpdateTask, "CreateSystemUpdateTask"},
             {1, nullptr, "DestroySystemUpdateTask"},
             {2, nullptr, "ListSystemUpdateTask"},
             {3, nullptr, "RequestSystemUpdateTaskRun"},
-            {4, nullptr, "GetSystemUpdateTaskInfo"},
+            {4, &NIM::GetSystemUpdateTaskInfo, "GetSystemUpdateTaskInfo"},
             {5, nullptr, "CommitSystemUpdateTask"},
             {6, nullptr, "CreateNetworkInstallTask"},
             {7, nullptr, "DestroyNetworkInstallTask"},
             {8, nullptr, "ListNetworkInstallTask"},
-            {9, nullptr, "RequestNetworkInstallTaskRun"},
-            {10, nullptr, "GetNetworkInstallTaskInfo"},
+            {9, &NIM::RequestNetworkInstallTaskRun, "RequestNetworkInstallTaskRun"},
+            {10, &NIM::GetNetworkInstallTaskInfo, "GetNetworkInstallTaskInfo"},
             {11, nullptr, "CommitNetworkInstallTask"},
             {12, nullptr, "RequestLatestSystemUpdateMeta"},
             {14, nullptr, "ListApplicationNetworkInstallTask"},
@@ -99,9 +100,9 @@ public:
             {16, nullptr, "RequestLatestVersion"},
             {17, nullptr, "SetNetworkInstallTaskAttribute"},
             {18, nullptr, "AddNetworkInstallTaskContentMeta"},
-            {19, nullptr, "GetDownloadedSystemDataPath"},
+            {19, &NIM::GetDownloadedSystemDataPath, "GetDownloadedSystemDataPath"},
             {20, nullptr, "CalculateNetworkInstallTaskRequiredSize"},
-            {21, nullptr, "IsExFatDriverIncluded"},
+            {21, &NIM::IsExFatDriverIncluded, "IsExFatDriverIncluded"},
             {22, nullptr, "GetBackgroundDownloadStressTaskInfo"},
             {23, nullptr, "RequestDeviceAuthenticationToken"},
             {24, nullptr, "RequestGameCardRegistrationStatus"},
@@ -111,11 +112,11 @@ public:
             {28, nullptr, "RequestApplicationControl"},
             {29, nullptr, "RequestLatestApplicationControl"},
             {30, nullptr, "RequestVersionList"},
-            {31, nullptr, "CreateApplyDeltaTask"},
+            {31, &NIM::CreateApplyDeltaTask, "CreateApplyDeltaTask"},
             {32, nullptr, "DestroyApplyDeltaTask"},
             {33, nullptr, "ListApplicationApplyDeltaTask"},
             {34, nullptr, "RequestApplyDeltaTaskRun"},
-            {35, nullptr, "GetApplyDeltaTaskInfo"},
+            {35, &NIM::GetApplyDeltaTaskInfo, "GetApplyDeltaTaskInfo"},
             {36, nullptr, "ListApplyDeltaTask"},
             {37, nullptr, "CommitApplyDeltaTask"},
             {38, nullptr, "CalculateApplyDeltaTaskRequiredSize"},
@@ -133,35 +134,35 @@ public:
             {50, nullptr, "ListNetworkInstallTaskNotCommittedContentMeta"},
             {51, nullptr, "FindMaxRequiredSystemVersionOfTask"},
             {52, nullptr, "GetNetworkInstallTaskErrorContext"},
-            {53, nullptr, "CreateLocalCommunicationReceiveApplicationTask"},
+            {53, &NIM::CreateLocalCommunicationReceiveApplicationTask, "CreateLocalCommunicationReceiveApplicationTask"},
             {54, nullptr, "DestroyLocalCommunicationReceiveApplicationTask"},
             {55, nullptr, "ListLocalCommunicationReceiveApplicationTask"},
-            {56, nullptr, "RequestLocalCommunicationReceiveApplicationTaskRun"},
-            {57, nullptr, "GetLocalCommunicationReceiveApplicationTaskInfo"},
+            {56, &NIM::RequestLocalCommunicationReceiveApplicationTaskRun, "RequestLocalCommunicationReceiveApplicationTaskRun"},
+            {57, &NIM::GetLocalCommunicationReceiveApplicationTaskInfo, "GetLocalCommunicationReceiveApplicationTaskInfo"},
             {58, nullptr, "CommitLocalCommunicationReceiveApplicationTask"},
             {59, nullptr, "ListLocalCommunicationReceiveApplicationTaskContentMeta"},
-            {60, nullptr, "CreateLocalCommunicationSendApplicationTask"},
-            {61, nullptr, "RequestLocalCommunicationSendApplicationTaskRun"},
+            {60, &NIM::CreateLocalCommunicationSendApplicationTask, "CreateLocalCommunicationSendApplicationTask"},
+            {61, &NIM::RequestLocalCommunicationSendApplicationTaskRun, "RequestLocalCommunicationSendApplicationTaskRun"},
             {62, nullptr, "GetLocalCommunicationReceiveApplicationTaskErrorContext"},
-            {63, nullptr, "GetLocalCommunicationSendApplicationTaskInfo"},
+            {63, &NIM::GetLocalCommunicationSendApplicationTaskInfo, "GetLocalCommunicationSendApplicationTaskInfo"},
             {64, nullptr, "DestroyLocalCommunicationSendApplicationTask"},
             {65, nullptr, "GetLocalCommunicationSendApplicationTaskErrorContext"},
             {66, nullptr, "CalculateLocalCommunicationReceiveApplicationTaskRequiredSize"},
-            {67, nullptr, "ListApplicationLocalCommunicationReceiveApplicationTask"},
-            {68, nullptr, "ListApplicationLocalCommunicationSendApplicationTask"},
-            {69, nullptr, "CreateLocalCommunicationReceiveSystemUpdateTask"},
+            {67, &NIM::ListApplicationLocalCommunicationReceiveApplicationTask, "ListApplicationLocalCommunicationReceiveApplicationTask"},
+            {68, &NIM::ListApplicationLocalCommunicationSendApplicationTask, "ListApplicationLocalCommunicationSendApplicationTask"},
+            {69, &NIM::CreateLocalCommunicationReceiveSystemUpdateTask, "CreateLocalCommunicationReceiveSystemUpdateTask"},
             {70, nullptr, "DestroyLocalCommunicationReceiveSystemUpdateTask"},
-            {71, nullptr, "ListLocalCommunicationReceiveSystemUpdateTask"},
-            {72, nullptr, "RequestLocalCommunicationReceiveSystemUpdateTaskRun"},
-            {73, nullptr, "GetLocalCommunicationReceiveSystemUpdateTaskInfo"},
+            {71, &NIM::ListLocalCommunicationReceiveSystemUpdateTask, "ListLocalCommunicationReceiveSystemUpdateTask"},
+            {72, &NIM::RequestLocalCommunicationReceiveSystemUpdateTaskRun, "RequestLocalCommunicationReceiveSystemUpdateTaskRun"},
+            {73, &NIM::GetLocalCommunicationReceiveSystemUpdateTaskInfo, "GetLocalCommunicationReceiveSystemUpdateTaskInfo"},
             {74, nullptr, "CommitLocalCommunicationReceiveSystemUpdateTask"},
             {75, nullptr, "GetLocalCommunicationReceiveSystemUpdateTaskErrorContext"},
-            {76, nullptr, "CreateLocalCommunicationSendSystemUpdateTask"},
-            {77, nullptr, "RequestLocalCommunicationSendSystemUpdateTaskRun"},
-            {78, nullptr, "GetLocalCommunicationSendSystemUpdateTaskInfo"},
+            {76, &NIM::CreateLocalCommunicationSendSystemUpdateTask, "CreateLocalCommunicationSendSystemUpdateTask"},
+            {77, &NIM::RequestLocalCommunicationSendSystemUpdateTaskRun, "RequestLocalCommunicationSendSystemUpdateTaskRun"},
+            {78, &NIM::GetLocalCommunicationSendSystemUpdateTaskInfo, "GetLocalCommunicationSendSystemUpdateTaskInfo"},
             {79, nullptr, "DestroyLocalCommunicationSendSystemUpdateTask"},
             {80, nullptr, "GetLocalCommunicationSendSystemUpdateTaskErrorContext"},
-            {81, nullptr, "ListLocalCommunicationSendSystemUpdateTask"},
+            {81, &NIM::ListLocalCommunicationSendSystemUpdateTask, "ListLocalCommunicationSendSystemUpdateTask"},
             {82, nullptr, "GetReceivedSystemDataPath"},
             {83, nullptr, "CalculateApplyDeltaTaskOccupiedSize"},
             {84, nullptr, "Unknown84"},
@@ -219,6 +220,262 @@ public:
         // clang-format on
 
         RegisterHandlers(functions);
+    }
+
+private:
+    void CreateSystemUpdateTask(HLERequestContext& ctx) {
+        LOG_WARNING(Service_NIM, "(STUBBED) called");
+
+        // Return a dummy task ID
+        IPC::ResponseBuilder rb{ctx, 3};
+        rb.Push(ResultSuccess);
+        rb.Push<u64>(1); // Dummy task ID
+    }
+
+    void GetSystemUpdateTaskInfo(HLERequestContext& ctx) {
+        LOG_WARNING(Service_NIM, "(STUBBED) called");
+
+        // Return dummy task info
+        IPC::ResponseBuilder rb{ctx, 15};
+        rb.Push(ResultSuccess);
+        // SystemUpdateTaskInfo structure
+        rb.Push<u64>(1);                         // Task ID
+        rb.Push<u64>(0);                         // State
+        rb.Push<u64>(100);                       // Total size
+        rb.Push<u64>(100);                       // Downloaded size
+        rb.Push<u8>(0);                          // Error code
+        rb.Push<u8>(0);                          // Pad[7]
+        rb.Push<u64>(0);                         // Reserved[64]
+    }
+
+    void RequestNetworkInstallTaskRun(HLERequestContext& ctx) {
+        LOG_WARNING(Service_NIM, "(STUBBED) called");
+
+        IPC::ResponseBuilder rb{ctx, 2};
+        rb.Push(ResultSuccess);
+    }
+
+    void GetNetworkInstallTaskInfo(HLERequestContext& ctx) {
+        LOG_WARNING(Service_NIM, "(STUBBED) called");
+
+        // Return dummy network install task info
+        IPC::ResponseBuilder rb{ctx, 20};
+        rb.Push(ResultSuccess);
+        // NetworkInstallTaskInfo structure
+        rb.Push<u64>(1);                         // Task ID
+        rb.Push<u64>(0);                         // State
+        rb.Push<u64>(100);                       // Content meta count
+        rb.Push<u64>(0);                         // Owner ID/Application ID
+        rb.Push<u64>(100);                       // Required size
+        rb.Push<u64>(100);                       // Downloaded size
+        rb.Push<u8>(0);                          // Error code
+        rb.Push<u8>(0);                          // Pad[7]
+        rb.Push<u64>(0);                         // Reserved[64]
+    }
+
+    void GetDownloadedSystemDataPath(HLERequestContext& ctx) {
+        LOG_WARNING(Service_NIM, "(STUBBED) called");
+
+        // Return a dummy path
+        std::string path = "sdmc:/atmosphere/contents/system";
+
+        IPC::ResponseBuilder rb{ctx, 2};
+        rb.Push(ResultSuccess);
+        ctx.WriteBuffer(path);
+    }
+
+    void IsExFatDriverIncluded(HLERequestContext& ctx) {
+        LOG_WARNING(Service_NIM, "(STUBBED) called");
+
+        IPC::ResponseBuilder rb{ctx, 3};
+        rb.Push(ResultSuccess);
+        rb.Push<u8>(false); // ExFAT driver is not included
+    }
+
+    void CreateLocalCommunicationReceiveSystemUpdateTask(HLERequestContext& ctx) {
+        LOG_WARNING(Service_NIM, "(STUBBED) called");
+
+        // Return a dummy task ID
+        IPC::ResponseBuilder rb{ctx, 3};
+        rb.Push(ResultSuccess);
+        rb.Push<u64>(1); // Dummy task ID
+    }
+
+    void ListLocalCommunicationReceiveSystemUpdateTask(HLERequestContext& ctx) {
+        LOG_WARNING(Service_NIM, "(STUBBED) called");
+
+        // Returns an array of task IDs (empty for stub)
+        IPC::ResponseBuilder rb{ctx, 3};
+        rb.Push(ResultSuccess);
+        rb.Push<u32>(0); // Count (0 tasks)
+    }
+
+    void RequestLocalCommunicationReceiveSystemUpdateTaskRun(HLERequestContext& ctx) {
+        LOG_WARNING(Service_NIM, "(STUBBED) called");
+
+        IPC::ResponseBuilder rb{ctx, 2};
+        rb.Push(ResultSuccess);
+    }
+
+    void GetLocalCommunicationReceiveSystemUpdateTaskInfo(HLERequestContext& ctx) {
+        LOG_WARNING(Service_NIM, "(STUBBED) called");
+
+        // Return dummy task info
+        IPC::ResponseBuilder rb{ctx, 9};
+        rb.Push(ResultSuccess);
+        // ReceiveSystemUpdateTaskInfo structure (simplified)
+        rb.Push<u64>(1);                         // Task ID
+        rb.Push<u64>(0);                         // State
+        rb.Push<u64>(100);                       // Total received size
+        rb.Push<u64>(100);                       // Total size
+        rb.Push<u8>(0);                          // Error code
+        rb.Push<u8>(0);                          // Pad[7]
+    }
+
+    void CreateLocalCommunicationSendSystemUpdateTask(HLERequestContext& ctx) {
+        LOG_WARNING(Service_NIM, "(STUBBED) called");
+
+        // Return a dummy task ID
+        IPC::ResponseBuilder rb{ctx, 3};
+        rb.Push(ResultSuccess);
+        rb.Push<u64>(1); // Dummy task ID
+    }
+
+    void RequestLocalCommunicationSendSystemUpdateTaskRun(HLERequestContext& ctx) {
+        LOG_WARNING(Service_NIM, "(STUBBED) called");
+
+        IPC::ResponseBuilder rb{ctx, 2};
+        rb.Push(ResultSuccess);
+    }
+
+    void GetLocalCommunicationSendSystemUpdateTaskInfo(HLERequestContext& ctx) {
+        LOG_WARNING(Service_NIM, "(STUBBED) called");
+
+        // Return dummy task info
+        IPC::ResponseBuilder rb{ctx, 9};
+        rb.Push(ResultSuccess);
+        // SendSystemUpdateTaskInfo structure (simplified)
+        rb.Push<u64>(1);                         // Task ID
+        rb.Push<u64>(0);                         // State
+        rb.Push<u64>(100);                       // Total sent size
+        rb.Push<u64>(100);                       // Total size
+        rb.Push<u8>(0);                          // Error code
+        rb.Push<u8>(0);                          // Pad[7]
+    }
+
+    void ListLocalCommunicationSendSystemUpdateTask(HLERequestContext& ctx) {
+        LOG_WARNING(Service_NIM, "(STUBBED) called");
+
+        // Returns an array of task IDs (empty for stub)
+        IPC::ResponseBuilder rb{ctx, 3};
+        rb.Push(ResultSuccess);
+        rb.Push<u32>(0); // Count (0 tasks)
+    }
+
+    void ListApplicationLocalCommunicationReceiveApplicationTask(HLERequestContext& ctx) {
+        LOG_WARNING(Service_NIM, "(STUBBED) called");
+
+        // Returns an array of task IDs (empty for stub)
+        IPC::ResponseBuilder rb{ctx, 3};
+        rb.Push(ResultSuccess);
+        rb.Push<u32>(0); // Count (0 tasks)
+    }
+
+    void ListApplicationLocalCommunicationSendApplicationTask(HLERequestContext& ctx) {
+        LOG_WARNING(Service_NIM, "(STUBBED) called");
+
+        // Returns an array of task IDs (empty for stub)
+        IPC::ResponseBuilder rb{ctx, 3};
+        rb.Push(ResultSuccess);
+        rb.Push<u32>(0); // Count (0 tasks)
+    }
+
+    void CreateLocalCommunicationReceiveApplicationTask(HLERequestContext& ctx) {
+        LOG_WARNING(Service_NIM, "(STUBBED) called");
+
+        // Return a dummy task ID
+        IPC::ResponseBuilder rb{ctx, 3};
+        rb.Push(ResultSuccess);
+        rb.Push<u64>(1); // Dummy task ID
+    }
+
+    void RequestLocalCommunicationReceiveApplicationTaskRun(HLERequestContext& ctx) {
+        LOG_WARNING(Service_NIM, "(STUBBED) called");
+
+        IPC::ResponseBuilder rb{ctx, 2};
+        rb.Push(ResultSuccess);
+    }
+
+    void GetLocalCommunicationReceiveApplicationTaskInfo(HLERequestContext& ctx) {
+        LOG_WARNING(Service_NIM, "(STUBBED) called");
+
+        // Return dummy task info
+        IPC::ResponseBuilder rb{ctx, 9};
+        rb.Push(ResultSuccess);
+        // LocalCommunicationReceiveApplicationTaskInfo structure (simplified)
+        rb.Push<u64>(1);                         // Task ID
+        rb.Push<u64>(0);                         // State
+        rb.Push<u64>(100);                       // Total received size
+        rb.Push<u64>(100);                       // Total size
+        rb.Push<u8>(0);                          // Error code
+        rb.Push<u8>(0);                          // Pad[7]
+    }
+
+    void CreateLocalCommunicationSendApplicationTask(HLERequestContext& ctx) {
+        LOG_WARNING(Service_NIM, "(STUBBED) called");
+
+        // Return a dummy task ID
+        IPC::ResponseBuilder rb{ctx, 3};
+        rb.Push(ResultSuccess);
+        rb.Push<u64>(1); // Dummy task ID
+    }
+
+    void RequestLocalCommunicationSendApplicationTaskRun(HLERequestContext& ctx) {
+        LOG_WARNING(Service_NIM, "(STUBBED) called");
+
+        IPC::ResponseBuilder rb{ctx, 2};
+        rb.Push(ResultSuccess);
+    }
+
+    void GetLocalCommunicationSendApplicationTaskInfo(HLERequestContext& ctx) {
+        LOG_WARNING(Service_NIM, "(STUBBED) called");
+
+        // Return dummy task info
+        IPC::ResponseBuilder rb{ctx, 9};
+        rb.Push(ResultSuccess);
+        // LocalCommunicationSendApplicationTaskInfo structure (simplified)
+        rb.Push<u64>(1);                         // Task ID
+        rb.Push<u64>(0);                         // State
+        rb.Push<u64>(100);                       // Total sent size
+        rb.Push<u64>(100);                       // Total size
+        rb.Push<u8>(0);                          // Error code
+        rb.Push<u8>(0);                          // Pad[7]
+    }
+
+    void CreateApplyDeltaTask(HLERequestContext& ctx) {
+        LOG_WARNING(Service_NIM, "(STUBBED) called");
+
+        // Return a dummy task ID
+        IPC::ResponseBuilder rb{ctx, 3};
+        rb.Push(ResultSuccess);
+        rb.Push<u64>(1); // Dummy task ID
+    }
+
+    void GetApplyDeltaTaskInfo(HLERequestContext& ctx) {
+        LOG_WARNING(Service_NIM, "(STUBBED) called");
+
+        // Return dummy task info
+        IPC::ResponseBuilder rb{ctx, 15};
+        rb.Push(ResultSuccess);
+        // ApplyDeltaTaskInfo structure
+        rb.Push<u64>(1);                         // Task ID
+        rb.Push<u64>(0);                         // State
+        rb.Push<u64>(0);                         // Application ID
+        rb.Push<u64>(100);                       // Content meta count
+        rb.Push<u64>(100);                       // Required size
+        rb.Push<u64>(100);                       // Total size
+        rb.Push<u8>(0);                          // Error code
+        rb.Push<u8>(0);                          // Pad[7]
     }
 };
 
@@ -288,10 +545,38 @@ public:
             {401, nullptr, "GetVirtualAccount"},
             {500, nullptr, "RequestSyncTicketLegacy"},
             {501, nullptr, "RequestDownloadTicket"},
-            {502, nullptr, "RequestDownloadTicketForPrepurchasedContents"},
+            {502, &NIM_SHP::RequestDownloadTicketForPrepurchasedContents, "RequestDownloadTicketForPrepurchasedContents"},
             {503, nullptr, "RequestSyncTicket"},
             {504, nullptr, "RequestDownloadTicketForPrepurchasedContents2"},
             {505, nullptr, "RequestDownloadTicketForPrepurchasedContentsForAccount"},
+        };
+        // clang-format on
+
+        RegisterHandlers(functions);
+    }
+
+private:
+    void RequestDownloadTicketForPrepurchasedContents(HLERequestContext& ctx) {
+        LOG_WARNING(Service_NIM, "(STUBBED) called");
+
+        // This function handles downloading ticket data for pre-purchased content (like DLC)
+        // For the stub, we'll just return success to prevent crashes
+
+        IPC::ResponseBuilder rb{ctx, 2};
+        rb.Push(ResultSuccess);
+    }
+};
+
+class NIM_ECAS final : public ServiceFramework<NIM_ECAS> {
+public:
+    explicit NIM_ECAS(Core::System& system_) : ServiceFramework{system_, "nim:ecas"} {
+        // clang-format off
+        static const FunctionInfo functions[] = {
+            {0, nullptr, "GetCommonEcasSystemEvent"},
+            {1, nullptr, "GetCommonEcasSystemEventForBattery"},
+            {2, nullptr, "GetCommonEcasSystemEventForNotificationArrived"},
+            {3, nullptr, "GetCommonEcasSystemEventForSleep"},
+            {4, nullptr, "GetCommonEcasSystemEventForSystemProgram"},
         };
         // clang-format on
 
@@ -424,6 +709,7 @@ void LoopProcess(Core::System& system) {
     server_manager->RegisterNamedService("nim", std::make_shared<NIM>(system));
     server_manager->RegisterNamedService("nim:eca", std::make_shared<NIM_ECA>(system));
     server_manager->RegisterNamedService("nim:shp", std::make_shared<NIM_SHP>(system));
+    server_manager->RegisterNamedService("nim:ecas", std::make_shared<NIM_ECAS>(system));
     server_manager->RegisterNamedService("ntc", std::make_shared<NTC>(system));
     ServerManager::RunServer(std::move(server_manager));
 }
