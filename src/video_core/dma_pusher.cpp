@@ -103,11 +103,12 @@ bool DmaPusher::Step() {
                 unsafe_process();
                 return true;
             }
-            if (subchannel_type[dma_state.subchannel] == Engines::EngineTypes::KeplerCompute &&
-                dma_state.method == ComputeInline) {
-                unsafe_process();
-                return true;
-            }
+            safe_process();
+            return true;
+        }
+        // Even in normal accuracy, use safe reads for KeplerCompute inline methods
+        if (subchannel_type[dma_state.subchannel] == Engines::EngineTypes::KeplerCompute &&
+            dma_state.method == ComputeInline) {
             safe_process();
             return true;
         }
