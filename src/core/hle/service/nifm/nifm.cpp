@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: Copyright 2018 yuzu Emulator Project
+// SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "core/core.h"
@@ -159,19 +160,67 @@ constexpr Result ResultNetworkCommunicationDisabled{ErrorModule::NIFM, 1111};
 
 class IScanRequest final : public ServiceFramework<IScanRequest> {
 public:
-    explicit IScanRequest(Core::System& system_) : ServiceFramework{system_, "IScanRequest"} {
+    explicit IScanRequest(Core::System& system_) : ServiceFramework{system_, "IScanRequest"},
+                                                  service_context{system_, "IScanRequest"} {
         // clang-format off
         static const FunctionInfo functions[] = {
-            {0, nullptr, "Submit"},
-            {1, nullptr, "IsProcessing"},
-            {2, nullptr, "GetResult"},
-            {3, nullptr, "GetSystemEventReadableHandle"},
-            {4, nullptr, "SetChannels"},
+            {0, &IScanRequest::Submit, "Submit"},
+            {1, &IScanRequest::IsProcessing, "IsProcessing"},
+            {2, &IScanRequest::GetResult, "GetResult"},
+            {3, &IScanRequest::GetSystemEventReadableHandle, "GetSystemEventReadableHandle"},
+            {4, &IScanRequest::SetChannels, "SetChannels"},
         };
         // clang-format on
 
         RegisterHandlers(functions);
+
+        event = CreateKEvent(service_context, "IScanRequest:Event");
     }
+
+    ~IScanRequest() override {
+        service_context.CloseEvent(event);
+    }
+
+private:
+    void Submit(HLERequestContext& ctx) {
+        LOG_WARNING(Service_NIFM, "(STUBBED) called");
+
+        IPC::ResponseBuilder rb{ctx, 2};
+        rb.Push(ResultSuccess);
+    }
+
+    void IsProcessing(HLERequestContext& ctx) {
+        LOG_WARNING(Service_NIFM, "(STUBBED) called");
+
+        IPC::ResponseBuilder rb{ctx, 3};
+        rb.Push(ResultSuccess);
+        rb.Push<u8>(0); // Not processing
+    }
+
+    void GetResult(HLERequestContext& ctx) {
+        LOG_WARNING(Service_NIFM, "(STUBBED) called");
+
+        IPC::ResponseBuilder rb{ctx, 2};
+        rb.Push(ResultSuccess);
+    }
+
+    void GetSystemEventReadableHandle(HLERequestContext& ctx) {
+        LOG_WARNING(Service_NIFM, "(STUBBED) called");
+
+        IPC::ResponseBuilder rb{ctx, 2, 1};
+        rb.Push(ResultSuccess);
+        rb.PushCopyObjects(event->GetReadableEvent());
+    }
+
+    void SetChannels(HLERequestContext& ctx) {
+        LOG_WARNING(Service_NIFM, "(STUBBED) called");
+
+        IPC::ResponseBuilder rb{ctx, 2};
+        rb.Push(ResultSuccess);
+    }
+
+    KernelHelpers::ServiceContext service_context;
+    Kernel::KEvent* event;
 };
 
 class IRequest final : public ServiceFramework<IRequest> {
@@ -184,26 +233,26 @@ public:
             {2, &IRequest::GetSystemEventReadableHandles, "GetSystemEventReadableHandles"},
             {3, &IRequest::Cancel, "Cancel"},
             {4, &IRequest::Submit, "Submit"},
-            {5, nullptr, "SetRequirement"},
+            {5, &IRequest::SetRequirement, "SetRequirement"},
             {6, &IRequest::SetRequirementPreset, "SetRequirementPreset"},
-            {8, nullptr, "SetPriority"},
-            {9, nullptr, "SetNetworkProfileId"},
-            {10, nullptr, "SetRejectable"},
+            {8, &IRequest::SetPriority, "SetPriority"},
+            {9, &IRequest::SetNetworkProfileId, "SetNetworkProfileId"},
+            {10, &IRequest::SetRejectable, "SetRejectable"},
             {11, &IRequest::SetConnectionConfirmationOption, "SetConnectionConfirmationOption"},
-            {12, nullptr, "SetPersistent"},
-            {13, nullptr, "SetInstant"},
-            {14, nullptr, "SetSustainable"},
-            {15, nullptr, "SetRawPriority"},
-            {16, nullptr, "SetGreedy"},
-            {17, nullptr, "SetSharable"},
-            {18, nullptr, "SetRequirementByRevision"},
-            {19, nullptr, "GetRequirement"},
-            {20, nullptr, "GetRevision"},
+            {12, &IRequest::SetPersistent, "SetPersistent"},
+            {13, &IRequest::SetInstant, "SetInstant"},
+            {14, &IRequest::SetSustainable, "SetSustainable"},
+            {15, &IRequest::SetRawPriority, "SetRawPriority"},
+            {16, &IRequest::SetGreedy, "SetGreedy"},
+            {17, &IRequest::SetSharable, "SetSharable"},
+            {18, &IRequest::SetRequirementByRevision, "SetRequirementByRevision"},
+            {19, &IRequest::GetRequirement, "GetRequirement"},
+            {20, &IRequest::GetRevision, "GetRevision"},
             {21, &IRequest::GetAppletInfo, "GetAppletInfo"},
-            {22, nullptr, "GetAdditionalInfo"},
-            {23, nullptr, "SetKeptInSleep"},
-            {24, nullptr, "RegisterSocketDescriptor"},
-            {25, nullptr, "UnregisterSocketDescriptor"},
+            {22, &IRequest::GetAdditionalInfo, "GetAdditionalInfo"},
+            {23, &IRequest::SetKeptInSleep, "SetKeptInSleep"},
+            {24, &IRequest::RegisterSocketDescriptor, "RegisterSocketDescriptor"},
+            {25, &IRequest::UnregisterSocketDescriptor, "UnregisterSocketDescriptor"},
         };
         RegisterHandlers(functions);
 
@@ -311,6 +360,127 @@ private:
     void UpdateState(RequestState new_state) {
         state = new_state;
         event1->Signal();
+    }
+
+    void SetRequirement(HLERequestContext& ctx) {
+        LOG_WARNING(Service_NIFM, "(STUBBED) called");
+
+        IPC::ResponseBuilder rb{ctx, 2};
+        rb.Push(ResultSuccess);
+    }
+
+    void SetPriority(HLERequestContext& ctx) {
+        LOG_WARNING(Service_NIFM, "(STUBBED) called");
+
+        IPC::ResponseBuilder rb{ctx, 2};
+        rb.Push(ResultSuccess);
+    }
+
+    void SetNetworkProfileId(HLERequestContext& ctx) {
+        LOG_WARNING(Service_NIFM, "(STUBBED) called");
+
+        IPC::ResponseBuilder rb{ctx, 2};
+        rb.Push(ResultSuccess);
+    }
+
+    void SetRejectable(HLERequestContext& ctx) {
+        LOG_WARNING(Service_NIFM, "(STUBBED) called");
+
+        IPC::ResponseBuilder rb{ctx, 2};
+        rb.Push(ResultSuccess);
+    }
+
+    void SetPersistent(HLERequestContext& ctx) {
+        LOG_WARNING(Service_NIFM, "(STUBBED) called");
+
+        IPC::ResponseBuilder rb{ctx, 2};
+        rb.Push(ResultSuccess);
+    }
+
+    void SetInstant(HLERequestContext& ctx) {
+        LOG_WARNING(Service_NIFM, "(STUBBED) called");
+
+        IPC::ResponseBuilder rb{ctx, 2};
+        rb.Push(ResultSuccess);
+    }
+
+    void SetSustainable(HLERequestContext& ctx) {
+        LOG_WARNING(Service_NIFM, "(STUBBED) called");
+
+        IPC::ResponseBuilder rb{ctx, 2};
+        rb.Push(ResultSuccess);
+    }
+
+    void SetRawPriority(HLERequestContext& ctx) {
+        LOG_WARNING(Service_NIFM, "(STUBBED) called");
+
+        IPC::ResponseBuilder rb{ctx, 2};
+        rb.Push(ResultSuccess);
+    }
+
+    void SetGreedy(HLERequestContext& ctx) {
+        LOG_WARNING(Service_NIFM, "(STUBBED) called");
+
+        IPC::ResponseBuilder rb{ctx, 2};
+        rb.Push(ResultSuccess);
+    }
+
+    void SetSharable(HLERequestContext& ctx) {
+        LOG_WARNING(Service_NIFM, "(STUBBED) called");
+
+        IPC::ResponseBuilder rb{ctx, 2};
+        rb.Push(ResultSuccess);
+    }
+
+    void SetRequirementByRevision(HLERequestContext& ctx) {
+        LOG_WARNING(Service_NIFM, "(STUBBED) called");
+
+        IPC::ResponseBuilder rb{ctx, 2};
+        rb.Push(ResultSuccess);
+    }
+
+    void GetRequirement(HLERequestContext& ctx) {
+        LOG_WARNING(Service_NIFM, "(STUBBED) called");
+
+        IPC::ResponseBuilder rb{ctx, 2};
+        rb.Push(ResultSuccess);
+    }
+
+    void GetRevision(HLERequestContext& ctx) {
+        LOG_WARNING(Service_NIFM, "(STUBBED) called");
+
+        IPC::ResponseBuilder rb{ctx, 3};
+        rb.Push(ResultSuccess);
+        rb.Push<u32>(1); // Arbitrary revision number
+    }
+
+    void GetAdditionalInfo(HLERequestContext& ctx) {
+        LOG_WARNING(Service_NIFM, "(STUBBED) called");
+
+        IPC::ResponseBuilder rb{ctx, 3};
+        rb.Push(ResultSuccess);
+        rb.Push<u32>(0); // No additional info
+    }
+
+    void SetKeptInSleep(HLERequestContext& ctx) {
+        LOG_WARNING(Service_NIFM, "(STUBBED) called");
+
+        IPC::ResponseBuilder rb{ctx, 2};
+        rb.Push(ResultSuccess);
+    }
+
+    void RegisterSocketDescriptor(HLERequestContext& ctx) {
+        LOG_WARNING(Service_NIFM, "(STUBBED) called");
+
+        IPC::ResponseBuilder rb{ctx, 2};
+        rb.Push(ResultSuccess);
+    }
+
+    void UnregisterSocketDescriptor(HLERequestContext& ctx) {
+        LOG_WARNING(Service_NIFM, "(STUBBED) called");
+
+        IPC::ResponseBuilder rb{ctx, 2};
+        rb.Push(ResultSuccess);
     }
 
     KernelHelpers::ServiceContext service_context;
@@ -565,6 +735,85 @@ void IGeneralService::IsAnyForegroundRequestAccepted(HLERequestContext& ctx) {
     rb.Push<u8>(is_accepted);
 }
 
+void IGeneralService::GetNetworkProfile(HLERequestContext& ctx) {
+    LOG_WARNING(Service_NIFM, "(STUBBED) called");
+
+    IPC::ResponseBuilder rb{ctx, 2};
+    rb.Push(ResultSuccess);
+}
+
+void IGeneralService::SetNetworkProfile(HLERequestContext& ctx) {
+    LOG_WARNING(Service_NIFM, "(STUBBED) called");
+
+    IPC::ResponseBuilder rb{ctx, 2};
+    rb.Push(ResultSuccess);
+}
+
+void IGeneralService::GetScanData(HLERequestContext& ctx) {
+    LOG_WARNING(Service_NIFM, "(STUBBED) called");
+
+    IPC::ResponseBuilder rb{ctx, 2};
+    rb.Push(ResultSuccess);
+}
+
+void IGeneralService::GetCurrentAccessPoint(HLERequestContext& ctx) {
+    LOG_WARNING(Service_NIFM, "(STUBBED) called");
+
+    IPC::ResponseBuilder rb{ctx, 2};
+    rb.Push(ResultSuccess);
+}
+
+void IGeneralService::Shutdown(HLERequestContext& ctx) {
+    LOG_WARNING(Service_NIFM, "(STUBBED) called");
+
+    IPC::ResponseBuilder rb{ctx, 2};
+    rb.Push(ResultSuccess);
+}
+
+void IGeneralService::GetAllowedChannels(HLERequestContext& ctx) {
+    LOG_WARNING(Service_NIFM, "(STUBBED) called");
+
+    IPC::ResponseBuilder rb{ctx, 3};
+    rb.Push(ResultSuccess);
+    rb.Push<u32>(0); // No channels explicitly allowed (bitmap of allowed channels)
+}
+
+void IGeneralService::SetAcceptableNetworkTypeFlag(HLERequestContext& ctx) {
+    LOG_WARNING(Service_NIFM, "(STUBBED) called");
+
+    IPC::ResponseBuilder rb{ctx, 2};
+    rb.Push(ResultSuccess);
+}
+
+void IGeneralService::GetAcceptableNetworkTypeFlag(HLERequestContext& ctx) {
+    LOG_WARNING(Service_NIFM, "(STUBBED) called");
+
+    IPC::ResponseBuilder rb{ctx, 3};
+    rb.Push(ResultSuccess);
+    rb.Push<u32>(3); // Accept both WiFi and Ethernet
+}
+
+void IGeneralService::NotifyConnectionStateChanged(HLERequestContext& ctx) {
+    LOG_WARNING(Service_NIFM, "(STUBBED) called");
+
+    IPC::ResponseBuilder rb{ctx, 2};
+    rb.Push(ResultSuccess);
+}
+
+void IGeneralService::SetWowlDelayedWakeTime(HLERequestContext& ctx) {
+    LOG_WARNING(Service_NIFM, "(STUBBED) called");
+
+    IPC::ResponseBuilder rb{ctx, 2};
+    rb.Push(ResultSuccess);
+}
+
+void IGeneralService::SetWowlTcpKeepAliveTimeout(HLERequestContext& ctx) {
+    LOG_WARNING(Service_NIFM, "(STUBBED) called");
+
+    IPC::ResponseBuilder rb{ctx, 2};
+    rb.Push(ResultSuccess);
+}
+
 IGeneralService::IGeneralService(Core::System& system_)
     : ServiceFramework{system_, "IGeneralService"}, network{system_.GetRoomNetwork()} {
     // clang-format off
@@ -575,8 +824,8 @@ IGeneralService::IGeneralService(Core::System& system_)
         {5, &IGeneralService::GetCurrentNetworkProfile, "GetCurrentNetworkProfile"},
         {6, nullptr, "EnumerateNetworkInterfaces"},
         {7, nullptr, "EnumerateNetworkProfiles"},
-        {8, nullptr, "GetNetworkProfile"},
-        {9, nullptr, "SetNetworkProfile"},
+        {8, &IGeneralService::GetNetworkProfile, "GetNetworkProfile"},
+        {9, &IGeneralService::SetNetworkProfile, "SetNetworkProfile"},
         {10, &IGeneralService::RemoveNetworkProfile, "RemoveNetworkProfile"},
         {11, nullptr, "GetScanDataOld"},
         {12, &IGeneralService::GetCurrentIpAddress, "GetCurrentIpAddress"},
@@ -602,15 +851,16 @@ IGeneralService::IGeneralService(Core::System& system_)
         {32, nullptr, "GetTelemetryInfo"},
         {33, nullptr, "ConfirmSystemAvailability"},
         {34, nullptr, "SetBackgroundRequestEnabled"},
-        {35, nullptr, "GetScanData"},
-        {36, nullptr, "GetCurrentAccessPoint"},
-        {37, nullptr, "Shutdown"},
-        {38, nullptr, "GetAllowedChannels"},
+        {35, &IGeneralService::GetScanData, "GetScanData"},
+        {36, &IGeneralService::GetCurrentAccessPoint, "GetCurrentAccessPoint"},
+        {37, &IGeneralService::Shutdown, "Shutdown"},
+        {38, &IGeneralService::GetAllowedChannels, "GetAllowedChannels"},
         {39, nullptr, "NotifyApplicationSuspended"},
-        {40, nullptr, "SetAcceptableNetworkTypeFlag"},
-        {41, nullptr, "GetAcceptableNetworkTypeFlag"},
-        {42, nullptr, "NotifyConnectionStateChanged"},
-        {43, nullptr, "SetWowlDelayedWakeTime"},
+        {40, &IGeneralService::SetAcceptableNetworkTypeFlag, "SetAcceptableNetworkTypeFlag"},
+        {41, &IGeneralService::GetAcceptableNetworkTypeFlag, "GetAcceptableNetworkTypeFlag"},
+        {42, &IGeneralService::NotifyConnectionStateChanged, "NotifyConnectionStateChanged"},
+        {43, &IGeneralService::SetWowlDelayedWakeTime, "SetWowlDelayedWakeTime"},
+        {57, &IGeneralService::SetWowlTcpKeepAliveTimeout, "SetWowlTcpKeepAliveTimeout"},
     };
     // clang-format on
 
