@@ -30,6 +30,22 @@ enum class InputTopology {
     TrianglesAdjacency,
 };
 
+namespace InputTopologyVertices {
+    // Lookup table for vertex counts - faster than switch statement
+    inline constexpr std::array<u32, 5> vertex_counts = {
+        1, // Points
+        2, // Lines
+        4, // LinesAdjacency
+        3, // Triangles
+        6, // TrianglesAdjacency
+    };
+
+    // Force compile-time evaluation when possible
+    inline constexpr u32 vertices(InputTopology input_topology) {
+        return vertex_counts[static_cast<std::size_t>(input_topology)];
+    }
+}
+
 enum class CompareFunction {
     Never,
     Less,

@@ -549,6 +549,11 @@ Id EmitInvocationInfo(EmitContext& ctx) {
     case Stage::TessellationEval:
         return ctx.OpShiftLeftLogical(ctx.U32[1], ctx.OpLoad(ctx.U32[1], ctx.patch_vertices_in),
                                       ctx.Const(16u));
+    case Stage::Geometry: {
+        // Pre-calculate the shifted value for better performance
+        const u32 shifted_value = InputTopologyVertices::vertices(ctx.runtime_info.input_topology) << 16;
+        return ctx.Const(shifted_value);
+    }
     default:
         LOG_WARNING(Shader, "(STUBBED) called");
         return ctx.Const(0x00ff0000u);
