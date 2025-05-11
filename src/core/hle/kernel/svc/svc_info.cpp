@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: Copyright 2023 yuzu Emulator Project
+// SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "core/core.h"
@@ -180,40 +181,28 @@ Result GetInfo(Core::System& system, u64* result, InfoType info_id_type, Handle 
         R_SUCCEED();
 
     case InfoType::ThreadTickCount: {
-        constexpr u64 num_cpus = 4;
-        if (info_sub_id != 0xFFFFFFFFFFFFFFFF && info_sub_id >= num_cpus) {
-            LOG_ERROR(Kernel_SVC, "Core count is out of range, expected {} but got {}", num_cpus,
-                      info_sub_id);
-            R_THROW(ResultInvalidCombination);
+        const auto& handle_table = GetCurrentProcess(system.Kernel()).GetHandleTable();
+        KScopedAutoObject thread = handle_table.GetObject<KThread>(handle);
+        R_UNLESS(thread.IsNotNull(), ResultInvalidHandle);
+
+        // Use GetCpuTime() instead of the non-existent GetYieldScheduleCount() and GetYieldScheduleBias()
+        const s64 cpu_time = static_cast<s64>(thread->GetCpuTime());
+
+        // For sub IDs, just return the CPU time or 0 based on the ID
+        switch (info_sub_id) {
+        case 0:
+            *result = cpu_time;
+            R_SUCCEED();
+        case 1:
+        case 2:
+            // We don't have separate bias/other fields, just return 0
+            *result = 0;
+            R_SUCCEED();
+        default:
+            R_THROW(ResultInvalidEnumValue);
         }
-
-        KScopedAutoObject thread = GetCurrentProcess(system.Kernel())
-                                       .GetHandleTable()
-                                       .GetObject<KThread>(static_cast<Handle>(handle));
-        if (thread.IsNull()) {
-            LOG_ERROR(Kernel_SVC, "Thread handle does not exist, handle=0x{:08X}",
-                      static_cast<Handle>(handle));
-            R_THROW(ResultInvalidHandle);
-        }
-
-        const auto& core_timing = system.CoreTiming();
-        const auto& scheduler = *system.Kernel().CurrentScheduler();
-        const auto* const current_thread = GetCurrentThreadPointer(system.Kernel());
-        const bool same_thread = current_thread == thread.GetPointerUnsafe();
-
-        const u64 prev_ctx_ticks = scheduler.GetLastContextSwitchTime();
-        u64 out_ticks = 0;
-        if (same_thread && info_sub_id == 0xFFFFFFFFFFFFFFFF) {
-            const u64 thread_ticks = current_thread->GetCpuTime();
-
-            out_ticks = thread_ticks + (core_timing.GetClockTicks() - prev_ctx_ticks);
-        } else if (same_thread && info_sub_id == system.Kernel().CurrentPhysicalCoreIndex()) {
-            out_ticks = core_timing.GetClockTicks() - prev_ctx_ticks;
-        }
-
-        *result = out_ticks;
-        R_SUCCEED();
     }
+
     case InfoType::IdleTickCount: {
         // Verify the input handle is invalid.
         R_UNLESS(handle == InvalidHandle, ResultInvalidHandle);
@@ -228,6 +217,15 @@ Result GetInfo(Core::System& system, u64* result, InfoType info_id_type, Handle 
         *result = system.Kernel().CurrentScheduler()->GetIdleThread()->GetCpuTime();
         R_SUCCEED();
     }
+
+    case InfoType::TLSCapability: {
+        // This is related to TLS capabilities
+        // For now, let's return a successful result with a value that indicates TLS is supported
+        LOG_WARNING(Kernel_SVC, "(STUBBED) TLS capability check requested, returning supported");
+        *result = 1; // Indicate support
+        R_SUCCEED();
+    }
+
     case InfoType::MesosphereCurrentProcess: {
         // Verify the input handle is invalid.
         R_UNLESS(handle == InvalidHandle, ResultInvalidHandle);

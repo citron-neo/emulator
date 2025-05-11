@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: Copyright 2018 yuzu Emulator Project
+// SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "common/string_util.h"
@@ -14,6 +15,7 @@
 #include "core/hle/service/ssl/cert_store.h"
 #include "core/hle/service/ssl/ssl.h"
 #include "core/hle/service/ssl/ssl_backend.h"
+#include "core/hle/service/ssl/ssl_types.h"
 #include "core/internal_network/network.h"
 #include "core/internal_network/sockets.h"
 
@@ -492,6 +494,128 @@ private:
     }
 };
 
+class ISslContextForSystem final : public ServiceFramework<ISslContextForSystem> {
+public:
+    explicit ISslContextForSystem(Core::System& system_, SslVersion version)
+        : ServiceFramework{system_, "ISslContextForSystem"}, ssl_version{version},
+          shared_data{std::make_shared<SslContextSharedData>()} {
+        // clang-format off
+        static const FunctionInfo functions[] = {
+            {0, nullptr, "SetOption"},
+            {1, nullptr, "GetOption"},
+            {2, nullptr, "CreateConnection"},
+            {3, nullptr, "GetConnectionCount"},
+            {4, nullptr, "ImportServerPki"},
+            {5, nullptr, "ImportClientPki"},
+            {6, nullptr, "RemoveServerPki"},
+            {7, nullptr, "RemoveClientPki"},
+            {8, nullptr, "RegisterInternalPki"},
+            {9, nullptr, "AddPolicyOid"},
+            {10, nullptr, "ImportCrl"},
+            {11, nullptr, "RemoveCrl"},
+            {12, nullptr, "ImportClientCertKeyPki"},
+            {13, nullptr, "GeneratePrivateKeyAndCert"},
+            {14, nullptr, "CreateConnectionEx"},
+        };
+        // clang-format on
+
+        RegisterHandlers(functions);
+    }
+
+private:
+    SslVersion ssl_version;
+    std::shared_ptr<SslContextSharedData> shared_data;
+};
+
+class ISslServiceForSystem final : public ServiceFramework<ISslServiceForSystem> {
+public:
+    explicit ISslServiceForSystem(Core::System& system_)
+        : ServiceFramework{system_, "ssl:s"}, cert_store{system} {
+        // clang-format off
+        static const FunctionInfo functions[] = {
+            {0, &ISslServiceForSystem::CreateContextForSystem, "CreateContextForSystem"},
+            {1, &ISslServiceForSystem::SetThreadCoreMask, "SetThreadCoreMask"},
+            {2, &ISslServiceForSystem::GetThreadCoreMask, "GetThreadCoreMask"},
+            {3, &ISslServiceForSystem::VerifySignature, "VerifySignature"},
+            {4, nullptr, "SetCertificateAndPrivateKeyInternal"},
+            {5, &ISslServiceForSystem::FlushSessionCache, "FlushSessionCache"},
+        };
+        // clang-format on
+
+        RegisterHandlers(functions);
+    }
+
+private:
+    void CreateContextForSystem(HLERequestContext& ctx) {
+        struct Parameters {
+            SslVersion ssl_version;
+            INSERT_PADDING_BYTES(0x4);
+            u64 pid_placeholder;
+        };
+        static_assert(sizeof(Parameters) == 0x10, "Parameters is an invalid size");
+
+        IPC::RequestParser rp{ctx};
+        const auto parameters = rp.PopRaw<Parameters>();
+
+        LOG_WARNING(Service_SSL, "(STUBBED) called, api_version={}, pid_placeholder={}",
+                    parameters.ssl_version.api_version, parameters.pid_placeholder);
+
+        IPC::ResponseBuilder rb{ctx, 2, 0, 1};
+        rb.Push(ResultSuccess);
+        rb.PushIpcInterface<ISslContextForSystem>(system, parameters.ssl_version);
+    }
+
+    void SetThreadCoreMask(HLERequestContext& ctx) {
+        IPC::RequestParser rp{ctx};
+        const u64 core_mask = rp.Pop<u64>();
+        const u32 core_id = rp.Pop<u32>();
+
+        LOG_WARNING(Service_SSL, "(STUBBED) called, core_mask={:016X}, core_id={}", core_mask,
+                    core_id);
+
+        IPC::ResponseBuilder rb{ctx, 2};
+        rb.Push(ResultSuccess);
+    }
+
+    void GetThreadCoreMask(HLERequestContext& ctx) {
+        LOG_WARNING(Service_SSL, "(STUBBED) called");
+
+        constexpr u64 core_mask = 0;
+        constexpr u32 core_id = 0;
+
+        IPC::ResponseBuilder rb{ctx, 4};
+        rb.Push(ResultSuccess);
+        rb.Push(core_mask);
+        rb.Push(core_id);
+    }
+
+    void VerifySignature(HLERequestContext& ctx) {
+        LOG_WARNING(Service_SSL, "(STUBBED) called");
+
+        IPC::ResponseBuilder rb{ctx, 2};
+        rb.Push(ResultSuccess);
+    }
+
+    void FlushSessionCache(HLERequestContext& ctx) {
+        LOG_WARNING(Service_SSL, "(STUBBED) called");
+
+        IPC::RequestParser rp{ctx};
+        const u32 option_type = rp.Pop<u32>();
+
+        // Read the hostname buffer if provided for option_type 0
+        if (option_type == 0 && ctx.CanReadBuffer(0)) {
+            const auto hostname = Common::StringFromBuffer(ctx.ReadBuffer(0));
+            LOG_INFO(Service_SSL, "FlushSessionCache with hostname={}", hostname);
+        }
+
+        IPC::ResponseBuilder rb{ctx, 3};
+        rb.Push(ResultSuccess);
+        rb.Push<u32>(0); // Flushed session count, stubbed to 0
+    }
+
+    CertStore cert_store;
+};
+
 class ISslService final : public ServiceFramework<ISslService> {
 public:
     explicit ISslService(Core::System& system_)
@@ -504,10 +628,10 @@ public:
             {3, D<&ISslService::GetCertificateBufSize>, "GetCertificateBufSize"},
             {4, nullptr, "DebugIoctl"},
             {5, &ISslService::SetInterfaceVersion, "SetInterfaceVersion"},
-            {6, nullptr, "FlushSessionCache"},
+            {6, &ISslService::FlushSessionCache, "FlushSessionCache"},
             {7, nullptr, "SetDebugOption"},
             {8, nullptr, "GetDebugOption"},
-            {8, nullptr, "ClearTls12FallbackFlag"},
+            {9, nullptr, "ClearTls12FallbackFlag"},
         };
         // clang-format on
 
@@ -544,6 +668,23 @@ private:
         rb.Push(ResultSuccess);
     }
 
+    void FlushSessionCache(HLERequestContext& ctx) {
+        LOG_WARNING(Service_SSL, "(STUBBED) called");
+
+        IPC::RequestParser rp{ctx};
+        const u32 option_type = rp.Pop<u32>();
+
+        // Read the hostname buffer if provided for option_type 0
+        if (option_type == 0 && ctx.CanReadBuffer(0)) {
+            const auto hostname = Common::StringFromBuffer(ctx.ReadBuffer(0));
+            LOG_INFO(Service_SSL, "FlushSessionCache with hostname={}", hostname);
+        }
+
+        IPC::ResponseBuilder rb{ctx, 3};
+        rb.Push(ResultSuccess);
+        rb.Push<u32>(0); // Flushed session count, stubbed to 0
+    }
+
     Result GetCertificateBufSize(
         Out<u32> out_size, InArray<CaCertificateId, BufferAttr_HipcMapAlias> certificate_ids) {
         LOG_INFO(Service_SSL, "called");
@@ -565,6 +706,7 @@ void LoopProcess(Core::System& system) {
     auto server_manager = std::make_unique<ServerManager>(system);
 
     server_manager->RegisterNamedService("ssl", std::make_shared<ISslService>(system));
+    server_manager->RegisterNamedService("ssl:s", std::make_shared<ISslServiceForSystem>(system));
     ServerManager::RunServer(std::move(server_manager));
 }
 
