@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: Copyright 2023 yuzu Emulator Project
+// SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #pragma once
@@ -104,6 +105,7 @@ private:
     Result ResetIsSixAxisSensorDeviceNewlyAssigned(Core::HID::SixAxisSensorHandle sixaxis_handle,
                                                    ClientAppletResourceUserId aruid);
     Result ActivateGesture(u32 basic_gesture_id, ClientAppletResourceUserId aruid);
+    Result SetGestureOutputRanges(ClientAppletResourceUserId aruid);
     Result SetSupportedNpadStyleSet(Core::HID::NpadStyleSet supported_style_set,
                                     ClientAppletResourceUserId aruid);
     Result GetSupportedNpadStyleSet(Out<Core::HID::NpadStyleSet> out_supported_style_set,
