@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: 2018 Citra Emulator Project
+// SPDX-FileCopyrightText: 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <random>
@@ -26,8 +27,8 @@ public:
     using clock = std::chrono::system_clock;
 
     explicit Socket(const std::string& host, u16 port, SocketCallback callback_)
-        : callback(std::move(callback_)), timer(io_service),
-          socket(io_service, udp::endpoint(udp::v4(), 0)), client_id(GenerateRandomClientId()) {
+        : callback(std::move(callback_)), timer(io_context),
+          socket(io_context, udp::endpoint(udp::v4(), 0)), client_id(GenerateRandomClientId()) {
         boost::system::error_code ec{};
         auto ipv4 = boost::asio::ip::make_address_v4(host, ec);
         if (ec.value() != boost::system::errc::success) {
@@ -39,11 +40,11 @@ public:
     }
 
     void Stop() {
-        io_service.stop();
+        io_context.stop();
     }
 
     void Loop() {
-        io_service.run();
+        io_context.run();
     }
 
     void StartSend(const clock::time_point& from) {
@@ -113,7 +114,7 @@ private:
     }
 
     SocketCallback callback;
-    boost::asio::io_service io_service;
+    boost::asio::io_context io_context;
     boost::asio::basic_waitable_timer<clock> timer;
     udp::socket socket;
 
