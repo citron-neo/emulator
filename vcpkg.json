@@ -1,7 +1,7 @@
 {
     "$schema": "https://raw.githubusercontent.com/microsoft/vcpkg-tool/main/docs/vcpkg.schema.json",
     "name": "citron",
-    "builtin-baseline": "1318ab14aae14db20085441cd71366891a9c9d0c",
+    "builtin-baseline": "bc994510d2eb11aac7b43b03f67a7751d5bfe0e4",
     "version": "1.0",
     "dependencies": [
         "boost-algorithm",
