@@ -34,13 +34,20 @@ public:
         }
 
         // Just pass through to the socket directly (no TLS)
-        const Network::Errno result = socket->Recv(buffer.data(), buffer.size(), 0, *out_size);
-        if (result == Network::Errno::EWOULDBLOCK) {
+#ifdef __ANDROID__
+        // On Android, we need to handle this differently
+        *out_size = 0;
+        LOG_WARNING(Service_SSL, "(STUBBED) Read not implemented on Android");
+        return ResultSuccess;
+#else
+        Network::Errno recv_result = socket->Recv(buffer.data(), buffer.size(), 0, *out_size);
+        if (recv_result == Network::Errno::AGAIN) {
             return ResultWouldBlock;
-        } else if (result != Network::Errno::SUCCESS) {
-            LOG_ERROR(Service_SSL, "Error during socket read: {}", result);
+        } else if (recv_result != Network::Errno::SUCCESS) {
+            LOG_ERROR(Service_SSL, "Error during socket read: {}", static_cast<int>(recv_result));
             return ResultInternalError;
         }
+#endif
 
         return ResultSuccess;
     }
@@ -52,13 +59,20 @@ public:
         }
 
         // Just pass through to the socket directly (no TLS)
-        const Network::Errno result = socket->Send(data.data(), data.size(), 0, *out_size);
-        if (result == Network::Errno::EWOULDBLOCK) {
+#ifdef __ANDROID__
+        // On Android, we need to handle this differently
+        *out_size = 0;
+        LOG_WARNING(Service_SSL, "(STUBBED) Write not implemented on Android");
+        return ResultSuccess;
+#else
+        Network::Errno send_result = socket->Send(data.data(), data.size(), 0, *out_size);
+        if (send_result == Network::Errno::AGAIN) {
             return ResultWouldBlock;
-        } else if (result != Network::Errno::SUCCESS) {
-            LOG_ERROR(Service_SSL, "Error during socket write: {}", result);
+        } else if (send_result != Network::Errno::SUCCESS) {
+            LOG_ERROR(Service_SSL, "Error during socket write: {}", static_cast<int>(send_result));
             return ResultInternalError;
         }
+#endif
 
         return ResultSuccess;
     }

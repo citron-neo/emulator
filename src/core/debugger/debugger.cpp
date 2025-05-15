@@ -6,7 +6,9 @@
 #include <thread>
 
 #include <boost/asio.hpp>
+#ifndef __ANDROID__
 #include <boost/process/async_pipe.hpp>
+#endif
 
 #include "common/logging/log.h"
 #include "common/polyfill_thread.h"
@@ -159,7 +161,12 @@ private:
         // Set the new state. This will tear down any existing state.
         state = ConnectionState{
             .client_socket{std::move(peer)},
+#ifndef __ANDROID__
             .signal_pipe{io_context},
+#else
+            // Use a regular socket pair for Android
+            .signal_pipe{io_context},
+#endif
             .info{},
             .active_thread{},
             .client_data{},
@@ -326,7 +333,12 @@ private:
 
     struct ConnectionState {
         boost::asio::ip::tcp::socket client_socket;
+#ifndef __ANDROID__
         boost::process::async_pipe signal_pipe;
+#else
+        // Use a regular socket pair for Android
+        boost::asio::ip::tcp::socket signal_pipe;
+#endif
 
         SignalInfo info;
         Kernel::KScopedAutoObject<Kernel::KThread> active_thread;

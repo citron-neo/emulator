@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: 2023 yuzu Emulator Project
+// SPDX-FileCopyrightText: 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 import android.annotation.SuppressLint
@@ -35,12 +36,12 @@ android {
     }
 
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_17
-        targetCompatibility = JavaVersion.VERSION_17
+        sourceCompatibility = JavaVersion.VERSION_21
+        targetCompatibility = JavaVersion.VERSION_21
     }
 
     kotlinOptions {
-        jvmTarget = "17"
+        jvmTarget = "21"
     }
 
     packaging {
@@ -104,8 +105,11 @@ android {
             }
 
             resValue("string", "app_name_suffixed", "citron")
+            isDefault = true
+            // isShrinkResources = true
             isMinifyEnabled = true
             isDebuggable = false
+            // isJniDebuggable = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android.txt"),
                 "proguard-rules.pro"
@@ -115,7 +119,6 @@ android {
         // builds a release build that doesn't need signing
         // Attaches 'debug' suffix to version and package name, allowing installation alongside the release build.
         register("relWithDebInfo") {
-            isDefault = true
             resValue("string", "app_name_suffixed", "citron Debug Release")
             signingConfig = signingConfigs.getByName("default")
             isMinifyEnabled = true
@@ -146,7 +149,7 @@ android {
         create("mainline") {
             isDefault = true
             dimension = "version"
-            buildConfigField("Boolean", "PREMIUM", "false")
+            buildConfigField("Boolean", "PREMIUM", "true")
         }
 
         create("ea") {
