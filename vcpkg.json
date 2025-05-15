@@ -16,7 +16,10 @@
         "boost-icl",
         "boost-intrusive",
         "boost-mpl",
-        "boost-process",
+        {
+            "name": "boost-process",
+            "platform": "!android"
+        },
         "boost-range",
         "boost-spirit",
         "boost-test",
