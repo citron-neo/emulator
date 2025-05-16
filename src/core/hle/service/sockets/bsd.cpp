@@ -1047,22 +1047,22 @@ std::unique_lock<std::mutex> BSD::LockService() {
 BSDCFG::BSDCFG(Core::System& system_) : ServiceFramework{system_, "bsdcfg"} {
     // clang-format off
     static const FunctionInfo functions[] = {
-        {0, nullptr, "SetIfUp"},
-        {1, nullptr, "SetIfUpWithEvent"},
-        {2, nullptr, "CancelIf"},
-        {3, nullptr, "SetIfDown"},
-        {4, nullptr, "GetIfState"},
-        {5, nullptr, "DhcpRenew"},
-        {6, nullptr, "AddStaticArpEntry"},
-        {7, nullptr, "RemoveArpEntry"},
-        {8, nullptr, "LookupArpEntry"},
-        {9, nullptr, "LookupArpEntry2"},
-        {10, nullptr, "ClearArpEntries"},
-        {11, nullptr, "ClearArpEntries2"},
-        {12, nullptr, "PrintArpEntries"},
-        {13, nullptr, "Unknown13"},
-        {14, nullptr, "Unknown14"},
-        {15, nullptr, "Unknown15"},
+        {0, &BSDCFG::SetIfUp, "SetIfUp"},
+        {1, &BSDCFG::SetIfUpWithEvent, "SetIfUpWithEvent"},
+        {2, &BSDCFG::CancelIf, "CancelIf"},
+        {3, &BSDCFG::SetIfDown, "SetIfDown"},
+        {4, &BSDCFG::GetIfState, "GetIfState"},
+        {5, &BSDCFG::DhcpRenew, "DhcpRenew"},
+        {6, &BSDCFG::AddStaticArpEntry, "AddStaticArpEntry"},
+        {7, &BSDCFG::RemoveArpEntry, "RemoveArpEntry"},
+        {8, &BSDCFG::LookupArpEntry, "LookupArpEntry"},
+        {9, &BSDCFG::LookupArpEntry2, "LookupArpEntry2"},
+        {10, &BSDCFG::ClearArpEntries, "ClearArpEntries"},
+        {11, &BSDCFG::ClearArpEntries2, "ClearArpEntries2"},
+        {12, &BSDCFG::PrintArpEntries, "PrintArpEntries"},
+        {13, &BSDCFG::Unknown13, "Unknown13"},
+        {14, &BSDCFG::Unknown14, "Unknown14"},
+        {15, &BSDCFG::Unknown15, "Unknown15"},
     };
     // clang-format on
 
@@ -1070,6 +1070,135 @@ BSDCFG::BSDCFG(Core::System& system_) : ServiceFramework{system_, "bsdcfg"} {
 }
 
 BSDCFG::~BSDCFG() = default;
+
+// BSDCFG Service Method Stubs
+void BSDCFG::SetIfUp(HLERequestContext& ctx) {
+    LOG_WARNING(Service, "(STUBBED) called SetIfUp");
+    IPC::ResponseBuilder rb{ctx, 4};
+    rb.Push(ResultSuccess);
+    rb.Push<s32>(-1);
+    rb.PushEnum(static_cast<Errno>(EOPNOTSUPP));
+}
+
+void BSDCFG::SetIfUpWithEvent(HLERequestContext& ctx) {
+    LOG_WARNING(Service, "(STUBBED) called SetIfUpWithEvent");
+    IPC::ResponseBuilder rb{ctx, 4};
+    rb.Push(ResultSuccess);
+    rb.Push<s32>(-1);
+    rb.PushEnum(static_cast<Errno>(EOPNOTSUPP));
+}
+
+void BSDCFG::CancelIf(HLERequestContext& ctx) {
+    LOG_WARNING(Service, "(STUBBED) called CancelIf");
+    IPC::ResponseBuilder rb{ctx, 4};
+    rb.Push(ResultSuccess);
+    rb.Push<s32>(-1);
+    rb.PushEnum(static_cast<Errno>(EOPNOTSUPP));
+}
+
+void BSDCFG::SetIfDown(HLERequestContext& ctx) {
+    LOG_WARNING(Service, "(STUBBED) called SetIfDown");
+    IPC::ResponseBuilder rb{ctx, 4};
+    rb.Push(ResultSuccess);
+    rb.Push<s32>(-1);
+    rb.PushEnum(static_cast<Errno>(EOPNOTSUPP));
+}
+
+void BSDCFG::GetIfState(HLERequestContext& ctx) {
+    LOG_WARNING(Service, "(STUBBED) called GetIfState");
+    IPC::ResponseBuilder rb{ctx, 4};
+    rb.Push(ResultSuccess);
+    rb.Push<s32>(-1);
+    rb.PushEnum(static_cast<Errno>(EOPNOTSUPP));
+}
+
+void BSDCFG::DhcpRenew(HLERequestContext& ctx) {
+    LOG_WARNING(Service, "(STUBBED) called DhcpRenew");
+    IPC::ResponseBuilder rb{ctx, 4};
+    rb.Push(ResultSuccess);
+    rb.Push<s32>(-1);
+    rb.PushEnum(static_cast<Errno>(EOPNOTSUPP));
+}
+
+void BSDCFG::AddStaticArpEntry(HLERequestContext& ctx) {
+    LOG_WARNING(Service, "(STUBBED) called AddStaticArpEntry");
+    IPC::ResponseBuilder rb{ctx, 4};
+    rb.Push(ResultSuccess);
+    rb.Push<s32>(-1);
+    rb.PushEnum(static_cast<Errno>(EOPNOTSUPP));
+}
+
+void BSDCFG::RemoveArpEntry(HLERequestContext& ctx) {
+    LOG_WARNING(Service, "(STUBBED) called RemoveArpEntry");
+    IPC::ResponseBuilder rb{ctx, 4};
+    rb.Push(ResultSuccess);
+    rb.Push<s32>(-1);
+    rb.PushEnum(static_cast<Errno>(EOPNOTSUPP));
+}
+
+void BSDCFG::LookupArpEntry(HLERequestContext& ctx) {
+    LOG_WARNING(Service, "(STUBBED) called LookupArpEntry");
+    IPC::ResponseBuilder rb{ctx, 4};
+    rb.Push(ResultSuccess);
+    rb.Push<s32>(-1);
+    rb.PushEnum(static_cast<Errno>(EOPNOTSUPP));
+}
+
+void BSDCFG::LookupArpEntry2(HLERequestContext& ctx) {
+    LOG_WARNING(Service, "(STUBBED) called LookupArpEntry2");
+    IPC::ResponseBuilder rb{ctx, 4};
+    rb.Push(ResultSuccess);
+    rb.Push<s32>(-1);
+    rb.PushEnum(static_cast<Errno>(EOPNOTSUPP));
+}
+
+void BSDCFG::ClearArpEntries(HLERequestContext& ctx) {
+    LOG_WARNING(Service, "(STUBBED) called ClearArpEntries");
+    IPC::ResponseBuilder rb{ctx, 4};
+    rb.Push(ResultSuccess);
+    rb.Push<s32>(-1);
+    rb.PushEnum(static_cast<Errno>(EOPNOTSUPP));
+}
+
+void BSDCFG::ClearArpEntries2(HLERequestContext& ctx) {
+    LOG_WARNING(Service, "(STUBBED) called ClearArpEntries2");
+    IPC::ResponseBuilder rb{ctx, 4};
+    rb.Push(ResultSuccess);
+    rb.Push<s32>(-1);
+    rb.PushEnum(static_cast<Errno>(EOPNOTSUPP));
+}
+
+void BSDCFG::PrintArpEntries(HLERequestContext& ctx) {
+    LOG_WARNING(Service, "(STUBBED) called PrintArpEntries");
+    IPC::ResponseBuilder rb{ctx, 4};
+    rb.Push(ResultSuccess);
+    rb.Push<s32>(-1);
+    rb.PushEnum(static_cast<Errno>(EOPNOTSUPP));
+}
+
+void BSDCFG::Unknown13(HLERequestContext& ctx) {
+    LOG_WARNING(Service, "(STUBBED) called Unknown13 (Cmd13)");
+    IPC::ResponseBuilder rb{ctx, 4};
+    rb.Push(ResultSuccess);
+    rb.Push<s32>(-1);
+    rb.PushEnum(static_cast<Errno>(EOPNOTSUPP));
+}
+
+void BSDCFG::Unknown14(HLERequestContext& ctx) {
+    LOG_WARNING(Service, "(STUBBED) called Unknown14 (Cmd14)");
+    IPC::ResponseBuilder rb{ctx, 4};
+    rb.Push(ResultSuccess);
+    rb.Push<s32>(-1);
+    rb.PushEnum(static_cast<Errno>(EOPNOTSUPP));
+}
+
+void BSDCFG::Unknown15(HLERequestContext& ctx) {
+    LOG_WARNING(Service, "(STUBBED) called Unknown15 (Cmd15)");
+    IPC::ResponseBuilder rb{ctx, 4};
+    rb.Push(ResultSuccess);
+    rb.Push<s32>(-1);
+    rb.PushEnum(static_cast<Errno>(EOPNOTSUPP));
+}
 
 void BSD::GetResourceStatistics(HLERequestContext& ctx) {
     LOG_WARNING(Service, "(STUBBED) called GetResourceStatistics");

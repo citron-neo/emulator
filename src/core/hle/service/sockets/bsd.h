@@ -212,6 +212,25 @@ class BSDCFG final : public ServiceFramework<BSDCFG> {
 public:
     explicit BSDCFG(Core::System& system_);
     ~BSDCFG() override;
+
+private:
+    // [Zephyron] bsdcfg/ifcfg service methods based on documentation and existing registration
+    void SetIfUp(HLERequestContext& ctx);
+    void SetIfUpWithEvent(HLERequestContext& ctx);
+    void CancelIf(HLERequestContext& ctx);
+    void SetIfDown(HLERequestContext& ctx);
+    void GetIfState(HLERequestContext& ctx);
+    void DhcpRenew(HLERequestContext& ctx);
+    void AddStaticArpEntry(HLERequestContext& ctx);
+    void RemoveArpEntry(HLERequestContext& ctx);
+    void LookupArpEntry(HLERequestContext& ctx);
+    void LookupArpEntry2(HLERequestContext& ctx);
+    void ClearArpEntries(HLERequestContext& ctx);
+    void ClearArpEntries2(HLERequestContext& ctx);
+    void PrintArpEntries(HLERequestContext& ctx);
+    void Unknown13(HLERequestContext& ctx); // Cmd13
+    void Unknown14(HLERequestContext& ctx); // Cmd14
+    void Unknown15(HLERequestContext& ctx); // Cmd15
 };
 
 } // namespace Service::Sockets
