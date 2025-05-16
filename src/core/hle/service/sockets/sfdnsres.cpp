@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: Copyright 2018 yuzu Emulator Project
+// SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <string_view>
@@ -17,30 +18,6 @@
 
 namespace Service::Sockets {
 
-SFDNSRES::SFDNSRES(Core::System& system_) : ServiceFramework{system_, "sfdnsres"} {
-    static const FunctionInfo functions[] = {
-        {0, nullptr, "SetDnsAddressesPrivateRequest"},
-        {1, nullptr, "GetDnsAddressPrivateRequest"},
-        {2, &SFDNSRES::GetHostByNameRequest, "GetHostByNameRequest"},
-        {3, nullptr, "GetHostByAddrRequest"},
-        {4, nullptr, "GetHostStringErrorRequest"},
-        {5, &SFDNSRES::GetGaiStringErrorRequest, "GetGaiStringErrorRequest"},
-        {6, &SFDNSRES::GetAddrInfoRequest, "GetAddrInfoRequest"},
-        {7, nullptr, "GetNameInfoRequest"},
-        {8, nullptr, "RequestCancelHandleRequest"},
-        {9, nullptr, "CancelRequest"},
-        {10, &SFDNSRES::GetHostByNameRequestWithOptions, "GetHostByNameRequestWithOptions"},
-        {11, nullptr, "GetHostByAddrRequestWithOptions"},
-        {12, &SFDNSRES::GetAddrInfoRequestWithOptions, "GetAddrInfoRequestWithOptions"},
-        {13, nullptr, "GetNameInfoRequestWithOptions"},
-        {14, &SFDNSRES::ResolverSetOptionRequest, "ResolverSetOptionRequest"},
-        {15, nullptr, "ResolverGetOptionRequest"},
-    };
-    RegisterHandlers(functions);
-}
-
-SFDNSRES::~SFDNSRES() = default;
-
 enum class NetDbError : s32 {
     Internal = -1,
     Success = 0,
@@ -49,6 +26,31 @@ enum class NetDbError : s32 {
     NoRecovery = 3,
     NoData = 4,
 };
+
+SFDNSRES::SFDNSRES(Core::System& system_) : ServiceFramework{system_, "sfdnsres"} {
+    static const FunctionInfo functions[] = {
+        // Switchbrew Cmd ID order
+        {0, &SFDNSRES::SetDnsAddresses, "SetDnsAddresses"},                          // Was SetDnsAddressesPrivateRequest (nullptr)
+        {1, &SFDNSRES::GetDnsAddressList, "GetDnsAddressList"},                      // Was GetDnsAddressPrivateRequest (nullptr)
+        {2, &SFDNSRES::GetAddrInfoRequest, "GetAddrInfoRequest"},                   // Existing, was Cmd 6 in code
+        {3, &SFDNSRES::GetHostByNameRequest, "GetHostByNameRequest"},               // Existing, was Cmd 2 in code
+        {4, &SFDNSRES::GetHostByAddrRequest, "GetHostByAddrRequest"},               // Was GetHostByAddrRequest (nullptr)
+        {5, &SFDNSRES::GetHostStringError, "GetHostStringError"},                   // Was GetHostStringErrorRequest (nullptr)
+        {6, &SFDNSRES::GetGaiStringErrorRequest, "GetGaiStringErrorRequest"},       // Existing (GetGaiStringError), was Cmd 5 in code
+        {7, &SFDNSRES::CancelRequest, "CancelRequest"},                             // Was CancelRequest (Cmd 9, nullptr)
+        {8, &SFDNSRES::ResolverSetOptionRequest, "SetOptions"},                     // Existing (ResolverSetOptionRequest for SetOptions), was Cmd 14
+        {9, &SFDNSRES::GetOptions, "GetOptions"},                                   // Was ResolverGetOptionRequest (Cmd 15, nullptr)
+        {10, &SFDNSRES::GetHostByNameRequestWithOptions, "RequestAddrInfo"},         // Existing (GetHostByNameRequestWithOptions for RequestAddrInfo), was Cmd 10
+        {11, &SFDNSRES::GetAddrInfoRequestRaw, "GetAddrInfoRequestRaw"},            // New
+        {12, &SFDNSRES::GetAddrInfoRequestWithOptions, "GetAddrInfo"},             // Existing (GetAddrInfoRequestWithOptions for GetAddrInfo), was Cmd 12
+        {100, &SFDNSRES::GetNameInfoRequest, "GetNameInfoRequest_DEPRECATED_ID"}, // Placeholder ID
+        {101, &SFDNSRES::GetNameInfoRequestWithOptions, "GetNameInfoRequestWithOptions_DEPRECATED_ID"} // Placeholder ID
+
+    };
+    RegisterHandlers(functions);
+}
+
+SFDNSRES::~SFDNSRES() = default;
 
 static NetDbError GetAddrInfoErrorToNetDbError(GetAddrInfoError result) {
     // These combinations have been verified on console (but are not
@@ -72,8 +74,6 @@ static Errno GetAddrInfoErrorToErrno(GetAddrInfoError result) {
     // exhaustive).
     switch (result) {
     case GetAddrInfoError::SUCCESS:
-        // Note: Sometimes a successful lookup sets errno to EADDRNOTAVAIL for
-        // some reason, but that doesn't seem useful to implement.
         return Errno::SUCCESS;
     case GetAddrInfoError::AGAIN:
         return Errno::SUCCESS;
@@ -349,12 +349,99 @@ void SFDNSRES::GetAddrInfoRequestWithOptions(HLERequestContext& ctx) {
 }
 
 void SFDNSRES::ResolverSetOptionRequest(HLERequestContext& ctx) {
-    LOG_WARNING(Service, "(STUBBED) called");
+    IPC::RequestParser rp{ctx};
+    [[maybe_unused]] const u32 option_name = rp.Pop<u32>();
+    // Option value is in a buffer
+    [[maybe_unused]] const auto option_value_buffer = ctx.ReadBuffer(0);
 
-    IPC::ResponseBuilder rb{ctx, 3};
+    LOG_WARNING(Service, "(STUBBED) sfdnsres::ResolverSetOptionRequest called. Option: {}, Value Size: {}", option_name, option_value_buffer.size());
 
+    // Default success for stub
+    IPC::ResponseBuilder rb{ctx, 2};
     rb.Push(ResultSuccess);
-    rb.Push<s32>(0); // bsd errno
+}
+
+// New Stub Implementations
+void SFDNSRES::SetDnsAddresses(HLERequestContext& ctx) {
+    LOG_WARNING(Service, "(STUBBED) sfdnsres::SetDnsAddresses called");
+    // Takes input buffer of SockAddrIn. No direct output apart from Result.
+    IPC::ResponseBuilder rb{ctx, 2};
+    rb.Push(ResultSuccess);
+}
+
+void SFDNSRES::GetDnsAddressList(HLERequestContext& ctx) {
+    LOG_WARNING(Service, "(STUBBED) sfdnsres::GetDnsAddressList called");
+    // Writes SockAddrIn list to output buffer.
+    // Returns u32 count, Errno bsd_errno.
+    IPC::ResponseBuilder rb{ctx, 4};
+    rb.Push(ResultSuccess);
+    rb.Push<u32>(0); // Count
+    rb.PushEnum(static_cast<Errno>(EOPNOTSUPP));
+}
+
+void SFDNSRES::GetHostByAddrRequest(HLERequestContext& ctx) {
+    LOG_WARNING(Service, "(STUBBED) sfdnsres::GetHostByAddrRequest called (deprecated)");
+    // Similar return to GetHostByName: NetDbError, Errno, data_size
+    IPC::ResponseBuilder rb{ctx, 5};
+    rb.Push(ResultSuccess);
+    rb.PushEnum(NetDbError::Internal);
+    rb.PushEnum(static_cast<Errno>(EOPNOTSUPP));
+    rb.Push<u32>(0); // data_size
+}
+
+void SFDNSRES::GetHostStringError(HLERequestContext& ctx) {
+    LOG_WARNING(Service, "(STUBBED) sfdnsres::GetHostStringError called");
+    // Similar to GetGaiStringError: takes error code, returns string in buffer.
+    // Returns u32 data_size.
+    IPC::ResponseBuilder rb{ctx, 3};
+    rb.Push(ResultSuccess);
+    rb.Push<u32>(0); // data_size
+}
+
+void SFDNSRES::CancelRequest(HLERequestContext& ctx) {
+    LOG_WARNING(Service, "(STUBBED) sfdnsres::CancelRequest called");
+    // Takes handle. Returns Result.
+    IPC::ResponseBuilder rb{ctx, 2};
+    rb.Push(ResultSuccess);
+}
+
+void SFDNSRES::GetOptions(HLERequestContext& ctx) {
+    LOG_WARNING(Service, "(STUBBED) sfdnsres::GetOptions called");
+    // Takes option name. Returns option value (u32/buffer?), Errno.
+    IPC::ResponseBuilder rb{ctx, 4}; // Result, value (u32 placeholder), errno
+    rb.Push(ResultSuccess);
+    rb.Push<u32>(0); // Placeholder for option value
+    rb.PushEnum(static_cast<Errno>(EOPNOTSUPP));
+}
+
+void SFDNSRES::GetAddrInfoRequestRaw(HLERequestContext& ctx) {
+    LOG_WARNING(Service, "(STUBBED) sfdnsres::GetAddrInfoRequestRaw called");
+    // Similar to GetAddrInfoRequest: Errno, GetAddrInfoError, data_size
+    IPC::ResponseBuilder rb{ctx, 5};
+    rb.Push(ResultSuccess);
+    rb.PushEnum(static_cast<Errno>(EOPNOTSUPP));
+    rb.PushEnum(GetAddrInfoError::AGAIN); // Changed from INTERNAL to AGAIN
+    rb.Push<u32>(0); // data_size
+}
+
+// Stubs for functions from original registration table not in Switchbrew sfdnsres
+void SFDNSRES::GetNameInfoRequest(HLERequestContext& ctx) {
+    LOG_WARNING(Service, "(STUBBED) sfdnsres::GetNameInfoRequest called");
+    IPC::ResponseBuilder rb{ctx, 5}; // Similar to GetAddrInfoRequest
+    rb.Push(ResultSuccess);
+    rb.PushEnum(static_cast<Errno>(EOPNOTSUPP));
+    rb.PushEnum(GetAddrInfoError::AGAIN); // Changed from INTERNAL to AGAIN
+    rb.Push<u32>(0);
+}
+
+void SFDNSRES::GetNameInfoRequestWithOptions(HLERequestContext& ctx) {
+    LOG_WARNING(Service, "(STUBBED) sfdnsres::GetNameInfoRequestWithOptions called");
+    IPC::ResponseBuilder rb{ctx, 6}; // Similar to GetAddrInfoRequestWithOptions
+    rb.Push(ResultSuccess);
+    rb.Push<u32>(0); // data_size
+    rb.PushEnum(GetAddrInfoError::AGAIN); // Changed from INTERNAL to AGAIN
+    rb.PushEnum(NetDbError::Internal);    // This should be fine as NetDbError::Internal is defined
+    rb.PushEnum(static_cast<Errno>(EOPNOTSUPP));
 }
 
 } // namespace Service::Sockets
