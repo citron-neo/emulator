@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: Copyright 2018 yuzu Emulator Project
+// SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #pragma once
@@ -149,6 +150,22 @@ private:
     void DuplicateSocket(HLERequestContext& ctx);
     void EventFd(HLERequestContext& ctx);
 
+    // [Zephyron] Added declarations based on Switchbrew documentation
+    void SocketExempt(HLERequestContext& ctx);
+    void Open(HLERequestContext& ctx);
+    void Sysctl(HLERequestContext& ctx);
+    void Ioctl(HLERequestContext& ctx);
+    void ShutdownAllSockets(HLERequestContext& ctx);
+    void GetResourceStatistics(HLERequestContext& ctx);
+    void RecvMMsg(HLERequestContext& ctx);
+    void SendMMsg(HLERequestContext& ctx);
+    void RegisterResourceStatisticsName(HLERequestContext& ctx);
+    void RegisterClientShared(HLERequestContext& ctx);
+    void GetSocketStatistics(HLERequestContext& ctx);
+    void NifIoctl(HLERequestContext& ctx);
+    void SetThreadCoreMask(HLERequestContext& ctx);
+    void GetThreadCoreMask(HLERequestContext& ctx);
+
     template <typename Work>
     void ExecuteWork(HLERequestContext& ctx, Work work);
 
@@ -195,6 +212,25 @@ class BSDCFG final : public ServiceFramework<BSDCFG> {
 public:
     explicit BSDCFG(Core::System& system_);
     ~BSDCFG() override;
+
+private:
+    // [Zephyron] bsdcfg/ifcfg service methods based on documentation and existing registration
+    void SetIfUp(HLERequestContext& ctx);
+    void SetIfUpWithEvent(HLERequestContext& ctx);
+    void CancelIf(HLERequestContext& ctx);
+    void SetIfDown(HLERequestContext& ctx);
+    void GetIfState(HLERequestContext& ctx);
+    void DhcpRenew(HLERequestContext& ctx);
+    void AddStaticArpEntry(HLERequestContext& ctx);
+    void RemoveArpEntry(HLERequestContext& ctx);
+    void LookupArpEntry(HLERequestContext& ctx);
+    void LookupArpEntry2(HLERequestContext& ctx);
+    void ClearArpEntries(HLERequestContext& ctx);
+    void ClearArpEntries2(HLERequestContext& ctx);
+    void PrintArpEntries(HLERequestContext& ctx);
+    void Unknown13(HLERequestContext& ctx); // Cmd13
+    void Unknown14(HLERequestContext& ctx); // Cmd14
+    void Unknown15(HLERequestContext& ctx); // Cmd15
 };
 
 } // namespace Service::Sockets

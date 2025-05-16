@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: Copyright 2018 yuzu Emulator Project
+// SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <array>
@@ -309,7 +310,7 @@ void BSD::Listen(HLERequestContext& ctx) {
 void BSD::Fcntl(HLERequestContext& ctx) {
     IPC::RequestParser rp{ctx};
     const s32 fd = rp.Pop<s32>();
-    const s32 cmd = rp.Pop<s32>();
+    const u32 cmd = rp.Pop<u32>();
     const s32 arg = rp.Pop<s32>();
 
     LOG_DEBUG(Service, "called. fd={} cmd={} arg={}", fd, cmd, arg);
@@ -477,6 +478,14 @@ void BSD::EventFd(HLERequestContext& ctx) {
     LOG_WARNING(Service, "(STUBBED) called. initval={}, flags={}", initval, flags);
 
     BuildErrnoResponse(ctx, Errno::SUCCESS);
+}
+
+void BSD::RegisterClientShared(HLERequestContext& ctx) {
+    LOG_WARNING(Service, "(STUBBED) called RegisterClientShared");
+    IPC::ResponseBuilder rb{ctx, 4}; // Match RegisterClient response style
+    rb.Push(ResultSuccess);
+    rb.Push<s32>(0); // ret (0 for success)
+    rb.Push<s32>(0); // BSD errno (0 for success, consistent with RegisterClient stub)
 }
 
 template <typename Work>
@@ -976,11 +985,11 @@ BSD::BSD(Core::System& system_, const char* name)
         {0, &BSD::RegisterClient, "RegisterClient"},
         {1, &BSD::StartMonitoring, "StartMonitoring"},
         {2, &BSD::Socket, "Socket"},
-        {3, nullptr, "SocketExempt"},
-        {4, nullptr, "Open"},
+        {3, &BSD::SocketExempt, "SocketExempt"},
+        {4, &BSD::Open, "Open"},
         {5, &BSD::Select, "Select"},
         {6, &BSD::Poll, "Poll"},
-        {7, nullptr, "Sysctl"},
+        {7, &BSD::Sysctl, "Sysctl"},
         {8, &BSD::Recv, "Recv"},
         {9, &BSD::RecvFrom, "RecvFrom"},
         {10, &BSD::Send, "Send"},
@@ -992,21 +1001,25 @@ BSD::BSD(Core::System& system_, const char* name)
         {16, &BSD::GetSockName, "GetSockName"},
         {17, &BSD::GetSockOpt, "GetSockOpt"},
         {18, &BSD::Listen, "Listen"},
-        {19, nullptr, "Ioctl"},
+        {19, &BSD::Ioctl, "Ioctl"},
         {20, &BSD::Fcntl, "Fcntl"},
         {21, &BSD::SetSockOpt, "SetSockOpt"},
         {22, &BSD::Shutdown, "Shutdown"},
-        {23, nullptr, "ShutdownAllSockets"},
+        {23, &BSD::ShutdownAllSockets, "ShutdownAllSockets"},
         {24, &BSD::Write, "Write"},
         {25, &BSD::Read, "Read"},
         {26, &BSD::Close, "Close"},
         {27, &BSD::DuplicateSocket, "DuplicateSocket"},
-        {28, nullptr, "GetResourceStatistics"},
-        {29, nullptr, "RecvMMsg"},
-        {30, nullptr, "SendMMsg"},
+        {28, &BSD::GetResourceStatistics, "GetResourceStatistics"},
+        {29, &BSD::RecvMMsg, "RecvMMsg"},
+        {30, &BSD::SendMMsg, "SendMMsg"},
         {31, &BSD::EventFd, "EventFd"},
-        {32, nullptr, "RegisterResourceStatisticsName"},
-        {33, nullptr, "Initialize2"},
+        {32, &BSD::RegisterResourceStatisticsName, "RegisterResourceStatisticsName"},
+        {33, &BSD::RegisterClientShared, "RegisterClientShared"},
+        {34, &BSD::GetSocketStatistics, "GetSocketStatistics"},
+        {35, &BSD::NifIoctl, "NifIoctl"},
+        {200, &BSD::SetThreadCoreMask, "SetThreadCoreMask"},
+        {201, &BSD::GetThreadCoreMask, "GetThreadCoreMask"},
     };
     // clang-format on
 
@@ -1034,22 +1047,22 @@ std::unique_lock<std::mutex> BSD::LockService() {
 BSDCFG::BSDCFG(Core::System& system_) : ServiceFramework{system_, "bsdcfg"} {
     // clang-format off
     static const FunctionInfo functions[] = {
-        {0, nullptr, "SetIfUp"},
-        {1, nullptr, "SetIfUpWithEvent"},
-        {2, nullptr, "CancelIf"},
-        {3, nullptr, "SetIfDown"},
-        {4, nullptr, "GetIfState"},
-        {5, nullptr, "DhcpRenew"},
-        {6, nullptr, "AddStaticArpEntry"},
-        {7, nullptr, "RemoveArpEntry"},
-        {8, nullptr, "LookupArpEntry"},
-        {9, nullptr, "LookupArpEntry2"},
-        {10, nullptr, "ClearArpEntries"},
-        {11, nullptr, "ClearArpEntries2"},
-        {12, nullptr, "PrintArpEntries"},
-        {13, nullptr, "Unknown13"},
-        {14, nullptr, "Unknown14"},
-        {15, nullptr, "Unknown15"},
+        {0, &BSDCFG::SetIfUp, "SetIfUp"},
+        {1, &BSDCFG::SetIfUpWithEvent, "SetIfUpWithEvent"},
+        {2, &BSDCFG::CancelIf, "CancelIf"},
+        {3, &BSDCFG::SetIfDown, "SetIfDown"},
+        {4, &BSDCFG::GetIfState, "GetIfState"},
+        {5, &BSDCFG::DhcpRenew, "DhcpRenew"},
+        {6, &BSDCFG::AddStaticArpEntry, "AddStaticArpEntry"},
+        {7, &BSDCFG::RemoveArpEntry, "RemoveArpEntry"},
+        {8, &BSDCFG::LookupArpEntry, "LookupArpEntry"},
+        {9, &BSDCFG::LookupArpEntry2, "LookupArpEntry2"},
+        {10, &BSDCFG::ClearArpEntries, "ClearArpEntries"},
+        {11, &BSDCFG::ClearArpEntries2, "ClearArpEntries2"},
+        {12, &BSDCFG::PrintArpEntries, "PrintArpEntries"},
+        {13, &BSDCFG::Unknown13, "Unknown13"},
+        {14, &BSDCFG::Unknown14, "Unknown14"},
+        {15, &BSDCFG::Unknown15, "Unknown15"},
     };
     // clang-format on
 
@@ -1057,5 +1070,239 @@ BSDCFG::BSDCFG(Core::System& system_) : ServiceFramework{system_, "bsdcfg"} {
 }
 
 BSDCFG::~BSDCFG() = default;
+
+// BSDCFG Service Method Stubs
+void BSDCFG::SetIfUp(HLERequestContext& ctx) {
+    LOG_WARNING(Service, "(STUBBED) called SetIfUp");
+    IPC::ResponseBuilder rb{ctx, 4};
+    rb.Push(ResultSuccess);
+    rb.Push<s32>(-1);
+    rb.PushEnum(static_cast<Errno>(EOPNOTSUPP));
+}
+
+void BSDCFG::SetIfUpWithEvent(HLERequestContext& ctx) {
+    LOG_WARNING(Service, "(STUBBED) called SetIfUpWithEvent");
+    IPC::ResponseBuilder rb{ctx, 4};
+    rb.Push(ResultSuccess);
+    rb.Push<s32>(-1);
+    rb.PushEnum(static_cast<Errno>(EOPNOTSUPP));
+}
+
+void BSDCFG::CancelIf(HLERequestContext& ctx) {
+    LOG_WARNING(Service, "(STUBBED) called CancelIf");
+    IPC::ResponseBuilder rb{ctx, 4};
+    rb.Push(ResultSuccess);
+    rb.Push<s32>(-1);
+    rb.PushEnum(static_cast<Errno>(EOPNOTSUPP));
+}
+
+void BSDCFG::SetIfDown(HLERequestContext& ctx) {
+    LOG_WARNING(Service, "(STUBBED) called SetIfDown");
+    IPC::ResponseBuilder rb{ctx, 4};
+    rb.Push(ResultSuccess);
+    rb.Push<s32>(-1);
+    rb.PushEnum(static_cast<Errno>(EOPNOTSUPP));
+}
+
+void BSDCFG::GetIfState(HLERequestContext& ctx) {
+    LOG_WARNING(Service, "(STUBBED) called GetIfState");
+    IPC::ResponseBuilder rb{ctx, 4};
+    rb.Push(ResultSuccess);
+    rb.Push<s32>(-1);
+    rb.PushEnum(static_cast<Errno>(EOPNOTSUPP));
+}
+
+void BSDCFG::DhcpRenew(HLERequestContext& ctx) {
+    LOG_WARNING(Service, "(STUBBED) called DhcpRenew");
+    IPC::ResponseBuilder rb{ctx, 4};
+    rb.Push(ResultSuccess);
+    rb.Push<s32>(-1);
+    rb.PushEnum(static_cast<Errno>(EOPNOTSUPP));
+}
+
+void BSDCFG::AddStaticArpEntry(HLERequestContext& ctx) {
+    LOG_WARNING(Service, "(STUBBED) called AddStaticArpEntry");
+    IPC::ResponseBuilder rb{ctx, 4};
+    rb.Push(ResultSuccess);
+    rb.Push<s32>(-1);
+    rb.PushEnum(static_cast<Errno>(EOPNOTSUPP));
+}
+
+void BSDCFG::RemoveArpEntry(HLERequestContext& ctx) {
+    LOG_WARNING(Service, "(STUBBED) called RemoveArpEntry");
+    IPC::ResponseBuilder rb{ctx, 4};
+    rb.Push(ResultSuccess);
+    rb.Push<s32>(-1);
+    rb.PushEnum(static_cast<Errno>(EOPNOTSUPP));
+}
+
+void BSDCFG::LookupArpEntry(HLERequestContext& ctx) {
+    LOG_WARNING(Service, "(STUBBED) called LookupArpEntry");
+    IPC::ResponseBuilder rb{ctx, 4};
+    rb.Push(ResultSuccess);
+    rb.Push<s32>(-1);
+    rb.PushEnum(static_cast<Errno>(EOPNOTSUPP));
+}
+
+void BSDCFG::LookupArpEntry2(HLERequestContext& ctx) {
+    LOG_WARNING(Service, "(STUBBED) called LookupArpEntry2");
+    IPC::ResponseBuilder rb{ctx, 4};
+    rb.Push(ResultSuccess);
+    rb.Push<s32>(-1);
+    rb.PushEnum(static_cast<Errno>(EOPNOTSUPP));
+}
+
+void BSDCFG::ClearArpEntries(HLERequestContext& ctx) {
+    LOG_WARNING(Service, "(STUBBED) called ClearArpEntries");
+    IPC::ResponseBuilder rb{ctx, 4};
+    rb.Push(ResultSuccess);
+    rb.Push<s32>(-1);
+    rb.PushEnum(static_cast<Errno>(EOPNOTSUPP));
+}
+
+void BSDCFG::ClearArpEntries2(HLERequestContext& ctx) {
+    LOG_WARNING(Service, "(STUBBED) called ClearArpEntries2");
+    IPC::ResponseBuilder rb{ctx, 4};
+    rb.Push(ResultSuccess);
+    rb.Push<s32>(-1);
+    rb.PushEnum(static_cast<Errno>(EOPNOTSUPP));
+}
+
+void BSDCFG::PrintArpEntries(HLERequestContext& ctx) {
+    LOG_WARNING(Service, "(STUBBED) called PrintArpEntries");
+    IPC::ResponseBuilder rb{ctx, 4};
+    rb.Push(ResultSuccess);
+    rb.Push<s32>(-1);
+    rb.PushEnum(static_cast<Errno>(EOPNOTSUPP));
+}
+
+void BSDCFG::Unknown13(HLERequestContext& ctx) {
+    LOG_WARNING(Service, "(STUBBED) called Unknown13 (Cmd13)");
+    IPC::ResponseBuilder rb{ctx, 4};
+    rb.Push(ResultSuccess);
+    rb.Push<s32>(-1);
+    rb.PushEnum(static_cast<Errno>(EOPNOTSUPP));
+}
+
+void BSDCFG::Unknown14(HLERequestContext& ctx) {
+    LOG_WARNING(Service, "(STUBBED) called Unknown14 (Cmd14)");
+    IPC::ResponseBuilder rb{ctx, 4};
+    rb.Push(ResultSuccess);
+    rb.Push<s32>(-1);
+    rb.PushEnum(static_cast<Errno>(EOPNOTSUPP));
+}
+
+void BSDCFG::Unknown15(HLERequestContext& ctx) {
+    LOG_WARNING(Service, "(STUBBED) called Unknown15 (Cmd15)");
+    IPC::ResponseBuilder rb{ctx, 4};
+    rb.Push(ResultSuccess);
+    rb.Push<s32>(-1);
+    rb.PushEnum(static_cast<Errno>(EOPNOTSUPP));
+}
+
+void BSD::GetResourceStatistics(HLERequestContext& ctx) {
+    LOG_WARNING(Service, "(STUBBED) called GetResourceStatistics");
+    IPC::ResponseBuilder rb{ctx, 4};
+    rb.Push(ResultSuccess);
+    rb.Push<s32>(-1);
+    rb.PushEnum(static_cast<Errno>(EOPNOTSUPP));
+}
+
+void BSD::GetSocketStatistics(HLERequestContext& ctx) {
+    LOG_WARNING(Service, "(STUBBED) called GetSocketStatistics");
+    IPC::ResponseBuilder rb{ctx, 4};
+    rb.Push(ResultSuccess);
+    rb.Push<s32>(-1);
+    rb.PushEnum(static_cast<Errno>(EOPNOTSUPP));
+}
+
+void BSD::GetThreadCoreMask(HLERequestContext& ctx) {
+    LOG_WARNING(Service, "(STUBBED) called GetThreadCoreMask");
+    IPC::ResponseBuilder rb{ctx, 5};
+    rb.Push(ResultSuccess);
+    rb.Push<u64>(0);
+    rb.Push<s32>(-1);
+    rb.PushEnum(static_cast<Errno>(EOPNOTSUPP));
+}
+
+void BSD::Ioctl(HLERequestContext& ctx) {
+    LOG_WARNING(Service, "(STUBBED) called Ioctl");
+    IPC::ResponseBuilder rb{ctx, 4};
+    rb.Push(ResultSuccess);
+    rb.Push<s32>(-1);
+    rb.PushEnum(static_cast<Errno>(ENOTTY));
+}
+
+void BSD::NifIoctl(HLERequestContext& ctx) {
+    LOG_WARNING(Service, "(STUBBED) called NifIoctl");
+    IPC::ResponseBuilder rb{ctx, 4};
+    rb.Push(ResultSuccess);
+    rb.Push<s32>(-1);
+    rb.PushEnum(static_cast<Errno>(ENOTTY));
+}
+
+void BSD::Open(HLERequestContext& ctx) {
+    LOG_WARNING(Service, "(STUBBED) called Open");
+    IPC::ResponseBuilder rb{ctx, 4};
+    rb.Push(ResultSuccess);
+    rb.Push<s32>(-1);
+    rb.PushEnum(static_cast<Errno>(EACCES));
+}
+
+void BSD::RecvMMsg(HLERequestContext& ctx) {
+    LOG_WARNING(Service, "(STUBBED) called RecvMMsg");
+    IPC::ResponseBuilder rb{ctx, 4};
+    rb.Push(ResultSuccess);
+    rb.Push<s32>(0); // num_msgs processed
+    rb.PushEnum(static_cast<Errno>(EOPNOTSUPP));
+}
+
+void BSD::RegisterResourceStatisticsName(HLERequestContext& ctx) {
+    LOG_WARNING(Service, "(STUBBED) called RegisterResourceStatisticsName");
+    IPC::ResponseBuilder rb{ctx, 4};
+    rb.Push(ResultSuccess);
+    rb.Push<s32>(-1);
+    rb.PushEnum(static_cast<Errno>(EOPNOTSUPP));
+}
+
+void BSD::SendMMsg(HLERequestContext& ctx) {
+    LOG_WARNING(Service, "(STUBBED) called SendMMsg");
+    IPC::ResponseBuilder rb{ctx, 4};
+    rb.Push(ResultSuccess);
+    rb.Push<s32>(0); // num_msgs processed
+    rb.PushEnum(static_cast<Errno>(EOPNOTSUPP));
+}
+
+void BSD::SetThreadCoreMask(HLERequestContext& ctx) {
+    LOG_WARNING(Service, "(STUBBED) called SetThreadCoreMask");
+    IPC::ResponseBuilder rb{ctx, 4};
+    rb.Push(ResultSuccess);
+    rb.Push<s32>(-1);
+    rb.PushEnum(static_cast<Errno>(EOPNOTSUPP));
+}
+
+void BSD::ShutdownAllSockets(HLERequestContext& ctx) {
+    LOG_WARNING(Service, "(STUBBED) called ShutdownAllSockets");
+    IPC::ResponseBuilder rb{ctx, 4};
+    rb.Push(ResultSuccess);
+    rb.Push<s32>(-1);
+    rb.PushEnum(static_cast<Errno>(EOPNOTSUPP));
+}
+
+void BSD::SocketExempt(HLERequestContext& ctx) {
+    LOG_WARNING(Service, "(STUBBED) called SocketExempt");
+    IPC::ResponseBuilder rb{ctx, 4};
+    rb.Push(ResultSuccess);
+    rb.Push<s32>(-1); // fd
+    rb.PushEnum(static_cast<Errno>(EOPNOTSUPP));
+}
+
+void BSD::Sysctl(HLERequestContext& ctx) {
+    LOG_WARNING(Service, "(STUBBED) called Sysctl");
+    IPC::ResponseBuilder rb{ctx, 4};
+    rb.Push(ResultSuccess);
+    rb.Push<s32>(-1);
+    rb.PushEnum(static_cast<Errno>(EOPNOTSUPP));
+}
 
 } // namespace Service::Sockets
