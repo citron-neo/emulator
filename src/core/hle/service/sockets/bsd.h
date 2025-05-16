@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: Copyright 2018 yuzu Emulator Project
+// SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #pragma once
@@ -148,6 +149,22 @@ private:
     void Close(HLERequestContext& ctx);
     void DuplicateSocket(HLERequestContext& ctx);
     void EventFd(HLERequestContext& ctx);
+
+    // [Zephyron] Added declarations based on Switchbrew documentation
+    void SocketExempt(HLERequestContext& ctx);
+    void Open(HLERequestContext& ctx);
+    void Sysctl(HLERequestContext& ctx);
+    void Ioctl(HLERequestContext& ctx);
+    void ShutdownAllSockets(HLERequestContext& ctx);
+    void GetResourceStatistics(HLERequestContext& ctx);
+    void RecvMMsg(HLERequestContext& ctx);
+    void SendMMsg(HLERequestContext& ctx);
+    void RegisterResourceStatisticsName(HLERequestContext& ctx);
+    void RegisterClientShared(HLERequestContext& ctx);
+    void GetSocketStatistics(HLERequestContext& ctx);
+    void NifIoctl(HLERequestContext& ctx);
+    void SetThreadCoreMask(HLERequestContext& ctx);
+    void GetThreadCoreMask(HLERequestContext& ctx);
 
     template <typename Work>
     void ExecuteWork(HLERequestContext& ctx, Work work);
