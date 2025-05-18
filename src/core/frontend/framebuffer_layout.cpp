@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: Copyright 2018 yuzu Emulator Project
+// SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <cmath>
@@ -70,6 +71,8 @@ float EmulationAspectRatio(AspectRatio aspect, float window_aspect_ratio) {
         return 9.0f / 21.0f;
     case AspectRatio::R16_10:
         return 10.0f / 16.0f;
+    case AspectRatio::R32_9:
+        return 9.0f / 32.0f;
     case AspectRatio::StretchToWindow:
         return window_aspect_ratio;
     default:

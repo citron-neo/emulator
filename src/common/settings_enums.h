@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: Copyright 2023 yuzu Emulator Project
+// SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #pragma once
@@ -149,7 +150,7 @@ ENUM(ScalingFilter, NearestNeighbor, Bilinear, Bicubic, Gaussian, ScaleForce, Fs
 
 ENUM(AntiAliasing, None, Fxaa, Smaa, MaxEnum);
 
-ENUM(AspectRatio, R16_9, R4_3, R21_9, R16_10, Stretch);
+ENUM(AspectRatio, R16_9, R4_3, R21_9, R16_10, R32_9, Stretch);
 
 ENUM(ConsoleMode, Handheld, Docked);
 
