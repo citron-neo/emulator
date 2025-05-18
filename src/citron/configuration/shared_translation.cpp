@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: Copyright 2023 yuzu Emulator Project
+// SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "citron/configuration/shared_translation.h"
@@ -56,18 +57,18 @@ std::unique_ptr<TranslationMap> InitializeTranslations(QWidget* parent) {
     // Core
     INSERT(
         Settings, use_multi_core, tr("Multicore CPU Emulation"),
-        tr("This option increases CPU emulation thread use from 1 to the Switch’s maximum of 4.\n"
-           "This is mainly a debug option and shouldn’t be disabled."));
+        tr("This option increases CPU emulation thread use from 1 to the Switch's maximum of 4.\n"
+           "This is mainly a debug option and shouldn't be disabled."));
     INSERT(
         Settings, memory_layout_mode, tr("Memory Layout"),
         tr("Increases the amount of emulated RAM from the stock 4GB of the retail Switch to the "
-           "developer kit's 8/6GB.\nIt’s doesn’t improve stability or performance and is intended "
+           "developer kit's 8/6GB.\nIt's doesn't improve stability or performance and is intended "
            "to let big texture mods fit in emulated RAM.\nEnabling it will increase memory "
            "use. It is not recommended to enable unless a specific game with a texture mod needs "
            "it."));
     INSERT(Settings, use_speed_limit, QStringLiteral(), QStringLiteral());
     INSERT(Settings, speed_limit, tr("Limit Speed Percent"),
-           tr("Controls the game's maximum rendering speed, but it’s up to each game if it runs "
+           tr("Controls the game's maximum rendering speed, but it's up to each game if it runs "
               "faster or not.\n200% for a 30 FPS game is 60 FPS, and for a "
               "60 FPS game it will be 120 FPS.\nDisabling it means unlocking the framerate to the "
               "maximum your PC can reach."));
@@ -125,7 +126,7 @@ std::unique_ptr<TranslationMap> InitializeTranslations(QWidget* parent) {
               "Options lower than 1X can cause rendering issues."));
     INSERT(Settings, scaling_filter, tr("Window Adapting Filter:"), QStringLiteral());
     INSERT(Settings, fsr_sharpening_slider, tr("FSR Sharpness:"),
-           tr("Determines how sharpened the image will look while using FSR’s dynamic contrast."));
+           tr("Determines how sharpened the image will look while using FSR's dynamic contrast."));
     INSERT(Settings, anti_aliasing, tr("Anti-Aliasing Method:"),
            tr("The anti-aliasing method to use.\nSMAA offers the best quality.\nFXAA has a "
               "lower performance impact and can produce a better and more stable picture under "
@@ -188,7 +189,7 @@ std::unique_ptr<TranslationMap> InitializeTranslations(QWidget* parent) {
         tr("Runs work in the background while waiting for graphics commands to keep the GPU from "
            "lowering its clock speed."));
     INSERT(Settings, max_anisotropy, tr("Anisotropic Filtering:"),
-           tr("Controls the quality of texture rendering at oblique angles.\nIt’s a light setting "
+           tr("Controls the quality of texture rendering at oblique angles.\nIt's a light setting "
               "and safe to set at 16x on most GPUs."));
     INSERT(Settings, gpu_accuracy, tr("Accuracy Level:"),
            tr("GPU emulation accuracy.\nMost games render fine with Normal, but High is still "
@@ -406,6 +407,7 @@ std::unique_ptr<ComboboxTranslationMap> ComboboxEnumeration(QWidget* parent) {
                               PAIR(AspectRatio, R4_3, tr("Force 4:3")),
                               PAIR(AspectRatio, R21_9, tr("Force 21:9")),
                               PAIR(AspectRatio, R16_10, tr("Force 16:10")),
+                              PAIR(AspectRatio, R32_9, tr("Force 32:9")),
                               PAIR(AspectRatio, Stretch, tr("Stretch to Window")),
                           }});
     translations->insert({Settings::EnumMetadata<Settings::AnisotropyMode>::Index(),

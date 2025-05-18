@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: 2023 yuzu Emulator Project
+// SPDX-FileCopyrightText: 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 package org.citron.citron_emu.activities
@@ -312,6 +313,7 @@ class EmulationActivity : AppCompatActivity(), SensorEventListener {
             1 -> Rational(4, 3)
             2 -> Rational(21, 9)
             3 -> Rational(16, 10)
+            4 -> Rational(32, 9)
             else -> null // Best fit
         }
         return this.apply { aspectRatio?.let { setAspectRatio(it) } }
