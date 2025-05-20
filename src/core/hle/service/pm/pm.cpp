@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: Copyright 2018 yuzu Emulator Project
+// SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "core/core.h"
@@ -52,6 +53,8 @@ public:
         static const FunctionInfo functions[] = {
             {0, &BootMode::GetBootMode, "GetBootMode"},
             {1, &BootMode::SetMaintenanceBoot, "SetMaintenanceBoot"},
+            {2, nullptr, "UnknownCmd2"},
+            {3, nullptr, "UnknownCmd3"},
         };
         RegisterHandlers(functions);
     }
@@ -87,8 +90,9 @@ public:
             {2, &DebugMonitor::GetProcessId, "GetProcessId"},
             {3, nullptr, "HookToCreateProcess"},
             {4, &DebugMonitor::GetApplicationProcessId, "GetApplicationProcessId"},
-            {5, nullptr, "HookToCreateApplicationProgress"},
+            {5, nullptr, "HookToCreateApplicationProcess"},
             {6, nullptr, "ClearHook"},
+            {7, nullptr, "GetProgramId"},
             {65000, &DebugMonitor::AtmosphereGetProcessInfo, "AtmosphereGetProcessInfo"},
             {65001, nullptr, "AtmosphereGetCurrentLimitInfo"},
         };
@@ -173,6 +177,8 @@ public:
     explicit Info(Core::System& system_) : ServiceFramework{system_, "pm:info"} {
         static const FunctionInfo functions[] = {
             {0, &Info::GetProgramId, "GetProgramId"},
+            {1, nullptr, "GetAppletCurrentResourceLimitValues"},
+            {2, nullptr, "GetAppletPeakResourceLimitValues"},
             {65000, &Info::AtmosphereGetProcessId, "AtmosphereGetProcessId"},
             {65001, nullptr, "AtmosphereHasLaunchedProgram"},
             {65002, nullptr, "AtmosphereGetProcessInfo"},
@@ -239,6 +245,8 @@ public:
             {7, nullptr, "BoostSystemMemoryResourceLimit"},
             {8, nullptr, "BoostApplicationThreadResourceLimit"},
             {9, nullptr, "GetBootFinishedEventHandle"},
+            {10, nullptr, "BoostSystemThreadResourceLimit"},
+            {12, nullptr, "GetProcessId"},
         };
         // clang-format on
 
