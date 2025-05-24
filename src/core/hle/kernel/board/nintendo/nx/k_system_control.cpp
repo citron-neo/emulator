@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: Copyright 2021 yuzu Emulator Project
+// SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <random>
@@ -48,6 +49,14 @@ u32 GetMemorySizeForInit() {
         return Smc::MemorySize_6GB;
     case Settings::MemoryLayout::Memory_8Gb:
         return Smc::MemorySize_8GB;
+    case Settings::MemoryLayout::Memory_10Gb:
+        return Smc::MemorySize_10GB;
+    case Settings::MemoryLayout::Memory_12Gb:
+        return Smc::MemorySize_12GB;
+    case Settings::MemoryLayout::Memory_14Gb:
+        return Smc::MemorySize_14GB;
+    case Settings::MemoryLayout::Memory_16Gb:
+        return Smc::MemorySize_16GB;
     }
     return Smc::MemorySize_4GB;
 }
@@ -60,6 +69,14 @@ Smc::MemoryArrangement GetMemoryArrangeForInit() {
         return Smc::MemoryArrangement_6GB;
     case Settings::MemoryLayout::Memory_8Gb:
         return Smc::MemoryArrangement_8GB;
+    case Settings::MemoryLayout::Memory_10Gb:
+        return Smc::MemoryArrangement_10GB;
+    case Settings::MemoryLayout::Memory_12Gb:
+        return Smc::MemoryArrangement_12GB;
+    case Settings::MemoryLayout::Memory_14Gb:
+        return Smc::MemoryArrangement_14GB;
+    case Settings::MemoryLayout::Memory_16Gb:
+        return Smc::MemoryArrangement_16GB;
     }
     return Smc::MemoryArrangement_4GB;
 }
@@ -79,6 +96,14 @@ size_t KSystemControl::Init::GetIntendedMemorySize() {
         return 6_GiB;
     case Smc::MemorySize_8GB:
         return 8_GiB;
+    case Smc::MemorySize_10GB:
+        return 10_GiB;
+    case Smc::MemorySize_12GB:
+        return 12_GiB;
+    case Smc::MemorySize_14GB:
+        return 14_GiB;
+    case Smc::MemorySize_16GB:
+        return 16_GiB;
     }
 }
 
@@ -114,6 +139,14 @@ std::size_t KSystemControl::Init::GetApplicationPoolSize() {
         case Smc::MemoryArrangement_8GB:
             // Real kernel sets this to 4916_MiB. We are not debugging applets.
             return 6547_MiB;
+        case Smc::MemoryArrangement_10GB:
+            return 8547_MiB;  // ~8.35GB app pool
+        case Smc::MemoryArrangement_12GB:
+            return 10547_MiB; // ~10.3GB app pool
+        case Smc::MemoryArrangement_14GB:
+            return 12547_MiB; // ~12.25GB app pool
+        case Smc::MemoryArrangement_16GB:
+            return 14547_MiB; // ~14.2GB app pool
         }
     }();
 
@@ -139,6 +172,14 @@ size_t KSystemControl::Init::GetAppletPoolSize() {
         case Smc::MemoryArrangement_8GB:
             //! Real kernel sets this to 2193_MiB. We are not debugging applets.
             return 562_MiB;
+        case Smc::MemoryArrangement_10GB:
+            return 562_MiB;  // Keep consistent with 8GB
+        case Smc::MemoryArrangement_12GB:
+            return 562_MiB;  // Keep consistent with 8GB
+        case Smc::MemoryArrangement_14GB:
+            return 562_MiB;  // Keep consistent with 8GB
+        case Smc::MemoryArrangement_16GB:
+            return 562_MiB;  // Keep consistent with 8GB
         }
     }();
 
