@@ -515,8 +515,12 @@ add_library(core STATIC
     hle/service/apm/apm_interface.h
     hle/service/audio/audio_controller.cpp
     hle/service/audio/audio_controller.h
+    hle/service/audio/audio_debug.cpp
+    hle/service/audio/audio_debug.h
     hle/service/audio/audio_device.cpp
     hle/service/audio/audio_device.h
+    hle/service/audio/audio_device_service.cpp
+    hle/service/audio/audio_device_service.h
     hle/service/audio/audio_in_manager.cpp
     hle/service/audio/audio_in_manager.h
     hle/service/audio/audio_in.cpp
@@ -531,6 +535,8 @@ add_library(core STATIC
     hle/service/audio/audio_renderer.h
     hle/service/audio/audio.cpp
     hle/service/audio/audio.h
+    hle/service/audio/codecctl.cpp
+    hle/service/audio/codecctl.h
     hle/service/audio/errors.h
     hle/service/audio/final_output_recorder_manager_for_applet.cpp
     hle/service/audio/final_output_recorder_manager_for_applet.h

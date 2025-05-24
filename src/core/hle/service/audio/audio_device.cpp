@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: Copyright 2024 yuzu Emulator Project
+// SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "audio_core/audio_core.h"
@@ -22,12 +23,13 @@ IAudioDevice::IAudioDevice(Core::System& system_, u64 applet_resource_user_id, u
         {4, D<&IAudioDevice::QueryAudioDeviceSystemEvent>, "QueryAudioDeviceSystemEvent"},
         {5, D<&IAudioDevice::GetActiveChannelCount>, "GetActiveChannelCount"},
         {6, D<&IAudioDevice::ListAudioDeviceNameAuto>, "ListAudioDeviceNameAuto"},
-        {7, D<&IAudioDevice::SetAudioDeviceOutputVolumeAuto>, "SetAudioDeviceOutputVolumeAuto"},
-        {8, D<&IAudioDevice::GetAudioDeviceOutputVolumeAuto>, "GetAudioDeviceOutputVolumeAuto"},
+        {7, D<&IAudioDevice::GetAudioSystemMasterVolumeSetting>, "GetAudioSystemMasterVolumeSetting"},
+        {8, D<&IAudioDevice::SetAudioDeviceOutputVolumeAuto>, "SetAudioDeviceOutputVolumeAuto"},
+        {9, D<&IAudioDevice::GetAudioDeviceOutputVolumeAuto>, "GetAudioDeviceOutputVolumeAuto"},
         {10, D<&IAudioDevice::GetActiveAudioDeviceNameAuto>, "GetActiveAudioDeviceNameAuto"},
         {11, D<&IAudioDevice::QueryAudioDeviceInputEvent>, "QueryAudioDeviceInputEvent"},
         {12, D<&IAudioDevice::QueryAudioDeviceOutputEvent>, "QueryAudioDeviceOutputEvent"},
-        {13, D<&IAudioDevice::GetActiveAudioDeviceName>, "GetActiveAudioOutputDeviceName"},
+        {13, D<&IAudioDevice::GetActiveAudioOutputDeviceName>, "GetActiveAudioOutputDeviceName"},
         {14, D<&IAudioDevice::ListAudioOutputDeviceName>, "ListAudioOutputDeviceName"},
     };
     RegisterHandlers(functions);
@@ -139,6 +141,17 @@ Result IAudioDevice::GetActiveChannelCount(Out<u32> out_active_channel_count) {
     *out_active_channel_count = system.AudioCore().GetOutputSink().GetSystemChannels();
     LOG_DEBUG(Service_Audio, "(STUBBED) called. Channels={}", *out_active_channel_count);
     R_SUCCEED();
+}
+
+Result IAudioDevice::GetAudioSystemMasterVolumeSetting(Out<f32> out_volume) {
+    LOG_DEBUG(Service_Audio, "(STUBBED) called");
+    *out_volume = 1.0f;
+    R_SUCCEED();
+}
+
+Result IAudioDevice::GetActiveAudioOutputDeviceName(
+    OutArray<AudioDevice::AudioDeviceName, BufferAttr_HipcMapAlias> out_name) {
+    R_RETURN(this->GetActiveAudioDeviceNameAuto(out_name));
 }
 
 Result IAudioDevice::ListAudioOutputDeviceName(

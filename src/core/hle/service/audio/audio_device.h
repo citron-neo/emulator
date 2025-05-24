@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: Copyright 2024 yuzu Emulator Project
+// SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #pragma once
@@ -46,6 +47,9 @@ private:
     Result QueryAudioDeviceInputEvent(OutCopyHandle<Kernel::KReadableEvent> out_event);
     Result QueryAudioDeviceOutputEvent(OutCopyHandle<Kernel::KReadableEvent> out_event);
     Result GetActiveChannelCount(Out<u32> out_active_channel_count);
+    Result GetAudioSystemMasterVolumeSetting(Out<f32> out_volume);
+    Result GetActiveAudioOutputDeviceName(
+        OutArray<AudioDevice::AudioDeviceName, BufferAttr_HipcMapAlias> out_name);
     Result ListAudioOutputDeviceName(
         OutArray<AudioDevice::AudioDeviceName, BufferAttr_HipcMapAlias> out_names,
         Out<s32> out_count);
