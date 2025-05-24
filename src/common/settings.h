@@ -196,7 +196,7 @@ struct Values {
     SwitchableSetting<MemoryLayout, true> memory_layout_mode{linkage,
                                                              MemoryLayout::Memory_4Gb,
                                                              MemoryLayout::Memory_4Gb,
-                                                             MemoryLayout::Memory_8Gb,
+                                                             MemoryLayout::Memory_16Gb,
                                                              "memory_layout_mode",
                                                              Category::Core};
     SwitchableSetting<bool> use_speed_limit{
