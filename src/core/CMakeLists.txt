@@ -1,4 +1,5 @@
 # SPDX-FileCopyrightText: 2018 yuzu Emulator Project
+# SPDX-FileCopyrightText: 2025 citron Emulator Project
 # SPDX-License-Identifier: GPL-2.0-or-later
 
 add_library(core STATIC
@@ -384,6 +385,12 @@ add_library(core STATIC
     hle/service/acc/acc.h
     hle/service/acc/acc_aa.cpp
     hle/service/acc/acc_aa.h
+    hle/service/acc/acc_e.cpp
+    hle/service/acc/acc_e.h
+    hle/service/acc/acc_e_u1.cpp
+    hle/service/acc/acc_e_u1.h
+    hle/service/acc/acc_e_u2.cpp
+    hle/service/acc/acc_e_u2.h
     hle/service/acc/acc_su.cpp
     hle/service/acc/acc_su.h
     hle/service/acc/acc_u0.cpp
@@ -392,6 +399,8 @@ add_library(core STATIC
     hle/service/acc/acc_u1.h
     hle/service/acc/async_context.cpp
     hle/service/acc/async_context.h
+    hle/service/acc/dauth_0.cpp
+    hle/service/acc/dauth_0.h
     hle/service/acc/errors.h
     hle/service/acc/profile_manager.cpp
     hle/service/acc/profile_manager.h

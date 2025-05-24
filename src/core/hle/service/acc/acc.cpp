@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: Copyright 2018 yuzu Emulator Project
+// SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <algorithm>
@@ -19,10 +20,14 @@
 #include "core/file_sys/patch_manager.h"
 #include "core/hle/service/acc/acc.h"
 #include "core/hle/service/acc/acc_aa.h"
+#include "core/hle/service/acc/acc_e.h"
+#include "core/hle/service/acc/acc_e_u1.h"
+#include "core/hle/service/acc/acc_e_u2.h"
 #include "core/hle/service/acc/acc_su.h"
 #include "core/hle/service/acc/acc_u0.h"
 #include "core/hle/service/acc/acc_u1.h"
 #include "core/hle/service/acc/async_context.h"
+#include "core/hle/service/acc/dauth_0.h"
 #include "core/hle/service/acc/errors.h"
 #include "core/hle/service/acc/profile_manager.h"
 #include "core/hle/service/cmif_serialization.h"
@@ -1040,12 +1045,21 @@ void LoopProcess(Core::System& system) {
 
     server_manager->RegisterNamedService("acc:aa",
                                          std::make_shared<ACC_AA>(module, profile_manager, system));
+    server_manager->RegisterNamedService("acc:e",
+                                         std::make_shared<ACC_E>(module, profile_manager, system));
+    server_manager->RegisterNamedService("acc:e:u1",
+                                         std::make_shared<ACC_E_U1>(module, profile_manager, system));
+    server_manager->RegisterNamedService("acc:e:u2",
+                                         std::make_shared<ACC_E_U2>(module, profile_manager, system));
     server_manager->RegisterNamedService("acc:su",
                                          std::make_shared<ACC_SU>(module, profile_manager, system));
     server_manager->RegisterNamedService("acc:u0",
                                          std::make_shared<ACC_U0>(module, profile_manager, system));
     server_manager->RegisterNamedService("acc:u1",
                                          std::make_shared<ACC_U1>(module, profile_manager, system));
+    server_manager->RegisterNamedService("dauth:0",
+                                         std::make_shared<DAUTH_0>(system));
+
     ServerManager::RunServer(std::move(server_manager));
 }
 

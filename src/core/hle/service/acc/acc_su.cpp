@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: Copyright 2018 yuzu Emulator Project
+// SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "core/hle/service/acc/acc_su.h"
@@ -18,7 +19,8 @@ ACC_SU::ACC_SU(std::shared_ptr<Module> module_, std::shared_ptr<ProfileManager> 
         {5, &ACC_SU::GetProfile, "GetProfile"},
         {6, nullptr, "GetProfileDigest"},
         {50, &ACC_SU::IsUserRegistrationRequestPermitted, "IsUserRegistrationRequestPermitted"},
-        {51, &ACC_SU::TrySelectUserWithoutInteraction, "TrySelectUserWithoutInteraction"},
+        {51, nullptr, "TrySelectUserWithoutInteractionDeprecated"}, // [1.0.0-18.1.0]
+        {52, &ACC_SU::TrySelectUserWithoutInteraction, "TrySelectUserWithoutInteraction"}, // [19.0.0+]
         {60, &ACC_SU::ListOpenContextStoredUsers, "ListOpenContextStoredUsers"},
         {99, nullptr, "DebugActivateOpenContextRetention"},
         {100, nullptr, "GetUserRegistrationNotifier"},
@@ -50,11 +52,21 @@ ACC_SU::ACC_SU(std::shared_ptr<Module> module_, std::shared_ptr<ProfileManager> 
         {210, nullptr, "CreateFloatingRegistrationRequest"},
         {211, nullptr, "CreateProcedureToRegisterUserWithNintendoAccount"},
         {212, nullptr, "ResumeProcedureToRegisterUserWithNintendoAccount"},
+        {213, nullptr, "CreateProcedureToCreateUserWithNintendoAccount"}, // [17.0.0+]
+        {214, nullptr, "ResumeProcedureToCreateUserWithNintendoAccount"}, // [17.0.0+]
+        {215, nullptr, "ResumeProcedureToCreateUserWithNintendoAccountAfterApplyResponse"}, // [17.0.0+]
         {230, nullptr, "AuthenticateServiceAsync"},
         {250, nullptr, "GetBaasAccountAdministrator"},
+        {251, nullptr, "SynchronizeNetworkServiceAccountsSnapshotAsync"}, // [20.0.0+]
         {290, nullptr, "ProxyProcedureForGuestLoginWithNintendoAccount"},
         {291, nullptr, "ProxyProcedureForFloatingRegistrationWithNintendoAccount"},
+        {292, nullptr, "ProxyProcedureForDeviceMigrationAuthenticatingOperatingUser"}, // [20.0.0+]
+        {293, nullptr, "ProxyProcedureForDeviceMigrationDownload"}, // [20.0.0+]
         {299, nullptr, "SuspendBackgroundDaemon"},
+        {350, nullptr, "CreateDeviceMigrationUserExportRequest"}, // [20.0.0+]
+        {351, nullptr, "UploadNasCredential"}, // [20.0.0+]
+        {352, nullptr, "CreateDeviceMigrationUserImportRequest"}, // [20.0.0+]
+        {353, nullptr, "DeleteUserMigrationInfo"}, // [20.0.0+]
         {900, nullptr, "SetUserUnqualifiedForDebug"},
         {901, nullptr, "UnsetUserUnqualifiedForDebug"},
         {902, nullptr, "ListUsersUnqualifiedForDebug"},
