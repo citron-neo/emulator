@@ -303,4 +303,71 @@
         <item>2</item>
     </integer-array>
 
+    <!-- Zep Zone setting arrays -->
+    <string-array name="memoryLayoutNames">
+        <item>4GB DRAM (Default)</item>
+        <item>6GB DRAM (Unsafe)</item>
+        <item>8GB DRAM (Unsafe)</item>
+        <item>10GB DRAM (Unsafe)</item>
+        <item>12GB DRAM (Unsafe)</item>
+        <item>14GB DRAM (Unsafe)</item>
+        <item>16GB DRAM (Unsafe)</item>
+    </string-array>
+
+    <integer-array name="memoryLayoutValues">
+        <item>0</item>
+        <item>1</item>
+        <item>2</item>
+        <item>3</item>
+        <item>4</item>
+        <item>5</item>
+        <item>6</item>
+    </integer-array>
+
+    <string-array name="astcDecodeModeNames">
+        <item>CPU</item>
+        <item>GPU</item>
+        <item>CPU Asynchronous</item>
+    </string-array>
+
+    <integer-array name="astcDecodeModeValues">
+        <item>0</item>
+        <item>1</item>
+        <item>2</item>
+    </integer-array>
+
+    <string-array name="astcRecompressionNames">
+        <item>Uncompressed</item>
+        <item>BC1</item>
+        <item>BC3</item>
+    </string-array>
+
+    <integer-array name="astcRecompressionValues">
+        <item>0</item>
+        <item>1</item>
+        <item>2</item>
+    </integer-array>
+
+    <string-array name="shaderBackendNames">
+        <item>GLSL</item>
+        <item>GLASM</item>
+        <item>SPIR-V</item>
+    </string-array>
+
+    <integer-array name="shaderBackendValues">
+        <item>0</item>
+        <item>1</item>
+        <item>2</item>
+    </integer-array>
+
+    <string-array name="vramUsageModeNames">
+        <item>Conservative</item>
+        <item>Aggressive</item>
+    </string-array>
+
+    <integer-array name="vramUsageModeValues">
+        <item>0</item>
+        <item>1</item>
+    </integer-array>
+
 </resources>

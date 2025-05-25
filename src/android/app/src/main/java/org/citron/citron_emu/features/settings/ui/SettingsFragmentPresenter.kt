@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: 2023 yuzu Emulator Project
+// SPDX-FileCopyrightText: 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 package org.citron.citron_emu.features.settings.ui
@@ -98,6 +99,7 @@ class SettingsFragmentPresenter(
             MenuTag.SECTION_INPUT_PLAYER_EIGHT -> addInputPlayer(sl, 7)
             MenuTag.SECTION_THEME -> addThemeSettings(sl)
             MenuTag.SECTION_DEBUG -> addDebugSettings(sl)
+            MenuTag.SECTION_ZEP_ZONE -> addZepZoneSettings(sl)
         }
         settingsList = sl
         adapter.submitList(settingsList) {
@@ -139,6 +141,14 @@ class SettingsFragmentPresenter(
                     descriptionId = R.string.preferences_debug_description,
                     iconId = R.drawable.ic_code,
                     menuKey = MenuTag.SECTION_DEBUG
+                )
+            )
+            add(
+                SubmenuSetting(
+                    titleId = R.string.preferences_zep_zone,
+                    descriptionId = R.string.preferences_zep_zone_description,
+                    iconId = R.drawable.ic_settings,
+                    menuKey = MenuTag.SECTION_ZEP_ZONE
                 )
             )
             add(
@@ -970,6 +980,21 @@ class SettingsFragmentPresenter(
             add(IntSetting.CPU_ACCURACY.key)
             add(BooleanSetting.CPU_DEBUG_MODE.key)
             add(SettingsItem.FASTMEM_COMBINED)
+        }
+    }
+
+    private fun addZepZoneSettings(sl: ArrayList<SettingsItem>) {
+        sl.apply {
+            add(HeaderSetting(R.string.memory_layout_header))
+            add(IntSetting.MEMORY_LAYOUT_MODE.key)
+
+            add(HeaderSetting(R.string.astc_settings_header))
+            add(IntSetting.ASTC_DECODE_MODE.key)
+            add(IntSetting.ASTC_RECOMPRESSION.key)
+
+            add(HeaderSetting(R.string.advanced_graphics_header))
+            add(IntSetting.SHADER_BACKEND.key)
+            add(IntSetting.VRAM_USAGE_MODE.key)
         }
     }
 }

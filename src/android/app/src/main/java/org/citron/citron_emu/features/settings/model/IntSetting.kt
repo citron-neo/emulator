@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: 2023 yuzu Emulator Project
+// SPDX-FileCopyrightText: 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 package org.citron.citron_emu.features.settings.model
@@ -26,7 +27,14 @@ enum class IntSetting(override val key: String) : AbstractIntSetting {
     OVERLAY_OPACITY("control_opacity"),
     LOCK_DRAWER("lock_drawer"),
     VERTICAL_ALIGNMENT("vertical_alignment"),
-    FSR_SHARPENING_SLIDER("fsr_sharpening_slider");
+    FSR_SHARPENING_SLIDER("fsr_sharpening_slider"),
+
+    // Zep Zone settings
+    MEMORY_LAYOUT_MODE("memory_layout_mode"),
+    ASTC_DECODE_MODE("accelerate_astc"),
+    ASTC_RECOMPRESSION("astc_recompression"),
+    SHADER_BACKEND("shader_backend"),
+    VRAM_USAGE_MODE("vram_usage_mode");
 
     override fun getInt(needsGlobal: Boolean): Int = NativeConfig.getInt(key, needsGlobal)
 
