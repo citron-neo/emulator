@@ -8,9 +8,12 @@ import android.annotation.SuppressLint
 import android.app.AlertDialog
 import android.content.Context
 import android.content.DialogInterface
+import android.content.Intent
+import android.content.IntentFilter
 import android.content.pm.ActivityInfo
 import android.content.res.Configuration
 import android.net.Uri
+import android.os.BatteryManager
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -66,6 +69,7 @@ class EmulationFragment : Fragment(), SurfaceHolder.Callback {
     private var emulationActivity: EmulationActivity? = null
     private var perfStatsUpdater: (() -> Unit)? = null
     private var thermalStatsUpdater: (() -> Unit)? = null
+    private var ramStatsUpdater: (() -> Unit)? = null
 
     private var _binding: FragmentEmulationBinding? = null
     private val binding get() = _binding!!
@@ -374,6 +378,7 @@ class EmulationFragment : Fragment(), SurfaceHolder.Callback {
                 // Setup overlays
                 updateShowFpsOverlay()
                 updateThermalOverlay()
+                updateRamMeterOverlay()
             }
         }
         emulationViewModel.isEmulationStopping.collect(viewLifecycleOwner) {
@@ -381,7 +386,9 @@ class EmulationFragment : Fragment(), SurfaceHolder.Callback {
                 binding.loadingText.setText(R.string.shutting_down)
                 ViewUtils.showView(binding.loadingIndicator)
                 ViewUtils.hideView(binding.inputContainer)
-                ViewUtils.hideView(binding.showFpsText)
+                ViewUtils.hideView(binding.fpsIndicatorView)
+                ViewUtils.hideView(binding.thermalIndicatorView)
+                ViewUtils.hideView(binding.ramMeterView)
             }
         }
         emulationViewModel.drawerOpen.collect(viewLifecycleOwner) {
@@ -486,22 +493,16 @@ class EmulationFragment : Fragment(), SurfaceHolder.Callback {
 
     private fun updateShowFpsOverlay() {
         val showOverlay = BooleanSetting.SHOW_PERFORMANCE_OVERLAY.getBoolean()
-        binding.showFpsText.setVisible(showOverlay)
+        binding.fpsIndicatorView.setVisible(showOverlay)
         if (showOverlay) {
-            val SYSTEM_FPS = 0
             val FPS = 1
-            val FRAMETIME = 2
-            val SPEED = 3
             perfStatsUpdater = {
                 if (emulationViewModel.emulationStarted.value &&
                     !emulationViewModel.isEmulationStopping.value
                 ) {
                     val perfStats = NativeLibrary.getPerfStats()
-                    val cpuBackend = NativeLibrary.getCpuBackend()
-                    val gpuDriver = NativeLibrary.getGpuDriver()
                     if (_binding != null) {
-                        binding.showFpsText.text =
-                            String.format("FPS: %.1f\n%s/%s", perfStats[FPS], cpuBackend, gpuDriver)
+                        binding.fpsIndicatorView.updateFps(perfStats[FPS].toFloat())
                     }
                     perfStatsUpdateHandler.postDelayed(perfStatsUpdater!!, 800)
                 }
@@ -516,26 +517,17 @@ class EmulationFragment : Fragment(), SurfaceHolder.Callback {
 
     private fun updateThermalOverlay() {
         val showOverlay = BooleanSetting.SHOW_THERMAL_OVERLAY.getBoolean()
-        binding.showThermalsText.setVisible(showOverlay)
+        binding.thermalIndicatorView.setVisible(showOverlay)
         if (showOverlay) {
             thermalStatsUpdater = {
                 if (emulationViewModel.emulationStarted.value &&
                     !emulationViewModel.isEmulationStopping.value
                 ) {
-                    val thermalStatus = when (powerManager.currentThermalStatus) {
-                        PowerManager.THERMAL_STATUS_LIGHT -> "😥"
-                        PowerManager.THERMAL_STATUS_MODERATE -> "🥵"
-                        PowerManager.THERMAL_STATUS_SEVERE -> "🔥"
-                        PowerManager.THERMAL_STATUS_CRITICAL,
-                        PowerManager.THERMAL_STATUS_EMERGENCY,
-                        PowerManager.THERMAL_STATUS_SHUTDOWN -> "☢️"
-
-                        else -> "🙂"
-                    }
                     if (_binding != null) {
-                        binding.showThermalsText.text = thermalStatus
+                        val temperature = getBatteryTemperature(requireContext())
+                        binding.thermalIndicatorView.updateTemperature(temperature)
                     }
-                    thermalStatsUpdateHandler.postDelayed(thermalStatsUpdater!!, 1000)
+                    thermalStatsUpdateHandler.postDelayed(thermalStatsUpdater!!, 2000)
                 }
             }
             thermalStatsUpdateHandler.post(thermalStatsUpdater!!)
@@ -543,6 +535,42 @@ class EmulationFragment : Fragment(), SurfaceHolder.Callback {
             if (thermalStatsUpdater != null) {
                 thermalStatsUpdateHandler.removeCallbacks(thermalStatsUpdater!!)
             }
+        }
+    }
+
+    private fun updateRamMeterOverlay() {
+        val showOverlay = BooleanSetting.SHOW_RAM_METER.getBoolean()
+        binding.ramMeterView.setVisible(showOverlay)
+        if (showOverlay) {
+            ramStatsUpdater = {
+                if (emulationViewModel.emulationStarted.value &&
+                    !emulationViewModel.isEmulationStopping.value
+                ) {
+                    if (_binding != null) {
+                        binding.ramMeterView.updateRamUsage()
+                    }
+                    ramStatsUpdateHandler.postDelayed(ramStatsUpdater!!, 1500)
+                }
+            }
+            ramStatsUpdateHandler.post(ramStatsUpdater!!)
+        } else {
+            if (ramStatsUpdater != null) {
+                ramStatsUpdateHandler.removeCallbacks(ramStatsUpdater!!)
+            }
+        }
+    }
+
+    private fun getBatteryTemperature(context: Context): Float {
+        return try {
+            val batteryIntent = context.registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
+            if (batteryIntent != null) {
+                val temperature = batteryIntent.getIntExtra(BatteryManager.EXTRA_TEMPERATURE, 250)
+                temperature / 10f // Convert from tenths of degrees to degrees
+            } else {
+                25f // Fallback temperature
+            }
+        } catch (e: Exception) {
+            25f // Fallback temperature
         }
     }
 
@@ -676,6 +704,8 @@ class EmulationFragment : Fragment(), SurfaceHolder.Callback {
                 BooleanSetting.SHOW_PERFORMANCE_OVERLAY.getBoolean()
             findItem(R.id.thermal_indicator).isChecked =
                 BooleanSetting.SHOW_THERMAL_OVERLAY.getBoolean()
+            findItem(R.id.ram_meter).isChecked =
+                BooleanSetting.SHOW_RAM_METER.getBoolean()
             findItem(R.id.menu_rel_stick_center).isChecked =
                 BooleanSetting.JOYSTICK_REL_CENTER.getBoolean()
             findItem(R.id.menu_dpad_slide).isChecked = BooleanSetting.DPAD_SLIDE.getBoolean()
@@ -699,6 +729,13 @@ class EmulationFragment : Fragment(), SurfaceHolder.Callback {
                     it.isChecked = !it.isChecked
                     BooleanSetting.SHOW_THERMAL_OVERLAY.setBoolean(it.isChecked)
                     updateThermalOverlay()
+                    true
+                }
+
+                R.id.ram_meter -> {
+                    it.isChecked = !it.isChecked
+                    BooleanSetting.SHOW_RAM_METER.setBoolean(it.isChecked)
+                    updateRamMeterOverlay()
                     true
                 }
 
@@ -1046,5 +1083,6 @@ class EmulationFragment : Fragment(), SurfaceHolder.Callback {
     companion object {
         private val perfStatsUpdateHandler = Handler(Looper.myLooper()!!)
         private val thermalStatsUpdateHandler = Handler(Looper.myLooper()!!)
+        private val ramStatsUpdateHandler = Handler(Looper.myLooper()!!)
     }
 }

@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: 2023 yuzu Emulator Project
+// SPDX-FileCopyrightText: 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #pragma once
@@ -69,6 +70,8 @@ struct Values {
                                                      Settings::Category::Overlay};
     Settings::Setting<bool> show_thermal_overlay{linkage, false, "show_thermal_overlay",
                                                  Settings::Category::Overlay};
+    Settings::Setting<bool> show_ram_meter{linkage, false, "show_ram_meter",
+                                           Settings::Category::Overlay};
     Settings::Setting<bool> show_input_overlay{linkage, true, "show_input_overlay",
                                                Settings::Category::Overlay};
     Settings::Setting<bool> touchscreen{linkage, true, "touchscreen", Settings::Category::Overlay};
