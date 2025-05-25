@@ -9,8 +9,8 @@
 
 namespace Service::Sockets {
 
-constexpr Result ResultNotImplemented{ErrorModule::NSD, 1}; // Generic "not implemented"
-constexpr Result ResultNsdNotInitialized{ErrorModule::NSD, 2}; // Example, if needed
+[[maybe_unused]] constexpr Result ResultNotImplemented{ErrorModule::NSD, 1}; // Generic "not implemented"
+[[maybe_unused]] constexpr Result ResultNsdNotInitialized{ErrorModule::NSD, 2}; // Example, if needed
 constexpr Result ResultPermissionDenied{ErrorModule::NSD, 3}; // For nsd:a specific calls
 constexpr Result ResultOverflow{ErrorModule::NSD, 6};
 
