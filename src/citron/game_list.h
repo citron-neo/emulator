@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: 2015 Citra Emulator Project
+// SPDX-FileCopyrightText: 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #pragma once
@@ -7,6 +8,7 @@
 #include <QLabel>
 #include <QLineEdit>
 #include <QList>
+#include <QListView>
 #include <QStandardItemModel>
 #include <QString>
 #include <QTreeView>
@@ -98,6 +100,9 @@ public:
     void SaveInterfaceLayout();
     void LoadInterfaceLayout();
 
+    void SetViewMode(bool grid_view);
+    void ToggleViewMode();
+
     QStandardItemModel* GetModel() const;
 
     /// Disables events from the emulated controller
@@ -152,6 +157,11 @@ private:
     void AddFavorite(u64 program_id);
     void RemoveFavorite(u64 program_id);
 
+    void PopulateGridView();
+
+    void FilterGridView(const QString& filter_text);
+    void FilterTreeView(const QString& filter_text);
+
     void PopupContextMenu(const QPoint& menu_location);
     void AddGamePopup(QMenu& context_menu, u64 program_id, const std::string& path);
     void AddCustomDirPopup(QMenu& context_menu, QModelIndex selected);
@@ -167,6 +177,7 @@ private:
     GMainWindow* main_window = nullptr;
     QVBoxLayout* layout = nullptr;
     QTreeView* tree_view = nullptr;
+    QListView* list_view = nullptr;
     QStandardItemModel* item_model = nullptr;
     std::unique_ptr<GameListWorker> current_worker;
     QFileSystemWatcher* watcher = nullptr;

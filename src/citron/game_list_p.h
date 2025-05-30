@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: 2015 Citra Emulator Project
+// SPDX-FileCopyrightText: 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #pragma once
@@ -11,6 +12,8 @@
 #include <QCoreApplication>
 #include <QFileInfo>
 #include <QObject>
+#include <QPainter>
+#include <QPainterPath>
 #include <QStandardItem>
 #include <QString>
 #include <QWidget>
@@ -43,6 +46,31 @@ static QPixmap GetDefaultIcon(u32 size) {
     QPixmap icon(size, size);
     icon.fill(Qt::transparent);
     return icon;
+}
+
+/**
+ * Creates a round icon from a square pixmap
+ * @param pixmap The source pixmap
+ * @param size The desired size
+ * @return QPixmap round icon
+ */
+static QPixmap CreateRoundIcon(const QPixmap& pixmap, u32 size) {
+    QPixmap rounded(size, size);
+    rounded.fill(Qt::transparent);
+
+    QPainter painter(&rounded);
+    painter.setRenderHint(QPainter::Antialiasing);
+
+    // Create a circular clipping path
+    QPainterPath path;
+    path.addEllipse(0, 0, size, size);
+    painter.setClipPath(path);
+
+    // Draw the scaled pixmap
+    QPixmap scaled = pixmap.scaled(size, size, Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
+    painter.drawPixmap(0, 0, scaled);
+
+    return rounded;
 }
 
 class GameListItem : public QStandardItem {
@@ -85,9 +113,11 @@ public:
         if (!picture.loadFromData(picture_data.data(), static_cast<u32>(picture_data.size()))) {
             picture = GetDefaultIcon(size);
         }
-        picture = picture.scaled(size, size, Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
 
-        setData(picture, Qt::DecorationRole);
+        // Create a round icon
+        QPixmap round_picture = CreateRoundIcon(picture, size);
+
+        setData(round_picture, Qt::DecorationRole);
     }
 
     int type() const override {

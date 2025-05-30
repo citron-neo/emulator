@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: 2015 Citra Emulator Project
+// SPDX-FileCopyrightText: 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <regex>
@@ -16,6 +17,7 @@
 #include <fmt/format.h>
 #include "common/common_types.h"
 #include "common/logging/log.h"
+#include "common/string_util.h"
 #include "core/core.h"
 #include "core/file_sys/patch_manager.h"
 #include "core/file_sys/registered_cache.h"
@@ -187,12 +189,99 @@ void GameList::OnItemExpanded(const QModelIndex& item) {
 // Event in order to filter the gamelist after editing the searchfield
 void GameList::OnTextChanged(const QString& new_text) {
     QString edit_filter_text = new_text.toLower();
+
+    if (list_view->isVisible()) {
+        // Grid view filtering - simpler approach
+        FilterGridView(edit_filter_text);
+    } else {
+        // Tree view filtering - existing logic
+        FilterTreeView(edit_filter_text);
+    }
+}
+
+void GameList::FilterGridView(const QString& filter_text) {
+    // Repopulate the grid view with filtered items
+    QStandardItemModel* hierarchical_model = item_model;
+
+    // Create a new flat model for grid view
+    QStandardItemModel* flat_model = new QStandardItemModel(this);
+
+    int visible_count = 0;
+    int total_count = 0;
+
+    // Collect all games from the hierarchical model
+    for (int i = 0; i < hierarchical_model->rowCount(); ++i) {
+        QStandardItem* folder = hierarchical_model->item(i, 0);
+        if (!folder) continue;
+
+        // Skip non-game folders in grid view, but include favorites
+        const auto folder_type = folder->data(GameListItem::TypeRole).value<GameListItemType>();
+        if (folder_type == GameListItemType::AddDir) {
+            continue;
+        }
+
+        // Add games from this folder to the flat model
+        for (int j = 0; j < folder->rowCount(); ++j) {
+            QStandardItem* game_item = folder->child(j, 0);
+            if (!game_item) continue;
+
+            const auto game_type = game_item->data(GameListItem::TypeRole).value<GameListItemType>();
+            if (game_type == GameListItemType::Game) {
+                total_count++;
+
+                bool should_show = true;
+
+                if (!filter_text.isEmpty()) {
+                    const QString file_path = game_item->data(GameListItemPath::FullPathRole).toString().toLower();
+                    const QString file_title = game_item->data(GameListItemPath::TitleRole).toString().toLower();
+                    const auto program_id = game_item->data(GameListItemPath::ProgramIdRole).toULongLong();
+                    const QString file_program_id = QStringLiteral("%1").arg(program_id, 16, 16, QLatin1Char{'0'});
+
+                    const QString file_name = file_path.mid(file_path.lastIndexOf(QLatin1Char{'/'}) + 1) + QLatin1Char{' '} + file_title;
+
+                    should_show = ContainsAllWords(file_name, filter_text) ||
+                                 (file_program_id.count() == 16 && file_program_id.contains(filter_text));
+                }
+
+                if (should_show) {
+                    // Clone the game item for the flat model
+                    QStandardItem* cloned_item = game_item->clone();
+
+                    // Set display text to just the game title for grid view
+                    QString game_title = game_item->data(GameListItemPath::TitleRole).toString();
+                    if (game_title.isEmpty()) {
+                        // Fallback to filename if no title
+                        std::string filename;
+                        Common::SplitPath(game_item->data(GameListItemPath::FullPathRole).toString().toStdString(),
+                                        nullptr, &filename, nullptr);
+                        game_title = QString::fromStdString(filename);
+                    }
+                    cloned_item->setText(game_title);
+
+                    flat_model->appendRow(cloned_item);
+                    visible_count++;
+                }
+            }
+        }
+    }
+
+    // Set the flat model for the list view
+    list_view->setModel(flat_model);
+
+    // Update grid size based on icon size
+    const u32 icon_size = UISettings::values.game_icon_size.GetValue();
+    list_view->setGridSize(QSize(icon_size + 60, icon_size + 80)); // More padding for round icons and text
+
+    search_field->setFilterResult(visible_count, total_count);
+}
+
+void GameList::FilterTreeView(const QString& filter_text) {
     QStandardItem* folder;
     int children_total = 0;
 
     // If the searchfield is empty every item is visible
     // Otherwise the filter gets applied
-    if (edit_filter_text.isEmpty()) {
+    if (filter_text.isEmpty()) {
         tree_view->setRowHidden(0, item_model->invisibleRootItem()->index(),
                                 UISettings::values.favorited_ids.size() == 0);
         for (int i = 1; i < item_model->rowCount() - 1; ++i) {
@@ -234,8 +323,8 @@ void GameList::OnTextChanged(const QString& new_text) {
                 const QString file_name =
                     file_path.mid(file_path.lastIndexOf(QLatin1Char{'/'}) + 1) + QLatin1Char{' '} +
                     file_title;
-                if (ContainsAllWords(file_name, edit_filter_text) ||
-                    (file_program_id.count() == 16 && file_program_id.contains(edit_filter_text))) {
+                if (ContainsAllWords(file_name, filter_text) ||
+                    (file_program_id.count() == 16 && file_program_id.contains(filter_text))) {
                     tree_view->setRowHidden(j, folder_index, false);
                     ++result_count;
                 } else {
@@ -322,11 +411,14 @@ GameList::GameList(FileSys::VirtualFilesystem vfs_, FileSys::ManualContentProvid
     this->main_window = parent;
     layout = new QVBoxLayout;
     tree_view = new QTreeView;
+    list_view = new QListView;
     controller_navigation = new ControllerNavigation(system.HIDCore(), this);
     search_field = new GameListSearchField(this);
     item_model = new QStandardItemModel(tree_view);
     tree_view->setModel(item_model);
+    list_view->setModel(item_model);
 
+    // Configure tree view
     tree_view->setAlternatingRowColors(true);
     tree_view->setSelectionMode(QHeaderView::SingleSelection);
     tree_view->setSelectionBehavior(QHeaderView::SelectRows);
@@ -336,6 +428,23 @@ GameList::GameList(FileSys::VirtualFilesystem vfs_, FileSys::ManualContentProvid
     tree_view->setEditTriggers(QHeaderView::NoEditTriggers);
     tree_view->setContextMenuPolicy(Qt::CustomContextMenu);
     tree_view->setStyleSheet(QStringLiteral("QTreeView{ border: none; }"));
+
+    // Configure list view for grid display
+    list_view->setViewMode(QListView::IconMode);
+    list_view->setResizeMode(QListView::Adjust);
+    list_view->setUniformItemSizes(true);
+    list_view->setSelectionMode(QAbstractItemView::SingleSelection);
+    list_view->setVerticalScrollMode(QAbstractItemView::ScrollPerPixel);
+    list_view->setHorizontalScrollMode(QAbstractItemView::ScrollPerPixel);
+    list_view->setEditTriggers(QAbstractItemView::NoEditTriggers);
+    list_view->setContextMenuPolicy(Qt::CustomContextMenu);
+    list_view->setStyleSheet(QStringLiteral("QListView{ border: none; background: transparent; } QListView::item { text-align: center; padding: 5px; }"));
+    list_view->setGridSize(QSize(140, 160)); // Initial size for round icons and text
+    list_view->setSpacing(10);
+    list_view->setWordWrap(true);
+    list_view->setTextElideMode(Qt::ElideRight);
+    list_view->setFlow(QListView::LeftToRight);
+    list_view->setWrapping(true);
 
     item_model->insertColumns(0, COLUMN_COUNT);
     RetranslateUI();
@@ -350,6 +459,8 @@ GameList::GameList(FileSys::VirtualFilesystem vfs_, FileSys::ManualContentProvid
     connect(tree_view, &QTreeView::customContextMenuRequested, this, &GameList::PopupContextMenu);
     connect(tree_view, &QTreeView::expanded, this, &GameList::OnItemExpanded);
     connect(tree_view, &QTreeView::collapsed, this, &GameList::OnItemExpanded);
+    connect(list_view, &QListView::activated, this, &GameList::ValidateEntry);
+    connect(list_view, &QListView::customContextMenuRequested, this, &GameList::PopupContextMenu);
     connect(controller_navigation, &ControllerNavigation::TriggerKeyboardEvent,
             [this](Qt::Key key) {
                 // Avoid pressing buttons while playing
@@ -361,6 +472,7 @@ GameList::GameList(FileSys::VirtualFilesystem vfs_, FileSys::ManualContentProvid
                 }
                 QKeyEvent* event = new QKeyEvent(QEvent::KeyPress, key, Qt::NoModifier);
                 QCoreApplication::postEvent(tree_view, event);
+                QCoreApplication::postEvent(list_view, event);
             });
 
     // We must register all custom types with the Qt Automoc system so that we are able to use
@@ -370,8 +482,12 @@ GameList::GameList(FileSys::VirtualFilesystem vfs_, FileSys::ManualContentProvid
     layout->setContentsMargins(0, 0, 0, 0);
     layout->setSpacing(0);
     layout->addWidget(tree_view);
+    layout->addWidget(list_view);
     layout->addWidget(search_field);
     setLayout(layout);
+
+    // Set initial view mode
+    SetViewMode(UISettings::values.game_list_grid_view.GetValue());
 }
 
 void GameList::UnloadController() {
@@ -505,11 +621,22 @@ void GameList::DonePopulating(const QStringList& watch_list) {
     item_model->sort(tree_view->header()->sortIndicatorSection(),
                      tree_view->header()->sortIndicatorOrder());
 
+    // Update grid view if it's currently active
+    if (list_view->isVisible()) {
+        PopulateGridView();
+    }
+
     emit PopulatingCompleted();
 }
 
 void GameList::PopupContextMenu(const QPoint& menu_location) {
-    QModelIndex item = tree_view->indexAt(menu_location);
+    QModelIndex item;
+    if (tree_view->isVisible()) {
+        item = tree_view->indexAt(menu_location);
+    } else {
+        item = list_view->indexAt(menu_location);
+    }
+
     if (!item.isValid())
         return;
 
@@ -535,7 +662,12 @@ void GameList::PopupContextMenu(const QPoint& menu_location) {
     default:
         break;
     }
-    context_menu.exec(tree_view->viewport()->mapToGlobal(menu_location));
+
+    if (tree_view->isVisible()) {
+        context_menu.exec(tree_view->viewport()->mapToGlobal(menu_location));
+    } else {
+        context_menu.exec(list_view->viewport()->mapToGlobal(menu_location));
+    }
 }
 
 void GameList::AddGamePopup(QMenu& context_menu, u64 program_id, const std::string& path) {
@@ -847,6 +979,7 @@ void GameList::PopulateAsync(QVector<UISettings::GameDir>& game_dirs) {
 
 void GameList::SaveInterfaceLayout() {
     UISettings::values.gamelist_header_state = tree_view->header()->saveState();
+    UISettings::values.game_list_grid_view.SetValue(list_view->isVisible());
 }
 
 void GameList::LoadInterfaceLayout() {
@@ -887,6 +1020,12 @@ void GameList::ToggleFavorite(u64 program_id) {
             tree_view->setRowHidden(0, item_model->invisibleRootItem()->index(), true);
         }
     }
+
+    // Update grid view if it's currently active
+    if (list_view->isVisible()) {
+        PopulateGridView();
+    }
+
     SaveConfig();
 }
 
@@ -967,4 +1106,77 @@ void GameListPlaceholder::changeEvent(QEvent* event) {
 
 void GameListPlaceholder::RetranslateUI() {
     text->setText(tr("Double-click to add a new folder to the game list"));
+}
+
+void GameList::SetViewMode(bool grid_view) {
+    if (grid_view) {
+        // Create a flat model for grid view showing only games
+        PopulateGridView();
+        tree_view->setVisible(false);
+        list_view->setVisible(true);
+        list_view->setCurrentIndex(list_view->model()->index(0, 0));
+    } else {
+        // Restore the hierarchical model for tree view
+        list_view->setVisible(false);
+        tree_view->setVisible(true);
+        tree_view->setCurrentIndex(item_model->index(0, 0));
+    }
+}
+
+void GameList::PopulateGridView() {
+    // Store the current hierarchical model
+    QStandardItemModel* hierarchical_model = item_model;
+
+    // Create a new flat model for grid view
+    QStandardItemModel* flat_model = new QStandardItemModel(this);
+
+    // Collect all games from the hierarchical model
+    for (int i = 0; i < hierarchical_model->rowCount(); ++i) {
+        QStandardItem* folder = hierarchical_model->item(i, 0);
+        if (!folder) continue;
+
+        // Skip non-game folders in grid view, but include favorites
+        const auto folder_type = folder->data(GameListItem::TypeRole).value<GameListItemType>();
+        if (folder_type == GameListItemType::AddDir) {
+            continue;
+        }
+
+        // Add games from this folder to the flat model
+        for (int j = 0; j < folder->rowCount(); ++j) {
+            QStandardItem* game_item = folder->child(j, 0);
+            if (!game_item) continue;
+
+            const auto game_type = game_item->data(GameListItem::TypeRole).value<GameListItemType>();
+            if (game_type == GameListItemType::Game) {
+                // Clone the game item for the flat model
+                QStandardItem* cloned_item = game_item->clone();
+
+                // Set display text to just the game title for grid view
+                QString game_title = game_item->data(GameListItemPath::TitleRole).toString();
+                if (game_title.isEmpty()) {
+                    // Fallback to filename if no title
+                    std::string filename;
+                    Common::SplitPath(game_item->data(GameListItemPath::FullPathRole).toString().toStdString(),
+                                    nullptr, &filename, nullptr);
+                    game_title = QString::fromStdString(filename);
+                }
+                cloned_item->setText(game_title);
+
+                flat_model->appendRow(cloned_item);
+            }
+        }
+    }
+
+    // Set the flat model for the list view
+    list_view->setModel(flat_model);
+
+    // Update grid size based on icon size
+    const u32 icon_size = UISettings::values.game_icon_size.GetValue();
+    list_view->setGridSize(QSize(icon_size + 60, icon_size + 80)); // More padding for round icons and text
+}
+
+void GameList::ToggleViewMode() {
+    bool current_grid_view = UISettings::values.game_list_grid_view.GetValue();
+    UISettings::values.game_list_grid_view.SetValue(!current_grid_view);
+    SetViewMode(!current_grid_view);
 }
