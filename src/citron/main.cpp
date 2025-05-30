@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: 2014 Citra Emulator Project
+// SPDX-FileCopyrightText: 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <cinttypes>
@@ -1344,6 +1345,7 @@ void GMainWindow::InitializeHotkeys() {
     LinkActionShortcut(ui->action_Pause, QStringLiteral("Continue/Pause Emulation"));
     LinkActionShortcut(ui->action_Stop, QStringLiteral("Stop Emulation"));
     LinkActionShortcut(ui->action_Show_Filter_Bar, QStringLiteral("Toggle Filter Bar"));
+    LinkActionShortcut(ui->action_Toggle_Grid_View, QStringLiteral("Toggle Grid View"));
     LinkActionShortcut(ui->action_Show_Status_Bar, QStringLiteral("Toggle Status Bar"));
     LinkActionShortcut(ui->action_Fullscreen, QStringLiteral("Fullscreen"));
     LinkActionShortcut(ui->action_Capture_Screenshot, QStringLiteral("Capture Screenshot"));
@@ -1440,6 +1442,8 @@ void GMainWindow::RestoreUIState() {
 
     ui->action_Show_Filter_Bar->setChecked(UISettings::values.show_filter_bar.GetValue());
     game_list->SetFilterVisible(ui->action_Show_Filter_Bar->isChecked());
+
+    ui->action_Toggle_Grid_View->setChecked(UISettings::values.game_list_grid_view.GetValue());
 
     ui->action_Show_Status_Bar->setChecked(UISettings::values.show_status_bar.GetValue());
     statusBar()->setVisible(ui->action_Show_Status_Bar->isChecked());
@@ -1558,6 +1562,7 @@ void GMainWindow::ConnectMenuEvents() {
     connect_menu(ui->action_Display_Dock_Widget_Headers, &GMainWindow::OnDisplayTitleBars);
     connect_menu(ui->action_Show_Filter_Bar, &GMainWindow::OnToggleFilterBar);
     connect_menu(ui->action_Show_Status_Bar, &GMainWindow::OnToggleStatusBar);
+    connect_menu(ui->action_Toggle_Grid_View, &GMainWindow::OnToggleGridView);
 
     connect_menu(ui->action_Reset_Window_Size_720, &GMainWindow::ResetWindowSize720);
     connect_menu(ui->action_Reset_Window_Size_900, &GMainWindow::ResetWindowSize900);
@@ -5340,4 +5345,8 @@ int main(int argc, char* argv[]) {
     int result = app.exec();
     detached_tasks.WaitForAllTasks();
     return result;
+}
+
+void GMainWindow::OnToggleGridView() {
+    game_list->ToggleViewMode();
 }

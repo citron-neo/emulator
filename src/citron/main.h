@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: 2014 Citra Emulator Project
+// SPDX-FileCopyrightText: 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #pragma once
@@ -383,6 +384,7 @@ private slots:
     void OnInstallDecryptionKeys();
     void OnAbout();
     void OnToggleFilterBar();
+    void OnToggleGridView();
     void OnToggleStatusBar();
     void OnDisplayTitleBars(bool);
     void InitializeHotkeys();

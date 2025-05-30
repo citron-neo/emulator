@@ -124,6 +124,7 @@
     <addaction name="action_Display_Dock_Widget_Headers"/>
     <addaction name="action_Show_Filter_Bar"/>
     <addaction name="action_Show_Status_Bar"/>
+    <addaction name="action_Toggle_Grid_View"/>
     <addaction name="separator"/>
     <addaction name="menu_Reset_Window_Size"/>
     <addaction name="menu_View_Debugging"/>
@@ -285,6 +286,17 @@
    </property>
    <property name="iconText">
     <string>Show Status Bar</string>
+   </property>
+  </action>
+  <action name="action_Toggle_Grid_View">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>&amp;Grid View</string>
+   </property>
+   <property name="iconText">
+    <string>Grid View</string>
    </property>
   </action>
   <action name="action_View_Lobby">
