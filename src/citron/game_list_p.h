@@ -49,10 +49,10 @@ static QPixmap GetDefaultIcon(u32 size) {
 }
 
 /**
- * Creates a round icon from a square pixmap
+ * Creates a rounded corner icon from a square pixmap
  * @param pixmap The source pixmap
  * @param size The desired size
- * @return QPixmap round icon
+ * @return QPixmap rounded corner icon
  */
 static QPixmap CreateRoundIcon(const QPixmap& pixmap, u32 size) {
     QPixmap rounded(size, size);
@@ -61,9 +61,10 @@ static QPixmap CreateRoundIcon(const QPixmap& pixmap, u32 size) {
     QPainter painter(&rounded);
     painter.setRenderHint(QPainter::Antialiasing);
 
-    // Create a circular clipping path
+    // Create a rounded rectangle clipping path
+    const int radius = size / 8; // Adjust this value to control roundness (size/8 gives subtle rounding)
     QPainterPath path;
-    path.addEllipse(0, 0, size, size);
+    path.addRoundedRect(0, 0, size, size, radius, radius);
     painter.setClipPath(path);
 
     // Draw the scaled pixmap
