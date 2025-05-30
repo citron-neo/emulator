@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: 2023 yuzu Emulator Project
+// SPDX-FileCopyrightText: 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 package org.citron.citron_emu.features.settings.model
@@ -22,7 +23,8 @@ object Settings {
         SECTION_INPUT_PLAYER_SEVEN,
         SECTION_INPUT_PLAYER_EIGHT,
         SECTION_THEME(R.string.preferences_theme),
-        SECTION_DEBUG(R.string.preferences_debug);
+        SECTION_DEBUG(R.string.preferences_debug),
+        SECTION_ZEP_ZONE(R.string.preferences_zep_zone);
     }
 
     fun getPlayerString(player: Int): String =

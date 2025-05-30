@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: 2023 yuzu Emulator Project
+// SPDX-FileCopyrightText: 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 package org.citron.citron_emu.features.settings.model.view
@@ -386,6 +387,53 @@ abstract class SettingsItem(
                 override fun reset() = setBoolean(defaultValue)
             }
             put(SwitchSetting(fastmem, R.string.fastmem))
+
+            // Zep Zone Settings
+            put(
+                SingleChoiceSetting(
+                    IntSetting.MEMORY_LAYOUT_MODE,
+                    titleId = R.string.memory_layout_mode,
+                    descriptionId = R.string.memory_layout_mode_description,
+                    choicesId = R.array.memoryLayoutNames,
+                    valuesId = R.array.memoryLayoutValues
+                )
+            )
+            put(
+                SingleChoiceSetting(
+                    IntSetting.ASTC_DECODE_MODE,
+                    titleId = R.string.astc_decode_mode,
+                    descriptionId = R.string.astc_decode_mode_description,
+                    choicesId = R.array.astcDecodeModeNames,
+                    valuesId = R.array.astcDecodeModeValues
+                )
+            )
+            put(
+                SingleChoiceSetting(
+                    IntSetting.ASTC_RECOMPRESSION,
+                    titleId = R.string.astc_recompression,
+                    descriptionId = R.string.astc_recompression_description,
+                    choicesId = R.array.astcRecompressionNames,
+                    valuesId = R.array.astcRecompressionValues
+                )
+            )
+            put(
+                SingleChoiceSetting(
+                    IntSetting.SHADER_BACKEND,
+                    titleId = R.string.shader_backend,
+                    descriptionId = R.string.shader_backend_description,
+                    choicesId = R.array.shaderBackendNames,
+                    valuesId = R.array.shaderBackendValues
+                )
+            )
+            put(
+                SingleChoiceSetting(
+                    IntSetting.VRAM_USAGE_MODE,
+                    titleId = R.string.vram_usage_mode,
+                    descriptionId = R.string.vram_usage_mode_description,
+                    choicesId = R.array.vramUsageModeNames,
+                    valuesId = R.array.vramUsageModeValues
+                )
+            )
         }
     }
 }

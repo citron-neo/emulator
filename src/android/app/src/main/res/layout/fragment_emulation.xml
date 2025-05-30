@@ -143,31 +143,41 @@
             android:layout_marginHorizontal="20dp"
             android:fitsSystemWindows="true">
 
-            <com.google.android.material.textview.MaterialTextView
-                android:id="@+id/show_fps_text"
-                style="@style/TextAppearance.Material3.BodySmall"
+            <LinearLayout
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_gravity="left"
-                android:clickable="false"
-                android:focusable="false"
-                android:textColor="@android:color/white"
-                android:shadowColor="@android:color/black"
-                android:shadowRadius="3"
-                tools:ignore="RtlHardcoded" />
+                android:layout_gravity="center_horizontal|top"
+                android:layout_marginTop="16dp"
+                android:orientation="horizontal"
+                android:gravity="center">
 
-            <com.google.android.material.textview.MaterialTextView
-                android:id="@+id/show_thermals_text"
-                style="@style/TextAppearance.Material3.BodySmall"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_gravity="right"
-                android:clickable="false"
-                android:focusable="false"
-                android:textColor="@android:color/white"
-                android:shadowColor="@android:color/black"
-                android:shadowRadius="3"
-                tools:ignore="RtlHardcoded" />
+                <org.citron.citron_emu.views.FpsIndicatorView
+                    android:id="@+id/fps_indicator_view"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginEnd="8dp"
+                    android:clickable="false"
+                    android:focusable="false"
+                    android:visibility="gone" />
+
+                <org.citron.citron_emu.views.ThermalIndicatorView
+                    android:id="@+id/thermal_indicator_view"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginEnd="8dp"
+                    android:clickable="false"
+                    android:focusable="false"
+                    android:visibility="gone" />
+
+                <org.citron.citron_emu.views.RamMeterView
+                    android:id="@+id/ram_meter_view"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:clickable="false"
+                    android:focusable="false"
+                    android:visibility="gone" />
+
+            </LinearLayout>
 
         </FrameLayout>
 

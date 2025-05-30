@@ -410,6 +410,13 @@
     <string name="preferences_theme">Theme and color</string>
     <string name="preferences_debug">Debug</string>
     <string name="preferences_debug_description">CPU/GPU debugging, graphics API, fastmem</string>
+    <string name="preferences_zep_zone">Zep Zone</string>
+    <string name="preferences_zep_zone_description">Advanced emulation settings</string>
+
+    <!-- Zep Zone Headers -->
+    <string name="memory_layout_header">Memory Layout</string>
+    <string name="astc_settings_header">ASTC Settings</string>
+    <string name="advanced_graphics_header">Advanced Graphics</string>
 
     <!-- Game properties -->
     <string name="info">Info</string>
@@ -472,7 +479,8 @@
     <string name="emulation_exit">Exit emulation</string>
     <string name="emulation_done">Done</string>
     <string name="emulation_fps_counter">FPS counter</string>
-    <string name="emulation_thermal_indicator">Thermal indicator</string>
+    <string name="emulation_thermal_indicator">Battery temperature</string>
+    <string name="emulation_ram_meter">RAM usage meter</string>
     <string name="emulation_toggle_controls">Toggle controls</string>
     <string name="emulation_rel_stick_center">Relative stick center</string>
     <string name="emulation_dpad_slide">D-pad slide</string>
@@ -1166,5 +1174,17 @@ CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
 OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
     </string>
+
+    <!-- Zep Zone settings strings -->
+    <string name="memory_layout_mode">Memory Layout</string>
+    <string name="memory_layout_mode_description">Increases the amount of emulated RAM from the stock 4GB of the retail Switch to the developer kit\'s 8/6GB. It doesn\'t improve stability or performance and is intended to let big texture mods fit in emulated RAM. Enabling it will increase memory use. It is not recommended to enable unless a specific game with a texture mod needs it.</string>
+    <string name="astc_decode_mode">ASTC Decoding Method</string>
+    <string name="astc_decode_mode_description">Controls how ASTC textures are decoded. GPU decoding is faster but may cause issues on some devices.</string>
+    <string name="astc_recompression">ASTC Recompression Method</string>
+    <string name="astc_recompression_description">Controls how ASTC textures are recompressed when GPU doesn\'t support them natively.</string>
+    <string name="shader_backend">Shader Backend</string>
+    <string name="shader_backend_description">Controls which shader backend to use for rendering.</string>
+    <string name="vram_usage_mode">VRAM Usage Mode</string>
+    <string name="vram_usage_mode_description">Controls how aggressively VRAM is used. Conservative mode limits VRAM usage for better stability.</string>
 
 </resources>

@@ -28,8 +28,8 @@ val autoVersion = (((System.currentTimeMillis() / 1000) - 1451606400) / 10).toIn
 android {
     namespace = "org.citron.citron_emu"
 
-    compileSdkVersion = "android-34"
-    ndkVersion = "26.1.10909125"
+    compileSdkVersion = "android-35"
+    ndkVersion = "27.2.12479018" // "26.1.10909125"
 
     buildFeatures {
         viewBinding = true
@@ -57,7 +57,8 @@ android {
         // TODO If this is ever modified, change application_id in strings.xml
         applicationId = "org.citron.citron_emu"
         minSdk = 30
-        targetSdk = 34
+        //noinspection EditedTargetSdkVersion
+        targetSdk = 35
         versionName = getGitVersion()
 
         versionCode = if (System.getenv("AUTO_VERSIONED") == "true") {
@@ -106,12 +107,12 @@ android {
 
             resValue("string", "app_name_suffixed", "citron")
             isDefault = true
-            // isShrinkResources = true
+            isShrinkResources = true
             isMinifyEnabled = true
             isDebuggable = false
-            // isJniDebuggable = false
+            isJniDebuggable = false
             proguardFiles(
-                getDefaultProguardFile("proguard-android.txt"),
+                getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
         }
@@ -124,7 +125,7 @@ android {
             isMinifyEnabled = true
             isDebuggable = true
             proguardFiles(
-                getDefaultProguardFile("proguard-android.txt"),
+                getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
             versionNameSuffix = "-relWithDebInfo"
@@ -161,7 +162,7 @@ android {
 
     externalNativeBuild {
         cmake {
-            version = "3.22.1"
+            version = "3.31.7"
             path = file("../../../CMakeLists.txt")
         }
     }
@@ -178,10 +179,12 @@ android {
                     "-DCITRON_USE_BUNDLED_VCPKG=ON",
                     "-DCITRON_USE_BUNDLED_FFMPEG=ON",
                     "-DCITRON_ENABLE_LTO=ON",
-                    "-DCMAKE_EXPORT_COMPILE_COMMANDS=ON"
+                    "-DCMAKE_EXPORT_COMPILE_COMMANDS=ON",
+                    "-DCMAKE_POLICY_VERSION_MINIMUM=3.5",
+                    "-DANDROID_SUPPORT_FLEXIBLE_PAGE_SIZES=ON",
                 )
 
-                abiFilters("arm64-v8a", "x86_64")
+                abiFilters("arm64-v8a") // , "x86_64")
             }
         }
     }
@@ -239,7 +242,6 @@ dependencies {
     implementation("io.coil-kt:coil:2.2.2")
     implementation("androidx.core:core-splashscreen:1.0.1")
     implementation("androidx.window:window:1.2.0-beta03")
-    implementation("androidx.constraintlayout:constraintlayout:2.1.4")
     implementation("androidx.swiperefreshlayout:swiperefreshlayout:1.1.0")
     implementation("androidx.navigation:navigation-fragment-ktx:2.7.4")
     implementation("androidx.navigation:navigation-ui-ktx:2.7.4")
