@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: Copyright 2018 yuzu Emulator Project
+// SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <algorithm>
@@ -15,6 +16,9 @@
 #endif
 #ifdef HAVE_SDL2
 #include "audio_core/sink/sdl2_sink.h"
+#endif
+#ifdef HAVE_OPENAL
+#include "audio_core/sink/openal_sink.h"
 #endif
 #include "audio_core/sink/null_sink.h"
 #include "common/logging/log.h"
@@ -67,6 +71,16 @@ constexpr SinkDetails sink_details[] = {
         },
         &ListSDLSinkDevices,
         &IsSDLSuitable,
+    },
+#endif
+#ifdef HAVE_OPENAL
+    SinkDetails{
+        Settings::AudioEngine::OpenAL,
+        [](std::string_view device_id) -> std::unique_ptr<Sink> {
+            return std::make_unique<OpenALSink>(device_id);
+        },
+        &ListOpenALSinkDevices,
+        &IsOpenALSuitable,
     },
 #endif
     SinkDetails{
