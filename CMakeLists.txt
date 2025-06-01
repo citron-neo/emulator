@@ -1,4 +1,5 @@
 # SPDX-FileCopyrightText: 2018 yuzu Emulator Project
+# SPDX-FileCopyrightText: 2025 citron Emulator Project
 # SPDX-License-Identifier: GPL-2.0-or-later
 
 cmake_minimum_required(VERSION 3.22)
@@ -43,6 +44,8 @@ option(CITRON_USE_QT_MULTIMEDIA "Use QtMultimedia for Camera" OFF)
 option(CITRON_USE_QT_WEB_ENGINE "Use QtWebEngine for web applet implementation" OFF)
 
 option(ENABLE_CUBEB "Enables the cubeb audio backend" ON)
+
+option(ENABLE_OPENAL "Enables the OpenAL audio backend" ON)
 
 option(USE_DISCORD_PRESENCE "Enables Discord Rich Presence" OFF)
 

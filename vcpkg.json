@@ -28,6 +28,7 @@
         "fmt",
         "lz4",
         "nlohmann-json",
+        "openal-soft",
         "zlib",
         "zstd"
     ],

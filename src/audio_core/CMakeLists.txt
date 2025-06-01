@@ -1,4 +1,5 @@
 # SPDX-FileCopyrightText: 2018 yuzu Emulator Project
+# SPDX-FileCopyrightText: 2025 citron Emulator Project
 # SPDX-License-Identifier: GPL-2.0-or-later
 
 add_library(audio_core STATIC
@@ -249,6 +250,17 @@ if (ENABLE_SDL2)
 
     target_link_libraries(audio_core PRIVATE SDL2::SDL2)
     target_compile_definitions(audio_core PRIVATE HAVE_SDL2)
+endif()
+
+if (ENABLE_OPENAL)
+    target_sources(audio_core PRIVATE
+        sink/openal_sink.cpp
+        sink/openal_sink.h
+    )
+
+    find_package(OpenAL CONFIG REQUIRED)
+    target_link_libraries(audio_core PRIVATE OpenAL::OpenAL)
+    target_compile_definitions(audio_core PRIVATE HAVE_OPENAL)
 endif()
 
 if (ANDROID)

@@ -82,6 +82,7 @@ enum class AudioEngine : u32 {
     Auto,
     Cubeb,
     Sdl2,
+    OpenAL,
     Null,
     Oboe,
 };
@@ -91,7 +92,7 @@ inline std::vector<std::pair<std::string, AudioEngine>>
 EnumMetadata<AudioEngine>::Canonicalizations() {
     return {
         {"auto", AudioEngine::Auto}, {"cubeb", AudioEngine::Cubeb}, {"sdl2", AudioEngine::Sdl2},
-        {"null", AudioEngine::Null}, {"oboe", AudioEngine::Oboe},
+        {"openal", AudioEngine::OpenAL}, {"null", AudioEngine::Null}, {"oboe", AudioEngine::Oboe},
     };
 }
 
