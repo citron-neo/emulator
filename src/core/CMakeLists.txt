@@ -505,6 +505,8 @@ add_library(core STATIC
     hle/service/am/window_system.h
     hle/service/aoc/addon_content_manager.cpp
     hle/service/aoc/addon_content_manager.h
+    hle/service/aoc/contents_service_manager.cpp
+    hle/service/aoc/contents_service_manager.h
     hle/service/aoc/purchase_event_manager.cpp
     hle/service/aoc/purchase_event_manager.h
     hle/service/apm/apm.cpp

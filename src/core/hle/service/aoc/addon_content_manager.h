@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: Copyright 2018 yuzu Emulator Project
+// SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #pragma once
@@ -18,6 +19,7 @@ class KEvent;
 namespace Service::AOC {
 
 class IPurchaseEventManager;
+class IContentsServiceManager;
 
 class IAddOnContentManager final : public ServiceFramework<IAddOnContentManager> {
 public:
@@ -38,6 +40,7 @@ public:
     Result CreateEcPurchasedEventManager(OutInterface<IPurchaseEventManager> out_interface);
     Result CreatePermanentEcPurchasedEventManager(
         OutInterface<IPurchaseEventManager> out_interface);
+    Result CreateContentsServiceManager(OutInterface<IContentsServiceManager> out_interface);
 
 private:
     std::vector<u64> add_on_content;

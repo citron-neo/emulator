@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: Copyright 2018 yuzu Emulator Project
+// SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <algorithm>
@@ -16,6 +17,7 @@
 #include "core/file_sys/registered_cache.h"
 #include "core/hle/kernel/k_event.h"
 #include "core/hle/service/aoc/addon_content_manager.h"
+#include "core/hle/service/aoc/contents_service_manager.h"
 #include "core/hle/service/aoc/purchase_event_manager.h"
 #include "core/hle/service/cmif_serialization.h"
 #include "core/hle/service/ipc_helpers.h"
@@ -68,7 +70,7 @@ IAddOnContentManager::IAddOnContentManager(Core::System& system_)
         {50, D<&IAddOnContentManager::CheckAddOnContentMountStatus>, "CheckAddOnContentMountStatus"},
         {100, D<&IAddOnContentManager::CreateEcPurchasedEventManager>, "CreateEcPurchasedEventManager"},
         {101, D<&IAddOnContentManager::CreatePermanentEcPurchasedEventManager>, "CreatePermanentEcPurchasedEventManager"},
-        {110, nullptr, "CreateContentsServiceManager"},
+        {110, D<&IAddOnContentManager::CreateContentsServiceManager>, "CreateContentsServiceManager"},
         {200, nullptr, "SetRequiredAddOnContentsOnContentsAvailabilityTransition"},
         {300, nullptr, "SetupHostAddOnContent"},
         {301, nullptr, "GetRegisteredAddOnContentPath"},
@@ -210,6 +212,15 @@ Result IAddOnContentManager::CreatePermanentEcPurchasedEventManager(
     LOG_WARNING(Service_AOC, "(STUBBED) called");
 
     *out_interface = std::make_shared<IPurchaseEventManager>(system);
+
+    R_SUCCEED();
+}
+
+Result IAddOnContentManager::CreateContentsServiceManager(
+    OutInterface<IContentsServiceManager> out_interface) {
+    LOG_WARNING(Service_AOC, "(STUBBED) called");
+
+    *out_interface = std::make_shared<IContentsServiceManager>(system);
 
     R_SUCCEED();
 }
