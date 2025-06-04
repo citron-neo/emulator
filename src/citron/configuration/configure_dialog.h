@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: 2016 Citra Emulator Project
+// SPDX-FileCopyrightText: 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #pragma once
@@ -6,6 +7,7 @@
 #include <memory>
 #include <vector>
 #include <QDialog>
+#include <QButtonGroup>
 #include "configuration/shared_widget.h"
 #include "citron/configuration/configuration_shared.h"
 #include "citron/configuration/shared_translation.h"
@@ -66,8 +68,6 @@ private:
     void HandleApplyButtonClicked();
 
     void SetConfiguration();
-    void UpdateVisibleTabs();
-    void PopulateSelectionList();
 
     std::unique_ptr<Ui::ConfigureDialog> ui;
     HotkeyRegistry& registry;
@@ -75,6 +75,7 @@ private:
     Core::System& system;
     std::unique_ptr<ConfigurationShared::Builder> builder;
     std::vector<ConfigurationShared::Tab*> tab_group;
+    std::unique_ptr<QButtonGroup> tab_button_group;
 
     std::unique_ptr<ConfigureApplets> applets_tab;
     std::unique_ptr<ConfigureAudio> audio_tab;

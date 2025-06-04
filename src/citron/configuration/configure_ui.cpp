@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: 2016 Citra Emulator Project
+// SPDX-FileCopyrightText: 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "citron/configuration/configure_ui.h"
@@ -18,6 +19,8 @@
 #include <QString>
 #include <QToolButton>
 #include <QVariant>
+#include <QListWidget>
+#include <QMessageBox>
 
 #include "common/common_types.h"
 #include "common/fs/path_util.h"
