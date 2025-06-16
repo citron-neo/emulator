@@ -1,7 +1,9 @@
 // SPDX-FileCopyrightText: Copyright 2020 yuzu Emulator Project
+// SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <algorithm>
+#include <cstring>
 #include <filesystem>
 #include <memory>
 #include <string>
@@ -17,13 +19,18 @@
 #include <QTimer>
 
 #include "common/fs/fs_util.h"
+#include "common/hex_util.h"
 #include "common/settings_enums.h"
 #include "common/settings_input.h"
 #include "configuration/shared_widget.h"
 #include "core/core.h"
+#include "core/file_sys/card_image.h"
+#include "core/file_sys/content_archive.h"
 #include "core/file_sys/control_metadata.h"
 #include "core/file_sys/patch_manager.h"
+#include "core/file_sys/submission_package.h"
 #include "core/file_sys/xts_archive.h"
+#include "core/file_sys/registered_cache.h"
 #include "core/loader/loader.h"
 #include "frontend_common/config.h"
 #include "ui_configure_per_game.h"
@@ -201,4 +208,251 @@ void ConfigurePerGame::LoadConfiguration() {
 
     const auto valueText = ReadableByteSize(file->GetSize());
     ui->display_size->setText(valueText);
+
+    // Display Build ID(s) if available
+    std::string base_build_id_hex;
+    std::string update_build_id_hex;
+
+    // Try to get build ID based on file type
+    const auto file_type = loader->GetFileType();
+
+    if (file_type == Loader::FileType::NSO) {
+        // For NSO files, read the build ID directly from the header
+        if (file->GetSize() >= 0x100) {
+            std::array<u8, 0x100> header_data{};
+            if (file->ReadBytes(header_data.data(), 0x100, 0) == 0x100) {
+                // Build ID is at offset 0x40 in NSO header
+                std::array<u8, 0x20> build_id{};
+                std::memcpy(build_id.data(), header_data.data() + 0x40, 0x20);
+                base_build_id_hex = Common::HexToString(build_id, false);
+            }
+        }
+    } else if (file_type == Loader::FileType::DeconstructedRomDirectory) {
+        // For deconstructed ROM directories, read from the main NSO file
+        const auto main_dir = file->GetContainingDirectory();
+        if (main_dir) {
+            const auto main_nso = main_dir->GetFile("main");
+            if (main_nso && main_nso->GetSize() >= 0x100) {
+                std::array<u8, 0x100> header_data{};
+                if (main_nso->ReadBytes(header_data.data(), 0x100, 0) == 0x100) {
+                    // Build ID is at offset 0x40 in NSO header
+                    std::array<u8, 0x20> build_id{};
+                    std::memcpy(build_id.data(), header_data.data() + 0x40, 0x20);
+                    base_build_id_hex = Common::HexToString(build_id, false);
+                }
+            }
+        }
+    } else {
+        // For other file types (XCI, NSP, NCA), try to extract build ID directly
+        try {
+                         if (file_type == Loader::FileType::XCI) {
+                 // For XCI files, try to construct with the proper parameters
+                 try {
+                     // First try to get the program ID from the XCI to use proper parameters
+                     FileSys::XCI xci_temp(file);
+                     if (xci_temp.GetStatus() == Loader::ResultStatus::Success) {
+                         // Try to get the program NCA from the secure partition
+                         FileSys::XCI xci(file, title_id, 0); // Use detected title_id
+                         if (xci.GetStatus() == Loader::ResultStatus::Success) {
+                                                           auto program_nca = xci.GetNCAByType(FileSys::NCAContentType::Program);
+                              if (program_nca && program_nca->GetStatus() == Loader::ResultStatus::Success) {
+                                  auto exefs = program_nca->GetExeFS();
+                                  if (exefs) {
+                                      auto main_nso = exefs->GetFile("main");
+                                      if (main_nso && main_nso->GetSize() >= 0x100) {
+                                         std::array<u8, 0x100> header_data{};
+                                         if (main_nso->ReadBytes(header_data.data(), 0x100, 0) == 0x100) {
+                                             std::array<u8, 0x20> build_id{};
+                                             std::memcpy(build_id.data(), header_data.data() + 0x40, 0x20);
+                                             base_build_id_hex = Common::HexToString(build_id, false);
+                                         }
+                                     }
+                                 }
+                             }
+                         }
+                     }
+                 } catch (...) {
+                                           // XCI might be encrypted or have other issues
+                      // Fall back to checking if it's installed in the content provider
+                      const auto& content_provider = system.GetContentProvider();
+                      auto base_nca = content_provider.GetEntry(title_id, FileSys::ContentRecordType::Program);
+                      if (base_nca && base_nca->GetStatus() == Loader::ResultStatus::Success) {
+                          auto exefs = base_nca->GetExeFS();
+                          if (exefs) {
+                              auto main_nso = exefs->GetFile("main");
+                              if (main_nso && main_nso->GetSize() >= 0x100) {
+                                 std::array<u8, 0x100> header_data{};
+                                 if (main_nso->ReadBytes(header_data.data(), 0x100, 0) == 0x100) {
+                                     std::array<u8, 0x20> build_id{};
+                                     std::memcpy(build_id.data(), header_data.data() + 0x40, 0x20);
+                                     base_build_id_hex = Common::HexToString(build_id, false);
+                                 }
+                             }
+                         }
+                     }
+                 }
+            } else if (file_type == Loader::FileType::NSP) {
+                                 // For NSP files, try to construct and parse directly
+                 FileSys::NSP nsp(file);
+                 if (nsp.GetStatus() == Loader::ResultStatus::Success) {
+                     auto exefs = nsp.GetExeFS();
+                     if (exefs) {
+                         auto main_nso = exefs->GetFile("main");
+                         if (main_nso && main_nso->GetSize() >= 0x100) {
+                            std::array<u8, 0x100> header_data{};
+                            if (main_nso->ReadBytes(header_data.data(), 0x100, 0) == 0x100) {
+                                std::array<u8, 0x20> build_id{};
+                                std::memcpy(build_id.data(), header_data.data() + 0x40, 0x20);
+                                base_build_id_hex = Common::HexToString(build_id, false);
+                            }
+                        }
+                    }
+                }
+            } else if (file_type == Loader::FileType::NCA) {
+                                 // For NCA files, try to construct and parse directly
+                 FileSys::NCA nca(file);
+                 if (nca.GetStatus() == Loader::ResultStatus::Success) {
+                     auto exefs = nca.GetExeFS();
+                     if (exefs) {
+                         auto main_nso = exefs->GetFile("main");
+                         if (main_nso && main_nso->GetSize() >= 0x100) {
+                            std::array<u8, 0x100> header_data{};
+                            if (main_nso->ReadBytes(header_data.data(), 0x100, 0) == 0x100) {
+                                std::array<u8, 0x20> build_id{};
+                                std::memcpy(build_id.data(), header_data.data() + 0x40, 0x20);
+                                base_build_id_hex = Common::HexToString(build_id, false);
+                            }
+                        }
+                    }
+                }
+            }
+        } catch (...) {
+            // If anything fails, continue without the build ID
+        }
+    }
+
+    // Try to get update build ID from patch manager and content provider
+    try {
+        // Method 1: Try through patch manager (more reliable for updates)
+        const FileSys::PatchManager pm_update{title_id, system.GetFileSystemController(),
+                                              system.GetContentProvider()};
+
+        // Check if patch manager has update information
+        const auto update_version = pm_update.GetGameVersion();
+        if (update_version.has_value() && update_version.value() > 0) {
+            // There's an update, try to get its build ID through the patch manager
+            // The patch manager should have access to the update NCA
+
+            // Try to get the update NCA through the patch manager's content provider
+            const auto& content_provider = system.GetContentProvider();
+            const auto update_title_id = FileSys::GetUpdateTitleID(title_id);
+            auto update_nca = content_provider.GetEntry(update_title_id, FileSys::ContentRecordType::Program);
+
+            if (update_nca && update_nca->GetStatus() == Loader::ResultStatus::Success) {
+                auto exefs = update_nca->GetExeFS();
+                if (exefs) {
+                    auto main_nso = exefs->GetFile("main");
+                    if (main_nso && main_nso->GetSize() >= 0x100) {
+                        std::array<u8, 0x100> header_data{};
+                        if (main_nso->ReadBytes(header_data.data(), 0x100, 0) == 0x100) {
+                            std::array<u8, 0x20> build_id{};
+                            std::memcpy(build_id.data(), header_data.data() + 0x40, 0x20);
+                            update_build_id_hex = Common::HexToString(build_id, false);
+                        }
+                    }
+                }
+            }
+        }
+
+        // Method 2: If patch manager approach didn't work, try direct content provider access
+        if (update_build_id_hex.empty()) {
+            const auto& content_provider = system.GetContentProvider();
+            const auto update_title_id = FileSys::GetUpdateTitleID(title_id);
+            auto update_nca = content_provider.GetEntry(update_title_id, FileSys::ContentRecordType::Program);
+
+            if (update_nca && update_nca->GetStatus() == Loader::ResultStatus::Success) {
+                auto exefs = update_nca->GetExeFS();
+                if (exefs) {
+                    auto main_nso = exefs->GetFile("main");
+                    if (main_nso && main_nso->GetSize() >= 0x100) {
+                        std::array<u8, 0x100> header_data{};
+                        if (main_nso->ReadBytes(header_data.data(), 0x100, 0) == 0x100) {
+                            std::array<u8, 0x20> build_id{};
+                            std::memcpy(build_id.data(), header_data.data() + 0x40, 0x20);
+                            update_build_id_hex = Common::HexToString(build_id, false);
+                        }
+                    }
+                }
+            }
+        }
+
+        // Method 3: Try to use the patch manager's GetPatches to detect updates
+        if (update_build_id_hex.empty()) {
+            const auto patches = pm_update.GetPatches();
+            for (const auto& patch : patches) {
+                if (patch.type == FileSys::PatchType::Update && patch.enabled) {
+                    // There's an enabled update patch, but we couldn't get its build ID
+                    // This indicates an update is available but not currently loaded
+                    break;
+                }
+            }
+        }
+    } catch (...) {
+        // If update build ID extraction fails, continue with just base
+    }
+
+    // Try to get the actual running build ID from system (this will be the update if one is applied)
+    const auto& system_build_id = system.GetApplicationProcessBuildID();
+    const auto system_build_id_hex = Common::HexToString(system_build_id, false);
+
+    // If we have a system build ID and it's different from the base, it's likely the update
+    if (!system_build_id_hex.empty() && system_build_id_hex != std::string(64, '0')) {
+        if (!base_build_id_hex.empty() && system_build_id_hex != base_build_id_hex) {
+            // System build ID is different from base, so it's the update
+            update_build_id_hex = system_build_id_hex;
+        } else if (base_build_id_hex.empty()) {
+            // No base build ID found, use system as base
+            base_build_id_hex = system_build_id_hex;
+        }
+    }
+
+    // Additional check: if we still don't have an update build ID but we know there's an update
+    // (from the Add-Ons tab showing v1.0.1 etc), try alternative detection methods
+    bool update_detected = false;
+    if (update_build_id_hex.empty() && !base_build_id_hex.empty()) {
+        // Check if the patch manager indicates an update is available
+        const auto update_version = pm.GetGameVersion();
+        if (update_version.has_value() && update_version.value() > 0) {
+            update_detected = true;
+        }
+
+        // Also check patches
+        const auto patches = pm.GetPatches();
+        for (const auto& patch : patches) {
+            if (patch.type == FileSys::PatchType::Update && patch.enabled) {
+                update_detected = true;
+                break;
+            }
+        }
+    }
+
+    // Display the Build IDs in separate fields
+    bool has_base = !base_build_id_hex.empty() && base_build_id_hex != std::string(64, '0');
+    bool has_update = !update_build_id_hex.empty() && update_build_id_hex != std::string(64, '0');
+
+    // Set Base Build ID
+    if (has_base) {
+        ui->display_build_id->setText(QString::fromStdString(base_build_id_hex));
+    } else {
+        ui->display_build_id->setText(tr("Not Available"));
+    }
+
+    // Set Update Build ID
+    if (has_update) {
+        ui->display_update_build_id->setText(QString::fromStdString(update_build_id_hex));
+    } else if (update_detected) {
+        ui->display_update_build_id->setText(tr("Available (Run game to show)"));
+    } else {
+        ui->display_update_build_id->setText(tr("Not Available"));
+    }
 }
