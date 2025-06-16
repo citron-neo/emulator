@@ -1,4 +1,5 @@
 # SPDX-FileCopyrightText: 2018 yuzu Emulator Project
+# SPDX-FileCopyrightText: 2025 citron Emulator Project
 # SPDX-License-Identifier: GPL-2.0-or-later
 
 add_subdirectory(host_shaders)
@@ -348,6 +349,9 @@ if (MSVC)
         /we4242 # 'identifier': conversion from 'type1' to 'type2', possible loss of data
         /we4244 # 'conversion': conversion from 'type1' to 'type2', possible loss of data
     )
+
+    # VMA - Disable warnings for VulkanMemoryAllocator source file
+    set_source_files_properties(vulkan_common/vma.cpp PROPERTIES COMPILE_OPTIONS "/w")
 else()
     if (APPLE)
         # error: declaration shadows a typedef in 'interval_base_set<SubType, DomainT, Compare, Interval, Alloc>'
