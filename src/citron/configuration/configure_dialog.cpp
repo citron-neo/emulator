@@ -1,7 +1,14 @@
 // SPDX-FileCopyrightText: 2016 Citra Emulator Project
+// SPDX-FileCopyrightText: 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <memory>
+#include <QMessageBox>
+#include <QPushButton>
+#include <QScreen>
+#include <QApplication>
+#include <QButtonGroup>
+#include <QScrollArea>
 #include "common/logging/log.h"
 #include "common/settings.h"
 #include "common/settings_enums.h"
@@ -27,6 +34,18 @@
 #include "citron/configuration/configure_web.h"
 #include "citron/hotkeys.h"
 #include "citron/uisettings.h"
+
+// Helper function to create a scroll area for a widget
+QScrollArea* CreateScrollArea(QWidget* widget) {
+    auto* scroll_area = new QScrollArea();
+    scroll_area->setWidget(widget);
+    scroll_area->setWidgetResizable(true);
+    scroll_area->setFrameShape(QFrame::NoFrame);
+    scroll_area->setHorizontalScrollBarPolicy(Qt::ScrollBarAsNeeded);
+    scroll_area->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
+    scroll_area->setStyleSheet(QLatin1String("QScrollArea { border: none; background-color: #2b2b2b; }"));
+    return scroll_area;
+}
 
 ConfigureDialog::ConfigureDialog(QWidget* parent, HotkeyRegistry& registry_,
                                  InputCommon::InputSubsystem* input_subsystem,
@@ -58,23 +77,69 @@ ConfigureDialog::ConfigureDialog(QWidget* parent, HotkeyRegistry& registry_,
       web_tab{std::make_unique<ConfigureWeb>(this)} {
     Settings::SetConfiguringGlobal(true);
 
+    // Set window flags to include maximize button and make it resizable
+    setWindowFlags(Qt::Dialog | Qt::WindowTitleHint | Qt::WindowSystemMenuHint |
+                   Qt::WindowMinMaxButtonsHint | Qt::WindowCloseButtonHint);
+
     ui->setupUi(this);
 
-    ui->tabWidget->addTab(applets_tab.get(), tr("Applets"));
-    ui->tabWidget->addTab(audio_tab.get(), tr("Audio"));
-    ui->tabWidget->addTab(cpu_tab.get(), tr("CPU"));
-    ui->tabWidget->addTab(debug_tab_tab.get(), tr("Debug"));
-    ui->tabWidget->addTab(filesystem_tab.get(), tr("Filesystem"));
-    ui->tabWidget->addTab(general_tab.get(), tr("General"));
-    ui->tabWidget->addTab(graphics_tab.get(), tr("Graphics"));
-    ui->tabWidget->addTab(graphics_advanced_tab.get(), tr("GraphicsAdvanced"));
-    ui->tabWidget->addTab(hotkeys_tab.get(), tr("Hotkeys"));
-    ui->tabWidget->addTab(input_tab.get(), tr("Controls"));
-    ui->tabWidget->addTab(profile_tab.get(), tr("Profiles"));
-    ui->tabWidget->addTab(network_tab.get(), tr("Network"));
-    ui->tabWidget->addTab(system_tab.get(), tr("System"));
-    ui->tabWidget->addTab(ui_tab.get(), tr("Game List"));
-    ui->tabWidget->addTab(web_tab.get(), tr("Web"));
+    // Set size policy and enable resizing
+    setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
+
+    // Get screen geometry and set to fullscreen
+    QScreen* screen = QApplication::primaryScreen();
+    if (screen) {
+        QRect screenGeometry = screen->availableGeometry();
+        setGeometry(screenGeometry);
+        showMaximized(); // Start maximized/fullscreen
+    }
+
+    // Create button group for exclusive tab selection
+    tab_button_group = std::make_unique<QButtonGroup>(this);
+    tab_button_group->setExclusive(true);
+
+    // Add tab buttons to the button group and connect to stacked widget
+    tab_button_group->addButton(ui->generalTabButton, 0);
+    tab_button_group->addButton(ui->uiTabButton, 1);
+    tab_button_group->addButton(ui->systemTabButton, 2);
+    tab_button_group->addButton(ui->cpuTabButton, 3);
+    tab_button_group->addButton(ui->graphicsTabButton, 4);
+    tab_button_group->addButton(ui->graphicsAdvancedTabButton, 5);
+    tab_button_group->addButton(ui->audioTabButton, 6);
+    tab_button_group->addButton(ui->inputTabButton, 7);
+    tab_button_group->addButton(ui->hotkeysTabButton, 8);
+    tab_button_group->addButton(ui->networkTabButton, 9);
+    tab_button_group->addButton(ui->webTabButton, 10);
+    tab_button_group->addButton(ui->filesystemTabButton, 11);
+    tab_button_group->addButton(ui->profilesTabButton, 12);
+    tab_button_group->addButton(ui->appletsTabButton, 13);
+    tab_button_group->addButton(ui->loggingTabButton, 14);
+
+    // Add pages to stacked widget wrapped in scroll areas in the same order as button group
+    ui->stackedWidget->addWidget(CreateScrollArea(general_tab.get()));   // 0
+    ui->stackedWidget->addWidget(CreateScrollArea(ui_tab.get()));        // 1
+    ui->stackedWidget->addWidget(CreateScrollArea(system_tab.get()));    // 2
+    ui->stackedWidget->addWidget(CreateScrollArea(cpu_tab.get()));       // 3
+    ui->stackedWidget->addWidget(CreateScrollArea(graphics_tab.get()));  // 4
+    ui->stackedWidget->addWidget(CreateScrollArea(graphics_advanced_tab.get())); // 5
+    ui->stackedWidget->addWidget(CreateScrollArea(audio_tab.get()));     // 6
+    ui->stackedWidget->addWidget(CreateScrollArea(input_tab.get()));     // 7
+    ui->stackedWidget->addWidget(CreateScrollArea(hotkeys_tab.get()));   // 8
+    ui->stackedWidget->addWidget(CreateScrollArea(network_tab.get()));   // 9
+    ui->stackedWidget->addWidget(CreateScrollArea(web_tab.get()));       // 10
+    ui->stackedWidget->addWidget(CreateScrollArea(filesystem_tab.get()));// 11
+    ui->stackedWidget->addWidget(CreateScrollArea(profile_tab.get()));   // 12
+    ui->stackedWidget->addWidget(CreateScrollArea(applets_tab.get()));   // 13
+    ui->stackedWidget->addWidget(CreateScrollArea(debug_tab_tab.get())); // 14
+
+    // Connect button group to stacked widget
+    connect(tab_button_group.get(), QOverload<int>::of(&QButtonGroup::idClicked),
+            [this](int id) {
+                ui->stackedWidget->setCurrentIndex(id);
+                if (id == 14) { // Logging tab
+                    debug_tab_tab->SetCurrentIndex(0);
+                }
+            });
 
     web_tab->SetWebServiceConfigEnabled(enable_web_config);
     hotkeys_tab->Populate(registry);
@@ -84,27 +149,22 @@ ConfigureDialog::ConfigureDialog(QWidget* parent, HotkeyRegistry& registry_,
     general_tab->SetResetCallback([&] { this->close(); });
 
     SetConfiguration();
-    PopulateSelectionList();
 
-    connect(ui->tabWidget, &QTabWidget::currentChanged, this, [this](int index) {
-        if (index != -1) {
-            debug_tab_tab->SetCurrentIndex(0);
-        }
-    });
     connect(ui_tab.get(), &ConfigureUi::LanguageChanged, this, &ConfigureDialog::OnLanguageChanged);
-    connect(ui->selectorList, &QListWidget::itemSelectionChanged, this,
-            &ConfigureDialog::UpdateVisibleTabs);
 
     if (system.IsPoweredOn()) {
-        QPushButton* apply_button = ui->buttonBox->addButton(QDialogButtonBox::Apply);
-        connect(apply_button, &QAbstractButton::clicked, this,
-                &ConfigureDialog::HandleApplyButtonClicked);
+        QPushButton* apply_button = ui->buttonBox->button(QDialogButtonBox::Apply);
+        if (apply_button) {
+            connect(apply_button, &QAbstractButton::clicked, this,
+                    &ConfigureDialog::HandleApplyButtonClicked);
+        }
     }
 
-    adjustSize();
-    ui->selectorList->setCurrentRow(0);
+    // Set initial tab to General (index 0)
+    ui->stackedWidget->setCurrentIndex(0);
+    ui->generalTabButton->setChecked(true);
 
-    // Selects the leftmost button on the bottom bar (Cancel as of writing)
+    // Focus on the OK button by default
     ui->buttonBox->setFocus();
 }
 
@@ -141,16 +201,12 @@ void ConfigureDialog::changeEvent(QEvent* event) {
 }
 
 void ConfigureDialog::RetranslateUI() {
-    const int old_row = ui->selectorList->currentRow();
-    const int old_index = ui->tabWidget->currentIndex();
+    const int old_index = ui->stackedWidget->currentIndex();
 
     ui->retranslateUi(this);
 
-    PopulateSelectionList();
-    ui->selectorList->setCurrentRow(old_row);
-
-    UpdateVisibleTabs();
-    ui->tabWidget->setCurrentIndex(old_index);
+    SetConfiguration();
+    ui->stackedWidget->setCurrentIndex(old_index);
 }
 
 void ConfigureDialog::HandleApplyButtonClicked() {
@@ -158,56 +214,12 @@ void ConfigureDialog::HandleApplyButtonClicked() {
     ApplyConfiguration();
 }
 
-Q_DECLARE_METATYPE(QList<QWidget*>);
-
-void ConfigureDialog::PopulateSelectionList() {
-    const std::array<std::pair<QString, QList<QWidget*>>, 6> items{
-        {{tr("General"),
-          {general_tab.get(), hotkeys_tab.get(), ui_tab.get(), web_tab.get(), debug_tab_tab.get()}},
-         {tr("System"),
-          {system_tab.get(), profile_tab.get(), network_tab.get(), filesystem_tab.get(),
-           applets_tab.get()}},
-         {tr("CPU"), {cpu_tab.get()}},
-         {tr("Graphics"), {graphics_tab.get(), graphics_advanced_tab.get()}},
-         {tr("Audio"), {audio_tab.get()}},
-         {tr("Controls"), input_tab->GetSubTabs()}},
-    };
-
-    [[maybe_unused]] const QSignalBlocker blocker(ui->selectorList);
-
-    ui->selectorList->clear();
-    for (const auto& entry : items) {
-        auto* const item = new QListWidgetItem(entry.first);
-        item->setData(Qt::UserRole, QVariant::fromValue(entry.second));
-
-        ui->selectorList->addItem(item);
-    }
-}
-
 void ConfigureDialog::OnLanguageChanged(const QString& locale) {
     emit LanguageChanged(locale);
-    //  Reloading the game list is needed to force retranslation.
+    // Reloading the game list is needed to force retranslation.
     UISettings::values.is_game_list_reload_pending = true;
     // first apply the configuration, and then restore the display
     ApplyConfiguration();
     RetranslateUI();
     SetConfiguration();
-}
-
-void ConfigureDialog::UpdateVisibleTabs() {
-    const auto items = ui->selectorList->selectedItems();
-    if (items.isEmpty()) {
-        return;
-    }
-
-    [[maybe_unused]] const QSignalBlocker blocker(ui->tabWidget);
-
-    ui->tabWidget->clear();
-
-    const auto tabs = qvariant_cast<QList<QWidget*>>(items[0]->data(Qt::UserRole));
-
-    for (auto* const tab : tabs) {
-        LOG_DEBUG(Frontend, "{}", tab->accessibleName().toStdString());
-        ui->tabWidget->addTab(tab, tab->accessibleName());
-    }
 }

@@ -6,72 +6,718 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>650</width>
-    <height>650</height>
+    <width>1400</width>
+    <height>900</height>
    </rect>
   </property>
   <property name="minimumSize">
    <size>
-    <width>0</width>
-    <height>650</height>
+    <width>1200</width>
+    <height>800</height>
    </size>
   </property>
   <property name="windowTitle">
    <string>citron Configuration</string>
   </property>
+  <property name="sizePolicy">
+   <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+    <horstretch>0</horstretch>
+    <verstretch>0</verstretch>
+   </sizepolicy>
+  </property>
+  <property name="styleSheet">
+   <string>QDialog {
+    background-color: #2b2b2b;
+    color: #ffffff;
+}
+
+QWidget {
+    background-color: #2b2b2b;
+    color: #ffffff;
+}
+
+QStackedWidget {
+    background-color: #2b2b2b;
+    border: 1px solid #3d3d3d;
+    border-radius: 8px;
+    margin: 0px;
+    padding: 0px;
+}
+
+QScrollArea {
+    background-color: #2b2b2b;
+    border: none;
+    border-radius: 8px;
+}
+
+QScrollArea > QWidget > QWidget {
+    background-color: #2b2b2b;
+}
+
+QScrollBar:vertical {
+    background-color: #3d3d3d;
+    width: 14px;
+    border-radius: 7px;
+    margin: 2px;
+}
+
+QScrollBar::handle:vertical {
+    background-color: #5d5d5d;
+    border-radius: 6px;
+    min-height: 30px;
+    margin: 1px;
+}
+
+QScrollBar::handle:vertical:hover {
+    background-color: #4a9eff;
+}
+
+QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
+    border: none;
+    background: none;
+    height: 0px;
+}
+
+QScrollBar:horizontal {
+    background-color: #3d3d3d;
+    height: 14px;
+    border-radius: 7px;
+    margin: 2px;
+}
+
+QScrollBar::handle:horizontal {
+    background-color: #5d5d5d;
+    border-radius: 6px;
+    min-width: 30px;
+    margin: 1px;
+}
+
+QScrollBar::handle:horizontal:hover {
+    background-color: #4a9eff;
+}
+
+QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {
+    border: none;
+    background: none;
+    width: 0px;
+}
+
+QPushButton.tabButton {
+    background-color: #383838;
+    color: #ffffff;
+    padding: 10px 14px;
+    margin: 2px;
+    border-top-left-radius: 8px;
+    border-top-right-radius: 8px;
+    border-bottom-left-radius: 8px;
+    border-bottom-right-radius: 8px;
+    min-width: 85px;
+    max-width: 160px;
+    font-weight: 500;
+    border: 1px solid #3d3d3d;
+    text-align: center;
+}
+
+QPushButton.tabButton:checked {
+    background-color: #4a9eff;
+    color: #ffffff;
+    font-weight: bold;
+    border-color: #4a9eff;
+}
+
+QPushButton.tabButton:hover:!checked {
+    background-color: #4d4d4d;
+    border-color: #5d5d5d;
+}
+
+QPushButton.tabButton:pressed {
+    background-color: #2980b9;
+}
+
+QTabWidget {
+    background-color: #2b2b2b;
+    border: none;
+}
+
+QTabWidget::pane {
+    border: 1px solid #3d3d3d;
+    background-color: #2b2b2b;
+    border-radius: 8px;
+    margin: 0px;
+    padding: 0px;
+}
+
+QTabWidget::tab-bar {
+    alignment: left;
+}
+
+QTabBar {
+    background-color: #2b2b2b;
+    border: none;
+}
+
+QTabBar::tab {
+    background-color: #383838;
+    color: #ffffff;
+    padding: 12px 20px;
+    margin-right: 2px;
+    margin-bottom: 2px;
+    border-top-left-radius: 8px;
+    border-top-right-radius: 8px;
+    min-width: 100px;
+    font-weight: 500;
+    border: 1px solid #3d3d3d;
+    border-bottom: none;
+}
+
+QTabBar::tab:selected {
+    background-color: #4a9eff;
+    color: #ffffff;
+    font-weight: bold;
+    border-color: #4a9eff;
+}
+
+QTabBar::tab:hover:!selected {
+    background-color: #4d4d4d;
+    border-color: #5d5d5d;
+}
+
+QTabBar QToolButton {
+    background-color: #383838;
+    border: 1px solid #3d3d3d;
+    border-radius: 4px;
+    padding: 4px;
+    margin: 2px;
+}
+
+QTabBar QToolButton:hover {
+    background-color: #4d4d4d;
+    border-color: #4a9eff;
+}
+
+QTabBar::scroller {
+    width: 30px;
+}
+
+QGroupBox {
+    font-weight: bold;
+    border: 1px solid #3d3d3d;
+    border-radius: 8px;
+    margin-top: 12px;
+    padding-top: 12px;
+    background-color: #2b2b2b;
+    color: #ffffff;
+}
+
+QGroupBox::title {
+    subcontrol-origin: margin;
+    left: 12px;
+    padding: 0 8px 0 8px;
+    color: #ffffff;
+    font-weight: bold;
+}
+
+QCheckBox {
+    color: #ffffff;
+    spacing: 10px;
+    padding: 4px;
+    background-color: transparent;
+}
+
+QCheckBox::indicator {
+    width: 18px;
+    height: 18px;
+    border: 2px solid #5d5d5d;
+    border-radius: 4px;
+    background-color: #3d3d3d;
+}
+
+QCheckBox::indicator:checked {
+    background-color: #4a9eff;
+    border-color: #4a9eff;
+}
+
+QCheckBox::indicator:hover {
+    border-color: #4a9eff;
+}
+
+QComboBox {
+    background-color: #3d3d3d;
+    border: 1px solid #5d5d5d;
+    border-radius: 6px;
+    padding: 8px 12px;
+    color: #ffffff;
+    min-width: 120px;
+    min-height: 28px;
+    selection-background-color: #4a9eff;
+}
+
+QComboBox:hover {
+    border-color: #4a9eff;
+    background-color: #404040;
+}
+
+QComboBox:focus {
+    border-color: #4a9eff;
+    background-color: #404040;
+}
+
+QComboBox::drop-down {
+    border: none;
+    width: 25px;
+    subcontrol-origin: padding;
+    subcontrol-position: top right;
+    background-color: transparent;
+}
+
+QComboBox::down-arrow {
+    width: 12px;
+    height: 12px;
+    background-color: #ffffff;
+}
+
+QComboBox QAbstractItemView {
+    background-color: #3d3d3d;
+    border: 1px solid #4a9eff;
+    selection-background-color: #4a9eff;
+    color: #ffffff;
+    outline: none;
+}
+
+QComboBox QAbstractItemView::item {
+    padding: 8px;
+    border: none;
+    background-color: transparent;
+}
+
+QComboBox QAbstractItemView::item:selected {
+    background-color: #4a9eff;
+    color: #ffffff;
+}
+
+QComboBox QAbstractItemView::item:hover {
+    background-color: #5dafff;
+    color: #ffffff;
+}
+
+QLineEdit {
+    background-color: #3d3d3d;
+    border: 1px solid #5d5d5d;
+    border-radius: 6px;
+    padding: 8px 12px;
+    color: #ffffff;
+    min-height: 20px;
+    selection-background-color: #4a9eff;
+}
+
+QLineEdit:focus {
+    border-color: #4a9eff;
+    background-color: #404040;
+}
+
+QPushButton {
+    background-color: #4a9eff;
+    color: #ffffff;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 6px;
+    font-weight: bold;
+    min-height: 20px;
+}
+
+QPushButton:hover {
+    background-color: #5dafff;
+}
+
+QPushButton:pressed {
+    background-color: #2980b9;
+}
+
+QPushButton:disabled {
+    background-color: #5d5d5d;
+    color: #8d8d8d;
+}
+
+QToolButton {
+    background-color: #4a9eff;
+    color: #ffffff;
+    border: none;
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-weight: bold;
+    min-width: 32px;
+    min-height: 24px;
+}
+
+QToolButton:hover {
+    background-color: #5dafff;
+}
+
+QToolButton:pressed {
+    background-color: #2980b9;
+}
+
+QLabel {
+    color: #ffffff;
+    background-color: transparent;
+    padding: 2px;
+}
+
+QListWidget {
+    background-color: #3d3d3d;
+    border: 1px solid #5d5d5d;
+    border-radius: 6px;
+    color: #ffffff;
+    padding: 4px;
+}
+
+QListWidget::item {
+    padding: 8px;
+    border-radius: 4px;
+    margin: 1px;
+}
+
+QListWidget::item:selected {
+    background-color: #4a9eff;
+    color: #ffffff;
+}
+
+QListWidget::item:hover:!selected {
+    background-color: #4d4d4d;
+}
+
+QSlider::groove:horizontal {
+    border: 1px solid #5d5d5d;
+    height: 8px;
+    background-color: #3d3d3d;
+    border-radius: 4px;
+}
+
+QSlider::handle:horizontal {
+    background-color: #4a9eff;
+    border: 1px solid #4a9eff;
+    width: 18px;
+    margin: -5px 0;
+    border-radius: 9px;
+}
+
+QSlider::handle:horizontal:hover {
+    background-color: #5dafff;
+}
+
+QSpinBox, QDoubleSpinBox {
+    background-color: #3d3d3d;
+    border: 1px solid #5d5d5d;
+    border-radius: 6px;
+    padding: 6px;
+    color: #ffffff;
+    min-height: 20px;
+}
+
+QSpinBox:focus, QDoubleSpinBox:focus {
+    border-color: #4a9eff;
+    background-color: #404040;
+}
+
+QRadioButton {
+    color: #ffffff;
+    spacing: 8px;
+    padding: 4px;
+}
+
+QRadioButton::indicator {
+    width: 16px;
+    height: 16px;
+    border: 2px solid #5d5d5d;
+    border-radius: 8px;
+    background-color: #3d3d3d;
+}
+
+QRadioButton::indicator:checked {
+    background-color: #4a9eff;
+    border-color: #4a9eff;
+}
+
+QRadioButton::indicator:hover {
+    border-color: #4a9eff;
+}
+</string>
+  </property>
   <layout class="QVBoxLayout" name="verticalLayout">
+   <property name="spacing">
+    <number>8</number>
+   </property>
+   <property name="leftMargin">
+    <number>12</number>
+   </property>
+   <property name="topMargin">
+    <number>12</number>
+   </property>
+   <property name="rightMargin">
+    <number>12</number>
+   </property>
+   <property name="bottomMargin">
+    <number>12</number>
+   </property>
    <item>
-    <layout class="QHBoxLayout" name="horizontalLayout">
+    <layout class="QVBoxLayout" name="tabContainer">
+     <property name="spacing">
+      <number>8</number>
+     </property>
      <item>
-      <widget class="QListWidget" name="selectorList">
-       <property name="minimumSize">
-        <size>
-         <width>120</width>
-         <height>0</height>
-        </size>
+      <layout class="QGridLayout" name="tabButtonsLayout">
+       <property name="spacing">
+        <number>4</number>
        </property>
-       <property name="maximumSize">
-        <size>
-         <width>120</width>
-         <height>16777215</height>
-        </size>
-       </property>
-      </widget>
+       <item row="0" column="0">
+        <widget class="QPushButton" name="generalTabButton">
+         <property name="text">
+          <string>General</string>
+         </property>
+         <property name="checkable">
+          <bool>true</bool>
+         </property>
+         <property name="checked">
+          <bool>true</bool>
+         </property>
+         <property name="class" stdset="0">
+          <string>tabButton</string>
+         </property>
+        </widget>
+       </item>
+       <item row="0" column="1">
+        <widget class="QPushButton" name="uiTabButton">
+         <property name="text">
+          <string>UI</string>
+         </property>
+         <property name="checkable">
+          <bool>true</bool>
+         </property>
+         <property name="class" stdset="0">
+          <string>tabButton</string>
+         </property>
+        </widget>
+       </item>
+       <item row="0" column="2">
+        <widget class="QPushButton" name="systemTabButton">
+         <property name="text">
+          <string>System</string>
+         </property>
+         <property name="checkable">
+          <bool>true</bool>
+         </property>
+         <property name="class" stdset="0">
+          <string>tabButton</string>
+         </property>
+        </widget>
+       </item>
+       <item row="0" column="3">
+        <widget class="QPushButton" name="cpuTabButton">
+         <property name="text">
+          <string>CPU</string>
+         </property>
+         <property name="checkable">
+          <bool>true</bool>
+         </property>
+         <property name="class" stdset="0">
+          <string>tabButton</string>
+         </property>
+        </widget>
+       </item>
+       <item row="0" column="4">
+        <widget class="QPushButton" name="graphicsTabButton">
+         <property name="text">
+          <string>Graphics</string>
+         </property>
+         <property name="checkable">
+          <bool>true</bool>
+         </property>
+         <property name="class" stdset="0">
+          <string>tabButton</string>
+         </property>
+        </widget>
+       </item>
+       <item row="0" column="5">
+        <widget class="QPushButton" name="graphicsAdvancedTabButton">
+         <property name="text">
+          <string>Graphics (Adv)</string>
+         </property>
+         <property name="checkable">
+          <bool>true</bool>
+         </property>
+         <property name="class" stdset="0">
+          <string>tabButton</string>
+         </property>
+        </widget>
+       </item>
+       <item row="0" column="6">
+        <widget class="QPushButton" name="audioTabButton">
+         <property name="text">
+          <string>Audio</string>
+         </property>
+         <property name="checkable">
+          <bool>true</bool>
+         </property>
+         <property name="class" stdset="0">
+          <string>tabButton</string>
+         </property>
+        </widget>
+       </item>
+       <item row="0" column="7">
+        <widget class="QPushButton" name="inputTabButton">
+         <property name="text">
+          <string>Input</string>
+         </property>
+         <property name="checkable">
+          <bool>true</bool>
+         </property>
+         <property name="class" stdset="0">
+          <string>tabButton</string>
+         </property>
+        </widget>
+       </item>
+       <item row="0" column="8">
+        <widget class="QPushButton" name="hotkeysTabButton">
+         <property name="text">
+          <string>Hotkeys</string>
+         </property>
+         <property name="checkable">
+          <bool>true</bool>
+         </property>
+         <property name="class" stdset="0">
+          <string>tabButton</string>
+         </property>
+        </widget>
+       </item>
+       <item row="0" column="9">
+        <widget class="QPushButton" name="networkTabButton">
+         <property name="text">
+          <string>Network</string>
+         </property>
+         <property name="checkable">
+          <bool>true</bool>
+         </property>
+         <property name="class" stdset="0">
+          <string>tabButton</string>
+         </property>
+        </widget>
+       </item>
+       <item row="0" column="10">
+        <widget class="QPushButton" name="webTabButton">
+         <property name="text">
+          <string>Web</string>
+         </property>
+         <property name="checkable">
+          <bool>true</bool>
+         </property>
+         <property name="class" stdset="0">
+          <string>tabButton</string>
+         </property>
+        </widget>
+       </item>
+       <item row="0" column="11">
+        <widget class="QPushButton" name="filesystemTabButton">
+         <property name="text">
+          <string>Filesystem</string>
+         </property>
+         <property name="checkable">
+          <bool>true</bool>
+         </property>
+         <property name="class" stdset="0">
+          <string>tabButton</string>
+         </property>
+        </widget>
+       </item>
+       <item row="0" column="12">
+        <widget class="QPushButton" name="profilesTabButton">
+         <property name="text">
+          <string>Profiles</string>
+         </property>
+         <property name="checkable">
+          <bool>true</bool>
+         </property>
+         <property name="class" stdset="0">
+          <string>tabButton</string>
+         </property>
+        </widget>
+       </item>
+       <item row="0" column="13">
+        <widget class="QPushButton" name="appletsTabButton">
+         <property name="text">
+          <string>Applets</string>
+         </property>
+         <property name="checkable">
+          <bool>true</bool>
+         </property>
+         <property name="class" stdset="0">
+          <string>tabButton</string>
+         </property>
+        </widget>
+       </item>
+       <item row="0" column="14">
+        <widget class="QPushButton" name="loggingTabButton">
+         <property name="text">
+          <string>Logging</string>
+         </property>
+         <property name="checkable">
+          <bool>true</bool>
+         </property>
+         <property name="class" stdset="0">
+          <string>tabButton</string>
+         </property>
+        </widget>
+       </item>
+       <item row="0" column="15">
+        <spacer name="tabButtonsSpacer">
+         <property name="orientation">
+          <enum>Qt::Horizontal</enum>
+         </property>
+         <property name="sizeHint" stdset="0">
+          <size>
+           <width>40</width>
+           <height>20</height>
+          </size>
+         </property>
+        </spacer>
+       </item>
+      </layout>
      </item>
      <item>
-      <widget class="QTabWidget" name="tabWidget">
+      <widget class="QStackedWidget" name="stackedWidget">
+       <property name="sizePolicy">
+        <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+         <horstretch>0</horstretch>
+         <verstretch>0</verstretch>
+        </sizepolicy>
+       </property>
        <property name="currentIndex">
-        <number>-1</number>
+        <number>0</number>
        </property>
       </widget>
      </item>
     </layout>
    </item>
    <item>
-    <layout class="QHBoxLayout" name="horizontalLayout_2">
+    <layout class="QHBoxLayout" name="bottomLayout">
+     <property name="spacing">
+      <number>12</number>
+     </property>
      <property name="leftMargin">
-      <number>0</number>
+      <number>8</number>
      </property>
      <property name="topMargin">
-      <number>0</number>
+      <number>8</number>
      </property>
      <property name="rightMargin">
-      <number>0</number>
+      <number>8</number>
      </property>
      <property name="bottomMargin">
       <number>0</number>
      </property>
      <item>
-      <widget class="QLabel" name="label">
-       <property name="text">
-        <string>Some settings are only available when a game is not running.</string>
-       </property>
-      </widget>
-     </item>
-     <item>
       <widget class="QDialogButtonBox" name="buttonBox">
        <property name="standardButtons">
-        <set>QDialogButtonBox::Cancel|QDialogButtonBox::Ok</set>
+        <set>QDialogButtonBox::Apply|QDialogButtonBox::Cancel|QDialogButtonBox::Ok</set>
        </property>
       </widget>
      </item>
