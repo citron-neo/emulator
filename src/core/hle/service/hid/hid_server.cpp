@@ -25,6 +25,7 @@
 #include "hid_core/resources/debug_pad/debug_pad.h"
 #include "hid_core/resources/keyboard/keyboard.h"
 #include "hid_core/resources/mouse/mouse.h"
+#include "hid_core/resources/mouse/debug_mouse.h"
 #include "hid_core/resources/npad/npad.h"
 #include "hid_core/resources/npad/npad_types.h"
 #include "hid_core/resources/npad/npad_vibration.h"
@@ -49,7 +50,7 @@ IHidServer::IHidServer(Core::System& system_, std::shared_ptr<ResourceManager> r
         {1, C<&IHidServer::ActivateDebugPad>, "ActivateDebugPad"},
         {11, C<&IHidServer::ActivateTouchScreen>, "ActivateTouchScreen"},
         {21, C<&IHidServer::ActivateMouse>, "ActivateMouse"},
-        {26, nullptr, "ActivateDebugMouse"},
+        {26, C<&IHidServer::ActivateDebugMouse>, "ActivateDebugMouse"},
         {31, C<&IHidServer::ActivateKeyboard>, "ActivateKeyboard"},
         {32, C<&IHidServer::SendKeyboardLockKeyEvent>, "SendKeyboardLockKeyEvent"},
         {40, C<&IHidServer::AcquireXpadIdEventHandle>, "AcquireXpadIdEventHandle"},
@@ -233,6 +234,16 @@ Result IHidServer::ActivateMouse(ClientAppletResourceUserId aruid) {
     }
 
     R_RETURN(GetResourceManager()->GetMouse()->Activate(aruid.pid));
+}
+
+Result IHidServer::ActivateDebugMouse(ClientAppletResourceUserId aruid) {
+    LOG_DEBUG(Service_HID, "called, applet_resource_user_id={}", aruid.pid);
+
+    if (!firmware_settings->IsDeviceManaged()) {
+        R_TRY(GetResourceManager()->GetDebugMouse()->Activate());
+    }
+
+    R_RETURN(GetResourceManager()->GetDebugMouse()->Activate(aruid.pid));
 }
 
 Result IHidServer::ActivateKeyboard(ClientAppletResourceUserId aruid) {
