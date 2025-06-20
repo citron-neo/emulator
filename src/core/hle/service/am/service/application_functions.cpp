@@ -85,6 +85,7 @@ IApplicationFunctions::IApplicationFunctions(Core::System& system_, std::shared_
         {181, nullptr, "UpgradeLaunchRequiredVersion"},
         {190, nullptr, "SendServerMaintenanceOverlayNotification"},
         {200, nullptr, "GetLastApplicationExitReason"},
+        {210, D<&IApplicationFunctions::RequestToAcquireUserUsedMemory>, "RequestToAcquireUserUsedMemory"},
         {500, nullptr, "StartContinuousRecordingFlushForDebug"},
         {1000, nullptr, "CreateMovieMaker"},
         {1001, D<&IApplicationFunctions::PrepareForJit>, "PrepareForJit"},
@@ -480,6 +481,12 @@ Result IApplicationFunctions::PrepareForJit() {
     std::scoped_lock lk{m_applet->lock};
     m_applet->jit_service_launched = true;
 
+    R_SUCCEED();
+}
+
+Result IApplicationFunctions::RequestToAcquireUserUsedMemory(OutCopyHandle<Kernel::KReadableEvent> out_event) {
+    LOG_WARNING(Service_AM, "(STUBBED) called");
+    *out_event = m_applet->user_used_memory_event.GetHandle();
     R_SUCCEED();
 }
 

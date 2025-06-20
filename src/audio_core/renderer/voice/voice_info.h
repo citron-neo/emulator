@@ -1,5 +1,4 @@
 // SPDX-FileCopyrightText: Copyright 2022 yuzu Emulator Project
-// SPDX-FileCopyrightText: Copyright 2025 Citra Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #pragma once
@@ -166,9 +165,8 @@ public:
         /* 0x15D */ char unk15D[0x1];
         /* 0x15E */ SrcQuality src_quality;
         /* 0x15F */ char unk15F[0x11];
-        /* 0x170 */ char unk170[0x18]; // Additional 24 bytes for newer audio renderer versions
     };
-    static_assert(sizeof(InParameter) == 0x188, "VoiceInfo::InParameter has the wrong size!");
+    static_assert(sizeof(InParameter) == 0x170, "VoiceInfo::InParameter has the wrong size!");
 
     struct OutStatus {
         /* 0x00 */ u64 played_sample_count;
