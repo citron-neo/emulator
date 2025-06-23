@@ -77,7 +77,6 @@ private:
     Result GetNotificationStorageChannelEvent(OutCopyHandle<Kernel::KReadableEvent> out_event);
     Result GetHealthWarningDisappearedSystemEvent(OutCopyHandle<Kernel::KReadableEvent> out_event);
     Result PrepareForJit();
-    Result RequestToAcquireUserUsedMemory(OutCopyHandle<Kernel::KReadableEvent> out_event);
 
     const std::shared_ptr<Applet> m_applet;
 };

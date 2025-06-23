@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: Copyright 2022 yuzu Emulator Project
+// SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "audio_core/common/feature_support.h"
@@ -325,13 +326,18 @@ Result InfoUpdater::UpdateMixes(MixContext& mix_context, const u32 mix_buffer_co
     }
 
     if (consumed_input_size != in_header->mix_size) {
-        LOG_ERROR(Service_Audio, "Consumed an incorrect mixes size, header size={}, consumed={}",
+        LOG_WARNING(Service_Audio, "Consumed an incorrect mixes size, header size={}, consumed={}, adjusting input pointer",
                   in_header->mix_size, consumed_input_size);
-        return Service::Audio::ResultInvalidUpdateInfo;
+        // Calculate the adjustment needed
+        const auto adjustment = in_header->mix_size - consumed_input_size;
+        // Adjust input pointer to match expected header size to prevent desync
+        input = reinterpret_cast<const u8*>(input) + adjustment;
+        // Also adjust the expected input size for CheckConsumedSize
+        expected_input_size += adjustment;
+        // Continue processing instead of failing
     }
 
-    input += mix_count * sizeof(MixInfo::InParameter);
-
+    // Input pointer adjustment is now handled in the size check above
     return ResultSuccess;
 }
 

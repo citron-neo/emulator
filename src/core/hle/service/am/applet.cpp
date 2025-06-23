@@ -14,7 +14,7 @@ Applet::Applet(Core::System& system, std::unique_ptr<Process> process_, bool is_
       notification_storage_channel_event(context), health_warning_disappeared_system_event(context),
       acquired_sleep_lock_event(context), pop_from_general_channel_event(context),
       library_applet_launchable_event(context), accumulated_suspended_tick_changed_event(context),
-      sleep_lock_event(context), state_changed_event(context), user_used_memory_event(context) {
+      sleep_lock_event(context), state_changed_event(context) {
 
     aruid.pid = process->GetProcessId();
     program_id = process->GetProgramId();
