@@ -75,6 +75,20 @@ private:
         Core::HID::SixAxisSensorHandle sixaxis_handle, ClientAppletResourceUserId aruid);
     Result ResetSixAxisSensorFusionParameters(Core::HID::SixAxisSensorHandle sixaxis_handle,
                                               ClientAppletResourceUserId aruid);
+    Result SetAccelerometerParameters(Core::HID::SixAxisSensorHandle sixaxis_handle,
+                                      f32 parameter1, f32 parameter2, ClientAppletResourceUserId aruid);
+    Result GetAccelerometerParameters(Out<f32> out_parameter1, Out<f32> out_parameter2,
+                                      Core::HID::SixAxisSensorHandle sixaxis_handle,
+                                      ClientAppletResourceUserId aruid);
+    Result ResetAccelerometerParameters(Core::HID::SixAxisSensorHandle sixaxis_handle,
+                                        ClientAppletResourceUserId aruid);
+    Result SetAccelerometerPlayMode(Core::HID::SixAxisSensorHandle sixaxis_handle,
+                                    u32 play_mode, ClientAppletResourceUserId aruid);
+    Result GetAccelerometerPlayMode(Out<u32> out_play_mode,
+                                    Core::HID::SixAxisSensorHandle sixaxis_handle,
+                                    ClientAppletResourceUserId aruid);
+    Result ResetAccelerometerPlayMode(Core::HID::SixAxisSensorHandle sixaxis_handle,
+                                      ClientAppletResourceUserId aruid);
     Result SetGyroscopeZeroDriftMode(Core::HID::SixAxisSensorHandle sixaxis_handle,
                                      Core::HID::GyroscopeZeroDriftMode drift_mode,
                                      ClientAppletResourceUserId aruid);
@@ -99,6 +113,11 @@ private:
         OutLargeData<Core::HID::SixAxisSensorCalibrationParameter, BufferAttr_HipcMapAlias>
             out_calibration,
         Core::HID::SixAxisSensorHandle sixaxis_handle, ClientAppletResourceUserId aruid);
+    Result StoreSixAxisSensorCalibrationParameter(
+        Core::HID::SixAxisSensorHandle sixaxis_handle,
+        InLargeData<Core::HID::SixAxisSensorCalibrationParameter, BufferAttr_HipcMapAlias>
+            calibration_data,
+        ClientAppletResourceUserId aruid);
     Result GetSixAxisSensorIcInformation(
         OutLargeData<Core::HID::SixAxisSensorIcInformation, BufferAttr_HipcPointer>
             out_ic_information,
@@ -201,8 +220,26 @@ private:
                                         InCopyHandle<Kernel::KTransferMemory> t_mem_2);
     Result FinalizeSevenSixAxisSensor(ClientAppletResourceUserId aruid);
     Result ResetSevenSixAxisSensorTimestamp(ClientAppletResourceUserId aruid);
+    Result SetSevenSixAxisSensorFusionStrength(f32 strength, ClientAppletResourceUserId aruid);
+    Result GetSevenSixAxisSensorFusionStrength(Out<f32> out_strength, ClientAppletResourceUserId aruid);
     Result IsUsbFullKeyControllerEnabled(Out<bool> out_is_enabled,
                                          ClientAppletResourceUserId aruid);
+    Result EnableUsbFullKeyController(bool is_enabled, ClientAppletResourceUserId aruid);
+    Result IsUsbFullKeyControllerConnected(Out<bool> out_is_connected, ClientAppletResourceUserId aruid);
+    Result HasBattery(Out<bool> out_has_battery, Core::HID::NpadIdType npad_id, ClientAppletResourceUserId aruid);
+    Result HasLeftRightBattery(Out<bool> out_has_left_battery, Out<bool> out_has_right_battery,
+                               Core::HID::NpadIdType npad_id, ClientAppletResourceUserId aruid);
+    Result GetNpadInterfaceType(Out<Core::HID::NpadInterfaceType> out_interface_type,
+                                Core::HID::NpadIdType npad_id, ClientAppletResourceUserId aruid);
+    Result GetNpadLeftRightInterfaceType(Out<Core::HID::NpadInterfaceType> out_left_interface_type,
+                                         Out<Core::HID::NpadInterfaceType> out_right_interface_type,
+                                         Core::HID::NpadIdType npad_id, ClientAppletResourceUserId aruid);
+    Result GetNpadOfHighestBatteryLevel(Out<Core::HID::NpadIdType> out_npad_id,
+                                        ClientAppletResourceUserId aruid,
+                                        InArray<Core::HID::NpadIdType, BufferAttr_HipcPointer> npad_ids);
+    Result GetNpadOfHighestBatteryLevelForJoyRight(Out<Core::HID::NpadIdType> out_npad_id,
+                                                   ClientAppletResourceUserId aruid,
+                                                   InArray<Core::HID::NpadIdType, BufferAttr_HipcPointer> npad_ids);
     Result GetPalmaConnectionHandle(Out<Palma::PalmaConnectionHandle> out_handle,
                                     Core::HID::NpadIdType npad_id,
                                     ClientAppletResourceUserId aruid);
@@ -261,6 +298,7 @@ private:
     Result IsFirmwareUpdateNeededForNotification(Out<bool> out_is_firmware_update_needed,
                                                  s32 unknown, ClientAppletResourceUserId aruid);
     Result SetTouchScreenResolution(u32 width, u32 height, ClientAppletResourceUserId aruid);
+    Result ActivateDigitizer(ClientAppletResourceUserId aruid);
 
     std::shared_ptr<ResourceManager> resource_manager;
     std::shared_ptr<HidFirmwareSettings> firmware_settings;

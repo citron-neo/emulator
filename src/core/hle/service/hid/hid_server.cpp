@@ -73,12 +73,12 @@ IHidServer::IHidServer(Core::System& system_, std::shared_ptr<ResourceManager> r
         {70, C<&IHidServer::SetSixAxisSensorFusionParameters>, "SetSixAxisSensorFusionParameters"},
         {71, C<&IHidServer::GetSixAxisSensorFusionParameters>, "GetSixAxisSensorFusionParameters"},
         {72, C<&IHidServer::ResetSixAxisSensorFusionParameters>, "ResetSixAxisSensorFusionParameters"},
-        {73, nullptr, "SetAccelerometerParameters"},
-        {74, nullptr, "GetAccelerometerParameters"},
-        {75, nullptr, "ResetAccelerometerParameters"},
-        {76, nullptr, "SetAccelerometerPlayMode"},
-        {77, nullptr, "GetAccelerometerPlayMode"},
-        {78, nullptr, "ResetAccelerometerPlayMode"},
+        {73, C<&IHidServer::SetAccelerometerParameters>, "SetAccelerometerParameters"},
+        {74, C<&IHidServer::GetAccelerometerParameters>, "GetAccelerometerParameters"},
+        {75, C<&IHidServer::ResetAccelerometerParameters>, "ResetAccelerometerParameters"},
+        {76, C<&IHidServer::SetAccelerometerPlayMode>, "SetAccelerometerPlayMode"},
+        {77, C<&IHidServer::GetAccelerometerPlayMode>, "GetAccelerometerPlayMode"},
+        {78, C<&IHidServer::ResetAccelerometerPlayMode>, "ResetAccelerometerPlayMode"},
         {79, C<&IHidServer::SetGyroscopeZeroDriftMode>, "SetGyroscopeZeroDriftMode"},
         {80, C<&IHidServer::GetGyroscopeZeroDriftMode>, "GetGyroscopeZeroDriftMode"},
         {81, C<&IHidServer::ResetGyroscopeZeroDriftMode>, "ResetGyroscopeZeroDriftMode"},
@@ -86,7 +86,7 @@ IHidServer::IHidServer(Core::System& system_, std::shared_ptr<ResourceManager> r
         {83, C<&IHidServer::IsFirmwareUpdateAvailableForSixAxisSensor>, "IsFirmwareUpdateAvailableForSixAxisSensor"},
         {84, C<&IHidServer::EnableSixAxisSensorUnalteredPassthrough>, "EnableSixAxisSensorUnalteredPassthrough"},
         {85, C<&IHidServer::IsSixAxisSensorUnalteredPassthroughEnabled>, "IsSixAxisSensorUnalteredPassthroughEnabled"},
-        {86, nullptr, "StoreSixAxisSensorCalibrationParameter"},
+        {86, C<&IHidServer::StoreSixAxisSensorCalibrationParameter>, "StoreSixAxisSensorCalibrationParameter"},
         {87, C<&IHidServer::LoadSixAxisSensorCalibrationParameter>, "LoadSixAxisSensorCalibrationParameter"},
         {88, C<&IHidServer::GetSixAxisSensorIcInformation>, "GetSixAxisSensorIcInformation"},
         {89, C<&IHidServer::ResetIsSixAxisSensorDeviceNewlyAssigned>, "ResetIsSixAxisSensorDeviceNewlyAssigned"},
@@ -139,18 +139,18 @@ IHidServer::IHidServer(Core::System& system_, std::shared_ptr<ResourceManager> r
         {305, C<&IHidServer::StopSevenSixAxisSensor>, "StopSevenSixAxisSensor"},
         {306, C<&IHidServer::InitializeSevenSixAxisSensor>, "InitializeSevenSixAxisSensor"},
         {307, C<&IHidServer::FinalizeSevenSixAxisSensor>, "FinalizeSevenSixAxisSensor"},
-        {308, nullptr, "SetSevenSixAxisSensorFusionStrength"},
-        {309, nullptr, "GetSevenSixAxisSensorFusionStrength"},
+        {308, C<&IHidServer::SetSevenSixAxisSensorFusionStrength>, "SetSevenSixAxisSensorFusionStrength"},
+        {309, C<&IHidServer::GetSevenSixAxisSensorFusionStrength>, "GetSevenSixAxisSensorFusionStrength"},
         {310, C<&IHidServer::ResetSevenSixAxisSensorTimestamp>, "ResetSevenSixAxisSensorTimestamp"},
         {400, C<&IHidServer::IsUsbFullKeyControllerEnabled>, "IsUsbFullKeyControllerEnabled"},
-        {401, nullptr, "EnableUsbFullKeyController"},
-        {402, nullptr, "IsUsbFullKeyControllerConnected"},
-        {403, nullptr, "HasBattery"},
-        {404, nullptr, "HasLeftRightBattery"},
-        {405, nullptr, "GetNpadInterfaceType"},
-        {406, nullptr, "GetNpadLeftRightInterfaceType"},
-        {407, nullptr, "GetNpadOfHighestBatteryLevel"},
-        {408, nullptr, "GetNpadOfHighestBatteryLevelForJoyRight"},
+        {401, C<&IHidServer::EnableUsbFullKeyController>, "EnableUsbFullKeyController"},
+        {402, C<&IHidServer::IsUsbFullKeyControllerConnected>, "IsUsbFullKeyControllerConnected"},
+        {403, C<&IHidServer::HasBattery>, "HasBattery"},
+        {404, C<&IHidServer::HasLeftRightBattery>, "HasLeftRightBattery"},
+        {405, C<&IHidServer::GetNpadInterfaceType>, "GetNpadInterfaceType"},
+        {406, C<&IHidServer::GetNpadLeftRightInterfaceType>, "GetNpadLeftRightInterfaceType"},
+        {407, C<&IHidServer::GetNpadOfHighestBatteryLevel>, "GetNpadOfHighestBatteryLevel"},
+        {408, C<&IHidServer::GetNpadOfHighestBatteryLevelForJoyRight>, "GetNpadOfHighestBatteryLevelForJoyRight"},
         {500, C<&IHidServer::GetPalmaConnectionHandle>, "GetPalmaConnectionHandle"},
         {501, C<&IHidServer::InitializePalma>, "InitializePalma"},
         {502, C<&IHidServer::AcquirePalmaOperationCompleteEvent>, "AcquirePalmaOperationCompleteEvent"},
@@ -186,7 +186,7 @@ IHidServer::IHidServer(Core::System& system_, std::shared_ptr<ResourceManager> r
         {1002, C<&IHidServer::SetTouchScreenConfiguration>, "SetTouchScreenConfiguration"},
         {1003, C<&IHidServer::IsFirmwareUpdateNeededForNotification>, "IsFirmwareUpdateNeededForNotification"},
         {1004, C<&IHidServer::SetTouchScreenResolution>, "SetTouchScreenResolution"},
-        {2000, nullptr, "ActivateDigitizer"},
+        {2000, C<&IHidServer::ActivateDigitizer>, "ActivateDigitizer"},
     };
     // clang-format on
 
@@ -1446,6 +1446,203 @@ Result IHidServer::SetTouchScreenResolution(u32 width, u32 height,
 
 Result IHidServer::SetGestureOutputRanges(ClientAppletResourceUserId aruid) {
     LOG_WARNING(Service_HID, "(STUBBED) called, applet_resource_user_id={}", aruid.pid);
+    R_SUCCEED();
+}
+
+// Accelerometer parameter functions
+Result IHidServer::SetAccelerometerParameters(Core::HID::SixAxisSensorHandle sixaxis_handle,
+                                              f32 parameter1, f32 parameter2, ClientAppletResourceUserId aruid) {
+    LOG_DEBUG(Service_HID, "called, npad_type={}, npad_id={}, device_index={}, parameter1={}, parameter2={}, applet_resource_user_id={}",
+              sixaxis_handle.npad_type, sixaxis_handle.npad_id, sixaxis_handle.device_index, parameter1, parameter2, aruid.pid);
+
+    // These functions would set accelerometer calibration parameters
+    LOG_WARNING(Service_HID, "(STUBBED) SetAccelerometerParameters not fully implemented");
+    R_SUCCEED();
+}
+
+Result IHidServer::GetAccelerometerParameters(Out<f32> out_parameter1, Out<f32> out_parameter2,
+                                              Core::HID::SixAxisSensorHandle sixaxis_handle,
+                                              ClientAppletResourceUserId aruid) {
+    LOG_DEBUG(Service_HID, "called, npad_type={}, npad_id={}, device_index={}, applet_resource_user_id={}",
+              sixaxis_handle.npad_type, sixaxis_handle.npad_id, sixaxis_handle.device_index, aruid.pid);
+
+    // Return default accelerometer parameters
+    *out_parameter1 = 0.0f;  // Default parameter 1
+    *out_parameter2 = 0.0f;  // Default parameter 2
+    LOG_WARNING(Service_HID, "(STUBBED) GetAccelerometerParameters returning default values");
+    R_SUCCEED();
+}
+
+Result IHidServer::ResetAccelerometerParameters(Core::HID::SixAxisSensorHandle sixaxis_handle,
+                                                ClientAppletResourceUserId aruid) {
+    LOG_DEBUG(Service_HID, "called, npad_type={}, npad_id={}, device_index={}, applet_resource_user_id={}",
+              sixaxis_handle.npad_type, sixaxis_handle.npad_id, sixaxis_handle.device_index, aruid.pid);
+
+    LOG_WARNING(Service_HID, "(STUBBED) ResetAccelerometerParameters not fully implemented");
+    R_SUCCEED();
+}
+
+Result IHidServer::SetAccelerometerPlayMode(Core::HID::SixAxisSensorHandle sixaxis_handle,
+                                            u32 play_mode, ClientAppletResourceUserId aruid) {
+    LOG_DEBUG(Service_HID, "called, npad_type={}, npad_id={}, device_index={}, play_mode={}, applet_resource_user_id={}",
+              sixaxis_handle.npad_type, sixaxis_handle.npad_id, sixaxis_handle.device_index, play_mode, aruid.pid);
+
+    LOG_WARNING(Service_HID, "(STUBBED) SetAccelerometerPlayMode not fully implemented");
+    R_SUCCEED();
+}
+
+Result IHidServer::GetAccelerometerPlayMode(Out<u32> out_play_mode,
+                                            Core::HID::SixAxisSensorHandle sixaxis_handle,
+                                            ClientAppletResourceUserId aruid) {
+    LOG_DEBUG(Service_HID, "called, npad_type={}, npad_id={}, device_index={}, applet_resource_user_id={}",
+              sixaxis_handle.npad_type, sixaxis_handle.npad_id, sixaxis_handle.device_index, aruid.pid);
+
+    // Return default play mode
+    *out_play_mode = 0;  // Default play mode
+    LOG_WARNING(Service_HID, "(STUBBED) GetAccelerometerPlayMode returning default value");
+    R_SUCCEED();
+}
+
+Result IHidServer::ResetAccelerometerPlayMode(Core::HID::SixAxisSensorHandle sixaxis_handle,
+                                              ClientAppletResourceUserId aruid) {
+    LOG_DEBUG(Service_HID, "called, npad_type={}, npad_id={}, device_index={}, applet_resource_user_id={}",
+              sixaxis_handle.npad_type, sixaxis_handle.npad_id, sixaxis_handle.device_index, aruid.pid);
+
+    LOG_WARNING(Service_HID, "(STUBBED) ResetAccelerometerPlayMode not fully implemented");
+    R_SUCCEED();
+}
+
+// Six-axis sensor calibration functions
+Result IHidServer::StoreSixAxisSensorCalibrationParameter(
+    Core::HID::SixAxisSensorHandle sixaxis_handle,
+    InLargeData<Core::HID::SixAxisSensorCalibrationParameter, BufferAttr_HipcMapAlias> calibration_data,
+    ClientAppletResourceUserId aruid) {
+    LOG_WARNING(Service_HID,
+                "(STUBBED) called, npad_type={}, npad_id={}, device_index={}, applet_resource_user_id={}",
+                sixaxis_handle.npad_type, sixaxis_handle.npad_id, sixaxis_handle.device_index, aruid.pid);
+
+    // This function would store calibration data to system storage
+    R_SUCCEED();
+}
+
+// Seven six-axis sensor fusion strength functions
+Result IHidServer::SetSevenSixAxisSensorFusionStrength(f32 strength, ClientAppletResourceUserId aruid) {
+    LOG_DEBUG(Service_HID, "called, strength={}, applet_resource_user_id={}", strength, aruid.pid);
+
+    // Seven six-axis sensor fusion strength setting
+    LOG_WARNING(Service_HID, "(STUBBED) SetSevenSixAxisSensorFusionStrength not fully implemented");
+    R_SUCCEED();
+}
+
+Result IHidServer::GetSevenSixAxisSensorFusionStrength(Out<f32> out_strength, ClientAppletResourceUserId aruid) {
+    LOG_DEBUG(Service_HID, "called, applet_resource_user_id={}", aruid.pid);
+
+    // Return default fusion strength
+    *out_strength = 1.0f;  // Default fusion strength
+    LOG_WARNING(Service_HID, "(STUBBED) GetSevenSixAxisSensorFusionStrength returning default value");
+    R_SUCCEED();
+}
+
+// USB Full Key Controller functions
+Result IHidServer::EnableUsbFullKeyController(bool is_enabled, ClientAppletResourceUserId aruid) {
+    LOG_DEBUG(Service_HID, "called, is_enabled={}, applet_resource_user_id={}", is_enabled, aruid.pid);
+
+    // USB Full Key Controller enable/disable
+    LOG_WARNING(Service_HID, "(STUBBED) EnableUsbFullKeyController not fully implemented");
+    R_SUCCEED();
+}
+
+Result IHidServer::IsUsbFullKeyControllerConnected(Out<bool> out_is_connected, ClientAppletResourceUserId aruid) {
+    LOG_DEBUG(Service_HID, "called, applet_resource_user_id={}", aruid.pid);
+
+    // Always return false for USB full key controller connection
+    *out_is_connected = false;
+    LOG_WARNING(Service_HID, "(STUBBED) IsUsbFullKeyControllerConnected returning false");
+    R_SUCCEED();
+}
+
+// Battery functions
+Result IHidServer::HasBattery(Out<bool> out_has_battery, Core::HID::NpadIdType npad_id, ClientAppletResourceUserId aruid) {
+    LOG_DEBUG(Service_HID, "called, npad_id={}, applet_resource_user_id={}", npad_id, aruid.pid);
+
+    // Return true by default
+    *out_has_battery = true;
+    LOG_WARNING(Service_HID, "(STUBBED) HasBattery returning default value");
+    R_SUCCEED();
+}
+
+Result IHidServer::HasLeftRightBattery(Out<bool> out_has_left_battery, Out<bool> out_has_right_battery,
+                                       Core::HID::NpadIdType npad_id, ClientAppletResourceUserId aruid) {
+    LOG_DEBUG(Service_HID, "called, npad_id={}, applet_resource_user_id={}", npad_id, aruid.pid);
+
+    // For Joy-Con controllers, both sides have batteries
+    *out_has_left_battery = true;
+    *out_has_right_battery = true;
+    LOG_WARNING(Service_HID, "(STUBBED) HasLeftRightBattery returning default values");
+    R_SUCCEED();
+}
+
+// Interface type functions
+Result IHidServer::GetNpadInterfaceType(Out<Core::HID::NpadInterfaceType> out_interface_type,
+                                        Core::HID::NpadIdType npad_id, ClientAppletResourceUserId aruid) {
+    LOG_DEBUG(Service_HID, "called, npad_id={}, applet_resource_user_id={}", npad_id, aruid.pid);
+
+    // Return default interface type (Bluetooth)
+    *out_interface_type = Core::HID::NpadInterfaceType::Bluetooth;
+    LOG_WARNING(Service_HID, "(STUBBED) GetNpadInterfaceType returning default value");
+    R_SUCCEED();
+}
+
+Result IHidServer::GetNpadLeftRightInterfaceType(Out<Core::HID::NpadInterfaceType> out_left_interface_type,
+                                                 Out<Core::HID::NpadInterfaceType> out_right_interface_type,
+                                                 Core::HID::NpadIdType npad_id, ClientAppletResourceUserId aruid) {
+    LOG_DEBUG(Service_HID, "called, npad_id={}, applet_resource_user_id={}", npad_id, aruid.pid);
+
+    // Return default interface types (Bluetooth for both)
+    *out_left_interface_type = Core::HID::NpadInterfaceType::Bluetooth;
+    *out_right_interface_type = Core::HID::NpadInterfaceType::Bluetooth;
+    LOG_WARNING(Service_HID, "(STUBBED) GetNpadLeftRightInterfaceType returning default values");
+    R_SUCCEED();
+}
+
+// Battery level functions
+Result IHidServer::GetNpadOfHighestBatteryLevel(Out<Core::HID::NpadIdType> out_npad_id,
+                                                ClientAppletResourceUserId aruid,
+                                                InArray<Core::HID::NpadIdType, BufferAttr_HipcPointer> npad_ids) {
+    LOG_DEBUG(Service_HID, "called, applet_resource_user_id={}", aruid.pid);
+
+    // Return the first available controller or Player1 if no controllers in list
+    if (npad_ids.size() > 0) {
+        *out_npad_id = npad_ids[0];
+    } else {
+        *out_npad_id = Core::HID::NpadIdType::Player1;
+    }
+    LOG_WARNING(Service_HID, "(STUBBED) GetNpadOfHighestBatteryLevel returning first available controller");
+    R_SUCCEED();
+}
+
+Result IHidServer::GetNpadOfHighestBatteryLevelForJoyRight(Out<Core::HID::NpadIdType> out_npad_id,
+                                                           ClientAppletResourceUserId aruid,
+                                                           InArray<Core::HID::NpadIdType, BufferAttr_HipcPointer> npad_ids) {
+    LOG_DEBUG(Service_HID, "called, applet_resource_user_id={}", aruid.pid);
+
+    // Return the first available controller or Player1 if no controllers in list
+    if (npad_ids.size() > 0) {
+        *out_npad_id = npad_ids[0];
+    } else {
+        *out_npad_id = Core::HID::NpadIdType::Player1;
+    }
+    LOG_WARNING(Service_HID, "(STUBBED) GetNpadOfHighestBatteryLevelForJoyRight returning first available controller");
+    R_SUCCEED();
+}
+
+// Digitizer function
+Result IHidServer::ActivateDigitizer(ClientAppletResourceUserId aruid) {
+    LOG_DEBUG(Service_HID, "called, applet_resource_user_id={}", aruid.pid);
+
+    // Digitizer activation - similar to other device activations
+    // The Digitizer class inherits from ControllerBase but doesn't have custom Activate methods
+    LOG_WARNING(Service_HID, "(STUBBED) ActivateDigitizer not fully implemented");
     R_SUCCEED();
 }
 
