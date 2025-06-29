@@ -9,6 +9,7 @@
 #include "common/settings.h"
 #include "core/hle/kernel/k_shared_memory.h"
 #include "core/hle/kernel/k_transfer_memory.h"
+#include "core/hle/kernel/k_process.h"
 #include "core/hle/kernel/kernel.h"
 #include "core/hle/service/cmif_serialization.h"
 #include "core/hle/service/hid/active_vibration_device_list.h"
@@ -90,6 +91,7 @@ IHidServer::IHidServer(Core::System& system_, std::shared_ptr<ResourceManager> r
         {87, C<&IHidServer::LoadSixAxisSensorCalibrationParameter>, "LoadSixAxisSensorCalibrationParameter"},
         {88, C<&IHidServer::GetSixAxisSensorIcInformation>, "GetSixAxisSensorIcInformation"},
         {89, C<&IHidServer::ResetIsSixAxisSensorDeviceNewlyAssigned>, "ResetIsSixAxisSensorDeviceNewlyAssigned"},
+        {90, C<&IHidServer::Unknown90>, "Unknown90"},
         {91, C<&IHidServer::ActivateGesture>, "ActivateGesture"},
         {92, C<&IHidServer::SetGestureOutputRanges>, "SetGestureOutputRanges"},
         {100, C<&IHidServer::SetSupportedNpadStyleSet>, "SetSupportedNpadStyleSet"},
@@ -97,6 +99,7 @@ IHidServer::IHidServer(Core::System& system_, std::shared_ptr<ResourceManager> r
         {102, C<&IHidServer::SetSupportedNpadIdType>, "SetSupportedNpadIdType"},
         {103, C<&IHidServer::ActivateNpad>, "ActivateNpad"},
         {104, C<&IHidServer::DeactivateNpad>, "DeactivateNpad"},
+        {105, C<&IHidServer::Unknown105>, "Unknown105"},
         {106, C<&IHidServer::AcquireNpadStyleSetUpdateEventHandle>, "AcquireNpadStyleSetUpdateEventHandle"},
         {107, C<&IHidServer::DisconnectNpad>, "DisconnectNpad"},
         {108, C<&IHidServer::GetPlayerLedPattern>, "GetPlayerLedPattern"},
@@ -131,6 +134,11 @@ IHidServer::IHidServer(Core::System& system_, std::shared_ptr<ResourceManager> r
         {210, C<&IHidServer::EndPermitVibrationSession>, "EndPermitVibrationSession"},
         {211, C<&IHidServer::IsVibrationDeviceMounted>, "IsVibrationDeviceMounted"},
         {212, C<&IHidServer::SendVibrationValueInBool>, "SendVibrationValueInBool"},
+        {213, C<&IHidServer::Unknown213>, "Unknown213"},
+        {214, C<&IHidServer::Unknown214>, "Unknown214"},
+        {215, C<&IHidServer::Unknown215>, "Unknown215"},
+        {216, C<&IHidServer::Unknown216>, "Unknown216"},
+        {220, C<&IHidServer::Unknown220>, "Unknown220"},
         {300, C<&IHidServer::ActivateConsoleSixAxisSensor>, "ActivateConsoleSixAxisSensor"},
         {301, C<&IHidServer::StartConsoleSixAxisSensor>, "StartConsoleSixAxisSensor"},
         {302, C<&IHidServer::StopConsoleSixAxisSensor>, "StopConsoleSixAxisSensor"},
@@ -151,6 +159,11 @@ IHidServer::IHidServer(Core::System& system_, std::shared_ptr<ResourceManager> r
         {406, C<&IHidServer::GetNpadLeftRightInterfaceType>, "GetNpadLeftRightInterfaceType"},
         {407, C<&IHidServer::GetNpadOfHighestBatteryLevel>, "GetNpadOfHighestBatteryLevel"},
         {408, C<&IHidServer::GetNpadOfHighestBatteryLevelForJoyRight>, "GetNpadOfHighestBatteryLevelForJoyRight"},
+        {409, C<&IHidServer::Unknown409>, "Unknown409"},
+        {410, C<&IHidServer::GetNpadOfHighestBatteryLevelForJoyLeft>, "GetNpadOfHighestBatteryLevelForJoyLeft"},
+        {411, C<&IHidServer::Unknown411>, "Unknown411"},
+        {412, C<&IHidServer::Unknown412>, "Unknown412"},
+        {413, C<&IHidServer::Unknown413>, "Unknown413"},
         {500, C<&IHidServer::GetPalmaConnectionHandle>, "GetPalmaConnectionHandle"},
         {501, C<&IHidServer::InitializePalma>, "InitializePalma"},
         {502, C<&IHidServer::AcquirePalmaOperationCompleteEvent>, "AcquirePalmaOperationCompleteEvent"},
@@ -181,12 +194,58 @@ IHidServer::IHidServer(Core::System& system_, std::shared_ptr<ResourceManager> r
         {527, C<&IHidServer::EnablePalmaBoostMode>, "EnablePalmaBoostMode"},
         {528, C<&IHidServer::GetPalmaBluetoothAddress>, "GetPalmaBluetoothAddress"},
         {529, C<&IHidServer::SetDisallowedPalmaConnection>, "SetDisallowedPalmaConnection"},
+        {530, C<&IHidServer::Unknown530>, "Unknown530"},
+        {531, C<&IHidServer::Unknown531>, "Unknown531"},
+        {532, C<&IHidServer::Unknown532>, "Unknown532"},
+        {533, C<&IHidServer::SetPalmaDisallowedActiveApplications>, "[20.0.0+] SetPalmaDisallowedActiveApplications"},
         {1000, C<&IHidServer::SetNpadCommunicationMode>, "SetNpadCommunicationMode"},
         {1001, C<&IHidServer::GetNpadCommunicationMode>, "GetNpadCommunicationMode"},
         {1002, C<&IHidServer::SetTouchScreenConfiguration>, "SetTouchScreenConfiguration"},
         {1003, C<&IHidServer::IsFirmwareUpdateNeededForNotification>, "IsFirmwareUpdateNeededForNotification"},
         {1004, C<&IHidServer::SetTouchScreenResolution>, "SetTouchScreenResolution"},
+        {1005, C<&IHidServer::Unknown1005>, "Unknown1005"},
+        {1006, C<&IHidServer::Unknown1006>, "Unknown1006"},
+        {1007, C<&IHidServer::Unknown1007>, "Unknown1007"},
+        {1008, C<&IHidServer::Unknown1008>, "Unknown1008"},
+        {1009, C<&IHidServer::Unknown1009>, "Unknown1009"},
+        {1010, C<&IHidServer::SetForceSixAxisSensorFusedParameters>, "[15.0.0+] SetForceSixAxisSensorFusedParameters"},
+        {1011, C<&IHidServer::GetForceSixAxisSensorFusedParameters>, "[15.0.0+] GetForceSixAxisSensorFusedParameters"},
+        {1012, C<&IHidServer::GetFirmwareVersionStringForUserSupportPage>, "[20.0.0+] GetFirmwareVersionStringForUserSupportPage"},
+        {1420, C<&IHidServer::GetAppletResourceProperty>, "[19.0.0+] GetAppletResourceProperty"},
         {2000, C<&IHidServer::ActivateDigitizer>, "ActivateDigitizer"},
+        {2001, C<&IHidServer::GetDigitizerSensorActivateEvent>, "GetDigitizerSensorActivateEvent"},
+        {2002, C<&IHidServer::GetDigitizerModeChangeEvent>, "GetDigitizerModeChangeEvent"},
+        {2003, C<&IHidServer::AcquireDigitizerActivateEventHandle>, "AcquireDigitizerActivateEventHandle"},
+        {2004, C<&IHidServer::Unknown2004>, "Unknown2004"},
+        {2005, C<&IHidServer::Unknown2005>, "Unknown2005"},
+        {2006, C<&IHidServer::Unknown2006>, "Unknown2006"},
+        {2007, C<&IHidServer::Unknown2007>, "Unknown2007"},
+        {2010, C<&IHidServer::Unknown2010>, "Unknown2010"},
+        {2011, C<&IHidServer::Unknown2011>, "Unknown2011"},
+        {2012, C<&IHidServer::Unknown2012>, "Unknown2012"},
+        {2013, C<&IHidServer::Unknown2013>, "Unknown2013"},
+        {2014, C<&IHidServer::Unknown2014>, "Unknown2014"},
+        {2020, C<&IHidServer::Unknown2020>, "Unknown2020"},
+        {2021, C<&IHidServer::Unknown2021>, "Unknown2021"},
+        {2022, C<&IHidServer::Unknown2022>, "Unknown2022"},
+        {2030, C<&IHidServer::Unknown2030>, "Unknown2030"},
+        {2031, C<&IHidServer::Unknown2031>, "Unknown2031"},
+        {2032, C<&IHidServer::Unknown2032>, "Unknown2032"},
+        {2033, C<&IHidServer::Unknown2033>, "Unknown2033"},
+        {2040, C<&IHidServer::Unknown2040>, "Unknown2040"},
+        {2041, C<&IHidServer::Unknown2041>, "Unknown2041"},
+        {2042, C<&IHidServer::Unknown2042>, "Unknown2042"},
+        {2043, C<&IHidServer::Unknown2043>, "Unknown2043"},
+        {2044, C<&IHidServer::Unknown2044>, "Unknown2044"},
+        {2050, C<&IHidServer::Unknown2050>, "Unknown2050"},
+        {2051, C<&IHidServer::Unknown2051>, "Unknown2051"},
+        {2052, C<&IHidServer::Unknown2052>, "Unknown2052"},
+        {2053, C<&IHidServer::Unknown2053>, "Unknown2053"},
+        {2054, C<&IHidServer::Unknown2054>, "Unknown2054"},
+        {2055, C<&IHidServer::Unknown2055>, "Unknown2055"},
+        {2060, C<&IHidServer::Unknown2060>, "Unknown2060"},
+        {2061, C<&IHidServer::Unknown2061>, "Unknown2061"},
+        {2062, C<&IHidServer::Unknown2062>, "Unknown2062"},
     };
     // clang-format on
 
@@ -1638,11 +1697,342 @@ Result IHidServer::GetNpadOfHighestBatteryLevelForJoyRight(Out<Core::HID::NpadId
 
 // Digitizer function
 Result IHidServer::ActivateDigitizer(ClientAppletResourceUserId aruid) {
-    LOG_DEBUG(Service_HID, "called, applet_resource_user_id={}", aruid.pid);
+    LOG_WARNING(Service_HID, "(STUBBED) called, applet_resource_user_id={}", aruid.pid);
 
-    // Digitizer activation - similar to other device activations
-    // The Digitizer class inherits from ControllerBase but doesn't have custom Activate methods
-    LOG_WARNING(Service_HID, "(STUBBED) ActivateDigitizer not fully implemented");
+    R_SUCCEED();
+}
+
+// [15.0.0+] Missing functions from switchbrew reference
+Result IHidServer::GetDigitizerSensorActivateEvent(OutCopyHandle<Kernel::KReadableEvent> out_event,
+                                                   ClientAppletResourceUserId aruid) {
+    LOG_WARNING(Service_HID, "(STUBBED) called, applet_resource_user_id={}", aruid.pid);
+    *out_event = nullptr;
+    R_SUCCEED();
+}
+
+Result IHidServer::GetDigitizerModeChangeEvent(OutCopyHandle<Kernel::KReadableEvent> out_event,
+                                              ClientAppletResourceUserId aruid) {
+    LOG_WARNING(Service_HID, "(STUBBED) called, applet_resource_user_id={}", aruid.pid);
+    *out_event = nullptr;
+    R_SUCCEED();
+}
+
+Result IHidServer::AcquireDigitizerActivateEventHandle(OutCopyHandle<Kernel::KReadableEvent> out_event,
+                                                      ClientAppletResourceUserId aruid) {
+    LOG_WARNING(Service_HID, "(STUBBED) called, applet_resource_user_id={}", aruid.pid);
+    *out_event = nullptr;
+    R_SUCCEED();
+}
+
+Result IHidServer::Unknown2004(ClientAppletResourceUserId aruid) {
+    LOG_WARNING(Service_HID, "(STUBBED) called, applet_resource_user_id={}", aruid.pid);
+    R_SUCCEED();
+}
+
+Result IHidServer::Unknown2005(ClientAppletResourceUserId aruid) {
+    LOG_WARNING(Service_HID, "(STUBBED) called, applet_resource_user_id={}", aruid.pid);
+    R_SUCCEED();
+}
+
+Result IHidServer::Unknown2006(ClientAppletResourceUserId aruid) {
+    LOG_WARNING(Service_HID, "(STUBBED) called, applet_resource_user_id={}", aruid.pid);
+    R_SUCCEED();
+}
+
+Result IHidServer::Unknown2007(ClientAppletResourceUserId aruid) {
+    LOG_WARNING(Service_HID, "(STUBBED) called, applet_resource_user_id={}", aruid.pid);
+    R_SUCCEED();
+}
+
+// [16.0.0+] Additional functions
+Result IHidServer::Unknown2010(ClientAppletResourceUserId aruid) {
+    LOG_WARNING(Service_HID, "(STUBBED) called, applet_resource_user_id={}", aruid.pid);
+    R_SUCCEED();
+}
+
+Result IHidServer::Unknown2011(ClientAppletResourceUserId aruid) {
+    LOG_WARNING(Service_HID, "(STUBBED) called, applet_resource_user_id={}", aruid.pid);
+    R_SUCCEED();
+}
+
+Result IHidServer::Unknown2012(ClientAppletResourceUserId aruid) {
+    LOG_WARNING(Service_HID, "(STUBBED) called, applet_resource_user_id={}", aruid.pid);
+    R_SUCCEED();
+}
+
+Result IHidServer::Unknown2013(ClientAppletResourceUserId aruid) {
+    LOG_WARNING(Service_HID, "(STUBBED) called, applet_resource_user_id={}", aruid.pid);
+    R_SUCCEED();
+}
+
+Result IHidServer::Unknown2014(ClientAppletResourceUserId aruid) {
+    LOG_WARNING(Service_HID, "(STUBBED) called, applet_resource_user_id={}", aruid.pid);
+    R_SUCCEED();
+}
+
+// [17.0.0+] Additional functions
+Result IHidServer::Unknown2020(ClientAppletResourceUserId aruid) {
+    LOG_WARNING(Service_HID, "(STUBBED) called, applet_resource_user_id={}", aruid.pid);
+    R_SUCCEED();
+}
+
+Result IHidServer::Unknown2021(ClientAppletResourceUserId aruid) {
+    LOG_WARNING(Service_HID, "(STUBBED) called, applet_resource_user_id={}", aruid.pid);
+    R_SUCCEED();
+}
+
+Result IHidServer::Unknown2022(ClientAppletResourceUserId aruid) {
+    LOG_WARNING(Service_HID, "(STUBBED) called, applet_resource_user_id={}", aruid.pid);
+    R_SUCCEED();
+}
+
+// [18.0.0+] Additional functions
+Result IHidServer::Unknown2030(ClientAppletResourceUserId aruid) {
+    LOG_WARNING(Service_HID, "(STUBBED) called, applet_resource_user_id={}", aruid.pid);
+    R_SUCCEED();
+}
+
+Result IHidServer::Unknown2031(ClientAppletResourceUserId aruid) {
+    LOG_WARNING(Service_HID, "(STUBBED) called, applet_resource_user_id={}", aruid.pid);
+    R_SUCCEED();
+}
+
+Result IHidServer::Unknown2032(ClientAppletResourceUserId aruid) {
+    LOG_WARNING(Service_HID, "(STUBBED) called, applet_resource_user_id={}", aruid.pid);
+    R_SUCCEED();
+}
+
+Result IHidServer::Unknown2033(ClientAppletResourceUserId aruid) {
+    LOG_WARNING(Service_HID, "(STUBBED) called, applet_resource_user_id={}", aruid.pid);
+    R_SUCCEED();
+}
+
+// [19.0.0+] Additional functions
+Result IHidServer::Unknown2040(ClientAppletResourceUserId aruid) {
+    LOG_WARNING(Service_HID, "(STUBBED) called, applet_resource_user_id={}", aruid.pid);
+    R_SUCCEED();
+}
+
+Result IHidServer::Unknown2041(ClientAppletResourceUserId aruid) {
+    LOG_WARNING(Service_HID, "(STUBBED) called, applet_resource_user_id={}", aruid.pid);
+    R_SUCCEED();
+}
+
+Result IHidServer::Unknown2042(ClientAppletResourceUserId aruid) {
+    LOG_WARNING(Service_HID, "(STUBBED) called, applet_resource_user_id={}", aruid.pid);
+    R_SUCCEED();
+}
+
+Result IHidServer::Unknown2043(ClientAppletResourceUserId aruid) {
+    LOG_WARNING(Service_HID, "(STUBBED) called, applet_resource_user_id={}", aruid.pid);
+    R_SUCCEED();
+}
+
+Result IHidServer::Unknown2044(ClientAppletResourceUserId aruid) {
+    LOG_WARNING(Service_HID, "(STUBBED) called, applet_resource_user_id={}", aruid.pid);
+    R_SUCCEED();
+}
+
+// [20.0.0+] Additional functions
+Result IHidServer::Unknown2050(ClientAppletResourceUserId aruid) {
+    LOG_WARNING(Service_HID, "(STUBBED) called, applet_resource_user_id={}", aruid.pid);
+    R_SUCCEED();
+}
+
+Result IHidServer::Unknown2051(ClientAppletResourceUserId aruid) {
+    LOG_WARNING(Service_HID, "(STUBBED) called, applet_resource_user_id={}", aruid.pid);
+    R_SUCCEED();
+}
+
+Result IHidServer::Unknown2052(ClientAppletResourceUserId aruid) {
+    LOG_WARNING(Service_HID, "(STUBBED) called, applet_resource_user_id={}", aruid.pid);
+    R_SUCCEED();
+}
+
+Result IHidServer::Unknown2053(ClientAppletResourceUserId aruid) {
+    LOG_WARNING(Service_HID, "(STUBBED) called, applet_resource_user_id={}", aruid.pid);
+    R_SUCCEED();
+}
+
+Result IHidServer::Unknown2054(ClientAppletResourceUserId aruid) {
+    LOG_WARNING(Service_HID, "(STUBBED) called, applet_resource_user_id={}", aruid.pid);
+    R_SUCCEED();
+}
+
+Result IHidServer::Unknown2055(ClientAppletResourceUserId aruid) {
+    LOG_WARNING(Service_HID, "(STUBBED) called, applet_resource_user_id={}", aruid.pid);
+    R_SUCCEED();
+}
+
+// [20.0.1+] Additional functions
+Result IHidServer::Unknown2060(ClientAppletResourceUserId aruid) {
+    LOG_WARNING(Service_HID, "(STUBBED) called, applet_resource_user_id={}", aruid.pid);
+    R_SUCCEED();
+}
+
+Result IHidServer::Unknown2061(ClientAppletResourceUserId aruid) {
+    LOG_WARNING(Service_HID, "(STUBBED) called, applet_resource_user_id={}", aruid.pid);
+    R_SUCCEED();
+}
+
+Result IHidServer::Unknown2062(ClientAppletResourceUserId aruid) {
+    LOG_WARNING(Service_HID, "(STUBBED) called, applet_resource_user_id={}", aruid.pid);
+    R_SUCCEED();
+}
+
+// Missing functions from gaps in current implementation
+Result IHidServer::Unknown90(ClientAppletResourceUserId aruid) {
+    LOG_WARNING(Service_HID, "(STUBBED) called, applet_resource_user_id={}", aruid.pid);
+    R_SUCCEED();
+}
+
+Result IHidServer::Unknown105(ClientAppletResourceUserId aruid) {
+    LOG_WARNING(Service_HID, "(STUBBED) called, applet_resource_user_id={}", aruid.pid);
+    R_SUCCEED();
+}
+
+Result IHidServer::Unknown213(ClientAppletResourceUserId aruid) {
+    LOG_WARNING(Service_HID, "(STUBBED) called, applet_resource_user_id={}", aruid.pid);
+    R_SUCCEED();
+}
+
+Result IHidServer::Unknown214(ClientAppletResourceUserId aruid) {
+    LOG_WARNING(Service_HID, "(STUBBED) called, applet_resource_user_id={}", aruid.pid);
+    R_SUCCEED();
+}
+
+Result IHidServer::Unknown215(ClientAppletResourceUserId aruid) {
+    LOG_WARNING(Service_HID, "(STUBBED) called, applet_resource_user_id={}", aruid.pid);
+    R_SUCCEED();
+}
+
+Result IHidServer::Unknown216(ClientAppletResourceUserId aruid) {
+    LOG_WARNING(Service_HID, "(STUBBED) called, applet_resource_user_id={}", aruid.pid);
+    R_SUCCEED();
+}
+
+Result IHidServer::Unknown220(ClientAppletResourceUserId aruid) {
+    LOG_WARNING(Service_HID, "(STUBBED) called, applet_resource_user_id={}", aruid.pid);
+    R_SUCCEED();
+}
+
+Result IHidServer::Unknown409(ClientAppletResourceUserId aruid) {
+    LOG_WARNING(Service_HID, "(STUBBED) called, applet_resource_user_id={}", aruid.pid);
+    R_SUCCEED();
+}
+
+Result IHidServer::Unknown411(ClientAppletResourceUserId aruid) {
+    LOG_WARNING(Service_HID, "(STUBBED) called, applet_resource_user_id={}", aruid.pid);
+    R_SUCCEED();
+}
+
+Result IHidServer::Unknown412(ClientAppletResourceUserId aruid) {
+    LOG_WARNING(Service_HID, "(STUBBED) called, applet_resource_user_id={}", aruid.pid);
+    R_SUCCEED();
+}
+
+Result IHidServer::Unknown413(ClientAppletResourceUserId aruid) {
+    LOG_WARNING(Service_HID, "(STUBBED) called, applet_resource_user_id={}", aruid.pid);
+    R_SUCCEED();
+}
+
+Result IHidServer::Unknown530(ClientAppletResourceUserId aruid) {
+    LOG_WARNING(Service_HID, "(STUBBED) called, applet_resource_user_id={}", aruid.pid);
+    R_SUCCEED();
+}
+
+Result IHidServer::Unknown531(ClientAppletResourceUserId aruid) {
+    LOG_WARNING(Service_HID, "(STUBBED) called, applet_resource_user_id={}", aruid.pid);
+    R_SUCCEED();
+}
+
+Result IHidServer::Unknown532(ClientAppletResourceUserId aruid) {
+    LOG_WARNING(Service_HID, "(STUBBED) called, applet_resource_user_id={}", aruid.pid);
+    R_SUCCEED();
+}
+
+Result IHidServer::Unknown1005(ClientAppletResourceUserId aruid) {
+    LOG_WARNING(Service_HID, "(STUBBED) called, applet_resource_user_id={}", aruid.pid);
+    R_SUCCEED();
+}
+
+Result IHidServer::Unknown1006(ClientAppletResourceUserId aruid) {
+    LOG_WARNING(Service_HID, "(STUBBED) called, applet_resource_user_id={}", aruid.pid);
+    R_SUCCEED();
+}
+
+Result IHidServer::Unknown1007(ClientAppletResourceUserId aruid) {
+    LOG_WARNING(Service_HID, "(STUBBED) called, applet_resource_user_id={}", aruid.pid);
+    R_SUCCEED();
+}
+
+Result IHidServer::Unknown1008(ClientAppletResourceUserId aruid) {
+    LOG_WARNING(Service_HID, "(STUBBED) called, applet_resource_user_id={}", aruid.pid);
+    R_SUCCEED();
+}
+
+Result IHidServer::Unknown1009(ClientAppletResourceUserId aruid) {
+    LOG_WARNING(Service_HID, "(STUBBED) called, applet_resource_user_id={}", aruid.pid);
+    R_SUCCEED();
+}
+
+// [15.0.0+] Functions
+Result IHidServer::SetForceSixAxisSensorFusedParameters(Core::HID::SixAxisSensorHandle sixaxis_handle,
+                                                       Core::HID::SixAxisSensorFusionParameters sixaxis_fusion,
+                                                       ClientAppletResourceUserId aruid) {
+    LOG_WARNING(Service_HID, "(STUBBED) called, npad_type={}, npad_id={}, device_index={}, applet_resource_user_id={}",
+                sixaxis_handle.npad_type, sixaxis_handle.npad_id, sixaxis_handle.device_index, aruid.pid);
+    R_SUCCEED();
+}
+
+Result IHidServer::GetForceSixAxisSensorFusedParameters(Out<Core::HID::SixAxisSensorFusionParameters> out_fusion_parameters,
+                                                       Core::HID::SixAxisSensorHandle sixaxis_handle,
+                                                       ClientAppletResourceUserId aruid) {
+    LOG_WARNING(Service_HID, "(STUBBED) called, npad_type={}, npad_id={}, device_index={}, applet_resource_user_id={}",
+                sixaxis_handle.npad_type, sixaxis_handle.npad_id, sixaxis_handle.device_index, aruid.pid);
+
+    *out_fusion_parameters = Core::HID::SixAxisSensorFusionParameters{};
+    R_SUCCEED();
+}
+
+// [20.0.0+] Functions
+Result IHidServer::GetFirmwareVersionStringForUserSupportPage(OutBuffer<BufferAttr_HipcMapAlias> out_firmware_version,
+                                                              ClientAppletResourceUserId aruid) {
+    LOG_WARNING(Service_HID, "(STUBBED) called, applet_resource_user_id={}", aruid.pid);
+
+    // Return atmosphere's firmware version & NX version
+    constexpr std::string_view firmware_version = "20.1.5|AMS 1.9.1|E";
+    std::memcpy(out_firmware_version.data(), firmware_version.data(),
+                std::min(out_firmware_version.size(), firmware_version.size()));
+
+    R_SUCCEED();
+}
+
+Result IHidServer::SetPalmaDisallowedActiveApplications(ClientAppletResourceUserId aruid,
+                                                       InBuffer<BufferAttr_HipcMapAlias> disallowed_applications) {
+    LOG_WARNING(Service_HID, "(STUBBED) called, applet_resource_user_id={}", aruid.pid);
+    R_SUCCEED();
+}
+
+// [19.0.0+] Functions
+Result IHidServer::GetAppletResourceProperty(Out<u64> out_property, ClientAppletResourceUserId aruid) {
+    LOG_WARNING(Service_HID, "(STUBBED) called, applet_resource_user_id={}", aruid.pid);
+    *out_property = 0;  // Default property value
+    R_SUCCEED();
+}
+
+Result IHidServer::GetNpadOfHighestBatteryLevelForJoyLeft(Out<Core::HID::NpadIdType> out_npad_id,
+                                                         ClientAppletResourceUserId aruid,
+                                                         InArray<Core::HID::NpadIdType, BufferAttr_HipcPointer> npad_ids) {
+    LOG_WARNING(Service_HID, "(STUBBED) called, applet_resource_user_id={}", aruid.pid);
+
+    if (npad_ids.empty()) {
+        LOG_ERROR(Service_HID, "Npad ids is empty, applet_resource_user_id={}", aruid.pid);
+        *out_npad_id = Core::HID::NpadIdType::Invalid;
+        R_SUCCEED();
+    }
+
+    *out_npad_id = npad_ids[0];
     R_SUCCEED();
 }
 

@@ -240,6 +240,9 @@ private:
     Result GetNpadOfHighestBatteryLevelForJoyRight(Out<Core::HID::NpadIdType> out_npad_id,
                                                    ClientAppletResourceUserId aruid,
                                                    InArray<Core::HID::NpadIdType, BufferAttr_HipcPointer> npad_ids);
+    Result GetNpadOfHighestBatteryLevelForJoyLeft(Out<Core::HID::NpadIdType> out_npad_id,
+                                                  ClientAppletResourceUserId aruid,
+                                                  InArray<Core::HID::NpadIdType, BufferAttr_HipcPointer> npad_ids);
     Result GetPalmaConnectionHandle(Out<Palma::PalmaConnectionHandle> out_handle,
                                     Core::HID::NpadIdType npad_id,
                                     ClientAppletResourceUserId aruid);
@@ -298,7 +301,99 @@ private:
     Result IsFirmwareUpdateNeededForNotification(Out<bool> out_is_firmware_update_needed,
                                                  s32 unknown, ClientAppletResourceUserId aruid);
     Result SetTouchScreenResolution(u32 width, u32 height, ClientAppletResourceUserId aruid);
+
+    // [15.0.0+] Functions
+    Result SetForceSixAxisSensorFusedParameters(Core::HID::SixAxisSensorHandle sixaxis_handle,
+                                               Core::HID::SixAxisSensorFusionParameters sixaxis_fusion,
+                                               ClientAppletResourceUserId aruid);
+    Result GetForceSixAxisSensorFusedParameters(Out<Core::HID::SixAxisSensorFusionParameters> out_fusion_parameters,
+                                               Core::HID::SixAxisSensorHandle sixaxis_handle,
+                                               ClientAppletResourceUserId aruid);
+
+    // [20.0.0+] Functions
+    Result GetFirmwareVersionStringForUserSupportPage(OutBuffer<BufferAttr_HipcMapAlias> out_firmware_version,
+                                                      ClientAppletResourceUserId aruid);
+
+    // [19.0.0+] Functions
+    Result GetAppletResourceProperty(Out<u64> out_property, ClientAppletResourceUserId aruid);
+
     Result ActivateDigitizer(ClientAppletResourceUserId aruid);
+
+    // [15.0.0+] Missing functions from switchbrew reference
+    Result GetDigitizerSensorActivateEvent(OutCopyHandle<Kernel::KReadableEvent> out_event,
+                                          ClientAppletResourceUserId aruid);
+    Result GetDigitizerModeChangeEvent(OutCopyHandle<Kernel::KReadableEvent> out_event,
+                                      ClientAppletResourceUserId aruid);
+    Result AcquireDigitizerActivateEventHandle(OutCopyHandle<Kernel::KReadableEvent> out_event,
+                                              ClientAppletResourceUserId aruid);
+    Result Unknown2004(ClientAppletResourceUserId aruid);
+    Result Unknown2005(ClientAppletResourceUserId aruid);
+    Result Unknown2006(ClientAppletResourceUserId aruid);
+    Result Unknown2007(ClientAppletResourceUserId aruid);
+
+    // [16.0.0+] Additional functions
+    Result Unknown2010(ClientAppletResourceUserId aruid);
+    Result Unknown2011(ClientAppletResourceUserId aruid);
+    Result Unknown2012(ClientAppletResourceUserId aruid);
+    Result Unknown2013(ClientAppletResourceUserId aruid);
+    Result Unknown2014(ClientAppletResourceUserId aruid);
+
+    // [17.0.0+] Additional functions
+    Result Unknown2020(ClientAppletResourceUserId aruid);
+    Result Unknown2021(ClientAppletResourceUserId aruid);
+    Result Unknown2022(ClientAppletResourceUserId aruid);
+
+    // [18.0.0+] Additional functions
+    Result Unknown2030(ClientAppletResourceUserId aruid);
+    Result Unknown2031(ClientAppletResourceUserId aruid);
+    Result Unknown2032(ClientAppletResourceUserId aruid);
+    Result Unknown2033(ClientAppletResourceUserId aruid);
+
+    // [19.0.0+] Additional functions
+    Result Unknown2040(ClientAppletResourceUserId aruid);
+    Result Unknown2041(ClientAppletResourceUserId aruid);
+    Result Unknown2042(ClientAppletResourceUserId aruid);
+    Result Unknown2043(ClientAppletResourceUserId aruid);
+    Result Unknown2044(ClientAppletResourceUserId aruid);
+
+    // [20.0.0+] Additional functions
+    Result Unknown2050(ClientAppletResourceUserId aruid);
+    Result Unknown2051(ClientAppletResourceUserId aruid);
+    Result Unknown2052(ClientAppletResourceUserId aruid);
+    Result Unknown2053(ClientAppletResourceUserId aruid);
+    Result Unknown2054(ClientAppletResourceUserId aruid);
+    Result Unknown2055(ClientAppletResourceUserId aruid);
+
+    // [20.0.1+] Additional functions
+    Result Unknown2060(ClientAppletResourceUserId aruid);
+    Result Unknown2061(ClientAppletResourceUserId aruid);
+    Result Unknown2062(ClientAppletResourceUserId aruid);
+
+    // Missing functions from gaps in current implementation
+    Result Unknown90(ClientAppletResourceUserId aruid);
+    Result Unknown105(ClientAppletResourceUserId aruid);
+    Result Unknown213(ClientAppletResourceUserId aruid);
+    Result Unknown214(ClientAppletResourceUserId aruid);
+    Result Unknown215(ClientAppletResourceUserId aruid);
+    Result Unknown216(ClientAppletResourceUserId aruid);
+    Result Unknown220(ClientAppletResourceUserId aruid);
+    Result Unknown409(ClientAppletResourceUserId aruid);
+    Result Unknown411(ClientAppletResourceUserId aruid);
+    Result Unknown412(ClientAppletResourceUserId aruid);
+    Result Unknown413(ClientAppletResourceUserId aruid);
+    Result Unknown530(ClientAppletResourceUserId aruid);
+    Result Unknown531(ClientAppletResourceUserId aruid);
+    Result Unknown532(ClientAppletResourceUserId aruid);
+
+    // [20.0.0+] Palma functions
+    Result SetPalmaDisallowedActiveApplications(ClientAppletResourceUserId aruid,
+                                               InBuffer<BufferAttr_HipcMapAlias> disallowed_applications);
+
+    Result Unknown1005(ClientAppletResourceUserId aruid);
+    Result Unknown1006(ClientAppletResourceUserId aruid);
+    Result Unknown1007(ClientAppletResourceUserId aruid);
+    Result Unknown1008(ClientAppletResourceUserId aruid);
+    Result Unknown1009(ClientAppletResourceUserId aruid);
 
     std::shared_ptr<ResourceManager> resource_manager;
     std::shared_ptr<HidFirmwareSettings> firmware_settings;
