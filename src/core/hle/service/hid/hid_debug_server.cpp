@@ -75,6 +75,7 @@ IHidDebugServer::IHidDebugServer(Core::System& system_, std::shared_ptr<Resource
         {150, nullptr, "GetGyroscopeOdr"},
         {151, nullptr, "SetGyroscopeOdr"},
         {152, nullptr, "GetWhoAmI"},
+        {200, nullptr, "Unknown200"},
         {201, nullptr, "ActivateFirmwareUpdate"},
         {202, nullptr, "DeactivateFirmwareUpdate"},
         {203, nullptr, "StartFirmwareUpdate"},
@@ -119,6 +120,7 @@ IHidDebugServer::IHidDebugServer(Core::System& system_, std::shared_ptr<Resource
         {249, nullptr, "ConnectUniquePad"},
         {250, nullptr, "IsVirtual"},
         {251, nullptr, "GetAnalogStickModuleParam"},
+        {300, nullptr, "Unknown300"},
         {301, nullptr, "GetAbstractedPadHandles"},
         {302, nullptr, "GetAbstractedPadState"},
         {303, nullptr, "GetAbstractedPadsState"},
@@ -152,7 +154,33 @@ IHidDebugServer::IHidDebugServer(Core::System& system_, std::shared_ptr<Resource
         {2000, nullptr, "DeactivateDigitizer"},
         {2001, nullptr, "SetDigitizerAutoPilotState"},
         {2002, nullptr, "UnsetDigitizerAutoPilotState"},
-        {2002, nullptr, "ReloadFirmwareDebugSettings"},
+        {2003, nullptr, "ReloadFirmwareDebugSettings"},
+        // [15.0.0+] Additional debug functions
+        {2010, nullptr, "Unknown2010"},
+        {2011, nullptr, "Unknown2011"},
+        {2012, nullptr, "Unknown2012"},
+        // [16.0.0+] Additional debug functions
+        {2020, nullptr, "Unknown2020"},
+        {2021, nullptr, "Unknown2021"},
+        // [17.0.0+] Additional debug functions
+        {2030, nullptr, "Unknown2030"},
+        {2031, nullptr, "Unknown2031"},
+        // [18.0.0+] Additional debug functions
+        {2040, nullptr, "Unknown2040"},
+        {2041, nullptr, "Unknown2041"},
+        // [19.0.0+] Additional debug functions
+        {2050, nullptr, "Unknown2050"},
+        {2051, nullptr, "Unknown2051"},
+        // [20.0.0+] Additional debug functions
+        {2060, nullptr, "Unknown2060"},
+        {2061, nullptr, "Unknown2061"},
+        {2062, nullptr, "Unknown2062"},
+        // Additional potentially unknown debug functions
+        {3000, nullptr, "Unknown3000"},
+        {3001, nullptr, "Unknown3001"},
+        {4000, nullptr, "Unknown4000"},
+        {4001, nullptr, "Unknown4001"},
+        {5000, nullptr, "Unknown5000"},
     };
     // clang-format on
 
