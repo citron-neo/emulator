@@ -163,6 +163,8 @@ private:
     void RegisterClientShared(HLERequestContext& ctx);
     void GetSocketStatistics(HLERequestContext& ctx);
     void NifIoctl(HLERequestContext& ctx);
+    void Unknown39(HLERequestContext& ctx);  // [20.0.0+] undocumented
+    void Unknown40(HLERequestContext& ctx);  // [20.0.0+] undocumented
     void SetThreadCoreMask(HLERequestContext& ctx);
     void GetThreadCoreMask(HLERequestContext& ctx);
 

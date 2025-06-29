@@ -1062,6 +1062,12 @@ add_library(core STATIC
     hle/service/sm/sm_controller.h
     hle/service/sockets/bsd.cpp
     hle/service/sockets/bsd.h
+    hle/service/sockets/bsdnu.cpp
+    hle/service/sockets/bsdnu.h
+    hle/service/sockets/dnspriv.cpp
+    hle/service/sockets/dnspriv.h
+    hle/service/sockets/ethc.cpp
+    hle/service/sockets/ethc.h
     hle/service/sockets/nsd.cpp
     hle/service/sockets/nsd.h
     hle/service/sockets/sfdnsres.cpp
