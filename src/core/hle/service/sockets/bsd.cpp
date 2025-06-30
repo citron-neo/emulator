@@ -1018,6 +1018,8 @@ BSD::BSD(Core::System& system_, const char* name)
         {33, &BSD::RegisterClientShared, "RegisterClientShared"},
         {34, &BSD::GetSocketStatistics, "GetSocketStatistics"},
         {35, &BSD::NifIoctl, "NifIoctl"},
+        {39, &BSD::Unknown39, "[20.0.0+] Unknown39"},
+        {40, &BSD::Unknown40, "[20.0.0+] Unknown40"},
         {200, &BSD::SetThreadCoreMask, "SetThreadCoreMask"},
         {201, &BSD::GetThreadCoreMask, "GetThreadCoreMask"},
     };
@@ -1294,6 +1296,22 @@ void BSD::SocketExempt(HLERequestContext& ctx) {
     IPC::ResponseBuilder rb{ctx, 4};
     rb.Push(ResultSuccess);
     rb.Push<s32>(-1); // fd
+    rb.PushEnum(static_cast<Errno>(EOPNOTSUPP));
+}
+
+void BSD::Unknown39(HLERequestContext& ctx) {
+    LOG_WARNING(Service, "(STUBBED) called Unknown39 [20.0.0+]");
+    IPC::ResponseBuilder rb{ctx, 4};
+    rb.Push(ResultSuccess);
+    rb.Push<s32>(-1);
+    rb.PushEnum(static_cast<Errno>(EOPNOTSUPP));
+}
+
+void BSD::Unknown40(HLERequestContext& ctx) {
+    LOG_WARNING(Service, "(STUBBED) called Unknown40 [20.0.0+]");
+    IPC::ResponseBuilder rb{ctx, 4};
+    rb.Push(ResultSuccess);
+    rb.Push<s32>(-1);
     rb.PushEnum(static_cast<Errno>(EOPNOTSUPP));
 }
 
