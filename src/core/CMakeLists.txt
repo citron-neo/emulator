@@ -631,18 +631,30 @@ add_library(core STATIC
     hle/service/fgm/fgm.h
     hle/service/filesystem/filesystem.cpp
     hle/service/filesystem/filesystem.h
+    hle/service/filesystem/fsp/fs_i_device_operator.cpp
+    hle/service/filesystem/fsp/fs_i_device_operator.h
     hle/service/filesystem/fsp/fs_i_directory.cpp
     hle/service/filesystem/fsp/fs_i_directory.h
+    hle/service/filesystem/fsp/fs_i_event_notifier.cpp
+    hle/service/filesystem/fsp/fs_i_event_notifier.h
     hle/service/filesystem/fsp/fs_i_file.cpp
     hle/service/filesystem/fsp/fs_i_file.h
     hle/service/filesystem/fsp/fs_i_filesystem.cpp
     hle/service/filesystem/fsp/fs_i_filesystem.h
     hle/service/filesystem/fsp/fs_i_multi_commit_manager.cpp
     hle/service/filesystem/fsp/fs_i_multi_commit_manager.h
+    hle/service/filesystem/fsp/fs_i_save_data_exporter.cpp
+    hle/service/filesystem/fsp/fs_i_save_data_exporter.h
+    hle/service/filesystem/fsp/fs_i_save_data_importer.cpp
+    hle/service/filesystem/fsp/fs_i_save_data_importer.h
     hle/service/filesystem/fsp/fs_i_save_data_info_reader.cpp
     hle/service/filesystem/fsp/fs_i_save_data_info_reader.h
+    hle/service/filesystem/fsp/fs_i_save_data_transfer_manager.cpp
+    hle/service/filesystem/fsp/fs_i_save_data_transfer_manager.h
     hle/service/filesystem/fsp/fs_i_storage.cpp
     hle/service/filesystem/fsp/fs_i_storage.h
+    hle/service/filesystem/fsp/fs_i_wiper.cpp
+    hle/service/filesystem/fsp/fs_i_wiper.h
     hle/service/filesystem/fsp/fsp_ldr.cpp
     hle/service/filesystem/fsp/fsp_ldr.h
     hle/service/filesystem/fsp/fsp_pr.cpp

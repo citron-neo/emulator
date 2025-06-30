@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: Copyright 2018 yuzu Emulator Project
+// SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #pragma once
@@ -23,11 +24,15 @@ namespace Service::FileSystem {
 class RomFsController;
 class SaveDataController;
 
+class IDeviceOperator;
+class IEventNotifier;
 class IFileSystem;
 class ISaveDataInfoReader;
+class ISaveDataTransferManager;
 class ISaveDataTransferProhibiter;
 class IStorage;
 class IMultiCommitManager;
+class IWiper;
 
 enum class AccessLogVersion : u32 {
     V7_0_0 = 2,
@@ -106,6 +111,16 @@ private:
     Result ExtendSaveDataFileSystem(FileSys::SaveDataSpaceId space_id, u64 save_data_id,
                                     s64 available_size, s64 journal_size);
     Result GetCacheStorageSize(s32 index, Out<s64> out_data_size, Out<s64> out_journal_size);
+    Result OpenDeviceOperator(OutInterface<IDeviceOperator> out_interface);
+    Result OpenSdCardDetectionEventNotifier(OutInterface<IEventNotifier> out_interface);
+    Result OpenGameCardDetectionEventNotifier(OutInterface<IEventNotifier> out_interface);
+    Result OpenSaveDataTransferManager(OutInterface<ISaveDataTransferManager> out_interface);
+    Result OpenSaveDataTransferManagerVersion2(OutInterface<ISaveDataTransferManager> out_interface);
+    Result OpenBisWiper(OutInterface<IWiper> out_interface);
+    Result OpenBisStorage(OutInterface<IStorage> out_interface, u32 partition_id);
+    Result DeleteSaveDataFileSystem(u64 save_data_id);
+    Result OpenGameCardStorage(OutInterface<IStorage> out_interface, u32 handle, u32 partition_id);
+    Result OpenGameCardFileSystem(OutInterface<IFileSystem> out_interface, u32 handle, u32 partition_id);
 
     FileSystemController& fsc;
     const FileSys::ContentProvider& content_provider;

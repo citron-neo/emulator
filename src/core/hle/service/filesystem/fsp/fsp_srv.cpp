@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: Copyright 2018 yuzu Emulator Project
+// SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <cinttypes>
@@ -29,10 +30,14 @@
 #include "core/hle/result.h"
 #include "core/hle/service/cmif_serialization.h"
 #include "core/hle/service/filesystem/filesystem.h"
+#include "core/hle/service/filesystem/fsp/fs_i_device_operator.h"
+#include "core/hle/service/filesystem/fsp/fs_i_event_notifier.h"
 #include "core/hle/service/filesystem/fsp/fs_i_filesystem.h"
 #include "core/hle/service/filesystem/fsp/fs_i_multi_commit_manager.h"
 #include "core/hle/service/filesystem/fsp/fs_i_save_data_info_reader.h"
+#include "core/hle/service/filesystem/fsp/fs_i_save_data_transfer_manager.h"
 #include "core/hle/service/filesystem/fsp/fs_i_storage.h"
+#include "core/hle/service/filesystem/fsp/fs_i_wiper.h"
 #include "core/hle/service/filesystem/fsp/fsp_srv.h"
 #include "core/hle/service/filesystem/fsp/save_data_transfer_prohibiter.h"
 #include "core/hle/service/filesystem/romfs_controller.h"
@@ -56,12 +61,12 @@ FSP_SRV::FSP_SRV(Core::System& system_)
         {8, nullptr, "OpenFileSystemWithId"},
         {9, nullptr, "OpenDataFileSystemByApplicationId"},
         {11, nullptr, "OpenBisFileSystem"},
-        {12, nullptr, "OpenBisStorage"},
+        {12, D<&FSP_SRV::OpenBisStorage>, "OpenBisStorage"},
         {13, nullptr, "InvalidateBisCache"},
         {17, nullptr, "OpenHostFileSystem"},
         {18, D<&FSP_SRV::OpenSdCardFileSystem>, "OpenSdCardFileSystem"},
         {19, nullptr, "FormatSdCardFileSystem"},
-        {21, nullptr, "DeleteSaveDataFileSystem"},
+        {21, D<&FSP_SRV::DeleteSaveDataFileSystem>, "DeleteSaveDataFileSystem"},
         {22, D<&FSP_SRV::CreateSaveDataFileSystem>, "CreateSaveDataFileSystem"},
         {23, D<&FSP_SRV::CreateSaveDataFileSystemBySystemSaveDataId>, "CreateSaveDataFileSystemBySystemSaveDataId"},
         {24, nullptr, "RegisterSaveDataFileSystemAtomicDeletion"},
@@ -69,8 +74,8 @@ FSP_SRV::FSP_SRV(Core::System& system_)
         {26, nullptr, "FormatSdCardDryRun"},
         {27, nullptr, "IsExFatSupported"},
         {28, nullptr, "DeleteSaveDataFileSystemBySaveDataAttribute"},
-        {30, nullptr, "OpenGameCardStorage"},
-        {31, nullptr, "OpenGameCardFileSystem"},
+        {30, D<&FSP_SRV::OpenGameCardStorage>, "OpenGameCardStorage"},
+        {31, D<&FSP_SRV::OpenGameCardFileSystem>, "OpenGameCardFileSystem"},
         {32, D<&FSP_SRV::ExtendSaveDataFileSystem>, "ExtendSaveDataFileSystem"},
         {33, nullptr, "DeleteCacheStorage"},
         {34, D<&FSP_SRV::GetCacheStorageSize>, "GetCacheStorageSize"},
@@ -94,8 +99,8 @@ FSP_SRV::FSP_SRV(Core::System& system_)
         {70, D<&FSP_SRV::WriteSaveDataFileSystemExtraDataWithMaskBySaveDataAttribute>, "WriteSaveDataFileSystemExtraDataWithMaskBySaveDataAttribute"},
         {71, D<&FSP_SRV::ReadSaveDataFileSystemExtraDataWithMaskBySaveDataAttribute>, "ReadSaveDataFileSystemExtraDataWithMaskBySaveDataAttribute"},
         {80, nullptr, "OpenSaveDataMetaFile"},
-        {81, nullptr, "OpenSaveDataTransferManager"},
-        {82, nullptr, "OpenSaveDataTransferManagerVersion2"},
+        {81, D<&FSP_SRV::OpenSaveDataTransferManager>, "OpenSaveDataTransferManager"},
+        {82, D<&FSP_SRV::OpenSaveDataTransferManagerVersion2>, "OpenSaveDataTransferManagerVersion2"},
         {83, D<&FSP_SRV::OpenSaveDataTransferProhibiter>, "OpenSaveDataTransferProhibiter"},
         {84, nullptr, "ListApplicationAccessibleSaveDataOwnerId"},
         {85, nullptr, "OpenSaveDataTransferManagerForSaveDataRepair"},
@@ -114,9 +119,9 @@ FSP_SRV::FSP_SRV(Core::System& system_)
         {204, nullptr, "OpenDataFileSystemByProgramIndex"},
         {205, D<&FSP_SRV::OpenDataStorageWithProgramIndex>, "OpenDataStorageWithProgramIndex"},
         {206, nullptr, "OpenDataStorageByPath"},
-        {400, nullptr, "OpenDeviceOperator"},
-        {500, nullptr, "OpenSdCardDetectionEventNotifier"},
-        {501, nullptr, "OpenGameCardDetectionEventNotifier"},
+        {400, D<&FSP_SRV::OpenDeviceOperator>, "OpenDeviceOperator"},
+        {500, D<&FSP_SRV::OpenSdCardDetectionEventNotifier>, "OpenSdCardDetectionEventNotifier"},
+        {501, D<&FSP_SRV::OpenGameCardDetectionEventNotifier>, "OpenGameCardDetectionEventNotifier"},
         {510, nullptr, "OpenSystemDataUpdateEventNotifier"},
         {511, nullptr, "NotifySystemDataUpdateEvent"},
         {520, nullptr, "SimulateGameCardDetectionEvent"},
@@ -171,7 +176,7 @@ FSP_SRV::FSP_SRV(Core::System& system_)
         {1100, nullptr, "OverrideSaveDataTransferTokenSignVerificationKey"},
         {1110, nullptr, "CorruptSaveDataFileSystemBySaveDataSpaceId2"},
         {1200, D<&FSP_SRV::OpenMultiCommitManager>, "OpenMultiCommitManager"},
-        {1300, nullptr, "OpenBisWiper"},
+        {1300, D<&FSP_SRV::OpenBisWiper>, "OpenBisWiper"},
     };
     // clang-format on
     RegisterHandlers(functions);
@@ -547,6 +552,82 @@ Result FSP_SRV::OpenMultiCommitManager(OutInterface<IMultiCommitManager> out_int
     *out_interface = std::make_shared<IMultiCommitManager>(system);
 
     R_SUCCEED();
+}
+
+Result FSP_SRV::OpenDeviceOperator(OutInterface<IDeviceOperator> out_interface) {
+    LOG_DEBUG(Service_FS, "called");
+
+    *out_interface = std::make_shared<IDeviceOperator>(system);
+
+    R_SUCCEED();
+}
+
+Result FSP_SRV::OpenSdCardDetectionEventNotifier(OutInterface<IEventNotifier> out_interface) {
+    LOG_DEBUG(Service_FS, "called");
+
+    *out_interface = std::make_shared<IEventNotifier>(system);
+
+    R_SUCCEED();
+}
+
+Result FSP_SRV::OpenGameCardDetectionEventNotifier(OutInterface<IEventNotifier> out_interface) {
+    LOG_DEBUG(Service_FS, "called");
+
+    *out_interface = std::make_shared<IEventNotifier>(system);
+
+    R_SUCCEED();
+}
+
+Result FSP_SRV::OpenSaveDataTransferManager(OutInterface<ISaveDataTransferManager> out_interface) {
+    LOG_DEBUG(Service_FS, "called");
+
+    *out_interface = std::make_shared<ISaveDataTransferManager>(system);
+
+    R_SUCCEED();
+}
+
+Result FSP_SRV::OpenSaveDataTransferManagerVersion2(OutInterface<ISaveDataTransferManager> out_interface) {
+    LOG_DEBUG(Service_FS, "called");
+
+    *out_interface = std::make_shared<ISaveDataTransferManager>(system);
+
+    R_SUCCEED();
+}
+
+Result FSP_SRV::OpenBisWiper(OutInterface<IWiper> out_interface) {
+    LOG_DEBUG(Service_FS, "called");
+
+    *out_interface = std::make_shared<IWiper>(system);
+
+    R_SUCCEED();
+}
+
+Result FSP_SRV::OpenBisStorage(OutInterface<IStorage> out_interface, u32 partition_id) {
+    LOG_WARNING(Service_FS, "(STUBBED) called, partition_id={}", partition_id);
+
+    // Would need to open the BIS storage for the specified partition
+    R_THROW(FileSys::ResultTargetNotFound);
+}
+
+Result FSP_SRV::DeleteSaveDataFileSystem(u64 save_data_id) {
+    LOG_WARNING(Service_FS, "(STUBBED) called, save_data_id={:016X}", save_data_id);
+
+    // Would need to delete the save data with the given ID
+    R_SUCCEED();
+}
+
+Result FSP_SRV::OpenGameCardStorage(OutInterface<IStorage> out_interface, u32 handle, u32 partition_id) {
+    LOG_WARNING(Service_FS, "(STUBBED) called, handle={}, partition_id={}", handle, partition_id);
+
+    // Would need to open game card storage for the specified handle and partition
+    R_THROW(FileSys::ResultTargetNotFound);
+}
+
+Result FSP_SRV::OpenGameCardFileSystem(OutInterface<IFileSystem> out_interface, u32 handle, u32 partition_id) {
+    LOG_WARNING(Service_FS, "(STUBBED) called, handle={}, partition_id={}", handle, partition_id);
+
+    // Would need to open game card filesystem for the specified handle and partition
+    R_THROW(FileSys::ResultTargetNotFound);
 }
 
 } // namespace Service::FileSystem
