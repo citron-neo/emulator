@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: Copyright 2024 yuzu Emulator Project
+// SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "common/settings.h"
@@ -85,7 +86,31 @@ IApplicationFunctions::IApplicationFunctions(Core::System& system_, std::shared_
         {181, nullptr, "UpgradeLaunchRequiredVersion"},
         {190, nullptr, "SendServerMaintenanceOverlayNotification"},
         {200, nullptr, "GetLastApplicationExitReason"},
+        {210, nullptr, "GetLaunchRequiredVersionUpgrade"},
+        {211, nullptr, "GetLaunchRequiredVersionUpgradeStatus"},
+        {300, nullptr, "RequestToLaunchApplication"},
+        {301, nullptr, "RequestToLaunchApplicationWithUserAndArguments"},
+        {310, nullptr, "RequestToLaunchApplicationWithArgumentsAndUserSelectionAndError"},
+        {350, nullptr, "DeclareApplicationAlive"},
+        {400, nullptr, "CreateApplicationResourceUsageSystemReportForDebug"},
+        {401, nullptr, "WriteApplicationResourceUsageSystemReportForDebug"},
+        {410, nullptr, "SetApplicationMemoryReservation"},
+        {450, nullptr, "CreateApplicationForDevelop"},
+        {460, nullptr, "GetApplicationControlProperty"},
+        {461, nullptr, "GetApplicationDesiredLanguage"},
+        {470, nullptr, "SetApplicationTerminateResult"},
+        {480, nullptr, "GetApplicationRightsOnClient"},
+        {490, nullptr, "GetApplicationCertificate"},
         {500, nullptr, "StartContinuousRecordingFlushForDebug"},
+        {510, nullptr, "SetApplicationAliveCheckTimeoutEnabled"},
+        {600, nullptr, "CreateApplicationAliveChecker"},
+        {700, nullptr, "QueryApplicationPlayStatisticsForSystem"},
+        {701, nullptr, "QueryApplicationPlayStatisticsByUidForSystem"},
+        {702, nullptr, "QueryApplicationPlayStatisticsByPidForSystem"},
+        {900, nullptr, "CreateApplicationAttributeUpdater"},
+        {997, nullptr, "GetApplicationViewWithPromotionInfo"},
+        {998, nullptr, "GetApplicationView"},
+        {999, nullptr, "GetApplicationViewDeprecated"},
         {1000, nullptr, "CreateMovieMaker"},
         {1001, D<&IApplicationFunctions::PrepareForJit>, "PrepareForJit"},
     };

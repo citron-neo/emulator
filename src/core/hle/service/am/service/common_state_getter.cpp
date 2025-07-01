@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: Copyright 2024 yuzu Emulator Project
+// SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "common/settings.h"
@@ -69,7 +70,29 @@ ICommonStateGetter::ICommonStateGetter(Core::System& system_, std::shared_ptr<Ap
         {501, nullptr, "SuppressDisablingSleepTemporarily"},
         {502, nullptr, "IsSleepEnabled"},
         {503, nullptr, "IsDisablingSleepSuppressed"},
+        {600, nullptr, "GetLaunchStorageInfoForDebug"},
+        {700, nullptr, "ExtendSaveData"},
+        {701, nullptr, "GetSaveDataSize"},
+        {800, nullptr, "CreateCacheStorage"},
+        {801, nullptr, "GetCacheStorageMax"},
+        {810, nullptr, "GetSaveDataSizeMax"},
         {900, D<&ICommonStateGetter::SetRequestExitToLibraryAppletAtExecuteNextProgramEnabled>, "SetRequestExitToLibraryAppletAtExecuteNextProgramEnabled"},
+        {901, nullptr, "GetRequestExitToLibraryAppletAtExecuteNextProgramEnabled"},
+        {1000, nullptr, "GetRestartMessageEnabled"},
+        {1001, nullptr, "GetScreenShotPermission"},
+        {1010, nullptr, "GetNextProgramArgumentInfo"},
+        {1011, nullptr, "GetPreviousProgramArgumentInfo"},
+        {1020, nullptr, "GetGpuErrorDetectedSystemEvent"},
+        {1021, nullptr, "SetDelayTimeToAbortOnGpuError"},
+        {1030, nullptr, "GetFriendInvitationStorageChannelEvent"},
+        {1031, nullptr, "TryPopFromFriendInvitationStorageChannel"},
+        {1040, nullptr, "GetNotificationStorageChannelEvent"},
+        {1041, nullptr, "TryPopFromNotificationStorageChannel"},
+        {1050, nullptr, "GetHealthWarningDisappearedSystemEvent"},
+        {1060, nullptr, "SetHdcpAuthenticationActivated"},
+        {1061, nullptr, "GetLastForegroundCaptureImageEx"},
+        {1062, nullptr, "GetLastApplicationCaptureImageEx"},
+        {1063, nullptr, "GetLastApplicationCaptureImage"},
     };
     // clang-format on
 
