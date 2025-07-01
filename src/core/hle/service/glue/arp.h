@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: Copyright 2019 yuzu Emulator Project
+// SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #pragma once
@@ -20,6 +21,12 @@ private:
     void GetApplicationLaunchPropertyWithApplicationId(HLERequestContext& ctx);
     void GetApplicationControlProperty(HLERequestContext& ctx);
     void GetApplicationControlPropertyWithApplicationId(HLERequestContext& ctx);
+    void GetApplicationInstanceUnregistrationNotifier(HLERequestContext& ctx);
+    void ListApplicationInstanceId(HLERequestContext& ctx);
+    void GetMicroApplicationInstanceId(HLERequestContext& ctx);
+    void GetApplicationCertificate(HLERequestContext& ctx);
+    void GetPreomiaApplicationLaunchProperty(HLERequestContext& ctx);
+    void GetPreomiaApplicationControlProperty(HLERequestContext& ctx);
 
     const ARPManager& manager;
 };
@@ -32,6 +39,9 @@ public:
 private:
     void AcquireRegistrar(HLERequestContext& ctx);
     void UnregisterApplicationInstance(HLERequestContext& ctx);
+    void AcquireApplicationProcessPropertyUpdater(HLERequestContext& ctx);
+    void AcquireApplicationCertificateUpdater(HLERequestContext& ctx);
+    void RegisterApplicationControlProperty(HLERequestContext& ctx);
 
     ARPManager& manager;
     std::shared_ptr<IRegistrar> registrar;

@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: Copyright 2021 yuzu Emulator Project
+// SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #pragma once
@@ -18,6 +19,12 @@ public:
 
 private:
     void CreateContextRegistrar(HLERequestContext& ctx);
+};
+
+class ECTX_R final : public ServiceFramework<ECTX_R> {
+public:
+    explicit ECTX_R(Core::System& system_);
+    ~ECTX_R() override;
 };
 
 } // namespace Service::Glue

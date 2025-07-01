@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: Copyright 2018 yuzu Emulator Project
+// SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <algorithm>
@@ -149,6 +150,9 @@ IPlatformServiceManager::IPlatformServiceManager(Core::System& system_, const ch
         {106, nullptr, "GetFunctionBlackListVersion"},
         {1000, nullptr, "LoadNgWordDataForPlatformRegionChina"},
         {1001, nullptr, "GetNgWordDataSizeForPlatformRegionChina"},
+        {2010, D<&IPlatformServiceManager::Unknown2010>, "[S2] Unknown2010"}, // [S2] Switch 2
+        {2020, D<&IPlatformServiceManager::Unknown2020>, "[S2] Unknown2020"}, // [S2] Switch 2
+        {2100, D<&IPlatformServiceManager::OpenFont>, "[S2] OpenFont"}, // [S2] Switch 2 - Returns IFontService
     };
     // clang-format on
     RegisterHandlers(functions);
@@ -267,6 +271,24 @@ Result IPlatformServiceManager::GetSharedFontInOrderOfPriority(
 
     *out_fonts_are_loaded = true;
     *out_font_count = static_cast<u32>(max_size);
+    R_SUCCEED();
+}
+
+Result IPlatformServiceManager::Unknown2010(/* Unknown parameters */) {
+    LOG_WARNING(Service_NS, "(STUBBED) called - [S2] Switch 2 function");
+    R_SUCCEED();
+}
+
+Result IPlatformServiceManager::Unknown2020(/* Unknown parameters */) {
+    LOG_WARNING(Service_NS, "(STUBBED) called - [S2] Switch 2 function");
+    R_SUCCEED();
+}
+
+Result IPlatformServiceManager::OpenFont(/* Out<SharedPointer<IFontService>> out_font_service */) {
+    LOG_WARNING(Service_NS, "(STUBBED) called - [S2] OpenFont");
+
+    // Return stub font service for Switch 2
+    // TODO: Implement proper IFontService interface when needed
     R_SUCCEED();
 }
 

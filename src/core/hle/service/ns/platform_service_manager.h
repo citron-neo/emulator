@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: Copyright 2018 yuzu Emulator Project
+// SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #pragma once
@@ -69,6 +70,11 @@ private:
                                           OutArray<u32, BufferAttr_HipcMapAlias> out_font_sizes,
                                           Out<bool> out_fonts_are_loaded, Out<u32> out_font_count,
                                           Set::LanguageCode language_code);
+
+    // [S2] Switch 2 functions
+    Result Unknown2010(/* Unknown parameters */);
+    Result Unknown2020(/* Unknown parameters */);
+    Result OpenFont(/* Out<SharedPointer<IFontService>> out_font_service */);
 
     struct Impl;
     std::unique_ptr<Impl> impl;
