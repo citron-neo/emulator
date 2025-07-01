@@ -489,6 +489,8 @@ add_library(core STATIC
     hle/service/am/service/library_applet_self_accessor.h
     hle/service/am/service/lock_accessor.cpp
     hle/service/am/service/lock_accessor.h
+    hle/service/am/service/overlay_applet_proxy.cpp
+    hle/service/am/service/overlay_applet_proxy.h
     hle/service/am/service/process_winding_controller.cpp
     hle/service/am/service/process_winding_controller.h
     hle/service/am/service/self_controller.cpp
@@ -499,6 +501,8 @@ add_library(core STATIC
     hle/service/am/service/storage_accessor.h
     hle/service/am/service/system_applet_proxy.cpp
     hle/service/am/service/system_applet_proxy.h
+    hle/service/am/service/system_application_proxy.cpp
+    hle/service/am/service/system_application_proxy.h
     hle/service/am/service/window_controller.cpp
     hle/service/am/service/window_controller.h
     hle/service/am/window_system.cpp

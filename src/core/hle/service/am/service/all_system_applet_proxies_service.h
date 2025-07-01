@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: Copyright 2018 yuzu Emulator Project
+// SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #pragma once
@@ -12,8 +13,12 @@ namespace AM {
 
 struct Applet;
 struct AppletAttribute;
+class IDebugFunctions;
+class ILibraryAppletCreator;
 class ILibraryAppletProxy;
+class IOverlayAppletProxy;
 class ISystemAppletProxy;
+class ISystemApplicationProxy;
 class WindowSystem;
 
 class IAllSystemAppletProxiesService final
@@ -33,6 +38,18 @@ private:
     Result OpenLibraryAppletProxyOld(
         Out<SharedPointer<ILibraryAppletProxy>> out_library_applet_proxy, ClientProcessId pid,
         InCopyHandle<Kernel::KProcess> process_handle);
+    Result OpenOverlayAppletProxy(Out<SharedPointer<IOverlayAppletProxy>> out_overlay_applet_proxy,
+                                  ClientProcessId pid,
+                                  InCopyHandle<Kernel::KProcess> process_handle,
+                                  InLargeData<AppletAttribute, BufferAttr_HipcMapAlias> attribute);
+    Result OpenSystemApplicationProxy(Out<SharedPointer<ISystemApplicationProxy>> out_system_application_proxy,
+                                      ClientProcessId pid,
+                                      InCopyHandle<Kernel::KProcess> process_handle);
+    Result CreateSelfLibraryAppletCreatorForDevelop(Out<SharedPointer<ILibraryAppletCreator>> out_library_applet_creator,
+                                                     ClientProcessId pid,
+                                                     InCopyHandle<Kernel::KProcess> process_handle);
+    Result GetSystemAppletControllerForDebug();
+    Result GetDebugFunctions(Out<SharedPointer<IDebugFunctions>> out_debug_functions);
 
 private:
     std::shared_ptr<Applet> GetAppletFromProcessId(ProcessId pid);

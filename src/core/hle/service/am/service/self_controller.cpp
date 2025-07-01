@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: Copyright 2024 yuzu Emulator Project
+// SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "common/logging/log.h"
@@ -67,6 +68,25 @@ ISelfController::ISelfController(Core::System& system_, std::shared_ptr<Applet> 
         {110, nullptr, "SetApplicationAlbumUserData"},
         {120, D<&ISelfController::SaveCurrentScreenshot>, "SaveCurrentScreenshot"},
         {130, D<&ISelfController::SetRecordVolumeMuted>, "SetRecordVolumeMuted"},
+        {140, nullptr, "SetRecordingVolumeMuted"},
+        {141, nullptr, "GetRecordingVolumeMuted"},
+        {150, nullptr, "SetRecordingEncryptionEnabled"},
+        {160, nullptr, "SetCpuBoostRequestPriority"},
+        {170, nullptr, "GetCurrentPerformanceConfiguration"},
+        {180, nullptr, "GetOperationModeSystemInfo"},
+        {200, nullptr, "GetSettingsPlatformRegion"},
+        {210, nullptr, "ActivateMigrationService"},
+        {211, nullptr, "DeactivateMigrationService"},
+        {300, nullptr, "SendMessage"},
+        {301, nullptr, "ReceiveMessage"},
+        {400, nullptr, "CreateAlbumAccessorApplicationAlbumEntry"},
+        {401, nullptr, "CreateAlbumAccessorApplicationAlbumArchivedEntry"},
+        {500, nullptr, "OpenAccessorSession"},
+        {600, nullptr, "CreateAccessorInterface"},
+        {700, nullptr, "CreateCacheStorageInterface"},
+        {800, nullptr, "OpenDataStorageByApplicationId"},
+        {900, nullptr, "CreateUserInterface"},
+        {950, nullptr, "CreateSystemUpdateInterface"},
         {1000, nullptr, "GetDebugStorageChannel"},
     };
     // clang-format on
