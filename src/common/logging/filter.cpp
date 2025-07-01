@@ -134,6 +134,7 @@ bool ParseFilterRule(Filter& instance, Iterator begin, Iterator end) {
     SUB(Service, SSL)                                                                              \
     SUB(Service, TCAP)                                                                             \
     SUB(Service, Time)                                                                             \
+    SUB(Service, TMA)                                                                              \
     SUB(Service, USB)                                                                              \
     SUB(Service, VI)                                                                               \
     SUB(Service, WLAN)                                                                             \

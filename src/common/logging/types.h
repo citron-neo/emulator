@@ -102,6 +102,7 @@ enum class Class : u8 {
     Service_SSL,        ///< The SSL service
     Service_TCAP,       ///< The TCAP service.
     Service_Time,       ///< The time service
+    Service_TMA,        ///< The TMA (Target Manager Agent) service
     Service_USB,        ///< The USB (Universal Serial Bus) service
     Service_VI,         ///< The VI (Video interface) service
     Service_WLAN,       ///< The WLAN (Wireless local area network) service
