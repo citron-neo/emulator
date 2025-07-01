@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: Copyright 2019 yuzu Emulator Project
+// SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <memory>
@@ -30,6 +31,7 @@ void LoopProcess(Core::System& system) {
 
     // Error Context
     server_manager->RegisterNamedService("ectx:aw", std::make_shared<ECTX_AW>(system));
+    server_manager->RegisterNamedService("ectx:r", std::make_shared<ECTX_R>(system));
 
     // Notification Services
     server_manager->RegisterNamedService(

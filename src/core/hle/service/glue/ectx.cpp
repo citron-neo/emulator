@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: Copyright 2021 yuzu Emulator Project
+// SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "core/hle/service/glue/ectx.h"
@@ -58,5 +59,17 @@ void ECTX_AW::CreateContextRegistrar(HLERequestContext& ctx) {
     rb.Push(ResultSuccess);
     rb.PushIpcInterface<IContextRegistrar>(std::make_shared<IContextRegistrar>(system));
 }
+
+ECTX_R::ECTX_R(Core::System& system_) : ServiceFramework{system_, "ectx:r"} {
+    // clang-format off
+    static const FunctionInfo functions[] = {
+        {0, nullptr, "CommitContext"}, // Stub - context reading functionality
+    };
+    // clang-format on
+
+    RegisterHandlers(functions);
+}
+
+ECTX_R::~ECTX_R() = default;
 
 } // namespace Service::Glue
