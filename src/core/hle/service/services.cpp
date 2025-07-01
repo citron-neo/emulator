@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: Copyright 2024 yuzu Emulator Project
+// SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "core/hle/service/services.h"
@@ -59,6 +60,7 @@
 #include "core/hle/service/sockets/sockets.h"
 #include "core/hle/service/spl/spl_module.h"
 #include "core/hle/service/ssl/ssl.h"
+#include "core/hle/service/tma/tma.h"
 #include "core/hle/service/usb/usb.h"
 #include "core/hle/service/vi/vi.h"
 
@@ -127,6 +129,7 @@ Services::Services(std::shared_ptr<SM::ServiceManager>& sm, Core::System& system
     kernel.RunOnGuestCoreProcess("ro",         [&] { RO::LoopProcess(system); });
     kernel.RunOnGuestCoreProcess("spl",        [&] { SPL::LoopProcess(system); });
     kernel.RunOnGuestCoreProcess("ssl",        [&] { SSL::LoopProcess(system); });
+    kernel.RunOnGuestCoreProcess("tma",        [&] { TMA::LoopProcess(system); });
     kernel.RunOnGuestCoreProcess("usb",        [&] { USB::LoopProcess(system); });
     // clang-format on
 }
