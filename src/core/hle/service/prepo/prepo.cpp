@@ -27,25 +27,26 @@ public:
             {10200, &PlayReport::RequestImmediateTransmission, "RequestImmediateTransmission"},
             {10300, &PlayReport::GetTransmissionStatus, "GetTransmissionStatus"},
             {10400, &PlayReport::GetSystemSessionId, "GetSystemSessionId"},
+            {10500, &PlayReport::SendReportWithUser, "SendReportWithUser"},
             {20100, &PlayReport::SaveSystemReport, "SaveSystemReport"},
             {20101, &PlayReport::SaveSystemReportWithUser, "SaveSystemReportWithUser"},
-            {20200, nullptr, "SetOperationMode"},
-            {30100, nullptr, "ClearStorage"},
-            {30200, nullptr, "ClearStatistics"},
-            {30300, nullptr, "GetStorageUsage"},
-            {30400, nullptr, "GetStatistics"},
-            {30401, nullptr, "GetThroughputHistory"},
-            {30500, nullptr, "GetLastUploadError"},
-            {30600, nullptr, "GetApplicationUploadSummary"},
-            {40100, nullptr, "IsUserAgreementCheckEnabled"},
-            {40101, nullptr, "SetUserAgreementCheckEnabled"},
-            {50100, nullptr, "ReadAllApplicationReportFiles"},
-            {90100, nullptr, "ReadAllReportFiles"},
-            {90101, nullptr, "Unknown90101"},
-            {90102, nullptr, "Unknown90102"},
-            {90200, nullptr, "GetStatistics"},
-            {90201, nullptr, "GetThroughputHistory"},
-            {90300, nullptr, "GetLastUploadError"},
+            {20200, &PlayReport::SetOperationMode, "SetOperationMode"},
+            {30100, &PlayReport::ClearStorage, "ClearStorage"},
+            {30200, &PlayReport::ClearStatistics, "ClearStatistics"},
+            {30300, &PlayReport::GetStorageUsage, "GetStorageUsage"},
+            {30400, &PlayReport::GetStatistics, "GetStatistics"},
+            {30401, &PlayReport::GetThroughputHistory, "GetThroughputHistory"},
+            {30500, &PlayReport::GetLastUploadError, "GetLastUploadError"},
+            {30600, &PlayReport::GetApplicationUploadSummary, "GetApplicationUploadSummary"},
+            {40100, &PlayReport::IsUserAgreementCheckEnabled, "IsUserAgreementCheckEnabled"},
+            {40101, &PlayReport::SetUserAgreementCheckEnabled, "SetUserAgreementCheckEnabled"},
+            {50100, &PlayReport::ReadAllApplicationReportFiles, "ReadAllApplicationReportFiles"},
+            {90100, &PlayReport::ReadAllReportFiles, "ReadAllReportFiles"},
+            {90101, &PlayReport::Unknown90101, "Unknown90101"},
+            {90102, &PlayReport::Unknown90102, "Unknown90102"},
+            {90200, &PlayReport::GetStatisticsLegacy, "GetStatistics"},
+            {90201, &PlayReport::GetThroughputHistoryLegacy, "GetThroughputHistory"},
+            {90300, &PlayReport::GetLastUploadErrorLegacy, "GetLastUploadError"},
         };
         // clang-format on
 
@@ -154,6 +155,164 @@ private:
         const auto& reporter{system.GetReporter()};
         reporter.SavePlayReport(Core::Reporter::PlayReportType::System, title_id, {data1, data2},
                                 std::nullopt, user_id);
+
+        IPC::ResponseBuilder rb{ctx, 2};
+        rb.Push(ResultSuccess);
+    }
+
+    void SetOperationMode(HLERequestContext& ctx) {
+        LOG_WARNING(Service_PREPO, "(STUBBED) called");
+
+        IPC::ResponseBuilder rb{ctx, 2};
+        rb.Push(ResultSuccess);
+    }
+
+    void ClearStorage(HLERequestContext& ctx) {
+        LOG_WARNING(Service_PREPO, "(STUBBED) called");
+
+        IPC::ResponseBuilder rb{ctx, 2};
+        rb.Push(ResultSuccess);
+    }
+
+    void ClearStatistics(HLERequestContext& ctx) {
+        LOG_WARNING(Service_PREPO, "(STUBBED) called");
+
+        IPC::ResponseBuilder rb{ctx, 2};
+        rb.Push(ResultSuccess);
+    }
+
+    void GetStorageUsage(HLERequestContext& ctx) {
+        LOG_WARNING(Service_PREPO, "(STUBBED) called");
+
+        constexpr u64 storage_usage = 0;
+        IPC::ResponseBuilder rb{ctx, 4};
+        rb.Push(ResultSuccess);
+        rb.Push(storage_usage);
+    }
+
+    void GetStatistics(HLERequestContext& ctx) {
+        LOG_WARNING(Service_PREPO, "(STUBBED) called");
+
+        constexpr u64 statistics = 0;
+        IPC::ResponseBuilder rb{ctx, 4};
+        rb.Push(ResultSuccess);
+        rb.Push(statistics);
+    }
+
+    void GetThroughputHistory(HLERequestContext& ctx) {
+        LOG_WARNING(Service_PREPO, "(STUBBED) called");
+
+        constexpr u64 throughput_history = 0;
+        IPC::ResponseBuilder rb{ctx, 4};
+        rb.Push(ResultSuccess);
+        rb.Push(throughput_history);
+    }
+
+    void GetLastUploadError(HLERequestContext& ctx) {
+        LOG_WARNING(Service_PREPO, "(STUBBED) called");
+
+        constexpr u64 last_upload_error = 0;
+        IPC::ResponseBuilder rb{ctx, 4};
+        rb.Push(ResultSuccess);
+        rb.Push(last_upload_error);
+    }
+
+    void GetApplicationUploadSummary(HLERequestContext& ctx) {
+        LOG_WARNING(Service_PREPO, "(STUBBED) called");
+
+        constexpr u64 application_upload_summary = 0;
+        IPC::ResponseBuilder rb{ctx, 4};
+        rb.Push(ResultSuccess);
+        rb.Push(application_upload_summary);
+    }
+
+    void IsUserAgreementCheckEnabled(HLERequestContext& ctx) {
+        LOG_WARNING(Service_PREPO, "(STUBBED) called");
+
+        constexpr bool is_user_agreement_check_enabled = false;
+        IPC::ResponseBuilder rb{ctx, 2};
+        rb.Push(ResultSuccess);
+        rb.Push(is_user_agreement_check_enabled);
+    }
+
+    void SetUserAgreementCheckEnabled(HLERequestContext& ctx) {
+        LOG_WARNING(Service_PREPO, "(STUBBED) called");
+
+        IPC::ResponseBuilder rb{ctx, 2};
+        rb.Push(ResultSuccess);
+    }
+
+    void ReadAllApplicationReportFiles(HLERequestContext& ctx) {
+        LOG_WARNING(Service_PREPO, "(STUBBED) called");
+
+        IPC::ResponseBuilder rb{ctx, 2};
+        rb.Push(ResultSuccess);
+    }
+
+    void ReadAllReportFiles(HLERequestContext& ctx) {
+        LOG_WARNING(Service_PREPO, "(STUBBED) called");
+
+        IPC::ResponseBuilder rb{ctx, 2};
+        rb.Push(ResultSuccess);
+    }
+
+    void Unknown90101(HLERequestContext& ctx) {
+        LOG_WARNING(Service_PREPO, "(STUBBED) called");
+
+        IPC::ResponseBuilder rb{ctx, 2};
+        rb.Push(ResultSuccess);
+    }
+
+    void Unknown90102(HLERequestContext& ctx) {
+        LOG_WARNING(Service_PREPO, "(STUBBED) called");
+
+        IPC::ResponseBuilder rb{ctx, 2};
+        rb.Push(ResultSuccess);
+    }
+
+    void GetStatisticsLegacy(HLERequestContext& ctx) {
+        LOG_WARNING(Service_PREPO, "(STUBBED) called");
+
+        constexpr u64 statistics = 0;
+        IPC::ResponseBuilder rb{ctx, 4};
+        rb.Push(ResultSuccess);
+        rb.Push(statistics);
+    }
+
+    void GetThroughputHistoryLegacy(HLERequestContext& ctx) {
+        LOG_WARNING(Service_PREPO, "(STUBBED) called");
+
+        constexpr u64 throughput_history = 0;
+        IPC::ResponseBuilder rb{ctx, 4};
+        rb.Push(ResultSuccess);
+        rb.Push(throughput_history);
+    }
+
+    void GetLastUploadErrorLegacy(HLERequestContext& ctx) {
+        LOG_WARNING(Service_PREPO, "(STUBBED) called");
+
+        constexpr u64 last_upload_error = 0;
+        IPC::ResponseBuilder rb{ctx, 4};
+        rb.Push(ResultSuccess);
+        rb.Push(last_upload_error);
+    }
+
+    void SendReportWithUser(HLERequestContext& ctx) {
+        IPC::RequestParser rp{ctx};
+        const auto user_id = rp.PopRaw<u128>();
+        const auto process_id = rp.PopRaw<u64>();
+
+        const auto data1 = ctx.ReadBufferA(0);
+        const auto data2 = ctx.ReadBufferX(0);
+
+        LOG_DEBUG(Service_PREPO,
+                  "called, user_id={:016X}{:016X}, process_id={:016X}, data1_size={:016X}, "
+                  "data2_size={:016X}",
+                  user_id[1], user_id[0], process_id, data1.size(), data2.size());
+
+        const auto& reporter{system.GetReporter()};
+        reporter.SavePlayReport(Core::Reporter::PlayReportType::New, system.GetApplicationProcessProgramID(), {data1, data2},
+                                process_id, user_id);
 
         IPC::ResponseBuilder rb{ctx, 2};
         rb.Push(ResultSuccess);

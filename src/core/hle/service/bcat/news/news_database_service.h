@@ -27,6 +27,18 @@ private:
                    OutBuffer<BufferAttr_HipcMapAlias> out_buffer_data,
                    InBuffer<BufferAttr_HipcPointer> buffer_data_1,
                    InBuffer<BufferAttr_HipcPointer> buffer_data_2);
+
+    // Additional News Database functions
+    Result GetListV1(Out<s32> out_count, u32 value,
+                     OutBuffer<BufferAttr_HipcMapAlias> out_buffer_data,
+                     InBuffer<BufferAttr_HipcPointer> buffer_data_1,
+                     InBuffer<BufferAttr_HipcPointer> buffer_data_2);
+    Result CountWithKey(Out<s32> out_count, InBuffer<BufferAttr_HipcPointer> key_buffer);
+    Result UpdateIntegerValue(u32 value, InBuffer<BufferAttr_HipcPointer> buffer_data_1,
+                             InBuffer<BufferAttr_HipcPointer> buffer_data_2);
+    Result UpdateStringValue(InBuffer<BufferAttr_HipcPointer> buffer_data_1,
+                            InBuffer<BufferAttr_HipcPointer> buffer_data_2,
+                            InBuffer<BufferAttr_HipcPointer> buffer_data_3);
 };
 
 } // namespace Service::News

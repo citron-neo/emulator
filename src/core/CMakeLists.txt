@@ -569,6 +569,8 @@ add_library(core STATIC
     hle/service/bcat/delivery_cache_progress_service.h
     hle/service/bcat/delivery_cache_storage_service.cpp
     hle/service/bcat/delivery_cache_storage_service.h
+    hle/service/bcat/delivery_task_suspension_service.cpp
+    hle/service/bcat/delivery_task_suspension_service.h
     hle/service/bcat/news/newly_arrived_event_holder.cpp
     hle/service/bcat/news/newly_arrived_event_holder.h
     hle/service/bcat/news/news_data_service.cpp
@@ -581,6 +583,8 @@ add_library(core STATIC
     hle/service/bcat/news/overwrite_event_holder.h
     hle/service/bcat/news/service_creator.cpp
     hle/service/bcat/news/service_creator.h
+    hle/service/bcat/notifier_service.cpp
+    hle/service/bcat/notifier_service.h
     hle/service/bcat/service_creator.cpp
     hle/service/bcat/service_creator.h
     hle/service/bpc/bpc.cpp
