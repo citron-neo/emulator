@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: Copyright 2019 yuzu Emulator Project
+// SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #pragma once
@@ -29,6 +30,7 @@ namespace Service::BCAT {
 // Some of this class is implemented in module.cpp to avoid exposing the implementation structure.
 class ProgressServiceBackend {
     friend class IBcatService;
+    friend class IServiceCreator;
 
 public:
     ~ProgressServiceBackend();
