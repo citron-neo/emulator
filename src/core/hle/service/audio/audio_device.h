@@ -53,6 +53,12 @@ private:
     Result ListAudioOutputDeviceName(
         OutArray<AudioDevice::AudioDeviceName, BufferAttr_HipcMapAlias> out_names,
         Out<s32> out_count);
+    Result AcquireAudioInputDeviceNotification(OutCopyHandle<Kernel::KReadableEvent> out_event); // [17.0.0+]
+    Result ReleaseAudioInputDeviceNotification(InCopyHandle<Kernel::KReadableEvent> notification_event); // [17.0.0+]
+    Result AcquireAudioOutputDeviceNotification(OutCopyHandle<Kernel::KReadableEvent> out_event); // [17.0.0+]
+    Result ReleaseAudioOutputDeviceNotification(InCopyHandle<Kernel::KReadableEvent> notification_event); // [17.0.0+]
+    Result SetAudioDeviceOutputVolumeAutoTuneEnabled(bool enabled); // [18.0.0+]
+    Result IsAudioDeviceOutputVolumeAutoTuneEnabled(Out<bool> out_enabled); // [18.0.0+]
 
     KernelHelpers::ServiceContext service_context;
     std::unique_ptr<AudioCore::Renderer::AudioDevice> impl;

@@ -10,6 +10,8 @@
 #include "core/hle/service/audio/audio_in_manager.h"
 #include "core/hle/service/audio/audio_out_manager.h"
 #include "core/hle/service/audio/audio_renderer_manager.h"
+#include "core/hle/service/audio/audio_snoop_manager.h"
+#include "core/hle/service/audio/audio_system_manager.h"
 #include "core/hle/service/audio/codecctl.h"
 #include "core/hle/service/audio/final_output_recorder_manager.h"
 #include "core/hle/service/audio/final_output_recorder_manager_for_applet.h"
@@ -50,9 +52,12 @@ void LoopProcess(Core::System& system) {
     // Debug service
     server_manager->RegisterNamedService("auddebug", std::make_shared<IAudioDebugManager>(system));
 
-    // System-level audio services
-    server_manager->RegisterNamedService("aud:a", std::make_shared<IAudioController>(system)); // System version of audctl
-    server_manager->RegisterNamedService("aud:d", std::make_shared<IAudioDeviceService>(system, "aud:d")); // System device service
+    // Audio snoop service (auddev)
+    server_manager->RegisterNamedService("auddev", std::make_shared<IAudioSnoopManager>(system));
+
+    // System-level audio services [11.0.0+]
+    server_manager->RegisterNamedService("aud:a", std::make_shared<IAudioSystemManagerForApplet>(system)); // System manager for applet
+    server_manager->RegisterNamedService("aud:d", std::make_shared<IAudioSystemManagerForDebugger>(system)); // System manager for debugger
 
     ServerManager::RunServer(std::move(server_manager));
 }
