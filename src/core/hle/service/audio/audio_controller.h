@@ -77,7 +77,7 @@ private:
     Result SetHearingProtectionSafeguardEnabled(bool is_enabled);
     Result IsHearingProtectionSafeguardEnabled(Out<bool> out_is_enabled);
     Result IsHearingProtectionSafeguardMonitoringOutputForDebug(Out<bool> out_is_monitoring);
-    Result GetSystemInformationForDebug(OutLargeData<u8, BufferAttr_HipcMapAlias> out_info);
+    Result GetSystemInformationForDebug(OutLargeData<std::array<u8, 0x400>, BufferAttr_HipcMapAlias> out_info);
     Result SetVolumeButtonLongPressTime(u64 long_press_time);
     Result SetNativeVolumeForDebug(f32 native_volume);
     Result NotifyAudioOutputTargetForPlayReport(u32 target);
@@ -87,6 +87,9 @@ private:
     Result BindAudioOutputTargetUpdateEventForPlayReport(OutCopyHandle<Kernel::KReadableEvent> out_event);
     Result GetDefaultAudioOutputTargetForPlayReport(Out<u32> out_target);
     Result SetAnalogInputBoostGainForPrototyping(f32 gain);
+    Result OverrideDefaultTargetForDebug(u32 target); // [19.0.0-19.0.1]
+    Result SetForceOverrideExternalDeviceNameForDebug(InLargeData<std::array<u8, 0x80>, BufferAttr_HipcMapAlias> device_name); // [19.0.0+]
+    Result ClearForceOverrideExternalDeviceNameForDebug(); // [19.0.0+]
 
     KernelHelpers::ServiceContext service_context;
 

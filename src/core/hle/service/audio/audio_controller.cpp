@@ -69,6 +69,11 @@ IAudioController::IAudioController(Core::System& system_)
         {10105, D<&IAudioController::BindAudioOutputChannelCountUpdateEventForPlayReport>, "BindAudioOutputChannelCountUpdateEventForPlayReport"},
         {10106, D<&IAudioController::GetDefaultAudioOutputTargetForPlayReport>, "GetDefaultAudioOutputTargetForPlayReport"},
         {50000, D<&IAudioController::SetAnalogInputBoostGainForPrototyping>, "SetAnalogInputBoostGainForPrototyping"},
+        {50001, D<&IAudioController::OverrideDefaultTargetForDebug>, "OverrideDefaultTargetForDebug"}, // [19.0.0-19.0.1]
+        {50003, D<&IAudioController::SetForceOverrideExternalDeviceNameForDebug>, "SetForceOverrideExternalDeviceNameForDebug"}, // [19.0.0+]
+        {50004, D<&IAudioController::ClearForceOverrideExternalDeviceNameForDebug>, "ClearForceOverrideExternalDeviceNameForDebug"}, // [19.0.0+]
+        {5000, nullptr, "Unknown5000"}, // [19.0.0+]
+        {10200, nullptr, "Unknown10200"}, // [20.0.0+]
     };
     // clang-format on
 
@@ -328,8 +333,9 @@ Result IAudioController::IsHearingProtectionSafeguardMonitoringOutputForDebug(Ou
     R_SUCCEED();
 }
 
-Result IAudioController::GetSystemInformationForDebug(OutLargeData<u8, BufferAttr_HipcMapAlias> out_info) {
+Result IAudioController::GetSystemInformationForDebug(OutLargeData<std::array<u8, 0x400>, BufferAttr_HipcMapAlias> out_info) {
     LOG_WARNING(Audio, "(STUBBED) called");
+    std::memset(out_info->data(), 0, out_info->size());
     R_SUCCEED();
 }
 
@@ -378,6 +384,21 @@ Result IAudioController::GetDefaultAudioOutputTargetForPlayReport(Out<u32> out_t
 
 Result IAudioController::SetAnalogInputBoostGainForPrototyping(f32 gain) {
     LOG_WARNING(Audio, "(STUBBED) called, gain={}", gain);
+    R_SUCCEED();
+}
+
+Result IAudioController::OverrideDefaultTargetForDebug(u32 target) {
+    LOG_WARNING(Audio, "(STUBBED) called, target={}", target);
+    R_SUCCEED();
+}
+
+Result IAudioController::SetForceOverrideExternalDeviceNameForDebug(InLargeData<std::array<u8, 0x80>, BufferAttr_HipcMapAlias> device_name) {
+    LOG_WARNING(Audio, "(STUBBED) called, device_name size={}", device_name->size());
+    R_SUCCEED();
+}
+
+Result IAudioController::ClearForceOverrideExternalDeviceNameForDebug() {
+    LOG_WARNING(Audio, "(STUBBED) called");
     R_SUCCEED();
 }
 

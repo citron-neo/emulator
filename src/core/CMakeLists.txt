@@ -539,6 +539,10 @@ add_library(core STATIC
     hle/service/audio/audio_renderer_manager.h
     hle/service/audio/audio_renderer.cpp
     hle/service/audio/audio_renderer.h
+    hle/service/audio/audio_snoop_manager.cpp
+    hle/service/audio/audio_snoop_manager.h
+    hle/service/audio/audio_system_manager.cpp
+    hle/service/audio/audio_system_manager.h
     hle/service/audio/audio.cpp
     hle/service/audio/audio.h
     hle/service/audio/codecctl.cpp

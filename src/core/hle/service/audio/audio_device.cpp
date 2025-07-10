@@ -31,6 +31,12 @@ IAudioDevice::IAudioDevice(Core::System& system_, u64 applet_resource_user_id, u
         {12, D<&IAudioDevice::QueryAudioDeviceOutputEvent>, "QueryAudioDeviceOutputEvent"},
         {13, D<&IAudioDevice::GetActiveAudioOutputDeviceName>, "GetActiveAudioOutputDeviceName"},
         {14, D<&IAudioDevice::ListAudioOutputDeviceName>, "ListAudioOutputDeviceName"},
+        {15, D<&IAudioDevice::AcquireAudioInputDeviceNotification>, "AcquireAudioInputDeviceNotification"}, // [17.0.0+]
+        {16, D<&IAudioDevice::ReleaseAudioInputDeviceNotification>, "ReleaseAudioInputDeviceNotification"}, // [17.0.0+]
+        {17, D<&IAudioDevice::AcquireAudioOutputDeviceNotification>, "AcquireAudioOutputDeviceNotification"}, // [17.0.0+]
+        {18, D<&IAudioDevice::ReleaseAudioOutputDeviceNotification>, "ReleaseAudioOutputDeviceNotification"}, // [17.0.0+]
+        {19, D<&IAudioDevice::SetAudioDeviceOutputVolumeAutoTuneEnabled>, "SetAudioDeviceOutputVolumeAutoTuneEnabled"}, // [18.0.0+]
+        {20, D<&IAudioDevice::IsAudioDeviceOutputVolumeAutoTuneEnabled>, "IsAudioDeviceOutputVolumeAutoTuneEnabled"}, // [18.0.0+]
     };
     RegisterHandlers(functions);
 
@@ -170,6 +176,39 @@ Result IAudioDevice::ListAudioOutputDeviceName(
     }
 
     LOG_DEBUG(Service_Audio, "called.\nNames={}", out);
+    R_SUCCEED();
+}
+
+Result IAudioDevice::AcquireAudioInputDeviceNotification(OutCopyHandle<Kernel::KReadableEvent> out_event) {
+    LOG_WARNING(Service_Audio, "(STUBBED) called");
+    *out_event = &event->GetReadableEvent();
+    R_SUCCEED();
+}
+
+Result IAudioDevice::ReleaseAudioInputDeviceNotification(InCopyHandle<Kernel::KReadableEvent> notification_event) {
+    LOG_WARNING(Service_Audio, "(STUBBED) called");
+    R_SUCCEED();
+}
+
+Result IAudioDevice::AcquireAudioOutputDeviceNotification(OutCopyHandle<Kernel::KReadableEvent> out_event) {
+    LOG_WARNING(Service_Audio, "(STUBBED) called");
+    *out_event = &event->GetReadableEvent();
+    R_SUCCEED();
+}
+
+Result IAudioDevice::ReleaseAudioOutputDeviceNotification(InCopyHandle<Kernel::KReadableEvent> notification_event) {
+    LOG_WARNING(Service_Audio, "(STUBBED) called");
+    R_SUCCEED();
+}
+
+Result IAudioDevice::SetAudioDeviceOutputVolumeAutoTuneEnabled(bool enabled) {
+    LOG_WARNING(Service_Audio, "(STUBBED) called, enabled={}", enabled);
+    R_SUCCEED();
+}
+
+Result IAudioDevice::IsAudioDeviceOutputVolumeAutoTuneEnabled(Out<bool> out_enabled) {
+    LOG_WARNING(Service_Audio, "(STUBBED) called");
+    *out_enabled = false;
     R_SUCCEED();
 }
 
