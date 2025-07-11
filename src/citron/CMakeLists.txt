@@ -210,6 +210,11 @@ add_executable(citron
     startup_checks.h
     uisettings.cpp
     uisettings.h
+    updater/updater_service.cpp
+    updater/updater_service.h
+    updater/updater_dialog.cpp
+    updater/updater_dialog.h
+    updater/updater_dialog.ui
     util/clickable_label.cpp
     util/clickable_label.h
     util/controller_navigation.cpp
@@ -384,6 +389,12 @@ endif()
 target_link_libraries(citron PRIVATE common core input_common frontend_common network video_core)
 target_link_libraries(citron PRIVATE Boost::headers glad Qt${QT_MAJOR_VERSION}::Widgets)
 target_link_libraries(citron PRIVATE ${PLATFORM_LIBRARIES} Threads::Threads)
+
+# Add libarchive for updater functionality
+if (TARGET LibArchive::LibArchive)
+    target_link_libraries(citron PRIVATE LibArchive::LibArchive)
+    target_compile_definitions(citron PRIVATE CITRON_ENABLE_LIBARCHIVE)
+endif()
 
 target_link_libraries(citron PRIVATE Vulkan::Headers)
 if (NOT WIN32)

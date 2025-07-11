@@ -617,6 +617,9 @@ struct Values {
                                        Category::WebService};
     Setting<std::string> citron_token{linkage, std::string(), "citron_token", Category::WebService};
 
+    // Updater
+    Setting<bool> enable_auto_update_check{linkage, true, "enable_auto_update_check", Category::WebService};
+
     // Add-Ons
     std::map<u64, std::vector<std::string>> disabled_addons;
 };
