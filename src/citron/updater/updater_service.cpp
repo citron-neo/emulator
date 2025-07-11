@@ -4,6 +4,7 @@
 #include "citron/updater/updater_service.h"
 #include "common/logging/log.h"
 #include "common/fs/path_util.h"
+#include "common/scm_rev.h"
 
 #include <QApplication>
 #include <QStandardPaths>
@@ -360,7 +361,7 @@ void UpdaterService::CancelUpdate() {
 }
 
 std::string UpdaterService::GetCurrentVersion() const {
-    // Try to read version from version.txt file
+    // Try to read version from version.txt file first (updated versions)
     std::filesystem::path version_file = app_directory / CITRON_VERSION_FILE;
 
     if (std::filesystem::exists(version_file)) {
@@ -374,7 +375,24 @@ std::string UpdaterService::GetCurrentVersion() const {
         }
     }
 
-    // Fallback to application version
+    // Use build version from the build system
+    std::string build_version = Common::g_build_version;
+    if (!build_version.empty()) {
+        // Create version.txt file if it doesn't exist
+        try {
+            std::ofstream vfile(version_file);
+            if (vfile.is_open()) {
+                vfile << build_version;
+                vfile.close();
+                LOG_INFO(Frontend, "Created version.txt with build version: {}", build_version);
+            }
+        } catch (const std::exception& e) {
+            LOG_WARNING(Frontend, "Failed to create version.txt: {}", e.what());
+        }
+        return build_version;
+    }
+
+    // Final fallback to application version
     return QCoreApplication::applicationVersion().toStdString();
 }
 
