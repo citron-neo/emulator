@@ -162,6 +162,7 @@ static FileSys::VirtualFile VfsDirectoryCreateFileWrapper(const FileSys::Virtual
 #include "citron/startup_checks.h"
 #include "citron/uisettings.h"
 #include "citron/updater/updater_dialog.h"
+#include "citron/updater/updater_service.h"
 #include "citron/util/clickable_label.h"
 #include "citron/vk_device_info.h"
 
@@ -5320,6 +5321,16 @@ int main(int argc, char* argv[]) {
     QCoreApplication::setAttribute(Qt::AA_DontCheckOpenGLContextThreadAffinity);
 
     QApplication app(argc, argv);
+
+    // Check for and apply staged updates before starting the main application
+    std::filesystem::path app_dir = std::filesystem::path(QCoreApplication::applicationDirPath().toStdString());
+    if (Updater::UpdaterService::HasStagedUpdate(app_dir)) {
+        if (Updater::UpdaterService::ApplyStagedUpdate(app_dir)) {
+            // Show a simple message that update was applied
+            QMessageBox::information(nullptr, QObject::tr("Update Applied"),
+                                   QObject::tr("Citron has been updated successfully!"));
+        }
+    }
 
 #ifdef _WIN32
     OverrideWindowsFont();

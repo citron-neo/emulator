@@ -59,6 +59,10 @@ public:
     // Check if update is in progress
     bool IsUpdateInProgress() const;
 
+    // Static methods for startup update handling
+    static bool HasStagedUpdate(const std::filesystem::path& app_directory);
+    static bool ApplyStagedUpdate(const std::filesystem::path& app_directory);
+
 signals:
     void UpdateCheckCompleted(bool has_update, const UpdateInfo& update_info);
     void UpdateDownloadProgress(int percentage, qint64 bytes_received, qint64 bytes_total);

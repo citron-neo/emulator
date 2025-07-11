@@ -623,34 +623,57 @@ bool UpdaterService::ExtractArchiveWindows(const std::filesystem::path& archive_
 
 bool UpdaterService::InstallUpdate(const std::filesystem::path& update_path) {
     try {
-        // Copy all files from update path to application directory
-        for (const auto& entry : std::filesystem::recursive_directory_iterator(update_path)) {
+        // Check if there's a single directory in the update path (common with archives)
+        std::filesystem::path source_path = update_path;
+
+        std::vector<std::filesystem::path> top_level_items;
+        for (const auto& entry : std::filesystem::directory_iterator(update_path)) {
+            top_level_items.push_back(entry.path());
+        }
+
+        // If there's only one top-level directory, use it as the source
+        if (top_level_items.size() == 1 && std::filesystem::is_directory(top_level_items[0])) {
+            source_path = top_level_items[0];
+            LOG_INFO(Frontend, "Found single directory in archive: {}", source_path.filename().string());
+        }
+
+        // Create a staging directory for the update
+        std::filesystem::path staging_path = app_directory / "update_staging";
+        EnsureDirectoryExists(staging_path);
+
+        // Copy all files to staging directory first (this avoids file-in-use issues)
+        for (const auto& entry : std::filesystem::recursive_directory_iterator(source_path)) {
             if (cancel_requested.load()) {
                 return false;
             }
 
             if (entry.is_regular_file()) {
-                std::filesystem::path relative_path = std::filesystem::relative(entry.path(), update_path);
-                std::filesystem::path dest_path = app_directory / relative_path;
+                std::filesystem::path relative_path = std::filesystem::relative(entry.path(), source_path);
+                std::filesystem::path staging_dest = staging_path / relative_path;
 
                 // Create destination directory if it doesn't exist
-                std::filesystem::create_directories(dest_path.parent_path());
+                std::filesystem::create_directories(staging_dest.parent_path());
 
-                // Copy file
-                std::filesystem::copy_file(entry.path(), dest_path,
+                // Copy to staging directory
+                std::filesystem::copy_file(entry.path(), staging_dest,
                                          std::filesystem::copy_options::overwrite_existing);
 
-                LOG_DEBUG(Frontend, "Installed file: {}", dest_path.string());
+                LOG_DEBUG(Frontend, "Staged file: {} -> {}", entry.path().string(), staging_dest.string());
             }
         }
 
-        // Update version file
-        std::filesystem::path version_file = app_directory / CITRON_VERSION_FILE;
-        std::ofstream file(version_file);
-        if (file.is_open()) {
-            file << current_update_info.version;
-            file.close();
+        // Create update manifest for post-restart installation
+        std::filesystem::path manifest_file = staging_path / "update_manifest.txt";
+        std::ofstream manifest(manifest_file);
+        if (manifest.is_open()) {
+            manifest << "UPDATE_VERSION=" << current_update_info.version << "\n";
+            manifest << "UPDATE_TIMESTAMP=" << std::time(nullptr) << "\n";
+            manifest << "APP_DIRECTORY=" << app_directory.string() << "\n";
+            manifest.close();
         }
+
+        LOG_INFO(Frontend, "Update staged successfully. Files prepared in: {}", staging_path.string());
+        LOG_INFO(Frontend, "Update will be applied after application restart.");
 
         return true;
     } catch (const std::exception& e) {
@@ -787,6 +810,94 @@ bool UpdaterService::EnsureDirectoryExists(const std::filesystem::path& path) co
         return true;
     } catch (const std::exception& e) {
         LOG_ERROR(Frontend, "Failed to create directory {}: {}", path.string(), e.what());
+        return false;
+    }
+}
+
+bool UpdaterService::HasStagedUpdate(const std::filesystem::path& app_directory) {
+    std::filesystem::path staging_path = app_directory / "update_staging";
+    std::filesystem::path manifest_file = staging_path / "update_manifest.txt";
+
+    return std::filesystem::exists(staging_path) &&
+           std::filesystem::exists(manifest_file) &&
+           std::filesystem::is_directory(staging_path);
+}
+
+bool UpdaterService::ApplyStagedUpdate(const std::filesystem::path& app_directory) {
+    try {
+        std::filesystem::path staging_path = app_directory / "update_staging";
+        std::filesystem::path manifest_file = staging_path / "update_manifest.txt";
+
+        if (!std::filesystem::exists(staging_path) || !std::filesystem::exists(manifest_file)) {
+            return false;
+        }
+
+        LOG_INFO(Frontend, "Applying staged update from: {}", staging_path.string());
+
+        // Create backup directory for current files
+        std::filesystem::path backup_path = app_directory / "backup_before_update";
+        if (std::filesystem::exists(backup_path)) {
+            std::filesystem::remove_all(backup_path);
+        }
+        std::filesystem::create_directories(backup_path);
+
+        // Copy files from staging to application directory
+        for (const auto& entry : std::filesystem::recursive_directory_iterator(staging_path)) {
+            if (entry.path().filename() == "update_manifest.txt") {
+                continue; // Skip manifest file
+            }
+
+            if (entry.is_regular_file()) {
+                std::filesystem::path relative_path = std::filesystem::relative(entry.path(), staging_path);
+                std::filesystem::path dest_path = app_directory / relative_path;
+
+                // Backup existing file if it exists
+                if (std::filesystem::exists(dest_path)) {
+                    std::filesystem::path backup_dest = backup_path / relative_path;
+                    std::filesystem::create_directories(backup_dest.parent_path());
+                    std::filesystem::copy_file(dest_path, backup_dest);
+                }
+
+                // Create destination directory and copy new file
+                std::filesystem::create_directories(dest_path.parent_path());
+                std::filesystem::copy_file(entry.path(), dest_path,
+                                         std::filesystem::copy_options::overwrite_existing);
+
+                LOG_DEBUG(Frontend, "Updated file: {}", dest_path.string());
+            }
+        }
+
+        // Read and apply version from manifest
+        std::ifstream manifest(manifest_file);
+        std::string line;
+        std::string version;
+
+        while (std::getline(manifest, line)) {
+            if (line.starts_with("UPDATE_VERSION=")) {
+                version = line.substr(15); // Remove "UPDATE_VERSION="
+                break;
+            }
+        }
+        manifest.close();
+
+        // Update version file
+        if (!version.empty()) {
+            std::filesystem::path version_file = app_directory / "version.txt";
+            std::ofstream vfile(version_file);
+            if (vfile.is_open()) {
+                vfile << version;
+                vfile.close();
+            }
+        }
+
+        // Clean up staging directory
+        std::filesystem::remove_all(staging_path);
+
+        LOG_INFO(Frontend, "Update applied successfully. Version: {}", version);
+        return true;
+
+    } catch (const std::exception& e) {
+        LOG_ERROR(Frontend, "Failed to apply staged update: {}", e.what());
         return false;
     }
 }

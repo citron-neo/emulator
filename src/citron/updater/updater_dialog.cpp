@@ -271,8 +271,8 @@ void UpdaterDialog::ShowInstallingState() {
 void UpdaterDialog::ShowCompletedState() {
     current_state = State::Completed;
 
-    ui->titleLabel->setText(QStringLiteral("Update completed!"));
-    ui->statusLabel->setText(QStringLiteral("The update has been installed successfully. Please restart Citron to use the new version."));
+    ui->titleLabel->setText(QStringLiteral("Update ready!"));
+    ui->statusLabel->setText(QStringLiteral("The update has been downloaded and prepared successfully. The update will be applied when you restart Citron."));
 
     ui->progressGroup->setVisible(false);
 
