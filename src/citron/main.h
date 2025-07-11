@@ -59,6 +59,7 @@ class QtControllerSelectorDialog;
 class QtProfileSelectionDialog;
 class QtSoftwareKeyboardDialog;
 class QtNXWebEngineView;
+class UpdaterDialog;
 
 enum class StartGameType {
     Normal, // Can use custom configuration
@@ -383,6 +384,8 @@ private slots:
     void OnInstallFirmware();
     void OnInstallDecryptionKeys();
     void OnAbout();
+    void OnCheckForUpdates();
+    void CheckForUpdatesAutomatically();
     void OnToggleFilterBar();
     void OnToggleGridView();
     void OnToggleStatusBar();

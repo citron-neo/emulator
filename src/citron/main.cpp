@@ -161,6 +161,7 @@ static FileSys::VirtualFile VfsDirectoryCreateFileWrapper(const FileSys::Virtual
 #include "citron/play_time_manager.h"
 #include "citron/startup_checks.h"
 #include "citron/uisettings.h"
+#include "citron/updater/updater_dialog.h"
 #include "citron/util/clickable_label.h"
 #include "citron/vk_device_info.h"
 
@@ -430,6 +431,9 @@ GMainWindow::GMainWindow(std::unique_ptr<QtConfig> config_, bool has_broken_vulk
 
     // Show one-time "callout" messages to the user
     ShowTelemetryCallout();
+
+    // Check for updates automatically after a short delay (non-blocking)
+    QTimer::singleShot(3000, this, &GMainWindow::CheckForUpdatesAutomatically);
 
     // make sure menubar has the arrow cursor instead of inheriting from this
     ui->menubar->setCursor(QCursor());
@@ -1609,6 +1613,7 @@ void GMainWindow::ConnectMenuEvents() {
     connect_menu(ui->action_Verify_installed_contents, &GMainWindow::OnVerifyInstalledContents);
     connect_menu(ui->action_Install_Firmware, &GMainWindow::OnInstallFirmware);
     connect_menu(ui->action_Install_Keys, &GMainWindow::OnInstallDecryptionKeys);
+    connect_menu(ui->action_Check_For_Updates, &GMainWindow::OnCheckForUpdates);
     connect_menu(ui->action_About, &GMainWindow::OnAbout);
 }
 
@@ -5345,6 +5350,60 @@ int main(int argc, char* argv[]) {
     int result = app.exec();
     detached_tasks.WaitForAllTasks();
     return result;
+}
+
+void GMainWindow::OnCheckForUpdates() {
+    // Use HTTP URL to bypass SSL issues (will be redirected to HTTPS but handled by updater)
+    // TODO: Fix SSL libraries and revert to https://releases.citron-emu.org/api/check
+    std::string update_url = "http://releases.citron-emu.org/api/check";
+
+    // Create and show the updater dialog
+    auto* updater_dialog = new UpdaterDialog(this);
+    updater_dialog->setAttribute(Qt::WA_DeleteOnClose);
+    updater_dialog->show();
+    updater_dialog->CheckForUpdates(update_url);
+}
+
+void GMainWindow::CheckForUpdatesAutomatically() {
+    // Check if automatic updates are enabled
+    if (!Settings::values.enable_auto_update_check.GetValue()) {
+        return;
+    }
+
+    LOG_INFO(Frontend, "Checking for updates automatically...");
+
+    // Use HTTP URL to bypass SSL issues
+    std::string update_url = "http://releases.citron-emu.org/api/check";
+
+    // Create updater service for silent background check
+    auto* updater_service = new Updater::UpdaterService(this);
+
+    // Connect to update check result
+    connect(updater_service, &Updater::UpdaterService::UpdateCheckCompleted, this,
+            [this, updater_service](bool has_update, const Updater::UpdateInfo& update_info) {
+                if (has_update) {
+                    // Show a subtle notification that an update is available
+                    QMessageBox::information(this, tr("Update Available"),
+                        tr("A new version of Citron is available: %1\n\n"
+                           "Click Help → Check for Updates to download it.")
+                           .arg(QString::fromStdString(update_info.version)));
+                }
+                updater_service->deleteLater();
+            });
+
+    // Connect to error handling
+    connect(updater_service, &Updater::UpdaterService::UpdateCompleted, this,
+            [updater_service](Updater::UpdaterService::UpdateResult result, const QString& message) {
+                if (result == Updater::UpdaterService::UpdateResult::NetworkError ||
+                    result == Updater::UpdaterService::UpdateResult::Failed) {
+                    // Silent fail for automatic checks - just log the error
+                    LOG_WARNING(Frontend, "Automatic update check failed: {}", message.toStdString());
+                }
+                updater_service->deleteLater();
+            });
+
+    // Start the silent update check
+    updater_service->CheckForUpdates(update_url);
 }
 
 void GMainWindow::OnToggleGridView() {
