@@ -54,7 +54,7 @@ struct fmt::formatter<Shader::IR::Type> {
         return ctx.begin();
     }
     template <typename FormatContext>
-    auto format(const Shader::IR::Type& type, FormatContext& ctx) {
+    auto format(const Shader::IR::Type& type, FormatContext& ctx) const {
         return fmt::format_to(ctx.out(), "{}", NameOf(type));
     }
 };

@@ -33,7 +33,7 @@ struct fmt::formatter<Shader::IR::Pred> {
         return ctx.begin();
     }
     template <typename FormatContext>
-    auto format(const Shader::IR::Pred& pred, FormatContext& ctx) {
+    auto format(const Shader::IR::Pred& pred, FormatContext& ctx) const {
         if (pred == Shader::IR::Pred::PT) {
             return fmt::format_to(ctx.out(), "PT");
         } else {
