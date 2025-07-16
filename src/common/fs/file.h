@@ -34,14 +34,23 @@ void OpenFileStream(FileStream& file_stream, const std::filesystem::path& path,
 }
 
 #ifdef _WIN32
-template <typename FileStream, typename Path>
-void OpenFileStream(FileStream& file_stream, const Path& path, std::ios_base::openmode open_mode) {
-    if constexpr (IsChar<typename Path::value_type>) {
-        file_stream.open(std::filesystem::path{ToU8String(path)}, open_mode);
-    } else {
-        file_stream.open(std::filesystem::path{path}, open_mode);
+#include <concepts>
+
+// Concept to check if a type has a value_type member
+template <typename T>
+concept HasValueType = requires { typename T::value_type; };
+
+// Only enable this overload if Path has value_type
+    template <HasValueType Path>
+    void Open(const Path& path, FileAccessMode mode, FileType type = FileType::BinaryFile,
+              FileShareFlag flag = FileShareFlag::ShareReadOnly) {
+        using ValueType = typename Path::value_type;
+        if constexpr (IsChar<ValueType>) {
+            Open(ToU8String(path), mode, type, flag);
+        } else {
+            Open(std::filesystem::path{path}, mode, type, flag);
+        }
     }
-}
 #endif
 
 /**
@@ -184,7 +193,7 @@ public:
               FileShareFlag flag = FileShareFlag::ShareReadOnly);
 
 #ifdef _WIN32
-    template <typename Path>
+    template <HasValueType Path>
     void Open(const Path& path, FileAccessMode mode, FileType type = FileType::BinaryFile,
               FileShareFlag flag = FileShareFlag::ShareReadOnly) {
         using ValueType = typename Path::value_type;
