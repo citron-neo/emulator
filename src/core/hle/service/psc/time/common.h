@@ -167,7 +167,7 @@ constexpr inline Result GetSpanBetweenTimePoints(s64* out_seconds, const SteadyC
 template <>
 struct fmt::formatter<Service::PSC::Time::TimeType> : fmt::formatter<fmt::string_view> {
     template <typename FormatContext>
-    auto format(Service::PSC::Time::TimeType type, FormatContext& ctx) {
+    auto format(Service::PSC::Time::TimeType type, FormatContext& ctx) const {
         const string_view name = [type] {
             using Service::PSC::Time::TimeType;
             switch (type) {

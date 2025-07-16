@@ -10,6 +10,7 @@
 #include <vector>
 
 #include <fmt/format.h>
+#include <fmt/ranges.h>
 
 #include "common/logging/log.h"
 #include "common/polyfill_ranges.h"

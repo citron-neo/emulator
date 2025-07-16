@@ -10,6 +10,9 @@
 
 #include <boost/algorithm/string.hpp>
 
+#include <fmt/format.h>
+#include <fmt/ranges.h>
+
 #include "common/hex_util.h"
 #include "common/logging/log.h"
 #include "common/scope_exit.h"

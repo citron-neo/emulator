@@ -22,7 +22,7 @@ struct fmt::formatter<Dynarmic::A32::CoprocReg> {
         return ctx.begin();
     }
     template <typename FormatContext>
-    auto format(const Dynarmic::A32::CoprocReg& reg, FormatContext& ctx) {
+    auto format(const Dynarmic::A32::CoprocReg& reg, FormatContext& ctx) const {
         return fmt::format_to(ctx.out(), "cp{}", static_cast<size_t>(reg));
     }
 };

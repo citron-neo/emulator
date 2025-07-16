@@ -55,7 +55,7 @@ struct fmt::formatter<Shader::IR::FlowTest> {
         return ctx.begin();
     }
     template <typename FormatContext>
-    auto format(const Shader::IR::FlowTest& flow_test, FormatContext& ctx) {
+    auto format(const Shader::IR::FlowTest& flow_test, FormatContext& ctx) const {
         return fmt::format_to(ctx.out(), "{}", Shader::IR::NameOf(flow_test));
     }
 };

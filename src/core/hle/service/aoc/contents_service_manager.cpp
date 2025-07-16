@@ -76,7 +76,7 @@ Result IAsyncData::Read(OutBuffer<BufferAttr_HipcMapAlias> out_buffer, u64 offse
     }
 
     const u64 read_size = std::min(size, static_cast<u64>(data_buffer.size() - offset));
-    const u64 copy_size = std::min(read_size, out_buffer.size());
+    const u64 copy_size = std::min(read_size, static_cast<u64>(out_buffer.size()));
 
     std::memcpy(out_buffer.data(), data_buffer.data() + offset, copy_size);
 

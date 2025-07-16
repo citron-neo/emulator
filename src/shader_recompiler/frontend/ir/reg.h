@@ -319,7 +319,7 @@ struct fmt::formatter<Shader::IR::Reg> {
         return ctx.begin();
     }
     template <typename FormatContext>
-    auto format(const Shader::IR::Reg& reg, FormatContext& ctx) {
+    auto format(const Shader::IR::Reg& reg, FormatContext& ctx) const {
         if (reg == Shader::IR::Reg::RZ) {
             return fmt::format_to(ctx.out(), "RZ");
         } else if (static_cast<int>(reg) >= 0 && static_cast<int>(reg) < 255) {

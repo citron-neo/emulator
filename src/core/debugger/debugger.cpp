@@ -6,7 +6,7 @@
 #include <thread>
 
 #include <boost/asio.hpp>
-#ifndef __ANDROID__
+#if !defined(__ANDROID__) && !defined(__APPLE__)
 #include <boost/process/async_pipe.hpp>
 #endif
 
@@ -161,10 +161,10 @@ private:
         // Set the new state. This will tear down any existing state.
         state = ConnectionState{
             .client_socket{std::move(peer)},
-#ifndef __ANDROID__
+#if !defined(__ANDROID__) && !defined(__APPLE__)
             .signal_pipe{io_context},
 #else
-            // Use a regular socket pair for Android
+            // Use a regular socket pair for Android and macOS
             .signal_pipe{io_context},
 #endif
             .info{},
@@ -333,10 +333,10 @@ private:
 
     struct ConnectionState {
         boost::asio::ip::tcp::socket client_socket;
-#ifndef __ANDROID__
+#if !defined(__ANDROID__) && !defined(__APPLE__)
         boost::process::async_pipe signal_pipe;
 #else
-        // Use a regular socket pair for Android
+        // Use a regular socket pair for Android and macOS
         boost::asio::ip::tcp::socket signal_pipe;
 #endif
 
