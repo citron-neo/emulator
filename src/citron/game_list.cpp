@@ -203,6 +203,13 @@ void GameList::FilterGridView(const QString& filter_text) {
     // Repopulate the grid view with filtered items
     QStandardItemModel* hierarchical_model = item_model;
 
+    // Delete the previous flat model if it exists to prevent memory leaks
+    if (QAbstractItemModel* old_model = list_view->model()) {
+        if (old_model != item_model) {
+            old_model->deleteLater();
+        }
+    }
+
     // Create a new flat model for grid view
     QStandardItemModel* flat_model = new QStandardItemModel(this);
 
@@ -470,9 +477,19 @@ GameList::GameList(FileSys::VirtualFilesystem vfs_, FileSys::ManualContentProvid
                 if (!this->isActiveWindow()) {
                     return;
                 }
+
+                // Only send events to visible and properly initialized views
                 QKeyEvent* event = new QKeyEvent(QEvent::KeyPress, key, Qt::NoModifier);
-                QCoreApplication::postEvent(tree_view, event);
-                QCoreApplication::postEvent(list_view, event);
+
+                if (tree_view->isVisible() && tree_view->model()) {
+                    QCoreApplication::postEvent(tree_view, event);
+                }
+
+                if (list_view->isVisible() && list_view->model()) {
+                    // Create a new event for the list view to avoid double deletion
+                    QKeyEvent* list_event = new QKeyEvent(QEvent::KeyPress, key, Qt::NoModifier);
+                    QCoreApplication::postEvent(list_view, list_event);
+                }
             });
 
     // We must register all custom types with the Qt Automoc system so that we are able to use
@@ -496,6 +513,13 @@ void GameList::UnloadController() {
 
 GameList::~GameList() {
     UnloadController();
+
+    // Clean up any custom models that might have been created for grid view
+    if (QAbstractItemModel* current_model = list_view->model()) {
+        if (current_model != item_model) {
+            current_model->deleteLater();
+        }
+    }
 }
 
 void GameList::SetFilterFocus() {
@@ -1114,18 +1138,31 @@ void GameList::SetViewMode(bool grid_view) {
         PopulateGridView();
         tree_view->setVisible(false);
         list_view->setVisible(true);
-        list_view->setCurrentIndex(list_view->model()->index(0, 0));
+        // Only set current index if the model has items
+        if (list_view->model() && list_view->model()->rowCount() > 0) {
+            list_view->setCurrentIndex(list_view->model()->index(0, 0));
+        }
     } else {
         // Restore the hierarchical model for tree view
         list_view->setVisible(false);
         tree_view->setVisible(true);
-        tree_view->setCurrentIndex(item_model->index(0, 0));
+        // Only set current index if the model has items
+        if (item_model && item_model->rowCount() > 0) {
+            tree_view->setCurrentIndex(item_model->index(0, 0));
+        }
     }
 }
 
 void GameList::PopulateGridView() {
     // Store the current hierarchical model
     QStandardItemModel* hierarchical_model = item_model;
+
+    // Delete the previous flat model if it exists to prevent memory leaks
+    if (QAbstractItemModel* old_model = list_view->model()) {
+        if (old_model != item_model) {
+            old_model->deleteLater();
+        }
+    }
 
     // Create a new flat model for grid view
     QStandardItemModel* flat_model = new QStandardItemModel(this);

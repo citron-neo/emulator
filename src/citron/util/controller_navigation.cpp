@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: Copyright 2021 yuzu Emulator Project
+// SPDX-FileCopyrightText: Copyright 2025 Citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "common/settings_input.h"
@@ -42,6 +43,12 @@ void ControllerNavigation::ControllerUpdateEvent(Core::HID::ControllerTriggerTyp
     if (!Settings::values.controller_navigation) {
         return;
     }
+
+    // Safety check: ensure controllers are properly initialized
+    if (!is_controller_set || !player1_controller || !handheld_controller) {
+        return;
+    }
+
     if (type == Core::HID::ControllerTriggerType::Button) {
         ControllerUpdateButton();
         return;
@@ -54,6 +61,11 @@ void ControllerNavigation::ControllerUpdateEvent(Core::HID::ControllerTriggerTyp
 }
 
 void ControllerNavigation::ControllerUpdateButton() {
+    // Safety check: ensure controllers are properly initialized
+    if (!is_controller_set || !player1_controller || !handheld_controller) {
+        return;
+    }
+
     const auto controller_type = player1_controller->GetNpadStyleIndex();
     const auto& player1_buttons = player1_controller->GetButtonsValues();
     const auto& handheld_buttons = handheld_controller->GetButtonsValues();
@@ -91,6 +103,11 @@ void ControllerNavigation::ControllerUpdateButton() {
 }
 
 void ControllerNavigation::ControllerUpdateStick() {
+    // Safety check: ensure controllers are properly initialized
+    if (!is_controller_set || !player1_controller || !handheld_controller) {
+        return;
+    }
+
     const auto controller_type = player1_controller->GetNpadStyleIndex();
     const auto& player1_sticks = player1_controller->GetSticksValues();
     const auto& handheld_sticks = player1_controller->GetSticksValues();
