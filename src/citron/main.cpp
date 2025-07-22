@@ -183,6 +183,7 @@ Q_IMPORT_PLUGIN(QWindowsIntegrationPlugin);
 
 #ifdef _WIN32
 #include <windows.h>
+#include <shellscalingapi.h>
 extern "C" {
 // tells Nvidia and AMD drivers to use the dedicated GPU by default on laptops with switchable
 // graphics
@@ -5252,8 +5253,29 @@ static void SetHighDPIAttributes() {
         Qt::HighDpiScaleFactorRoundingPolicy::PassThrough);
 #endif
 
+    // Enable high DPI scaling and pixmaps
     QApplication::setAttribute(Qt::AA_EnableHighDpiScaling);
     QApplication::setAttribute(Qt::AA_UseHighDpiPixmaps);
+
+    // Set the DPI awareness for better scaling on Windows
+#ifdef _WIN32
+    // Enable Per Monitor DPI Awareness for Windows 8.1+
+    SetProcessDPIAware();
+
+    // For Windows 10+, use Per Monitor v2 DPI Awareness
+    // This provides better scaling for multi-monitor setups
+    HMODULE shcore = LoadLibrary(L"shcore.dll");
+    if (shcore) {
+        typedef HRESULT(WINAPI* SetProcessDpiAwarenessFunc)(int);
+        SetProcessDpiAwarenessFunc setProcessDpiAwareness =
+            (SetProcessDpiAwarenessFunc)GetProcAddress(shcore, "SetProcessDpiAwareness");
+        if (setProcessDpiAwareness) {
+            // PROCESS_PER_MONITOR_DPI_AWARE_V2 = 2
+            setProcessDpiAwareness(2);
+        }
+        FreeLibrary(shcore);
+    }
+#endif
 }
 
 int main(int argc, char* argv[]) {

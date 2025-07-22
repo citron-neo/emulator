@@ -43,7 +43,60 @@ QScrollArea* CreateScrollArea(QWidget* widget) {
     scroll_area->setFrameShape(QFrame::NoFrame);
     scroll_area->setHorizontalScrollBarPolicy(Qt::ScrollBarAsNeeded);
     scroll_area->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
-    scroll_area->setStyleSheet(QLatin1String("QScrollArea { border: none; background-color: #2b2b2b; }"));
+
+    // High DPI support: Scroll area will inherit scaling from parent
+
+    // Set style with high DPI aware styling
+    scroll_area->setStyleSheet(QLatin1String(
+        "QScrollArea { "
+        "border: none; "
+        "background-color: #2b2b2b; "
+        "}"
+        "QScrollArea > QWidget > QWidget { "
+        "background-color: #2b2b2b; "
+        "}"
+        "QScrollBar:vertical { "
+        "background-color: #3d3d3d; "
+        "width: 14px; "
+        "border-radius: 7px; "
+        "margin: 2px; "
+        "}"
+        "QScrollBar::handle:vertical { "
+        "background-color: #5d5d5d; "
+        "border-radius: 6px; "
+        "min-height: 30px; "
+        "margin: 1px; "
+        "}"
+        "QScrollBar::handle:vertical:hover { "
+        "background-color: #4a9eff; "
+        "}"
+        "QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { "
+        "border: none; "
+        "background: none; "
+        "height: 0px; "
+        "}"
+        "QScrollBar:horizontal { "
+        "background-color: #3d3d3d; "
+        "height: 14px; "
+        "border-radius: 7px; "
+        "margin: 2px; "
+        "}"
+        "QScrollBar::handle:horizontal { "
+        "background-color: #5d5d5d; "
+        "border-radius: 6px; "
+        "min-width: 30px; "
+        "margin: 1px; "
+        "}"
+        "QScrollBar::handle:horizontal:hover { "
+        "background-color: #4a9eff; "
+        "}"
+        "QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal { "
+        "border: none; "
+        "background: none; "
+        "width: 0px; "
+        "}"
+    ));
+
     return scroll_area;
 }
 
@@ -81,16 +134,28 @@ ConfigureDialog::ConfigureDialog(QWidget* parent, HotkeyRegistry& registry_,
     setWindowFlags(Qt::Dialog | Qt::WindowTitleHint | Qt::WindowSystemMenuHint |
                    Qt::WindowMinMaxButtonsHint | Qt::WindowCloseButtonHint);
 
+    // High DPI support: Set proper attributes for scaling
+    setAttribute(Qt::WA_TranslucentBackground, false);
+    setAttribute(Qt::WA_NoSystemBackground, false);
+    setAttribute(Qt::WA_DontShowOnScreen, false);
+
     ui->setupUi(this);
 
     // Set size policy and enable resizing
     setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
 
-    // Get screen geometry and set to fullscreen
+    // Get screen geometry and set to fullscreen with high DPI awareness
     QScreen* screen = QApplication::primaryScreen();
     if (screen) {
         QRect screenGeometry = screen->availableGeometry();
-        setGeometry(screenGeometry);
+
+        // Calculate logical size based on device pixel ratio for high DPI support
+        qreal devicePixelRatio = screen->devicePixelRatio();
+        int logicalWidth = static_cast<int>(screenGeometry.width() / devicePixelRatio);
+        int logicalHeight = static_cast<int>(screenGeometry.height() / devicePixelRatio);
+
+        // Set geometry using logical units
+        setGeometry(0, 0, logicalWidth, logicalHeight);
         showMaximized(); // Start maximized/fullscreen
     }
 

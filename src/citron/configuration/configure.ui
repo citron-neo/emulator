@@ -25,6 +25,14 @@
     <verstretch>0</verstretch>
    </sizepolicy>
   </property>
+  <!-- High DPI support: Enable automatic scaling and proper window modality -->
+  <property name="windowModality">
+   <enum>Qt::ApplicationModal</enum>
+  </property>
+  <!-- High DPI scaling attributes -->
+  <property name="windowTitle">
+   <string>citron Configuration</string>
+  </property>
   <property name="styleSheet">
    <string>QDialog {
     background-color: #2b2b2b;
@@ -440,6 +448,77 @@ QRadioButton::indicator:checked {
 
 QRadioButton::indicator:hover {
     border-color: #4a9eff;
+}
+
+/* High DPI specific styles */
+@media (min-resolution: 192dpi) {
+    QPushButton.tabButton {
+        padding: 12px 16px;
+        min-width: 90px;
+        max-width: 170px;
+        font-size: 14px;
+    }
+
+    QComboBox {
+        min-width: 140px;
+        min-height: 32px;
+        padding: 10px 14px;
+    }
+
+    QLineEdit {
+        min-height: 24px;
+        padding: 10px 14px;
+    }
+
+    QPushButton {
+        min-height: 24px;
+        padding: 12px 24px;
+    }
+
+    QCheckBox::indicator {
+        width: 20px;
+        height: 20px;
+    }
+
+    QRadioButton::indicator {
+        width: 18px;
+        height: 18px;
+    }
+}
+
+@media (min-resolution: 240dpi) {
+    QPushButton.tabButton {
+        padding: 14px 18px;
+        min-width: 95px;
+        max-width: 180px;
+        font-size: 16px;
+    }
+
+    QComboBox {
+        min-width: 160px;
+        min-height: 36px;
+        padding: 12px 16px;
+    }
+
+    QLineEdit {
+        min-height: 28px;
+        padding: 12px 16px;
+    }
+
+    QPushButton {
+        min-height: 28px;
+        padding: 14px 28px;
+    }
+
+    QCheckBox::indicator {
+        width: 22px;
+        height: 22px;
+    }
+
+    QRadioButton::indicator {
+        width: 20px;
+        height: 20px;
+    }
 }
 </string>
   </property>
