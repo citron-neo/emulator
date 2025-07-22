@@ -686,6 +686,37 @@ function(create_target_directory_groups target_name)
     endforeach()
 endfunction()
 
+# Helper function to configure LTO for a target with CachyOS-specific compatibility
+function(citron_configure_lto target_name)
+    if (CITRON_ENABLE_LTO)
+        set_property(TARGET ${target_name} PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
+
+        # Detect CachyOS and apply conservative LTO settings only for CachyOS
+        set(IS_CACHYOS FALSE)
+        if (EXISTS "/etc/os-release")
+            file(READ "/etc/os-release" OS_RELEASE_CONTENT)
+            if (OS_RELEASE_CONTENT MATCHES "ID=cachyos")
+                set(IS_CACHYOS TRUE)
+            endif()
+        endif()
+
+        # Alternative detection via kernel name
+        if (NOT IS_CACHYOS)
+            execute_process(COMMAND uname -r OUTPUT_VARIABLE KERNEL_VERSION OUTPUT_STRIP_TRAILING_WHITESPACE)
+            if (KERNEL_VERSION MATCHES "cachyos")
+                set(IS_CACHYOS TRUE)
+            endif()
+        endif()
+
+        # Apply conservative LTO settings only for CachyOS with GCC 15+
+        if (IS_CACHYOS AND CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL "15.0")
+            message(STATUS "Detected CachyOS with GCC ${CMAKE_CXX_COMPILER_VERSION} - using conservative LTO settings for ${target_name}")
+            target_compile_options(${target_name} PRIVATE "-flto=auto" "-ffat-lto-objects")
+            target_link_options(${target_name} PRIVATE "-flto=auto" "-ffat-lto-objects")
+        endif()
+    endif()
+endfunction()
+
 # Prevent boost from linking against libs when building
 target_link_libraries(Boost::headers INTERFACE Boost::disable_autolinking)
 # Adjustments for MSVC + Ninja

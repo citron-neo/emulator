@@ -22,3 +22,5 @@ target_link_libraries(web_service PRIVATE common network nlohmann_json::nlohmann
 if (CITRON_USE_PRECOMPILED_HEADERS)
     target_precompile_headers(web_service PRIVATE precompiled_headers.h)
 endif()
+
+citron_configure_lto(web_service)

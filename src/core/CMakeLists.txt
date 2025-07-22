@@ -1294,8 +1294,6 @@ if (CITRON_USE_PRECOMPILED_HEADERS)
     target_precompile_headers(core PRIVATE precompiled_headers.h)
 endif()
 
-if (CITRON_ENABLE_LTO)
-  set_property(TARGET core PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
-endif()
+citron_configure_lto(core)
 
 create_target_directory_groups(core)

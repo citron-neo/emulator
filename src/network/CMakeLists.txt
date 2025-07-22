@@ -28,3 +28,5 @@ endif()
 if (CITRON_USE_PRECOMPILED_HEADERS)
     target_precompile_headers(network PRIVATE precompiled_headers.h)
 endif()
+
+citron_configure_lto(network)

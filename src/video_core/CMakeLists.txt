@@ -388,9 +388,7 @@ if (CITRON_USE_PRECOMPILED_HEADERS)
     target_precompile_headers(video_core PRIVATE precompiled_headers.h)
 endif()
 
-if (CITRON_ENABLE_LTO)
-  set_property(TARGET video_core PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
-endif()
+citron_configure_lto(video_core)
 
 if (ANDROID AND ARCHITECTURE_arm64)
     target_link_libraries(video_core PRIVATE adrenotools)
