@@ -36,7 +36,7 @@
 #include "citron/uisettings.h"
 
 // Helper function to create a scroll area for a widget
-QScrollArea* CreateScrollArea(QWidget* widget) {
+static QScrollArea* CreateScrollArea(QWidget* widget) {
     auto* scroll_area = new QScrollArea();
     scroll_area->setWidget(widget);
     scroll_area->setWidgetResizable(true);
