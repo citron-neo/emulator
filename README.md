@@ -1,85 +1,56 @@
-<!--
-SPDX-FileCopyrightText: 2018 yuzu Emulator Project
-SPDX-License-Identifier: GPL-2.0-or-later
--->
+# Citron - Nintendo Homebrew Emulator 🍋
 
-<h1 align="center">
-  <br>
-  <a href="https://citron-emu.org/"><img src="https://raw.githubusercontent.com/citron-emu/citron-assets/master/icons/icon.png" alt="citron" width="200"></a>
-  <br>
-  <b>citron</b>
-  <br>
-</h1>
+Welcome to **Citron**, a cutting-edge Nintendo Homebrew emulator designed to deliver an optimized experience for playing your favorite games and exploring new ones. Citron is a **high-performance** and **easy-to-use** emulator, tailored for enthusiasts and developers alike.
 
-<h4 align="center"><b>citron</b> is the world's most popular, open-source, Nintendo Switch emulator — started by the creators of <a href="https://citra-emu.org" target="_blank">Citra</a>.
-<br>
-It is written in C++ with portability in mind, and we actively maintain builds for Windows, Linux and Android.
-</h4>
+> **Disclaimer**: Citron is intended strictly for legal homebrew use and is not affiliated with or endorsed by Nintendo. Use of Citron for pirated or unauthorized copies of games is strictly prohibited. Please respect game developers and support them by purchasing legitimate copies of their games.
 
-<p align="center">
-    <a href="https://dev.azure.com/citron-emu/citron/">
-        <img src="https://dev.azure.com/citron-emu/citron/_apis/build/status/citron%20mainline?branchName=master"
-            alt="Azure Mainline CI Build Status">
-    </a>
-    <a href="https://discord.com/invite/u77vRWY">
-        <img src="https://img.shields.io/discord/398318088170242053?color=5865F2&label=citron&logo=discord&logoColor=white"
-            alt="Discord">
-    </a>
-</p>
+## Features 🛠️
 
-<p align="center">
-  <a href="#compatibility">Compatibility</a> |
-  <a href="#development">Development</a> |
-  <a href="#building">Building</a> |
-  <a href="#download">Download</a> |
-  <a href="#support">Support</a> |
-  <a href="#license">License</a>
-</p>
+- **High Performance**: Optimized for speed and smooth gameplay.
+- **User-Friendly**: Clean and intuitive interface.
+- **Cross-Platform**: Available on multiple platforms.
+- **Homebrew Support**: Fully supports legal homebrew games and applications.
+- **Ongoing Development**: Stay tuned for frequent updates as Citron evolves!
 
-## Compatibility
+## Download 🚀
 
-The emulator is capable of running most commercial games at full speed, provided you meet the [necessary hardware requirements](https://citron-emu.org/help/quickstart/#hardware-requirements).
+Ready to experience Citron? [Download the latest version](https://git.citron-emu.org/citron/rewrite/-/releases) and dive into your favorite Nintendo homebrew titles!
 
-For a full list of games citron supports, please visit our [Compatibility page](https://citron-emu.org/game/).
+## Getting Started 💡
 
-Check out our [website](https://citron-emu.org/) for the latest news on exciting features, monthly progress reports, and more!
+1. **Check the System Requirements**: Head over to this link to check the requirements to run this emulator [system requirements page](https://evilperson1337.notion.site/Hardware-Requirements-1d957c2edaf680418e2bf2c7239170ce)
+2. **Download and Install**: Head over to the [downloads page](https://git.citron-emu.org/citron/rewrite/-/releases) to grab the latest release.
+3. **Add Homebrew Games**: Citron is built to play homebrew games. Add them to your game directory and enjoy!
+4. **Configure Your Settings**: Customize your emulator settings to suit your performance needs.
 
-## Development
+## Source Code 🔧
 
-Most of the development happens on GitHub. It's also where [our central repository](https://github.com/citron-emu/citron) is hosted. For development discussion, please join us on [Discord](https://discord.com/invite/u77vRWY).
+Citron is an open-source project. You can find the source code on our official Git repository:
 
-If you want to contribute, please take a look at the [Contributor's Guide](https://github.com/citron-emu/citron/wiki/Contributing) and [Developer Information](https://github.com/citron-emu/citron/wiki/Developer-Information).
-You can also contact any of the developers on Discord in order to know about the current state of the emulator.
+- [Citron Source Code](https://git.citron-emu.org/)
 
-If you want to contribute to the user interface translation project, please check out the [citron project on transifex](https://www.transifex.com/citron-emulator/citron). We centralize translation work there, and periodically upstream translations.
+We welcome contributions! Check out the repository and feel free to submit issues or pull requests to help improve Citron.
 
-## Building
+## Legal Disclaimer 📜
 
-* __Windows__: [Windows Build](https://github.com/citron-emu/citron/wiki/Building-For-Windows)
-* __Linux__: [Linux Build](https://github.com/citron-emu/citron/wiki/Building-For-Linux)
+Citron is a **homebrew** emulator designed to support legally created and distributed homebrew software. It does not support piracy, nor is it intended for illegal purposes. Using Citron to play pirated copies of games is a violation of copyright law. Citron is not affiliated with or endorsed by **Nintendo**, and all **Nintendo** trademarks and copyrights are the property of their respective owners.
 
-## Download
+> **We highly encourage users to respect intellectual property rights and to only use Citron with legal, homebrew content.**
 
-You can download the latest releases automatically via the installer on our [downloads](https://citron-emu.org/downloads/) page.
+## License 📄
 
+Citron is licensed under the [GPL License](https://www.gnu.org/licenses/gpl-3.0.html). See the full license in the [LICENSE](LICENSE) file for more details.
 
-## Support
+## Contributing ✨
 
-If you enjoy the project and want to support us financially, check out our Patreon!
+We are always looking for developers, testers, and enthusiasts to contribute to Citron. Whether you want to submit a pull request, report an issue, or suggest new features, all contributions are welcome. Please follow our [contributing guidelines](CONTRIBUTING.md) to get started.
 
-<a href="https://www.patreon.com/citronteam">
-    <img src="https://c5.patreon.com/external/logo/become_a_patron_button@2x.png" width="160">
-</a>
+## Contact Us 📬
 
-Any donations received will go towards things like:
-* Switch consoles to explore and reverse-engineer the hardware
-* Switch games for testing, reverse-engineering, and implementing new features
-* Web hosting and infrastructure setup
-* Software licenses (e.g. Visual Studio, IDA Pro, etc.)
-* Additional hardware (e.g. GPUs as-needed to improve rendering support, other peripherals to add support for, etc.)
+For any inquiries or to follow Citron's development journey, reach out to us:
 
-If you wish to support us a different way, please join our [Discord](https://discord.gg/u77vRWY) and talk to bunnei. You may also contact: donations@citron-emu.org.
+- **Official Website**: [https://citron-emu.org](https://citron-emu.org)
+- **Source Code**: [https://git.citron-emu.org](https://git.citron-emu.org)
+- **Twitter**: [@CitronEmu](https://twitter.com/CitronEmu)
 
-## License
-
-citron is licensed under the GPLv3 (or any later version). Refer to the [LICENSE.txt](https://github.com/citron-emu/citron/blob/master/LICENSE.txt) file.
+Made with 💚 by **Zephyron** | [Source Code](https://git.citron-emu.org)
