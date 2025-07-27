@@ -165,6 +165,7 @@ static FileSys::VirtualFile VfsDirectoryCreateFileWrapper(const FileSys::Virtual
 #include "citron/updater/updater_dialog.h"
 #include "citron/updater/updater_service.h"
 #include "citron/util/clickable_label.h"
+#include "citron/util/performance_overlay.h"
 #include "citron/vk_device_info.h"
 
 #ifdef CITRON_CRASH_DUMPS
@@ -1075,6 +1076,10 @@ void GMainWindow::InitializeWidgets() {
     statusBar()->addPermanentWidget(multiplayer_state->GetStatusText(), 0);
     statusBar()->addPermanentWidget(multiplayer_state->GetStatusIcon(), 0);
 
+    // Create performance overlay
+    performance_overlay = new PerformanceOverlay(this);
+    performance_overlay->hide();
+
     tas_label = new QLabel();
     tas_label->setObjectName(QStringLiteral("TASlabel"));
     tas_label->setFocusPolicy(Qt::NoFocus);
@@ -1354,6 +1359,7 @@ void GMainWindow::InitializeHotkeys() {
     LinkActionShortcut(ui->action_Show_Filter_Bar, QStringLiteral("Toggle Filter Bar"));
     LinkActionShortcut(ui->action_Toggle_Grid_View, QStringLiteral("Toggle Grid View"));
     LinkActionShortcut(ui->action_Show_Status_Bar, QStringLiteral("Toggle Status Bar"));
+    LinkActionShortcut(ui->action_Show_Performance_Overlay, QStringLiteral("Toggle Performance Overlay"));
     LinkActionShortcut(ui->action_Fullscreen, QStringLiteral("Fullscreen"));
     LinkActionShortcut(ui->action_Capture_Screenshot, QStringLiteral("Capture Screenshot"));
     LinkActionShortcut(ui->action_TAS_Start, QStringLiteral("TAS Start/Stop"), true);
@@ -1454,6 +1460,10 @@ void GMainWindow::RestoreUIState() {
 
     ui->action_Show_Status_Bar->setChecked(UISettings::values.show_status_bar.GetValue());
     statusBar()->setVisible(ui->action_Show_Status_Bar->isChecked());
+    ui->action_Show_Performance_Overlay->setChecked(UISettings::values.show_performance_overlay.GetValue());
+    if (performance_overlay) {
+        performance_overlay->SetVisible(ui->action_Show_Performance_Overlay->isChecked());
+    }
     Debugger::ToggleConsole();
 }
 
@@ -1569,6 +1579,7 @@ void GMainWindow::ConnectMenuEvents() {
     connect_menu(ui->action_Display_Dock_Widget_Headers, &GMainWindow::OnDisplayTitleBars);
     connect_menu(ui->action_Show_Filter_Bar, &GMainWindow::OnToggleFilterBar);
     connect_menu(ui->action_Show_Status_Bar, &GMainWindow::OnToggleStatusBar);
+    connect_menu(ui->action_Show_Performance_Overlay, &GMainWindow::OnTogglePerformanceOverlay);
     connect_menu(ui->action_Toggle_Grid_View, &GMainWindow::OnToggleGridView);
 
     connect_menu(ui->action_Reset_Window_Size_720, &GMainWindow::ResetWindowSize720);
@@ -4400,6 +4411,43 @@ void GMainWindow::OnToggleStatusBar() {
     statusBar()->setVisible(ui->action_Show_Status_Bar->isChecked());
 }
 
+void GMainWindow::OnTogglePerformanceOverlay() {
+    if (performance_overlay) {
+        performance_overlay->SetVisible(ui->action_Show_Performance_Overlay->isChecked());
+    }
+}
+
+double GMainWindow::GetCurrentFPS() const {
+    if (!system || !system->IsPoweredOn()) {
+        return 0.0;
+    }
+    auto results = system->GetAndResetPerfStats();
+    return results.average_game_fps;
+}
+
+double GMainWindow::GetCurrentFrameTime() const {
+    if (!system || !system->IsPoweredOn()) {
+        return 0.0;
+    }
+    auto results = system->GetAndResetPerfStats();
+    return results.frametime * 1000.0; // Convert to milliseconds
+}
+
+u32 GMainWindow::GetShadersBuilding() const {
+    if (!system || !system->IsPoweredOn()) {
+        return 0;
+    }
+    return system->GPU().ShaderNotify().ShadersBuilding();
+}
+
+double GMainWindow::GetEmulationSpeed() const {
+    if (!system || !system->IsPoweredOn()) {
+        return 0.0;
+    }
+    auto results = system->GetAndResetPerfStats();
+    return results.emulation_speed * 100.0; // Convert to percentage
+}
+
 void GMainWindow::OnAlbum() {
     constexpr u64 AlbumId = static_cast<u64>(Service::AM::AppletProgramId::PhotoViewer);
     auto bis_system = system->GetFileSystemController().GetSystemNANDContents();
@@ -4765,6 +4813,7 @@ void GMainWindow::UpdateUISettings() {
     UISettings::values.display_titlebar = ui->action_Display_Dock_Widget_Headers->isChecked();
     UISettings::values.show_filter_bar = ui->action_Show_Filter_Bar->isChecked();
     UISettings::values.show_status_bar = ui->action_Show_Status_Bar->isChecked();
+    UISettings::values.show_performance_overlay = ui->action_Show_Performance_Overlay->isChecked();
     UISettings::values.first_start = false;
 }
 
