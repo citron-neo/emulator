@@ -232,6 +232,8 @@ if (ARCHITECTURE_x86_64 OR ARCHITECTURE_arm64)
     target_link_libraries(audio_core PRIVATE dynarmic::dynarmic)
 endif()
 
+citron_configure_lto(audio_core)
+
 if (ENABLE_CUBEB)
     target_sources(audio_core PRIVATE
         sink/cubeb_sink.cpp

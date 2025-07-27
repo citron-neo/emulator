@@ -266,3 +266,5 @@ create_target_directory_groups(shader_recompiler)
 if (CITRON_USE_PRECOMPILED_HEADERS)
     target_precompile_headers(shader_recompiler PRIVATE precompiled_headers.h)
 endif()
+
+citron_configure_lto(shader_recompiler)

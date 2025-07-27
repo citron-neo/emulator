@@ -93,6 +93,8 @@ if (CITRON_USE_PRECOMPILED_HEADERS)
     target_precompile_headers(input_common PRIVATE precompiled_headers.h)
 endif()
 
+citron_configure_lto(input_common)
+
 if (ANDROID)
     target_sources(input_common PRIVATE
         drivers/android.cpp

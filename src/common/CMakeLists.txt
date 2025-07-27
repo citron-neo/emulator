@@ -266,4 +266,6 @@ if (CITRON_USE_PRECOMPILED_HEADERS)
     target_precompile_headers(common PRIVATE precompiled_headers.h)
 endif()
 
+citron_configure_lto(common)
+
 create_target_directory_groups(common)
