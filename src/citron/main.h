@@ -38,7 +38,11 @@ class GRenderWindow;
 class LoadingScreen;
 class MicroProfileDialog;
 class OverlayDialog;
+class PerformanceOverlay;
 class ProfilerWidget;
+
+// Forward declaration
+class PerformanceOverlay;
 class ControllerDialog;
 class QLabel;
 class MultiplayerState;
@@ -158,6 +162,8 @@ class GMainWindow : public QMainWindow {
 
     /// Max number of recently loaded items to keep track of
     static const int max_recent_files_item = 10;
+
+    friend class PerformanceOverlay;
 
     enum {
         CREATE_SHORTCUT_MSGBOX_FULLSCREEN_YES,
@@ -389,7 +395,14 @@ private slots:
     void OnToggleFilterBar();
     void OnToggleGridView();
     void OnToggleStatusBar();
+    void OnTogglePerformanceOverlay();
     void OnDisplayTitleBars(bool);
+
+    // Performance overlay access methods
+    double GetCurrentFPS() const;
+    double GetCurrentFrameTime() const;
+    u32 GetShadersBuilding() const;
+    double GetEmulationSpeed() const;
     void InitializeHotkeys();
     void ToggleFullscreen();
     bool UsingExclusiveFullscreen();
@@ -489,6 +502,7 @@ private:
     LoadingScreen* loading_screen;
     QTimer shutdown_timer;
     OverlayDialog* shutdown_dialog{};
+    PerformanceOverlay* performance_overlay{};
 
     GameListPlaceholder* game_list_placeholder;
 
