@@ -28,6 +28,7 @@ enum class IntSetting(override val key: String) : AbstractIntSetting {
     LOCK_DRAWER("lock_drawer"),
     VERTICAL_ALIGNMENT("vertical_alignment"),
     FSR_SHARPENING_SLIDER("fsr_sharpening_slider"),
+    FSR2_QUALITY_MODE("fsr2_quality_mode"),
 
     // Zep Zone settings
     MEMORY_LAYOUT_MODE("memory_layout_mode"),

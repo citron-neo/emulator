@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: Copyright 2024 yuzu Emulator Project
+// SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #pragma once
@@ -30,6 +31,7 @@ namespace Vulkan {
 class AntiAliasPass;
 class Device;
 class FSR;
+class FSR2;
 class MemoryAllocator;
 struct PresentPushConstants;
 class RasterizerVulkan;
@@ -55,6 +57,7 @@ private:
     void CreateStagingBuffer(const Tegra::FramebufferConfig& framebuffer);
     void CreateRawImages(const Tegra::FramebufferConfig& framebuffer);
     void CreateFSR(VkExtent2D output_size);
+    void CreateFSR2(VkExtent2D output_size);
 
     void RefreshResources(const Tegra::FramebufferConfig& framebuffer);
     void SetAntiAliasPass();
@@ -90,6 +93,7 @@ private:
     std::unique_ptr<AntiAliasPass> anti_alias{};
 
     std::unique_ptr<FSR> fsr{};
+    std::unique_ptr<FSR2> fsr2{};
     std::vector<u64> resource_ticks{};
 };
 

@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: Copyright 2024 yuzu Emulator Project
+// SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #pragma once
@@ -27,6 +28,7 @@ namespace OpenGL {
 
 struct FramebufferTextureInfo;
 class FSR;
+class FSR2;
 class FXAA;
 class ProgramManager;
 class RasterizerOpenGL;
@@ -77,6 +79,7 @@ private:
     TextureInfo framebuffer_texture;
 
     std::unique_ptr<FSR> fsr;
+    std::unique_ptr<FSR2> fsr2;
     std::unique_ptr<FXAA> fxaa;
     std::unique_ptr<SMAA> smaa;
 };

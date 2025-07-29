@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: 2016 Citra Emulator Project
+// SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <algorithm>
@@ -288,6 +289,11 @@ void ConfigureGraphics::Setup(const ConfigurationShared::Builder& builder) {
             continue;
         }
 
+        // Store reference to the FSR sharpness widget for later use
+        if (setting->Id() == Settings::values.fsr_sharpening_slider.Id()) {
+            fsr_sharpness_widget = widget;
+        }
+
         if (setting->Id() == Settings::values.renderer_backend.Id()) {
             // Add the renderer combobox now so it's at the top
             api_grid_layout->addWidget(widget);
@@ -364,6 +370,41 @@ void ConfigureGraphics::Setup(const ConfigurationShared::Builder& builder) {
 
     for (auto widget : hold_api) {
         api_grid_layout->addWidget(widget);
+    }
+
+    // Set up FSR sharpness slider conditional enabling
+    if (fsr_sharpness_widget) {
+        // Create a function to update the enabled state based on scaling filter
+        auto update_fsr_sharpness_enabled = [this]() {
+            if (fsr_sharpness_widget) {
+                const auto scaling_filter = Settings::values.scaling_filter.GetValue();
+                const bool fsr2_selected = (scaling_filter == Settings::ScalingFilter::Fsr2);
+                fsr_sharpness_widget->setEnabled(!fsr2_selected);
+
+                // Grey out the widget when disabled
+                if (fsr2_selected) {
+                    fsr_sharpness_widget->setStyleSheet(QStringLiteral("QWidget { color: gray; }"));
+                } else {
+                    fsr_sharpness_widget->setStyleSheet(QStringLiteral(""));
+                }
+            }
+        };
+
+        // Initial state
+        update_fsr_sharpness_enabled();
+
+        // Connect to scaling filter changes
+        if (!Settings::IsConfiguringGlobal()) {
+            // Find the scaling filter widget and connect to its changes
+            for (const auto& [id, widget] : hold_graphics) {
+                if (id == Settings::values.scaling_filter.Id()) {
+                    auto* config_widget = static_cast<ConfigurationShared::Widget*>(widget);
+                    QObject::connect(config_widget->combobox, QOverload<int>::of(&QComboBox::activated),
+                                   [update_fsr_sharpness_enabled]() { update_fsr_sharpness_enabled(); });
+                    break;
+                }
+            }
+        }
     }
 
     // Background color is too specific to build into the new system, so we manage it here

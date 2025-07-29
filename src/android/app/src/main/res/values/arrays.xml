@@ -160,6 +160,7 @@
         <item>@string/scaling_filter_gaussian</item>
         <item>@string/scaling_filter_scale_force</item>
         <item>@string/scaling_filter_fsr</item>
+        <item>@string/scaling_filter_fsr2</item>
     </string-array>
 
     <integer-array name="rendererScalingFilterValues">
@@ -169,6 +170,21 @@
         <item>3</item>
         <item>4</item>
         <item>5</item>
+        <item>6</item>
+    </integer-array>
+
+    <string-array name="fsr2QualityModeNames">
+        <item>@string/fsr2_quality_quality</item>
+        <item>@string/fsr2_quality_balanced</item>
+        <item>@string/fsr2_quality_performance</item>
+        <item>@string/fsr2_quality_ultra_performance</item>
+    </string-array>
+
+    <integer-array name="fsr2QualityModeValues">
+        <item>0</item>
+        <item>1</item>
+        <item>2</item>
+        <item>3</item>
     </integer-array>
 
     <string-array name="rendererAntiAliasingNames">

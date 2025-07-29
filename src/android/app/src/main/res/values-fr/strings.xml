@@ -228,6 +228,12 @@
     <string name="renderer_scaling_filter">Filtre de fenêtre adaptatif</string>
     <string name="fsr_sharpness">Netteté FSR</string>
     <string name="fsr_sharpness_description">Détermine à quel point l\'image sera affinée lors de l\'utilisation du contraste dynamique FSR.</string>
+    <string name="fsr2_quality_mode">Mode qualité FSR 2.0</string>
+    <string name="fsr2_quality_mode_description">Sélectionne le mode qualité pour l\'upscaling FSR 2.0. Qualité offre une meilleure qualité d\'image, Performance offre de meilleures performances.</string>
+    <string name="fsr2_quality_quality">Qualité</string>
+    <string name="fsr2_quality_balanced">Équilibré</string>
+    <string name="fsr2_quality_performance">Performance</string>
+    <string name="fsr2_quality_ultra_performance">Performance Ultra</string>
     <string name="renderer_anti_aliasing">Méthode d\'anticrénelage</string>
     <string name="renderer_force_max_clock">Forcer les fréquences maximales (Adreno uniquement)</string>
     <string name="renderer_force_max_clock_description">Forcer le GPU à fonctionner à ses fréquences maximales possibles (les contraintes thermiques seront toujours appliquées).</string>
@@ -558,6 +564,7 @@
     <string name="scaling_filter_gaussian">Gaussien</string>
     <string name="scaling_filter_scale_force">ScaleForce</string>
     <string name="scaling_filter_fsr">AMD FidelityFX™ Super Resolution</string>
+    <string name="scaling_filter_fsr2">AMD FidelityFX™ Super Resolution 2.0</string>
 
     <!-- Anti-Aliasing -->
     <string name="anti_aliasing_none">Aucune</string>

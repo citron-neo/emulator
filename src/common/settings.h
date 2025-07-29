@@ -348,6 +348,16 @@ struct Values {
                                                        true,
                                                        true};
 
+    SwitchableSetting<FSR2QualityMode, true> fsr2_quality_mode{linkage,
+                                                               FSR2QualityMode::Performance,  // Performance by default
+                                                               FSR2QualityMode::Quality,
+                                                               FSR2QualityMode::UltraPerformance,
+                                                               "fsr2_quality_mode",
+                                                               Category::Renderer,
+                                                               Specialization::Default,
+                                                               true,
+                                                               true};
+
     SwitchableSetting<u8, false> bg_red{
         linkage, 0, "bg_red", Category::Renderer, Specialization::Default, true, true};
     SwitchableSetting<u8, false> bg_green{

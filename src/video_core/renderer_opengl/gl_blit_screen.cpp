@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: Copyright 2024 yuzu Emulator Project
+// SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "common/settings.h"
@@ -87,6 +88,7 @@ void BlitScreen::CreateWindowAdapt() {
         window_adapt = MakeScaleForce(device);
         break;
     case Settings::ScalingFilter::Fsr:
+    case Settings::ScalingFilter::Fsr2:
     case Settings::ScalingFilter::Bilinear:
     default:
         window_adapt = MakeBilinear(device);
