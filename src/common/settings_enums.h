@@ -151,6 +151,8 @@ ENUM(ScalingFilter, NearestNeighbor, Bilinear, Bicubic, Gaussian, ScaleForce, Fs
 
 ENUM(AntiAliasing, None, Fxaa, Smaa, MaxEnum);
 
+ENUM(FSR2QualityMode, Quality, Balanced, Performance, UltraPerformance);
+
 ENUM(AspectRatio, R16_9, R4_3, R21_9, R16_10, R32_9, Stretch);
 
 ENUM(ConsoleMode, Handheld, Docked);

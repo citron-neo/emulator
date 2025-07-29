@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: 2016 Citra Emulator Project
+// SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #pragma once
@@ -113,4 +114,5 @@ private:
     QWidget* shader_backend_widget;
     QComboBox* aspect_ratio_combobox;
     QComboBox* resolution_combobox;
+    QWidget* fsr_sharpness_widget;
 };

@@ -188,22 +188,22 @@ VkImageView FSR2::Draw(Scheduler& scheduler, size_t image_index, VkImage source_
                      input_image_height, output_image_width, output_image_height, viewport_x,
                      viewport_y);
 
-    // FSR 2.0 uses a different sharpening calculation based on quality mode
-    const int quality_mode = Settings::values.fsr2_quality_mode.GetValue();
-    const float sharpening = [quality_mode]() {
-        switch (quality_mode) {
-        case 0: // Quality
-            return 0.2f;
-        case 1: // Balanced
-            return 0.4f;
-        case 2: // Performance
-            return 0.6f;
-        case 3: // Ultra Performance
-            return 0.8f;
-        default:
-            return 0.4f;
-        }
-    }();
+               // FSR 2.0 uses a different sharpening calculation based on quality mode
+           const auto quality_mode = Settings::values.fsr2_quality_mode.GetValue();
+           const float sharpening = [quality_mode]() {
+               switch (quality_mode) {
+               case Settings::FSR2QualityMode::Quality:
+                   return 0.2f;
+               case Settings::FSR2QualityMode::Balanced:
+                   return 0.4f;
+               case Settings::FSR2QualityMode::Performance:
+                   return 0.6f;
+               case Settings::FSR2QualityMode::UltraPerformance:
+                   return 0.8f;
+               default:
+                   return 0.4f;
+               }
+           }();
     FsrRcasCon(rcas_con.data(), sharpening);
 
     UploadImages(scheduler);
