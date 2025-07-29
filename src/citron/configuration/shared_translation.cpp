@@ -127,6 +127,8 @@ std::unique_ptr<TranslationMap> InitializeTranslations(QWidget* parent) {
     INSERT(Settings, scaling_filter, tr("Window Adapting Filter:"), QStringLiteral());
     INSERT(Settings, fsr_sharpening_slider, tr("FSR Sharpness:"),
            tr("Determines how sharpened the image will look while using FSR's dynamic contrast."));
+    INSERT(Settings, fsr2_quality_mode, tr("FSR 2.0 Quality Mode:"),
+           tr("Selects the quality mode for FSR 2.0 upscaling. Quality provides better image quality, Performance provides better performance."));
     INSERT(Settings, anti_aliasing, tr("Anti-Aliasing Method:"),
            tr("The anti-aliasing method to use.\nSMAA offers the best quality.\nFXAA has a "
               "lower performance impact and can produce a better and more stable picture under "
@@ -394,6 +396,7 @@ std::unique_ptr<ComboboxTranslationMap> ComboboxEnumeration(QWidget* parent) {
                               PAIR(ScalingFilter, Gaussian, tr("Gaussian")),
                               PAIR(ScalingFilter, ScaleForce, tr("ScaleForce")),
                               PAIR(ScalingFilter, Fsr, tr("AMD FidelityFX™️ Super Resolution")),
+                              PAIR(ScalingFilter, Fsr2, tr("AMD FidelityFX™️ Super Resolution 2.0")),
                           }});
     translations->insert({Settings::EnumMetadata<Settings::AntiAliasing>::Index(),
                           {

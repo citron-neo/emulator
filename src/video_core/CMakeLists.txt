@@ -123,6 +123,8 @@ add_library(video_core STATIC
     renderer_opengl/present/filters.h
     renderer_opengl/present/fsr.cpp
     renderer_opengl/present/fsr.h
+    renderer_opengl/present/fsr2.cpp
+    renderer_opengl/present/fsr2.h
     renderer_opengl/present/fxaa.cpp
     renderer_opengl/present/fxaa.h
     renderer_opengl/present/layer.cpp
@@ -178,6 +180,8 @@ add_library(video_core STATIC
     renderer_vulkan/present/filters.h
     renderer_vulkan/present/fsr.cpp
     renderer_vulkan/present/fsr.h
+    renderer_vulkan/present/fsr2.cpp
+    renderer_vulkan/present/fsr2.h
     renderer_vulkan/present/fxaa.cpp
     renderer_vulkan/present/fxaa.h
     renderer_vulkan/present/layer.cpp

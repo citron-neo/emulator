@@ -247,6 +247,15 @@ abstract class SettingsItem(
             )
             put(
                 SingleChoiceSetting(
+                    IntSetting.FSR2_QUALITY_MODE,
+                    titleId = R.string.fsr2_quality_mode,
+                    descriptionId = R.string.fsr2_quality_mode_description,
+                    choicesId = R.array.fsr2QualityModeNames,
+                    valuesId = R.array.fsr2QualityModeValues
+                )
+            )
+            put(
+                SingleChoiceSetting(
                     IntSetting.RENDERER_ANTI_ALIASING,
                     titleId = R.string.renderer_anti_aliasing,
                     choicesId = R.array.rendererAntiAliasingNames,

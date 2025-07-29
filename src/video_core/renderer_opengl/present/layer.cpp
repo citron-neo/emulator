@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: Copyright 2024 yuzu Emulator Project
+// SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "video_core/framebuffer_config.h"
@@ -6,6 +7,7 @@
 #include "video_core/renderer_opengl/gl_blit_screen.h"
 #include "video_core/renderer_opengl/gl_rasterizer.h"
 #include "video_core/renderer_opengl/present/fsr.h"
+#include "video_core/renderer_opengl/present/fsr2.h"
 #include "video_core/renderer_opengl/present/fxaa.h"
 #include "video_core/renderer_opengl/present/layer.h"
 #include "video_core/renderer_opengl/present/present_uniforms.h"
@@ -72,6 +74,14 @@ GLuint Layer::ConfigureDraw(std::array<GLfloat, 3 * 2>& out_matrix,
         }
 
         texture = fsr->Draw(program_manager, texture, info.scaled_width, info.scaled_height, crop);
+        crop = {0, 0, 1, 1};
+    }
+    if (filters.get_scaling_filter() == Settings::ScalingFilter::Fsr2) {
+        if (!fsr2 || fsr2->NeedsRecreation(layout.screen)) {
+            fsr2 = std::make_unique<FSR2>(layout.screen.GetWidth(), layout.screen.GetHeight());
+        }
+
+        texture = fsr2->Draw(program_manager, texture, info.scaled_width, info.scaled_height, crop);
         crop = {0, 0, 1, 1};
     }
 
