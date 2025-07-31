@@ -1,0 +1,1 @@
+This is a statically compiled bubblewrap 0.9.0 executable.
