@@ -125,7 +125,13 @@ void AudioRenderer::CreateSinkStreams() {
         std::string name{fmt::format("ADSP_RenderStream-{}", i)};
         streams[i] =
             sink.AcquireSinkStream(system, channels, name, ::AudioCore::Sink::StreamType::Render);
-        streams[i]->SetRingSize(4);
+
+        if (streams[i]) {
+            streams[i]->SetRingSize(4);
+            LOG_INFO(Service_Audio, "Created sink stream {} successfully", i);
+        } else {
+            LOG_ERROR(Service_Audio, "Failed to create sink stream {} - audio may be disabled", i);
+        }
     }
 }
 
@@ -172,6 +178,12 @@ void AudioRenderer::Main(std::stop_token stop_token) {
 
                 // Check this buffer is valid, as it may not be used.
                 if (command_buffer.buffer != 0) {
+                    // Check if stream is valid before using it
+                    if (!streams[index]) {
+                        LOG_WARNING(Service_Audio, "Stream {} is null, skipping audio processing", index);
+                        continue;
+                    }
+
                     // If there are no remaining commands (from the previous list),
                     // this is a new command list, initialize it.
                     if (command_buffer.remaining_command_count == 0) {

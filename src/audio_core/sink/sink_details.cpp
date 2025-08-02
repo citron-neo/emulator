@@ -104,10 +104,18 @@ const SinkDetails& GetOutputSinkDetails(Settings::AudioEngine sink_id) {
     if (sink_id == Settings::AudioEngine::Auto) {
         // Auto-select a backend. Use the sink details ordering, preferring cubeb first, checking
         // that the backend is available and suitable to use.
+        LOG_INFO(Service_Audio, "Auto-selecting audio backend...");
         for (auto& details : sink_details) {
+            LOG_INFO(Service_Audio, "Testing {} backend for suitability...",
+                     Settings::CanonicalizeEnum(details.id));
             if (details.is_suitable()) {
                 iter = &details;
+                LOG_INFO(Service_Audio, "{} backend is suitable, selecting it",
+                         Settings::CanonicalizeEnum(details.id));
                 break;
+            } else {
+                LOG_WARNING(Service_Audio, "{} backend is not suitable, trying next...",
+                           Settings::CanonicalizeEnum(details.id));
             }
         }
         LOG_INFO(Service_Audio, "Auto-selecting the {} backend",

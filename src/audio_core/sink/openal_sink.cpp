@@ -10,6 +10,7 @@
 
 #include "audio_core/common/common.h"
 #include "audio_core/sink/openal_sink.h"
+#include "audio_core/sink/sink.h"
 #include "audio_core/sink/sink_stream.h"
 #include "common/logging/log.h"
 #include "common/scope_exit.h"
@@ -26,6 +27,22 @@
 
 #ifndef ALC_DEFAULT_ALL_DEVICES_SPECIFIER
 #define ALC_DEFAULT_ALL_DEVICES_SPECIFIER        0x1012
+#endif
+
+#ifndef ALC_DEFAULT_DEVICE_SPECIFIER
+#define ALC_DEFAULT_DEVICE_SPECIFIER             0x1004
+#endif
+
+#ifndef ALC_DEVICE_SPECIFIER
+#define ALC_DEVICE_SPECIFIER                     0x1005
+#endif
+
+#ifndef ALC_CAPTURE_DEVICE_SPECIFIER
+#define ALC_CAPTURE_DEVICE_SPECIFIER             0x310
+#endif
+
+#ifndef ALC_CAPTURE_SAMPLES
+#define ALC_CAPTURE_SAMPLES                      0x312
 #endif
 
 namespace AudioCore::Sink {
@@ -435,17 +452,40 @@ OpenALSink::OpenALSink(std::string_view target_device_name) {
         LOG_WARNING(Audio_Sink, "OpenAL device enumeration extensions not available");
     }
 
-    // Initialize OpenAL
-    const char* device_name = target_device_name.empty() ? nullptr : target_device_name.data();
+    // Initialize OpenAL with better device selection logic
+    const char* device_name = nullptr;
 
-    // Try to get a better device name if using default
-    if (!device_name && alcIsExtensionPresent(nullptr, "ALC_ENUMERATE_ALL_EXT")) {
-        device_name = alcGetString(nullptr, ALC_DEFAULT_ALL_DEVICES_SPECIFIER);
-        if (device_name) {
-            LOG_INFO(Audio_Sink, "Using default device: {}", device_name);
+    if (!target_device_name.empty() && target_device_name != auto_device_name) {
+        // Use the specified device name
+        device_name = target_device_name.data();
+        LOG_INFO(Audio_Sink, "Using specified device: {}", target_device_name);
+    } else {
+        // Auto selection - try multiple strategies to find a working device
+        LOG_INFO(Audio_Sink, "Auto device selected, attempting auto-selection...");
+
+        // Strategy 1: Try to get the default device using newer extensions
+        if (alcIsExtensionPresent(nullptr, "ALC_ENUMERATE_ALL_EXT")) {
+            device_name = alcGetString(nullptr, ALC_DEFAULT_ALL_DEVICES_SPECIFIER);
+            if (device_name) {
+                LOG_INFO(Audio_Sink, "Using default device (ALC_ENUMERATE_ALL_EXT): {}", device_name);
+            }
+        }
+
+        // Strategy 2: If no default device found, try the basic default device
+        if (!device_name) {
+            device_name = alcGetString(nullptr, ALC_DEFAULT_DEVICE_SPECIFIER);
+            if (device_name) {
+                LOG_INFO(Audio_Sink, "Using default device (ALC_DEFAULT_DEVICE_SPECIFIER): {}", device_name);
+            }
+        }
+
+        // Strategy 3: If still no device, try opening with nullptr (should use system default)
+        if (!device_name) {
+            LOG_INFO(Audio_Sink, "No default device found, trying nullptr (system default)");
         }
     }
 
+    // Try to open the device with multiple fallback strategies
     device = alcOpenDevice(device_name);
     if (!device) {
         ALenum error = alcGetError(nullptr);
@@ -467,78 +507,120 @@ OpenALSink::OpenALSink(std::string_view target_device_name) {
             error_str = "Unknown error";
             break;
         }
-        LOG_CRITICAL(Audio_Sink, "Failed to open OpenAL device '{}': {} ({})",
-                     target_device_name.empty() ? "default" : target_device_name, error_str, error);
-        return;
+
+        LOG_WARNING(Audio_Sink, "Failed to open OpenAL device '{}': {} ({}), trying fallback strategies",
+                   device_name ? device_name : "nullptr", error_str, error);
+
+        // Fallback 1: Try with nullptr (system default)
+        if (device_name) {
+            LOG_INFO(Audio_Sink, "Trying fallback 1: nullptr (system default)");
+            device = alcOpenDevice(nullptr);
+            if (device) {
+                LOG_INFO(Audio_Sink, "Successfully opened OpenAL device with nullptr fallback");
+            } else {
+                error = alcGetError(nullptr);
+                LOG_WARNING(Audio_Sink, "Fallback 1 failed: {} ({})", error_str, error);
+            }
+        }
+
+        // Fallback 2: Try with empty string
+        if (!device) {
+            LOG_INFO(Audio_Sink, "Trying fallback 2: empty string");
+            device = alcOpenDevice("");
+            if (device) {
+                LOG_INFO(Audio_Sink, "Successfully opened OpenAL device with empty string fallback");
+            } else {
+                error = alcGetError(nullptr);
+                LOG_WARNING(Audio_Sink, "Fallback 2 failed: {} ({})", error_str, error);
+            }
+        }
+
+        // If all fallbacks failed, log the final error
+        if (!device) {
+            LOG_CRITICAL(Audio_Sink, "All OpenAL device opening strategies failed - audio will be disabled");
+        }
     }
 
-    // Create context with attributes for better compatibility
-    ALCint context_attributes[] = {
-        ALC_FREQUENCY, TargetSampleRate,
-        ALC_REFRESH, 50, // 50Hz refresh rate
-        ALC_SYNC, ALC_FALSE,
-        0 // Null terminator
-    };
+    // Only try to create context if device was successfully opened
+    if (device) {
+        // Create context with attributes for better compatibility
+        ALCint context_attributes[] = {
+            ALC_FREQUENCY, TargetSampleRate,
+            ALC_REFRESH, 50, // 50Hz refresh rate
+            ALC_SYNC, ALC_FALSE,
+            0 // Null terminator
+        };
 
-    context = alcCreateContext(static_cast<ALCdevice*>(device), context_attributes);
-    if (!context) {
-        ALenum error = alcGetError(static_cast<ALCdevice*>(device));
-        const char* error_str = "";
-        switch (error) {
-        case ALC_INVALID_DEVICE:
-            error_str = "ALC_INVALID_DEVICE";
-            break;
-        case ALC_INVALID_CONTEXT:
-            error_str = "ALC_INVALID_CONTEXT";
-            break;
-        case ALC_INVALID_VALUE:
-            error_str = "ALC_INVALID_VALUE";
-            break;
-        case ALC_OUT_OF_MEMORY:
-            error_str = "ALC_OUT_OF_MEMORY";
-            break;
-        default:
-            error_str = "Unknown error";
-            break;
+        context = alcCreateContext(static_cast<ALCdevice*>(device), context_attributes);
+        if (!context) {
+            // Try with minimal attributes if the first attempt failed
+            LOG_WARNING(Audio_Sink, "Failed to create OpenAL context with full attributes, trying minimal attributes");
+            context = alcCreateContext(static_cast<ALCdevice*>(device), nullptr);
         }
-        LOG_CRITICAL(Audio_Sink, "Failed to create OpenAL context: {} ({})", error_str, error);
-        alcCloseDevice(static_cast<ALCdevice*>(device));
-        device = nullptr;
-        return;
-    }
 
-    if (!alcMakeContextCurrent(static_cast<ALCcontext*>(context))) {
-        ALenum error = alcGetError(static_cast<ALCdevice*>(device));
-        const char* error_str = "";
-        switch (error) {
-        case ALC_INVALID_DEVICE:
-            error_str = "ALC_INVALID_DEVICE";
-            break;
-        case ALC_INVALID_CONTEXT:
-            error_str = "ALC_INVALID_CONTEXT";
-            break;
-        case ALC_INVALID_VALUE:
-            error_str = "ALC_INVALID_VALUE";
-            break;
-        default:
-            error_str = "Unknown error";
-            break;
+        if (!context) {
+            ALenum error = alcGetError(static_cast<ALCdevice*>(device));
+            const char* error_str = "";
+            switch (error) {
+            case ALC_INVALID_DEVICE:
+                error_str = "ALC_INVALID_DEVICE";
+                break;
+            case ALC_INVALID_CONTEXT:
+                error_str = "ALC_INVALID_CONTEXT";
+                break;
+            case ALC_INVALID_VALUE:
+                error_str = "ALC_INVALID_VALUE";
+                break;
+            case ALC_OUT_OF_MEMORY:
+                error_str = "ALC_OUT_OF_MEMORY";
+                break;
+            default:
+                error_str = "Unknown error";
+                break;
+            }
+            LOG_CRITICAL(Audio_Sink, "Failed to create OpenAL context: {} ({})", error_str, error);
+            alcCloseDevice(static_cast<ALCdevice*>(device));
+            device = nullptr;
+        } else {
+            if (!alcMakeContextCurrent(static_cast<ALCcontext*>(context))) {
+                ALenum error = alcGetError(static_cast<ALCdevice*>(device));
+                const char* error_str = "";
+                switch (error) {
+                case ALC_INVALID_DEVICE:
+                    error_str = "ALC_INVALID_DEVICE";
+                    break;
+                case ALC_INVALID_CONTEXT:
+                    error_str = "ALC_INVALID_CONTEXT";
+                    break;
+                case ALC_INVALID_VALUE:
+                    error_str = "ALC_INVALID_VALUE";
+                    break;
+                default:
+                    error_str = "Unknown error";
+                    break;
+                }
+                LOG_CRITICAL(Audio_Sink, "Failed to make OpenAL context current: {} ({})", error_str, error);
+                alcDestroyContext(static_cast<ALCcontext*>(context));
+                alcCloseDevice(static_cast<ALCdevice*>(device));
+                context = nullptr;
+                device = nullptr;
+            }
         }
-        LOG_CRITICAL(Audio_Sink, "Failed to make OpenAL context current: {} ({})", error_str, error);
-        alcDestroyContext(static_cast<ALCcontext*>(context));
-        alcCloseDevice(static_cast<ALCdevice*>(device));
-        context = nullptr;
-        device = nullptr;
-        return;
     }
 
     // Set device name
-    if (!target_device_name.empty()) {
+    if (!target_device_name.empty() && target_device_name != auto_device_name) {
         output_device = target_device_name;
     } else {
-        const char* default_device = alcGetString(static_cast<ALCdevice*>(device), ALC_DEVICE_SPECIFIER);
-        if (default_device) {
-            output_device = default_device;
+        if (device) {
+            const char* default_device = alcGetString(static_cast<ALCdevice*>(device), ALC_DEVICE_SPECIFIER);
+            if (default_device) {
+                output_device = default_device;
+            } else {
+                output_device = "Default";
+            }
+        } else {
+            output_device = "Default";
         }
     }
 
@@ -546,31 +628,35 @@ OpenALSink::OpenALSink(std::string_view target_device_name) {
     device_channels = 2; // OpenAL typically supports stereo output
 
     // Log OpenAL implementation details
-    const char* al_version = reinterpret_cast<const char*>(alGetString(AL_VERSION));
-    const char* al_renderer = reinterpret_cast<const char*>(alGetString(AL_RENDERER));
-    const char* al_vendor = reinterpret_cast<const char*>(alGetString(AL_VENDOR));
-    const char* al_extensions = reinterpret_cast<const char*>(alGetString(AL_EXTENSIONS));
+    if (device && context) {
+        const char* al_version = reinterpret_cast<const char*>(alGetString(AL_VERSION));
+        const char* al_renderer = reinterpret_cast<const char*>(alGetString(AL_RENDERER));
+        const char* al_vendor = reinterpret_cast<const char*>(alGetString(AL_VENDOR));
+        const char* al_extensions = reinterpret_cast<const char*>(alGetString(AL_EXTENSIONS));
 
-    LOG_INFO(Audio_Sink, "OpenAL implementation details:");
-    LOG_INFO(Audio_Sink, "  Version: {}", al_version ? al_version : "Unknown");
-    LOG_INFO(Audio_Sink, "  Renderer: {}", al_renderer ? al_renderer : "Unknown");
-    LOG_INFO(Audio_Sink, "  Vendor: {}", al_vendor ? al_vendor : "Unknown");
-    LOG_INFO(Audio_Sink, "  Device: {}", output_device);
+        LOG_INFO(Audio_Sink, "OpenAL implementation details:");
+        LOG_INFO(Audio_Sink, "  Version: {}", al_version ? al_version : "Unknown");
+        LOG_INFO(Audio_Sink, "  Renderer: {}", al_renderer ? al_renderer : "Unknown");
+        LOG_INFO(Audio_Sink, "  Vendor: {}", al_vendor ? al_vendor : "Unknown");
+        LOG_INFO(Audio_Sink, "  Device: {}", output_device);
 
-    // Check for important extensions
-    if (al_extensions) {
-        std::string extensions_str(al_extensions);
-        LOG_DEBUG(Audio_Sink, "  Extensions: {}", extensions_str);
+        // Check for important extensions
+        if (al_extensions) {
+            std::string extensions_str(al_extensions);
+            LOG_DEBUG(Audio_Sink, "  Extensions: {}", extensions_str);
 
-        if (extensions_str.find("AL_SOFT_direct_channels") != std::string::npos) {
-            LOG_INFO(Audio_Sink, "  AL_SOFT_direct_channels extension available");
+            if (extensions_str.find("AL_SOFT_direct_channels") != std::string::npos) {
+                LOG_INFO(Audio_Sink, "  AL_SOFT_direct_channels extension available");
+            }
+            if (extensions_str.find("AL_SOFT_source_latency") != std::string::npos) {
+                LOG_INFO(Audio_Sink, "  AL_SOFT_source_latency extension available");
+            }
         }
-        if (extensions_str.find("AL_SOFT_source_latency") != std::string::npos) {
-            LOG_INFO(Audio_Sink, "  AL_SOFT_source_latency extension available");
-        }
+
+        LOG_INFO(Audio_Sink, "OpenAL sink initialized successfully with device: {}", output_device);
+    } else {
+        LOG_WARNING(Audio_Sink, "OpenAL sink initialized with null device/context - audio will be disabled");
     }
-
-    LOG_INFO(Audio_Sink, "OpenAL sink initialized successfully with device: {}", output_device);
 }
 
 OpenALSink::~OpenALSink() {
@@ -588,7 +674,9 @@ OpenALSink::~OpenALSink() {
 SinkStream* OpenALSink::AcquireSinkStream(Core::System& system, u32 system_channels_,
                                           const std::string&, StreamType type) {
     if (!device || !context) {
-        LOG_ERROR(Audio_Sink, "Cannot create sink stream - OpenAL device or context is null");
+        LOG_ERROR(Audio_Sink, "Cannot create sink stream - OpenAL device or context is null (device: {}, context: {})",
+                  device ? "valid" : "null", context ? "valid" : "null");
+        // Return nullptr to indicate failure - the audio system should handle this gracefully
         return nullptr;
     }
 
@@ -633,7 +721,7 @@ void OpenALSink::CloseStreams() {
 }
 
 f32 OpenALSink::GetDeviceVolume() const {
-    if (sink_streams.empty()) {
+    if (sink_streams.empty() || !sink_streams[0]) {
         return 1.0f;
     }
     return sink_streams[0]->GetDeviceVolume();
@@ -654,16 +742,21 @@ void OpenALSink::SetSystemVolume(f32 volume) {
 std::vector<std::string> ListOpenALSinkDevices(bool capture) {
     std::vector<std::string> device_list;
 
+    LOG_INFO(Audio_Sink, "Enumerating OpenAL {} devices...", capture ? "capture" : "playback");
+
     if (capture) {
         // List capture devices
         if (alcIsExtensionPresent(nullptr, "ALC_ENUMERATE_ALL_EXT")) {
             // Use the newer extension for better device names
             const char* devices = alcGetString(nullptr, ALC_ALL_DEVICES_SPECIFIER);
             if (devices) {
+                LOG_INFO(Audio_Sink, "Using ALC_ENUMERATE_ALL_EXT for capture device enumeration");
                 while (*devices) {
                     device_list.emplace_back(devices);
                     devices += strlen(devices) + 1;
                 }
+            } else {
+                LOG_WARNING(Audio_Sink, "ALC_ENUMERATE_ALL_EXT returned null device list");
             }
         }
 
@@ -671,10 +764,13 @@ std::vector<std::string> ListOpenALSinkDevices(bool capture) {
         if (device_list.empty()) {
             const char* devices = alcGetString(nullptr, ALC_CAPTURE_DEVICE_SPECIFIER);
             if (devices) {
+                LOG_INFO(Audio_Sink, "Using ALC_CAPTURE_DEVICE_SPECIFIER for capture device enumeration");
                 while (*devices) {
                     device_list.emplace_back(devices);
                     devices += strlen(devices) + 1;
                 }
+            } else {
+                LOG_WARNING(Audio_Sink, "ALC_CAPTURE_DEVICE_SPECIFIER returned null device list");
             }
         }
     } else {
@@ -683,10 +779,13 @@ std::vector<std::string> ListOpenALSinkDevices(bool capture) {
             // Use the newer extension for better device names
             const char* devices = alcGetString(nullptr, ALC_ALL_DEVICES_SPECIFIER);
             if (devices) {
+                LOG_INFO(Audio_Sink, "Using ALC_ENUMERATE_ALL_EXT for playback device enumeration");
                 while (*devices) {
                     device_list.emplace_back(devices);
                     devices += strlen(devices) + 1;
                 }
+            } else {
+                LOG_WARNING(Audio_Sink, "ALC_ENUMERATE_ALL_EXT returned null device list");
             }
         }
 
@@ -694,10 +793,13 @@ std::vector<std::string> ListOpenALSinkDevices(bool capture) {
         if (device_list.empty() && alcIsExtensionPresent(nullptr, "ALC_ENUMERATION_EXT")) {
             const char* devices = alcGetString(nullptr, ALC_DEVICE_SPECIFIER);
             if (devices) {
+                LOG_INFO(Audio_Sink, "Using ALC_ENUMERATION_EXT for playback device enumeration");
                 while (*devices) {
                     device_list.emplace_back(devices);
                     devices += strlen(devices) + 1;
                 }
+            } else {
+                LOG_WARNING(Audio_Sink, "ALC_ENUMERATION_EXT returned null device list");
             }
         }
 
@@ -705,10 +807,13 @@ std::vector<std::string> ListOpenALSinkDevices(bool capture) {
         if (device_list.empty()) {
             const char* devices = alcGetString(nullptr, ALC_DEVICE_SPECIFIER);
             if (devices) {
+                LOG_INFO(Audio_Sink, "Using ALC_DEVICE_SPECIFIER for playback device enumeration");
                 while (*devices) {
                     device_list.emplace_back(devices);
                     devices += strlen(devices) + 1;
                 }
+            } else {
+                LOG_WARNING(Audio_Sink, "ALC_DEVICE_SPECIFIER returned null device list");
             }
         }
     }
@@ -728,40 +833,132 @@ std::vector<std::string> ListOpenALSinkDevices(bool capture) {
 }
 
 bool IsOpenALSuitable() {
-    // Try to initialize OpenAL to check if it's available
-    ALCdevice* test_device = alcOpenDevice(nullptr);
-    if (!test_device) {
-        LOG_ERROR(Audio_Sink, "OpenAL not suitable - failed to open default device");
+    LOG_INFO(Audio_Sink, "Checking OpenAL suitability...");
+
+    // Simple test: try to open a device with the most basic approach
+    LOG_INFO(Audio_Sink, "Performing basic OpenAL functionality test...");
+    ALCdevice* basic_device = alcOpenDevice(nullptr);
+    if (!basic_device) {
+        LOG_ERROR(Audio_Sink, "Basic OpenAL test failed - cannot open device with nullptr");
         return false;
     }
 
+    ALCcontext* basic_context = alcCreateContext(basic_device, nullptr);
+    if (!basic_context) {
+        LOG_ERROR(Audio_Sink, "Basic OpenAL test failed - cannot create context");
+        alcCloseDevice(basic_device);
+        return false;
+    }
+
+    if (!alcMakeContextCurrent(basic_context)) {
+        LOG_ERROR(Audio_Sink, "Basic OpenAL test failed - cannot make context current");
+        alcDestroyContext(basic_context);
+        alcCloseDevice(basic_device);
+        return false;
+    }
+
+    // Test basic AL functions
+    ALuint test_source = 0;
+    alGenSources(1, &test_source);
+    ALenum basic_error = alGetError();
+
+    if (basic_error != AL_NO_ERROR || test_source == 0) {
+        LOG_ERROR(Audio_Sink, "Basic OpenAL test failed - cannot create source (error: {})", basic_error);
+        alcMakeContextCurrent(nullptr);
+        alcDestroyContext(basic_context);
+        alcCloseDevice(basic_device);
+        return false;
+    }
+
+    // Clean up basic test
+    alDeleteSources(1, &test_source);
+    alcMakeContextCurrent(nullptr);
+    alcDestroyContext(basic_context);
+    alcCloseDevice(basic_device);
+
+    LOG_INFO(Audio_Sink, "Basic OpenAL functionality test passed");
+
+    // Check OpenAL version first
+    const char* al_version = reinterpret_cast<const char*>(alGetString(AL_VERSION));
+    const char* al_vendor = reinterpret_cast<const char*>(alGetString(AL_VENDOR));
+    const char* al_renderer = reinterpret_cast<const char*>(alGetString(AL_RENDERER));
+
+    LOG_INFO(Audio_Sink, "OpenAL version: {}", al_version ? al_version : "Unknown");
+    LOG_INFO(Audio_Sink, "OpenAL vendor: {}", al_vendor ? al_vendor : "Unknown");
+    LOG_INFO(Audio_Sink, "OpenAL renderer: {}", al_renderer ? al_renderer : "Unknown");
+
+    // Test device enumeration
+    LOG_INFO(Audio_Sink, "Testing OpenAL device enumeration...");
+    const char* default_device = alcGetString(nullptr, ALC_DEFAULT_DEVICE_SPECIFIER);
+    if (default_device) {
+        LOG_INFO(Audio_Sink, "Default device: {}", default_device);
+    } else {
+        LOG_WARNING(Audio_Sink, "No default device found");
+    }
+
+    // Test all device enumeration methods
+    if (alcIsExtensionPresent(nullptr, "ALC_ENUMERATE_ALL_EXT")) {
+        const char* all_devices = alcGetString(nullptr, ALC_ALL_DEVICES_SPECIFIER);
+        if (all_devices) {
+            LOG_INFO(Audio_Sink, "ALC_ALL_DEVICES_SPECIFIER available");
+        } else {
+            LOG_WARNING(Audio_Sink, "ALC_ALL_DEVICES_SPECIFIER returned null");
+        }
+    }
+
+    if (alcIsExtensionPresent(nullptr, "ALC_ENUMERATION_EXT")) {
+        const char* devices = alcGetString(nullptr, ALC_DEVICE_SPECIFIER);
+        if (devices) {
+            LOG_INFO(Audio_Sink, "ALC_DEVICE_SPECIFIER available");
+        } else {
+            LOG_WARNING(Audio_Sink, "ALC_DEVICE_SPECIFIER returned null");
+        }
+    }
+
+    // Try to initialize OpenAL to check if it's available
+    LOG_INFO(Audio_Sink, "Attempting to open OpenAL device...");
+    ALCdevice* test_device = alcOpenDevice(nullptr);
+    if (!test_device) {
+        ALenum device_error = alcGetError(nullptr);
+        LOG_ERROR(Audio_Sink, "OpenAL not suitable - failed to open default device (error: {})", device_error);
+        return false;
+    }
+
+    LOG_INFO(Audio_Sink, "Successfully opened OpenAL device, attempting to create context...");
+
     ALCcontext* test_context = alcCreateContext(test_device, nullptr);
     if (!test_context) {
-        LOG_ERROR(Audio_Sink, "OpenAL not suitable - failed to create context");
+        ALenum context_error = alcGetError(test_device);
+        LOG_ERROR(Audio_Sink, "OpenAL not suitable - failed to create context (error: {})", context_error);
         alcCloseDevice(test_device);
         return false;
     }
 
+    LOG_INFO(Audio_Sink, "Successfully created OpenAL context, attempting to make it current...");
+
     // Try to make the context current
     if (!alcMakeContextCurrent(test_context)) {
-        LOG_ERROR(Audio_Sink, "OpenAL not suitable - failed to make context current");
+        ALenum current_error = alcGetError(test_device);
+        LOG_ERROR(Audio_Sink, "OpenAL not suitable - failed to make context current (error: {})", current_error);
         alcDestroyContext(test_context);
         alcCloseDevice(test_device);
         return false;
     }
 
-    // Try to create a test source to verify functionality
-    ALuint test_source = 0;
-    alGenSources(1, &test_source);
-    ALenum error = alGetError();
+    LOG_INFO(Audio_Sink, "Successfully made OpenAL context current, testing source creation...");
 
-    bool suitable = (error == AL_NO_ERROR && test_source != 0);
+    // Try to create a test source to verify functionality
+    ALuint test_source2 = 0;
+    alGenSources(1, &test_source2);
+    ALenum source_error = alGetError();
+
+    bool suitable = (source_error == AL_NO_ERROR && test_source2 != 0);
 
     if (suitable) {
-        alDeleteSources(1, &test_source);
+        alDeleteSources(1, &test_source2);
         LOG_INFO(Audio_Sink, "OpenAL is suitable for use");
     } else {
-        LOG_ERROR(Audio_Sink, "OpenAL not suitable - failed to create test source (error: {})", error);
+        LOG_ERROR(Audio_Sink, "OpenAL not suitable - failed to create test source (error: {})", source_error);
     }
 
     // Clean up

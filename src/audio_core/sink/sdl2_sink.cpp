@@ -191,7 +191,7 @@ void SDLSink::CloseStreams() {
 }
 
 f32 SDLSink::GetDeviceVolume() const {
-    if (sink_streams.empty()) {
+    if (sink_streams.empty() || !sink_streams[0]) {
         return 1.0f;
     }
 
