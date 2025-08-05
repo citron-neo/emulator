@@ -443,6 +443,143 @@ abstract class SettingsItem(
                     valuesId = R.array.vramUsageModeValues
                 )
             )
+
+            // Applet Mode Settings
+            put(
+                SingleChoiceSetting(
+                    IntSetting.CABINET_APPLET_MODE,
+                    titleId = R.string.cabinet_applet_mode,
+                    descriptionId = R.string.cabinet_applet_mode_description,
+                    choicesId = R.array.appletModeNames,
+                    valuesId = R.array.appletModeValues
+                )
+            )
+            put(
+                SingleChoiceSetting(
+                    IntSetting.CONTROLLER_APPLET_MODE,
+                    titleId = R.string.controller_applet_mode,
+                    descriptionId = R.string.controller_applet_mode_description,
+                    choicesId = R.array.appletModeNames,
+                    valuesId = R.array.appletModeValues
+                )
+            )
+            put(
+                SingleChoiceSetting(
+                    IntSetting.DATA_ERASE_APPLET_MODE,
+                    titleId = R.string.data_erase_applet_mode,
+                    descriptionId = R.string.data_erase_applet_mode_description,
+                    choicesId = R.array.appletModeNames,
+                    valuesId = R.array.appletModeValues
+                )
+            )
+            put(
+                SingleChoiceSetting(
+                    IntSetting.ERROR_APPLET_MODE,
+                    titleId = R.string.error_applet_mode,
+                    descriptionId = R.string.error_applet_mode_description,
+                    choicesId = R.array.appletModeNames,
+                    valuesId = R.array.appletModeValues
+                )
+            )
+            put(
+                SingleChoiceSetting(
+                    IntSetting.NET_CONNECT_APPLET_MODE,
+                    titleId = R.string.net_connect_applet_mode,
+                    descriptionId = R.string.net_connect_applet_mode_description,
+                    choicesId = R.array.appletModeNames,
+                    valuesId = R.array.appletModeValues
+                )
+            )
+            put(
+                SingleChoiceSetting(
+                    IntSetting.PLAYER_SELECT_APPLET_MODE,
+                    titleId = R.string.player_select_applet_mode,
+                    descriptionId = R.string.player_select_applet_mode_description,
+                    choicesId = R.array.appletModeNames,
+                    valuesId = R.array.appletModeValues
+                )
+            )
+            put(
+                SingleChoiceSetting(
+                    IntSetting.SWKBD_APPLET_MODE,
+                    titleId = R.string.swkbd_applet_mode,
+                    descriptionId = R.string.swkbd_applet_mode_description,
+                    choicesId = R.array.appletModeNames,
+                    valuesId = R.array.appletModeValues
+                )
+            )
+            put(
+                SingleChoiceSetting(
+                    IntSetting.MII_EDIT_APPLET_MODE,
+                    titleId = R.string.mii_edit_applet_mode,
+                    descriptionId = R.string.mii_edit_applet_mode_description,
+                    choicesId = R.array.appletModeNames,
+                    valuesId = R.array.appletModeValues
+                )
+            )
+            put(
+                SingleChoiceSetting(
+                    IntSetting.WEB_APPLET_MODE,
+                    titleId = R.string.web_applet_mode,
+                    descriptionId = R.string.web_applet_mode_description,
+                    choicesId = R.array.appletModeNames,
+                    valuesId = R.array.appletModeValues
+                )
+            )
+            put(
+                SingleChoiceSetting(
+                    IntSetting.SHOP_APPLET_MODE,
+                    titleId = R.string.shop_applet_mode,
+                    descriptionId = R.string.shop_applet_mode_description,
+                    choicesId = R.array.appletModeNames,
+                    valuesId = R.array.appletModeValues
+                )
+            )
+            put(
+                SingleChoiceSetting(
+                    IntSetting.PHOTO_VIEWER_APPLET_MODE,
+                    titleId = R.string.photo_viewer_applet_mode,
+                    descriptionId = R.string.photo_viewer_applet_mode_description,
+                    choicesId = R.array.appletModeNames,
+                    valuesId = R.array.appletModeValues
+                )
+            )
+            put(
+                SingleChoiceSetting(
+                    IntSetting.OFFLINE_WEB_APPLET_MODE,
+                    titleId = R.string.offline_web_applet_mode,
+                    descriptionId = R.string.offline_web_applet_mode_description,
+                    choicesId = R.array.appletModeNames,
+                    valuesId = R.array.appletModeValues
+                )
+            )
+            put(
+                SingleChoiceSetting(
+                    IntSetting.LOGIN_SHARE_APPLET_MODE,
+                    titleId = R.string.login_share_applet_mode,
+                    descriptionId = R.string.login_share_applet_mode_description,
+                    choicesId = R.array.appletModeNames,
+                    valuesId = R.array.appletModeValues
+                )
+            )
+            put(
+                SingleChoiceSetting(
+                    IntSetting.WIFI_WEB_AUTH_APPLET_MODE,
+                    titleId = R.string.wifi_web_auth_applet_mode,
+                    descriptionId = R.string.wifi_web_auth_applet_mode_description,
+                    choicesId = R.array.appletModeNames,
+                    valuesId = R.array.appletModeValues
+                )
+            )
+            put(
+                SingleChoiceSetting(
+                    IntSetting.MY_PAGE_APPLET_MODE,
+                    titleId = R.string.my_page_applet_mode,
+                    descriptionId = R.string.my_page_applet_mode_description,
+                    choicesId = R.array.appletModeNames,
+                    valuesId = R.array.appletModeValues
+                )
+            )
         }
     }
 }

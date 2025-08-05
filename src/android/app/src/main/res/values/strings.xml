@@ -423,6 +423,39 @@
     <string name="memory_layout_header">Memory Layout</string>
     <string name="astc_settings_header">ASTC Settings</string>
     <string name="advanced_graphics_header">Advanced Graphics</string>
+    <string name="applet_settings_header">Applet Settings</string>
+
+    <!-- Applet Mode Settings -->
+    <string name="cabinet_applet_mode">Cabinet Applet Mode</string>
+    <string name="cabinet_applet_mode_description">Controls how the Cabinet applet is emulated (HLE/LLE)</string>
+    <string name="controller_applet_mode">Controller Applet Mode</string>
+    <string name="controller_applet_mode_description">Controls how the Controller applet is emulated (HLE/LLE)</string>
+    <string name="data_erase_applet_mode">Data Erase Applet Mode</string>
+    <string name="data_erase_applet_mode_description">Controls how the Data Erase applet is emulated (HLE/LLE)</string>
+    <string name="error_applet_mode">Error Applet Mode</string>
+    <string name="error_applet_mode_description">Controls how the Error applet is emulated (HLE/LLE)</string>
+    <string name="net_connect_applet_mode">Network Connect Applet Mode</string>
+    <string name="net_connect_applet_mode_description">Controls how the Network Connect applet is emulated (HLE/LLE)</string>
+    <string name="player_select_applet_mode">Player Select Applet Mode</string>
+    <string name="player_select_applet_mode_description">Controls how the Player Select applet is emulated (HLE/LLE)</string>
+    <string name="swkbd_applet_mode">Software Keyboard Applet Mode</string>
+    <string name="swkbd_applet_mode_description">Controls how the Software Keyboard applet is emulated (HLE/LLE)</string>
+    <string name="mii_edit_applet_mode">Mii Edit Applet Mode</string>
+    <string name="mii_edit_applet_mode_description">Controls how the Mii Edit applet is emulated (HLE/LLE)</string>
+    <string name="web_applet_mode">Web Applet Mode</string>
+    <string name="web_applet_mode_description">Controls how the Web applet is emulated (HLE/LLE)</string>
+    <string name="shop_applet_mode">Shop Applet Mode</string>
+    <string name="shop_applet_mode_description">Controls how the Shop applet is emulated (HLE/LLE)</string>
+    <string name="photo_viewer_applet_mode">Photo Viewer Applet Mode</string>
+    <string name="photo_viewer_applet_mode_description">Controls how the Photo Viewer applet is emulated (HLE/LLE)</string>
+    <string name="offline_web_applet_mode">Offline Web Applet Mode</string>
+    <string name="offline_web_applet_mode_description">Controls how the Offline Web applet is emulated (HLE/LLE)</string>
+    <string name="login_share_applet_mode">Login Share Applet Mode</string>
+    <string name="login_share_applet_mode_description">Controls how the Login Share applet is emulated (HLE/LLE)</string>
+    <string name="wifi_web_auth_applet_mode">WiFi Web Auth Applet Mode</string>
+    <string name="wifi_web_auth_applet_mode_description">Controls how the WiFi Web Auth applet is emulated (HLE/LLE)</string>
+    <string name="my_page_applet_mode">My Page Applet Mode</string>
+    <string name="my_page_applet_mode_description">Controls how the My Page applet is emulated (HLE/LLE)</string>
 
     <!-- Game properties -->
     <string name="info">Info</string>

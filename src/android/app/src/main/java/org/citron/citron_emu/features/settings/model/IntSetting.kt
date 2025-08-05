@@ -35,7 +35,24 @@ enum class IntSetting(override val key: String) : AbstractIntSetting {
     ASTC_DECODE_MODE("accelerate_astc"),
     ASTC_RECOMPRESSION("astc_recompression"),
     SHADER_BACKEND("shader_backend"),
-    VRAM_USAGE_MODE("vram_usage_mode");
+    VRAM_USAGE_MODE("vram_usage_mode"),
+
+    // Applet Mode settings
+    CABINET_APPLET_MODE("cabinet_applet_mode"),
+    CONTROLLER_APPLET_MODE("controller_applet_mode"),
+    DATA_ERASE_APPLET_MODE("data_erase_applet_mode"),
+    ERROR_APPLET_MODE("error_applet_mode"),
+    NET_CONNECT_APPLET_MODE("net_connect_applet_mode"),
+    PLAYER_SELECT_APPLET_MODE("player_select_applet_mode"),
+    SWKBD_APPLET_MODE("swkbd_applet_mode"),
+    MII_EDIT_APPLET_MODE("mii_edit_applet_mode"),
+    WEB_APPLET_MODE("web_applet_mode"),
+    SHOP_APPLET_MODE("shop_applet_mode"),
+    PHOTO_VIEWER_APPLET_MODE("photo_viewer_applet_mode"),
+    OFFLINE_WEB_APPLET_MODE("offline_web_applet_mode"),
+    LOGIN_SHARE_APPLET_MODE("login_share_applet_mode"),
+    WIFI_WEB_AUTH_APPLET_MODE("wifi_web_auth_applet_mode"),
+    MY_PAGE_APPLET_MODE("my_page_applet_mode");
 
     override fun getInt(needsGlobal: Boolean): Int = NativeConfig.getInt(key, needsGlobal)
 
