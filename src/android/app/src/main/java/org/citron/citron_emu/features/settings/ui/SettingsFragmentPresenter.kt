@@ -997,6 +997,14 @@ class SettingsFragmentPresenter(
             add(IntSetting.SHADER_BACKEND.key)
             add(IntSetting.VRAM_USAGE_MODE.key)
 
+            add(HeaderSetting(R.string.frame_generation_header))
+            add(IntSetting.FRAME_GENERATION.key)
+            add(IntSetting.FRAME_GENERATION_MODE.key)
+
+            add(HeaderSetting(R.string.frame_skipping_header))
+            add(IntSetting.FRAME_SKIPPING.key)
+            add(IntSetting.FRAME_SKIPPING_MODE.key)
+
             add(HeaderSetting(R.string.applet_settings_header))
             add(IntSetting.CABINET_APPLET_MODE.key)
             add(IntSetting.CONTROLLER_APPLET_MODE.key)

@@ -66,10 +66,22 @@ spv::ImageFormat GetImageFormat(ImageFormat format) {
         return spv::ImageFormat::R16i;
     case ImageFormat::R32_UINT:
         return spv::ImageFormat::R32ui;
+    case ImageFormat::R32_SINT:
+        return spv::ImageFormat::R32i;
+    case ImageFormat::R32_SFLOAT:
+        return spv::ImageFormat::R32f;
     case ImageFormat::R32G32_UINT:
         return spv::ImageFormat::Rg32ui;
+    case ImageFormat::R32G32_SINT:
+        return spv::ImageFormat::Rg32i;
+    case ImageFormat::R32G32_SFLOAT:
+        return spv::ImageFormat::Rg32f;
     case ImageFormat::R32G32B32A32_UINT:
         return spv::ImageFormat::Rgba32ui;
+    case ImageFormat::R32G32B32A32_SINT:
+        return spv::ImageFormat::Rgba32i;
+    case ImageFormat::R32G32B32A32_SFLOAT:
+        return spv::ImageFormat::Rgba32f;
     }
     throw InvalidArgument("Invalid image format {}", format);
 }

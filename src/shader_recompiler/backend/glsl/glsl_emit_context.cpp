@@ -145,10 +145,22 @@ std::string_view ImageFormatString(ImageFormat format) {
         return ",r16i";
     case ImageFormat::R32_UINT:
         return ",r32ui";
+    case ImageFormat::R32_SINT:
+        return ",r32i";
+    case ImageFormat::R32_SFLOAT:
+        return ",r32f";
     case ImageFormat::R32G32_UINT:
         return ",rg32ui";
+    case ImageFormat::R32G32_SINT:
+        return ",rg32i";
+    case ImageFormat::R32G32_SFLOAT:
+        return ",rg32f";
     case ImageFormat::R32G32B32A32_UINT:
         return ",rgba32ui";
+    case ImageFormat::R32G32B32A32_SINT:
+        return ",rgba32i";
+    case ImageFormat::R32G32B32A32_SFLOAT:
+        return ",rgba32f";
     default:
         throw NotImplementedException("Image format: {}", format);
     }

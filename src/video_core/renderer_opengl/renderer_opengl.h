@@ -14,6 +14,7 @@
 #include "video_core/renderer_opengl/gl_resource_manager.h"
 #include "video_core/renderer_opengl/gl_shader_manager.h"
 #include "video_core/renderer_opengl/gl_state_tracker.h"
+#include "video_core/frame_skipping.h"
 
 namespace Core {
 class System;
@@ -75,6 +76,7 @@ private:
 
     std::unique_ptr<BlitScreen> blit_screen;
     std::unique_ptr<BlitScreen> blit_applet;
+    VideoCore::FrameSkipping frame_skipping;
 };
 
 } // namespace OpenGL

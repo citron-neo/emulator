@@ -145,6 +145,16 @@ void RendererVulkan::Composite(std::span<const Tegra::FramebufferConfig> framebu
         return;
     }
 
+    const auto frame_start_time = std::chrono::steady_clock::now();
+
+    // Check if frame should be skipped
+    if (frame_skipping.ShouldSkipFrame(frame_start_time)) {
+        // Skip rendering but still notify the GPU
+        gpu.RendererFrameEndNotify();
+        rasterizer.TickFrame();
+        return;
+    }
+
     SCOPE_EXIT {
         render_window.OnFrameDisplayed();
     };
@@ -162,6 +172,12 @@ void RendererVulkan::Composite(std::span<const Tegra::FramebufferConfig> framebu
                                swapchain.GetImageViewFormat());
     scheduler.Flush(*frame->render_ready);
     present_manager.Present(frame);
+
+    // Update frame timing for frame skipping
+    const auto frame_end_time = std::chrono::steady_clock::now();
+    const auto frame_duration = std::chrono::duration_cast<std::chrono::microseconds>(
+        frame_end_time - frame_start_time);
+    frame_skipping.UpdateFrameTime(frame_duration);
 
     gpu.RendererFrameEndNotify();
     rasterizer.TickFrame();

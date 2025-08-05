@@ -187,6 +187,46 @@
         <item>3</item>
     </integer-array>
 
+    <string-array name="frameGenerationNames">
+        <item>@string/frame_generation_disabled</item>
+        <item>@string/frame_generation_enabled</item>
+    </string-array>
+
+    <integer-array name="frameGenerationValues">
+        <item>0</item>
+        <item>1</item>
+    </integer-array>
+
+    <string-array name="frameGenerationModeNames">
+        <item>@string/frame_generation_mode_interpolation</item>
+        <item>@string/frame_generation_mode_extrapolation</item>
+    </string-array>
+
+    <integer-array name="frameGenerationModeValues">
+        <item>0</item>
+        <item>1</item>
+    </integer-array>
+
+    <string-array name="frameSkippingNames">
+        <item>@string/frame_skipping_disabled</item>
+        <item>@string/frame_skipping_enabled</item>
+    </string-array>
+
+    <integer-array name="frameSkippingValues">
+        <item>0</item>
+        <item>1</item>
+    </integer-array>
+
+    <string-array name="frameSkippingModeNames">
+        <item>@string/frame_skipping_mode_adaptive</item>
+        <item>@string/frame_skipping_mode_fixed</item>
+    </string-array>
+
+    <integer-array name="frameSkippingModeValues">
+        <item>0</item>
+        <item>1</item>
+    </integer-array>
+
     <string-array name="rendererAntiAliasingNames">
         <item>@string/anti_aliasing_none</item>
         <item>@string/anti_aliasing_fxaa</item>
