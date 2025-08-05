@@ -996,6 +996,23 @@ class SettingsFragmentPresenter(
             add(HeaderSetting(R.string.advanced_graphics_header))
             add(IntSetting.SHADER_BACKEND.key)
             add(IntSetting.VRAM_USAGE_MODE.key)
+
+            add(HeaderSetting(R.string.applet_settings_header))
+            add(IntSetting.CABINET_APPLET_MODE.key)
+            add(IntSetting.CONTROLLER_APPLET_MODE.key)
+            add(IntSetting.DATA_ERASE_APPLET_MODE.key)
+            add(IntSetting.ERROR_APPLET_MODE.key)
+            add(IntSetting.NET_CONNECT_APPLET_MODE.key)
+            add(IntSetting.PLAYER_SELECT_APPLET_MODE.key)
+            add(IntSetting.SWKBD_APPLET_MODE.key)
+            add(IntSetting.MII_EDIT_APPLET_MODE.key)
+            add(IntSetting.WEB_APPLET_MODE.key)
+            add(IntSetting.SHOP_APPLET_MODE.key)
+            add(IntSetting.PHOTO_VIEWER_APPLET_MODE.key)
+            add(IntSetting.OFFLINE_WEB_APPLET_MODE.key)
+            add(IntSetting.LOGIN_SHARE_APPLET_MODE.key)
+            add(IntSetting.WIFI_WEB_AUTH_APPLET_MODE.key)
+            add(IntSetting.MY_PAGE_APPLET_MODE.key)
         }
     }
 }

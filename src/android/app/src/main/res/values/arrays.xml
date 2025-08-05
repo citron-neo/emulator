@@ -386,4 +386,15 @@
         <item>1</item>
     </integer-array>
 
+    <!-- Applet Mode setting arrays -->
+    <string-array name="appletModeNames">
+        <item>HLE (High-Level Emulation)</item>
+        <item>LLE (Low-Level Emulation)</item>
+    </string-array>
+
+    <integer-array name="appletModeValues">
+        <item>0</item>
+        <item>1</item>
+    </integer-array>
+
 </resources>
