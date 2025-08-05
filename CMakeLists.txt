@@ -86,7 +86,7 @@ endif()
 option(ENABLE_OPENSSL "Enable OpenSSL backend for ISslConnection" ${DEFAULT_ENABLE_OPENSSL})
 
 if (ANDROID AND CITRON_DOWNLOAD_ANDROID_VVL)
-    set(vvl_version "sdk-1.3.261.1")
+    set(vvl_version "vulkan-sdk-1.4.321.0")
     set(vvl_zip_file "${CMAKE_BINARY_DIR}/externals/vvl-android.zip")
     set(vvl_lib_path "${CMAKE_CURRENT_SOURCE_DIR}/src/android/app/src/main/jniLibs/arm64-v8a/")
     set(vvl_lib_file "${vvl_lib_path}/libVkLayer_khronos_validation.so")
@@ -96,7 +96,7 @@ if (ANDROID AND CITRON_DOWNLOAD_ANDROID_VVL)
         if (NOT EXISTS "${vvl_zip_file}")
             # Download validation layer release to externals directory
             set(vvl_base_url "https://github.com/KhronosGroup/Vulkan-ValidationLayers/releases/download")
-            file(DOWNLOAD "${vvl_base_url}/${vvl_version}/android-binaries-${vvl_version}-android.zip"
+            file(DOWNLOAD "${vvl_base_url}/${vvl_version}/android-binaries-${vvl_version}.zip"
                 "${vvl_zip_file}" SHOW_PROGRESS)
         endif()
 

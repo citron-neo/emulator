@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: 2014 Citra Emulator Project
+// SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <algorithm>
@@ -140,6 +141,16 @@ void RendererOpenGL::Composite(std::span<const Tegra::FramebufferConfig> framebu
         return;
     }
 
+    const auto frame_start_time = std::chrono::steady_clock::now();
+
+    // Check if frame should be skipped
+    if (frame_skipping.ShouldSkipFrame(frame_start_time)) {
+        // Skip rendering but still notify the GPU
+        gpu.RendererFrameEndNotify();
+        rasterizer.TickFrame();
+        return;
+    }
+
     RenderAppletCaptureLayer(framebuffers);
     RenderScreenshot(framebuffers);
 
@@ -147,6 +158,12 @@ void RendererOpenGL::Composite(std::span<const Tegra::FramebufferConfig> framebu
     blit_screen->DrawScreen(framebuffers, emu_window.GetFramebufferLayout(), false);
 
     ++m_current_frame;
+
+    // Update frame timing for frame skipping
+    const auto frame_end_time = std::chrono::steady_clock::now();
+    const auto frame_duration = std::chrono::duration_cast<std::chrono::microseconds>(
+        frame_end_time - frame_start_time);
+    frame_skipping.UpdateFrameTime(frame_duration);
 
     gpu.RendererFrameEndNotify();
     rasterizer.TickFrame();

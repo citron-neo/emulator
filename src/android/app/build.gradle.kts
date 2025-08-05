@@ -1,5 +1,4 @@
 // SPDX-FileCopyrightText: 2023 yuzu Emulator Project
-// SPDX-FileCopyrightText: 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 import android.annotation.SuppressLint
@@ -36,12 +35,12 @@ android {
     }
 
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_21
-        targetCompatibility = JavaVersion.VERSION_21
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
     }
 
     kotlinOptions {
-        jvmTarget = "21"
+        jvmTarget = "17"
     }
 
     packaging {
@@ -57,7 +56,6 @@ android {
         // TODO If this is ever modified, change application_id in strings.xml
         applicationId = "org.citron.citron_emu"
         minSdk = 30
-        //noinspection EditedTargetSdkVersion
         targetSdk = 35
         versionName = getGitVersion()
 
@@ -109,8 +107,8 @@ android {
             isDefault = true
             isShrinkResources = true
             isMinifyEnabled = true
-            isDebuggable = false
             isJniDebuggable = false
+            isDebuggable = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
@@ -162,7 +160,7 @@ android {
 
     externalNativeBuild {
         cmake {
-            version = "3.31.7"
+            version = "3.31.8"
             path = file("../../../CMakeLists.txt")
         }
     }
@@ -182,7 +180,7 @@ android {
                     "-DCMAKE_EXPORT_COMPILE_COMMANDS=ON",
                     "-DCMAKE_POLICY_VERSION_MINIMUM=3.5",
                     "-DANDROID_SUPPORT_FLEXIBLE_PAGE_SIZES=ON",
-                )
+                    )
 
                 abiFilters("arm64-v8a") // , "x86_64")
             }
@@ -197,7 +195,7 @@ tasks.create<Delete>("ktlintReset") {
 val showFormatHelp = {
     logger.lifecycle(
         "If this check fails, please try running \"gradlew ktlintFormat\" for automatic " +
-            "codestyle fixes"
+                "codestyle fixes"
     )
 }
 tasks.getByPath("ktlintKotlinScriptCheck").doFirst { showFormatHelp.invoke() }

@@ -434,6 +434,18 @@ OGLTexture MakeImage(const VideoCommon::ImageInfo& info, GLenum gl_internal_form
         return GL_RG32UI;
     case Shader::ImageFormat::R32G32B32A32_UINT:
         return GL_RGBA32UI;
+    case Shader::ImageFormat::R32_SINT:
+        return GL_R32I;
+    case Shader::ImageFormat::R32_SFLOAT:
+        return GL_R32F;
+    case Shader::ImageFormat::R32G32_SINT:
+        return GL_RG32I;
+    case Shader::ImageFormat::R32G32_SFLOAT:
+        return GL_RG32F;
+    case Shader::ImageFormat::R32G32B32A32_SINT:
+        return GL_RGBA32I;
+    case Shader::ImageFormat::R32G32B32A32_SFLOAT:
+        return GL_RGBA32F;
     }
     ASSERT_MSG(false, "Invalid image format={}", format);
     return GL_R32UI;

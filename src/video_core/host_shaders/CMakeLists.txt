@@ -56,6 +56,7 @@ set(SHADER_FILES
     vulkan_color_clear.frag
     vulkan_color_clear.vert
     vulkan_depthstencil_clear.frag
+    vulkan_enhanced_lighting.frag
     vulkan_fidelityfx_fsr.vert
     vulkan_fidelityfx_fsr_easu_fp16.frag
     vulkan_fidelityfx_fsr_easu_fp32.frag

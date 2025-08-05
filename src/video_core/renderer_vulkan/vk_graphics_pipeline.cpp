@@ -744,13 +744,13 @@ void GraphicsPipeline::MakePipeline(VkRenderPass render_pass) {
         .depthWriteEnable = dynamic.depth_write_enable,
         .depthCompareOp = dynamic.depth_test_enable
                               ? MaxwellToVK::ComparisonOp(dynamic.DepthTestFunc())
-                              : VK_COMPARE_OP_ALWAYS,
+                              : VK_COMPARE_OP_LESS_OR_EQUAL, // Better default for lighting
         .depthBoundsTestEnable = dynamic.depth_bounds_enable && device.IsDepthBoundsSupported(),
         .stencilTestEnable = dynamic.stencil_enable,
         .front = GetStencilFaceState(dynamic.front),
         .back = GetStencilFaceState(dynamic.back),
         .minDepthBounds = 0.0f,
-        .maxDepthBounds = 0.0f,
+        .maxDepthBounds = 1.0f, // Full depth range for better lighting
     };
     if (dynamic.depth_bounds_enable && !device.IsDepthBoundsSupported()) {
         LOG_WARNING(Render_Vulkan, "Depth bounds is enabled but not supported");

@@ -349,14 +349,54 @@ struct Values {
                                                        true};
 
     SwitchableSetting<FSR2QualityMode, true> fsr2_quality_mode{linkage,
-                                                               FSR2QualityMode::Performance,  // Performance by default
-                                                               FSR2QualityMode::Quality,
-                                                               FSR2QualityMode::UltraPerformance,
-                                                               "fsr2_quality_mode",
-                                                               Category::Renderer,
-                                                               Specialization::Default,
-                                                               true,
-                                                               true};
+                                                                FSR2QualityMode::Quality,  // Quality by default
+                                                                FSR2QualityMode::Quality,  // Min value
+                                                                FSR2QualityMode::UltraPerformance,  // Max value
+                                                                "fsr2_quality_mode",
+                                                                Category::Renderer,
+                                                                Specialization::Default,
+                                                                true,
+                                                                true};
+
+    SwitchableSetting<FrameGeneration, true> frame_generation{linkage,
+                                                              FrameGeneration::Disabled,  // Disabled by default
+                                                              FrameGeneration::Disabled,
+                                                              FrameGeneration::Enabled,
+                                                              "frame_generation",
+                                                              Category::Renderer,
+                                                              Specialization::Default,
+                                                              true,
+                                                              true};
+
+    SwitchableSetting<FrameGenerationMode, true> frame_generation_mode{linkage,
+                                                                       FrameGenerationMode::Interpolation,  // Interpolation by default
+                                                                       FrameGenerationMode::Interpolation,
+                                                                       FrameGenerationMode::Extrapolation,
+                                                                       "frame_generation_mode",
+                                                                       Category::Renderer,
+                                                                       Specialization::Default,
+                                                                       true,
+                                                                       true};
+
+    SwitchableSetting<FrameSkipping, true> frame_skipping{linkage,
+                                                          FrameSkipping::Disabled,  // Disabled by default
+                                                          FrameSkipping::Disabled,
+                                                          FrameSkipping::Enabled,
+                                                          "frame_skipping",
+                                                          Category::Renderer,
+                                                          Specialization::Default,
+                                                          true,
+                                                          true};
+
+    SwitchableSetting<FrameSkippingMode, true> frame_skipping_mode{linkage,
+                                                                   FrameSkippingMode::Adaptive,  // Adaptive by default
+                                                                   FrameSkippingMode::Adaptive,
+                                                                   FrameSkippingMode::Fixed,
+                                                                   "frame_skipping_mode",
+                                                                   Category::Renderer,
+                                                                   Specialization::Default,
+                                                                   true,
+                                                                   true};
 
     SwitchableSetting<u8, false> bg_red{
         linkage, 0, "bg_red", Category::Renderer, Specialization::Default, true, true};

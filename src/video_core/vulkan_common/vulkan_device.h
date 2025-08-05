@@ -58,7 +58,8 @@ VK_DEFINE_HANDLE(VmaAllocator)
     FEATURE(KHR, PipelineExecutableProperties, PIPELINE_EXECUTABLE_PROPERTIES,                     \
             pipeline_executable_properties)                                                        \
     FEATURE(KHR, WorkgroupMemoryExplicitLayout, WORKGROUP_MEMORY_EXPLICIT_LAYOUT,                  \
-            workgroup_memory_explicit_layout)
+            workgroup_memory_explicit_layout)                                                      \
+    FEATURE(KHR, FragmentShadingRate, FRAGMENT_SHADING_RATE, fragment_shading_rate)
 
 // Define miscellaneous extensions which may be used by the implementation here.
 #define FOR_EACH_VK_EXTENSION(EXTENSION)                                                           \
@@ -578,6 +579,16 @@ public:
     }
 
     bool HasTimelineSemaphore() const;
+
+    /// Returns true if the device supports VK_KHR_provoking_vertex.
+    bool IsKhrProvokingVertexSupported() const {
+        return extensions.provoking_vertex;
+    }
+
+    /// Returns true if the device supports VK_KHR_fragment_shading_rate.
+    bool IsKhrFragmentShadingRateSupported() const {
+        return extensions.fragment_shading_rate;
+    }
 
     /// Returns the minimum supported version of SPIR-V.
     u32 SupportedSpirvVersion() const {

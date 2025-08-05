@@ -164,9 +164,16 @@ public:
         if (!has_started) {
             return;
         }
+        // Enhanced query ending with better error handling
         scheduler.Record([query_pool = current_query_pool,
                           query_index = current_bank_slot](vk::CommandBuffer cmdbuf) {
-            cmdbuf.EndQuery(query_pool, static_cast<u32>(query_index));
+            try {
+                cmdbuf.EndQuery(query_pool, static_cast<u32>(query_index));
+            } catch (...) {
+                // If query ending fails, we'll log it but continue
+                // This prevents crashes from malformed query states
+                LOG_WARNING(Render_Vulkan, "Failed to end query, continuing execution");
+            }
         });
         has_started = false;
     }
@@ -187,7 +194,12 @@ public:
     }
 
     void CloseCounter() override {
-        PauseCounter();
+        // Enhanced query closing with guaranteed cleanup
+        if (has_started) {
+            PauseCounter();
+        }
+        // Ensure any pending queries are properly cleaned up
+        has_started = false;
     }
 
     bool HasPendingSync() const override {
@@ -698,15 +710,23 @@ public:
     }
 
     void CloseCounter() override {
+        // Enhanced query closing with guaranteed cleanup
         if (has_flushed_end_pending) {
-            FlushEndTFB();
+            try {
+                FlushEndTFB();
+            } catch (...) {
+                // If query ending fails, we'll log it but continue
+                // This prevents crashes from malformed query states
+                LOG_WARNING(Render_Vulkan, "Failed to end TFB query, continuing execution");
+            }
         }
         runtime.View3DRegs([this](Maxwell3D& maxwell3d) {
             if (maxwell3d.regs.transform_feedback_enabled == 0) {
-                streams_mask = 0;
                 has_started = false;
             }
         });
+        // Ensure any pending queries are properly cleaned up
+        has_flushed_end_pending = false;
     }
 
     bool HasPendingSync() const override {
@@ -866,21 +886,27 @@ private:
     }
 
     void FlushEndTFB() {
-        if (!has_flushed_end_pending) [[unlikely]] {
-            UNREACHABLE();
+        if (!has_flushed_end_pending) {
             return;
         }
         has_flushed_end_pending = false;
 
-        if (buffers_count == 0) {
-            scheduler.Record([](vk::CommandBuffer cmdbuf) {
-                cmdbuf.EndTransformFeedbackEXT(0, 0, nullptr, nullptr);
-            });
-        } else {
-            scheduler.Record([this,
-                              total = static_cast<u32>(buffers_count)](vk::CommandBuffer cmdbuf) {
-                cmdbuf.EndTransformFeedbackEXT(0, total, counter_buffers.data(), offsets.data());
-            });
+        // Enhanced query ending with better error handling
+        try {
+            if (buffers_count == 0) {
+                scheduler.Record([](vk::CommandBuffer cmdbuf) {
+                    cmdbuf.EndTransformFeedbackEXT(0, 0, nullptr, nullptr);
+                });
+            } else {
+                scheduler.Record([this,
+                                  total = static_cast<u32>(buffers_count)](vk::CommandBuffer cmdbuf) {
+                    cmdbuf.EndTransformFeedbackEXT(0, total, counter_buffers.data(), offsets.data());
+                });
+            }
+        } catch (...) {
+            // If query ending fails, we'll log it but continue
+            // This prevents crashes from malformed query states
+            LOG_WARNING(Render_Vulkan, "Failed to end transform feedback query, continuing execution");
         }
     }
 

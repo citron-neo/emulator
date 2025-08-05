@@ -20,6 +20,7 @@
 #include "video_core/vulkan_common/vulkan_device.h"
 #include "video_core/vulkan_common/vulkan_memory_allocator.h"
 #include "video_core/vulkan_common/vulkan_wrapper.h"
+#include "video_core/frame_skipping.h"
 
 namespace Core {
 class TelemetrySession;
@@ -89,6 +90,7 @@ private:
     BlitScreen blit_applet;
     RasterizerVulkan rasterizer;
     std::optional<TurboMode> turbo_mode;
+    VideoCore::FrameSkipping frame_skipping;
 
     Frame applet_frame;
 };

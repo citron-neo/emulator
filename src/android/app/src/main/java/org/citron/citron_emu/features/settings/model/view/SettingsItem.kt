@@ -443,6 +443,42 @@ abstract class SettingsItem(
                     valuesId = R.array.vramUsageModeValues
                 )
             )
+            put(
+                SingleChoiceSetting(
+                    IntSetting.FRAME_GENERATION,
+                    titleId = R.string.frame_generation,
+                    descriptionId = R.string.frame_generation_description,
+                    choicesId = R.array.frameGenerationNames,
+                    valuesId = R.array.frameGenerationValues
+                )
+            )
+            put(
+                SingleChoiceSetting(
+                    IntSetting.FRAME_GENERATION_MODE,
+                    titleId = R.string.frame_generation_mode,
+                    descriptionId = R.string.frame_generation_mode_description,
+                    choicesId = R.array.frameGenerationModeNames,
+                    valuesId = R.array.frameGenerationModeValues
+                )
+            )
+            put(
+                SingleChoiceSetting(
+                    IntSetting.FRAME_SKIPPING,
+                    titleId = R.string.frame_skipping,
+                    descriptionId = R.string.frame_skipping_description,
+                    choicesId = R.array.frameSkippingNames,
+                    valuesId = R.array.frameSkippingValues
+                )
+            )
+            put(
+                SingleChoiceSetting(
+                    IntSetting.FRAME_SKIPPING_MODE,
+                    titleId = R.string.frame_skipping_mode,
+                    descriptionId = R.string.frame_skipping_mode_description,
+                    choicesId = R.array.frameSkippingModeNames,
+                    valuesId = R.array.frameSkippingModeValues
+                )
+            )
 
             // Applet Mode Settings
             put(

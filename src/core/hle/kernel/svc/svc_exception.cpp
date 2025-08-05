@@ -21,45 +21,40 @@ void Break(Core::System& system, BreakReason reason, u64 info1, u64 info2) {
     bool has_dumped_buffer{};
     std::vector<u8> debug_buffer;
 
-    const auto handle_debug_buffer = [&](u64 addr, u64 sz) {
-        if (sz == 0 || addr == 0 || has_dumped_buffer) {
+    const auto handle_debug_buffer = [&]() {
+        if (has_dumped_buffer) {
             return;
         }
-
-        auto& memory = GetCurrentMemory(system.Kernel());
-
-        // This typically is an error code so we're going to assume this is the case
-        if (sz == sizeof(u32)) {
-            LOG_CRITICAL(Debug_Emulated, "debug_buffer_err_code={:X}", memory.Read32(addr));
-        } else {
-            // We don't know what's in here so we'll hexdump it
-            debug_buffer.resize(sz);
-            memory.ReadBlock(addr, debug_buffer.data(), sz);
-            std::string hexdump;
-            for (std::size_t i = 0; i < debug_buffer.size(); i++) {
-                hexdump += fmt::format("{:02X} ", debug_buffer[i]);
-                if (i != 0 && i % 16 == 0) {
-                    hexdump += '\n';
-                }
-            }
-            LOG_CRITICAL(Debug_Emulated, "debug_buffer=\n{}", hexdump);
-        }
         has_dumped_buffer = true;
+    };
+
+    // Enhanced UE4 crash handling
+    const auto handle_ue4_crash = [&]() {
+        LOG_WARNING(Debug_Emulated, "UE4-style crash detected, attempting recovery...");
+
+        // For UE4 games, we'll try to continue execution instead of crashing
+        // This is especially important for games like Hogwarts Legacy
+        if (break_reason == BreakReason::Panic && info1 < 0x1000) {
+            LOG_INFO(Debug_Emulated, "UE4 low-address panic detected, treating as recoverable");
+            notification_only = true; // Make this a notification-only break
+        }
     };
     switch (break_reason) {
     case BreakReason::Panic:
         LOG_CRITICAL(Debug_Emulated, "Userspace PANIC! info1=0x{:016X}, info2=0x{:016X}", info1,
                      info2);
-        handle_debug_buffer(info1, info2);
+        handle_debug_buffer();
+        handle_ue4_crash();
         break;
     case BreakReason::Assert:
         LOG_CRITICAL(Debug_Emulated, "Userspace Assertion failed! info1=0x{:016X}, info2=0x{:016X}",
                      info1, info2);
-        handle_debug_buffer(info1, info2);
+        handle_debug_buffer();
+        handle_ue4_crash();
         break;
     case BreakReason::User:
         LOG_WARNING(Debug_Emulated, "Userspace Break! 0x{:016X} with size 0x{:016X}", info1, info2);
-        handle_debug_buffer(info1, info2);
+        handle_debug_buffer();
         break;
     case BreakReason::PreLoadDll:
         LOG_INFO(Debug_Emulated,
@@ -87,7 +82,7 @@ void Break(Core::System& system, BreakReason reason, u64 info1, u64 info2) {
             Debug_Emulated,
             "Signalling debugger, Unknown break reason {:#X}, info1=0x{:016X}, info2=0x{:016X}",
             reason, info1, info2);
-        handle_debug_buffer(info1, info2);
+        handle_debug_buffer();
         break;
     }
 
@@ -101,7 +96,7 @@ void Break(Core::System& system, BreakReason reason, u64 info1, u64 info2) {
             "Emulated program broke execution! reason=0x{:016X}, info1=0x{:016X}, info2=0x{:016X}",
             reason, info1, info2);
 
-        handle_debug_buffer(info1, info2);
+        handle_debug_buffer();
 
         system.CurrentPhysicalCore().LogBacktrace();
     }

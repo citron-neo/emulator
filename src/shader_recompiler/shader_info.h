@@ -147,8 +147,14 @@ enum class ImageFormat : u32 {
     R16_UINT,
     R16_SINT,
     R32_UINT,
+    R32_SINT,
+    R32_SFLOAT,
     R32G32_UINT,
+    R32G32_SINT,
+    R32G32_SFLOAT,
     R32G32B32A32_UINT,
+    R32G32B32A32_SINT,
+    R32G32B32A32_SFLOAT,
 };
 
 enum class Interpolation {

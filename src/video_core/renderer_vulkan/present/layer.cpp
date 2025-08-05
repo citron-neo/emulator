@@ -9,6 +9,7 @@
 #include "video_core/framebuffer_config.h"
 #include "video_core/renderer_vulkan/present/fsr.h"
 #include "video_core/renderer_vulkan/present/fsr2.h"
+#include "video_core/renderer_vulkan/present/frame_generation.h"
 #include "video_core/renderer_vulkan/present/fxaa.h"
 #include "video_core/renderer_vulkan/present/layer.h"
 #include "video_core/renderer_vulkan/present/present_push_constants.h"
@@ -61,6 +62,10 @@ Layer::Layer(const Device& device_, MemoryAllocator& memory_allocator_, Schedule
     }
     if (filters.get_scaling_filter() == Settings::ScalingFilter::Fsr2) {
         CreateFSR2(output_size);
+    }
+
+    if (Settings::values.frame_generation.GetValue() == Settings::FrameGeneration::Enabled) {
+        CreateFrameGeneration(output_size);
     }
 }
 
@@ -118,6 +123,12 @@ void Layer::ConfigureDraw(PresentPushConstants* out_push_constants,
         crop_rect = {0, 0, 1, 1};
     }
 
+    if (frame_generation) {
+        source_image_view = frame_generation->Draw(scheduler, image_index, source_image, source_image_view,
+                                                 render_extent, crop_rect);
+        crop_rect = {0, 0, 1, 1};
+    }
+
     SetMatrixData(*out_push_constants, layout);
     SetVertexData(*out_push_constants, layout, crop_rect);
 
@@ -169,6 +180,10 @@ void Layer::CreateFSR(VkExtent2D output_size) {
 
 void Layer::CreateFSR2(VkExtent2D output_size) {
     fsr2 = std::make_unique<FSR2>(device, memory_allocator, image_count, output_size);
+}
+
+void Layer::CreateFrameGeneration(VkExtent2D output_size) {
+    frame_generation = std::make_unique<FrameGeneration>(device, memory_allocator, image_count, output_size);
 }
 
 void Layer::RefreshResources(const Tegra::FramebufferConfig& framebuffer) {
