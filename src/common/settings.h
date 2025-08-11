@@ -661,7 +661,7 @@ struct Values {
 
     // WebService
     Setting<bool> enable_telemetry{linkage, false, "enable_telemetry", Category::WebService};
-    Setting<std::string> web_api_url{linkage, "https://api.ynet-fun.xyz", "web_api_url",
+    Setting<std::string> web_api_url{linkage, "http://api.ynet-fun.xyz", "web_api_url",
                                      Category::WebService};
     Setting<std::string> citron_username{linkage, std::string(), "citron_username",
                                        Category::WebService};
