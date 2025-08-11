@@ -4,6 +4,7 @@
 #include <utility>
 
 #include "common/assert.h"
+#include "common/logging/log.h"
 #include "common/common_types.h"
 #include "core/hle/service/sockets/sockets.h"
 #include "core/hle/service/sockets/sockets_translate.h"
@@ -261,7 +262,13 @@ PollEvents Translate(Network::PollEvents flags) {
 Network::SockAddrIn Translate(SockAddrIn value) {
     // Note: 6 is incorrect, but can be passed by homebrew (because libnx sets
     // sin_len to 6 when deserializing getaddrinfo results).
-    ASSERT(value.len == 0 || value.len == sizeof(value) || value.len == 6);
+    // Some titles may pass other small values. Do not assert; instead, accept any
+    // length in [6, sizeof(value)] as valid and warn once if it's unexpected.
+    if (!(value.len == 0 || value.len == sizeof(value) ||
+          (value.len >= 6 && value.len <= sizeof(value)))) {
+        LOG_WARNING(Service, "Unexpected SockAddrIn len={} (expected 0, 6, or {})",
+                    value.len, sizeof(value));
+    }
 
     return {
         .family = Translate(static_cast<Domain>(value.family)),

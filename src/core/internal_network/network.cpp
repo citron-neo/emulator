@@ -91,7 +91,8 @@ sockaddr TranslateFromSockAddrIn(SockAddrIn input) {
         break;
     }
 
-    result.sin_port = htons(input.portno);
+    // input.portno is already in host byte order in our abstraction. Ensure network order here.
+    result.sin_port = htons(static_cast<uint16_t>(input.portno));
 
     auto& ip = result.sin_addr.S_un.S_un_b;
     ip.s_b1 = input.ip[0];
