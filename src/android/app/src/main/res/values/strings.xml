@@ -521,6 +521,8 @@
     <string name="emulation_fps_counter">FPS counter</string>
     <string name="emulation_thermal_indicator">Battery temperature</string>
     <string name="emulation_ram_meter">RAM usage meter</string>
+    <string name="emulation_shader_building_overlay">Shader building overlay</string>
+    <string name="emulation_performance_graph">Performance graph</string>
     <string name="emulation_toggle_controls">Toggle controls</string>
     <string name="emulation_rel_stick_center">Relative stick center</string>
     <string name="emulation_dpad_slide">D-pad slide</string>

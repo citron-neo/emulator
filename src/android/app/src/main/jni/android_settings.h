@@ -72,6 +72,10 @@ struct Values {
                                                  Settings::Category::Overlay};
     Settings::Setting<bool> show_ram_meter{linkage, false, "show_ram_meter",
                                            Settings::Category::Overlay};
+    Settings::Setting<bool> show_shader_building_overlay{linkage, true, "show_shader_building_overlay",
+                                                         Settings::Category::Overlay};
+    Settings::Setting<bool> show_performance_graph{linkage, false, "show_performance_graph",
+                                                   Settings::Category::Overlay};
     Settings::Setting<bool> show_input_overlay{linkage, true, "show_input_overlay",
                                                Settings::Category::Overlay};
     Settings::Setting<bool> touchscreen{linkage, true, "touchscreen", Settings::Category::Overlay};

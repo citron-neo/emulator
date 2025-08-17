@@ -70,6 +70,7 @@ class EmulationFragment : Fragment(), SurfaceHolder.Callback {
     private var perfStatsUpdater: (() -> Unit)? = null
     private var thermalStatsUpdater: (() -> Unit)? = null
     private var ramStatsUpdater: (() -> Unit)? = null
+    private var shaderStatsUpdater: (() -> Unit)? = null
 
     private var _binding: FragmentEmulationBinding? = null
     private val binding get() = _binding!!
@@ -379,6 +380,7 @@ class EmulationFragment : Fragment(), SurfaceHolder.Callback {
                 updateShowFpsOverlay()
                 updateThermalOverlay()
                 updateRamMeterOverlay()
+                updateShaderBuildingOverlay()
             }
         }
         emulationViewModel.isEmulationStopping.collect(viewLifecycleOwner) {
@@ -389,6 +391,7 @@ class EmulationFragment : Fragment(), SurfaceHolder.Callback {
                 ViewUtils.hideView(binding.fpsIndicatorView)
                 ViewUtils.hideView(binding.thermalIndicatorView)
                 ViewUtils.hideView(binding.ramMeterView)
+                ViewUtils.hideView(binding.shaderBuildingOverlayView)
             }
         }
         emulationViewModel.drawerOpen.collect(viewLifecycleOwner) {
@@ -413,6 +416,15 @@ class EmulationFragment : Fragment(), SurfaceHolder.Callback {
             if (it && emulationViewModel.programChanged.value != -1) {
                 if (perfStatsUpdater != null) {
                     perfStatsUpdateHandler.removeCallbacks(perfStatsUpdater!!)
+                }
+                if (thermalStatsUpdater != null) {
+                    thermalStatsUpdateHandler.removeCallbacks(thermalStatsUpdater!!)
+                }
+                if (ramStatsUpdater != null) {
+                    ramStatsUpdateHandler.removeCallbacks(ramStatsUpdater!!)
+                }
+                if (shaderStatsUpdater != null) {
+                    shaderStatsUpdateHandler.removeCallbacks(shaderStatsUpdater!!)
                 }
                 emulationState.changeProgram(emulationViewModel.programChanged.value)
                 emulationViewModel.setProgramChanged(-1)
@@ -479,6 +491,20 @@ class EmulationFragment : Fragment(), SurfaceHolder.Callback {
     }
 
     override fun onDetach() {
+        // Clean up all updaters
+        if (perfStatsUpdater != null) {
+            perfStatsUpdateHandler.removeCallbacks(perfStatsUpdater!!)
+        }
+        if (thermalStatsUpdater != null) {
+            thermalStatsUpdateHandler.removeCallbacks(thermalStatsUpdater!!)
+        }
+        if (ramStatsUpdater != null) {
+            ramStatsUpdateHandler.removeCallbacks(ramStatsUpdater!!)
+        }
+        if (shaderStatsUpdater != null) {
+            shaderStatsUpdateHandler.removeCallbacks(shaderStatsUpdater!!)
+        }
+
         NativeLibrary.clearEmulationActivity()
         super.onDetach()
     }
@@ -556,6 +582,41 @@ class EmulationFragment : Fragment(), SurfaceHolder.Callback {
         } else {
             if (ramStatsUpdater != null) {
                 ramStatsUpdateHandler.removeCallbacks(ramStatsUpdater!!)
+            }
+        }
+    }
+
+    private fun updateShaderBuildingOverlay() {
+        val showOverlay = BooleanSetting.SHOW_SHADER_BUILDING_OVERLAY.getBoolean()
+        val showGraph = BooleanSetting.SHOW_PERFORMANCE_GRAPH.getBoolean()
+        binding.shaderBuildingOverlayView.setVisible(showOverlay || showGraph)
+
+        if (showOverlay || showGraph) {
+            shaderStatsUpdater = {
+                if (emulationViewModel.emulationStarted.value &&
+                    !emulationViewModel.isEmulationStopping.value
+                ) {
+                    if (_binding != null) {
+                        val perfStats = NativeLibrary.getPerfStats()
+                        val shadersBuilding = NativeLibrary.getShadersBuilding()
+
+                        // perfStats[0] = system_fps, perfStats[1] = average_game_fps,
+                        // perfStats[2] = frametime, perfStats[3] = emulation_speed
+                        val fps = perfStats[1].toFloat()
+                        val frameTime = (perfStats[2] * 1000).toFloat() // Convert to milliseconds
+                        val speed = (perfStats[3] * 100).toFloat() // Convert to percentage
+
+                        binding.shaderBuildingOverlayView.updatePerformanceStats(
+                            fps, frameTime, speed, shadersBuilding
+                        )
+                    }
+                    shaderStatsUpdateHandler.postDelayed(shaderStatsUpdater!!, 500)
+                }
+            }
+            shaderStatsUpdateHandler.post(shaderStatsUpdater!!)
+        } else {
+            if (shaderStatsUpdater != null) {
+                shaderStatsUpdateHandler.removeCallbacks(shaderStatsUpdater!!)
             }
         }
     }
@@ -706,6 +767,10 @@ class EmulationFragment : Fragment(), SurfaceHolder.Callback {
                 BooleanSetting.SHOW_THERMAL_OVERLAY.getBoolean()
             findItem(R.id.ram_meter).isChecked =
                 BooleanSetting.SHOW_RAM_METER.getBoolean()
+            findItem(R.id.shader_building_overlay).isChecked =
+                BooleanSetting.SHOW_SHADER_BUILDING_OVERLAY.getBoolean()
+            findItem(R.id.performance_graph).isChecked =
+                BooleanSetting.SHOW_PERFORMANCE_GRAPH.getBoolean()
             findItem(R.id.menu_rel_stick_center).isChecked =
                 BooleanSetting.JOYSTICK_REL_CENTER.getBoolean()
             findItem(R.id.menu_dpad_slide).isChecked = BooleanSetting.DPAD_SLIDE.getBoolean()
@@ -736,6 +801,20 @@ class EmulationFragment : Fragment(), SurfaceHolder.Callback {
                     it.isChecked = !it.isChecked
                     BooleanSetting.SHOW_RAM_METER.setBoolean(it.isChecked)
                     updateRamMeterOverlay()
+                    true
+                }
+
+                R.id.shader_building_overlay -> {
+                    it.isChecked = !it.isChecked
+                    BooleanSetting.SHOW_SHADER_BUILDING_OVERLAY.setBoolean(it.isChecked)
+                    updateShaderBuildingOverlay()
+                    true
+                }
+
+                R.id.performance_graph -> {
+                    it.isChecked = !it.isChecked
+                    BooleanSetting.SHOW_PERFORMANCE_GRAPH.setBoolean(it.isChecked)
+                    updateShaderBuildingOverlay()
                     true
                 }
 
@@ -1084,5 +1163,6 @@ class EmulationFragment : Fragment(), SurfaceHolder.Callback {
         private val perfStatsUpdateHandler = Handler(Looper.myLooper()!!)
         private val thermalStatsUpdateHandler = Handler(Looper.myLooper()!!)
         private val ramStatsUpdateHandler = Handler(Looper.myLooper()!!)
+        private val shaderStatsUpdateHandler = Handler(Looper.myLooper()!!)
     }
 }
