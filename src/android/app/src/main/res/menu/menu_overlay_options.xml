@@ -17,6 +17,16 @@
         android:checkable="true" />
 
     <item
+        android:id="@+id/shader_building_overlay"
+        android:title="@string/emulation_shader_building_overlay"
+        android:checkable="true" />
+
+    <item
+        android:id="@+id/performance_graph"
+        android:title="@string/emulation_performance_graph"
+        android:checkable="true" />
+
+    <item
         android:id="@+id/menu_edit_overlay"
         android:title="@string/emulation_touch_overlay_edit" />
 

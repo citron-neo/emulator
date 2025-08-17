@@ -265,7 +265,7 @@ Shader::RuntimeInfo MakeRuntimeInfo(std::span<const Shader::IR::Program> program
 
 size_t GetTotalPipelineWorkers() {
     const size_t max_core_threads =
-        std::max<size_t>(static_cast<size_t>(std::thread::hardware_concurrency()), 2ULL) - 1ULL;
+        std::max<size_t>(static_cast<size_t>(std::thread::hardware_concurrency()), 2ULL);
 #ifdef ANDROID
     // Leave at least a few cores free in android
     constexpr size_t free_cores = 3ULL;
@@ -484,6 +484,8 @@ void PipelineCache::LoadDiskResources(u64 title_id, std::stop_token stop_loading
         size_t built{};
         bool has_loaded{};
         std::unique_ptr<PipelineStatistics> statistics;
+        size_t total_compute{};
+        size_t total_graphics{};
     } state;
 
     if (device.IsKhrPipelineExecutablePropertiesEnabled()) {
@@ -506,6 +508,7 @@ void PipelineCache::LoadDiskResources(u64 title_id, std::stop_token stop_loading
             }
         });
         ++state.total;
+        ++state.total_compute;
     }};
     const auto load_graphics{[&](std::ifstream& file, std::vector<FileEnvironment> envs) {
         GraphicsPipelineCacheKey key;
@@ -543,12 +546,23 @@ void PipelineCache::LoadDiskResources(u64 title_id, std::stop_token stop_loading
             }
         });
         ++state.total;
+        ++state.total_graphics;
     }};
     VideoCommon::LoadPipelines(stop_loading, pipeline_cache_filename, CACHE_VERSION, load_compute,
                                load_graphics);
 
     LOG_INFO(Render_Vulkan, "Total Pipeline Count: {}", state.total);
 
+    // Pre-reserve space in caches to reduce rehashing during async builds
+    {
+        std::scoped_lock lock{state.mutex};
+        if (state.total_compute > 0) {
+            compute_cache.reserve(state.total_compute);
+        }
+        if (state.total_graphics > 0) {
+            graphics_cache.reserve(state.total_graphics);
+        }
+    }
     std::unique_lock lock{state.mutex};
     callback(VideoCore::LoadCallbackStage::Build, 0, state.total);
     state.has_loaded = true;
@@ -589,18 +603,8 @@ GraphicsPipeline* PipelineCache::BuiltPipeline(GraphicsPipeline* pipeline) const
     if (!use_asynchronous_shaders) {
         return pipeline;
     }
-    // If something is using depth, we can assume that games are not rendering anything which
-    // will be used one time.
-    if (maxwell3d->regs.zeta_enable) {
-        return nullptr;
-    }
-    // If games are using a small index count, we can assume these are full screen quads.
-    // Usually these shaders are only used once for building textures so we can assume they
-    // can't be built async
-    const auto& draw_state = maxwell3d->draw_manager->GetDrawState();
-    if (draw_state.index_buffer.count <= 6 || draw_state.vertex_buffer.count <= 6) {
-        return pipeline;
-    }
+    // When asynchronous shaders are enabled, avoid blocking the main thread completely.
+    // Skip the draw until the pipeline is ready to prevent stutter.
     return nullptr;
 }
 
@@ -673,7 +677,8 @@ std::unique_ptr<GraphicsPipeline> PipelineCache::CreateGraphicsPipeline(
 
         const auto runtime_info{MakeRuntimeInfo(programs, key, program, previous_stage)};
         ConvertLegacyToGeneric(program, runtime_info);
-        const std::vector<u32> code{EmitSPIRV(profile, runtime_info, program, binding)};
+        std::vector<u32> code = EmitSPIRV(profile, runtime_info, program, binding);
+        code.reserve(std::max<size_t>(code.size(), 16 * 1024 / sizeof(u32)));
         device.SaveShader(code);
         modules[stage_index] = BuildShader(device, code);
         if (device.HasDebuggingToolAttached()) {
@@ -767,7 +772,8 @@ std::unique_ptr<ComputePipeline> PipelineCache::CreateComputePipeline(
     }
 
     auto program{TranslateProgram(pools.inst, pools.block, env, cfg, host_info)};
-    const std::vector<u32> code{EmitSPIRV(profile, program)};
+    std::vector<u32> code = EmitSPIRV(profile, program);
+    code.reserve(std::max<size_t>(code.size(), 16 * 1024 / sizeof(u32)));
     device.SaveShader(code);
     vk::ShaderModule spv_module{BuildShader(device, code)};
     if (device.HasDebuggingToolAttached()) {

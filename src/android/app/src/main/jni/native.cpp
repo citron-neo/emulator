@@ -62,6 +62,7 @@
 #include "video_core/renderer_vulkan/renderer_vulkan.h"
 #include "video_core/vulkan_common/vulkan_instance.h"
 #include "video_core/vulkan_common/vulkan_surface.h"
+#include "video_core/shader_notify.h"
 
 #define jconst [[maybe_unused]] const auto
 #define jauto [[maybe_unused]] auto
@@ -603,6 +604,13 @@ jdoubleArray Java_org_citron_citron_1emu_NativeLibrary_getPerfStats(JNIEnv* env,
     }
 
     return j_stats;
+}
+
+jint Java_org_citron_citron_1emu_NativeLibrary_getShadersBuilding(JNIEnv* env, jclass clazz) {
+    if (EmulationSession::GetInstance().IsRunning()) {
+        return EmulationSession::GetInstance().System().GPU().ShaderNotify().ShadersBuilding();
+    }
+    return 0;
 }
 
 jstring Java_org_citron_citron_1emu_NativeLibrary_getCpuBackend(JNIEnv* env, jclass clazz) {
