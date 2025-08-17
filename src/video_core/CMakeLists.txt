@@ -182,8 +182,6 @@ add_library(video_core STATIC
     renderer_vulkan/present/fsr.h
     renderer_vulkan/present/fsr2.cpp
     renderer_vulkan/present/fsr2.h
-    renderer_vulkan/present/frame_generation.cpp
-    renderer_vulkan/present/frame_generation.h
     frame_skipping.cpp
     frame_skipping.h
     renderer_vulkan/present/fxaa.cpp

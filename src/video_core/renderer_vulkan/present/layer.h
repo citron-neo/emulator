@@ -32,7 +32,6 @@ class AntiAliasPass;
 class Device;
 class FSR;
 class FSR2;
-class FrameGeneration;
 class MemoryAllocator;
 struct PresentPushConstants;
 class RasterizerVulkan;
@@ -59,7 +58,6 @@ private:
     void CreateRawImages(const Tegra::FramebufferConfig& framebuffer);
     void CreateFSR(VkExtent2D output_size);
     void CreateFSR2(VkExtent2D output_size);
-    void CreateFrameGeneration(VkExtent2D output_size);
 
     void RefreshResources(const Tegra::FramebufferConfig& framebuffer);
     void SetAntiAliasPass();
@@ -96,7 +94,6 @@ private:
 
     std::unique_ptr<FSR> fsr{};
     std::unique_ptr<FSR2> fsr2{};
-    std::unique_ptr<FrameGeneration> frame_generation{};
     std::vector<u64> resource_ticks{};
 };
 

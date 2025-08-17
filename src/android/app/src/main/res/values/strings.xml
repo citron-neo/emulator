@@ -424,7 +424,6 @@
     <string name="astc_settings_header">ASTC Settings</string>
     <string name="advanced_graphics_header">Advanced Graphics</string>
     <string name="applet_settings_header">Applet Settings</string>
-    <string name="frame_generation_header">Frame Generation</string>
 
     <!-- Applet Mode Settings -->
     <string name="cabinet_applet_mode">Cabinet Applet Mode</string>
@@ -1229,14 +1228,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
     <string name="shader_backend_description">Controls which shader backend to use for rendering.</string>
     <string name="vram_usage_mode">VRAM Usage Mode</string>
     <string name="vram_usage_mode_description">Controls how aggressively VRAM is used. Conservative mode limits VRAM usage for better stability.</string>
-    <string name="frame_generation">Frame Generation</string>
-    <string name="frame_generation_description">Enables frame generation to create intermediate frames, potentially doubling the perceived frame rate.</string>
-    <string name="frame_generation_mode">Frame Generation Mode</string>
-    <string name="frame_generation_mode_description">Interpolation creates frames between existing ones, while Extrapolation predicts future frames.</string>
-    <string name="frame_generation_disabled">Disabled</string>
-    <string name="frame_generation_enabled">Enabled</string>
-    <string name="frame_generation_mode_interpolation">Interpolation</string>
-    <string name="frame_generation_mode_extrapolation">Extrapolation</string>
     <string name="frame_skipping">Frame Skipping</string>
     <string name="frame_skipping_description">Skips frames to maintain performance when the system cannot keep up with the target frame rate.</string>
     <string name="frame_skipping_mode">Frame Skipping Mode</string>
