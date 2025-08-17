@@ -153,10 +153,6 @@ ENUM(AntiAliasing, None, Fxaa, Smaa, MaxEnum);
 
 ENUM(FSR2QualityMode, Quality, Balanced, Performance, UltraPerformance);
 
-ENUM(FrameGeneration, Disabled, Enabled, MaxEnum);
-
-ENUM(FrameGenerationMode, Interpolation, Extrapolation, MaxEnum);
-
 ENUM(FrameSkipping, Disabled, Enabled, MaxEnum);
 
 ENUM(FrameSkippingMode, Adaptive, Fixed, MaxEnum);

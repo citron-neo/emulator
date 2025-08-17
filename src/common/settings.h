@@ -358,25 +358,7 @@ struct Values {
                                                                 true,
                                                                 true};
 
-    SwitchableSetting<FrameGeneration, true> frame_generation{linkage,
-                                                              FrameGeneration::Disabled,  // Disabled by default
-                                                              FrameGeneration::Disabled,
-                                                              FrameGeneration::Enabled,
-                                                              "frame_generation",
-                                                              Category::Renderer,
-                                                              Specialization::Default,
-                                                              true,
-                                                              true};
 
-    SwitchableSetting<FrameGenerationMode, true> frame_generation_mode{linkage,
-                                                                       FrameGenerationMode::Interpolation,  // Interpolation by default
-                                                                       FrameGenerationMode::Interpolation,
-                                                                       FrameGenerationMode::Extrapolation,
-                                                                       "frame_generation_mode",
-                                                                       Category::Renderer,
-                                                                       Specialization::Default,
-                                                                       true,
-                                                                       true};
 
     SwitchableSetting<FrameSkipping, true> frame_skipping{linkage,
                                                           FrameSkipping::Disabled,  // Disabled by default

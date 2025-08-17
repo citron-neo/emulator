@@ -29,8 +29,6 @@ enum class IntSetting(override val key: String) : AbstractIntSetting {
     VERTICAL_ALIGNMENT("vertical_alignment"),
     FSR_SHARPENING_SLIDER("fsr_sharpening_slider"),
     FSR2_QUALITY_MODE("fsr2_quality_mode"),
-    FRAME_GENERATION("frame_generation"),
-    FRAME_GENERATION_MODE("frame_generation_mode"),
     FRAME_SKIPPING("frame_skipping"),
     FRAME_SKIPPING_MODE("frame_skipping_mode"),
 

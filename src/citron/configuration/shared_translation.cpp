@@ -129,10 +129,7 @@ std::unique_ptr<TranslationMap> InitializeTranslations(QWidget* parent) {
            tr("Determines how sharpened the image will look while using FSR's dynamic contrast."));
     INSERT(Settings, fsr2_quality_mode, tr("FSR 2.0 Quality Mode:"),
            tr("Selects the quality mode for FSR 2.0 upscaling. Quality provides better image quality, Performance provides better performance."));
-    INSERT(Settings, frame_generation, tr("Frame Generation:"),
-           tr("Enables frame generation to create intermediate frames, potentially doubling the perceived frame rate."));
-               INSERT(Settings, frame_generation_mode, tr("Frame Generation Mode:"),
-                  tr("Interpolation creates frames between existing ones, while Extrapolation predicts future frames."));
+
            INSERT(Settings, frame_skipping, tr("Frame Skipping:"),
                   tr("Skips frames to maintain performance when the system cannot keep up with the target frame rate."));
            INSERT(Settings, frame_skipping_mode, tr("Frame Skipping Mode:"),
@@ -419,16 +416,7 @@ std::unique_ptr<ComboboxTranslationMap> ComboboxEnumeration(QWidget* parent) {
                               PAIR(FSR2QualityMode, Performance, tr("Performance")),
                               PAIR(FSR2QualityMode, UltraPerformance, tr("Ultra Performance")),
                           }});
-    translations->insert({Settings::EnumMetadata<Settings::FrameGeneration>::Index(),
-                          {
-                              PAIR(FrameGeneration, Disabled, tr("Disabled")),
-                              PAIR(FrameGeneration, Enabled, tr("Enabled")),
-                          }});
-               translations->insert({Settings::EnumMetadata<Settings::FrameGenerationMode>::Index(),
-                                 {
-                                     PAIR(FrameGenerationMode, Interpolation, tr("Interpolation")),
-                                     PAIR(FrameGenerationMode, Extrapolation, tr("Extrapolation")),
-                                 }});
+
            translations->insert({Settings::EnumMetadata<Settings::FrameSkipping>::Index(),
                                  {
                                      PAIR(FrameSkipping, Disabled, tr("Disabled")),

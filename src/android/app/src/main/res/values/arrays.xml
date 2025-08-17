@@ -187,25 +187,7 @@
         <item>3</item>
     </integer-array>
 
-    <string-array name="frameGenerationNames">
-        <item>@string/frame_generation_disabled</item>
-        <item>@string/frame_generation_enabled</item>
-    </string-array>
 
-    <integer-array name="frameGenerationValues">
-        <item>0</item>
-        <item>1</item>
-    </integer-array>
-
-    <string-array name="frameGenerationModeNames">
-        <item>@string/frame_generation_mode_interpolation</item>
-        <item>@string/frame_generation_mode_extrapolation</item>
-    </string-array>
-
-    <integer-array name="frameGenerationModeValues">
-        <item>0</item>
-        <item>1</item>
-    </integer-array>
 
     <string-array name="frameSkippingNames">
         <item>@string/frame_skipping_disabled</item>
