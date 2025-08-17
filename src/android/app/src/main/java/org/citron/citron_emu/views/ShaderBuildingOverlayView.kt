@@ -7,6 +7,7 @@ import android.content.Context
 import android.graphics.*
 import android.util.AttributeSet
 import android.util.Log
+import android.view.MotionEvent
 import android.view.View
 import kotlin.math.*
 
@@ -85,6 +86,11 @@ class ShaderBuildingOverlayView @JvmOverloads constructor(
     // Animation
     private var animationProgress: Float = 0f
     private var isAnimating: Boolean = false
+
+    // Touch handling for dragging
+    private var lastTouchX: Float = 0f
+    private var lastTouchY: Float = 0f
+    private var isDragging: Boolean = false
 
     fun updatePerformanceStats(fps: Float, frameTime: Float, speed: Float, shaders: Int) {
         try {
@@ -216,6 +222,50 @@ class ShaderBuildingOverlayView @JvmOverloads constructor(
 
         // Draw performance graph
         drawPerformanceGraph(canvas)
+    }
+
+    override fun onTouchEvent(event: MotionEvent): Boolean {
+        when (event.action) {
+            MotionEvent.ACTION_DOWN -> {
+                lastTouchX = event.x
+                lastTouchY = event.y
+                isDragging = true
+                borderPaint.color = Color.parseColor("#FF5722") // Red border when dragging
+                invalidate()
+                return true
+            }
+            MotionEvent.ACTION_MOVE -> {
+                if (isDragging) {
+                    val deltaX = event.x - lastTouchX
+                    val deltaY = event.y - lastTouchY
+
+                    // Update position with boundary constraints
+                    val newX = (x + deltaX).coerceIn(0f, (parent as View).width - width.toFloat())
+                    val newY = (y + deltaY).coerceIn(0f, (parent as View).height - height.toFloat())
+
+                    x = newX
+                    y = newY
+
+                    lastTouchX = event.x
+                    lastTouchY = event.y
+                    invalidate()
+                }
+                return true
+            }
+            MotionEvent.ACTION_UP -> {
+                isDragging = false
+                borderPaint.color = Color.parseColor("#FF9800") // Orange border when not dragging
+                invalidate()
+                return true
+            }
+        }
+        return super.onTouchEvent(event)
+    }
+
+    fun resetPosition() {
+        x = 0f
+        y = 0f
+        invalidate()
     }
 
     private fun drawPerformanceGraph(canvas: Canvas) {

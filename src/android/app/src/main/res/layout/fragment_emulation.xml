@@ -177,16 +177,24 @@
                     android:focusable="false"
                     android:visibility="gone" />
 
-                <org.citron.citron_emu.views.ShaderBuildingOverlayView
-                    android:id="@+id/shader_building_overlay_view"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginStart="8dp"
-                    android:clickable="false"
-                    android:focusable="false"
-                    android:visibility="gone" />
-
             </LinearLayout>
+
+        </FrameLayout>
+
+        <FrameLayout
+            android:id="@+id/movable_overlay_container"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:clickable="false"
+            android:focusable="false">
+
+            <org.citron.citron_emu.views.ShaderBuildingOverlayView
+                android:id="@+id/shader_building_overlay_view"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:clickable="true"
+                android:focusable="true"
+                android:visibility="gone" />
 
         </FrameLayout>
 
