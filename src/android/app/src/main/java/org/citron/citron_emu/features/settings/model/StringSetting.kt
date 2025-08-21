@@ -7,7 +7,8 @@ import org.citron.citron_emu.utils.NativeConfig
 
 enum class StringSetting(override val key: String) : AbstractStringSetting {
     DRIVER_PATH("driver_path"),
-    DEVICE_NAME("device_name");
+    DEVICE_NAME("device_name"),
+    LOG_FILTER("log_filter");
 
     override fun getString(needsGlobal: Boolean): String = NativeConfig.getString(key, needsGlobal)
 
