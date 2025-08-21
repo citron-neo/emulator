@@ -13,6 +13,7 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.updatePadding
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
+import androidx.recyclerview.widget.LinearLayoutManager
 import com.google.android.material.color.MaterialColors
 import org.citron.citron_emu.R
 import org.citron.citron_emu.adapters.GameAdapter
@@ -31,6 +32,9 @@ class GamesFragment : Fragment() {
     private val gamesViewModel: GamesViewModel by activityViewModels()
     private val homeViewModel: HomeViewModel by activityViewModels()
 
+    private lateinit var gameAdapter: GameAdapter
+    private var isListView = false
+
     override fun onCreateView(
         inflater: LayoutInflater,
         container: ViewGroup?,
@@ -45,12 +49,19 @@ class GamesFragment : Fragment() {
         homeViewModel.setNavigationVisibility(visible = true, animated = true)
         homeViewModel.setStatusBarShadeVisibility(true)
 
+        gameAdapter = GameAdapter(requireActivity() as AppCompatActivity)
+
         binding.gridGames.apply {
             layoutManager = AutofitGridLayoutManager(
                 requireContext(),
                 requireContext().resources.getDimensionPixelSize(R.dimen.card_width)
             )
-            adapter = GameAdapter(requireActivity() as AppCompatActivity)
+            adapter = gameAdapter
+        }
+
+        // Set up button for view switching
+        binding.btnViewToggle.setOnClickListener {
+            toggleViewMode()
         }
 
         binding.swipeRefresh.apply {
@@ -90,14 +101,14 @@ class GamesFragment : Fragment() {
             )
         }
         gamesViewModel.games.collect(viewLifecycleOwner) {
-            (binding.gridGames.adapter as GameAdapter).submitList(it)
+            gameAdapter.submitList(it)
         }
         gamesViewModel.shouldSwapData.collect(
             viewLifecycleOwner,
             resetState = { gamesViewModel.setShouldSwapData(false) }
         ) {
             if (it) {
-                (binding.gridGames.adapter as GameAdapter).submitList(gamesViewModel.games.value)
+                gameAdapter.submitList(gamesViewModel.games.value)
             }
         }
         gamesViewModel.shouldScrollToTop.collect(
@@ -106,6 +117,27 @@ class GamesFragment : Fragment() {
         ) { if (it) scrollToTop() }
 
         setInsets()
+    }
+
+    private fun toggleViewMode() {
+        isListView = !isListView
+
+        if (isListView) {
+            // Switch to list view
+            binding.gridGames.layoutManager = LinearLayoutManager(requireContext())
+            binding.btnViewToggle.setIconResource(R.drawable.ic_view_grid)
+            binding.btnViewToggle.contentDescription = getString(R.string.switch_to_grid_view)
+        } else {
+            // Switch to grid view
+            binding.gridGames.layoutManager = AutofitGridLayoutManager(
+                requireContext(),
+                requireContext().resources.getDimensionPixelSize(R.dimen.card_width)
+            )
+            binding.btnViewToggle.setIconResource(R.drawable.ic_view_list)
+            binding.btnViewToggle.contentDescription = getString(R.string.switch_to_list_view)
+        }
+
+        gameAdapter.setListView(isListView)
     }
 
     override fun onDestroyView() {
@@ -154,6 +186,14 @@ class GamesFragment : Fragment() {
             binding.swipeRefresh.updateMargins(left = left, right = right)
 
             binding.noticeText.updatePadding(bottom = spacingNavigation)
+
+            // Update button margins
+            val buttonSpacing = resources.getDimensionPixelSize(R.dimen.spacing_fab)
+            binding.btnViewToggle.updateMargins(
+                left = leftInsets + buttonSpacing,
+                right = rightInsets + buttonSpacing,
+                bottom = barInsets.bottom + spacingNavigation + buttonSpacing
+            )
 
             windowInsets
         }

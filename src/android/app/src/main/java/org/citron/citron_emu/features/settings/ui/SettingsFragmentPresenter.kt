@@ -100,6 +100,7 @@ class SettingsFragmentPresenter(
             MenuTag.SECTION_THEME -> addThemeSettings(sl)
             MenuTag.SECTION_DEBUG -> addDebugSettings(sl)
             MenuTag.SECTION_ZEP_ZONE -> addZepZoneSettings(sl)
+            MenuTag.SECTION_APPLETS_ANDROID -> addAppletsAndroidSettings(sl)
         }
         settingsList = sl
         adapter.submitList(settingsList) {
@@ -149,6 +150,14 @@ class SettingsFragmentPresenter(
                     descriptionId = R.string.preferences_zep_zone_description,
                     iconId = R.drawable.ic_settings,
                     menuKey = MenuTag.SECTION_ZEP_ZONE
+                )
+            )
+            add(
+                SubmenuSetting(
+                    titleId = R.string.preferences_applets_android,
+                    descriptionId = R.string.preferences_applets_android_description,
+                    iconId = R.drawable.ic_applet,
+                    menuKey = MenuTag.SECTION_APPLETS_ANDROID
                 )
             )
             add(
@@ -981,6 +990,15 @@ class SettingsFragmentPresenter(
             add(IntSetting.CPU_ACCURACY.key)
             add(BooleanSetting.CPU_DEBUG_MODE.key)
             add(SettingsItem.FASTMEM_COMBINED)
+
+            add(HeaderSetting(R.string.logging))
+            add(
+                StringInputSetting(
+                    StringSetting.LOG_FILTER,
+                    titleId = R.string.log_filter,
+                    descriptionId = R.string.log_filter_description
+                )
+            )
         }
     }
 
@@ -1000,7 +1018,11 @@ class SettingsFragmentPresenter(
             add(HeaderSetting(R.string.frame_skipping_header))
             add(IntSetting.FRAME_SKIPPING.key)
             add(IntSetting.FRAME_SKIPPING_MODE.key)
+        }
+    }
 
+    private fun addAppletsAndroidSettings(sl: ArrayList<SettingsItem>) {
+        sl.apply {
             add(HeaderSetting(R.string.applet_settings_header))
             add(IntSetting.CABINET_APPLET_MODE.key)
             add(IntSetting.CONTROLLER_APPLET_MODE.key)

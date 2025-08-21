@@ -33,6 +33,8 @@
     <string name="home_settings">Settings</string>
     <string name="empty_gamelist">No files were found or no game directory has been selected yet.</string>
     <string name="search_and_filter_games">Search and filter games</string>
+    <string name="switch_to_list_view">Switch to list view</string>
+    <string name="switch_to_grid_view">Switch to grid view</string>
     <string name="select_games_folder">Select games folder</string>
     <string name="manage_game_folders">Manage game folders</string>
     <string name="select_games_folder_description">Allows citron to populate the games list</string>
@@ -256,6 +258,9 @@
     <string name="renderer_debug">Graphics debugging</string>
     <string name="renderer_debug_description">Sets the graphics API to a slow debugging mode.</string>
     <string name="fastmem">Fastmem</string>
+    <string name="logging">Logging</string>
+    <string name="log_filter">Log Filter</string>
+    <string name="log_filter_description">Configure which log messages to display. Format: &lt;class&gt;:&lt;level&gt;. Example: *:Info Service:Debug</string>
 
     <!-- Audio settings strings -->
     <string name="audio_output_engine">Output engine</string>
@@ -418,6 +423,8 @@
     <string name="preferences_debug_description">CPU/GPU debugging, graphics API, fastmem</string>
     <string name="preferences_zep_zone">Zep Zone</string>
     <string name="preferences_zep_zone_description">Advanced emulation settings</string>
+    <string name="preferences_applets_android">Applets on Android</string>
+    <string name="preferences_applets_android_description">System applet configuration settings</string>
 
     <!-- Zep Zone Headers -->
     <string name="memory_layout_header">Memory Layout</string>
