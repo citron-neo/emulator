@@ -388,7 +388,30 @@ elseif(WIN32)
     endif()
 endif()
 
-target_link_libraries(citron PRIVATE common core input_common frontend_common network video_core)
+# Robust static linking and linker selection under GCC LTO
+if (NOT MSVC)
+    # Use GNU ld.bfd for GCC LTO plugin-aware archive resolution
+    target_link_options(citron PRIVATE -fuse-ld=bfd)
+
+    # Force-include critical static archives and resolve cycles
+    if (ENABLE_WEB_SERVICE)
+        target_compile_definitions(citron PRIVATE -DENABLE_WEB_SERVICE)
+        target_link_libraries(citron PRIVATE
+            "-Wl,--start-group"
+            "-Wl,--whole-archive" common core input_common frontend_common network video_core web_service "-Wl,--no-whole-archive"
+            "-Wl,--end-group"
+        )
+    else()
+        target_link_libraries(citron PRIVATE
+            "-Wl,--start-group"
+            "-Wl,--whole-archive" common core input_common frontend_common network video_core "-Wl,--no-whole-archive"
+            "-Wl,--end-group"
+        )
+    endif()
+else()
+    target_link_libraries(citron PRIVATE common core input_common frontend_common network video_core)
+endif()
+
 target_link_libraries(citron PRIVATE Boost::headers glad Qt${QT_MAJOR_VERSION}::Widgets)
 target_link_libraries(citron PRIVATE ${PLATFORM_LIBRARIES} Threads::Threads)
 
