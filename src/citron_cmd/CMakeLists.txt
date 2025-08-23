@@ -28,7 +28,30 @@ add_executable(citron-cmd
     citron.rc
 )
 
-target_link_libraries(citron-cmd PRIVATE common core input_common frontend_common)
+# Robust static linking and linker selection under GCC LTO
+if (NOT MSVC)
+    # Use GNU ld.bfd for GCC LTO plugin-aware archive resolution
+    target_link_options(citron-cmd PRIVATE -fuse-ld=bfd)
+
+    # Force-include critical static archives and resolve cycles
+    if (ENABLE_WEB_SERVICE)
+        target_compile_definitions(citron-cmd PRIVATE -DENABLE_WEB_SERVICE)
+        target_link_libraries(citron-cmd PRIVATE
+            "-Wl,--start-group"
+            "-Wl,--whole-archive" common core input_common frontend_common network web_service "-Wl,--no-whole-archive"
+            "-Wl,--end-group"
+        )
+    else()
+        target_link_libraries(citron-cmd PRIVATE
+            "-Wl,--start-group"
+            "-Wl,--whole-archive" common core input_common frontend_common network "-Wl,--no-whole-archive"
+            "-Wl,--end-group"
+        )
+    endif()
+else()
+    target_link_libraries(citron-cmd PRIVATE common core input_common frontend_common)
+endif()
+
 target_link_libraries(citron-cmd PRIVATE glad)
 if (MSVC)
     target_link_libraries(citron-cmd PRIVATE getopt)

@@ -6,10 +6,10 @@ SPDX-License-Identifier: GPL-2.0-or-later
 <RCC>
   <qresource prefix="controller">
     <file alias="applet_dual_joycon">applet_dual_joycon.png</file>
-    <file alias="applet_dual_joycon_dark">applet_dual_joycon_dark.png</file>	
-    <file alias="applet_dual_joycon_midnight">applet_dual_joycon_midnight.png</file>	
+    <file alias="applet_dual_joycon_dark">applet_dual_joycon_dark.png</file>
+    <file alias="applet_dual_joycon_midnight">applet_dual_joycon_midnight.png</file>
     <file alias="applet_handheld">applet_handheld.png</file>
-    <file alias="applet_handheld_dark">applet_handheld_dark.png</file>	
+    <file alias="applet_handheld_dark">applet_handheld_dark.png</file>
     <file alias="applet_handheld_midnight">applet_handheld_midnight.png</file>
     <file alias="applet_pro_controller">applet_pro_controller.png</file>
     <file alias="applet_pro_controller_dark">applet_pro_controller_dark.png</file>
