@@ -205,6 +205,12 @@ std::pair<s32, Errno> ProxySocket::SendTo(u32 flags, std::span<const u8> message
         return {static_cast<s32>(message.size()), Errno::SUCCESS};
     }
 
+    // For datagram sockets, a destination address is required
+    if (!addr) {
+        LOG_ERROR(Network, "SendTo called on ProxySocket without destination address");
+        return {-1, Errno::INVAL};
+    }
+
     if (auto room_member = room_network.GetRoomMember().lock()) {
         if (!room_member->IsConnected()) {
             return {static_cast<s32>(message.size()), Errno::SUCCESS};

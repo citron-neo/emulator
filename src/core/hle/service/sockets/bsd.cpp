@@ -889,6 +889,14 @@ std::pair<s32, Errno> BSD::SendToImpl(s32 fd, u32 flags, std::span<const u8> mes
         return {-1, Errno::BADF};
     }
 
+    FileDescriptor& descriptor = *file_descriptors[fd];
+
+    // For datagram sockets (UDP), a destination address is required
+    if (!descriptor.is_connection_based && addr.empty()) {
+        LOG_ERROR(Service, "SendTo called on datagram socket without destination address");
+        return {-1, Errno::INVAL};
+    }
+
     Network::SockAddrIn addr_in;
     Network::SockAddrIn* p_addr_in = nullptr;
     if (!addr.empty()) {
