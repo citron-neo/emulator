@@ -1,20 +1,68 @@
 // SPDX-FileCopyrightText: Copyright 2018 yuzu Emulator Project
+// SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #pragma once
 
+#include <array>
+#include <map>
+#include <memory>
+#include <mutex>
+#include <span>
 #include <vector>
 
-#include "common/common_funcs.h"
 #include "common/common_types.h"
-#include "common/swap.h"
 #include "core/hle/service/nvdrv/devices/nvdevice.h"
+#include "core/hle/service/nvdrv/nvdata.h"
 
 namespace Service::Nvidia {
 class EventInterface;
 }
 
 namespace Service::Nvidia::Devices {
+
+// Global ZBC manager for GPU memory management integration
+class ZBCManager {
+public:
+    static ZBCManager& Instance() {
+        static ZBCManager instance;
+        return instance;
+    }
+
+    // ZBC table entry structure
+    struct ZBCEntry {
+        std::array<u32, 4> color_ds;
+        std::array<u32, 4> color_l2;
+        u32 depth;
+        u32 format;
+        u32 type;
+        u32 ref_count;
+    };
+
+    // ZBC table access methods for GPU clearing operations
+    std::optional<std::array<u32, 4>> GetZBCColor(u32 format, u32 type) const;
+    std::optional<u32> GetZBCDepth(u32 format, u32 type) const;
+
+    // Store ZBC entry (called by nvhost_ctrl_gpu)
+    void StoreZBCEntry(u32 format, u32 type, const std::array<u32, 4>& color_ds,
+                       const std::array<u32, 4>& color_l2, u32 depth);
+
+private:
+    ZBCManager() = default;
+    ~ZBCManager() = default;
+    ZBCManager(const ZBCManager&) = delete;
+    ZBCManager& operator=(const ZBCManager&) = delete;
+
+    mutable std::mutex zbc_table_mutex;
+    std::map<std::pair<u32, u32>, ZBCEntry> zbc_table; // Key: (format, type)
+};
+
+// Forward declaration for external access
+namespace ZBC {
+    // Helper functions for GPU clearing operations
+    std::optional<std::array<u32, 4>> GetColor(u32 format, u32 type);
+    std::optional<u32> GetDepth(u32 format, u32 type);
+}
 
 class nvhost_ctrl_gpu final : public nvdevice {
 public:
@@ -25,53 +73,57 @@ public:
                     std::span<u8> output) override;
     NvResult Ioctl2(DeviceFD fd, Ioctl command, std::span<const u8> input,
                     std::span<const u8> inline_input, std::span<u8> output) override;
-    NvResult Ioctl3(DeviceFD fd, Ioctl command, std::span<const u8> input, std::span<u8> output,
-                    std::span<u8> inline_output) override;
+    NvResult Ioctl3(DeviceFD fd, Ioctl command, std::span<const u8> input,
+                    std::span<u8> output, std::span<u8> inline_output) override;
 
     void OnOpen(NvCore::SessionId session_id, DeviceFD fd) override;
     void OnClose(DeviceFD fd) override;
 
     Kernel::KEvent* QueryEvent(u32 event_id) override;
 
+    // ZBC table management methods
+    std::optional<std::array<u32, 4>> GetZBCColor(u32 format, u32 type) const;
+    std::optional<u32> GetZBCDepth(u32 format, u32 type) const;
+
 private:
     struct IoctlGpuCharacteristics {
-        u32_le arch;                       // 0x120 (NVGPU_GPU_ARCH_GM200)
-        u32_le impl;                       // 0xB (NVGPU_GPU_IMPL_GM20B)
-        u32_le rev;                        // 0xA1 (Revision A1)
-        u32_le num_gpc;                    // 0x1
-        u64_le l2_cache_size;              // 0x40000
-        u64_le on_board_video_memory_size; // 0x0 (not used)
-        u32_le num_tpc_per_gpc;            // 0x2
-        u32_le bus_type;                   // 0x20 (NVGPU_GPU_BUS_TYPE_AXI)
-        u32_le big_page_size;              // 0x20000
-        u32_le compression_page_size;      // 0x20000
-        u32_le pde_coverage_bit_count;     // 0x1B
-        u32_le available_big_page_sizes;   // 0x30000
-        u32_le gpc_mask;                   // 0x1
-        u32_le sm_arch_sm_version;         // 0x503 (Maxwell Generation 5.0.3?)
-        u32_le sm_arch_spa_version;        // 0x503 (Maxwell Generation 5.0.3?)
-        u32_le sm_arch_warp_count;         // 0x80
-        u32_le gpu_va_bit_count;           // 0x28
-        u32_le reserved;                   // NULL
-        u64_le flags;                      // 0x55
-        u32_le twod_class;                 // 0x902D (FERMI_TWOD_A)
-        u32_le threed_class;               // 0xB197 (MAXWELL_B)
-        u32_le compute_class;              // 0xB1C0 (MAXWELL_COMPUTE_B)
-        u32_le gpfifo_class;               // 0xB06F (MAXWELL_CHANNEL_GPFIFO_A)
-        u32_le inline_to_memory_class;     // 0xA140 (KEPLER_INLINE_TO_MEMORY_B)
-        u32_le dma_copy_class;             // 0xB0B5 (MAXWELL_DMA_COPY_A)
-        u32_le max_fbps_count;             // 0x1
-        u32_le fbp_en_mask;                // 0x0 (disabled)
-        u32_le max_ltc_per_fbp;            // 0x2
-        u32_le max_lts_per_ltc;            // 0x1
-        u32_le max_tex_per_tpc;            // 0x0 (not supported)
-        u32_le max_gpc_count;              // 0x1
-        u32_le rop_l2_en_mask_0;           // 0x21D70 (fuse_status_opt_rop_l2_fbp_r)
-        u32_le rop_l2_en_mask_1;           // 0x0
-        u64_le chipname;                   // 0x6230326D67 ("gm20b")
-        u64_le gr_compbit_store_base_hw;   // 0x0 (not supported)
+        u32_le arch;
+        u32_le impl;
+        u32_le rev;
+        u32_le num_gpc;
+        u64_le l2_cache_size;
+        u64_le on_board_video_memory_size;
+        u32_le num_tpc_per_gpc;
+        u32_le bus_type;
+        u32_le big_page_size;
+        u32_le compression_page_size;
+        u32_le pde_coverage_bit_count;
+        u32_le available_big_page_sizes;
+        u32_le gpc_mask;
+        u32_le sm_arch_sm_version;
+        u32_le sm_arch_spa_version;
+        u32_le sm_arch_warp_count;
+        u32_le gpu_va_bit_count;
+        u32_le reserved;
+        u64_le flags;
+        u32_le twod_class;
+        u32_le threed_class;
+        u32_le compute_class;
+        u32_le gpfifo_class;
+        u32_le inline_to_memory_class;
+        u32_le dma_copy_class;
+        u32_le max_fbps_count;
+        u32_le fbp_en_mask;
+        u32_le max_ltc_per_fbp;
+        u32_le max_lts_per_ltc;
+        u32_le max_tex_per_tpc;
+        u32_le max_gpc_count;
+        u32_le rop_l2_en_mask_0;
+        u32_le rop_l2_en_mask_1;
+        u64_le chipname;
+        u32_le gr_compbit_store_base_hw;
     };
-    static_assert(sizeof(IoctlGpuCharacteristics) == 160,
+    static_assert(sizeof(IoctlGpuCharacteristics) == 0xA0,
                   "IoctlGpuCharacteristics is incorrect size");
 
     struct IoctlCharacteristics {
@@ -150,6 +202,24 @@ private:
         INSERT_PADDING_WORDS(2);
     };
     static_assert(sizeof(IoctlGetGpuTime) == 0x10, "IoctlGetGpuTime is incorrect size");
+
+    // ZBC table entry structure
+    struct ZBCEntry {
+        std::array<u32, 4> color_ds;
+        std::array<u32, 4> color_l2;
+        u32 depth;
+        u32 format;
+        u32 type;
+        u32 ref_count;
+    };
+
+    // ZBC table storage
+    mutable std::mutex zbc_table_mutex;
+    std::map<std::pair<u32, u32>, ZBCEntry> zbc_table; // Key: (format, type)
+
+    // ZBC table management
+    void StoreZBCEntry(const IoctlZbcSetTable& params);
+    std::optional<ZBCEntry> FindZBCEntry(u32 format, u32 type) const;
 
     NvResult GetCharacteristics1(IoctlCharacteristics& params);
     NvResult GetCharacteristics3(IoctlCharacteristics& params,
