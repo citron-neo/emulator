@@ -215,7 +215,7 @@ void TurboMode::UpdatePerformanceMetrics(std::chrono::nanoseconds execution_time
 
     // Update max execution time
     u64 current_max = performance_stats.max_execution_time_ns.load(std::memory_order_relaxed);
-    while (time_ns > current_max &&
+    while (static_cast<u64>(time_ns) > current_max &&
            !performance_stats.max_execution_time_ns.compare_exchange_weak(current_max, time_ns,
                                                                         std::memory_order_relaxed)) {
         // Retry if compare_exchange failed
@@ -223,7 +223,7 @@ void TurboMode::UpdatePerformanceMetrics(std::chrono::nanoseconds execution_time
 
     // Update min execution time
     u64 current_min = performance_stats.min_execution_time_ns.load(std::memory_order_relaxed);
-    while (time_ns < current_min &&
+    while (static_cast<u64>(time_ns) < current_min &&
            !performance_stats.min_execution_time_ns.compare_exchange_weak(current_min, time_ns,
                                                                         std::memory_order_relaxed)) {
         // Retry if compare_exchange failed

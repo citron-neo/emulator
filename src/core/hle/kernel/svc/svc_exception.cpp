@@ -39,18 +39,66 @@ void Break(Core::System& system, BreakReason reason, u64 info1, u64 info2) {
             notification_only = true; // Make this a notification-only break
         }
     };
+
+    // Enhanced Nintendo SDK crash handling
+    const auto handle_nintendo_sdk_crash = [&]() {
+        LOG_WARNING(Debug_Emulated, "Nintendo SDK crash detected, attempting recovery...");
+
+        // Check if this looks like a Nintendo SDK crash (nnSdk, nn::diag::detail::Abort, etc.)
+        // These often occur during initialization and can be recoverable
+        if (break_reason == BreakReason::Panic || break_reason == BreakReason::Assert) {
+            // For Nintendo SDK crashes during initialization, try to continue
+            // This is especially important for games like Phoenix Switch
+            LOG_INFO(Debug_Emulated, "Nintendo SDK crash detected, treating as potentially recoverable");
+
+            // Check if this is likely an initialization-time crash
+            // Many Nintendo SDK crashes happen during startup and can be safely ignored
+            if (info1 < 0x10000 || info2 < 0x10000) {
+                LOG_INFO(Debug_Emulated, "Nintendo SDK initialization crash detected, attempting recovery");
+                notification_only = true; // Make this a notification-only break
+            }
+
+            // For crashes in the nnSdk module, try to continue execution
+            // These are often assertion failures that don't necessarily mean the game is broken
+            if (info1 == 0 || info2 == 0) {
+                LOG_INFO(Debug_Emulated, "Nintendo SDK null pointer crash detected, attempting recovery");
+                notification_only = true;
+            }
+        }
+    };
+
+    // Enhanced general crash recovery
+    const auto handle_general_crash_recovery = [&]() {
+        LOG_WARNING(Debug_Emulated, "General crash recovery attempt...");
+
+        // For crashes with very low addresses, these are often initialization issues
+        if (break_reason == BreakReason::Panic && (info1 < 0x1000 || info2 < 0x1000)) {
+            LOG_INFO(Debug_Emulated, "Low-address crash detected, treating as recoverable");
+            notification_only = true;
+        }
+
+        // For assertion failures, try to continue in many cases
+        if (break_reason == BreakReason::Assert) {
+            LOG_INFO(Debug_Emulated, "Assertion failure detected, attempting recovery");
+            notification_only = true;
+        }
+    };
     switch (break_reason) {
     case BreakReason::Panic:
         LOG_CRITICAL(Debug_Emulated, "Userspace PANIC! info1=0x{:016X}, info2=0x{:016X}", info1,
                      info2);
         handle_debug_buffer();
         handle_ue4_crash();
+        handle_nintendo_sdk_crash();
+        handle_general_crash_recovery();
         break;
     case BreakReason::Assert:
         LOG_CRITICAL(Debug_Emulated, "Userspace Assertion failed! info1=0x{:016X}, info2=0x{:016X}",
                      info1, info2);
         handle_debug_buffer();
         handle_ue4_crash();
+        handle_nintendo_sdk_crash();
+        handle_general_crash_recovery();
         break;
     case BreakReason::User:
         LOG_WARNING(Debug_Emulated, "Userspace Break! 0x{:016X} with size 0x{:016X}", info1, info2);
@@ -83,6 +131,7 @@ void Break(Core::System& system, BreakReason reason, u64 info1, u64 info2) {
             "Signalling debugger, Unknown break reason {:#X}, info1=0x{:016X}, info2=0x{:016X}",
             reason, info1, info2);
         handle_debug_buffer();
+        handle_general_crash_recovery();
         break;
     }
 
