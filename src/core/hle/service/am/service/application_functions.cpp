@@ -86,7 +86,7 @@ IApplicationFunctions::IApplicationFunctions(Core::System& system_, std::shared_
         {181, nullptr, "UpgradeLaunchRequiredVersion"},
         {190, nullptr, "SendServerMaintenanceOverlayNotification"},
         {200, nullptr, "GetLastApplicationExitReason"},
-        {210, nullptr, "GetLaunchRequiredVersionUpgrade"},
+        {210, D<&IApplicationFunctions::GetLaunchRequiredVersionUpgrade>, "GetLaunchRequiredVersionUpgrade"},
         {211, nullptr, "GetLaunchRequiredVersionUpgradeStatus"},
         {300, nullptr, "RequestToLaunchApplication"},
         {301, nullptr, "RequestToLaunchApplicationWithUserAndArguments"},
@@ -504,6 +504,15 @@ Result IApplicationFunctions::PrepareForJit() {
 
     std::scoped_lock lk{m_applet->lock};
     m_applet->jit_service_launched = true;
+
+    R_SUCCEED();
+}
+
+Result IApplicationFunctions::GetLaunchRequiredVersionUpgrade(OutCopyHandle<Kernel::KReadableEvent> out_event) {
+    LOG_WARNING(Service_AM, "(STUBBED) called");
+
+    // TODO(ZEP): Add a dedicated launch_required_version_upgrade_event when implemented
+    *out_event = m_applet->state_changed_event.GetHandle();
 
     R_SUCCEED();
 }
