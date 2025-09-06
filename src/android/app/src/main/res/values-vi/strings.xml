@@ -1,0 +1,401 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:tools="http://schemas.android.com/tools" tools:ignore="MissingTranslation">
+
+    <string name="app_disclaimer">Phần mềm này sẽ chạy trò chơi cho máy chơi game Nintendo Switch. Không có game titles hoặc keys được bao gồm.&lt;br /&gt;&lt;br /&gt;Trước khi bạn bắt đầu, hãy tìm file <![CDATA[<b> prod.keys </b>]]> trên bộ nhớ thiết bị của bạn.&lt;br /&gt;&lt;br /&gt;<![CDATA[<a href=\"https://citron-emu.org/help/quickstart\">Tìm hiểu thêm</a>]]></string>
+    <string name="notice_notification_channel_name">Thông báo và lỗi</string>
+    <string name="notice_notification_channel_description">Hiển thị thông báo khi có sự cố xảy ra</string>
+    <string name="notification_permission_not_granted">Ứng dụng không được cấp quyền thông báo!</string>
+
+    <!-- Setup strings -->
+    <string name="welcome">Chào mừng!</string>
+    <string name="welcome_description">Tìm hiểu cách cài đặt &lt;b>citron&lt;/b> và bắt đầu giả lập.</string>
+    <string name="get_started">Bắt đầu</string>
+    <string name="keys">Chìa khóa</string>
+    <string name="keys_description">Chọn file &lt;b>prod.keys&lt;/b> của bạn bằng nút bên dưới.</string>
+    <string name="select_keys">Chọn Chìa khóa</string>
+    <string name="games">Trò chơi</string>
+    <string name="games_description">Chọn thư mục &lt;b>Games&lt;/b> của bạn bằng nút bên dưới.</string>
+    <string name="done">Hoàn thành</string>
+    <string name="done_description">Tất cả đã hoàn tất.\nHãy tận hưởng trò chơi của bạn!</string>
+    <string name="text_continue">Tiếp tục</string>
+    <string name="next">Tiếp theo</string>
+    <string name="back">Trở lại</string>
+    <string name="add_games">Thêm Trò chơi</string>
+    <string name="add_games_description">Chọn thư mục trò chơi của bạn</string>
+    <!-- Home strings -->
+    <string name="home_games">Trò chơi</string>
+    <string name="home_search">Tìm</string>
+    <string name="home_settings">Cài đặt</string>
+    <string name="empty_gamelist">Không tìm thấy files hoặc chưa có thư mục trò chơi nào được chọn.</string>
+    <string name="search_and_filter_games">Tìm và lọc trò chơi</string>
+    <string name="select_games_folder">Chọn thư mục trò chơi</string>
+    <string name="select_games_folder_description">Cho phép citron thêm các trò chơi vào danh sách</string>
+    <string name="add_games_warning">Bỏ qua lựa chọn thư mục trò chơi?</string>
+    <string name="add_games_warning_description">Trò chơi sẽ không hiển thị trong danh sách nếu một thư mục không được chọn</string>
+    <string name="add_games_warning_help">https://citron-emu.org/help/quickstart/#dumping-games</string>
+    <string name="home_search_games">Tìm kiếm games</string>
+    <string name="games_dir_selected">Thư mục trò chơi đã được chọn</string>
+    <string name="install_prod_keys">Cài prod.keys</string>
+    <string name="install_prod_keys_description">Yêu cầu để giải mã các game bán lẻ</string>
+    <string name="install_prod_keys_warning">Bỏ qua thêm chìa khóa?</string>
+    <string name="install_prod_keys_warning_description">Cần có chìa khóa hợp lệ để giả lập trò chơi. Chỉ có các ứng dụng homebrew có thể vận hành nếu bạn tiếp tục</string>
+    <string name="install_prod_keys_warning_help">https://citron-emu.org/help/quickstart/#guide-introduction</string>
+    <string name="notifications">Thông báo</string>
+    <string name="notifications_description">Ấn vào nút bên dưới để cấp quyền ứng dụng gửi thông báo</string>
+    <string name="give_permission">Cấp quyền</string>
+    <string name="notification_warning">Bỏ qua cấp quyền thông báo?</string>
+    <string name="notification_warning_description">citron sẽ không thể gửi những thông báo quan trọng đến bạn.</string>
+    <string name="permission_denied">Đã từ chối cấp quyền</string>
+    <string name="permission_denied_description">Bạn từ chối cấp quyền này quá nhiều lần và giờ bạn phải cấp quyền thủ công trong cài đặt máy.</string>
+    <string name="about">Thông tin</string>
+    <string name="about_description">Phiên bản, đóng góp và những thứ khác</string>
+    <string name="warning_help">Trợ giúp</string>
+    <string name="warning_skip">Bỏ qua</string>
+    <string name="warning_cancel">Huỷ</string>
+    <string name="install_amiibo_keys">Cài đặt Amiibo</string>
+    <string name="install_amiibo_keys_description">Cần thiết để dùng Amiibo trong trò chơi</string>
+    <string name="invalid_keys_file">Chìa khóa không hợp lệ</string>
+    <string name="install_keys_success">Cài đặt chìa khóa thành công</string>
+    <string name="reading_keys_failure">Lỗi đọc keys mã hóa</string>
+    <string name="install_prod_keys_failure_extension_description">Xác minh rằng tệp keys của bạn có đuôi .keys và thử lại.</string>
+    <string name="install_amiibo_keys_failure_extension_description">Xác minh rằng tệp keys của bạn có đuôi .bin và thử lại.</string>
+    <string name="invalid_keys_error">Keys mã hoá không hợp lệ</string>
+    <string name="dumping_keys_quickstart_link">https://citron-emu.org/help/quickstart/#dumping-decryption-keys</string>
+    <string name="install_keys_failure_description">Chọn file sai hoặc bị hỏng. Hãy xuất chìa khóa khác</string>
+    <string name="install_gpu_driver">Cài đặt driver GPU</string>
+    <string name="install_gpu_driver_description">Cài đặt driver thay thế để có thể có hiệu suất tốt và chính xác hơn</string>
+    <string name="advanced_settings">Cài đặt nâng cao</string>
+    <string name="settings_description">Tinh chỉnh cài đặt giả lập</string>
+    <string name="search_recently_played">Đã chơi gần đây</string>
+    <string name="search_recently_added">Đã thêm gần đây</string>
+    <string name="search_retail">Bán lẻ</string>
+    <string name="search_homebrew">Homebrew</string>
+    <string name="open_user_folder">Mở thư mục citron</string>
+    <string name="open_user_folder_description">Quản lý file nội bộ của citron</string>
+    <string name="theme_and_color_description">Thay đổi giao diện ứng dụng</string>
+    <string name="no_file_manager">Không tìm thấy trình quản lý tệp</string>
+    <string name="notification_no_directory_link">Không thể mở thư mục citron</string>
+    <string name="notification_no_directory_link_description">Vui lòng xác định thư mục người dùng với bảng điều khiển bên của trình quản lý tệp thủ công.</string>
+    <string name="manage_save_data">Quản lý dữ liệu save</string>
+    <string name="manage_save_data_description">Đã tìm thấy dữ liệu save. Vui lòng chọn một tuỳ chọn bên dưới.</string>
+    <string name="import_export_saves_description">Nhập hoặc xuất tệp save</string>
+    <string name="save_file_imported_success">Nhập thành công</string>
+    <string name="save_file_invalid_zip_structure">Cấu trúc thư mục save không hợp lệ</string>
+    <string name="save_file_invalid_zip_structure_description">Tên thư mục con đầu tiên phải là title ID của game.</string>
+    <string name="import_saves">Nhập</string>
+    <string name="export_saves">Xuất</string>
+    <string name="install_firmware">Cài đặt firmware</string>
+    <string name="install_firmware_description">Firmware phải được đặt trong một tập tin nén ZIP và cần thiết để khởi chạy một số game</string>
+    <string name="firmware_installing">Đang cài đặt firmware</string>
+    <string name="firmware_installed_success">Cài đặt firmware thành công</string>
+    <string name="firmware_installed_failure">Cài đặt firmware thất bại</string>
+    <string name="share_log">Chia sẽ log gỡ lỗi</string>
+    <string name="share_log_description">Chia sẻ tệp log của citron để gỡ lỗi vấn đề</string>
+    <string name="share_log_missing">Không tìm thấy tệp log</string>
+    <string name="install_game_content">Cài đặt nội dung game</string>
+    <string name="install_game_content_description">Cài đặt cập nhật game hoặc DLC</string>
+    <string name="install_game_content_help_link">https://citron-emu.org/help/quickstart/#dumping-installed-updates</string>
+    <string name="keys_missing_help">https://citron-emu.org/help/quickstart/#dumping-decryption-keys</string>
+
+    <!-- About screen strings -->
+    <string name="gaia_is_not_real">Gaia không có thật</string>
+    <string name="copied_to_clipboard">Đã sao chép vào bộ nhớ tạm</string>
+    <string name="about_app_description">Một giả lập Switch mã nguồn mở</string>
+    <string name="contributors">Người đóng góp</string>
+    <string name="contributors_description">Được làm với \u2764 từ nhóm citron</string>
+    <string name="contributors_link">https://github.com/citron-emu/citron/graphs/contributors</string>
+    <string name="licenses_description">Các dự án làm cho citron trên Android trở thành điều có thể</string>
+    <string name="build">Dựng</string>
+    <string name="support_link">https://discord.gg/u77vRWY</string>
+    <string name="website_link">https://citron-emu.org/</string>
+    <string name="github_link">https://github.com/citron-emu</string>
+
+    <!-- Early access upgrade strings -->
+    <string name="early_access">Early Access</string>
+    <string name="get_early_access">Tải Early Access</string>
+    <string name="play_store_link">https://play.google.com/store/apps/details?id=org.citron.citron_emu.ea</string>
+    <string name="get_early_access_description">Các tính năng tiên tiến, truy cập sớm vào các cập nhật và nhiều hơn nữa</string>
+    <string name="early_access_benefits">Lợi ích của Early Access</string>
+    <string name="cutting_edge_features">Tính năng tiên tiến</string>
+    <string name="early_access_updates">Truy cập sớm vào cập nhật</string>
+    <string name="no_manual_installation">Không có cài đặt thủ công</string>
+    <string name="prioritized_support">Ưu tiên hỗ trợ</string>
+    <string name="helping_game_preservation">Hỗ trợ bảo tồn trò chơi</string>
+    <string name="our_eternal_gratitude">Sự biết ơn vô hạn của chúng tôi</string>
+    <string name="are_you_interested">Bạn có thấy thú vị không?</string>
+
+    <!-- General settings strings -->
+    <string name="frame_limit_enable">Giới hạn tốc độ</string>
+    <string name="frame_limit_enable_description">Giới hạn tốc độ giả lập ở một phần trăm cụ thể của tốc độ bình thường.</string>
+    <string name="frame_limit_slider">Giới hạn phần trăm tốc độ</string>
+    <string name="frame_limit_slider_description">Xác định phần trăm để giới hạn tốc độ giả lập. 100% là tốc độ bình thường. Giá trị cao hơn hoặc thấp hơn sẽ tăng hoặc giảm giới hạn tốc độ.</string>
+    <string name="cpu_accuracy">Độ chính xác CPU</string>
+    <string name="use_docked_mode">Chế độ Docked</string>
+    <string name="use_docked_mode_description">Tăng độ phân giải, giảm hiệu suất. Chế độ Handheld được sử dụng khi tắt, giảm độ phân giải và tăng hiệu suất.</string>
+    <string name="emulated_region">Khu vực giả lập</string>
+    <string name="emulated_language">Ngôn ngữ giả lập</string>
+    <string name="select_rtc_date">Chọn ngày RTC</string>
+    <string name="select_rtc_time">Chọn giờ RTC</string>
+    <string name="use_custom_rtc">RTC tuỳ chỉnh</string>
+    <string name="use_custom_rtc_description">Cho phép bạn thiết lập một đồng hồ thời gian thực tùy chỉnh riêng biệt so với thời gian hệ thống hiện tại.</string>
+    <string name="set_custom_rtc">Thiết lập RTC tùy chỉnh</string>
+
+    <!-- Graphics settings strings -->
+    <string name="renderer_accuracy">Mức độ chính xác</string>
+    <string name="renderer_resolution">Độ phân giải (Handheld/Docked)</string>
+    <string name="renderer_vsync">Chế độ VSync</string>
+    <string name="renderer_aspect_ratio">Tỉ lệ khung hình</string>
+    <string name="renderer_scaling_filter">Bộ lọc điều chỉnh cửa sổ</string>
+    <string name="renderer_anti_aliasing">Phương pháp khử răng cưa</string>
+    <string name="renderer_force_max_clock">Buộc chạy ở xung nhịp tối đa (chỉ Adreno)</string>
+    <string name="renderer_force_max_clock_description">Buộc GPU hoạt động ở xung nhịp tối đa có thể (ràng buộc nhiệt độ vẫn sẽ được áp dụng).</string>
+    <string name="renderer_asynchronous_shaders">Dùng các shader bất đồng bộ</string>
+    <string name="renderer_asynchronous_shaders_description">Biên dịch các shader bất đồng bộ, giảm tình trạng giật lag nhưng có thể gây ra các lỗi.</string>
+    <string name="renderer_reactive_flushing">Bật xả tương ứng</string>
+    <string name="renderer_reactive_flushing_description">Cải thiện độ chính xác hiển thị trong một số trò chơi nhưng đồng thời giảm hiệu suất chơi.</string>
+    <string name="use_disk_shader_cache">Lưu bộ nhớ đệm shader trên ổ cứng</string>
+    <string name="use_disk_shader_cache_description">Giảm tình trạng giật lag bằng cách lưu trữ và tải các shader được tạo ra nội bộ.</string>
+    <!-- Debug settings strings -->
+    <string name="cpu">CPU</string>
+    <string name="renderer_api">API</string>
+    <string name="renderer_debug">Gỡ lỗi đồ hoạ</string>
+    <string name="renderer_debug_description">Đặt API đồ họa vào chế độ gỡ lỗi chậm.</string>
+    <string name="audio_volume">Âm lượng</string>
+    <string name="audio_volume_description">Xác định âm lượng của đầu ra âm thanh.</string>
+
+    <string name="button_a">A</string>
+    <string name="button_b">B</string>
+    <string name="button_x">X</string>
+    <string name="button_y">Y</string>
+    <string name="button_plus">Cộng</string>
+    <string name="button_minus">Trừ</string>
+    <string name="button_home">Home</string>
+    <string name="button_capture">Chụp</string>
+    <string name="dpad">D-Pad</string>
+    <string name="up">Lên</string>
+    <string name="down">Xuống</string>
+    <string name="left">Trái</string>
+    <string name="right">Phải</string>
+    <string name="left_stick">Cần xoay trái</string>
+    <string name="right_stick">Cần xoay phải</string>
+    <string name="c_stick">C-Stick</string>
+    <string name="pressed">Nhấn</string>
+    <string name="range">Phạm vi</string>
+    <string name="deadzone">Vùng chết</string>
+    <string name="modifier">Ngưỡng điều chỉnh</string>
+    <string name="button_l">L</string>
+    <string name="button_r">R</string>
+    <string name="button_zl">ZL</string>
+    <string name="button_zr">ZR</string>
+    <string name="button_z">Z</string>
+    <string name="invalid">Không hợp lệ</string>
+    <string name="unknown">Không xác định</string>
+    <string name="pro_controller">Tay cầm Pro Controller</string>
+    <string name="handheld">Cầm tay</string>
+    <string name="dual_joycons">Joycon đôi</string>
+    <string name="left_joycon">Joycon Trái</string>
+    <string name="right_joycon">Joycon Phải</string>
+    <string name="gamecube_controller">Tay cầm GameCube</string>
+    <string name="invert_axis">Đảo ngược trục</string>
+    <string name="invert_button">Đảo ngược nút</string>
+    <string name="toggle_button">Đổi nút</string>
+    <string name="turbo_button">Nút Turbo</string>
+    <string name="set_threshold">Thiết lập ngưỡng</string>
+    <string name="toggle_axis">Chuyển đổi trục</string>
+    <string name="connected">Đã kết nối</string>
+    <string name="vibration">Độ rung</string>
+    <string name="profile">Hồ sơ</string>
+    <string name="use_global_input_configuration">Dùng cấu hình đầu vào chung</string>
+    <!-- Miscellaneous -->
+    <string name="slider_default">Mặc định</string>
+    <string name="ini_saved">Cài đặt đã lưu</string>
+    <string name="gameid_saved">Cài đặt đã lưu cho %1$s</string>
+    <string name="error_saving">Lỗi khi lưu %1$s.ini: %2$s</string>
+    <string name="loading">Đang tải...</string>
+    <string name="reset_setting_confirmation">Bạn có muốn đặt lại cài đặt này về giá trị mặc định không?</string>
+    <string name="reset_to_default">Đặt lại về mặc định</string>
+    <string name="reset_all_settings">Bạn có muốn đặt lại tất cả các cài đặt về giá trị mặc định không?</string>
+    <string name="reset_all_settings_description">Tất cả các cài đặt nâng cao sẽ được đặt lại về cấu hình mặc định. Điều này không thể hoàn tác.</string>
+    <string name="settings_reset">Cài đặt đã được đặt lại</string>
+    <string name="close">Đóng</string>
+    <string name="learn_more">Tìm hiểu thêm</string>
+    <string name="auto">Tự động</string>
+    <string name="submit">Gửi</string>
+    <string name="string_null">Null</string>
+    <string name="string_import">Nhập</string>
+    <string name="export">Xuất</string>
+    <string name="install">Cài đặt</string>
+    <string name="delete">Xoá</string>
+    <string name="start">Bắt đầu</string>
+    <string name="clear">Bỏ trống</string>
+    <string name="custom">Tùy chỉnh</string>
+    <string name="save">Lưu</string>
+
+    <!-- GPU driver installation -->
+    <string name="select_gpu_driver">Chọn driver GPU</string>
+    <string name="select_gpu_driver_title">Bạn có muốn thay thế driver GPU hiện tại không?</string>
+    <string name="select_gpu_driver_install">Cài đặt</string>
+    <string name="select_gpu_driver_default">Mặc định</string>
+    <string name="select_gpu_driver_use_default">Dùng driver GPU mặc định</string>
+    <string name="system_gpu_driver">Driver GPU hệ thống</string>
+    <string name="installing_driver">Đang cài đặt driver...</string>
+
+    <!-- Preferences Screen -->
+    <string name="preferences_settings">Cài đặt</string>
+    <string name="preferences_general">Tổng Quan</string>
+    <string name="preferences_system">Hệ thống</string>
+    <string name="preferences_graphics">Đồ Họa</string>
+    <string name="preferences_audio">Âm Thanh</string>
+    <string name="preferences_controls">Phím</string>
+    <string name="preferences_theme">Chủ đề và màu sắc</string>
+    <string name="preferences_debug">Vá lỗi</string>
+    <!-- Game properties -->
+    <string name="info">Thông Tin</string>
+    <string name="path">Đường dẫn</string>
+    <string name="developer">Nhà Phát Hành</string>
+    <string name="version">Phiên Bản</string>
+    <string name="add_ons">Tiện ích ngoài</string>
+    <string name="verify_success">Kiểm tra tính toàn vẹn thành công!</string>
+    <string name="verify_failure">Kiểm tra tính toàn vẹn thất bại!</string>
+    <!-- ROM loading errors -->
+    <string name="loader_error_encrypted">ROM của bạn đã bị mã hoá</string>
+    <string name="loader_error_encrypted_keys_description"><![CDATA[Vui lòng đảm bảo file <a href=\"https://citron-emu.org/help/quickstart/#dumping-prodkeys-and-titlekeys\">prod.keys</a> đã được cài đặt để game có thể được giải mã.]]></string>
+    <string name="loader_error_video_core">Đã xảy ra lỗi khi khởi tạo lõi video</string>
+    <string name="loader_error_video_core_description">Việc này thường do driver GPU không tương thích. Cài đặt một driver GPU tùy chỉnh có thể giải quyết vấn đề này.</string>
+    <string name="loader_error_invalid_format">Không thể tải ROM</string>
+    <string name="loader_error_file_not_found">Tệp ROM không tồn tại</string>
+
+    <!-- Emulation Menu -->
+    <string name="emulation_exit">Thoát giả lập</string>
+    <string name="emulation_done">Hoàn tất</string>
+    <string name="emulation_fps_counter">Bộ đếm FPS</string>
+    <string name="emulation_toggle_controls">Chuyển đổi điều khiển</string>
+    <string name="emulation_rel_stick_center">Trung tâm nút cần xoay tương đối</string>
+    <string name="emulation_dpad_slide">Trượt D-pad</string>
+    <string name="emulation_haptics">Chạm haptics</string>
+    <string name="emulation_show_overlay">Hiện lớp phủ</string>
+    <string name="emulation_toggle_all">Chuyển đổi tất cả</string>
+    <string name="emulation_control_adjust">Điều chỉnh lớp phủ</string>
+    <string name="emulation_control_scale">Tỉ lệ thu phóng</string>
+    <string name="emulation_control_opacity">Độ mờ</string>
+    <string name="emulation_touch_overlay_reset">Đặt lại lớp phủ</string>
+    <string name="emulation_touch_overlay_edit">Chỉnh sửa lớp phủ</string>
+    <string name="emulation_pause">Tạm đừng giả lập</string>
+    <string name="emulation_unpause">Tiếp tục giả lập</string>
+    <string name="emulation_input_overlay">Tuỳ chọn lớp phủ</string>
+    <string name="touchscreen">Màn hình cảm ứng</string>
+    <string name="load_settings">Đang tải cài đặt...</string>
+
+    <!-- Software keyboard -->
+    <string name="software_keyboard">Bàn phím mềm</string>
+
+    <!-- Errors and warnings -->
+    <string name="abort_button">Hủy bỏ</string>
+    <string name="continue_button">Tiếp tục</string>
+    <string name="system_archive_not_found">Không tìm thấy tệp tin hệ thống</string>
+    <string name="system_archive_not_found_message">%s bị thiếu. Vui lòng trích xuất các tập tin hệ thống của bạn.\nNếu chạy tiếp giả lập có thể gặp sự cố và lỗi.</string>
+    <string name="system_archive_general">Một tập tin hệ thống</string>
+    <string name="save_load_error">Lỗi Lưu/Tải</string>
+    <string name="fatal_error">Lỗi nghiêm trọng</string>
+    <string name="fatal_error_message">Đã xảy ra lỗi nghiêm trọng. Kiểm tra nhật ký để biết chi tiết.\nViệc tiếp tục giả lập có thể dẫn đến sự cố và lỗi.</string>
+    <string name="performance_warning">Tắt cài đặt này sẽ làm giảm đáng kể hiệu suất giả lập! Để có trải nghiệm tốt nhất, bạn nên bật cài này.</string>
+    <!-- Region Names -->
+    <string name="region_japan">Nhật Bản</string>
+    <string name="region_usa">Hoa Kỳ</string>
+    <string name="region_europe">Châu Âu</string>
+    <string name="region_australia">Châu Úc</string>
+    <string name="region_china">Trung Quốc</string>
+    <string name="region_korea">Hàn Quốc</string>
+    <string name="region_taiwan">Đài Loan</string>
+
+    <string name="memory_byte_shorthand">B</string>
+    <string name="memory_gigabyte">GB</string>
+    <!-- Renderer APIs -->
+    <string name="renderer_vulkan">Vulkan</string>
+    <string name="renderer_none">Trống</string>
+
+    <!-- Renderer Accuracy -->
+    <string name="renderer_accuracy_normal">Trung bình</string>
+    <string name="renderer_accuracy_high">Khỏe</string>
+    <string name="renderer_accuracy_extreme">Tối đa (Chậm)</string>
+
+    <!-- Resolutions -->
+    <string name="resolution_half">0.5X (360p/540p)</string>
+    <string name="resolution_three_quarter">0.75X (540p/810p)</string>
+    <string name="resolution_one">1X (720p/1080p)</string>
+    <string name="resolution_two">2X (1440p/2160p) (Chậm)</string>
+    <string name="resolution_three">3X (2160p/3240p) (Chậm)</string>
+    <string name="resolution_four">4X (2880p/4320p) (Chậm)</string>
+
+    <!-- Renderer VSync -->
+    <string name="renderer_vsync_immediate">Ngay lập tức (Tắt)</string>
+    <string name="renderer_vsync_mailbox">Mailbox</string>
+    <string name="renderer_vsync_fifo">FIFO (On)</string>
+    <string name="renderer_vsync_fifo_relaxed">FIFO Relaxed</string>
+
+    <!-- Scaling Filters -->
+    <string name="scaling_filter_nearest_neighbor">Nearest Neighbor</string>
+    <string name="scaling_filter_bilinear">Bilinear</string>
+    <string name="scaling_filter_bicubic">Bicubic</string>
+    <string name="scaling_filter_gaussian">ScaleForce</string>
+    <string name="scaling_filter_scale_force">ScaleForce</string>
+    <string name="scaling_filter_fsr">AMD FidelityFX™ Super Resolution</string>
+
+    <!-- Anti-Aliasing -->
+    <string name="anti_aliasing_none">Trống</string>
+    <string name="anti_aliasing_fxaa">FXAA</string>
+    <string name="anti_aliasing_smaa">SMAA</string>
+
+    <!-- Screen Layouts -->
+    <string name="screen_layout_auto">Tự động</string>
+    <!-- Aspect Ratios -->
+    <string name="ratio_default">Mặc định (16:9)</string>
+    <string name="ratio_force_four_three">Dùng 4:3</string>
+    <string name="ratio_force_twenty_one_nine">Dùng 21:9</string>
+    <string name="ratio_force_sixteen_ten">Dung 16:10</string>
+    <string name="ratio_stretch">Mở rộng đến cửa sổ</string>
+
+    <!-- CPU Accuracy -->
+    <string name="cpu_accuracy_accurate">Tuyệt đối</string>
+    <string name="cpu_accuracy_unsafe">Tương đối</string>
+    <string name="cpu_accuracy_paranoid">Paranoid (Chậm)</string>
+
+    <!-- Gamepad Buttons -->
+    <string name="gamepad_d_pad">D-pad</string>
+    <string name="gamepad_left_stick">Cần xoay trái</string>
+    <string name="gamepad_right_stick">Cần xoay phải</string>
+    <string name="gamepad_home">Home</string>
+    <string name="gamepad_screenshot">Chụp màn hình</string>
+
+    <!-- Disk shader cache -->
+    <string name="preparing_shaders">Chuẩn bị shaders</string>
+    <string name="building_shaders">Dựng shaders</string>
+
+    <!-- Theme options -->
+    <string name="change_app_theme">Thay đổi chủ đề ứng dụng</string>
+    <string name="theme_default">Mặc định</string>
+    <string name="theme_material_you">Material You</string>
+
+    <!-- Theme Modes -->
+    <string name="change_theme_mode">Thay đổi chế độ giao diện</string>
+    <string name="theme_mode_follow_system">Theo hệ thống</string>
+    <string name="theme_mode_light">Sáng</string>
+    <string name="theme_mode_dark">Tối</string>
+
+    <!-- Anisotropic filtering options -->
+    <string name="multiplier_two">2x</string>
+    <string name="multiplier_four">4x</string>
+    <string name="multiplier_eight">8x</string>
+    <string name="multiplier_sixteen">16x</string>
+
+    <!-- Black backgrounds theme -->
+    <string name="use_black_backgrounds">Nền tối</string>
+    <string name="use_black_backgrounds_description">Khi sử dụng chủ đề tối, hãy áp dụng nền đen.</string>
+
+    <string name="mute">Tắt tiếng</string>
+    <string name="unmute">Bật tiếng</string>
+
+    <!-- Licenses screen strings -->
+    <string name="licenses">Giấy phép</string>
+    <string name="license_fidelityfx_fsr_description">Upscaling chất lượng cao từ AMD</string>
+    </resources>

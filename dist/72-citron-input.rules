@@ -1,0 +1,19 @@
+# SPDX-FileCopyrightText: 2023 yuzu Emulator Project
+# SPDX-License-Identifier: GPL-2.0-or-later
+
+# Allow systemd-logind to manage user access to hidraw with this file
+# On most systems, this file should be installed to /etc/udev/rules.d/72-citron-input.rules
+# Consult your distro if this is not the case
+
+# Switch Pro Controller (USB/Bluetooth)
+KERNEL=="hidraw*", ATTRS{idVendor}=="057e", ATTRS{idProduct}=="2009", MODE="0660", TAG+="uaccess"
+KERNEL=="hidraw*", KERNELS=="*057e:2009*", MODE="0660", TAG+="uaccess"
+
+# Joy-Con L (Bluetooth)
+KERNEL=="hidraw*", KERNELS=="*057e:2006*", MODE="0660", TAG+="uaccess"
+
+# Joy-Con R (Bluetooth)
+KERNEL=="hidraw*", KERNELS=="*057e:2007*", MODE="0660", TAG+="uaccess"
+
+# Joy-Con Charging Grip (USB)
+KERNEL=="hidraw*", ATTRS{idVendor}=="057e", ATTRS{idProduct}=="200e", MODE="0660", TAG+="uaccess"

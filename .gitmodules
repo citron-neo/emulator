@@ -1,0 +1,70 @@
+# SPDX-FileCopyrightText: 2014 Citra Emulator Project
+# SPDX-FileCopyrightText: 2025 citron Emulator Project
+# SPDX-License-Identifier: GPL-2.0-or-later
+
+[submodule "enet"]
+	path = externals/enet
+	url = https://github.com/lsalzman/enet.git
+[submodule "cubeb"]
+	path = externals/cubeb
+	url = https://github.com/mozilla/cubeb.git
+[submodule "dynarmic"]
+	path = externals/dynarmic
+	url = https://github.com/yuzu-mirror/dynarmic.git
+[submodule "libusb"]
+	path = externals/libusb/libusb
+	url = https://github.com/libusb/libusb.git
+[submodule "discord-rpc"]
+	path = externals/discord-rpc
+	url = https://github.com/yuzu-mirror/discord-rpc.git
+[submodule "Vulkan-Headers"]
+	path = externals/Vulkan-Headers
+	url = https://github.com/KhronosGroup/Vulkan-Headers.git
+[submodule "sirit"]
+	path = externals/sirit
+	url = https://github.com/yuzu-mirror/sirit.git
+[submodule "mbedtls"]
+	path = externals/mbedtls
+	url = https://github.com/yuzu-mirror/mbedtls.git
+[submodule "xbyak"]
+	path = externals/xbyak
+	url = https://github.com/herumi/xbyak.git
+[submodule "opus"]
+	path = externals/opus
+	url = https://github.com/xiph/opus.git
+[submodule "SDL"]
+	path = externals/SDL
+	url = https://github.com/libsdl-org/SDL.git
+[submodule "cpp-httplib"]
+	path = externals/cpp-httplib
+	url = https://github.com/yhirose/cpp-httplib.git
+[submodule "ffmpeg"]
+	path = externals/ffmpeg/ffmpeg
+	url = https://github.com/FFmpeg/FFmpeg.git
+[submodule "vcpkg"]
+	path = externals/vcpkg
+	url = https://github.com/microsoft/vcpkg.git
+[submodule "cpp-jwt"]
+	path = externals/cpp-jwt
+	url = https://github.com/arun11299/cpp-jwt.git
+[submodule "libadrenotools"]
+	path = externals/libadrenotools
+	url = https://github.com/bylaws/libadrenotools.git
+[submodule "tzdb_to_nx"]
+	path = externals/nx_tzdb/tzdb_to_nx
+	url = https://github.com/lat9nq/tzdb_to_nx.git
+[submodule "VulkanMemoryAllocator"]
+	path = externals/VulkanMemoryAllocator
+	url = https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator.git
+[submodule "breakpad"]
+	path = externals/breakpad
+	url = https://github.com/yuzu-mirror/breakpad.git
+[submodule "simpleini"]
+	path = externals/simpleini
+	url = https://github.com/brofield/simpleini.git
+[submodule "oaknut"]
+	path = externals/oaknut
+	url = https://github.com/yuzu-mirror/oaknut
+[submodule "Vulkan-Utility-Libraries"]
+	path = externals/Vulkan-Utility-Libraries
+	url = https://github.com/KhronosGroup/Vulkan-Utility-Libraries.git

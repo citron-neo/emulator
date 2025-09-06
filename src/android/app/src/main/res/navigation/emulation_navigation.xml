@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<navigation xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/emulation_navigation"
+    app:startDestination="@id/emulationFragment">
+
+    <fragment
+        android:id="@+id/emulationFragment"
+        android:name="org.citron.citron_emu.fragments.EmulationFragment"
+        android:label="fragment_emulation"
+        tools:layout="@layout/fragment_emulation" >
+        <argument
+            android:name="game"
+            app:argType="org.citron.citron_emu.model.Game"
+            app:nullable="true"
+            android:defaultValue="@null" />
+        <argument
+            android:name="custom"
+            app:argType="boolean"
+            android:defaultValue="false" />
+    </fragment>
+
+    <activity
+        android:id="@+id/settingsActivity"
+        android:name="org.citron.citron_emu.features.settings.ui.SettingsActivity"
+        android:label="SettingsActivity">
+        <argument
+            android:name="game"
+            app:argType="org.citron.citron_emu.model.Game"
+            app:nullable="true" />
+        <argument
+            android:name="menuTag"
+            app:argType="org.citron.citron_emu.features.settings.model.Settings$MenuTag" />
+    </activity>
+
+    <action
+        android:id="@+id/action_global_settingsActivity"
+        app:destination="@id/settingsActivity" />
+
+</navigation>

@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <item
+        android:id="@+id/menu_pause_emulation"
+        android:icon="@drawable/ic_pause"
+        android:title="@string/emulation_pause" />
+
+    <item
+        android:id="@+id/menu_settings"
+        android:icon="@drawable/ic_settings"
+        android:title="@string/preferences_settings" />
+
+    <item
+        android:id="@+id/menu_settings_per_game"
+        android:icon="@drawable/ic_settings_outline"
+        android:title="@string/per_game_settings" />
+
+    <item
+        android:id="@+id/menu_controls"
+        android:icon="@drawable/ic_controller"
+        android:title="@string/preferences_controls" />
+
+    <item
+        android:id="@+id/menu_overlay_controls"
+        android:icon="@drawable/ic_overlay"
+        android:title="@string/emulation_input_overlay" />
+
+    <item
+        android:id="@+id/menu_lock_drawer"
+        android:icon="@drawable/ic_unlock"
+        android:title="@string/emulation_input_overlay" />
+
+    <item
+        android:id="@+id/menu_exit"
+        android:icon="@drawable/ic_exit"
+        android:title="@string/emulation_exit" />
+
+</menu>

@@ -1,0 +1,399 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:tools="http://schemas.android.com/tools" tools:ignore="MissingTranslation">
+
+    <string name="app_disclaimer">Denne programvaren vil kjøre spill for Nintendo Switch-spillkonsollen. Ingen spilltitler eller nøkler er inkludert.&lt;br /&gt;&lt;br /&gt;Før du begynner, må du finne <![CDATA[<b> prod.keys </b>]]> filen din på enhetslagringen.&lt;br /&gt;&lt;br /&gt;<![CDATA[<a href=\"https://citron-emu.org/help/quickstart\">Lær mer</a>]]></string>
+    <string name="notice_notification_channel_name">Merknader og feil</string>
+    <string name="notice_notification_channel_description">Viser varsler når noe går galt.</string>
+    <string name="notification_permission_not_granted">Varslingstillatelse ikke gitt!</string>
+
+    <!-- Setup strings -->
+    <string name="welcome">Velkommen!</string>
+    <string name="welcome_description">Lær å sette opp &lt;b>citron&lt;/b> og hopp inn i emulering.</string>
+    <string name="get_started">Kom i gang</string>
+    <string name="keys">Nøkler</string>
+    <string name="keys_description">Velg din &lt;b>prod.keys&lt;/b> fil ved å bruke knappen under.</string>
+    <string name="select_keys">Velg nøkler</string>
+    <string name="games">Spill</string>
+    <string name="games_description">Velg din &lt;b>Spill&lt;/b> mappe ved å bruke knappen under.</string>
+    <string name="done">Ferdig</string>
+    <string name="done_description">Nå er du klar.\nGled deg til å spille!</string>
+    <string name="text_continue">Fortsett</string>
+    <string name="next">Neste</string>
+    <string name="back">Tilbake</string>
+    <string name="add_games">Legg til spill</string>
+    <string name="add_games_description">Velg din spillmappe</string>
+    <!-- Home strings -->
+    <string name="home_games">Spill</string>
+    <string name="home_search">Søk</string>
+    <string name="home_settings">Innstillinger</string>
+    <string name="empty_gamelist">Ingen filer ble funnet eller ingen spillkatalog er valgt ennå.</string>
+    <string name="search_and_filter_games">Søk og filtrer spill</string>
+    <string name="select_games_folder">Velg spillmappe</string>
+    <string name="select_games_folder_description">Gjør det mulig for citron å fylle ut spillelisten.</string>
+    <string name="add_games_warning">Hoppe over valg av spillmappe?</string>
+    <string name="add_games_warning_description">Spill vises ikke i Spill-listen hvis en mappe ikke er valgt.</string>
+    <string name="add_games_warning_help">https://citron-emu.org/help/quickstart/#dumping-games</string>
+    <string name="home_search_games">Søk i spill|</string>
+    <string name="games_dir_selected">Spillkatalogen er valgt</string>
+    <string name="install_prod_keys">Installer prod.keys</string>
+    <string name="install_prod_keys_description">Nødvendig for å dekryptere spill</string>
+    <string name="install_prod_keys_warning">Hoppe over å legge til nøkler?</string>
+    <string name="install_prod_keys_warning_description">Gyldige nøkler er påkrevd for å emulere spill. Bare hjemmebryggede apper vil fungere hvis du fortsetter.</string>
+    <string name="install_prod_keys_warning_help">https://citron-emu.org/help/quickstart/#guide-introduction</string>
+    <string name="notifications">Varsler</string>
+    <string name="notifications_description">Gi varslingstillatelse med knappen nedenfor.</string>
+    <string name="give_permission">Gi tillatelse</string>
+    <string name="notification_warning">Hoppe over å gi tillatelse til varsling?</string>
+    <string name="notification_warning_description">citron vil ikke kunne varsle deg om viktig informasjon.</string>
+    <string name="permission_denied">Tillatelse avslått</string>
+    <string name="permission_denied_description">Du har nektet denne tillatelsen for mange ganger, og nå må du gi den manuelt i systeminnstillingene.</string>
+    <string name="about">Om</string>
+    <string name="about_description">Byggeversjon, kildehenvisninger og mer</string>
+    <string name="warning_help">Hjelp</string>
+    <string name="warning_skip">Hopp over</string>
+    <string name="warning_cancel">Avbryt</string>
+    <string name="install_amiibo_keys">Installer Amiibo-nøkler</string>
+    <string name="install_amiibo_keys_description">Kreves for å bruke Amiibo i spillet</string>
+    <string name="invalid_keys_file">Ugyldig nøkkelfil valgt</string>
+    <string name="install_keys_success">Nøkler vellykket installert</string>
+    <string name="reading_keys_failure">Feil ved lesing av krypteringsnøkler</string>
+    <string name="install_prod_keys_failure_extension_description">Kontroller at nøkkelfilen har filtypen .keys, og prøv igjen.</string>
+    <string name="install_amiibo_keys_failure_extension_description">Kontroller at nøkkelfilen har filtypen .bin, og prøv igjen.</string>
+    <string name="invalid_keys_error">Ugyldige krypteringsnøkler</string>
+    <string name="dumping_keys_quickstart_link">https://citron-emu.org/help/quickstart/#dumping-decryption-keys</string>
+    <string name="install_keys_failure_description">Den valgte filen er feil eller ødelagt. Vennligst dump nøklene på nytt.</string>
+    <string name="install_gpu_driver">Installer GPU-driver</string>
+    <string name="install_gpu_driver_description">Installer alternative drivere for potensielt bedre ytelse eller nøyaktighet.</string>
+    <string name="advanced_settings">Avanserte innstillinger</string>
+    <string name="settings_description">Konfigurere emulatorinnstillinger</string>
+    <string name="search_recently_played">Nylig spilt</string>
+    <string name="search_recently_added">Nylig lagt til</string>
+    <string name="search_retail">Butikkhandel</string>
+    <string name="search_homebrew">Homebrew</string>
+    <string name="open_user_folder">Åpne citron-mappen</string>
+    <string name="open_user_folder_description">Administrere citrons interne filer</string>
+    <string name="theme_and_color_description">Endre appens utseende</string>
+    <string name="no_file_manager">Ingen filbehandler funnet</string>
+    <string name="notification_no_directory_link">Kunne ikke åpne citron-katalogen</string>
+    <string name="notification_no_directory_link_description">Finn brukermappen manuelt med filbehandlingens sidepanel.</string>
+    <string name="manage_save_data">Administrere lagringsdata</string>
+    <string name="manage_save_data_description">Lagringsdata funnet. Velg et alternativ nedenfor.</string>
+    <string name="import_export_saves_description">Importer eller eksporter lagringsfiler</string>
+    <string name="save_file_imported_success">Vellykket import</string>
+    <string name="save_file_invalid_zip_structure">Ugyldig struktur for lagringskatalog</string>
+    <string name="save_file_invalid_zip_structure_description">Det første undermappenavnet må være spillets tittel-ID.</string>
+    <string name="import_saves">Importer</string>
+    <string name="export_saves">Eksporter</string>
+    <string name="install_firmware">Installer fastvare</string>
+    <string name="install_firmware_description">Fastvaren må være i et ZIP-arkiv og er nødvendig for å starte noen spill.</string>
+    <string name="firmware_installing">Installering av fastvare</string>
+    <string name="firmware_installed_success">Fastvaren er vellykket installert</string>
+    <string name="firmware_installed_failure">Installasjon av fastvare mislyktes</string>
+    <string name="share_log">Del feilsøkingslogger</string>
+    <string name="share_log_description">Del citrons loggfil for å feilsøke problemer</string>
+    <string name="share_log_missing">Ingen loggfil funnet</string>
+    <string name="install_game_content">Installer spillinnhold</string>
+    <string name="install_game_content_description">Installer spilloppdateringer eller DLC</string>
+    <string name="install_game_content_help_link">https://citron-emu.org/help/quickstart/#dumping-installed-updates</string>
+    <string name="keys_missing_help">https://citron-emu.org/help/quickstart/#dumping-decryption-keys</string>
+
+    <!-- About screen strings -->
+    <string name="gaia_is_not_real">Gaia er ikke ekte</string>
+    <string name="copied_to_clipboard">Kopiert til utklippstavlen</string>
+    <string name="about_app_description">En Switch-emulator med åpen kildekode</string>
+    <string name="contributors">Bidragsytere</string>
+    <string name="contributors_description">Laget med \u2764 fra citron-teamet</string>
+    <string name="contributors_link">https://github.com/citron-emu/citron/graphs/contributors</string>
+    <string name="licenses_description">Prosjekter som gjør citron for Android mulig</string>
+    <string name="build">Bygg</string>
+    <string name="support_link">https://discord.gg/u77vRWY</string>
+    <string name="website_link">https://citron-emu.org/</string>
+    <string name="github_link">https://github.com/citron-emu</string>
+
+    <!-- Early access upgrade strings -->
+    <string name="early_access">Tidlig tilgang</string>
+    <string name="get_early_access">Få tidlig tilgang</string>
+    <string name="play_store_link">https://play.google.com/store/apps/details?id=org.citron.citron_emu.ea</string>
+    <string name="get_early_access_description">Banebrytende funksjoner, tidlig tilgang til oppdateringer og mye mer.</string>
+    <string name="early_access_benefits">Fordeler ved tidlig tilgang</string>
+    <string name="cutting_edge_features">Avanserte funksjoner</string>
+    <string name="early_access_updates">Tidlig tilgang til oppdateringer</string>
+    <string name="no_manual_installation">Ingen manuell installasjon</string>
+    <string name="prioritized_support">Prioritert støtte</string>
+    <string name="helping_game_preservation">Bidra til bevaring av spill</string>
+    <string name="our_eternal_gratitude">Vår evige takknemlighet</string>
+    <string name="are_you_interested">Er du interessert?</string>
+
+    <!-- General settings strings -->
+    <string name="frame_limit_enable">Begrense hastigheten</string>
+    <string name="frame_limit_enable_description">Begrenser emuleringshastigheten til en spesifisert prosentandel av normal hastighet.</string>
+    <string name="frame_limit_slider">Hastighetsbegrensning i prosent</string>
+    <string name="frame_limit_slider_description">Angir prosentandelen som skal begrense emuleringshastigheten. 100 % er normal hastighet. Høyere eller lavere verdier vil øke eller redusere hastighetsgrensen.</string>
+    <string name="cpu_accuracy">CPU-nøyaktighet</string>
+    <string name="use_docked_mode">Dokket modus</string>
+    <string name="use_docked_mode_description">Øker oppløsningen, men reduserer ytelsen. Håndholdt modus brukes når den er deaktivert, noe som reduserer oppløsningen og øker ytelsen.</string>
+    <string name="emulated_region">Emulert region</string>
+    <string name="emulated_language">Emulert språk</string>
+    <string name="select_rtc_date">Velg RTC-dato</string>
+    <string name="select_rtc_time">Velg RTC-tid</string>
+    <string name="use_custom_rtc">Tilpasset Sannhetstidsklokke</string>
+    <string name="use_custom_rtc_description">Gjør det mulig å stille inn en egendefinert sanntidsklokke separat fra den gjeldende systemtiden.</string>
+    <string name="set_custom_rtc">Angi tilpasset RTC</string>
+
+    <!-- Graphics settings strings -->
+    <string name="renderer_accuracy">Nøyaktighetsnivå</string>
+    <string name="renderer_resolution">Oppløsning (håndholdt/dokket)</string>
+    <string name="renderer_vsync">VSync-modus</string>
+    <string name="renderer_aspect_ratio">Størrelsesforhold</string>
+    <string name="renderer_scaling_filter">Filter for vindustilpasning</string>
+    <string name="renderer_anti_aliasing">Anti-aliasing-metode</string>
+    <string name="renderer_force_max_clock">Tving fram maksimal klokkefrekvens (kun Adreno)</string>
+    <string name="renderer_force_max_clock_description">Tvinger GPU-en til å kjøre med maksimal klokkefrekvens (termiske begrensninger vil fortsatt gjelde).</string>
+    <string name="renderer_asynchronous_shaders">Bruk asynkrone shaders</string>
+    <string name="renderer_asynchronous_shaders_description">Kompilerer shaders asynkront, noe som reduserer hakking, men kan føre til feil.</string>
+    <string name="renderer_reactive_flushing">Bruk reaktiv spyling</string>
+    <string name="renderer_reactive_flushing_description">Forbedrer gjengivelsesnøyaktigheten i enkelte spill på bekostning av ytelsen.</string>
+    <string name="use_disk_shader_cache">Disk shader-hurtigbuffer</string>
+    <string name="use_disk_shader_cache_description">Reduserer hakking ved å lagre og laste inn genererte shaders lokalt.</string>
+    <!-- Debug settings strings -->
+    <string name="cpu">CPU</string>
+    <string name="renderer_api">API</string>
+    <string name="renderer_debug">Feilsøking av grafikk</string>
+    <string name="renderer_debug_description">Setter grafikk-API-et til en langsom feilsøkingsmodus.</string>
+    <string name="audio_volume">Volum</string>
+    <string name="audio_volume_description">Angir volumet på lydutgangen.</string>
+
+    <string name="button_a">A</string>
+    <string name="button_b">B</string>
+    <string name="button_x">X</string>
+    <string name="button_y">Y</string>
+    <string name="button_plus">Pluss</string>
+    <string name="button_minus">Minus</string>
+    <string name="button_home">Hjem</string>
+    <string name="button_capture">Opptak</string>
+    <string name="dpad">D-Pad</string>
+    <string name="up">Opp</string>
+    <string name="down">Ned</string>
+    <string name="left">Venstre</string>
+    <string name="right">Høyre</string>
+    <string name="left_stick">Venstre spak</string>
+    <string name="right_stick">Høyre spak</string>
+    <string name="c_stick">C-stikke</string>
+    <string name="pressed">Trykket</string>
+    <string name="range">Område</string>
+    <string name="deadzone">Dødsone</string>
+    <string name="modifier">Modifikator</string>
+    <string name="button_l">L</string>
+    <string name="button_r">R</string>
+    <string name="button_zl">ZL</string>
+    <string name="button_zr">ZR</string>
+    <string name="button_z">Z</string>
+    <string name="invalid">Ugyldig</string>
+    <string name="pro_controller">Pro-Kontroller</string>
+    <string name="handheld">Håndholdt</string>
+    <string name="dual_joycons">Doble Joycons</string>
+    <string name="left_joycon">Venstre Joycon</string>
+    <string name="right_joycon">Høyre Joycon</string>
+    <string name="gamecube_controller">GameCube-kontroller</string>
+    <string name="invert_axis">Inverter akse</string>
+    <string name="invert_button">Inverter knapp</string>
+    <string name="toggle_button">Veksle knapp</string>
+    <string name="turbo_button">Turbo-Knapp</string>
+    <string name="set_threshold">Set grense</string>
+    <string name="toggle_axis">veksle akse</string>
+    <string name="connected">Tilkoblet</string>
+    <string name="vibration">Vibrasjon</string>
+    <string name="profile">Profil</string>
+    <string name="use_global_input_configuration">Bruk global inndatakonfigurasjon</string>
+    <!-- Miscellaneous -->
+    <string name="slider_default">Standard</string>
+    <string name="ini_saved">Lagrede innstillinger</string>
+    <string name="gameid_saved">Lagrede innstillinger for %1$s</string>
+    <string name="error_saving">Feil ved lagring av %1$s.ini: %2$s</string>
+    <string name="loading">Lastes inn...</string>
+    <string name="reset_setting_confirmation">Vil du tilbakestille denne innstillingen til standardverdien?</string>
+    <string name="reset_to_default">Tilbakestill til standardinnstillingene</string>
+    <string name="reset_all_settings">Tilbakestille alle innstillinger?</string>
+    <string name="reset_all_settings_description">Alle avanserte innstillinger tilbakestilles til standardkonfigurasjonen. Dette kan ikke angres.</string>
+    <string name="settings_reset">Tilbakestilling av innstillinger</string>
+    <string name="close">Lukk</string>
+    <string name="learn_more">Lær mer</string>
+    <string name="auto">Auto</string>
+    <string name="submit">Send inn</string>
+    <string name="string_null">Null</string>
+    <string name="string_import">Importer</string>
+    <string name="export">Eksporter</string>
+    <string name="install">Installer</string>
+    <string name="delete">Slett</string>
+    <string name="start">Start</string>
+    <string name="clear">Fjern</string>
+    <string name="save">Lagre</string>
+
+    <!-- GPU driver installation -->
+    <string name="select_gpu_driver">Velg GPU-driver</string>
+    <string name="select_gpu_driver_title">Ønsker du å bytte ut din nåværende GPU-driver?</string>
+    <string name="select_gpu_driver_install">Installer</string>
+    <string name="select_gpu_driver_default">Standard</string>
+    <string name="select_gpu_driver_use_default">Bruk av standard GPU-driver</string>
+    <string name="system_gpu_driver">Systemets GPU-driver</string>
+    <string name="installing_driver">Installerer driver...</string>
+
+    <!-- Preferences Screen -->
+    <string name="preferences_settings">Innstillinger</string>
+    <string name="preferences_general">Generelt</string>
+    <string name="preferences_system">System</string>
+    <string name="preferences_graphics">Grafikk</string>
+    <string name="preferences_audio">Lyd</string>
+    <string name="preferences_controls">Kontrollere</string>
+    <string name="preferences_theme">Tema og farge</string>
+    <string name="preferences_debug">Feilsøk</string>
+    <!-- Game properties -->
+    <string name="info">Info</string>
+    <string name="path">Sti</string>
+    <string name="developer">Utvikler</string>
+    <string name="version">Versjon</string>
+    <string name="add_ons">Tilleggsprogrammer</string>
+    <string name="verify_success">Integritetsverifisering vellykket!</string>
+    <string name="verify_failure">Integritetsverifisering mislyktes!</string>
+    <!-- ROM loading errors -->
+    <string name="loader_error_encrypted">ROM-en din er kryptert</string>
+    <string name="loader_error_encrypted_keys_description"><![CDATA[Vennligst sørg for at <a href=\"https://citron-emu.org/help/quickstart/#dumping-prodkeys-and-titlekeys\">prod.keys</a> filen er installert slik at spillene kan dekrypteres.]]></string>
+    <string name="loader_error_video_core">Det oppstod en feil ved initialisering av videokjernen</string>
+    <string name="loader_error_video_core_description">Dette skyldes vanligvis en inkompatibel GPU-driver. Installering av en tilpasset GPU-driver kan løse problemet.</string>
+    <string name="loader_error_invalid_format">Kunne ikke laste inn ROM</string>
+    <string name="loader_error_file_not_found">ROM-filen finnes ikke</string>
+
+    <!-- Emulation Menu -->
+    <string name="emulation_exit">Avslutt emulering</string>
+    <string name="emulation_done">Ferdig</string>
+    <string name="emulation_fps_counter">FPS-teller</string>
+    <string name="emulation_toggle_controls">Veksle mellom kontrollene</string>
+    <string name="emulation_rel_stick_center">Relativt pinnesenter</string>
+    <string name="emulation_dpad_slide">D-pad-skyving</string>
+    <string name="emulation_haptics">Berøringshaptikk</string>
+    <string name="emulation_show_overlay">Vis overlegg</string>
+    <string name="emulation_toggle_all">Veksle mellom alle</string>
+    <string name="emulation_control_adjust">Juster overlegg</string>
+    <string name="emulation_control_scale">Skaler</string>
+    <string name="emulation_control_opacity">Gjennomsiktighet</string>
+    <string name="emulation_touch_overlay_reset">Tilbakestill overlegg</string>
+    <string name="emulation_touch_overlay_edit">Rediger overlegg</string>
+    <string name="emulation_pause">Pause emulering</string>
+    <string name="emulation_unpause">Ta emuleringen ut av pause</string>
+    <string name="emulation_input_overlay">Overlay-alternativer</string>
+    <string name="touchscreen">Touch-skjerm</string>
+    <string name="load_settings">Laster inn innstillinger...</string>
+
+    <!-- Software keyboard -->
+    <string name="software_keyboard">Programvaretastatur</string>
+
+    <!-- Errors and warnings -->
+    <string name="abort_button">Avbryt</string>
+    <string name="continue_button">Fortsett</string>
+    <string name="system_archive_not_found">System Arkiv Ikke Funnet</string>
+    <string name="system_archive_not_found_message">%s mangler. Dump systemarkivene dine.\nFortsatt emulering kan føre til krasj og feil.</string>
+    <string name="system_archive_general">Et systemarkiv</string>
+    <string name="save_load_error">Feil ved lagring/innlasting</string>
+    <string name="fatal_error">Fatal Feil</string>
+    <string name="fatal_error_message">Det oppstod en fatal feil. Sjekk loggen for mer informasjon.\nFortsatt emulering kan føre til krasj og feil.</string>
+    <string name="performance_warning">Hvis du slår av denne innstillingen, reduseres emuleringsytelsen betydelig! Vi anbefaler at du lar denne innstillingen være aktivert for å få den beste opplevelsen.</string>
+    <!-- Region Names -->
+    <string name="region_japan">Japan</string>
+    <string name="region_usa">USA</string>
+    <string name="region_europe">Europa</string>
+    <string name="region_australia">Australia</string>
+    <string name="region_china">Kina</string>
+    <string name="region_korea">Korea</string>
+    <string name="region_taiwan">Taiwan</string>
+
+    <string name="memory_byte_shorthand">B</string>
+    <string name="memory_gigabyte">GB</string>
+    <!-- Renderer APIs -->
+    <string name="renderer_vulkan">Vulkan</string>
+    <string name="renderer_none">Ingen</string>
+
+    <!-- Renderer Accuracy -->
+    <string name="renderer_accuracy_normal">Normal</string>
+    <string name="renderer_accuracy_high">Høy</string>
+    <string name="renderer_accuracy_extreme">Ekstrem (Treg)</string>
+
+    <!-- Resolutions -->
+    <string name="resolution_half">0.5X (360p/540p)</string>
+    <string name="resolution_three_quarter">0.75X (540p/810p)</string>
+    <string name="resolution_one">1X (720p/1080p)</string>
+    <string name="resolution_two">2X (1440p/2160p) (Slow)</string>
+    <string name="resolution_three">3X (2160p/3240p) (Slow)</string>
+    <string name="resolution_four">4X (2880p/4320p) (Slow)</string>
+
+    <!-- Renderer VSync -->
+    <string name="renderer_vsync_immediate">Umiddelbar (av)</string>
+    <string name="renderer_vsync_mailbox">Postkasse</string>
+    <string name="renderer_vsync_fifo">FIFO (På)</string>
+    <string name="renderer_vsync_fifo_relaxed">FIFO avslappet</string>
+
+    <!-- Scaling Filters -->
+    <string name="scaling_filter_nearest_neighbor">Nærmeste nabo</string>
+    <string name="scaling_filter_bilinear">Bilineær</string>
+    <string name="scaling_filter_bicubic">Bikubisk</string>
+    <string name="scaling_filter_gaussian">Gaussisk</string>
+    <string name="scaling_filter_scale_force">ScaleForce</string>
+    <string name="scaling_filter_fsr">AMD FidelityFX™ Super Resolution</string>
+
+    <!-- Anti-Aliasing -->
+    <string name="anti_aliasing_none">Ingen</string>
+    <string name="anti_aliasing_fxaa">FXAA</string>
+    <string name="anti_aliasing_smaa">SMAA</string>
+
+    <!-- Screen Layouts -->
+    <string name="screen_layout_auto">Auto</string>
+    <!-- Aspect Ratios -->
+    <string name="ratio_default">Standard (16:9)</string>
+    <string name="ratio_force_four_three">Tving 4:3</string>
+    <string name="ratio_force_twenty_one_nine">Tving 21:9</string>
+    <string name="ratio_force_sixteen_ten">Tving 16:10</string>
+    <string name="ratio_stretch">Strekk til vindu</string>
+
+    <!-- CPU Accuracy -->
+    <string name="cpu_accuracy_accurate">Nøyaktig</string>
+    <string name="cpu_accuracy_unsafe">Utrygt</string>
+    <string name="cpu_accuracy_paranoid">Paranoid (Langsom)</string>
+
+    <!-- Gamepad Buttons -->
+    <string name="gamepad_d_pad">D-pad</string>
+    <string name="gamepad_left_stick">Venstre spak</string>
+    <string name="gamepad_right_stick">Høyre spak</string>
+    <string name="gamepad_home">Hjem</string>
+    <string name="gamepad_screenshot">Skjermbilde</string>
+
+    <!-- Disk shader cache -->
+    <string name="preparing_shaders">Forberedelse av shaders</string>
+    <string name="building_shaders">Bygging av shaders</string>
+
+    <!-- Theme options -->
+    <string name="change_app_theme">Endre app-tema</string>
+    <string name="theme_default">Standard</string>
+    <string name="theme_material_you">Material You</string>
+
+    <!-- Theme Modes -->
+    <string name="change_theme_mode">Endre temamodus</string>
+    <string name="theme_mode_follow_system">Følg systemet</string>
+    <string name="theme_mode_light">Lys</string>
+    <string name="theme_mode_dark">Mørk</string>
+
+    <!-- Anisotropic filtering options -->
+    <string name="multiplier_two">2x</string>
+    <string name="multiplier_four">4x</string>
+    <string name="multiplier_eight">8x</string>
+    <string name="multiplier_sixteen">16x</string>
+
+    <!-- Black backgrounds theme -->
+    <string name="use_black_backgrounds">Svart bakgrunn</string>
+    <string name="use_black_backgrounds_description">Bruk svart bakgrunn når du bruker det mørke temaet.</string>
+
+    <string name="mute">Lydløs</string>
+    <string name="unmute">Slå på lyden</string>
+
+    <!-- Licenses screen strings -->
+    <string name="licenses">Lisenser</string>
+    <string name="license_fidelityfx_fsr_description">Oppskalering av høy kvalitet fra AMD</string>
+    </resources>

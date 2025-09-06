@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<full-backup-content>
+
+    <exclude
+        domain="external"
+        path="./load/" />
+
+    <exclude
+        domain="external"
+        path="./log/" />
+
+    <include
+        domain="external"
+        path="." />
+
+    <include
+        domain="sharedpref"
+        path="." />
+
+</full-backup-content>

@@ -1,0 +1,264 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:tools="http://schemas.android.com/tools" tools:ignore="MissingTranslation">
+
+    <string name="notice_notification_channel_name">Upozornění a chyby</string>
+    <string name="notice_notification_channel_description">Ukáže oznámení v případě chyby.</string>
+    <string name="notification_permission_not_granted">Oznámení nejsou oprávněna!</string>
+
+    <!-- Setup strings -->
+    <string name="welcome">Vítejte!</string>
+    <string name="get_started">Začít</string>
+    <string name="keys">Klíče</string>
+    <string name="select_keys">Vybrat klíče</string>
+    <string name="games">Hry</string>
+    <string name="done">Hotovo</string>
+    <string name="done_description">Vše je připraveno.\nUžijte si vaše hry!</string>
+    <string name="text_continue">Pokračovat</string>
+    <string name="next">Další</string>
+    <string name="back">Zpět</string>
+    <string name="add_games">Přidat hry</string>
+    <string name="add_games_description">Vyber svoji složku se hrami</string>
+    <!-- Home strings -->
+    <string name="home_games">Hry</string>
+    <string name="home_search">Hledat</string>
+    <string name="home_settings">Nastavení</string>
+    <string name="empty_gamelist">Nebyly nalezeny žádné soubory nebo ještě nebyl vybrán žádný adresář s hrami.</string>
+    <string name="search_and_filter_games">Hledat a filtrovat hry</string>
+    <string name="select_games_folder">Vybrat složku s hrami</string>
+    <string name="manage_game_folders">Spravovat složky s hrami</string>
+    <string name="add_games_warning_help">https://citron-emu.org/help/quickstart/#dumping-games</string>
+    <string name="install_prod_keys">Instalovat prod.keys</string>
+    <string name="install_prod_keys_warning">Přeskočit přidávání klíčů?</string>
+    <string name="install_prod_keys_warning_help">https://citron-emu.org/help/quickstart/#guide-introduction</string>
+    <string name="notifications">Oznámení</string>
+    <string name="give_permission">Udělit oprávnění</string>
+    <string name="notification_warning">Přeskočit udělení oprávnění k oznámení?</string>
+    <string name="notification_warning_description">citron vám nebude schopno oznámit důležité informace.</string>
+    <string name="permission_denied">Oprávnění zamítnuto</string>
+    <string name="permission_denied_description">Zamítnul jste toto oprávnění příliš mnohokrát, musíte manuálně udělit oprávnění v nastavení systému.</string>
+    <string name="about">O aplikaci</string>
+    <string name="about_description">Verze sestavení, titulky a více</string>
+    <string name="warning_help">Pomoc</string>
+    <string name="warning_skip">Přeskočit</string>
+    <string name="warning_cancel">Zrušit</string>
+    <string name="install_amiibo_keys">Instalovat Amiibo klíče</string>
+    <string name="install_amiibo_keys_description">Povinné použití Amiibo ve hře</string>
+    <string name="invalid_keys_file">Vybrané klíče jsou neplatné</string>
+    <string name="install_keys_success">Klíče úspěšně nainstalovány</string>
+    <string name="reading_keys_failure">Chyba při čtení šifrovacích klíčů</string>
+    <string name="invalid_keys_error">Neplatné šifrovací klíče</string>
+    <string name="dumping_keys_quickstart_link">https://citron-emu.org/help/quickstart/#dumping-decryption-keys</string>
+    <string name="gpu_driver_manager">Správce ovladače GPU</string>
+    <string name="install_gpu_driver">Instalovat GPU ovladač</string>
+    <string name="advanced_settings">Pokročilé nastavení</string>
+    <string name="settings_description">Konfigurovat nastavení emulátoru</string>
+    <string name="search_recently_played">Nedávno hrané</string>
+    <string name="search_recently_added">Nedávno přidané</string>
+    <string name="search_homebrew">Homebrew</string>
+    <string name="open_user_folder">Otevřít citron složku</string>
+    <string name="open_user_folder_description">Spravovat soubory citron</string>
+    <string name="no_file_manager">Nenalezen žádný správce souborů</string>
+    <string name="notification_no_directory_link">Nepovedlo se otevřít citron složku</string>
+    <string name="manage_save_data">Spravovat data postupu ve hře</string>
+    <string name="manage_save_data_description">Data postupu nalezeny. Prosím vyberte možnost.</string>
+    <string name="import_export_saves_description">Importovat nebo exportovat data postupu</string>
+    <string name="save_file_imported_success">Uspěšně importováno</string>
+    <string name="save_file_invalid_zip_structure">Neplatná struktura dat postupu</string>
+    <string name="import_saves">Importovat</string>
+    <string name="export_saves">Exportovat</string>
+    <string name="install_firmware">Nainstalovat firmware</string>
+    <string name="firmware_installing">Instalování firmwaru</string>
+    <string name="firmware_installed_success">Firmware byl úspěšně nainstalován</string>
+    <string name="firmware_installed_failure">Instalace firmwaru selhala</string>
+    <string name="install_game_content">Nainstalovat obsah hry</string>
+    <string name="install_game_content_description">Nainstalovat aktualizace hry nebo DLC</string>
+    <string name="installing_game_content">Instalování obsahu...</string>
+    <string name="install_game_content_failure">Chyba při instalaci soubor(ů) do NAND</string>
+    <string name="manage_citron_data">Spravovat data citron</string>
+    <string name="game_folders">Složky s hrami</string>
+    <string name="folder_already_added">Tato složka byla již přidána!</string>
+    <string name="game_folder_properties">Vlastnosti složky s hrami</string>
+    <string name="album_applet_description">Zobrazovat obrázky uložené v uživatelské složce se snímky obrazovky pomocí systémového prohlížeče fotografií</string>
+    <string name="cabinet_nickname_and_owner">Nastavení přezdívky a vlastníka</string>
+    <!-- About screen strings -->
+    <string name="gaia_is_not_real">Gaia není skutečná</string>
+    <string name="copied_to_clipboard">Zkopírováno do schránky</string>
+    <string name="about_app_description">Open-source Switch emulátor</string>
+    <string name="contributors">Přispěvatelé</string>
+    <string name="contributors_description">Vyrobeno s \u2764 od citron týmu</string>
+    <string name="contributors_link">https://github.com/citron-emu/citron/graphs/contributors</string>
+    <string name="build">Číslo sestavení</string>
+    <string name="user_data">Uživatelská data</string>
+    <string name="exporting_user_data">Exportování uživatelských dat...</string>
+    <string name="importing_user_data">Importování uživatelských dat...</string>
+    <string name="import_user_data">Importovat uživatelská data</string>
+    <string name="invalid_citron_backup">Neplatná záloha citron</string>
+    <string name="user_data_export_success">Uživatelská data byla úspěšně exportována.</string>
+    <string name="user_data_import_success">Uživatelská data byla úspěšně importována.</string>
+    <string name="user_data_export_cancelled">Export zrušen</string>
+    <string name="support_link">https://discord.gg/u77vRWY</string>
+    <string name="website_link">https://citron-emu.org/</string>
+    <string name="github_link">https://github.com/citron-emu</string>
+
+    <string name="play_store_link">https://play.google.com/store/apps/details?id=org.citron.citron_emu.ea</string>
+    <string name="no_manual_installation">Žádná manuální instalace</string>
+    <string name="prioritized_support">Prioritní podpora</string>
+    <string name="our_eternal_gratitude">Naše věčná vděčnost</string>
+    <string name="are_you_interested">Máte zájem?</string>
+
+    <!-- General settings strings -->
+    <string name="frame_limit_enable">Omezit rychlost</string>
+    <string name="cpu_accuracy">CPU přesnost</string>
+    <string name="emulated_region">Emulovaná oblast</string>
+    <string name="emulated_language">Emulovaný jazyk</string>
+    <string name="use_custom_rtc">Vlastní RTC</string>
+    <!-- Graphics settings strings -->
+    <string name="renderer_accuracy">Úroveň přesnosti</string>
+    <string name="renderer_vsync">VSync režim</string>
+    <string name="renderer_screen_layout">Orientace</string>
+    <string name="renderer_aspect_ratio">Poměr stran</string>
+    <!-- Debug settings strings -->
+    <string name="cpu">CPU</string>
+    <string name="renderer_api">API</string>
+    <!-- Audio settings strings -->
+    <string name="audio_output_engine">Výstupní engine</string>
+    <string name="audio_volume">Hlasitost</string>
+    <string name="audio_volume_description">Udává hlasitost zvukového výstupu.</string>
+
+    <!-- Miscellaneous -->
+    <string name="slider_default">Výchozí</string>
+    <string name="ini_saved">Nastavení uložena</string>
+    <string name="gameid_saved">Uložena nastavení pro %1$s</string>
+    <string name="loading">Načítání...</string>
+    <string name="shutting_down">Vypínání...</string>
+    <string name="reset_setting_confirmation">Chcete obnovit toto nastavení zpět na jeho výchozí hodnotu?</string>
+    <string name="reset_to_default">Navrátit k výchozímu</string>
+    <string name="reset_all_settings">Resetovat všechna nastavení?</string>
+    <string name="reset_all_settings_description">Všechna pokročilá nastavení budou obnovena na jejich výchozí konfiguraci. Toto nelze vrátit zpět.</string>
+    <string name="close">Zavřít</string>
+    <string name="learn_more">Zjistit více</string>
+    <string name="auto">Automatické</string>
+    <string name="string_import">Importovat</string>
+    <string name="export">Exportovat</string>
+    <string name="install">Nainstalovat</string>
+    <string name="delete">Smazat</string>
+    <string name="export_success">Úspěšně exportováno</string>
+    <string name="start">Start</string>
+    <string name="clear">Vymazat</string>
+    <string name="custom">Vlastní</string>
+    <!-- GPU driver installation -->
+    <string name="select_gpu_driver">Vybrat GPU ovladač</string>
+    <string name="select_gpu_driver_title">Chcete nahradit váš aktuální ovladač GPU?</string>
+    <string name="select_gpu_driver_install">Nainstalovat</string>
+    <string name="select_gpu_driver_default">Výchozí</string>
+    <string name="select_gpu_driver_error">Vybrán neplatný ovladač</string>
+    <string name="driver_already_installed">Ovladač již nainstalován</string>
+    <string name="system_gpu_driver">Systémový ovladač GPU</string>
+    <string name="installing_driver">Instalování ovladače...</string>
+
+    <!-- Preferences Screen -->
+    <string name="preferences_settings">Nastavení</string>
+    <string name="preferences_general">Obecné</string>
+    <string name="preferences_system">Systém</string>
+    <string name="preferences_graphics">Grafika</string>
+    <string name="preferences_audio">Zvuk</string>
+    <string name="preferences_audio_description">Výstupní engine, hlasitost</string>
+    <string name="preferences_theme">Vzhled a barva</string>
+    <string name="preferences_debug">Ladění</string>
+    <!-- Game properties -->
+    <string name="info">Info</string>
+    <string name="path">Cesta</string>
+    <string name="developer">Vývojář</string>
+    <string name="version">Verze</string>
+    <string name="copy_details">Zkopírovat podrobnosti</string>
+    <string name="add_ons">Modifkace</string>
+    <string name="addons_game">Rozšíření: %1$s</string>
+    <string name="select_content_type">Typ obsahu</string>
+    <string name="updates_and_dlc">Aktualizace a DLC</string>
+    <string name="mods_and_cheats">Módy a cheaty</string>
+    <string name="addon_installed_successfully">Rozšíření úspěšně nainstalováno</string>
+    <string name="verifying_content">Ověřování obsahu...</string>
+    <string name="emulation_done">Hotovo</string>
+    <string name="emulation_control_scale">Měřítko</string>
+    <string name="emulation_control_opacity">Průhlednost</string>
+    <string name="touchscreen">Dotyková obrazovka</string>
+
+    <!-- Errors and warnings -->
+    <string name="abort_button">Přerušit</string>
+    <string name="continue_button">Pokračovat</string>
+    <string name="system_archive_not_found">Systémový Archív Nenalezen</string>
+    <string name="save_load_error">Ukládací/Načítací chyba</string>
+    <string name="fatal_error">Fatální Chyba</string>
+    <!-- Region Names -->
+    <string name="region_japan">Japonsko</string>
+    <string name="region_usa">USA</string>
+    <string name="region_europe">Evropa</string>
+    <string name="region_australia">Austrálie</string>
+    <string name="region_china">Čína</string>
+    <string name="region_korea">Korea</string>
+    <string name="region_taiwan">Taiwan</string>
+
+    <string name="memory_byte_shorthand">B</string>
+    <string name="memory_gigabyte">GB</string>
+    <!-- Renderer APIs -->
+    <string name="renderer_vulkan">Vulkan</string>
+    <string name="renderer_none">Žádné</string>
+
+    <!-- Renderer Accuracy -->
+    <string name="renderer_accuracy_normal">Normální</string>
+    <string name="renderer_accuracy_high">Vysoká</string>
+    <!-- Resolutions -->
+    <string name="resolution_half">0.5X (360p/540p)</string>
+    <string name="resolution_three_quarter">0.75X (540p/810p)</string>
+    <string name="resolution_one">1X (720p/1080p)</string>
+    <string name="resolution_two">2X (1440p/2160p) (Pomalé)</string>
+    <string name="resolution_three">3X (2160p/3240p) (Pomalé)</string>
+    <string name="resolution_four">4X (2880p/4320p) (Pomalé)</string>
+
+    <string name="scaling_filter_bilinear">Bilineární</string>
+    <string name="scaling_filter_fsr">AMD FidelityFX™ Super Resolution</string>
+
+    <!-- Anti-Aliasing -->
+    <string name="anti_aliasing_none">Žádné</string>
+    <string name="anti_aliasing_fxaa">FXAA</string>
+    <string name="anti_aliasing_smaa">SMAA</string>
+
+    <!-- Screen Layouts -->
+    <string name="screen_layout_auto">Automatické</string>
+    <!-- Aspect Ratios -->
+    <string name="ratio_default">Výchozí (16:9)</string>
+    <string name="ratio_force_four_three">Vynutit 4:3</string>
+    <string name="ratio_force_twenty_one_nine">Vynutit 21:9</string>
+    <!-- CPU Accuracy -->
+    <string name="cpu_accuracy_accurate">Přesné</string>
+    <string name="cpu_accuracy_unsafe">Nebezpečné</string>
+    <string name="gamepad_home">Home</string>
+    <string name="building_shaders">Budování shaderů</string>
+
+    <!-- Theme options -->
+    <string name="change_app_theme">Změnit vzhled aplikace</string>
+    <string name="theme_default">Výchozí</string>
+    <string name="theme_material_you">Material You</string>
+
+    <!-- Theme Modes -->
+    <string name="change_theme_mode">Změnit styl vzhledu</string>
+    <string name="theme_mode_follow_system">Podle systému</string>
+    <string name="theme_mode_light">Světlé</string>
+    <string name="theme_mode_dark">Tmavé</string>
+
+    <!-- Anisotropic filtering options -->
+    <string name="multiplier_two">2x</string>
+    <string name="multiplier_four">4x</string>
+    <string name="multiplier_eight">8x</string>
+    <string name="multiplier_sixteen">16x</string>
+
+    <!-- Black backgrounds theme -->
+    <string name="use_black_backgrounds">Černá pozadí</string>
+    <!-- Picture-In-Picture -->
+    <string name="picture_in_picture">Obraz v obraze</string>
+    <string name="mute">Ztlumit</string>
+    <string name="unmute">Vypnout ztlumení</string>
+
+    <!-- Licenses screen strings -->
+    <string name="licenses">Licence</string>
+    </resources>

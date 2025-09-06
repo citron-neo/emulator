@@ -1,0 +1,7 @@
+# SPDX-FileCopyrightText: 2018 yuzu Emulator Project
+# SPDX-License-Identifier: GPL-2.0-or-later
+
+dist/languages/* linguist-vendored
+dist/qt_themes/* linguist-vendored
+externals/* linguist-vendored
+*.h linguist-language=cpp

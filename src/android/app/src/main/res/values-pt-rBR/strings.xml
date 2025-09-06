@@ -1,0 +1,646 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:tools="http://schemas.android.com/tools" tools:ignore="MissingTranslation">
+
+    <string name="app_disclaimer">Este software executa jogos do console Nintendo Switch. Não estão inclusos nem jogos ou chaves.&lt;br /&gt;&lt;br /&gt;Antes de começar, por favor localize o arquivo <![CDATA[<b> prod.keys </b>]]> no armazenamento de seu dispositivo.&lt;br /&gt;&lt;br /&gt;<![CDATA[<a href=\"https://citron-emu.org/help/quickstart\">Saiba mais</a>]]></string>
+    <string name="notice_notification_channel_name">Notificações e erros</string>
+    <string name="notice_notification_channel_description">Mostra notificações quando algo dá errado.</string>
+    <string name="notification_permission_not_granted">Acesso às notificações não concedido!</string>
+
+    <!-- Setup strings -->
+    <string name="welcome">Bem-vindo! </string>
+    <string name="welcome_description">Aprenda como configurar o &lt;b>citron&lt;/b> e mergulhe na emulação.</string>
+    <string name="get_started">Primeiros passos</string>
+    <string name="keys">Keys</string>
+    <string name="keys_description">Selecione seu arquivo &lt;b>prod.keys&lt;/b> com o botão abaixo.</string>
+    <string name="select_keys">Selecione as Keys</string>
+    <string name="games">Jogos</string>
+    <string name="games_description">Selecione sua pasta &lt;b>Jogos&lt;/b> com o botão abaixo.</string>
+    <string name="done">Feito</string>
+    <string name="done_description">Tudo pronto.\nAproveite seus jogos!</string>
+    <string name="text_continue">Continuar</string>
+    <string name="next">Próximo</string>
+    <string name="back">Voltar</string>
+    <string name="add_games">Adicionar Jogos</string>
+    <string name="add_games_description">Selecione sua pasta de Jogos</string>
+    <string name="step_complete">Concluído!</string>
+
+    <!-- Home strings -->
+    <string name="home_games">Jogos</string>
+    <string name="home_search">Pesquisar</string>
+    <string name="home_settings">Configurações</string>
+    <string name="empty_gamelist">Não foram encontrados jogos ou a pasta de Jogos ainda não foi definida. </string>
+    <string name="search_and_filter_games">Procura e filtra jogos</string>
+    <string name="select_games_folder">Seleciona a pasta de jogos</string>
+    <string name="manage_game_folders">Gerenciar pastas de jogos</string>
+    <string name="select_games_folder_description">Permite que o Citron preencha a lista de jogos</string>
+    <string name="add_games_warning">Ignorar a seleção da pasta de jogos?</string>
+    <string name="add_games_warning_description">Os jogos não serão exibidos na lista de jogos se uma pasta não estiver selecionada.</string>
+    <string name="add_games_warning_help">https://citron-emu.org/help/quickstart/#dumping-games</string>
+    <string name="home_search_games">Procurar jogos</string>
+    <string name="search_settings">Procurar nas configurações</string>
+    <string name="games_dir_selected">Pasta de jogos selecionada</string>
+    <string name="install_prod_keys">Instalar prod.keys</string>
+    <string name="install_prod_keys_description">Necessárias para desencriptar jogos comerciais</string>
+    <string name="install_prod_keys_warning">Ignorar a adição de chaves?</string>
+    <string name="install_prod_keys_warning_description">São necessárias chaves válidas para emular jogos comerciais. Somente aplicativos homebrew funcionarão se você continuar.</string>
+    <string name="install_prod_keys_warning_help">https://citron-emu.org/help/quickstart/#guide-introduction</string>
+    <string name="notifications">Notificações</string>
+    <string name="notifications_description">Conceda a permissão de notificação com o botão abaixo.</string>
+    <string name="give_permission">Conceder permissão</string>
+    <string name="notification_warning">Ignorar a concessão da permissão de notificação?</string>
+    <string name="notification_warning_description">O Citron não irá te notificar de informações importantes. </string>
+    <string name="permission_denied">Permissão negada</string>
+    <string name="permission_denied_description">Você negou essa permissão muitas vezes e agora precisa concedê-la manualmente nas configurações do sistema.</string>
+    <string name="about">Sobre</string>
+    <string name="about_description">Versão da compilação, créditos e mais</string>
+    <string name="warning_help">Ajuda</string>
+    <string name="warning_skip">Ignorar</string>
+    <string name="warning_cancel">Cancelar</string>
+    <string name="install_amiibo_keys">Instalar chaves Amiibo</string>
+    <string name="install_amiibo_keys_description">Necessárias para usar Amiibos em um jogo</string>
+    <string name="invalid_keys_file">Arquivo de chaves selecionado inválido</string>
+    <string name="install_keys_success">Chaves instaladas com sucesso</string>
+    <string name="reading_keys_failure">Erro ao ler chaves de encriptação</string>
+    <string name="install_prod_keys_failure_extension_description">Verifique se seu arquivo de chaves possui a extensão .keys e tente novamente.</string>
+    <string name="install_amiibo_keys_failure_extension_description">Verifique se seu arquivo de chaves possui a extensão .bin e tente novamente.</string>
+    <string name="invalid_keys_error">Chaves de encriptação inválidas</string>
+    <string name="dumping_keys_quickstart_link">https://citron-emu.org/help/quickstart/#dumping-decryption-keys</string>
+    <string name="install_keys_failure_description">O arquivo selecionado está incorreto ou corrompido. Por favor extraia suas chaves novamente.</string>
+    <string name="gpu_driver_manager">Gerenciador de driver de GPU</string>
+    <string name="install_gpu_driver">Instalar driver para GPU</string>
+    <string name="install_gpu_driver_description">Instale drivers alternativos para desempenho ou precisão potencialmente melhores</string>
+    <string name="advanced_settings">Configurações avançadas</string>
+    <string name="advanced_settings_game">Configurações avançadas: %1$s</string>
+    <string name="settings_description">Configure opções do emulador</string>
+    <string name="search_recently_played">Jogado recentemente</string>
+    <string name="search_recently_added">Adicionado recentemente</string>
+    <string name="search_retail">Jogos comerciais</string>
+    <string name="search_homebrew">Homebrew</string>
+    <string name="open_user_folder">Abrir a pasta do Citron</string>
+    <string name="open_user_folder_description">Gerencie os arquivos internos do Citron</string>
+    <string name="theme_and_color_description">Altere a aparência do aplicativo</string>
+    <string name="no_file_manager">Nenhum gerenciador de arquivos encontrado</string>
+    <string name="notification_no_directory_link">Não foi possível abrir a pasta do Citron</string>
+    <string name="notification_no_directory_link_description">Por favor localize manualmente a pasta do usuário, com o painel lateral do gerenciador de arquivos.</string>
+    <string name="manage_save_data">Gerenciar os dados salvos dos jogos</string>
+    <string name="manage_save_data_description">Dados salvos encontrados. Por favor selecione uma opção abaixo.</string>
+    <string name="import_save_warning">Importar dados salvos</string>
+    <string name="import_save_warning_description">Isso irá substituir seus dados salvos com o arquivo selecionado. Você tem certeza que quer continuar?</string>
+    <string name="import_export_saves_description">Importa ou exporta arquivos de dados salvos</string>
+    <string name="save_files_importing">Importando dados salvos...</string>
+    <string name="save_files_exporting">Exportando arquivos de dados salvos...</string>
+    <string name="save_file_imported_success">Importado com sucesso</string>
+    <string name="save_file_invalid_zip_structure">Estrutura de diretório de dados salvos inválida</string>
+    <string name="save_file_invalid_zip_structure_description">O nome da primeira subpasta deve ser a ID do jogo.</string>
+    <string name="import_saves">Importar</string>
+    <string name="export_saves">Exportar</string>
+    <string name="install_firmware">Instalar firmware</string>
+    <string name="install_firmware_description">O firmware deve estar em um arquivo ZIP e é necessário para iniciar alguns jogos.</string>
+    <string name="firmware_installing">Instalando firmware</string>
+    <string name="firmware_installed_success">Firmware instalado com sucesso.</string>
+    <string name="firmware_installed_failure">Falha na instalação do firmware</string>
+    <string name="firmware_installed_failure_description">Verifique se os arquivos nca do firmware estão na raiz do arquivo zip e tente novamente.</string>
+    <string name="share_log">Compartilhar registros de depuração</string>
+    <string name="share_log_description">Compartilhe o arquivo de registro do citron para obter ajuda com problemas</string>
+    <string name="share_log_missing">Arquivo de registro não encontrado</string>
+    <string name="install_game_content">Instalar conteúdo de jogos</string>
+    <string name="install_game_content_description">Instale atualizações de jogos ou DLC</string>
+    <string name="installing_game_content">Instalando conteúdo...</string>
+    <string name="install_game_content_failure">Erro ao instalar arquivo(s) na NAND</string>
+    <string name="install_game_content_failure_description">Por favor certifique-se de que o(s) conteúdo(s) é (são) válido(s) e que as prod.keys estão instaladas.</string>
+    <string name="install_game_content_failure_base">A instalação de jogos base não é permitida para evitar possíveis conflitos.</string>
+    <string name="install_game_content_failure_file_extension">Somente conteúdos NSP e XCI são suportados. Por favor verifique se o(s) conteúdo(s) do jogo é (são) válido(s).</string>
+    <string name="install_game_content_failed_count">%1$d erro(s) de instalação</string>
+    <string name="install_game_content_success">Conteúdo(s) de jogo instalado(s) com sucesso</string>
+    <string name="install_game_content_success_install">%1$d instalado com sucesso</string>
+    <string name="install_game_content_success_overwrite">%1$d substituído com sucesso</string>
+    <string name="install_game_content_help_link">https://citron-emu.org/help/quickstart/#dumping-installed-updates</string>
+    <string name="custom_driver_not_supported">Drivers personalizados não suportados</string>
+    <string name="custom_driver_not_supported_description">Carregamento de drivers personalizados não suportado para este dispositivo no momento.\nVerifique essa opção novamente no futuro para ver se o suporte foi adicionado!</string>
+    <string name="manage_citron_data">Administrar dados do citron</string>
+    <string name="manage_citron_data_description">Importe/exporte firmware, chaves, dados do usuário e mais!</string>
+    <string name="share_save_file">Compartilhar arquivo de dados salvos</string>
+    <string name="export_save_failed">Erro ao exportar arquivo de dados salvos</string>
+    <string name="game_folders">Pastas de jogos</string>
+    <string name="deep_scan">Varredura profunda</string>
+    <string name="add_game_folder">Adicionar pasta de jogo</string>
+    <string name="folder_already_added">Esta pasta já foi adicionada!</string>
+    <string name="game_folder_properties">Propriedades da pasta de jogo</string>
+    <plurals name="saves_import_failed">
+        <item quantity="one">Falha ao importar dado salvo de %d</item>
+        <item quantity="many">Falha ao importar dados salvos de %d</item>
+        <item quantity="other">Falha ao importar dados salvos de %d</item>
+    </plurals>
+    <plurals name="saves_import_success">
+        <item quantity="one">Dado salvo de %d importado com sucesso</item>
+        <item quantity="many">Dados salvos de %d importados com sucesso</item>
+        <item quantity="other">Dados salvos de %d importados com sucesso</item>
+    </plurals>
+    <string name="no_save_data_found">Dados salvos não encontrados</string>
+    <string name="verify_installed_content">Verificar conteúdo instalado</string>
+    <string name="verify_installed_content_description">Verifica todo o conteúdo instalado em busca de dados corrompidos</string>
+    <string name="keys_missing">Faltando chaves de encriptação</string>
+    <string name="keys_missing_description">O firmware e jogos comerciais não poderão ser decriptados</string>
+    <string name="keys_missing_help">https://citron-emu.org/help/quickstart/#dumping-decryption-keys</string>
+
+    <!-- Applet launcher strings -->
+    <string name="applets">Launcher de miniaplicativos</string>
+    <string name="applets_description">Execute miniaplicativos do sistema usando o firmware instalado</string>
+    <string name="applets_error_firmware">Firmware não instalado</string>
+    <string name="applets_error_applet">Miniaplicativo não disponível</string>
+    <string name="applets_error_description"><![CDATA[Por favor verifique se o arquivo <a href=\"https://citron-emu.org/help/quickstart/#dumping-prodkeys-and-titlekeys\">prod.keys</a> e o <a href=\"https://citron-emu.org/help/quickstart/#dumping-system-firmware\">firmware</a> estão instalados e tente novamente.]]></string>
+    <string name="album_applet">Álbum</string>
+    <string name="album_applet_description">Visualize imagens armazenadas na pasta de capturas de telas do usuário com o visualizador de imagens do sistema</string>
+    <string name="mii_edit_applet">Editor de Mii</string>
+    <string name="mii_edit_applet_description">Visualize e edite os Miis com o editor do sistema</string>
+    <string name="cabinet_applet">Arquivo</string>
+    <string name="cabinet_applet_description">Edite e delete dados armazenados nos amiibos</string>
+    <string name="cabinet_launcher">Launcher do Arquivo</string>
+    <string name="cabinet_nickname_and_owner">Apelido e configurações do proprietário</string>
+    <string name="cabinet_game_data_eraser">Apagar dados de jogo</string>
+    <string name="cabinet_restorer">Restaurar</string>
+    <string name="cabinet_formatter">Formatar</string>
+
+    <!-- About screen strings -->
+    <string name="gaia_is_not_real">Gaia não é real</string>
+    <string name="copied_to_clipboard">Copiado para a área de transferência</string>
+    <string name="about_app_description">Um emulador de Switch de código aberto</string>
+    <string name="contributors">Colaboradores</string>
+    <string name="contributors_description">Feito com \u2764 da equipe do Citron</string>
+    <string name="contributors_link">https://github.com/citron-emu/citron/graphs/contributors</string>
+    <string name="licenses_description">Projetos que tornam o citron para Android possível</string>
+    <string name="build">Versão da Compilação</string>
+    <string name="user_data">Dados do usuário</string>
+    <string name="user_data_description">Importe/exporte todos os dados do aplicativo.\n\nAo importar dados de usuário, todos os dados existentes serão excluídos!</string>
+    <string name="exporting_user_data">Exportando dados do usuário...</string>
+    <string name="importing_user_data">Importando dados do usuário...</string>
+    <string name="import_user_data">Importar dados do usuário</string>
+    <string name="invalid_citron_backup">Backup do citron inválido</string>
+    <string name="user_data_export_success">Dados de usuário exportados com sucesso</string>
+    <string name="user_data_import_success">Dados de usuário importados com sucesso</string>
+    <string name="user_data_export_cancelled">Exportação cancelada</string>
+    <string name="user_data_import_failed_description">Verifique se as pastas de dados do usuário estão na raiz da pasta zip, se possuem um arquivo de configuração em config/config.ini e tente novamente.</string>
+    <string name="support_link">https://discord.gg/u77vRWY</string>
+    <string name="website_link">https://citron-emu.org/</string>
+    <string name="github_link">https://github.com/citron-emu</string>
+
+    <!-- Early access upgrade strings -->
+    <string name="early_access">Acesso Antecipado</string>
+    <string name="get_early_access">Obter Acesso Antecipado</string>
+    <string name="play_store_link">https://play.google.com/store/apps/details?id=org.citron.citron_emu.ea</string>
+    <string name="get_early_access_description">Recursos de ponta, acesso antecipado a atualizações e muito mais</string>
+    <string name="early_access_benefits">Benefícios do Acesso Antecipado</string>
+    <string name="cutting_edge_features">Recursos de ponta</string>
+    <string name="early_access_updates">Acesso antecipado a atualizações</string>
+    <string name="no_manual_installation">Sem instalação manual</string>
+    <string name="prioritized_support">Suporte prioritário</string>
+    <string name="helping_game_preservation">Ajuda na preservação dos jogos</string>
+    <string name="our_eternal_gratitude">A nossa eterna gratidão</string>
+    <string name="are_you_interested">Tem interesse?</string>
+
+    <!-- General settings strings -->
+    <string name="frame_limit_enable">Limite de velocidade</string>
+    <string name="frame_limit_enable_description">Limita a velocidade da emulação a uma porcentagem específica da velocidade normal.</string>
+    <string name="frame_limit_slider">Porcentagem do limite de velocidade</string>
+    <string name="frame_limit_slider_description">Especifica a porcentagem para limitar a velocidade de emulação. 100% é o normal. Valores mais altos ou mais baixos irão aumentar ou diminuir o limite de velocidade.</string>
+    <string name="cpu_backend">Backend da CPU</string>
+    <string name="cpu_accuracy">Precisão da CPU</string>
+    <string name="value_with_units">%1$s%2$s</string>
+
+    <!-- System settings strings -->
+    <string name="device_name">Nome do Dispositivo</string>
+    <string name="use_docked_mode">Modo TV</string>
+    <string name="use_docked_mode_description">Aumenta a resolução, diminuindo o desempenho. O Modo Portátil é utilizado quando estiver desabilitado, diminuindo a resolução e melhorando o desempenho.</string>
+    <string name="emulated_region">Região da emulação</string>
+    <string name="emulated_language">Idioma da emulação</string>
+    <string name="select_rtc_date">Selecione a data do sistema</string>
+    <string name="select_rtc_time">Selecione a hora do sistema</string>
+    <string name="use_custom_rtc">Data e hora personalizadas</string>
+    <string name="use_custom_rtc_description">Permite a você configurar um relógio em tempo real separado do relógio do seu dispositivo.</string>
+    <string name="set_custom_rtc">Definir um relógio em tempo real personalizado</string>
+
+    <!-- Graphics settings strings -->
+    <string name="renderer_accuracy">Nível de precisão</string>
+    <string name="renderer_resolution">Resolução (Portátil/Modo TV)</string>
+    <string name="renderer_vsync">Modo de VSync</string>
+    <string name="renderer_screen_layout">Oriantação</string>
+    <string name="renderer_aspect_ratio">Proporção de tela</string>
+    <string name="renderer_scaling_filter">Filtro de Adaptação da Janela</string>
+    <string name="fsr_sharpness">Nitidez do FSR</string>
+    <string name="fsr_sharpness_description">Determina a nitidez da imagem ao utilizar o contraste dinâmico do FSR</string>
+    <string name="renderer_anti_aliasing">Método de Anti-aliasing</string>
+    <string name="renderer_force_max_clock">Forçar velocidade máxima (somente Adreno)</string>
+    <string name="renderer_force_max_clock_description">Força a GPU a rodar na velocidade máxima (restrições térmicas serão aplicadas)</string>
+    <string name="renderer_asynchronous_shaders">Usar shaders assíncronos </string>
+    <string name="renderer_asynchronous_shaders_description">Compila os shaders de forma assíncrona, reduzindo engasgos, mas pode apresentar problemas.</string>
+    <string name="renderer_reactive_flushing">Usar flushing reativo</string>
+    <string name="renderer_reactive_flushing_description">Melhora a precisão da renderização em alguns jogos ao custo de desempenho.</string>
+    <string name="use_disk_shader_cache">Cache de shaders em disco</string>
+    <string name="use_disk_shader_cache_description">Reduz engasgos ao armazenar e carregar localmente os shaders.</string>
+    <string name="anisotropic_filtering">Filtragem anisotrópica</string>
+    <string name="anisotropic_filtering_description">Melhora a qualidade das texturas quando visualizadas de ângulos oblíquos</string>
+
+    <!-- Debug settings strings -->
+    <string name="cpu">CPU</string>
+    <string name="cpu_debug_mode">Depuração da CPU</string>
+    <string name="cpu_debug_mode_description">Coloca a CPU em um modo de depuração lento.</string>
+    <string name="gpu">GPU</string>
+    <string name="renderer_api">API</string>
+    <string name="renderer_debug">Depuração de gráficos</string>
+    <string name="renderer_debug_description">Define a API gráfica para um modo de depuração mais lento.</string>
+    <string name="fastmem">Fastmem</string>
+
+    <!-- Audio settings strings -->
+    <string name="audio_output_engine">Mecanismo de saída</string>
+    <string name="audio_volume">Volume</string>
+    <string name="audio_volume_description">Especifica o volume da reprodução do áudio.</string>
+
+    <!-- Input strings -->
+    <string name="buttons">Botões</string>
+    <string name="button_a">A</string>
+    <string name="button_b">B</string>
+    <string name="button_x">X</string>
+    <string name="button_y">Y</string>
+    <string name="button_plus">Mais</string>
+    <string name="button_minus">Menos</string>
+    <string name="button_home">Botão Home</string>
+    <string name="button_capture">Capturar</string>
+    <string name="start_pause">Start/Pause</string>
+    <string name="dpad">Direcional</string>
+    <string name="up">Cima</string>
+    <string name="down">Baixo</string>
+    <string name="left">Esquerda</string>
+    <string name="right">Direita</string>
+    <string name="left_stick">Analógico esquerdo</string>
+    <string name="control_stick">Alavanca de controle</string>
+    <string name="right_stick">Analógico direito</string>
+    <string name="c_stick">C-Stick</string>
+    <string name="pressed">Pressionado</string>
+    <string name="range">Alcance</string>
+    <string name="deadzone">Zona morta</string>
+    <string name="modifier">Modificador</string>
+    <string name="modifier_range">Alcance do modificador</string>
+    <string name="triggers">Gatilhos</string>
+    <string name="button_l">L</string>
+    <string name="button_r">R</string>
+    <string name="button_zl">ZL</string>
+    <string name="button_zr">ZR</string>
+    <string name="button_sl_left">SL Esquerdo</string>
+    <string name="button_sr_left">SR Esquerdo</string>
+    <string name="button_sl_right">SL Direito</string>
+    <string name="button_sr_right">SR Direito</string>
+    <string name="button_z">Z</string>
+    <string name="invalid">Inválido</string>
+    <string name="not_set">Indefinido</string>
+    <string name="unknown">Desconhecido</string>
+    <string name="qualified_hat">%1$s%2$s%3$sDireção %4$s</string>
+    <string name="qualified_button_stick_axis">%1$s%2$s%3$sEixo %4$s</string>
+    <string name="qualified_button">%1$s%2$s%3$sBotão %4$s</string>
+    <string name="qualified_axis">Eixo %1$s%2$s</string>
+    <string name="unused">Não usado</string>
+    <string name="input_prompt">Mova ou aperte um botão</string>
+    <string name="unsupported_input">Tipo de entrada não suportada</string>
+    <string name="input_mapping_filter">Filtro de mapeamento dos controles</string>
+    <string name="input_mapping_filter_description">Selecione um dispositivo para filtrar o mapeamento dos controles</string>
+    <string name="auto_map">Mapear controle automaticamente</string>
+    <string name="auto_map_description">Selecione um controle para iniciar
+uma tentativa de mapeamento automático</string>
+    <string name="attempted_auto_map">Tentativa de mapeamento automático de %1$s concluída</string>
+    <string name="controller_type">Tipo de controle</string>
+    <string name="pro_controller">Pro Controller</string>
+    <string name="handheld">Portátil</string>
+    <string name="dual_joycons">Par de Joycons</string>
+    <string name="left_joycon">Joycon Esquerdo</string>
+    <string name="right_joycon">Joycon Direito</string>
+    <string name="gamecube_controller">Controle de GameCube</string>
+    <string name="invert_axis">Inverter eixo</string>
+    <string name="invert_button">Inverter botão</string>
+    <string name="toggle_button">Alternar pressionamento do botão</string>
+    <string name="turbo_button">Botão Turbo</string>
+    <string name="set_threshold">Definir limite</string>
+    <string name="toggle_axis">Alternar eixos</string>
+    <string name="connected">Conectado</string>
+    <string name="use_system_vibrator">Usar vibração deste aparelho</string>
+    <string name="input_overlay">Overlay do controle</string>
+    <string name="vibration">Vibração</string>
+    <string name="vibration_strength">Intensidade da vibração</string>
+    <string name="profile">Perfil</string>
+    <string name="create_new_profile">Criar novo perfil</string>
+    <string name="enter_profile_name">Insira o nome do perfil</string>
+    <string name="profile_name_already_exists">O nome do perfil já existe</string>
+    <string name="invalid_profile_name">Nome de perfil inválido</string>
+    <string name="use_global_input_configuration">Usar configuração global de controles</string>
+    <string name="player_num_profile">Perfil do Jogador %d</string>
+    <string name="delete_input_profile">Deletar perfil de controle</string>
+    <string name="delete_input_profile_description">Tem certeza que quer deletar esse perfil? Ele não poderá ser recuperado.</string>
+    <string name="stick_map_description">Mova uma alavanca pra esquerda e depois pra cima ou aperte um botão</string>
+    <string name="button_map_description">Aperte um botão ou mova um gatilho/alavanca</string>
+    <string name="map_dpad_direction">Mapear Direcional para %1$s</string>
+    <string name="map_control">Mapear botão %1$s</string>
+    <string name="failed_to_load_profile">Falha ao carregar perfil</string>
+    <string name="failed_to_save_profile">Falha ao salvar perfil</string>
+    <string name="reset_mapping">Redefinir mapeamento</string>
+    <string name="reset_mapping_description">Você tem certeza que quer redefinir todos os mapeamentos deste controle para os padrões? Isso não pode ser desfeito.</string>
+
+    <!-- Miscellaneous -->
+    <string name="slider_default">Padrão</string>
+    <string name="ini_saved">Configurações salvas</string>
+    <string name="gameid_saved">Configurações salvas para %1$s</string>
+    <string name="error_saving">Erro ao salvar %1$s.ini: %2$s</string>
+    <string name="unimplemented_menu">Menu não implementado</string>
+    <string name="loading">Carregando...</string>
+    <string name="shutting_down">Encerrando...</string>
+    <string name="reset_setting_confirmation">Deseja reverter esta configuração para os valores padrões?</string>
+    <string name="reset_to_default">Redefinir para o padrão</string>
+    <string name="reset_to_default_description">Redefine todas as configurações avançadas</string>
+    <string name="reset_all_settings">Redefinir todas as configurações?</string>
+    <string name="reset_all_settings_description">Todas as configurações avançadas serão redefinidas para o padrão. Isto não pode ser desfeito.</string>
+    <string name="settings_reset">Configurações redefinidas</string>
+    <string name="close">Fechar</string>
+    <string name="learn_more">Saiba mais</string>
+    <string name="auto">Automático</string>
+    <string name="submit">Enviar</string>
+    <string name="string_null">Nenhum (desativado)</string>
+    <string name="string_import">Importar</string>
+    <string name="export">Exportar</string>
+    <string name="export_failed">Falha ao exportar</string>
+    <string name="import_failed">Falha ao importar</string>
+    <string name="cancelling">Cancelando</string>
+    <string name="install">Instalar</string>
+    <string name="delete">Deletar</string>
+    <string name="edit">Editar</string>
+    <string name="export_success">Exportado com sucesso</string>
+    <string name="start">Start</string>
+    <string name="clear">Limpar</string>
+    <string name="global">Global</string>
+    <string name="custom">Personalizada</string>
+    <string name="notice">Aviso</string>
+    <string name="import_complete">Importação concluída</string>
+    <string name="more_options">Mais opções</string>
+    <string name="use_global_setting">Usar configuração global</string>
+    <string name="operation_completed_successfully">A operação foi concluída com sucesso</string>
+    <string name="retry">Reiniciar</string>
+    <string name="confirm">Confirmar</string>
+    <string name="load">Carregar</string>
+    <string name="save">Salvar</string>
+
+    <!-- GPU driver installation -->
+    <string name="select_gpu_driver">Selecione o driver para a GPU</string>
+    <string name="select_gpu_driver_title">Gostaria de substituir o driver atual da GPU? </string>
+    <string name="select_gpu_driver_install">Instalar</string>
+    <string name="select_gpu_driver_default">Padrão</string>
+    <string name="select_gpu_driver_use_default">Usar o driver padrão da GPU</string>
+    <string name="select_gpu_driver_error">Driver selecionado inválido</string>
+    <string name="driver_already_installed">Driver já instalado</string>
+    <string name="system_gpu_driver">Driver padrão da GPU</string>
+    <string name="installing_driver">Instalando driver...</string>
+
+    <!-- Preferences Screen -->
+    <string name="preferences_settings">Configurações</string>
+    <string name="preferences_general">Geral</string>
+    <string name="preferences_system">Sistema</string>
+    <string name="preferences_system_description">Modo TV, região, idioma</string>
+    <string name="preferences_graphics">Gráficos</string>
+    <string name="preferences_graphics_description">Nível de precisão, resolução, cache de shaders</string>
+    <string name="preferences_audio">Áudio</string>
+    <string name="preferences_audio_description">Mecanismo de saída, volume</string>
+    <string name="preferences_controls">Controles</string>
+    <string name="preferences_controls_description">Mapear entradas do controle</string>
+    <string name="preferences_player">Jogador %d</string>
+    <string name="preferences_theme">Tema e cor</string>
+    <string name="preferences_debug">Depuração</string>
+    <string name="preferences_debug_description">Depuração de CPU/GPU, API gráfica, fastmem</string>
+
+    <!-- Game properties -->
+    <string name="info">Informações</string>
+    <string name="info_description">ID do Programa, desenvolvedora, versão</string>
+    <string name="per_game_settings">Configurações do jogo</string>
+    <string name="per_game_settings_description">Edite configurações específicas para este jogo</string>
+    <string name="launch_options">Configurações de inicialização</string>
+    <string name="path">Caminho</string>
+    <string name="program_id">ID do Programa</string>
+    <string name="developer">Desenvolvedora</string>
+    <string name="version">Versão</string>
+    <string name="copy_details">Copiar detalhes</string>
+    <string name="add_ons">Complementos</string>
+    <string name="add_ons_description">Gerencie mods, atualizações e DLC</string>
+    <string name="clear_shader_cache">Excluir cache de shaders</string>
+    <string name="clear_shader_cache_description">Remove todos os shaders compilados durante a execução do jogo</string>
+    <string name="clear_shader_cache_warning_description">Você terá mais engasgos enquanto o cache de shaders for recompilado</string>
+    <string name="cleared_shaders_successfully">Shaders excluídos com sucesso</string>
+    <string name="addons_game">Complementos: %1$s</string>
+    <string name="save_data">Dados salvos</string>
+    <string name="save_data_description">Gerencie dados salvos específicos deste jogo</string>
+    <string name="delete_save_data">Deletar dados salvos</string>
+    <string name="delete_save_data_description">Remove todos os dados salvos específicos deste jogo</string>
+    <string name="delete_save_data_warning_description">Isso removerá permanentemente todos os dados salvos do jogo. Tem certeza de que quer continuar?</string>
+    <string name="save_data_deleted_successfully">Dados salvos deletados com sucesso </string>
+    <string name="select_content_type">Tipo de conteúdo</string>
+    <string name="updates_and_dlc">Atualizações e DLC</string>
+    <string name="mods_and_cheats">Mods e cheats</string>
+    <string name="addon_notice">Aviso importante sobre os complementos</string>
+    <!-- "cheats/" "romfs/" and "exefs/ should not be translated -->
+    <string name="addon_notice_description">Para instalar mods e cheats, você deve selecionar uma pasta que contenha um diretório cheats/, romfs/ ou exefs. Não podemos verificar se eles são compatíveis com seu jogo, então tenha cuidado!</string>
+    <string name="invalid_directory">Diretório inválido </string>
+    <!-- "cheats/" "romfs/" and "exefs/ should not be translated -->
+    <string name="invalid_directory_description">Por favor verifique se o diretório selecionado contém uma pasta cheats/, romfs/ ou exefs/ e tente novamente.</string>
+    <string name="addon_installed_successfully">Complemento instalado com sucesso</string>
+    <string name="verifying_content">Verificando conteúdo...</string>
+    <string name="content_install_notice">Aviso sobre a instalação do conteúdo</string>
+    <string name="content_install_notice_description">O conteúdo que você selecionou não corresponde a este jogo.\nInstalar mesmo assim?</string>
+    <string name="confirm_uninstall">Confirmar desinstalação</string>
+    <string name="confirm_uninstall_description">Tem certeza de que quer desinstalar esse complemento?</string>
+    <string name="verify_integrity">Verificar integridade</string>
+    <string name="verifying">Verificando...</string>
+    <string name="verify_success">Verificação de integridade concluída!</string>
+    <string name="verify_failure">Houve uma falha na verificação de integridade!</string>
+    <string name="verify_failure_description">Conteúdos do arquivo podem estar corrompidos</string>
+    <string name="verify_no_result">A verificação de integridade não pôde ser executada</string>
+    <string name="verify_no_result_description">Os conteúdos do arquivo não foram verificados se são válidos</string>
+    <string name="verification_failed_for">A verificação falhou para os seguintes arquivos:\n%1$s</string>
+
+    <!-- ROM loading errors -->
+    <string name="loader_error_encrypted">Sua ROM está encriptada</string>
+    <string name="loader_error_encrypted_roms_description"><![CDATA[Por favor, siga os guias para extrair novamente os seus <a href=\"https://citron-emu.org/help/quickstart/#dumping-physical-titles-game-cards\">cartuchos de jogos</a> ou <a href=\"https://citron-emu.org/help/quickstart/#dumping-digital-titles-eshop\">títulos instalados</a>.]]></string>
+    <string name="loader_error_encrypted_keys_description"><![CDATA[Por favor verifique se o seu arquivo <a href=\"https://citron-emu.org/help/quickstart/#dumping-prodkeys-and-titlekeys\">prod.keys</a> está instalado para que os jogos possam ser decriptados.]]></string>
+    <string name="loader_error_video_core">Ocorreu um erro ao iniciar o núcleo de vídeo.</string>
+    <string name="loader_error_video_core_description">Isto é normalmente causado por um driver de GPU incompatível. Instalar um driver de GPU personalizado pode resolver este problema.</string>
+    <string name="loader_error_invalid_format">Impossível carregar a ROM</string>
+    <string name="loader_error_file_not_found">O arquivo ROM não existe</string>
+
+    <!-- Emulation Menu -->
+    <string name="emulation_exit">Sair da emulação</string>
+    <string name="emulation_done">Feito</string>
+    <string name="emulation_fps_counter">Contador de FPS</string>
+    <string name="emulation_thermal_indicator">Indicador de temperatura</string>
+    <string name="emulation_toggle_controls">Marcar/Desmarcar botões</string>
+    <string name="emulation_rel_stick_center">Centro Relativo do Analógico</string>
+    <string name="emulation_dpad_slide">Deslizamento dos Botões Direcionais</string>
+    <string name="emulation_haptics">Vibração ao tocar</string>
+    <string name="emulation_show_overlay">Mostrar overlay</string>
+    <string name="emulation_toggle_all">Marcar/Desmarcar tudo</string>
+    <string name="emulation_control_adjust">Ajustar overlay</string>
+    <string name="emulation_control_scale">Escala</string>
+    <string name="emulation_control_opacity">Opacidade</string>
+    <string name="emulation_touch_overlay_reset">Redefinir overlay</string>
+    <string name="emulation_touch_overlay_edit">Editar overlay</string>
+    <string name="emulation_pause">Pausar emulação</string>
+    <string name="emulation_unpause">Retomar a emulação</string>
+    <string name="emulation_input_overlay">Opções de overlay</string>
+    <string name="touchscreen">Tela de toque</string>
+    <string name="lock_drawer">Bloquear este menu</string>
+    <string name="unlock_drawer">Desbloquear este menu</string>
+
+    <string name="load_settings">Carregando configurações...</string>
+
+    <!-- Software keyboard -->
+    <string name="software_keyboard">Teclado do software</string>
+
+    <!-- Errors and warnings -->
+    <string name="abort_button">Abortar</string>
+    <string name="continue_button">Continuar</string>
+    <string name="system_archive_not_found">Arquivo do Sistema Não Encontrado</string>
+    <string name="system_archive_not_found_message">%s está faltando. Por favor extraia seus arquivos de sistema.\nContinuar a emulação pode causar travamentos e bugs.</string>
+    <string name="system_archive_general">Um arquivo do sistema</string>
+    <string name="save_load_error">Erro de Salvamento/Carregamento</string>
+    <string name="fatal_error">Erro fatal</string>
+    <string name="fatal_error_message">Ocorreu um erro fatal. Verifique o arquivo de registro para detalhes.\nContinuar a emulação pode causar travamentos e bugs.</string>
+    <string name="performance_warning">Desligar esta configuração irá reduzir a performance da emulação significantemente! Para a melhor experiência é recomendado deixar esta configuração ativada.</string>
+    <string name="device_memory_inadequate">RAM do dispositivo: %1$s\nRecomendada: %2$s</string>
+    <string name="memory_formatted">%1$s %2$s</string>
+    <string name="no_game_present">Nenhum jogo inicializável presente!</string>
+
+    <!-- Region Names -->
+    <string name="region_japan">Japão</string>
+    <string name="region_usa">EUA</string>
+    <string name="region_europe">Europa</string>
+    <string name="region_australia">Austrália</string>
+    <string name="region_china">China</string>
+    <string name="region_korea">Coréia</string>
+    <string name="region_taiwan">Taiwan</string>
+
+    <!-- Memory Sizes -->
+    <string name="memory_byte">Byte</string>
+    <string name="memory_byte_shorthand">B</string>
+    <string name="memory_kilobyte">KB</string>
+    <string name="memory_megabyte">MB</string>
+    <string name="memory_gigabyte">GB</string>
+    <string name="memory_terabyte">TB</string>
+    <string name="memory_petabyte">PB</string>
+    <string name="memory_exabyte">EB</string>
+
+    <!-- Renderer APIs -->
+    <string name="renderer_vulkan">Vulkan</string>
+    <string name="renderer_none">Nenhuma</string>
+
+    <!-- Renderer Accuracy -->
+    <string name="renderer_accuracy_normal">Normal</string>
+    <string name="renderer_accuracy_high">Alta</string>
+    <string name="renderer_accuracy_extreme">Extrema (Lenta)</string>
+
+    <!-- Resolutions -->
+    <string name="resolution_half">0.5X (360p/540p)</string>
+    <string name="resolution_three_quarter">0.75X (540p/810p)</string>
+    <string name="resolution_one">1X (720p/1080p)</string>
+    <string name="resolution_two">2X (1440p/2160p) (Lento)</string>
+    <string name="resolution_three">3X (2160p/3240p) (Lento)</string>
+    <string name="resolution_four">4X (2880p/4320p) (Lento)</string>
+
+    <!-- Renderer VSync -->
+    <string name="renderer_vsync_immediate">Imediato (Desligado)</string>
+    <string name="renderer_vsync_mailbox">Caixa de entrada</string>
+    <string name="renderer_vsync_fifo">FIFO (Ligado)</string>
+    <string name="renderer_vsync_fifo_relaxed">FIFO Relaxado </string>
+
+    <!-- Scaling Filters -->
+    <string name="scaling_filter_nearest_neighbor">Vizinho mais próximo</string>
+    <string name="scaling_filter_bilinear">Bilinear</string>
+    <string name="scaling_filter_bicubic">Bicúbico</string>
+    <string name="scaling_filter_gaussian">Gaussiano</string>
+    <string name="scaling_filter_scale_force">ScaleForce</string>
+    <string name="scaling_filter_fsr">AMD FidelityFX™ Super Resolution</string>
+
+    <!-- Anti-Aliasing -->
+    <string name="anti_aliasing_none">Nenhum</string>
+    <string name="anti_aliasing_fxaa">FXAA</string>
+    <string name="anti_aliasing_smaa">SMAA</string>
+
+    <!-- Screen Layouts -->
+    <string name="screen_layout_auto">Automática</string>
+    <string name="screen_layout_sensor_landscape">Paisagem pelo sensor</string>
+    <string name="screen_layout_landscape">Paisagem</string>
+    <string name="screen_layout_reverse_landscape">Paisagem invertida</string>
+    <string name="screen_layout_sensor_portrait">Retrato pelo sensor</string>
+    <string name="screen_layout_portrait">Retrato</string>
+    <string name="screen_layout_reverse_portrait">Retrato invertido</string>
+
+    <!-- Aspect Ratios -->
+    <string name="ratio_default">Padrão (16:9)</string>
+    <string name="ratio_force_four_three">Forçar 4:3</string>
+    <string name="ratio_force_twenty_one_nine">Forçar 21:9</string>
+    <string name="ratio_force_sixteen_ten">Forçar 16:10</string>
+    <string name="ratio_stretch">Esticar à janela</string>
+
+    <!-- CPU Backend -->
+    <string name="cpu_backend_dynarmic">Dynarmic (Lenta)</string>
+    <string name="cpu_backend_nce">Execução de código nativo (NCE)</string>
+
+    <!-- CPU Accuracy -->
+    <string name="cpu_accuracy_accurate">Precisa</string>
+    <string name="cpu_accuracy_unsafe">Não segura</string>
+    <string name="cpu_accuracy_paranoid">Paranoica (Lenta)</string>
+
+    <!-- Gamepad Buttons -->
+    <string name="gamepad_d_pad">Botões Direcionais</string>
+    <string name="gamepad_left_stick">Analógico esquerdo</string>
+    <string name="gamepad_right_stick">Analógico direito</string>
+    <string name="gamepad_home">Botão Home</string>
+    <string name="gamepad_screenshot">Captura de tela</string>
+
+    <!-- Disk shader cache -->
+    <string name="preparing_shaders">Preparando shaders</string>
+    <string name="building_shaders">Criando shaders</string>
+
+    <!-- Theme options -->
+    <string name="change_app_theme">Mudar o tema do aplicativo</string>
+    <string name="theme_default">Padrão</string>
+    <string name="theme_material_you">Material You</string>
+
+    <!-- Theme Modes -->
+    <string name="change_theme_mode">Alterar o tema</string>
+    <string name="theme_mode_follow_system">Igual ao Sistema</string>
+    <string name="theme_mode_light">Claro</string>
+    <string name="theme_mode_dark">Escuro</string>
+
+    <!-- Audio output engines -->
+    <string name="oboe">oboe</string>
+    <string name="cubeb">cubeb</string>
+
+    <!-- Anisotropic filtering options -->
+    <string name="multiplier_two">2x</string>
+    <string name="multiplier_four">4x</string>
+    <string name="multiplier_eight">8x</string>
+    <string name="multiplier_sixteen">16x</string>
+
+    <!-- Black backgrounds theme -->
+    <string name="use_black_backgrounds">Planos de fundo pretos</string>
+    <string name="use_black_backgrounds_description">Quando usar o tema escuro, aplicar fundos pretos</string>
+
+    <!-- Picture-In-Picture -->
+    <string name="picture_in_picture">Picture in Picture</string>
+    <string name="picture_in_picture_description">Minimiza a janela quando colocada em segundo plano</string>
+    <string name="pause">Pausar</string>
+    <string name="play">Executar</string>
+    <string name="mute">Mudo</string>
+    <string name="unmute">Tirar do Mudo</string>
+
+    <!-- Emulation vertical alignment -->
+    <string name="vertical_alignment">Alinhamento vertical</string>
+    <string name="top">Em cima</string>
+    <string name="center">Centralizado</string>
+    <string name="bottom">Embaixo</string>
+
+    <!-- Licenses screen strings -->
+    <string name="licenses">Licenças</string>
+    <string name="license_fidelityfx_fsr_description">Upscaling de alta qualidade da AMD</string>
+    </resources>

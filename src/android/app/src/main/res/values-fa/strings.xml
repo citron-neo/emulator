@@ -1,0 +1,595 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:tools="http://schemas.android.com/tools" tools:ignore="MissingTranslation">
+
+    <string name="app_disclaimer">این نرم‌افزار برای اجرای بازی‌های کنسول نینتندو سوییچ است. هیچ بازی یا کلیدی داخل برنامه گنجانده نشده است.&lt;br /&gt;&lt;br /&gt;قبل از شروع، لطفاً فایل <![CDATA[ prod.keys ]]> خود را در حافظه دستگاه خود پیدا کنید.&lt;br /&gt; &lt;br /&gt;<![CDATA[بیشتر بدانید]]></string>
+    <string name="notice_notification_channel_name">اطلاعیه‌ها و خطاها</string>
+    <string name="notice_notification_channel_description">وقتی مشکلی پیش می‌آید در اعلان‌ها نشان می‌دهد.</string>
+    <string name="notification_permission_not_granted">مجوز اعلان داده نشده!</string>
+
+    <!-- Setup strings -->
+    <string name="welcome">خوش آمدید!</string>
+    <string name="welcome_description">نحوه راه اندازی &lt;b>citron&lt;/b> و شبیه سازی را بیاموزید.</string>
+    <string name="get_started">شروع کنید</string>
+    <string name="keys">کلیدها</string>
+    <string name="keys_description">فایل &lt;b>prod.keys&lt;/b> خود را با دکمه زیر انتخاب کنید.</string>
+    <string name="select_keys">انتخاب کلیدها</string>
+    <string name="games">بازی‌ها</string>
+    <string name="games_description">پوشه &lt;b>بازی‌ها&lt;/b> خود را با دکمه زیر انتخاب کنید.</string>
+    <string name="done">انجام شد</string>
+    <string name="done_description">همه چیز آماده است.\nاز بازی‌های خود لذت ببرید!</string>
+    <string name="text_continue">ادامه</string>
+    <string name="next">بعدی</string>
+    <string name="back">قبلی</string>
+    <string name="add_games">افزودن بازی‌ها</string>
+    <string name="add_games_description">پوشه بازی‌های خود را انتخاب کنید</string>
+    <string name="step_complete">تکمیل شد!</string>
+
+    <!-- Home strings -->
+    <string name="home_games">بازی‌ها</string>
+    <string name="home_search">جستجو</string>
+    <string name="home_settings">تنظیمات</string>
+    <string name="empty_gamelist">هیچ فایلی پیدا نشد یا هنوز پوشه بازی‌ها انتخاب نشده است.</string>
+    <string name="search_and_filter_games">جستجو و فیلتر کردن بازی‌ها</string>
+    <string name="select_games_folder">پوشه بازی‌ها را انتخاب کنید</string>
+    <string name="manage_game_folders">مدیریت پوشه‌های بازی</string>
+    <string name="select_games_folder_description">به citron اجازه می دهد تا لیست باز‌ی‌ها را پر کند</string>
+    <string name="add_games_warning">از انتخاب پوشه بازی رد می‌شوید؟</string>
+    <string name="add_games_warning_description">اگر پوشه‌ای انتخاب نشده باشد، بازی‌ها در لیست بازی‌ها نمایش داده نمی‌شوند.</string>
+    <string name="add_games_warning_help">https://citron-emu.org/help/quickstart/#dumping-games</string>
+    <string name="home_search_games">جستجو در بازی‌ها</string>
+    <string name="search_settings">جستجو در تنظیمات</string>
+    <string name="games_dir_selected">پوشه بازی‌ها انتخاب شد</string>
+    <string name="install_prod_keys">نصب prod.keys</string>
+    <string name="install_prod_keys_description">برای رمزگشایی بازی‌های فروشگاهی مورد نیاز است</string>
+    <string name="install_prod_keys_warning">افزودن کلیدها را رد می‌کنید؟</string>
+    <string name="install_prod_keys_warning_description">کلیدهای معتبر برای شبیه‌سازی بازی‌های فروشگاهی مورد نیاز است. اگر ادامه دهید، فقط برنامه‌های سیستم ریزکامپیوتری کار خواهند کرد.</string>
+    <string name="install_prod_keys_warning_help">https://citron-emu.org/help/quickstart/#guide-introduction</string>
+    <string name="notifications">اعلان‌ها</string>
+    <string name="notifications_description">مجوز اعلان را با دکمه زیر اعطا کنید.</string>
+    <string name="give_permission">اجازه بدهید</string>
+    <string name="notification_warning">دادن مجوز اعلان را رد می‌کنید؟</string>
+    <string name="notification_warning_description">citron نمی‌تواند شما را از اطلاعات مهم مطلع کند.</string>
+    <string name="permission_denied">دسترسی داده نشد</string>
+    <string name="permission_denied_description">شما بارها این دسترسی را رد کردید و اکنون باید آن را به صورت دستی در تنظیمات سیستم اعطا کنید.</string>
+    <string name="about">درباره</string>
+    <string name="about_description">نسخه ساخت، عوامل و موارد دیگر</string>
+    <string name="warning_help">کمک</string>
+    <string name="warning_skip">رد کردن</string>
+    <string name="warning_cancel">لغو</string>
+    <string name="install_amiibo_keys">کلیدهای Amiibo را نصب کنید</string>
+    <string name="install_amiibo_keys_description">برای استفاده از Amiibo در بازی لازم است</string>
+    <string name="invalid_keys_file">فایل کلیدهای نامعتبر انتخاب شد</string>
+    <string name="install_keys_success">کلیدها با موفقیت نصب شدند</string>
+    <string name="reading_keys_failure">خطا در خواندن کلیدهای رمزگذاری</string>
+    <string name="install_prod_keys_failure_extension_description">بررسی کنید که فایل کلیدهای شما دارای پسوند keys. باشد و دوباره امتحان کنید.</string>
+    <string name="install_amiibo_keys_failure_extension_description">بررسی کنید که فایل کلیدهای شما دارای پسوند bin. باشد و دوباره امتحان کنید.</string>
+    <string name="invalid_keys_error">کلیدهای رمزگذاری نامعتبر</string>
+    <string name="dumping_keys_quickstart_link">https://citron-emu.org/help/quickstart/#dumping-decryption-keys</string>
+    <string name="install_keys_failure_description">فایل انتخابی نادرست یا خراب است. لطفا کلیدهای خود را دوباره استخراج کنید.</string>
+    <string name="gpu_driver_manager">مدیریت درایور پردازنده گرافیکی</string>
+    <string name="install_gpu_driver">نصب درایور پردازنده گرافیکی</string>
+    <string name="install_gpu_driver_description">درایورهای جایگزین را برای عملکرد یا دقت بهتر نصب کنید</string>
+    <string name="advanced_settings">تنظیمات پیشرفته</string>
+    <string name="advanced_settings_game">تنظیمات پیشرفته: %1$s</string>
+    <string name="settings_description">پیکربندی تنظیمات شبیه‌ساز</string>
+    <string name="search_recently_played">آخرین بازی شده‌ها</string>
+    <string name="search_recently_added">به تازگی اضافه شده‌ها</string>
+    <string name="search_retail">فروشگاهی</string>
+    <string name="search_homebrew">ریزکامپیوتری</string>
+    <string name="open_user_folder">باز کردن پوشه citron</string>
+    <string name="open_user_folder_description">مدیریت فایل‌های داخلی citron</string>
+    <string name="theme_and_color_description">تغییر ظاهر برنامه</string>
+    <string name="no_file_manager">هیچ برنامه مدیریت فایلی پیدا نشد</string>
+    <string name="notification_no_directory_link">پوشه citron باز نشد</string>
+    <string name="notification_no_directory_link_description">لطفاً پوشه کاربری را با استفاده از پنل کناری برنامه مدیریت فایل به صورت دستی پیدا کنید.</string>
+    <string name="manage_save_data">مدیریت ذخیره داده‌ها</string>
+    <string name="manage_save_data_description">ذخیره داده یافت شد. لطفاً یکی از گزینه‌های زیر را انتخاب کنید.</string>
+    <string name="import_save_warning">وارد کردن ذخیره داده‌ها</string>
+    <string name="import_save_warning_description">این کار تمام داده‌های ذخیره موجود را با فایل ارائه شده بازنویسی می کند. آیا مطمئن هستید که می‌خواهید ادامه دهید؟</string>
+    <string name="import_export_saves_description">فایل‌های ذخیره داده را وارد یا صادر کنید</string>
+    <string name="save_files_importing">در حال وارد کردن فایل‌های ذخیره…</string>
+    <string name="save_files_exporting">در حال صادر کردن فایل‌های ذخیره…</string>
+    <string name="save_file_imported_success">با موفقیت وارد شد</string>
+    <string name="save_file_invalid_zip_structure">ساختار پوشه ذخیره نامعتبر است</string>
+    <string name="save_file_invalid_zip_structure_description">اولین نام زیرپوشه باید شناسه عنوان بازی باشد.</string>
+    <string name="import_saves">وارد کردن</string>
+    <string name="export_saves">صادر کردن</string>
+    <string name="install_firmware">نصب ثابت‌افزار</string>
+    <string name="install_firmware_description">ثابت‌افزار باید در آرشیو ZIP باشد و برای اجرای برخی بازی‌ها نیاز است</string>
+    <string name="firmware_installing">در حال نصب ثابت‌افزار</string>
+    <string name="firmware_installed_success">ثابت‌افزار با موفقیت نصب شد</string>
+    <string name="firmware_installed_failure">نصب ثابت‌افزار ناموفق بود</string>
+    <string name="firmware_installed_failure_description">مطمئن شوید که فایل‌های nca ثابت‌افزار در ریشه فایل فشرده هستند و دوباره امتحان کنید.</string>
+    <string name="share_log">اشتراک گزارش اشکال زدایی</string>
+    <string name="share_log_description">فایل گزارش citron را برای رفع اشکال به اشتراک بگذارید</string>
+    <string name="share_log_missing">هیچ فایل گزارشی یافت نشد</string>
+    <string name="install_game_content">نصب محتوای بازی</string>
+    <string name="install_game_content_description">آپدیت های بازی یا DLC را نصب کنید</string>
+    <string name="installing_game_content">در حال نصب محتوا...</string>
+    <string name="install_game_content_failure">خطا در نصب فایل(ها) در NAND</string>
+    <string name="install_game_content_failure_description">لطفاً مطمئن شوید که محتوا(های) معتبر هستند و فایل prod.keys نصب شده است.</string>
+    <string name="install_game_content_failure_base">نصب فایل اصلی بازی‌ها برای جلوگیری از ناسازگاری‌های احتمالی مجاز نیست.</string>
+    <string name="install_game_content_failure_file_extension">فقط محتوای NSP و XCI پشتیبانی می شود. لطفاً مطمئن شوید که محتوا(های) بازی معتبر است.</string>
+    <string name="install_game_content_failed_count">%1$dخطا(های) نصب</string>
+    <string name="install_game_content_success">محتوا(های) بازی با موفقیت نصب شد</string>
+    <string name="install_game_content_success_install">%1$dبا موفقیت نصب شد</string>
+    <string name="install_game_content_success_overwrite">%1$dبا موفقیت بازنویسی شد</string>
+    <string name="install_game_content_help_link">https://citron-emu.org/help/quickstart/#dumping-installed-updates</string>
+    <string name="custom_driver_not_supported">درایورهای سفارشی پشتیبانی نمی‌شوند</string>
+    <string name="custom_driver_not_supported_description">بارگیری درایور سفارشی در حال حاضر برای این دستگاه پشتیبانی نمی‌شود.\nاین گزینه را دوباره در آینده بررسی کنید تا ببینید آیا پشتیبانی اضافه شده است یا خیر!</string>
+    <string name="manage_citron_data">مدیریت داده‌های citron</string>
+    <string name="manage_citron_data_description">وارد کردن/صادر کردن ثابت‌افزار، کلیدها، داده‌های کاربر، و موارد دیگر!</string>
+    <string name="share_save_file">اشتراک گذاری فایل ذخیره</string>
+    <string name="export_save_failed">ذخیره صادر نشد</string>
+    <string name="game_folders">پوشه‌های بازی</string>
+    <string name="deep_scan">بررسی عمیق</string>
+    <string name="add_game_folder">افزودن پوشه بازی</string>
+    <string name="folder_already_added">این پوشه قبلاً اضافه شده است!</string>
+    <string name="game_folder_properties">ویژگی‌های پوشه بازی</string>
+    <plurals name="saves_import_failed">
+        <item quantity="one">وارد کردن ذخیره %d ناموفق بود</item>
+        <item quantity="other">وارد کردن ذخیره‌های %d ناموفق بود</item>
+    </plurals>
+    <plurals name="saves_import_success">
+        <item quantity="one">ذخیره %d با موفقیت وارد گردید</item>
+        <item quantity="other">ذخیره‌های %d با موفقیت وارد گردید</item>
+    </plurals>
+    <string name="no_save_data_found">هیچ داده ذخیره‌ای یافت نشد</string>
+    <string name="verify_installed_content">بررسی محتوای نصب شده</string>
+    <string name="verify_installed_content_description">تمام محتوای نصب شده را از نظر خرابی بررسی می‌کند</string>
+    <string name="keys_missing">کلیدهای رمزگذاری وجود ندارند</string>
+    <string name="keys_missing_description">ثابت‌افزار و بازی‌های فروشگاهی قابل رمزگشایی نیستند</string>
+    <string name="keys_missing_help">https://citron-emu.org/help/quickstart/#dumping-decryption-keys</string>
+
+    <!-- Applet launcher strings -->
+    <string name="applets">اجراکننده برنامک</string>
+    <string name="applets_description">برنامک‌های سیستم را با استفاده از ثابت‌افزار نصب شده راه اندازی کنید</string>
+    <string name="applets_error_firmware">ثابت‌افزار نصب نیست</string>
+    <string name="applets_error_applet">برنامک در دسترس نیست</string>
+    <string name="applets_error_description"><![CDATA[لطفاً مطمئن شوید که فایل <a href=\"https://citron-emu.org/help/quickstart/#dumping-prodkeys-and-titlekeys\">prod.keys</a> و <a href=\"https://citron-emu.org/help/quickstart/#dumping-system-firmware\">ثابت‌افزار</a> شما نصب شده است و دوباره امتحان کنید.]]></string>
+    <string name="album_applet">آلبوم</string>
+    <string name="album_applet_description">تصاویر ذخیره شده در پوشه اسکرین شات‌های کاربر را با نمایشگر عکس سیستم مشاهده کنید</string>
+    <string name="mii_edit_applet">ویرایش Mii</string>
+    <string name="mii_edit_applet_description">نمایش و ویرایش Miis با استفاده از ویرایشگر سیستم</string>
+    <string name="cabinet_applet">قفسه</string>
+    <string name="cabinet_applet_description">داده‌های ذخیره شده در amiibo را ویرایش و حذف کنید</string>
+    <string name="cabinet_launcher">اجرا کننده قفسه</string>
+    <string name="cabinet_nickname_and_owner">تنظیمات نام مستعار و مالک</string>
+    <string name="cabinet_game_data_eraser">حذف کننده داده بازی</string>
+    <string name="cabinet_restorer">بازگرداننده</string>
+    <string name="cabinet_formatter">فرم دهنده</string>
+
+    <!-- About screen strings -->
+    <string name="gaia_is_not_real">Gaia isn\'t real</string>
+    <string name="copied_to_clipboard">در کلیپ‌بورد کپی شد</string>
+    <string name="about_app_description">یک شبیه‌ساز سوئیچ منبع باز</string>
+    <string name="contributors">مشارکت کنندگان</string>
+    <string name="contributors_description">Made with \u2764 from the citron team</string>
+    <string name="contributors_link">https://github.com/citron-emu/citron/graphs/contributors</string>
+    <string name="licenses_description">پروژه‌هایی که citron را برای اندروید ممکن می‌سازند</string>
+    <string name="build">ساخت</string>
+    <string name="user_data">داده کاربر</string>
+    <string name="user_data_description">همه داده‌های برنامه را وارد/صادر کنید.\n\nهنگام وارد کردن داده‌های کاربر، همه داده‌های کاربر موجود حذف خواهند شد!</string>
+    <string name="exporting_user_data">در حال صادر کردن داده‌های کاربر...</string>
+    <string name="importing_user_data">در حال وارد کردن داده‌های کاربر...</string>
+    <string name="import_user_data">وارد کردن داده کاربر</string>
+    <string name="invalid_citron_backup">پشتیبان نامعتبر citron</string>
+    <string name="user_data_export_success">داده‌های کاربر با موفقیت صادر شد</string>
+    <string name="user_data_import_success">داده‌های کاربر با موفقیت وارد شد</string>
+    <string name="user_data_export_cancelled">صدور لغو شد</string>
+    <string name="user_data_import_failed_description">مطمئن شوید که پوشه‌های داده کاربر در ریشه پوشه zip و حاوی یک فایل پیکربندی در config/config.ini هستند سپس دوباره امتحان کنید.</string>
+    <string name="support_link">https://discord.gg/u77vRWY</string>
+    <string name="website_link">https://citron-emu.org/</string>
+    <string name="github_link">https://github.com/citron-emu</string>
+
+    <!-- Early access upgrade strings -->
+    <string name="early_access">دسترسی زودهنگام</string>
+    <string name="get_early_access">دسترسی زودهنگام را دریافت کنید</string>
+    <string name="play_store_link">https://play.google.com/store/apps/details?id=org.citron.citron_emu.ea</string>
+    <string name="get_early_access_description">ویژگی‌های پیشرفته، دسترسی زودهنگام به بروزرسانی‌ها و موارد دیگر</string>
+    <string name="early_access_benefits">مزایای دسترسی زودهنگام</string>
+    <string name="cutting_edge_features">ویژگی‌های پیشرفته</string>
+    <string name="early_access_updates">دسترسی زودهنگام به بروزرسانی‌ها</string>
+    <string name="no_manual_installation">بدون نصب دستی</string>
+    <string name="prioritized_support">پشتیبانی اولویت بندی شده</string>
+    <string name="helping_game_preservation">کمک به حفظ بازی</string>
+    <string name="our_eternal_gratitude">سپاس ابدی ما</string>
+    <string name="are_you_interested">مشتاق هستید؟</string>
+
+    <!-- General settings strings -->
+    <string name="frame_limit_enable">محدودیت سرعت</string>
+    <string name="frame_limit_enable_description">سرعت شبیه‌سازی را به درصد مشخصی از سرعت عادی محدود می‌کند.</string>
+    <string name="frame_limit_slider">درصد محدودیت سرعت</string>
+    <string name="frame_limit_slider_description">درصدی را برای محدود کردن سرعت شبیه‌سازی مشخص می‌کند. 100% سرعت عادی است. مقادیر بیشتر یا کمتر باعث افزایش یا کاهش سرعت می‌شود.</string>
+    <string name="cpu_backend">پشتگاه پردازنده</string>
+    <string name="cpu_accuracy">دقت پردازنده</string>
+    <string name="value_with_units">%1$s%2$s</string>
+
+    <!-- System settings strings -->
+    <string name="device_name">نام دستگاه</string>
+    <string name="use_docked_mode">حالت متصل</string>
+    <string name="use_docked_mode_description">وضوح را افزایش می‌دهد، عملکرد را کاهش می‌دهد. حالت دستی زمانی استفاده می‌شود که این گزینه غیرفعال است، و باعث کاهش وضوح و افزایش عملکرد می‌شود.</string>
+    <string name="emulated_region">منطقه شبیه‌سازی</string>
+    <string name="emulated_language">زبان شبیه‌سازی</string>
+    <string name="select_rtc_date">انتخاب تاریخ</string>
+    <string name="select_rtc_time">انتخاب زمان</string>
+    <string name="use_custom_rtc">زمان سفارشی</string>
+    <string name="use_custom_rtc_description">به شما امکان می‌دهد یک ساعت سفارشی جدا از زمان فعلی سیستم خود تنظیم کنید.</string>
+    <string name="set_custom_rtc">تنظیم زمان سفارشی</string>
+
+    <!-- Graphics settings strings -->
+    <string name="renderer_accuracy">سطح دقت</string>
+    <string name="renderer_resolution">وضوح تصویر (دستی/متصل)</string>
+    <string name="renderer_vsync">حالت VSync</string>
+    <string name="renderer_screen_layout">جهت‌گیری صفحه</string>
+    <string name="renderer_aspect_ratio">نسبت ابعاد</string>
+    <string name="renderer_scaling_filter">فیلتر تطبیق پنجره</string>
+    <string name="fsr_sharpness">وضوح FSR</string>
+    <string name="fsr_sharpness_description">تعیین می‌کند که هنگام استفاده از کنتراست پویا FSR، تصویر چقدر واضح به نظر می‌رسد</string>
+    <string name="renderer_anti_aliasing">حالت ضدپلگی</string>
+    <string name="renderer_force_max_clock">اجبار به حداکثر فرکانس (فقط برای Adreno)</string>
+    <string name="renderer_force_max_clock_description">پردازنده گرافیکی را مجبور می‌کند تا با بیشترین فرکانس کار کند (محدودیت‌های حرارتی همچنان اعمال خواهند شد).</string>
+    <string name="renderer_asynchronous_shaders">استفاده از سایه‌زن‌های ناهمزمان</string>
+    <string name="renderer_asynchronous_shaders_description">سایه‌زن‌ها را به صورت ناهمزمان کامپایل می کند، لکنت را کاهش می‌دهد اما ممکن است اشکالاتی ایجاد کند.</string>
+    <string name="renderer_reactive_flushing">استفاده از فلاش کردن واکنشی</string>
+    <string name="renderer_reactive_flushing_description">دقت تفسیر تصاویر را در برخی از بازی‌ها به قیمت عملکرد بهبود می‌بخشد.</string>
+    <string name="use_disk_shader_cache">ذخیره سایه‌زنی‌ها در حافظه</string>
+    <string name="use_disk_shader_cache_description">لکنت را با ذخیره و بارگذاری سایه‌زن‌های تولید شده کاهش می‌دهد.</string>
+    <string name="anisotropic_filtering">فیلتر ناهمسانگرد</string>
+    <string name="anisotropic_filtering_description">کیفیت بافت‌ها را هنگام مشاهده در زوایای اریب بهبود می‌بخشد</string>
+
+    <!-- Debug settings strings -->
+    <string name="cpu">پردازنده</string>
+    <string name="cpu_debug_mode">اشکال‌زدایی پردازنده</string>
+    <string name="cpu_debug_mode_description">پردازنده را در حالت اشکال‌زدایی کندتر قرار می‌دهد.</string>
+    <string name="gpu">پردازنده گرافیکی</string>
+    <string name="renderer_api">رابط برنامه‌نویسی</string>
+    <string name="renderer_debug">اشکال‌زدایی پردازنده گرافیکی</string>
+    <string name="renderer_debug_description">رابط گرافیکی را روی حالت اشکال‌زدایی کندتر تنظیم می‌کند.</string>
+    <string name="fastmem">دسترسی سریع حافظه</string>
+
+    <!-- Audio settings strings -->
+    <string name="audio_output_engine">موتور خروجی</string>
+    <string name="audio_volume">میزان</string>
+    <string name="audio_volume_description">میزان صدای خروجی را مشخص می‌کند.</string>
+
+    <!-- Input strings -->
+    <string name="buttons">دکمه‌ها</string>
+    <string name="button_a">A</string>
+    <string name="button_b">بایت</string>
+    <string name="button_x">X</string>
+    <string name="button_y">Y</string>
+    <string name="button_plus">به علاوه</string>
+    <string name="button_minus">منها</string>
+    <string name="button_home">خانه</string>
+    <string name="button_capture">ضبط</string>
+    <string name="start_pause">شروع/مکث</string>
+    <string name="dpad">دکمه‌های جهتی</string>
+    <string name="up">بالا</string>
+    <string name="down">پایین</string>
+    <string name="left">چپ</string>
+    <string name="right">راست</string>
+    <string name="left_stick">استیک چپ</string>
+    <string name="right_stick">استیک راست</string>
+    <string name="pressed">فشار داده شده</string>
+    <string name="range">محدوده</string>
+    <string name="deadzone">ناحیه خطا</string>
+    <string name="triggers">ماشه‌ها</string>
+    <string name="button_l">L</string>
+    <string name="button_r">R</string>
+    <string name="button_zl">ZL</string>
+    <string name="button_zr">ZR</string>
+    <string name="button_z">Z</string>
+    <string name="invalid">نامعتبر</string>
+    <string name="not_set">تنظیم نشده</string>
+    <string name="unknown">نامعلوم</string>
+    <string name="unused">استفاده نشده</string>
+    <string name="input_prompt">یک ورودی را حرکت یا فشار دهید</string>
+    <string name="unsupported_input">نوع ورودی پشتیبانی نمی‌شود</string>
+    <string name="input_mapping_filter">فیلتر نگاشت ورودی</string>
+    <string name="input_mapping_filter_description">دستگاهی را برای فیلتر کردن ورودی‌های نقشه برداری انتخاب کنید</string>
+    <string name="auto_map">نقشه برداری خودکار یک کنترلر</string>
+    <string name="auto_map_description">دستگاهی را برای انجام نقشه برداری خودکار انتخاب کنید</string>
+    <string name="attempted_auto_map">نقشه خودکار با %1$s</string>
+    <string name="controller_type">نوع کنترلر</string>
+    <string name="pro_controller">کنترلر حرفه‌ای</string>
+    <string name="handheld">حالت دستی</string>
+    <string name="dual_joycons">جفت Joycon</string>
+    <string name="left_joycon">Joycon چپ</string>
+    <string name="right_joycon">Joycon راست</string>
+    <string name="gamecube_controller">کنترلر GameCube</string>
+    <string name="invert_axis">محور معکوس</string>
+    <!-- Miscellaneous -->
+    <string name="slider_default">پیش‌فرض</string>
+    <string name="ini_saved">تنظیمات ذخیره شده</string>
+    <string name="gameid_saved">تنظیمات ذخیره شده برای %1$s</string>
+    <string name="error_saving">خطا برای ذخیره ini.%1$s : %2$s</string>
+    <string name="unimplemented_menu">منوی ساخته نشده</string>
+    <string name="loading">بارگذاری...</string>
+    <string name="shutting_down">خاموش شدن…</string>
+    <string name="reset_setting_confirmation">آیا می‌خواهید این تنظیم را به مقدار پیش‌فرض خود بازنشانی کنید؟</string>
+    <string name="reset_to_default">بازنشانی به پیش‌فرض</string>
+    <string name="reset_to_default_description">بازنشانی کل تنظیمات پیشرفته</string>
+    <string name="reset_all_settings">کل تنظیمات بازنشانی شود؟</string>
+    <string name="reset_all_settings_description">تمام تنظیمات پیشرفته به پیکربندی پیش‌فرض خود بازنشانی خواهند شد. این قابل بازگشت نیست.</string>
+    <string name="settings_reset">بازنشانی تنظیمات</string>
+    <string name="close">بستن</string>
+    <string name="learn_more">بیشتر بدانید</string>
+    <string name="auto">خودکار</string>
+    <string name="submit">ارسال</string>
+    <string name="string_null">خالی</string>
+    <string name="string_import">وارد کردن</string>
+    <string name="export">صادر کردن</string>
+    <string name="export_failed">صادر کردن ناموفق بود</string>
+    <string name="import_failed">وارد کردن ناموفق بود</string>
+    <string name="cancelling">در حال لغو</string>
+    <string name="install">نصب</string>
+    <string name="delete">حذف</string>
+    <string name="edit">ویرایش</string>
+    <string name="export_success">با موفقیت صادر شد</string>
+    <string name="start">شروع</string>
+    <string name="clear">پاکسازی</string>
+    <string name="global">سراسری</string>
+    <string name="custom">سفارشی</string>
+    <string name="notice">اطلاع</string>
+    <string name="import_complete">وارد کردن تکمیل شد</string>
+    <string name="more_options">گزینه‌های بیشتر</string>
+    <string name="use_global_setting">استفاده از تنظیمات سراسری</string>
+    <string name="operation_completed_successfully">عملیات با موفقیت به پایان رسید</string>
+    <!-- GPU driver installation -->
+    <string name="select_gpu_driver">انتخاب درایور پردازنده گرافیکی</string>
+    <string name="select_gpu_driver_title">آیا می خواهید درایور فعلی پردازنده گرافیکی خود را جایگزین کنید؟</string>
+    <string name="select_gpu_driver_install">نصب</string>
+    <string name="select_gpu_driver_default">پیش‌فرض</string>
+    <string name="select_gpu_driver_use_default">استفاده از درایور پیش‌فرض پردازنده گرافیکی</string>
+    <string name="select_gpu_driver_error">درایور نامعتبر انتخاب شده است</string>
+    <string name="driver_already_installed">درایور قبلاً نصب شده است</string>
+    <string name="system_gpu_driver">درایور سیستم پردازنده گرافیکی</string>
+    <string name="installing_driver">در حال نصب درایور...</string>
+
+    <!-- Preferences Screen -->
+    <string name="preferences_settings">تنظیمات</string>
+    <string name="preferences_general">عمومی</string>
+    <string name="preferences_system">سیستم</string>
+    <string name="preferences_system_description">حالت متصل شده، منطقه، زبان</string>
+    <string name="preferences_graphics">گرافیک</string>
+    <string name="preferences_graphics_description">سطح دقت، وضوح، حافظه پنهان سایه‌زن</string>
+    <string name="preferences_audio">صدا</string>
+    <string name="preferences_audio_description">موتور خروجی، میزان</string>
+    <string name="preferences_theme">رنگ و تم</string>
+    <string name="preferences_debug">اشکال‌زدایی</string>
+    <string name="preferences_debug_description">اشکال‌زدایی پردازنده/گرافیک، API گرافیک، fastmem</string>
+
+    <!-- Game properties -->
+    <string name="info">اطلاعات</string>
+    <string name="info_description">شناسه برنامه، توسعه دهنده، نسخه</string>
+    <string name="per_game_settings">تنظیمات مختص هر بازی</string>
+    <string name="per_game_settings_description">ویرایش تنظیمات مختص این بازی</string>
+    <string name="launch_options">تنظیمات اجرا</string>
+    <string name="path">مسیر</string>
+    <string name="program_id">شناسه برنامه</string>
+    <string name="developer">توسعه دهنده</string>
+    <string name="version">نسخه</string>
+    <string name="copy_details">کپی جزئیات</string>
+    <string name="add_ons">افزونه‌ها</string>
+    <string name="add_ons_description">تغییر مودها، آپدیت‌ها و DLC</string>
+    <string name="clear_shader_cache">پاکسازی حافظه پنهان سایه‌زن‌ها</string>
+    <string name="clear_shader_cache_description">تمام سایه‌زن‌های ساخته شده در حین اجرای این بازی را حذف می‌کند</string>
+    <string name="clear_shader_cache_warning_description">هنگام بازسازی حافظه پنهان سایه‌زنی، لکنت بیشتری را تجربه خواهید کرد</string>
+    <string name="cleared_shaders_successfully">سایه‌زن‌ها با موفقیت پاک شدند</string>
+    <string name="addons_game">افزونه: %1$s</string>
+    <string name="save_data">داده‌های ذخیره</string>
+    <string name="save_data_description">مدیریت داده‌های ذخیره مخصوص این بازی</string>
+    <string name="delete_save_data">حذف داده‌های ذخیره</string>
+    <string name="delete_save_data_description">تمام داده‌های ذخیره شده مخصوص این بازی را حذف می‌کند</string>
+    <string name="delete_save_data_warning_description">تمام داده‌های ذخیره این بازی را به طور غیرقابل برگشت حذف می کند. آیا مطمئن هستید که می‌خواهید ادامه دهید؟</string>
+    <string name="save_data_deleted_successfully">ذخیره داده‌ها با موفقیت حذف شد</string>
+    <string name="select_content_type">نوع محتوا</string>
+    <string name="updates_and_dlc">آپدیت‌ها و DLC</string>
+    <string name="mods_and_cheats">مودها و چیت‌ها</string>
+    <string name="addon_notice">اطلاعیه مهم افزونه</string>
+    <!-- "cheats/" "romfs/" and "exefs/ should not be translated -->
+    <string name="addon_notice_description">برای نصب مودها و چیت ها، باید پوشه ای را انتخاب کنید که حاوی مسیر cheats/ یا romfs/ یا exefs/ باشد. ما نمی‌توانیم تأیید کنیم که این‌ها با بازی شما سازگار هستند، بنابراین مراقب باشید!</string>
+    <string name="invalid_directory">مسیر نامعتبر</string>
+    <!-- "cheats/" "romfs/" and "exefs/ should not be translated -->
+    <string name="invalid_directory_description">لطفاً مطمئن شوید که مسیر انتخابی شما حاوی یک پوشه cheats/ یا romfs/ یا exefs/ می‌باشد و دوباره امتحان کنید.</string>
+    <string name="addon_installed_successfully">افزونه با موفقیت نصب شد</string>
+    <string name="verifying_content">در حال تأیید محتوا…</string>
+    <string name="content_install_notice">اطلاعیه نصب محتوا</string>
+    <string name="content_install_notice_description">محتوایی که انتخاب کردید با این بازی مطابقت ندارد.\nبه هر حال نصب شود؟</string>
+    <string name="confirm_uninstall">حذف را تایید کنید</string>
+    <string name="confirm_uninstall_description">آیا مطمئن هستید که می‌خواهید این افزونه را حذف کنید؟</string>
+    <string name="verify_integrity">راستی‌آزمایی یکپارچگی</string>
+    <string name="verifying">در حال بررسی...</string>
+    <string name="verify_success">راستی‌آزمایی یکپارچگی با موفقیت انجام شد!</string>
+    <string name="verify_failure">راستی‌آزمایی یکپارچگی ناموفق بود!</string>
+    <string name="verify_failure_description">محتویات فایل ممکن است خراب باشد</string>
+    <string name="verify_no_result">راستی‌آزمایی یکپارچگی انجام نشد</string>
+    <string name="verify_no_result_description"> اعتبار محتوای فایل بررسی نشد</string>
+    <string name="verification_failed_for">بررسی برای فایل‌های زیر انجام نشد:\n%1$s</string>
+
+    <!-- ROM loading errors -->
+    <string name="loader_error_encrypted">رام شما رمزگذاری شده است</string>
+    <string name="loader_error_encrypted_roms_description"><![CDATA[لطفاً راهنماها را دنبال کنید تا <a href=\"https://citron-emu.org/help/quickstart/#dumping-physical-titles-game-cards\">کارتیج‌های بازی</a> یا <a href=\"https://citron-emu.org/help/quickstart/#dumping-digital-titles-eshop\">عناوین نصب شده</a> خود را استخراج کنید.]]></string>
+    <string name="loader_error_encrypted_keys_description"><![CDATA[لطفاً مطمئن شوید که فایل prod.keys شما نصب شده است تا بازی‌ها رمزگشایی شوند.]]></string>
+    <string name="loader_error_video_core">در راه‌اندازی اولیه هسته ویدیو خطایی رخ داد</string>
+    <string name="loader_error_video_core_description">این مورد معمولاً توسط یک درایور گرافیکی ناسازگار ایجاد می‌شود. نصب درایور گرافیکی سفارشی ممکن است این مشکل را حل کند.</string>
+    <string name="loader_error_invalid_format">رام بارگذاری نشد</string>
+    <string name="loader_error_file_not_found">فایل رام وجود ندارد</string>
+
+    <!-- Emulation Menu -->
+    <string name="emulation_exit">خروج از شبیه‌سازی</string>
+    <string name="emulation_done">انجام شد</string>
+    <string name="emulation_fps_counter">شمارشگر فریم</string>
+    <string name="emulation_thermal_indicator">نشانگر حرارتی</string>
+    <string name="emulation_toggle_controls">تغییر کنترل‌ها</string>
+    <string name="emulation_rel_stick_center">مرکز نسبی استیک</string>
+    <string name="emulation_dpad_slide">لغزش دکمه‌های جهتی</string>
+    <string name="emulation_haptics">لرزش لمسی</string>
+    <string name="emulation_show_overlay">نشان دادن نمایش روی صفحه</string>
+    <string name="emulation_toggle_all">تغییر همه</string>
+    <string name="emulation_control_adjust">تنظیم نمایش روی صفحه</string>
+    <string name="emulation_control_scale">مقیاس</string>
+    <string name="emulation_control_opacity">شفافیت</string>
+    <string name="emulation_touch_overlay_reset">بازنشانی نمایش روی صفحه</string>
+    <string name="emulation_touch_overlay_edit">ویرایش دکمه‌های روی صفحه</string>
+    <string name="emulation_pause">مکث شبیه‌سازی</string>
+    <string name="emulation_unpause">ادامه شبیه‌سازی</string>
+    <string name="emulation_input_overlay">گزینه‌های نمایش روی صفحه</string>
+    <string name="touchscreen">صفحه لمسی</string>
+    <string name="lock_drawer">قفل‌کردن منوی کشویی</string>
+    <string name="unlock_drawer">بازکردن قفل منو کشویی</string>
+
+    <string name="load_settings">بارگذاری تنظیمات...</string>
+
+    <!-- Software keyboard -->
+    <string name="software_keyboard">صفحه‌کلید نرم‌افزار</string>
+
+    <!-- Errors and warnings -->
+    <string name="abort_button">لغو</string>
+    <string name="continue_button">ادامه</string>
+    <string name="system_archive_not_found">آرشیو سیستم پیدا نشد</string>
+    <string name="system_archive_not_found_message">%s یافت نشد. لطفاً بایگانی‌های سیستم خود را استخراج کنید.\nادامه شبیه‌سازی ممکن است منجر به خرابی‌ و اشکالات شود.</string>
+    <string name="system_archive_general">آرشیو سیستم</string>
+    <string name="save_load_error">خطای ذخیره/بارگذاری</string>
+    <string name="fatal_error">خطای مهلک</string>
+    <string name="fatal_error_message">یک خطای مهلک رخ داد. برای جزئیات، گزارش را بررسی کنید.\nادامه شبیه‌سازی ممکن است منجر به خرابی و اشکالات شود.</string>
+    <string name="performance_warning">خاموش کردن این تنظیم عملکرد شبیه‌سازی را به میزان قابل توجهی کاهش می‌دهد! برای بهترین تجربه، توصیه می‌شود این تنظیم را فعال بگذارید.</string>
+    <string name="device_memory_inadequate">رم دستگاه: %1$s \nتوصیه شده: %2$s</string>
+    <string name="memory_formatted">%1$s%2$s</string>
+    <string name="no_game_present">هیچ بازی قابل اجرایی وجود ندارد!</string>
+
+    <!-- Region Names -->
+    <string name="region_japan">ژاپن</string>
+    <string name="region_usa">ایالات متحده آمریکا</string>
+    <string name="region_europe">اروپا</string>
+    <string name="region_australia">استرالیا</string>
+    <string name="region_china">چین</string>
+    <string name="region_korea">کره</string>
+    <string name="region_taiwan">تایوان</string>
+
+    <!-- Memory Sizes -->
+    <string name="memory_byte">بایت</string>
+    <string name="memory_byte_shorthand">بایت</string>
+    <string name="memory_kilobyte">کیلوبایت</string>
+    <string name="memory_megabyte">مگابایت</string>
+    <string name="memory_gigabyte">گیگابایت</string>
+    <string name="memory_terabyte">ترابایت</string>
+    <string name="memory_petabyte">پتابایت</string>
+    <string name="memory_exabyte">اگزابایت</string>
+
+    <!-- Renderer APIs -->
+    <string name="renderer_vulkan">Vulkan</string>
+    <string name="renderer_none">هیچ</string>
+
+    <!-- Renderer Accuracy -->
+    <string name="renderer_accuracy_normal">معمولی</string>
+    <string name="renderer_accuracy_high">زیاد</string>
+    <string name="renderer_accuracy_extreme">افراطی (کند)</string>
+
+    <!-- Resolutions -->
+    <string name="resolution_half">0.5X (360p/540p)</string>
+    <string name="resolution_three_quarter">0.75X (540p/810p)</string>
+    <string name="resolution_one">1X (720p/1080p)</string>
+    <string name="resolution_two">2X (1440p/2160p) (کند)</string>
+    <string name="resolution_three">3X (2160p/3240p) (کند)</string>
+    <string name="resolution_four">4X (2880p/4320p) (کند)</string>
+
+    <!-- Renderer VSync -->
+    <string name="renderer_vsync_immediate">فوری (خاموش)</string>
+    <string name="renderer_vsync_mailbox">Mailbox</string>
+    <string name="renderer_vsync_fifo">FIFO (روشن)</string>
+    <string name="renderer_vsync_fifo_relaxed">FIFO آرام</string>
+
+    <!-- Scaling Filters -->
+    <string name="scaling_filter_nearest_neighbor">Nearest Neighbor</string>
+    <string name="scaling_filter_bilinear">Bilinear</string>
+    <string name="scaling_filter_bicubic">Bicubic</string>
+    <string name="scaling_filter_gaussian">Gaussian</string>
+    <string name="scaling_filter_scale_force">ScaleForce</string>
+    <string name="scaling_filter_fsr">AMD FidelityFX™ Super Resolution</string>
+
+    <!-- Anti-Aliasing -->
+    <string name="anti_aliasing_none">هیچ</string>
+    <string name="anti_aliasing_fxaa">FXAA</string>
+    <string name="anti_aliasing_smaa">SMAA</string>
+
+    <!-- Screen Layouts -->
+    <string name="screen_layout_auto">خودکار</string>
+    <string name="screen_layout_sensor_landscape">افقی با سنسور</string>
+    <string name="screen_layout_landscape">افقی</string>
+    <string name="screen_layout_reverse_landscape">افقی معکوس</string>
+    <string name="screen_layout_sensor_portrait">عمودی با سنسور</string>
+    <string name="screen_layout_portrait">عمودی</string>
+    <string name="screen_layout_reverse_portrait">عمودی معکوس</string>
+
+    <!-- Aspect Ratios -->
+    <string name="ratio_default">پیشفرض (16:9)</string>
+    <string name="ratio_force_four_three">اجبار به 4:3</string>
+    <string name="ratio_force_twenty_one_nine">اجبار به 21:9</string>
+    <string name="ratio_force_sixteen_ten">اجبار به 16:10</string>
+    <string name="ratio_stretch">کشش تا پر کردن پنجره</string>
+
+    <!-- CPU Backend -->
+    <string name="cpu_backend_dynarmic">دینارمیک (کند)</string>
+    <string name="cpu_backend_nce">اجرای کد اصلی (NCE)</string>
+
+    <!-- CPU Accuracy -->
+    <string name="cpu_accuracy_accurate">دقیق</string>
+    <string name="cpu_accuracy_unsafe">ناامن</string>
+    <string name="cpu_accuracy_paranoid">بدگمان (کند)</string>
+
+    <!-- Gamepad Buttons -->
+    <string name="gamepad_d_pad">کلیدهای جهتی</string>
+    <string name="gamepad_left_stick">استیک چپ</string>
+    <string name="gamepad_right_stick">استیک راست</string>
+    <string name="gamepad_home">خانه</string>
+    <string name="gamepad_screenshot">نماگرفت</string>
+
+    <!-- Disk shader cache -->
+    <string name="preparing_shaders">در حال آماده‌سازی سایه‌زن‌ها</string>
+    <string name="building_shaders">در حال ساخت سایه‌زن‌ها</string>
+
+    <!-- Theme options -->
+    <string name="change_app_theme">تغییر تم برنامه</string>
+    <string name="theme_default">پیش‌فرض</string>
+    <string name="theme_material_you">Material You</string>
+
+    <!-- Theme Modes -->
+    <string name="change_theme_mode">تغییر حالت تم</string>
+    <string name="theme_mode_follow_system">پیروی از سیستم</string>
+    <string name="theme_mode_light">روشن</string>
+    <string name="theme_mode_dark">تاریک</string>
+
+    <!-- Audio output engines -->
+    <string name="oboe">oboe</string>
+    <string name="cubeb">cubeb</string>
+
+    <!-- Anisotropic filtering options -->
+    <string name="multiplier_two">2x</string>
+    <string name="multiplier_four">4x</string>
+    <string name="multiplier_eight">8x</string>
+    <string name="multiplier_sixteen">16x</string>
+
+    <!-- Black backgrounds theme -->
+    <string name="use_black_backgrounds">پس‌زمینه مشکی</string>
+    <string name="use_black_backgrounds_description">هنگام استفاده از تم تاریک، پس‌زمینه مشکی را اعمال می‌کند.</string>
+
+    <!-- Picture-In-Picture -->
+    <string name="picture_in_picture">تصویر در تصویر</string>
+    <string name="picture_in_picture_description">وقتی در پس‌زمینه قرار می‌گیرد، پنجره کوچک می‌شود</string>
+    <string name="pause">مکث</string>
+    <string name="play">شروع</string>
+    <string name="mute">بی‌صدا</string>
+    <string name="unmute">باصدا</string>
+
+    <!-- Emulation vertical alignment -->
+    <string name="vertical_alignment">چیدمان عمودی</string>
+    <string name="top">بالا</string>
+    <string name="center">وسط</string>
+    <string name="bottom">پایین</string>
+
+    <!-- Licenses screen strings -->
+    <string name="licenses">مجوزها</string>
+    <string name="license_fidelityfx_fsr_description">High-quality upscaling from AMD</string>
+    </resources>

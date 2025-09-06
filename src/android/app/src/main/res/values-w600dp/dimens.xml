@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <dimen name="spacing_navigation">0dp</dimen>
+    <dimen name="spacing_navigation_rail">80dp</dimen>
+
+    <dimen name="mapping_anim_size">100dp</dimen>
+</resources>

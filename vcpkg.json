@@ -1,0 +1,69 @@
+{
+    "$schema": "https://raw.githubusercontent.com/microsoft/vcpkg-tool/main/docs/vcpkg.schema.json",
+    "name": "citron",
+    "builtin-baseline": "bc994510d2eb11aac7b43b03f67a7751d5bfe0e4",
+    "version": "1.0",
+    "dependencies": [
+        "boost-algorithm",
+        "boost-asio",
+        "boost-bind",
+        "boost-config",
+        "boost-container",
+        "boost-context",
+        "boost-crc",
+        "boost-functional",
+        "boost-heap",
+        "boost-icl",
+        "boost-intrusive",
+        "boost-mpl",
+        {
+            "name": "boost-process",
+            "platform": "!android"
+        },
+        "boost-range",
+        "boost-spirit",
+        "boost-test",
+        "boost-timer",
+        "boost-variant",
+        "fmt",
+        "lz4",
+        "nlohmann-json",
+        "openal-soft",
+        "zlib",
+        "zstd"
+    ],
+    "features": {
+        "citron-tests": {
+            "description": "Compile tests",
+            "dependencies": [ "catch2" ]
+        },
+        "web-service": {
+            "description": "Enable web services (telemetry, etc.)",
+            "dependencies": [
+                {
+                    "name": "openssl",
+                    "platform": "windows"
+                }
+            ]
+        },
+        "android": {
+            "description": "Enable Android dependencies",
+            "dependencies": [
+                {
+                    "name": "oboe",
+                    "platform": "android"
+                }
+            ]
+        }
+    },
+    "overrides": [
+        {
+            "name": "catch2",
+            "version": "3.3.1"
+        },
+        {
+            "name": "fmt",
+            "version": "10.1.1"
+        }
+    ]
+}

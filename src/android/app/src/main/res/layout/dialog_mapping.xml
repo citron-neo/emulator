@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:defaultFocusHighlightEnabled="false"
+    android:focusable="true"
+    android:focusableInTouchMode="true"
+    android:focusedByDefault="true"
+    android:orientation="horizontal"
+    android:gravity="center">
+
+    <ImageView
+        android:id="@+id/image_stick_animation"
+        android:layout_width="@dimen/mapping_anim_size"
+        android:layout_height="@dimen/mapping_anim_size"
+        tools:src="@drawable/stick_two_direction_anim" />
+
+    <ImageView
+        android:id="@+id/image_button_animation"
+        android:layout_width="@dimen/mapping_anim_size"
+        android:layout_height="@dimen/mapping_anim_size"
+        android:layout_marginStart="48dp"
+        tools:src="@drawable/button_anim" />
+
+</LinearLayout>

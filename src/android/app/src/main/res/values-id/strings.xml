@@ -1,0 +1,587 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:tools="http://schemas.android.com/tools" tools:ignore="MissingTranslation">
+
+    <string name="app_disclaimer">Perangkat lunak ini akan menjalankan game untuk konsol game Nintendo Switch. Tidak ada judul game atau kunci yang disertakan.&lt;br /&gt;&lt;br /&gt;Sebelum memulai, harap cari file <![CDATA[<b> prod.keys </b>]]> di penyimpanan perangkat anda. &lt;br /&gt;&lt;br /&gt;<![CDATA[<a href=\"https://citron-emu.org/help/quickstart\"> Selengkapnya </a>]]></string>
+    <string name="notice_notification_channel_name">Pemberitahuan dan error</string>
+    <string name="notice_notification_channel_description">Menampilkan pemberitahuan ketika terjadi kesalahan.</string>
+    <string name="notification_permission_not_granted">Izin notifikasi tidak diberikan!</string>
+
+    <!-- Setup strings -->
+    <string name="welcome">Selamat datang!</string>
+    <string name="welcome_description">Pelajari cara menyiapkan &lt;b>citron&lt;/b> dan masuk ke dalam emulasi.</string>
+    <string name="get_started">Memulai</string>
+    <string name="keys">Kunci</string>
+    <string name="keys_description">Pilih file &lt;b>prod.keys&lt;/b> Anda dengan tombol di bawah ini.</string>
+    <string name="select_keys">Pilih Kunci</string>
+    <string name="games">Permainan</string>
+    <string name="games_description">Pilih folder &lt;b>Games&lt;/b> Anda dengan tombol di bawah ini.</string>
+    <string name="done">Selesai</string>
+    <string name="done_description">Anda sudah siap.\nNikmati permainan Anda!</string>
+    <string name="text_continue">Lanjut</string>
+    <string name="next">Berikutnya</string>
+    <string name="back">Kembali</string>
+    <string name="add_games">Tambahkan permainan</string>
+    <string name="add_games_description">Pilih folder game anda</string>
+    <string name="step_complete">Selesai!</string>
+
+    <!-- Home strings -->
+    <string name="home_games">Permainan</string>
+    <string name="home_search">Cari</string>
+    <string name="home_settings">Pengaturan</string>
+    <string name="empty_gamelist">Tidak ada file yang ditemukan atau belum ada direktori game yang dipilih.</string>
+    <string name="search_and_filter_games">Cari dan filter game</string>
+    <string name="select_games_folder">Pilih folder permainan</string>
+    <string name="manage_game_folders">Kelola folder game</string>
+    <string name="select_games_folder_description">Izinkan citron mengisi daftar game</string>
+    <string name="add_games_warning">Lewati pemilihan folder game?</string>
+    <string name="add_games_warning_description">Game tidak akan muncul di list jika tidak ada folder yang dipilih.</string>
+    <string name="add_games_warning_help">https://citron-emu.org/help/quickstart/#dumping-games</string>
+    <string name="home_search_games">Cari permainan</string>
+    <string name="search_settings">Cari pengaturan</string>
+    <string name="games_dir_selected">Direktori game sudah terpilih</string>
+    <string name="install_prod_keys">Install prod.keys</string>
+    <string name="install_prod_keys_description">Diperlukan untuk mendekripsi game retail</string>
+    <string name="install_prod_keys_warning">Lewati penginstalan keys?</string>
+    <string name="install_prod_keys_warning_description">Perlu keys yang valid untuk meng-emulate game retail. Hanya homebrew apps yang akan berfungsi jika kamu melanjutkan.</string>
+    <string name="install_prod_keys_warning_help">https://citron-emu.org/help/quickstart/#guide-introduction</string>
+    <string name="notifications">Notifikasi</string>
+    <string name="notifications_description">Berikan izin notifikasi dengan tombol di bawah ini.</string>
+    <string name="give_permission">Berikan izin</string>
+    <string name="notification_warning">Lewati pemberian izin notifikasi?</string>
+    <string name="notification_warning_description">citron tidak akan dapat memberi tahu Anda tentang informasi penting.</string>
+    <string name="permission_denied">Izin ditolak</string>
+    <string name="permission_denied_description">Kamu terlalu sering menolak izin ini dan sekarang anda harus memberikannya secara manual di pengaturan sistem.</string>
+    <string name="about">Tentang</string>
+    <string name="about_description">Versi build, kredit, dan lainnya</string>
+    <string name="warning_help">Bantuan</string>
+    <string name="warning_skip">Lewati</string>
+    <string name="warning_cancel">Batalkan</string>
+    <string name="install_amiibo_keys">Install Amiibo keys</string>
+    <string name="install_amiibo_keys_description">Diperlukan untuk menggunakan Amiibo di dalam game</string>
+    <string name="invalid_keys_file">Keys yang dipilih invalid</string>
+    <string name="install_keys_success">Keys berhasil diinstal</string>
+    <string name="reading_keys_failure">Error saat mengecek enkripsi keys</string>
+    <string name="install_prod_keys_failure_extension_description">Pastikan file keys anda memiliki format .keys dan coba lagi.</string>
+    <string name="install_amiibo_keys_failure_extension_description">Pastikan file keys anda memiliki format .bin dan coba lagi.</string>
+    <string name="invalid_keys_error">Keys enkripsi tidak valid</string>
+    <string name="dumping_keys_quickstart_link">https://citron-emu.org/help/quickstart/#dumping-decryption-keys</string>
+    <string name="install_keys_failure_description">File yang dipilih salah atau rusak. Silakan masukkan kembali kunci Anda.</string>
+    <string name="gpu_driver_manager">Manajer driver GPU</string>
+    <string name="install_gpu_driver">Install driver GPU</string>
+    <string name="install_gpu_driver_description">Instal driver lain untuk kinerja atau akurasi yang berpotensi lebih baik</string>
+    <string name="advanced_settings">Pengaturan lanjutan</string>
+    <string name="advanced_settings_game">Pengaturan lanjutan: %1$s</string>
+    <string name="settings_description">Konfigurasikan pengaturan emulator</string>
+    <string name="search_recently_played">Baru dimainkan</string>
+    <string name="search_recently_added">baru ditambahkan</string>
+    <string name="search_retail">Retail</string>
+    <string name="search_homebrew">Homebrew</string>
+    <string name="open_user_folder">Buka folder citron</string>
+    <string name="open_user_folder_description">Kelola file internal citron\'s</string>
+    <string name="theme_and_color_description">Ubah tampilan aplikasi</string>
+    <string name="no_file_manager">Tidak menemukan file manager</string>
+    <string name="notification_no_directory_link">Tidak bisa membuka direktori citron</string>
+    <string name="notification_no_directory_link_description">Silakan cari folder pengguna dengan panel samping manajer file secara manual.</string>
+    <string name="manage_save_data">Kelola save data</string>
+    <string name="manage_save_data_description">Data simpanan ditemukan. Silakan pilih opsi di bawah.</string>
+    <string name="import_save_warning">Impor data simpanan</string>
+    <string name="import_save_warning_description">Melakukan ini berarti akan menimpa seluruh data simpanan yang sudah ada sebelumnya dengan file simpanan yang Anda berikan. Apakah Anda yakin?</string>
+    <string name="import_export_saves_description">Impor atau Ekspor file simpanan</string>
+    <string name="save_files_importing">Mengimpor file simpanan...</string>
+    <string name="save_files_exporting">Mengekspor file simpanan...</string>
+    <string name="save_file_imported_success">Berhasil mengimpor</string>
+    <string name="save_file_invalid_zip_structure">Struktur direktori simpanan tidak valid.</string>
+    <string name="save_file_invalid_zip_structure_description">Nama subfolder pertama harus merupakan title ID dari game.</string>
+    <string name="import_saves">Impor</string>
+    <string name="export_saves">Ekspor</string>
+    <string name="install_firmware">Install firmware</string>
+    <string name="install_firmware_description">Firmware harus merupakan sebuah file .ZIP dan diperlukan untuk menjalankan beberapa game.</string>
+    <string name="firmware_installing">Menginstall firmware</string>
+    <string name="firmware_installed_success">Firmware terpasang.</string>
+    <string name="firmware_installed_failure">Gagal memasang Firmware.</string>
+    <string name="firmware_installed_failure_description">Pastikan file nca firmware terdapat pada folder utama dari file .zip dan coba lagi.</string>
+    <string name="share_log">Bagikan log debug</string>
+    <string name="share_log_description">Bagikan file log citron untuk mendebug isu</string>
+    <string name="share_log_missing">Tidak ada log file yang ditemukan</string>
+    <string name="install_game_content">Instal konten game.</string>
+    <string name="install_game_content_description">Instal pembaruan game atau DLC</string>
+    <string name="installing_game_content">Menginstal konten...</string>
+    <string name="install_game_content_failure">Error menginstal file (- file) pada NAND</string>
+    <string name="install_game_content_failure_description">Tolong pastikan seluruh konten(-konten) valid dan prod.key terinstall</string>
+    <string name="install_game_content_failure_base">Instalasi dari base game tidak diperbolehkan agar terhindar dari konflik yang mungkin terjadi.</string>
+    <string name="install_game_content_failure_file_extension">Hanya konten NSP dan XCi yang didukung. Harap periksa apakah konten (-konten) dari game sudah valid.</string>
+    <string name="install_game_content_failed_count">%1$d instalasi error(-error)</string>
+    <string name="install_game_content_success">Konten(-konten) game sudah berhasil terinstal.</string>
+    <string name="install_game_content_success_install">%1$d telah berhasil terinstal</string>
+    <string name="install_game_content_success_overwrite">%1$d telah berhasil ditimpa.</string>
+    <string name="install_game_content_help_link">https://citron-emu.org/help/quickstart/#dumping-installed-updates</string>
+    <string name="custom_driver_not_supported">Driver kustom tidak didukung</string>
+    <string name="custom_driver_not_supported_description">Driver kustom saat ini tidak dapat digunakan pada perangkat ini. \nCek opsi ini lain waktu untuk mengetahui apakah dapat digunakan!</string>
+    <string name="manage_citron_data">Kelola data Citron.</string>
+    <string name="manage_citron_data_description">Impor/expor firmware, key, data pengguna, dan sebagainya!</string>
+    <string name="share_save_file">Bagikan file simpanan.</string>
+    <string name="export_save_failed">Gagal mengekspor simpanan.</string>
+    <string name="game_folders">Folder Game</string>
+    <string name="deep_scan">Pemindaian mendalam</string>
+    <string name="add_game_folder">Pilih folder game</string>
+    <string name="folder_already_added">Folder ini telah ditambahkan!</string>
+    <string name="game_folder_properties">Properti folder game</string>
+    <plurals name="saves_import_failed">
+        <item quantity="other">Gagal mengimpor %d simpanan.</item>
+    </plurals>
+    <plurals name="saves_import_success">
+        <item quantity="other">Berhasil mengimpor %d simpanan.</item>
+    </plurals>
+    <string name="no_save_data_found">Tidak ada data simpanan yang ditemukan.</string>
+    <string name="verify_installed_content">Verifikasi konten yang terinstal</string>
+    <string name="verify_installed_content_description">Memeriksa semua konten yang terinstal dari kerusakan</string>
+    <string name="keys_missing">Kunci enkripsi hilang</string>
+    <string name="keys_missing_description">Firmware dan game retail tidak dapat didekripsi</string>
+    <string name="keys_missing_help">https://citron-emu.org/help/quickstart/#dumping-decryption-keys</string>
+
+    <!-- Applet launcher strings -->
+    <string name="applets">Luncurkan applet</string>
+    <string name="applets_description">Meluncurkan sistem applet menggunakan firmware yang diinstal</string>
+    <string name="applets_error_firmware">Firmware tidak terinstal</string>
+    <string name="applets_error_applet">Applet tidak tersedia</string>
+    <string name="applets_error_description"><![CDATA[Pastikan file prod.keys dan firmware Anda terpasang dan coba lagi.]]></string>
+    <string name="album_applet">Album</string>
+    <string name="album_applet_description">Lihat gambar yang disimpan di folder tangkapan layar pengguna dengan penampil foto sistem.</string>
+    <string name="mii_edit_applet">Ubah Mii</string>
+    <string name="mii_edit_applet_description">Lihat dan ubah Miis dengan mengedit sistem</string>
+    <string name="cabinet_applet">Kabinet</string>
+    <string name="cabinet_applet_description">Ubah dan hapus data yang disimpan pada amiibo</string>
+    <string name="cabinet_launcher">Peluncur kabinet</string>
+    <string name="cabinet_nickname_and_owner">Pengaturan Nama Panggilan dan Pemilik</string>
+    <string name="cabinet_game_data_eraser">Hapus data game</string>
+    <string name="cabinet_restorer">Mengembalikan</string>
+    <string name="cabinet_formatter">Mengatur</string>
+
+    <!-- About screen strings -->
+    <string name="gaia_is_not_real">Gaia tidak nyata</string>
+    <string name="copied_to_clipboard">Salin ke papan klip</string>
+    <string name="about_app_description">Emulator Switch Open-Source</string>
+    <string name="contributors">Kontributor</string>
+    <string name="contributors_description">Dibuat dengan \u2764 dari tim citron</string>
+    <string name="contributors_link">https://github.com/citron-emu/citron/graphs/contributors</string>
+    <string name="licenses_description">Proyek yang memungkinkan citron untuk Android</string>
+    <string name="build">Versi</string>
+    <string name="user_data">Data pengguna</string>
+    <string name="user_data_description">Impor/ekspor semua data aplikasi.\n\nKetika mengimpor data pengguna, semua data pengguna yang ada akan dihapus!</string>
+    <string name="exporting_user_data">Mengekspor data pengguna</string>
+    <string name="importing_user_data">Mengimpor data pengguna</string>
+    <string name="import_user_data">Impor data pengguna</string>
+    <string name="invalid_citron_backup">cadangan citron tidak valid</string>
+    <string name="user_data_export_success">berhasil mengekspor data pengguna</string>
+    <string name="user_data_import_success">Berhasil mengimpor data pengguna</string>
+    <string name="user_data_export_cancelled">Ekspor Dibatalkan</string>
+    <string name="user_data_import_failed_description">Pastikan folder data pengguna berada di akar folder zip dan berisi file konfigurasi di config/config.ini dan coba lagi.</string>
+    <string name="support_link">https://discord.gg/u77vRWY</string>
+    <string name="website_link">https://citron-emu.org/</string>
+    <string name="github_link">https://github.com/citron-emu</string>
+
+    <!-- Early access upgrade strings -->
+    <string name="early_access">Akses lebih awal</string>
+    <string name="get_early_access">Dapatkan akses lebih awal</string>
+    <string name="play_store_link">https://play.google.com/store/apps/details?id=org.citron.citron_emu.ea</string>
+    <string name="get_early_access_description">Fitur-fitur yang paling baru, akses lebih awal untuk perbaruan, dan lain-lain.</string>
+    <string name="early_access_benefits">Manfaat Akses Awal</string>
+    <string name="cutting_edge_features">Fitur-fitur yang paling baru</string>
+    <string name="early_access_updates">Akses lebih awal untuk pembaruan</string>
+    <string name="no_manual_installation">Tidak ada instalasi manual</string>
+    <string name="prioritized_support">Dukungan yang diprioritaskan</string>
+    <string name="helping_game_preservation">Membantu pemeliharaan game</string>
+    <string name="our_eternal_gratitude">Ucapan terima kasih kami yang tak terhingga</string>
+    <string name="are_you_interested">Apa kamu tertarik?</string>
+
+    <!-- General settings strings -->
+    <string name="frame_limit_enable">Batas kecepatan</string>
+    <string name="frame_limit_enable_description">Membatasi kecepatan emulasi ke persentase tertentu dari kecepatan normal</string>
+    <string name="frame_limit_slider">Batas persentase kecepatan</string>
+    <string name="frame_limit_slider_description">Menentukan persentase untuk membatasi kecepatan emulasi. 100% adalah kecepatan normal. Nilai yang lebih tinggi atau lebih rendah akan menambah atau mengurangi batas kecepatan</string>
+    <string name="cpu_backend">Backend CPU</string>
+    <string name="cpu_accuracy">Akurasi CPU</string>
+    <string name="value_with_units">%1$s%2$s</string>
+
+    <string name="use_docked_mode">Mode Docked</string>
+    <string name="use_docked_mode_description">Meningkatkan resolusi, menurunkan performa. Mode Handled digunakan saat dinonaktifkan, menurunkan resolusi dan meningkatkan performa</string>
+    <string name="emulated_region">Wilayah yang diemulasikan</string>
+    <string name="emulated_language">Bahasa yang diemulasikan</string>
+    <string name="select_rtc_date">Pilih tanggal RTC</string>
+    <string name="select_rtc_time">Pilih waktu RTC</string>
+    <string name="use_custom_rtc">RTC Kustom</string>
+    <string name="use_custom_rtc_description">Memungkinkan Anda untuk mengatur jam waktu nyata kustom yang terpisah dari waktu sistem saat ini Anda.</string>
+    <string name="set_custom_rtc">Setel RTC Kustom</string>
+
+    <!-- Graphics settings strings -->
+    <string name="renderer_accuracy">Tingkatan Akurasi</string>
+    <string name="renderer_resolution">Resolusi (Handheld/Docked)</string>
+    <string name="renderer_vsync">Mode Sinkronisasi Vertikal</string>
+    <string name="renderer_screen_layout">Orientasi</string>
+    <string name="renderer_aspect_ratio">Rasio Aspek</string>
+    <string name="renderer_scaling_filter">Filter penyesuaian jendela</string>
+    <string name="fsr_sharpness">Ketajaman FSR</string>
+    <string name="fsr_sharpness_description">Menentukan seberapa tajam gambar akan terlihat saat menggunakan kontras dinamis FSR</string>
+    <string name="renderer_anti_aliasing">Metode anti-aliasing</string>
+    <string name="renderer_force_max_clock">Paksa jam maximum (hanya untuk Adreno)</string>
+    <string name="renderer_force_max_clock_description">Memaksa GPU untuk berjalan pada kecepatan maksimum yang mungkin (batasan termal masih akan diterapkan).</string>
+    <string name="renderer_asynchronous_shaders">Gunakan shader asinkron</string>
+    <string name="renderer_asynchronous_shaders_description">Mengompilasi shader secara asinkron mengurangi Tutup Paksa tetapi dapat menimbulkan gangguan.</string>
+    <string name="renderer_reactive_flushing">Gunakan reactive flushing</string>
+    <string name="renderer_reactive_flushing_description">Meningkatkan akurasi rendering dalam beberapa permainan dengan mengorbankan performa.</string>
+    <string name="use_disk_shader_cache">Cache shader disk</string>
+    <string name="use_disk_shader_cache_description">Mengurangi Tutup Paksa dengan menyimpan dan memuat yang dihasilkan secara lokal</string>
+    <string name="anisotropic_filtering">Penyaringan Anisotropik</string>
+    <string name="anisotropic_filtering_description">Meningkatkan kualitas tekstur bila dilihat pada sudut miring</string>
+
+    <!-- Debug settings strings -->
+    <string name="cpu">CPU</string>
+    <string name="cpu_debug_mode">Debugging CPU</string>
+    <string name="cpu_debug_mode_description">Menempatkan CPU dalam mode debugging lambat</string>
+    <string name="gpu">GPU</string>
+    <string name="renderer_api">API</string>
+    <string name="renderer_debug">Debugging Grafis</string>
+    <string name="renderer_debug_description">Menyetel grafis API ke mode lambat</string>
+    <string name="fastmem">Fastmem</string>
+
+    <!-- Audio settings strings -->
+    <string name="audio_output_engine">Output audio</string>
+    <string name="audio_volume">Volume</string>
+    <string name="audio_volume_description">Menentukan volume output audio</string>
+
+    <string name="button_a">A</string>
+    <string name="button_b">B</string>
+    <string name="button_x">X</string>
+    <string name="button_y">Y</string>
+    <string name="button_plus">Tambah</string>
+    <string name="button_minus">Kurang</string>
+    <string name="button_home">Home</string>
+    <string name="button_capture">Tangkapan</string>
+    <string name="dpad">D-Pad</string>
+    <string name="up">Atas</string>
+    <string name="down">Bawah</string>
+    <string name="left">Kiri</string>
+    <string name="right">Kanan</string>
+    <string name="left_stick">Left Stick</string>
+    <string name="right_stick">Right Stick</string>
+    <string name="c_stick">C-Stick</string>
+    <string name="pressed">Ditekan</string>
+    <string name="range">Jangkauan</string>
+    <string name="modifier">Pemodifikasi</string>
+    <string name="button_l">L</string>
+    <string name="button_r">R</string>
+    <string name="button_zl">ZL</string>
+    <string name="button_zr">ZR</string>
+    <string name="button_z">Z</string>
+    <string name="invalid">Tidak valid</string>
+    <string name="pro_controller">Kontroler Pro</string>
+    <string name="handheld">Jinjing</string>
+    <string name="dual_joycons">Joycon Dual</string>
+    <string name="left_joycon">Joycon Kiri</string>
+    <string name="right_joycon">Joycon Kanan</string>
+    <string name="gamecube_controller">Kontroler GameCube</string>
+    <string name="invert_axis">Balikkan poros</string>
+    <string name="invert_button">Balikkan tombol</string>
+    <string name="toggle_button">Atur tombol</string>
+    <string name="turbo_button">Tombol turbo</string>
+    <string name="set_threshold">Atur batasan</string>
+    <string name="connected">Terhubung</string>
+    <string name="vibration">Getaran</string>
+    <string name="profile">Profil</string>
+    <!-- Miscellaneous -->
+    <string name="slider_default">Bawaan</string>
+    <string name="ini_saved">Pengaturan yang disimpan</string>
+    <string name="gameid_saved">Pengaturan yang disimpan untuk%1$s</string>
+    <string name="error_saving">Gagal menyimpan%1$s.ini:%2$s</string>
+    <string name="unimplemented_menu">Menu yang belum diimplementasikan</string>
+    <string name="loading">Memuat...</string>
+    <string name="shutting_down">Menutup...</string>
+    <string name="reset_setting_confirmation">Apakah Anda ingin mengatur ulang pengaturan ini kembali ke nilai defaultnya?</string>
+    <string name="reset_to_default">Setel ulang ke bawaan</string>
+    <string name="reset_to_default_description">Mereset semua pengaturan lanjutan</string>
+    <string name="reset_all_settings">Atur ulang semua pengaturan?</string>
+    <string name="reset_all_settings_description">Semua pengaturan lanjutan akan diatur ulang ke konfigurasi default mereka. Ini tidak dapat dibatalkan.</string>
+    <string name="settings_reset">Pengaturan diatur ulang</string>
+    <string name="close">Tutup</string>
+    <string name="learn_more">Pelajari lebih lanjut</string>
+    <string name="auto">Otomatis</string>
+    <string name="submit">Kirimkan</string>
+    <string name="string_null">Null</string>
+    <string name="string_import">Impor</string>
+    <string name="export">Ekspor</string>
+    <string name="export_failed">Ekspor gagal</string>
+    <string name="import_failed">Impor gagal</string>
+    <string name="cancelling">Membatalkan</string>
+    <string name="install">Instal</string>
+    <string name="delete">Hapus</string>
+    <string name="edit">Ubah</string>
+    <string name="export_success">Berhasil diekspor</string>
+    <string name="start">Mulai</string>
+    <string name="clear">Bersihkan</string>
+    <string name="global">Utama</string>
+    <string name="custom">Kustom</string>
+    <string name="notice">Pemberitahuan</string>
+    <string name="import_complete">Impor Selasai</string>
+    <string name="more_options">Opsi Lain</string>
+    <string name="use_global_setting">Gunakan Pengaturan Utama</string>
+    <string name="operation_completed_successfully">Operasi selsesai dengan sukses</string>
+    <string name="save">Simpan</string>
+
+    <!-- GPU driver installation -->
+    <string name="select_gpu_driver">Pilih driver GPU</string>
+    <string name="select_gpu_driver_title">Apakah Anda ingin mengganti driver GPU saat ini?</string>
+    <string name="select_gpu_driver_install">Instal</string>
+    <string name="select_gpu_driver_default">Bawaan</string>
+    <string name="select_gpu_driver_use_default">Gunakan driver GPU Bawaan</string>
+    <string name="select_gpu_driver_error">Driver yang dipilih tidak valid</string>
+    <string name="driver_already_installed">Driver sudah terpasang</string>
+    <string name="system_gpu_driver">Driver GPU sistem</string>
+    <string name="installing_driver">Memasang driver...</string>
+
+    <!-- Preferences Screen -->
+    <string name="preferences_settings">Pengaturan</string>
+    <string name="preferences_general">Umum</string>
+    <string name="preferences_system">Sistem</string>
+    <string name="preferences_system_description">Mode Docked, wilayah, bahasa</string>
+    <string name="preferences_graphics">Grafis</string>
+    <string name="preferences_graphics_description">Tingkat akurasi, resolusi, cache shader</string>
+    <string name="preferences_audio">Audio</string>
+    <string name="preferences_audio_description">Output audio, volume</string>
+    <string name="preferences_controls">Kendali</string>
+    <string name="preferences_theme">Tema dan warna</string>
+    <string name="preferences_debug">Awakutu</string>
+    <string name="preferences_debug_description">CPU/GPU debugging, graphics API, fastmem</string>
+
+    <!-- Game properties -->
+    <string name="info">Info</string>
+    <string name="info_description">ID program, pengembang, versi</string>
+    <string name="per_game_settings">Pengaturan per game</string>
+    <string name="per_game_settings_description">Mengedit pengaturan khusus untuk game ini</string>
+    <string name="launch_options">Luncurkan konfigurasi</string>
+    <string name="path">Jalur</string>
+    <string name="program_id">Program Id</string>
+    <string name="developer">Pengembang</string>
+    <string name="version">Versi</string>
+    <string name="copy_details">Salin Detail</string>
+    <string name="add_ons">Pengaya</string>
+    <string name="add_ons_description">Ganti mod, pembaruan dan dlc</string>
+    <string name="clear_shader_cache">Menghapus Cache Shader</string>
+    <string name="clear_shader_cache_description">Menghapus semua shader yang dibangun saat bermain game ini</string>
+    <string name="clear_shader_cache_warning_description">Anda akan mengalami lebih banyak stuttering saat shader cache diregenerasi.</string>
+    <string name="cleared_shaders_successfully">Berhasil Membersihkan hader </string>
+    <string name="addons_game">Pengaya Permainan: %1$s</string>
+    <string name="save_data">Simpanan Data</string>
+    <string name="save_data_description">Mengelola data simpanan yang spesifik untuk permainan ini</string>
+    <string name="delete_save_data">Hapus Simpanan Data</string>
+    <string name="delete_save_data_description">Menghapus semua data simpanan yang spesifik untuk permainan ini</string>
+    <string name="delete_save_data_warning_description">Apakah Anda yakin ingin melanjutkan? Ini akan menghapus semua data simpanan permainan ini secara permanen.</string>
+    <string name="save_data_deleted_successfully">Simpanan Data Berhasil Dihapus</string>
+    <string name="select_content_type">Pilih Jenis Konten</string>
+    <string name="updates_and_dlc">Update Dan Dlc</string>
+    <string name="mods_and_cheats">Mod Dan Cheat</string>
+    <string name="addon_notice">Pemberitahuan Pengaya</string>
+    <!-- "cheats/" "romfs/" and "exefs/ should not be translated -->
+    <string name="addon_notice_description">Untuk memasang mod dan cheat, Anda harus memilih folder yang berisi direktori cheats/, romfs/, atau exefs/. Kami tidak dapat memverifikasi apakah semua ini kompatibel dengan game Anda, jadi berhati-hatilah!</string>
+    <string name="invalid_directory">Direktori Tidak Valid</string>
+    <!-- "cheats/" "romfs/" and "exefs/ should not be translated -->
+    <string name="invalid_directory_description">Pastikan direktori yang Anda pilih berisi folder cheats/, romfs/, atau exefs/, lalu coba lagi.</string>
+    <string name="addon_installed_successfully">Pengaya Sukses Dipasang</string>
+    <string name="verifying_content">Memverifikasi Konten</string>
+    <string name="content_install_notice">Pemberitahuan Pemasangan</string>
+    <string name="content_install_notice_description">Konten yang Anda pilih tidak cocok dengan game ini. Tetap Install?</string>
+    <string name="confirm_uninstall">Hapus Installasi</string>
+    <string name="confirm_uninstall_description">Apakah Anda yakin ingin menghapus addon ini?</string>
+    <string name="verify_integrity">Integritas</string>
+    <string name="verifying">Memverifikasi</string>
+    <string name="verify_success">Berhasil</string>
+    <string name="verify_failure">Gagal</string>
+    <string name="verify_failure_description">Konten file mungkin rusak</string>
+    <string name="verify_no_result">Tidak Ada Hasil</string>
+    <string name="verify_no_result_description">Isi file tidak diperiksa ke validasinya</string>
+    <string name="verification_failed_for">Verifikasi gagal untuk file-file berikut:\n%1$s</string>
+
+    <!-- ROM loading errors -->
+    <string name="loader_error_encrypted">ROM-mu ter-enkripsi</string>
+    <string name="loader_error_encrypted_roms_description"><![CDATA[Silakan ikuti panduan untuk redump <a href=\"https://citron-emu.org/help/quickstart/#dumping-physical-titles-game-cards\">kartu permainan</a> atau <a href=\"https://citron-emu.org/help/quickstart/#dumping-digital-titles-eshop\">judul yang terinstal</a>.]]></string>
+    <string name="loader_error_encrypted_keys_description"><![CDATA[Harap pastikan bahwa Anda <a href=\"https://citron-emu.org/help/quickstart/#dumping-prodkeys-and-titlekeys\">prod.keys</a> diinstal sehingga game dapat didekripsi.]]></string>
+    <string name="loader_error_video_core">Terjadi kesalahan ketika menginisialisasi inti video.</string>
+    <string name="loader_error_video_core_description">Hal ini biasanya disebabkan oleh driver GPU yang tidak kompatibel. Menginstal driver GPU khusus dapat mengatasi masalah ini</string>
+    <string name="loader_error_invalid_format">Tidak Dapat Memuat ROM</string>
+    <string name="loader_error_file_not_found">Berkas Tidak Ditemukan</string>
+
+    <!-- Emulation Menu -->
+    <string name="emulation_exit">Keluar</string>
+    <string name="emulation_done">Selesai</string>
+    <string name="emulation_fps_counter">penghitung Fps </string>
+    <string name="emulation_thermal_indicator">Indikator termal</string>
+    <string name="emulation_toggle_controls">Beralih Kontrol</string>
+    <string name="emulation_rel_stick_center">Pusat stick relatif</string>
+    <string name="emulation_dpad_slide">Geser Dpad</string>
+    <string name="emulation_haptics">Haptik</string>
+    <string name="emulation_show_overlay">Tampilkan Hamparan</string>
+    <string name="emulation_toggle_all">Alihkan Semua</string>
+    <string name="emulation_control_adjust">Menyesuaikan</string>
+    <string name="emulation_control_scale">Skala</string>
+    <string name="emulation_control_opacity">Kegelapan</string>
+    <string name="emulation_touch_overlay_reset">Penyetelan Ulang Hamparan</string>
+    <string name="emulation_touch_overlay_edit">Edit Hamparan</string>
+    <string name="emulation_pause">Jeda</string>
+    <string name="emulation_unpause">Batalkan Jeda</string>
+    <string name="emulation_input_overlay">Hamparan Masukan</string>
+    <string name="touchscreen">Layar Sentuh</string>
+    <string name="lock_drawer">Kunci Laci</string>
+    <string name="unlock_drawer">Buka Kunci Laci</string>
+
+    <string name="load_settings">Pengaturan</string>
+
+    <!-- Software keyboard -->
+    <string name="software_keyboard">Papan Ketik Perangkat Lunak</string>
+
+    <!-- Errors and warnings -->
+    <string name="abort_button">Batalkan</string>
+    <string name="continue_button">Lanjut</string>
+    <string name="system_archive_not_found">Arsip Tidak Ditemukan</string>
+    <string name="system_archive_not_found_message">%s hilang. Harap buang arsip sistem Anda.\nMelanjutkan emulasi dapat menyebabkan kerusakan dan bug.</string>
+    <string name="system_archive_general">Arsip Umum</string>
+    <string name="save_load_error">Kesalahan Memuat</string>
+    <string name="fatal_error">Kesalahan Fatal</string>
+    <string name="fatal_error_message">Kesalahan Fatal Pesan. Periksa log untuk rincian.\nMelanjutkan emulasi dapat menyebabkan crash dan bug.</string>
+    <string name="performance_warning">Matikan pengaturan ini akan signifikan mengurangi kinerja emulasi! Untuk pengalaman terbaik, disarankan agar Anda tetap mengaktifkan pengaturan ini.</string>
+    <string name="device_memory_inadequate">Ram Perangkat: %1$s\nRekomendasikan: %2$s</string>
+    <string name="memory_formatted">%1$s%2$s</string>
+    <string name="no_game_present">Tidak ada permainan yang dapat di-boot!</string>
+
+    <!-- Region Names -->
+    <string name="region_japan">Jepang</string>
+    <string name="region_usa">Amerika Serikat</string>
+    <string name="region_europe">Eropa</string>
+    <string name="region_australia">Australia</string>
+    <string name="region_china">Tiongkok</string>
+    <string name="region_korea">Korea</string>
+    <string name="region_taiwan">Taiwan</string>
+
+    <!-- Memory Sizes -->
+    <string name="memory_byte">Byte</string>
+    <string name="memory_byte_shorthand">B</string>
+    <string name="memory_kilobyte">KB</string>
+    <string name="memory_megabyte">MB</string>
+    <string name="memory_gigabyte">Britania Raya</string>
+    <string name="memory_terabyte">TB</string>
+    <string name="memory_petabyte">PB</string>
+    <string name="memory_exabyte">EB</string>
+
+    <!-- Renderer APIs -->
+    <string name="renderer_vulkan">Vulkan</string>
+    <string name="renderer_none">Tak ada</string>
+
+    <!-- Renderer Accuracy -->
+    <string name="renderer_accuracy_normal">Normal</string>
+    <string name="renderer_accuracy_high">Tinggi</string>
+    <string name="renderer_accuracy_extreme">Ekstrim (Lambat)</string>
+
+    <!-- Resolutions -->
+    <string name="resolution_half">0.5X (360p/540p)</string>
+    <string name="resolution_three_quarter">0.75X (540p/810p)</string>
+    <string name="resolution_one">1X (720p/1080p)</string>
+    <string name="resolution_two">2X (1440p/2160p) (Lambat)</string>
+    <string name="resolution_three">3X (2160p/3240p) (Lambat)</string>
+    <string name="resolution_four">4X (2880p/4320p) (Lambat)</string>
+
+    <!-- Renderer VSync -->
+    <string name="renderer_vsync_immediate">Immediate (OFF)</string>
+    <string name="renderer_vsync_mailbox">Mailbox</string>
+    <string name="renderer_vsync_fifo">FIFO (ON)</string>
+    <string name="renderer_vsync_fifo_relaxed">FIFO Relaxed</string>
+
+    <!-- Scaling Filters -->
+    <string name="scaling_filter_nearest_neighbor">Nearest Neighbor</string>
+    <string name="scaling_filter_bilinear">Biliner</string>
+    <string name="scaling_filter_bicubic">Bikubik</string>
+    <string name="scaling_filter_gaussian">Gaussian</string>
+    <string name="scaling_filter_scale_force">ScaleForce</string>
+    <string name="scaling_filter_fsr">AMD FidelityFX™ Super Resolusi</string>
+
+    <!-- Anti-Aliasing -->
+    <string name="anti_aliasing_none">Tak ada</string>
+    <string name="anti_aliasing_fxaa">FXAA</string>
+    <string name="anti_aliasing_smaa">SMAA</string>
+
+    <!-- Screen Layouts -->
+    <string name="screen_layout_auto">Otomatis</string>
+    <string name="screen_layout_sensor_landscape">Lanskap Sensor</string>
+    <string name="screen_layout_landscape">Lanskap</string>
+    <string name="screen_layout_reverse_landscape">Lanskap Terbalik</string>
+    <string name="screen_layout_sensor_portrait">Potret Sensor</string>
+    <string name="screen_layout_portrait">Potret</string>
+    <string name="screen_layout_reverse_portrait">Potret Terbalik</string>
+
+    <!-- Aspect Ratios -->
+    <string name="ratio_default">Bawaan (16:9)</string>
+    <string name="ratio_force_four_three">Paksa 4:3</string>
+    <string name="ratio_force_twenty_one_nine">Paksa 21:9</string>
+    <string name="ratio_force_sixteen_ten">Paksa 16:10</string>
+    <string name="ratio_stretch">Merentangkan</string>
+
+    <!-- CPU Backend -->
+    <string name="cpu_backend_dynarmic">Dynamic (Lambat)</string>
+    <string name="cpu_backend_nce">Native code execution (NCE)</string>
+
+    <!-- CPU Accuracy -->
+    <string name="cpu_accuracy_accurate">Akurat</string>
+    <string name="cpu_accuracy_unsafe">Berbahaya</string>
+    <string name="cpu_accuracy_paranoid">Paranoid (Slow)</string>
+
+    <!-- Gamepad Buttons -->
+    <string name="gamepad_d_pad">D Pad</string>
+    <string name="gamepad_left_stick">Left Stick</string>
+    <string name="gamepad_right_stick">Right Stick</string>
+    <string name="gamepad_home">Home</string>
+    <string name="gamepad_screenshot">Screenshot</string>
+
+    <!-- Disk shader cache -->
+    <string name="preparing_shaders">menyiapkan shader</string>
+    <string name="building_shaders">membangun shader</string>
+
+    <!-- Theme options -->
+    <string name="change_app_theme">Ubah Tema</string>
+    <string name="theme_default">Bawaan</string>
+    <string name="theme_material_you">Material Anda</string>
+
+    <!-- Theme Modes -->
+    <string name="change_theme_mode">Mengubah Tema</string>
+    <string name="theme_mode_follow_system">Mengikuti Sistem</string>
+    <string name="theme_mode_light">Terang</string>
+    <string name="theme_mode_dark">Gelap</string>
+
+    <!-- Audio output engines -->
+    <string name="oboe">Oboe</string>
+    <string name="cubeb">Cubeb</string>
+
+    <!-- Anisotropic filtering options -->
+    <string name="multiplier_two">2x</string>
+    <string name="multiplier_four">4x</string>
+    <string name="multiplier_eight">8x</string>
+    <string name="multiplier_sixteen">16x</string>
+
+    <!-- Black backgrounds theme -->
+    <string name="use_black_backgrounds">Gunakan Latar Belakang Hitam</string>
+    <string name="use_black_backgrounds_description">Apabila menggunakan tema gelap, terapkan latar belakang hitam</string>
+
+    <!-- Picture-In-Picture -->
+    <string name="picture_in_picture">Gambar dalam gambar</string>
+    <string name="picture_in_picture_description">Meminimalkan jendela apabila ditempatkan di latar belakang</string>
+    <string name="pause">Jeda</string>
+    <string name="play">Bermain</string>
+    <string name="mute">Bisukan</string>
+    <string name="unmute">Membunyikan</string>
+
+    <!-- Emulation vertical alignment -->
+    <string name="vertical_alignment">Penyelarasan vertikal</string>
+    <string name="top">Atas</string>
+    <string name="center">Pusat</string>
+    <string name="bottom">Bawah</string>
+
+    <!-- Licenses screen strings -->
+    <string name="licenses">Lisensi</string>
+    <string name="license_fidelityfx_fsr_description">Peningkatan kualitas tinggi dari AMD</string>
+    </resources>

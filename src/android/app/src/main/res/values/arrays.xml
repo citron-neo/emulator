@@ -1,0 +1,422 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <string-array name="regionNames">
+        <item>@string/region_australia</item>
+        <item>@string/region_china</item>
+        <item>@string/region_europe</item>
+        <item>@string/region_japan</item>
+        <item>@string/region_korea</item>
+        <item>@string/region_taiwan</item>
+        <item>@string/region_usa</item>
+    </string-array>
+
+    <integer-array name="regionValues">
+        <item>3</item>
+        <item>4</item>
+        <item>2</item>
+        <item>0</item>
+        <item>5</item>
+        <item>6</item>
+        <item>1</item>
+    </integer-array>
+
+    <string-array name="languageNames">
+        <item>@string/language_brazilian_portuguese</item>
+        <item>@string/language_british_english</item>
+        <item>@string/language_canadian_french</item>
+        <item>@string/language_chinese</item>
+        <item>@string/language_dutch</item>
+        <item>@string/language_english</item>
+        <item>@string/language_french</item>
+        <item>@string/language_german</item>
+        <item>@string/language_italian</item>
+        <item>@string/language_japanese</item>
+        <item>@string/language_korean</item>
+        <item>@string/language_latin_american_spanish</item>
+        <item>@string/language_portuguese</item>
+        <item>@string/language_russian</item>
+        <item>@string/language_simplified_chinese</item>
+        <item>@string/language_spanish</item>
+        <item>@string/language_taiwanese</item>
+        <item>@string/language_traditional_chinese</item>
+    </string-array>
+
+    <integer-array name="languageValues">
+        <item>17</item>
+        <item>12</item>
+        <item>13</item>
+        <item>6</item>
+        <item>8</item>
+        <item>1</item>
+        <item>2</item>
+        <item>3</item>
+        <item>4</item>
+        <item>0</item>
+        <item>7</item>
+        <item>14</item>
+        <item>9</item>
+        <item>10</item>
+        <item>15</item>
+        <item>5</item>
+        <item>11</item>
+        <item>16</item>
+    </integer-array>
+
+    <string-array name="rendererApiNames">
+        <item>@string/renderer_vulkan</item>
+        <item>@string/renderer_none</item>
+    </string-array>
+
+    <integer-array name="rendererApiValues">
+        <item>1</item>
+        <item>2</item>
+    </integer-array>
+
+    <string-array name="rendererAccuracyNames">
+        <item>@string/renderer_accuracy_normal</item>
+        <item>@string/renderer_accuracy_high</item>
+        <item>@string/renderer_accuracy_extreme</item>
+    </string-array>
+
+    <integer-array name="rendererAccuracyValues">
+        <item>0</item>
+        <item>1</item>
+        <item>2</item>
+    </integer-array>
+
+    <string-array name="rendererResolutionNames">
+        <item>@string/resolution_half</item>
+        <item>@string/resolution_three_quarter</item>
+        <item>@string/resolution_one</item>
+        <item>@string/resolution_two</item>
+        <item>@string/resolution_three</item>
+        <item>@string/resolution_four</item>
+    </string-array>
+
+    <string-array name="rendererVSyncNames">
+        <item>@string/renderer_vsync_immediate</item>
+        <item>@string/renderer_vsync_mailbox</item>
+        <item>@string/renderer_vsync_fifo</item>
+        <item>@string/renderer_vsync_fifo_relaxed</item>
+    </string-array>
+
+    <integer-array name="rendererResolutionValues">
+        <item>0</item>
+        <item>1</item>
+        <item>2</item>
+        <item>3</item>
+        <item>4</item>
+        <item>5</item>
+    </integer-array>
+
+    <integer-array name="rendererVSyncValues">
+        <item>0</item>
+        <item>1</item>
+        <item>2</item>
+        <item>3</item>
+    </integer-array>
+
+    <string-array name="rendererScreenLayoutNames">
+        <item>@string/screen_layout_auto</item>
+        <item>@string/screen_layout_sensor_landscape</item>
+        <item>@string/screen_layout_landscape</item>
+        <item>@string/screen_layout_reverse_landscape</item>
+        <item>@string/screen_layout_sensor_portrait</item>
+        <item>@string/screen_layout_portrait</item>
+        <item>@string/screen_layout_reverse_portrait</item>
+    </string-array>
+
+    <integer-array name="rendererScreenLayoutValues">
+        <item>0</item>
+        <item>5</item>
+        <item>1</item>
+        <item>2</item>
+        <item>6</item>
+        <item>4</item>
+        <item>3</item>
+    </integer-array>
+
+    <string-array name="rendererAspectRatioNames">
+        <item>@string/ratio_default</item>
+        <item>@string/ratio_force_four_three</item>
+        <item>@string/ratio_force_twenty_one_nine</item>
+        <item>@string/ratio_force_sixteen_ten</item>
+        <item>@string/ratio_stretch</item>
+    </string-array>
+
+    <integer-array name="rendererAspectRatioValues">
+        <item>0</item>
+        <item>1</item>
+        <item>2</item>
+        <item>3</item>
+        <item>4</item>
+    </integer-array>
+
+    <string-array name="rendererScalingFilterNames">
+        <item>@string/scaling_filter_nearest_neighbor</item>
+        <item>@string/scaling_filter_bilinear</item>
+        <item>@string/scaling_filter_bicubic</item>
+        <item>@string/scaling_filter_gaussian</item>
+        <item>@string/scaling_filter_scale_force</item>
+        <item>@string/scaling_filter_fsr</item>
+        <item>@string/scaling_filter_fsr2</item>
+    </string-array>
+
+    <integer-array name="rendererScalingFilterValues">
+        <item>0</item>
+        <item>1</item>
+        <item>2</item>
+        <item>3</item>
+        <item>4</item>
+        <item>5</item>
+        <item>6</item>
+    </integer-array>
+
+    <string-array name="fsr2QualityModeNames">
+        <item>@string/fsr2_quality_quality</item>
+        <item>@string/fsr2_quality_balanced</item>
+        <item>@string/fsr2_quality_performance</item>
+        <item>@string/fsr2_quality_ultra_performance</item>
+    </string-array>
+
+    <integer-array name="fsr2QualityModeValues">
+        <item>0</item>
+        <item>1</item>
+        <item>2</item>
+        <item>3</item>
+    </integer-array>
+
+
+
+    <string-array name="frameSkippingNames">
+        <item>@string/frame_skipping_disabled</item>
+        <item>@string/frame_skipping_enabled</item>
+    </string-array>
+
+    <integer-array name="frameSkippingValues">
+        <item>0</item>
+        <item>1</item>
+    </integer-array>
+
+    <string-array name="frameSkippingModeNames">
+        <item>@string/frame_skipping_mode_adaptive</item>
+        <item>@string/frame_skipping_mode_fixed</item>
+    </string-array>
+
+    <integer-array name="frameSkippingModeValues">
+        <item>0</item>
+        <item>1</item>
+    </integer-array>
+
+    <string-array name="rendererAntiAliasingNames">
+        <item>@string/anti_aliasing_none</item>
+        <item>@string/anti_aliasing_fxaa</item>
+        <item>@string/anti_aliasing_smaa</item>
+    </string-array>
+
+    <integer-array name="rendererAntiAliasingValues">
+        <item>0</item>
+        <item>1</item>
+        <item>2</item>
+    </integer-array>
+
+    <string-array name="cpuBackendArm64Names">
+        <item>@string/cpu_backend_dynarmic</item>
+        <item>@string/cpu_backend_nce</item>
+    </string-array>
+
+    <integer-array name="cpuBackendArm64Values">
+        <item>0</item>
+        <item>1</item>
+    </integer-array>
+
+    <string-array name="cpuBackendX86Names">
+        <item>@string/cpu_backend_dynarmic</item>
+    </string-array>
+
+    <integer-array name="cpuBackendX86Values">
+        <item>0</item>
+    </integer-array>
+
+    <string-array name="cpuAccuracyNames">
+        <item>@string/auto</item>
+        <item>@string/cpu_accuracy_accurate</item>
+        <item>@string/cpu_accuracy_unsafe</item>
+        <item>@string/cpu_accuracy_paranoid</item>
+    </string-array>
+
+    <integer-array name="cpuAccuracyValues">
+        <item>0</item>
+        <item>1</item>
+        <item>2</item>
+        <item>3</item>
+    </integer-array>
+
+    <string-array name="gamepadButtons">
+        <item>A</item>
+        <item>B</item>
+        <item>X</item>
+        <item>Y</item>
+        <item>+</item>
+        <item>-</item>
+        <item>@string/gamepad_home</item>
+        <item>@string/gamepad_screenshot</item>
+        <item>L</item>
+        <item>R</item>
+        <item>ZL</item>
+        <item>ZR</item>
+        <item>L3</item>
+        <item>R3</item>
+        <item>@string/gamepad_left_stick</item>
+        <item>@string/gamepad_right_stick</item>
+        <item>@string/gamepad_d_pad</item>
+    </string-array>
+
+    <string-array name="themeEntries">
+        <item>@string/theme_default</item>
+    </string-array>
+    <integer-array name="themeValues">
+        <item>0</item>
+    </integer-array>
+
+    <string-array name="themeEntriesA12">
+        <item>@string/theme_default</item>
+        <item>@string/theme_material_you</item>
+    </string-array>
+    <integer-array name="themeValuesA12">
+        <item>0</item>
+        <item>1</item>
+    </integer-array>
+
+    <string-array name="themeModeEntries">
+        <item>@string/theme_mode_follow_system</item>
+        <item>@string/theme_mode_light</item>
+        <item>@string/theme_mode_dark</item>
+    </string-array>
+    <integer-array name="themeModeValues">
+        <item>-1</item>
+        <item>1</item>
+        <item>2</item>
+    </integer-array>
+
+    <string-array name="outputEngineEntries">
+        <item>@string/auto</item>
+        <item>@string/oboe</item>
+        <item>@string/cubeb</item>
+        <item>@string/string_null</item>
+    </string-array>
+    <integer-array name="outputEngineValues">
+        <item>0</item>
+        <item>4</item>
+        <item>1</item>
+        <item>3</item>
+    </integer-array>
+
+    <string-array name="anisoEntries">
+        <item>@string/auto</item>
+        <item>@string/slider_default</item>
+        <item>@string/multiplier_two</item>
+        <item>@string/multiplier_four</item>
+        <item>@string/multiplier_eight</item>
+        <item>@string/multiplier_sixteen</item>
+    </string-array>
+    <integer-array name="anisoValues">
+        <item>0</item>
+        <item>1</item>
+        <item>2</item>
+        <item>3</item>
+        <item>4</item>
+        <item>5</item>
+    </integer-array>
+
+    <string-array name="verticalAlignmentEntries">
+        <item>@string/top</item>
+        <item>@string/center</item>
+        <item>@string/bottom</item>
+    </string-array>
+    <integer-array name="verticalAlignmentValues">
+        <item>1</item>
+        <item>0</item>
+        <item>2</item>
+    </integer-array>
+
+    <!-- Zep Zone setting arrays -->
+    <string-array name="memoryLayoutNames">
+        <item>4GB DRAM (Default)</item>
+        <item>6GB DRAM (Unsafe)</item>
+        <item>8GB DRAM (Unsafe)</item>
+        <item>10GB DRAM (Unsafe)</item>
+        <item>12GB DRAM (Unsafe)</item>
+        <item>14GB DRAM (Unsafe)</item>
+        <item>16GB DRAM (Unsafe)</item>
+    </string-array>
+
+    <integer-array name="memoryLayoutValues">
+        <item>0</item>
+        <item>1</item>
+        <item>2</item>
+        <item>3</item>
+        <item>4</item>
+        <item>5</item>
+        <item>6</item>
+    </integer-array>
+
+    <string-array name="astcDecodeModeNames">
+        <item>CPU</item>
+        <item>GPU</item>
+        <item>CPU Asynchronous</item>
+    </string-array>
+
+    <integer-array name="astcDecodeModeValues">
+        <item>0</item>
+        <item>1</item>
+        <item>2</item>
+    </integer-array>
+
+    <string-array name="astcRecompressionNames">
+        <item>Uncompressed</item>
+        <item>BC1</item>
+        <item>BC3</item>
+    </string-array>
+
+    <integer-array name="astcRecompressionValues">
+        <item>0</item>
+        <item>1</item>
+        <item>2</item>
+    </integer-array>
+
+    <string-array name="shaderBackendNames">
+        <item>GLSL</item>
+        <item>GLASM</item>
+        <item>SPIR-V</item>
+    </string-array>
+
+    <integer-array name="shaderBackendValues">
+        <item>0</item>
+        <item>1</item>
+        <item>2</item>
+    </integer-array>
+
+    <string-array name="vramUsageModeNames">
+        <item>Conservative</item>
+        <item>Aggressive</item>
+    </string-array>
+
+    <integer-array name="vramUsageModeValues">
+        <item>0</item>
+        <item>1</item>
+    </integer-array>
+
+    <!-- Applet Mode setting arrays -->
+    <string-array name="appletModeNames">
+        <item>HLE (High-Level Emulation)</item>
+        <item>LLE (Low-Level Emulation)</item>
+    </string-array>
+
+    <integer-array name="appletModeValues">
+        <item>0</item>
+        <item>1</item>
+    </integer-array>
+
+</resources>

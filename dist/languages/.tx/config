@@ -1,0 +1,14 @@
+[main]
+host = https://www.transifex.com
+
+[o:citron-emulator:p:citron:r:emulator]
+file_filter = <lang>.ts
+source_file = en.ts
+source_lang = en
+type = QT
+
+[o:citron-emulator:p:citron:r:citron-android]
+file_filter = ../../src/android/app/src/main/res/values-<lang>/strings.xml
+source_file = ../../src/android/app/src/main/res/values/strings.xml
+type = ANDROID
+lang_map = ja_JP:ja, ko_KR:ko, pt_BR:pt-rBR, pt_PT:pt-rPT, ru_RU:ru, vi_VN:vi, zh_CN:zh-rCN, zh_TW:zh-rTW

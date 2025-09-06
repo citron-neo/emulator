@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <!-- Custom button styles -->
+    <style name="InGameMenuOption" parent="Widget.Material3.Button.TextButton">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">48dp</item>
+        <item name="android:textColor">@android:color/black</item>
+        <item name="android:textSize">16sp</item>
+        <item name="android:fontFamily">sans-serif-condensed</item>
+        <item name="android:gravity">center_vertical|left</item>
+        <item name="android:paddingLeft">32dp</item>
+        <item name="android:paddingRight">32dp</item>
+    </style>
+
+    <style name="CitronSlider" parent="Widget.Material3.Slider">
+        <item name="tickVisible">false</item>
+        <item name="labelBehavior">gone</item>
+    </style>
+
+    <style name="CitronMaterialDialog" parent="ThemeOverlay.Material3.MaterialAlertDialog">
+        <item name="colorPrimary">@color/citron_primaryContainer</item>
+        <item name="colorSurface">@color/citron_primaryContainer</item>
+        <item name="colorSecondary">@color/citron_primary</item>
+        <item name="android:textColorLink">@color/citron_primary</item>
+        <item name="buttonBarPositiveButtonStyle">@style/CitronButton</item>
+        <item name="buttonBarNegativeButtonStyle">@style/CitronButton</item>
+        <item name="buttonBarNeutralButtonStyle">@style/CitronButton</item>
+    </style>
+
+    <style name="CitronButton" parent="Widget.Material3.Button.TextButton.Dialog">
+        <item name="android:textColor">@color/citron_primary</item>
+        <item name="rippleColor">@color/citron_inversePrimary</item>
+    </style>
+
+</resources>

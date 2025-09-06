@@ -1,0 +1,581 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:tools="http://schemas.android.com/tools" tools:ignore="MissingTranslation">
+
+    <string name="app_disclaimer">이 소프트웨어는 Nintendo Switch 게임을 실행합니다. 게임 타이틀이나 키는 포함되어 있지 않습니다.&lt;br /&gt;&lt;br /&gt;시작하기 전에 장치 저장소에서 <![CDATA[<b> prod.keys </b>]]> 파일을 찾아주세요.&lt;br /&gt;&lt;br /&gt;<![CDATA[<a href=\"https://citron-emu.org/help/quickstart\">자세히 알아보기</a>]]></string>
+    <string name="notice_notification_channel_name">알림 및 오류</string>
+    <string name="notice_notification_channel_description">문제가 발생하면 알림을 표시합니다.</string>
+    <string name="notification_permission_not_granted">알림 권한이 부여되지 않았습니다!</string>
+
+    <!-- Setup strings -->
+    <string name="welcome">환영합니다!</string>
+    <string name="welcome_description">&lt;b>citron&lt;/b>를 설정하고 에뮬레이션을 시작하세요.</string>
+    <string name="get_started">시작하기</string>
+    <string name="keys">키 설정</string>
+    <string name="keys_description">아래 버튼으로 &lt;b>prod.keys&lt;/b> 파일을 선택합니다.</string>
+    <string name="select_keys">키 선택</string>
+    <string name="games">게임</string>
+    <string name="games_description">아래 버튼으로 &lt;b>게임&lt;/b> 폴더를 선택합니다.</string>
+    <string name="done">완료</string>
+    <string name="done_description">모두 준비되었습니다.\n게임을 즐기세요!</string>
+    <string name="text_continue">계속</string>
+    <string name="next">다음</string>
+    <string name="back">이전</string>
+    <string name="add_games">게임 추가</string>
+    <string name="add_games_description">게임 폴더 선택</string>
+    <string name="step_complete">완료되었습니다!</string>
+
+    <!-- Home strings -->
+    <string name="home_games">게임</string>
+    <string name="home_search">검색</string>
+    <string name="home_settings">설정</string>
+    <string name="empty_gamelist">파일을 찾을 수 없거나 아직 게임 디렉터리를 선택하지 않았습니다.</string>
+    <string name="search_and_filter_games">게임 검색 및 필터링</string>
+    <string name="select_games_folder">게임 폴더 선택</string>
+    <string name="manage_game_folders">게임 폴더 관리</string>
+    <string name="select_games_folder_description">citron에 게임 목록 추가하기</string>
+    <string name="add_games_warning">게임 폴더 선택을 건너뛰겠습니까?</string>
+    <string name="add_games_warning_description">폴더를 선택하지 않으면 게임 목록에 게임이 표시되지 않습니다.</string>
+    <string name="add_games_warning_help">https://citron-emu.org/help/quickstart/#dumping-games</string>
+    <string name="home_search_games">게임 검색</string>
+    <string name="search_settings">검색 설정</string>
+    <string name="games_dir_selected">게임 디렉터리를 설정했습니다.</string>
+    <string name="install_prod_keys">prod.keys 설치</string>
+    <string name="install_prod_keys_description">패키지 게임 암호 해독에 필요</string>
+    <string name="install_prod_keys_warning">키 추가를 건너뛰겠습니까?</string>
+    <string name="install_prod_keys_warning_description">패키지 게임을 에뮬레이트하려면 유효한 키 값이 필요합니다. 이 단계를 건너뛰면 홈브류 게임만 실행할 수 있습니다.</string>
+    <string name="install_prod_keys_warning_help">https://citron-emu.org/help/quickstart/#guide-introduction</string>
+    <string name="notifications">알림</string>
+    <string name="notifications_description">아래 버튼으로 알림 권한을 부여합니다.</string>
+    <string name="give_permission">알림 켜기</string>
+    <string name="notification_warning">알림을 끄겠습니까?</string>
+    <string name="notification_warning_description">citron가 중요한 정보를 알려드리지 않습니다.</string>
+    <string name="permission_denied">권한 거부됨</string>
+    <string name="permission_denied_description">권한 허용을 너무 많이 거부하여 시스템 설정에서 수동으로 권한을 부여해야 합니다.</string>
+    <string name="about">정보</string>
+    <string name="about_description">빌드 버전, 크레딧 등</string>
+    <string name="warning_help">도움말</string>
+    <string name="warning_skip">건너뛰기</string>
+    <string name="warning_cancel">취소</string>
+    <string name="install_amiibo_keys">amiibo 키 설치</string>
+    <string name="install_amiibo_keys_description">게임에서 amiibo 사용 시 필요</string>
+    <string name="invalid_keys_file">잘못된 키 파일이 선택됨</string>
+    <string name="install_keys_success">키 값을 설치했습니다.</string>
+    <string name="reading_keys_failure">암호화 키 읽기 오류</string>
+    <string name="install_prod_keys_failure_extension_description">키 파일의 확장자가 .keys인지 확인하고 다시 시도하세요.</string>
+    <string name="install_amiibo_keys_failure_extension_description">키 파일의 확장자가 .bin인지 확인하고 다시 시도하세요.</string>
+    <string name="invalid_keys_error">암호화 키가 올바르지 않음</string>
+    <string name="dumping_keys_quickstart_link">https://citron-emu.org/help/quickstart/#dumping-decryption-keys</string>
+    <string name="install_keys_failure_description">선택한 파일이 잘못되었거나 손상되었습니다. 키를 다시 덤프하세요.</string>
+    <string name="gpu_driver_manager">GPU 드라이버 관리자</string>
+    <string name="install_gpu_driver">GPU 드라이버 설치</string>
+    <string name="install_gpu_driver_description">잠재적인 성능 또는 정확도 개선을 위해 대체 드라이버 설치</string>
+    <string name="advanced_settings">고급 설정</string>
+    <string name="advanced_settings_game">고급 설정: %1$s</string>
+    <string name="settings_description">에뮬레이터 설정 구성</string>
+    <string name="search_recently_played">최근 플레이</string>
+    <string name="search_recently_added">최근 추가</string>
+    <string name="search_retail">패키지</string>
+    <string name="search_homebrew">홈브류</string>
+    <string name="open_user_folder">citron 폴더 열기</string>
+    <string name="open_user_folder_description">citron의 내부 파일 관리</string>
+    <string name="theme_and_color_description">앱 디자인 편집</string>
+    <string name="no_file_manager">파일 관리자를 찾을 수 없음</string>
+    <string name="notification_no_directory_link">citron 디렉터리를 열 수 없음</string>
+    <string name="notification_no_directory_link_description">파일 관리자의 사이드 패널에서 사용자 폴더를 수동으로 찾아주세요.</string>
+    <string name="manage_save_data">세이브 데이터 관리</string>
+    <string name="manage_save_data_description">세이브 데이터를 발견했습니다. 아래에서 옵션을 선택하세요.</string>
+    <string name="import_save_warning">세이브 데이터 가져오기</string>
+    <string name="import_save_warning_description">이 작업은 기존 데이터 전체를 선택한 파일로 덮어씌웁니다. 계속하시겠습니까?</string>
+    <string name="import_export_saves_description">세이브 파일 가져오기 또는 내보내기</string>
+    <string name="save_files_importing">세이브 파일 가져오는 중...</string>
+    <string name="save_files_exporting">세이브 파일 내보내는 중...</string>
+    <string name="save_file_imported_success">데이터를 불러왔습니다.</string>
+    <string name="save_file_invalid_zip_structure">올바르지 않은 저장 디렉터리 구조</string>
+    <string name="save_file_invalid_zip_structure_description">첫 번째 하위 폴더 이름은 게임의 타이틀 ID여야 합니다.</string>
+    <string name="import_saves">가져오기</string>
+    <string name="export_saves">내보내기</string>
+    <string name="install_firmware">펌웨어 설치</string>
+    <string name="install_firmware_description">펌웨어는 ZIP 파일이며 일부 게임을 부팅하는 데 필요합니다.</string>
+    <string name="firmware_installing">펌웨어 설치 중...</string>
+    <string name="firmware_installed_success">펌웨어를 설치했습니다.</string>
+    <string name="firmware_installed_failure">펌웨어 설치 실패</string>
+    <string name="firmware_installed_failure_description">펌웨어 NCA 파일이 ZIP 파일의 루트 디렉토리에 위치한지 확인하고 다시 시도하세요.</string>
+    <string name="share_log">디버그 로그 공유</string>
+    <string name="share_log_description">문제 해결을 위한 citron 로그 파일 공유</string>
+    <string name="share_log_missing">로그 파일을 찾을 수 없습니다.</string>
+    <string name="install_game_content">게임 콘텐츠 설치</string>
+    <string name="install_game_content_description">게임 업데이트 또는 DLC 설치</string>
+    <string name="installing_game_content">콘텐츠 설치 중...</string>
+    <string name="install_game_content_failure">NAND에 파일을 설치하는 동안 오류 발생</string>
+    <string name="install_game_content_failure_description">콘텐츠가 유효하고 prod.keys가 설치되었는지 확인하세요.</string>
+    <string name="install_game_content_failure_base">충돌을 방지하기 위해 기본 게임 설치는 허용되지 않습니다.</string>
+    <string name="install_game_content_failure_file_extension">NSP 및 XCI 콘텐츠만 지원합니다. 게임 콘텐츠가 유효한지 확인하세요.</string>
+    <string name="install_game_content_failed_count">%1$d개의 설치 오류</string>
+    <string name="install_game_content_success">게임 콘텐츠 설치됨</string>
+    <string name="install_game_content_success_install">%1$d개를 설치했습니다.</string>
+    <string name="install_game_content_success_overwrite">%1$d개를 덮어씌웠습니다.</string>
+    <string name="install_game_content_help_link">https://citron-emu.org/help/quickstart/#dumping-installed-updates</string>
+    <string name="custom_driver_not_supported">사용자 지정 드라이버는 지원하지 않습니다.</string>
+    <string name="custom_driver_not_supported_description">이 장치의 사용자 지정 드라이버 로딩은 현재 지원하지 않습니다.\n나중에 이 옵션을 확인하면 지원이 추가되었는지 확인할 수 있습니다.</string>
+    <string name="manage_citron_data">citron 데이터 관리</string>
+    <string name="manage_citron_data_description">펌웨어, 키 값, 유저 데이터 등을 가져오기 또는 내보내기</string>
+    <string name="share_save_file">세이브 파일 공유</string>
+    <string name="export_save_failed">세이브 내보내기 실패</string>
+    <string name="game_folders">게임 폴더</string>
+    <string name="deep_scan">딥 스캔(하위 폴더 탐색)</string>
+    <string name="add_game_folder">게임 폴더 추가</string>
+    <string name="folder_already_added">이 폴더는 이미 추가되어 있습니다!</string>
+    <string name="game_folder_properties">게임 폴더 속성</string>
+    <plurals name="saves_import_failed">
+        <item quantity="other">%d개의 세이브 가져오기 실패</item>
+    </plurals>
+    <plurals name="saves_import_success">
+        <item quantity="other">%d개의 세이브를 가져왔습니다.</item>
+    </plurals>
+    <string name="no_save_data_found">세이브 데이터를 찾을 수 없음</string>
+    <string name="verify_installed_content">설치된 콘텐츠 인증</string>
+    <string name="verify_installed_content_description">전체 설치된 콘텐츠의 손상을 확인합니다.</string>
+    <string name="keys_missing">암호화 키를 찾을 수 없음</string>
+    <string name="keys_missing_description">펌웨어 및 패키지 게임을 해독할 수 없음</string>
+    <string name="keys_missing_help">https://citron-emu.org/help/quickstart/#dumping-decryption-keys</string>
+
+    <!-- Applet launcher strings -->
+    <string name="applets">애플릿 런처</string>
+    <string name="applets_description">설치된 펌웨어를 사용해 시스템 애플릿을 실행합니다.</string>
+    <string name="applets_error_firmware">펌웨어가 설치되지 않았습니다.</string>
+    <string name="applets_error_applet">애플릿을 사용할 수 없음</string>
+    <string name="applets_error_description"><![CDATA[<a href=\"https://citron-emu.org/help/quickstart/#dumping-prodkeys-and-titlekeys\">prod.keys</a> 파일과 <a href=\"https://citron-emu.org/help/quickstart/#dumping-system-firmware\">펌웨어가</a> 설치되었는지 확인하고 다시 시도하세요.]]></string>
+    <string name="album_applet">앨범</string>
+    <string name="album_applet_description">시스템 사진 뷰어로 유저 스크린샷 폴더에 저장된 이미지를 확인합니다. </string>
+    <string name="mii_edit_applet">Mii 편집</string>
+    <string name="mii_edit_applet_description">시스템 에디터로 Mii를 보고 편집합니다.</string>
+    <string name="cabinet_applet">캐비닛</string>
+    <string name="cabinet_applet_description">amiibo에 저장된 데이터를 편집하고 삭제합니다.</string>
+    <string name="cabinet_launcher">캐비닛 런처</string>
+    <string name="cabinet_nickname_and_owner">닉네임 및 소유자 설정</string>
+    <string name="cabinet_game_data_eraser">게임 데이터 삭제</string>
+    <string name="cabinet_restorer">복원</string>
+    <string name="cabinet_formatter">포맷터</string>
+
+    <!-- About screen strings -->
+    <string name="gaia_is_not_real">가이아는 진짜가 아님</string>
+    <string name="copied_to_clipboard">클립보드에 복사되었습니다.</string>
+    <string name="about_app_description">오픈 소스 Switch 에뮬레이터</string>
+    <string name="contributors">기여자</string>
+    <string name="contributors_description">citron 팀의 \u2764로 제작</string>
+    <string name="contributors_link">https://github.com/citron-emu/citron/graphs/contributors</string>
+    <string name="licenses_description">Android용 citron를 가능하게 하는 프로젝트</string>
+    <string name="build">빌드</string>
+    <string name="user_data">유저 데이터</string>
+    <string name="user_data_description">모든 앱 데이터를 가져오거나 내보냅니다.\n\n유저 데이터를 가져올 경우 현재의 모든 데이터는 삭제됩니다.</string>
+    <string name="exporting_user_data">유저 데이터 내보내는 중...</string>
+    <string name="importing_user_data">유저 데이터 가져오는 중...</string>
+    <string name="import_user_data">유저 데이터 가져오기</string>
+    <string name="invalid_citron_backup">올바르지 않은 citron 백업 파일</string>
+    <string name="user_data_export_success">유저 데이터를 내보냈습니다.</string>
+    <string name="user_data_import_success">유저 데이터를 가져왔습니다.</string>
+    <string name="user_data_export_cancelled">내보내기 취소됨</string>
+    <string name="user_data_import_failed_description">유저 데이터 폴더가 ZIP 폴더의 루트 디렉토리에 위치하고 config/config.ini 구성 파일이 있는지 확인하고 다시 시도하세요.</string>
+    <string name="support_link">https://discord.gg/u77vRWY</string>
+    <string name="website_link">https://citron-emu.org/</string>
+    <string name="github_link">https://github.com/citron-emu</string>
+
+    <!-- Early access upgrade strings -->
+    <string name="early_access">앞서 해보기</string>
+    <string name="get_early_access">앞서 해보기 신청</string>
+    <string name="play_store_link">https://play.google.com/store/apps/details?id=org.citron.citron_emu.ea</string>
+    <string name="get_early_access_description">최신 기능, 업데이트 미리 체험 등</string>
+    <string name="early_access_benefits">앞서 해보기 혜택</string>
+    <string name="cutting_edge_features">최신 기능</string>
+    <string name="early_access_updates">업데이트 미리 체험</string>
+    <string name="no_manual_installation">수동 설치 불필요</string>
+    <string name="prioritized_support">우선 지원</string>
+    <string name="helping_game_preservation">게임 보존 지원</string>
+    <string name="our_eternal_gratitude">우리의 영원한 감사의 마음</string>
+    <string name="are_you_interested">관심 있으세요?</string>
+
+    <!-- General settings strings -->
+    <string name="frame_limit_enable">속도 제한</string>
+    <string name="frame_limit_enable_description">에뮬레이션 속도를 정상 속도의 지정된 비율로 제한합니다.</string>
+    <string name="frame_limit_slider">속도 제한 비율</string>
+    <string name="frame_limit_slider_description">에뮬레이션 속도의 제한 비율을 지정합니다. 100%가 정상 속도입니다. 값이 높거나 낮으면 속도 제한이 증가하거나 감소합니다.</string>
+    <string name="cpu_backend">CPU 백엔드</string>
+    <string name="cpu_accuracy">CPU 정확도</string>
+    <string name="value_with_units">%1$s%2$s</string>
+
+    <string name="use_docked_mode">독 모드</string>
+    <string name="use_docked_mode_description">해상도를 높이며 성능이 저하됩니다. 비활성화시 휴대 모드가 사용되며 해상도는 낮아지고 성능은 향상됩니다.</string>
+    <string name="emulated_region">에뮬레이트 지역</string>
+    <string name="emulated_language">에뮬레이트 언어</string>
+    <string name="select_rtc_date">RTC 날짜 선택</string>
+    <string name="select_rtc_time">RTC 시간 선택</string>
+    <string name="use_custom_rtc">사용자 지정 RTC</string>
+    <string name="use_custom_rtc_description">현재 시스템 시간과 별도로 사용자 지정 RTC를 설정할 수 있습니다.</string>
+    <string name="set_custom_rtc">사용자 지정 RTC 설정</string>
+
+    <!-- Graphics settings strings -->
+    <string name="renderer_accuracy">정확도 수준</string>
+    <string name="renderer_resolution">해상도 (휴대 모드/독 모드)</string>
+    <string name="renderer_vsync">수직동기화 모드</string>
+    <string name="renderer_screen_layout">화면 방향</string>
+    <string name="renderer_aspect_ratio">화면비</string>
+    <string name="renderer_scaling_filter">윈도우 적응 필터</string>
+    <string name="renderer_anti_aliasing">안티에일리어싱 방법</string>
+    <string name="renderer_force_max_clock">최대 클럭 강제 설정 (아드레노 전용)</string>
+    <string name="renderer_force_max_clock_description">GPU가 가능한 최대 클럭으로 실행되도록 강제합니다 (열 제약 조건은 여전히 적용됩니다).</string>
+    <string name="renderer_asynchronous_shaders">비동기 셰이더 사용</string>
+    <string name="renderer_asynchronous_shaders_description">셰이더를 비동기식으로 컴파일하여 끊김 현상을 줄이지만 글리치가 발생할 수 있습니다.</string>
+    <string name="renderer_reactive_flushing">반응형 플러싱 사용</string>
+    <string name="renderer_reactive_flushing_description">일부 게임에서 성능 저하를 감수하고 렌더링 정확도를 향상합니다.</string>
+    <string name="use_disk_shader_cache">디스크 셰이더 캐시</string>
+    <string name="use_disk_shader_cache_description">생성된 셰이더를 로컬에 저장하고 로드하여 끊김 현상을 줄입니다.</string>
+    <string name="anisotropic_filtering">비등방성 필터링</string>
+    <string name="anisotropic_filtering_description">경사각에서 보이는 텍스처의 품질을 향상시킵니다.</string>
+
+    <!-- Debug settings strings -->
+    <string name="cpu">CPU</string>
+    <string name="cpu_debug_mode">CPU 디버깅</string>
+    <string name="cpu_debug_mode_description">CPU를 느린 디버깅 모드로 설정합니다.</string>
+    <string name="gpu">GPU</string>
+    <string name="renderer_api">API</string>
+    <string name="renderer_debug">그래픽 디버깅</string>
+    <string name="renderer_debug_description">그래픽 API를 느린 디버깅 모드로 설정합니다.</string>
+    <string name="fastmem">Fastmem</string>
+
+    <!-- Audio settings strings -->
+    <string name="audio_output_engine">출력 엔진</string>
+    <string name="audio_volume">볼륨</string>
+    <string name="audio_volume_description">오디오 출력의 볼륨을 지정합니다.</string>
+
+    <string name="button_a">A</string>
+    <string name="button_b">B</string>
+    <string name="button_x">X</string>
+    <string name="button_y">Y</string>
+    <string name="button_plus">+</string>
+    <string name="button_minus">-</string>
+    <string name="button_home">홈</string>
+    <string name="button_capture">캡쳐</string>
+    <string name="dpad">십자패드</string>
+    <string name="up">위</string>
+    <string name="down">아래</string>
+    <string name="left">왼쪽</string>
+    <string name="right">오른쪽</string>
+    <string name="left_stick">L 스틱</string>
+    <string name="right_stick">R 스틱</string>
+    <string name="c_stick">C-Stick</string>
+    <string name="pressed">누르기</string>
+    <string name="range">범위</string>
+    <string name="deadzone">데드존</string>
+    <string name="modifier">수정자</string>
+    <string name="button_l">L</string>
+    <string name="button_r">R</string>
+    <string name="button_zl">ZL</string>
+    <string name="button_zr">ZR</string>
+    <string name="button_z">Z</string>
+    <string name="invalid">유효하지않음</string>
+    <string name="pro_controller">프로 컨트롤러</string>
+    <string name="handheld">휴대 모드</string>
+    <string name="dual_joycons">듀얼 조이콘</string>
+    <string name="left_joycon">왼쪽 조이콘</string>
+    <string name="right_joycon">오른쪽 조이콘</string>
+    <string name="gamecube_controller">GameCube 컨트롤러</string>
+    <string name="invert_axis">축 뒤집기</string>
+    <string name="invert_button">버튼 반전</string>
+    <string name="toggle_button">토글 버튼</string>
+    <string name="turbo_button">터보 버튼</string>
+    <string name="set_threshold">임계값 설정</string>
+    <string name="toggle_axis">axis 토글</string>
+    <string name="connected">연결됨</string>
+    <string name="vibration">진동</string>
+    <string name="profile">프로필</string>
+    <string name="use_global_input_configuration">글로벌 입력 구성 사용</string>
+    <!-- Miscellaneous -->
+    <string name="slider_default">기본값</string>
+    <string name="ini_saved">설정이 저장되었습니다.</string>
+    <string name="gameid_saved">%1$s 전용 설정이 저장되었습니다.</string>
+    <string name="error_saving">%1$s.ini 저장 중 오류 발생: %2$s</string>
+    <string name="unimplemented_menu">구현되지 않은 메뉴</string>
+    <string name="loading">불러오는 중...</string>
+    <string name="shutting_down">종료하는 중...</string>
+    <string name="reset_setting_confirmation">이 설정을 기본값으로 재설정하겠습니까?</string>
+    <string name="reset_to_default">기본값으로 재설정</string>
+    <string name="reset_to_default_description">모든 고급 설정 초기화</string>
+    <string name="reset_all_settings">모든 설정을 초기화하겠습니까?</string>
+    <string name="reset_all_settings_description">모든 고급 설정이 기본 구성으로 재설정됩니다. 이 작업은 되돌릴 수 없습니다.</string>
+    <string name="settings_reset">설정을 초기화했습니다.</string>
+    <string name="close">닫기</string>
+    <string name="learn_more">자세히</string>
+    <string name="auto">자동</string>
+    <string name="submit">제출</string>
+    <string name="string_null">Null</string>
+    <string name="string_import">가져오기</string>
+    <string name="export">내보내기</string>
+    <string name="export_failed">내보내기 실패</string>
+    <string name="import_failed">가져오기 실패</string>
+    <string name="cancelling">취소하는 중</string>
+    <string name="install">설치</string>
+    <string name="delete">삭제</string>
+    <string name="edit">편집</string>
+    <string name="export_success">데이터를 내보냈습니다.</string>
+    <string name="start">시작</string>
+    <string name="clear">비우기</string>
+    <string name="global">글로벌</string>
+    <string name="custom">커스텀</string>
+    <string name="notice">알림</string>
+    <string name="import_complete">가져오기 완료</string>
+    <string name="more_options">추가 옵션</string>
+    <string name="use_global_setting">글로벌 설정 사용</string>
+    <string name="operation_completed_successfully">작업이 완료되었습니다.</string>
+    <string name="save">저장</string>
+
+    <!-- GPU driver installation -->
+    <string name="select_gpu_driver">GPU 드라이버 선택</string>
+    <string name="select_gpu_driver_title">현재 사용중인 GPU 드라이버를 변경하겠습니까?</string>
+    <string name="select_gpu_driver_install">설치</string>
+    <string name="select_gpu_driver_default">기본값</string>
+    <string name="select_gpu_driver_use_default">기본 GPU 드라이버를 사용합니다.</string>
+    <string name="select_gpu_driver_error">잘못된 드라이버가 선택되었습니다.</string>
+    <string name="driver_already_installed">이미 설치된 드라이버입니다.</string>
+    <string name="system_gpu_driver">시스템 GPU 드라이버</string>
+    <string name="installing_driver">드라이버 설치 중...</string>
+
+    <!-- Preferences Screen -->
+    <string name="preferences_settings">설정</string>
+    <string name="preferences_general">일반</string>
+    <string name="preferences_system">시스템</string>
+    <string name="preferences_system_description">독 모드, 지역, 언어</string>
+    <string name="preferences_graphics">그래픽</string>
+    <string name="preferences_graphics_description">정확도 수준, 해상도, 셰이더 캐시</string>
+    <string name="preferences_audio">오디오</string>
+    <string name="preferences_audio_description">출력 엔진, 불륨</string>
+    <string name="preferences_controls">조작</string>
+    <string name="preferences_theme">테마 및 색상</string>
+    <string name="preferences_debug">디버그</string>
+    <string name="preferences_debug_description">CPU/GPU 디버깅, 그래픽 API, Fastmem</string>
+
+    <!-- Game properties -->
+    <string name="info">정보</string>
+    <string name="info_description">프로그램 ID, 개발자, 버전</string>
+    <string name="per_game_settings">게임별 설정</string>
+    <string name="per_game_settings_description">현재 게임에 적용되는 설정을 편집합니다.</string>
+    <string name="launch_options">실행 구성</string>
+    <string name="path">경로</string>
+    <string name="program_id">프로그램 ID</string>
+    <string name="developer">개발자</string>
+    <string name="version">버전</string>
+    <string name="copy_details">세부사항 복사</string>
+    <string name="add_ons">부가 기능</string>
+    <string name="add_ons_description">모드, 업데이트 및 DLC 전환하기</string>
+    <string name="clear_shader_cache">셰이더 캐시 비우기</string>
+    <string name="clear_shader_cache_description">현재 게임을 실행하는 중에 생성된 모든 셰이더를 삭제합니다.</string>
+    <string name="clear_shader_cache_warning_description">셰이더 캐시가 재생성되어 게임이 버벅일 수 있습니다.</string>
+    <string name="cleared_shaders_successfully">셰이더를 비웠습니다.</string>
+    <string name="addons_game">애드온: %1$s</string>
+    <string name="save_data">세이브 데이터</string>
+    <string name="save_data_description">현재 게임에 사용되는 세이브 데이터를 관리합니다.</string>
+    <string name="delete_save_data">세이브 데이터 삭제하기</string>
+    <string name="delete_save_data_description">현재 게임에 사용되는 모든 세이브 데이터를 삭제합니다.</string>
+    <string name="delete_save_data_warning_description">이 작업은 현재 게임의 세이브 데이터를 모두 삭제하고 되돌릴 수 없습니다. 계속하시겠습니까?</string>
+    <string name="save_data_deleted_successfully">세이브 데이터를 삭제했습니다.</string>
+    <string name="select_content_type">콘텐츠 형태</string>
+    <string name="updates_and_dlc">업데이트 및 DLC</string>
+    <string name="mods_and_cheats">모드 및 치트</string>
+    <string name="addon_notice">중요 애드온 알림</string>
+    <!-- "cheats/" "romfs/" and "exefs/ should not be translated -->
+    <string name="addon_notice_description">모드와 치트를 설치하려면 cheats/, romfs/, 또는 exefs/ 디렉토리를 포함하는 폴더를 선택해야 합니다. 게임과의 호환 여부를 확인할 수 없기 때문에 신중하게 결정하세요.</string>
+    <string name="invalid_directory">잘못된 디렉토리</string>
+    <!-- "cheats/" "romfs/" and "exefs/ should not be translated -->
+    <string name="invalid_directory_description">선택한 디렉토리가 cheats/, romfs/, 또는 exefs/ 폴더를 포함하는지 확인하고 다시 시도하세요.</string>
+    <string name="addon_installed_successfully">애드온을 설치했습니다.</string>
+    <string name="verifying_content">콘텐츠 확인 중...</string>
+    <string name="content_install_notice">콘텐츠 설치 안내</string>
+    <string name="content_install_notice_description">선택한 콘텐츠가 현재 게임과 일치하지 않습니다.\n무시하고 설치하시겠습니까?</string>
+    <string name="confirm_uninstall">제거 확인</string>
+    <string name="confirm_uninstall_description">이 애드온을 제거하시겠습니까?</string>
+    <string name="verify_integrity">무결성 인증</string>
+    <string name="verifying">인증 중...</string>
+    <string name="verify_success">무결성 인증에 성공했습니다.</string>
+    <string name="verify_failure">무결성 인증에 실패했습니다.</string>
+    <string name="verify_failure_description">파일 콘텐츠가 손상되었을 수 있습니다.</string>
+    <string name="verify_no_result">무결성 인증을 진행할 수 없습니다.</string>
+    <string name="verify_no_result_description">파일 콘텐츠의 유효성 검사가 진행되지 않았습니다.</string>
+    <string name="verification_failed_for">검증 실패 파일 목록:\n%1$s</string>
+
+    <!-- ROM loading errors -->
+    <string name="loader_error_encrypted">롬 파일이 암호화되어있음</string>
+    <string name="loader_error_encrypted_roms_description"><![CDATA[가이드에 따라 <a href=\"https://citron-emu.org/help/quickstart/#dumping-physical-titles-game-cards\">게임 카트리지</a> 또는 <a href=\"https://citron-emu.org/help/quickstart/#dumping-digital-titles-eshop\">설치된 타이틀</a>을 다시 덤프하세요.]]></string>
+    <string name="loader_error_encrypted_keys_description"><![CDATA[게임을 해독할 수 있도록 <a href=\"https://citron-emu.org/help/quickstart/#dumping-prodkeys-and-titlekeys\">prod.keys</a> 파일이 설치되어 있는지 확인하세요.]]></string>
+    <string name="loader_error_video_core">비디오 코어를 초기화하는 동안 오류 발생</string>
+    <string name="loader_error_video_core_description">일반적으로 이 문제는 호환되지 않는 GPU 드라이버로 인해 발생합니다. 사용자 지정 GPU 드라이버를 설치하면 이 문제가 해결될 수 있습니다.</string>
+    <string name="loader_error_invalid_format">롬 파일을 불러올 수 없음</string>
+    <string name="loader_error_file_not_found">롬 파일이 존재하지 않음</string>
+
+    <!-- Emulation Menu -->
+    <string name="emulation_exit">에뮬레이션 종료</string>
+    <string name="emulation_done">완료</string>
+    <string name="emulation_fps_counter">FPS 표시</string>
+    <string name="emulation_toggle_controls">컨트롤러 선택</string>
+    <string name="emulation_rel_stick_center">스틱의 중심 이동</string>
+    <string name="emulation_dpad_slide">십자키 슬라이드</string>
+    <string name="emulation_haptics">터치 햅틱</string>
+    <string name="emulation_show_overlay">컨트롤러 표시</string>
+    <string name="emulation_toggle_all">모두 선택</string>
+    <string name="emulation_control_adjust">컨트롤러 조정</string>
+    <string name="emulation_control_scale">크기</string>
+    <string name="emulation_control_opacity">불투명도</string>
+    <string name="emulation_touch_overlay_reset">컨트롤러 설정 초기화</string>
+    <string name="emulation_touch_overlay_edit">컨트롤러 위치 편집</string>
+    <string name="emulation_pause">에뮬레이션 일시 중지</string>
+    <string name="emulation_unpause">에뮬레이션 일시 중지 해제</string>
+    <string name="emulation_input_overlay">화면 오버레이 설정</string>
+    <string name="touchscreen">터치 스크린</string>
+    <string name="lock_drawer">에뮬레이터 메뉴 잠금</string>
+    <string name="unlock_drawer">에뮬레이터 메뉴 잠금 해제</string>
+
+    <string name="load_settings">설정 불러오는 중...</string>
+
+    <!-- Software keyboard -->
+    <string name="software_keyboard">소프트웨어 키보드</string>
+
+    <!-- Errors and warnings -->
+    <string name="abort_button">중단</string>
+    <string name="continue_button">계속</string>
+    <string name="system_archive_not_found">시스템 아카이브를 찾을 수 없음</string>
+    <string name="system_archive_not_found_message">%s가 누락되었습니다. 시스템 아카이브를 덤프하세요.\n에뮬레이션을 계속하면 충돌 및 버그가 발생할 수 있습니다.</string>
+    <string name="system_archive_general">시스템 아카이브</string>
+    <string name="save_load_error">저장하기/불러오기 오류</string>
+    <string name="fatal_error">치명적 오류</string>
+    <string name="fatal_error_message">치명적 오류가 발생했습니다. 자세한 내용은 로그를 확인하십시오.\n에뮬레이션을 계속하면 충돌 및 버그가 발생할 수 있습니다.</string>
+    <string name="performance_warning">이 설정을 끄면 에뮬레이션 성능이 크게 저하됩니다! 최상의 환경을 위해 이 설정을 활성화된 상태로 두는 것이 좋습니다.</string>
+    <string name="device_memory_inadequate">장치 RAM: %1$s\n권장: %2$s</string>
+    <string name="memory_formatted">%1$s %2$s</string>
+    <string name="no_game_present">실행 가능한 게임이 없습니다!</string>
+
+    <!-- Region Names -->
+    <string name="region_japan">일본</string>
+    <string name="region_usa">미국</string>
+    <string name="region_europe">유럽</string>
+    <string name="region_australia">호주</string>
+    <string name="region_china">중국</string>
+    <string name="region_korea">대한민국</string>
+    <string name="region_taiwan">대만</string>
+
+    <!-- Memory Sizes -->
+    <string name="memory_byte">Byte</string>
+    <string name="memory_byte_shorthand">B</string>
+    <string name="memory_kilobyte">KB</string>
+    <string name="memory_megabyte">MB</string>
+    <string name="memory_gigabyte">GB</string>
+    <string name="memory_terabyte">TB</string>
+    <string name="memory_petabyte">PB</string>
+    <string name="memory_exabyte">EB</string>
+
+    <!-- Renderer APIs -->
+    <string name="renderer_vulkan">Vulcan</string>
+    <string name="renderer_none">없음</string>
+
+    <!-- Renderer Accuracy -->
+    <string name="renderer_accuracy_normal">보통</string>
+    <string name="renderer_accuracy_high">높음</string>
+    <string name="renderer_accuracy_extreme">극한 (느림)</string>
+
+    <!-- Resolutions -->
+    <string name="resolution_half">0.5X (360p/540p)</string>
+    <string name="resolution_three_quarter">0.75X (540p/810p)</string>
+    <string name="resolution_one">1X (720p/1080p)</string>
+    <string name="resolution_two">2X (1440p/2160p) (느림)</string>
+    <string name="resolution_three">3X (2160p/3240p) (느림)</string>
+    <string name="resolution_four">4X (2880p/4320p) (느림)</string>
+
+    <!-- Renderer VSync -->
+    <string name="renderer_vsync_immediate">즉각 표시 (끄기)</string>
+    <string name="renderer_vsync_mailbox">메일박스</string>
+    <string name="renderer_vsync_fifo">FIFO (켜기)</string>
+    <string name="renderer_vsync_fifo_relaxed">FIFO Relaxed</string>
+
+    <!-- Scaling Filters -->
+    <string name="scaling_filter_nearest_neighbor">최근접 보간</string>
+    <string name="scaling_filter_bilinear">쌍선형 보간</string>
+    <string name="scaling_filter_bicubic">쌍입방 보간</string>
+    <string name="scaling_filter_gaussian">가우시안</string>
+    <string name="scaling_filter_scale_force">ScaleForce</string>
+    <string name="scaling_filter_fsr">AMD FidelityFX™ 초고해상도</string>
+
+    <!-- Anti-Aliasing -->
+    <string name="anti_aliasing_none">없음</string>
+    <string name="anti_aliasing_fxaa">FXAA</string>
+    <string name="anti_aliasing_smaa">SMAA</string>
+
+    <!-- Screen Layouts -->
+    <string name="screen_layout_auto">자동</string>
+    <string name="screen_layout_sensor_landscape">가로 (방향 감지)</string>
+    <string name="screen_layout_landscape">가로</string>
+    <string name="screen_layout_reverse_landscape">가로 (역방향)</string>
+    <string name="screen_layout_sensor_portrait">세로 (방향 감지)</string>
+    <string name="screen_layout_portrait">세로</string>
+    <string name="screen_layout_reverse_portrait">세로 (역방향)</string>
+
+    <!-- Aspect Ratios -->
+    <string name="ratio_default">기본 (16:9)</string>
+    <string name="ratio_force_four_three">강제 4:3</string>
+    <string name="ratio_force_twenty_one_nine">강제 21:9</string>
+    <string name="ratio_force_sixteen_ten">강제 16:10</string>
+    <string name="ratio_stretch">화면에 맞춤</string>
+
+    <!-- CPU Backend -->
+    <string name="cpu_backend_dynarmic">Dynarmic (느림)</string>
+    <string name="cpu_backend_nce">네이티브 코드 실행 (NCE)</string>
+
+    <!-- CPU Accuracy -->
+    <string name="cpu_accuracy_accurate">정확함</string>
+    <string name="cpu_accuracy_unsafe">최적화 (안전하지 않음)</string>
+    <string name="cpu_accuracy_paranoid">최적화하지 않음 (느림)</string>
+
+    <!-- Gamepad Buttons -->
+    <string name="gamepad_d_pad">십자키</string>
+    <string name="gamepad_left_stick">L 스틱</string>
+    <string name="gamepad_right_stick">R 스틱</string>
+    <string name="gamepad_home">홈</string>
+    <string name="gamepad_screenshot">스크린샷</string>
+
+    <!-- Disk shader cache -->
+    <string name="preparing_shaders">셰이더 준비하는 중</string>
+    <string name="building_shaders">셰이더 빌드 중</string>
+
+    <!-- Theme options -->
+    <string name="change_app_theme">앱 테마 변경</string>
+    <string name="theme_default">기본값</string>
+    <string name="theme_material_you">Material You</string>
+
+    <!-- Theme Modes -->
+    <string name="change_theme_mode">다크 모드 설정</string>
+    <string name="theme_mode_follow_system">시스템 값 사용</string>
+    <string name="theme_mode_light">라이트 모드</string>
+    <string name="theme_mode_dark">다크 모드</string>
+
+    <!-- Audio output engines -->
+    <string name="oboe">oboe</string>
+    <string name="cubeb">cubeb</string>
+
+    <!-- Anisotropic filtering options -->
+    <string name="multiplier_two">2x</string>
+    <string name="multiplier_four">4x</string>
+    <string name="multiplier_eight">8x</string>
+    <string name="multiplier_sixteen">16x</string>
+
+    <!-- Black backgrounds theme -->
+    <string name="use_black_backgrounds">검정 배경</string>
+    <string name="use_black_backgrounds_description">어두운 테마 사용 시 검정 배경을 적용합니다.</string>
+
+    <!-- Picture-In-Picture -->
+    <string name="picture_in_picture">픽처 인 픽처 (Picture-in-Picture)</string>
+    <string name="picture_in_picture_description">앱을 백그라운드에서 실행할 때 창을 최소화합니다.</string>
+    <string name="pause">일시중지</string>
+    <string name="play">재생</string>
+    <string name="mute">음소거</string>
+    <string name="unmute">음소거 해제</string>
+
+    <!-- Licenses screen strings -->
+    <string name="licenses">라이센스</string>
+    <string name="license_fidelityfx_fsr_description">AMD 고품질 업스케일링</string>
+    </resources>

@@ -1,0 +1,467 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:tools="http://schemas.android.com/tools" tools:ignore="MissingTranslation">
+
+    <string name="notice_notification_channel_name">الإشعارات والأخطاء</string>
+    <string name="notice_notification_channel_description">اظهار اشعار عند حصول اي مشكلة.</string>
+    <string name="notification_permission_not_granted">لم يتم منح إذن الإشعار</string>
+
+    <!-- Setup strings -->
+    <string name="welcome">مرحبا</string>
+    <string name="welcome_description">تعرف على كيفية إعداد  <b>يوزو</b> والانتقال إلى المحاكاة</string>
+    <string name="get_started">لنبدأ</string>
+    <string name="keys">المفاتيح</string>
+    <string name="keys_description">اختر ملف &lt;b>prod.keys&lt;/b> من الزر ادناه</string>
+    <string name="select_keys">إختيار المفاتيح</string>
+    <string name="games">الألعاب</string>
+    <string name="games_description">حدد مجلد &lt;b>العابك&lt;/b> من الزر ادناه.</string>
+    <string name="done">إنهاء</string>
+    <string name="done_description">أنت جاهز تمامًا. استمتع بألعابك!</string>
+    <string name="text_continue">استمر</string>
+    <string name="next">التالي</string>
+    <string name="back">عودة</string>
+    <string name="add_games">إضافة ألعاب</string>
+    <string name="add_games_description">حدد مجلد الألعاب الخاص بك</string>
+    <string name="step_complete">مكتمل</string>
+
+    <!-- Home strings -->
+    <string name="home_games">الألعاب</string>
+    <string name="home_search">البحث</string>
+    <string name="home_settings">الإعدادات</string>
+    <string name="empty_gamelist">لم يتم العثور على ملفات أو لم يتم تحديد مجلد الألعاب حتى الآن.</string>
+    <string name="search_and_filter_games">البحث وتصفية الألعاب</string>
+    <string name="select_games_folder">حدد مجلد الألعاب</string>
+    <string name="manage_game_folders">إدارة مجلدات اللعبة</string>
+    <string name="select_games_folder_description">يسمح لـ يوزو بملء قائمة الألعاب</string>
+    <string name="add_games_warning">تخطي تحديد مجلد الألعاب؟</string>
+    <string name="add_games_warning_description">لن يتم عرض الألعاب في قائمة الألعاب إذا لم يتم تحديد مجلد</string>
+    <string name="add_games_warning_help">https://citron-emu.org/help/quickstart/#dumping-games</string>
+    <string name="home_search_games">البحث عن ألعاب</string>
+    <string name="search_settings">إعدادات البحث</string>
+    <string name="games_dir_selected">تم تحديد مجلد الألعاب</string>
+    <string name="install_prod_keys">تثبيت prod.keys</string>
+    <string name="install_prod_keys_description">مطلوب لفك تشفير ألعاب البيع بالتجزئة</string>
+    <string name="install_prod_keys_warning">تخطي إضافة المفاتيح؟</string>
+    <string name="install_prod_keys_warning_description">مطلوب مفاتيح صالحة لمحاكاة ألعاب البيع بالتجزئة. ستعمل تطبيقات البيرة المنزلية فقط إذا تابعت</string>
+    <string name="install_prod_keys_warning_help">https://citron-emu.org/help/quickstart/#guide-introduction</string>
+    <string name="notifications">الإشعارات</string>
+    <string name="notifications_description">امنح إذن الإشعار باستخدام الزر أدناه</string>
+    <string name="give_permission">منح الإذن</string>
+    <string name="notification_warning">تخطي منح إذن الإشعارات؟</string>
+    <string name="notification_warning_description">لن يتمكن يوزو من إشعارك بالمعلومات المهمة</string>
+    <string name="permission_denied">تم رفض الإذن</string>
+    <string name="permission_denied_description">لقد رفضت هذا الإذن عدة مرات ويتعين عليك الآن منحه يدويًا في إعدادات النظام</string>
+    <string name="about">حول</string>
+    <string name="about_description">بناء الإصدار، والاعتمادات، وأكثر من ذلك</string>
+    <string name="warning_help">مساعدة</string>
+    <string name="warning_skip">تخطي</string>
+    <string name="warning_cancel">إلغاء</string>
+    <string name="install_amiibo_keys">تثبيت مفاتيح أميبو</string>
+    <string name="install_amiibo_keys_description">مطلوب لاستخدام أميبو في اللعبة</string>
+    <string name="invalid_keys_file">تم تحديد ملف مفاتيح غير صالح</string>
+    <string name="install_keys_success">تم تثبيت المفاتيح بنجاح</string>
+    <string name="reading_keys_failure">خطأ في قراءة مفاتيح التشفير</string>
+    <string name="install_prod_keys_failure_extension_description">وحاول مرة أخر keys تحقق من أن ملف المفاتيح له امتداد</string>
+    <string name="install_amiibo_keys_failure_extension_description">وحاول مرة أخر bin تحقق من أن ملف المفاتيح له امتداد</string>
+    <string name="invalid_keys_error">مفاتيح التشفير غير صالحة</string>
+    <string name="dumping_keys_quickstart_link">https://citron-emu.org/help/quickstart/#dumping-decryption-keys</string>
+    <string name="install_keys_failure_description">الملف المحدد غير صحيح أو تالف. يرجى إعادة المفاتيح الخاصة بك</string>
+    <string name="gpu_driver_manager">GPU مدير برنامج تشغيل</string>
+    <string name="install_gpu_driver">GPU تثبيت برنامج تشغيل</string>
+    <string name="install_gpu_driver_description">قم بتثبيت برامج تشغيل بديلة للحصول على أداء أو دقة أفضل</string>
+    <string name="advanced_settings">إعدادات متقدمة</string>
+    <string name="advanced_settings_game">إعدادات متقدمة: %1$s</string>
+    <string name="settings_description">تكوين إعدادات المحاكي</string>
+    <string name="search_recently_played">لعبت مؤخرا</string>
+    <string name="search_recently_added">أضيف مؤخرا</string>
+    <string name="search_retail">بيع بالتجزئة</string>
+    <string name="search_homebrew">البيرة المنزلية</string>
+    <string name="open_user_folder">فتح مجلد يوزو</string>
+    <string name="open_user_folder_description">إدارة ملفات يوزو الداخلية</string>
+    <string name="theme_and_color_description">تعديل مظهر التطبيق</string>
+    <string name="no_file_manager">لم يتم العثور على مدير الملفات</string>
+    <string name="notification_no_directory_link">لا يمكن فتح مجلد يوزو</string>
+    <string name="notification_no_directory_link_description">الرجاء تحديد موقع مجلد المستخدم باستخدام اللوحة الجانبية لمدير الملفات يدويًا</string>
+    <string name="manage_save_data">إدارة حفظ البيانات</string>
+    <string name="manage_save_data_description">حفظ البيانات التي تم العثور عليها. يرجى اختيار أحد الخيارات التالية</string>
+    <string name="import_save_warning">استيراد حفظ البيانات</string>
+    <string name="import_save_warning_description">سيؤدي هذا إلى استبدال جميع بيانات الحفظ الموجودة بالملف المقدم. هل أنت متأكد أنك تريد الاستمرار؟</string>
+    <string name="import_export_saves_description">استيراد أو تصدير ملفات الحفظ</string>
+    <string name="save_files_importing">جاري استيراد ملفات الحفظ</string>
+    <string name="save_files_exporting">جاري تصدير ملفات الحفظ</string>
+    <string name="save_file_imported_success">تم الاستيراد بنجاح</string>
+    <string name="save_file_invalid_zip_structure">بنية مجلد الحفظ غير صالحة</string>
+    <string name="save_file_invalid_zip_structure_description">يجب أن يكون اسم المجلد الفرعي الأول هو معرف عنوان اللعبة.</string>
+    <string name="import_saves">استيراد</string>
+    <string name="export_saves">تصدير</string>
+    <string name="install_firmware">تثبيت فيرموير</string>
+    <string name="install_firmware_description">يجب أن يكون فيرموير في أرشيف مضغوط وهو ضروري لتشغيل بعض الألعاب</string>
+    <string name="firmware_installing">تثبيت فيرموير</string>
+    <string name="firmware_installed_success">تم تثبيت فيرموير بنجاح</string>
+    <string name="firmware_installed_failure">فشل تثبيت فيرموير</string>
+    <string name="share_log">مشاركة سجلات التصحيح</string>
+    <string name="share_log_description">مشاركة ملف سجل يوزو لتصحيح المشكلات</string>
+    <string name="share_log_missing">لم يتم العثور على ملف السجل</string>
+    <string name="install_game_content">تثبيت محتوى اللعبة</string>
+    <string name="install_game_content_description">DLC قم بتثبيت تحديثات اللعبة أو</string>
+    <string name="installing_game_content">جاري تثبيت المحتوى</string>
+    <string name="install_game_content_failure_base">لا يُسمح بتثبيت الألعاب الأساسية لتجنب التعارضات المحتملة.</string>
+    <string name="install_game_content_success_install">%1$d تم التثبيت بنجاح</string>
+    <string name="install_game_content_success_overwrite">%1$d تمت الكتابة فوقه بنجاح</string>
+    <string name="install_game_content_help_link">https://citron-emu.org/help/quickstart/#dumping-installed-updates</string>
+    <string name="custom_driver_not_supported">برامج التشغيل المخصصة غير مدعومة</string>
+    <string name="custom_driver_not_supported_description">تحميل برنامج التشغيل المخصص غير معتمد حاليًا لهذا الجهاز.\nحدد هذا الخيار مرة أخرى في المستقبل لمعرفة ما إذا تمت إضافة الدعم!</string>
+    <string name="manage_citron_data">إدارة بيانات يوزو</string>
+    <string name="manage_citron_data_description">استيراد/تصدير فيرموير والمفاتيح وبيانات المستخدم والمزيد</string>
+    <string name="share_save_file">مشاركة ملف الحفظ</string>
+    <string name="export_save_failed">فشل تصدير الحفظ</string>
+    <string name="game_folders">مجلدات اللعبة</string>
+    <string name="deep_scan">فحص عميق</string>
+    <string name="add_game_folder">إضافة مجلد اللعبة</string>
+    <string name="folder_already_added">تمت إضافة هذا المجلد بالفعل</string>
+    <string name="game_folder_properties">خصائص مجلد اللعبة</string>
+    <string name="no_save_data_found">لم يتم العثور على بيانات الحفظ</string>
+
+    <!-- Applet launcher strings -->
+    <string name="applets">قائمة التطبيقات المصغرة</string>
+    <string name="applets_description">قم بتشغيل تطبيقات النظام باستخدام فيرموير المثبت</string>
+    <string name="applets_error_firmware">فيرموير غير مثبت</string>
+    <string name="applets_error_applet">التطبيق المصغر غير متوفر</string>
+    <string name="album_applet">الألبوم</string>
+    <string name="album_applet_description">شاهد الصور المخزنة في مجلد لقطات شاشة المستخدم باستخدام عارض صور النظام</string>
+    <string name="mii_edit_applet">تحرير Mii</string>
+    <string name="mii_edit_applet_description">باستخدام محرر النظام Miis عرض وتحرير</string>
+    <string name="cabinet_applet_description">تحرير وحذف البيانات المخزنة على أميبو</string>
+    <string name="cabinet_nickname_and_owner">إعدادات الاسم المستعار والمالك</string>
+    <string name="cabinet_game_data_eraser">ممحاة بيانات اللعبة</string>
+    <string name="copied_to_clipboard">نسخ إلى الحافظة</string>
+    <string name="about_app_description">محاكي سويتش مفتوح المصدر</string>
+    <string name="contributors">المساهمين</string>
+    <string name="contributors_description">مصنوع من فريق يوزو</string>
+    <string name="contributors_link">https://github.com/citron-emu/citron/graphs/contributors</string>
+    <string name="licenses_description">المشاريع التي تجعل تطبيق يوزو لنظام أندرويد ممكنًا</string>
+    <string name="build">البناء</string>
+    <string name="user_data">بيانات المستخدم</string>
+    <string name="user_data_description">استيراد/تصدير جميع بيانات التطبيق. عند استيراد بيانات المستخدم، سيتم حذف جميع بيانات المستخدم الحالية!</string>
+    <string name="exporting_user_data">جاري تصدير بيانات المستخدم</string>
+    <string name="importing_user_data">جاري استيراد بيانات المستخدم</string>
+    <string name="import_user_data">استيراد بيانات المستخدم</string>
+    <string name="invalid_citron_backup">نسخة احتياطية يوزو غير صالحة</string>
+    <string name="user_data_export_success">تم تصدير بيانات المستخدم بنجاح</string>
+    <string name="user_data_import_success">تم استيراد بيانات المستخدم بنجاح</string>
+    <string name="user_data_export_cancelled">تم إلغاء التصدير</string>
+    <string name="support_link">https://discord.gg/u77vRWY</string>
+    <string name="website_link">https://citron-emu.org/</string>
+    <string name="github_link">https://github.com/citron-emu</string>
+
+    <!-- Early access upgrade strings -->
+    <string name="early_access">الوصول المبكر</string>
+    <string name="get_early_access">احصل على الوصول المبكر</string>
+    <string name="play_store_link">https://play.google.com/store/apps/details?id=org.citron.citron_emu.ea</string>
+    <string name="get_early_access_description">الميزات المتطورة، والوصول المبكر إلى التحديثات، وأكثر من ذلك</string>
+    <string name="early_access_benefits">مزايا الوصول المبكر</string>
+    <string name="cutting_edge_features">ميزات متطورة</string>
+    <string name="early_access_updates">الوصول المبكر إلى التحديثات</string>
+    <string name="no_manual_installation">لا يوجد التثبيت اليدوي</string>
+    <string name="prioritized_support">الدعم ذو الأولوية</string>
+    <string name="helping_game_preservation">المساعدة في الحفاظ على اللعبة</string>
+    <string name="our_eternal_gratitude">امتناننا الأبدي</string>
+    <string name="are_you_interested">هل انت مهتم؟</string>
+
+    <!-- General settings strings -->
+    <string name="frame_limit_enable">الحد من السرعة</string>
+    <string name="frame_limit_enable_description">يحد من سرعة المحاكاة بنسبة محددة من السرعة العادية</string>
+    <string name="frame_limit_slider">الحد من السرعة في المئة</string>
+    <string name="frame_limit_slider_description">يحدد النسبة المئوية للحد من سرعة المحاكاة. 100% هي السرعة الطبيعية. ستؤدي القيم الأعلى أو الأدنى إلى زيادة أو تقليل حد السرعة.</string>
+    <string name="cpu_accuracy">دقة وحدة المعالجة المركزية</string>
+    <string name="value_with_units">%1$s%2$s</string>
+
+    <!-- System settings strings -->
+    <string name="use_docked_mode">وضع الإرساء</string>
+    <string name="use_docked_mode_description">زيادة الدقة، وانخفاض الأداء. يتم استخدام الوضع المحمول عند تعطيله، مما يؤدي إلى خفض الدقة وزيادة الأداء.</string>
+    <string name="emulated_region">المنطقة التي تمت محاكاتها</string>
+    <string name="emulated_language">لغة المحاكاة</string>
+    <string name="select_rtc_date">حدد التاريخ و الساعة في الوقت الحقيقي</string>
+    <string name="select_rtc_time">حدد وقت الساعة في الوقت الفعلي</string>
+    <string name="use_custom_rtc">ساعة مخصصة في الوقت الحقيقي</string>
+    <string name="use_custom_rtc_description">يسمح لك بتعيين ساعة مخصصة في الوقت الفعلي منفصلة عن وقت النظام الحالي لديك</string>
+    <string name="set_custom_rtc">تعيين ساعة مخصصة في الوقت الحقيقي</string>
+
+    <!-- Graphics settings strings -->
+    <string name="renderer_accuracy">مستوى الدقة</string>
+    <string name="renderer_resolution">(Handheld/Docked) الدقة</string>
+    <string name="renderer_vsync">VSync وضع</string>
+    <string name="renderer_screen_layout">اتجاه العرض</string>
+    <string name="renderer_aspect_ratio">تناسب الابعاد</string>
+    <string name="renderer_anti_aliasing">طريقة مكافحة التعرج</string>
+    <string name="renderer_asynchronous_shaders">استخدم تظليل غير متزامن</string>
+    <string name="renderer_asynchronous_shaders_description">يجمع التظليل بشكل غير متزامن، مما يقلل من التأتأة ولكنه قد يؤدي إلى حدوث بعض الأخطاء.</string>
+    <string name="renderer_reactive_flushing">استخدم التنظيف التفاعلي</string>
+    <string name="renderer_reactive_flushing_description">تحسين دقة العرض في بعض الألعاب على حساب الأداء</string>
+    <string name="use_disk_shader_cache_description">يقلل من التأتأة عن طريق تخزين وتحميل التظليلات التي تم إنشاؤها محليًا.</string>
+    <!-- Debug settings strings -->
+    <string name="cpu">وحدة المعالج المركزية</string>
+    <string name="cpu_debug_mode">تصحيح أخطاء وحدة المعالجة المركزية</string>
+    <string name="cpu_debug_mode_description">يضع وحدة المعالجة المركزية في وضع التصحيح البطيء.</string>
+    <string name="gpu">وحدة معالجة الرسومات</string>
+    <string name="renderer_api">واجهة برمجة التطبيقات</string>
+    <string name="renderer_debug">تصحيح الأخطاء الرسومية</string>
+    <string name="renderer_debug_description">يضبط واجهة برمجة تطبيقات الرسومات على وضع تصحيح الأخطاء البطيء.</string>
+    <string name="fastmem">Fastmem</string>
+
+    <!-- Audio settings strings -->
+    <string name="audio_output_engine">محرك الإخراج</string>
+    <string name="audio_volume">مستوى الصوت</string>
+    <string name="audio_volume_description">يحدد مستوى إخراج الصوت</string>
+
+    <!-- Miscellaneous -->
+    <string name="slider_default">افتراضي</string>
+    <string name="ini_saved">الإعدادات المحفوظة</string>
+    <string name="gameid_saved">الإعدادات المحفوظة لـ %1$s</string>
+    <string name="error_saving">خطأ في حفظ %1$s.ini: %2$s</string>
+    <string name="unimplemented_menu">القائمة غير المنفذة</string>
+    <string name="loading">جاري التحميل</string>
+    <string name="shutting_down">إيقاف التشغيل</string>
+    <string name="reset_setting_confirmation">هل تريد إعادة تعيين هذا الإعداد مرة أخرى إلى قيمته الافتراضية؟</string>
+    <string name="reset_to_default">إعادة التعيين إلى الوضع الافتراضي</string>
+    <string name="reset_to_default_description">إعادة تعيين جميع الإعدادات المتقدمة</string>
+    <string name="reset_all_settings">إعادة تعيين جميع الإعدادات؟</string>
+    <string name="reset_all_settings_description">سيتم إعادة تعيين كافة الإعدادات المتقدمة إلى تكوينها الافتراضي. هذا لا يمكن التراجع عنها.</string>
+    <string name="settings_reset">إعادة تعيين الأعدادات</string>
+    <string name="close">إغلاق</string>
+    <string name="learn_more">معرفة المزيد</string>
+    <string name="auto">تلقائي</string>
+    <string name="submit">إرسال</string>
+    <string name="string_null">لا شيء</string>
+    <string name="string_import">استيراد</string>
+    <string name="export">تصدير</string>
+    <string name="export_failed">فشل التصدير</string>
+    <string name="import_failed">فشل الاستيراد</string>
+    <string name="cancelling">إلغاء</string>
+    <string name="install">تثبيت</string>
+    <string name="delete">حذف</string>
+    <string name="edit">حرر</string>
+    <string name="export_success">تم التصدير بنجاح</string>
+    <string name="start">Start</string>
+    <string name="clear">مسح</string>
+    <string name="global">عالمي</string>
+    <string name="custom">مخصص</string>
+    <string name="notice">إشعار</string>
+    <string name="import_complete">اكتمل الاستيراد</string>
+    <!-- GPU driver installation -->
+    <string name="select_gpu_driver">GPU حدد برنامج تشغيل</string>
+    <string name="select_gpu_driver_title">الحالي الخاص بك؟ GPU هل ترغب في استبدال برنامج تشغيل</string>
+    <string name="select_gpu_driver_install">تثبيت</string>
+    <string name="select_gpu_driver_default">افتراضي</string>
+    <string name="select_gpu_driver_use_default">يستخدم تعريف معالج الرسومات الافتراضي</string>
+    <string name="select_gpu_driver_error">تم تحديد برنامج تشغيل غير صالح</string>
+    <string name="driver_already_installed">برنامج التشغيل مثبت بالفعل</string>
+    <string name="system_gpu_driver">تعريف معالج الرسومات الخاص بالنظام</string>
+    <string name="installing_driver">جاري تثبيت برنامج التشغيل…</string>
+
+    <!-- Preferences Screen -->
+    <string name="preferences_settings">إعدادات</string>
+    <string name="preferences_general">عام</string>
+    <string name="preferences_system">النظام</string>
+    <string name="preferences_system_description">وضع الإرساء ،المنطقة ،اللغة</string>
+    <string name="preferences_graphics">الرسومات</string>
+    <string name="preferences_graphics_description">مستوى الدقة ،الدقة ،ذاكرة التخزين المؤقت للتظليل</string>
+    <string name="preferences_audio">الصوت</string>
+    <string name="preferences_audio_description">محرك الإخراج ، حجم الصوت</string>
+    <string name="preferences_theme">السمة واللون</string>
+    <string name="preferences_debug">تصحيح الأخطاء</string>
+    <!-- Game properties -->
+    <string name="info">معلومات</string>
+    <string name="info_description">معرف البرنامج، المطور، الإصدار</string>
+    <string name="per_game_settings">إعدادات كل لعبة</string>
+    <string name="per_game_settings_description">تحرير الإعدادات الخاصة بهذه اللعبة</string>
+    <string name="launch_options">تشغيل الإعدادات</string>
+    <string name="path">المسار</string>
+    <string name="program_id">معرف البرنامج</string>
+    <string name="developer">المطور</string>
+    <string name="version">إصدار</string>
+    <string name="copy_details">نسخ التفاصيل</string>
+    <string name="add_ons">الإضافات</string>
+    <string name="add_ons_description">DLCالتعديلات والتحديثات و</string>
+    <string name="clear_shader_cache">مسح ذاكرة التخزين المؤقت للتظليل</string>
+    <string name="clear_shader_cache_description">يزيل جميع التظليلات التي تم إنشاؤها أثناء لعب هذه اللعبة</string>
+    <string name="clear_shader_cache_warning_description">سوف تواجه المزيد من التأتأة مع تجديد ذاكرة التخزين المؤقت للتظليل</string>
+    <string name="cleared_shaders_successfully">تم مسح التظليل بنجاح</string>
+    <string name="addons_game">إضافات: %1$s</string>
+    <string name="save_data">حفظ البيانات</string>
+    <string name="save_data_description">إدارة حفظ البيانات الخاصة بهذه اللعبة</string>
+    <string name="delete_save_data">حذف حفظ البيانات</string>
+    <string name="delete_save_data_description">يزيل كافة البيانات المحفوظة الخاصة بهذه اللعبة</string>
+    <string name="delete_save_data_warning_description">يؤدي هذا إلى إزالة كافة البيانات المحفوظة لهذه اللعبة بشكل لا يمكن استرداده. هل أنت متأكد أنك تريد الاستمرار؟</string>
+    <string name="save_data_deleted_successfully">حفظ البيانات تم حذفها بنجاح</string>
+    <string name="select_content_type">نوع المحتوى</string>
+    <string name="updates_and_dlc">DLC التحديثات والمحتوى القابل للتنزيل  </string>
+    <string name="mods_and_cheats">تعديل وغش</string>
+    <string name="addon_notice">إشعار إضافي مهم</string>
+    <string name="invalid_directory">مجلد غير صالح</string>
+    <string name="addon_installed_successfully">تم تثبيت الملحق بنجاح</string>
+    <string name="verifying_content">جاري التحقق من المحتوى</string>
+    <string name="content_install_notice">إشعار تثبيت المحتوى</string>
+    <string name="content_install_notice_description">المحتوى الذي حددته لا يتطابق مع هذه اللعبة.هل تريد التثبيت على أية حال؟</string>
+    <!-- ROM loading errors -->
+    <string name="loader_error_encrypted">الخاص بك ROM تم تشفير</string>
+    <string name="loader_error_video_core">حدث خطأ أثناء تهيئة مركز الفيديو</string>
+    <string name="loader_error_invalid_format">ROM غير قادر على تحميل</string>
+    <string name="loader_error_file_not_found">غير موجود ROM ملف</string>
+
+    <!-- Emulation Menu -->
+    <string name="emulation_exit">الخروج من المحاكاة</string>
+    <string name="emulation_done">إنهاء</string>
+    <string name="emulation_fps_counter">عداد إطار/ثانية</string>
+    <string name="emulation_toggle_controls">عناصر التحكم</string>
+    <string name="emulation_rel_stick_center">مركز العصا النسبي</string>
+    <string name="emulation_dpad_slide">مزلاق الأسهم</string>
+    <string name="emulation_haptics">الاهتزازات الديناميكية</string>
+    <string name="emulation_show_overlay">عرض التراكب</string>
+    <string name="emulation_toggle_all">الكل</string>
+    <string name="emulation_control_adjust">ضبط التراكب</string>
+    <string name="emulation_control_scale">الحجم</string>
+    <string name="emulation_control_opacity">الشفافية</string>
+    <string name="emulation_touch_overlay_reset">إعادة تعيين التراكب</string>
+    <string name="emulation_touch_overlay_edit">تحرير التراكب</string>
+    <string name="emulation_pause">إيقاف المحاكاة مؤقتًا</string>
+    <string name="emulation_unpause">إلغاء الإيقاف المؤقت للمحاكاة</string>
+    <string name="emulation_input_overlay">خيارات التراكب</string>
+    <string name="touchscreen">شاشة اللمس</string>
+
+    <string name="load_settings">جاري تحميل الإعدادات</string>
+
+    <!-- Software keyboard -->
+    <string name="software_keyboard">لوحة المفاتيح البرمجية</string>
+
+    <!-- Errors and warnings -->
+    <string name="abort_button">إلغاء</string>
+    <string name="continue_button">استمر</string>
+    <string name="system_archive_not_found">لم يتم العثور على أرشيف النظام</string>
+    <string name="system_archive_general">أرشيف النظام</string>
+    <string name="save_load_error">خطأ في الحفظ/التحميل</string>
+    <string name="fatal_error">خطا فادح</string>
+    <string name="performance_warning">سيؤدي إيقاف تشغيل هذا الإعداد إلى تقليل أداء المحاكاة بشكل ملحوظ! للحصول على أفضل تجربة، يوصى بترك هذا الإعداد ممكنًا.</string>
+    <string name="memory_formatted">%1$s %2$s</string>
+    <string name="no_game_present">لا توجد لعبة قابلة للتمهيد</string>
+
+    <!-- Region Names -->
+    <string name="region_japan">اليابان</string>
+    <string name="region_usa">الولايات المتحدة الأمريكية</string>
+    <string name="region_europe">أوروبا</string>
+    <string name="region_australia">أستراليا</string>
+    <string name="region_china">الصين</string>
+    <string name="region_korea">كوريا</string>
+    <string name="region_taiwan">تايوان</string>
+
+    <!-- Memory Sizes -->
+    <string name="memory_byte">Byte</string>
+    <string name="memory_byte_shorthand">B</string>
+    <string name="memory_kilobyte">KB</string>
+    <string name="memory_megabyte">MB</string>
+    <string name="memory_gigabyte">GB</string>
+    <string name="memory_terabyte">TB</string>
+    <string name="memory_petabyte">PB</string>
+    <string name="memory_exabyte">EB</string>
+
+    <!-- Renderer APIs -->
+    <string name="renderer_vulkan">Vulkan</string>
+    <string name="renderer_none">لاشيء</string>
+
+    <!-- Renderer Accuracy -->
+    <string name="renderer_accuracy_normal">عادي</string>
+    <string name="renderer_accuracy_high">عالي</string>
+    <string name="renderer_accuracy_extreme">Extreme (بطيء)</string>
+
+    <!-- Resolutions -->
+    <string name="resolution_half">0.5X (360p/540p)</string>
+    <string name="resolution_three_quarter">0.75X (540p/810p)</string>
+    <string name="resolution_one">1X (720p/1080p)</string>
+    <string name="resolution_two">2X (1440p/2160p) (بطيء)</string>
+    <string name="resolution_three">3X (2160p/3240p) (بطيء)</string>
+    <string name="resolution_four">4X (2880p/4320p) (بطيء)</string>
+
+    <!-- Renderer VSync -->
+    <string name="renderer_vsync_immediate">Immediate (Off)</string>
+    <string name="renderer_vsync_mailbox">Mailbox</string>
+    <string name="renderer_vsync_fifo">FIFO (On)</string>
+    <string name="renderer_vsync_fifo_relaxed">FIFO Relaxed</string>
+
+    <!-- Scaling Filters -->
+    <string name="scaling_filter_nearest_neighbor">Nearest Neighbor</string>
+    <string name="scaling_filter_bilinear">Bilinear</string>
+    <string name="scaling_filter_bicubic">Bicubic</string>
+    <string name="scaling_filter_gaussian">Gaussian</string>
+    <string name="scaling_filter_scale_force">ScaleForce</string>
+    <string name="scaling_filter_fsr">AMD FidelityFX™ Super Resolution</string>
+
+    <!-- Anti-Aliasing -->
+    <string name="anti_aliasing_none">لا شيء</string>
+    <string name="anti_aliasing_fxaa">FXAA</string>
+    <string name="anti_aliasing_smaa">SMAA</string>
+
+    <!-- Screen Layouts -->
+    <string name="screen_layout_auto">تلقائي</string>
+    <string name="screen_layout_landscape">أفقي</string>
+    <string name="screen_layout_portrait">عمودي</string>
+    <!-- Aspect Ratios -->
+    <string name="ratio_default">(16:9) افتراضي</string>
+    <string name="ratio_force_four_three">4:3 فرض</string>
+    <string name="ratio_force_twenty_one_nine">21:9 فرض</string>
+    <string name="ratio_force_sixteen_ten">16:10 فرض</string>
+    <string name="ratio_stretch">تمتد إلى النافذة</string>
+
+    <!-- CPU Backend -->
+    <string name="cpu_backend_dynarmic">Dynarmic (بطيء)</string>
+    <string name="cpu_backend_nce">تنفيذ التعليمات البرمجية الأصلية (NCE)</string>
+
+    <!-- CPU Accuracy -->
+    <string name="cpu_accuracy_accurate">دقه</string>
+    <string name="cpu_accuracy_unsafe">غير آمن</string>
+    <string name="cpu_accuracy_paranoid">Paranoid (بطيء)</string>
+
+    <!-- Gamepad Buttons -->
+    <string name="gamepad_d_pad">الأسهم</string>
+    <string name="gamepad_left_stick">العصا اليسرى</string>
+    <string name="gamepad_right_stick">العصا اليمنى</string>
+    <string name="gamepad_home">شاشة الرئيسية</string>
+    <string name="gamepad_screenshot">لقطة شاشة</string>
+
+    <!-- Disk shader cache -->
+    <string name="preparing_shaders">تحضير التظليل</string>
+    <string name="building_shaders">بناء التظليل</string>
+
+    <!-- Theme options -->
+    <string name="change_app_theme">تغيير سمة التطبيق</string>
+    <string name="theme_default">افتراضي</string>
+    <string name="theme_material_you">Material You</string>
+
+    <!-- Theme Modes -->
+    <string name="change_theme_mode">تغيير وضع السمة</string>
+    <string name="theme_mode_follow_system">اتبع النظام</string>
+    <string name="theme_mode_light">فاتح</string>
+    <string name="theme_mode_dark">داكن</string>
+
+    <string name="cubeb">cubeb</string>
+
+    <!-- Anisotropic filtering options -->
+    <string name="multiplier_two">2x</string>
+    <string name="multiplier_four">4x</string>
+    <string name="multiplier_eight">8x</string>
+    <string name="multiplier_sixteen">16x</string>
+
+    <!-- Black backgrounds theme -->
+    <string name="use_black_backgrounds">خلفيات سوداء</string>
+    <string name="use_black_backgrounds_description">عند استخدام المظهر الداكن، قم بتطبيق خلفيات سوداء.</string>
+
+    <!-- Picture-In-Picture -->
+    <string name="picture_in_picture">صورة داخل صورة</string>
+    <string name="picture_in_picture_description">تصغير النافذة عند وضعها في الخلفية</string>
+    <string name="pause">توقف</string>
+    <string name="play">تشغيل</string>
+    <string name="mute">كتم</string>
+    <string name="unmute">إلغاء الكتم</string>
+
+    <!-- Licenses screen strings -->
+    <string name="licenses">التراخيص</string>
+    <string name="license_fidelityfx_fsr_description">AMD ترقية عالية الجودة من</string>
+    </resources>

@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <color name="citron_primary">#A7DDEC</color>
+    <color name="citron_onPrimary">#003399</color>
+    <color name="citron_primaryContainer">#31323F</color>
+    <color name="citron_onPrimaryContainer">#D1E4FF</color>
+    <color name="citron_secondary">#BAC8DB</color>
+    <color name="citron_onSecondary">#253140</color>
+    <color name="citron_secondaryContainer">#3B4858</color>
+    <color name="citron_onSecondaryContainer">#D6E4F7</color>
+    <color name="citron_tertiary">#D6BEE5</color>
+    <color name="citron_onTertiary">#3A2948</color>
+    <color name="citron_tertiaryContainer">#524060</color>
+    <color name="citron_onTertiaryContainer">#F2DAFF</color>
+    <color name="citron_error">#FFB4AB</color>
+    <color name="citron_errorContainer">#93000A</color>
+    <color name="citron_onError">#690005</color>
+    <color name="citron_onErrorContainer">#FFDAD6</color>
+    <color name="citron_background">#1A1C1E</color>
+    <color name="citron_onBackground">#E2E2E6</color>
+    <color name="citron_surface">#1B1B1D</color>
+    <color name="citron_onSurface">#E2E2E6</color>
+    <color name="citron_surfaceVariant">#26282C</color>
+    <color name="citron_onSurfaceVariant">#C3C7CF</color>
+    <color name="citron_outline">#8C9199</color>
+    <color name="citron_inverseOnSurface">#1A1C1E</color>
+    <color name="citron_inverseSurface">#E2E2E6</color>
+    <color name="citron_inversePrimary">#0062A2</color>
+    <color name="citron_shadow">#000000</color>
+    <color name="citron_surfaceTint">#9DCAFF</color>
+    <color name="citron_outlineVariant">#42474E</color>
+
+    <color name="citron_ea_background_start">#840099</color>
+    <color name="citron_ea_background_end">#005AE1</color>
+
+</resources>

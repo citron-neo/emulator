@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<data-extraction-rules>
+    <cloud-backup disableIfNoEncryptionCapabilities="false">
+
+        <exclude
+            domain="external"
+            path="./load/" />
+
+        <exclude
+            domain="external"
+            path="./log/" />
+
+        <include
+            domain="external"
+            path="." />
+
+        <include
+            domain="sharedpref"
+            path="." />
+
+    </cloud-backup>
+
+    <device-transfer>
+
+        <exclude
+            domain="external"
+            path="./load/" />
+
+        <exclude
+            domain="external"
+            path="./log/" />
+
+        <include
+            domain="external"
+            path="." />
+
+        <include
+            domain="sharedpref"
+            path="." />
+
+    </device-transfer>
+
+</data-extraction-rules>

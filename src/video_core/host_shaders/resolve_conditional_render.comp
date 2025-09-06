@@ -1,0 +1,20 @@
+// SPDX-FileCopyrightText: Copyright 2023 yuzu Emulator Project
+// SPDX-License-Identifier: GPL-3.0-or-later
+
+#version 450
+
+layout(local_size_x = 1) in;
+
+layout(std430, binding = 0) buffer Query {
+    uvec2 initial;
+    uvec2 unknown;
+    uvec2 current;
+};
+
+layout(std430, binding = 1) buffer Result {
+    uint result;
+};
+
+void main() {
+    result = all(equal(initial, current)) ? 1 : 0;
+}

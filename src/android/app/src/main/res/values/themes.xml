@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <style name="Theme.Citron.Splash.Main" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/citron_surface</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_citron</item>
+        <item name="postSplashScreenTheme">@style/Theme.Citron.Main</item>
+    </style>
+
+    <style name="Theme.Citron.Main" parent="Theme.Material3.DayNight.NoActionBar">
+        <item name="colorPrimary">@color/citron_primary</item>
+        <item name="colorOnPrimary">@color/citron_onPrimary</item>
+        <item name="colorPrimaryContainer">@color/citron_primaryContainer</item>
+        <item name="colorOnPrimaryContainer">@color/citron_onPrimaryContainer</item>
+        <item name="colorSecondary">@color/citron_secondary</item>
+        <item name="colorOnSecondary">@color/citron_onSecondary</item>
+        <item name="colorSecondaryContainer">@color/citron_secondaryContainer</item>
+        <item name="colorOnSecondaryContainer">@color/citron_onSecondaryContainer</item>
+        <item name="colorTertiary">@color/citron_tertiary</item>
+        <item name="colorOnTertiary">@color/citron_onTertiary</item>
+        <item name="colorTertiaryContainer">@color/citron_tertiaryContainer</item>
+        <item name="colorOnTertiaryContainer">@color/citron_onTertiaryContainer</item>
+        <item name="colorError">@color/citron_error</item>
+        <item name="colorErrorContainer">@color/citron_errorContainer</item>
+        <item name="colorOnError">@color/citron_onError</item>
+        <item name="colorOnErrorContainer">@color/citron_onErrorContainer</item>
+        <item name="android:colorBackground">@color/citron_background</item>
+        <item name="colorOnBackground">@color/citron_onBackground</item>
+        <item name="colorSurface">@color/citron_surface</item>
+        <item name="colorOnSurface">@color/citron_onSurface</item>
+        <item name="colorSurfaceVariant">@color/citron_surfaceVariant</item>
+        <item name="colorOnSurfaceVariant">@color/citron_onSurfaceVariant</item>
+        <item name="colorOutline">@color/citron_outline</item>
+        <item name="colorOnSurfaceInverse">@color/citron_inverseOnSurface</item>
+        <item name="colorSurfaceInverse">@color/citron_inverseSurface</item>
+        <item name="colorPrimaryInverse">@color/citron_inversePrimary</item>
+        <item name="android:shadowColor">@color/citron_shadow</item>
+
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+
+        <item name="sliderStyle">@style/CitronSlider</item>
+        <item name="materialAlertDialogTheme">@style/CitronMaterialDialog</item>
+
+        <item name="android:windowLayoutInDisplayCutoutMode">shortEdges</item>
+
+        <item name="android:enforceStatusBarContrast">false</item>
+        <item name="android:enforceNavigationBarContrast">false</item>
+    </style>
+
+</resources>

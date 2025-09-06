@@ -1,0 +1,47 @@
+// SPDX-FileCopyrightText: Copyright 2021 yuzu Emulator Project
+// SPDX-License-Identifier: GPL-2.0-or-later
+
+// This shader is a workaround for a quirk in NVIDIA OpenGL drivers
+// Shaders using local memory see a great performance benefit if a shader that was dispatched
+// before it had more local memory allocated.
+// This shader allocates the maximum local memory allowed on NVIDIA drivers to ensure that
+// subsequent shaders see the performance boost.
+
+// NOTE: This shader does no actual meaningful work and returns immediately,
+// it is simply a means to have the driver expect a shader using lots of local memory.
+
+#version 450
+
+layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+
+layout(location = 0) uniform uint uniform_data;
+
+layout(binding = 0, rgba8) uniform writeonly restrict image2DArray dest_image;
+
+#define MAX_LMEM_SIZE 4080 // Size chosen to avoid errors in Nvidia's GLSL compiler
+#define NUM_LMEM_CONSTANTS 1
+#define ARRAY_SIZE MAX_LMEM_SIZE - NUM_LMEM_CONSTANTS
+
+uint lmem_0[ARRAY_SIZE];
+const uvec4 constant_values[NUM_LMEM_CONSTANTS] = uvec4[](uvec4(0));
+
+void main() {
+    const uint global_id = gl_GlobalInvocationID.x;
+    if (global_id <= 128) {
+        // Since the shader is called with a dispatch of 1x1x1
+        // This should always be the case, and this shader will not actually execute
+        return;
+    }
+    for (uint t = 0; t < uniform_data; t++) {
+        const uint offset = (t * uniform_data);
+        lmem_0[offset] = t;
+    }
+    const uint offset = (gl_GlobalInvocationID.y * uniform_data + gl_GlobalInvocationID.x);
+    const uint value = lmem_0[offset];
+    const uint const_value = constant_values[offset / 4][offset % 4];
+    const uvec4 color = uvec4(value + const_value);
+
+    // A "side-effect" is needed so the variables don't get optimized out,
+    // but this should never execute so there should be no clobbering of previously bound state.
+    imageStore(dest_image, ivec3(gl_GlobalInvocationID), color);
+}

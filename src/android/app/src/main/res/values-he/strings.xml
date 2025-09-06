@@ -1,0 +1,493 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:tools="http://schemas.android.com/tools" tools:ignore="MissingTranslation">
+
+    <string name="app_disclaimer">התוכנה תריץ משחקים לקונסולת ה Nintendo Switch. אף משחק או קבצים בעלי זכויות יוצרים נכללים.&lt;br /&gt;&lt;br /&gt; לפני שאת/ה מתחיל בבקשה מצא את קובץ <![CDATA[<b>prod.keys</b>]]> על המכשיר.&lt;br /&gt;&lt;br /&gt;<![CDATA[<a href=\"https://citron-emu.org/help/quickstart\">קרא עוד</a>]]></string>
+    <string name="notice_notification_channel_name">התראות ותקלות</string>
+    <string name="notice_notification_channel_description">מציג התראות כאשר משהו הולך לא כשורה.</string>
+    <string name="notification_permission_not_granted">הרשאות התראות לא ניתנה!</string>
+
+    <!-- Setup strings -->
+    <string name="welcome">ברוכים הבאים!</string>
+    <string name="welcome_description">למד איך להפעיל &lt;b>citron&lt;/b> וקפוץ ישר לאמולציה.</string>
+    <string name="get_started">כדי להתחיל</string>
+    <string name="keys">מפתחות</string>
+    <string name="keys_description">בחר את קובץ ה &lt;b>prod.keys&lt;/b> שלך עם הכפתור למטה.</string>
+    <string name="select_keys">בחר מפתחות</string>
+    <string name="games">משחקים</string>
+    <string name="games_description">בחר את התיקיית ה &lt;b>Games&lt;/b> שלך עם הכפתור למטה.</string>
+    <string name="done">סיום</string>
+    <string name="done_description">את/ה מוכן. \nתהנה/י  מהמשחקים שלך </string>
+    <string name="text_continue">המשך</string>
+    <string name="next">הבא</string>
+    <string name="back">אחורה</string>
+    <string name="add_games">הוסף משחקים</string>
+    <string name="add_games_description">בחר/י את תיקיית המשחקים שלך</string>
+    <string name="step_complete">הושלם!</string>
+
+    <!-- Home strings -->
+    <string name="home_games">משחקים</string>
+    <string name="home_search">חפש</string>
+    <string name="home_settings">הגדרות</string>
+    <string name="empty_gamelist">לא נמצאו קבצים או לנבחרה ספריית קבצים בינתיים.</string>
+    <string name="search_and_filter_games">חפש וסנן משחקים</string>
+    <string name="select_games_folder">בחר תיקיית משחקים</string>
+    <string name="manage_game_folders">נהל את תיקיית המשחקים</string>
+    <string name="select_games_folder_description">אפשר ל citron  לאכלס את רשימת המשחקים</string>
+    <string name="add_games_warning">לדלג על בחירת תיקיית המשחקים?</string>
+    <string name="add_games_warning_description">משחקים לא יוצגו ברשימת המשחקים  אם לנבחרה תיקיית משחקים.</string>
+    <string name="add_games_warning_help">https://citron-emu.org/help/quickstart/#dumping-games</string>
+    <string name="home_search_games">חפש משחקים</string>
+    <string name="search_settings">חפש בהגדרות</string>
+    <string name="games_dir_selected">ספריית משחקים נבחרה</string>
+    <string name="install_prod_keys">התקן prod.keys</string>
+    <string name="install_prod_keys_description">הכרחי בכדי לפענח משחקים</string>
+    <string name="install_prod_keys_warning">לדלג על הוספת מפתחות?</string>
+    <string name="install_prod_keys_warning_description">מפתחות חוקיים הכרחיים כדי לשחק במשחקים. רק אפליקציות פירטיות יפעלו אם תמשיך.</string>
+    <string name="install_prod_keys_warning_help">https://citron-emu.org/help/quickstart/#guide-introduction</string>
+    <string name="notifications">התראות</string>
+    <string name="notifications_description">תן גישה להתראות עם הכפתור למטה.</string>
+    <string name="give_permission">תן הרשאה</string>
+    <string name="notification_warning">דלג על מתן הרשאה להתראות?</string>
+    <string name="notification_warning_description">citron  לא יוכל להתריע לך על מידע חשוב.</string>
+    <string name="permission_denied">הרשאה נדחתה</string>
+    <string name="permission_denied_description">את/ה דיחת את ההרשאה יותר מדי פעמים ועכשיו את/ה צריך/ה לתת גישה באופן ידני בהגדרות.</string>
+    <string name="about">אודות</string>
+    <string name="about_description">מספר גירסה, קרדיטים ועוד</string>
+    <string name="warning_help">עזרה</string>
+    <string name="warning_skip">דלג</string>
+    <string name="warning_cancel">ביטול</string>
+    <string name="install_amiibo_keys">התקן מפתחות Amiibo</string>
+    <string name="install_amiibo_keys_description">נחוץ כדי להשתמש ב Amiibo במשחק</string>
+    <string name="invalid_keys_file">קובץ מפתחות לא חוקי נבחר</string>
+    <string name="install_keys_success">מפתחות הותקנו בהצלחה</string>
+    <string name="reading_keys_failure">שגיאה בקריאת מפתחות ההצפנה</string>
+    <string name="install_prod_keys_failure_extension_description">ודא שלקובץ המפתחות שלך יש סיומת של key. ונסה/י שוב.</string>
+    <string name="install_amiibo_keys_failure_extension_description">ודא/י שלקובץ המפתחות שלך יש סיומת של bin. ונסה/י שוב.</string>
+    <string name="invalid_keys_error">מפתחות הצפנה לא חוקיים</string>
+    <string name="dumping_keys_quickstart_link">https://citron-emu.org/help/quickstart/#dumping-decryption-keys</string>
+    <string name="install_keys_failure_description">קבוץ שנבחר מושחת או לא נכון. בבקשה הוצא מחדש את המפתחות שלך.</string>
+    <string name="gpu_driver_manager">מנהל הדרייברים של המעבד הגרפי</string>
+    <string name="install_gpu_driver">התקן דרייבר למעבד הגרפי</string>
+    <string name="install_gpu_driver_description">התקן דרייברים אחרים בשביל סיכוי לביצועים או דיוק גבוההים יותר</string>
+    <string name="advanced_settings">הגדרות מתקדמות</string>
+    <string name="advanced_settings_game">הגדרות מתקדמות: %1$s</string>
+    <string name="settings_description">הדר את הגדרות האמולטור</string>
+    <string name="search_recently_played">שוחק לאחרונה</string>
+    <string name="search_recently_added">הוסף לאחרונה</string>
+    <string name="search_retail">קמעונאי</string>
+    <string name="search_homebrew">Homebrew</string>
+    <string name="open_user_folder">פתח את תיקיית citron </string>
+    <string name="open_user_folder_description">נה ל את הקבצים הפנימיין של citron</string>
+    <string name="theme_and_color_description">ערוך את נראות האפליקציה</string>
+    <string name="no_file_manager">לא נמצא מנהל קבצים</string>
+    <string name="notification_no_directory_link">לא יכול לפתוח את ספריית citron</string>
+    <string name="notification_no_directory_link_description">בבקשה מקם את תיקיית המשתמש בפנל הצידי של מנהל הקבצים באופן ידני.</string>
+    <string name="manage_save_data">נהל  מידע שמור</string>
+    <string name="manage_save_data_description">מידע שמור לא נמצא. בבקשה בחר/י אופציה מלמטה</string>
+    <string name="import_save_warning">ייבוא נתוני שמירה</string>
+    <string name="import_save_warning_description">פעולה זו תמחק את כל הנתונים הקיימים ותחליף אותם בקובץ שסופק.האם אתה בטוח שברצונך להמשיך?</string>
+    <string name="import_export_saves_description">יבא או יצא קבצי שמירה</string>
+    <string name="save_files_importing">מייבא  קבצי שמירה...</string>
+    <string name="save_files_exporting">מייצא קבצי שמירה...</string>
+    <string name="save_file_imported_success">יובא בהצלחה</string>
+    <string name="save_file_invalid_zip_structure">מבנה ספריית השמירות לא חוקי</string>
+    <string name="save_file_invalid_zip_structure_description">התת תיקייה הראשונה חייב להיות ה title ID של המשחק</string>
+    <string name="import_saves">ייבוא</string>
+    <string name="export_saves">ייצוא</string>
+    <string name="install_firmware">התקן firmware</string>
+    <string name="install_firmware_description">ה frimware   חייב להיות בקובץ zip והוא הכרחי להפעלת חלק מהמשחקים</string>
+    <string name="firmware_installing">מתקין frimware</string>
+    <string name="firmware_installed_success">ה frimware הותקן בהצלחה</string>
+    <string name="firmware_installed_failure">התקנת ה frimware  נכשלה</string>
+    <string name="firmware_installed_failure_description">ודא שקבצי ה firmware nca נמצאים בשורש ה zip ונסה שוב.</string>
+    <string name="share_log">שתף  את יומני הרישום של מיפוי הבאגים</string>
+    <string name="share_log_description">שתף את קובץ יומני הרישום של citron בכדי לתקן בעיות</string>
+    <string name="share_log_missing">לא נמצא קובץ יומן רישום</string>
+    <string name="install_game_content">התקן תוכן משחק</string>
+    <string name="install_game_content_description">התקן עדכוני משחק או DLC</string>
+    <string name="installing_game_content">מתקין תוכן...</string>
+    <string name="install_game_content_failure">תקלה בהתקנת הקובץ (או קבצים) ל NAND</string>
+    <string name="install_game_content_failure_description">בבקשה ודא שהתוכן (או תכנים) חוקיים ושקובץ ה prod.keys מותקן.</string>
+    <string name="install_game_content_failure_base">התקנת משחק בסיס נדחת בכדי להימנע מקונפליקטים אפשריים.</string>
+    <string name="install_game_content_failure_file_extension">רק קבצי NSP ו XCI נתמכים. בבקשה ודא שתוכן (או תכנים) המשחק חוקי.</string>
+    <string name="install_game_content_failed_count">%1$dבעיה (בעיות) התקנה</string>
+    <string name="install_game_content_success">תוכן (או תכני) המשחק הותקנו בהצלחה</string>
+    <string name="install_game_content_success_install">%1$d הותקן בהצלחה</string>
+    <string name="install_game_content_success_overwrite">%1$d נדרס/נכתב מעל בהצלחה</string>
+    <string name="install_game_content_help_link">https://citron-emu.org/help/quickstart/#dumping-installed-updates</string>
+    <string name="custom_driver_not_supported">דרייברים מותאמים אישית לא נתמכים</string>
+    <string name="custom_driver_not_supported_description">הטענת דרייבים מותאמים אישית לא נתמך כרגע על מכשיר זה. \nבבקשה בדוק אופציה זו בעתיד בכדי לראות אם נוספה תמיכה!</string>
+    <string name="manage_citron_data">נהל את המידע של citron</string>
+    <string name="manage_citron_data_description">יבא/יצא firmware, keys, מידע של משתמש ועוד!</string>
+    <string name="share_save_file">שתף קובץ שמירה</string>
+    <string name="export_save_failed">נכשל בייצוא שמירה</string>
+    <string name="game_folders">תיקיית משחקים</string>
+    <string name="deep_scan">סריקה עמוקה</string>
+    <string name="add_game_folder">הוסף תיקיית משחקים</string>
+    <string name="folder_already_added">התיקייה הזו נוספה כבר!</string>
+    <string name="game_folder_properties">מאפייני תיקיית משחקים</string>
+    <string name="keys_missing_help">https://citron-emu.org/help/quickstart/#dumping-decryption-keys</string>
+
+    <!-- Applet launcher strings -->
+    <string name="applets">משגר Applet</string>
+    <string name="applets_description">מערכת שיגור Applet משתמשת בתוכנה המותקנת</string>
+    <string name="applets_error_firmware">ה Firmware לא מותקן</string>
+    <string name="applets_error_applet">Applet לא זמין</string>
+    <string name="applets_error_description"><![CDATA[בבקשה וודא שקבצי ה - <a href=\"https://citron-emu.org/help/quickstart/#dumping-prodkeys-and-titlekeys\">prod.keys</a>ו <a href=\"https://citron-emu.org/help/quickstart/#dumping-system-firmware\">firmware</a>שלך מותקנים ונסה שוב.]]></string>
+    <string name="album_applet">אלבום</string>
+    <string name="album_applet_description">צפה בתמונות השמורות בתיקיית צילומי המסך של המשתמש בעזרת מציג התמונות של המערכת</string>
+    <string name="mii_edit_applet">עורך Mii</string>
+    <string name="mii_edit_applet_description">צפה וערוך דמויות Mii בעזרת עורך המערכת</string>
+    <string name="cabinet_applet">ארון</string>
+    <string name="cabinet_applet_description">ערוך ומחק מידע השמור על ה amiibo</string>
+    <string name="cabinet_launcher">משגר ארונות</string>
+    <string name="cabinet_nickname_and_owner">כינוי והגדרות בעלים</string>
+    <string name="cabinet_game_data_eraser">מחק של נתוני משחק</string>
+    <string name="cabinet_restorer">שחזר</string>
+    <string name="cabinet_formatter">בונה תבניות</string>
+
+    <!-- About screen strings -->
+    <string name="gaia_is_not_real">Gaia לא אמיתית</string>
+    <string name="copied_to_clipboard">הועתק ללוח</string>
+    <string name="about_app_description">אמולטור Switch עם קוד פתוח</string>
+    <string name="contributors">תורמים</string>
+    <string name="contributors_description">נוצר עם \u2764 מקבוצת citron</string>
+    <string name="contributors_link">https://github.com/citron-emu/citron/graphs/contributors</string>
+    <string name="licenses_description">פרוייקטים שהופכים את citron ל Android אפשרי</string>
+    <string name="build">גרסה</string>
+    <string name="user_data">נתוני משתמש</string>
+    <string name="user_data_description">יבא/יצא את כל נתוני האפליקציה.\n\nכאשר מייבאים את נתוני המשתמש, כל נתוני המשתמש הקיימים ימחקו!</string>
+    <string name="exporting_user_data">מייצא נתוני משתמש...</string>
+    <string name="importing_user_data">מייבא נתוני משתמש...</string>
+    <string name="import_user_data">יבא נתוני משתמש</string>
+    <string name="invalid_citron_backup">גיבוי citron לא חוקי</string>
+    <string name="user_data_export_success">נתוני משתמש יוצאו בהצלחה</string>
+    <string name="user_data_import_success">נתוני משתמש יובאו בהצלחה</string>
+    <string name="user_data_export_cancelled">ייצוא בוטל</string>
+    <string name="user_data_import_failed_description">ודא שנתוני המשתמש נמצאים בשורש קובץ ה zip ושהוא מכיל קובץ סידור ב config/config.ini ונסה שוב.</string>
+    <string name="support_link">https://discord.gg/u77vRWY</string>
+    <string name="website_link">https://citron-emu.org/</string>
+    <string name="github_link">https://github.com/citron-emu</string>
+
+    <!-- Early access upgrade strings -->
+    <string name="early_access">גישה מוקדמת</string>
+    <string name="get_early_access">קבל גישה מוקדמת</string>
+    <string name="play_store_link">https://play.google.com/store/apps/details?id=org.citron.citron_emu.ea</string>
+    <string name="get_early_access_description">תכונות חותכות קצה, גישה מוקדמת לעדכונים, ועוד</string>
+    <string name="early_access_benefits">יתרונות של גישה מקודמת</string>
+    <string name="cutting_edge_features">תכונות חותכות קצה</string>
+    <string name="early_access_updates">גישה מוקדמת לעדכונים</string>
+    <string name="no_manual_installation">ללא התקנה ידנית</string>
+    <string name="prioritized_support">תמיכה בעדיפות</string>
+    <string name="helping_game_preservation">עוזר בשמירת משחקים</string>
+    <string name="our_eternal_gratitude">התודה האינסופית שלנו</string>
+    <string name="are_you_interested">אתה מעוניין?</string>
+
+    <!-- General settings strings -->
+    <string name="frame_limit_enable">הגבל מהירות</string>
+    <string name="frame_limit_enable_description">מגביל את מהירות האמולציה לאחוז מהירות המבוקש מהמהירות הרגילה.</string>
+    <string name="frame_limit_slider">הגבל את אחוז המהירות</string>
+    <string name="frame_limit_slider_description">מדייק את אחוז  מהירות האמולציה. 100% זה מהירות רגילה. ערכים גדולים או קטנים  יאיצו או יאטו את מהירות האמולציה.</string>
+    <string name="cpu_backend">קצה האחורי של המעבד</string>
+    <string name="cpu_accuracy">דיוק המעבד</string>
+    <string name="value_with_units">%1$s%2$s</string>
+
+    <string name="use_docked_mode">מצב עגינה</string>
+    <string name="use_docked_mode_description">מעלה את הרזולוציה, פוגע בביצועים. משתמש במצב נייד כאשר מנוטרל, מפחית את הרזולוציה ומעלה את הביצועים.</string>
+    <string name="emulated_region">אזור אמולציה</string>
+    <string name="emulated_language">שפת אמולציה</string>
+    <string name="select_rtc_date">בחר תאריך RTC</string>
+    <string name="select_rtc_time">בחר זמן RTC</string>
+    <string name="use_custom_rtc">RTC מותאם אישית</string>
+    <string name="use_custom_rtc_description">מאפשר לך לקבוע שעון זמן אמת נפרד משעון המערכת שלך.</string>
+    <string name="set_custom_rtc">קבע RTC מותאם אישית</string>
+
+    <!-- Graphics settings strings -->
+    <string name="renderer_accuracy">רמת דיוק</string>
+    <string name="renderer_resolution">רזולוציה (מעוגן/נייד)</string>
+    <string name="renderer_vsync">מצב VSync</string>
+    <string name="renderer_screen_layout">כיוון</string>
+    <string name="renderer_aspect_ratio">יחס רוחב גובה</string>
+    <string name="renderer_scaling_filter">פילטר מתאם חלון</string>
+    <string name="renderer_anti_aliasing">שיטת Anti-aliasing</string>
+    <string name="renderer_force_max_clock">החזק מהירות שעון מקסימלית (רק ל Adreno)</string>
+    <string name="renderer_force_max_clock_description">מכריח לדחוף את מהירויות המעבד הגרפי למקסימום (הגבלות חום ימשיכו לתפקד).</string>
+    <string name="renderer_asynchronous_shaders">השתמש בשיידרים אסינכרונים</string>
+    <string name="renderer_asynchronous_shaders_description">מקמפל שיידרים בצורה אסנכרונית, מפחית תקיעות אך עלול לגרום לבעיות גרפיות.</string>
+    <string name="renderer_reactive_flushing">השתמש בהבהוב תגובתי</string>
+    <string name="renderer_reactive_flushing_description">משפר את הדיוק של האמולציה במשחקים מסויימים במחיר של ביצועים.</string>
+    <string name="use_disk_shader_cache">מטמון השיידר של הדיסק</string>
+    <string name="use_disk_shader_cache_description">מפחית בתקיעות על ידי אחסון מקומי וטעינה של שיידרים הנוצרים. </string>
+    <!-- Debug settings strings -->
+    <string name="cpu">מעבד</string>
+    <string name="cpu_debug_mode">דיבאגינג למעבד</string>
+    <string name="cpu_debug_mode_description">מכניס את המעבד למצב דיבאג איטי</string>
+    <string name="gpu">מעבד גרפי</string>
+    <string name="renderer_api">ממשק תוכנה</string>
+    <string name="renderer_debug">דיבאגינג בגרפיקה</string>
+    <string name="renderer_debug_description">קובע את ממשק התוכנה של הגרפיקות למצב דיבאגינג איטי.</string>
+    <string name="fastmem">Fastmem</string>
+
+    <!-- Audio settings strings -->
+    <string name="audio_output_engine">מנוע פלט</string>
+    <string name="audio_volume">עוצמת שמע</string>
+    <string name="audio_volume_description">מציין את עוצמת האודיו שיוצא.</string>
+
+    <string name="button_a">A</string>
+    <string name="button_b">B</string>
+    <string name="button_x">X</string>
+    <string name="button_y">Y</string>
+    <string name="button_plus">פלוס</string>
+    <string name="button_minus">מינוס</string>
+    <string name="button_home">בית</string>
+    <string name="up">למעלה</string>
+    <string name="down">למטה</string>
+    <string name="left">שמאל</string>
+    <string name="right">ימין</string>
+    <string name="left_stick">ג׳ויסטיק שמאלי</string>
+    <string name="right_stick">ג׳ויסטיק ימני</string>
+    <string name="pressed">לחוץ</string>
+    <string name="range">טווח</string>
+    <string name="button_l">L</string>
+    <string name="button_r">R</string>
+    <string name="button_zl">ZL</string>
+    <string name="button_zr">ZR</string>
+    <string name="button_z">Z</string>
+    <string name="invalid">לא חוקי</string>
+    <string name="unknown">לא ידוע</string>
+    <string name="handheld">מצב נייד</string>
+    <string name="connected">מחובר</string>
+    <string name="vibration">רטט</string>
+    <string name="profile">פרופיל</string>
+    <string name="use_global_input_configuration">השתמש בהגדרת קלט גלובלי</string>
+    <!-- Miscellaneous -->
+    <string name="slider_default">ברירת מחדל</string>
+    <string name="ini_saved">הגדרות שמורות</string>
+    <string name="gameid_saved">הגדרות שמורות עבור %1$s</string>
+    <string name="error_saving">תקלה בשמירת %1$s.ini: %2$s</string>
+    <string name="unimplemented_menu">תפריט שלא יושם</string>
+    <string name="loading">טוען...</string>
+    <string name="shutting_down">כיבוי...</string>
+    <string name="reset_setting_confirmation">אתה מעוניין לאפס את ההגדרה הזו חזרה לברירת המחדל?</string>
+    <string name="reset_to_default">אפס לברירת המחדל</string>
+    <string name="reset_to_default_description">מאפס את כל ההגדרות המתקדמות.</string>
+    <string name="reset_all_settings">לאפס את כל ההגדרות?</string>
+    <string name="reset_all_settings_description">כל ההגדרות המתקדמות יאופסו לברירת המחדל. לא ניתן לבטל פעולה זו.</string>
+    <string name="settings_reset">אפס הגדרות</string>
+    <string name="close">סגור</string>
+    <string name="learn_more">למד עוד</string>
+    <string name="auto">אוטומטי</string>
+    <string name="submit">שלח</string>
+    <string name="string_null">ריק</string>
+    <string name="string_import">ייבוא</string>
+    <string name="export">ייצוא</string>
+    <string name="export_failed">ייצוא נכשל</string>
+    <string name="import_failed">ייבוא נכשל</string>
+    <string name="cancelling">מבטל</string>
+    <string name="install">התקן</string>
+    <string name="delete">מחק</string>
+    <string name="edit">ערוך</string>
+    <string name="export_success">יוצא בהצלחה</string>
+    <string name="start">התחלה</string>
+    <string name="clear">נקה</string>
+    <string name="save">שמור</string>
+
+    <!-- GPU driver installation -->
+    <string name="select_gpu_driver">בחר דרייבר  למעבד הגרפי</string>
+    <string name="select_gpu_driver_title">אתה מעוניין להחליף את הדרייבר של המעבד הגרפי שלך?</string>
+    <string name="select_gpu_driver_install">התקן</string>
+    <string name="select_gpu_driver_default">ברירת מחדל</string>
+    <string name="select_gpu_driver_use_default">משתמש בדרייבר ברירת המחדל של המעבד הגרפי</string>
+    <string name="select_gpu_driver_error">נבחר דרייבר לא חוקי</string>
+    <string name="driver_already_installed">הדרייבר כבר מותקן</string>
+    <string name="system_gpu_driver">דרייבר של המעבד הגרפי של המערכת</string>
+    <string name="installing_driver">מתקין דרייבר...</string>
+
+    <!-- Preferences Screen -->
+    <string name="preferences_settings">הגדרות</string>
+    <string name="preferences_general">כללי</string>
+    <string name="preferences_system">מערכת</string>
+    <string name="preferences_system_description">מצב מעוגן, איזור, שפה</string>
+    <string name="preferences_graphics">גרפיקה</string>
+    <string name="preferences_graphics_description">רמת דיוק, רזולוציה, מטמון שיידרים</string>
+    <string name="preferences_audio">שמע</string>
+    <string name="preferences_audio_description">מנוע פלט, עוצמת שמע</string>
+    <string name="preferences_theme">צבע ונושא</string>
+    <string name="preferences_debug">דיבאג</string>
+    <string name="preferences_debug_description">דיבאגינג עבור מעבד/מעבד גרפי, ממשק תוכנה עבור הגרפיקות, fastmem</string>
+
+    <!-- Game properties -->
+    <string name="info">מידע</string>
+    <string name="path">דרך</string>
+    <string name="developer">מפתח</string>
+    <string name="version">גרסה</string>
+    <string name="add_ons">תוספים</string>
+    <string name="verify_success">אימות  התקינות הצליח!</string>
+    <!-- ROM loading errors -->
+    <string name="loader_error_encrypted">המשחק שלך מוצפן</string>
+    <string name="loader_error_encrypted_roms_description"><![CDATA[אנא עקוב אחרי המדריכים כדי לבצע redump של <a href=\"https://citron-emu.org/help/quickstart/#dumping-physical-titles-game-cards\">כרטיסי המשחק</a>או <a href=\"https://citron-emu.org/help/quickstart/#dumping-digital-titles-eshop\">הכותרות המותקנות</a> שלך.]]></string>
+    <string name="loader_error_encrypted_keys_description"><![CDATA[אנא וודא שקובץ ה-<a href=\"https://citron-emu.org/help/quickstart/#dumping-prodkeys-and-titlekeys\">prod.keys</a> מותקן כך שניתן יהיה לפענח משחקים.]]></string>
+    <string name="loader_error_video_core">התרחשה בעיה באתחול של ליבת הווידאו</string>
+    <string name="loader_error_video_core_description">זה בדרך כלל נגרם על ידי דרייבר לא מתאים עבור המעבד הגרפי. התקנת דרייבר אשר מתאים למעבד הגרפי יכול לפתור את הבעיה הזו.</string>
+    <string name="loader_error_invalid_format">אין אפשרות לטעון את המשחק</string>
+    <string name="loader_error_file_not_found">קובץ המשחק לא קיים</string>
+
+    <!-- Emulation Menu -->
+    <string name="emulation_exit">צא מהאמולציה</string>
+    <string name="emulation_done">סיום</string>
+    <string name="emulation_fps_counter">סופר FPS</string>
+    <string name="emulation_toggle_controls">החלפת בקרים</string>
+    <string name="emulation_rel_stick_center">מרכז ג׳ויסטיק יחסי</string>
+    <string name="emulation_dpad_slide">החלקת D-pad</string>
+    <string name="emulation_haptics">רטט מגע</string>
+    <string name="emulation_show_overlay">הצג את שכבת-העל</string>
+    <string name="emulation_toggle_all">החלף הכל</string>
+    <string name="emulation_control_adjust">התאם את שכבת-העל</string>
+    <string name="emulation_control_scale">קנה מידה</string>
+    <string name="emulation_control_opacity">שקיפות</string>
+    <string name="emulation_touch_overlay_reset">אפס את שכבת-העל</string>
+    <string name="emulation_touch_overlay_edit">ערוך שכבת-על</string>
+    <string name="emulation_pause">עצור אמולציה</string>
+    <string name="emulation_unpause">המשך אמולציה</string>
+    <string name="emulation_input_overlay">אופציות עבור שכבת-על</string>
+    <string name="touchscreen">מסך מגע</string>
+    <string name="load_settings">טוען הגדרות...</string>
+
+    <!-- Software keyboard -->
+    <string name="software_keyboard">מקלדת תוכנה</string>
+
+    <!-- Errors and warnings -->
+    <string name="abort_button">אודות</string>
+    <string name="continue_button">המשך</string>
+    <string name="system_archive_not_found">ארכיון מערכת לא נמצא</string>
+    <string name="system_archive_not_found_message">%s חסר. בבקשה הוצא תא ארכיוני המערכת שלך./nהמשכת האמולציה עלולה לגרום לקריסות ובאגים.</string>
+    <string name="system_archive_general">ארכיון מערכת</string>
+    <string name="save_load_error">בעיית שמירה/טעינה</string>
+    <string name="fatal_error">שגיאה חמורה</string>
+    <string name="fatal_error_message">שגיאה חמורה התרחשה. בדוק את היומן לפרטים./nהמשך הסימולציה עשוי לגרום לקריסות ולבאגים.</string>
+    <string name="performance_warning">כיבוי הגדרה זו ישפיע משמעותית על ביצועי הסימולציה! לחוויה הטובה ביותר, מומלץ להשאיר את הגדרה זו מופעלת.</string>
+    <string name="device_memory_inadequate">RAM המכשיר: %1$s/nמומלץ: %2$s</string>
+    <string name="memory_formatted">%1$s%2$s</string>
+    <string name="no_game_present">אין משחק שניתן להריץ!</string>
+
+    <!-- Region Names -->
+    <string name="region_japan">יפן</string>
+    <string name="region_usa">ארה״ב</string>
+    <string name="region_europe">אירופה</string>
+    <string name="region_australia">אוסטרליה</string>
+    <string name="region_china">סין</string>
+    <string name="region_korea">קוריאה</string>
+    <string name="region_taiwan">טייוואן</string>
+
+    <!-- Memory Sizes -->
+    <string name="memory_byte">בייט</string>
+    <string name="memory_byte_shorthand">B</string>
+    <string name="memory_kilobyte">KB</string>
+    <string name="memory_megabyte">MB</string>
+    <string name="memory_gigabyte">GB</string>
+    <string name="memory_terabyte">TB</string>
+    <string name="memory_petabyte">PB</string>
+    <string name="memory_exabyte">EB</string>
+
+    <!-- Renderer APIs -->
+    <string name="renderer_vulkan">Vulkan</string>
+    <string name="renderer_none">אין שום דבר</string>
+
+    <!-- Renderer Accuracy -->
+    <string name="renderer_accuracy_normal">רגיל</string>
+    <string name="renderer_accuracy_high">גבוה</string>
+    <string name="renderer_accuracy_extreme">אקסטרים (איטי)</string>
+
+    <!-- Resolutions -->
+    <string name="resolution_half">0.5X (360p/540p)</string>
+    <string name="resolution_three_quarter">0.75X (540p/810p)</string>
+    <string name="resolution_one">1X (720p/1080p)</string>
+    <string name="resolution_two">2X (1440p/2160p) (איטי)</string>
+    <string name="resolution_three">3X (2160p/3240p) (איטי)</string>
+    <string name="resolution_four">4X (2880p/4320p) (איטי)</string>
+
+    <!-- Renderer VSync -->
+    <string name="renderer_vsync_immediate">מיידי (כבוי)</string>
+    <string name="renderer_vsync_mailbox">תיבת דואר</string>
+    <string name="renderer_vsync_fifo">FIFO (On)</string>
+    <string name="renderer_vsync_fifo_relaxed">FIFO נינוח</string>
+
+    <!-- Scaling Filters -->
+    <string name="scaling_filter_nearest_neighbor">השכן הקרוב ביותר</string>
+    <string name="scaling_filter_bilinear">ביליניארי</string>
+    <string name="scaling_filter_bicubic">Bicubic</string>
+    <string name="scaling_filter_gaussian">Gaussian</string>
+    <string name="scaling_filter_scale_force">ScaleForce</string>
+    <string name="scaling_filter_fsr">AMD FidelityFX™ Super Resolution</string>
+
+    <!-- Anti-Aliasing -->
+    <string name="anti_aliasing_none">אין שום דבר</string>
+    <string name="anti_aliasing_fxaa">FXAA</string>
+    <string name="anti_aliasing_smaa">SMAA</string>
+
+    <!-- Screen Layouts -->
+    <string name="screen_layout_auto">אוטומטי</string>
+    <string name="screen_layout_landscape">לרוחב</string>
+    <string name="screen_layout_portrait">לאורך</string>
+    <!-- Aspect Ratios -->
+    <string name="ratio_default">ברירת מחדל (16:9)</string>
+    <string name="ratio_force_four_three">הכרח 4:3</string>
+    <string name="ratio_force_twenty_one_nine">הכרח 21:9</string>
+    <string name="ratio_force_sixteen_ten">הכרח 16:10</string>
+    <string name="ratio_stretch">הרחב לגודל המסך</string>
+
+    <!-- CPU Backend -->
+    <string name="cpu_backend_dynarmic">דינמי (איטי)</string>
+    <string name="cpu_backend_nce">ביצוע קוד מקורי (NCE)</string>
+
+    <!-- CPU Accuracy -->
+    <string name="cpu_accuracy_accurate">מדויק</string>
+    <string name="cpu_accuracy_unsafe">לא בטוח</string>
+    <string name="cpu_accuracy_paranoid">פראנואידי (איטי)</string>
+
+    <!-- Gamepad Buttons -->
+    <string name="gamepad_d_pad">D-pad</string>
+    <string name="gamepad_left_stick">ג׳ויסטיק שמאלי</string>
+    <string name="gamepad_right_stick">ג׳ויסטיק ימני</string>
+    <string name="gamepad_home">בית</string>
+    <string name="gamepad_screenshot">צילום מסך</string>
+
+    <!-- Disk shader cache -->
+    <string name="preparing_shaders">מכין שיידרים</string>
+    <string name="building_shaders">בונה שיידרים</string>
+
+    <!-- Theme options -->
+    <string name="change_app_theme">שנה את נושא האפליקצייה</string>
+    <string name="theme_default">ברירת מחדל</string>
+    <string name="theme_material_you">חומר אתה/מאטיריאל יו</string>
+
+    <!-- Theme Modes -->
+    <string name="change_theme_mode">שנה את מצב הנושא</string>
+    <string name="theme_mode_follow_system">עקוב אחרי המערכת</string>
+    <string name="theme_mode_light">בהיר</string>
+    <string name="theme_mode_dark">כהה</string>
+
+    <string name="cubeb">cubeb</string>
+
+    <!-- Anisotropic filtering options -->
+    <string name="multiplier_two">2x</string>
+    <string name="multiplier_four">4x</string>
+    <string name="multiplier_eight">8x</string>
+    <string name="multiplier_sixteen">16x</string>
+
+    <!-- Black backgrounds theme -->
+    <string name="use_black_backgrounds">רקעים שחורים</string>
+    <string name="use_black_backgrounds_description">כשמתשמשים במצב כהה, שם רקעים שחורים.</string>
+
+    <!-- Picture-In-Picture -->
+    <string name="picture_in_picture">תמונה בתוך תמונה</string>
+    <string name="picture_in_picture_description">הקטן את החלון כאשר נמצא ברקע</string>
+    <string name="pause">עצור</string>
+    <string name="play">שחק</string>
+    <string name="mute">השתק</string>
+    <string name="unmute">בטל השתקה</string>
+
+    <!-- Licenses screen strings -->
+    <string name="licenses">רישיונות</string>
+    <string name="license_fidelityfx_fsr_description">אפסקיילינג באיכות גבוהה מ AMD</string>
+    </resources>
