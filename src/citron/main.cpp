@@ -140,6 +140,8 @@ static FileSys::VirtualFile VfsDirectoryCreateFileWrapper(const FileSys::Virtual
 #include "util/overlay_dialog.h"
 #include "video_core/gpu.h"
 #include "video_core/renderer_base.h"
+#include "video_core/renderer_vulkan/renderer_vulkan.h"
+#include "video_core/renderer_vulkan/vk_rasterizer.h"
 #include "video_core/shader_notify.h"
 #include "citron/about_dialog.h"
 #include "citron/bootmanager.h"
@@ -166,6 +168,7 @@ static FileSys::VirtualFile VfsDirectoryCreateFileWrapper(const FileSys::Virtual
 #include "citron/updater/updater_service.h"
 #include "citron/util/clickable_label.h"
 #include "citron/util/performance_overlay.h"
+#include "citron/util/vram_overlay.h"
 #include "citron/vk_device_info.h"
 
 #ifdef CITRON_CRASH_DUMPS
@@ -1080,6 +1083,9 @@ void GMainWindow::InitializeWidgets() {
     performance_overlay = new PerformanceOverlay(this);
     performance_overlay->hide();
 
+    vram_overlay = new VramOverlay(this);
+    vram_overlay->hide();
+
     tas_label = new QLabel();
     tas_label->setObjectName(QStringLiteral("TASlabel"));
     tas_label->setFocusPolicy(Qt::NoFocus);
@@ -1360,6 +1366,7 @@ void GMainWindow::InitializeHotkeys() {
     LinkActionShortcut(ui->action_Toggle_Grid_View, QStringLiteral("Toggle Grid View"));
     LinkActionShortcut(ui->action_Show_Status_Bar, QStringLiteral("Toggle Status Bar"));
     LinkActionShortcut(ui->action_Show_Performance_Overlay, QStringLiteral("Toggle Performance Overlay"));
+    LinkActionShortcut(ui->action_Show_Vram_Overlay, QStringLiteral("Toggle VRAM Overlay"));
     LinkActionShortcut(ui->action_Fullscreen, QStringLiteral("Fullscreen"));
     LinkActionShortcut(ui->action_Capture_Screenshot, QStringLiteral("Capture Screenshot"));
     LinkActionShortcut(ui->action_TAS_Start, QStringLiteral("TAS Start/Stop"), true);
@@ -1463,6 +1470,11 @@ void GMainWindow::RestoreUIState() {
     ui->action_Show_Performance_Overlay->setChecked(UISettings::values.show_performance_overlay.GetValue());
     if (performance_overlay) {
         performance_overlay->SetVisible(ui->action_Show_Performance_Overlay->isChecked());
+    }
+
+    ui->action_Show_Vram_Overlay->setChecked(UISettings::values.show_vram_overlay.GetValue());
+    if (vram_overlay) {
+        vram_overlay->SetVisible(ui->action_Show_Vram_Overlay->isChecked());
     }
     Debugger::ToggleConsole();
 }
@@ -1580,6 +1592,7 @@ void GMainWindow::ConnectMenuEvents() {
     connect_menu(ui->action_Show_Filter_Bar, &GMainWindow::OnToggleFilterBar);
     connect_menu(ui->action_Show_Status_Bar, &GMainWindow::OnToggleStatusBar);
     connect_menu(ui->action_Show_Performance_Overlay, &GMainWindow::OnTogglePerformanceOverlay);
+    connect_menu(ui->action_Show_Vram_Overlay, &GMainWindow::OnToggleVramOverlay);
     connect_menu(ui->action_Toggle_Grid_View, &GMainWindow::OnToggleGridView);
 
     connect_menu(ui->action_Reset_Window_Size_720, &GMainWindow::ResetWindowSize720);
@@ -4417,6 +4430,12 @@ void GMainWindow::OnTogglePerformanceOverlay() {
     }
 }
 
+void GMainWindow::OnToggleVramOverlay() {
+    if (vram_overlay) {
+        vram_overlay->SetVisible(ui->action_Show_Vram_Overlay->isChecked());
+    }
+}
+
 double GMainWindow::GetCurrentFPS() const {
     if (!system || !system->IsPoweredOn()) {
         return 0.0;
@@ -4438,6 +4457,112 @@ u32 GMainWindow::GetShadersBuilding() const {
         return 0;
     }
     return system->GPU().ShaderNotify().ShadersBuilding();
+}
+
+u64 GMainWindow::GetTotalVram() const {
+    if (!system || !system->IsPoweredOn()) {
+        return 0;
+    }
+    try {
+        auto& gpu = system->GPU();
+        VideoCore::RendererBase& renderer = gpu.Renderer();
+        // Check if it's a Vulkan renderer
+        Vulkan::RendererVulkan* vulkan_renderer = dynamic_cast<Vulkan::RendererVulkan*>(&renderer);
+        if (vulkan_renderer) {
+            VideoCore::RasterizerInterface* rasterizer = vulkan_renderer->ReadRasterizer();
+            Vulkan::RasterizerVulkan* vulkan_rasterizer = dynamic_cast<Vulkan::RasterizerVulkan*>(rasterizer);
+            if (vulkan_rasterizer) {
+                return vulkan_rasterizer->GetTotalVram();
+            }
+        }
+    } catch (...) {
+        // Ignore exceptions
+    }
+    return 0;
+}
+
+u64 GMainWindow::GetUsedVram() const {
+    if (!system || !system->IsPoweredOn()) {
+        return 0;
+    }
+    try {
+        auto& gpu = system->GPU();
+        VideoCore::RendererBase& renderer = gpu.Renderer();
+        Vulkan::RendererVulkan* vulkan_renderer = dynamic_cast<Vulkan::RendererVulkan*>(&renderer);
+        if (vulkan_renderer) {
+            VideoCore::RasterizerInterface* rasterizer = vulkan_renderer->ReadRasterizer();
+            Vulkan::RasterizerVulkan* vulkan_rasterizer = dynamic_cast<Vulkan::RasterizerVulkan*>(rasterizer);
+            if (vulkan_rasterizer) {
+                return vulkan_rasterizer->GetUsedVram();
+            }
+        }
+    } catch (...) {
+        // Ignore exceptions
+    }
+    return 0;
+}
+
+u64 GMainWindow::GetBufferMemoryUsage() const {
+    if (!system || !system->IsPoweredOn()) {
+        return 0;
+    }
+    try {
+        auto& gpu = system->GPU();
+        VideoCore::RendererBase& renderer = gpu.Renderer();
+        Vulkan::RendererVulkan* vulkan_renderer = dynamic_cast<Vulkan::RendererVulkan*>(&renderer);
+        if (vulkan_renderer) {
+            VideoCore::RasterizerInterface* rasterizer = vulkan_renderer->ReadRasterizer();
+            Vulkan::RasterizerVulkan* vulkan_rasterizer = dynamic_cast<Vulkan::RasterizerVulkan*>(rasterizer);
+            if (vulkan_rasterizer) {
+                return vulkan_rasterizer->GetBufferMemoryUsage();
+            }
+        }
+    } catch (...) {
+        // Ignore exceptions
+    }
+    return 0;
+}
+
+u64 GMainWindow::GetTextureMemoryUsage() const {
+    if (!system || !system->IsPoweredOn()) {
+        return 0;
+    }
+    try {
+        auto& gpu = system->GPU();
+        VideoCore::RendererBase& renderer = gpu.Renderer();
+        Vulkan::RendererVulkan* vulkan_renderer = dynamic_cast<Vulkan::RendererVulkan*>(&renderer);
+        if (vulkan_renderer) {
+            VideoCore::RasterizerInterface* rasterizer = vulkan_renderer->ReadRasterizer();
+            Vulkan::RasterizerVulkan* vulkan_rasterizer = dynamic_cast<Vulkan::RasterizerVulkan*>(rasterizer);
+            if (vulkan_rasterizer) {
+                return vulkan_rasterizer->GetTextureMemoryUsage();
+            }
+        }
+    } catch (...) {
+        // Ignore exceptions
+    }
+    return 0;
+}
+
+u64 GMainWindow::GetStagingMemoryUsage() const {
+    if (!system || !system->IsPoweredOn()) {
+        return 0;
+    }
+    try {
+        auto& gpu = system->GPU();
+        VideoCore::RendererBase& renderer = gpu.Renderer();
+        Vulkan::RendererVulkan* vulkan_renderer = dynamic_cast<Vulkan::RendererVulkan*>(&renderer);
+        if (vulkan_renderer) {
+            VideoCore::RasterizerInterface* rasterizer = vulkan_renderer->ReadRasterizer();
+            Vulkan::RasterizerVulkan* vulkan_rasterizer = dynamic_cast<Vulkan::RasterizerVulkan*>(rasterizer);
+            if (vulkan_rasterizer) {
+                return vulkan_rasterizer->GetStagingMemoryUsage();
+            }
+        }
+    } catch (...) {
+        // Ignore exceptions
+    }
+    return 0;
 }
 
 double GMainWindow::GetEmulationSpeed() const {
@@ -4814,6 +4939,7 @@ void GMainWindow::UpdateUISettings() {
     UISettings::values.show_filter_bar = ui->action_Show_Filter_Bar->isChecked();
     UISettings::values.show_status_bar = ui->action_Show_Status_Bar->isChecked();
     UISettings::values.show_performance_overlay = ui->action_Show_Performance_Overlay->isChecked();
+    UISettings::values.show_vram_overlay = ui->action_Show_Vram_Overlay->isChecked();
     UISettings::values.first_start = false;
 }
 

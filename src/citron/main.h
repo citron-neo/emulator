@@ -39,6 +39,7 @@ class LoadingScreen;
 class MicroProfileDialog;
 class OverlayDialog;
 class PerformanceOverlay;
+class VramOverlay;
 class ProfilerWidget;
 
 // Forward declaration
@@ -164,6 +165,7 @@ class GMainWindow : public QMainWindow {
     static const int max_recent_files_item = 10;
 
     friend class PerformanceOverlay;
+    friend class VramOverlay;
 
     enum {
         CREATE_SHORTCUT_MSGBOX_FULLSCREEN_YES,
@@ -396,6 +398,7 @@ private slots:
     void OnToggleGridView();
     void OnToggleStatusBar();
     void OnTogglePerformanceOverlay();
+    void OnToggleVramOverlay();
     void OnDisplayTitleBars(bool);
 
     // Performance overlay access methods
@@ -403,6 +406,13 @@ private slots:
     double GetCurrentFrameTime() const;
     u32 GetShadersBuilding() const;
     double GetEmulationSpeed() const;
+
+    // VRAM overlay access methods
+    u64 GetTotalVram() const;
+    u64 GetUsedVram() const;
+    u64 GetBufferMemoryUsage() const;
+    u64 GetTextureMemoryUsage() const;
+    u64 GetStagingMemoryUsage() const;
     void InitializeHotkeys();
     void ToggleFullscreen();
     bool UsingExclusiveFullscreen();
@@ -503,6 +513,7 @@ private:
     QTimer shutdown_timer;
     OverlayDialog* shutdown_dialog{};
     PerformanceOverlay* performance_overlay{};
+    VramOverlay* vram_overlay{};
 
     GameListPlaceholder* game_list_placeholder;
 
