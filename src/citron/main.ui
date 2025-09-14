@@ -125,6 +125,7 @@
     <addaction name="action_Show_Filter_Bar"/>
     <addaction name="action_Show_Status_Bar"/>
     <addaction name="action_Show_Performance_Overlay"/>
+    <addaction name="action_Show_Vram_Overlay"/>
     <addaction name="action_Toggle_Grid_View"/>
     <addaction name="separator"/>
     <addaction name="menu_Reset_Window_Size"/>
@@ -305,6 +306,17 @@
    </property>
    <property name="iconText">
     <string>Show Performance Overlay</string>
+   </property>
+  </action>
+  <action name="action_Show_Vram_Overlay">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Show &amp;VRAM Monitor</string>
+   </property>
+   <property name="iconText">
+    <string>Show VRAM Monitor</string>
    </property>
   </action>
   <action name="action_Toggle_Grid_View">

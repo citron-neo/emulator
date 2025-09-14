@@ -102,6 +102,7 @@ struct Values {
     Setting<bool> show_filter_bar{linkage, true, "showFilterBar", Category::Ui};
     Setting<bool> show_status_bar{linkage, true, "showStatusBar", Category::Ui};
     Setting<bool> show_performance_overlay{linkage, false, "showPerformanceOverlay", Category::Ui};
+    Setting<bool> show_vram_overlay{linkage, false, "showVramOverlay", Category::Ui};
 
     SwitchableSetting<ConfirmStop> confirm_before_stopping{linkage,
                                                            ConfirmStop::Ask_Always,
