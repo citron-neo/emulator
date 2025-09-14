@@ -33,7 +33,7 @@ using ContentProviderParsingFunction = std::function<VirtualFile(const VirtualFi
 using VfsCopyFunction = std::function<bool(const VirtualFile&, const VirtualFile&, size_t)>;
 
 enum class InstallResult {
-    InstallSuccess,
+    Success,
     OverwriteExisting,
     ErrorAlreadyExists,
     ErrorCopyFailed,

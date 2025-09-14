@@ -102,7 +102,7 @@ void UpdaterDialog::OnUpdateCompleted(Updater::UpdaterService::UpdateResult resu
     progress_timer->stop();
 
     switch (result) {
-        case Updater::UpdaterService::UpdateResult::UpdateSuccess:
+        case Updater::UpdaterService::UpdateResult::Success:
             ShowCompletedState();
             break;
         case Updater::UpdaterService::UpdateResult::Cancelled:
@@ -329,7 +329,7 @@ QString UpdaterDialog::FormatBytes(qint64 bytes) const {
 
 QString UpdaterDialog::GetUpdateMessage(Updater::UpdaterService::UpdateResult result) const {
     switch (result) {
-        case Updater::UpdaterService::UpdateResult::UpdateSuccess:
+        case Updater::UpdaterService::UpdateResult::Success:
             return QStringLiteral("Update completed successfully!");
         case Updater::UpdaterService::UpdateResult::Failed:
             return QStringLiteral("Update failed due to an unknown error.");

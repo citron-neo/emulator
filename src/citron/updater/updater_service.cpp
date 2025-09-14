@@ -455,7 +455,7 @@ void UpdaterService::OnDownloadFinished() {
         }
 
         emit UpdateInstallProgress(100, QStringLiteral("Update completed successfully!"));
-        emit UpdateCompleted(UpdateResult::UpdateSuccess, QStringLiteral("Update installed successfully. Please restart the application."));
+        emit UpdateCompleted(UpdateResult::Success, QStringLiteral("Update installed successfully. Please restart the application."));
 
         update_in_progress.store(false);
         CleanupFiles();

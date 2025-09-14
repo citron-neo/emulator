@@ -387,7 +387,7 @@ int main(int argc, char** argv) {
     case Core::SystemResultStatus::ErrorVideoCore:
         LOG_CRITICAL(Frontend, "Failed to initialize VideoCore!");
         return -1;
-    case Core::SystemResultStatus::SystemSuccess:
+    case Core::SystemResultStatus::Success:
         break; // Expected case
     default:
         if (static_cast<u32>(load_result) >

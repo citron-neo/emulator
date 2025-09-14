@@ -103,7 +103,7 @@ QtProfileSelectionDialog::QtProfileSelectionDialog(
                 if (!this->isActiveWindow()) {
                     return;
                 }
-                QKeyEvent* event = new QKeyEvent(QEvent::Type::KeyPress, key, Qt::NoModifier);
+                QKeyEvent* event = new QKeyEvent(QEvent::KeyPress, key, Qt::NoModifier);
                 QCoreApplication::postEvent(tree_view, event);
                 SelectUser(tree_view->currentIndex());
             });

@@ -131,7 +131,7 @@ FileSys::VirtualFile GetGameFileFromPath(const FileSys::VirtualFilesystem& vfs,
 
 /// Enumeration representing the return values of the System Initialize and Load process.
 enum class SystemResultStatus : u32 {
-    SystemSuccess,       ///< Succeeded
+    Success,             ///< Succeeded
     ErrorNotInitialized, ///< Error trying to use core prior to initialization
     ErrorGetLoader,      ///< Error finding the correct application loader
     ErrorSystemFiles,    ///< Error in finding system files

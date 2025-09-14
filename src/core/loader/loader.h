@@ -67,7 +67,7 @@ std::string GetFileTypeString(FileType type);
 
 /// Return type for functions in Loader namespace
 enum class ResultStatus : u16 {
-    LoaderSuccess,
+    Success,
     ErrorAlreadyLoaded,
     ErrorNotImplemented,
     ErrorNotInitialized,

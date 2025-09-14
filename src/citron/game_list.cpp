@@ -35,7 +35,7 @@ GameListSearchField::KeyReleaseEater::KeyReleaseEater(GameList* gamelist_, QObje
 // EventFilter in order to process systemkeys while editing the searchfield
 bool GameListSearchField::KeyReleaseEater::eventFilter(QObject* obj, QEvent* event) {
     // If it isn't a KeyRelease event then continue with standard event processing
-    if (event->type() != QEvent::Type::KeyRelease)
+    if (event->type() != QEvent::KeyRelease)
         return QObject::eventFilter(obj, event);
 
     QKeyEvent* keyEvent = static_cast<QKeyEvent*>(event);
@@ -479,7 +479,7 @@ GameList::GameList(FileSys::VirtualFilesystem vfs_, FileSys::ManualContentProvid
                 }
 
                 // Only send events to visible and properly initialized views
-                QKeyEvent* event = new QKeyEvent(QEvent::Type::KeyPress, key, Qt::NoModifier);
+                QKeyEvent* event = new QKeyEvent(QEvent::KeyPress, key, Qt::NoModifier);
 
                 if (tree_view->isVisible() && tree_view->model()) {
                     QCoreApplication::postEvent(tree_view, event);
@@ -487,7 +487,7 @@ GameList::GameList(FileSys::VirtualFilesystem vfs_, FileSys::ManualContentProvid
 
                 if (list_view->isVisible() && list_view->model()) {
                     // Create a new event for the list view to avoid double deletion
-                    QKeyEvent* list_event = new QKeyEvent(QEvent::Type::KeyPress, key, Qt::NoModifier);
+                    QKeyEvent* list_event = new QKeyEvent(QEvent::KeyPress, key, Qt::NoModifier);
                     QCoreApplication::postEvent(list_view, list_event);
                 }
             });

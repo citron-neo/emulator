@@ -301,7 +301,7 @@ struct System::Impl {
 
         LOG_DEBUG(Core, "Initialized OK");
 
-        return SystemResultStatus::SystemSuccess;
+        return SystemResultStatus::Success;
     }
 
     SystemResultStatus Load(System& system, Frontend::EmuWindow& emu_window,
@@ -347,7 +347,7 @@ struct System::Impl {
 
         // Set up the rest of the system.
         SystemResultStatus init_result{SetupForApplicationProcess(system, emu_window)};
-        if (init_result != SystemResultStatus::SystemSuccess) {
+        if (init_result != SystemResultStatus::Success) {
             LOG_CRITICAL(Core, "Failed to initialize system (Error {})!",
                          static_cast<int>(init_result));
             ShutdownMainProcess();
@@ -394,7 +394,7 @@ struct System::Impl {
             room_member->SendGameInfo(game_info);
         }
 
-        status = SystemResultStatus::SystemSuccess;
+        status = SystemResultStatus::Success;
         return status;
     }
 
@@ -543,7 +543,7 @@ struct System::Impl {
     /// Debugger
     std::unique_ptr<Core::Debugger> debugger;
 
-    SystemResultStatus status = SystemResultStatus::SystemSuccess;
+    SystemResultStatus status = SystemResultStatus::Success;
     std::string status_details = "";
 
     std::unique_ptr<Core::PerfStats> perf_stats;

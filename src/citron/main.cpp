@@ -1843,7 +1843,7 @@ bool GMainWindow::LoadROM(const QString& filename, Service::AM::FrontendAppletPa
     const auto drd_callout = (UISettings::values.callout_flags.GetValue() &
                               static_cast<u32>(CalloutFlag::DRDDeprecation)) == 0;
 
-    if (result == Core::SystemResultStatus::SystemSuccess &&
+    if (result == Core::SystemResultStatus::Success &&
         system->GetAppLoader().GetFileType() == Loader::FileType::DeconstructedRomDirectory &&
         drd_callout) {
         UISettings::values.callout_flags = UISettings::values.callout_flags.GetValue() |
@@ -1858,7 +1858,7 @@ bool GMainWindow::LoadROM(const QString& filename, Service::AM::FrontendAppletPa
                "wiki</a>. This message will not be shown again."));
     }
 
-    if (result != Core::SystemResultStatus::SystemSuccess) {
+    if (result != Core::SystemResultStatus::Success) {
         switch (result) {
         case Core::SystemResultStatus::ErrorGetLoader:
             LOG_CRITICAL(Frontend, "Failed to obtain loader for {}!", filename.toStdString());
@@ -1943,11 +1943,11 @@ void GMainWindow::ConfigureFilesystemProvider(const std::string& filepath) {
 
     u64 program_id = 0;
     const auto res2 = loader->ReadProgramId(program_id);
-    if (res2 == Loader::ResultStatus::LoaderSuccess && file_type == Loader::FileType::NCA) {
+    if (res2 == Loader::ResultStatus::Success && file_type == Loader::FileType::NCA) {
         provider->AddEntry(FileSys::TitleType::Application,
                            FileSys::GetCRTypeFromNCAType(FileSys::NCA{file}.GetType()), program_id,
                            file);
-    } else if (res2 == Loader::ResultStatus::LoaderSuccess &&
+    } else if (res2 == Loader::ResultStatus::Success &&
                (file_type == Loader::FileType::XCI || file_type == Loader::FileType::NSP)) {
         const auto nsp = file_type == Loader::FileType::NSP
                              ? std::make_shared<FileSys::NSP>(file)
@@ -1983,7 +1983,7 @@ void GMainWindow::BootGame(const QString& filename, Service::AM::FrontendAppletP
     const auto v_file = Core::GetGameFileFromPath(vfs, filename.toUtf8().constData());
     const auto loader = Loader::GetLoader(*system, v_file, params.program_id, params.program_index);
 
-    if (loader != nullptr && loader->ReadProgramId(title_id) == Loader::ResultStatus::LoaderSuccess &&
+    if (loader != nullptr && loader->ReadProgramId(title_id) == Loader::ResultStatus::Success &&
         type == StartGameType::Normal) {
         // Load per game settings
         const auto file_path =
@@ -2081,7 +2081,7 @@ void GMainWindow::BootGame(const QString& filename, Service::AM::FrontendAppletP
         title_version = metadata.first->GetVersionString();
         title_name = metadata.first->GetApplicationName();
     }
-    if (res != Loader::ResultStatus::LoaderSuccess || title_name.empty()) {
+    if (res != Loader::ResultStatus::Success || title_name.empty()) {
         title_name = Common::FS::PathToUTF8String(
             std::filesystem::path{Common::U16StringFromBuffer(filename.utf16(), filename.size())}
                 .filename());
@@ -2853,7 +2853,7 @@ void GMainWindow::OnGameListVerifyIntegrity(const std::string& game_path) {
     const auto result = ContentManager::VerifyGameContents(*system, game_path, QtProgressCallback);
     progress.close();
     switch (result) {
-    case ContentManager::GameVerificationResult::VerificationSuccess:
+    case ContentManager::GameVerificationResult::Success:
         QMessageBox::information(this, tr("Integrity verification succeeded!"),
                                  tr("The operation completed successfully."));
         break;
@@ -3094,7 +3094,7 @@ void GMainWindow::OnGameListCreateShortcut(u64 program_id, const std::string& ga
     std::vector<u8> icon_image_file{};
     if (control.second != nullptr) {
         icon_image_file = control.second->ReadAllBytes();
-    } else if (loader->ReadIcon(icon_image_file) != Loader::ResultStatus::LoaderSuccess) {
+    } else if (loader->ReadIcon(icon_image_file) != Loader::ResultStatus::Success) {
         LOG_WARNING(Frontend, "Could not read icon from {:s}", game_path);
     }
     QImage icon_data =
@@ -3195,7 +3195,7 @@ void GMainWindow::OnGameListOpenPerGameProperties(const std::string& file) {
     const auto v_file = Core::GetGameFileFromPath(vfs, file);
     const auto loader = Loader::GetLoader(*system, v_file);
 
-    if (loader == nullptr || loader->ReadProgramId(title_id) != Loader::ResultStatus::LoaderSuccess) {
+    if (loader == nullptr || loader->ReadProgramId(title_id) != Loader::ResultStatus::Success) {
         QMessageBox::information(this, tr("Properties"),
                                  tr("The game properties could not be loaded."));
         return;
@@ -3339,7 +3339,7 @@ void GMainWindow::OnMenuInstallToNAND() {
         std::this_thread::sleep_for(std::chrono::milliseconds(10));
 
         switch (result) {
-        case ContentManager::InstallResult::InstallSuccess:
+        case ContentManager::InstallResult::Success:
             new_files.append(QFileInfo(file).fileName());
             break;
         case ContentManager::InstallResult::Overwrite:
@@ -4119,7 +4119,7 @@ bool GMainWindow::question(QWidget* parent, const QString& title, const QString&
         new ControllerNavigation(system->HIDCore(), box_dialog);
     connect(controller_navigation, &ControllerNavigation::TriggerKeyboardEvent,
             [box_dialog](Qt::Key key) {
-                QKeyEvent* event = new QKeyEvent(QEvent::Type::KeyPress, key, Qt::NoModifier);
+                QKeyEvent* event = new QKeyEvent(QEvent::KeyPress, key, Qt::NoModifier);
                 QCoreApplication::postEvent(box_dialog, event);
             });
     int res = box_dialog->exec();
@@ -5034,7 +5034,7 @@ bool GMainWindow::SelectRomFSDumpTarget(const FileSys::ContentProvider& installe
         const auto entries = installed.ListEntriesFilter(title_type, record_type);
         for (const auto& entry : entries) {
             if (FileSys::GetBaseTitleID(entry.title_id) == program_id &&
-                installed.GetEntry(entry)->GetStatus() == Loader::ResultStatus::LoaderSuccess) {
+                installed.GetEntry(entry)->GetStatus() == Loader::ResultStatus::Success) {
                 available_title_ids.insert({entry.title_id, title_type, record_type});
             }
         }
