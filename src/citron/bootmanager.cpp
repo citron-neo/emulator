@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: 2014 Citra Emulator Project
+// SPDX-FileCopyrightText: 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <algorithm>
@@ -732,6 +733,7 @@ void GRenderWindow::ConstrainMouse() {
 void GRenderWindow::wheelEvent(QWheelEvent* event) {
     const int x = event->angleDelta().x();
     const int y = event->angleDelta().y();
+    LOG_DEBUG(Frontend, "GRenderWindow wheel event: x={}, y={}", x, y);
     input_subsystem->GetMouse()->MouseWheelChange(x, y);
 }
 

@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: Copyright 2021 yuzu Emulator Project
+// SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <algorithm>
@@ -374,6 +375,7 @@ void EmulatedDevices::SetMouseWheel(const Common::Input::CallbackStatus& callbac
     const auto analog_value = TransformToAnalog(callback);
 
     device_status.mouse_wheel_values[index] = analog_value;
+    LOG_DEBUG(Input, "EmulatedDevices::SetMouseWheel: index={}, value={}", index, analog_value.value);
 
     if (is_configuring) {
         device_status.mouse_wheel_state = {};
@@ -453,6 +455,11 @@ MousePosition EmulatedDevices::GetMousePosition() const {
 AnalogStickState EmulatedDevices::GetMouseWheel() const {
     std::scoped_lock lock{mutex};
     return device_status.mouse_wheel_state;
+}
+
+void EmulatedDevices::ResetMouseWheel() {
+    std::scoped_lock lock{mutex};
+    device_status.mouse_wheel_state = {};
 }
 
 void EmulatedDevices::TriggerOnChange(DeviceTriggerType type) {

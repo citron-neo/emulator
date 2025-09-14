@@ -55,6 +55,9 @@ void Mouse::OnUpdate(const Core::Timing::CoreTiming& core_timing) {
         next_state.delta_wheel_y = mouse_wheel_state.y - last_mouse_wheel_state.y;
 
         last_mouse_wheel_state = mouse_wheel_state;
+
+        // Reset mouse wheel state after reading to ensure delta values work correctly
+        emulated_devices->ResetMouseWheel();
         next_state.button = mouse_button_state;
     }
 

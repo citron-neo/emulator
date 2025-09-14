@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: 2016 Citra Emulator Project
+// SPDX-FileCopyrightText: 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <SDL.h>
@@ -75,6 +76,11 @@ void EmuWindow_SDL2::OnMouseMotion(s32 x, s32 y) {
     input_subsystem->GetMouse()->Move(x, y, 0, 0);
     input_subsystem->GetMouse()->MouseMove(touch_x, touch_y);
     input_subsystem->GetMouse()->TouchMove(touch_x, touch_y);
+}
+
+void EmuWindow_SDL2::OnMouseWheel(s32 x, s32 y) {
+    input_subsystem->GetMouse()->MouseWheelChange(x, y);
+    LOG_DEBUG(Frontend, "SDL2 Mouse wheel event: x={}, y={}", x, y);
 }
 
 void EmuWindow_SDL2::OnFingerDown(float x, float y, std::size_t id) {
@@ -201,6 +207,9 @@ void EmuWindow_SDL2::WaitEvent() {
         if (event.button.which != SDL_TOUCH_MOUSEID) {
             OnMouseButton(event.button.button, event.button.state, event.button.x, event.button.y);
         }
+        break;
+    case SDL_MOUSEWHEEL:
+        OnMouseWheel(event.wheel.x, event.wheel.y);
         break;
     case SDL_FINGERDOWN:
         OnFingerDown(event.tfinger.x, event.tfinger.y,

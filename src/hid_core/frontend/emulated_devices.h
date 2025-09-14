@@ -135,6 +135,9 @@ public:
     /// Returns the latest mouse wheel change
     AnalogStickState GetMouseWheel() const;
 
+    /// Resets the mouse wheel state (should be called each frame)
+    void ResetMouseWheel();
+
     /**
      * Adds a callback to the list of events
      * @param update_callback InterfaceUpdateCallback that will be triggered

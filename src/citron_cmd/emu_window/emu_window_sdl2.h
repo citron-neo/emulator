@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: 2016 Citra Emulator Project
+// SPDX-FileCopyrightText: 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #pragma once
@@ -51,6 +52,9 @@ protected:
 
     /// Called by WaitEvent when the mouse moves.
     void OnMouseMotion(s32 x, s32 y);
+
+    /// Called by WaitEvent when the mouse wheel is scrolled
+    void OnMouseWheel(s32 x, s32 y);
 
     /// Called by WaitEvent when a finger starts touching the touchscreen
     void OnFingerDown(float x, float y, std::size_t id);

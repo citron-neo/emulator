@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: Copyright 2021 yuzu Emulator Project
+// SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <thread>
@@ -235,6 +236,7 @@ void Mouse::MouseWheelChange(int x, int y) {
     wheel_position.x += x;
     wheel_position.y += y;
     last_motion_change.z += static_cast<f32>(y);
+    LOG_DEBUG(Input, "Mouse wheel change: x={}, y={}, wheel_pos=({}, {})", x, y, wheel_position.x, wheel_position.y);
     SetAxis(identifier, wheel_axis_x, static_cast<f32>(wheel_position.x));
     SetAxis(identifier, wheel_axis_y, static_cast<f32>(wheel_position.y));
 }
