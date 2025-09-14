@@ -56,8 +56,8 @@ VramOverlay::VramOverlay(GMainWindow* parent)
     update_timer.setSingleShot(false);
     connect(&update_timer, &QTimer::timeout, this, &VramOverlay::UpdateVramStats);
 
-    // Set clean, compact size
-    resize(280, 200);
+    // Set clean, compact size to match performance overlay
+    resize(250, 180);
 
     // Position in top-right corner
     UpdatePosition();
@@ -117,11 +117,11 @@ void VramOverlay::paintEvent(QPaintEvent* event) {
 }
 
 void VramOverlay::DrawVramInfo(QPainter& painter) {
-    const int section_padding = 16;
-    const int line_height = 16;
-    const int section_spacing = 8;
+    const int section_padding = 12;
+    const int line_height = 14;
+    const int section_spacing = 6;
 
-    int y_offset = section_padding;
+    int y_offset = section_padding + 4;
 
     // Title
     painter.setFont(title_font);
@@ -142,17 +142,17 @@ void VramOverlay::DrawVramInfo(QPainter& painter) {
     painter.drawText(section_padding, y_offset, vram_text);
     y_offset += line_height + section_spacing;
 
-    // Memory breakdown
+    // Memory breakdown - more compact
     painter.setFont(small_font);
     painter.setPen(secondary_text_color);
 
     QString buffer_text = QString::fromUtf8("Buffers: %1").arg(FormatMemorySize(current_vram_data.buffer_memory));
     painter.drawText(section_padding, y_offset, buffer_text);
-    y_offset += line_height - 2;
+    y_offset += line_height - 1;
 
     QString texture_text = QString::fromUtf8("Textures: %1").arg(FormatMemorySize(current_vram_data.texture_memory));
     painter.drawText(section_padding, y_offset, texture_text);
-    y_offset += line_height - 2;
+    y_offset += line_height - 1;
 
     QString staging_text = QString::fromUtf8("Staging: %1").arg(FormatMemorySize(current_vram_data.staging_memory));
     painter.drawText(section_padding, y_offset, staging_text);
@@ -187,31 +187,26 @@ void VramOverlay::DrawVramGraph(QPainter& painter) {
         return;
     }
 
-    const int graph_padding = 16;
-    const int graph_y = height() - 70;
+    const int graph_padding = 12;
+    const int graph_y = height() - 60;
     const int graph_width = width() - (graph_padding * 2);
-    const int local_graph_height = 50;
+    const int local_graph_height = 40;
 
-    // Draw graph background
+    // Draw graph background with proper isolation
     QRect graph_rect(graph_padding, graph_y, graph_width, local_graph_height);
     QPainterPath graph_path;
-    graph_path.addRoundedRect(graph_rect, 4, 4);
+    graph_path.addRoundedRect(graph_rect, 3, 3);
     painter.fillPath(graph_path, graph_background_color);
 
-    // Draw grid lines
+    // Draw subtle border around graph area
     painter.setPen(QPen(graph_grid_color, 1));
-    for (int i = 0; i <= 4; ++i) {
-        int y = graph_y + (i * local_graph_height / 4);
-        painter.drawLine(graph_padding, y, graph_padding + graph_width, y);
-    }
+    painter.drawPath(graph_path);
 
-    // Draw percentage labels on the right
-    painter.setFont(small_font);
-    painter.setPen(secondary_text_color);
-    for (int i = 0; i <= 4; ++i) {
-        int percentage = 100 - (i * 25);
-        int y = graph_y + (i * local_graph_height / 4) + 4;
-        painter.drawText(graph_padding + graph_width + 8, y, QString::number(percentage) + QStringLiteral("%"));
+    // Draw horizontal grid lines inside the graph
+    painter.setPen(QPen(graph_grid_color, 1));
+    for (int i = 1; i < 4; ++i) {
+        int y = graph_y + (i * local_graph_height / 4);
+        painter.drawLine(graph_padding + 1, y, graph_padding + graph_width - 1, y);
     }
 
     // Draw VRAM usage line
@@ -220,8 +215,8 @@ void VramOverlay::DrawVramGraph(QPainter& painter) {
 
         QPainterPath line_path;
         for (size_t i = 0; i < vram_usage_history.size(); ++i) {
-            double x = graph_padding + (static_cast<double>(i) / (vram_usage_history.size() - 1)) * graph_width;
-            double y = graph_y + local_graph_height - (vram_usage_history[i] / 100.0) * local_graph_height;
+            double x = graph_padding + 2 + (static_cast<double>(i) / (vram_usage_history.size() - 1)) * (graph_width - 4);
+            double y = graph_y + local_graph_height - 2 - (vram_usage_history[i] / 100.0) * (local_graph_height - 4);
 
             if (i == 0) {
                 line_path.moveTo(x, y);
@@ -232,8 +227,8 @@ void VramOverlay::DrawVramGraph(QPainter& painter) {
         painter.drawPath(line_path);
 
         // Draw fill under the line
-        line_path.lineTo(graph_padding + graph_width, graph_y + local_graph_height);
-        line_path.lineTo(graph_padding, graph_y + local_graph_height);
+        line_path.lineTo(graph_padding + graph_width - 2, graph_y + local_graph_height - 2);
+        line_path.lineTo(graph_padding + 2, graph_y + local_graph_height - 2);
         line_path.closeSubpath();
 
         painter.fillPath(line_path, graph_fill_color);
@@ -241,18 +236,18 @@ void VramOverlay::DrawVramGraph(QPainter& painter) {
 }
 
 void VramOverlay::DrawLeakWarning(QPainter& painter) {
-    const int warning_y = height() - 25;
+    const int warning_y = height() - 20;
 
     // Draw warning background
-    QRect warning_rect(padding, warning_y, width() - (padding * 2), 20);
+    QRect warning_rect(padding, warning_y, width() - (padding * 2), 16);
     QPainterPath warning_path;
-    warning_path.addRoundedRect(warning_rect, 3, 3);
-    painter.fillPath(warning_path, QColor(255, 152, 0, 60));
+    warning_path.addRoundedRect(warning_rect, 2, 2);
+    painter.fillPath(warning_path, QColor(255, 152, 0, 80));
 
     // Draw warning text
-    painter.setFont(warning_font);
+    painter.setFont(small_font);
     painter.setPen(leak_warning_color);
-    QString warning_text = QString::fromUtf8("⚠ VRAM Leak Detected (+%1 MB)")
+    QString warning_text = QString::fromUtf8("⚠ Leak: +%1 MB")
         .arg(current_vram_data.leak_increase_mb);
     painter.drawText(warning_rect, Qt::AlignCenter, warning_text);
 }
