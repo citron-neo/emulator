@@ -33,6 +33,8 @@ add_library(video_core STATIC
     delayed_destruction_ring.h
     dirty_flags.cpp
     dirty_flags.h
+    zbc_manager.cpp
+    zbc_manager.h
     dma_pusher.cpp
     dma_pusher.h
     engines/sw_blitter/blitter.cpp
@@ -152,6 +154,8 @@ add_library(video_core STATIC
     renderer_opengl/gl_graphics_pipeline.h
     renderer_opengl/gl_rasterizer.cpp
     renderer_opengl/gl_rasterizer.h
+    renderer_opengl/gl_zbc_clear.cpp
+    renderer_opengl/gl_zbc_clear.h
     renderer_opengl/gl_resource_manager.cpp
     renderer_opengl/gl_resource_manager.h
     renderer_opengl/gl_shader_cache.cpp
@@ -197,6 +201,8 @@ add_library(video_core STATIC
     renderer_vulkan/present/window_adapt_pass.h
     renderer_vulkan/blit_image.cpp
     renderer_vulkan/blit_image.h
+    renderer_vulkan/vk_zbc_clear.cpp
+    renderer_vulkan/vk_zbc_clear.h
     renderer_vulkan/fixed_pipeline_state.cpp
     renderer_vulkan/fixed_pipeline_state.h
     renderer_vulkan/maxwell_to_vk.cpp

@@ -10,59 +10,21 @@
 #include "core/hle/service/nvdrv/devices/ioctl_serialization.h"
 #include "core/hle/service/nvdrv/devices/nvhost_ctrl_gpu.h"
 #include "core/hle/service/nvdrv/nvdrv.h"
+#include "video_core/zbc_manager.h"
 
 namespace Service::Nvidia::Devices {
 
 // ZBC helper functions for GPU clearing operations
 namespace ZBC {
     std::optional<std::array<u32, 4>> GetColor(u32 format, u32 type) {
-        return ZBCManager::Instance().GetZBCColor(format, type);
+        return VideoCore::ZBCManager::Instance().GetZBCColor(format, type);
     }
 
     std::optional<u32> GetDepth(u32 format, u32 type) {
-        return ZBCManager::Instance().GetZBCDepth(format, type);
+        return VideoCore::ZBCManager::Instance().GetZBCDepth(format, type);
     }
 }
 
-// ZBCManager implementation
-std::optional<std::array<u32, 4>> ZBCManager::GetZBCColor(u32 format, u32 type) const {
-    std::scoped_lock lock{zbc_table_mutex};
-    const auto key = std::make_pair(format, type);
-    const auto it = zbc_table.find(key);
-    if (it != zbc_table.end()) {
-        return it->second.color_ds;
-    }
-    return std::nullopt;
-}
-
-std::optional<u32> ZBCManager::GetZBCDepth(u32 format, u32 type) const {
-    std::scoped_lock lock{zbc_table_mutex};
-    const auto key = std::make_pair(format, type);
-    const auto it = zbc_table.find(key);
-    if (it != zbc_table.end()) {
-        return it->second.depth;
-    }
-    return std::nullopt;
-}
-
-void ZBCManager::StoreZBCEntry(u32 format, u32 type, const std::array<u32, 4>& color_ds,
-                               const std::array<u32, 4>& color_l2, u32 depth) {
-    std::scoped_lock lock{zbc_table_mutex};
-
-    ZBCEntry entry;
-    entry.color_ds = color_ds;
-    entry.color_l2 = color_l2;
-    entry.depth = depth;
-    entry.format = format;
-    entry.type = type;
-    entry.ref_count = 1;
-
-    const auto key = std::make_pair(format, type);
-    zbc_table[key] = entry;
-
-    LOG_DEBUG(Service_NVDRV, "Global ZBCManager: Stored entry format=0x{:X}, type=0x{:X}, depth=0x{:X}",
-              format, type, depth);
-}
 
 nvhost_ctrl_gpu::nvhost_ctrl_gpu(Core::System& system_, EventInterface& events_interface_)
     : nvdevice{system_}, events_interface{events_interface_} {
@@ -143,11 +105,11 @@ void nvhost_ctrl_gpu::OnClose(DeviceFD fd) {}
 
 // ZBC table management methods
 std::optional<std::array<u32, 4>> nvhost_ctrl_gpu::GetZBCColor(u32 format, u32 type) const {
-    return ZBCManager::Instance().GetZBCColor(format, type);
+    return VideoCore::ZBCManager::Instance().GetZBCColor(format, type);
 }
 
 std::optional<u32> nvhost_ctrl_gpu::GetZBCDepth(u32 format, u32 type) const {
-    return ZBCManager::Instance().GetZBCDepth(format, type);
+    return VideoCore::ZBCManager::Instance().GetZBCDepth(format, type);
 }
 
 void nvhost_ctrl_gpu::StoreZBCEntry(const IoctlZbcSetTable& params) {
@@ -166,7 +128,7 @@ void nvhost_ctrl_gpu::StoreZBCEntry(const IoctlZbcSetTable& params) {
     zbc_table[key] = entry;
 
     // Also store in global ZBCManager for GPU access
-    ZBCManager::Instance().StoreZBCEntry(params.format, params.type, entry.color_ds, entry.color_l2, params.depth);
+    VideoCore::ZBCManager::Instance().StoreZBCEntry(params.format, params.type, entry.color_ds, entry.color_l2, params.depth);
 
     LOG_DEBUG(Service_NVDRV, "Stored ZBC entry: format=0x{:X}, type=0x{:X}, depth=0x{:X}",
               params.format, params.type, params.depth);
@@ -331,8 +293,8 @@ NvResult nvhost_ctrl_gpu::ZBCSetTable(IoctlZbcSetTable& params) {
         return NvResult::BadParameter;
     }
 
-    // Validate the type parameter (typically 0 for color, 1 for depth)
-    if (params.type > 1) {
+    // Validate the type parameter (0=color, 1=depth, 2=stencil)
+    if (params.type > 2) {
         LOG_WARNING(Service_NVDRV, "Invalid ZBC type: 0x{:X}", params.type);
         return NvResult::BadParameter;
     }
@@ -344,7 +306,7 @@ NvResult nvhost_ctrl_gpu::ZBCSetTable(IoctlZbcSetTable& params) {
     LOG_DEBUG(Service_NVDRV, "ZBC color_ds: [0x{:08X}, 0x{:08X}, 0x{:08X}, 0x{:08X}]",
               params.color_ds[0], params.color_ds[1], params.color_ds[2], params.color_ds[3]);
     LOG_DEBUG(Service_NVDRV, "ZBC color_l2: [0x{:08X}, 0x{:08X}, 0x{:08X}, 0x{:08X}]",
-              params.color_ds[0], params.color_ds[1], params.color_ds[2], params.color_ds[3]);
+              params.color_l2[0], params.color_l2[1], params.color_l2[2], params.color_l2[3]);
 
     return NvResult::Success;
 }

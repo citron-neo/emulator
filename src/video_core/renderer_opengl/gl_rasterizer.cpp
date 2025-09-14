@@ -23,6 +23,7 @@
 #include "video_core/renderer_opengl/gl_device.h"
 #include "video_core/renderer_opengl/gl_query_cache.h"
 #include "video_core/renderer_opengl/gl_rasterizer.h"
+#include "video_core/renderer_opengl/gl_zbc_clear.h"
 #include "video_core/renderer_opengl/gl_shader_cache.h"
 #include "video_core/renderer_opengl/gl_staging_buffer_pool.h"
 #include "video_core/renderer_opengl/gl_texture_cache.h"
@@ -213,15 +214,50 @@ void RasterizerOpenGL::Clear(u32 layer_count) {
     }
     UNIMPLEMENTED_IF(regs.clear_control.use_viewport_clip0);
 
+    // Try to use ZBC (Zero Bandwidth Clear) for efficient clearing
+    bool zbc_used = false;
+
     if (use_color) {
-        glClearBufferfv(GL_COLOR, regs.clear_surface.RT, regs.clear_color.data());
+        // Try ZBC clear first, fall back to regular clear if not available
+        const u32 rt_index = regs.clear_surface.RT;
+        const u32 format = static_cast<u32>(regs.rt[rt_index].format);
+        const u32 type = 0; // Color clear type
+        if (!OpenGL::ZBCClear::ClearColor(format, type, rt_index)) {
+            glClearBufferfv(GL_COLOR, rt_index, regs.clear_color.data());
+        } else {
+            zbc_used = true;
+        }
     }
+
     if (use_depth && use_stencil) {
-        glClearBufferfi(GL_DEPTH_STENCIL, 0, regs.clear_depth, regs.clear_stencil);
+        const u32 format = static_cast<u32>(regs.zeta.format);
+        const u32 type = 1; // Depth clear type
+        if (!OpenGL::ZBCClear::ClearDepthStencil(format, type, regs.clear_stencil)) {
+            glClearBufferfi(GL_DEPTH_STENCIL, 0, regs.clear_depth, regs.clear_stencil);
+        } else {
+            zbc_used = true;
+        }
     } else if (use_depth) {
-        glClearBufferfv(GL_DEPTH, 0, &regs.clear_depth);
+        const u32 format = static_cast<u32>(regs.zeta.format);
+        const u32 type = 1; // Depth clear type
+        if (!OpenGL::ZBCClear::ClearDepth(format, type)) {
+            glClearBufferfv(GL_DEPTH, 0, &regs.clear_depth);
+        } else {
+            zbc_used = true;
+        }
     } else if (use_stencil) {
-        glClearBufferiv(GL_STENCIL, 0, &regs.clear_stencil);
+        // Try ZBC stencil clear first, fall back to regular clear if not available
+        const u32 format = static_cast<u32>(regs.zeta.format);
+        const u32 type = 2; // Stencil clear type
+        if (!OpenGL::ZBCClear::ClearStencil(format, type, regs.clear_stencil)) {
+            glClearBufferiv(GL_STENCIL, 0, &regs.clear_stencil);
+        } else {
+            zbc_used = true;
+        }
+    }
+
+    if (zbc_used) {
+        LOG_TRACE(Render_OpenGL, "ZBC: Used ZBC clear for efficient buffer clearing");
     }
     ++num_queued_commands;
 }
@@ -1101,7 +1137,7 @@ void RasterizerOpenGL::SyncColorMask() {
         flags[Dirty::ColorMask0] = false;
 
         auto& mask = regs.color_mask[0];
-        glColorMask(mask.R != 0, mask.B != 0, mask.G != 0, mask.A != 0);
+        glColorMask(mask.R != 0, mask.G != 0, mask.B != 0, mask.A != 0);
         return;
     }
 
