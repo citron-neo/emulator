@@ -678,7 +678,11 @@ std::unique_ptr<GraphicsPipeline> PipelineCache::CreateGraphicsPipeline(
         const auto runtime_info{MakeRuntimeInfo(programs, key, program, previous_stage)};
         ConvertLegacyToGeneric(program, runtime_info);
         std::vector<u32> code = EmitSPIRV(profile, runtime_info, program, binding);
-        code.reserve(std::max<size_t>(code.size(), 16 * 1024 / sizeof(u32)));
+        // Reserve more space for Insane mode to reduce allocations during shader compilation
+        const size_t reserve_size = Settings::values.vram_usage_mode.GetValue() == Settings::VramUsageMode::Insane
+                                        ? std::max<size_t>(code.size(), 64 * 1024 / sizeof(u32))  // 64KB for Insane mode
+                                        : std::max<size_t>(code.size(), 16 * 1024 / sizeof(u32)); // 16KB for other modes
+        code.reserve(reserve_size);
         device.SaveShader(code);
         modules[stage_index] = BuildShader(device, code);
         if (device.HasDebuggingToolAttached()) {
@@ -773,7 +777,11 @@ std::unique_ptr<ComputePipeline> PipelineCache::CreateComputePipeline(
 
     auto program{TranslateProgram(pools.inst, pools.block, env, cfg, host_info)};
     std::vector<u32> code = EmitSPIRV(profile, program);
-    code.reserve(std::max<size_t>(code.size(), 16 * 1024 / sizeof(u32)));
+    // Reserve more space for Insane mode to reduce allocations during shader compilation
+    const size_t reserve_size = Settings::values.vram_usage_mode.GetValue() == Settings::VramUsageMode::Insane
+                                    ? std::max<size_t>(code.size(), 64 * 1024 / sizeof(u32))  // 64KB for Insane mode
+                                    : std::max<size_t>(code.size(), 16 * 1024 / sizeof(u32)); // 16KB for other modes
+    code.reserve(reserve_size);
     device.SaveShader(code);
     vk::ShaderModule spv_module{BuildShader(device, code)};
     if (device.HasDebuggingToolAttached()) {

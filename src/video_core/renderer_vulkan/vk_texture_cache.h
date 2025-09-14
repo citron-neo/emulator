@@ -105,6 +105,7 @@ public:
     }
 
     [[nodiscard]] VkBuffer GetTemporaryBuffer(size_t needed_size);
+    void CleanupUnusedBuffers();
 
     std::span<const VkFormat> ViewFormats(PixelFormat format) {
         return view_formats[static_cast<std::size_t>(format)];

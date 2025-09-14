@@ -118,6 +118,13 @@ public:
     void TiledCacheBarrier() override;
     void FlushCommands() override;
     void TickFrame() override;
+
+    // VRAM monitoring functions
+    u64 GetTotalVram() const;
+    u64 GetUsedVram() const;
+    u64 GetBufferMemoryUsage() const;
+    u64 GetTextureMemoryUsage() const;
+    u64 GetStagingMemoryUsage() const;
     bool AccelerateConditionalRendering() override;
     bool AccelerateSurfaceCopy(const Tegra::Engines::Fermi2D::Surface& src,
                                const Tegra::Engines::Fermi2D::Surface& dst,

@@ -1336,13 +1336,29 @@ void Device::CollectPhysicalMemoryInfo() {
         const u64 reserve_memory = std::min<u64>(device_access_memory / 8, 1_GiB);
         device_access_memory -= reserve_memory;
 
-        if (Settings::values.vram_usage_mode.GetValue() != Settings::VramUsageMode::Aggressive) {
-            // Account for resolution scaling in memory limits
+        const auto vram_mode = Settings::values.vram_usage_mode.GetValue();
+        if (vram_mode == Settings::VramUsageMode::Conservative) {
+            // Conservative mode: Limit to 6GB + scaling memory
             const size_t normal_memory = 6_GiB;
             const size_t scaler_memory = 1_GiB * Settings::values.resolution_info.ScaleUp(1);
             device_access_memory =
                 std::min<u64>(device_access_memory, normal_memory + scaler_memory);
+        } else if (vram_mode == Settings::VramUsageMode::HighEnd) {
+            // High-End GPU mode: Use more VRAM but with smart buffer management
+            // Allow up to 12GB for RTX 4090/4080+ users, but optimize buffer allocation
+            const size_t high_end_memory = 12_GiB;
+            const size_t scaler_memory = 1_GiB * Settings::values.resolution_info.ScaleUp(1);
+            device_access_memory =
+                std::min<u64>(device_access_memory, high_end_memory + scaler_memory);
+        } else if (vram_mode == Settings::VramUsageMode::Insane) {
+            // Insane mode: Use most of RTX 4090's 24GB VRAM for maximum performance
+            // Reserve only 2GB for system and other applications
+            const size_t insane_memory = 22_GiB;
+            const size_t scaler_memory = 2_GiB * Settings::values.resolution_info.ScaleUp(1);
+            device_access_memory =
+                std::min<u64>(device_access_memory, insane_memory + scaler_memory);
         }
+        // Aggressive mode uses full available VRAM (no limits)
 
         return;
     }

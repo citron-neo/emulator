@@ -42,6 +42,8 @@ public:
 
     void TickFrame();
 
+    u64 GetMemoryUsage() const;
+
 private:
     struct StreamBufferCommit {
         size_t upper_bound;

@@ -332,6 +332,8 @@ std::unique_ptr<ComboboxTranslationMap> ComboboxEnumeration(QWidget* parent) {
                           {
                               PAIR(VramUsageMode, Conservative, tr("Conservative")),
                               PAIR(VramUsageMode, Aggressive, tr("Aggressive")),
+                              PAIR(VramUsageMode, HighEnd, tr("High-End GPU (4090/4080+)")),
+                              PAIR(VramUsageMode, Insane, tr("Insane (RTX 4090 24GB)")),
                           }});
     translations->insert({Settings::EnumMetadata<Settings::RendererBackend>::Index(),
                           {
