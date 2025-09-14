@@ -124,7 +124,7 @@ ENUM(AstcRecompression, Uncompressed, Bc1, Bc3);
 
 ENUM(VSyncMode, Immediate, Mailbox, Fifo, FifoRelaxed);
 
-ENUM(VramUsageMode, Conservative, Aggressive);
+ENUM(VramUsageMode, Conservative, Aggressive, HighEnd, Insane);
 
 ENUM(RendererBackend, OpenGL, Vulkan, Null);
 

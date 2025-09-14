@@ -7,8 +7,11 @@
 #include <vector>
 #include <boost/container/small_vector.hpp>
 
+#include "common/alignment.h"
 #include "common/bit_cast.h"
 #include "common/bit_util.h"
+#include "common/literals.h"
+#include "common/common_types.h"
 #include "common/settings.h"
 
 #include "video_core/renderer_vulkan/vk_texture_cache.h"
@@ -26,6 +29,8 @@
 #include "video_core/vulkan_common/vulkan_device.h"
 #include "video_core/vulkan_common/vulkan_memory_allocator.h"
 #include "video_core/vulkan_common/vulkan_wrapper.h"
+
+using namespace Common::Literals;
 
 namespace Vulkan {
 
@@ -927,7 +932,31 @@ VkBuffer TextureCacheRuntime::GetTemporaryBuffer(size_t needed_size) {
     if (buffers[level]) {
         return *buffers[level];
     }
-    const auto new_size = Common::NextPow2(needed_size);
+
+    // Optimize buffer size based on VRAM usage mode
+    size_t new_size = Common::NextPow2(needed_size);
+    const auto vram_mode = Settings::values.vram_usage_mode.GetValue();
+
+    if (vram_mode == Settings::VramUsageMode::HighEnd) {
+        // For high-end GPUs, use larger temporary buffers to reduce allocation overhead
+        // but cap them to prevent excessive VRAM usage
+        if (needed_size > 32_MiB && needed_size < 256_MiB) {
+            new_size = Common::AlignUp(needed_size, 32_MiB);
+        } else if (needed_size > 2_MiB && needed_size <= 32_MiB) {
+            new_size = Common::AlignUp(needed_size, 4_MiB);
+        }
+    } else if (vram_mode == Settings::VramUsageMode::Insane) {
+        // Insane mode: Use massive temporary buffers for RTX 4090 to maximize texture caching
+        // and shader compilation performance
+        if (needed_size > 64_MiB && needed_size < 512_MiB) {
+            new_size = Common::AlignUp(needed_size, 64_MiB);
+        } else if (needed_size > 8_MiB && needed_size <= 64_MiB) {
+            new_size = Common::AlignUp(needed_size, 16_MiB);
+        } else if (needed_size > 1_MiB && needed_size <= 8_MiB) {
+            new_size = Common::AlignUp(needed_size, 2_MiB);
+        }
+    }
+
     static constexpr VkBufferUsageFlags flags =
         VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT |
         VK_BUFFER_USAGE_UNIFORM_TEXEL_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_TEXEL_BUFFER_BIT;
@@ -943,6 +972,49 @@ VkBuffer TextureCacheRuntime::GetTemporaryBuffer(size_t needed_size) {
     };
     buffers[level] = memory_allocator.CreateBuffer(temp_ci, MemoryUsage::DeviceLocal);
     return *buffers[level];
+}
+
+void TextureCacheRuntime::CleanupUnusedBuffers() {
+    // Aggressive cleanup for Insane mode to prevent VRAM leaks
+    const auto vram_mode = Settings::values.vram_usage_mode.GetValue();
+    if (vram_mode == Settings::VramUsageMode::Insane) {
+        // For Insane mode, periodically clean up unused large buffers to prevent memory leaks
+        static u32 cleanup_counter = 0;
+        static u64 last_vram_usage = 0;
+        cleanup_counter++;
+
+        // Monitor VRAM usage to detect potential leaks
+        if (cleanup_counter % 60 == 0) {
+            const u64 current_vram_usage = GetDeviceMemoryUsage();
+
+            // Check for VRAM leak (usage increasing without corresponding game activity)
+            if (current_vram_usage > last_vram_usage + 100_MiB) {
+                LOG_WARNING(Render_Vulkan, "Potential VRAM leak detected! Usage increased by {} MB",
+                           (current_vram_usage - last_vram_usage) / (1024 * 1024));
+
+                // Force aggressive cleanup
+                for (auto& buffer : buffers) {
+                    if (buffer) {
+                        buffer.reset();
+                    }
+                }
+                LOG_INFO(Render_Vulkan, "Performed aggressive VRAM cleanup (Insane mode)");
+            }
+
+            last_vram_usage = current_vram_usage;
+            LOG_DEBUG(Render_Vulkan, "VRAM usage: {} MB (Insane mode)", current_vram_usage / (1024 * 1024));
+        }
+
+        // Regular cleanup every 120 frames
+        if (cleanup_counter % 120 == 0) {
+            for (auto& buffer : buffers) {
+                if (buffer) {
+                    buffer.reset();
+                }
+            }
+            LOG_DEBUG(Render_Vulkan, "Cleaned up unused temporary buffers (Insane mode)");
+        }
+    }
 }
 
 void TextureCacheRuntime::BarrierFeedbackLoop() {

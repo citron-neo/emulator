@@ -89,6 +89,8 @@ public:
 
     u64 GetDeviceMemoryUsage() const;
 
+    void CleanupUnusedBuffers();
+
     bool CanReportMemoryUsage() const;
 
     u32 GetStorageBufferAlignment() const;

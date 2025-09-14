@@ -401,11 +401,15 @@
     <string-array name="vramUsageModeNames">
         <item>Conservative</item>
         <item>Aggressive</item>
+        <item>High-End GPU (4090/4080+)</item>
+        <item>Insane (RTX 4090 24GB)</item>
     </string-array>
 
     <integer-array name="vramUsageModeValues">
         <item>0</item>
         <item>1</item>
+        <item>2</item>
+        <item>3</item>
     </integer-array>
 
     <!-- Applet Mode setting arrays -->

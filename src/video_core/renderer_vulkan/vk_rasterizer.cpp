@@ -769,10 +769,59 @@ void RasterizerVulkan::TickFrame() {
     {
         std::scoped_lock lock{texture_cache.mutex};
         texture_cache.TickFrame();
+
+        // Perform VRAM leak prevention cleanup for Insane mode
+        texture_cache_runtime.CleanupUnusedBuffers();
     }
     {
         std::scoped_lock lock{buffer_cache.mutex};
         buffer_cache.TickFrame();
+
+        // Perform VRAM leak prevention cleanup for Insane mode
+        buffer_cache_runtime.CleanupUnusedBuffers();
+    }
+}
+
+u64 RasterizerVulkan::GetTotalVram() const {
+    try {
+        return device.GetDeviceMemoryUsage();
+    } catch (...) {
+        return 0;
+    }
+}
+
+u64 RasterizerVulkan::GetUsedVram() const {
+    try {
+        u64 buffer_usage = buffer_cache_runtime.GetDeviceMemoryUsage();
+        u64 texture_usage = texture_cache_runtime.GetDeviceMemoryUsage();
+        u64 staging_usage = staging_pool.GetMemoryUsage();
+        return buffer_usage + texture_usage + staging_usage;
+    } catch (...) {
+        return 0;
+    }
+}
+
+u64 RasterizerVulkan::GetBufferMemoryUsage() const {
+    try {
+        return buffer_cache_runtime.GetDeviceMemoryUsage();
+    } catch (...) {
+        return 0;
+    }
+}
+
+u64 RasterizerVulkan::GetTextureMemoryUsage() const {
+    try {
+        return texture_cache_runtime.GetDeviceMemoryUsage();
+    } catch (...) {
+        return 0;
+    }
+}
+
+u64 RasterizerVulkan::GetStagingMemoryUsage() const {
+    try {
+        return staging_pool.GetMemoryUsage();
+    } catch (...) {
+        return 0;
     }
 }
 
