@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2023 yuzu Emulator Project
+// SPDX-FileCopyrightText: 2023 citron Emulator Project
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 import android.annotation.SuppressLint
@@ -28,7 +28,7 @@ android {
     namespace = "org.citron.citron_emu"
 
     compileSdkVersion = "android-35"
-    ndkVersion = "27.2.12479018" // "26.1.10909125"
+    ndkVersion = "26.1.10909125"
 
     buildFeatures {
         viewBinding = true
@@ -104,13 +104,10 @@ android {
             }
 
             resValue("string", "app_name_suffixed", "citron")
-            isDefault = true
-            isShrinkResources = true
             isMinifyEnabled = true
-            isJniDebuggable = false
             isDebuggable = false
             proguardFiles(
-                getDefaultProguardFile("proguard-android-optimize.txt"),
+                getDefaultProguardFile("proguard-android.txt"),
                 "proguard-rules.pro"
             )
         }
@@ -118,12 +115,13 @@ android {
         // builds a release build that doesn't need signing
         // Attaches 'debug' suffix to version and package name, allowing installation alongside the release build.
         register("relWithDebInfo") {
+            isDefault = true
             resValue("string", "app_name_suffixed", "citron Debug Release")
             signingConfig = signingConfigs.getByName("default")
             isMinifyEnabled = true
             isDebuggable = true
             proguardFiles(
-                getDefaultProguardFile("proguard-android-optimize.txt"),
+                getDefaultProguardFile("proguard-android.txt"),
                 "proguard-rules.pro"
             )
             versionNameSuffix = "-relWithDebInfo"
@@ -160,7 +158,7 @@ android {
 
     externalNativeBuild {
         cmake {
-            version = "3.31.8"
+            version = "3.22.1"
             path = file("../../../CMakeLists.txt")
         }
     }
@@ -179,10 +177,10 @@ android {
                     "-DCITRON_ENABLE_LTO=ON",
                     "-DCMAKE_EXPORT_COMPILE_COMMANDS=ON",
                     "-DCMAKE_POLICY_VERSION_MINIMUM=3.5",
-                    "-DANDROID_SUPPORT_FLEXIBLE_PAGE_SIZES=ON",
-                    )
+                    "-DANDROID_SUPPORT_FLEXIBLE_PAGE_SIZES=ON"
+                )
 
-                abiFilters("arm64-v8a") // , "x86_64")
+                abiFilters("arm64-v8a", "x86_64")
             }
         }
     }
@@ -240,6 +238,7 @@ dependencies {
     implementation("io.coil-kt:coil:2.2.2")
     implementation("androidx.core:core-splashscreen:1.0.1")
     implementation("androidx.window:window:1.2.0-beta03")
+    implementation("androidx.constraintlayout:constraintlayout:2.1.4")
     implementation("androidx.swiperefreshlayout:swiperefreshlayout:1.1.0")
     implementation("androidx.navigation:navigation-fragment-ktx:2.7.4")
     implementation("androidx.navigation:navigation-ui-ktx:2.7.4")

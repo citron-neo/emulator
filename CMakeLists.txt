@@ -86,30 +86,21 @@ endif()
 option(ENABLE_OPENSSL "Enable OpenSSL backend for ISslConnection" ${DEFAULT_ENABLE_OPENSSL})
 
 if (ANDROID AND CITRON_DOWNLOAD_ANDROID_VVL)
-    set(vvl_version "vulkan-sdk-1.4.321.0")
+    set(vvl_version "sdk-1.3.261.1")
     set(vvl_zip_file "${CMAKE_BINARY_DIR}/externals/vvl-android.zip")
-    set(vvl_lib_path "${CMAKE_CURRENT_SOURCE_DIR}/src/android/app/src/main/jniLibs/arm64-v8a/")
-    set(vvl_lib_file "${vvl_lib_path}/libVkLayer_khronos_validation.so")
-
-    # Only download and extract if the final library file doesn't exist
-    if (NOT EXISTS "${vvl_lib_file}")
-        if (NOT EXISTS "${vvl_zip_file}")
-            # Download validation layer release to externals directory
-            set(vvl_base_url "https://github.com/KhronosGroup/Vulkan-ValidationLayers/releases/download")
-            file(DOWNLOAD "${vvl_base_url}/${vvl_version}/android-binaries-${vvl_version}.zip"
-                "${vvl_zip_file}" SHOW_PROGRESS)
-        endif()
-
-        # Extract if not already extracted
-        if (NOT EXISTS "${CMAKE_BINARY_DIR}/externals/android-binaries-${vvl_version}")
-            execute_process(COMMAND ${CMAKE_COMMAND} -E tar xf "${vvl_zip_file}"
-                            WORKING_DIRECTORY "${CMAKE_BINARY_DIR}/externals")
-        endif()
-
-        # Copy the arm64 binary to src/android/app/main/jniLibs
-        file(COPY "${CMAKE_BINARY_DIR}/externals/android-binaries-${vvl_version}/arm64-v8a/libVkLayer_khronos_validation.so"
-                DESTINATION "${vvl_lib_path}")
+    if (NOT EXISTS "${vvl_zip_file}")
+        # Download and extract validation layer release to externals directory
+        set(vvl_base_url "https://github.com/KhronosGroup/Vulkan-ValidationLayers/releases/download")
+        file(DOWNLOAD "${vvl_base_url}/${vvl_version}/android-binaries-${vvl_version}-android.zip"
+            "${vvl_zip_file}" SHOW_PROGRESS)
+        execute_process(COMMAND ${CMAKE_COMMAND} -E tar xf "${vvl_zip_file}"
+            WORKING_DIRECTORY "${CMAKE_BINARY_DIR}/externals")
     endif()
+
+    # Copy the arm64 binary to src/android/app/main/jniLibs
+    set(vvl_lib_path "${CMAKE_CURRENT_SOURCE_DIR}/src/android/app/src/main/jniLibs/arm64-v8a/")
+    file(COPY "${CMAKE_BINARY_DIR}/externals/android-binaries-${vvl_version}/arm64-v8a/libVkLayer_khronos_validation.so"
+        DESTINATION "${vvl_lib_path}")
 endif()
 
 if (ANDROID)
@@ -292,6 +283,9 @@ if (MSVC)
 
     # boost still makes use of deprecated result_of.
     add_definitions(-D_HAS_DEPRECATED_RESULT_OF)
+
+    # Enable Link Time Code Generation for better optimization
+    add_link_options(/LTCG)
 else()
     set(CMAKE_CXX_STANDARD 20)
     set(CMAKE_CXX_STANDARD_REQUIRED ON)
