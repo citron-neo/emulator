@@ -86,7 +86,7 @@ private:
 
     // File operations
     bool ExtractArchive(const std::filesystem::path& archive_path, const std::filesystem::path& extract_path);
-#ifndef CITRON_ENABLE_LIBARCHIVE
+#if defined(_WIN32) && !defined(CITRON_ENABLE_LIBARCHIVE)
     bool ExtractArchiveWindows(const std::filesystem::path& archive_path, const std::filesystem::path& extract_path);
 #endif
     bool InstallUpdate(const std::filesystem::path& update_path);

@@ -3,6 +3,8 @@
 
 #pragma once
 
+#ifdef _WIN32
+
 #include <memory>
 #include <QDialog>
 #include <QProgressBar>
@@ -84,3 +86,5 @@ private:
     qint64 downloaded_bytes = 0;
     QTimer* progress_timer;
 };
+
+#endif // _WIN32
