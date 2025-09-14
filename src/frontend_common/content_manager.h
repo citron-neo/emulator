@@ -21,14 +21,14 @@
 namespace ContentManager {
 
 enum class InstallResult {
-    Success,
+    InstallSuccess,
     Overwrite,
     Failure,
     BaseInstallAttempted,
 };
 
 enum class GameVerificationResult {
-    Success,
+    VerificationSuccess,
     Failed,
     NotImplemented,
 };
@@ -169,7 +169,7 @@ inline InstallResult InstallNSP(Core::System& system, FileSys::VfsFilesystem& vf
         return InstallResult::Failure;
     }
 
-    if (nsp->GetStatus() != Loader::ResultStatus::Success) {
+    if (nsp->GetStatus() != Loader::ResultStatus::LoaderSuccess) {
         return InstallResult::Failure;
     }
     const auto res =
@@ -229,7 +229,7 @@ inline InstallResult InstallNCA(FileSys::VfsFilesystem& vfs, const std::string& 
     const auto id = nca->GetStatus();
 
     // Game updates necessary are missing base RomFS
-    if (id != Loader::ResultStatus::Success &&
+    if (id != Loader::ResultStatus::LoaderSuccess &&
         id != Loader::ResultStatus::ErrorMissingBKTRBaseRomFS) {
         return InstallResult::Failure;
     }
@@ -306,14 +306,14 @@ inline std::vector<std::string> VerifyInstalledContents(
         if (cancelled) {
             break;
         }
-        if (status != Loader::ResultStatus::Success) {
+        if (status != Loader::ResultStatus::LoaderSuccess) {
             FileSys::NCA nca(nca_file);
             const auto title_id = nca.GetTitleId();
             std::string title_name = "unknown";
 
             const auto control = provider.GetEntry(FileSys::GetBaseTitleID(title_id),
                                                    FileSys::ContentRecordType::Control);
-            if (control && control->GetStatus() == Loader::ResultStatus::Success) {
+            if (control && control->GetStatus() == Loader::ResultStatus::LoaderSuccess) {
                 const FileSys::PatchManager pm{title_id, system.GetFileSystemController(),
                                                provider};
                 const auto [nacp, logo] = pm.ParseControlNCA(*control);
@@ -367,7 +367,7 @@ inline GameVerificationResult VerifyGameContents(
     if (status == Loader::ResultStatus::ErrorIntegrityVerificationFailed) {
         return GameVerificationResult::Failed;
     }
-    return GameVerificationResult::Success;
+    return GameVerificationResult::VerificationSuccess;
 }
 
 /**

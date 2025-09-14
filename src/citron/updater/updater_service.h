@@ -31,7 +31,7 @@ class UpdaterService : public QObject {
 
 public:
     enum class UpdateResult {
-        Success,
+        UpdateSuccess,
         Failed,
         Cancelled,
         NetworkError,

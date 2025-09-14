@@ -206,7 +206,7 @@ bool PlaceholderCache::Register(RegisteredCache* cache, const NcaID& placeholder
 
     const auto res = cache->RawInstallNCA(NCA{file}, &VfsRawCopy, false, install);
 
-    if (res != InstallResult::Success)
+    if (res != InstallResult::InstallSuccess)
         return false;
 
     return Delete(placeholder);
@@ -609,7 +609,7 @@ InstallResult RegisteredCache::InstallEntry(const NSP& nsp, bool overwrite_if_ex
 
     // Install Metadata File
     const auto meta_result = RawInstallNCA(**meta_iter, copy, overwrite_if_exists, meta_id_data);
-    if (meta_result != InstallResult::Success) {
+    if (meta_result != InstallResult::InstallSuccess) {
         return meta_result;
     }
 
@@ -628,13 +628,13 @@ InstallResult RegisteredCache::InstallEntry(const NSP& nsp, bool overwrite_if_ex
             // Create fake cnmt for patch to multiprogram application
             const auto sub_nca_result =
                 InstallEntry(*nca, cnmt.GetHeader(), record, overwrite_if_exists, copy);
-            if (sub_nca_result != InstallResult::Success) {
+            if (sub_nca_result != InstallResult::InstallSuccess) {
                 return sub_nca_result;
             }
             continue;
         }
         const auto nca_result = RawInstallNCA(*nca, copy, overwrite_if_exists, record.nca_id);
-        if (nca_result != InstallResult::Success) {
+        if (nca_result != InstallResult::InstallSuccess) {
             return nca_result;
         }
     }
@@ -643,7 +643,7 @@ InstallResult RegisteredCache::InstallEntry(const NSP& nsp, bool overwrite_if_ex
     if (result) {
         return InstallResult::OverwriteExisting;
     }
-    return InstallResult::Success;
+    return InstallResult::InstallSuccess;
 }
 
 InstallResult RegisteredCache::InstallEntry(const NCA& nca, TitleType type,
@@ -798,7 +798,7 @@ InstallResult RegisteredCache::RawInstallNCA(const NCA& nca, const VfsCopyFuncti
     if (out == nullptr) {
         return InstallResult::ErrorCopyFailed;
     }
-    return copy(in, out, VFS_RC_LARGE_COPY_BLOCK) ? InstallResult::Success
+    return copy(in, out, VFS_RC_LARGE_COPY_BLOCK) ? InstallResult::InstallSuccess
                                                   : InstallResult::ErrorCopyFailed;
 }
 
