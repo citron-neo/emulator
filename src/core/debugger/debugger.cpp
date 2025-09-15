@@ -7,7 +7,7 @@
 
 #include <boost/asio.hpp>
 #if !defined(__ANDROID__) && !defined(__APPLE__)
-#include <boost/process/async_pipe.hpp>
+#include <boost/process/v1/async_pipe.hpp>
 #endif
 
 #include "common/logging/log.h"
@@ -334,7 +334,7 @@ private:
     struct ConnectionState {
         boost::asio::ip::tcp::socket client_socket;
 #if !defined(__ANDROID__) && !defined(__APPLE__)
-        boost::process::async_pipe signal_pipe;
+        boost::process::v1::async_pipe signal_pipe;
 #else
         // Use a regular socket pair for Android and macOS
         boost::asio::ip::tcp::socket signal_pipe;
