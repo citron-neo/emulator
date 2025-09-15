@@ -24,3 +24,8 @@
 #undef False
 #undef None
 #undef True
+#undef Success
+#undef KeyPress
+#undef KeyRelease
+#undef FocusIn
+#undef FocusOut

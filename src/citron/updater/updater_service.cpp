@@ -594,12 +594,19 @@ bool UpdaterService::ExtractArchive(const std::filesystem::path& archive_path, c
 
     return !cancel_requested.load();
 #else
+#ifdef _WIN32
     // Windows fallback: use system 7zip or PowerShell
     return ExtractArchiveWindows(archive_path, extract_path);
+#else
+    LOG_ERROR(Frontend, "Archive extraction requires libarchive on this platform.");
+    (void)archive_path;
+    (void)extract_path;
+    return false;
+#endif
 #endif
 }
 
-#ifndef CITRON_ENABLE_LIBARCHIVE
+#if defined(_WIN32) && !defined(CITRON_ENABLE_LIBARCHIVE)
 bool UpdaterService::ExtractArchiveWindows(const std::filesystem::path& archive_path, const std::filesystem::path& extract_path) {
     // Create extraction directory
     EnsureDirectoryExists(extract_path);
@@ -921,5 +928,6 @@ bool UpdaterService::ApplyStagedUpdate(const std::filesystem::path& app_director
 }
 
 } // namespace Updater
-
+#ifdef _WIN32
 #include "updater_service.moc"
+#endif

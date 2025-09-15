@@ -1,3 +1,4 @@
+#ifdef _WIN32
 // SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
@@ -351,3 +352,5 @@ QString UpdaterDialog::GetUpdateMessage(Updater::UpdaterService::UpdateResult re
 }
 
 #include "updater_dialog.moc"
+
+#endif // _WIN32
