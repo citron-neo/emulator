@@ -1,0 +1,274 @@
+# GitLab CI config for Citron
+stages:
+  - build
+  - test
+  - package
+
+variables:
+  BUILD_TYPE: "Release"
+  CMAKE_BUILD_PARALLEL_LEVEL: "4"
+  DOCKER_DRIVER: overlay2
+  DOCKER_TLS_CERTDIR: ""
+
+# Cache configuration for faster builds
+cache:
+  paths:
+    - build/
+    - .git/modules/
+  key: "$CI_COMMIT_REF_SLUG"
+  policy: pull-push
+
+# Windows Build (requires Windows runner)
+build-windows:
+  stage: build
+  image: mcr.microsoft.com/windows/servercore:ltsc2022
+  tags:
+    - windows
+  before_script:
+    - choco install cmake --installargs 'ADD_CMAKE_TO_PATH=System' -y
+    - choco install git -y
+    - choco install visualstudio2022buildtools -y
+    - choco install visualstudio2022-workload-vctools -y
+  script:
+    - git submodule update --init --recursive
+    - cmake -B build -S . -DCMAKE_BUILD_TYPE=%BUILD_TYPE% -DCITRON_USE_BUNDLED_VCPKG=ON -DENABLE_QT=ON -DENABLE_SDL2=ON -DENABLE_WEB_SERVICE=ON -DCITRON_USE_BUNDLED_QT=ON -DCITRON_USE_BUNDLED_SDL2=ON -DCITRON_USE_BUNDLED_FFMPEG=ON
+    - cmake --build build --config %BUILD_TYPE% --parallel
+  artifacts:
+    paths:
+      - build/bin/*.exe
+      - build/bin/*.dll
+    expire_in: 1 week
+  only:
+    - main
+    - master
+    - develop
+    - merge_requests
+  allow_failure: true  # Allow failure if Windows runner not available
+
+# Linux Build (Ubuntu 24.04 optimized)
+build-linux:
+  stage: build
+  image: ubuntu:24.04
+  tags:
+    - linux
+    - ubuntu
+  before_script:
+    - apt-get update -qq
+    - apt-get install -y -qq
+        build-essential
+        cmake
+        ninja-build
+        pkg-config
+        git
+        curl
+        wget
+        unzip
+        # Graphics libraries
+        libgl1-mesa-dev
+        libglu1-mesa-dev
+        # X11 libraries (Ubuntu 24.04 specific)
+        libxcb-icccm4-dev
+        libxcb-image0-dev
+        libxcb-keysyms1-dev
+        libxcb-randr0-dev
+        libxcb-render-util0-dev
+        libxcb-render0-dev
+        libxcb-shape0-dev
+        libxcb-shm0-dev
+        libxcb-sync1-dev
+        libxcb-xfixes0-dev
+        libxcb-xinerama0-dev
+        libxcb-xkb1-dev
+        libxcb1-dev
+        libxkbcommon-x11-dev
+        libxkbcommon-dev
+        libxcb-util0-dev
+        libxcb-util1-dev
+        libxcb-xinerama0-dev
+        libxcb-xkb-dev
+        # Audio libraries
+        libpulse-dev
+        libasound2-dev
+        # Input libraries
+        libusb-1.0-0-dev
+        # Media libraries
+        libavcodec-dev
+        libavfilter-dev
+        libavutil-dev
+        libswscale-dev
+        # Security libraries
+        libssl-dev
+        # Boost libraries
+        libboost-all-dev
+        # Utility libraries
+        libfmt-dev
+        liblz4-dev
+        libzstd-dev
+        libnlohmann-json-dev
+        libopus-dev
+        libenet-dev
+        libsimpleini-dev
+        libstb-dev
+        # Vulkan libraries
+        vulkan-validationlayers-dev
+        libvulkan-dev
+  script:
+    - git submodule update --init --recursive
+    - cmake -B build -S . 
+        -DCMAKE_BUILD_TYPE=$BUILD_TYPE 
+        -DENABLE_QT=ON 
+        -DENABLE_SDL2=ON 
+        -DENABLE_WEB_SERVICE=ON 
+        -DCITRON_USE_EXTERNAL_SDL2=ON 
+        -DCITRON_USE_BUNDLED_FFMPEG=OFF 
+        -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+    - cmake --build build --config $BUILD_TYPE --parallel $CMAKE_BUILD_PARALLEL_LEVEL
+    - chmod +x AppImage-build-local.sh
+    - ./AppImage-build-local.sh || echo "AppImage build failed, continuing..."
+  artifacts:
+    paths:
+      - build/bin/citron
+      - citron.AppImage
+    expire_in: 1 week
+    when: always
+  only:
+    - main
+    - master
+    - develop
+    - merge_requests
+
+# Cross-compilation for ARM64
+build-linux-aarch64:
+  stage: build
+  image: ubuntu:24.04
+  tags:
+    - linux
+    - ubuntu
+  before_script:
+    - apt-get update -qq
+    - apt-get install -y -qq build-essential cmake gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
+  script:
+    - git submodule update --init --recursive
+    - cmake -B build-cross -S . 
+        -DCMAKE_BUILD_TYPE=$BUILD_TYPE 
+        -DCMAKE_SYSTEM_NAME=Linux 
+        -DCMAKE_SYSTEM_PROCESSOR=aarch64 
+        -DCMAKE_C_COMPILER=aarch64-linux-gnu-gcc 
+        -DCMAKE_CXX_COMPILER=aarch64-linux-gnu-g++ 
+        -DENABLE_QT=OFF 
+        -DENABLE_SDL2=OFF 
+        -DENABLE_WEB_SERVICE=OFF
+    - cmake --build build-cross --config $BUILD_TYPE --parallel $CMAKE_BUILD_PARALLEL_LEVEL
+  artifacts:
+    paths:
+      - build-cross/bin/citron
+    expire_in: 1 week
+  only:
+    - main
+    - master
+    - develop
+
+# Android Build (Ubuntu 24.04 optimized)
+build-android:
+  stage: build
+  image: ubuntu:24.04
+  tags:
+    - android
+  before_script:
+    - apt-get update -qq
+    - apt-get install -y -qq openjdk-17-jdk wget unzip
+    # Install Android SDK (latest version for Ubuntu 24.04)
+    - wget -q https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
+    - unzip -q commandlinetools-linux-11076708_latest.zip
+    - mkdir -p android-sdk/cmdline-tools
+    - mv cmdline-tools android-sdk/cmdline-tools/latest
+    - export ANDROID_SDK_ROOT=$PWD/android-sdk
+    - export PATH=$PATH:$ANDROID_SDK_ROOT/cmdline-tools/latest/bin
+    - yes | sdkmanager --licenses
+    - sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0"
+    # Install Android NDK
+    - wget -q https://dl.google.com/android/repository/android-ndk-r26b-linux.zip
+    - unzip -q android-ndk-r26b-linux.zip
+    - export ANDROID_NDK_HOME=$PWD/android-ndk-r26b
+  script:
+    - git submodule update --init --recursive
+    - cmake -B build-android -S . 
+        -DCMAKE_BUILD_TYPE=$BUILD_TYPE 
+        -DCMAKE_TOOLCHAIN_FILE=$ANDROID_NDK_HOME/build/cmake/android.toolchain.cmake 
+        -DANDROID_ABI=arm64-v8a 
+        -DANDROID_PLATFORM=android-30 
+        -DENABLE_QT=OFF 
+        -DENABLE_SDL2=OFF 
+        -DENABLE_WEB_SERVICE=OFF 
+        -DCITRON_USE_BUNDLED_VCPKG=ON 
+        -DCITRON_USE_BUNDLED_FFMPEG=ON 
+        -DANDROID_ARM_NEON=ON 
+        -DCITRON_ENABLE_LTO=ON
+    - cmake --build build-android --config $BUILD_TYPE --parallel $CMAKE_BUILD_PARALLEL_LEVEL
+    - cd src/android
+    - ./gradlew assembleMainlineRelease
+  artifacts:
+    paths:
+      - src/android/app/build/outputs/apk/mainline/release/*.apk
+      - build-android/bin/*.so
+    expire_in: 1 week
+  only:
+    - main
+    - master
+    - develop
+    - merge_requests
+  allow_failure: true  # Allow failure if Android runner not available
+
+# Unit Tests
+test-unit:
+  stage: test
+  image: ubuntu:24.04
+  tags:
+    - linux
+    - ubuntu
+  before_script:
+    - apt-get update -qq
+    - apt-get install -y -qq build-essential cmake ninja-build
+  script:
+    - git submodule update --init --recursive
+    - cmake -B build-test -S . 
+        -DCMAKE_BUILD_TYPE=Debug 
+        -DCITRON_TESTS=ON 
+        -DENABLE_QT=OFF 
+        -DENABLE_SDL2=OFF 
+        -DENABLE_WEB_SERVICE=OFF
+    - cmake --build build-test --config Debug --parallel $CMAKE_BUILD_PARALLEL_LEVEL
+    - cd build-test
+    - ctest --output-on-failure
+  artifacts:
+    reports:
+      junit: build-test/Testing/**/*.xml
+    expire_in: 1 week
+  only:
+    - main
+    - master
+    - develop
+    - merge_requests
+
+# Package Release
+package-release:
+  stage: package
+  image: ubuntu:24.04
+  tags:
+    - linux
+    - ubuntu
+  dependencies:
+    - build-linux
+    - build-linux-aarch64
+  script:
+    - mkdir -p release
+    - echo "Creating release package..."
+    - tar -czf citron-release-$(date +%Y%m%d).tar.gz release/ || true
+  artifacts:
+    paths:
+      - citron-release-*.tar.gz
+    expire_in: 1 month
+  only:
+    - main
+    - master
+    - tags
