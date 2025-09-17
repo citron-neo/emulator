@@ -142,6 +142,7 @@
         <item>@string/ratio_force_four_three</item>
         <item>@string/ratio_force_twenty_one_nine</item>
         <item>@string/ratio_force_sixteen_ten</item>
+        <item>@string/ratio_force_thirty_two_nine</item>
         <item>@string/ratio_stretch</item>
     </string-array>
 
@@ -151,6 +152,7 @@
         <item>2</item>
         <item>3</item>
         <item>4</item>
+        <item>5</item>
     </integer-array>
 
     <string-array name="rendererScalingFilterNames">

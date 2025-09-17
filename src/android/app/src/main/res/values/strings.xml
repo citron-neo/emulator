@@ -656,6 +656,7 @@
     <string name="ratio_force_four_three">Force 4:3</string>
     <string name="ratio_force_twenty_one_nine">Force 21:9</string>
     <string name="ratio_force_sixteen_ten">Force 16:10</string>
+    <string name="ratio_force_thirty_two_nine">Force 32:9</string>
     <string name="ratio_stretch">Stretch to window</string>
 
     <!-- CPU Backend -->

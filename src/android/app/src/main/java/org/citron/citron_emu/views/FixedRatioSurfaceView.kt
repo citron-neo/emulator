@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: 2023 yuzu Emulator Project
+// SPDX-FileCopyrightText: 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 package org.citron.citron_emu.views
@@ -27,7 +28,15 @@ class FixedRatioSurfaceView @JvmOverloads constructor(
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
         val displayWidth: Float = MeasureSpec.getSize(widthMeasureSpec).toFloat()
         val displayHeight: Float = MeasureSpec.getSize(heightMeasureSpec).toFloat()
-        if (aspectRatio != 0f) {
+
+        // Safety check: ensure we have valid dimensions
+        if (displayWidth <= 0f || displayHeight <= 0f || aspectRatio == 0f) {
+            // Fall back to default behavior for stretch or invalid dimensions
+            super.onMeasure(widthMeasureSpec, heightMeasureSpec)
+            return
+        }
+
+        if (aspectRatio > 0f) {
             val displayAspect = displayWidth / displayHeight
             if (displayAspect < aspectRatio) {
                 // Max out width

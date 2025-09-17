@@ -314,6 +314,7 @@ class EmulationActivity : AppCompatActivity(), SensorEventListener {
             2 -> Rational(21, 9)
             3 -> Rational(16, 10)
             4 -> Rational(32, 9)
+            5 -> null // Stretch to window
             else -> null // Best fit
         }
         return this.apply { aspectRatio?.let { setAspectRatio(it) } }
