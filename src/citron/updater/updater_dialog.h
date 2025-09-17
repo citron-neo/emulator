@@ -3,10 +3,10 @@
 
 #pragma once
 
-#ifdef _WIN32
-
 #include <memory>
 #include <QDialog>
+
+#ifdef _WIN32
 #include <QProgressBar>
 #include <QLabel>
 #include <QPushButton>
@@ -14,6 +14,13 @@
 #include <QTimer>
 
 #include "citron/updater/updater_service.h"
+#else
+// Forward declarations for non-Windows platforms
+namespace Updater {
+struct UpdateInfo;
+class UpdaterService;
+}
+#endif
 
 namespace Ui {
 class UpdaterDialog;
@@ -64,6 +71,7 @@ private:
     QString GetUpdateMessage(Updater::UpdaterService::UpdateResult result) const;
 
 private:
+#ifdef _WIN32
     std::unique_ptr<Ui::UpdaterDialog> ui;
     std::unique_ptr<Updater::UpdaterService> updater_service;
 
@@ -85,6 +93,5 @@ private:
     qint64 total_download_size = 0;
     qint64 downloaded_bytes = 0;
     QTimer* progress_timer;
-};
-
 #endif // _WIN32
+};

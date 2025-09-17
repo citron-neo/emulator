@@ -1,8 +1,9 @@
-#ifdef _WIN32
 // SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "citron/updater/updater_dialog.h"
+
+#ifdef _WIN32
 #include "ui_updater_dialog.h"
 
 #include <QApplication>
@@ -350,6 +351,47 @@ QString UpdaterDialog::GetUpdateMessage(Updater::UpdaterService::UpdateResult re
             return QStringLiteral("Unknown error occurred.");
     }
 }
+
+#include "updater_dialog.moc"
+
+#else // _WIN32
+
+// Forward declarations for non-Windows platforms
+namespace Updater {
+struct UpdateInfo {};
+class UpdaterService {
+public:
+    enum class UpdateResult { Success };
+};
+}
+
+// Stub implementations for non-Windows platforms
+UpdaterDialog::UpdaterDialog(QWidget* parent) : QDialog(parent) {}
+UpdaterDialog::~UpdaterDialog() = default;
+void UpdaterDialog::CheckForUpdates(const std::string&) {}
+void UpdaterDialog::ShowUpdateAvailable(const Updater::UpdateInfo&) {}
+void UpdaterDialog::ShowUpdateChecking() {}
+void UpdaterDialog::OnUpdateCheckCompleted(bool, const Updater::UpdateInfo&) {}
+void UpdaterDialog::OnUpdateDownloadProgress(int, qint64, qint64) {}
+void UpdaterDialog::OnUpdateInstallProgress(int, const QString&) {}
+void UpdaterDialog::OnUpdateCompleted(Updater::UpdaterService::UpdateResult, const QString&) {}
+void UpdaterDialog::OnUpdateError(const QString&) {}
+void UpdaterDialog::OnDownloadButtonClicked() {}
+void UpdaterDialog::OnCancelButtonClicked() {}
+void UpdaterDialog::OnCloseButtonClicked() {}
+void UpdaterDialog::OnRestartButtonClicked() {}
+void UpdaterDialog::SetupUI() {}
+void UpdaterDialog::ShowCheckingState() {}
+void UpdaterDialog::ShowNoUpdateState() {}
+void UpdaterDialog::ShowUpdateAvailableState() {}
+void UpdaterDialog::ShowDownloadingState() {}
+void UpdaterDialog::ShowInstallingState() {}
+void UpdaterDialog::ShowCompletedState() {}
+void UpdaterDialog::ShowErrorState() {}
+void UpdaterDialog::UpdateDownloadProgress(int, qint64, qint64) {}
+void UpdaterDialog::UpdateInstallProgress(int, const QString&) {}
+QString UpdaterDialog::FormatBytes(qint64) const { return QString(); }
+QString UpdaterDialog::GetUpdateMessage(Updater::UpdaterService::UpdateResult) const { return QString(); }
 
 #include "updater_dialog.moc"
 
