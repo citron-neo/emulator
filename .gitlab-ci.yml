@@ -13,110 +13,213 @@ variables:
 # Cache configuration for faster builds
 cache:
   paths:
-    - build/
-    - .git/modules/
+    - build/vcpkg_installed/
+    - build/_deps/
   key: "$CI_COMMIT_REF_SLUG"
   policy: pull-push
 
-# Windows Build (requires Windows runner)
-build-windows:
-  stage: build
-  image: mcr.microsoft.com/windows/servercore:ltsc2022
-  tags:
-    - windows
-  before_script:
-    - choco install cmake --installargs 'ADD_CMAKE_TO_PATH=System' -y
-    - choco install git -y
-    - choco install visualstudio2022buildtools -y
-    - choco install visualstudio2022-workload-vctools -y
-  script:
-    - git submodule update --init --recursive
-    - cmake -B build -S . -DCMAKE_BUILD_TYPE=%BUILD_TYPE% -DCITRON_USE_BUNDLED_VCPKG=ON -DENABLE_QT=ON -DENABLE_SDL2=ON -DENABLE_WEB_SERVICE=ON -DCITRON_USE_BUNDLED_QT=ON -DCITRON_USE_BUNDLED_SDL2=ON -DCITRON_USE_BUNDLED_FFMPEG=ON
-    - cmake --build build --config %BUILD_TYPE% --parallel
-  artifacts:
-    paths:
-      - build/bin/*.exe
-      - build/bin/*.dll
-    expire_in: 1 week
-  only:
-    - main
-    - master
-    - develop
-    - merge_requests
-  allow_failure: true  # Allow failure if Windows runner not available
 
-# Linux Build (Ubuntu 24.04 optimized)
+# Linux Build (CachyOS optimized)
 build-linux:
   stage: build
-  image: ubuntu:24.04
+  image: cachyos/cachyos:latest
   tags:
-    - linux
-    - ubuntu
+    - citron-build
   before_script:
-    - apt-get update -qq
-    - apt-get install -y -qq build-essential cmake ninja-build pkg-config git curl wget unzip
-    - apt-get install -y -qq libgl1-mesa-dev libglu1-mesa-dev
-    - apt-get install -y -qq libxcb-icccm4-dev libxcb-image0-dev libxcb-keysyms1-dev libxcb-randr0-dev
-    - apt-get install -y -qq libxcb-render-util0-dev libxcb-render0-dev libxcb-shape0-dev libxcb-shm0-dev
-    - apt-get install -y -qq libxcb-sync1-dev libxcb-xfixes0-dev libxcb-xinerama0-dev libxcb-xkb1-dev
-    - apt-get install -y -qq libxcb1-dev libxkbcommon-x11-dev libxkbcommon-dev
-    - apt-get install -y -qq libxcb-util0-dev libxcb-util1-dev libxcb-xinerama0-dev libxcb-xkb-dev
-    - apt-get install -y -qq libpulse-dev libasound2-dev libusb-1.0-0-dev
-    - apt-get install -y -qq libavcodec-dev libavfilter-dev libavutil-dev libswscale-dev
-    - apt-get install -y -qq libssl-dev libboost-all-dev
-    - apt-get install -y -qq libfmt-dev liblz4-dev libzstd-dev libnlohmann-json-dev
-    - apt-get install -y -qq libopus-dev libenet-dev libsimpleini-dev libstb-dev
-    - apt-get install -y -qq vulkan-validationlayers-dev libvulkan-dev
+    - pacman -Syu --noconfirm
+    - pacman -S --noconfirm alsa-lib base-devel boost boost-libs catch2 cmake curl ffmpeg fmt fuse2 gamemode gcc gdb git glslang glu libusb libxi libxkbcommon libxkbcommon-x11 libxss libzip lz4 mbedtls2 mesa nasm ninja nlohmann-json openal openssl opus perl pipewire-audio pulseaudio pulseaudio-alsa qt5-base qt5-imageformats qt5-multimedia qt5-tools qt5-wayland qt5ct sdl2 sdl2-compat unzip vulkan-headers vulkan-icd-loader vulkan-mesa-layers wget xcb-util-cursor xcb-util-image xcb-util-keysyms xcb-util-renderutil xcb-util-wm xorg-server-xvfb zip zstd zsync
+    # Create shasum compatibility wrapper for AppImage build
+    - echo '#!/bin/bash' > /usr/local/bin/shasum
+    - echo 'if [ "$1" = "-a" ] && [ "$2" = "256" ]; then' >> /usr/local/bin/shasum
+    - echo '  shift 2' >> /usr/local/bin/shasum
+    - echo '  sha256sum "$@"' >> /usr/local/bin/shasum
+    - echo 'else' >> /usr/local/bin/shasum
+    - echo '  sha256sum "$@"' >> /usr/local/bin/shasum
+    - echo 'fi' >> /usr/local/bin/shasum
+    - chmod +x /usr/local/bin/shasum
   script:
     - git submodule update --init --recursive
-    - cmake -B build -S . -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DENABLE_QT=ON -DENABLE_SDL2=ON -DENABLE_WEB_SERVICE=ON -DCITRON_USE_EXTERNAL_SDL2=ON -DCITRON_USE_BUNDLED_FFMPEG=OFF -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
-    - cmake --build build --config $BUILD_TYPE --parallel $CMAKE_BUILD_PARALLEL_LEVEL
+    - mkdir -p build && cd build
+    - cmake .. -G Ninja -DCMAKE_C_COMPILER=gcc -DCMAKE_CXX_COMPILER=g++ -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_POLICY_VERSION_MINIMUM=3.5 -DCMAKE_C_FLAGS="-O3 -ffast-math -funsafe-math-optimizations -fno-math-errno -fno-trapping-math -freciprocal-math -ffp-contract=fast -fassociative-math -fno-rounding-math -fno-signaling-nans -march=x86-64-v2 -mtune=x86-64-v2 -fomit-frame-pointer -fstrict-aliasing -frename-registers -fno-plt -funroll-loops -floop-interchange -floop-strip-mine -floop-block -fprefetch-loop-arrays -fpredictive-commoning -ftree-vectorize -fsplit-paths -finline-functions -finline-limit=1000 -finline-functions-called-once -fgcse-sm -fgcse-las -freorder-blocks-and-partition -fipa-pta -fipa-cp-clone -fwhole-program -flto=auto -fuse-linker-plugin -fvisibility=hidden -fdata-sections -ffunction-sections -fno-semantic-interposition -fopenmp -fexceptions -frtti" -DCMAKE_CXX_FLAGS="-O3 -ffast-math -funsafe-math-optimizations -fno-math-errno -fno-trapping-math -freciprocal-math -ffp-contract=fast -fassociative-math -fno-rounding-math -fno-signaling-nans -march=x86-64-v2 -mtune=x86-64-v2 -fomit-frame-pointer -fstrict-aliasing -frename-registers -fno-plt -funroll-loops -floop-interchange -floop-strip-mine -floop-block -fprefetch-loop-arrays -fpredictive-commoning -ftree-vectorize -fsplit-paths -finline-functions -finline-limit=1000 -finline-functions-called-once -fgcse-sm -fgcse-las -freorder-blocks-and-partition -fipa-pta -fipa-cp-clone -fwhole-program -flto=auto -fuse-linker-plugin -fvisibility=hidden -fdata-sections -ffunction-sections -fno-semantic-interposition -fopenmp -fexceptions -frtti -Wno-error -w" -DCMAKE_EXE_LINKER_FLAGS="-Wl,--gc-sections -Wl,-O2 -Wl,--as-needed" -DSDL_PIPEWIRE=OFF -DCITRON_USE_BUNDLED_VCPKG=OFF -DUSE_DISCORD_PRESENCE=OFF -DBUNDLE_SPEEX=ON -DCITRON_USE_BUNDLED_FFMPEG=OFF -DCITRON_USE_QT_MULTIMEDIA=OFF -DCITRON_USE_QT_WEB_ENGINE=OFF
+    - ninja
+    - cd ..
+    - echo "Build completed, checking for executables..."
+    - ls -la build/bin/ || echo "No build/bin directory found"
+    - find build/ -name "*.so" -o -name "citron*" | head -20 || echo "No shared libraries or executables found"
+    - echo "Checking library dependencies..."
+    - ldd build/bin/citron || echo "citron binary not found or ldd failed"
     - chmod +x AppImage-build-local.sh
+    - echo "Attempting AppImage build with FUSE workaround..."
+    - export APPIMAGE_EXTRACT_AND_RUN=1
+    - export ARCH=x86_64
+    - export VERSION=$(git describe --tags --always)
+    - echo "Testing shasum compatibility..."
+    - which shasum || echo "shasum not found in PATH"
+    - echo "Testing shasum -a 256 syntax..."
+    - echo "test" | shasum -a 256 || echo "shasum -a 256 failed"
+    - echo "test" | sha256sum || echo "sha256sum failed"
+    - echo "Running AppImage build..."
     - ./AppImage-build-local.sh || echo "AppImage build failed, continuing..."
+    - ls -la *.AppImage || echo "No AppImage files found"
+    - echo "AppImage size information:"
+    - du -h *.AppImage || echo "No AppImage to measure"
+    - echo "Total artifact size:"
+    - du -sh citron.AppImage build/bin/citron 2>/dev/null || echo "Cannot measure artifact sizes"
+    - echo "Compressing AppImage for upload..."
+    - xz -9 -c citron.AppImage > citron.AppImage.xz
+    - ls -la citron.AppImage.xz
+    - du -h citron.AppImage.xz
+    - echo "AppImage compressed with xz successfully"
   artifacts:
     paths:
-      - build/bin/citron
-      - citron.AppImage
+      - citron.AppImage.xz
     expire_in: 1 week
     when: always
   only:
     - main
     - master
     - develop
+    - ci-fixes
+    - Boss-Build-Flags-For-CI-CMAKE-ON-CachyOS
     - merge_requests
 
-# Cross-compilation for ARM64
-build-linux-aarch64:
+# Linux Build (CachyOS v3 optimized)
+build-linux-v3:
   stage: build
-  image: ubuntu:24.04
+  image: cachyos/cachyos-v3
   tags:
-    - linux
-    - ubuntu
+    - citron-build
   before_script:
-    - apt-get update -qq
-    - apt-get install -y -qq build-essential cmake gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
+    - pacman -Syu --noconfirm
+    - pacman -S --noconfirm alsa-lib base-devel boost boost-libs catch2 cmake curl ffmpeg fmt fuse2 gamemode gcc gdb git glslang glu libusb libxi libxkbcommon libxkbcommon-x11 libxss libzip lz4 mbedtls2 mesa nasm ninja nlohmann-json openal openssl opus perl pipewire-audio pulseaudio pulseaudio-alsa qt5-base qt5-imageformats qt5-multimedia qt5-tools qt5-wayland qt5ct sdl2 sdl2-compat unzip vulkan-headers vulkan-icd-loader vulkan-mesa-layers wget xcb-util-cursor xcb-util-image xcb-util-keysyms xcb-util-renderutil xcb-util-wm xorg-server-xvfb zip zstd zsync
+    # Create shasum compatibility wrapper for AppImage build
+    - echo '#!/bin/bash' > /usr/local/bin/shasum
+    - echo 'if [ "$1" = "-a" ] && [ "$2" = "256" ]; then' >> /usr/local/bin/shasum
+    - echo '  shift 2' >> /usr/local/bin/shasum
+    - echo '  sha256sum "$@"' >> /usr/local/bin/shasum
+    - echo 'else' >> /usr/local/bin/shasum
+    - echo '  sha256sum "$@"' >> /usr/local/bin/shasum
+    - echo 'fi' >> /usr/local/bin/shasum
+    - chmod +x /usr/local/bin/shasum
   script:
     - git submodule update --init --recursive
-    - cmake -B build-cross -S . -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DCMAKE_SYSTEM_NAME=Linux -DCMAKE_SYSTEM_PROCESSOR=aarch64 -DCMAKE_C_COMPILER=aarch64-linux-gnu-gcc -DCMAKE_CXX_COMPILER=aarch64-linux-gnu-g++ -DENABLE_QT=OFF -DENABLE_SDL2=OFF -DENABLE_WEB_SERVICE=OFF
-    - cmake --build build-cross --config $BUILD_TYPE --parallel $CMAKE_BUILD_PARALLEL_LEVEL
+    - mkdir -p build && cd build
+    - cmake .. -G Ninja -DCMAKE_C_COMPILER=gcc -DCMAKE_CXX_COMPILER=g++ -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_POLICY_VERSION_MINIMUM=3.5 -DCMAKE_C_FLAGS="-O3 -ffast-math -funsafe-math-optimizations -fno-math-errno -fno-trapping-math -freciprocal-math -ffp-contract=fast -fassociative-math -fno-rounding-math -fno-signaling-nans -march=v3 -mtune=v3 -fomit-frame-pointer -fstrict-aliasing -frename-registers -fno-plt -funroll-loops -floop-interchange -floop-strip-mine -floop-block -fprefetch-loop-arrays -fpredictive-commoning -ftree-vectorize -fsplit-paths -finline-functions -finline-limit=1000 -finline-functions-called-once -fgcse-sm -fgcse-las -freorder-blocks-and-partition -fipa-pta -fipa-cp-clone -fwhole-program -flto=auto -fuse-linker-plugin -fvisibility=hidden -fdata-sections -ffunction-sections -fno-semantic-interposition -fopenmp -fexceptions -frtti" -DCMAKE_CXX_FLAGS="-O3 -ffast-math -funsafe-math-optimizations -fno-math-errno -fno-trapping-math -freciprocal-math -ffp-contract=fast -fassociative-math -fno-rounding-math -fno-signaling-nans -march=v3 -mtune=v3 -fomit-frame-pointer -fstrict-aliasing -frename-registers -fno-plt -funroll-loops -floop-interchange -floop-strip-mine -floop-block -fprefetch-loop-arrays -fpredictive-commoning -ftree-vectorize -fsplit-paths -finline-functions -finline-limit=1000 -finline-functions-called-once -fgcse-sm -fgcse-las -freorder-blocks-and-partition -fipa-pta -fipa-cp-clone -fwhole-program -flto=auto -fuse-linker-plugin -fvisibility=hidden -fdata-sections -ffunction-sections -fno-semantic-interposition -fopenmp -fexceptions -frtti -Wno-error -w" -DCMAKE_EXE_LINKER_FLAGS="-Wl,--gc-sections -Wl,-O2 -Wl,--as-needed" -DSDL_PIPEWIRE=OFF -DCITRON_USE_BUNDLED_VCPKG=OFF -DUSE_DISCORD_PRESENCE=OFF -DBUNDLE_SPEEX=ON -DCITRON_USE_BUNDLED_FFMPEG=OFF -DCITRON_USE_QT_MULTIMEDIA=OFF -DCITRON_USE_QT_WEB_ENGINE=OFF
+    - ninja
+    - cd ..
+    - echo "Build completed, checking for executables..."
+    - ls -la build/bin/ || echo "No build/bin directory found"
+    - find build/ -name "*.so" -o -name "citron*" | head -20 || echo "No shared libraries or executables found"
+    - echo "Checking library dependencies..."
+    - ldd build/bin/citron || echo "citron binary not found or ldd failed"
+    - chmod +x AppImage-build-local.sh
+    - echo "Attempting AppImage build with FUSE workaround..."
+    - export APPIMAGE_EXTRACT_AND_RUN=1
+    - export ARCH=x86_64
+    - export VERSION=$(git describe --tags --always)
+    - echo "Testing shasum compatibility..."
+    - which shasum || echo "shasum not found in PATH"
+    - echo "Testing shasum -a 256 syntax..."
+    - echo "test" | shasum -a 256 || echo "shasum -a 256 failed"
+    - echo "test" | sha256sum || echo "sha256sum failed"
+    - echo "Running AppImage build..."
+    - ./AppImage-build-local.sh || echo "AppImage build failed, continuing..."
+    - ls -la *.AppImage || echo "No AppImage files found"
+    - echo "AppImage size information:"
+    - du -h *.AppImage || echo "No AppImage to measure"
+    - echo "Total artifact size:"
+    - du -sh citron.AppImage build/bin/citron 2>/dev/null || echo "Cannot measure artifact sizes"
+    - echo "Compressing AppImage for upload..."
+    - xz -9 -c citron.AppImage > citron.AppImage.xz
+    - ls -la citron.AppImage.xz
+    - du -h citron.AppImage.xz
+    - echo "AppImage compressed with xz successfully"
   artifacts:
     paths:
-      - build-cross/bin/citron
+      - citron.AppImage.xz
     expire_in: 1 week
+    when: always
   only:
     - main
     - master
     - develop
+    - ci-fixes
+    - Boss-Build-Flags-For-CI-CMAKE-ON-CachyOS
+    - merge_requests
+
+# Linux Build (Steam Deck optimized - AMD Zen 2)
+build-linux-steamdeck:
+  stage: build
+  image: cachyos/cachyos:latest
+  tags:
+    - citron-build
+  before_script:
+    - pacman -Syu --noconfirm
+    - pacman -S --noconfirm alsa-lib base-devel boost boost-libs catch2 cmake curl ffmpeg fmt fuse2 gamemode gcc gdb git glslang glu libusb libxi libxkbcommon libxkbcommon-x11 libxss libzip lz4 mbedtls2 mesa nasm ninja nlohmann-json openal openssl opus perl pipewire-audio pulseaudio pulseaudio-alsa qt5-base qt5-imageformats qt5-multimedia qt5-tools qt5-wayland qt5ct sdl2 sdl2-compat unzip vulkan-headers vulkan-icd-loader vulkan-mesa-layers wget xcb-util-cursor xcb-util-image xcb-util-keysyms xcb-util-renderutil xcb-util-wm xorg-server-xvfb zip zstd zsync
+    # Create shasum compatibility wrapper for AppImage build
+    - echo '#!/bin/bash' > /usr/local/bin/shasum
+    - echo 'if [ "$1" = "-a" ] && [ "$2" = "256" ]; then' >> /usr/local/bin/shasum
+    - echo '  shift 2' >> /usr/local/bin/shasum
+    - echo '  sha256sum "$@"' >> /usr/local/bin/shasum
+    - echo 'else' >> /usr/local/bin/shasum
+    - echo '  sha256sum "$@"' >> /usr/local/bin/shasum
+    - echo 'fi' >> /usr/local/bin/shasum
+    - chmod +x /usr/local/bin/shasum
+  script:
+    - git submodule update --init --recursive
+    - mkdir -p build && cd build
+    - cmake .. -G Ninja -DCMAKE_C_COMPILER=gcc -DCMAKE_CXX_COMPILER=g++ -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_POLICY_VERSION_MINIMUM=3.5 -DCMAKE_C_FLAGS="-O3 -ffast-math -funsafe-math-optimizations -fno-math-errno -fno-trapping-math -freciprocal-math -ffp-contract=fast -fassociative-math -fno-rounding-math -fno-signaling-nans -march=znver2 -mtune=znver2 -fomit-frame-pointer -fstrict-aliasing -frename-registers -fno-plt -funroll-loops -floop-interchange -floop-strip-mine -floop-block -fprefetch-loop-arrays -fpredictive-commoning -ftree-vectorize -fsplit-paths -finline-functions -finline-limit=1000 -finline-functions-called-once -fgcse-sm -fgcse-las -freorder-blocks-and-partition -fipa-pta -fipa-cp-clone -fwhole-program -flto=auto -fuse-linker-plugin -fvisibility=hidden -fdata-sections -ffunction-sections -fno-semantic-interposition -fopenmp -fexceptions -frtti" -DCMAKE_CXX_FLAGS="-O3 -ffast-math -funsafe-math-optimizations -fno-math-errno -fno-trapping-math -freciprocal-math -ffp-contract=fast -fassociative-math -fno-rounding-math -fno-signaling-nans -march=znver2 -mtune=znver2 -fomit-frame-pointer -fstrict-aliasing -frename-registers -fno-plt -funroll-loops -floop-interchange -floop-strip-mine -floop-block -fprefetch-loop-arrays -fpredictive-commoning -ftree-vectorize -fsplit-paths -finline-functions -finline-limit=1000 -finline-functions-called-once -fgcse-sm -fgcse-las -freorder-blocks-and-partition -fipa-pta -fipa-cp-clone -fwhole-program -flto=auto -fuse-linker-plugin -fvisibility=hidden -fdata-sections -ffunction-sections -fno-semantic-interposition -fopenmp -fexceptions -frtti -Wno-error -w" -DCMAKE_EXE_LINKER_FLAGS="-Wl,--gc-sections -Wl,-O2 -Wl,--as-needed" -DSDL_PIPEWIRE=OFF -DCITRON_USE_BUNDLED_VCPKG=OFF -DUSE_DISCORD_PRESENCE=OFF -DBUNDLE_SPEEX=ON -DCITRON_USE_BUNDLED_FFMPEG=OFF -DCITRON_USE_QT_MULTIMEDIA=OFF -DCITRON_USE_QT_WEB_ENGINE=OFF
+    - ninja
+    - cd ..
+    - echo "Build completed, checking for executables..."
+    - ls -la build/bin/ || echo "No build/bin directory found"
+    - find build/ -name "*.so" -o -name "citron*" | head -20 || echo "No shared libraries or executables found"
+    - echo "Checking library dependencies..."
+    - ldd build/bin/citron || echo "citron binary not found or ldd failed"
+    - chmod +x AppImage-build-local.sh
+    - echo "Attempting AppImage build with FUSE workaround..."
+    - export APPIMAGE_EXTRACT_AND_RUN=1
+    - export ARCH=x86_64
+    - export VERSION=$(git describe --tags --always)
+    - echo "Testing shasum compatibility..."
+    - which shasum || echo "shasum not found in PATH"
+    - echo "Testing shasum -a 256 syntax..."
+    - echo "test" | shasum -a 256 || echo "shasum -a 256 failed"
+    - echo "test" | sha256sum || echo "sha256sum failed"
+    - echo "Running AppImage build..."
+    - ./AppImage-build-local.sh || echo "AppImage build failed, continuing..."
+    - ls -la *.AppImage || echo "No AppImage files found"
+    - echo "AppImage size information:"
+    - du -h *.AppImage || echo "No AppImage to measure"
+    - echo "Total artifact size:"
+    - du -sh citron.AppImage build/bin/citron 2>/dev/null || echo "Cannot measure artifact sizes"
+    - echo "Compressing AppImage for upload..."
+    - xz -9 -c citron.AppImage > citron.AppImage.xz
+    - ls -la citron.AppImage.xz
+    - du -h citron.AppImage.xz
+    - echo "AppImage compressed with xz successfully"
+  artifacts:
+    paths:
+      - citron.AppImage.xz
+    expire_in: 1 week
+    when: always
+  only:
+    - main
+    - master
+    - develop
+    - ci-fixes
+    - Boss-Build-Flags-For-CI-CMAKE-ON-CachyOS
+    - merge_requests
 
 # Android Build (Ubuntu 24.04 optimized)
 build-android:
   stage: build
   image: ubuntu:24.04
   tags:
-    - android
+    - citron-build
   before_script:
     - apt-get update -qq
-    - apt-get install -y -qq openjdk-17-jdk wget unzip
+    - apt-get install -y -qq openjdk-17-jdk wget unzip curl git cmake build-essential pkg-config zip glslang-tools
     # Install Android SDK (latest version for Ubuntu 24.04)
     - wget -q https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
     - unzip -q commandlinetools-linux-11076708_latest.zip
@@ -124,7 +227,7 @@ build-android:
     - mv cmdline-tools android-sdk/cmdline-tools/latest
     - export ANDROID_SDK_ROOT=$PWD/android-sdk
     - export PATH=$PATH:$ANDROID_SDK_ROOT/cmdline-tools/latest/bin
-    - yes | sdkmanager --licenses
+    - printf "y\ny\ny\ny\ny\ny\ny\n" | sdkmanager --licenses || true
     - sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0"
     # Install Android NDK
     - wget -q https://dl.google.com/android/repository/android-ndk-r26b-linux.zip
@@ -139,12 +242,12 @@ build-android:
   artifacts:
     paths:
       - src/android/app/build/outputs/apk/mainline/release/*.apk
-      - build-android/bin/*.so
     expire_in: 1 week
   only:
     - main
     - master
     - develop
+    - ci-fixes
     - merge_requests
   allow_failure: true  # Allow failure if Android runner not available
 
@@ -153,11 +256,10 @@ test-unit:
   stage: test
   image: ubuntu:24.04
   tags:
-    - linux
-    - ubuntu
+    - citron-build
   before_script:
     - apt-get update -qq
-    - apt-get install -y -qq build-essential cmake ninja-build
+    - apt-get install -y -qq build-essential cmake ninja-build git
   script:
     - git submodule update --init --recursive
     - cmake -B build-test -S . -DCMAKE_BUILD_TYPE=Debug -DCITRON_TESTS=ON -DENABLE_QT=OFF -DENABLE_SDL2=OFF -DENABLE_WEB_SERVICE=OFF
@@ -172,6 +274,7 @@ test-unit:
     - main
     - master
     - develop
+    - ci-fixes
     - merge_requests
 
 # Package Release
@@ -179,11 +282,9 @@ package-release:
   stage: package
   image: ubuntu:24.04
   tags:
-    - linux
-    - ubuntu
+    - citron-build
   dependencies:
     - build-linux
-    - build-linux-aarch64
   script:
     - mkdir -p release
     - echo "Creating release package..."
@@ -195,4 +296,6 @@ package-release:
   only:
     - main
     - master
+    - develop
+    - ci-fixes
     - tags
