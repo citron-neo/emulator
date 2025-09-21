@@ -374,7 +374,11 @@ void UpdaterDialog::ShowUpdateChecking() {}
 void UpdaterDialog::OnUpdateCheckCompleted(bool, const Updater::UpdateInfo&) {}
 void UpdaterDialog::OnUpdateDownloadProgress(int, qint64, qint64) {}
 void UpdaterDialog::OnUpdateInstallProgress(int, const QString&) {}
+#ifdef _WIN32
 void UpdaterDialog::OnUpdateCompleted(Updater::UpdaterService::UpdateResult, const QString&) {}
+#else
+void UpdaterDialog::OnUpdateCompleted(int, const QString&) {}
+#endif
 void UpdaterDialog::OnUpdateError(const QString&) {}
 void UpdaterDialog::OnDownloadButtonClicked() {}
 void UpdaterDialog::OnCancelButtonClicked() {}
@@ -391,7 +395,11 @@ void UpdaterDialog::ShowErrorState() {}
 void UpdaterDialog::UpdateDownloadProgress(int, qint64, qint64) {}
 void UpdaterDialog::UpdateInstallProgress(int, const QString&) {}
 QString UpdaterDialog::FormatBytes(qint64) const { return QString(); }
+#ifdef _WIN32
 QString UpdaterDialog::GetUpdateMessage(Updater::UpdaterService::UpdateResult) const { return QString(); }
+#else
+QString UpdaterDialog::GetUpdateMessage(int) const { return QString(); }
+#endif
 
 #include "updater_dialog.moc"
 
