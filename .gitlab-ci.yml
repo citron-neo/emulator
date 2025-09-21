@@ -82,7 +82,6 @@ build-linux:
       - citron-binary.tar.gz
     expire_in: 1 week
     when: always
-    max_size: 200MB
   only:
     - main
     - master
@@ -154,7 +153,6 @@ build-linux-v3:
       - citron-binary.tar.gz
     expire_in: 1 week
     when: always
-    max_size: 200MB
   only:
     - main
     - master
@@ -226,7 +224,6 @@ build-linux-steamdeck:
       - citron-binary.tar.gz
     expire_in: 1 week
     when: always
-    max_size: 200MB
   only:
     - main
     - master
