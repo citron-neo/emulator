@@ -18,7 +18,19 @@
 // Forward declarations for non-Windows platforms
 namespace Updater {
 struct UpdateInfo;
-class UpdaterService;
+class UpdaterService {
+public:
+    enum class UpdateResult {
+        Success,
+        Failed,
+        Cancelled,
+        NetworkError,
+        ExtractionError,
+        PermissionError,
+        InvalidArchive,
+        NoUpdateAvailable
+    };
+};
 }
 #endif
 
