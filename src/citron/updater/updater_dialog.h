@@ -6,13 +6,13 @@
 #include <memory>
 #include <QDialog>
 
-#ifdef _WIN32
 #include <QProgressBar>
 #include <QLabel>
 #include <QPushButton>
 #include <QTextBrowser>
 #include <QTimer>
 
+#ifdef _WIN32
 #include "citron/updater/updater_service.h"
 #else
 // Forward declarations for non-Windows platforms
@@ -46,7 +46,11 @@ private slots:
     void OnUpdateCheckCompleted(bool has_update, const Updater::UpdateInfo& update_info);
     void OnUpdateDownloadProgress(int percentage, qint64 bytes_received, qint64 bytes_total);
     void OnUpdateInstallProgress(int percentage, const QString& current_file);
+#ifdef _WIN32
     void OnUpdateCompleted(Updater::UpdaterService::UpdateResult result, const QString& message);
+#else
+    void OnUpdateCompleted(int result, const QString& message);
+#endif
     void OnUpdateError(const QString& error_message);
 
     void OnDownloadButtonClicked();
@@ -68,7 +72,11 @@ private:
     void UpdateInstallProgress(int percentage, const QString& current_file);
 
     QString FormatBytes(qint64 bytes) const;
+#ifdef _WIN32
     QString GetUpdateMessage(Updater::UpdaterService::UpdateResult result) const;
+#else
+    QString GetUpdateMessage(int result) const;
+#endif
 
 private:
 #ifdef _WIN32

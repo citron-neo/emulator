@@ -38,7 +38,9 @@ build-linux:
     - echo 'fi' >> /usr/local/bin/shasum
     - chmod +x /usr/local/bin/shasum
   script:
-    - git submodule update --init --recursive
+    # Clean and reset submodules to handle any inconsistencies
+    - git submodule deinit --all --force || true
+    - git submodule update --init --recursive --force
     - mkdir -p build && cd build
     - cmake .. -G Ninja -DCMAKE_C_COMPILER=gcc -DCMAKE_CXX_COMPILER=g++ -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_POLICY_VERSION_MINIMUM=3.5 -DCMAKE_C_FLAGS="-O3 -ffast-math -funsafe-math-optimizations -fno-math-errno -fno-trapping-math -freciprocal-math -ffp-contract=fast -fassociative-math -fno-rounding-math -fno-signaling-nans -march=x86-64-v2 -mtune=native -fomit-frame-pointer -fstrict-aliasing -frename-registers -fno-plt -funroll-loops -floop-interchange -floop-strip-mine -floop-block -fprefetch-loop-arrays -fpredictive-commoning -ftree-vectorize -fsplit-paths -finline-functions -finline-limit=1000 -finline-functions-called-once -fgcse-sm -fgcse-las -freorder-blocks-and-partition -fipa-pta -fipa-cp-clone -fwhole-program -flto=auto -fuse-linker-plugin -fvisibility=hidden -fdata-sections -ffunction-sections -fno-semantic-interposition -fopenmp -fexceptions -frtti" -DCMAKE_CXX_FLAGS="-O3 -ffast-math -funsafe-math-optimizations -fno-math-errno -fno-trapping-math -freciprocal-math -ffp-contract=fast -fassociative-math -fno-rounding-math -fno-signaling-nans -march=x86-64-v2 -mtune=native -fomit-frame-pointer -fstrict-aliasing -frename-registers -fno-plt -funroll-loops -floop-interchange -floop-strip-mine -floop-block -fprefetch-loop-arrays -fpredictive-commoning -ftree-vectorize -fsplit-paths -finline-functions -finline-limit=1000 -finline-functions-called-once -fgcse-sm -fgcse-las -freorder-blocks-and-partition -fipa-pta -fipa-cp-clone -fwhole-program -flto=auto -fuse-linker-plugin -fvisibility=hidden -fdata-sections -ffunction-sections -fno-semantic-interposition -fopenmp -fexceptions -frtti -Wno-error -w" -DCMAKE_EXE_LINKER_FLAGS="-Wl,--gc-sections -Wl,-O2 -Wl,--as-needed" -DSDL_PIPEWIRE=OFF -DCITRON_USE_BUNDLED_VCPKG=OFF -DUSE_DISCORD_PRESENCE=OFF -DBUNDLE_SPEEX=ON -DCITRON_USE_BUNDLED_FFMPEG=OFF -DCITRON_USE_QT_MULTIMEDIA=OFF -DCITRON_USE_QT_WEB_ENGINE=OFF
     - ninja
@@ -66,13 +68,18 @@ build-linux:
     - echo "Total artifact size:"
     - du -sh citron.AppImage build/bin/citron 2>/dev/null || echo "Cannot measure artifact sizes"
     - echo "Compressing AppImage for upload..."
-    - xz -9 -c citron.AppImage > citron.AppImage.xz
-    - ls -la citron.AppImage.xz
-    - du -h citron.AppImage.xz
-    - echo "AppImage compressed with xz successfully"
+    - gzip -9 -c citron.AppImage > citron.AppImage.gz
+    - ls -la citron.AppImage.gz
+    - du -h citron.AppImage.gz
+    - echo "AppImage compressed with gzip successfully"
+    # Also create a smaller binary-only archive for fallback
+    - tar -czf citron-binary.tar.gz build/bin/
+    - ls -la citron-binary.tar.gz
+    - du -h citron-binary.tar.gz
   artifacts:
     paths:
-      - citron.AppImage.xz
+      - citron.AppImage.gz
+      - citron-binary.tar.gz
     expire_in: 1 week
     when: always
   only:
@@ -102,9 +109,11 @@ build-linux-v3:
     - echo 'fi' >> /usr/local/bin/shasum
     - chmod +x /usr/local/bin/shasum
   script:
-    - git submodule update --init --recursive
+    # Clean and reset submodules to handle any inconsistencies
+    - git submodule deinit --all --force || true
+    - git submodule update --init --recursive --force
     - mkdir -p build && cd build
-    - cmake .. -G Ninja -DCMAKE_C_COMPILER=gcc -DCMAKE_CXX_COMPILER=g++ -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_POLICY_VERSION_MINIMUM=3.5 -DCMAKE_C_FLAGS="-O3 -ffast-math -funsafe-math-optimizations -fno-math-errno -fno-trapping-math -freciprocal-math -ffp-contract=fast -fassociative-math -fno-rounding-math -fno-signaling-nans -march=v3 -mtune=native -fomit-frame-pointer -fstrict-aliasing -frename-registers -fno-plt -funroll-loops -floop-interchange -floop-strip-mine -floop-block -fprefetch-loop-arrays -fpredictive-commoning -ftree-vectorize -fsplit-paths -finline-functions -finline-limit=1000 -finline-functions-called-once -fgcse-sm -fgcse-las -freorder-blocks-and-partition -fipa-pta -fipa-cp-clone -fwhole-program -flto=auto -fuse-linker-plugin -fvisibility=hidden -fdata-sections -ffunction-sections -fno-semantic-interposition -fopenmp -fexceptions -frtti" -DCMAKE_CXX_FLAGS="-O3 -ffast-math -funsafe-math-optimizations -fno-math-errno -fno-trapping-math -freciprocal-math -ffp-contract=fast -fassociative-math -fno-rounding-math -fno-signaling-nans -march=v3 -mtune=native -fomit-frame-pointer -fstrict-aliasing -frename-registers -fno-plt -funroll-loops -floop-interchange -floop-strip-mine -floop-block -fprefetch-loop-arrays -fpredictive-commoning -ftree-vectorize -fsplit-paths -finline-functions -finline-limit=1000 -finline-functions-called-once -fgcse-sm -fgcse-las -freorder-blocks-and-partition -fipa-pta -fipa-cp-clone -fwhole-program -flto=auto -fuse-linker-plugin -fvisibility=hidden -fdata-sections -ffunction-sections -fno-semantic-interposition -fopenmp -fexceptions -frtti -Wno-error -w" -DCMAKE_EXE_LINKER_FLAGS="-Wl,--gc-sections -Wl,-O2 -Wl,--as-needed" -DSDL_PIPEWIRE=OFF -DCITRON_USE_BUNDLED_VCPKG=OFF -DUSE_DISCORD_PRESENCE=OFF -DBUNDLE_SPEEX=ON -DCITRON_USE_BUNDLED_FFMPEG=OFF -DCITRON_USE_QT_MULTIMEDIA=OFF -DCITRON_USE_QT_WEB_ENGINE=OFF
+    - cmake .. -G Ninja -DCMAKE_C_COMPILER=gcc -DCMAKE_CXX_COMPILER=g++ -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_POLICY_VERSION_MINIMUM=3.5 -DCMAKE_C_FLAGS="-O3 -ffast-math -funsafe-math-optimizations -fno-math-errno -fno-trapping-math -freciprocal-math -ffp-contract=fast -fassociative-math -fno-rounding-math -fno-signaling-nans -march=x86-64-v3 -mtune=native -fomit-frame-pointer -fstrict-aliasing -frename-registers -fno-plt -funroll-loops -floop-interchange -floop-strip-mine -floop-block -fprefetch-loop-arrays -fpredictive-commoning -ftree-vectorize -fsplit-paths -finline-functions -finline-limit=1000 -finline-functions-called-once -fgcse-sm -fgcse-las -freorder-blocks-and-partition -fipa-pta -fipa-cp-clone -fwhole-program -flto=auto -fuse-linker-plugin -fvisibility=hidden -fdata-sections -ffunction-sections -fno-semantic-interposition -fopenmp -fexceptions -frtti" -DCMAKE_CXX_FLAGS="-O3 -ffast-math -funsafe-math-optimizations -fno-math-errno -fno-trapping-math -freciprocal-math -ffp-contract=fast -fassociative-math -fno-rounding-math -fno-signaling-nans -march=x86-64-v3 -mtune=native -fomit-frame-pointer -fstrict-aliasing -frename-registers -fno-plt -funroll-loops -floop-interchange -floop-strip-mine -floop-block -fprefetch-loop-arrays -fpredictive-commoning -ftree-vectorize -fsplit-paths -finline-functions -finline-limit=1000 -finline-functions-called-once -fgcse-sm -fgcse-las -freorder-blocks-and-partition -fipa-pta -fipa-cp-clone -fwhole-program -flto=auto -fuse-linker-plugin -fvisibility=hidden -fdata-sections -ffunction-sections -fno-semantic-interposition -fopenmp -fexceptions -frtti -Wno-error -w" -DCMAKE_EXE_LINKER_FLAGS="-Wl,--gc-sections -Wl,-O2 -Wl,--as-needed" -DSDL_PIPEWIRE=OFF -DCITRON_USE_BUNDLED_VCPKG=OFF -DUSE_DISCORD_PRESENCE=OFF -DBUNDLE_SPEEX=ON -DCITRON_USE_BUNDLED_FFMPEG=OFF -DCITRON_USE_QT_MULTIMEDIA=OFF -DCITRON_USE_QT_WEB_ENGINE=OFF
     - ninja
     - cd ..
     - echo "Build completed, checking for executables..."
@@ -130,13 +139,18 @@ build-linux-v3:
     - echo "Total artifact size:"
     - du -sh citron.AppImage build/bin/citron 2>/dev/null || echo "Cannot measure artifact sizes"
     - echo "Compressing AppImage for upload..."
-    - xz -9 -c citron.AppImage > citron.AppImage.xz
-    - ls -la citron.AppImage.xz
-    - du -h citron.AppImage.xz
-    - echo "AppImage compressed with xz successfully"
+    - gzip -9 -c citron.AppImage > citron.AppImage.gz
+    - ls -la citron.AppImage.gz
+    - du -h citron.AppImage.gz
+    - echo "AppImage compressed with gzip successfully"
+    # Also create a smaller binary-only archive for fallback
+    - tar -czf citron-binary.tar.gz build/bin/
+    - ls -la citron-binary.tar.gz
+    - du -h citron-binary.tar.gz
   artifacts:
     paths:
-      - citron.AppImage.xz
+      - citron.AppImage.gz
+      - citron-binary.tar.gz
     expire_in: 1 week
     when: always
   only:
@@ -166,7 +180,9 @@ build-linux-steamdeck:
     - echo 'fi' >> /usr/local/bin/shasum
     - chmod +x /usr/local/bin/shasum
   script:
-    - git submodule update --init --recursive
+    # Clean and reset submodules to handle any inconsistencies
+    - git submodule deinit --all --force || true
+    - git submodule update --init --recursive --force
     - mkdir -p build && cd build
     - cmake .. -G Ninja -DCMAKE_C_COMPILER=gcc -DCMAKE_CXX_COMPILER=g++ -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_POLICY_VERSION_MINIMUM=3.5 -DCMAKE_C_FLAGS="-O3 -ffast-math -funsafe-math-optimizations -fno-math-errno -fno-trapping-math -freciprocal-math -ffp-contract=fast -fassociative-math -fno-rounding-math -fno-signaling-nans -march=znver2 -mtune=znver2 -fomit-frame-pointer -fstrict-aliasing -frename-registers -fno-plt -funroll-loops -floop-interchange -floop-strip-mine -floop-block -fprefetch-loop-arrays -fpredictive-commoning -ftree-vectorize -fsplit-paths -finline-functions -finline-limit=1000 -finline-functions-called-once -fgcse-sm -fgcse-las -freorder-blocks-and-partition -fipa-pta -fipa-cp-clone -fwhole-program -flto=auto -fuse-linker-plugin -fvisibility=hidden -fdata-sections -ffunction-sections -fno-semantic-interposition -fopenmp -fexceptions -frtti" -DCMAKE_CXX_FLAGS="-O3 -ffast-math -funsafe-math-optimizations -fno-math-errno -fno-trapping-math -freciprocal-math -ffp-contract=fast -fassociative-math -fno-rounding-math -fno-signaling-nans -march=znver2 -mtune=znver2 -fomit-frame-pointer -fstrict-aliasing -frename-registers -fno-plt -funroll-loops -floop-interchange -floop-strip-mine -floop-block -fprefetch-loop-arrays -fpredictive-commoning -ftree-vectorize -fsplit-paths -finline-functions -finline-limit=1000 -finline-functions-called-once -fgcse-sm -fgcse-las -freorder-blocks-and-partition -fipa-pta -fipa-cp-clone -fwhole-program -flto=auto -fuse-linker-plugin -fvisibility=hidden -fdata-sections -ffunction-sections -fno-semantic-interposition -fopenmp -fexceptions -frtti -Wno-error -w" -DCMAKE_EXE_LINKER_FLAGS="-Wl,--gc-sections -Wl,-O2 -Wl,--as-needed" -DSDL_PIPEWIRE=OFF -DCITRON_USE_BUNDLED_VCPKG=OFF -DUSE_DISCORD_PRESENCE=OFF -DBUNDLE_SPEEX=ON -DCITRON_USE_BUNDLED_FFMPEG=OFF -DCITRON_USE_QT_MULTIMEDIA=OFF -DCITRON_USE_QT_WEB_ENGINE=OFF
     - ninja
@@ -194,13 +210,18 @@ build-linux-steamdeck:
     - echo "Total artifact size:"
     - du -sh citron.AppImage build/bin/citron 2>/dev/null || echo "Cannot measure artifact sizes"
     - echo "Compressing AppImage for upload..."
-    - xz -9 -c citron.AppImage > citron.AppImage.xz
-    - ls -la citron.AppImage.xz
-    - du -h citron.AppImage.xz
-    - echo "AppImage compressed with xz successfully"
+    - gzip -9 -c citron.AppImage > citron.AppImage.gz
+    - ls -la citron.AppImage.gz
+    - du -h citron.AppImage.gz
+    - echo "AppImage compressed with gzip successfully"
+    # Also create a smaller binary-only archive for fallback
+    - tar -czf citron-binary.tar.gz build/bin/
+    - ls -la citron-binary.tar.gz
+    - du -h citron-binary.tar.gz
   artifacts:
     paths:
-      - citron.AppImage.xz
+      - citron.AppImage.gz
+      - citron-binary.tar.gz
     expire_in: 1 week
     when: always
   only:
@@ -234,7 +255,9 @@ build-android:
     - unzip -q android-ndk-r26b-linux.zip
     - export ANDROID_NDK_HOME=$PWD/android-ndk-r26b
   script:
-    - git submodule update --init --recursive
+    # Clean and reset submodules to handle any inconsistencies
+    - git submodule deinit --all --force || true
+    - git submodule update --init --recursive --force
     - cmake -B build-android -S . -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DCMAKE_TOOLCHAIN_FILE=$ANDROID_NDK_HOME/build/cmake/android.toolchain.cmake -DANDROID_ABI=arm64-v8a -DANDROID_PLATFORM=android-30 -DENABLE_QT=OFF -DENABLE_SDL2=OFF -DENABLE_WEB_SERVICE=OFF -DCITRON_USE_BUNDLED_VCPKG=ON -DCITRON_USE_BUNDLED_FFMPEG=ON -DANDROID_ARM_NEON=ON -DCITRON_ENABLE_LTO=ON
     - cmake --build build-android --config $BUILD_TYPE --parallel $CMAKE_BUILD_PARALLEL_LEVEL
     - cd src/android
@@ -261,7 +284,9 @@ test-unit:
     - apt-get update -qq
     - apt-get install -y -qq build-essential cmake ninja-build git
   script:
-    - git submodule update --init --recursive
+    # Clean and reset submodules to handle any inconsistencies
+    - git submodule deinit --all --force || true
+    - git submodule update --init --recursive --force
     - cmake -B build-test -S . -DCMAKE_BUILD_TYPE=Debug -DCITRON_TESTS=ON -DENABLE_QT=OFF -DENABLE_SDL2=OFF -DENABLE_WEB_SERVICE=OFF
     - cmake --build build-test --config Debug --parallel $CMAKE_BUILD_PARALLEL_LEVEL
     - cd build-test
