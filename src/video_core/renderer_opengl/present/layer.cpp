@@ -12,6 +12,7 @@
 #include "video_core/renderer_opengl/present/layer.h"
 #include "video_core/renderer_opengl/present/present_uniforms.h"
 #include "video_core/renderer_opengl/present/smaa.h"
+#include "video_core/renderer_opengl/present/taa.h"
 #include "video_core/surface.h"
 #include "video_core/textures/decoders.h"
 
@@ -59,9 +60,15 @@ GLuint Layer::ConfigureDraw(std::array<GLfloat, 3 * 2>& out_matrix,
             texture = fxaa->Draw(program_manager, info.display_texture);
             break;
         case Settings::AntiAliasing::Smaa:
-        default:
             CreateSMAA();
             texture = smaa->Draw(program_manager, info.display_texture);
+            break;
+        case Settings::AntiAliasing::Taa:
+            CreateTAA();
+            texture = taa->Draw(program_manager, info.display_texture,
+                               GL_NONE, GL_NONE, GL_NONE, 0); // TODO: Add proper motion vectors
+            break;
+        default:
             break;
         }
     }
@@ -215,6 +222,7 @@ void Layer::ConfigureFramebufferTexture(const Tegra::FramebufferConfig& framebuf
 
 void Layer::CreateFXAA() {
     smaa.reset();
+    taa.reset();
     if (!fxaa) {
         fxaa = std::make_unique<FXAA>(
             Settings::values.resolution_info.ScaleUp(framebuffer_texture.width),
@@ -224,10 +232,21 @@ void Layer::CreateFXAA() {
 
 void Layer::CreateSMAA() {
     fxaa.reset();
+    taa.reset();
     if (!smaa) {
         smaa = std::make_unique<SMAA>(
             Settings::values.resolution_info.ScaleUp(framebuffer_texture.width),
             Settings::values.resolution_info.ScaleUp(framebuffer_texture.height));
+    }
+}
+
+void Layer::CreateTAA() {
+    fxaa.reset();
+    smaa.reset();
+    auto scaled_width = Settings::values.resolution_info.ScaleUp(framebuffer_texture.width);
+    auto scaled_height = Settings::values.resolution_info.ScaleUp(framebuffer_texture.height);
+    if (!taa || taa->NeedsRecreation(scaled_width, scaled_height)) {
+        taa = std::make_unique<TAA>(scaled_width, scaled_height);
     }
 }
 

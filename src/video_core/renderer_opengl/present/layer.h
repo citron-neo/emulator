@@ -33,6 +33,7 @@ class FXAA;
 class ProgramManager;
 class RasterizerOpenGL;
 class SMAA;
+class TAA;
 
 /// Structure used for storing information about the textures for the Switch screen
 struct TextureInfo {
@@ -66,6 +67,7 @@ private:
 
     void CreateFXAA();
     void CreateSMAA();
+    void CreateTAA();
 
 private:
     RasterizerOpenGL& rasterizer;
@@ -82,6 +84,7 @@ private:
     std::unique_ptr<FSR2> fsr2;
     std::unique_ptr<FXAA> fxaa;
     std::unique_ptr<SMAA> smaa;
+    std::unique_ptr<TAA> taa;
 };
 
 } // namespace OpenGL

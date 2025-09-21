@@ -52,6 +52,8 @@ set(SHADER_FILES
     smaa_blending_weight_calculation.frag
     smaa_neighborhood_blending.vert
     smaa_neighborhood_blending.frag
+    taa.frag
+    taa.vert
     vulkan_blit_depth_stencil.frag
     vulkan_color_clear.frag
     vulkan_color_clear.vert
@@ -67,6 +69,8 @@ set(SHADER_FILES
     vulkan_present_scaleforce_fp16.frag
     vulkan_present_scaleforce_fp32.frag
     vulkan_quad_indexed.comp
+    vulkan_taa.frag
+    vulkan_taa.vert
     vulkan_turbo_mode.comp
     vulkan_uint8.comp
 )

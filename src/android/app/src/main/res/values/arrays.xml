@@ -215,12 +215,14 @@
         <item>@string/anti_aliasing_none</item>
         <item>@string/anti_aliasing_fxaa</item>
         <item>@string/anti_aliasing_smaa</item>
+        <item>@string/anti_aliasing_taa</item>
     </string-array>
 
     <integer-array name="rendererAntiAliasingValues">
         <item>0</item>
         <item>1</item>
         <item>2</item>
+        <item>3</item>
     </integer-array>
 
     <string-array name="cpuBackendArm64Names">
