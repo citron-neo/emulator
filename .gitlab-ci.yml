@@ -68,15 +68,21 @@ build-linux:
     - echo "Total artifact size:"
     - du -sh citron.AppImage build/bin/citron 2>/dev/null || echo "Cannot measure artifact sizes"
     - echo "Compressing AppImage for upload..."
-    - xz -9 -c citron.AppImage > citron.AppImage.xz
-    - ls -la citron.AppImage.xz
-    - du -h citron.AppImage.xz
-    - echo "AppImage compressed with xz successfully"
+    - gzip -9 -c citron.AppImage > citron.AppImage.gz
+    - ls -la citron.AppImage.gz
+    - du -h citron.AppImage.gz
+    - echo "AppImage compressed with gzip successfully"
+    # Also create a smaller binary-only archive for fallback
+    - tar -czf citron-binary.tar.gz build/bin/
+    - ls -la citron-binary.tar.gz
+    - du -h citron-binary.tar.gz
   artifacts:
     paths:
-      - citron.AppImage.xz
+      - citron.AppImage.gz
+      - citron-binary.tar.gz
     expire_in: 1 week
     when: always
+    max_size: 200MB
   only:
     - main
     - master
@@ -134,15 +140,21 @@ build-linux-v3:
     - echo "Total artifact size:"
     - du -sh citron.AppImage build/bin/citron 2>/dev/null || echo "Cannot measure artifact sizes"
     - echo "Compressing AppImage for upload..."
-    - xz -9 -c citron.AppImage > citron.AppImage.xz
-    - ls -la citron.AppImage.xz
-    - du -h citron.AppImage.xz
-    - echo "AppImage compressed with xz successfully"
+    - gzip -9 -c citron.AppImage > citron.AppImage.gz
+    - ls -la citron.AppImage.gz
+    - du -h citron.AppImage.gz
+    - echo "AppImage compressed with gzip successfully"
+    # Also create a smaller binary-only archive for fallback
+    - tar -czf citron-binary.tar.gz build/bin/
+    - ls -la citron-binary.tar.gz
+    - du -h citron-binary.tar.gz
   artifacts:
     paths:
-      - citron.AppImage.xz
+      - citron.AppImage.gz
+      - citron-binary.tar.gz
     expire_in: 1 week
     when: always
+    max_size: 200MB
   only:
     - main
     - master
@@ -200,15 +212,21 @@ build-linux-steamdeck:
     - echo "Total artifact size:"
     - du -sh citron.AppImage build/bin/citron 2>/dev/null || echo "Cannot measure artifact sizes"
     - echo "Compressing AppImage for upload..."
-    - xz -9 -c citron.AppImage > citron.AppImage.xz
-    - ls -la citron.AppImage.xz
-    - du -h citron.AppImage.xz
-    - echo "AppImage compressed with xz successfully"
+    - gzip -9 -c citron.AppImage > citron.AppImage.gz
+    - ls -la citron.AppImage.gz
+    - du -h citron.AppImage.gz
+    - echo "AppImage compressed with gzip successfully"
+    # Also create a smaller binary-only archive for fallback
+    - tar -czf citron-binary.tar.gz build/bin/
+    - ls -la citron-binary.tar.gz
+    - du -h citron-binary.tar.gz
   artifacts:
     paths:
-      - citron.AppImage.xz
+      - citron.AppImage.gz
+      - citron-binary.tar.gz
     expire_in: 1 week
     when: always
+    max_size: 200MB
   only:
     - main
     - master
