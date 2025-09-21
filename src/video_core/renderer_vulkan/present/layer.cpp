@@ -13,6 +13,7 @@
 #include "video_core/renderer_vulkan/present/layer.h"
 #include "video_core/renderer_vulkan/present/present_push_constants.h"
 #include "video_core/renderer_vulkan/present/smaa.h"
+#include "video_core/renderer_vulkan/present/taa.h"
 #include "video_core/renderer_vulkan/present/util.h"
 #include "video_core/renderer_vulkan/vk_blit_screen.h"
 #include "video_core/textures/decoders.h"
@@ -204,6 +205,9 @@ void Layer::SetAntiAliasPass() {
         break;
     case Settings::AntiAliasing::Smaa:
         anti_alias = std::make_unique<SMAA>(device, memory_allocator, image_count, render_area);
+        break;
+    case Settings::AntiAliasing::Taa:
+        anti_alias = std::make_unique<TAA>(device, memory_allocator, image_count, render_area);
         break;
     default:
         anti_alias = std::make_unique<NoAA>();

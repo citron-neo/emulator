@@ -134,6 +134,8 @@ add_library(video_core STATIC
     renderer_opengl/present/present_uniforms.h
     renderer_opengl/present/smaa.cpp
     renderer_opengl/present/smaa.h
+    renderer_opengl/present/taa.cpp
+    renderer_opengl/present/taa.h
     renderer_opengl/present/util.h
     renderer_opengl/present/window_adapt_pass.cpp
     renderer_opengl/present/window_adapt_pass.h
@@ -191,6 +193,8 @@ add_library(video_core STATIC
     renderer_vulkan/present/fxaa.cpp
     renderer_vulkan/present/fxaa.h
     renderer_vulkan/present/layer.cpp
+    renderer_vulkan/present/taa.cpp
+    renderer_vulkan/present/taa.h
     renderer_vulkan/present/layer.h
     renderer_vulkan/present/present_push_constants.h
     renderer_vulkan/present/smaa.cpp
