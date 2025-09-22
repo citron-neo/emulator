@@ -359,7 +359,10 @@ static void ApplyLayeredFS(VirtualFile& romfs, u64 title_id, ContentRecordType t
     }
 
     const auto& disabled = Settings::values.disabled_addons[title_id];
-    std::vector<VirtualDir> patch_dirs = load_dir->GetSubdirectories();
+    std::vector<VirtualDir> patch_dirs;
+    if (load_dir) {
+    patch_dirs = load_dir->GetSubdirectories();
+}
     if (std::find(disabled.cbegin(), disabled.cend(), "SDMC") == disabled.cend()) {
         patch_dirs.push_back(sdmc_load_dir);
     }
