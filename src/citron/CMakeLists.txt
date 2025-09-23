@@ -210,11 +210,6 @@ add_executable(citron
     startup_checks.h
     uisettings.cpp
     uisettings.h
-    updater/updater_service.cpp
-    updater/updater_service.h
-    updater/updater_dialog.cpp
-    updater/updater_dialog.h
-    updater/updater_dialog.ui
     util/clickable_label.cpp
     util/clickable_label.h
     util/controller_navigation.cpp
@@ -250,6 +245,21 @@ if (CITRON_CRASH_DUMPS)
 
     target_link_libraries(citron PRIVATE libbreakpad_client)
     target_compile_definitions(citron PRIVATE CITRON_CRASH_DUMPS)
+endif()
+
+if (CITRON_USE_AUTO_UPDATER)
+    target_sources(citron PRIVATE
+        updater/updater_service.cpp
+        updater/updater_service.h
+        updater/updater_dialog.cpp
+        updater/updater_dialog.h
+        updater/updater_dialog.ui
+    )
+
+    target_compile_definitions(citron PRIVATE
+        # Ensure _WIN32 is defined for moc processing on Windows
+        $<$<BOOL:${WIN32}>:_WIN32>
+    )
 endif()
 
 if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")

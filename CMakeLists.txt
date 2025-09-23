@@ -43,6 +43,8 @@ option(CITRON_USE_QT_MULTIMEDIA "Use QtMultimedia for Camera" OFF)
 
 option(CITRON_USE_QT_WEB_ENGINE "Use QtWebEngine for web applet implementation" OFF)
 
+option(CITRON_USE_AUTO_UPDATER "Enable automatic updater functionality" OFF)
+
 option(ENABLE_CUBEB "Enables the cubeb audio backend" ON)
 
 option(ENABLE_OPENAL "Enables the OpenAL audio backend" ON)
