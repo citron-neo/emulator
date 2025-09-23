@@ -62,10 +62,10 @@ std::array<f32, 4> ZBCManager::ConvertToFloat(const std::array<u32, 4>& color_u3
         const u32 packed = color_u32[i];
 
         // Extract RGBA components (assuming RGBA8888 format)
-        const u8 r = (packed >> 0) & 0xFF;
-        const u8 g = (packed >> 8) & 0xFF;
-        const u8 b = (packed >> 16) & 0xFF;
-        const u8 a = (packed >> 24) & 0xFF;
+        const u8 r = static_cast<u8>((packed >> 0) & 0xFF);
+        const u8 g = static_cast<u8>((packed >> 8) & 0xFF);
+        const u8 b = static_cast<u8>((packed >> 16) & 0xFF);
+        const u8 a = static_cast<u8>((packed >> 24) & 0xFF);
 
         // Convert to normalized float values [0.0, 1.0]
         color_f32[0] = static_cast<f32>(r) / 255.0f; // Red
