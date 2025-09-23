@@ -5456,6 +5456,19 @@ static void SetHighDPIAttributes() {
 }
 
 int main(int argc, char* argv[]) {
+    // Set environment variables for AppImage compatibility
+    // This must be done before the QApplication is created.
+    const bool is_appimage = !qgetenv("APPIMAGE").isEmpty();
+    if (is_appimage) {
+        // Fixes Wayland crash with NVIDIA drivers by disabling explicit sync.
+        qputenv("QT_WAYLAND_DISABLE_EXPLICIT_SYNC", "1");
+
+        // Tell the bundled OpenSSL where to find the bundled certificates.
+        const QDir app_dir(QCoreApplication::applicationDirPath());
+        const QString certs_path = app_dir.filePath("../etc/ssl/certs");
+        qputenv("SSL_CERT_DIR", certs_path.toUtf8());
+    }
+
     std::unique_ptr<QtConfig> config = std::make_unique<QtConfig>();
     UISettings::RestoreWindowState(config);
     bool has_broken_vulkan = false;
