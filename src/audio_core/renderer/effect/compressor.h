@@ -50,6 +50,8 @@ public:
         /* 0x30 */ f32 out_gain;
         /* 0x34 */ ParameterState state;
         /* 0x35 */ bool makeup_gain_enabled;
+        /* 0x36 */ bool statistics_enabled;
+        /* 0x37 */ bool statistics_reset;
     };
     static_assert(sizeof(ParameterVersion2) <= sizeof(EffectInfoBase::InParameterVersion2),
                   "CompressorInfo::ParameterVersion2 has the wrong size!");
@@ -68,6 +70,22 @@ public:
     };
     static_assert(sizeof(State) <= sizeof(EffectInfoBase::State),
                   "CompressorInfo::State has the wrong size!");
+
+    struct Statistics {
+        f32 maximum_mean;
+        f32 minimum_gain;
+        std::array<f32, MaxChannels> last_samples;
+
+        void Reset(u16 channel_count) {
+            maximum_mean = 0.0f;
+            minimum_gain = 1.0f;
+            for (u16 i = 0; i < channel_count; i++) {
+                last_samples[i] = 0.0f;
+            }
+        }
+    };
+    static_assert(sizeof(Statistics) <= sizeof(EffectResultState),
+                  "CompressorInfo::Statistics has the wrong size!");
 
     /**
      * Update the info with new parameters, version 1.

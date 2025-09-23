@@ -45,6 +45,15 @@ enum class SupportTags {
     DelayChannelMappingChange,
     ReverbChannelMappingChange,
     I3dl2ReverbChannelMappingChange,
+    SplitterPrevVolumeResetSupported,
+    // REV 14 features
+    AudioRendererProcessingTimeLimit65Percent,
+    AudioRendererProcessingTimeLimit60Percent,
+    // REV 15 features
+    AudioRendererProcessingTimeLimit55Percent,
+    AudioRendererProcessingTimeLimit50Percent,
+    VoiceChannelResourceLimit,
+    EffectProcessingVersion3,
 
     // Not a real tag, just here to get the count.
     Size
@@ -55,6 +64,7 @@ constexpr u32 GetRevisionNum(u32 user_revision) {
         user_revision -= Common::MakeMagic('R', 'E', 'V', '0');
         user_revision >>= 24;
     }
+
     return user_revision;
 };
 
@@ -88,6 +98,15 @@ constexpr bool CheckFeatureSupported(SupportTags tag, u32 user_revision) {
             {SupportTags::DelayChannelMappingChange, 11},
             {SupportTags::ReverbChannelMappingChange, 11},
             {SupportTags::I3dl2ReverbChannelMappingChange, 11},
+            {SupportTags::SplitterPrevVolumeResetSupported, 13},
+            // REV 14 features
+            {SupportTags::AudioRendererProcessingTimeLimit65Percent, 14},
+            {SupportTags::AudioRendererProcessingTimeLimit60Percent, 14},
+            // REV 15 features
+            {SupportTags::AudioRendererProcessingTimeLimit55Percent, 15},
+            {SupportTags::AudioRendererProcessingTimeLimit50Percent, 15},
+            {SupportTags::VoiceChannelResourceLimit, 15},
+            {SupportTags::EffectProcessingVersion3, 15},
         }};
 
     const auto& feature =

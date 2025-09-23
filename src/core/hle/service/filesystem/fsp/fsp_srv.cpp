@@ -270,9 +270,14 @@ Result FSP_SRV::OpenSaveDataFileSystem(OutInterface<IFileSystem> out_interface,
         id = FileSys::StorageId::NandSystem;
         break;
     case FileSys::SaveDataSpaceId::Temporary:
+        id = FileSys::StorageId::NandSystem;
+        break;
     case FileSys::SaveDataSpaceId::ProperSystem:
+        id = FileSys::StorageId::NandSystem;
+        break;
     case FileSys::SaveDataSpaceId::SafeMode:
-        ASSERT(false);
+        id = FileSys::StorageId::NandSystem;
+        break;
     }
 
     *out_interface =

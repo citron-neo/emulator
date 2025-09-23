@@ -21,6 +21,7 @@ class SplitterContext;
 class EffectContext;
 class MemoryPoolInfo;
 class PerformanceManager;
+class PoolMapper;
 
 class InfoUpdater {
     struct UpdateDataHeader {
@@ -64,6 +65,32 @@ public:
      */
     Result UpdateVoices(VoiceContext& voice_context, std::span<MemoryPoolInfo> memory_pools,
                         u32 memory_pool_count);
+
+    /**
+     * Update voices with integer biquad filters.
+     *
+     * @param voice_context     - Voice context to update.
+     * @param memory_pools      - Memory pools to use for these voices.
+     * @param memory_pool_count - Number of memory pools.
+     * @param pool_mapper       - Pool mapper for memory operations.
+     * @param voice_count       - Number of voices to update.
+     * @return Result code.
+     */
+    Result UpdateVoicesInt(VoiceContext& voice_context, std::span<MemoryPoolInfo> memory_pools,
+                          u32 memory_pool_count, const PoolMapper& pool_mapper, u32 voice_count);
+
+    /**
+     * Update voices with float biquad filters.
+     *
+     * @param voice_context     - Voice context to update.
+     * @param memory_pools      - Memory pools to use for these voices.
+     * @param memory_pool_count - Number of memory pools.
+     * @param pool_mapper       - Pool mapper for memory operations.
+     * @param voice_count       - Number of voices to update.
+     * @return Result code.
+     */
+    Result UpdateVoicesFloat(VoiceContext& voice_context, std::span<MemoryPoolInfo> memory_pools,
+                            u32 memory_pool_count, const PoolMapper& pool_mapper, u32 voice_count);
 
     /**
      * Update effects.

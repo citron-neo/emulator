@@ -135,6 +135,14 @@ public:
     static_assert(sizeof(BiquadFilterParameter) == 0xC,
                   "VoiceInfo::BiquadFilterParameter has the wrong size!");
 
+    struct BiquadFilterParameterFloat {
+        /* 0x00 */ bool enabled;
+        /* 0x04 */ std::array<f32, 3> b;
+        /* 0x10 */ std::array<f32, 2> a;
+    };
+    static_assert(sizeof(BiquadFilterParameterFloat) == 0x18,
+                  "VoiceInfo::BiquadFilterParameterFloat has the wrong size!");
+
     struct InParameter {
         /* 0x000 */ u32 id;
         /* 0x004 */ u32 node_id;
@@ -167,6 +175,39 @@ public:
         /* 0x15F */ char unk15F[0x11];
     };
     static_assert(sizeof(InParameter) == 0x170, "VoiceInfo::InParameter has the wrong size!");
+
+    struct InParameterFloat {
+        /* 0x000 */ u32 id;
+        /* 0x004 */ u32 node_id;
+        /* 0x008 */ bool is_new;
+        /* 0x009 */ bool in_use;
+        /* 0x00A */ PlayState play_state;
+        /* 0x00B */ SampleFormat sample_format;
+        /* 0x00C */ u32 sample_rate;
+        /* 0x010 */ s32 priority;
+        /* 0x014 */ s32 sort_order;
+        /* 0x018 */ u32 channel_count;
+        /* 0x01C */ f32 pitch;
+        /* 0x020 */ f32 volume;
+        /* 0x024 */ std::array<BiquadFilterParameterFloat, MaxBiquadFilters> biquads;
+        /* 0x0C4 */ u32 wave_buffer_count;
+        /* 0x0C8 */ u16 wave_buffer_index;
+        /* 0x0CA */ char unk0CA[0x6];
+        /* 0x0D0 */ CpuAddr src_data_address;
+        /* 0x0D8 */ u64 src_data_size;
+        /* 0x0E0 */ u32 mix_id;
+        /* 0x0E4 */ u32 splitter_id;
+        /* 0x0E8 */ std::array<WaveBufferInternal, MaxWaveBuffers> wave_buffer_internal;
+        /* 0x1C8 */ std::array<u32, MaxChannels> channel_resource_ids;
+        /* 0x1E0 */ bool clear_voice_drop;
+        /* 0x1E1 */ u8 flush_buffer_count;
+        /* 0x1E2 */ char unk1E2[0x2];
+        /* 0x1E4 */ Flags flags;
+        /* 0x1E5 */ char unk1E5[0x1];
+        /* 0x1E6 */ SrcQuality src_quality;
+        /* 0x1E7 */ char unk1E7[0x11];
+    };
+    // static_assert(sizeof(InParameterFloat) == 0x1F8, "VoiceInfo::InParameterFloat has the wrong size!");
 
     struct OutStatus {
         /* 0x00 */ u64 played_sample_count;

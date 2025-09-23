@@ -20,44 +20,15 @@ class FpsIndicatorView @JvmOverloads constructor(
     defStyleAttr: Int = 0
 ) : View(context, attrs, defStyleAttr) {
 
-    private val backgroundPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.parseColor("#80000000") // Semi-transparent black
-        style = Paint.Style.FILL
-    }
-
-    private val borderPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.WHITE
-        style = Paint.Style.STROKE
-        strokeWidth = 2f
-    }
-
     private val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = Color.WHITE
-        textSize = 22f
+        textSize = 18f
         typeface = Typeface.DEFAULT_BOLD
-        textAlign = Paint.Align.CENTER
-        setShadowLayer(2f, 1f, 1f, Color.BLACK)
-    }
-
-    private val smallTextPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.WHITE
-        textSize = 16f
-        typeface = Typeface.DEFAULT
-        textAlign = Paint.Align.CENTER
-        setShadowLayer(2f, 1f, 1f, Color.BLACK)
-    }
-
-    private val iconPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.WHITE
-        textSize = 24f
-        textAlign = Paint.Align.CENTER
+        textAlign = Paint.Align.LEFT
         setShadowLayer(2f, 1f, 1f, Color.BLACK)
     }
 
     private var currentFps: Float = 0f
-    private val fpsIcon: String = "📊"
-
-    private val backgroundRect = RectF()
 
     fun updateFps(fps: Float) {
         try {
@@ -73,8 +44,6 @@ class FpsIndicatorView @JvmOverloads constructor(
             }
 
             textPaint.color = fpsColor
-            smallTextPaint.color = fpsColor
-            borderPaint.color = fpsColor
 
             // Always invalidate to trigger a redraw
             invalidate()
@@ -88,8 +57,8 @@ class FpsIndicatorView @JvmOverloads constructor(
     }
 
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
-        val desiredWidth = 120
-        val desiredHeight = 60
+        val desiredWidth = 80
+        val desiredHeight = 30
 
         val widthMode = MeasureSpec.getMode(widthMeasureSpec)
         val widthSize = MeasureSpec.getSize(widthMeasureSpec)
@@ -111,30 +80,12 @@ class FpsIndicatorView @JvmOverloads constructor(
         setMeasuredDimension(width, height)
     }
 
-    override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
-        super.onSizeChanged(w, h, oldw, oldh)
-        backgroundRect.set(4f, 4f, w - 4f, h - 4f)
-    }
-
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
 
-        // Draw background with rounded corners
-        canvas.drawRoundRect(backgroundRect, 12f, 12f, backgroundPaint)
-        canvas.drawRoundRect(backgroundRect, 12f, 12f, borderPaint)
-
-        val centerX = width / 2f
-        val centerY = height / 2f
-
-        // Draw FPS icon on the left
-        canvas.drawText(fpsIcon, 18f, centerY - 8f, iconPaint)
-
-        // Draw FPS value (main text)
-        val fpsText = "${currentFps.roundToInt()}"
-        canvas.drawText(fpsText, centerX, centerY - 8f, textPaint)
-
-        // Draw "FPS" label (smaller text below)
-        canvas.drawText("FPS", centerX, centerY + 12f, smallTextPaint)
+        // Draw simple text-based FPS display
+        val fpsText = "FPS: ${currentFps.roundToInt()}"
+        canvas.drawText(fpsText, 8f, height - 8f, textPaint)
 
         Log.d("FpsIndicator", "onDraw called - FPS: $fpsText")
     }

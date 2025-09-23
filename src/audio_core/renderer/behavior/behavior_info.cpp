@@ -190,4 +190,32 @@ bool BehaviorInfo::IsI3dl2ReverbChannelMappingChanged() const {
     return CheckFeatureSupported(SupportTags::I3dl2ReverbChannelMappingChange, user_revision);
 }
 
+bool BehaviorInfo::IsSplitterPrevVolumeResetSupported() const {
+    return CheckFeatureSupported(SupportTags::SplitterPrevVolumeResetSupported, user_revision);
+}
+
+bool BehaviorInfo::IsAudioRendererProcessingTimeLimit65PercentSupported() const {
+    return CheckFeatureSupported(SupportTags::AudioRendererProcessingTimeLimit65Percent, user_revision);
+}
+
+bool BehaviorInfo::IsAudioRendererProcessingTimeLimit60PercentSupported() const {
+    return CheckFeatureSupported(SupportTags::AudioRendererProcessingTimeLimit60Percent, user_revision);
+}
+
+bool BehaviorInfo::IsAudioRendererProcessingTimeLimit55PercentSupported() const {
+    return CheckFeatureSupported(SupportTags::AudioRendererProcessingTimeLimit55Percent, user_revision);
+}
+
+bool BehaviorInfo::IsAudioRendererProcessingTimeLimit50PercentSupported() const {
+    return CheckFeatureSupported(SupportTags::AudioRendererProcessingTimeLimit50Percent, user_revision);
+}
+
+bool BehaviorInfo::IsVoiceChannelResourceLimitSupported() const {
+    return CheckFeatureSupported(SupportTags::VoiceChannelResourceLimit, user_revision);
+}
+
+bool BehaviorInfo::IsEffectProcessingVersion3Supported() const {
+    return CheckFeatureSupported(SupportTags::EffectProcessingVersion3, user_revision);
+}
+
 } // namespace AudioCore::Renderer

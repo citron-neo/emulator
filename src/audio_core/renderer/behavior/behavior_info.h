@@ -361,6 +361,55 @@ public:
      */
     bool IsI3dl2ReverbChannelMappingChanged() const;
 
+    /**
+     * Check if explicit previous mix volume reset is supported for splitters.
+     *
+     * @return True if supported, otherwise false.
+     */
+    bool IsSplitterPrevVolumeResetSupported() const;
+
+    /**
+     * Check if 65% processing time limit is supported.
+     *
+     * @return True if supported, otherwise false.
+     */
+    bool IsAudioRendererProcessingTimeLimit65PercentSupported() const;
+
+    /**
+     * Check if 60% processing time limit is supported.
+     *
+     * @return True if supported, otherwise false.
+     */
+    bool IsAudioRendererProcessingTimeLimit60PercentSupported() const;
+
+    /**
+     * Check if 55% processing time limit is supported.
+     *
+     * @return True if supported, otherwise false.
+     */
+    bool IsAudioRendererProcessingTimeLimit55PercentSupported() const;
+
+    /**
+     * Check if 50% processing time limit is supported.
+     *
+     * @return True if supported, otherwise false.
+     */
+    bool IsAudioRendererProcessingTimeLimit50PercentSupported() const;
+
+    /**
+     * Check if voice channel resource limit is supported.
+     *
+     * @return True if supported, otherwise false.
+     */
+    bool IsVoiceChannelResourceLimitSupported() const;
+
+    /**
+     * Check if effect processing version 3 is supported.
+     *
+     * @return True if supported, otherwise false.
+     */
+    bool IsEffectProcessingVersion3Supported() const;
+
     /// Host version
     u32 process_revision;
     /// User version

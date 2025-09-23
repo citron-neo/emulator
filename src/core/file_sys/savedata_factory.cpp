@@ -96,6 +96,13 @@ std::string SaveDataFactory::GetSaveDataSpaceIdPath(SaveDataSpaceId space) {
         return "/user/";
     case SaveDataSpaceId::Temporary:
         return "/temp/";
+    case SaveDataSpaceId::SdSystem:
+    case SaveDataSpaceId::SdUser:
+        return "/sd/";
+    case SaveDataSpaceId::ProperSystem:
+        return "/system/";
+    case SaveDataSpaceId::SafeMode:
+        return "/system/";
     default:
         ASSERT_MSG(false, "Unrecognized SaveDataSpaceId: {:02X}", static_cast<u8>(space));
         return "/unrecognized/"; ///< To prevent corruption when ignoring asserts.

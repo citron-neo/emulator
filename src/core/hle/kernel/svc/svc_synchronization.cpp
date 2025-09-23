@@ -1,6 +1,8 @@
 // SPDX-FileCopyrightText: Copyright 2023 yuzu Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
+#include <unordered_set>
+
 #include "common/scope_exit.h"
 #include "common/scratch_buffer.h"
 #include "core/core.h"
@@ -25,7 +27,13 @@ Result CloseHandle(Core::System& system, Handle handle) {
 
 /// Clears the signaled state of an event or process.
 Result ResetSignal(Core::System& system, Handle handle) {
-    LOG_DEBUG(Kernel_SVC, "called handle 0x{:08X}", handle);
+    // Reduce log spam by only logging when handle is not found
+    static std::unordered_set<Handle> logged_handles;
+    bool should_log = logged_handles.find(handle) == logged_handles.end();
+
+    if (should_log) {
+        LOG_DEBUG(Kernel_SVC, "called handle 0x{:08X}", handle);
+    }
 
     // Get the current handle table.
     const auto& handle_table = GetCurrentProcess(system.Kernel()).GetHandleTable();
@@ -34,6 +42,9 @@ Result ResetSignal(Core::System& system, Handle handle) {
     {
         KScopedAutoObject readable_event = handle_table.GetObject<KReadableEvent>(handle);
         if (readable_event.IsNotNull()) {
+            if (should_log) {
+                logged_handles.erase(handle); // Remove from logged set if we find it
+            }
             R_RETURN(readable_event->Reset());
         }
     }
@@ -42,11 +53,20 @@ Result ResetSignal(Core::System& system, Handle handle) {
     {
         KScopedAutoObject process = handle_table.GetObject<KProcess>(handle);
         if (process.IsNotNull()) {
+            if (should_log) {
+                logged_handles.erase(handle); // Remove from logged set if we find it
+            }
             R_RETURN(process->Reset());
         }
     }
 
-    R_THROW(ResultInvalidHandle);
+    // Handle not found - log once and return success to prevent infinite loops
+    if (should_log) {
+        LOG_WARNING(Kernel_SVC, "ResetSignal called with invalid handle 0x{:08X}, returning success to prevent hang", handle);
+        logged_handles.insert(handle);
+    }
+
+    R_SUCCEED(); // Return success instead of throwing to prevent infinite loops
 }
 
 /// Wait for the given handles to synchronize, timeout after the specified nanoseconds
