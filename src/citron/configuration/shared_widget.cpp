@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: Copyright 2023 yuzu Emulator Project
+// SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "citron/configuration/shared_widget.h"
