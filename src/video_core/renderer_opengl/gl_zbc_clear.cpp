@@ -84,10 +84,10 @@ std::array<f32, 4> ZBCClear::ConvertColorToOpenGL(const std::array<u32, 4>& colo
     const u32 primary_color = color_u32[0];
 
     // Extract RGBA components (assuming RGBA8888 format)
-    const u8 r = (primary_color >> 0) & 0xFF;
-    const u8 g = (primary_color >> 8) & 0xFF;
-    const u8 b = (primary_color >> 16) & 0xFF;
-    const u8 a = (primary_color >> 24) & 0xFF;
+    const u8 r = static_cast<u8>((primary_color >> 0) & 0xFF);
+    const u8 g = static_cast<u8>((primary_color >> 8) & 0xFF);
+    const u8 b = static_cast<u8>((primary_color >> 16) & 0xFF);
+    const u8 a = static_cast<u8>((primary_color >> 24) & 0xFF);
 
     // Convert to normalized float values [0.0, 1.0]
     color_f32[0] = static_cast<f32>(r) / 255.0f; // Red
