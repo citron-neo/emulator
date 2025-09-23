@@ -298,7 +298,7 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/bin)
 # =======================================================================
 
 # Enforce the search mode of non-required packages for better and shorter failure messages
-find_package(Boost 1.79.0 REQUIRED context)
+find_package(Boost 1.79.0 REQUIRED context process)
 find_package(enet 1.3 MODULE)
 find_package(fmt 9 REQUIRED)
 find_package(LLVM 17.0.2 MODULE COMPONENTS Demangle)
@@ -306,7 +306,6 @@ find_package(lz4 REQUIRED)
 find_package(nlohmann_json 3.8 REQUIRED)
 find_package(Opus 1.3 MODULE)
 find_package(RenderDoc MODULE)
-find_package(SimpleIni MODULE)
 find_package(stb MODULE)
 find_package(VulkanMemoryAllocator CONFIG)
 find_package(ZLIB 1.2 REQUIRED)
@@ -373,7 +372,7 @@ endif()
 
 function(set_citron_qt_components)
     # Best practice is to ask for all components at once, so they are from the same version
-    set(CITRON_QT_COMPONENTS2 Core Widgets Concurrent)
+    set(CITRON_QT_COMPONENTS2 Core Widgets Concurrent Network)
     if (${CMAKE_SYSTEM_NAME} STREQUAL "Linux")
         list(APPEND CITRON_QT_COMPONENTS2 DBus)
     endif()
