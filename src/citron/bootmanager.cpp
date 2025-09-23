@@ -1124,9 +1124,12 @@ void GRenderWindow::OnEmulationStopping() {
 void GRenderWindow::showEvent(QShowEvent* event) {
     QWidget::showEvent(event);
 
-    // windowHandle() is not initialized until the Window is shown, so we connect it here.
-    connect(windowHandle(), &QWindow::screenChanged, this, &GRenderWindow::OnFramebufferSizeChanged,
-            Qt::UniqueConnection);
+    // windowHandle() is not guaranteed to be initialized until after the window is shown.
+    // We connect here, but check for null to prevent a non-fatal error message on some platforms.
+    if (windowHandle()) {
+        connect(windowHandle(), &QWindow::screenChanged, this, &GRenderWindow::OnFramebufferSizeChanged,
+                Qt::UniqueConnection);
+    }
 }
 
 bool GRenderWindow::eventFilter(QObject* object, QEvent* event) {
