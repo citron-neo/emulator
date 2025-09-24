@@ -5465,7 +5465,7 @@ int main(int argc, char* argv[]) {
 
         // Tell the bundled OpenSSL where to find the bundled certificates.
         const QDir app_dir(QCoreApplication::applicationDirPath());
-        const QString certs_path = app_dir.filePath("../etc/ssl/certs");
+        const QString certs_path = app_dir.filePath(QString::fromLatin1("../etc/ssl/certs"));
         qputenv("SSL_CERT_DIR", certs_path.toUtf8());
     }
 
@@ -5535,15 +5535,17 @@ int main(int argc, char* argv[]) {
 
     QApplication app(argc, argv);
 
+    #ifdef CITRON_USE_AUTO_UPDATER
     // Check for and apply staged updates before starting the main application
     std::filesystem::path app_dir = std::filesystem::path(QCoreApplication::applicationDirPath().toStdString());
     if (Updater::UpdaterService::HasStagedUpdate(app_dir)) {
         if (Updater::UpdaterService::ApplyStagedUpdate(app_dir)) {
             // Show a simple message that update was applied
             QMessageBox::information(nullptr, QObject::tr("Update Applied"),
-                                   QObject::tr("Citron has been updated successfully!"));
+                                     QObject::tr("Citron has been updated successfully!"));
         }
     }
+#endif
 
 #ifdef _WIN32
     OverrideWindowsFont();
@@ -5594,6 +5596,7 @@ void GMainWindow::OnCheckForUpdates() {
 }
 
 void GMainWindow::CheckForUpdatesAutomatically() {
+    #ifdef CITRON_USE_AUTO_UPDATER
     // Check if automatic updates are enabled
     if (!Settings::values.enable_auto_update_check.GetValue()) {
         return;
@@ -5613,9 +5616,9 @@ void GMainWindow::CheckForUpdatesAutomatically() {
                 if (has_update) {
                     // Show a subtle notification that an update is available
                     QMessageBox::information(this, tr("Update Available"),
-                        tr("A new version of Citron is available: %1\n\n"
-                           "Click Help → Check for Updates to download it.")
-                           .arg(QString::fromStdString(update_info.version)));
+                                             tr("A new version of Citron is available: %1\n\n"
+                                             "Click Help → Check for Updates to download it.")
+                                             .arg(QString::fromStdString(update_info.version)));
                 }
                 updater_service->deleteLater();
             });
@@ -5627,12 +5630,13 @@ void GMainWindow::CheckForUpdatesAutomatically() {
                     result == Updater::UpdaterService::UpdateResult::Failed) {
                     // Silent fail for automatic checks - just log the error
                     LOG_WARNING(Frontend, "Automatic update check failed: {}", message.toStdString());
-                }
-                updater_service->deleteLater();
+                    }
+                    updater_service->deleteLater();
             });
 
     // Start the silent update check
     updater_service->CheckForUpdates(update_url);
+    #endif
 }
 
 void GMainWindow::OnToggleGridView() {
