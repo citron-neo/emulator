@@ -1,4 +1,5 @@
 # SPDX-FileCopyrightText: 2018 yuzu Emulator Project
+# SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project
 # SPDX-License-Identifier: GPL-2.0-or-later
 
 set(CMAKE_AUTOMOC ON)
@@ -259,6 +260,7 @@ if (CITRON_USE_AUTO_UPDATER)
     target_compile_definitions(citron PRIVATE
         # Ensure _WIN32 is defined for moc processing on Windows
         $<$<BOOL:${WIN32}>:_WIN32>
+        CITRON_USE_AUTO_UPDATER
     )
 endif()
 
