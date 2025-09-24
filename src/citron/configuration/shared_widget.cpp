@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: Copyright 2023 yuzu Emulator Project
+// SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "citron/configuration/shared_widget.h"
@@ -152,7 +153,15 @@ QWidget* Widget::CreateCombobox(std::function<std::string()>& serializer,
     };
 
     const u32 setting_value = std::strtoul(setting.ToString().c_str(), nullptr, 0);
-    combobox->setCurrentIndex(find_index(setting_value));
+    const int index = find_index(setting_value);
+
+    if (index != -1) {
+        combobox->setCurrentIndex(index);
+    } else {
+        LOG_WARNING(Frontend, "Could not find current setting for combobox '{}'. Defaulting to first item.", setting.GetLabel());
+        // If not found, safely select the first item in the list instead of an invalid one.
+        combobox->setCurrentIndex(0);
+    }
 
     serializer = [this, enumeration]() {
         int current = combobox->currentIndex();
