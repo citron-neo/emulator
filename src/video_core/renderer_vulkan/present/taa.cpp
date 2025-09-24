@@ -299,20 +299,6 @@ void TAA::Draw(Scheduler& scheduler, size_t image_index, VkImage* inout_image,
 
     auto& image = m_dynamic_images[image_index];
 
-    const VkRenderPassBeginInfo renderpass_begin_info{
-        .sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
-        .pNext = nullptr,
-        .renderPass = *m_renderpass,
-        .framebuffer = *image.framebuffer,
-        .renderArea =
-            {
-                .offset = {0, 0},
-                .extent = m_extent,
-            },
-        .clearValueCount = 0,
-        .pClearValues = nullptr,
-    };
-
     scheduler.RequestOutsideRenderPassOperationContext();
     scheduler.Record([this, &image](vk::CommandBuffer cmdbuf) {
         BeginRenderPass(cmdbuf, *m_renderpass, *image.framebuffer, m_extent);
