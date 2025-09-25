@@ -410,6 +410,48 @@ public:
      */
     bool IsEffectProcessingVersion3Supported() const;
 
+    /**
+     * Check if audio renderer rendering time limit is supported.
+     *
+     * @return True if supported, otherwise false.
+     */
+    bool IsAudioRendererRenderingTimeLimitSupported() const;
+
+    /**
+     * Check if audio renderer voice drop parameter is supported.
+     *
+     * @return True if supported, otherwise false.
+     */
+    bool IsAudioRendererVoiceDropParameterSupported() const;
+
+    /**
+     * Check if audio renderer execution mode is supported.
+     *
+     * @return True if supported, otherwise false.
+     */
+    bool IsAudioRendererExecutionModeSupported() const;
+
+    /**
+     * Check if audio renderer rendering device is supported.
+     *
+     * @return True if supported, otherwise false.
+     */
+    bool IsAudioRendererRenderingDeviceSupported() const;
+
+    /**
+     * Check if audio renderer exclusive control leakage check is supported.
+     *
+     * @return True if supported, otherwise false.
+     */
+    bool IsAudioRendererExclusiveControlLeakageCheckSupported() const;
+
+    /**
+     * Check if audio renderer elapsed frame count is supported.
+     *
+     * @return True if supported, otherwise false.
+     */
+    bool IsAudioRendererElapsedFrameCountSupported() const;
+
     /// Host version
     u32 process_revision;
     /// User version

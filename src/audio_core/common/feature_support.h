@@ -54,6 +54,12 @@ enum class SupportTags {
     AudioRendererProcessingTimeLimit50Percent,
     VoiceChannelResourceLimit,
     EffectProcessingVersion3,
+    AudioRendererRenderingTimeLimit,
+    AudioRendererVoiceDropParameter,
+    AudioRendererExecutionMode,
+    AudioRendererRenderingDevice,
+    AudioRendererExclusiveControlLeakageCheck,
+    AudioRendererElapsedFrameCount,
 
     // Not a real tag, just here to get the count.
     Size
@@ -107,6 +113,12 @@ constexpr bool CheckFeatureSupported(SupportTags tag, u32 user_revision) {
             {SupportTags::AudioRendererProcessingTimeLimit50Percent, 15},
             {SupportTags::VoiceChannelResourceLimit, 15},
             {SupportTags::EffectProcessingVersion3, 15},
+            {SupportTags::AudioRendererRenderingTimeLimit, 15},
+            {SupportTags::AudioRendererVoiceDropParameter, 15},
+            {SupportTags::AudioRendererExecutionMode, 15},
+            {SupportTags::AudioRendererRenderingDevice, 15},
+            {SupportTags::AudioRendererExclusiveControlLeakageCheck, 15},
+            {SupportTags::AudioRendererElapsedFrameCount, 15},
         }};
 
     const auto& feature =

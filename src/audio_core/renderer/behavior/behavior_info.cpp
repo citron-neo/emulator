@@ -218,4 +218,28 @@ bool BehaviorInfo::IsEffectProcessingVersion3Supported() const {
     return CheckFeatureSupported(SupportTags::EffectProcessingVersion3, user_revision);
 }
 
+bool BehaviorInfo::IsAudioRendererRenderingTimeLimitSupported() const {
+    return CheckFeatureSupported(SupportTags::AudioRendererRenderingTimeLimit, user_revision);
+}
+
+bool BehaviorInfo::IsAudioRendererVoiceDropParameterSupported() const {
+    return CheckFeatureSupported(SupportTags::AudioRendererVoiceDropParameter, user_revision);
+}
+
+bool BehaviorInfo::IsAudioRendererExecutionModeSupported() const {
+    return CheckFeatureSupported(SupportTags::AudioRendererExecutionMode, user_revision);
+}
+
+bool BehaviorInfo::IsAudioRendererRenderingDeviceSupported() const {
+    return CheckFeatureSupported(SupportTags::AudioRendererRenderingDevice, user_revision);
+}
+
+bool BehaviorInfo::IsAudioRendererExclusiveControlLeakageCheckSupported() const {
+    return CheckFeatureSupported(SupportTags::AudioRendererExclusiveControlLeakageCheck, user_revision);
+}
+
+bool BehaviorInfo::IsAudioRendererElapsedFrameCountSupported() const {
+    return CheckFeatureSupported(SupportTags::AudioRendererElapsedFrameCount, user_revision);
+}
+
 } // namespace AudioCore::Renderer
