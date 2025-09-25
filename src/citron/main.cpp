@@ -164,10 +164,10 @@ static FileSys::VirtualFile VfsDirectoryCreateFileWrapper(const FileSys::Virtual
 #include "citron/play_time_manager.h"
 #include "citron/startup_checks.h"
 #include "citron/uisettings.h"
-#ifdef _WIN32
+#ifdef CITRON_USE_AUTO_UPDATER
 #include "citron/updater/updater_dialog.h"
-#endif
 #include "citron/updater/updater_service.h"
+#endif
 #include "citron/util/clickable_label.h"
 #include "citron/util/performance_overlay.h"
 #include "citron/util/vram_overlay.h"
@@ -5579,6 +5579,7 @@ int main(int argc, char* argv[]) {
 }
 
 void GMainWindow::OnCheckForUpdates() {
+#ifdef CITRON_USE_AUTO_UPDATER
 #ifdef _WIN32
     // Use HTTP URL to bypass SSL issues (will be redirected to HTTPS but handled by updater)
     // TODO: Fix SSL libraries and revert to https://releases.citron-emu.org/api/check
@@ -5592,6 +5593,10 @@ void GMainWindow::OnCheckForUpdates() {
 #else
     QMessageBox::information(this, tr("Updates"),
                              tr("The update dialog is only available on Windows in this build."));
+#endif
+#else
+    QMessageBox::information(this, tr("Updates"),
+                             tr("The automatic updater is not enabled in this build."));
 #endif
 }
 
