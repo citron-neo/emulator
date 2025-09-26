@@ -988,6 +988,9 @@ IR::AbstractSyntaxList BuildASL(ObjectPool<IR::Inst>& inst_pool, ObjectPool<IR::
     Statement& root{goto_pass.RootStatement()};
     IR::AbstractSyntaxList syntax_list;
     TranslatePass{inst_pool, block_pool, stmt_pool, env, root, syntax_list, host_info};
+
+    stmt_pool.ReleaseContents();
+
     return syntax_list;
 }
 
