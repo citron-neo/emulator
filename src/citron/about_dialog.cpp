@@ -9,14 +9,7 @@
 
 AboutDialog::AboutDialog(QWidget* parent)
     : QDialog(parent), ui{std::make_unique<Ui::AboutDialog>()} {
-    const auto branch_name = std::string(Common::g_scm_branch);
-    const auto description = std::string(Common::g_scm_desc);
-    const auto build_id = std::string(Common::g_build_id);
-
-    const auto citron_build = fmt::format("citron Development Build | {}-{}", branch_name, description);
-    const auto override_build =
-        fmt::format(fmt::runtime(std::string(Common::g_title_bar_format_idle)), build_id);
-    const auto citron_build_version = override_build.empty() ? citron_build : override_build;
+    const auto citron_build_version = "citron | 0.7.1";
 
     ui->setupUi(this);
     // Try and request the icon from Qt theme (Linux?)
