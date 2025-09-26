@@ -9,7 +9,7 @@
 
 namespace Service::HID {
 
-AppletResource::AppletResource(Core::System& system_) : system{system_} {}
+AppletResource::AppletResource(Core::System& system_) : active_vibration_aruid{SystemAruid}, system{system_} {}
 
 AppletResource::~AppletResource() = default;
 
