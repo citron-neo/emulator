@@ -13,11 +13,24 @@ include(DownloadExternals)
 include(CMakeDependentOption)
 include(CTest)
 
+# Disable Warnings as Errors for MSVC
+if (MSVC)
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /W3 /WX-")
+    # Add specific warning suppressions for Qt6 compatibility
+    add_compile_options(/wd4996)  # Suppress deprecated function warnings
+    add_compile_options(/wd4267)  # Suppress size_t conversion warnings
+endif()
+
+# Check if SDL2::SDL2 target exists; if not, create an alias
+if (TARGET SDL2::SDL2-static)
+    add_library(SDL2::SDL2 ALIAS SDL2::SDL2-static)
+elseif (TARGET SDL2::SDL2-shared)
+    add_library(SDL2::SDL2 ALIAS SDL2::SDL2-shared)
+endif()
+
 # Set bundled sdl2/qt as dependent options.
-# OFF by default, but if ENABLE_SDL2 and MSVC are true then ON
 option(ENABLE_SDL2 "Enable the SDL2 frontend" ON)
 CMAKE_DEPENDENT_OPTION(CITRON_USE_BUNDLED_SDL2 "Download bundled SDL2 binaries" ON "ENABLE_SDL2;MSVC" OFF)
-# On Linux system SDL2 is likely to be lacking HIDAPI support which have drawbacks but is needed for SDL motion
 CMAKE_DEPENDENT_OPTION(CITRON_USE_EXTERNAL_SDL2 "Compile external SDL2" ON "ENABLE_SDL2;NOT MSVC" OFF)
 
 cmake_dependent_option(ENABLE_LIBUSB "Enable the use of LibUSB" ON "NOT ANDROID" OFF)
@@ -25,8 +38,6 @@ cmake_dependent_option(ENABLE_LIBUSB "Enable the use of LibUSB" ON "NOT ANDROID"
 option(ENABLE_OPENGL "Enable OpenGL" ON)
 mark_as_advanced(FORCE ENABLE_OPENGL)
 option(ENABLE_QT "Enable the Qt frontend" ON)
-option(ENABLE_QT6 "Allow usage of Qt6 to be attempted" OFF)
-set(QT6_LOCATION "" CACHE PATH "Additional Location to search for Qt6 libraries like C:/Qt/6.3.1/msvc2019_64/")
 
 option(ENABLE_QT_TRANSLATION "Enable translations for the Qt frontend" OFF)
 CMAKE_DEPENDENT_OPTION(CITRON_USE_BUNDLED_QT "Download bundled Qt binaries" "${MSVC}" "ENABLE_QT" OFF)
@@ -77,12 +88,6 @@ CMAKE_DEPENDENT_OPTION(USE_SYSTEM_MOLTENVK "Use the system MoltenVK lib (instead
 
 set(DEFAULT_ENABLE_OPENSSL ON)
 if (ANDROID OR WIN32 OR APPLE)
-    # - Windows defaults to the Schannel backend.
-    # - macOS defaults to the SecureTransport backend.
-    # - Android currently has no SSL backend as the NDK doesn't include any SSL
-    #   library; a proper 'native' backend would have to go through Java.
-    # But you can force builds for those platforms to use OpenSSL if you have
-    # your own copy of it.
     set(DEFAULT_ENABLE_OPENSSL OFF)
 endif()
 option(ENABLE_OPENSSL "Enable OpenSSL backend for ISslConnection" ${DEFAULT_ENABLE_OPENSSL})
@@ -367,170 +372,75 @@ if (UNIX AND NOT APPLE)
     find_package(gamemode 1.7 MODULE)
 endif()
 
-# Please consider this as a stub
-if(ENABLE_QT6 AND Qt6_LOCATION)
-    list(APPEND CMAKE_PREFIX_PATH "${Qt6_LOCATION}")
+add_subdirectory(externals)
+
+
+if (ENABLE_QT)
+    if (NOT USE_SYSTEM_QT)
+        download_qt(6.7.3)
+    endif()
+
+    find_package(Qt6 REQUIRED COMPONENTS Widgets Multimedia Concurrent)
+
+    if (UNIX AND NOT APPLE)
+        find_package(Qt6 REQUIRED COMPONENTS DBus)
+    endif()
+
+    if (ENABLE_QT_TRANSLATION)
+        find_package(Qt6 REQUIRED COMPONENTS LinguistTools)
+    endif()
+
+    if (NOT DEFINED QT_TARGET_PATH)
+        # Try to find Qt6 installation path
+        if (EXISTS "${CMAKE_BINARY_DIR}/externals/qt/6.8.3/msvc2019_64")
+            set(QT_TARGET_PATH "${CMAKE_BINARY_DIR}/externals/qt/6.8.3/msvc2019_64")
+        elseif (EXISTS "${CMAKE_BINARY_DIR}/externals/qt/6.7.3/msvc2019_64")
+            set(QT_TARGET_PATH "${CMAKE_BINARY_DIR}/externals/qt/6.7.3/msvc2019_64")
+        else()
+            get_target_property(qtcore_path Qt6::Core LOCATION_Release)
+            string(FIND "${qtcore_path}" "/bin/" qtcore_path_bin_pos REVERSE)
+            string(FIND "${qtcore_path}" "/lib/" qtcore_path_lib_pos REVERSE)
+            if (qtcore_path_bin_pos GREATER qtcore_path_lib_pos)
+                string(SUBSTRING "${qtcore_path}" 0 ${qtcore_path_bin_pos} QT_TARGET_PATH)
+            else()
+                string(SUBSTRING "${qtcore_path}" 0 ${qtcore_path_lib_pos} QT_TARGET_PATH)
+            endif()
+        endif()
+    endif()
+
+    if (NOT DEFINED QT_HOST_PATH)
+        set(QT_HOST_PATH "${QT_TARGET_PATH}")
+    endif()
+
+    # Add Qt path to CMAKE_PREFIX_PATH to help find Qt6
+    if (QT_TARGET_PATH)
+        list(APPEND CMAKE_PREFIX_PATH "${QT_TARGET_PATH}")
+    endif()
+
+    message(STATUS "Using target Qt at ${QT_TARGET_PATH}")
+    message(STATUS "Using host Qt at ${QT_HOST_PATH}")
 endif()
 
 function(set_citron_qt_components)
-    # Best practice is to ask for all components at once, so they are from the same version
-    set(CITRON_QT_COMPONENTS2 Core Widgets Concurrent Network)
-    if (${CMAKE_SYSTEM_NAME} STREQUAL "Linux")
-        list(APPEND CITRON_QT_COMPONENTS2 DBus)
-    endif()
-    if (CITRON_USE_QT_MULTIMEDIA)
-        list(APPEND CITRON_QT_COMPONENTS2 Multimedia)
+# Best practice is to ask for all components at once, so they are from the same version
+set(CITRON_QT_COMPONENTS2 Core Widgets Concurrent)
+if (${CMAKE_SYSTEM_NAME} STREQUAL "Linux")
+list(APPEND CITRON_QT_COMPONENTS2 DBus)
+endif()
+if (CITRON_USE_QT_MULTIMEDIA)
+list(APPEND CITRON_QT_COMPONENTS2 Multimedia)
     endif()
     if (CITRON_USE_QT_WEB_ENGINE)
-        list(APPEND CITRON_QT_COMPONENTS2 WebEngineCore WebEngineWidgets)
+    list(APPEND CITRON_QT_COMPONENTS2 WebEngineCore WebEngineWidgets)
     endif()
     if (ENABLE_QT_TRANSLATION)
-        list(APPEND CITRON_QT_COMPONENTS2 LinguistTools)
+    list(APPEND CITRON_QT_COMPONENTS2 LinguistTools)
     endif()
     if (USE_DISCORD_PRESENCE)
-        list(APPEND CITRON_QT_COMPONENTS2 Network)
+    list(APPEND CITRON_QT_COMPONENTS2 Network)
     endif()
     set(CITRON_QT_COMPONENTS ${CITRON_QT_COMPONENTS2} PARENT_SCOPE)
-endfunction(set_citron_qt_components)
-
-# Qt5 requires that we find components, so it doesn't fit our pretty little find package function
-if(ENABLE_QT)
-    set(QT_VERSION 5.15)
-    # These are used to specify minimum versions
-    set(QT5_VERSION 5.15)
-    set(QT6_VERSION 6.3.1)
-
-    set_citron_qt_components()
-    if (ENABLE_QT6)
-        find_package(Qt6 ${QT6_VERSION} COMPONENTS ${CITRON_QT_COMPONENTS})
-    endif()
-    if (Qt6_FOUND)
-        message(STATUS "citron/CMakeLists.txt: Qt6Widgets_VERSION ${Qt6Widgets_VERSION}, setting QT_VERSION")
-        set(QT_VERSION ${Qt6Widgets_VERSION})
-        set(QT_MAJOR_VERSION 6)
-        # Qt6 sets cxx_std_17 and we need to undo that
-        set_target_properties(Qt6::Platform PROPERTIES INTERFACE_COMPILE_FEATURES "")
-    else()
-        message(STATUS "citron/CMakeLists.txt: Qt6 not found/not selected, trying for Qt5")
-        # When Qt6 partially found, need this set to use Qt5 when not specifying version
-        set(QT_DEFAULT_MAJOR_VERSION 5)
-        set(QT_MAJOR_VERSION 5)
-
-        set(CITRON_USE_QT_MULTIMEDIA ON)
-        # Check for system Qt on Linux, fallback to bundled Qt
-        if (UNIX AND NOT APPLE)
-            if (NOT CITRON_USE_BUNDLED_QT)
-                find_package(Qt5 ${QT5_VERSION} COMPONENTS Widgets DBus Multimedia)
-            endif()
-            if (${CMAKE_SYSTEM_NAME} STREQUAL "Linux" AND (NOT Qt5_FOUND OR CITRON_USE_BUNDLED_QT))
-                # Check for dependencies, then enable bundled Qt download
-
-                # Check that the system GLIBCXX version is compatible
-                find_program(OBJDUMP objdump)
-                if (NOT OBJDUMP)
-                    message(FATAL_ERROR "Required program `objdump` not found.")
-                endif()
-                find_library(LIBSTDCXX libstdc++.so.6)
-                execute_process(
-                    COMMAND
-                        ${OBJDUMP} -T ${LIBSTDCXX}
-                    COMMAND
-                        grep GLIBCXX_3.4.28
-                    COMMAND
-                        sed "s/[0-9a-f]*.*  //"
-                    COMMAND
-                        sed "s/ .*//"
-                    COMMAND
-                        sort -u
-                    OUTPUT_VARIABLE
-                        GLIBCXX_MET
-                )
-                if (NOT GLIBCXX_MET)
-                    message(FATAL_ERROR "Qt too old or not found, and bundled Qt package is not \
-                        compatible with this system. Either install Qt ${QT_VERSION}, or provide the path \
-                        to Qt by setting the variable Qt5_ROOT.")
-                endif()
-
-                # Check for headers
-                find_package(PkgConfig REQUIRED)
-                pkg_check_modules(QT_DEP_GLU QUIET glu>=9.0.0)
-                if (NOT QT_DEP_GLU_FOUND)
-                    message(FATAL_ERROR "Qt bundled package dependency `glu` not found. \
-                        Perhaps `libglu1-mesa-dev` needs to be installed?")
-                endif()
-                pkg_check_modules(QT_DEP_MESA QUIET dri>=20.0.8)
-                if (NOT QT_DEP_MESA_FOUND)
-                    message(FATAL_ERROR "Qt bundled package dependency `dri` not found. \
-                        Perhaps `mesa-common-dev` needs to be installed?")
-                endif()
-
-                # Check for X libraries
-                set(BUNDLED_QT_REQUIREMENTS
-                    libxcb-icccm.so.4
-                    libxcb-image.so.0
-                    libxcb-keysyms.so.1
-                    libxcb-randr.so.0
-                    libxcb-render-util.so.0
-                    libxcb-render.so.0
-                    libxcb-shape.so.0
-                    libxcb-shm.so.0
-                    libxcb-sync.so.1
-                    libxcb-xfixes.so.0
-                    libxcb-xinerama.so.0
-                    libxcb-xkb.so.1
-                    libxcb.so.1
-                    libxkbcommon-x11.so.0
-                    libxkbcommon.so.0
-                )
-                set(UNRESOLVED_QT_DEPS "")
-                foreach (REQUIREMENT ${BUNDLED_QT_REQUIREMENTS})
-                    find_library(BUNDLED_QT_${REQUIREMENT} ${REQUIREMENT})
-                    if (NOT BUNDLED_QT_${REQUIREMENT})
-                        set(UNRESOLVED_QT_DEPS ${UNRESOLVED_QT_DEPS} ${REQUIREMENT})
-                    endif()
-                    unset(BUNDLED_QT_${REQUIREMENT})
-                endforeach()
-                unset(BUNDLED_QT_REQUIREMENTS)
-
-                if (NOT "${UNRESOLVED_QT_DEPS}" STREQUAL "")
-                    message(FATAL_ERROR "Bundled Qt package missing required dependencies: ${UNRESOLVED_QT_DEPS}")
-                endif()
-
-                set(CITRON_USE_BUNDLED_QT ON CACHE BOOL "Download bundled Qt" FORCE)
-            endif()
-            if (CITRON_USE_BUNDLED_QT)
-                # Binary package currently does not support Qt webengine, so make sure it's disabled
-                set(CITRON_USE_QT_WEB_ENGINE OFF CACHE BOOL "Use Qt Webengine" FORCE)
-            endif()
-        endif()
-
-        set(CITRON_QT_NO_CMAKE_SYSTEM_PATH)
-
-        if(CITRON_USE_BUNDLED_QT)
-            if ((MSVC_VERSION GREATER_EQUAL 1920 AND ARCHITECTURE_x86_64))
-                set(QT_BUILD qt-5.15.2-msvc2019_64)
-            elseif ((${CMAKE_SYSTEM_NAME} STREQUAL "Linux") AND NOT MINGW AND ARCHITECTURE_x86_64)
-                set(QT_BUILD qt5_5_15_2)
-            else()
-                message(FATAL_ERROR "No bundled Qt binaries for your toolchain. Disable CITRON_USE_BUNDLED_QT and provide your own.")
-            endif()
-
-            if (DEFINED QT_BUILD)
-                download_bundled_external("qt/" ${QT_BUILD} QT_PREFIX)
-            endif()
-
-            set(QT_PREFIX_HINT HINTS "${QT_PREFIX}")
-
-            set(CITRON_QT_NO_CMAKE_SYSTEM_PATH "NO_CMAKE_SYSTEM_PATH")
-            # Binary package for Qt5 has Qt Multimedia
-            set(CITRON_USE_QT_MULTIMEDIA ON CACHE BOOL "Use Qt Multimedia" FORCE)
-        endif()
-
-        set_citron_qt_components()
-        find_package(Qt5 ${QT5_VERSION} COMPONENTS ${CITRON_QT_COMPONENTS} ${QT_PREFIX_HINT} ${CITRON_QT_NO_CMAKE_SYSTEM_PATH})
-    endif()
-
-endif()
+    endfunction(set_citron_qt_components)
 
 # find SDL2 exports a bunch of variables that are needed, so its easier to do this outside of the citron_find_package
 if (ENABLE_SDL2)
@@ -561,21 +471,29 @@ if (ENABLE_SDL2)
     endif()
 endif()
 
-# List of all FFmpeg components required
-set(FFmpeg_COMPONENTS
-    avcodec
-    avfilter
-    avutil
-    swscale)
+    # List of all FFmpeg components required
+    set(FFmpeg_COMPONENTS
+        avcodec
+        avfilter
+        avutil
+        swscale)
 
-if (UNIX AND NOT APPLE AND NOT ANDROID)
-    find_package(PkgConfig REQUIRED)
-    pkg_check_modules(LIBVA libva)
-endif()
-if (NOT CITRON_USE_BUNDLED_FFMPEG)
-    # Use system installed FFmpeg
-    find_package(FFmpeg 4.3 REQUIRED QUIET COMPONENTS ${FFmpeg_COMPONENTS})
-endif()
+    if (UNIX AND NOT APPLE AND NOT ANDROID)
+        find_package(PkgConfig REQUIRED)
+        pkg_check_modules(LIBVA libva)
+    endif()
+    if (NOT CITRON_USE_BUNDLED_FFMPEG)
+        # Use system installed FFmpeg
+        find_package(FFmpeg 4.3 REQUIRED QUIET COMPONENTS ${FFmpeg_COMPONENTS})
+    endif()
+
+if(ENABLE_QT)
+        set_citron_qt_components()
+        find_package(Qt6 REQUIRED COMPONENTS ${CITRON_QT_COMPONENTS})
+        set(QT_MAJOR_VERSION 6)
+        # Qt6 sets cxx_std_17 and we need to undo that
+        set_target_properties(Qt6::Platform PROPERTIES INTERFACE_COMPILE_FEATURES "")
+    endif()
 
 if (WIN32 AND CITRON_CRASH_DUMPS)
     set(BREAKPAD_VER "breakpad-c89f9dd")
@@ -738,7 +656,25 @@ if (CITRON_USE_FASTER_LD AND CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
     endif()
 endif()
 
-add_subdirectory(externals)
+# Set runtime library to MD/MDd for all configurations
+if(MSVC)
+    set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
+
+    # Force all projects (including external dependencies) to use the same runtime
+    set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} /MD")
+    set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} /MDd")
+    set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} /MD")
+    set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} /MDd")
+
+    # Add this to ensure Cubeb uses the same runtime
+    add_compile_options(
+        $<$<CONFIG:Debug>:/MDd>
+        $<$<CONFIG:Release>:/MD>
+        $<$<CONFIG:RelWithDebInfo>:/MD>
+        $<$<CONFIG:MinSizeRel>:/MD>
+    )
+endif()
+
 add_subdirectory(src)
 
 # Set citron project or citron-cmd project as default StartUp Project in Visual Studio depending on whether QT is enabled or not

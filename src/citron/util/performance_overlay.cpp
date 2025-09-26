@@ -108,7 +108,7 @@ void PerformanceOverlay::resizeEvent(QResizeEvent* event) {
 void PerformanceOverlay::mousePressEvent(QMouseEvent* event) {
     if (event->button() == Qt::LeftButton) {
         is_dragging = true;
-        drag_start_pos = event->globalPos();
+        drag_start_pos = event->globalPosition().toPoint();
         widget_start_pos = this->pos();
         setCursor(Qt::ClosedHandCursor);
     }
@@ -117,7 +117,7 @@ void PerformanceOverlay::mousePressEvent(QMouseEvent* event) {
 
 void PerformanceOverlay::mouseMoveEvent(QMouseEvent* event) {
     if (is_dragging) {
-        QPoint delta = event->globalPos() - drag_start_pos;
+        QPoint delta = event->globalPosition().toPoint() - drag_start_pos;
         move(widget_start_pos + delta);
     }
     QWidget::mouseMoveEvent(event);

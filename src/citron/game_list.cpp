@@ -247,7 +247,7 @@ void GameList::FilterGridView(const QString& filter_text) {
                     const QString file_name = file_path.mid(file_path.lastIndexOf(QLatin1Char{'/'}) + 1) + QLatin1Char{' '} + file_title;
 
                     should_show = ContainsAllWords(file_name, filter_text) ||
-                                 (file_program_id.count() == 16 && file_program_id.contains(filter_text));
+                                 (file_program_id.size() == 16 && file_program_id.contains(filter_text));
                 }
 
                 if (should_show) {
@@ -331,7 +331,7 @@ void GameList::FilterTreeView(const QString& filter_text) {
                     file_path.mid(file_path.lastIndexOf(QLatin1Char{'/'}) + 1) + QLatin1Char{' '} +
                     file_title;
                 if (ContainsAllWords(file_name, filter_text) ||
-                    (file_program_id.count() == 16 && file_program_id.contains(filter_text))) {
+                    (file_program_id.size() == 16 && file_program_id.contains(filter_text))) {
                     tree_view->setRowHidden(j, folder_index, false);
                     ++result_count;
                 } else {
