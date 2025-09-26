@@ -56,8 +56,6 @@ struct CompressorCommand : ICommand {
     CpuAddr workbuffer;
     /// Is this effect enabled?
     bool effect_enabled;
-    /// Effect result state for statistics (REV 13+)
-    CpuAddr result_state;
 };
 
 } // namespace AudioCore::Renderer

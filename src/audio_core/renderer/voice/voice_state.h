@@ -66,6 +66,5 @@ struct VoiceState {
     /// Number of times the wavebuffer has looped
     s32 loop_count;
 };
-// static_assert(sizeof(VoiceState) == 0x220, "VoiceState has the wrong size!");
 
 } // namespace AudioCore::Renderer
