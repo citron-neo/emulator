@@ -505,7 +505,7 @@ void TouchScreenPreview::mouseMoveEvent(QMouseEvent* event) {
     if (!coord_label) {
         return;
     }
-    const auto pos = MapToDeviceCoords(event->x(), event->y());
+    const auto pos = MapToDeviceCoords(event->position().x(), event->position().y());
     if (pos) {
         coord_label->setText(QStringLiteral("X: %1, Y: %2").arg(pos->x()).arg(pos->y()));
     } else {
@@ -523,7 +523,7 @@ void TouchScreenPreview::mousePressEvent(QMouseEvent* event) {
     if (event->button() != Qt::MouseButton::LeftButton) {
         return;
     }
-    const auto pos = MapToDeviceCoords(event->x(), event->y());
+    const auto pos = MapToDeviceCoords(event->position().x(), event->position().y());
     if (pos) {
         emit DotAdded(*pos);
     }
@@ -539,7 +539,7 @@ bool TouchScreenPreview::eventFilter(QObject* obj, QEvent* event) {
         emit DotSelected(obj->property(PropId).toInt());
 
         drag_state.dot = qobject_cast<QLabel*>(obj);
-        drag_state.start_pos = mouse_event->globalPos();
+        drag_state.start_pos = mouse_event->globalPosition().toPoint();
         return true;
     }
     case QEvent::Type::MouseMove: {
@@ -549,13 +549,13 @@ bool TouchScreenPreview::eventFilter(QObject* obj, QEvent* event) {
         const auto mouse_event = static_cast<QMouseEvent*>(event);
         if (!drag_state.active) {
             drag_state.active =
-                (mouse_event->globalPos() - drag_state.start_pos).manhattanLength() >=
+                (mouse_event->globalPosition().toPoint() - drag_state.start_pos).manhattanLength() >=
                 QApplication::startDragDistance();
             if (!drag_state.active) {
                 break;
             }
         }
-        auto current_pos = mapFromGlobal(mouse_event->globalPos());
+        auto current_pos = mapFromGlobal(mouse_event->globalPosition().toPoint());
         current_pos.setX(std::clamp(current_pos.x(), contentsMargins().left(),
                                     contentsMargins().left() + contentsRect().width() - 1));
         current_pos.setY(std::clamp(current_pos.y(), contentsMargins().top(),
