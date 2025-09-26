@@ -1,6 +1,8 @@
 // SPDX-FileCopyrightText: Copyright 2022 yuzu Emulator Project
+// SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
+#include <algorithm>
 #include "audio_core/common/feature_support.h"
 #include "audio_core/renderer/behavior/behavior_info.h"
 #include "audio_core/renderer/behavior/info_updater.h"
@@ -101,14 +103,18 @@ Result InfoUpdater::UpdateVoicesInt(VoiceContext& voice_context,
 
         auto& voice_info{voice_context.GetInfo(in_param.id)};
 
-        for (u32 channel = 0; channel < in_param.channel_count; channel++) {
+        // FIX: Calculate a safe channel count to prevent out-of-bounds access.
+        const u32 safe_channel_count = std::min(in_param.channel_count, static_cast<u32>(MaxChannels));
+
+        for (u32 channel = 0; channel < safe_channel_count; channel++) {
             voice_states[channel] = &voice_context.GetState(in_param.channel_resource_ids[channel]);
         }
 
         if (in_param.is_new) {
             voice_info.Initialize();
 
-            for (u32 channel = 0; channel < in_param.channel_count; channel++) {
+            // FIX: Use the same safe channel count for this loop.
+            for (u32 channel = 0; channel < safe_channel_count; channel++) {
                 *voice_states[channel] = {};
             }
         }
@@ -184,14 +190,18 @@ Result InfoUpdater::UpdateVoicesFloat(VoiceContext& voice_context,
 
         auto& voice_info{voice_context.GetInfo(in_param.id)};
 
-        for (u32 channel = 0; channel < in_param.channel_count; channel++) {
+        // FIX: Calculate a safe channel count to prevent out-of-bounds access.
+        const u32 safe_channel_count = std::min(in_param.channel_count, static_cast<u32>(MaxChannels));
+
+        for (u32 channel = 0; channel < safe_channel_count; channel++) {
             voice_states[channel] = &voice_context.GetState(in_param.channel_resource_ids[channel]);
         }
 
         if (in_param.is_new) {
             voice_info.Initialize();
 
-            for (u32 channel = 0; channel < in_param.channel_count; channel++) {
+            // FIX: Use the same safe channel count for this loop.
+            for (u32 channel = 0; channel < safe_channel_count; channel++) {
                 *voice_states[channel] = {};
             }
         }
