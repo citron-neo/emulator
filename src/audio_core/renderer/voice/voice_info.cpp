@@ -1,6 +1,8 @@
 // SPDX-FileCopyrightText: Copyright 2022 yuzu Emulator Project
+// SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
+#include <algorithm>
 #include "audio_core/renderer/memory/pool_mapper.h"
 #include "audio_core/renderer/voice/voice_context.h"
 #include "audio_core/renderer/voice/voice_info.h"
@@ -388,7 +390,7 @@ bool VoiceInfo::UpdateForCommandGeneration(VoiceContext& voice_context) {
         is_new = false;
     }
 
-    for (s8 channel = 0; channel < channel_count; channel++) {
+    for (s8 channel = 0; channel < std::min(channel_count, static_cast<s8>(MaxChannels)); channel++) {
         voice_states[channel] = &voice_context.GetDspSharedState(channel_resource_ids[channel]);
     }
 
