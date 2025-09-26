@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: Copyright 2022 yuzu Emulator Project
+// SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <ranges>
@@ -10,14 +11,16 @@ namespace AudioCore::Renderer {
 
 VoiceState& VoiceContext::GetDspSharedState(const u32 index) {
     if (index >= dsp_states.size()) {
-        LOG_ERROR(Service_Audio, "Invalid voice dsp state index {:04X}", index);
+        LOG_CRITICAL(Service_Audio, "Attempted to access invalid voice dsp state index {:04X} (max is {})", index, dsp_states.size() > 0 ? dsp_states.size() - 1 : 0);
+        return dsp_states[0];
     }
     return dsp_states[index];
 }
 
 VoiceChannelResource& VoiceContext::GetChannelResource(const u32 index) {
     if (index >= channel_resources.size()) {
-        LOG_ERROR(Service_Audio, "Invalid voice channel resource index {:04X}", index);
+        LOG_CRITICAL(Service_Audio, "Attempted to access invalid voice channel resource index {:04X} (max is {})", index, channel_resources.size() > 0 ? channel_resources.size() - 1 : 0);
+        return channel_resources[0];
     }
     return channel_resources[index];
 }
@@ -45,14 +48,16 @@ VoiceInfo* VoiceContext::GetSortedInfo(const u32 index) {
 
 VoiceInfo& VoiceContext::GetInfo(const u32 index) {
     if (index >= voices.size()) {
-        LOG_ERROR(Service_Audio, "Invalid voice info index {:04X}", index);
+        LOG_CRITICAL(Service_Audio, "Attempted to access invalid voice info index {:04X} (max is {})", index, voices.size() > 0 ? voices.size() - 1 : 0);
+        return voices[0];
     }
     return voices[index];
 }
 
 VoiceState& VoiceContext::GetState(const u32 index) {
     if (index >= cpu_states.size()) {
-        LOG_ERROR(Service_Audio, "Invalid voice cpu state index {:04X}", index);
+        LOG_CRITICAL(Service_Audio, "Attempted to access invalid voice cpu state index {:04X} (max is {})", index, cpu_states.size() > 0 ? cpu_states.size() - 1 : 0);
+        return cpu_states[0];
     }
     return cpu_states[index];
 }
