@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: 2014 Citra Emulator Project
+// SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <array>
@@ -430,8 +431,8 @@ struct System::Impl {
         kernel.SuspendEmulation(true);
         kernel.CloseServices();
         kernel.ShutdownCores();
-        services.reset();
-        service_manager.reset();
+
+        // FIX: Shut down all major systems BEFORE destroying the ServiceManager.
         fs_controller.Reset();
         cheat_engine.reset();
         telemetry_session.reset();
@@ -440,6 +441,11 @@ struct System::Impl {
         audio_core.reset();
         gpu_core.reset();
         host1x_core.reset();
+
+        // Now it is safe to destroy the services and the ServiceManager.
+        services.reset();
+        service_manager.reset();
+
         perf_stats.reset();
         cpu_manager.Shutdown();
         debugger.reset();
@@ -818,7 +824,7 @@ FileSys::VirtualFilesystem System::GetFilesystem() const {
 }
 
 void System::RegisterCheatList(const std::vector<Memory::CheatEntry>& list,
-                               const std::array<u8, 32>& build_id, u64 main_region_begin,
+                               const std::array<u8, 0x20>& build_id, u64 main_region_begin,
                                u64 main_region_size) {
     impl->cheat_engine = std::make_unique<Memory::CheatEngine>(*this, list, build_id);
     impl->cheat_engine->SetMainMemoryParameters(main_region_begin, main_region_size);
