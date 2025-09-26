@@ -148,7 +148,7 @@ struct System::Impl {
         const bool must_reinitialize =
             is_multicore != Settings::values.use_multi_core.GetValue() ||
             extended_memory_layout != (Settings::values.memory_layout_mode.GetValue() !=
-                                        Settings::MemoryLayout::Memory_4Gb);
+                                       Settings::MemoryLayout::Memory_4Gb);
 
         if (!must_reinitialize) {
             return;
