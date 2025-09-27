@@ -30,6 +30,8 @@ public:
         /* 0x30 */ f32 out_gain;
         /* 0x34 */ ParameterState state;
         /* 0x35 */ bool makeup_gain_enabled;
+        /* 0x36 */ bool statistics_enabled;
+        /* 0x37 */ bool statistics_reset_required;
     };
     static_assert(sizeof(ParameterVersion1) <= sizeof(EffectInfoBase::InParameterVersion1),
                   "CompressorInfo::ParameterVersion1 has the wrong size!");
@@ -50,6 +52,8 @@ public:
         /* 0x30 */ f32 out_gain;
         /* 0x34 */ ParameterState state;
         /* 0x35 */ bool makeup_gain_enabled;
+        /* 0x36 */ bool statistics_enabled;
+        /* 0x37 */ bool statistics_reset_required;
     };
     static_assert(sizeof(ParameterVersion2) <= sizeof(EffectInfoBase::InParameterVersion2),
                   "CompressorInfo::ParameterVersion2 has the wrong size!");
@@ -68,6 +72,14 @@ public:
     };
     static_assert(sizeof(State) <= sizeof(EffectInfoBase::State),
                   "CompressorInfo::State has the wrong size!");
+
+    struct StatisticsInternal {
+        /* 0x00 */ f32 maximum_mean;
+        /* 0x04 */ f32 minimum_gain;
+        /* 0x08 */ std::array<f32, MaxChannels> last_samples;
+    };
+    static_assert(sizeof(StatisticsInternal) == 0x20,
+                  "CompressorInfo::StatisticsInternal has the wrong size!");
 
     /**
      * Update the info with new parameters, version 1.
@@ -93,6 +105,21 @@ public:
      * Update the info after command generation. Usually only changes its state.
      */
     void UpdateForCommandGeneration() override;
+
+    /**
+     * Initialize a new compressor statistics result state. Version 2 only.
+     *
+     * @param result_state - Result state to initialize.
+     */
+    void InitializeResultState(EffectResultState& result_state) override;
+
+    /**
+     * Update the host-side compressor statistics with the ADSP-side one. Version 2 only.
+     *
+     * @param cpu_state - Host-side result state to update.
+     * @param dsp_state - AudioRenderer-side result state to update from.
+     */
+    void UpdateResultState(EffectResultState& cpu_state, EffectResultState& dsp_state) override;
 
     /**
      * Get a workbuffer assigned to this effect with the given index.

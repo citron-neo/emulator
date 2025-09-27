@@ -361,6 +361,23 @@ public:
      */
     bool IsI3dl2ReverbChannelMappingChanged() const;
 
+    /**
+     * Check if compressor statistics are supported.
+     * This allows the compressor effect to output statistics about its processing.
+     *
+     * @return True if supported, otherwise false.
+     */
+    bool IsCompressorStatisticsSupported() const;
+
+    /**
+     * Check if explicit previous mix volume reset is supported for splitters.
+     * This allows splitters to explicitly reset their previous mix volumes instead of
+     * doing so implicitly on first use.
+     *
+     * @return True if supported, otherwise false.
+     */
+    bool IsSplitterPrevVolumeResetSupported() const;
+
     /// Host version
     u32 process_revision;
     /// User version

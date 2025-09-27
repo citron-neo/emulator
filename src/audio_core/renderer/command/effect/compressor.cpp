@@ -45,7 +45,8 @@ static void InitializeCompressorEffect(const CompressorInfo::ParameterVersion2& 
 static void ApplyCompressorEffect(const CompressorInfo::ParameterVersion2& params,
                                   CompressorInfo::State& state, bool enabled,
                                   std::span<std::span<const s32>> input_buffers,
-                                  std::span<std::span<s32>> output_buffers, u32 sample_count) {
+                                  std::span<std::span<s32>> output_buffers, u32 sample_count,
+                                  CompressorInfo::StatisticsInternal* statistics = nullptr) {
     if (enabled) {
         auto state_00{state.unk_00};
         auto state_04{state.unk_04};
@@ -94,6 +95,15 @@ static void ApplyCompressorEffect(const CompressorInfo::ParameterVersion2& param
                 output_buffers[channel][i] = static_cast<s32>(
                     static_cast<f32>(input_buffers[channel][i]) * state_08 * state.unk_20);
             }
+
+            // Update statistics if enabled
+            if (statistics) {
+                statistics->maximum_mean = std::max(statistics->maximum_mean, a / params.channel_count);
+                statistics->minimum_gain = std::min(statistics->minimum_gain, state_08 * state.unk_20);
+                for (s16 channel = 0; channel < params.channel_count; channel++) {
+                    statistics->last_samples[channel] = std::abs(static_cast<f32>(input_buffers[channel][i]) / 32768.0f);
+                }
+            }
         }
 
         state.unk_00 = state_00;
@@ -135,6 +145,7 @@ void CompressorCommand::Process(const AudioRenderer::CommandListProcessor& proce
     }
 
     auto state_{reinterpret_cast<CompressorInfo::State*>(state)};
+    CompressorInfo::StatisticsInternal* statistics{nullptr};
 
     if (effect_enabled) {
         if (parameter.state == CompressorInfo::ParameterState::Updating) {
@@ -142,10 +153,20 @@ void CompressorCommand::Process(const AudioRenderer::CommandListProcessor& proce
         } else if (parameter.state == CompressorInfo::ParameterState::Initialized) {
             InitializeCompressorEffect(parameter, *state_);
         }
+
+        // Handle statistics if enabled
+        if (parameter.statistics_enabled && result_state != 0) {
+            statistics = reinterpret_cast<CompressorInfo::StatisticsInternal*>(result_state);
+            if (parameter.statistics_reset_required) {
+                statistics->maximum_mean = 0.0f;
+                statistics->minimum_gain = 1.0f;
+                statistics->last_samples.fill(0.0f);
+            }
+        }
     }
 
     ApplyCompressorEffect(parameter, *state_, effect_enabled, input_buffers, output_buffers,
-                          processor.sample_count);
+                          processor.sample_count, statistics);
 }
 
 bool CompressorCommand::Verify(const AudioRenderer::CommandListProcessor& processor) {
