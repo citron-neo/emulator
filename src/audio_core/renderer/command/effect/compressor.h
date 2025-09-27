@@ -54,6 +54,8 @@ struct CompressorCommand : ICommand {
     CpuAddr state;
     /// Game-supplied workbuffer (Unused)
     CpuAddr workbuffer;
+    /// Result state for statistics
+    CpuAddr result_state;
     /// Is this effect enabled?
     bool effect_enabled;
 };

@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include <map>
 #include <string_view>
 
 #include "audio_core/audio_render_manager.h"
@@ -64,6 +65,63 @@ public:
      * @return Volume of the device.
      */
     f32 GetDeviceVolume(std::string_view name) const;
+
+    /**
+     * Acquire audio output device notification. REV13+.
+     *
+     * @param event_handle - Output event handle.
+     * @param device_id - Device ID to acquire notification for.
+     * @return Result code.
+     */
+    Result AcquireAudioOutputDeviceNotification(u32& event_handle, u64 device_id) const;
+
+    /**
+     * Release audio output device notification. REV13+.
+     *
+     * @param device_id - Device ID to release notification for.
+     * @return Result code.
+     */
+    Result ReleaseAudioOutputDeviceNotification(u64 device_id) const;
+
+    /**
+     * Acquire audio input device notification. REV13+.
+     *
+     * @param event_handle - Output event handle.
+     * @param device_id - Device ID to acquire notification for.
+     * @return Result code.
+     */
+    Result AcquireAudioInputDeviceNotification(u32& event_handle, u64 device_id) const;
+
+    /**
+     * Release audio input device notification. REV13+.
+     *
+     * @param device_id - Device ID to release notification for.
+     * @return Result code.
+     */
+    Result ReleaseAudioInputDeviceNotification(u64 device_id) const;
+
+    /**
+     * Set audio device output volume auto tune enabled. REV13+.
+     *
+     * @param enabled - Whether auto tune is enabled.
+     * @return Result code.
+     */
+    Result SetAudioDeviceOutputVolumeAutoTuneEnabled(bool enabled) const;
+
+    /**
+     * Check if audio device output volume auto tune is enabled. REV13+.
+     *
+     * @param enabled - Output whether auto tune is enabled.
+     * @return Result code.
+     */
+    Result IsAudioDeviceOutputVolumeAutoTuneEnabled(bool& enabled) const;
+
+private:
+    /// Track device notifications
+    mutable std::map<u64, bool> output_device_notifications{};
+    mutable std::map<u64, bool> input_device_notifications{};
+    /// Auto tune enabled state
+    mutable bool auto_tune_enabled{false};
 
 private:
     /// Backend output sink for the device

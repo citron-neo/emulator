@@ -168,10 +168,11 @@ private:
      * @param splitter_destinations - Workbuffer for splitter destinations.
      * @param destination_count     - Number of destinations in the workbuffer.
      * @param splitter_bug_fixed    - Is the splitter bug fixed?
+     * @param behavior               - Behavior info for feature support.
      */
     void Setup(std::span<SplitterInfo> splitter_infos, u32 splitter_info_count,
                SplitterDestinationData* splitter_destinations, u32 destination_count,
-               bool splitter_bug_fixed);
+               bool splitter_bug_fixed, const BehaviorInfo& behavior);
 
     /// Workbuffer for splitters
     std::span<SplitterInfo> splitter_infos{};
@@ -183,6 +184,8 @@ private:
     s32 destinations_count{};
     /// Is the splitter bug fixed?
     bool splitter_bug_fixed{};
+    /// Is explicit previous mix volume reset supported?
+    bool splitter_prev_volume_reset_supported{};
 };
 
 } // namespace Renderer

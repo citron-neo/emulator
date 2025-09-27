@@ -22,6 +22,7 @@ public:
         /* 0x08 */ std::array<f32, MaxMixBuffers> mix_volumes;
         /* 0x68 */ u32 mix_id;
         /* 0x6C */ bool in_use;
+        /* 0x6D */ bool reset_prev_volume;
     };
     static_assert(sizeof(InParameter) == 0x70,
                   "SplitterDestinationData::InParameter has the wrong size!");

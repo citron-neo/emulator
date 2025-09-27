@@ -32,12 +32,14 @@ SplitterDestinationData& SplitterContext::GetData(const u32 index) {
 
 void SplitterContext::Setup(std::span<SplitterInfo> splitter_infos_, const u32 splitter_info_count_,
                             SplitterDestinationData* splitter_destinations_,
-                            const u32 destination_count_, const bool splitter_bug_fixed_) {
+                            const u32 destination_count_, const bool splitter_bug_fixed_,
+                            const BehaviorInfo& behavior) {
     splitter_infos = splitter_infos_;
     info_count = splitter_info_count_;
     splitter_destinations = splitter_destinations_;
     destinations_count = destination_count_;
     splitter_bug_fixed = splitter_bug_fixed_;
+    splitter_prev_volume_reset_supported = behavior.IsSplitterPrevVolumeResetSupported();
 }
 
 bool SplitterContext::UsingSplitter() const {
@@ -81,7 +83,7 @@ bool SplitterContext::Initialize(const BehaviorInfo& behavior,
         }
 
         Setup(splitter_infos, params.splitter_infos, splitter_destinations,
-              params.splitter_destinations, behavior.IsSplitterBugFixed());
+              params.splitter_destinations, behavior.IsSplitterBugFixed(), behavior);
     }
     return true;
 }
@@ -145,7 +147,13 @@ u32 SplitterContext::UpdateData(const u8* input, u32 offset, const u32 count) {
             continue;
         }
 
-        splitter_destinations[data_header->id].Update(*data_header);
+        // Create a modified parameter that respects the behavior support
+        auto modified_params = *data_header;
+        if (!splitter_prev_volume_reset_supported) {
+            modified_params.reset_prev_volume = false;
+        }
+
+        splitter_destinations[data_header->id].Update(modified_params);
         offset += sizeof(SplitterDestinationData::InParameter);
     }
 
