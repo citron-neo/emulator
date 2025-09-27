@@ -410,6 +410,7 @@ std::unique_ptr<ComboboxTranslationMap> ComboboxEnumeration(QWidget* parent) {
                               PAIR(AntiAliasing, None, tr("None")),
                               PAIR(AntiAliasing, Fxaa, tr("FXAA")),
                               PAIR(AntiAliasing, Smaa, tr("SMAA")),
+                              PAIR(AntiAliasing, Taa, tr("TAA")),
                           }});
     translations->insert({Settings::EnumMetadata<Settings::FSR2QualityMode>::Index(),
                           {
