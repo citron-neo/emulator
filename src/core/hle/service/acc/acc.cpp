@@ -570,6 +570,44 @@ protected:
     }
 };
 
+class AuthenticateApplicationAsyncInterface final : public IAsyncContext {
+public:
+    explicit AuthenticateApplicationAsyncInterface(Core::System& system_) : IAsyncContext{system_} {
+        MarkComplete();
+    }
+    ~AuthenticateApplicationAsyncInterface() = default;
+
+protected:
+    bool IsComplete() const override {
+        return true;
+    }
+
+    void Cancel() override {}
+
+    Result GetResult() const override {
+        return ResultSuccess;
+    }
+};
+
+class CheckNetworkServiceAvailabilityAsyncInterface final : public IAsyncContext {
+public:
+    explicit CheckNetworkServiceAvailabilityAsyncInterface(Core::System& system_) : IAsyncContext{system_} {
+        MarkComplete();
+    }
+    ~CheckNetworkServiceAvailabilityAsyncInterface() = default;
+
+protected:
+    bool IsComplete() const override {
+        return true;
+    }
+
+    void Cancel() override {}
+
+    Result GetResult() const override {
+        return ResultSuccess;
+    }
+};
+
 class IManagerForApplication final : public ServiceFramework<IManagerForApplication> {
 public:
     explicit IManagerForApplication(Core::System& system_,
@@ -789,6 +827,20 @@ void Module::Interface::GetProfile(HLERequestContext& ctx) {
     rb.PushIpcInterface<IProfile>(system, user_id, *profile_manager);
 }
 
+void Module::Interface::GetProfileDigest(HLERequestContext& ctx) {
+    IPC::RequestParser rp{ctx};
+    Common::UUID user_id = rp.PopRaw<Common::UUID>();
+    LOG_DEBUG(Service_ACC, "called user_id=0x{}", user_id.RawString());
+
+    // Return a dummy digest for now
+    std::array<u8, 0x20> digest{};
+    std::fill(digest.begin(), digest.end(), static_cast<u8>(0));
+
+    ctx.WriteBuffer(digest);
+    IPC::ResponseBuilder rb{ctx, 2};
+    rb.Push(ResultSuccess);
+}
+
 void Module::Interface::IsUserRegistrationRequestPermitted(HLERequestContext& ctx) {
     LOG_WARNING(Service_ACC, "(STUBBED) called");
     IPC::ResponseBuilder rb{ctx, 3};
@@ -858,6 +910,22 @@ void Module::Interface::GetBaasAccountManagerForApplication(HLERequestContext& c
     IPC::ResponseBuilder rb{ctx, 2, 0, 1};
     rb.Push(ResultSuccess);
     rb.PushIpcInterface<IManagerForApplication>(system, profile_manager);
+}
+
+void Module::Interface::AuthenticateApplicationAsync(HLERequestContext& ctx) {
+    LOG_WARNING(Service_ACC, "(STUBBED) called");
+
+    IPC::ResponseBuilder rb{ctx, 2, 0, 1};
+    rb.Push(ResultSuccess);
+    rb.PushIpcInterface<AuthenticateApplicationAsyncInterface>(system);
+}
+
+void Module::Interface::CheckNetworkServiceAvailabilityAsync(HLERequestContext& ctx) {
+    LOG_WARNING(Service_ACC, "(STUBBED) called");
+
+    IPC::ResponseBuilder rb{ctx, 2, 0, 1};
+    rb.Push(ResultSuccess);
+    rb.PushIpcInterface<CheckNetworkServiceAvailabilityAsyncInterface>(system);
 }
 
 void Module::Interface::IsUserAccountSwitchLocked(HLERequestContext& ctx) {
@@ -958,6 +1026,42 @@ void Module::Interface::StoreSaveDataThumbnailApplication(HLERequestContext& ctx
     // being.
     constexpr u64 tid{1};
     StoreSaveDataThumbnail(ctx, uuid, tid);
+}
+
+void Module::Interface::ClearSaveDataThumbnail(HLERequestContext& ctx) {
+    LOG_WARNING(Service_ACC, "(STUBBED) called");
+
+    IPC::ResponseBuilder rb{ctx, 2};
+    rb.Push(ResultSuccess);
+}
+
+void Module::Interface::CreateGuestLoginRequest(HLERequestContext& ctx) {
+    LOG_WARNING(Service_ACC, "(STUBBED) called");
+
+    // Create a dummy UUID for the guest login request
+    const Common::UUID dummy_uuid{};
+
+    IPC::ResponseBuilder rb{ctx, 2, 0, 1};
+    rb.Push(ResultSuccess);
+    rb.PushIpcInterface<IGuestLoginRequest>(system, dummy_uuid);
+}
+
+void Module::Interface::LoadOpenContext(HLERequestContext& ctx) {
+    LOG_WARNING(Service_ACC, "(STUBBED) called");
+
+    IPC::ResponseBuilder rb{ctx, 2};
+    rb.Push(ResultSuccess);
+}
+
+void Module::Interface::DebugActivateOpenContextRetention(HLERequestContext& ctx) {
+    LOG_WARNING(Service_ACC, "(STUBBED) called");
+
+    // Create a dummy UUID for the session object
+    const Common::UUID dummy_uuid{};
+
+    IPC::ResponseBuilder rb{ctx, 2, 0, 1};
+    rb.Push(ResultSuccess);
+    rb.PushIpcInterface<ISessionObject>(system, dummy_uuid);
 }
 
 void Module::Interface::GetBaasAccountManagerForSystemService(HLERequestContext& ctx) {
