@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: Copyright 2018 yuzu Emulator Project
+// SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #pragma once
@@ -26,9 +27,12 @@ public:
         void ListOpenUsers(HLERequestContext& ctx);
         void GetLastOpenedUser(HLERequestContext& ctx);
         void GetProfile(HLERequestContext& ctx);
+        void GetProfileDigest(HLERequestContext& ctx);
         void InitializeApplicationInfo(HLERequestContext& ctx);
         void InitializeApplicationInfoRestricted(HLERequestContext& ctx);
         void GetBaasAccountManagerForApplication(HLERequestContext& ctx);
+        void AuthenticateApplicationAsync(HLERequestContext& ctx);
+        void CheckNetworkServiceAvailabilityAsync(HLERequestContext& ctx);
         void IsUserRegistrationRequestPermitted(HLERequestContext& ctx);
         void TrySelectUserWithoutInteraction(HLERequestContext& ctx);
         void IsUserAccountSwitchLocked(HLERequestContext& ctx);
@@ -39,6 +43,10 @@ public:
         void ListQualifiedUsers(HLERequestContext& ctx);
         void ListOpenContextStoredUsers(HLERequestContext& ctx);
         void StoreSaveDataThumbnailApplication(HLERequestContext& ctx);
+        void ClearSaveDataThumbnail(HLERequestContext& ctx);
+        void CreateGuestLoginRequest(HLERequestContext& ctx);
+        void LoadOpenContext(HLERequestContext& ctx);
+        void DebugActivateOpenContextRetention(HLERequestContext& ctx);
         void GetBaasAccountManagerForSystemService(HLERequestContext& ctx);
         void StoreSaveDataThumbnailSystem(HLERequestContext& ctx);
 
