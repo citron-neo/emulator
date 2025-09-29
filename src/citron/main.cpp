@@ -4428,13 +4428,19 @@ void GMainWindow::OnToggleStatusBar() {
 
 void GMainWindow::OnTogglePerformanceOverlay() {
     if (performance_overlay) {
-        performance_overlay->SetVisible(ui->action_Show_Performance_Overlay->isChecked());
+        const bool is_checked = ui->action_Show_Performance_Overlay->isChecked();
+        performance_overlay->SetVisible(is_checked);
+
+        UISettings::values.show_performance_overlay = is_checked;
     }
 }
 
 void GMainWindow::OnToggleVramOverlay() {
     if (vram_overlay) {
-        vram_overlay->SetVisible(ui->action_Show_Vram_Overlay->isChecked());
+        const bool is_checked = ui->action_Show_Vram_Overlay->isChecked();
+        vram_overlay->SetVisible(is_checked);
+
+        UISettings::values.show_vram_overlay = is_checked;
     }
 }
 
@@ -5527,6 +5533,11 @@ int main(int argc, char* argv[]) {
     QCoreApplication::setAttribute(Qt::AA_DontCheckOpenGLContextThreadAffinity);
 
     QApplication app(argc, argv);
+#ifdef __linux__
+    if (QGuiApplication::platformName().startsWith(QStringLiteral("wayland"))) {
+        Settings::values.is_wayland_platform.SetValue(true);
+    }
+#endif
 
     #ifdef CITRON_USE_AUTO_UPDATER
     // Check for and apply staged updates before starting the main application
