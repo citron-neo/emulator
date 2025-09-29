@@ -1,6 +1,9 @@
 // SPDX-FileCopyrightText: 2016 Citra Emulator Project
+// SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
+#include <QCheckBox>
+#include <QGuiApplication>
 #include <functional>
 #include <utility>
 #include <vector>
@@ -54,9 +57,9 @@ void ConfigureGeneral::Setup(const ConfigurationShared::Builder& builder) {
     push(Settings::values.linkage.by_category[Settings::Category::Linux]);
 
     // Only show Linux group on Unix
-#ifndef __unix__
+    #ifndef __unix__
     ui->LinuxGroupBox->setVisible(false);
-#endif
+    #endif
 
     for (const auto setting : settings) {
         auto* widget = builder.BuildWidget(setting, apply_funcs);
@@ -70,14 +73,14 @@ void ConfigureGeneral::Setup(const ConfigurationShared::Builder& builder) {
         }
 
         switch (setting->GetCategory()) {
-        case Settings::Category::UiGeneral:
-            general_hold.emplace(setting->Id(), widget);
-            break;
-        case Settings::Category::Linux:
-            linux_hold.emplace(setting->Id(), widget);
-            break;
-        default:
-            widget->deleteLater();
+            case Settings::Category::UiGeneral:
+                general_hold.emplace(setting->Id(), widget);
+                break;
+            case Settings::Category::Linux:
+                linux_hold.emplace(setting->Id(), widget);
+                break;
+            default:
+                widget->deleteLater();
         }
     }
 
@@ -87,6 +90,27 @@ void ConfigureGeneral::Setup(const ConfigurationShared::Builder& builder) {
     for (const auto& [id, widget] : linux_hold) {
         linux_layout.addWidget(widget);
     }
+
+    // --- Manually add Wayland setting to the Linux UI group ---
+    #ifdef __linux__
+    // This logic only runs if the user is on a Wayland session.
+    if (QGuiApplication::platformName().startsWith(QStringLiteral("wayland"))) {
+        // Create a new, clean checkbox.
+        auto wayland_checkbox = new QCheckBox(tr("Enable Wayland Performance Optimizations"));
+        wayland_checkbox->setToolTip(tr("Use Wayland-specific presentation modes to reduce input latency and improve smoothness."));
+
+        // Set its initial checked state from our hidden setting.
+        wayland_checkbox->setChecked(Settings::values.is_wayland_platform.GetValue());
+
+        // Connect the checkbox so it toggles our hidden setting.
+        connect(wayland_checkbox, &QCheckBox::toggled, this, [](bool checked) {
+            Settings::values.is_wayland_platform.SetValue(checked);
+        });
+
+        // Add our new, clean checkbox to the Linux layout.
+        linux_layout.addWidget(wayland_checkbox);
+    }
+    #endif
 }
 
 // Called to set the callback when resetting settings to defaults
