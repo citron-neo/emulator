@@ -1446,10 +1446,10 @@ void GMainWindow::RestoreUIState() {
     restoreState(UISettings::values.state);
     render_window->setWindowFlags(render_window->windowFlags() & ~Qt::FramelessWindowHint);
     render_window->restoreGeometry(UISettings::values.renderwindow_geometry);
-#if MICROPROFILE_ENABLED
+    #if MICROPROFILE_ENABLED
     microProfileDialog->restoreGeometry(UISettings::values.microprofile_geometry);
     microProfileDialog->setVisible(UISettings::values.microprofile_visible.GetValue());
-#endif
+    #endif
 
     game_list->LoadInterfaceLayout();
 
@@ -1469,15 +1469,19 @@ void GMainWindow::RestoreUIState() {
 
     ui->action_Show_Status_Bar->setChecked(UISettings::values.show_status_bar.GetValue());
     statusBar()->setVisible(ui->action_Show_Status_Bar->isChecked());
-    ui->action_Show_Performance_Overlay->setChecked(UISettings::values.show_performance_overlay.GetValue());
+
+    // Force the performance overlay to be off on startup
+    ui->action_Show_Performance_Overlay->setChecked(false);
     if (performance_overlay) {
-        performance_overlay->SetVisible(ui->action_Show_Performance_Overlay->isChecked());
+        performance_overlay->SetVisible(false);
     }
 
-    ui->action_Show_Vram_Overlay->setChecked(UISettings::values.show_vram_overlay.GetValue());
+    // Force the VRAM overlay to be off on startup
+    ui->action_Show_Vram_Overlay->setChecked(false);
     if (vram_overlay) {
-        vram_overlay->SetVisible(ui->action_Show_Vram_Overlay->isChecked());
+        vram_overlay->SetVisible(false);
     }
+
     Debugger::ToggleConsole();
 }
 
@@ -4930,10 +4934,10 @@ void GMainWindow::UpdateUISettings() {
         UISettings::values.renderwindow_geometry = render_window->saveGeometry();
     }
     UISettings::values.state = saveState();
-#if MICROPROFILE_ENABLED
+    #if MICROPROFILE_ENABLED
     UISettings::values.microprofile_geometry = microProfileDialog->saveGeometry();
     UISettings::values.microprofile_visible = microProfileDialog->isVisible();
-#endif
+    #endif
     UISettings::values.single_window_mode = ui->action_Single_Window_Mode->isChecked();
     UISettings::values.fullscreen = ui->action_Fullscreen->isChecked();
     UISettings::values.display_titlebar = ui->action_Display_Dock_Widget_Headers->isChecked();
