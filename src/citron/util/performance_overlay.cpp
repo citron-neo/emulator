@@ -12,6 +12,9 @@
 #include <numeric>
 #include <cstdlib>
 
+#include <QtGlobal>
+#include <QWindow>
+
 #include "citron/main.h"
 #include "citron/util/performance_overlay.h"
 #include "core/core.h"
@@ -105,6 +108,26 @@ void PerformanceOverlay::resizeEvent(QResizeEvent* event) {
     UpdatePosition();
 }
 
+#if defined(Q_OS_LINUX)
+// LINUX-SPECIFIC IMPLEMENTATION (Wayland Fix)
+void PerformanceOverlay::mousePressEvent(QMouseEvent* event) {
+    if (event->button() == Qt::LeftButton) {
+        // Hand off window moving responsibility to the OS compositor.
+        if (windowHandle()) {
+            windowHandle()->startSystemMove();
+        }
+    }
+    QWidget::mousePressEvent(event);
+}
+
+void PerformanceOverlay::mouseMoveEvent(QMouseEvent* event) {
+    // This function is intentionally left blank for dragging, as the
+    // system compositor now handles the entire move operation.
+    QWidget::mouseMoveEvent(event);
+}
+
+#else
+// ORIGINAL IMPLEMENTATION
 void PerformanceOverlay::mousePressEvent(QMouseEvent* event) {
     if (event->button() == Qt::LeftButton) {
         is_dragging = true;
@@ -122,6 +145,7 @@ void PerformanceOverlay::mouseMoveEvent(QMouseEvent* event) {
     }
     QWidget::mouseMoveEvent(event);
 }
+#endif
 
 void PerformanceOverlay::mouseReleaseEvent(QMouseEvent* event) {
     if (event->button() == Qt::LeftButton) {
@@ -131,6 +155,7 @@ void PerformanceOverlay::mouseReleaseEvent(QMouseEvent* event) {
     }
     QWidget::mouseReleaseEvent(event);
 }
+
 
 void PerformanceOverlay::UpdatePerformanceStats() {
     if (!main_window) {
