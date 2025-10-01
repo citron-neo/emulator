@@ -521,6 +521,7 @@ struct Values {
                                                    true};
 
     // Linux
+    Setting<bool, false> is_wayland_platform{linkage, false, "is_wayland_platform", Category::Miscellaneous, Specialization::Default, false};
     SwitchableSetting<bool> enable_gamemode{linkage, true, "enable_gamemode", Category::Linux};
 
     // Controls
