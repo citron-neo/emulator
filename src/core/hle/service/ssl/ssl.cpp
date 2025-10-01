@@ -2,6 +2,8 @@
 // SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
+#include <cstring>
+
 #include "common/string_util.h"
 
 #include "core/core.h"
@@ -85,29 +87,29 @@ public:
             {10, &ISslConnection::Read, "Read"},
             {11, &ISslConnection::Write, "Write"},
             {12, &ISslConnection::Pending, "Pending"},
-            {13, nullptr, "Peek"},
-            {14, nullptr, "Poll"},
-            {15, nullptr, "GetVerifyCertError"},
-            {16, nullptr, "GetNeededServerCertBufferSize"},
+            {13, &ISslConnection::Peek, "Peek"},
+            {14, &ISslConnection::Poll, "Poll"},
+            {15, &ISslConnection::GetVerifyCertError, "GetVerifyCertError"},
+            {16, &ISslConnection::GetNeededServerCertBufferSize, "GetNeededServerCertBufferSize"},
             {17, &ISslConnection::SetSessionCacheMode, "SetSessionCacheMode"},
-            {18, nullptr, "GetSessionCacheMode"},
-            {19, nullptr, "FlushSessionCache"},
-            {20, nullptr, "SetRenegotiationMode"},
-            {21, nullptr, "GetRenegotiationMode"},
+            {18, &ISslConnection::GetSessionCacheMode, "GetSessionCacheMode"},
+            {19, &ISslConnection::FlushSessionCache, "FlushSessionCache"},
+            {20, &ISslConnection::SetRenegotiationMode, "SetRenegotiationMode"},
+            {21, &ISslConnection::GetRenegotiationMode, "GetRenegotiationMode"},
             {22, &ISslConnection::SetOption, "SetOption"},
-            {23, nullptr, "GetOption"},
-            {24, nullptr, "GetVerifyCertErrors"},
-            {25, nullptr, "GetCipherInfo"},
-            {26, nullptr, "SetNextAlpnProto"},
-            {27, nullptr, "GetNextAlpnProto"},
-            {28, nullptr, "SetDtlsSocketDescriptor"},
-            {29, nullptr, "GetDtlsHandshakeTimeout"},
-            {30, nullptr, "SetPrivateOption"},
-            {31, nullptr, "SetSrtpCiphers"},
-            {32, nullptr, "GetSrtpCipher"},
-            {33, nullptr, "ExportKeyingMaterial"},
-            {34, nullptr, "SetIoTimeout"},
-            {35, nullptr, "GetIoTimeout"},
+            {23, &ISslConnection::GetOption, "GetOption"},
+            {24, &ISslConnection::GetVerifyCertErrors, "GetVerifyCertErrors"},
+            {25, &ISslConnection::GetCipherInfo, "GetCipherInfo"},
+            {26, &ISslConnection::SetNextAlpnProto, "SetNextAlpnProto"},
+            {27, &ISslConnection::GetNextAlpnProto, "GetNextAlpnProto"},
+            {28, &ISslConnection::SetDtlsSocketDescriptor, "SetDtlsSocketDescriptor"},
+            {29, &ISslConnection::GetDtlsHandshakeTimeout, "GetDtlsHandshakeTimeout"},
+            {30, &ISslConnection::SetPrivateOption, "SetPrivateOption"},
+            {31, &ISslConnection::SetSrtpCiphers, "SetSrtpCiphers"},
+            {32, &ISslConnection::GetSrtpCipher, "GetSrtpCipher"},
+            {33, &ISslConnection::ExportKeyingMaterial, "ExportKeyingMaterial"},
+            {34, &ISslConnection::SetIoTimeout, "SetIoTimeout"},
+            {35, &ISslConnection::GetIoTimeout, "GetIoTimeout"},
         };
         // clang-format on
 
@@ -424,6 +426,223 @@ private:
 
         IPC::ResponseBuilder rb{ctx, 2};
         rb.Push(ResultSuccess);
+    }
+
+    void Peek(HLERequestContext& ctx) {
+        LOG_WARNING(Service_SSL, "(STUBBED) called");
+
+        IPC::ResponseBuilder rb{ctx, 3};
+        rb.Push(ResultSuccess);
+        rb.Push<s32>(0); // Stub: no data available to peek
+    }
+
+    void Poll(HLERequestContext& ctx) {
+        IPC::RequestParser rp{ctx};
+        const u32 poll_event = rp.Pop<u32>();
+
+        LOG_WARNING(Service_SSL, "(STUBBED) called, poll_event={}", poll_event);
+
+        IPC::ResponseBuilder rb{ctx, 3};
+        rb.Push(ResultSuccess);
+        rb.Push<s32>(0); // Stub: no events ready
+    }
+
+    void GetVerifyCertError(HLERequestContext& ctx) {
+        LOG_WARNING(Service_SSL, "(STUBBED) called");
+
+        IPC::ResponseBuilder rb{ctx, 3};
+        rb.Push(ResultSuccess);
+        rb.Push<u32>(0); // Stub: no certificate errors
+    }
+
+    void GetNeededServerCertBufferSize(HLERequestContext& ctx) {
+        LOG_WARNING(Service_SSL, "(STUBBED) called");
+
+        IPC::ResponseBuilder rb{ctx, 3};
+        rb.Push(ResultSuccess);
+        rb.Push<u32>(0x1000); // Stub: 4KB buffer size
+    }
+
+    void GetSessionCacheMode(HLERequestContext& ctx) {
+        LOG_WARNING(Service_SSL, "(STUBBED) called");
+
+        IPC::ResponseBuilder rb{ctx, 3};
+        rb.Push(ResultSuccess);
+        rb.Push<u32>(0); // Stub: default session cache mode
+    }
+
+    void FlushSessionCache(HLERequestContext& ctx) {
+        LOG_WARNING(Service_SSL, "(STUBBED) called");
+
+        IPC::ResponseBuilder rb{ctx, 2};
+        rb.Push(ResultSuccess);
+    }
+
+    void SetRenegotiationMode(HLERequestContext& ctx) {
+        IPC::RequestParser rp{ctx};
+        const u32 mode = rp.Pop<u32>();
+
+        LOG_WARNING(Service_SSL, "(STUBBED) called, mode={}", mode);
+
+        IPC::ResponseBuilder rb{ctx, 2};
+        rb.Push(ResultSuccess);
+    }
+
+    void GetRenegotiationMode(HLERequestContext& ctx) {
+        LOG_WARNING(Service_SSL, "(STUBBED) called");
+
+        IPC::ResponseBuilder rb{ctx, 3};
+        rb.Push(ResultSuccess);
+        rb.Push<u32>(0); // Stub: default renegotiation mode
+    }
+
+    void GetOption(HLERequestContext& ctx) {
+        IPC::RequestParser rp{ctx};
+        const auto option = rp.PopEnum<OptionType>();
+
+        LOG_WARNING(Service_SSL, "(STUBBED) called, option={}", option);
+
+        IPC::ResponseBuilder rb{ctx, 3};
+        rb.Push(ResultSuccess);
+        rb.Push<s32>(0); // Stub: default option value
+    }
+
+    void GetVerifyCertErrors(HLERequestContext& ctx) {
+        LOG_WARNING(Service_SSL, "(STUBBED) called");
+
+        // Write empty error array to buffer
+        ctx.WriteBuffer(std::span<const u8>{});
+
+        IPC::ResponseBuilder rb{ctx, 3};
+        rb.Push(ResultSuccess);
+        rb.Push<u32>(0); // Stub: no certificate errors
+    }
+
+    void GetCipherInfo(HLERequestContext& ctx) {
+        LOG_WARNING(Service_SSL, "(STUBBED) called");
+
+        // CipherInfo structure is 0x48 bytes
+        struct CipherInfo {
+            std::array<char, 0x40> cipher_name;
+            std::array<char, 0x8> protocol_version;
+        };
+
+        CipherInfo cipher_info{};
+        std::strcpy(cipher_info.cipher_name.data(), "TLS_RSA_WITH_AES_128_CBC_SHA");
+        std::strcpy(cipher_info.protocol_version.data(), "TLSv1.2");
+
+        ctx.WriteBuffer(cipher_info);
+
+        IPC::ResponseBuilder rb{ctx, 2};
+        rb.Push(ResultSuccess);
+    }
+
+    void SetNextAlpnProto(HLERequestContext& ctx) {
+        const auto alpn_data = ctx.ReadBuffer();
+
+        LOG_WARNING(Service_SSL, "(STUBBED) called, alpn_data_size={}", alpn_data.size());
+
+        IPC::ResponseBuilder rb{ctx, 2};
+        rb.Push(ResultSuccess);
+    }
+
+    void GetNextAlpnProto(HLERequestContext& ctx) {
+        LOG_WARNING(Service_SSL, "(STUBBED) called");
+
+        struct AlpnProtoInfo {
+            u32 state;         // AlpnProtoState
+            u32 proto_size;
+        };
+
+        AlpnProtoInfo info{};
+        info.state = 0; // NoSupport
+        info.proto_size = 0;
+
+        // Write empty protocol string to buffer
+        ctx.WriteBuffer(std::span<const u8>{});
+
+        IPC::ResponseBuilder rb{ctx, 4};
+        rb.Push(ResultSuccess);
+        rb.Push(info.state);
+        rb.Push(info.proto_size);
+    }
+
+    void SetDtlsSocketDescriptor(HLERequestContext& ctx) {
+        IPC::RequestParser rp{ctx};
+        const s32 fd = rp.Pop<s32>();
+
+        LOG_WARNING(Service_SSL, "(STUBBED) called, fd={}", fd);
+
+        IPC::ResponseBuilder rb{ctx, 2};
+        rb.Push(ResultSuccess);
+    }
+
+    void GetDtlsHandshakeTimeout(HLERequestContext& ctx) {
+        LOG_WARNING(Service_SSL, "(STUBBED) called");
+
+        IPC::ResponseBuilder rb{ctx, 3};
+        rb.Push(ResultSuccess);
+        rb.Push<u32>(10000); // Stub: 10 second timeout in milliseconds
+    }
+
+    void SetPrivateOption(HLERequestContext& ctx) {
+        IPC::RequestParser rp{ctx};
+        const u32 option = rp.Pop<u32>();
+        const s32 value = rp.Pop<s32>();
+
+        LOG_WARNING(Service_SSL, "(STUBBED) called, option={}, value={}", option, value);
+
+        IPC::ResponseBuilder rb{ctx, 2};
+        rb.Push(ResultSuccess);
+    }
+
+    void SetSrtpCiphers(HLERequestContext& ctx) {
+        const auto cipher_data = ctx.ReadBuffer();
+
+        LOG_WARNING(Service_SSL, "(STUBBED) called, cipher_data_size={}", cipher_data.size());
+
+        IPC::ResponseBuilder rb{ctx, 2};
+        rb.Push(ResultSuccess);
+    }
+
+    void GetSrtpCipher(HLERequestContext& ctx) {
+        LOG_WARNING(Service_SSL, "(STUBBED) called");
+
+        // Write empty cipher to buffer
+        ctx.WriteBuffer(std::span<const u8>{});
+
+        IPC::ResponseBuilder rb{ctx, 3};
+        rb.Push(ResultSuccess);
+        rb.Push<u32>(0); // Stub: no cipher selected
+    }
+
+    void ExportKeyingMaterial(HLERequestContext& ctx) {
+        LOG_WARNING(Service_SSL, "(STUBBED) called");
+
+        // Write stub keying material to buffer
+        const std::vector<u8> stub_material(ctx.GetWriteBufferSize(), 0);
+        ctx.WriteBuffer(stub_material);
+
+        IPC::ResponseBuilder rb{ctx, 2};
+        rb.Push(ResultSuccess);
+    }
+
+    void SetIoTimeout(HLERequestContext& ctx) {
+        IPC::RequestParser rp{ctx};
+        const u32 timeout_ms = rp.Pop<u32>();
+
+        LOG_WARNING(Service_SSL, "(STUBBED) called, timeout_ms={}", timeout_ms);
+
+        IPC::ResponseBuilder rb{ctx, 2};
+        rb.Push(ResultSuccess);
+    }
+
+    void GetIoTimeout(HLERequestContext& ctx) {
+        LOG_WARNING(Service_SSL, "(STUBBED) called");
+
+        IPC::ResponseBuilder rb{ctx, 3};
+        rb.Push(ResultSuccess);
+        rb.Push<u32>(30000); // Stub: 30 second timeout in milliseconds
     }
 };
 
