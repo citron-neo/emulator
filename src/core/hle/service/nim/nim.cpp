@@ -14,6 +14,71 @@
 
 namespace Service::NIM {
 
+class IAsyncValue final : public ServiceFramework<IAsyncValue> {
+public:
+    explicit IAsyncValue(Core::System& system_) : ServiceFramework{system_, "IAsyncValue"} {
+        // clang-format off
+        static const FunctionInfo functions[] = {
+            {0, nullptr, "GetSize"},
+            {1, nullptr, "Get"},
+            {2, nullptr, "Cancel"},
+            {3, nullptr, "GetErrorCode"},
+        };
+        // clang-format on
+
+        RegisterHandlers(functions);
+    }
+};
+
+class IAsyncResult final : public ServiceFramework<IAsyncResult> {
+public:
+    explicit IAsyncResult(Core::System& system_) : ServiceFramework{system_, "IAsyncResult"} {
+        // clang-format off
+        static const FunctionInfo functions[] = {
+            {0, nullptr, "Get"},
+            {1, nullptr, "Cancel"},
+            {2, nullptr, "GetErrorCode"},
+        };
+        // clang-format on
+
+        RegisterHandlers(functions);
+    }
+};
+
+class IAsyncProgressResult final : public ServiceFramework<IAsyncProgressResult> {
+public:
+    explicit IAsyncProgressResult(Core::System& system_)
+        : ServiceFramework{system_, "IAsyncProgressResult"} {
+        // clang-format off
+        static const FunctionInfo functions[] = {
+            {0, nullptr, "Get"},
+            {1, nullptr, "Cancel"},
+            {2, nullptr, "GetErrorCode"},
+            {3, nullptr, "GetProgress"},
+            {4, nullptr, "GetDetailResult"},
+        };
+        // clang-format on
+
+        RegisterHandlers(functions);
+    }
+};
+
+class IAsyncData final : public ServiceFramework<IAsyncData> {
+public:
+    explicit IAsyncData(Core::System& system_) : ServiceFramework{system_, "IAsyncData"} {
+        // clang-format off
+        static const FunctionInfo functions[] = {
+            {0, nullptr, "GetSize"},
+            {1, nullptr, "Get"},
+            {2, nullptr, "Cancel"},
+            {3, nullptr, "GetErrorCode"},
+        };
+        // clang-format on
+
+        RegisterHandlers(functions);
+    }
+};
+
 class IShopServiceAsync final : public ServiceFramework<IShopServiceAsync> {
 public:
     explicit IShopServiceAsync(Core::System& system_)
@@ -117,7 +182,7 @@ public:
             {33, nullptr, "ListApplicationApplyDeltaTask"},
             {34, nullptr, "RequestApplyDeltaTaskRun"},
             {35, &NIM::GetApplyDeltaTaskInfo, "GetApplyDeltaTaskInfo"},
-            {36, nullptr, "ListApplyDeltaTask"},
+            {36, nullptr, "ListApplyDeltaTaskContentMeta"},
             {37, nullptr, "CommitApplyDeltaTask"},
             {38, nullptr, "CalculateApplyDeltaTaskRequiredSize"},
             {39, nullptr, "PrepareShutdown"},
@@ -165,57 +230,77 @@ public:
             {81, &NIM::ListLocalCommunicationSendSystemUpdateTask, "ListLocalCommunicationSendSystemUpdateTask"},
             {82, nullptr, "GetReceivedSystemDataPath"},
             {83, nullptr, "CalculateApplyDeltaTaskOccupiedSize"},
-            {84, nullptr, "Unknown84"},
+            {84, nullptr, "ReloadErrorSimulation"},
             {85, nullptr, "ListNetworkInstallTaskContentMetaFromInstallMeta"},
             {86, nullptr, "ListNetworkInstallTaskOccupiedSize"},
-            {87, nullptr, "Unknown87"},
-            {88, nullptr, "Unknown88"},
-            {89, nullptr, "Unknown89"},
-            {90, nullptr, "Unknown90"},
-            {91, nullptr, "Unknown91"},
-            {92, nullptr, "Unknown92"},
-            {93, nullptr, "Unknown93"},
-            {94, nullptr, "Unknown94"},
-            {95, nullptr, "Unknown95"},
-            {96, nullptr, "Unknown96"},
-            {97, nullptr, "Unknown97"},
-            {98, nullptr, "Unknown98"},
-            {99, nullptr, "Unknown99"},
-            {100, nullptr, "Unknown100"},
-            {101, nullptr, "Unknown101"},
-            {102, nullptr, "Unknown102"},
-            {103, nullptr, "Unknown103"},
-            {104, nullptr, "Unknown104"},
-            {105, nullptr, "Unknown105"},
-            {106, nullptr, "Unknown106"},
-            {107, nullptr, "Unknown107"},
-            {108, nullptr, "Unknown108"},
-            {109, nullptr, "Unknown109"},
-            {110, nullptr, "Unknown110"},
-            {111, nullptr, "Unknown111"},
-            {112, nullptr, "Unknown112"},
-            {113, nullptr, "Unknown113"},
-            {114, nullptr, "Unknown114"},
-            {115, nullptr, "Unknown115"},
-            {116, nullptr, "Unknown116"},
-            {117, nullptr, "Unknown117"},
-            {118, nullptr, "Unknown118"},
-            {119, nullptr, "Unknown119"},
-            {120, nullptr, "Unknown120"},
-            {121, nullptr, "Unknown121"},
-            {122, nullptr, "Unknown122"},
-            {123, nullptr, "Unknown123"},
-            {124, nullptr, "Unknown124"},
-            {125, nullptr, "Unknown125"},
-            {126, nullptr, "Unknown126"},
-            {127, nullptr, "Unknown127"},
-            {128, nullptr, "Unknown128"},
-            {129, nullptr, "Unknown129"},
-            {130, nullptr, "Unknown130"},
-            {131, nullptr, "Unknown131"},
-            {132, nullptr, "Unknown132"},
-            {133, nullptr, "Unknown133"},
-            {134, nullptr, "Unknown134"},
+            {87, nullptr, "RequestQueryAvailableELicenses"},
+            {88, nullptr, "RequestAssignELicenses"},
+            {89, nullptr, "RequestExtendELicenses"},
+            {90, nullptr, "RequestSyncELicenses"},
+            {91, nullptr, "ListContentMetaKeyToDeliverApplication"},
+            {92, nullptr, "RequestQueryRevokeReason"},
+            {93, nullptr, "RequestReportActiveELicenses"},
+            {94, nullptr, "RequestReportActiveELicensesPassively"},
+            {95, nullptr, "RequestRegisterDynamicRightsNotificationToken"},
+            {96, nullptr, "RequestAssignAllDeviceLinkedELicenses"},
+            {97, nullptr, "RequestRevokeAllELicenses"},
+            {98, nullptr, "RequestNotifyAutoUpdate"},
+            {99, nullptr, "RequestNotifyAutoUpdateForApplication"},
+            {100, nullptr, "RequestNotifyNotificationTokenDataUpdate"},
+            {101, nullptr, "RequestNotifyAccountUpdate"},
+            {102, nullptr, "RequestNotifyUserAccountBalanceUpdate"},
+            {103, nullptr, "RequestSyncRights"},
+            {104, nullptr, "RequestUnlinkDevice"},
+            {105, nullptr, "RequestUnlinkDeviceAll"},
+            {106, nullptr, "RequestLinkDevice"},
+            {107, nullptr, "RequestDestroyOccupiedSize"},
+            {108, nullptr, "GetAccountSwitchNotificationEventHandle"},
+            {109, nullptr, "GetAccountUpdateNotificationEventHandle"},
+            {110, nullptr, "GetUserAccountBalanceUpdateNotificationEventHandle"},
+            {111, nullptr, "RequestSyncPrepurchaseRecords"},
+            {112, nullptr, "RequestPrefetchApplicationMetadataForAccount"},
+            {113, nullptr, "RequestPrefetchApplicationMetadataForAccountWithUid"},
+            {114, nullptr, "RequestPrefetchApplicationMetadataForGroup"},
+            {115, nullptr, "RequestUnregistrationDownloadForApplicationList"},
+            {116, nullptr, "GetApplicationMetadataCacheState"},
+            {117, nullptr, "RequestPrefetchApplicationMetadata"},
+            {118, nullptr, "ListApplicationContentMetaStatusWithRightsCheck"},
+            {119, nullptr, "GetContentMetaStorage"},
+            {120, nullptr, "GetSystemDeliveryInfo"},
+            {121, nullptr, "SelectLatestSystemDeliveryInfo"},
+            {122, nullptr, "VerifyDeliveryProtocolVersion"},
+            {123, nullptr, "GetApplicationDeliveryInfo"},
+            {124, nullptr, "HasAllContentsToDeliver"},
+            {125, nullptr, "CompareApplicationDeliveryInfo"},
+            {126, nullptr, "CanDeliverApplication"},
+            {127, nullptr, "ListContentMetaKeyToDeliverApplication"},
+            {128, nullptr, "NeedsSystemUpdateToDeliverApplication"},
+            {129, nullptr, "EstimateRequiredSize"},
+            {130, nullptr, "RequestReceiveApplication"},
+            {131, nullptr, "CommitReceiveApplication"},
+            {132, nullptr, "GetReceiveApplicationProgress"},
+            {133, nullptr, "RequestSendApplication"},
+            {134, nullptr, "GetSendApplicationProgress"},
+            {135, nullptr, "CompareSystemDeliveryInfo"},
+            {136, nullptr, "ListNotCommittedContentMeta"},
+            {137, nullptr, "CreateDownloadTask"},
+            {138, nullptr, "GetDownloadTaskInfo"},
+            {139, nullptr, "RequestDownloadTaskRun"},
+            {140, nullptr, "DestroyDownloadTask"},
+            {141, nullptr, "ListDownloadTaskContentMeta"},
+            {142, nullptr, "RequestDownloadTicket"},
+            {143, nullptr, "CommitDownloadTask"},
+            {144, nullptr, "GetDownloadedSystemDataPath"},
+            {145, nullptr, "ListDownloadTask"},
+            {146, nullptr, "GetDownloadTaskErrorContext"},
+            {147, nullptr, "RequestApplicationIcon"},
+            {148, nullptr, "GetApplicationDeliveryInfoHash"},
+            {149, nullptr, "GetApplicationRightsOnClient"},
+            {150, nullptr, "RequestNoDownload"},
+            {151, nullptr, "ListContentMetaKeyToDeliverApplicationWithRightsCheck"},
+            {152, nullptr, "GetSystemDeliveryInfoForDebug"},
+            {153, nullptr, "GetApplicationDeliveryInfoForDebug"},
+            {154, nullptr, "CopyApplicationDeliveryInfo"},
         };
         // clang-format on
 
@@ -561,6 +646,8 @@ public:
             {503, nullptr, "RequestSyncTicket"},
             {504, nullptr, "RequestDownloadTicketForPrepurchasedContents2"},
             {505, nullptr, "RequestDownloadTicketForPrepurchasedContentsForAccount"},
+            {600, nullptr, "RequestLinkDeviceWithNintendoAccount"},
+            {601, nullptr, "RequestCheckNintendoAccountLink"},
         };
         // clang-format on
 
@@ -589,6 +676,7 @@ public:
             {2, nullptr, "GetCommonEcasSystemEventForNotificationArrived"},
             {3, nullptr, "GetCommonEcasSystemEventForSleep"},
             {4, nullptr, "GetCommonEcasSystemEventForSystemProgram"},
+            {5, nullptr, "GetCommonEcasSystemEventForReceivingBackgroundDownloadTask"},
         };
         // clang-format on
 
