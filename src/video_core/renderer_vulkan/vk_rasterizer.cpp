@@ -565,7 +565,8 @@ bool RasterizerVulkan::MustFlushRegion(DAddr addr, u64 size, VideoCommon::CacheT
             return true;
         }
     }
-    if (!Settings::IsGPULevelHigh()) {
+    if (!Settings::IsGPULevelNormal()) {
+        // Skip texture cache checks for Low accuracy - ultimate performance
         return false;
     }
     if (True(which & VideoCommon::CacheType::TextureCache)) {

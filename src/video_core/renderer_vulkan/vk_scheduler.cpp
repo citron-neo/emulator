@@ -260,11 +260,14 @@ void Scheduler::AllocateNewContext() {
     if (query_cache) {
 #if ANDROID
         if (Settings::IsGPULevelHigh()) {
-            // This is problematic on Android, disable on GPU Normal.
+            // This is problematic on Android, disable on GPU Normal and Low.
             query_cache->NotifySegment(true);
         }
 #else
-        query_cache->NotifySegment(true);
+        if (Settings::IsGPULevelNormal()) {
+            // Skip query cache operations for Low accuracy
+            query_cache->NotifySegment(true);
+        }
 #endif
     }
 }
@@ -278,13 +281,16 @@ void Scheduler::InvalidateState() {
 void Scheduler::EndPendingOperations() {
 #if ANDROID
     if (Settings::IsGPULevelHigh()) {
-        // This is problematic on Android, disable on GPU Normal.
+        // This is problematic on Android, disable on GPU Normal and Low.
         // query_cache->DisableStreams();
     }
 #else
     // query_cache->DisableStreams();
 #endif
-    query_cache->NotifySegment(false);
+    if (Settings::IsGPULevelNormal()) {
+        // Skip query cache operations for Low accuracy
+        query_cache->NotifySegment(false);
+    }
     EndRenderPass();
 }
 

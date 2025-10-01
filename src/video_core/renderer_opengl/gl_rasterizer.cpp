@@ -545,7 +545,8 @@ bool RasterizerOpenGL::MustFlushRegion(DAddr addr, u64 size, VideoCommon::CacheT
             return true;
         }
     }
-    if (!Settings::IsGPULevelHigh()) {
+    if (!Settings::IsGPULevelNormal()) {
+        // Skip texture cache checks for Low accuracy - ultimate performance
         return false;
     }
     if (True(which & VideoCommon::CacheType::TextureCache)) {
@@ -740,7 +741,8 @@ bool RasterizerOpenGL::AccelerateConditionalRendering() {
         // Reimplement Host conditional rendering.
         return false;
     }
-    // Medium / Low Hack: stub any checks on queries written into the buffer cache.
+    // Normal / Low Hack: stub any checks on queries written into the buffer cache.
+    // Low accuracy: Always stub for maximum performance
     const GPUVAddr condition_address{maxwell3d->regs.render_enable.Address()};
     Maxwell::ReportSemaphore::Compare cmp;
     if (gpu_memory->IsMemoryDirty(condition_address, sizeof(cmp),

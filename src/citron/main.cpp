@@ -3960,14 +3960,21 @@ void GMainWindow::OnToggleDockedMode() {
 
 void GMainWindow::OnToggleGpuAccuracy() {
     switch (Settings::values.gpu_accuracy.GetValue()) {
-    case Settings::GpuAccuracy::High: {
+    case Settings::GpuAccuracy::Low: {
         Settings::values.gpu_accuracy.SetValue(Settings::GpuAccuracy::Normal);
         break;
     }
-    case Settings::GpuAccuracy::Normal:
+    case Settings::GpuAccuracy::Normal: {
+        Settings::values.gpu_accuracy.SetValue(Settings::GpuAccuracy::High);
+        break;
+    }
+    case Settings::GpuAccuracy::High: {
+        Settings::values.gpu_accuracy.SetValue(Settings::GpuAccuracy::Low);
+        break;
+    }
     case Settings::GpuAccuracy::Extreme:
     default: {
-        Settings::values.gpu_accuracy.SetValue(Settings::GpuAccuracy::High);
+        Settings::values.gpu_accuracy.SetValue(Settings::GpuAccuracy::Normal);
         break;
     }
     }

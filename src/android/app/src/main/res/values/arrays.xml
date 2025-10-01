@@ -74,6 +74,7 @@
     </integer-array>
 
     <string-array name="rendererAccuracyNames">
+        <item>@string/renderer_accuracy_low</item>
         <item>@string/renderer_accuracy_normal</item>
         <item>@string/renderer_accuracy_high</item>
         <item>@string/renderer_accuracy_extreme</item>
@@ -83,6 +84,7 @@
         <item>0</item>
         <item>1</item>
         <item>2</item>
+        <item>3</item>
     </integer-array>
 
     <string-array name="rendererResolutionNames">

@@ -150,6 +150,12 @@ bool IsGPULevelHigh() {
            values.current_gpu_accuracy == GpuAccuracy::High;
 }
 
+bool IsGPULevelNormal() {
+    return values.current_gpu_accuracy == GpuAccuracy::Extreme ||
+           values.current_gpu_accuracy == GpuAccuracy::High ||
+           values.current_gpu_accuracy == GpuAccuracy::Normal;
+}
+
 bool IsFastmemEnabled() {
     if (values.cpu_debug_mode) {
         return static_cast<bool>(values.cpuopt_fastmem);

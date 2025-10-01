@@ -153,7 +153,7 @@ public:
         ReserveHostQuery();
         scheduler.Record([query_pool = current_query_pool,
                           query_index = current_bank_slot](vk::CommandBuffer cmdbuf) {
-            const bool use_precise = Settings::IsGPULevelHigh();
+            const bool use_precise = Settings::IsGPULevelNormal();
             cmdbuf.BeginQuery(query_pool, static_cast<u32>(query_index),
                               use_precise ? VK_QUERY_CONTROL_PRECISE_BIT : 0);
         });
@@ -1415,8 +1415,9 @@ bool QueryCacheRuntime::HostConditionalRenderingCompareValues(VideoCommon::Looku
         return false;
     }
 
-    const bool is_gpu_high = Settings::IsGPULevelHigh();
+    const bool is_gpu_high = Settings::IsGPULevelNormal();
     if (!is_gpu_high && impl->device.GetDriverID() == VK_DRIVER_ID_INTEL_PROPRIETARY_WINDOWS) {
+        // Low accuracy: stub conditional rendering on Intel for performance
         return true;
     }
 
