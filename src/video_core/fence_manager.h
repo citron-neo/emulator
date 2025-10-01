@@ -72,7 +72,7 @@ public:
     }
 
     void SignalFence(std::function<void()>&& func) {
-        bool delay_fence = Settings::IsGPULevelHigh();
+        bool delay_fence = Settings::IsGPULevelNormal();
         if constexpr (!can_async_check) {
             TryReleasePendingFences<false>();
         }

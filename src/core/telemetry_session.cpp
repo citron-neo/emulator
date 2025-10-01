@@ -65,6 +65,8 @@ static const char* TranslateRenderer(Settings::RendererBackend backend) {
 
 static const char* TranslateGPUAccuracyLevel(Settings::GpuAccuracy backend) {
     switch (backend) {
+    case Settings::GpuAccuracy::Low:
+        return "Low";
     case Settings::GpuAccuracy::Normal:
         return "Normal";
     case Settings::GpuAccuracy::High:

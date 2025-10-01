@@ -257,7 +257,7 @@ void QueryCacheBase<Traits>::CounterReport(GPUVAddr addr, QueryType counter_type
     };
     u8* pointer = impl->device_memory.template GetPointer<u8>(cpu_addr);
     u8* pointer_timestamp = impl->device_memory.template GetPointer<u8>(cpu_addr + 8);
-    bool is_synced = !Settings::IsGPULevelHigh() && is_fence;
+    bool is_synced = !Settings::IsGPULevelNormal() && is_fence;
     std::function<void()> operation([this, is_synced, streamer, query_base = query, query_location,
                                      pointer, pointer_timestamp] {
         if (True(query_base->flags & QueryFlagBits::IsInvalidated)) {
@@ -287,7 +287,8 @@ void QueryCacheBase<Traits>::CounterReport(GPUVAddr addr, QueryType counter_type
     if (is_fence) {
         impl->rasterizer.SignalFence(std::move(operation));
     } else {
-        if (!Settings::IsGPULevelHigh() && counter_type == QueryType::Payload) {
+        if (!Settings::IsGPULevelNormal() && counter_type == QueryType::Payload) {
+            // Low accuracy: Immediately write payload for ultimate performance
             if (has_timestamp) {
                 u64 timestamp = impl->gpu.GetTicks();
                 u64 value = static_cast<u64>(payload);

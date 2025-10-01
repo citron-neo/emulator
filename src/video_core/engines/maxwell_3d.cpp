@@ -221,7 +221,8 @@ void Maxwell3D::ProcessMacro(u32 method, const u32* base_start, u32 amount, bool
 }
 
 void Maxwell3D::RefreshParametersImpl() {
-    if (!Settings::IsGPULevelHigh()) {
+    if (!Settings::IsGPULevelNormal()) {
+        // Skip parameter refresh for Low accuracy - ultimate performance
         return;
     }
     size_t current_index = 0;

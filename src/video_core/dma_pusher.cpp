@@ -98,7 +98,8 @@ bool DmaPusher::Step() {
                         &command_headers);
             ProcessCommands(headers);
         };
-        if (Settings::IsGPULevelHigh()) {
+        if (Settings::IsGPULevelNormal()) {
+            // Normal/High/Extreme: Use safe reads for most operations
             if (dma_state.method >= MacroRegistersStart) {
                 unsafe_process();
                 return true;
@@ -106,6 +107,10 @@ bool DmaPusher::Step() {
             safe_process();
             return true;
         }
+        // Low accuracy: Use unsafe reads for maximum performance everywhere
+        unsafe_process();
+        return true;
+        // Note: The code below is unreachable for Low, but kept for reference
         // Even in normal accuracy, use safe reads for KeplerCompute inline methods
         if (subchannel_type[dma_state.subchannel] == Engines::EngineTypes::KeplerCompute &&
             dma_state.method == ComputeInline) {

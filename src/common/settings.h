@@ -393,7 +393,7 @@ struct Values {
 #else
                                                       GpuAccuracy::High,
 #endif
-                                                      GpuAccuracy::Normal,
+                                                      GpuAccuracy::Low,
                                                       GpuAccuracy::Extreme,
                                                       "gpu_accuracy",
                                                       Category::RendererAdvanced,
@@ -661,6 +661,7 @@ extern Values values;
 void UpdateGPUAccuracy();
 bool IsGPULevelExtreme();
 bool IsGPULevelHigh();
+bool IsGPULevelNormal();
 
 bool IsFastmemEnabled();
 void SetNceEnabled(bool is_64bit);

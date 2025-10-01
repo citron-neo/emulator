@@ -352,6 +352,7 @@ std::unique_ptr<ComboboxTranslationMap> ComboboxEnumeration(QWidget* parent) {
          }});
     translations->insert({Settings::EnumMetadata<Settings::GpuAccuracy>::Index(),
                           {
+                              PAIR(GpuAccuracy, Low, tr("Low")),
                               PAIR(GpuAccuracy, Normal, tr("Normal")),
                               PAIR(GpuAccuracy, High, tr("High")),
                               PAIR(GpuAccuracy, Extreme, tr("Extreme")),

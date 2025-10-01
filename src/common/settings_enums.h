@@ -130,7 +130,7 @@ ENUM(RendererBackend, OpenGL, Vulkan, Null);
 
 ENUM(ShaderBackend, Glsl, Glasm, SpirV);
 
-ENUM(GpuAccuracy, Normal, High, Extreme);
+ENUM(GpuAccuracy, Low, Normal, High, Extreme);
 
 ENUM(CpuBackend, Dynarmic, Nce);
 
