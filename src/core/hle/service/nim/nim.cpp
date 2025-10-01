@@ -489,6 +489,7 @@ public:
             {2, nullptr, "ClearDebugResponse"},
             {3, nullptr, "RegisterDebugResponse"},
             {4, &NIM_ECA::IsLargeResourceAvailable, "IsLargeResourceAvailable"},
+            {5, &NIM_ECA::CreateServerInterface2, "CreateServerInterface2"},
         };
         // clang-format on
 
@@ -501,6 +502,17 @@ private:
         IPC::ResponseBuilder rb{ctx, 2, 0, 1};
         rb.Push(ResultSuccess);
         rb.PushIpcInterface<IShopServiceAccessServer>(system);
+    }
+
+    void CreateServerInterface2(HLERequestContext& ctx)
+    {
+        // [17.0.0+] CreateServerInterface2
+        // Use the same logic as CreateServerInterface
+        LOG_WARNING(Service_NIM, "(STUBBED) called");
+        // Signal To IPC For A Response
+        IPC::ResponseBuilder rb{ctx, 2, 0, 1};
+        rb.Push(ResultSuccess);
+        rb.PushIpcInterface<IShopServiceAccessor>(system);
     }
 
     void IsLargeResourceAvailable(HLERequestContext& ctx) {
