@@ -305,11 +305,23 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/bin)
 # =======================================================================
 
 # Enforce the search mode of non-required packages for better and shorter failure messages
-if(ANDROID)
-    find_package(Boost 1.79.0 REQUIRED context)
+
+# Find Boost and its components.
+# 'process' is optional. The build will continue if it's not found.
+find_package(Boost 1.79.0 REQUIRED COMPONENTS context OPTIONAL_COMPONENTS process)
+
+# Check if the optional 'process' component was successfully found.
+if(Boost_PROCESS_FOUND)
+    # It was found, so we add a compile definition to enable it in the C++ source.
+    target_compile_definitions(core PRIVATE HAS_BOOST_PROCESS)
+    message(STATUS "Found optional Boost.Process, enabling advanced debugger pipe.")
 else()
-    find_package(Boost 1.79.0 REQUIRED context process)
+    # It was not found. This is not an error.
+    message(STATUS "Optional Boost.Process not found, using socket-based debugger pipe.")
 endif()
+
+# Find the Boost package with our dynamically built list of required components.
+find_package(Boost 1.79.0 REQUIRED ${BOOST_COMPONENTS})
 find_package(enet 1.3 MODULE)
 find_package(fmt 9 REQUIRED)
 find_package(LLVM 17.0.2 MODULE COMPONENTS Demangle)
