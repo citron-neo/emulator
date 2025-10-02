@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: Copyright 2022 yuzu Emulator Project
+// SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <algorithm>
@@ -6,7 +7,7 @@
 #include <thread>
 
 #include <boost/asio.hpp>
-#if !defined(__ANDROID__) && !defined(__APPLE__)
+#if HAS_BOOST_PROCESS && !defined(__ANDROID__) && !defined(__APPLE__)
 #include <boost/process/v1/async_pipe.hpp>
 #endif
 
@@ -161,12 +162,12 @@ private:
         // Set the new state. This will tear down any existing state.
         state = ConnectionState{
             .client_socket{std::move(peer)},
-#if !defined(__ANDROID__) && !defined(__APPLE__)
-            .signal_pipe{io_context},
-#else
-            // Use a regular socket pair for Android and macOS
-            .signal_pipe{io_context},
-#endif
+            #if HAS_BOOST_PROCESS && !defined(__ANDROID__) && !defined(__APPLE__)
+            .signal_pipe = boost::process::v1::async_pipe(io_context),
+            #else
+            // Use a regular socket pair for Android, macOS, or if boost_process is not found
+            .signal_pipe = boost::asio::ip::tcp::socket(io_context),
+            #endif
             .info{},
             .active_thread{},
             .client_data{},
@@ -333,12 +334,12 @@ private:
 
     struct ConnectionState {
         boost::asio::ip::tcp::socket client_socket;
-#if !defined(__ANDROID__) && !defined(__APPLE__)
+        #if HAS_BOOST_PROCESS && !defined(__ANDROID__) && !defined(__APPLE__)
         boost::process::v1::async_pipe signal_pipe;
-#else
-        // Use a regular socket pair for Android and macOS
+        #else
+        // Use a regular socket pair for Android, macOS, or if boost_process is not found
         boost::asio::ip::tcp::socket signal_pipe;
-#endif
+        #endif
 
         SignalInfo info;
         Kernel::KScopedAutoObject<Kernel::KThread> active_thread;
