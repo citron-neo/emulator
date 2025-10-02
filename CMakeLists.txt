@@ -389,6 +389,30 @@ if (UNIX AND NOT APPLE)
 endif()
 
 add_subdirectory(externals)
+if(USE_DISCORD_PRESENCE)
+    message(STATUS "Applying custom patch to submodule's rapidjson for Discord presence...")
+
+    # Define the path to the patch file and the target directory
+    set(PATCH_FILE "${CMAKE_CURRENT_SOURCE_DIR}/patches/rapidjson-compiler-fix.patch")
+    set(PATCH_TARGET_DIR "${CMAKE_CURRENT_SOURCE_DIR}/externals/discord-rpc/thirdparty/rapidjson-1.1.0")
+
+    # Check if the target directory exists before trying to patch
+    if(EXISTS "${PATCH_TARGET_DIR}")
+        execute_process(
+            COMMAND git apply --ignore-whitespace "${PATCH_FILE}"
+            WORKING_DIRECTORY "${PATCH_TARGET_DIR}"
+            RESULT_VARIABLE PATCH_RESULT
+            OUTPUT_QUIET
+            ERROR_QUIET
+        )
+
+        if(NOT PATCH_RESULT EQUAL 0)
+            message(WARNING "Failed to apply rapidjson compiler fix patch! This might be okay if it's already applied.")
+        endif()
+    else()
+        message(WARNING "Could not find rapidjson directory to patch. It may not have been downloaded yet.")
+    endif()
+endif()
 
 
 if (ENABLE_QT)
