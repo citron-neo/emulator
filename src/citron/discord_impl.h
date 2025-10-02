@@ -4,8 +4,8 @@
 
 #pragma once
 
-
 #include <atomic>
+#include <cstdint>
 #include <thread>
 #include "citron/discord.h"
 
@@ -15,15 +15,14 @@ namespace Core {
 
 namespace DiscordRPC {
 
-	class DiscordImpl: public DiscordInterface {
+	class DiscordImpl : public DiscordInterface {
 	public:
-	    DiscordImpl(Core::System & system_);
+		DiscordImpl(Core::System& system_);
 		~DiscordImpl() override;
 
 		void Pause() override;
 		void Update() override;
 
-		// FIX: Add the function and members for the background thread
 		void ThreadRun();
 		std::thread discord_thread;
 		std::atomic<bool> discord_thread_running;
@@ -31,13 +30,17 @@ namespace DiscordRPC {
 	private:
 		void UpdateGameStatus(bool use_default);
 
-		std::string game_url {};
-		std::string game_title {};
-		std::string game_title_id {};
+		std::string game_url{};
+		std::string game_title{};
+		std::string game_title_id{};
 		std::string cached_url;
 
-		Core::System & system;
+		Core::System& system;
 		u64 program_id = 0;
+
+		s64 current_state_start_time = 0;
+
+		bool was_powered_on = false;
 	};
 
 } // namespace DiscordRPC
