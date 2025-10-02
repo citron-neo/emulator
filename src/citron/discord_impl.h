@@ -4,30 +4,40 @@
 
 #pragma once
 
+
+#include <atomic>
+#include <thread>
 #include "citron/discord.h"
 
 namespace Core {
-class System;
+	class System;
 }
 
 namespace DiscordRPC {
 
-class DiscordImpl: public DiscordInterface {
-public: DiscordImpl(Core::System & system_);
-~DiscordImpl() override;
+	class DiscordImpl: public DiscordInterface {
+	public:
+	    DiscordImpl(Core::System & system_);
+		~DiscordImpl() override;
 
-void Pause() override;
-void Update() override;
+		void Pause() override;
+		void Update() override;
 
-private: void UpdateGameStatus(bool use_default);
+		// FIX: Add the function and members for the background thread
+		void ThreadRun();
+		std::thread discord_thread;
+		std::atomic<bool> discord_thread_running;
 
-std::string game_url {};
-std::string game_title {};
-std::string game_title_id {};
-std::string cached_url;
+	private:
+		void UpdateGameStatus(bool use_default);
 
-Core::System & system;
-u64 program_id = 0;
-};
+		std::string game_url {};
+		std::string game_title {};
+		std::string game_title_id {};
+		std::string cached_url;
+
+		Core::System & system;
+		u64 program_id = 0;
+	};
 
 } // namespace DiscordRPC
