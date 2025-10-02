@@ -312,7 +312,8 @@ find_package(Boost 1.79.0 REQUIRED COMPONENTS context OPTIONAL_COMPONENTS proces
 
 # Check if the optional 'process' component was successfully found.
 if(Boost_PROCESS_FOUND)
-    # It was found, so we add a compile definition to enable it in the C++ source.
+    # Note: We'll set this definition later when the core target is created
+    set(HAS_BOOST_PROCESS_DEFINITION "HAS_BOOST_PROCESS")
     message(STATUS "Found optional Boost.Process, enabling advanced debugger pipe.")
 else()
     # It was not found. This is not an error.
@@ -716,8 +717,9 @@ endif()
 
 add_subdirectory(src)
 
-if(Boost_PROCESS_FOUND)
-    target_compile_definitions(core PRIVATE HAS_BOOST_PROCESS)
+# Apply the Boost.Process definition to the core target if it was found
+if(DEFINED HAS_BOOST_PROCESS_DEFINITION)
+    target_compile_definitions(core PRIVATE ${HAS_BOOST_PROCESS_DEFINITION})
 endif()
 
 # Set citron project or citron-cmd project as default StartUp Project in Visual Studio depending on whether QT is enabled or not
