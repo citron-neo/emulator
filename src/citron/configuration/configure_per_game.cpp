@@ -15,6 +15,7 @@
 #include <QAbstractButton>
 #include <QCheckBox>
 #include <QPushButton>
+#include <QScrollArea>
 #include <QString>
 #include <QTimer>
 
@@ -79,10 +80,27 @@ tab_group{std::make_shared<std::vector<ConfigurationShared::Tab*>>()} {
     layout()->setSizeConstraint(QLayout::SetDefaultConstraint);
 
     ui->tabWidget->addTab(addons_tab.get(), tr("Add-Ons"));
-    ui->tabWidget->addTab(system_tab.get(), tr("System"));
+
+    // Create a scroll area for the system tab
+    QScrollArea* system_scroll_area = new QScrollArea(this);
+    system_scroll_area->setWidgetResizable(true);
+    system_scroll_area->setWidget(system_tab.get());
+    ui->tabWidget->addTab(system_scroll_area, tr("System"));
+
     ui->tabWidget->addTab(cpu_tab.get(), tr("CPU"));
-    ui->tabWidget->addTab(graphics_tab.get(), tr("Graphics"));
-    ui->tabWidget->addTab(graphics_advanced_tab.get(), tr("Adv. Graphics"));
+
+    // Create a scroll area for the graphics tab
+    QScrollArea* graphics_scroll_area = new QScrollArea(this);
+    graphics_scroll_area->setWidgetResizable(true);
+    graphics_scroll_area->setWidget(graphics_tab.get());
+    ui->tabWidget->addTab(graphics_scroll_area, tr("Graphics"));
+
+    // Create a scroll area for the advanced graphics tab
+    QScrollArea* graphics_advanced_scroll_area = new QScrollArea(this);
+    graphics_advanced_scroll_area->setWidgetResizable(true);
+    graphics_advanced_scroll_area->setWidget(graphics_advanced_tab.get());
+    ui->tabWidget->addTab(graphics_advanced_scroll_area, tr("Adv. Graphics"));
+
     ui->tabWidget->addTab(audio_tab.get(), tr("Audio"));
     ui->tabWidget->addTab(input_tab.get(), tr("Input Profiles"));
 
