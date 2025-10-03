@@ -39,8 +39,13 @@ namespace DiscordRPC {
 
 		Discord_Initialize("1361252452329848892", &handlers, 1, nullptr);
 
-		discord_thread_running = true;
-		discord_thread = std::thread(&DiscordImpl::ThreadRun, this);
+		// Initialize the timer for the first state (being in the menu).
+		current_state_start_time = std::chrono::duration_cast<std::chrono::seconds>(
+			std::chrono::system_clock::now().time_since_epoch()).count();
+			was_powered_on = false; // Start in the "off" state.
+
+			discord_thread_running = true;
+			discord_thread = std::thread(&DiscordImpl::ThreadRun, this);
 	}
 
 	DiscordImpl::~DiscordImpl() {
@@ -61,9 +66,6 @@ namespace DiscordRPC {
 	void DiscordImpl::UpdateGameStatus(bool use_default) {
 		const std::string default_text = "Citron Is A Homebrew Emulator For The Nintendo Switch";
 		const std::string default_image = "citron_logo";
-		s64 start_time = std::chrono::duration_cast<std::chrono::seconds>(
-			std::chrono::system_clock::now().time_since_epoch())
-		.count();
 		DiscordRichPresence presence{};
 
 		if (!use_default && !game_title_id.empty()) {
@@ -79,15 +81,23 @@ namespace DiscordRPC {
 		presence.smallImageText = default_text.c_str();
 		presence.details = game_title.c_str();
 		presence.state = "Currently in game";
-		presence.startTimestamp = start_time;
+		presence.startTimestamp = current_state_start_time; // Use the state-based timer
 		Discord_UpdatePresence(&presence);
 	}
 
 	void DiscordImpl::Update() {
-		const std::string default_text = "Citron Is A Homebrew Emulator For The Nintendo Switch";
-		const std::string default_image = "citron_logo";
+		const bool is_powered_on = system.IsPoweredOn();
 
-		if (system.IsPoweredOn()) {
+		if (is_powered_on != was_powered_on) {
+			// State changed! Reset the timer
+			current_state_start_time = std::chrono::duration_cast<std::chrono::seconds>(
+				std::chrono::system_clock::now().time_since_epoch()).count();
+				// Update the state tracker.
+				was_powered_on = is_powered_on;
+		}
+
+		if (is_powered_on) {
+			// Game is running.
 			system.GetAppLoader().ReadTitle(game_title);
 			system.GetAppLoader().ReadProgramId(program_id);
 			game_title_id = fmt::format("{:016X}", program_id);
@@ -96,7 +106,7 @@ namespace DiscordRPC {
 			QNetworkRequest request;
 			request.setUrl(QUrl(QString::fromStdString(
 				fmt::format("https://tinfoil.media/ti/{}/256/256", game_title_id))));
-			request.setTransferTimeout(5000); // 5 second timeout
+			request.setTransferTimeout(5000);
 			QNetworkReply* reply = manager.head(request);
 			QEventLoop request_event_loop;
 			QObject::connect(reply, &QNetworkReply::finished, &request_event_loop, &QEventLoop::quit);
@@ -105,21 +115,21 @@ namespace DiscordRPC {
 			UpdateGameStatus(reply->error() != QNetworkReply::NoError);
 			reply->deleteLater();
 		} else {
-			s64 start_time = std::chrono::duration_cast<std::chrono::seconds>(
-				std::chrono::system_clock::now().time_since_epoch())
-			.count();
+			// Game is NOT running (in menus).
+			const std::string default_text = "Citron Is A Homebrew Emulator For The Nintendo Switch";
+			const std::string default_image = "citron_logo";
 			DiscordRichPresence presence{};
 			presence.largeImageKey = default_image.c_str();
 			presence.largeImageText = default_text.c_str();
-			presence.details = "Currently not in game";
-			presence.startTimestamp = start_time;
+			presence.details = "In the Menus";
+			presence.startTimestamp = current_state_start_time; // Use the state-based timer
 			Discord_UpdatePresence(&presence);
 		}
 	}
 
 	void DiscordImpl::ThreadRun() {
 		while (discord_thread_running) {
-			Update(); // This is the line that was likely missing.
+			Update();
 			Discord_RunCallbacks();
 			std::this_thread::sleep_for(std::chrono::seconds(15));
 		}
