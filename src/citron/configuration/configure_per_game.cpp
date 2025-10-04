@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
+#include "citron/configuration/configure_per_game.h"
 #include <algorithm>
 #include <cstring>
 #include <filesystem>
@@ -14,9 +15,11 @@
 
 #include <QAbstractButton>
 #include <QCheckBox>
+#include <QDialogButtonBox>
 #include <QPushButton>
 #include <QScrollArea>
 #include <QString>
+#include <QTabBar>
 #include <QTimer>
 
 #include "common/fs/fs_util.h"
@@ -42,7 +45,6 @@
 #include "citron/configuration/configure_graphics_advanced.h"
 #include "citron/configuration/configure_input_per_game.h"
 #include "citron/configuration/configure_linux_tab.h"
-#include "citron/configuration/configure_per_game.h"
 #include "citron/configuration/configure_per_game_addons.h"
 #include "citron/configuration/configure_system.h"
 #include "citron/theme.h"
@@ -56,7 +58,8 @@ ConfigurePerGame::ConfigurePerGame(QWidget* parent, u64 title_id_, const std::st
 : QDialog(parent),
 ui(std::make_unique<Ui::ConfigurePerGame>()), title_id{title_id_}, system{system_},
 builder{std::make_unique<ConfigurationShared::Builder>(this, !system_.IsPoweredOn())},
-tab_group{std::make_shared<std::vector<ConfigurationShared::Tab*>>()} {
+tab_group{std::make_shared<std::vector<ConfigurationShared::Tab*>>()} ,
+rainbow_timer{new QTimer(this)} {
     const auto file_path = std::filesystem::path(Common::FS::ToU8String(file_name));
     const auto config_file_name = title_id == 0 ? Common::FS::PathToUTF8String(file_path.filename())
     : fmt::format("{:016X}", title_id);
@@ -75,26 +78,9 @@ tab_group{std::make_shared<std::vector<ConfigurationShared::Tab*>>()} {
 
     ui->setupUi(this);
 
-    // This block processes the theme and passes it to the graphics tab
-    {
-        // 1. Read the raw stylesheet from the UI property.
-        QString raw_stylesheet = property("templateStyleSheet").toString();
-
-        // 2. Process a copy of the stylesheet for this dialog itself.
-        QString processed_stylesheet = raw_stylesheet;
-        QColor accent_color(Theme::GetAccentColor());
-        QString accent_color_hover = accent_color.lighter(115).name(QColor::HexRgb);
-        QString accent_color_pressed = accent_color.darker(120).name(QColor::HexRgb);
-
-        processed_stylesheet.replace(QStringLiteral("%%ACCENT_COLOR%%"), accent_color.name(QColor::HexRgb));
-        processed_stylesheet.replace(QStringLiteral("%%ACCENT_COLOR_HOVER%%"), accent_color_hover);
-        processed_stylesheet.replace(QStringLiteral("%%ACCENT_COLOR_PRESSED%%"), accent_color_pressed);
-        setStyleSheet(processed_stylesheet);
-
-        // 3. Pass the RAW, UNPROCESSED stylesheet to the graphics tab.
-        //    This allows the graphics tab to do its own color replacements correctly.
-        graphics_tab->SetTemplateStyleSheet(raw_stylesheet);
-    }
+    ApplyStaticTheme();
+    UpdateTheme(); // Run once to set initial colors
+    connect(rainbow_timer, &QTimer::timeout, this, &ConfigurePerGame::UpdateTheme);
 
     setMinimumHeight(400);
 
@@ -147,6 +133,11 @@ tab_group{std::make_shared<std::vector<ConfigurationShared::Tab*>>()} {
 
 ConfigurePerGame::~ConfigurePerGame() = default;
 
+void ConfigurePerGame::accept() {
+    ApplyConfiguration();
+    QDialog::accept();
+}
+
 void ConfigurePerGame::ApplyConfiguration() {
     for (const auto tab : *tab_group) {
         tab->ApplyConfiguration();
@@ -186,6 +177,83 @@ void ConfigurePerGame::HandleApplyButtonClicked() {
 void ConfigurePerGame::LoadFromFile(FileSys::VirtualFile file_) {
     file = std::move(file_);
     LoadConfiguration();
+}
+
+void ConfigurePerGame::ApplyStaticTheme() {
+    QString raw_stylesheet = property("templateStyleSheet").toString();
+    QString processed_stylesheet = raw_stylesheet;
+
+    QColor accent_color(Theme::GetAccentColor());
+    QString accent_color_hover = accent_color.lighter(115).name(QColor::HexRgb);
+    QString accent_color_pressed = accent_color.darker(120).name(QColor::HexRgb);
+
+    processed_stylesheet.replace(QStringLiteral("%%ACCENT_COLOR%%"), accent_color.name(QColor::HexRgb));
+    processed_stylesheet.replace(QStringLiteral("%%ACCENT_COLOR_HOVER%%"), accent_color_hover);
+    processed_stylesheet.replace(QStringLiteral("%%ACCENT_COLOR_PRESSED%%"), accent_color_pressed);
+
+    setStyleSheet(processed_stylesheet);
+    // Pass the processed stylesheet to the child tabs ONCE
+    graphics_tab->SetTemplateStyleSheet(processed_stylesheet);
+    system_tab->SetTemplateStyleSheet(processed_stylesheet);
+    audio_tab->SetTemplateStyleSheet(processed_stylesheet);
+    cpu_tab->SetTemplateStyleSheet(processed_stylesheet);
+    graphics_advanced_tab->SetTemplateStyleSheet(processed_stylesheet);
+}
+
+void ConfigurePerGame::UpdateTheme() {
+    if (!UISettings::values.enable_rainbow_mode.GetValue()) {
+        if (rainbow_timer->isActive()) {
+            rainbow_timer->stop();
+            ApplyStaticTheme();
+        }
+        return;
+    }
+
+    rainbow_hue += 0.01f;
+    if (rainbow_hue > 1.0f) {
+        rainbow_hue = 0.0f;
+    }
+
+    QColor accent_color = QColor::fromHsvF(rainbow_hue, 0.8, 1.0);
+    QColor accent_color_hover = accent_color.lighter(115);
+    QColor accent_color_pressed = accent_color.darker(120);
+
+    // Efficiently update only the necessary widgets
+    QString tab_style = QStringLiteral(
+        "QTabBar::tab:selected { background-color: %1; border-color: %1; }")
+    .arg(accent_color.name(QColor::HexRgb));
+    ui->tabWidget->tabBar()->setStyleSheet(tab_style);
+
+    QString button_style = QStringLiteral(
+        "QPushButton { background-color: %1; color: #ffffff; border: none; padding: 10px 20px; border-radius: 6px; font-weight: bold; min-height: 20px; }"
+        "QPushButton:hover { background-color: %2; }"
+        "QPushButton:pressed { background-color: %3; }")
+    .arg(accent_color.name(QColor::HexRgb))
+    .arg(accent_color_hover.name(QColor::HexRgb))
+    .arg(accent_color_pressed.name(QColor::HexRgb));
+
+    ui->buttonBox->button(QDialogButtonBox::Ok)->setStyleSheet(button_style);
+    ui->buttonBox->button(QDialogButtonBox::Cancel)->setStyleSheet(button_style);
+    if (auto* apply_button = ui->buttonBox->button(QDialogButtonBox::Apply)) {
+        apply_button->setStyleSheet(button_style);
+    }
+
+    // Create a temporary full stylesheet for the child tabs to update their internal widgets
+    QString child_stylesheet = property("templateStyleSheet").toString();
+    child_stylesheet.replace(QStringLiteral("%%ACCENT_COLOR%%"), accent_color.name(QColor::HexRgb));
+    child_stylesheet.replace(QStringLiteral("%%ACCENT_COLOR_HOVER%%"), accent_color_hover.name(QColor::HexRgb));
+    child_stylesheet.replace(QStringLiteral("%%ACCENT_COLOR_PRESSED%%"), accent_color_pressed.name(QColor::HexRgb));
+
+    // Pass the updated stylesheet to the child tabs
+    graphics_tab->SetTemplateStyleSheet(child_stylesheet);
+    system_tab->SetTemplateStyleSheet(child_stylesheet);
+    audio_tab->SetTemplateStyleSheet(child_stylesheet);
+    cpu_tab->SetTemplateStyleSheet(child_stylesheet);
+    graphics_advanced_tab->SetTemplateStyleSheet(child_stylesheet);
+
+    if (!rainbow_timer->isActive()) {
+        rainbow_timer->start(50); // Use a reasonable 50ms interval to prevent lag
+    }
 }
 
 void ConfigurePerGame::LoadConfiguration() {
