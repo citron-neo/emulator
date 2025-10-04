@@ -270,11 +270,6 @@
                 background-color: transparent;
                 }
 
-                QComboBox::down-arrow {
-                width: 12px;
-                height: 12px;
-                background-color: #ffffff;
-                }
 
                 QComboBox QAbstractItemView {
                 background-color: #3d3d3d;
@@ -512,8 +507,8 @@
                 height: 20px;
                 }
                 }
-        </string>
-    </property>
+            </string>
+        </property>
         <layout class="QVBoxLayout" name="verticalLayout">
             <property name="spacing">
                 <number>8</number>
