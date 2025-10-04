@@ -18,7 +18,7 @@
 #include "core/core.h"
 #include "ui_configure.h"
 #include "vk_device_info.h"
-#include "citron/configuration/configuration_shared.h" // <-- Full definition included here
+#include "citron/configuration/configuration_shared.h"
 #include "citron/configuration/configure_applets.h"
 #include "citron/configuration/configure_audio.h"
 #include "citron/configuration/configure_cpu.h"
@@ -203,6 +203,9 @@ void ConfigureDialog::UpdateTheme() {
     style_sheet.replace(QStringLiteral("%%ACCENT_COLOR_HOVER%%"), accent_color_hover);
     style_sheet.replace(QStringLiteral("%%ACCENT_COLOR_PRESSED%%"), accent_color_pressed);
     setStyleSheet(style_sheet);
+
+
+    graphics_tab->SetTemplateStyleSheet(style_sheet);
 }
 
 void ConfigureDialog::SetConfiguration() {}
