@@ -173,7 +173,6 @@ rainbow_timer{new QTimer(this)} {
     ui->buttonBox->setFocus();
 }
 
-// This line defines the destructor, completing the type for std::unique_ptr
 ConfigureDialog::~ConfigureDialog() = default;
 
 void ConfigureDialog::UpdateTheme() {
@@ -185,7 +184,8 @@ void ConfigureDialog::UpdateTheme() {
         }
         accent_color_str = QColor::fromHsvF(rainbow_hue, 0.8, 1.0).name();
         if (!rainbow_timer->isActive()) {
-            rainbow_timer->start(16); // ~60 FPS
+            // THE FIX: Use a sane timer interval to prevent UI lag.
+            rainbow_timer->start(100);
         }
     } else {
         if (rainbow_timer->isActive()) {
@@ -204,8 +204,12 @@ void ConfigureDialog::UpdateTheme() {
     style_sheet.replace(QStringLiteral("%%ACCENT_COLOR_PRESSED%%"), accent_color_pressed);
     setStyleSheet(style_sheet);
 
-
+    // Pass the processed stylesheet to all child tabs that need it.
     graphics_tab->SetTemplateStyleSheet(style_sheet);
+    system_tab->SetTemplateStyleSheet(style_sheet);
+    audio_tab->SetTemplateStyleSheet(style_sheet);
+    cpu_tab->SetTemplateStyleSheet(style_sheet);
+    graphics_advanced_tab->SetTemplateStyleSheet(style_sheet);
 }
 
 void ConfigureDialog::SetConfiguration() {}
