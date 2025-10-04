@@ -7,16 +7,25 @@
 #include <memory>
 #include <vector>
 #include <QDialog>
-#include <QButtonGroup>
-#include "configuration/shared_widget.h"
-#include "citron/configuration/configuration_shared.h"
-#include "citron/configuration/shared_translation.h"
-#include "citron/vk_device_info.h"
+#include "common/settings_enums.h"
+#include "citron/configuration/shared_widget.h" // <-- Correct header for Builder
 
-namespace Core {
-class System;
+// Forward declarations for other types
+class HotkeyRegistry;
+class QButtonGroup;
+class QTimer;
+namespace InputCommon {
+    class InputSubsystem;
 }
-
+namespace Core {
+    class System;
+}
+namespace VkDeviceInfo {
+    struct Record;
+}
+namespace Ui {
+    class ConfigureDialog;
+}
 class ConfigureApplets;
 class ConfigureAudio;
 class ConfigureCpu;
@@ -27,56 +36,45 @@ class ConfigureGraphics;
 class ConfigureGraphicsAdvanced;
 class ConfigureHotkeys;
 class ConfigureInput;
+class ConfigureNetwork;
 class ConfigureProfileManager;
 class ConfigureSystem;
-class ConfigureNetwork;
 class ConfigureUi;
 class ConfigureWeb;
 
-class HotkeyRegistry;
-
-namespace InputCommon {
-class InputSubsystem;
-}
-
-namespace Ui {
-class ConfigureDialog;
-}
-
-class ConfigureDialog : public QDialog {
+class ConfigureDialog final : public QDialog {
     Q_OBJECT
 
 public:
-    explicit ConfigureDialog(QWidget* parent, HotkeyRegistry& registry_,
+    explicit ConfigureDialog(QWidget* parent, HotkeyRegistry& registry,
                              InputCommon::InputSubsystem* input_subsystem,
                              std::vector<VkDeviceInfo::Record>& vk_device_records,
-                             Core::System& system_, bool enable_web_config = true);
+                             Core::System& system, bool enable_web_config);
+
     ~ConfigureDialog() override;
 
     void ApplyConfiguration();
 
-private slots:
-    void OnLanguageChanged(const QString& locale);
+public slots:
+    void UpdateTheme();
 
 signals:
     void LanguageChanged(const QString& locale);
 
 private:
+    void SetConfiguration();
+    void HandleApplyButtonClicked();
+
     void changeEvent(QEvent* event) override;
     void RetranslateUI();
 
-    void HandleApplyButtonClicked();
+    void OnLanguageChanged(const QString& locale);
 
-    void SetConfiguration();
-
+    // All members are now in the EXACT correct order to match the constructor
     std::unique_ptr<Ui::ConfigureDialog> ui;
     HotkeyRegistry& registry;
-
     Core::System& system;
     std::unique_ptr<ConfigurationShared::Builder> builder;
-    std::vector<ConfigurationShared::Tab*> tab_group;
-    std::unique_ptr<QButtonGroup> tab_button_group;
-
     std::unique_ptr<ConfigureApplets> applets_tab;
     std::unique_ptr<ConfigureAudio> audio_tab;
     std::unique_ptr<ConfigureCpu> cpu_tab;
@@ -92,4 +90,7 @@ private:
     std::unique_ptr<ConfigureProfileManager> profile_tab;
     std::unique_ptr<ConfigureSystem> system_tab;
     std::unique_ptr<ConfigureWeb> web_tab;
+    std::unique_ptr<QButtonGroup> tab_button_group;
+    QTimer* rainbow_timer;
+    float rainbow_hue = 0.0f;
 };
