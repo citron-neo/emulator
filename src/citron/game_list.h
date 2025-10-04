@@ -4,6 +4,8 @@
 
 #pragma once
 
+#include <map>
+#include <utility>
 #include <QFileSystemWatcher>
 #include <QLabel>
 #include <QLineEdit>
@@ -11,7 +13,7 @@
 #include <QListView>
 #include <QStandardItemModel>
 #include <QString>
-#include <QTimer> 
+#include <QTimer>
 #include <QTreeView>
 #include <QVBoxLayout>
 #include <QVector>
@@ -22,10 +24,7 @@
 #include "uisettings.h"
 #include "citron/compatibility_list.h"
 #include "citron/play_time_manager.h"
-
-namespace Core {
-    class System;
-}
+#include "citron/multiplayer/state.h"
 
 class ControllerNavigation;
 class GameListWorker;
@@ -142,6 +141,7 @@ private slots:
     void OnFilterCloseClicked();
     void OnUpdateThemedIcons();
     void UpdateOnlineStatus();
+    void OnOnlineStatusUpdated(const std::map<u64, std::pair<int, int>>& online_stats);
 
 private:
     friend class GameListWorker;
