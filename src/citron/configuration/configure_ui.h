@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: 2016 Citra Emulator Project
+// SPDX-FileCopyrightText: 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #pragma once
@@ -8,11 +9,11 @@
 #include "common/settings_enums.h"
 
 namespace Core {
-class System;
+    class System;
 }
 
 namespace Ui {
-class ConfigureUi;
+    class ConfigureUi;
 }
 
 class ConfigureUi : public QWidget {
@@ -27,11 +28,13 @@ public:
     void UpdateScreenshotInfo(Settings::AspectRatio ratio,
                               Settings::ResolutionSetup resolution_info);
 
-private slots:
-    void OnLanguageChanged(int index);
-
 signals:
     void LanguageChanged(const QString& locale);
+    void themeChanged();
+
+private slots:
+    void OnLanguageChanged(int index);
+    void OnAccentColorButtonPressed();
 
 private:
     void RequestGameListUpdate();

@@ -12,6 +12,7 @@
 #include <utility>
 
 #include <QCheckBox>
+#include <QColorDialog>
 #include <QComboBox>
 #include <QCoreApplication>
 #include <QDirIterator>
@@ -33,42 +34,42 @@
 #include "citron/uisettings.h"
 
 namespace {
-constexpr std::array default_game_icon_sizes{
-    std::make_pair(0, QT_TRANSLATE_NOOP("ConfigureUI", "None")),
-    std::make_pair(32, QT_TRANSLATE_NOOP("ConfigureUI", "Small (32x32)")),
-    std::make_pair(64, QT_TRANSLATE_NOOP("ConfigureUI", "Standard (64x64)")),
-    std::make_pair(128, QT_TRANSLATE_NOOP("ConfigureUI", "Large (128x128)")),
-    std::make_pair(256, QT_TRANSLATE_NOOP("ConfigureUI", "Full Size (256x256)")),
-};
+    constexpr std::array default_game_icon_sizes{
+        std::make_pair(0, QT_TRANSLATE_NOOP("ConfigureUI", "None")),
+        std::make_pair(32, QT_TRANSLATE_NOOP("ConfigureUI", "Small (32x32)")),
+        std::make_pair(64, QT_TRANSLATE_NOOP("ConfigureUI", "Standard (64x64)")),
+        std::make_pair(128, QT_TRANSLATE_NOOP("ConfigureUI", "Large (128x128)")),
+        std::make_pair(256, QT_TRANSLATE_NOOP("ConfigureUI", "Full Size (256x256)")),
+    };
 
-constexpr std::array default_folder_icon_sizes{
-    std::make_pair(0, QT_TRANSLATE_NOOP("ConfigureUI", "None")),
-    std::make_pair(24, QT_TRANSLATE_NOOP("ConfigureUI", "Small (24x24)")),
-    std::make_pair(48, QT_TRANSLATE_NOOP("ConfigureUI", "Standard (48x48)")),
-    std::make_pair(72, QT_TRANSLATE_NOOP("ConfigureUI", "Large (72x72)")),
-};
+    constexpr std::array default_folder_icon_sizes{
+        std::make_pair(0, QT_TRANSLATE_NOOP("ConfigureUI", "None")),
+        std::make_pair(24, QT_TRANSLATE_NOOP("ConfigureUI", "Small (24x24)")),
+        std::make_pair(48, QT_TRANSLATE_NOOP("ConfigureUI", "Standard (48x48)")),
+        std::make_pair(72, QT_TRANSLATE_NOOP("ConfigureUI", "Large (72x72)")),
+    };
 
-// clang-format off
-constexpr std::array row_text_names{
-    QT_TRANSLATE_NOOP("ConfigureUI", "Filename"),
-    QT_TRANSLATE_NOOP("ConfigureUI", "Filetype"),
-    QT_TRANSLATE_NOOP("ConfigureUI", "Title ID"),
-    QT_TRANSLATE_NOOP("ConfigureUI", "Title Name"),
-    QT_TRANSLATE_NOOP("ConfigureUI", "None"),
-};
-// clang-format on
+    // clang-format off
+    constexpr std::array row_text_names{
+        QT_TRANSLATE_NOOP("ConfigureUI", "Filename"),
+        QT_TRANSLATE_NOOP("ConfigureUI", "Filetype"),
+        QT_TRANSLATE_NOOP("ConfigureUI", "Title ID"),
+        QT_TRANSLATE_NOOP("ConfigureUI", "Title Name"),
+        QT_TRANSLATE_NOOP("ConfigureUI", "None"),
+    };
+    // clang-format on
 
-QString GetTranslatedGameIconSize(size_t index) {
-    return QCoreApplication::translate("ConfigureUI", default_game_icon_sizes[index].second);
-}
+    QString GetTranslatedGameIconSize(size_t index) {
+        return QCoreApplication::translate("ConfigureUI", default_game_icon_sizes[index].second);
+    }
 
-QString GetTranslatedFolderIconSize(size_t index) {
-    return QCoreApplication::translate("ConfigureUI", default_folder_icon_sizes[index].second);
-}
+    QString GetTranslatedFolderIconSize(size_t index) {
+        return QCoreApplication::translate("ConfigureUI", default_folder_icon_sizes[index].second);
+    }
 
-QString GetTranslatedRowTextName(size_t index) {
-    return QCoreApplication::translate("ConfigureUI", row_text_names[index]);
-}
+    QString GetTranslatedRowTextName(size_t index) {
+        return QCoreApplication::translate("ConfigureUI", row_text_names[index]);
+    }
 } // Anonymous namespace
 
 static float GetUpFactor(Settings::ResolutionSetup res_setup) {
@@ -81,7 +82,7 @@ static void PopulateResolutionComboBox(QComboBox* screenshot_height, QWidget* pa
     screenshot_height->clear();
 
     const auto& enumeration =
-        Settings::EnumMetadata<Settings::ResolutionSetup>::Canonicalizations();
+    Settings::EnumMetadata<Settings::ResolutionSetup>::Canonicalizations();
     std::set<u32> resolutions{};
     for (const auto& [name, value] : enumeration) {
         const float up_factor = GetUpFactor(value);
@@ -102,9 +103,9 @@ static u32 ScreenshotDimensionToInt(const QString& height) {
 }
 
 ConfigureUi::ConfigureUi(Core::System& system_, QWidget* parent)
-    : QWidget(parent), ui{std::make_unique<Ui::ConfigureUi>()},
-      ratio{Settings::values.aspect_ratio.GetValue()},
-      resolution_setting{Settings::values.resolution_setup.GetValue()}, system{system_} {
+: QWidget(parent), ui{std::make_unique<Ui::ConfigureUi>()},
+ratio{Settings::values.aspect_ratio.GetValue()},
+resolution_setting{Settings::values.resolution_setup.GetValue()}, system{system_} {
     ui->setupUi(this);
 
     InitializeLanguageComboBox();
@@ -121,34 +122,39 @@ ConfigureUi::ConfigureUi(Core::System& system_, QWidget* parent)
 
     SetConfiguration();
 
+    connect(ui->accentColorButton, &QPushButton::clicked, this, &ConfigureUi::OnAccentColorButtonPressed);
+    connect(ui->rainbowModeCheckBox, &QCheckBox::checkStateChanged, this, [this](int state) {
+        emit themeChanged();
+    });
+
     // Force game list reload if any of the relevant settings are changed.
-    connect(ui->show_add_ons, &QCheckBox::stateChanged, this, &ConfigureUi::RequestGameListUpdate);
-    connect(ui->show_compat, &QCheckBox::stateChanged, this, &ConfigureUi::RequestGameListUpdate);
-    connect(ui->show_size, &QCheckBox::stateChanged, this, &ConfigureUi::RequestGameListUpdate);
-    connect(ui->show_types, &QCheckBox::stateChanged, this, &ConfigureUi::RequestGameListUpdate);
-    connect(ui->show_play_time, &QCheckBox::stateChanged, this,
+    connect(ui->show_add_ons, &QCheckBox::checkStateChanged, this, &ConfigureUi::RequestGameListUpdate);
+    connect(ui->show_compat, &QCheckBox::checkStateChanged, this, &ConfigureUi::RequestGameListUpdate);
+    connect(ui->show_size, &QCheckBox::checkStateChanged, this, &ConfigureUi::RequestGameListUpdate);
+    connect(ui->show_types, &QCheckBox::checkStateChanged, this, &ConfigureUi::RequestGameListUpdate);
+    connect(ui->show_play_time, &QCheckBox::checkStateChanged, this,
             &ConfigureUi::RequestGameListUpdate);
-    connect(ui->game_icon_size_combobox, QOverload<int>::of(&QComboBox::currentIndexChanged), this,
+    connect(ui->game_icon_size_combobox, &QComboBox::currentIndexChanged, this,
             &ConfigureUi::RequestGameListUpdate);
-    connect(ui->folder_icon_size_combobox, QOverload<int>::of(&QComboBox::currentIndexChanged),
+    connect(ui->folder_icon_size_combobox, &QComboBox::currentIndexChanged,
             this, &ConfigureUi::RequestGameListUpdate);
-    connect(ui->row_1_text_combobox, QOverload<int>::of(&QComboBox::currentIndexChanged), this,
+    connect(ui->row_1_text_combobox, &QComboBox::currentIndexChanged, this,
             &ConfigureUi::RequestGameListUpdate);
-    connect(ui->row_2_text_combobox, QOverload<int>::of(&QComboBox::currentIndexChanged), this,
+    connect(ui->row_2_text_combobox, &QComboBox::currentIndexChanged, this,
             &ConfigureUi::RequestGameListUpdate);
 
     // Update text ComboBoxes after user interaction.
-    connect(ui->row_1_text_combobox, QOverload<int>::of(&QComboBox::activated),
+    connect(ui->row_1_text_combobox, &QComboBox::activated,
             [this] { ConfigureUi::UpdateSecondRowComboBox(); });
-    connect(ui->row_2_text_combobox, QOverload<int>::of(&QComboBox::activated),
+    connect(ui->row_2_text_combobox, &QComboBox::activated,
             [this] { ConfigureUi::UpdateFirstRowComboBox(); });
 
     // Set screenshot path to user specification.
     connect(ui->screenshot_path_button, &QToolButton::pressed, this, [this] {
         auto dir =
-            QFileDialog::getExistingDirectory(this, tr("Select Screenshots Path..."),
-                                              QString::fromStdString(Common::FS::GetCitronPathString(
-                                                  Common::FS::CitronPath::ScreenshotsDir)));
+        QFileDialog::getExistingDirectory(this, tr("Select Screenshots Path..."),
+                                          QString::fromStdString(Common::FS::GetCitronPathString(
+                                              Common::FS::CitronPath::ScreenshotsDir)));
         if (!dir.isEmpty()) {
             if (dir.back() != QChar::fromLatin1('/')) {
                 dir.append(QChar::fromLatin1('/'));
@@ -167,7 +173,8 @@ ConfigureUi::~ConfigureUi() = default;
 
 void ConfigureUi::ApplyConfiguration() {
     UISettings::values.theme =
-        ui->theme_combobox->itemData(ui->theme_combobox->currentIndex()).toString().toStdString();
+    ui->theme_combobox->itemData(ui->theme_combobox->currentIndex()).toString().toStdString();
+    UISettings::values.enable_rainbow_mode = ui->rainbowModeCheckBox->isChecked();
     UISettings::values.show_add_ons = ui->show_add_ons->isChecked();
     UISettings::values.show_compat = ui->show_compat->isChecked();
     UISettings::values.show_size = ui->show_size->isChecked();
@@ -180,7 +187,7 @@ void ConfigureUi::ApplyConfiguration() {
 
     UISettings::values.enable_screenshot_save_as = ui->enable_screenshot_save_as->isChecked();
     Common::FS::SetCitronPath(Common::FS::CitronPath::ScreenshotsDir,
-                            ui->screenshot_path_edit->text().toStdString());
+                              ui->screenshot_path_edit->text().toStdString());
 
     const u32 height = ScreenshotDimensionToInt(ui->screenshot_height->currentText());
     UISettings::values.screenshot_height.SetValue(height);
@@ -198,6 +205,7 @@ void ConfigureUi::SetConfiguration() {
         ui->theme_combobox->findData(QString::fromStdString(UISettings::values.theme)));
     ui->language_combobox->setCurrentIndex(ui->language_combobox->findData(
         QString::fromStdString(UISettings::values.language.GetValue())));
+    ui->rainbowModeCheckBox->setChecked(UISettings::values.enable_rainbow_mode.GetValue());
     ui->show_add_ons->setChecked(UISettings::values.show_add_ons.GetValue());
     ui->show_compat->setChecked(UISettings::values.show_compat.GetValue());
     ui->show_size->setChecked(UISettings::values.show_size.GetValue());
@@ -218,6 +226,18 @@ void ConfigureUi::SetConfiguration() {
         ui->screenshot_height->setCurrentIndex(0);
     } else {
         ui->screenshot_height->setCurrentText(QStringLiteral("%1").arg(height));
+    }
+}
+
+void ConfigureUi::OnAccentColorButtonPressed() {
+    const QColor current_color(QString::fromStdString(UISettings::values.accent_color.GetValue()));
+    QColorDialog dialog(current_color, this);
+    if (dialog.exec() == QDialog::Accepted) {
+        const QColor color = dialog.selectedColor();
+        if (color.isValid()) {
+            UISettings::values.accent_color.SetValue(color.name().toStdString());
+            emit themeChanged();
+        }
     }
 }
 
@@ -263,10 +283,7 @@ void ConfigureUi::InitializeLanguageComboBox() {
         ui->language_combobox->addItem(QStringLiteral("%1 (%2)").arg(lang, country), locale);
     }
 
-    // Unlike other configuration changes, interface language changes need to be reflected on the
-    // interface immediately. This is done by passing a signal to the main window, and then
-    // retranslating when passing back.
-    connect(ui->language_combobox, qOverload<int>(&QComboBox::currentIndexChanged), this,
+    connect(ui->language_combobox, &QComboBox::currentIndexChanged, this,
             &ConfigureUi::OnLanguageChanged);
 }
 
@@ -288,8 +305,8 @@ void ConfigureUi::InitializeRowComboBoxes() {
 
 void ConfigureUi::UpdateFirstRowComboBox(bool init) {
     const int currentIndex =
-        init ? UISettings::values.row_1_text_id.GetValue()
-             : ui->row_1_text_combobox->findData(ui->row_1_text_combobox->currentData());
+    init ? UISettings::values.row_1_text_id.GetValue()
+    : ui->row_1_text_combobox->findData(ui->row_1_text_combobox->currentData());
 
     ui->row_1_text_combobox->clear();
 
@@ -307,8 +324,8 @@ void ConfigureUi::UpdateFirstRowComboBox(bool init) {
 
 void ConfigureUi::UpdateSecondRowComboBox(bool init) {
     const int currentIndex =
-        init ? UISettings::values.row_2_text_id.GetValue()
-             : ui->row_2_text_combobox->findData(ui->row_2_text_combobox->currentData());
+    init ? UISettings::values.row_2_text_id.GetValue()
+    : ui->row_2_text_combobox->findData(ui->row_2_text_combobox->currentData());
 
     ui->row_2_text_combobox->clear();
 
@@ -340,10 +357,10 @@ void ConfigureUi::UpdateWidthText() {
         const u32 height_undocked = Layout::ScreenUndocked::Height * up_factor;
         const u32 width_undocked = UISettings::CalculateWidth(height_undocked, ratio);
         ui->screenshot_width->setText(tr("Auto (%1 x %2, %3 x %4)", "Screenshot width value")
-                                          .arg(width_undocked)
-                                          .arg(height_undocked)
-                                          .arg(width_docked)
-                                          .arg(height_docked));
+        .arg(width_undocked)
+        .arg(height_undocked)
+        .arg(width_docked)
+        .arg(height_docked));
     } else {
         ui->screenshot_width->setText(QStringLiteral("%1 x").arg(width));
     }

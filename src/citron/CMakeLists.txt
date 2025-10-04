@@ -209,6 +209,7 @@ add_executable(citron
     qt_common.h
     startup_checks.cpp
     startup_checks.h
+    theme.h
     uisettings.cpp
     uisettings.h
     util/clickable_label.cpp

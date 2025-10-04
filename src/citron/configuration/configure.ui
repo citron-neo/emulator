@@ -16,15 +16,16 @@
                 <verstretch>0</verstretch>
             </sizepolicy>
         </property>
-        <!-- High DPI support: Enable automatic scaling and proper window modality -->
         <property name="windowModality">
             <enum>Qt::ApplicationModal</enum>
         </property>
-        <!-- High DPI scaling attributes -->
         <property name="windowTitle">
             <string>citron Configuration</string>
         </property>
         <property name="styleSheet">
+            <string/>
+        </property>
+        <property name="templateStyleSheet" stdset="0">
             <string>QDialog {
                 background-color: #2b2b2b;
                 color: #ffffff;
@@ -68,7 +69,7 @@
                 }
 
                 QScrollBar::handle:vertical:hover {
-                background-color: #4a9eff;
+                background-color: %%ACCENT_COLOR%%;
                 }
 
                 QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
@@ -92,7 +93,7 @@
                 }
 
                 QScrollBar::handle:horizontal:hover {
-                background-color: #4a9eff;
+                background-color: %%ACCENT_COLOR%%;
                 }
 
                 QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {
@@ -118,10 +119,10 @@
                 }
 
                 QPushButton.tabButton:checked {
-                background-color: #4a9eff;
+                background-color: %%ACCENT_COLOR%%;
                 color: #ffffff;
                 font-weight: bold;
-                border-color: #4a9eff;
+                border-color: %%ACCENT_COLOR%%;
                 }
 
                 QPushButton.tabButton:hover:!checked {
@@ -130,7 +131,7 @@
                 }
 
                 QPushButton.tabButton:pressed {
-                background-color: #2980b9;
+                background-color: %%ACCENT_COLOR_PRESSED%%;
                 }
 
                 QTabWidget {
@@ -170,10 +171,10 @@
                 }
 
                 QTabBar::tab:selected {
-                background-color: #4a9eff;
+                background-color: %%ACCENT_COLOR%%;
                 color: #ffffff;
                 font-weight: bold;
-                border-color: #4a9eff;
+                border-color: %%ACCENT_COLOR%%;
                 }
 
                 QTabBar::tab:hover:!selected {
@@ -191,7 +192,7 @@
 
                 QTabBar QToolButton:hover {
                 background-color: #4d4d4d;
-                border-color: #4a9eff;
+                border-color: %%ACCENT_COLOR%%;
                 }
 
                 QTabBar::scroller {
@@ -232,12 +233,12 @@
                 }
 
                 QCheckBox::indicator:checked {
-                background-color: #4a9eff;
-                border-color: #4a9eff;
+                background-color: %%ACCENT_COLOR%%;
+                border-color: %%ACCENT_COLOR%%;
                 }
 
                 QCheckBox::indicator:hover {
-                border-color: #4a9eff;
+                border-color: %%ACCENT_COLOR%%;
                 }
 
                 QComboBox {
@@ -248,16 +249,16 @@
                 color: #ffffff;
                 min-width: 120px;
                 min-height: 28px;
-                selection-background-color: #4a9eff;
+                selection-background-color: %%ACCENT_COLOR%%;
                 }
 
                 QComboBox:hover {
-                border-color: #4a9eff;
+                border-color: %%ACCENT_COLOR%%;
                 background-color: #404040;
                 }
 
                 QComboBox:focus {
-                border-color: #4a9eff;
+                border-color: %%ACCENT_COLOR%%;
                 background-color: #404040;
                 }
 
@@ -277,8 +278,8 @@
 
                 QComboBox QAbstractItemView {
                 background-color: #3d3d3d;
-                border: 1px solid #4a9eff;
-                selection-background-color: #4a9eff;
+                border: 1px solid %%ACCENT_COLOR%%;
+                selection-background-color: %%ACCENT_COLOR%%;
                 color: #ffffff;
                 outline: none;
                 }
@@ -290,12 +291,12 @@
                 }
 
                 QComboBox QAbstractItemView::item:selected {
-                background-color: #4a9eff;
+                background-color: %%ACCENT_COLOR%%;
                 color: #ffffff;
                 }
 
                 QComboBox QAbstractItemView::item:hover {
-                background-color: #5dafff;
+                background-color: %%ACCENT_COLOR_HOVER%%;
                 color: #ffffff;
                 }
 
@@ -306,16 +307,16 @@
                 padding: 8px 12px;
                 color: #ffffff;
                 min-height: 20px;
-                selection-background-color: #4a9eff;
+                selection-background-color: %%ACCENT_COLOR%%;
                 }
 
                 QLineEdit:focus {
-                border-color: #4a9eff;
+                border-color: %%ACCENT_COLOR%%;
                 background-color: #404040;
                 }
 
                 QPushButton {
-                background-color: #4a9eff;
+                background-color: %%ACCENT_COLOR%%;
                 color: #ffffff;
                 border: none;
                 padding: 10px 20px;
@@ -325,11 +326,11 @@
                 }
 
                 QPushButton:hover {
-                background-color: #5dafff;
+                background-color: %%ACCENT_COLOR_HOVER%%;
                 }
 
                 QPushButton:pressed {
-                background-color: #2980b9;
+                background-color: %%ACCENT_COLOR_PRESSED%%;
                 }
 
                 QPushButton:disabled {
@@ -338,7 +339,7 @@
                 }
 
                 QToolButton {
-                background-color: #4a9eff;
+                background-color: %%ACCENT_COLOR%%;
                 color: #ffffff;
                 border: none;
                 padding: 8px 12px;
@@ -349,11 +350,11 @@
                 }
 
                 QToolButton:hover {
-                background-color: #5dafff;
+                background-color: %%ACCENT_COLOR_HOVER%%;
                 }
 
                 QToolButton:pressed {
-                background-color: #2980b9;
+                background-color: %%ACCENT_COLOR_PRESSED%%;
                 }
 
                 QLabel {
@@ -377,7 +378,7 @@
                 }
 
                 QListWidget::item:selected {
-                background-color: #4a9eff;
+                background-color: %%ACCENT_COLOR%%;
                 color: #ffffff;
                 }
 
@@ -393,15 +394,15 @@
                 }
 
                 QSlider::handle:horizontal {
-                background-color: #4a9eff;
-                border: 1px solid #4a9eff;
+                background-color: %%ACCENT_COLOR%%;
+                border: 1px solid %%ACCENT_COLOR%%;
                 width: 18px;
                 margin: -5px 0;
                 border-radius: 9px;
                 }
 
                 QSlider::handle:horizontal:hover {
-                background-color: #5dafff;
+                background-color: %%ACCENT_COLOR_HOVER%%;
                 }
 
                 QSpinBox, QDoubleSpinBox {
@@ -414,7 +415,7 @@
                 }
 
                 QSpinBox:focus, QDoubleSpinBox:focus {
-                border-color: #4a9eff;
+                border-color: %%ACCENT_COLOR%%;
                 background-color: #404040;
                 }
 
@@ -433,12 +434,12 @@
                 }
 
                 QRadioButton::indicator:checked {
-                background-color: #4a9eff;
-                border-color: #4a9eff;
+                background-color: %%ACCENT_COLOR%%;
+                border-color: %%ACCENT_COLOR%%;
                 }
 
                 QRadioButton::indicator:hover {
-                border-color: #4a9eff;
+                border-color: %%ACCENT_COLOR%%;
                 }
 
                 /* High DPI specific styles */
@@ -511,8 +512,8 @@
                 height: 20px;
                 }
                 }
-            </string>
-        </property>
+        </string>
+    </property>
         <layout class="QVBoxLayout" name="verticalLayout">
             <property name="spacing">
                 <number>8</number>
