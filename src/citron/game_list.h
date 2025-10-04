@@ -11,6 +11,7 @@
 #include <QListView>
 #include <QStandardItemModel>
 #include <QString>
+#include <QTimer> 
 #include <QTreeView>
 #include <QVBoxLayout>
 #include <QVector>
@@ -23,7 +24,7 @@
 #include "citron/play_time_manager.h"
 
 namespace Core {
-class System;
+    class System;
 }
 
 class ControllerNavigation;
@@ -35,8 +36,8 @@ enum class AmLaunchType;
 enum class StartGameType;
 
 namespace FileSys {
-class ManualContentProvider;
-class VfsFilesystem;
+    class ManualContentProvider;
+    class VfsFilesystem;
 } // namespace FileSys
 
 enum class GameListOpenTarget {
@@ -79,6 +80,7 @@ public:
         COLUMN_FILE_TYPE,
         COLUMN_SIZE,
         COLUMN_PLAY_TIME,
+        COLUMN_ONLINE,
         COLUMN_COUNT, // Number of columns
     };
 
@@ -139,6 +141,7 @@ private slots:
     void OnTextChanged(const QString& new_text);
     void OnFilterCloseClicked();
     void OnUpdateThemedIcons();
+    void UpdateOnlineStatus();
 
 private:
     friend class GameListWorker;
@@ -183,6 +186,7 @@ private:
     QFileSystemWatcher* watcher = nullptr;
     ControllerNavigation* controller_navigation = nullptr;
     CompatibilityList compatibility_list;
+    QTimer* online_status_timer;
 
     friend class GameListSearchField;
 
