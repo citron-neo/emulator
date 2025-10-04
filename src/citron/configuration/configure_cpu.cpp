@@ -1,6 +1,8 @@
 // SPDX-FileCopyrightText: Copyright 2020 yuzu Emulator Project
+// SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
+#include "citron/configuration/configure_cpu.h"
 #include <memory>
 #include <typeinfo>
 #include <vector>
@@ -12,13 +14,12 @@
 #include "core/core.h"
 #include "ui_configure_cpu.h"
 #include "citron/configuration/configuration_shared.h"
-#include "citron/configuration/configure_cpu.h"
 
 ConfigureCpu::ConfigureCpu(const Core::System& system_,
                            std::shared_ptr<std::vector<ConfigurationShared::Tab*>> group_,
                            const ConfigurationShared::Builder& builder, QWidget* parent)
-    : Tab(group_, parent), ui{std::make_unique<Ui::ConfigureCpu>()}, system{system_},
-      combobox_translations(builder.ComboboxTranslations()) {
+: Tab(group_, parent), ui{std::make_unique<Ui::ConfigureCpu>()}, system{system_},
+combobox_translations(builder.ComboboxTranslations()) {
     ui->setupUi(this);
 
     Setup(builder);
@@ -31,9 +32,9 @@ ConfigureCpu::ConfigureCpu(const Core::System& system_,
     connect(backend_combobox, qOverload<int>(&QComboBox::currentIndexChanged), this,
             &ConfigureCpu::UpdateGroup);
 
-#ifdef HAS_NCE
+    #ifdef HAS_NCE
     ui->backend_group->setVisible(true);
-#endif
+    #endif
 }
 
 ConfigureCpu::~ConfigureCpu() = default;
@@ -90,7 +91,7 @@ void ConfigureCpu::Setup(const ConfigurationShared::Builder& builder) {
 void ConfigureCpu::UpdateGroup(int index) {
     const auto accuracy = static_cast<Settings::CpuAccuracy>(
         combobox_translations.at(Settings::EnumMetadata<Settings::CpuAccuracy>::Index())[index]
-            .first);
+        .first);
     ui->unsafe_group->setVisible(accuracy == Settings::CpuAccuracy::Unsafe);
 }
 
@@ -111,4 +112,17 @@ void ConfigureCpu::changeEvent(QEvent* event) {
 
 void ConfigureCpu::RetranslateUI() {
     ui->retranslateUi(this);
+}
+
+QString ConfigureCpu::GetTemplateStyleSheet() const {
+    return m_template_style_sheet;
+}
+
+void ConfigureCpu::SetTemplateStyleSheet(const QString& sheet) {
+    if (m_template_style_sheet == sheet) {
+        return;
+    }
+    m_template_style_sheet = sheet;
+    setStyleSheet(sheet);
+    emit TemplateStyleSheetChanged();
 }
