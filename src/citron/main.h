@@ -72,59 +72,59 @@ enum class StartGameType {
 };
 
 namespace Core {
-enum class SystemResultStatus : u32;
-class System;
+    enum class SystemResultStatus : u32;
+    class System;
 } // namespace Core
 
 namespace Core::Frontend {
-struct CabinetParameters;
-struct ControllerParameters;
-struct InlineAppearParameters;
-struct InlineTextParameters;
-struct KeyboardInitializeParameters;
-struct ProfileSelectParameters;
+    struct CabinetParameters;
+    struct ControllerParameters;
+    struct InlineAppearParameters;
+    struct InlineTextParameters;
+    struct KeyboardInitializeParameters;
+    struct ProfileSelectParameters;
 } // namespace Core::Frontend
 
 namespace DiscordRPC {
-class DiscordInterface;
+    class DiscordInterface;
 }
 
 namespace PlayTime {
-class PlayTimeManager;
+    class PlayTimeManager;
 }
 
 namespace FileSys {
-class ContentProvider;
-class ManualContentProvider;
-class VfsFilesystem;
+    class ContentProvider;
+    class ManualContentProvider;
+    class VfsFilesystem;
 } // namespace FileSys
 
 namespace InputCommon {
-class InputSubsystem;
+    class InputSubsystem;
 }
 
 namespace Service::AM {
-struct FrontendAppletParameters;
-enum class AppletId : u32;
+    struct FrontendAppletParameters;
+    enum class AppletId : u32;
 } // namespace Service::AM
 
 namespace Service::AM::Frontend {
-enum class SwkbdResult : u32;
-enum class SwkbdTextCheckResult : u32;
-enum class SwkbdReplyType : u32;
-enum class WebExitReason : u32;
+    enum class SwkbdResult : u32;
+    enum class SwkbdTextCheckResult : u32;
+    enum class SwkbdReplyType : u32;
+    enum class WebExitReason : u32;
 } // namespace Service::AM::Frontend
 
 namespace Service::NFC {
-class NfcDevice;
+    class NfcDevice;
 } // namespace Service::NFC
 
 namespace Service::NFP {
-enum class CabinetMode : u8;
+    enum class CabinetMode : u8;
 } // namespace Service::NFP
 
 namespace Ui {
-class MainWindow;
+    class MainWindow;
 }
 
 enum class EmulatedDirectoryTarget {
@@ -133,7 +133,7 @@ enum class EmulatedDirectoryTarget {
 };
 
 namespace VkDeviceInfo {
-class Record;
+    class Record;
 }
 
 class VolumeButton : public QPushButton {
@@ -182,6 +182,13 @@ public:
 
     bool DropAction(QDropEvent* event);
     void AcceptDropEvent(QDropEvent* event);
+
+    /**
+     * This is the new function to provide access to the MultiplayerState.
+     */
+    MultiplayerState* GetMultiplayerState() {
+        return multiplayer_state;
+    }
 
 signals:
 
@@ -326,16 +333,16 @@ private:
     std::string CreateTASFramesString(
         std::array<size_t, InputCommon::TasInput::PLAYER_NUMBER> frames) const;
 
-#ifdef __unix__
-    void SetupSigInterrupts();
-    static void HandleSigInterrupt(int);
-    void OnSigInterruptNotifierActivated();
-    void SetGamemodeEnabled(bool state);
-#endif
+        #ifdef __unix__
+        void SetupSigInterrupts();
+        static void HandleSigInterrupt(int);
+        void OnSigInterruptNotifierActivated();
+        void SetGamemodeEnabled(bool state);
+        #endif
 
-    Service::AM::FrontendAppletParameters ApplicationAppletParameters();
-    Service::AM::FrontendAppletParameters LibraryAppletParameters(u64 program_id,
-                                                                  Service::AM::AppletId applet_id);
+        Service::AM::FrontendAppletParameters ApplicationAppletParameters();
+        Service::AM::FrontendAppletParameters LibraryAppletParameters(u64 program_id,
+                                                                      Service::AM::AppletId applet_id);
 
 private slots:
     void OnStartGame();
@@ -495,7 +502,7 @@ private:
      */
     bool question(QWidget* parent, const QString& title, const QString& text,
                   QMessageBox::StandardButtons buttons =
-                      QMessageBox::StandardButtons(QMessageBox::Yes | QMessageBox::No),
+                  QMessageBox::StandardButtons(QMessageBox::Yes | QMessageBox::No),
                   QMessageBox::StandardButton defaultButton = QMessageBox::NoButton);
 
     std::unique_ptr<Ui::MainWindow> ui;
@@ -598,10 +605,10 @@ private:
     // True if TAS recording dialog is visible
     bool is_tas_recording_dialog_active{};
 
-#ifdef __unix__
+    #ifdef __unix__
     QSocketNotifier* sig_interrupt_notifier;
     static std::array<int, 3> sig_interrupt_fds;
-#endif
+    #endif
 
 protected:
     void dropEvent(QDropEvent* event) override;
