@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2016 Citra Emulator Project
+// SPDX-FileCopyrightText: Copyright 2016 Citra Emulator Project
 // SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
@@ -46,6 +46,9 @@ class Builder;
 class ConfigureGraphics : public ConfigurationShared::Tab {
     Q_OBJECT
 
+    // This property allows the main UI file to pass its stylesheet to this widget
+    Q_PROPERTY(QString templateStyleSheet READ GetTemplateStyleSheet WRITE SetTemplateStyleSheet NOTIFY TemplateStyleSheetChanged)
+
 public:
     explicit ConfigureGraphics(
         const Core::System& system_, std::vector<VkDeviceInfo::Record>& records,
@@ -58,6 +61,13 @@ public:
 
     void ApplyConfiguration() override;
     void SetConfiguration() override;
+
+    // These functions get and set the stylesheet property
+    QString GetTemplateStyleSheet() const;
+    void SetTemplateStyleSheet(const QString& sheet);
+
+signals:
+    void TemplateStyleSheetChanged();
 
 private:
     void changeEvent(QEvent* event) override;
@@ -115,4 +125,7 @@ private:
     QComboBox* aspect_ratio_combobox;
     QComboBox* resolution_combobox;
     QWidget* fsr_sharpness_widget;
+
+    // This variable will hold the raw stylesheet string
+    QString m_template_style_sheet;
 };
