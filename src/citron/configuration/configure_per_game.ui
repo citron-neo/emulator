@@ -137,7 +137,8 @@
     border: 1px solid #3d3d3d;
     background-color: #2b2b2b;
     border-radius: 8px;
-    margin-top: -1px; /* Pull pane up to meet tabs */
+    margin: 0px;
+    padding: 0px;
     }
 
     QTabWidget::tab-bar {
@@ -149,15 +150,14 @@
     border: none;
     }
 
-    /* THIS IS THE MODIFIED SECTION FOR COMPACT TABS */
     QTabBar::tab {
     background-color: #383838;
     color: #ffffff;
-    padding: 8px 14px; /* Reduced padding to match buttons */
+    padding: 8px 14px;
     margin-right: 2px;
     border-top-left-radius: 8px;
     border-top-right-radius: 8px;
-    min-width: 85px; /* Reduced min-width to match buttons */
+    min-width: 85px;
     font-weight: 500;
     border: 1px solid #3d3d3d;
     border-bottom: none;
@@ -180,7 +180,7 @@
     border: 1px solid #3d3d3d;
     border-radius: 4px;
     padding: 4px;
-    margin: 2px 0px 2px 2px;
+    margin: 2px;
     }
 
     QTabBar QToolButton:hover {
@@ -189,7 +189,7 @@
     }
 
     QTabBar::scroller {
-    width: 24px; /* Make scroller buttons less wide */
+    width: 30px;
     }
 
     QGroupBox {
@@ -261,10 +261,6 @@
     subcontrol-origin: padding;
     subcontrol-position: top right;
     background-color: transparent;
-    }
-
-    QComboBox::down-arrow {
-    image: url(:/icons/down_arrow.svg);
     }
 
     QComboBox QAbstractItemView {
