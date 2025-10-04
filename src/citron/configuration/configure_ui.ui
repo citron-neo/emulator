@@ -1,659 +1,569 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <ui version="4.0">
- <class>ConfigureUi</class>
- <widget class="QWidget" name="ConfigureUi">
-  <property name="geometry">
-   <rect>
-    <x>0</x>
-    <y>0</y>
-    <width>1200</width>
-    <height>800</height>
-   </rect>
-  </property>
-  <property name="minimumSize">
-   <size>
-    <width>1000</width>
-    <height>600</height>
-   </size>
-  </property>
-  <property name="windowTitle">
-   <string>Form</string>
-  </property>
-  <property name="accessibleName">
-   <string>UI</string>
-  </property>
-  <property name="styleSheet">
-   <string>QWidget {
-    background-color: #2b2b2b;
-    color: #ffffff;
-}
-
-QGroupBox {
-    font-weight: bold;
-    border: 1px solid #3d3d3d;
-    border-radius: 8px;
-    margin-top: 12px;
-    padding-top: 12px;
-    background-color: #2b2b2b;
-}
-
-QGroupBox::title {
-    subcontrol-origin: margin;
-    left: 12px;
-    padding: 0 8px 0 8px;
-    color: #ffffff;
-}
-
-QCheckBox {
-    color: #ffffff;
-    spacing: 12px;
-    padding: 6px;
-    background-color: transparent;
-    min-height: 24px;
-}
-
-QCheckBox::indicator {
-    width: 18px;
-    height: 18px;
-    border: 2px solid #5d5d5d;
-    border-radius: 4px;
-    background-color: #3d3d3d;
-}
-
-QCheckBox::indicator:checked {
-    background-color: #4a9eff;
-    border-color: #4a9eff;
-}
-
-QCheckBox::indicator:hover {
-    border-color: #4a9eff;
-}
-
-QComboBox {
-    background-color: #3d3d3d;
-    border: 1px solid #5d5d5d;
-    border-radius: 6px;
-    padding: 8px 12px;
-    color: #ffffff;
-    min-width: 160px;
-    min-height: 28px;
-}
-
-QComboBox:hover {
-    border-color: #4a9eff;
-    background-color: #404040;
-}
-
-QComboBox:focus {
-    border-color: #4a9eff;
-    background-color: #404040;
-}
-
-QComboBox::drop-down {
-    border: none;
-    width: 24px;
-    subcontrol-origin: padding;
-    subcontrol-position: top right;
-}
-
-QComboBox::down-arrow {
-    width: 12px;
-    height: 12px;
-}
-
-QComboBox QAbstractItemView {
-    background-color: #3d3d3d;
-    border: 1px solid #4a9eff;
-    selection-background-color: #4a9eff;
-    color: #ffffff;
-}
-
-QLineEdit {
-    background-color: #3d3d3d;
-    border: 1px solid #5d5d5d;
-    border-radius: 6px;
-    padding: 8px 12px;
-    color: #ffffff;
-    min-height: 28px;
-}
-
-QLineEdit:focus {
-    border-color: #4a9eff;
-    background-color: #404040;
-}
-
-QToolButton {
-    background-color: #4a9eff;
-    color: #ffffff;
-    border: none;
-    padding: 8px 12px;
-    border-radius: 6px;
-    font-weight: bold;
-    min-width: 40px;
-    min-height: 32px;
-}
-
-QToolButton:hover {
-    background-color: #5dafff;
-}
-
-QToolButton:pressed {
-    background-color: #2980b9;
-}
-
-QLabel {
-    color: #ffffff;
-    background-color: transparent;
-    padding: 4px;
-    min-width: 140px;
-}
-</string>
-  </property>
-  <layout class="QHBoxLayout" name="mainHorizontalLayout">
-   <property name="spacing">
-    <number>32</number>
-   </property>
-   <property name="leftMargin">
-    <number>32</number>
-   </property>
-   <property name="topMargin">
-    <number>32</number>
-   </property>
-   <property name="rightMargin">
-    <number>32</number>
-   </property>
-   <property name="bottomMargin">
-    <number>32</number>
-   </property>
-   <item>
-    <layout class="QVBoxLayout" name="leftColumnLayout">
-     <property name="spacing">
-      <number>20</number>
-     </property>
-     <item>
-      <widget class="QGroupBox" name="general_groupBox">
-       <property name="title">
-        <string>General</string>
-       </property>
-       <property name="minimumSize">
-        <size>
-         <width>500</width>
-         <height>0</height>
-        </size>
-       </property>
-       <layout class="QVBoxLayout" name="generalVerticalLayout">
-        <property name="spacing">
-         <number>12</number>
+    <class>ConfigureUi</class>
+    <widget class="QWidget" name="ConfigureUi">
+        <property name="geometry">
+            <rect>
+                <x>0</x>
+                <y>0</y>
+                <width>1200</width>
+                <height>800</height>
+            </rect>
         </property>
-        <property name="leftMargin">
-         <number>20</number>
+        <property name="minimumSize">
+            <size>
+                <width>1000</width>
+                <height>600</height>
+            </size>
         </property>
-        <property name="topMargin">
-         <number>20</number>
+        <property name="windowTitle">
+            <string>Form</string>
         </property>
-        <property name="rightMargin">
-         <number>20</number>
+        <property name="accessibleName">
+            <string>UI</string>
         </property>
-        <property name="bottomMargin">
-         <number>20</number>
+        <property name="styleSheet">
+            <string>/* This stylesheet is a template. Placeholders like %%ACCENT_COLOR%% are replaced in C++. */</string>
         </property>
-        <item>
-         <widget class="QLabel" name="label_change_language_info">
-          <property name="text">
-           <string>Note: Changing language will apply your configuration.</string>
-          </property>
-          <property name="wordWrap">
-           <bool>true</bool>
-          </property>
-          <property name="styleSheet">
-           <string>color: #cccccc; font-size: 11px;</string>
-          </property>
-         </widget>
-        </item>
-        <item>
-         <layout class="QHBoxLayout" name="languageLayout">
-          <property name="spacing">
-           <number>16</number>
-          </property>
-          <item>
-           <widget class="QLabel" name="language_label">
-            <property name="text">
-             <string>Interface language:</string>
+        <layout class="QHBoxLayout" name="mainHorizontalLayout">
+            <property name="spacing">
+                <number>32</number>
             </property>
-            <property name="minimumSize">
-             <size>
-              <width>140</width>
-              <height>0</height>
-             </size>
+            <property name="leftMargin">
+                <number>32</number>
             </property>
-           </widget>
-          </item>
-          <item>
-           <widget class="QComboBox" name="language_combobox">
-            <property name="sizePolicy">
-             <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
-              <horstretch>0</horstretch>
-              <verstretch>0</verstretch>
-             </sizepolicy>
+            <property name="topMargin">
+                <number>32</number>
             </property>
-           </widget>
-          </item>
-         </layout>
-        </item>
-        <item>
-         <layout class="QHBoxLayout" name="themeLayout">
-          <property name="spacing">
-           <number>16</number>
-          </property>
-          <item>
-           <widget class="QLabel" name="theme_label">
-            <property name="text">
-             <string>Theme:</string>
+            <property name="rightMargin">
+                <number>32</number>
             </property>
-            <property name="minimumSize">
-             <size>
-              <width>140</width>
-              <height>0</height>
-             </size>
+            <property name="bottomMargin">
+                <number>32</number>
             </property>
-           </widget>
-          </item>
-          <item>
-           <widget class="QComboBox" name="theme_combobox">
-            <property name="sizePolicy">
-             <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
-              <horstretch>0</horstretch>
-              <verstretch>0</verstretch>
-             </sizepolicy>
-            </property>
-           </widget>
-          </item>
-         </layout>
-        </item>
-       </layout>
-      </widget>
-     </item>
-     <item>
-      <widget class="QGroupBox" name="GameListGroupBox">
-       <property name="title">
-        <string>Game List</string>
-       </property>
-       <property name="minimumSize">
-        <size>
-         <width>500</width>
-         <height>0</height>
-        </size>
-       </property>
-       <layout class="QVBoxLayout" name="gameListVerticalLayout">
-        <property name="spacing">
-         <number>12</number>
-        </property>
-        <property name="leftMargin">
-         <number>20</number>
-        </property>
-        <property name="topMargin">
-         <number>20</number>
-        </property>
-        <property name="rightMargin">
-         <number>20</number>
-        </property>
-        <property name="bottomMargin">
-         <number>20</number>
-        </property>
-        <item>
-         <widget class="QCheckBox" name="show_compat">
-          <property name="text">
-           <string>Show Compatibility List</string>
-          </property>
-          <property name="minimumSize">
-           <size>
-            <width>0</width>
-            <height>32</height>
-           </size>
-          </property>
-         </widget>
-        </item>
-        <item>
-         <widget class="QCheckBox" name="show_add_ons">
-          <property name="text">
-           <string>Show Add-Ons Column</string>
-          </property>
-          <property name="minimumSize">
-           <size>
-            <width>0</width>
-            <height>32</height>
-           </size>
-          </property>
-         </widget>
-        </item>
-        <item>
-         <widget class="QCheckBox" name="show_size">
-          <property name="text">
-           <string>Show Size Column</string>
-          </property>
-          <property name="minimumSize">
-           <size>
-            <width>0</width>
-            <height>32</height>
-           </size>
-          </property>
-         </widget>
-        </item>
-        <item>
-         <widget class="QCheckBox" name="show_types">
-          <property name="text">
-           <string>Show File Types Column</string>
-          </property>
-          <property name="minimumSize">
-           <size>
-            <width>0</width>
-            <height>32</height>
-           </size>
-          </property>
-         </widget>
-        </item>
-        <item>
-         <widget class="QCheckBox" name="show_play_time">
-          <property name="text">
-           <string>Show Play Time Column</string>
-          </property>
-          <property name="minimumSize">
-           <size>
-            <width>0</width>
-            <height>32</height>
-           </size>
-          </property>
-         </widget>
-        </item>
-        <item>
-         <layout class="QHBoxLayout" name="game_icon_size_layout">
-          <property name="spacing">
-           <number>16</number>
-          </property>
-          <item>
-           <widget class="QLabel" name="game_icon_size_label">
-            <property name="text">
-             <string>Game Icon Size:</string>
-            </property>
-            <property name="minimumSize">
-             <size>
-              <width>140</width>
-              <height>0</height>
-             </size>
-            </property>
-           </widget>
-          </item>
-          <item>
-           <widget class="QComboBox" name="game_icon_size_combobox">
-            <property name="sizePolicy">
-             <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
-              <horstretch>0</horstretch>
-              <verstretch>0</verstretch>
-             </sizepolicy>
-            </property>
-           </widget>
-          </item>
-         </layout>
-        </item>
-        <item>
-         <layout class="QHBoxLayout" name="folder_icon_size_layout">
-          <property name="spacing">
-           <number>16</number>
-          </property>
-          <item>
-           <widget class="QLabel" name="folder_icon_size_label">
-            <property name="text">
-             <string>Folder Icon Size:</string>
-            </property>
-            <property name="minimumSize">
-             <size>
-              <width>140</width>
-              <height>0</height>
-             </size>
-            </property>
-           </widget>
-          </item>
-          <item>
-           <widget class="QComboBox" name="folder_icon_size_combobox">
-            <property name="sizePolicy">
-             <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
-              <horstretch>0</horstretch>
-              <verstretch>0</verstretch>
-             </sizepolicy>
-            </property>
-           </widget>
-          </item>
-         </layout>
-        </item>
-        <item>
-         <layout class="QHBoxLayout" name="row_1_layout">
-          <property name="spacing">
-           <number>16</number>
-          </property>
-          <item>
-           <widget class="QLabel" name="row_1_label">
-            <property name="text">
-             <string>Row 1 Text:</string>
-            </property>
-            <property name="minimumSize">
-             <size>
-              <width>140</width>
-              <height>0</height>
-             </size>
-            </property>
-           </widget>
-          </item>
-          <item>
-           <widget class="QComboBox" name="row_1_text_combobox">
-            <property name="sizePolicy">
-             <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
-              <horstretch>0</horstretch>
-              <verstretch>0</verstretch>
-             </sizepolicy>
-            </property>
-           </widget>
-          </item>
-         </layout>
-        </item>
-        <item>
-         <layout class="QHBoxLayout" name="row_2_layout">
-          <property name="spacing">
-           <number>16</number>
-          </property>
-          <item>
-           <widget class="QLabel" name="row_2_label">
-            <property name="text">
-             <string>Row 2 Text:</string>
-            </property>
-            <property name="minimumSize">
-             <size>
-              <width>140</width>
-              <height>0</height>
-             </size>
-            </property>
-           </widget>
-          </item>
-          <item>
-           <widget class="QComboBox" name="row_2_text_combobox">
-            <property name="sizePolicy">
-             <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
-              <horstretch>0</horstretch>
-              <verstretch>0</verstretch>
-             </sizepolicy>
-            </property>
-           </widget>
-          </item>
-         </layout>
-        </item>
-       </layout>
-      </widget>
-     </item>
-     <item>
-      <spacer name="leftVerticalSpacer">
-       <property name="orientation">
-        <enum>Qt::Vertical</enum>
-       </property>
-       <property name="sizeHint" stdset="0">
-        <size>
-         <width>20</width>
-         <height>40</height>
-        </size>
-       </property>
-      </spacer>
-     </item>
-    </layout>
-   </item>
-   <item>
-    <layout class="QVBoxLayout" name="rightColumnLayout">
-     <property name="spacing">
-      <number>20</number>
-     </property>
-     <item>
-      <widget class="QGroupBox" name="screenshots_GroupBox">
-       <property name="title">
-        <string>Screenshots</string>
-       </property>
-       <property name="minimumSize">
-        <size>
-         <width>500</width>
-         <height>0</height>
-        </size>
-       </property>
-       <layout class="QVBoxLayout" name="screenshotsVerticalLayout">
-        <property name="spacing">
-         <number>16</number>
-        </property>
-        <property name="leftMargin">
-         <number>20</number>
-        </property>
-        <property name="topMargin">
-         <number>20</number>
-        </property>
-        <property name="rightMargin">
-         <number>20</number>
-        </property>
-        <property name="bottomMargin">
-         <number>20</number>
-        </property>
-        <item>
-         <widget class="QCheckBox" name="enable_screenshot_save_as">
-          <property name="text">
-           <string>Ask Where To Save Screenshots (Windows Only)</string>
-          </property>
-          <property name="minimumSize">
-           <size>
-            <width>0</width>
-            <height>32</height>
-           </size>
-          </property>
-         </widget>
-        </item>
-        <item>
-         <layout class="QHBoxLayout" name="screenshotPathLayout">
-          <property name="spacing">
-           <number>12</number>
-          </property>
-          <item>
-           <widget class="QLabel" name="screenshot_path_label">
-            <property name="text">
-             <string>Screenshots Path:</string>
-            </property>
-            <property name="minimumSize">
-             <size>
-              <width>140</width>
-              <height>0</height>
-             </size>
-            </property>
-           </widget>
-          </item>
-          <item>
-           <widget class="QLineEdit" name="screenshot_path_edit">
-            <property name="sizePolicy">
-             <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
-              <horstretch>0</horstretch>
-              <verstretch>0</verstretch>
-             </sizepolicy>
-            </property>
-           </widget>
-          </item>
-          <item>
-           <widget class="QToolButton" name="screenshot_path_button">
-            <property name="text">
-             <string>...</string>
-            </property>
-           </widget>
-          </item>
-         </layout>
-        </item>
-        <item>
-         <layout class="QHBoxLayout" name="resolutionLayout">
-          <property name="spacing">
-           <number>12</number>
-          </property>
-          <item>
-           <widget class="QLabel" name="resolution_label">
-            <property name="text">
-             <string>Resolution:</string>
-            </property>
-            <property name="minimumSize">
-             <size>
-              <width>80</width>
-              <height>0</height>
-             </size>
-            </property>
-           </widget>
-          </item>
-          <item>
-           <widget class="QLabel" name="screenshot_width">
-            <property name="text">
-             <string>TextLabel</string>
-            </property>
-            <property name="alignment">
-             <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
-            </property>
-            <property name="minimumSize">
-             <size>
-              <width>120</width>
-              <height>0</height>
-             </size>
-            </property>
-           </widget>
-          </item>
-          <item>
-           <widget class="QComboBox" name="screenshot_height">
-            <property name="editable">
-             <bool>true</bool>
-            </property>
-            <property name="sizePolicy">
-             <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
-              <horstretch>0</horstretch>
-              <verstretch>0</verstretch>
-             </sizepolicy>
-            </property>
-           </widget>
-          </item>
-         </layout>
-        </item>
-       </layout>
-      </widget>
-     </item>
-     <item>
-      <spacer name="rightVerticalSpacer">
-       <property name="orientation">
-        <enum>Qt::Vertical</enum>
-       </property>
-       <property name="sizeHint" stdset="0">
-        <size>
-         <width>20</width>
-         <height>40</height>
-        </size>
-       </property>
-      </spacer>
-     </item>
-    </layout>
-   </item>
-  </layout>
- </widget>
- <resources/>
- <connections/>
+            <item>
+                <layout class="QVBoxLayout" name="leftColumnLayout">
+                    <property name="spacing">
+                        <number>20</number>
+                    </property>
+                    <item>
+                        <widget class="QGroupBox" name="general_groupBox">
+                            <property name="title">
+                                <string>General</string>
+                            </property>
+                            <property name="minimumSize">
+                                <size>
+                                    <width>500</width>
+                                    <height>0</height>
+                                </size>
+                            </property>
+                            <layout class="QVBoxLayout" name="generalVerticalLayout">
+                                <property name="spacing">
+                                    <number>12</number>
+                                </property>
+                                <property name="leftMargin">
+                                    <number>20</number>
+                                </property>
+                                <property name="topMargin">
+                                    <number>20</number>
+                                </property>
+                                <property name="rightMargin">
+                                    <number>20</number>
+                                </property>
+                                <property name="bottomMargin">
+                                    <number>20</number>
+                                </property>
+                                <item>
+                                    <widget class="QLabel" name="label_change_language_info">
+                                        <property name="text">
+                                            <string>Note: Changing language will apply your configuration.</string>
+                                        </property>
+                                        <property name="wordWrap">
+                                            <bool>true</bool>
+                                        </property>
+                                        <property name="styleSheet">
+                                            <string>color: #cccccc; font-size: 11px;</string>
+                                        </property>
+                                    </widget>
+                                </item>
+                                <item>
+                                    <layout class="QHBoxLayout" name="languageLayout">
+                                        <property name="spacing">
+                                            <number>16</number>
+                                        </property>
+                                        <item>
+                                            <widget class="QLabel" name="language_label">
+                                                <property name="text">
+                                                    <string>Interface language:</string>
+                                                </property>
+                                                <property name="minimumSize">
+                                                    <size>
+                                                        <width>140</width>
+                                                        <height>0</height>
+                                                    </size>
+                                                </property>
+                                            </widget>
+                                        </item>
+                                        <item>
+                                            <widget class="QComboBox" name="language_combobox">
+                                                <property name="sizePolicy">
+                                                    <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+                                                        <horstretch>0</horstretch>
+                                                        <verstretch>0</verstretch>
+                                                    </sizepolicy>
+                                                </property>
+                                            </widget>
+                                        </item>
+                                    </layout>
+                                </item>
+                                <item>
+                                    <layout class="QHBoxLayout" name="themeLayout">
+                                        <property name="spacing">
+                                            <number>16</number>
+                                        </property>
+                                        <item>
+                                            <widget class="QLabel" name="theme_label">
+                                                <property name="text">
+                                                    <string>Theme:</string>
+                                                </property>
+                                                <property name="minimumSize">
+                                                    <size>
+                                                        <width>140</width>
+                                                        <height>0</height>
+                                                    </size>
+                                                </property>
+                                            </widget>
+                                        </item>
+                                        <item>
+                                            <widget class="QComboBox" name="theme_combobox">
+                                                <property name="sizePolicy">
+                                                    <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+                                                        <horstretch>0</horstretch>
+                                                        <verstretch>0</verstretch>
+                                                    </sizepolicy>
+                                                </property>
+                                            </widget>
+                                        </item>
+                                    </layout>
+                                </item>
+                                <item>
+                                    <layout class="QHBoxLayout" name="accentColorLayout">
+                                        <property name="spacing">
+                                            <number>16</number>
+                                        </property>
+                                        <item>
+                                            <widget class="QLabel" name="accentColorLabel">
+                                                <property name="text">
+                                                    <string>Accent Color:</string>
+                                                </property>
+                                                <property name="minimumSize">
+                                                    <size>
+                                                        <width>140</width>
+                                                        <height>0</height>
+                                                    </size>
+                                                </property>
+                                            </widget>
+                                        </item>
+                                        <item>
+                                            <widget class="QPushButton" name="accentColorButton">
+                                                <property name="text">
+                                                    <string>Choose Color...</string>
+                                                </property>
+                                            </widget>
+                                        </item>
+                                        <item>
+                                            <widget class="QCheckBox" name="rainbowModeCheckBox">
+                                                <property name="text">
+                                                    <string>Enable Rainbow Mode</string>
+                                                </property>
+                                            </widget>
+                                        </item>
+                                    </layout>
+                                </item>
+                            </layout>
+                        </widget>
+                    </item>
+                    <item>
+                        <widget class="QGroupBox" name="GameListGroupBox">
+                            <property name="title">
+                                <string>Game List</string>
+                            </property>
+                            <property name="minimumSize">
+                                <size>
+                                    <width>500</width>
+                                    <height>0</height>
+                                </size>
+                            </property>
+                            <layout class="QVBoxLayout" name="gameListVerticalLayout">
+                                <property name="spacing">
+                                    <number>12</number>
+                                </property>
+                                <property name="leftMargin">
+                                    <number>20</number>
+                                </property>
+                                <property name="topMargin">
+                                    <number>20</number>
+                                </property>
+                                <property name="rightMargin">
+                                    <number>20</number>
+                                </property>
+                                <property name="bottomMargin">
+                                    <number>20</number>
+                                </property>
+                                <item>
+                                    <widget class="QCheckBox" name="show_compat">
+                                        <property name="text">
+                                            <string>Show Compatibility List</string>
+                                        </property>
+                                        <property name="minimumSize">
+                                            <size>
+                                                <width>0</width>
+                                                <height>32</height>
+                                            </size>
+                                        </property>
+                                    </widget>
+                                </item>
+                                <item>
+                                    <widget class="QCheckBox" name="show_add_ons">
+                                        <property name="text">
+                                            <string>Show Add-Ons Column</string>
+                                        </property>
+                                        <property name="minimumSize">
+                                            <size>
+                                                <width>0</width>
+                                                <height>32</height>
+                                            </size>
+                                        </property>
+                                    </widget>
+                                </item>
+                                <item>
+                                    <widget class="QCheckBox" name="show_size">
+                                        <property name="text">
+                                            <string>Show Size Column</string>
+                                        </property>
+                                        <property name="minimumSize">
+                                            <size>
+                                                <width>0</width>
+                                                <height>32</height>
+                                            </size>
+                                        </property>
+                                    </widget>
+                                </item>
+                                <item>
+                                    <widget class="QCheckBox" name="show_types">
+                                        <property name="text">
+                                            <string>Show File Types Column</string>
+                                        </property>
+                                        <property name="minimumSize">
+                                            <size>
+                                                <width>0</width>
+                                                <height>32</height>
+                                            </size>
+                                        </property>
+                                    </widget>
+                                </item>
+                                <item>
+                                    <widget class="QCheckBox" name="show_play_time">
+                                        <property name="text">
+                                            <string>Show Play Time Column</string>
+                                        </property>
+                                        <property name="minimumSize">
+                                            <size>
+                                                <width>0</width>
+                                                <height>32</height>
+                                            </size>
+                                        </property>
+                                    </widget>
+                                </item>
+                                <item>
+                                    <layout class="QHBoxLayout" name="game_icon_size_layout">
+                                        <property name="spacing">
+                                            <number>16</number>
+                                        </property>
+                                        <item>
+                                            <widget class="QLabel" name="game_icon_size_label">
+                                                <property name="text">
+                                                    <string>Game Icon Size:</string>
+                                                </property>
+                                                <property name="minimumSize">
+                                                    <size>
+                                                        <width>140</width>
+                                                        <height>0</height>
+                                                    </size>
+                                                </property>
+                                            </widget>
+                                        </item>
+                                        <item>
+                                            <widget class="QComboBox" name="game_icon_size_combobox">
+                                                <property name="sizePolicy">
+                                                    <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+                                                        <horstretch>0</horstretch>
+                                                        <verstretch>0</verstretch>
+                                                    </sizepolicy>
+                                                </property>
+                                            </widget>
+                                        </item>
+                                    </layout>
+                                </item>
+                                <item>
+                                    <layout class="QHBoxLayout" name="folder_icon_size_layout">
+                                        <property name="spacing">
+                                            <number>16</number>
+                                        </property>
+                                        <item>
+                                            <widget class="QLabel" name="folder_icon_size_label">
+                                                <property name="text">
+                                                    <string>Folder Icon Size:</string>
+                                                </property>
+                                                <property name="minimumSize">
+                                                    <size>
+                                                        <width>140</width>
+                                                        <height>0</height>
+                                                    </size>
+                                                </property>
+                                            </widget>
+                                        </item>
+                                        <item>
+                                            <widget class="QComboBox" name="folder_icon_size_combobox">
+                                                <property name="sizePolicy">
+                                                    <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+                                                        <horstretch>0</horstretch>
+                                                        <verstretch>0</verstretch>
+                                                    </sizepolicy>
+                                                </property>
+                                            </widget>
+                                        </item>
+                                    </layout>
+                                </item>
+                                <item>
+                                    <layout class="QHBoxLayout" name="row_1_layout">
+                                        <property name="spacing">
+                                            <number>16</number>
+                                        </property>
+                                        <item>
+                                            <widget class="QLabel" name="row_1_label">
+                                                <property name="text">
+                                                    <string>Row 1 Text:</string>
+                                                </property>
+                                                <property name="minimumSize">
+                                                    <size>
+                                                        <width>140</width>
+                                                        <height>0</height>
+                                                    </size>
+                                                </property>
+                                            </widget>
+                                        </item>
+                                        <item>
+                                            <widget class="QComboBox" name="row_1_text_combobox">
+                                                <property name="sizePolicy">
+                                                    <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+                                                        <horstretch>0</horstretch>
+                                                        <verstretch>0</verstretch>
+                                                    </sizepolicy>
+                                                </property>
+                                            </widget>
+                                        </item>
+                                    </layout>
+                                </item>
+                                <item>
+                                    <layout class="QHBoxLayout" name="row_2_layout">
+                                        <property name="spacing">
+                                            <number>16</number>
+                                        </property>
+                                        <item>
+                                            <widget class="QLabel" name="row_2_label">
+                                                <property name="text">
+                                                    <string>Row 2 Text:</string>
+                                                </property>
+                                                <property name="minimumSize">
+                                                    <size>
+                                                        <width>140</width>
+                                                        <height>0</height>
+                                                    </size>
+                                                </property>
+                                            </widget>
+                                        </item>
+                                        <item>
+                                            <widget class="QComboBox" name="row_2_text_combobox">
+                                                <property name="sizePolicy">
+                                                    <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+                                                        <horstretch>0</horstretch>
+                                                        <verstretch>0</verstretch>
+                                                    </sizepolicy>
+                                                </property>
+                                            </widget>
+                                        </item>
+                                    </layout>
+                                </item>
+                            </layout>
+                        </widget>
+                    </item>
+                    <item>
+                        <spacer name="leftVerticalSpacer">
+                            <property name="orientation">
+                                <enum>Qt::Vertical</enum>
+                            </property>
+                            <property name="sizeHint" stdset="0">
+                                <size>
+                                    <width>20</width>
+                                    <height>40</height>
+                                </size>
+                            </property>
+                        </spacer>
+                    </item>
+                </layout>
+            </item>
+            <item>
+                <layout class="QVBoxLayout" name="rightColumnLayout">
+                    <property name="spacing">
+                        <number>20</number>
+                    </property>
+                    <item>
+                        <widget class="QGroupBox" name="screenshots_GroupBox">
+                            <property name="title">
+                                <string>Screenshots</string>
+                            </property>
+                            <property name="minimumSize">
+                                <size>
+                                    <width>500</width>
+                                    <height>0</height>
+                                </size>
+                            </property>
+                            <layout class="QVBoxLayout" name="screenshotsVerticalLayout">
+                                <property name="spacing">
+                                    <number>16</number>
+                                </property>
+                                <property name="leftMargin">
+                                    <number>20</number>
+                                </property>
+                                <property name="topMargin">
+                                    <number>20</number>
+                                </property>
+                                <property name="rightMargin">
+                                    <number>20</number>
+                                </property>
+                                <property name="bottomMargin">
+                                    <number>20</number>
+                                </property>
+                                <item>
+                                    <widget class="QCheckBox" name="enable_screenshot_save_as">
+                                        <property name="text">
+                                            <string>Ask Where To Save Screenshots (Windows Only)</string>
+                                        </property>
+                                        <property name="minimumSize">
+                                            <size>
+                                                <width>0</width>
+                                                <height>32</height>
+                                            </size>
+                                        </property>
+                                    </widget>
+                                </item>
+                                <item>
+                                    <layout class="QHBoxLayout" name="screenshotPathLayout">
+                                        <property name="spacing">
+                                            <number>12</number>
+                                        </property>
+                                        <item>
+                                            <widget class="QLabel" name="screenshot_path_label">
+                                                <property name="text">
+                                                    <string>Screenshots Path:</string>
+                                                </property>
+                                                <property name="minimumSize">
+                                                    <size>
+                                                        <width>140</width>
+                                                        <height>0</height>
+                                                    </size>
+                                                </property>
+                                            </widget>
+                                        </item>
+                                        <item>
+                                            <widget class="QLineEdit" name="screenshot_path_edit">
+                                                <property name="sizePolicy">
+                                                    <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+                                                        <horstretch>0</horstretch>
+                                                        <verstretch>0</verstretch>
+                                                    </sizepolicy>
+                                                </property>
+                                            </widget>
+                                        </item>
+                                        <item>
+                                            <widget class="QToolButton" name="screenshot_path_button">
+                                                <property name="text">
+                                                    <string>...</string>
+                                                </property>
+                                            </widget>
+                                        </item>
+                                    </layout>
+                                </item>
+                                <item>
+                                    <layout class="QHBoxLayout" name="resolutionLayout">
+                                        <property name="spacing">
+                                            <number>12</number>
+                                        </property>
+                                        <item>
+                                            <widget class="QLabel" name="resolution_label">
+                                                <property name="text">
+                                                    <string>Resolution:</string>
+                                                </property>
+                                                <property name="minimumSize">
+                                                    <size>
+                                                        <width>80</width>
+                                                        <height>0</height>
+                                                    </size>
+                                                </property>
+                                            </widget>
+                                        </item>
+                                        <item>
+                                            <widget class="QLabel" name="screenshot_width">
+                                                <property name="text">
+                                                    <string>TextLabel</string>
+                                                </property>
+                                                <property name="alignment">
+                                                    <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+                                                </property>
+                                                <property name="minimumSize">
+                                                    <size>
+                                                        <width>120</width>
+                                                        <height>0</height>
+                                                    </size>
+                                                </property>
+                                            </widget>
+                                        </item>
+                                        <item>
+                                            <widget class="QComboBox" name="screenshot_height">
+                                                <property name="editable">
+                                                    <bool>true</bool>
+                                                </property>
+                                                <property name="sizePolicy">
+                                                    <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+                                                        <horstretch>0</horstretch>
+                                                        <verstretch>0</verstretch>
+                                                    </sizepolicy>
+                                                </property>
+                                            </widget>
+                                        </item>
+                                    </layout>
+                                </item>
+                            </layout>
+                        </widget>
+                    </item>
+                    <item>
+                        <spacer name="rightVerticalSpacer">
+                            <property name="orientation">
+                                <enum>Qt::Vertical</enum>
+                            </property>
+                            <property name="sizeHint" stdset="0">
+                                <size>
+                                    <width>20</width>
+                                    <height>40</height>
+                                </size>
+                            </property>
+                        </spacer>
+                    </item>
+                </layout>
+            </item>
+        </layout>
+    </widget>
+    <resources/>
+    <connections/>
 </ui>
