@@ -278,6 +278,26 @@ public:
     }
 };
 
+class GameListItemOnline : public GameListItem {
+public:
+    static constexpr int OnlineRole = SortRole;
+
+    GameListItemOnline() {
+
+        setData(QStringLiteral("N/A"), Qt::DisplayRole);
+        setData(QStringLiteral("N/A"), OnlineRole);
+    }
+
+    explicit GameListItemOnline(const QString& online_status) {
+        setData(online_status, Qt::DisplayRole);
+        setData(online_status, OnlineRole);
+    }
+
+    bool operator<(const QStandardItem& other) const override {
+        return data(OnlineRole).toString() < other.data(OnlineRole).toString();
+    }
+};
+
 class GameListDir : public GameListItem {
 public:
     static constexpr int GameDirRole = Qt::UserRole + 2;

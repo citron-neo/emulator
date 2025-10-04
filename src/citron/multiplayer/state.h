@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: Copyright 2018 Citra Emulator Project
+// SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #pragma once
@@ -15,7 +16,7 @@ class DirectConnectWindow;
 class ClickableLabel;
 
 namespace Core {
-class System;
+    class System;
 }
 
 class MultiplayerState : public QWidget {
@@ -32,6 +33,13 @@ public:
     explicit MultiplayerState(QWidget* parent, QStandardItemModel* game_list, QAction* leave_room,
                               QAction* show_room, Core::System& system_);
     ~MultiplayerState();
+
+    /**
+     * This is the new function to safely access the multiplayer session.
+     */
+    std::shared_ptr<Core::AnnounceMultiplayerSession> GetSession() {
+        return announce_multiplayer_session;
+    }
 
     /**
      * Close all open multiplayer related dialogs

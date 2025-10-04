@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: Copyright 2018 yuzu Emulator Project
+// SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <memory>
@@ -191,12 +192,12 @@ QString FormatPatchNameVersions(const FileSys::PatchManager& patch_manager,
     return out;
 }
 
-QList<QStandardItem*> MakeGameListEntry(const std::string& path, const std::string& name,
-                                        const std::size_t size, const std::vector<u8>& icon,
-                                        Loader::AppLoader& loader, u64 program_id,
-                                        const CompatibilityList& compatibility_list,
-                                        const PlayTime::PlayTimeManager& play_time_manager,
-                                        const FileSys::PatchManager& patch) {
+QList<QStandardItem*> MakeGameListEntry(
+    const std::string& path, const std::string& name, const std::size_t size,
+    const std::vector<u8>& icon, Loader::AppLoader& loader, u64 program_id,
+    const CompatibilityList& compatibility_list, const PlayTime::PlayTimeManager& play_time_manager,
+    const FileSys::PatchManager& patch,
+    const std::map<u64, std::pair<int, int>>& online_stats) {
     const auto it = FindMatchingCompatibilityEntry(compatibility_list, program_id);
 
     // The game list uses this as compatibility number for untested games
@@ -208,6 +209,13 @@ QList<QStandardItem*> MakeGameListEntry(const std::string& path, const std::stri
     const auto file_type = loader.GetFileType();
     const auto file_type_string = QString::fromStdString(Loader::GetFileTypeString(file_type));
 
+    QString online_text = QStringLiteral("N/A");
+    auto it_stats = online_stats.find(program_id);
+    if (it_stats != online_stats.end()) {
+        const auto& stats = it_stats->second;
+        online_text = QStringLiteral("Players: %1 | Servers: %2").arg(stats.first).arg(stats.second);
+    }
+
     QList<QStandardItem*> list{
         new GameListItemPath(FormatGameName(path), icon, QString::fromStdString(name),
                              file_type_string, program_id),
@@ -215,7 +223,7 @@ QList<QStandardItem*> MakeGameListEntry(const std::string& path, const std::stri
         new GameListItem(file_type_string),
         new GameListItemSize(size),
         new GameListItemPlayTime(play_time_manager.GetPlayTime(program_id)),
-    };
+        new GameListItemOnline(online_text)};
 
     const auto patch_versions = GetGameListCachedObject(
         fmt::format("{:016X}", patch.GetTitleID()), "pv.txt", [&patch, &loader] {
@@ -227,15 +235,16 @@ QList<QStandardItem*> MakeGameListEntry(const std::string& path, const std::stri
 }
 } // Anonymous namespace
 
-GameListWorker::GameListWorker(FileSys::VirtualFilesystem vfs_,
+GameListWorker::GameListWorker(std::shared_ptr<FileSys::VfsFilesystem> vfs_,
                                FileSys::ManualContentProvider* provider_,
                                QVector<UISettings::GameDir>& game_dirs_,
                                const CompatibilityList& compatibility_list_,
                                const PlayTime::PlayTimeManager& play_time_manager_,
-                               Core::System& system_)
+                               Core::System& system_,
+                               std::shared_ptr<Core::AnnounceMultiplayerSession> session_)
     : vfs{std::move(vfs_)}, provider{provider_}, game_dirs{game_dirs_},
-      compatibility_list{compatibility_list_}, play_time_manager{play_time_manager_}, system{
-                                                                                          system_} {
+      compatibility_list{compatibility_list_}, play_time_manager{play_time_manager_},
+      system{system_}, session{session_} {
     // We want the game list to manage our lifetime.
     setAutoDelete(false);
 }
@@ -282,7 +291,7 @@ void GameListWorker::RecordEvent(F&& func) {
     emit DataAvailable();
 }
 
-void GameListWorker::AddTitlesToGameList(GameListDir* parent_dir) {
+void GameListWorker::AddTitlesToGameList(GameListDir* parent_dir, const std::map<u64, std::pair<int, int>>& online_stats) {
     using namespace FileSys;
 
     const auto& cache = system.GetContentProviderUnion();
@@ -329,14 +338,14 @@ void GameListWorker::AddTitlesToGameList(GameListDir* parent_dir) {
         }
 
         auto entry = MakeGameListEntry(file->GetFullPath(), name, file->GetSize(), icon, *loader,
-                                       program_id, compatibility_list, play_time_manager, patch);
+                                       program_id, compatibility_list, play_time_manager, patch, online_stats);
         RecordEvent([=](GameList* game_list) { game_list->AddEntry(entry, parent_dir); });
     }
 }
 
 void GameListWorker::ScanFileSystem(ScanTarget target, const std::string& dir_path, bool deep_scan,
-                                    GameListDir* parent_dir) {
-    const auto callback = [this, target, parent_dir](const std::filesystem::path& path) -> bool {
+                                    GameListDir* parent_dir, const std::map<u64, std::pair<int, int>>& online_stats) {
+    const auto callback = [this, target, parent_dir, &online_stats](const std::filesystem::path& path) -> bool {
         if (stop_requested) {
             // Breaks the callback loop.
             return false;
@@ -406,7 +415,7 @@ void GameListWorker::ScanFileSystem(ScanTarget target, const std::string& dir_pa
 
                         auto entry = MakeGameListEntry(
                             physical_name, name, Common::FS::GetSize(physical_name), icon, *loader,
-                            id, compatibility_list, play_time_manager, patch);
+                            id, compatibility_list, play_time_manager, patch, online_stats);
 
                         RecordEvent(
                             [=](GameList* game_list) { game_list->AddEntry(entry, parent_dir); });
@@ -423,7 +432,7 @@ void GameListWorker::ScanFileSystem(ScanTarget target, const std::string& dir_pa
 
                     auto entry = MakeGameListEntry(
                         physical_name, name, Common::FS::GetSize(physical_name), icon, *loader,
-                        program_id, compatibility_list, play_time_manager, patch);
+                        program_id, compatibility_list, play_time_manager, patch, online_stats);
 
                     RecordEvent(
                         [=](GameList* game_list) { game_list->AddEntry(entry, parent_dir); });
@@ -445,6 +454,18 @@ void GameListWorker::ScanFileSystem(ScanTarget target, const std::string& dir_pa
 }
 
 void GameListWorker::run() {
+    std::map<u64, std::pair<int, int>> online_stats; // Game ID -> {player_count, server_count}
+    if (session) {
+        AnnounceMultiplayerRoom::RoomList room_list = session->GetRoomList();
+        for (const auto& room : room_list) {
+            u64 game_id = room.information.preferred_game.id;
+            if (game_id != 0) {
+                online_stats[game_id].first += room.members.size();
+                online_stats[game_id].second++;
+            }
+        }
+    }
+
     watch_list.clear();
     provider->ClearAllEntries();
 
@@ -460,23 +481,23 @@ void GameListWorker::run() {
         if (game_dir.path == std::string("SDMC")) {
             auto* const game_list_dir = new GameListDir(game_dir, GameListItemType::SdmcDir);
             DirEntryReady(game_list_dir);
-            AddTitlesToGameList(game_list_dir);
+            AddTitlesToGameList(game_list_dir, online_stats);
         } else if (game_dir.path == std::string("UserNAND")) {
             auto* const game_list_dir = new GameListDir(game_dir, GameListItemType::UserNandDir);
             DirEntryReady(game_list_dir);
-            AddTitlesToGameList(game_list_dir);
+            AddTitlesToGameList(game_list_dir, online_stats);
         } else if (game_dir.path == std::string("SysNAND")) {
             auto* const game_list_dir = new GameListDir(game_dir, GameListItemType::SysNandDir);
             DirEntryReady(game_list_dir);
-            AddTitlesToGameList(game_list_dir);
+            AddTitlesToGameList(game_list_dir, online_stats);
         } else {
             watch_list.append(QString::fromStdString(game_dir.path));
             auto* const game_list_dir = new GameListDir(game_dir);
             DirEntryReady(game_list_dir);
             ScanFileSystem(ScanTarget::FillManualContentProvider, game_dir.path, game_dir.deep_scan,
-                           game_list_dir);
+                           game_list_dir, online_stats);
             ScanFileSystem(ScanTarget::PopulateGameList, game_dir.path, game_dir.deep_scan,
-                           game_list_dir);
+                           game_list_dir, online_stats);
         }
     }
 
