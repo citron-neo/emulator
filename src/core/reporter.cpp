@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: Copyright 2019 yuzu Emulator Project
+// SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <ctime>
@@ -33,7 +34,9 @@ std::filesystem::path GetPath(std::string_view type, u64 title_id, std::string_v
 
 std::string GetTimestamp() {
     const auto time = std::time(nullptr);
-    return fmt::format("{:%FT%H-%M-%S}", *std::localtime(&time));
+    char time_buf[128];
+    std::strftime(time_buf, sizeof(time_buf), "%FT%H-%M-%S", std::localtime(&time));
+    return std::string(time_buf);
 }
 
 using namespace nlohmann;
