@@ -21,7 +21,7 @@ namespace Core {
     class System;
 }
 namespace VkDeviceInfo {
-    struct Record;
+    class Record;
 }
 namespace Ui {
     class ConfigureDialog;
