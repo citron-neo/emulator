@@ -414,6 +414,28 @@ if(USE_DISCORD_PRESENCE)
     endif()
 endif()
 
+if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+    message(STATUS "Applying custom patch to submodule's mcl for Clang compatibility...")
+
+    set(MCL_PATCH_FILE "${CMAKE_CURRENT_SOURCE_DIR}/patches/mcl_clang_template_fix.patch")
+    set(MCL_PATCH_TARGET_DIR "${CMAKE_CURRENT_SOURCE_DIR}/externals/dynarmic/externals/mcl")
+
+    if(EXISTS "${MCL_PATCH_TARGET_DIR}")
+        execute_process(
+            COMMAND git apply --ignore-whitespace "${MCL_PATCH_FILE}"
+            WORKING_DIRECTORY "${MCL_PATCH_TARGET_DIR}"
+            RESULT_VARIABLE MCL_PATCH_RESULT
+            OUTPUT_QUIET
+            ERROR_QUIET
+        )
+
+        if(NOT MCL_PATCH_RESULT EQUAL 0)
+            message(WARNING "Failed to apply mcl Clang compatibility patch! This might be okay if it's already applied.")
+        endif()
+    else()
+        message(WARNING "Could not find mcl directory to patch. It may not have been downloaded yet.")
+    endif()
+endif()
 
 if (ENABLE_QT)
     if (NOT USE_SYSTEM_QT)
@@ -681,7 +703,7 @@ if (MSVC AND CMAKE_GENERATOR STREQUAL "Ninja")
     )
 endif()
 
-if (CITRON_USE_FASTER_LD AND CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+if (CITRON_USE_FASTER_LD AND (CMAKE_CXX_COMPILER_ID STREQUAL "GNU" OR CMAKE_CXX_COMPILER_ID MATCHES "Clang"))
     # We will assume that if the compiler is GCC, it will attempt to use ld.bfd by default.
     # Try to pick a faster linker.
     find_program(LLD lld)
