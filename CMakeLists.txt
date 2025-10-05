@@ -771,3 +771,19 @@ if(ENABLE_QT AND UNIX AND NOT APPLE)
     install(FILES "dist/org.citron_emu.citron.metainfo.xml"
             DESTINATION "share/metainfo")
 endif()
+
+# Final linker cleanup for Clang LTO.
+# This forcefully removes any stray "-fuse-ld=bfd" flags that may have been
+# incorrectly added by other parts of the build system.
+if(CMAKE_CXX_COMPILER_ID MATCHES "Clang" AND CITRON_ENABLE_LTO)
+    message(STATUS "Performing final linker flag cleanup for Clang LTO...")
+    foreach(target citron citron-cmd citron-room)
+        if(TARGET ${target})
+            get_target_property(link_options ${target} LINK_OPTIONS)
+            if(link_options)
+                string(REPLACE "-fuse-ld=bfd" "" link_options "${link_options}")
+                set_target_properties(${target} PROPERTIES LINK_OPTIONS "${link_options}")
+            endif()
+        endif()
+    endforeach()
+endif()
