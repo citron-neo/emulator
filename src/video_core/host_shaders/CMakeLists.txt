@@ -1,4 +1,5 @@
 # SPDX-FileCopyrightText: 2018 yuzu Emulator Project
+// SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project
 # SPDX-License-Identifier: GPL-2.0-or-later
 
 set(FIDELITYFX_INCLUDE_DIR ${CMAKE_SOURCE_DIR}/externals/FidelityFX-FSR/ffx-fsr)
@@ -42,6 +43,7 @@ set(SHADER_FILES
     opengl_smaa.glsl
     pitch_unswizzle.comp
     present_bicubic.frag
+    present_lanczos.frag
     present_gaussian.frag
     queries_prefix_scan_sum.comp
     queries_prefix_scan_sum_nosubgroups.comp

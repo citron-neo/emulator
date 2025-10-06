@@ -127,6 +127,7 @@ std::unique_ptr<TranslationMap> InitializeTranslations(QWidget* parent) {
     INSERT(Settings, scaling_filter, tr("Window Adapting Filter:"), QStringLiteral());
     INSERT(Settings, fsr_sharpening_slider, tr("FSR Sharpness:"),
            tr("Determines how sharpened the image will look while using FSR's dynamic contrast."));
+    INSERT(Settings, lanczos_quality, tr("Lanczos Quality:"), tr("The quality of the Lanczos filter. Higher is sharper but more expensive."));
     INSERT(Settings, fsr2_quality_mode, tr("FSR 2.0 Quality Mode:"),
            tr("Selects the quality mode for FSR 2.0 upscaling. Quality provides better image quality, Performance provides better performance."));
 
@@ -401,6 +402,7 @@ std::unique_ptr<ComboboxTranslationMap> ComboboxEnumeration(QWidget* parent) {
                               PAIR(ScalingFilter, NearestNeighbor, tr("Nearest Neighbor")),
                               PAIR(ScalingFilter, Bilinear, tr("Bilinear")),
                               PAIR(ScalingFilter, Bicubic, tr("Bicubic")),
+                              PAIR(ScalingFilter, Lanczos, tr("Lanczos")),
                               PAIR(ScalingFilter, Gaussian, tr("Gaussian")),
                               PAIR(ScalingFilter, ScaleForce, tr("ScaleForce")),
                               PAIR(ScalingFilter, Fsr, tr("AMD FidelityFX™️ Super Resolution")),

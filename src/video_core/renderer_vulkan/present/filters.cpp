@@ -1,9 +1,11 @@
 // SPDX-FileCopyrightText: Copyright 2024 yuzu Emulator Project
+// SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "common/common_types.h"
 
 #include "video_core/host_shaders/present_bicubic_frag_spv.h"
+#include "video_core/host_shaders/present_lanczos_frag_spv.h"
 #include "video_core/host_shaders/present_gaussian_frag_spv.h"
 #include "video_core/host_shaders/vulkan_present_frag_spv.h"
 #include "video_core/host_shaders/vulkan_present_scaleforce_fp16_frag_spv.h"
@@ -51,6 +53,11 @@ std::unique_ptr<WindowAdaptPass> MakeGaussian(const Device& device, VkFormat fra
 std::unique_ptr<WindowAdaptPass> MakeScaleForce(const Device& device, VkFormat frame_format) {
     return std::make_unique<WindowAdaptPass>(device, frame_format, CreateBilinearSampler(device),
                                              SelectScaleForceShader(device));
+}
+
+std::unique_ptr<WindowAdaptPass> MakeLanczos(const Device& device, VkFormat frame_format) {
+    return std::make_unique<WindowAdaptPass>(device, frame_format, CreateNearestNeighborSampler(device),
+                                             BuildShader(device, PRESENT_LANCZOS_FRAG_SPV));
 }
 
 } // namespace Vulkan

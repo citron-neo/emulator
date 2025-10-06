@@ -348,6 +348,17 @@ struct Values {
                                                        true,
                                                        true};
 
+
+    SwitchableSetting<int, true> lanczos_quality{linkage,
+                                                 3, // Default value
+                                                 2, // Minimum value
+                                                 4, // Maximum value
+                                                 "lanczos_quality",
+                                                 Category::Renderer,
+                                                 Specialization::Scalar,
+                                                 true,
+                                                 true};
+
     SwitchableSetting<FSR2QualityMode, true> fsr2_quality_mode{linkage,
                                                                 FSR2QualityMode::Quality,  // Quality by default
                                                                 FSR2QualityMode::Quality,  // Min value

@@ -39,6 +39,7 @@ static const std::map<Settings::ScalingFilter, QString> scaling_filter_texts_map
     {Settings::ScalingFilter::Bicubic, QStringLiteral(QT_TRANSLATE_NOOP("GMainWindow", "Bicubic"))},
     {Settings::ScalingFilter::Gaussian,
      QStringLiteral(QT_TRANSLATE_NOOP("GMainWindow", "Gaussian"))},
+     {Settings::ScalingFilter::Lanczos, QStringLiteral(QT_TRANSLATE_NOOP("GMainWindow", "Lanczos"))},
     {Settings::ScalingFilter::ScaleForce,
      QStringLiteral(QT_TRANSLATE_NOOP("GMainWindow", "ScaleForce"))},
     {Settings::ScalingFilter::Fsr, QStringLiteral(QT_TRANSLATE_NOOP("GMainWindow", "FSR"))},
