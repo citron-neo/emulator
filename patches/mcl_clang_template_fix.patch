@@ -1,0 +1,112 @@
+diff --git a/externals/mcl/include/mcl/mp/metafunction/map.hpp b/externals/mcl/include/mcl/mp/metafunction/map.hpp
+index 13fcaecd..6bbe1a23 100644
+--- a/externals/mcl/include/mcl/mp/metafunction/map.hpp
++++ b/externals/mcl/include/mcl/mp/metafunction/map.hpp
+@@ -4,22 +4,32 @@
+ 
+ #pragma once
+ 
++#include "mcl/mp/typelist/list.hpp"
++
+ namespace mcl::mp {
+ 
+-namespace detail {
++    namespace detail {
++
++        template<template<class...> class F, class L>
++        struct map_impl;
++
++        template<template<class...> class F, template<class...> class LT, class... Es>
++        struct map_impl<F, LT<Es...>> {
++            using type = LT<F<Es>...>;
++        };
+ 
+-template<template<class...> class F, class L>
+-struct map_impl;
+ 
+-template<template<class...> class F, template<class...> class LT, class... Es>
+-struct map_impl<F, LT<Es...>> {
+-    using type = LT<F<Es>...>;
+-};
++        #if defined(__clang__) && !defined(_MSC_VER)
++        template <template<class...> class F, class... Es>
++        struct map_impl<F, mcl::mp::list<Es...>> {
++            using type = mcl::mp::list<F<Es>...>;
++        };
++        #endif
+ 
+-}  // namespace detail
++    }  // namespace detail
+ 
+-/// Applies each element of list L to metafunction F
+-template<template<class...> class F, class L>
+-using map = typename detail::map_impl<F, L>::type;
++    /// Applies each element of list L to metafunction F
++    template<template<class...> class F, class L>
++    using map = typename detail::map_impl<F, L>::type;
+ 
+ }  // namespace mcl::mp
+diff --git a/externals/mcl/include/mcl/mp/typelist/lift_sequence.hpp b/externals/mcl/include/mcl/mp/typelist/lift_sequence.hpp
+index ba2617b8..10f7d6c5 100644
+--- a/externals/mcl/include/mcl/mp/typelist/lift_sequence.hpp
++++ b/externals/mcl/include/mcl/mp/typelist/lift_sequence.hpp
+@@ -5,25 +5,36 @@
+ #pragma once
+ 
+ #include <type_traits>
++#include <utility>
+ 
+ #include "mcl/mp/typelist/list.hpp"
+ 
+ namespace mcl::mp {
+ 
+-namespace detail {
++    namespace detail {
+ 
+-template<class VL>
+-struct lift_sequence_impl;
++        template <class VL>
++        struct lift_sequence_impl;  // Forward declaration
+ 
+-template<class T, template<class, T...> class VLT, T... values>
+-struct lift_sequence_impl<VLT<T, values...>> {
+-    using type = list<std::integral_constant<T, values>...>;
+-};
++        // Original specialization (works for GCC/MSVC)
++        template <class T, template <class, T...> class VLT, T... values>
++        struct lift_sequence_impl<VLT<T, values...>> {
++            using type = list<std::integral_constant<T, values>...>;
++        };
+ 
+-}  // namespace detail
++        // Clang-specific fix: Add a more explicit specialization that Clang can match.
++        // We check for __clang__ but not _MSC_VER, as clang-cl on Windows might not need this.
++        #if defined(__clang__) && !defined(_MSC_VER)
++        template <class T, T... Ints>
++        struct lift_sequence_impl<std::integer_sequence<T, Ints...>> {
++            using type = list<std::integral_constant<T, Ints>...>;
++        };
++        #endif
+ 
+-/// Lifts values in value list VL to create a type list.
+-template<class VL>
+-using lift_sequence = typename detail::lift_sequence_impl<VL>::type;
++    }  // namespace detail
++
++    /// Lifts values in value list VL to create a type list.
++    template <class VL>
++    using lift_sequence = typename detail::lift_sequence_impl<VL>::type;
+ 
+ }  // namespace mcl::mp
+diff --git a/src/dynarmic/backend/x64/emit_x64_vector_floating_point.cpp b/src/dynarmic/backend/x64/emit_x64_vector_floating_point.cpp
+index b8aa3eb6..b6eda4e4 100644
+--- a/src/dynarmic/backend/x64/emit_x64_vector_floating_point.cpp
++++ b/src/dynarmic/backend/x64/emit_x64_vector_floating_point.cpp
+@@ -1285,6 +1285,7 @@ void EmitX64::EmitFPVectorMul64(EmitContext& ctx, IR::Inst* inst) {
+ 
+ template<typename FPT, bool needs_rounding_correction, bool needs_nan_correction>
+ static void EmitFPVectorMulAddFallback(VectorArray<FPT>& result, const VectorArray<FPT>& addend, const VectorArray<FPT>& op1, const VectorArray<FPT>& op2, FP::FPCR fpcr, [[maybe_unused]] FP::FPSR& fpsr) {
++    #pragma clang loop vectorize(enable)
+     for (size_t i = 0; i < result.size(); i++) {
+         if constexpr (needs_rounding_correction) {
+             constexpr FPT non_sign_mask = FP::FPInfo<FPT>::exponent_mask | FP::FPInfo<FPT>::mantissa_mask;

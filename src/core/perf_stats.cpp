@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: 2017 Citra Emulator Project
+// SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <algorithm>
@@ -41,7 +42,9 @@ PerfStats::~PerfStats() {
 
     const auto path = Common::FS::GetCitronPath(Common::FS::CitronPath::LogDir);
     // %F Date format expanded is "%Y-%m-%d"
-    const auto filename = fmt::format("{:%F-%H-%M}_{:016X}.csv", *std::localtime(&t), title_id);
+    char time_buf[128];
+    std::strftime(time_buf, sizeof(time_buf), "%F-%H-%M", std::localtime(&t));
+    const auto filename = fmt::format("{}_{:016X}.csv", time_buf, title_id);
     const auto filepath = path / filename;
 
     if (Common::FS::CreateParentDir(filepath)) {
