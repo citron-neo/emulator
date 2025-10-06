@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: Copyright 2024 yuzu Emulator Project
+// SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "core/frontend/framebuffer_layout.h"
@@ -12,6 +13,7 @@
 #include "video_core/renderer_vulkan/vk_shader_util.h"
 #include "video_core/vulkan_common/vulkan_device.h"
 #include "video_core/vulkan_common/vulkan_memory_allocator.h"
+#include "common/settings.h" 
 
 namespace Vulkan {
 
@@ -92,8 +94,16 @@ void WindowAdaptPass::Draw(RasterizerVulkan& rasterizer, Scheduler& scheduler, s
 
         for (size_t i = 0; i < layer_count; i++) {
             cmdbuf.BindPipeline(VK_PIPELINE_BIND_POINT_GRAPHICS, graphics_pipelines[i]);
-            cmdbuf.PushConstants(graphics_pipeline_layout, VK_SHADER_STAGE_VERTEX_BIT,
-                                 push_constants[i]);
+            cmdbuf.PushConstants(graphics_pipeline_layout, VK_SHADER_STAGE_VERTEX_BIT, 0,
+                                 sizeof(PresentPushConstants), &push_constants[i]);
+
+
+            if (Settings::values.scaling_filter.GetValue() == Settings::ScalingFilter::Lanczos) {
+                const s32 lanczos_a = Settings::values.lanczos_quality.GetValue();
+                cmdbuf.PushConstants(graphics_pipeline_layout, VK_SHADER_STAGE_FRAGMENT_BIT,
+                                     sizeof(PresentPushConstants), sizeof(s32), &lanczos_a);
+            }
+
             cmdbuf.BindDescriptorSets(VK_PIPELINE_BIND_POINT_GRAPHICS, graphics_pipeline_layout, 0,
                                       descriptor_sets[i], {});
             cmdbuf.Draw(4, 1, 0, 0);
@@ -117,10 +127,21 @@ void WindowAdaptPass::CreateDescriptorSetLayout() {
 }
 
 void WindowAdaptPass::CreatePipelineLayout() {
-    const VkPushConstantRange range{
+
+    std::array<VkPushConstantRange, 2> ranges{};
+
+    // Range 0: The existing constants for the Vertex Shader
+    ranges[0] = {
         .stageFlags = VK_SHADER_STAGE_VERTEX_BIT,
         .offset = 0,
         .size = sizeof(PresentPushConstants),
+    };
+
+    // Range 1: Our new constant for the Fragment Shader
+    ranges[1] = {
+        .stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,
+        .offset = sizeof(PresentPushConstants),
+        .size = sizeof(s32),
     };
 
     pipeline_layout = device.GetLogical().CreatePipelineLayout(VkPipelineLayoutCreateInfo{
@@ -129,8 +150,8 @@ void WindowAdaptPass::CreatePipelineLayout() {
         .flags = 0,
         .setLayoutCount = 1,
         .pSetLayouts = descriptor_set_layout.address(),
-        .pushConstantRangeCount = 1,
-        .pPushConstantRanges = &range,
+        .pushConstantRangeCount = static_cast<u32>(ranges.size()),
+        .pPushConstantRanges = ranges.data(),
     });
 }
 
