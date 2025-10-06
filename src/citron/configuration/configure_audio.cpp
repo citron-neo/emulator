@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: Copyright 2018 yuzu Emulator Project
+// SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <map>
@@ -18,12 +19,13 @@
 #include "citron/configuration/configure_audio.h"
 #include "citron/configuration/shared_translation.h"
 #include "citron/configuration/shared_widget.h"
+#include "citron/theme.h" // Added for theming
 #include "citron/uisettings.h"
 
 ConfigureAudio::ConfigureAudio(const Core::System& system_,
                                std::shared_ptr<std::vector<ConfigurationShared::Tab*>> group_,
                                const ConfigurationShared::Builder& builder, QWidget* parent)
-    : Tab(group_, parent), ui(std::make_unique<Ui::ConfigureAudio>()), system{system_} {
+: Tab(group_, parent), ui(std::make_unique<Ui::ConfigureAudio>()), system{system_} {
     ui->setupUi(this);
     Setup(builder);
 
@@ -70,7 +72,7 @@ void ConfigureAudio::Setup(const ConfigurationShared::Builder& builder) {
 
         auto global_sink_match = [this] {
             return static_cast<Settings::AudioEngine>(sink_combo_box->currentIndex()) ==
-                   Settings::values.sink_id.GetValue(true);
+            Settings::values.sink_id.GetValue(true);
         };
         if (setting->Id() == Settings::values.sink_id.Id()) {
             // TODO (lat9nq): Let the system manage sink_id
@@ -117,8 +119,8 @@ void ConfigureAudio::Setup(const ConfigurationShared::Builder& builder) {
 
             if (!Settings::IsConfiguringGlobal()) {
                 restore_output_device_button =
-                    ConfigurationShared::Widget::CreateRestoreGlobalButton(
-                        Settings::values.audio_output_device_id.UsingGlobal(), widget);
+                ConfigurationShared::Widget::CreateRestoreGlobalButton(
+                    Settings::values.audio_output_device_id.UsingGlobal(), widget);
                 restore_output_device_button->setEnabled(global_sink_match());
                 restore_output_device_button->setVisible(
                     !Settings::values.audio_output_device_id.UsingGlobal());
@@ -143,8 +145,8 @@ void ConfigureAudio::Setup(const ConfigurationShared::Builder& builder) {
 
             if (!Settings::IsConfiguringGlobal()) {
                 restore_input_device_button =
-                    ConfigurationShared::Widget::CreateRestoreGlobalButton(
-                        Settings::values.audio_input_device_id.UsingGlobal(), widget);
+                ConfigurationShared::Widget::CreateRestoreGlobalButton(
+                    Settings::values.audio_input_device_id.UsingGlobal(), widget);
                 widget->layout()->addWidget(restore_input_device_button);
                 connect(restore_input_device_button, &QAbstractButton::clicked, [this](bool) {
                     Settings::values.audio_input_device_id.SetGlobal(true);
@@ -198,7 +200,7 @@ void ConfigureAudio::SetOutputDevicesFromDeviceID() {
     int new_device_index = 0;
 
     const QString output_device_id =
-        QString::fromStdString(Settings::values.audio_output_device_id.GetValue());
+    QString::fromStdString(Settings::values.audio_output_device_id.GetValue());
     for (int index = 0; index < output_device_combo_box->count(); index++) {
         if (output_device_combo_box->itemText(index) == output_device_id) {
             new_device_index = index;
@@ -212,7 +214,7 @@ void ConfigureAudio::SetOutputDevicesFromDeviceID() {
 void ConfigureAudio::SetInputDevicesFromDeviceID() {
     int new_device_index = 0;
     const QString input_device_id =
-        QString::fromStdString(Settings::values.audio_input_device_id.GetValue());
+    QString::fromStdString(Settings::values.audio_input_device_id.GetValue());
     for (int index = 0; index < input_device_combo_box->count(); index++) {
         if (input_device_combo_box->itemText(index) == input_device_id) {
             new_device_index = index;
@@ -251,7 +253,7 @@ void ConfigureAudio::UpdateAudioDevices(int sink_index) {
     output_device_combo_box->addItem(QString::fromUtf8(AudioCore::Sink::auto_device_name));
 
     const auto sink_id =
-        Settings::ToEnum<Settings::AudioEngine>(sink_combo_box->itemText(sink_index).toStdString());
+    Settings::ToEnum<Settings::AudioEngine>(sink_combo_box->itemText(sink_index).toStdString());
     for (const auto& device : AudioCore::Sink::GetDeviceListForSink(sink_id, false)) {
         output_device_combo_box->addItem(QString::fromStdString(device));
     }
@@ -275,4 +277,17 @@ void ConfigureAudio::InitializeAudioSinkComboBox() {
 
 void ConfigureAudio::RetranslateUI() {
     ui->retranslateUi(this);
+}
+
+QString ConfigureAudio::GetTemplateStyleSheet() const {
+    return m_template_style_sheet;
+}
+
+void ConfigureAudio::SetTemplateStyleSheet(const QString& sheet) {
+    if (m_template_style_sheet == sheet) {
+        return;
+    }
+    m_template_style_sheet = sheet;
+    setStyleSheet(sheet);
+    emit TemplateStyleSheetChanged();
 }

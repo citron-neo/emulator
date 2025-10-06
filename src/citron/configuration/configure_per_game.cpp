@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
+#include "citron/configuration/configure_per_game.h"
 #include <algorithm>
 #include <cstring>
 #include <filesystem>
@@ -14,9 +15,11 @@
 
 #include <QAbstractButton>
 #include <QCheckBox>
+#include <QDialogButtonBox>
 #include <QPushButton>
 #include <QScrollArea>
 #include <QString>
+#include <QTabBar>
 #include <QTimer>
 
 #include "common/fs/fs_util.h"
@@ -42,9 +45,9 @@
 #include "citron/configuration/configure_graphics_advanced.h"
 #include "citron/configuration/configure_input_per_game.h"
 #include "citron/configuration/configure_linux_tab.h"
-#include "citron/configuration/configure_per_game.h"
 #include "citron/configuration/configure_per_game_addons.h"
 #include "citron/configuration/configure_system.h"
+#include "citron/theme.h"
 #include "citron/uisettings.h"
 #include "citron/util/util.h"
 #include "citron/vk_device_info.h"
@@ -55,7 +58,8 @@ ConfigurePerGame::ConfigurePerGame(QWidget* parent, u64 title_id_, const std::st
 : QDialog(parent),
 ui(std::make_unique<Ui::ConfigurePerGame>()), title_id{title_id_}, system{system_},
 builder{std::make_unique<ConfigurationShared::Builder>(this, !system_.IsPoweredOn())},
-tab_group{std::make_shared<std::vector<ConfigurationShared::Tab*>>()} {
+tab_group{std::make_shared<std::vector<ConfigurationShared::Tab*>>()} ,
+rainbow_timer{new QTimer(this)} {
     const auto file_path = std::filesystem::path(Common::FS::ToU8String(file_name));
     const auto config_file_name = title_id == 0 ? Common::FS::PathToUTF8String(file_path.filename())
     : fmt::format("{:016X}", title_id);
@@ -74,14 +78,16 @@ tab_group{std::make_shared<std::vector<ConfigurationShared::Tab*>>()} {
 
     ui->setupUi(this);
 
-    // THIS IS THE NEW FIX: Force a minimum height on the window.
+    ApplyStaticTheme();
+    UpdateTheme(); // Run once to set initial colors
+    connect(rainbow_timer, &QTimer::timeout, this, &ConfigurePerGame::UpdateTheme);
+
     setMinimumHeight(400);
 
     layout()->setSizeConstraint(QLayout::SetDefaultConstraint);
 
     ui->tabWidget->addTab(addons_tab.get(), tr("Add-Ons"));
 
-    // Create a scroll area for the system tab
     QScrollArea* system_scroll_area = new QScrollArea(this);
     system_scroll_area->setWidgetResizable(true);
     system_scroll_area->setWidget(system_tab.get());
@@ -89,13 +95,11 @@ tab_group{std::make_shared<std::vector<ConfigurationShared::Tab*>>()} {
 
     ui->tabWidget->addTab(cpu_tab.get(), tr("CPU"));
 
-    // Create a scroll area for the graphics tab
     QScrollArea* graphics_scroll_area = new QScrollArea(this);
     graphics_scroll_area->setWidgetResizable(true);
     graphics_scroll_area->setWidget(graphics_tab.get());
     ui->tabWidget->addTab(graphics_scroll_area, tr("Graphics"));
 
-    // Create a scroll area for the advanced graphics tab
     QScrollArea* graphics_advanced_scroll_area = new QScrollArea(this);
     graphics_advanced_scroll_area->setWidgetResizable(true);
     graphics_advanced_scroll_area->setWidget(graphics_advanced_tab.get());
@@ -104,7 +108,6 @@ tab_group{std::make_shared<std::vector<ConfigurationShared::Tab*>>()} {
     ui->tabWidget->addTab(audio_tab.get(), tr("Audio"));
     ui->tabWidget->addTab(input_tab.get(), tr("Input Profiles"));
 
-    // Only show Linux tab on Unix
     linux_tab->setVisible(false);
     #ifdef __unix__
     linux_tab->setVisible(true);
@@ -129,6 +132,11 @@ tab_group{std::make_shared<std::vector<ConfigurationShared::Tab*>>()} {
 }
 
 ConfigurePerGame::~ConfigurePerGame() = default;
+
+void ConfigurePerGame::accept() {
+    ApplyConfiguration();
+    QDialog::accept();
+}
 
 void ConfigurePerGame::ApplyConfiguration() {
     for (const auto tab : *tab_group) {
@@ -169,6 +177,83 @@ void ConfigurePerGame::HandleApplyButtonClicked() {
 void ConfigurePerGame::LoadFromFile(FileSys::VirtualFile file_) {
     file = std::move(file_);
     LoadConfiguration();
+}
+
+void ConfigurePerGame::ApplyStaticTheme() {
+    QString raw_stylesheet = property("templateStyleSheet").toString();
+    QString processed_stylesheet = raw_stylesheet;
+
+    QColor accent_color(Theme::GetAccentColor());
+    QString accent_color_hover = accent_color.lighter(115).name(QColor::HexRgb);
+    QString accent_color_pressed = accent_color.darker(120).name(QColor::HexRgb);
+
+    processed_stylesheet.replace(QStringLiteral("%%ACCENT_COLOR%%"), accent_color.name(QColor::HexRgb));
+    processed_stylesheet.replace(QStringLiteral("%%ACCENT_COLOR_HOVER%%"), accent_color_hover);
+    processed_stylesheet.replace(QStringLiteral("%%ACCENT_COLOR_PRESSED%%"), accent_color_pressed);
+
+    setStyleSheet(processed_stylesheet);
+    // Pass the processed stylesheet to the child tabs ONCE
+    graphics_tab->SetTemplateStyleSheet(processed_stylesheet);
+    system_tab->SetTemplateStyleSheet(processed_stylesheet);
+    audio_tab->SetTemplateStyleSheet(processed_stylesheet);
+    cpu_tab->SetTemplateStyleSheet(processed_stylesheet);
+    graphics_advanced_tab->SetTemplateStyleSheet(processed_stylesheet);
+}
+
+void ConfigurePerGame::UpdateTheme() {
+    if (!UISettings::values.enable_rainbow_mode.GetValue()) {
+        if (rainbow_timer->isActive()) {
+            rainbow_timer->stop();
+            ApplyStaticTheme();
+        }
+        return;
+    }
+
+    rainbow_hue += 0.01f;
+    if (rainbow_hue > 1.0f) {
+        rainbow_hue = 0.0f;
+    }
+
+    QColor accent_color = QColor::fromHsvF(rainbow_hue, 0.8, 1.0);
+    QColor accent_color_hover = accent_color.lighter(115);
+    QColor accent_color_pressed = accent_color.darker(120);
+
+    // Efficiently update only the necessary widgets
+    QString tab_style = QStringLiteral(
+        "QTabBar::tab:selected { background-color: %1; border-color: %1; }")
+    .arg(accent_color.name(QColor::HexRgb));
+    ui->tabWidget->tabBar()->setStyleSheet(tab_style);
+
+    QString button_style = QStringLiteral(
+        "QPushButton { background-color: %1; color: #ffffff; border: none; padding: 10px 20px; border-radius: 6px; font-weight: bold; min-height: 20px; }"
+        "QPushButton:hover { background-color: %2; }"
+        "QPushButton:pressed { background-color: %3; }")
+    .arg(accent_color.name(QColor::HexRgb))
+    .arg(accent_color_hover.name(QColor::HexRgb))
+    .arg(accent_color_pressed.name(QColor::HexRgb));
+
+    ui->buttonBox->button(QDialogButtonBox::Ok)->setStyleSheet(button_style);
+    ui->buttonBox->button(QDialogButtonBox::Cancel)->setStyleSheet(button_style);
+    if (auto* apply_button = ui->buttonBox->button(QDialogButtonBox::Apply)) {
+        apply_button->setStyleSheet(button_style);
+    }
+
+    // Create a temporary full stylesheet for the child tabs to update their internal widgets
+    QString child_stylesheet = property("templateStyleSheet").toString();
+    child_stylesheet.replace(QStringLiteral("%%ACCENT_COLOR%%"), accent_color.name(QColor::HexRgb));
+    child_stylesheet.replace(QStringLiteral("%%ACCENT_COLOR_HOVER%%"), accent_color_hover.name(QColor::HexRgb));
+    child_stylesheet.replace(QStringLiteral("%%ACCENT_COLOR_PRESSED%%"), accent_color_pressed.name(QColor::HexRgb));
+
+    // Pass the updated stylesheet to the child tabs
+    graphics_tab->SetTemplateStyleSheet(child_stylesheet);
+    system_tab->SetTemplateStyleSheet(child_stylesheet);
+    audio_tab->SetTemplateStyleSheet(child_stylesheet);
+    cpu_tab->SetTemplateStyleSheet(child_stylesheet);
+    graphics_advanced_tab->SetTemplateStyleSheet(child_stylesheet);
+
+    if (!rainbow_timer->isActive()) {
+        rainbow_timer->start(50); // Use a reasonable 50ms interval to prevent lag
+    }
 }
 
 void ConfigurePerGame::LoadConfiguration() {
@@ -232,33 +317,27 @@ void ConfigurePerGame::LoadConfiguration() {
         const auto valueText = ReadableByteSize(file->GetSize());
         ui->display_size->setText(valueText);
 
-        // Display Build ID(s) if available
         std::string base_build_id_hex;
         std::string update_build_id_hex;
 
-        // Try to get build ID based on file type
         const auto file_type = loader->GetFileType();
 
         if (file_type == Loader::FileType::NSO) {
-            // For NSO files, read the build ID directly from the header
             if (file->GetSize() >= 0x100) {
                 std::array<u8, 0x100> header_data{};
                 if (file->ReadBytes(header_data.data(), 0x100, 0) == 0x100) {
-                    // Build ID is at offset 0x40 in NSO header
                     std::array<u8, 0x20> build_id{};
                     std::memcpy(build_id.data(), header_data.data() + 0x40, 0x20);
                     base_build_id_hex = Common::HexToString(build_id, false);
                 }
             }
         } else if (file_type == Loader::FileType::DeconstructedRomDirectory) {
-            // For deconstructed ROM directories, read from the main NSO file
             const auto main_dir = file->GetContainingDirectory();
             if (main_dir) {
                 const auto main_nso = main_dir->GetFile("main");
                 if (main_nso && main_nso->GetSize() >= 0x100) {
                     std::array<u8, 0x100> header_data{};
                     if (main_nso->ReadBytes(header_data.data(), 0x100, 0) == 0x100) {
-                        // Build ID is at offset 0x40 in NSO header
                         std::array<u8, 0x20> build_id{};
                         std::memcpy(build_id.data(), header_data.data() + 0x40, 0x20);
                         base_build_id_hex = Common::HexToString(build_id, false);
@@ -266,16 +345,12 @@ void ConfigurePerGame::LoadConfiguration() {
                 }
             }
         } else {
-            // For other file types (XCI, NSP, NCA), try to extract build ID directly
             try {
                 if (file_type == Loader::FileType::XCI) {
-                    // For XCI files, try to construct with the proper parameters
                     try {
-                        // First try to get the program ID from the XCI to use proper parameters
                         FileSys::XCI xci_temp(file);
                         if (xci_temp.GetStatus() == Loader::ResultStatus::Success) {
-                            // Try to get the program NCA from the secure partition
-                            FileSys::XCI xci(file, title_id, 0); // Use detected title_id
+                            FileSys::XCI xci(file, title_id, 0);
                             if (xci.GetStatus() == Loader::ResultStatus::Success) {
                                 auto program_nca = xci.GetNCAByType(FileSys::NCAContentType::Program);
                                 if (program_nca && program_nca->GetStatus() == Loader::ResultStatus::Success) {
@@ -295,8 +370,6 @@ void ConfigurePerGame::LoadConfiguration() {
                             }
                         }
                     } catch (...) {
-                        // XCI might be encrypted or have other issues
-                        // Fall back to checking if it's installed in the content provider
                         const auto& content_provider = system.GetContentProvider();
                         auto base_nca = content_provider.GetEntry(title_id, FileSys::ContentRecordType::Program);
                         if (base_nca && base_nca->GetStatus() == Loader::ResultStatus::Success) {
@@ -315,7 +388,6 @@ void ConfigurePerGame::LoadConfiguration() {
                         }
                     }
                 } else if (file_type == Loader::FileType::NSP) {
-                    // For NSP files, try to construct and parse directly
                     FileSys::NSP nsp(file);
                     if (nsp.GetStatus() == Loader::ResultStatus::Success) {
                         auto exefs = nsp.GetExeFS();
@@ -332,7 +404,6 @@ void ConfigurePerGame::LoadConfiguration() {
                         }
                     }
                 } else if (file_type == Loader::FileType::NCA) {
-                    // For NCA files, try to construct and parse directly
                     FileSys::NCA nca(file);
                     if (nca.GetStatus() == Loader::ResultStatus::Success) {
                         auto exefs = nca.GetExeFS();
@@ -350,23 +421,15 @@ void ConfigurePerGame::LoadConfiguration() {
                     }
                 }
             } catch (...) {
-                // If anything fails, continue without the build ID
             }
         }
 
-        // Try to get update build ID from patch manager and content provider
         try {
-            // Method 1: Try through patch manager (more reliable for updates)
             const FileSys::PatchManager pm_update{title_id, system.GetFileSystemController(),
                 system.GetContentProvider()};
 
-                // Check if patch manager has update information
                 const auto update_version = pm_update.GetGameVersion();
                 if (update_version.has_value() && update_version.value() > 0) {
-                    // There's an update, try to get its build ID through the patch manager
-                    // The patch manager should have access to the update NCA
-
-                    // Try to get the update NCA through the patch manager's content provider
                     const auto& content_provider = system.GetContentProvider();
                     const auto update_title_id = FileSys::GetUpdateTitleID(title_id);
                     auto update_nca = content_provider.GetEntry(update_title_id, FileSys::ContentRecordType::Program);
@@ -387,7 +450,6 @@ void ConfigurePerGame::LoadConfiguration() {
                     }
                 }
 
-                // Method 2: If patch manager approach didn't work, try direct content provider access
                 if (update_build_id_hex.empty()) {
                     const auto& content_provider = system.GetContentProvider();
                     const auto update_title_id = FileSys::GetUpdateTitleID(title_id);
@@ -409,47 +471,35 @@ void ConfigurePerGame::LoadConfiguration() {
                     }
                 }
 
-                // Method 3: Try to use the patch manager's GetPatches to detect updates
                 if (update_build_id_hex.empty()) {
                     const auto patches = pm_update.GetPatches();
                     for (const auto& patch : patches) {
                         if (patch.type == FileSys::PatchType::Update && patch.enabled) {
-                            // There's an enabled update patch, but we couldn't get its build ID
-                            // This indicates an update is available but not currently loaded
                             break;
                         }
                     }
                 }
         } catch (...) {
-            // If update build ID extraction fails, continue with just base
         }
 
-        // Try to get the actual running build ID from system (this will be the update if one is applied)
         const auto& system_build_id = system.GetApplicationProcessBuildID();
         const auto system_build_id_hex = Common::HexToString(system_build_id, false);
 
-        // If we have a system build ID and it's different from the base, it's likely the update
         if (!system_build_id_hex.empty() && system_build_id_hex != std::string(64, '0')) {
             if (!base_build_id_hex.empty() && system_build_id_hex != base_build_id_hex) {
-                // System build ID is different from base, so it's the update
                 update_build_id_hex = system_build_id_hex;
             } else if (base_build_id_hex.empty()) {
-                // No base build ID found, use system as base
                 base_build_id_hex = system_build_id_hex;
             }
         }
 
-        // Additional check: if we still don't have an update build ID but we know there's an update
-        // (from the Add-Ons tab showing v1.0.1 etc), try alternative detection methods
         bool update_detected = false;
         if (update_build_id_hex.empty() && !base_build_id_hex.empty()) {
-            // Check if the patch manager indicates an update is available
             const auto update_version = pm.GetGameVersion();
             if (update_version.has_value() && update_version.value() > 0) {
                 update_detected = true;
             }
 
-            // Also check patches
             const auto patches = pm.GetPatches();
             for (const auto& patch : patches) {
                 if (patch.type == FileSys::PatchType::Update && patch.enabled) {
@@ -459,18 +509,15 @@ void ConfigurePerGame::LoadConfiguration() {
             }
         }
 
-        // Display the Build IDs in separate fields
         bool has_base = !base_build_id_hex.empty() && base_build_id_hex != std::string(64, '0');
         bool has_update = !update_build_id_hex.empty() && update_build_id_hex != std::string(64, '0');
 
-        // Set Base Build ID
         if (has_base) {
             ui->display_build_id->setText(QString::fromStdString(base_build_id_hex));
         } else {
             ui->display_build_id->setText(tr("Not Available"));
         }
 
-        // Set Update Build ID
         if (has_update) {
             ui->display_update_build_id->setText(QString::fromStdString(update_build_id_hex));
         } else if (update_detected) {

@@ -591,3 +591,35 @@ Settings::RendererBackend ConfigureGraphics::GetCurrentGraphicsBackend() const {
     }
     return selected_backend;
 }
+
+QString ConfigureGraphics::GetTemplateStyleSheet() const {
+    return m_template_style_sheet;
+}
+
+void ConfigureGraphics::SetTemplateStyleSheet(const QString& sheet) {
+    if (m_template_style_sheet == sheet) {
+        return;
+    }
+
+    m_template_style_sheet = sheet;
+
+    // Get the current accent color from the global UI settings
+    const QColor accent_color(QString::fromStdString(UISettings::values.accent_color.GetValue()));
+
+    // Create color variations for hover and pressed states
+    const QColor accent_color_hover = accent_color.lighter(115);
+    const QColor accent_color_pressed = accent_color.darker(115);
+
+    QString final_style = m_template_style_sheet;
+
+    // Replace all placeholders with the actual color values in #RRGGBB format
+    // Use QStringLiteral() to satisfy Qt 6's explicit string constructor requirements
+    final_style.replace(QStringLiteral("%%ACCENT_COLOR%%"), accent_color.name(QColor::HexRgb));
+    final_style.replace(QStringLiteral("%%ACCENT_COLOR_HOVER%%"), accent_color_hover.name(QColor::HexRgb));
+    final_style.replace(QStringLiteral("%%ACCENT_COLOR_PRESSED%%"), accent_color_pressed.name(QColor::HexRgb));
+
+    // Apply the processed stylesheet to this widget and all its children (like checkboxes)
+    this->setStyleSheet(final_style);
+
+    emit TemplateStyleSheetChanged();
+}

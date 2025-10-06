@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: 2016 Citra Emulator Project
+// SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <chrono>
@@ -20,6 +21,7 @@
 #include "citron/configuration/configuration_shared.h"
 #include "citron/configuration/configure_system.h"
 #include "citron/configuration/shared_widget.h"
+#include "citron/theme.h" // Added for Theme::GetAccentColor
 
 constexpr std::array<u32, 7> LOCALE_BLOCKLIST{
     // pzzefezrpnkzeidfej
@@ -47,12 +49,12 @@ static bool IsValidLocale(u32 region_index, u32 language_index) {
 ConfigureSystem::ConfigureSystem(Core::System& system_,
                                  std::shared_ptr<std::vector<ConfigurationShared::Tab*>> group_,
                                  const ConfigurationShared::Builder& builder, QWidget* parent)
-    : Tab(group_, parent), ui{std::make_unique<Ui::ConfigureSystem>()}, system{system_} {
+: Tab(group_, parent), ui{std::make_unique<Ui::ConfigureSystem>()}, system{system_} {
     ui->setupUi(this);
 
     const auto posix_time = std::chrono::system_clock::now().time_since_epoch();
     const auto current_time_s =
-        std::chrono::duration_cast<std::chrono::seconds>(posix_time).count();
+    std::chrono::duration_cast<std::chrono::seconds>(posix_time).count();
     previous_time = current_time_s + Settings::values.custom_rtc_offset.GetValue();
 
     Setup(builder);
@@ -65,8 +67,8 @@ ConfigureSystem::ConfigureSystem(Core::System& system_,
         if (!valid_locale) {
             ui->label_warn_invalid_locale->setText(
                 tr("Warning: \"%1\" is not a valid language for region \"%2\"")
-                    .arg(combo_language->currentText())
-                    .arg(combo_region->currentText()));
+                .arg(combo_language->currentText())
+                .arg(combo_region->currentText()));
         }
     };
 
@@ -129,9 +131,9 @@ void ConfigureSystem::Setup(const ConfigurationShared::Builder& builder) {
         if (setting->Id() == Settings::values.use_docked_mode.Id() &&
             Settings::IsConfiguringGlobal()) {
             continue;
-        }
+            }
 
-        ConfigurationShared::Widget* widget = builder.BuildWidget(setting, apply_funcs);
+            ConfigurationShared::Widget* widget = builder.BuildWidget(setting, apply_funcs);
 
         if (widget == nullptr) {
             continue;
@@ -164,14 +166,14 @@ void ConfigureSystem::Setup(const ConfigurationShared::Builder& builder) {
         }
 
         switch (setting->GetCategory()) {
-        case Settings::Category::Core:
-            core_hold.emplace(setting->Id(), widget);
-            break;
-        case Settings::Category::System:
-            system_hold.emplace(setting->Id(), widget);
-            break;
-        default:
-            widget->deleteLater();
+            case Settings::Category::Core:
+                core_hold.emplace(setting->Id(), widget);
+                break;
+            case Settings::Category::System:
+                system_hold.emplace(setting->Id(), widget);
+                break;
+            default:
+                widget->deleteLater();
         }
     }
     for (const auto& [label, widget] : core_hold) {
@@ -203,4 +205,33 @@ void ConfigureSystem::ApplyConfiguration() {
         func(powered_on);
     }
     UpdateRtcTime();
+}
+
+QString ConfigureSystem::GetTemplateStyleSheet() const {
+    return m_template_style_sheet;
+}
+
+void ConfigureSystem::SetTemplateStyleSheet(const QString& sheet) {
+    if (m_template_style_sheet == sheet) {
+        return;
+    }
+
+    m_template_style_sheet = sheet;
+
+    // Get the current accent color from the theme manager
+    const QColor accent_color(Theme::GetAccentColor());
+    const QColor accent_color_hover = accent_color.lighter(115);
+    const QColor accent_color_pressed = accent_color.darker(115);
+
+    QString final_style = m_template_style_sheet;
+
+    // Replace all placeholders with the actual color values
+    final_style.replace(QStringLiteral("%%ACCENT_COLOR%%"), accent_color.name(QColor::HexRgb));
+    final_style.replace(QStringLiteral("%%ACCENT_COLOR_HOVER%%"), accent_color_hover.name(QColor::HexRgb));
+    final_style.replace(QStringLiteral("%%ACCENT_COLOR_PRESSED%%"), accent_color_pressed.name(QColor::HexRgb));
+
+    // Apply the finished stylesheet to THIS widget and all its children
+    this->setStyleSheet(final_style);
+
+    emit TemplateStyleSheetChanged();
 }
