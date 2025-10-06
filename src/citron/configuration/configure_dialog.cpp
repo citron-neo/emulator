@@ -182,7 +182,7 @@ void ConfigureDialog::UpdateTheme() {
         if (rainbow_hue > 1.0f) {
             rainbow_hue = 0.0f;
         }
-        accent_color_str = QColor::fromHsvF(rainbow_hue, 0.8, 1.0).name();
+        accent_color_str = QColor::fromHsvF(rainbow_hue, 0.8f, 1.0f).name();
         if (!rainbow_timer->isActive()) {
             // THE FIX: Use a sane timer interval to prevent UI lag.
             rainbow_timer->start(100);

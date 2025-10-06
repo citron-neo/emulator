@@ -214,7 +214,7 @@ void ConfigurePerGame::UpdateTheme() {
         rainbow_hue = 0.0f;
     }
 
-    QColor accent_color = QColor::fromHsvF(rainbow_hue, 0.8, 1.0);
+    QColor accent_color = QColor::fromHsvF(rainbow_hue, 0.8f, 1.0f);
     QColor accent_color_hover = accent_color.lighter(115);
     QColor accent_color_pressed = accent_color.darker(120);
 
