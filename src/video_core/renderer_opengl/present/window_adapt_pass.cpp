@@ -64,10 +64,10 @@ void WindowAdaptPass::DrawToFramebuffer(ProgramManager& program_manager, std::li
     glViewportIndexedf(0, 0.0f, 0.0f, static_cast<GLfloat>(layout.width),
                        static_cast<GLfloat>(layout.height));
 
-    glEnableVertexAttribArray(PositionLocation);
-    glEnableVertexAttribArray(TexCoordLocation);
     glVertexAttribDivisor(PositionLocation, 0);
     glVertexAttribDivisor(TexCoordLocation, 0);
+    glEnableVertexAttribArray(PositionLocation);
+    glEnableVertexAttribArray(TexCoordLocation);
     glVertexAttribFormat(PositionLocation, 2, GL_FLOAT, GL_FALSE,
                          offsetof(ScreenRectVertex, position));
     glVertexAttribFormat(TexCoordLocation, 2, GL_FLOAT, GL_FALSE,
@@ -84,7 +84,6 @@ void WindowAdaptPass::DrawToFramebuffer(ProgramManager& program_manager, std::li
 
     glBindSampler(0, sampler.handle);
 
-    // Update background color before drawing
     glClearColor(Settings::values.bg_red.GetValue() / 255.0f,
                  Settings::values.bg_green.GetValue() / 255.0f,
                  Settings::values.bg_blue.GetValue() / 255.0f, 1.0f);
@@ -105,6 +104,11 @@ void WindowAdaptPass::DrawToFramebuffer(ProgramManager& program_manager, std::li
             glEnablei(GL_BLEND, 0);
             glBlendFuncSeparatei(0, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE, GL_ZERO);
             break;
+        }
+
+
+        if (Settings::values.scaling_filter.GetValue() == Settings::ScalingFilter::Lanczos) {
+            glProgramUniform1i(frag.handle, 0, Settings::values.lanczos_quality.GetValue());
         }
 
         glBindTextureUnit(0, textures[i]);
