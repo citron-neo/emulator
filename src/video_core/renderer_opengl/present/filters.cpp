@@ -1,9 +1,11 @@
 // SPDX-FileCopyrightText: Copyright 2024 yuzu Emulator Project
+// SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "video_core/host_shaders/opengl_present_frag.h"
 #include "video_core/host_shaders/opengl_present_scaleforce_frag.h"
 #include "video_core/host_shaders/present_bicubic_frag.h"
+#include "video_core/host_shaders/present_lanczos_frag.h"
 #include "video_core/host_shaders/present_gaussian_frag.h"
 #include "video_core/renderer_opengl/present/filters.h"
 #include "video_core/renderer_opengl/present/util.h"
@@ -34,6 +36,11 @@ std::unique_ptr<WindowAdaptPass> MakeScaleForce(const Device& device) {
     return std::make_unique<WindowAdaptPass>(
         device, CreateBilinearSampler(),
         fmt::format("#version 460\n{}", HostShaders::OPENGL_PRESENT_SCALEFORCE_FRAG));
+}
+
+std::unique_ptr<WindowAdaptPass> MakeLanczos(const Device& device) {
+    return std::make_unique<WindowAdaptPass>(device, CreateNearestNeighborSampler(),
+                                             HostShaders::PRESENT_LANCZOS_FRAG);
 }
 
 } // namespace OpenGL
