@@ -58,6 +58,8 @@ private:
     float gpu_temperature = 0.0f;
     QString cpu_sensor_type;
     QString gpu_sensor_type;
+    int battery_percentage = 0;
+    float battery_temperature = 0.0f;
 
     // Frame graph data
     static constexpr size_t MAX_FRAME_HISTORY = 120; // 2 seconds at 60 FPS
