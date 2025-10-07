@@ -1,0 +1,18 @@
+diff --git CMakeLists.txt CMakeLists.txt
+index 5dad9e9..972183d 100644
+--- CMakeLists.txt
++++ CMakeLists.txt
+@@ -51,6 +51,13 @@ add_library(rapidjson STATIC IMPORTED ${RAPIDJSON})
+ # add subdirs
+ 
+ add_subdirectory(src)
++
++# Suppress the -Wclass-memaccess warning from modern GCC/Clang in rapidjson.
++# This warning flags intentional, performance-oriented code in the library.
++if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
++    target_compile_options(discord-rpc PRIVATE "-Wno-class-memaccess")
++endif()
++
+ if (BUILD_EXAMPLES)
+     add_subdirectory(examples/send-presence)
+ endif(BUILD_EXAMPLES)
