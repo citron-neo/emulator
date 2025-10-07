@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: Copyright 2020 yuzu Emulator Project
+// SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <algorithm>
@@ -184,7 +185,7 @@ QtControllerSelectorDialog::QtControllerSelectorDialog(
                     CheckIfParametersMet();
                 });
 
-        connect(connected_controller_checkboxes[i], &QCheckBox::stateChanged, [this, i](int state) {
+        connect(connected_controller_checkboxes[i], &QCheckBox::checkStateChanged, [this, i](Qt::CheckState state) {
             player_groupboxes[i]->setChecked(state == Qt::Checked);
             UpdateControllerIcon(i);
             UpdateControllerState(i);
