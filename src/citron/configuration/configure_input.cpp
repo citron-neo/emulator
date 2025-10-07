@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: 2016 Citra Emulator Project
+// SPDX-FileCopyrightText: 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <memory>
@@ -121,7 +122,7 @@ void ConfigureInput::Initialize(InputCommon::InputSubsystem* input_subsystem,
                 &ConfigureInput::UpdateAllInputDevices);
         connect(player_controllers[i], &ConfigureInputPlayer::RefreshInputProfiles, this,
                 &ConfigureInput::UpdateAllInputProfiles, Qt::QueuedConnection);
-        connect(connected_controller_checkboxes[i], &QCheckBox::stateChanged, [this, i](int state) {
+        connect(connected_controller_checkboxes[i], &QCheckBox::checkStateChanged, [this, i](Qt::CheckState state) {
             // Keep activated controllers synced with the "Connected Controllers" checkboxes
             player_controllers[i]->ConnectPlayer(state == Qt::Checked);
         });

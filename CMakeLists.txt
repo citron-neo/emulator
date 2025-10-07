@@ -399,7 +399,7 @@ if(USE_DISCORD_PRESENCE)
     # Check if the target directory exists before trying to patch
     if(EXISTS "${PATCH_TARGET_DIR}")
         execute_process(
-            COMMAND git apply -p0 --ignore-whitespace "${PATCH_FILE}"
+            COMMAND git apply --ignore-whitespace "${PATCH_FILE}"
             WORKING_DIRECTORY "${PATCH_TARGET_DIR}"
             RESULT_VARIABLE PATCH_RESULT
             OUTPUT_QUIET
@@ -422,7 +422,7 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
 
     if(EXISTS "${MCL_PATCH_TARGET_DIR}")
         execute_process(
-            COMMAND git apply -p0 --ignore-whitespace "${MCL_PATCH_FILE}"
+            COMMAND git apply --ignore-whitespace "${MCL_PATCH_FILE}"
             WORKING_DIRECTORY "${MCL_PATCH_TARGET_DIR}"
             RESULT_VARIABLE MCL_PATCH_RESULT
             OUTPUT_QUIET
@@ -459,6 +459,30 @@ if(EXISTS "${STB_PATCH_WORKING_DIR}/externals/stb/stb_image.h")
     endif()
 else()
     message(WARNING "Could not find stb_image.h to patch. It may not have been downloaded yet.")
+endif()
+
+# Apply a patch to discord-rpc's CMakeLists.txt to suppress -Wclass-memaccess
+message(STATUS "Applying custom patch to submodule's discord-rpc CMakeLists.txt...")
+
+# Define the path to the patch file and the target directory using unique names
+set(DISCORD_RPC_PATCH_FILE "${CMAKE_CURRENT_SOURCE_DIR}/patches/discord-rpc-wclass-memaccess-fix.patch")
+set(DISCORD_RPC_PATCH_TARGET_DIR "${CMAKE_CURRENT_SOURCE_DIR}/externals/discord-rpc")
+
+# Check if the target directory exists before trying to patch
+if(EXISTS "${DISCORD_RPC_PATCH_TARGET_DIR}")
+    execute_process(
+        COMMAND git apply -p0 --ignore-whitespace "${DISCORD_RPC_PATCH_FILE}"
+        WORKING_DIRECTORY "${DISCORD_RPC_PATCH_TARGET_DIR}"
+        RESULT_VARIABLE PATCH_RESULT
+        OUTPUT_QUIET
+        ERROR_QUIET
+    )
+
+    if(NOT PATCH_RESULT EQUAL 0)
+        message(WARNING "Failed to apply discord-rpc CMakeLists.txt patch! This might be okay if it's already applied.")
+    endif()
+else()
+    message(WARNING "Could not find discord-rpc directory to patch. It may not have been downloaded yet.")
 endif()
 
 if (ENABLE_QT)

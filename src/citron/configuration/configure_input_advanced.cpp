@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: Copyright 2020 yuzu Emulator Project
+// SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <QColorDialog>
@@ -74,13 +75,13 @@ ConfigureInputAdvanced::ConfigureInputAdvanced(Core::HID::HIDCore& hid_core_, QW
         }
     }
 
-    connect(ui->mouse_enabled, &QCheckBox::stateChanged, this,
+    connect(ui->mouse_enabled, &QCheckBox::checkStateChanged, this,
             &ConfigureInputAdvanced::UpdateUIEnabled);
-    connect(ui->debug_enabled, &QCheckBox::stateChanged, this,
+    connect(ui->debug_enabled, &QCheckBox::checkStateChanged, this,
             &ConfigureInputAdvanced::UpdateUIEnabled);
-    connect(ui->touchscreen_enabled, &QCheckBox::stateChanged, this,
+    connect(ui->touchscreen_enabled, &QCheckBox::checkStateChanged, this,
             &ConfigureInputAdvanced::UpdateUIEnabled);
-    connect(ui->enable_ring_controller, &QCheckBox::stateChanged, this,
+    connect(ui->enable_ring_controller, &QCheckBox::checkStateChanged, this,
             &ConfigureInputAdvanced::UpdateUIEnabled);
 
     connect(ui->debug_configure, &QPushButton::clicked, this,

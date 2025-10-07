@@ -85,7 +85,7 @@ ConfigureSystem::ConfigureSystem(Core::System& system_,
 
     connect(combo_language, qOverload<int>(&QComboBox::currentIndexChanged), this, locale_check);
     connect(combo_region, qOverload<int>(&QComboBox::currentIndexChanged), this, locale_check);
-    connect(checkbox_rtc, qOverload<int>(&QCheckBox::stateChanged), this, update_rtc_date);
+    connect(checkbox_rtc, &QCheckBox::checkStateChanged, this, update_rtc_date);
     connect(date_rtc_offset, qOverload<int>(&QSpinBox::valueChanged), this, update_rtc_date);
     connect(date_rtc, &QDateTimeEdit::dateTimeChanged, this, update_date_offset);
 
