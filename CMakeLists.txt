@@ -399,7 +399,7 @@ if(USE_DISCORD_PRESENCE)
     # Check if the target directory exists before trying to patch
     if(EXISTS "${PATCH_TARGET_DIR}")
         execute_process(
-            COMMAND git apply -p0 --ignore-whitespace "${PATCH_FILE}"
+            COMMAND git apply --ignore-whitespace "${PATCH_FILE}"
             WORKING_DIRECTORY "${PATCH_TARGET_DIR}"
             RESULT_VARIABLE PATCH_RESULT
             OUTPUT_QUIET
@@ -422,7 +422,7 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
 
     if(EXISTS "${MCL_PATCH_TARGET_DIR}")
         execute_process(
-            COMMAND git apply -p0 --ignore-whitespace "${MCL_PATCH_FILE}"
+            COMMAND git apply --ignore-whitespace "${MCL_PATCH_FILE}"
             WORKING_DIRECTORY "${MCL_PATCH_TARGET_DIR}"
             RESULT_VARIABLE MCL_PATCH_RESULT
             OUTPUT_QUIET
