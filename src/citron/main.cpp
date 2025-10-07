@@ -5440,10 +5440,6 @@ static void SetHighDPIAttributes() {
         Qt::HighDpiScaleFactorRoundingPolicy::PassThrough);
 #endif
 
-    // Enable high DPI scaling and pixmaps
-    QApplication::setAttribute(Qt::AA_EnableHighDpiScaling);
-    QApplication::setAttribute(Qt::AA_UseHighDpiPixmaps);
-
     // Set the DPI awareness for better scaling on Windows
 #ifdef _WIN32
     // Enable Per Monitor DPI Awareness for Windows 8.1+
