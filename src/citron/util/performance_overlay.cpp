@@ -25,6 +25,10 @@
 #pragma comment(lib, "wbemuuid.lib") // For MSVC, helps the linker find the library
 #endif
 
+#ifdef Q_OS_ANDROID
+#include <QtAndroidExtras>
+#endif
+
 #include "citron/main.h"
 #include "citron/util/performance_overlay.h"
 #include "core/core.h"
@@ -233,8 +237,7 @@ void PerformanceOverlay::UpdatePerformanceStats() {
 
     // Update FPS and Temperature colors based on performance
     fps_color = GetFpsColor(current_fps);
-    temperature_color = GetTemperatureColor(std::max(cpu_temperature, gpu_temperature));
-
+    temperature_color = GetTemperatureColor(std::max({cpu_temperature, gpu_temperature, battery_temperature}));
 
     // Trigger a repaint
     update();
@@ -246,8 +249,11 @@ void PerformanceOverlay::UpdateHardwareTemperatures() {
     gpu_temperature = 0.0f;
     cpu_sensor_type.clear();
     gpu_sensor_type.clear();
+    battery_percentage = 0;
+    battery_temperature = 0.0f;
 
-#if defined(Q_OS_LINUX) || defined(Q_OS_ANDROID)
+#if defined(Q_OS_LINUX)
+    // --- Standard Linux Thermal Zone Reading ---
     QDir thermal_dir(QString::fromUtf8("/sys/class/thermal/"));
     QStringList filters{QString::fromUtf8("thermal_zone*")};
     QStringList thermal_zones = thermal_dir.entryList(filters, QDir::Dirs);
@@ -266,7 +272,7 @@ void PerformanceOverlay::UpdateHardwareTemperatures() {
         if (type.contains(QString::fromUtf8("x86_pkg_temp")) || type.contains(QString::fromUtf8("cpu"))) {
             if (temp > cpu_temperature) {
                 cpu_temperature = temp;
-                cpu_sensor_type = QString::fromUtf8("CPU"); // Use a simple label
+                cpu_sensor_type = QString::fromUtf8("CPU");
             }
         } else if (type.contains(QString::fromUtf8("radeon")) || type.contains(QString::fromUtf8("amdgpu")) || type.contains(QString::fromUtf8("nvidia")) || type.contains(QString::fromUtf8("nouveau"))) {
             if (temp > gpu_temperature) {
@@ -275,8 +281,34 @@ void PerformanceOverlay::UpdateHardwareTemperatures() {
             }
         }
     }
+#endif
 
-#elif defined(Q_OS_WIN)
+#if defined(Q_OS_ANDROID)
+    // This uses QtAndroid Extras to get battery info from the Android system.
+    // NOTE: This requires the QtAndroidExtras module to be linked in the build.
+    QJniObject battery_status = QJniObject::callStaticObjectMethod(
+        "android/content/CONTEXT", "registerReceiver",
+        "(Landroid/content/BroadcastReceiver;Landroid/content/IntentFilter;)Landroid/content/Intent;",
+        nullptr, new QJniObject("android.content.IntentFilter", "(Ljava/lang/String;)V", "android.intent.action.BATTERY_CHANGED"));
+
+    if (battery_status.isValid()) {
+        int level = battery_status.callMethod<jint>("getIntExtra", "(Ljava/lang/String;I)I",
+                                                    QJniObject::fromString("level").object<jstring>(), -1);
+        int scale = battery_status.callMethod<jint>("getIntExtra", "(Ljava/lang/String;I)I",
+                                                    QJniObject::fromString("scale").object<jstring>(), -1);
+        int temp_tenths = battery_status.callMethod<jint>("getIntExtra", "(Ljava/lang/String;I)I",
+                                                          QJniObject::fromString("temperature").object<jstring>(), -1);
+
+        if (scale > 0) {
+            battery_percentage = (level * 100) / scale;
+        }
+        if (temp_tenths > 0) {
+            battery_temperature = static_cast<float>(temp_tenths) / 10.0f;
+        }
+    }
+#endif
+
+#if defined(Q_OS_WIN)
     HRESULT hres;
     IWbemLocator* pLoc = nullptr;
     IWbemServices* pSvc = nullptr;
@@ -332,45 +364,48 @@ void PerformanceOverlay::UpdatePosition() {
 void PerformanceOverlay::DrawPerformanceInfo(QPainter& painter) {
     painter.setRenderHint(QPainter::TextAntialiasing, true);
 
-    int y_offset = padding + 12;
-    const int line_height = 22;
-    const int section_spacing = 4;
+    int y_offset = padding;
+    const int line_height = 20;
 
-    // Draw title with subtle styling
+    // Draw title
     painter.setFont(title_font);
     painter.setPen(text_color);
-    painter.drawText(padding, y_offset, QString::fromUtf8("CITRON"));
-    y_offset += line_height + section_spacing;
+    painter.drawText(padding, y_offset + 12, QString::fromUtf8("CITRON"));
+
+    int y_offset_right = padding;
+    const int line_height_right = 18;
+
+    // Draw Temperatures
+    painter.setFont(small_font);
+
+    float core_temp_to_display = std::max(cpu_temperature, gpu_temperature);
+    if (core_temp_to_display > 0.0f) {
+        QString core_label = gpu_temperature > cpu_temperature ? gpu_sensor_type : cpu_sensor_type;
+        QString core_temp_text = QString::fromUtf8("%1: %2°C").arg(core_label).arg(core_temp_to_display, 0, 'f', 0);
+        painter.setPen(GetTemperatureColor(core_temp_to_display));
+        int text_width = painter.fontMetrics().horizontalAdvance(core_temp_text);
+        painter.drawText(width() - padding - text_width, y_offset_right + 12, core_temp_text);
+    }
+    y_offset_right += line_height_right;
+
+    // Draw Battery info
+    if (battery_percentage > 0) {
+        QString batt_text = QString::fromUtf8("Batt: %1%").arg(battery_percentage);
+        if (battery_temperature > 0.0f) {
+            batt_text += QString::fromUtf8(" (%1°C)").arg(battery_temperature, 0, 'f', 0);
+        }
+        painter.setPen(text_color);
+        int text_width = painter.fontMetrics().horizontalAdvance(batt_text);
+        painter.drawText(width() - padding - text_width, y_offset_right + 12, batt_text);
+    }
+
+    y_offset += line_height + 4;
 
     // Draw FPS
     painter.setFont(value_font);
     painter.setPen(fps_color);
     QString fps_text = QString::fromUtf8("%1 FPS").arg(FormatFps(current_fps));
     painter.drawText(padding, y_offset, fps_text);
-
-    // Determine which temperature to show (the hotter one)
-    float temp_to_display = 0.0f;
-    QString temp_label;
-    if (cpu_temperature >= gpu_temperature && cpu_temperature > 0.0f) {
-        temp_to_display = cpu_temperature;
-        temp_label = cpu_sensor_type;
-    } else if (gpu_temperature > 0.0f) {
-        temp_to_display = gpu_temperature;
-        temp_label = gpu_sensor_type;
-    }
-
-    // Draw Temperature next to FPS if available
-    if (temp_to_display > 0.0f) {
-        QString temp_text = QString::fromUtf8("%1: %2°C").arg(temp_label).arg(temp_to_display, 0, 'f', 0);
-        painter.setFont(value_font);
-        painter.setPen(temperature_color);
-
-        // Calculate position to the right of the FPS text
-        int fps_width = painter.fontMetrics().horizontalAdvance(fps_text);
-        int temp_x_pos = padding + fps_width + 15; // 15px spacing
-
-        painter.drawText(temp_x_pos, y_offset, temp_text);
-    }
     y_offset += line_height;
 
     // Draw frame time
