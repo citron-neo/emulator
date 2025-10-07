@@ -471,7 +471,7 @@ set(DISCORD_RPC_PATCH_TARGET_DIR "${CMAKE_CURRENT_SOURCE_DIR}/externals/discord-
 # Check if the target directory exists before trying to patch
 if(EXISTS "${DISCORD_RPC_PATCH_TARGET_DIR}")
     execute_process(
-        COMMAND git apply --ignore-whitespace "${DISCORD_RPC_PATCH_FILE}"
+        COMMAND git apply -p0 --ignore-whitespace "${DISCORD_RPC_PATCH_FILE}"
         WORKING_DIRECTORY "${DISCORD_RPC_PATCH_TARGET_DIR}"
         RESULT_VARIABLE PATCH_RESULT
         OUTPUT_QUIET
