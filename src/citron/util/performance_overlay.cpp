@@ -49,6 +49,7 @@ PerformanceOverlay::PerformanceOverlay(GMainWindow* parent)
     border_color = QColor(60, 60, 60, 120);      // Subtle border
     text_color = QColor(220, 220, 220, 255);     // Light gray text
     fps_color = QColor(76, 175, 80, 255);        // Material Design green
+    temperature_color = QColor(76, 175, 80, 255); // Default to green
 
     // Graph colors
     graph_background_color = QColor(40, 40, 40, 100);
@@ -230,8 +231,10 @@ void PerformanceOverlay::UpdatePerformanceStats() {
         AddFrameTime(current_frame_time);
     }
 
-    // Update FPS color based on performance
+    // Update FPS and Temperature colors based on performance
     fps_color = GetFpsColor(current_fps);
+    temperature_color = GetTemperatureColor(std::max(cpu_temperature, gpu_temperature));
+
 
     // Trigger a repaint
     update();
@@ -263,12 +266,12 @@ void PerformanceOverlay::UpdateHardwareTemperatures() {
         if (type.contains(QString::fromUtf8("x86_pkg_temp")) || type.contains(QString::fromUtf8("cpu"))) {
             if (temp > cpu_temperature) {
                 cpu_temperature = temp;
-                cpu_sensor_type = QString::fromUtf8("CPU Temp");
+                cpu_sensor_type = QString::fromUtf8("CPU"); // Use a simple label
             }
         } else if (type.contains(QString::fromUtf8("radeon")) || type.contains(QString::fromUtf8("amdgpu")) || type.contains(QString::fromUtf8("nvidia")) || type.contains(QString::fromUtf8("nouveau"))) {
             if (temp > gpu_temperature) {
                 gpu_temperature = temp;
-                gpu_sensor_type = QString::fromUtf8("GPU Temp");
+                gpu_sensor_type = QString::fromUtf8("GPU");
             }
         }
     }
@@ -339,11 +342,35 @@ void PerformanceOverlay::DrawPerformanceInfo(QPainter& painter) {
     painter.drawText(padding, y_offset, QString::fromUtf8("CITRON"));
     y_offset += line_height + section_spacing;
 
-    // Draw FPS with larger, more prominent display
+    // Draw FPS
     painter.setFont(value_font);
     painter.setPen(fps_color);
     QString fps_text = QString::fromUtf8("%1 FPS").arg(FormatFps(current_fps));
     painter.drawText(padding, y_offset, fps_text);
+
+    // Determine which temperature to show (the hotter one)
+    float temp_to_display = 0.0f;
+    QString temp_label;
+    if (cpu_temperature >= gpu_temperature && cpu_temperature > 0.0f) {
+        temp_to_display = cpu_temperature;
+        temp_label = cpu_sensor_type;
+    } else if (gpu_temperature > 0.0f) {
+        temp_to_display = gpu_temperature;
+        temp_label = gpu_sensor_type;
+    }
+
+    // Draw Temperature next to FPS if available
+    if (temp_to_display > 0.0f) {
+        QString temp_text = QString::fromUtf8("%1: %2°C").arg(temp_label).arg(temp_to_display, 0, 'f', 0);
+        painter.setFont(value_font);
+        painter.setPen(temperature_color);
+
+        // Calculate position to the right of the FPS text
+        int fps_width = painter.fontMetrics().horizontalAdvance(fps_text);
+        int temp_x_pos = padding + fps_width + 15; // 15px spacing
+
+        painter.drawText(temp_x_pos, y_offset, temp_text);
+    }
     y_offset += line_height;
 
     // Draw frame time
@@ -357,18 +384,6 @@ void PerformanceOverlay::DrawPerformanceInfo(QPainter& painter) {
     QString speed_text = QString::fromUtf8("Speed: %1%").arg(emulation_speed, 0, 'f', 0);
     painter.drawText(padding, y_offset, speed_text);
     y_offset += line_height - 2;
-
-    // Draw CPU and GPU Temperatures
-    if (cpu_temperature > 0.0f && !cpu_sensor_type.isEmpty()) {
-        QString temp_text = QString::fromUtf8("%1: %2 °C").arg(cpu_sensor_type).arg(cpu_temperature, 0, 'f', 0);
-        painter.drawText(padding, y_offset, temp_text);
-        y_offset += line_height - 2;
-    }
-    if (gpu_temperature > 0.0f && !gpu_sensor_type.isEmpty()) {
-        QString temp_text = QString::fromUtf8("%1: %2 °C").arg(gpu_sensor_type).arg(gpu_temperature, 0, 'f', 0);
-        painter.drawText(padding, y_offset, temp_text);
-        y_offset += line_height - 2;
-    }
 
     // Draw shader building info with accent color
     if (shaders_building > 0) {
@@ -480,6 +495,16 @@ QColor PerformanceOverlay::GetFpsColor(double fps) const {
         return QColor(255, 87, 34, 255);    // Material Design deep orange - Poor performance
     } else {
         return QColor(244, 67, 54, 255);    // Material Design red - Very poor performance
+    }
+}
+
+QColor PerformanceOverlay::GetTemperatureColor(float temperature) const {
+    if (temperature > 70.0f) {
+        return QColor(244, 67, 54, 255); // Material Design red
+    } else if (temperature > 60.0f) {
+        return QColor(255, 152, 0, 255); // Material Design orange
+    } else {
+        return QColor(76, 175, 80, 255); // Material Design green
     }
 }
 
