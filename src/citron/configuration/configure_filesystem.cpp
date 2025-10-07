@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: Copyright 2019 yuzu Emulator Project
+// SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <QFileDialog>
@@ -29,9 +30,9 @@ ConfigureFilesystem::ConfigureFilesystem(QWidget* parent)
     connect(ui->reset_game_list_cache, &QPushButton::pressed, this,
             &ConfigureFilesystem::ResetMetadata);
 
-    connect(ui->gamecard_inserted, &QCheckBox::stateChanged, this,
+    connect(ui->gamecard_inserted, &QCheckBox::checkStateChanged, this,
             &ConfigureFilesystem::UpdateEnabledControls);
-    connect(ui->gamecard_current_game, &QCheckBox::stateChanged, this,
+    connect(ui->gamecard_current_game, &QCheckBox::checkStateChanged, this,
             &ConfigureFilesystem::UpdateEnabledControls);
 }
 
