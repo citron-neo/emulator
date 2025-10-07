@@ -240,7 +240,11 @@ std::shared_ptr<Dynarmic::A64::Jit> ArmDynarmic64::MakeJit(Common::PageTable* pa
         config.detect_misaligned_access_via_page_table = 16 | 32 | 64 | 128;
         config.only_detect_misalignment_via_page_table_on_page_boundary = true;
 
-        config.fastmem_pointer = reinterpret_cast<uintptr_t>(page_table->fastmem_arena);
+#ifdef _MSC_VER
+    config.fastmem_pointer = page_table->fastmem_arena;
+#else
+    config.fastmem_pointer = reinterpret_cast<uintptr_t>(page_table->fastmem_arena);
+#endif
         config.fastmem_address_space_bits = address_space_bits;
         config.silently_mirror_fastmem = false;
 
@@ -311,7 +315,11 @@ std::shared_ptr<Dynarmic::A64::Jit> ArmDynarmic64::MakeJit(Common::PageTable* pa
             config.only_detect_misalignment_via_page_table_on_page_boundary = false;
         }
         if (!Settings::values.cpuopt_fastmem) {
-            config.fastmem_pointer = std::nullopt;
+#ifdef _MSC_VER
+    config.fastmem_pointer = nullptr;
+#else
+    config.fastmem_pointer = std::nullopt;
+#endif
             config.fastmem_exclusive_access = false;
         }
         if (!Settings::values.cpuopt_fastmem_exclusives) {
