@@ -14,6 +14,16 @@
 
 #include <QtGlobal>
 #include <QWindow>
+#include <QDir>
+#include <QFile>
+#include <QStringList>
+
+#ifdef Q_OS_WIN
+#include <Windows.h>
+#include <comdef.h>
+#include <WbemIdl.h>
+#pragma comment(lib, "wbemuuid.lib") // For MSVC, helps the linker find the library
+#endif
 
 #include "citron/main.h"
 #include "citron/util/performance_overlay.h"
@@ -199,6 +209,11 @@ void PerformanceOverlay::UpdatePerformanceStats() {
         }
     }
 
+    // Update hardware temperatures every 4th update (every 2 seconds)
+    if (update_counter % 4 == 0) {
+        UpdateHardwareTemperatures();
+    }
+
     // If we don't have valid data yet, use defaults
     if (std::isnan(current_fps) || current_fps <= 0.0) {
         current_fps = 60.0;
@@ -220,6 +235,83 @@ void PerformanceOverlay::UpdatePerformanceStats() {
 
     // Trigger a repaint
     update();
+}
+
+void PerformanceOverlay::UpdateHardwareTemperatures() {
+    // Reset data
+    cpu_temperature = 0.0f;
+    gpu_temperature = 0.0f;
+    cpu_sensor_type.clear();
+    gpu_sensor_type.clear();
+
+#if defined(Q_OS_LINUX) || defined(Q_OS_ANDROID)
+    QDir thermal_dir(QString::fromUtf8("/sys/class/thermal/"));
+    QStringList filters{QString::fromUtf8("thermal_zone*")};
+    QStringList thermal_zones = thermal_dir.entryList(filters, QDir::Dirs);
+
+    for (const QString& zone_name : thermal_zones) {
+        QFile type_file(thermal_dir.filePath(zone_name + QString::fromUtf8("/type")));
+        if (!type_file.open(QIODevice::ReadOnly | QIODevice::Text)) continue;
+        QString type = QString::fromUtf8(type_file.readAll()).trimmed();
+        type_file.close();
+
+        QFile temp_file(thermal_dir.filePath(zone_name + QString::fromUtf8("/temp")));
+        if (!temp_file.open(QIODevice::ReadOnly | QIODevice::Text)) continue;
+        float temp = temp_file.readAll().trimmed().toFloat() / 1000.0f;
+        temp_file.close();
+
+        if (type.contains(QString::fromUtf8("x86_pkg_temp")) || type.contains(QString::fromUtf8("cpu"))) {
+            if (temp > cpu_temperature) {
+                cpu_temperature = temp;
+                cpu_sensor_type = QString::fromUtf8("CPU Temp");
+            }
+        } else if (type.contains(QString::fromUtf8("radeon")) || type.contains(QString::fromUtf8("amdgpu")) || type.contains(QString::fromUtf8("nvidia")) || type.contains(QString::fromUtf8("nouveau"))) {
+            if (temp > gpu_temperature) {
+                gpu_temperature = temp;
+                gpu_sensor_type = QString::fromUtf8("GPU Temp");
+            }
+        }
+    }
+
+#elif defined(Q_OS_WIN)
+    HRESULT hres;
+    IWbemLocator* pLoc = nullptr;
+    IWbemServices* pSvc = nullptr;
+
+    hres = CoCreateInstance(CLSID_WbemLocator, 0, CLSCTX_INPROC_SERVER, IID_IWbemLocator, (LPVOID*)&pLoc);
+
+    if (SUCCEEDED(hres)) {
+        hres = pLoc->ConnectServer(_bstr_t(L"ROOT\\WMI"), NULL, NULL, 0, NULL, 0, 0, &pSvc);
+        if (SUCCEEDED(hres)) {
+            hres = CoSetProxyBlanket(pSvc, RPC_C_AUTHN_WINNT, RPC_C_AUTHZ_NONE, NULL,
+                                     RPC_C_AUTHN_LEVEL_CALL, RPC_C_IMP_LEVEL_IMPERSONATE, NULL, EOAC_NONE);
+            if (SUCCEEDED(hres)) {
+                IEnumWbemClassObject* pEnumerator = nullptr;
+                hres = pSvc->ExecQuery(bstr_t("WQL"), bstr_t("SELECT * FROM MSAcpi_ThermalZoneTemperature"),
+                                       WBEM_FLAG_FORWARD_ONLY | WBEM_FLAG_RETURN_IMMEDIATELY, NULL, &pEnumerator);
+                if (SUCCEEDED(hres)) {
+                    IWbemClassObject* pclsObj = nullptr;
+                    ULONG uReturn = 0;
+                    while (pEnumerator) {
+                        pEnumerator->Next(WBEM_INFINITE, 1, &pclsObj, &uReturn);
+                        if (uReturn == 0) break;
+
+                        VARIANT vtProp;
+                        pclsObj->Get(L"CurrentTemperature", 0, &vtProp, 0, 0);
+                        float temp_kelvin = vtProp.uintVal / 10.0f;
+                        cpu_temperature = temp_kelvin - 273.15f;
+                        cpu_sensor_type = QString::fromUtf8("CPU");
+                        VariantClear(&vtProp);
+                        pclsObj->Release();
+                    }
+                    pEnumerator->Release();
+                }
+            }
+        }
+    }
+    if(pSvc) pSvc->Release();
+    if(pLoc) pLoc->Release();
+#endif
 }
 
 void PerformanceOverlay::UpdatePosition() {
@@ -265,6 +357,18 @@ void PerformanceOverlay::DrawPerformanceInfo(QPainter& painter) {
     QString speed_text = QString::fromUtf8("Speed: %1%").arg(emulation_speed, 0, 'f', 0);
     painter.drawText(padding, y_offset, speed_text);
     y_offset += line_height - 2;
+
+    // Draw CPU and GPU Temperatures
+    if (cpu_temperature > 0.0f && !cpu_sensor_type.isEmpty()) {
+        QString temp_text = QString::fromUtf8("%1: %2 °C").arg(cpu_sensor_type).arg(cpu_temperature, 0, 'f', 0);
+        painter.drawText(padding, y_offset, temp_text);
+        y_offset += line_height - 2;
+    }
+    if (gpu_temperature > 0.0f && !gpu_sensor_type.isEmpty()) {
+        QString temp_text = QString::fromUtf8("%1: %2 °C").arg(gpu_sensor_type).arg(gpu_temperature, 0, 'f', 0);
+        painter.drawText(padding, y_offset, temp_text);
+        y_offset += line_height - 2;
+    }
 
     // Draw shader building info with accent color
     if (shaders_building > 0) {
@@ -314,7 +418,7 @@ void PerformanceOverlay::DrawFrameGraph(QPainter& painter) {
 
     QPainterPath graph_path;
     const int point_count = static_cast<int>(frame_times.size());
-    const double x_step = static_cast<double>(graph_width) / (point_count - 1);
+    const double x_step = static_cast<double>(graph_width) / (std::max(1, point_count - 1));
 
     for (int i = 0; i < point_count; ++i) {
         const double frame_time = frame_times[i];
