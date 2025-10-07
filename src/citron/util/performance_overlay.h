@@ -37,6 +37,7 @@ private slots:
 
 private:
     void UpdatePosition();
+    void UpdateHardwareTemperatures();
     void DrawPerformanceInfo(QPainter& painter);
     void DrawFrameGraph(QPainter& painter);
     QColor GetFpsColor(double fps) const;
@@ -52,6 +53,10 @@ private:
     double current_frame_time = 0.0;
     int shaders_building = 0;
     double emulation_speed = 0.0;
+    float cpu_temperature = 0.0f;
+    float gpu_temperature = 0.0f;
+    QString cpu_sensor_type;
+    QString gpu_sensor_type;
 
     // Frame graph data
     static constexpr size_t MAX_FRAME_HISTORY = 120; // 2 seconds at 60 FPS
