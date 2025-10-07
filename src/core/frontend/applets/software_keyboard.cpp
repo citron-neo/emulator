@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: Copyright 2021 yuzu Emulator Project
+// SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <thread>
@@ -65,7 +66,7 @@ void DefaultSoftwareKeyboardApplet::ShowNormalKeyboard() const {
     LOG_WARNING(Service_AM,
                 "(STUBBED) called, backend requested to show the normal software keyboard.");
 
-    SubmitNormalText(u"citron");
+    SubmitNormalText(std::u16string(u"citron", 6));
 }
 
 void DefaultSoftwareKeyboardApplet::ShowTextCheckDialog(
