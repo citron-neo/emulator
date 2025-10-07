@@ -399,7 +399,7 @@ if(USE_DISCORD_PRESENCE)
     # Check if the target directory exists before trying to patch
     if(EXISTS "${PATCH_TARGET_DIR}")
         execute_process(
-            COMMAND git apply --ignore-whitespace "${PATCH_FILE}"
+            COMMAND git apply -p0 --ignore-whitespace "${PATCH_FILE}"
             WORKING_DIRECTORY "${PATCH_TARGET_DIR}"
             RESULT_VARIABLE PATCH_RESULT
             OUTPUT_QUIET
@@ -422,7 +422,7 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
 
     if(EXISTS "${MCL_PATCH_TARGET_DIR}")
         execute_process(
-            COMMAND git apply --ignore-whitespace "${MCL_PATCH_FILE}"
+            COMMAND git apply -p0 --ignore-whitespace "${MCL_PATCH_FILE}"
             WORKING_DIRECTORY "${MCL_PATCH_TARGET_DIR}"
             RESULT_VARIABLE MCL_PATCH_RESULT
             OUTPUT_QUIET
@@ -435,6 +435,30 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
     else()
         message(WARNING "Could not find mcl directory to patch. It may not have been downloaded yet.")
     endif()
+endif()
+
+# Apply a patch to stb_image.h to fix a string overflow warning with modern compilers
+message(STATUS "Applying custom patch to stb_image.h...")
+
+set(STB_PATCH_FILE "${CMAKE_CURRENT_SOURCE_DIR}/patches/stb_image-overflow-fix.patch")
+
+set(STB_PATCH_WORKING_DIR "${CMAKE_CURRENT_SOURCE_DIR}")
+
+# Check if the file to be patched exists before trying to patch
+if(EXISTS "${STB_PATCH_WORKING_DIR}/externals/stb/stb_image.h")
+    execute_process(
+        COMMAND git apply -p0 --ignore-whitespace "${STB_PATCH_FILE}"
+        WORKING_DIRECTORY "${STB_PATCH_WORKING_DIR}"
+        RESULT_VARIABLE PATCH_RESULT
+        OUTPUT_QUIET
+        ERROR_QUIET
+    )
+
+    if(NOT PATCH_RESULT EQUAL 0)
+        message(WARNING "Failed to apply stb_image.h compiler fix patch! This might be okay if it's already applied.")
+    endif()
+else()
+    message(WARNING "Could not find stb_image.h to patch. It may not have been downloaded yet.")
 endif()
 
 if (ENABLE_QT)
