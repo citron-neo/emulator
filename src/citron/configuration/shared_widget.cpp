@@ -708,7 +708,7 @@ void Widget::SetupComponent(const QString& label, std::function<void()>& load_fu
                 restore_func();
             }
         };
-        connect(checkbox, &QCheckBox::stateChanged, reset);
+        connect(checkbox, &QCheckBox::checkStateChanged, reset);
         reset(checkbox->checkState());
     }
 }
