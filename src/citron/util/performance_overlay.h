@@ -41,6 +41,7 @@ private:
     void DrawPerformanceInfo(QPainter& painter);
     void DrawFrameGraph(QPainter& painter);
     QColor GetFpsColor(double fps) const;
+    QColor GetTemperatureColor(float temperature) const;
     QString FormatFps(double fps) const;
     QString FormatFrameTime(double frame_time_ms) const;
     void AddFrameTime(double frame_time_ms);
@@ -76,6 +77,7 @@ private:
     QColor border_color;
     QColor text_color;
     QColor fps_color;
+    QColor temperature_color;
     QColor graph_background_color;
     QColor graph_line_color;
     QColor graph_fill_color;
