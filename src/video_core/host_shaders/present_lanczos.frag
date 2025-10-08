@@ -18,9 +18,26 @@ layout(location = 0) uniform int u_lanczos_a; // The 'a' parameter, recommend 2 
 
 const float PI = 3.141592653589793;
 
-// --- Helper Functions for Advanced Quality ---
-vec3 to_linear(vec3 srgb_color) { return pow(srgb_color, vec3(2.2)); }
-vec3 to_srgb(vec3 linear_color) { return pow(linear_color, vec3(1.0 / 2.2)); }
+// --- sRGB/Linear Conversions ---
+// Replaces the unstable pow() functions with the standard, piecewise formulas.
+
+// Converts a color from sRGB space to linear space.
+vec3 to_linear(vec3 srgb) {
+    bvec3 cutoff = lessThan(srgb, vec3(0.04045));
+    vec3 higher = pow((srgb + vec3(0.055)) / vec3(1.055), vec3(2.4));
+    vec3 lower = srgb / vec3(12.92);
+    return mix(higher, lower, cutoff);
+}
+
+// Converts a color from linear space to sRGB space.
+vec3 to_srgb(vec3 linear) {
+    // Safety clamp to ensure the input is valid before conversion.
+    linear = clamp(linear, 0.0, 1.0);
+    bvec3 cutoff = lessThan(linear, vec3(0.0031308));
+    vec3 higher = vec3(1.055) * pow(linear, vec3(1.0 / 2.4)) - vec3(0.055);
+    vec3 lower = linear * vec3(12.92);
+    return mix(higher, lower, cutoff);
+}
 
 // Sinc function
 float sinc(float x) {
@@ -52,49 +69,39 @@ vec4 textureLanczos(sampler2D ts, vec2 tc) {
 	vec2 f = fract(p);
 	vec2 p_int = p - f;
 
-	vec4 sum = vec4(0.0);
+	vec3 sum_rgb = vec3(0.0);
+	float sum_a = 0.0;
 	float weight_sum = 0.0;
-
-	vec3 min_color_linear = vec3(1.0);
-	vec3 max_color_linear = vec3(0.0);
-
-	// Get the center texel's color to help with the adaptive clamp.
-	vec3 center_color_linear = to_linear(texture(ts, (p_int + 0.5) * inv_tex_size).rgb);
 
 	for (int y = -a_val + 1; y <= a_val; ++y) {
 		for (int x = -a_val + 1; x <= a_val; ++x) {
 			vec2 offset = vec2(float(x), float(y));
-
 			float w = lanczos_weight(f.x - offset.x, a) * lanczos_weight(f.y - offset.y, a);
 
 			if (w != 0.0) {
 				vec2 sample_coord = (p_int + offset + 0.5) * inv_tex_size;
 				vec4 srgb_sample = texture(ts, sample_coord);
-				vec3 linear_sample_rgb = to_linear(srgb_sample.rgb);
 
-				min_color_linear = min(min_color_linear, linear_sample_rgb);
-				max_color_linear = max(max_color_linear, linear_sample_rgb);
-
-				sum.rgb += linear_sample_rgb * w;
-				sum.a += srgb_sample.a * w;
+				sum_rgb += to_linear(srgb_sample.rgb) * w;
+				sum_a += srgb_sample.a * w;
 				weight_sum += w;
 			}
 		}
 	}
 
+	if (abs(weight_sum) < 0.0001) {
+		return texture(ts, tc);
+	}
 
-	if (weight_sum == 0.0) return texture(ts, tc);
+	// Normalize the sums.
+	vec3 final_rgb_linear = sum_rgb / weight_sum;
+	float final_a = sum_a / weight_sum;
 
-	vec4 final_color_linear = sum / weight_sum;
+	// Convert back to sRGB. The to_srgb function now contains its own
+    // safety clamp, making this step robust.
+	vec3 final_rgb_srgb = to_srgb(final_rgb_linear);
 
-	// This is a more effective "Adaptive Anti-Ringing Clamp".
-	vec3 adaptive_min_bound = (min_color_linear + center_color_linear) * 0.5;
-	vec3 adaptive_max_bound = (max_color_linear + center_color_linear) * 0.5;
-	final_color_linear.rgb = clamp(final_color_linear.rgb, adaptive_min_bound, adaptive_max_bound);
-
-	final_color_linear.rgb = to_srgb(final_color_linear.rgb);
-
-	return final_color_linear;
+	return vec4(final_rgb_srgb, clamp(final_a, 0.0, 1.0));
 }
 
 void main() {
