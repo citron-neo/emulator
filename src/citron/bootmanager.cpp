@@ -998,7 +998,7 @@ void GRenderWindow::CaptureScreenshot(const QString& screenshot_path) {
         screenshot_image.bits(),
         [=, this](bool invert_y) {
             const std::string std_screenshot_path = screenshot_path.toStdString();
-            if ((invert_y ? screenshot_image.flipped(Qt::Vertical) : screenshot_image).save(screenshot_path)) {
+            if ((invert_y ? screenshot_image.mirrored(false, true) : screenshot_image).save(screenshot_path)) {
                 LOG_INFO(Frontend, "Screenshot saved to \"{}\"", std_screenshot_path);
             } else {
                 LOG_ERROR(Frontend, "Failed to save screenshot to \"{}\"", std_screenshot_path);
