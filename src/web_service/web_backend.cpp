@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: 2017 Citra Emulator Project
+// SPDX-FileCopyrightText: 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <array>
@@ -75,12 +76,17 @@ struct Client::Impl {
                              const std::string& data, const std::string& accept,
                              const std::string& jwt_ = "", const std::string& username_ = "",
                              const std::string& token_ = "") {
-        if (cli == nullptr) {
-            cli = std::make_unique<httplib::Client>(host.c_str());
-            cli->set_connection_timeout(TIMEOUT_SECONDS);
-            cli->set_read_timeout(TIMEOUT_SECONDS);
-            cli->set_write_timeout(TIMEOUT_SECONDS);
+
+        {
+            std::scoped_lock lock{cli_mutex};
+            if (cli == nullptr) {
+                cli = std::make_unique<httplib::Client>(host.c_str());
+                cli->set_connection_timeout(TIMEOUT_SECONDS);
+                cli->set_read_timeout(TIMEOUT_SECONDS);
+                cli->set_write_timeout(TIMEOUT_SECONDS);
+            }
         }
+
         if (!cli->is_valid()) {
             LOG_ERROR(WebService, "Invalid URL {}", host + path);
             return WebResult{WebResult::Code::InvalidURL, "Invalid URL", ""};
@@ -162,6 +168,7 @@ struct Client::Impl {
     std::string token;
     std::string jwt;
     std::unique_ptr<httplib::Client> cli;
+    std::mutex cli_mutex;
 
     struct JWTCache {
         std::mutex mutex;
