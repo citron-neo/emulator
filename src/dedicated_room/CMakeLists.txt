@@ -46,6 +46,14 @@ if(UNIX AND NOT APPLE)
     install(TARGETS citron-room)
 endif()
 
+# Create the "user" directory for portable mode on Windows
+if(WIN32)
+    add_custom_command(TARGET citron-room POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_FILE_DIR:citron-room>/user"
+        COMMENT "Creating portable user directory for citron-room"
+    )
+endif()
+
 if (CITRON_USE_PRECOMPILED_HEADERS)
     target_precompile_headers(citron-room PRIVATE precompiled_headers.h)
 endif()

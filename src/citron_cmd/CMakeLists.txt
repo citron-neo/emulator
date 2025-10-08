@@ -81,6 +81,14 @@ if (MSVC)
     copy_citron_SDL_deps(citron-cmd)
 endif()
 
+# Create the "user" directory for portable mode on Windows
+if(WIN32)
+    add_custom_command(TARGET citron-cmd POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_FILE_DIR:citron-cmd>/user"
+        COMMENT "Creating portable user directory for citron-cmd"
+    )
+endif()
+
 if (CITRON_USE_PRECOMPILED_HEADERS)
     target_precompile_headers(citron-cmd PRIVATE precompiled_headers.h)
 endif()

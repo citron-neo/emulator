@@ -497,6 +497,12 @@ endif()
 if (WIN32 AND QT_VERSION VERSION_GREATER_EQUAL 6)
     set(CITRON_EXE_DIR "$<TARGET_FILE_DIR:citron>")
     add_custom_command(TARGET citron POST_BUILD COMMAND ${WINDEPLOYQT_EXECUTABLE} "${CITRON_EXE_DIR}/citron.exe" --dir "${CITRON_EXE_DIR}" --libdir "${CITRON_EXE_DIR}" --plugindir "${CITRON_EXE_DIR}/plugins" --no-compiler-runtime --no-opengl-sw --no-system-d3d-compiler --no-translations --verbose 0)
+
+    # Create the "user" directory for portable mode
+    add_custom_command(TARGET citron POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E make_directory "${CITRON_EXE_DIR}/user"
+        COMMENT "Creating portable user directory"
+    )
 endif()
 
 if (CITRON_USE_BUNDLED_QT)
@@ -525,7 +531,12 @@ if (ARCHITECTURE_x86_64 OR ARCHITECTURE_arm64)
 endif()
 
 if (CITRON_USE_PRECOMPILED_HEADERS)
-    target_precompile_headers(citron PRIVATE precompiled_headers.h)
+    # Disable PCH for MSVC 14.44+ due to __builtin_assume_aligned conflict
+    if (NOT (MSVC AND MSVC_VERSION GREATER_EQUAL 1944))
+        target_precompile_headers(citron PRIVATE precompiled_headers.h)
+    else()
+        message(STATUS "Precompiled headers disabled for citron due to MSVC 14.44+ compatibility issue")
+    endif()
 endif()
 
 create_target_directory_groups(citron)
