@@ -526,11 +526,16 @@ class EmulationFragment : Fragment(), SurfaceHolder.Callback {
                 if (emulationViewModel.emulationStarted.value &&
                     !emulationViewModel.isEmulationStopping.value
                 ) {
-                    val perfStats = NativeLibrary.getPerfStats()
-                    if (_binding != null) {
+                    if (_binding != null && binding.fpsIndicatorView.isAttachedToWindow) {
+                        val perfStats = NativeLibrary.getPerfStats()
                         binding.fpsIndicatorView.updateFps(perfStats[FPS].toFloat())
+                        perfStatsUpdateHandler.postDelayed(perfStatsUpdater!!, 800)
                     }
-                    perfStatsUpdateHandler.postDelayed(perfStatsUpdater!!, 800)
+                } else {
+                    // Stop the updater if emulation is stopping
+                    if (perfStatsUpdater != null) {
+                        perfStatsUpdateHandler.removeCallbacks(perfStatsUpdater!!)
+                    }
                 }
             }
             perfStatsUpdateHandler.post(perfStatsUpdater!!)
@@ -549,11 +554,16 @@ class EmulationFragment : Fragment(), SurfaceHolder.Callback {
                 if (emulationViewModel.emulationStarted.value &&
                     !emulationViewModel.isEmulationStopping.value
                 ) {
-                    if (_binding != null) {
+                    if (_binding != null && binding.thermalIndicatorView.isAttachedToWindow) {
                         val temperature = getBatteryTemperature(requireContext())
                         binding.thermalIndicatorView.updateTemperature(temperature)
+                        thermalStatsUpdateHandler.postDelayed(thermalStatsUpdater!!, 2000)
                     }
-                    thermalStatsUpdateHandler.postDelayed(thermalStatsUpdater!!, 2000)
+                } else {
+                    // Stop the updater if emulation is stopping
+                    if (thermalStatsUpdater != null) {
+                        thermalStatsUpdateHandler.removeCallbacks(thermalStatsUpdater!!)
+                    }
                 }
             }
             thermalStatsUpdateHandler.post(thermalStatsUpdater!!)
@@ -572,10 +582,15 @@ class EmulationFragment : Fragment(), SurfaceHolder.Callback {
                 if (emulationViewModel.emulationStarted.value &&
                     !emulationViewModel.isEmulationStopping.value
                 ) {
-                    if (_binding != null) {
+                    if (_binding != null && binding.ramMeterView.isAttachedToWindow) {
                         binding.ramMeterView.updateRamUsage()
+                        ramStatsUpdateHandler.postDelayed(ramStatsUpdater!!, 1500)
                     }
-                    ramStatsUpdateHandler.postDelayed(ramStatsUpdater!!, 1500)
+                } else {
+                    // Stop the updater if emulation is stopping
+                    if (ramStatsUpdater != null) {
+                        ramStatsUpdateHandler.removeCallbacks(ramStatsUpdater!!)
+                    }
                 }
             }
             ramStatsUpdateHandler.post(ramStatsUpdater!!)
@@ -1161,9 +1176,9 @@ class EmulationFragment : Fragment(), SurfaceHolder.Callback {
     }
 
     companion object {
-        private val perfStatsUpdateHandler = Handler(Looper.myLooper()!!)
-        private val thermalStatsUpdateHandler = Handler(Looper.myLooper()!!)
-        private val ramStatsUpdateHandler = Handler(Looper.myLooper()!!)
-        private val shaderStatsUpdateHandler = Handler(Looper.myLooper()!!)
+        private val perfStatsUpdateHandler = Handler(Looper.getMainLooper())
+        private val thermalStatsUpdateHandler = Handler(Looper.getMainLooper())
+        private val ramStatsUpdateHandler = Handler(Looper.getMainLooper())
+        private val shaderStatsUpdateHandler = Handler(Looper.getMainLooper())
     }
 }

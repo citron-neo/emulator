@@ -35,7 +35,18 @@ class RamMeterView @JvmOverloads constructor(
 
     fun updateRamUsage() {
         try {
-            val activityManager = context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
+            // Safety check: ensure view is attached and has valid dimensions
+            if (!isAttachedToWindow || width <= 0 || height <= 0) {
+                Log.w("RamMeter", "View not ready for update (attached: $isAttachedToWindow, width: $width, height: $height)")
+                return
+            }
+
+            val activityManager = context.getSystemService(Context.ACTIVITY_SERVICE) as? ActivityManager
+            if (activityManager == null) {
+                Log.e("RamMeter", "ActivityManager service not available")
+                return
+            }
+
             val memoryInfo = ActivityManager.MemoryInfo()
             activityManager.getMemoryInfo(memoryInfo)
 
@@ -61,7 +72,6 @@ class RamMeterView @JvmOverloads constructor(
             ramUsagePercent = 0f
             usedRamMB = 0L
             totalRamMB = 0L
-            invalidate()
         }
     }
 
@@ -92,16 +102,26 @@ class RamMeterView @JvmOverloads constructor(
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
 
-        // Draw simple text-based RAM display
-        val usedGB = usedRamMB / 1024f
-        val totalGB = totalRamMB / 1024f
-        val ramText = if (totalGB >= 1.0f) {
-            "RAM: ${ramUsagePercent.roundToInt()}% (%.1fGB/%.1fGB)".format(usedGB, totalGB)
-        } else {
-            "RAM: ${ramUsagePercent.roundToInt()}% (${usedRamMB}MB/${totalRamMB}MB)"
+        // Safety check: ensure view has valid dimensions
+        if (width <= 0 || height <= 0) {
+            Log.w("RamMeter", "onDraw called with invalid dimensions (width: $width, height: $height)")
+            return
         }
-        canvas.drawText(ramText, 8f, height - 8f, textPaint)
 
-        Log.d("RamMeter", "onDraw called - RAM: $ramText")
+        try {
+            // Draw simple text-based RAM display
+            val usedGB = usedRamMB / 1024f
+            val totalGB = totalRamMB / 1024f
+            val ramText = if (totalGB >= 1.0f) {
+                "RAM: ${ramUsagePercent.roundToInt()}% (%.1fGB/%.1fGB)".format(usedGB, totalGB)
+            } else {
+                "RAM: ${ramUsagePercent.roundToInt()}% (${usedRamMB}MB/${totalRamMB}MB)"
+            }
+            canvas.drawText(ramText, 8f, height - 8f, textPaint)
+
+            Log.d("RamMeter", "onDraw called - RAM: $ramText")
+        } catch (e: Exception) {
+            Log.e("RamMeter", "Error in onDraw", e)
+        }
     }
 }
