@@ -14,6 +14,20 @@
 
 #include <QtGlobal>
 #include <QWindow>
+#include <QDir>
+#include <QFile>
+#include <QStringList>
+
+#ifdef Q_OS_WIN
+#include <Windows.h>
+#include <comdef.h>
+#include <WbemIdl.h>
+#pragma comment(lib, "wbemuuid.lib") // For MSVC, helps the linker find the library
+#endif
+
+#ifdef Q_OS_ANDROID
+#include <QtAndroidExtras>
+#endif
 
 #include "citron/main.h"
 #include "citron/util/performance_overlay.h"
@@ -39,6 +53,7 @@ PerformanceOverlay::PerformanceOverlay(GMainWindow* parent)
     border_color = QColor(60, 60, 60, 120);      // Subtle border
     text_color = QColor(220, 220, 220, 255);     // Light gray text
     fps_color = QColor(76, 175, 80, 255);        // Material Design green
+    temperature_color = QColor(76, 175, 80, 255); // Default to green
 
     // Graph colors
     graph_background_color = QColor(40, 40, 40, 100);
@@ -199,6 +214,11 @@ void PerformanceOverlay::UpdatePerformanceStats() {
         }
     }
 
+    // Update hardware temperatures every 4th update (every 2 seconds)
+    if (update_counter % 4 == 0) {
+        UpdateHardwareTemperatures();
+    }
+
     // If we don't have valid data yet, use defaults
     if (std::isnan(current_fps) || current_fps <= 0.0) {
         current_fps = 60.0;
@@ -215,11 +235,118 @@ void PerformanceOverlay::UpdatePerformanceStats() {
         AddFrameTime(current_frame_time);
     }
 
-    // Update FPS color based on performance
+    // Update FPS and Temperature colors based on performance
     fps_color = GetFpsColor(current_fps);
+    temperature_color = GetTemperatureColor(std::max({cpu_temperature, gpu_temperature, battery_temperature}));
 
     // Trigger a repaint
     update();
+}
+
+void PerformanceOverlay::UpdateHardwareTemperatures() {
+    // Reset data
+    cpu_temperature = 0.0f;
+    gpu_temperature = 0.0f;
+    cpu_sensor_type.clear();
+    gpu_sensor_type.clear();
+    battery_percentage = 0;
+    battery_temperature = 0.0f;
+
+#if defined(Q_OS_LINUX)
+    // --- Standard Linux Thermal Zone Reading ---
+    QDir thermal_dir(QString::fromUtf8("/sys/class/thermal/"));
+    QStringList filters{QString::fromUtf8("thermal_zone*")};
+    QStringList thermal_zones = thermal_dir.entryList(filters, QDir::Dirs);
+
+    for (const QString& zone_name : thermal_zones) {
+        QFile type_file(thermal_dir.filePath(zone_name + QString::fromUtf8("/type")));
+        if (!type_file.open(QIODevice::ReadOnly | QIODevice::Text)) continue;
+        QString type = QString::fromUtf8(type_file.readAll()).trimmed();
+        type_file.close();
+
+        QFile temp_file(thermal_dir.filePath(zone_name + QString::fromUtf8("/temp")));
+        if (!temp_file.open(QIODevice::ReadOnly | QIODevice::Text)) continue;
+        float temp = temp_file.readAll().trimmed().toFloat() / 1000.0f;
+        temp_file.close();
+
+        if (type.contains(QString::fromUtf8("x86_pkg_temp")) || type.contains(QString::fromUtf8("cpu"))) {
+            if (temp > cpu_temperature) {
+                cpu_temperature = temp;
+                cpu_sensor_type = QString::fromUtf8("CPU");
+            }
+        } else if (type.contains(QString::fromUtf8("radeon")) || type.contains(QString::fromUtf8("amdgpu")) || type.contains(QString::fromUtf8("nvidia")) || type.contains(QString::fromUtf8("nouveau"))) {
+            if (temp > gpu_temperature) {
+                gpu_temperature = temp;
+                gpu_sensor_type = QString::fromUtf8("GPU");
+            }
+        }
+    }
+#endif
+
+#if defined(Q_OS_ANDROID)
+    // This uses QtAndroid Extras to get battery info from the Android system.
+    // NOTE: This requires the QtAndroidExtras module to be linked in the build.
+    QJniObject battery_status = QJniObject::callStaticObjectMethod(
+        "android/content/CONTEXT", "registerReceiver",
+        "(Landroid/content/BroadcastReceiver;Landroid/content/IntentFilter;)Landroid/content/Intent;",
+        nullptr, new QJniObject("android.content.IntentFilter", "(Ljava/lang/String;)V", "android.intent.action.BATTERY_CHANGED"));
+
+    if (battery_status.isValid()) {
+        int level = battery_status.callMethod<jint>("getIntExtra", "(Ljava/lang/String;I)I",
+                                                    QJniObject::fromString("level").object<jstring>(), -1);
+        int scale = battery_status.callMethod<jint>("getIntExtra", "(Ljava/lang/String;I)I",
+                                                    QJniObject::fromString("scale").object<jstring>(), -1);
+        int temp_tenths = battery_status.callMethod<jint>("getIntExtra", "(Ljava/lang/String;I)I",
+                                                          QJniObject::fromString("temperature").object<jstring>(), -1);
+
+        if (scale > 0) {
+            battery_percentage = (level * 100) / scale;
+        }
+        if (temp_tenths > 0) {
+            battery_temperature = static_cast<float>(temp_tenths) / 10.0f;
+        }
+    }
+#endif
+
+#if defined(Q_OS_WIN)
+    HRESULT hres;
+    IWbemLocator* pLoc = nullptr;
+    IWbemServices* pSvc = nullptr;
+
+    hres = CoCreateInstance(CLSID_WbemLocator, 0, CLSCTX_INPROC_SERVER, IID_IWbemLocator, (LPVOID*)&pLoc);
+
+    if (SUCCEEDED(hres)) {
+        hres = pLoc->ConnectServer(_bstr_t(L"ROOT\\WMI"), NULL, NULL, 0, NULL, 0, 0, &pSvc);
+        if (SUCCEEDED(hres)) {
+            hres = CoSetProxyBlanket(pSvc, RPC_C_AUTHN_WINNT, RPC_C_AUTHZ_NONE, NULL,
+                                     RPC_C_AUTHN_LEVEL_CALL, RPC_C_IMP_LEVEL_IMPERSONATE, NULL, EOAC_NONE);
+            if (SUCCEEDED(hres)) {
+                IEnumWbemClassObject* pEnumerator = nullptr;
+                hres = pSvc->ExecQuery(bstr_t("WQL"), bstr_t("SELECT * FROM MSAcpi_ThermalZoneTemperature"),
+                                       WBEM_FLAG_FORWARD_ONLY | WBEM_FLAG_RETURN_IMMEDIATELY, NULL, &pEnumerator);
+                if (SUCCEEDED(hres)) {
+                    IWbemClassObject* pclsObj = nullptr;
+                    ULONG uReturn = 0;
+                    while (pEnumerator) {
+                        pEnumerator->Next(WBEM_INFINITE, 1, &pclsObj, &uReturn);
+                        if (uReturn == 0) break;
+
+                        VARIANT vtProp;
+                        pclsObj->Get(L"CurrentTemperature", 0, &vtProp, 0, 0);
+                        float temp_kelvin = vtProp.uintVal / 10.0f;
+                        cpu_temperature = temp_kelvin - 273.15f;
+                        cpu_sensor_type = QString::fromUtf8("CPU");
+                        VariantClear(&vtProp);
+                        pclsObj->Release();
+                    }
+                    pEnumerator->Release();
+                }
+            }
+        }
+    }
+    if(pSvc) pSvc->Release();
+    if(pLoc) pLoc->Release();
+#endif
 }
 
 void PerformanceOverlay::UpdatePosition() {
@@ -237,17 +364,44 @@ void PerformanceOverlay::UpdatePosition() {
 void PerformanceOverlay::DrawPerformanceInfo(QPainter& painter) {
     painter.setRenderHint(QPainter::TextAntialiasing, true);
 
-    int y_offset = padding + 12;
-    const int line_height = 22;
-    const int section_spacing = 4;
+    int y_offset = padding;
+    const int line_height = 20;
 
-    // Draw title with subtle styling
+    // Draw title
     painter.setFont(title_font);
     painter.setPen(text_color);
-    painter.drawText(padding, y_offset, QString::fromUtf8("CITRON"));
-    y_offset += line_height + section_spacing;
+    painter.drawText(padding, y_offset + 12, QString::fromUtf8("CITRON"));
 
-    // Draw FPS with larger, more prominent display
+    int y_offset_right = padding;
+    const int line_height_right = 18;
+
+    // Draw Temperatures
+    painter.setFont(small_font);
+
+    float core_temp_to_display = std::max(cpu_temperature, gpu_temperature);
+    if (core_temp_to_display > 0.0f) {
+        QString core_label = gpu_temperature > cpu_temperature ? gpu_sensor_type : cpu_sensor_type;
+        QString core_temp_text = QString::fromUtf8("%1: %2°C").arg(core_label).arg(core_temp_to_display, 0, 'f', 0);
+        painter.setPen(GetTemperatureColor(core_temp_to_display));
+        int text_width = painter.fontMetrics().horizontalAdvance(core_temp_text);
+        painter.drawText(width() - padding - text_width, y_offset_right + 12, core_temp_text);
+    }
+    y_offset_right += line_height_right;
+
+    // Draw Battery info
+    if (battery_percentage > 0) {
+        QString batt_text = QString::fromUtf8("Batt: %1%").arg(battery_percentage);
+        if (battery_temperature > 0.0f) {
+            batt_text += QString::fromUtf8(" (%1°C)").arg(battery_temperature, 0, 'f', 0);
+        }
+        painter.setPen(text_color);
+        int text_width = painter.fontMetrics().horizontalAdvance(batt_text);
+        painter.drawText(width() - padding - text_width, y_offset_right + 12, batt_text);
+    }
+
+    y_offset += line_height + 4;
+
+    // Draw FPS
     painter.setFont(value_font);
     painter.setPen(fps_color);
     QString fps_text = QString::fromUtf8("%1 FPS").arg(FormatFps(current_fps));
@@ -314,7 +468,7 @@ void PerformanceOverlay::DrawFrameGraph(QPainter& painter) {
 
     QPainterPath graph_path;
     const int point_count = static_cast<int>(frame_times.size());
-    const double x_step = static_cast<double>(graph_width) / (point_count - 1);
+    const double x_step = static_cast<double>(graph_width) / (std::max(1, point_count - 1));
 
     for (int i = 0; i < point_count; ++i) {
         const double frame_time = frame_times[i];
@@ -376,6 +530,16 @@ QColor PerformanceOverlay::GetFpsColor(double fps) const {
         return QColor(255, 87, 34, 255);    // Material Design deep orange - Poor performance
     } else {
         return QColor(244, 67, 54, 255);    // Material Design red - Very poor performance
+    }
+}
+
+QColor PerformanceOverlay::GetTemperatureColor(float temperature) const {
+    if (temperature > 70.0f) {
+        return QColor(244, 67, 54, 255); // Material Design red
+    } else if (temperature > 60.0f) {
+        return QColor(255, 152, 0, 255); // Material Design orange
+    } else {
+        return QColor(76, 175, 80, 255); // Material Design green
     }
 }
 

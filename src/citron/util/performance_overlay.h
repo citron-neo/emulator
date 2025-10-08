@@ -37,9 +37,11 @@ private slots:
 
 private:
     void UpdatePosition();
+    void UpdateHardwareTemperatures();
     void DrawPerformanceInfo(QPainter& painter);
     void DrawFrameGraph(QPainter& painter);
     QColor GetFpsColor(double fps) const;
+    QColor GetTemperatureColor(float temperature) const;
     QString FormatFps(double fps) const;
     QString FormatFrameTime(double frame_time_ms) const;
     void AddFrameTime(double frame_time_ms);
@@ -52,6 +54,12 @@ private:
     double current_frame_time = 0.0;
     int shaders_building = 0;
     double emulation_speed = 0.0;
+    float cpu_temperature = 0.0f;
+    float gpu_temperature = 0.0f;
+    QString cpu_sensor_type;
+    QString gpu_sensor_type;
+    int battery_percentage = 0;
+    float battery_temperature = 0.0f;
 
     // Frame graph data
     static constexpr size_t MAX_FRAME_HISTORY = 120; // 2 seconds at 60 FPS
@@ -71,6 +79,7 @@ private:
     QColor border_color;
     QColor text_color;
     QColor fps_color;
+    QColor temperature_color;
     QColor graph_background_color;
     QColor graph_line_color;
     QColor graph_fill_color;

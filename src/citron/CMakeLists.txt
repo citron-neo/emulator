@@ -391,6 +391,10 @@ if (APPLE)
 elseif(WIN32)
     # compile as a win32 gui application instead of a console application
     target_link_libraries(citron PRIVATE Qt6::EntryPointPrivate)
+
+    # Add Windows-specific libraries for WMI/COM to read hardware sensors
+    target_link_libraries(citron PRIVATE ole32 oleaut32 wbemuuid)
+
     if(MSVC)
         target_link_libraries(citron PRIVATE version.lib)
         set_target_properties(citron PROPERTIES LINK_FLAGS_RELEASE "/SUBSYSTEM:WINDOWS")
