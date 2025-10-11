@@ -36,3 +36,12 @@ CMakeSettings.json
 # Windows global filetypes
 Thumbs.db
 
+# PGO (Profile-Guided Optimization) files
+pgo-profiles-backup/
+*.pgd
+*.pgc
+*.profraw
+*.profdata
+*.gcda
+*.gcno
+

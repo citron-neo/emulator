@@ -12,6 +12,7 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/externals/cmake-modul
 include(DownloadExternals)
 include(CMakeDependentOption)
 include(CTest)
+include(PGO)
 
 # Disable Warnings as Errors for MSVC
 if (MSVC)
@@ -77,6 +78,10 @@ option(CITRON_USE_BUNDLED_VCPKG "Use vcpkg for citron dependencies" "${MSVC}")
 option(CITRON_CHECK_SUBMODULES "Check if submodules are present" ON)
 
 option(CITRON_ENABLE_LTO "Enable link-time optimization" OFF)
+
+option(CITRON_ENABLE_PGO_GENERATE "Build with PGO instrumentation to generate profile data (Stage 1)" OFF)
+option(CITRON_ENABLE_PGO_USE "Build using PGO profile data for optimization (Stage 2)" OFF)
+set(CITRON_PGO_PROFILE_DIR "${CMAKE_BINARY_DIR}/pgo-profiles" CACHE PATH "Directory to store PGO profile data")
 
 option(CITRON_DOWNLOAD_TIME_ZONE_DATA "Always download time zone binaries" OFF)
 
@@ -790,6 +795,22 @@ add_subdirectory(src)
 # Apply the Boost.Process definition to the core target if it was found
 if(DEFINED HAS_BOOST_PROCESS_DEFINITION)
     target_compile_definitions(core PRIVATE ${HAS_BOOST_PROCESS_DEFINITION})
+endif()
+
+# Apply PGO configuration to main targets
+if(CITRON_ENABLE_PGO_GENERATE OR CITRON_ENABLE_PGO_USE)
+    if(TARGET citron)
+        citron_configure_pgo(citron)
+    endif()
+    if(TARGET citron-cmd)
+        citron_configure_pgo(citron-cmd)
+    endif()
+    if(TARGET citron-room)
+        citron_configure_pgo(citron-room)
+    endif()
+
+    # Print PGO instructions
+    citron_print_pgo_instructions()
 endif()
 
 # Set citron project or citron-cmd project as default StartUp Project in Visual Studio depending on whether QT is enabled or not
