@@ -67,7 +67,7 @@ void LoudnessCalculator::InitializeKWeightingFilter() {
     // Shelf filter (high-shelf +4dB at high frequencies)
     const f32 f0_shelf = 1681.974450955533f;
     const f32 Q_shelf = 0.7071752369554193f;
-    const f32 K_shelf = std::tan(std::numbers::pi_v<f32> * f0_shelf / params_.sample_rate);
+    const f32 K_shelf = std::tan(std::numbers::pi_v<f32> * f0_shelf / static_cast<f32>(params_.sample_rate));
     const f32 Vh_shelf = std::pow(10.0f, 4.0f / 20.0f);
     const f32 Vb_shelf = std::pow(Vh_shelf, 0.4996667741545416f);
 
@@ -81,7 +81,7 @@ void LoudnessCalculator::InitializeKWeightingFilter() {
     // High-pass filter (48Hz cutoff)
     const f32 f0_hp = 38.13547087602444f;
     const f32 Q_hp = 0.5003270373238773f;
-    const f32 K_hp = std::tan(std::numbers::pi_v<f32> * f0_hp / params_.sample_rate);
+    const f32 K_hp = std::tan(std::numbers::pi_v<f32> * f0_hp / static_cast<f32>(params_.sample_rate));
 
     const f32 a0_hp = 1.0f + K_hp / Q_hp + K_hp * K_hp;
     k_filter_.b0_hp = 1.0f / a0_hp;
@@ -138,7 +138,7 @@ void LoudnessCalculator::Analyze(std::span<const f32> samples, u32 sample_count)
         }
 
         // Calculate mean square
-        const f32 mean_square = sum_square / params_.channel_count;
+        const f32 mean_square = sum_square / static_cast<f32>(params_.channel_count);
 
         // Update buffers
         momentary_buffer_[buffer_index_ % momentary_buffer_.size()] = mean_square;
@@ -152,25 +152,25 @@ void LoudnessCalculator::Analyze(std::span<const f32> samples, u32 sample_count)
 
     // Calculate momentary loudness (last 400ms)
     const size_t momentary_samples = std::min(buffer_index_,
-        static_cast<size_t>(params_.sample_rate * 0.4f));
+        static_cast<size_t>(static_cast<f32>(params_.sample_rate) * 0.4f));
     f32 momentary_sum = 0.0f;
     for (size_t i = 0; i < momentary_samples; i++) {
         momentary_sum += momentary_buffer_[i];
     }
-    momentary_loudness_ = CalculateLoudness(momentary_sum / momentary_samples);
+    momentary_loudness_ = CalculateLoudness(momentary_sum / static_cast<f32>(momentary_samples));
 
     // Calculate short-term loudness (last 3s)
     const size_t short_term_samples = std::min(buffer_index_,
-        static_cast<size_t>(params_.sample_rate * 3.0f));
+        static_cast<size_t>(static_cast<f32>(params_.sample_rate) * 3.0f));
     f32 short_term_sum = 0.0f;
     for (size_t i = 0; i < short_term_samples; i++) {
         short_term_sum += short_term_buffer_[i];
     }
-    short_term_loudness_ = CalculateLoudness(short_term_sum / short_term_samples);
+    short_term_loudness_ = CalculateLoudness(short_term_sum / static_cast<f32>(short_term_samples));
 
     // Calculate integrated loudness
     if (integrated_count_ > 0) {
-        integrated_loudness_ = CalculateLoudness(integrated_sum_ / integrated_count_);
+        integrated_loudness_ = CalculateLoudness(integrated_sum_ / static_cast<f32>(integrated_count_));
     }
 }
 

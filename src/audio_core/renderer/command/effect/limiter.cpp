@@ -33,9 +33,9 @@ void LimiterCommand::Process(const AudioRenderer::CommandListProcessor& processo
     if (effect_enabled) {
         // Convert parameters
         const f32 attack_coeff =
-            std::exp(-1.0f / (parameter.attack_time * processor.target_sample_rate / 1000.0f));
+            std::exp(-1.0f / (parameter.attack_time * static_cast<f32>(processor.target_sample_rate) / 1000.0f));
         const f32 release_coeff =
-            std::exp(-1.0f / (parameter.release_time * processor.target_sample_rate / 1000.0f));
+            std::exp(-1.0f / (parameter.release_time * static_cast<f32>(processor.target_sample_rate) / 1000.0f));
         const f32 threshold_linear = std::pow(10.0f, parameter.threshold / 20.0f);
         const f32 makeup_gain_linear = std::pow(10.0f, parameter.makeup_gain / 20.0f);
 
@@ -69,7 +69,7 @@ void LimiterCommand::Process(const AudioRenderer::CommandListProcessor& processo
             const f32 total_gain = gain * makeup_gain_linear;
             for (u32 ch = 0; ch < parameter.channel_count; ch++) {
                 output_buffers[ch][sample] =
-                    static_cast<s32>(input_buffers[ch][sample] * total_gain);
+                    static_cast<s32>(static_cast<f32>(input_buffers[ch][sample]) * total_gain);
             }
         }
     } else {

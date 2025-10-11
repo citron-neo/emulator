@@ -130,7 +130,7 @@ void FFT::FFTInternal(std::span<std::complex<f32>> data, u32 size, bool inverse)
     std::copy(temp.begin(), temp.end(), data.begin());
 
     const f32 direction = inverse ? 1.0f : -1.0f;
-    const f32 scale = inverse ? (1.0f / size) : 1.0f;
+    const f32 scale = inverse ? (1.0f / static_cast<f32>(size)) : 1.0f;
 
     // FFT stages
     const u32 log2_size = static_cast<u32>(std::bit_width(size - 1u));
@@ -139,7 +139,7 @@ void FFT::FFTInternal(std::span<std::complex<f32>> data, u32 size, bool inverse)
         const u32 m2 = m / 2;
 
         const std::complex<f32> wm = std::exp(std::complex<f32>(
-            0.0f, direction * 2.0f * std::numbers::pi_v<f32> / m));
+            0.0f, direction * 2.0f * std::numbers::pi_v<f32> / static_cast<f32>(m)));
 
         for (u32 k = 0; k < size; k += m) {
             std::complex<f32> w = 1.0f;
