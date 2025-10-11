@@ -4,5 +4,5 @@
 package org.citron.citron_emu.utils
 
 object AddonUtil {
-    val validAddonDirectories = listOf("cheats", "exefs", "romfs")
+    val validAddonDirectories = listOf("cheats", "exefs", "romfs", "romfslite")
 }

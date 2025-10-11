@@ -382,6 +382,11 @@ static void ApplyLayeredFS(VirtualFile& romfs, u64 title_id, ContentRecordType t
         if (romfs_dir != nullptr)
             layers.emplace_back(std::make_shared<CachedVfsDirectory>(std::move(romfs_dir)));
 
+        // Support for romfslite introduced in Atmosphere 1.9.5
+        auto romfslite_dir = FindSubdirectoryCaseless(subdir, "romfslite");
+        if (romfslite_dir != nullptr)
+            layers.emplace_back(std::make_shared<CachedVfsDirectory>(std::move(romfslite_dir)));
+
         auto ext_dir = FindSubdirectoryCaseless(subdir, "romfs_ext");
         if (ext_dir != nullptr)
             layers_ext.emplace_back(std::make_shared<CachedVfsDirectory>(std::move(ext_dir)));
@@ -540,7 +545,8 @@ std::vector<Patch> PatchManager::GetPatches(VirtualFile update_raw) const {
                 if (layeredfs)
                     AppendCommaIfNotEmpty(types, "LayeredExeFS");
             }
-            if (IsDirValidAndNonEmpty(FindSubdirectoryCaseless(mod, "romfs")))
+            if (IsDirValidAndNonEmpty(FindSubdirectoryCaseless(mod, "romfs")) ||
+                IsDirValidAndNonEmpty(FindSubdirectoryCaseless(mod, "romfslite")))
                 AppendCommaIfNotEmpty(types, "LayeredFS");
             if (IsDirValidAndNonEmpty(FindSubdirectoryCaseless(mod, "cheats")))
                 AppendCommaIfNotEmpty(types, "Cheats");
@@ -566,7 +572,8 @@ std::vector<Patch> PatchManager::GetPatches(VirtualFile update_raw) const {
         if (IsDirValidAndNonEmpty(FindSubdirectoryCaseless(sdmc_mod_dir, "exefs"))) {
             AppendCommaIfNotEmpty(types, "LayeredExeFS");
         }
-        if (IsDirValidAndNonEmpty(FindSubdirectoryCaseless(sdmc_mod_dir, "romfs"))) {
+        if (IsDirValidAndNonEmpty(FindSubdirectoryCaseless(sdmc_mod_dir, "romfs")) ||
+            IsDirValidAndNonEmpty(FindSubdirectoryCaseless(sdmc_mod_dir, "romfslite"))) {
             AppendCommaIfNotEmpty(types, "LayeredFS");
         }
 
