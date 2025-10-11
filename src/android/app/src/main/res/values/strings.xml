@@ -616,6 +616,7 @@
     <string name="renderer_accuracy_extreme">Extreme (Slow)</string>
 
     <!-- Resolutions -->
+    <string name="resolution_quarter">0.25X (180p/270p)</string>
     <string name="resolution_half">0.5X (360p/540p)</string>
     <string name="resolution_three_quarter">0.75X (540p/810p)</string>
     <string name="resolution_one">1X (720p/1080p)</string>

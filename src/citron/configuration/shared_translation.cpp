@@ -385,6 +385,7 @@ std::unique_ptr<ComboboxTranslationMap> ComboboxEnumeration(QWidget* parent) {
     translations->insert(
         {Settings::EnumMetadata<Settings::ResolutionSetup>::Index(),
          {
+             PAIR(ResolutionSetup, Res1_4X, tr("0.25X (180p/270p) [EXPERIMENTAL]")),
              PAIR(ResolutionSetup, Res1_2X, tr("0.5X (360p/540p) [EXPERIMENTAL]")),
              PAIR(ResolutionSetup, Res3_4X, tr("0.75X (540p/810p) [EXPERIMENTAL]")),
              PAIR(ResolutionSetup, Res1X, tr("1X (720p/1080p)")),
