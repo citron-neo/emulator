@@ -13,6 +13,17 @@ void ArmInterface::LogBacktrace(Kernel::KProcess* process) const {
     Kernel::Svc::ThreadContext ctx;
     this->GetContext(ctx);
 
+    // Check if this is a null pointer execution (PC in very low memory)
+    bool is_null_pointer_execution = ctx.pc < 0x1000;
+
+    // Only show detailed backtrace for the first occurrence or non-null-pointer crashes
+    if (is_null_pointer_execution) {
+        LOG_WARNING(Core_ARM, "Null pointer execution at pc={:016X}, sp={:016X}, lr={:016X}",
+                    ctx.pc, ctx.sp, ctx.lr);
+        LOG_WARNING(Core_ARM, "Will attempt recovery by returning from function");
+        return;
+    }
+
     LOG_ERROR(Core_ARM, "Backtrace, sp={:016X}, pc={:016X}", ctx.sp, ctx.pc);
     LOG_ERROR(Core_ARM, "{:20}{:20}{:20}{:20}{}", "Module Name", "Address", "Original Address",
               "Offset", "Symbol");

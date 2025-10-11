@@ -125,10 +125,38 @@ void PhysicalCore::RunThread(Kernel::KThread* thread) {
                 if (prefetch_abort) {
                     LOG_WARNING(Core_ARM, "Prefetch abort detected - checking if recoverable...");
 
-                    // For Nintendo SDK crashes, try to continue execution
-                    // This is especially important for games like Phoenix Switch
-                    should_continue = true;
-                    LOG_INFO(Core_ARM, "Attempting to continue execution after Nintendo SDK crash");
+                    // Get the current PC to check if we're in a null pointer execution loop
+                    Kernel::Svc::ThreadContext ctx;
+                    interface->GetContext(ctx);
+                    u64 current_pc = ctx.pc;
+
+                    // Detect null pointer execution loop (PC in very low memory addresses)
+                    if (current_pc < 0x1000) {
+                        LOG_WARNING(Core_ARM, "Null pointer execution detected at PC={:016X}", current_pc);
+                        LOG_WARNING(Core_ARM, "Attempting to recover by returning from invalid function call");
+
+                        // Try to recover by returning from the function using LR (X30)
+                        // This simulates a function return
+                        u64 return_address = ctx.lr;
+
+                        if (return_address != 0 && return_address >= 0x1000) {
+                            LOG_INFO(Core_ARM, "Recovering: Setting PC to return address {:016X}", return_address);
+                            ctx.pc = return_address;
+                            // Set return value to 0 in X0
+                            ctx.r[0] = 0;
+                            interface->SetContext(ctx);
+                            should_continue = true;
+                        } else {
+                            LOG_ERROR(Core_ARM, "Cannot recover: Invalid return address {:016X}", return_address);
+                            LOG_ERROR(Core_ARM, "Thread will be suspended due to unrecoverable crash");
+                            should_continue = false;
+                        }
+                    } else {
+                        // For Nintendo SDK crashes at valid addresses, try to continue execution
+                        // This is especially important for games like Phoenix Switch
+                        should_continue = true;
+                        LOG_INFO(Core_ARM, "Attempting to continue execution after Nintendo SDK crash");
+                    }
                 }
             } else {
                 system.GetDebugger().NotifyThreadStopped(thread);
