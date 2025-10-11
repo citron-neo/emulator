@@ -135,6 +135,17 @@ public:
     static_assert(sizeof(BiquadFilterParameter) == 0xC,
                   "VoiceInfo::BiquadFilterParameter has the wrong size!");
 
+    struct BiquadFilterParameter2 {
+        /* 0x00 */ bool enabled;
+        /* 0x01 */ u8 reserved1;
+        /* 0x02 */ u8 reserved2;
+        /* 0x03 */ u8 reserved3;
+        /* 0x04 */ std::array<f32, 3> numerator;   // b0, b1, b2
+        /* 0x10 */ std::array<f32, 2> denominator; // a1, a2 (a0 = 1)
+    };
+    static_assert(sizeof(BiquadFilterParameter2) == 0x18,
+                  "VoiceInfo::BiquadFilterParameter2 has the wrong size!");
+
     struct InParameter {
         /* 0x000 */ u32 id;
         /* 0x004 */ u32 node_id;
@@ -167,6 +178,43 @@ public:
         /* 0x15F */ char unk15F[0x11];
     };
     static_assert(sizeof(InParameter) == 0x170, "VoiceInfo::InParameter has the wrong size!");
+
+    struct InParameter2 {
+        /* 0x000 */ u32 id;
+        /* 0x004 */ u32 node_id;
+        /* 0x008 */ bool is_new;
+        /* 0x009 */ bool in_use;
+        /* 0x00A */ PlayState play_state;
+        /* 0x00B */ SampleFormat sample_format;
+        /* 0x00C */ u32 sample_rate;
+        /* 0x010 */ s32 priority;
+        /* 0x014 */ s32 sort_order;
+        /* 0x018 */ u32 channel_count;
+        /* 0x01C */ f32 pitch;
+        /* 0x020 */ f32 volume;
+        /* 0x024 */ std::array<BiquadFilterParameter2, MaxBiquadFilters> biquads;
+        /* 0x054 */ u32 wave_buffer_count;
+        /* 0x058 */ u32 wave_buffer_index;
+        /* 0x05C */ u32 reserved1;
+        /* 0x060 */ CpuAddr src_data_address;
+        /* 0x068 */ u64 src_data_size;
+        /* 0x070 */ u32 mix_id;
+        /* 0x074 */ u32 splitter_id;
+        /* 0x078 */ std::array<WaveBufferInternal, MaxWaveBuffers> wave_buffer_internal;
+        /* 0x158 */ std::array<s32, MaxChannels> channel_resource_ids;
+        /* 0x170 */ bool clear_voice_drop;
+        /* 0x171 */ u8 flush_buffer_count;
+        /* 0x172 */ u16 reserved2;
+        /* 0x174 */ Flags flags;
+        /* 0x175 */ u8 reserved3;
+        /* 0x176 */ SrcQuality src_quality;
+        /* 0x177 */ u8 reserved4;
+        /* 0x178 */ u32 external_context;
+        /* 0x17C */ u32 external_context_size;
+        /* 0x180 */ u32 reserved5;
+        /* 0x184 */ u32 reserved6;
+    };
+    static_assert(sizeof(InParameter2) == 0x188, "VoiceInfo::InParameter2 has the wrong size!");
 
     struct OutStatus {
         /* 0x00 */ u64 played_sample_count;
@@ -349,6 +397,10 @@ public:
     f32 prev_volume{};
     /// Biquad filters for generating filter commands on this voice
     std::array<BiquadFilterParameter, MaxBiquadFilters> biquads{};
+    /// Float biquad filters for REV15+ (native float coefficients)
+    std::array<BiquadFilterParameter2, MaxBiquadFilters> biquads_float{};
+    /// Use float biquad coefficients (REV15+)
+    bool use_float_biquads{};
     /// Number of active wavebuffers
     u32 wave_buffer_count{};
     /// Current playing wavebuffer index

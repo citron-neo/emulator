@@ -10,12 +10,31 @@
 #include "common/common_types.h"
 
 namespace AudioCore::Renderer {
+
+// Forward declaration
+class VoiceInfo;
+
 /**
  * Represents a mixing node, can be connected to a previous and next destination forming a chain
  * that a certain mix buffer will pass through to output.
  */
 class SplitterDestinationData {
 public:
+    /**
+     * Biquad filter parameter with float coefficients (SDK REV15+).
+     * Defined here to avoid circular dependency with VoiceInfo.
+     */
+    struct BiquadFilterParameter2 {
+        /* 0x00 */ bool enabled;
+        /* 0x01 */ u8 reserved1;
+        /* 0x02 */ u8 reserved2;
+        /* 0x03 */ u8 reserved3;
+        /* 0x04 */ std::array<f32, 3> numerator;   // b0, b1, b2
+        /* 0x10 */ std::array<f32, 2> denominator; // a1, a2 (a0 = 1)
+    };
+    static_assert(sizeof(BiquadFilterParameter2) == 0x18,
+                  "BiquadFilterParameter2 has the wrong size!");
+
     struct InParameter {
         /* 0x00 */ u32 magic; // 'SNDD'
         /* 0x04 */ s32 id;
@@ -26,6 +45,19 @@ public:
     };
     static_assert(sizeof(InParameter) == 0x70,
                   "SplitterDestinationData::InParameter has the wrong size!");
+
+    struct InParameterVersion2b {
+        /* 0x00 */ u32 magic; // 'SNDD'
+        /* 0x04 */ s32 id;
+        /* 0x08 */ std::array<f32, MaxMixBuffers> mix_volumes;
+        /* 0x68 */ u32 mix_id;
+        /* 0x6C */ std::array<SplitterDestinationData::BiquadFilterParameter2, MaxBiquadFilters> biquad_filters;
+        /* 0x9C */ bool in_use;
+        /* 0x9D */ bool reset_prev_volume;
+        /* 0x9E */ u8 reserved[10];
+    };
+    static_assert(sizeof(InParameterVersion2b) == 0xA8,
+                  "SplitterDestinationData::InParameterVersion2b has the wrong size!");
 
     SplitterDestinationData(s32 id);
 
@@ -116,6 +148,20 @@ public:
      */
     void SetNext(SplitterDestinationData* next);
 
+    /**
+     * Get biquad filter parameters for this destination (REV15+).
+     *
+     * @return Span of biquad filter parameters.
+     */
+    std::span<BiquadFilterParameter2> GetBiquadFilters();
+
+    /**
+     * Get const biquad filter parameters for this destination (REV15+).
+     *
+     * @return Const span of biquad filter parameters.
+     */
+    std::span<const BiquadFilterParameter2> GetBiquadFilters() const;
+
 private:
     /// Id of this destination
     const s32 id;
@@ -125,6 +171,8 @@ private:
     std::array<f32, MaxMixBuffers> mix_volumes{0.0f};
     /// Previous mix volumes
     std::array<f32, MaxMixBuffers> prev_mix_volumes{0.0f};
+    /// Biquad filter parameters (REV15+)
+    std::array<BiquadFilterParameter2, MaxBiquadFilters> biquad_filters{};
     /// Next destination in the mix chain
     SplitterDestinationData* next{};
     /// Is this destination in use?

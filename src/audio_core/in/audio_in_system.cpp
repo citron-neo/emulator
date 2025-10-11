@@ -206,6 +206,16 @@ void System::SetVolume(const f32 volume_) {
     session->SetVolume(volume_);
 }
 
+f32 System::GetDeviceGain() const {
+    return device_gain;
+}
+
+void System::SetDeviceGain(const f32 gain) {
+    device_gain = gain;
+    // Apply the device gain to the session
+    session->SetVolume(volume * device_gain);
+}
+
 bool System::ContainsAudioBuffer(const u64 tag) const {
     return buffers.ContainsBuffer(tag);
 }

@@ -30,15 +30,27 @@ add_library(audio_core STATIC
     audio_out_manager.h
     audio_manager.cpp
     audio_manager.h
+    audio_system_manager.cpp
+    audio_system_manager.h
+    audio_snoop_manager.cpp
+    audio_snoop_manager.h
+    common/audio_helpers.h
     common/audio_renderer_parameter.h
     common/common.h
     common/feature_support.h
+    common/fft.cpp
+    common/fft.h
+    common/loudness_calculator.cpp
+    common/loudness_calculator.h
     common/wave_buffer.h
     common/workbuffer_allocator.h
     device/audio_buffer.h
+    device/audio_buffer_list.h
     device/audio_buffers.h
     device/device_session.cpp
     device/device_session.h
+    device/shared_ring_buffer.cpp
+    device/shared_ring_buffer.h
     in/audio_in.cpp
     in/audio_in.h
     in/audio_in_system.cpp
@@ -85,6 +97,8 @@ add_library(audio_core STATIC
     renderer/command/effect/i3dl2_reverb.h
     renderer/command/effect/light_limiter.cpp
     renderer/command/effect/light_limiter.h
+    renderer/command/effect/limiter.cpp
+    renderer/command/effect/limiter.h
     renderer/command/effect/multi_tap_biquad_filter.cpp
     renderer/command/effect/multi_tap_biquad_filter.h
     renderer/command/effect/reverb.cpp
@@ -149,8 +163,13 @@ add_library(audio_core STATIC
     renderer/effect/i3dl2.h
     renderer/effect/light_limiter.cpp
     renderer/effect/light_limiter.h
+    renderer/effect/limiter.cpp
+    renderer/effect/limiter.h
     renderer/effect/reverb.h
     renderer/effect/reverb.cpp
+    renderer/final_output_recorder/final_output_recorder_buffer.h
+    renderer/final_output_recorder/final_output_recorder_system.cpp
+    renderer/final_output_recorder/final_output_recorder_system.h
     renderer/mix/mix_context.cpp
     renderer/mix/mix_context.h
     renderer/mix/mix_info.cpp
@@ -218,6 +237,7 @@ if (MSVC)
         /we4245 # 'conversion': conversion from 'type1' to 'type2', signed/unsigned mismatch
         /we4254 # 'operator': conversion from 'type1:field_bits' to 'type2:field_bits', possible loss of data
         /we4800 # Implicit conversion from 'type' to bool. Possible information loss
+        /wd2375 # Disable C2375: '__builtin_assume_aligned': redefinition (MSVC 14.44+ issue)
     )
 else()
     target_compile_options(audio_core PRIVATE

@@ -61,8 +61,6 @@ Result InfoUpdater::UpdateVoices(VoiceContext& voice_context,
     const PoolMapper pool_mapper(process_handle, memory_pools, memory_pool_count,
                                  behaviour.IsMemoryForceMappingEnabled());
     const auto voice_count{voice_context.GetCount()};
-    std::span<const VoiceInfo::InParameter> in_params{
-        reinterpret_cast<const VoiceInfo::InParameter*>(input), voice_count};
     std::span<VoiceInfo::OutStatus> out_params{reinterpret_cast<VoiceInfo::OutStatus*>(output),
                                                voice_count};
 
@@ -73,8 +71,97 @@ Result InfoUpdater::UpdateVoices(VoiceContext& voice_context,
 
     u32 new_voice_count{0};
 
+    // Two input formats exist: legacy (0x170) and v2 with float biquad (0x188).
+    const bool use_v2 = behaviour.IsVoiceInParameterV2Supported();
+    const u32 in_stride = use_v2 ? 0x188u : static_cast<u32>(sizeof(VoiceInfo::InParameter));
+
     for (u32 i = 0; i < voice_count; i++) {
-        const auto& in_param{in_params[i]};
+        VoiceInfo::InParameter local_in{};
+        // Store original float biquad coefficients for REV15+
+        std::array<VoiceInfo::BiquadFilterParameter2, MaxBiquadFilters> float_biquads{};
+
+        if (!use_v2) {
+            const auto* in_param_ptr = reinterpret_cast<const VoiceInfo::InParameter*>(input + i * sizeof(VoiceInfo::InParameter));
+            local_in = *in_param_ptr;
+        } else {
+            struct VoiceInParameterV2 {
+                u32 id;
+                u32 node_id;
+                bool is_new;
+                bool in_use;
+                PlayState play_state;
+                SampleFormat sample_format;
+                u32 sample_rate;
+                u32 priority;
+                u32 sort_order;
+                u32 channel_count;
+                f32 pitch;
+                f32 volume;
+                // Two BiquadFilterParameter2 (0x18 each) -> ignored/converted
+                struct BiquadV2 { bool enable; u8 r1; u8 r2; u8 r3; std::array<f32,3> b; std::array<f32,2> a; } biquads[2];
+                u32 wave_buffer_count;
+                u32 wave_buffer_index;
+                u32 reserved1;
+                u64 src_data_address;
+                u64 src_data_size;
+                s32 mix_id;
+                u32 splitter_id;
+                std::array<VoiceInfo::WaveBufferInternal, MaxWaveBuffers> wavebuffers;
+                std::array<u32, MaxChannels> channel_resource_ids;
+                bool clear_voice_drop;
+                u8 flush_wave_buffer_count;
+                u16 reserved2;
+                VoiceInfo::Flags flags;
+                SrcQuality src_quality;
+                u32 external_ctx;
+                u32 external_ctx_size;
+                u32 reserved3[2];
+            };
+            const auto* vin = reinterpret_cast<const VoiceInParameterV2*>(input + i * in_stride);
+            local_in.id = vin->id;
+            local_in.node_id = vin->node_id;
+            local_in.is_new = vin->is_new;
+            local_in.in_use = vin->in_use;
+            local_in.play_state = vin->play_state;
+            local_in.sample_format = vin->sample_format;
+            local_in.sample_rate = vin->sample_rate;
+            local_in.priority = static_cast<s32>(vin->priority);
+            local_in.sort_order = static_cast<s32>(vin->sort_order);
+            local_in.channel_count = vin->channel_count;
+            local_in.pitch = vin->pitch;
+            local_in.volume = vin->volume;
+
+            // For REV15+, we keep float coefficients separate and only convert for compatibility
+            for (size_t filter_idx = 0; filter_idx < MaxBiquadFilters; filter_idx++) {
+                const auto& src = vin->biquads[filter_idx];
+                auto& dst = local_in.biquads[filter_idx];
+                dst.enabled = src.enable;
+                // Convert float coefficients to fixed-point Q2.14 for legacy path
+                dst.b[0] = static_cast<s16>(std::clamp(src.b[0] * 16384.0f, -32768.0f, 32767.0f));
+                dst.b[1] = static_cast<s16>(std::clamp(src.b[1] * 16384.0f, -32768.0f, 32767.0f));
+                dst.b[2] = static_cast<s16>(std::clamp(src.b[2] * 16384.0f, -32768.0f, 32767.0f));
+                dst.a[0] = static_cast<s16>(std::clamp(src.a[0] * 16384.0f, -32768.0f, 32767.0f));
+                dst.a[1] = static_cast<s16>(std::clamp(src.a[1] * 16384.0f, -32768.0f, 32767.0f));
+
+                // Also store the native float version
+                float_biquads[filter_idx].enabled = src.enable;
+                float_biquads[filter_idx].numerator = src.b;
+                float_biquads[filter_idx].denominator = src.a;
+            }
+            local_in.wave_buffer_count = vin->wave_buffer_count;
+            local_in.wave_buffer_index = static_cast<u16>(vin->wave_buffer_index);
+            local_in.src_data_address = static_cast<CpuAddr>(vin->src_data_address);
+            local_in.src_data_size = vin->src_data_size;
+            local_in.mix_id = static_cast<u32>(vin->mix_id);
+            local_in.splitter_id = vin->splitter_id;
+            local_in.wave_buffer_internal = vin->wavebuffers;
+            local_in.channel_resource_ids = vin->channel_resource_ids;
+            local_in.clear_voice_drop = vin->clear_voice_drop;
+            local_in.flush_buffer_count = vin->flush_wave_buffer_count;
+            local_in.flags = vin->flags;
+            local_in.src_quality = vin->src_quality;
+        }
+        const auto& in_param = local_in;
         std::array<VoiceState*, MaxChannels> voice_states{};
 
         if (!in_param.in_use) {
@@ -98,6 +185,14 @@ Result InfoUpdater::UpdateVoices(VoiceContext& voice_context,
         BehaviorInfo::ErrorInfo update_error{};
         voice_info.UpdateParameters(update_error, in_param, pool_mapper, behaviour);
 
+        // For REV15+, store the native float biquad coefficients
+        if (use_v2) {
+            voice_info.use_float_biquads = true;
+            voice_info.biquads_float = float_biquads;
+        } else {
+            voice_info.use_float_biquads = false;
+        }
+
         if (!update_error.error_code.IsSuccess()) {
             behaviour.AppendError(update_error);
         }
@@ -118,7 +213,7 @@ Result InfoUpdater::UpdateVoices(VoiceContext& voice_context,
         new_voice_count += in_param.channel_count;
     }
 
-    auto consumed_input_size{voice_count * static_cast<u32>(sizeof(VoiceInfo::InParameter))};
+    auto consumed_input_size{voice_count * in_stride};
     auto consumed_output_size{voice_count * static_cast<u32>(sizeof(VoiceInfo::OutStatus))};
     if (consumed_input_size != in_header->voices_size) {
         LOG_ERROR(Service_Audio, "Consumed an incorrect voices size, header size={}, consumed={}",
@@ -254,17 +349,28 @@ Result InfoUpdater::UpdateMixes(MixContext& mix_context, const u32 mix_buffer_co
                                 EffectContext& effect_context, SplitterContext& splitter_context) {
     s32 mix_count{0};
     u32 consumed_input_size{0};
+    u32 input_mix_size{0};
 
     if (behaviour.IsMixInParameterDirtyOnlyUpdateSupported()) {
         auto in_dirty_params{reinterpret_cast<const MixInfo::InDirtyParameter*>(input)};
         mix_count = in_dirty_params->count;
+
+        // Validate against expected header size to ensure structure is correct
+        if (mix_count < 0 || mix_count > 0x100) {
+            LOG_ERROR(Service_Audio,
+                "Invalid mix count from dirty parameter: count={}, magic=0x{:X}, expected_size={}",
+                mix_count, in_dirty_params->magic, in_header->mix_size);
+            return Service::Audio::ResultInvalidUpdateInfo;
+        }
+
+        consumed_input_size += static_cast<u32>(sizeof(MixInfo::InDirtyParameter));
         input += sizeof(MixInfo::InDirtyParameter);
-        consumed_input_size = static_cast<u32>(sizeof(MixInfo::InDirtyParameter) +
-                                               mix_count * sizeof(MixInfo::InParameter));
     } else {
         mix_count = mix_context.GetCount();
-        consumed_input_size = static_cast<u32>(mix_count * sizeof(MixInfo::InParameter));
     }
+
+    input_mix_size = static_cast<u32>(mix_count * sizeof(MixInfo::InParameter));
+    consumed_input_size += input_mix_size;
 
     if (mix_buffer_count == 0) {
         return Service::Audio::ResultInvalidUpdateInfo;
@@ -330,7 +436,7 @@ Result InfoUpdater::UpdateMixes(MixContext& mix_context, const u32 mix_buffer_co
         return Service::Audio::ResultInvalidUpdateInfo;
     }
 
-    input += mix_count * sizeof(MixInfo::InParameter);
+    input += input_mix_size;
 
     return ResultSuccess;
 }

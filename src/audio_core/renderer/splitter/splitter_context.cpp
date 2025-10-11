@@ -40,6 +40,7 @@ void SplitterContext::Setup(std::span<SplitterInfo> splitter_infos_, const u32 s
     destinations_count = destination_count_;
     splitter_bug_fixed = splitter_bug_fixed_;
     splitter_prev_volume_reset_supported = behavior.IsSplitterPrevVolumeResetSupported();
+    splitter_float_coeff_supported = behavior.IsSplitterDestinationV2bSupported();
 }
 
 bool SplitterContext::UsingSplitter() const {
@@ -136,25 +137,57 @@ u32 SplitterContext::UpdateInfo(const u8* input, u32 offset, const u32 splitter_
 
 u32 SplitterContext::UpdateData(const u8* input, u32 offset, const u32 count) {
     for (u32 i = 0; i < count; i++) {
-        auto data_header{
-            reinterpret_cast<const SplitterDestinationData::InParameter*>(input + offset)};
+        // Version selection based on float coeff/biquad v2b support.
+        if (!splitter_float_coeff_supported) {
+            const auto* data_header =
+                reinterpret_cast<const SplitterDestinationData::InParameter*>(input + offset);
 
-        if (data_header->magic != GetSplitterSendDataMagic()) {
-            continue;
+            if (data_header->magic != GetSplitterSendDataMagic()) {
+                continue;
+            }
+            if (data_header->id < 0 || data_header->id > destinations_count) {
+                continue;
+            }
+
+            auto modified_params = *data_header;
+            if (!splitter_prev_volume_reset_supported) {
+                modified_params.reset_prev_volume = false;
+            }
+            splitter_destinations[data_header->id].Update(modified_params);
+            offset += sizeof(SplitterDestinationData::InParameter);
+        } else {
+            // Version 2b: struct contains extra biquad filter fields
+            const auto* data_header_v2b =
+                reinterpret_cast<const SplitterDestinationData::InParameterVersion2b*>(input + offset);
+
+            if (data_header_v2b->magic != GetSplitterSendDataMagic()) {
+                continue;
+            }
+            if (data_header_v2b->id < 0 || data_header_v2b->id > destinations_count) {
+                continue;
+            }
+
+            // Map common fields to the old format
+            SplitterDestinationData::InParameter mapped{};
+            mapped.magic = data_header_v2b->magic;
+            mapped.id = data_header_v2b->id;
+            mapped.mix_volumes = data_header_v2b->mix_volumes;
+            mapped.mix_id = data_header_v2b->mix_id;
+            mapped.in_use = data_header_v2b->in_use;
+            mapped.reset_prev_volume = splitter_prev_volume_reset_supported ? data_header_v2b->reset_prev_volume : false;
+
+            // Store biquad filters from V2b (REV15+)
+            auto& destination = splitter_destinations[data_header_v2b->id];
+            destination.Update(mapped);
+
+            // Copy biquad filter parameters
+            auto biquad_filters = destination.GetBiquadFilters();
+            for (size_t filter_idx = 0; filter_idx < MaxBiquadFilters; filter_idx++) {
+                biquad_filters[filter_idx] = data_header_v2b->biquad_filters[filter_idx];
+            }
+
+            offset += static_cast<u32>(sizeof(SplitterDestinationData::InParameterVersion2b));
         }
-
-        if (data_header->id < 0 || data_header->id > destinations_count) {
-            continue;
-        }
-
-        // Create a modified parameter that respects the behavior support
-        auto modified_params = *data_header;
-        if (!splitter_prev_volume_reset_supported) {
-            modified_params.reset_prev_volume = false;
-        }
-
-        splitter_destinations[data_header->id].Update(modified_params);
-        offset += sizeof(SplitterDestinationData::InParameter);
     }
 
     return offset;
