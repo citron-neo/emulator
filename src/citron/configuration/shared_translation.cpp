@@ -406,6 +406,7 @@ std::unique_ptr<ComboboxTranslationMap> ComboboxEnumeration(QWidget* parent) {
                               PAIR(ScalingFilter, Lanczos, tr("Lanczos")),
                               PAIR(ScalingFilter, Gaussian, tr("Gaussian")),
                               PAIR(ScalingFilter, ScaleForce, tr("ScaleForce")),
+                              PAIR(ScalingFilter, ScaleFx, tr("ScaleFX")),
                               PAIR(ScalingFilter, Fsr, tr("AMD FidelityFX™️ Super Resolution")),
                               PAIR(ScalingFilter, Fsr2, tr("AMD FidelityFX™️ Super Resolution 2.0")),
                           }});

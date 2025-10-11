@@ -15,5 +15,6 @@ std::unique_ptr<WindowAdaptPass> MakeBicubic(const Device& device);
 std::unique_ptr<WindowAdaptPass> MakeLanczos(const Device& device);
 std::unique_ptr<WindowAdaptPass> MakeGaussian(const Device& device);
 std::unique_ptr<WindowAdaptPass> MakeScaleForce(const Device& device);
+std::unique_ptr<WindowAdaptPass> MakeScaleFx(const Device& device);
 
 } // namespace OpenGL

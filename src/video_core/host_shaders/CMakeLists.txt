@@ -40,6 +40,7 @@ set(SHADER_FILES
     opengl_present.frag
     opengl_present.vert
     opengl_present_scaleforce.frag
+    opengl_present_scalefx.frag
     opengl_smaa.glsl
     pitch_unswizzle.comp
     present_bicubic.frag
@@ -70,6 +71,8 @@ set(SHADER_FILES
     vulkan_present.vert
     vulkan_present_scaleforce_fp16.frag
     vulkan_present_scaleforce_fp32.frag
+    vulkan_present_scalefx_fp16.frag
+    vulkan_present_scalefx_fp32.frag
     vulkan_quad_indexed.comp
     vulkan_taa.frag
     vulkan_taa.vert
