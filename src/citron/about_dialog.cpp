@@ -9,7 +9,7 @@
 
 AboutDialog::AboutDialog(QWidget* parent)
     : QDialog(parent), ui{std::make_unique<Ui::AboutDialog>()} {
-    const auto citron_build_version = "citron | 0.7.2";
+    const auto citron_build_version = "citron | 0.8.0";
 
     ui->setupUi(this);
     // Try and request the icon from Qt theme (Linux?)
