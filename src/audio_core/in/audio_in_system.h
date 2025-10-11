@@ -214,6 +214,20 @@ public:
     void SetVolume(f32 volume);
 
     /**
+     * Get this system's current device gain.
+     *
+     * @return The system's current device gain.
+     */
+    f32 GetDeviceGain() const;
+
+    /**
+     * Set this system's current device gain.
+     *
+     * @param gain The new device gain.
+     */
+    void SetDeviceGain(f32 gain);
+
+    /**
      * Does the system contain this buffer?
      *
      * @param tag - Unique tag to search for.
@@ -269,6 +283,8 @@ private:
     std::string name{};
     /// Volume of this system
     f32 volume{1.0f};
+    /// Device gain of this system
+    f32 device_gain{1.0f};
     /// Is this system's device USB?
     bool is_uac{false};
 };

@@ -49,6 +49,39 @@ void ApplyBiquadFilterFloat(std::span<s32> output, std::span<const s32> input,
 }
 
 /**
+ * Biquad filter float implementation with native float coefficients (SDK REV15+).
+ */
+void ApplyBiquadFilterFloat2(std::span<s32> output, std::span<const s32> input,
+                             std::array<f32, 3>& b, std::array<f32, 2>& a,
+                             VoiceState::BiquadFilterState& state, const u32 sample_count) {
+    constexpr f64 min{std::numeric_limits<s32>::min()};
+    constexpr f64 max{std::numeric_limits<s32>::max()};
+
+    std::array<f64, 3> b_double{static_cast<f64>(b[0]), static_cast<f64>(b[1]), static_cast<f64>(b[2])};
+    std::array<f64, 2> a_double{static_cast<f64>(a[0]), static_cast<f64>(a[1])};
+    std::array<f64, 4> s{Common::BitCast<f64>(state.s0), Common::BitCast<f64>(state.s1),
+                         Common::BitCast<f64>(state.s2), Common::BitCast<f64>(state.s3)};
+
+    for (u32 i = 0; i < sample_count; i++) {
+        f64 in_sample{static_cast<f64>(input[i])};
+        auto sample{in_sample * b_double[0] + s[0] * b_double[1] + s[1] * b_double[2] +
+                    s[2] * a_double[0] + s[3] * a_double[1]};
+
+        output[i] = static_cast<s32>(std::clamp(sample, min, max));
+
+        s[1] = s[0];
+        s[0] = in_sample;
+        s[3] = s[2];
+        s[2] = sample;
+    }
+
+    state.s0 = Common::BitCast<s64>(s[0]);
+    state.s1 = Common::BitCast<s64>(s[1]);
+    state.s2 = Common::BitCast<s64>(s[2]);
+    state.s3 = Common::BitCast<s64>(s[3]);
+}
+
+/**
  * Biquad filter s32 implementation.
  *
  * @param output       - Output container for filtered samples.
@@ -95,8 +128,14 @@ void BiquadFilterCommand::Process(const AudioRenderer::CommandListProcessor& pro
         processor.mix_buffers.subspan(output * processor.sample_count, processor.sample_count)};
 
     if (use_float_processing) {
-        ApplyBiquadFilterFloat(output_buffer, input_buffer, biquad.b, biquad.a, *state_,
-                               processor.sample_count);
+        // REV15+: Use native float coefficients if available
+        if (use_float_coefficients) {
+            ApplyBiquadFilterFloat2(output_buffer, input_buffer, biquad_float.numerator,
+                                   biquad_float.denominator, *state_, processor.sample_count);
+        } else {
+            ApplyBiquadFilterFloat(output_buffer, input_buffer, biquad.b, biquad.a, *state_,
+                                   processor.sample_count);
+        }
     } else {
         ApplyBiquadFilterInt(output_buffer, input_buffer, biquad.b, biquad.a, *state_,
                              processor.sample_count);

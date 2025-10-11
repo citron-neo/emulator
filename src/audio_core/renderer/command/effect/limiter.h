@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: Copyright 2022 yuzu Emulator Project
+// SPDX-FileCopyrightText: Copyright 2025 Citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #pragma once
@@ -7,7 +7,7 @@
 #include <string>
 
 #include "audio_core/renderer/command/icommand.h"
-#include "audio_core/renderer/voice/voice_info.h"
+#include "audio_core/renderer/effect/limiter.h"
 #include "common/common_types.h"
 
 namespace AudioCore::ADSP::AudioRenderer {
@@ -17,14 +17,14 @@ class CommandListProcessor;
 namespace AudioCore::Renderer {
 
 /**
- * AudioRenderer command for applying multiple biquads at once.
+ * AudioRenderer command for limiting volume with attack/release controls.
  */
-struct MultiTapBiquadFilterCommand : ICommand {
+struct LimiterCommand : ICommand {
     /**
      * Print this command's information to a string.
      *
      * @param processor - The CommandListProcessor processing this command.
-     * @param string - The string to print into.
+     * @param string    - The string to print into.
      */
     void Dump(const AudioRenderer::CommandListProcessor& processor, std::string& string) override;
 
@@ -43,22 +43,18 @@ struct MultiTapBiquadFilterCommand : ICommand {
      */
     bool Verify(const AudioRenderer::CommandListProcessor& processor) override;
 
-    /// Input mix buffer index
-    s16 input;
-    /// Output mix buffer index
-    s16 output;
-    /// Biquad parameters (legacy fixed-point)
-    std::array<VoiceInfo::BiquadFilterParameter, MaxBiquadFilters> biquads;
-    /// Biquad parameters (REV15+ native float)
-    std::array<VoiceInfo::BiquadFilterParameter2, MaxBiquadFilters> biquads_float;
-    /// Biquad states, updated each call
-    std::array<CpuAddr, MaxBiquadFilters> states;
-    /// If each biquad needs initialisation
-    std::array<bool, MaxBiquadFilters> needs_init;
-    /// Number of active biquads
-    u8 filter_tap_count;
-    /// If true, use native float coefficients (REV15+)
-    bool use_float_coefficients;
+    /// Input mix buffer offsets for each channel
+    std::array<s16, MaxChannels> inputs;
+    /// Output mix buffer offsets for each channel
+    std::array<s16, MaxChannels> outputs;
+    /// Input parameters
+    LimiterInfo::ParameterVersion2 parameter;
+    /// State, updated each call
+    CpuAddr state;
+    /// Game-supplied workbuffer (Unused)
+    CpuAddr workbuffer;
+    /// Is this effect enabled?
+    bool effect_enabled;
 };
 
 } // namespace AudioCore::Renderer

@@ -378,6 +378,22 @@ public:
      */
     bool IsSplitterPrevVolumeResetSupported() const;
 
+    /**
+     * Check if splitter destination v2b parameter format is supported (revision 15+).
+     * This uses the extended parameter format with biquad filter fields.
+     *
+     * @return True if supported, otherwise false.
+     */
+    bool IsSplitterDestinationV2bSupported() const;
+
+    /**
+     * Check if voice input parameter v2 format is supported (revision 15+).
+     * This uses the extended parameter format with float biquad filters.
+     *
+     * @return True if supported, otherwise false.
+     */
+    bool IsVoiceInParameterV2Supported() const;
+
     /// Host version
     u32 process_revision;
     /// User version

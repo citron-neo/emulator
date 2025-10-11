@@ -33,8 +33,14 @@ void MultiTapBiquadFilterCommand::Process(const AudioRenderer::CommandListProces
             *state = {};
         }
 
-        ApplyBiquadFilterFloat(output_buffer, input_buffer, biquads[i].b, biquads[i].a, *state,
-                               processor.sample_count);
+        // REV15+: Use native float coefficients if available
+        if (use_float_coefficients) {
+            ApplyBiquadFilterFloat2(output_buffer, input_buffer, biquads_float[i].numerator,
+                                   biquads_float[i].denominator, *state, processor.sample_count);
+        } else {
+            ApplyBiquadFilterFloat(output_buffer, input_buffer, biquads[i].b, biquads[i].a, *state,
+                                   processor.sample_count);
+        }
     }
 }
 
