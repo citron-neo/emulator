@@ -1,4 +1,6 @@
 // SPDX-FileCopyrightText: Copyright 2023 yuzu Emulator Project
+// SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project
+// SPDX-FileCopyrightText: Copyright 2025 Zephyron, LotP
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #pragma once
@@ -158,6 +160,15 @@ struct NpadGcTriggerState {
     s32 r_analog{};
 };
 static_assert(sizeof(NpadGcTriggerState) == 0x10, "NpadGcTriggerState is an invalid size");
+
+// This is nn::hid::NpadCondition (global controller condition structure)
+struct NpadCondition {
+    u32 _00{};
+    u32 is_initialized{1}; // Must be 1 to prevent crashes
+    u32 hold_type{static_cast<u32>(NpadJoyHoldType::Horizontal)}; // Store enum as u32
+    u32 is_valid{1}; // Must be 1 to prevent crashes
+};
+static_assert(sizeof(NpadCondition) == 0x10, "NpadCondition is an invalid size");
 
 // This is nn::hid::NpadSystemProperties
 struct NPadSystemProperties {
