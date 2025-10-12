@@ -38,6 +38,7 @@
 #include "core/loader/loader.h"
 #include "frontend_common/config.h"
 #include "ui_configure_per_game.h"
+#include "citron/uisettings.h"
 #include "citron/configuration/configuration_shared.h"
 #include "citron/configuration/configure_audio.h"
 #include "citron/configuration/configure_cpu.h"
@@ -77,6 +78,10 @@ rainbow_timer{new QTimer(this)} {
     system_tab = std::make_unique<ConfigureSystem>(system_, tab_group, *builder, this);
 
     ui->setupUi(this);
+
+    if (!UISettings::values.per_game_configure_geometry.isEmpty()) {
+        restoreGeometry(UISettings::values.per_game_configure_geometry);
+    }
 
     ApplyStaticTheme();
     UpdateTheme(); // Run once to set initial colors
@@ -131,7 +136,9 @@ rainbow_timer{new QTimer(this)} {
     LoadConfiguration();
 }
 
-ConfigurePerGame::~ConfigurePerGame() = default;
+ConfigurePerGame::~ConfigurePerGame() {
+    UISettings::values.per_game_configure_geometry = saveGeometry();
+}
 
 void ConfigurePerGame::accept() {
     ApplyConfiguration();
