@@ -68,6 +68,8 @@ namespace UISettings {
         config.setValue(QStringLiteral("geometry"), values.geometry);
         config.setValue(QStringLiteral("state"), values.state);
         config.setValue(QStringLiteral("geometryRenderWindow"), values.renderwindow_geometry);
+        config.setValue(QStringLiteral("configureDialogGeometry"), values.configure_dialog_geometry);
+        config.setValue(QStringLiteral("perGameConfigureGeometry"), values.per_game_configure_geometry);
         config.setValue(QStringLiteral("gameListHeaderState"), values.gamelist_header_state);
         config.setValue(QStringLiteral("microProfileDialogGeometry"), values.microprofile_geometry);
 
@@ -106,6 +108,10 @@ namespace UISettings {
         values.state = config.value(QStringLiteral("state")).toByteArray();
         values.renderwindow_geometry =
         config.value(QStringLiteral("geometryRenderWindow")).toByteArray();
+        values.configure_dialog_geometry =
+        config.value(QStringLiteral("configureDialogGeometry")).toByteArray();
+        values.per_game_configure_geometry =
+        config.value(QStringLiteral("perGameConfigureGeometry")).toByteArray();
         values.gamelist_header_state =
         config.value(QStringLiteral("gameListHeaderState")).toByteArray();
         values.microprofile_geometry =
