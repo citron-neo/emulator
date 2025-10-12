@@ -98,7 +98,7 @@ build-linux-v3:
     - citron-build
   before_script:
     - pacman -Syu --noconfirm
-    - pacman -S --noconfirm alsa-lib base-devel boost boost-libs catch2 cmake curl ffmpeg fmt fuse2 gamemode gcc gdb git glslang glu libusb libxi libxkbcommon libxkbcommon-x11 libxss libzip lz4 mbedtls2 mesa nasm ninja nlohmann-json openal openssl opus perl pipewire-audio pulseaudio pulseaudio-alsa python-pip qt5-base qt5-imageformats qt5-multimedia qt5-tools qt5-wayland qt5ct sdl2 sdl2-compat unzip vulkan-headers vulkan-icd-loader vulkan-mesa-layers wget xcb-util-cursor xcb-util-image xcb-util-keysyms xcb-util-renderutil xcb-util-wm xorg-server-xvfb zip zstd zsync
+    - pacman -S --noconfirm alsa-lib base-devel boost boost-libs catch2 cmake curl ffmpeg fmt fuse2 gamemode gcc gdb git glslang glu libusb libxi libxkbcommon libxkbcommon-x11 libxss libzip lz4 mbedtls2 mesa nasm ninja nlohmann-json openal openssl opus perl pipewire-audio pulseaudio pulseaudio-alsa python-pip qt6-base qt6-multimedia qt6-tools qt6-wayland sdl2 sdl2-compat unzip vulkan-headers vulkan-icd-loader vulkan-mesa-layers wget xcb-util-cursor xcb-util-image xcb-util-keysyms xcb-util-renderutil xcb-util-wm xorg-server-xvfb zip zstd zsync
     # Create shasum compatibility wrapper for AppImage build
     - echo '#!/bin/bash' > /usr/local/bin/shasum
     - echo 'if [ "$1" = "-a" ] && [ "$2" = "256" ]; then' >> /usr/local/bin/shasum
@@ -169,7 +169,7 @@ build-linux-steamdeck:
     - citron-build
   before_script:
     - pacman -Syu --noconfirm
-    - pacman -S --noconfirm alsa-lib base-devel boost boost-libs catch2 cmake curl ffmpeg fmt fuse2 gamemode gcc gdb git glslang glu libusb libxi libxkbcommon libxkbcommon-x11 libxss libzip lz4 mbedtls2 mesa nasm ninja nlohmann-json openal openssl opus perl pipewire-audio pulseaudio pulseaudio-alsa python-pip qt5-base qt5-imageformats qt5-multimedia qt5-tools qt5-wayland qt5ct sdl2 sdl2-compat unzip vulkan-headers vulkan-icd-loader vulkan-mesa-layers wget xcb-util-cursor xcb-util-image xcb-util-keysyms xcb-util-renderutil xcb-util-wm xorg-server-xvfb zip zstd zsync
+    - pacman -S --noconfirm alsa-lib base-devel boost boost-libs catch2 cmake curl ffmpeg fmt fuse2 gamemode gcc gdb git glslang glu libusb libxi libxkbcommon libxkbcommon-x11 libxss libzip lz4 mbedtls2 mesa nasm ninja nlohmann-json openal openssl opus perl pipewire-audio pulseaudio pulseaudio-alsa python-pip qt6-base qt6-multimedia qt6-tools qt6-wayland sdl2 sdl2-compat unzip vulkan-headers vulkan-icd-loader vulkan-mesa-layers wget xcb-util-cursor xcb-util-image xcb-util-keysyms xcb-util-renderutil xcb-util-wm xorg-server-xvfb zip zstd zsync
     # Create shasum compatibility wrapper for AppImage build
     - echo '#!/bin/bash' > /usr/local/bin/shasum
     - echo 'if [ "$1" = "-a" ] && [ "$2" = "256" ]; then' >> /usr/local/bin/shasum
