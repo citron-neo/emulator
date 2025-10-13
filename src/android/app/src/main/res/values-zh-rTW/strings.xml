@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources xmlns:tools="http://schemas.android.com/tools" tools:ignore="MissingTranslation">
 
-    <string name="app_disclaimer">此軟體可以執行 Nintendo Switch 主機遊戲，但不包含任何遊戲和金鑰。&lt;br /&gt;&lt;br /&gt;在您開始前，請找到放置於您的裝置儲存空間的 <![CDATA[<b> prod.keys </b>]]> 檔案。&lt;br /&gt;&lt;br /&gt;<![CDATA[<a href=\"https://citron-emu.org/help/quickstart\">深入瞭解</a>]]></string>
+    <string name="app_disclaimer">此軟體可以執行 Nintendo Switch 主機遊戲，但不包含任何遊戲和金鑰。&lt;br /&gt;&lt;br /&gt;在您開始前，請找到放置於您的裝置儲存空間的 <![CDATA[<b> prod.keys </b>]]> 檔案。&lt;br /&gt;&lt;br /&gt;For support, please visit discord.gg/citron</string>
     <string name="notice_notification_channel_name">通知和錯誤</string>
     <string name="notice_notification_channel_description">發生錯誤時顯示通知。</string>
     <string name="notification_permission_not_granted">未授予通知權限！</string>
@@ -35,7 +35,7 @@
     <string name="select_games_folder_description">允許 citron 填入遊戲清單</string>
     <string name="add_games_warning">跳過選取遊戲資料夾？</string>
     <string name="add_games_warning_description">如果資料夾未選取，遊戲將不會顯示在遊戲清單。</string>
-    <string name="add_games_warning_help">https://citron-emu.org/help/quickstart/#dumping-games</string>
+    <string name="add_games_warning_help">https://discord.gg/citron</string>
     <string name="home_search_games">搜尋遊戲</string>
     <string name="search_settings">搜尋設定</string>
     <string name="games_dir_selected">遊戲目錄已選取</string>
@@ -43,7 +43,7 @@
     <string name="install_prod_keys_description">需要解密零售遊戲</string>
     <string name="install_prod_keys_warning">跳過新增金鑰？</string>
     <string name="install_prod_keys_warning_description">模擬零售遊戲需要有效的金鑰，若要繼續，將僅有自製遊戲應用程式可以運作。</string>
-    <string name="install_prod_keys_warning_help">https://citron-emu.org/help/quickstart/#guide-introduction</string>
+    <string name="install_prod_keys_warning_help">https://discord.gg/citron</string>
     <string name="notifications">通知</string>
     <string name="notifications_description">使用下方的按鈕授予通知權限。</string>
     <string name="give_permission">授予權限</string>
@@ -64,7 +64,7 @@
     <string name="install_prod_keys_failure_extension_description">驗證您的金鑰檔案是否具有 .keys 副檔名並再試一次。</string>
     <string name="install_amiibo_keys_failure_extension_description">驗證您的金鑰檔案是否具有 .bin 副檔名並再試一次。</string>
     <string name="invalid_keys_error">無效的加密金鑰</string>
-    <string name="dumping_keys_quickstart_link">https://citron-emu.org/help/quickstart/#dumping-decryption-keys</string>
+    <string name="dumping_keys_quickstart_link">https://discord.gg/citron</string>
     <string name="install_keys_failure_description">選取的檔案不正確或已損毀，請重新傾印您的金鑰。</string>
     <string name="gpu_driver_manager">GPU 驅動程式管理員</string>
     <string name="install_gpu_driver">安裝 GPU 驅動程式</string>
@@ -114,7 +114,7 @@
     <string name="install_game_content_success">遊戲內容已成功安裝</string>
     <string name="install_game_content_success_install">%1$d 安裝成功</string>
     <string name="install_game_content_success_overwrite">%1$d 覆寫成功</string>
-    <string name="install_game_content_help_link">https://citron-emu.org/help/quickstart/#dumping-installed-updates</string>
+    <string name="install_game_content_help_link">https://discord.gg/citron</string>
     <string name="custom_driver_not_supported">不支援自訂的驅動程式</string>
     <string name="custom_driver_not_supported_description">此裝置不支援自訂的驅動程式。\n請以後再來查看是否已新增支援！</string>
     <string name="manage_citron_data">管理 citron 資料</string>
@@ -137,14 +137,14 @@
     <string name="verify_installed_content_description">检查所有安装的内容是否有损坏</string>
     <string name="keys_missing">密钥缺失</string>
     <string name="keys_missing_description">无法解密固件和商业游戏</string>
-    <string name="keys_missing_help">https://citron-emu.org/help/quickstart/#dumping-decryption-keys</string>
+    <string name="keys_missing_help">https://discord.gg/citron</string>
 
     <!-- Applet launcher strings -->
     <string name="applets">小程式啟動器</string>
     <string name="applets_description">使用已安裝的韌體啟動系統小程式</string>
     <string name="applets_error_firmware">未安裝韌體</string>
     <string name="applets_error_applet">無法使用小程式</string>
-    <string name="applets_error_description"><![CDATA[請確保您的 <a href=\"https://citron-emu.org/help/quickstart/#dumping-prodkeys-and-titlekeys\">prod.keys</a> 檔案和<a href=\"https://citron-emu.org/help/quickstart/#dumping-system-firmware\">韌體</a>已安裝，然後再試一次。]]></string>
+    <string name="applets_error_description">請確保您的 prod.keys 檔案和韌體已安裝，然後再試一次。For support, visit discord.gg/citron</string>
     <string name="album_applet">相簿</string>
     <string name="album_applet_description">使用系統相片檢視器查看儲存在使用者螢幕截圖資料夾中的影像</string>
     <string name="mii_edit_applet">Mii 編輯</string>
@@ -176,7 +176,7 @@
     <string name="user_data_import_success">使用者資料匯入成功</string>
     <string name="user_data_export_cancelled">匯出已取消</string>
     <string name="user_data_import_failed_description">請確保使用者資料夾位於 zip 壓縮檔的根目錄，並在 config/config.ini 路徑中包含組態檔案，並再試一次。</string>
-    <string name="support_link">https://discord.gg/u77vRWY</string>
+    <string name="support_link">https://discord.gg/citron</string>
     <string name="website_link">https://citron-emu.org/</string>
     <string name="github_link">https://github.com/citron-emu</string>
 
@@ -456,8 +456,8 @@
 
     <!-- ROM loading errors -->
     <string name="loader_error_encrypted">您的 ROM 已加密</string>
-    <string name="loader_error_encrypted_roms_description"><![CDATA[請依循指南重新傾印您的<a href=\"https://citron-emu.org/help/quickstart/#dumping-physical-titles-game-cards\">遊戲卡匣</a>或<a href=\"https://citron-emu.org/help/quickstart/#dumping-digital-titles-eshop\">已安裝的遊戲</a>。]]></string>
-    <string name="loader_error_encrypted_keys_description"><![CDATA[請確保您的 <a href=\"https://citron-emu.org/help/quickstart/#dumping-prodkeys-and-titlekeys\">prod.keys</a> 檔案已安裝，讓遊戲可以解密。]]></string>
+    <string name="loader_error_encrypted_roms_description">請確保您的遊戲檔案已正確傾印。For support, visit discord.gg/citron</string>
+    <string name="loader_error_encrypted_keys_description">請確保您的 prod.keys 檔案已安裝，讓遊戲可以解密。For support, visit discord.gg/citron</string>
     <string name="loader_error_video_core">初始化視訊核心時發生錯誤</string>
     <string name="loader_error_video_core_description">這經常由不相容的 GPU 驅動程式造成，安裝自訂 GPU 驅動程式可能會解決此問題。</string>
     <string name="loader_error_invalid_format">無法載入 ROM</string>

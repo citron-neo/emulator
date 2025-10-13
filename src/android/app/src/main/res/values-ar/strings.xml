@@ -34,7 +34,7 @@
     <string name="select_games_folder_description">يسمح لـ يوزو بملء قائمة الألعاب</string>
     <string name="add_games_warning">تخطي تحديد مجلد الألعاب؟</string>
     <string name="add_games_warning_description">لن يتم عرض الألعاب في قائمة الألعاب إذا لم يتم تحديد مجلد</string>
-    <string name="add_games_warning_help">https://citron-emu.org/help/quickstart/#dumping-games</string>
+    <string name="add_games_warning_help">https://discord.gg/citron</string>
     <string name="home_search_games">البحث عن ألعاب</string>
     <string name="search_settings">إعدادات البحث</string>
     <string name="games_dir_selected">تم تحديد مجلد الألعاب</string>
@@ -42,7 +42,7 @@
     <string name="install_prod_keys_description">مطلوب لفك تشفير ألعاب البيع بالتجزئة</string>
     <string name="install_prod_keys_warning">تخطي إضافة المفاتيح؟</string>
     <string name="install_prod_keys_warning_description">مطلوب مفاتيح صالحة لمحاكاة ألعاب البيع بالتجزئة. ستعمل تطبيقات البيرة المنزلية فقط إذا تابعت</string>
-    <string name="install_prod_keys_warning_help">https://citron-emu.org/help/quickstart/#guide-introduction</string>
+    <string name="install_prod_keys_warning_help">https://discord.gg/citron</string>
     <string name="notifications">الإشعارات</string>
     <string name="notifications_description">امنح إذن الإشعار باستخدام الزر أدناه</string>
     <string name="give_permission">منح الإذن</string>
@@ -63,7 +63,7 @@
     <string name="install_prod_keys_failure_extension_description">وحاول مرة أخر keys تحقق من أن ملف المفاتيح له امتداد</string>
     <string name="install_amiibo_keys_failure_extension_description">وحاول مرة أخر bin تحقق من أن ملف المفاتيح له امتداد</string>
     <string name="invalid_keys_error">مفاتيح التشفير غير صالحة</string>
-    <string name="dumping_keys_quickstart_link">https://citron-emu.org/help/quickstart/#dumping-decryption-keys</string>
+    <string name="dumping_keys_quickstart_link">https://discord.gg/citron</string>
     <string name="install_keys_failure_description">الملف المحدد غير صحيح أو تالف. يرجى إعادة المفاتيح الخاصة بك</string>
     <string name="gpu_driver_manager">GPU مدير برنامج تشغيل</string>
     <string name="install_gpu_driver">GPU تثبيت برنامج تشغيل</string>
@@ -107,7 +107,7 @@
     <string name="install_game_content_failure_base">لا يُسمح بتثبيت الألعاب الأساسية لتجنب التعارضات المحتملة.</string>
     <string name="install_game_content_success_install">%1$d تم التثبيت بنجاح</string>
     <string name="install_game_content_success_overwrite">%1$d تمت الكتابة فوقه بنجاح</string>
-    <string name="install_game_content_help_link">https://citron-emu.org/help/quickstart/#dumping-installed-updates</string>
+    <string name="install_game_content_help_link">https://discord.gg/citron</string>
     <string name="custom_driver_not_supported">برامج التشغيل المخصصة غير مدعومة</string>
     <string name="custom_driver_not_supported_description">تحميل برنامج التشغيل المخصص غير معتمد حاليًا لهذا الجهاز.\nحدد هذا الخيار مرة أخرى في المستقبل لمعرفة ما إذا تمت إضافة الدعم!</string>
     <string name="manage_citron_data">إدارة بيانات يوزو</string>
@@ -149,7 +149,7 @@
     <string name="user_data_export_success">تم تصدير بيانات المستخدم بنجاح</string>
     <string name="user_data_import_success">تم استيراد بيانات المستخدم بنجاح</string>
     <string name="user_data_export_cancelled">تم إلغاء التصدير</string>
-    <string name="support_link">https://discord.gg/u77vRWY</string>
+    <string name="support_link">https://discord.gg/citron</string>
     <string name="website_link">https://citron-emu.org/</string>
     <string name="github_link">https://github.com/citron-emu</string>
 

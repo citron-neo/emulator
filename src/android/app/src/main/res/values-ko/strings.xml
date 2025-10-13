@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources xmlns:tools="http://schemas.android.com/tools" tools:ignore="MissingTranslation">
 
-    <string name="app_disclaimer">이 소프트웨어는 Nintendo Switch 게임을 실행합니다. 게임 타이틀이나 키는 포함되어 있지 않습니다.&lt;br /&gt;&lt;br /&gt;시작하기 전에 장치 저장소에서 <![CDATA[<b> prod.keys </b>]]> 파일을 찾아주세요.&lt;br /&gt;&lt;br /&gt;<![CDATA[<a href=\"https://citron-emu.org/help/quickstart\">자세히 알아보기</a>]]></string>
+    <string name="app_disclaimer">이 소프트웨어는 Nintendo Switch 게임을 실행합니다. 게임 타이틀이나 키는 포함되어 있지 않습니다.&lt;br /&gt;&lt;br /&gt;시작하기 전에 장치 저장소에서 <![CDATA[<b> prod.keys </b>]]> 파일을 찾아주세요.&lt;br /&gt;&lt;br /&gt;<![CDATA[<a href=\"https://discord.gg/citron\">자세히 알아보기</a>]]></string>
     <string name="notice_notification_channel_name">알림 및 오류</string>
     <string name="notice_notification_channel_description">문제가 발생하면 알림을 표시합니다.</string>
     <string name="notification_permission_not_granted">알림 권한이 부여되지 않았습니다!</string>
@@ -35,7 +35,7 @@
     <string name="select_games_folder_description">citron에 게임 목록 추가하기</string>
     <string name="add_games_warning">게임 폴더 선택을 건너뛰겠습니까?</string>
     <string name="add_games_warning_description">폴더를 선택하지 않으면 게임 목록에 게임이 표시되지 않습니다.</string>
-    <string name="add_games_warning_help">https://citron-emu.org/help/quickstart/#dumping-games</string>
+    <string name="add_games_warning_help">https://discord.gg/citron</string>
     <string name="home_search_games">게임 검색</string>
     <string name="search_settings">검색 설정</string>
     <string name="games_dir_selected">게임 디렉터리를 설정했습니다.</string>
@@ -43,7 +43,7 @@
     <string name="install_prod_keys_description">패키지 게임 암호 해독에 필요</string>
     <string name="install_prod_keys_warning">키 추가를 건너뛰겠습니까?</string>
     <string name="install_prod_keys_warning_description">패키지 게임을 에뮬레이트하려면 유효한 키 값이 필요합니다. 이 단계를 건너뛰면 홈브류 게임만 실행할 수 있습니다.</string>
-    <string name="install_prod_keys_warning_help">https://citron-emu.org/help/quickstart/#guide-introduction</string>
+    <string name="install_prod_keys_warning_help">https://discord.gg/citron</string>
     <string name="notifications">알림</string>
     <string name="notifications_description">아래 버튼으로 알림 권한을 부여합니다.</string>
     <string name="give_permission">알림 켜기</string>
@@ -64,7 +64,7 @@
     <string name="install_prod_keys_failure_extension_description">키 파일의 확장자가 .keys인지 확인하고 다시 시도하세요.</string>
     <string name="install_amiibo_keys_failure_extension_description">키 파일의 확장자가 .bin인지 확인하고 다시 시도하세요.</string>
     <string name="invalid_keys_error">암호화 키가 올바르지 않음</string>
-    <string name="dumping_keys_quickstart_link">https://citron-emu.org/help/quickstart/#dumping-decryption-keys</string>
+    <string name="dumping_keys_quickstart_link">https://discord.gg/citron</string>
     <string name="install_keys_failure_description">선택한 파일이 잘못되었거나 손상되었습니다. 키를 다시 덤프하세요.</string>
     <string name="gpu_driver_manager">GPU 드라이버 관리자</string>
     <string name="install_gpu_driver">GPU 드라이버 설치</string>
@@ -114,7 +114,7 @@
     <string name="install_game_content_success">게임 콘텐츠 설치됨</string>
     <string name="install_game_content_success_install">%1$d개를 설치했습니다.</string>
     <string name="install_game_content_success_overwrite">%1$d개를 덮어씌웠습니다.</string>
-    <string name="install_game_content_help_link">https://citron-emu.org/help/quickstart/#dumping-installed-updates</string>
+    <string name="install_game_content_help_link">https://discord.gg/citron</string>
     <string name="custom_driver_not_supported">사용자 지정 드라이버는 지원하지 않습니다.</string>
     <string name="custom_driver_not_supported_description">이 장치의 사용자 지정 드라이버 로딩은 현재 지원하지 않습니다.\n나중에 이 옵션을 확인하면 지원이 추가되었는지 확인할 수 있습니다.</string>
     <string name="manage_citron_data">citron 데이터 관리</string>
@@ -137,14 +137,14 @@
     <string name="verify_installed_content_description">전체 설치된 콘텐츠의 손상을 확인합니다.</string>
     <string name="keys_missing">암호화 키를 찾을 수 없음</string>
     <string name="keys_missing_description">펌웨어 및 패키지 게임을 해독할 수 없음</string>
-    <string name="keys_missing_help">https://citron-emu.org/help/quickstart/#dumping-decryption-keys</string>
+    <string name="keys_missing_help">https://discord.gg/citron</string>
 
     <!-- Applet launcher strings -->
     <string name="applets">애플릿 런처</string>
     <string name="applets_description">설치된 펌웨어를 사용해 시스템 애플릿을 실행합니다.</string>
     <string name="applets_error_firmware">펌웨어가 설치되지 않았습니다.</string>
     <string name="applets_error_applet">애플릿을 사용할 수 없음</string>
-    <string name="applets_error_description"><![CDATA[<a href=\"https://citron-emu.org/help/quickstart/#dumping-prodkeys-and-titlekeys\">prod.keys</a> 파일과 <a href=\"https://citron-emu.org/help/quickstart/#dumping-system-firmware\">펌웨어가</a> 설치되었는지 확인하고 다시 시도하세요.]]></string>
+    <string name="applets_error_description"><![CDATA[<a href=\"https://discord.gg/citron/#dumping-prodkeys-and-titlekeys\">prod.keys</a> 파일과 <a href=\"https://discord.gg/citron/#dumping-system-firmware\">펌웨어가</a> 설치되었는지 확인하고 다시 시도하세요.]]></string>
     <string name="album_applet">앨범</string>
     <string name="album_applet_description">시스템 사진 뷰어로 유저 스크린샷 폴더에 저장된 이미지를 확인합니다. </string>
     <string name="mii_edit_applet">Mii 편집</string>
@@ -176,7 +176,7 @@
     <string name="user_data_import_success">유저 데이터를 가져왔습니다.</string>
     <string name="user_data_export_cancelled">내보내기 취소됨</string>
     <string name="user_data_import_failed_description">유저 데이터 폴더가 ZIP 폴더의 루트 디렉토리에 위치하고 config/config.ini 구성 파일이 있는지 확인하고 다시 시도하세요.</string>
-    <string name="support_link">https://discord.gg/u77vRWY</string>
+    <string name="support_link">https://discord.gg/citron</string>
     <string name="website_link">https://citron-emu.org/</string>
     <string name="github_link">https://github.com/citron-emu</string>
 
@@ -403,8 +403,8 @@
 
     <!-- ROM loading errors -->
     <string name="loader_error_encrypted">롬 파일이 암호화되어있음</string>
-    <string name="loader_error_encrypted_roms_description"><![CDATA[가이드에 따라 <a href=\"https://citron-emu.org/help/quickstart/#dumping-physical-titles-game-cards\">게임 카트리지</a> 또는 <a href=\"https://citron-emu.org/help/quickstart/#dumping-digital-titles-eshop\">설치된 타이틀</a>을 다시 덤프하세요.]]></string>
-    <string name="loader_error_encrypted_keys_description"><![CDATA[게임을 해독할 수 있도록 <a href=\"https://citron-emu.org/help/quickstart/#dumping-prodkeys-and-titlekeys\">prod.keys</a> 파일이 설치되어 있는지 확인하세요.]]></string>
+    <string name="loader_error_encrypted_roms_description"><![CDATA[가이드에 따라 <a href=\"https://discord.gg/citron/#dumping-physical-titles-game-cards\">게임 카트리지</a> 또는 <a href=\"https://discord.gg/citron/#dumping-digital-titles-eshop\">설치된 타이틀</a>을 다시 덤프하세요.]]></string>
+    <string name="loader_error_encrypted_keys_description"><![CDATA[게임을 해독할 수 있도록 <a href=\"https://discord.gg/citron/#dumping-prodkeys-and-titlekeys\">prod.keys</a> 파일이 설치되어 있는지 확인하세요.]]></string>
     <string name="loader_error_video_core">비디오 코어를 초기화하는 동안 오류 발생</string>
     <string name="loader_error_video_core_description">일반적으로 이 문제는 호환되지 않는 GPU 드라이버로 인해 발생합니다. 사용자 지정 GPU 드라이버를 설치하면 이 문제가 해결될 수 있습니다.</string>
     <string name="loader_error_invalid_format">롬 파일을 불러올 수 없음</string>

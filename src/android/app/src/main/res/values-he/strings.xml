@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources xmlns:tools="http://schemas.android.com/tools" tools:ignore="MissingTranslation">
 
-    <string name="app_disclaimer">התוכנה תריץ משחקים לקונסולת ה Nintendo Switch. אף משחק או קבצים בעלי זכויות יוצרים נכללים.&lt;br /&gt;&lt;br /&gt; לפני שאת/ה מתחיל בבקשה מצא את קובץ <![CDATA[<b>prod.keys</b>]]> על המכשיר.&lt;br /&gt;&lt;br /&gt;<![CDATA[<a href=\"https://citron-emu.org/help/quickstart\">קרא עוד</a>]]></string>
+    <string name="app_disclaimer">התוכנה תריץ משחקים לקונסולת ה Nintendo Switch. אף משחק או קבצים בעלי זכויות יוצרים נכללים.&lt;br /&gt;&lt;br /&gt; לפני שאת/ה מתחיל בבקשה מצא את קובץ <![CDATA[<b>prod.keys</b>]]> על המכשיר.&lt;br /&gt;&lt;br /&gt;<![CDATA[<a href=\"https://discord.gg/citron\">קרא עוד</a>]]></string>
     <string name="notice_notification_channel_name">התראות ותקלות</string>
     <string name="notice_notification_channel_description">מציג התראות כאשר משהו הולך לא כשורה.</string>
     <string name="notification_permission_not_granted">הרשאות התראות לא ניתנה!</string>
@@ -35,7 +35,7 @@
     <string name="select_games_folder_description">אפשר ל citron  לאכלס את רשימת המשחקים</string>
     <string name="add_games_warning">לדלג על בחירת תיקיית המשחקים?</string>
     <string name="add_games_warning_description">משחקים לא יוצגו ברשימת המשחקים  אם לנבחרה תיקיית משחקים.</string>
-    <string name="add_games_warning_help">https://citron-emu.org/help/quickstart/#dumping-games</string>
+    <string name="add_games_warning_help">https://discord.gg/citron</string>
     <string name="home_search_games">חפש משחקים</string>
     <string name="search_settings">חפש בהגדרות</string>
     <string name="games_dir_selected">ספריית משחקים נבחרה</string>
@@ -43,7 +43,7 @@
     <string name="install_prod_keys_description">הכרחי בכדי לפענח משחקים</string>
     <string name="install_prod_keys_warning">לדלג על הוספת מפתחות?</string>
     <string name="install_prod_keys_warning_description">מפתחות חוקיים הכרחיים כדי לשחק במשחקים. רק אפליקציות פירטיות יפעלו אם תמשיך.</string>
-    <string name="install_prod_keys_warning_help">https://citron-emu.org/help/quickstart/#guide-introduction</string>
+    <string name="install_prod_keys_warning_help">https://discord.gg/citron</string>
     <string name="notifications">התראות</string>
     <string name="notifications_description">תן גישה להתראות עם הכפתור למטה.</string>
     <string name="give_permission">תן הרשאה</string>
@@ -64,7 +64,7 @@
     <string name="install_prod_keys_failure_extension_description">ודא שלקובץ המפתחות שלך יש סיומת של key. ונסה/י שוב.</string>
     <string name="install_amiibo_keys_failure_extension_description">ודא/י שלקובץ המפתחות שלך יש סיומת של bin. ונסה/י שוב.</string>
     <string name="invalid_keys_error">מפתחות הצפנה לא חוקיים</string>
-    <string name="dumping_keys_quickstart_link">https://citron-emu.org/help/quickstart/#dumping-decryption-keys</string>
+    <string name="dumping_keys_quickstart_link">https://discord.gg/citron</string>
     <string name="install_keys_failure_description">קבוץ שנבחר מושחת או לא נכון. בבקשה הוצא מחדש את המפתחות שלך.</string>
     <string name="gpu_driver_manager">מנהל הדרייברים של המעבד הגרפי</string>
     <string name="install_gpu_driver">התקן דרייבר למעבד הגרפי</string>
@@ -114,7 +114,7 @@
     <string name="install_game_content_success">תוכן (או תכני) המשחק הותקנו בהצלחה</string>
     <string name="install_game_content_success_install">%1$d הותקן בהצלחה</string>
     <string name="install_game_content_success_overwrite">%1$d נדרס/נכתב מעל בהצלחה</string>
-    <string name="install_game_content_help_link">https://citron-emu.org/help/quickstart/#dumping-installed-updates</string>
+    <string name="install_game_content_help_link">https://discord.gg/citron</string>
     <string name="custom_driver_not_supported">דרייברים מותאמים אישית לא נתמכים</string>
     <string name="custom_driver_not_supported_description">הטענת דרייבים מותאמים אישית לא נתמך כרגע על מכשיר זה. \nבבקשה בדוק אופציה זו בעתיד בכדי לראות אם נוספה תמיכה!</string>
     <string name="manage_citron_data">נהל את המידע של citron</string>
@@ -126,14 +126,14 @@
     <string name="add_game_folder">הוסף תיקיית משחקים</string>
     <string name="folder_already_added">התיקייה הזו נוספה כבר!</string>
     <string name="game_folder_properties">מאפייני תיקיית משחקים</string>
-    <string name="keys_missing_help">https://citron-emu.org/help/quickstart/#dumping-decryption-keys</string>
+    <string name="keys_missing_help">https://discord.gg/citron</string>
 
     <!-- Applet launcher strings -->
     <string name="applets">משגר Applet</string>
     <string name="applets_description">מערכת שיגור Applet משתמשת בתוכנה המותקנת</string>
     <string name="applets_error_firmware">ה Firmware לא מותקן</string>
     <string name="applets_error_applet">Applet לא זמין</string>
-    <string name="applets_error_description"><![CDATA[בבקשה וודא שקבצי ה - <a href=\"https://citron-emu.org/help/quickstart/#dumping-prodkeys-and-titlekeys\">prod.keys</a>ו <a href=\"https://citron-emu.org/help/quickstart/#dumping-system-firmware\">firmware</a>שלך מותקנים ונסה שוב.]]></string>
+    <string name="applets_error_description"><![CDATA[בבקשה וודא שקבצי ה - <a href=\"https://discord.gg/citron/#dumping-prodkeys-and-titlekeys\">prod.keys</a>ו <a href=\"https://discord.gg/citron/#dumping-system-firmware\">firmware</a>שלך מותקנים ונסה שוב.]]></string>
     <string name="album_applet">אלבום</string>
     <string name="album_applet_description">צפה בתמונות השמורות בתיקיית צילומי המסך של המשתמש בעזרת מציג התמונות של המערכת</string>
     <string name="mii_edit_applet">עורך Mii</string>
@@ -165,7 +165,7 @@
     <string name="user_data_import_success">נתוני משתמש יובאו בהצלחה</string>
     <string name="user_data_export_cancelled">ייצוא בוטל</string>
     <string name="user_data_import_failed_description">ודא שנתוני המשתמש נמצאים בשורש קובץ ה zip ושהוא מכיל קובץ סידור ב config/config.ini ונסה שוב.</string>
-    <string name="support_link">https://discord.gg/u77vRWY</string>
+    <string name="support_link">https://discord.gg/citron</string>
     <string name="website_link">https://citron-emu.org/</string>
     <string name="github_link">https://github.com/citron-emu</string>
 
@@ -325,8 +325,8 @@
     <string name="verify_success">אימות  התקינות הצליח!</string>
     <!-- ROM loading errors -->
     <string name="loader_error_encrypted">המשחק שלך מוצפן</string>
-    <string name="loader_error_encrypted_roms_description"><![CDATA[אנא עקוב אחרי המדריכים כדי לבצע redump של <a href=\"https://citron-emu.org/help/quickstart/#dumping-physical-titles-game-cards\">כרטיסי המשחק</a>או <a href=\"https://citron-emu.org/help/quickstart/#dumping-digital-titles-eshop\">הכותרות המותקנות</a> שלך.]]></string>
-    <string name="loader_error_encrypted_keys_description"><![CDATA[אנא וודא שקובץ ה-<a href=\"https://citron-emu.org/help/quickstart/#dumping-prodkeys-and-titlekeys\">prod.keys</a> מותקן כך שניתן יהיה לפענח משחקים.]]></string>
+    <string name="loader_error_encrypted_roms_description"><![CDATA[אנא עקוב אחרי המדריכים כדי לבצע redump של <a href=\"https://discord.gg/citron/#dumping-physical-titles-game-cards\">כרטיסי המשחק</a>או <a href=\"https://discord.gg/citron/#dumping-digital-titles-eshop\">הכותרות המותקנות</a> שלך.]]></string>
+    <string name="loader_error_encrypted_keys_description"><![CDATA[אנא וודא שקובץ ה-<a href=\"https://discord.gg/citron/#dumping-prodkeys-and-titlekeys\">prod.keys</a> מותקן כך שניתן יהיה לפענח משחקים.]]></string>
     <string name="loader_error_video_core">התרחשה בעיה באתחול של ליבת הווידאו</string>
     <string name="loader_error_video_core_description">זה בדרך כלל נגרם על ידי דרייבר לא מתאים עבור המעבד הגרפי. התקנת דרייבר אשר מתאים למעבד הגרפי יכול לפתור את הבעיה הזו.</string>
     <string name="loader_error_invalid_format">אין אפשרות לטעון את המשחק</string>

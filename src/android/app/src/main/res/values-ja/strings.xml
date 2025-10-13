@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources xmlns:tools="http://schemas.android.com/tools" tools:ignore="MissingTranslation">
 
-    <string name="app_disclaimer">このソフトウェアでは、Nintendo Switchのゲームを実行できます。 ゲームソフトやキーは含まれません。&lt;br /&gt;&lt;br /&gt;事前に、 <![CDATA[<b> prod.keys </b>]]> ファイルをストレージに配置しておいてください。&lt;br /&gt;&lt;br /&gt;<![CDATA[<a href=\"https://citron-emu.org/help/quickstart\">詳細</a>]]></string>
+    <string name="app_disclaimer">このソフトウェアでは、Nintendo Switchのゲームを実行できます。 ゲームソフトやキーは含まれません。&lt;br /&gt;&lt;br /&gt;事前に、 <![CDATA[<b> prod.keys </b>]]> ファイルをストレージに配置しておいてください。&lt;br /&gt;&lt;br /&gt;<![CDATA[<a href=\"https://discord.gg/citron\">詳細</a>]]></string>
     <string name="notice_notification_channel_name">通知とエラー</string>
     <string name="notice_notification_channel_description">問題の発生時に通知を表示します。</string>
     <string name="notification_permission_not_granted">通知が許可されていません!</string>
@@ -34,7 +34,7 @@
     <string name="select_games_folder_description">ゲームをcitronのゲームリストに追加します</string>
     <string name="add_games_warning">ゲームフォルダの選択をスキップしますか?</string>
     <string name="add_games_warning_description">フォルダを選択しないと、ゲームがリストに表示されません。</string>
-    <string name="add_games_warning_help">https://citron-emu.org/help/quickstart/#dumping-games</string>
+    <string name="add_games_warning_help">https://discord.gg/citron</string>
     <string name="home_search_games">ゲームを検索</string>
     <string name="search_settings">設定を検索</string>
     <string name="games_dir_selected">フォルダを選択しました</string>
@@ -42,7 +42,7 @@
     <string name="install_prod_keys_description">製品版ゲームの復号化に必要です</string>
     <string name="install_prod_keys_warning">キーの追加をスキップしますか？</string>
     <string name="install_prod_keys_warning_description">製品版ゲームのエミュレーションには、有効なキーが必要です。続行すると自作アプリしか機能しません。</string>
-    <string name="install_prod_keys_warning_help">https://citron-emu.org/help/quickstart/#guide-introduction</string>
+    <string name="install_prod_keys_warning_help">https://discord.gg/citron</string>
     <string name="notifications">通知</string>
     <string name="notifications_description">下のボタンで通知を許可してください。</string>
     <string name="give_permission">許可</string>
@@ -63,7 +63,7 @@
     <string name="install_prod_keys_failure_extension_description">キーの拡張子が.keysであることを確認し、再度お試しください。</string>
     <string name="install_amiibo_keys_failure_extension_description">キーの拡張子が.binであることを確認し、再度お試しください。</string>
     <string name="invalid_keys_error">暗号化キーが無効</string>
-    <string name="dumping_keys_quickstart_link">https://citron-emu.org/help/quickstart/#dumping-decryption-keys</string>
+    <string name="dumping_keys_quickstart_link">https://discord.gg/citron</string>
     <string name="install_keys_failure_description">ファイルが間違っているか破損しています。キーを再ダンプしてください。</string>
     <string name="gpu_driver_manager">GPUドライバーの管理</string>
     <string name="install_gpu_driver">GPUドライバー</string>
@@ -107,11 +107,11 @@
     <string name="install_game_content_success">ゲームコンテンツのインストールに成功しました</string>
     <string name="install_game_content_success_install">%1$d のインストールに成功しました</string>
     <string name="install_game_content_success_overwrite">%1$d の上書きに成功しました</string>
-    <string name="install_game_content_help_link">https://citron-emu.org/help/quickstart/#dumping-installed-updates</string>
+    <string name="install_game_content_help_link">https://discord.gg/citron</string>
     <string name="custom_driver_not_supported">カスタムドライバはサポートされていません</string>
     <string name="manage_citron_data">citron データを管理</string>
     <string name="share_save_file">セーブファイルを共有</string>
-    <string name="keys_missing_help">https://citron-emu.org/help/quickstart/#dumping-decryption-keys</string>
+    <string name="keys_missing_help">https://discord.gg/citron</string>
 
     <string name="applets_error_firmware">ファームウェア未インストール</string>
     <string name="album_applet">アルバム</string>
@@ -132,7 +132,7 @@
     <string name="user_data_export_success">ユーザデータのエクスポートに成功しました</string>
     <string name="user_data_import_success">ユーザデータのインポートに成功しました</string>
     <string name="user_data_export_cancelled">エクスポートをキャンセルしました</string>
-    <string name="support_link">https://discord.gg/u77vRWY</string>
+    <string name="support_link">https://discord.gg/citron</string>
     <string name="website_link">https://citron-emu.org/</string>
     <string name="github_link">https://github.com/citron-emu</string>
 
@@ -299,7 +299,7 @@
     <string name="verify_failure">整合性の確認に失敗しました!</string>
     <!-- ROM loading errors -->
     <string name="loader_error_encrypted">ROMが暗号化されています</string>
-    <string name="loader_error_encrypted_keys_description"><![CDATA[ゲームの復号化に必要な <a href=\"https://citron-emu.org/help/quickstart/#dumping-prodkeys-and-titlekeys\">prod.keys</a> ファイルがインストールされていることを確認してください。]]></string>
+    <string name="loader_error_encrypted_keys_description"><![CDATA[ゲームの復号化に必要な <a href=\"https://discord.gg/citron/#dumping-prodkeys-and-titlekeys\">prod.keys</a> ファイルがインストールされていることを確認してください。]]></string>
     <string name="loader_error_video_core">ビデオコアの初期化中にエラーが発生しました</string>
     <string name="loader_error_video_core_description">これは通常、互換性のないGPUドライバーが原因で発生します。 カスタムGPUドライバーをインストールすると、問題が解決する可能性があります。</string>
     <string name="loader_error_invalid_format">ROMの読み込みに失敗しました</string>

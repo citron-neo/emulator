@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources xmlns:tools="http://schemas.android.com/tools" tools:ignore="MissingTranslation">
 
-    <string name="app_disclaimer">Phần mềm này sẽ chạy trò chơi cho máy chơi game Nintendo Switch. Không có game titles hoặc keys được bao gồm.&lt;br /&gt;&lt;br /&gt;Trước khi bạn bắt đầu, hãy tìm file <![CDATA[<b> prod.keys </b>]]> trên bộ nhớ thiết bị của bạn.&lt;br /&gt;&lt;br /&gt;<![CDATA[<a href=\"https://citron-emu.org/help/quickstart\">Tìm hiểu thêm</a>]]></string>
+    <string name="app_disclaimer">Phần mềm này sẽ chạy trò chơi cho máy chơi game Nintendo Switch. Không có game titles hoặc keys được bao gồm.&lt;br /&gt;&lt;br /&gt;Trước khi bạn bắt đầu, hãy tìm file <![CDATA[<b> prod.keys </b>]]> trên bộ nhớ thiết bị của bạn.&lt;br /&gt;&lt;br /&gt;For support, please visit discord.gg/citron</string>
     <string name="notice_notification_channel_name">Thông báo và lỗi</string>
     <string name="notice_notification_channel_description">Hiển thị thông báo khi có sự cố xảy ra</string>
     <string name="notification_permission_not_granted">Ứng dụng không được cấp quyền thông báo!</string>
@@ -32,14 +32,14 @@
     <string name="select_games_folder_description">Cho phép citron thêm các trò chơi vào danh sách</string>
     <string name="add_games_warning">Bỏ qua lựa chọn thư mục trò chơi?</string>
     <string name="add_games_warning_description">Trò chơi sẽ không hiển thị trong danh sách nếu một thư mục không được chọn</string>
-    <string name="add_games_warning_help">https://citron-emu.org/help/quickstart/#dumping-games</string>
+    <string name="add_games_warning_help">https://discord.gg/citron</string>
     <string name="home_search_games">Tìm kiếm games</string>
     <string name="games_dir_selected">Thư mục trò chơi đã được chọn</string>
     <string name="install_prod_keys">Cài prod.keys</string>
     <string name="install_prod_keys_description">Yêu cầu để giải mã các game bán lẻ</string>
     <string name="install_prod_keys_warning">Bỏ qua thêm chìa khóa?</string>
     <string name="install_prod_keys_warning_description">Cần có chìa khóa hợp lệ để giả lập trò chơi. Chỉ có các ứng dụng homebrew có thể vận hành nếu bạn tiếp tục</string>
-    <string name="install_prod_keys_warning_help">https://citron-emu.org/help/quickstart/#guide-introduction</string>
+    <string name="install_prod_keys_warning_help">https://discord.gg/citron</string>
     <string name="notifications">Thông báo</string>
     <string name="notifications_description">Ấn vào nút bên dưới để cấp quyền ứng dụng gửi thông báo</string>
     <string name="give_permission">Cấp quyền</string>
@@ -60,7 +60,7 @@
     <string name="install_prod_keys_failure_extension_description">Xác minh rằng tệp keys của bạn có đuôi .keys và thử lại.</string>
     <string name="install_amiibo_keys_failure_extension_description">Xác minh rằng tệp keys của bạn có đuôi .bin và thử lại.</string>
     <string name="invalid_keys_error">Keys mã hoá không hợp lệ</string>
-    <string name="dumping_keys_quickstart_link">https://citron-emu.org/help/quickstart/#dumping-decryption-keys</string>
+    <string name="dumping_keys_quickstart_link">https://discord.gg/citron</string>
     <string name="install_keys_failure_description">Chọn file sai hoặc bị hỏng. Hãy xuất chìa khóa khác</string>
     <string name="install_gpu_driver">Cài đặt driver GPU</string>
     <string name="install_gpu_driver_description">Cài đặt driver thay thế để có thể có hiệu suất tốt và chính xác hơn</string>
@@ -94,8 +94,8 @@
     <string name="share_log_missing">Không tìm thấy tệp log</string>
     <string name="install_game_content">Cài đặt nội dung game</string>
     <string name="install_game_content_description">Cài đặt cập nhật game hoặc DLC</string>
-    <string name="install_game_content_help_link">https://citron-emu.org/help/quickstart/#dumping-installed-updates</string>
-    <string name="keys_missing_help">https://citron-emu.org/help/quickstart/#dumping-decryption-keys</string>
+    <string name="install_game_content_help_link">https://discord.gg/citron</string>
+    <string name="keys_missing_help">https://discord.gg/citron</string>
 
     <!-- About screen strings -->
     <string name="gaia_is_not_real">Gaia không có thật</string>
@@ -106,7 +106,7 @@
     <string name="contributors_link">https://github.com/citron-emu/citron/graphs/contributors</string>
     <string name="licenses_description">Các dự án làm cho citron trên Android trở thành điều có thể</string>
     <string name="build">Dựng</string>
-    <string name="support_link">https://discord.gg/u77vRWY</string>
+    <string name="support_link">https://discord.gg/citron</string>
     <string name="website_link">https://citron-emu.org/</string>
     <string name="github_link">https://github.com/citron-emu</string>
 
@@ -259,7 +259,7 @@
     <string name="verify_failure">Kiểm tra tính toàn vẹn thất bại!</string>
     <!-- ROM loading errors -->
     <string name="loader_error_encrypted">ROM của bạn đã bị mã hoá</string>
-    <string name="loader_error_encrypted_keys_description"><![CDATA[Vui lòng đảm bảo file <a href=\"https://citron-emu.org/help/quickstart/#dumping-prodkeys-and-titlekeys\">prod.keys</a> đã được cài đặt để game có thể được giải mã.]]></string>
+    <string name="loader_error_encrypted_keys_description">Vui lòng đảm bảo file prod.keys đã được cài đặt để game có thể được giải mã. For support, visit discord.gg/citron</string>
     <string name="loader_error_video_core">Đã xảy ra lỗi khi khởi tạo lõi video</string>
     <string name="loader_error_video_core_description">Việc này thường do driver GPU không tương thích. Cài đặt một driver GPU tùy chỉnh có thể giải quyết vấn đề này.</string>
     <string name="loader_error_invalid_format">Không thể tải ROM</string>

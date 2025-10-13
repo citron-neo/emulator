@@ -462,10 +462,7 @@ GMainWindow::GMainWindow(std::unique_ptr<QtConfig> config_, bool has_broken_vulk
         UISettings::values.has_broken_vulkan = true;
 
         QMessageBox::warning(this, tr("Broken Vulkan Installation Detected"),
-                             tr("Vulkan initialization failed during boot.<br><br>Click <a "
-                                "href='https://citron-emu.org/wiki/faq/"
-                                "#citron-starts-with-the-error-broken-vulkan-installation-detected'>"
-                                "here for instructions to fix the issue</a>."));
+                             tr("Vulkan initialization failed during boot.<br><br>For support, please visit discord.gg/citron"));
 
 #ifdef HAS_OPENGL
         Settings::values.renderer_backend = Settings::RendererBackend::OpenGL;
@@ -1584,9 +1581,7 @@ void GMainWindow::ConnectMenuEvents() {
     connect_menu(ui->action_Pause, &GMainWindow::OnPauseContinueGame);
     connect_menu(ui->action_Stop, &GMainWindow::OnStopGame);
     connect_menu(ui->action_Report_Compatibility, &GMainWindow::OnMenuReportCompatibility);
-    connect_menu(ui->action_Open_Mods_Page, &GMainWindow::OnOpenModsPage);
-    connect_menu(ui->action_Open_Quickstart_Guide, &GMainWindow::OnOpenQuickstartGuide);
-    connect_menu(ui->action_Open_FAQ, &GMainWindow::OnOpenFAQ);
+    connect_menu(ui->action_Open_Support, &GMainWindow::OnOpenSupport);
     connect_menu(ui->action_Restart, &GMainWindow::OnRestartGame);
     connect_menu(ui->action_Configure, &GMainWindow::OnConfigure);
     connect_menu(ui->action_Configure_Current_Game, &GMainWindow::OnConfigurePerGame);
@@ -1859,9 +1854,7 @@ bool GMainWindow::LoadROM(const QString& filename, Service::AM::FrontendAppletPa
             tr("You are using the deconstructed ROM directory format for this game, which is an "
                "outdated format that has been superseded by others such as NCA, NAX, XCI, or "
                "NSP. Deconstructed ROM directories lack icons, metadata, and update "
-               "support.<br><br>For an explanation of the various Switch formats citron supports, <a "
-               "href='https://citron-emu.org/wiki/overview-of-switch-game-formats'>check out our "
-               "wiki</a>. This message will not be shown again."));
+               "support.<br><br>For support, please visit discord.gg/citron. This message will not be shown again."));
     }
 
     if (result != Core::SystemResultStatus::Success) {
@@ -1892,9 +1885,7 @@ bool GMainWindow::LoadROM(const QString& filename, Service::AM::FrontendAppletPa
                     tr("Error while loading ROM! %1", "%1 signifies a numeric error code.")
                         .arg(QString::fromStdString(error_code));
                 const auto description =
-                    tr("%1<br>Please follow <a href='https://citron-emu.org/help/quickstart/'>the "
-                       "citron quickstart guide</a> to redump your files.<br>You can refer "
-                       "to the citron wiki</a> or the citron Discord</a> for help.",
+                    tr("%1<br>For support, please visit discord.gg/citron",
                        "%1 signifies an error string.")
                         .arg(QString::fromStdString(
                             GetResultStatusString(static_cast<Loader::ResultStatus>(error_id))));
@@ -3622,16 +3613,8 @@ void GMainWindow::OpenURL(const QUrl& url) {
     }
 }
 
-void GMainWindow::OnOpenModsPage() {
-    OpenURL(QUrl(QStringLiteral("https://github.com/citron-emu/citron/wiki/Switch-Mods")));
-}
-
-void GMainWindow::OnOpenQuickstartGuide() {
-    OpenURL(QUrl(QStringLiteral("https://citron-emu.org/help/quickstart/")));
-}
-
-void GMainWindow::OnOpenFAQ() {
-    OpenURL(QUrl(QStringLiteral("https://citron-emu.org/wiki/faq/")));
+void GMainWindow::OnOpenSupport() {
+    OpenURL(QUrl(QStringLiteral("https://discord.gg/citron")));
 }
 
 void GMainWindow::ToggleFullscreen() {
@@ -4990,9 +4973,7 @@ void GMainWindow::OnCheckFirmwareDecryption() {
         QMessageBox::warning(
             this, tr("Derivation Components Missing"),
             tr("Encryption keys are missing. "
-               "<br>Please follow <a href='https://citron-emu.org/help/quickstart/'>the citron "
-               "quickstart guide</a> to get all your keys, firmware and "
-               "games."));
+               "<br>For support, please visit discord.gg/citron"));
     }
     SetFirmwareVersion();
     UpdateMenuState();

@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources xmlns:tools="http://schemas.android.com/tools" tools:ignore="MissingTranslation">
 
-    <string name="app_disclaimer">Ce logiciel exécutera des jeux pour la console de jeu Nintendo Switch. Aucun jeux ou clés n\'est inclus.&lt;br /&gt;&lt;br /&gt;Avant de commencer, veuillez localiser votre fichier <![CDATA[<b> prod.keys </b>]]> sur le stockage de votre appareil.&lt;br /&gt;&lt;br /&gt;<![CDATA[<a href=\"https://citron-emu.org/help/quickstart\">En savoir plus</a>]]></string>
+    <string name="app_disclaimer">Ce logiciel exécutera des jeux pour la console de jeu Nintendo Switch. Aucun jeux ou clés n\'est inclus.&lt;br /&gt;&lt;br /&gt;Avant de commencer, veuillez localiser votre fichier <![CDATA[<b> prod.keys </b>]]> sur le stockage de votre appareil.&lt;br /&gt;&lt;br /&gt;<![CDATA[<a href=\"https://discord.gg/citron\">En savoir plus</a>]]></string>
     <string name="notice_notification_channel_name">Avis et erreurs</string>
     <string name="notice_notification_channel_description">Affiche des notifications en cas de problème.</string>
     <string name="notification_permission_not_granted">Permission de notification non accordée !</string>
@@ -35,7 +35,7 @@
     <string name="select_games_folder_description">Permet à citron de remplir la liste des jeux</string>
     <string name="add_games_warning">Ne pas sélectionner le dossier des jeux ?</string>
     <string name="add_games_warning_description">Les jeux ne seront pas affichés dans la liste des jeux si aucun dossier n\'est sélectionné.</string>
-    <string name="add_games_warning_help">https://citron-emu.org/help/quickstart/#dumping-games</string>
+    <string name="add_games_warning_help">https://discord.gg/citron</string>
     <string name="home_search_games">Rechercher des jeux</string>
     <string name="search_settings">Rechercher un paramètre</string>
     <string name="games_dir_selected">Répertoire de jeux sélectionné</string>
@@ -43,7 +43,7 @@
     <string name="install_prod_keys_description">Nécessaire pour décrypter les jeux commerciaux.</string>
     <string name="install_prod_keys_warning">Sauter l\'ajout des clés ?</string>
     <string name="install_prod_keys_warning_description">Des clés valides sont nécessaires pour émuler des jeux commerciaux. Seules les applications homebrew fonctionneront si vous continuez.</string>
-    <string name="install_prod_keys_warning_help">https://citron-emu.org/help/quickstart/#guide-introduction</string>
+    <string name="install_prod_keys_warning_help">https://discord.gg/citron</string>
     <string name="notifications">Notifications</string>
     <string name="notifications_description">Accorder la permission de notification avec le bouton ci-dessous.</string>
     <string name="give_permission">Accorder la permission</string>
@@ -64,7 +64,7 @@
     <string name="install_prod_keys_failure_extension_description">Vérifiez que votre fichier de clés a une extension .keys et réessayez.</string>
     <string name="install_amiibo_keys_failure_extension_description">Vérifiez que votre fichier de clés a une extension .bin et réessayez.</string>
     <string name="invalid_keys_error">Clés de chiffrement invalides</string>
-    <string name="dumping_keys_quickstart_link">https://citron-emu.org/help/quickstart/#dumping-decryption-keys</string>
+    <string name="dumping_keys_quickstart_link">https://discord.gg/citron</string>
     <string name="install_keys_failure_description">Le fichier sélectionné est incorrect ou corrompu. Veuillez dumper à nouveau vos clés.</string>
     <string name="gpu_driver_manager">Gestionnaire de pilotes du GPU</string>
     <string name="install_gpu_driver">Installer le pilote du GPU</string>
@@ -114,7 +114,7 @@
     <string name="install_game_content_success">Contenu du jeu installé avec succès</string>
     <string name="install_game_content_success_install">%1$d installé avec succès</string>
     <string name="install_game_content_success_overwrite">%1$d écrasé avec succès</string>
-    <string name="install_game_content_help_link">https://citron-emu.org/help/quickstart/#dumping-installed-updates</string>
+    <string name="install_game_content_help_link">https://discord.gg/citron</string>
     <string name="custom_driver_not_supported">Pilotes personnalisés non supporté</string>
     <string name="custom_driver_not_supported_description">Le chargement des pilotes personnalisés ne sont pas actuellement pris en charge pour ce périphérique. Vérifiez à nouveau cette option à l\'avenir pour voir si la prise en charge a été ajoutée !</string>
     <string name="manage_citron_data">Gérer les données de citron</string>
@@ -141,14 +141,14 @@
     <string name="verify_installed_content_description">Vérifie l\'intégrité des contenus installés</string>
     <string name="keys_missing">Les clés de chiffrement sont manquantes.</string>
     <string name="keys_missing_description">Le firmware et les jeux commerciaux ne peuvent pas être déchiffrés</string>
-    <string name="keys_missing_help">https://citron-emu.org/help/quickstart/#dumping-decryption-keys</string>
+    <string name="keys_missing_help">https://discord.gg/citron</string>
 
     <!-- Applet launcher strings -->
     <string name="applets">Lanceur d\'applets</string>
     <string name="applets_description">Lancer des applets système en utilisant le firmware installé</string>
     <string name="applets_error_firmware">Firmware non installé</string>
     <string name="applets_error_applet">Applet non disponible</string>
-    <string name="applets_error_description"><![CDATA[Veuillez vous assurer que le fichier <a href=\"https://citron-emu.org/help/quickstart/#dumping-prodkeys-and-titlekeys\">prod.keys</a> et le <a href=\"https://citron-emu.org/help/quickstart/#dumping-system-firmware\">firmware</a> sont installés et essayez à nouveau.]]></string>
+    <string name="applets_error_description"><![CDATA[Veuillez vous assurer que le fichier <a href=\"https://discord.gg/citron/#dumping-prodkeys-and-titlekeys\">prod.keys</a> et le <a href=\"https://discord.gg/citron/#dumping-system-firmware\">firmware</a> sont installés et essayez à nouveau.]]></string>
     <string name="album_applet">Album</string>
     <string name="album_applet_description">Afficher les images stockées dans le dossier de captures d\'écran de l\'utilisateur avec le visualiseur de photos système.</string>
     <string name="mii_edit_applet">Éditeur Mii</string>
@@ -180,7 +180,7 @@
     <string name="user_data_import_success">Les données utilisateur ont été importées avec succès</string>
     <string name="user_data_export_cancelled">Exportation annulée</string>
     <string name="user_data_import_failed_description">Assurez-vous que les dossiers de données utilisateur se trouvent à la racine du dossier ZIP et contiennent un fichier de configuration à config/config.ini, puis réessayez.</string>
-    <string name="support_link">https://discord.gg/u77vRWY</string>
+    <string name="support_link">https://discord.gg/citron</string>
     <string name="website_link">https://citron-emu.org/</string>
     <string name="github_link">https://github.com/citron-emu</string>
 
@@ -466,8 +466,8 @@
 
     <!-- ROM loading errors -->
     <string name="loader_error_encrypted">Votre ROM est cryptée</string>
-    <string name="loader_error_encrypted_roms_description"><![CDATA[Veuillez suivre les guides pour refaire un dump de vos <a href=\"https://citron-emu.org/help/quickstart/#dumping-physical-titles-game-cards\">cartouches de jeu</a> ou de vos <a href=\"https://citron-emu.org/help/quickstart/#dumping-digital-titles-eshop\">titres installés</a>.]]></string>
-    <string name="loader_error_encrypted_keys_description"><![CDATA[Veuillez vous assurer que votre fichier <a href=\"https://citron-emu.org/help/quickstart/#dumping-prodkeys-and-titlekeys\">prod.keys</a> est installé pour que les jeux puissent être déchiffrés.]]></string>
+    <string name="loader_error_encrypted_roms_description"><![CDATA[Veuillez suivre les guides pour refaire un dump de vos <a href=\"https://discord.gg/citron/#dumping-physical-titles-game-cards\">cartouches de jeu</a> ou de vos <a href=\"https://discord.gg/citron/#dumping-digital-titles-eshop\">titres installés</a>.]]></string>
+    <string name="loader_error_encrypted_keys_description"><![CDATA[Veuillez vous assurer que votre fichier <a href=\"https://discord.gg/citron/#dumping-prodkeys-and-titlekeys\">prod.keys</a> est installé pour que les jeux puissent être déchiffrés.]]></string>
     <string name="loader_error_video_core">Une erreur s\'est produite lors de l\'initialisation du noyau vidéo</string>
     <string name="loader_error_video_core_description">Cela est généralement dû à un pilote GPU incompatible. L\'installation d\'un pilote GPU personnalisé peut résoudre ce problème.</string>
     <string name="loader_error_invalid_format">Impossible de charger la ROM</string>

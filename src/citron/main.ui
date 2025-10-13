@@ -185,9 +185,7 @@
      <string>&amp;Help</string>
     </property>
     <addaction name="action_Report_Compatibility"/>
-    <addaction name="action_Open_Mods_Page"/>
-    <addaction name="action_Open_Quickstart_Guide"/>
-    <addaction name="action_Open_FAQ"/>
+    <addaction name="action_Open_Support"/>
     <addaction name="separator"/>
     <addaction name="action_Check_For_Updates"/>
     <addaction name="separator"/>
@@ -402,19 +400,9 @@
     <bool>false</bool>
    </property>
   </action>
-  <action name="action_Open_Mods_Page">
+  <action name="action_Open_Support">
    <property name="text">
-    <string>Open &amp;Mods Page</string>
-   </property>
-  </action>
-  <action name="action_Open_Quickstart_Guide">
-   <property name="text">
-    <string>Open &amp;Quickstart Guide</string>
-   </property>
-  </action>
-  <action name="action_Open_FAQ">
-   <property name="text">
-    <string>&amp;FAQ</string>
+    <string>Get &amp;Support (Discord)</string>
    </property>
   </action>
   <action name="action_Open_citron_Folder">

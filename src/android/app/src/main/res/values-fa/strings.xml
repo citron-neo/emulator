@@ -35,7 +35,7 @@
     <string name="select_games_folder_description">به citron اجازه می دهد تا لیست باز‌ی‌ها را پر کند</string>
     <string name="add_games_warning">از انتخاب پوشه بازی رد می‌شوید؟</string>
     <string name="add_games_warning_description">اگر پوشه‌ای انتخاب نشده باشد، بازی‌ها در لیست بازی‌ها نمایش داده نمی‌شوند.</string>
-    <string name="add_games_warning_help">https://citron-emu.org/help/quickstart/#dumping-games</string>
+    <string name="add_games_warning_help">https://discord.gg/citron</string>
     <string name="home_search_games">جستجو در بازی‌ها</string>
     <string name="search_settings">جستجو در تنظیمات</string>
     <string name="games_dir_selected">پوشه بازی‌ها انتخاب شد</string>
@@ -43,7 +43,7 @@
     <string name="install_prod_keys_description">برای رمزگشایی بازی‌های فروشگاهی مورد نیاز است</string>
     <string name="install_prod_keys_warning">افزودن کلیدها را رد می‌کنید؟</string>
     <string name="install_prod_keys_warning_description">کلیدهای معتبر برای شبیه‌سازی بازی‌های فروشگاهی مورد نیاز است. اگر ادامه دهید، فقط برنامه‌های سیستم ریزکامپیوتری کار خواهند کرد.</string>
-    <string name="install_prod_keys_warning_help">https://citron-emu.org/help/quickstart/#guide-introduction</string>
+    <string name="install_prod_keys_warning_help">https://discord.gg/citron</string>
     <string name="notifications">اعلان‌ها</string>
     <string name="notifications_description">مجوز اعلان را با دکمه زیر اعطا کنید.</string>
     <string name="give_permission">اجازه بدهید</string>
@@ -64,7 +64,7 @@
     <string name="install_prod_keys_failure_extension_description">بررسی کنید که فایل کلیدهای شما دارای پسوند keys. باشد و دوباره امتحان کنید.</string>
     <string name="install_amiibo_keys_failure_extension_description">بررسی کنید که فایل کلیدهای شما دارای پسوند bin. باشد و دوباره امتحان کنید.</string>
     <string name="invalid_keys_error">کلیدهای رمزگذاری نامعتبر</string>
-    <string name="dumping_keys_quickstart_link">https://citron-emu.org/help/quickstart/#dumping-decryption-keys</string>
+    <string name="dumping_keys_quickstart_link">https://discord.gg/citron</string>
     <string name="install_keys_failure_description">فایل انتخابی نادرست یا خراب است. لطفا کلیدهای خود را دوباره استخراج کنید.</string>
     <string name="gpu_driver_manager">مدیریت درایور پردازنده گرافیکی</string>
     <string name="install_gpu_driver">نصب درایور پردازنده گرافیکی</string>
@@ -114,7 +114,7 @@
     <string name="install_game_content_success">محتوا(های) بازی با موفقیت نصب شد</string>
     <string name="install_game_content_success_install">%1$dبا موفقیت نصب شد</string>
     <string name="install_game_content_success_overwrite">%1$dبا موفقیت بازنویسی شد</string>
-    <string name="install_game_content_help_link">https://citron-emu.org/help/quickstart/#dumping-installed-updates</string>
+    <string name="install_game_content_help_link">https://discord.gg/citron</string>
     <string name="custom_driver_not_supported">درایورهای سفارشی پشتیبانی نمی‌شوند</string>
     <string name="custom_driver_not_supported_description">بارگیری درایور سفارشی در حال حاضر برای این دستگاه پشتیبانی نمی‌شود.\nاین گزینه را دوباره در آینده بررسی کنید تا ببینید آیا پشتیبانی اضافه شده است یا خیر!</string>
     <string name="manage_citron_data">مدیریت داده‌های citron</string>
@@ -139,14 +139,14 @@
     <string name="verify_installed_content_description">تمام محتوای نصب شده را از نظر خرابی بررسی می‌کند</string>
     <string name="keys_missing">کلیدهای رمزگذاری وجود ندارند</string>
     <string name="keys_missing_description">ثابت‌افزار و بازی‌های فروشگاهی قابل رمزگشایی نیستند</string>
-    <string name="keys_missing_help">https://citron-emu.org/help/quickstart/#dumping-decryption-keys</string>
+    <string name="keys_missing_help">https://discord.gg/citron</string>
 
     <!-- Applet launcher strings -->
     <string name="applets">اجراکننده برنامک</string>
     <string name="applets_description">برنامک‌های سیستم را با استفاده از ثابت‌افزار نصب شده راه اندازی کنید</string>
     <string name="applets_error_firmware">ثابت‌افزار نصب نیست</string>
     <string name="applets_error_applet">برنامک در دسترس نیست</string>
-    <string name="applets_error_description"><![CDATA[لطفاً مطمئن شوید که فایل <a href=\"https://citron-emu.org/help/quickstart/#dumping-prodkeys-and-titlekeys\">prod.keys</a> و <a href=\"https://citron-emu.org/help/quickstart/#dumping-system-firmware\">ثابت‌افزار</a> شما نصب شده است و دوباره امتحان کنید.]]></string>
+    <string name="applets_error_description"><![CDATA[لطفاً مطمئن شوید که فایل <a href=\"https://discord.gg/citron/#dumping-prodkeys-and-titlekeys\">prod.keys</a> و <a href=\"https://discord.gg/citron/#dumping-system-firmware\">ثابت‌افزار</a> شما نصب شده است و دوباره امتحان کنید.]]></string>
     <string name="album_applet">آلبوم</string>
     <string name="album_applet_description">تصاویر ذخیره شده در پوشه اسکرین شات‌های کاربر را با نمایشگر عکس سیستم مشاهده کنید</string>
     <string name="mii_edit_applet">ویرایش Mii</string>
@@ -178,7 +178,7 @@
     <string name="user_data_import_success">داده‌های کاربر با موفقیت وارد شد</string>
     <string name="user_data_export_cancelled">صدور لغو شد</string>
     <string name="user_data_import_failed_description">مطمئن شوید که پوشه‌های داده کاربر در ریشه پوشه zip و حاوی یک فایل پیکربندی در config/config.ini هستند سپس دوباره امتحان کنید.</string>
-    <string name="support_link">https://discord.gg/u77vRWY</string>
+    <string name="support_link">https://discord.gg/citron</string>
     <string name="website_link">https://citron-emu.org/</string>
     <string name="github_link">https://github.com/citron-emu</string>
 
@@ -410,7 +410,7 @@
 
     <!-- ROM loading errors -->
     <string name="loader_error_encrypted">رام شما رمزگذاری شده است</string>
-    <string name="loader_error_encrypted_roms_description"><![CDATA[لطفاً راهنماها را دنبال کنید تا <a href=\"https://citron-emu.org/help/quickstart/#dumping-physical-titles-game-cards\">کارتیج‌های بازی</a> یا <a href=\"https://citron-emu.org/help/quickstart/#dumping-digital-titles-eshop\">عناوین نصب شده</a> خود را استخراج کنید.]]></string>
+    <string name="loader_error_encrypted_roms_description"><![CDATA[لطفاً راهنماها را دنبال کنید تا <a href=\"https://discord.gg/citron/#dumping-physical-titles-game-cards\">کارتیج‌های بازی</a> یا <a href=\"https://discord.gg/citron/#dumping-digital-titles-eshop\">عناوین نصب شده</a> خود را استخراج کنید.]]></string>
     <string name="loader_error_encrypted_keys_description"><![CDATA[لطفاً مطمئن شوید که فایل prod.keys شما نصب شده است تا بازی‌ها رمزگشایی شوند.]]></string>
     <string name="loader_error_video_core">در راه‌اندازی اولیه هسته ویدیو خطایی رخ داد</string>
     <string name="loader_error_video_core_description">این مورد معمولاً توسط یک درایور گرافیکی ناسازگار ایجاد می‌شود. نصب درایور گرافیکی سفارشی ممکن است این مشکل را حل کند.</string>

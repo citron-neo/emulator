@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources xmlns:tools="http://schemas.android.com/tools" tools:ignore="MissingTranslation">
 
-    <string name="app_disclaimer">Це програмне забезпечення дозволяє запускати ігри для ігрової консолі Nintendo Switch. Ми не надаємо самі ігри або ключі.&lt;br /&gt;&lt;br /&gt;Перед початком роботи знайдіть ваш файл <![CDATA[<b> prod.keys </b>]]> у сховищі пристрою.&lt;br /&gt;&lt;br /&gt;<![CDATA[<a href=\"https://citron-emu.org/help/quickstart\">Дізнатися більше</a>]]></string>
+    <string name="app_disclaimer">Це програмне забезпечення дозволяє запускати ігри для ігрової консолі Nintendo Switch. Ми не надаємо самі ігри або ключі.&lt;br /&gt;&lt;br /&gt;Перед початком роботи знайдіть ваш файл <![CDATA[<b> prod.keys </b>]]> у сховищі пристрою.&lt;br /&gt;&lt;br /&gt;For support, please visit discord.gg/citron</string>
     <string name="notice_notification_channel_name">Сповіщення та помилки</string>
     <string name="notice_notification_channel_description">Показувати сповіщення, коли щось пішло не так</string>
     <string name="notification_permission_not_granted">Ви не надали дозвіл сповіщень!</string>
@@ -32,14 +32,14 @@
     <string name="select_games_folder_description">Дозволяє citron заповнити список ігор</string>
     <string name="add_games_warning">Пропустити вибір папки з іграми?</string>
     <string name="add_games_warning_description">Ігри не відображатимуться у списку Ігри, якщо папку не вибрано.</string>
-    <string name="add_games_warning_help">https://citron-emu.org/help/quickstart/#dumping-games</string>
+    <string name="add_games_warning_help">https://discord.gg/citron</string>
     <string name="home_search_games">Знайти ігри</string>
     <string name="games_dir_selected">Вибрано папку з іграми</string>
     <string name="install_prod_keys">Встановити prod.keys</string>
     <string name="install_prod_keys_description">Потрібно для розшифровки роздрібних ігор</string>
     <string name="install_prod_keys_warning">Пропустити додавання ключів?</string>
     <string name="install_prod_keys_warning_description">Для емуляції роздрібних ігор потрібні дійсні ключі. Якщо ви продовжите, працюватимуть тільки homebrew додатки.</string>
-    <string name="install_prod_keys_warning_help">https://citron-emu.org/help/quickstart/#guide-introduction</string>
+    <string name="install_prod_keys_warning_help">https://discord.gg/citron</string>
     <string name="notifications">Сповіщення</string>
     <string name="notifications_description">Надайте дозвіл сповіщень за допомогою кнопки нижче.</string>
     <string name="give_permission">Надати дозвіл</string>
@@ -59,7 +59,7 @@
     <string name="reading_keys_failure">Помилка під час зчитування ключів шифрування</string>
     <string name="install_prod_keys_failure_extension_description">Переконайтеся, що файл ключів має розширення .keys, і повторіть спробу.</string>
     <string name="invalid_keys_error">Невірні ключі шифрування</string>
-    <string name="dumping_keys_quickstart_link">https://citron-emu.org/help/quickstart/#dumping-decryption-keys</string>
+    <string name="dumping_keys_quickstart_link">https://discord.gg/citron</string>
     <string name="install_keys_failure_description">Обраний файл невірний або пошкоджений. Будь ласка, пере-дампіть ваші ключі.</string>
     <string name="install_gpu_driver">Встановити драйвер ГП</string>
     <string name="install_gpu_driver_description">Встановіть альтернативні драйвери для потенційно кращої продуктивності та/або точності</string>
@@ -81,7 +81,7 @@
     <string name="save_file_invalid_zip_structure_description">Назва першої вкладеної папки має бути ідентифікатором гри.</string>
     <string name="import_saves">Імпорт</string>
     <string name="export_saves">Експорт</string>
-    <string name="keys_missing_help">https://citron-emu.org/help/quickstart/#dumping-decryption-keys</string>
+    <string name="keys_missing_help">https://discord.gg/citron</string>
 
     <!-- About screen strings -->
     <string name="gaia_is_not_real">Gaia не існує</string>
@@ -91,7 +91,7 @@
     <string name="contributors_description">Зроблено з \u2764 від команди citron</string>
     <string name="contributors_link">https://github.com/citron-emu/citron/graphs/contributors</string>
     <string name="build">Збірка</string>
-    <string name="support_link">https://discord.gg/u77vRWY</string>
+    <string name="support_link">https://discord.gg/citron</string>
     <string name="website_link">https://citron-emu.org/</string>
     <string name="github_link">https://github.com/citron-emu</string>
 
@@ -214,7 +214,7 @@
     <string name="add_ons">Доповнення</string>
     <!-- ROM loading errors -->
     <string name="loader_error_encrypted">Ваш ROM зашифрований</string>
-    <string name="loader_error_encrypted_keys_description"><![CDATA[Будь ласка, переконайтеся, що ваш файл <a href=\"https://citron-emu.org/help/quickstart/#dumping-prodkeys-and-titlekeys\">prod.keys</a> встановлено, щоб ігри можна було розшифрувати.]]></string>
+    <string name="loader_error_encrypted_keys_description">Будь ласка, переконайтеся, що ваш файл prod.keys встановлено, щоб ігри можна було розшифрувати. For support, visit discord.gg/citron</string>
     <string name="loader_error_video_core">Сталася помилка під час ініціалізації відеоядра.</string>
     <string name="loader_error_video_core_description">Зазвичай це спричинено несумісним драйвером ГП. Встановлення користувацького драйвера ГП може вирішити цю проблему.</string>
     <string name="loader_error_invalid_format">Не вдалося запустити ROM</string>

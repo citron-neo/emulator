@@ -26,10 +26,10 @@
     <string name="search_and_filter_games">Hledat a filtrovat hry</string>
     <string name="select_games_folder">Vybrat složku s hrami</string>
     <string name="manage_game_folders">Spravovat složky s hrami</string>
-    <string name="add_games_warning_help">https://citron-emu.org/help/quickstart/#dumping-games</string>
+    <string name="add_games_warning_help">https://discord.gg/citron</string>
     <string name="install_prod_keys">Instalovat prod.keys</string>
     <string name="install_prod_keys_warning">Přeskočit přidávání klíčů?</string>
-    <string name="install_prod_keys_warning_help">https://citron-emu.org/help/quickstart/#guide-introduction</string>
+    <string name="install_prod_keys_warning_help">https://discord.gg/citron</string>
     <string name="notifications">Oznámení</string>
     <string name="give_permission">Udělit oprávnění</string>
     <string name="notification_warning">Přeskočit udělení oprávnění k oznámení?</string>
@@ -47,7 +47,7 @@
     <string name="install_keys_success">Klíče úspěšně nainstalovány</string>
     <string name="reading_keys_failure">Chyba při čtení šifrovacích klíčů</string>
     <string name="invalid_keys_error">Neplatné šifrovací klíče</string>
-    <string name="dumping_keys_quickstart_link">https://citron-emu.org/help/quickstart/#dumping-decryption-keys</string>
+    <string name="dumping_keys_quickstart_link">https://discord.gg/citron</string>
     <string name="gpu_driver_manager">Správce ovladače GPU</string>
     <string name="install_gpu_driver">Instalovat GPU ovladač</string>
     <string name="advanced_settings">Pokročilé nastavení</string>
@@ -96,7 +96,7 @@
     <string name="user_data_export_success">Uživatelská data byla úspěšně exportována.</string>
     <string name="user_data_import_success">Uživatelská data byla úspěšně importována.</string>
     <string name="user_data_export_cancelled">Export zrušen</string>
-    <string name="support_link">https://discord.gg/u77vRWY</string>
+    <string name="support_link">https://discord.gg/citron</string>
     <string name="website_link">https://citron-emu.org/</string>
     <string name="github_link">https://github.com/citron-emu</string>
 

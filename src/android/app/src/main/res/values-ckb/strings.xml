@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources xmlns:tools="http://schemas.android.com/tools" tools:ignore="MissingTranslation">
 
-    <string name="app_disclaimer">ئەم نەرمەکاڵایە یارییەکانی کۆنسۆلی نینتێندۆ سویچ کارپێدەکات. هیچ ناونیشانێکی یاری و کلیلی تێدا نییە..&lt;br /&gt;&lt;br /&gt;پێش ئەوەی دەست پێ بکەیت، تکایە شوێنی فایلی <![CDATA[<b> prod.keys </b>]]> دیاریبکە لە نێو کۆگای ئامێرەکەت.&lt;br /&gt;&lt;br /&gt;<![CDATA[<a href=\"https://citron-emu.org/help/quickstart\">زیاتر فێربە</a>]]></string>
+    <string name="app_disclaimer">ئەم نەرمەکاڵایە یارییەکانی کۆنسۆلی نینتێندۆ سویچ کارپێدەکات. هیچ ناونیشانێکی یاری و کلیلی تێدا نییە..&lt;br /&gt;&lt;br /&gt;پێش ئەوەی دەست پێ بکەیت، تکایە شوێنی فایلی <![CDATA[<b> prod.keys </b>]]> دیاریبکە لە نێو کۆگای ئامێرەکەت.&lt;br /&gt;&lt;br /&gt;<![CDATA[<a href=\"https://discord.gg/citron\">زیاتر فێربە</a>]]></string>
     <string name="notice_notification_channel_name">ئاگاداری و هەڵەکان</string>
     <string name="notice_notification_channel_description">ئاگادارکردنەوەکان پیشان دەدات کاتێک شتێک بە هەڵەدا دەچێت.</string>
     <string name="notification_permission_not_granted">مۆڵەتی ئاگادارکردنەوە نەدراوە!</string>
@@ -32,14 +32,14 @@
     <string name="select_games_folder_description">ڕێگە بە یوزو دەدات بۆ پڕکردنەوەی لیستی یارییەکان</string>
     <string name="add_games_warning">هەڵبژاردنی فۆڵدەری یارییەکان تێپەڕدەکەیت؟</string>
     <string name="add_games_warning_description">یارییەکان لە لیستی یارییەکاندا پیشان نادرێن ئەگەر فۆڵدەرێک هەڵنەبژێردرێت.</string>
-    <string name="add_games_warning_help">https://citron-emu.org/help/quickstart/#dumping-games</string>
+    <string name="add_games_warning_help">https://discord.gg/citron</string>
     <string name="home_search_games">گەڕان بەدوای یارییەکاندا</string>
     <string name="games_dir_selected">ناونیشانی یارییەکان هەڵبژێردرا</string>
     <string name="install_prod_keys">دابمەزرێنە prod.keys</string>
     <string name="install_prod_keys_description">پێویستە بۆ کۆدکردنەوەى یارییە تاکەکەسییەکان</string>
     <string name="install_prod_keys_warning">زیادکردنی کلیلەکان تێپەڕدەکەیت؟</string>
     <string name="install_prod_keys_warning_description">کلیلی دروست پێویستە بۆ وەرگرتنی یارییەکانی تاکەکەسی.  تەنها ئەپەکانی homebrew کاردەکەن ئەگەر بەردەوام بیت.</string>
-    <string name="install_prod_keys_warning_help">https://citron-emu.org/help/quickstart/#guide-introduction</string>
+    <string name="install_prod_keys_warning_help">https://discord.gg/citron</string>
     <string name="notifications">ئاگادارکردنەوەکان</string>
     <string name="notifications_description">بە دوگمەی خوارەوە مۆڵەتی ئاگادارکردنەوەکە بدە.</string>
     <string name="give_permission">مۆڵەت بدە</string>
@@ -60,7 +60,7 @@
     <string name="install_prod_keys_failure_extension_description">دڵنیابەوە کە فایلی کلیلەکانت درێژکراوەی .keys ی هەیە و دووبارە هەوڵبدەرەوە.</string>
     <string name="install_amiibo_keys_failure_extension_description">دڵنیابە کە فایلی کلیلەکانت درێژکراوەی .bin ی هەیە و دووبارە هەوڵبدەرەوە.</string>
     <string name="invalid_keys_error">کلیلی کۆدکردنی نادروستە</string>
-    <string name="dumping_keys_quickstart_link">https://citron-emu.org/help/quickstart/#dumping-decryption-keys</string>
+    <string name="dumping_keys_quickstart_link">https://discord.gg/citron</string>
     <string name="install_keys_failure_description">فایلە هەڵبژێردراوەکە هەڵەیە یان تێکچووە.  تکایە دووبارە کلیلەکانت دەربێنەوە.</string>
     <string name="install_gpu_driver">دامەزراندنی وەگەڕخەری GPU</string>
     <string name="install_gpu_driver_description">دامەزراندنی وەگەڕخەری بەدیل بۆ ئەوەی بە ئەگەرێکی زۆرەوە کارایی باشتر یان وردبینی هەبێت</string>
@@ -94,8 +94,8 @@
     <string name="share_log_missing">هیچ فایلێکی لۆگ نەدۆزراوە</string>
     <string name="install_game_content">دامەزراندنی ناوەڕۆکی یاری</string>
     <string name="install_game_content_description">دامەزراندنی نوێکاری یارییەکان یان DLC</string>
-    <string name="install_game_content_help_link">https://citron-emu.org/help/quickstart/#dumping-installed-updates</string>
-    <string name="keys_missing_help">https://citron-emu.org/help/quickstart/#dumping-decryption-keys</string>
+    <string name="install_game_content_help_link">https://discord.gg/citron</string>
+    <string name="keys_missing_help">https://discord.gg/citron</string>
 
     <!-- About screen strings -->
     <string name="gaia_is_not_real">گایا ڕاستەقینە نییە</string>
@@ -106,7 +106,7 @@
     <string name="contributors_link">https://github.com/citron-emu/citron/graphs/contributors</string>
     <string name="licenses_description">ئەو پڕۆژانەی کە یوزوی بۆ ئەندرۆید ڕەخساند</string>
     <string name="build">بونیات</string>
-    <string name="support_link">https://discord.gg/u77vRWY</string>
+    <string name="support_link">https://discord.gg/citron</string>
     <string name="website_link">https://citron-emu.org/</string>
     <string name="github_link">https://github.com/citron-emu</string>
 
@@ -246,7 +246,7 @@
     <string name="version">وەشان</string>
     <!-- ROM loading errors -->
     <string name="loader_error_encrypted">ڕۆمەکەت کۆدکراوە</string>
-    <string name="loader_error_encrypted_keys_description"><![CDATA[تکایە دڵنیابەوە لەدامەزراوی <a href=\"https://citron-emu.org/help/quickstart/#dumping-prodkeys-and-titlekeys\">prod.keys</a> فایلەکەت بۆ ئەوەی بتوانرێت یارییەکان کۆد بکرێنەوە.]]></string>
+    <string name="loader_error_encrypted_keys_description"><![CDATA[تکایە دڵنیابەوە لەدامەزراوی <a href=\"https://discord.gg/citron/#dumping-prodkeys-and-titlekeys\">prod.keys</a> فایلەکەت بۆ ئەوەی بتوانرێت یارییەکان کۆد بکرێنەوە.]]></string>
     <string name="loader_error_video_core">هەڵەیەک لە دەستپێکردنی ناوەکی ڤیدیۆکەدا ڕوویدا</string>
     <string name="loader_error_video_core_description">ئەمەش بەزۆری بەهۆی وەگەڕخەرێکی ناتەبای GPU ەوەیە. دامەزراندنی وەگەڕخەری GPU ی تایبەتمەندکراو لەوانەیە ئەم کێشەیە چارەسەر بکات.</string>
     <string name="loader_error_invalid_format">ناتوانرێت ڕۆم باربکرێت</string>

@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources xmlns:tools="http://schemas.android.com/tools" tools:ignore="MissingTranslation">
 
-    <string name="app_disclaimer">Diese Software kann Spiele für die Nintendo Switch abspielen. Keine Spiele oder Spielekeys sind enthalten.&lt;br /&gt;&lt;br /&gt;Bevor du beginnst, bitte halte deine <![CDATA[<b> prod.keys </b>]]> auf deinem Gerät bereit. .&lt;br /&gt;&lt;br /&gt;<![CDATA[<a href=\"https://citron-emu.org/help/quickstart\">Mehr Infos</a>]]></string>
+    <string name="app_disclaimer">Diese Software kann Spiele für die Nintendo Switch abspielen. Keine Spiele oder Spielekeys sind enthalten.&lt;br /&gt;&lt;br /&gt;Bevor du beginnst, bitte halte deine <![CDATA[<b> prod.keys </b>]]> auf deinem Gerät bereit. .&lt;br /&gt;&lt;br /&gt;<![CDATA[<a href=\"https://discord.gg/citron\">Mehr Infos</a>]]></string>
     <string name="notice_notification_channel_name">Hinweise und Fehler</string>
     <string name="notice_notification_channel_description">Zeigt Benachrichtigungen an, wenn etwas schief läuft.</string>
     <string name="notification_permission_not_granted">Berechtigung für Benachrichtigungen nicht erlaubt!</string>
@@ -35,7 +35,7 @@
     <string name="select_games_folder_description">Erlaubt citron die Spieleliste zu füllen</string>
     <string name="add_games_warning">Auswahl des Spieleverzeichnisses überspringen?</string>
     <string name="add_games_warning_description">Spiele werden in der Spieleliste nicht angezeigt, wenn kein Ordner ausgewählt ist.</string>
-    <string name="add_games_warning_help">https://citron-emu.org/help/quickstart/#dumping-games</string>
+    <string name="add_games_warning_help">https://discord.gg/citron</string>
     <string name="home_search_games">Spiele suchen</string>
     <string name="search_settings">Einstellungen suchen</string>
     <string name="games_dir_selected">Spieleverzeichnis ausgewählt</string>
@@ -43,7 +43,7 @@
     <string name="install_prod_keys_description">Zum Entschlüsseln von Spielen benötigt</string>
     <string name="install_prod_keys_warning">Hinzufügen der Schlüssel überspringen?</string>
     <string name="install_prod_keys_warning_description">Für die Emulation von Spielen sind gültige Schlüssel erforderlich. Wenn du fortfährst, funktionieren nur Homebrew-Anwendungen.</string>
-    <string name="install_prod_keys_warning_help">https://citron-emu.org/help/quickstart/#guide-introduction</string>
+    <string name="install_prod_keys_warning_help">https://discord.gg/citron</string>
     <string name="notifications">Benachrichtigungen</string>
     <string name="notifications_description">Erteile mit dem Knopf unten die Berechtigung, Benachrichtigungen zu senden.</string>
     <string name="give_permission">Berechtigung erteilen</string>
@@ -63,7 +63,7 @@
     <string name="install_prod_keys_failure_extension_description">Überprüfen Sie, ob Ihre Schlüsseldatei die Erweiterung \".keys\" hat, und versuchen Sie es erneut.</string>
     <string name="install_amiibo_keys_failure_extension_description">Überprüfen Sie, ob Ihre Schlüsseldatei die Erweiterung \".bin\" hat, und versuchen Sie es erneut.</string>
     <string name="invalid_keys_error">Ungültige Schlüssel</string>
-    <string name="dumping_keys_quickstart_link">https://citron-emu.org/help/quickstart/#dumping-decryption-keys</string>
+    <string name="dumping_keys_quickstart_link">https://discord.gg/citron</string>
     <string name="install_keys_failure_description">Die ausgewählte Datei ist falsch oder beschädigt. Bitte kopieren Sie Ihre Schlüssel erneut.</string>
     <string name="gpu_driver_manager">GPU-Treiber Verwaltung</string>
     <string name="install_gpu_driver">GPU-Treiber installieren</string>
@@ -108,12 +108,12 @@ Wirklich fortfahren?</string>
     <string name="install_game_content_failed_count">%1$d Installationsfehler</string>
     <string name="install_game_content_success_install">%1$d erfolgreich installiert</string>
     <string name="install_game_content_success_overwrite">%1$d erfolgreich überschrieben</string>
-    <string name="install_game_content_help_link">https://citron-emu.org/help/quickstart/#dumping-installed-updates</string>
+    <string name="install_game_content_help_link">https://discord.gg/citron</string>
     <string name="manage_citron_data">citron-Daten Verwalten</string>
     <string name="share_save_file">Speicherdaten teilen</string>
     <string name="game_folders">Spiele-Ordner</string>
     <string name="add_game_folder">Spiele-Ordner hinzufügen</string>
-    <string name="keys_missing_help">https://citron-emu.org/help/quickstart/#dumping-decryption-keys</string>
+    <string name="keys_missing_help">https://discord.gg/citron</string>
 
     <string name="applets_error_firmware">Firmware nicht installiert</string>
     <!-- About screen strings -->
@@ -131,7 +131,7 @@ Wirklich fortfahren?</string>
     <string name="user_data_export_success">Nutzerdaten erfolgreich exportiert</string>
     <string name="user_data_import_success">Nutzerdaten erfolgreich importiert</string>
     <string name="user_data_export_cancelled">Export abgebrochen</string>
-    <string name="support_link">https://discord.gg/u77vRWY</string>
+    <string name="support_link">https://discord.gg/citron</string>
     <string name="website_link">https://citron-emu.org/</string>
     <string name="github_link">https://github.com/citron-emu</string>
 
@@ -319,7 +319,7 @@ Wirklich fortfahren?</string>
     <string name="verify_no_result">Integritätsüberprüfung konnte nicht durchgeführt werden</string>
     <!-- ROM loading errors -->
     <string name="loader_error_encrypted">Das ROM ist verschlüsselt</string>
-    <string name="loader_error_encrypted_keys_description"><![CDATA[Bitte stelle sicher dass die <a href=\"https://citron-emu.org/help/quickstart/#dumping-prodkeys-and-titlekeys\">prod.keys</a> Datei installiert ist, damit Spiele entschlüsselt werden können.]]></string>
+    <string name="loader_error_encrypted_keys_description"><![CDATA[Bitte stelle sicher dass die <a href=\"https://discord.gg/citron/#dumping-prodkeys-and-titlekeys\">prod.keys</a> Datei installiert ist, damit Spiele entschlüsselt werden können.]]></string>
     <string name="loader_error_video_core">Bei der Initialisierung des Videokerns ist ein Fehler aufgetreten</string>
     <string name="loader_error_video_core_description">Dies wird normalerweise durch einen inkompatiblen GPU-Treiber verursacht. Die Installation eines passenden GPU-Treibers kann dieses Problem beheben.</string>
     <string name="loader_error_invalid_format">ROM konnte nicht geladen werden</string>

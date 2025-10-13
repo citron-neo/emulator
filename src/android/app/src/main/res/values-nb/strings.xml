@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources xmlns:tools="http://schemas.android.com/tools" tools:ignore="MissingTranslation">
 
-    <string name="app_disclaimer">Denne programvaren vil kjøre spill for Nintendo Switch-spillkonsollen. Ingen spilltitler eller nøkler er inkludert.&lt;br /&gt;&lt;br /&gt;Før du begynner, må du finne <![CDATA[<b> prod.keys </b>]]> filen din på enhetslagringen.&lt;br /&gt;&lt;br /&gt;<![CDATA[<a href=\"https://citron-emu.org/help/quickstart\">Lær mer</a>]]></string>
+    <string name="app_disclaimer">Denne programvaren vil kjøre spill for Nintendo Switch-spillkonsollen. Ingen spilltitler eller nøkler er inkludert.&lt;br /&gt;&lt;br /&gt;Før du begynner, må du finne <![CDATA[<b> prod.keys </b>]]> filen din på enhetslagringen.&lt;br /&gt;&lt;br /&gt;<![CDATA[<a href=\"https://discord.gg/citron\">Lær mer</a>]]></string>
     <string name="notice_notification_channel_name">Merknader og feil</string>
     <string name="notice_notification_channel_description">Viser varsler når noe går galt.</string>
     <string name="notification_permission_not_granted">Varslingstillatelse ikke gitt!</string>
@@ -32,14 +32,14 @@
     <string name="select_games_folder_description">Gjør det mulig for citron å fylle ut spillelisten.</string>
     <string name="add_games_warning">Hoppe over valg av spillmappe?</string>
     <string name="add_games_warning_description">Spill vises ikke i Spill-listen hvis en mappe ikke er valgt.</string>
-    <string name="add_games_warning_help">https://citron-emu.org/help/quickstart/#dumping-games</string>
+    <string name="add_games_warning_help">https://discord.gg/citron</string>
     <string name="home_search_games">Søk i spill|</string>
     <string name="games_dir_selected">Spillkatalogen er valgt</string>
     <string name="install_prod_keys">Installer prod.keys</string>
     <string name="install_prod_keys_description">Nødvendig for å dekryptere spill</string>
     <string name="install_prod_keys_warning">Hoppe over å legge til nøkler?</string>
     <string name="install_prod_keys_warning_description">Gyldige nøkler er påkrevd for å emulere spill. Bare hjemmebryggede apper vil fungere hvis du fortsetter.</string>
-    <string name="install_prod_keys_warning_help">https://citron-emu.org/help/quickstart/#guide-introduction</string>
+    <string name="install_prod_keys_warning_help">https://discord.gg/citron</string>
     <string name="notifications">Varsler</string>
     <string name="notifications_description">Gi varslingstillatelse med knappen nedenfor.</string>
     <string name="give_permission">Gi tillatelse</string>
@@ -60,7 +60,7 @@
     <string name="install_prod_keys_failure_extension_description">Kontroller at nøkkelfilen har filtypen .keys, og prøv igjen.</string>
     <string name="install_amiibo_keys_failure_extension_description">Kontroller at nøkkelfilen har filtypen .bin, og prøv igjen.</string>
     <string name="invalid_keys_error">Ugyldige krypteringsnøkler</string>
-    <string name="dumping_keys_quickstart_link">https://citron-emu.org/help/quickstart/#dumping-decryption-keys</string>
+    <string name="dumping_keys_quickstart_link">https://discord.gg/citron</string>
     <string name="install_keys_failure_description">Den valgte filen er feil eller ødelagt. Vennligst dump nøklene på nytt.</string>
     <string name="install_gpu_driver">Installer GPU-driver</string>
     <string name="install_gpu_driver_description">Installer alternative drivere for potensielt bedre ytelse eller nøyaktighet.</string>
@@ -94,8 +94,8 @@
     <string name="share_log_missing">Ingen loggfil funnet</string>
     <string name="install_game_content">Installer spillinnhold</string>
     <string name="install_game_content_description">Installer spilloppdateringer eller DLC</string>
-    <string name="install_game_content_help_link">https://citron-emu.org/help/quickstart/#dumping-installed-updates</string>
-    <string name="keys_missing_help">https://citron-emu.org/help/quickstart/#dumping-decryption-keys</string>
+    <string name="install_game_content_help_link">https://discord.gg/citron</string>
+    <string name="keys_missing_help">https://discord.gg/citron</string>
 
     <!-- About screen strings -->
     <string name="gaia_is_not_real">Gaia er ikke ekte</string>
@@ -106,7 +106,7 @@
     <string name="contributors_link">https://github.com/citron-emu/citron/graphs/contributors</string>
     <string name="licenses_description">Prosjekter som gjør citron for Android mulig</string>
     <string name="build">Bygg</string>
-    <string name="support_link">https://discord.gg/u77vRWY</string>
+    <string name="support_link">https://discord.gg/citron</string>
     <string name="website_link">https://citron-emu.org/</string>
     <string name="github_link">https://github.com/citron-emu</string>
 
@@ -257,7 +257,7 @@
     <string name="verify_failure">Integritetsverifisering mislyktes!</string>
     <!-- ROM loading errors -->
     <string name="loader_error_encrypted">ROM-en din er kryptert</string>
-    <string name="loader_error_encrypted_keys_description"><![CDATA[Vennligst sørg for at <a href=\"https://citron-emu.org/help/quickstart/#dumping-prodkeys-and-titlekeys\">prod.keys</a> filen er installert slik at spillene kan dekrypteres.]]></string>
+    <string name="loader_error_encrypted_keys_description"><![CDATA[Vennligst sørg for at <a href=\"https://discord.gg/citron/#dumping-prodkeys-and-titlekeys\">prod.keys</a> filen er installert slik at spillene kan dekrypteres.]]></string>
     <string name="loader_error_video_core">Det oppstod en feil ved initialisering av videokjernen</string>
     <string name="loader_error_video_core_description">Dette skyldes vanligvis en inkompatibel GPU-driver. Installering av en tilpasset GPU-driver kan løse problemet.</string>
     <string name="loader_error_invalid_format">Kunne ikke laste inn ROM</string>

@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources xmlns:tools="http://schemas.android.com/tools" tools:ignore="MissingTranslation">
 
-    <string name="app_disclaimer">Perangkat lunak ini akan menjalankan game untuk konsol game Nintendo Switch. Tidak ada judul game atau kunci yang disertakan.&lt;br /&gt;&lt;br /&gt;Sebelum memulai, harap cari file <![CDATA[<b> prod.keys </b>]]> di penyimpanan perangkat anda. &lt;br /&gt;&lt;br /&gt;<![CDATA[<a href=\"https://citron-emu.org/help/quickstart\"> Selengkapnya </a>]]></string>
+    <string name="app_disclaimer">Perangkat lunak ini akan menjalankan game untuk konsol game Nintendo Switch. Tidak ada judul game atau kunci yang disertakan.&lt;br /&gt;&lt;br /&gt;Sebelum memulai, harap cari file <![CDATA[<b> prod.keys </b>]]> di penyimpanan perangkat anda. &lt;br /&gt;&lt;br /&gt;<![CDATA[<a href=\"https://discord.gg/citron\"> Selengkapnya </a>]]></string>
     <string name="notice_notification_channel_name">Pemberitahuan dan error</string>
     <string name="notice_notification_channel_description">Menampilkan pemberitahuan ketika terjadi kesalahan.</string>
     <string name="notification_permission_not_granted">Izin notifikasi tidak diberikan!</string>
@@ -35,7 +35,7 @@
     <string name="select_games_folder_description">Izinkan citron mengisi daftar game</string>
     <string name="add_games_warning">Lewati pemilihan folder game?</string>
     <string name="add_games_warning_description">Game tidak akan muncul di list jika tidak ada folder yang dipilih.</string>
-    <string name="add_games_warning_help">https://citron-emu.org/help/quickstart/#dumping-games</string>
+    <string name="add_games_warning_help">https://discord.gg/citron</string>
     <string name="home_search_games">Cari permainan</string>
     <string name="search_settings">Cari pengaturan</string>
     <string name="games_dir_selected">Direktori game sudah terpilih</string>
@@ -43,7 +43,7 @@
     <string name="install_prod_keys_description">Diperlukan untuk mendekripsi game retail</string>
     <string name="install_prod_keys_warning">Lewati penginstalan keys?</string>
     <string name="install_prod_keys_warning_description">Perlu keys yang valid untuk meng-emulate game retail. Hanya homebrew apps yang akan berfungsi jika kamu melanjutkan.</string>
-    <string name="install_prod_keys_warning_help">https://citron-emu.org/help/quickstart/#guide-introduction</string>
+    <string name="install_prod_keys_warning_help">https://discord.gg/citron</string>
     <string name="notifications">Notifikasi</string>
     <string name="notifications_description">Berikan izin notifikasi dengan tombol di bawah ini.</string>
     <string name="give_permission">Berikan izin</string>
@@ -64,7 +64,7 @@
     <string name="install_prod_keys_failure_extension_description">Pastikan file keys anda memiliki format .keys dan coba lagi.</string>
     <string name="install_amiibo_keys_failure_extension_description">Pastikan file keys anda memiliki format .bin dan coba lagi.</string>
     <string name="invalid_keys_error">Keys enkripsi tidak valid</string>
-    <string name="dumping_keys_quickstart_link">https://citron-emu.org/help/quickstart/#dumping-decryption-keys</string>
+    <string name="dumping_keys_quickstart_link">https://discord.gg/citron</string>
     <string name="install_keys_failure_description">File yang dipilih salah atau rusak. Silakan masukkan kembali kunci Anda.</string>
     <string name="gpu_driver_manager">Manajer driver GPU</string>
     <string name="install_gpu_driver">Install driver GPU</string>
@@ -114,7 +114,7 @@
     <string name="install_game_content_success">Konten(-konten) game sudah berhasil terinstal.</string>
     <string name="install_game_content_success_install">%1$d telah berhasil terinstal</string>
     <string name="install_game_content_success_overwrite">%1$d telah berhasil ditimpa.</string>
-    <string name="install_game_content_help_link">https://citron-emu.org/help/quickstart/#dumping-installed-updates</string>
+    <string name="install_game_content_help_link">https://discord.gg/citron</string>
     <string name="custom_driver_not_supported">Driver kustom tidak didukung</string>
     <string name="custom_driver_not_supported_description">Driver kustom saat ini tidak dapat digunakan pada perangkat ini. \nCek opsi ini lain waktu untuk mengetahui apakah dapat digunakan!</string>
     <string name="manage_citron_data">Kelola data Citron.</string>
@@ -137,7 +137,7 @@
     <string name="verify_installed_content_description">Memeriksa semua konten yang terinstal dari kerusakan</string>
     <string name="keys_missing">Kunci enkripsi hilang</string>
     <string name="keys_missing_description">Firmware dan game retail tidak dapat didekripsi</string>
-    <string name="keys_missing_help">https://citron-emu.org/help/quickstart/#dumping-decryption-keys</string>
+    <string name="keys_missing_help">https://discord.gg/citron</string>
 
     <!-- Applet launcher strings -->
     <string name="applets">Luncurkan applet</string>
@@ -176,7 +176,7 @@
     <string name="user_data_import_success">Berhasil mengimpor data pengguna</string>
     <string name="user_data_export_cancelled">Ekspor Dibatalkan</string>
     <string name="user_data_import_failed_description">Pastikan folder data pengguna berada di akar folder zip dan berisi file konfigurasi di config/config.ini dan coba lagi.</string>
-    <string name="support_link">https://discord.gg/u77vRWY</string>
+    <string name="support_link">https://discord.gg/citron</string>
     <string name="website_link">https://citron-emu.org/</string>
     <string name="github_link">https://github.com/citron-emu</string>
 
@@ -402,8 +402,8 @@
 
     <!-- ROM loading errors -->
     <string name="loader_error_encrypted">ROM-mu ter-enkripsi</string>
-    <string name="loader_error_encrypted_roms_description"><![CDATA[Silakan ikuti panduan untuk redump <a href=\"https://citron-emu.org/help/quickstart/#dumping-physical-titles-game-cards\">kartu permainan</a> atau <a href=\"https://citron-emu.org/help/quickstart/#dumping-digital-titles-eshop\">judul yang terinstal</a>.]]></string>
-    <string name="loader_error_encrypted_keys_description"><![CDATA[Harap pastikan bahwa Anda <a href=\"https://citron-emu.org/help/quickstart/#dumping-prodkeys-and-titlekeys\">prod.keys</a> diinstal sehingga game dapat didekripsi.]]></string>
+    <string name="loader_error_encrypted_roms_description"><![CDATA[Silakan ikuti panduan untuk redump <a href=\"https://discord.gg/citron/#dumping-physical-titles-game-cards\">kartu permainan</a> atau <a href=\"https://discord.gg/citron/#dumping-digital-titles-eshop\">judul yang terinstal</a>.]]></string>
+    <string name="loader_error_encrypted_keys_description"><![CDATA[Harap pastikan bahwa Anda <a href=\"https://discord.gg/citron/#dumping-prodkeys-and-titlekeys\">prod.keys</a> diinstal sehingga game dapat didekripsi.]]></string>
     <string name="loader_error_video_core">Terjadi kesalahan ketika menginisialisasi inti video.</string>
     <string name="loader_error_video_core_description">Hal ini biasanya disebabkan oleh driver GPU yang tidak kompatibel. Menginstal driver GPU khusus dapat mengatasi masalah ini</string>
     <string name="loader_error_invalid_format">Tidak Dapat Memuat ROM</string>

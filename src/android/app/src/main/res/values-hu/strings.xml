@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources xmlns:tools="http://schemas.android.com/tools" tools:ignore="MissingTranslation">
 
-    <string name="app_disclaimer">Ez a szoftver Nintendo Switch játékkonzolhoz készült játékokat futtat. Nem tartalmaz játékokat vagy kulcsokat. .&lt;br /&gt;&lt;br /&gt;Mielőtt hozzákezdenél, kérjük, válaszd ki a <![CDATA[<b>prod.keys</b>]]> fájl helyét a készülék tárhelyén&lt;br /&gt;&lt;br /&gt;<![CDATA[<a href=\"https://citron-emu.org/help/quickstart\">Tudj meg többet</a>]]></string>
+    <string name="app_disclaimer">Ez a szoftver Nintendo Switch játékkonzolhoz készült játékokat futtat. Nem tartalmaz játékokat vagy kulcsokat. .&lt;br /&gt;&lt;br /&gt;Mielőtt hozzákezdenél, kérjük, válaszd ki a <![CDATA[<b>prod.keys</b>]]> fájl helyét a készülék tárhelyén&lt;br /&gt;&lt;br /&gt;<![CDATA[<a href=\"https://discord.gg/citron\">Tudj meg többet</a>]]></string>
     <string name="notice_notification_channel_name">Megjegyzések és hibák</string>
     <string name="notice_notification_channel_description">Értesítések megjelenítése, ha valami rosszul sül el.</string>
     <string name="notification_permission_not_granted">Nincs engedély az értesítés megjelenítéséhez!</string>
@@ -34,7 +34,7 @@
     <string name="manage_game_folders">Játékmappák kezelése</string>
     <string name="add_games_warning">Kihagyod a játékok mappa kiválasztását?</string>
     <string name="add_games_warning_description">A játékok nem jelennek meg a Játékok listában, ha egy mappa nincs kijelölve.</string>
-    <string name="add_games_warning_help">https://citron-emu.org/help/quickstart/#dumping-games</string>
+    <string name="add_games_warning_help">https://discord.gg/citron</string>
     <string name="home_search_games">Játékok keresése</string>
     <string name="search_settings">Beállítások keresése</string>
     <string name="games_dir_selected">Játékok könyvtár kiválasztva</string>
@@ -42,7 +42,7 @@
     <string name="install_prod_keys_description">Kiskereskedelmi játékok dekódolásához szükséges</string>
     <string name="install_prod_keys_warning">Kihagyod a kulcsok hozzáadását?</string>
     <string name="install_prod_keys_warning_description">A kiskereskedelmi játékok emulálásához érvényes kulcsokra van szükség. Csak a homebrew alkalmazások fognak működni, ha folytatod.</string>
-    <string name="install_prod_keys_warning_help">https://citron-emu.org/help/quickstart/#guide-introduction</string>
+    <string name="install_prod_keys_warning_help">https://discord.gg/citron</string>
     <string name="notifications">Értesítések</string>
     <string name="notifications_description">Értesítési engedélyek megadása az alábbi gombbal.</string>
     <string name="give_permission">Engedély megadása</string>
@@ -63,7 +63,7 @@
     <string name="install_prod_keys_failure_extension_description">Győződj meg róla, hogy a titkosító fájlod .keys kiterjesztéssel rendelkezik, majd próbáld újra.</string>
     <string name="install_amiibo_keys_failure_extension_description">Győződj meg róla, hogy a titkosító fájlod .bin kiterjesztéssel rendelkezik, majd próbáld újra.</string>
     <string name="invalid_keys_error">Érvénytelen titkosítókulcsok</string>
-    <string name="dumping_keys_quickstart_link">https://citron-emu.org/help/quickstart/#dumping-decryption-keys</string>
+    <string name="dumping_keys_quickstart_link">https://discord.gg/citron</string>
     <string name="install_keys_failure_description">A kiválasztott fájl helytelen, vagy sérült. Állíts össze egy új kulcsot.</string>
     <string name="gpu_driver_manager">GPU illesztőprogram-kezelő</string>
     <string name="install_gpu_driver">GPU illesztőprogram telepítése</string>
@@ -112,7 +112,7 @@
     <string name="install_game_content_success">Játéktartalom sikeresen telepítve</string>
     <string name="install_game_content_success_install">%1$d sikeresen telepítve</string>
     <string name="install_game_content_success_overwrite">%1$d sikeresen felülírva</string>
-    <string name="install_game_content_help_link">https://citron-emu.org/help/quickstart/#dumping-installed-updates</string>
+    <string name="install_game_content_help_link">https://discord.gg/citron</string>
     <string name="custom_driver_not_supported">Egyéni illesztőprogramok nem támogatottak</string>
     <string name="custom_driver_not_supported_description">Egyéni illesztőprogram telepítése jelenleg nem támogatott ezen az eszközön.\nNézz vissza később, hátha hozzáadtuk a támogatását!</string>
     <string name="manage_citron_data">citron adatok kezelése</string>
@@ -137,14 +137,14 @@
     <string name="verify_installed_content_description">A telepített tartalom épségét ellenőrzi</string>
     <string name="keys_missing">Hiányzó titkosítókulcsok</string>
     <string name="keys_missing_description">A Firmware és a kiskereskedelmi (retail) játékok nem dekódolhatók</string>
-    <string name="keys_missing_help">https://citron-emu.org/help/quickstart/#dumping-decryption-keys</string>
+    <string name="keys_missing_help">https://discord.gg/citron</string>
 
     <!-- Applet launcher strings -->
     <string name="applets">Applet indító</string>
     <string name="applets_description">Rendszer appletek indítása a telepített firmware-rel</string>
     <string name="applets_error_firmware">Firmware nincs telepítve</string>
     <string name="applets_error_applet">Applet nem elérhető</string>
-    <string name="applets_error_description"><![CDATA[Kérjük, győződj meg róla, hogy a <a href=\"https://citron-emu.org/help/quickstart/#dumping-prodkeys-and-titlekeys\">prod.keys</a> fájl és a <a href=\"https://citron-emu.org/help/quickstart/#dumping-system-firmware\">firmware</a> telepítve van, majd próbáld újra.]]></string>
+    <string name="applets_error_description"><![CDATA[Kérjük, győződj meg róla, hogy a <a href=\"https://discord.gg/citron/#dumping-prodkeys-and-titlekeys\">prod.keys</a> fájl és a <a href=\"https://discord.gg/citron/#dumping-system-firmware\">firmware</a> telepítve van, majd próbáld újra.]]></string>
     <string name="album_applet">Album</string>
     <string name="album_applet_description">Képernyőképek megtekintése a rendszer fényképnézegetőjével</string>
     <string name="mii_edit_applet">Mii szerkesztés</string>
@@ -175,7 +175,7 @@
     <string name="user_data_import_success">Felhasználói adatok sikeresen importálva</string>
     <string name="user_data_export_cancelled">Exportálás megszakítva</string>
     <string name="user_data_import_failed_description">Ellenőrizd, hogy a felhasználói adatok mappái a zip mappa gyökerében vannak, és tartalmaznak egy konfig fájlt a config/config.ini címen, majd próbáld meg újra.</string>
-    <string name="support_link">https://discord.gg/u77vRWY</string>
+    <string name="support_link">https://discord.gg/citron</string>
     <string name="website_link">https://citron-emu.org/</string>
     <string name="github_link">https://github.com/citron-emu</string>
 
@@ -448,7 +448,7 @@
 
     <!-- ROM loading errors -->
     <string name="loader_error_encrypted">ROM titkosítva</string>
-    <string name="loader_error_encrypted_keys_description"><![CDATA[Győződj meg róla, hogy a <a href=\"https://citron-emu.org/help/quickstart/#dumping-prodkeys-and-titlekeys\">prod.keys</a> fájl telepítve van, hogy a játékok visszafejthetők legyenek.]]></string>
+    <string name="loader_error_encrypted_keys_description"><![CDATA[Győződj meg róla, hogy a <a href=\"https://discord.gg/citron/#dumping-prodkeys-and-titlekeys\">prod.keys</a> fájl telepítve van, hogy a játékok visszafejthetők legyenek.]]></string>
     <string name="loader_error_video_core">Hiba lépett fel a videómag inicializása során</string>
     <string name="loader_error_video_core_description">Ezt általában egy nem kompatibilis GPU illesztő okozza. Egyéni GPU illesztőprogram telepítése megoldhatja a problémát.</string>
     <string name="loader_error_invalid_format">Nem sikerült betölteni a ROM-ot</string>

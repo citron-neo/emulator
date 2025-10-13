@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources xmlns:tools="http://schemas.android.com/tools" tools:ignore="MissingTranslation">
 
-    <string name="app_disclaimer">Это программное обеспечение позволяет запускать игры для игровой консоли Nintendo Switch. Мы не предоставляем сами игры или ключи.&lt;br /&gt;&lt;br /&gt;Перед началом работы найдите файл <![CDATA[<b> prod.keys </b>]]> в хранилище устройства..&lt;br /&gt;&lt;br /&gt;<![CDATA[<a href=\"https://citron-emu.org/help/quickstart\">Узнать больше</a>]]></string>
+    <string name="app_disclaimer">Это программное обеспечение позволяет запускать игры для игровой консоли Nintendo Switch. Мы не предоставляем сами игры или ключи.&lt;br /&gt;&lt;br /&gt;Перед началом работы найдите файл <![CDATA[<b> prod.keys </b>]]> в хранилище устройства..&lt;br /&gt;&lt;br /&gt;For support, please visit discord.gg/citron</string>
     <string name="notice_notification_channel_name">Уведомления и ошибки</string>
     <string name="notice_notification_channel_description">Показывать уведомления, когда что-то пошло не так</string>
     <string name="notification_permission_not_granted">Вы не предоставили разрешение на уведомления!</string>
@@ -35,7 +35,7 @@
     <string name="select_games_folder_description">Позволяет citron заполнить список игр</string>
     <string name="add_games_warning">Пропустить выбор папки с играми?</string>
     <string name="add_games_warning_description">Игры не будут отображаться в списке Игры, если папка не выбрана.</string>
-    <string name="add_games_warning_help">https://citron-emu.org/help/quickstart/#dumping-games</string>
+    <string name="add_games_warning_help">https://discord.gg/citron</string>
     <string name="home_search_games">Найти игры</string>
     <string name="search_settings">Настройки поиска</string>
     <string name="games_dir_selected">Выбрана папка с играми</string>
@@ -43,7 +43,7 @@
     <string name="install_prod_keys_description">Требуется для расшифровки розничных игр</string>
     <string name="install_prod_keys_warning">Пропустить добавление ключей?</string>
     <string name="install_prod_keys_warning_description">Для эмуляции розничных игр требуются действительные ключи. Если вы продолжите, будут работать только homebrew приложения.</string>
-    <string name="install_prod_keys_warning_help">https://citron-emu.org/help/quickstart/#guide-introduction</string>
+    <string name="install_prod_keys_warning_help">https://discord.gg/citron</string>
     <string name="notifications">Уведомления</string>
     <string name="notifications_description">Предоставьте разрешение уведомлений с помощью кнопки ниже.</string>
     <string name="give_permission">Предоставить разрешение</string>
@@ -64,7 +64,7 @@
     <string name="install_prod_keys_failure_extension_description">Убедитесь, что файл ключей имеет расширение .keys, и повторите попытку.</string>
     <string name="install_amiibo_keys_failure_extension_description">Убедитесь, что файл ключей имеет расширение .bin, и повторите попытку.</string>
     <string name="invalid_keys_error">Неверные ключи шифрования</string>
-    <string name="dumping_keys_quickstart_link">https://citron-emu.org/help/quickstart/#dumping-decryption-keys</string>
+    <string name="dumping_keys_quickstart_link">https://discord.gg/citron</string>
     <string name="install_keys_failure_description">Выбранный файл неверен или поврежден. Пожалуйста, пере-дампите ваши ключи.</string>
     <string name="gpu_driver_manager">Менеджер драйверов ГП</string>
     <string name="install_gpu_driver">Установить драйвер ГП</string>
@@ -114,7 +114,7 @@
     <string name="install_game_content_success">Игровой контент успешно установлен</string>
     <string name="install_game_content_success_install">%1$d Успешно установлено</string>
     <string name="install_game_content_success_overwrite">%1$d Успешно перезаписано</string>
-    <string name="install_game_content_help_link">https://citron-emu.org/help/quickstart/#dumping-installed-updates</string>
+    <string name="install_game_content_help_link">https://discord.gg/citron</string>
     <string name="custom_driver_not_supported">Пользовательские драйверы не поддерживаются</string>
     <string name="custom_driver_not_supported_description">Загрузка пользовательского драйвера в настоящее время не поддерживается для этого устройства.\nПроверьте этот параметр еще раз в будущем чтобы узнать была ли добавлена ​​поддержка!
  </string>
@@ -144,14 +144,14 @@
     <string name="verify_installed_content_description">Проверяет весь установленный контент на наличие повреждений</string>
     <string name="keys_missing">Отсутствуют ключи шифрования</string>
     <string name="keys_missing_description">Прошивка и розничные игры не могут быть расшифрованы</string>
-    <string name="keys_missing_help">https://citron-emu.org/help/quickstart/#dumping-decryption-keys</string>
+    <string name="keys_missing_help">https://discord.gg/citron</string>
 
     <!-- Applet launcher strings -->
     <string name="applets">Запуск апплета</string>
     <string name="applets_description">Запуск системных апплетов на установленной прошивке</string>
     <string name="applets_error_firmware">Прошивка не установлена</string>
     <string name="applets_error_applet">Апплет недоступен</string>
-    <string name="applets_error_description"><![CDATA[Пожалуйста, убедитесь, что ваш<a href=\"https://citron-emu.org/help/quickstart/#dumping-prodkeys-and-titlekeys\">prod.keys</a> и <a href=\"https://citron-emu.org/help/quickstart/#dumping-system-firmware\">firmware</a> установлены и попробуйте еще раз.]]></string>
+    <string name="applets_error_description"><![CDATA[Пожалуйста, убедитесь, что ваш<a href=\"https://discord.gg/citron/#dumping-prodkeys-and-titlekeys\">prod.keys</a> и <a href=\"https://discord.gg/citron/#dumping-system-firmware\">firmware</a> установлены и попробуйте еще раз.]]></string>
     <string name="album_applet">Альбом</string>
     <string name="album_applet_description">Просмотрите изображения, сохраненные в папке скриншотов пользователя, с помощью системного просмотрщика фотографий.</string>
     <string name="mii_edit_applet">Mii редактор</string>
@@ -183,7 +183,7 @@
     <string name="user_data_import_success">Пользовательские данные успешно импортированы</string>
     <string name="user_data_export_cancelled">Экспорт отменен</string>
     <string name="user_data_import_failed_description">Убедитесь что папки пользовательских данных находятся в корне zip-папки и содержат файл конфигурации config/config.ini и повторите попытку.</string>
-    <string name="support_link">https://discord.gg/u77vRWY</string>
+    <string name="support_link">https://discord.gg/citron</string>
     <string name="website_link">https://citron-emu.org/</string>
     <string name="github_link">https://github.com/citron-emu</string>
 
@@ -463,8 +463,8 @@
 
     <!-- ROM loading errors -->
     <string name="loader_error_encrypted">Ваш ROM зашифрованный</string>
-    <string name="loader_error_encrypted_roms_description"><![CDATA[Следуйте инструкциям, чтобы пере-дампить игровые картриджи <a href=\"https://citron-emu.org/help/quickstart/#dumping-physical-titles-game-cards\"> или <a href=\"https://citron-emu.org/help/quickstart/#dumping-digital-titles-eshop\"> установленные игры</a>.]]></string>
-    <string name="loader_error_encrypted_keys_description"><![CDATA[Пожалуйста, убедитесь, что ваш файл <a href=\"https://citron-emu.org/help/quickstart/#dumping-prodkeys-and-titlekeys\">prod.keys</a> установлен, чтобы игры можно было расшифровать.]]></string>
+    <string name="loader_error_encrypted_roms_description"><![CDATA[Следуйте инструкциям, чтобы пере-дампить игровые картриджи <a href=\"https://discord.gg/citron/#dumping-physical-titles-game-cards\"> или <a href=\"https://discord.gg/citron/#dumping-digital-titles-eshop\"> установленные игры</a>.]]></string>
+    <string name="loader_error_encrypted_keys_description"><![CDATA[Пожалуйста, убедитесь, что ваш файл <a href=\"https://discord.gg/citron/#dumping-prodkeys-and-titlekeys\">prod.keys</a> установлен, чтобы игры можно было расшифровать.]]></string>
     <string name="loader_error_video_core">Произошла ошибка при инициализации видеоядра.</string>
     <string name="loader_error_video_core_description">Обычно это вызвано несовместимым драйвером ГП. Установка пользовательского драйвера ГП может решить эту проблему.</string>
     <string name="loader_error_invalid_format">Не удалось запустить ROM</string>

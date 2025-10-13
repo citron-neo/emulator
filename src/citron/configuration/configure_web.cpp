@@ -73,8 +73,8 @@ void ConfigureWeb::RetranslateUI() {
            "color:#039be5;\">Sign up</span></a>"));
 
     ui->web_token_info_link->setText(
-        tr("<a href='https://citron-emu.org/wiki/citron-web-service/'><span style=\"text-decoration: "
-           "underline; color:#039be5;\">What is my token?</span></a>"));
+        tr("<a href='https://discord.gg/citron'><span style=\"text-decoration: "
+           "underline; color:#039be5;\">Get Support</span></a>"));
 
     ui->label_telemetry_id->setText(
         tr("Telemetry ID: 0x%1").arg(QString::number(Core::GetTelemetryId(), 16).toUpper()));
