@@ -439,7 +439,7 @@ GMainWindow::GMainWindow(std::unique_ptr<QtConfig> config_, bool has_broken_vulk
     game_list->PopulateAsync(UISettings::values.game_dirs);
 
     // Show one-time "callout" messages to the user
-    ShowTelemetryCallout();
+    // ShowTelemetryCallout();  // Disabled: telemetry popup not needed
 
     // Check for updates automatically after a short delay (non-blocking)
     QTimer::singleShot(3000, this, &GMainWindow::CheckForUpdatesAutomatically);
