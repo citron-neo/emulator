@@ -8,6 +8,7 @@
 #include <memory>
 #include <numeric>
 
+#include "common/logging/log.h"
 #include "common/range_sets.inc"
 #include "video_core/buffer_cache/buffer_cache_base.h"
 #include "video_core/guest_memory.h"
@@ -1509,13 +1510,25 @@ template <class P>
 void BufferCache<P>::MappedUploadMemory([[maybe_unused]] Buffer& buffer,
                                         [[maybe_unused]] u64 total_size_bytes,
                                         [[maybe_unused]] std::span<BufferCopy> copies) {
+
     if constexpr (USE_MEMORY_MAPS) {
         auto upload_staging = runtime.UploadStagingBuffer(total_size_bytes);
         const std::span<u8> staging_pointer = upload_staging.mapped_span;
         for (BufferCopy& copy : copies) {
             u8* const src_pointer = staging_pointer.data() + copy.src_offset;
             const DAddr device_addr = buffer.CpuAddr() + copy.dst_offset;
-            device_memory.ReadBlockUnsafe(device_addr, src_pointer, copy.size);
+
+            // GetSpan is a fast way to check for contiguous, mapped memory.
+            // If it returns nullptr, the memory is unmapped or fragmented.
+            if (device_memory.GetSpan(device_addr, copy.size) == nullptr) {
+                // The memory is no longer valid. Log a warning and fill this chunk with zeros
+                // to prevent the GPU from rendering garbage.
+                LOG_WARNING(Render_Vulkan, "MappedUploadMemory: Aborting copy from now-unmapped guest address 0x{:08X}", device_addr);
+                std::memset(src_pointer, 0, copy.size);
+            } else {
+                // Memory is valid, proceed with the copy.
+                device_memory.ReadBlockUnsafe(device_addr, src_pointer, copy.size);
+            }
 
             // Apply the staging offset
             copy.src_offset += upload_staging.offset;
