@@ -90,19 +90,13 @@ rainbow_timer{new QTimer(this)} {
 
     ui->setupUi(this);
 
+    if (!UISettings::values.configure_dialog_geometry.isEmpty()) {
+        restoreGeometry(UISettings::values.configure_dialog_geometry);
+    }
+
     UpdateTheme();
 
     setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
-
-    QScreen* screen = QApplication::primaryScreen();
-    if (screen) {
-        QRect screenGeometry = screen->availableGeometry();
-        qreal devicePixelRatio = screen->devicePixelRatio();
-        int logicalWidth = static_cast<int>(screenGeometry.width() / devicePixelRatio);
-        int logicalHeight = static_cast<int>(screenGeometry.height() / devicePixelRatio);
-        setGeometry(0, 0, logicalWidth, logicalHeight);
-        showMaximized();
-    }
 
     tab_button_group = std::make_unique<QButtonGroup>(this);
     tab_button_group->setExclusive(true);
@@ -173,7 +167,9 @@ rainbow_timer{new QTimer(this)} {
     ui->buttonBox->setFocus();
 }
 
-ConfigureDialog::~ConfigureDialog() = default;
+ConfigureDialog::~ConfigureDialog() {
+    UISettings::values.configure_dialog_geometry = saveGeometry();
+}
 
 void ConfigureDialog::UpdateTheme() {
     QString accent_color_str;

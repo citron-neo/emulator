@@ -91,6 +91,9 @@ namespace UISettings {
 
         QByteArray renderwindow_geometry;
 
+        QByteArray configure_dialog_geometry;
+        QByteArray per_game_configure_geometry;
+
         QByteArray gamelist_header_state;
 
         QByteArray microprofile_geometry;
