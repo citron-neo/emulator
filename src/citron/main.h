@@ -395,6 +395,8 @@ private slots:
     void OnOpenCitronFolder();
     void OnVerifyInstalledContents();
     void OnInstallFirmware();
+    void OnInstallFirmwareFromZip();
+    bool ExtractZipToDirectory(const std::filesystem::path& zip_path, const std::filesystem::path& extract_path);
     void OnInstallDecryptionKeys();
     void OnAbout();
     void OnCheckForUpdates();

@@ -98,21 +98,32 @@ endif()
 option(ENABLE_OPENSSL "Enable OpenSSL backend for ISslConnection" ${DEFAULT_ENABLE_OPENSSL})
 
 if (ANDROID AND CITRON_DOWNLOAD_ANDROID_VVL)
-    set(vvl_version "sdk-1.3.261.1")
+    set(vvl_version "vulkan-sdk-1.4.328.1")
+    set(vvl_version_plain "1.4.328.1")
     set(vvl_zip_file "${CMAKE_BINARY_DIR}/externals/vvl-android.zip")
+    set(vvl_extract_dir "${CMAKE_BINARY_DIR}/externals")
+
     if (NOT EXISTS "${vvl_zip_file}")
         # Download and extract validation layer release to externals directory
         set(vvl_base_url "https://github.com/KhronosGroup/Vulkan-ValidationLayers/releases/download")
-        file(DOWNLOAD "${vvl_base_url}/${vvl_version}/android-binaries-${vvl_version}-android.zip"
+        file(DOWNLOAD "${vvl_base_url}/${vvl_version}/android-binaries-${vvl_version_plain}.zip"
             "${vvl_zip_file}" SHOW_PROGRESS)
         execute_process(COMMAND ${CMAKE_COMMAND} -E tar xf "${vvl_zip_file}"
-            WORKING_DIRECTORY "${CMAKE_BINARY_DIR}/externals")
+            WORKING_DIRECTORY "${vvl_extract_dir}")
     endif()
 
     # Copy the arm64 binary to src/android/app/main/jniLibs
+    # New structure: android-binaries-X.X.X.X/android-binaries-X.X.X.X/arm64-v8a/libVkLayer_khronos_validation.so
     set(vvl_lib_path "${CMAKE_CURRENT_SOURCE_DIR}/src/android/app/src/main/jniLibs/arm64-v8a/")
-    file(COPY "${CMAKE_BINARY_DIR}/externals/android-binaries-${vvl_version}/arm64-v8a/libVkLayer_khronos_validation.so"
-        DESTINATION "${vvl_lib_path}")
+    set(vvl_source_file "${vvl_extract_dir}/android-binaries-${vvl_version_plain}/android-binaries-${vvl_version_plain}/arm64-v8a/libVkLayer_khronos_validation.so")
+
+    if (EXISTS "${vvl_source_file}")
+        file(COPY "${vvl_source_file}" DESTINATION "${vvl_lib_path}")
+        message(STATUS "Successfully copied VVL ${vvl_version_plain} to ${vvl_lib_path}")
+    else()
+        message(WARNING "Could not find Vulkan Validation Layer at: ${vvl_source_file}")
+        message(STATUS "Please manually download from: ${vvl_base_url}/${vvl_version}/android-binaries-${vvl_version_plain}.zip")
+    endif()
 endif()
 
 if (ANDROID)

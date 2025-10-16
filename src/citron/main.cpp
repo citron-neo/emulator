@@ -5,6 +5,7 @@
 #include <cinttypes>
 #include <clocale>
 #include <cmath>
+#include <cstdlib>
 #include <fstream>
 #include <iostream>
 #include <memory>
@@ -20,6 +21,11 @@
 #include <csignal>
 #include <sys/socket.h>
 #include "common/linux/gamemode.h"
+#endif
+
+#ifdef CITRON_ENABLE_LIBARCHIVE
+#include <archive.h>
+#include <archive_entry.h>
 #endif
 
 #include <boost/container/flat_set.hpp>
@@ -4187,6 +4193,255 @@ void GMainWindow::OnVerifyInstalledContents() {
     }
 }
 
+bool GMainWindow::ExtractZipToDirectory(const std::filesystem::path& zip_path, const std::filesystem::path& extract_path) {
+#ifdef CITRON_ENABLE_LIBARCHIVE
+    // Use libarchive if available (similar to updater code)
+    struct archive* a = archive_read_new();
+    struct archive* ext = archive_write_disk_new();
+    struct archive_entry* entry;
+    int r;
+
+    if (!a || !ext) {
+        return false;
+    }
+
+    // Configure archive reader for zip
+    archive_read_support_format_zip(a);
+    archive_read_support_filter_all(a);
+
+    // Configure archive writer
+    archive_write_disk_set_options(ext, ARCHIVE_EXTRACT_TIME | ARCHIVE_EXTRACT_PERM);
+    archive_write_disk_set_standard_lookup(ext);
+
+    r = archive_read_open_filename(a, zip_path.string().c_str(), 10240);
+    if (r != ARCHIVE_OK) {
+        archive_read_free(a);
+        archive_write_free(ext);
+        return false;
+    }
+
+    // Create extraction directory
+    std::filesystem::create_directories(extract_path);
+
+    // Extract files
+    while (archive_read_next_header(a, &entry) == ARCHIVE_OK) {
+        // Set the extraction path
+        std::filesystem::path entry_path = extract_path / archive_entry_pathname(entry);
+        archive_entry_set_pathname(entry, entry_path.string().c_str());
+
+        r = archive_write_header(ext, entry);
+        if (r != ARCHIVE_OK) {
+            continue;
+        }
+
+        if (archive_entry_size(entry) > 0) {
+            const void* buff;
+            size_t size;
+            la_int64_t offset;
+
+            while (archive_read_data_block(a, &buff, &size, &offset) == ARCHIVE_OK) {
+                if (archive_write_data_block(ext, buff, size, offset) != ARCHIVE_OK) {
+                    break;
+                }
+            }
+        }
+        archive_write_finish_entry(ext);
+    }
+
+    archive_read_free(a);
+    archive_write_free(ext);
+    return true;
+#else
+#ifdef _WIN32
+    // Windows fallback: use PowerShell Expand-Archive
+    std::filesystem::create_directories(extract_path);
+
+    std::string powershell_cmd = "powershell -NoProfile -NonInteractive -Command \"Expand-Archive -Path \\\"" +
+                                zip_path.string() + "\\\" -DestinationPath \\\"" +
+                                extract_path.string() + "\\\" -Force\"";
+
+    LOG_INFO(Frontend, "Extracting firmware ZIP with PowerShell: {}", powershell_cmd);
+
+    int result = std::system(powershell_cmd.c_str());
+    if (result == 0) {
+        LOG_INFO(Frontend, "Firmware ZIP extracted successfully");
+        return true;
+    }
+
+    LOG_ERROR(Frontend, "Failed to extract firmware ZIP file");
+    return false;
+#else
+    // On other platforms, require libarchive
+    LOG_ERROR(Frontend, "ZIP extraction requires libarchive on this platform");
+    (void)zip_path;
+    (void)extract_path;
+    return false;
+#endif
+#endif
+}
+
+void GMainWindow::OnInstallFirmwareFromZip() {
+    // Don't do this while emulation is running, that'd probably be a bad idea.
+    if (emu_thread != nullptr && emu_thread->IsRunning()) {
+        return;
+    }
+
+    // Check for installed keys, error out, suggest restart?
+    if (!ContentManager::AreKeysPresent()) {
+        QMessageBox::information(
+            this, tr("Keys not installed"),
+            tr("Install decryption keys and restart citron before attempting to install firmware."));
+        return;
+    }
+
+    const QString firmware_zip_location = QFileDialog::getOpenFileName(
+        this, tr("Select Firmware ZIP File"), {}, QStringLiteral("ZIP Files (*.zip)"));
+    if (firmware_zip_location.isEmpty()) {
+        return;
+    }
+
+    QProgressDialog progress(tr("Installing Firmware..."), tr("Cancel"), 0, 100, this);
+    progress.setWindowModality(Qt::WindowModal);
+    progress.setMinimumDuration(100);
+    progress.setAutoClose(false);
+    progress.setAutoReset(false);
+    progress.show();
+
+    // Declare progress callback.
+    auto QtProgressCallback = [&](size_t total_size, size_t processed_size) {
+        progress.setValue(static_cast<int>((processed_size * 100) / total_size));
+        return progress.wasCanceled();
+    };
+
+    LOG_INFO(Frontend, "Installing firmware from ZIP: {}", firmware_zip_location.toStdString());
+
+    QtProgressCallback(100, 5);
+
+    // Create temporary extraction directory
+    std::filesystem::path temp_extract_path = std::filesystem::temp_directory_path() / "citron_firmware_temp";
+
+    // Clean up any existing temp directory
+    if (std::filesystem::exists(temp_extract_path)) {
+        std::filesystem::remove_all(temp_extract_path);
+    }
+
+    progress.setLabelText(tr("Extracting firmware ZIP..."));
+    QtProgressCallback(100, 10);
+
+    // Extract the ZIP file
+    if (!ExtractZipToDirectory(firmware_zip_location.toStdString(), temp_extract_path)) {
+        progress.close();
+        std::filesystem::remove_all(temp_extract_path);
+        QMessageBox::critical(this, tr("Firmware install failed"),
+                            tr("Failed to extract firmware ZIP file. Make sure the file is a valid ZIP archive."));
+        return;
+    }
+
+    QtProgressCallback(100, 15);
+
+    // Check for .nca files in the extracted directory
+    std::vector<std::filesystem::path> out;
+    const Common::FS::DirEntryCallable callback =
+        [&out](const std::filesystem::directory_entry& entry) {
+            if (entry.path().has_extension() && entry.path().extension() == ".nca") {
+                out.emplace_back(entry.path());
+            }
+            return true;
+        };
+
+    Common::FS::IterateDirEntries(temp_extract_path, callback, Common::FS::DirEntryFilter::File);
+
+    if (out.size() <= 0) {
+        progress.close();
+        std::filesystem::remove_all(temp_extract_path);
+        QMessageBox::warning(this, tr("Firmware install failed"),
+                             tr("Unable to locate firmware NCA files in the ZIP. Make sure the NCA files are at the root of the ZIP archive."));
+        return;
+    }
+
+    QtProgressCallback(100, 20);
+
+    // Locate and erase the content of nand/system/Content/registered/*.nca, if any.
+    auto sysnand_content_vdir = system->GetFileSystemController().GetSystemNANDContentDirectory();
+    if (!sysnand_content_vdir->CleanSubdirectoryRecursive("registered")) {
+        progress.close();
+        std::filesystem::remove_all(temp_extract_path);
+        QMessageBox::critical(this, tr("Firmware install failed"),
+                              tr("Failed to delete one or more firmware file."));
+        return;
+    }
+
+    LOG_INFO(Frontend,
+             "Cleaned nand/system/Content/registered folder in preparation for new firmware.");
+
+    QtProgressCallback(100, 25);
+
+    auto firmware_vdir = sysnand_content_vdir->GetDirectoryRelative("registered");
+
+    bool success = true;
+    int i = 0;
+    for (const auto& firmware_src_path : out) {
+        i++;
+        auto firmware_src_vfile =
+            vfs->OpenFile(firmware_src_path.generic_string(), FileSys::OpenMode::Read);
+        auto firmware_dst_vfile =
+            firmware_vdir->CreateFileRelative(firmware_src_path.filename().string());
+
+        if (!VfsRawCopy(firmware_src_vfile, firmware_dst_vfile)) {
+            LOG_ERROR(Frontend, "Failed to copy firmware file {} to {} in registered folder!",
+                      firmware_src_path.generic_string(), firmware_src_path.filename().string());
+            success = false;
+        }
+
+        if (QtProgressCallback(
+                100, 25 + static_cast<int>(((i) / static_cast<float>(out.size())) * 60.0))) {
+            progress.close();
+            std::filesystem::remove_all(temp_extract_path);
+            QMessageBox::warning(
+                this, tr("Firmware install failed"),
+                tr("Firmware installation cancelled, firmware may be in bad state, "
+                   "restart citron or re-install firmware."));
+            return;
+        }
+    }
+
+    // Clean up temporary directory
+    std::filesystem::remove_all(temp_extract_path);
+
+    if (!success) {
+        progress.close();
+        QMessageBox::critical(this, tr("Firmware install failed"),
+                              tr("One or more firmware files failed to copy into NAND."));
+        return;
+    }
+
+    // Re-scan VFS for the newly placed firmware files.
+    system->GetFileSystemController().CreateFactories(*vfs);
+
+    auto VerifyFirmwareCallback = [&](size_t total_size, size_t processed_size) {
+        progress.setValue(85 + static_cast<int>((processed_size * 15) / total_size));
+        return progress.wasCanceled();
+    };
+
+    auto result =
+        ContentManager::VerifyInstalledContents(*system, *provider, VerifyFirmwareCallback, true);
+
+    if (result.size() > 0) {
+        const auto failed_names =
+            QString::fromStdString(fmt::format("{}", fmt::join(result, "\n")));
+        progress.close();
+        QMessageBox::critical(
+            this, tr("Firmware integrity verification failed!"),
+            tr("Verification failed for the following files:\n\n%1").arg(failed_names));
+        return;
+    }
+
+    progress.close();
+    QMessageBox::information(this, tr("Firmware installed successfully"),
+                           tr("The firmware has been installed successfully."));
+    OnCheckFirmwareDecryption();
+}
+
 void GMainWindow::OnInstallFirmware() {
     // Don't do this while emulation is running, that'd probably be a bad idea.
     if (emu_thread != nullptr && emu_thread->IsRunning()) {
@@ -4201,6 +4456,31 @@ void GMainWindow::OnInstallFirmware() {
         return;
     }
 
+    // Ask user to choose between folder or ZIP file
+    QMessageBox msgBox(this);
+    msgBox.setWindowTitle(tr("Install Firmware"));
+    msgBox.setText(tr("Choose firmware installation method:"));
+    msgBox.setInformativeText(tr("Select a folder containing NCA files, or select a ZIP archive."));
+    QPushButton* folderButton = msgBox.addButton(tr("Select Folder"), QMessageBox::ActionRole);
+    QPushButton* zipButton = msgBox.addButton(tr("Select ZIP File"), QMessageBox::ActionRole);
+    QPushButton* cancelButton = msgBox.addButton(QMessageBox::Cancel);
+
+    msgBox.setDefaultButton(zipButton);
+    msgBox.exec();
+
+    if (msgBox.clickedButton() == cancelButton) {
+        return;
+    }
+
+    if (msgBox.clickedButton() == zipButton) {
+        OnInstallFirmwareFromZip();
+        return;
+    }
+
+    // User clicked folder button - continue with folder selection (original implementation)
+    if (msgBox.clickedButton() != folderButton) {
+        return;
+    }
     const QString firmware_source_location = QFileDialog::getExistingDirectory(
         this, tr("Select Dumped Firmware Source Location"), {}, QFileDialog::ShowDirsOnly);
     if (firmware_source_location.isEmpty()) {
