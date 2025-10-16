@@ -407,3 +407,26 @@ test-unit:
     - develop
     - ci-fixes
     - merge_requests
+
+    # Package Release
+package-release:
+  stage: package
+  image: ubuntu:24.04
+  tags:
+    - citron-build
+  dependencies:
+    - build-linux
+  script:
+    - mkdir -p release
+    - echo "Creating release package..."
+    - tar -czf citron-release-$(date +%Y%m%d).tar.gz release/ || true
+  artifacts:
+    paths:
+      - citron-release-*.tar.gz
+    expire_in: 1 month
+  only:
+    - main
+    - master
+    - develop
+    - ci-fixes
+    - tags
