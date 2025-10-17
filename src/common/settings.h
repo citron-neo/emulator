@@ -64,6 +64,7 @@ SWITCHABLE(AspectRatio, true);
 SWITCHABLE(AstcDecodeMode, true);
 SWITCHABLE(AstcRecompression, true);
 SWITCHABLE(AudioMode, true);
+SWITCHABLE(ExtendedDynamicState, true);
 SWITCHABLE(CpuBackend, true);
 SWITCHABLE(CpuAccuracy, true);
 SWITCHABLE(FullscreenMode, true);
@@ -469,6 +470,12 @@ struct Values {
                                                 Category::RendererAdvanced};
     SwitchableSetting<bool> barrier_feedback_loops{linkage, true, "barrier_feedback_loops",
                                                    Category::RendererAdvanced};
+    SwitchableSetting<ExtendedDynamicState, true> extended_dynamic_state{linkage,
+                                                                          ExtendedDynamicState::EDS3,
+                                                                          ExtendedDynamicState::Disabled,
+                                                                          ExtendedDynamicState::EDS3,
+                                                                          "extended_dynamic_state",
+                                                                          Category::RendererAdvanced};
     SwitchableSetting<bool> use_conditional_rendering{linkage, true, "use_conditional_rendering",
                                                       Category::RendererAdvanced};
 

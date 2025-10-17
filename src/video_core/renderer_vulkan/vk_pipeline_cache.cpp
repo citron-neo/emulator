@@ -403,13 +403,19 @@ PipelineCache::PipelineCache(Tegra::MaxwellDeviceMemoryManager& device_memory_,
                     device.GetMaxVertexInputBindings(), Maxwell::NumVertexArrays);
     }
 
+    // Apply user's Extended Dynamic State setting
+    const auto eds_setting = Settings::values.extended_dynamic_state.GetValue();
+    const bool allow_eds1 = eds_setting >= Settings::ExtendedDynamicState::EDS1;
+    const bool allow_eds2 = eds_setting >= Settings::ExtendedDynamicState::EDS2;
+    const bool allow_eds3 = eds_setting >= Settings::ExtendedDynamicState::EDS3;
+
     dynamic_features = DynamicFeatures{
-        .has_extended_dynamic_state = device.IsExtExtendedDynamicStateSupported(),
-        .has_extended_dynamic_state_2 = device.IsExtExtendedDynamicState2Supported(),
-        .has_extended_dynamic_state_2_extra = device.IsExtExtendedDynamicState2ExtrasSupported(),
-        .has_extended_dynamic_state_3_blend = device.IsExtExtendedDynamicState3BlendingSupported(),
-        .has_extended_dynamic_state_3_enables = device.IsExtExtendedDynamicState3EnablesSupported(),
-        .has_dynamic_vertex_input = device.IsExtVertexInputDynamicStateSupported(),
+        .has_extended_dynamic_state = allow_eds1 && device.IsExtExtendedDynamicStateSupported(),
+        .has_extended_dynamic_state_2 = allow_eds2 && device.IsExtExtendedDynamicState2Supported(),
+        .has_extended_dynamic_state_2_extra = allow_eds2 && device.IsExtExtendedDynamicState2ExtrasSupported(),
+        .has_extended_dynamic_state_3_blend = allow_eds3 && device.IsExtExtendedDynamicState3BlendingSupported(),
+        .has_extended_dynamic_state_3_enables = allow_eds3 && device.IsExtExtendedDynamicState3EnablesSupported(),
+        .has_dynamic_vertex_input = allow_eds3 && device.IsExtVertexInputDynamicStateSupported(),
     };
 }
 

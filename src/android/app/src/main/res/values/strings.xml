@@ -1239,6 +1239,10 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
     <string name="shader_backend_description">Controls which shader backend to use for rendering.</string>
     <string name="vram_usage_mode">VRAM Usage Mode</string>
     <string name="vram_usage_mode_description">Controls how aggressively VRAM is used. Conservative mode limits VRAM usage for better stability.</string>
+    <string name="extended_dynamic_state">Extended Dynamic State</string>
+    <string name="extended_dynamic_state_description">Controls which Vulkan Extended Dynamic State features are enabled. EDS3 (default) enables all features for maximum compatibility. EDS2/EDS1 limit features for troubleshooting graphics issues. Disabled turns off all EDS features. Try lower settings if you experience rendering problems in some games.</string>
+    <string name="use_conditional_rendering">Use Conditional Rendering</string>
+    <string name="use_conditional_rendering_description">Enables conditional rendering based on query results. Disabling this can fix flickering objects in some games but may impact performance. Try disabling if you see objects appearing and disappearing rapidly.</string>
     <string name="frame_skipping">Frame Skipping</string>
     <string name="frame_skipping_description">Skips frames to maintain performance when the system cannot keep up with the target frame rate.</string>
     <string name="frame_skipping_mode">Frame Skipping Mode</string>

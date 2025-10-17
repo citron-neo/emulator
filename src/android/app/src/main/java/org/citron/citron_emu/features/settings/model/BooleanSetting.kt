@@ -30,7 +30,8 @@ enum class BooleanSetting(override val key: String) : AbstractBooleanSetting {
     SHOW_THERMAL_OVERLAY("show_thermal_overlay"),
     SHOW_RAM_METER("show_ram_meter"),
     SHOW_SHADER_BUILDING_OVERLAY("show_shader_building_overlay"),
-    SHOW_PERFORMANCE_GRAPH("show_performance_graph");
+    SHOW_PERFORMANCE_GRAPH("show_performance_graph"),
+    USE_CONDITIONAL_RENDERING("use_conditional_rendering");
 
     override fun getBoolean(needsGlobal: Boolean): Boolean =
         NativeConfig.getBoolean(key, needsGlobal)

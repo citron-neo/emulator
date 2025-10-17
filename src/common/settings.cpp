@@ -42,6 +42,7 @@ SWITCHABLE(AspectRatio, true);
 SWITCHABLE(AstcDecodeMode, true);
 SWITCHABLE(AstcRecompression, true);
 SWITCHABLE(AudioMode, true);
+SWITCHABLE(ExtendedDynamicState, true);
 SWITCHABLE(CpuBackend, true);
 SWITCHABLE(CpuAccuracy, true);
 SWITCHABLE(FullscreenMode, true);

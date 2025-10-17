@@ -230,6 +230,12 @@ std::unique_ptr<TranslationMap> InitializeTranslations(QWidget* parent) {
               "unlocked."));
     INSERT(Settings, barrier_feedback_loops, tr("Barrier feedback loops"),
            tr("Improves rendering of transparency effects in specific games."));
+    INSERT(Settings, extended_dynamic_state, tr("Extended Dynamic State:"),
+           tr("Selects the level of Vulkan Extended Dynamic State support.\n"
+              "EDS3: Enables all Extended Dynamic State features (recommended).\n"
+              "EDS2: Enables EDS1 and EDS2 features only.\n"
+              "EDS1: Enables basic Extended Dynamic State features only.\n"
+              "Disabled: Disables all Extended Dynamic State features (may reduce compatibility)."));
     INSERT(Settings, use_conditional_rendering, tr("Use conditional rendering"),
            tr("Enables conditional rendering based on query results.\n"
               "Disabling this can fix flickering objects in some games but may impact performance.\n"
@@ -339,6 +345,13 @@ std::unique_ptr<ComboboxTranslationMap> ComboboxEnumeration(QWidget* parent) {
                               PAIR(VramUsageMode, Aggressive, tr("Aggressive")),
                               PAIR(VramUsageMode, HighEnd, tr("High-End GPU (4090/4080+)")),
                               PAIR(VramUsageMode, Insane, tr("Insane (RTX 4090 24GB)")),
+                          }});
+    translations->insert({Settings::EnumMetadata<Settings::ExtendedDynamicState>::Index(),
+                          {
+                              PAIR(ExtendedDynamicState, Disabled, tr("Disabled")),
+                              PAIR(ExtendedDynamicState, EDS1, tr("EDS1")),
+                              PAIR(ExtendedDynamicState, EDS2, tr("EDS2")),
+                              PAIR(ExtendedDynamicState, EDS3, tr("EDS3")),
                           }});
     translations->insert({Settings::EnumMetadata<Settings::RendererBackend>::Index(),
                           {

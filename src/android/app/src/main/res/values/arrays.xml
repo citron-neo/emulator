@@ -404,6 +404,20 @@
         <item>2</item>
     </integer-array>
 
+    <string-array name="extendedDynamicStateNames">
+        <item>Disabled</item>
+        <item>EDS1</item>
+        <item>EDS2</item>
+        <item>EDS3</item>
+    </string-array>
+
+    <integer-array name="extendedDynamicStateValues">
+        <item>0</item>
+        <item>1</item>
+        <item>2</item>
+        <item>3</item>
+    </integer-array>
+
     <string-array name="vramUsageModeNames">
         <item>Conservative</item>
         <item>Aggressive</item>

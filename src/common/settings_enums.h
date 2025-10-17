@@ -853,6 +853,29 @@ inline u32 EnumMetadata<AppletMode>::Index() {
     return 25;
 }
 
+enum class ExtendedDynamicState : u32 {
+    Disabled = 0,
+    EDS1 = 1,
+    EDS2 = 2,
+    EDS3 = 3,
+};
+
+template <>
+inline std::vector<std::pair<std::string, ExtendedDynamicState>>
+EnumMetadata<ExtendedDynamicState>::Canonicalizations() {
+    return {
+        {"Disabled", ExtendedDynamicState::Disabled},
+        {"EDS1", ExtendedDynamicState::EDS1},
+        {"EDS2", ExtendedDynamicState::EDS2},
+        {"EDS3", ExtendedDynamicState::EDS3},
+    };
+}
+
+template <>
+inline u32 EnumMetadata<ExtendedDynamicState>::Index() {
+    return 26;
+}
+
 template <typename Type>
 inline std::string CanonicalizeEnum(Type id) {
     const auto group = EnumMetadata<Type>::Canonicalizations();
