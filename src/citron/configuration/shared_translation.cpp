@@ -230,6 +230,10 @@ std::unique_ptr<TranslationMap> InitializeTranslations(QWidget* parent) {
               "unlocked."));
     INSERT(Settings, barrier_feedback_loops, tr("Barrier feedback loops"),
            tr("Improves rendering of transparency effects in specific games."));
+    INSERT(Settings, use_conditional_rendering, tr("Use conditional rendering"),
+           tr("Enables conditional rendering based on query results.\n"
+              "Disabling this can fix flickering objects in some games but may impact performance.\n"
+              "Try disabling if you see objects appearing and disappearing rapidly."));
 
     // Renderer (Debug)
 

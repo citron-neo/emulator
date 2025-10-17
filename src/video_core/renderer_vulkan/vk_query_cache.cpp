@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: Copyright 2023 yuzu Emulator Project
+// SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include <cstddef>
@@ -1290,6 +1291,9 @@ void QueryCacheRuntime::EndHostConditionalRendering() {
 }
 
 void QueryCacheRuntime::PauseHostConditionalRendering() {
+    if (!Settings::values.use_conditional_rendering.GetValue()) [[unlikely]] {
+        return;
+    }
     if (!impl->hcr_is_set) {
         return;
     }
@@ -1301,6 +1305,9 @@ void QueryCacheRuntime::PauseHostConditionalRendering() {
 }
 
 void QueryCacheRuntime::ResumeHostConditionalRendering() {
+    if (!Settings::values.use_conditional_rendering.GetValue()) [[unlikely]] {
+        return;
+    }
     if (!impl->hcr_is_set) {
         return;
     }
@@ -1314,6 +1321,12 @@ void QueryCacheRuntime::ResumeHostConditionalRendering() {
 
 void QueryCacheRuntime::HostConditionalRenderingCompareValueImpl(VideoCommon::LookupData object,
                                                                  bool is_equal) {
+    // Early exit if conditional rendering is disabled by user
+    if (!Settings::values.use_conditional_rendering.GetValue()) [[unlikely]] {
+        impl->hcr_is_set = false;
+        return;
+    }
+
     {
         std::scoped_lock lk(impl->buffer_cache.mutex);
         static constexpr auto sync_info = VideoCommon::ObtainBufferSynchronize::FullSynchronize;
@@ -1340,6 +1353,12 @@ void QueryCacheRuntime::HostConditionalRenderingCompareValueImpl(VideoCommon::Lo
 }
 
 void QueryCacheRuntime::HostConditionalRenderingCompareBCImpl(DAddr address, bool is_equal) {
+    // Early exit if conditional rendering is disabled by user
+    if (!Settings::values.use_conditional_rendering.GetValue()) [[unlikely]] {
+        impl->hcr_is_set = false;
+        return;
+    }
+
     VkBuffer to_resolve;
     u32 to_resolve_offset;
     {
