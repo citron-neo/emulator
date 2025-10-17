@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: Copyright 2021 yuzu Emulator Project
+// SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "common/bit_field.h"
@@ -15,6 +16,8 @@ enum class Type : u64 {
     _2D,
     ARRAY_2D,
     _3D,
+    ARRAY_3D,
+    CUBE,
 };
 
 enum class Size : u64 {
@@ -60,6 +63,10 @@ TextureType GetType(Type type) {
         return TextureType::ColorArray2D;
     case Type::_3D:
         return TextureType::Color3D;
+    case Type::ARRAY_3D:
+        return TextureType::Color3D; // 3D arrays not directly supported, treat as 3D
+    case Type::CUBE:
+        return TextureType::ColorCube;
     }
     throw NotImplementedException("Invalid type {}", type);
 }
@@ -68,13 +75,15 @@ IR::Value MakeCoords(TranslatorVisitor& v, IR::Reg reg, Type type) {
     switch (type) {
     case Type::_1D:
     case Type::BUFFER_1D:
+    case Type::ARRAY_1D:
         return v.X(reg);
     case Type::_2D:
+    case Type::ARRAY_2D:
         return v.ir.CompositeConstruct(v.X(reg), v.X(reg + 1));
     case Type::_3D:
+    case Type::ARRAY_3D:
+    case Type::CUBE:
         return v.ir.CompositeConstruct(v.X(reg), v.X(reg + 1), v.X(reg + 2));
-    default:
-        break;
     }
     throw NotImplementedException("Invalid type {}", type);
 }
