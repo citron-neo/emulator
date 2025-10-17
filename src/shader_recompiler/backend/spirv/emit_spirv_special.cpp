@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: Copyright 2021 yuzu Emulator Project
+// SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "shader_recompiler/backend/spirv/emit_spirv.h"
@@ -61,6 +62,29 @@ Id ComparisonFunction(EmitContext& ctx, CompareFunction comparison, Id operand_1
     throw InvalidArgument("Comparison function {}", comparison);
 }
 
+void InitializeAlphaToCoverage(EmitContext& ctx) {
+    if (!ctx.runtime_info.alpha_to_coverage_enabled || !Sirit::ValidId(ctx.frag_color[0])) {
+        return;
+    }
+
+    // Load the current color value
+    const Id current_color{ctx.OpLoad(ctx.F32[4], ctx.frag_color[0])};
+
+    // Extract RGB components
+    const Id r{ctx.OpCompositeExtract(ctx.F32[1], current_color, 0u)};
+    const Id g{ctx.OpCompositeExtract(ctx.F32[1], current_color, 1u)};
+    const Id b{ctx.OpCompositeExtract(ctx.F32[1], current_color, 2u)};
+
+    // Set alpha to 1.0 for alpha-to-coverage
+    const Id alpha{ctx.Const(1.0f)};
+
+    // Reconstruct the color with alpha = 1.0
+    const Id new_color{ctx.OpCompositeConstruct(ctx.F32[4], r, g, b, alpha)};
+
+    // Store the updated color
+    ctx.OpStore(ctx.frag_color[0], new_color);
+}
+
 void AlphaTest(EmitContext& ctx) {
     if (!ctx.runtime_info.alpha_test_func) {
         return;
@@ -121,6 +145,7 @@ void EmitEpilogue(EmitContext& ctx) {
         ConvertDepthMode(ctx);
     }
     if (ctx.stage == Stage::Fragment) {
+        InitializeAlphaToCoverage(ctx);
         AlphaTest(ctx);
     }
 }

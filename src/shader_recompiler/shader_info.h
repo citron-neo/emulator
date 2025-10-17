@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: Copyright 2021 yuzu Emulator Project
+// SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #pragma once
@@ -317,6 +318,7 @@ struct Info {
     bool uses_rescaling_uniform{};
     bool uses_cbuf_indirect{};
     bool uses_render_area{};
+    bool alpha_to_coverage_enabled{};
 
     IR::Type used_constant_buffer_types{};
     IR::Type used_storage_buffer_types{};

@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: Copyright 2021 yuzu Emulator Project
+// SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <algorithm>
@@ -1664,7 +1665,8 @@ void EmitContext::DefineOutputs(const IR::Program& program) {
         break;
     case Stage::Fragment:
         for (u32 index = 0; index < 8; ++index) {
-            if (!info.stores_frag_color[index] && !profile.need_declared_frag_colors) {
+            if (!info.stores_frag_color[index] && !profile.need_declared_frag_colors &&
+                !(index == 0 && runtime_info.alpha_to_coverage_enabled)) {
                 continue;
             }
             frag_color[index] = DefineOutput(*this, F32[4], std::nullopt);

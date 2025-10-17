@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: Copyright 2021 yuzu Emulator Project
+// SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #pragma once
@@ -93,6 +94,7 @@ struct RuntimeInfo {
     std::optional<float> fixed_state_point_size;
     std::optional<CompareFunction> alpha_test_func;
     float alpha_test_reference{};
+    bool alpha_to_coverage_enabled{};
 
     /// Static Y negate value
     bool y_negate{};
