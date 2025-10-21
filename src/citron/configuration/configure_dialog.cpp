@@ -174,14 +174,18 @@ ConfigureDialog::~ConfigureDialog() {
 void ConfigureDialog::UpdateTheme() {
     QString accent_color_str;
     if (UISettings::values.enable_rainbow_mode.GetValue()) {
-        rainbow_hue += 0.005f;
+        rainbow_hue += 0.003f; // Even slower transition for better performance
         if (rainbow_hue > 1.0f) {
             rainbow_hue = 0.0f;
         }
-        accent_color_str = QColor::fromHsvF(rainbow_hue, 0.8f, 1.0f).name();
+
+        // Cache the color to avoid repeated operations
+        QColor accent_color = QColor::fromHsvF(rainbow_hue, 0.8f, 1.0f);
+        accent_color_str = accent_color.name(QColor::HexRgb);
+
         if (!rainbow_timer->isActive()) {
-            // THE FIX: Use a sane timer interval to prevent UI lag.
-            rainbow_timer->start(100);
+            // Optimized timer interval for better performance
+            rainbow_timer->start(150); // Increased from 100ms to 150ms
         }
     } else {
         if (rainbow_timer->isActive()) {
@@ -190,11 +194,18 @@ void ConfigureDialog::UpdateTheme() {
         accent_color_str = Theme::GetAccentColor();
     }
 
+    // Cache color operations to avoid repeated calculations
     QColor accent_color(accent_color_str);
-    QString accent_color_hover = accent_color.lighter(115).name();
-    QString accent_color_pressed = accent_color.darker(120).name();
+    const QString accent_color_hover = accent_color.lighter(115).name(QColor::HexRgb);
+    const QString accent_color_pressed = accent_color.darker(120).name(QColor::HexRgb);
 
-    QString style_sheet = property("templateStyleSheet").toString();
+    // Get template stylesheet once and cache it
+    static QString cached_template_style_sheet;
+    if (cached_template_style_sheet.isEmpty()) {
+        cached_template_style_sheet = property("templateStyleSheet").toString();
+    }
+
+    QString style_sheet = cached_template_style_sheet;
     style_sheet.replace(QStringLiteral("%%ACCENT_COLOR%%"), accent_color_str);
     style_sheet.replace(QStringLiteral("%%ACCENT_COLOR_HOVER%%"), accent_color_hover);
     style_sheet.replace(QStringLiteral("%%ACCENT_COLOR_PRESSED%%"), accent_color_pressed);

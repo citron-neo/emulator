@@ -16,6 +16,11 @@
 #include <QAbstractButton>
 #include <QCheckBox>
 #include <QDialogButtonBox>
+#include <QFileDialog>
+#include <QFileInfo>
+#include <QMessageBox>
+#include <QMetaObject>
+#include <QProgressDialog>
 #include <QPushButton>
 #include <QScrollArea>
 #include <QString>
@@ -52,12 +57,15 @@
 #include "citron/uisettings.h"
 #include "citron/util/util.h"
 #include "citron/vk_device_info.h"
+#include "citron/main.h"
+#include "common/string_util.h"
+#include "common/xci_trimmer.h"
 
 ConfigurePerGame::ConfigurePerGame(QWidget* parent, u64 title_id_, const std::string& file_name,
                                    std::vector<VkDeviceInfo::Record>& vk_device_records,
                                    Core::System& system_)
 : QDialog(parent),
-ui(std::make_unique<Ui::ConfigurePerGame>()), title_id{title_id_}, system{system_},
+ui(std::make_unique<Ui::ConfigurePerGame>()), title_id{title_id_}, file_name{file_name}, system{system_},
 builder{std::make_unique<ConfigurationShared::Builder>(this, !system_.IsPoweredOn())},
 tab_group{std::make_shared<std::vector<ConfigurationShared::Tab*>>()} ,
 rainbow_timer{new QTimer(this)} {
@@ -132,6 +140,9 @@ rainbow_timer{new QTimer(this)} {
         connect(apply_button, &QAbstractButton::clicked, this,
                 &ConfigurePerGame::HandleApplyButtonClicked);
     }
+
+    // Connect trim XCI button
+    connect(ui->trim_xci_button, &QPushButton::clicked, this, &ConfigurePerGame::OnTrimXCI);
 
     LoadConfiguration();
 }
@@ -216,7 +227,7 @@ void ConfigurePerGame::UpdateTheme() {
         return;
     }
 
-    rainbow_hue += 0.01f;
+    rainbow_hue += 0.003f; // Even slower color transition for better performance
     if (rainbow_hue > 1.0f) {
         rainbow_hue = 0.0f;
     }
@@ -225,19 +236,24 @@ void ConfigurePerGame::UpdateTheme() {
     QColor accent_color_hover = accent_color.lighter(115);
     QColor accent_color_pressed = accent_color.darker(120);
 
+    // Cache color names to avoid repeated string operations
+    const QString accent_color_name = accent_color.name(QColor::HexRgb);
+    const QString accent_color_hover_name = accent_color_hover.name(QColor::HexRgb);
+    const QString accent_color_pressed_name = accent_color_pressed.name(QColor::HexRgb);
+
     // Efficiently update only the necessary widgets
     QString tab_style = QStringLiteral(
         "QTabBar::tab:selected { background-color: %1; border-color: %1; }")
-    .arg(accent_color.name(QColor::HexRgb));
+    .arg(accent_color_name);
     ui->tabWidget->tabBar()->setStyleSheet(tab_style);
 
     QString button_style = QStringLiteral(
         "QPushButton { background-color: %1; color: #ffffff; border: none; padding: 10px 20px; border-radius: 6px; font-weight: bold; min-height: 20px; }"
         "QPushButton:hover { background-color: %2; }"
         "QPushButton:pressed { background-color: %3; }")
-    .arg(accent_color.name(QColor::HexRgb))
-    .arg(accent_color_hover.name(QColor::HexRgb))
-    .arg(accent_color_pressed.name(QColor::HexRgb));
+    .arg(accent_color_name)
+    .arg(accent_color_hover_name)
+    .arg(accent_color_pressed_name);
 
     ui->buttonBox->button(QDialogButtonBox::Ok)->setStyleSheet(button_style);
     ui->buttonBox->button(QDialogButtonBox::Cancel)->setStyleSheet(button_style);
@@ -245,11 +261,14 @@ void ConfigurePerGame::UpdateTheme() {
         apply_button->setStyleSheet(button_style);
     }
 
+    // Apply rainbow mode to the Trim XCI button
+    ui->trim_xci_button->setStyleSheet(button_style);
+
     // Create a temporary full stylesheet for the child tabs to update their internal widgets
     QString child_stylesheet = property("templateStyleSheet").toString();
-    child_stylesheet.replace(QStringLiteral("%%ACCENT_COLOR%%"), accent_color.name(QColor::HexRgb));
-    child_stylesheet.replace(QStringLiteral("%%ACCENT_COLOR_HOVER%%"), accent_color_hover.name(QColor::HexRgb));
-    child_stylesheet.replace(QStringLiteral("%%ACCENT_COLOR_PRESSED%%"), accent_color_pressed.name(QColor::HexRgb));
+    child_stylesheet.replace(QStringLiteral("%%ACCENT_COLOR%%"), accent_color_name);
+    child_stylesheet.replace(QStringLiteral("%%ACCENT_COLOR_HOVER%%"), accent_color_hover_name);
+    child_stylesheet.replace(QStringLiteral("%%ACCENT_COLOR_PRESSED%%"), accent_color_pressed_name);
 
     // Pass the updated stylesheet to the child tabs
     graphics_tab->SetTemplateStyleSheet(child_stylesheet);
@@ -259,7 +278,7 @@ void ConfigurePerGame::UpdateTheme() {
     graphics_advanced_tab->SetTemplateStyleSheet(child_stylesheet);
 
     if (!rainbow_timer->isActive()) {
-        rainbow_timer->start(50); // Use a reasonable 50ms interval to prevent lag
+        rainbow_timer->start(150); // Further optimized 150ms interval for better performance
     }
 }
 
@@ -532,4 +551,171 @@ void ConfigurePerGame::LoadConfiguration() {
         } else {
             ui->display_update_build_id->setText(tr("Not Available"));
         }
+}
+
+void ConfigurePerGame::OnTrimXCI() {
+    // Use the stored file name from the constructor
+    if (file_name.empty()) {
+        QMessageBox::warning(this, tr("Trim XCI File"), tr("No file path available."));
+        return;
+    }
+
+    // Convert to filesystem path with proper Unicode support
+    const std::filesystem::path filepath = file_name;
+
+    // Check if the file is an XCI file
+    const std::string extension = filepath.extension().string();
+    if (extension != ".xci" && extension != ".XCI") {
+        QMessageBox::warning(this, tr("Trim XCI File"),
+                           tr("This feature only works with XCI files."));
+        return;
+    }
+
+    // Check if file exists
+    if (!std::filesystem::exists(filepath)) {
+        QMessageBox::warning(this, tr("Trim XCI File"),
+                           tr("The game file no longer exists."));
+        return;
+    }
+
+    // Initialize the trimmer
+    Common::XCITrimmer trimmer(filepath);
+    if (!trimmer.IsValid()) {
+        QMessageBox::warning(this, tr("Trim XCI File"),
+                           tr("Invalid XCI file or file cannot be read."));
+        return;
+    }
+
+    if (!trimmer.CanBeTrimmed()) {
+        QMessageBox::information(this, tr("Trim XCI File"),
+                                tr("This XCI file does not need to be trimmed."));
+        return;
+    }
+
+    // Show file information
+    const u64 current_size_mb = trimmer.GetFileSize() / (1024 * 1024);
+    const u64 data_size_mb = trimmer.GetDataSize() / (1024 * 1024);
+    const u64 savings_mb = trimmer.GetDiskSpaceSavings() / (1024 * 1024);
+
+    const QString info_message = tr(
+        "XCI File Information:\n\n"
+        "Current Size: %1 MB\n"
+        "Data Size: %2 MB\n"
+        "Potential Savings: %3 MB\n\n"
+        "This will remove unused space from the XCI file."
+    ).arg(current_size_mb).arg(data_size_mb).arg(savings_mb);
+
+    // Create custom message box with three options
+    QMessageBox msgBox(this);
+    msgBox.setWindowTitle(tr("Trim XCI File"));
+    msgBox.setText(info_message);
+    msgBox.setIcon(QMessageBox::Question);
+
+    msgBox.addButton(tr("Trim In-Place"), QMessageBox::YesRole);
+    QPushButton* saveAsBtn = msgBox.addButton(tr("Save As Trimmed Copy"), QMessageBox::YesRole);
+    QPushButton* cancelBtn = msgBox.addButton(QMessageBox::Cancel);
+
+    msgBox.setDefaultButton(saveAsBtn);
+    msgBox.exec();
+
+    std::filesystem::path output_path;
+    bool is_save_as = false;
+
+    if (msgBox.clickedButton() == cancelBtn) {
+        return;
+    } else if (msgBox.clickedButton() == saveAsBtn) {
+        is_save_as = true;
+        QFileInfo file_info(QString::fromStdString(file_name));
+        const QString new_basename = file_info.completeBaseName() + QStringLiteral("_trimmed");
+        const QString new_filename = new_basename + QStringLiteral(".") + file_info.suffix();
+        const QString suggested_name = QDir(file_info.path()).filePath(new_filename);
+
+        const QString output_filename = QFileDialog::getSaveFileName(
+            this, tr("Save Trimmed XCI File As"), suggested_name,
+            tr("NX Cartridge Image (*.xci)"));
+
+        if (output_filename.isEmpty()) {
+            return;
+        }
+        output_path = std::filesystem::path{
+            Common::U16StringFromBuffer(output_filename.utf16(), output_filename.size())};
+    }
+
+    // Pre-translate strings for use in lambda
+    const QString checking_text = tr("Checking free space...");
+    const QString copying_text = tr("Copying file...");
+
+    // Track last operation to detect changes
+    size_t last_total = 0;
+    QString current_operation;
+
+    // Show progress dialog
+    QProgressDialog progress_dialog(tr("Preparing to trim XCI file..."), tr("Cancel"), 0, 100, this);
+    progress_dialog.setWindowTitle(tr("Trim XCI File"));
+    progress_dialog.setWindowModality(Qt::WindowModal);
+    progress_dialog.setMinimumDuration(0);
+    progress_dialog.show();
+
+    // Progress callback
+    auto progress_callback = [&](size_t current, size_t total) {
+        if (total > 0) {
+            // Detect operation change (when total changes significantly)
+            if (total != last_total) {
+                last_total = total;
+                if (current == 0 || current == total) {
+                    // Likely switched operations
+                    if (total < current_size_mb * 1024 * 1024) {
+                        // Smaller total = checking padding
+                        current_operation = checking_text;
+                    }
+                }
+            }
+
+            const int percent = static_cast<int>((current * 100) / total);
+            progress_dialog.setValue(percent);
+
+            // Update label text based on operation
+            if (!current_operation.isEmpty()) {
+                const QString current_mb = QString::number(current / (1024.0 * 1024.0), 'f', 1);
+                const QString total_mb = QString::number(total / (1024.0 * 1024.0), 'f', 1);
+                const QString percent_str = QString::number(percent);
+
+                QString label_text = current_operation;
+                label_text += QStringLiteral("\n");
+                label_text += current_mb;
+                label_text += QStringLiteral(" / ");
+                label_text += total_mb;
+                label_text += QStringLiteral(" MB (");
+                label_text += percent_str;
+                label_text += QStringLiteral("%)");
+
+                progress_dialog.setLabelText(label_text);
+            }
+        }
+        QCoreApplication::processEvents();
+    };
+
+    // Cancel callback
+    auto cancel_callback = [&]() -> bool {
+        return progress_dialog.wasCanceled();
+    };
+
+    // Perform the trim operation
+    const auto result = trimmer.Trim(progress_callback, cancel_callback, output_path);
+    progress_dialog.close();
+
+    // Show result
+    if (result == Common::XCITrimmer::OperationOutcome::Successful) {
+        const QString success_message = is_save_as ?
+            tr("XCI file successfully trimmed and saved as:\n%1")
+                .arg(QString::fromStdString(output_path.string())) :
+            tr("XCI file successfully trimmed in-place!");
+
+        QMessageBox::information(this, tr("Trim XCI File"), success_message);
+    } else {
+        const QString error_message = QString::fromStdString(
+            Common::XCITrimmer::GetOperationOutcomeString(result));
+        QMessageBox::warning(this, tr("Trim XCI File"),
+                           tr("Failed to trim XCI file:\n%1").arg(error_message));
+    }
 }

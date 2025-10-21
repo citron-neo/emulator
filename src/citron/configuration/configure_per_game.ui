@@ -448,7 +448,7 @@
         </size>
        </property>
        <property name="horizontalScrollBarPolicy">
-        <enum>Qt::ScrollBarAlwaysOff</enum>
+        <enum>Qt::ScrollBarAsNeeded</enum>
        </property>
        <property name="widgetResizable">
         <bool>true</bool>
@@ -667,6 +667,16 @@
                 </property>
                </widget>
               </item>
+              <item row="10" column="0" colspan="2">
+               <widget class="QPushButton" name="trim_xci_button">
+                <property name="text">
+                 <string>Trim XCI File</string>
+                </property>
+                <property name="toolTip">
+                 <string>Remove unused space from XCI file to reduce file size</string>
+                </property>
+               </widget>
+              </item>
              </layout>
             </item>
             <item>
@@ -695,28 +705,59 @@
         <layout class="QVBoxLayout" name="verticalLayout_2"/>
        </item>
        <item>
-        <widget class="QTabWidget" name="tabWidget">
-         <property name="enabled">
-          <bool>true</bool>
-         </property>
+        <widget class="QScrollArea" name="tabScrollArea">
          <property name="sizePolicy">
           <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
            <horstretch>0</horstretch>
            <verstretch>0</verstretch>
           </sizepolicy>
          </property>
-         <property name="currentIndex">
-          <number>-1</number>
+         <property name="verticalScrollBarPolicy">
+          <enum>Qt::ScrollBarAlwaysOff</enum>
          </property>
-         <property name="usesScrollButtons">
+         <property name="horizontalScrollBarPolicy">
+          <enum>Qt::ScrollBarAsNeeded</enum>
+         </property>
+         <property name="widgetResizable">
           <bool>true</bool>
          </property>
-         <property name="documentMode">
-          <bool>false</bool>
-         </property>
-         <property name="tabsClosable">
-          <bool>false</bool>
-         </property>
+         <widget class="QWidget" name="tabScrollAreaWidgetContents">
+          <property name="geometry">
+           <rect>
+            <x>0</x>
+            <y>0</y>
+            <width>560</width>
+            <height>538</height>
+           </rect>
+          </property>
+          <layout class="QVBoxLayout" name="tabScrollAreaLayout">
+           <item>
+            <widget class="QTabWidget" name="tabWidget">
+             <property name="enabled">
+              <bool>true</bool>
+             </property>
+             <property name="sizePolicy">
+              <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+               <horstretch>0</horstretch>
+               <verstretch>0</verstretch>
+              </sizepolicy>
+             </property>
+             <property name="currentIndex">
+              <number>-1</number>
+             </property>
+             <property name="usesScrollButtons">
+              <bool>false</bool>
+             </property>
+             <property name="documentMode">
+              <bool>false</bool>
+             </property>
+             <property name="tabsClosable">
+              <bool>false</bool>
+             </property>
+            </widget>
+           </item>
+          </layout>
+         </widget>
         </widget>
        </item>
       </layout>

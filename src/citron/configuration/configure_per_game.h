@@ -62,6 +62,7 @@ public:
 
 public slots:
     void accept() override;
+    void OnTrimXCI();
 
 private:
     void changeEvent(QEvent* event) override;
@@ -76,6 +77,7 @@ private:
     std::unique_ptr<Ui::ConfigurePerGame> ui;
     FileSys::VirtualFile file;
     u64 title_id;
+    std::string file_name;
 
     QGraphicsScene* scene;
     std::unique_ptr<QtConfig> game_config;
