@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: Copyright 2018 yuzu Emulator Project
+// SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #pragma once
@@ -208,6 +209,7 @@ enum class ContentProviderUnionSlot {
     UserNAND,       ///< User NAND
     SDMC,           ///< SD Card
     FrontendManual, ///< Frontend-defined game list or similar
+    Autoloader,     ///< Separate functionality for multiple Updates/DLCs without being overwritten by NAND.
 };
 
 // Combines multiple ContentProvider(s) (i.e. SysNAND, UserNAND, SDMC) into one interface.
