@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: Copyright 2017 Citra Emulator Project
+// SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <future>
@@ -183,10 +184,10 @@ void HostRoomWindow::Host() {
                 if (result.result_code != WebService::WebResult::Code::Success) {
                     QMessageBox::warning(
                         this, tr("Error"),
-                        tr("Failed to announce the room to the public lobby. In order to host a "
-                           "room publicly, you must have a valid citron account configured in "
-                           "Emulation -> Configure -> Web. If you do not want to publish a room in "
-                           "the public lobby, then select Unlisted instead.\nDebug Message: ") +
+                        tr("Failed to announce the room to the public lobby. To host a room "
+                           "publicly, you must have a generated token configured in "
+                           "Emulation -> Configure -> Web. If you do not want to publish a room "
+                           "in a public lobby, then select Unlisted instead.\n\nDebug Message: ") +
                             QString::fromStdString(result.result_string),
                         QMessageBox::Ok);
                     ui->host->setEnabled(true);

@@ -28,14 +28,14 @@
         <item>
          <widget class="QLabel" name="web_credentials_disclaimer">
           <property name="text">
-           <string>By providing your username and token, you agree to allow citron to collect additional usage data, which may include user identifying information.</string>
+           <string>This token is for hosting public rooms in a lobby and is automatically generated the first time you save settings. To change your username, rename or switch the profile. If you are currently connected to multiplayer, exit and restart the emulator for changes to apply.</string>
           </property>
          </widget>
         </item>
         <item>
          <layout class="QGridLayout" name="gridLayoutCitronUsername">
           <item row="2" column="3">
-           <widget class="QPushButton" name="button_verify_login">
+           <widget class="QPushButton" name="button_reset_token">
             <property name="sizePolicy">
              <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
               <horstretch>0</horstretch>
@@ -46,12 +46,15 @@
              <enum>Qt::RightToLeft</enum>
             </property>
             <property name="text">
-             <string>Verify</string>
+             <string>Reset Token</string>
             </property>
            </widget>
           </item>
           <item row="2" column="0">
            <widget class="QLabel" name="web_signup_link">
+            <property name="enabled">
+             <bool>false</bool>
+            </property>
             <property name="text">
              <string>Sign up</string>
             </property>
@@ -68,7 +71,7 @@
            </widget>
           </item>
           <item row="1" column="4">
-           <widget class="QLabel" name="label_token_verified"/>
+           <widget class="QLabel" name="label_token_icon"/>
           </item>
           <item row="0" column="0">
            <widget class="QLabel" name="label_username">
@@ -82,13 +85,13 @@
             <property name="maxLength">
              <number>80</number>
             </property>
-            <property name="echoMode">
-             <enum>QLineEdit::Password</enum>
-            </property>
            </widget>
           </item>
           <item row="2" column="1">
            <widget class="QLabel" name="web_token_info_link">
+            <property name="enabled">
+             <bool>false</bool>
+            </property>
             <property name="text">
              <string>What is my token?</string>
             </property>
