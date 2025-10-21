@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: Copyright 2024 yuzu Emulator Project
+// SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #pragma once
@@ -24,6 +25,9 @@ private:
     Result CreateLibraryApplet(
         Out<SharedPointer<ILibraryAppletAccessor>> out_library_applet_accessor, AppletId applet_id,
         LibraryAppletMode library_applet_mode);
+    Result CreateLibraryAppletEx(
+        Out<SharedPointer<ILibraryAppletAccessor>> out_library_applet_accessor, AppletId applet_id,
+        LibraryAppletMode library_applet_mode, u64 thread_id);
     Result CreateStorage(Out<SharedPointer<IStorage>> out_storage, s64 size);
     Result CreateTransferMemoryStorage(
         Out<SharedPointer<IStorage>> out_storage, bool is_writable, s64 size,
