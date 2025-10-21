@@ -44,6 +44,15 @@ public:
     void WriteSaveDataSize(SaveDataType type, u64 title_id, u128 user_id,
                            SaveDataSize new_value) const;
 
+    // ExtraData operations
+    Result ReadSaveDataExtraData(SaveDataExtraData* out_extra_data, SaveDataSpaceId space,
+                                 const SaveDataAttribute& attribute) const;
+    Result WriteSaveDataExtraData(const SaveDataExtraData& extra_data, SaveDataSpaceId space,
+                                  const SaveDataAttribute& attribute) const;
+    Result WriteSaveDataExtraDataWithMask(const SaveDataExtraData& extra_data,
+                                          const SaveDataExtraData& mask, SaveDataSpaceId space,
+                                          const SaveDataAttribute& attribute) const;
+
     void SetAutoCreate(bool state);
 
 private:

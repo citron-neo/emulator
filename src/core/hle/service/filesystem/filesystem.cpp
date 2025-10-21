@@ -12,6 +12,7 @@
 #include "core/file_sys/card_image.h"
 #include "core/file_sys/control_metadata.h"
 #include "core/file_sys/errors.h"
+#include "core/file_sys/fs_path_normalizer.h"
 #include "core/file_sys/patch_manager.h"
 #include "core/file_sys/registered_cache.h"
 #include "core/file_sys/romfs_factory.h"
@@ -62,12 +63,10 @@ Result VfsDirectoryServiceWrapper::CreateFile(const std::string& path_, u64 size
 
     auto file = dir->CreateFile(Common::FS::GetFilename(path));
     if (file == nullptr) {
-        // TODO(DarkLordZach): Find a better error code for this
-        return ResultUnknown;
+        return FileSys::ResultPermissionDenied;
     }
     if (!file->Resize(size)) {
-        // TODO(DarkLordZach): Find a better error code for this
-        return ResultUnknown;
+        return FileSys::ResultUsableSpaceNotEnough;
     }
     return ResultSuccess;
 }
@@ -84,8 +83,7 @@ Result VfsDirectoryServiceWrapper::DeleteFile(const std::string& path_) const {
         return FileSys::ResultPathNotFound;
     }
     if (!dir->DeleteFile(Common::FS::GetFilename(path))) {
-        // TODO(DarkLordZach): Find a better error code for this
-        return ResultUnknown;
+        return FileSys::ResultPermissionDenied;
     }
 
     return ResultSuccess;
@@ -104,8 +102,7 @@ Result VfsDirectoryServiceWrapper::CreateDirectory(const std::string& path_) con
         relative_path = Common::FS::SanitizePath(fmt::format("{}/{}", relative_path, component));
         auto new_dir = backing->CreateSubdirectory(relative_path);
         if (new_dir == nullptr) {
-            // TODO(DarkLordZach): Find a better error code for this
-            return ResultUnknown;
+            return FileSys::ResultUsableSpaceNotEnough;
         }
     }
     return ResultSuccess;
@@ -114,9 +111,22 @@ Result VfsDirectoryServiceWrapper::CreateDirectory(const std::string& path_) con
 Result VfsDirectoryServiceWrapper::DeleteDirectory(const std::string& path_) const {
     std::string path(Common::FS::SanitizePath(path_));
     auto dir = GetDirectoryRelativeWrapped(backing, Common::FS::GetParentPath(path));
+    if (dir == nullptr) {
+        return FileSys::ResultPathNotFound;
+    }
+
+    auto target_dir = dir->GetSubdirectory(Common::FS::GetFilename(path));
+    if (target_dir == nullptr) {
+        return FileSys::ResultPathNotFound;
+    }
+
+    // Check if directory is empty
+    if (!target_dir->GetFiles().empty() || !target_dir->GetSubdirectories().empty()) {
+        return FileSys::ResultDirectoryNotEmpty;
+    }
+
     if (!dir->DeleteSubdirectory(Common::FS::GetFilename(path))) {
-        // TODO(DarkLordZach): Find a better error code for this
-        return ResultUnknown;
+        return FileSys::ResultPermissionDenied;
     }
     return ResultSuccess;
 }
@@ -124,9 +134,11 @@ Result VfsDirectoryServiceWrapper::DeleteDirectory(const std::string& path_) con
 Result VfsDirectoryServiceWrapper::DeleteDirectoryRecursively(const std::string& path_) const {
     std::string path(Common::FS::SanitizePath(path_));
     auto dir = GetDirectoryRelativeWrapped(backing, Common::FS::GetParentPath(path));
+    if (dir == nullptr) {
+        return FileSys::ResultPathNotFound;
+    }
     if (!dir->DeleteSubdirectoryRecursive(Common::FS::GetFilename(path))) {
-        // TODO(DarkLordZach): Find a better error code for this
-        return ResultUnknown;
+        return FileSys::ResultPermissionDenied;
     }
     return ResultSuccess;
 }
@@ -135,9 +147,12 @@ Result VfsDirectoryServiceWrapper::CleanDirectoryRecursively(const std::string& 
     const std::string sanitized_path(Common::FS::SanitizePath(path));
     auto dir = GetDirectoryRelativeWrapped(backing, Common::FS::GetParentPath(sanitized_path));
 
+    if (dir == nullptr) {
+        return FileSys::ResultPathNotFound;
+    }
+
     if (!dir->CleanSubdirectoryRecursive(Common::FS::GetFilename(sanitized_path))) {
-        // TODO(DarkLordZach): Find a better error code for this
-        return ResultUnknown;
+        return FileSys::ResultPermissionDenied;
     }
 
     return ResultSuccess;
@@ -161,8 +176,7 @@ Result VfsDirectoryServiceWrapper::RenameFile(const std::string& src_path_,
         }
 
         if (!src->Rename(Common::FS::GetFilename(dest_path))) {
-            // TODO(DarkLordZach): Find a better error code for this
-            return ResultUnknown;
+            return FileSys::ResultPermissionDenied;
         }
         return ResultSuccess;
     }
@@ -179,8 +193,7 @@ Result VfsDirectoryServiceWrapper::RenameFile(const std::string& src_path_,
                "Could not write all of the bytes but everything else has succeeded.");
 
     if (!src->GetContainingDirectory()->DeleteFile(Common::FS::GetFilename(src_path))) {
-        // TODO(DarkLordZach): Find a better error code for this
-        return ResultUnknown;
+        return FileSys::ResultPermissionDenied;
     }
 
     return ResultSuccess;
@@ -191,25 +204,76 @@ Result VfsDirectoryServiceWrapper::RenameDirectory(const std::string& src_path_,
     std::string src_path(Common::FS::SanitizePath(src_path_));
     std::string dest_path(Common::FS::SanitizePath(dest_path_));
     auto src = GetDirectoryRelativeWrapped(backing, src_path);
+
+    if (src == nullptr) {
+        return FileSys::ResultPathNotFound;
+    }
+
+    // Check if destination already exists
+    auto dest = GetDirectoryRelativeWrapped(backing, dest_path);
+    if (dest != nullptr) {
+        return FileSys::ResultPathAlreadyExists;
+    }
+
     if (Common::FS::GetParentPath(src_path) == Common::FS::GetParentPath(dest_path)) {
-        // Use more-optimized vfs implementation rename.
-        if (src == nullptr)
-            return FileSys::ResultPathNotFound;
+        // Use more-optimized vfs implementation rename (same parent directory).
         if (!src->Rename(Common::FS::GetFilename(dest_path))) {
-            // TODO(DarkLordZach): Find a better error code for this
-            return ResultUnknown;
+            return FileSys::ResultPermissionDenied;
         }
         return ResultSuccess;
     }
 
-    // TODO(DarkLordZach): Implement renaming across the tree (move).
-    ASSERT_MSG(false,
-               "Could not rename directory with path \"{}\" to new path \"{}\" because parent dirs "
-               "don't match -- UNIMPLEMENTED",
-               src_path, dest_path);
+    // Different parent directories - need to move by copying then deleting.
+    // Based on LibHac's approach: create dest, copy contents recursively, delete source.
+    LOG_DEBUG(Service_FS, "Moving directory across tree from \"{}\" to \"{}\"", src_path, dest_path);
 
-    // TODO(DarkLordZach): Find a better error code for this
-    return ResultUnknown;
+    // Create the destination directory
+    auto dest_parent = GetDirectoryRelativeWrapped(backing, Common::FS::GetParentPath(dest_path));
+    if (dest_parent == nullptr) {
+        return FileSys::ResultPathNotFound;
+    }
+
+    auto new_dir = dest_parent->CreateSubdirectory(Common::FS::GetFilename(dest_path));
+    if (new_dir == nullptr) {
+        return FileSys::ResultPermissionDenied;
+    }
+
+    // Recursively copy all contents
+    // Copy files
+    for (const auto& file : src->GetFiles()) {
+        auto new_file = new_dir->CreateFile(file->GetName());
+        if (new_file == nullptr) {
+            return FileSys::ResultUsableSpaceNotEnough;
+        }
+
+        const auto data = file->ReadAllBytes();
+        if (new_file->WriteBytes(data) != data.size()) {
+            return FileSys::ResultUsableSpaceNotEnough;
+        }
+    }
+
+    // Copy subdirectories recursively
+    for (const auto& subdir : src->GetSubdirectories()) {
+        auto src_subdir_path = fmt::format("{}/{}", src_path, subdir->GetName());
+        auto dest_subdir_path = fmt::format("{}/{}", dest_path, subdir->GetName());
+
+        auto result = RenameDirectory(src_subdir_path, dest_subdir_path);
+        if (result != ResultSuccess) {
+            return result;
+        }
+    }
+
+    // Delete the source directory
+    auto src_parent = GetDirectoryRelativeWrapped(backing, Common::FS::GetParentPath(src_path));
+    if (src_parent == nullptr) {
+        return FileSys::ResultPathNotFound;
+    }
+
+    if (!src_parent->DeleteSubdirectory(Common::FS::GetFilename(src_path))) {
+        return FileSys::ResultPermissionDenied;
+    }
+
+    return ResultSuccess;
 }
 
 Result VfsDirectoryServiceWrapper::OpenFile(FileSys::VirtualFile* out_file,
@@ -250,14 +314,21 @@ Result VfsDirectoryServiceWrapper::OpenDirectory(FileSys::VirtualDir* out_direct
 Result VfsDirectoryServiceWrapper::GetEntryType(FileSys::DirectoryEntryType* out_entry_type,
                                                 const std::string& path_) const {
     std::string path(Common::FS::SanitizePath(path_));
+
+    // Handle root directory case (based on LibHac behavior)
+    if (FileSys::PathUtility::IsRootPath(path)) {
+        *out_entry_type = FileSys::DirectoryEntryType::Directory;
+        return ResultSuccess;
+    }
+
     auto dir = GetDirectoryRelativeWrapped(backing, Common::FS::GetParentPath(path));
     if (dir == nullptr) {
         return FileSys::ResultPathNotFound;
     }
 
     auto filename = Common::FS::GetFilename(path);
-    // TODO(Subv): Some games use the '/' path, find out what this means.
     if (filename.empty()) {
+        // Empty filename after normalization means the path is a directory
         *out_entry_type = FileSys::DirectoryEntryType::Directory;
         return ResultSuccess;
     }

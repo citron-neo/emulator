@@ -124,9 +124,11 @@ Result IFileSystem::GetEntryType(
 }
 
 Result IFileSystem::Commit() {
-    LOG_WARNING(Service_FS, "(STUBBED) called");
+    LOG_DEBUG(Service_FS, "called");
 
-    R_SUCCEED();
+    // Based on LibHac DirectorySaveDataFileSystem::DoCommit
+    // The backend FSA layer should handle the actual commit logic
+    R_RETURN(backend->Commit());
 }
 
 Result IFileSystem::GetFreeSpaceSize(

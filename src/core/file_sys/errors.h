@@ -13,6 +13,10 @@ constexpr Result ResultUnsupportedSdkVersion{ErrorModule::FS, 50};
 constexpr Result ResultPartitionNotFound{ErrorModule::FS, 1001};
 constexpr Result ResultTargetNotFound{ErrorModule::FS, 1002};
 constexpr Result ResultPortSdCardNoDevice{ErrorModule::FS, 2001};
+constexpr Result ResultTargetLocked{ErrorModule::FS, 7};
+constexpr Result ResultDirectoryNotEmpty{ErrorModule::FS, 8};
+constexpr Result ResultDirectoryStatusChanged{ErrorModule::FS, 13};
+constexpr Result ResultUsableSpaceNotEnough{ErrorModule::FS, 39};
 constexpr Result ResultNotImplemented{ErrorModule::FS, 3001};
 constexpr Result ResultUnsupportedVersion{ErrorModule::FS, 3002};
 constexpr Result ResultOutOfRange{ErrorModule::FS, 3005};
@@ -93,5 +97,9 @@ constexpr Result ResultUnsupportedWriteForCompressedStorage{ErrorModule::FS, 638
 constexpr Result ResultUnsupportedOperateRangeForCompressedStorage{ErrorModule::FS, 6388};
 constexpr Result ResultPermissionDenied{ErrorModule::FS, 6400};
 constexpr Result ResultBufferAllocationFailed{ErrorModule::FS, 6705};
+constexpr Result ResultMappingTableFull{ErrorModule::FS, 6706};
+constexpr Result ResultOpenCountLimit{ErrorModule::FS, 6709};
+constexpr Result ResultWriteModeFileNotClosed{ErrorModule::FS, 6710};
+constexpr Result ResultDataCorrupted{ErrorModule::FS, 4001};
 
 } // namespace FileSys

@@ -330,70 +330,137 @@ Result FSP_SRV::FindSaveDataWithFilter(Out<s64> out_count,
 Result FSP_SRV::WriteSaveDataFileSystemExtraData(InBuffer<BufferAttr_HipcMapAlias> buffer,
                                                  FileSys::SaveDataSpaceId space_id,
                                                  u64 save_data_id) {
-    LOG_WARNING(Service_FS, "(STUBBED) called, space_id={}, save_data_id={:016X}", space_id,
-                save_data_id);
-    R_SUCCEED();
+    LOG_DEBUG(Service_FS, "called, space_id={}, save_data_id={:016X}", space_id, save_data_id);
+
+    if (buffer.size() < sizeof(FileSys::SaveDataExtraData)) {
+        return FileSys::ResultInvalidSize;
+    }
+
+    FileSys::SaveDataExtraData extra_data{};
+    std::memcpy(&extra_data, buffer.data(), sizeof(FileSys::SaveDataExtraData));
+
+    R_RETURN(save_data_controller->WriteSaveDataExtraData(extra_data, space_id,
+                                                           extra_data.attr));
 }
 
 Result FSP_SRV::WriteSaveDataFileSystemExtraDataWithMaskBySaveDataAttribute(
     InBuffer<BufferAttr_HipcMapAlias> buffer, InBuffer<BufferAttr_HipcMapAlias> mask_buffer,
     FileSys::SaveDataSpaceId space_id, FileSys::SaveDataAttribute attribute) {
-    LOG_WARNING(Service_FS,
-                "(STUBBED) called, space_id={}, attribute.program_id={:016X}\n"
-                "attribute.user_id={:016X}{:016X}, attribute.save_id={:016X}\n"
-                "attribute.type={}, attribute.rank={}, attribute.index={}",
-                space_id, attribute.program_id, attribute.user_id[1], attribute.user_id[0],
-                attribute.system_save_data_id, attribute.type, attribute.rank, attribute.index);
-    R_SUCCEED();
+    LOG_DEBUG(Service_FS,
+              "called, space_id={}, attribute.program_id={:016X}\n"
+              "attribute.user_id={:016X}{:016X}, attribute.save_id={:016X}\n"
+              "attribute.type={}, attribute.rank={}, attribute.index={}",
+              space_id, attribute.program_id, attribute.user_id[1], attribute.user_id[0],
+              attribute.system_save_data_id, attribute.type, attribute.rank, attribute.index);
+
+    if (buffer.size() < sizeof(FileSys::SaveDataExtraData) ||
+        mask_buffer.size() < sizeof(FileSys::SaveDataExtraData)) {
+        return FileSys::ResultInvalidSize;
+    }
+
+    FileSys::SaveDataExtraData extra_data{};
+    FileSys::SaveDataExtraData mask{};
+    std::memcpy(&extra_data, buffer.data(), sizeof(FileSys::SaveDataExtraData));
+    std::memcpy(&mask, mask_buffer.data(), sizeof(FileSys::SaveDataExtraData));
+
+    R_RETURN(
+        save_data_controller->WriteSaveDataExtraDataWithMask(extra_data, mask, space_id, attribute));
 }
 
 Result FSP_SRV::ReadSaveDataFileSystemExtraDataWithMaskBySaveDataAttribute(
     FileSys::SaveDataSpaceId space_id, FileSys::SaveDataAttribute attribute,
     InBuffer<BufferAttr_HipcMapAlias> mask_buffer, OutBuffer<BufferAttr_HipcMapAlias> out_buffer) {
-    // Stub this to None for now, backend needs an impl to read/write the SaveDataExtraData
-    // In an earlier version of the code, this was returned as an out argument, but this is not
-    // correct
-    [[maybe_unused]] constexpr auto flags = static_cast<u32>(FileSys::SaveDataFlags::None);
+    LOG_DEBUG(Service_FS,
+              "called, space_id={}, attribute.program_id={:016X}\n"
+              "attribute.user_id={:016X}{:016X}, attribute.save_id={:016X}\n"
+              "attribute.type={}, attribute.rank={}, attribute.index={}",
+              space_id, attribute.program_id, attribute.user_id[1], attribute.user_id[0],
+              attribute.system_save_data_id, attribute.type, attribute.rank, attribute.index);
 
-    LOG_WARNING(Service_FS,
-                "(STUBBED) called, flags={}, space_id={}, attribute.program_id={:016X}\n"
-                "attribute.user_id={:016X}{:016X}, attribute.save_id={:016X}\n"
-                "attribute.type={}, attribute.rank={}, attribute.index={}",
-                flags, space_id, attribute.program_id, attribute.user_id[1], attribute.user_id[0],
-                attribute.system_save_data_id, attribute.type, attribute.rank, attribute.index);
+    if (out_buffer.size() < sizeof(FileSys::SaveDataExtraData)) {
+        return FileSys::ResultInvalidSize;
+    }
 
+    FileSys::SaveDataExtraData extra_data{};
+    R_TRY(save_data_controller->ReadSaveDataExtraData(&extra_data, space_id, attribute));
+
+    // Apply mask if provided
+    if (mask_buffer.size() >= sizeof(FileSys::SaveDataExtraData)) {
+        const u8* mask_bytes = mask_buffer.data();
+        u8* extra_data_bytes = reinterpret_cast<u8*>(&extra_data);
+
+        for (size_t i = 0; i < sizeof(FileSys::SaveDataExtraData); ++i) {
+            if (mask_bytes[i] == 0) {
+                extra_data_bytes[i] = 0; // Zero out masked bytes
+            }
+        }
+    }
+
+    std::memcpy(out_buffer.data(), &extra_data, sizeof(FileSys::SaveDataExtraData));
     R_SUCCEED();
 }
 
 Result FSP_SRV::ReadSaveDataFileSystemExtraData(OutBuffer<BufferAttr_HipcMapAlias> out_buffer,
                                                 u64 save_data_id) {
-    // Stub, backend needs an impl to read/write the SaveDataExtraData
-    LOG_WARNING(Service_FS, "(STUBBED) called, save_data_id={:016X}", save_data_id);
-    std::memset(out_buffer.data(), 0, out_buffer.size());
+    LOG_DEBUG(Service_FS, "called, save_data_id={:016X}", save_data_id);
+
+    if (out_buffer.size() < sizeof(FileSys::SaveDataExtraData)) {
+        return FileSys::ResultInvalidSize;
+    }
+
+    // For now, use User space and construct attribute from save_data_id
+    // In a full implementation, we'd have a save data index to look this up
+    FileSys::SaveDataAttribute attribute{};
+    attribute.system_save_data_id = save_data_id;
+    attribute.type = FileSys::SaveDataType::System;
+
+    FileSys::SaveDataExtraData extra_data{};
+    R_TRY(save_data_controller->ReadSaveDataExtraData(&extra_data, FileSys::SaveDataSpaceId::User,
+                                                       attribute));
+
+    std::memcpy(out_buffer.data(), &extra_data, sizeof(FileSys::SaveDataExtraData));
     R_SUCCEED();
 }
 
 Result FSP_SRV::ReadSaveDataFileSystemExtraDataBySaveDataAttribute(
     OutBuffer<BufferAttr_HipcMapAlias> out_buffer, FileSys::SaveDataSpaceId space_id,
     FileSys::SaveDataAttribute attribute) {
-    // Stub, backend needs an impl to read/write the SaveDataExtraData
-    LOG_WARNING(Service_FS,
-                "(STUBBED) called, space_id={}, attribute.program_id={:016X}\n"
-                "attribute.user_id={:016X}{:016X}, attribute.save_id={:016X}\n"
-                "attribute.type={}, attribute.rank={}, attribute.index={}",
-                space_id, attribute.program_id, attribute.user_id[1], attribute.user_id[0],
-                attribute.system_save_data_id, attribute.type, attribute.rank, attribute.index);
-    std::memset(out_buffer.data(), 0, out_buffer.size());
+    LOG_DEBUG(Service_FS,
+              "called, space_id={}, attribute.program_id={:016X}\n"
+              "attribute.user_id={:016X}{:016X}, attribute.save_id={:016X}\n"
+              "attribute.type={}, attribute.rank={}, attribute.index={}",
+              space_id, attribute.program_id, attribute.user_id[1], attribute.user_id[0],
+              attribute.system_save_data_id, attribute.type, attribute.rank, attribute.index);
+
+    if (out_buffer.size() < sizeof(FileSys::SaveDataExtraData)) {
+        return FileSys::ResultInvalidSize;
+    }
+
+    FileSys::SaveDataExtraData extra_data{};
+    R_TRY(save_data_controller->ReadSaveDataExtraData(&extra_data, space_id, attribute));
+
+    std::memcpy(out_buffer.data(), &extra_data, sizeof(FileSys::SaveDataExtraData));
     R_SUCCEED();
 }
 
 Result FSP_SRV::ReadSaveDataFileSystemExtraDataBySaveDataSpaceId(
     OutBuffer<BufferAttr_HipcMapAlias> out_buffer, FileSys::SaveDataSpaceId space_id,
     u64 save_data_id) {
-    // Stub, backend needs an impl to read/write the SaveDataExtraData
-    LOG_WARNING(Service_FS, "(STUBBED) called, space_id={}, save_data_id={:016X}", space_id,
-                save_data_id);
-    std::memset(out_buffer.data(), 0, out_buffer.size());
+    LOG_DEBUG(Service_FS, "called, space_id={}, save_data_id={:016X}", space_id, save_data_id);
+
+    if (out_buffer.size() < sizeof(FileSys::SaveDataExtraData)) {
+        return FileSys::ResultInvalidSize;
+    }
+
+    // Construct attribute from save_data_id
+    FileSys::SaveDataAttribute attribute{};
+    attribute.system_save_data_id = save_data_id;
+    attribute.type = FileSys::SaveDataType::System;
+
+    FileSys::SaveDataExtraData extra_data{};
+    R_TRY(save_data_controller->ReadSaveDataExtraData(&extra_data, space_id, attribute));
+
+    std::memcpy(out_buffer.data(), &extra_data, sizeof(FileSys::SaveDataExtraData));
     R_SUCCEED();
 }
 
@@ -410,9 +477,8 @@ Result FSP_SRV::OpenDataStorageByCurrentProcess(OutInterface<IStorage> out_inter
     if (!romfs) {
         auto current_romfs = romfs_controller->OpenRomFSCurrentProcess();
         if (!current_romfs) {
-            // TODO (bunnei): Find the right error code to use here
             LOG_CRITICAL(Service_FS, "No file system interface available!");
-            R_RETURN(ResultUnknown);
+            R_RETURN(FileSys::ResultTargetNotFound);
         }
 
         romfs = current_romfs;
@@ -438,11 +504,10 @@ Result FSP_SRV::OpenDataStorageByDataId(OutInterface<IStorage> out_interface,
             R_SUCCEED();
         }
 
-        // TODO(DarkLordZach): Find the right error code to use here
         LOG_ERROR(Service_FS,
                   "Could not open data storage with title_id={:016X}, storage_id={:02X}", title_id,
                   storage_id);
-        R_RETURN(ResultUnknown);
+        R_RETURN(FileSys::ResultTargetNotFound);
     }
 
     const FileSys::PatchManager pm{title_id, fsc, content_provider};
@@ -472,9 +537,8 @@ Result FSP_SRV::OpenDataStorageWithProgramIndex(OutInterface<IStorage> out_inter
         program_id, program_index, FileSys::ContentRecordType::Program);
 
     if (!patched_romfs) {
-        // TODO: Find the right error code to use here
         LOG_ERROR(Service_FS, "Could not open storage with program_index={}", program_index);
-        R_RETURN(ResultUnknown);
+        R_RETURN(FileSys::ResultTargetNotFound);
     }
 
     *out_interface = std::make_shared<IStorage>(system, std::move(patched_romfs));

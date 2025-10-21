@@ -1,12 +1,15 @@
 // SPDX-FileCopyrightText: Copyright 2018 yuzu Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
+#include <chrono>
 #include <memory>
 #include "common/assert.h"
 #include "common/common_types.h"
 #include "common/logging/log.h"
 #include "common/uuid.h"
 #include "core/core.h"
+#include "core/file_sys/errors.h"
+#include "core/file_sys/savedata_extra_data_accessor.h"
 #include "core/file_sys/savedata_factory.h"
 #include "core/file_sys/vfs/vfs.h"
 
@@ -67,7 +70,32 @@ VirtualDir SaveDataFactory::Create(SaveDataSpaceId space, const SaveDataAttribut
     const auto save_directory = GetFullPath(program_id, dir, space, meta.type, meta.program_id,
                                             meta.user_id, meta.system_save_data_id);
 
-    return dir->CreateDirectoryRelative(save_directory);
+    auto save_dir = dir->CreateDirectoryRelative(save_directory);
+    if (save_dir == nullptr) {
+        return nullptr;
+    }
+
+    // Initialize ExtraData for new save
+    SaveDataExtraDataAccessor accessor(save_dir);
+    if (accessor.Initialize(true) != ResultSuccess) {
+        LOG_WARNING(Service_FS, "Failed to initialize ExtraData for new save at {}", save_directory);
+        // Continue anyway - save is still usable
+    } else {
+        // Write initial extra data
+        SaveDataExtraData initial_data{};
+        initial_data.attr = meta;
+        initial_data.owner_id = meta.program_id;
+        initial_data.timestamp = std::chrono::system_clock::now().time_since_epoch().count();
+        initial_data.flags = static_cast<u32>(SaveDataFlags::None);
+        initial_data.available_size = 0; // Will be updated on commit
+        initial_data.journal_size = 0;
+        initial_data.commit_id = 1;
+
+        accessor.WriteExtraData(initial_data);
+        accessor.CommitExtraData();
+    }
+
+    return save_dir;
 }
 
 VirtualDir SaveDataFactory::Open(SaveDataSpaceId space, const SaveDataAttribute& meta) const {
@@ -196,6 +224,103 @@ void SaveDataFactory::WriteSaveDataSize(SaveDataType type, u64 title_id, u128 us
 
 void SaveDataFactory::SetAutoCreate(bool state) {
     auto_create = state;
+}
+
+Result SaveDataFactory::ReadSaveDataExtraData(SaveDataExtraData* out_extra_data,
+                                               SaveDataSpaceId space,
+                                               const SaveDataAttribute& attribute) const {
+    const auto save_directory =
+        GetFullPath(program_id, dir, space, attribute.type, attribute.program_id, attribute.user_id,
+                    attribute.system_save_data_id);
+
+    auto save_dir = dir->GetDirectoryRelative(save_directory);
+    if (save_dir == nullptr) {
+        return ResultPathNotFound;
+    }
+
+    SaveDataExtraDataAccessor accessor(save_dir);
+
+    // Try to initialize (but don't create if missing)
+    if (Result result = accessor.Initialize(false); result != ResultSuccess) {
+        // ExtraData doesn't exist - return default values
+        LOG_DEBUG(Service_FS, "ExtraData not found for save at {}, returning defaults",
+                  save_directory);
+
+        // Return zeroed data
+        std::memset(out_extra_data, 0, sizeof(SaveDataExtraData));
+        out_extra_data->attr = attribute;
+        return ResultSuccess;
+    }
+
+    return accessor.ReadExtraData(out_extra_data);
+}
+
+Result SaveDataFactory::WriteSaveDataExtraData(const SaveDataExtraData& extra_data,
+                                                SaveDataSpaceId space,
+                                                const SaveDataAttribute& attribute) const {
+    const auto save_directory =
+        GetFullPath(program_id, dir, space, attribute.type, attribute.program_id, attribute.user_id,
+                    attribute.system_save_data_id);
+
+    auto save_dir = dir->GetDirectoryRelative(save_directory);
+    if (save_dir == nullptr) {
+        return ResultPathNotFound;
+    }
+
+    SaveDataExtraDataAccessor accessor(save_dir);
+
+    // Initialize and create if missing
+    R_TRY(accessor.Initialize(true));
+
+    // Write the data
+    R_TRY(accessor.WriteExtraData(extra_data));
+
+    // Commit immediately for transactional writes
+    R_TRY(accessor.CommitExtraData());
+
+    return ResultSuccess;
+}
+
+Result SaveDataFactory::WriteSaveDataExtraDataWithMask(const SaveDataExtraData& extra_data,
+                                                        const SaveDataExtraData& mask,
+                                                        SaveDataSpaceId space,
+                                                        const SaveDataAttribute& attribute) const {
+    const auto save_directory =
+        GetFullPath(program_id, dir, space, attribute.type, attribute.program_id, attribute.user_id,
+                    attribute.system_save_data_id);
+
+    auto save_dir = dir->GetDirectoryRelative(save_directory);
+    if (save_dir == nullptr) {
+        return ResultPathNotFound;
+    }
+
+    SaveDataExtraDataAccessor accessor(save_dir);
+
+    // Initialize and create if missing
+    R_TRY(accessor.Initialize(true));
+
+    // Read existing data
+    SaveDataExtraData current_data{};
+    R_TRY(accessor.ReadExtraData(&current_data));
+
+    // Apply mask: copy only the bytes where mask is non-zero
+    const u8* extra_data_bytes = reinterpret_cast<const u8*>(&extra_data);
+    const u8* mask_bytes = reinterpret_cast<const u8*>(&mask);
+    u8* current_data_bytes = reinterpret_cast<u8*>(&current_data);
+
+    for (size_t i = 0; i < sizeof(SaveDataExtraData); ++i) {
+        if (mask_bytes[i] != 0) {
+            current_data_bytes[i] = extra_data_bytes[i];
+        }
+    }
+
+    // Write back the masked data
+    R_TRY(accessor.WriteExtraData(current_data));
+
+    // Commit the changes
+    R_TRY(accessor.CommitExtraData());
+
+    return ResultSuccess;
 }
 
 } // namespace FileSys
