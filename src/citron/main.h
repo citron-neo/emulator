@@ -377,6 +377,7 @@ private slots:
     void OnMenuLoadFolder();
     void IncrementInstallProgress();
     void OnMenuInstallToNAND();
+    void OnMenuTrimXCI();
     void OnMenuRecentFile();
     void OnConfigure();
     void OnConfigureTas();

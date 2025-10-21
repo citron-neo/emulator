@@ -58,6 +58,7 @@
      </property>
     </widget>
     <addaction name="action_Install_File_NAND"/>
+    <addaction name="action_Trim_XCI_File"/>
     <addaction name="separator"/>
     <addaction name="action_Load_File"/>
     <addaction name="action_Load_Folder"/>
@@ -204,6 +205,14 @@
    </property>
    <property name="text">
     <string>&amp;Install Files to NAND...</string>
+   </property>
+  </action>
+  <action name="action_Trim_XCI_File">
+   <property name="enabled">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>&amp;Trim XCI File...</string>
    </property>
   </action>
   <action name="action_Load_File">

@@ -157,6 +157,8 @@ add_library(common STATIC
     virtual_buffer.h
     wall_clock.cpp
     wall_clock.h
+    xci_trimmer.cpp
+    xci_trimmer.h
     zstd_compression.cpp
     zstd_compression.h
 )

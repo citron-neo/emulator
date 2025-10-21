@@ -118,7 +118,9 @@ static FileSys::VirtualFile VfsDirectoryCreateFileWrapper(const FileSys::Virtual
 #include "common/x64/cpu_detect.h"
 #endif
 #include "common/settings.h"
+#include "common/string_util.h"
 #include "common/telemetry.h"
+#include "common/xci_trimmer.h"
 #include "core/core.h"
 #include "core/core_timing.h"
 #include "core/crypto/key_manager.h"
@@ -1580,6 +1582,7 @@ void GMainWindow::ConnectMenuEvents() {
     connect_menu(ui->action_Load_File, &GMainWindow::OnMenuLoadFile);
     connect_menu(ui->action_Load_Folder, &GMainWindow::OnMenuLoadFolder);
     connect_menu(ui->action_Install_File_NAND, &GMainWindow::OnMenuInstallToNAND);
+    connect_menu(ui->action_Trim_XCI_File, &GMainWindow::OnMenuTrimXCI);
     connect_menu(ui->action_Exit, &QMainWindow::close);
     connect_menu(ui->action_Load_Amiibo, &GMainWindow::OnLoadAmiibo);
 
@@ -3383,6 +3386,216 @@ void GMainWindow::OnMenuInstallToNAND() {
                                      "game_list");
     game_list->PopulateAsync(UISettings::values.game_dirs);
     ui->action_Install_File_NAND->setEnabled(true);
+}
+
+void GMainWindow::OnMenuTrimXCI() {
+    const QString file_filter = tr("NX Cartridge Image (*.xci)");
+
+    const QString filename = QFileDialog::getOpenFileName(
+        this, tr("Select XCI File to Trim"), QString::fromStdString(UISettings::values.roms_path),
+        file_filter);
+
+    if (filename.isEmpty()) {
+        return;
+    }
+
+    // Save folder location
+    UISettings::values.roms_path = QFileInfo(filename).path().toStdString();
+
+    // Convert QString to filesystem::path with proper Unicode support
+    const std::filesystem::path filepath =
+        std::filesystem::path{Common::U16StringFromBuffer(filename.utf16(), filename.size())};
+
+    // Create trimmer and check if file is valid
+    Common::XCITrimmer trimmer(filepath);
+
+    if (!trimmer.IsValid()) {
+        QMessageBox::critical(this, tr("Trim XCI File"),
+                            tr("The selected file is not a valid XCI file."));
+        return;
+    }
+
+    if (!trimmer.CanBeTrimmed()) {
+        QMessageBox::information(this, tr("Trim XCI File"),
+                               tr("The XCI file does not need to be trimmed (already trimmed or no padding)."));
+        return;
+    }
+
+    // Show confirmation dialog with savings information
+    const double current_size_mb = static_cast<double>(trimmer.GetFileSize()) / (1024.0 * 1024.0);
+    const double data_size_mb = static_cast<double>(trimmer.GetDataSize()) / (1024.0 * 1024.0);
+    const double savings_mb = static_cast<double>(trimmer.GetDiskSpaceSavings()) / (1024.0 * 1024.0);
+
+    const QString info_message = tr(
+        "This function will check the empty space and then trim the XCI file to save disk space.\n\n"
+        "Current file size: %1 MB\n"
+        "Data size: %2 MB\n"
+        "Potential savings: %3 MB\n\n"
+        "How would you like to proceed?")
+        .arg(QString::number(current_size_mb, 'f', 2))
+        .arg(QString::number(data_size_mb, 'f', 2))
+        .arg(QString::number(savings_mb, 'f', 2));
+
+    // Create custom message box with three options
+    QMessageBox msgBox(this);
+    msgBox.setWindowTitle(tr("Trim XCI File"));
+    msgBox.setText(info_message);
+    msgBox.setIcon(QMessageBox::Question);
+
+    msgBox.addButton(tr("Trim In-Place"), QMessageBox::YesRole);
+    QPushButton* saveAsBtn = msgBox.addButton(tr("Save As Trimmed Copy"), QMessageBox::YesRole);
+    QPushButton* cancelBtn = msgBox.addButton(QMessageBox::Cancel);
+
+    msgBox.setDefaultButton(saveAsBtn);
+    msgBox.exec();
+
+    std::filesystem::path output_path;
+    bool is_save_as = false;
+
+    if (msgBox.clickedButton() == cancelBtn) {
+        return;
+    } else if (msgBox.clickedButton() == saveAsBtn) {
+        // User wants to save to a new file
+        is_save_as = true;
+
+        // Suggest default filename with _trimmed suffix
+        QFileInfo file_info(filename);
+        const QString new_basename = file_info.completeBaseName() + QStringLiteral("_trimmed");
+        const QString new_filename = new_basename + QStringLiteral(".") + file_info.suffix();
+        const QString suggested_name = QDir(file_info.path()).filePath(new_filename);
+
+        const QString output_filename = QFileDialog::getSaveFileName(
+            this, tr("Save Trimmed XCI File As"), suggested_name,
+            tr("NX Cartridge Image (*.xci)"));
+
+        if (output_filename.isEmpty()) {
+            return;
+        }
+
+        // Convert QString to filesystem::path with proper Unicode support
+        output_path = std::filesystem::path{
+            Common::U16StringFromBuffer(output_filename.utf16(), output_filename.size())};
+    }
+    // else: trim in-place (output_path remains empty)
+
+    // Create progress dialog with proper range
+    QProgressDialog progress_dialog(tr("Preparing..."), tr("Cancel"), 0, 100, this);
+    progress_dialog.setWindowFlags(windowFlags() & ~Qt::WindowMaximizeButtonHint);
+    progress_dialog.setWindowModality(Qt::WindowModal);
+    progress_dialog.setMinimumDuration(0);
+    progress_dialog.setAutoClose(false);
+    progress_dialog.setAutoReset(false);
+    progress_dialog.setValue(0);
+    progress_dialog.show();
+    QCoreApplication::processEvents();
+
+    bool cancelled = false;
+    QString current_operation;
+
+    // Pre-translate strings for use in lambda
+    const QString checking_text = tr("Checking free space...");
+    const QString copying_text = tr("Copying file...");
+
+    // Track last operation to detect changes
+    size_t last_total = 0;
+
+    // Progress callback
+    auto progress_callback = [&](size_t current, size_t total) {
+        if (total > 0) {
+            // Detect operation change (when total changes significantly)
+            if (total != last_total) {
+                last_total = total;
+                if (current == 0 || current == total) {
+                    // Likely switched operations
+                    if (total < current_size_mb * 1024 * 1024) {
+                        // Smaller total = checking padding
+                        current_operation = checking_text;
+                    }
+                }
+            }
+
+            const int percent = static_cast<int>((current * 100) / total);
+            progress_dialog.setValue(percent);
+
+            // Update label text based on operation
+            if (!current_operation.isEmpty()) {
+                const QString current_mb = QString::number(current / (1024.0 * 1024.0), 'f', 1);
+                const QString total_mb = QString::number(total / (1024.0 * 1024.0), 'f', 1);
+                const QString percent_str = QString::number(percent);
+
+                QString label_text = current_operation;
+                label_text += QStringLiteral("\n");
+                label_text += current_mb;
+                label_text += QStringLiteral(" / ");
+                label_text += total_mb;
+                label_text += QStringLiteral(" MB (");
+                label_text += percent_str;
+                label_text += QStringLiteral("%)");
+
+                progress_dialog.setLabelText(label_text);
+            }
+        }
+        QCoreApplication::processEvents();
+    };
+
+    // Cancel callback
+    auto cancel_callback = [&]() -> bool {
+        cancelled = progress_dialog.wasCanceled();
+        return cancelled;
+    };
+
+    // Perform trim operation
+    ui->action_Trim_XCI_File->setEnabled(false);
+
+    // Set initial operation text
+    if (is_save_as) {
+        current_operation = copying_text;
+        progress_dialog.setLabelText(current_operation);
+        QCoreApplication::processEvents();
+    }
+
+    const auto outcome = trimmer.Trim(progress_callback, cancel_callback, output_path);
+    ui->action_Trim_XCI_File->setEnabled(true);
+
+    progress_dialog.close();
+
+    // Show result
+    if (outcome == Common::XCITrimmer::OperationOutcome::Successful) {
+        // Calculate final size based on whether it was save-as or in-place
+        const double final_size_mb = is_save_as ? data_size_mb :
+                                    static_cast<double>(trimmer.GetFileSize()) / (1024.0 * 1024.0);
+        const double actual_savings_mb = current_size_mb - final_size_mb;
+
+        QString success_message;
+        if (is_save_as) {
+            success_message = tr("Successfully created trimmed XCI file!\n\n"
+                               "Original file: %1\n"
+                               "Original size: %2 MB\n"
+                               "New file: %3\n"
+                               "New size: %4 MB\n"
+                               "Space saved: %5 MB")
+                .arg(QFileInfo(filename).fileName())
+                .arg(QString::number(current_size_mb, 'f', 2))
+                .arg(QFileInfo(QString::fromStdString(output_path.string())).fileName())
+                .arg(QString::number(final_size_mb, 'f', 2))
+                .arg(QString::number(actual_savings_mb, 'f', 2));
+        } else {
+            success_message = tr("Successfully trimmed XCI file!\n\n"
+                               "Original size: %1 MB\n"
+                               "New size: %2 MB\n"
+                               "Space saved: %3 MB")
+                .arg(QString::number(current_size_mb, 'f', 2))
+                .arg(QString::number(final_size_mb, 'f', 2))
+                .arg(QString::number(actual_savings_mb, 'f', 2));
+        }
+
+        QMessageBox::information(this, tr("Trim XCI File"), success_message);
+    } else {
+        const QString error_message = QString::fromStdString(
+            Common::XCITrimmer::GetOperationOutcomeString(outcome));
+        QMessageBox::critical(this, tr("Trim XCI File"),
+                            tr("Failed to trim XCI file: %1").arg(error_message));
+    }
 }
 
 ContentManager::InstallResult GMainWindow::InstallNCA(const QString& filename) {
