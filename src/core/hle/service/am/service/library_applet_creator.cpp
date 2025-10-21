@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: Copyright 2024 yuzu Emulator Project
+// SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "common/settings.h"
@@ -171,6 +172,7 @@ ILibraryAppletCreator::ILibraryAppletCreator(Core::System& system_, std::shared_
         {0, D<&ILibraryAppletCreator::CreateLibraryApplet>, "CreateLibraryApplet"},
         {1, nullptr, "TerminateAllLibraryApplets"},
         {2, nullptr, "AreAnyLibraryAppletsLeft"},
+        {3, D<&ILibraryAppletCreator::CreateLibraryAppletEx>, "CreateLibraryAppletEx"},
         {10, D<&ILibraryAppletCreator::CreateStorage>, "CreateStorage"},
         {11, D<&ILibraryAppletCreator::CreateTransferMemoryStorage>, "CreateTransferMemoryStorage"},
         {12, D<&ILibraryAppletCreator::CreateHandleStorage>, "CreateHandleStorage"},
@@ -186,6 +188,33 @@ Result ILibraryAppletCreator::CreateLibraryApplet(
     LOG_DEBUG(Service_AM, "called with applet_id={} applet_mode={}", applet_id,
               library_applet_mode);
 
+    std::shared_ptr<ILibraryAppletAccessor> library_applet;
+    if (ShouldCreateGuestApplet(applet_id)) {
+        library_applet =
+            CreateGuestApplet(system, m_window_system, m_applet, applet_id, library_applet_mode);
+    }
+    if (!library_applet) {
+        library_applet =
+            CreateFrontendApplet(system, m_window_system, m_applet, applet_id, library_applet_mode);
+    }
+    if (!library_applet) {
+        LOG_ERROR(Service_AM, "Applet doesn't exist! applet_id={}", applet_id);
+        R_THROW(ResultUnknown);
+    }
+
+    // Applet is created, can now be launched.
+    m_applet->library_applet_launchable_event.Signal();
+    *out_library_applet_accessor = library_applet;
+    R_SUCCEED();
+}
+
+Result ILibraryAppletCreator::CreateLibraryAppletEx(
+    Out<SharedPointer<ILibraryAppletAccessor>> out_library_applet_accessor, AppletId applet_id,
+    LibraryAppletMode library_applet_mode, u64 thread_id) {
+    LOG_DEBUG(Service_AM, "called with applet_id={} applet_mode={} thread_id={:016X}", applet_id,
+              library_applet_mode, thread_id);
+
+    // The thread_id parameter is not used in the current implementation
     std::shared_ptr<ILibraryAppletAccessor> library_applet;
     if (ShouldCreateGuestApplet(applet_id)) {
         library_applet =

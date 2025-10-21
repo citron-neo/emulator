@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: Copyright 2024 yuzu Emulator Project
+// SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #pragma once
@@ -33,6 +34,7 @@ private:
     Result GetPopOutDataEvent(OutCopyHandle<Kernel::KReadableEvent> out_event);
     Result GetPopInteractiveOutDataEvent(OutCopyHandle<Kernel::KReadableEvent> out_event);
     Result GetIndirectLayerConsumerHandle(Out<u64> out_handle);
+    Result Unknown90(s64 param_1, s64 param_2);
 
     void FrontendExecute();
     void FrontendExecuteInteractive();

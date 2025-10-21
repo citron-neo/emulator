@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: Copyright 2024 yuzu Emulator Project
+// SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "core/hle/service/am/applet_data_broker.h"
@@ -25,6 +26,7 @@ ILibraryAppletAccessor::ILibraryAppletAccessor(Core::System& system_,
         {30, D<&ILibraryAppletAccessor::GetResult>, "GetResult"},
         {50, nullptr, "SetOutOfFocusApplicationSuspendingEnabled"},
         {60, D<&ILibraryAppletAccessor::PresetLibraryAppletGpuTimeSliceZero>, "PresetLibraryAppletGpuTimeSliceZero"},
+        {90, D<&ILibraryAppletAccessor::Unknown90>, "Unknown90"},
         {100, D<&ILibraryAppletAccessor::PushInData>, "PushInData"},
         {101, D<&ILibraryAppletAccessor::PopOutData>, "PopOutData"},
         {102, nullptr, "PushExtraStorage"},
@@ -135,6 +137,14 @@ Result ILibraryAppletAccessor::GetIndirectLayerConsumerHandle(Out<u64> out_handl
     // We require a non-zero handle to be valid. Using 0xdeadbeef allows us to trace if this is
     // actually used anywhere
     *out_handle = 0xdeadbeef;
+    R_SUCCEED();
+}
+
+Result ILibraryAppletAccessor::Unknown90(s64 param_1, s64 param_2) {
+    LOG_WARNING(Service_AM, "(STUBBED) called, param_1={} param_2={}", param_1, param_2);
+
+    // Unknown function added in newer firmware
+    // Stubbed for now
     R_SUCCEED();
 }
 
