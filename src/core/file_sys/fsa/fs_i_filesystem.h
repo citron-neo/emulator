@@ -163,7 +163,9 @@ private:
     }
 
     Result DoCommit() {
-        R_THROW(ResultNotImplemented);
+        // For most filesystems (SDMC, RomFS, etc), commit is a no-op
+        // SaveData filesystems would override this if they need journaling
+        return ResultSuccess;
     }
 
     Result DoGetFreeSpaceSize(s64* out, const Path& path) {

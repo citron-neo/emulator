@@ -90,7 +90,7 @@ protected:
 
         // Get the file size, and validate our offset
         s64 file_size = 0;
-        R_TRY(this->DoGetSize(std::addressof(file_size)));
+        R_TRY(this->DoGetSize(&file_size));
         R_UNLESS(offset <= file_size, ResultOutOfRange);
 
         *out = static_cast<size_t>(std::min(file_size - offset, static_cast<s64>(size)));
@@ -125,34 +125,59 @@ protected:
 
 private:
     Result DoRead(size_t* out, s64 offset, void* buffer, size_t size, const ReadOption& option) {
+        // Validate backend exists
+        if (!backend) {
+            return ResultPathNotFound;
+        }
+
         const auto read_size = backend->Read(static_cast<u8*>(buffer), size, offset);
         *out = read_size;
-
         R_SUCCEED();
     }
 
     Result DoGetSize(s64* out) {
+        // Validate backend exists
+        if (!backend) {
+            return ResultPathNotFound;
+        }
+
         *out = backend->GetSize();
         R_SUCCEED();
     }
 
     Result DoFlush() {
-        // Exists for SDK compatibiltity -- No need to flush file.
+        // Exists for SDK compatibility -- No need to flush file.
         R_SUCCEED();
     }
 
     Result DoWrite(s64 offset, const void* buffer, size_t size, const WriteOption& option) {
+        // Validate backend exists
+        if (!backend) {
+            return ResultPathNotFound;
+        }
+
         const std::size_t written = backend->Write(static_cast<const u8*>(buffer), size, offset);
 
-        ASSERT_MSG(written == size,
-                   "Could not write all bytes to file (requested={:016X}, actual={:016X}).", size,
-                   written);
+        // Based on LibHac: Check if write was successful
+        if (written != size) {
+            LOG_ERROR(Service_FS, "Write failed: requested={:016X}, actual={:016X}", size, written);
+            return ResultUsableSpaceNotEnough;
+        }
 
         R_SUCCEED();
     }
 
     Result DoSetSize(s64 size) {
-        backend->Resize(size);
+        // Validate backend exists
+        if (!backend) {
+            return ResultPathNotFound;
+        }
+
+        // Try to resize, check for success
+        if (!backend->Resize(size)) {
+            return ResultUsableSpaceNotEnough;
+        }
+
         R_SUCCEED();
     }
 

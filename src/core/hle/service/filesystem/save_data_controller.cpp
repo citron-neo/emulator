@@ -96,4 +96,22 @@ void SaveDataController::SetAutoCreate(bool state) {
     factory->SetAutoCreate(state);
 }
 
+Result SaveDataController::ReadSaveDataExtraData(FileSys::SaveDataExtraData* out_extra_data,
+                                                  FileSys::SaveDataSpaceId space,
+                                                  const FileSys::SaveDataAttribute& attribute) {
+    return factory->ReadSaveDataExtraData(out_extra_data, space, attribute);
+}
+
+Result SaveDataController::WriteSaveDataExtraData(const FileSys::SaveDataExtraData& extra_data,
+                                                   FileSys::SaveDataSpaceId space,
+                                                   const FileSys::SaveDataAttribute& attribute) {
+    return factory->WriteSaveDataExtraData(extra_data, space, attribute);
+}
+
+Result SaveDataController::WriteSaveDataExtraDataWithMask(
+    const FileSys::SaveDataExtraData& extra_data, const FileSys::SaveDataExtraData& mask,
+    FileSys::SaveDataSpaceId space, const FileSys::SaveDataAttribute& attribute) {
+    return factory->WriteSaveDataExtraDataWithMask(extra_data, mask, space, attribute);
+}
+
 } // namespace Service::FileSystem

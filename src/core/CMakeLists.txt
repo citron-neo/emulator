@@ -128,6 +128,12 @@ add_library(core STATIC
     file_sys/romfs.h
     file_sys/romfs_factory.cpp
     file_sys/romfs_factory.h
+    file_sys/directory_save_data_filesystem.cpp
+    file_sys/directory_save_data_filesystem.h
+    file_sys/fs_path_normalizer.cpp
+    file_sys/fs_path_normalizer.h
+    file_sys/savedata_extra_data_accessor.cpp
+    file_sys/savedata_extra_data_accessor.h
     file_sys/savedata_factory.cpp
     file_sys/savedata_factory.h
     file_sys/sdmc_factory.cpp

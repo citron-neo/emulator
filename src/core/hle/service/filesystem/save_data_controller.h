@@ -25,6 +25,19 @@ public:
     FileSys::SaveDataSize ReadSaveDataSize(FileSys::SaveDataType type, u64 title_id, u128 user_id);
     void WriteSaveDataSize(FileSys::SaveDataType type, u64 title_id, u128 user_id,
                            FileSys::SaveDataSize new_value);
+
+    // ExtraData operations
+    Result ReadSaveDataExtraData(FileSys::SaveDataExtraData* out_extra_data,
+                                 FileSys::SaveDataSpaceId space,
+                                 const FileSys::SaveDataAttribute& attribute);
+    Result WriteSaveDataExtraData(const FileSys::SaveDataExtraData& extra_data,
+                                  FileSys::SaveDataSpaceId space,
+                                  const FileSys::SaveDataAttribute& attribute);
+    Result WriteSaveDataExtraDataWithMask(const FileSys::SaveDataExtraData& extra_data,
+                                          const FileSys::SaveDataExtraData& mask,
+                                          FileSys::SaveDataSpaceId space,
+                                          const FileSys::SaveDataAttribute& attribute);
+
     void SetAutoCreate(bool state);
 
 private:
