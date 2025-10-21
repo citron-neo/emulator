@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: 2016 Citra Emulator Project
+// SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <algorithm>
@@ -177,6 +178,10 @@ void ConfigureProfileManager::UpdateCurrentUser() {
     scene->addPixmap(
         GetIcon(*current_user).scaled(48, 48, Qt::IgnoreAspectRatio, Qt::SmoothTransformation));
     ui->current_user_username->setText(username);
+
+    // Update the token username for web service configuration
+    // This will be processed by ConfigureWeb::ApplyConfiguration()
+    Settings::values.citron_username = username.toStdString();
 }
 
 void ConfigureProfileManager::ApplyConfiguration() {
