@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: Copyright 2018 yuzu Emulator Project
+// SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <chrono>
@@ -247,7 +248,7 @@ Result SaveDataFactory::ReadSaveDataExtraData(SaveDataExtraData* out_extra_data,
                   save_directory);
 
         // Return zeroed data
-        std::memset(out_extra_data, 0, sizeof(SaveDataExtraData));
+        *out_extra_data = {}; // Or: *out_extra_data = SaveDataExtraData{};
         out_extra_data->attr = attribute;
         return ResultSuccess;
     }
