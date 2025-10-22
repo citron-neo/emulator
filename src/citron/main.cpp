@@ -6314,7 +6314,7 @@ void GMainWindow::OnMenuInstallWithAutoloader() {
         std::string sdmc_path = Common::FS::GetCitronPathString(Common::FS::CitronPath::SDMCDir);
         std::string dest_path_str = fmt::format("{}/autoloader/{:016X}/{}/{}", sdmc_path, program_id, type_folder, nsp_name.toStdString());
 
-        auto dest_dir = vfs->CreateDirectory(dest_path_str, FileSys::OpenMode::ReadWrite);
+        auto dest_dir = VfsFilesystemCreateDirectoryWrapper(vfs, dest_path_str, FileSys::OpenMode::ReadWrite);
         if (!dest_dir) {
             LOG_ERROR(Loader, "AUTOLOADER: FAILED to create destination directory: {}", dest_path_str);
             failed_files.append(QFileInfo(file).fileName() + tr(" (Directory Creation Error)"));
@@ -6325,6 +6325,12 @@ void GMainWindow::OnMenuInstallWithAutoloader() {
         for (const auto& [key, nca] : nca_map) {
             auto source_file = nca->GetBaseFile();
             auto dest_file = dest_dir->CreateFileRelative(source_file->GetName());
+
+            if (!dest_file) {
+                LOG_ERROR(Loader, "AUTOLOADER: FAILED to create destination file for {}.", source_file->GetName());
+                copy_failed = true;
+                break;
+            }
 
             if (!dest_file->Resize(source_file->GetSize())) {
                 LOG_ERROR(Loader, "AUTOLOADER: FAILED to resize destination file for {}.", source_file->GetName());
