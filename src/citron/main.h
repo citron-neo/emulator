@@ -268,6 +268,7 @@ private:
                             const bool tas_allowed = false);
 
     void RegisterMetaTypes();
+    void RegisterAutoloaderContents();
 
     void InitializeWidgets();
     void InitializeDebugWidgets();
@@ -344,6 +345,9 @@ private:
         Service::AM::FrontendAppletParameters LibraryAppletParameters(u64 program_id,
                                                                       Service::AM::AppletId applet_id);
 
+        // This will hold and provide all discovered Autoloader content.
+        std::unique_ptr<FileSys::ManualContentProvider> autoloader_provider;
+
 private slots:
     void OnStartGame();
     void OnRestartGame();
@@ -378,6 +382,7 @@ private slots:
     void IncrementInstallProgress();
     void OnMenuInstallToNAND();
     void OnMenuTrimXCI();
+    void OnMenuInstallWithAutoloader();
     void OnMenuRecentFile();
     void OnConfigure();
     void OnConfigureTas();

@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: Copyright 2018 yuzu Emulator Project
+// SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #pragma once
@@ -92,6 +93,7 @@ public:
     [[nodiscard]] Metadata ParseControlNCA(const NCA& nca) const;
 
 private:
+    [[nodiscard]] VirtualFile FindAutoloaderNCA(ContentRecordType type) const;
     [[nodiscard]] std::vector<VirtualFile> CollectPatches(const std::vector<VirtualDir>& patch_dirs,
                                                           const std::string& build_id) const;
 

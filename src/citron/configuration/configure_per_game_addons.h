@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: 2016 Citra Emulator Project
+// SPDX-FileCopyrightText: 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #pragma once
@@ -7,6 +8,7 @@
 #include <vector>
 
 #include <QList>
+#include <QWidget>
 
 #include "core/file_sys/vfs/vfs_types.h"
 
@@ -14,7 +16,6 @@ namespace Core {
 class System;
 }
 
-class QGraphicsScene;
 class QStandardItem;
 class QStandardItemModel;
 class QTreeView;
