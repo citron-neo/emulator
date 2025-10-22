@@ -546,6 +546,11 @@ std::pair<s32, Errno> BSD::PollImpl(std::vector<u8>& write_buffer, std::span<con
     std::vector<PollFD> fds(nfds);
     std::memcpy(fds.data(), read_buffer.data(), nfds * sizeof(PollFD));
 
+    // Initialize revents to zero to ensure clean state
+    for (PollFD& pollfd : fds) {
+        pollfd.revents = PollEvents{};
+    }
+
     if (timeout >= 0) {
         const s64 seconds = timeout / 1000;
         const u64 nanoseconds = 1'000'000 * (static_cast<u64>(timeout) % 1000);
