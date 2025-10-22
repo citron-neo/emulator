@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: Copyright 2023 yuzu Emulator Project
+// SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #pragma once
@@ -120,8 +121,8 @@ public:
 private:
     static constexpr size_t device_virtual_bits = Traits::device_virtual_bits;
     static constexpr size_t device_as_size = 1ULL << device_virtual_bits;
-    static constexpr size_t physical_min_bits = 32;
-    static constexpr size_t physical_max_bits = 33;
+    static constexpr size_t physical_min_bits = 32;  // 4GB
+    static constexpr size_t physical_max_bits = 34;  // 16GB (increased to support 12GB+ DRAM)
     static constexpr size_t page_bits = 12;
     static constexpr size_t page_size = 1ULL << page_bits;
     static constexpr size_t page_mask = page_size - 1ULL;

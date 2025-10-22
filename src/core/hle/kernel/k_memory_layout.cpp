@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: Copyright 2021 yuzu Emulator Project
+// SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <array>
@@ -158,7 +159,17 @@ void KMemoryLayout::InitializeLinearMemoryRegionTrees(KPhysicalAddress aligned_l
 }
 
 size_t KMemoryLayout::GetResourceRegionSizeForInit(bool use_extra_resource) {
-    return KernelResourceSize + KSystemControl::SecureAppletMemorySize +
+    // Calculate kernel page table heap size based on actual memory size to support > 8GB DRAM
+    const size_t actual_memory_size = KSystemControl::Init::GetIntendedMemorySize();
+    const size_t actual_pt_heap_size = GetMaximumOverheadSize(actual_memory_size);
+
+    // Use the larger of static or dynamic calculation to ensure sufficient space
+    const size_t kernel_pt_heap = std::max(KernelPageTableHeapSize, actual_pt_heap_size);
+
+    const size_t base_resource_size = kernel_pt_heap + KernelInitialPageHeapSize +
+                                     KernelSlabHeapSize + KernelPageBufferHeapSize;
+
+    return base_resource_size + KSystemControl::SecureAppletMemorySize +
            (use_extra_resource ? KernelSlabHeapAdditionalSize + KernelPageBufferAdditionalSize : 0);
 }
 

@@ -1,7 +1,9 @@
 // SPDX-FileCopyrightText: Copyright 2023 yuzu Emulator Project
+// SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "core/core.h"
+#include "core/hle/kernel/k_memory_layout.h"
 #include "core/hle/kernel/k_process.h"
 #include "core/hle/kernel/svc.h"
 
@@ -12,8 +14,9 @@ Result SetHeapSize(Core::System& system, u64* out_address, u64 size) {
     LOG_TRACE(Kernel_SVC, "called, heap_size=0x{:X}", size);
 
     // Validate size.
-    R_UNLESS(Common::IsAligned(size, HeapSizeAlignment), ResultInvalidSize);
-    R_UNLESS(size < MainMemorySizeMax, ResultInvalidSize);
+    // Check alignment and size limits for 12GiB heap support.
+    R_UNLESS((size & 0xfffffffc001fffff) == 0, ResultInvalidSize);
+    R_UNLESS(size < MaxHeapSize, ResultInvalidSize);
 
     // Set the heap size.
     KProcessAddress address{};

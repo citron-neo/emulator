@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: Copyright 2020 yuzu Emulator Project
+// SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <array>
@@ -16,6 +17,8 @@ using namespace Common::Literals;
 constexpr u64 Size_Invalid = UINT64_MAX;
 
 // clang-format off
+// Address space layout information for different process address space configurations.
+// Heap size increased from 8_GiB to 12_GiB to support games that require larger heap allocations
 constexpr std::array<KAddressSpaceInfo, 13> AddressSpaceInfos{{
    { .bit_width = 32, .address = 2_MiB       , .size = 1_GiB   - 2_MiB  , .type = KAddressSpaceInfo::Type::MapSmall, },
    { .bit_width = 32, .address = 1_GiB       , .size = 4_GiB   - 1_GiB  , .type = KAddressSpaceInfo::Type::MapLarge, },
@@ -23,7 +26,7 @@ constexpr std::array<KAddressSpaceInfo, 13> AddressSpaceInfos{{
    { .bit_width = 32, .address = Size_Invalid, .size = 1_GiB            , .type = KAddressSpaceInfo::Type::Heap,     },
    { .bit_width = 36, .address = 128_MiB     , .size = 2_GiB   - 128_MiB, .type = KAddressSpaceInfo::Type::MapSmall, },
    { .bit_width = 36, .address = 2_GiB       , .size = 64_GiB  - 2_GiB  , .type = KAddressSpaceInfo::Type::MapLarge, },
-   { .bit_width = 36, .address = Size_Invalid, .size = 8_GiB            , .type = KAddressSpaceInfo::Type::Heap,     },
+   { .bit_width = 36, .address = Size_Invalid, .size = 12_GiB           , .type = KAddressSpaceInfo::Type::Heap,     },
    { .bit_width = 36, .address = Size_Invalid, .size = 6_GiB            , .type = KAddressSpaceInfo::Type::Alias,    },
 #ifdef HAS_NCE
    // With NCE, we use a 38-bit address space due to memory limitations. This should (safely) truncate ASLR region.
@@ -32,7 +35,7 @@ constexpr std::array<KAddressSpaceInfo, 13> AddressSpaceInfos{{
    { .bit_width = 39, .address = 128_MiB     , .size = 512_GiB - 128_MiB, .type = KAddressSpaceInfo::Type::Map39Bit, },
 #endif
    { .bit_width = 39, .address = Size_Invalid, .size = 64_GiB           , .type = KAddressSpaceInfo::Type::MapSmall  },
-   { .bit_width = 39, .address = Size_Invalid, .size = 8_GiB            , .type = KAddressSpaceInfo::Type::Heap,     },
+   { .bit_width = 39, .address = Size_Invalid, .size = 12_GiB           , .type = KAddressSpaceInfo::Type::Heap,     },
    { .bit_width = 39, .address = Size_Invalid, .size = 64_GiB           , .type = KAddressSpaceInfo::Type::Alias,    },
    { .bit_width = 39, .address = Size_Invalid, .size = 2_GiB            , .type = KAddressSpaceInfo::Type::Stack,    },
 }};

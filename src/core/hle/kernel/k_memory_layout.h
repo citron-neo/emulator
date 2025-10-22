@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: Copyright 2021 yuzu Emulator Project
+// SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #pragma once
@@ -27,6 +28,9 @@ constexpr std::size_t GetMaximumOverheadSize(std::size_t size) {
 constexpr std::size_t MainMemorySize = 4_GiB;
 constexpr std::size_t MainMemorySizeMax = 8_GiB;
 
+// Maximum heap size that can be allocated by applications (increased to support large games)
+constexpr std::size_t MaxHeapSize = 12_GiB;
+
 constexpr std::size_t ReservedEarlyDramSize = 384_KiB;
 constexpr std::size_t DramPhysicalAddress = 0x80000000;
 
@@ -53,6 +57,8 @@ constexpr std::size_t KernelPhysicalAddressSpaceSize =
     KernelPhysicalAddressSpaceEnd - KernelPhysicalAddressSpaceBase;
 constexpr std::size_t KernelPhysicalAddressCodeBase = DramPhysicalAddress + ReservedEarlyDramSize;
 
+// Use MainMemorySizeMax for conservative page table heap allocation
+// This keeps kernel overhead reasonable while supporting up to 16GB DRAM
 constexpr std::size_t KernelPageTableHeapSize = GetMaximumOverheadSize(MainMemorySizeMax);
 constexpr std::size_t KernelInitialPageHeapSize = 128_KiB;
 
