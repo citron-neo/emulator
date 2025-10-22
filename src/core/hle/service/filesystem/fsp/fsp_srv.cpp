@@ -77,7 +77,7 @@ FSP_SRV::FSP_SRV(Core::System& system_)
         {30, D<&FSP_SRV::OpenGameCardStorage>, "OpenGameCardStorage"},
         {31, D<&FSP_SRV::OpenGameCardFileSystem>, "OpenGameCardFileSystem"},
         {32, D<&FSP_SRV::ExtendSaveDataFileSystem>, "ExtendSaveDataFileSystem"},
-        {33, nullptr, "DeleteCacheStorage"},
+        {33, D<&FSP_SRV::DeleteCacheStorage>, "DeleteCacheStorage"},
         {34, D<&FSP_SRV::GetCacheStorageSize>, "GetCacheStorageSize"},
         {35, nullptr, "CreateSaveDataFileSystemByHashSalt"},
         {36, nullptr, "OpenHostFileSystemWithOption"},
@@ -603,6 +603,12 @@ Result FSP_SRV::ExtendSaveDataFileSystem(FileSys::SaveDataSpaceId space_id, u64 
                 "(STUBBED) called, space_id={}, save_data_id={:016X}, available_size={:#x}, "
                 "journal_size={:#x}",
                 space_id, save_data_id, available_size, journal_size);
+    R_SUCCEED();
+}
+
+Result FSP_SRV::DeleteCacheStorage(u16 index) {
+    LOG_WARNING(Service_FS, "(STUBBED) called, index={}", index);
+    // Cache storage deletion is not implemented, but we return success to prevent crashes
     R_SUCCEED();
 }
 

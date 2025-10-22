@@ -110,6 +110,7 @@ private:
     Result OpenMultiCommitManager(OutInterface<IMultiCommitManager> out_interface);
     Result ExtendSaveDataFileSystem(FileSys::SaveDataSpaceId space_id, u64 save_data_id,
                                     s64 available_size, s64 journal_size);
+    Result DeleteCacheStorage(u16 index);
     Result GetCacheStorageSize(s32 index, Out<s64> out_data_size, Out<s64> out_journal_size);
     Result OpenDeviceOperator(OutInterface<IDeviceOperator> out_interface);
     Result OpenSdCardDetectionEventNotifier(OutInterface<IEventNotifier> out_interface);
