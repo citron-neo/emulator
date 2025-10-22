@@ -19,66 +19,67 @@ void MOV(TranslatorVisitor& v, u64 insn, const IR::U32& src, bool is_mov32i = fa
 
     u64 mask = is_mov32i ? mov.mov32i_mask : mov.mask;
 
-    // Handle all mask patterns for proper component selection
+    // Handle component selection based on mask
+    // The mask bits correspond to: bit 0=X, bit 1=Y, bit 2=Z, bit 3=W
     if (mask == 0xf) {
         // All components - full move
         v.X(mov.dest_reg, src);
     } else if (mask == 0x1) {
-        // Single component (X) - move only X component
+        // X component only
         v.X(mov.dest_reg, src);
     } else if (mask == 0x2) {
-        // Y component only
-        v.Y(mov.dest_reg, src);
+        // Y component only - move to Y register
+        v.X(mov.dest_reg + 1, src);
     } else if (mask == 0x4) {
-        // Z component only
-        v.Z(mov.dest_reg, src);
+        // Z component only - move to Z register
+        v.X(mov.dest_reg + 2, src);
     } else if (mask == 0x8) {
-        // W component only
-        v.W(mov.dest_reg, src);
+        // W component only - move to W register
+        v.X(mov.dest_reg + 3, src);
     } else if (mask == 0x3) {
         // XY components
         v.X(mov.dest_reg, src);
-        v.Y(mov.dest_reg, src);
+        v.X(mov.dest_reg + 1, src);
     } else if (mask == 0x5) {
         // XZ components
         v.X(mov.dest_reg, src);
-        v.Z(mov.dest_reg, src);
+        v.X(mov.dest_reg + 2, src);
     } else if (mask == 0x9) {
         // XW components
         v.X(mov.dest_reg, src);
-        v.W(mov.dest_reg, src);
+        v.X(mov.dest_reg + 3, src);
     } else if (mask == 0x6) {
         // YZ components
-        v.Y(mov.dest_reg, src);
-        v.Z(mov.dest_reg, src);
+        v.X(mov.dest_reg + 1, src);
+        v.X(mov.dest_reg + 2, src);
     } else if (mask == 0xa) {
         // YW components
-        v.Y(mov.dest_reg, src);
-        v.W(mov.dest_reg, src);
+        v.X(mov.dest_reg + 1, src);
+        v.X(mov.dest_reg + 3, src);
     } else if (mask == 0xc) {
         // ZW components
-        v.Z(mov.dest_reg, src);
-        v.W(mov.dest_reg, src);
+        v.X(mov.dest_reg + 2, src);
+        v.X(mov.dest_reg + 3, src);
     } else if (mask == 0x7) {
         // XYZ components
         v.X(mov.dest_reg, src);
-        v.Y(mov.dest_reg, src);
-        v.Z(mov.dest_reg, src);
+        v.X(mov.dest_reg + 1, src);
+        v.X(mov.dest_reg + 2, src);
     } else if (mask == 0xb) {
         // XYW components
         v.X(mov.dest_reg, src);
-        v.Y(mov.dest_reg, src);
-        v.W(mov.dest_reg, src);
+        v.X(mov.dest_reg + 1, src);
+        v.X(mov.dest_reg + 3, src);
     } else if (mask == 0xd) {
         // XZW components
         v.X(mov.dest_reg, src);
-        v.Z(mov.dest_reg, src);
-        v.W(mov.dest_reg, src);
+        v.X(mov.dest_reg + 2, src);
+        v.X(mov.dest_reg + 3, src);
     } else if (mask == 0xe) {
         // YZW components
-        v.Y(mov.dest_reg, src);
-        v.Z(mov.dest_reg, src);
-        v.W(mov.dest_reg, src);
+        v.X(mov.dest_reg + 1, src);
+        v.X(mov.dest_reg + 2, src);
+        v.X(mov.dest_reg + 3, src);
     } else {
         // Invalid mask pattern - this should not happen
         LOG_WARNING(Shader, "Invalid mask pattern in MOV instruction: 0x{:x}", mask);
