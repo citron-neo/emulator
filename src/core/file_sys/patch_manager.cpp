@@ -179,7 +179,13 @@ VirtualDir PatchManager::PatchExeFS(VirtualDir exefs) const {
     }
     std::sort(patch_dirs.begin(), patch_dirs.end(),
               [](const VirtualDir& l, const VirtualDir& r) {
-                  if(!l) return true; if(!r) return false; return l->GetName() < r->GetName();
+                  if (!l) {
+                      return true;
+                  }
+                  if (!r) {
+                      return false;
+                  }
+                  return l->GetName() < r->GetName();
               });
 
     std::vector<VirtualDir> layers;
