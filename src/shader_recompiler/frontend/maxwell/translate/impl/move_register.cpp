@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: Copyright 2021 yuzu Emulator Project
+// SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "common/bit_field.h"
@@ -17,11 +18,72 @@ void MOV(TranslatorVisitor& v, u64 insn, const IR::U32& src, bool is_mov32i = fa
     } const mov{insn};
 
     u64 mask = is_mov32i ? mov.mov32i_mask : mov.mask;
-    if (mask != 0xf && mask != 0x1) {
-        LOG_WARNING(Shader, "(STUBBED) Masked Mov");
-        return;
+
+    // Handle all mask patterns for proper component selection
+    if (mask == 0xf) {
+        // All components - full move
+        v.X(mov.dest_reg, src);
+    } else if (mask == 0x1) {
+        // Single component (X) - move only X component
+        v.X(mov.dest_reg, src);
+    } else if (mask == 0x2) {
+        // Y component only
+        v.Y(mov.dest_reg, src);
+    } else if (mask == 0x4) {
+        // Z component only
+        v.Z(mov.dest_reg, src);
+    } else if (mask == 0x8) {
+        // W component only
+        v.W(mov.dest_reg, src);
+    } else if (mask == 0x3) {
+        // XY components
+        v.X(mov.dest_reg, src);
+        v.Y(mov.dest_reg, src);
+    } else if (mask == 0x5) {
+        // XZ components
+        v.X(mov.dest_reg, src);
+        v.Z(mov.dest_reg, src);
+    } else if (mask == 0x9) {
+        // XW components
+        v.X(mov.dest_reg, src);
+        v.W(mov.dest_reg, src);
+    } else if (mask == 0x6) {
+        // YZ components
+        v.Y(mov.dest_reg, src);
+        v.Z(mov.dest_reg, src);
+    } else if (mask == 0xa) {
+        // YW components
+        v.Y(mov.dest_reg, src);
+        v.W(mov.dest_reg, src);
+    } else if (mask == 0xc) {
+        // ZW components
+        v.Z(mov.dest_reg, src);
+        v.W(mov.dest_reg, src);
+    } else if (mask == 0x7) {
+        // XYZ components
+        v.X(mov.dest_reg, src);
+        v.Y(mov.dest_reg, src);
+        v.Z(mov.dest_reg, src);
+    } else if (mask == 0xb) {
+        // XYW components
+        v.X(mov.dest_reg, src);
+        v.Y(mov.dest_reg, src);
+        v.W(mov.dest_reg, src);
+    } else if (mask == 0xd) {
+        // XZW components
+        v.X(mov.dest_reg, src);
+        v.Z(mov.dest_reg, src);
+        v.W(mov.dest_reg, src);
+    } else if (mask == 0xe) {
+        // YZW components
+        v.Y(mov.dest_reg, src);
+        v.Z(mov.dest_reg, src);
+        v.W(mov.dest_reg, src);
+    } else {
+        // Invalid mask pattern - this should not happen
+        LOG_WARNING(Shader, "Invalid mask pattern in MOV instruction: 0x{:x}", mask);
+        v.X(mov.dest_reg, src);
     }
-    v.X(mov.dest_reg, src);
 }
 } // Anonymous namespace
 
