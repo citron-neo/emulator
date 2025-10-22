@@ -61,7 +61,7 @@
 #include "common/string_util.h"
 #include "common/xci_trimmer.h"
 
-ConfigurePerGame::ConfigurePerGame(QWidget* parent, u64 title_id_, const std::string& file_name,
+ConfigurePerGame::ConfigurePerGame(QWidget* parent, u64 title_id_, const std::string& file_name_,
                                    std::vector<VkDeviceInfo::Record>& vk_device_records,
                                    Core::System& system_)
 : QDialog(parent),

@@ -52,7 +52,7 @@ class ConfigurePerGame : public QDialog {
 
 public:
     // Cannot use std::filesystem::path due to https://bugreports.qt.io/browse/QTBUG-73263
-    explicit ConfigurePerGame(QWidget* parent, u64 title_id_, const std::string& file_name,
+    explicit ConfigurePerGame(QWidget* parent, u64 title_id_, const std::string& file_name_,
                               std::vector<VkDeviceInfo::Record>& vk_device_records,
                               Core::System& system_);
     ~ConfigurePerGame() override;
