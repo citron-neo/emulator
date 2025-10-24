@@ -1,6 +1,6 @@
 // SPDX-FileCopyrightText: Copyright 2018 Citra Emulator Project
 // SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project 
-// SPDX-FileCopyrightText: GPL-2.0-or-later
+// SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <QAction>
 #include <QApplication>
