@@ -192,6 +192,22 @@ p, li { white-space: pre-wrap; }
      </property>
     </spacer>
    </item>
+   <!-- Start of added widgets -->
+   <item>
+    <layout class="QHBoxLayout" name="appImageSelectorLayout">
+     <item>
+      <widget class="QLabel" name="appImageSelectorLabel">
+       <property name="text">
+        <string>Select AppImage:</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QComboBox" name="appImageSelector"/>
+     </item>
+    </layout>
+   </item>
+   <!-- End of added widgets -->
    <item>
     <layout class="QHBoxLayout" name="buttonLayout">
      <item>
