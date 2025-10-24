@@ -116,8 +116,27 @@ void UpdaterDialog::OnUpdateError(const QString& error_message) {
 }
 
 void UpdaterDialog::OnDownloadButtonClicked() {
-    ShowDownloadingState();
-    updater_service->DownloadAndInstallUpdate(current_update_info);
+    std::string download_url;
+
+#ifdef __linux__
+    if (ui->appImageSelector->isVisible() && !current_update_info.download_options.empty()) {
+        int current_index = ui->appImageSelector->currentIndex();
+        if (current_index >= 0 && static_cast<size_t>(current_index) < current_update_info.download_options.size()) {
+            download_url = current_update_info.download_options[current_index].url;
+        }
+    }
+#endif
+
+    if (download_url.empty() && !current_update_info.download_options.empty()) {
+        download_url = current_update_info.download_options[0].url;
+    }
+
+    if (!download_url.empty()) {
+        ShowDownloadingState();
+        updater_service->DownloadAndInstallUpdate(download_url);
+    } else {
+        OnUpdateError(QStringLiteral("No download URL could be found for the update."));
+    }
 }
 
 void UpdaterDialog::OnCancelButtonClicked() {
@@ -151,6 +170,8 @@ void UpdaterDialog::SetupUI() {
     setWindowFlags(windowFlags() & ~Qt::WindowContextHelpButtonHint);
     setFixedSize(size());
     ui->currentVersionValue->setText(QString::fromStdString(updater_service->GetCurrentVersion()));
+    ui->appImageSelectorLabel->setVisible(false);
+    ui->appImageSelector->setVisible(false);
     ShowCheckingState();
 }
 
@@ -166,6 +187,8 @@ void UpdaterDialog::ShowCheckingState() {
     ui->closeButton->setVisible(false);
     ui->restartButton->setVisible(false);
     ui->cancelButton->setText(QStringLiteral("Cancel"));
+    ui->appImageSelectorLabel->setVisible(false);
+    ui->appImageSelector->setVisible(false);
 }
 
 void UpdaterDialog::ShowNoUpdateState() {
@@ -179,6 +202,8 @@ void UpdaterDialog::ShowNoUpdateState() {
     ui->cancelButton->setVisible(false);
     ui->closeButton->setVisible(true);
     ui->restartButton->setVisible(false);
+    ui->appImageSelectorLabel->setVisible(false);
+    ui->appImageSelector->setVisible(false);
 }
 
 void UpdaterDialog::ShowUpdateAvailableState() {
@@ -193,6 +218,24 @@ void UpdaterDialog::ShowUpdateAvailableState() {
     } else {
         ui->changelogGroup->setVisible(false);
     }
+
+#ifdef __linux__
+    if (current_update_info.download_options.size() > 1) {
+        ui->appImageSelector->clear();
+        for (const auto& option : current_update_info.download_options) {
+            ui->appImageSelector->addItem(QString::fromStdString(option.name));
+        }
+        ui->appImageSelectorLabel->setVisible(true);
+        ui->appImageSelector->setVisible(true);
+    } else {
+        ui->appImageSelectorLabel->setVisible(false);
+        ui->appImageSelector->setVisible(false);
+    }
+#else
+    ui->appImageSelectorLabel->setVisible(false);
+    ui->appImageSelector->setVisible(false);
+#endif
+
     ui->updateInfoGroup->setVisible(true);
     ui->progressGroup->setVisible(false);
     ui->downloadButton->setVisible(true);
@@ -218,6 +261,8 @@ void UpdaterDialog::ShowDownloadingState() {
     ui->closeButton->setVisible(false);
     ui->restartButton->setVisible(false);
     ui->cancelButton->setText(QStringLiteral("Cancel"));
+    ui->appImageSelectorLabel->setVisible(false);
+    ui->appImageSelector->setVisible(false);
     progress_timer->start();
 }
 
@@ -229,6 +274,8 @@ void UpdaterDialog::ShowInstallingState() {
     ui->progressLabel->setText(QStringLiteral("Installing..."));
     ui->downloadInfoLabel->setText(QStringLiteral(""));
     ui->cancelButton->setVisible(false);
+    ui->appImageSelectorLabel->setVisible(false);
+    ui->appImageSelector->setVisible(false);
 }
 
 void UpdaterDialog::ShowCompletedState() {
@@ -243,6 +290,8 @@ void UpdaterDialog::ShowCompletedState() {
     ui->closeButton->setVisible(true);
     ui->restartButton->setVisible(true);
     ui->progressBar->setValue(100);
+    ui->appImageSelectorLabel->setVisible(false);
+    ui->appImageSelector->setVisible(false);
 }
 
 void UpdaterDialog::ShowErrorState() {
@@ -255,6 +304,8 @@ void UpdaterDialog::ShowErrorState() {
     ui->cancelButton->setVisible(false);
     ui->closeButton->setVisible(true);
     ui->restartButton->setVisible(false);
+    ui->appImageSelectorLabel->setVisible(false);
+    ui->appImageSelector->setVisible(false);
 }
 
 void UpdaterDialog::UpdateDownloadProgress(int percentage, qint64 bytes_received,
