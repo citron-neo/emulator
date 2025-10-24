@@ -28,7 +28,7 @@ MultiplayerRoomOverlay::MultiplayerRoomOverlay(GMainWindow* parent)
     border_color = QColor(60, 60, 60, 120);
 
     main_layout = new QGridLayout(this);
-    main_layout->setContentsMargins(padding, padding, 0, 0); // No margins on bottom/right for grip
+    main_layout->setContentsMargins(padding, padding, 0, 0);
     main_layout->setSpacing(6);
 
     players_online_label = new QLabel(this);
@@ -71,7 +71,6 @@ MultiplayerRoomOverlay::~MultiplayerRoomOverlay() {
 }
 
 void MultiplayerRoomOverlay::OnEmulationStarting() {
-    // When emulation starts, resume updates if we are visible.
     if (is_visible) {
         ConnectToRoom();
         update_timer.start(500);
@@ -79,7 +78,6 @@ void MultiplayerRoomOverlay::OnEmulationStarting() {
 }
 
 void MultiplayerRoomOverlay::OnEmulationStopping() {
-    // CRASH FIX: When emulation stops, immediately disconnect from network objects.
     update_timer.stop();
     DisconnectFromRoom();
 }
@@ -90,7 +88,6 @@ void MultiplayerRoomOverlay::SetVisible(bool visible) {
 
     if (visible) {
         show();
-        // Only start connecting and updating if emulation is running.
         if (main_window && main_window->IsEmulationRunning()) {
             ConnectToRoom();
             update_timer.start(500);
@@ -116,19 +113,26 @@ void MultiplayerRoomOverlay::paintEvent(QPaintEvent* event) {
 void MultiplayerRoomOverlay::resizeEvent(QResizeEvent* event) { QWidget::resizeEvent(event); if (!has_been_moved) UpdatePosition(); }
 bool MultiplayerRoomOverlay::eventFilter(QObject* watched, QEvent* event) { if (event->type() == QEvent::MouseButtonPress) { if (chat_room_widget->hasFocus()) { chat_room_widget->clearFocus(); } } return QObject::eventFilter(watched, event); }
 
+
 #if defined(Q_OS_LINUX)
 void MultiplayerRoomOverlay::mousePressEvent(QMouseEvent* event) {
     if (event->button() == Qt::LeftButton) {
         if (size_grip->geometry().contains(event->pos())) {
              // Let the size grip handle the event
         } else if (!childAt(event->pos()) || childAt(event->pos()) == this) {
-            if (windowHandle()) windowHandle()->startSystemMove();
+            if (windowHandle()) {
+                QTimer::singleShot(0, this, [this] { windowHandle()->startSystemMove(); });
+            }
         }
     }
     QWidget::mousePressEvent(event);
 }
-void MultiplayerRoomOverlay::mouseMoveEvent(QMouseEvent* event) { QWidget::mouseMoveEvent(event); }
-#else
+
+void MultiplayerRoomOverlay::mouseMoveEvent(QMouseEvent* event) {
+    QWidget::mouseMoveEvent(event);
+}
+
+#else // Windows and other platforms
 void MultiplayerRoomOverlay::mousePressEvent(QMouseEvent* event) {
     if (event->button() == Qt::LeftButton) {
         if (size_grip->geometry().contains(event->pos())) {
@@ -142,12 +146,14 @@ void MultiplayerRoomOverlay::mousePressEvent(QMouseEvent* event) {
     }
     QWidget::mousePressEvent(event);
 }
+
 void MultiplayerRoomOverlay::mouseMoveEvent(QMouseEvent* event) {
     if (is_dragging) {
         QPoint delta = event->globalPosition().toPoint() - drag_start_pos;
         move(widget_start_pos + delta);
+        has_been_moved = true;
     }
-    QWidget::mouseMoveEvent(event); // Corrected typo here
+    QWidget::mouseMoveEvent(event);
 }
 #endif
 
@@ -177,7 +183,10 @@ void MultiplayerRoomOverlay::ConnectToRoom() {
     room_member = room_network.GetRoomMember().lock();
 
     if (room_member) {
-        chat_room_widget->Initialize(&room_network);
+        if (!is_chat_initialized) {
+            chat_room_widget->Initialize(&room_network);
+            is_chat_initialized = true;
+        }
     } else {
         chat_room_widget->Clear();
         chat_room_widget->AppendStatusMessage(tr("Not connected to a room."));
@@ -185,10 +194,17 @@ void MultiplayerRoomOverlay::ConnectToRoom() {
 }
 
 void MultiplayerRoomOverlay::DisconnectFromRoom() {
-    chat_room_widget->Clear();
+    ClearUI();
     room_member.reset();
     multiplayer_state = nullptr;
+    is_chat_initialized = false;
+}
+
+void MultiplayerRoomOverlay::ClearUI() {
     players_online_label->setText(QString::fromUtf8("Players Online: 0"));
+    chat_room_widget->Clear();
+    chat_room_widget->AppendStatusMessage(tr("Not connected to a room."));
+    chat_room_widget->SetPlayerList({});
 }
 
 void MultiplayerRoomOverlay::UpdateRoomData() {
@@ -203,26 +219,27 @@ void MultiplayerRoomOverlay::UpdateRoomData() {
             chat_room_widget->Clear();
             chat_room_widget->AppendStatusMessage(tr("Chat available in main window."));
         }
-    } else {
-        if (!chat_room_widget->isEnabled()) {
-            ConnectToRoom();
-        }
+        return;
+    }
+
+    if (!chat_room_widget->isEnabled()) {
+        ConnectToRoom();
     }
 
     if (room_member && room_member->GetState() >= Network::RoomMember::State::Joined) {
         const auto& members = room_member->GetMemberInformation();
         QString label_text = QString::fromStdString("Players Online: <span style='color: #4CAF50;'>%1</span>").arg(members.size());
         players_online_label->setText(label_text);
+
+        // FIX: Removed the redundant logic that was generating duplicate join/leave messages.
+        // The ChatRoom widget is now the single source of truth for these messages.
+
         if (chat_room_widget->isEnabled()) {
             chat_room_widget->SetPlayerList(members);
         }
     } else {
-        players_online_label->setText(QString::fromUtf8("Players Online: 0"));
-        if (!room_member && !multiplayer_state->IsClientRoomVisible()) {
-            chat_room_widget->Clear();
-            chat_room_widget->AppendStatusMessage(tr("Not connected to a room."));
-            ConnectToRoom();
-        }
+        ClearUI();
+        room_member.reset();
     }
 }
 
