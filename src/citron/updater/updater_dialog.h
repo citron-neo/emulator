@@ -5,101 +5,66 @@
 
 #include <memory>
 #include <QDialog>
-
-#include <QProgressBar>
-#include <QLabel>
-#include <QPushButton>
-#include <QTextBrowser>
 #include <QTimer>
-
-#ifdef _WIN32
 #include "citron/updater/updater_service.h"
-#else
-// Forward declarations for non-Windows platforms
-namespace Updater {
-struct UpdateInfo;
-class UpdaterService;
-}
-#endif
 
 namespace Ui {
-class UpdaterDialog;
+    class UpdaterDialog;
 }
 
-class UpdaterDialog : public QDialog {
-    Q_OBJECT
+namespace Updater {
 
-public:
-    explicit UpdaterDialog(QWidget* parent = nullptr);
-    ~UpdaterDialog() override;
+    class UpdaterDialog : public QDialog {
+        Q_OBJECT
 
-    // Check for updates using the given URL
-    void CheckForUpdates(const std::string& update_url);
+    public:
+        explicit UpdaterDialog(QWidget* parent = nullptr);
+        ~UpdaterDialog() override;
 
-    // Show update available dialog
-    void ShowUpdateAvailable(const Updater::UpdateInfo& update_info);
+        void CheckForUpdates(const std::string& update_url);
 
-    // Show update checking dialog
-    void ShowUpdateChecking();
+    private slots:
+        void OnUpdateCheckCompleted(bool has_update, const UpdateInfo& update_info);
+        void OnUpdateDownloadProgress(int percentage, qint64 bytes_received, qint64 bytes_total);
+        void OnUpdateInstallProgress(int percentage, const QString& current_file);
+        void OnUpdateCompleted(Updater::UpdaterService::UpdateResult result, const QString& message);
+        void OnUpdateError(const QString& error_message);
+        void OnDownloadButtonClicked();
+        void OnCancelButtonClicked();
+        void OnCloseButtonClicked();
+        void OnRestartButtonClicked();
 
-private slots:
-    void OnUpdateCheckCompleted(bool has_update, const Updater::UpdateInfo& update_info);
-    void OnUpdateDownloadProgress(int percentage, qint64 bytes_received, qint64 bytes_total);
-    void OnUpdateInstallProgress(int percentage, const QString& current_file);
-#ifdef _WIN32
-    void OnUpdateCompleted(Updater::UpdaterService::UpdateResult result, const QString& message);
-#else
-    void OnUpdateCompleted(int result, const QString& message);
-#endif
-    void OnUpdateError(const QString& error_message);
+    private:
+        void SetupUI();
+        void ShowCheckingState();
+        void ShowNoUpdateState();
+        void ShowUpdateAvailableState();
+        void ShowDownloadingState();
+        void ShowInstallingState();
+        void ShowCompletedState();
+        void ShowErrorState();
+        void UpdateDownloadProgress(int percentage, qint64 bytes_received, qint64 bytes_total);
+        void UpdateInstallProgress(int percentage, const QString& current_file);
+        QString FormatBytes(qint64 bytes) const;
+        QString GetUpdateMessage(Updater::UpdaterService::UpdateResult result) const;
 
-    void OnDownloadButtonClicked();
-    void OnCancelButtonClicked();
-    void OnCloseButtonClicked();
-    void OnRestartButtonClicked();
+        enum class State {
+            Checking,
+            NoUpdate,
+            UpdateAvailable,
+            Downloading,
+            Installing,
+            Completed,
+            Error
+        };
 
-private:
-    void SetupUI();
-    void ShowCheckingState();
-    void ShowNoUpdateState();
-    void ShowUpdateAvailableState();
-    void ShowDownloadingState();
-    void ShowInstallingState();
-    void ShowCompletedState();
-    void ShowErrorState();
-
-    void UpdateDownloadProgress(int percentage, qint64 bytes_received, qint64 bytes_total);
-    void UpdateInstallProgress(int percentage, const QString& current_file);
-
-    QString FormatBytes(qint64 bytes) const;
-#ifdef _WIN32
-    QString GetUpdateMessage(Updater::UpdaterService::UpdateResult result) const;
-#else
-    QString GetUpdateMessage(int result) const;
-#endif
-
-private:
-#ifdef _WIN32
-    std::unique_ptr<Ui::UpdaterDialog> ui;
-    std::unique_ptr<Updater::UpdaterService> updater_service;
-
-    Updater::UpdateInfo current_update_info;
-
-    // UI state
-    enum class State {
-        Checking,
-        NoUpdate,
-        UpdateAvailable,
-        Downloading,
-        Installing,
-        Completed,
-        Error
+        std::unique_ptr<Ui::UpdaterDialog> ui;
+        std::unique_ptr<Updater::UpdaterService> updater_service;
+        UpdateInfo current_update_info;
+        State current_state;
+        qint64 total_download_size;
+        qint64 downloaded_bytes;
+        QTimer* progress_timer;
     };
-    State current_state = State::Checking;
 
-    // Progress tracking
-    qint64 total_download_size = 0;
-    qint64 downloaded_bytes = 0;
-    QTimer* progress_timer;
-#endif // _WIN32
-};
+} // namespace Updater
