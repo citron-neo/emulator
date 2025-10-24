@@ -140,7 +140,7 @@ Result NcaFileSystemDriver::OpenStorageImpl(VirtualFile* out, NcaFsHeaderReader*
     const auto& patch_info = out_header_reader->GetPatchInfo();
     VirtualFile patch_meta_aes_ctr_ex_meta_storage;
     VirtualFile patch_meta_indirect_meta_storage;
-    if (out_header_reader->ExistsPatchMetaHashLayer()) {
+    if (out_header_reader->ExistsPatchMetaHashLayer() && patch_info.HasAesCtrExTable()) {
         // Check the meta hash type.
         R_UNLESS(out_header_reader->GetPatchMetaHashType() ==
                      NcaFsHeader::MetaDataHashType::HierarchicalIntegrity,
@@ -165,8 +165,8 @@ Result NcaFileSystemDriver::OpenStorageImpl(VirtualFile* out, NcaFsHeaderReader*
         // Create the ex meta storage.
         VirtualFile aes_ctr_ex_storage_meta_storage = patch_meta_aes_ctr_ex_meta_storage;
         if (aes_ctr_ex_storage_meta_storage == nullptr) {
-            // If we don't have a meta storage, we must not have a patch meta hash layer.
-            ASSERT(!out_header_reader->ExistsPatchMetaHashLayer());
+            // If we don't have a meta storage, we must not have a patch meta hash layer with both tables.
+            ASSERT(!out_header_reader->ExistsPatchMetaHashLayer() || !patch_info.HasIndirectTable());
 
             R_TRY(this->CreateAesCtrExStorageMetaStorage(
                 std::addressof(aes_ctr_ex_storage_meta_storage), storage, fs_data_offset,
@@ -202,11 +202,13 @@ Result NcaFileSystemDriver::OpenStorageImpl(VirtualFile* out, NcaFsHeaderReader*
                                             fs_data_offset));
             break;
         case NcaFsHeader::EncryptionType::AesCtr:
+        case NcaFsHeader::EncryptionType::AesCtrEx:
             R_TRY(this->CreateAesCtrStorage(std::addressof(storage), std::move(storage),
                                             fs_data_offset, out_header_reader->GetAesCtrUpperIv(),
                                             AlignmentStorageRequirement::None));
             break;
-        case NcaFsHeader::EncryptionType::AesCtrSkipLayerHash: {
+        case NcaFsHeader::EncryptionType::AesCtrSkipLayerHash:
+        case NcaFsHeader::EncryptionType::AesCtrExSkipLayerHash: {
             // Create the aes ctr storage.
             VirtualFile aes_ctr_storage;
             R_TRY(this->CreateAesCtrStorage(std::addressof(aes_ctr_storage), storage,
@@ -232,8 +234,8 @@ Result NcaFileSystemDriver::OpenStorageImpl(VirtualFile* out, NcaFsHeaderReader*
         // Create the indirect meta storage.
         VirtualFile indirect_storage_meta_storage = patch_meta_indirect_meta_storage;
         if (indirect_storage_meta_storage == nullptr) {
-            // If we don't have a meta storage, we must not have a patch meta hash layer.
-            ASSERT(!out_header_reader->ExistsPatchMetaHashLayer());
+            // If we don't have a meta storage, we must not have a patch meta hash layer with AesCtrEx.
+            ASSERT(!out_header_reader->ExistsPatchMetaHashLayer() || !patch_info.HasAesCtrExTable());
 
             R_TRY(this->CreateIndirectStorageMetaStorage(
                 std::addressof(indirect_storage_meta_storage), storage, patch_info));
@@ -382,10 +384,33 @@ Result NcaFileSystemDriver::OpenIndirectableStorageAsOriginal(
             this->CreateAesXtsStorage(std::addressof(storage), std::move(storage), fs_data_offset));
         break;
     case NcaFsHeader::EncryptionType::AesCtr:
+    case NcaFsHeader::EncryptionType::AesCtrEx:
         R_TRY(this->CreateAesCtrStorage(std::addressof(storage), std::move(storage), fs_data_offset,
                                         header_reader->GetAesCtrUpperIv(),
                                         AlignmentStorageRequirement::CacheBlockSize));
         break;
+    case NcaFsHeader::EncryptionType::AesCtrSkipLayerHash: {
+        // Create the aes ctr storage.
+        VirtualFile aes_ctr_storage;
+        R_TRY(this->CreateAesCtrStorage(std::addressof(aes_ctr_storage), storage, fs_data_offset,
+                                        header_reader->GetAesCtrUpperIv(),
+                                        AlignmentStorageRequirement::CacheBlockSize));
+
+        // Create region switch storage.
+        R_TRY(this->CreateRegionSwitchStorage(std::addressof(storage), header_reader,
+                                              std::move(storage), std::move(aes_ctr_storage)));
+    } break;
+    case NcaFsHeader::EncryptionType::AesCtrExSkipLayerHash: {
+        // Create the aes ctr ex storage.
+        VirtualFile aes_ctr_ex_storage;
+        R_TRY(this->CreateAesCtrStorage(std::addressof(aes_ctr_ex_storage), storage, fs_data_offset,
+                                        header_reader->GetAesCtrUpperIv(),
+                                        AlignmentStorageRequirement::CacheBlockSize));
+
+        // Create region switch storage.
+        R_TRY(this->CreateRegionSwitchStorage(std::addressof(storage), header_reader,
+                                              std::move(storage), std::move(aes_ctr_ex_storage)));
+    } break;
     default:
         R_THROW(ResultInvalidNcaFsHeaderEncryptionType);
     }
