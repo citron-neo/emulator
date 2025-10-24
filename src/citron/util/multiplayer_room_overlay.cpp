@@ -174,7 +174,7 @@ void MultiplayerRoomOverlay::ConnectToRoom() {
     if (multiplayer_state->IsClientRoomVisible()) {
         chat_room_widget->setEnabled(false);
         chat_room_widget->Clear();
-        chat_room_widget->AppendStatusMessage(tr("Chat available in main window."));
+        chat_room_widget->AppendStatusMessage(tr("In order to use chat functionality in the Overlay, please close the Multiplayer Room Window."));
         return;
     }
 
@@ -217,7 +217,7 @@ void MultiplayerRoomOverlay::UpdateRoomData() {
         if (chat_room_widget->isEnabled()) {
             chat_room_widget->setEnabled(false);
             chat_room_widget->Clear();
-            chat_room_widget->AppendStatusMessage(tr("Chat available in main window."));
+            chat_room_widget->AppendStatusMessage(tr("In order to use chat functionality in the Overlay, please close the Multiplayer Room Window."));
         }
         return;
     }
@@ -230,9 +230,6 @@ void MultiplayerRoomOverlay::UpdateRoomData() {
         const auto& members = room_member->GetMemberInformation();
         QString label_text = QString::fromStdString("Players Online: <span style='color: #4CAF50;'>%1</span>").arg(members.size());
         players_online_label->setText(label_text);
-
-        // FIX: Removed the redundant logic that was generating duplicate join/leave messages.
-        // The ChatRoom widget is now the single source of truth for these messages.
 
         if (chat_room_widget->isEnabled()) {
             chat_room_widget->SetPlayerList(members);
