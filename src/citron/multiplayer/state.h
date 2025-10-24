@@ -34,20 +34,12 @@ public:
                               QAction* show_room, Core::System& system_);
     ~MultiplayerState();
 
-    /**
-     * This is the new function to safely access the multiplayer session.
-     */
     std::shared_ptr<Core::AnnounceMultiplayerSession> GetSession() {
         return announce_multiplayer_session;
     }
 
-    /**
-     * Close all open multiplayer related dialogs
-     */
     void Close();
-
     void SetNotificationStatus(NotificationStatus state);
-
     void UpdateNotificationStatus();
 
     ClickableLabel* GetStatusText() const {
@@ -60,18 +52,14 @@ public:
 
     void retranslateUi();
 
-    /**
-     * Whether a public room is being hosted or not.
-     * When this is true, Web Services configuration should be disabled.
-     */
+    Network::RoomNetwork& GetRoomNetwork() {
+        return room_network;
+    }
+
+    bool IsClientRoomVisible() const; // NEW: Declaration for our check
+
     bool IsHostingPublicRoom() const;
-
     void UpdateCredentials();
-
-    /**
-     * Updates the multiplayer dialogs with a new game list model.
-     * This model should be the original model of the game list.
-     */
     void UpdateGameList(QStandardItemModel* game_list);
 
 public slots:
