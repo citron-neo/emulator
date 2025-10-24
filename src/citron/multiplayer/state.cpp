@@ -1,5 +1,6 @@
 // SPDX-FileCopyrightText: Copyright 2018 Citra Emulator Project
-// SPDX-License-Identifier: GPL-2.0-or-later
+// SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project 
+// SPDX-FileCopyrightText: GPL-2.0-or-later
 
 #include <QAction>
 #include <QApplication>
@@ -333,4 +334,9 @@ void MultiplayerState::UpdateGameList(QStandardItemModel* game_list) {
     if (host_room) {
         host_room->UpdateGameList(game_list);
     }
+}
+
+// NEW: Definition for our check
+bool MultiplayerState::IsClientRoomVisible() const {
+    return client_room && client_room->isVisible();
 }
