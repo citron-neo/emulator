@@ -11,6 +11,7 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QJsonArray>
+#include <QRegularExpression>
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
@@ -109,21 +110,20 @@ void UpdaterService::ConfigureSSLForRequest(QNetworkRequest& request) {
     request.setSslConfiguration(sslConfig);
 }
 
-void UpdaterService::DownloadAndInstallUpdate(const UpdateInfo& update_info) {
+void UpdaterService::DownloadAndInstallUpdate(const std::string& download_url) {
     if (update_in_progress.load()) {
         emit UpdateError(QStringLiteral("Update operation already in progress"));
         return;
     }
-    if (update_info.download_url.empty()) {
+    if (download_url.empty()) {
         emit UpdateError(QStringLiteral("Invalid download URL."));
         return;
     }
 
     update_in_progress.store(true);
     cancel_requested.store(false);
-    current_update_info = update_info;
 
-    LOG_INFO(Frontend, "Starting update download from {}", update_info.download_url);
+    LOG_INFO(Frontend, "Starting update download from {}", download_url);
 
 #ifdef _WIN32
     if (!CreateBackup()) {
@@ -133,7 +133,7 @@ void UpdaterService::DownloadAndInstallUpdate(const UpdateInfo& update_info) {
     }
 #endif
 
-    QUrl url(QString::fromStdString(update_info.download_url));
+    QUrl url(QString::fromStdString(download_url));
     QNetworkRequest request(url);
     request.setAttribute(QNetworkRequest::RedirectPolicyAttribute, QNetworkRequest::NoLessSafeRedirectPolicy);
     current_reply = network_manager->get(request);
@@ -313,19 +313,33 @@ void UpdaterService::ParseUpdateResponse(const QByteArray& response) {
                 QString asset_name = asset_obj.value(QStringLiteral("name")).toString();
 #if defined(_WIN32)
                 if (asset_name.endsWith(QStringLiteral(".zip"))) {
-                    update_info.download_url = asset_obj.value(QStringLiteral("browser_download_url")).toString().toStdString();
+                    DownloadOption option;
+                    option.name = asset_name.toStdString();
+                    option.url = asset_obj.value(QStringLiteral("browser_download_url")).toString().toStdString();
+                    update_info.download_options.push_back(option);
                     break;
                 }
 #elif defined(__linux__)
                 if (asset_name.endsWith(QStringLiteral(".AppImage"))) {
-                    update_info.download_url = asset_obj.value(QStringLiteral("browser_download_url")).toString().toStdString();
-                    break;
+                    DownloadOption option;
+                    QString friendly_name = asset_name;
+
+                    friendly_name.remove(QRegularExpression(QStringLiteral(R"(^citron-linux-\d*-x86_64-?)"), QRegularExpression::CaseInsensitiveOption));
+                    friendly_name.remove(QStringLiteral(".AppImage"));
+                    if (friendly_name.isEmpty()) {
+                        option.name = "AppImage";
+                    } else {
+                        option.name = friendly_name.toUpper().toStdString();
+                    }
+                    option.url = asset_obj.value(QStringLiteral("browser_download_url")).toString().toStdString();
+                    update_info.download_options.push_back(option);
                 }
 #endif
             }
 
-            if (!update_info.download_url.empty()) {
+            if (!update_info.download_options.empty()) {
                 update_info.is_newer_version = CompareVersions(GetCurrentVersion(), update_info.version);
+                current_update_info = update_info;
                 emit UpdateCheckCompleted(update_info.is_newer_version, update_info);
                 return;
             }
