@@ -8,6 +8,8 @@
 #include <QPainter>
 #include <QLabel>
 #include <QGridLayout>
+#include <set>
+#include <string>
 
 #include "citron/multiplayer/state.h"
 #include "citron/multiplayer/chat_room.h"
@@ -45,6 +47,7 @@ private:
     void UpdatePosition();
     void ConnectToRoom();
     void DisconnectFromRoom();
+    void ClearUI();
 
     GMainWindow* main_window;
     QTimer update_timer;
@@ -74,4 +77,7 @@ private:
     bool has_been_moved = false;
     QPoint drag_start_pos;
     QPoint widget_start_pos;
+
+    // State tracking
+    bool is_chat_initialized = false;
 };
