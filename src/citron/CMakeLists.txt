@@ -223,6 +223,8 @@ add_executable(citron
     util/overlay_dialog.ui
     util/performance_overlay.cpp
     util/performance_overlay.h
+    util/multiplayer_room_overlay.cpp
+    util/multiplayer_room_overlay.h
     util/vram_overlay.cpp
     util/vram_overlay.h
     util/sequence_dialog/sequence_dialog.cpp
