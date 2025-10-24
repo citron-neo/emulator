@@ -180,6 +180,7 @@ static FileSys::VirtualFile VfsDirectoryCreateFileWrapper(const FileSys::Virtual
 #endif
 #include "citron/util/clickable_label.h"
 #include "citron/util/performance_overlay.h"
+#include "citron/util/multiplayer_room_overlay.h"
 #include "citron/util/vram_overlay.h"
 #include "citron/vk_device_info.h"
 
@@ -1095,6 +1096,12 @@ void GMainWindow::InitializeWidgets() {
     performance_overlay = new PerformanceOverlay(this);
     performance_overlay->hide();
 
+    multiplayer_room_overlay = new MultiplayerRoomOverlay(this);
+    multiplayer_room_overlay->hide();
+
+    connect(this, &GMainWindow::EmulationStarting, multiplayer_room_overlay, &MultiplayerRoomOverlay::OnEmulationStarting);
+    connect(this, &GMainWindow::EmulationStopping, multiplayer_room_overlay, &MultiplayerRoomOverlay::OnEmulationStopping);
+
     vram_overlay = new VramOverlay(this);
     vram_overlay->hide();
 
@@ -1379,6 +1386,7 @@ void GMainWindow::InitializeHotkeys() {
     LinkActionShortcut(ui->action_Show_Status_Bar, QStringLiteral("Toggle Status Bar"));
     LinkActionShortcut(ui->action_Show_Performance_Overlay, QStringLiteral("Toggle Performance Overlay"));
     LinkActionShortcut(ui->action_Show_Vram_Overlay, QStringLiteral("Toggle VRAM Overlay"));
+    LinkActionShortcut(ui->action_Show_Multiplayer_Room_Overlay, QStringLiteral("Toggle Multiplayer Room Overlay"));
     LinkActionShortcut(ui->action_Fullscreen, QStringLiteral("Fullscreen"));
     LinkActionShortcut(ui->action_Capture_Screenshot, QStringLiteral("Capture Screenshot"));
     LinkActionShortcut(ui->action_TAS_Start, QStringLiteral("TAS Start/Stop"), true);
@@ -1608,6 +1616,7 @@ void GMainWindow::ConnectMenuEvents() {
     connect_menu(ui->action_Show_Filter_Bar, &GMainWindow::OnToggleFilterBar);
     connect_menu(ui->action_Show_Status_Bar, &GMainWindow::OnToggleStatusBar);
     connect_menu(ui->action_Show_Performance_Overlay, &GMainWindow::OnTogglePerformanceOverlay);
+    connect_menu(ui->action_Show_Multiplayer_Room_Overlay, &GMainWindow::OnToggleMultiplayerRoomOverlay);
     connect_menu(ui->action_Show_Vram_Overlay, &GMainWindow::OnToggleVramOverlay);
     connect_menu(ui->action_Toggle_Grid_View, &GMainWindow::OnToggleGridView);
 
@@ -4927,6 +4936,16 @@ void GMainWindow::OnTogglePerformanceOverlay() {
         performance_overlay->SetVisible(is_checked);
 
         UISettings::values.show_performance_overlay = is_checked;
+    }
+}
+
+void GMainWindow::OnToggleMultiplayerRoomOverlay() {
+    if (multiplayer_room_overlay) {
+        const bool is_checked = ui->action_Show_Multiplayer_Room_Overlay->isChecked();
+        multiplayer_room_overlay->SetVisible(is_checked);
+
+        // We will add a setting for this later if needed.
+        // UISettings::values.show_multiplayer_room_overlay = is_checked;
     }
 }
 
