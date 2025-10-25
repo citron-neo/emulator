@@ -15,6 +15,8 @@ class QNetworkAccessManager;
 
 namespace Updater {
 
+    std::string ExtractCommitHash(const std::string& version_string);
+
     struct DownloadOption {
         std::string name;
         std::string url;
