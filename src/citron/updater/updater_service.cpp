@@ -11,21 +11,16 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QJsonArray>
+#include <QRegularExpression>
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
 #include <QTimer>
-#include <QMessageBox>
+#include <QNetworkAccessManager>
 #include <QNetworkRequest>
 #include <QSslConfiguration>
-#include <QThread>
 #include <QCoreApplication>
 #include <QSslSocket>
-#include <QSslCertificate>
-#include <QSslKey>
-#include <QFile>
-#include <QDir>
-#include <QStandardPaths>
 
 #ifdef CITRON_ENABLE_LIBARCHIVE
 #include <archive.h>
@@ -42,29 +37,27 @@
 
 namespace Updater {
 
+// Helper function to extract a commit hash from a string using std::regex.
+// This ensures that both local and remote version strings are normalized to a clean hash.
+std::string ExtractCommitHash(const std::string& version_string) {
+    // This regex finds a sequence of 7 to 40 hexadecimal characters, case-insensitive.
+    std::regex re("\\b([0-9a-fA-F]{7,40})\\b");
+    std::smatch match;
+    if (std::regex_search(version_string, match, re) && match.size() > 1) {
+        return match[1].str();
+    }
+    return ""; // Return empty if no hash is found
+}
+
 UpdaterService::UpdaterService(QObject* parent) : QObject(parent) {
     network_manager = std::make_unique<QNetworkAccessManager>(this);
-
-    // Initialize SSL support
     InitializeSSL();
-
-    // Initialize paths
     app_directory = GetApplicationDirectory();
     temp_download_path = GetTempDirectory();
     backup_path = GetBackupDirectory();
-
-    // Create necessary directories
     EnsureDirectoryExists(temp_download_path);
     EnsureDirectoryExists(backup_path);
-
     LOG_INFO(Frontend, "UpdaterService initialized");
-    LOG_INFO(Frontend, "App directory: {}", app_directory.string());
-    LOG_INFO(Frontend, "Temp directory: {}", temp_download_path.string());
-    LOG_INFO(Frontend, "Backup directory: {}", backup_path.string());
-
-    // Log SSL support status
-    LOG_INFO(Frontend, "SSL support available: {}", QSslSocket::supportsSsl() ? "Yes" : "No");
-    LOG_INFO(Frontend, "SSL library version: {}", QSslSocket::sslLibraryVersionString().toStdString());
 }
 
 UpdaterService::~UpdaterService() {
@@ -72,66 +65,25 @@ UpdaterService::~UpdaterService() {
         current_reply->abort();
         current_reply->deleteLater();
     }
-
-    // Cleanup temporary files
     CleanupFiles();
 }
 
 void UpdaterService::InitializeSSL() {
-    // Log OpenSSL library information
     LOG_INFO(Frontend, "Attempting to initialize SSL support...");
-
-    // On Windows, check for OpenSSL libraries
-#ifdef _WIN32
-    // Get the application directory
-    QString appDir = QCoreApplication::applicationDirPath();
-
-    // Check for OpenSSL libraries using proper path construction
-    QString sslLib = QDir(appDir).filePath(QStringLiteral("libssl-3-x64.dll"));
-    QString cryptoLib = QDir(appDir).filePath(QStringLiteral("libcrypto-3-x64.dll"));
-
-    LOG_INFO(Frontend, "Looking for SSL libraries in: {}", appDir.toStdString());
-    LOG_INFO(Frontend, "SSL library path: {}", sslLib.toStdString());
-    LOG_INFO(Frontend, "Crypto library path: {}", cryptoLib.toStdString());
-
-    // Check if files exist
-    if (QFile::exists(sslLib) && QFile::exists(cryptoLib)) {
-        LOG_INFO(Frontend, "OpenSSL library files found");
-    } else {
-        LOG_WARNING(Frontend, "OpenSSL library files not found at expected locations");
-    }
-#endif
-
-    // Check if SSL is supported
-    bool sslSupported = QSslSocket::supportsSsl();
-    LOG_INFO(Frontend, "SSL support available: {}", sslSupported ? "Yes" : "No");
-
-    if (!sslSupported) {
-        LOG_WARNING(Frontend, "SSL support not available after initialization");
-        LOG_INFO(Frontend, "Build-time SSL library version: {}", QSslSocket::sslLibraryBuildVersionString().toStdString());
+    if (!QSslSocket::supportsSsl()) {
+        LOG_WARNING(Frontend, "SSL support not available");
         return;
     }
-
-    // Set up SSL configuration
     QSslConfiguration sslConfig = QSslConfiguration::defaultConfiguration();
-
-    // Use system certificates if available
     auto certs = QSslConfiguration::systemCaCertificates();
     if (!certs.isEmpty()) {
         sslConfig.setCaCertificates(certs);
-        LOG_INFO(Frontend, "Loaded {} system CA certificates", certs.size());
     } else {
         LOG_WARNING(Frontend, "No system CA certificates available");
     }
-
-    // Configure SSL protocol
     sslConfig.setProtocol(QSsl::SecureProtocols);
-
-    // Set as default
     QSslConfiguration::setDefaultConfiguration(sslConfig);
-
     LOG_INFO(Frontend, "SSL initialized successfully");
-    LOG_INFO(Frontend, "Runtime SSL library version: {}", QSslSocket::sslLibraryVersionString().toStdString());
 }
 
 void UpdaterService::CheckForUpdates(const std::string& update_url) {
@@ -139,261 +91,119 @@ void UpdaterService::CheckForUpdates(const std::string& update_url) {
         emit UpdateError(QStringLiteral("Update operation already in progress"));
         return;
     }
-
     if (update_url.empty()) {
         emit UpdateError(QStringLiteral("Update URL not configured"));
         return;
     }
-
     LOG_INFO(Frontend, "Checking for updates from: {}", update_url);
-
-    // Try HTTPS first, fallback to HTTP if SSL not available
-    QString requestUrl = QString::fromStdString(update_url);
-    bool ssl_available = QSslSocket::supportsSsl();
-
-    if (!ssl_available && requestUrl.startsWith(QStringLiteral("https://"))) {
-        LOG_WARNING(Frontend, "SSL not supported, trying HTTP fallback");
-        requestUrl.replace(QStringLiteral("https://"), QStringLiteral("http://"));
-        LOG_INFO(Frontend, "Using HTTP fallback URL: {}", requestUrl.toStdString());
-    }
-
-    QUrl url{requestUrl};
+    QUrl url{QString::fromStdString(update_url)};
     QNetworkRequest request{url};
     request.setRawHeader("User-Agent", QByteArrayLiteral("Citron-Updater/1.0"));
     request.setRawHeader("Accept", QByteArrayLiteral("application/json"));
-
-    // Only enable automatic redirect following if SSL is available
-    // This prevents TLS initialization failures when redirecting HTTP -> HTTPS
-    if (ssl_available) {
-        request.setAttribute(QNetworkRequest::RedirectPolicyAttribute, QNetworkRequest::NoLessSafeRedirectPolicy);
-    } else {
-        // Disable automatic redirects when SSL is not available
-        request.setAttribute(QNetworkRequest::RedirectPolicyAttribute, QNetworkRequest::ManualRedirectPolicy);
-        LOG_INFO(Frontend, "SSL not available, disabling automatic redirects");
-    }
-
-    // Configure SSL for HTTPS requests (if SSL is available)
-    if (requestUrl.startsWith(QStringLiteral("https://"))) {
-        ConfigureSSLForRequest(request);
-    }
-
+    request.setAttribute(QNetworkRequest::RedirectPolicyAttribute, QNetworkRequest::NoLessSafeRedirectPolicy);
     current_reply = network_manager->get(request);
-
-    connect(current_reply, &QNetworkReply::finished, this, [this, ssl_available]() {
-        // Handle manual redirects when SSL is not available
-        if (!ssl_available && current_reply->error() == QNetworkReply::NoError) {
-            QVariant redirect_url = current_reply->attribute(QNetworkRequest::RedirectionTargetAttribute);
-            if (redirect_url.isValid()) {
-                QString redirect_str = redirect_url.toString();
-                if (redirect_str.startsWith(QStringLiteral("https://"))) {
-                    LOG_ERROR(Frontend, "Server redirected HTTP to HTTPS, but SSL is not available");
-                    emit UpdateError(QStringLiteral("SSL not available - cannot follow HTTPS redirect. Please check your Qt installation."));
-                } else {
-                    LOG_INFO(Frontend, "Following redirect to: {}", redirect_str.toStdString());
-                    // Follow the redirect manually
-                    QUrl new_url = QUrl(redirect_str);
-                    QNetworkRequest new_request(new_url);
-                    new_request.setRawHeader("User-Agent", QByteArrayLiteral("Citron-Updater/1.0"));
-                    new_request.setRawHeader("Accept", QByteArrayLiteral("application/json"));
-                    new_request.setAttribute(QNetworkRequest::RedirectPolicyAttribute, QNetworkRequest::ManualRedirectPolicy);
-
-                    current_reply->deleteLater();
-                    current_reply = network_manager->get(new_request);
-
-                    // Reconnect handlers for the new request
-                    connect(current_reply, &QNetworkReply::finished, this, [this]() {
-                        if (current_reply->error() == QNetworkReply::NoError) {
-                            ParseUpdateResponse(current_reply->readAll());
-                        } else {
-                            emit UpdateError(QStringLiteral("Failed to check for updates: %1").arg(current_reply->errorString()));
-                        }
-                        current_reply->deleteLater();
-                        current_reply = nullptr;
-                    });
-
-                    connect(current_reply, &QNetworkReply::errorOccurred, this, &UpdaterService::OnDownloadError);
-                }
-                return;
-            }
-        }
-
-        // Normal response handling
+    connect(current_reply, &QNetworkReply::finished, this, [this]() {
+        if (!current_reply) return;
         if (current_reply->error() == QNetworkReply::NoError) {
             ParseUpdateResponse(current_reply->readAll());
         } else {
-            emit UpdateError(QStringLiteral("Failed to check for updates: %1").arg(current_reply->errorString()));
+            emit UpdateError(QStringLiteral("Update check failed: %1").arg(current_reply->errorString()));
         }
         current_reply->deleteLater();
         current_reply = nullptr;
     });
-
-    connect(current_reply, &QNetworkReply::errorOccurred, this, &UpdaterService::OnDownloadError);
 }
 
 void UpdaterService::ConfigureSSLForRequest(QNetworkRequest& request) {
-    if (!QSslSocket::supportsSsl()) {
-        LOG_WARNING(Frontend, "SSL not supported, request may fail for HTTPS URLs");
-        return;
-    }
-
+    if (!QSslSocket::supportsSsl()) return;
     QSslConfiguration sslConfig = QSslConfiguration::defaultConfiguration();
-
-    // For now, use permissive SSL verification for compatibility
-    // In production, this should be QSslSocket::VerifyPeer
-    sslConfig.setPeerVerifyMode(QSslSocket::VerifyNone);
-
-    // Set secure protocols
+    sslConfig.setPeerVerifyMode(QSslSocket::VerifyNone); // Should be VerifyPeer in production
     sslConfig.setProtocol(QSsl::SecureProtocols);
-
-    // Apply SSL configuration
     request.setSslConfiguration(sslConfig);
 }
 
-void UpdaterService::DownloadAndInstallUpdate(const UpdateInfo& update_info) {
+void UpdaterService::DownloadAndInstallUpdate(const std::string& download_url) {
     if (update_in_progress.load()) {
         emit UpdateError(QStringLiteral("Update operation already in progress"));
         return;
     }
-
-    if (update_info.download_url.empty()) {
-        emit UpdateError(QStringLiteral("Invalid download URL"));
+    if (download_url.empty()) {
+        emit UpdateError(QStringLiteral("Invalid download URL."));
         return;
     }
 
     update_in_progress.store(true);
     cancel_requested.store(false);
-    current_update_info = update_info;
 
-    LOG_INFO(Frontend, "Starting download of update: {}", update_info.version);
-    LOG_INFO(Frontend, "Download URL: {}", update_info.download_url);
+    LOG_INFO(Frontend, "Starting update download from {}", download_url);
 
-    // Create backup before starting update
+#ifdef _WIN32
     if (!CreateBackup()) {
         emit UpdateCompleted(UpdateResult::PermissionError, QStringLiteral("Failed to create backup"));
         update_in_progress.store(false);
         return;
     }
+#endif
 
-    // Prepare download URL with HTTP fallback if needed
-    QString downloadUrl = QString::fromStdString(update_info.download_url);
-    bool ssl_available = QSslSocket::supportsSsl();
-
-    if (!ssl_available && downloadUrl.startsWith(QStringLiteral("https://"))) {
-        LOG_WARNING(Frontend, "SSL not supported, trying HTTP fallback for download");
-        downloadUrl.replace(QStringLiteral("https://"), QStringLiteral("http://"));
-        LOG_INFO(Frontend, "Using HTTP fallback download URL: {}", downloadUrl.toStdString());
-    }
-
-    // Start download
-    QUrl downloadQUrl{downloadUrl};
-    QNetworkRequest request{downloadQUrl};
-    request.setRawHeader("User-Agent", QByteArrayLiteral("Citron-Updater/1.0"));
-
-    // Only enable automatic redirect following if SSL is available
-    if (ssl_available) {
-        request.setAttribute(QNetworkRequest::RedirectPolicyAttribute, QNetworkRequest::NoLessSafeRedirectPolicy);
-    } else {
-        request.setAttribute(QNetworkRequest::RedirectPolicyAttribute, QNetworkRequest::ManualRedirectPolicy);
-        LOG_INFO(Frontend, "SSL not available, disabling automatic redirects for download");
-    }
-
-    // Configure SSL for the download request (if SSL is available)
-    if (downloadUrl.startsWith(QStringLiteral("https://"))) {
-        ConfigureSSLForRequest(request);
-    }
-
+    QUrl url(QString::fromStdString(download_url));
+    QNetworkRequest request(url);
+    request.setAttribute(QNetworkRequest::RedirectPolicyAttribute, QNetworkRequest::NoLessSafeRedirectPolicy);
     current_reply = network_manager->get(request);
-
     connect(current_reply, &QNetworkReply::downloadProgress, this, &UpdaterService::OnDownloadProgress);
-    connect(current_reply, &QNetworkReply::finished, this, [this, ssl_available]() {
-        // Handle manual redirects when SSL is not available
-        if (!ssl_available && current_reply->error() == QNetworkReply::NoError) {
-            QVariant redirect_url = current_reply->attribute(QNetworkRequest::RedirectionTargetAttribute);
-            if (redirect_url.isValid()) {
-                QString redirect_str = redirect_url.toString();
-                if (redirect_str.startsWith(QStringLiteral("https://"))) {
-                    LOG_ERROR(Frontend, "Server redirected HTTP to HTTPS for download, but SSL is not available");
-                    emit UpdateCompleted(UpdateResult::NetworkError,
-                                       QStringLiteral("SSL not available - cannot follow HTTPS redirect for download. Please check your Qt installation."));
-                    update_in_progress.store(false);
-                    return;
-                } else {
-                    LOG_INFO(Frontend, "Following download redirect to: {}", redirect_str.toStdString());
-                    // Follow the redirect manually
-                    QUrl new_url = QUrl(redirect_str);
-                    QNetworkRequest new_request(new_url);
-                    new_request.setRawHeader("User-Agent", QByteArrayLiteral("Citron-Updater/1.0"));
-                    new_request.setAttribute(QNetworkRequest::RedirectPolicyAttribute, QNetworkRequest::ManualRedirectPolicy);
-
-                    current_reply->deleteLater();
-                    current_reply = network_manager->get(new_request);
-
-                    // Reconnect handlers for the new request
-                    connect(current_reply, &QNetworkReply::downloadProgress, this, &UpdaterService::OnDownloadProgress);
-                    connect(current_reply, &QNetworkReply::finished, this, &UpdaterService::OnDownloadFinished);
-                    connect(current_reply, &QNetworkReply::errorOccurred, this, &UpdaterService::OnDownloadError);
-                }
-                return;
-            }
-        }
-
-        // Normal download finished handling
-        OnDownloadFinished();
-    });
+    connect(current_reply, &QNetworkReply::finished, this, &UpdaterService::OnDownloadFinished);
     connect(current_reply, &QNetworkReply::errorOccurred, this, &UpdaterService::OnDownloadError);
 }
 
 void UpdaterService::CancelUpdate() {
-    if (!update_in_progress.load()) {
-        return;
-    }
-
+    if (!update_in_progress.load()) return;
     cancel_requested.store(true);
-
     if (current_reply) {
         current_reply->abort();
     }
-
     LOG_INFO(Frontend, "Update cancelled by user");
     emit UpdateCompleted(UpdateResult::Cancelled, QStringLiteral("Update cancelled by user"));
-
     update_in_progress.store(false);
 }
 
 std::string UpdaterService::GetCurrentVersion() const {
-    // Try to read version from version.txt file first (updated versions)
-    std::filesystem::path version_file = app_directory / CITRON_VERSION_FILE;
+    // Prioritize the compiled-in build version first, as it's the most reliable source.
+    std::string build_version = Common::g_build_version;
 
+    if (build_version.empty()) {
+        LOG_WARNING(Frontend, "Updater Debug: Common::g_build_version is EMPTY.");
+    } else {
+        LOG_INFO(Frontend, "Updater Debug: Raw Common::g_build_version is '{}'", build_version);
+    }
+
+    if (!build_version.empty()) {
+        std::string hash = ExtractCommitHash(build_version);
+        if (!hash.empty()) {
+            LOG_INFO(Frontend, "Updater Debug: Extracted hash '{}' from SCM_REV.", hash);
+            return hash;
+        } else {
+            LOG_WARNING(Frontend, "Updater Debug: FAILED to extract hash from Common::g_build_version.");
+        }
+    }
+
+    // Fallback to the version file.
+    std::filesystem::path version_file = app_directory / CITRON_VERSION_FILE;
     if (std::filesystem::exists(version_file)) {
         std::ifstream file(version_file);
         if (file.is_open()) {
-            std::string version;
-            std::getline(file, version);
-            if (!version.empty()) {
-                return version;
+            std::string version_from_file;
+            std::getline(file, version_from_file);
+            if (!version_from_file.empty()) {
+                 std::string hash = ExtractCommitHash(version_from_file);
+                 if (!hash.empty()){
+                    LOG_INFO(Frontend, "Found current version from file: {}", hash);
+                    return hash;
+                 }
             }
         }
     }
 
-    // Use build version from the build system
-    std::string build_version = Common::g_build_version;
-    if (!build_version.empty()) {
-        // Create version.txt file if it doesn't exist
-        try {
-            std::ofstream vfile(version_file);
-            if (vfile.is_open()) {
-                vfile << build_version;
-                vfile.close();
-                LOG_INFO(Frontend, "Created version.txt with build version: {}", build_version);
-            }
-        } catch (const std::exception& e) {
-            LOG_WARNING(Frontend, "Failed to create version.txt: {}", e.what());
-        }
-        return build_version;
-    }
-
-    // Final fallback to application version
-    return QCoreApplication::applicationVersion().toStdString();
+    LOG_WARNING(Frontend, "Could not determine a valid commit hash for the current version.");
+    return ""; // Return empty if no reliable version is found.
 }
 
 bool UpdaterService::IsUpdateInProgress() const {
@@ -405,61 +215,87 @@ void UpdaterService::OnDownloadFinished() {
         update_in_progress.store(false);
         return;
     }
-
-    if (current_reply->error() != QNetworkReply::NoError) {
-        emit UpdateCompleted(UpdateResult::NetworkError,
-                           QStringLiteral("Download failed: %1").arg(current_reply->errorString()));
+    if (!current_reply || current_reply->error() != QNetworkReply::NoError) {
+        if(current_reply) emit UpdateError(QStringLiteral("Download failed: %1").arg(current_reply->errorString()));
         update_in_progress.store(false);
         return;
     }
 
-    // Save downloaded file
-            QString filename = QStringLiteral("citron_update_%1.zip").arg(QString::fromStdString(current_update_info.version));
-        std::filesystem::path download_path = temp_download_path / filename.toStdString();
+    QByteArray downloaded_data = current_reply->readAll();
 
+#if defined(_WIN32)
+    QString filename = QStringLiteral("citron_update_%1.zip").arg(QString::fromStdString(current_update_info.version));
+    std::filesystem::path download_path = temp_download_path / filename.toStdString();
     QFile file(QString::fromStdString(download_path.string()));
     if (!file.open(QIODevice::WriteOnly)) {
         emit UpdateCompleted(UpdateResult::Failed, QStringLiteral("Failed to save downloaded file"));
         update_in_progress.store(false);
         return;
     }
-
-    file.write(current_reply->readAll());
+    file.write(downloaded_data);
     file.close();
-
     LOG_INFO(Frontend, "Download completed: {}", download_path.string());
 
-    // Start extraction and installation
     QTimer::singleShot(100, this, [this, download_path]() {
         if (cancel_requested.load()) {
             update_in_progress.store(false);
             return;
         }
-
         emit UpdateInstallProgress(10, QStringLiteral("Extracting update archive..."));
-
         std::filesystem::path extract_path = temp_download_path / "extracted";
         if (!ExtractArchive(download_path, extract_path)) {
             emit UpdateCompleted(UpdateResult::ExtractionError, QStringLiteral("Failed to extract update archive"));
             update_in_progress.store(false);
             return;
         }
-
         emit UpdateInstallProgress(70, QStringLiteral("Installing update..."));
-
         if (!InstallUpdate(extract_path)) {
             RestoreBackup();
             emit UpdateCompleted(UpdateResult::Failed, QStringLiteral("Failed to install update"));
             update_in_progress.store(false);
             return;
         }
-
         emit UpdateInstallProgress(100, QStringLiteral("Update completed successfully!"));
         emit UpdateCompleted(UpdateResult::Success, QStringLiteral("Update installed successfully. Please restart the application."));
-
         update_in_progress.store(false);
         CleanupFiles();
     });
+#elif defined(__linux__)
+    LOG_INFO(Frontend, "AppImage download completed.");
+    QString current_appimage_path_str = QCoreApplication::applicationFilePath();
+    std::filesystem::path current_appimage_path = current_appimage_path_str.toStdString();
+    std::filesystem::path new_appimage_path = current_appimage_path.string() + ".new";
+
+    QFile new_file(QString::fromStdString(new_appimage_path.string()));
+    if (!new_file.open(QIODevice::WriteOnly)) {
+        emit UpdateError(QStringLiteral("Failed to save new AppImage version."));
+        update_in_progress.store(false);
+        return;
+    }
+    new_file.write(downloaded_data);
+    new_file.close();
+
+    if (!new_file.setPermissions(QFileDevice::ReadOwner | QFileDevice::WriteOwner | QFileDevice::ExeOwner |
+                                 QFileDevice::ReadGroup | QFileDevice::ExeGroup |
+                                 QFileDevice::ReadOther | QFileDevice::ExeOther)) {
+        emit UpdateError(QStringLiteral("Failed to make the new AppImage executable."));
+        update_in_progress.store(false);
+        return;
+    }
+
+    std::error_code ec;
+    std::filesystem::rename(new_appimage_path, current_appimage_path, ec);
+    if (ec) {
+        LOG_ERROR(Frontend, "Failed to replace old AppImage: {}", ec.message());
+        emit UpdateError(QStringLiteral("Failed to replace old AppImage. Please close the application and replace it manually."));
+        update_in_progress.store(false);
+        return;
+    }
+
+    LOG_INFO(Frontend, "AppImage updated successfully.");
+    emit UpdateCompleted(UpdateResult::Success, QStringLiteral("Update successful. Please restart the application."));
+    update_in_progress.store(false);
+#endif
 }
 
 void UpdaterService::OnDownloadProgress(qint64 bytes_received, qint64 bytes_total) {
@@ -469,237 +305,190 @@ void UpdaterService::OnDownloadProgress(qint64 bytes_received, qint64 bytes_tota
     }
 }
 
-void UpdaterService::OnDownloadError(QNetworkReply::NetworkError error) {
-    QString error_message = QStringLiteral("Network error: %1").arg(current_reply->errorString());
-    LOG_ERROR(Frontend, "Download error: {}", error_message.toStdString());
-    emit UpdateCompleted(UpdateResult::NetworkError, error_message);
+void UpdaterService::OnDownloadError(QNetworkReply::NetworkError) {
+    if (current_reply) {
+        emit UpdateError(QStringLiteral("Network error: %1").arg(current_reply->errorString()));
+    }
     update_in_progress.store(false);
 }
 
+// This function is updated to parse the commit hash from the release name.
 void UpdaterService::ParseUpdateResponse(const QByteArray& response) {
     QJsonParseError error;
     QJsonDocument doc = QJsonDocument::fromJson(response, &error);
-
     if (error.error != QJsonParseError::NoError) {
-        emit UpdateError(QStringLiteral("Invalid JSON response: %1").arg(error.errorString()));
+        emit UpdateError(QStringLiteral("Failed to parse JSON: %1").arg(error.errorString()));
+        return;
+    }
+    if (!doc.isArray()) {
+        emit UpdateError(QStringLiteral("JSON response is not an array."));
         return;
     }
 
-    QJsonObject json = doc.object();
-    UpdateInfo update_info;
+    QString platform_identifier;
+#if defined(_WIN32)
+    platform_identifier = QStringLiteral("windows");
+#elif defined(__linux__)
+    platform_identifier = QStringLiteral("linux");
+#endif
 
-    update_info.version = json.value(QStringLiteral("version")).toString().toStdString();
-    update_info.download_url = json.value(QStringLiteral("download_url")).toString().toStdString();
-    update_info.changelog = json.value(QStringLiteral("changelog")).toString().toStdString();
-    update_info.release_date = json.value(QStringLiteral("release_date")).toString().toStdString();
+    for (const QJsonValue& release_value : doc.array()) {
+        QJsonObject release_obj = release_value.toObject();
+        QString release_name = release_obj.value(QStringLiteral("name")).toString();
 
-    std::string current_version = GetCurrentVersion();
-    update_info.is_newer_version = CompareVersions(current_version, update_info.version);
+        if (release_name.toLower().contains(platform_identifier)) {
+            // MODIFIED: Use the helper function to extract the commit hash from the remote release name.
+            std::string latest_hash = ExtractCommitHash(release_name.toStdString());
 
-    LOG_INFO(Frontend, "Update check completed - Current: {}, Latest: {}, Has update: {}",
-             current_version, update_info.version, update_info.is_newer_version);
+            if (latest_hash.empty()) {
+                continue; // Skip this release if no commit hash is found in its name.
+            }
 
-    emit UpdateCheckCompleted(update_info.is_newer_version, update_info);
+            UpdateInfo update_info;
+            // MODIFIED: The version is now the clean, captured commit hash.
+            update_info.version = latest_hash;
+            update_info.changelog = release_obj.value(QStringLiteral("body")).toString().toStdString();
+            update_info.release_date = release_obj.value(QStringLiteral("published_at")).toString().toStdString();
+
+            QJsonArray assets = release_obj.value(QStringLiteral("assets")).toArray();
+            for (const QJsonValue& asset_value : assets) {
+                QJsonObject asset_obj = asset_value.toObject();
+                QString asset_name = asset_obj.value(QStringLiteral("name")).toString();
+#if defined(_WIN32)
+                if (asset_name.endsWith(QStringLiteral(".zip"))) {
+                    DownloadOption option;
+                    option.name = asset_name.toStdString();
+                    option.url = asset_obj.value(QStringLiteral("browser_download_url")).toString().toStdString();
+                    update_info.download_options.push_back(option);
+                    break;
+                }
+#elif defined(__linux__)
+                if (asset_name.endsWith(QStringLiteral(".AppImage"))) {
+                    DownloadOption option;
+                    QString friendly_name = asset_name;
+                    friendly_name.remove(QRegularExpression(QStringLiteral(R"(^citron-linux-\d*-x86_64-?)"), QRegularExpression::CaseInsensitiveOption));
+                    friendly_name.remove(QStringLiteral(".AppImage"));
+                    if (friendly_name.isEmpty()) {
+                        option.name = "AppImage";
+                    } else {
+                        option.name = friendly_name.toUpper().toStdString();
+                    }
+                    option.url = asset_obj.value(QStringLiteral("browser_download_url")).toString().toStdString();
+                    update_info.download_options.push_back(option);
+                }
+#endif
+            }
+
+            if (!update_info.download_options.empty()) {
+                // MODIFIED: GetCurrentVersion() now returns a clean hash, making this comparison reliable.
+                update_info.is_newer_version = CompareVersions(GetCurrentVersion(), update_info.version);
+                current_update_info = update_info;
+                emit UpdateCheckCompleted(update_info.is_newer_version, update_info);
+                return; // Exit after finding the first valid release for the platform.
+            }
+        }
+    }
+    emit UpdateError(QStringLiteral("Could not find a recent update for your platform."));
 }
 
+// MODIFIED: This function now compares clean commit hashes instead of complex version strings.
 bool UpdaterService::CompareVersions(const std::string& current, const std::string& latest) const {
-    // Simple version comparison (assumes semantic versioning like 1.2.3)
-    std::regex version_regex(R"((\d+)\.(\d+)\.(\d+)(?:-(.+))?)");
-    std::smatch current_match, latest_match;
-
-    if (!std::regex_match(current, current_match, version_regex) ||
-        !std::regex_match(latest, latest_match, version_regex)) {
-        // Fallback to string comparison if regex fails
-        return latest > current;
+    if (current.empty()) {
+        // NEW: If we don't know our current version, we should assume an update is available
+        // to allow for recovery from a missing version file.
+        LOG_WARNING(Frontend, "Current version is unknown, assuming update is available.");
+        return true;
     }
 
-    // Compare major, minor, patch versions
-    for (int i = 1; i <= 3; ++i) {
-        int current_num = std::stoi(current_match[i].str());
-        int latest_num = std::stoi(latest_match[i].str());
-
-        if (latest_num > current_num) return true;
-        if (latest_num < current_num) return false;
+    if (latest.empty()) {
+        LOG_WARNING(Frontend, "Latest version from remote is empty, cannot compare.");
+        return false;
     }
 
-    return false; // Versions are equal
+    // MODIFIED: For commit hashes, a simple string inequality check is sufficient and reliable.
+    bool is_newer = (current != latest);
+    LOG_INFO(Frontend, "Comparing versions. Current: '{}', Latest: '{}'. Is newer: {}", current, latest, is_newer);
+    return is_newer;
 }
 
+#ifdef _WIN32
 bool UpdaterService::ExtractArchive(const std::filesystem::path& archive_path, const std::filesystem::path& extract_path) {
 #ifdef CITRON_ENABLE_LIBARCHIVE
     struct archive* a = archive_read_new();
     struct archive* ext = archive_write_disk_new();
-    struct archive_entry* entry;
-    int r;
-
-    if (!a || !ext) {
-        LOG_ERROR(Frontend, "Failed to create archive objects");
-        return false;
-    }
-
-    // Configure archive reader for 7z
+    if (!a || !ext) return false;
     archive_read_support_format_7zip(a);
     archive_read_support_filter_all(a);
-
-    // Configure archive writer
     archive_write_disk_set_options(ext, ARCHIVE_EXTRACT_TIME | ARCHIVE_EXTRACT_PERM);
     archive_write_disk_set_standard_lookup(ext);
-
-    r = archive_read_open_filename(a, archive_path.string().c_str(), 10240);
-    if (r != ARCHIVE_OK) {
-        LOG_ERROR(Frontend, "Failed to open archive: {}", archive_error_string(a));
-        archive_read_free(a);
-        archive_write_free(ext);
-        return false;
-    }
-
-    // Create extraction directory
+    if (archive_read_open_filename(a, archive_path.string().c_str(), 10240) != ARCHIVE_OK) return false;
     EnsureDirectoryExists(extract_path);
-
-    // Extract files
+    struct archive_entry* entry;
     while (archive_read_next_header(a, &entry) == ARCHIVE_OK) {
-        if (cancel_requested.load()) {
-            break;
-        }
-
-        // Set the extraction path
+        if (cancel_requested.load()) break;
         std::filesystem::path entry_path = extract_path / archive_entry_pathname(entry);
         archive_entry_set_pathname(entry, entry_path.string().c_str());
-
-        r = archive_write_header(ext, entry);
-        if (r != ARCHIVE_OK) {
-            LOG_WARNING(Frontend, "Failed to write header for: {}", archive_entry_pathname(entry));
-            continue;
-        }
-
-        // Copy file data
+        if (archive_write_header(ext, entry) != ARCHIVE_OK) continue;
         const void* buff;
         size_t size;
         la_int64_t offset;
-
         while (archive_read_data_block(a, &buff, &size, &offset) == ARCHIVE_OK) {
-            if (cancel_requested.load()) {
-                break;
-            }
+            if (cancel_requested.load()) break;
             archive_write_data_block(ext, buff, size, offset);
         }
-
         archive_write_finish_entry(ext);
     }
-
     archive_read_close(a);
     archive_read_free(a);
     archive_write_close(ext);
     archive_write_free(ext);
-
     return !cancel_requested.load();
 #else
-#ifdef _WIN32
-    // Windows fallback: use system 7zip or PowerShell
     return ExtractArchiveWindows(archive_path, extract_path);
-#else
-    LOG_ERROR(Frontend, "Archive extraction requires libarchive on this platform.");
-    (void)archive_path;
-    (void)extract_path;
-    return false;
-#endif
 #endif
 }
 
-#if defined(_WIN32) && !defined(CITRON_ENABLE_LIBARCHIVE)
+#if !defined(CITRON_ENABLE_LIBARCHIVE)
 bool UpdaterService::ExtractArchiveWindows(const std::filesystem::path& archive_path, const std::filesystem::path& extract_path) {
-    // Create extraction directory
     EnsureDirectoryExists(extract_path);
-
-    // Try 7zip first (most common on Windows)
     std::string sevenzip_cmd = "7z x \"" + archive_path.string() + "\" -o\"" + extract_path.string() + "\" -y";
-
-    LOG_INFO(Frontend, "Attempting extraction with 7zip: {}", sevenzip_cmd);
-
-    int result = std::system(sevenzip_cmd.c_str());
-    if (result == 0) {
-        LOG_INFO(Frontend, "Archive extracted successfully with 7zip");
-        return true;
-    }
-
-    // Fallback to PowerShell for zip files (won't work for 7z)
-    std::string powershell_cmd = "powershell -Command \"Expand-Archive -Path \\\"" +
-                                archive_path.string() + "\\\" -DestinationPath \\\"" +
-                                extract_path.string() + "\\\" -Force\"";
-
-    LOG_INFO(Frontend, "Attempting extraction with PowerShell: {}", powershell_cmd);
-
-    result = std::system(powershell_cmd.c_str());
-    if (result == 0) {
-        LOG_INFO(Frontend, "Archive extracted successfully with PowerShell");
-        return true;
-    }
-
-    // Both extraction methods failed
-    LOG_ERROR(Frontend, "Failed to extract archive automatically. Please install 7-Zip or ensure PowerShell is available.");
-
-    // For now, return false - in a real implementation, you might want to:
-    // 1. Show a dialog asking user to install 7-Zip
-    // 2. Provide manual extraction instructions
-    // 3. Download and install 7-Zip automatically
+    if (std::system(sevenzip_cmd.c_str()) == 0) return true;
+    std::string powershell_cmd = "powershell -Command \"Expand-Archive -Path \\\"" + archive_path.string() + "\\\" -DestinationPath \\\"" + extract_path.string() + "\\\" -Force\"";
+    if (std::system(powershell_cmd.c_str()) == 0) return true;
+    LOG_ERROR(Frontend, "Failed to extract archive automatically.");
     return false;
 }
 #endif
 
 bool UpdaterService::InstallUpdate(const std::filesystem::path& update_path) {
     try {
-        // Check if there's a single directory in the update path (common with archives)
         std::filesystem::path source_path = update_path;
-
         std::vector<std::filesystem::path> top_level_items;
         for (const auto& entry : std::filesystem::directory_iterator(update_path)) {
             top_level_items.push_back(entry.path());
         }
-
-        // If there's only one top-level directory, use it as the source
         if (top_level_items.size() == 1 && std::filesystem::is_directory(top_level_items[0])) {
             source_path = top_level_items[0];
-            LOG_INFO(Frontend, "Found single directory in archive: {}", source_path.filename().string());
         }
-
-        // Create a staging directory for the update
         std::filesystem::path staging_path = app_directory / "update_staging";
         EnsureDirectoryExists(staging_path);
-
-        // Copy all files to staging directory first (this avoids file-in-use issues)
         for (const auto& entry : std::filesystem::recursive_directory_iterator(source_path)) {
-            if (cancel_requested.load()) {
-                return false;
-            }
-
+            if (cancel_requested.load()) return false;
             if (entry.is_regular_file()) {
                 std::filesystem::path relative_path = std::filesystem::relative(entry.path(), source_path);
                 std::filesystem::path staging_dest = staging_path / relative_path;
-
-                // Create destination directory if it doesn't exist
                 std::filesystem::create_directories(staging_dest.parent_path());
-
-                // Copy to staging directory
-                std::filesystem::copy_file(entry.path(), staging_dest,
-                                         std::filesystem::copy_options::overwrite_existing);
-
-                LOG_DEBUG(Frontend, "Staged file: {} -> {}", entry.path().string(), staging_dest.string());
+                std::filesystem::copy_file(entry.path(), staging_dest, std::filesystem::copy_options::overwrite_existing);
             }
         }
-
-        // Create update manifest for post-restart installation
         std::filesystem::path manifest_file = staging_path / "update_manifest.txt";
         std::ofstream manifest(manifest_file);
         if (manifest.is_open()) {
             manifest << "UPDATE_VERSION=" << current_update_info.version << "\n";
             manifest << "UPDATE_TIMESTAMP=" << std::time(nullptr) << "\n";
             manifest << "APP_DIRECTORY=" << app_directory.string() << "\n";
-            manifest.close();
         }
-
-        LOG_INFO(Frontend, "Update staged successfully. Files prepared in: {}", staging_path.string());
-        LOG_INFO(Frontend, "Update will be applied after application restart.");
-
+        LOG_INFO(Frontend, "Update staged successfully.");
         return true;
     } catch (const std::exception& e) {
         LOG_ERROR(Frontend, "Failed to install update: {}", e.what());
@@ -710,39 +499,27 @@ bool UpdaterService::InstallUpdate(const std::filesystem::path& update_path) {
 bool UpdaterService::CreateBackup() {
     try {
         std::filesystem::path backup_dir = backup_path / ("backup_" + GetCurrentVersion());
-
         if (std::filesystem::exists(backup_dir)) {
             std::filesystem::remove_all(backup_dir);
         }
-
         std::filesystem::create_directories(backup_dir);
-
-        // Backup essential files (executable, dlls, etc.)
-        std::vector<std::string> backup_patterns = {
-            "citron.exe", "citron_cmd.exe", "*.dll", "*.pdb"
-        };
-
+        std::vector<std::string> backup_patterns = {"citron.exe", "citron_cmd.exe", "*.dll", "*.pdb"};
         for (const auto& entry : std::filesystem::directory_iterator(app_directory)) {
             if (entry.is_regular_file()) {
                 std::string filename = entry.path().filename().string();
                 std::string extension = entry.path().extension().string();
-
-                // Check if file should be backed up
                 bool should_backup = false;
                 for (const auto& pattern : backup_patterns) {
-                    if (pattern == filename ||
-                        (pattern.starts_with("*") && pattern.substr(1) == extension)) {
+                    if (pattern == filename || (pattern.starts_with("*") && pattern.substr(1) == extension)) {
                         should_backup = true;
                         break;
                     }
                 }
-
                 if (should_backup) {
                     std::filesystem::copy_file(entry.path(), backup_dir / filename);
                 }
             }
         }
-
         LOG_INFO(Frontend, "Backup created: {}", backup_dir.string());
         return true;
     } catch (const std::exception& e) {
@@ -754,20 +531,13 @@ bool UpdaterService::CreateBackup() {
 bool UpdaterService::RestoreBackup() {
     try {
         std::filesystem::path backup_dir = backup_path / ("backup_" + GetCurrentVersion());
-
-        if (!std::filesystem::exists(backup_dir)) {
-            LOG_ERROR(Frontend, "Backup directory not found: {}", backup_dir.string());
-            return false;
-        }
-
+        if (!std::filesystem::exists(backup_dir)) return false;
         for (const auto& entry : std::filesystem::directory_iterator(backup_dir)) {
             if (entry.is_regular_file()) {
                 std::filesystem::path dest_path = app_directory / entry.path().filename();
-                std::filesystem::copy_file(entry.path(), dest_path,
-                                         std::filesystem::copy_options::overwrite_existing);
+                std::filesystem::copy_file(entry.path(), dest_path, std::filesystem::copy_options::overwrite_existing);
             }
         }
-
         LOG_INFO(Frontend, "Backup restored successfully");
         return true;
     } catch (const std::exception& e) {
@@ -775,39 +545,30 @@ bool UpdaterService::RestoreBackup() {
         return false;
     }
 }
+#endif
 
 bool UpdaterService::CleanupFiles() {
     try {
-        // Remove temporary files
         if (std::filesystem::exists(temp_download_path)) {
-            for (const auto& entry : std::filesystem::directory_iterator(temp_download_path)) {
-                if (entry.path().extension() == ".7z" ||
-                    entry.path().extension() == ".zip" ||
-                    entry.path().filename() == "extracted") {
-                    std::filesystem::remove_all(entry.path());
+            std::filesystem::remove_all(temp_download_path);
+        }
+#ifdef _WIN32
+        std::vector<std::filesystem::path> backup_dirs;
+        if (std::filesystem::exists(backup_path)) {
+            for (const auto& entry : std::filesystem::directory_iterator(backup_path)) {
+                if (entry.is_directory() && entry.path().filename().string().starts_with("backup_")) {
+                    backup_dirs.push_back(entry.path());
                 }
             }
         }
-
-        // Remove old backups (keep only the latest 3)
-        std::vector<std::filesystem::path> backup_dirs;
-        for (const auto& entry : std::filesystem::directory_iterator(backup_path)) {
-            if (entry.is_directory() && entry.path().filename().string().starts_with("backup_")) {
-                backup_dirs.push_back(entry.path());
-            }
-        }
-
         if (backup_dirs.size() > 3) {
             std::sort(backup_dirs.begin(), backup_dirs.end(),
-                     [](const std::filesystem::path& a, const std::filesystem::path& b) {
-                         return std::filesystem::last_write_time(a) > std::filesystem::last_write_time(b);
-                     });
-
+                      [](const auto& a, const auto& b) { return std::filesystem::last_write_time(a) > std::filesystem::last_write_time(b); });
             for (size_t i = 3; i < backup_dirs.size(); ++i) {
                 std::filesystem::remove_all(backup_dirs[i]);
             }
         }
-
+#endif
         return true;
     } catch (const std::exception& e) {
         LOG_ERROR(Frontend, "Failed to cleanup files: {}", e.what());
@@ -816,7 +577,7 @@ bool UpdaterService::CleanupFiles() {
 }
 
 std::filesystem::path UpdaterService::GetTempDirectory() const {
-    return std::filesystem::temp_directory_path() / "citron_updater";
+    return std::filesystem::path(QStandardPaths::writableLocation(QStandardPaths::TempLocation).toStdString()) / "citron_updater";
 }
 
 std::filesystem::path UpdaterService::GetApplicationDirectory() const {
@@ -840,94 +601,64 @@ bool UpdaterService::EnsureDirectoryExists(const std::filesystem::path& path) co
 }
 
 bool UpdaterService::HasStagedUpdate(const std::filesystem::path& app_directory) {
+#ifdef _WIN32
     std::filesystem::path staging_path = app_directory / "update_staging";
     std::filesystem::path manifest_file = staging_path / "update_manifest.txt";
-
-    return std::filesystem::exists(staging_path) &&
-           std::filesystem::exists(manifest_file) &&
-           std::filesystem::is_directory(staging_path);
+    return std::filesystem::exists(staging_path) && std::filesystem::exists(manifest_file) && std::filesystem::is_directory(staging_path);
+#else
+    return false;
+#endif
 }
 
 bool UpdaterService::ApplyStagedUpdate(const std::filesystem::path& app_directory) {
+#ifdef _WIN32
     try {
         std::filesystem::path staging_path = app_directory / "update_staging";
         std::filesystem::path manifest_file = staging_path / "update_manifest.txt";
-
-        if (!std::filesystem::exists(staging_path) || !std::filesystem::exists(manifest_file)) {
-            return false;
-        }
-
+        if (!std::filesystem::exists(staging_path) || !std::filesystem::exists(manifest_file)) return false;
         LOG_INFO(Frontend, "Applying staged update from: {}", staging_path.string());
-
-        // Create backup directory for current files
-        std::filesystem::path backup_path = app_directory / "backup_before_update";
-        if (std::filesystem::exists(backup_path)) {
-            std::filesystem::remove_all(backup_path);
-        }
-        std::filesystem::create_directories(backup_path);
-
-        // Copy files from staging to application directory
+        std::filesystem::path backup_path_dir = app_directory / "backup_before_update";
+        if (std::filesystem::exists(backup_path_dir)) std::filesystem::remove_all(backup_path_dir);
+        std::filesystem::create_directories(backup_path_dir);
         for (const auto& entry : std::filesystem::recursive_directory_iterator(staging_path)) {
-            if (entry.path().filename() == "update_manifest.txt") {
-                continue; // Skip manifest file
-            }
-
+            if (entry.path().filename() == "update_manifest.txt") continue;
             if (entry.is_regular_file()) {
                 std::filesystem::path relative_path = std::filesystem::relative(entry.path(), staging_path);
                 std::filesystem::path dest_path = app_directory / relative_path;
-
-                // Backup existing file if it exists
                 if (std::filesystem::exists(dest_path)) {
-                    std::filesystem::path backup_dest = backup_path / relative_path;
+                    std::filesystem::path backup_dest = backup_path_dir / relative_path;
                     std::filesystem::create_directories(backup_dest.parent_path());
                     std::filesystem::copy_file(dest_path, backup_dest);
                 }
-
-                // Create destination directory and copy new file
                 std::filesystem::create_directories(dest_path.parent_path());
-                std::filesystem::copy_file(entry.path(), dest_path,
-                                         std::filesystem::copy_options::overwrite_existing);
-
-                LOG_DEBUG(Frontend, "Updated file: {}", dest_path.string());
+                std::filesystem::copy_file(entry.path(), dest_path, std::filesystem::copy_options::overwrite_existing);
             }
         }
-
-        // Read and apply version from manifest
         std::ifstream manifest(manifest_file);
-        std::string line;
-        std::string version;
-
+        std::string line, version;
         while (std::getline(manifest, line)) {
             if (line.starts_with("UPDATE_VERSION=")) {
-                version = line.substr(15); // Remove "UPDATE_VERSION="
+                version = line.substr(15);
                 break;
             }
         }
-        manifest.close();
-
-        // Update version file
         if (!version.empty()) {
             std::filesystem::path version_file = app_directory / "version.txt";
             std::ofstream vfile(version_file);
-            if (vfile.is_open()) {
-                vfile << version;
-                vfile.close();
-            }
+            if (vfile.is_open()) vfile << version;
         }
-
-        // Clean up staging directory
         std::filesystem::remove_all(staging_path);
-
         LOG_INFO(Frontend, "Update applied successfully. Version: {}", version);
         return true;
-
     } catch (const std::exception& e) {
         LOG_ERROR(Frontend, "Failed to apply staged update: {}", e.what());
         return false;
     }
+#else
+    return false;
+#endif
 }
 
 } // namespace Updater
-#ifdef _WIN32
+
 #include "updater_service.moc"
-#endif

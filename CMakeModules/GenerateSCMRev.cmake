@@ -53,4 +53,11 @@ if (BUILD_REPOSITORY)
   endif()
 endif()
 
+# Add a fallback for local builds
+# If BUILD_VERSION is still "0", it means the CI-specific logic was not executed.
+# In that case, we should use the git description which contains the commit hash.
+if (BUILD_VERSION STREQUAL "0")
+    set(BUILD_VERSION ${GIT_DESC})
+endif()
+
 configure_file(scm_rev.cpp.in scm_rev.cpp @ONLY)

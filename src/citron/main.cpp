@@ -6091,25 +6091,17 @@ int main(int argc, char* argv[]) {
 }
 
 void GMainWindow::OnCheckForUpdates() {
-#ifdef CITRON_USE_AUTO_UPDATER
-#ifdef _WIN32
-    // Use HTTP URL to bypass SSL issues (will be redirected to HTTPS but handled by updater)
-    // TODO: Fix SSL libraries and revert to https://releases.citron-emu.org/api/check
-    std::string update_url = "http://releases.citron-emu.org/api/check";
+    #ifdef CITRON_USE_AUTO_UPDATER
+    std::string update_url = "https://api.github.com/repos/Zephyron-Dev/Citron-CI/releases";
 
-    // Create and show the updater dialog
-    auto* updater_dialog = new UpdaterDialog(this);
+    auto* updater_dialog = new Updater::UpdaterDialog(this);
     updater_dialog->setAttribute(Qt::WA_DeleteOnClose);
     updater_dialog->show();
     updater_dialog->CheckForUpdates(update_url);
-#else
-    QMessageBox::information(this, tr("Updates"),
-                             tr("The update dialog is only available on Windows in this build."));
-#endif
-#else
+    #else
     QMessageBox::information(this, tr("Updates"),
                              tr("The automatic updater is not enabled in this build."));
-#endif
+    #endif
 }
 
 void GMainWindow::CheckForUpdatesAutomatically() {
@@ -6122,7 +6114,7 @@ void GMainWindow::CheckForUpdatesAutomatically() {
     LOG_INFO(Frontend, "Checking for updates automatically...");
 
     // Use HTTP URL to bypass SSL issues
-    std::string update_url = "http://releases.citron-emu.org/api/check";
+    std::string update_url = "https://api.github.com/repos/Zephyron-Dev/Citron-CI/releases";
 
     // Create updater service for silent background check
     auto* updater_service = new Updater::UpdaterService(this);

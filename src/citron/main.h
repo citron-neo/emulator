@@ -59,7 +59,7 @@ class QtControllerSelectorDialog;
 class QtProfileSelectionDialog;
 class QtSoftwareKeyboardDialog;
 class QtNXWebEngineView;
-class UpdaterDialog;
+namespace Updater { class UpdaterDialog; }
 
 enum class StartGameType { Normal, Global };
 
