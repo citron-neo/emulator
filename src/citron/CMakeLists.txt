@@ -265,6 +265,8 @@ if (CITRON_USE_AUTO_UPDATER)
         $<$<BOOL:${WIN32}>:_WIN32>
         CITRON_USE_AUTO_UPDATER
     )
+
+    target_link_libraries(citron PRIVATE Qt6::Network)
 endif()
 
 if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
