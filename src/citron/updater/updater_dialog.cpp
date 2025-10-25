@@ -6,6 +6,7 @@
 
 #include <QApplication>
 #include <QCloseEvent>
+#include <QDateTime> 
 #include <QDesktopServices>
 #include <QMessageBox>
 #include <QProcess>
@@ -13,6 +14,21 @@
 #include <QUrl>
 
 namespace Updater {
+
+// Helper function to format the date and time
+QString FormatDateTimeString(const std::string& iso_string) {
+    if (iso_string.empty() || iso_string == "Unknown") {
+        return QStringLiteral("Unknown");
+    }
+    // Parse the ISO 8601 date string provided by the GitHub API.
+    QDateTime date_time = QDateTime::fromString(QString::fromStdString(iso_string), Qt::ISODate);
+    if (!date_time.isValid()) {
+        return QString::fromStdString(iso_string); // Fallback to original if parsing fails.
+    }
+    // Convert from UTC (which the 'Z' indicates) to the user's local time
+    // and format it in a friendly, readable way.
+    return date_time.toLocalTime().toString(QStringLiteral("MMMM d, yyyy 'at' hh:mm AP"));
+}
 
 UpdaterDialog::UpdaterDialog(QWidget* parent)
     : QDialog(parent), ui(std::make_unique<Ui::UpdaterDialog>()),
@@ -66,7 +82,7 @@ void UpdaterDialog::OnUpdateCheckCompleted(bool has_update, const Updater::Updat
         current_update_info = update_info;
         ShowUpdateAvailableState();
     } else {
-        ShowNoUpdateState();
+        ShowNoUpdateState(update_info);
     }
 }
 
@@ -168,7 +184,10 @@ void UpdaterDialog::OnRestartButtonClicked() {
 
 void UpdaterDialog::SetupUI() {
     setWindowFlags(windowFlags() & ~Qt::WindowContextHelpButtonHint);
-    setFixedSize(size());
+
+    // MODIFIED: Use setMinimumSize to allow the window to be resized larger.
+    setMinimumSize(size());
+
     ui->currentVersionValue->setText(QString::fromStdString(updater_service->GetCurrentVersion()));
     ui->appImageSelectorLabel->setVisible(false);
     ui->appImageSelector->setVisible(false);
@@ -191,11 +210,17 @@ void UpdaterDialog::ShowCheckingState() {
     ui->appImageSelector->setVisible(false);
 }
 
-void UpdaterDialog::ShowNoUpdateState() {
+void UpdaterDialog::ShowNoUpdateState(const Updater::UpdateInfo& update_info) {
     current_state = State::NoUpdate;
     ui->titleLabel->setText(QStringLiteral("No updates available"));
     ui->statusLabel->setText(QStringLiteral("You are running the latest version of Citron."));
     ui->updateInfoGroup->setVisible(true);
+
+    ui->latestVersionValue->setText(QString::fromStdString(update_info.version));
+
+    // MODIFIED: Use the new helper function to format the release date.
+    ui->releaseDateValue->setText(FormatDateTimeString(update_info.release_date));
+
     ui->changelogGroup->setVisible(false);
     ui->progressGroup->setVisible(false);
     ui->downloadButton->setVisible(false);
@@ -211,9 +236,13 @@ void UpdaterDialog::ShowUpdateAvailableState() {
     ui->titleLabel->setText(QStringLiteral("Update available"));
     ui->statusLabel->setText(QStringLiteral("A new version of Citron is available for download."));
     ui->latestVersionValue->setText(QString::fromStdString(current_update_info.version));
-    ui->releaseDateValue->setText(QString::fromStdString(current_update_info.release_date));
+
+    // MODIFIED: Use the new helper function to format the release date.
+    ui->releaseDateValue->setText(FormatDateTimeString(current_update_info.release_date));
+
     if (!current_update_info.changelog.empty()) {
-        ui->changelogText->setPlainText(QString::fromStdString(current_update_info.changelog));
+        // MODIFIED: Use setMarkdown to render the changelog with formatting and links.
+        ui->changelogText->setMarkdown(QString::fromStdString(current_update_info.changelog));
         ui->changelogGroup->setVisible(true);
     } else {
         ui->changelogGroup->setVisible(false);
@@ -306,20 +335,6 @@ void UpdaterDialog::ShowErrorState() {
     ui->restartButton->setVisible(false);
     ui->appImageSelectorLabel->setVisible(false);
     ui->appImageSelector->setVisible(false);
-}
-
-void UpdaterDialog::UpdateDownloadProgress(int percentage, qint64 bytes_received,
-                                         qint64 bytes_total) {
-    downloaded_bytes = bytes_received;
-    total_download_size = bytes_total;
-    ui->progressBar->setValue(percentage);
-    ui->progressLabel->setText(QStringLiteral("Downloading update... %1%").arg(percentage));
-}
-
-void UpdaterDialog::UpdateInstallProgress(int percentage, const QString& current_file) {
-    ui->progressBar->setValue(percentage);
-    ui->progressLabel->setText(QStringLiteral("Installing update... %1%").arg(percentage));
-    ui->downloadInfoLabel->setText(current_file);
 }
 
 QString UpdaterDialog::FormatBytes(qint64 bytes) const {
