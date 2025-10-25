@@ -37,6 +37,18 @@
 
 namespace Updater {
 
+// Helper function to extract a commit hash from a string using std::regex.
+// This ensures that both local and remote version strings are normalized to a clean hash.
+std::string ExtractCommitHash(const std::string& version_string) {
+    // This regex finds a sequence of 7 to 40 hexadecimal characters, case-insensitive.
+    std::regex re("\\b([0-9a-fA-F]{7,40})\\b");
+    std::smatch match;
+    if (std::regex_search(version_string, match, re) && match.size() > 1) {
+        return match[1].str();
+    }
+    return ""; // Return empty if no hash is found
+}
+
 UpdaterService::UpdaterService(QObject* parent) : QObject(parent) {
     network_manager = std::make_unique<QNetworkAccessManager>(this);
     InitializeSSL();
@@ -154,24 +166,44 @@ void UpdaterService::CancelUpdate() {
 }
 
 std::string UpdaterService::GetCurrentVersion() const {
+    // Prioritize the compiled-in build version first, as it's the most reliable source.
+    std::string build_version = Common::g_build_version;
+
+    if (build_version.empty()) {
+        LOG_WARNING(Frontend, "Updater Debug: Common::g_build_version is EMPTY.");
+    } else {
+        LOG_INFO(Frontend, "Updater Debug: Raw Common::g_build_version is '{}'", build_version);
+    }
+
+    if (!build_version.empty()) {
+        std::string hash = ExtractCommitHash(build_version);
+        if (!hash.empty()) {
+            LOG_INFO(Frontend, "Updater Debug: Extracted hash '{}' from SCM_REV.", hash);
+            return hash;
+        } else {
+            LOG_WARNING(Frontend, "Updater Debug: FAILED to extract hash from Common::g_build_version.");
+        }
+    }
+
+    // Fallback to the version file.
     std::filesystem::path version_file = app_directory / CITRON_VERSION_FILE;
     if (std::filesystem::exists(version_file)) {
         std::ifstream file(version_file);
         if (file.is_open()) {
-            std::string version;
-            std::getline(file, version);
-            if (!version.empty()) return version;
+            std::string version_from_file;
+            std::getline(file, version_from_file);
+            if (!version_from_file.empty()) {
+                 std::string hash = ExtractCommitHash(version_from_file);
+                 if (!hash.empty()){
+                    LOG_INFO(Frontend, "Found current version from file: {}", hash);
+                    return hash;
+                 }
+            }
         }
     }
-    std::string build_version = Common::g_build_version;
-    if (!build_version.empty()) {
-        try {
-            std::ofstream vfile(version_file);
-            if (vfile.is_open()) vfile << build_version;
-        } catch (...) {}
-        return build_version;
-    }
-    return QCoreApplication::applicationVersion().toStdString();
+
+    LOG_WARNING(Frontend, "Could not determine a valid commit hash for the current version.");
+    return ""; // Return empty if no reliable version is found.
 }
 
 bool UpdaterService::IsUpdateInProgress() const {
@@ -280,6 +312,7 @@ void UpdaterService::OnDownloadError(QNetworkReply::NetworkError) {
     update_in_progress.store(false);
 }
 
+// This function is updated to parse the commit hash from the release name.
 void UpdaterService::ParseUpdateResponse(const QByteArray& response) {
     QJsonParseError error;
     QJsonDocument doc = QJsonDocument::fromJson(response, &error);
@@ -301,9 +334,19 @@ void UpdaterService::ParseUpdateResponse(const QByteArray& response) {
 
     for (const QJsonValue& release_value : doc.array()) {
         QJsonObject release_obj = release_value.toObject();
-        if (release_obj.value(QStringLiteral("name")).toString().toLower().contains(platform_identifier)) {
+        QString release_name = release_obj.value(QStringLiteral("name")).toString();
+
+        if (release_name.toLower().contains(platform_identifier)) {
+            // MODIFIED: Use the helper function to extract the commit hash from the remote release name.
+            std::string latest_hash = ExtractCommitHash(release_name.toStdString());
+
+            if (latest_hash.empty()) {
+                continue; // Skip this release if no commit hash is found in its name.
+            }
+
             UpdateInfo update_info;
-            update_info.version = release_obj.value(QStringLiteral("tag_name")).toString().toStdString();
+            // MODIFIED: The version is now the clean, captured commit hash.
+            update_info.version = latest_hash;
             update_info.changelog = release_obj.value(QStringLiteral("body")).toString().toStdString();
             update_info.release_date = release_obj.value(QStringLiteral("published_at")).toString().toStdString();
 
@@ -323,7 +366,6 @@ void UpdaterService::ParseUpdateResponse(const QByteArray& response) {
                 if (asset_name.endsWith(QStringLiteral(".AppImage"))) {
                     DownloadOption option;
                     QString friendly_name = asset_name;
-
                     friendly_name.remove(QRegularExpression(QStringLiteral(R"(^citron-linux-\d*-x86_64-?)"), QRegularExpression::CaseInsensitiveOption));
                     friendly_name.remove(QStringLiteral(".AppImage"));
                     if (friendly_name.isEmpty()) {
@@ -338,32 +380,35 @@ void UpdaterService::ParseUpdateResponse(const QByteArray& response) {
             }
 
             if (!update_info.download_options.empty()) {
+                // MODIFIED: GetCurrentVersion() now returns a clean hash, making this comparison reliable.
                 update_info.is_newer_version = CompareVersions(GetCurrentVersion(), update_info.version);
                 current_update_info = update_info;
                 emit UpdateCheckCompleted(update_info.is_newer_version, update_info);
-                return;
+                return; // Exit after finding the first valid release for the platform.
             }
         }
     }
     emit UpdateError(QStringLiteral("Could not find a recent update for your platform."));
 }
 
+// MODIFIED: This function now compares clean commit hashes instead of complex version strings.
 bool UpdaterService::CompareVersions(const std::string& current, const std::string& latest) const {
-    auto get_build_num = [](const std::string& version_str) -> int {
-        size_t pos = version_str.find_last_of('-');
-        if (pos != std::string::npos && pos + 1 < version_str.length()) {
-            try {
-                return std::stoi(version_str.substr(pos + 1));
-            } catch (...) { return 0; }
-        }
-        return 0;
-    };
-    int current_build = get_build_num(current);
-    int latest_build = get_build_num(latest);
-    if (current_build == 0 || latest_build == 0) {
-        return latest > current;
+    if (current.empty()) {
+        // NEW: If we don't know our current version, we should assume an update is available
+        // to allow for recovery from a missing version file.
+        LOG_WARNING(Frontend, "Current version is unknown, assuming update is available.");
+        return true;
     }
-    return latest_build > current_build;
+
+    if (latest.empty()) {
+        LOG_WARNING(Frontend, "Latest version from remote is empty, cannot compare.");
+        return false;
+    }
+
+    // MODIFIED: For commit hashes, a simple string inequality check is sufficient and reliable.
+    bool is_newer = (current != latest);
+    LOG_INFO(Frontend, "Comparing versions. Current: '{}', Latest: '{}'. Is newer: {}", current, latest, is_newer);
+    return is_newer;
 }
 
 #ifdef _WIN32
