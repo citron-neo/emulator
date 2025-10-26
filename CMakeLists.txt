@@ -95,7 +95,7 @@ set(DEFAULT_ENABLE_OPENSSL ON)
 if (ANDROID OR WIN32 OR APPLE)
     set(DEFAULT_ENABLE_OPENSSL OFF)
 endif()
-option(ENABLE_OPENSSL "Enable OpenSSL backend for ISslConnection" ON)
+option(ENABLE_OPENSSL "Enable OpenSSL backend for ISslConnection" ${DEFAULT_ENABLE_OPENSSL})
 
 if (ANDROID AND CITRON_DOWNLOAD_ANDROID_VVL)
     set(vvl_version "vulkan-sdk-1.4.328.1")
