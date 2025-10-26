@@ -6,28 +6,38 @@
 
 #include <QApplication>
 #include <QCloseEvent>
-#include <QDateTime> 
+#include <QDateTime>
 #include <QDesktopServices>
 #include <QMessageBox>
 #include <QProcess>
+#include <QRegularExpression>
 #include <QTimer>
 #include <QUrl>
 
 namespace Updater {
 
-// Helper function to format the date and time
+// Helper function to format the date and time nicely.
 QString FormatDateTimeString(const std::string& iso_string) {
     if (iso_string.empty() || iso_string == "Unknown") {
         return QStringLiteral("Unknown");
     }
-    // Parse the ISO 8601 date string provided by the GitHub API.
     QDateTime date_time = QDateTime::fromString(QString::fromStdString(iso_string), Qt::ISODate);
     if (!date_time.isValid()) {
-        return QString::fromStdString(iso_string); // Fallback to original if parsing fails.
+        return QString::fromStdString(iso_string);
     }
-    // Convert from UTC (which the 'Z' indicates) to the user's local time
-    // and format it in a friendly, readable way.
     return date_time.toLocalTime().toString(QStringLiteral("MMMM d, yyyy 'at' hh:mm AP"));
+}
+
+// Helper function to reformat the changelog with the correct commit link.
+QString FormatChangelog(const std::string& raw_changelog) {
+    QString changelog = QString::fromStdString(raw_changelog);
+    const QString new_url = QStringLiteral("https://git.citron-emu.org/citron/emulator/-/commits/main");
+
+    QRegularExpression regex(QStringLiteral("\\[\\`([0-9a-fA-F]{7,40})\\`\\]\\(.*?\\)"));
+    QString replacement = QStringLiteral("[`\\1`](%1)").arg(new_url);
+
+    changelog.replace(regex, replacement);
+    return changelog;
 }
 
 UpdaterDialog::UpdaterDialog(QWidget* parent)
@@ -37,6 +47,15 @@ UpdaterDialog::UpdaterDialog(QWidget* parent)
       progress_timer(new QTimer(this)) {
 
     ui->setupUi(this);
+
+    // NEW: Disable the default link handling behavior of the QTextBrowser.
+    // This prevents it from trying to load the URL internally.
+    ui->changelogText->setOpenLinks(false);
+
+    // Manually handle link clicks to ensure they always open in an external browser.
+    connect(ui->changelogText, &QTextBrowser::anchorClicked, this, [](const QUrl& link) {
+        QDesktopServices::openUrl(link);
+    });
 
     // Set up connections
     connect(updater_service.get(), &Updater::UpdaterService::UpdateCheckCompleted, this,
@@ -185,7 +204,6 @@ void UpdaterDialog::OnRestartButtonClicked() {
 void UpdaterDialog::SetupUI() {
     setWindowFlags(windowFlags() & ~Qt::WindowContextHelpButtonHint);
 
-    // MODIFIED: Use setMinimumSize to allow the window to be resized larger.
     setMinimumSize(size());
 
     ui->currentVersionValue->setText(QString::fromStdString(updater_service->GetCurrentVersion()));
@@ -218,7 +236,6 @@ void UpdaterDialog::ShowNoUpdateState(const Updater::UpdateInfo& update_info) {
 
     ui->latestVersionValue->setText(QString::fromStdString(update_info.version));
 
-    // MODIFIED: Use the new helper function to format the release date.
     ui->releaseDateValue->setText(FormatDateTimeString(update_info.release_date));
 
     ui->changelogGroup->setVisible(false);
@@ -237,16 +254,14 @@ void UpdaterDialog::ShowUpdateAvailableState() {
     ui->statusLabel->setText(QStringLiteral("A new version of Citron is available for download."));
     ui->latestVersionValue->setText(QString::fromStdString(current_update_info.version));
 
-    // MODIFIED: Use the new helper function to format the release date.
     ui->releaseDateValue->setText(FormatDateTimeString(current_update_info.release_date));
 
     if (!current_update_info.changelog.empty()) {
-        // MODIFIED: Use setMarkdown to render the changelog with formatting and links.
-        ui->changelogText->setMarkdown(QString::fromStdString(current_update_info.changelog));
-        ui->changelogGroup->setVisible(true);
+        ui->changelogText->setMarkdown(FormatChangelog(current_update_info.changelog));
     } else {
-        ui->changelogGroup->setVisible(false);
+        ui->changelogText->setText(tr("No changelog information was provided for this update."));
     }
+    ui->changelogGroup->setVisible(true);
 
 #ifdef __linux__
     if (current_update_info.download_options.size() > 1) {
