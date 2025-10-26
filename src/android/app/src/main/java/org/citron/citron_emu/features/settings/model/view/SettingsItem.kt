@@ -462,6 +462,22 @@ abstract class SettingsItem(
                     valuesId = R.array.frameSkippingModeValues
                 )
             )
+            put(
+                SingleChoiceSetting(
+                    IntSetting.EXTENDED_DYNAMIC_STATE,
+                    titleId = R.string.extended_dynamic_state,
+                    descriptionId = R.string.extended_dynamic_state_description,
+                    choicesId = R.array.extendedDynamicStateNames,
+                    valuesId = R.array.extendedDynamicStateValues
+                )
+            )
+            put(
+                SwitchSetting(
+                    BooleanSetting.USE_CONDITIONAL_RENDERING,
+                    titleId = R.string.use_conditional_rendering,
+                    descriptionId = R.string.use_conditional_rendering_description
+                )
+            )
 
             // Applet Mode Settings
             put(
