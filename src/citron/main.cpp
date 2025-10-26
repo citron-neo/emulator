@@ -2017,6 +2017,11 @@ void GMainWindow::BootGame(const QString& filename, Service::AM::FrontendAppletP
         QtConfig per_game_config(config_file_name, Config::ConfigType::PerGameConfig);
         system->HIDCore().ReloadInputDevices();
         system->ApplySettings();
+
+        // Final Fantasy Tactics requires single-core mode to boot properly
+        if (title_id == 0x010038B015560000ULL) {
+            Settings::values.use_multi_core.SetValue(false);
+        }
     }
 
     Settings::LogSettings();
