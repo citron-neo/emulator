@@ -48,8 +48,7 @@ UpdaterDialog::UpdaterDialog(QWidget* parent)
 
     ui->setupUi(this);
 
-    // NEW: Disable the default link handling behavior of the QTextBrowser.
-    // This prevents it from trying to load the URL internally.
+    // Disable the default link handling behavior of the QTextBrowser.
     ui->changelogText->setOpenLinks(false);
 
     // Manually handle link clicks to ensure they always open in an external browser.
@@ -192,7 +191,18 @@ void UpdaterDialog::OnRestartButtonClicked() {
                                    QMessageBox::Yes | QMessageBox::No, QMessageBox::Yes);
 
     if (ret == QMessageBox::Yes) {
-        QString program = QApplication::applicationFilePath();
+
+        QString program;
+        QByteArray appimage_path = qgetenv("APPIMAGE");
+
+        if (!appimage_path.isEmpty()) {
+            // We are running from an AppImage. The program to restart is the AppImage file itself.
+            program = QString::fromUtf8(appimage_path);
+        } else {
+            // Not an AppImage (e.g., Windows or a non-AppImage Linux build), use the default method.
+            program = QApplication::applicationFilePath();
+        }
+
         QStringList arguments = QApplication::arguments();
         arguments.removeFirst();
 

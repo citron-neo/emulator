@@ -11,14 +11,14 @@
 #include <vector>
 
 #include <QString>
-
 #include <QNetworkAccessManager>
 
 namespace Updater {
 
-// Declaration for the helper function.
+// Declarations for helper functions
 QString FormatDateTimeString(const std::string& iso_string);
 std::string ExtractCommitHash(const std::string& version_string);
+QByteArray GetFileChecksum(const std::filesystem::path& file_path);
 
 struct DownloadOption {
     std::string name;
@@ -28,6 +28,8 @@ struct DownloadOption {
 struct UpdateInfo {
     std::string version;
     std::vector<DownloadOption> download_options;
+    std::string checksum_url;
+    std::string expected_checksum;
     std::string changelog;
     std::string release_date;
     bool is_newer_version = false;
