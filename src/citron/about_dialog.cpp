@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: Copyright 2018 yuzu Emulator Project
+// SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <QIcon>
@@ -9,7 +10,7 @@
 
 AboutDialog::AboutDialog(QWidget* parent)
     : QDialog(parent), ui{std::make_unique<Ui::AboutDialog>()} {
-    const auto citron_build_version = "citron | 0.8.0";
+    const auto citron_build_version = "citron | 0.9.0";
 
     ui->setupUi(this);
     // Try and request the icon from Qt theme (Linux?)
