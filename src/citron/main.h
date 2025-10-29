@@ -39,6 +39,7 @@ class OverlayDialog;
 class PerformanceOverlay;
 class MultiplayerRoomOverlay;
 class VramOverlay;
+class ControllerOverlay;
 class ProfilerWidget;
 class ControllerDialog;
 class QLabel;
@@ -109,6 +110,7 @@ public:
     bool DropAction(QDropEvent* event);
     void AcceptDropEvent(QDropEvent* event);
     MultiplayerState* GetMultiplayerState() { return multiplayer_state; }
+    Core::System* GetSystem() { return system.get(); }
     bool IsEmulationRunning() const { return emulation_running; }
 signals:
     void EmulationStarting(EmuThread* emu_thread);
@@ -249,6 +251,7 @@ private slots:
     void OnTogglePerformanceOverlay();
     void OnToggleMultiplayerRoomOverlay();
     void OnToggleVramOverlay();
+    void OnToggleControllerOverlay();
     void OnDisplayTitleBars(bool);
     double GetCurrentFPS() const;
     double GetCurrentFrameTime() const;
@@ -335,6 +338,7 @@ private:
     PerformanceOverlay* performance_overlay{};
     MultiplayerRoomOverlay* multiplayer_room_overlay{};
     VramOverlay* vram_overlay{};
+    ControllerOverlay* controller_overlay{};
     GameListPlaceholder* game_list_placeholder;
     std::vector<VkDeviceInfo::Record> vk_device_records;
     QLabel* message_label = nullptr;
