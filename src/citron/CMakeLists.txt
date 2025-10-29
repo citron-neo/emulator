@@ -526,11 +526,9 @@ endif()
 
 if (MSVC)
     include(CopyCitronSDLDeps)
+    include(CopyCitronFFmpegDeps)
     copy_citron_SDL_deps(citron)
-    if(CITRON_USE_BUNDLED_FFMPEG)
-        include(CopyCitronFFmpegDeps)
-        copy_citron_FFmpeg_deps(citron)
-    endif()
+    copy_citron_FFmpeg_deps(citron)
 endif()
 
 if (NOT APPLE AND ENABLE_OPENGL)
