@@ -65,7 +65,7 @@ ConfigurePerGame::ConfigurePerGame(QWidget* parent, u64 title_id_, const std::st
                                    std::vector<VkDeviceInfo::Record>& vk_device_records,
                                    Core::System& system_)
 : QDialog(parent),
-ui(std::make_unique<Ui::ConfigurePerGame>()), title_id{title_id_}, file_name{file_name}, system{system_},
+ui(std::make_unique<Ui::ConfigurePerGame>()), title_id{title_id_}, file_name{file_name_}, system{system_},
 builder{std::make_unique<ConfigurationShared::Builder>(this, !system_.IsPoweredOn())},
 tab_group{std::make_shared<std::vector<ConfigurationShared::Tab*>>()} ,
 rainbow_timer{new QTimer(this)} {

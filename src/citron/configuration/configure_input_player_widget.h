@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: Copyright 2020 yuzu Emulator Project
+// SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #pragma once
@@ -28,6 +29,8 @@ public:
 
     // Sets the emulated controller to be displayed
     void SetController(Core::HID::EmulatedController* controller);
+
+    void SetRawJoystickVisible(bool visible);
 
     // Disables events from the emulated controller
     void UnloadController();
@@ -206,6 +209,8 @@ private:
     void DrawText(QPainter& p, QPointF center, float text_size, const QString& text);
     void SetTextFont(QPainter& p, float text_size,
                      const QString& font_family = QStringLiteral("sans-serif"));
+
+    bool raw_joystick_visible = false;
 
     bool is_controller_set{};
     bool is_connected{};

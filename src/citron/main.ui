@@ -129,6 +129,7 @@
     <addaction name="action_Show_Performance_Overlay"/>
     <addaction name="action_Show_Vram_Overlay"/>
     <addaction name="action_Show_Multiplayer_Room_Overlay"/>
+    <addaction name="actionControllerOverlay"/>
     <addaction name="action_Toggle_Grid_View"/>
     <addaction name="separator"/>
     <addaction name="menu_Reset_Window_Size"/>
@@ -346,6 +347,14 @@
     <property name="iconText">
       <string>Show Multiplayer Room Overlay</string>
     </property>
+  </action>
+  <action name="actionControllerOverlay">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Show Controller Overlay</string>
+   </property>
   </action>
   <action name="action_Toggle_Grid_View">
    <property name="checkable">

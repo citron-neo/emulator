@@ -36,6 +36,8 @@ add_executable(citron
     applets/qt_web_browser_scripts.h
     bootmanager.cpp
     bootmanager.h
+    controller_overlay.cpp
+    controller_overlay.h
     compatdb.ui
     compatibility_list.cpp
     compatibility_list.h
@@ -229,7 +231,6 @@ add_executable(citron
     util/vram_overlay.h
     util/sequence_dialog/sequence_dialog.cpp
     util/sequence_dialog/sequence_dialog.h
-    util/title_ids.h
     util/url_request_interceptor.cpp
     util/url_request_interceptor.h
     util/util.cpp
@@ -241,6 +242,8 @@ add_executable(citron
     citron.qrc
     citron.rc
 )
+
+set_source_files_properties(controller_overlay.cpp PROPERTIES SKIP_AUTOUIC ON)
 
 if (CITRON_CRASH_DUMPS)
     target_sources(citron PRIVATE
