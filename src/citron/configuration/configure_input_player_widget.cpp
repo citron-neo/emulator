@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: Copyright 2020 yuzu Emulator Project
+// SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <algorithm>
@@ -21,6 +22,10 @@ PlayerControlPreview::PlayerControlPreview(QWidget* parent) : QFrame(parent) {
 PlayerControlPreview::~PlayerControlPreview() {
     UnloadController();
 };
+
+void PlayerControlPreview::SetRawJoystickVisible(bool visible) {
+    raw_joystick_visible = visible;
+}
 
 void PlayerControlPreview::SetController(Core::HID::EmulatedController* controller_) {
     UnloadController();
@@ -226,29 +231,50 @@ void PlayerControlPreview::paintEvent(QPaintEvent* event) {
     QFrame::paintEvent(event);
     QPainter p(this);
     p.setRenderHint(QPainter::Antialiasing);
+
+    // Define the base size that the original drawing coordinates were designed for.
+    // A Pro Controller is roughly 420x320 pixels in its drawing function.
+    constexpr QSizeF base_size(450.0, 350.0);
+
+    // Get the current size of the widget.
+    const QSize current_size = this->size();
+
+    // Calculate the scaling factor. We want to maintain aspect ratio,
+    // so we use the smaller of the width/height scaling factors.
+    const double scale_x = current_size.width() / base_size.width();
+    const double scale_y = current_size.height() / base_size.height();
+    const double scale = std::min(scale_x, scale_y);
+
+    // Save the painter's state, apply the scaling, and center the drawing.
+    p.save();
     const QPointF center = rect().center();
+    p.translate(center);
+    p.scale(scale, scale);
+    p.translate(-center);
 
     switch (controller_type) {
-    case Core::HID::NpadStyleIndex::Handheld:
-        DrawHandheldController(p, center);
-        break;
-    case Core::HID::NpadStyleIndex::JoyconDual:
-        DrawDualController(p, center);
-        break;
-    case Core::HID::NpadStyleIndex::JoyconLeft:
-        DrawLeftController(p, center);
-        break;
-    case Core::HID::NpadStyleIndex::JoyconRight:
-        DrawRightController(p, center);
-        break;
-    case Core::HID::NpadStyleIndex::GameCube:
-        DrawGCController(p, center);
-        break;
-    case Core::HID::NpadStyleIndex::Fullkey:
-    default:
-        DrawProController(p, center);
-        break;
+        case Core::HID::NpadStyleIndex::Handheld:
+            DrawHandheldController(p, center);
+            break;
+        case Core::HID::NpadStyleIndex::JoyconDual:
+            DrawDualController(p, center);
+            break;
+        case Core::HID::NpadStyleIndex::JoyconLeft:
+            DrawLeftController(p, center);
+            break;
+        case Core::HID::NpadStyleIndex::JoyconRight:
+            DrawRightController(p, center);
+            break;
+        case Core::HID::NpadStyleIndex::GameCube:
+            DrawGCController(p, center);
+            break;
+        case Core::HID::NpadStyleIndex::Fullkey:
+        default:
+            DrawProController(p, center);
+            break;
     }
+
+    p.restore(); // Restore the painter's original state.
 }
 
 void PlayerControlPreview::DrawLeftController(QPainter& p, const QPointF center) {
@@ -314,7 +340,9 @@ void PlayerControlPreview::DrawLeftController(QPainter& p, const QPointF center)
                      center + QPointF(9, -69) +
                          (QPointF(stick_values[LStick].x.value, stick_values[LStick].y.value) * 8),
                      1.8f, button_values[Settings::NativeButton::LStick]);
-        DrawRawJoystick(p, center + QPointF(-140, 90), QPointF(0, 0));
+        if (raw_joystick_visible) {
+            DrawRawJoystick(p, center + QPointF(-140, 90), QPointF(0, 0));
+        }
     }
 
     {
@@ -449,7 +477,9 @@ void PlayerControlPreview::DrawRightController(QPainter& p, const QPointF center
                      center + QPointF(-9, 11) +
                          (QPointF(stick_values[RStick].x.value, stick_values[RStick].y.value) * 8),
                      1.8f, button_values[Settings::NativeButton::RStick]);
-        DrawRawJoystick(p, QPointF(0, 0), center + QPointF(140, 90));
+        if (raw_joystick_visible) {
+            DrawRawJoystick(p, QPointF(0, 0), center + QPointF(140, 90));
+        }
     }
 
     {
@@ -593,7 +623,9 @@ void PlayerControlPreview::DrawDualController(QPainter& p, const QPointF center)
 
         DrawJoystick(p, center + QPointF(-65, -65) + (l_stick * 7), 1.62f, l_button);
         DrawJoystick(p, center + QPointF(65, 12) + (r_stick * 7), 1.62f, r_button);
-        DrawRawJoystick(p, center + QPointF(-180, 90), center + QPointF(180, 90));
+        if (raw_joystick_visible) {
+            DrawRawJoystick(p, center + QPointF(-180, 90), center + QPointF(180, 90));
+        }
     }
 
     {
@@ -696,7 +728,9 @@ void PlayerControlPreview::DrawHandheldController(QPainter& p, const QPointF cen
 
         DrawJoystick(p, center + QPointF(-171, -41) + (l_stick * 4), 1.0f, l_button);
         DrawJoystick(p, center + QPointF(171, 8) + (r_stick * 4), 1.0f, r_button);
-        DrawRawJoystick(p, center + QPointF(-50, 0), center + QPointF(50, 0));
+        if (raw_joystick_visible) {
+            DrawRawJoystick(p, center + QPointF(-50, 0), center + QPointF(50, 0));
+        }
     }
 
     {
@@ -808,7 +842,9 @@ void PlayerControlPreview::DrawProController(QPainter& p, const QPointF center) 
                         button_values[Settings::NativeButton::LStick]);
         DrawProJoystick(p, center + QPointF(51, 0), r_stick, 11,
                         button_values[Settings::NativeButton::RStick]);
-        DrawRawJoystick(p, center + QPointF(-50, 105), center + QPointF(50, 105));
+        if (raw_joystick_visible) {
+            DrawRawJoystick(p, center + QPointF(-50, 105), center + QPointF(50, 105));
+        }
     }
 
     {
@@ -910,7 +946,9 @@ void PlayerControlPreview::DrawGCController(QPainter& p, const QPointF center) {
         p.setPen(colors.transparent);
         p.setBrush(colors.font);
         DrawSymbol(p, center + QPointF(61, 37) + (r_stick * 9.5f), Symbol::C, 1.0f);
-        DrawRawJoystick(p, center + QPointF(-198, -125), center + QPointF(198, -125));
+        if (raw_joystick_visible) {
+            DrawRawJoystick(p, center + QPointF(-198, -125), center + QPointF(198, -125));
+        }
     }
 
     using namespace Settings::NativeButton;
