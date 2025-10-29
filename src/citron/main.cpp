@@ -2024,6 +2024,8 @@ void GMainWindow::BootGame(const QString& filename, Service::AM::FrontendAppletP
         system->ApplySettings();
 
         // Final Fantasy Tactics requires single-core mode to boot properly
+        if (title_id == UICommon::TitleID::FinalFantasyTactics) {
+            LOG_INFO(Frontend, "Applying workaround: forcing single-core mode for Final Fantasy Tactics");
         if (title_id == 0x010038B015560000ULL) {
             Settings::values.use_multi_core.SetValue(false);
         }
