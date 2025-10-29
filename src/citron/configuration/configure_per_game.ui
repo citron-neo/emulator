@@ -12,12 +12,12 @@
   </property>
   <property name="minimumSize">
    <size>
-    <width>900</width>
-    <height>0</height>
+    <width>640</width>
+    <height>480</height>
    </size>
   </property>
   <property name="windowTitle">
-   <string>Dialog</string>
+   <string>Properties</string>
   </property>
   <property name="templateStyleSheet" stdset="0">
    <string>QDialog {
@@ -96,100 +96,34 @@
     width: 0px;
     }
 
-    QPushButton.tabButton {
-    background-color: #383838;
-    color: #ffffff;
-    padding: 10px 14px;
-    margin: 2px;
-    border-top-left-radius: 8px;
-    border-top-right-radius: 8px;
-    border-bottom-left-radius: 8px;
-    border-bottom-right-radius: 8px;
-    min-width: 85px;
-    max-width: 160px;
-    font-weight: 500;
-    border: 1px solid #3d3d3d;
-    text-align: center;
+    QPushButton#tabButton {
+        background-color: #383838;
+        color: #ffffff;
+        padding: 8px 18px;
+        margin-right: 2px;
+        border-top-left-radius: 8px;
+        border-top-right-radius: 8px;
+        border-bottom: none;
+        min-width: 100px;
+        font-weight: bold;
+        font-size: 10pt;
+        border: 1px solid #3d3d3d;
     }
 
-    QPushButton.tabButton:checked {
-    background-color: %%ACCENT_COLOR%%;
-    color: #ffffff;
-    font-weight: bold;
-    border-color: %%ACCENT_COLOR%%;
+    QPushButton#tabButton:checked {
+        background-color: %%ACCENT_COLOR%%;
+        color: #ffffff;
+        font-weight: bold;
+        border-color: %%ACCENT_COLOR%%;
     }
 
-    QPushButton.tabButton:hover:!checked {
-    background-color: #4d4d4d;
-    border-color: #5d5d5d;
+    QPushButton#tabButton:hover:!checked {
+        background-color: #4d4d4d;
+        border-color: #5d5d5d;
     }
 
-    QPushButton.tabButton:pressed {
-    background-color: %%ACCENT_COLOR_PRESSED%%;
-    }
-
-    QTabWidget {
-    background-color: #2b2b2b;
-    border: none;
-    }
-
-    QTabWidget::pane {
-    border: 1px solid #3d3d3d;
-    background-color: #2b2b2b;
-    border-radius: 8px;
-    margin: 0px;
-    padding: 0px;
-    }
-
-    QTabWidget::tab-bar {
-    alignment: left;
-    }
-
-    QTabBar {
-    background-color: #2b2b2b;
-    border: none;
-    }
-
-    QTabBar::tab {
-    background-color: #383838;
-    color: #ffffff;
-    padding: 8px 14px;
-    margin-right: 2px;
-    border-top-left-radius: 8px;
-    border-top-right-radius: 8px;
-    min-width: 85px;
-    font-weight: 500;
-    border: 1px solid #3d3d3d;
-    border-bottom: none;
-    }
-
-    QTabBar::tab:selected {
-    background-color: %%ACCENT_COLOR%%;
-    color: #ffffff;
-    font-weight: bold;
-    border-color: %%ACCENT_COLOR%%;
-    }
-
-    QTabBar::tab:hover:!selected {
-    background-color: #4d4d4d;
-    border-color: #5d5d5d;
-    }
-
-    QTabBar QToolButton {
-    background-color: #383838;
-    border: 1px solid #3d3d3d;
-    border-radius: 4px;
-    padding: 4px;
-    margin: 2px;
-    }
-
-    QTabBar QToolButton:hover {
-    background-color: #4d4d4d;
-    border-color: %%ACCENT_COLOR%%;
-    }
-
-    QTabBar::scroller {
-    width: 30px;
+    QPushButton#tabButton:pressed {
+        background-color: %%ACCENT_COLOR_PRESSED%%;
     }
 
     QGroupBox {
@@ -374,10 +308,20 @@
     }
 
     QSlider::groove:horizontal {
-    border: 1px solid #5d5d5d;
-    height: 8px;
-    background-color: #3d3d3d;
-    border-radius: 4px;
+        height: 8px;
+        background: #3d3d3d;
+        border-radius: 4px;
+        border: 1px solid #5d5d5d;
+    }
+
+    QSlider::sub-page:horizontal {
+        background: %%ACCENT_COLOR%%;
+        border-radius: 4px;
+    }
+
+    QSlider::add-page:horizontal {
+        background: #3d3d3d;
+        border-radius: 4px;
     }
 
     QSlider::handle:horizontal {
@@ -447,9 +391,6 @@
          <height>0</height>
         </size>
        </property>
-       <property name="horizontalScrollBarPolicy">
-        <enum>Qt::ScrollBarAsNeeded</enum>
-       </property>
        <property name="widgetResizable">
         <bool>true</bool>
        </property>
@@ -459,8 +400,14 @@
           <x>0</x>
           <y>0</y>
           <width>318</width>
-          <height>538</height>
+          <height>600</height>
          </rect>
+        </property>
+        <property name="minimumSize">
+         <size>
+          <width>0</width>
+          <height>600</height>
+         </size>
         </property>
         <layout class="QVBoxLayout" name="verticalLayout_5">
          <property name="leftMargin">
@@ -484,7 +431,7 @@
             <item alignment="Qt::AlignHCenter">
              <widget class="QGraphicsView" name="icon_view">
               <property name="sizePolicy">
-               <sizepolicy hsizetype="Maximum" vsizetype="Maximum">
+               <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
                 <horstretch>0</horstretch>
                 <verstretch>0</verstretch>
                </sizepolicy>
@@ -516,180 +463,97 @@
              <layout class="QGridLayout" name="gridLayout_2">
               <item row="6" column="1">
                <widget class="QLineEdit" name="display_size">
-                <property name="enabled">
-                 <bool>true</bool>
-                </property>
-                <property name="readOnly">
-                 <bool>true</bool>
-                </property>
+                <property name="enabled"><bool>true</bool></property>
+                <property name="readOnly"><bool>true</bool></property>
                </widget>
               </item>
               <item row="3" column="1">
                <widget class="QLineEdit" name="display_version">
-                <property name="enabled">
-                 <bool>true</bool>
-                </property>
-                <property name="readOnly">
-                 <bool>true</bool>
-                </property>
+                <property name="enabled"><bool>true</bool></property>
+                <property name="readOnly"><bool>true</bool></property>
                </widget>
               </item>
               <item row="1" column="0">
-               <widget class="QLabel" name="label">
-                <property name="text">
-                 <string>Name</string>
-                </property>
-               </widget>
+               <widget class="QLabel" name="label"><property name="text"><string>Name</string></property></widget>
               </item>
               <item row="4" column="0">
-               <widget class="QLabel" name="label_4">
-                <property name="text">
-                 <string>Title ID</string>
-                </property>
-               </widget>
+               <widget class="QLabel" name="label_4"><property name="text"><string>Title ID</string></property></widget>
               </item>
               <item row="4" column="1">
                <widget class="QLineEdit" name="display_title_id">
-                <property name="enabled">
-                 <bool>true</bool>
-                </property>
-                <property name="readOnly">
-                 <bool>true</bool>
-                </property>
+                <property name="enabled"><bool>true</bool></property>
+                <property name="readOnly"><bool>true</bool></property>
                </widget>
               </item>
               <item row="7" column="1">
                <widget class="QLineEdit" name="display_filename">
-                <property name="enabled">
-                 <bool>true</bool>
-                </property>
-                <property name="readOnly">
-                 <bool>true</bool>
-                </property>
+                <property name="enabled"><bool>true</bool></property>
+                <property name="readOnly"><bool>true</bool></property>
                </widget>
               </item>
               <item row="5" column="1">
                <widget class="QLineEdit" name="display_format">
-                <property name="enabled">
-                 <bool>true</bool>
-                </property>
-                <property name="readOnly">
-                 <bool>true</bool>
-                </property>
+                <property name="enabled"><bool>true</bool></property>
+                <property name="readOnly"><bool>true</bool></property>
                </widget>
               </item>
               <item row="7" column="0">
-               <widget class="QLabel" name="label_7">
-                <property name="text">
-                 <string>Filename</string>
-                </property>
-               </widget>
+               <widget class="QLabel" name="label_7"><property name="text"><string>Filename</string></property></widget>
               </item>
               <item row="1" column="1">
                <widget class="QLineEdit" name="display_name">
-                <property name="enabled">
-                 <bool>true</bool>
-                </property>
-                <property name="readOnly">
-                 <bool>true</bool>
-                </property>
+                <property name="enabled"><bool>true</bool></property>
+                <property name="readOnly"><bool>true</bool></property>
                </widget>
               </item>
               <item row="2" column="1">
                <widget class="QLineEdit" name="display_developer">
-                <property name="enabled">
-                 <bool>true</bool>
-                </property>
-                <property name="readOnly">
-                 <bool>true</bool>
-                </property>
+                <property name="enabled"><bool>true</bool></property>
+                <property name="readOnly"><bool>true</bool></property>
                </widget>
               </item>
               <item row="5" column="0">
-               <widget class="QLabel" name="label_5">
-                <property name="text">
-                 <string>Format</string>
-                </property>
-               </widget>
+               <widget class="QLabel" name="label_5"><property name="text"><string>Format</string></property></widget>
               </item>
               <item row="3" column="0">
-               <widget class="QLabel" name="label_3">
-                <property name="text">
-                 <string>Version</string>
-                </property>
-               </widget>
+               <widget class="QLabel" name="label_3"><property name="text"><string>Version</string></property></widget>
               </item>
               <item row="6" column="0">
-               <widget class="QLabel" name="label_6">
-                <property name="text">
-                 <string>Size</string>
-                </property>
-               </widget>
+               <widget class="QLabel" name="label_6"><property name="text"><string>Size</string></property></widget>
               </item>
               <item row="2" column="0">
-               <widget class="QLabel" name="label_2">
-                <property name="text">
-                 <string>Developer</string>
-                </property>
-               </widget>
+               <widget class="QLabel" name="label_2"><property name="text"><string>Developer</string></property></widget>
               </item>
               <item row="8" column="0">
-               <widget class="QLabel" name="label_build_id">
-                <property name="text">
-                 <string>Base Build ID</string>
-                </property>
-               </widget>
+               <widget class="QLabel" name="label_build_id"><property name="text"><string>Base Build ID</string></property></widget>
               </item>
               <item row="8" column="1">
                <widget class="QLineEdit" name="display_build_id">
-                <property name="enabled">
-                 <bool>true</bool>
-                </property>
-                <property name="readOnly">
-                 <bool>true</bool>
-                </property>
+                <property name="enabled"><bool>true</bool></property>
+                <property name="readOnly"><bool>true</bool></property>
                </widget>
               </item>
               <item row="9" column="0">
-               <widget class="QLabel" name="label_update_build_id">
-                <property name="text">
-                 <string>Update Build ID</string>
-                </property>
-               </widget>
+               <widget class="QLabel" name="label_update_build_id"><property name="text"><string>Update Build ID</string></property></widget>
               </item>
               <item row="9" column="1">
                <widget class="QLineEdit" name="display_update_build_id">
-                <property name="enabled">
-                 <bool>true</bool>
-                </property>
-                <property name="readOnly">
-                 <bool>true</bool>
-                </property>
+                <property name="enabled"><bool>true</bool></property>
+                <property name="readOnly"><bool>true</bool></property>
                </widget>
               </item>
               <item row="10" column="0" colspan="2">
                <widget class="QPushButton" name="trim_xci_button">
-                <property name="text">
-                 <string>Trim XCI File</string>
-                </property>
-                <property name="toolTip">
-                 <string>Remove unused space from XCI file to reduce file size</string>
-                </property>
+                <property name="text"><string>Trim XCI File</string></property>
+                <property name="toolTip"><string>Remove unused space from XCI file to reduce file size</string></property>
                </widget>
               </item>
              </layout>
             </item>
             <item>
              <spacer name="verticalSpacer">
-              <property name="orientation">
-               <enum>Qt::Vertical</enum>
-              </property>
-              <property name="sizeHint" stdset="0">
-               <size>
-                <width>20</width>
-                <height>40</height>
-               </size>
-              </property>
+              <property name="orientation"><enum>Qt::Vertical</enum></property>
+              <property name="sizeHint" stdset="0"><size><width>20</width><height>40</height></size></property>
              </spacer>
             </item>
            </layout>
@@ -702,15 +566,18 @@
      <item>
       <layout class="QVBoxLayout" name="VerticalLayout">
        <item>
-        <layout class="QVBoxLayout" name="verticalLayout_2"/>
-       </item>
-       <item>
-        <widget class="QScrollArea" name="tabScrollArea">
+        <widget class="QScrollArea" name="tabButtonsScrollArea">
          <property name="sizePolicy">
-          <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+          <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
            <horstretch>0</horstretch>
            <verstretch>0</verstretch>
           </sizepolicy>
+         </property>
+         <property name="maximumSize">
+          <size>
+           <width>16777215</width>
+           <height>60</height>
+          </size>
          </property>
          <property name="verticalScrollBarPolicy">
           <enum>Qt::ScrollBarAlwaysOff</enum>
@@ -721,43 +588,35 @@
          <property name="widgetResizable">
           <bool>true</bool>
          </property>
-         <widget class="QWidget" name="tabScrollAreaWidgetContents">
-          <property name="geometry">
-           <rect>
-            <x>0</x>
-            <y>0</y>
-            <width>560</width>
-            <height>538</height>
-           </rect>
-          </property>
-          <layout class="QVBoxLayout" name="tabScrollAreaLayout">
-           <item>
-            <widget class="QTabWidget" name="tabWidget">
-             <property name="enabled">
-              <bool>true</bool>
-             </property>
-             <property name="sizePolicy">
-              <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
-               <horstretch>0</horstretch>
-               <verstretch>0</verstretch>
-              </sizepolicy>
-             </property>
-             <property name="currentIndex">
-              <number>-1</number>
-             </property>
-             <property name="usesScrollButtons">
-              <bool>false</bool>
-             </property>
-             <property name="documentMode">
-              <bool>false</bool>
-             </property>
-             <property name="tabsClosable">
-              <bool>false</bool>
-             </property>
-            </widget>
-           </item>
+         <widget class="QWidget" name="tabButtonsContainer">
+          <layout class="QHBoxLayout" name="tabButtonsLayout">
+           <property name="spacing">
+            <number>2</number>
+           </property>
+           <property name="leftMargin">
+            <number>0</number>
+           </property>
+           <property name="topMargin">
+            <number>0</number>
+           </property>
+           <property name="rightMargin">
+            <number>0</number>
+           </property>
+           <property name="bottomMargin">
+            <number>0</number>
+           </property>
           </layout>
          </widget>
+        </widget>
+       </item>
+       <item>
+        <widget class="QStackedWidget" name="stackedWidget">
+         <property name="sizePolicy">
+          <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+           <horstretch>0</horstretch>
+           <verstretch>0</verstretch>
+          </sizepolicy>
+         </property>
         </widget>
        </item>
       </layout>
