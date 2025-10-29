@@ -31,7 +31,7 @@ QString FormatDateTimeString(const std::string& iso_string) {
 // Helper function to reformat the changelog with the correct commit link.
 QString FormatChangelog(const std::string& raw_changelog) {
     QString changelog = QString::fromStdString(raw_changelog);
-    const QString new_url = QStringLiteral("https://git.citron-emu.org/citron/emulator/-/commits/main");
+    const QString new_url = QStringLiteral("https://git.citron-emu.org/Citron/Emulator/commits/branch/main");
 
     QRegularExpression regex(QStringLiteral("\\[\\`([0-9a-fA-F]{7,40})\\`\\]\\(.*?\\)"));
     QString replacement = QStringLiteral("[`\\1`](%1)").arg(new_url);
