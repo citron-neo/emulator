@@ -156,6 +156,8 @@ static FileSys::VirtualFile VfsDirectoryCreateFileWrapper(const FileSys::Virtual
 #include "citron/about_dialog.h"
 #include "citron/bootmanager.h"
 #include "citron/compatdb.h"
+#include "citron/controller_overlay.h"
+#include "core/core.h"
 #include "citron/compatibility_list.h"
 #include "citron/configuration/configure_dialog.h"
 #include "citron/configuration/configure_input_per_game.h"
@@ -181,7 +183,6 @@ static FileSys::VirtualFile VfsDirectoryCreateFileWrapper(const FileSys::Virtual
 #include "citron/util/clickable_label.h"
 #include "citron/util/performance_overlay.h"
 #include "citron/util/multiplayer_room_overlay.h"
-#include "citron/util/title_ids.h"
 #include "citron/util/vram_overlay.h"
 #include "citron/vk_device_info.h"
 
@@ -1668,6 +1669,9 @@ void GMainWindow::ConnectMenuEvents() {
     connect_menu(ui->action_Install_Keys, &GMainWindow::OnInstallDecryptionKeys);
     connect_menu(ui->action_Check_For_Updates, &GMainWindow::OnCheckForUpdates);
     connect_menu(ui->action_About, &GMainWindow::OnAbout);
+
+    connect(ui->actionControllerOverlay, &QAction::triggered, this, &GMainWindow::OnToggleControllerOverlay);
+
 }
 
 void GMainWindow::UpdateMenuState() {
@@ -2020,8 +2024,7 @@ void GMainWindow::BootGame(const QString& filename, Service::AM::FrontendAppletP
         system->ApplySettings();
 
         // Final Fantasy Tactics requires single-core mode to boot properly
-        if (title_id == UICommon::TitleID::FinalFantasyTactics) {
-            LOG_INFO(Frontend, "Applying workaround: forcing single-core mode for Final Fantasy Tactics");
+        if (title_id == 0x010038B015560000ULL) {
             Settings::values.use_multi_core.SetValue(false);
         }
     }
@@ -4922,6 +4925,16 @@ void GMainWindow::OnInstallDecryptionKeys() {
 void GMainWindow::OnAbout() {
     AboutDialog aboutDialog(this);
     aboutDialog.exec();
+}
+
+void GMainWindow::OnToggleControllerOverlay() {
+    const bool visible = ui->actionControllerOverlay->isChecked();
+    if (visible && !controller_overlay) {
+        controller_overlay = new ControllerOverlay(this);
+    }
+    if (controller_overlay) {
+        controller_overlay->setVisible(visible);
+    }
 }
 
 void GMainWindow::OnToggleFilterBar() {
