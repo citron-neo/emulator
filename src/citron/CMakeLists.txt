@@ -229,6 +229,7 @@ add_executable(citron
     util/vram_overlay.h
     util/sequence_dialog/sequence_dialog.cpp
     util/sequence_dialog/sequence_dialog.h
+    util/title_ids.h
     util/url_request_interceptor.cpp
     util/url_request_interceptor.h
     util/util.cpp
