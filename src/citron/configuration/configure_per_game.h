@@ -10,6 +10,7 @@
 
 #include <QDialog>
 #include <QList>
+#include <QPixmap>
 
 #include "configuration/shared_widget.h"
 #include "core/file_sys/vfs/vfs_types.h"
@@ -19,12 +20,16 @@
 #include "citron/configuration/qt_config.h"
 #include "citron/configuration/shared_translation.h"
 
+class QButtonGroup;
+class QGraphicsScene;
+class QTimer;
+
 namespace Core {
-    class System;
+class System;
 }
 
 namespace InputCommon {
-    class InputSubsystem;
+class InputSubsystem;
 }
 
 class ConfigurePerGameAddons;
@@ -36,22 +41,14 @@ class ConfigureInputPerGame;
 class ConfigureLinuxTab;
 class ConfigureSystem;
 
-class QGraphicsScene;
-class QStandardItem;
-class QStandardItemModel;
-class QTreeView;
-class QVBoxLayout;
-class QTimer; // Forward declaration for the timer
-
 namespace Ui {
-    class ConfigurePerGame;
+class ConfigurePerGame;
 }
 
 class ConfigurePerGame : public QDialog {
     Q_OBJECT
 
 public:
-    // Cannot use std::filesystem::path due to https://bugreports.qt.io/browse/QTBUG-73263
     explicit ConfigurePerGame(QWidget* parent, u64 title_id_, const std::string& file_name_,
                               std::vector<VkDeviceInfo::Record>& vk_device_records,
                               Core::System& system_);
@@ -64,13 +61,14 @@ public slots:
     void accept() override;
     void OnTrimXCI();
 
+protected:
+    void resizeEvent(QResizeEvent* event) override;
+
 private:
     void changeEvent(QEvent* event) override;
     void RetranslateUI();
     void HandleApplyButtonClicked();
     void LoadConfiguration();
-
-    // New, efficient theme update functions
     void ApplyStaticTheme();
     void UpdateTheme();
 
@@ -97,4 +95,7 @@ private:
 
     QTimer* rainbow_timer;
     float rainbow_hue = 0.0f;
+
+    QButtonGroup* button_group;
+    QPixmap map;
 };
