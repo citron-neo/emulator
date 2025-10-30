@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: Copyright 2024 yuzu Emulator Project
+// SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include <memory>
@@ -25,35 +26,35 @@ IUserLocalCommunicationService::IUserLocalCommunicationService(Core::System& sys
       room_network{system_.GetRoomNetwork()}, lan_discovery{room_network} {
     // clang-format off
         static const FunctionInfo functions[] = {
-            {0, C<&IUserLocalCommunicationService::GetState>, "GetState"},
-            {1, C<&IUserLocalCommunicationService::GetNetworkInfo>, "GetNetworkInfo"},
-            {2, C<&IUserLocalCommunicationService::GetIpv4Address>, "GetIpv4Address"},
-            {3, C<&IUserLocalCommunicationService::GetDisconnectReason>, "GetDisconnectReason"},
-            {4, C<&IUserLocalCommunicationService::GetSecurityParameter>, "GetSecurityParameter"},
-            {5, C<&IUserLocalCommunicationService::GetNetworkConfig>, "GetNetworkConfig"},
-            {100, C<&IUserLocalCommunicationService::AttachStateChangeEvent>, "AttachStateChangeEvent"},
-            {101, C<&IUserLocalCommunicationService::GetNetworkInfoLatestUpdate>, "GetNetworkInfoLatestUpdate"},
-            {102, C<&IUserLocalCommunicationService::Scan>, "Scan"},
-            {103, C<&IUserLocalCommunicationService::ScanPrivate>, "ScanPrivate"},
-            {104, C<&IUserLocalCommunicationService::SetWirelessControllerRestriction>, "SetWirelessControllerRestriction"},
-            {200, C<&IUserLocalCommunicationService::OpenAccessPoint>, "OpenAccessPoint"},
-            {201, C<&IUserLocalCommunicationService::CloseAccessPoint>, "CloseAccessPoint"},
-            {202, C<&IUserLocalCommunicationService::CreateNetwork>, "CreateNetwork"},
-            {203, C<&IUserLocalCommunicationService::CreateNetworkPrivate>, "CreateNetworkPrivate"},
-            {204, C<&IUserLocalCommunicationService::DestroyNetwork>, "DestroyNetwork"},
+            {0, D<&IUserLocalCommunicationService::GetState>, "GetState"},
+            {1, D<&IUserLocalCommunicationService::GetNetworkInfo>, "GetNetworkInfo"},
+            {2, D<&IUserLocalCommunicationService::GetIpv4Address>, "GetIpv4Address"},
+            {3, D<&IUserLocalCommunicationService::GetDisconnectReason>, "GetDisconnectReason"},
+            {4, D<&IUserLocalCommunicationService::GetSecurityParameter>, "GetSecurityParameter"},
+            {5, D<&IUserLocalCommunicationService::GetNetworkConfig>, "GetNetworkConfig"},
+            {100, D<&IUserLocalCommunicationService::AttachStateChangeEvent>, "AttachStateChangeEvent"},
+            {101, D<&IUserLocalCommunicationService::GetNetworkInfoLatestUpdate>, "GetNetworkInfoLatestUpdate"},
+            {102, D<&IUserLocalCommunicationService::Scan>, "Scan"},
+            {103, D<&IUserLocalCommunicationService::ScanPrivate>, "ScanPrivate"},
+            {104, D<&IUserLocalCommunicationService::SetWirelessControllerRestriction>, "SetWirelessControllerRestriction"},
+            {200, D<&IUserLocalCommunicationService::OpenAccessPoint>, "OpenAccessPoint"},
+            {201, D<&IUserLocalCommunicationService::CloseAccessPoint>, "CloseAccessPoint"},
+            {202, D<&IUserLocalCommunicationService::CreateNetwork>, "CreateNetwork"},
+            {203, D<&IUserLocalCommunicationService::CreateNetworkPrivate>, "CreateNetworkPrivate"},
+            {204, D<&IUserLocalCommunicationService::DestroyNetwork>, "DestroyNetwork"},
             {205, nullptr, "Reject"},
-            {206, C<&IUserLocalCommunicationService::SetAdvertiseData>, "SetAdvertiseData"},
-            {207, C<&IUserLocalCommunicationService::SetStationAcceptPolicy>, "SetStationAcceptPolicy"},
-            {208, C<&IUserLocalCommunicationService::AddAcceptFilterEntry>, "AddAcceptFilterEntry"},
+            {206, D<&IUserLocalCommunicationService::SetAdvertiseData>, "SetAdvertiseData"},
+            {207, D<&IUserLocalCommunicationService::SetStationAcceptPolicy>, "SetStationAcceptPolicy"},
+            {208, D<&IUserLocalCommunicationService::AddAcceptFilterEntry>, "AddAcceptFilterEntry"},
             {209, nullptr, "ClearAcceptFilter"},
-            {300, C<&IUserLocalCommunicationService::OpenStation>, "OpenStation"},
-            {301, C<&IUserLocalCommunicationService::CloseStation>, "CloseStation"},
-            {302, C<&IUserLocalCommunicationService::Connect>, "Connect"},
+            {300, D<&IUserLocalCommunicationService::OpenStation>, "OpenStation"},
+            {301, D<&IUserLocalCommunicationService::CloseStation>, "CloseStation"},
+            {302, D<&IUserLocalCommunicationService::Connect>, "Connect"},
             {303, nullptr, "ConnectPrivate"},
-            {304, C<&IUserLocalCommunicationService::Disconnect>, "Disconnect"},
-            {400, C<&IUserLocalCommunicationService::Initialize>, "Initialize"},
-            {401, C<&IUserLocalCommunicationService::Finalize>, "Finalize"},
-            {402, C<&IUserLocalCommunicationService::Initialize2>, "Initialize2"},
+            {304, D<&IUserLocalCommunicationService::Disconnect>, "Disconnect"},
+            {400, D<&IUserLocalCommunicationService::Initialize>, "Initialize"},
+            {401, D<&IUserLocalCommunicationService::Finalize>, "Finalize"},
+            {402, D<&IUserLocalCommunicationService::Initialize2>, "Initialize2"},
         };
     // clang-format on
 

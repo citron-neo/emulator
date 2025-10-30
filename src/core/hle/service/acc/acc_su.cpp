@@ -17,63 +17,63 @@ ACC_SU::ACC_SU(std::shared_ptr<Module> module_, std::shared_ptr<ProfileManager> 
         {3, &ACC_SU::ListOpenUsers, "ListOpenUsers"},
         {4, &ACC_SU::GetLastOpenedUser, "GetLastOpenedUser"},
         {5, &ACC_SU::GetProfile, "GetProfile"},
-        {6, nullptr, "GetProfileDigest"},
+        {6, &ACC_SU::GetProfileDigest, "GetProfileDigest"},
         {50, &ACC_SU::IsUserRegistrationRequestPermitted, "IsUserRegistrationRequestPermitted"},
-        {51, nullptr, "TrySelectUserWithoutInteractionDeprecated"}, // [1.0.0-18.1.0]
+        {51, &ACC_SU::TrySelectUserWithoutInteraction, "TrySelectUserWithoutInteractionDeprecated"}, // [1.0.0-18.1.0]
         {52, &ACC_SU::TrySelectUserWithoutInteraction, "TrySelectUserWithoutInteraction"}, // [19.0.0+]
         {60, &ACC_SU::ListOpenContextStoredUsers, "ListOpenContextStoredUsers"},
-        {99, nullptr, "DebugActivateOpenContextRetention"},
-        {100, nullptr, "GetUserRegistrationNotifier"},
-        {101, nullptr, "GetUserStateChangeNotifier"},
+        {99, &ACC_SU::DebugActivateOpenContextRetention, "DebugActivateOpenContextRetention"},
+        {100, &ACC_SU::GetUserRegistrationNotifier, "GetUserRegistrationNotifier"},
+        {101, &ACC_SU::GetUserStateChangeNotifier, "GetUserStateChangeNotifier"},
         {102, &ACC_SU::GetBaasAccountManagerForSystemService, "GetBaasAccountManagerForSystemService"},
-        {103, nullptr, "GetBaasUserAvailabilityChangeNotifier"},
-        {104, nullptr, "GetProfileUpdateNotifier"},
-        {105, nullptr, "CheckNetworkServiceAvailabilityAsync"},
-        {106, nullptr, "GetProfileSyncNotifier"},
+        {103, &ACC_SU::GetBaasUserAvailabilityChangeNotifier, "GetBaasUserAvailabilityChangeNotifier"},
+        {104, &ACC_SU::GetProfileUpdateNotifier, "GetProfileUpdateNotifier"},
+        {105, &ACC_SU::CheckNetworkServiceAvailabilityAsync, "CheckNetworkServiceAvailabilityAsync"},
+        {106, &ACC_SU::GetProfileSyncNotifier, "GetProfileSyncNotifier"},
         {110, &ACC_SU::StoreSaveDataThumbnailSystem, "StoreSaveDataThumbnail"},
-        {111, nullptr, "ClearSaveDataThumbnail"},
-        {112, nullptr, "LoadSaveDataThumbnail"},
-        {113, nullptr, "GetSaveDataThumbnailExistence"},
-        {120, nullptr, "ListOpenUsersInApplication"},
-        {130, nullptr, "ActivateOpenContextRetention"},
+        {111, &ACC_SU::ClearSaveDataThumbnail, "ClearSaveDataThumbnail"},
+        {112, &ACC_SU::LoadSaveDataThumbnail, "LoadSaveDataThumbnail"},
+        {113, &ACC_SU::GetSaveDataThumbnailExistence, "GetSaveDataThumbnailExistence"},
+        {120, &ACC_SU::ListOpenUsersInApplication, "ListOpenUsersInApplication"},
+        {130, &ACC_SU::ActivateOpenContextRetention, "ActivateOpenContextRetention"},
         {140, &ACC_SU::ListQualifiedUsers, "ListQualifiedUsers"},
-        {150, nullptr, "AuthenticateApplicationAsync"},
-        {151, nullptr, "EnsureSignedDeviceIdentifierCacheForNintendoAccountAsync"},
-        {152, nullptr, "LoadSignedDeviceIdentifierCacheForNintendoAccount"},
-        {190, nullptr, "GetUserLastOpenedApplication"},
-        {191, nullptr, "ActivateOpenContextHolder"},
+        {150, &ACC_SU::AuthenticateApplicationAsync, "AuthenticateApplicationAsync"},
+        {151, &ACC_SU::EnsureSignedDeviceIdentifierCacheForNintendoAccountAsync, "EnsureSignedDeviceIdentifierCacheForNintendoAccountAsync"},
+        {152, &ACC_SU::LoadSignedDeviceIdentifierCacheForNintendoAccount, "LoadSignedDeviceIdentifierCacheForNintendoAccount"},
+        {190, &ACC_SU::GetUserLastOpenedApplication, "GetUserLastOpenedApplication"},
+        {191, &ACC_SU::ActivateOpenContextHolder, "ActivateOpenContextHolder"},
         {200, &ACC_SU::BeginUserRegistration, "BeginUserRegistration"},
         {201, &ACC_SU::CompleteUserRegistration, "CompleteUserRegistration"},
-        {202, nullptr, "CancelUserRegistration"},
-        {203, nullptr, "DeleteUser"},
-        {204, nullptr, "SetUserPosition"},
+        {202, &ACC_SU::CancelUserRegistration, "CancelUserRegistration"},
+        {203, &ACC_SU::DeleteUser, "DeleteUser"},
+        {204, &ACC_SU::SetUserPosition, "SetUserPosition"},
         {205, &ACC_SU::GetProfileEditor, "GetProfileEditor"},
-        {206, nullptr, "CompleteUserRegistrationForcibly"},
-        {210, nullptr, "CreateFloatingRegistrationRequest"},
-        {211, nullptr, "CreateProcedureToRegisterUserWithNintendoAccount"},
-        {212, nullptr, "ResumeProcedureToRegisterUserWithNintendoAccount"},
-        {213, nullptr, "CreateProcedureToCreateUserWithNintendoAccount"}, // [17.0.0+]
-        {214, nullptr, "ResumeProcedureToCreateUserWithNintendoAccount"}, // [17.0.0+]
-        {215, nullptr, "ResumeProcedureToCreateUserWithNintendoAccountAfterApplyResponse"}, // [17.0.0+]
-        {230, nullptr, "AuthenticateServiceAsync"},
-        {250, nullptr, "GetBaasAccountAdministrator"},
-        {251, nullptr, "SynchronizeNetworkServiceAccountsSnapshotAsync"}, // [20.0.0+]
-        {290, nullptr, "ProxyProcedureForGuestLoginWithNintendoAccount"},
-        {291, nullptr, "ProxyProcedureForFloatingRegistrationWithNintendoAccount"},
-        {292, nullptr, "ProxyProcedureForDeviceMigrationAuthenticatingOperatingUser"}, // [20.0.0+]
-        {293, nullptr, "ProxyProcedureForDeviceMigrationDownload"}, // [20.0.0+]
-        {299, nullptr, "SuspendBackgroundDaemon"},
-        {350, nullptr, "CreateDeviceMigrationUserExportRequest"}, // [20.0.0+]
-        {351, nullptr, "UploadNasCredential"}, // [20.0.0+]
-        {352, nullptr, "CreateDeviceMigrationUserImportRequest"}, // [20.0.0+]
-        {353, nullptr, "DeleteUserMigrationInfo"}, // [20.0.0+]
-        {900, nullptr, "SetUserUnqualifiedForDebug"},
-        {901, nullptr, "UnsetUserUnqualifiedForDebug"},
-        {902, nullptr, "ListUsersUnqualifiedForDebug"},
-        {910, nullptr, "RefreshFirmwareSettingsForDebug"},
-        {997, nullptr, "DebugInvalidateTokenCacheForUser"},
-        {998, nullptr, "DebugSetUserStateClose"},
-        {999, nullptr, "DebugSetUserStateOpen"},
+        {206, &ACC_SU::CompleteUserRegistrationForcibly, "CompleteUserRegistrationForcibly"},
+        {210, &ACC_SU::CreateFloatingRegistrationRequest, "CreateFloatingRegistrationRequest"},
+        {211, &ACC_SU::CreateProcedureToRegisterUserWithNintendoAccount, "CreateProcedureToRegisterUserWithNintendoAccount"},
+        {212, &ACC_SU::ResumeProcedureToRegisterUserWithNintendoAccount, "ResumeProcedureToRegisterUserWithNintendoAccount"},
+        {213, &ACC_SU::CreateProcedureToCreateUserWithNintendoAccount, "CreateProcedureToCreateUserWithNintendoAccount"}, // [17.0.0+]
+        {214, &ACC_SU::ResumeProcedureToCreateUserWithNintendoAccount, "ResumeProcedureToCreateUserWithNintendoAccount"}, // [17.0.0+]
+        {215, &ACC_SU::ResumeProcedureToCreateUserWithNintendoAccountAfterApplyResponse, "ResumeProcedureToCreateUserWithNintendoAccountAfterApplyResponse"}, // [17.0.0+]
+        {230, &ACC_SU::AuthenticateServiceAsync, "AuthenticateServiceAsync"},
+        {250, &ACC_SU::GetBaasAccountAdministrator, "GetBaasAccountAdministrator"},
+        {251, &ACC_SU::SynchronizeNetworkServiceAccountsSnapshotAsync, "SynchronizeNetworkServiceAccountsSnapshotAsync"}, // [20.0.0+]
+        {290, &ACC_SU::ProxyProcedureForGuestLoginWithNintendoAccount, "ProxyProcedureForGuestLoginWithNintendoAccount"},
+        {291, &ACC_SU::ProxyProcedureForFloatingRegistrationWithNintendoAccount, "ProxyProcedureForFloatingRegistrationWithNintendoAccount"},
+        {292, &ACC_SU::ProxyProcedureForDeviceMigrationAuthenticatingOperatingUser, "ProxyProcedureForDeviceMigrationAuthenticatingOperatingUser"}, // [20.0.0+]
+        {293, &ACC_SU::ProxyProcedureForDeviceMigrationDownload, "ProxyProcedureForDeviceMigrationDownload"}, // [20.0.0+]
+        {299, &ACC_SU::SuspendBackgroundDaemon, "SuspendBackgroundDaemon"},
+        {350, &ACC_SU::CreateDeviceMigrationUserExportRequest, "CreateDeviceMigrationUserExportRequest"}, // [20.0.0+]
+        {351, &ACC_SU::UploadNasCredential, "UploadNasCredential"}, // [20.0.0+]
+        {352, &ACC_SU::CreateDeviceMigrationUserImportRequest, "CreateDeviceMigrationUserImportRequest"}, // [20.0.0+]
+        {353, &ACC_SU::DeleteUserMigrationInfo, "DeleteUserMigrationInfo"}, // [20.0.0+]
+        {900, &ACC_SU::SetUserUnqualifiedForDebug, "SetUserUnqualifiedForDebug"},
+        {901, &ACC_SU::UnsetUserUnqualifiedForDebug, "UnsetUserUnqualifiedForDebug"},
+        {902, &ACC_SU::ListUsersUnqualifiedForDebug, "ListUsersUnqualifiedForDebug"},
+        {910, &ACC_SU::RefreshFirmwareSettingsForDebug, "RefreshFirmwareSettingsForDebug"},
+        {997, &ACC_SU::DebugInvalidateTokenCacheForUser, "DebugInvalidateTokenCacheForUser"},
+        {998, &ACC_SU::DebugSetUserStateClose, "DebugSetUserStateClose"},
+        {999, &ACC_SU::DebugSetUserStateOpen, "DebugSetUserStateOpen"},
     };
     // clang-format on
 

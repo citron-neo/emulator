@@ -16,38 +16,38 @@ ACC_E_U2::ACC_E_U2(std::shared_ptr<Module> module_, std::shared_ptr<ProfileManag
         {3, &ACC_E_U2::ListOpenUsers, "ListOpenUsers"},
         {4, &ACC_E_U2::GetLastOpenedUser, "GetLastOpenedUser"},
         {5, &ACC_E_U2::GetProfile, "GetProfile"},
-        {6, nullptr, "GetProfileDigest"},
+        {6, &ACC_E_U2::GetProfileDigest, "GetProfileDigest"},
         {50, &ACC_E_U2::IsUserRegistrationRequestPermitted, "IsUserRegistrationRequestPermitted"},
-        {51, nullptr, "TrySelectUserWithoutInteractionDeprecated"}, // [1.0.0-18.1.0]
+        {51, &ACC_E_U2::TrySelectUserWithoutInteraction, "TrySelectUserWithoutInteractionDeprecated"}, // [1.0.0-18.1.0]
         {52, &ACC_E_U2::TrySelectUserWithoutInteraction, "TrySelectUserWithoutInteraction"}, // [19.0.0+]
-        {99, nullptr, "DebugActivateOpenContextRetention"},
-        {100, nullptr, "GetUserRegistrationNotifier"},
-        {101, nullptr, "GetUserStateChangeNotifier"},
+        {99, &ACC_E_U2::DebugActivateOpenContextRetention, "DebugActivateOpenContextRetention"},
+        {100, &ACC_E_U2::GetUserRegistrationNotifier, "GetUserRegistrationNotifier"},
+        {101, &ACC_E_U2::GetUserStateChangeNotifier, "GetUserStateChangeNotifier"},
         {102, &ACC_E_U2::GetBaasAccountManagerForSystemService, "GetBaasAccountManagerForSystemService"},
-        {103, nullptr, "GetBaasUserAvailabilityChangeNotifier"},
-        {104, nullptr, "GetProfileUpdateNotifier"},
-        {105, nullptr, "CheckNetworkServiceAvailabilityAsync"},
-        {106, nullptr, "GetProfileSyncNotifier"},
+        {103, &ACC_E_U2::GetBaasUserAvailabilityChangeNotifier, "GetBaasUserAvailabilityChangeNotifier"},
+        {104, &ACC_E_U2::GetProfileUpdateNotifier, "GetProfileUpdateNotifier"},
+        {105, &ACC_E_U2::CheckNetworkServiceAvailabilityAsync, "CheckNetworkServiceAvailabilityAsync"},
+        {106, &ACC_E_U2::GetProfileSyncNotifier, "GetProfileSyncNotifier"},
         {110, &ACC_E_U2::StoreSaveDataThumbnailSystem, "StoreSaveDataThumbnail"},
-        {111, nullptr, "ClearSaveDataThumbnail"},
-        {112, nullptr, "LoadSaveDataThumbnail"},
-        {113, nullptr, "GetSaveDataThumbnailExistence"},
-        {120, nullptr, "ListOpenUsersInApplication"},
-        {130, nullptr, "ActivateOpenContextRetention"},
+        {111, &ACC_E_U2::ClearSaveDataThumbnail, "ClearSaveDataThumbnail"},
+        {112, &ACC_E_U2::LoadSaveDataThumbnail, "LoadSaveDataThumbnail"},
+        {113, &ACC_E_U2::GetSaveDataThumbnailExistence, "GetSaveDataThumbnailExistence"},
+        {120, &ACC_E_U2::ListOpenUsersInApplication, "ListOpenUsersInApplication"},
+        {130, &ACC_E_U2::ActivateOpenContextRetention, "ActivateOpenContextRetention"},
         {140, &ACC_E_U2::ListQualifiedUsers, "ListQualifiedUsers"},
-        {151, nullptr, "EnsureSignedDeviceIdentifierCacheForNintendoAccountAsync"},
-        {152, nullptr, "LoadSignedDeviceIdentifierCacheForNintendoAccount"},
-        {170, nullptr, "GetNasOp2MembershipStateChangeNotifier"},
-        {191, nullptr, "UpdateNotificationReceiverInfo"}, // [13.0.0-19.0.1]
+        {151, &ACC_E_U2::EnsureSignedDeviceIdentifierCacheForNintendoAccountAsync, "EnsureSignedDeviceIdentifierCacheForNintendoAccountAsync"},
+        {152, &ACC_E_U2::LoadSignedDeviceIdentifierCacheForNintendoAccount, "LoadSignedDeviceIdentifierCacheForNintendoAccount"},
+        {170, &ACC_E_U2::GetProfileUpdateNotifier, "GetNasOp2MembershipStateChangeNotifier"}, // Reuse notifier
+        {191, &ACC_E_U2::ActivateOpenContextHolder, "UpdateNotificationReceiverInfo"}, // [13.0.0-19.0.1]
         {205, &ACC_E_U2::GetProfileEditor, "GetProfileEditor"},
-        {401, nullptr, "GetPinCodeLength"}, // [18.0.0+]
-        {402, nullptr, "GetPinCode"}, // [18.0.0-19.0.1]
-        {403, nullptr, "GetPinCodeParity"}, // [20.0.0+]
-        {404, nullptr, "VerifyPinCode"}, // [20.0.0+]
-        {405, nullptr, "IsPinCodeVerificationForbidden"}, // [20.0.0+]
-        {997, nullptr, "DebugInvalidateTokenCacheForUser"},
-        {998, nullptr, "DebugSetUserStateClose"},
-        {999, nullptr, "DebugSetUserStateOpen"},
+        {401, &ACC_E_U2::DebugInvalidateTokenCacheForUser, "GetPinCodeLength"}, // [18.0.0+] STUB
+        {402, &ACC_E_U2::DebugInvalidateTokenCacheForUser, "GetPinCode"}, // [18.0.0-19.0.1] STUB
+        {403, &ACC_E_U2::DebugInvalidateTokenCacheForUser, "GetPinCodeParity"}, // [20.0.0+] STUB
+        {404, &ACC_E_U2::DebugInvalidateTokenCacheForUser, "VerifyPinCode"}, // [20.0.0+] STUB
+        {405, &ACC_E_U2::DebugInvalidateTokenCacheForUser, "IsPinCodeVerificationForbidden"}, // [20.0.0+] STUB
+        {997, &ACC_E_U2::DebugInvalidateTokenCacheForUser, "DebugInvalidateTokenCacheForUser"},
+        {998, &ACC_E_U2::DebugSetUserStateClose, "DebugSetUserStateClose"},
+        {999, &ACC_E_U2::DebugSetUserStateOpen, "DebugSetUserStateOpen"},
     };
     // clang-format on
 

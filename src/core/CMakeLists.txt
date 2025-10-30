@@ -748,6 +748,8 @@ add_library(core STATIC
     hle/service/kernel_helpers.h
     hle/service/lbl/lbl.cpp
     hle/service/lbl/lbl.h
+    hle/service/ldn/client_process_monitor.cpp
+    hle/service/ldn/client_process_monitor.h
     hle/service/ldn/lan_discovery.cpp
     hle/service/ldn/lan_discovery.h
     hle/service/ldn/ldn.cpp
