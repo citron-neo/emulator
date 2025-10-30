@@ -801,23 +801,6 @@ if(MSVC)
     )
 endif()
 
-if(WIN32 AND CITRON_USE_BUNDLED_FFMPEG)
-    set(FFMPEG_ARCHIVE "${CMAKE_CURRENT_SOURCE_DIR}/externals/ext-windows-bin/ffmpeg/ffmpeg-6.0.7z")
-    set(FFMPEG_EXTRACT_DIR "${CMAKE_BINARY_DIR}/externals/ffmpeg-6.0")
-
-    if(EXISTS "${FFMPEG_ARCHIVE}" AND NOT EXISTS "${FFMPEG_EXTRACT_DIR}")
-        message(STATUS "Found bundled FFmpeg archive. Extracting to ${FFMPEG_EXTRACT_DIR}...")
-        execute_process(
-            COMMAND ${CMAKE_COMMAND} -E tar xf "${FFMPEG_ARCHIVE}"
-            WORKING_DIRECTORY "${CMAKE_BINARY_DIR}/externals/"
-            RESULT_VARIABLE FFMPEG_EXTRACT_RESULT
-        )
-        if(NOT FFMPEG_EXTRACT_RESULT EQUAL 0)
-            message(FATAL_ERROR "Failed to extract bundled FFmpeg archive.")
-        endif()
-    endif()
-endif()
-
 add_subdirectory(src)
 
 # Apply the Boost.Process definition to the core target if it was found
