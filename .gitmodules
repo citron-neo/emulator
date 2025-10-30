@@ -68,12 +68,3 @@
 [submodule "Vulkan-Utility-Libraries"]
 	path = externals/Vulkan-Utility-Libraries
 	url = https://github.com/KhronosGroup/Vulkan-Utility-Libraries.git
-[submodule "externals/ext-windows-bin"]
-	path = externals/ext-windows-bin
-	url = https://git.citron-emu.org/Citron/ext-windows-bin.git
-[submodule "externals/ext-linux-bin"]
-	path = externals/ext-linux-bin
-	url = https://git.citron-emu.org/Citron/ext-linux-bin
-[submodule "externals/ext-android-bin"]
-	path = externals/ext-android-bin
-	url = https://git.citron-emu.org/Citron/ext-android-bin.git
