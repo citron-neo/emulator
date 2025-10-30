@@ -9,7 +9,7 @@
 set(CURRENT_MODULE_DIR ${CMAKE_CURRENT_LIST_DIR})
 function(download_bundled_external remote_path lib_name prefix_var)
 
-set(package_base_url "https://git.citron-emu.org/citron/")
+set(package_base_url "https://git.citron-emu.org/Citron/")
 set(package_repo "no_platform")
 set(package_extension "no_platform")
 if (WIN32)
