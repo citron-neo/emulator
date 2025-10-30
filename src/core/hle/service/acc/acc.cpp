@@ -86,7 +86,8 @@ public:
             {0, D<&IManagerForSystemService::CheckAvailability>, "CheckAvailability"},
             {1, D<&IManagerForSystemService::GetAccountId>, "GetAccountId"},
             {2, nullptr, "EnsureIdTokenCacheAsync"},
-            {3, nullptr, "LoadIdTokenCache"},
+            {3, D<&IManagerForSystemService::LoadIdTokenCacheDeprecated>, "LoadIdTokenCacheDeprecated"}, // 19.0.0+
+            {4, D<&IManagerForSystemService::LoadIdTokenCache>, "LoadIdTokenCache"}, // 19.0.0+
             {100, nullptr, "SetSystemProgramIdentification"},
             {101, nullptr, "RefreshNotificationTokenAsync"}, // 7.0.0+
             {110, nullptr, "GetServiceEntryRequirementCache"}, // 4.0.0+
@@ -122,6 +123,16 @@ private:
     Result GetAccountId(Out<u64> out_account_id) {
         LOG_WARNING(Service_ACC, "(STUBBED) called");
         *out_account_id = account_id.Hash();
+        R_SUCCEED();
+    }
+
+    Result LoadIdTokenCacheDeprecated() {
+        LOG_WARNING(Service_ACC, "(STUBBED) called");
+        R_SUCCEED();
+    }
+
+    Result LoadIdTokenCache() {
+        LOG_WARNING(Service_ACC, "(STUBBED) called");
         R_SUCCEED();
     }
 
@@ -608,6 +619,63 @@ protected:
     }
 };
 
+class EnsureSignedDeviceIdentifierCacheAsyncInterface final : public IAsyncContext {
+public:
+    explicit EnsureSignedDeviceIdentifierCacheAsyncInterface(Core::System& system_) : IAsyncContext{system_} {
+        MarkComplete();
+    }
+    ~EnsureSignedDeviceIdentifierCacheAsyncInterface() = default;
+
+protected:
+    bool IsComplete() const override {
+        return true;
+    }
+
+    void Cancel() override {}
+
+    Result GetResult() const override {
+        return ResultSuccess;
+    }
+};
+
+class AuthenticateServiceAsyncInterface final : public IAsyncContext {
+public:
+    explicit AuthenticateServiceAsyncInterface(Core::System& system_) : IAsyncContext{system_} {
+        MarkComplete();
+    }
+    ~AuthenticateServiceAsyncInterface() = default;
+
+protected:
+    bool IsComplete() const override {
+        return true;
+    }
+
+    void Cancel() override {}
+
+    Result GetResult() const override {
+        return ResultSuccess;
+    }
+};
+
+class SynchronizeNetworkServiceAccountsSnapshotAsyncInterface final : public IAsyncContext {
+public:
+    explicit SynchronizeNetworkServiceAccountsSnapshotAsyncInterface(Core::System& system_) : IAsyncContext{system_} {
+        MarkComplete();
+    }
+    ~SynchronizeNetworkServiceAccountsSnapshotAsyncInterface() = default;
+
+protected:
+    bool IsComplete() const override {
+        return true;
+    }
+
+    void Cancel() override {}
+
+    Result GetResult() const override {
+        return ResultSuccess;
+    }
+};
+
 class IManagerForApplication final : public ServiceFramework<IManagerForApplication> {
 public:
     explicit IManagerForApplication(Core::System& system_,
@@ -620,8 +688,10 @@ public:
             {0, &IManagerForApplication::CheckAvailability, "CheckAvailability"},
             {1, &IManagerForApplication::GetAccountId, "GetAccountId"},
             {2, &IManagerForApplication::EnsureIdTokenCacheAsync, "EnsureIdTokenCacheAsync"},
-            {3, &IManagerForApplication::LoadIdTokenCache, "LoadIdTokenCache"},
+            {3, &IManagerForApplication::LoadIdTokenCacheDeprecated, "LoadIdTokenCacheDeprecated"},
+            {4, &IManagerForApplication::LoadIdTokenCache, "LoadIdTokenCache"},
             {130, &IManagerForApplication::GetNintendoAccountUserResourceCacheForApplication, "GetNintendoAccountUserResourceCacheForApplication"},
+            {136, &IManagerForApplication::GetNintendoAccountUserResourceCacheForApplication, "GetNintendoAccountUserResourceCache"}, // 19.0.0+
             {150, nullptr, "CreateAuthorizationRequest"},
             {160, &IManagerForApplication::StoreOpenContext, "StoreOpenContext"},
             {170, nullptr, "LoadNetworkServiceLicenseKindAsync"},
@@ -655,10 +725,19 @@ private:
         rb.PushIpcInterface(ensure_token_id);
     }
 
-    void LoadIdTokenCache(HLERequestContext& ctx) {
+    void LoadIdTokenCacheDeprecated(HLERequestContext& ctx) {
         LOG_WARNING(Service_ACC, "(STUBBED) called");
 
         ensure_token_id->LoadIdTokenCache(ctx);
+    }
+
+    void LoadIdTokenCache(HLERequestContext& ctx) {
+        LOG_WARNING(Service_ACC, "(STUBBED) called");
+
+        IPC::ResponseBuilder rb{ctx, 4};
+        rb.Push(ResultSuccess);
+        rb.Push(0); // token size
+        rb.Push(0); // unknown
     }
 
     void GetNintendoAccountUserResourceCacheForApplication(HLERequestContext& ctx) {
@@ -1132,6 +1211,381 @@ void Module::Interface::TrySelectUserWithoutInteraction(HLERequestContext& ctx) 
     // Select the first user we have
     rb.Push(ResultSuccess);
     rb.PushRaw(profile_manager->GetUser(0)->uuid);
+}
+
+void Module::Interface::GetUserRegistrationNotifier(HLERequestContext& ctx) {
+    LOG_WARNING(Service_ACC, "(STUBBED) called");
+
+    const Common::UUID dummy_uuid{};
+    IPC::ResponseBuilder rb{ctx, 2, 0, 1};
+    rb.Push(ResultSuccess);
+    rb.PushIpcInterface<INotifier>(system, dummy_uuid);
+}
+
+void Module::Interface::GetUserStateChangeNotifier(HLERequestContext& ctx) {
+    LOG_WARNING(Service_ACC, "(STUBBED) called");
+
+    const Common::UUID dummy_uuid{};
+    IPC::ResponseBuilder rb{ctx, 2, 0, 1};
+    rb.Push(ResultSuccess);
+    rb.PushIpcInterface<INotifier>(system, dummy_uuid);
+}
+
+void Module::Interface::GetBaasUserAvailabilityChangeNotifier(HLERequestContext& ctx) {
+    LOG_WARNING(Service_ACC, "(STUBBED) called");
+
+    const Common::UUID dummy_uuid{};
+    IPC::ResponseBuilder rb{ctx, 2, 0, 1};
+    rb.Push(ResultSuccess);
+    rb.PushIpcInterface<INotifier>(system, dummy_uuid);
+}
+
+void Module::Interface::GetProfileUpdateNotifier(HLERequestContext& ctx) {
+    LOG_WARNING(Service_ACC, "(STUBBED) called");
+
+    const Common::UUID dummy_uuid{};
+    IPC::ResponseBuilder rb{ctx, 2, 0, 1};
+    rb.Push(ResultSuccess);
+    rb.PushIpcInterface<INotifier>(system, dummy_uuid);
+}
+
+void Module::Interface::GetProfileSyncNotifier(HLERequestContext& ctx) {
+    LOG_WARNING(Service_ACC, "(STUBBED) called");
+
+    const Common::UUID dummy_uuid{};
+    IPC::ResponseBuilder rb{ctx, 2, 0, 1};
+    rb.Push(ResultSuccess);
+    rb.PushIpcInterface<INotifier>(system, dummy_uuid);
+}
+
+void Module::Interface::LoadSaveDataThumbnail(HLERequestContext& ctx) {
+    IPC::RequestParser rp{ctx};
+    const auto uuid = rp.PopRaw<Common::UUID>();
+    const auto tid = rp.Pop<u64_le>();
+
+    LOG_WARNING(Service_ACC, "(STUBBED) called, uuid=0x{}, tid={:016X}", uuid.RawString(), tid);
+
+    // Return empty buffer for now
+    std::vector<u8> thumbnail(THUMBNAIL_SIZE);
+    ctx.WriteBuffer(thumbnail);
+
+    IPC::ResponseBuilder rb{ctx, 2};
+    rb.Push(ResultSuccess);
+}
+
+void Module::Interface::GetSaveDataThumbnailExistence(HLERequestContext& ctx) {
+    IPC::RequestParser rp{ctx};
+    const auto uuid = rp.PopRaw<Common::UUID>();
+    const auto tid = rp.Pop<u64_le>();
+
+    LOG_WARNING(Service_ACC, "(STUBBED) called, uuid=0x{}, tid={:016X}", uuid.RawString(), tid);
+
+    IPC::ResponseBuilder rb{ctx, 3};
+    rb.Push(ResultSuccess);
+    rb.Push(false); // Thumbnail does not exist
+}
+
+void Module::Interface::ListOpenUsersInApplication(HLERequestContext& ctx) {
+    LOG_WARNING(Service_ACC, "(STUBBED) called");
+
+    ctx.WriteBuffer(profile_manager->GetOpenUsers());
+    IPC::ResponseBuilder rb{ctx, 2};
+    rb.Push(ResultSuccess);
+}
+
+void Module::Interface::ActivateOpenContextRetention(HLERequestContext& ctx) {
+    LOG_WARNING(Service_ACC, "(STUBBED) called");
+
+    const Common::UUID dummy_uuid{};
+    IPC::ResponseBuilder rb{ctx, 2, 0, 1};
+    rb.Push(ResultSuccess);
+    rb.PushIpcInterface<ISessionObject>(system, dummy_uuid);
+}
+
+void Module::Interface::EnsureSignedDeviceIdentifierCacheForNintendoAccountAsync(HLERequestContext& ctx) {
+    LOG_WARNING(Service_ACC, "(STUBBED) called");
+
+    IPC::ResponseBuilder rb{ctx, 2, 0, 1};
+    rb.Push(ResultSuccess);
+    rb.PushIpcInterface<EnsureSignedDeviceIdentifierCacheAsyncInterface>(system);
+}
+
+void Module::Interface::LoadSignedDeviceIdentifierCacheForNintendoAccount(HLERequestContext& ctx) {
+    LOG_WARNING(Service_ACC, "(STUBBED) called");
+
+    // Return dummy data
+    std::array<u8, 0x40> device_identifier{};
+    ctx.WriteBuffer(device_identifier);
+
+    IPC::ResponseBuilder rb{ctx, 2};
+    rb.Push(ResultSuccess);
+}
+
+void Module::Interface::GetUserLastOpenedApplication(HLERequestContext& ctx) {
+    IPC::RequestParser rp{ctx};
+    Common::UUID user_id = rp.PopRaw<Common::UUID>();
+
+    LOG_WARNING(Service_ACC, "(STUBBED) called, user_id=0x{}", user_id.RawString());
+
+    IPC::ResponseBuilder rb{ctx, 4};
+    rb.Push(ResultSuccess);
+    rb.Push<u64>(0); // No application opened
+}
+
+void Module::Interface::ActivateOpenContextHolder(HLERequestContext& ctx) {
+    LOG_WARNING(Service_ACC, "(STUBBED) called");
+
+    IPC::ResponseBuilder rb{ctx, 2};
+    rb.Push(ResultSuccess);
+}
+
+void Module::Interface::CancelUserRegistration(HLERequestContext& ctx) {
+    IPC::RequestParser rp{ctx};
+    Common::UUID user_id = rp.PopRaw<Common::UUID>();
+
+    LOG_INFO(Service_ACC, "called, uuid={}", user_id.FormattedString());
+
+    IPC::ResponseBuilder rb{ctx, 2};
+    rb.Push(ResultSuccess);
+}
+
+void Module::Interface::DeleteUser(HLERequestContext& ctx) {
+    IPC::RequestParser rp{ctx};
+    Common::UUID user_id = rp.PopRaw<Common::UUID>();
+
+    LOG_INFO(Service_ACC, "called, uuid={}", user_id.FormattedString());
+
+    profile_manager->RemoveUser(user_id);
+
+    IPC::ResponseBuilder rb{ctx, 2};
+    rb.Push(ResultSuccess);
+}
+
+void Module::Interface::SetUserPosition(HLERequestContext& ctx) {
+    IPC::RequestParser rp{ctx};
+    const auto position = rp.Pop<u32>();
+    const auto uuid = rp.PopRaw<Common::UUID>();
+
+    LOG_WARNING(Service_ACC, "(STUBBED) called, position={}, uuid=0x{}", position, uuid.RawString());
+
+    IPC::ResponseBuilder rb{ctx, 2};
+    rb.Push(ResultSuccess);
+}
+
+void Module::Interface::CompleteUserRegistrationForcibly(HLERequestContext& ctx) {
+    IPC::RequestParser rp{ctx};
+    Common::UUID user_id = rp.PopRaw<Common::UUID>();
+
+    LOG_INFO(Service_ACC, "called, uuid={}", user_id.FormattedString());
+
+    profile_manager->WriteUserSaveFile();
+
+    IPC::ResponseBuilder rb{ctx, 2};
+    rb.Push(ResultSuccess);
+}
+
+void Module::Interface::CreateFloatingRegistrationRequest(HLERequestContext& ctx) {
+    LOG_WARNING(Service_ACC, "(STUBBED) called");
+
+    const Common::UUID dummy_uuid{};
+    IPC::ResponseBuilder rb{ctx, 2, 0, 1};
+    rb.Push(ResultSuccess);
+    rb.PushIpcInterface<IFloatingRegistrationRequest>(system, dummy_uuid);
+}
+
+void Module::Interface::CreateProcedureToRegisterUserWithNintendoAccount(HLERequestContext& ctx) {
+    LOG_WARNING(Service_ACC, "(STUBBED) called");
+
+    const Common::UUID dummy_uuid{};
+    IPC::ResponseBuilder rb{ctx, 2, 0, 1};
+    rb.Push(ResultSuccess);
+    rb.PushIpcInterface<IOAuthProcedureForUserRegistration>(system, dummy_uuid);
+}
+
+void Module::Interface::ResumeProcedureToRegisterUserWithNintendoAccount(HLERequestContext& ctx) {
+    LOG_WARNING(Service_ACC, "(STUBBED) called");
+
+    const Common::UUID dummy_uuid{};
+    IPC::ResponseBuilder rb{ctx, 2, 0, 1};
+    rb.Push(ResultSuccess);
+    rb.PushIpcInterface<IOAuthProcedureForUserRegistration>(system, dummy_uuid);
+}
+
+void Module::Interface::CreateProcedureToCreateUserWithNintendoAccount(HLERequestContext& ctx) {
+    LOG_WARNING(Service_ACC, "(STUBBED) called");
+
+    const Common::UUID dummy_uuid{};
+    IPC::ResponseBuilder rb{ctx, 2, 0, 1};
+    rb.Push(ResultSuccess);
+    rb.PushIpcInterface<IOAuthProcedureForUserRegistration>(system, dummy_uuid);
+}
+
+void Module::Interface::ResumeProcedureToCreateUserWithNintendoAccount(HLERequestContext& ctx) {
+    LOG_WARNING(Service_ACC, "(STUBBED) called");
+
+    const Common::UUID dummy_uuid{};
+    IPC::ResponseBuilder rb{ctx, 2, 0, 1};
+    rb.Push(ResultSuccess);
+    rb.PushIpcInterface<IOAuthProcedureForUserRegistration>(system, dummy_uuid);
+}
+
+void Module::Interface::ResumeProcedureToCreateUserWithNintendoAccountAfterApplyResponse(HLERequestContext& ctx) {
+    LOG_WARNING(Service_ACC, "(STUBBED) called");
+
+    const Common::UUID dummy_uuid{};
+    IPC::ResponseBuilder rb{ctx, 2, 0, 1};
+    rb.Push(ResultSuccess);
+    rb.PushIpcInterface<IOAuthProcedureForUserRegistration>(system, dummy_uuid);
+}
+
+void Module::Interface::AuthenticateServiceAsync(HLERequestContext& ctx) {
+    LOG_WARNING(Service_ACC, "(STUBBED) called");
+
+    IPC::ResponseBuilder rb{ctx, 2, 0, 1};
+    rb.Push(ResultSuccess);
+    rb.PushIpcInterface<AuthenticateServiceAsyncInterface>(system);
+}
+
+void Module::Interface::GetBaasAccountAdministrator(HLERequestContext& ctx) {
+    IPC::RequestParser rp{ctx};
+    const auto uuid = rp.PopRaw<Common::UUID>();
+
+    LOG_INFO(Service_ACC, "called, uuid=0x{}", uuid.RawString());
+
+    IPC::ResponseBuilder rb{ctx, 2, 0, 1};
+    rb.Push(ResultSuccess);
+    rb.PushIpcInterface<IAdministrator>(system, uuid);
+}
+
+void Module::Interface::SynchronizeNetworkServiceAccountsSnapshotAsync(HLERequestContext& ctx) {
+    LOG_WARNING(Service_ACC, "(STUBBED) called");
+
+    IPC::ResponseBuilder rb{ctx, 2, 0, 1};
+    rb.Push(ResultSuccess);
+    rb.PushIpcInterface<SynchronizeNetworkServiceAccountsSnapshotAsyncInterface>(system);
+}
+
+void Module::Interface::ProxyProcedureForGuestLoginWithNintendoAccount(HLERequestContext& ctx) {
+    LOG_WARNING(Service_ACC, "(STUBBED) called");
+
+    const Common::UUID dummy_uuid{};
+    IPC::ResponseBuilder rb{ctx, 2, 0, 1};
+    rb.Push(ResultSuccess);
+    rb.PushIpcInterface<IOAuthProcedureForExternalNsa>(system, dummy_uuid);
+}
+
+void Module::Interface::ProxyProcedureForFloatingRegistrationWithNintendoAccount(HLERequestContext& ctx) {
+    LOG_WARNING(Service_ACC, "(STUBBED) called");
+
+    const Common::UUID dummy_uuid{};
+    IPC::ResponseBuilder rb{ctx, 2, 0, 1};
+    rb.Push(ResultSuccess);
+    rb.PushIpcInterface<IOAuthProcedureForExternalNsa>(system, dummy_uuid);
+}
+
+void Module::Interface::ProxyProcedureForDeviceMigrationAuthenticatingOperatingUser(HLERequestContext& ctx) {
+    LOG_WARNING(Service_ACC, "(STUBBED) called");
+
+    const Common::UUID dummy_uuid{};
+    IPC::ResponseBuilder rb{ctx, 2, 0, 1};
+    rb.Push(ResultSuccess);
+    rb.PushIpcInterface<IOAuthProcedure>(system, dummy_uuid);
+}
+
+void Module::Interface::ProxyProcedureForDeviceMigrationDownload(HLERequestContext& ctx) {
+    LOG_WARNING(Service_ACC, "(STUBBED) called");
+
+    const Common::UUID dummy_uuid{};
+    IPC::ResponseBuilder rb{ctx, 2, 0, 1};
+    rb.Push(ResultSuccess);
+    rb.PushIpcInterface<IOAuthProcedure>(system, dummy_uuid);
+}
+
+void Module::Interface::SuspendBackgroundDaemon(HLERequestContext& ctx) {
+    LOG_WARNING(Service_ACC, "(STUBBED) called");
+
+    const Common::UUID dummy_uuid{};
+    IPC::ResponseBuilder rb{ctx, 2, 0, 1};
+    rb.Push(ResultSuccess);
+    rb.PushIpcInterface<ISessionObject>(system, dummy_uuid);
+}
+
+void Module::Interface::CreateDeviceMigrationUserExportRequest(HLERequestContext& ctx) {
+    LOG_WARNING(Service_ACC, "(STUBBED) called");
+
+    IPC::ResponseBuilder rb{ctx, 2};
+    rb.Push(ResultSuccess);
+}
+
+void Module::Interface::UploadNasCredential(HLERequestContext& ctx) {
+    LOG_WARNING(Service_ACC, "(STUBBED) called");
+
+    IPC::ResponseBuilder rb{ctx, 2};
+    rb.Push(ResultSuccess);
+}
+
+void Module::Interface::CreateDeviceMigrationUserImportRequest(HLERequestContext& ctx) {
+    LOG_WARNING(Service_ACC, "(STUBBED) called");
+
+    IPC::ResponseBuilder rb{ctx, 2};
+    rb.Push(ResultSuccess);
+}
+
+void Module::Interface::DeleteUserMigrationInfo(HLERequestContext& ctx) {
+    LOG_WARNING(Service_ACC, "(STUBBED) called");
+
+    IPC::ResponseBuilder rb{ctx, 2};
+    rb.Push(ResultSuccess);
+}
+
+void Module::Interface::SetUserUnqualifiedForDebug(HLERequestContext& ctx) {
+    LOG_WARNING(Service_ACC, "(STUBBED) called");
+
+    IPC::ResponseBuilder rb{ctx, 2};
+    rb.Push(ResultSuccess);
+}
+
+void Module::Interface::UnsetUserUnqualifiedForDebug(HLERequestContext& ctx) {
+    LOG_WARNING(Service_ACC, "(STUBBED) called");
+
+    IPC::ResponseBuilder rb{ctx, 2};
+    rb.Push(ResultSuccess);
+}
+
+void Module::Interface::ListUsersUnqualifiedForDebug(HLERequestContext& ctx) {
+    LOG_WARNING(Service_ACC, "(STUBBED) called");
+
+    ctx.WriteBuffer(std::vector<Common::UUID>{});
+    IPC::ResponseBuilder rb{ctx, 2};
+    rb.Push(ResultSuccess);
+}
+
+void Module::Interface::RefreshFirmwareSettingsForDebug(HLERequestContext& ctx) {
+    LOG_WARNING(Service_ACC, "(STUBBED) called");
+
+    IPC::ResponseBuilder rb{ctx, 2};
+    rb.Push(ResultSuccess);
+}
+
+void Module::Interface::DebugInvalidateTokenCacheForUser(HLERequestContext& ctx) {
+    LOG_WARNING(Service_ACC, "(STUBBED) called");
+
+    IPC::ResponseBuilder rb{ctx, 2};
+    rb.Push(ResultSuccess);
+}
+
+void Module::Interface::DebugSetUserStateClose(HLERequestContext& ctx) {
+    LOG_WARNING(Service_ACC, "(STUBBED) called");
+
+    IPC::ResponseBuilder rb{ctx, 2};
+    rb.Push(ResultSuccess);
+}
+
+void Module::Interface::DebugSetUserStateOpen(HLERequestContext& ctx) {
+    LOG_WARNING(Service_ACC, "(STUBBED) called");
+
+    IPC::ResponseBuilder rb{ctx, 2};
+    rb.Push(ResultSuccess);
 }
 
 Module::Interface::Interface(std::shared_ptr<Module> module_,
