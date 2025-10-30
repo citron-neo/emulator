@@ -2024,34 +2024,33 @@ void GMainWindow::BootGame(const QString& filename, Service::AM::FrontendAppletP
         system->ApplySettings();
 
         // Final Fantasy Tactics requires single-core mode to boot properly
-        if (title_id == UICommon::TitleID::FinalFantasyTactics) {
-            LOG_INFO(Frontend, "Applying workaround: forcing single-core mode for Final Fantasy Tactics");
         if (title_id == 0x010038B015560000ULL) {
+            LOG_INFO(Frontend, "Applying workaround: forcing single-core mode for Final Fantasy Tactics");
             Settings::values.use_multi_core.SetValue(false);
         }
-    }
 
-    Settings::LogSettings();
+        Settings::LogSettings();
 
-    if (UISettings::values.select_user_on_boot && !user_flag_cmd_line) {
-        const Core::Frontend::ProfileSelectParameters parameters{
-            .mode = Service::AM::Frontend::UiMode::UserSelector,
-            .invalid_uid_list = {},
-            .display_options = {},
-            .purpose = Service::AM::Frontend::UserSelectionPurpose::General,
-        };
-        if (SelectAndSetCurrentUser(parameters) == false) {
+        if (UISettings::values.select_user_on_boot && !user_flag_cmd_line) {
+            const Core::Frontend::ProfileSelectParameters parameters{
+                .mode = Service::AM::Frontend::UiMode::UserSelector,
+                .invalid_uid_list = {},
+                .display_options = {},
+                .purpose = Service::AM::Frontend::UserSelectionPurpose::General,
+            };
+            if (SelectAndSetCurrentUser(parameters) == false) {
+                return;
+            }
+        }
+
+        // If the user specifies -u (successfully) on the cmd line, don't prompt for a user on first
+        // game startup only. If the user stops emulation and starts a new one, go back to the expected
+        // behavior of asking.
+        user_flag_cmd_line = false;
+
+        if (!LoadROM(filename, params)) {
             return;
         }
-    }
-
-    // If the user specifies -u (successfully) on the cmd line, don't prompt for a user on first
-    // game startup only. If the user stops emulation and starts a new one, go back to the expected
-    // behavior of asking.
-    user_flag_cmd_line = false;
-
-    if (!LoadROM(filename, params)) {
-        return;
     }
 
     system->SetShuttingDown(false);
