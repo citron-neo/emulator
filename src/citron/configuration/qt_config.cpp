@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: 2023 yuzu Emulator Project
+// SPDX-FileCopyrightText: 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "common/logging/log.h"
@@ -94,6 +95,10 @@ void QtConfig::ReadQtPlayerValues(const std::size_t player_index) {
             return;
         }
     }
+
+    const auto body_color_str = ReadStringSetting(std::string(player_prefix).append("body_color"), fmt::format("{:x}", Settings::DEFAULT_CONTROLLER_COLOR));
+    player.body_color = std::stoul(body_color_str, nullptr, 16);
+    player.gyro_overlay_visible = ReadBooleanSetting(std::string(player_prefix).append("gyro_overlay_visible"), true);
 
     for (int i = 0; i < Settings::NativeButton::NumButtons; ++i) {
         const std::string default_param = InputCommon::GenerateKeyboardParam(default_buttons[i]);
@@ -350,6 +355,9 @@ void QtConfig::SaveQtPlayerValues(const std::size_t player_index) {
         // No custom profile selected
         return;
     }
+
+    WriteStringSetting(std::string(player_prefix).append("body_color"), fmt::format("{:x}", player.body_color), fmt::format("{:x}", Settings::DEFAULT_CONTROLLER_COLOR));
+    WriteBooleanSetting(std::string(player_prefix).append("gyro_overlay_visible"), player.gyro_overlay_visible, true);
 
     for (int i = 0; i < Settings::NativeButton::NumButtons; ++i) {
         const std::string default_param = InputCommon::GenerateKeyboardParam(default_buttons[i]);
