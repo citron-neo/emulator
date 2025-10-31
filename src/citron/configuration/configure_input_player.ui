@@ -2137,6 +2137,53 @@
                 </layout>
               </widget>
             </item>
+            <item>
+            <layout class="QHBoxLayout" name="horizontalLayout_Color">
+             <item>
+              <spacer name="horizontalSpacer_Color1">
+               <property name="orientation">
+                <enum>Qt::Horizontal</enum>
+               </property>
+               <property name="sizeHint" stdset="0">
+                <size>
+                 <width>40</width>
+                 <height>20</height>
+                </size>
+               </property>
+              </spacer>
+             </item>
+             <item>
+              <widget class="QPushButton" name="buttonChooseColor">
+               <property name="text">
+                <string>Color</string>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QPushButton" name="buttonToggleGyro">
+               <property name="text">
+                <string>Toggle Gyro Display</string>
+               </property>
+               <property name="toolTip">
+                <string>Toggles the Gyro Indicator on and off in the Controller Overlay.</string>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <spacer name="horizontalSpacer_Color2">
+               <property name="orientation">
+                <enum>Qt::Horizontal</enum>
+               </property>
+               <property name="sizeHint" stdset="0">
+                <size>
+                 <width>40</width>
+                 <height>20</height>
+                </size>
+               </property>
+              </spacer>
+             </item>
+            </layout>
+           </item>
            <item>
             <layout class="QHBoxLayout" name="miscButtons">
              <property name="spacing">
