@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: Copyright 2020 yuzu Emulator Project
+// SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #pragma once
@@ -365,6 +366,7 @@ constexpr u32 JOYCON_BODY_NEON_RED = 0xFF3C28;
 constexpr u32 JOYCON_BUTTONS_NEON_RED = 0x1E0A0A;
 constexpr u32 JOYCON_BODY_NEON_BLUE = 0x0AB9E6;
 constexpr u32 JOYCON_BUTTONS_NEON_BLUE = 0x001E1E;
+constexpr u32 DEFAULT_CONTROLLER_COLOR = 0xE1E1E1;
 
 enum class ControllerType {
     ProController,
@@ -390,10 +392,12 @@ struct PlayerInput {
     bool vibration_enabled;
     int vibration_strength;
 
+    u32 body_color;
     u32 body_color_left;
     u32 body_color_right;
     u32 button_color_left;
     u32 button_color_right;
+    bool gyro_overlay_visible;
     std::string profile_name;
 
     // This is meant to tell the Android frontend whether to use a device's built-in vibration

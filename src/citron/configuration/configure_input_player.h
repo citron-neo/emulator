@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: 2016 Citra Emulator Project
+// SPDX-FileCopyrightText: 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #pragma once
@@ -11,6 +12,7 @@
 #include <vector>
 
 #include <QWidget>
+#include <QColorDialog>
 
 #include "common/param_package.h"
 #include "common/settings.h"
@@ -166,6 +168,12 @@ private:
 
     /// Saves the current controller configuration into a selected controller profile.
     void SaveProfile();
+
+    /// Implements a feature to change the controllers color manually.
+    void OnButtonChooseColor();
+
+    /// Toggles the gyro visibility for the overlay
+    void OnButtonToggleGyro();
 
     std::unique_ptr<Ui::ConfigureInputPlayer> ui;
 

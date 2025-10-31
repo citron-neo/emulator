@@ -50,6 +50,9 @@ public:
     // Updates input on scheduled interval
     void UpdateInput();
 
+    // Gyro Visibility
+    bool gyro_visible = true;
+
 protected:
     void paintEvent(QPaintEvent* event) override;
 

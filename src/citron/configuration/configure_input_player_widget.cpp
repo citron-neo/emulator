@@ -106,6 +106,12 @@ void PlayerControlPreview::UpdateColors() {
     colors.charging = QColor(250, 168, 26);
     colors.button_turbo = QColor(217, 158, 4);
 
+    // Apply custom controller body color if it exists, overriding the theme color.
+    const auto custom_body_color = controller->GetBodyColor();
+    if (custom_body_color != 0) {
+        colors.primary = QColor(custom_body_color);
+    }
+
     colors.left = colors.primary;
     colors.right = colors.primary;
 
@@ -348,10 +354,12 @@ void PlayerControlPreview::DrawLeftController(QPainter& p, const QPointF center)
     {
         // Draw motion cubes
         using namespace Settings::NativeMotion;
-        p.setPen(colors.outline);
-        p.setBrush(colors.transparent);
-        Draw3dCube(p, center + QPointF(-140, 90),
-                   motion_values[Settings::NativeMotion::MotionLeft].euler, 20.0f);
+        if (gyro_visible) {
+            p.setPen(colors.outline);
+            p.setBrush(colors.transparent);
+            Draw3dCube(p, center + QPointF(-140, 90),
+                       motion_values[Settings::NativeMotion::MotionLeft].euler, 20.0f);
+        }
     }
 
     using namespace Settings::NativeButton;
@@ -485,10 +493,12 @@ void PlayerControlPreview::DrawRightController(QPainter& p, const QPointF center
     {
         // Draw motion cubes
         using namespace Settings::NativeMotion;
-        p.setPen(colors.outline);
-        p.setBrush(colors.transparent);
-        Draw3dCube(p, center + QPointF(140, 90),
-                   motion_values[Settings::NativeMotion::MotionRight].euler, 20.0f);
+        if (gyro_visible) {
+            p.setPen(colors.outline);
+            p.setBrush(colors.transparent);
+            Draw3dCube(p, center + QPointF(140, 90),
+                       motion_values[Settings::NativeMotion::MotionRight].euler, 20.0f);
+        }
     }
 
     using namespace Settings::NativeButton;
@@ -631,12 +641,14 @@ void PlayerControlPreview::DrawDualController(QPainter& p, const QPointF center)
     {
         // Draw motion cubes
         using namespace Settings::NativeMotion;
-        p.setPen(colors.outline);
-        p.setBrush(colors.transparent);
-        Draw3dCube(p, center + QPointF(-180, 90),
-                   motion_values[Settings::NativeMotion::MotionLeft].euler, 20.0f);
-        Draw3dCube(p, center + QPointF(180, 90),
-                   motion_values[Settings::NativeMotion::MotionRight].euler, 20.0f);
+        if (gyro_visible) {
+            p.setPen(colors.outline);
+            p.setBrush(colors.transparent);
+            Draw3dCube(p, center + QPointF(-180, 90),
+                       motion_values[Settings::NativeMotion::MotionLeft].euler, 20.0f);
+            Draw3dCube(p, center + QPointF(180, 90),
+                       motion_values[Settings::NativeMotion::MotionRight].euler, 20.0f);
+        }
     }
 
     using namespace Settings::NativeButton;
@@ -736,10 +748,12 @@ void PlayerControlPreview::DrawHandheldController(QPainter& p, const QPointF cen
     {
         // Draw motion cubes
         using namespace Settings::NativeMotion;
-        p.setPen(colors.outline);
-        p.setBrush(colors.transparent);
-        Draw3dCube(p, center + QPointF(0, -115),
-                   motion_values[Settings::NativeMotion::MotionLeft].euler, 15.0f);
+        if (gyro_visible) {
+            p.setPen(colors.outline);
+            p.setBrush(colors.transparent);
+            Draw3dCube(p, center + QPointF(0, -115),
+                       motion_values[Settings::NativeMotion::MotionLeft].euler, 15.0f);
+        }
     }
 
     using namespace Settings::NativeButton;
@@ -850,10 +864,12 @@ void PlayerControlPreview::DrawProController(QPainter& p, const QPointF center) 
     {
         // Draw motion cubes
         using namespace Settings::NativeMotion;
-        p.setPen(colors.button);
-        p.setBrush(colors.transparent);
-        Draw3dCube(p, center + QPointF(0, -100),
-                   motion_values[Settings::NativeMotion::MotionLeft].euler, 15.0f);
+        if (gyro_visible) {
+            p.setPen(colors.button);
+            p.setBrush(colors.transparent);
+            Draw3dCube(p, center + QPointF(0, -100),
+                       motion_values[Settings::NativeMotion::MotionLeft].euler, 15.0f);
+        }
     }
 
     using namespace Settings::NativeButton;
@@ -2544,6 +2560,7 @@ void PlayerControlPreview::DrawJoystickProperties(
     DrawCircle(p, center, range);
 
     // Deadzone circle
+    pen.setStyle(Qt::SolidLine);
     pen.setColor(colors.deadzone);
     p.setPen(pen);
     DrawCircle(p, center, deadzone);
