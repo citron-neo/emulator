@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: Copyright 2021 yuzu Emulator Project
+// SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #pragma once
@@ -129,6 +130,8 @@ struct ControllerStatus {
     CameraValues camera_values{};
     RingAnalogValue ring_analog_value{};
     NfcValues nfc_values{};
+    u32 body_color{};
+    bool gyro_overlay_visible{};
 
     // Data for HID services
     HomeButtonState home_button_state{};
@@ -274,6 +277,12 @@ public:
     // Returns the current mapped motion device
     Common::ParamPackage GetMotionParam(std::size_t index) const;
 
+    // Returns the custom body color for the controller
+    u32 GetBodyColor() const;
+
+    // Returns whether the gyro overlay is visible within Controller Overlay.
+    bool IsGyroOverlayVisible() const;
+
     /**
      * Updates the current mapped button device
      * @param param ParamPackage with controller data to be mapped
@@ -291,6 +300,18 @@ public:
      * @param param ParamPackage with controller data to be mapped
      */
     void SetMotionParam(std::size_t index, Common::ParamPackage param);
+
+    /**
+     * Sets the custom body color for the controller
+     * @param color The RGB color value to set
+     */
+    void SetBodyColor(u32 color);
+
+    /**
+     * Sets the visibility of the gyro overlay
+     * @param visible The visibility state to set
+     */
+    void SetGyroOverlayVisible(bool visible);
 
     /// Auto calibrates the current motion devices
     void StartMotionCalibration();
