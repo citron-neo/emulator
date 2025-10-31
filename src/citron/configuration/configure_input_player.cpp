@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: 2016 Citra Emulator Project
+// SPDX-FileCopyrightText: 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <algorithm>
@@ -27,6 +28,7 @@
 #include "citron/configuration/configure_mouse_panning.h"
 #include "citron/configuration/input_profiles.h"
 #include "citron/util/limitable_input_dialog.h"
+#include "common/settings_input.h"
 
 const std::array<std::string, ConfigureInputPlayer::ANALOG_SUB_BUTTONS_NUM>
     ConfigureInputPlayer::analog_sub_buttons{{
@@ -361,6 +363,11 @@ ConfigureInputPlayer::ConfigureInputPlayer(QWidget* parent, std::size_t player_i
     analog_map_range_spinbox = {ui->spinboxLStickRange, ui->spinboxRStickRange};
 
     ui->controllerFrame->SetController(emulated_controller);
+    ui->controllerFrame->SetRawJoystickVisible(true);
+    connect(ui->buttonChooseColor, &QPushButton::clicked, this,
+            &ConfigureInputPlayer::OnButtonChooseColor);
+    connect(ui->buttonToggleGyro, &QPushButton::clicked, this,
+            &ConfigureInputPlayer::OnButtonToggleGyro);
 
     for (int button_id = 0; button_id < Settings::NativeButton::NumButtons; ++button_id) {
         auto* const button = button_map[button_id];
@@ -1667,4 +1674,25 @@ void ConfigureInputPlayer::UpdateInputProfiles() {
 
     LOG_DEBUG(Frontend, "Setting the current input profile to index {}", profile_index);
     ui->comboProfiles->setCurrentIndex(profile_index);
+}
+
+void ConfigureInputPlayer::OnButtonChooseColor() {
+    const u32 current_color_val = emulated_controller->GetBodyColor();
+    const QColor initial_color =
+        QColor(current_color_val != 0 ? current_color_val : Settings::DEFAULT_CONTROLLER_COLOR);
+
+    const QColor color = QColorDialog::getColor(initial_color, this, tr("Choose Controller Color"));
+
+    if (color.isValid()) {
+        emulated_controller->SetBodyColor(color.rgb());
+        // The update call must be on the UI widget, not the controller object.
+        ui->controllerFrame->ControllerUpdate(Core::HID::ControllerTriggerType::Color);
+    }
+}
+
+void ConfigureInputPlayer::OnButtonToggleGyro() {
+    bool current_visibility = emulated_controller->IsGyroOverlayVisible();
+    emulated_controller->SetGyroOverlayVisible(!current_visibility);
+    // We can just re-draw everything to apply the change
+    ui->controllerFrame->ControllerUpdate(Core::HID::ControllerTriggerType::All);
 }
