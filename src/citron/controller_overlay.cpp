@@ -70,6 +70,7 @@ void ControllerOverlay::UpdateControllerState() {
     Core::HID::EmulatedController* controller = GetPlayer1Controller(system);
     if (controller_widget && controller) {
         controller_widget->SetController(controller);
+        controller_widget->gyro_visible = controller->IsGyroOverlayVisible();
         controller_widget->UpdateInput();
     }
 }
