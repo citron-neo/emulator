@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: Copyright 2021 yuzu Emulator Project
+// SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <algorithm>
@@ -96,6 +97,9 @@ void EmulatedController::ReloadFromSettings() {
     for (std::size_t index = 0; index < player.motions.size(); ++index) {
         motion_params[index] = Common::ParamPackage(player.motions[index]);
     }
+
+    controller.body_color = player.body_color;
+    controller.gyro_overlay_visible = player.gyro_overlay_visible;
 
     controller.color_values = {};
     ReloadColorsFromSettings();
@@ -637,6 +641,8 @@ void EmulatedController::SaveCurrentConfig() {
     auto& player = Settings::values.players.GetValue()[player_index];
     player.connected = is_connected;
     player.controller_type = MapNPadToSettingsType(npad_type);
+    player.body_color = controller.body_color;
+    player.gyro_overlay_visible = controller.gyro_overlay_visible;
     for (std::size_t index = 0; index < player.buttons.size(); ++index) {
         player.buttons[index] = button_params[index].Serialize();
     }
@@ -728,6 +734,26 @@ Common::ParamPackage EmulatedController::GetMotionParam(std::size_t index) const
         return {};
     }
     return motion_params[index];
+}
+
+u32 EmulatedController::GetBodyColor() const {
+    std::scoped_lock lock{mutex};
+    return controller.body_color;
+}
+
+void EmulatedController::SetBodyColor(u32 color) {
+    std::scoped_lock lock{mutex};
+    controller.body_color = color;
+}
+
+bool EmulatedController::IsGyroOverlayVisible() const {
+    std::scoped_lock lock{mutex};
+    return controller.gyro_overlay_visible;
+}
+
+void EmulatedController::SetGyroOverlayVisible(bool visible) {
+    std::scoped_lock lock{mutex};
+    controller.gyro_overlay_visible = visible;
 }
 
 void EmulatedController::SetButtonParam(std::size_t index, Common::ParamPackage param) {
