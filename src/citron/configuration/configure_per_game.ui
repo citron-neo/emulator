@@ -21,42 +21,42 @@
   </property>
   <property name="templateStyleSheet" stdset="0">
    <string>QDialog {
-    background-color: #2b2b2b;
-    color: #ffffff;
+    background-color: %%BACKGROUND_COLOR%%;
+    color: %%TEXT_COLOR%%;
     }
 
     QWidget {
-    background-color: #2b2b2b;
-    color: #ffffff;
+    background-color: %%BACKGROUND_COLOR%%;
+    color: %%TEXT_COLOR%%;
     }
 
     QStackedWidget {
-    background-color: #2b2b2b;
-    border: 1px solid #3d3d3d;
+    background-color: %%BACKGROUND_COLOR%%;
+    border: 1px solid %%SECONDARY_BG_COLOR%%;
     border-radius: 8px;
     margin: 0px;
     padding: 0px;
     }
 
     QScrollArea {
-    background-color: #2b2b2b;
+    background-color: %%BACKGROUND_COLOR%%;
     border: none;
     border-radius: 8px;
     }
 
     QScrollArea > QWidget > QWidget {
-    background-color: #2b2b2b;
+    background-color: %%BACKGROUND_COLOR%%;
     }
 
     QScrollBar:vertical {
-    background-color: #3d3d3d;
+    background-color: %%SECONDARY_BG_COLOR%%;
     width: 14px;
     border-radius: 7px;
     margin: 2px;
     }
 
     QScrollBar::handle:vertical {
-    background-color: #5d5d5d;
+    background-color: %%TERTIARY_BG_COLOR%%;
     border-radius: 6px;
     min-height: 30px;
     margin: 1px;
@@ -73,14 +73,14 @@
     }
 
     QScrollBar:horizontal {
-    background-color: #3d3d3d;
+    background-color: %%SECONDARY_BG_COLOR%%;
     height: 14px;
     border-radius: 7px;
     margin: 2px;
     }
 
     QScrollBar::handle:horizontal {
-    background-color: #5d5d5d;
+    background-color: %%TERTIARY_BG_COLOR%%;
     border-radius: 6px;
     min-width: 30px;
     margin: 1px;
@@ -97,8 +97,8 @@
     }
 
     QPushButton#tabButton {
-        background-color: #383838;
-        color: #ffffff;
+        background-color: %%BUTTON_BG_COLOR%%;
+        color: %%TEXT_COLOR%%;
         padding: 8px 18px;
         margin-right: 2px;
         border-top-left-radius: 8px;
@@ -107,7 +107,7 @@
         min-width: 100px;
         font-weight: bold;
         font-size: 10pt;
-        border: 1px solid #3d3d3d;
+        border: 1px solid %%SECONDARY_BG_COLOR%%;
     }
 
     QPushButton#tabButton:checked {
@@ -118,8 +118,8 @@
     }
 
     QPushButton#tabButton:hover:!checked {
-        background-color: #4d4d4d;
-        border-color: #5d5d5d;
+        background-color: %%HOVER_BG_COLOR%%;
+        border-color: %%TERTIARY_BG_COLOR%%;
     }
 
     QPushButton#tabButton:pressed {
@@ -128,24 +128,24 @@
 
     QGroupBox {
     font-weight: bold;
-    border: 1px solid #3d3d3d;
+    border: 1px solid %%SECONDARY_BG_COLOR%%;
     border-radius: 8px;
     margin-top: 12px;
     padding-top: 12px;
-    background-color: #2b2b2b;
-    color: #ffffff;
+    background-color: %%BACKGROUND_COLOR%%;
+    color: %%TEXT_COLOR%%;
     }
 
     QGroupBox::title {
     subcontrol-origin: margin;
     left: 12px;
     padding: 0 8px 0 8px;
-    color: #ffffff;
+    color: %%TEXT_COLOR%%;
     font-weight: bold;
     }
 
     QCheckBox {
-    color: #ffffff;
+    color: %%TEXT_COLOR%%;
     spacing: 10px;
     padding: 4px;
     background-color: transparent;
@@ -154,9 +154,9 @@
     QCheckBox::indicator {
     width: 18px;
     height: 18px;
-    border: 2px solid #5d5d5d;
+    border: 2px solid %%TERTIARY_BG_COLOR%%;
     border-radius: 4px;
-    background-color: #3d3d3d;
+    background-color: %%SECONDARY_BG_COLOR%%;
     }
 
     QCheckBox::indicator:checked {
@@ -169,11 +169,11 @@
     }
 
     QComboBox {
-    background-color: #3d3d3d;
-    border: 1px solid #5d5d5d;
+    background-color: %%SECONDARY_BG_COLOR%%;
+    border: 1px solid %%TERTIARY_BG_COLOR%%;
     border-radius: 6px;
     padding: 8px 12px;
-    color: #ffffff;
+    color: %%TEXT_COLOR%%;
     min-width: 120px;
     min-height: 28px;
     selection-background-color: %%ACCENT_COLOR%%;
@@ -181,12 +181,12 @@
 
     QComboBox:hover {
     border-color: %%ACCENT_COLOR%%;
-    background-color: #404040;
+    background-color: %%HOVER_BG_COLOR%%;
     }
 
     QComboBox:focus {
     border-color: %%ACCENT_COLOR%%;
-    background-color: #404040;
+    background-color: %%FOCUS_BG_COLOR%%;
     }
 
     QComboBox::drop-down {
@@ -198,10 +198,10 @@
     }
 
     QComboBox QAbstractItemView {
-    background-color: #3d3d3d;
+    background-color: %%SECONDARY_BG_COLOR%%;
     border: 1px solid %%ACCENT_COLOR%%;
     selection-background-color: %%ACCENT_COLOR%%;
-    color: #ffffff;
+    color: %%TEXT_COLOR%%;
     outline: none;
     }
 
@@ -222,18 +222,18 @@
     }
 
     QLineEdit {
-    background-color: #3d3d3d;
-    border: 1px solid #5d5d5d;
+    background-color: %%SECONDARY_BG_COLOR%%;
+    border: 1px solid %%TERTIARY_BG_COLOR%%;
     border-radius: 6px;
     padding: 8px 12px;
-    color: #ffffff;
+    color: %%TEXT_COLOR%%;
     min-height: 20px;
     selection-background-color: %%ACCENT_COLOR%%;
     }
 
     QLineEdit:focus {
     border-color: %%ACCENT_COLOR%%;
-    background-color: #404040;
+    background-color: %%FOCUS_BG_COLOR%%;
     }
 
     QPushButton {
@@ -255,8 +255,8 @@
     }
 
     QPushButton:disabled {
-    background-color: #5d5d5d;
-    color: #8d8d8d;
+    background-color: %%TERTIARY_BG_COLOR%%;
+    color: %%DISABLED_TEXT_COLOR%%;
     }
 
     QToolButton {
@@ -279,16 +279,16 @@
     }
 
     QLabel {
-    color: #ffffff;
+    color: %%TEXT_COLOR%%;
     background-color: transparent;
     padding: 2px;
     }
 
     QListWidget {
-    background-color: #3d3d3d;
-    border: 1px solid #5d5d5d;
+    background-color: %%SECONDARY_BG_COLOR%%;
+    border: 1px solid %%TERTIARY_BG_COLOR%%;
     border-radius: 6px;
-    color: #ffffff;
+    color: %%TEXT_COLOR%%;
     padding: 4px;
     }
 
@@ -304,14 +304,14 @@
     }
 
     QListWidget::item:hover:!selected {
-    background-color: #4d4d4d;
+    background-color: %%HOVER_BG_COLOR%%;
     }
 
     QSlider::groove:horizontal {
         height: 8px;
-        background: #3d3d3d;
+        background: %%SECONDARY_BG_COLOR%%;
         border-radius: 4px;
-        border: 1px solid #5d5d5d;
+        border: 1px solid %%TERTIARY_BG_COLOR%%;
     }
 
     QSlider::sub-page:horizontal {
@@ -320,7 +320,7 @@
     }
 
     QSlider::add-page:horizontal {
-        background: #3d3d3d;
+        background: %%SECONDARY_BG_COLOR%%;
         border-radius: 4px;
     }
 
@@ -337,21 +337,21 @@
     }
 
     QSpinBox, QDoubleSpinBox {
-    background-color: #3d3d3d;
-    border: 1px solid #5d5d5d;
+    background-color: %%SECONDARY_BG_COLOR%%;
+    border: 1px solid %%TERTIARY_BG_COLOR%%;
     border-radius: 6px;
     padding: 6px;
-    color: #ffffff;
+    color: %%TEXT_COLOR%%;
     min-height: 20px;
     }
 
     QSpinBox:focus, QDoubleSpinBox:focus {
     border-color: %%ACCENT_COLOR%%;
-    background-color: #404040;
+    background-color: %%FOCUS_BG_COLOR%%;
     }
 
     QRadioButton {
-    color: #ffffff;
+    color: %%TEXT_COLOR%%;
     spacing: 8px;
     padding: 4px;
     }
@@ -359,9 +359,9 @@
     QRadioButton::indicator {
     width: 16px;
     height: 16px;
-    border: 2px solid #5d5d5d;
+    border: 2px solid %%TERTIARY_BG_COLOR%%;
     border-radius: 8px;
-    background-color: #3d3d3d;
+    background-color: %%SECONDARY_BG_COLOR%%;
     }
 
     QRadioButton::indicator:checked {
