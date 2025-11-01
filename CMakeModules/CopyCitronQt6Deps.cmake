@@ -13,10 +13,12 @@ function(copy_citron_Qt6_deps target_dir)
     set(Qt6_PLATFORMS_DIR "${Qt6_DIR}/../../../plugins/platforms/")
     set(Qt6_STYLES_DIR "${Qt6_DIR}/../../../plugins/styles/")
     set(Qt6_IMAGEFORMATS_DIR "${Qt6_DIR}/../../../plugins/imageformats/")
+    set(Qt6_TLS_DIR "${Qt6_DIR}/../../../plugins/tls/")
     set(Qt6_RESOURCES_DIR "${Qt6_DIR}/../../../resources/")
     set(PLATFORMS ${DLL_DEST}plugins/platforms/)
     set(STYLES ${DLL_DEST}plugins/styles/)
     set(IMAGEFORMATS ${DLL_DEST}plugins/imageformats/)
+    set(TLS ${DLL_DEST}tls/)
 
     if (MSVC)
         windows_copy_files(${target_dir} ${Qt6_DLL_DIR} ${DLL_DEST}
@@ -49,6 +51,11 @@ function(copy_citron_Qt6_deps target_dir)
         windows_copy_files(citron ${Qt6_IMAGEFORMATS_DIR} ${IMAGEFORMATS}
             qjpeg$<$<CONFIG:Debug>:d>.*
             qgif$<$<CONFIG:Debug>:d>.*
+        )
+        # Copy TLS plugins for SSL/HTTPS support (required for auto updater)
+        windows_copy_files(citron ${Qt6_TLS_DIR} ${TLS}
+            qschannelbackend$<$<CONFIG:Debug>:d>.*
+            qopensslbackend$<$<CONFIG:Debug>:d>.*
         )
     else()
         # Update for non-MSVC platforms if needed

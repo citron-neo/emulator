@@ -512,38 +512,6 @@ if (WIN32 AND QT_VERSION VERSION_GREATER_EQUAL 6)
         COMMAND ${CMAKE_COMMAND} -E make_directory "${CITRON_EXE_DIR}/user"
         COMMENT "Creating portable user directory"
     )
-
-    # Copy Qt TLS plugins for SSL/TLS support (required for auto updater and HTTPS)
-    # Qt 6 uses a plugin architecture for TLS backends
-    if (CITRON_USE_AUTO_UPDATER OR ENABLE_OPENSSL)
-        set(Qt6_TLS_PLUGINS_DIR "${Qt6_DIR}/../../../plugins/tls")
-
-        # Create tls directory
-        add_custom_command(TARGET citron POST_BUILD
-            COMMAND ${CMAKE_COMMAND} -E make_directory "${CITRON_EXE_DIR}/tls"
-            COMMENT "Creating TLS plugin directory for SSL support"
-        )
-
-        # Copy Windows native Schannel backend (no external dependencies)
-        if (EXISTS "${Qt6_TLS_PLUGINS_DIR}/qschannelbackend.dll")
-            add_custom_command(TARGET citron POST_BUILD
-                COMMAND ${CMAKE_COMMAND} -E copy_if_different
-                    "${Qt6_TLS_PLUGINS_DIR}/qschannelbackend.dll"
-                    "${CITRON_EXE_DIR}/tls/qschannelbackend.dll"
-                COMMENT "Copying Qt Schannel TLS plugin (Windows native SSL)"
-            )
-        endif()
-
-        # Copy OpenSSL backend as fallback (requires OpenSSL DLLs)
-        if (EXISTS "${Qt6_TLS_PLUGINS_DIR}/qopensslbackend.dll")
-            add_custom_command(TARGET citron POST_BUILD
-                COMMAND ${CMAKE_COMMAND} -E copy_if_different
-                    "${Qt6_TLS_PLUGINS_DIR}/qopensslbackend.dll"
-                    "${CITRON_EXE_DIR}/tls/qopensslbackend.dll"
-                COMMENT "Copying Qt OpenSSL TLS plugin (fallback)"
-            )
-        endif()
-    endif()
 endif()
 
 if (CITRON_USE_BUNDLED_QT)
