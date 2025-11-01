@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: Copyright 2023 yuzu Emulator Project
+// SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "common/scope_exit.h"
@@ -1274,7 +1275,7 @@ Result KPageTableBase::UnmapCodeMemory(KProcessAddress dst_address, KProcessAddr
 
     // Verify that the destination memory is aliasable code.
     size_t num_dst_allocator_blocks;
-    R_TRY(this->CheckMemoryStateContiguous(
+    R_TRY(this->CheckMemoryState(
         std::addressof(num_dst_allocator_blocks), dst_address, size, KMemoryState::FlagCanCodeAlias,
         KMemoryState::FlagCanCodeAlias, KMemoryPermission::None, KMemoryPermission::None,
         KMemoryAttribute::All & ~KMemoryAttribute::PermissionLocked, KMemoryAttribute::None));
