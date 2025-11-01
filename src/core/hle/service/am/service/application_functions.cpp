@@ -362,8 +362,17 @@ Result IApplicationFunctions::NotifyRunning(Out<bool> out_became_running) {
 }
 
 Result IApplicationFunctions::GetPseudoDeviceId(Out<Common::UUID> out_pseudo_device_id) {
-    LOG_WARNING(Service_AM, "(STUBBED) called");
-    *out_pseudo_device_id = {};
+    LOG_DEBUG(Service_AM, "called");
+
+    // Generate a persistent pseudo device ID for online play and telemetry
+    // Based on hardware/system info for consistency across sessions
+    // Using MakeRandomWithSeed to ensure deterministic generation
+    const u32 device_seed = static_cast<u32>(system.GetApplicationProcessProgramID());
+    *out_pseudo_device_id = Common::UUID::MakeRandomWithSeed(device_seed);
+
+    LOG_DEBUG(Service_AM, "Generated PseudoDeviceId: {}",
+              out_pseudo_device_id->FormattedString());
+
     R_SUCCEED();
 }
 

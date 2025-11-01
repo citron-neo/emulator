@@ -26,9 +26,10 @@ namespace {
 namespace Service::NIFM {
 
 // This is nn::nifm::RequestState
+// Reference: https://switchbrew.org/wiki/Network_Interface_services#RequestState
 enum class RequestState : u32 {
-    NotSubmitted = 1,
-    Invalid = 1, ///< The duplicate 1 is intentional; it means both not submitted and error on HW.
+    Invalid = 0,
+    Free = 1, ///< NotSubmitted/Free state
     OnHold = 2,
     Accepted = 3,
     Blocking = 4,
@@ -54,6 +55,17 @@ enum class NetworkProfileType : u32 {
     User,
     SsidList,
     Temporary,
+};
+
+// This is nn::nifm::ConnectionConfirmationOption
+// Reference: https://switchbrew.org/wiki/Network_Interface_services#ConnectionConfirmationOption
+enum class ConnectionConfirmationOption : u32 {
+    Invalid = 0,
+    Prohibited = 1,
+    NotRequired = 2,
+    Preferred = 3,
+    Required = 4,
+    Forced = 5,
 };
 
 // This is nn::nifm::IpAddressSetting
@@ -258,7 +270,7 @@ public:
 
         event1 = CreateKEvent(service_context, "IRequest:Event1");
         event2 = CreateKEvent(service_context, "IRequest:Event2");
-        state = RequestState::NotSubmitted;
+        state = RequestState::Free;
     }
 
     ~IRequest() override {
@@ -270,7 +282,7 @@ private:
     void Submit(HLERequestContext& ctx) {
         LOG_DEBUG(Service_NIFM, "(STUBBED) called");
 
-        if (state == RequestState::NotSubmitted) {
+        if (state == RequestState::Free) {
             UpdateState(RequestState::OnHold);
         }
 
@@ -302,7 +314,7 @@ private:
         const auto result = [this] {
             const auto has_connection = Network::GetHostIPv4Address().has_value();
             switch (state) {
-            case RequestState::NotSubmitted:
+            case RequestState::Free:
                 return has_connection ? ResultSuccess : ResultNetworkCommunicationDisabled;
             case RequestState::OnHold:
                 if (has_connection) {
@@ -322,7 +334,7 @@ private:
     }
 
     void GetSystemEventReadableHandles(HLERequestContext& ctx) {
-        LOG_WARNING(Service_NIFM, "(STUBBED) called");
+        LOG_DEBUG(Service_NIFM, "called");
 
         IPC::ResponseBuilder rb{ctx, 2, 2};
         rb.Push(ResultSuccess);
@@ -337,7 +349,10 @@ private:
     }
 
     void SetConnectionConfirmationOption(HLERequestContext& ctx) {
-        LOG_WARNING(Service_NIFM, "(STUBBED) called");
+        IPC::RequestParser rp{ctx};
+        const auto connection_option = rp.PopEnum<ConnectionConfirmationOption>();
+
+        LOG_INFO(Service_NIFM, "called, connection_option={}", static_cast<u32>(connection_option));
 
         IPC::ResponseBuilder rb{ctx, 2};
         rb.Push(ResultSuccess);
@@ -633,7 +648,7 @@ void IGeneralService::CreateTemporaryNetworkProfile(HLERequestContext& ctx) {
 }
 
 void IGeneralService::GetCurrentIpConfigInfo(HLERequestContext& ctx) {
-    LOG_WARNING(Service_NIFM, "(STUBBED) called");
+    LOG_DEBUG(Service_NIFM, "called");
 
     struct IpConfigInfo {
         IpAddressSetting ip_address_setting{};
@@ -814,6 +829,104 @@ void IGeneralService::SetWowlTcpKeepAliveTimeout(HLERequestContext& ctx) {
     rb.Push(ResultSuccess);
 }
 
+void IGeneralService::IsWiredConnectionAvailable(HLERequestContext& ctx) {
+    LOG_WARNING(Service_NIFM, "(STUBBED) called IsWiredConnectionAvailable [18.0.0+]");
+
+    IPC::ResponseBuilder rb{ctx, 3};
+    rb.Push(ResultSuccess);
+    rb.Push<u8>(1); // Wired connection available
+}
+
+void IGeneralService::IsNetworkEmulationFeatureEnabled(HLERequestContext& ctx) {
+    LOG_WARNING(Service_NIFM, "(STUBBED) called IsNetworkEmulationFeatureEnabled [18.0.0+]");
+
+    IPC::ResponseBuilder rb{ctx, 3};
+    rb.Push(ResultSuccess);
+    rb.Push<u8>(0); // Network emulation disabled
+}
+
+void IGeneralService::SelectActiveNetworkEmulationProfileIdForDebug(HLERequestContext& ctx) {
+    LOG_WARNING(Service_NIFM, "(STUBBED) called SelectActiveNetworkEmulationProfileIdForDebug [18.0.0+]");
+
+    IPC::ResponseBuilder rb{ctx, 2};
+    rb.Push(ResultSuccess);
+}
+
+void IGeneralService::GetScanData2(HLERequestContext& ctx) {
+    LOG_WARNING(Service_NIFM, "(STUBBED) called GetScanData [19.0.0+]");
+
+    IPC::ResponseBuilder rb{ctx, 3};
+    rb.Push(ResultSuccess);
+    rb.Push<u32>(0); // No scan data
+}
+
+void IGeneralService::ResetActiveNetworkEmulationProfileId(HLERequestContext& ctx) {
+    LOG_WARNING(Service_NIFM, "(STUBBED) called ResetActiveNetworkEmulationProfileId [20.0.0+]");
+
+    IPC::ResponseBuilder rb{ctx, 2};
+    rb.Push(ResultSuccess);
+}
+
+void IGeneralService::GetActiveNetworkEmulationProfileId(HLERequestContext& ctx) {
+    LOG_WARNING(Service_NIFM, "(STUBBED) called GetActiveNetworkEmulationProfileId [18.0.0+]");
+
+    IPC::ResponseBuilder rb{ctx, 3};
+    rb.Push(ResultSuccess);
+    rb.Push<u32>(0); // No active profile
+}
+
+void IGeneralService::IsRewriteFeatureEnabled(HLERequestContext& ctx) {
+    LOG_WARNING(Service_NIFM, "(STUBBED) called IsRewriteFeatureEnabled [18.0.0+]");
+
+    IPC::ResponseBuilder rb{ctx, 3};
+    rb.Push(ResultSuccess);
+    rb.Push<u8>(0); // Rewrite feature disabled
+}
+
+void IGeneralService::CreateRewriteRule(HLERequestContext& ctx) {
+    LOG_WARNING(Service_NIFM, "(STUBBED) called CreateRewriteRule [18.0.0+]");
+
+    IPC::ResponseBuilder rb{ctx, 2};
+    rb.Push(ResultSuccess);
+}
+
+void IGeneralService::DestroyRewriteRule(HLERequestContext& ctx) {
+    LOG_WARNING(Service_NIFM, "(STUBBED) called DestroyRewriteRule [18.0.0+]");
+
+    IPC::ResponseBuilder rb{ctx, 2};
+    rb.Push(ResultSuccess);
+}
+
+void IGeneralService::IsActiveNetworkEmulationProfileIdSelected(HLERequestContext& ctx) {
+    LOG_WARNING(Service_NIFM, "(STUBBED) called IsActiveNetworkEmulationProfileIdSelected [20.0.0+]");
+
+    IPC::ResponseBuilder rb{ctx, 3};
+    rb.Push(ResultSuccess);
+    rb.Push<u8>(0); // No profile selected
+}
+
+void IGeneralService::SelectDefaultNetworkEmulationProfileId(HLERequestContext& ctx) {
+    LOG_WARNING(Service_NIFM, "(STUBBED) called SelectDefaultNetworkEmulationProfileId [20.0.0+]");
+
+    IPC::ResponseBuilder rb{ctx, 2};
+    rb.Push(ResultSuccess);
+}
+
+void IGeneralService::GetDefaultNetworkEmulationProfileId(HLERequestContext& ctx) {
+    LOG_WARNING(Service_NIFM, "(STUBBED) called GetDefaultNetworkEmulationProfileId [20.0.0+]");
+
+    IPC::ResponseBuilder rb{ctx, 3};
+    rb.Push(ResultSuccess);
+    rb.Push<u32>(0); // Default profile ID
+}
+
+void IGeneralService::GetNetworkEmulationProfile(HLERequestContext& ctx) {
+    LOG_WARNING(Service_NIFM, "(STUBBED) called GetNetworkEmulationProfile [20.0.0+]");
+
+    IPC::ResponseBuilder rb{ctx, 2};
+    rb.Push(ResultSuccess);
+}
+
 IGeneralService::IGeneralService(Core::System& system_)
     : ServiceFramework{system_, "IGeneralService"}, network{system_.GetRoomNetwork()} {
     // clang-format off
@@ -860,6 +973,19 @@ IGeneralService::IGeneralService(Core::System& system_)
         {41, &IGeneralService::GetAcceptableNetworkTypeFlag, "GetAcceptableNetworkTypeFlag"},
         {42, &IGeneralService::NotifyConnectionStateChanged, "NotifyConnectionStateChanged"},
         {43, &IGeneralService::SetWowlDelayedWakeTime, "SetWowlDelayedWakeTime"},
+        {44, &IGeneralService::IsWiredConnectionAvailable, "IsWiredConnectionAvailable"},
+        {45, &IGeneralService::IsNetworkEmulationFeatureEnabled, "IsNetworkEmulationFeatureEnabled"},
+        {46, &IGeneralService::SelectActiveNetworkEmulationProfileIdForDebug, "SelectActiveNetworkEmulationProfileIdForDebug"},
+        {47, &IGeneralService::GetScanData2, "GetScanData"},
+        {48, &IGeneralService::ResetActiveNetworkEmulationProfileId, "ResetActiveNetworkEmulationProfileId"},
+        {49, &IGeneralService::GetActiveNetworkEmulationProfileId, "GetActiveNetworkEmulationProfileId"},
+        {50, &IGeneralService::IsRewriteFeatureEnabled, "IsRewriteFeatureEnabled"},
+        {51, &IGeneralService::CreateRewriteRule, "CreateRewriteRule"},
+        {52, &IGeneralService::DestroyRewriteRule, "DestroyRewriteRule"},
+        {53, &IGeneralService::IsActiveNetworkEmulationProfileIdSelected, "IsActiveNetworkEmulationProfileIdSelected"},
+        {54, &IGeneralService::SelectDefaultNetworkEmulationProfileId, "SelectDefaultNetworkEmulationProfileId"},
+        {55, &IGeneralService::GetDefaultNetworkEmulationProfileId, "GetDefaultNetworkEmulationProfileId"},
+        {56, &IGeneralService::GetNetworkEmulationProfile, "GetNetworkEmulationProfile"},
         {57, &IGeneralService::SetWowlTcpKeepAliveTimeout, "SetWowlTcpKeepAliveTimeout"},
     };
     // clang-format on

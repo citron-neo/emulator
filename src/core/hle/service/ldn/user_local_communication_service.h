@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: Copyright 2024 yuzu Emulator Project
+// SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #pragma once
@@ -63,11 +64,15 @@ private:
 
     Result DestroyNetwork();
 
+    Result Reject(Ipv4Address ip_address, u16 port);
+
     Result SetAdvertiseData(InBuffer<BufferAttr_HipcAutoSelect> buffer_data);
 
     Result SetStationAcceptPolicy(AcceptPolicy accept_policy);
 
     Result AddAcceptFilterEntry(MacAddress mac_address);
+
+    Result ClearAcceptFilter();
 
     Result OpenStation();
 
@@ -75,6 +80,9 @@ private:
 
     Result Connect(const ConnectNetworkData& connect_data,
                    InLargeData<NetworkInfo, BufferAttr_HipcPointer> network_info);
+
+    Result ConnectPrivate(const ConnectNetworkData& connect_data,
+                          InLargeData<NetworkInfo, BufferAttr_HipcPointer> network_info);
 
     Result Disconnect();
 
