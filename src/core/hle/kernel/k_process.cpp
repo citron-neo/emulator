@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: Copyright 2023 yuzu Emulator Project
+// SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <random>
@@ -24,6 +25,12 @@
 namespace Kernel {
 
 namespace {
+
+// Code offset for 32-bit processes to ensure compatibility with Skyline modding framework.
+// Skyline assumes memory exists before the entry point. This matches the approach used for
+// 39-bit processes (which load at 0x8000'0000 instead of 0x800'0000 for the same reason).
+// This can only be removed if Skyline is updated to not depend on pre-entry-point memory.
+constexpr u64 CodeStartOffset = 0x500000UL;
 
 Result TerminateChildren(KernelCore& kernel, KProcess* process,
                          const KThread* thread_to_not_terminate) {
@@ -1195,11 +1202,11 @@ Result KProcess::LoadFromMetadata(const FileSys::ProgramMetadata& metadata, std:
         break;
     case FileSys::ProgramAddressSpaceType::Is32Bit:
         flag |= Svc::CreateProcessFlag::AddressSpace32Bit;
-        code_address = 0x20'0000;
+        code_address = 0x20'0000 + CodeStartOffset;
         break;
     case FileSys::ProgramAddressSpaceType::Is32BitNoMap:
         flag |= Svc::CreateProcessFlag::AddressSpace32BitWithoutAlias;
-        code_address = 0x20'0000;
+        code_address = 0x20'0000 + CodeStartOffset;
         break;
     }
 
