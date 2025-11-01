@@ -1,9 +1,10 @@
 // SPDX-FileCopyrightText: Copyright 2020 yuzu Emulator Project
+// SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project
 // SPDX-FileCopyrightText: Ryujinx Team and Contributors
 // SPDX-License-Identifier: GPL-2.0-or-later AND MIT
 
-// This files contains code from Ryujinx
-// A copy of the code can be obtained from https://github.com/Ryujinx/Ryujinx
+// This file contains code from Ryujinx
+// A copy of the code can be obtained from https://git.ryujinx.app/ryubing/ryujinx
 // The sections using code from Ryujinx are marked with a link to the original version
 
 #include <algorithm>
@@ -245,16 +246,23 @@ template <u32 GOB_EXTENT>
 }
 
 [[nodiscard]] constexpr LevelArray CalculateLevelSizes(const LevelInfo& info, u32 num_levels) {
-    ASSERT(num_levels <= MAX_MIP_LEVELS);
+    ASSERT_MSG(num_levels <= MAX_MIP_LEVELS,
+               "Requested {} mip levels exceeds maximum of {}. Clamping to prevent crash. "
+               "This may occur with certain mods like CTGP-DX.",
+               num_levels, MAX_MIP_LEVELS);
+    // Clamp to MAX_MIP_LEVELS to prevent out-of-bounds access
+    const u32 clamped_levels = std::min(num_levels, static_cast<u32>(MAX_MIP_LEVELS));
     LevelArray sizes{};
-    for (u32 level = 0; level < num_levels; ++level) {
+    for (u32 level = 0; level < clamped_levels; ++level) {
         sizes[level] = CalculateLevelSize(info, level);
     }
     return sizes;
 }
 
 [[nodiscard]] u32 CalculateLevelBytes(const LevelArray& sizes, u32 num_levels) {
-    return std::reduce(sizes.begin(), sizes.begin() + num_levels, 0U);
+    // Clamp to prevent out-of-bounds access (CTGP-DX compatibility)
+    const u32 clamped_levels = std::min(num_levels, static_cast<u32>(MAX_MIP_LEVELS));
+    return std::reduce(sizes.begin(), sizes.begin() + clamped_levels, 0U);
 }
 
 [[nodiscard]] constexpr LevelInfo MakeLevelInfo(PixelFormat format, Extent3D size, Extent3D block,
@@ -637,11 +645,16 @@ LevelArray CalculateMipLevelOffsets(const ImageInfo& info) noexcept {
     if (info.type == ImageType::Linear) {
         return {};
     }
-    ASSERT(info.resources.levels <= static_cast<s32>(MAX_MIP_LEVELS));
+    ASSERT_MSG(info.resources.levels <= static_cast<s32>(MAX_MIP_LEVELS),
+               "Image has {} mip levels, exceeds maximum of {}. Clamping to prevent crash. "
+               "This may occur with certain mods like CTGP-DX.",
+               info.resources.levels, MAX_MIP_LEVELS);
+    // Clamp to MAX_MIP_LEVELS to prevent out-of-bounds access
+    const s32 clamped_levels = std::min(info.resources.levels, static_cast<s32>(MAX_MIP_LEVELS));
     const LevelInfo level_info = MakeLevelInfo(info);
     LevelArray offsets{};
     u32 offset = 0;
-    for (s32 level = 0; level < info.resources.levels; ++level) {
+    for (s32 level = 0; level < clamped_levels; ++level) {
         offsets[level] = offset;
         offset += CalculateLevelSize(level_info, level);
     }
@@ -650,9 +663,11 @@ LevelArray CalculateMipLevelOffsets(const ImageInfo& info) noexcept {
 
 LevelArray CalculateMipLevelSizes(const ImageInfo& info) noexcept {
     const u32 num_levels = info.resources.levels;
+    // Clamp to MAX_MIP_LEVELS to prevent out-of-bounds access (CTGP-DX compatibility)
+    const u32 clamped_levels = std::min(num_levels, static_cast<u32>(MAX_MIP_LEVELS));
     const LevelInfo level_info = MakeLevelInfo(info);
     LevelArray sizes{};
-    for (u32 level = 0; level < num_levels; ++level) {
+    for (u32 level = 0; level < clamped_levels; ++level) {
         sizes[level] = CalculateLevelSize(level_info, level);
     }
     return sizes;
