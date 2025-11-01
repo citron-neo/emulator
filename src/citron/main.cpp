@@ -357,6 +357,9 @@ GMainWindow::GMainWindow(std::unique_ptr<QtConfig> config_, bool has_broken_vulk
     ui->setupUi(this);
     statusBar()->hide();
 
+    // Controller Overlay toggle
+    ui->actionControllerOverlay->setCheckable(true);
+
     // Check dark mode before a theme is loaded
     os_dark_mode = CheckDarkMode();
     startup_icon_theme = QIcon::themeName();
@@ -1388,6 +1391,7 @@ void GMainWindow::InitializeHotkeys() {
     LinkActionShortcut(ui->action_Show_Status_Bar, QStringLiteral("Toggle Status Bar"));
     LinkActionShortcut(ui->action_Show_Performance_Overlay, QStringLiteral("Toggle Performance Overlay"));
     LinkActionShortcut(ui->action_Show_Vram_Overlay, QStringLiteral("Toggle VRAM Overlay"));
+    LinkActionShortcut(ui->actionControllerOverlay, QStringLiteral("Toggle Controller Overlay"));
     LinkActionShortcut(ui->action_Show_Multiplayer_Room_Overlay, QStringLiteral("Toggle Multiplayer Room Overlay"));
     LinkActionShortcut(ui->action_Fullscreen, QStringLiteral("Fullscreen"));
     LinkActionShortcut(ui->action_Capture_Screenshot, QStringLiteral("Capture Screenshot"));
@@ -6069,6 +6073,7 @@ int main(int argc, char* argv[]) {
 #endif
 
     #ifdef CITRON_USE_AUTO_UPDATER
+    // Check for and apply staged updates before starting the main application
     std::filesystem::path app_dir = std::filesystem::path(QCoreApplication::applicationDirPath().toStdString());
 
 #ifdef _WIN32

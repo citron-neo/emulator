@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: 2014 Citra Emulator Project
+// SPDX-FileCopyrightText: 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #pragma once
@@ -88,9 +89,9 @@ public:
      *          will be the same. Thus, you shouldn't rely on the caller really being the
      *          QShortcut's parent.
      */
-    QShortcut* GetHotkey(const std::string& group, const std::string& action, QWidget* widget);
+    QShortcut* GetHotkey(const std::string& group, const std::string& action, QWidget* widget) const;
     ControllerShortcut* GetControllerHotkey(const std::string& group, const std::string& action,
-                                            Core::HID::EmulatedController* controller);
+                                            Core::HID::EmulatedController* controller) const;
 
     /**
      * Returns a QKeySequence object whose signal can be connected to QAction::setShortcut.
@@ -98,7 +99,7 @@ public:
      * @param group  General group this hotkey belongs to (e.g. "Main Window", "Debugger").
      * @param action Name of the action (e.g. "Start Emulation", "Load Image").
      */
-    QKeySequence GetKeySequence(const std::string& group, const std::string& action);
+    QKeySequence GetKeySequence(const std::string& group, const std::string& action) const;
 
     /**
      * Returns a Qt::ShortcutContext object who can be connected to other
@@ -108,7 +109,7 @@ public:
      * "Debugger").
      * @param action Name of the action (e.g. "Start Emulation", "Load Image").
      */
-    Qt::ShortcutContext GetShortcutContext(const std::string& group, const std::string& action);
+    Qt::ShortcutContext GetShortcutContext(const std::string& group, const std::string& action) const;
 
 private:
     struct Hotkey {
@@ -123,5 +124,5 @@ private:
     using HotkeyMap = std::map<std::string, Hotkey>;
     using HotkeyGroupMap = std::map<std::string, HotkeyMap>;
 
-    HotkeyGroupMap hotkey_groups;
+    mutable HotkeyGroupMap hotkey_groups;
 };
