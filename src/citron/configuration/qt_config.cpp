@@ -240,24 +240,21 @@ void QtConfig::ReadPathValues() {
 void QtConfig::ReadShortcutValues() {
     BeginGroup(Settings::TranslateCategory(Settings::Category::Shortcuts));
 
-    for (const auto& [name, group, shortcut] : UISettings::default_hotkeys) {
-        BeginGroup(group);
-        BeginGroup(name);
+    UISettings::values.shortcuts.clear();
+    const int shortcuts_size = BeginArray(std::string("shortcuts"));
+    for (int i = 0; i < shortcuts_size; ++i) {
+        SetArrayIndex(i);
+        const std::string name = ReadStringSetting(std::string("name"));
+        const std::string group = ReadStringSetting(std::string("group"));
+        const std::string keyseq = ReadStringSetting(std::string("keyseq"));
+        const std::string controller_keyseq = ReadStringSetting(std::string("controller_keyseq"));
+        const int context = ReadIntegerSetting(std::string("context"), Qt::WindowShortcut);
+        const bool repeat = ReadBooleanSetting(std::string("repeat"), false);
 
-        // No longer using ReadSetting for shortcut.second as it inaccurately returns a value of 1
-        // for WidgetWithChildrenShortcut which is a value of 3. Needed to fix shortcuts the open
-        // a file dialog in windowed mode
         UISettings::values.shortcuts.push_back(
-            {name,
-             group,
-             {ReadStringSetting(std::string("KeySeq"), shortcut.keyseq),
-              ReadStringSetting(std::string("Controller_KeySeq"), shortcut.controller_keyseq),
-              shortcut.context,
-              ReadBooleanSetting(std::string("Repeat"), std::optional(shortcut.repeat))}});
-
-        EndGroup(); // name
-        EndGroup(); // group
+            {name, group, {keyseq, controller_keyseq, context, repeat}});
     }
+    EndArray();
 
     EndGroup();
 }
@@ -445,27 +442,18 @@ void QtConfig::SavePathValues() {
 void QtConfig::SaveShortcutValues() {
     BeginGroup(Settings::TranslateCategory(Settings::Category::Shortcuts));
 
-    // Lengths of UISettings::values.shortcuts & default_hotkeys are same.
-    // However, their ordering must also be the same.
-    for (std::size_t i = 0; i < UISettings::default_hotkeys.size(); i++) {
-        const auto& [name, group, shortcut] = UISettings::values.shortcuts[i];
-        const auto& default_hotkey = UISettings::default_hotkeys[i].shortcut;
-
-        BeginGroup(group);
-        BeginGroup(name);
-
-        WriteStringSetting(std::string("KeySeq"), shortcut.keyseq,
-                           std::make_optional(default_hotkey.keyseq));
-        WriteStringSetting(std::string("Controller_KeySeq"), shortcut.controller_keyseq,
-                           std::make_optional(default_hotkey.controller_keyseq));
-        WriteIntegerSetting(std::string("Context"), shortcut.context,
-                            std::make_optional(default_hotkey.context));
-        WriteBooleanSetting(std::string("Repeat"), shortcut.repeat,
-                            std::make_optional(default_hotkey.repeat));
-
-        EndGroup(); // name
-        EndGroup(); // group
+    BeginArray(std::string("shortcuts"));
+    for (std::size_t i = 0; i < UISettings::values.shortcuts.size(); ++i) {
+        SetArrayIndex(static_cast<int>(i)); // SetArrayIndex expects an int, so we cast here.
+        const auto& shortcut = UISettings::values.shortcuts[i];
+        WriteStringSetting(std::string("name"), shortcut.name);
+        WriteStringSetting(std::string("group"), shortcut.group);
+        WriteStringSetting(std::string("keyseq"), shortcut.shortcut.keyseq);
+        WriteStringSetting(std::string("controller_keyseq"), shortcut.shortcut.controller_keyseq);
+        WriteIntegerSetting(std::string("context"), shortcut.shortcut.context);
+        WriteBooleanSetting(std::string("repeat"), shortcut.shortcut.repeat);
     }
+    EndArray();
 
     EndGroup();
 }
