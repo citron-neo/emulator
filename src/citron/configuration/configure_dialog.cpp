@@ -49,6 +49,15 @@ static QScrollArea* CreateScrollArea(QWidget* widget) {
     return scroll_area;
 }
 
+// Helper function to detect if the application is using a dark theme
+static bool IsDarkMode() {
+    const QPalette palette = qApp->palette();
+    const QColor text_color = palette.color(QPalette::WindowText);
+    const QColor base_color = palette.color(QPalette::Window);
+    // A common heuristic for dark mode is that the text color is brighter than the background
+    return text_color.value() > base_color.value();
+}
+
 ConfigureDialog::ConfigureDialog(QWidget* parent, HotkeyRegistry& registry_,
                                  InputCommon::InputSubsystem* input_subsystem,
                                  std::vector<VkDeviceInfo::Record>& vk_device_records,
@@ -174,18 +183,14 @@ ConfigureDialog::~ConfigureDialog() {
 void ConfigureDialog::UpdateTheme() {
     QString accent_color_str;
     if (UISettings::values.enable_rainbow_mode.GetValue()) {
-        rainbow_hue += 0.003f; // Even slower transition for better performance
+        rainbow_hue += 0.003f;
         if (rainbow_hue > 1.0f) {
             rainbow_hue = 0.0f;
         }
-
-        // Cache the color to avoid repeated operations
         QColor accent_color = QColor::fromHsvF(rainbow_hue, 0.8f, 1.0f);
         accent_color_str = accent_color.name(QColor::HexRgb);
-
         if (!rainbow_timer->isActive()) {
-            // Optimized timer interval for better performance
-            rainbow_timer->start(150); // Increased from 100ms to 150ms
+            rainbow_timer->start(150);
         }
     } else {
         if (rainbow_timer->isActive()) {
@@ -194,24 +199,45 @@ void ConfigureDialog::UpdateTheme() {
         accent_color_str = Theme::GetAccentColor();
     }
 
-    // Cache color operations to avoid repeated calculations
     QColor accent_color(accent_color_str);
     const QString accent_color_hover = accent_color.lighter(115).name(QColor::HexRgb);
     const QString accent_color_pressed = accent_color.darker(120).name(QColor::HexRgb);
 
-    // Get template stylesheet once and cache it
+    const bool is_dark = IsDarkMode();
+    const QString bg_color = is_dark ? QStringLiteral("#2b2b2b") : QStringLiteral("#ffffff");
+    const QString text_color = is_dark ? QStringLiteral("#ffffff") : QStringLiteral("#000000");
+    const QString secondary_bg_color = is_dark ? QStringLiteral("#3d3d3d") : QStringLiteral("#f0f0f0");
+    const QString tertiary_bg_color = is_dark ? QStringLiteral("#5d5d5d") : QStringLiteral("#d3d3d3");
+    const QString button_bg_color = is_dark ? QStringLiteral("#383838") : QStringLiteral("#e1e1e1");
+    const QString hover_bg_color = is_dark ? QStringLiteral("#4d4d4d") : QStringLiteral("#e8f0fe");
+    const QString focus_bg_color = is_dark ? QStringLiteral("#404040") : QStringLiteral("#e8f0fe");
+    const QString disabled_text_color = is_dark ? QStringLiteral("#8d8d8d") : QStringLiteral("#a0a0a0");
+
     static QString cached_template_style_sheet;
     if (cached_template_style_sheet.isEmpty()) {
         cached_template_style_sheet = property("templateStyleSheet").toString();
     }
 
     QString style_sheet = cached_template_style_sheet;
+
+    // Replace accent colors (existing logic)
     style_sheet.replace(QStringLiteral("%%ACCENT_COLOR%%"), accent_color_str);
     style_sheet.replace(QStringLiteral("%%ACCENT_COLOR_HOVER%%"), accent_color_hover);
     style_sheet.replace(QStringLiteral("%%ACCENT_COLOR_PRESSED%%"), accent_color_pressed);
+
+    // Replace base theme colors (new logic)
+    style_sheet.replace(QStringLiteral("%%BACKGROUND_COLOR%%"), bg_color);
+    style_sheet.replace(QStringLiteral("%%TEXT_COLOR%%"), text_color);
+    style_sheet.replace(QStringLiteral("%%SECONDARY_BG_COLOR%%"), secondary_bg_color);
+    style_sheet.replace(QStringLiteral("%%TERTIARY_BG_COLOR%%"), tertiary_bg_color);
+    style_sheet.replace(QStringLiteral("%%BUTTON_BG_COLOR%%"), button_bg_color);
+    style_sheet.replace(QStringLiteral("%%HOVER_BG_COLOR%%"), hover_bg_color);
+    style_sheet.replace(QStringLiteral("%%FOCUS_BG_COLOR%%"), focus_bg_color);
+    style_sheet.replace(QStringLiteral("%%DISABLED_TEXT_COLOR%%"), disabled_text_color);
+
     setStyleSheet(style_sheet);
 
-    // Pass the processed stylesheet to all child tabs that need it.
+    // This part is crucial to pass the theme to child tabs
     graphics_tab->SetTemplateStyleSheet(style_sheet);
     system_tab->SetTemplateStyleSheet(style_sheet);
     audio_tab->SetTemplateStyleSheet(style_sheet);
