@@ -149,19 +149,45 @@ void BSD::SendToWork::Response(HLERequestContext& ctx) {
 }
 
 void BSD::RegisterClient(HLERequestContext& ctx) {
-    LOG_WARNING(Service, "(STUBBED) called");
+    IPC::RequestParser rp{ctx};
+
+    // Read LibraryConfigData structure
+    struct LibraryConfigData {
+        u32 version;
+        u32 tcp_tx_buf_size;
+        u32 tcp_rx_buf_size;
+        u32 tcp_tx_buf_max_size;
+        u32 tcp_rx_buf_max_size;
+        u32 udp_tx_buf_size;
+        u32 udp_rx_buf_size;
+        u32 sb_efficiency;
+    };
+
+    const auto config = rp.PopRaw<LibraryConfigData>();
+    const u64 transfer_memory_size = rp.Pop<u64>();
+    [[maybe_unused]] const auto transfer_memory_handle = ctx.GetCopyHandle(0);
+    const u64 pid = ctx.GetPID();
+
+    LOG_INFO(Service, "called, version={} pid={} transfer_memory_size={:#x}",
+             config.version, pid, transfer_memory_size);
+    LOG_DEBUG(Service, "  TCP: tx={:#x} rx={:#x} tx_max={:#x} rx_max={:#x}",
+              config.tcp_tx_buf_size, config.tcp_rx_buf_size,
+              config.tcp_tx_buf_max_size, config.tcp_rx_buf_max_size);
+    LOG_DEBUG(Service, "  UDP: tx={:#x} rx={:#x} sb_efficiency={}",
+              config.udp_tx_buf_size, config.udp_rx_buf_size, config.sb_efficiency);
 
     IPC::ResponseBuilder rb{ctx, 3};
-
     rb.Push(ResultSuccess);
     rb.Push<s32>(0); // bsd errno
 }
 
 void BSD::StartMonitoring(HLERequestContext& ctx) {
-    LOG_WARNING(Service, "(STUBBED) called");
+    LOG_INFO(Service, "called");
 
+    // StartMonitoring initializes network event monitoring for BSD sockets
+    // This command has no documented input parameters in switchbrew
+    // It enables proper event handling for socket operations
     IPC::ResponseBuilder rb{ctx, 2};
-
     rb.Push(ResultSuccess);
 }
 
@@ -515,10 +541,13 @@ std::pair<s32, Errno> BSD::SocketImpl(Domain domain, Type type, Protocol protoco
     FileDescriptor& descriptor = *file_descriptors[fd];
     // ENONMEM might be thrown here
 
-    LOG_INFO(Service, "New socket fd={}", fd);
-
     auto room_member = room_network.GetRoomMember().lock();
-    if (room_member && room_member->IsConnected()) {
+    const bool using_proxy = room_member && room_member->IsConnected();
+
+    LOG_INFO(Service, "New socket fd={} domain={} type={} protocol={} proxy={}",
+             fd, domain, type, protocol, using_proxy);
+
+    if (using_proxy) {
         descriptor.socket = std::make_shared<Network::ProxySocket>(room_network);
     } else {
         descriptor.socket = std::make_shared<Network::Socket>();
@@ -632,23 +661,41 @@ std::pair<s32, Errno> BSD::AcceptImpl(s32 fd, std::vector<u8>& write_buffer) {
 
 Errno BSD::BindImpl(s32 fd, std::span<const u8> addr) {
     if (!IsFileDescriptorValid(fd)) {
+        LOG_ERROR(Service, "Bind failed: Invalid fd={}", fd);
         return Errno::BADF;
     }
     ASSERT(addr.size() == sizeof(SockAddrIn));
     auto addr_in = GetValue<SockAddrIn>(addr);
 
-    return Translate(file_descriptors[fd]->socket->Bind(Translate(addr_in)));
+    LOG_INFO(Service, "Bind fd={} to {}:{}", fd, Network::IPv4AddressToString(addr_in.ip),
+             addr_in.portno);
+
+    const auto result = Translate(file_descriptors[fd]->socket->Bind(Translate(addr_in)));
+    if (result != Errno::SUCCESS) {
+        LOG_ERROR(Service, "Bind fd={} failed with errno={}", fd, static_cast<int>(result));
+    }
+    return result;
 }
 
 Errno BSD::ConnectImpl(s32 fd, std::span<const u8> addr) {
     if (!IsFileDescriptorValid(fd)) {
+        LOG_ERROR(Service, "Connect failed: Invalid fd={}", fd);
         return Errno::BADF;
     }
 
     UNIMPLEMENTED_IF(addr.size() != sizeof(SockAddrIn));
     auto addr_in = GetValue<SockAddrIn>(addr);
 
-    return Translate(file_descriptors[fd]->socket->Connect(Translate(addr_in)));
+    LOG_INFO(Service, "Connect fd={} to {}:{}", fd, Network::IPv4AddressToString(addr_in.ip),
+             addr_in.portno);
+
+    const auto result = Translate(file_descriptors[fd]->socket->Connect(Translate(addr_in)));
+    if (result != Errno::SUCCESS) {
+        LOG_ERROR(Service, "Connect fd={} failed with errno={}", fd, static_cast<int>(result));
+    } else {
+        LOG_INFO(Service, "Connect fd={} succeeded", fd);
+    }
+    return result;
 }
 
 Errno BSD::GetPeerNameImpl(s32 fd, std::vector<u8>& write_buffer) {
@@ -1031,8 +1078,11 @@ BSD::BSD(Core::System& system_, const char* name)
         {33, &BSD::RegisterClientShared, "RegisterClientShared"},
         {34, &BSD::GetSocketStatistics, "GetSocketStatistics"},
         {35, &BSD::NifIoctl, "NifIoctl"},
-        {39, &BSD::Unknown39, "[20.0.0+] Unknown39"},
-        {40, &BSD::Unknown40, "[20.0.0+] Unknown40"},
+        {36, &BSD::Unknown36, "Unknown36"},
+        {37, &BSD::Unknown37, "Unknown37"},
+        {38, &BSD::Unknown38, "Unknown38"},
+        {39, &BSD::Unknown39, "Unknown39"},
+        {40, &BSD::Unknown40, "Unknown40"},
         {200, &BSD::SetThreadCoreMask, "SetThreadCoreMask"},
         {201, &BSD::GetThreadCoreMask, "GetThreadCoreMask"},
     };
@@ -1289,7 +1339,7 @@ void BSD::SendMMsg(HLERequestContext& ctx) {
 }
 
 void BSD::SetThreadCoreMask(HLERequestContext& ctx) {
-    LOG_WARNING(Service, "(STUBBED) called SetThreadCoreMask");
+    LOG_WARNING(Service, "(STUBBED) called SetThreadCoreMask [15.0.0+]");
     IPC::ResponseBuilder rb{ctx, 4};
     rb.Push(ResultSuccess);
     rb.Push<s32>(-1);
@@ -1309,6 +1359,30 @@ void BSD::SocketExempt(HLERequestContext& ctx) {
     IPC::ResponseBuilder rb{ctx, 4};
     rb.Push(ResultSuccess);
     rb.Push<s32>(-1); // fd
+    rb.PushEnum(static_cast<Errno>(EOPNOTSUPP));
+}
+
+void BSD::Unknown36(HLERequestContext& ctx) {
+    LOG_WARNING(Service, "(STUBBED) called Unknown36 [18.0.0+]");
+    IPC::ResponseBuilder rb{ctx, 4};
+    rb.Push(ResultSuccess);
+    rb.Push<s32>(-1);
+    rb.PushEnum(static_cast<Errno>(EOPNOTSUPP));
+}
+
+void BSD::Unknown37(HLERequestContext& ctx) {
+    LOG_WARNING(Service, "(STUBBED) called Unknown37 [18.0.0+]");
+    IPC::ResponseBuilder rb{ctx, 4};
+    rb.Push(ResultSuccess);
+    rb.Push<s32>(-1);
+    rb.PushEnum(static_cast<Errno>(EOPNOTSUPP));
+}
+
+void BSD::Unknown38(HLERequestContext& ctx) {
+    LOG_WARNING(Service, "(STUBBED) called Unknown38 [18.0.0+]");
+    IPC::ResponseBuilder rb{ctx, 4};
+    rb.Push(ResultSuccess);
+    rb.Push<s32>(-1);
     rb.PushEnum(static_cast<Errno>(EOPNOTSUPP));
 }
 

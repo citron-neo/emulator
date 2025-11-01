@@ -162,11 +162,14 @@ private:
     void RegisterResourceStatisticsName(HLERequestContext& ctx);
     void RegisterClientShared(HLERequestContext& ctx);
     void GetSocketStatistics(HLERequestContext& ctx);
-    void NifIoctl(HLERequestContext& ctx);
-    void Unknown39(HLERequestContext& ctx);  // [20.0.0+] undocumented
-    void Unknown40(HLERequestContext& ctx);  // [20.0.0+] undocumented
-    void SetThreadCoreMask(HLERequestContext& ctx);
-    void GetThreadCoreMask(HLERequestContext& ctx);
+    void NifIoctl(HLERequestContext& ctx);               // [17.0.0+]
+    void Unknown36(HLERequestContext& ctx);              // [18.0.0+] undocumented
+    void Unknown37(HLERequestContext& ctx);              // [18.0.0+] undocumented
+    void Unknown38(HLERequestContext& ctx);              // [18.0.0+] undocumented
+    void Unknown39(HLERequestContext& ctx);              // [20.0.0+] undocumented
+    void Unknown40(HLERequestContext& ctx);              // [20.0.0+] undocumented
+    void SetThreadCoreMask(HLERequestContext& ctx);      // [15.0.0+]
+    void GetThreadCoreMask(HLERequestContext& ctx);      // [15.0.0+]
 
     template <typename Work>
     void ExecuteWork(HLERequestContext& ctx, Work work);

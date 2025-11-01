@@ -48,6 +48,19 @@ private:
     void GetAcceptableNetworkTypeFlag(HLERequestContext& ctx);
     void NotifyConnectionStateChanged(HLERequestContext& ctx);
     void SetWowlTcpKeepAliveTimeout(HLERequestContext& ctx);
+    void IsWiredConnectionAvailable(HLERequestContext& ctx);
+    void IsNetworkEmulationFeatureEnabled(HLERequestContext& ctx);
+    void SelectActiveNetworkEmulationProfileIdForDebug(HLERequestContext& ctx);
+    void GetScanData2(HLERequestContext& ctx);
+    void ResetActiveNetworkEmulationProfileId(HLERequestContext& ctx);
+    void GetActiveNetworkEmulationProfileId(HLERequestContext& ctx);
+    void IsRewriteFeatureEnabled(HLERequestContext& ctx);
+    void CreateRewriteRule(HLERequestContext& ctx);
+    void DestroyRewriteRule(HLERequestContext& ctx);
+    void IsActiveNetworkEmulationProfileIdSelected(HLERequestContext& ctx);
+    void SelectDefaultNetworkEmulationProfileId(HLERequestContext& ctx);
+    void GetDefaultNetworkEmulationProfileId(HLERequestContext& ctx);
+    void GetNetworkEmulationProfile(HLERequestContext& ctx);
 
     Network::RoomNetwork& network;
 };

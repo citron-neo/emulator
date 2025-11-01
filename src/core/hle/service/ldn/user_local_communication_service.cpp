@@ -42,15 +42,15 @@ IUserLocalCommunicationService::IUserLocalCommunicationService(Core::System& sys
             {202, D<&IUserLocalCommunicationService::CreateNetwork>, "CreateNetwork"},
             {203, D<&IUserLocalCommunicationService::CreateNetworkPrivate>, "CreateNetworkPrivate"},
             {204, D<&IUserLocalCommunicationService::DestroyNetwork>, "DestroyNetwork"},
-            {205, nullptr, "Reject"},
+            {205, D<&IUserLocalCommunicationService::Reject>, "Reject"},
             {206, D<&IUserLocalCommunicationService::SetAdvertiseData>, "SetAdvertiseData"},
             {207, D<&IUserLocalCommunicationService::SetStationAcceptPolicy>, "SetStationAcceptPolicy"},
             {208, D<&IUserLocalCommunicationService::AddAcceptFilterEntry>, "AddAcceptFilterEntry"},
-            {209, nullptr, "ClearAcceptFilter"},
+            {209, D<&IUserLocalCommunicationService::ClearAcceptFilter>, "ClearAcceptFilter"},
             {300, D<&IUserLocalCommunicationService::OpenStation>, "OpenStation"},
             {301, D<&IUserLocalCommunicationService::CloseStation>, "CloseStation"},
             {302, D<&IUserLocalCommunicationService::Connect>, "Connect"},
-            {303, nullptr, "ConnectPrivate"},
+            {303, D<&IUserLocalCommunicationService::ConnectPrivate>, "ConnectPrivate"},
             {304, D<&IUserLocalCommunicationService::Disconnect>, "Disconnect"},
             {400, D<&IUserLocalCommunicationService::Initialize>, "Initialize"},
             {401, D<&IUserLocalCommunicationService::Finalize>, "Finalize"},
@@ -227,6 +227,13 @@ Result IUserLocalCommunicationService::DestroyNetwork() {
     R_RETURN(lan_discovery.DestroyNetwork());
 }
 
+Result IUserLocalCommunicationService::Reject(Ipv4Address ip_address, u16 port) {
+    LOG_WARNING(Service_LDN, "(STUBBED) called, ip_address={}.{}.{}.{}, port={}",
+                ip_address[0], ip_address[1], ip_address[2], ip_address[3], port);
+
+    R_SUCCEED();
+}
+
 Result IUserLocalCommunicationService::SetAdvertiseData(
     InBuffer<BufferAttr_HipcAutoSelect> buffer_data) {
     LOG_INFO(Service_LDN, "called");
@@ -240,6 +247,11 @@ Result IUserLocalCommunicationService::SetStationAcceptPolicy(AcceptPolicy accep
 }
 
 Result IUserLocalCommunicationService::AddAcceptFilterEntry(MacAddress mac_address) {
+    LOG_WARNING(Service_LDN, "(STUBBED) called");
+    R_SUCCEED();
+}
+
+Result IUserLocalCommunicationService::ClearAcceptFilter() {
     LOG_WARNING(Service_LDN, "(STUBBED) called");
     R_SUCCEED();
 }
@@ -267,6 +279,16 @@ Result IUserLocalCommunicationService::Connect(
 
     R_RETURN(lan_discovery.Connect(*network_info, connect_data.user_config,
                                    static_cast<u16>(connect_data.local_communication_version)));
+}
+
+Result IUserLocalCommunicationService::ConnectPrivate(
+    const ConnectNetworkData& connect_data,
+    InLargeData<NetworkInfo, BufferAttr_HipcPointer> network_info) {
+    LOG_WARNING(Service_LDN, "(STUBBED) called");
+
+    // ConnectPrivate is similar to Connect but with additional private network parameters
+    // For now, stub it - would need to implement private network logic
+    R_SUCCEED();
 }
 
 Result IUserLocalCommunicationService::Disconnect() {
