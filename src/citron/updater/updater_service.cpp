@@ -22,6 +22,7 @@
 #include <QCoreApplication>
 #include <QSslSocket>
 #include <QCryptographicHash>
+#include <QProcess>
 
 #ifdef CITRON_ENABLE_LIBARCHIVE
 #include <archive.h>
@@ -474,6 +475,13 @@ bool UpdaterService::InstallUpdate(const std::filesystem::path& update_path) {
             manifest << "UPDATE_TIMESTAMP=" << std::time(nullptr) << "\n";
             manifest << "APP_DIRECTORY=" << app_directory.string() << "\n";
         }
+
+        // Create the update helper script for deferred update application
+        if (!CreateUpdateHelperScript(staging_path)) {
+            LOG_ERROR(Frontend, "Failed to create update helper script");
+            return false;
+        }
+
         LOG_INFO(Frontend, "Update staged successfully.");
         return true;
     } catch (const std::exception& e) {
@@ -528,6 +536,95 @@ bool UpdaterService::RestoreBackup() {
         return true;
     } catch (const std::exception& e) {
         LOG_ERROR(Frontend, "Failed to restore backup: {}", e.what());
+        return false;
+    }
+}
+
+bool UpdaterService::CreateUpdateHelperScript(const std::filesystem::path& staging_path) {
+    try {
+        std::filesystem::path script_path = staging_path / "apply_update.bat";
+        std::ofstream script(script_path);
+
+        if (!script.is_open()) {
+            LOG_ERROR(Frontend, "Failed to create update helper script");
+            return false;
+        }
+
+        // Convert paths to Windows-style paths for the batch script
+        std::string staging_path_str = staging_path.string();
+        std::string app_path_str = app_directory.string();
+        std::string exe_path_str = (app_directory / "citron.exe").string();
+
+        // Replace forward slashes with backslashes
+        for (auto& ch : staging_path_str) if (ch == '/') ch = '\\';
+        for (auto& ch : app_path_str) if (ch == '/') ch = '\\';
+        for (auto& ch : exe_path_str) if (ch == '/') ch = '\\';
+
+        // Write batch script
+        script << "@echo off\n";
+        script << "REM Citron Auto-Updater Helper Script\n";
+        script << "REM This script applies staged updates after the main application exits\n\n";
+
+        script << "echo Waiting for Citron to close...\n";
+        script << "timeout /t 3 /nobreak >nul\n\n";
+
+        script << "echo Applying update...\n";
+        script << "xcopy /E /Y /I \"" << staging_path_str << "\" \"" << app_path_str << "\" >nul 2>&1\n\n";
+
+        script << "if errorlevel 1 (\n";
+        script << "    echo Update failed. Please restart Citron manually.\n";
+        script << "    timeout /t 5\n";
+        script << "    exit /b 1\n";
+        script << ")\n\n";
+
+        script << "echo Update applied successfully!\n";
+        script << "timeout /t 1 /nobreak >nul\n\n";
+
+        script << "echo Restarting Citron...\n";
+        script << "start \"\" \"" << exe_path_str << "\"\n\n";
+
+        script << "REM Clean up staging directory\n";
+        script << "rd /s /q \"" << staging_path_str << "\" >nul 2>&1\n\n";
+
+        script << "REM Delete this script\n";
+        script << "del \"%~f0\"\n";
+
+        script.close();
+
+        LOG_INFO(Frontend, "Update helper script created: {}", script_path.string());
+        return true;
+    } catch (const std::exception& e) {
+        LOG_ERROR(Frontend, "Failed to create update helper script: {}", e.what());
+        return false;
+    }
+}
+
+bool UpdaterService::LaunchUpdateHelper() {
+    try {
+        std::filesystem::path staging_path = app_directory / "update_staging";
+        std::filesystem::path script_path = staging_path / "apply_update.bat";
+
+        if (!std::filesystem::exists(script_path)) {
+            LOG_ERROR(Frontend, "Update helper script not found");
+            return false;
+        }
+
+        // Launch the batch script as a detached process
+        QString script_path_str = QString::fromStdString(script_path.string());
+        QStringList arguments;
+
+        // Use cmd.exe to run the batch file in a hidden window
+        bool launched = QProcess::startDetached("cmd.exe", QStringList() << "/C" << script_path_str);
+
+        if (launched) {
+            LOG_INFO(Frontend, "Update helper script launched successfully");
+            return true;
+        } else {
+            LOG_ERROR(Frontend, "Failed to launch update helper script");
+            return false;
+        }
+    } catch (const std::exception& e) {
+        LOG_ERROR(Frontend, "Failed to launch update helper: {}", e.what());
         return false;
     }
 }

@@ -79,6 +79,8 @@ private:
     bool InstallUpdate(const std::filesystem::path& update_path);
     bool CreateBackup();
     bool RestoreBackup();
+    bool CreateUpdateHelperScript(const std::filesystem::path& staging_path);
+    bool LaunchUpdateHelper();
     #endif
     bool CleanupFiles();
     std::filesystem::path GetTempDirectory() const;
