@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: 2014 Citra Emulator Project
+// SPDX-FileCopyrightText: 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <sstream>
@@ -14,45 +15,79 @@ HotkeyRegistry::HotkeyRegistry() = default;
 HotkeyRegistry::~HotkeyRegistry() = default;
 
 void HotkeyRegistry::SaveHotkeys() {
+    std::map<std::string, std::map<std::string, Hotkey>> default_groups;
+    for (const auto& def : UISettings::default_hotkeys) {
+        default_groups[def.group][def.name] =
+            Hotkey{QKeySequence::fromString(QString::fromStdString(def.shortcut.keyseq)),
+                   def.shortcut.controller_keyseq,
+                   nullptr,
+                   nullptr,
+                   static_cast<Qt::ShortcutContext>(def.shortcut.context),
+                   def.shortcut.repeat};
+    }
+
     UISettings::values.shortcuts.clear();
-    for (const auto& group : hotkey_groups) {
-        for (const auto& hotkey : group.second) {
-            UISettings::values.shortcuts.push_back(
-                {hotkey.first, group.first,
-                 UISettings::ContextualShortcut({hotkey.second.keyseq.toString().toStdString(),
-                                                 hotkey.second.controller_keyseq,
-                                                 hotkey.second.context, hotkey.second.repeat})});
+    for (const auto& [group_name, actions] : hotkey_groups) {
+        for (const auto& [action_name, current_hotkey] : actions) {
+            Hotkey default_hotkey;
+            auto group_it = default_groups.find(group_name);
+            if (group_it != default_groups.end()) {
+                auto action_it = group_it->second.find(action_name);
+                if (action_it != group_it->second.end()) {
+                    default_hotkey = action_it->second;
+                }
+            }
+
+            bool is_modified =
+                (current_hotkey.keyseq != default_hotkey.keyseq) ||
+                (current_hotkey.controller_keyseq != default_hotkey.controller_keyseq) ||
+                (current_hotkey.context != default_hotkey.context);
+
+            if (is_modified) {
+                UISettings::values.shortcuts.push_back(
+                    {action_name, group_name,
+                     UISettings::ContextualShortcut(
+                         {current_hotkey.keyseq.toString().toStdString(),
+                          current_hotkey.controller_keyseq, current_hotkey.context,
+                          current_hotkey.repeat})});
+            }
         }
     }
 }
 
 void HotkeyRegistry::LoadHotkeys() {
-    // Make sure NOT to use a reference here because it would become invalid once we call
-    // beginGroup()
-    for (auto shortcut : UISettings::values.shortcuts) {
+    // First, populate the registry with ALL default hotkeys, including blank ones.
+    hotkey_groups.clear();
+    for (const auto& def : UISettings::default_hotkeys) {
+        Hotkey& hk = hotkey_groups[def.group][def.name];
+        hk.keyseq = QKeySequence::fromString(QString::fromStdString(def.shortcut.keyseq));
+        hk.controller_keyseq = def.shortcut.controller_keyseq;
+        hk.context = static_cast<Qt::ShortcutContext>(def.shortcut.context);
+        hk.repeat = def.shortcut.repeat;
+    }
+
+    // Now, layer the user's saved (non-default) settings on top.
+    for (const auto& shortcut : UISettings::values.shortcuts) {
         Hotkey& hk = hotkey_groups[shortcut.group][shortcut.name];
         if (!shortcut.shortcut.keyseq.empty()) {
             hk.keyseq = QKeySequence::fromString(QString::fromStdString(shortcut.shortcut.keyseq),
                                                  QKeySequence::NativeText);
-            hk.context = static_cast<Qt::ShortcutContext>(shortcut.shortcut.context);
         }
-        if (!shortcut.shortcut.controller_keyseq.empty()) {
-            hk.controller_keyseq = shortcut.shortcut.controller_keyseq;
-        }
+        hk.controller_keyseq = shortcut.shortcut.controller_keyseq;
+        hk.context = static_cast<Qt::ShortcutContext>(shortcut.shortcut.context);
+        hk.repeat = shortcut.shortcut.repeat;
+
         if (hk.shortcut) {
-            hk.shortcut->disconnect();
             hk.shortcut->setKey(hk.keyseq);
         }
         if (hk.controller_shortcut) {
-            hk.controller_shortcut->disconnect();
             hk.controller_shortcut->SetKey(hk.controller_keyseq);
         }
-        hk.repeat = shortcut.shortcut.repeat;
     }
 }
 
 QShortcut* HotkeyRegistry::GetHotkey(const std::string& group, const std::string& action,
-                                     QWidget* widget) {
+                                     QWidget* widget) const {
     Hotkey& hk = hotkey_groups[group][action];
 
     if (!hk.shortcut) {
@@ -65,7 +100,7 @@ QShortcut* HotkeyRegistry::GetHotkey(const std::string& group, const std::string
 
 ControllerShortcut* HotkeyRegistry::GetControllerHotkey(const std::string& group,
                                                         const std::string& action,
-                                                        Core::HID::EmulatedController* controller) {
+                                                        Core::HID::EmulatedController* controller) const {
     Hotkey& hk = hotkey_groups[group][action];
 
     if (!hk.controller_shortcut) {
@@ -76,12 +111,12 @@ ControllerShortcut* HotkeyRegistry::GetControllerHotkey(const std::string& group
     return hk.controller_shortcut;
 }
 
-QKeySequence HotkeyRegistry::GetKeySequence(const std::string& group, const std::string& action) {
+QKeySequence HotkeyRegistry::GetKeySequence(const std::string& group, const std::string& action) const {
     return hotkey_groups[group][action].keyseq;
 }
 
 Qt::ShortcutContext HotkeyRegistry::GetShortcutContext(const std::string& group,
-                                                       const std::string& action) {
+                                                       const std::string& action) const {
     return hotkey_groups[group][action].context;
 }
 
