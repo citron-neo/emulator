@@ -53,6 +53,10 @@ public:
     static bool HasStagedUpdate(const std::filesystem::path& app_directory);
     static bool ApplyStagedUpdate(const std::filesystem::path& app_directory);
 
+    #ifdef _WIN32
+    bool LaunchUpdateHelper();
+    #endif
+
 signals:
     void UpdateCheckCompleted(bool has_update, const UpdateInfo& update_info);
     void UpdateDownloadProgress(int percentage, qint64 bytes_received, qint64 bytes_total);
@@ -80,7 +84,6 @@ private:
     bool CreateBackup();
     bool RestoreBackup();
     bool CreateUpdateHelperScript(const std::filesystem::path& staging_path);
-    bool LaunchUpdateHelper();
     #endif
     bool CleanupFiles();
     std::filesystem::path GetTempDirectory() const;

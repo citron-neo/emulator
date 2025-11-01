@@ -49,8 +49,14 @@ add_library(core STATIC
     file_sys/common_funcs.h
     file_sys/content_archive.cpp
     file_sys/content_archive.h
+    file_sys/content_exporter.cpp
+    file_sys/content_exporter.h
     file_sys/control_metadata.cpp
     file_sys/control_metadata.h
+    file_sys/decrypted_nsp.cpp
+    file_sys/decrypted_nsp.h
+    file_sys/decrypted_xci.cpp
+    file_sys/decrypted_xci.h
     file_sys/errors.h
     file_sys/fs_directory.h
     file_sys/fs_file.h
@@ -1183,10 +1189,14 @@ add_library(core STATIC
     loader/nca.h
     loader/nro.cpp
     loader/nro.h
+    loader/nsd.cpp
+    loader/nsd.h
     loader/nso.cpp
     loader/nso.h
     loader/nsp.cpp
     loader/nsp.h
+    loader/xcd.cpp
+    loader/xcd.h
     loader/xci.cpp
     loader/xci.h
     memory.cpp

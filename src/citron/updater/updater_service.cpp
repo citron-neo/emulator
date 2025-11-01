@@ -83,10 +83,27 @@ UpdaterService::~UpdaterService() {
 
 void UpdaterService::InitializeSSL() {
     LOG_INFO(Frontend, "Attempting to initialize SSL support...");
+
+    // Check if SSL is supported
     if (!QSslSocket::supportsSsl()) {
         LOG_WARNING(Frontend, "SSL support not available");
+        LOG_WARNING(Frontend, "Build-time SSL version: {}", QSslSocket::sslLibraryBuildVersionString().toStdString());
+        LOG_WARNING(Frontend, "Runtime SSL version: {}", QSslSocket::sslLibraryVersionString().toStdString());
+
+#ifdef _WIN32
+        // Try to provide helpful information about missing DLLs
+        std::filesystem::path app_dir = std::filesystem::path(QCoreApplication::applicationDirPath().toStdString());
+        std::filesystem::path crypto_dll = app_dir / "libcrypto-3-x64.dll";
+        std::filesystem::path ssl_dll = app_dir / "libssl-3-x64.dll";
+
+        LOG_WARNING(Frontend, "libcrypto-3-x64.dll exists: {}", std::filesystem::exists(crypto_dll));
+        LOG_WARNING(Frontend, "libssl-3-x64.dll exists: {}", std::filesystem::exists(ssl_dll));
+#endif
         return;
     }
+
+    LOG_INFO(Frontend, "SSL library version: {}", QSslSocket::sslLibraryVersionString().toStdString());
+
     QSslConfiguration sslConfig = QSslConfiguration::defaultConfiguration();
     auto certs = QSslConfiguration::systemCaCertificates();
     if (!certs.isEmpty()) {
@@ -612,9 +629,11 @@ bool UpdaterService::LaunchUpdateHelper() {
         // Launch the batch script as a detached process
         QString script_path_str = QString::fromStdString(script_path.string());
         QStringList arguments;
+        arguments << QStringLiteral("/C");
+        arguments << script_path_str;
 
         // Use cmd.exe to run the batch file in a hidden window
-        bool launched = QProcess::startDetached("cmd.exe", QStringList() << "/C" << script_path_str);
+        bool launched = QProcess::startDetached(QStringLiteral("cmd.exe"), arguments);
 
         if (launched) {
             LOG_INFO(Frontend, "Update helper script launched successfully");
