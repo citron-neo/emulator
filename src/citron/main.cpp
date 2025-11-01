@@ -6069,8 +6069,22 @@ int main(int argc, char* argv[]) {
 #endif
 
     #ifdef CITRON_USE_AUTO_UPDATER
-    // Check for and apply staged updates before starting the main application
     std::filesystem::path app_dir = std::filesystem::path(QCoreApplication::applicationDirPath().toStdString());
+
+#ifdef _WIN32
+    // On Windows, updates are applied by the helper script after the app exits.
+    // If we find a staging directory here, it means the helper script failed.
+    // Clean it up to avoid confusion.
+    std::filesystem::path staging_path = app_dir / "update_staging";
+    if (std::filesystem::exists(staging_path)) {
+        try {
+            std::filesystem::remove_all(staging_path);
+        } catch (...) {
+            // Ignore cleanup errors
+        }
+    }
+#else
+    // On Linux, apply staged updates at startup as before
     if (Updater::UpdaterService::HasStagedUpdate(app_dir)) {
         if (Updater::UpdaterService::ApplyStagedUpdate(app_dir)) {
             // Show a simple message that update was applied
@@ -6078,6 +6092,7 @@ int main(int argc, char* argv[]) {
                                      QObject::tr("Citron has been updated successfully!"));
         }
     }
+#endif
 #endif
 
 #ifdef _WIN32

@@ -334,6 +334,31 @@ void UpdaterDialog::ShowInstallingState() {
 
 void UpdaterDialog::ShowCompletedState() {
     current_state = State::Completed;
+
+#ifdef _WIN32
+    // On Windows, launch the update helper script and exit immediately
+    ui->titleLabel->setText(QStringLiteral("Update ready!"));
+    ui->statusLabel->setText(QStringLiteral("Citron will now restart to apply the update..."));
+    ui->progressGroup->setVisible(false);
+    ui->downloadButton->setVisible(false);
+    ui->cancelButton->setVisible(false);
+    ui->closeButton->setVisible(false);
+    ui->restartButton->setVisible(false);
+    ui->progressBar->setValue(100);
+    ui->appImageSelectorLabel->setVisible(false);
+    ui->appImageSelector->setVisible(false);
+
+    // Give the user a moment to see the message
+    QTimer::singleShot(1500, this, [this]() {
+        if (updater_service->LaunchUpdateHelper()) {
+            QApplication::quit();
+        } else {
+            ShowErrorState();
+            ui->statusLabel->setText(QStringLiteral("Failed to launch update helper. Please restart Citron manually to apply the update."));
+        }
+    });
+#else
+    // On Linux, show the restart button as before
     ui->titleLabel->setText(QStringLiteral("Update ready!"));
     ui->statusLabel->setText(QStringLiteral("The update has been downloaded and prepared "
                                             "successfully. The update will be applied when you "
@@ -346,6 +371,7 @@ void UpdaterDialog::ShowCompletedState() {
     ui->progressBar->setValue(100);
     ui->appImageSelectorLabel->setVisible(false);
     ui->appImageSelector->setVisible(false);
+#endif
 }
 
 void UpdaterDialog::ShowErrorState() {
