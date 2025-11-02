@@ -712,6 +712,11 @@ QMenu::item:selected {
     color: palette(highlighted-text);
 }
 
+QMenu::item:disabled {
+    color: palette(disabled, text); /* Use the system's disabled text color */
+    background-color: transparent;
+}
+
 QMenu::separator {
     height: 1px;
     background-color: palette(midlight);
