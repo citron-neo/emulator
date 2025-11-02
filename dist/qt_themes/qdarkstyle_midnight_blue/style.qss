@@ -367,27 +367,29 @@ https://doc.qt.io/qt-5/stylesheet-examples.html#customizing-qmenubar
 
 --------------------------------------------------------------------------- */
 QMenuBar {
-  background-color: #32414B;
-  color: #F0F0F0;
+    background-color: #31363b;
+    color: #eff0f1; /* Sets the default text color to be light */
+    border-bottom: 1px solid #403F3F;
 }
 
 QMenuBar::item {
-  background: transparent;
+    background: transparent;
+    padding: 4px 10px;
+    color: #eff0f1; /* Explicitly set item text color */
 }
 
 QMenuBar::item:selected {
-  background: transparent;
-  border: 0px solid #32414B;
+    /* This is the hover state */
+    background-color: #18465d;
+    color: #eff0f1;
 }
 
 QMenuBar::item:pressed {
-  border: 0px solid #32414B;
-  background-color: #148CD2;
-  color: #F0F0F0;
-  margin-bottom: 0px;
-  padding-bottom: 0px;
+    /* This is for when a menu is open */
+    border: 1px solid #18465d;
+    background-color: #3daee9; /* Use the theme's accent blue */
+    color: #eff0f1;
 }
-
 
 /* QMenu ------------------------------------------------------------------
 
@@ -395,78 +397,41 @@ https://doc.qt.io/qt-5/stylesheet-examples.html#customizing-qmenu
 
 --------------------------------------------------------------------------- */
 QMenu {
-  border: 0px solid #32414B;
-  color: #F0F0F0;
-  margin: 0px;
-}
-
-QMenu::separator {
-  height: 1px;
-  background-color: #505F69;
-  color: #F0F0F0;
-}
-
-QMenu::icon {
-  margin: 0px;
-  padding-left: 8px;
+    border: 1px solid #434242;
+    background-color: #31363b;
+    padding: 4px;
+    color: #eff0f1; /* Set default text color for menu items */
 }
 
 QMenu::item {
-  background-color: #32414B;
-  padding: 4px 24px 4px 24px;
-  /* Reserve space for selection border */
-  border: 1px transparent #32414B;
+    padding: 5px 25px 5px 25px;
+    border: 1px solid transparent;
 }
 
 QMenu::item:selected {
-  color: #F0F0F0;
+    background-color: #3daee9; /* Use the theme's accent blue for selection */
+    color: #eff0f1;
+}
+
+QMenu::item:disabled {
+    color: #76797C;
+}
+
+QMenu::separator {
+    height: 1px;
+    background-color: #54575B;
+    margin: 4px 8px;
 }
 
 QMenu::indicator {
-  width: 12px;
-  height: 12px;
-  padding-left: 6px;
-  /* non-exclusive indicator = check box style indicator (see QActionGroup::setExclusive) */
-  /* exclusive indicator = radio button style indicator (see QActionGroup::setExclusive) */
-}
-
-QMenu::indicator:non-exclusive:unchecked {
-  image: url(":/qss_icons/rc/checkbox_unchecked.png");
-}
-
-QMenu::indicator:non-exclusive:unchecked:selected {
-  image: url(":/qss_icons/rc/checkbox_unchecked_disabled.png");
-}
-
-QMenu::indicator:non-exclusive:checked {
-  image: url(":/qss_icons/rc/checkbox_checked.png");
-}
-
-QMenu::indicator:non-exclusive:checked:selected {
-  image: url(":/qss_icons/rc/checkbox_checked_disabled.png");
-}
-
-QMenu::indicator:exclusive:unchecked {
-  image: url(":/qss_icons/rc/radio_unchecked.png");
-}
-
-QMenu::indicator:exclusive:unchecked:selected {
-  image: url(":/qss_icons/rc/radio_unchecked_disabled.png");
-}
-
-QMenu::indicator:exclusive:checked {
-  image: url(":/qss_icons/rc/radio_checked.png");
-}
-
-QMenu::indicator:exclusive:checked:selected {
-  image: url(":/qss_icons/rc/radio_checked_disabled.png");
+    width: 18px;
+    height: 18px;
+    padding-left: 5px;
 }
 
 QMenu::right-arrow {
-  margin: 5px;
-  image: url(":/qss_icons/rc/arrow_right.png");
-  height: 12px;
-  width: 12px;
+    margin: 0 5px 0 0;
+    image: url(:/qss_icons/rc/right_arrow.png);
 }
 
 /* QAbstractItemView ------------------------------------------------------

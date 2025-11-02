@@ -11,7 +11,7 @@ QPushButton#TogglableStatusBarButton {
 }
 
 QPushButton#TogglableStatusBarButton:checked {
-    color: #000000;
+    color: palette(text); /* ADAPTIVE */
 }
 
 QPushButton#TogglableStatusBarButton:hover {
@@ -60,7 +60,7 @@ QPushButton#GPUStatusBarButton:!checked {
 
 QPushButton#DockingStatusBarButton {
     min-width: 0px;
-    color: #000000;
+    color: palette(text); /* ADAPTIVE */
     border: 1px solid transparent;
     background-color: transparent;
     padding: 0px 3px 0px 3px;
@@ -689,4 +689,31 @@ QDialog#QtSoftwareKeyboardDialog QPushButton#button_backspace_num:disabled {
 QDialog#QtSoftwareKeyboardDialog QPushButton#button_space:disabled,
 QDialog#QtSoftwareKeyboardDialog QPushButton#button_space_shift:disabled {
     image: url(:/overlay/osk_button_Y_disabled.png);
+}
+
+/*
+ * Adaptive Dropdown Menu Styling
+ */
+
+QMenu {
+    background-color: palette(window);
+    color: palette(text);
+    border: 1px solid palette(midlight);
+    padding: 5px;
+}
+
+QMenu::item {
+    padding: 5px 25px;
+    border: 1px solid transparent;
+}
+
+QMenu::item:selected {
+    background-color: palette(highlight);
+    color: palette(highlighted-text);
+}
+
+QMenu::separator {
+    height: 1px;
+    background-color: palette(midlight);
+    margin: 4px;
 }

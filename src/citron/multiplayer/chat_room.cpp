@@ -21,6 +21,8 @@
 #include "citron/game_list_p.h"
 #include "citron/multiplayer/chat_room.h"
 #include "citron/multiplayer/message.h"
+#include "citron/uisettings.h"
+#include "citron/theme.h"
 #ifdef ENABLE_WEB_SERVICE
 #include "web_service/web_backend.h"
 #endif
@@ -198,6 +200,8 @@ ChatRoom::ChatRoom(QWidget* parent) : QWidget(parent), ui(std::make_unique<Ui::C
     connect(ui->chat_message, &QLineEdit::returnPressed, this, &ChatRoom::OnSendChat);
     connect(ui->chat_message, &QLineEdit::textChanged, this, &ChatRoom::OnChatTextChanged);
     connect(ui->send_message, &QPushButton::clicked, this, &ChatRoom::OnSendChat);
+
+    UpdateTheme();
 }
 
 ChatRoom::~ChatRoom() = default;
@@ -505,4 +509,62 @@ void ChatRoom::PopupContextMenu(const QPoint& menu_location) {
     }
 
     context_menu.exec(ui->player_view->viewport()->mapToGlobal(menu_location));
+}
+
+void ChatRoom::UpdateTheme() {
+    QString style_sheet;
+    const QString accent_color = Theme::GetAccentColor();
+
+    if (UISettings::IsDarkTheme()) {
+        style_sheet = QStringLiteral(R"(
+            QListView, QTextEdit, QLineEdit {
+                background-color: #252525;
+                color: #E0E0E0;
+                border: 1px solid #4A4A4A;
+                border-radius: 4px;
+            }
+            QListView::item:selected {
+                background-color: %1;
+            }
+            QPushButton {
+                background-color: #3E3E3E;
+                color: #E0E0E0;
+                border: 1px solid #5A5A5A;
+                padding: 5px;
+                border-radius: 4px;
+            }
+            QPushButton:hover {
+                background-color: #4A4A4A;
+            }
+            QPushButton:pressed {
+                background-color: #555555;
+            }
+        )").arg(accent_color);
+    } else {
+        style_sheet = QStringLiteral(R"(
+            QListView, QTextEdit, QLineEdit {
+                background-color: #FFFFFF;
+                color: #000000;
+                border: 1px solid #CFCFCF;
+                border-radius: 4px;
+            }
+            QListView::item:selected {
+                background-color: %1;
+            }
+            QPushButton {
+                background-color: #F0F0F0;
+                color: #000000;
+                border: 1px solid #BDBDBD;
+                padding: 5px;
+                border-radius: 4px;
+            }
+            QPushButton:hover {
+                background-color: #E0E0E0;
+            }
+            QPushButton:pressed {
+                background-color: #D0D0D0;
+            }
+        )").arg(accent_color);
+    }
+    this->setStyleSheet(style_sheet);
 }

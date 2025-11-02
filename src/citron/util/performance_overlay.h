@@ -12,6 +12,7 @@
 #include <QColor>
 #include <memory>
 #include <deque>
+#include "citron/uisettings.h"
 
 class GMainWindow;
 
@@ -24,6 +25,9 @@ public:
 
     void SetVisible(bool visible);
     bool IsVisible() const { return is_visible; }
+
+public slots:
+    void UpdateTheme();
 
 protected:
     void paintEvent(QPaintEvent* event) override;

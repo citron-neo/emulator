@@ -16,6 +16,7 @@
 #include "citron/util/multiplayer_room_overlay.h"
 #include "network/network.h"
 #include "network/room.h"
+#include "citron/uisettings.h"
 
 MultiplayerRoomOverlay::MultiplayerRoomOverlay(GMainWindow* parent)
     : QWidget(parent), main_window(parent) {
@@ -23,9 +24,6 @@ MultiplayerRoomOverlay::MultiplayerRoomOverlay(GMainWindow* parent)
     setAttribute(Qt::WA_TranslucentBackground, true);
     setWindowFlags(Qt::FramelessWindowHint | Qt::Tool | Qt::WindowStaysOnTopHint);
     setFocusPolicy(Qt::ClickFocus);
-
-    background_color = QColor(20, 20, 20, 180);
-    border_color = QColor(60, 60, 60, 120);
 
     main_layout = new QGridLayout(this);
     main_layout->setContentsMargins(padding, padding, 0, 0);
@@ -36,7 +34,6 @@ MultiplayerRoomOverlay::MultiplayerRoomOverlay(GMainWindow* parent)
     size_grip = new QSizeGrip(this);
 
     players_online_label->setFont(QFont(QString::fromUtf8("Segoe UI"), 10, QFont::Bold));
-    players_online_label->setStyleSheet(QString::fromUtf8("color: #E0E0E0;"));
     players_online_label->setText(QString::fromUtf8("Players Online: 0"));
     players_online_label->setAttribute(Qt::WA_TransparentForMouseEvents, true);
 
@@ -60,6 +57,9 @@ MultiplayerRoomOverlay::MultiplayerRoomOverlay(GMainWindow* parent)
 
     update_timer.setSingleShot(false);
     connect(&update_timer, &QTimer::timeout, this, &MultiplayerRoomOverlay::UpdateRoomData);
+
+    connect(parent, &GMainWindow::themeChanged, this, &MultiplayerRoomOverlay::UpdateTheme);
+    UpdateTheme();
 
     setMinimumSize(280, 220);
     resize(320, 280);
@@ -246,4 +246,25 @@ void MultiplayerRoomOverlay::UpdatePosition() {
         QPoint main_window_pos = main_window->mapToGlobal(QPoint(0, 0));
         move(main_window_pos.x() + main_window->width() - this->width() - 10, main_window_pos.y() + 10);
     }
+}
+
+void MultiplayerRoomOverlay::UpdateTheme() {
+    if (UISettings::IsDarkTheme()) {
+        // Dark Theme Colors
+        background_color = QColor(20, 20, 20, 180); // 180 alpha for transparency
+        border_color = QColor(60, 60, 60, 120);
+        players_online_label->setStyleSheet(QStringLiteral("color: #E0E0E0;"));
+    } else {
+        // Light Theme Colors
+        background_color = QColor(245, 245, 245, 200); // 200 alpha for transparency
+        border_color = QColor(200, 200, 200, 120);
+        players_online_label->setStyleSheet(QStringLiteral("color: #141414;"));
+    }
+
+    // The chat widget is a separate custom widget, so we need to tell it to update its theme too.
+    if (chat_room_widget) {
+        chat_room_widget->UpdateTheme();
+    }
+
+    update(); // Force a repaint of the overlay itself
 }

@@ -2,6 +2,8 @@
 // SPDX-FileCopyrightText: 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
+#include <QApplication>
+#include <QPalette>
 #include <QSettings>
 #include "common/fs/fs.h"
 #include "common/fs/path_util.h"
@@ -33,34 +35,50 @@ namespace UISettings {
     }};
 
     bool IsDarkTheme() {
-        const auto& theme = UISettings::values.theme;
-        return theme == std::string("qdarkstyle") || theme == std::string("qdarkstyle_midnight_blue") ||
-        theme == std::string("colorful_dark") || theme == std::string("colorful_midnight_blue");
+        const auto& theme_name = UISettings::values.theme;
+
+        // Priority 1: Check for explicitly chosen dark themes.
+        if (theme_name == "qdarkstyle" || theme_name == "colorful_dark" ||
+            theme_name == "qdarkstyle_midnight_blue" || theme_name == "colorful_midnight_blue") {
+            return true;
+        }
+
+        // Priority 2: Check for adaptive themes ("default" and "colorful").
+        if (theme_name == "default" || theme_name == "colorful") {
+            const QPalette palette = qApp->palette();
+            const QColor text_color = palette.color(QPalette::WindowText);
+            const QColor base_color = palette.color(QPalette::Window);
+            return text_color.value() > base_color.value();
+        }
+
+        // Fallback for any other unknown themes is to assume they are light.
+        return false;
     }
 
     Values values = {};
 
+    // definition for the function.
     u32 CalculateWidth(u32 height, Settings::AspectRatio ratio) {
         switch (ratio) {
-            case Settings::AspectRatio::R4_3:
-                return height * 4 / 3;
-            case Settings::AspectRatio::R21_9:
-                return height * 21 / 9;
-            case Settings::AspectRatio::R16_10:
-                return height * 16 / 10;
-            case Settings::AspectRatio::R32_9:
-                return height * 32 / 9;
-            case Settings::AspectRatio::R16_9:
-            case Settings::AspectRatio::Stretch:
-                // TODO: Move this function wherever appropriate to implement Stretched aspect
-                break;
+        case Settings::AspectRatio::R4_3:
+            return height * 4 / 3;
+        case Settings::AspectRatio::R21_9:
+            return height * 21 / 9;
+        case Settings::AspectRatio::R16_10:
+            return height * 16 / 10;
+        case Settings::AspectRatio::R32_9:
+            return height * 32 / 9;
+        case Settings::AspectRatio::R16_9:
+        case Settings::AspectRatio::Stretch:
+            // TODO: Move this function wherever appropriate to implement Stretched aspect
+            break;
         }
         return height * 16 / 9;
     }
 
     void SaveWindowState() {
         const auto window_state_config_loc =
-        FS::PathToUTF8String(FS::GetCitronPath(FS::CitronPath::ConfigDir) / "window_state.ini");
+            FS::PathToUTF8String(FS::GetCitronPath(FS::CitronPath::ConfigDir) / "window_state.ini");
 
         void(FS::CreateParentDir(window_state_config_loc));
         QSettings config(QString::fromStdString(window_state_config_loc), QSettings::IniFormat);
@@ -78,12 +96,12 @@ namespace UISettings {
 
     void RestoreWindowState(std::unique_ptr<QtConfig>& qtConfig) {
         const auto window_state_config_loc =
-        FS::PathToUTF8String(FS::GetCitronPath(FS::CitronPath::ConfigDir) / "window_state.ini");
+            FS::PathToUTF8String(FS::GetCitronPath(FS::CitronPath::ConfigDir) / "window_state.ini");
 
         // Migrate window state from old location
         if (!FS::Exists(window_state_config_loc) && qtConfig->Exists("UI", "UILayout\\geometry")) {
             const auto config_loc =
-            FS::PathToUTF8String(FS::GetCitronPath(FS::CitronPath::ConfigDir) / "qt-config.ini");
+                FS::PathToUTF8String(FS::GetCitronPath(FS::CitronPath::ConfigDir) / "qt-config.ini");
             QSettings config(QString::fromStdString(config_loc), QSettings::IniFormat);
 
             config.beginGroup(QStringLiteral("UI"));
@@ -91,11 +109,11 @@ namespace UISettings {
             values.geometry = config.value(QStringLiteral("geometry")).toByteArray();
             values.state = config.value(QStringLiteral("state")).toByteArray();
             values.renderwindow_geometry =
-            config.value(QStringLiteral("geometryRenderWindow")).toByteArray();
+                config.value(QStringLiteral("geometryRenderWindow")).toByteArray();
             values.gamelist_header_state =
-            config.value(QStringLiteral("gameListHeaderState")).toByteArray();
+                config.value(QStringLiteral("gameListHeaderState")).toByteArray();
             values.microprofile_geometry =
-            config.value(QStringLiteral("microProfileDialogGeometry")).toByteArray();
+                config.value(QStringLiteral("microProfileDialogGeometry")).toByteArray();
             config.endGroup();
             config.endGroup();
             return;
@@ -107,15 +125,15 @@ namespace UISettings {
         values.geometry = config.value(QStringLiteral("geometry")).toByteArray();
         values.state = config.value(QStringLiteral("state")).toByteArray();
         values.renderwindow_geometry =
-        config.value(QStringLiteral("geometryRenderWindow")).toByteArray();
+            config.value(QStringLiteral("geometryRenderWindow")).toByteArray();
         values.configure_dialog_geometry =
-        config.value(QStringLiteral("configureDialogGeometry")).toByteArray();
+            config.value(QStringLiteral("configureDialogGeometry")).toByteArray();
         values.per_game_configure_geometry =
-        config.value(QStringLiteral("perGameConfigureGeometry")).toByteArray();
+            config.value(QStringLiteral("perGameConfigureGeometry")).toByteArray();
         values.gamelist_header_state =
-        config.value(QStringLiteral("gameListHeaderState")).toByteArray();
+            config.value(QStringLiteral("gameListHeaderState")).toByteArray();
         values.microprofile_geometry =
-        config.value(QStringLiteral("microProfileDialogGeometry")).toByteArray();
+            config.value(QStringLiteral("microProfileDialogGeometry")).toByteArray();
     }
 
 } // namespace UISettings

@@ -31,6 +31,7 @@
 
 #include "citron/main.h"
 #include "citron/util/performance_overlay.h"
+#include "citron/uisettings.h"
 #include "core/core.h"
 #include "core/perf_stats.h"
 #include "video_core/gpu.h"
@@ -48,11 +49,6 @@ PerformanceOverlay::PerformanceOverlay(GMainWindow* parent)
     value_font = QFont(QString::fromUtf8("Segoe UI"), 11, QFont::Bold);
     small_font = QFont(QString::fromUtf8("Segoe UI"), 8, QFont::Normal);
 
-    // Initialize colors with a more modern palette
-    background_color = QColor(20, 20, 20, 180);  // Darker, more opaque background
-    border_color = QColor(60, 60, 60, 120);      // Subtle border
-    text_color = QColor(220, 220, 220, 255);     // Light gray text
-    fps_color = QColor(76, 175, 80, 255);        // Material Design green
     temperature_color = QColor(76, 175, 80, 255); // Default to green
 
     // Graph colors
@@ -63,6 +59,11 @@ PerformanceOverlay::PerformanceOverlay(GMainWindow* parent)
     // Set up timer for updates
     update_timer.setSingleShot(false);
     connect(&update_timer, &QTimer::timeout, this, &PerformanceOverlay::UpdatePerformanceStats);
+
+    // Connect to the main window's theme change signal
+    connect(parent, &GMainWindow::themeChanged, this, &PerformanceOverlay::UpdateTheme);
+    // Set the initial theme colors
+    UpdateTheme();
 
     // Set initial size - larger to accommodate the graph
     resize(220, 180);
@@ -555,4 +556,21 @@ QString PerformanceOverlay::FormatFrameTime(double frame_time_ms) const {
         return QString::fromUtf8("0.00");
     }
     return QString::number(frame_time_ms, 'f', 2);
+}
+
+void PerformanceOverlay::UpdateTheme() {
+    if (UISettings::IsDarkTheme()) {
+        // Dark Theme Colors (your original values)
+        background_color = QColor(20, 20, 20, 200); // Slightly more opaque
+        border_color = QColor(60, 60, 60, 120);
+        text_color = QColor(220, 220, 220, 255);
+        graph_background_color = QColor(40, 40, 40, 100);
+    } else {
+        // Light Theme Colors
+        background_color = QColor(245, 245, 245, 220);
+        border_color = QColor(200, 200, 200, 120);
+        text_color = QColor(20, 20, 20, 255);
+        graph_background_color = QColor(220, 220, 220, 100);
+    }
+    update(); // Force a repaint with the new colors
 }

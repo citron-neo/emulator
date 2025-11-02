@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: Copyright 2017 Citra Emulator Project
+// SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #pragma once
@@ -49,6 +50,7 @@ public slots:
     void PopupContextMenu(const QPoint& menu_location);
     void Disable();
     void Enable();
+    void UpdateTheme();
 
 signals:
     void ChatReceived(const Network::ChatEntry&);
