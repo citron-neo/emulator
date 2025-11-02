@@ -17,6 +17,7 @@
 
 #include "citron/main.h"
 #include "citron/util/vram_overlay.h"
+#include "citron/uisettings.h"
 #include "core/core.h"
 #include "video_core/gpu.h"
 #include "video_core/renderer_base.h"
@@ -37,12 +38,6 @@ VramOverlay::VramOverlay(GMainWindow* parent)
     small_font = QFont(QString::fromUtf8("Segoe UI"), 9, QFont::Normal);
     warning_font = QFont(QString::fromUtf8("Segoe UI"), 10, QFont::Bold);
 
-    // Modern dark theme colors
-    background_color = QColor(15, 15, 15, 220);
-    border_color = QColor(45, 45, 45, 255);
-    text_color = QColor(240, 240, 240, 255);
-    secondary_text_color = QColor(180, 180, 180, 255);
-
     // VRAM usage colors - modern palette
     vram_safe_color = QColor(76, 175, 80, 255);
     vram_warning_color = QColor(255, 193, 7, 255);
@@ -58,6 +53,9 @@ VramOverlay::VramOverlay(GMainWindow* parent)
     // Set up timer for updates
     update_timer.setSingleShot(false);
     connect(&update_timer, &QTimer::timeout, this, &VramOverlay::UpdateVramStats);
+
+    connect(parent, &GMainWindow::themeChanged, this, &VramOverlay::UpdateTheme);
+    UpdateTheme();
 
     // Set clean, compact size
     resize(250, 180);
@@ -321,4 +319,25 @@ void VramOverlay::AddVramUsage(double percentage) {
         min_vram_usage = std::max(0.0, min_vram_usage - range * 0.1);
         max_vram_usage = std::min(100.0, max_vram_usage + range * 0.1);
     }
+}
+
+void VramOverlay::UpdateTheme() {
+    if (UISettings::IsDarkTheme()) {
+        // Dark Theme Colors (your original values)
+        background_color = QColor(15, 15, 15, 220);
+        border_color = QColor(45, 45, 45, 255);
+        text_color = QColor(240, 240, 240, 255);
+        secondary_text_color = QColor(180, 180, 180, 255);
+        graph_background_color = QColor(25, 25, 25, 255);
+        graph_grid_color = QColor(60, 60, 60, 100);
+    } else {
+        // Light Theme Colors
+        background_color = QColor(245, 245, 245, 220);
+        border_color = QColor(200, 200, 200, 255);
+        text_color = QColor(20, 20, 20, 255);
+        secondary_text_color = QColor(80, 80, 80, 255);
+        graph_background_color = QColor(225, 225, 225, 255);
+        graph_grid_color = QColor(190, 190, 190, 100);
+    }
+    update(); // Force a repaint
 }
