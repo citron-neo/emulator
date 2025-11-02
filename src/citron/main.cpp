@@ -5800,7 +5800,11 @@ void GMainWindow::UpdateUITheme() {
                   UISettings::values.theme);
         qApp->setStyleSheet({});
         setStyleSheet({});
+
     }
+
+    emit themeChanged();
+
 }
 
 void GMainWindow::LoadTranslation() {
