@@ -6,6 +6,7 @@
 
 #include <memory>
 #include <vector>
+#include <QColor>
 #include <QDialog>
 #include "common/settings_enums.h"
 #include "citron/configuration/shared_widget.h" // <-- Correct header for Builder
@@ -69,6 +70,8 @@ private:
     void RetranslateUI();
 
     void OnLanguageChanged(const QString& locale);
+
+    QColor last_palette_text_color;
 
     // All members are now in the EXACT correct order to match the constructor
     std::unique_ptr<Ui::ConfigureDialog> ui;
