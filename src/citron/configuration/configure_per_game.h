@@ -8,6 +8,7 @@
 #include <string>
 #include <vector>
 
+#include <QColor>
 #include <QDialog>
 #include <QList>
 #include <QPixmap>
@@ -62,10 +63,10 @@ public slots:
     void OnTrimXCI();
 
 protected:
+    void changeEvent(QEvent* event) override;
     void resizeEvent(QResizeEvent* event) override;
 
 private:
-    void changeEvent(QEvent* event) override;
     void RetranslateUI();
     void HandleApplyButtonClicked();
     void LoadConfiguration();
@@ -79,6 +80,8 @@ private:
 
     QGraphicsScene* scene;
     std::unique_ptr<QtConfig> game_config;
+
+    QColor last_palette_text_color;
 
     Core::System& system;
     std::unique_ptr<ConfigurationShared::Builder> builder;
