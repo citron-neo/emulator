@@ -5754,38 +5754,45 @@ static void AdjustLinkColor() {
 }
 
 void GMainWindow::UpdateUITheme() {
-    const QString default_theme = QString::fromUtf8(
-        UISettings::themes[static_cast<size_t>(UISettings::default_theme)].second);
     QString current_theme = QString::fromStdString(UISettings::values.theme);
+    const QString default_theme_name = QString::fromUtf8(
+        UISettings::themes[static_cast<size_t>(UISettings::default_theme)].second);
 
     if (current_theme.isEmpty()) {
-        current_theme = default_theme;
+        current_theme = default_theme_name;
     }
 
 #ifdef _WIN32
     QIcon::setThemeName(current_theme);
     AdjustLinkColor();
 #else
-    if (current_theme == QStringLiteral("default") || current_theme == QStringLiteral("colorful")) {
-        QIcon::setThemeName(current_theme == QStringLiteral("colorful") ? current_theme
-                                                                        : startup_icon_theme);
+    bool is_adaptive_theme = (current_theme == QStringLiteral("default") || current_theme == QStringLiteral("colorful"));
+
+    if (is_adaptive_theme) {
+        // For adaptive themes, check the OS state and load the appropriate stylesheet.
+        QIcon::setThemeName(current_theme == QStringLiteral("colorful") ? current_theme : startup_icon_theme);
         QIcon::setThemeSearchPaths(QStringList(default_theme_paths));
         if (CheckDarkMode()) {
-            current_theme = QStringLiteral("default_dark");
+            // If OS is dark, use the dark variant of the adaptive theme.
+            current_theme.append(QStringLiteral("_dark"));
         }
     } else {
+        // For explicit themes, use the dedicated icon sets.
         QIcon::setThemeName(current_theme);
         QIcon::setThemeSearchPaths(QStringList(QStringLiteral(":/icons")));
         AdjustLinkColor();
     }
+
 #endif
-    if (current_theme != default_theme) {
+
+    // The rest of the function remains the same, loading the resolved theme name.
+    if (current_theme != default_theme_name) {
         QString theme_uri{QStringLiteral(":%1/style.qss").arg(current_theme)};
         QFile f(theme_uri);
         if (!f.open(QFile::ReadOnly | QFile::Text)) {
             LOG_ERROR(Frontend, "Unable to open style \"{}\", fallback to the default theme",
                       UISettings::values.theme);
-            current_theme = default_theme;
+            current_theme = default_theme_name;
         }
     }
 
@@ -5794,17 +5801,13 @@ void GMainWindow::UpdateUITheme() {
     if (f.open(QFile::ReadOnly | QFile::Text)) {
         QTextStream ts(&f);
         qApp->setStyleSheet(ts.readAll());
-        setStyleSheet(ts.readAll());
     } else {
         LOG_ERROR(Frontend, "Unable to set style \"{}\", stylesheet file not found",
                   UISettings::values.theme);
         qApp->setStyleSheet({});
-        setStyleSheet({});
-
     }
 
     emit themeChanged();
-
 }
 
 void GMainWindow::LoadTranslation() {
