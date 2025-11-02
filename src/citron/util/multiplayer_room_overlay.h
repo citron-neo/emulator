@@ -13,6 +13,7 @@
 
 #include "citron/multiplayer/state.h"
 #include "citron/multiplayer/chat_room.h"
+#include "citron/uisettings.h"
 
 class GMainWindow;
 class QSizeGrip;
@@ -31,6 +32,7 @@ public slots:
     // These slots are connected to the main window to prevent crashes.
     void OnEmulationStarting();
     void OnEmulationStopping();
+    void UpdateTheme();
 
 protected:
     void paintEvent(QPaintEvent* event) override;
