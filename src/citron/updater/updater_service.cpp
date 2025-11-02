@@ -560,10 +560,18 @@ bool UpdaterService::RestoreBackup() {
 bool UpdaterService::CreateUpdateHelperScript(const std::filesystem::path& staging_path) {
     try {
         std::filesystem::path script_path = staging_path / "apply_update.bat";
-        std::ofstream script(script_path);
+        LOG_INFO(Frontend, "Creating update helper script at: {}", script_path.string());
+
+        // Ensure staging directory exists
+        if (!std::filesystem::exists(staging_path)) {
+            LOG_ERROR(Frontend, "Staging path does not exist: {}", staging_path.string());
+            return false;
+        }
+
+        std::ofstream script(script_path, std::ios::out | std::ios::trunc);
 
         if (!script.is_open()) {
-            LOG_ERROR(Frontend, "Failed to create update helper script");
+            LOG_ERROR(Frontend, "Failed to open file for writing: {}", script_path.string());
             return false;
         }
 
@@ -606,12 +614,21 @@ bool UpdaterService::CreateUpdateHelperScript(const std::filesystem::path& stagi
         script << "REM Delete this script\n";
         script << "del \"%~f0\"\n";
 
+        script.flush();
         script.close();
 
-        LOG_INFO(Frontend, "Update helper script created: {}", script_path.string());
+        // Verify the file was created
+        if (!std::filesystem::exists(script_path)) {
+            LOG_ERROR(Frontend, "Script file was not created despite successful write!");
+            return false;
+        }
+
+        auto file_size = std::filesystem::file_size(script_path);
+        LOG_INFO(Frontend, "Update helper script created successfully: {} ({} bytes)",
+                 script_path.string(), file_size);
         return true;
     } catch (const std::exception& e) {
-        LOG_ERROR(Frontend, "Failed to create update helper script: {}", e.what());
+        LOG_ERROR(Frontend, "Exception creating update helper script: {}", e.what());
         return false;
     }
 }
