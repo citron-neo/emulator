@@ -66,11 +66,25 @@
 
 // Helper function to detect if the application is using a dark theme
 static bool IsDarkMode() {
-    const QPalette palette = qApp->palette();
-    const QColor text_color = palette.color(QPalette::WindowText);
-    const QColor base_color = palette.color(QPalette::Window);
-    // A common heuristic for dark mode is that the text color is brighter than the background
-    return text_color.value() > base_color.value();
+    const std::string& theme_name = UISettings::values.theme;
+
+    // Priority 1: Check for explicitly chosen dark themes.
+    if (theme_name == "qdarkstyle" || theme_name == "colorful_dark" ||
+        theme_name == "qdarkstyle_midnight_blue" || theme_name == "colorful_midnight_blue") {
+        return true; // These themes are always dark.
+    }
+
+    // Priority 2: Check for adaptive themes ("default" and "colorful").
+    // For these, we fall back to checking the OS palette.
+    if (theme_name == "default" || theme_name == "colorful") {
+        const QPalette palette = qApp->palette();
+        const QColor text_color = palette.color(QPalette::WindowText);
+        const QColor base_color = palette.color(QPalette::Window);
+        return text_color.value() > base_color.value();
+    }
+
+    // Fallback for any other unknown theme (assumed light).
+    return false;
 }
 
 ConfigurePerGame::ConfigurePerGame(QWidget* parent, u64 title_id_, const std::string& file_name_,
@@ -83,6 +97,8 @@ ConfigurePerGame::ConfigurePerGame(QWidget* parent, u64 title_id_, const std::st
       rainbow_timer{new QTimer(this)} {
 
     ui->setupUi(this);
+
+    last_palette_text_color = qApp->palette().color(QPalette::WindowText);
 
     const auto file_path = std::filesystem::path(Common::FS::ToU8String(file_name));
     const auto config_file_name = title_id == 0 ? Common::FS::PathToUTF8String(file_path.filename())
@@ -197,6 +213,15 @@ void ConfigurePerGame::changeEvent(QEvent* event) {
     if (event->type() == QEvent::LanguageChange) {
         RetranslateUI();
     }
+
+    if (event->type() == QEvent::PaletteChange) {
+        const QColor current_color = qApp->palette().color(QPalette::WindowText);
+        if (current_color != last_palette_text_color) {
+            last_palette_text_color = current_color;
+            UpdateTheme();
+        }
+    }
+
     QDialog::changeEvent(event);
 }
 
