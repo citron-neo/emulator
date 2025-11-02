@@ -1,5 +1,6 @@
 /*
 * SPDX-FileCopyrightText: 2018 yuzu Emulator Project
+* SPDX-FileCopyrightText: 2025 citron Emulator Project
 * SPDX-License-Identifier: GPL-2.0-or-later
 */
 QAbstractSpinBox {
@@ -684,4 +685,59 @@ QDialog#QtSoftwareKeyboardDialog QPushButton#button_backspace_num:disabled {
 QDialog#QtSoftwareKeyboardDialog QPushButton#button_space:disabled,
 QDialog#QtSoftwareKeyboardDialog QPushButton#button_space_shift:disabled {
     image: url(:/overlay/osk_button_Y_disabled.png);
+}
+
+QMenuBar {
+    background-color: #2b2b2b;
+    color: #d0d0d0;
+    border-bottom: 1px solid #3d3d3d;
+}
+
+QMenuBar::item {
+    background-color: transparent;
+    padding: 4px 10px;
+    color: #d0d0d0;
+}
+
+QMenuBar::item:selected {
+    background-color: #4a4a4a;
+    color: #ffffff;
+}
+
+QMenuBar::item:pressed {
+    background-color: #5d5d5d;
+    border-bottom: 1px solid #5d5d5d;
+    color: #ffffff;
+}
+
+/*
+ * Dropdown Menu Styling
+ */
+
+QMenu {
+    background-color: #2b2b2b;
+    color: #d0d0d0;
+    border: 1px solid #4a4a4a;
+    padding: 5px;
+}
+
+QMenu::item {
+    padding: 5px 25px;
+    border: 1px solid transparent;
+}
+
+QMenu::item:selected {
+    background-color: #4a9eff;
+    color: #ffffff;
+}
+
+QMenu::item:disabled {
+    color: #787878; /* A standard, noticeable grey for disabled text */
+    background-color: transparent; /* Prevent hover effects */
+}
+
+QMenu::separator {
+    height: 1px;
+    background-color: #4a4a4a;
+    margin: 4px;
 }
