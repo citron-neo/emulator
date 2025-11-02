@@ -116,6 +116,7 @@ signals:
     void EmulationStarting(EmuThread* emu_thread);
     void EmulationStopping();
     void UpdateThemedIcons();
+    void themeChanged();
     void UpdateInstallProgress();
     void AmiiboSettingsFinished(bool is_success, const std::string& name);
     void ControllerSelectorReconfigureFinished(bool is_success);
