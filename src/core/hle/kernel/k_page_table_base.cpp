@@ -1275,7 +1275,7 @@ Result KPageTableBase::UnmapCodeMemory(KProcessAddress dst_address, KProcessAddr
 
     // Verify that the destination memory is aliasable code.
     size_t num_dst_allocator_blocks;
-    R_TRY(this->CheckMemoryState(
+    R_TRY(this->CheckMemoryStateContiguous(
         std::addressof(num_dst_allocator_blocks), dst_address, size, KMemoryState::FlagCanCodeAlias,
         KMemoryState::FlagCanCodeAlias, KMemoryPermission::None, KMemoryPermission::None,
         KMemoryAttribute::All & ~KMemoryAttribute::PermissionLocked, KMemoryAttribute::None));
