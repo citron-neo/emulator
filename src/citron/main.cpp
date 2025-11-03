@@ -5801,8 +5801,7 @@ void GMainWindow::UpdateUITheme() {
     QString theme_uri{QStringLiteral(":%1/style.qss").arg(current_theme)};
     QFile f(theme_uri);
     if (f.open(QFile::ReadOnly | QFile::Text)) {
-        QTextStream ts(&f);
-        qApp->setStyleSheet(ts.readAll());
+        qApp->setStyleSheet(QString::fromUtf8(f.readAll()));
     } else {
         LOG_ERROR(Frontend, "Unable to set style \"{}\", stylesheet file not found",
                   UISettings::values.theme);
