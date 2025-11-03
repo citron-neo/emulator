@@ -148,6 +148,8 @@ namespace UISettings {
                                     true};
                                     Setting<bool> disable_web_applet{linkage, true, "disable_web_applet", Category::Ui};
 
+                                    Setting<bool> check_for_updates_on_start{linkage, true, "check_for_updates_on_start", Category::Ui};
+
                                     // Discord RPC
                                     Setting<bool> enable_discord_presence{linkage, true, "enable_discord_presence", Category::Ui};
 
