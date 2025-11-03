@@ -820,7 +820,8 @@ endif()
 # to all executables that depend on core. This must be placed AFTER add_subdirectory(src).
 if (MSVC AND ARCHITECTURE_arm64)
     message(STATUS "Applying manual linking workaround for Windows ARM64")
-    target_link_libraries(core PRIVATE FFmpeg::avcodec FFmpeg::avfilter FFmpeg::swscale FFmpeg::avutil SDL2::SDL2)
+    # Use the classic variables, as the modern targets are not created by the vcpkg toolchain for ARM64.
+    target_link_libraries(core PRIVATE ${FFmpeg_LIBRARIES} ${SDL2_LIBRARY} ${SDL2MAIN_LIBRARY})
 endif()
 
 # Apply PGO configuration to main targets
