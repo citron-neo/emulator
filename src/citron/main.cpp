@@ -78,6 +78,7 @@ static FileSys::VirtualFile VfsDirectoryCreateFileWrapper(const FileSys::Virtual
 
 #define QT_NO_OPENGL
 #include <QClipboard>
+#include <QCheckBox>
 #include <QDesktopServices>
 #include <QDir>
 #include <QFile>
@@ -461,11 +462,12 @@ GMainWindow::GMainWindow(std::unique_ptr<QtConfig> config_, bool has_broken_vulk
     // ShowTelemetryCallout();  // Disabled: telemetry popup not needed
 
     // Check for updates automatically after a short delay (non-blocking)
-    QTimer::singleShot(3000, this, &GMainWindow::CheckForUpdatesAutomatically);
+    if (UISettings::values.check_for_updates_on_start) {
+        QTimer::singleShot(3000, this, &GMainWindow::CheckForUpdatesAutomatically);
+    }
 
     // make sure menubar has the arrow cursor instead of inheriting from this
     ui->menubar->setCursor(QCursor());
-    statusBar()->setCursor(QCursor());
 
     mouse_hide_timer.setInterval(default_mouse_hide_timeout);
     connect(&mouse_hide_timer, &QTimer::timeout, this, &GMainWindow::HideMouseCursor);
@@ -6154,44 +6156,54 @@ void GMainWindow::OnCheckForUpdates() {
 
 void GMainWindow::CheckForUpdatesAutomatically() {
     #ifdef CITRON_USE_AUTO_UPDATER
-    // Check if automatic updates are enabled
+    // Check if automatic updates are enabled in general settings
     if (!Settings::values.enable_auto_update_check.GetValue()) {
         return;
     }
 
     LOG_INFO(Frontend, "Checking for updates automatically...");
 
-    // Use HTTP URL to bypass SSL issues
     std::string update_url = "https://api.github.com/repos/Zephyron-Dev/Citron-CI/releases";
 
-    // Create updater service for silent background check
     auto* updater_service = new Updater::UpdaterService(this);
 
-    // Connect to update check result
     connect(updater_service, &Updater::UpdaterService::UpdateCheckCompleted, this,
             [this, updater_service](bool has_update, const Updater::UpdateInfo& update_info) {
                 if (has_update) {
-                    // Show a subtle notification that an update is available
-                    QMessageBox::information(this, tr("Update Available"),
-                                             tr("A new version of Citron is available: %1\n\n"
-                                             "Click Help → Check for Updates to download it.")
-                                             .arg(QString::fromStdString(update_info.version)));
+                    // Create an advanced message box
+                    QMessageBox msg_box(this);
+                    msg_box.setWindowTitle(tr("Update Available"));
+                    msg_box.setText(tr("A new version of Citron is available: %1")
+                                      .arg(QString::fromStdString(update_info.version)));
+                    msg_box.setInformativeText(tr("Click Help → Check for Updates to download it."));
+                    msg_box.setIcon(QMessageBox::Information);
+                    msg_box.setStandardButtons(QMessageBox::Ok);
+
+                    // Create and add the checkbox
+                    QCheckBox* check_box = new QCheckBox(tr("Don't check for updates on startup"));
+                    msg_box.setCheckBox(check_box);
+
+                    msg_box.exec();
+
+                    // After the dialog closes, check if the box was ticked
+                    if (msg_box.checkBox()->isChecked()) {
+                        UISettings::values.check_for_updates_on_start = false;
+                        // Save the setting immediately
+                        this->config->SaveAllValues();
+                    }
                 }
                 updater_service->deleteLater();
             });
 
-    // Connect to error handling
     connect(updater_service, &Updater::UpdaterService::UpdateCompleted, this,
             [updater_service](Updater::UpdaterService::UpdateResult result, const QString& message) {
                 if (result == Updater::UpdaterService::UpdateResult::NetworkError ||
                     result == Updater::UpdaterService::UpdateResult::Failed) {
-                    // Silent fail for automatic checks - just log the error
                     LOG_WARNING(Frontend, "Automatic update check failed: {}", message.toStdString());
                     }
                     updater_service->deleteLater();
             });
 
-    // Start the silent update check
     updater_service->CheckForUpdates(update_url);
     #endif
 }
