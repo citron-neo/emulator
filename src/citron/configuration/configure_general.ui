@@ -40,6 +40,13 @@
            <property name="bottomMargin">
             <number>0</number>
            </property>
+           <item>
+            <widget class="QCheckBox" name="check_for_updates_checkbox">
+             <property name="text">
+              <string>Check for updates on startup</string>
+             </property>
+            </widget>
+           </item>
           </layout>
          </widget>
         </item>
