@@ -370,9 +370,17 @@ if (ARCHITECTURE_arm64)
     find_package(oaknut 2.0.1 CONFIG)
 endif()
 
-# Disable Dynarmic on Windows ARM64, as it requires non-MSVC assembly and is not implemented.
+# We create a variable to remember if dynarmic was found
+set(CITRON_HAS_DYNARMIC FALSE)
+
 if ((ARCHITECTURE_x86_64 OR ARCHITECTURE_arm64) AND NOT (MSVC AND ARCHITECTURE_arm64))
     find_package(dynarmic 6.4.0 CONFIG)
+    if(dynarmic_FOUND)
+        message(STATUS "Dynarmic found, enabling dynamic recompilation support.")
+        set(CITRON_HAS_DYNARMIC TRUE) # Set our variable to TRUE
+    else()
+        message(STATUS "Dynarmic not found or disabled for this architecture, skipping.")
+    endif()
 endif()
 
 if (ENABLE_CUBEB)
@@ -809,19 +817,34 @@ endif()
 
 add_subdirectory(src)
 
+# Add the compile definition for Dynarmic
+if(CITRON_HAS_DYNARMIC) # This variable is set by the find_package call at the top
+    target_compile_definitions(core PRIVATE USE_DYNARMIC)
+endif()
+
+# SDL2/FFmpeg using classic variables
+if (MSVC AND ARCHITECTURE_arm64)
+    message(STATUS "Applying manual linking workaround for Windows ARM64")
+
+    find_package(FFmpeg 4.3 REQUIRED COMPONENTS avcodec avfilter swscale avutil)
+    find_package(SDL2 2.26.4 REQUIRED)
+
+    if(SDL2_INCLUDE_DIR)
+        target_include_directories(core PRIVATE ${SDL2_INCLUDE_DIR})
+    endif()
+    if(FFmpeg_INCLUDE_DIRS)
+        target_include_directories(core PRIVATE ${FFmpeg_INCLUDE_DIRS})
+    endif()
+
+    if(SDL2_LIBRARY AND FFmpeg_LIBRARIES)
+        target_link_libraries(core PRIVATE ${SDL2_LIBRARY} ${FFmpeg_LIBRARIES})
+    endif()
+endif()
+
+
 # Apply the Boost.Process definition to the core target if it was found
 if(DEFINED HAS_BOOST_PROCESS_DEFINITION)
     target_compile_definitions(core PRIVATE ${HAS_BOOST_PROCESS_DEFINITION})
-endif()
-
-# Workaround for Windows ARM64 build:
-# Vcpkg fails to automatically link FFmpeg and SDL2 to the sub-targets for this architecture.
-# We will manually link the libraries to the core library, which will make them available
-# to all executables that depend on core. This must be placed AFTER add_subdirectory(src).
-if (MSVC AND ARCHITECTURE_arm64)
-    message(STATUS "Applying manual linking workaround for Windows ARM64")
-    # Use the classic variables, as the modern targets are not created by the vcpkg toolchain for ARM64.
-    target_link_libraries(core PRIVATE ${FFmpeg_LIBRARIES} ${SDL2_LIBRARY} ${SDL2MAIN_LIBRARY})
 endif()
 
 # Apply PGO configuration to main targets
