@@ -822,26 +822,6 @@ if(CITRON_HAS_DYNARMIC) # This variable is set by the find_package call at the t
     target_compile_definitions(core PRIVATE USE_DYNARMIC)
 endif()
 
-# SDL2/FFmpeg using classic variables
-if (MSVC AND ARCHITECTURE_arm64)
-    message(STATUS "Applying manual linking workaround for Windows ARM64")
-
-    find_package(FFmpeg 4.3 REQUIRED COMPONENTS avcodec avfilter swscale avutil)
-    find_package(SDL2 2.26.4 REQUIRED)
-
-    if(SDL2_INCLUDE_DIR)
-        target_include_directories(core PRIVATE ${SDL2_INCLUDE_DIR})
-    endif()
-    if(FFmpeg_INCLUDE_DIRS)
-        target_include_directories(core PRIVATE ${FFmpeg_INCLUDE_DIRS})
-    endif()
-
-    if(SDL2_LIBRARY AND FFmpeg_LIBRARIES)
-        target_link_libraries(core PRIVATE ${SDL2_LIBRARY} ${FFmpeg_LIBRARIES})
-    endif()
-endif()
-
-
 # Apply the Boost.Process definition to the core target if it was found
 if(DEFINED HAS_BOOST_PROCESS_DEFINITION)
     target_compile_definitions(core PRIVATE ${HAS_BOOST_PROCESS_DEFINITION})
