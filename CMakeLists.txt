@@ -370,7 +370,8 @@ if (ARCHITECTURE_arm64)
     find_package(oaknut 2.0.1 CONFIG)
 endif()
 
-if (ARCHITECTURE_x86_64 OR ARCHITECTURE_arm64)
+# Disable Dynarmic on Windows ARM64, as it requires non-MSVC assembly and is not implemented.
+if ((ARCHITECTURE_x86_64 OR ARCHITECTURE_arm64) AND NOT (MSVC AND ARCHITECTURE_arm64))
     find_package(dynarmic 6.4.0 CONFIG)
 endif()
 
@@ -571,26 +572,26 @@ list(APPEND CITRON_QT_COMPONENTS2 Multimedia)
 # find SDL2 exports a bunch of variables that are needed, so its easier to do this outside of the citron_find_package
 if (ENABLE_SDL2)
     if (CITRON_USE_BUNDLED_SDL2)
-    # Detect toolchain and platform
-    if (MSVC_VERSION GREATER_EQUAL 1920 AND ARCHITECTURE_x86_64)
-        set(SDL2_VER "SDL2-2.28.2")
-        set(SDL2_ARCH_DIR "x64")
-    elseif (MSVC_VERSION GREATER_EQUAL 1920 AND ARCHITECTURE_arm64)
-        set(SDL2_VER "SDL2-2.28.2")
-        set(SDL2_ARCH_DIR "arm64")
-    else()
-        message(FATAL_ERROR "No bundled SDL2 binaries for your toolchain. Disable CITRON_USE_BUNDLED_SDL2 and provide your own.")
-    endif()
+        # Detect toolchain and platform
+        if (MSVC_VERSION GREATER_EQUAL 1920 AND ARCHITECTURE_x86_64)
+            set(SDL2_VER "SDL2-2.28.2")
+            set(SDL2_ARCH_DIR "x64")
+        elseif (MSVC_VERSION GREATER_EQUAL 1920 AND ARCHITECTURE_arm64)
+            set(SDL2_VER "SDL2-2.28.2")
+            set(SDL2_ARCH_DIR "arm64")
+        else()
+            message(FATAL_ERROR "No bundled SDL2 binaries for your toolchain. Disable CITRON_USE_BUNDLED_SDL2 and provide your own.")
+        endif()
 
-    if (DEFINED SDL2_VER)
-        download_bundled_external("sdl2/" ${SDL2_VER} SDL2_PREFIX)
-    endif()
+        if (DEFINED SDL2_VER)
+            download_bundled_external("sdl2/" ${SDL2_VER} SDL2_PREFIX)
+        endif()
 
-    set(SDL2_FOUND YES)
-    set(SDL2_INCLUDE_DIR "${SDL2_PREFIX}/include" CACHE PATH "Path to SDL2 headers")
-    set(SDL2_LIBRARY "${SDL2_PREFIX}/lib/${SDL2_ARCH_DIR}/SDL2.lib" CACHE PATH "Path to SDL2 library")
-    set(SDL2MAIN_LIBRARY "${SDL2_PREFIX}/lib/${SDL2_ARCH_DIR}/SDL2main.lib" CACHE PATH "Path to SDL2main library")
-    set(SDL2_DLL_DIR "${SDL2_PREFIX}/lib/${SDL2_ARCH_DIR}/" CACHE PATH "Path to SDL2.dll")
+        set(SDL2_FOUND YES)
+        set(SDL2_INCLUDE_DIR "${SDL2_PREFIX}/include" CACHE PATH "Path to SDL2 headers")
+        set(SDL2_LIBRARY "${SDL2_PREFIX}/lib/${SDL2_ARCH_DIR}/SDL2.lib" CACHE PATH "Path to SDL2 library")
+        set(SDL2MAIN_LIBRARY "${SDL2_PREFIX}/lib/${SDL2_ARCH_DIR}/SDL2main.lib" CACHE PATH "Path to SDL2main library")
+        set(SDL2_DLL_DIR "${SDL2_PREFIX}/lib/${SDL2_ARCH_DIR}/" CACHE PATH "Path to SDL2.dll")
 
         add_library(SDL2::SDL2 INTERFACE IMPORTED)
         target_link_libraries(SDL2::SDL2 INTERFACE "${SDL2_LIBRARY}" "${SDL2MAIN_LIBRARY}")
@@ -602,29 +603,29 @@ if (ENABLE_SDL2)
     endif()
 endif()
 
-    # List of all FFmpeg components required
-    set(FFmpeg_COMPONENTS
-        avcodec
-        avfilter
-        avutil
-        swscale)
+# List of all FFmpeg components required
+set(FFmpeg_COMPONENTS
+    avcodec
+    avfilter
+    avutil
+    swscale)
 
-    if (UNIX AND NOT APPLE AND NOT ANDROID)
-        find_package(PkgConfig REQUIRED)
-        pkg_check_modules(LIBVA libva)
-    endif()
-    if (NOT CITRON_USE_BUNDLED_FFMPEG)
-        # Use system installed FFmpeg
-        find_package(FFmpeg 4.3 REQUIRED QUIET COMPONENTS ${FFmpeg_COMPONENTS})
-    endif()
+if (UNIX AND NOT APPLE AND NOT ANDROID)
+    find_package(PkgConfig REQUIRED)
+    pkg_check_modules(LIBVA libva)
+endif()
+if (NOT CITRON_USE_BUNDLED_FFMPEG)
+    # Use system installed FFmpeg
+    find_package(FFmpeg 4.3 REQUIRED QUIET COMPONENTS ${FFmpeg_COMPONENTS})
+endif()
 
 if(ENABLE_QT)
-        set_citron_qt_components()
-        find_package(Qt6 REQUIRED COMPONENTS ${CITRON_QT_COMPONENTS})
-        set(QT_MAJOR_VERSION 6)
-        # Qt6 sets cxx_std_17 and we need to undo that
-        set_target_properties(Qt6::Platform PROPERTIES INTERFACE_COMPILE_FEATURES "")
-    endif()
+    set_citron_qt_components()
+    find_package(Qt6 REQUIRED COMPONENTS ${CITRON_QT_COMPONENTS})
+    set(QT_MAJOR_VERSION 6)
+    # Qt6 sets cxx_std_17 and we need to undo that
+    set_target_properties(Qt6::Platform PROPERTIES INTERFACE_COMPILE_FEATURES "")
+endif()
 
 if (WIN32 AND CITRON_CRASH_DUMPS)
     set(BREAKPAD_VER "breakpad-c89f9dd")
@@ -804,6 +805,20 @@ if(MSVC)
         $<$<CONFIG:RelWithDebInfo>:/MD>
         $<$<CONFIG:MinSizeRel>:/MD>
     )
+endif()
+
+# Workaround for Windows ARM64 build:
+# Vcpkg fails to automatically link FFmpeg and SDL2 to the sub-targets for this architecture.
+# We will manually find the packages here and link them to the core library,
+# which will make them available to all executables that depend on core.
+if (MSVC AND ARCHITECTURE_arm64)
+    message(STATUS "Applying manual linking workaround for Windows ARM64")
+    find_package(FFmpeg 4.3 REQUIRED COMPONENTS avcodec avfilter swscale avutil)
+    find_package(SDL2 2.26.4 REQUIRED)
+
+    # Link these libraries to the 'core' target. Since both citron.exe and citron-cmd.exe
+    # depend on 'core', this will transitively provide the linker dependencies.
+    target_link_libraries(core PRIVATE FFmpeg::avcodec FFmpeg::avfilter FFmpeg::swscale FFmpeg::avutil SDL2::SDL2)
 endif()
 
 add_subdirectory(src)
