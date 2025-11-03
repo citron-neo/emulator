@@ -32,6 +32,8 @@ ConfigureGeneral::ConfigureGeneral(const Core::System& system_,
     if (!Settings::IsConfiguringGlobal()) {
         ui->button_reset_defaults->setVisible(false);
     }
+
+    ui->check_for_updates_checkbox->setChecked(UISettings::values.check_for_updates_on_start.GetValue());
 }
 
 ConfigureGeneral::~ConfigureGeneral() = default;
@@ -133,6 +135,9 @@ void ConfigureGeneral::ResetDefaults() {
 }
 
 void ConfigureGeneral::ApplyConfiguration() {
+
+    UISettings::values.check_for_updates_on_start.SetValue(ui->check_for_updates_checkbox->isChecked());
+
     bool powered_on = system.IsPoweredOn();
     for (const auto& func : apply_funcs) {
         func(powered_on);
