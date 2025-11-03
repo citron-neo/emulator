@@ -25,12 +25,10 @@
         "boost-test",
         "boost-timer",
         "boost-variant",
-        "ffmpeg",
         "fmt",
         "lz4",
         "nlohmann-json",
         "openal-soft",
-        "sdl2",
         "zlib",
         "zstd"
     ],
