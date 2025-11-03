@@ -811,14 +811,11 @@ endif()
 # Vcpkg fails to automatically link FFmpeg and SDL2 to the sub-targets for this architecture.
 # We will manually find the packages here and link them to the core library,
 # which will make them available to all executables that depend on core.
+# NOTE: This block must be placed BEFORE add_subdirectory(src)
 if (MSVC AND ARCHITECTURE_arm64)
     message(STATUS "Applying manual linking workaround for Windows ARM64")
     find_package(FFmpeg 4.3 REQUIRED COMPONENTS avcodec avfilter swscale avutil)
     find_package(SDL2 2.26.4 REQUIRED)
-
-    # Link these libraries to the 'core' target. Since both citron.exe and citron-cmd.exe
-    # depend on 'core', this will transitively provide the linker dependencies.
-    target_link_libraries(core PRIVATE FFmpeg::avcodec FFmpeg::avfilter FFmpeg::swscale FFmpeg::avutil SDL2::SDL2)
 endif()
 
 add_subdirectory(src)
@@ -827,6 +824,13 @@ add_subdirectory(src)
 if(DEFINED HAS_BOOST_PROCESS_DEFINITION)
     target_compile_definitions(core PRIVATE ${HAS_BOOST_PROCESS_DEFINITION})
 endif()
+
+# Continue the ARM64 workaround by linking the found packages to the 'core' target
+# This must be placed AFTER add_subdirectory(src) where 'core' is defined
+if (MSVC AND ARCHITECTURE_arm64)
+    target_link_libraries(core PRIVATE FFmpeg::avcodec FFmpeg::avfilter FFmpeg::swscale FFmpeg::avutil SDL2::SDL2)
+endif()
+
 
 # Apply PGO configuration to main targets
 if(CITRON_ENABLE_PGO_GENERATE OR CITRON_ENABLE_PGO_USE)
