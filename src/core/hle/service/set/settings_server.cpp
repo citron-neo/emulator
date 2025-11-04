@@ -101,6 +101,7 @@ ISettingsServer::ISettingsServer(Core::System& system_) : ServiceFramework{syste
         {9, C<&ISettingsServer::GetKeyCodeMap2>, "GetKeyCodeMap2"},
         {10, nullptr, "GetFirmwareVersionForDebug"},
         {11, C<&ISettingsServer::GetDeviceNickName>, "GetDeviceNickName"},
+        {12, C<&ISettingsServer::Unknown12>, "Unknown12"},
     };
     // clang-format on
 
@@ -236,6 +237,11 @@ Result ISettingsServer::GetDeviceNickName(
 
     *out_device_name = {};
     memcpy(out_device_name->data(), Settings::values.device_name.GetValue().data(), string_size);
+    R_SUCCEED();
+}
+
+Result ISettingsServer::Unknown12() {
+    LOG_WARNING(Service_SET, "(STUBBED) called");
     R_SUCCEED();
 }
 

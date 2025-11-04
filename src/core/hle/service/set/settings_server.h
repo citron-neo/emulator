@@ -46,6 +46,8 @@ private:
 
     Result GetDeviceNickName(
         OutLargeData<std::array<u8, 0x80>, BufferAttr_HipcMapAlias> out_device_name);
+
+    Result Unknown12();
 };
 
 } // namespace Service::Set
