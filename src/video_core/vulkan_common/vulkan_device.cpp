@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: Copyright 2018 yuzu Emulator Project
+// SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <algorithm>
@@ -427,6 +428,7 @@ Device::Device(VkInstance instance_, vk::PhysicalDevice physical_, VkSurfaceKHR 
     const bool is_qualcomm = driver_id == VK_DRIVER_ID_QUALCOMM_PROPRIETARY;
     const bool is_turnip = driver_id == VK_DRIVER_ID_MESA_TURNIP;
     const bool is_s8gen2 = device_id == 0x43050a01;
+    const bool is_s8elite = device_id == 0x43052c01;
     const bool is_arm = driver_id == VK_DRIVER_ID_ARM_PROPRIETARY;
 
     if ((is_mvk || is_qualcomm || is_turnip || is_arm) && !is_suitable) {
@@ -497,6 +499,15 @@ Device::Device(VkInstance instance_, vk::PhysicalDevice physical_, VkSurfaceKHR 
         LOG_WARNING(Render_Vulkan,
                     "Qualcomm drivers have a slow VK_KHR_push_descriptor implementation");
         RemoveExtension(extensions.push_descriptor, VK_KHR_PUSH_DESCRIPTOR_EXTENSION_NAME);
+
+        LOG_WARNING(Render_Vulkan,
+                    "Disabling shader float controls and 64-bit integer features on Qualcomm proprietary drivers");
+        RemoveExtension(extensions.shader_float_controls, VK_KHR_SHADER_FLOAT_CONTROLS_EXTENSION_NAME);
+        RemoveExtensionFeature(extensions.shader_atomic_int64, features.shader_atomic_int64,
+                               VK_KHR_SHADER_ATOMIC_INT64_EXTENSION_NAME);
+        features.shader_atomic_int64.shaderBufferInt64Atomics = false;
+        features.shader_atomic_int64.shaderSharedInt64Atomics = false;
+        features.features.shaderInt64 = false;
 
 #if defined(ANDROID) && defined(ARCHITECTURE_arm64)
         // Patch the driver to enable BCn textures.
@@ -671,7 +682,7 @@ Device::Device(VkInstance instance_, vk::PhysicalDevice physical_, VkSurfaceKHR 
     has_broken_compute =
         CheckBrokenCompute(properties.driver.driverID, properties.properties.driverVersion) &&
         !Settings::values.enable_compute_pipelines.GetValue();
-    if (is_intel_anv || (is_qualcomm && !is_s8gen2)) {
+    if (is_intel_anv || (is_qualcomm && !is_s8gen2 && !is_s8elite)) {
         LOG_WARNING(Render_Vulkan, "Driver does not support native BGR format");
         must_emulate_bgr565 = true;
     }
