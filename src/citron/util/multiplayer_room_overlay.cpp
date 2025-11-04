@@ -71,15 +71,11 @@ MultiplayerRoomOverlay::~MultiplayerRoomOverlay() {
 }
 
 void MultiplayerRoomOverlay::OnEmulationStarting() {
-    if (is_visible) {
-        ConnectToRoom();
-        update_timer.start(500);
-    }
+    // The connection is now managed by the overlay's visibility.
 }
 
 void MultiplayerRoomOverlay::OnEmulationStopping() {
-    update_timer.stop();
-    DisconnectFromRoom();
+    // The connection should persist even when emulation stops.
 }
 
 void MultiplayerRoomOverlay::SetVisible(bool visible) {
@@ -88,10 +84,8 @@ void MultiplayerRoomOverlay::SetVisible(bool visible) {
 
     if (visible) {
         show();
-        if (main_window && main_window->IsEmulationRunning()) {
-            ConnectToRoom();
-            update_timer.start(500);
-        }
+        ConnectToRoom();
+        update_timer.start(500);
     } else {
         hide();
         update_timer.stop();
