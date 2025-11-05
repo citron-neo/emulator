@@ -547,14 +547,31 @@ std::pair<s32, Errno> BSD::SocketImpl(Domain domain, Type type, Protocol protoco
     LOG_INFO(Service, "New socket fd={} domain={} type={} protocol={} proxy={}",
              fd, domain, type, protocol, using_proxy);
 
+    // Store socket type information for pooling
+    descriptor.domain = Translate(domain);
+    descriptor.type = Translate(type);
+    descriptor.protocol = Translate(protocol);
+    descriptor.is_connection_based = IsConnectionBased(type);
+
+    // Try to reuse a socket from the pool if using proxy
     if (using_proxy) {
-        descriptor.socket = std::make_shared<Network::ProxySocket>(room_network);
+        SocketPoolKey key{descriptor.domain, descriptor.type, descriptor.protocol};
+        std::lock_guard lock(socket_pool_mutex);
+
+        auto it = socket_pool.find(key);
+        if (it != socket_pool.end() && !it->second.empty()) {
+            descriptor.socket = it->second.back();
+            it->second.pop_back();
+            LOG_DEBUG(Service, "Reused socket from pool for fd={}", fd);
+        } else {
+            descriptor.socket = std::make_shared<Network::ProxySocket>(room_network);
+            descriptor.socket->Initialize(descriptor.domain, descriptor.type, descriptor.protocol);
+            LOG_DEBUG(Service, "Created new ProxySocket for fd={}", fd);
+        }
     } else {
         descriptor.socket = std::make_shared<Network::Socket>();
+        descriptor.socket->Initialize(descriptor.domain, descriptor.type, descriptor.protocol);
     }
-
-    descriptor.socket->Initialize(Translate(domain), Translate(type), Translate(protocol));
-    descriptor.is_connection_based = IsConnectionBased(type);
 
     return {fd, Errno::SUCCESS};
 }
@@ -966,12 +983,33 @@ Errno BSD::CloseImpl(s32 fd) {
         return Errno::BADF;
     }
 
-    const Errno bsd_errno = Translate(file_descriptors[fd]->socket->Close());
+    auto& descriptor = file_descriptors[fd];
+    const Errno bsd_errno = Translate(descriptor->socket->Close());
     if (bsd_errno != Errno::SUCCESS) {
         return bsd_errno;
     }
 
     LOG_INFO(Service, "Close socket fd={}", fd);
+
+    // Try to return ProxySocket to the pool for reuse
+    auto proxy_socket = std::dynamic_pointer_cast<Network::ProxySocket>(descriptor->socket);
+    auto room_member = room_network.GetRoomMember().lock();
+
+    if (proxy_socket && room_member && room_member->IsConnected()) {
+        // Socket is still valid, add to pool
+        std::lock_guard lock(socket_pool_mutex);
+
+        SocketPoolKey key{descriptor->domain, descriptor->type, descriptor->protocol};
+
+        // Limit pool size to avoid memory bloat (max 8 sockets per type)
+        constexpr size_t MAX_POOL_SIZE = 8;
+        if (socket_pool[key].size() < MAX_POOL_SIZE) {
+            socket_pool[key].push_back(descriptor->socket);
+            LOG_DEBUG(Service, "Returned socket fd={} to pool", fd);
+        } else {
+            LOG_DEBUG(Service, "Socket pool full, destroying socket fd={}", fd);
+        }
+    }
 
     file_descriptors[fd].reset();
     return bsd_errno;

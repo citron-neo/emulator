@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: Copyright 2020 yuzu Emulator Project
+// SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <algorithm>
@@ -928,7 +929,13 @@ bool Socket::IsOpened() const {
 }
 
 void Socket::HandleProxyPacket(const ProxyPacket& packet) {
-    LOG_WARNING(Network, "ProxyPacket received, but not in Proxy mode!");
+    LOG_WARNING(Network,
+                "ProxyPacket received on regular socket (not ProxySocket). "
+                "This may indicate socket type mismatch. "
+                "Packet from {}:{} to {}:{}, protocol={}, reliable={}",
+                packet.local_endpoint.ip[0], packet.local_endpoint.portno,
+                packet.remote_endpoint.ip[0], packet.remote_endpoint.portno,
+                static_cast<int>(packet.protocol), packet.reliable);
 }
 
 } // namespace Network
