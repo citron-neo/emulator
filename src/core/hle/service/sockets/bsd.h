@@ -46,6 +46,9 @@ private:
         std::shared_ptr<Network::SocketBase> socket;
         s32 flags = 0;
         bool is_connection_based = false;
+        Network::Domain domain = Network::Domain::INET;
+        Network::Type type = Network::Type::DGRAM;
+        Network::Protocol protocol = Network::Protocol::UDP;
     };
 
     struct PollWork {
@@ -208,6 +211,20 @@ private:
 
     // Callback identifier for the OnProxyPacketReceived event.
     Network::RoomMember::CallbackHandle<Network::ProxyPacket> proxy_packet_received;
+
+    /// Socket pool to cache and reuse ProxySocket instances
+    struct SocketPoolKey {
+        Network::Domain domain;
+        Network::Type type;
+        Network::Protocol protocol;
+
+        bool operator<(const SocketPoolKey& other) const {
+            return std::tie(domain, type, protocol) <
+                   std::tie(other.domain, other.type, other.protocol);
+        }
+    };
+    std::map<SocketPoolKey, std::vector<std::shared_ptr<Network::SocketBase>>> socket_pool;
+    std::mutex socket_pool_mutex;
 
 protected:
     virtual std::unique_lock<std::mutex> LockService() override;

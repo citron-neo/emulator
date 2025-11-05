@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: Copyright 2017 Citra Emulator Project
+// SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #pragma once
@@ -31,6 +32,7 @@ struct LDNPacket {
     IPv4Address local_ip;
     IPv4Address remote_ip;
     bool broadcast;
+    bool reliable = true; // Control packets use reliable delivery by default
     std::vector<u8> data;
 };
 
@@ -40,6 +42,7 @@ struct ProxyPacket {
     SockAddrIn remote_endpoint;
     Protocol protocol;
     bool broadcast;
+    bool reliable = true; // Use reliable delivery by default for compatibility
     std::vector<u8> data;
 };
 

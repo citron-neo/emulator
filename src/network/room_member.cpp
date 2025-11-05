@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: Copyright 2017 Citra Emulator Project
+// SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <atomic>
@@ -44,8 +45,15 @@ public:
     std::mutex network_mutex; ///< Mutex that controls access to the `client` variable.
     /// Thread that receives and dispatches network packets
     std::unique_ptr<std::thread> loop_thread;
+
+    /// Structure to hold a packet and its reliability flag
+    struct PacketWithReliability {
+        Packet packet;
+        bool reliable;
+    };
+
     std::mutex send_list_mutex;  ///< Mutex that controls access to the `send_list` variable.
-    std::list<Packet> send_list; ///< A list that stores all packets to send the async
+    std::list<PacketWithReliability> send_list; ///< A list that stores all packets to send the async
 
     template <typename T>
     using CallbackSet = std::set<CallbackHandle<T>>;
@@ -73,10 +81,11 @@ public:
     void StartLoop();
 
     /**
-     * Sends data to the room. It will be send on channel 0 with flag RELIABLE
+     * Sends data to the room. It will be send on channel 0 with specified reliability
      * @param packet The data to send
+     * @param reliable Whether to use reliable delivery (true) or unreliable/unsequenced (false)
      */
-    void Send(Packet&& packet);
+    void Send(Packet&& packet, bool reliable = true);
 
     /**
      * Sends a request to the server, asking for permission to join a room with the specified
@@ -257,14 +266,17 @@ void RoomMember::RoomMemberImpl::MemberLoop() {
                 break;
             }
         }
-        std::list<Packet> packets;
+        std::list<PacketWithReliability> packets;
         {
             std::lock_guard send_lock(send_list_mutex);
             packets.swap(send_list);
         }
-        for (const auto& packet : packets) {
-            ENetPacket* enetPacket = enet_packet_create(packet.GetData(), packet.GetDataSize(),
-                                                        ENET_PACKET_FLAG_RELIABLE);
+        for (const auto& packet_data : packets) {
+            const u32 enet_flags = packet_data.reliable ? ENET_PACKET_FLAG_RELIABLE
+                                                        : ENET_PACKET_FLAG_UNSEQUENCED;
+            ENetPacket* enetPacket = enet_packet_create(packet_data.packet.GetData(),
+                                                        packet_data.packet.GetDataSize(),
+                                                        enet_flags);
             enet_peer_send(server, 0, enetPacket);
         }
         enet_host_flush(client);
@@ -276,9 +288,9 @@ void RoomMember::RoomMemberImpl::StartLoop() {
     loop_thread = std::make_unique<std::thread>(&RoomMember::RoomMemberImpl::MemberLoop, this);
 }
 
-void RoomMember::RoomMemberImpl::Send(Packet&& packet) {
+void RoomMember::RoomMemberImpl::Send(Packet&& packet, bool reliable) {
     std::lock_guard lock(send_list_mutex);
-    send_list.push_back(std::move(packet));
+    send_list.push_back({std::move(packet), reliable});
 }
 
 void RoomMember::RoomMemberImpl::SendJoinRequest(const std::string& nickname_,
@@ -377,6 +389,7 @@ void RoomMember::RoomMemberImpl::HandleProxyPackets(const ENetEvent* event) {
     proxy_packet.protocol = static_cast<Protocol>(protocol_type);
 
     packet.Read(proxy_packet.broadcast);
+    packet.Read(proxy_packet.reliable);
     packet.Read(proxy_packet.data);
 
     Invoke<ProxyPacket>(proxy_packet);
@@ -397,6 +410,7 @@ void RoomMember::RoomMemberImpl::HandleLdnPackets(const ENetEvent* event) {
     packet.Read(ldn_packet.local_ip);
     packet.Read(ldn_packet.remote_ip);
     packet.Read(ldn_packet.broadcast);
+    packet.Read(ldn_packet.reliable);
 
     packet.Read(ldn_packet.data);
 
@@ -638,9 +652,10 @@ void RoomMember::SendProxyPacket(const ProxyPacket& proxy_packet) {
 
     packet.Write(static_cast<u8>(proxy_packet.protocol));
     packet.Write(proxy_packet.broadcast);
+    packet.Write(proxy_packet.reliable);
     packet.Write(proxy_packet.data);
 
-    room_member_impl->Send(std::move(packet));
+    room_member_impl->Send(std::move(packet), proxy_packet.reliable);
 }
 
 void RoomMember::SendLdnPacket(const LDNPacket& ldn_packet) {
@@ -652,10 +667,11 @@ void RoomMember::SendLdnPacket(const LDNPacket& ldn_packet) {
     packet.Write(ldn_packet.local_ip);
     packet.Write(ldn_packet.remote_ip);
     packet.Write(ldn_packet.broadcast);
+    packet.Write(ldn_packet.reliable);
 
     packet.Write(ldn_packet.data);
 
-    room_member_impl->Send(std::move(packet));
+    room_member_impl->Send(std::move(packet), ldn_packet.reliable);
 }
 
 void RoomMember::SendChatMessage(const std::string& message) {

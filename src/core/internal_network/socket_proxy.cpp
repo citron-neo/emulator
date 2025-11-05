@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: Copyright 2022 yuzu Emulator Project
+// SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <chrono>
@@ -30,11 +31,15 @@ ProxySocket::~ProxySocket() {
 void ProxySocket::HandleProxyPacket(const ProxyPacket& packet) {
     if (protocol != packet.protocol || local_endpoint.portno != packet.remote_endpoint.portno ||
         closed) {
+        stats.packets_dropped++;
+        LOG_DEBUG(Network, "Dropped packet: protocol mismatch or closed socket. Stats: sent={}, recv={}, dropped={}",
+                  stats.packets_sent, stats.packets_received, stats.packets_dropped);
         return;
     }
 
     if (!broadcast && packet.broadcast) {
-        LOG_INFO(Network, "Received broadcast packet, but not configured for broadcast mode");
+        stats.packets_dropped++;
+        LOG_DEBUG(Network, "Dropped broadcast packet on non-broadcast socket");
         return;
     }
 
@@ -43,6 +48,15 @@ void ProxySocket::HandleProxyPacket(const ProxyPacket& packet) {
 
     std::lock_guard guard(packets_mutex);
     received_packets.push(decompressed);
+    stats.packets_received++;
+    stats.bytes_received += decompressed.data.size();
+
+    // Log statistics periodically (every 100 packets)
+    if (stats.packets_received % 100 == 0) {
+        LOG_DEBUG(Network, "ProxySocket stats: sent={} ({} bytes), recv={} ({} bytes), dropped={}",
+                  stats.packets_sent, stats.bytes_sent,
+                  stats.packets_received, stats.bytes_received, stats.packets_dropped);
+    }
 }
 
 template <typename T>
@@ -189,10 +203,20 @@ std::pair<s32, Errno> ProxySocket::Send(std::span<const u8> message, int flags) 
 void ProxySocket::SendPacket(ProxyPacket& packet) {
     if (auto room_member = room_network.GetRoomMember().lock()) {
         if (room_member->IsConnected()) {
+            const size_t original_size = packet.data.size();
             packet.data = Common::Compression::CompressDataZSTDDefault(packet.data.data(),
                                                                        packet.data.size());
             room_member->SendProxyPacket(packet);
+
+            stats.packets_sent++;
+            stats.bytes_sent += original_size;
+        } else {
+            LOG_WARNING(Network, "Cannot send packet: not connected to room. Total packets dropped: {}",
+                        ++stats.packets_dropped);
         }
+    } else {
+        LOG_ERROR(Network, "Cannot send packet: room member unavailable");
+        stats.packets_dropped++;
     }
 }
 
@@ -235,6 +259,14 @@ std::pair<s32, Errno> ProxySocket::SendTo(u32 flags, std::span<const u8> message
 
     packet.data.clear();
     std::copy(message.begin(), message.end(), std::back_inserter(packet.data));
+
+    // Determine if packet should use unreliable delivery for better latency
+    // Use unreliable delivery for:
+    // 1. Small, frequent game data packets (< 1200 bytes for typical MTU)
+    // 2. UDP protocol packets (most game traffic)
+    // 3. Non-broadcast packets (broadcast should be reliable for coordination)
+    const bool is_game_data = protocol == Protocol::UDP && message.size() < 1200 && !packet.broadcast;
+    packet.reliable = !is_game_data;
 
     SendPacket(packet);
 

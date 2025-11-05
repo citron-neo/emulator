@@ -94,6 +94,15 @@ private:
     std::mutex packets_mutex;
 
     RoomNetwork& room_network;
+
+    // Packet statistics for monitoring
+    struct PacketStatistics {
+        u64 packets_sent = 0;
+        u64 packets_received = 0;
+        u64 packets_dropped = 0;
+        u64 bytes_sent = 0;
+        u64 bytes_received = 0;
+    } stats;
 };
 
 } // namespace Network
