@@ -8,6 +8,7 @@
 #include <array>
 #include <map>
 #include <memory>
+#include <set>
 #include <stdexcept>
 #include <string>
 #include <utility>
@@ -677,6 +678,10 @@ struct Values {
 
     // Add-Ons
     std::map<u64, std::vector<std::string>> disabled_addons;
+
+    // Cheats
+    // Key: build_id (hex string), Value: set of disabled cheat names
+    std::map<std::string, std::set<std::string>> disabled_cheats;
 };
 
 extern Values values;

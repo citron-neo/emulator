@@ -34,6 +34,7 @@ class InputSubsystem;
 }
 
 class ConfigurePerGameAddons;
+class ConfigurePerGameCheats;
 class ConfigureAudio;
 class ConfigureCpu;
 class ConfigureGraphics;
@@ -88,6 +89,7 @@ private:
     std::shared_ptr<std::vector<ConfigurationShared::Tab*>> tab_group;
 
     std::unique_ptr<ConfigurePerGameAddons> addons_tab;
+    std::unique_ptr<ConfigurePerGameCheats> cheats_tab;
     std::unique_ptr<ConfigureAudio> audio_tab;
     std::unique_ptr<ConfigureCpu> cpu_tab;
     std::unique_ptr<ConfigureGraphicsAdvanced> graphics_advanced_tab;
