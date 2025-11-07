@@ -81,6 +81,7 @@ protected:
 #endif
     void ReadServiceValues();
     void ReadDisabledAddOnValues();
+    void ReadDisabledCheatValues();
     void ReadMiscellaneousValues();
     void ReadCpuValues();
     void ReadRendererValues();
@@ -116,6 +117,7 @@ protected:
 #endif
     void SaveNetworkValues();
     void SaveDisabledAddOnValues();
+    void SaveDisabledCheatValues();
     void SaveMiscellaneousValues();
     void SaveCpuValues();
     void SaveRendererValues();

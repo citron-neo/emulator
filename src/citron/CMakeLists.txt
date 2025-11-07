@@ -117,6 +117,9 @@ add_executable(citron
     configuration/configure_per_game_addons.cpp
     configuration/configure_per_game_addons.h
     configuration/configure_per_game_addons.ui
+    configuration/configure_per_game_cheats.cpp
+    configuration/configure_per_game_cheats.h
+    configuration/configure_per_game_cheats.ui
     configuration/configure_profile_manager.cpp
     configuration/configure_profile_manager.h
     configuration/configure_profile_manager.ui

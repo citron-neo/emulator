@@ -41,6 +41,7 @@ enum class ResultStatus : u16;
 
 namespace Core::Memory {
 struct CheatEntry;
+class CheatEngine;
 class Memory;
 } // namespace Core::Memory
 
@@ -348,6 +349,9 @@ public:
     void RegisterCheatList(const std::vector<Memory::CheatEntry>& list,
                            const std::array<u8, 0x20>& build_id, u64 main_region_begin,
                            u64 main_region_size);
+
+    [[nodiscard]] Memory::CheatEngine* GetCheatEngine();
+    [[nodiscard]] const Memory::CheatEngine* GetCheatEngine() const;
 
     void SetFrontendAppletSet(Service::AM::Frontend::FrontendAppletSet&& set);
 

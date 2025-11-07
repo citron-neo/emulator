@@ -339,6 +339,30 @@ void Config::ReadDisabledAddOnValues() {
     EndGroup();
 }
 
+void Config::ReadDisabledCheatValues() {
+    // Custom config section
+    BeginGroup(std::string("DisabledCheats"));
+
+    const int size = BeginArray(std::string(""));
+    for (int i = 0; i < size; ++i) {
+        SetArrayIndex(i);
+        const auto build_id = ReadStringSetting(std::string("build_id"), std::string(""));
+        std::set<std::string> out;
+        const int d_size = BeginArray("disabled");
+        for (int j = 0; j < d_size; ++j) {
+            SetArrayIndex(j);
+            out.insert(ReadStringSetting(std::string("d"), std::string("")));
+        }
+        EndArray(); // disabled
+        if (!build_id.empty()) {
+            Settings::values.disabled_cheats.insert_or_assign(build_id, out);
+        }
+    }
+    EndArray(); // Base disabled cheats array - Has no base key
+
+    EndGroup();
+}
+
 void Config::ReadMiscellaneousValues() {
     BeginGroup(Settings::TranslateCategory(Settings::Category::Miscellaneous));
 
@@ -415,6 +439,7 @@ void Config::ReadValues() {
         ReadDataStorageValues();
         ReadDebuggingValues();
         ReadDisabledAddOnValues();
+        ReadDisabledCheatValues();
         ReadNetworkValues();
         ReadServiceValues();
         ReadWebServiceValues();
@@ -518,6 +543,7 @@ void Config::SaveValues() {
         SaveDataStorageValues();
         SaveDebuggingValues();
         SaveDisabledAddOnValues();
+        SaveDisabledCheatValues();
         SaveNetworkValues();
         SaveWebServiceValues();
         SaveMiscellaneousValues();
@@ -643,6 +669,32 @@ void Config::SaveDisabledAddOnValues() {
         ++i;
     }
     EndArray(); // Base disabled addons array - Has no base key
+
+    EndGroup();
+}
+
+void Config::SaveDisabledCheatValues() {
+    // Custom config section
+    BeginGroup(std::string("DisabledCheats"));
+
+    int i = 0;
+    BeginArray(std::string(""));
+    for (const auto& elem : Settings::values.disabled_cheats) {
+        SetArrayIndex(i);
+        WriteStringSetting(std::string("build_id"), elem.first,
+                           std::make_optional(std::string("")));
+        BeginArray(std::string("disabled"));
+        int j = 0;
+        for (const auto& cheat_name : elem.second) {
+            SetArrayIndex(j);
+            WriteStringSetting(std::string("d"), cheat_name,
+                               std::make_optional(std::string("")));
+            ++j;
+        }
+        EndArray(); // disabled
+        ++i;
+    }
+    EndArray(); // Base disabled cheats array - Has no base key
 
     EndGroup();
 }

@@ -55,6 +55,7 @@
 #include "citron/configuration/configure_input_per_game.h"
 #include "citron/configuration/configure_linux_tab.h"
 #include "citron/configuration/configure_per_game_addons.h"
+#include "citron/configuration/configure_per_game_cheats.h"
 #include "citron/configuration/configure_system.h"
 #include "citron/theme.h"
 #include "citron/uisettings.h"
@@ -107,6 +108,7 @@ ConfigurePerGame::ConfigurePerGame(QWidget* parent, u64 title_id_, const std::st
 
     // Create tab instances
     addons_tab = std::make_unique<ConfigurePerGameAddons>(system_, this);
+    cheats_tab = std::make_unique<ConfigurePerGameCheats>(system_, this);
     audio_tab = std::make_unique<ConfigureAudio>(system_, tab_group, *builder, this);
     cpu_tab = std::make_unique<ConfigureCpu>(system_, tab_group, *builder, this);
     graphics_advanced_tab =
@@ -148,6 +150,7 @@ ConfigurePerGame::ConfigurePerGame(QWidget* parent, u64 title_id_, const std::st
     };
 
     add_tab(addons_tab.get(), tr("Add-Ons"));
+    add_tab(cheats_tab.get(), tr("Cheats"));
     add_tab(system_tab.get(), tr("System"));
     add_tab(cpu_tab.get(), tr("CPU"));
     add_tab(graphics_tab.get(), tr("Graphics"));
@@ -168,6 +171,7 @@ ConfigurePerGame::ConfigurePerGame(QWidget* parent, u64 title_id_, const std::st
     setFocusPolicy(Qt::ClickFocus);
     setWindowTitle(tr("Properties"));
     addons_tab->SetTitleId(title_id);
+    cheats_tab->SetTitleId(title_id);
 
     scene = new QGraphicsScene;
     ui->icon_view->setScene(scene);
@@ -196,6 +200,7 @@ void ConfigurePerGame::ApplyConfiguration() {
         tab->ApplyConfiguration();
     }
     addons_tab->ApplyConfiguration();
+    cheats_tab->ApplyConfiguration();
     input_tab->ApplyConfiguration();
 
     if (Settings::IsDockedMode() && Settings::values.players.GetValue()[0].controller_type ==
@@ -310,6 +315,7 @@ void ConfigurePerGame::LoadConfiguration() {
     }
 
     addons_tab->LoadFromFile(file);
+    cheats_tab->LoadFromFile(file);
 
     ui->display_title_id->setText(
         QStringLiteral("%1").arg(title_id, 16, 16, QLatin1Char{'0'}).toUpper());
