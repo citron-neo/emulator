@@ -14,7 +14,7 @@ private:
 
 public:
     static constexpr u64 FinalFantasyTactics = 0x010038B015560000ULL;
-    static constexpr u64 LittleNightmares3 = 0x010066101A55A800ULL;
+    static constexpr u64 LittleNightmares3 = 0x010066101A55A800ULL || 0x010066101A55A000ULL;
 };
 
 } // namespace UICommon
