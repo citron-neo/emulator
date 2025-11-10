@@ -2,8 +2,12 @@
 // SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
+#include <chrono>
+#include <filesystem>
 #include <memory>
 #include <string>
+#include <system_error>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -11,6 +15,11 @@
 #include <QFile>
 #include <QFileInfo>
 #include <QSettings>
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QJsonArray>
+#include <QStandardPaths>
+#include <QCryptographicHash>
 
 #include "common/fs/fs.h"
 #include "common/fs/path_util.h"
@@ -31,6 +40,204 @@
 #include "citron/uisettings.h"
 
 namespace {
+
+// Structure to hold cached game metadata
+struct CachedGameMetadata {
+    u64 program_id = 0;
+    Loader::FileType file_type = Loader::FileType::Unknown;
+    std::size_t file_size = 0;
+    std::string title;
+    std::vector<u8> icon;
+    std::string file_path;
+    std::int64_t modification_time = 0; // Unix timestamp
+
+    bool IsValid() const {
+        return program_id != 0 && file_type != Loader::FileType::Unknown;
+    }
+};
+
+// In-memory cache for game metadata
+static std::unordered_map<std::string, CachedGameMetadata> game_metadata_cache;
+
+// Generate a cache key from file path
+std::string GetCacheKey(const std::string& file_path) {
+    // Use a hash of the normalized path as the key
+    std::error_code ec;
+    std::filesystem::path normalized_path;
+    try {
+        normalized_path = std::filesystem::canonical(std::filesystem::path(file_path), ec);
+        if (ec) {
+            // If canonical fails, use the original path
+            normalized_path = std::filesystem::path(file_path);
+        }
+    } catch (...) {
+        // If canonical throws, use the original path
+        normalized_path = std::filesystem::path(file_path);
+    }
+
+    const auto path_str = Common::FS::PathToUTF8String(normalized_path);
+    const auto hash = QCryptographicHash::hash(
+        QByteArray::fromStdString(path_str),
+        QCryptographicHash::Sha256);
+    return hash.toHex().toStdString();
+}
+
+// Load game metadata cache from disk
+void LoadGameMetadataCache() {
+    if (!UISettings::values.cache_game_list) {
+        return;
+    }
+
+    game_metadata_cache.clear();
+
+    const auto cache_dir = Common::FS::GetCitronPath(Common::FS::CitronPath::CacheDir) / "game_list";
+    const auto cache_file = Common::FS::PathToUTF8String(cache_dir / "game_metadata_cache.json");
+
+    if (!Common::FS::Exists(cache_file)) {
+        return;
+    }
+
+    QFile file(QString::fromStdString(cache_file));
+    if (!file.open(QFile::ReadOnly)) {
+        return;
+    }
+
+    const QJsonDocument doc = QJsonDocument::fromJson(file.readAll());
+    if (!doc.isObject()) {
+        return;
+    }
+
+    const QJsonObject root = doc.object();
+    const QJsonArray entries = root[QStringLiteral("entries")].toArray();
+
+    for (const QJsonValue& value : entries) {
+        const QJsonObject entry = value.toObject();
+        const std::string key = entry[QStringLiteral("key")].toString().toStdString();
+
+        CachedGameMetadata metadata;
+        metadata.program_id = entry[QStringLiteral("program_id")].toString().toULongLong(nullptr, 16);
+        metadata.file_type = static_cast<Loader::FileType>(entry[QStringLiteral("file_type")].toInt());
+        metadata.file_size = static_cast<std::size_t>(entry[QStringLiteral("file_size")].toVariant().toULongLong());
+        metadata.title = entry[QStringLiteral("title")].toString().toStdString();
+        metadata.file_path = entry[QStringLiteral("file_path")].toString().toStdString();
+        metadata.modification_time = entry[QStringLiteral("modification_time")].toVariant().toLongLong();
+
+        const QByteArray icon_data = QByteArray::fromBase64(
+            entry[QStringLiteral("icon")].toString().toUtf8());
+        metadata.icon.assign(icon_data.begin(), icon_data.end());
+
+        if (metadata.IsValid()) {
+            game_metadata_cache[key] = std::move(metadata);
+        }
+    }
+}
+
+// Save game metadata cache to disk
+void SaveGameMetadataCache() {
+    if (!UISettings::values.cache_game_list) {
+        return;
+    }
+
+    const auto cache_dir = Common::FS::GetCitronPath(Common::FS::CitronPath::CacheDir) / "game_list";
+    const auto cache_file = Common::FS::PathToUTF8String(cache_dir / "game_metadata_cache.json");
+
+    void(Common::FS::CreateParentDirs(cache_file));
+
+    QJsonObject root;
+    QJsonArray entries;
+
+    for (const auto& [key, metadata] : game_metadata_cache) {
+        QJsonObject entry;
+        entry[QStringLiteral("key")] = QString::fromStdString(key);
+        entry[QStringLiteral("program_id")] = QString::number(metadata.program_id, 16);
+        entry[QStringLiteral("file_type")] = static_cast<int>(metadata.file_type);
+        entry[QStringLiteral("file_size")] = static_cast<qint64>(metadata.file_size);
+        entry[QStringLiteral("title")] = QString::fromStdString(metadata.title);
+        entry[QStringLiteral("file_path")] = QString::fromStdString(metadata.file_path);
+        entry[QStringLiteral("modification_time")] = metadata.modification_time;
+
+        const QByteArray icon_data(reinterpret_cast<const char*>(metadata.icon.data()),
+                                   static_cast<int>(metadata.icon.size()));
+        entry[QStringLiteral("icon")] = QString::fromLatin1(icon_data.toBase64());
+
+        entries.append(entry);
+    }
+
+    root[QStringLiteral("entries")] = entries;
+
+    QFile file(QString::fromStdString(cache_file));
+    if (file.open(QFile::WriteOnly)) {
+        const QJsonDocument doc(root);
+        file.write(doc.toJson());
+    }
+}
+
+// Get cached metadata or return nullptr if not found or invalid
+const CachedGameMetadata* GetCachedGameMetadata(const std::string& file_path) {
+    if (!UISettings::values.cache_game_list) {
+        return nullptr;
+    }
+
+    // Check if file still exists and modification time matches
+    if (!Common::FS::Exists(file_path)) {
+        return nullptr;
+    }
+
+    std::error_code ec;
+    const auto mod_time = std::filesystem::last_write_time(file_path, ec);
+    if (ec) {
+        return nullptr;
+    }
+
+    const auto mod_time_seconds = std::chrono::duration_cast<std::chrono::seconds>(
+        mod_time.time_since_epoch()).count();
+
+    const std::string key = GetCacheKey(file_path);
+    const auto it = game_metadata_cache.find(key);
+
+    if (it == game_metadata_cache.end()) {
+        return nullptr;
+    }
+
+    const auto& cached = it->second;
+
+    // Check if file path matches and modification time matches
+    if (cached.file_path != file_path || cached.modification_time != mod_time_seconds) {
+        return nullptr;
+    }
+
+    return &cached;
+}
+
+// Store game metadata in cache
+void CacheGameMetadata(const std::string& file_path, u64 program_id, Loader::FileType file_type,
+                       std::size_t file_size, const std::string& title, const std::vector<u8>& icon) {
+    if (!UISettings::values.cache_game_list) {
+        return;
+    }
+
+    std::error_code ec;
+    const auto mod_time = std::filesystem::last_write_time(file_path, ec);
+    if (ec) {
+        return;
+    }
+
+    const auto mod_time_seconds = std::chrono::duration_cast<std::chrono::seconds>(
+        mod_time.time_since_epoch()).count();
+
+    const std::string key = GetCacheKey(file_path);
+
+    CachedGameMetadata metadata;
+    metadata.program_id = program_id;
+    metadata.file_type = file_type;
+    metadata.file_size = file_size;
+    metadata.title = title;
+    metadata.icon = icon;
+    metadata.file_path = file_path;
+    metadata.modification_time = mod_time_seconds;
+
+    game_metadata_cache[key] = std::move(metadata);
+}
 
 QString GetGameListCachedObject(const std::string& filename, const std::string& ext,
                                 const std::function<QString()>& generator) {
@@ -356,6 +563,9 @@ void GameListWorker::ScanFileSystem(ScanTarget target, const std::string& dir_pa
 
         if (!is_dir &&
             (HasSupportedFileExtension(physical_name) || IsExtractedNCAMain(physical_name))) {
+            // Try to get cached metadata first
+            const auto* cached_metadata = GetCachedGameMetadata(physical_name);
+
             const auto file = vfs->OpenFile(physical_name, FileSys::OpenMode::Read);
             if (!file) {
                 return true;
@@ -421,17 +631,33 @@ void GameListWorker::ScanFileSystem(ScanTarget target, const std::string& dir_pa
                             [=](GameList* game_list) { game_list->AddEntry(entry, parent_dir); });
                     }
                 } else {
+                    // Use cached metadata if available, otherwise read from file
                     std::vector<u8> icon;
-                    [[maybe_unused]] const auto res1 = loader->ReadIcon(icon);
-
                     std::string name = " ";
-                    [[maybe_unused]] const auto res3 = loader->ReadTitle(name);
+                    std::size_t file_size = 0;
+
+                    if (cached_metadata && cached_metadata->program_id == program_id) {
+                        // Use cached data
+                        icon = cached_metadata->icon;
+                        name = cached_metadata->title;
+                        file_size = cached_metadata->file_size;
+                    } else {
+                        // Read from file
+                        [[maybe_unused]] const auto res1 = loader->ReadIcon(icon);
+                        [[maybe_unused]] const auto res3 = loader->ReadTitle(name);
+                        file_size = Common::FS::GetSize(physical_name);
+
+                        // Cache it for next time
+                        if (res2 == Loader::ResultStatus::Success) {
+                            CacheGameMetadata(physical_name, program_id, file_type, file_size, name, icon);
+                        }
+                    }
 
                     const FileSys::PatchManager patch{program_id, system.GetFileSystemController(),
                                                       system.GetContentProvider()};
 
                     auto entry = MakeGameListEntry(
-                        physical_name, name, Common::FS::GetSize(physical_name), icon, *loader,
+                        physical_name, name, file_size, icon, *loader,
                         program_id, compatibility_list, play_time_manager, patch, online_stats);
 
                     RecordEvent(
@@ -454,6 +680,9 @@ void GameListWorker::ScanFileSystem(ScanTarget target, const std::string& dir_pa
 }
 
 void GameListWorker::run() {
+    // Load cached game metadata at the start
+    LoadGameMetadataCache();
+
     std::map<u64, std::pair<int, int>> online_stats; // Game ID -> {player_count, server_count}
     if (session) {
         AnnounceMultiplayerRoom::RoomList room_list = session->GetRoomList();
@@ -502,5 +731,9 @@ void GameListWorker::run() {
     }
 
     RecordEvent([this](GameList* game_list) { game_list->DonePopulating(watch_list); });
+
+    // Save cached game metadata at the end
+    SaveGameMetadataCache();
+
     processing_completed.Set();
 }
