@@ -660,6 +660,7 @@ struct Values {
     Setting<bool> use_dev_keys{linkage, false, "use_dev_keys", Category::Miscellaneous};
 
     // Network
+    Setting<bool> airplane_mode{linkage, false, "airplane_mode", Category::Network};
     Setting<std::string> network_interface{linkage, std::string(), "network_interface",
                                            Category::Network};
     Setting<std::string> lobby_api_url{linkage, "https://api.ynet-fun.xyz", "lobby_api_url",

@@ -24,6 +24,7 @@ object Settings {
         SECTION_INPUT_PLAYER_EIGHT,
         SECTION_THEME(R.string.preferences_theme),
         SECTION_DEBUG(R.string.preferences_debug),
+        SECTION_NETWORK(R.string.preferences_network),
         SECTION_ZEP_ZONE(R.string.preferences_zep_zone),
         SECTION_APPLETS_ANDROID(R.string.preferences_applets_android);
     }

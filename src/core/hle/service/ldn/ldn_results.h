@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: Copyright 2022 yuzu Emulator Project
+// SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #pragma once
@@ -23,5 +24,14 @@ constexpr Result ResultBadInput{ErrorModule::LDN, 96};
 constexpr Result ResultLocalCommunicationIdNotFound{ErrorModule::LDN, 97};
 constexpr Result ResultLocalCommunicationVersionTooLow{ErrorModule::LDN, 113};
 constexpr Result ResultLocalCommunicationVersionTooHigh{ErrorModule::LDN, 114};
+
+// Module 38 error codes - Unknown/undefined module
+// These are stubbed to prevent crashes during multiplayer
+// Error code format: 2038-XXXX where XXXX is the description
+constexpr Result ResultModule38Error2618{ErrorModule::Module38, 2618}; // Reported during multiplayer
+constexpr Result ResultModule38Generic{ErrorModule::Module38, 0}; // Generic module 38 error
+constexpr Result ResultModule38NetworkError{ErrorModule::Module38, 100}; // Network-related
+constexpr Result ResultModule38ConnectionFailed{ErrorModule::Module38, 200}; // Connection failure
+constexpr Result ResultModule38Timeout{ErrorModule::Module38, 300}; // Operation timeout
 
 } // namespace Service::LDN

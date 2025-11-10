@@ -421,10 +421,15 @@
     <string name="preferences_theme">Theme and color</string>
     <string name="preferences_debug">Debug</string>
     <string name="preferences_debug_description">CPU/GPU debugging, graphics API, fastmem</string>
+    <string name="preferences_network">Network</string>
+    <string name="preferences_network_description">Network interface and airplane mode settings</string>
     <string name="preferences_zep_zone">Zep Zone</string>
     <string name="preferences_zep_zone_description">Advanced emulation settings</string>
     <string name="preferences_applets_android">Applets on Android</string>
     <string name="preferences_applets_android_description">System applet configuration settings</string>
+
+    <!-- Network Settings Headers -->
+    <string name="network_settings_header">Network Settings</string>
 
     <!-- Zep Zone Headers -->
     <string name="memory_layout_header">Memory Layout</string>

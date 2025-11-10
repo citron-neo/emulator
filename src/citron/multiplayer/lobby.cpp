@@ -188,7 +188,7 @@ void Lobby::OnJoinRoom(const QModelIndex& source) {
         std::string token;
 #ifdef ENABLE_WEB_SERVICE
         if (!Settings::values.citron_username.GetValue().empty() &&
-            !Settings::values.citron_token.GetValue().empty()) {
+            !Settings::values.citron_token.GetValue().empty() && !verify_uid.empty()) {
             WebService::Client client(Settings::values.web_api_url.GetValue(),
                                       Settings::values.citron_username.GetValue(),
                                       Settings::values.citron_token.GetValue());
@@ -198,6 +198,8 @@ void Lobby::OnJoinRoom(const QModelIndex& source) {
             } else {
                 LOG_INFO(WebService, "Successfully requested external JWT: size={}", token.size());
             }
+        } else if (verify_uid.empty()) {
+            LOG_DEBUG(WebService, "Skipping JWT request: verify_uid is empty (room may not require verification)");
         }
 #endif
         if (auto room_member = room_network.GetRoomMember().lock()) {

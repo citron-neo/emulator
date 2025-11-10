@@ -113,6 +113,11 @@ std::unique_ptr<Network::VerifyUser::Backend> HostRoomWindow::CreateVerifyBacken
 
 void HostRoomWindow::Host() {
     if (!Network::GetSelectedNetworkInterface()) {
+        LOG_INFO(WebService, "Automatically selected network interface for room network.");
+        Network::SelectFirstNetworkInterface();
+    }
+
+    if (!Network::GetSelectedNetworkInterface()) {
         NetworkMessage::ErrorManager::ShowError(
             NetworkMessage::ErrorManager::NO_INTERFACE_SELECTED);
         return;
@@ -208,12 +213,17 @@ void HostRoomWindow::Host() {
                                       Settings::values.citron_username.GetValue(),
                                       Settings::values.citron_token.GetValue());
             if (auto room = room_network.GetRoom().lock()) {
-                token = client.GetExternalJWT(room->GetVerifyUID()).returned_data;
-            }
-            if (token.empty()) {
-                LOG_ERROR(WebService, "Could not get external JWT, verification may fail");
-            } else {
-                LOG_INFO(WebService, "Successfully requested external JWT: size={}", token.size());
+                const std::string verify_uid = room->GetVerifyUID();
+                if (!verify_uid.empty()) {
+                    token = client.GetExternalJWT(verify_uid).returned_data;
+                    if (token.empty()) {
+                        LOG_ERROR(WebService, "Could not get external JWT, verification may fail");
+                    } else {
+                        LOG_INFO(WebService, "Successfully requested external JWT: size={}", token.size());
+                    }
+                } else {
+                    LOG_DEBUG(WebService, "Skipping JWT request: verify_uid is empty (room may not require verification)");
+                }
             }
         }
 #endif

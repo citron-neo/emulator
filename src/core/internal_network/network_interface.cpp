@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: Copyright 2021 yuzu Emulator Project
+// SPDX-FileCopyrightText: Copyright 2025 Citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <algorithm>
@@ -187,6 +188,11 @@ std::vector<NetworkInterface> GetAvailableNetworkInterfaces() {
 #endif
 
 std::optional<NetworkInterface> GetSelectedNetworkInterface() {
+    // If airplane mode is enabled, return no interface (similar to Switch's airplane mode)
+    if (Settings::values.airplane_mode.GetValue()) {
+        return std::nullopt;
+    }
+
     const auto& selected_network_interface = Settings::values.network_interface.GetValue();
     const auto network_interfaces = Network::GetAvailableNetworkInterfaces();
     if (network_interfaces.empty()) {

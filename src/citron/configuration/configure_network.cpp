@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: Copyright 2019 yuzu Emulator Project
+// SPDX-FileCopyrightText: Copyright 2025 Citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <QtConcurrent/QtConcurrent>
@@ -23,6 +24,7 @@ ConfigureNetwork::ConfigureNetwork(const Core::System& system_, QWidget* parent)
 ConfigureNetwork::~ConfigureNetwork() = default;
 
 void ConfigureNetwork::ApplyConfiguration() {
+    Settings::values.airplane_mode = ui->airplane_mode->isChecked();
     Settings::values.network_interface = ui->network_interface->currentText().toStdString();
 }
 
@@ -41,8 +43,15 @@ void ConfigureNetwork::RetranslateUI() {
 void ConfigureNetwork::SetConfiguration() {
     const bool runtime_lock = !system.IsPoweredOn();
 
+    ui->airplane_mode->setChecked(Settings::values.airplane_mode.GetValue());
+    ui->airplane_mode->setEnabled(runtime_lock);
+
     const std::string& network_interface = Settings::values.network_interface.GetValue();
 
     ui->network_interface->setCurrentText(QString::fromStdString(network_interface));
-    ui->network_interface->setEnabled(runtime_lock);
+    ui->network_interface->setEnabled(runtime_lock && !ui->airplane_mode->isChecked());
+
+    connect(ui->airplane_mode, &QCheckBox::toggled, this, [this](bool checked) {
+        ui->network_interface->setEnabled(!checked && !system.IsPoweredOn());
+    });
 }
