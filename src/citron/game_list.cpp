@@ -7,11 +7,16 @@
 #include <QDir>
 #include <QFileInfo>
 #include <QHeaderView>
+#include <QIcon>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QList>
 #include <QMenu>
+#include <QPainter>
+#include <QPainterPath>
+#include <QScrollBar>
+#include <QStyle>
 #include <QThreadPool>
 #include <QToolButton>
 #include <QtConcurrent/QtConcurrent>
@@ -122,16 +127,29 @@ GameListSearchField::GameListSearchField(GameList* parent) : QWidget{parent} {
     edit_filter->clear();
     edit_filter->installEventFilter(key_release_eater);
     edit_filter->setClearButtonEnabled(true);
+    // Add rounded corners styling to the search field
+    edit_filter->setStyleSheet(QStringLiteral(
+        "QLineEdit {"
+        "  border: 1px solid palette(mid);"
+        "  border-radius: 6px;"
+        "  padding: 4px 8px;"
+        "  background: palette(base);"
+        "}"
+        "QLineEdit:focus {"
+        "  border: 1px solid palette(highlight);"
+        "  background: palette(base);"
+        "}"
+    ));
     connect(edit_filter, &QLineEdit::textChanged, parent, &GameList::OnTextChanged);
     label_filter_result = new QLabel;
     button_filter_close = new QToolButton(this);
     button_filter_close->setText(QStringLiteral("X"));
     button_filter_close->setCursor(Qt::ArrowCursor);
     button_filter_close->setStyleSheet(
-        QStringLiteral("QToolButton{ border: none; padding: 0px; color: "
-        "#000000; font-weight: bold; background: #F0F0F0; }"
-        "QToolButton:hover{ border: none; padding: 0px; color: "
-        "#EEEEEE; font-weight: bold; background: #E81123}"));
+        QStringLiteral("QToolButton{ border: 1px solid palette(mid); border-radius: 4px; padding: 4px 8px; color: "
+        "palette(text); font-weight: bold; background: palette(button); }"
+        "QToolButton:hover{ border: 1px solid palette(highlight); color: "
+        "palette(highlighted-text); background: palette(highlight)}"));
     connect(button_filter_close, &QToolButton::clicked, parent, &GameList::OnFilterCloseClicked);
     layout_filter->setSpacing(10);
     layout_filter->addWidget(label_filter);
@@ -177,12 +195,26 @@ void GameList::OnTextChanged(const QString& new_text) {
 
 void GameList::FilterGridView(const QString& filter_text) {
     QStandardItemModel* hierarchical_model = item_model;
-    if (QAbstractItemModel* old_model = list_view->model()) {
-        if (old_model != item_model) {
-            old_model->deleteLater();
+    QStandardItemModel* flat_model = nullptr;
+
+    // Check if we can reuse the existing model
+    QAbstractItemModel* current_model = list_view->model();
+    if (current_model && current_model != item_model) {
+        QStandardItemModel* existing_flat = qobject_cast<QStandardItemModel*>(current_model);
+        if (existing_flat) {
+            // Clear existing model instead of deleting it to avoid view flicker
+            existing_flat->clear();
+            flat_model = existing_flat;
         }
     }
-    QStandardItemModel* flat_model = new QStandardItemModel(this);
+
+    if (!flat_model) {
+        // Delete old model if it exists and create new one
+        if (current_model && current_model != item_model) {
+            current_model->deleteLater();
+        }
+        flat_model = new QStandardItemModel(this);
+    }
     int visible_count = 0;
     int total_count = 0;
     for (int i = 0; i < hierarchical_model->rowCount(); ++i) {
@@ -225,6 +257,39 @@ void GameList::FilterGridView(const QString& filter_text) {
     list_view->setModel(flat_model);
     const u32 icon_size = UISettings::values.game_icon_size.GetValue();
     list_view->setGridSize(QSize(icon_size + 60, icon_size + 80));
+    // Set sort role and sort the filtered model
+    flat_model->setSortRole(GameListItemPath::SortRole);
+    flat_model->sort(0, current_sort_order);
+    // Update icon sizes in the model - ensure all icons are consistently sized with rounded corners
+    for (int i = 0; i < flat_model->rowCount(); ++i) {
+        QStandardItem* item = flat_model->item(i);
+        if (item) {
+            QVariant icon_data = item->data(Qt::DecorationRole);
+            if (icon_data.isValid() && icon_data.type() == QVariant::Pixmap) {
+                QPixmap pixmap = icon_data.value<QPixmap>();
+                if (!pixmap.isNull()) {
+                    // Always recreate the rounded icon at the exact target size for consistency
+                    QPixmap rounded(icon_size, icon_size);
+                    rounded.fill(Qt::transparent);
+
+                    QPainter painter(&rounded);
+                    painter.setRenderHint(QPainter::Antialiasing);
+
+                    // Create rounded rectangle clipping path
+                    const int radius = icon_size / 8;
+                    QPainterPath path;
+                    path.addRoundedRect(0, 0, icon_size, icon_size, radius, radius);
+                    painter.setClipPath(path);
+
+                    // Scale the source pixmap to fill the icon size exactly
+                    QPixmap scaled = pixmap.scaled(icon_size, icon_size, Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
+                    painter.drawPixmap(0, 0, scaled);
+
+                    item->setData(rounded, Qt::DecorationRole);
+                }
+            }
+        }
+    }
     search_field->setFilterResult(visible_count, total_count);
 }
 
@@ -363,6 +428,13 @@ play_time_manager{play_time_manager_}, system{system_} {
     connect(tree_view, &QTreeView::customContextMenuRequested, this, &GameList::PopupContextMenu);
     connect(tree_view, &QTreeView::expanded, this, &GameList::OnItemExpanded);
     connect(tree_view, &QTreeView::collapsed, this, &GameList::OnItemExpanded);
+    // Sync sort button with Name column header sort order
+    connect(tree_view->header(), &QHeaderView::sortIndicatorChanged, [this](int logicalIndex, Qt::SortOrder order) {
+        if (logicalIndex == COLUMN_NAME) {
+            current_sort_order = order;
+            UpdateSortButtonIcon();
+        }
+    });
     connect(list_view, &QListView::activated, this, &GameList::ValidateEntry);
     connect(list_view, &QListView::customContextMenuRequested, this, &GameList::PopupContextMenu);
     connect(controller_navigation, &ControllerNavigation::TriggerKeyboardEvent, [this](Qt::Key key) {
@@ -382,11 +454,228 @@ play_time_manager{play_time_manager_}, system{system_} {
     qRegisterMetaType<QList<QStandardItem*>>("QList<QStandardItem*>");
     qRegisterMetaType<std::map<u64, std::pair<int, int>>>("std::map<u64, std::pair<int, int>>");
 
+    // Create toolbar
+    toolbar = new QWidget(this);
+    toolbar_layout = new QHBoxLayout(toolbar);
+    toolbar_layout->setContentsMargins(8, 6, 8, 6);
+    toolbar_layout->setSpacing(6);
+
+    // List view button - icon-only with rounded corners
+    btn_list_view = new QToolButton(toolbar);
+    QIcon list_icon = QIcon::fromTheme(QStringLiteral("view-list-details"));
+    if (list_icon.isNull()) {
+        list_icon = QIcon::fromTheme(QStringLiteral("view-list"));
+    }
+    if (list_icon.isNull()) {
+        list_icon = style()->standardIcon(QStyle::SP_FileDialogListView);
+    }
+    btn_list_view->setIcon(list_icon);
+    btn_list_view->setToolTip(tr("List View"));
+    btn_list_view->setCheckable(true);
+    btn_list_view->setChecked(!UISettings::values.game_list_grid_view.GetValue());
+    btn_list_view->setAutoRaise(true);
+    btn_list_view->setIconSize(QSize(16, 16));
+    btn_list_view->setFixedSize(32, 32);
+    btn_list_view->setStyleSheet(QStringLiteral(
+        "QToolButton {"
+        "  border: 1px solid palette(mid);"
+        "  border-radius: 4px;"
+        "  background: palette(button);"
+        "}"
+        "QToolButton:hover {"
+        "  background: palette(light);"
+        "}"
+        "QToolButton:checked {"
+        "  background: palette(highlight);"
+        "  border-color: palette(highlight);"
+        "}"
+    ));
+    connect(btn_list_view, &QToolButton::clicked, [this]() {
+        SetViewMode(false);
+        btn_list_view->setChecked(true);
+        btn_grid_view->setChecked(false);
+    });
+
+    // Grid view button - icon-only with rounded corners
+    btn_grid_view = new QToolButton(toolbar);
+    QIcon grid_icon = QIcon::fromTheme(QStringLiteral("view-grid"));
+    if (grid_icon.isNull()) {
+        grid_icon = QIcon::fromTheme(QStringLiteral("view-grid-details"));
+    }
+    if (grid_icon.isNull()) {
+        grid_icon = style()->standardIcon(QStyle::SP_FileDialogDetailedView);
+    }
+    btn_grid_view->setIcon(grid_icon);
+    btn_grid_view->setToolTip(tr("Grid View"));
+    btn_grid_view->setCheckable(true);
+    btn_grid_view->setChecked(UISettings::values.game_list_grid_view.GetValue());
+    btn_grid_view->setAutoRaise(true);
+    btn_grid_view->setIconSize(QSize(16, 16));
+    btn_grid_view->setFixedSize(32, 32);
+    btn_grid_view->setStyleSheet(QStringLiteral(
+        "QToolButton {"
+        "  border: 1px solid palette(mid);"
+        "  border-radius: 4px;"
+        "  background: palette(button);"
+        "}"
+        "QToolButton:hover {"
+        "  background: palette(light);"
+        "}"
+        "QToolButton:checked {"
+        "  background: palette(highlight);"
+        "  border-color: palette(highlight);"
+        "}"
+    ));
+    connect(btn_grid_view, &QToolButton::clicked, [this]() {
+        SetViewMode(true);
+        btn_list_view->setChecked(false);
+        btn_grid_view->setChecked(true);
+    });
+
+    // Title/Icon size slider - compact with rounded corners
+    slider_title_size = new QSlider(Qt::Horizontal, toolbar);
+    slider_title_size->setMinimum(32);
+    slider_title_size->setMaximum(256);
+    slider_title_size->setValue(static_cast<int>(UISettings::values.game_icon_size.GetValue()));
+    slider_title_size->setToolTip(tr("Game Icon Size"));
+    slider_title_size->setMaximumWidth(120);
+    slider_title_size->setMinimumWidth(120);
+    slider_title_size->setStyleSheet(QStringLiteral(
+        "QSlider::groove:horizontal {"
+        "  border: 1px solid palette(mid);"
+        "  height: 4px;"
+        "  background: palette(base);"
+        "  border-radius: 2px;"
+        "}"
+        "QSlider::handle:horizontal {"
+        "  background: palette(button);"
+        "  border: 1px solid palette(mid);"
+        "  width: 12px;"
+        "  height: 12px;"
+        "  margin: -4px 0;"
+        "  border-radius: 6px;"
+        "}"
+        "QSlider::handle:horizontal:hover {"
+        "  background: palette(light);"
+        "}"
+    ));
+    connect(slider_title_size, &QSlider::valueChanged, [this](int value) {
+        // Update game icon size
+        UISettings::values.game_icon_size.SetValue(static_cast<u32>(value));
+        // Update grid view if it's active - update icons in place without recreating model
+        if (list_view->isVisible()) {
+            QAbstractItemModel* current_model = list_view->model();
+            if (current_model && current_model != item_model) {
+                // Update existing filtered model - just update icon sizes and grid size
+                QStandardItemModel* flat_model = qobject_cast<QStandardItemModel*>(current_model);
+                if (flat_model) {
+                    const u32 icon_size = static_cast<u32>(value);
+                    list_view->setGridSize(QSize(icon_size + 60, icon_size + 80));
+                    // Update icon sizes in the existing model by getting original icons from hierarchical model
+                    // Store current scroll position to restore it
+                    int scroll_position = list_view->verticalScrollBar()->value();
+                    QModelIndex current_index = list_view->currentIndex();
+
+                    for (int i = 0; i < flat_model->rowCount(); ++i) {
+                        QStandardItem* item = flat_model->item(i);
+                        if (item) {
+                            // Get the original item from hierarchical model to get original icon
+                            u64 program_id = item->data(GameListItemPath::ProgramIdRole).toULongLong();
+
+                            // Find the original item in hierarchical model
+                            QStandardItem* original_item = nullptr;
+                            for (int folder_idx = 0; folder_idx < item_model->rowCount(); ++folder_idx) {
+                                QStandardItem* folder = item_model->item(folder_idx, 0);
+                                if (!folder) continue;
+                                for (int game_idx = 0; game_idx < folder->rowCount(); ++game_idx) {
+                                    QStandardItem* game = folder->child(game_idx, 0);
+                                    if (game && game->data(GameListItemPath::ProgramIdRole).toULongLong() == program_id) {
+                                        original_item = game;
+                                        break;
+                                    }
+                                }
+                                if (original_item) break;
+                            }
+
+                            if (original_item) {
+                                // Get original icon from hierarchical model
+                                QVariant orig_icon_data = original_item->data(Qt::DecorationRole);
+                                if (orig_icon_data.isValid() && orig_icon_data.type() == QVariant::Pixmap) {
+                                    QPixmap orig_pixmap = orig_icon_data.value<QPixmap>();
+                                    // Create new rounded icon at new size
+                                    // Even though original is rounded, we'll scale it and re-apply rounding
+                                    QPixmap rounded(icon_size, icon_size);
+                                    rounded.fill(Qt::transparent);
+
+                                    QPainter painter(&rounded);
+                                    painter.setRenderHint(QPainter::Antialiasing);
+
+                                    const int radius = icon_size / 8;
+                                    QPainterPath path;
+                                    path.addRoundedRect(0, 0, icon_size, icon_size, radius, radius);
+                                    painter.setClipPath(path);
+
+                                    // Scale original pixmap to new size (even if it's already rounded, scaling will work)
+                                    QPixmap scaled = orig_pixmap.scaled(icon_size, icon_size, Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
+                                    painter.drawPixmap(0, 0, scaled);
+
+                                    item->setData(rounded, Qt::DecorationRole);
+                                }
+                            }
+                        }
+                    }
+
+                    // Restore scroll position and selection
+                    if (scroll_position >= 0) {
+                        list_view->verticalScrollBar()->setValue(scroll_position);
+                    }
+                    if (current_index.isValid() && current_index.row() < flat_model->rowCount()) {
+                        list_view->setCurrentIndex(flat_model->index(current_index.row(), 0));
+                    }
+                }
+            } else {
+                // No filter active, use PopulateGridView
+                PopulateGridView();
+            }
+        }
+        // Update title font size in tree view
+        QFont font = tree_view->font();
+        font.setPointSize(qBound(8, value / 8, 24));
+        tree_view->setFont(font);
+    });
+
+    // A-Z sort button - positioned after slider
+    btn_sort_az = new QToolButton(toolbar);
+    UpdateSortButtonIcon();
+    btn_sort_az->setToolTip(tr("Sort by Name"));
+    btn_sort_az->setAutoRaise(true);
+    btn_sort_az->setIconSize(QSize(16, 16));
+    btn_sort_az->setFixedSize(32, 32);
+    btn_sort_az->setStyleSheet(QStringLiteral(
+        "QToolButton {"
+        "  border: 1px solid palette(mid);"
+        "  border-radius: 4px;"
+        "  background: palette(button);"
+        "}"
+        "QToolButton:hover {"
+        "  background: palette(light);"
+        "}"
+    ));
+    connect(btn_sort_az, &QToolButton::clicked, this, &GameList::ToggleSortOrder);
+
+    // Add widgets to toolbar
+    toolbar_layout->addWidget(btn_list_view);
+    toolbar_layout->addWidget(btn_grid_view);
+    toolbar_layout->addWidget(slider_title_size);
+    toolbar_layout->addWidget(btn_sort_az);
+    toolbar_layout->addStretch(); // Push search to the right
+    toolbar_layout->addWidget(search_field);
+
     layout->setContentsMargins(0, 0, 0, 0);
     layout->setSpacing(0);
+    layout->addWidget(toolbar);
     layout->addWidget(tree_view);
     layout->addWidget(list_view);
-    layout->addWidget(search_field);
     setLayout(layout);
 
     SetViewMode(UISettings::values.game_list_grid_view.GetValue());
@@ -570,7 +859,13 @@ void GameList::DonePopulating(const QStringList& watch_list) {
     }
     item_model->sort(tree_view->header()->sortIndicatorSection(), tree_view->header()->sortIndicatorOrder());
     if (list_view->isVisible()) {
-        PopulateGridView();
+        // Preserve filter when repopulating
+        QString filter_text = search_field->filterText();
+        if (!filter_text.isEmpty()) {
+            FilterGridView(filter_text);
+        } else {
+            PopulateGridView();
+        }
     }
     emit PopulatingCompleted();
 }
@@ -865,7 +1160,13 @@ const QStringList GameList::supported_file_extensions = {
             }
         }
         if (list_view->isVisible()) {
-            PopulateGridView();
+            // Preserve filter when updating favorites
+            QString filter_text = search_field->filterText();
+            if (!filter_text.isEmpty()) {
+                FilterGridView(filter_text);
+            } else {
+                PopulateGridView();
+            }
         }
         SaveConfig();
     }
@@ -941,7 +1242,13 @@ const QStringList GameList::supported_file_extensions = {
 
     void GameList::SetViewMode(bool grid_view) {
         if (grid_view) {
-            PopulateGridView();
+            // Check if there's an active filter - if so, use FilterGridView instead
+            QString filter_text = search_field->filterText();
+            if (!filter_text.isEmpty()) {
+                FilterGridView(filter_text);
+            } else {
+                PopulateGridView();
+            }
             tree_view->setVisible(false);
             list_view->setVisible(true);
             if (list_view->model() && list_view->model()->rowCount() > 0) {
@@ -954,6 +1261,11 @@ const QStringList GameList::supported_file_extensions = {
                 tree_view->setCurrentIndex(item_model->index(0, 0));
             }
         }
+        // Update button states
+        if (btn_list_view && btn_grid_view) {
+            btn_list_view->setChecked(!grid_view);
+            btn_grid_view->setChecked(grid_view);
+        }
     }
 
     void GameList::PopulateGridView() {
@@ -964,6 +1276,7 @@ const QStringList GameList::supported_file_extensions = {
             }
         }
         QStandardItemModel* flat_model = new QStandardItemModel(this);
+        flat_model->setSortRole(GameListItemPath::SortRole);
         for (int i = 0; i < hierarchical_model->rowCount(); ++i) {
             QStandardItem* folder = hierarchical_model->item(i, 0);
             if (!folder) continue;
@@ -991,10 +1304,108 @@ const QStringList GameList::supported_file_extensions = {
         list_view->setModel(flat_model);
         const u32 icon_size = UISettings::values.game_icon_size.GetValue();
         list_view->setGridSize(QSize(icon_size + 60, icon_size + 80));
+        // Sort the grid view using current sort order
+        flat_model->sort(0, current_sort_order);
+        // Update icon sizes in the model - ensure all icons are consistently sized with rounded corners
+        for (int i = 0; i < flat_model->rowCount(); ++i) {
+            QStandardItem* item = flat_model->item(i);
+            if (item) {
+                QVariant icon_data = item->data(Qt::DecorationRole);
+                if (icon_data.isValid() && icon_data.type() == QVariant::Pixmap) {
+                    QPixmap pixmap = icon_data.value<QPixmap>();
+                    if (!pixmap.isNull()) {
+                        // Always recreate the rounded icon at the exact target size for consistency
+                        // This ensures all icons are the same size regardless of their original size
+                        QPixmap rounded(icon_size, icon_size);
+                        rounded.fill(Qt::transparent);
+
+                        QPainter painter(&rounded);
+                        painter.setRenderHint(QPainter::Antialiasing);
+
+                        // Create rounded rectangle clipping path
+                        const int radius = icon_size / 8;
+                        QPainterPath path;
+                        path.addRoundedRect(0, 0, icon_size, icon_size, radius, radius);
+                        painter.setClipPath(path);
+
+                        // Scale the source pixmap to fill the icon size exactly
+                        QPixmap scaled = pixmap.scaled(icon_size, icon_size, Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
+                        painter.drawPixmap(0, 0, scaled);
+
+                        item->setData(rounded, Qt::DecorationRole);
+                    }
+                }
+            }
+        }
     }
 
     void GameList::ToggleViewMode() {
         bool current_grid_view = UISettings::values.game_list_grid_view.GetValue();
         UISettings::values.game_list_grid_view.SetValue(!current_grid_view);
         SetViewMode(!current_grid_view);
+        // Button states are updated in SetViewMode
+    }
+
+    void GameList::SortAlphabetically() {
+        if (tree_view->isVisible()) {
+            // Sort tree view by name column using current sort order
+            tree_view->header()->setSortIndicator(COLUMN_NAME, current_sort_order);
+            item_model->sort(COLUMN_NAME, current_sort_order);
+        } else if (list_view->isVisible()) {
+            // Sort grid view alphabetically using current sort order
+            QAbstractItemModel* current_model = list_view->model();
+            if (current_model && current_model != item_model) {
+                // Sort the flat model used by list view (filtered or unfiltered)
+                QStandardItemModel* flat_model = qobject_cast<QStandardItemModel*>(current_model);
+                if (flat_model) {
+                    // Use SortRole for proper alphabetical sorting
+                    flat_model->setSortRole(GameListItemPath::SortRole);
+                    flat_model->sort(0, current_sort_order);
+                }
+            } else {
+                // If using item_model directly, repopulate grid view to apply sort
+                // Preserve filter if active
+                QString filter_text = search_field->filterText();
+                if (!filter_text.isEmpty()) {
+                    FilterGridView(filter_text);
+                } else {
+                    PopulateGridView();
+                }
+            }
+        }
+        UpdateSortButtonIcon();
+    }
+
+    void GameList::ToggleSortOrder() {
+        // Toggle between ascending and descending, just like clicking the Name column header
+        current_sort_order = (current_sort_order == Qt::AscendingOrder)
+                           ? Qt::DescendingOrder
+                           : Qt::AscendingOrder;
+        SortAlphabetically();
+    }
+
+    void GameList::UpdateSortButtonIcon() {
+        if (!btn_sort_az) return;
+
+        QIcon sort_icon;
+        if (current_sort_order == Qt::AscendingOrder) {
+            // Ascending (A-Z) - arrow up
+            sort_icon = QIcon::fromTheme(QStringLiteral("view-sort-ascending"));
+            if (sort_icon.isNull()) {
+                sort_icon = QIcon::fromTheme(QStringLiteral("sort-ascending"));
+            }
+            if (sort_icon.isNull()) {
+                sort_icon = style()->standardIcon(QStyle::SP_ArrowUp);
+            }
+        } else {
+            // Descending (Z-A) - arrow down
+            sort_icon = QIcon::fromTheme(QStringLiteral("view-sort-descending"));
+            if (sort_icon.isNull()) {
+                sort_icon = QIcon::fromTheme(QStringLiteral("sort-descending"));
+            }
+            if (sort_icon.isNull()) {
+                sort_icon = style()->standardIcon(QStyle::SP_ArrowDown);
+            }
+        }
+        btn_sort_az->setIcon(sort_icon);
     }

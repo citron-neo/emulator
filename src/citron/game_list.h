@@ -7,13 +7,17 @@
 #include <map>
 #include <utility>
 #include <QFileSystemWatcher>
+#include <QHBoxLayout>
 #include <QLabel>
 #include <QLineEdit>
 #include <QList>
 #include <QListView>
+#include <QPushButton>
+#include <QSlider>
 #include <QStandardItemModel>
 #include <QString>
 #include <QTimer>
+#include <QToolButton>
 #include <QTreeView>
 #include <QVBoxLayout>
 #include <QVector>
@@ -103,6 +107,8 @@ public:
 
     void SetViewMode(bool grid_view);
     void ToggleViewMode();
+    void SortAlphabetically();
+    void ToggleSortOrder();
 
     QStandardItemModel* GetModel() const;
 
@@ -173,12 +179,20 @@ private:
 
     void changeEvent(QEvent*) override;
     void RetranslateUI();
+    void UpdateSortButtonIcon();
 
     std::shared_ptr<FileSys::VfsFilesystem> vfs;
     FileSys::ManualContentProvider* provider;
     GameListSearchField* search_field;
     GMainWindow* main_window = nullptr;
     QVBoxLayout* layout = nullptr;
+    QWidget* toolbar = nullptr;
+    QHBoxLayout* toolbar_layout = nullptr;
+    QToolButton* btn_list_view = nullptr;
+    QToolButton* btn_grid_view = nullptr;
+    QSlider* slider_title_size = nullptr;
+    QToolButton* btn_sort_az = nullptr;
+    Qt::SortOrder current_sort_order = Qt::AscendingOrder;
     QTreeView* tree_view = nullptr;
     QListView* list_view = nullptr;
     QStandardItemModel* item_model = nullptr;
