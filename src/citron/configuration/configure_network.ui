@@ -25,6 +25,16 @@
         <string>General</string>
        </property>
        <layout class="QGridLayout" name="gridLayout_2">
+        <item row="0" column="0">
+         <widget class="QCheckBox" name="airplane_mode">
+          <property name="text">
+           <string>Airplane Mode</string>
+          </property>
+          <property name="toolTip">
+           <string>Disable all network functionality, similar to Nintendo Switch airplane mode</string>
+          </property>
+         </widget>
+        </item>
         <item row="1" column="1">
          <widget class="QComboBox" name="network_interface"/>
         </item>

@@ -9,6 +9,7 @@
 #include <thread>
 #include "common/assert.h"
 #include "common/socket_types.h"
+#include "core/internal_network/network_interface.h"
 #include "enet/enet.h"
 #include "network/packet.h"
 #include "network/room_member.h"
@@ -601,10 +602,22 @@ void RoomMember::Join(const std::string& nick, const char* server_addr, u16 serv
         room_member_impl->loop_thread.reset();
     }
 
-    if (!room_member_impl->client) {
-        room_member_impl->client = enet_host_create(nullptr, 1, NumChannels, 0, 0);
-        ASSERT_MSG(room_member_impl->client != nullptr, "Could not create client");
+    // Always recreate the client to ensure it uses the current network interface settings
+    // This is necessary because the client might have been created with different settings
+    if (room_member_impl->client) {
+        enet_host_destroy(room_member_impl->client);
+        room_member_impl->client = nullptr;
     }
+
+    // For client connections, bind to ENET_HOST_ANY (0.0.0.0) to allow the OS to route
+    // based on the destination address. The selected network interface will be used
+    // by the OS routing table when connecting to the server.
+    ENetAddress bind_address{};
+    bind_address.host = ENET_HOST_ANY;
+    bind_address.port = 0; // Let the system choose an available port
+
+    room_member_impl->client = enet_host_create(&bind_address, 1, NumChannels, 0, 0);
+    ASSERT_MSG(room_member_impl->client != nullptr, "Could not create client");
 
     room_member_impl->SetState(State::Joining);
 

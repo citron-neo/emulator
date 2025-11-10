@@ -7,6 +7,7 @@
 #include <QRegularExpressionValidator>
 #include <QString>
 #include <QtConcurrent/QtConcurrentRun>
+#include "common/logging/log.h"
 #include "common/settings.h"
 #include "core/core.h"
 #include "core/internal_network/network_interface.h"
@@ -57,6 +58,11 @@ void DirectConnectWindow::RetranslateUi() {
 }
 
 void DirectConnectWindow::Connect() {
+    if (!Network::GetSelectedNetworkInterface()) {
+        LOG_INFO(WebService, "Automatically selected network interface for room network.");
+        Network::SelectFirstNetworkInterface();
+    }
+
     if (!Network::GetSelectedNetworkInterface()) {
         NetworkMessage::ErrorManager::ShowError(
             NetworkMessage::ErrorManager::NO_INTERFACE_SELECTED);

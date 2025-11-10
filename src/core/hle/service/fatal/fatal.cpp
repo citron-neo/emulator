@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: Copyright 2018 yuzu Emulator Project
+// SPDX-FileCopyrightText: Copyright 2025 Citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <array>
@@ -65,16 +66,30 @@ enum class FatalType : u32 {
 
 static void GenerateErrorReport(Core::System& system, Result error_code, const FatalInfo& info) {
     const auto title_id = system.GetApplicationProcessProgramID();
+    const auto module = static_cast<u32>(error_code.GetModule());
+    const auto description = static_cast<u32>(error_code.GetDescription());
+
+    // Check if this is module 38 (undefined/unknown module)
+    std::string module_note;
+    if (module == 38) {
+        module_note = fmt::format(
+            "\n⚠️  WARNING: Error module 38 is undefined/unknown!\n"
+            "This error may be game-generated or from an unimplemented service.\n"
+            "Error code: 2038-{:04d} (0x{:08X})\n"
+            "If you're experiencing multiplayer issues, this may be a stubbing issue.\n\n",
+            description, error_code.raw);
+    }
+
     std::string crash_report = fmt::format(
         "Citron {}-{} crash report\n"
         "Title ID:                        {:016x}\n"
         "Result:                          0x{:X} ({:04}-{:04d})\n"
         "Set flags:                       0x{:16X}\n"
         "Program entry point:             0x{:16X}\n"
+        "{}"
         "\n",
         Common::g_scm_branch, Common::g_scm_desc, title_id, error_code.raw,
-        2000 + static_cast<u32>(error_code.GetModule()),
-        static_cast<u32>(error_code.GetDescription()), info.set_flags, info.program_entry_point);
+        2000 + module, description, info.set_flags, info.program_entry_point, module_note);
     if (info.backtrace_size != 0x0) {
         crash_report += "Registers:\n";
         for (size_t i = 0; i < info.registers.size(); i++) {

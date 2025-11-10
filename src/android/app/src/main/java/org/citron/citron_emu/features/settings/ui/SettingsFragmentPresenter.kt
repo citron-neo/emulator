@@ -99,6 +99,7 @@ class SettingsFragmentPresenter(
             MenuTag.SECTION_INPUT_PLAYER_EIGHT -> addInputPlayer(sl, 7)
             MenuTag.SECTION_THEME -> addThemeSettings(sl)
             MenuTag.SECTION_DEBUG -> addDebugSettings(sl)
+            MenuTag.SECTION_NETWORK -> addNetworkSettings(sl)
             MenuTag.SECTION_ZEP_ZONE -> addZepZoneSettings(sl)
             MenuTag.SECTION_APPLETS_ANDROID -> addAppletsAndroidSettings(sl)
         }
@@ -142,6 +143,14 @@ class SettingsFragmentPresenter(
                     descriptionId = R.string.preferences_debug_description,
                     iconId = R.drawable.ic_code,
                     menuKey = MenuTag.SECTION_DEBUG
+                )
+            )
+            add(
+                SubmenuSetting(
+                    titleId = R.string.preferences_network,
+                    descriptionId = R.string.preferences_network_description,
+                    iconId = R.drawable.ic_settings,
+                    menuKey = MenuTag.SECTION_NETWORK
                 )
             )
             add(
@@ -999,6 +1008,13 @@ class SettingsFragmentPresenter(
                     descriptionId = R.string.log_filter_description
                 )
             )
+        }
+    }
+
+    private fun addNetworkSettings(sl: ArrayList<SettingsItem>) {
+        sl.apply {
+            add(HeaderSetting(R.string.network_settings_header))
+            add(BooleanSetting.AIRPLANE_MODE.key)
         }
     }
 

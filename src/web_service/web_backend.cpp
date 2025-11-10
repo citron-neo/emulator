@@ -138,7 +138,15 @@ struct Client::Impl {
             return WebResult{WebResult::Code::WrongContent, "", ""};
         }
 
-        if (content_type->second.find(accept) == std::string::npos) {
+        // For GetExternalJWT, be more lenient with content-type to handle error responses
+        // The API may return text/plain for errors, but we still want to process the response
+        bool content_type_valid = content_type->second.find(accept) != std::string::npos;
+        if (!content_type_valid && accept == "text/html") {
+            // Also accept text/plain for JWT endpoints (error responses)
+            content_type_valid = content_type->second.find("text/plain") != std::string::npos;
+        }
+
+        if (!content_type_valid) {
             LOG_ERROR(WebService, "{} to {} returned wrong content: {}", method, host + path,
                       content_type->second);
             return WebResult{WebResult::Code::WrongContent, "Wrong content", ""};
