@@ -6,6 +6,7 @@
 #include "citron/util/title_ids.h"
 #include "core/core.h"
 #include "core/debugger/debugger.h"
+#include "core/file_sys/common_funcs.h"
 #include "core/hle/kernel/k_process.h"
 #include "core/hle/kernel/k_thread.h"
 #include "core/hle/kernel/kernel.h"
@@ -136,7 +137,9 @@ void PhysicalCore::RunThread(Kernel::KThread* thread) {
 
                     // Detect null pointer execution loop (PC in very low memory addresses)
                     // Only apply this recovery fix for Little Nightmares 3 to avoid issues with other games
-                    if (current_pc < 0x1000 && program_id == UICommon::TitleID::LittleNightmares3) {
+                    // Check if the base title ID matches Little Nightmares 3 (covers both base and update variants)
+                    if (current_pc < 0x1000 &&
+                        FileSys::GetBaseTitleID(program_id) == UICommon::TitleID::LittleNightmares3Base) {
                         LOG_WARNING(Core_ARM, "Null pointer execution detected at PC={:016X}", current_pc);
                         LOG_WARNING(Core_ARM, "Attempting to recover by returning from invalid function call");
 
