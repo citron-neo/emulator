@@ -154,7 +154,7 @@ void SaveGameMetadataCache() {
         entry[QStringLiteral("file_size")] = static_cast<qint64>(metadata.file_size);
         entry[QStringLiteral("title")] = QString::fromStdString(metadata.title);
         entry[QStringLiteral("file_path")] = QString::fromStdString(metadata.file_path);
-        entry[QStringLiteral("modification_time")] = metadata.modification_time;
+        entry[QStringLiteral("modification_time")] = static_cast<qint64>(metadata.modification_time);
 
         const QByteArray icon_data(reinterpret_cast<const char*>(metadata.icon.data()),
                                    static_cast<int>(metadata.icon.size()));
