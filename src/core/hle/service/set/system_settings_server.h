@@ -155,6 +155,15 @@ public:
     Result GetFieldTestingFlag(Out<bool> out_field_testing_flag);
     Result GetPanelCrcMode(Out<s32> out_panel_crc_mode);
     Result SetPanelCrcMode(s32 panel_crc_mode);
+    Result Unknown263(); // [20.0.0+]
+    Result Unknown264(); // [20.0.0+]
+    Result Unknown282(); // [20.0.0+]
+    Result Unknown283(); // [20.0.0+]
+    Result Unknown289(); // [20.0.0+]
+    Result Unknown300(); // [20.0.0+]
+    Result Unknown301(); // [20.0.0+]
+    Result Unknown306(); // [20.0.0+]
+    Result Unknown307(); // [20.0.0+]
 
 private:
     bool LoadSettingsFile(std::filesystem::path& path, auto&& default_func);

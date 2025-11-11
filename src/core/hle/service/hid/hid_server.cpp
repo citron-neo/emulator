@@ -2165,7 +2165,7 @@ Result IHidServer::GetFirmwareVersionStringForUserSupportPage(OutBuffer<BufferAt
     LOG_WARNING(Service_HID, "(STUBBED) called, applet_resource_user_id={}", aruid.pid);
 
     // Return atmosphere's firmware version & NX version
-    constexpr std::string_view firmware_version = "20.1.5|AMS 1.9.1|E";
+    constexpr std::string_view firmware_version = "21.0.0|AMS 1.9.5|E";
     std::memcpy(out_firmware_version.data(), firmware_version.data(),
                 std::min(out_firmware_version.size(), firmware_version.size()));
 

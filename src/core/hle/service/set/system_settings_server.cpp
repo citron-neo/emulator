@@ -301,6 +301,15 @@ ISystemSettingsServer::ISystemSettingsServer(Core::System& system_)
         {208, nullptr, "SetHearingProtectionSafeguardFlag"},
         {209, nullptr, "GetHearingProtectionSafeguardRemainingTime"},
         {210, nullptr, "SetHearingProtectionSafeguardRemainingTime"},
+        {263, C<&ISystemSettingsServer::Unknown263>, "Unknown263"}, // [20.0.0+]
+        {264, C<&ISystemSettingsServer::Unknown264>, "Unknown264"}, // [20.0.0+]
+        {282, C<&ISystemSettingsServer::Unknown282>, "Unknown282"}, // [20.0.0+]
+        {283, C<&ISystemSettingsServer::Unknown283>, "Unknown283"}, // [20.0.0+]
+        {289, C<&ISystemSettingsServer::Unknown289>, "Unknown289"}, // [20.0.0+]
+        {300, C<&ISystemSettingsServer::Unknown300>, "Unknown300"}, // [20.0.0+]
+        {301, C<&ISystemSettingsServer::Unknown301>, "Unknown301"}, // [20.0.0+]
+        {306, C<&ISystemSettingsServer::Unknown306>, "Unknown306"}, // [20.0.0+]
+        {307, C<&ISystemSettingsServer::Unknown307>, "Unknown307"}, // [20.0.0+]
     };
     // clang-format on
 
@@ -1386,6 +1395,51 @@ Result ISystemSettingsServer::GetSettingsItemValueImpl(std::span<u8> out_value, 
                "Stored type is bigger than requested type");
     out_size = std::min<u64>(settings[category][name].size(), out_value.size());
     std::memcpy(out_value.data(), settings[category][name].data(), out_size);
+    R_SUCCEED();
+}
+
+Result ISystemSettingsServer::Unknown263() {
+    LOG_WARNING(Service_SET, "(STUBBED) called Unknown263 [20.0.0+]");
+    R_SUCCEED();
+}
+
+Result ISystemSettingsServer::Unknown264() {
+    LOG_WARNING(Service_SET, "(STUBBED) called Unknown264 [20.0.0+]");
+    R_SUCCEED();
+}
+
+Result ISystemSettingsServer::Unknown282() {
+    LOG_WARNING(Service_SET, "(STUBBED) called Unknown282 [20.0.0+]");
+    R_SUCCEED();
+}
+
+Result ISystemSettingsServer::Unknown283() {
+    LOG_WARNING(Service_SET, "(STUBBED) called Unknown283 [20.0.0+]");
+    R_SUCCEED();
+}
+
+Result ISystemSettingsServer::Unknown289() {
+    LOG_WARNING(Service_SET, "(STUBBED) called Unknown289 [20.0.0+]");
+    R_SUCCEED();
+}
+
+Result ISystemSettingsServer::Unknown300() {
+    LOG_WARNING(Service_SET, "(STUBBED) called Unknown300 [20.0.0+]");
+    R_SUCCEED();
+}
+
+Result ISystemSettingsServer::Unknown301() {
+    LOG_WARNING(Service_SET, "(STUBBED) called Unknown301 [20.0.0+]");
+    R_SUCCEED();
+}
+
+Result ISystemSettingsServer::Unknown306() {
+    LOG_WARNING(Service_SET, "(STUBBED) called Unknown306 [20.0.0+]");
+    R_SUCCEED();
+}
+
+Result ISystemSettingsServer::Unknown307() {
+    LOG_WARNING(Service_SET, "(STUBBED) called Unknown307 [20.0.0+]");
     R_SUCCEED();
 }
 

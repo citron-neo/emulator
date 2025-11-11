@@ -73,7 +73,7 @@ IAudioController::IAudioController(Core::System& system_)
         {50003, D<&IAudioController::SetForceOverrideExternalDeviceNameForDebug>, "SetForceOverrideExternalDeviceNameForDebug"}, // [19.0.0+]
         {50004, D<&IAudioController::ClearForceOverrideExternalDeviceNameForDebug>, "ClearForceOverrideExternalDeviceNameForDebug"}, // [19.0.0+]
         {5000, nullptr, "Unknown5000"}, // [19.0.0+]
-        {10200, nullptr, "Unknown10200"}, // [20.0.0+]
+        {10200, D<&IAudioController::Unknown10200>, "Unknown10200"}, // [20.0.0+]
     };
     // clang-format on
 
@@ -399,6 +399,11 @@ Result IAudioController::SetForceOverrideExternalDeviceNameForDebug(InLargeData<
 
 Result IAudioController::ClearForceOverrideExternalDeviceNameForDebug() {
     LOG_WARNING(Audio, "(STUBBED) called");
+    R_SUCCEED();
+}
+
+Result IAudioController::Unknown10200() {
+    LOG_WARNING(Audio, "(STUBBED) called Unknown10200 [20.0.0+]");
     R_SUCCEED();
 }
 

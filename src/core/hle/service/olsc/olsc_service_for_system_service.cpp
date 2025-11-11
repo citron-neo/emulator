@@ -48,6 +48,7 @@ IOlscServiceForSystemService::IOlscServiceForSystemService(Core::System& system_
         {911, nullptr, "CleanupSeriesInfoType1"},
         {912, nullptr, "RemoveSeriesInfoType1"},
         {913, nullptr, "GetSeriesInfoType1"},
+        {914, D<&IOlscServiceForSystemService::Unknown914>, "Unknown914"}, // [20.2.0+]
         {1000, nullptr, "UpdateIssueOld"},
         {1010, nullptr, "Unknown1010"},
         {1011, nullptr, "ListIssueInfoOld"},
@@ -111,6 +112,11 @@ Result IOlscServiceForSystemService::CloneService(
     Out<SharedPointer<IOlscServiceForSystemService>> out_interface) {
     LOG_INFO(Service_OLSC, "called");
     *out_interface = std::static_pointer_cast<IOlscServiceForSystemService>(shared_from_this());
+    R_SUCCEED();
+}
+
+Result IOlscServiceForSystemService::Unknown914() {
+    LOG_WARNING(Service_OLSC, "(STUBBED) called Unknown914 [20.2.0+]");
     R_SUCCEED();
 }
 

@@ -33,7 +33,9 @@ IRemoteStorageController::IRemoteStorageController(Core::System& system_)
         {23, nullptr, "TouchSecondarySave"},
         {24, nullptr, "GetSecondarySaveDataInfo"},
         {25, nullptr, "RegisterDownloadSaveDataTransferTaskForAutonomyRegistration"},
+        {28, D<&IRemoteStorageController::Unknown28>, "Unknown28"}, // [20.2.0+]
         {900, nullptr, "Unknown900"},
+        {901, D<&IRemoteStorageController::Unknown901>, "Unknown901"}, // [20.2.0+]
     };
     // clang-format on
 
@@ -48,6 +50,16 @@ Result IRemoteStorageController::GetSecondarySave(Out<bool> out_has_secondary_sa
     LOG_ERROR(Service_OLSC, "(STUBBED) called, application_id={:016X}", application_id);
     *out_has_secondary_save = false;
     *out_unknown = {};
+    R_SUCCEED();
+}
+
+Result IRemoteStorageController::Unknown28() {
+    LOG_WARNING(Service_OLSC, "(STUBBED) called Unknown28 [20.2.0+]");
+    R_SUCCEED();
+}
+
+Result IRemoteStorageController::Unknown901() {
+    LOG_WARNING(Service_OLSC, "(STUBBED) called Unknown901 [20.2.0+]");
     R_SUCCEED();
 }
 

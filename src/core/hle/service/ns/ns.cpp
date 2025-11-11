@@ -3,6 +3,7 @@
 
 #include "core/hle/service/ns/develop_interface.h"
 #include "core/hle/service/ns/ns.h"
+#include "core/hle/service/ns/notify_service.h"
 #include "core/hle/service/ns/platform_service_manager.h"
 #include "core/hle/service/ns/query_service.h"
 #include "core/hle/service/ns/service_getter_interface.h"
@@ -33,6 +34,7 @@ void LoopProcess(Core::System& system) {
     server_manager->RegisterNamedService("ns:vm",
                                          std::make_shared<IVulnerabilityManagerInterface>(system));
     server_manager->RegisterNamedService("pdm:qry", std::make_shared<IQueryService>(system));
+    server_manager->RegisterNamedService("pdm:ntfy", std::make_shared<INotifyService>(system));
 
     server_manager->RegisterNamedService("pl:s",
                                          std::make_shared<IPlatformServiceManager>(system, "pl:s"));
