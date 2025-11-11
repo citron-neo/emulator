@@ -91,6 +91,7 @@ IApplicationFunctions::IApplicationFunctions(Core::System& system_, std::shared_
         {300, nullptr, "RequestToLaunchApplication"},
         {301, nullptr, "RequestToLaunchApplicationWithUserAndArguments"},
         {310, nullptr, "RequestToLaunchApplicationWithArgumentsAndUserSelectionAndError"},
+        {330, D<&IApplicationFunctions::Unknown330>, "Unknown330"}, // [20.2.0+]
         {350, nullptr, "DeclareApplicationAlive"},
         {400, nullptr, "CreateApplicationResourceUsageSystemReportForDebug"},
         {401, nullptr, "WriteApplicationResourceUsageSystemReportForDebug"},
@@ -523,6 +524,11 @@ Result IApplicationFunctions::GetLaunchRequiredVersionUpgrade(OutCopyHandle<Kern
     // TODO(ZEP): Add a dedicated launch_required_version_upgrade_event when implemented
     *out_event = m_applet->state_changed_event.GetHandle();
 
+    R_SUCCEED();
+}
+
+Result IApplicationFunctions::Unknown330() {
+    LOG_WARNING(Service_AM, "(STUBBED) called Unknown330 [20.2.0+]");
     R_SUCCEED();
 }
 

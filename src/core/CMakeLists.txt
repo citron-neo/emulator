@@ -581,6 +581,8 @@ add_library(core STATIC
     hle/service/bcat/delivery_cache_storage_service.h
     hle/service/bcat/delivery_task_suspension_service.cpp
     hle/service/bcat/delivery_task_suspension_service.h
+    hle/service/bcat/news/download_context.cpp
+    hle/service/bcat/news/download_context.h
     hle/service/bcat/news/newly_arrived_event_holder.cpp
     hle/service/bcat/news/newly_arrived_event_holder.h
     hle/service/bcat/news/news_data_service.cpp
@@ -721,6 +723,8 @@ add_library(core STATIC
     hle/service/glue/time/time_zone_binary.h
     hle/service/glue/time/worker.cpp
     hle/service/glue/time/worker.h
+    hle/service/grc/continuous_recorder.cpp
+    hle/service/grc/continuous_recorder.h
     hle/service/grc/grc.cpp
     hle/service/grc/grc.h
     hle/service/hid/active_vibration_device_list.cpp
@@ -853,6 +857,8 @@ add_library(core STATIC
     hle/service/ns/language.h
     hle/service/ns/ns.cpp
     hle/service/ns/ns.h
+    hle/service/ns/notify_service.cpp
+    hle/service/ns/notify_service.h
     hle/service/ns/ns_results.h
     hle/service/ns/ns_types.h
     hle/service/ns/platform_service_manager.cpp

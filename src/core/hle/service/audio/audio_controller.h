@@ -90,6 +90,7 @@ private:
     Result OverrideDefaultTargetForDebug(u32 target); // [19.0.0-19.0.1]
     Result SetForceOverrideExternalDeviceNameForDebug(InLargeData<std::array<u8, 0x80>, BufferAttr_HipcMapAlias> device_name); // [19.0.0+]
     Result ClearForceOverrideExternalDeviceNameForDebug(); // [19.0.0+]
+    Result Unknown10200(); // [20.0.0+]
 
     KernelHelpers::ServiceContext service_context;
 

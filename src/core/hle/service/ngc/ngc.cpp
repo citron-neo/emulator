@@ -142,6 +142,8 @@ private:
 void LoopProcess(Core::System& system) {
     auto server_manager = std::make_unique<ServerManager>(system);
 
+    // Note: In firmware 21.0.0+, the ngct sysmodule is stubbed and ngct:u service was moved into ngc.
+    // We keep both services registered for backward compatibility with older firmware versions.
     server_manager->RegisterNamedService("ngct:u", std::make_shared<NgctServiceImpl>(system));
     server_manager->RegisterNamedService("ngc:u", std::make_shared<NgcServiceImpl>(system));
     ServerManager::RunServer(std::move(server_manager));

@@ -22,6 +22,7 @@ private:
     Result OpenDaemonController(Out<SharedPointer<IDaemonController>> out_interface);
     Result GetDataTransferPolicyInfo(Out<u16> out_policy_info, u64 application_id);
     Result CloneService(Out<SharedPointer<IOlscServiceForSystemService>> out_interface);
+    Result Unknown914(); // [20.2.0+]
 };
 
 } // namespace Service::OLSC

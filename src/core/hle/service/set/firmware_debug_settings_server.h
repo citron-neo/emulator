@@ -15,6 +15,9 @@ class IFirmwareDebugSettingsServer final : public ServiceFramework<IFirmwareDebu
 public:
     explicit IFirmwareDebugSettingsServer(Core::System& system_);
     ~IFirmwareDebugSettingsServer() override;
+
+private:
+    Result Unknown24(); // [20.0.0+]
 };
 
 } // namespace Service::Set
