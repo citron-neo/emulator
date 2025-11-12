@@ -47,25 +47,8 @@ void TranslatorVisitor::VOTE(u64 insn) {
     Vote(*this, insn);
 }
 
-void TranslatorVisitor::VOTE_vtg(u64 insn) {
-    // VOTE instruction in vertex/tessellation/geometry shaders
-    // These stages process vertices independently without warp/subgroup synchronization
-    // In these stages, vote operations are essentially no-ops or return conservative values
-    union {
-        u64 insn;
-        BitField<0, 8, IR::Reg> dest_reg;
-        BitField<39, 3, IR::Pred> pred_a;
-        BitField<42, 1, u64> neg_pred_a;
-        BitField<45, 3, IR::Pred> pred_b;
-    } const vote{insn};
-
-    // In VTG shaders, each thread is independent, so:
-    // - "All" votes return the predicate itself (all of one thread = itself)
-    // - Ballot returns 1 if predicate is true, 0 otherwise (only one thread)
-    const IR::U1 vote_pred{ir.GetPred(vote.pred_a, vote.neg_pred_a != 0)};
-    ir.SetPred(vote.pred_b, vote_pred);
-    // Ballot for single thread: 1 if true, 0 if false
-    X(vote.dest_reg, IR::U32{ir.Select(vote_pred, ir.Imm32(1), ir.Imm32(0))});
+void TranslatorVisitor::VOTE_vtg(u64) {
+    LOG_WARNING(Shader, "(STUBBED) called");
 }
 
 } // namespace Shader::Maxwell
