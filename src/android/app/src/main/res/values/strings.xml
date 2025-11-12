@@ -430,6 +430,8 @@
 
     <!-- Network Settings Headers -->
     <string name="network_settings_header">Network Settings</string>
+    <string name="airplane_mode">Airplane Mode</string>
+    <string name="airplane_mode_description">Disable all network functionality, similar to Nintendo Switch airplane mode</string>
 
     <!-- Zep Zone Headers -->
     <string name="memory_layout_header">Memory Layout</string>

@@ -615,6 +615,15 @@ abstract class SettingsItem(
                     valuesId = R.array.appletModeValues
                 )
             )
+
+            // Network Settings
+            put(
+                SwitchSetting(
+                    BooleanSetting.AIRPLANE_MODE,
+                    titleId = R.string.airplane_mode,
+                    descriptionId = R.string.airplane_mode_description
+                )
+            )
         }
     }
 }
