@@ -59,6 +59,7 @@
 #include "hid_core/frontend/emulated_controller.h"
 #include "hid_core/hid_core.h"
 #include "citron/multiplayer/state.h"
+#include "citron/setup_wizard.h"
 #include "citron/util/controller_navigation.h"
 
 // These are wrappers to avoid the calls to CreateDirectory and CreateFile because of the Windows
@@ -439,8 +440,6 @@ GMainWindow::GMainWindow(std::unique_ptr<QtConfig> config_, bool has_broken_vulk
 #endif
     UpdateWindowTitle();
 
-    show();
-
     system->SetContentProvider(std::make_unique<FileSys::ContentProviderUnion>());
     system->RegisterContentProvider(FileSys::ContentProviderUnionSlot::FrontendManual, provider.get());
     system->GetFileSystemController().CreateFactories(*vfs);
@@ -478,6 +477,29 @@ GMainWindow::GMainWindow(std::unique_ptr<QtConfig> config_, bool has_broken_vulk
     update_input_timer.start();
 
     MigrateConfigFiles();
+
+    show();
+
+    // Process events to ensure main window is fully rendered
+    QApplication::processEvents();
+
+    // Show setup wizard on first run (after main window is shown)
+    LOG_INFO(Frontend, "Checking first_start: {}", UISettings::values.first_start.GetValue());
+    if (UISettings::values.first_start.GetValue()) {
+        LOG_INFO(Frontend, "Showing setup wizard");
+        SetupWizard setup_wizard(*system, this, this);
+        setup_wizard.setWindowModality(Qt::WindowModal);
+        setup_wizard.setWindowFlags(Qt::Dialog | Qt::WindowTitleHint | Qt::WindowCloseButtonHint |
+                                    Qt::WindowSystemMenuHint | Qt::WindowStaysOnTopHint);
+        setup_wizard.show();
+        setup_wizard.raise();
+        setup_wizard.activateWindow();
+        QApplication::processEvents();
+        setup_wizard.exec();
+        LOG_INFO(Frontend, "Setup wizard closed");
+    } else {
+        LOG_INFO(Frontend, "Skipping setup wizard - first_start is false");
+    }
 
     if (has_broken_vulkan) {
         UISettings::values.has_broken_vulkan = true;
@@ -3805,6 +3827,12 @@ void GMainWindow::OnSaveConfig() {
     config->SaveAllValues();
 }
 
+void GMainWindow::RefreshGameList() {
+    if (game_list) {
+        game_list->PopulateAsync(UISettings::values.game_dirs);
+    }
+}
+
 void GMainWindow::ErrorDisplayDisplayError(QString error_code, QString error_text) {
     error_applet = new OverlayDialog(render_window, *system, error_code, error_text, QString{},
                                      tr("OK"), Qt::AlignLeft | Qt::AlignVCenter);
@@ -4438,6 +4466,10 @@ void GMainWindow::OnVerifyInstalledContents() {
             this, tr("Integrity verification failed!"),
             tr("Verification failed for the following files:\n\n%1").arg(failed_names));
     }
+}
+
+bool GMainWindow::ExtractZipToDirectoryPublic(const std::filesystem::path& zip_path, const std::filesystem::path& extract_path) {
+    return ExtractZipToDirectory(zip_path, extract_path);
 }
 
 bool GMainWindow::ExtractZipToDirectory(const std::filesystem::path& zip_path, const std::filesystem::path& extract_path) {
