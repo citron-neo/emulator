@@ -39,6 +39,7 @@ add_executable(citron
     controller_overlay.cpp
     controller_overlay.h
     compatdb.ui
+    setup_wizard.ui
     compatibility_list.cpp
     compatibility_list.h
     configuration/configuration_shared.cpp
@@ -243,6 +244,8 @@ add_executable(citron
     vk_device_info.h
     compatdb.cpp
     compatdb.h
+    setup_wizard.cpp
+    setup_wizard.h
     citron.qrc
     citron.rc
 )

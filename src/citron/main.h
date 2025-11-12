@@ -112,6 +112,8 @@ public:
     MultiplayerState* GetMultiplayerState() { return multiplayer_state; }
     Core::System* GetSystem() { return system.get(); }
     bool IsEmulationRunning() const { return emulation_running; }
+    void RefreshGameList();
+    bool ExtractZipToDirectoryPublic(const std::filesystem::path& zip_path, const std::filesystem::path& extract_path);
 signals:
     void EmulationStarting(EmuThread* emu_thread);
     void EmulationStopping();
