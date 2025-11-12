@@ -5,12 +5,16 @@
 #include <algorithm>
 #include <memory>
 #include <utility>
+#include <QApplication>
 #include <QGridLayout>
 #include <QInputDialog>
 #include <QMenu>
 #include <QMessageBox>
 #include <QMouseEvent>
+#include <QScrollArea>
+#include <QScrollBar>
 #include <QTimer>
+#include <QWheelEvent>
 #include "common/assert.h"
 #include "common/param_package.h"
 #include "configuration/qt_config.h"
@@ -1536,9 +1540,56 @@ void ConfigureInputPlayer::mousePressEvent(QMouseEvent* event) {
 }
 
 void ConfigureInputPlayer::wheelEvent(QWheelEvent* event) {
-    const int x = event->angleDelta().x();
-    const int y = event->angleDelta().y();
-    input_subsystem->GetMouse()->MouseWheelChange(x, y);
+    // Only handle wheel events for input mapping when in input mapping mode
+    // Otherwise, forward to the scroll area for scrolling
+    if (input_setter) {
+        const int x = event->angleDelta().x();
+        const int y = event->angleDelta().y();
+        input_subsystem->GetMouse()->MouseWheelChange(x, y);
+        event->accept();
+    } else {
+        // Find the parent scroll area and forward the event to its scrollbar
+        // The widget hierarchy is: ConfigureInputPlayer -> QWidget (tab) -> QTabWidget ->
+        // ConfigureInput -> QWidget (viewport) -> QScrollArea
+        QWidget* current = this;
+        QScrollArea* scroll_area = nullptr;
+
+        // Traverse up the parent chain to find the scroll area
+        while (current) {
+            // Check if current widget is a scroll area
+            if (auto* sa = qobject_cast<QScrollArea*>(current)) {
+                scroll_area = sa;
+                break;
+            }
+            // Check if current widget's parent is a scroll area (for viewport case)
+            QWidget* parent = current->parentWidget();
+            if (parent) {
+                if (auto* sa = qobject_cast<QScrollArea*>(parent)) {
+                    scroll_area = sa;
+                    break;
+                }
+            }
+            current = parent;
+        }
+
+        if (scroll_area) {
+            // Forward to vertical scrollbar if available
+            if (scroll_area->verticalScrollBar()->maximum() > 0) {
+                QApplication::sendEvent(scroll_area->verticalScrollBar(), event);
+                event->accept();
+                return;
+            }
+            // Otherwise try horizontal scrollbar
+            if (scroll_area->horizontalScrollBar()->maximum() > 0) {
+                QApplication::sendEvent(scroll_area->horizontalScrollBar(), event);
+                event->accept();
+                return;
+            }
+        }
+
+        // If no scroll area found, let the event propagate normally
+        event->ignore();
+    }
 }
 
 void ConfigureInputPlayer::keyPressEvent(QKeyEvent* event) {

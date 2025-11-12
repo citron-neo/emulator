@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "citron/configuration/configure_dialog.h"
+#include <cmath>
 #include <memory>
 #include <QApplication>
 #include <QButtonGroup>
@@ -10,8 +11,10 @@
 #include <QPushButton>
 #include <QScreen>
 #include <QScrollArea>
+#include <QScrollBar>
 #include <QString>
 #include <QTimer>
+#include <QWheelEvent>
 #include "common/logging/log.h"
 #include "common/settings.h"
 #include "common/settings_enums.h"
@@ -39,6 +42,50 @@
 #include "citron/theme.h"
 #include "citron/uisettings.h"
 
+// Event filter class to forward wheel events to scroll area's scrollbar
+class ScrollAreaWheelEventFilter : public QObject {
+public:
+    explicit ScrollAreaWheelEventFilter(QScrollArea* scroll_area, QObject* parent = nullptr,
+                                       bool prefer_horizontal = false)
+        : QObject(parent), scroll_area_(scroll_area), prefer_horizontal_(prefer_horizontal) {}
+
+protected:
+    bool eventFilter(QObject* obj, QEvent* event) override {
+        if (event->type() == QEvent::Wheel && scroll_area_) {
+            auto* wheel_event = static_cast<QWheelEvent*>(event);
+            const QPoint angle_delta = wheel_event->angleDelta();
+
+            // Determine which scrollbar to use based on scroll direction and preference
+            bool use_horizontal = prefer_horizontal_ || (std::abs(angle_delta.x()) > std::abs(angle_delta.y()));
+
+            if (use_horizontal) {
+                // Try horizontal scrolling first
+                if (scroll_area_->horizontalScrollBar()->maximum() > 0) {
+                    QApplication::sendEvent(scroll_area_->horizontalScrollBar(), wheel_event);
+                    return true;
+                }
+            }
+
+            // Try vertical scrolling
+            if (scroll_area_->verticalScrollBar()->maximum() > 0) {
+                QApplication::sendEvent(scroll_area_->verticalScrollBar(), wheel_event);
+                return true;
+            }
+
+            // If vertical didn't work and we didn't try horizontal, try it now
+            if (!use_horizontal && scroll_area_->horizontalScrollBar()->maximum() > 0) {
+                QApplication::sendEvent(scroll_area_->horizontalScrollBar(), wheel_event);
+                return true;
+            }
+        }
+        return QObject::eventFilter(obj, event);
+    }
+
+private:
+    QScrollArea* scroll_area_;
+    bool prefer_horizontal_;
+};
+
 static QScrollArea* CreateScrollArea(QWidget* widget) {
     auto* scroll_area = new QScrollArea();
     scroll_area->setWidget(widget);
@@ -46,6 +93,11 @@ static QScrollArea* CreateScrollArea(QWidget* widget) {
     scroll_area->setFrameShape(QFrame::NoFrame);
     scroll_area->setHorizontalScrollBarPolicy(Qt::ScrollBarAsNeeded);
     scroll_area->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
+
+    // Install event filter on the widget to forward wheel events to scrollbar
+    auto* filter = new ScrollAreaWheelEventFilter(scroll_area, scroll_area);
+    widget->installEventFilter(filter);
+
     return scroll_area;
 }
 
@@ -112,6 +164,11 @@ rainbow_timer{new QTimer(this)} {
     setAttribute(Qt::WA_DontShowOnScreen, false);
 
     ui->setupUi(this);
+
+    // Enable wheel event scrolling on the top button scroll area (horizontal scrolling)
+    auto* top_button_filter = new ScrollAreaWheelEventFilter(ui->topButtonScrollArea, this, true);
+    ui->topButtonScrollArea->widget()->installEventFilter(top_button_filter);
+    ui->topButtonScrollArea->installEventFilter(top_button_filter);
 
     last_palette_text_color = qApp->palette().color(QPalette::WindowText);
 
