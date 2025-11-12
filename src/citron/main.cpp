@@ -5279,7 +5279,10 @@ void GMainWindow::MigrateConfigFiles() {
 
 void GMainWindow::UpdateWindowTitle(std::string_view title_name, std::string_view title_version,
                                     std::string_view gpu_vendor) {
-    const auto window_title = "citron | 0.11.0";
+    std::string window_title = "citron | 0.11.0";
+#ifdef CITRON_ENABLE_PGO_USE
+    window_title += " | PGO";
+#endif
 
     if (title_name.empty()) {
         setWindowTitle(QString::fromStdString(window_title));

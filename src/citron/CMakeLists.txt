@@ -502,6 +502,10 @@ if (CITRON_USE_QT_WEB_ENGINE)
     target_compile_definitions(citron PRIVATE -DCITRON_USE_QT_WEB_ENGINE)
 endif ()
 
+if (CITRON_ENABLE_PGO_USE)
+    target_compile_definitions(citron PRIVATE -DCITRON_ENABLE_PGO_USE)
+endif()
+
 if(UNIX AND NOT APPLE)
     install(TARGETS citron)
 endif()

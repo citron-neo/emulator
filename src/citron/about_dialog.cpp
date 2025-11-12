@@ -10,7 +10,10 @@
 
 AboutDialog::AboutDialog(QWidget* parent)
     : QDialog(parent), ui{std::make_unique<Ui::AboutDialog>()} {
-    const auto citron_build_version = "citron | 0.11.0";
+    std::string citron_build_version = "citron | 0.11.0";
+#ifdef CITRON_ENABLE_PGO_USE
+    citron_build_version += " | PGO";
+#endif
 
     ui->setupUi(this);
     // Try and request the icon from Qt theme (Linux?)
