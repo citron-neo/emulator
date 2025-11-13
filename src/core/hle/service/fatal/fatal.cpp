@@ -69,7 +69,7 @@ static void GenerateErrorReport(Core::System& system, Result error_code, const F
     const auto module = static_cast<u32>(error_code.GetModule());
     const auto description = static_cast<u32>(error_code.GetDescription());
 
-    // Check if this is module 38 (undefined/unknown module)
+    // Check if this is an undefined/unknown module
     std::string module_note;
     if (module == 38) {
         module_note = fmt::format(
@@ -77,6 +77,13 @@ static void GenerateErrorReport(Core::System& system, Result error_code, const F
             "This error may be game-generated or from an unimplemented service.\n"
             "Error code: 2038-{:04d} (0x{:08X})\n"
             "If you're experiencing multiplayer issues, this may be a stubbing issue.\n\n",
+            description, error_code.raw);
+    } else if (module == 56) {
+        module_note = fmt::format(
+            "\n⚠️  WARNING: Error module 56 is undefined/unknown!\n"
+            "This error may be game-generated or from an unimplemented service.\n"
+            "Error code: 2056-{:04d} (0x{:08X})\n"
+            "This may be related to online services or network functionality.\n\n",
             description, error_code.raw);
     }
 
@@ -123,6 +130,7 @@ static void GenerateErrorReport(Core::System& system, Result error_code, const F
 
 static void ThrowFatalError(Core::System& system, Result error_code, FatalType fatal_type,
                             const FatalInfo& info) {
+    const auto module = static_cast<u32>(error_code.GetModule());
     LOG_ERROR(Service_Fatal, "Threw fatal error type {} with error code 0x{:X}", fatal_type,
               error_code.raw);
 
@@ -131,6 +139,14 @@ static void ThrowFatalError(Core::System& system, Result error_code, FatalType f
         GenerateErrorReport(system, error_code, info);
         [[fallthrough]];
     case FatalType::ErrorScreen:
+        // For Module 56 errors (unknown/game-generated), log and continue instead of crashing
+        // These are often related to online services being unavailable
+        if (module == 56) {
+            LOG_WARNING(Service_Fatal,
+                        "Module 56 error detected - likely game-generated due to unavailable "
+                        "online services. Continuing execution instead of crashing.");
+            break;
+        }
         // Since we have no fatal:u error screen. We should just kill execution instead
         ASSERT(false);
         break;

@@ -53,6 +53,7 @@ enum class ErrorModule : u32 {
     TIPC = 35,
     ANIF = 37,
     Module38 = 38, // Unknown/Undefined module - stubbed for multiplayer compatibility
+    Module56 = 56, // Unknown/Undefined module - reported by some games
     CRT = 39,
     ETHC = 100,
     I2C = 101,

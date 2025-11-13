@@ -34,4 +34,13 @@ constexpr Result ResultModule38NetworkError{ErrorModule::Module38, 100}; // Netw
 constexpr Result ResultModule38ConnectionFailed{ErrorModule::Module38, 200}; // Connection failure
 constexpr Result ResultModule38Timeout{ErrorModule::Module38, 300}; // Operation timeout
 
+// Module 56 error codes - Unknown/undefined module
+// Error code format: 2056-XXXX where XXXX is the description
+// Error code 2056-2306 (0x00120438) has been reported by Minecraft
+constexpr Result ResultModule56Generic{ErrorModule::Module56, 0}; // Generic module 56 error
+constexpr Result ResultModule56Error2306{ErrorModule::Module56, 2306}; // Reported by Minecraft
+constexpr Result ResultModule56NetworkError{ErrorModule::Module56, 100}; // Network-related
+constexpr Result ResultModule56ConnectionFailed{ErrorModule::Module56, 200}; // Connection failure
+constexpr Result ResultModule56Timeout{ErrorModule::Module56, 300}; // Operation timeout
+
 } // namespace Service::LDN
