@@ -788,8 +788,8 @@ Errno BSD::GetSockOptImpl(s32 fd, u32 level, OptName optname, std::vector<u8>& o
     }
 
     if (level != static_cast<u32>(SocketLevel::SOCKET)) {
-        UNIMPLEMENTED_MSG("Unknown getsockopt level");
-        return Errno::SUCCESS;
+        LOG_WARNING(Service, "(STUBBED) Unknown getsockopt level={}, returning INVAL", level);
+        return Errno::INVAL;
     }
 
     Network::SocketBase* const socket = file_descriptors[fd]->socket.get();
@@ -819,32 +819,52 @@ Errno BSD::SetSockOptImpl(s32 fd, u32 level, OptName optname, std::span<const u8
     }
 
     if (level != static_cast<u32>(SocketLevel::SOCKET)) {
-        UNIMPLEMENTED_MSG("Unknown setsockopt level");
-        return Errno::SUCCESS;
+        LOG_WARNING(Service, "(STUBBED) Unknown setsockopt level={}, returning INVAL", level);
+        return Errno::INVAL;
     }
 
     Network::SocketBase* const socket = file_descriptors[fd]->socket.get();
 
     if (optname == OptName::LINGER) {
-        ASSERT(optval.size() == sizeof(Linger));
+        if (optval.size() != sizeof(Linger)) {
+            LOG_WARNING(Service, "LINGER optval size mismatch: expected {}, got {}", sizeof(Linger),
+                        optval.size());
+            return Errno::INVAL;
+        }
         auto linger = GetValue<Linger>(optval);
-        ASSERT(linger.onoff == 0 || linger.onoff == 1);
+        if (linger.onoff != 0 && linger.onoff != 1) {
+            LOG_WARNING(Service, "Invalid LINGER onoff value: {}", linger.onoff);
+            return Errno::INVAL;
+        }
 
         return Translate(socket->SetLinger(linger.onoff != 0, linger.linger));
     }
 
-    ASSERT(optval.size() == sizeof(u32));
+    if (optval.size() != sizeof(u32)) {
+        LOG_WARNING(Service, "optval size mismatch: expected {}, got {} for optname={}", sizeof(u32),
+                    optval.size(), static_cast<u32>(optname));
+        return Errno::INVAL;
+    }
     auto value = GetValue<u32>(optval);
 
     switch (optname) {
     case OptName::REUSEADDR:
-        ASSERT(value == 0 || value == 1);
+        if (value != 0 && value != 1) {
+            LOG_WARNING(Service, "Invalid REUSEADDR value: {}", value);
+            return Errno::INVAL;
+        }
         return Translate(socket->SetReuseAddr(value != 0));
     case OptName::KEEPALIVE:
-        ASSERT(value == 0 || value == 1);
+        if (value != 0 && value != 1) {
+            LOG_WARNING(Service, "Invalid KEEPALIVE value: {}", value);
+            return Errno::INVAL;
+        }
         return Translate(socket->SetKeepAlive(value != 0));
     case OptName::BROADCAST:
-        ASSERT(value == 0 || value == 1);
+        if (value != 0 && value != 1) {
+            LOG_WARNING(Service, "Invalid BROADCAST value: {}", value);
+            return Errno::INVAL;
+        }
         return Translate(socket->SetBroadcast(value != 0));
     case OptName::SNDBUF:
         return Translate(socket->SetSndBuf(value));
@@ -858,8 +878,9 @@ Errno BSD::SetSockOptImpl(s32 fd, u32 level, OptName optname, std::span<const u8
         LOG_WARNING(Service, "(STUBBED) setting NOSIGPIPE to {}", value);
         return Errno::SUCCESS;
     default:
-        UNIMPLEMENTED_MSG("Unimplemented optname={}", optname);
-        return Errno::SUCCESS;
+        LOG_WARNING(Service, "(STUBBED) Unimplemented optname={} (0x{:x}), returning INVAL",
+                    static_cast<u32>(optname), static_cast<u32>(optname));
+        return Errno::INVAL;
     }
 }
 

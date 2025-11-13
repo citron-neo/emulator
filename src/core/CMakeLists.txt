@@ -833,6 +833,9 @@ add_library(core STATIC
     hle/service/nim/nim.h
     hle/service/npns/npns.cpp
     hle/service/npns/npns.h
+    hle/service/nex/nex.cpp
+    hle/service/nex/nex.h
+    hle/service/nex/nex_results.h
     hle/service/ns/account_proxy_interface.cpp
     hle/service/ns/account_proxy_interface.h
     hle/service/ns/application_manager_interface.cpp

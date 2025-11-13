@@ -38,6 +38,7 @@
 #include "core/hle/service/nfc/nfc.h"
 #include "core/hle/service/nfp/nfp.h"
 #include "core/hle/service/ngc/ngc.h"
+#include "core/hle/service/nex/nex.h"
 #include "core/hle/service/nifm/nifm.h"
 #include "core/hle/service/nim/nim.h"
 #include "core/hle/service/npns/npns.h"
@@ -114,6 +115,7 @@ Services::Services(std::shared_ptr<SM::ServiceManager>& sm, Core::System& system
     kernel.RunOnGuestCoreProcess("nfc",        [&] { NFC::LoopProcess(system); });
     kernel.RunOnGuestCoreProcess("nfp",        [&] { NFP::LoopProcess(system); });
     kernel.RunOnGuestCoreProcess("ngc",        [&] { NGC::LoopProcess(system); });
+    kernel.RunOnGuestCoreProcess("nex",        [&] { Nex::LoopProcess(system); });
     kernel.RunOnGuestCoreProcess("nifm",       [&] { NIFM::LoopProcess(system); });
     kernel.RunOnGuestCoreProcess("nim",        [&] { NIM::LoopProcess(system); });
     kernel.RunOnGuestCoreProcess("npns",       [&] { NPNS::LoopProcess(system); });

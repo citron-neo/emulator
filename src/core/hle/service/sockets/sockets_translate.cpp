@@ -38,9 +38,12 @@ Errno Translate(Network::Errno value) {
         return Errno::CONNRESET;
     case Network::Errno::INPROGRESS:
         return Errno::INPROGRESS;
+    case Network::Errno::OTHER:
+        // Map OTHER to INVAL as a reasonable default for unknown errors
+        return Errno::INVAL;
     default:
         UNIMPLEMENTED_MSG("Unimplemented errno={}", value);
-        return Errno::SUCCESS;
+        return Errno::INVAL;
     }
 }
 

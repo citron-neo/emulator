@@ -158,6 +158,8 @@ Errno TranslateNativeError(int e, CallType call_type = CallType::Other) {
         return Errno::TIMEDOUT;
     case WSAEINPROGRESS:
         return Errno::INPROGRESS;
+    case WSAENOPROTOOPT:
+        return Errno::INVAL;
     default:
         UNIMPLEMENTED_MSG("Unimplemented errno={}", e);
         return Errno::OTHER;
@@ -297,6 +299,8 @@ Errno TranslateNativeError(int e, CallType call_type = CallType::Other) {
         return Errno::TIMEDOUT;
     case EINPROGRESS:
         return Errno::INPROGRESS;
+    case ENOPROTOOPT:
+        return Errno::INVAL;
     default:
         UNIMPLEMENTED_MSG("Unimplemented errno={} ({})", e, strerror(e));
         return Errno::OTHER;

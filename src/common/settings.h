@@ -663,12 +663,12 @@ struct Values {
     Setting<bool> airplane_mode{linkage, false, "airplane_mode", Category::Network};
     Setting<std::string> network_interface{linkage, std::string(), "network_interface",
                                            Category::Network};
-    Setting<std::string> lobby_api_url{linkage, "https://api.ynet-fun.xyz", "lobby_api_url",
+    Setting<std::string> lobby_api_url{linkage, "api.ynet-fun.xyz", "lobby_api_url",
                                        Category::Network};
 
     // WebService
     Setting<bool> enable_telemetry{linkage, false, "enable_telemetry", Category::WebService};
-    Setting<std::string> web_api_url{linkage, "https://api.ynet-fun.xyz", "web_api_url",
+    Setting<std::string> web_api_url{linkage, "api.ynet-fun.xyz", "web_api_url",
                                      Category::WebService};
     Setting<std::string> citron_username{linkage, std::string(), "citron_username",
                                        Category::WebService};
