@@ -77,17 +77,14 @@ struct Client::Impl {
                              const std::string& jwt_ = "", const std::string& username_ = "",
                              const std::string& token_ = "") {
 
-        {
-            std::scoped_lock lock{cli_mutex};
-            if (cli == nullptr) {
-                cli = std::make_unique<httplib::Client>(host.c_str());
-                cli->set_connection_timeout(TIMEOUT_SECONDS);
-                cli->set_read_timeout(TIMEOUT_SECONDS);
-                cli->set_write_timeout(TIMEOUT_SECONDS);
-            }
-        }
+        // Create a new client for each request. This is the safest approach in a
+        // multi-threaded environment as it avoids sharing a single client instance.
+        httplib::Client cli(host.c_str());
+        cli.set_connection_timeout(TIMEOUT_SECONDS);
+        cli.set_read_timeout(TIMEOUT_SECONDS);
+        cli.set_write_timeout(TIMEOUT_SECONDS);
 
-        if (!cli->is_valid()) {
+        if (!cli.is_valid()) {
             LOG_ERROR(WebService, "Invalid URL {}", host + path);
             return WebResult{WebResult::Code::InvalidURL, "Invalid URL", ""};
         }
@@ -116,7 +113,7 @@ struct Client::Impl {
         request.headers = params;
         request.body = data;
 
-        httplib::Result result = cli->send(request);
+        httplib::Result result = cli.send(request);
 
         if (!result) {
             LOG_ERROR(WebService, "{} to {} returned null", method, host + path);
@@ -175,8 +172,6 @@ struct Client::Impl {
     std::string username;
     std::string token;
     std::string jwt;
-    std::unique_ptr<httplib::Client> cli;
-    std::mutex cli_mutex;
 
     struct JWTCache {
         std::mutex mutex;
