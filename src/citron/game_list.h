@@ -141,6 +141,9 @@ signals:
     void PopulatingCompleted();
     void SaveConfig();
 
+public slots:
+    void OnConfigurationChanged();
+
 private slots:
     void OnItemExpanded(const QModelIndex& item);
     void OnTextChanged(const QString& new_text);
@@ -201,6 +204,7 @@ private:
     ControllerNavigation* controller_navigation = nullptr;
     CompatibilityList compatibility_list;
     QTimer* online_status_timer;
+    QTimer config_update_timer; // NEW: Timer for debouncing config changes
 
     friend class GameListSearchField;
 

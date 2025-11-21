@@ -683,6 +683,18 @@ play_time_manager{play_time_manager_}, system{system_} {
     online_status_timer = new QTimer(this);
     connect(online_status_timer, &QTimer::timeout, this, &GameList::UpdateOnlineStatus);
     online_status_timer->start(5000); // Your refresh interval
+
+    // Configure the new timer for debouncing configuration changes
+    config_update_timer.setSingleShot(true);
+    connect(&config_update_timer, &QTimer::timeout, this, &GameList::UpdateOnlineStatus);
+}
+
+void GameList::OnConfigurationChanged() {
+    // This function debounces the update requests. Instead of starting a network
+    // request immediately, it starts a 500ms timer. If another config change happens,
+    // the timer is simply reset. The network request will only happen once, 500ms
+    // after the *last* change was made.
+    config_update_timer.start(500);
 }
 
 void GameList::UnloadController() {
