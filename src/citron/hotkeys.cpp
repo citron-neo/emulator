@@ -72,6 +72,9 @@ void HotkeyRegistry::LoadHotkeys() {
         if (!shortcut.shortcut.keyseq.empty()) {
             hk.keyseq = QKeySequence::fromString(QString::fromStdString(shortcut.shortcut.keyseq),
                                                  QKeySequence::NativeText);
+        } else {
+            // This is the fix: explicitly clear the key sequence if it was saved as empty.
+            hk.keyseq = QKeySequence();
         }
         hk.controller_keyseq = shortcut.shortcut.controller_keyseq;
         hk.context = static_cast<Qt::ShortcutContext>(shortcut.shortcut.context);

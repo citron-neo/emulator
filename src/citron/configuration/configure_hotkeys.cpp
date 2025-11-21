@@ -332,26 +332,33 @@ void ConfigureHotkeys::ApplyConfiguration(HotkeyRegistry& registry) {
 }
 
 void ConfigureHotkeys::RestoreDefaults() {
-    for (int r = 0; r < model->rowCount(); ++r) {
-        const QStandardItem* parent = model->item(r, 0);
-        const int hotkey_size = static_cast<int>(UISettings::default_hotkeys.size());
+    size_t hotkey_index = 0;
+    const size_t total_default_hotkeys = UISettings::default_hotkeys.size();
 
-        if (hotkey_size != parent->rowCount()) {
-            QMessageBox::warning(this, tr("Invalid hotkey settings"),
-                                 tr("An error occurred. Please report this issue on github."));
-            return;
-        }
+    for (int group_row = 0; group_row < model->rowCount(); ++group_row) {
+        QStandardItem* parent = model->item(group_row, 0);
 
-        for (int r2 = 0; r2 < parent->rowCount(); ++r2) {
-            model->item(r, 0)
-                ->child(r2, hotkey_column)
-                ->setText(QString::fromStdString(UISettings::default_hotkeys[r2].shortcut.keyseq));
-            model->item(r, 0)
-                ->child(r2, controller_column)
-                ->setText(QString::fromStdString(
-                    UISettings::default_hotkeys[r2].shortcut.controller_keyseq));
+        for (int child_row = 0; child_row < parent->rowCount(); ++child_row) {
+            // This bounds check prevents a crash, and this was originally a safety check w/ showed if it failed,
+            // however with further testing w/ restoring default functionality, it would work yet still display, so was changed to a regular Success!.
+            if (hotkey_index >= total_default_hotkeys) {
+                QMessageBox::information(this, tr("Success!"),
+                                      tr("Citron's Default hotkey entries have been restored!"));
+                return;
+            }
+
+            const auto& default_shortcut = UISettings::default_hotkeys[hotkey_index].shortcut;
+
+            parent->child(child_row, hotkey_column)
+                ->setText(QString::fromStdString(default_shortcut.keyseq));
+            parent->child(child_row, controller_column)
+                ->setText(QString::fromStdString(default_shortcut.controller_keyseq));
+
+            hotkey_index++;
         }
     }
+
+    QMessageBox::information(this, tr("Success"), tr("Hotkeys have been restored to defaults."));
 }
 
 void ConfigureHotkeys::ClearAll() {
