@@ -1,875 +1,637 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <ui version="4.0">
-    <class>ConfigureDialog</class>
-    <widget class="QDialog" name="ConfigureDialog">
-        <property name="geometry">
-            <rect>
-                <x>0</x>
-                <y>0</y>
-                <width>1400</width>
-                <height>900</height>
-            </rect>
+ <class>ConfigureDialog</class>
+ <widget class="QDialog" name="ConfigureDialog">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>1400</width>
+    <height>900</height>
+   </rect>
+  </property>
+  <property name="sizePolicy">
+   <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+    <horstretch>0</horstretch>
+    <verstretch>0</verstretch>
+   </sizepolicy>
+  </property>
+  <property name="windowModality">
+   <enum>Qt::ApplicationModal</enum>
+  </property>
+  <property name="windowTitle">
+   <string>citron Configuration</string>
+  </property>
+  <property name="styleSheet">
+   <string/>
+  </property>
+  <property name="templateStyleSheet" stdset="0">
+   <string>QDialog {
+    background-color: %%BACKGROUND_COLOR%%;
+    color: %%TEXT_COLOR%%;
+    }
+
+    QWidget#nav_container {
+    background-color: %%SECONDARY_BG_COLOR%%;
+    border-right: 1px solid %%TERTIARY_BG_COLOR%%;
+    }
+
+    QStackedWidget {
+    background-color: transparent;
+    border: none;
+    }
+
+    QScrollArea {
+    background-color: transparent;
+    border: none;
+    }
+
+    QPushButton.tabButton {
+    background-color: transparent;
+    color: %%TEXT_COLOR%%;
+    padding: 10px;
+    padding-left: 10px;
+    margin: 0px 4px;
+    border-radius: 6px;
+    font-weight: 500;
+    border: 2px solid transparent;
+    text-align: left;
+    }
+
+    QPushButton.tabButton:hover {
+    background-color: %%HOVER_BG_COLOR%%;
+    }
+
+    QPushButton.tabButton:checked {
+    color: %%ACCENT_COLOR%%;
+    font-weight: bold;
+    background-color: %%FOCUS_BG_COLOR%%;
+    border-left: 2px solid %%ACCENT_COLOR%%;
+    }
+
+    /* All other styles remain the same... just paste this block at the top */
+
+    QWidget {
+    background-color: %%BACKGROUND_COLOR%%;
+    color: %%TEXT_COLOR%%;
+    }
+
+    QScrollBar:vertical {
+    background-color: %%SECONDARY_BG_COLOR%%;
+    width: 14px;
+    border-radius: 7px;
+    margin: 2px;
+    }
+
+    QScrollBar::handle:vertical {
+    background-color: %%TERTIARY_BG_COLOR%%;
+    border-radius: 6px;
+    min-height: 30px;
+    margin: 1px;
+    }
+
+    QScrollBar::handle:vertical:hover {
+    background-color: %%ACCENT_COLOR%%;
+    }
+
+    QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
+    border: none;
+    background: none;
+    height: 0px;
+    }
+
+    QScrollBar:horizontal {
+    background-color: %%SECONDARY_BG_COLOR%%;
+    height: 14px;
+    border-radius: 7px;
+    margin: 2px;
+    }
+
+    QScrollBar::handle:horizontal {
+    background-color: %%TERTIARY_BG_COLOR%%;
+    border-radius: 6px;
+    min-width: 30px;
+    margin: 1px;
+    }
+
+    QScrollBar::handle:horizontal:hover {
+    background-color: %%ACCENT_COLOR%%;
+    }
+
+    QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {
+    border: none;
+    background: none;
+    width: 0px;
+    }
+
+    QPushButton.tabButton:pressed {
+    background-color: %%ACCENT_COLOR_PRESSED%%;
+    }
+
+    QGroupBox {
+    font-weight: bold;
+    border: 1px solid %%SECONDARY_BG_COLOR%%;
+    border-radius: 8px;
+    margin-top: 12px;
+    padding-top: 12px;
+    background-color: %%BACKGROUND_COLOR%%;
+    color: %%TEXT_COLOR%%;
+    }
+
+    QGroupBox::title {
+    subcontrol-origin: margin;
+    left: 12px;
+    padding: 0 8px 0 8px;
+    color: %%TEXT_COLOR%%;
+    font-weight: bold;
+    }
+
+    QCheckBox {
+    color: %%TEXT_COLOR%%;
+    spacing: 10px;
+    padding: 4px;
+    background-color: transparent;
+    }
+
+    QCheckBox::indicator {
+    width: 18px;
+    height: 18px;
+    border: 2px solid %%TERTIARY_BG_COLOR%%;
+    border-radius: 4px;
+    background-color: %%SECONDARY_BG_COLOR%%;
+    }
+
+    QCheckBox::indicator:checked {
+    background-color: %%ACCENT_COLOR%%;
+    border-color: %%ACCENT_COLOR%%;
+    }
+
+    QCheckBox::indicator:hover {
+    border-color: %%ACCENT_COLOR%%;
+    }
+
+    QComboBox {
+    background-color: %%SECONDARY_BG_COLOR%%;
+    border: 1px solid %%TERTIARY_BG_COLOR%%;
+    border-radius: 6px;
+    padding: 8px 12px;
+    color: %%TEXT_COLOR%%;
+    min-width: 120px;
+    min-height: 28px;
+    selection-background-color: %%ACCENT_COLOR%%;
+    }
+
+    QComboBox:hover {
+    border-color: %%ACCENT_COLOR%%;
+    background-color: %%HOVER_BG_COLOR%%;
+    }
+
+    QComboBox:focus {
+    border-color: %%ACCENT_COLOR%%;
+    background-color: %%FOCUS_BG_COLOR%%;
+    }
+
+    QComboBox::drop-down {
+    border: none;
+    width: 25px;
+    subcontrol-origin: padding;
+    subcontrol-position: top right;
+    background-color: transparent;
+    }
+
+    QComboBox QAbstractItemView {
+    background-color: %%SECONDARY_BG_COLOR%%;
+    border: 1px solid %%ACCENT_COLOR%%;
+    selection-background-color: %%ACCENT_COLOR%%;
+    color: %%TEXT_COLOR%%;
+    outline: none;
+    }
+
+    QLineEdit {
+    background-color: %%SECONDARY_BG_COLOR%%;
+    border: 1px solid %%TERTIARY_BG_COLOR%%;
+    border-radius: 6px;
+    padding: 8px 12px;
+    color: %%TEXT_COLOR%%;
+    min-height: 20px;
+    selection-background-color: %%ACCENT_COLOR%%;
+    }
+
+    QPushButton {
+    background-color: %%ACCENT_COLOR%%;
+    color: #ffffff;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 6px;
+    font-weight: bold;
+    min-height: 20px;
+    }
+
+    QPushButton:hover {
+    background-color: %%ACCENT_COLOR_HOVER%%;
+    }
+   </string>
+  </property>
+  <layout class="QHBoxLayout" name="horizontalLayout">
+   <property name="spacing">
+    <number>0</number>
+   </property>
+   <property name="leftMargin">
+    <number>0</number>
+   </property>
+   <property name="topMargin">
+    <number>0</number>
+   </property>
+   <property name="rightMargin">
+    <number>0</number>
+   </property>
+   <property name="bottomMargin">
+    <number>0</number>
+   </property>
+   <item>
+    <widget class="QWidget" name="nav_container">
+     <property name="sizePolicy">
+      <sizepolicy hsizetype="Fixed" vsizetype="Preferred">
+       <horstretch>0</horstretch>
+       <verstretch>0</verstretch>
+      </sizepolicy>
+     </property>
+     <property name="minimumWidth">
+      <number>220</number>
+     </property>
+     <property name="maximumWidth">
+      <number>220</number>
+     </property>
+     <layout class="QVBoxLayout" name="verticalLayout_2">
+      <property name="spacing">
+       <number>0</number>
+      </property>
+      <property name="leftMargin">
+       <number>0</number>
+      </property>
+      <property name="topMargin">
+       <number>0</number>
+      </property>
+      <property name="rightMargin">
+       <number>0</number>
+      </property>
+      <property name="bottomMargin">
+       <number>0</number>
+      </property>
+      <item>
+       <widget class="QScrollArea" name="topButtonScrollArea">
+        <property name="widgetResizable">
+         <bool>true</bool>
         </property>
-        <property name="sizePolicy">
-            <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
-                <horstretch>0</horstretch>
-                <verstretch>0</verstretch>
-            </sizepolicy>
-        </property>
-        <property name="windowModality">
-            <enum>Qt::ApplicationModal</enum>
-        </property>
-        <property name="windowTitle">
-            <string>citron Configuration</string>
-        </property>
-        <property name="styleSheet">
-            <string/>
-        </property>
-        <property name="templateStyleSheet" stdset="0">
-            <string>QDialog {
-                background-color: %%BACKGROUND_COLOR%%;
-                color: %%TEXT_COLOR%%;
-                }
-
-                QWidget {
-                background-color: %%BACKGROUND_COLOR%%;
-                color: %%TEXT_COLOR%%;
-                }
-
-                QStackedWidget {
-                background-color: %%BACKGROUND_COLOR%%;
-                border: 1px solid %%SECONDARY_BG_COLOR%%;
-                border-radius: 8px;
-                margin: 0px;
-                padding: 0px;
-                }
-
-                QScrollArea {
-                background-color: %%BACKGROUND_COLOR%%;
-                border: none;
-                border-radius: 8px;
-                }
-
-                QScrollArea > QWidget > QWidget {
-                background-color: %%BACKGROUND_COLOR%%;
-                }
-
-                QScrollBar:vertical {
-                background-color: %%SECONDARY_BG_COLOR%%;
-                width: 14px;
-                border-radius: 7px;
-                margin: 2px;
-                }
-
-                QScrollBar::handle:vertical {
-                background-color: %%TERTIARY_BG_COLOR%%;
-                border-radius: 6px;
-                min-height: 30px;
-                margin: 1px;
-                }
-
-                QScrollBar::handle:vertical:hover {
-                background-color: %%ACCENT_COLOR%%;
-                }
-
-                QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
-                border: none;
-                background: none;
-                height: 0px;
-                }
-
-                QScrollBar:horizontal {
-                background-color: %%SECONDARY_BG_COLOR%%;
-                height: 14px;
-                border-radius: 7px;
-                margin: 2px;
-                }
-
-                QScrollBar::handle:horizontal {
-                background-color: %%TERTIARY_BG_COLOR%%;
-                border-radius: 6px;
-                min-width: 30px;
-                margin: 1px;
-                }
-
-                QScrollBar::handle:horizontal:hover {
-                background-color: %%ACCENT_COLOR%%;
-                }
-
-                QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {
-                border: none;
-                background: none;
-                width: 0px;
-                }
-
-                QPushButton.tabButton {
-                background-color: %%BUTTON_BG_COLOR%%;
-                color: %%TEXT_COLOR%%;
-                padding: 10px 14px;
-                margin: 2px;
-                border-top-left-radius: 8px;
-                border-top-right-radius: 8px;
-                border-bottom-left-radius: 8px;
-                border-bottom-right-radius: 8px;
-                min-width: 85px;
-                max-width: 160px;
-                font-weight: 500;
-                border: 1px solid %%SECONDARY_BG_COLOR%%;
-                text-align: center;
-                }
-
-                QPushButton.tabButton:checked {
-                background-color: %%ACCENT_COLOR%%;
-                color: #ffffff;
-                font-weight: bold;
-                border-color: %%ACCENT_COLOR%%;
-                }
-
-                QPushButton.tabButton:hover:!checked {
-                background-color: %%HOVER_BG_COLOR%%;
-                border-color: %%TERTIARY_BG_COLOR%%;
-                }
-
-                QPushButton.tabButton:pressed {
-                background-color: %%ACCENT_COLOR_PRESSED%%;
-                }
-
-                QTabWidget {
-                background-color: %%BACKGROUND_COLOR%%;
-                border: none;
-                }
-
-                QTabWidget::pane {
-                border: 1px solid %%SECONDARY_BG_COLOR%%;
-                background-color: %%BACKGROUND_COLOR%%;
-                border-radius: 8px;
-                margin: 0px;
-                padding: 0px;
-                }
-
-                QTabWidget::tab-bar {
-                alignment: left;
-                }
-
-                QTabBar {
-                background-color: %%BACKGROUND_COLOR%%;
-                border: none;
-                }
-
-                QTabBar::tab {
-                background-color: %%BUTTON_BG_COLOR%%;
-                color: %%TEXT_COLOR%%;
-                padding: 12px 20px;
-                margin-right: 2px;
-                margin-bottom: 2px;
-                border-top-left-radius: 8px;
-                border-top-right-radius: 8px;
-                min-width: 100px;
-                font-weight: 500;
-                border: 1px solid %%SECONDARY_BG_COLOR%%;
-                border-bottom: none;
-                }
-
-                QTabBar::tab:selected {
-                background-color: %%ACCENT_COLOR%%;
-                color: #ffffff;
-                font-weight: bold;
-                border-color: %%ACCENT_COLOR%%;
-                }
-
-                QTabBar::tab:hover:!selected {
-                background-color: %%HOVER_BG_COLOR%%;
-                border-color: %%TERTIARY_BG_COLOR%%;
-                }
-
-                QTabBar QToolButton {
-                background-color: %%BUTTON_BG_COLOR%%;
-                border: 1px solid %%SECONDARY_BG_COLOR%%;
-                border-radius: 4px;
-                padding: 4px;
-                margin: 2px;
-                }
-
-                QTabBar QToolButton:hover {
-                background-color: %%HOVER_BG_COLOR%%;
-                border-color: %%ACCENT_COLOR%%;
-                }
-
-                QTabBar::scroller {
-                width: 30px;
-                }
-
-                QGroupBox {
-                font-weight: bold;
-                border: 1px solid %%SECONDARY_BG_COLOR%%;
-                border-radius: 8px;
-                margin-top: 12px;
-                padding-top: 12px;
-                background-color: %%BACKGROUND_COLOR%%;
-                color: %%TEXT_COLOR%%;
-                }
-
-                QGroupBox::title {
-                subcontrol-origin: margin;
-                left: 12px;
-                padding: 0 8px 0 8px;
-                color: %%TEXT_COLOR%%;
-                font-weight: bold;
-                }
-
-                QCheckBox {
-                color: %%TEXT_COLOR%%;
-                spacing: 10px;
-                padding: 4px;
-                background-color: transparent;
-                }
-
-                QCheckBox::indicator {
-                width: 18px;
-                height: 18px;
-                border: 2px solid %%TERTIARY_BG_COLOR%%;
-                border-radius: 4px;
-                background-color: %%SECONDARY_BG_COLOR%%;
-                }
-
-                QCheckBox::indicator:checked {
-                background-color: %%ACCENT_COLOR%%;
-                border-color: %%ACCENT_COLOR%%;
-                }
-
-                QCheckBox::indicator:hover {
-                border-color: %%ACCENT_COLOR%%;
-                }
-
-                QComboBox {
-                background-color: %%SECONDARY_BG_COLOR%%;
-                border: 1px solid %%TERTIARY_BG_COLOR%%;
-                border-radius: 6px;
-                padding: 8px 12px;
-                color: %%TEXT_COLOR%%;
-                min-width: 120px;
-                min-height: 28px;
-                selection-background-color: %%ACCENT_COLOR%%;
-                }
-
-                QComboBox:hover {
-                border-color: %%ACCENT_COLOR%%;
-                background-color: %%HOVER_BG_COLOR%%;
-                }
-
-                QComboBox:focus {
-                border-color: %%ACCENT_COLOR%%;
-                background-color: %%FOCUS_BG_COLOR%%;
-                }
-
-                QComboBox::drop-down {
-                border: none;
-                width: 25px;
-                subcontrol-origin: padding;
-                subcontrol-position: top right;
-                background-color: transparent;
-                }
-
-
-                QComboBox QAbstractItemView {
-                background-color: %%SECONDARY_BG_COLOR%%;
-                border: 1px solid %%ACCENT_COLOR%%;
-                selection-background-color: %%ACCENT_COLOR%%;
-                color: %%TEXT_COLOR%%;
-                outline: none;
-                }
-
-                QComboBox QAbstractItemView::item {
-                padding: 8px;
-                border: none;
-                background-color: transparent;
-                }
-
-                QComboBox QAbstractItemView::item:selected {
-                background-color: %%ACCENT_COLOR%%;
-                color: #ffffff;
-                }
-
-                QComboBox QAbstractItemView::item:hover {
-                background-color: %%ACCENT_COLOR_HOVER%%;
-                color: #ffffff;
-                }
-
-                QLineEdit {
-                background-color: %%SECONDARY_BG_COLOR%%;
-                border: 1px solid %%TERTIARY_BG_COLOR%%;
-                border-radius: 6px;
-                padding: 8px 12px;
-                color: %%TEXT_COLOR%%;
-                min-height: 20px;
-                selection-background-color: %%ACCENT_COLOR%%;
-                }
-
-                QLineEdit:focus {
-                border-color: %%ACCENT_COLOR%%;
-                background-color: %%FOCUS_BG_COLOR%%;
-                }
-
-                QPushButton {
-                background-color: %%ACCENT_COLOR%%;
-                color: #ffffff;
-                border: none;
-                padding: 10px 20px;
-                border-radius: 6px;
-                font-weight: bold;
-                min-height: 20px;
-                }
-
-                QPushButton:hover {
-                background-color: %%ACCENT_COLOR_HOVER%%;
-                }
-
-                QPushButton:pressed {
-                background-color: %%ACCENT_COLOR_PRESSED%%;
-                }
-
-                QPushButton:disabled {
-                background-color: %%TERTIARY_BG_COLOR%%;
-                color: %%DISABLED_TEXT_COLOR%%;
-                }
-
-                QToolButton {
-                background-color: %%ACCENT_COLOR%%;
-                color: #ffffff;
-                border: none;
-                padding: 8px 12px;
-                border-radius: 6px;
-                font-weight: bold;
-                min-width: 32px;
-                min-height: 24px;
-                }
-
-                QToolButton:hover {
-                background-color: %%ACCENT_COLOR_HOVER%%;
-                }
-
-                QToolButton:pressed {
-                background-color: %%ACCENT_COLOR_PRESSED%%;
-                }
-
-                QLabel {
-                color: %%TEXT_COLOR%%;
-                background-color: transparent;
-                padding: 2px;
-                }
-
-                QListWidget {
-                background-color: %%SECONDARY_BG_COLOR%%;
-                border: 1px solid %%TERTIARY_BG_COLOR%%;
-                border-radius: 6px;
-                color: %%TEXT_COLOR%%;
-                padding: 4px;
-                }
-
-                QListWidget::item {
-                padding: 8px;
-                border-radius: 4px;
-                margin: 1px;
-                }
-
-                QListWidget::item:selected {
-                background-color: %%ACCENT_COLOR%%;
-                color: #ffffff;
-                }
-
-                QListWidget::item:hover:!selected {
-                background-color: %%HOVER_BG_COLOR%%;
-                }
-
-                QSlider::groove:horizontal {
-                border: 1px solid %%TERTIARY_BG_COLOR%%;
-                height: 8px;
-                background-color: %%SECONDARY_BG_COLOR%%;
-                border-radius: 4px;
-                }
-
-                QSlider::handle:horizontal {
-                background-color: %%ACCENT_COLOR%%;
-                border: 1px solid %%ACCENT_COLOR%%;
-                width: 18px;
-                margin: -5px 0;
-                border-radius: 9px;
-                }
-
-                QSlider::handle:horizontal:hover {
-                background-color: %%ACCENT_COLOR_HOVER%%;
-                }
-
-                QSpinBox, QDoubleSpinBox {
-                background-color: %%SECONDARY_BG_COLOR%%;
-                border: 1px solid %%TERTIARY_BG_COLOR%%;
-                border-radius: 6px;
-                padding: 6px;
-                color: %%TEXT_COLOR%%;
-                min-height: 20px;
-                }
-
-                QSpinBox:focus, QDoubleSpinBox:focus {
-                border-color: %%ACCENT_COLOR%%;
-                background-color: %%FOCUS_BG_COLOR%%;
-                }
-
-                QRadioButton {
-                color: %%TEXT_COLOR%%;
-                spacing: 8px;
-                padding: 4px;
-                }
-
-                QRadioButton::indicator {
-                width: 16px;
-                height: 16px;
-                border: 2px solid %%TERTIARY_BG_COLOR%%;
-                border-radius: 8px;
-                background-color: %%SECONDARY_BG_COLOR%%;
-                }
-
-                QRadioButton::indicator:checked {
-                background-color: %%ACCENT_COLOR%%;
-                border-color: %%ACCENT_COLOR%%;
-                }
-
-                QRadioButton::indicator:hover {
-                border-color: %%ACCENT_COLOR%%;
-                }
-
-                /* High DPI specific styles */
-                @media (min-resolution: 192dpi) {
-                QPushButton.tabButton {
-                padding: 12px 16px;
-                min-width: 90px;
-                max-width: 170px;
-                font-size: 14px;
-                }
-
-                QComboBox {
-                min-width: 140px;
-                min-height: 32px;
-                padding: 10px 14px;
-                }
-
-                QLineEdit {
-                min-height: 24px;
-                padding: 10px 14px;
-                }
-
-                QPushButton {
-                min-height: 24px;
-                padding: 12px 24px;
-                }
-
-                QCheckBox::indicator {
-                width: 20px;
-                height: 20px;
-                }
-
-                QRadioButton::indicator {
-                width: 18px;
-                height: 18px;
-                }
-                }
-
-                @media (min-resolution: 240dpi) {
-                QPushButton.tabButton {
-                padding: 14px 18px;
-                min-width: 95px;
-                max-width: 180px;
-                font-size: 16px;
-                }
-
-                QComboBox {
-                min-width: 160px;
-                min-height: 36px;
-                padding: 12px 16px;
-                }
-
-                QLineEdit {
-                min-height: 28px;
-                padding: 12px 16px;
-                }
-
-                QPushButton {
-                min-height: 28px;
-                padding: 14px 28px;
-                }
-
-                QCheckBox::indicator {
-                width: 22px;
-                height: 22px;
-                }
-
-                QRadioButton::indicator {
-                width: 20px;
-                height: 20px;
-                }
-                }
-            </string>
-        </property>
-        <layout class="QVBoxLayout" name="verticalLayout">
-            <property name="spacing">
-                <number>8</number>
+        <widget class="QWidget" name="topButtonWidget">
+         <property name="geometry">
+          <rect>
+           <x>0</x>
+           <y>0</y>
+           <width>220</width>
+           <height>856</height>
+          </rect>
+         </property>
+         <layout class="QVBoxLayout" name="verticalLayout_4">
+          <item>
+           <widget class="QPushButton" name="generalTabButton">
+            <property name="text">
+             <string>General</string>
             </property>
-            <property name="leftMargin">
-                <number>12</number>
+            <property name="checkable">
+             <bool>true</bool>
             </property>
-            <property name="topMargin">
-                <number>12</number>
+            <property name="checked">
+             <bool>true</bool>
             </property>
-            <property name="rightMargin">
-                <number>12</number>
+            <property name="class" stdset="0">
+             <string>tabButton</string>
             </property>
-            <property name="bottomMargin">
-                <number>12</number>
+           </widget>
+          </item>
+          <item>
+           <widget class="QPushButton" name="uiTabButton">
+            <property name="text">
+             <string>UI</string>
             </property>
-            <item>
-                <layout class="QVBoxLayout" name="tabContainer">
-                    <property name="spacing">
-                        <number>8</number>
-                    </property>
-                    <item>
-                        <widget class="QScrollArea" name="topButtonScrollArea">
-                            <property name="sizePolicy">
-                                <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
-                                    <horstretch>0</horstretch>
-                                    <verstretch>0</verstretch>
-                                </sizepolicy>
-                            </property>
-                            <property name="verticalScrollBarPolicy">
-                                <enum>Qt::ScrollBarAlwaysOff</enum>
-                            </property>
-                            <property name="horizontalScrollBarPolicy">
-                                <enum>Qt::ScrollBarAsNeeded</enum>
-                            </property>
-                            <property name="widgetResizable">
-                                <bool>true</bool>
-                            </property>
-                            <widget class="QWidget" name="topButtonWidget">
-                                <property name="geometry">
-                                    <rect>
-                                        <x>0</x>
-                                        <y>0</y>
-                                        <width>1376</width>
-                                        <height>51</height>
-                                    </rect>
-                                </property>
-                                <layout class="QHBoxLayout" name="tabButtonsLayout">
-                                    <property name="spacing">
-                                        <number>4</number>
-                                    </property>
-                                    <item>
-                                        <widget class="QPushButton" name="generalTabButton">
-                                            <property name="text">
-                                                <string>General</string>
-                                            </property>
-                                            <property name="checkable">
-                                                <bool>true</bool>
-                                            </property>
-                                            <property name="checked">
-                                                <bool>true</bool>
-                                            </property>
-                                            <property name="class" stdset="0">
-                                                <string>tabButton</string>
-                                            </property>
-                                        </widget>
-                                    </item>
-                                    <item>
-                                        <widget class="QPushButton" name="uiTabButton">
-                                            <property name="text">
-                                                <string>UI</string>
-                                            </property>
-                                            <property name="checkable">
-                                                <bool>true</bool>
-                                            </property>
-                                            <property name="class" stdset="0">
-                                                <string>tabButton</string>
-                                            </property>
-                                        </widget>
-                                    </item>
-                                    <item>
-                                        <widget class="QPushButton" name="systemTabButton">
-                                            <property name="text">
-                                                <string>System</string>
-                                            </property>
-                                            <property name="checkable">
-                                                <bool>true</bool>
-                                            </property>
-                                            <property name="class" stdset="0">
-                                                <string>tabButton</string>
-                                            </property>
-                                        </widget>
-                                    </item>
-                                    <item>
-                                        <widget class="QPushButton" name="cpuTabButton">
-                                            <property name="text">
-                                                <string>CPU</string>
-                                            </property>
-                                            <property name="checkable">
-                                                <bool>true</bool>
-                                            </property>
-                                            <property name="class" stdset="0">
-                                                <string>tabButton</string>
-                                            </property>
-                                        </widget>
-                                    </item>
-                                    <item>
-                                        <widget class="QPushButton" name="graphicsTabButton">
-                                            <property name="text">
-                                                <string>Graphics</string>
-                                            </property>
-                                            <property name="checkable">
-                                                <bool>true</bool>
-                                            </property>
-                                            <property name="class" stdset="0">
-                                                <string>tabButton</string>
-                                            </property>
-                                        </widget>
-                                    </item>
-                                    <item>
-                                        <widget class="QPushButton" name="graphicsAdvancedTabButton">
-                                            <property name="text">
-                                                <string>Graphics (Adv)</string>
-                                            </property>
-                                            <property name="checkable">
-                                                <bool>true</bool>
-                                            </property>
-                                            <property name="class" stdset="0">
-                                                <string>tabButton</string>
-                                            </property>
-                                        </widget>
-                                    </item>
-                                    <item>
-                                        <widget class="QPushButton" name="audioTabButton">
-                                            <property name="text">
-                                                <string>Audio</string>
-                                            </property>
-                                            <property name="checkable">
-                                                <bool>true</bool>
-                                            </property>
-                                            <property name="class" stdset="0">
-                                                <string>tabButton</string>
-                                            </property>
-                                        </widget>
-                                    </item>
-                                    <item>
-                                        <widget class="QPushButton" name="inputTabButton">
-                                            <property name="text">
-                                                <string>Input</string>
-                                            </property>
-                                            <property name="checkable">
-                                                <bool>true</bool>
-                                            </property>
-                                            <property name="class" stdset="0">
-                                                <string>tabButton</string>
-                                            </property>
-                                        </widget>
-                                    </item>
-                                    <item>
-                                        <widget class="QPushButton" name="hotkeysTabButton">
-                                            <property name="text">
-                                                <string>Hotkeys</string>
-                                            </property>
-                                            <property name="checkable">
-                                                <bool>true</bool>
-                                            </property>
-                                            <property name="class" stdset="0">
-                                                <string>tabButton</string>
-                                            </property>
-                                        </widget>
-                                    </item>
-                                    <item>
-                                        <widget class="QPushButton" name="networkTabButton">
-                                            <property name="text">
-                                                <string>Network</string>
-                                            </property>
-                                            <property name="checkable">
-                                                <bool>true</bool>
-                                            </property>
-                                            <property name="class" stdset="0">
-                                                <string>tabButton</string>
-                                            </property>
-                                        </widget>
-                                    </item>
-                                    <item>
-                                        <widget class="QPushButton" name="webTabButton">
-                                            <property name="text">
-                                                <string>Web</string>
-                                            </property>
-                                            <property name="checkable">
-                                                <bool>true</bool>
-                                            </property>
-                                            <property name="class" stdset="0">
-                                                <string>tabButton</string>
-                                            </property>
-                                        </widget>
-                                    </item>
-                                    <item>
-                                        <widget class="QPushButton" name="filesystemTabButton">
-                                            <property name="text">
-                                                <string>Filesystem</string>
-                                            </property>
-                                            <property name="checkable">
-                                                <bool>true</bool>
-                                            </property>
-                                            <property name="class" stdset="0">
-                                                <string>tabButton</string>
-                                            </property>
-                                        </widget>
-                                    </item>
-                                    <item>
-                                        <widget class="QPushButton" name="profilesTabButton">
-                                            <property name="text">
-                                                <string>Profiles</string>
-                                            </property>
-                                            <property name="checkable">
-                                                <bool>true</bool>
-                                            </property>
-                                            <property name="class" stdset="0">
-                                                <string>tabButton</string>
-                                            </property>
-                                        </widget>
-                                    </item>
-                                    <item>
-                                        <widget class="QPushButton" name="appletsTabButton">
-                                            <property name="text">
-                                                <string>Applets</string>
-                                            </property>
-                                            <property name="checkable">
-                                                <bool>true</bool>
-                                            </property>
-                                            <property name="class" stdset="0">
-                                                <string>tabButton</string>
-                                            </property>
-                                        </widget>
-                                    </item>
-                                    <item>
-                                        <widget class="QPushButton" name="loggingTabButton">
-                                            <property name="text">
-                                                <string>Logging</string>
-                                            </property>
-                                            <property name="checkable">
-                                                <bool>true</bool>
-                                            </property>
-                                            <property name="class" stdset="0">
-                                                <string>tabButton</string>
-                                            </property>
-                                        </widget>
-                                    </item>
-                                    <item>
-                                        <spacer name="tabButtonsSpacer">
-                                            <property name="orientation">
-                                                <enum>Qt::Horizontal</enum>
-                                            </property>
-                                            <property name="sizeHint" stdset="0">
-                                                <size>
-                                                    <width>40</width>
-                                                    <height>20</height>
-                                                </size>
-                                            </property>
-                                        </spacer>
-                                    </item>
-                                </layout>
-                            </widget>
-                        </widget>
-                    </item>
-                    <item>
-                        <widget class="QScrollArea" name="mainContentScrollArea">
-                            <property name="widgetResizable">
-                                <bool>true</bool>
-                            </property>
-                            <widget class="QWidget" name="scrollAreaWidgetContents">
-                                <property name="geometry">
-                                    <rect>
-                                        <x>0</x>
-                                        <y>0</y>
-                                        <width>1376</width>
-                                        <height>745</height>
-                                    </rect>
-                                </property>
-                                <layout class="QVBoxLayout" name="scrollAreaLayout">
-                                    <item>
-                                        <widget class="QStackedWidget" name="stackedWidget">
-                                            <property name="sizePolicy">
-                                                <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
-                                                    <horstretch>0</horstretch>
-                                                    <verstretch>0</verstretch>
-                                                </sizepolicy>
-                                            </property>
-                                            <property name="currentIndex">
-                                                <number>0</number>
-                                            </property>
-                                        </widget>
-                                    </item>
-                                </layout>
-                            </widget>
-                        </widget>
-                    </item>
-                </layout>
-            </item>
-            <item>
-                <layout class="QHBoxLayout" name="bottomLayout">
-                    <property name="spacing">
-                        <number>12</number>
-                    </property>
-                    <property name="leftMargin">
-                        <number>8</number>
-                    </property>
-                    <property name="topMargin">
-                        <number>8</number>
-                    </property>
-                    <property name="rightMargin">
-                        <number>8</number>
-                    </property>
-                    <property name="bottomMargin">
-                        <number>0</number>
-                    </property>
-                    <item>
-                        <widget class="QDialogButtonBox" name="buttonBox">
-                            <property name="standardButtons">
-                                <set>QDialogButtonBox::Apply|QDialogButtonBox::Cancel|QDialogButtonBox::Ok</set>
-                            </property>
-                        </widget>
-                    </item>
-                </layout>
-            </item>
-        </layout>
+            <property name="checkable">
+             <bool>true</bool>
+            </property>
+            <property name="class" stdset="0">
+             <string>tabButton</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QPushButton" name="systemTabButton">
+            <property name="text">
+             <string>System</string>
+            </property>
+            <property name="checkable">
+             <bool>true</bool>
+            </property>
+            <property name="class" stdset="0">
+             <string>tabButton</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QPushButton" name="cpuTabButton">
+            <property name="text">
+             <string>CPU</string>
+            </property>
+            <property name="checkable">
+             <bool>true</bool>
+            </property>
+            <property name="class" stdset="0">
+             <string>tabButton</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QPushButton" name="graphicsTabButton">
+            <property name="text">
+             <string>Graphics</string>
+            </property>
+            <property name="checkable">
+             <bool>true</bool>
+            </property>
+            <property name="class" stdset="0">
+             <string>tabButton</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QPushButton" name="graphicsAdvancedTabButton">
+            <property name="text">
+             <string>Graphics (Adv)</string>
+            </property>
+            <property name="checkable">
+             <bool>true</bool>
+            </property>
+            <property name="class" stdset="0">
+             <string>tabButton</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QPushButton" name="audioTabButton">
+            <property name="text">
+             <string>Audio</string>
+            </property>
+            <property name="checkable">
+             <bool>true</bool>
+            </property>
+            <property name="class" stdset="0">
+             <string>tabButton</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QPushButton" name="inputTabButton">
+            <property name="text">
+             <string>Input</string>
+            </property>
+            <property name="checkable">
+             <bool>true</bool>
+            </property>
+            <property name="class" stdset="0">
+             <string>tabButton</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QPushButton" name="hotkeysTabButton">
+            <property name="text">
+             <string>Hotkeys</string>
+            </property>
+            <property name="checkable">
+             <bool>true</bool>
+            </property>
+            <property name="class" stdset="0">
+             <string>tabButton</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QPushButton" name="networkTabButton">
+            <property name="text">
+             <string>Network</string>
+            </property>
+            <property name="checkable">
+             <bool>true</bool>
+            </property>
+            <property name="class" stdset="0">
+             <string>tabButton</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QPushButton" name="webTabButton">
+            <property name="text">
+             <string>Web</string>
+            </property>
+            <property name="checkable">
+             <bool>true</bool>
+            </property>
+            <property name="class" stdset="0">
+             <string>tabButton</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QPushButton" name="filesystemTabButton">
+            <property name="text">
+             <string>Filesystem</string>
+            </property>
+            <property name="checkable">
+             <bool>true</bool>
+            </property>
+            <property name="class" stdset="0">
+             <string>tabButton</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QPushButton" name="profilesTabButton">
+            <property name="text">
+             <string>Profiles</string>
+            </property>
+            <property name="checkable">
+             <bool>true</bool>
+            </property>
+            <property name="class" stdset="0">
+             <string>tabButton</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QPushButton" name="appletsTabButton">
+            <property name="text">
+             <string>Applets</string>
+            </property>
+            <property name="checkable">
+             <bool>true</bool>
+            </property>
+            <property name="class" stdset="0">
+             <string>tabButton</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QPushButton" name="loggingTabButton">
+            <property name="text">
+             <string>Logging</string>
+            </property>
+            <property name="checkable">
+             <bool>true</bool>
+            </property>
+            <property name="class" stdset="0">
+             <string>tabButton</string>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </widget>
+       </widget>
+      </item>
+     </layout>
     </widget>
-    <resources/>
-    <connections>
-        <connection>
-            <sender>buttonBox</sender>
-            <signal>accepted()</signal>
-            <receiver>ConfigureDialog</receiver>
-            <slot>accept()</slot>
-            <hints>
-                <hint type="sourcelabel">
-                    <x>20</x>
-                    <y>20</y>
-                </hint>
-                <hint type="destinationlabel">
-                    <x>20</x>
-                    <y>20</y>
-                </hint>
-            </hints>
-        </connection>
-        <connection>
-            <sender>buttonBox</sender>
-            <signal>rejected()</signal>
-            <receiver>ConfigureDialog</receiver>
-            <slot>reject()</slot>
-            <hints>
-                <hint type="sourcelabel">
-                    <x>20</x>
-                    <y>20</y>
-                </hint>
-                <hint type="destinationlabel">
-                    <x>20</x>
-                    <y>20</y>
-                </hint>
-            </hints>
-        </connection>
-    </connections>
+   </item>
+   <item>
+    <layout class="QVBoxLayout" name="verticalLayout">
+     <property name="spacing">
+      <number>8</number>
+     </property>
+     <property name="leftMargin">
+      <number>12</number>
+     </property>
+     <property name="topMargin">
+      <number>12</number>
+     </property>
+     <property name="rightMargin">
+      <number>12</number>
+     </property>
+     <property name="bottomMargin">
+      <number>12</number>
+     </property>
+     <item>
+      <widget class="QScrollArea" name="horizontalNavScrollArea">
+       <property name="maximumSize">
+        <size>
+         <width>16777215</width>
+         <height>55</height>
+        </size>
+       </property>
+       <property name="widgetResizable">
+        <bool>true</bool>
+       </property>
+       <widget class="QWidget" name="horizontalNavWidget">
+        <property name="geometry">
+         <rect>
+          <x>0</x>
+          <y>0</y>
+          <width>1168</width>
+          <height>55</height>
+         </rect>
+        </property>
+        <layout class="QHBoxLayout" name="horizontalNavLayout"/>
+       </widget>
+      </widget>
+     </item>
+     <item>
+      <widget class="QScrollArea" name="mainContentScrollArea">
+       <property name="widgetResizable">
+        <bool>true</bool>
+       </property>
+       <widget class="QWidget" name="scrollAreaWidgetContents">
+        <property name="geometry">
+         <rect>
+          <x>0</x>
+          <y>0</y>
+          <width>1168</width>
+          <height>777</height>
+         </rect>
+        </property>
+        <layout class="QVBoxLayout" name="scrollAreaLayout">
+         <item>
+          <widget class="QStackedWidget" name="stackedWidget">
+           <property name="sizePolicy">
+            <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+             <horstretch>0</horstretch>
+             <verstretch>0</verstretch>
+            </sizepolicy>
+           </property>
+           <property name="currentIndex">
+            <number>0</number>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </widget>
+      </widget>
+     </item>
+     <item>
+      <layout class="QHBoxLayout" name="horizontalLayout_2">
+       <item>
+        <spacer name="horizontalSpacer">
+         <property name="orientation">
+          <enum>Qt::Horizontal</enum>
+         </property>
+         <property name="sizeHint" stdset="0">
+          <size>
+           <width>40</width>
+           <height>20</height>
+          </size>
+         </property>
+        </spacer>
+       </item>
+       <item>
+        <widget class="QDialogButtonBox" name="buttonBox">
+         <property name="standardButtons">
+          <set>QDialogButtonBox::Apply|QDialogButtonBox::Cancel|QDialogButtonBox::Ok</set>
+         </property>
+        </widget>
+       </item>
+      </layout>
+     </item>
+    </layout>
+   </item>
+  </layout>
+ </widget>
+ <resources/>
+ <connections>
+  <connection>
+   <sender>buttonBox</sender>
+   <signal>accepted()</signal>
+   <receiver>ConfigureDialog</receiver>
+   <slot>accept()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>20</x>
+     <y>20</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>20</x>
+     <y>20</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>buttonBox</sender>
+   <signal>rejected()</signal>
+   <receiver>ConfigureDialog</receiver>
+   <slot>reject()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>20</x>
+     <y>20</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>20</x>
+     <y>20</y>
+    </hint>
+   </hints>
+  </connection>
+ </connections>
 </ui>

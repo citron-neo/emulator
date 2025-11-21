@@ -14,7 +14,7 @@
 #include <QScrollBar>
 #include <QString>
 #include <QTimer>
-#include <QWheelEvent>
+#include <QVBoxLayout>
 #include "common/logging/log.h"
 #include "common/settings.h"
 #include "common/settings_enums.h"
@@ -38,89 +38,29 @@
 #include "citron/configuration/configure_system.h"
 #include "citron/configuration/configure_ui.h"
 #include "citron/configuration/configure_web.h"
+#include "citron/configuration/style_animation_event_filter.h"
 #include "citron/hotkeys.h"
 #include "citron/theme.h"
 #include "citron/uisettings.h"
-
-// Event filter class to forward wheel events to scroll area's scrollbar
-class ScrollAreaWheelEventFilter : public QObject {
-public:
-    explicit ScrollAreaWheelEventFilter(QScrollArea* scroll_area, QObject* parent = nullptr,
-                                       bool prefer_horizontal = false)
-        : QObject(parent), scroll_area_(scroll_area), prefer_horizontal_(prefer_horizontal) {}
-
-protected:
-    bool eventFilter(QObject* obj, QEvent* event) override {
-        if (event->type() == QEvent::Wheel && scroll_area_) {
-            auto* wheel_event = static_cast<QWheelEvent*>(event);
-            const QPoint angle_delta = wheel_event->angleDelta();
-
-            // Determine which scrollbar to use based on scroll direction and preference
-            bool use_horizontal = prefer_horizontal_ || (std::abs(angle_delta.x()) > std::abs(angle_delta.y()));
-
-            if (use_horizontal) {
-                // Try horizontal scrolling first
-                if (scroll_area_->horizontalScrollBar()->maximum() > 0) {
-                    QApplication::sendEvent(scroll_area_->horizontalScrollBar(), wheel_event);
-                    return true;
-                }
-            }
-
-            // Try vertical scrolling
-            if (scroll_area_->verticalScrollBar()->maximum() > 0) {
-                QApplication::sendEvent(scroll_area_->verticalScrollBar(), wheel_event);
-                return true;
-            }
-
-            // If vertical didn't work and we didn't try horizontal, try it now
-            if (!use_horizontal && scroll_area_->horizontalScrollBar()->maximum() > 0) {
-                QApplication::sendEvent(scroll_area_->horizontalScrollBar(), wheel_event);
-                return true;
-            }
-        }
-        return QObject::eventFilter(obj, event);
-    }
-
-private:
-    QScrollArea* scroll_area_;
-    bool prefer_horizontal_;
-};
 
 static QScrollArea* CreateScrollArea(QWidget* widget) {
     auto* scroll_area = new QScrollArea();
     scroll_area->setWidget(widget);
     scroll_area->setWidgetResizable(true);
     scroll_area->setFrameShape(QFrame::NoFrame);
-    scroll_area->setHorizontalScrollBarPolicy(Qt::ScrollBarAsNeeded);
-    scroll_area->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
-
-    // Install event filter on the widget to forward wheel events to scrollbar
-    auto* filter = new ScrollAreaWheelEventFilter(scroll_area, scroll_area);
-    widget->installEventFilter(filter);
-
     return scroll_area;
 }
 
-// Helper function to detect if the application should be in a dark theme state
 static bool IsDarkMode() {
     const std::string& theme_name = UISettings::values.theme;
-
-    // Priority 1: Check for explicitly chosen dark themes.
     if (theme_name == "qdarkstyle" || theme_name == "colorful_dark" ||
         theme_name == "qdarkstyle_midnight_blue" || theme_name == "colorful_midnight_blue") {
         return true;
     }
-
-    // Priority 2: Check for adaptive themes ("default" and "colorful").
-    // For these, we fall back to checking the OS palette.
     if (theme_name == "default" || theme_name == "colorful") {
-        const QPalette palette = qApp->palette();
-        const QColor text_color = palette.color(QPalette::WindowText);
-        const QColor base_color = palette.color(QPalette::Window);
-        return text_color.value() > base_color.value();
+        return qApp->palette().color(QPalette::WindowText).value() >
+               qApp->palette().color(QPalette::Window).value();
     }
-
-    // Fallback for any other unknown theme (assumed light).
     return false;
 }
 
@@ -128,61 +68,60 @@ ConfigureDialog::ConfigureDialog(QWidget* parent, HotkeyRegistry& registry_,
                                  InputCommon::InputSubsystem* input_subsystem,
                                  std::vector<VkDeviceInfo::Record>& vk_device_records,
                                  Core::System& system_, bool enable_web_config)
-: QDialog(parent), ui{std::make_unique<Ui::ConfigureDialog>()},
-registry(registry_), system{system_}, builder{std::make_unique<ConfigurationShared::Builder>(
-    this, !system_.IsPoweredOn())},
-    applets_tab{std::make_unique<ConfigureApplets>(system_, nullptr, *builder, this)},
-    audio_tab{std::make_unique<ConfigureAudio>(system_, nullptr, *builder, this)},
-    cpu_tab{std::make_unique<ConfigureCpu>(system_, nullptr, *builder, this)},
-    debug_tab_tab{std::make_unique<ConfigureDebugTab>(system_, this)},
-    filesystem_tab{std::make_unique<ConfigureFilesystem>(this)},
-    general_tab{std::make_unique<ConfigureGeneral>(system_, nullptr, *builder, this)},
-    graphics_advanced_tab{
-        std::make_unique<ConfigureGraphicsAdvanced>(system_, nullptr, *builder, this)},
-        ui_tab{std::make_unique<ConfigureUi>(system_, this)},
-        graphics_tab{std::make_unique<ConfigureGraphics>(
-            system_, vk_device_records, [&]() { graphics_advanced_tab->ExposeComputeOption(); },
-                                                         [this](Settings::AspectRatio ratio, Settings::ResolutionSetup setup) {
-                                                             ui_tab->UpdateScreenshotInfo(ratio, setup);
-                                                         },
-                                                         nullptr, *builder, this)},
-hotkeys_tab{std::make_unique<ConfigureHotkeys>(system_.HIDCore(), this)},
-input_tab{std::make_unique<ConfigureInput>(system_, this)},
-network_tab{std::make_unique<ConfigureNetwork>(system_, this)},
-profile_tab{std::make_unique<ConfigureProfileManager>(system_, this)},
-system_tab{std::make_unique<ConfigureSystem>(system_, nullptr, *builder, this)},
-web_tab{std::make_unique<ConfigureWeb>(this)},
-rainbow_timer{new QTimer(this)} {
+    : QDialog(parent), ui{std::make_unique<Ui::ConfigureDialog>()}, registry(registry_),
+      system{system_},
+      builder{std::make_unique<ConfigurationShared::Builder>(this, !system_.IsPoweredOn())},
+      applets_tab{std::make_unique<ConfigureApplets>(system_, nullptr, *builder, this)},
+      audio_tab{std::make_unique<ConfigureAudio>(system_, nullptr, *builder, this)},
+      cpu_tab{std::make_unique<ConfigureCpu>(system_, nullptr, *builder, this)},
+      debug_tab_tab{std::make_unique<ConfigureDebugTab>(system_, this)},
+      filesystem_tab{std::make_unique<ConfigureFilesystem>(this)},
+      general_tab{std::make_unique<ConfigureGeneral>(system_, nullptr, *builder, this)},
+      graphics_advanced_tab{
+          std::make_unique<ConfigureGraphicsAdvanced>(system_, nullptr, *builder, this)},
+      ui_tab{std::make_unique<ConfigureUi>(system_, this)},
+      graphics_tab{std::make_unique<ConfigureGraphics>(
+          system_, vk_device_records, [&]() { graphics_advanced_tab->ExposeComputeOption(); },
+          [this](Settings::AspectRatio ratio, Settings::ResolutionSetup setup) {
+              ui_tab->UpdateScreenshotInfo(ratio, setup);
+          },
+          nullptr, *builder, this)},
+      hotkeys_tab{std::make_unique<ConfigureHotkeys>(system_.HIDCore(), this)},
+      input_tab{std::make_unique<ConfigureInput>(system_, this)},
+      network_tab{std::make_unique<ConfigureNetwork>(system_, this)},
+      profile_tab{std::make_unique<ConfigureProfileManager>(system_, this)},
+      system_tab{std::make_unique<ConfigureSystem>(system_, nullptr, *builder, this)},
+      web_tab{std::make_unique<ConfigureWeb>(this)}, rainbow_timer{new QTimer(this)} {
 
     Settings::SetConfiguringGlobal(true);
-
     setWindowFlags(Qt::Dialog | Qt::WindowTitleHint | Qt::WindowSystemMenuHint |
-    Qt::WindowMinMaxButtonsHint | Qt::WindowCloseButtonHint);
-
-    setAttribute(Qt::WA_TranslucentBackground, false);
-    setAttribute(Qt::WA_NoSystemBackground, false);
-    setAttribute(Qt::WA_DontShowOnScreen, false);
-
+                   Qt::WindowMinMaxButtonsHint | Qt::WindowCloseButtonHint);
     ui->setupUi(this);
 
-    // Enable wheel event scrolling on the top button scroll area (horizontal scrolling)
-    auto* top_button_filter = new ScrollAreaWheelEventFilter(ui->topButtonScrollArea, this, true);
-    ui->topButtonScrollArea->widget()->installEventFilter(top_button_filter);
-    ui->topButtonScrollArea->installEventFilter(top_button_filter);
+    auto* animation_filter = new StyleAnimationEventFilter(this);
+    const auto button_qlist = ui->topButtonWidget->findChildren<QPushButton*>();
+    tab_buttons = std::vector<QPushButton*>(button_qlist.begin(), button_qlist.end());
+    auto* nav_layout = new QVBoxLayout();
+    nav_layout->setContentsMargins(8, 8, 8, 8);
+    nav_layout->setSpacing(4);
+    for (QPushButton* button : tab_buttons) {
+        button->setParent(ui->topButtonWidget);
+        // Buttons are added to a layout in SetUIPositioning
+        if (button->property("class").toString() == QStringLiteral("tabButton")) {
+            button->installEventFilter(animation_filter);
+        }
+    }
+    delete ui->topButtonWidget->layout();
+    ui->topButtonWidget->setLayout(nav_layout);
 
     last_palette_text_color = qApp->palette().color(QPalette::WindowText);
-
     if (!UISettings::values.configure_dialog_geometry.isEmpty()) {
         restoreGeometry(UISettings::values.configure_dialog_geometry);
     }
-
     UpdateTheme();
-
-    setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
 
     tab_button_group = std::make_unique<QButtonGroup>(this);
     tab_button_group->setExclusive(true);
-
     tab_button_group->addButton(ui->generalTabButton, 0);
     tab_button_group->addButton(ui->uiTabButton, 1);
     tab_button_group->addButton(ui->systemTabButton, 2);
@@ -217,36 +156,25 @@ rainbow_timer{new QTimer(this)} {
 
     connect(tab_button_group.get(), qOverload<int>(&QButtonGroup::idClicked), this, [this](int id) {
         ui->stackedWidget->setCurrentIndex(id);
-        if (id == 14) {
-            debug_tab_tab->SetCurrentIndex(0);
-        }
     });
-
     connect(ui_tab.get(), &ConfigureUi::themeChanged, this, &ConfigureDialog::UpdateTheme);
+    connect(ui_tab.get(), &ConfigureUi::UIPositioningChanged, this, &ConfigureDialog::SetUIPositioning);
     connect(rainbow_timer, &QTimer::timeout, this, &ConfigureDialog::UpdateTheme);
-
     web_tab->SetWebServiceConfigEnabled(enable_web_config);
     hotkeys_tab->Populate(registry);
-
     input_tab->Initialize(input_subsystem);
-
     general_tab->SetResetCallback([&] { this->close(); });
-
     SetConfiguration();
-
     connect(ui_tab.get(), &ConfigureUi::LanguageChanged, this, &ConfigureDialog::OnLanguageChanged);
-
     if (system.IsPoweredOn()) {
-        QPushButton* apply_button = ui->buttonBox->button(QDialogButtonBox::Apply);
-        if (apply_button) {
-            connect(apply_button, &QAbstractButton::clicked, this,
-                    &ConfigureDialog::HandleApplyButtonClicked);
+        if (auto* apply_button = ui->buttonBox->button(QDialogButtonBox::Apply)) {
+            connect(apply_button, &QAbstractButton::clicked, this, &ConfigureDialog::HandleApplyButtonClicked);
         }
     }
-
     ui->stackedWidget->setCurrentIndex(0);
     ui->generalTabButton->setChecked(true);
-    ui->buttonBox->setFocus();
+
+    SetUIPositioning(QString::fromStdString(UISettings::values.ui_positioning.GetValue()));
 }
 
 ConfigureDialog::~ConfigureDialog() {
@@ -257,25 +185,17 @@ void ConfigureDialog::UpdateTheme() {
     QString accent_color_str;
     if (UISettings::values.enable_rainbow_mode.GetValue()) {
         rainbow_hue += 0.003f;
-        if (rainbow_hue > 1.0f) {
-            rainbow_hue = 0.0f;
-        }
+        if (rainbow_hue > 1.0f) rainbow_hue = 0.0f;
         QColor accent_color = QColor::fromHsvF(rainbow_hue, 0.8f, 1.0f);
         accent_color_str = accent_color.name(QColor::HexRgb);
-        if (!rainbow_timer->isActive()) {
-            rainbow_timer->start(150);
-        }
+        if (!rainbow_timer->isActive()) rainbow_timer->start(150);
     } else {
-        if (rainbow_timer->isActive()) {
-            rainbow_timer->stop();
-        }
+        if (rainbow_timer->isActive()) rainbow_timer->stop();
         accent_color_str = Theme::GetAccentColor();
     }
-
     QColor accent_color(accent_color_str);
     const QString accent_color_hover = accent_color.lighter(115).name(QColor::HexRgb);
     const QString accent_color_pressed = accent_color.darker(120).name(QColor::HexRgb);
-
     const bool is_dark = IsDarkMode();
     const QString bg_color = is_dark ? QStringLiteral("#2b2b2b") : QStringLiteral("#ffffff");
     const QString text_color = is_dark ? QStringLiteral("#ffffff") : QStringLiteral("#000000");
@@ -285,20 +205,14 @@ void ConfigureDialog::UpdateTheme() {
     const QString hover_bg_color = is_dark ? QStringLiteral("#4d4d4d") : QStringLiteral("#e8f0fe");
     const QString focus_bg_color = is_dark ? QStringLiteral("#404040") : QStringLiteral("#e8f0fe");
     const QString disabled_text_color = is_dark ? QStringLiteral("#8d8d8d") : QStringLiteral("#a0a0a0");
-
     static QString cached_template_style_sheet;
     if (cached_template_style_sheet.isEmpty()) {
         cached_template_style_sheet = property("templateStyleSheet").toString();
     }
-
     QString style_sheet = cached_template_style_sheet;
-
-    // Replace accent colors (existing logic)
     style_sheet.replace(QStringLiteral("%%ACCENT_COLOR%%"), accent_color_str);
     style_sheet.replace(QStringLiteral("%%ACCENT_COLOR_HOVER%%"), accent_color_hover);
     style_sheet.replace(QStringLiteral("%%ACCENT_COLOR_PRESSED%%"), accent_color_pressed);
-
-    // Replace base theme colors (new logic)
     style_sheet.replace(QStringLiteral("%%BACKGROUND_COLOR%%"), bg_color);
     style_sheet.replace(QStringLiteral("%%TEXT_COLOR%%"), text_color);
     style_sheet.replace(QStringLiteral("%%SECONDARY_BG_COLOR%%"), secondary_bg_color);
@@ -307,15 +221,56 @@ void ConfigureDialog::UpdateTheme() {
     style_sheet.replace(QStringLiteral("%%HOVER_BG_COLOR%%"), hover_bg_color);
     style_sheet.replace(QStringLiteral("%%FOCUS_BG_COLOR%%"), focus_bg_color);
     style_sheet.replace(QStringLiteral("%%DISABLED_TEXT_COLOR%%"), disabled_text_color);
-
     setStyleSheet(style_sheet);
-
-    // This part is crucial to pass the theme to child tabs
     graphics_tab->SetTemplateStyleSheet(style_sheet);
     system_tab->SetTemplateStyleSheet(style_sheet);
     audio_tab->SetTemplateStyleSheet(style_sheet);
     cpu_tab->SetTemplateStyleSheet(style_sheet);
     graphics_advanced_tab->SetTemplateStyleSheet(style_sheet);
+}
+
+void ConfigureDialog::SetUIPositioning(const QString& positioning) {
+    auto* v_layout = qobject_cast<QVBoxLayout*>(ui->topButtonWidget->layout());
+    auto* h_layout = qobject_cast<QHBoxLayout*>(ui->horizontalNavWidget->layout());
+
+    if (!v_layout || !h_layout) {
+        LOG_ERROR(Frontend, "Could not find navigation layouts to rearrange");
+        return;
+    }
+
+    if (positioning == QStringLiteral("Horizontal")) {
+        ui->nav_container->hide();
+        ui->horizontalNavScrollArea->show();
+        // Remove stretch from vertical layout if it exists
+        if (v_layout->count() > 0) {
+            if (auto* item = v_layout->itemAt(v_layout->count() - 1); item && item->spacerItem()) {
+                v_layout->takeAt(v_layout->count() - 1);
+                delete item;
+            }
+        }
+        for (QPushButton* button : tab_buttons) {
+            v_layout->removeWidget(button);
+            h_layout->addWidget(button);
+            button->setStyleSheet(QStringLiteral("text-align: center;"));
+        }
+        h_layout->addStretch(1);
+    } else { // Vertical
+        ui->horizontalNavScrollArea->hide();
+        ui->nav_container->show();
+        // Remove stretch from horizontal layout if it exists
+        if (h_layout->count() > 0) {
+            if (auto* item = h_layout->itemAt(h_layout->count() - 1); item && item->spacerItem()) {
+                h_layout->takeAt(h_layout->count() - 1);
+                delete item;
+            }
+        }
+        for (QPushButton* button : tab_buttons) {
+            h_layout->removeWidget(button);
+            v_layout->addWidget(button);
+            button->setStyleSheet(QStringLiteral("")); // Reset to parent stylesheet
+        }
+        v_layout->addStretch(1);
+    }
 }
 
 void ConfigureDialog::SetConfiguration() {}
@@ -344,23 +299,18 @@ void ConfigureDialog::changeEvent(QEvent* event) {
     if (event->type() == QEvent::LanguageChange) {
         RetranslateUI();
     }
-
     if (event->type() == QEvent::PaletteChange) {
-        const QColor current_color = qApp->palette().color(QPalette::WindowText);
-        if (current_color != last_palette_text_color) {
-            last_palette_text_color = current_color;
+        if (qApp->palette().color(QPalette::WindowText) != last_palette_text_color) {
+            last_palette_text_color = qApp->palette().color(QPalette::WindowText);
             UpdateTheme();
         }
     }
-
     QDialog::changeEvent(event);
 }
 
 void ConfigureDialog::RetranslateUI() {
     const int old_index = ui->stackedWidget->currentIndex();
-
     ui->retranslateUi(this);
-
     SetConfiguration();
     ui->stackedWidget->setCurrentIndex(old_index);
 }

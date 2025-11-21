@@ -158,6 +158,8 @@ add_executable(citron
     configuration/shared_translation.h
     configuration/shared_widget.cpp
     configuration/shared_widget.h
+    configuration/style_animation_event_filter.cpp
+    configuration/style_animation_event_filter.h
     configuration/qt_config.cpp
     configuration/qt_config.h
     debugger/console.cpp

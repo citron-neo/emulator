@@ -9,24 +9,17 @@
 #include <QColor>
 #include <QDialog>
 #include "common/settings_enums.h"
-#include "citron/configuration/shared_widget.h" // <-- Correct header for Builder
+#include "citron/configuration/shared_widget.h"
 
-// Forward declarations for other types
+// Forward declarations
 class HotkeyRegistry;
 class QButtonGroup;
+class QPushButton;
 class QTimer;
-namespace InputCommon {
-    class InputSubsystem;
-}
-namespace Core {
-    class System;
-}
-namespace VkDeviceInfo {
-    class Record;
-}
-namespace Ui {
-    class ConfigureDialog;
-}
+namespace InputCommon { class InputSubsystem; }
+namespace Core { class System; }
+namespace VkDeviceInfo { class Record; }
+namespace Ui { class ConfigureDialog; }
 class ConfigureApplets;
 class ConfigureAudio;
 class ConfigureCpu;
@@ -62,18 +55,17 @@ public slots:
 signals:
     void LanguageChanged(const QString& locale);
 
+private slots:
+    void SetUIPositioning(const QString& positioning);
+
 private:
     void SetConfiguration();
     void HandleApplyButtonClicked();
-
     void changeEvent(QEvent* event) override;
     void RetranslateUI();
-
     void OnLanguageChanged(const QString& locale);
 
     QColor last_palette_text_color;
-
-    // All members are now in the EXACT correct order to match the constructor
     std::unique_ptr<Ui::ConfigureDialog> ui;
     HotkeyRegistry& registry;
     Core::System& system;
@@ -94,6 +86,7 @@ private:
     std::unique_ptr<ConfigureSystem> system_tab;
     std::unique_ptr<ConfigureWeb> web_tab;
     std::unique_ptr<QButtonGroup> tab_button_group;
+    std::vector<QPushButton*> tab_buttons;
     QTimer* rainbow_timer;
     float rainbow_hue = 0.0f;
 };

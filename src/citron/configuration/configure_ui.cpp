@@ -17,6 +17,8 @@
 #include <QCoreApplication>
 #include <QDirIterator>
 #include <QFileDialog>
+#include <QFormLayout>
+#include <QGroupBox>
 #include <QString>
 #include <QToolButton>
 #include <QVariant>
@@ -115,6 +117,19 @@ resolution_setting{Settings::values.resolution_setup.GetValue()}, system{system_
                                     QString::fromUtf8(theme.second));
     }
 
+    ui_positioning_combo = new QComboBox(this);
+    ui_positioning_combo->addItem(tr("Vertical"), QStringLiteral("Vertical"));
+    ui_positioning_combo->addItem(tr("Horizontal"), QStringLiteral("Horizontal"));
+    if (auto* layout = qobject_cast<QFormLayout*>(ui->theme_combobox->parentWidget()->layout())) {
+        layout->addRow(tr("UI Positioning"), ui_positioning_combo);
+    } else if (auto* group_layout = qobject_cast<QVBoxLayout*>(ui->theme_combobox->parentWidget()->layout())) {
+        group_layout->addWidget(ui_positioning_combo);
+    }
+
+    connect(ui_positioning_combo, &QComboBox::currentTextChanged, this, [this](const QString& text){
+        emit UIPositioningChanged(text);
+    });
+
     InitializeIconSizeComboBox();
     InitializeRowComboBoxes();
 
@@ -174,6 +189,7 @@ ConfigureUi::~ConfigureUi() = default;
 void ConfigureUi::ApplyConfiguration() {
     UISettings::values.theme =
     ui->theme_combobox->itemData(ui->theme_combobox->currentIndex()).toString().toStdString();
+    UISettings::values.ui_positioning = ui_positioning_combo->currentData().toString().toStdString();
     UISettings::values.enable_rainbow_mode = ui->rainbowModeCheckBox->isChecked();
     UISettings::values.show_add_ons = ui->show_add_ons->isChecked();
     UISettings::values.show_compat = ui->show_compat->isChecked();
@@ -205,6 +221,8 @@ void ConfigureUi::SetConfiguration() {
         ui->theme_combobox->findData(QString::fromStdString(UISettings::values.theme)));
     ui->language_combobox->setCurrentIndex(ui->language_combobox->findData(
         QString::fromStdString(UISettings::values.language.GetValue())));
+    ui_positioning_combo->setCurrentIndex(ui_positioning_combo->findData(
+        QString::fromStdString(UISettings::values.ui_positioning.GetValue())));
     ui->rainbowModeCheckBox->setChecked(UISettings::values.enable_rainbow_mode.GetValue());
     ui->show_add_ons->setChecked(UISettings::values.show_add_ons.GetValue());
     ui->show_compat->setChecked(UISettings::values.show_compat.GetValue());
@@ -251,6 +269,11 @@ void ConfigureUi::changeEvent(QEvent* event) {
 
 void ConfigureUi::RetranslateUI() {
     ui->retranslateUi(this);
+
+    const int pos_index = ui_positioning_combo->currentIndex();
+    ui_positioning_combo->setItemText(0, tr("Vertical"));
+    ui_positioning_combo->setItemText(1, tr("Horizontal"));
+    ui_positioning_combo->setCurrentIndex(pos_index);
 
     for (int i = 0; i < ui->game_icon_size_combobox->count(); i++) {
         ui->game_icon_size_combobox->setItemText(i,

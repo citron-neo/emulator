@@ -8,6 +8,8 @@
 #include <QWidget>
 #include "common/settings_enums.h"
 
+class QComboBox;
+
 namespace Core {
     class System;
 }
@@ -31,6 +33,7 @@ public:
 signals:
     void LanguageChanged(const QString& locale);
     void themeChanged();
+    void UIPositioningChanged(const QString& positioning);
 
 private slots:
     void OnLanguageChanged(int index);
@@ -54,6 +57,7 @@ private:
     void UpdateWidthText();
 
     std::unique_ptr<Ui::ConfigureUi> ui;
+    QComboBox* ui_positioning_combo;
 
     Settings::AspectRatio ratio;
     Settings::ResolutionSetup resolution_setting;
