@@ -188,6 +188,12 @@ void MultiplayerRoomOverlay::ConnectToRoom() {
 }
 
 void MultiplayerRoomOverlay::DisconnectFromRoom() {
+    // Tell the chat widget to disconnect its signals *before*
+    // we reset our own state.
+    if (is_chat_initialized && chat_room_widget) {
+        chat_room_widget->Shutdown();
+    }
+
     ClearUI();
     room_member.reset();
     multiplayer_state = nullptr;

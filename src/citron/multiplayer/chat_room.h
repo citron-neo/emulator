@@ -32,6 +32,7 @@ class ChatRoom : public QWidget {
 public:
     explicit ChatRoom(QWidget* parent);
     void Initialize(Network::RoomNetwork* room_network);
+    void Shutdown();
     void RetranslateUi();
     void SetPlayerList(const Network::RoomMember::MemberList& member_list);
     void Clear();
@@ -68,7 +69,7 @@ private:
     std::unique_ptr<Ui::ChatRoom> ui;
     std::unordered_set<std::string> block_list;
     std::unordered_map<std::string, QPixmap> icon_cache;
-    Network::RoomNetwork* room_network;
+    Network::RoomNetwork* room_network = nullptr; // Initialize to nullptr
 };
 
 Q_DECLARE_METATYPE(Network::ChatEntry);

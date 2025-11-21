@@ -221,6 +221,22 @@ void ChatRoom::Initialize(Network::RoomNetwork* room_network_) {
     }
 }
 
+void ChatRoom::Shutdown() {
+    if (room_network) {
+        // Disconnect the signals that were connected in Initialize.
+        // It's safe to call disconnect even if the connection doesn't exist.
+        disconnect(this, &ChatRoom::ChatReceived, this, &ChatRoom::OnChatReceive);
+        disconnect(this, &ChatRoom::StatusMessageReceived, this, &ChatRoom::OnStatusMessageReceive);
+
+        // NOTE: The Bind... functions do not have a direct unbind. The intended way
+        // to stop them is to let the 'member' object be destroyed or to stop calling them
+        // from the network backend. Since we are disconnecting from the room, this is safe.
+        // The important part is disconnecting the Qt signals.
+
+        room_network = nullptr; // Clear the pointer to prevent further use.
+    }
+}
+
 void ChatRoom::SetModPerms(bool is_mod) {
     has_mod_perms = is_mod;
 }
