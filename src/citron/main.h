@@ -393,6 +393,7 @@ private:
     bool is_amiibo_file_select_active{};
     bool is_load_file_select_active{};
     bool is_tas_recording_dialog_active{};
+    bool m_is_updating_theme = false;
     #ifdef __unix__
     QSocketNotifier* sig_interrupt_notifier;
     static std::array<int, 3> sig_interrupt_fds;

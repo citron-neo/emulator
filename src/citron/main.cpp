@@ -5791,6 +5791,14 @@ static void AdjustLinkColor() {
 }
 
 void GMainWindow::UpdateUITheme() {
+    // If the function is already running, exit immediately to prevent recursion.
+    if (m_is_updating_theme) {
+        return;
+    }
+
+    // Set the flag to true to indicate that a theme update is in progress.
+    m_is_updating_theme = true;
+
     QString current_theme = QString::fromStdString(UISettings::values.theme);
     const QString default_theme_name = QString::fromUtf8(
         UISettings::themes[static_cast<size_t>(UISettings::default_theme)].second);
@@ -5844,6 +5852,9 @@ void GMainWindow::UpdateUITheme() {
     }
 
     emit themeChanged();
+
+    // Once everything is done, reset the flag to false.
+    m_is_updating_theme = false;
 }
 
 void GMainWindow::LoadTranslation() {
