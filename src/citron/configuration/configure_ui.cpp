@@ -24,7 +24,9 @@
 #include <QVariant>
 #include <QListWidget>
 #include <QMessageBox>
+#include <QSettings>
 #include <QResizeEvent>
+#include <QLabel>
 
 #include "common/common_types.h"
 #include "common/fs/path_util.h"
@@ -35,9 +37,6 @@
 #include "core/frontend/framebuffer_layout.h"
 #include "ui_configure_ui.h"
 #include "citron/uisettings.h"
-
-// If the window width is less than this value, the layout will switch to a single column.
-constexpr int COMPACT_LAYOUT_BREAKPOINT = 950;
 
 namespace {
     constexpr std::array default_game_icon_sizes{
@@ -130,6 +129,14 @@ resolution_setting{Settings::values.resolution_setup.GetValue()}, system{system_
         emit UIPositioningChanged(text);
     });
 
+    auto* update_channel_combo = new QComboBox(this);
+    update_channel_combo->setObjectName(QStringLiteral("update_channel_combo"));
+    update_channel_combo->addItem(tr("Stable"), QStringLiteral("Stable"));
+    update_channel_combo->addItem(tr("Nightly"), QStringLiteral("Nightly"));
+    update_channel_combo->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+    ui->generalFormLayout->insertRow(2, tr("Update Channel"), update_channel_combo);
+
+
     InitializeIconSizeComboBox();
     InitializeRowComboBoxes();
 
@@ -182,11 +189,6 @@ resolution_setting{Settings::values.resolution_setup.GetValue()}, system{system_
     connect(ui->screenshot_height, &QComboBox::currentTextChanged, [this]() { UpdateWidthText(); });
 
     UpdateWidthText();
-
-    // Check initial size to apply the correct layout from the start.
-    if (width() < COMPACT_LAYOUT_BREAKPOINT) {
-        switchToCompactLayout();
-    }
 }
 
 ConfigureUi::~ConfigureUi() = default;
@@ -195,6 +197,13 @@ void ConfigureUi::ApplyConfiguration() {
     UISettings::values.theme =
     ui->theme_combobox->itemData(ui->theme_combobox->currentIndex()).toString().toStdString();
     UISettings::values.ui_positioning = ui->ui_positioning_combo->currentData().toString().toStdString();
+
+    auto* update_channel_combo = findChild<QComboBox*>("update_channel_combo");
+    if (update_channel_combo) {
+        QSettings settings;
+        settings.setValue("updater/channel", update_channel_combo->currentData().toString());
+    }
+
     UISettings::values.enable_rainbow_mode = ui->rainbowModeCheckBox->isChecked();
     UISettings::values.show_add_ons = ui->show_add_ons->isChecked();
     UISettings::values.show_compat = ui->show_compat->isChecked();
@@ -218,31 +227,31 @@ void ConfigureUi::ApplyConfiguration() {
 }
 
 void ConfigureUi::resizeEvent(QResizeEvent* event) {
-    QWidget::resizeEvent(event);
+    if (event->oldSize() == event->size()) {
+        return;
+    }
 
-    const int currentWidth = event->size().width();
-
-    if (currentWidth < COMPACT_LAYOUT_BREAKPOINT && !isCompact) {
+    if (width() < 550 && !isCompact) {
         switchToCompactLayout();
-    } else if (currentWidth >= COMPACT_LAYOUT_BREAKPOINT && isCompact) {
+    } else if (width() >= 550 && isCompact) {
         switchToWideLayout();
     }
 }
 
 void ConfigureUi::switchToCompactLayout() {
-    if (isCompact) return; // Already compact
-    // Move the right column layout to be below the left column layout
-    ui->mainHorizontalLayout->removeItem(ui->rightColumnLayout);
-    ui->leftColumnLayout->addLayout(ui->rightColumnLayout);
     isCompact = true;
+    if (ui->leftColumnLayout && ui->screenshots_GroupBox) {
+        ui->rightColumnLayout->removeWidget(ui->screenshots_GroupBox);
+        ui->leftColumnLayout->insertWidget(2, ui->screenshots_GroupBox);
+    }
 }
 
 void ConfigureUi::switchToWideLayout() {
-    if (!isCompact) return; // Already wide
-    // Move the right column layout from the left column back to the main horizontal layout
-    ui->leftColumnLayout->removeItem(ui->rightColumnLayout);
-    ui->mainHorizontalLayout->addLayout(ui->rightColumnLayout);
     isCompact = false;
+    if (ui->rightColumnLayout && ui->screenshots_GroupBox) {
+        ui->leftColumnLayout->removeWidget(ui->screenshots_GroupBox);
+        ui->rightColumnLayout->insertWidget(0, ui->screenshots_GroupBox);
+    }
 }
 
 void ConfigureUi::RequestGameListUpdate() {
@@ -256,6 +265,14 @@ void ConfigureUi::SetConfiguration() {
         QString::fromStdString(UISettings::values.language.GetValue())));
     ui->ui_positioning_combo->setCurrentIndex(ui->ui_positioning_combo->findData(
         QString::fromStdString(UISettings::values.ui_positioning.GetValue())));
+
+    auto* update_channel_combo = findChild<QComboBox*>("update_channel_combo");
+    if (update_channel_combo) {
+        QSettings settings;
+        QString channel = settings.value("updater/channel", QStringLiteral("Stable")).toString();
+        update_channel_combo->setCurrentIndex(update_channel_combo->findData(channel));
+    }
+
     ui->rainbowModeCheckBox->setChecked(UISettings::values.enable_rainbow_mode.GetValue());
     ui->show_add_ons->setChecked(UISettings::values.show_add_ons.GetValue());
     ui->show_compat->setChecked(UISettings::values.show_compat.GetValue());
@@ -307,6 +324,18 @@ void ConfigureUi::RetranslateUI() {
     ui->ui_positioning_combo->setItemText(0, tr("Vertical"));
     ui->ui_positioning_combo->setItemText(1, tr("Horizontal"));
     ui->ui_positioning_combo->setCurrentIndex(pos_index);
+
+    auto* update_channel_combo = findChild<QComboBox*>("update_channel_combo");
+    if (update_channel_combo) {
+        const int channel_index = update_channel_combo->currentIndex();
+        update_channel_combo->setItemText(0, tr("Stable"));
+        update_channel_combo->setItemText(1, tr("Nightly"));
+        update_channel_combo->setCurrentIndex(channel_index);
+
+        if (auto* label = qobject_cast<QLabel*>(ui->generalFormLayout->labelForField(update_channel_combo))) {
+            label->setText(tr("Update Channel"));
+        }
+    }
 
     for (int i = 0; i < ui->game_icon_size_combobox->count(); i++) {
         ui->game_icon_size_combobox->setItemText(i,

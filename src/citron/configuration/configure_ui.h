@@ -64,6 +64,7 @@ private:
 
     std::unique_ptr<Ui::ConfigureUi> ui;
 
+    QComboBox* ui_positioning_combo;
     bool isCompact = false;
 
     Settings::AspectRatio ratio;
