@@ -24,6 +24,7 @@
 #include <QVariant>
 #include <QListWidget>
 #include <QMessageBox>
+#include <QResizeEvent>
 
 #include "common/common_types.h"
 #include "common/fs/path_util.h"
@@ -34,6 +35,9 @@
 #include "core/frontend/framebuffer_layout.h"
 #include "ui_configure_ui.h"
 #include "citron/uisettings.h"
+
+// If the window width is less than this value, the layout will switch to a single column.
+constexpr int COMPACT_LAYOUT_BREAKPOINT = 950;
 
 namespace {
     constexpr std::array default_game_icon_sizes{
@@ -117,16 +121,12 @@ resolution_setting{Settings::values.resolution_setup.GetValue()}, system{system_
                                     QString::fromUtf8(theme.second));
     }
 
-    ui_positioning_combo = new QComboBox(this);
-    ui_positioning_combo->addItem(tr("Vertical"), QStringLiteral("Vertical"));
-    ui_positioning_combo->addItem(tr("Horizontal"), QStringLiteral("Horizontal"));
-    if (auto* layout = qobject_cast<QFormLayout*>(ui->theme_combobox->parentWidget()->layout())) {
-        layout->addRow(tr("UI Positioning"), ui_positioning_combo);
-    } else if (auto* group_layout = qobject_cast<QVBoxLayout*>(ui->theme_combobox->parentWidget()->layout())) {
-        group_layout->addWidget(ui_positioning_combo);
-    }
+    // The "UI Positioning" widget is now defined in the .ui file.
+    // We just need to populate it with options here.
+    ui->ui_positioning_combo->addItem(tr("Vertical"), QStringLiteral("Vertical"));
+    ui->ui_positioning_combo->addItem(tr("Horizontal"), QStringLiteral("Horizontal"));
 
-    connect(ui_positioning_combo, &QComboBox::currentTextChanged, this, [this](const QString& text){
+    connect(ui->ui_positioning_combo, &QComboBox::currentTextChanged, this, [this](const QString& text){
         emit UIPositioningChanged(text);
     });
 
@@ -182,6 +182,11 @@ resolution_setting{Settings::values.resolution_setup.GetValue()}, system{system_
     connect(ui->screenshot_height, &QComboBox::currentTextChanged, [this]() { UpdateWidthText(); });
 
     UpdateWidthText();
+
+    // Check initial size to apply the correct layout from the start.
+    if (width() < COMPACT_LAYOUT_BREAKPOINT) {
+        switchToCompactLayout();
+    }
 }
 
 ConfigureUi::~ConfigureUi() = default;
@@ -189,7 +194,7 @@ ConfigureUi::~ConfigureUi() = default;
 void ConfigureUi::ApplyConfiguration() {
     UISettings::values.theme =
     ui->theme_combobox->itemData(ui->theme_combobox->currentIndex()).toString().toStdString();
-    UISettings::values.ui_positioning = ui_positioning_combo->currentData().toString().toStdString();
+    UISettings::values.ui_positioning = ui->ui_positioning_combo->currentData().toString().toStdString();
     UISettings::values.enable_rainbow_mode = ui->rainbowModeCheckBox->isChecked();
     UISettings::values.show_add_ons = ui->show_add_ons->isChecked();
     UISettings::values.show_compat = ui->show_compat->isChecked();
@@ -212,6 +217,34 @@ void ConfigureUi::ApplyConfiguration() {
     system.ApplySettings();
 }
 
+void ConfigureUi::resizeEvent(QResizeEvent* event) {
+    QWidget::resizeEvent(event);
+
+    const int currentWidth = event->size().width();
+
+    if (currentWidth < COMPACT_LAYOUT_BREAKPOINT && !isCompact) {
+        switchToCompactLayout();
+    } else if (currentWidth >= COMPACT_LAYOUT_BREAKPOINT && isCompact) {
+        switchToWideLayout();
+    }
+}
+
+void ConfigureUi::switchToCompactLayout() {
+    if (isCompact) return; // Already compact
+    // Move the right column layout to be below the left column layout
+    ui->mainHorizontalLayout->removeItem(ui->rightColumnLayout);
+    ui->leftColumnLayout->addLayout(ui->rightColumnLayout);
+    isCompact = true;
+}
+
+void ConfigureUi::switchToWideLayout() {
+    if (!isCompact) return; // Already wide
+    // Move the right column layout from the left column back to the main horizontal layout
+    ui->leftColumnLayout->removeItem(ui->rightColumnLayout);
+    ui->mainHorizontalLayout->addLayout(ui->rightColumnLayout);
+    isCompact = false;
+}
+
 void ConfigureUi::RequestGameListUpdate() {
     UISettings::values.is_game_list_reload_pending.exchange(true);
 }
@@ -221,7 +254,7 @@ void ConfigureUi::SetConfiguration() {
         ui->theme_combobox->findData(QString::fromStdString(UISettings::values.theme)));
     ui->language_combobox->setCurrentIndex(ui->language_combobox->findData(
         QString::fromStdString(UISettings::values.language.GetValue())));
-    ui_positioning_combo->setCurrentIndex(ui_positioning_combo->findData(
+    ui->ui_positioning_combo->setCurrentIndex(ui->ui_positioning_combo->findData(
         QString::fromStdString(UISettings::values.ui_positioning.GetValue())));
     ui->rainbowModeCheckBox->setChecked(UISettings::values.enable_rainbow_mode.GetValue());
     ui->show_add_ons->setChecked(UISettings::values.show_add_ons.GetValue());
@@ -270,10 +303,10 @@ void ConfigureUi::changeEvent(QEvent* event) {
 void ConfigureUi::RetranslateUI() {
     ui->retranslateUi(this);
 
-    const int pos_index = ui_positioning_combo->currentIndex();
-    ui_positioning_combo->setItemText(0, tr("Vertical"));
-    ui_positioning_combo->setItemText(1, tr("Horizontal"));
-    ui_positioning_combo->setCurrentIndex(pos_index);
+    const int pos_index = ui->ui_positioning_combo->currentIndex();
+    ui->ui_positioning_combo->setItemText(0, tr("Vertical"));
+    ui->ui_positioning_combo->setItemText(1, tr("Horizontal"));
+    ui->ui_positioning_combo->setCurrentIndex(pos_index);
 
     for (int i = 0; i < ui->game_icon_size_combobox->count(); i++) {
         ui->game_icon_size_combobox->setItemText(i,
@@ -395,3 +428,5 @@ void ConfigureUi::UpdateScreenshotInfo(Settings::AspectRatio ratio_,
     resolution_setting = resolution_setting_;
     UpdateWidthText();
 }
+
+#include "configure_ui.moc"

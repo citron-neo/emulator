@@ -9,6 +9,7 @@
 #include "common/settings_enums.h"
 
 class QComboBox;
+class QResizeEvent;
 
 namespace Core {
     class System;
@@ -35,6 +36,9 @@ signals:
     void themeChanged();
     void UIPositioningChanged(const QString& positioning);
 
+protected:
+    void resizeEvent(QResizeEvent* event) override;
+
 private slots:
     void OnLanguageChanged(int index);
     void OnAccentColorButtonPressed();
@@ -55,9 +59,12 @@ private:
     void UpdateSecondRowComboBox(bool init = false);
 
     void UpdateWidthText();
+    void switchToCompactLayout();
+    void switchToWideLayout();
 
     std::unique_ptr<Ui::ConfigureUi> ui;
-    QComboBox* ui_positioning_combo;
+
+    bool isCompact = false;
 
     Settings::AspectRatio ratio;
     Settings::ResolutionSetup resolution_setting;

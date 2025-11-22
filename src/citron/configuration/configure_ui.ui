@@ -12,7 +12,7 @@
         </property>
         <property name="minimumSize">
             <size>
-                <width>1000</width>
+                <width>700</width>
                 <height>600</height>
             </size>
         </property>
@@ -48,17 +48,20 @@
                     </property>
                     <item>
                         <widget class="QGroupBox" name="general_groupBox">
+                            <property name="sizePolicy">
+                                <sizepolicy hsizetype="MinimumExpanding" vsizetype="Preferred">
+                                    <horstretch>0</horstretch>
+                                    <verstretch>0</verstretch>
+                                </sizepolicy>
+                            </property>
                             <property name="title">
                                 <string>General</string>
                             </property>
-                            <property name="minimumSize">
-                                <size>
-                                    <width>500</width>
-                                    <height>0</height>
-                                </size>
-                            </property>
-                            <layout class="QVBoxLayout" name="generalVerticalLayout">
-                                <property name="spacing">
+                            <layout class="QFormLayout" name="generalFormLayout">
+                                <property name="horizontalSpacing">
+                                    <number>16</number>
+                                </property>
+                                <property name="verticalSpacing">
                                     <number>12</number>
                                 </property>
                                 <property name="leftMargin">
@@ -73,7 +76,7 @@
                                 <property name="bottomMargin">
                                     <number>20</number>
                                 </property>
-                                <item>
+                                <item row="0" column="0" colspan="2">
                                     <widget class="QLabel" name="label_change_language_info">
                                         <property name="text">
                                             <string>Note: Changing language will apply your configuration.</string>
@@ -86,84 +89,49 @@
                                         </property>
                                     </widget>
                                 </item>
-                                <item>
-                                    <layout class="QHBoxLayout" name="languageLayout">
-                                        <property name="spacing">
-                                            <number>16</number>
+                                <item row="1" column="0">
+                                    <widget class="QLabel" name="language_label">
+                                        <property name="text">
+                                            <string>Interface language:</string>
                                         </property>
-                                        <item>
-                                            <widget class="QLabel" name="language_label">
-                                                <property name="text">
-                                                    <string>Interface language:</string>
-                                                </property>
-                                                <property name="minimumSize">
-                                                    <size>
-                                                        <width>140</width>
-                                                        <height>0</height>
-                                                    </size>
-                                                </property>
-                                            </widget>
-                                        </item>
-                                        <item>
-                                            <widget class="QComboBox" name="language_combobox">
-                                                <property name="sizePolicy">
-                                                    <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
-                                                        <horstretch>0</horstretch>
-                                                        <verstretch>0</verstretch>
-                                                    </sizepolicy>
-                                                </property>
-                                            </widget>
-                                        </item>
-                                    </layout>
+                                    </widget>
                                 </item>
-                                <item>
-                                    <layout class="QHBoxLayout" name="themeLayout">
-                                        <property name="spacing">
-                                            <number>16</number>
+                                <item row="1" column="1">
+                                    <widget class="QComboBox" name="language_combobox">
+                                        <property name="sizePolicy">
+                                            <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+                                                <horstretch>0</horstretch>
+                                                <verstretch>0</verstretch>
+                                            </sizepolicy>
                                         </property>
-                                        <item>
-                                            <widget class="QLabel" name="theme_label">
-                                                <property name="text">
-                                                    <string>Theme:</string>
-                                                </property>
-                                                <property name="minimumSize">
-                                                    <size>
-                                                        <width>140</width>
-                                                        <height>0</height>
-                                                    </size>
-                                                </property>
-                                            </widget>
-                                        </item>
-                                        <item>
-                                            <widget class="QComboBox" name="theme_combobox">
-                                                <property name="sizePolicy">
-                                                    <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
-                                                        <horstretch>0</horstretch>
-                                                        <verstretch>0</verstretch>
-                                                    </sizepolicy>
-                                                </property>
-                                            </widget>
-                                        </item>
-                                    </layout>
+                                    </widget>
                                 </item>
-                                <item>
+                                <item row="2" column="0">
+                                    <widget class="QLabel" name="theme_label">
+                                        <property name="text">
+                                            <string>Theme:</string>
+                                        </property>
+                                    </widget>
+                                </item>
+                                <item row="2" column="1">
+                                    <widget class="QComboBox" name="theme_combobox">
+                                        <property name="sizePolicy">
+                                            <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+                                                <horstretch>0</horstretch>
+                                                <verstretch>0</verstretch>
+                                            </sizepolicy>
+                                        </property>
+                                    </widget>
+                                </item>
+                                <item row="3" column="0">
+                                    <widget class="QLabel" name="accentColorLabel">
+                                        <property name="text">
+                                            <string>Accent Color:</string>
+                                        </property>
+                                    </widget>
+                                </item>
+                                <item row="3" column="1">
                                     <layout class="QHBoxLayout" name="accentColorLayout">
-                                        <property name="spacing">
-                                            <number>16</number>
-                                        </property>
-                                        <item>
-                                            <widget class="QLabel" name="accentColorLabel">
-                                                <property name="text">
-                                                    <string>Accent Color:</string>
-                                                </property>
-                                                <property name="minimumSize">
-                                                    <size>
-                                                        <width>140</width>
-                                                        <height>0</height>
-                                                    </size>
-                                                </property>
-                                            </widget>
-                                        </item>
                                         <item>
                                             <widget class="QPushButton" name="accentColorButton">
                                                 <property name="text">
@@ -178,24 +146,57 @@
                                                 </property>
                                             </widget>
                                         </item>
+                                        <item>
+                                            <spacer name="horizontalSpacer">
+                                                <property name="orientation">
+                                                    <enum>Qt::Horizontal</enum>
+                                                </property>
+                                                <property name="sizeHint" stdset="0">
+                                                    <size>
+                                                        <width>40</width>
+                                                        <height>20</height>
+                                                    </size>
+                                                </property>
+                                            </spacer>
+                                        </item>
                                     </layout>
+                                </item>
+                                <item row="4" column="0">
+                                    <widget class="QLabel" name="label">
+                                        <property name="text">
+                                            <string>UI Positioning</string>
+                                        </property>
+                                    </widget>
+                                </item>
+                                <item row="4" column="1">
+                                    <widget class="QComboBox" name="ui_positioning_combo">
+                                        <property name="sizePolicy">
+                                            <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+                                                <horstretch>0</horstretch>
+                                                <verstretch>0</verstretch>
+                                            </sizepolicy>
+                                        </property>
+                                    </widget>
                                 </item>
                             </layout>
                         </widget>
                     </item>
                     <item>
                         <widget class="QGroupBox" name="GameListGroupBox">
+                            <property name="sizePolicy">
+                                <sizepolicy hsizetype="MinimumExpanding" vsizetype="Preferred">
+                                    <horstretch>0</horstretch>
+                                    <verstretch>0</verstretch>
+                                </sizepolicy>
+                            </property>
                             <property name="title">
                                 <string>Game List</string>
                             </property>
-                            <property name="minimumSize">
-                                <size>
-                                    <width>500</width>
-                                    <height>0</height>
-                                </size>
-                            </property>
-                            <layout class="QVBoxLayout" name="gameListVerticalLayout">
-                                <property name="spacing">
+                            <layout class="QFormLayout" name="gameListFormLayout">
+                                <property name="horizontalSpacing">
+                                    <number>16</number>
+                                </property>
+                                <property name="verticalSpacing">
                                     <number>12</number>
                                 </property>
                                 <property name="leftMargin">
@@ -210,190 +211,108 @@
                                 <property name="bottomMargin">
                                     <number>20</number>
                                 </property>
-                                <item>
+                                <item row="0" column="0" colspan="2">
                                     <widget class="QCheckBox" name="show_compat">
                                         <property name="text">
                                             <string>Show Compatibility List</string>
                                         </property>
-                                        <property name="minimumSize">
-                                            <size>
-                                                <width>0</width>
-                                                <height>32</height>
-                                            </size>
-                                        </property>
                                     </widget>
                                 </item>
-                                <item>
+                                <item row="1" column="0" colspan="2">
                                     <widget class="QCheckBox" name="show_add_ons">
                                         <property name="text">
                                             <string>Show Add-Ons Column</string>
                                         </property>
-                                        <property name="minimumSize">
-                                            <size>
-                                                <width>0</width>
-                                                <height>32</height>
-                                            </size>
-                                        </property>
                                     </widget>
                                 </item>
-                                <item>
+                                <item row="2" column="0" colspan="2">
                                     <widget class="QCheckBox" name="show_size">
                                         <property name="text">
                                             <string>Show Size Column</string>
                                         </property>
-                                        <property name="minimumSize">
-                                            <size>
-                                                <width>0</width>
-                                                <height>32</height>
-                                            </size>
-                                        </property>
                                     </widget>
                                 </item>
-                                <item>
+                                <item row="3" column="0" colspan="2">
                                     <widget class="QCheckBox" name="show_types">
                                         <property name="text">
                                             <string>Show File Types Column</string>
                                         </property>
-                                        <property name="minimumSize">
-                                            <size>
-                                                <width>0</width>
-                                                <height>32</height>
-                                            </size>
-                                        </property>
                                     </widget>
                                 </item>
-                                <item>
+                                <item row="4" column="0" colspan="2">
                                     <widget class="QCheckBox" name="show_play_time">
                                         <property name="text">
                                             <string>Show Play Time Column</string>
                                         </property>
-                                        <property name="minimumSize">
-                                            <size>
-                                                <width>0</width>
-                                                <height>32</height>
-                                            </size>
+                                    </widget>
+                                </item>
+                                <item row="5" column="0">
+                                    <widget class="QLabel" name="game_icon_size_label">
+                                        <property name="text">
+                                            <string>Game Icon Size:</string>
                                         </property>
                                     </widget>
                                 </item>
-                                <item>
-                                    <layout class="QHBoxLayout" name="game_icon_size_layout">
-                                        <property name="spacing">
-                                            <number>16</number>
+                                <item row="5" column="1">
+                                    <widget class="QComboBox" name="game_icon_size_combobox">
+                                        <property name="sizePolicy">
+                                            <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+                                                <horstretch>0</horstretch>
+                                                <verstretch>0</verstretch>
+                                            </sizepolicy>
                                         </property>
-                                        <item>
-                                            <widget class="QLabel" name="game_icon_size_label">
-                                                <property name="text">
-                                                    <string>Game Icon Size:</string>
-                                                </property>
-                                                <property name="minimumSize">
-                                                    <size>
-                                                        <width>140</width>
-                                                        <height>0</height>
-                                                    </size>
-                                                </property>
-                                            </widget>
-                                        </item>
-                                        <item>
-                                            <widget class="QComboBox" name="game_icon_size_combobox">
-                                                <property name="sizePolicy">
-                                                    <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
-                                                        <horstretch>0</horstretch>
-                                                        <verstretch>0</verstretch>
-                                                    </sizepolicy>
-                                                </property>
-                                            </widget>
-                                        </item>
-                                    </layout>
+                                    </widget>
                                 </item>
-                                <item>
-                                    <layout class="QHBoxLayout" name="folder_icon_size_layout">
-                                        <property name="spacing">
-                                            <number>16</number>
+                                <item row="6" column="0">
+                                    <widget class="QLabel" name="folder_icon_size_label">
+                                        <property name="text">
+                                            <string>Folder Icon Size:</string>
                                         </property>
-                                        <item>
-                                            <widget class="QLabel" name="folder_icon_size_label">
-                                                <property name="text">
-                                                    <string>Folder Icon Size:</string>
-                                                </property>
-                                                <property name="minimumSize">
-                                                    <size>
-                                                        <width>140</width>
-                                                        <height>0</height>
-                                                    </size>
-                                                </property>
-                                            </widget>
-                                        </item>
-                                        <item>
-                                            <widget class="QComboBox" name="folder_icon_size_combobox">
-                                                <property name="sizePolicy">
-                                                    <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
-                                                        <horstretch>0</horstretch>
-                                                        <verstretch>0</verstretch>
-                                                    </sizepolicy>
-                                                </property>
-                                            </widget>
-                                        </item>
-                                    </layout>
+                                    </widget>
                                 </item>
-                                <item>
-                                    <layout class="QHBoxLayout" name="row_1_layout">
-                                        <property name="spacing">
-                                            <number>16</number>
+                                <item row="6" column="1">
+                                    <widget class="QComboBox" name="folder_icon_size_combobox">
+                                        <property name="sizePolicy">
+                                            <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+                                                <horstretch>0</horstretch>
+                                                <verstretch>0</verstretch>
+                                            </sizepolicy>
                                         </property>
-                                        <item>
-                                            <widget class="QLabel" name="row_1_label">
-                                                <property name="text">
-                                                    <string>Row 1 Text:</string>
-                                                </property>
-                                                <property name="minimumSize">
-                                                    <size>
-                                                        <width>140</width>
-                                                        <height>0</height>
-                                                    </size>
-                                                </property>
-                                            </widget>
-                                        </item>
-                                        <item>
-                                            <widget class="QComboBox" name="row_1_text_combobox">
-                                                <property name="sizePolicy">
-                                                    <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
-                                                        <horstretch>0</horstretch>
-                                                        <verstretch>0</verstretch>
-                                                    </sizepolicy>
-                                                </property>
-                                            </widget>
-                                        </item>
-                                    </layout>
+                                    </widget>
                                 </item>
-                                <item>
-                                    <layout class="QHBoxLayout" name="row_2_layout">
-                                        <property name="spacing">
-                                            <number>16</number>
+                                <item row="7" column="0">
+                                    <widget class="QLabel" name="row_1_label">
+                                        <property name="text">
+                                            <string>Row 1 Text:</string>
                                         </property>
-                                        <item>
-                                            <widget class="QLabel" name="row_2_label">
-                                                <property name="text">
-                                                    <string>Row 2 Text:</string>
-                                                </property>
-                                                <property name="minimumSize">
-                                                    <size>
-                                                        <width>140</width>
-                                                        <height>0</height>
-                                                    </size>
-                                                </property>
-                                            </widget>
-                                        </item>
-                                        <item>
-                                            <widget class="QComboBox" name="row_2_text_combobox">
-                                                <property name="sizePolicy">
-                                                    <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
-                                                        <horstretch>0</horstretch>
-                                                        <verstretch>0</verstretch>
-                                                    </sizepolicy>
-                                                </property>
-                                            </widget>
-                                        </item>
-                                    </layout>
+                                    </widget>
+                                </item>
+                                <item row="7" column="1">
+                                    <widget class="QComboBox" name="row_1_text_combobox">
+                                        <property name="sizePolicy">
+                                            <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+                                                <horstretch>0</horstretch>
+                                                <verstretch>0</verstretch>
+                                            </sizepolicy>
+                                        </property>
+                                    </widget>
+                                </item>
+                                <item row="8" column="0">
+                                    <widget class="QLabel" name="row_2_label">
+                                        <property name="text">
+                                            <string>Row 2 Text:</string>
+                                        </property>
+                                    </widget>
+                                </item>
+                                <item row="8" column="1">
+                                    <widget class="QComboBox" name="row_2_text_combobox">
+                                        <property name="sizePolicy">
+                                            <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+                                                <horstretch>0</horstretch>
+                                                <verstretch>0</verstretch>
+                                            </sizepolicy>
+                                        </property>
+                                    </widget>
                                 </item>
                             </layout>
                         </widget>
@@ -420,18 +339,21 @@
                     </property>
                     <item>
                         <widget class="QGroupBox" name="screenshots_GroupBox">
+                            <property name="sizePolicy">
+                                <sizepolicy hsizetype="MinimumExpanding" vsizetype="Preferred">
+                                    <horstretch>0</horstretch>
+                                    <verstretch>0</verstretch>
+                                </sizepolicy>
+                            </property>
                             <property name="title">
                                 <string>Screenshots</string>
                             </property>
-                            <property name="minimumSize">
-                                <size>
-                                    <width>500</width>
-                                    <height>0</height>
-                                </size>
-                            </property>
-                            <layout class="QVBoxLayout" name="screenshotsVerticalLayout">
-                                <property name="spacing">
+                            <layout class="QFormLayout" name="screenshotsFormLayout">
+                                <property name="horizontalSpacing">
                                     <number>16</number>
+                                </property>
+                                <property name="verticalSpacing">
+                                    <number>12</number>
                                 </property>
                                 <property name="leftMargin">
                                     <number>20</number>
@@ -445,37 +367,22 @@
                                 <property name="bottomMargin">
                                     <number>20</number>
                                 </property>
-                                <item>
+                                <item row="0" column="0" colspan="2">
                                     <widget class="QCheckBox" name="enable_screenshot_save_as">
                                         <property name="text">
                                             <string>Ask Where To Save Screenshots (Windows Only)</string>
                                         </property>
-                                        <property name="minimumSize">
-                                            <size>
-                                                <width>0</width>
-                                                <height>32</height>
-                                            </size>
+                                    </widget>
+                                </item>
+                                <item row="1" column="0">
+                                    <widget class="QLabel" name="screenshot_path_label">
+                                        <property name="text">
+                                            <string>Screenshots Path:</string>
                                         </property>
                                     </widget>
                                 </item>
-                                <item>
+                                <item row="1" column="1">
                                     <layout class="QHBoxLayout" name="screenshotPathLayout">
-                                        <property name="spacing">
-                                            <number>12</number>
-                                        </property>
-                                        <item>
-                                            <widget class="QLabel" name="screenshot_path_label">
-                                                <property name="text">
-                                                    <string>Screenshots Path:</string>
-                                                </property>
-                                                <property name="minimumSize">
-                                                    <size>
-                                                        <width>140</width>
-                                                        <height>0</height>
-                                                    </size>
-                                                </property>
-                                            </widget>
-                                        </item>
                                         <item>
                                             <widget class="QLineEdit" name="screenshot_path_edit">
                                                 <property name="sizePolicy">
@@ -495,24 +402,15 @@
                                         </item>
                                     </layout>
                                 </item>
-                                <item>
-                                    <layout class="QHBoxLayout" name="resolutionLayout">
-                                        <property name="spacing">
-                                            <number>12</number>
+                                <item row="2" column="0">
+                                    <widget class="QLabel" name="resolution_label">
+                                        <property name="text">
+                                            <string>Resolution:</string>
                                         </property>
-                                        <item>
-                                            <widget class="QLabel" name="resolution_label">
-                                                <property name="text">
-                                                    <string>Resolution:</string>
-                                                </property>
-                                                <property name="minimumSize">
-                                                    <size>
-                                                        <width>80</width>
-                                                        <height>0</height>
-                                                    </size>
-                                                </property>
-                                            </widget>
-                                        </item>
+                                    </widget>
+                                </item>
+                                <item row="2" column="1">
+                                    <layout class="QHBoxLayout" name="resolutionLayout">
                                         <item>
                                             <widget class="QLabel" name="screenshot_width">
                                                 <property name="text">
@@ -521,24 +419,21 @@
                                                 <property name="alignment">
                                                     <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
                                                 </property>
-                                                <property name="minimumSize">
-                                                    <size>
-                                                        <width>120</width>
-                                                        <height>0</height>
-                                                    </size>
+                                                <property name="wordWrap">
+                                                    <bool>true</bool>
                                                 </property>
                                             </widget>
                                         </item>
                                         <item>
                                             <widget class="QComboBox" name="screenshot_height">
-                                                <property name="editable">
-                                                    <bool>true</bool>
-                                                </property>
                                                 <property name="sizePolicy">
-                                                    <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+                                                    <sizepolicy hsizetype="MinimumExpanding" vsizetype="Fixed">
                                                         <horstretch>0</horstretch>
                                                         <verstretch>0</verstretch>
                                                     </sizepolicy>
+                                                </property>
+                                                <property name="editable">
+                                                    <bool>true</bool>
                                                 </property>
                                             </widget>
                                         </item>
