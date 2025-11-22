@@ -93,9 +93,9 @@ UpdaterDialog::UpdaterDialog(QWidget* parent)
 
 UpdaterDialog::~UpdaterDialog() = default;
 
-void UpdaterDialog::CheckForUpdates(const std::string& update_url) {
+void UpdaterDialog::CheckForUpdates() {
     ShowCheckingState();
-    updater_service->CheckForUpdates(update_url);
+    updater_service->CheckForUpdates();
 }
 
 void UpdaterDialog::OnUpdateCheckCompleted(bool has_update, const Updater::UpdateInfo& update_info) {

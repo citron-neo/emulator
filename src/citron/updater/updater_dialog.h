@@ -27,7 +27,7 @@ namespace Updater {
         explicit UpdaterDialog(QWidget* parent = nullptr);
         ~UpdaterDialog() override;
 
-        void CheckForUpdates(const std::string& update_url);
+        void CheckForUpdates();
 
     private slots:
         void OnUpdateCheckCompleted(bool has_update, const Updater::UpdateInfo& update_info);

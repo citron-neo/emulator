@@ -23,6 +23,7 @@
 #include <QSslSocket>
 #include <QCryptographicHash>
 #include <QProcess>
+#include <QSettings>
 
 #ifdef CITRON_ENABLE_LIBARCHIVE
 #include <archive.h>
@@ -39,7 +40,9 @@
 
 namespace Updater {
 
-// Helper function to extract a commit hash from a string using std::regex.
+const std::string STABLE_UPDATE_URL = "https://git.citron-emu.org/api/v1/repos/Citron/Emulator/releases";
+const std::string NIGHTLY_UPDATE_URL = "https://api.github.com/repos/Zephyron-Dev/Citron-CI/releases";
+
 std::string ExtractCommitHash(const std::string& version_string) {
     std::regex re("\\b([0-9a-fA-F]{7,40})\\b");
     std::smatch match;
@@ -116,15 +119,15 @@ void UpdaterService::InitializeSSL() {
     LOG_INFO(Frontend, "SSL initialized successfully");
 }
 
-void UpdaterService::CheckForUpdates(const std::string& update_url) {
+void UpdaterService::CheckForUpdates() {
     if (update_in_progress.load()) {
         emit UpdateError(QStringLiteral("Update operation already in progress"));
         return;
     }
-    if (update_url.empty()) {
-        emit UpdateError(QStringLiteral("Update URL not configured"));
-        return;
-    }
+    QSettings settings;
+    QString channel = settings.value(QStringLiteral("updater/channel"), QStringLiteral("Stable")).toString();
+    std::string update_url = (channel == QStringLiteral("Nightly")) ? NIGHTLY_UPDATE_URL : STABLE_UPDATE_URL;
+    LOG_INFO(Frontend, "Selected update channel: {}", channel.toStdString());
     LOG_INFO(Frontend, "Checking for updates from: {}", update_url);
     QUrl url{QString::fromStdString(update_url)};
     QNetworkRequest request{url};
@@ -132,10 +135,10 @@ void UpdaterService::CheckForUpdates(const std::string& update_url) {
     request.setRawHeader("Accept", QByteArrayLiteral("application/json"));
     request.setAttribute(QNetworkRequest::RedirectPolicyAttribute, QNetworkRequest::NoLessSafeRedirectPolicy);
     current_reply = network_manager->get(request);
-    connect(current_reply, &QNetworkReply::finished, this, [this]() {
+    connect(current_reply, &QNetworkReply::finished, this, [this, channel]() {
         if (!current_reply) return;
         if (current_reply->error() == QNetworkReply::NoError) {
-            ParseUpdateResponse(current_reply->readAll());
+            ParseUpdateResponse(current_reply->readAll(), channel);
         } else {
             emit UpdateError(QStringLiteral("Update check failed: %1").arg(current_reply->errorString()));
         }
@@ -196,26 +199,53 @@ void UpdaterService::CancelUpdate() {
 }
 
 std::string UpdaterService::GetCurrentVersion() const {
-    std::string build_version = Common::g_build_version;
-    if (!build_version.empty()) {
-        std::string hash = ExtractCommitHash(build_version);
-        if (!hash.empty()) {
-            return hash;
+    QSettings settings;
+    QString channel = settings.value(QStringLiteral("updater/channel"), QStringLiteral("Stable")).toString();
+
+    // If the user's setting is Nightly, we must ignore version.txt and only use the commit hash.
+    if (channel == QStringLiteral("Nightly")) {
+        std::string build_version = Common::g_build_version;
+        if (!build_version.empty()) {
+            std::string hash = ExtractCommitHash(build_version);
+            if (!hash.empty()) {
+                return hash;
+            }
         }
+        return ""; // Fallback if no hash is found
     }
 
-    std::filesystem::path version_file = app_directory / CITRON_VERSION_FILE;
+    // Otherwise (channel is Stable), we prioritize version.txt.
+    std::filesystem::path search_path;
+#ifdef __linux__
+    const char* appimage_path_env = qgetenv("APPIMAGE").constData();
+    if (appimage_path_env && strlen(appimage_path_env) > 0) {
+        search_path = std::filesystem::path(appimage_path_env).parent_path();
+    } else {
+        search_path = app_directory;
+    }
+#else
+    search_path = app_directory;
+#endif
+
+    std::filesystem::path version_file = search_path / CITRON_VERSION_FILE;
     if (std::filesystem::exists(version_file)) {
         std::ifstream file(version_file);
         if (file.is_open()) {
             std::string version_from_file;
             std::getline(file, version_from_file);
             if (!version_from_file.empty()) {
-                 std::string hash = ExtractCommitHash(version_from_file);
-                 if (!hash.empty()){
-                    return hash;
-                 }
+                return version_from_file;
             }
+        }
+    }
+
+    // Fallback for Stable channel: If version.txt is missing, use the commit hash.
+    // This allows a nightly build to correctly check for a stable update.
+    std::string build_version = Common::g_build_version;
+    if (!build_version.empty()) {
+        std::string hash = ExtractCommitHash(build_version);
+        if (!hash.empty()) {
+            return hash;
         }
     }
 
@@ -227,17 +257,19 @@ bool UpdaterService::IsUpdateInProgress() const {
 }
 
 void UpdaterService::OnDownloadFinished() {
-    if (cancel_requested.load()) {
+    if (cancel_requested.load() || !current_reply) {
         update_in_progress.store(false);
         return;
     }
-    if (!current_reply || current_reply->error() != QNetworkReply::NoError) {
-        if(current_reply) emit UpdateError(QStringLiteral("Download failed: %1").arg(current_reply->errorString()));
+    if (current_reply->error() != QNetworkReply::NoError) {
+        emit UpdateError(QStringLiteral("Download failed: %1").arg(current_reply->errorString()));
         update_in_progress.store(false);
         return;
     }
 
     QByteArray downloaded_data = current_reply->readAll();
+    QSettings settings;
+    QString channel = settings.value(QStringLiteral("updater/channel"), QStringLiteral("Stable")).toString();
 
     // This logic has been simplified for clarity. The checksum part can be re-added later.
 
@@ -311,14 +343,27 @@ void UpdaterService::OnDownloadFinished() {
         return;
     }
 
-    // Replace the old AppImage with the new one.
     std::error_code ec;
     std::filesystem::rename(new_appimage_path, original_appimage_path, ec);
     if (ec) {
         LOG_ERROR(Frontend, "Failed to replace old AppImage: {}", ec.message());
-        emit UpdateError(QStringLiteral("Failed to replace old AppImage. Please close the application and replace it manually."));
+        emit UpdateError(QStringLiteral("Failed to replace old AppImage."));
         update_in_progress.store(false);
         return;
+    }
+
+    std::filesystem::path version_file_path = original_appimage_path.parent_path() / CITRON_VERSION_FILE;
+    if (channel == QStringLiteral("Stable")) {
+        LOG_INFO(Frontend, "Writing stable version marker: {}", current_update_info.version);
+        std::ofstream version_file(version_file_path);
+        if (version_file.is_open()) {
+            version_file << current_update_info.version;
+        }
+    } else {
+        LOG_INFO(Frontend, "Nightly update, removing stable version marker if it exists.");
+        if (std::filesystem::exists(version_file_path)) {
+            std::filesystem::remove(version_file_path);
+        }
     }
 
     LOG_INFO(Frontend, "AppImage updated successfully.");
@@ -329,8 +374,8 @@ void UpdaterService::OnDownloadFinished() {
 
 void UpdaterService::OnDownloadProgress(qint64 bytes_received, qint64 bytes_total) {
     if (bytes_total > 0) {
-        int percentage = static_cast<int>((bytes_received * 100) / bytes_total);
-        emit UpdateDownloadProgress(percentage, bytes_received, bytes_total);
+        emit UpdateDownloadProgress(static_cast<int>((bytes_received * 100) / bytes_total),
+                                    bytes_received, bytes_total);
     }
 }
 
@@ -341,63 +386,51 @@ void UpdaterService::OnDownloadError(QNetworkReply::NetworkError) {
     update_in_progress.store(false);
 }
 
-void UpdaterService::ParseUpdateResponse(const QByteArray& response) {
+void UpdaterService::ParseUpdateResponse(const QByteArray& response, const QString& channel) {
     QJsonParseError error;
     QJsonDocument doc = QJsonDocument::fromJson(response, &error);
-    if (error.error != QJsonParseError::NoError) {
-        emit UpdateError(QStringLiteral("Failed to parse JSON: %1").arg(error.errorString()));
+    if (error.error != QJsonParseError::NoError || !doc.isArray()) {
+        emit UpdateError(QStringLiteral("Failed to parse update response."));
         return;
     }
-    if (!doc.isArray()) {
-        emit UpdateError(QStringLiteral("JSON response is not an array."));
-        return;
-    }
-
-    QString platform_identifier;
-#if defined(_WIN32)
-    platform_identifier = QStringLiteral("windows");
-#elif defined(__linux__)
-    platform_identifier = QStringLiteral("linux");
-#endif
 
     for (const QJsonValue& release_value : doc.array()) {
         QJsonObject release_obj = release_value.toObject();
-        QString release_name = release_obj.value(QStringLiteral("name")).toString();
+        std::string latest_version;
+        if (channel == QStringLiteral("Stable")) {
+            latest_version = release_obj.value(QStringLiteral("tag_name")).toString().toStdString();
+        } else {
+            latest_version = ExtractCommitHash(release_obj.value(QStringLiteral("name")).toString().toStdString());
+        }
 
-        if (release_name.toLower().contains(platform_identifier)) {
-            std::string latest_hash = ExtractCommitHash(release_name.toStdString());
+        if (latest_version.empty()) continue;
 
-            if (latest_hash.empty()) {
-                continue;
-            }
+        UpdateInfo update_info;
+        update_info.version = latest_version;
+        update_info.changelog = release_obj.value(QStringLiteral("body")).toString().toStdString();
+        update_info.release_date = release_obj.value(QStringLiteral("published_at")).toString().toStdString();
 
-            UpdateInfo update_info;
-            update_info.version = latest_hash;
-            update_info.changelog = release_obj.value(QStringLiteral("body")).toString().toStdString();
-            update_info.release_date = release_obj.value(QStringLiteral("published_at")).toString().toStdString();
-
-            QJsonArray assets = release_obj.value(QStringLiteral("assets")).toArray();
-            for (const QJsonValue& asset_value : assets) {
-                QJsonObject asset_obj = asset_value.toObject();
-                QString asset_name = asset_obj.value(QStringLiteral("name")).toString();
-#if defined(_WIN32)
-                if (asset_name.endsWith(QStringLiteral(".zip"))) {
-#elif defined(__linux__)
-                if (asset_name.endsWith(QStringLiteral(".AppImage"))) {
+        QJsonArray assets = release_obj.value(QStringLiteral("assets")).toArray();
+        for (const QJsonValue& asset_value : assets) {
+            QJsonObject asset_obj = asset_value.toObject();
+            QString asset_name = asset_obj.value(QStringLiteral("name")).toString();
+#if defined(__linux__)
+            if (asset_name.endsWith(QStringLiteral(".AppImage"))) {
+#else
+            if (asset_name.endsWith(QStringLiteral(".zip"))) {
 #endif
-                    DownloadOption option;
-                    option.name = asset_name.toStdString();
-                    option.url = asset_obj.value(QStringLiteral("browser_download_url")).toString().toStdString();
-                    update_info.download_options.push_back(option);
-                }
+                DownloadOption option;
+                option.name = asset_name.toStdString();
+                option.url = asset_obj.value(QStringLiteral("browser_download_url")).toString().toStdString();
+                update_info.download_options.push_back(option);
             }
+        }
 
-            if (!update_info.download_options.empty()) {
-                update_info.is_newer_version = CompareVersions(GetCurrentVersion(), update_info.version);
-                current_update_info = update_info;
-                emit UpdateCheckCompleted(update_info.is_newer_version, update_info);
-                return;
-            }
+        if (!update_info.download_options.empty()) {
+            update_info.is_newer_version = CompareVersions(GetCurrentVersion(), update_info.version);
+            current_update_info = update_info;
+            emit UpdateCheckCompleted(update_info.is_newer_version, update_info);
+            return;
         }
     }
     emit UpdateError(QStringLiteral("Could not find a recent update for your platform."));

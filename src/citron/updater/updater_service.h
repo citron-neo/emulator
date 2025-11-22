@@ -44,7 +44,7 @@ public:
     explicit UpdaterService(QObject* parent = nullptr);
     ~UpdaterService() override;
 
-    void CheckForUpdates(const std::string& update_url);
+    void CheckForUpdates();
     void DownloadAndInstallUpdate(const std::string& download_url);
     void CancelUpdate();
     std::string GetCurrentVersion() const;
@@ -72,7 +72,7 @@ private slots:
 private:
     void InitializeSSL();
     void ConfigureSSLForRequest(QNetworkRequest& request);
-    void ParseUpdateResponse(const QByteArray& response);
+    void ParseUpdateResponse(const QByteArray& response, const QString& channel);
     bool CompareVersions(const std::string& current, const std::string& latest) const;
 
     #ifdef _WIN32

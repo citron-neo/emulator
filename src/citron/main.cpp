@@ -6187,12 +6187,10 @@ int main(int argc, char* argv[]) {
 
 void GMainWindow::OnCheckForUpdates() {
     #ifdef CITRON_USE_AUTO_UPDATER
-    std::string update_url = "https://api.github.com/repos/Zephyron-Dev/Citron-CI/releases";
-
     auto* updater_dialog = new Updater::UpdaterDialog(this);
     updater_dialog->setAttribute(Qt::WA_DeleteOnClose);
     updater_dialog->show();
-    updater_dialog->CheckForUpdates(update_url);
+    updater_dialog->CheckForUpdates();
     #else
     QMessageBox::information(this, tr("Updates"),
                              tr("The automatic updater is not enabled in this build."));
@@ -6207,8 +6205,6 @@ void GMainWindow::CheckForUpdatesAutomatically() {
     }
 
     LOG_INFO(Frontend, "Checking for updates automatically...");
-
-    std::string update_url = "https://api.github.com/repos/Zephyron-Dev/Citron-CI/releases";
 
     auto* updater_service = new Updater::UpdaterService(this);
 
@@ -6249,7 +6245,7 @@ void GMainWindow::CheckForUpdatesAutomatically() {
                     updater_service->deleteLater();
             });
 
-    updater_service->CheckForUpdates(update_url);
+    updater_service->CheckForUpdates();
     #endif
 }
 
