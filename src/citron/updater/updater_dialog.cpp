@@ -48,6 +48,9 @@ UpdaterDialog::UpdaterDialog(QWidget* parent)
 
     ui->setupUi(this);
 
+    // Force the dialog to be non-modal, overriding any setting from the .ui file.
+    setModal(false);
+
     // Disable the default link handling behavior of the QTextBrowser.
     ui->changelogText->setOpenLinks(false);
 
