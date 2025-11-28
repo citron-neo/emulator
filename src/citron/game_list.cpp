@@ -13,8 +13,13 @@
 #include <QJsonObject>
 #include <QList>
 #include <QMenu>
+#include <QFileDialog>
+#include <QDesktopServices>
+#include <QMessageBox>
+#include <QDirIterator>
 #include <QPainter>
 #include <QPainterPath>
+#include <QProgressDialog>
 #include <QScrollBar>
 #include <QStyle>
 #include <QThreadPool>
@@ -29,6 +34,8 @@
 #include "core/file_sys/patch_manager.h"
 #include "core/file_sys/registered_cache.h"
 #include "citron/compatibility_list.h"
+#include "common/fs/path_util.h"
+#include "core/hle/service/acc/profile_manager.h"
 #include "citron/game_list.h"
 #include "citron/game_list_p.h"
 #include "citron/game_list_worker.h"
@@ -265,27 +272,31 @@ void GameList::FilterGridView(const QString& filter_text) {
         QStandardItem* item = flat_model->item(i);
         if (item) {
             QVariant icon_data = item->data(Qt::DecorationRole);
-            if (icon_data.isValid() && icon_data.type() == QVariant::Pixmap) {
+            if (icon_data.isValid() && icon_data.canConvert<QPixmap>()) {
                 QPixmap pixmap = icon_data.value<QPixmap>();
                 if (!pixmap.isNull()) {
-                    // Always recreate the rounded icon at the exact target size for consistency
+                    #ifdef __linux__
+                    // On Linux, use simple scaling to avoid QPainter bugs
+                    QPixmap scaled = pixmap.scaled(icon_size, icon_size, Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
+                    item->setData(scaled, Qt::DecorationRole);
+                    #else
+                    // On other platforms, use the QPainter method for rounded corners
                     QPixmap rounded(icon_size, icon_size);
                     rounded.fill(Qt::transparent);
 
                     QPainter painter(&rounded);
                     painter.setRenderHint(QPainter::Antialiasing);
 
-                    // Create rounded rectangle clipping path
                     const int radius = icon_size / 8;
                     QPainterPath path;
                     path.addRoundedRect(0, 0, icon_size, icon_size, radius, radius);
                     painter.setClipPath(path);
 
-                    // Scale the source pixmap to fill the icon size exactly
                     QPixmap scaled = pixmap.scaled(icon_size, icon_size, Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
                     painter.drawPixmap(0, 0, scaled);
 
                     item->setData(rounded, Qt::DecorationRole);
+                    #endif
                 }
             }
         }
@@ -560,89 +571,74 @@ play_time_manager{play_time_manager_}, system{system_} {
         "}"
     ));
     connect(slider_title_size, &QSlider::valueChanged, [this](int value) {
-        // Update game icon size
-        UISettings::values.game_icon_size.SetValue(static_cast<u32>(value));
-        // Update grid view if it's active - update icons in place without recreating model
-        if (list_view->isVisible()) {
-            QAbstractItemModel* current_model = list_view->model();
-            if (current_model && current_model != item_model) {
-                // Update existing filtered model - just update icon sizes and grid size
-                QStandardItemModel* flat_model = qobject_cast<QStandardItemModel*>(current_model);
-                if (flat_model) {
-                    const u32 icon_size = static_cast<u32>(value);
-                    list_view->setGridSize(QSize(icon_size + 60, icon_size + 80));
-                    // Update icon sizes in the existing model by getting original icons from hierarchical model
-                    // Store current scroll position to restore it
-                    int scroll_position = list_view->verticalScrollBar()->value();
-                    QModelIndex current_index = list_view->currentIndex();
+    // Update title font size in tree view
+    QFont font = tree_view->font();
+    font.setPointSize(qBound(8, value / 8, 24));
+    tree_view->setFont(font);
 
-                    for (int i = 0; i < flat_model->rowCount(); ++i) {
-                        QStandardItem* item = flat_model->item(i);
-                        if (item) {
-                            // Get the original item from hierarchical model to get original icon
-                            u64 program_id = item->data(GameListItemPath::ProgramIdRole).toULongLong();
+#ifndef __linux__
+    // On non-Linux platforms, also update game icon size and repaint grid view
+    UISettings::values.game_icon_size.SetValue(static_cast<u32>(value));
+    if (list_view->isVisible()) {
+        QAbstractItemModel* current_model = list_view->model();
+        if (current_model && current_model != item_model) {
+            QStandardItemModel* flat_model = qobject_cast<QStandardItemModel*>(current_model);
+            if (flat_model) {
+                const u32 icon_size = static_cast<u32>(value);
+                list_view->setGridSize(QSize(icon_size + 60, icon_size + 80));
+                int scroll_position = list_view->verticalScrollBar()->value();
+                QModelIndex current_index = list_view->currentIndex();
 
-                            // Find the original item in hierarchical model
-                            QStandardItem* original_item = nullptr;
-                            for (int folder_idx = 0; folder_idx < item_model->rowCount(); ++folder_idx) {
-                                QStandardItem* folder = item_model->item(folder_idx, 0);
-                                if (!folder) continue;
-                                for (int game_idx = 0; game_idx < folder->rowCount(); ++game_idx) {
-                                    QStandardItem* game = folder->child(game_idx, 0);
-                                    if (game && game->data(GameListItemPath::ProgramIdRole).toULongLong() == program_id) {
-                                        original_item = game;
-                                        break;
-                                    }
+                for (int i = 0; i < flat_model->rowCount(); ++i) {
+                    QStandardItem* item = flat_model->item(i);
+                    if (item) {
+                        u64 program_id = item->data(GameListItemPath::ProgramIdRole).toULongLong();
+                        QStandardItem* original_item = nullptr;
+                        for (int folder_idx = 0; folder_idx < item_model->rowCount(); ++folder_idx) {
+                            QStandardItem* folder = item_model->item(folder_idx, 0);
+                            if (!folder) continue;
+                            for (int game_idx = 0; game_idx < folder->rowCount(); ++game_idx) {
+                                QStandardItem* game = folder->child(game_idx, 0);
+                                if (game && game->data(GameListItemPath::ProgramIdRole).toULongLong() == program_id) {
+                                    original_item = game;
+                                    break;
                                 }
-                                if (original_item) break;
                             }
+                            if (original_item) break;
+                        }
 
-                            if (original_item) {
-                                // Get original icon from hierarchical model
-                                QVariant orig_icon_data = original_item->data(Qt::DecorationRole);
-                                if (orig_icon_data.isValid() && orig_icon_data.type() == QVariant::Pixmap) {
-                                    QPixmap orig_pixmap = orig_icon_data.value<QPixmap>();
-                                    // Create new rounded icon at new size
-                                    // Even though original is rounded, we'll scale it and re-apply rounding
-                                    QPixmap rounded(icon_size, icon_size);
-                                    rounded.fill(Qt::transparent);
-
-                                    QPainter painter(&rounded);
-                                    painter.setRenderHint(QPainter::Antialiasing);
-
-                                    const int radius = icon_size / 8;
-                                    QPainterPath path;
-                                    path.addRoundedRect(0, 0, icon_size, icon_size, radius, radius);
-                                    painter.setClipPath(path);
-
-                                    // Scale original pixmap to new size (even if it's already rounded, scaling will work)
-                                    QPixmap scaled = orig_pixmap.scaled(icon_size, icon_size, Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
-                                    painter.drawPixmap(0, 0, scaled);
-
-                                    item->setData(rounded, Qt::DecorationRole);
-                                }
+                        if (original_item) {
+                            QVariant orig_icon_data = original_item->data(Qt::DecorationRole);
+                            if (orig_icon_data.isValid() && orig_icon_data.type() == QVariant::Pixmap) {
+                                QPixmap orig_pixmap = orig_icon_data.value<QPixmap>();
+                                QPixmap rounded(icon_size, icon_size);
+                                rounded.fill(Qt::transparent);
+                                QPainter painter(&rounded);
+                                painter.setRenderHint(QPainter::Antialiasing);
+                                const int radius = icon_size / 8;
+                                QPainterPath path;
+                                path.addRoundedRect(0, 0, icon_size, icon_size, radius, radius);
+                                painter.setClipPath(path);
+                                QPixmap scaled = orig_pixmap.scaled(icon_size, icon_size, Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
+                                painter.drawPixmap(0, 0, scaled);
+                                item->setData(rounded, Qt::DecorationRole);
                             }
                         }
                     }
-
-                    // Restore scroll position and selection
-                    if (scroll_position >= 0) {
-                        list_view->verticalScrollBar()->setValue(scroll_position);
-                    }
-                    if (current_index.isValid() && current_index.row() < flat_model->rowCount()) {
-                        list_view->setCurrentIndex(flat_model->index(current_index.row(), 0));
-                    }
                 }
-            } else {
-                // No filter active, use PopulateGridView
-                PopulateGridView();
+                if (scroll_position >= 0) {
+                    list_view->verticalScrollBar()->setValue(scroll_position);
+                }
+                if (current_index.isValid() && current_index.row() < flat_model->rowCount()) {
+                    list_view->setCurrentIndex(flat_model->index(current_index.row(), 0));
+                }
             }
+        } else {
+            PopulateGridView();
         }
-        // Update title font size in tree view
-        QFont font = tree_view->font();
-        font.setPointSize(qBound(8, value / 8, 24));
-        tree_view->setFont(font);
-    });
+    }
+#endif
+});
 
     // A-Z sort button - positioned after slider
     btn_sort_az = new QToolButton(toolbar);
@@ -925,7 +921,12 @@ void GameList::AddGamePopup(QMenu& context_menu, u64 program_id, const std::stri
     QAction* start_game_global = context_menu.addAction(tr("Start Game without Custom Configuration"));
     context_menu.addSeparator();
     QAction* open_save_location = context_menu.addAction(tr("Open Save Data Location"));
+    QAction* set_custom_save_path = context_menu.addAction(tr("Set Custom Save Path"));
+    QAction* remove_custom_save_path = context_menu.addAction(tr("Revert to NAND Save Path"));
     QAction* open_mod_location = context_menu.addAction(tr("Open Mod Data Location"));
+    QMenu* open_sdmc_mod_menu = context_menu.addMenu(tr("Open SDMC Mod Data Location"));
+    QAction* open_current_game_sdmc = open_sdmc_mod_menu->addAction(tr("Open Current Game Location"));
+    QAction* open_full_sdmc = open_sdmc_mod_menu->addAction(tr("Open Full Location"));
     QAction* open_transferable_shader_cache = context_menu.addAction(tr("Open Transferable Pipeline Cache"));
     context_menu.addSeparator();
     QMenu* remove_menu = context_menu.addMenu(tr("Remove"));
@@ -953,11 +954,16 @@ void GameList::AddGamePopup(QMenu& context_menu, u64 program_id, const std::stri
     context_menu.addSeparator();
     QAction* properties = context_menu.addAction(tr("Properties"));
 
+    const bool has_custom_path = Settings::values.custom_save_paths.count(program_id);
+
     favorite->setVisible(program_id != 0);
     favorite->setCheckable(true);
     favorite->setChecked(UISettings::values.favorited_ids.contains(program_id));
     open_save_location->setVisible(program_id != 0);
+    set_custom_save_path->setVisible(program_id != 0);
+    remove_custom_save_path->setVisible(program_id != 0 && has_custom_path);
     open_mod_location->setVisible(program_id != 0);
+    open_sdmc_mod_menu->menuAction()->setVisible(program_id != 0);
     open_transferable_shader_cache->setVisible(program_id != 0);
     remove_update->setVisible(program_id != 0);
     remove_dlc->setVisible(program_id != 0);
@@ -970,6 +976,141 @@ void GameList::AddGamePopup(QMenu& context_menu, u64 program_id, const std::stri
 
     connect(favorite, &QAction::triggered, [this, program_id]() { ToggleFavorite(program_id); });
     connect(open_save_location, &QAction::triggered, [this, program_id, path]() { emit OpenFolderRequested(program_id, GameListOpenTarget::SaveData, path); });
+
+    auto calculateTotalSize = [](const QString& dirPath) -> qint64 {
+        qint64 totalSize = 0;
+        QDirIterator size_it(dirPath, QDirIterator::Subdirectories);
+        while (size_it.hasNext()) {
+            size_it.next();
+            QFileInfo fileInfo = size_it.fileInfo();
+            if (fileInfo.isFile()) {
+                totalSize += fileInfo.size();
+            }
+        }
+        return totalSize;
+    };
+
+    auto copyWithProgress = [calculateTotalSize](const QString& sourceDir, const QString& destDir, QWidget* parent) -> bool {
+        QProgressDialog progress(tr("Moving Save Data..."), QString(), 0, 100, parent);
+        progress.setWindowFlags(Qt::Window | Qt::WindowTitleHint | Qt::CustomizeWindowHint);
+        progress.setWindowModality(Qt::WindowModal);
+        progress.setMinimumDuration(0);
+        progress.setValue(0);
+
+        qint64 totalSize = calculateTotalSize(sourceDir);
+        qint64 copiedSize = 0;
+
+        QDir dir(sourceDir);
+        if (!dir.exists()) return false;
+
+        QDir dest_dir(destDir);
+        if (!dest_dir.exists()) dest_dir.mkpath(QStringLiteral("."));
+
+        QDirIterator dir_iter(sourceDir, QDirIterator::Subdirectories);
+        while (dir_iter.hasNext()) {
+            dir_iter.next();
+
+            const QFileInfo file_info = dir_iter.fileInfo();
+            const QString relative_path = dir.relativeFilePath(file_info.absoluteFilePath());
+            const QString dest_path = QDir(destDir).filePath(relative_path);
+
+            if (file_info.isDir()) {
+                dest_dir.mkpath(dest_path);
+            } else if (file_info.isFile()) {
+                if (QFile::exists(dest_path)) QFile::remove(dest_path);
+                if (!QFile::copy(file_info.absoluteFilePath(), dest_path)) return false;
+
+                copiedSize += file_info.size();
+                if (totalSize > 0) {
+                    progress.setValue(static_cast<int>((copiedSize * 100) / totalSize));
+                }
+            }
+            QCoreApplication::processEvents();
+        }
+        progress.setValue(100);
+        return true;
+    };
+
+    connect(set_custom_save_path, &QAction::triggered, [this, program_id, copyWithProgress]() {
+        const QString new_path = QFileDialog::getExistingDirectory(this, tr("Select Custom Save Data Location"));
+        if (new_path.isEmpty()) return;
+
+        const auto nand_dir = QString::fromStdString(Common::FS::GetCitronPathString(Common::FS::CitronPath::NANDDir));
+        const auto user_id = system.GetProfileManager().GetLastOpenedUser().AsU128();
+        const std::string relative_save_path = fmt::format("user/save/{:016X}/{:016X}{:016X}/{:016X}", 0, user_id[1], user_id[0], program_id);
+        const QString old_save_path = QDir(nand_dir).filePath(QString::fromStdString(relative_save_path));
+
+        QDir old_dir(old_save_path);
+        if (old_dir.exists() && !old_dir.isEmpty()) {
+            QMessageBox::StandardButton reply = QMessageBox::question(this, tr("Move Save Data"),
+                tr("You have existing save data in the NAND. Would you like to move it to the new custom save path?"),
+                QMessageBox::Yes | QMessageBox::No | QMessageBox::Cancel);
+
+            if (reply == QMessageBox::Cancel) return;
+
+            if (reply == QMessageBox::Yes) {
+                const QString full_dest_path = QDir(new_path).filePath(QString::fromStdString(relative_save_path));
+                if (copyWithProgress(old_save_path, full_dest_path, this)) {
+                    QDir(old_save_path).removeRecursively();
+                    QMessageBox::information(this, tr("Success"), tr("Successfully moved save data to the new location."));
+                } else {
+                    QMessageBox::warning(this, tr("Error"), tr("Failed to move save data. Please see the log for more details."));
+                }
+            }
+        }
+
+        Settings::values.custom_save_paths.insert_or_assign(program_id, new_path.toStdString());
+        emit SaveConfig();
+    });
+
+    connect(remove_custom_save_path, &QAction::triggered, [this, program_id, copyWithProgress]() {
+        const QString custom_path_root = QString::fromStdString(Settings::values.custom_save_paths.at(program_id));
+        const auto nand_dir = QString::fromStdString(Common::FS::GetCitronPathString(Common::FS::CitronPath::NANDDir));
+        const auto user_id = system.GetProfileManager().GetLastOpenedUser().AsU128();
+        const std::string relative_save_path = fmt::format("user/save/{:016X}/{:016X}{:016X}/{:016X}", 0, user_id[1], user_id[0], program_id);
+
+        const QString custom_game_save_path = QDir(custom_path_root).filePath(QString::fromStdString(relative_save_path));
+        const QString nand_save_path = QDir(nand_dir).filePath(QString::fromStdString(relative_save_path));
+
+        QMessageBox::StandardButton reply = QMessageBox::question(this, tr("Move Save Data"),
+            tr("Would you like to move the save data from the custom path back to the NAND?"),
+            QMessageBox::Yes | QMessageBox::No | QMessageBox::Cancel);
+
+        if (reply == QMessageBox::Cancel) return;
+
+        if (reply == QMessageBox::Yes) {
+            if (copyWithProgress(custom_game_save_path, nand_save_path, this)) {
+                QDir(custom_game_save_path).removeRecursively();
+                QMessageBox::information(this, tr("Success"), tr("Successfully moved save data back to the NAND."));
+            } else {
+                QMessageBox::warning(this, tr("Error"), tr("Failed to move save data. Please see the log for more details."));
+            }
+        }
+
+        Settings::values.custom_save_paths.erase(program_id);
+        emit SaveConfig();
+    });
+
+    connect(open_current_game_sdmc, &QAction::triggered, [program_id]() {
+        const auto sdmc_path = Common::FS::GetCitronPath(Common::FS::CitronPath::SDMCDir);
+        const auto full_path = sdmc_path / "atmosphere" / "contents" / fmt::format("{:016X}", program_id);
+        const QString qpath = QString::fromStdString(Common::FS::PathToUTF8String(full_path));
+
+        QDir dir(qpath);
+        if (!dir.exists()) dir.mkpath(QStringLiteral("."));
+        QDesktopServices::openUrl(QUrl::fromLocalFile(qpath));
+    });
+
+    connect(open_full_sdmc, &QAction::triggered, []() {
+        const auto sdmc_path = Common::FS::GetCitronPath(Common::FS::CitronPath::SDMCDir);
+        const auto full_path = sdmc_path / "atmosphere" / "contents";
+        const QString qpath = QString::fromStdString(Common::FS::PathToUTF8String(full_path));
+
+        QDir dir(qpath);
+        if (!dir.exists()) dir.mkpath(QStringLiteral("."));
+        QDesktopServices::openUrl(QUrl::fromLocalFile(qpath));
+    });
+
     connect(start_game, &QAction::triggered, [this, path]() { emit BootGame(QString::fromStdString(path), StartGameType::Normal); });
     connect(start_game_global, &QAction::triggered, [this, path]() { emit BootGame(QString::fromStdString(path), StartGameType::Global); });
     connect(open_mod_location, &QAction::triggered, [this, program_id, path]() { emit OpenFolderRequested(program_id, GameListOpenTarget::ModData, path); });
@@ -1323,28 +1464,31 @@ const QStringList GameList::supported_file_extensions = {
             QStandardItem* item = flat_model->item(i);
             if (item) {
                 QVariant icon_data = item->data(Qt::DecorationRole);
-                if (icon_data.isValid() && icon_data.type() == QVariant::Pixmap) {
+                if (icon_data.isValid() && icon_data.canConvert<QPixmap>()) {
                     QPixmap pixmap = icon_data.value<QPixmap>();
                     if (!pixmap.isNull()) {
-                        // Always recreate the rounded icon at the exact target size for consistency
-                        // This ensures all icons are the same size regardless of their original size
+                        #ifdef __linux__
+                        // On Linux, use simple scaling to avoid QPainter bugs
+                        QPixmap scaled = pixmap.scaled(icon_size, icon_size, Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
+                        item->setData(scaled, Qt::DecorationRole);
+                        #else
+                        // On other platforms, use the QPainter method for rounded corners
                         QPixmap rounded(icon_size, icon_size);
                         rounded.fill(Qt::transparent);
 
                         QPainter painter(&rounded);
                         painter.setRenderHint(QPainter::Antialiasing);
 
-                        // Create rounded rectangle clipping path
                         const int radius = icon_size / 8;
                         QPainterPath path;
                         path.addRoundedRect(0, 0, icon_size, icon_size, radius, radius);
                         painter.setClipPath(path);
 
-                        // Scale the source pixmap to fill the icon size exactly
                         QPixmap scaled = pixmap.scaled(icon_size, icon_size, Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
                         painter.drawPixmap(0, 0, scaled);
 
                         item->setData(rounded, Qt::DecorationRole);
+                        #endif
                     }
                 }
             }

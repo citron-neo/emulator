@@ -309,6 +309,12 @@ GRenderWindow::GRenderWindow(GMainWindow* parent, EmuThread* emu_thread_,
 
     mouse_constrain_timer.setInterval(default_mouse_constrain_timeout);
     connect(&mouse_constrain_timer, &QTimer::timeout, this, &GRenderWindow::ConstrainMouse);
+
+    // mouse-hiding logic for Wayland
+    constexpr int default_mouse_hide_timeout = 2500; // 2.5 seconds
+    mouse_hide_timer.setInterval(default_mouse_hide_timeout);
+    mouse_hide_timer.setSingleShot(true); // The timer fires only once per start()
+    connect(&mouse_hide_timer, &QTimer::timeout, this, &GRenderWindow::HideMouseCursor);
 }
 
 void GRenderWindow::ExecuteProgram(std::size_t program_index) {
@@ -399,6 +405,12 @@ void GRenderWindow::closeEvent(QCloseEvent* event) {
 }
 
 void GRenderWindow::leaveEvent(QEvent* event) {
+    if (UISettings::values.hide_mouse) {
+        // When the mouse leaves the window, ALWAYS restore the cursor.
+        QApplication::restoreOverrideCursor();
+        mouse_hide_timer.stop();
+    }
+
     if (Settings::values.mouse_panning) {
         const QRect& rect = QWidget::geometry();
         QPoint position = QCursor::pos();
@@ -644,6 +656,12 @@ InputCommon::MouseButton GRenderWindow::QtButtonToMouseButton(Qt::MouseButton bu
 }
 
 void GRenderWindow::mousePressEvent(QMouseEvent* event) {
+    // A click is also mouse activity. Restore cursor and restart the timer.
+    if (UISettings::values.hide_mouse) {
+        QApplication::restoreOverrideCursor();
+        mouse_hide_timer.start();
+    }
+
     // Touch input is handled in TouchBeginEvent
     if (event->source() == Qt::MouseEventSynthesizedBySystem) {
         return;
@@ -663,6 +681,12 @@ void GRenderWindow::mousePressEvent(QMouseEvent* event) {
 }
 
 void GRenderWindow::mouseMoveEvent(QMouseEvent* event) {
+    // Any mouse activity must FIRST restore the cursor before doing anything else.
+    if (UISettings::values.hide_mouse) {
+        QApplication::restoreOverrideCursor();
+        mouse_hide_timer.start();
+    }
+
     // Touch input is handled in TouchUpdateEvent
     if (event->source() == Qt::MouseEventSynthesizedBySystem) {
         return;
@@ -889,6 +913,12 @@ bool GRenderWindow::event(QEvent* event) {
 }
 
 void GRenderWindow::focusOutEvent(QFocusEvent* event) {
+    // If the window loses focus, ALWAYS restore the cursor.
+    if (UISettings::values.hide_mouse) {
+        QApplication::restoreOverrideCursor();
+        mouse_hide_timer.stop();
+    }
+
     QWidget::focusOutEvent(event);
     input_subsystem->GetKeyboard()->ReleaseAllKeys();
     input_subsystem->GetMouse()->ReleaseAllButtons();
@@ -1142,4 +1172,10 @@ bool GRenderWindow::eventFilter(QObject* object, QEvent* event) {
         emit MouseActivity();
     }
     return false;
+}
+
+void GRenderWindow::HideMouseCursor() {
+    if (UISettings::values.hide_mouse && isActiveWindow()) {
+        QApplication::setOverrideCursor(QCursor(Qt::BlankCursor));
+    }
 }

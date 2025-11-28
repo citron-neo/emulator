@@ -468,10 +468,6 @@ GMainWindow::GMainWindow(std::unique_ptr<QtConfig> config_, bool has_broken_vulk
     // make sure menubar has the arrow cursor instead of inheriting from this
     ui->menubar->setCursor(QCursor());
 
-    mouse_hide_timer.setInterval(default_mouse_hide_timeout);
-    connect(&mouse_hide_timer, &QTimer::timeout, this, &GMainWindow::HideMouseCursor);
-    connect(ui->menubar, &QMenuBar::hovered, this, &GMainWindow::ShowMouseCursor);
-
     update_input_timer.setInterval(default_input_update_timeout);
     connect(&update_input_timer, &QTimer::timeout, this, &GMainWindow::UpdateInputDrivers);
     update_input_timer.start();
@@ -483,20 +479,48 @@ GMainWindow::GMainWindow(std::unique_ptr<QtConfig> config_, bool has_broken_vulk
     // Process events to ensure main window is fully rendered
     QApplication::processEvents();
 
-    // Show setup wizard on first run (after main window is shown)
-    LOG_INFO(Frontend, "Checking first_start: {}", UISettings::values.first_start.GetValue());
+    // Defer the first-time setup check until after the main window is fully constructed.
     if (UISettings::values.first_start.GetValue()) {
-        LOG_INFO(Frontend, "Showing setup wizard");
-        SetupWizard setup_wizard(*system, this, this);
-        setup_wizard.setWindowModality(Qt::WindowModal);
-        setup_wizard.setWindowFlags(Qt::Dialog | Qt::WindowTitleHint | Qt::WindowCloseButtonHint |
-                                    Qt::WindowSystemMenuHint | Qt::WindowStaysOnTopHint);
-        setup_wizard.show();
-        setup_wizard.raise();
-        setup_wizard.activateWindow();
-        QApplication::processEvents();
-        setup_wizard.exec();
-        LOG_INFO(Frontend, "Setup wizard closed");
+        LOG_INFO(Frontend, "Scheduling first-time setup check.");
+        QTimer::singleShot(0, this, [this]() {
+            LOG_INFO(Frontend, "Executing deferred first-time setup check.");
+
+            // Create a non-modal QMessageBox instance with a nullptr parent to make it a top-level window.
+            // This prevents it from blocking the main application window.
+            auto* confirmation_dialog = new QMessageBox(nullptr);
+            confirmation_dialog->setAttribute(Qt::WA_DeleteOnClose); // This ensures it is deleted automatically on close.
+            confirmation_dialog->setWindowModality(Qt::NonModal); // Explicitly set modality.
+            confirmation_dialog->setWindowTitle(tr("First-Time Setup"));
+            confirmation_dialog->setText(tr("Would you like to run the first-time setup wizard?"));
+            confirmation_dialog->setStandardButtons(QMessageBox::Yes | QMessageBox::No);
+            confirmation_dialog->setDefaultButton(QMessageBox::Yes);
+
+            // Connect the finished signal to handle the user's choice.
+            connect(confirmation_dialog, &QMessageBox::finished, this, [this](int result) {
+                if (result == QMessageBox::Yes) {
+                    LOG_INFO(Frontend, "User chose to run the setup wizard.");
+
+                    // Check if a wizard is already open to prevent duplicates.
+                    if (this->findChild<SetupWizard*>()) {
+                        this->findChild<SetupWizard*>()->activateWindow();
+                        return;
+                    }
+
+                    // Create and show the setup wizard.
+                    auto* setup_wizard = new SetupWizard(*system, this, this);
+                    setup_wizard->setAttribute(Qt::WA_DeleteOnClose);
+                    setup_wizard->show();
+                    LOG_INFO(Frontend, "Setup wizard opened.");
+
+                } else {
+                    LOG_INFO(Frontend, "User chose to skip the setup wizard.");
+                    UISettings::values.first_start = false;
+                    OnSaveConfig();
+                }
+            });
+
+            confirmation_dialog->open();
+        });
     } else {
         LOG_INFO(Frontend, "Skipping setup wizard - first_start is false");
     }
@@ -2119,15 +2143,6 @@ void GMainWindow::BootGame(const QString& filename, Service::AM::FrontendAppletP
     status_bar_update_timer.start(500);
     renderer_status_button->setDisabled(true);
 
-    if (UISettings::values.hide_mouse || Settings::values.mouse_panning) {
-        render_window->installEventFilter(render_window);
-        render_window->setAttribute(Qt::WA_Hover, true);
-    }
-
-    if (UISettings::values.hide_mouse) {
-        mouse_hide_timer.start();
-    }
-
     render_window->InitializeCamera();
 
     std::string title_name;
@@ -2362,31 +2377,43 @@ void GMainWindow::OnGameListOpenFolder(u64 program_id, GameListOpenTarget target
     std::filesystem::path path;
     QString open_target;
 
-    const auto [user_save_size, device_save_size] = [this, &game_path, &program_id] {
-        const FileSys::PatchManager pm{program_id, system->GetFileSystemController(),
-                                       system->GetContentProvider()};
-        const auto control = pm.GetControlMetadata().first;
-        if (control != nullptr) {
-            return std::make_pair(control->GetDefaultNormalSaveSize(),
-                                  control->GetDeviceSaveDataSize());
-        } else {
-            const auto file = Core::GetGameFileFromPath(vfs, game_path);
-            const auto loader = Loader::GetLoader(*system, file);
-
-            FileSys::NACP nacp{};
-            loader->ReadControlData(nacp);
-            return std::make_pair(nacp.GetDefaultNormalSaveSize(), nacp.GetDeviceSaveDataSize());
-        }
-    }();
-
-    const bool has_user_save{user_save_size > 0};
-    const bool has_device_save{device_save_size > 0};
-
-    ASSERT_MSG(has_user_save != has_device_save, "Game uses both user and device savedata?");
-
     switch (target) {
     case GameListOpenTarget::SaveData: {
         open_target = tr("Save Data");
+
+        if (Settings::values.custom_save_paths.count(program_id)) {
+            const std::string& custom_path_str = Settings::values.custom_save_paths.at(program_id);
+            const std::filesystem::path custom_path = custom_path_str;
+
+            if (!custom_path_str.empty() && Common::FS::IsDir(custom_path)) {
+                LOG_INFO(Frontend, "Opening custom save data path for program_id={:016x}", program_id);
+                QDesktopServices::openUrl(QUrl::fromLocalFile(QString::fromStdString(custom_path_str)));
+                return;
+            }
+        }
+
+        const auto [user_save_size, device_save_size] = [this, &game_path, &program_id] {
+            const FileSys::PatchManager pm{program_id, system->GetFileSystemController(),
+                                           system->GetContentProvider()};
+            const auto control = pm.GetControlMetadata().first;
+            if (control != nullptr) {
+                return std::make_pair(control->GetDefaultNormalSaveSize(),
+                                      control->GetDeviceSaveDataSize());
+            } else {
+                const auto file = Core::GetGameFileFromPath(vfs, game_path);
+                const auto loader = Loader::GetLoader(*system, file);
+
+                FileSys::NACP nacp{};
+                loader->ReadControlData(nacp);
+                return std::make_pair(nacp.GetDefaultNormalSaveSize(), nacp.GetDeviceSaveDataSize());
+            }
+        }();
+
+        const bool has_user_save{user_save_size > 0};
+        const bool has_device_save{device_save_size > 0};
+
+        ASSERT_MSG(has_user_save != has_device_save, "Game uses both user and device savedata?");
+
         const auto nand_dir = Common::FS::GetCitronPath(Common::FS::CitronPath::NANDDir);
         auto vfs_nand_dir =
             vfs->OpenDirectory(Common::FS::PathToUTF8String(nand_dir), FileSys::OpenMode::Read);
@@ -4123,16 +4150,12 @@ void GMainWindow::OnConfigure() {
 
     config->SaveAllValues();
 
-    if ((UISettings::values.hide_mouse || Settings::values.mouse_panning) && emulation_running) {
+    if (Settings::values.mouse_panning && emulation_running) {
         render_window->installEventFilter(render_window);
         render_window->setAttribute(Qt::WA_Hover, true);
     } else {
         render_window->removeEventFilter(render_window);
         render_window->setAttribute(Qt::WA_Hover, false);
-    }
-
-    if (UISettings::values.hide_mouse) {
-        mouse_hide_timer.start();
     }
 
     // Restart camera config
@@ -5527,26 +5550,8 @@ void GMainWindow::UpdateInputDrivers() {
     input_subsystem->PumpEvents();
 }
 
-void GMainWindow::HideMouseCursor() {
-    if (emu_thread == nullptr && UISettings::values.hide_mouse) {
-        mouse_hide_timer.stop();
-        ShowMouseCursor();
-        return;
-    }
-    render_window->setCursor(QCursor(Qt::BlankCursor));
-}
-
-void GMainWindow::ShowMouseCursor() {
-    render_window->unsetCursor();
-    if (emu_thread != nullptr && UISettings::values.hide_mouse) {
-        mouse_hide_timer.start();
-    }
-}
-
 void GMainWindow::OnMouseActivity() {
-    if (!Settings::values.mouse_panning) {
-        ShowMouseCursor();
-    }
+    // This moved to GRenderWindow @ bootmanager
 }
 
 void GMainWindow::OnCheckFirmwareDecryption() {

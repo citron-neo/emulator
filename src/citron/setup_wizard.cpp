@@ -50,7 +50,9 @@ SetupWizard::SetupWizard(Core::System& system_, GMainWindow* main_window_, QWidg
     // Set window flags before setting modality
     setWindowFlags(Qt::Dialog | Qt::WindowTitleHint | Qt::WindowCloseButtonHint |
                    Qt::WindowSystemMenuHint | Qt::WindowStaysOnTopHint);
-    setWindowModality(Qt::WindowModal);
+
+    // Set window modality to NonModal to allow interaction with the main window.
+    setWindowModality(Qt::NonModal);
 
     // Get UI elements from the .ui file
     sidebar_list = ui->sidebarList;

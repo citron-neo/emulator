@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: 2014 Citra Emulator Project
+// SPDX-FileCopyrightText: 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #pragma once
@@ -10,6 +11,7 @@
 #include <utility>
 #include <vector>
 
+#include <QApplication>
 #include <QByteArray>
 #include <QImage>
 #include <QObject>
@@ -226,6 +228,9 @@ signals:
     void MouseActivity();
     void TasPlaybackStateChanged();
 
+private slots:
+    void HideMouseCursor();
+
 private:
     void TouchBeginEvent(const QTouchEvent* event);
     void TouchUpdateEvent(const QTouchEvent* event);
@@ -271,6 +276,7 @@ private:
 #endif
 
     QTimer mouse_constrain_timer;
+    QTimer mouse_hide_timer;
 
     Core::System& system;
 
