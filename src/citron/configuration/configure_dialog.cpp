@@ -7,11 +7,16 @@
 #include <memory>
 #include <QApplication>
 #include <QButtonGroup>
+#include <QGraphicsOpacityEffect>
+#include <QLabel>
 #include <QMessageBox>
+#include <QParallelAnimationGroup>
+#include <QPropertyAnimation>
 #include <QPushButton>
 #include <QScreen>
 #include <QScrollArea>
 #include <QScrollBar>
+#include <QSequentialAnimationGroup>
 #include <QString>
 #include <QTimer>
 #include <QVBoxLayout>
@@ -106,7 +111,6 @@ ConfigureDialog::ConfigureDialog(QWidget* parent, HotkeyRegistry& registry_,
     nav_layout->setSpacing(4);
     for (QPushButton* button : tab_buttons) {
         button->setParent(ui->topButtonWidget);
-        // Buttons are added to a layout in SetUIPositioning
         if (button->property("class").toString() == QStringLiteral("tabButton")) {
             button->installEventFilter(animation_filter);
         }
@@ -154,9 +158,7 @@ ConfigureDialog::ConfigureDialog(QWidget* parent, HotkeyRegistry& registry_,
     ui->stackedWidget->addWidget(CreateScrollArea(applets_tab.get()));
     ui->stackedWidget->addWidget(CreateScrollArea(debug_tab_tab.get()));
 
-    connect(tab_button_group.get(), qOverload<int>(&QButtonGroup::idClicked), this, [this](int id) {
-        ui->stackedWidget->setCurrentIndex(id);
-    });
+    connect(tab_button_group.get(), qOverload<int>(&QButtonGroup::idClicked), this, &ConfigureDialog::AnimateTabSwitch);
     connect(ui_tab.get(), &ConfigureUi::themeChanged, this, &ConfigureDialog::UpdateTheme);
     connect(ui_tab.get(), &ConfigureUi::UIPositioningChanged, this, &ConfigureDialog::SetUIPositioning);
     connect(rainbow_timer, &QTimer::timeout, this, &ConfigureDialog::UpdateTheme);
@@ -241,7 +243,6 @@ void ConfigureDialog::SetUIPositioning(const QString& positioning) {
     if (positioning == QStringLiteral("Horizontal")) {
         ui->nav_container->hide();
         ui->horizontalNavScrollArea->show();
-        // Remove stretch from vertical layout if it exists
         if (v_layout->count() > 0) {
             if (auto* item = v_layout->itemAt(v_layout->count() - 1); item && item->spacerItem()) {
                 v_layout->takeAt(v_layout->count() - 1);
@@ -251,13 +252,12 @@ void ConfigureDialog::SetUIPositioning(const QString& positioning) {
         for (QPushButton* button : tab_buttons) {
             v_layout->removeWidget(button);
             h_layout->addWidget(button);
-            button->setStyleSheet(QStringLiteral("text-align: center;"));
+            button->setStyleSheet(QStringLiteral("text-align: left center; padding-left: 15px;"));
         }
         h_layout->addStretch(1);
     } else { // Vertical
         ui->horizontalNavScrollArea->hide();
         ui->nav_container->show();
-        // Remove stretch from horizontal layout if it exists
         if (h_layout->count() > 0) {
             if (auto* item = h_layout->itemAt(h_layout->count() - 1); item && item->spacerItem()) {
                 h_layout->takeAt(h_layout->count() - 1);
@@ -267,7 +267,8 @@ void ConfigureDialog::SetUIPositioning(const QString& positioning) {
         for (QPushButton* button : tab_buttons) {
             h_layout->removeWidget(button);
             v_layout->addWidget(button);
-            button->setStyleSheet(QStringLiteral("")); // Reset to parent stylesheet
+            // Reset the inline stylesheet so it uses the main template's style.
+            button->setStyleSheet(QStringLiteral(""));
         }
         v_layout->addStretch(1);
     }
@@ -326,4 +327,95 @@ void ConfigureDialog::OnLanguageChanged(const QString& locale) {
     ApplyConfiguration();
     RetranslateUI();
     SetConfiguration();
+}
+
+void ConfigureDialog::AnimateTabSwitch(int id) {
+    static bool is_animating = false;
+    if (is_animating) {
+        return;
+    }
+
+    QWidget* current_widget = ui->stackedWidget->currentWidget();
+    QWidget* next_widget = ui->stackedWidget->widget(id);
+
+    if (current_widget == next_widget || !current_widget || !next_widget) {
+        return;
+    }
+
+    const int duration = 400;
+
+    // Prepare Widgets for Live Animation
+    next_widget->setGeometry(0, 0, ui->stackedWidget->width(), ui->stackedWidget->height());
+    next_widget->move(0, 0);
+    next_widget->show();
+    next_widget->raise();
+
+    // Animation Logic
+    auto anim_old_pos = new QPropertyAnimation(current_widget, "pos");
+    anim_old_pos->setEndValue(QPoint(-ui->stackedWidget->width(), 0));
+    anim_old_pos->setDuration(duration);
+    anim_old_pos->setEasingCurve(QEasingCurve::InOutQuart);
+
+    auto anim_new_pos = new QPropertyAnimation(next_widget, "pos");
+    anim_new_pos->setStartValue(QPoint(ui->stackedWidget->width(), 0));
+    anim_new_pos->setEndValue(QPoint(0, 0));
+    anim_new_pos->setDuration(duration);
+    anim_new_pos->setEasingCurve(QEasingCurve::InOutQuart);
+
+    auto new_opacity_effect = new QGraphicsOpacityEffect(next_widget);
+    next_widget->setGraphicsEffect(new_opacity_effect);
+    auto anim_new_opacity = new QPropertyAnimation(new_opacity_effect, "opacity");
+    anim_new_opacity->setStartValue(0.0);
+    anim_new_opacity->setEndValue(1.0);
+    anim_new_opacity->setDuration(duration);
+    anim_new_opacity->setEasingCurve(QEasingCurve::InQuad);
+
+    auto* button_opacity_effect = qobject_cast<QGraphicsOpacityEffect*>(ui->buttonBox->graphicsEffect());
+    if (!button_opacity_effect) {
+        button_opacity_effect = new QGraphicsOpacityEffect(ui->buttonBox);
+        ui->buttonBox->setGraphicsEffect(button_opacity_effect);
+    }
+    auto* button_anim_sequence = new QSequentialAnimationGroup(this);
+
+    auto* anim_buttons_fade_out = new QPropertyAnimation(button_opacity_effect, "opacity");
+    anim_buttons_fade_out->setDuration(duration / 2);
+    anim_buttons_fade_out->setStartValue(1.0);
+    anim_buttons_fade_out->setEndValue(0.0);
+    anim_buttons_fade_out->setEasingCurve(QEasingCurve::OutCubic);
+
+    auto* anim_buttons_fade_in = new QPropertyAnimation(button_opacity_effect, "opacity");
+    anim_buttons_fade_in->setDuration(duration / 2);
+    anim_buttons_fade_in->setStartValue(0.0);
+    anim_buttons_fade_in->setEndValue(1.0);
+    anim_buttons_fade_in->setEasingCurve(QEasingCurve::InCubic);
+
+    button_anim_sequence->addAnimation(anim_buttons_fade_out);
+    button_anim_sequence->addAnimation(anim_buttons_fade_in);
+
+    auto animation_group = new QParallelAnimationGroup(this);
+    animation_group->addAnimation(anim_old_pos);
+    animation_group->addAnimation(anim_new_pos);
+    animation_group->addAnimation(anim_new_opacity);
+    animation_group->addAnimation(button_anim_sequence);
+
+    connect(animation_group, &QAbstractAnimation::finished, this, [this, current_widget, next_widget, id]() {
+        ui->stackedWidget->setCurrentIndex(id);
+
+        // Clean up graphics effects to return control to the stylesheet
+        next_widget->setGraphicsEffect(nullptr);
+        // Ensure the old widget is hidden and reset for next time
+        current_widget->hide();
+        current_widget->move(0, 0);
+
+        is_animating = false;
+        for (auto button : tab_button_group->buttons()) {
+            button->setEnabled(true);
+        }
+    });
+
+    is_animating = true;
+    for (auto button : tab_button_group->buttons()) {
+        button->setEnabled(false);
+    }
+    animation_group->start(QAbstractAnimation::DeleteWhenStopped);
 }

@@ -57,6 +57,7 @@ signals:
 
 private slots:
     void SetUIPositioning(const QString& positioning);
+    void AnimateTabSwitch(int id);
 
 private:
     void SetConfiguration();

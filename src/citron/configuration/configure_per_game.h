@@ -67,6 +67,9 @@ protected:
     void changeEvent(QEvent* event) override;
     void resizeEvent(QResizeEvent* event) override;
 
+private slots:
+    void AnimateTabSwitch(int id);
+
 private:
     void RetranslateUI();
     void HandleApplyButtonClicked();

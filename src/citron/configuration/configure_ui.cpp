@@ -231,9 +231,9 @@ void ConfigureUi::resizeEvent(QResizeEvent* event) {
         return;
     }
 
-    if (width() < 550 && !isCompact) {
+    if (width() < 850 && !isCompact) {
         switchToCompactLayout();
-    } else if (width() >= 550 && isCompact) {
+    } else if (width() >= 850 && isCompact) {
         switchToWideLayout();
     }
 }

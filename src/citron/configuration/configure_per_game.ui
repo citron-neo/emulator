@@ -96,34 +96,33 @@
     width: 0px;
     }
 
-    QPushButton#tabButton {
-        background-color: %%BUTTON_BG_COLOR%%;
+    QPushButton#aestheticTabButton {
+        background-color: transparent;
         color: %%TEXT_COLOR%%;
-        padding: 8px 18px;
-        margin-right: 2px;
-        border-top-left-radius: 8px;
-        border-top-right-radius: 8px;
-        border-bottom: none;
-        min-width: 100px;
+        border: none;
+        padding: 10px;
+        padding-left: 20px; /* Indent text from the left */
+        border-radius: 8px;
         font-weight: bold;
         font-size: 10pt;
-        border: 1px solid %%SECONDARY_BG_COLOR%%;
+        text-align: left center; /* Align text to the left like the original */
+        min-width: 110px;        /* Stricter minimum width to prevent smudging */
+        max-height: 25px;        /* Enforce a consistent height */
     }
 
-    QPushButton#tabButton:checked {
-        background-color: %%ACCENT_COLOR%%;
-        color: #ffffff;
-        font-weight: bold;
-        border-color: %%ACCENT_COLOR%%;
+    QPushButton#aestheticTabButton:checked {
+        background-color: %%SECONDARY_BG_COLOR%%;   /* Add subtle background when checked */
+        color: %%TEXT_COLOR%%;                      /* Keep text color consistent when checked */
+        border-left: 3px solid %%ACCENT_COLOR%%;    /* Accent color bar on the LEFT */
+        padding-left: 17px;                         /* Adjust padding to keep text aligned perfectly */
     }
 
-    QPushButton#tabButton:hover:!checked {
+    QPushButton#aestheticTabButton:hover:!checked {
         background-color: %%HOVER_BG_COLOR%%;
-        border-color: %%TERTIARY_BG_COLOR%%;
     }
 
-    QPushButton#tabButton:pressed {
-        background-color: %%ACCENT_COLOR_PRESSED%%;
+    QPushButton#aestheticTabButton:pressed {
+        background-color: %%TERTIARY_BG_COLOR%%;
     }
 
     QGroupBox {

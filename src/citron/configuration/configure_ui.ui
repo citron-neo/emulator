@@ -131,44 +131,27 @@
                                     </widget>
                                 </item>
                                 <item row="3" column="1">
-                                    <layout class="QHBoxLayout" name="accentColorLayout">
-                                        <item>
-                                            <widget class="QPushButton" name="accentColorButton">
-                                                <property name="text">
-                                                    <string>Choose Color...</string>
-                                                </property>
-                                            </widget>
-                                        </item>
-                                        <item>
-                                            <widget class="QCheckBox" name="rainbowModeCheckBox">
-                                                <property name="text">
-                                                    <string>Enable Rainbow Mode</string>
-                                                </property>
-                                            </widget>
-                                        </item>
-                                        <item>
-                                            <spacer name="horizontalSpacer">
-                                                <property name="orientation">
-                                                    <enum>Qt::Horizontal</enum>
-                                                </property>
-                                                <property name="sizeHint" stdset="0">
-                                                    <size>
-                                                        <width>40</width>
-                                                        <height>20</height>
-                                                    </size>
-                                                </property>
-                                            </spacer>
-                                        </item>
-                                    </layout>
+                                    <widget class="QPushButton" name="accentColorButton">
+                                        <property name="text">
+                                            <string>Choose Color...</string>
+                                        </property>
+                                    </widget>
                                 </item>
-                                <item row="4" column="0">
+                                <item row="4" column="1">
+                                    <widget class="QCheckBox" name="rainbowModeCheckBox">
+                                        <property name="text">
+                                            <string>Enable Rainbow Mode</string>
+                                        </property>
+                                    </widget>
+                                </item>
+                                <item row="5" column="0">
                                     <widget class="QLabel" name="label">
                                         <property name="text">
                                             <string>UI Positioning</string>
                                         </property>
                                     </widget>
                                 </item>
-                                <item row="4" column="1">
+                                <item row="5" column="1">
                                     <widget class="QComboBox" name="ui_positioning_combo">
                                         <property name="sizePolicy">
                                             <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
@@ -410,14 +393,14 @@
                                     </widget>
                                 </item>
                                 <item row="2" column="1">
-                                    <layout class="QHBoxLayout" name="resolutionLayout">
+                                    <layout class="QVBoxLayout" name="resolutionLayout">
                                         <item>
                                             <widget class="QLabel" name="screenshot_width">
                                                 <property name="text">
                                                     <string>TextLabel</string>
                                                 </property>
                                                 <property name="alignment">
-                                                    <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+                                                    <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
                                                 </property>
                                                 <property name="wordWrap">
                                                     <bool>true</bool>

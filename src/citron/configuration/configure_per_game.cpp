@@ -20,6 +20,12 @@
 #include <QFileDialog>
 #include <QFileInfo>
 #include <QGraphicsPixmapItem>
+#include <QGraphicsOpacityEffect>
+#include <QParallelAnimationGroup>
+#include <QPropertyAnimation>
+#include <QSequentialAnimationGroup>
+#include <QTimer>
+#include "citron/configuration/style_animation_event_filter.h"
 #include <QMessageBox>
 #include <QMetaObject>
 #include <QProgressDialog>
@@ -127,46 +133,51 @@ ConfigurePerGame::ConfigurePerGame(QWidget* parent, u64 title_id_, const std::st
     UpdateTheme();
     connect(rainbow_timer, &QTimer::timeout, this, &ConfigurePerGame::UpdateTheme);
 
+    auto* animation_filter = new StyleAnimationEventFilter(this);
+
     button_group = new QButtonGroup(this);
     button_group->setExclusive(true);
 
-    const auto add_tab = [&](QWidget* widget, const QString& title) {
+    const auto add_tab = [&](QWidget* widget, const QString& title, int id) {
         auto button = new QPushButton(title, this);
         button->setCheckable(true);
-        button->setObjectName(QStringLiteral("tabButton"));
-        button->setSizePolicy(QSizePolicy::Minimum, QSizePolicy::Fixed);
+        // This object name matches the stylesheet ID selector `QPushButton#aestheticTabButton`
+        button->setObjectName(QStringLiteral("aestheticTabButton"));
+        // This custom property is used by the event filter for the animated style
+        button->setProperty("class", QStringLiteral("tabButton")); // Keep class for animation
+        button->installEventFilter(animation_filter);
 
         ui->tabButtonsLayout->addWidget(button);
-        button_group->addButton(button);
+        button_group->addButton(button, id);
 
         QScrollArea* scroll_area = new QScrollArea(this);
         scroll_area->setWidgetResizable(true);
         scroll_area->setWidget(widget);
         ui->stackedWidget->addWidget(scroll_area);
-
-        connect(button, &QPushButton::clicked, this, [this, scroll_area]() {
-            ui->stackedWidget->setCurrentWidget(scroll_area);
-        });
     };
 
-    add_tab(addons_tab.get(), tr("Add-Ons"));
-    add_tab(cheats_tab.get(), tr("Cheats"));
-    add_tab(system_tab.get(), tr("System"));
-    add_tab(cpu_tab.get(), tr("CPU"));
-    add_tab(graphics_tab.get(), tr("Graphics"));
-    add_tab(graphics_advanced_tab.get(), tr("Adv. Graphics"));
-    add_tab(audio_tab.get(), tr("Audio"));
-    add_tab(input_tab.get(), tr("Input Profiles"));
+    int tab_id = 0;
+    add_tab(addons_tab.get(), tr("Add-Ons"), tab_id++);
+    add_tab(cheats_tab.get(), tr("Cheats"), tab_id++);
+    add_tab(system_tab.get(), tr("System"), tab_id++);
+    add_tab(cpu_tab.get(), tr("CPU"), tab_id++);
+    add_tab(graphics_tab.get(), tr("Graphics"), tab_id++);
+    add_tab(graphics_advanced_tab.get(), tr("Adv. Graphics"), tab_id++);
+    add_tab(audio_tab.get(), tr("Audio"), tab_id++);
+    add_tab(input_tab.get(), tr("Input Profiles"), tab_id++);
     #ifdef __unix__
-    add_tab(linux_tab.get(), tr("Linux"));
+    add_tab(linux_tab.get(), tr("Linux"), tab_id++);
     #endif
 
     ui->tabButtonsLayout->addStretch();
 
-    if (auto first_button = qobject_cast<QPushButton*>(button_group->buttons().first())) {
+    connect(button_group, qOverload<int>(&QButtonGroup::idClicked), this, &ConfigurePerGame::AnimateTabSwitch);
+
+    if (auto first_button = qobject_cast<QPushButton*>(button_group->button(0))) {
         first_button->setChecked(true);
-        first_button->click();
+        ui->stackedWidget->setCurrentIndex(0);
     }
+
 
     setFocusPolicy(Qt::ClickFocus);
     setWindowTitle(tr("Properties"));
@@ -730,4 +741,73 @@ void ConfigurePerGame::OnTrimXCI() {
         QMessageBox::warning(this, tr("Trim XCI File"),
                            tr("Failed to trim XCI file:\n%1").arg(error_message));
     }
+}
+
+void ConfigurePerGame::AnimateTabSwitch(int id) {
+    static bool is_animating = false;
+    if (is_animating) {
+        return;
+    }
+
+    QWidget* current_widget = ui->stackedWidget->currentWidget();
+    QWidget* next_widget = ui->stackedWidget->widget(id);
+
+    if (current_widget == next_widget || !current_widget || !next_widget) {
+        return;
+    }
+
+    const int duration = 350;
+
+    // Prepare Widgets for Live Animation
+    next_widget->setGeometry(0, 0, ui->stackedWidget->width(), ui->stackedWidget->height());
+    next_widget->move(0, 0);
+    next_widget->show();
+    next_widget->raise();
+
+    // Animate OLD widget: SLIDE LEFT
+    auto anim_old_pos = new QPropertyAnimation(current_widget, "pos");
+    anim_old_pos->setEndValue(QPoint(-ui->stackedWidget->width(), 0));
+    anim_old_pos->setDuration(duration);
+    anim_old_pos->setEasingCurve(QEasingCurve::InOutQuart);
+
+    // Animate NEW widget: SLIDE IN FROM RIGHT and FADE IN
+    auto anim_new_pos = new QPropertyAnimation(next_widget, "pos");
+    anim_new_pos->setStartValue(QPoint(ui->stackedWidget->width(), 0));
+    anim_new_pos->setEndValue(QPoint(0, 0));
+    anim_new_pos->setDuration(duration);
+    anim_new_pos->setEasingCurve(QEasingCurve::InOutQuart);
+
+    auto new_opacity_effect = new QGraphicsOpacityEffect(next_widget);
+    next_widget->setGraphicsEffect(new_opacity_effect);
+    auto anim_new_opacity = new QPropertyAnimation(new_opacity_effect, "opacity");
+    anim_new_opacity->setStartValue(0.0);
+    anim_new_opacity->setEndValue(1.0);
+    anim_new_opacity->setDuration(duration);
+    anim_new_opacity->setEasingCurve(QEasingCurve::InQuad);
+
+    // Group, Run, and Clean Up
+    auto animation_group = new QParallelAnimationGroup(this);
+    animation_group->addAnimation(anim_old_pos);
+    animation_group->addAnimation(anim_new_pos);
+    animation_group->addAnimation(anim_new_opacity);
+
+    // Use a context-aware connection to prevent crashes
+    connect(animation_group, &QAbstractAnimation::finished, this, [this, current_widget, next_widget, id]() {
+        ui->stackedWidget->setCurrentIndex(id);
+
+        next_widget->setGraphicsEffect(nullptr);
+        current_widget->hide();
+        current_widget->move(0, 0);
+
+        is_animating = false;
+        for (auto button : button_group->buttons()) {
+            button->setEnabled(true);
+        }
+    });
+
+    is_animating = true;
+    for (auto button : button_group->buttons()) {
+        button->setEnabled(false);
+    }
+    animation_group->start(QAbstractAnimation::DeleteWhenStopped);
 }
