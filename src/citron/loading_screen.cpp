@@ -1,54 +1,18 @@
 // SPDX-FileCopyrightText: Copyright 2019 yuzu Emulator Project
+// SPDX-FileCopyrightText: 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
-#include <unordered_map>
-#include <QBuffer>
-#include <QByteArray>
+#include "citron/loading_screen.h"
 #include <QGraphicsOpacityEffect>
-#include <QIODevice>
-#include <QImage>
 #include <QPainter>
-#include <QPixmap>
 #include <QPropertyAnimation>
 #include <QStyleOption>
+#include <QTime>
+#include "citron/theme.h"
 #include "core/frontend/framebuffer_layout.h"
 #include "core/loader/loader.h"
 #include "ui_loading_screen.h"
 #include "video_core/rasterizer_interface.h"
-#include "citron/loading_screen.h"
-
-// Mingw seems to not have QMovie at all. If QMovie is missing then use a single frame instead of an
-// showing the full animation
-#if !CITRON_QT_MOVIE_MISSING
-#include <QMovie>
-#endif
-
-constexpr char PROGRESSBAR_STYLE_PREPARE[] = R"(
-QProgressBar {}
-QProgressBar::chunk {})";
-
-constexpr char PROGRESSBAR_STYLE_BUILD[] = R"(
-QProgressBar {
-  background-color: black;
-  border: 2px solid white;
-  border-radius: 4px;
-  padding: 2px;
-}
-QProgressBar::chunk {
-  background-color: #ff3c28;
-  width: 1px;
-})";
-
-constexpr char PROGRESSBAR_STYLE_COMPLETE[] = R"(
-QProgressBar {
-  background-color: #0ab9e6;
-  border: 2px solid white;
-  border-radius: 4px;
-  padding: 2px;
-}
-QProgressBar::chunk {
-  background-color: #ff3c28;
-})";
 
 LoadingScreen::LoadingScreen(QWidget* parent)
     : QWidget(parent), ui(std::make_unique<Ui::LoadingScreen>()),
@@ -56,132 +20,188 @@ LoadingScreen::LoadingScreen(QWidget* parent)
     ui->setupUi(this);
     setMinimumSize(Layout::MinimumSize::Width, Layout::MinimumSize::Height);
 
-    // Create a fade out effect to hide this loading screen widget.
-    // When fading opacity, it will fade to the parent widgets background color, which is why we
-    // create an internal widget named fade_widget that we use the effect on, while keeping the
-    // loading screen widget's background color black. This way we can create a fade to black effect
-    opacity_effect = new QGraphicsOpacityEffect(this);
-    opacity_effect->setOpacity(1);
+    opacity_effect = new QGraphicsOpacityEffect(ui->fade_parent);
     ui->fade_parent->setGraphicsEffect(opacity_effect);
-    fadeout_animation = std::make_unique<QPropertyAnimation>(opacity_effect, "opacity");
-    fadeout_animation->setDuration(500);
-    fadeout_animation->setStartValue(1);
-    fadeout_animation->setEndValue(0);
-    fadeout_animation->setEasingCurve(QEasingCurve::OutBack);
+    fadeout_animation = new QPropertyAnimation(opacity_effect, "opacity", this);
+    fadeout_animation->setDuration(400);
+    fadeout_animation->setEasingCurve(QEasingCurve::OutQuad);
+    fadeout_animation->setStartValue(1.0);
+    fadeout_animation->setEndValue(0.0);
 
-    // After the fade completes, hide the widget and reset the opacity
-    connect(fadeout_animation.get(), &QPropertyAnimation::finished, [this] {
+    connect(fadeout_animation, &QPropertyAnimation::finished, this, [this] {
         hide();
-        opacity_effect->setOpacity(1);
+        opacity_effect->setOpacity(1.0);
         emit Hidden();
     });
+
+    loading_text_animation_timer = new QTimer(this);
+    connect(loading_text_animation_timer, &QTimer::timeout, this, &LoadingScreen::UpdateLoadingText);
+
     connect(this, &LoadingScreen::LoadProgress, this, &LoadingScreen::OnLoadProgress,
             Qt::QueuedConnection);
     qRegisterMetaType<VideoCore::LoadCallbackStage>();
-
-    stage_translations = {
-        {VideoCore::LoadCallbackStage::Prepare, tr("Loading...")},
-        {VideoCore::LoadCallbackStage::Build, tr("Loading Shaders %1 / %2")},
-        {VideoCore::LoadCallbackStage::Complete, tr("Launching...")},
-    };
-    progressbar_style = {
-        {VideoCore::LoadCallbackStage::Prepare, PROGRESSBAR_STYLE_PREPARE},
-        {VideoCore::LoadCallbackStage::Build, PROGRESSBAR_STYLE_BUILD},
-        {VideoCore::LoadCallbackStage::Complete, PROGRESSBAR_STYLE_COMPLETE},
-    };
 }
 
-LoadingScreen::~LoadingScreen() = default;
+LoadingScreen::~LoadingScreen() {
+    loading_text_animation_timer->stop();
+}
 
 void LoadingScreen::Prepare(Loader::AppLoader& loader) {
+    QPixmap game_icon_pixmap;
     std::vector<u8> buffer;
-    if (loader.ReadBanner(buffer) == Loader::ResultStatus::Success) {
-#ifdef CITRON_QT_MOVIE_MISSING
-        QPixmap map;
-        map.loadFromData(buffer.data(), buffer.size());
-        ui->banner->setPixmap(map);
-#else
-        backing_mem = std::make_unique<QByteArray>(reinterpret_cast<char*>(buffer.data()),
-                                                   static_cast<int>(buffer.size()));
-        backing_buf = std::make_unique<QBuffer>(backing_mem.get());
-        backing_buf->open(QIODevice::ReadOnly);
-        animation = std::make_unique<QMovie>(backing_buf.get(), QByteArray());
-        animation->start();
-        ui->banner->setMovie(animation.get());
-#endif
-        buffer.clear();
+    if (loader.ReadIcon(buffer) == Loader::ResultStatus::Success) {
+        game_icon_pixmap.loadFromData(buffer.data(), static_cast<uint>(buffer.size()));
+    } else {
+        game_icon_pixmap = QPixmap(QStringLiteral(":/icons/scalable/actions/games.svg"));
     }
-    if (loader.ReadLogo(buffer) == Loader::ResultStatus::Success) {
-        QPixmap map;
-        map.loadFromData(buffer.data(), static_cast<uint>(buffer.size()));
-        ui->logo->setPixmap(map);
+
+    if (!game_icon_pixmap.isNull()) {
+        QPixmap rounded_pixmap(game_icon_pixmap.size());
+        rounded_pixmap.fill(Qt::transparent);
+        QPainter painter(&rounded_pixmap);
+        painter.setRenderHint(QPainter::Antialiasing);
+        QPainterPath path;
+        const int radius = game_icon_pixmap.width() / 6;
+        path.addRoundedRect(rounded_pixmap.rect(), radius, radius);
+        painter.setClipPath(path);
+        painter.drawPixmap(0, 0, game_icon_pixmap);
+        ui->game_icon->setPixmap(rounded_pixmap.scaled(ui->game_icon->size(), Qt::KeepAspectRatio, Qt::SmoothTransformation));
+    } else {
+        ui->game_icon->setPixmap(game_icon_pixmap);
+    }
+
+    std::string title;
+    if (loader.ReadTitle(title) == Loader::ResultStatus::Success && !title.empty()) {
+        stage_translations = {
+            {VideoCore::LoadCallbackStage::Prepare, tr("Loading %1").arg(QString::fromStdString(title))},
+            {VideoCore::LoadCallbackStage::Build, tr("Loading %1").arg(QString::fromStdString(title))},
+            {VideoCore::LoadCallbackStage::Complete, tr("Launching...")},
+        };
+    } else {
+         stage_translations = {
+            {VideoCore::LoadCallbackStage::Prepare, tr("Loading Game...")},
+            {VideoCore::LoadCallbackStage::Build, tr("Loading Game...")},
+            {VideoCore::LoadCallbackStage::Complete, tr("Launching...")},
+        };
     }
 
     slow_shader_compile_start = false;
     OnLoadProgress(VideoCore::LoadCallbackStage::Prepare, 0, 0);
 }
 
+void LoadingScreen::showEvent(QShowEvent* event) {
+    opacity_effect->setOpacity(0.0);
+    auto fade_in = new QPropertyAnimation(opacity_effect, "opacity", this);
+    fade_in->setDuration(400);
+    fade_in->setStartValue(0.0);
+    fade_in->setEndValue(1.0);
+    fade_in->setEasingCurve(QEasingCurve::OutQuad);
+    fade_in->start(QAbstractAnimation::DeleteWhenStopped);
+
+    QWidget::showEvent(event);
+}
+
+void LoadingScreen::UpdateLoadingText() {
+    int dot_count = ui->stage->text().count(QLatin1Char('.'));
+    QString new_text = base_loading_text;
+    if (dot_count >= 3) {
+        // Cycle back to no dots
+    } else {
+        new_text.append(QString(dot_count + 1, QLatin1Char('.')));
+    }
+    ui->stage->setText(new_text);
+}
+
 void LoadingScreen::OnLoadComplete() {
-    fadeout_animation->start(QPropertyAnimation::KeepWhenStopped);
+    loading_text_animation_timer->stop();
+    fadeout_animation->start();
 }
 
 void LoadingScreen::OnLoadProgress(VideoCore::LoadCallbackStage stage, std::size_t value,
                                    std::size_t total) {
     using namespace std::chrono;
     const auto now = steady_clock::now();
-    // reset the timer if the stage changes
+
     if (stage != previous_stage) {
-        ui->progress_bar->setStyleSheet(QString::fromUtf8(progressbar_style[stage]));
-        // Hide the progress bar during the prepare stage
-        if (stage == VideoCore::LoadCallbackStage::Prepare) {
-            ui->progress_bar->hide();
-        } else {
-            ui->progress_bar->show();
+        QString style;
+        switch (stage) {
+        case VideoCore::LoadCallbackStage::Build:
+            style = QString::fromUtf8(R"(
+                QProgressBar { background-color: #3a3a3a; border: none; border-radius: 4px; }
+                QProgressBar::chunk { background-color: %1; border-radius: 4px; }
+            )").arg(Theme::GetAccentColor());
+            break;
+        case VideoCore::LoadCallbackStage::Complete:
+            style = QString::fromUtf8(R"(
+                QProgressBar { background-color: #3a3a3a; border: none; border-radius: 4px; }
+                QProgressBar::chunk { background-color: %1; border-radius: 4px; }
+            )").arg(Theme::GetAccentColor());
+            break;
+        default:
+            style = QStringLiteral("");
+            break;
         }
+        ui->shader_progress_bar->setStyleSheet(style);
+        ui->progress_bar->setStyleSheet(style);
+
+        base_loading_text = stage_translations[stage];
+        const QFontMetrics metrics(ui->stage->font());
+        const int max_width = metrics.horizontalAdvance(base_loading_text + QLatin1String("..."));
+        ui->stage->setFixedWidth(max_width);
+        ui->stage->setText(base_loading_text);
+
+        if (stage == VideoCore::LoadCallbackStage::Complete) {
+            loading_text_animation_timer->stop();
+        } else {
+            loading_text_animation_timer->start(500);
+        }
+
+        ui->progress_bar->setVisible(stage == VideoCore::LoadCallbackStage::Complete);
+        ui->shader_widget->setVisible(stage == VideoCore::LoadCallbackStage::Build);
+
         previous_stage = stage;
-        // reset back to fast shader compiling since the stage changed
         slow_shader_compile_start = false;
     }
-    // update the max of the progress bar if the number of shaders change
-    if (total != previous_total) {
-        ui->progress_bar->setMaximum(static_cast<int>(total));
-        previous_total = total;
-    }
-    // Reset the progress bar ranges if compilation is done
+
     if (stage == VideoCore::LoadCallbackStage::Complete) {
         ui->progress_bar->setRange(0, 0);
     }
 
-    QString estimate;
-    // If there's a drastic slowdown in the rate, then display an estimate
-    if (now - previous_time > milliseconds{50} || slow_shader_compile_start) {
-        if (!slow_shader_compile_start) {
-            slow_shader_start = steady_clock::now();
-            slow_shader_compile_start = true;
-            slow_shader_first_value = value;
-        }
-        // only calculate an estimate time after a second has passed since stage change
-        const auto diff = duration_cast<milliseconds>(now - slow_shader_start);
-        if (diff > seconds{1}) {
-            const auto eta_mseconds =
-                static_cast<long>(static_cast<double>(total - slow_shader_first_value) /
-                                  (value - slow_shader_first_value) * diff.count());
-            estimate =
-                tr("Estimated Time %1")
-                    .arg(QTime(0, 0, 0, 0)
-                             .addMSecs(std::max<long>(eta_mseconds - diff.count() + 1000, 1000))
-                             .toString(QStringLiteral("mm:ss")));
-        }
-    }
-
-    // update labels and progress bar
     if (stage == VideoCore::LoadCallbackStage::Build) {
-        ui->stage->setText(stage_translations[stage].arg(value).arg(total));
-    } else {
-        ui->stage->setText(stage_translations[stage]);
+        if (total != previous_total) {
+            ui->shader_progress_bar->setMaximum(static_cast<int>(total));
+            previous_total = total;
+        }
+        ui->shader_progress_bar->setValue(static_cast<int>(value));
+
+        QString estimate;
+        if (now - previous_time > milliseconds{50} || slow_shader_compile_start) {
+            if (!slow_shader_compile_start) {
+                slow_shader_start = steady_clock::now();
+                slow_shader_compile_start = true;
+                slow_shader_first_value = value;
+            }
+            const auto diff = duration_cast<milliseconds>(now - slow_shader_start);
+            if (diff > seconds{1} && (value - slow_shader_first_value > 0)) {
+                const auto eta_mseconds =
+                    static_cast<long>(static_cast<double>(total - slow_shader_first_value) /
+                                      (value - slow_shader_first_value) * diff.count());
+                estimate =
+                    tr("ETA: %1")
+                        .arg(QTime(0, 0, 0, 0)
+                                 .addMSecs(std::max<long>(eta_mseconds - diff.count(), 0))
+                                 .toString(QStringLiteral("mm:ss")));
+            }
+        }
+
+        ui->shader_stage_label->setText(tr("Building Shaders..."));
+
+        if (!estimate.isEmpty()) {
+            ui->shader_value_label->setText(QStringLiteral("%1 / %2 (%3)").arg(value).arg(total).arg(estimate));
+        } else {
+            ui->shader_value_label->setText(QStringLiteral("%1 / %2").arg(value).arg(total));
+        }
     }
-    ui->value->setText(estimate);
-    ui->progress_bar->setValue(static_cast<int>(value));
     previous_time = now;
 }
 
@@ -190,13 +210,9 @@ void LoadingScreen::paintEvent(QPaintEvent* event) {
     opt.initFrom(this);
     QPainter p(this);
     style()->drawPrimitive(QStyle::PE_Widget, &opt, &p, this);
-    QWidget::paintEvent(event);
 }
 
 void LoadingScreen::Clear() {
-#ifndef CITRON_QT_MOVIE_MISSING
-    animation.reset();
-    backing_buf.reset();
-    backing_mem.reset();
-#endif
+    ui->game_icon->clear();
+    loading_text_animation_timer->stop();
 }
