@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: 2023 yuzu Emulator Project
+// SPDX-FileCopyrightText: 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #pragma once
@@ -76,6 +77,7 @@ protected:
     void ReadCoreValues();
     void ReadDataStorageValues();
     void ReadDebuggingValues();
+    void ReadCustomSavePathValues();
 #ifdef __unix__
     void ReadLinuxValues();
 #endif
@@ -112,6 +114,7 @@ protected:
     void SaveCoreValues();
     void SaveDataStorageValues();
     void SaveDebuggingValues();
+    void SaveCustomSavePathValues();
 #ifdef __unix__
     void SaveLinuxValues();
 #endif

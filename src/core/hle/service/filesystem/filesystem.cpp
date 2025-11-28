@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: Copyright 2018 yuzu Emulator Project
+// SPDX-FileCopyrightText: 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <utility>
@@ -419,8 +420,22 @@ std::shared_ptr<FileSys::SaveDataFactory> FileSystemController::CreateSaveDataFa
     ProgramId program_id) {
     using CitronPath = Common::FS::CitronPath;
     const auto rw_mode = FileSys::OpenMode::ReadWrite;
-
     auto vfs = system.GetFilesystem();
+
+    // Check for a custom save path for the current game.
+    if (Settings::values.custom_save_paths.count(program_id)) {
+        const std::string& custom_path_str = Settings::values.custom_save_paths.at(program_id);
+        const std::filesystem::path custom_path = custom_path_str;
+
+        // If the custom path is valid and points to a directory, use it.
+        if (!custom_path_str.empty() && Common::FS::IsDir(custom_path)) {
+            LOG_INFO(Service_FS, "Using custom save path for program_id={:016X}: {}", program_id, custom_path_str);
+            auto custom_save_directory = vfs->OpenDirectory(custom_path_str, rw_mode);
+            return std::make_shared<FileSys::SaveDataFactory>(system, program_id, std::move(custom_save_directory));
+        }
+    }
+
+    // If no valid custom path was found, use the default NAND directory.
     const auto nand_directory =
         vfs->OpenDirectory(Common::FS::GetCitronPathString(CitronPath::NANDDir), rw_mode);
     return std::make_shared<FileSys::SaveDataFactory>(system, program_id,

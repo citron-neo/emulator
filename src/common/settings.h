@@ -683,6 +683,9 @@ struct Values {
     // Cheats
     // Key: build_id (hex string), Value: set of disabled cheat names
     std::map<std::string, std::set<std::string>> disabled_cheats;
+
+    // Custom Save Paths
+    std::map<u64, std::string> custom_save_paths;
 };
 
 extern Values values;

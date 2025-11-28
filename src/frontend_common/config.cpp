@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: 2023 yuzu Emulator Project
+// SPDX-FileCopyrightText: 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <algorithm>
@@ -299,6 +300,24 @@ void Config::ReadDebuggingValues() {
     EndGroup();
 }
 
+void Config::ReadCustomSavePathValues() {
+    BeginGroup(std::string("CustomSavePaths"));
+
+    const int size = BeginArray(std::string(""));
+    for (int i = 0; i < size; ++i) {
+        SetArrayIndex(i);
+        const auto title_id = ReadUnsignedIntegerSetting(std::string("title_id"), 0);
+        const auto path = ReadStringSetting(std::string("path"), std::string(""));
+
+        if (title_id != 0 && !path.empty()) {
+            Settings::values.custom_save_paths.insert_or_assign(title_id, path);
+        }
+    }
+    EndArray();
+
+    EndGroup();
+}
+
 #ifdef __unix__
 void Config::ReadLinuxValues() {
     BeginGroup(Settings::TranslateCategory(Settings::Category::Linux));
@@ -438,6 +457,7 @@ void Config::ReadValues() {
     if (global) {
         ReadDataStorageValues();
         ReadDebuggingValues();
+        ReadCustomSavePathValues();
         ReadDisabledAddOnValues();
         ReadDisabledCheatValues();
         ReadNetworkValues();
@@ -542,6 +562,7 @@ void Config::SaveValues() {
         LOG_DEBUG(Config, "Saving global generic configuration values");
         SaveDataStorageValues();
         SaveDebuggingValues();
+        SaveCustomSavePathValues();
         SaveDisabledAddOnValues();
         SaveDisabledCheatValues();
         SaveNetworkValues();
@@ -627,6 +648,22 @@ void Config::SaveDebuggingValues() {
 
     WriteCategory(Settings::Category::Debugging);
     WriteCategory(Settings::Category::DebuggingGraphics);
+
+    EndGroup();
+}
+
+void Config::SaveCustomSavePathValues() {
+    BeginGroup(std::string("CustomSavePaths"));
+
+    int i = 0;
+    BeginArray(std::string(""));
+    for (const auto& elem : Settings::values.custom_save_paths) {
+        SetArrayIndex(i);
+        WriteIntegerSetting(std::string("title_id"), elem.first, std::make_optional(static_cast<u64>(0)));
+        WriteStringSetting(std::string("path"), elem.second, std::make_optional(std::string("")));
+        ++i;
+    }
+    EndArray();
 
     EndGroup();
 }
