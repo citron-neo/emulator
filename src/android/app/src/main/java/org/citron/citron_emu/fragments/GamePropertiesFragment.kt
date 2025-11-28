@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: 2023 yuzu Emulator Project
+// SPDX-FileCopyrightText: 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 package org.citron.citron_emu.fragments
@@ -25,6 +26,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.citron.citron_emu.HomeNavigationDirections
+import org.citron.citron_emu.NativeLibrary
 import org.citron.citron_emu.R
 import org.citron.citron_emu.CitronApplication
 import org.citron.citron_emu.adapters.GamePropertiesAdapter
@@ -273,6 +275,63 @@ class GamePropertiesFragment : Fragment() {
                         }
                     )
                 }
+
+                // Add RomFS and ExeFS dump options
+                add(
+                    SubmenuProperty(
+                        R.string.dump_romfs,
+                        R.string.dump_romfs_description,
+                        R.drawable.ic_save
+                    ) {
+                        ProgressDialogFragment.newInstance(
+                            requireActivity(),
+                            R.string.dump_romfs_extracting,
+                            false
+                        ) { _, _ ->
+                            val success = NativeLibrary.dumpRomFS(
+                                args.game.path,
+                                args.game.programIdHex,
+                                { max, progress ->
+                                    // Progress callback - return true to cancel
+                                    false
+                                }
+                            )
+                            if (success) {
+                                getString(R.string.dump_success)
+                            } else {
+                                getString(R.string.dump_failed)
+                            }
+                        }.show(parentFragmentManager, ProgressDialogFragment.TAG)
+                    }
+                )
+
+                add(
+                    SubmenuProperty(
+                        R.string.dump_exefs,
+                        R.string.dump_exefs_description,
+                        R.drawable.ic_save
+                    ) {
+                        ProgressDialogFragment.newInstance(
+                            requireActivity(),
+                            R.string.dump_exefs_extracting,
+                            false
+                        ) { _, _ ->
+                            val success = NativeLibrary.dumpExeFS(
+                                args.game.path,
+                                args.game.programIdHex,
+                                { max, progress ->
+                                    // Progress callback - return true to cancel
+                                    false
+                                }
+                            )
+                            if (success) {
+                                getString(R.string.dump_success)
+                            } else {
+                                getString(R.string.dump_failed)
+                            }
+                        }.show(parentFragmentManager, ProgressDialogFragment.TAG)
+                    }
+                )
             }
         }
         binding.listProperties.apply {
