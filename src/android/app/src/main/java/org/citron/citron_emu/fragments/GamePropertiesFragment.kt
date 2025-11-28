@@ -40,6 +40,7 @@ import org.citron.citron_emu.model.InstallableProperty
 import org.citron.citron_emu.model.SubmenuProperty
 import org.citron.citron_emu.model.TaskState
 import org.citron.citron_emu.utils.DirectoryInitialization
+import org.citron.citron_emu.utils.DocumentsTree
 import org.citron.citron_emu.utils.FileUtil
 import org.citron.citron_emu.utils.GameIconUtils
 import org.citron.citron_emu.utils.GpuDriverHelper
@@ -47,6 +48,7 @@ import org.citron.citron_emu.utils.MemoryUtil
 import org.citron.citron_emu.utils.ViewUtils.marquee
 import org.citron.citron_emu.utils.ViewUtils.updateMargins
 import org.citron.citron_emu.utils.collect
+import androidx.documentfile.provider.DocumentFile
 import java.io.BufferedOutputStream
 import java.io.File
 
@@ -283,25 +285,23 @@ class GamePropertiesFragment : Fragment() {
                         R.string.dump_romfs_description,
                         R.drawable.ic_save
                     ) {
-                        ProgressDialogFragment.newInstance(
+                        // Show dialog to select dump location or use default
+                        MessageDialogFragment.newInstance(
                             requireActivity(),
-                            R.string.dump_romfs_extracting,
-                            false
-                        ) { _, _ ->
-                            val success = NativeLibrary.dumpRomFS(
-                                args.game.path,
-                                args.game.programIdHex,
-                                { max, progress ->
-                                    // Progress callback - return true to cancel
-                                    false
-                                }
-                            )
-                            if (success) {
-                                getString(R.string.dump_success)
-                            } else {
-                                getString(R.string.dump_failed)
+                            titleId = R.string.dump_romfs,
+                            descriptionId = R.string.select_dump_location_description,
+                            positiveButtonTitleId = R.string.select_location,
+                            negativeButtonTitleId = R.string.use_default_location,
+                            positiveAction = {
+                                // User wants to select a custom location
+                                pendingDumpType = "romfs"
+                                selectDumpDirectory.launch(null)
+                            },
+                            negativeAction = {
+                                // Use default location
+                                performRomFSDump(null)
                             }
-                        }.show(parentFragmentManager, ProgressDialogFragment.TAG)
+                        ).show(parentFragmentManager, MessageDialogFragment.TAG)
                     }
                 )
 
@@ -311,25 +311,23 @@ class GamePropertiesFragment : Fragment() {
                         R.string.dump_exefs_description,
                         R.drawable.ic_save
                     ) {
-                        ProgressDialogFragment.newInstance(
+                        // Show dialog to select dump location or use default
+                        MessageDialogFragment.newInstance(
                             requireActivity(),
-                            R.string.dump_exefs_extracting,
-                            false
-                        ) { _, _ ->
-                            val success = NativeLibrary.dumpExeFS(
-                                args.game.path,
-                                args.game.programIdHex,
-                                { max, progress ->
-                                    // Progress callback - return true to cancel
-                                    false
-                                }
-                            )
-                            if (success) {
-                                getString(R.string.dump_success)
-                            } else {
-                                getString(R.string.dump_failed)
+                            titleId = R.string.dump_exefs,
+                            descriptionId = R.string.select_dump_location_description,
+                            positiveButtonTitleId = R.string.select_location,
+                            negativeButtonTitleId = R.string.use_default_location,
+                            positiveAction = {
+                                // User wants to select a custom location
+                                pendingDumpType = "exefs"
+                                selectDumpDirectory.launch(null)
+                            },
+                            negativeAction = {
+                                // Use default location
+                                performExeFSDump(null)
                             }
-                        }.show(parentFragmentManager, ProgressDialogFragment.TAG)
+                        ).show(parentFragmentManager, MessageDialogFragment.TAG)
                     }
                 )
             }
@@ -385,6 +383,22 @@ class GamePropertiesFragment : Fragment() {
             )
 
             windowInsets
+        }
+
+    private var pendingDumpType: String? = null // "romfs" or "exefs"
+
+    private val selectDumpDirectory =
+        registerForActivityResult(ActivityResultContracts.OpenDocumentTree()) { result ->
+            if (result == null) {
+                return@registerForActivityResult
+            }
+            // Store the selected directory URI and perform the dump
+            val selectedUri = result.toString()
+            when (pendingDumpType) {
+                "romfs" -> performRomFSDump(selectedUri)
+                "exefs" -> performExeFSDump(selectedUri)
+            }
+            pendingDumpType = null
         }
 
     private val importSaves =
@@ -477,6 +491,89 @@ class GamePropertiesFragment : Fragment() {
             return@newInstance when (zipResult) {
                 TaskState.Completed -> getString(R.string.export_success)
                 TaskState.Cancelled, TaskState.Failed -> getString(R.string.export_failed)
+            }
+        }.show(parentFragmentManager, ProgressDialogFragment.TAG)
+    }
+
+    private fun performRomFSDump(dumpPathUri: String?) {
+        ProgressDialogFragment.newInstance(
+            requireActivity(),
+            R.string.dump_romfs_extracting,
+            false
+        ) { _, _ ->
+            // Convert URI to file path if needed
+            val dumpPathString = dumpPathUri?.let { uriString ->
+                try {
+                    val uri = android.net.Uri.parse(uriString)
+                    // For document tree URIs, try to get the actual file path
+                    if (DocumentsTree.isNativePath(uriString)) {
+                        uriString
+                    } else {
+                        // Try to extract file path from document URI
+                        // For document tree URIs, we can't easily get a native path
+                        // So we'll pass the URI and let the native code handle it
+                        // or extract path using DocumentFile
+                        val docFile = DocumentFile.fromTreeUri(requireContext(), uri)
+                        docFile?.uri?.path ?: uriString
+                    }
+                } catch (e: Exception) {
+                    null
+                }
+            }
+
+            val success = NativeLibrary.dumpRomFS(
+                args.game.path,
+                args.game.programIdHex,
+                dumpPathString,
+                { max, progress ->
+                    // Progress callback - return true to cancel
+                    false
+                }
+            )
+            if (success) {
+                getString(R.string.dump_success)
+            } else {
+                getString(R.string.dump_failed)
+            }
+        }.show(parentFragmentManager, ProgressDialogFragment.TAG)
+    }
+
+    private fun performExeFSDump(dumpPathUri: String?) {
+        ProgressDialogFragment.newInstance(
+            requireActivity(),
+            R.string.dump_exefs_extracting,
+            false
+        ) { _, _ ->
+            // Convert URI to file path if needed
+            val dumpPathString = dumpPathUri?.let { uriString ->
+                try {
+                    val uri = android.net.Uri.parse(uriString)
+                    // For document tree URIs, try to get the actual file path
+                    if (DocumentsTree.isNativePath(uriString)) {
+                        uriString
+                    } else {
+                        // Try to extract file path from document URI
+                        val docFile = DocumentFile.fromTreeUri(requireContext(), uri)
+                        docFile?.uri?.path ?: uriString
+                    }
+                } catch (e: Exception) {
+                    null
+                }
+            }
+
+            val success = NativeLibrary.dumpExeFS(
+                args.game.path,
+                args.game.programIdHex,
+                dumpPathString,
+                { max, progress ->
+                    // Progress callback - return true to cancel
+                    false
+                }
+            )
+            if (success) {
+                getString(R.string.dump_success)
+            } else {
+                getString(R.string.dump_failed)
             }
         }.show(parentFragmentManager, ProgressDialogFragment.TAG)
     }

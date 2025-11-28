@@ -883,7 +883,7 @@ jboolean Java_org_citron_citron_1emu_NativeLibrary_areKeysPresent(JNIEnv* env, j
 
 jboolean Java_org_citron_citron_1emu_NativeLibrary_dumpRomFS(JNIEnv* env, jobject jobj,
                                                          jstring jgamePath, jstring jprogramId,
-                                                         jobject jcallback) {
+                                                         jstring jdumpPath, jobject jcallback) {
     const auto game_path = Common::Android::GetJString(env, jgamePath);
     const auto program_id = EmulationSession::GetProgramId(env, jprogramId);
 
@@ -935,7 +935,25 @@ jboolean Java_org_citron_citron_1emu_NativeLibrary_dumpRomFS(JNIEnv* env, jobjec
         return false;
     }
 
-    const auto dump_dir = Common::FS::GetCitronPath(Common::FS::CitronPath::DumpDir);
+    // Use custom dump path if provided, otherwise use default
+    std::filesystem::path dump_dir;
+    if (jdumpPath != nullptr) {
+        const auto custom_path = Common::Android::GetJString(env, jdumpPath);
+        if (!custom_path.empty()) {
+            // Check if it's a native path (starts with /) or try to use it as-is
+            if (custom_path[0] == '/') {
+                dump_dir = std::filesystem::path(custom_path);
+            } else {
+                // Try to parse as URI and extract path
+                // For document tree URIs, we can't easily get a native path
+                // So fall back to default
+                dump_dir = Common::FS::GetCitronPath(Common::FS::CitronPath::DumpDir);
+            }
+        }
+    }
+    if (dump_dir.empty()) {
+        dump_dir = Common::FS::GetCitronPath(Common::FS::CitronPath::DumpDir);
+    }
     const auto romfs_dir = fmt::format("{:016X}/romfs", title_id);
     const auto path = dump_dir / romfs_dir;
 
@@ -1014,7 +1032,7 @@ jboolean Java_org_citron_citron_1emu_NativeLibrary_dumpRomFS(JNIEnv* env, jobjec
 
 jboolean Java_org_citron_citron_1emu_NativeLibrary_dumpExeFS(JNIEnv* env, jobject jobj,
                                                           jstring jgamePath, jstring jprogramId,
-                                                          jobject jcallback) {
+                                                          jstring jdumpPath, jobject jcallback) {
     const auto game_path = Common::Android::GetJString(env, jgamePath);
     const auto program_id = EmulationSession::GetProgramId(env, jprogramId);
 
@@ -1069,10 +1087,25 @@ jboolean Java_org_citron_citron_1emu_NativeLibrary_dumpExeFS(JNIEnv* env, jobjec
         return false;
     }
 
-    // Get dump directory
-    const auto dump_dir = system.GetFileSystemController().GetModificationDumpRoot(title_id);
+    // Use custom dump path if provided, otherwise use default
+    FileSys::VirtualDir dump_dir;
+    if (jdumpPath != nullptr) {
+        const auto custom_path = Common::Android::GetJString(env, jdumpPath);
+        if (!custom_path.empty() && custom_path[0] == '/') {
+            // Create a real VFS directory from the custom path (native path only)
+            const auto custom_dir = std::make_shared<FileSys::RealVfsDirectory>(
+                std::filesystem::path(custom_path));
+            if (custom_dir && custom_dir->IsWritable()) {
+                dump_dir = custom_dir;
+            }
+        }
+    }
     if (!dump_dir) {
-        return false;
+        // Fall back to default dump directory
+        dump_dir = system.GetFileSystemController().GetModificationDumpRoot(title_id);
+        if (!dump_dir) {
+            return false;
+        }
     }
 
     const auto exefs_dir = FileSys::GetOrCreateDirectoryRelative(dump_dir, "/exefs");

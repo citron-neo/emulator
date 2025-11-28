@@ -470,12 +470,14 @@ object NativeLibrary {
      * Dumps the RomFS from a game to the dump directory
      * @param gamePath Path to the game file
      * @param programId String representation of the game's program ID
+     * @param dumpPath Optional custom dump path. If null or empty, uses default dump directory
      * @param callback Progress callback. Return true to cancel. Parameters: (max: Long, progress: Long)
      * @return true if successful, false otherwise
      */
     external fun dumpRomFS(
         gamePath: String,
         programId: String,
+        dumpPath: String?,
         callback: (max: Long, progress: Long) -> Boolean
     ): Boolean
 
@@ -483,12 +485,14 @@ object NativeLibrary {
      * Dumps the ExeFS from a game to the dump directory
      * @param gamePath Path to the game file
      * @param programId String representation of the game's program ID
+     * @param dumpPath Optional custom dump path. If null or empty, uses default dump directory
      * @param callback Progress callback. Return true to cancel. Parameters: (max: Long, progress: Long)
      * @return true if successful, false otherwise
      */
     external fun dumpExeFS(
         gamePath: String,
         programId: String,
+        dumpPath: String?,
         callback: (max: Long, progress: Long) -> Boolean
     ): Boolean
 }
