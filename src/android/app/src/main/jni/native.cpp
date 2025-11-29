@@ -969,8 +969,9 @@ jboolean Java_org_citron_citron_1emu_NativeLibrary_dumpRomFS(JNIEnv* env, jobjec
         return false;
     }
 
-    // Create output directory
-    const auto out_dir = std::make_shared<FileSys::RealVfsDirectory>(path);
+    // Create output directory using VFS
+    const auto path_str = Common::FS::PathToUTF8String(path);
+    const auto out_dir = vfs.CreateDirectory(path_str, FileSys::OpenMode::ReadWrite);
     if (!out_dir || !out_dir->IsWritable()) {
         return false;
     }
@@ -983,12 +984,18 @@ jboolean Java_org_citron_citron_1emu_NativeLibrary_dumpRomFS(JNIEnv* env, jobjec
     auto jlambdaInvokeMethod = env->GetMethodID(
         jlambdaClass, "invoke", "(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;");
 
-    const auto callback = [env, jcallback, jlambdaInvokeMethod, &read_size, total_size](
+    // Helper to create Java Long objects
+    auto jLongClass = env->FindClass("java/lang/Long");
+    auto jLongValueOf = env->GetStaticMethodID(jLongClass, "valueOf", "(J)Ljava/lang/Long;");
+
+    const auto callback = [env, jcallback, jlambdaInvokeMethod, jLongClass, jLongValueOf, &read_size, total_size](
                              size_t current_read) -> bool {
         read_size += current_read;
-        auto jwasCancelled = env->CallObjectMethod(
-            jcallback, jlambdaInvokeMethod, Common::Android::ToJLong(env, total_size),
-            Common::Android::ToJLong(env, read_size));
+        auto jmax = env->CallStaticObjectMethod(jLongClass, jLongValueOf, static_cast<jlong>(total_size));
+        auto jprogress = env->CallStaticObjectMethod(jLongClass, jLongValueOf, static_cast<jlong>(read_size));
+        auto jwasCancelled = env->CallObjectMethod(jcallback, jlambdaInvokeMethod, jmax, jprogress);
+        env->DeleteLocalRef(jmax);
+        env->DeleteLocalRef(jprogress);
         return Common::Android::GetJBoolean(env, jwasCancelled);
     };
 
@@ -1092,11 +1099,10 @@ jboolean Java_org_citron_citron_1emu_NativeLibrary_dumpExeFS(JNIEnv* env, jobjec
     if (jdumpPath != nullptr) {
         const auto custom_path = Common::Android::GetJString(env, jdumpPath);
         if (!custom_path.empty() && custom_path[0] == '/') {
-            // Create a real VFS directory from the custom path (native path only)
-            const auto custom_dir = std::make_shared<FileSys::RealVfsDirectory>(
-                std::filesystem::path(custom_path));
-            if (custom_dir && custom_dir->IsWritable()) {
-                dump_dir = custom_dir;
+            // Create directory using VFS (native path only)
+            dump_dir = vfs.CreateDirectory(custom_path, FileSys::OpenMode::ReadWrite);
+            if (!dump_dir || !dump_dir->IsWritable()) {
+                dump_dir = nullptr;
             }
         }
     }
