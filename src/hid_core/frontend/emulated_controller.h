@@ -474,6 +474,12 @@ public:
     void SetGyroscopeZeroDriftMode(GyroscopeZeroDriftMode mode);
 
     /**
+     * Sets a callback to be invoked when this object is about to be destructed.
+     * This is used for observers to safely null out their pointers.
+     */
+    void SetDestructionCallback(std::function<void()> callback);
+
+    /**
      * Adds a callback to the list of events
      * @param update_callback A ConsoleUpdateCallback that will be triggered
      * @return an unique key corresponding to the callback index in the list
@@ -653,6 +659,8 @@ private:
     mutable std::mutex connect_mutex;
     std::unordered_map<int, ControllerUpdateCallback> callback_list;
     int last_callback_key = 0;
+
+    std::function<void()> destruction_callback;
 
     // Stores the current status of all controller input
     ControllerStatus controller;

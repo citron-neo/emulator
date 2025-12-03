@@ -12,6 +12,9 @@
 
 PlayerControlPreview::PlayerControlPreview(QWidget* parent) : QFrame(parent) {
     is_controller_set = false;
+    controller = nullptr;
+    callback_key = -1;
+
     QTimer* timer = new QTimer(this);
     connect(timer, &QTimer::timeout, this, QOverload<>::of(&PlayerControlPreview::UpdateInput));
 
@@ -31,6 +34,14 @@ void PlayerControlPreview::SetController(Core::HID::EmulatedController* controll
     UnloadController();
     is_controller_set = true;
     controller = controller_;
+
+    // This registers a function that the controller will call from its destructor.
+    // When called, it safely nulls our pointer so we don't use it after it's been freed.
+    controller->SetDestructionCallback([this]() {
+        this->controller = nullptr;
+        this->is_controller_set = false;
+    });
+
     Core::HID::ControllerUpdateCallback engine_callback{
         .on_change = [this](Core::HID::ControllerTriggerType type) { ControllerUpdate(type); },
         .is_npad_service = false,
@@ -40,10 +51,14 @@ void PlayerControlPreview::SetController(Core::HID::EmulatedController* controll
 }
 
 void PlayerControlPreview::UnloadController() {
-    if (is_controller_set) {
+    // Only try to access the controller if the pointer is valid.
+    if (controller) {
         controller->DeleteCallback(callback_key);
-        is_controller_set = false;
+        // Also clear the destruction callback we set.
+        controller->SetDestructionCallback(nullptr);
     }
+    is_controller_set = false;
+    controller = nullptr;
 }
 
 void PlayerControlPreview::BeginMappingButton(std::size_t button_id) {

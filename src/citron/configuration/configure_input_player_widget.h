@@ -14,12 +14,6 @@
 #include "hid_core/frontend/emulated_controller.h"
 #include "hid_core/hid_types.h"
 
-class QLabel;
-
-using AnalogParam = std::array<Common::ParamPackage, Settings::NativeAnalog::NumAnalogs>;
-using ButtonParam = std::array<Common::ParamPackage, Settings::NativeButton::NumButtons>;
-
-// Widget for representing controller animations
 class PlayerControlPreview : public QFrame {
     Q_OBJECT
 
@@ -206,30 +200,33 @@ private:
     // Draw primitive types
     template <size_t N>
     void DrawPolygon(QPainter& p, const std::array<QPointF, N>& polygon);
-    void DrawCircle(QPainter& p, QPointF center, float size);
-    void DrawRectangle(QPainter& p, QPointF center, float width, float height);
-    void DrawRoundRectangle(QPainter& p, QPointF center, float width, float height, float round);
-    void DrawText(QPainter& p, QPointF center, float text_size, const QString& text);
+    void DrawCircle(QPainter& p, const QPointF center, float size);
+    void DrawRectangle(QPainter& p, const QPointF center, float width, float height);
+    void DrawRoundRectangle(QPainter& p, const QPointF center, float width, float height, float round);
+    void DrawText(QPainter& p, const QPointF center, float text_size, const QString& text);
     void SetTextFont(QPainter& p, float text_size,
                      const QString& font_family = QStringLiteral("sans-serif"));
 
     bool raw_joystick_visible = false;
 
-    bool is_controller_set{};
-    bool is_connected{};
-    bool needs_redraw{};
-    Core::HID::NpadStyleIndex controller_type;
+    Core::HID::EmulatedController* controller = nullptr;
+    Core::HID::NpadStyleIndex controller_type{};
+    int callback_key = -1;
+    bool is_controller_set = false;
+    bool is_connected = false;
+    bool needs_redraw = false;
 
-    bool mapping_active{};
-    int blink_counter{};
-    int callback_key;
+    bool mapping_active = false;
+    int blink_counter = 0;
+
     QColor button_color{};
     ColorMapping colors{};
     Core::HID::LedPattern led_pattern{0, 0, 0, 0};
-    std::size_t player_index{};
-    Core::HID::EmulatedController* controller;
+
+    std::size_t player_index = 0;
     std::size_t button_mapping_index{Settings::NativeButton::NumButtons};
     std::size_t analog_mapping_index{Settings::NativeAnalog::NumAnalogs};
+
     Core::HID::ButtonValues button_values{};
     Core::HID::SticksValues stick_values{};
     Core::HID::TriggerValues trigger_values{};

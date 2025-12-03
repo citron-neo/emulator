@@ -24,7 +24,15 @@ constexpr Common::UUID VIRTUAL_UUID =
 
 EmulatedController::EmulatedController(NpadIdType npad_id_type_) : npad_id_type(npad_id_type_) {}
 
-EmulatedController::~EmulatedController() = default;
+EmulatedController::~EmulatedController() {
+    if (destruction_callback) {
+        destruction_callback();
+    }
+}
+
+void EmulatedController::SetDestructionCallback(std::function<void()> callback) {
+    destruction_callback = std::move(callback);
+}
 
 NpadStyleIndex EmulatedController::MapSettingsTypeToNPad(Settings::ControllerType type) {
     switch (type) {
