@@ -6,6 +6,15 @@ cmake_minimum_required(VERSION 3.22)
 
 project(citron)
 
+# Define the build type, defaulting to "Nightly" for development and CI builds.
+set(CITRON_BUILD_TYPE "Stable" CACHE STRING "The build type for the emulator (e.g., Stable, Nightly)")
+
+# For cmake-gui, this creates a dropdown to select the build type.
+set_property(CACHE CITRON_BUILD_TYPE PROPERTY STRINGS Stable Nightly)
+
+# Pass the build type to the C++ source code as a preprocessor definition.
+add_definitions("-DCITRON_BUILD_TYPE=\"${CITRON_BUILD_TYPE}\"")
+
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/CMakeModules")
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/externals/cmake-modules")
 
@@ -558,7 +567,7 @@ endif()
 
 function(set_citron_qt_components)
 # Best practice is to ask for all components at once, so they are from the same version
-set(CITRON_QT_COMPONENTS2 Core Widgets Concurrent)
+set(CITRON_QT_COMPONENTS2 Core Widgets Concurrent GuiPrivate)
 if (${CMAKE_SYSTEM_NAME} STREQUAL "Linux")
 list(APPEND CITRON_QT_COMPONENTS2 DBus)
 endif()

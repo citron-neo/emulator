@@ -1454,6 +1454,20 @@ void GMainWindow::InitializeHotkeys() {
     LinkActionShortcut(ui->action_Show_Room, QStringLiteral("Multiplayer Show Current Room"));
     LinkActionShortcut(ui->action_Leave_Room, QStringLiteral("Multiplayer Leave Room"));
 
+    // Create and connect a dedicated, robust QAction for exiting fullscreen.
+    action_exit_fullscreen = new QAction(this);
+    connect(action_exit_fullscreen, &QAction::triggered, this, [this] {
+        if (emulation_running && ui->action_Fullscreen->isChecked()) {
+            // Un-check the toggle to keep the UI in sync and then exit fullscreen.
+            ui->action_Fullscreen->setChecked(false);
+            ToggleFullscreen();
+        }
+    });
+    // Now bind the "Exit Fullscreen" hotkey (Esc by default) to this new QAction.
+    LinkActionShortcut(action_exit_fullscreen, QStringLiteral("Exit Fullscreen"));
+
+    render_window->addAction(action_exit_fullscreen);
+
     static const QString main_window = QStringLiteral("Main Window");
     const auto connect_shortcut = [&]<typename Fn>(const QString& action_name, const Fn& function) {
         const auto* hotkey =
@@ -1466,12 +1480,6 @@ void GMainWindow::InitializeHotkeys() {
                 Qt::QueuedConnection);
     };
 
-    connect_shortcut(QStringLiteral("Exit Fullscreen"), [&] {
-        if (emulation_running && ui->action_Fullscreen->isChecked()) {
-            ui->action_Fullscreen->setChecked(false);
-            ToggleFullscreen();
-        }
-    });
     connect_shortcut(QStringLiteral("Change Adapting Filter"),
                      &GMainWindow::OnToggleAdaptingFilter);
     connect_shortcut(QStringLiteral("Change Docked Mode"), &GMainWindow::OnToggleDockedMode);
@@ -5334,19 +5342,25 @@ void GMainWindow::MigrateConfigFiles() {
 
 void GMainWindow::UpdateWindowTitle(std::string_view title_name, std::string_view title_version,
                                     std::string_view gpu_vendor) {
-    std::string window_title = "citron | 0.11.0";
-#ifdef CITRON_ENABLE_PGO_USE
-    window_title += " | PGO";
-#endif
+    // Build the base title from the CMake-generated variables.
+    std::string base_title = "citron ";
+    base_title += Common::g_build_fullname; // This is "Nightly " or "" for Stable
+    base_title += "| ";
+    base_title += Common::g_build_version;  // This is the git hash or Stable version tag.
+
+    // Add the PGO tag if enabled.
+    #ifdef CITRON_ENABLE_PGO_USE
+        base_title += " | PGO";
+    #endif
 
     if (title_name.empty()) {
-        setWindowTitle(QString::fromStdString(window_title));
+        setWindowTitle(QString::fromStdString(base_title));
     } else {
-        const auto run_title = [window_title, title_name, title_version, gpu_vendor]() {
+        const auto run_title = [&]() {
             if (title_version.empty()) {
-                return fmt::format("{} | {} | {}", window_title, title_name, gpu_vendor);
+                return fmt::format("{} | {} | {}", base_title, title_name, gpu_vendor);
             }
-            return fmt::format("{} | {} | {} | {}", window_title, title_name, title_version,
+            return fmt::format("{} | {} | {} | {}", base_title, title_name, title_version,
                                gpu_vendor);
         }();
         setWindowTitle(QString::fromStdString(run_title));
