@@ -390,6 +390,7 @@ private:
     QDialog* error_applet = nullptr;
     QtSoftwareKeyboardDialog* software_keyboard = nullptr;
     QtNXWebEngineView* web_applet = nullptr;
+    QAction* action_exit_fullscreen;
     bool is_amiibo_file_select_active{};
     bool is_load_file_select_active{};
     bool is_tas_recording_dialog_active{};
