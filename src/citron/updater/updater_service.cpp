@@ -125,7 +125,7 @@ void UpdaterService::CheckForUpdates() {
         return;
     }
     QSettings settings;
-    QString channel = settings.value(QStringLiteral("updater/channel"), QStringLiteral("Stable")).toString();
+    QString channel = settings.value(QStringLiteral("updater/channel"), QStringLiteral("Nightly")).toString();
     std::string update_url = (channel == QStringLiteral("Nightly")) ? NIGHTLY_UPDATE_URL : STABLE_UPDATE_URL;
     LOG_INFO(Frontend, "Selected update channel: {}", channel.toStdString());
     LOG_INFO(Frontend, "Checking for updates from: {}", update_url);
@@ -414,16 +414,24 @@ void UpdaterService::ParseUpdateResponse(const QByteArray& response, const QStri
         for (const QJsonValue& asset_value : assets) {
             QJsonObject asset_obj = asset_value.toObject();
             QString asset_name = asset_obj.value(QStringLiteral("name")).toString();
-#if defined(__linux__)
+
+            #if defined(__linux__)
             if (asset_name.endsWith(QStringLiteral(".AppImage"))) {
-#else
-            if (asset_name.endsWith(QStringLiteral(".zip"))) {
-#endif
                 DownloadOption option;
                 option.name = asset_name.toStdString();
                 option.url = asset_obj.value(QStringLiteral("browser_download_url")).toString().toStdString();
                 update_info.download_options.push_back(option);
             }
+            #elif defined(_WIN32)
+            // For Windows, find the .zip file but explicitly skip PGO builds.
+            if (asset_name.endsWith(QStringLiteral(".zip")) && !asset_name.contains(QStringLiteral("PGO"), Qt::CaseInsensitive)) {
+                DownloadOption option;
+                option.name = asset_name.toStdString();
+                option.url = asset_obj.value(QStringLiteral("browser_download_url")).toString().toStdString();
+                update_info.download_options.push_back(option);
+            }
+            #endif
+
         }
 
         if (!update_info.download_options.empty()) {

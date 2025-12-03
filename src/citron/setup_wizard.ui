@@ -19,6 +19,74 @@
   <property name="windowTitle">
    <string>citron Setup Wizard</string>
   </property>
+  <property name="templateStyleSheet" stdset="0">
+   <string>QDialog {
+    background-color: %%BACKGROUND_COLOR%%;
+}
+
+/* Sidebar List */
+QListWidget {
+    background-color: %%SECONDARY_BG_COLOR%%;
+    border: none;
+}
+QListWidget::item {
+    color: %%TEXT_COLOR%%;
+    padding: 10px;
+}
+QListWidget::item:selected {
+    background-color: %%TERTIARY_BG_COLOR%%;
+    font-weight: bold;
+}
+QListWidget::item:hover {
+    background-color: %%HOVER_BG_COLOR%%;
+}
+
+/* Content Stack &amp; General Widgets */
+QStackedWidget, QGroupBox {
+    background-color: %%BACKGROUND_COLOR%%;
+}
+QLabel, QRadioButton, QCheckBox {
+    color: %%TEXT_COLOR%%;
+    background-color: transparent;
+}
+QLabel[class="wizard-title"] {
+    font-size: 18px;
+    font-weight: bold;
+}
+QLabel[class="wizard-status-success"] {
+    color: #4caf50;
+}
+QLabel[class="wizard-status-default"] {
+    color: %%DISABLED_TEXT_COLOR%%;
+}
+
+
+/* Buttons */
+QPushButton {
+    background-color: %%BUTTON_BG_COLOR%%;
+    color: %%TEXT_COLOR%%;
+    border: 1px solid %%TERTIARY_BG_COLOR%%;
+    padding: 8px 16px;
+    border-radius: 4px;
+}
+QPushButton:hover {
+    background-color: %%HOVER_BG_COLOR%%;
+}
+QPushButton:disabled {
+    background-color: %%SECONDARY_BG_COLOR%%;
+    color: %%DISABLED_TEXT_COLOR%%;
+}
+
+/* Inputs */
+QLineEdit {
+    color: %%TEXT_COLOR%%;
+    background-color: %%SECONDARY_BG_COLOR%%;
+    border: 1px solid %%TERTIARY_BG_COLOR%%;
+    padding: 5px;
+    border-radius: 4px;
+}
+</string>
+  </property>
   <layout class="QVBoxLayout" name="verticalLayout">
    <item>
     <layout class="QHBoxLayout" name="mainLayout">
@@ -37,32 +105,14 @@
         </size>
        </property>
        <property name="styleSheet">
-        <string>QListWidget {
-    background-color: #2b2b2b;
-    border: none;
-    outline: none;
-}
-QListWidget::item {
-    padding: 8px;
-    border: none;
-    color: #cccccc;
-}
-QListWidget::item:selected {
-    background-color: #3d3d3d;
-    color: #ffffff;
-}
-QListWidget::item:hover {
-    background-color: #353535;
-}</string>
+        <string notr="true"/>
        </property>
       </widget>
      </item>
      <item>
       <widget class="QStackedWidget" name="contentStack">
        <property name="styleSheet">
-        <string>QStackedWidget {
-    background-color: #1e1e1e;
-}</string>
+        <string notr="true"/>
        </property>
       </widget>
      </item>

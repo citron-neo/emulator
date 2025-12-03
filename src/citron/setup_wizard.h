@@ -4,6 +4,7 @@
 #pragma once
 
 #include <memory>
+#include <QColor>
 #include <QDialog>
 #include <QListWidget>
 #include <QStackedWidget>
@@ -36,6 +37,9 @@ public:
         Page_Completion = 8,
     };
 
+protected:
+    void changeEvent(QEvent* event) override;
+
 private slots:
     void OnPageChanged(int index);
     void OnNextClicked();
@@ -50,7 +54,6 @@ private slots:
     void OnControllerSetup();
 
 private:
-    void SetupUI();
     void SetupPages();
     void ApplyConfiguration();
     void InstallFirmware(const QString& firmware_path, bool is_zip);
@@ -58,6 +61,7 @@ private:
     bool CheckFirmwareInstalled() const;
     void UpdateNavigationButtons();
     bool ValidateCurrentPage();
+    void UpdateTheme();
 
     std::unique_ptr<Ui::SetupWizard> ui;
     QListWidget* sidebar_list;
@@ -76,4 +80,5 @@ private:
     QString screenshots_path;
     QString profile_name;
     bool firmware_installed;
+    QColor last_palette_text_color;
 };

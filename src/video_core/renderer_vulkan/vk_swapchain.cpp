@@ -40,22 +40,18 @@ static VkPresentModeKHR ChooseSwapPresentMode(bool has_imm, bool has_mailbox,
                                               bool has_fifo_relaxed) {
     // Wayland-specific optimizations for low-latency presentation.
     if (Settings::values.is_wayland_platform.GetValue()) {
-        LOG_INFO(Render_Vulkan, "Wayland platform detected. Prioritizing low-latency presentation modes.");
 
         // On Wayland, Mailbox is strongly preferred for smooth, low-latency rendering.
         if (has_mailbox) {
-            LOG_INFO(Render_Vulkan, "Using Mailbox presentation mode for Wayland.");
             return VK_PRESENT_MODE_MAILBOX_KHR;
         }
 
         // Allow Immediate for lowest latency if the user explicitly chooses it.
         if (has_imm && Settings::values.vsync_mode.GetValue() == Settings::VSyncMode::Immediate) {
-            LOG_INFO(Render_Vulkan, "Using Immediate presentation mode for Wayland (tearing may occur).");
             return VK_PRESENT_MODE_IMMEDIATE_KHR;
         }
 
         // Fallback to standard FIFO (V-Sync) if Mailbox is not available.
-        LOG_INFO(Render_Vulkan, "Mailbox not available. Falling back to FIFO presentation mode for Wayland.");
         return VK_PRESENT_MODE_FIFO_KHR;
     }
 
