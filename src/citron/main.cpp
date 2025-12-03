@@ -5573,8 +5573,8 @@ void GMainWindow::UpdateUISettings() {
 }
 
 void GMainWindow::UpdateInputDrivers() {
-    //  Do not process ANY controller input until emulation is fully running
-    if (!emulation_running) {
+    // Do not process any controller input while the loading screen is active
+    if (loading_screen && loading_screen->isVisible()) {
         return;
     }
 
