@@ -2068,19 +2068,30 @@ void GMainWindow::BootGame(const QString& filename, Service::AM::FrontendAppletP
     last_filename_booted = filename;
 
     ConfigureFilesystemProvider(filename.toStdString());
+
     const auto v_file = Core::GetGameFileFromPath(vfs, filename.toUtf8().constData());
+
     const auto loader = Loader::GetLoader(*system, v_file, params.program_id, params.program_index);
 
-    if (loader != nullptr && loader->ReadProgramId(title_id) == Loader::ResultStatus::Success &&
-        type == StartGameType::Normal) {
-        // Load per game settings
+    if (loader == nullptr || loader->ReadProgramId(title_id) != Loader::ResultStatus::Success) {
+        // If we can't get a loader or read the title ID, we cannot proceed.
+        LOG_CRITICAL(Frontend, "Failed to load game: Could not determine title ID.");
+        return;
+    }
+
+    if (type == StartGameType::Normal) {
+        // Load per game settings if it is a normal boot
         const auto file_path =
             std::filesystem::path{Common::U16StringFromBuffer(filename.utf16(), filename.size())};
+
         const auto config_file_name = title_id == 0
                                           ? Common::FS::PathToUTF8String(file_path.filename())
                                           : fmt::format("{:016X}", title_id);
+
         QtConfig per_game_config(config_file_name, Config::ConfigType::PerGameConfig);
+
         system->HIDCore().ReloadInputDevices();
+
         system->ApplySettings();
 
         // Final Fantasy Tactics requires single-core mode to boot properly
@@ -2089,39 +2100,41 @@ void GMainWindow::BootGame(const QString& filename, Service::AM::FrontendAppletP
             Settings::values.use_multi_core.SetValue(false);
         }
 
-        Settings::LogSettings();
-
-        if (UISettings::values.select_user_on_boot && !user_flag_cmd_line) {
-            const Core::Frontend::ProfileSelectParameters parameters{
-                .mode = Service::AM::Frontend::UiMode::UserSelector,
-                .invalid_uid_list = {},
-                .display_options = {},
-                .purpose = Service::AM::Frontend::UserSelectionPurpose::General,
-            };
-            if (SelectAndSetCurrentUser(parameters) == false) {
-                return;
-            }
-        }
-
-        // If the user specifies -u (successfully) on the cmd line, don't prompt for a user on first
-        // game startup only. If the user stops emulation and starts a new one, go back to the expected
-        // behavior of asking.
-        user_flag_cmd_line = false;
-
-        if (!LoadROM(filename, params)) {
-            return;
-        }
     }
+
+    Settings::LogSettings();
+
+    if (UISettings::values.select_user_on_boot && !user_flag_cmd_line) {
+        const Core::Frontend::ProfileSelectParameters parameters{
+            .mode = Service::AM::Frontend::UiMode::UserSelector,
+            .invalid_uid_list = {},
+            .display_options = {},
+            .purpose = Service::AM::Frontend::UserSelectionPurpose::General,
+        };
+
+        if (SelectAndSetCurrentUser(parameters) == false) {
+            return; // User cancelled profile selection
+        }
+
+    }
+
+    user_flag_cmd_line = false;
+
+    // The core ROM loading logic. If this fails, we must not proceed.
+    if (!LoadROM(filename, params)) {
+        return;
+    }
+
+    // This block is only reached if LoadROM returns true.
 
     system->SetShuttingDown(false);
     game_list->setDisabled(true);
 
     // Create and start the emulation thread
     emu_thread = std::make_unique<EmuThread>(*system);
-    emit EmulationStarting(emu_thread.get());
-    emu_thread->start();
 
-    // Register an ExecuteProgram callback such that Core can execute a sub-program
+    emit EmulationStarting(emu_thread.get());
+
     system->RegisterExecuteProgramCallback(
         [this](std::size_t program_index_) { render_window->ExecuteProgram(program_index_); });
 
@@ -2132,8 +2145,7 @@ void GMainWindow::BootGame(const QString& filename, Service::AM::FrontendAppletP
 
     connect(render_window, &GRenderWindow::Closed, this, &GMainWindow::OnStopGame);
     connect(render_window, &GRenderWindow::MouseActivity, this, &GMainWindow::OnMouseActivity);
-    // BlockingQueuedConnection is important here, it makes sure we've finished refreshing our views
-    // before the CPU continues
+
     connect(emu_thread.get(), &EmuThread::DebugModeEntered, waitTreeWidget,
             &WaitTreeWidget::OnDebugModeEntered, Qt::BlockingQueuedConnection);
     connect(emu_thread.get(), &EmuThread::DebugModeLeft, waitTreeWidget,
@@ -2141,6 +2153,9 @@ void GMainWindow::BootGame(const QString& filename, Service::AM::FrontendAppletP
 
     connect(emu_thread.get(), &EmuThread::LoadProgress, loading_screen,
             &LoadingScreen::OnLoadProgress, Qt::QueuedConnection);
+
+    // Start the thread AFTER all connections are set up
+    emu_thread->start();
 
     // Update the GUI
     UpdateStatusButtons();
