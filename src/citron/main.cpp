@@ -5573,6 +5573,11 @@ void GMainWindow::UpdateUISettings() {
 }
 
 void GMainWindow::UpdateInputDrivers() {
+    //  Do not process ANY controller input until emulation is fully running
+    if (!emulation_running) {
+        return;
+    }
+
     if (!input_subsystem) {
         return;
     }

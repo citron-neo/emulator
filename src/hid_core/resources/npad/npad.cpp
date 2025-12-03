@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: Copyright 2018 yuzu Emulator Project
+// SPDX-FileCopyrightText: 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <algorithm>
@@ -46,10 +47,14 @@ NPad::NPad(Core::HID::HIDCore& hid_core_, KernelHelpers::ServiceContext& service
 }
 
 NPad::~NPad() {
+    // Iterate over ALL aruids and ALL controllers to delete every callback
     for (std::size_t aruid_index = 0; aruid_index < AruidIndexMax; ++aruid_index) {
         for (std::size_t i = 0; i < controller_data[aruid_index].size(); ++i) {
             auto& controller = controller_data[aruid_index][i];
-            controller.device->DeleteCallback(controller.callback_key);
+            if (controller.device && controller.callback_key != -1) {
+                controller.device->DeleteCallback(controller.callback_key);
+                controller.callback_key = -1; // Prevent double deletion
+            }
         }
     }
 }
