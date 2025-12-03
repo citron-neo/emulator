@@ -27,7 +27,7 @@ namespace WebService {
 
 constexpr std::array<const char, 1> API_VERSION{'1'};
 
-constexpr std::size_t TIMEOUT_SECONDS = 30;
+constexpr std::size_t TIMEOUT_SECONDS = 60;
 
 struct Client::Impl {
     Impl(std::string host_, std::string username_, std::string token_)
@@ -80,6 +80,8 @@ struct Client::Impl {
         // Create a new client for each request. This is the safest approach in a
         // multi-threaded environment as it avoids sharing a single client instance.
         httplib::Client cli(host.c_str());
+        cli.set_follow_location(true);
+        cli.set_keep_alive(true);
         cli.set_connection_timeout(TIMEOUT_SECONDS);
         cli.set_read_timeout(TIMEOUT_SECONDS);
         cli.set_write_timeout(TIMEOUT_SECONDS);
