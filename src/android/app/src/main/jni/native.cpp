@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: Copyright 2023 yuzu Emulator Project
+// SPDX-FileCopyrightText: Copyright 2025 Citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <codecvt>
@@ -6,6 +7,7 @@
 #include <string>
 #include <string_view>
 #include <dlfcn.h>
+#include <functional>
 
 #ifdef ARCHITECTURE_arm64
 #include <adrenotools/driver.h>
@@ -41,6 +43,7 @@
 #include "core/file_sys/submission_package.h"
 #include "core/file_sys/vfs/vfs.h"
 #include "core/file_sys/vfs/vfs_real.h"
+#include "core/file_sys/romfs.h"
 #include "core/frontend/applets/cabinet.h"
 #include "core/frontend/applets/controller.h"
 #include "core/frontend/applets/error.h"
@@ -876,6 +879,248 @@ jboolean Java_org_citron_citron_1emu_NativeLibrary_areKeysPresent(JNIEnv* env, j
     auto& system = EmulationSession::GetInstance().System();
     system.GetFileSystemController().CreateFactories(*system.GetFilesystem());
     return ContentManager::AreKeysPresent();
+}
+
+jboolean Java_org_citron_citron_1emu_NativeLibrary_dumpRomFS(JNIEnv* env, jobject jobj,
+                                                         jstring jgamePath, jstring jprogramId,
+                                                         jstring jdumpPath, jobject jcallback) {
+    const auto game_path = Common::Android::GetJString(env, jgamePath);
+    const auto program_id = EmulationSession::GetProgramId(env, jprogramId);
+
+    auto& system = EmulationSession::GetInstance().System();
+    auto& vfs = *system.GetFilesystem();
+
+    const auto loader = Loader::GetLoader(system, vfs.OpenFile(game_path, FileSys::OpenMode::Read));
+    if (loader == nullptr) {
+        return false;
+    }
+
+    FileSys::VirtualFile packed_update_raw{};
+    loader->ReadUpdateRaw(packed_update_raw);
+
+    const auto& installed = system.GetContentProvider();
+
+    // Find the base NCA for the program
+    u64 title_id = program_id;
+    const auto type = FileSys::ContentRecordType::Program;
+    auto base_nca = installed.GetEntry(title_id, type);
+    if (!base_nca || base_nca->GetStatus() != Loader::ResultStatus::Success) {
+        // Try to find any matching entry
+        const auto entries = installed.ListEntriesFilter(FileSys::TitleType::Application, type);
+        bool found = false;
+        for (const auto& entry : entries) {
+            if (FileSys::GetBaseTitleID(entry.title_id) == program_id) {
+                title_id = entry.title_id;
+                base_nca = installed.GetEntry(title_id, type);
+                if (base_nca && base_nca->GetStatus() == Loader::ResultStatus::Success) {
+                    found = true;
+                    break;
+                }
+            }
+        }
+        if (!found || !base_nca) {
+            return false;
+        }
+    }
+
+    const FileSys::NCA update_nca{packed_update_raw, nullptr};
+    if (type != FileSys::ContentRecordType::Program ||
+        update_nca.GetStatus() != Loader::ResultStatus::ErrorMissingBKTRBaseRomFS ||
+        update_nca.GetTitleId() != FileSys::GetUpdateTitleID(title_id)) {
+        packed_update_raw = {};
+    }
+
+    const auto base_romfs = base_nca->GetRomFS();
+    if (!base_romfs) {
+        return false;
+    }
+
+    // Use custom dump path if provided, otherwise use default
+    std::filesystem::path dump_dir;
+    if (jdumpPath != nullptr) {
+        const auto custom_path = Common::Android::GetJString(env, jdumpPath);
+        if (!custom_path.empty()) {
+            // Check if it's a native path (starts with /) or try to use it as-is
+            if (custom_path[0] == '/') {
+                dump_dir = std::filesystem::path(custom_path);
+            } else {
+                // Try to parse as URI and extract path
+                // For document tree URIs, we can't easily get a native path
+                // So fall back to default
+                dump_dir = Common::FS::GetCitronPath(Common::FS::CitronPath::DumpDir);
+            }
+        }
+    }
+    if (dump_dir.empty()) {
+        dump_dir = Common::FS::GetCitronPath(Common::FS::CitronPath::DumpDir);
+    }
+    const auto romfs_dir = fmt::format("{:016X}/romfs", title_id);
+    const auto path = dump_dir / romfs_dir;
+
+    const FileSys::PatchManager pm{title_id, system.GetFileSystemController(), installed};
+    auto romfs = pm.PatchRomFS(base_nca.get(), base_romfs, type, packed_update_raw, false);
+
+    if (!romfs) {
+        return false;
+    }
+
+    const auto extracted = FileSys::ExtractRomFS(romfs);
+    if (extracted == nullptr) {
+        return false;
+    }
+
+    // Create output directory using VFS
+    const auto path_str = Common::FS::PathToUTF8String(path);
+    const auto out_dir = vfs.CreateDirectory(path_str, FileSys::OpenMode::ReadWrite);
+    if (!out_dir || !out_dir->IsWritable()) {
+        return false;
+    }
+
+    // Copy RomFS recursively
+    const auto total_size = romfs->GetSize();
+    size_t read_size = 0;
+
+    auto jlambdaClass = env->GetObjectClass(jcallback);
+    auto jlambdaInvokeMethod = env->GetMethodID(
+        jlambdaClass, "invoke", "(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;");
+
+    // Helper to create Java Long objects
+    auto jLongClass = env->FindClass("java/lang/Long");
+    auto jLongValueOf = env->GetStaticMethodID(jLongClass, "valueOf", "(J)Ljava/lang/Long;");
+
+    const auto callback = [env, jcallback, jlambdaInvokeMethod, jLongClass, jLongValueOf, &read_size, total_size](
+                             size_t current_read) -> bool {
+        read_size += current_read;
+        auto jmax = env->CallStaticObjectMethod(jLongClass, jLongValueOf, static_cast<jlong>(total_size));
+        auto jprogress = env->CallStaticObjectMethod(jLongClass, jLongValueOf, static_cast<jlong>(read_size));
+        auto jwasCancelled = env->CallObjectMethod(jcallback, jlambdaInvokeMethod, jmax, jprogress);
+        env->DeleteLocalRef(jmax);
+        env->DeleteLocalRef(jprogress);
+        return Common::Android::GetJBoolean(env, jwasCancelled);
+    };
+
+    // Recursive copy function
+    const std::function<bool(const FileSys::VirtualDir&, const FileSys::VirtualDir&)> copyDir =
+        [&](const FileSys::VirtualDir& src, const FileSys::VirtualDir& dest) -> bool {
+            if (!src || !dest) {
+                return false;
+            }
+
+            // Copy files
+            for (const auto& file : src->GetFiles()) {
+                if (callback(0)) { // Check for cancellation
+                    return false;
+                }
+                const auto out_file = dest->CreateFile(file->GetName());
+                if (!FileSys::VfsRawCopy(file, out_file)) {
+                    return false;
+                }
+                if (callback(file->GetSize())) {
+                    return false;
+                }
+            }
+
+            // Copy subdirectories
+            for (const auto& dir : src->GetSubdirectories()) {
+                if (callback(0)) {
+                    return false;
+                }
+                const auto out_subdir = dest->CreateSubdirectory(dir->GetName());
+                if (!copyDir(dir, out_subdir)) {
+                    return false;
+                }
+            }
+
+            return true;
+        };
+
+    return copyDir(extracted, out_dir);
+}
+
+jboolean Java_org_citron_citron_1emu_NativeLibrary_dumpExeFS(JNIEnv* env, jobject jobj,
+                                                          jstring jgamePath, jstring jprogramId,
+                                                          jstring jdumpPath, jobject jcallback) {
+    const auto game_path = Common::Android::GetJString(env, jgamePath);
+    const auto program_id = EmulationSession::GetProgramId(env, jprogramId);
+
+    auto& system = EmulationSession::GetInstance().System();
+    auto& vfs = *system.GetFilesystem();
+
+    const auto loader = Loader::GetLoader(system, vfs.OpenFile(game_path, FileSys::OpenMode::Read));
+    if (loader == nullptr) {
+        return false;
+    }
+
+    const auto& installed = system.GetContentProvider();
+
+    // Find the base NCA for the program
+    u64 title_id = program_id;
+    const auto type = FileSys::ContentRecordType::Program;
+    auto base_nca = installed.GetEntry(title_id, type);
+    if (!base_nca) {
+        // Try to find any matching entry
+        const auto entries = installed.ListEntriesFilter(FileSys::TitleType::Application, type);
+        for (const auto& entry : entries) {
+            if (FileSys::GetBaseTitleID(entry.title_id) == program_id) {
+                title_id = entry.title_id;
+                base_nca = installed.GetEntry(title_id, type);
+                if (base_nca && base_nca->GetStatus() == Loader::ResultStatus::Success) {
+                    break;
+                }
+            }
+        }
+        if (!base_nca || base_nca->GetStatus() != Loader::ResultStatus::Success) {
+            return false;
+        }
+    }
+
+    auto exefs = base_nca->GetExeFS();
+    if (!exefs) {
+        // Try update NCA
+        const auto update_nca = installed.GetEntry(FileSys::GetUpdateTitleID(title_id), type);
+        if (update_nca) {
+            exefs = update_nca->GetExeFS();
+        }
+        if (!exefs) {
+            return false;
+        }
+    }
+
+    // Apply patches
+    const FileSys::PatchManager pm{title_id, system.GetFileSystemController(), installed};
+    exefs = pm.PatchExeFS(exefs);
+
+    if (!exefs) {
+        return false;
+    }
+
+    // Use custom dump path if provided, otherwise use default
+    FileSys::VirtualDir dump_dir;
+    if (jdumpPath != nullptr) {
+        const auto custom_path = Common::Android::GetJString(env, jdumpPath);
+        if (!custom_path.empty() && custom_path[0] == '/') {
+            // Create directory using VFS (native path only)
+            dump_dir = vfs.CreateDirectory(custom_path, FileSys::OpenMode::ReadWrite);
+            if (!dump_dir || !dump_dir->IsWritable()) {
+                dump_dir = nullptr;
+            }
+        }
+    }
+    if (!dump_dir) {
+        // Fall back to default dump directory
+        dump_dir = system.GetFileSystemController().GetModificationDumpRoot(title_id);
+        if (!dump_dir) {
+            return false;
+        }
+    }
+
+    const auto exefs_dir = FileSys::GetOrCreateDirectoryRelative(dump_dir, "/exefs");
+    if (!exefs_dir) {
+        return false;
+    }
+
+    // Copy ExeFS - callback is unused for ExeFS as it's typically small
+    return FileSys::VfsRawCopyD(exefs, exefs_dir);
 }
 
 } // extern "C"

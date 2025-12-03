@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: 2023 yuzu Emulator Project
+// SPDX-FileCopyrightText: 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 package org.citron.citron_emu
@@ -464,4 +465,34 @@ object NativeLibrary {
      * Checks if all necessary keys are present for decryption
      */
     external fun areKeysPresent(): Boolean
+
+    /**
+     * Dumps the RomFS from a game to the dump directory
+     * @param gamePath Path to the game file
+     * @param programId String representation of the game's program ID
+     * @param dumpPath Optional custom dump path. If null or empty, uses default dump directory
+     * @param callback Progress callback. Return true to cancel. Parameters: (max: Long, progress: Long)
+     * @return true if successful, false otherwise
+     */
+    external fun dumpRomFS(
+        gamePath: String,
+        programId: String,
+        dumpPath: String?,
+        callback: (max: Long, progress: Long) -> Boolean
+    ): Boolean
+
+    /**
+     * Dumps the ExeFS from a game to the dump directory
+     * @param gamePath Path to the game file
+     * @param programId String representation of the game's program ID
+     * @param dumpPath Optional custom dump path. If null or empty, uses default dump directory
+     * @param callback Progress callback. Return true to cancel. Parameters: (max: Long, progress: Long)
+     * @return true if successful, false otherwise
+     */
+    external fun dumpExeFS(
+        gamePath: String,
+        programId: String,
+        dumpPath: String?,
+        callback: (max: Long, progress: Long) -> Boolean
+    ): Boolean
 }
