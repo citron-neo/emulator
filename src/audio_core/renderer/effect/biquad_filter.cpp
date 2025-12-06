@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: Copyright 2022 yuzu Emulator Project
+// SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "audio_core/renderer/effect/biquad_filter.h"
@@ -40,8 +41,28 @@ void BiquadFilterInfo::UpdateForCommandGeneration() {
         usage_state = UsageState::Disabled;
     }
 
-    auto params{reinterpret_cast<ParameterVersion1*>(parameter.data())};
-    params->state = ParameterState::Updated;
+    // Determine which version structure is being used
+    // Version 1: state at offset 0x17, structure size ~24 bytes
+    // Version 2: state at offset 0x25, structure size ~40 bytes
+    auto params_v1{reinterpret_cast<ParameterVersion1*>(parameter.data())};
+    auto params_v2{reinterpret_cast<ParameterVersion2*>(parameter.data())};
+
+    // Check which state location contains a valid ParameterState value (0-2)
+    // Valid states: Initialized (0), Updating (1), Updated (2)
+    const auto state_v1_raw = *reinterpret_cast<const u8*>(&params_v1->state);
+    const auto state_v2_raw = *reinterpret_cast<const u8*>(&params_v2->state);
+
+    if (state_v1_raw <= 2) {
+        // Version 1 location has valid state, update there
+        params_v1->state = ParameterState::Updated;
+    } else if (state_v2_raw <= 2) {
+        // Version 2 location has valid state, update there
+        params_v2->state = ParameterState::Updated;
+    } else {
+        // Neither looks valid, update both (one will be wrong but command generator handles it)
+        params_v1->state = ParameterState::Updated;
+        params_v2->state = ParameterState::Updated;
+    }
 }
 
 void BiquadFilterInfo::InitializeResultState(EffectResultState& result_state) {}

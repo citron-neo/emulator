@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: Copyright 2022 yuzu Emulator Project
+// SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "audio_core/renderer/behavior/behavior_info.h"
@@ -257,19 +258,45 @@ void CommandBuffer::GenerateBiquadFilterCommand(const s32 node_id, EffectInfoBas
                                                 const bool use_float_processing) {
     auto& cmd{GenerateStart<BiquadFilterCommand, CommandId::BiquadFilter>(node_id)};
 
-    const auto& parameter{
-        *reinterpret_cast<BiquadFilterInfo::ParameterVersion1*>(effect_info.GetParameter())};
     const auto state{reinterpret_cast<VoiceState::BiquadFilterState*>(
         effect_info.GetStateBuffer() + channel * sizeof(VoiceState::BiquadFilterState))};
 
-    cmd.input = buffer_offset + parameter.inputs[channel];
-    cmd.output = buffer_offset + parameter.outputs[channel];
+    // Check which parameter version is being used
+    if (behavior->IsEffectInfoVersion2Supported()) {
+        const auto& parameter{
+            *reinterpret_cast<BiquadFilterInfo::ParameterVersion2*>(effect_info.GetParameter())};
 
-    cmd.biquad.b = parameter.b;
-    cmd.biquad.a = parameter.a;
+        cmd.input = buffer_offset + parameter.inputs[channel];
+        cmd.output = buffer_offset + parameter.outputs[channel];
 
-    // Effects use legacy fixed-point format
-    cmd.use_float_coefficients = false;
+        // Convert float coefficients to fixed-point Q2.14 format (multiply by 16384)
+        constexpr f32 fixed_point_scale = 16384.0f;
+        cmd.biquad.b[0] = static_cast<s16>(
+            std::clamp(parameter.b[0] * fixed_point_scale, -32768.0f, 32767.0f));
+        cmd.biquad.b[1] = static_cast<s16>(
+            std::clamp(parameter.b[1] * fixed_point_scale, -32768.0f, 32767.0f));
+        cmd.biquad.b[2] = static_cast<s16>(
+            std::clamp(parameter.b[2] * fixed_point_scale, -32768.0f, 32767.0f));
+        cmd.biquad.a[0] = static_cast<s16>(
+            std::clamp(parameter.a[0] * fixed_point_scale, -32768.0f, 32767.0f));
+        cmd.biquad.a[1] = static_cast<s16>(
+            std::clamp(parameter.a[1] * fixed_point_scale, -32768.0f, 32767.0f));
+
+        // Effects use legacy fixed-point format
+        cmd.use_float_coefficients = false;
+    } else {
+        const auto& parameter{
+            *reinterpret_cast<BiquadFilterInfo::ParameterVersion1*>(effect_info.GetParameter())};
+
+        cmd.input = buffer_offset + parameter.inputs[channel];
+        cmd.output = buffer_offset + parameter.outputs[channel];
+
+        cmd.biquad.b = parameter.b;
+        cmd.biquad.a = parameter.a;
+
+        // Effects use legacy fixed-point format
+        cmd.use_float_coefficients = false;
+    }
 
     cmd.state = memory_pool->Translate(CpuAddr(state),
                                        MaxBiquadFilters * sizeof(VoiceState::BiquadFilterState));

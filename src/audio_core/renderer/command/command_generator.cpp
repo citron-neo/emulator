@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: Copyright 2022 yuzu Emulator Project
+// SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "audio_core/common/audio_renderer_parameter.h"
@@ -361,12 +362,33 @@ void CommandGenerator::GenerateAuxCommand(const s16 buffer_offset, EffectInfoBas
 void CommandGenerator::GenerateBiquadFilterEffectCommand(const s16 buffer_offset,
                                                          EffectInfoBase& effect_info,
                                                          const s32 node_id) {
-    const auto& parameter{
-        *reinterpret_cast<BiquadFilterInfo::ParameterVersion1*>(effect_info.GetParameter())};
+    EffectInfoBase::ParameterState state{};
+    s8 channel_count{0};
+
+    if (render_context.behavior->IsEffectInfoVersion2Supported()) {
+        const auto* parameter = reinterpret_cast<const BiquadFilterInfo::ParameterVersion2*>(
+            effect_info.GetParameter());
+        if (!parameter) {
+            LOG_ERROR(Service_Audio, "Biquad filter parameter is null");
+            return;
+        }
+        state = parameter->state;
+        channel_count = parameter->channel_count;
+    } else {
+        const auto* parameter = reinterpret_cast<const BiquadFilterInfo::ParameterVersion1*>(
+            effect_info.GetParameter());
+        if (!parameter) {
+            LOG_ERROR(Service_Audio, "Biquad filter parameter is null");
+            return;
+        }
+        state = parameter->state;
+        channel_count = parameter->channel_count;
+    }
+
     if (effect_info.IsEnabled()) {
         bool needs_init{false};
 
-        switch (parameter.state) {
+        switch (state) {
         case EffectInfoBase::ParameterState::Initialized:
             needs_init = true;
             break;
@@ -375,22 +397,23 @@ void CommandGenerator::GenerateBiquadFilterEffectCommand(const s16 buffer_offset
             if (render_context.behavior->IsBiquadFilterEffectStateClearBugFixed()) {
                 needs_init = false;
             } else {
-                needs_init = parameter.state == EffectInfoBase::ParameterState::Updating;
+                needs_init = state == EffectInfoBase::ParameterState::Updating;
             }
             break;
         default:
-            LOG_ERROR(Service_Audio, "Invalid biquad parameter state {}",
-                      static_cast<u32>(parameter.state));
+            LOG_ERROR(Service_Audio, "Invalid biquad parameter state {}, treating as uninitialized",
+                      static_cast<u32>(state));
+            needs_init = true;
             break;
         }
 
-        for (s8 channel = 0; channel < parameter.channel_count; channel++) {
+        for (s8 channel = 0; channel < channel_count; channel++) {
             command_buffer.GenerateBiquadFilterCommand(
                 node_id, effect_info, buffer_offset, channel, needs_init,
                 render_context.behavior->UseBiquadFilterFloatProcessing());
         }
     } else {
-        for (s8 channel = 0; channel < parameter.channel_count; channel++) {
+        for (s8 channel = 0; channel < channel_count; channel++) {
             command_buffer.GenerateCopyMixBufferCommand(node_id, effect_info, buffer_offset,
                                                         channel);
         }
