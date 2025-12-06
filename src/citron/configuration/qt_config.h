@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: 2023 yuzu Emulator Project
+// SPDX-FileCopyrightText: 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #pragma once
@@ -31,6 +32,7 @@ protected:
     void ReadUIGamelistValues() override;
     void ReadUILayoutValues() override;
     void ReadMultiplayerValues() override;
+    void ReadNetworkValues();
 
     void SaveQtValues();
     void SaveQtPlayerValues(std::size_t player_index);
@@ -43,6 +45,7 @@ protected:
     void SaveUIGamelistValues() override;
     void SaveUILayoutValues() override;
     void SaveMultiplayerValues() override;
+    void SaveNetworkValues();
 
     std::vector<Settings::BasicSetting*>& FindRelevantList(Settings::Category category) override;
 

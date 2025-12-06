@@ -101,7 +101,7 @@ std::unique_ptr<Network::VerifyUser::Backend> HostRoomWindow::CreateVerifyBacken
     if (use_validation) {
 #ifdef ENABLE_WEB_SERVICE
         verify_backend =
-            std::make_unique<WebService::VerifyUserJWT>(Settings::values.web_api_url.GetValue());
+            std::make_unique<WebService::VerifyUserJWT>(Settings::values.lobby_api_url.GetValue());
 #else
         verify_backend = std::make_unique<Network::VerifyUser::NullBackend>();
 #endif
@@ -209,7 +209,7 @@ void HostRoomWindow::Host() {
         std::string token;
 #ifdef ENABLE_WEB_SERVICE
         if (is_public) {
-            WebService::Client client(Settings::values.web_api_url.GetValue(),
+            WebService::Client client(Settings::values.lobby_api_url.GetValue(),
                                       Settings::values.citron_username.GetValue(),
                                       Settings::values.citron_token.GetValue());
             if (auto room = room_network.GetRoom().lock()) {

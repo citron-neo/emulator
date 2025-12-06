@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: Copyright 2017 Citra Emulator Project
+// SPDX-FileCopyrightText: 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <QInputDialog>
@@ -189,7 +190,7 @@ void Lobby::OnJoinRoom(const QModelIndex& source) {
 #ifdef ENABLE_WEB_SERVICE
         if (!Settings::values.citron_username.GetValue().empty() &&
             !Settings::values.citron_token.GetValue().empty() && !verify_uid.empty()) {
-            WebService::Client client(Settings::values.web_api_url.GetValue(),
+            WebService::Client client(Settings::values.lobby_api_url.GetValue(),
                                       Settings::values.citron_username.GetValue(),
                                       Settings::values.citron_token.GetValue());
             token = client.GetExternalJWT(verify_uid).returned_data;
@@ -396,14 +397,14 @@ bool LobbyFilterProxyModel::filterAcceptsRow(int sourceRow, const QModelIndex& s
         for (int r = 0; r < game_list->rowCount(); ++r) {
             owned_games.append(QModelIndex(game_list->index(r, 0)));
         }
-        auto current_id = sourceModel()->data(game_name, LobbyItemGame::TitleIDRole).toLongLong();
+        auto current_id = sourceModel()->data(game_name, LobbyItemGame::TitleIDRole).toULongLong();
         if (current_id == 0) {
             // TODO(jroweboy): homebrew often doesn't have a game id and this hides them
             return false;
         }
         bool owned = false;
         for (const auto& game : owned_games) {
-            auto game_id = game_list->data(game, GameListItemPath::ProgramIdRole).toLongLong();
+            auto game_id = game_list->data(game, GameListItemPath::ProgramIdRole).toULongLong();
             if (current_id == game_id) {
                 owned = true;
             }

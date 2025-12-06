@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: Copyright 2017 Citra Emulator Project
+// SPDX-FileCopyrightText: 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <chrono>
@@ -22,7 +23,7 @@ static constexpr std::chrono::seconds announce_time_interval(15);
 AnnounceMultiplayerSession::AnnounceMultiplayerSession(Network::RoomNetwork& room_network_)
     : room_network{room_network_} {
 #ifdef ENABLE_WEB_SERVICE
-    backend = std::make_unique<WebService::RoomJson>(Settings::values.web_api_url.GetValue(),
+    backend = std::make_unique<WebService::RoomJson>(Settings::values.lobby_api_url.GetValue(),
                                                      Settings::values.citron_username.GetValue(),
                                                      Settings::values.citron_token.GetValue());
 #else
@@ -155,7 +156,7 @@ void AnnounceMultiplayerSession::UpdateCredentials() {
     ASSERT_MSG(!IsRunning(), "Credentials can only be updated when session is not running");
 
 #ifdef ENABLE_WEB_SERVICE
-    backend = std::make_unique<WebService::RoomJson>(Settings::values.web_api_url.GetValue(),
+    backend = std::make_unique<WebService::RoomJson>(Settings::values.lobby_api_url.GetValue(),
                                                      Settings::values.citron_username.GetValue(),
                                                      Settings::values.citron_token.GetValue());
 #endif

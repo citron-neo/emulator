@@ -25,7 +25,7 @@
         <string>General</string>
        </property>
        <layout class="QGridLayout" name="gridLayout_2">
-        <item row="0" column="0">
+        <item row="0" column="0" colspan="2">
          <widget class="QCheckBox" name="airplane_mode">
           <property name="text">
            <string>Airplane Mode</string>
@@ -42,6 +42,23 @@
          <widget class="QLabel" name="label_4">
           <property name="text">
            <string>Network Interface</string>
+          </property>
+         </widget>
+        </item>
+        <item row="2" column="0">
+         <widget class="QLabel" name="label_lobby_api">
+          <property name="text">
+           <string>Lobby API URL</string>
+          </property>
+         </widget>
+        </item>
+        <item row="2" column="1">
+         <widget class="QLineEdit" name="lobby_api_url"/>
+        </item>
+        <item row="3" column="1">
+         <widget class="QPushButton" name="restore_default_lobby_api">
+          <property name="text">
+           <string>Restore Default</string>
           </property>
          </widget>
         </item>

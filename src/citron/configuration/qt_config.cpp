@@ -76,6 +76,7 @@ void QtConfig::ReadQtValues() {
         ReadUIValues();
     }
     ReadQtControlValues();
+    ReadNetworkValues();
 }
 
 void QtConfig::ReadQtPlayerValues(const std::size_t player_index) {
@@ -279,6 +280,12 @@ void QtConfig::ReadUIValues() {
     EndGroup();
 }
 
+void QtConfig::ReadNetworkValues() {
+    BeginGroup(Settings::TranslateCategory(Settings::Category::Network));
+    ReadCategory(Settings::Category::Network);
+    EndGroup();
+}
+
 void QtConfig::ReadUIGamelistValues() {
     BeginGroup(Settings::TranslateCategory(Settings::Category::UiGameList));
 
@@ -337,6 +344,7 @@ void QtConfig::SaveQtValues() {
         LOG_DEBUG(Config, "Saving Qt configuration values");
     }
     SaveQtControlValues();
+    SaveNetworkValues();
 
     WriteToIni();
 }
@@ -523,6 +531,12 @@ void QtConfig::SaveMultiplayerValues() {
     }
     EndArray(); // ip_ban_list
 
+    EndGroup();
+}
+
+void QtConfig::SaveNetworkValues() {
+    BeginGroup(Settings::TranslateCategory(Settings::Category::Network));
+    WriteCategory(Settings::Category::Network);
     EndGroup();
 }
 
