@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: Copyright 2020 yuzu Emulator Project
+// SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <array>
@@ -88,8 +89,13 @@ void Vic::Execute() {
     }
     const u64 surface_width = config.surface_width_minus1 + 1;
     const u64 surface_height = config.surface_height_minus1 + 1;
-    if (static_cast<u64>(frame->GetWidth()) != surface_width ||
-        static_cast<u64>(frame->GetHeight()) != surface_height) {
+    const u64 frame_width = static_cast<u64>(frame->GetWidth());
+    const u64 frame_height = static_cast<u64>(frame->GetHeight());
+    // Only warn if the difference is significant (more than 16 pixels, common alignment boundary)
+    // Small differences are often due to codec alignment requirements and are handled gracefully
+    const u64 width_diff = frame_width > surface_width ? frame_width - surface_width : surface_width - frame_width;
+    const u64 height_diff = frame_height > surface_height ? frame_height - surface_height : surface_height - frame_height;
+    if (width_diff > 16 || height_diff > 16) {
         // TODO: Properly support multiple video streams with differing frame dimensions
         LOG_WARNING(Service_NVDRV, "Frame dimensions {}x{} don't match surface dimensions {}x{}",
                     frame->GetWidth(), frame->GetHeight(), surface_width, surface_height);
