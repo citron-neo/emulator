@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: Copyright 2019 yuzu Emulator Project
+// SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <iterator>
@@ -77,6 +78,10 @@ VkSamplerAddressMode WrapMode(const Device& device, Tegra::Texture::WrapMode wra
         return VK_SAMPLER_ADDRESS_MODE_MIRROR_CLAMP_TO_EDGE;
     case Tegra::Texture::WrapMode::MirrorOnceBorder:
         UNIMPLEMENTED();
+        return VK_SAMPLER_ADDRESS_MODE_MIRROR_CLAMP_TO_EDGE;
+    case Tegra::Texture::WrapMode::MirrorOnceClampOGL:
+        // Vulkan doesn't have a direct equivalent to GL_MIRROR_CLAMP, so we use
+        // MIRROR_CLAMP_TO_EDGE as a fallback (similar to OpenGL when extension isn't available)
         return VK_SAMPLER_ADDRESS_MODE_MIRROR_CLAMP_TO_EDGE;
     default:
         UNIMPLEMENTED_MSG("Unimplemented wrap mode={}", wrap_mode);
