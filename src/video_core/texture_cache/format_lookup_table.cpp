@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: Copyright 2019 yuzu Emulator Project
+// SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "common/common_types.h"
@@ -41,6 +42,14 @@ constexpr u32 Hash(TextureFormat format, ComponentType component, bool is_srgb =
 PixelFormat PixelFormatFromTextureInfo(TextureFormat format, ComponentType red, ComponentType green,
                                        ComponentType blue, ComponentType alpha,
                                        bool is_srgb) noexcept {
+    // Handle invalid/uninitialized texture format (0) with zero components
+    // This can occur when texture descriptors are not yet initialized
+    if (static_cast<u32>(format) == 0 && static_cast<u32>(red) == 0 &&
+        static_cast<u32>(green) == 0 && static_cast<u32>(blue) == 0 &&
+        static_cast<u32>(alpha) == 0) {
+        return PixelFormat::A8B8G8R8_UNORM;
+    }
+
     switch (Hash(format, red, green, blue, alpha, is_srgb)) {
     case Hash(TextureFormat::A8B8G8R8, UNORM):
         return PixelFormat::A8B8G8R8_UNORM;
