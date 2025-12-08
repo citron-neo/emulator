@@ -219,7 +219,6 @@ private:
     boost::container::static_vector<VkSampler, MAX_TEXTURES> sampler_handles;
 
     u32 draw_counter = 0;
-    bool last_transform_feedback_enabled = false;
 };
 
 } // namespace Vulkan

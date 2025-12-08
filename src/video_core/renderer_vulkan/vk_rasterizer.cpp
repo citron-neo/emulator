@@ -1,5 +1,4 @@
 // SPDX-FileCopyrightText: Copyright 2019 yuzu Emulator Project
-// SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <algorithm>
@@ -215,6 +214,8 @@ void RasterizerVulkan::PrepareDraw(bool is_indexed, Func&& draw_func) {
     FlushWork();
     gpu_memory->FlushCaching();
 
+    query_cache.NotifySegment(true);
+
     GraphicsPipeline* const pipeline{pipeline_cache.CurrentGraphicsPipeline()};
     if (!pipeline) {
         return;
@@ -306,6 +307,8 @@ void RasterizerVulkan::DrawTexture() {
     };
     FlushWork();
 
+    query_cache.NotifySegment(true);
+
     std::scoped_lock l{texture_cache.mutex};
     texture_cache.SynchronizeGraphicsDescriptors();
     texture_cache.UpdateRenderTargets(false);
@@ -352,6 +355,7 @@ void RasterizerVulkan::Clear(u32 layer_count) {
     FlushWork();
     gpu_memory->FlushCaching();
 
+    query_cache.NotifySegment(true);
     query_cache.CounterEnable(VideoCommon::QueryType::ZPassPixelCount64,
                               maxwell3d->regs.zpass_pixel_count_enable);
 
@@ -871,6 +875,7 @@ std::optional<FramebufferTextureInfo> RasterizerVulkan::AccelerateDisplay(
     if (!image_view) {
         return {};
     }
+    query_cache.NotifySegment(false);
 
     const auto& resolution = Settings::values.resolution_info;
 
@@ -1023,14 +1028,9 @@ void RasterizerVulkan::HandleTransformFeedback() {
         });
         return;
     }
-    // Only update counter state when transform feedback enable state changes
-    const bool transform_feedback_enabled = regs.transform_feedback_enabled != 0;
-    if (last_transform_feedback_enabled != transform_feedback_enabled) {
-        query_cache.CounterEnable(VideoCommon::QueryType::StreamingByteCount,
-                                  transform_feedback_enabled);
-        last_transform_feedback_enabled = transform_feedback_enabled;
-    }
-    if (transform_feedback_enabled) {
+    query_cache.CounterEnable(VideoCommon::QueryType::StreamingByteCount,
+                              regs.transform_feedback_enabled);
+    if (regs.transform_feedback_enabled != 0) {
         UNIMPLEMENTED_IF(regs.IsShaderConfigEnabled(Maxwell::ShaderType::TessellationInit) ||
                          regs.IsShaderConfigEnabled(Maxwell::ShaderType::Tessellation));
     }
