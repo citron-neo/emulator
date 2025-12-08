@@ -808,8 +808,9 @@ Errno BSD::GetSockOptImpl(s32 fd, u32 level, OptName optname, std::vector<u8>& o
         return Translate(getsockopt_err);
     }
     default:
-        UNIMPLEMENTED_MSG("Unimplemented optname={}", optname);
-        return Errno::SUCCESS;
+        LOG_WARNING(Service, "(STUBBED) Unimplemented optname={} (0x{:x}), returning INVAL",
+                    static_cast<u32>(optname), static_cast<u32>(optname));
+        return Errno::INVAL;
     }
 }
 
