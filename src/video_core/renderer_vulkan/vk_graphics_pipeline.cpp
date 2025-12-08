@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: Copyright 2021 yuzu Emulator Project
+// SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <algorithm>
@@ -742,9 +743,7 @@ void GraphicsPipeline::MakePipeline(VkRenderPass render_pass) {
         .flags = 0,
         .depthTestEnable = dynamic.depth_test_enable,
         .depthWriteEnable = dynamic.depth_write_enable,
-        .depthCompareOp = dynamic.depth_test_enable
-                              ? MaxwellToVK::ComparisonOp(dynamic.DepthTestFunc())
-                              : VK_COMPARE_OP_LESS_OR_EQUAL, // Better default for lighting
+        .depthCompareOp = MaxwellToVK::ComparisonOp(dynamic.DepthTestFunc()),
         .depthBoundsTestEnable = dynamic.depth_bounds_enable && device.IsDepthBoundsSupported(),
         .stencilTestEnable = dynamic.stencil_enable,
         .front = GetStencilFaceState(dynamic.front),
@@ -755,6 +754,42 @@ void GraphicsPipeline::MakePipeline(VkRenderPass render_pass) {
     if (dynamic.depth_bounds_enable && !device.IsDepthBoundsSupported()) {
         LOG_WARNING(Render_Vulkan, "Depth bounds is enabled but not supported");
     }
+    // Helper function to check if a render target format has no alpha channel (RGBX formats)
+    // These formats are emulated using RGBA on the host, so we need to filter blend factors
+    const auto FormatHasNoAlpha = [](Tegra::RenderTargetFormat format) -> bool {
+        switch (format) {
+        case Tegra::RenderTargetFormat::R32G32B32X32_FLOAT:
+        case Tegra::RenderTargetFormat::R32G32B32X32_SINT:
+        case Tegra::RenderTargetFormat::R32G32B32X32_UINT:
+        case Tegra::RenderTargetFormat::R16G16B16X16_FLOAT:
+        case Tegra::RenderTargetFormat::X8R8G8B8_UNORM:
+        case Tegra::RenderTargetFormat::X8R8G8B8_SRGB:
+            return true;
+        default:
+            return false;
+        }
+    };
+
+    // Helper function to filter blend factors for formats without alpha
+    const auto FilterBlendFactor = [&](Maxwell::Blend::Factor factor,
+                                       Tegra::RenderTargetFormat format) -> Maxwell::Blend::Factor {
+        if (!FormatHasNoAlpha(format)) {
+            return factor;
+        }
+        // If format has no alpha, replace destination alpha factors to prevent issues
+        // since RGBX formats are emulated using host RGBA formats
+        switch (factor) {
+        case Maxwell::Blend::Factor::DestAlpha_D3D:
+        case Maxwell::Blend::Factor::DestAlpha_GL:
+            return Maxwell::Blend::Factor::One_D3D;
+        case Maxwell::Blend::Factor::OneMinusDestAlpha_D3D:
+        case Maxwell::Blend::Factor::OneMinusDestAlpha_GL:
+            return Maxwell::Blend::Factor::Zero_D3D;
+        default:
+            return factor;
+        }
+    };
+
     static_vector<VkPipelineColorBlendAttachmentState, Maxwell::NumRenderTargets> cb_attachments;
     const size_t num_attachments{NumAttachments(key.state)};
     for (size_t index = 0; index < num_attachments; ++index) {
@@ -766,17 +801,29 @@ void GraphicsPipeline::MakePipeline(VkRenderPass render_pass) {
         };
         const auto& blend{key.state.attachments[index]};
         const std::array mask{blend.Mask()};
+        const auto format{static_cast<Tegra::RenderTargetFormat>(key.state.color_formats[index])};
+        // For formats without alpha (RGBX), disable alpha writes to prevent artifacts
+        // since these formats are emulated using RGBA on the host
+        const bool format_has_no_alpha = FormatHasNoAlpha(format);
         VkColorComponentFlags write_mask{};
         for (size_t i = 0; i < mask_table.size(); ++i) {
+            // Skip alpha component if format has no alpha channel
+            if (i == 3 && format_has_no_alpha) {
+                continue;
+            }
             write_mask |= mask[i] ? mask_table[i] : 0;
         }
+        const auto src_rgb_factor{FilterBlendFactor(blend.SourceRGBFactor(), format)};
+        const auto dst_rgb_factor{FilterBlendFactor(blend.DestRGBFactor(), format)};
+        const auto src_alpha_factor{FilterBlendFactor(blend.SourceAlphaFactor(), format)};
+        const auto dst_alpha_factor{FilterBlendFactor(blend.DestAlphaFactor(), format)};
         cb_attachments.push_back({
             .blendEnable = blend.enable != 0,
-            .srcColorBlendFactor = MaxwellToVK::BlendFactor(blend.SourceRGBFactor()),
-            .dstColorBlendFactor = MaxwellToVK::BlendFactor(blend.DestRGBFactor()),
+            .srcColorBlendFactor = MaxwellToVK::BlendFactor(src_rgb_factor),
+            .dstColorBlendFactor = MaxwellToVK::BlendFactor(dst_rgb_factor),
             .colorBlendOp = MaxwellToVK::BlendEquation(blend.EquationRGB()),
-            .srcAlphaBlendFactor = MaxwellToVK::BlendFactor(blend.SourceAlphaFactor()),
-            .dstAlphaBlendFactor = MaxwellToVK::BlendFactor(blend.DestAlphaFactor()),
+            .srcAlphaBlendFactor = MaxwellToVK::BlendFactor(src_alpha_factor),
+            .dstAlphaBlendFactor = MaxwellToVK::BlendFactor(dst_alpha_factor),
             .alphaBlendOp = MaxwellToVK::BlendEquation(blend.EquationAlpha()),
             .colorWriteMask = write_mask,
         });
