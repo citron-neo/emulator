@@ -1045,15 +1045,26 @@ void RasterizerVulkan::UpdateViewportsState(Tegra::Engines::Maxwell3D::Regs& reg
         const auto y = static_cast<float>(regs.surface_clip.y);
         const auto width = static_cast<float>(regs.surface_clip.width);
         const auto height = static_cast<float>(regs.surface_clip.height);
-        VkViewport viewport{
-            .x = x,
-            .y = y,
-            .width = width != 0.0f ? width : 1.0f,
-            .height = height != 0.0f ? height : 1.0f,
-            .minDepth = 0.0f,
-            .maxDepth = 1.0f,
-        };
-        scheduler.Record([viewport](vk::CommandBuffer cmdbuf) { cmdbuf.SetViewport(0, viewport); });
+        // Ensure valid viewport dimensions to prevent vertex explosions
+        const float viewport_width = width > 0.0f ? width : 1.0f;
+        const float viewport_height = height > 0.0f ? height : 1.0f;
+
+        std::array<VkViewport, Maxwell::NumViewports> viewport_list;
+        for (size_t i = 0; i < Maxwell::NumViewports; ++i) {
+            viewport_list[i] = VkViewport{
+                .x = x,
+                .y = y,
+                .width = viewport_width,
+                .height = viewport_height,
+                .minDepth = 0.0f,
+                .maxDepth = 1.0f,
+            };
+        }
+        scheduler.Record([this, viewport_list](vk::CommandBuffer cmdbuf) {
+            const u32 num_viewports = std::min<u32>(device.GetMaxViewports(), Maxwell::NumViewports);
+            const vk::Span<VkViewport> viewports(viewport_list.data(), num_viewports);
+            cmdbuf.SetViewport(0, viewports);
+        });
         return;
     }
     const bool is_rescaling{texture_cache.IsRescaling()};
