@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: Copyright 2021 yuzu Emulator Project
+// SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <algorithm>
@@ -441,6 +442,7 @@ public:
         })};
         // TODO: Read this from TIC
         texture_descriptors[index].is_multisample |= desc.is_multisample;
+        texture_descriptors[index].is_integer |= desc.is_integer;
         return index;
     }
 
@@ -664,10 +666,12 @@ void TexturePass(Environment& env, IR::Program& program, const HostTranslateInfo
                     .size_shift = DESCRIPTOR_SIZE_SHIFT,
                 });
             } else {
+                const bool is_integer{IsTexturePixelFormatInteger(env, cbuf)};
                 index = descriptors.Add(TextureDescriptor{
                     .type = flags.type,
                     .is_depth = flags.is_depth != 0,
                     .is_multisample = is_multisample,
+                    .is_integer = is_integer,
                     .has_secondary = cbuf.has_secondary,
                     .cbuf_index = cbuf.index,
                     .cbuf_offset = cbuf.offset,
