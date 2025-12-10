@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: Copyright 2019 yuzu Emulator Project
+// SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #pragma once
@@ -7,9 +8,10 @@
 #include <QWidget>
 
 class QLineEdit;
+class QProgressDialog;
 
 namespace Ui {
-class ConfigureFilesystem;
+    class ConfigureFilesystem;
 }
 
 class ConfigureFilesystem : public QWidget {
@@ -20,24 +22,24 @@ public:
     ~ConfigureFilesystem() override;
 
     void ApplyConfiguration();
+    void OnRunAutoloader(bool skip_confirmation = false);
+
+signals:
+    void UpdateInstallProgress();
+    void RequestGameListRefresh();
+
+private slots:
+    void OnUpdateInstallProgress();
 
 private:
     void changeEvent(QEvent* event) override;
-
     void RetranslateUI();
     void SetConfiguration();
-
-    enum class DirectoryTarget {
-        NAND,
-        SD,
-        Gamecard,
-        Dump,
-        Load,
-    };
-
+    enum class DirectoryTarget { NAND, SD, Gamecard, Dump, Load };
     void SetDirectory(DirectoryTarget target, QLineEdit* edit);
     void ResetMetadata();
     void UpdateEnabledControls();
 
     std::unique_ptr<Ui::ConfigureFilesystem> ui;
+    QProgressDialog* install_progress = nullptr;
 };
