@@ -1079,7 +1079,7 @@ void GMainWindow::InitializeWidgets() {
 #ifdef CITRON_ENABLE_COMPATIBILITY_REPORTING
     ui->action_Report_Compatibility->setVisible(true);
 #endif
-    render_window = new GRenderWindow(this, emu_thread.get(), input_subsystem, *system);
+    render_window = new GRenderWindow(this, emu_thread.get(), input_subsystem, *system, hotkey_registry);
     render_window->hide();
 
     game_list = new GameList(vfs, provider.get(), *play_time_manager, *system, this);
@@ -1106,7 +1106,6 @@ void GMainWindow::InitializeWidgets() {
 
     // Create status bar
     message_label = new QLabel();
-    // Configured separately for left alignment
     message_label->setFrameStyle(QFrame::NoFrame);
     message_label->setContentsMargins(4, 0, 4, 0);
     message_label->setAlignment(Qt::AlignLeft);
@@ -1145,7 +1144,6 @@ void GMainWindow::InitializeWidgets() {
     statusBar()->addPermanentWidget(multiplayer_state->GetStatusText(), 0);
     statusBar()->addPermanentWidget(multiplayer_state->GetStatusIcon(), 0);
 
-    // Create performance overlay
     performance_overlay = new PerformanceOverlay(this);
     performance_overlay->hide();
 
@@ -1215,7 +1213,6 @@ void GMainWindow::InitializeWidgets() {
 
     statusBar()->insertPermanentWidget(0, volume_button);
 
-    // setup AA button
     aa_status_button = new QPushButton();
     aa_status_button->setObjectName(QStringLiteral("TogglableStatusBarButton"));
     aa_status_button->setFocusPolicy(Qt::NoFocus);
@@ -1247,7 +1244,6 @@ void GMainWindow::InitializeWidgets() {
             });
     statusBar()->insertPermanentWidget(0, aa_status_button);
 
-    // Setup Filter button
     filter_status_button = new QPushButton();
     filter_status_button->setObjectName(QStringLiteral("TogglableStatusBarButton"));
     filter_status_button->setFocusPolicy(Qt::NoFocus);
@@ -1271,7 +1267,6 @@ void GMainWindow::InitializeWidgets() {
             });
     statusBar()->insertPermanentWidget(0, filter_status_button);
 
-    // Setup Dock button
     dock_status_button = new QPushButton();
     dock_status_button->setObjectName(QStringLiteral("DockingStatusBarButton"));
     dock_status_button->setFocusPolicy(Qt::NoFocus);
@@ -1282,7 +1277,6 @@ void GMainWindow::InitializeWidgets() {
     connect(dock_status_button, &QPushButton::customContextMenuRequested,
             [this](const QPoint& menu_location) {
                 QMenu context_menu;
-
                 for (auto const& pair : ConfigurationShared::use_docked_mode_texts_map) {
                     context_menu.addAction(pair.second, [this, &pair] {
                         if (pair.first != Settings::values.use_docked_mode.GetValue()) {
@@ -1295,7 +1289,6 @@ void GMainWindow::InitializeWidgets() {
             });
     statusBar()->insertPermanentWidget(0, dock_status_button);
 
-    // Setup GPU Accuracy button
     gpu_accuracy_button = new QPushButton();
     gpu_accuracy_button->setObjectName(QStringLiteral("GPUStatusBarButton"));
     gpu_accuracy_button->setCheckable(true);
@@ -1306,7 +1299,6 @@ void GMainWindow::InitializeWidgets() {
     connect(gpu_accuracy_button, &QPushButton::customContextMenuRequested,
             [this](const QPoint& menu_location) {
                 QMenu context_menu;
-
                 for (auto const& gpu_accuracy_pair : ConfigurationShared::gpu_accuracy_texts_map) {
                     if (gpu_accuracy_pair.first == Settings::GpuAccuracy::Extreme) {
                         continue;
@@ -1321,7 +1313,6 @@ void GMainWindow::InitializeWidgets() {
             });
     statusBar()->insertPermanentWidget(0, gpu_accuracy_button);
 
-    // Setup Renderer API button
     renderer_status_button = new QPushButton();
     renderer_status_button->setObjectName(QStringLiteral("RendererStatusBarButton"));
     renderer_status_button->setCheckable(true);
@@ -1335,7 +1326,6 @@ void GMainWindow::InitializeWidgets() {
     connect(renderer_status_button, &QPushButton::customContextMenuRequested,
             [this](const QPoint& menu_location) {
                 QMenu context_menu;
-
                 for (auto const& renderer_backend_pair :
                      ConfigurationShared::renderer_backend_texts_map) {
                     if (renderer_backend_pair.first == Settings::RendererBackend::Null) {
@@ -1428,6 +1418,7 @@ void GMainWindow::LinkActionShortcut(QAction* action, const QString& action_name
 void GMainWindow::InitializeHotkeys() {
     hotkey_registry.LoadHotkeys();
 
+    // Link all standard menu actions
     LinkActionShortcut(ui->action_Load_File, QStringLiteral("Load File"));
     LinkActionShortcut(ui->action_Load_Amiibo, QStringLiteral("Load/Remove Amiibo"));
     LinkActionShortcut(ui->action_Exit, QStringLiteral("Exit citron"));
@@ -1446,42 +1437,30 @@ void GMainWindow::InitializeHotkeys() {
     LinkActionShortcut(ui->action_TAS_Start, QStringLiteral("TAS Start/Stop"), true);
     LinkActionShortcut(ui->action_TAS_Record, QStringLiteral("TAS Record"), true);
     LinkActionShortcut(ui->action_TAS_Reset, QStringLiteral("TAS Reset"), true);
-    LinkActionShortcut(ui->action_View_Lobby,
-                       QStringLiteral("Multiplayer Browse Public Game Lobby"));
+    LinkActionShortcut(ui->action_View_Lobby, QStringLiteral("Multiplayer Browse Public Game Lobby"));
     LinkActionShortcut(ui->action_Start_Room, QStringLiteral("Multiplayer Create Room"));
-    LinkActionShortcut(ui->action_Connect_To_Room,
-                       QStringLiteral("Multiplayer Direct Connect to Room"));
+    LinkActionShortcut(ui->action_Connect_To_Room, QStringLiteral("Multiplayer Direct Connect to Room"));
     LinkActionShortcut(ui->action_Show_Room, QStringLiteral("Multiplayer Show Current Room"));
     LinkActionShortcut(ui->action_Leave_Room, QStringLiteral("Multiplayer Leave Room"));
 
-    // Create and connect a dedicated, robust QAction for exiting fullscreen.
-    action_exit_fullscreen = new QAction(this);
-    connect(action_exit_fullscreen, &QAction::triggered, this, [this] {
+    connect(render_window, &GRenderWindow::FullscreenExitHotkeyPressed, this, [this]() {
         if (emulation_running && ui->action_Fullscreen->isChecked()) {
-            // Un-check the toggle to keep the UI in sync and then exit fullscreen.
             ui->action_Fullscreen->setChecked(false);
             ToggleFullscreen();
         }
     });
-    // Now bind the "Exit Fullscreen" hotkey (Esc by default) to this new QAction.
-    LinkActionShortcut(action_exit_fullscreen, QStringLiteral("Exit Fullscreen"));
 
-    render_window->addAction(action_exit_fullscreen);
-
-    static const QString main_window = QStringLiteral("Main Window");
     const auto connect_shortcut = [&]<typename Fn>(const QString& action_name, const Fn& function) {
-        const auto* hotkey =
-            hotkey_registry.GetHotkey(main_window.toStdString(), action_name.toStdString(), this);
+        static const std::string main_window = "Main Window";
+        const auto* hotkey = hotkey_registry.GetHotkey(main_window, action_name.toStdString(), this);
         auto* controller = system->HIDCore().GetEmulatedController(Core::HID::NpadIdType::Player1);
-        const auto* controller_hotkey = hotkey_registry.GetControllerHotkey(
-            main_window.toStdString(), action_name.toStdString(), controller);
+        const auto* controller_hotkey =
+            hotkey_registry.GetControllerHotkey(main_window, action_name.toStdString(), controller);
         connect(hotkey, &QShortcut::activated, this, function);
-        connect(controller_hotkey, &ControllerShortcut::Activated, this, function,
-                Qt::QueuedConnection);
+        connect(controller_hotkey, &ControllerShortcut::Activated, this, function, Qt::QueuedConnection);
     };
 
-    connect_shortcut(QStringLiteral("Change Adapting Filter"),
-                     &GMainWindow::OnToggleAdaptingFilter);
+    connect_shortcut(QStringLiteral("Change Adapting Filter"), &GMainWindow::OnToggleAdaptingFilter);
     connect_shortcut(QStringLiteral("Change Docked Mode"), &GMainWindow::OnToggleDockedMode);
     connect_shortcut(QStringLiteral("Change GPU Accuracy"), &GMainWindow::OnToggleGpuAccuracy);
     connect_shortcut(QStringLiteral("Audio Mute/Unmute"), &GMainWindow::OnMute);
@@ -1493,13 +1472,6 @@ void GMainWindow::InitializeHotkeys() {
     connect_shortcut(QStringLiteral("Toggle Renderdoc Capture"), [this] {
         if (Settings::values.enable_renderdoc_hotkey) {
             system->GetRenderdocAPI().ToggleCapture();
-        }
-    });
-    connect_shortcut(QStringLiteral("Toggle Mouse Panning"), [&] {
-        Settings::values.mouse_panning = !Settings::values.mouse_panning;
-        if (Settings::values.mouse_panning) {
-            render_window->installEventFilter(render_window);
-            render_window->setAttribute(Qt::WA_Hover, true);
         }
     });
 }
@@ -3770,6 +3742,14 @@ void GMainWindow::OnMenuRecentFile() {
 
 void GMainWindow::OnStartGame() {
     PreventOSSleep();
+
+    if (Settings::values.mouse_panning) {
+        render_window->installEventFilter(render_window);
+        render_window->setAttribute(Qt::WA_Hover, true);
+    } else {
+        render_window->removeEventFilter(render_window);
+        render_window->setAttribute(Qt::WA_Hover, false);
+    }
 
     emu_thread->SetRunning(true);
 
