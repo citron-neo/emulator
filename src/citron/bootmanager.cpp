@@ -284,13 +284,14 @@ struct NullRenderWidget : public RenderWidget {
 
 GRenderWindow::GRenderWindow(GMainWindow* parent, EmuThread* emu_thread_,
                              std::shared_ptr<InputCommon::InputSubsystem> input_subsystem_,
-                             Core::System& system_)
-    : QWidget(parent),
-      emu_thread(emu_thread_), input_subsystem{std::move(input_subsystem_)}, system{system_} {
+                             Core::System& system_, HotkeyRegistry& hotkey_registry_)
+: QWidget(parent),
+emu_thread(emu_thread_), input_subsystem{std::move(input_subsystem_)}, system{system_},
+hotkey_registry{hotkey_registry_} {
     setWindowTitle(QStringLiteral("citron %1 | %2-%3")
-                       .arg(QString::fromUtf8(Common::g_build_name),
-                            QString::fromUtf8(Common::g_scm_branch),
-                            QString::fromUtf8(Common::g_scm_desc)));
+    .arg(QString::fromUtf8(Common::g_build_name),
+         QString::fromUtf8(Common::g_scm_branch),
+         QString::fromUtf8(Common::g_scm_desc)));
     setAttribute(Qt::WA_AcceptTouchEvents);
     auto* layout = new QHBoxLayout(this);
     layout->setContentsMargins(0, 0, 0, 0);
@@ -299,7 +300,7 @@ GRenderWindow::GRenderWindow(GMainWindow* parent, EmuThread* emu_thread_,
     this->setMouseTracking(true);
 
     strict_context_required = QGuiApplication::platformName() == QStringLiteral("wayland") ||
-                              QGuiApplication::platformName() == QStringLiteral("wayland-egl");
+    QGuiApplication::platformName() == QStringLiteral("wayland-egl");
 
     connect(this, &GRenderWindow::FirstFrameDisplayed, parent, &GMainWindow::OnLoadComplete);
     connect(this, &GRenderWindow::ExecuteProgramSignal, parent, &GMainWindow::OnExecuteProgram,
@@ -310,11 +311,13 @@ GRenderWindow::GRenderWindow(GMainWindow* parent, EmuThread* emu_thread_,
     mouse_constrain_timer.setInterval(default_mouse_constrain_timeout);
     connect(&mouse_constrain_timer, &QTimer::timeout, this, &GRenderWindow::ConstrainMouse);
 
-    // mouse-hiding logic for Wayland
     constexpr int default_mouse_hide_timeout = 2500; // 2.5 seconds
     mouse_hide_timer.setInterval(default_mouse_hide_timeout);
     mouse_hide_timer.setSingleShot(true); // The timer fires only once per start()
     connect(&mouse_hide_timer, &QTimer::timeout, this, &GRenderWindow::HideMouseCursor);
+    connect(this, &GRenderWindow::PanningToggleHotkeyPressed, this, [this]() {
+        SetMousePanningState(!Settings::values.mouse_panning.GetValue());
+    });
 }
 
 void GRenderWindow::ExecuteProgram(std::size_t program_index) {
@@ -599,22 +602,31 @@ int GRenderWindow::QtModifierToSwitchModifier(Qt::KeyboardModifiers qt_modifiers
 }
 
 void GRenderWindow::keyPressEvent(QKeyEvent* event) {
-    /**
-     * This feature can be enhanced with the following functions, but they do not provide
-     * cross-platform behavior.
-     *
-     * event->nativeVirtualKey() can distinguish between keys on the numpad.
-     * event->nativeModifiers() can distinguish between left and right keys and numlock,
-     * capslock, scroll lock.
-     */
-    if (!event->isAutoRepeat()) {
-        const auto modifier = QtModifierToSwitchModifier(event->modifiers());
-        const auto key = QtKeyToSwitchKey(Qt::Key(event->key()));
-        input_subsystem->GetKeyboard()->SetKeyboardModifiers(modifier);
-        input_subsystem->GetKeyboard()->PressKeyboardKey(key);
-        // This is used for gamepads that can have any key mapped
-        input_subsystem->GetKeyboard()->PressKey(event->key());
+    if (event->isAutoRepeat()) {
+        return; // Ignore auto-repeated key presses
     }
+
+    const QKeySequence key_sequence(event->modifiers() | event->key());
+    static const std::string main_window_id = "Main Window";
+
+    if (key_sequence == hotkey_registry.GetKeySequence(main_window_id, "Toggle Mouse Panning")) {
+        emit PanningToggleHotkeyPressed(); // Signal the main window
+        event->accept();                   // Consume the event
+        return;                            // Stop processing
+    }
+
+    if (key_sequence == hotkey_registry.GetKeySequence(main_window_id, "Exit Fullscreen")) {
+        emit FullscreenExitHotkeyPressed(); // Signal the main window
+        event->accept();                    // Consume the event
+        return;                             // Stop processing
+    }
+
+    // --- If not a critical hotkey, pass to game as normal ---
+    const auto modifier = QtModifierToSwitchModifier(event->modifiers());
+    const auto key = QtKeyToSwitchKey(static_cast<Qt::Key>(event->key()));
+    input_subsystem->GetKeyboard()->SetKeyboardModifiers(modifier);
+    input_subsystem->GetKeyboard()->PressKeyboardKey(key);
+    input_subsystem->GetKeyboard()->PressKey(event->key());
 }
 
 void GRenderWindow::keyReleaseEvent(QKeyEvent* event) {
@@ -1173,19 +1185,35 @@ void GRenderWindow::showEvent(QShowEvent* event) {
 }
 
 bool GRenderWindow::eventFilter(QObject* object, QEvent* event) {
+    // Only handle HoverMove for panning.
     if (event->type() == QEvent::HoverMove) {
-        if (Settings::values.mouse_panning || Settings::values.mouse_enabled) {
+        if (Settings::values.mouse_panning.GetValue() || Settings::values.mouse_enabled.GetValue()) {
             auto* hover_event = static_cast<QMouseEvent*>(event);
             mouseMoveEvent(hover_event);
-            return false;
+            // Consume the hover event to prevent it from being processed twice.
+            return true;
         }
         emit MouseActivity();
     }
-    return false;
+
+    // Pass on all other events for default processing.
+    return QWidget::eventFilter(object, event);
 }
 
 void GRenderWindow::HideMouseCursor() {
     if (UISettings::values.hide_mouse && isActiveWindow()) {
         QApplication::setOverrideCursor(QCursor(Qt::BlankCursor));
+    }
+}
+
+void GRenderWindow::SetMousePanningState(bool enabled) {
+    Settings::values.mouse_panning = enabled;
+    if (enabled) {
+        installEventFilter(this);
+        setAttribute(Qt::WA_Hover, true);
+    } else {
+        QApplication::restoreOverrideCursor();
+        removeEventFilter(this);
+        setAttribute(Qt::WA_Hover, false);
     }
 }
