@@ -656,8 +656,9 @@ InputCommon::MouseButton GRenderWindow::QtButtonToMouseButton(Qt::MouseButton bu
 }
 
 void GRenderWindow::mousePressEvent(QMouseEvent* event) {
-    // A click is also mouse activity. Restore cursor and restart the timer.
-    if (UISettings::values.hide_mouse) {
+    // A click is also mouse activity. Restore cursor and restart the timer,
+    // but only if mouse panning is NOT active.
+    if (UISettings::values.hide_mouse && !Settings::values.mouse_panning) {
         QApplication::restoreOverrideCursor();
         mouse_hide_timer.start();
     }
@@ -681,10 +682,19 @@ void GRenderWindow::mousePressEvent(QMouseEvent* event) {
 }
 
 void GRenderWindow::mouseMoveEvent(QMouseEvent* event) {
-    // Any mouse activity must FIRST restore the cursor before doing anything else.
     if (UISettings::values.hide_mouse) {
-        QApplication::restoreOverrideCursor();
-        mouse_hide_timer.start();
+        if (Settings::values.mouse_panning) {
+            // Panning is ON. Enforce a hidden cursor immediately and do not start the hide timer.
+            // This check prevents redundant calls if the cursor is already hidden.
+            if (QApplication::overrideCursor() == nullptr || QApplication::overrideCursor()->shape() != Qt::BlankCursor) {
+                QApplication::setOverrideCursor(QCursor(Qt::BlankCursor));
+            }
+        } else {
+            // Panning is OFF. Use the standard timer-based logic.
+            // Any physical mouse movement restores the cursor and restarts the timer.
+            QApplication::restoreOverrideCursor();
+            mouse_hide_timer.start();
+        }
     }
 
     // Touch input is handled in TouchUpdateEvent
