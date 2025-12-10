@@ -196,6 +196,29 @@
       </widget>
      </item>
      <item>
+      <widget class="QGroupBox" name="autoloader_group">
+       <property name="title">
+        <string>Autoloader</string>
+       </property>
+       <layout class="QVBoxLayout" name="verticalLayout_Autoloader">
+        <item>
+         <widget class="QCheckBox" name="prompt_for_autoloader">
+          <property name="text">
+           <string>Prompt to run Autoloader when a new game directory is added</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QPushButton" name="run_autoloader_button">
+          <property name="text">
+           <string>Run Autoloader Now</string>
+          </property>
+         </widget>
+        </item>
+       </layout>
+      </widget>
+     </item>
+     <item>
       <widget class="QGroupBox" name="groupBox_5">
        <property name="title">
         <string>Caching</string>

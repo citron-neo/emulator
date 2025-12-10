@@ -44,7 +44,9 @@
 #include "citron/configuration/configure_ui.h"
 #include "citron/configuration/configure_web.h"
 #include "citron/configuration/style_animation_event_filter.h"
+#include "citron/game_list.h"
 #include "citron/hotkeys.h"
+#include "citron/main.h"
 #include "citron/theme.h"
 #include "citron/uisettings.h"
 
@@ -73,6 +75,7 @@ ConfigureDialog::ConfigureDialog(QWidget* parent, HotkeyRegistry& registry_,
                                  InputCommon::InputSubsystem* input_subsystem,
                                  std::vector<VkDeviceInfo::Record>& vk_device_records,
                                  Core::System& system_, bool enable_web_config)
+
     : QDialog(parent), ui{std::make_unique<Ui::ConfigureDialog>()}, registry(registry_),
       system{system_},
       builder{std::make_unique<ConfigurationShared::Builder>(this, !system_.IsPoweredOn())},
@@ -97,6 +100,11 @@ ConfigureDialog::ConfigureDialog(QWidget* parent, HotkeyRegistry& registry_,
       profile_tab{std::make_unique<ConfigureProfileManager>(system_, this)},
       system_tab{std::make_unique<ConfigureSystem>(system_, nullptr, *builder, this)},
       web_tab{std::make_unique<ConfigureWeb>(this)}, rainbow_timer{new QTimer(this)} {
+
+    if (auto* main_window = qobject_cast<GMainWindow*>(parent)) {
+        connect(filesystem_tab.get(), &ConfigureFilesystem::RequestGameListRefresh,
+                main_window, &GMainWindow::RefreshGameList);
+    }
 
     Settings::SetConfiguringGlobal(true);
     setWindowFlags(Qt::Dialog | Qt::WindowTitleHint | Qt::WindowSystemMenuHint |
@@ -267,7 +275,6 @@ void ConfigureDialog::SetUIPositioning(const QString& positioning) {
         for (QPushButton* button : tab_buttons) {
             h_layout->removeWidget(button);
             v_layout->addWidget(button);
-            // Reset the inline stylesheet so it uses the main template's style.
             button->setStyleSheet(QStringLiteral(""));
         }
         v_layout->addStretch(1);
@@ -344,13 +351,11 @@ void ConfigureDialog::AnimateTabSwitch(int id) {
 
     const int duration = 400;
 
-    // Prepare Widgets for Live Animation
     next_widget->setGeometry(0, 0, ui->stackedWidget->width(), ui->stackedWidget->height());
     next_widget->move(0, 0);
     next_widget->show();
     next_widget->raise();
 
-    // Animation Logic
     auto anim_old_pos = new QPropertyAnimation(current_widget, "pos");
     anim_old_pos->setEndValue(QPoint(-ui->stackedWidget->width(), 0));
     anim_old_pos->setDuration(duration);
@@ -401,9 +406,7 @@ void ConfigureDialog::AnimateTabSwitch(int id) {
     connect(animation_group, &QAbstractAnimation::finished, this, [this, current_widget, next_widget, id]() {
         ui->stackedWidget->setCurrentIndex(id);
 
-        // Clean up graphics effects to return control to the stylesheet
         next_widget->setGraphicsEffect(nullptr);
-        // Ensure the old widget is hidden and reset for next time
         current_widget->hide();
         current_widget->move(0, 0);
 

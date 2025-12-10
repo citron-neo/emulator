@@ -35,6 +35,7 @@ class ConfigureProfileManager;
 class ConfigureSystem;
 class ConfigureUi;
 class ConfigureWeb;
+class GameList;
 
 class ConfigureDialog final : public QDialog {
     Q_OBJECT
@@ -48,6 +49,8 @@ public:
     ~ConfigureDialog() override;
 
     void ApplyConfiguration();
+
+    ConfigureFilesystem* GetFilesystemTab() const { return filesystem_tab.get(); }
 
 public slots:
     void UpdateTheme();
