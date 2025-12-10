@@ -111,6 +111,7 @@ public:
     void AcceptDropEvent(QDropEvent* event);
     MultiplayerState* GetMultiplayerState() { return multiplayer_state; }
     Core::System* GetSystem() { return system.get(); }
+    const std::shared_ptr<FileSys::VfsFilesystem>& GetVFS() const { return vfs; }
     bool IsEmulationRunning() const { return emulation_running; }
     void RefreshGameList();
     bool ExtractZipToDirectoryPublic(const std::filesystem::path& zip_path, const std::filesystem::path& extract_path);
@@ -153,6 +154,7 @@ public slots:
     void WebBrowserRequestExit();
     void OnAppFocusStateChanged(Qt::ApplicationState state);
     void OnTasStateChanged();
+    void IncrementInstallProgress();
 private:
     void LinkActionShortcut(QAction* action, const QString& action_name, const bool tas_allowed = false);
     void RegisterMetaTypes();
@@ -220,10 +222,10 @@ private slots:
     void OnGameListOpenPerGameProperties(const std::string& file);
     void OnMenuLoadFile();
     void OnMenuLoadFolder();
-    void IncrementInstallProgress();
     void OnMenuInstallToNAND();
     void OnMenuTrimXCI();
-    void OnMenuInstallWithAutoloader();
+    void OnMenuInstallWithUpdateManager();
+    void OnRunAutoloaderFromGameList();
     void OnMenuRecentFile();
     void OnConfigure();
     void OnConfigureTas();
