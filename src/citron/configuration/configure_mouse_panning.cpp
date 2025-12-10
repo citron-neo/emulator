@@ -1,9 +1,12 @@
 // SPDX-FileCopyrightText: 2023 yuzu Emulator Project
+// SPDX-FileCopyrightText: 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <QCloseEvent>
 #include <QMessageBox>
 
+#include "citron/main.h"
+#include "citron/bootmanager.h"
 #include "common/settings.h"
 #include "ui_configure_mouse_panning.h"
 #include "citron/configuration/configure_mouse_panning.h"
@@ -69,7 +72,14 @@ void ConfigureMousePanning::ConnectEvents() {
 }
 
 void ConfigureMousePanning::ApplyConfiguration() {
-    Settings::values.mouse_panning = ui->enable->isChecked();
+    GMainWindow* main_window = qobject_cast<GMainWindow*>(this->parent());
+
+    if (main_window) {
+        main_window->GetRenderWindow()->SetMousePanningState(ui->enable->isChecked());
+    } else {
+        Settings::values.mouse_panning = ui->enable->isChecked();
+    }
+
     Settings::values.mouse_panning_x_sensitivity = static_cast<float>(ui->x_sensitivity->value());
     Settings::values.mouse_panning_y_sensitivity = static_cast<float>(ui->y_sensitivity->value());
     Settings::values.mouse_panning_deadzone_counterweight =
@@ -78,7 +88,11 @@ void ConfigureMousePanning::ApplyConfiguration() {
     Settings::values.mouse_panning_min_decay = static_cast<float>(ui->min_decay->value());
 
     if (Settings::values.mouse_enabled && Settings::values.mouse_panning) {
-        Settings::values.mouse_panning = false;
+        if (main_window) {
+            main_window->GetRenderWindow()->SetMousePanningState(false);
+        } else {
+            Settings::values.mouse_panning = false;
+        }
         QMessageBox::critical(
             this, tr("Emulated mouse is enabled"),
             tr("Real mouse input and mouse panning are incompatible. Please disable the "
