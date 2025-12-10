@@ -59,7 +59,7 @@
     </widget>
     <addaction name="action_Install_File_NAND"/>
     <addaction name="action_Trim_XCI_File"/>
-    <addaction name="action_Install_With_Autoloader"/>
+    <addaction name="action_Install_With_Update_Manager"/>
     <addaction name="separator"/>
     <addaction name="action_Load_File"/>
     <addaction name="action_Load_Folder"/>
@@ -210,12 +210,12 @@
     <string>&amp;Install Files to NAND...</string>
    </property>
   </action>
-  <action name="action_Install_With_Autoloader">
+  <action name="action_Install_With_Update_Manager">
    <property name="enabled">
     <bool>true</bool>
    </property>
    <property name="text">
-    <string>Install Files with &amp;Autoloader...</string>
+    <string>Install Updates with &amp;Update Manager</string>
    </property>
   </action>
   <action name="action_Trim_XCI_File">
