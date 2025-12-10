@@ -114,6 +114,7 @@ public:
     const std::shared_ptr<FileSys::VfsFilesystem>& GetVFS() const { return vfs; }
     bool IsEmulationRunning() const { return emulation_running; }
     void RefreshGameList();
+    GRenderWindow* GetRenderWindow() const { return render_window; }
     bool ExtractZipToDirectoryPublic(const std::filesystem::path& zip_path, const std::filesystem::path& extract_path);
 signals:
     void EmulationStarting(EmuThread* emu_thread);
