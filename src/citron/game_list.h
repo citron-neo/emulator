@@ -140,6 +140,7 @@ signals:
     void ShowList(bool show);
     void PopulatingCompleted();
     void SaveConfig();
+    void RunAutoloaderRequested();
 
 public slots:
     void OnConfigurationChanged();
@@ -204,7 +205,7 @@ private:
     ControllerNavigation* controller_navigation = nullptr;
     CompatibilityList compatibility_list;
     QTimer* online_status_timer;
-    QTimer config_update_timer; // NEW: Timer for debouncing config changes
+    QTimer config_update_timer;
 
     friend class GameListSearchField;
 
