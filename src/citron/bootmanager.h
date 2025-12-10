@@ -30,8 +30,10 @@
 #include "common/polyfill_thread.h"
 #include "common/thread.h"
 #include "core/frontend/emu_window.h"
+#include "citron/hotkeys.h"
 
 class GMainWindow;
+class HotkeyRegistry;
 class QCamera;
 class QCameraImageCapture;
 class QCloseEvent;
@@ -150,7 +152,7 @@ class GRenderWindow : public QWidget, public Core::Frontend::EmuWindow {
 public:
     explicit GRenderWindow(GMainWindow* parent, EmuThread* emu_thread_,
                            std::shared_ptr<InputCommon::InputSubsystem> input_subsystem_,
-                           Core::System& system_);
+                           Core::System& system_, HotkeyRegistry& hotkey_registry_);
     ~GRenderWindow() override;
 
     // EmuWindow implementation.
@@ -197,6 +199,7 @@ public:
     void focusOutEvent(QFocusEvent* event) override;
 
     bool InitRenderTarget();
+    void SetMousePanningState(bool enabled); // <<< ADDED
 
     /// Destroy the previous run's child_widget which should also destroy the child_window
     void ReleaseRenderTarget();
@@ -227,6 +230,8 @@ signals:
     void ExitSignal();
     void MouseActivity();
     void TasPlaybackStateChanged();
+    void PanningToggleHotkeyPressed();
+    void FullscreenExitHotkeyPressed();
 
 private slots:
     void HideMouseCursor();
@@ -265,6 +270,7 @@ private:
 
     bool first_frame = false;
     InputCommon::TasInput::TasState last_tas_state;
+    bool strict_context_required;
 
 #if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0)) && CITRON_USE_QT_MULTIMEDIA
     bool is_virtual_camera;
@@ -279,6 +285,7 @@ private:
     QTimer mouse_hide_timer;
 
     Core::System& system;
+    HotkeyRegistry& hotkey_registry;
 
 protected:
     void showEvent(QShowEvent* event) override;
