@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <future>
+#include <set>
 #include <QColor>
 #include <QImage>
 #include <QList>
@@ -83,10 +84,20 @@ HostRoomWindow::~HostRoomWindow() = default;
 
 void HostRoomWindow::UpdateGameList(QStandardItemModel* list) {
     game_list->clear();
+    std::set<u64> seen_program_ids;
+
     for (int i = 0; i < list->rowCount(); i++) {
         auto parent = list->item(i, 0);
         for (int j = 0; j < parent->rowCount(); j++) {
-            game_list->appendRow(parent->child(j)->clone());
+            auto child_item = parent->child(j);
+            u64 program_id =
+            child_item->data(GameListItemPath::ProgramIdRole).toULongLong();
+
+            // Only add the game if we haven't seen its program ID before
+            if (seen_program_ids.count(program_id) == 0) {
+                game_list->appendRow(child_item->clone());
+                seen_program_ids.insert(program_id);
+            }
         }
     }
 }
