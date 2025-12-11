@@ -529,7 +529,7 @@ GMainWindow::GMainWindow(std::unique_ptr<QtConfig> config_, bool has_broken_vulk
         UISettings::values.has_broken_vulkan = true;
 
         QMessageBox::warning(this, tr("Broken Vulkan Installation Detected"),
-                             tr("Vulkan initialization failed during boot.<br><br>For support, please visit discord.gg/citron"));
+                             tr("Vulkan initialization failed during boot.<br><br>For support, please visit <b>Help > Get Support (Discord)</b> in the main emulation window."));
 
 #ifdef HAS_OPENGL
         Settings::values.renderer_backend = Settings::RendererBackend::OpenGL;
@@ -1916,7 +1916,7 @@ bool GMainWindow::LoadROM(const QString& filename, Service::AM::FrontendAppletPa
             tr("You are using the deconstructed ROM directory format for this game, which is an "
                "outdated format that has been superseded by others such as NCA, NAX, XCI, or "
                "NSP. Deconstructed ROM directories lack icons, metadata, and update "
-               "support.<br><br>For support, please visit discord.gg/citron. This message will not be shown again."));
+               "support.<br><br>For support, please visit <b>Help > Get Support (Discord)</b> in the main emulation window. This message will not be shown again."));
     }
 
     if (result != Core::SystemResultStatus::Success) {
@@ -1947,7 +1947,7 @@ bool GMainWindow::LoadROM(const QString& filename, Service::AM::FrontendAppletPa
                     tr("Error while loading ROM! %1", "%1 signifies a numeric error code.")
                         .arg(QString::fromStdString(error_code));
                 const auto description =
-                    tr("%1<br>For support, please visit discord.gg/citron",
+                    tr("%1<br>For support, please visit <b>Help > Get Support (Discord)</b> in the main emulation window.",
                        "%1 signifies an error string.")
                         .arg(QString::fromStdString(
                             GetResultStatusString(static_cast<Loader::ResultStatus>(error_id))));
@@ -5592,7 +5592,7 @@ void GMainWindow::OnCheckFirmwareDecryption() {
         QMessageBox::warning(
             this, tr("Derivation Components Missing"),
             tr("Encryption keys are missing. "
-               "<br>For support, please visit discord.gg/citron"));
+               "<br>For support, please visit <b>Help > Get Support (Discord)</b> in the main emulation window."));
     }
     SetFirmwareVersion();
     UpdateMenuState();
