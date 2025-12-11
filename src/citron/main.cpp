@@ -3926,7 +3926,23 @@ void GMainWindow::OpenURL(const QUrl& url) {
 }
 
 void GMainWindow::OnOpenSupport() {
-    OpenURL(QUrl(QStringLiteral("https://discord.gg/citron")));
+    QMessageBox::StandardButton first_warning;
+    first_warning = QMessageBox::question(this, tr("Discord Server Rules"),
+                                          tr("WARNING: Before joining the Citron Discord server, you will be required to accept the rules of the server before talking in off-topic channels. Do you understand you must follow & read the #rules upon entering the server?"),
+                                          QMessageBox::Yes | QMessageBox::No,
+                                          QMessageBox::Yes);
+
+    if (first_warning == QMessageBox::Yes) {
+        QMessageBox::StandardButton second_warning;
+        second_warning = QMessageBox::question(this, tr("Final Confirmation"),
+                                               tr("WARNING: Are you sure you understand that you must follow the rules of the Discord before asking for support?"),
+                                               QMessageBox::Yes | QMessageBox::No,
+                                               QMessageBox::Yes);
+
+        if (second_warning == QMessageBox::Yes) {
+            OpenURL(QUrl(QStringLiteral("https://discord.gg/citron")));
+        }
+    }
 }
 
 void GMainWindow::ToggleFullscreen() {
