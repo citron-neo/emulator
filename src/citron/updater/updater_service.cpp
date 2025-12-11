@@ -314,7 +314,6 @@ void UpdaterService::OnDownloadFinished() {
 
     LOG_INFO(Frontend, "AppImage download completed.");
 
-    // Get the path to the original AppImage file from the environment variable.
     const char* appimage_path_env = qgetenv("APPIMAGE").constData();
     if (!appimage_path_env || strlen(appimage_path_env) == 0) {
         emit UpdateError(QStringLiteral("Failed to update: Not running from an AppImage."));
@@ -323,8 +322,30 @@ void UpdaterService::OnDownloadFinished() {
     }
 
     std::filesystem::path original_appimage_path = appimage_path_env;
-    std::filesystem::path new_appimage_path = original_appimage_path.string() + ".new";
+    std::filesystem::path appimage_dir = original_appimage_path.parent_path();
+    std::filesystem::path backup_dir = appimage_dir / "backup";
+    std::error_code ec;
 
+    // 1. Create the backup directory
+    std::filesystem::create_directories(backup_dir, ec);
+    if (ec) {
+        LOG_ERROR(Frontend, "Failed to create backup directory: {}", ec.message());
+        // Do not stop the update; the backup is a convenience, not critical.
+    } else {
+        // 2. Create the backup copy of the old AppImage
+        std::string current_version = GetCurrentVersion();
+        std::string backup_filename = "citron-backup-" + (current_version.empty() ? "unknown" : current_version) + ".AppImage";
+        std::filesystem::path backup_filepath = backup_dir / backup_filename;
+        std::filesystem::copy_file(original_appimage_path, backup_filepath, std::filesystem::copy_options::overwrite_existing, ec);
+        if (ec) {
+            LOG_ERROR(Frontend, "Failed to copy AppImage to backup location: {}", ec.message());
+        } else {
+            LOG_INFO(Frontend, "Created backup of old AppImage at: {}", backup_filepath.string());
+        }
+    }
+
+    // 3. Save the new AppImage to a temporary file
+    std::filesystem::path new_appimage_path = original_appimage_path.string() + ".new";
     QFile new_file(QString::fromStdString(new_appimage_path.string()));
     if (!new_file.open(QIODevice::WriteOnly)) {
         emit UpdateError(QStringLiteral("Failed to save new AppImage version."));
@@ -334,16 +355,17 @@ void UpdaterService::OnDownloadFinished() {
     new_file.write(downloaded_data);
     new_file.close();
 
-    // Make the new file executable.
+    // 4. Make the new file executable
     if (!new_file.setPermissions(QFileDevice::ReadOwner | QFileDevice::WriteOwner | QFileDevice::ExeOwner |
                                  QFileDevice::ReadGroup | QFileDevice::ExeGroup |
                                  QFileDevice::ReadOther | QFileDevice::ExeOther)) {
         emit UpdateError(QStringLiteral("Failed to make the new AppImage executable."));
+        std::filesystem::remove(new_appimage_path, ec); // Clean up temp file
         update_in_progress.store(false);
         return;
     }
 
-    std::error_code ec;
+    // 5. Atomically replace the old AppImage with the new one
     std::filesystem::rename(new_appimage_path, original_appimage_path, ec);
     if (ec) {
         LOG_ERROR(Frontend, "Failed to replace old AppImage: {}", ec.message());
@@ -352,7 +374,8 @@ void UpdaterService::OnDownloadFinished() {
         return;
     }
 
-    std::filesystem::path version_file_path = original_appimage_path.parent_path() / CITRON_VERSION_FILE;
+    // 6. Update or remove the version file as before
+    std::filesystem::path version_file_path = appimage_dir / CITRON_VERSION_FILE;
     if (channel == QStringLiteral("Stable")) {
         LOG_INFO(Frontend, "Writing stable version marker: {}", current_update_info.version);
         std::ofstream version_file(version_file_path);
@@ -362,7 +385,7 @@ void UpdaterService::OnDownloadFinished() {
     } else {
         LOG_INFO(Frontend, "Nightly update, removing stable version marker if it exists.");
         if (std::filesystem::exists(version_file_path)) {
-            std::filesystem::remove(version_file_path);
+            std::filesystem::remove(version_file_path, ec);
         }
     }
 
