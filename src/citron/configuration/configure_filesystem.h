@@ -40,6 +40,11 @@ private:
     void ResetMetadata();
     void UpdateEnabledControls();
 
+    void MigrateBackups(const QString& old_path, const QString& new_path);
+
     std::unique_ptr<Ui::ConfigureFilesystem> ui;
     QProgressDialog* install_progress = nullptr;
+
+    bool m_old_custom_backup_enabled{};
+    QString m_old_backup_path;
 };

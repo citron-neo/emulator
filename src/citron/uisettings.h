@@ -150,6 +150,13 @@ namespace UISettings {
 
                                     Setting<bool> check_for_updates_on_start{linkage, true, "check_for_updates_on_start", Category::Ui};
 
+                                    // User might not want backups. Allow them to disable/re-enable accordingly.
+                                    Setting<bool> updater_enable_backups{linkage, true, "updater/enableBackups", Category::Ui};
+
+                                    // The custom directory to store AppImage backups on Linux. If empty, backups are stored
+                                    // in a 'backup' folder next to the main AppImage.
+                                    Setting<std::string> updater_backup_path{linkage, "", "updater/backupPath", Category::Ui};
+
                                     // Discord RPC
                                     Setting<bool> enable_discord_presence{linkage, true, "enable_discord_presence", Category::Ui};
 

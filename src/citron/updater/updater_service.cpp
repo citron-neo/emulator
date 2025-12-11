@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "citron/updater/updater_service.h"
+#include "citron/uisettings.h"
 #include "common/logging/log.h"
 #include "common/fs/path_util.h"
 #include "common/scm_rev.h"
@@ -271,8 +272,6 @@ void UpdaterService::OnDownloadFinished() {
     QSettings settings;
     QString channel = settings.value(QStringLiteral("updater/channel"), QStringLiteral("Stable")).toString();
 
-    // This logic has been simplified for clarity. The checksum part can be re-added later.
-
 #if defined(_WIN32)
     QString filename = QStringLiteral("citron_update_%1.zip").arg(QString::fromStdString(current_update_info.version));
     std::filesystem::path download_path = temp_download_path / filename.toStdString();
@@ -323,28 +322,39 @@ void UpdaterService::OnDownloadFinished() {
 
     std::filesystem::path original_appimage_path = appimage_path_env;
     std::filesystem::path appimage_dir = original_appimage_path.parent_path();
-    std::filesystem::path backup_dir = appimage_dir / "backup";
     std::error_code ec;
 
-    // 1. Create the backup directory
-    std::filesystem::create_directories(backup_dir, ec);
-    if (ec) {
-        LOG_ERROR(Frontend, "Failed to create backup directory: {}", ec.message());
-        // Do not stop the update; the backup is a convenience, not critical.
-    } else {
-        // 2. Create the backup copy of the old AppImage
-        std::string current_version = GetCurrentVersion();
-        std::string backup_filename = "citron-backup-" + (current_version.empty() ? "unknown" : current_version) + ".AppImage";
-        std::filesystem::path backup_filepath = backup_dir / backup_filename;
-        std::filesystem::copy_file(original_appimage_path, backup_filepath, std::filesystem::copy_options::overwrite_existing, ec);
-        if (ec) {
-            LOG_ERROR(Frontend, "Failed to copy AppImage to backup location: {}", ec.message());
+    // Check if backups are enabled before doing anything.
+    if (UISettings::values.updater_enable_backups.GetValue()) {
+        const std::string& custom_backup_path = UISettings::values.updater_backup_path.GetValue();
+        std::filesystem::path backup_dir;
+
+        if (!custom_backup_path.empty()) {
+            // User has specified a custom path.
+            backup_dir = custom_backup_path;
         } else {
-            LOG_INFO(Frontend, "Created backup of old AppImage at: {}", backup_filepath.string());
+            // Default behavior: create 'backup' folder next to the AppImage.
+            backup_dir = appimage_dir / "backup";
+        }
+
+        // Create the backup directory
+        std::filesystem::create_directories(backup_dir, ec);
+        if (ec) {
+            LOG_ERROR(Frontend, "Failed to create backup directory: {}", ec.message());
+        } else {
+            // Create the backup copy of the old AppImage
+            std::string current_version = GetCurrentVersion();
+            std::string backup_filename = "citron-backup-" + (current_version.empty() ? "unknown" : current_version) + ".AppImage";
+            std::filesystem::path backup_filepath = backup_dir / backup_filename;
+            std::filesystem::copy_file(original_appimage_path, backup_filepath, std::filesystem::copy_options::overwrite_existing, ec);
+            if (ec) {
+                LOG_ERROR(Frontend, "Failed to copy AppImage to backup location: {}", ec.message());
+            } else {
+                LOG_INFO(Frontend, "Created backup of old AppImage at: {}", backup_filepath.string());
+            }
         }
     }
 
-    // 3. Save the new AppImage to a temporary file
     std::filesystem::path new_appimage_path = original_appimage_path.string() + ".new";
     QFile new_file(QString::fromStdString(new_appimage_path.string()));
     if (!new_file.open(QIODevice::WriteOnly)) {
@@ -355,17 +365,15 @@ void UpdaterService::OnDownloadFinished() {
     new_file.write(downloaded_data);
     new_file.close();
 
-    // 4. Make the new file executable
     if (!new_file.setPermissions(QFileDevice::ReadOwner | QFileDevice::WriteOwner | QFileDevice::ExeOwner |
                                  QFileDevice::ReadGroup | QFileDevice::ExeGroup |
                                  QFileDevice::ReadOther | QFileDevice::ExeOther)) {
         emit UpdateError(QStringLiteral("Failed to make the new AppImage executable."));
-        std::filesystem::remove(new_appimage_path, ec); // Clean up temp file
+        std::filesystem::remove(new_appimage_path, ec);
         update_in_progress.store(false);
         return;
     }
 
-    // 5. Atomically replace the old AppImage with the new one
     std::filesystem::rename(new_appimage_path, original_appimage_path, ec);
     if (ec) {
         LOG_ERROR(Frontend, "Failed to replace old AppImage: {}", ec.message());
@@ -374,7 +382,6 @@ void UpdaterService::OnDownloadFinished() {
         return;
     }
 
-    // 6. Update or remove the version file as before
     std::filesystem::path version_file_path = appimage_dir / CITRON_VERSION_FILE;
     if (channel == QStringLiteral("Stable")) {
         LOG_INFO(Frontend, "Writing stable version marker: {}", current_update_info.version);
@@ -626,49 +633,49 @@ bool UpdaterService::CreateUpdateHelperScript(const std::filesystem::path& stagi
         std::filesystem::path script_path = staging_path / "apply_update.bat";
         LOG_INFO(Frontend, "Creating update helper script at: {}", script_path.string());
 
-        // Ensure staging directory exists
         if (!std::filesystem::exists(staging_path)) {
             LOG_ERROR(Frontend, "Staging path does not exist: {}", staging_path.string());
             return false;
         }
 
         std::ofstream script(script_path, std::ios::out | std::ios::trunc);
-
         if (!script.is_open()) {
             LOG_ERROR(Frontend, "Failed to open file for writing: {}", script_path.string());
             return false;
         }
 
-        // Convert paths to Windows-style paths for the batch script
         std::string staging_path_str = staging_path.string();
         std::string app_path_str = app_directory.string();
         std::string exe_path_str = (app_directory / "citron.exe").string();
 
-        // Replace forward slashes with backslashes
         for (auto& ch : staging_path_str) if (ch == '/') ch = '\\';
         for (auto& ch : app_path_str) if (ch == '/') ch = '\\';
         for (auto& ch : exe_path_str) if (ch == '/') ch = '\\';
 
-        // Write batch script
         script << "@echo off\n";
-        script << "REM Citron Auto-Updater Helper Script\n";
-        script << "REM This script applies staged updates after the main application exits\n\n";
+        script << "REM Citron Auto-Updater Helper Script\n\n";
 
         script << "echo Waiting for Citron to close...\n";
-        script << "timeout /t 3 /nobreak >nul\n\n";
 
-        script << "echo Applying update...\n";
+        // This loop will continuously check if citron.exe is running.
+        // It will only proceed once the process is no longer found.
+        script << ":wait_loop\n";
+        script << "tasklist /FI \"IMAGENAME eq citron.exe\" | find /I \"citron.exe\" >nul\n";
+        script << "if not errorlevel 1 (\n";
+        script << "    timeout /t 1 /nobreak >nul\n";
+        script << "    goto wait_loop\n";
+        script << ")\n\n";
+
+        script << "echo Citron has closed. Applying update...\n";
         script << "xcopy /E /Y /I \"" << staging_path_str << "\" \"" << app_path_str << "\" >nul 2>&1\n\n";
 
         script << "if errorlevel 1 (\n";
         script << "    echo Update failed. Please restart Citron manually.\n";
-        script << "    timeout /t 5\n";
+        script << "    pause\n"; // Pause to let the user see the error
         script << "    exit /b 1\n";
         script << ")\n\n";
 
         script << "echo Update applied successfully!\n";
-        script << "timeout /t 1 /nobreak >nul\n\n";
-
         script << "echo Restarting Citron...\n";
         script << "start \"\" \"" << exe_path_str << "\"\n\n";
 
@@ -676,20 +683,12 @@ bool UpdaterService::CreateUpdateHelperScript(const std::filesystem::path& stagi
         script << "rd /s /q \"" << staging_path_str << "\" >nul 2>&1\n\n";
 
         script << "REM Delete this script\n";
-        script << "del \"%~f0\"\n";
+        script << "(goto) 2>nul & del \"%~f0\"\n";
 
         script.flush();
         script.close();
 
-        // Verify the file was created
-        if (!std::filesystem::exists(script_path)) {
-            LOG_ERROR(Frontend, "Script file was not created despite successful write!");
-            return false;
-        }
-
-        auto file_size = std::filesystem::file_size(script_path);
-        LOG_INFO(Frontend, "Update helper script created successfully: {} ({} bytes)",
-                 script_path.string(), file_size);
+        LOG_INFO(Frontend, "Update helper script created successfully: {}", script_path.string());
         return true;
     } catch (const std::exception& e) {
         LOG_ERROR(Frontend, "Exception creating update helper script: {}", e.what());
