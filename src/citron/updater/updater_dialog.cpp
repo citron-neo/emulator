@@ -1,6 +1,8 @@
 // SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
+#include <filesystem>
+
 #include "citron/updater/updater_dialog.h"
 #include "ui_updater_dialog.h"
 
@@ -8,6 +10,7 @@
 #include <QCloseEvent>
 #include <QDateTime>
 #include <QDesktopServices>
+#include <QDir>
 #include <QMessageBox>
 #include <QProcess>
 #include <QRegularExpression>
@@ -361,11 +364,29 @@ void UpdaterDialog::ShowCompletedState() {
         }
     });
 #else
-    // On Linux, show the restart button as before
+    // On Linux, show the restart button and provide backup information.
     ui->titleLabel->setText(QStringLiteral("Update ready!"));
-    ui->statusLabel->setText(QStringLiteral("The update has been downloaded and prepared "
-                                            "successfully. The update will be applied when you "
-                                            "restart Citron."));
+
+    QString status_message = QStringLiteral(
+        "The update has been downloaded and prepared successfully. "
+        "The update will be applied when you restart Citron.");
+
+    // Check for the APPIMAGE env var to locate the backup directory.
+    QByteArray appimage_path_env = qgetenv("APPIMAGE");
+    if (!appimage_path_env.isEmpty()) {
+        std::filesystem::path appimage_path(appimage_path_env.constData());
+        std::filesystem::path backup_dir = appimage_path.parent_path() / "backup";
+
+        // Use QDir to present the path in a native format for the user.
+        QString native_backup_path = QDir::toNativeSeparators(QString::fromStdString(backup_dir.string()));
+
+        status_message.append(
+            QStringLiteral("\n\nA backup of the previous version has been saved to:\n%1")
+                .arg(native_backup_path));
+    }
+
+    ui->statusLabel->setText(status_message);
+
     ui->progressGroup->setVisible(false);
     ui->downloadButton->setVisible(false);
     ui->cancelButton->setVisible(false);
