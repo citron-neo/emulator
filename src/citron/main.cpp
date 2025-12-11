@@ -6253,7 +6253,7 @@ void GMainWindow::CheckForUpdatesAutomatically() {
                     msg_box.setWindowTitle(tr("Update Available"));
                     msg_box.setText(tr("A new version of Citron is available: %1")
                                       .arg(QString::fromStdString(update_info.version)));
-                    msg_box.setInformativeText(tr("Click Help → Check for Updates to download it."));
+                    msg_box.setInformativeText(tr("Click Help → Check for Updates to download it. You can also choose whether you get notified of Stable or Nightly releases. Head over to Emulation -> Configure & go to the UI Tab and choose your selection within the Update Channel."));
                     msg_box.setIcon(QMessageBox::Information);
                     msg_box.setStandardButtons(QMessageBox::Ok);
 
