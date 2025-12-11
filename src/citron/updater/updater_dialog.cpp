@@ -4,6 +4,7 @@
 #include <filesystem>
 
 #include "citron/updater/updater_dialog.h"
+#include "citron/uisettings.h"
 #include "ui_updater_dialog.h"
 
 #include <QApplication>
@@ -14,6 +15,7 @@
 #include <QMessageBox>
 #include <QProcess>
 #include <QRegularExpression>
+#include <QSettings>
 #include <QTimer>
 #include <QUrl>
 
@@ -371,18 +373,32 @@ void UpdaterDialog::ShowCompletedState() {
         "The update has been downloaded and prepared successfully. "
         "The update will be applied when you restart Citron.");
 
-    // Check for the APPIMAGE env var to locate the backup directory.
     QByteArray appimage_path_env = qgetenv("APPIMAGE");
-    if (!appimage_path_env.isEmpty()) {
-        std::filesystem::path appimage_path(appimage_path_env.constData());
-        std::filesystem::path backup_dir = appimage_path.parent_path() / "backup";
+    // Only show backup information if backups are enabled and we're in an AppImage.
+    if (!appimage_path_env.isEmpty() && UISettings::values.updater_enable_backups.GetValue()) {
+        const std::string& custom_path = UISettings::values.updater_backup_path.GetValue();
+        std::filesystem::path backup_dir;
+        QString native_backup_path;
 
-        // Use QDir to present the path in a native format for the user.
-        QString native_backup_path = QDir::toNativeSeparators(QString::fromStdString(backup_dir.string()));
-
-        status_message.append(
-            QStringLiteral("\n\nA backup of the previous version has been saved to:\n%1")
-                .arg(native_backup_path));
+        if (!custom_path.empty()) {
+            // User HAS set a custom path.
+            backup_dir = custom_path;
+            native_backup_path = QDir::toNativeSeparators(QString::fromStdString(backup_dir.string()));
+            status_message.append(
+                QStringLiteral("\n\nA backup of the previous version has been saved to your custom location:\n%1")
+                    .arg(native_backup_path));
+        } else {
+            // User has NOT set a custom path, use the default.
+            std::filesystem::path appimage_path(appimage_path_env.constData());
+            backup_dir = appimage_path.parent_path() / "backup";
+            native_backup_path = QDir::toNativeSeparators(QString::fromStdString(backup_dir.string()));
+            status_message.append(
+                QStringLiteral("\n\nA backup of the previous version has been saved to:\n%1")
+                    .arg(native_backup_path));
+            // Add the helpful tip.
+            status_message.append(
+                QStringLiteral("\n\nP.S. You can change the backup location or disable backups in Emulation > Configure > Filesystem."));
+        }
     }
 
     ui->statusLabel->setText(status_message);
