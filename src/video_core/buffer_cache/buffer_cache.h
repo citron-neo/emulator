@@ -9,6 +9,7 @@
 #include <numeric>
 
 #include "common/range_sets.inc"
+#include "citron/util/title_ids.h"
 #include "video_core/buffer_cache/buffer_cache_base.h"
 #include "video_core/guest_memory.h"
 #include "video_core/host1x/gpu_device_memory_manager.h"
@@ -1512,6 +1513,16 @@ void BufferCache<P>::MappedUploadMemory([[maybe_unused]] Buffer& buffer,
     if constexpr (USE_MEMORY_MAPS) {
         auto upload_staging = runtime.UploadStagingBuffer(total_size_bytes);
         const std::span<u8> staging_pointer = upload_staging.mapped_span;
+
+        // Validate staging buffer size to prevent buffer overruns
+        // This can happen if the requested size exceeds driver limits (e.g., 2GB)
+        // Only apply this workaround for Marvel Cosmic Invasion
+        if (program_id == UICommon::TitleID::MarvelCosmicInvasion &&
+            staging_pointer.size() < total_size_bytes) {
+            // Staging buffer is too small, skip this upload to avoid corruption
+            return;
+        }
+
         for (BufferCopy& copy : copies) {
             u8* const src_pointer = staging_pointer.data() + copy.src_offset;
             const DAddr device_addr = buffer.CpuAddr() + copy.dst_offset;

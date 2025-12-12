@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: Copyright 2018 yuzu Emulator Project
+// SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "common/algorithm.h"
@@ -104,19 +105,46 @@ void MaxwellDMA::Launch() {
             }
         }
     } else {
-        // TODO: allow multisized components.
         auto& accelerate = rasterizer->AccessAccelerateDMA();
         const bool is_const_a_dst = regs.remap_const.dst_x == RemapConst::Swizzle::CONST_A;
         if (regs.launch_dma.remap_enable != 0 && is_const_a_dst) {
-            ASSERT(regs.remap_const.component_size_minus_one == 3);
-            accelerate.BufferClear(regs.offset_out, regs.line_length_in,
-                                   regs.remap_const.remap_consta_value);
-            read_buffer.resize_destructive(regs.line_length_in * sizeof(u32));
-            std::span<u32> span(reinterpret_cast<u32*>(read_buffer.data()), regs.line_length_in);
-            std::ranges::fill(span, regs.remap_const.remap_consta_value);
-            memory_manager.WriteBlockUnsafe(regs.offset_out,
-                                            reinterpret_cast<u8*>(read_buffer.data()),
-                                            regs.line_length_in * sizeof(u32));
+            // Support multisized components (1-4 bytes per component)
+            // component_size_minus_one: 0=1 byte, 1=2 bytes, 2=3 bytes, 3=4 bytes
+            const u32 component_size = regs.remap_const.component_size_minus_one + 1;
+            const u32 num_dst_components = regs.remap_const.num_dst_components_minus_one + 1;
+            const u32 bytes_per_element = num_dst_components * component_size;
+            const u32 total_size = regs.line_length_in * bytes_per_element;
+
+            // Use accelerated buffer clear if available and matches the simple case
+            // (4-byte components, single component per element)
+            if (component_size == sizeof(u32) && num_dst_components == 1) {
+                accelerate.BufferClear(regs.offset_out, regs.line_length_in,
+                                     regs.remap_const.remap_consta_value);
+            }
+
+            // Prepare buffer with properly sized components
+            // Each element contains num_dst_components, each of component_size bytes
+            // The constant value is decomposed into bytes and written to each component
+            read_buffer.resize_destructive(total_size);
+            u8* const buffer_ptr = read_buffer.data();
+            const u32 constant_value = regs.remap_const.remap_consta_value;
+
+            // Fill buffer: for each element, write num_dst_components of component_size bytes
+            // Each component gets the same constant value, decomposed according to component_size
+            for (u32 element = 0; element < regs.line_length_in; ++element) {
+                u8* element_ptr = buffer_ptr + (element * bytes_per_element);
+
+                // Write each component with the constant value
+                for (u32 comp = 0; comp < num_dst_components; ++comp) {
+                    u8* component_ptr = element_ptr + (comp * component_size);
+                    // Extract bytes from constant value in little-endian order
+                    for (u32 byte = 0; byte < component_size; ++byte) {
+                        component_ptr[byte] = static_cast<u8>((constant_value >> (byte * 8)) & 0xFF);
+                    }
+                }
+            }
+
+            memory_manager.WriteBlockUnsafe(regs.offset_out, buffer_ptr, total_size);
         } else {
             memory_manager.FlushCaching();
             const auto convert_linear_2_blocklinear_addr = [](u64 address) {

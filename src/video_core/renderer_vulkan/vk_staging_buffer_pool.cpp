@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: Copyright 2022 yuzu Emulator Project
+// SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include <algorithm>
@@ -16,6 +17,7 @@
 #include "video_core/renderer_vulkan/vk_staging_buffer_pool.h"
 #include "video_core/vulkan_common/vulkan_device.h"
 #include "video_core/vulkan_common/vulkan_wrapper.h"
+#include "citron/util/title_ids.h"
 
 namespace Vulkan {
 namespace {
@@ -235,7 +237,15 @@ std::optional<StagingBufferRef> StagingBufferPool::TryGetReservedBuffer(size_t s
 
 StagingBufferRef StagingBufferPool::CreateStagingBuffer(size_t size, MemoryUsage usage,
                                                         bool deferred) {
-    const u32 log2 = Common::Log2Ceil64(size);
+    u32 log2 = Common::Log2Ceil64(size);
+
+    // Only apply this workaround for Marvel Cosmic Invasion
+    if (program_id == UICommon::TitleID::MarvelCosmicInvasion) {
+        static constexpr u32 MAX_STAGING_BUFFER_LOG2 = 31U;
+        // Calculate log2 of requested size, but clamp to maximum to prevent overflow
+        // This ensures we still round up to the next power of 2, but cap at 2GB
+        log2 = std::min(log2, MAX_STAGING_BUFFER_LOG2);
+    }
     VkBufferCreateInfo buffer_ci = {
         .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
         .pNext = nullptr,

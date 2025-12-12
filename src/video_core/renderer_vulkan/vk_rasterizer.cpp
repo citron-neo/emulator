@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: Copyright 2019 yuzu Emulator Project
+// SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <algorithm>
@@ -37,6 +38,7 @@
 #include "video_core/texture_cache/texture_cache_base.h"
 #include "video_core/vulkan_common/vulkan_device.h"
 #include "video_core/vulkan_common/vulkan_wrapper.h"
+#include "citron/util/title_ids.h"
 
 namespace Vulkan {
 
@@ -487,6 +489,15 @@ void RasterizerVulkan::Clear(u32 layer_count) {
 }
 
 void RasterizerVulkan::DispatchCompute() {
+    // Skip first 2 dispatches for Marvel Cosmic Invasion to fix boot issues
+    if (program_id == UICommon::TitleID::MarvelCosmicInvasion) {
+        static u32 dispatch_count = 0;
+        if (dispatch_count < 2) {
+            dispatch_count++;
+            return;
+        }
+    }
+
     FlushWork();
     gpu_memory->FlushCaching();
 
@@ -1604,6 +1615,7 @@ void RasterizerVulkan::InitializeChannel(Tegra::Control::ChannelState& channel) 
 
 void RasterizerVulkan::BindChannel(Tegra::Control::ChannelState& channel) {
     const s32 channel_id = channel.bind_id;
+    staging_pool.SetProgramId(channel.program_id);
     BindToChannel(channel_id);
     {
         std::scoped_lock lock{buffer_cache.mutex, texture_cache.mutex};

@@ -14,9 +14,8 @@ private:
 
 public:
     static constexpr u64 FinalFantasyTactics = 0x010038B015560000ULL;
-    // Base title ID for Little Nightmares 3 (covers both 0x010066101A55A800 and 0x010066101A55A000)
-    // The base title ID is obtained by masking with 0xFFFFFFFFFFFFE000
     static constexpr u64 LittleNightmares3Base = 0x010066101A55A000ULL;
+    static constexpr u64 MarvelCosmicInvasion = 0x010059D020C26000ULL;
 };
 
 } // namespace UICommon
