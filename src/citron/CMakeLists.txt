@@ -396,7 +396,7 @@ if (APPLE)
 
     if (NOT USE_SYSTEM_MOLTENVK)
         set(MOLTENVK_PLATFORM "macOS")
-        set(MOLTENVK_VERSION "v1.4.0-rc1")
+        set(MOLTENVK_VERSION "v1.4.0")
         download_moltenvk_external(${MOLTENVK_PLATFORM} ${MOLTENVK_VERSION})
     endif()
     find_library(MOLTENVK_LIBRARY MoltenVK REQUIRED)
@@ -421,7 +421,7 @@ elseif(WIN32)
 endif()
 
 # Robust static linking and linker selection under GCC LTO
-if (NOT MSVC)
+if (NOT MSVC AND NOT APPLE)
     # Use GNU ld.bfd for GCC LTO plugin-aware archive resolution
     target_link_options(citron PRIVATE -fuse-ld=bfd)
 

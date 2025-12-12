@@ -8,7 +8,7 @@ add_executable(citron-room
 )
 
 # Robust static linking order using GNU ld group to resolve cycles
-if (NOT MSVC)
+if (NOT MSVC AND NOT APPLE)
     # Use GNU ld.bfd for GCC LTO archives (ld.lld cannot consume GCC LTO plugin objects)
     target_link_options(citron-room PRIVATE -fuse-ld=bfd)
 
