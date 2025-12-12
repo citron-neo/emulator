@@ -44,12 +44,12 @@ endfunction()
 function(download_moltenvk_external platform version)
     set(MOLTENVK_DIR "${CMAKE_BINARY_DIR}/externals/MoltenVK")
     set(MOLTENVK_TAR "${CMAKE_BINARY_DIR}/externals/MoltenVK.tar")
-    # MoltenVK release asset filenames use lowercase platform names (e.g., 'macos', 'ios'),
-    # but the extracted directory structure uses mixed case (e.g., 'macOS', 'iOS').
+    # Use Ryujinx MoltenVK build which is compiled with an older Metal SDK
+    # This avoids MSL 3.2 bugs with thread_scope_subgroup and fixes text rendering issues
     string(TOLOWER "${platform}" MOLTENVK_ASSET_PLATFORM)
     if (NOT EXISTS ${MOLTENVK_DIR})
         if (NOT EXISTS ${MOLTENVK_TAR})
-            file(DOWNLOAD https://github.com/KhronosGroup/MoltenVK/releases/download/${version}/MoltenVK-${MOLTENVK_ASSET_PLATFORM}.tar
+            file(DOWNLOAD https://github.com/V380-Ori/Ryujinx.MoltenVK/releases/download/${version}-ryujinx/MoltenVK-${MOLTENVK_ASSET_PLATFORM}.tar
                 ${MOLTENVK_TAR} SHOW_PROGRESS)
         endif()
 

@@ -29,7 +29,7 @@ add_executable(citron-cmd
 )
 
 # Robust static linking and linker selection under GCC LTO
-if (NOT MSVC)
+if (NOT MSVC AND NOT APPLE)
     # Use GNU ld.bfd for GCC LTO plugin-aware archive resolution
     target_link_options(citron-cmd PRIVATE -fuse-ld=bfd)
 
