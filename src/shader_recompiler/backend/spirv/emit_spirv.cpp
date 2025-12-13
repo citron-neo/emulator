@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: Copyright 2021 yuzu Emulator Project
+// SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <span>
@@ -302,7 +303,8 @@ void DefineEntryPoint(const IR::Program& program, EmitContext& ctx, Id main) {
                 ctx.AddExtension("SPV_NV_geometry_shader_passthrough");
                 ctx.AddCapability(spv::Capability::GeometryShaderPassthroughNV);
             } else {
-                LOG_WARNING(Shader_SPIRV, "Geometry shader passthrough used with no support");
+                // Geometry shader passthrough not supported, will use regular geometry shader
+                LOG_DEBUG(Shader_SPIRV, "Geometry shader passthrough used with no support");
             }
         }
         break;

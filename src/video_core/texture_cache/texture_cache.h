@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: 2023 yuzu Emulator Project
+// SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #pragma once
@@ -1493,7 +1494,27 @@ ImageId TextureCache<P>::JoinImages(const ImageInfo& info, GPUVAddr gpu_addr, DA
     for (const ImageId overlap_id : join_ignore_textures) {
         Image& overlap = slot_images[overlap_id];
         if (True(overlap.flags & ImageFlagBits::GpuModified)) {
-            UNIMPLEMENTED();
+            // For ignored textures that are GPU modified, try to preserve the data
+            // by copying it to the new image if possible, otherwise mark as modified
+            const auto base_opt = new_image.TryFindBase(overlap.gpu_addr);
+            if (base_opt.has_value() && overlap.info.format == new_info.format &&
+                overlap.info.num_samples == new_info.num_samples) {
+                // Formats match, copy the data
+                new_image.flags |= ImageFlagBits::GpuModified;
+                const auto& resolution = Settings::values.resolution_info;
+                const u32 up_scale = can_rescale ? resolution.up_scale : 1;
+                const u32 down_shift = can_rescale ? resolution.down_shift : 0;
+                auto copies = MakeShrinkImageCopies(new_info, overlap.info, base_opt.value(),
+                                                    up_scale, down_shift);
+                runtime.CopyImage(new_image, overlap, std::move(copies));
+                new_image.modification_tick =
+                    std::max(new_image.modification_tick, overlap.modification_tick);
+            } else {
+                // Formats don't match or can't find base, just mark as modified
+                new_image.flags |= ImageFlagBits::GpuModified;
+                new_image.modification_tick =
+                    std::max(new_image.modification_tick, overlap.modification_tick);
+            }
         }
         if (True(overlap.flags & ImageFlagBits::Tracked)) {
             UntrackImage(overlap, overlap_id);
