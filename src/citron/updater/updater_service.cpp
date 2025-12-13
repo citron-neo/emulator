@@ -653,37 +653,98 @@ bool UpdaterService::CreateUpdateHelperScript(const std::filesystem::path& stagi
         for (auto& ch : exe_path_str) if (ch == '/') ch = '\\';
 
         script << "@echo off\n";
+        script << "setlocal enabledelayedexpansion\n";
         script << "REM Citron Auto-Updater Helper Script\n\n";
 
         script << "echo Waiting for Citron to close...\n";
 
-        // This loop will continuously check if citron.exe is running.
-        // It will only proceed once the process is no longer found.
+        // Wait for citron.exe to close, with a longer timeout
+        script << "set /a wait_count=0\n";
         script << ":wait_loop\n";
-        script << "tasklist /FI \"IMAGENAME eq citron.exe\" | find /I \"citron.exe\" >nul\n";
+        script << "tasklist /FI \"IMAGENAME eq citron.exe\" | find /I \"citron.exe\" >nul 2>&1\n";
         script << "if not errorlevel 1 (\n";
+        script << "    set /a wait_count+=1\n";
+        script << "    if !wait_count! gtr 60 (\n";
+        script << "        echo Warning: Citron process still running after 60 seconds, proceeding anyway...\n";
+        script << "        goto wait_done\n";
+        script << "    )\n";
         script << "    timeout /t 1 /nobreak >nul\n";
         script << "    goto wait_loop\n";
+        script << ")\n";
+        script << ":wait_done\n";
+        script << "timeout /t 2 /nobreak >nul\n";
+        script << "echo Citron has closed. Preparing update...\n\n";
+
+        // Remove read-only attributes from all files in the destination directory
+        script << "echo Removing read-only attributes from existing files...\n";
+        script << "attrib -R \"" << app_path_str << "\\*.*\" /S /D >nul 2>&1\n";
+        script << "if exist \"" << app_path_str << "\\citron.exe\" attrib -R \"" << app_path_str << "\\citron.exe\" >nul 2>&1\n";
+        script << "if exist \"" << app_path_str << "\\citron_cmd.exe\" attrib -R \"" << app_path_str << "\\citron_cmd.exe\" >nul 2>&1\n\n";
+
+        // Use robocopy for more reliable copying (available on Windows Vista+)
+        script << "echo Copying update files...\n";
+        script << "set /a copy_retries=0\n";
+        script << ":copy_loop\n";
+        script << "robocopy \"" << staging_path_str << "\" \"" << app_path_str << "\" /E /IS /IT /R:3 /W:1 /NP /NFL /NDL >nul 2>&1\n";
+        script << "set /a robocopy_exit=!errorlevel!\n";
+        script << "REM Robocopy returns 0-7 for success, 8+ for errors\n";
+        script << "if !robocopy_exit! geq 8 (\n";
+        script << "    set /a copy_retries+=1\n";
+        script << "    if !copy_retries! lss 3 (\n";
+        script << "        echo Copy attempt !copy_retries! failed, retrying...\n";
+        script << "        timeout /t 2 /nobreak >nul\n";
+        script << "        REM Try removing read-only again\n";
+        script << "        attrib -R \"" << app_path_str << "\\*.*\" /S /D >nul 2>&1\n";
+        script << "        goto copy_loop\n";
+        script << "    ) else (\n";
+        script << "        echo ERROR: Failed to copy update files after 3 attempts.\n";
+        script << "        echo Error code: !robocopy_exit!\n";
+        script << "        echo.\n";
+        script << "        echo Update failed. Please restart Citron manually.\n";
+        script << "        echo You may need to run this script as Administrator.\n";
+        script << "        pause\n";
+        script << "        exit /b 1\n";
+        script << "    )\n";
         script << ")\n\n";
 
-        script << "echo Citron has closed. Applying update...\n";
-        script << "xcopy /E /Y /I \"" << staging_path_str << "\" \"" << app_path_str << "\" >nul 2>&1\n\n";
-
-        script << "if errorlevel 1 (\n";
+        // Verify critical files were copied
+        script << "if not exist \"" << exe_path_str << "\" (\n";
+        script << "    echo ERROR: citron.exe was not copied successfully.\n";
         script << "    echo Update failed. Please restart Citron manually.\n";
-        script << "    pause\n"; // Pause to let the user see the error
+        script << "    pause\n";
         script << "    exit /b 1\n";
         script << ")\n\n";
 
         script << "echo Update applied successfully!\n";
         script << "echo Restarting Citron...\n";
+        script << "timeout /t 1 /nobreak >nul\n";
         script << "start \"\" \"" << exe_path_str << "\"\n\n";
 
-        script << "REM Clean up staging directory\n";
-        script << "rd /s /q \"" << staging_path_str << "\" >nul 2>&1\n\n";
+        // Clean up staging directory with retry
+        script << "REM Cleaning up staging directory...\n";
+        script << "set /a cleanup_retries=0\n";
+        script << ":cleanup_loop\n";
+        script << "rd /s /q \"" << staging_path_str << "\" >nul 2>&1\n";
+        script << "if exist \"" << staging_path_str << "\" (\n";
+        script << "    set /a cleanup_retries+=1\n";
+        script << "    if !cleanup_retries! lss 5 (\n";
+        script << "        timeout /t 1 /nobreak >nul\n";
+        script << "        goto cleanup_loop\n";
+        script << "    )\n";
+        script << ")\n\n";
 
-        script << "REM Delete this script\n";
-        script << "(goto) 2>nul & del \"%~f0\"\n";
+        script << "REM Delete this script (with retry)\n";
+        script << "set /a del_retries=0\n";
+        script << ":del_script_loop\n";
+        script << "del \"%~f0\" >nul 2>&1\n";
+        script << "if exist \"%~f0\" (\n";
+        script << "    set /a del_retries+=1\n";
+        script << "    if !del_retries! lss 3 (\n";
+        script << "        timeout /t 1 /nobreak >nul\n";
+        script << "        goto del_script_loop\n";
+        script << "    )\n";
+        script << ")\n";
+        script << "exit /b 0\n";
 
         script.flush();
         script.close();
@@ -702,9 +763,17 @@ bool UpdaterService::LaunchUpdateHelper() {
         std::filesystem::path script_path = staging_path / "apply_update.bat";
 
         if (!std::filesystem::exists(script_path)) {
-            LOG_ERROR(Frontend, "Update helper script not found");
+            LOG_ERROR(Frontend, "Update helper script not found at: {}", script_path.string());
             return false;
         }
+
+        // Verify the script is readable
+        std::ifstream test_read(script_path);
+        if (!test_read.good()) {
+            LOG_ERROR(Frontend, "Update helper script exists but cannot be read");
+            return false;
+        }
+        test_read.close();
 
         // Launch the batch script as a detached process
         QString script_path_str = QString::fromStdString(script_path.string());
@@ -712,18 +781,19 @@ bool UpdaterService::LaunchUpdateHelper() {
         arguments << QStringLiteral("/C");
         arguments << script_path_str;
 
-        // Use cmd.exe to run the batch file in a hidden window
+        // Use cmd.exe to run the batch file
+        // Note: We don't hide the window so users can see progress and any errors
         bool launched = QProcess::startDetached(QStringLiteral("cmd.exe"), arguments);
 
         if (launched) {
-            LOG_INFO(Frontend, "Update helper script launched successfully");
+            LOG_INFO(Frontend, "Update helper script launched successfully from: {}", script_path.string());
             return true;
         } else {
-            LOG_ERROR(Frontend, "Failed to launch update helper script");
+            LOG_ERROR(Frontend, "Failed to launch update helper script. QProcess::startDetached returned false");
             return false;
         }
     } catch (const std::exception& e) {
-        LOG_ERROR(Frontend, "Failed to launch update helper: {}", e.what());
+        LOG_ERROR(Frontend, "Exception launching update helper: {}", e.what());
         return false;
     }
 }
