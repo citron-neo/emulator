@@ -73,7 +73,17 @@ void MaxwellDMA::Launch() {
     // TODO(Subv): Perform more research and implement all features of this engine.
     const LaunchDMA& launch = regs.launch_dma;
     ASSERT(launch.interrupt_type == LaunchDMA::InterruptType::NONE);
-    ASSERT(launch.data_transfer_type == LaunchDMA::DataTransferType::NON_PIPELINED);
+
+    // Handle pipelined transfers: treat as non-pipelined for now
+    // Some games (e.g., Marvel Cosmic Invasion) use pipelined transfers
+    if (launch.data_transfer_type != LaunchDMA::DataTransferType::NON_PIPELINED &&
+        launch.data_transfer_type != LaunchDMA::DataTransferType::PIPELINED) {
+        UNIMPLEMENTED_IF_MSG(launch.data_transfer_type != LaunchDMA::DataTransferType::NONE,
+                            "Unsupported data transfer type: {}",
+                            static_cast<u32>(launch.data_transfer_type.Value()));
+        ReleaseSemaphore();
+        return;
+    }
 
     if (launch.multi_line_enable) {
         const bool is_src_pitch = launch.src_memory_layout == LaunchDMA::MemoryLayout::PITCH;
