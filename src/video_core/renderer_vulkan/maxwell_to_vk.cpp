@@ -49,13 +49,18 @@ VkSamplerMipmapMode MipmapMode(Tegra::Texture::TextureMipmapFilter mipmap_filter
 }
 
 VkSamplerAddressMode WrapMode(const Device& device, Tegra::Texture::WrapMode wrap_mode,
-                              Tegra::Texture::TextureFilter filter) {
+                              Tegra::Texture::TextureFilter filter, bool is_shadow_map) {
     switch (wrap_mode) {
     case Tegra::Texture::WrapMode::Wrap:
         return VK_SAMPLER_ADDRESS_MODE_REPEAT;
     case Tegra::Texture::WrapMode::Mirror:
         return VK_SAMPLER_ADDRESS_MODE_MIRRORED_REPEAT;
     case Tegra::Texture::WrapMode::ClampToEdge:
+        // For shadow maps, use CLAMP_TO_BORDER instead of CLAMP_TO_EDGE
+        // CLAMP_TO_EDGE can cause square artifacts by repeating edge pixels
+        if (is_shadow_map) {
+            return VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER;
+        }
         return VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
     case Tegra::Texture::WrapMode::Border:
         return VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER;
@@ -65,11 +70,20 @@ VkSamplerAddressMode WrapMode(const Device& device, Tegra::Texture::WrapMode wra
             // by sending an invalid enumeration.
             return static_cast<VkSamplerAddressMode>(0xcafe);
         }
-        // TODO(Rodrigo): Emulate GL_CLAMP properly on other vendors
+        // For shadow maps, GL_CLAMP should use CLAMP_TO_BORDER to prevent square artifacts
+        // GL_CLAMP clamps coordinates to [0,1] and uses border color for out-of-range values
+        // Using CLAMP_TO_BORDER provides the closest match for shadow mapping
+        if (is_shadow_map) {
+            return VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER;
+        }
+        // For non-shadow textures, use appropriate fallback based on filter
+        // GL_CLAMP with linear filtering should use border to match interpolation behavior
         switch (filter) {
         case Tegra::Texture::TextureFilter::Nearest:
+            // Nearest filtering: use edge clamping to avoid border artifacts
             return VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
         case Tegra::Texture::TextureFilter::Linear:
+            // Linear filtering: use border to match GL_CLAMP interpolation behavior
             return VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER;
         }
         ASSERT(false);

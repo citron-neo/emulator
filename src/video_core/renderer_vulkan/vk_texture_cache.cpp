@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: Copyright 2019 yuzu Emulator Project
+// SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include <algorithm>
@@ -2025,17 +2026,65 @@ Sampler::Sampler(TextureCacheRuntime& runtime, const Tegra::Texture::TSCEntry& t
     // Some games have samplers with garbage. Sanitize them here.
     const f32 max_anisotropy = std::clamp(tsc.MaxAnisotropy(), 1.0f, 16.0f);
 
+    // For shadow maps (depth compare enabled), ensure proper border color
+    // Shadow maps should use opaque white border (1.0) so out-of-range samples are not shadowed
+    // This is critical: in depth compare mode, white (1.0) = not shadowed, black (0.0) = shadowed
+    const bool is_shadow_map = tsc.depth_compare_enabled;
+    const std::array<float, 4> shadow_border_color_custom{1.0f, 1.0f, 1.0f, 1.0f};
+
+    // Determine wrap modes (shadow maps will use CLAMP_TO_BORDER for GL_CLAMP and ClampToEdge)
+    const auto wrap_u_mode = MaxwellToVK::Sampler::WrapMode(device, tsc.wrap_u, tsc.mag_filter, is_shadow_map);
+    const auto wrap_v_mode = MaxwellToVK::Sampler::WrapMode(device, tsc.wrap_v, tsc.mag_filter, is_shadow_map);
+    const auto wrap_p_mode = MaxwellToVK::Sampler::WrapMode(device, tsc.wrap_p, tsc.mag_filter, is_shadow_map);
+
+    // For shadow maps, ALWAYS use white border color regardless of wrap mode
+    // This ensures any edge cases or driver-specific behavior uses correct border
+    VkSamplerCustomBorderColorCreateInfoEXT shadow_border_ci{
+        .sType = VK_STRUCTURE_TYPE_SAMPLER_CUSTOM_BORDER_COLOR_CREATE_INFO_EXT,
+        .pNext = nullptr,
+        .customBorderColor = Common::BitCast<VkClearColorValue>(shadow_border_color_custom),
+        .format = VK_FORMAT_UNDEFINED,
+    };
+    const void* shadow_pnext = nullptr;
+    if (is_shadow_map && arbitrary_borders) {
+        shadow_pnext = &shadow_border_ci;
+        // Chain with reduction mode if needed
+        if (runtime.device.IsExtSamplerFilterMinmaxSupported() &&
+            MaxwellToVK::SamplerReduction(tsc.reduction_filter) != VK_SAMPLER_REDUCTION_MODE_WEIGHTED_AVERAGE_EXT) {
+            shadow_border_ci.pNext = pnext;
+        }
+    }
+
     const auto create_sampler = [&](const f32 anisotropy) {
+        VkBorderColor final_border_color;
+        const void* final_pnext;
+
+        // For ALL shadow maps, force opaque white border to prevent black square artifacts
+        // This is safe because shadow maps should never be shadowed outside their bounds
+        if (is_shadow_map) {
+            if (arbitrary_borders) {
+                final_pnext = shadow_pnext;
+                final_border_color = VK_BORDER_COLOR_FLOAT_CUSTOM_EXT;
+            } else {
+                final_pnext = pnext;
+                // Use opaque white even if not using border clamp - some drivers may sample borders anyway
+                final_border_color = VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE;
+            }
+        } else {
+            final_pnext = pnext;
+            final_border_color = arbitrary_borders ? VK_BORDER_COLOR_FLOAT_CUSTOM_EXT : ConvertBorderColor(color);
+        }
+
         return device.GetLogical().CreateSampler(VkSamplerCreateInfo{
             .sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO,
-            .pNext = pnext,
+            .pNext = final_pnext,
             .flags = 0,
             .magFilter = MaxwellToVK::Sampler::Filter(tsc.mag_filter),
             .minFilter = MaxwellToVK::Sampler::Filter(tsc.min_filter),
             .mipmapMode = MaxwellToVK::Sampler::MipmapMode(tsc.mipmap_filter),
-            .addressModeU = MaxwellToVK::Sampler::WrapMode(device, tsc.wrap_u, tsc.mag_filter),
-            .addressModeV = MaxwellToVK::Sampler::WrapMode(device, tsc.wrap_v, tsc.mag_filter),
-            .addressModeW = MaxwellToVK::Sampler::WrapMode(device, tsc.wrap_p, tsc.mag_filter),
+            .addressModeU = wrap_u_mode,
+            .addressModeV = wrap_v_mode,
+            .addressModeW = wrap_p_mode,
             .mipLodBias = tsc.LodBias(),
             .anisotropyEnable = static_cast<VkBool32>(anisotropy > 1.0f ? VK_TRUE : VK_FALSE),
             .maxAnisotropy = anisotropy,
@@ -2043,8 +2092,7 @@ Sampler::Sampler(TextureCacheRuntime& runtime, const Tegra::Texture::TSCEntry& t
             .compareOp = MaxwellToVK::Sampler::DepthCompareFunction(tsc.depth_compare_func),
             .minLod = tsc.mipmap_filter == TextureMipmapFilter::None ? 0.0f : tsc.MinLod(),
             .maxLod = tsc.mipmap_filter == TextureMipmapFilter::None ? 0.25f : tsc.MaxLod(),
-            .borderColor =
-                arbitrary_borders ? VK_BORDER_COLOR_FLOAT_CUSTOM_EXT : ConvertBorderColor(color),
+            .borderColor = final_border_color,
             .unnormalizedCoordinates = VK_FALSE,
         });
     };

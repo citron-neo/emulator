@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: Copyright 2019 yuzu Emulator Project
+// SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #pragma once
@@ -22,7 +23,8 @@ VkFilter Filter(Tegra::Texture::TextureFilter filter);
 VkSamplerMipmapMode MipmapMode(Tegra::Texture::TextureMipmapFilter mipmap_filter);
 
 VkSamplerAddressMode WrapMode(const Device& device, Tegra::Texture::WrapMode wrap_mode,
-                              Tegra::Texture::TextureFilter filter);
+                              Tegra::Texture::TextureFilter filter,
+                              bool is_shadow_map = false);
 
 VkCompareOp DepthCompareFunction(Tegra::Texture::DepthCompareFunc depth_compare_func);
 
