@@ -202,6 +202,14 @@ RasterizerVulkan::RasterizerVulkan(Core::Frontend::EmuWindow& emu_window_, Tegra
       fence_manager(*this, gpu, texture_cache, buffer_cache, query_cache, device, scheduler),
       wfi_event(device.GetLogical().CreateEvent()) {
     scheduler.SetQueryCache(query_cache);
+
+    memory_allocator.SetMemoryPressureCallback([this]() {
+        pipeline_cache.TriggerPipelineEviction();
+        texture_cache.TriggerGarbageCollection();
+        buffer_cache.TriggerGarbageCollection();
+        staging_pool.TriggerCacheRelease(MemoryUsage::Upload);
+        staging_pool.TriggerCacheRelease(MemoryUsage::Download);
+    });
 }
 
 RasterizerVulkan::~RasterizerVulkan() = default;

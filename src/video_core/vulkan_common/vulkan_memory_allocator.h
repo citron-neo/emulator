@@ -1,8 +1,10 @@
 // SPDX-FileCopyrightText: Copyright 2019 yuzu Emulator Project
+// SPDX-FileCopyrightText: Copyright 2025 Citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #pragma once
 
+#include <functional>
 #include <memory>
 #include <span>
 #include <vector>
@@ -111,6 +113,14 @@ public:
      */
     MemoryCommit Commit(const VkMemoryRequirements& requirements, MemoryUsage usage);
 
+    /**
+     * Sets a callback to be called when memory pressure is detected.
+     * This allows external systems (like caches) to free resources.
+     */
+    void SetMemoryPressureCallback(std::function<void()> callback) {
+        memory_pressure_callback = std::move(callback);
+    }
+
     /// Commits memory required by the buffer and binds it.
     MemoryCommit Commit(const vk::Buffer& buffer, MemoryUsage usage);
 
@@ -138,6 +148,7 @@ private:
     VkDeviceSize buffer_image_granularity; // The granularity for adjacent offsets between buffers
                                            // and optimal images
     u32 valid_memory_types{~0u};
+    std::function<void()> memory_pressure_callback; ///< Callback to free resources under memory pressure
 };
 
 } // namespace Vulkan

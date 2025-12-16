@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: Copyright 2018 yuzu Emulator Project
+// SPDX-FileCopyrightText: Copyright 2025 Citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <algorithm>
@@ -290,6 +291,15 @@ MemoryCommit MemoryAllocator::Commit(const VkMemoryRequirements& requirements, M
     // Commit has failed, allocate more memory.
     const u64 chunk_size = AllocationChunkSize(requirements.size);
     if (!TryAllocMemory(flags, type_mask, chunk_size)) {
+        if (memory_pressure_callback) {
+            LOG_WARNING(Render_Vulkan, "Memory allocation failed, attempting to free resources...");
+            memory_pressure_callback();
+            if (TryAllocMemory(flags, type_mask, chunk_size)) {
+                if (auto commit = TryCommit(requirements, flags)) {
+                    return std::move(*commit);
+                }
+            }
+        }
         // TODO(Rodrigo): Handle out of memory situations in some way like flushing to guest memory.
         throw vk::Exception(VK_ERROR_OUT_OF_DEVICE_MEMORY);
     }

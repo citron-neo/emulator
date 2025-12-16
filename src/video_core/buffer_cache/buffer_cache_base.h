@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: Copyright 2022 yuzu Emulator Project
+// SPDX-FileCopyrightText: Copyright 2025 Citron Emulator Project
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #pragma once
@@ -342,6 +343,12 @@ private:
     }
 
     void RunGarbageCollector();
+
+public:
+    /// Public interface to trigger garbage collection
+    void TriggerGarbageCollection() {
+        RunGarbageCollector();
+    }
 
     void BindHostIndexBuffer();
 
