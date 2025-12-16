@@ -1,5 +1,6 @@
 // SPDX-FileCopyrightText: 2022 yuzu Emulator Project
 // SPDX-FileCopyrightText: 2022 Skyline Team and Contributors
+// SPDX-FileCopyrightText: 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include <functional>
@@ -216,10 +217,12 @@ DAddr NvMap::PinHandle(NvMap::Handle::Id handle, bool low_area_pin) {
                     // Handles in the unmap queue are guaranteed not to be pinned so don't bother
                     // checking if they are before unmapping
                     std::scoped_lock freeLock(freeHandleDesc->mutex);
-                    if (handle_description->d_address)
+                    if (freeHandleDesc->d_address)
                         UnmapHandle(*freeHandleDesc);
                 } else {
                     LOG_CRITICAL(Service_NVDRV, "Ran out of SMMU address space!");
+                    // Break out of the loop to prevent infinite spinning when no handles can be freed
+                    return 0;
                 }
             }
 
