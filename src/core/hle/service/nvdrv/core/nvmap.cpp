@@ -210,17 +210,32 @@ DAddr NvMap::PinHandle(NvMap::Handle::Id handle, bool low_area_pin) {
             handle_description->in_heap = true;
         } else {
             size_t aligned_up = Common::AlignUp(map_size, BIG_PAGE_SIZE);
+            constexpr size_t MAX_FREE_ATTEMPTS = 100; // Prevent infinite loop
+            size_t free_attempts = 0;
             while ((address = smmu.Allocate(aligned_up)) == 0) {
                 // Free handles until the allocation succeeds
                 std::scoped_lock queueLock(unmap_queue_lock);
-                if (auto freeHandleDesc{unmap_queue.front()}) {
-                    // Handles in the unmap queue are guaranteed not to be pinned so don't bother
-                    // checking if they are before unmapping
-                    std::scoped_lock freeLock(freeHandleDesc->mutex);
-                    if (freeHandleDesc->d_address)
-                        UnmapHandle(*freeHandleDesc);
-                } else {
-                    LOG_CRITICAL(Service_NVDRV, "Ran out of SMMU address space!");
+                bool freed_any = false;
+                // Try to free multiple handles from the queue
+                while (!unmap_queue.empty() && free_attempts < MAX_FREE_ATTEMPTS) {
+                    if (auto freeHandleDesc{unmap_queue.front()}) {
+                        // Handles in the unmap queue are guaranteed not to be pinned so don't bother
+                        // checking if they are before unmapping
+                        std::scoped_lock freeLock(freeHandleDesc->mutex);
+                        if (freeHandleDesc->d_address) {
+                            UnmapHandle(*freeHandleDesc);
+                            freed_any = true;
+                        }
+                        // Remove from queue even if d_address was 0 (already unmapped)
+                        unmap_queue.pop_front();
+                    } else {
+                        unmap_queue.pop_front();
+                    }
+                    free_attempts++;
+                }
+
+                if (!freed_any || unmap_queue.empty()) {
+                    LOG_CRITICAL(Service_NVDRV, "Ran out of SMMU address space! No more handles to free.");
                     // Break out of the loop to prevent infinite spinning when no handles can be freed
                     return 0;
                 }

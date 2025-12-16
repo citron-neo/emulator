@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: Copyright 2020 yuzu Emulator Project
+// SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <algorithm>
@@ -141,6 +142,10 @@ NvResult nvhost_nvdec_common::MapBuffer(IoctlMapBuffer& params, std::span<MapBuf
     const size_t num_entries = std::min(params.num_entries, static_cast<u32>(entries.size()));
     for (size_t i = 0; i < num_entries; i++) {
         DAddr pin_address = nvmap.PinHandle(entries[i].map_handle, true);
+        if (!pin_address) {
+            LOG_ERROR(Service_NVDRV, "Failed to pin handle {}: SMMU address space exhausted", entries[i].map_handle);
+            return NvResult::InsufficientMemory;
+        }
         entries[i].map_address = static_cast<u32>(pin_address);
     }
 
