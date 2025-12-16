@@ -263,7 +263,26 @@ void ConfigureDialog::SetUIPositioning(const QString& positioning) {
             button->setStyleSheet(QStringLiteral("text-align: left center; padding-left: 15px;"));
         }
         h_layout->addStretch(1);
+
+        if (!tab_buttons.empty()) {
+            const int button_height = tab_buttons[0]->sizeHint().height();
+            const int margins = h_layout->contentsMargins().top() + h_layout->contentsMargins().bottom();
+            // The scroll area frame adds a few pixels, this accounts for it.
+            const int fixed_height = button_height + margins + 4;
+            ui->horizontalNavScrollArea->setMaximumHeight(fixed_height);
+            ui->horizontalNavScrollArea->setMinimumHeight(fixed_height);
+            ui->horizontalNavScrollArea->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+        }
+        QSizePolicy policy = ui->topButtonWidget->sizePolicy();
+        policy.setVerticalPolicy(QSizePolicy::Preferred);
+        ui->topButtonWidget->setSizePolicy(policy);
+
     } else { // Vertical
+
+        ui->horizontalNavScrollArea->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
+        ui->horizontalNavScrollArea->setMaximumHeight(QWIDGETSIZE_MAX);
+        ui->horizontalNavScrollArea->setMinimumHeight(0);
+
         ui->horizontalNavScrollArea->hide();
         ui->nav_container->show();
         if (h_layout->count() > 0) {
@@ -278,6 +297,10 @@ void ConfigureDialog::SetUIPositioning(const QString& positioning) {
             button->setStyleSheet(QStringLiteral(""));
         }
         v_layout->addStretch(1);
+
+        QSizePolicy policy = ui->topButtonWidget->sizePolicy();
+        policy.setVerticalPolicy(QSizePolicy::Expanding);
+        ui->topButtonWidget->setSizePolicy(policy);
     }
 }
 
