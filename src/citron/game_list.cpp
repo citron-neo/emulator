@@ -1289,6 +1289,7 @@ void GameList::PopulateAsync(QVector<UISettings::GameDir>& game_dirs) {
     tree_view->setColumnHidden(COLUMN_FILE_TYPE, !UISettings::values.show_types);
     tree_view->setColumnHidden(COLUMN_SIZE, !UISettings::values.show_size);
     tree_view->setColumnHidden(COLUMN_PLAY_TIME, !UISettings::values.show_play_time);
+    tree_view->setColumnHidden(COLUMN_ONLINE, !UISettings::values.show_online_column);
     current_worker.reset();
     item_model->removeRows(0, item_model->rowCount());
     search_field->clear();

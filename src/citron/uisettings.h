@@ -233,6 +233,9 @@ namespace UISettings {
                                                                     // Play time
                                                                     Setting<bool> show_play_time{linkage, true, "show_play_time", Category::UiGameList};
 
+                                                                    // Online Column
+                                                                    Setting<bool> show_online_column{linkage, true, "show_online_column", Category::UiGameList};
+
                                                                     bool configuration_applied;
                                                                     bool reset_to_defaults;
                                                                     bool shortcut_already_warned{false};
