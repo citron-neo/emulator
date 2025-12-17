@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: Copyright 2022 yuzu Emulator Project
+// SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <numbers>
@@ -101,8 +102,8 @@ static void UpdateReverbEffectParameter(const ReverbInfo::ParameterVersion2& par
     }
 
     if (params.channel_count == 2) {
-        state.early_gains[4] * 0.5f;
-        state.early_gains[5] * 0.5f;
+        state.early_gains[4] *= 0.5f;
+        state.early_gains[5] *= 0.5f;
     }
 
     auto pre_time{
@@ -116,16 +117,12 @@ static void UpdateReverbEffectParameter(const ReverbInfo::ParameterVersion2& par
 
     for (u32 i = 0; i < ReverbInfo::MaxDelayLines; i++) {
         const auto fdn_delay{(FdnDelayTimes[params.late_mode][i] * sample_rate).to_int()};
-        state.fdn_delay_lines[i].sample_count =
-            std::min(fdn_delay, state.fdn_delay_lines[i].sample_count_max);
-        state.fdn_delay_lines[i].buffer_end =
-            &state.fdn_delay_lines[i].buffer[state.fdn_delay_lines[i].sample_count - 1];
+        state.fdn_delay_lines[i].SetDelay(
+            std::min(fdn_delay, state.fdn_delay_lines[i].sample_count_max));
 
         const auto decay_delay{(DecayDelayTimes[params.late_mode][i] * sample_rate).to_int()};
-        state.decay_delay_lines[i].sample_count =
-            std::min(decay_delay, state.decay_delay_lines[i].sample_count_max);
-        state.decay_delay_lines[i].buffer_end =
-            &state.decay_delay_lines[i].buffer[state.decay_delay_lines[i].sample_count - 1];
+        state.decay_delay_lines[i].SetDelay(
+            std::min(decay_delay, state.decay_delay_lines[i].sample_count_max));
 
         state.decay_delay_lines[i].decay =
             0.5999755859375f * (1.0f - Common::FixedPoint<50, 14>::from_base(params.colouration));
@@ -425,10 +422,12 @@ void ReverbCommand::Process(const AudioRenderer::CommandListProcessor& processor
     auto state_{reinterpret_cast<ReverbInfo::State*>(state)};
 
     if (effect_enabled) {
-        if (parameter.state == ReverbInfo::ParameterState::Updating) {
-            UpdateReverbEffectParameter(parameter, *state_);
-        } else if (parameter.state == ReverbInfo::ParameterState::Initialized) {
+        bool needs_init = state_->pre_delay_line.buffer.empty();
+
+        if (needs_init || parameter.state == ReverbInfo::ParameterState::Initialized) {
             InitializeReverbEffect(parameter, *state_, workbuffer, long_size_pre_delay_supported);
+        } else if (parameter.state == ReverbInfo::ParameterState::Updating) {
+            UpdateReverbEffectParameter(parameter, *state_);
         }
     }
     ApplyReverbEffect(parameter, *state_, effect_enabled, input_buffers, output_buffers,
