@@ -21,6 +21,7 @@
 #include <QPainter>
 #include <QPainterPath>
 #include <QProgressDialog>
+#include <QProgressBar>
 #include <QScrollBar>
 #include <QStyle>
 #include <QThreadPool>
@@ -660,6 +661,16 @@ play_time_manager{play_time_manager_}, system{system_} {
     ));
     connect(btn_sort_az, &QToolButton::clicked, this, &GameList::ToggleSortOrder);
 
+    // Create progress bar
+    progress_bar = new QProgressBar(this);
+    progress_bar->setVisible(false);
+    progress_bar->setFixedHeight(4);
+    progress_bar->setTextVisible(false);
+    progress_bar->setStyleSheet(QStringLiteral(
+        "QProgressBar { border: none; background: transparent; } "
+        "QProgressBar::chunk { background-color: #0078d4; }"
+    ));
+
     // Add widgets to toolbar
     toolbar_layout->addWidget(btn_list_view);
     toolbar_layout->addWidget(btn_grid_view);
@@ -671,6 +682,7 @@ play_time_manager{play_time_manager_}, system{system_} {
     layout->setContentsMargins(0, 0, 0, 0);
     layout->setSpacing(0);
     layout->addWidget(toolbar);
+    layout->addWidget(progress_bar);
     layout->addWidget(tree_view);
     layout->addWidget(list_view);
     setLayout(layout);
@@ -864,6 +876,9 @@ bool GameList::IsEmpty() const {
 }
 
 void GameList::DonePopulating(const QStringList& watch_list) {
+    if (progress_bar) {
+        progress_bar->setVisible(false);
+    }
     emit ShowList(!IsEmpty());
     item_model->invisibleRootItem()->appendRow(new GameListAddDir());
     item_model->invisibleRootItem()->insertRow(0, new GameListFavorites());
@@ -1298,8 +1313,19 @@ void GameList::PopulateAsync(QVector<UISettings::GameDir>& game_dirs) {
     current_worker.reset();
     item_model->removeRows(0, item_model->rowCount());
     search_field->clear();
+
+    if (progress_bar) {
+        progress_bar->setValue(0);
+        progress_bar->setVisible(true);
+    }
+
     current_worker = std::make_unique<GameListWorker>(vfs, provider, game_dirs, compatibility_list, play_time_manager, system, main_window->GetMultiplayerState()->GetSession());
     connect(current_worker.get(), &GameListWorker::DataAvailable, this, &GameList::WorkerEvent, Qt::QueuedConnection);
+
+    if (progress_bar) {
+        connect(current_worker.get(), &GameListWorker::ProgressUpdated, progress_bar, &QProgressBar::setValue, Qt::QueuedConnection);
+    }
+
     QThreadPool::globalInstance()->start(current_worker.get());
 }
 
