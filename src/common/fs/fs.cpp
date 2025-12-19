@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: Copyright 2021 yuzu Emulator Project
+// SPDX-FileCopyrightText: 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "common/fs/file.h"
@@ -324,7 +325,6 @@ bool RemoveDirContentsRecursively(const fs::path& path) {
 
     std::error_code ec;
 
-    // TODO (Morph): Replace this with recursive_directory_iterator once it's fixed in MSVC.
     for (const auto& entry : fs::directory_iterator(path, ec)) {
         if (ec) {
             LOG_ERROR(Common_Filesystem,
@@ -342,10 +342,11 @@ bool RemoveDirContentsRecursively(const fs::path& path) {
             break;
         }
 
-        // TODO (Morph): Remove this when MSVC fixes recursive_directory_iterator.
-        // recursive_directory_iterator throws an exception despite passing in a std::error_code.
-        if (entry.status().type() == fs::file_type::directory) {
-            return RemoveDirContentsRecursively(entry.path());
+        std::error_code status_ec;
+        if (entry.status(status_ec).type() == fs::file_type::directory) {
+            if (!RemoveDirContentsRecursively(entry.path())) {
+                return false;
+            }
         }
     }
 
@@ -434,8 +435,12 @@ void IterateDirEntries(const std::filesystem::path& path, const DirEntryCallable
             break;
         }
 
+        std::error_code status_ec;
+        const auto st = entry.status(status_ec);
+        if (status_ec) continue;
+
         if (True(filter & DirEntryFilter::File) &&
-            entry.status().type() == fs::file_type::regular) {
+            st.type() == fs::file_type::regular) {
             if (!callback(entry)) {
                 callback_error = true;
                 break;
@@ -443,7 +448,7 @@ void IterateDirEntries(const std::filesystem::path& path, const DirEntryCallable
         }
 
         if (True(filter & DirEntryFilter::Directory) &&
-            entry.status().type() == fs::file_type::directory) {
+            st.type() == fs::file_type::directory) {
             if (!callback(entry)) {
                 callback_error = true;
                 break;
@@ -462,6 +467,42 @@ void IterateDirEntries(const std::filesystem::path& path, const DirEntryCallable
               PathToUTF8String(path));
 }
 
+void IterateDirEntriesRecursivelyInternal(const std::filesystem::path& path,
+                                          const DirEntryCallable& callback, DirEntryFilter filter,
+                                          int depth) {
+    if (depth > 12) return;
+
+    std::error_code ec;
+    auto it = fs::directory_iterator(path, ec);
+    if (ec) return;
+
+    while (it != fs::directory_iterator() && !ec) {
+        const auto& entry = *it;
+
+#ifndef _WIN32
+        const std::string filename = entry.path().filename().string();
+        if (filename[0] == '$' || filename == "Windows" || filename == "Program Files" ||
+            filename == "Program Files (x86)" || filename == "System Volume Information" ||
+            filename == "ProgramData" || filename == "Application Data" ||
+            filename == "Users" || filename == "SteamLibrary") {
+            it.increment(ec);
+            continue;
+        }
+#endif
+
+        std::error_code status_ec;
+        if (entry.is_directory(status_ec)) {
+            if (True(filter & DirEntryFilter::Directory)) { if (!callback(entry)) break; }
+            IterateDirEntriesRecursivelyInternal(entry.path(), callback, filter, depth + 1);
+        } else {
+            if (True(filter & DirEntryFilter::File)) { if (!callback(entry)) break; }
+        }
+
+        it.increment(ec);
+        if (ec) { ec.clear(); break; }
+    }
+}
+
 void IterateDirEntriesRecursively(const std::filesystem::path& path,
                                   const DirEntryCallable& callback, DirEntryFilter filter) {
     if (!ValidatePath(path)) {
@@ -469,59 +510,10 @@ void IterateDirEntriesRecursively(const std::filesystem::path& path,
         return;
     }
 
-    if (!Exists(path)) {
-        LOG_ERROR(Common_Filesystem, "Filesystem object at path={} does not exist",
-                  PathToUTF8String(path));
-        return;
-    }
+    // Start the recursion at depth 0
+    IterateDirEntriesRecursivelyInternal(path, callback, filter, 0);
 
-    if (!IsDir(path)) {
-        LOG_ERROR(Common_Filesystem, "Filesystem object at path={} is not a directory",
-                  PathToUTF8String(path));
-        return;
-    }
-
-    bool callback_error = false;
-
-    std::error_code ec;
-
-    // TODO (Morph): Replace this with recursive_directory_iterator once it's fixed in MSVC.
-    for (const auto& entry : fs::directory_iterator(path, ec)) {
-        if (ec) {
-            break;
-        }
-
-        if (True(filter & DirEntryFilter::File) &&
-            entry.status().type() == fs::file_type::regular) {
-            if (!callback(entry)) {
-                callback_error = true;
-                break;
-            }
-        }
-
-        if (True(filter & DirEntryFilter::Directory) &&
-            entry.status().type() == fs::file_type::directory) {
-            if (!callback(entry)) {
-                callback_error = true;
-                break;
-            }
-        }
-
-        // TODO (Morph): Remove this when MSVC fixes recursive_directory_iterator.
-        // recursive_directory_iterator throws an exception despite passing in a std::error_code.
-        if (entry.status().type() == fs::file_type::directory) {
-            IterateDirEntriesRecursively(entry.path(), callback, filter);
-        }
-    }
-
-    if (callback_error || ec) {
-        LOG_ERROR(Common_Filesystem,
-                  "Failed to visit all the directory entries of path={}, ec_message={}",
-                  PathToUTF8String(path), ec.message());
-        return;
-    }
-
-    LOG_DEBUG(Common_Filesystem, "Successfully visited all the directory entries of path={}",
+    LOG_DEBUG(Common_Filesystem, "Finished visiting directory entries of path={}",
               PathToUTF8String(path));
 }
 
