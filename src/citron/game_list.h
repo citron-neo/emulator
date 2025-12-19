@@ -14,6 +14,7 @@
 #include <QListView>
 #include <QPushButton>
 #include <QSlider>
+#include <QProgressBar>
 #include <QStandardItemModel>
 #include <QString>
 #include <QTimer>
@@ -201,6 +202,7 @@ private:
     QListView* list_view = nullptr;
     QStandardItemModel* item_model = nullptr;
     std::unique_ptr<GameListWorker> current_worker;
+    QProgressBar* progress_bar = nullptr;
     QFileSystemWatcher* watcher = nullptr;
     ControllerNavigation* controller_navigation = nullptr;
     CompatibilityList compatibility_list;
