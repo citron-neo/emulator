@@ -47,6 +47,7 @@ public:
     enum class ScanTarget {
         FillManualContentProvider,
         PopulateGameList,
+        Both,
     };
 
     explicit GameListWorker(std::shared_ptr<FileSys::VfsFilesystem> vfs_,
