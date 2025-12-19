@@ -219,6 +219,7 @@ namespace UISettings {
                                                                     Setting<bool> game_list_grid_view{linkage, false, "game_list_grid_view", Category::UiGameList};
                                                                     std::atomic_bool is_game_list_reload_pending{false};
                                                                     Setting<bool> cache_game_list{linkage, true, "cache_game_list", Category::UiGameList};
+                                                                    Setting<bool> scan_nca{linkage, false, "scan_nca", Category::UiGameList};
                                                                     Setting<bool> prompt_for_autoloader{linkage, true, "prompt_for_autoloader", Category::UiGameList};
                                                                     Setting<bool> favorites_expanded{linkage, true, "favorites_expanded", Category::UiGameList};
                                                                     QVector<u64> favorited_ids;
