@@ -749,16 +749,21 @@ void GameList::UpdateOnlineStatus() {
 
     // Run the blocking network call in a background thread using QtConcurrent
     QFuture<std::map<u64, std::pair<int, int>>> future = QtConcurrent::run([session]() {
-        std::map<u64, std::pair<int, int>> stats;
-        AnnounceMultiplayerRoom::RoomList room_list = session->GetRoomList();
-        for (const auto& room : room_list) {
-            u64 game_id = room.information.preferred_game.id;
-            if (game_id != 0) {
-                stats[game_id].first += room.members.size();
-                stats[game_id].second++;
+        try {
+            std::map<u64, std::pair<int, int>> stats;
+            AnnounceMultiplayerRoom::RoomList room_list = session->GetRoomList();
+            for (const auto& room : room_list) {
+                u64 game_id = room.information.preferred_game.id;
+                if (game_id != 0) {
+                    stats[game_id].first += (int)room.members.size();
+                    stats[game_id].second++;
+                }
             }
+            return stats;
+        } catch (const std::exception& e) {
+            LOG_ERROR(Frontend, "Exception in Online Status thread: {}", e.what());
+            return std::map<u64, std::pair<int, int>>{};
         }
-        return stats;
     });
 
     online_status_watcher->setFuture(future);
@@ -1312,15 +1317,16 @@ void GameList::LoadInterfaceLayout() {
 }
 
 const QStringList GameList::supported_file_extensions = {
-    QStringLiteral("nso"), QStringLiteral("nro"), QStringLiteral("nca"),
-    QStringLiteral("xci"), QStringLiteral("nsp"), QStringLiteral("kip")};
+    QStringLiteral("xci"), QStringLiteral("nsp"),
+    QStringLiteral("nso"), QStringLiteral("nro"), QStringLiteral("kip")
+};
 
-    void GameList::RefreshGameDirectory() {
-        if (!UISettings::values.game_dirs.empty() && current_worker != nullptr) {
-            LOG_INFO(Frontend, "Change detected in the games directory. Reloading game list.");
-            PopulateAsync(UISettings::values.game_dirs);
-        }
+void GameList::RefreshGameDirectory() {
+    if (!UISettings::values.game_dirs.empty() && current_worker != nullptr) {
+        LOG_INFO(Frontend, "Change detected in the games directory. Reloading game list.");
+        PopulateAsync(UISettings::values.game_dirs);
     }
+}
 
     void GameList::ToggleFavorite(u64 program_id) {
         if (!UISettings::values.favorited_ids.contains(program_id)) {
