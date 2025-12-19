@@ -563,8 +563,9 @@ void GameListWorker::AddTitlesToGameList(GameListDir* parent_dir, const std::map
 }
 
 void GameListWorker::ScanFileSystem(ScanTarget target, const std::string& dir_path, bool deep_scan,
-                                    GameListDir* parent_dir, const std::map<u64, std::pair<int, int>>& online_stats) {
-    const auto callback = [this, target, parent_dir, &online_stats](const std::filesystem::path& path) -> bool {
+                                    GameListDir* parent_dir, const std::map<u64, std::pair<int, int>>& online_stats,
+                                    int& processed_files, int total_files) {
+    const auto callback = [this, target, parent_dir, &online_stats, &processed_files, total_files](const std::filesystem::path& path) -> bool {
         if (stop_requested) return false;
 
         const auto physical_name = Common::FS::PathToUTF8String(path);
@@ -572,6 +573,12 @@ void GameListWorker::ScanFileSystem(ScanTarget target, const std::string& dir_pa
         // Do not touch the disk if the extension isn't a game
         if (!HasSupportedFileExtension(physical_name) && !IsExtractedNCAMain(physical_name)) {
             return true;
+        }
+
+        // Update progress before heavy I/O
+        processed_files++;
+        if (total_files > 0) {
+            emit ProgressUpdated((processed_files * 100) / total_files);
         }
 
         // Only now do we do "Heavy" disk I/O
@@ -672,7 +679,7 @@ void GameListWorker::run() {
         for (const auto& room : room_list) {
             u64 game_id = room.information.preferred_game.id;
             if (game_id != 0) {
-                online_stats[game_id].first += room.members.size();
+                online_stats[game_id].first += (int)room.members.size();
                 online_stats[game_id].second++;
             }
         }
@@ -681,6 +688,27 @@ void GameListWorker::run() {
     watch_list.clear();
     provider->ClearAllEntries();
 
+    // 1. Pre-scan to count total games for accurate progress
+    int total_files = 0;
+    int processed_files = 0;
+
+    for (const auto& game_dir : game_dirs) {
+        if (game_dir.path == "SDMC" || game_dir.path == "UserNAND" || game_dir.path == "SysNAND") continue;
+
+        auto count_callback = [&](const std::filesystem::path& path) -> bool {
+            if (HasSupportedFileExtension(Common::FS::PathToUTF8String(path)) || IsExtractedNCAMain(Common::FS::PathToUTF8String(path))) {
+                total_files++;
+            }
+            return true;
+        };
+
+        if (game_dir.deep_scan) {
+            Common::FS::IterateDirEntriesRecursively(game_dir.path, count_callback, Common::FS::DirEntryFilter::File);
+        } else {
+            Common::FS::IterateDirEntries(game_dir.path, count_callback, Common::FS::DirEntryFilter::File);
+        }
+    }
+
     const auto DirEntryReady = [&](GameListDir* game_list_dir) {
         RecordEvent([=](GameList* game_list) { game_list->AddDirEntry(game_list_dir); });
     };
@@ -688,7 +716,7 @@ void GameListWorker::run() {
     for (UISettings::GameDir& game_dir : game_dirs) {
         if (stop_requested) break;
 
-        if (game_dir.path == std::string("SDMC") || game_dir.path == std::string("UserNAND") || game_dir.path == std::string("SysNAND")) {
+        if (game_dir.path == "SDMC" || game_dir.path == "UserNAND" || game_dir.path == "SysNAND") {
             auto type = (game_dir.path == "SDMC") ? GameListItemType::SdmcDir : (game_dir.path == "UserNAND" ? GameListItemType::UserNandDir : GameListItemType::SysNandDir);
             auto* const game_list_dir = new GameListDir(game_dir, type);
             DirEntryReady(game_list_dir);
@@ -699,7 +727,7 @@ void GameListWorker::run() {
             DirEntryReady(game_list_dir);
 
             // ONE PASS SCAN: Replaces the two separate ScanFileSystem calls
-            ScanFileSystem(ScanTarget::Both, game_dir.path, game_dir.deep_scan, game_list_dir, online_stats);
+            ScanFileSystem(ScanTarget::Both, game_dir.path, game_dir.deep_scan, game_list_dir, online_stats, processed_files, total_files);
         }
     }
 
