@@ -1303,6 +1303,7 @@ QStandardItemModel* GameList::GetModel() const {
 }
 
 void GameList::PopulateAsync(QVector<UISettings::GameDir>& game_dirs) {
+    UpdateProgressBarColor();
     tree_view->setEnabled(false);
     emit ShowList(true);
     tree_view->setColumnHidden(COLUMN_ADD_ONS, !UISettings::values.show_add_ons);
@@ -1621,3 +1622,26 @@ void GameList::RefreshGameDirectory() {
         }
         btn_sort_az->setIcon(sort_icon);
     }
+
+void GameList::UpdateProgressBarColor() {
+    if (!progress_bar) return;
+
+    // Convert the Hex String from settings to a QColor
+    QColor accent(QString::fromStdString(UISettings::values.accent_color.GetValue()));
+
+    if (UISettings::values.enable_rainbow_mode.GetValue()) {
+        progress_bar->setStyleSheet(QStringLiteral(
+            "QProgressBar { border: none; background: transparent; } "
+            "QProgressBar::chunk { "
+            "background: qlineargradient(x1:0, y1:0, x2:1, y2:0, "
+            "stop:0 #ff0000, stop:0.16 #ffff00, stop:0.33 #00ff00, "
+            "stop:0.5 #00ffff, stop:0.66 #0000ff, stop:0.83 #ff00ff, stop:1 #ff0000); "
+            "}"
+        ));
+    } else {
+        progress_bar->setStyleSheet(QStringLiteral(
+            "QProgressBar { border: none; background: transparent; } "
+            "QProgressBar::chunk { background-color: %1; }"
+        ).arg(accent.name()));
+    }
+}
