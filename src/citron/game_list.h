@@ -147,6 +147,7 @@ public slots:
     void OnConfigurationChanged();
 
 private slots:
+    void UpdateProgressBarColor();
     void OnItemExpanded(const QModelIndex& item);
     void OnTextChanged(const QString& new_text);
     void OnFilterCloseClicked();
