@@ -570,95 +570,77 @@ void GameListWorker::ScanFileSystem(ScanTarget target, const std::string& dir_pa
 
         const auto physical_name = Common::FS::PathToUTF8String(path);
 
-        // Do not touch the disk if the extension isn't a game
         if (!HasSupportedFileExtension(physical_name) && !IsExtractedNCAMain(physical_name)) {
             return true;
         }
 
-        // Update progress before heavy I/O
-        processed_files++;
-        if (total_files > 0) {
-            emit ProgressUpdated((processed_files * 100) / total_files);
+        // Cache Check
+        const auto* cached = GetCachedGameMetadata(physical_name);
+        if (cached && cached->IsValid() && (target == ScanTarget::PopulateGameList || target == ScanTarget::Both)) {
+            const FileSys::PatchManager patch{cached->program_id, system.GetFileSystemController(), system.GetContentProvider()};
+            auto file = vfs->OpenFile(physical_name, FileSys::OpenMode::Read);
+            if (file) {
+                auto loader = Loader::GetLoader(system, file);
+                if (loader) {
+                    auto entry = MakeGameListEntry(physical_name, cached->title, cached->file_size, cached->icon, *loader,
+                                                   cached->program_id, compatibility_list, play_time_manager, patch, online_stats);
+                    RecordEvent([=](GameList* game_list) { game_list->AddEntry(entry, parent_dir); });
+
+                    processed_files++;
+                    emit ProgressUpdated(std::min(100, (processed_files * 100) / total_files));
+                    return true;
+                }
+            }
         }
 
-        // Only now do we do "Heavy" disk I/O
+        // Full Scan
         const auto file = vfs->OpenFile(physical_name, FileSys::OpenMode::Read);
-        if (!file) return true;
+        if (!file) {
+            processed_files++;
+            return true;
+        }
 
         auto loader = Loader::GetLoader(system, file);
-        if (!loader) return true;
-
-        const auto file_type = loader->GetFileType();
-        if (file_type == Loader::FileType::Unknown || file_type == Loader::FileType::Error) {
+        if (!loader) {
+            processed_files++;
             return true;
         }
 
         u64 program_id = 0;
         const auto res2 = loader->ReadProgramId(program_id);
+        const auto file_type = loader->GetFileType();
 
-        // Handle Content Provider AND Game List in one pass
         if (target == ScanTarget::FillManualContentProvider || target == ScanTarget::Both) {
             if (res2 == Loader::ResultStatus::Success && file_type == Loader::FileType::NCA) {
-                provider->AddEntry(FileSys::TitleType::Application,
-                                   FileSys::GetCRTypeFromNCAType(FileSys::NCA{file}.GetType()),
-                                   program_id, file);
-            } else if (res2 == Loader::ResultStatus::Success &&
-                       (file_type == Loader::FileType::XCI || file_type == Loader::FileType::NSP)) {
-                const auto nsp = file_type == Loader::FileType::NSP
-                                     ? std::make_shared<FileSys::NSP>(file)
-                                     : FileSys::XCI{file}.GetSecurePartitionNSP();
+                provider->AddEntry(FileSys::TitleType::Application, FileSys::GetCRTypeFromNCAType(FileSys::NCA{file}.GetType()), program_id, file);
+            } else if (res2 == Loader::ResultStatus::Success && (file_type == Loader::FileType::XCI || file_type == Loader::FileType::NSP)) {
+                const auto nsp = file_type == Loader::FileType::NSP ? std::make_shared<FileSys::NSP>(file) : FileSys::XCI{file}.GetSecurePartitionNSP();
                 for (const auto& title : nsp->GetNCAs()) {
                     for (const auto& entry : title.second) {
-                        provider->AddEntry(entry.first.first, entry.first.second, title.first,
-                                           entry.second->GetBaseFile());
+                        provider->AddEntry(entry.first.first, entry.first.second, title.first, entry.second->GetBaseFile());
                     }
                 }
             }
         }
 
         if (target == ScanTarget::PopulateGameList || target == ScanTarget::Both) {
-            std::vector<u64> program_ids;
-            loader->ReadProgramIds(program_ids);
+            std::vector<u8> icon;
+            std::string name = " ";
+            loader->ReadIcon(icon);
+            loader->ReadTitle(name);
+            std::size_t file_size = Common::FS::GetSize(physical_name);
 
-            if (res2 == Loader::ResultStatus::Success && program_ids.size() > 1 &&
-                (file_type == Loader::FileType::XCI || file_type == Loader::FileType::NSP)) {
-                for (const auto id : program_ids) {
-                    auto sub_loader = Loader::GetLoader(system, file, id);
-                    if (!sub_loader) continue;
-
-                    std::vector<u8> icon;
-                    sub_loader->ReadIcon(icon);
-                    std::string name = " ";
-                    sub_loader->ReadTitle(name);
-
-                    const FileSys::PatchManager patch{id, system.GetFileSystemController(), system.GetContentProvider()};
-                    auto entry = MakeGameListEntry(physical_name, name, Common::FS::GetSize(physical_name), icon, *sub_loader, id, compatibility_list, play_time_manager, patch, online_stats);
-                    RecordEvent([=](GameList* game_list) { game_list->AddEntry(entry, parent_dir); });
-                }
-            } else {
-                const auto* cached_metadata = GetCachedGameMetadata(physical_name);
-                std::vector<u8> icon;
-                std::string name = " ";
-                std::size_t file_size = 0;
-
-                if (cached_metadata && cached_metadata->program_id == program_id) {
-                    icon = cached_metadata->icon;
-                    name = cached_metadata->title;
-                    file_size = cached_metadata->file_size;
-                } else {
-                    loader->ReadIcon(icon);
-                    loader->ReadTitle(name);
-                    file_size = Common::FS::GetSize(physical_name);
-                    if (res2 == Loader::ResultStatus::Success) {
-                        CacheGameMetadata(physical_name, program_id, file_type, file_size, name, icon);
-                    }
-                }
-
-                const FileSys::PatchManager patch{program_id, system.GetFileSystemController(), system.GetContentProvider()};
-                auto entry = MakeGameListEntry(physical_name, name, file_size, icon, *loader, program_id, compatibility_list, play_time_manager, patch, online_stats);
-                RecordEvent([=](GameList* game_list) { game_list->AddEntry(entry, parent_dir); });
+            if (res2 == Loader::ResultStatus::Success) {
+                CacheGameMetadata(physical_name, program_id, file_type, file_size, name, icon);
             }
+
+            const FileSys::PatchManager patch{program_id, system.GetFileSystemController(), system.GetContentProvider()};
+            auto entry = MakeGameListEntry(physical_name, name, file_size, icon, *loader, program_id, compatibility_list, play_time_manager, patch, online_stats);
+            RecordEvent([=](GameList* game_list) { game_list->AddEntry(entry, parent_dir); });
         }
+
+        processed_files++;
+        emit ProgressUpdated(std::min(100, (processed_files * 100) / total_files));
         return true;
     };
 
@@ -670,10 +652,9 @@ void GameListWorker::ScanFileSystem(ScanTarget target, const std::string& dir_pa
 }
 
 void GameListWorker::run() {
-    // Load cached game metadata at the start
     LoadGameMetadataCache();
 
-    std::map<u64, std::pair<int, int>> online_stats; // Game ID -> {player_count, server_count}
+    std::map<u64, std::pair<int, int>> online_stats;
     if (session) {
         AnnounceMultiplayerRoom::RoomList room_list = session->GetRoomList();
         for (const auto& room : room_list) {
@@ -688,15 +669,18 @@ void GameListWorker::run() {
     watch_list.clear();
     provider->ClearAllEntries();
 
-    // 1. Pre-scan to count total games for accurate progress
     int total_files = 0;
     int processed_files = 0;
 
     for (const auto& game_dir : game_dirs) {
-        if (game_dir.path == "SDMC" || game_dir.path == "UserNAND" || game_dir.path == "SysNAND") continue;
+        if (game_dir.path == "SDMC" || game_dir.path == "UserNAND" || game_dir.path == "SysNAND") {
+            total_files += 5;
+            continue;
+        }
 
         auto count_callback = [&](const std::filesystem::path& path) -> bool {
-            if (HasSupportedFileExtension(Common::FS::PathToUTF8String(path)) || IsExtractedNCAMain(Common::FS::PathToUTF8String(path))) {
+            const std::string physical_name = Common::FS::PathToUTF8String(path);
+            if (HasSupportedFileExtension(physical_name) || IsExtractedNCAMain(physical_name)) {
                 total_files++;
             }
             return true;
@@ -708,6 +692,8 @@ void GameListWorker::run() {
             Common::FS::IterateDirEntries(game_dir.path, count_callback, Common::FS::DirEntryFilter::File);
         }
     }
+
+    if (total_files <= 0) total_files = 1;
 
     const auto DirEntryReady = [&](GameListDir* game_list_dir) {
         RecordEvent([=](GameList* game_list) { game_list->AddDirEntry(game_list_dir); });
@@ -721,20 +707,17 @@ void GameListWorker::run() {
             auto* const game_list_dir = new GameListDir(game_dir, type);
             DirEntryReady(game_list_dir);
             AddTitlesToGameList(game_list_dir, online_stats);
+            processed_files += 5; // Match our placeholder count
         } else {
             watch_list.append(QString::fromStdString(game_dir.path));
             auto* const game_list_dir = new GameListDir(game_dir);
             DirEntryReady(game_list_dir);
 
-            // ONE PASS SCAN: Replaces the two separate ScanFileSystem calls
             ScanFileSystem(ScanTarget::Both, game_dir.path, game_dir.deep_scan, game_list_dir, online_stats, processed_files, total_files);
         }
     }
 
     RecordEvent([this](GameList* game_list) { game_list->DonePopulating(watch_list); });
-
-    // Save cached game metadata at the end
     SaveGameMetadataCache();
-
     processing_completed.Set();
 }
