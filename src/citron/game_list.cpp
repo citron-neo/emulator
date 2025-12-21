@@ -1304,6 +1304,7 @@ QStandardItemModel* GameList::GetModel() const {
 
 void GameList::PopulateAsync(QVector<UISettings::GameDir>& game_dirs) {
     tree_view->setEnabled(false);
+    emit ShowList(true);
     tree_view->setColumnHidden(COLUMN_ADD_ONS, !UISettings::values.show_add_ons);
     tree_view->setColumnHidden(COLUMN_COMPATIBILITY, !UISettings::values.show_compat);
     tree_view->setColumnHidden(COLUMN_FILE_TYPE, !UISettings::values.show_types);
