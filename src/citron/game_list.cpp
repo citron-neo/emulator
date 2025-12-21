@@ -21,6 +21,7 @@
 #include <QPainter>
 #include <QPainterPath>
 #include <QProgressDialog>
+#include <QProgressBar>
 #include <QScrollBar>
 #include <QStyle>
 #include <QThreadPool>
@@ -660,6 +661,16 @@ play_time_manager{play_time_manager_}, system{system_} {
     ));
     connect(btn_sort_az, &QToolButton::clicked, this, &GameList::ToggleSortOrder);
 
+    // Create progress bar
+    progress_bar = new QProgressBar(this);
+    progress_bar->setVisible(false);
+    progress_bar->setFixedHeight(4);
+    progress_bar->setTextVisible(false);
+    progress_bar->setStyleSheet(QStringLiteral(
+        "QProgressBar { border: none; background: transparent; } "
+        "QProgressBar::chunk { background-color: #0078d4; }"
+    ));
+
     // Add widgets to toolbar
     toolbar_layout->addWidget(btn_list_view);
     toolbar_layout->addWidget(btn_grid_view);
@@ -671,6 +682,7 @@ play_time_manager{play_time_manager_}, system{system_} {
     layout->setContentsMargins(0, 0, 0, 0);
     layout->setSpacing(0);
     layout->addWidget(toolbar);
+    layout->addWidget(progress_bar);
     layout->addWidget(tree_view);
     layout->addWidget(list_view);
     setLayout(layout);
@@ -749,16 +761,21 @@ void GameList::UpdateOnlineStatus() {
 
     // Run the blocking network call in a background thread using QtConcurrent
     QFuture<std::map<u64, std::pair<int, int>>> future = QtConcurrent::run([session]() {
-        std::map<u64, std::pair<int, int>> stats;
-        AnnounceMultiplayerRoom::RoomList room_list = session->GetRoomList();
-        for (const auto& room : room_list) {
-            u64 game_id = room.information.preferred_game.id;
-            if (game_id != 0) {
-                stats[game_id].first += room.members.size();
-                stats[game_id].second++;
+        try {
+            std::map<u64, std::pair<int, int>> stats;
+            AnnounceMultiplayerRoom::RoomList room_list = session->GetRoomList();
+            for (const auto& room : room_list) {
+                u64 game_id = room.information.preferred_game.id;
+                if (game_id != 0) {
+                    stats[game_id].first += (int)room.members.size();
+                    stats[game_id].second++;
+                }
             }
+            return stats;
+        } catch (const std::exception& e) {
+            LOG_ERROR(Frontend, "Exception in Online Status thread: {}", e.what());
+            return std::map<u64, std::pair<int, int>>{};
         }
-        return stats;
     });
 
     online_status_watcher->setFuture(future);
@@ -859,6 +876,9 @@ bool GameList::IsEmpty() const {
 }
 
 void GameList::DonePopulating(const QStringList& watch_list) {
+    if (progress_bar) {
+        progress_bar->setVisible(false);
+    }
     emit ShowList(!IsEmpty());
     item_model->invisibleRootItem()->appendRow(new GameListAddDir());
     item_model->invisibleRootItem()->insertRow(0, new GameListFavorites());
@@ -1283,7 +1303,9 @@ QStandardItemModel* GameList::GetModel() const {
 }
 
 void GameList::PopulateAsync(QVector<UISettings::GameDir>& game_dirs) {
+    UpdateProgressBarColor();
     tree_view->setEnabled(false);
+    emit ShowList(true);
     tree_view->setColumnHidden(COLUMN_ADD_ONS, !UISettings::values.show_add_ons);
     tree_view->setColumnHidden(COLUMN_COMPATIBILITY, !UISettings::values.show_compat);
     tree_view->setColumnHidden(COLUMN_FILE_TYPE, !UISettings::values.show_types);
@@ -1293,8 +1315,19 @@ void GameList::PopulateAsync(QVector<UISettings::GameDir>& game_dirs) {
     current_worker.reset();
     item_model->removeRows(0, item_model->rowCount());
     search_field->clear();
+
+    if (progress_bar) {
+        progress_bar->setValue(0);
+        progress_bar->setVisible(true);
+    }
+
     current_worker = std::make_unique<GameListWorker>(vfs, provider, game_dirs, compatibility_list, play_time_manager, system, main_window->GetMultiplayerState()->GetSession());
     connect(current_worker.get(), &GameListWorker::DataAvailable, this, &GameList::WorkerEvent, Qt::QueuedConnection);
+
+    if (progress_bar) {
+        connect(current_worker.get(), &GameListWorker::ProgressUpdated, progress_bar, &QProgressBar::setValue, Qt::QueuedConnection);
+    }
+
     QThreadPool::globalInstance()->start(current_worker.get());
 }
 
@@ -1312,15 +1345,16 @@ void GameList::LoadInterfaceLayout() {
 }
 
 const QStringList GameList::supported_file_extensions = {
-    QStringLiteral("nso"), QStringLiteral("nro"), QStringLiteral("nca"),
-    QStringLiteral("xci"), QStringLiteral("nsp"), QStringLiteral("kip")};
+    QStringLiteral("xci"), QStringLiteral("nsp"),
+    QStringLiteral("nso"), QStringLiteral("nro"), QStringLiteral("kip")
+};
 
-    void GameList::RefreshGameDirectory() {
-        if (!UISettings::values.game_dirs.empty() && current_worker != nullptr) {
-            LOG_INFO(Frontend, "Change detected in the games directory. Reloading game list.");
-            PopulateAsync(UISettings::values.game_dirs);
-        }
+void GameList::RefreshGameDirectory() {
+    if (!UISettings::values.game_dirs.empty() && current_worker != nullptr) {
+        LOG_INFO(Frontend, "Change detected in the games directory. Reloading game list.");
+        PopulateAsync(UISettings::values.game_dirs);
     }
+}
 
     void GameList::ToggleFavorite(u64 program_id) {
         if (!UISettings::values.favorited_ids.contains(program_id)) {
@@ -1588,3 +1622,26 @@ const QStringList GameList::supported_file_extensions = {
         }
         btn_sort_az->setIcon(sort_icon);
     }
+
+void GameList::UpdateProgressBarColor() {
+    if (!progress_bar) return;
+
+    // Convert the Hex String from settings to a QColor
+    QColor accent(QString::fromStdString(UISettings::values.accent_color.GetValue()));
+
+    if (UISettings::values.enable_rainbow_mode.GetValue()) {
+        progress_bar->setStyleSheet(QStringLiteral(
+            "QProgressBar { border: none; background: transparent; } "
+            "QProgressBar::chunk { "
+            "background: qlineargradient(x1:0, y1:0, x2:1, y2:0, "
+            "stop:0 #ff0000, stop:0.16 #ffff00, stop:0.33 #00ff00, "
+            "stop:0.5 #00ffff, stop:0.66 #0000ff, stop:0.83 #ff00ff, stop:1 #ff0000); "
+            "}"
+        ));
+    } else {
+        progress_bar->setStyleSheet(QStringLiteral(
+            "QProgressBar { border: none; background: transparent; } "
+            "QProgressBar::chunk { background-color: %1; }"
+        ).arg(accent.name()));
+    }
+}

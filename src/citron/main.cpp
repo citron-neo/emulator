@@ -2272,11 +2272,9 @@ void GMainWindow::OnEmulationStopped() {
     render_window->hide();
     loading_screen->hide();
     loading_screen->Clear();
-    if (game_list->IsEmpty()) {
-        game_list_placeholder->show();
-    } else {
-        game_list->show();
-    }
+
+    game_list->show();
+    game_list_placeholder->hide();
     game_list->SetFilterFocus();
     tas_label->clear();
     input_subsystem->GetTas()->Stop();

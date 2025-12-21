@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: Copyright 2021 yuzu Emulator Project
+// SPDX-FileCopyrightText: 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #pragma once
@@ -398,6 +399,10 @@ void IterateDirEntries(const Path& path, const DirEntryCallable& callback,
 void IterateDirEntriesRecursively(const std::filesystem::path& path,
                                   const DirEntryCallable& callback,
                                   DirEntryFilter filter = DirEntryFilter::All);
+
+void IterateDirEntriesRecursivelyInternal(const std::filesystem::path& path,
+                                          const DirEntryCallable& callback,
+                                          DirEntryFilter filter, int depth);
 
 #ifdef _WIN32
 template <typename Path>

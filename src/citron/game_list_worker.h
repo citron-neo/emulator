@@ -47,6 +47,7 @@ public:
     enum class ScanTarget {
         FillManualContentProvider,
         PopulateGameList,
+        Both,
     };
 
     explicit GameListWorker(std::shared_ptr<FileSys::VfsFilesystem> vfs_,
@@ -73,6 +74,7 @@ public:
 
 signals:
     void DataAvailable();
+    void ProgressUpdated(int percent);
 
 private:
     template <typename F>
@@ -84,7 +86,8 @@ private:
 
     void ScanFileSystem(ScanTarget target, const std::string& dir_path, bool deep_scan,
                         GameListDir* parent_dir,
-                        const std::map<u64, std::pair<int, int>>& online_stats);
+                        const std::map<u64, std::pair<int, int>>& online_stats,
+                        int& processed_files, int total_files);
 
     std::shared_ptr<FileSys::VfsFilesystem> vfs;
     FileSys::ManualContentProvider* provider;
