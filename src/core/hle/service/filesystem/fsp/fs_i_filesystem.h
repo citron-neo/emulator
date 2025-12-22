@@ -1,10 +1,12 @@
 // SPDX-FileCopyrightText: Copyright 2023 yuzu Emulator Project
+// SPDX-FileCopyrightText: 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #pragma once
 
 #include "common/common_funcs.h"
 #include "core/file_sys/fs_filesystem.h"
+#include "core/file_sys/fs_save_data_types.h"
 #include "core/file_sys/fsa/fs_i_filesystem.h"
 #include "core/file_sys/vfs/vfs.h"
 #include "core/hle/service/cmif_types.h"
@@ -23,7 +25,10 @@ class IDirectory;
 
 class IFileSystem final : public ServiceFramework<IFileSystem> {
 public:
-    explicit IFileSystem(Core::System& system_, FileSys::VirtualDir dir_, SizeGetter size_getter_);
+    explicit IFileSystem(Core::System& system_, FileSys::VirtualDir dir_, SizeGetter size_getter_,
+                         std::shared_ptr<FileSys::SaveDataFactory> factory_ = nullptr,
+                         FileSys::SaveDataSpaceId space_id_ = {},
+                         FileSys::SaveDataAttribute attribute_ = {});
 
     Result CreateFile(const InLargeData<FileSys::Sf::Path, BufferAttr_HipcPointer> path, s32 option,
                       s64 size);
@@ -55,6 +60,10 @@ public:
 private:
     std::unique_ptr<FileSys::Fsa::IFileSystem> backend;
     SizeGetter size_getter;
+    FileSys::VirtualDir content_dir;
+    std::shared_ptr<FileSys::SaveDataFactory> save_factory;
+    FileSys::SaveDataSpaceId save_space;
+    FileSys::SaveDataAttribute save_attr;
 };
 
 } // namespace Service::FileSystem
