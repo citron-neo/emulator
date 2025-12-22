@@ -684,8 +684,9 @@ struct Values {
     // Key: build_id (hex string), Value: set of disabled cheat names
     std::map<std::string, std::set<std::string>> disabled_cheats;
 
-    // Custom Save Paths
+    // Custom Save Paths (with backups)
     std::map<u64, std::string> custom_save_paths;
+    Setting<bool> backup_saves_to_nand{linkage, false, "backup_saves_to_nand", Category::DataStorage};
 };
 
 extern Values values;
