@@ -4,6 +4,7 @@
 #include <chrono>
 #include <thread>
 #include "common/logging/log.h"
+#include "common/settings.h"
 #include "core/file_sys/errors.h"
 #include "core/file_sys/directory_save_data_filesystem.h"
 
@@ -16,8 +17,9 @@ constexpr int RetryWaitTimeMs = 100;
 
 } // Anonymous namespace
 
-DirectorySaveDataFileSystem::DirectorySaveDataFileSystem(VirtualDir base_filesystem)
-    : base_fs(std::move(base_filesystem)), extra_data_accessor(base_fs), journaling_enabled(true),
+DirectorySaveDataFileSystem::DirectorySaveDataFileSystem(VirtualDir base_filesystem, VirtualDir backup_filesystem)
+    : base_fs(std::move(base_filesystem)), backup_fs(std::move(backup_filesystem)),
+      extra_data_accessor(base_fs), journaling_enabled(true),
       open_writable_files(0) {}
 
 DirectorySaveDataFileSystem::~DirectorySaveDataFileSystem() = default;
@@ -125,6 +127,25 @@ Result DirectorySaveDataFileSystem::Commit() {
 
     // Update cached committed_dir reference
     committed_dir = base_fs->GetSubdirectory(CommittedDirectoryName);
+
+    if (Settings::values.backup_saves_to_nand.GetValue() && backup_fs != nullptr) {
+        LOG_INFO(Service_FS, "Dual-Save: Backing up custom save to NAND...");
+
+        // 1. Find or Create the '0' (Committed) folder in the NAND
+        auto nand_committed = backup_fs->GetSubdirectory(CommittedDirectoryName);
+        if (nand_committed == nullptr) {
+            nand_committed = backup_fs->CreateSubdirectory(CommittedDirectoryName);
+        }
+
+        if (nand_committed != nullptr) {
+            // 2. Wipe whatever old backup was there
+            backup_fs->DeleteSubdirectoryRecursive(CommittedDirectoryName);
+            nand_committed = backup_fs->CreateSubdirectory(CommittedDirectoryName);
+
+            // 3. Copy the fresh data from our 'working' area to the NAND '0' folder
+            CopyDirectoryRecursively(nand_committed, working_dir);
+        }
+    }
 
     LOG_INFO(Service_FS, "Save data committed successfully");
     return ResultSuccess;
