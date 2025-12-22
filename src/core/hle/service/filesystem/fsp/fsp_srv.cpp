@@ -280,8 +280,9 @@ Result FSP_SRV::OpenSaveDataFileSystem(OutInterface<IFileSystem> out_interface,
         break;
     }
 
-    *out_interface =
-        std::make_shared<IFileSystem>(system, std::move(dir), SizeGetter::FromStorageId(fsc, id));
+    *out_interface = std::make_shared<IFileSystem>(
+        system, std::move(dir), SizeGetter::FromStorageId(fsc, id),
+        save_data_controller->GetFactory(), space_id, attribute);
 
     R_SUCCEED();
 }

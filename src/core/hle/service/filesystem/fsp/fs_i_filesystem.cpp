@@ -1,7 +1,9 @@
 // SPDX-FileCopyrightText: Copyright 2023 yuzu Emulator Project
+// SPDX-FileCopyrightText: 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "common/string_util.h"
+#include "common/settings.h"
 #include "core/file_sys/fssrv/fssrv_sf_path.h"
 #include "core/hle/service/cmif_serialization.h"
 #include "core/hle/service/filesystem/fsp/fs_i_directory.h"
@@ -10,10 +12,16 @@
 
 namespace Service::FileSystem {
 
-IFileSystem::IFileSystem(Core::System& system_, FileSys::VirtualDir dir_, SizeGetter size_getter_)
-    : ServiceFramework{system_, "IFileSystem"}, backend{std::make_unique<FileSys::Fsa::IFileSystem>(
-                                                    dir_)},
-      size_getter{std::move(size_getter_)} {
+IFileSystem::IFileSystem(Core::System& system_, FileSys::VirtualDir dir_, SizeGetter size_getter_,
+                         std::shared_ptr<FileSys::SaveDataFactory> factory_,
+                         FileSys::SaveDataSpaceId space_id_, FileSys::SaveDataAttribute attribute_)
+    : ServiceFramework{system_, "IFileSystem"},
+      backend{std::make_unique<FileSys::Fsa::IFileSystem>(dir_)},
+      size_getter{std::move(size_getter_)},
+      content_dir{std::move(dir_)},
+      save_factory{std::move(factory_)},
+      save_space{space_id_},
+      save_attr{attribute_} {
     static const FunctionInfo functions[] = {
         {0, D<&IFileSystem::CreateFile>, "CreateFile"},
         {1, D<&IFileSystem::DeleteFile>, "DeleteFile"},
@@ -124,11 +132,15 @@ Result IFileSystem::GetEntryType(
 }
 
 Result IFileSystem::Commit() {
-    LOG_DEBUG(Service_FS, "called");
+    Result res = backend->Commit();
+    if (res != ResultSuccess) return res;
 
-    // Based on LibHac DirectorySaveDataFileSystem::DoCommit
-    // The backend FSA layer should handle the actual commit logic
-    R_RETURN(backend->Commit());
+    if (save_factory && Settings::values.backup_saves_to_nand.GetValue()) {
+        LOG_INFO(Common, "IFileSystem: Commit detected, triggering NAND backup...");
+        save_factory->DoNandBackup(save_space, save_attr, content_dir);
+    }
+
+    R_RETURN(res);
 }
 
 Result IFileSystem::GetFreeSpaceSize(

@@ -18,7 +18,8 @@ namespace FileSys {
 /// Uses /0 (committed) and /1 (working) directories for journaling
 class DirectorySaveDataFileSystem {
 public:
-    explicit DirectorySaveDataFileSystem(VirtualDir base_filesystem);
+    // optional directory here for backup
+    explicit DirectorySaveDataFileSystem(VirtualDir base_filesystem, VirtualDir backup_filesystem = nullptr);
     ~DirectorySaveDataFileSystem();
 
     /// Initialize the journaling filesystem
@@ -54,6 +55,7 @@ private:
     Result RetryFinitelyForTargetLocked(std::function<Result()> operation);
 
     VirtualDir base_fs;
+    VirtualDir backup_fs; // This will store the NAND path
     VirtualDir working_dir;
     VirtualDir committed_dir;
     SaveDataExtraDataAccessor extra_data_accessor;

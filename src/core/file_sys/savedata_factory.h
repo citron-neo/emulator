@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: Copyright 2018 yuzu Emulator Project
+// SPDX-FileCopyrightText: 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #pragma once
@@ -27,7 +28,7 @@ using ProgramId = u64;
 class SaveDataFactory {
 public:
     explicit SaveDataFactory(Core::System& system_, ProgramId program_id_,
-                             VirtualDir save_directory_);
+                             VirtualDir save_directory_, VirtualDir backup_directory_ = nullptr);
     ~SaveDataFactory();
 
     VirtualDir Create(SaveDataSpaceId space, const SaveDataAttribute& meta) const;
@@ -54,11 +55,13 @@ public:
                                           const SaveDataAttribute& attribute) const;
 
     void SetAutoCreate(bool state);
+    void DoNandBackup(SaveDataSpaceId space, const SaveDataAttribute& meta, VirtualDir custom_dir) const;
 
 private:
     Core::System& system;
     ProgramId program_id;
     VirtualDir dir;
+    VirtualDir backup_dir; // This will hold the NAND path
     bool auto_create{true};
 };
 

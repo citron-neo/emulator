@@ -87,6 +87,7 @@
       <item row="0" column="0"><widget class="QCheckBox" name="cache_game_list"><property name="text"><string>Cache Game List Metadata</string></property></widget></item>
       <item row="0" column="1"><widget class="QPushButton" name="reset_game_list_cache"><property name="text"><string>Reset Metadata Cache</string></property></widget></item>
       <item row="1" column="0" colspan="2"><widget class="QCheckBox" name="scan_nca"><property name="text"><string>Scan for .nca files (Advanced: Significantly slows down scanning)</string></property></widget></item>
+      <item row="2" column="0" colspan="2"><widget class="QCheckBox" name="backup_saves_to_nand"><property name="text"><string>Allow Backup Saves to NAND if using Custom Save Path</string></property></widget></item>
      </layout>
     </widget>
    </item>

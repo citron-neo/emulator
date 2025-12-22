@@ -283,6 +283,7 @@ void Config::ReadDataStorageValues() {
     FS::SetCitronPath(FS::CitronPath::TASDir, ReadStringSetting(std::string("tas_directory")));
 
     ReadCategory(Settings::Category::DataStorage);
+    Settings::values.backup_saves_to_nand = ReadBooleanSetting(std::string("backup_saves_to_nand"), false);
 
     EndGroup();
 }
@@ -636,6 +637,7 @@ void Config::SaveDataStorageValues() {
                        std::make_optional(FS::GetCitronPathString(FS::CitronPath::TASDir)));
 
     WriteCategory(Settings::Category::DataStorage);
+    WriteBooleanSetting(std::string("backup_saves_to_nand"), Settings::values.backup_saves_to_nand.GetValue());
 
     EndGroup();
 }
