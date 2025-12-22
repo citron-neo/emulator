@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: Copyright 2024 yuzu Emulator Project
+// SPDX-FileCopyrightText: 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #pragma once
@@ -37,6 +38,10 @@ public:
                                           const FileSys::SaveDataExtraData& mask,
                                           FileSys::SaveDataSpaceId space,
                                           const FileSys::SaveDataAttribute& attribute);
+
+    std::shared_ptr<FileSys::SaveDataFactory> GetFactory() const {
+        return factory;
+    }
 
     void SetAutoCreate(bool state);
 
