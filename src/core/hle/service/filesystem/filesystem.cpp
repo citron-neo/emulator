@@ -431,7 +431,12 @@ std::shared_ptr<FileSys::SaveDataFactory> FileSystemController::CreateSaveDataFa
         if (!custom_path_str.empty() && Common::FS::IsDir(custom_path)) {
             LOG_INFO(Service_FS, "Using custom save path for program_id={:016X}: {}", program_id, custom_path_str);
             auto custom_save_directory = vfs->OpenDirectory(custom_path_str, rw_mode);
-            return std::make_shared<FileSys::SaveDataFactory>(system, program_id, std::move(custom_save_directory));
+
+            // Fetch the default NAND directory to act as the backup location
+            auto nand_directory = vfs->OpenDirectory(Common::FS::GetCitronPathString(CitronPath::NANDDir), rw_mode);
+
+            return std::make_shared<FileSys::SaveDataFactory>(
+                system, program_id, std::move(custom_save_directory), std::move(nand_directory));
         }
     }
 
