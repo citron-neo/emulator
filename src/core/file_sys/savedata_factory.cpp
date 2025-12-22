@@ -7,8 +7,10 @@
 #include "common/assert.h"
 #include "common/common_types.h"
 #include "common/logging/log.h"
+#include "common/settings.h"
 #include "common/uuid.h"
 #include "core/core.h"
+#include "core/file_sys/directory_save_data_filesystem.h"
 #include "core/file_sys/errors.h"
 #include "core/file_sys/savedata_extra_data_accessor.h"
 #include "core/file_sys/savedata_factory.h"
@@ -58,8 +60,9 @@ std::string GetFutureSaveDataPath(SaveDataSpaceId space_id, SaveDataType type, u
 } // Anonymous namespace
 
 SaveDataFactory::SaveDataFactory(Core::System& system_, ProgramId program_id_,
-                                 VirtualDir save_directory_)
-    : system{system_}, program_id{program_id_}, dir{std::move(save_directory_)} {
+                                 VirtualDir save_directory_, VirtualDir backup_directory_)
+    : system{system_}, program_id{program_id_}, dir{std::move(save_directory_)},
+      backup_dir{std::move(backup_directory_)} {
     // Delete all temporary storages
     // On hardware, it is expected that temporary storage be empty at first use.
     dir->DeleteSubdirectoryRecursive("temp");
@@ -100,7 +103,6 @@ VirtualDir SaveDataFactory::Create(SaveDataSpaceId space, const SaveDataAttribut
 }
 
 VirtualDir SaveDataFactory::Open(SaveDataSpaceId space, const SaveDataAttribute& meta) const {
-
     const auto save_directory = GetFullPath(program_id, dir, space, meta.type, meta.program_id,
                                             meta.user_id, meta.system_save_data_id);
 
@@ -322,6 +324,43 @@ Result SaveDataFactory::WriteSaveDataExtraDataWithMask(const SaveDataExtraData& 
     R_TRY(accessor.CommitExtraData());
 
     return ResultSuccess;
+}
+
+void SaveDataFactory::DoNandBackup(SaveDataSpaceId space, const SaveDataAttribute& meta, VirtualDir custom_dir) const {
+    LOG_INFO(Common, "Dual-Save: Backup process initiated for Program ID: {:016X}", program_id);
+
+    if (!Settings::values.backup_saves_to_nand.GetValue()) {
+        LOG_INFO(Common, "Dual-Save: Backup skipped (Setting is OFF)");
+        return;
+    }
+
+    if (backup_dir == nullptr) {
+        LOG_ERROR(Common, "Dual-Save: Backup failed (NAND directory is NULL)");
+        return;
+    }
+
+    if (custom_dir == nullptr) {
+        LOG_ERROR(Common, "Dual-Save: Backup failed (Source Custom directory is NULL)");
+        return;
+    }
+
+    const auto nand_path = GetFullPath(program_id, backup_dir, space, meta.type, meta.program_id,
+                                       meta.user_id, meta.system_save_data_id);
+
+    auto nand_out = backup_dir->CreateDirectoryRelative(nand_path);
+    if (nand_out != nullptr) {
+        LOG_INFO(Common, "Dual-Save: Mirroring files to NAND: {}", nand_path);
+
+        // Clear the old backup
+        nand_out->CleanSubdirectoryRecursive(".");
+
+        // Perform the copy
+        VfsRawCopyD(custom_dir, nand_out);
+
+        LOG_INFO(Common, "Dual-Save: NAND Backup successful.");
+    } else {
+        LOG_ERROR(Common, "Dual-Save: Could not create/access NAND backup path!");
+    }
 }
 
 } // namespace FileSys
