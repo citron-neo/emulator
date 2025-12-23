@@ -178,6 +178,7 @@ static FileSys::VirtualFile VfsDirectoryCreateFileWrapper(const FileSys::Virtual
 #include "citron/main.h"
 #include "citron/play_time_manager.h"
 #include "citron/startup_checks.h"
+#include "citron/util/rainbow_style.h"
 #include "citron/uisettings.h"
 #ifdef CITRON_USE_AUTO_UPDATER
 #include "citron/updater/updater_dialog.h"
@@ -6209,7 +6210,9 @@ int main(int argc, char* argv[]) {
     setlocale(LC_ALL, "C");
 
     GMainWindow main_window{std::move(config), has_broken_vulkan};
-    // After settings have been loaded by GMainWindow, apply the filter
+
+    app.setStyle(new RainbowStyle(app.style()));
+
     main_window.show();
 
     QObject::connect(&app, &QGuiApplication::applicationStateChanged, &main_window,
