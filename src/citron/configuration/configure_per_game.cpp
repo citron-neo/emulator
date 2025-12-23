@@ -256,8 +256,9 @@ void ConfigurePerGame::LoadFromFile(FileSys::VirtualFile file_) {
 
 void ConfigurePerGame::UpdateTheme() {
     const bool is_rainbow = UISettings::values.enable_rainbow_mode.GetValue();
-    const QString accent = Theme::GetAccentColor();
     const bool is_dark = IsDarkMode();
+
+    const QString accent = is_rainbow ? QStringLiteral("palette(highlight)") : Theme::GetAccentColor();
 
     const QString bg = is_dark ? QStringLiteral("#2b2b2b") : QStringLiteral("#ffffff");
     const QString txt = is_dark ? QStringLiteral("#ffffff") : QStringLiteral("#000000");
@@ -287,7 +288,6 @@ void ConfigurePerGame::UpdateTheme() {
     style_sheet += QStringLiteral(
         "QSlider::handle:horizontal { background-color: %1; }"
         "QCheckBox::indicator:checked { background-color: %1; border-color: %1; }"
-        "QToolButton { background-color: %1; color: #ffffff; border-radius: 4px; }"
     ).arg(accent);
 
     setStyleSheet(style_sheet);
@@ -302,21 +302,91 @@ void ConfigurePerGame::UpdateTheme() {
         if (!rainbow_timer) {
             rainbow_timer = new QTimer(this);
             connect(rainbow_timer, &QTimer::timeout, this, [this] {
-                QString hue_hex = RainbowStyle::GetCurrentHighlightColor().name();
-                QString button_css = QStringLiteral(
-                    "QPushButton#aestheticTabButton { border: 2px solid transparent; }"
-                    "QPushButton#aestheticTabButton:checked { color: %1; border: 2px solid %1; }"
-                    "QPushButton#aestheticTabButton:hover { border: 2px solid %1; }"
-                    "QPushButton#aestheticTabButton:pressed { background-color: %1; color: #ffffff; }"
-                ).arg(hue_hex);
+                if (m_is_tab_animating || !this->isVisible() || !this->isActiveWindow()) return;
 
-                if (ui->tabButtonsContainer) ui->tabButtonsContainer->setStyleSheet(button_css);
+                const QColor current_color = RainbowStyle::GetCurrentHighlightColor();
+                const QString hue_hex = current_color.name();
+                const QString hue_light = current_color.lighter(125).name();
+                const QString hue_dark = current_color.darker(150).name();
+
+                // 1. Top Tab Buttons
+                QString tab_buttons_css = QStringLiteral(
+                    "QPushButton.tabButton { border: 2px solid transparent; background: transparent; }"
+                    "QPushButton.tabButton:checked { color: %1; border: 2px solid %1; }"
+                    "QPushButton.tabButton:hover { border: 2px solid %1; }"
+                    "QPushButton.tabButton:pressed { background-color: %1; color: #ffffff; }"
+                ).arg(hue_hex);
+                if (ui->tabButtonsContainer) ui->tabButtonsContainer->setStyleSheet(tab_buttons_css);
+
+                // 2. Horizontal Scrollbar for Tabs
+                if (ui->tabButtonsScrollArea) {
+                    ui->tabButtonsScrollArea->setStyleSheet(QStringLiteral(
+                        "QScrollBar:horizontal { height: 14px; background: transparent; border-radius: 7px; }"
+                        "QScrollBar::handle:horizontal { background-color: %1; border-radius: 6px; min-width: 30px; margin: 1px; }"
+                        "QScrollBar::add-line, QScrollBar::sub-line { background: none; width: 0px; }"
+                    ).arg(hue_hex));
+                }
+
+                // 3. Action Buttons (OK/Cancel) and Trim button
+                if (ui->buttonBox && !ui->buttonBox->underMouse()) {
+                    ui->buttonBox->setStyleSheet(QStringLiteral(
+                        "QPushButton { background-color: %1; color: #ffffff; border-radius: 4px; font-weight: bold; padding: 5px 15px; }"
+                        "QPushButton:hover { background-color: %2; }"
+                        "QPushButton:pressed { background-color: %3; }"
+                    ).arg(hue_hex).arg(hue_light).arg(hue_dark));
+                }
+
+                if (ui->trim_xci_button && !ui->trim_xci_button->underMouse()) {
+                    ui->trim_xci_button->setStyleSheet(QStringLiteral(
+                        "QPushButton { background-color: %1; color: #ffffff; border: none; border-radius: 4px; padding: 10px; }"
+                        "QPushButton:hover { background-color: %2; }"
+                        "QPushButton:pressed { background-color: %3; }"
+                    ).arg(hue_hex).arg(hue_light).arg(hue_dark));
+                }
+
+                // 4. Tab Content Area
+                QWidget* currentContainer = ui->stackedWidget->currentWidget();
+                if (currentContainer) {
+                    QWidget* actualTab = currentContainer;
+                    if (auto* scroll = qobject_cast<QScrollArea*>(currentContainer)) {
+                        actualTab = scroll->widget();
+                    }
+
+                    if (actualTab) {
+                        QString content_css = QStringLiteral(
+                            "QCheckBox::indicator:checked, QRadioButton::indicator:checked { background-color: %1; border: 1px solid %1; }"
+                            "QSlider::sub-page:horizontal { background: %1; border-radius: 4px; }"
+                            "QSlider::handle:horizontal { background-color: %1; border: 1px solid %1; width: 18px; height: 18px; margin: -5px 0; border-radius: 9px; }"
+                            "QComboBox { border: 1px solid %1; selection-background-color: %1; }"
+                            "QComboBox QAbstractItemView { border: 2px solid %1; selection-background-color: %1; background-color: #2b2b2b; }"
+                            "QComboBox QAbstractItemView::item:selected { background-color: %1; color: #ffffff; }"
+                            "QScrollBar::handle:vertical, QScrollBar::handle:horizontal { background-color: %1; border-radius: 7px; }"
+                            "QScrollBar:vertical, QScrollBar:horizontal { background: transparent; }"
+                            "QPushButton, QToolButton { background-color: %1; color: #ffffff; border: none; border-radius: 4px; padding: 5px; }"
+                            "QPushButton:hover, QToolButton:hover { background-color: %2; }"
+                            "QPushButton:pressed, QToolButton:pressed { background-color: %3; }"
+                        ).arg(hue_hex).arg(hue_light).arg(hue_dark);
+
+                        currentContainer->setStyleSheet(content_css);
+                        actualTab->setStyleSheet(content_css);
+                    }
+                }
             });
         }
         rainbow_timer->start(33);
     } else if (rainbow_timer) {
         rainbow_timer->stop();
         if (ui->tabButtonsContainer) ui->tabButtonsContainer->setStyleSheet({});
+        if (ui->tabButtonsScrollArea) ui->tabButtonsScrollArea->setStyleSheet({});
+        if (ui->buttonBox) ui->buttonBox->setStyleSheet({});
+        if (ui->trim_xci_button) ui->trim_xci_button->setStyleSheet({});
+        for (int i = 0; i < ui->stackedWidget->count(); ++i) {
+            QWidget* w = ui->stackedWidget->widget(i);
+            w->setStyleSheet({});
+            if (auto* s = qobject_cast<QScrollArea*>(w)) {
+                if (s->widget()) s->widget()->setStyleSheet({});
+            }
+        }
     }
 }
 
@@ -744,8 +814,7 @@ void ConfigurePerGame::OnTrimXCI() {
 }
 
 void ConfigurePerGame::AnimateTabSwitch(int id) {
-    static bool is_animating = false;
-    if (is_animating) {
+    if (m_is_tab_animating) {
         return;
     }
 
@@ -758,19 +827,16 @@ void ConfigurePerGame::AnimateTabSwitch(int id) {
 
     const int duration = 350;
 
-    // Prepare Widgets for Live Animation
     next_widget->setGeometry(0, 0, ui->stackedWidget->width(), ui->stackedWidget->height());
     next_widget->move(0, 0);
     next_widget->show();
     next_widget->raise();
 
-    // Animate OLD widget: SLIDE LEFT
     auto anim_old_pos = new QPropertyAnimation(current_widget, "pos");
     anim_old_pos->setEndValue(QPoint(-ui->stackedWidget->width(), 0));
     anim_old_pos->setDuration(duration);
     anim_old_pos->setEasingCurve(QEasingCurve::InOutQuart);
 
-    // Animate NEW widget: SLIDE IN FROM RIGHT and FADE IN
     auto anim_new_pos = new QPropertyAnimation(next_widget, "pos");
     anim_new_pos->setStartValue(QPoint(ui->stackedWidget->width(), 0));
     anim_new_pos->setEndValue(QPoint(0, 0));
@@ -785,13 +851,11 @@ void ConfigurePerGame::AnimateTabSwitch(int id) {
     anim_new_opacity->setDuration(duration);
     anim_new_opacity->setEasingCurve(QEasingCurve::InQuad);
 
-    // Group, Run, and Clean Up
     auto animation_group = new QParallelAnimationGroup(this);
     animation_group->addAnimation(anim_old_pos);
     animation_group->addAnimation(anim_new_pos);
     animation_group->addAnimation(anim_new_opacity);
 
-    // Use a context-aware connection to prevent crashes
     connect(animation_group, &QAbstractAnimation::finished, this, [this, current_widget, next_widget, id]() {
         ui->stackedWidget->setCurrentIndex(id);
 
@@ -799,13 +863,13 @@ void ConfigurePerGame::AnimateTabSwitch(int id) {
         current_widget->hide();
         current_widget->move(0, 0);
 
-        is_animating = false;
+        m_is_tab_animating = false; // Reset the flag
         for (auto button : button_group->buttons()) {
             button->setEnabled(true);
         }
     });
 
-    is_animating = true;
+    m_is_tab_animating = true; // Set the flag
     for (auto button : button_group->buttons()) {
         button->setEnabled(false);
     }
