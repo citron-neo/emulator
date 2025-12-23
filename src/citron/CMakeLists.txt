@@ -233,6 +233,10 @@ add_executable(citron
     util/performance_overlay.h
     util/multiplayer_room_overlay.cpp
     util/multiplayer_room_overlay.h
+    util/rainbow_style.cpp
+    util/rainbow_style.h
+    util/vram_overlay.cpp
+    util/multiplayer_room_overlay.h
     util/vram_overlay.cpp
     util/vram_overlay.h
     util/sequence_dialog/sequence_dialog.cpp
@@ -455,7 +459,7 @@ endif()
 
 target_link_libraries(citron PRIVATE Vulkan::Headers)
 if (NOT WIN32)
-    target_include_directories(citron PRIVATE ${Qt6Gui_PRIVATE_INCLUDE_DIRS})
+    target_link_libraries(citron PRIVATE Qt6::GuiPrivate)
 endif()
 if (UNIX AND NOT APPLE)
     target_link_libraries(citron PRIVATE Qt6::DBus)
