@@ -238,16 +238,67 @@ void ConfigureDialog::UpdateTheme() {
         if (!rainbow_timer) {
             rainbow_timer = new QTimer(this);
             connect(rainbow_timer, &QTimer::timeout, this, [this] {
-                QString hue_hex = RainbowStyle::GetCurrentHighlightColor().name();
+                // MODAL GUARD: If a color dialog or popup is open, pause updates.
+                // This makes the Color Picker buttons static and responsive.
+                if (m_is_tab_animating || !this->isVisible() || !this->isActiveWindow()) return;
+
+                const int current_index = ui->stackedWidget->currentIndex();
+                const int input_tab_index = 7;
+
+                const QColor current_color = RainbowStyle::GetCurrentHighlightColor();
+                const QString hue_hex = current_color.name();
+                const QString hue_light = current_color.lighter(125).name();
+                const QString hue_dark = current_color.darker(150).name();
+
+                // 1. Sidebar Tabs
                 QString sidebar_css = QStringLiteral(
                     "QPushButton.tabButton { border: 2px solid transparent; }"
                     "QPushButton.tabButton:checked { color: %1; border: 2px solid %1; }"
                     "QPushButton.tabButton:hover { border: 2px solid %1; }"
                     "QPushButton.tabButton:pressed { background-color: %1; color: #ffffff; }"
                 ).arg(hue_hex);
-
                 if (ui->topButtonWidget) ui->topButtonWidget->setStyleSheet(sidebar_css);
                 if (ui->horizontalNavWidget) ui->horizontalNavWidget->setStyleSheet(sidebar_css);
+
+                // 2. Action Buttons (OK/Apply/Cancel)
+                if (ui->buttonBox && !ui->buttonBox->underMouse()) {
+                    ui->buttonBox->setStyleSheet(QStringLiteral(
+                        "QPushButton { background-color: %1; color: #ffffff; border-radius: 4px; font-weight: bold; padding: 5px 15px; }"
+                        "QPushButton:hover { background-color: %2; }"
+                        "QPushButton:pressed { background-color: %3; }"
+                    ).arg(hue_hex).arg(hue_light).arg(hue_dark));
+                }
+
+                // 3. Tab Content Area
+                if (current_index == input_tab_index) return;
+
+                QWidget* currentContainer = ui->stackedWidget->currentWidget();
+                if (currentContainer) {
+                    QWidget* actualTab = currentContainer;
+                    if (auto* scroll = qobject_cast<QScrollArea*>(currentContainer)) {
+                        actualTab = scroll->widget();
+                    }
+
+                    if (actualTab) {
+                        QString tab_css = QStringLiteral(
+                            "QCheckBox::indicator:checked, QRadioButton::indicator:checked { background-color: %1; border: 1px solid %1; }"
+                            "QSlider::handle:horizontal { background-color: %1; border: 1px solid %1; border-radius: 7px; }"
+                            "QScrollBar::handle:vertical, QScrollBar::handle:horizontal { background-color: %1; border-radius: 4px; min-height: 20px; }"
+                            "QScrollBar:vertical, QScrollBar:horizontal { background: transparent; }"
+                            "QComboBox { border: 1px solid %1; selection-background-color: %1; }"
+                            "QComboBox QAbstractItemView { border: 2px solid %1; selection-background-color: %1; background-color: #2b2b2b; }"
+                            "QComboBox QAbstractItemView::item:selected { background-color: %1; color: #ffffff; }"
+                            "QPushButton, QToolButton { background-color: %1; color: #ffffff; border: none; border-radius: 4px; padding: 5px; }"
+                            "QPushButton:hover, QToolButton:hover { background-color: %2; }"
+                            "QPushButton:pressed, QToolButton:pressed { background-color: %3; }"
+                            "QPushButton#aestheticTabButton { background-color: transparent; border: 2px solid %1; }"
+                            "QPushButton#aestheticTabButton:checked { background-color: %1; }"
+                        ).arg(hue_hex).arg(hue_light).arg(hue_dark);
+
+                        currentContainer->setStyleSheet(tab_css);
+                        actualTab->setStyleSheet(tab_css);
+                    }
+                }
             });
         }
         rainbow_timer->start(33);
@@ -255,6 +306,14 @@ void ConfigureDialog::UpdateTheme() {
         rainbow_timer->stop();
         if (ui->topButtonWidget) ui->topButtonWidget->setStyleSheet({});
         if (ui->horizontalNavWidget) ui->horizontalNavWidget->setStyleSheet({});
+        if (ui->buttonBox) ui->buttonBox->setStyleSheet({});
+        for (int i = 0; i < ui->stackedWidget->count(); ++i) {
+            QWidget* w = ui->stackedWidget->widget(i);
+            if (w) w->setStyleSheet({});
+            if (auto* s = qobject_cast<QScrollArea*>(w)) {
+                if (s->widget()) s->widget()->setStyleSheet({});
+            }
+        }
     }
 }
 
@@ -379,8 +438,7 @@ void ConfigureDialog::OnLanguageChanged(const QString& locale) {
 }
 
 void ConfigureDialog::AnimateTabSwitch(int id) {
-    static bool is_animating = false;
-    if (is_animating) {
+    if (m_is_tab_animating) {
         return;
     }
 
@@ -452,13 +510,13 @@ void ConfigureDialog::AnimateTabSwitch(int id) {
         current_widget->hide();
         current_widget->move(0, 0);
 
-        is_animating = false;
+        m_is_tab_animating = false; // Reset the flag
         for (auto button : tab_button_group->buttons()) {
             button->setEnabled(true);
         }
     });
 
-    is_animating = true;
+    m_is_tab_animating = true; // Set the flag
     for (auto button : tab_button_group->buttons()) {
         button->setEnabled(false);
     }

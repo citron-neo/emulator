@@ -69,6 +69,7 @@ private:
     void RetranslateUI();
     void OnLanguageChanged(const QString& locale);
 
+    bool m_is_tab_animating{false};
     QColor last_palette_text_color;
     std::unique_ptr<Ui::ConfigureDialog> ui;
     HotkeyRegistry& registry;

@@ -85,6 +85,7 @@ private:
     QGraphicsScene* scene;
     std::unique_ptr<QtConfig> game_config;
 
+    bool m_is_tab_animating{false};
     QColor last_palette_text_color;
 
     Core::System& system;

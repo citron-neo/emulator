@@ -4,8 +4,8 @@
 #include "citron/uisettings.h"
 #include "citron/theme.h"
 #include <QApplication>
-#include <QPalette>
-#include <QWidget>
+#include <QColor>
+#include <QTimer>
 
 float RainbowStyle::s_hue = 0.0f;
 
@@ -16,10 +16,10 @@ RainbowStyle::RainbowStyle(QStyle* baseStyle) : QProxyStyle(baseStyle) {
 }
 
 void RainbowStyle::UpdateHue() {
-	if (UISettings::values.enable_rainbow_mode.GetValue()) {
-		s_hue += 0.005f;
-		if (s_hue > 1.0f) s_hue = 0.0f;
-	}
+    if (UISettings::values.enable_rainbow_mode.GetValue()) {
+        s_hue += 0.005f;
+        if (s_hue > 1.0f) s_hue = 0.0f;
+    }
 }
 
 QColor RainbowStyle::GetCurrentHighlightColor() {
