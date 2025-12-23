@@ -44,6 +44,7 @@
 #include "citron/configuration/configure_ui.h"
 #include "citron/configuration/configure_web.h"
 #include "citron/configuration/style_animation_event_filter.h"
+#include "citron/util/rainbow_style.h"
 #include "citron/game_list.h"
 #include "citron/hotkeys.h"
 #include "citron/main.h"
@@ -99,7 +100,7 @@ ConfigureDialog::ConfigureDialog(QWidget* parent, HotkeyRegistry& registry_,
       network_tab{std::make_unique<ConfigureNetwork>(system_, this)},
       profile_tab{std::make_unique<ConfigureProfileManager>(system_, this)},
       system_tab{std::make_unique<ConfigureSystem>(system_, nullptr, *builder, this)},
-      web_tab{std::make_unique<ConfigureWeb>(this)}, rainbow_timer{new QTimer(this)} {
+      web_tab{std::make_unique<ConfigureWeb>(this)} {
 
     if (auto* main_window = qobject_cast<GMainWindow*>(parent)) {
         connect(filesystem_tab.get(), &ConfigureFilesystem::RequestGameListRefresh,
@@ -169,7 +170,6 @@ ConfigureDialog::ConfigureDialog(QWidget* parent, HotkeyRegistry& registry_,
     connect(tab_button_group.get(), qOverload<int>(&QButtonGroup::idClicked), this, &ConfigureDialog::AnimateTabSwitch);
     connect(ui_tab.get(), &ConfigureUi::themeChanged, this, &ConfigureDialog::UpdateTheme);
     connect(ui_tab.get(), &ConfigureUi::UIPositioningChanged, this, &ConfigureDialog::SetUIPositioning);
-    connect(rainbow_timer, &QTimer::timeout, this, &ConfigureDialog::UpdateTheme);
     web_tab->SetWebServiceConfigEnabled(enable_web_config);
     hotkeys_tab->Populate(registry);
     input_tab->Initialize(input_subsystem);
@@ -192,51 +192,70 @@ ConfigureDialog::~ConfigureDialog() {
 }
 
 void ConfigureDialog::UpdateTheme() {
-    QString accent_color_str;
-    if (UISettings::values.enable_rainbow_mode.GetValue()) {
-        rainbow_hue += 0.003f;
-        if (rainbow_hue > 1.0f) rainbow_hue = 0.0f;
-        QColor accent_color = QColor::fromHsvF(rainbow_hue, 0.8f, 1.0f);
-        accent_color_str = accent_color.name(QColor::HexRgb);
-        if (!rainbow_timer->isActive()) rainbow_timer->start(150);
-    } else {
-        if (rainbow_timer->isActive()) rainbow_timer->stop();
-        accent_color_str = Theme::GetAccentColor();
-    }
-    QColor accent_color(accent_color_str);
-    const QString accent_color_hover = accent_color.lighter(115).name(QColor::HexRgb);
-    const QString accent_color_pressed = accent_color.darker(120).name(QColor::HexRgb);
+    const bool is_rainbow = UISettings::values.enable_rainbow_mode.GetValue();
+    const QString accent = Theme::GetAccentColor();
     const bool is_dark = IsDarkMode();
-    const QString bg_color = is_dark ? QStringLiteral("#2b2b2b") : QStringLiteral("#ffffff");
-    const QString text_color = is_dark ? QStringLiteral("#ffffff") : QStringLiteral("#000000");
-    const QString secondary_bg_color = is_dark ? QStringLiteral("#3d3d3d") : QStringLiteral("#f0f0f0");
-    const QString tertiary_bg_color = is_dark ? QStringLiteral("#5d5d5d") : QStringLiteral("#d3d3d3");
-    const QString button_bg_color = is_dark ? QStringLiteral("#383838") : QStringLiteral("#e1e1e1");
-    const QString hover_bg_color = is_dark ? QStringLiteral("#4d4d4d") : QStringLiteral("#e8f0fe");
-    const QString focus_bg_color = is_dark ? QStringLiteral("#404040") : QStringLiteral("#e8f0fe");
-    const QString disabled_text_color = is_dark ? QStringLiteral("#8d8d8d") : QStringLiteral("#a0a0a0");
-    static QString cached_template_style_sheet;
-    if (cached_template_style_sheet.isEmpty()) {
-        cached_template_style_sheet = property("templateStyleSheet").toString();
-    }
-    QString style_sheet = cached_template_style_sheet;
-    style_sheet.replace(QStringLiteral("%%ACCENT_COLOR%%"), accent_color_str);
-    style_sheet.replace(QStringLiteral("%%ACCENT_COLOR_HOVER%%"), accent_color_hover);
-    style_sheet.replace(QStringLiteral("%%ACCENT_COLOR_PRESSED%%"), accent_color_pressed);
-    style_sheet.replace(QStringLiteral("%%BACKGROUND_COLOR%%"), bg_color);
-    style_sheet.replace(QStringLiteral("%%TEXT_COLOR%%"), text_color);
-    style_sheet.replace(QStringLiteral("%%SECONDARY_BG_COLOR%%"), secondary_bg_color);
-    style_sheet.replace(QStringLiteral("%%TERTIARY_BG_COLOR%%"), tertiary_bg_color);
-    style_sheet.replace(QStringLiteral("%%BUTTON_BG_COLOR%%"), button_bg_color);
-    style_sheet.replace(QStringLiteral("%%HOVER_BG_COLOR%%"), hover_bg_color);
-    style_sheet.replace(QStringLiteral("%%FOCUS_BG_COLOR%%"), focus_bg_color);
-    style_sheet.replace(QStringLiteral("%%DISABLED_TEXT_COLOR%%"), disabled_text_color);
+
+    const QString bg = is_dark ? QStringLiteral("#2b2b2b") : QStringLiteral("#ffffff");
+    const QString txt = is_dark ? QStringLiteral("#ffffff") : QStringLiteral("#000000");
+    const QString sec = is_dark ? QStringLiteral("#3d3d3d") : QStringLiteral("#f0f0f0");
+    const QString ter = is_dark ? QStringLiteral("#5d5d5d") : QStringLiteral("#d3d3d3");
+    const QString b_bg = is_dark ? QStringLiteral("#383838") : QStringLiteral("#e1e1e1");
+    const QString h_bg = is_dark ? QStringLiteral("#4d4d4d") : QStringLiteral("#e8f0fe");
+    const QString f_bg = is_dark ? QStringLiteral("#404040") : QStringLiteral("#e8f0fe");
+    const QString d_txt = is_dark ? QStringLiteral("#8d8d8d") : QStringLiteral("#a0a0a0");
+
+    static QString cached_template;
+    if (cached_template.isEmpty()) cached_template = property("templateStyleSheet").toString();
+    QString style_sheet = cached_template;
+
+    style_sheet.replace(QStringLiteral("%%ACCENT_COLOR%%"), accent);
+    style_sheet.replace(QStringLiteral("%%ACCENT_COLOR_HOVER%%"), Theme::GetAccentColorHover());
+    style_sheet.replace(QStringLiteral("%%ACCENT_COLOR_PRESSED%%"), Theme::GetAccentColorPressed());
+    style_sheet.replace(QStringLiteral("%%BACKGROUND_COLOR%%"), bg);
+    style_sheet.replace(QStringLiteral("%%TEXT_COLOR%%"), txt);
+    style_sheet.replace(QStringLiteral("%%SECONDARY_BG_COLOR%%"), sec);
+    style_sheet.replace(QStringLiteral("%%TERTIARY_BG_COLOR%%"), ter);
+    style_sheet.replace(QStringLiteral("%%BUTTON_BG_COLOR%%"), b_bg);
+    style_sheet.replace(QStringLiteral("%%HOVER_BG_COLOR%%"), h_bg);
+    style_sheet.replace(QStringLiteral("%%FOCUS_BG_COLOR%%"), f_bg);
+    style_sheet.replace(QStringLiteral("%%DISABLED_TEXT_COLOR%%"), d_txt);
+
+    style_sheet += QStringLiteral(
+        "QSlider::handle:horizontal { background-color: %1; }"
+        "QCheckBox::indicator:checked { background-color: %1; border-color: %1; }"
+    ).arg(accent);
+
     setStyleSheet(style_sheet);
+
     graphics_tab->SetTemplateStyleSheet(style_sheet);
     system_tab->SetTemplateStyleSheet(style_sheet);
     audio_tab->SetTemplateStyleSheet(style_sheet);
     cpu_tab->SetTemplateStyleSheet(style_sheet);
     graphics_advanced_tab->SetTemplateStyleSheet(style_sheet);
+
+    if (is_rainbow) {
+        if (!rainbow_timer) {
+            rainbow_timer = new QTimer(this);
+            connect(rainbow_timer, &QTimer::timeout, this, [this] {
+                QString hue_hex = RainbowStyle::GetCurrentHighlightColor().name();
+                QString sidebar_css = QStringLiteral(
+                    "QPushButton.tabButton { border: 2px solid transparent; }"
+                    "QPushButton.tabButton:checked { color: %1; border: 2px solid %1; }"
+                    "QPushButton.tabButton:hover { border: 2px solid %1; }"
+                    "QPushButton.tabButton:pressed { background-color: %1; color: #ffffff; }"
+                ).arg(hue_hex);
+
+                if (ui->topButtonWidget) ui->topButtonWidget->setStyleSheet(sidebar_css);
+                if (ui->horizontalNavWidget) ui->horizontalNavWidget->setStyleSheet(sidebar_css);
+            });
+        }
+        rainbow_timer->start(33);
+    } else if (rainbow_timer) {
+        rainbow_timer->stop();
+        if (ui->topButtonWidget) ui->topButtonWidget->setStyleSheet({});
+        if (ui->horizontalNavWidget) ui->horizontalNavWidget->setStyleSheet({});
+    }
 }
 
 void ConfigureDialog::SetUIPositioning(const QString& positioning) {
