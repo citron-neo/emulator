@@ -236,8 +236,6 @@ add_executable(citron
     util/rainbow_style.cpp
     util/rainbow_style.h
     util/vram_overlay.cpp
-    util/multiplayer_room_overlay.h
-    util/vram_overlay.cpp
     util/vram_overlay.h
     util/sequence_dialog/sequence_dialog.cpp
     util/sequence_dialog/sequence_dialog.h
