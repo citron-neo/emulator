@@ -140,7 +140,10 @@
                                 <item row="4" column="1">
                                     <widget class="QCheckBox" name="rainbowModeCheckBox">
                                         <property name="text">
-                                            <string>Enable Rainbow Tab Buttons</string>
+                                            <string>Enable RGB Mode</string>
+                                        </property>
+                                        <property name="toolTip">
+                                            <string>May run slowly depending on hardware. Some tabs may not use RGB due to optimization purposes.</string>
                                         </property>
                                     </widget>
                                 </item>
