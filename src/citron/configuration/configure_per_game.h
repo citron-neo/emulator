@@ -100,9 +100,7 @@ private:
     std::unique_ptr<ConfigureInputPerGame> input_tab;
     std::unique_ptr<ConfigureLinuxTab> linux_tab;
     std::unique_ptr<ConfigureSystem> system_tab;
-
-    QTimer* rainbow_timer;
-    float rainbow_hue = 0.0f;
+    QTimer* rainbow_timer{nullptr};
 
     QButtonGroup* button_group;
     QPixmap map;
