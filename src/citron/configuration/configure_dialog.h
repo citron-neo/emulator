@@ -91,6 +91,5 @@ private:
     std::unique_ptr<ConfigureWeb> web_tab;
     std::unique_ptr<QButtonGroup> tab_button_group;
     std::vector<QPushButton*> tab_buttons;
-    QTimer* rainbow_timer;
-    float rainbow_hue = 0.0f;
+    QTimer* rainbow_timer{nullptr};
 };
