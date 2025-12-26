@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: Copyright 2021 yuzu Emulator Project
+// SPDX-FileCopyrightText: 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #pragma once
@@ -539,7 +540,7 @@ public:
     }
 
     void ClearDpc(DpcFlag flag) {
-        this->GetStackParameters().dpc_flags &= ~static_cast<u8>(flag);
+        this->GetStackParameters().dpc_flags &= static_cast<u8>(~static_cast<u8>(flag));
     }
 
     u8 GetDpc() const {
