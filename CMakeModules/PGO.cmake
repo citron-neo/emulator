@@ -26,12 +26,12 @@ function(citron_copy_pgo_runtime_dlls target_name)
     if(NOT MSVC)
         return()
     endif()
-    
+
     # Find the Visual Studio installation directory
     get_filename_component(MSVC_DIR "${CMAKE_CXX_COMPILER}" DIRECTORY)
     get_filename_component(MSVC_DIR "${MSVC_DIR}" DIRECTORY)
     get_filename_component(MSVC_DIR "${MSVC_DIR}" DIRECTORY)
-    
+
     # Common locations for PGO runtime DLLs
     set(PGO_DLL_PATHS
         "${MSVC_DIR}/VC/Redist/MSVC/*/x64/Microsoft.VC*.CRT/pgort140.dll"
@@ -41,7 +41,7 @@ function(citron_copy_pgo_runtime_dlls target_name)
         "${MSVC_DIR}/VC/Tools/MSVC/*/bin/Hostx86/x64/pgort140.dll"
         "${MSVC_DIR}/VC/Tools/MSVC/*/bin/Hostx86/x86/pgort140.dll"
     )
-    
+
     # Find the PGO runtime DLL
     set(PGO_DLL_FOUND FALSE)
     foreach(dll_pattern ${PGO_DLL_PATHS})
@@ -52,10 +52,10 @@ function(citron_copy_pgo_runtime_dlls target_name)
             break()
         endif()
     endforeach()
-    
+
     if(PGO_DLL_FOUND)
         message(STATUS "  [${target_name}] Found PGO runtime DLL: ${PGO_DLL_PATH}")
-        
+
         # Get the target's output directory
         get_target_property(TARGET_OUTPUT_DIR ${target_name} RUNTIME_OUTPUT_DIRECTORY)
         if(NOT TARGET_OUTPUT_DIR)
@@ -64,7 +64,7 @@ function(citron_copy_pgo_runtime_dlls target_name)
         if(NOT TARGET_OUTPUT_DIR)
             set(TARGET_OUTPUT_DIR "${CMAKE_BINARY_DIR}/bin")
         endif()
-        
+
         # Copy the DLL to the output directory
         add_custom_command(TARGET ${target_name} POST_BUILD
             COMMAND ${CMAKE_COMMAND} -E copy_if_different
@@ -102,44 +102,34 @@ function(citron_configure_pgo target_name)
     if(MSVC)
         if(CITRON_ENABLE_PGO_GENERATE)
             message(STATUS "  [${target_name}] MSVC PGO: GENERATE stage")
-            # Use FASTGENPROFILE for faster profiling with similar accuracy
-            # GENPROFILE provides more detailed profiling but is slower
-            # You can change FASTGENPROFILE to GENPROFILE for more accuracy but slower profiling
             target_compile_options(${target_name} PRIVATE /GL)
-            target_link_options(${target_name} PRIVATE 
+            target_link_options(${target_name} PRIVATE
                 /LTCG
                 /FASTGENPROFILE
                 /PGD:"${CITRON_PGO_PROFILE_DIR}/${target_name}.pgd"
             )
-            
-            # Copy PGO runtime DLLs to output directory
             citron_copy_pgo_runtime_dlls(${target_name})
         elseif(CITRON_ENABLE_PGO_USE)
             message(STATUS "  [${target_name}] MSVC PGO: USE stage")
-            # Check if profile data exists in pgo-profiles directory
             set(PGD_FILE "${CITRON_PGO_PROFILE_DIR}/${target_name}.pgd")
-            
-            # Also check in the output directory (where MSVC creates them during GENERATE)
             get_target_property(TARGET_OUTPUT_DIR ${target_name} RUNTIME_OUTPUT_DIRECTORY)
             if(NOT TARGET_OUTPUT_DIR)
                 set(TARGET_OUTPUT_DIR "${CMAKE_BINARY_DIR}/bin")
             endif()
             set(PGD_FILE_OUTPUT "${TARGET_OUTPUT_DIR}/${target_name}.pgd")
-            
+
             if(EXISTS "${PGD_FILE}")
                 target_compile_options(${target_name} PRIVATE /GL)
-                # Use the profile directory path
                 file(TO_NATIVE_PATH "${PGD_FILE}" PGD_FILE_NATIVE)
-                target_link_options(${target_name} PRIVATE 
+                target_link_options(${target_name} PRIVATE
                     /LTCG
                     "/USEPROFILE:PGD=${PGD_FILE_NATIVE}"
                 )
                 message(STATUS "  [${target_name}] Using profile data: ${PGD_FILE}")
             elseif(EXISTS "${PGD_FILE_OUTPUT}")
                 target_compile_options(${target_name} PRIVATE /GL)
-                # Use the output directory path
                 file(TO_NATIVE_PATH "${PGD_FILE_OUTPUT}" PGD_FILE_NATIVE)
-                target_link_options(${target_name} PRIVATE 
+                target_link_options(${target_name} PRIVATE
                     /LTCG
                     "/USEPROFILE:PGD=${PGD_FILE_NATIVE}"
                 )
@@ -156,24 +146,14 @@ function(citron_configure_pgo target_name)
     elseif(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
         if(CITRON_ENABLE_PGO_GENERATE)
             message(STATUS "  [${target_name}] GCC PGO: GENERATE stage")
-            target_compile_options(${target_name} PRIVATE 
-                -fprofile-generate="${CITRON_PGO_PROFILE_DIR}"
-            )
-            target_link_options(${target_name} PRIVATE 
-                -fprofile-generate="${CITRON_PGO_PROFILE_DIR}"
-            )
+            target_compile_options(${target_name} PRIVATE -fprofile-generate -fprofile-dir=${CITRON_PGO_PROFILE_DIR})
+            target_link_options(${target_name} PRIVATE -fprofile-generate -fprofile-dir=${CITRON_PGO_PROFILE_DIR})
         elseif(CITRON_ENABLE_PGO_USE)
             message(STATUS "  [${target_name}] GCC PGO: USE stage")
-            # Check if profile data exists
             file(GLOB profile_files "${CITRON_PGO_PROFILE_DIR}/*.gcda")
             if(profile_files)
-                target_compile_options(${target_name} PRIVATE 
-                    -fprofile-use="${CITRON_PGO_PROFILE_DIR}"
-                    -fprofile-correction  # Handle inconsistencies in profile data
-                )
-                target_link_options(${target_name} PRIVATE 
-                    -fprofile-use="${CITRON_PGO_PROFILE_DIR}"
-                )
+                target_compile_options(${target_name} PRIVATE -fprofile-use -fprofile-correction -fprofile-dir=${CITRON_PGO_PROFILE_DIR})
+                target_link_options(${target_name} PRIVATE -fprofile-use -fprofile-dir=${CITRON_PGO_PROFILE_DIR})
                 message(STATUS "  [${target_name}] Using profile data from: ${CITRON_PGO_PROFILE_DIR}")
             else()
                 message(WARNING "No profile data found for ${target_name} in ${CITRON_PGO_PROFILE_DIR}. PGO USE stage will be skipped.")
@@ -184,19 +164,12 @@ function(citron_configure_pgo target_name)
     elseif(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
         if(CITRON_ENABLE_PGO_GENERATE)
             message(STATUS "  [${target_name}] Clang PGO: GENERATE stage")
-            target_compile_options(${target_name} PRIVATE 
-                -fprofile-generate="${CITRON_PGO_PROFILE_DIR}"
-            )
-            target_link_options(${target_name} PRIVATE 
-                -fprofile-generate="${CITRON_PGO_PROFILE_DIR}"
-            )
+            target_compile_options(${target_name} PRIVATE -fprofile-instr-generate)
+            target_link_options(${target_name} PRIVATE -fprofile-instr-generate)
         elseif(CITRON_ENABLE_PGO_USE)
             message(STATUS "  [${target_name}] Clang PGO: USE stage")
-            
-            # For Clang, we need to merge .profraw files into .profdata first
             set(PROFDATA_FILE "${CITRON_PGO_PROFILE_DIR}/default.profdata")
-            
-            # Check if merged profile data exists, if not try to create it
+
             if(NOT EXISTS "${PROFDATA_FILE}")
                 file(GLOB profraw_files "${CITRON_PGO_PROFILE_DIR}/*.profraw")
                 if(profraw_files)
@@ -215,7 +188,6 @@ function(citron_configure_pgo target_name)
                         endif()
                     else()
                         message(WARNING "llvm-profdata not found. Cannot merge profile data. PGO USE stage will be skipped.")
-                        message(STATUS "  Please run: llvm-profdata merge -output=${PROFDATA_FILE} ${CITRON_PGO_PROFILE_DIR}/*.profraw")
                         return()
                     endif()
                 else()
@@ -223,14 +195,10 @@ function(citron_configure_pgo target_name)
                     return()
                 endif()
             endif()
-            
+
             if(EXISTS "${PROFDATA_FILE}")
-                target_compile_options(${target_name} PRIVATE 
-                    -fprofile-use="${PROFDATA_FILE}"
-                )
-                target_link_options(${target_name} PRIVATE 
-                    -fprofile-use="${PROFDATA_FILE}"
-                )
+                target_compile_options(${target_name} PRIVATE -fprofile-instr-use=${PROFDATA_FILE})
+                target_link_options(${target_name} PRIVATE -fprofile-instr-use=${PROFDATA_FILE})
                 message(STATUS "  [${target_name}] Using profile data: ${PROFDATA_FILE}")
             endif()
         endif()
@@ -249,15 +217,19 @@ function(citron_print_pgo_instructions)
         message(STATUS "Citron has been built with profiling instrumentation.")
         message(STATUS "")
         message(STATUS "Next steps:")
-        message(STATUS "  1. Run the built citron executable")
+        message(STATUS "  1. Run the built citron executable from its directory (e.g., ./build)")
         message(STATUS "  2. Play games/perform typical operations to generate profile data")
-        message(STATUS "  3. Exit citron")
-        message(STATUS "  4. Profile data will be saved to: ${CITRON_PGO_PROFILE_DIR}")
+        message(STATUS "  3. Exit citron cleanly (use Ctrl+Q or File -> Exit)")
         if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-            message(STATUS "  5. For Clang: Merge profile data with:")
+            message(STATUS "  4. For Clang: Profile data (*.profraw) will be in the directory you ran citron from.")
+            message(STATUS "     MOVE these files to the profile directory with:")
+            message(STATUS "     mv default*.profraw ${CITRON_PGO_PROFILE_DIR}/")
+            message(STATUS "  5. Merge the profile data with:")
             message(STATUS "     llvm-profdata merge -output=${CITRON_PGO_PROFILE_DIR}/default.profdata ${CITRON_PGO_PROFILE_DIR}/*.profraw")
+        else()
+             message(STATUS "  4. Profile data will be saved to: ${CITRON_PGO_PROFILE_DIR}")
         endif()
-        message(STATUS "  6. Rebuild with: cmake -DCITRON_ENABLE_PGO_GENERATE=OFF -DCITRON_ENABLE_PGO_USE=ON")
+        message(STATUS "  6. Rebuild with: cmake -DCITRON_ENABLE_PGO_GENERATE=OFF -DCITRON_ENABLE_PGO_USE=ON .")
         message(STATUS "=================================================================")
         message(STATUS "")
     elseif(CITRON_ENABLE_PGO_USE)
@@ -271,4 +243,3 @@ function(citron_print_pgo_instructions)
         message(STATUS "")
     endif()
 endfunction()
-
