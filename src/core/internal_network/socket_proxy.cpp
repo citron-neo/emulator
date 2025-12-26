@@ -46,6 +46,14 @@ void ProxySocket::HandleProxyPacket(const ProxyPacket& packet) {
     auto decompressed = packet;
     decompressed.data = Common::Compression::DecompressDataZSTD(packet.data);
 
+    // Check if decompression failed (returns empty vector on error)
+    if (decompressed.data.empty() && !packet.data.empty()) {
+        stats.packets_dropped++;
+        LOG_WARNING(Network, "Dropped packet: ZSTD decompression failed. Stats: sent={}, recv={}, dropped={}",
+                    stats.packets_sent, stats.packets_received, stats.packets_dropped);
+        return;
+    }
+
     std::lock_guard guard(packets_mutex);
     received_packets.push(decompressed);
     stats.packets_received++;
@@ -204,8 +212,18 @@ void ProxySocket::SendPacket(ProxyPacket& packet) {
     if (auto room_member = room_network.GetRoomMember().lock()) {
         if (room_member->IsConnected()) {
             const size_t original_size = packet.data.size();
+            const std::vector<u8> original_data = packet.data; // Save original for potential fallback
             packet.data = Common::Compression::CompressDataZSTDDefault(packet.data.data(),
                                                                        packet.data.size());
+
+            // Check if compression failed (returns empty vector on error)
+            if (packet.data.empty() && !original_data.empty()) {
+                stats.packets_dropped++;
+                LOG_ERROR(Network, "Failed to compress packet: ZSTD compression failed. Dropping packet. Stats: sent={}, dropped={}",
+                          stats.packets_sent, stats.packets_dropped);
+                return;
+            }
+
             room_member->SendProxyPacket(packet);
 
             stats.packets_sent++;
@@ -260,14 +278,7 @@ std::pair<s32, Errno> ProxySocket::SendTo(u32 flags, std::span<const u8> message
     packet.data.clear();
     std::copy(message.begin(), message.end(), std::back_inserter(packet.data));
 
-    // Determine if packet should use unreliable delivery for better latency
-    // Use unreliable delivery for:
-    // 1. Small, frequent game data packets (< 1200 bytes for typical MTU)
-    // 2. UDP protocol packets (most game traffic)
-    // 3. Non-broadcast packets (broadcast should be reliable for coordination)
-    const bool is_game_data = protocol == Protocol::UDP && message.size() < 1200 && !packet.broadcast;
-    packet.reliable = !is_game_data;
-
+    // All packets use reliable delivery
     SendPacket(packet);
 
     return {static_cast<s32>(message.size()), Errno::SUCCESS};

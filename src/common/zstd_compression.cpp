@@ -45,14 +45,73 @@ std::vector<u8> DecompressDataZSTD(std::span<const u8> compressed) {
     // 16 MB is a very generous limit for a single game packet.
     constexpr u64 MAX_REASONABLE_PACKET_SIZE = 16 * 1024 * 1024;
 
-    // ZSTD_getFrameContentSize can return special values if the size isn't in the header
-    // or if there's an error. We must check for these AND our own sanity limit.
-    if (decompressed_size == ZSTD_CONTENTSIZE_ERROR ||
-        decompressed_size == ZSTD_CONTENTSIZE_UNKNOWN ||
-        decompressed_size > MAX_REASONABLE_PACKET_SIZE) {
+    // ZSTD_CONTENTSIZE_ERROR indicates a corrupted frame or invalid data - reject it
+    // ZSTD_CONTENTSIZE_UNKNOWN means the size isn't in the header but decompression can still work
+    if (decompressed_size == ZSTD_CONTENTSIZE_ERROR) {
+        LOG_ERROR(Common, "Received network packet with corrupted or invalid ZSTD frame");
+        return {};
+    }
 
-        LOG_ERROR(Common, "Received network packet with invalid or oversized decompressed_size: {}", decompressed_size);
-        return {}; // Return an empty vector to signal a graceful failure.
+    // Reject packets that claim to be larger than reasonable
+    if (decompressed_size != ZSTD_CONTENTSIZE_UNKNOWN && decompressed_size > MAX_REASONABLE_PACKET_SIZE) {
+        LOG_ERROR(Common, "Received network packet with oversized decompressed_size: {}", decompressed_size);
+        return {};
+    }
+
+    // When size is unknown, use streaming decompression with a reasonable initial buffer
+    if (decompressed_size == ZSTD_CONTENTSIZE_UNKNOWN) {
+        // Use streaming decompression for unknown size
+        ZSTD_DCtx* dctx = ZSTD_createDCtx();
+        if (!dctx) {
+            LOG_ERROR(Common, "Failed to create ZSTD decompression context");
+            return {};
+        }
+
+        std::vector<u8> decompressed;
+        decompressed.resize(64 * 1024); // Start with 64KB buffer
+
+        ZSTD_inBuffer input = {compressed.data(), compressed.size(), 0};
+        ZSTD_outBuffer output = {decompressed.data(), decompressed.size(), 0};
+
+        while (input.pos < input.size) {
+            const size_t ret = ZSTD_decompressStream(dctx, &output, &input);
+            if (ZSTD_isError(ret)) {
+                LOG_ERROR(Common, "ZSTD streaming decompression failed with error: {}", ZSTD_getErrorName(ret));
+                ZSTD_freeDCtx(dctx);
+                return {};
+            }
+
+            // If ret == 0, decompression is complete
+            if (ret == 0) {
+                break;
+            }
+
+            // If output buffer is full but we haven't consumed all input, need more space
+            if (output.pos >= output.size && input.pos < input.size) {
+                // Double the buffer size, up to maximum
+                if (decompressed.size() > MAX_REASONABLE_PACKET_SIZE) {
+                    LOG_ERROR(Common, "ZSTD decompressed size exceeds maximum reasonable packet size");
+                    ZSTD_freeDCtx(dctx);
+                    return {};
+                }
+                const size_t old_size = decompressed.size();
+                decompressed.resize(std::min(old_size * 2, static_cast<size_t>(MAX_REASONABLE_PACKET_SIZE)));
+                output.dst = decompressed.data();
+                output.size = decompressed.size();
+                // Keep output.pos as is - it points to where we continue writing
+            }
+        }
+
+        // Ensure all data was consumed
+        if (input.pos < input.size) {
+            LOG_ERROR(Common, "ZSTD streaming decompression: not all input was consumed");
+            ZSTD_freeDCtx(dctx);
+            return {};
+        }
+
+        decompressed.resize(output.pos);
+        ZSTD_freeDCtx(dctx);
+        return decompressed;
     }
 
     std::vector<u8> decompressed(decompressed_size);
