@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: Copyright 2024 yuzu Emulator Project
+// SPDX-FileCopyrightText: 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include "core/hle/service/set/system_settings_server.h"
@@ -37,7 +38,7 @@ Result NpadVibration::SetSettingsService(
 Result NpadVibration::SetVibrationMasterVolume(f32 master_volume) {
     std::scoped_lock lock{mutex};
 
-    if (master_volume < 0.0f && master_volume > 1.0f) {
+    if (master_volume < 0.0f || master_volume > 1.0f) {
         return ResultVibrationStrengthOutOfRange;
     }
 
