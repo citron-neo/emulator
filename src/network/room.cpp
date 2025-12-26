@@ -341,8 +341,8 @@ void Room::RoomImpl::HandleJoinRequest(const ENetEvent* event) {
     }
 
     if (client_version != network_version) {
-        SendVersionMismatch(event->peer);
-        return;
+        LOG_WARNING(Network, "Version mismatch: client version {} != server version {}, but allowing connection for backwards compatibility",
+                    client_version, network_version);
     }
 
     // At this point the client is ready to be added to the room.
@@ -832,14 +832,10 @@ void Room::RoomImpl::HandleProxyPacket(const ENetEvent* event) {
     bool broadcast;
     in_packet.Read(broadcast); // Broadcast
 
-    bool reliable;
-    in_packet.Read(reliable); // Reliability flag
-
     Packet out_packet;
     out_packet.Append(event->packet->data, event->packet->dataLength);
-    const u32 enet_flags = reliable ? ENET_PACKET_FLAG_RELIABLE : ENET_PACKET_FLAG_UNSEQUENCED;
     ENetPacket* enet_packet = enet_packet_create(out_packet.GetData(), out_packet.GetDataSize(),
-                                                 enet_flags);
+                                                 ENET_PACKET_FLAG_RELIABLE);
 
     const auto& destination_address = remote_ip;
     if (broadcast) { // Send the data to everyone except the sender
@@ -890,14 +886,10 @@ void Room::RoomImpl::HandleLdnPacket(const ENetEvent* event) {
     bool broadcast;
     in_packet.Read(broadcast); // Broadcast
 
-    bool reliable;
-    in_packet.Read(reliable); // Reliability flag
-
     Packet out_packet;
     out_packet.Append(event->packet->data, event->packet->dataLength);
-    const u32 enet_flags = reliable ? ENET_PACKET_FLAG_RELIABLE : ENET_PACKET_FLAG_UNSEQUENCED;
     ENetPacket* enet_packet = enet_packet_create(out_packet.GetData(), out_packet.GetDataSize(),
-                                                 enet_flags);
+                                                 ENET_PACKET_FLAG_RELIABLE);
 
     const auto& destination_address = remote_ip;
     if (broadcast) { // Send the data to everyone except the sender
