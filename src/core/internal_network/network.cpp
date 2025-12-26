@@ -936,10 +936,10 @@ void Socket::HandleProxyPacket(const ProxyPacket& packet) {
     LOG_WARNING(Network,
                 "ProxyPacket received on regular socket (not ProxySocket). "
                 "This may indicate socket type mismatch. "
-                "Packet from {}:{} to {}:{}, protocol={}, reliable={}",
+                "Packet from {}:{} to {}:{}, protocol={}",
                 packet.local_endpoint.ip[0], packet.local_endpoint.portno,
                 packet.remote_endpoint.ip[0], packet.remote_endpoint.portno,
-                static_cast<int>(packet.protocol), packet.reliable);
+                static_cast<int>(packet.protocol));
 }
 
 } // namespace Network

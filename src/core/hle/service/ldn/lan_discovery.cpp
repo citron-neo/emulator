@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: Copyright 2022 yuzu Emulator Project
+// SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "core/hle/service/ldn/lan_discovery.h"
@@ -487,16 +488,34 @@ void LANDiscovery::ReceivePacket(const Network::LDNPacket& packet) {
         break;
     }
     case Network::LDNPacketType::ScanResp: {
-        LOG_INFO(Frontend, "ScanResp packet received!");
+        LOG_INFO(Frontend, "ScanResp packet received! Data size: {}", packet.data.size());
+
+        if (packet.data.size() < sizeof(NetworkInfo)) {
+            LOG_WARNING(Service_LDN, "ScanResp packet data too small: {} bytes, expected: {} bytes",
+                       packet.data.size(), sizeof(NetworkInfo));
+            break;
+        }
 
         NetworkInfo info{};
         std::memcpy(&info, packet.data.data(), sizeof(NetworkInfo));
         scan_results.insert({info.common.bssid, info});
 
+        LOG_DEBUG(Service_LDN, "ScanResp added to results. BSSID: {:02X}:{:02X}:{:02X}:{:02X}:{:02X}:{:02X}, "
+                  "Total results: {}",
+                  info.common.bssid.raw[0], info.common.bssid.raw[1], info.common.bssid.raw[2],
+                  info.common.bssid.raw[3], info.common.bssid.raw[4], info.common.bssid.raw[5],
+                  scan_results.size());
+
         break;
     }
     case Network::LDNPacketType::Connect: {
-        LOG_INFO(Frontend, "Connect packet received!");
+        LOG_INFO(Frontend, "Connect packet received! Data size: {}", packet.data.size());
+
+        if (packet.data.size() < sizeof(NodeInfo)) {
+            LOG_WARNING(Service_LDN, "Connect packet data too small: {} bytes, expected: {} bytes",
+                       packet.data.size(), sizeof(NodeInfo));
+            break;
+        }
 
         NodeInfo info{};
         std::memcpy(&info, packet.data.data(), sizeof(NodeInfo));
@@ -516,11 +535,17 @@ void LANDiscovery::ReceivePacket(const Network::LDNPacket& packet) {
         break;
     }
     case Network::LDNPacketType::Disconnect: {
-        LOG_INFO(Frontend, "Disconnect packet received!");
+        LOG_INFO(Frontend, "Disconnect packet received! Data size: {}", packet.data.size());
 
         connected_clients.erase(
             std::remove(connected_clients.begin(), connected_clients.end(), packet.local_ip),
             connected_clients.end());
+
+        if (packet.data.size() < sizeof(NodeInfo)) {
+            LOG_WARNING(Service_LDN, "Disconnect packet data too small: {} bytes, expected: {} bytes",
+                       packet.data.size(), sizeof(NodeInfo));
+            break;
+        }
 
         NodeInfo info{};
         std::memcpy(&info, packet.data.data(), sizeof(NodeInfo));
