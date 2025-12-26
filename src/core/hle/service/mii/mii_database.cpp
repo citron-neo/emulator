@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: Copyright 2023 yuzu Emulator Project
+// SPDX-FileCopyrightText: 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "core/hle/service/mii/mii_database.h"
@@ -112,7 +113,7 @@ void NintendoFigurineDatabase::CleanDatabase() {
 
 void NintendoFigurineDatabase::CorruptCrc() {
     crc = GenerateDatabaseCrc();
-    crc = ~crc;
+    crc = static_cast<u16>(~crc);
 }
 
 Result NintendoFigurineDatabase::CheckIntegrity() {
