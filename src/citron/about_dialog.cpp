@@ -10,7 +10,7 @@
 
 AboutDialog::AboutDialog(QWidget* parent)
     : QDialog(parent), ui{std::make_unique<Ui::AboutDialog>()} {
-    std::string citron_build_version = "citron | 0.11.0";
+    std::string citron_build_version = "citron | 0.12.25";
 #ifdef CITRON_ENABLE_PGO_USE
     citron_build_version += " | PGO";
 #endif
