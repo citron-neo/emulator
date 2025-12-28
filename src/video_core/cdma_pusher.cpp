@@ -1,5 +1,4 @@
 // SPDX-FileCopyrightText: Ryujinx Team and Contributors
-// SPDX-FileCopyrightText: 2025 citron Emulator Project
 // SPDX-License-Identifier: MIT
 
 #include <bit>
@@ -68,20 +67,12 @@ void CDmaPusher::ProcessEntries(ChCommandHeaderList&& entries) {
     }
 }
 
-#if defined(__clang__) || defined(__GNUC__)
-__attribute__((always_inline))
-#elif defined(_MSC_VER)
-__forceinline
-#endif
 void CDmaPusher::ExecuteCommand(u32 state_offset, u32 data) {
     switch (current_class) {
     case ChClassId::NvDec:
         ThiStateWrite(nvdec_thi_state, offset, data);
         switch (static_cast<ThiMethod>(offset)) {
         case ThiMethod::IncSyncpt: {
-            #ifdef __clang__
-            if constexpr (false) // Extreme Squeeze: Skip log metadata prep in hot path
-            #endif
             LOG_DEBUG(Service_NVDRV, "NVDEC Class IncSyncpt Method");
             const auto syncpoint_id = static_cast<u32>(data & 0xFF);
             const auto cond = static_cast<u32>((data >> 8) & 0xFF);
@@ -94,9 +85,6 @@ void CDmaPusher::ExecuteCommand(u32 state_offset, u32 data) {
             break;
         }
         case ThiMethod::SetMethod1:
-            #ifdef __clang__
-            if constexpr (false)
-            #endif
             LOG_DEBUG(Service_NVDRV, "NVDEC method 0x{:X}",
                       static_cast<u32>(nvdec_thi_state.method_0));
             nvdec_processor->ProcessMethod(nvdec_thi_state.method_0, data);
@@ -109,9 +97,6 @@ void CDmaPusher::ExecuteCommand(u32 state_offset, u32 data) {
         ThiStateWrite(vic_thi_state, static_cast<u32>(state_offset), {data});
         switch (static_cast<ThiMethod>(state_offset)) {
         case ThiMethod::IncSyncpt: {
-            #ifdef __clang__
-            if constexpr (false)
-            #endif
             LOG_DEBUG(Service_NVDRV, "VIC Class IncSyncpt Method");
             const auto syncpoint_id = static_cast<u32>(data & 0xFF);
             const auto cond = static_cast<u32>((data >> 8) & 0xFF);
@@ -124,9 +109,6 @@ void CDmaPusher::ExecuteCommand(u32 state_offset, u32 data) {
             break;
         }
         case ThiMethod::SetMethod1:
-            #ifdef __clang__
-            if constexpr (false)
-            #endif
             LOG_DEBUG(Service_NVDRV, "VIC method 0x{:X}, Args=({})",
                       static_cast<u32>(vic_thi_state.method_0), data);
             vic_processor->ProcessMethod(static_cast<Host1x::Vic::Method>(vic_thi_state.method_0),
@@ -138,9 +120,6 @@ void CDmaPusher::ExecuteCommand(u32 state_offset, u32 data) {
         break;
     case ChClassId::Control:
         // This device is mainly for syncpoint synchronization
-        #ifdef __clang__
-        if constexpr (false)
-        #endif
         LOG_DEBUG(Service_NVDRV, "Host1X Class Method");
         host1x_processor->ProcessMethod(static_cast<Host1x::Control::Method>(offset), data);
         break;
