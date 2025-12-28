@@ -87,6 +87,9 @@ enum class TextureFormat : u32 {
     ASTC_2D_8X5 = 0x55,
     ASTC_2D_10X5 = 0x56,
     ASTC_2D_10X6 = 0x57,
+    // Additional formats found in games
+    ETC2_RGB_SRGB = 0x5a,  // Format 90: ETC2 RGB with SRGB
+    ETC2_RGBA_SRGB = 0x63, // Format 99: ETC2 RGBA with SRGB
 };
 
 enum class TextureType : u32 {

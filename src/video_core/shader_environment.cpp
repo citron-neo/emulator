@@ -6,6 +6,7 @@
 #include <fstream>
 #include <memory>
 #include <optional>
+#include <unordered_set>
 #include <utility>
 
 #include "common/assert.h"
@@ -274,7 +275,46 @@ std::optional<u64> GenericEnvironment::TryFindSize() {
 Tegra::Texture::TICEntry GenericEnvironment::ReadTextureInfo(GPUVAddr tic_addr, u32 tic_limit,
                                                              bool via_header_index, u32 raw) {
     const auto handle{Tegra::Texture::TexturePair(raw, via_header_index)};
-    ASSERT(handle.first <= tic_limit);
+    if (handle.first > tic_limit) {
+        // Common sentinel values that games use to indicate "no texture" or "unbound texture"
+        // 0xfffffff8 = -8 (signed), commonly used as a sentinel value
+        constexpr u32 COMMON_SENTINEL_VALUES[] = {0xfffffff8, 0xffffffff};
+        const bool is_sentinel = std::find(std::begin(COMMON_SENTINEL_VALUES),
+                                           std::end(COMMON_SENTINEL_VALUES), raw) !=
+                                 std::end(COMMON_SENTINEL_VALUES);
+
+        // Log each unique invalid handle only once to reduce spam
+        static std::unordered_set<u32> logged_handles;
+        const bool already_logged = logged_handles.contains(raw);
+
+        if (!already_logged) {
+            logged_handles.insert(raw);
+            if (is_sentinel) {
+                // Sentinel values are expected and not errors, use DEBUG level
+                LOG_DEBUG(HW_GPU,
+                          "Texture handle sentinel value detected (likely unbound texture). "
+                          "Raw handle: 0x{:08x}, via_header_index: {}",
+                          raw, via_header_index);
+            } else {
+                // Unexpected invalid handles are warnings
+                LOG_WARNING(HW_GPU,
+                            "Texture handle index {} exceeds TIC limit {}, clamping to valid range. "
+                            "Raw handle: 0x{:08x}, via_header_index: {}",
+                            handle.first, tic_limit, raw, via_header_index);
+            }
+        }
+
+        // Return a default TICEntry with a safe fallback format
+        Tegra::Texture::TICEntry entry{};
+        // Set to a known safe format (A8B8G8R8_UNORM) using Assign method
+        entry.format.Assign(Tegra::Texture::TextureFormat::A8B8G8R8);
+        entry.r_type.Assign(Tegra::Texture::ComponentType::UNORM);
+        entry.g_type.Assign(Tegra::Texture::ComponentType::UNORM);
+        entry.b_type.Assign(Tegra::Texture::ComponentType::UNORM);
+        entry.a_type.Assign(Tegra::Texture::ComponentType::UNORM);
+        entry.texture_type.Assign(Tegra::Texture::TextureType::Texture2D);
+        return entry;
+    }
     const GPUVAddr descriptor_addr{tic_addr + handle.first * sizeof(Tegra::Texture::TICEntry)};
     Tegra::Texture::TICEntry entry;
     gpu_memory->ReadBlock(descriptor_addr, &entry, sizeof(entry));

@@ -36,7 +36,7 @@ VkFormat GetFormat(const Tegra::FramebufferConfig& framebuffer) {
     switch (framebuffer.pixel_format) {
     case Service::android::PixelFormat::Rgba8888:
     case Service::android::PixelFormat::Rgbx8888:
-        return VK_FORMAT_R8G8B8A8_UNORM;
+        return VK_FORMAT_A8B8G8R8_UNORM_PACK32;
     case Service::android::PixelFormat::Rgb565:
         return VK_FORMAT_R5G6B5_UNORM_PACK16;
     case Service::android::PixelFormat::Bgra8888:
@@ -44,7 +44,7 @@ VkFormat GetFormat(const Tegra::FramebufferConfig& framebuffer) {
     default:
         UNIMPLEMENTED_MSG("Unknown framebuffer pixel format: {}",
                           static_cast<u32>(framebuffer.pixel_format));
-        return VK_FORMAT_R8G8B8A8_UNORM;
+        return VK_FORMAT_A8B8G8R8_UNORM_PACK32;
     }
 }
 
@@ -284,42 +284,18 @@ void Layer::UpdateRawImage(const Tegra::FramebufferConfig& framebuffer, size_t i
     const DAddr framebuffer_addr = framebuffer.address + framebuffer.offset;
     const u8* const host_ptr = device_memory.GetPointer<u8>(framebuffer_addr);
 
-    // Calculate appropriate block height based on texture format and size
-    // This is critical for proper texture swizzling
+    // TODO(Rodrigo): Read this from HLE
+    constexpr u32 block_height_log2 = 4;
     const u32 bytes_per_pixel = GetBytesPerPixel(framebuffer);
-    u32 block_height_log2 = 4; // Default for most formats
-
-    // Adjust block height for specific formats that cause corruption
-    if (framebuffer.pixel_format == Service::android::PixelFormat::Rgb565) {
-        block_height_log2 = 3; // RGB565 needs smaller block height
-    } else if (framebuffer.width <= 256 && framebuffer.height <= 256) {
-        block_height_log2 = 3; // Smaller textures need smaller blocks
-    }
-
     const u64 linear_size{GetSizeInBytes(framebuffer)};
     const u64 tiled_size{Tegra::Texture::CalculateSize(
         true, bytes_per_pixel, framebuffer.stride, framebuffer.height, 1, block_height_log2, 0)};
-
-    if (host_ptr && tiled_size > 0 && linear_size > 0) {
-        // Validate texture data before unswizzling to prevent corruption
-        const u64 max_size = static_cast<u64>(framebuffer.stride) * framebuffer.height * 4; // Max possible size
-        if (tiled_size <= max_size && linear_size <= max_size) {
-            Tegra::Texture::UnswizzleTexture(
-                mapped_span.subspan(image_offset, linear_size), std::span(host_ptr, tiled_size),
-                bytes_per_pixel, framebuffer.width, framebuffer.height, 1, block_height_log2, 0);
-        } else {
-            // Fallback: copy raw data without unswizzling if sizes are invalid
-            const u64 copy_size = std::min(linear_size, static_cast<u64>(mapped_span.size() - image_offset));
-            if (copy_size > 0) {
-                std::memcpy(mapped_span.data() + image_offset, host_ptr, copy_size);
-            }
-        }
+    if (host_ptr) {
+        Tegra::Texture::UnswizzleTexture(
+            mapped_span.subspan(image_offset, linear_size), std::span(host_ptr, tiled_size),
+            bytes_per_pixel, framebuffer.width, framebuffer.height, 1, block_height_log2, 0);
+        buffer.Flush();  // Ensure host writes are visible before the GPU copy.
     }
-
-    // Validate framebuffer dimensions to prevent corruption
-    const u32 max_dimension = 8192; // Reasonable maximum for Switch games
-    const u32 safe_width = std::min(framebuffer.width, max_dimension);
-    const u32 safe_height = std::min(framebuffer.height, max_dimension);
 
     const VkBufferImageCopy copy{
         .bufferOffset = image_offset,
@@ -335,22 +311,20 @@ void Layer::UpdateRawImage(const Tegra::FramebufferConfig& framebuffer, size_t i
         .imageOffset = {.x = 0, .y = 0, .z = 0},
         .imageExtent =
             {
-                .width = safe_width,
-                .height = safe_height,
+                .width = framebuffer.width,
+                .height = framebuffer.height,
                 .depth = 1,
             },
     };
     scheduler.Record([this, copy, index = image_index](vk::CommandBuffer cmdbuf) {
         const VkImage image = *raw_images[index];
-
-        // Enhanced memory barriers to prevent texture corruption and flickering
         const VkImageMemoryBarrier base_barrier{
             .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
             .pNext = nullptr,
             .srcAccessMask = 0,
             .dstAccessMask = 0,
-            .oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-            .newLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+            .oldLayout = VK_IMAGE_LAYOUT_GENERAL,
+            .newLayout = VK_IMAGE_LAYOUT_GENERAL,
             .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
             .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
             .image = image,
@@ -362,34 +336,24 @@ void Layer::UpdateRawImage(const Tegra::FramebufferConfig& framebuffer, size_t i
                 .layerCount = 1,
             },
         };
-
-        // Transition to transfer destination
         VkImageMemoryBarrier read_barrier = base_barrier;
-        read_barrier.srcAccessMask = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT;
         read_barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
         read_barrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
         read_barrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
 
-        // Transition to shader read
         VkImageMemoryBarrier write_barrier = base_barrier;
         write_barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
         write_barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
         write_barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
         write_barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
-        // Ensure all previous operations complete before transfer
-        cmdbuf.PipelineBarrier(
-            VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT | VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_TRANSFER_BIT,
-            VK_PIPELINE_STAGE_TRANSFER_BIT,
-            0, {}, {}, {read_barrier});
-
+        cmdbuf.PipelineBarrier(VK_PIPELINE_STAGE_HOST_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0,
+                               read_barrier);
         cmdbuf.CopyBufferToImage(*buffer, image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, copy);
-
-        // Ensure transfer completes before shader access
-        cmdbuf.PipelineBarrier(
-            VK_PIPELINE_STAGE_TRANSFER_BIT,
-            VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT | VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-            0, {}, {}, {write_barrier});
+        cmdbuf.PipelineBarrier(VK_PIPELINE_STAGE_TRANSFER_BIT,
+                               VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT |
+                                   VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+                               0, write_barrier);
     });
 }
 
