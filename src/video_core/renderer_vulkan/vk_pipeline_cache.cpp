@@ -228,7 +228,6 @@ Shader::RuntimeInfo MakeRuntimeInfo(std::span<const Shader::IR::Program> program
         info.alpha_test_func = MaxwellToCompareFunction(
             key.state.UnpackComparisonOp(key.state.alpha_test_func.Value()));
         info.alpha_test_reference = Common::BitCast<float>(key.state.alpha_test_ref);
-        info.alpha_to_coverage_enabled = key.state.alpha_to_coverage_enabled != 0;
         break;
     default:
         break;
