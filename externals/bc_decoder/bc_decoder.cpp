@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MPL-2.0
 // Copyright © 2022 Skyline Team and Contributors (https://github.com/skyline-emu/)
 // Copyright 2019 The SwiftShader Authors. All Rights Reserved.
-// SPDXFileCopyrightText: 2025 citron Emulator Project
 
 // This BCn Decoder is directly derivative of Swiftshader's BCn Decoder found at: https://github.com/google/swiftshader/blob/d070309f7d154d6764cbd514b1a5c8bfcef61d06/src/Device/BC_Decoder.cpp
 // This file does not follow the Skyline code conventions but has certain Skyline specific code
@@ -17,11 +16,6 @@ namespace {
     constexpr int BlockHeight = 4;
 
     struct BC_color {
-        #if defined(__clang__) || defined(__GNUC__)
-        __attribute__((always_inline))
-        #elif defined(_MSC_VER)
-        __forceinline
-        #endif
         void decode(uint8_t *dst, size_t x, size_t y, size_t dstW, size_t dstH, size_t dstPitch, size_t dstBpp, bool hasAlphaChannel, bool hasSeparateAlpha) const {
             Color c[4];
             c[0].extract565(c0);
@@ -36,9 +30,6 @@ namespace {
                 }
             }
 
-            #ifdef __clang__
-            #pragma clang loop vectorize(enable) interleave(enable)
-            #endif
             for (int j = 0; j < BlockHeight && (y + j) < dstH; j++) {
                 size_t dstOffset = j * dstPitch;
                 size_t idxOffset = j * BlockHeight;
@@ -117,11 +108,6 @@ namespace {
     static_assert(sizeof(BC_color) == 8, "BC_color must be 8 bytes");
 
     struct BC_channel {
-        #if defined(__clang__) || defined(__GNUC__)
-        __attribute__((always_inline))
-        #elif defined(_MSC_VER)
-        __forceinline
-        #endif
         void decode(uint8_t *dst, size_t x, size_t y, size_t dstW, size_t dstH, size_t dstPitch, size_t dstBpp, size_t channel, bool isSigned) const {
             int c[8] = {0};
 
@@ -145,9 +131,6 @@ namespace {
                 c[7] = isSigned ? 127 : 255;
             }
 
-            #ifdef __clang__
-            #pragma clang loop vectorize(enable) interleave(enable)
-            #endif
             for (size_t j = 0; j < BlockHeight && (y + j) < dstH; j++) {
                 for (size_t i = 0; i < BlockWidth && (x + i) < dstW; i++) {
                     dst[channel + (i * dstBpp) + (j * dstPitch)] = static_cast<uint8_t>(c[getIdx((j * BlockHeight) + i)]);
@@ -166,16 +149,8 @@ namespace {
     static_assert(sizeof(BC_channel) == 8, "BC_channel must be 8 bytes");
 
     struct BC_alpha {
-        #if defined(__clang__) || defined(__GNUC__)
-        __attribute__((always_inline))
-        #elif defined(_MSC_VER)
-        __forceinline
-        #endif
         void decode(uint8_t *dst, size_t x, size_t y, size_t dstW, size_t dstH, size_t dstPitch, size_t dstBpp) const {
             dst += 3;  // Write only to alpha (channel 3)
-            #ifdef __clang__
-            #pragma clang loop vectorize(enable) interleave(enable)
-            #endif
             for (size_t j = 0; j < BlockHeight && (y + j) < dstH; j++, dst += dstPitch) {
                 uint8_t *dstRow = dst;
                 for (size_t i = 0; i < BlockWidth && (x + i) < dstW; i++, dstRow += dstBpp) {
@@ -1545,4 +1520,3 @@ namespace bcn {
         block->decode(dst, x, y, width, height, pitch);
     }
 }
-
