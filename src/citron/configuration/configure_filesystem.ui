@@ -26,6 +26,23 @@
       <item row="1" column="0"><widget class="QLabel" name="label_2"><property name="text"><string>SD Card</string></property></widget></item>
       <item row="1" column="2"><widget class="QLineEdit" name="sdmc_directory_edit"/></item>
       <item row="1" column="3"><widget class="QToolButton" name="sdmc_directory_button"><property name="text"><string>...</string></property></widget></item>
+      <item row="2" column="0">
+       <widget class="QCheckBox" name="global_save_directory_checkbox">
+        <property name="text">
+         <string>Global Custom Save Path</string>
+        </property>
+       </widget>
+      </item>
+      <item row="2" column="2">
+       <widget class="QLineEdit" name="global_save_directory_edit"/>
+      </item>
+      <item row="2" column="3">
+       <widget class="QToolButton" name="global_save_directory_button">
+        <property name="text">
+         <string>...</string>
+        </property>
+       </widget>
+      </item>
      </layout>
     </widget>
    </item>
