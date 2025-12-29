@@ -422,17 +422,22 @@ std::shared_ptr<FileSys::SaveDataFactory> FileSystemController::CreateSaveDataFa
     const auto rw_mode = FileSys::OpenMode::ReadWrite;
     auto vfs = system.GetFilesystem();
 
-    // Check for a custom save path for the current game.
-    if (Settings::values.custom_save_paths.count(program_id)) {
-        const std::string& custom_path_str = Settings::values.custom_save_paths.at(program_id);
+    std::string custom_path_str;
+
+    // 1. Priority 1: Global Override
+    if (Settings::values.global_custom_save_path_enabled.GetValue()) {
+        custom_path_str = Settings::values.global_custom_save_path.GetValue();
+    }
+    // 2. Priority 2: Individual Game Override
+    else if (Settings::values.custom_save_paths.count(program_id)) {
+        custom_path_str = Settings::values.custom_save_paths.at(program_id);
+    }
+
+    // If any custom logic is hit, use that path but KEEP NAND as backup target
+    if (!custom_path_str.empty()) {
         const std::filesystem::path custom_path = custom_path_str;
-
-        // If the custom path is valid and points to a directory, use it.
-        if (!custom_path_str.empty() && Common::FS::IsDir(custom_path)) {
-            LOG_INFO(Service_FS, "Using custom save path for program_id={:016X}: {}", program_id, custom_path_str);
+        if (Common::FS::IsDir(custom_path)) {
             auto custom_save_directory = vfs->OpenDirectory(custom_path_str, rw_mode);
-
-            // Fetch the default NAND directory to act as the backup location
             auto nand_directory = vfs->OpenDirectory(Common::FS::GetCitronPathString(CitronPath::NANDDir), rw_mode);
 
             return std::make_shared<FileSys::SaveDataFactory>(
@@ -440,12 +445,10 @@ std::shared_ptr<FileSys::SaveDataFactory> FileSystemController::CreateSaveDataFa
         }
     }
 
-    // If no valid custom path was found, use the default NAND directory.
-    const auto nand_directory =
-        vfs->OpenDirectory(Common::FS::GetCitronPathString(CitronPath::NANDDir), rw_mode);
-    return std::make_shared<FileSys::SaveDataFactory>(system, program_id,
-                                                      std::move(nand_directory));
-}
+    // 3. Fallback: Standard NAND
+    const auto nand_directory = vfs->OpenDirectory(Common::FS::GetCitronPathString(CitronPath::NANDDir), rw_mode);
+    return std::make_shared<FileSys::SaveDataFactory>(system, program_id, std::move(nand_directory));
+    }
 
 Result FileSystemController::OpenSDMC(FileSys::VirtualDir* out_sdmc) const {
     LOG_TRACE(Service_FS, "Opening SDMC");
