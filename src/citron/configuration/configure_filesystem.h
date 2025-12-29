@@ -35,12 +35,14 @@ private:
     void changeEvent(QEvent* event) override;
     void RetranslateUI();
     void SetConfiguration();
-    enum class DirectoryTarget { NAND, SD, Gamecard, Dump, Load };
+    enum class DirectoryTarget { NAND, SD, Gamecard, Dump, Load, GlobalSave };
     void SetDirectory(DirectoryTarget target, QLineEdit* edit);
     void ResetMetadata();
     void UpdateEnabledControls();
 
     void MigrateBackups(const QString& old_path, const QString& new_path);
+    void MigrateSavesToGlobal(const QString& new_global_path);
+    bool CopyDirRecursive(const QString& src, const QString& dest, QProgressDialog& progress, qint64& copied, qint64 total);
 
     std::unique_ptr<Ui::ConfigureFilesystem> ui;
     QProgressDialog* install_progress = nullptr;
