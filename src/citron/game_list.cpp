@@ -1085,7 +1085,7 @@ void GameList::AddGamePopup(QMenu& context_menu, u64 program_id, const std::stri
         QDir old_dir(old_save_path);
         if (old_dir.exists() && !old_dir.isEmpty()) {
             QMessageBox::StandardButton reply = QMessageBox::question(this, tr("Move Save Data"),
-                tr("You have existing save data in the NAND. Would you like to move it to the new custom save path?"),
+                tr("You have existing save data in the NAND. Would you like to move it to the new custom save path? Also for reference, if you'd like to use a Global Custom Save Path for all of your titles instead of setting them manually, you can do so within Emulation -> Configure -> Filesystem."),
                 QMessageBox::Yes | QMessageBox::No | QMessageBox::Cancel);
 
             if (reply == QMessageBox::Cancel) return;
