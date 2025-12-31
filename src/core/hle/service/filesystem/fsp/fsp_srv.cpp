@@ -252,9 +252,11 @@ Result FSP_SRV::CreateSaveDataFileSystemBySystemSaveDataId(
 Result FSP_SRV::OpenSaveDataFileSystem(OutInterface<IFileSystem> out_interface,
                                        FileSys::SaveDataSpaceId space_id,
                                        FileSys::SaveDataAttribute attribute) {
-    LOG_INFO(Service_FS, "called.");
+    LOG_INFO(Service_FS, "called, space_id={:02X}, program_id={:016X}",
+             static_cast<u8>(space_id), attribute.program_id);
 
     FileSys::VirtualDir dir{};
+    // This triggers the 'Smart Pull' (Ryujinx -> Citron) in savedata_factory.cpp
     R_TRY(save_data_controller->OpenSaveData(&dir, space_id, attribute));
 
     FileSys::StorageId id{};
@@ -267,19 +269,15 @@ Result FSP_SRV::OpenSaveDataFileSystem(OutInterface<IFileSystem> out_interface,
         id = FileSys::StorageId::SdCard;
         break;
     case FileSys::SaveDataSpaceId::System:
-        id = FileSys::StorageId::NandSystem;
-        break;
     case FileSys::SaveDataSpaceId::Temporary:
-        id = FileSys::StorageId::NandSystem;
-        break;
     case FileSys::SaveDataSpaceId::ProperSystem:
-        id = FileSys::StorageId::NandSystem;
-        break;
     case FileSys::SaveDataSpaceId::SafeMode:
         id = FileSys::StorageId::NandSystem;
         break;
     }
 
+    // Wrap the directory in the IFileSystem interface.
+    // We pass 'save_data_controller->GetFactory()' so the Commit function can find the Mirror.
     *out_interface = std::make_shared<IFileSystem>(
         system, std::move(dir), SizeGetter::FromStorageId(fsc, id),
         save_data_controller->GetFactory(), space_id, attribute);
