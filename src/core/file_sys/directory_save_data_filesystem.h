@@ -18,8 +18,10 @@ namespace FileSys {
 /// Uses /0 (committed) and /1 (working) directories for journaling
 class DirectorySaveDataFileSystem {
 public:
-    // optional directory here for backup
-    explicit DirectorySaveDataFileSystem(VirtualDir base_filesystem, VirtualDir backup_filesystem = nullptr);
+    // Updated constructor to include mirror_filesystem for external sync (Ryujinx/Eden/etc)
+    explicit DirectorySaveDataFileSystem(VirtualDir base_filesystem,
+                                         VirtualDir backup_filesystem = nullptr,
+                                         VirtualDir mirror_filesystem = nullptr);
     ~DirectorySaveDataFileSystem();
 
     /// Initialize the journaling filesystem
@@ -53,9 +55,11 @@ private:
     Result SynchronizeDirectory(const char* dest_name, const char* source_name);
     Result CopyDirectoryRecursively(VirtualDir dest, VirtualDir source);
     Result RetryFinitelyForTargetLocked(std::function<Result()> operation);
+    void SmartSyncToMirror(VirtualDir mirror_dest, VirtualDir citron_source);
 
     VirtualDir base_fs;
-    VirtualDir backup_fs; // This will store the NAND path
+    VirtualDir backup_fs; // This stores the secondary NAND path
+    VirtualDir mirror_fs; // This stores the External Mirror path (Ryujinx/Eden/etc)
     VirtualDir working_dir;
     VirtualDir committed_dir;
     SaveDataExtraDataAccessor extra_data_accessor;
