@@ -17,9 +17,15 @@ constexpr int RetryWaitTimeMs = 100;
 
 } // Anonymous namespace
 
-DirectorySaveDataFileSystem::DirectorySaveDataFileSystem(VirtualDir base_filesystem, VirtualDir backup_filesystem)
-    : base_fs(std::move(base_filesystem)), backup_fs(std::move(backup_filesystem)),
-      extra_data_accessor(base_fs), journaling_enabled(true),
+// Updated constructor to accept mirror_filesystem
+DirectorySaveDataFileSystem::DirectorySaveDataFileSystem(VirtualDir base_filesystem,
+                                                         VirtualDir backup_filesystem,
+                                                         VirtualDir mirror_filesystem)
+    : base_fs(std::move(base_filesystem)),
+      backup_fs(std::move(backup_filesystem)),
+      mirror_fs(std::move(mirror_filesystem)),
+      extra_data_accessor(base_fs),
+      journaling_enabled(true),
       open_writable_files(0) {}
 
 DirectorySaveDataFileSystem::~DirectorySaveDataFileSystem() = default;
@@ -88,19 +94,15 @@ Result DirectorySaveDataFileSystem::Commit() {
     std::scoped_lock lk{mutex};
 
     if (!journaling_enabled) {
-        // Non-journaling: just commit extra data
         return extra_data_accessor.CommitExtraDataWithTimeStamp(
             std::chrono::system_clock::now().time_since_epoch().count());
     }
 
-    // Check that all writable files are closed
     if (open_writable_files > 0) {
         LOG_ERROR(Service_FS, "Cannot commit: {} writable files still open", open_writable_files);
         return ResultWriteModeFileNotClosed;
     }
 
-    // Atomic commit process (based on LibHac lines 572-622)
-    // 1. Rename committed → synchronizing (backup old version)
     auto committed = base_fs->GetSubdirectory(CommittedDirectoryName);
     if (committed != nullptr) {
         if (!committed->Rename(SynchronizingDirectoryName)) {
@@ -108,41 +110,34 @@ Result DirectorySaveDataFileSystem::Commit() {
         }
     }
 
-    // 2. Copy working → synchronizing (prepare new commit)
     R_TRY(SynchronizeDirectory(SynchronizingDirectoryName, ModifiedDirectoryName));
 
-    // 3. Commit extra data with updated timestamp
     R_TRY(extra_data_accessor.CommitExtraDataWithTimeStamp(
         std::chrono::system_clock::now().time_since_epoch().count()));
 
-    // 4. Rename synchronizing → committed (make it permanent)
     auto sync_dir = base_fs->GetSubdirectory(SynchronizingDirectoryName);
-    if (sync_dir == nullptr) {
-        return ResultPathNotFound;
-    }
-
-    if (!sync_dir->Rename(CommittedDirectoryName)) {
+    if (sync_dir == nullptr || !sync_dir->Rename(CommittedDirectoryName)) {
         return ResultPermissionDenied;
     }
 
-    // Update cached committed_dir reference
     committed_dir = base_fs->GetSubdirectory(CommittedDirectoryName);
 
-    if (Settings::values.backup_saves_to_nand.GetValue() && backup_fs != nullptr) {
-        LOG_INFO(Service_FS, "Dual-Save: Backing up custom save to NAND...");
+    // Now that the NAND is safely updated, we push the changes back to Ryujinx/Eden
+    if (mirror_fs != nullptr) {
+        LOG_INFO(Service_FS, "Mirroring: Pushing changes back to external source...");
 
-        // 1. Find or Create the '0' (Committed) folder in the NAND
-        auto nand_committed = backup_fs->GetSubdirectory(CommittedDirectoryName);
-        if (nand_committed == nullptr) {
-            nand_committed = backup_fs->CreateSubdirectory(CommittedDirectoryName);
-        }
+        // Use SmartSyncToMirror instead of CleanSubdirectoryRecursive
+        // working_dir contains the data that was just successfully committed
+        SmartSyncToMirror(mirror_fs, working_dir);
 
-        if (nand_committed != nullptr) {
-            // 2. Wipe whatever old backup was there
-            backup_fs->DeleteSubdirectoryRecursive(CommittedDirectoryName);
-            nand_committed = backup_fs->CreateSubdirectory(CommittedDirectoryName);
-
-            // 3. Copy the fresh data from our 'working' area to the NAND '0' folder
+        LOG_INFO(Service_FS, "Mirroring: External sync successful.");
+    }
+    // Standard backup only if Mirroring is NOT active
+    else if (Settings::values.backup_saves_to_nand.GetValue() && backup_fs != nullptr) {
+        LOG_INFO(Service_FS, "Dual-Save: Backing up to NAND...");
+        backup_fs->DeleteSubdirectoryRecursive(CommittedDirectoryName);
+        auto nand_committed = backup_fs->CreateSubdirectory(CommittedDirectoryName);
+        if (nand_committed) {
             CopyDirectoryRecursively(nand_committed, working_dir);
         }
     }
@@ -167,8 +162,6 @@ Result DirectorySaveDataFileSystem::Rollback() {
 }
 
 bool DirectorySaveDataFileSystem::HasUncommittedChanges() const {
-    // For now, assume any write means uncommitted changes
-    // A full implementation would compare directory contents
     return open_writable_files > 0;
 }
 
@@ -224,8 +217,7 @@ Result DirectorySaveDataFileSystem::CopyDirectoryRecursively(VirtualDir dest, Vi
     return ResultSuccess;
 }
 
-Result DirectorySaveDataFileSystem::RetryFinitelyForTargetLocked(
-    std::function<Result()> operation) {
+Result DirectorySaveDataFileSystem::RetryFinitelyForTargetLocked(std::function<Result()> operation) {
     int remaining_retries = MaxRetryCount;
 
     while (true) {
@@ -235,7 +227,6 @@ Result DirectorySaveDataFileSystem::RetryFinitelyForTargetLocked(
             return ResultSuccess;
         }
 
-        // Only retry on TargetLocked error
         if (result != ResultTargetLocked) {
             return result;
         }
@@ -246,6 +237,30 @@ Result DirectorySaveDataFileSystem::RetryFinitelyForTargetLocked(
 
         remaining_retries--;
         std::this_thread::sleep_for(std::chrono::milliseconds(RetryWaitTimeMs));
+    }
+}
+
+void DirectorySaveDataFileSystem::SmartSyncToMirror(VirtualDir mirror_dest, VirtualDir citron_source) {
+    // Citron: Extra safety check for valid pointers and writable permissions
+    if (mirror_dest == nullptr || citron_source == nullptr || !mirror_dest->IsWritable()) {
+        return;
+    }
+
+    // Sync files from Citron back to the Mirror
+    for (const auto& c_file : citron_source->GetFiles()) {
+        auto m_file = mirror_dest->CreateFile(c_file->GetName());
+        if (m_file) {
+            m_file->WriteBytes(c_file->ReadAllBytes());
+        }
+    }
+
+    // Recursively handle subfolders (like 'private', 'extra', etc)
+    for (const auto& c_subdir : citron_source->GetSubdirectories()) {
+        auto m_subdir = mirror_dest->GetDirectoryRelative(c_subdir->GetName());
+        if (m_subdir == nullptr) {
+            m_subdir = mirror_dest->CreateSubdirectory(c_subdir->GetName());
+        }
+        SmartSyncToMirror(m_subdir, c_subdir);
     }
 }
 
