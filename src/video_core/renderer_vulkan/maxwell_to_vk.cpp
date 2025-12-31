@@ -231,6 +231,12 @@ struct FormatTuple {
     {VK_FORMAT_ASTC_6x5_UNORM_BLOCK},                          // ASTC_2D_6X5_UNORM
     {VK_FORMAT_ASTC_6x5_SRGB_BLOCK},                           // ASTC_2D_6X5_SRGB
     {VK_FORMAT_E5B9G9R9_UFLOAT_PACK32},                        // E5B9G9R9_FLOAT
+    {VK_FORMAT_ETC2_R8G8B8_UNORM_BLOCK},                       // ETC2_RGB_UNORM
+    {VK_FORMAT_ETC2_R8G8B8A8_UNORM_BLOCK},                    // ETC2_RGBA_UNORM
+    {VK_FORMAT_ETC2_R8G8B8A1_UNORM_BLOCK},                    // ETC2_RGB_PTA_UNORM
+    {VK_FORMAT_ETC2_R8G8B8_SRGB_BLOCK},                        // ETC2_RGB_SRGB
+    {VK_FORMAT_ETC2_R8G8B8A8_SRGB_BLOCK},                      // ETC2_RGBA_SRGB
+    {VK_FORMAT_ETC2_R8G8B8A1_SRGB_BLOCK},                      // ETC2_RGB_PTA_SRGB
 
     // Depth formats
     {VK_FORMAT_D32_SFLOAT, Attachable},          // D32_FLOAT
@@ -294,6 +300,15 @@ FormatInfo SurfaceFormat(const Device& device, FormatType format_type, bool with
                    pixel_format == PixelFormat::BC6H_UFLOAT) {
             tuple.format = VK_FORMAT_R16G16B16A16_SFLOAT;
         } else if (is_srgb) {
+            tuple.format = VK_FORMAT_A8B8G8R8_SRGB_PACK32;
+        } else {
+            tuple.format = VK_FORMAT_A8B8G8R8_UNORM_PACK32;
+        }
+    }
+    // Transcode on hardware that doesn't support ETC2 natively (shouldn't happen on Vulkan 1.0)
+    if (!device.IsOptimalEtc2Supported() && VideoCore::Surface::IsPixelFormatETC2(pixel_format)) {
+        const bool is_srgb = with_srgb && VideoCore::Surface::IsPixelFormatSRGB(pixel_format);
+        if (is_srgb) {
             tuple.format = VK_FORMAT_A8B8G8R8_SRGB_PACK32;
         } else {
             tuple.format = VK_FORMAT_A8B8G8R8_UNORM_PACK32;

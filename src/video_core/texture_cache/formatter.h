@@ -207,6 +207,18 @@ struct fmt::formatter<VideoCore::Surface::PixelFormat> : fmt::formatter<fmt::str
                 return "ASTC_2D_6X5_SRGB";
             case PixelFormat::E5B9G9R9_FLOAT:
                 return "E5B9G9R9_FLOAT";
+            case PixelFormat::ETC2_RGB_UNORM:
+                return "ETC2_RGB_UNORM";
+            case PixelFormat::ETC2_RGBA_UNORM:
+                return "ETC2_RGBA_UNORM";
+            case PixelFormat::ETC2_RGB_PTA_UNORM:
+                return "ETC2_RGB_PTA_UNORM";
+            case PixelFormat::ETC2_RGB_SRGB:
+                return "ETC2_RGB_SRGB";
+            case PixelFormat::ETC2_RGBA_SRGB:
+                return "ETC2_RGBA_SRGB";
+            case PixelFormat::ETC2_RGB_PTA_SRGB:
+                return "ETC2_RGB_PTA_SRGB";
             case PixelFormat::D32_FLOAT:
                 return "D32_FLOAT";
             case PixelFormat::D16_UNORM:

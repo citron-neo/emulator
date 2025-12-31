@@ -19,6 +19,8 @@ constexpr auto UNORM = ComponentType::UNORM;
 constexpr auto SINT = ComponentType::SINT;
 constexpr auto UINT = ComponentType::UINT;
 constexpr auto FLOAT = ComponentType::FLOAT;
+constexpr auto SNORM_FORCE_FP16 = ComponentType::SNORM_FORCE_FP16;
+constexpr auto UNORM_FORCE_FP16 = ComponentType::UNORM_FORCE_FP16;
 constexpr bool LINEAR = false;
 constexpr bool SRGB = true;
 
@@ -197,6 +199,14 @@ PixelFormat PixelFormatFromTextureInfo(TextureFormat format, ComponentType red, 
         return PixelFormat::BC6H_SFLOAT;
     case Hash(TextureFormat::BC6H_U16, FLOAT):
         return PixelFormat::BC6H_UFLOAT;
+    case Hash(TextureFormat::ETC2_RGB, UNORM):
+        return PixelFormat::ETC2_RGB_UNORM;
+    case Hash(TextureFormat::ETC2_RGB_PTA, UNORM):
+        return PixelFormat::ETC2_RGB_PTA_UNORM;
+    case Hash(TextureFormat::ETC2_RGB_PTA, UNORM, SRGB):
+        return PixelFormat::ETC2_RGB_PTA_SRGB;
+    case Hash(TextureFormat::ETC2_RGBA, UNORM):
+        return PixelFormat::ETC2_RGBA_UNORM;
     case Hash(TextureFormat::ASTC_2D_4X4, UNORM, LINEAR):
         return PixelFormat::ASTC_2D_4X4_UNORM;
     case Hash(TextureFormat::ASTC_2D_4X4, UNORM, SRGB):
@@ -253,10 +263,22 @@ PixelFormat PixelFormatFromTextureInfo(TextureFormat format, ComponentType red, 
         return PixelFormat::ASTC_2D_6X5_UNORM;
     case Hash(TextureFormat::ASTC_2D_6X5, UNORM, SRGB):
         return PixelFormat::ASTC_2D_6X5_SRGB;
+    // Format 90 (0x5a): ETC2_RGB_SRGB with components {UINT, UNORM_FORCE_FP16, UNORM, UNORM}
+    // ETC2 compressed formats can have unusual component type combinations, but the format itself
+    // determines the actual compression scheme
+    case Hash(static_cast<TextureFormat>(0x5a), UINT, UNORM_FORCE_FP16, UNORM, UNORM, SRGB):
+        return PixelFormat::ETC2_RGB_SRGB;
+    // Format 99 (0x63): ETC2_RGBA_SRGB with components {0, SNORM_FORCE_FP16, SINT, SNORM_FORCE_FP16}
+    // Component 0 is a swizzle source (Zero), not a ComponentType, but we handle it by checking
+    // the hash with component 0 explicitly. The hash for component 0 will be 0 << 1 = 0.
+    case Hash(static_cast<TextureFormat>(0x63), static_cast<ComponentType>(0), SNORM_FORCE_FP16, SINT, SNORM_FORCE_FP16, SRGB):
+        return PixelFormat::ETC2_RGBA_SRGB;
     }
-    UNIMPLEMENTED_MSG("texture format={} srgb={} components={{{} {} {} {}}}",
-                      static_cast<int>(format), is_srgb, static_cast<int>(red),
-                      static_cast<int>(green), static_cast<int>(blue), static_cast<int>(alpha));
+    LOG_WARNING(HW_GPU,
+                "Unsupported texture format={} srgb={} components={{{} {} {} {}}}, falling back to "
+                "A8B8G8R8_UNORM",
+                static_cast<int>(format), is_srgb, static_cast<int>(red),
+                static_cast<int>(green), static_cast<int>(blue), static_cast<int>(alpha));
     return PixelFormat::A8B8G8R8_UNORM;
 }
 

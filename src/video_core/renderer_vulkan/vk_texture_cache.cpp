@@ -878,6 +878,11 @@ TextureCacheRuntime::TextureCacheRuntime(const Device& device_, Scheduler& sched
         if (IsPixelFormatASTC(image_format) && !device.IsOptimalAstcSupported()) {
             view_formats[index_a].push_back(VK_FORMAT_A8B8G8R8_UNORM_PACK32);
         }
+        if (IsPixelFormatETC2(image_format) && !device.IsOptimalEtc2Supported()) {
+            const bool is_srgb = VideoCore::Surface::IsPixelFormatSRGB(image_format);
+            view_formats[index_a].push_back(is_srgb ? VK_FORMAT_A8B8G8R8_SRGB_PACK32
+                                                    : VK_FORMAT_A8B8G8R8_UNORM_PACK32);
+        }
         for (size_t index_b = 0; index_b < VideoCore::Surface::MaxPixelFormat; index_b++) {
             const auto view_format = static_cast<PixelFormat>(index_b);
             if (VideoCore::Surface::IsViewCompatible(image_format, view_format, false, true)) {
@@ -1485,6 +1490,10 @@ Image::Image(TextureCacheRuntime& runtime_, const ImageInfo& info_, GPUVAddr gpu
         flags |= VideoCommon::ImageFlagBits::CostlyLoad;
     }
     if (IsPixelFormatBCn(info.format) && !runtime->device.IsOptimalBcnSupported()) {
+        flags |= VideoCommon::ImageFlagBits::Converted;
+        flags |= VideoCommon::ImageFlagBits::CostlyLoad;
+    }
+    if (IsPixelFormatETC2(info.format) && !runtime->device.IsOptimalEtc2Supported()) {
         flags |= VideoCommon::ImageFlagBits::Converted;
         flags |= VideoCommon::ImageFlagBits::CostlyLoad;
     }

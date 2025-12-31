@@ -320,6 +320,11 @@ public:
         return features.features.textureCompressionBC;
     }
 
+    /// Returns true if ETC2 is natively supported.
+    bool IsOptimalEtc2Supported() const {
+        return features.features.textureCompressionETC2;
+    }
+
     /// Returns true if descriptor aliasing is natively supported.
     bool IsDescriptorAliasingSupported() const {
         return GetDriverID() != VK_DRIVER_ID_QUALCOMM_PROPRIETARY;
