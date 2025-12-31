@@ -459,6 +459,7 @@ void Config::ReadValues() {
         ReadDataStorageValues();
         ReadDebuggingValues();
         ReadCustomSavePathValues();
+        ReadMirrorValues();
         ReadDisabledAddOnValues();
         ReadDisabledCheatValues();
         ReadNetworkValues();
@@ -564,6 +565,7 @@ void Config::SaveValues() {
         SaveDataStorageValues();
         SaveDebuggingValues();
         SaveCustomSavePathValues();
+        SaveMirrorValues();
         SaveDisabledAddOnValues();
         SaveDisabledCheatValues();
         SaveNetworkValues();
@@ -1180,4 +1182,34 @@ void Config::SetArrayIndex(const int index) {
     // in the future.
     array_stack.back().size = array_index;
     array_stack.back().index = array_index;
+}
+
+void Config::ReadMirrorValues() {
+    BeginGroup(std::string("MirroredSaves"));
+    const int size = BeginArray(std::string("")); // Keyless array style
+    for (int i = 0; i < size; ++i) {
+        SetArrayIndex(i);
+        const auto title_id = ReadUnsignedIntegerSetting(std::string("title_id"), 0);
+        const auto path = ReadStringSetting(std::string("path"), std::string(""));
+
+        if (title_id != 0 && !path.empty()) {
+            Settings::values.mirrored_save_paths.insert_or_assign(title_id, path);
+        }
+    }
+    EndArray();
+    EndGroup();
+}
+
+void Config::SaveMirrorValues() {
+    BeginGroup(std::string("MirroredSaves"));
+    int i = 0;
+    BeginArray(std::string("")); // Keyless array style
+    for (const auto& elem : Settings::values.mirrored_save_paths) {
+        SetArrayIndex(i);
+        WriteIntegerSetting(std::string("title_id"), elem.first, std::make_optional(static_cast<u64>(0)));
+        WriteStringSetting(std::string("path"), elem.second, std::make_optional(std::string("")));
+        ++i;
+    }
+    EndArray();
+    EndGroup();
 }

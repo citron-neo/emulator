@@ -53,6 +53,9 @@ protected:
 
     void Reload();
 
+    void ReadMirrorValues();
+    void SaveMirrorValues();
+
     /**
      * Derived config classes must implement this so they can reload all platform-specific
      * values and global ones.

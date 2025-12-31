@@ -445,6 +445,12 @@ GMainWindow::GMainWindow(std::unique_ptr<QtConfig> config_, bool has_broken_vulk
     system->RegisterContentProvider(FileSys::ContentProviderUnionSlot::FrontendManual, provider.get());
     system->GetFileSystemController().CreateFactories(*vfs);
 
+    system->SetContentProvider(std::make_unique<FileSys::ContentProviderUnion>());
+    system->RegisterContentProvider(FileSys::ContentProviderUnionSlot::FrontendManual, provider.get());
+
+    // 1. First, create the factories
+    system->GetFileSystemController().CreateFactories(*vfs);
+
     autoloader_provider = std::make_unique<FileSys::ManualContentProvider>();
     system->RegisterContentProvider(FileSys::ContentProviderUnionSlot::Autoloader,
     autoloader_provider.get());
@@ -5714,19 +5720,22 @@ void GMainWindow::closeEvent(QCloseEvent* event) {
         return;
     }
 
+    // This stops mirroring threads before we start saving configs.
+    if (emu_thread != nullptr) {
+        ShutdownGame();
+    }
+
+    // Now save settings
     UpdateUISettings();
+    config->SaveAllValues();
+
     game_list->SaveInterfaceLayout();
     UISettings::SaveWindowState();
     hotkey_registry.SaveHotkeys();
 
-    // Unload controllers early
+    // Unload controllers
     controller_dialog->UnloadController();
     game_list->UnloadController();
-
-    // Shutdown session if the emu thread is active...
-    if (emu_thread != nullptr) {
-        ShutdownGame();
-    }
 
     render_window->close();
     multiplayer_state->Close();

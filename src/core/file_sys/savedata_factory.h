@@ -24,7 +24,6 @@ constexpr const char* GetSaveDataSizeFileName() {
 
 using ProgramId = u64;
 
-/// File system interface to the SaveData archive
 class SaveDataFactory {
 public:
     explicit SaveDataFactory(Core::System& system_, ProgramId program_id_,
@@ -45,7 +44,6 @@ public:
     void WriteSaveDataSize(SaveDataType type, u64 title_id, u128 user_id,
                            SaveDataSize new_value) const;
 
-    // ExtraData operations
     Result ReadSaveDataExtraData(SaveDataExtraData* out_extra_data, SaveDataSpaceId space,
                                  const SaveDataAttribute& attribute) const;
     Result WriteSaveDataExtraData(const SaveDataExtraData& extra_data, SaveDataSpaceId space,
@@ -57,11 +55,16 @@ public:
     void SetAutoCreate(bool state);
     void DoNandBackup(SaveDataSpaceId space, const SaveDataAttribute& meta, VirtualDir custom_dir) const;
 
+    // --- MIRRORING TOOLS ---
+    VirtualDir GetMirrorDirectory(u64 title_id) const;
+    void SmartSyncFromSource(VirtualDir source, VirtualDir dest) const;
+    void PerformStartupMirrorSync() const;
+
 private:
     Core::System& system;
     ProgramId program_id;
     VirtualDir dir;
-    VirtualDir backup_dir; // This will hold the NAND path
+    VirtualDir backup_dir;
     bool auto_create{true};
 };
 

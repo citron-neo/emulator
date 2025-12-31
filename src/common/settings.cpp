@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: Copyright 2021 yuzu Emulator Project
+// SPDX-FileCopyrightText: 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <version>
@@ -136,6 +137,14 @@ void LogSettings() {
     log_path("DataStorage_LoadDir", Common::FS::GetCitronPath(Common::FS::CitronPath::LoadDir));
     log_path("DataStorage_NANDDir", Common::FS::GetCitronPath(Common::FS::CitronPath::NANDDir));
     log_path("DataStorage_SDMCDir", Common::FS::GetCitronPath(Common::FS::CitronPath::SDMCDir));
+
+    // Log Custom Save Paths and Mirrored Save Paths for debugging
+    for (const auto& [id, path] : values.custom_save_paths) {
+        log_setting(fmt::format("DataStorage_CustomSavePath_{:016X}", id), path);
+    }
+    for (const auto& [id, path] : values.mirrored_save_paths) {
+        log_setting(fmt::format("DataStorage_MirrorSavePath_{:016X}", id), path);
+    }
 }
 
 void UpdateGPUAccuracy() {
