@@ -132,12 +132,32 @@ Result IFileSystem::GetEntryType(
 }
 
 Result IFileSystem::Commit() {
+    // 1. Standard Commit
     Result res = backend->Commit();
     if (res != ResultSuccess) return res;
 
-    if (save_factory && Settings::values.backup_saves_to_nand.GetValue()) {
-        LOG_INFO(Common, "IFileSystem: Commit detected, triggering NAND backup...");
-        save_factory->DoNandBackup(save_space, save_attr, content_dir);
+    // Citron: Shutdown Safety Check
+    // If the emulator is stopping, the VFS might be invalid. Skip mirroring to prevent SEGV.
+    if (system.IsShuttingDown()) {
+        return res;
+    }
+
+    // 2. (Citron NAND -> External)
+    if (save_factory) {
+        u64 title_id = save_attr.program_id != 0 ? save_attr.program_id : system.GetApplicationProcessProgramID();
+        auto mirror_dir = save_factory->GetMirrorDirectory(title_id);
+
+        if (mirror_dir != nullptr) {
+            LOG_INFO(Service_FS, "Mirroring: Pushing Citron NAND data back to external source...");
+
+            // SYNC: Citron NAND Title ID folder -> Selected External Folder Contents
+            save_factory->SmartSyncFromSource(content_dir, mirror_dir);
+
+            LOG_INFO(Service_FS, "Mirroring: Push complete.");
+        }
+        else if (Settings::values.backup_saves_to_nand.GetValue()) {
+            save_factory->DoNandBackup(save_space, save_attr, content_dir);
+        }
     }
 
     R_RETURN(res);
