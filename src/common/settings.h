@@ -686,6 +686,9 @@ struct Values {
 
     // Custom Save Paths (with backups)
     std::map<u64, std::string> custom_save_paths;
+    // This stores the external path used for Intelligent Mirroring sync
+    std::map<u64, std::string> mirrored_save_paths;
+
     Setting<bool> global_custom_save_path_enabled{linkage, false, "global_custom_save_path_enabled", Category::DataStorage};
     Setting<std::string> global_custom_save_path{linkage, std::string(), "global_custom_save_path", Category::DataStorage};
     Setting<bool> backup_saves_to_nand{linkage, false, "backup_saves_to_nand", Category::DataStorage};
