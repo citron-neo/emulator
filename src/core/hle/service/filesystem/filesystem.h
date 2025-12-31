@@ -121,6 +121,9 @@ public:
     // above is called.
     void CreateFactories(FileSys::VfsFilesystem& vfs, bool overwrite = true);
 
+    // getter for main.cpp to trigger the sync between custom game paths for separate emulators
+    FileSys::SaveDataFactory& GetSaveDataFactory() { return *global_save_data_factory; }
+
     void Reset();
 
 private:
@@ -141,6 +144,9 @@ private:
     std::unique_ptr<FileSys::XCI> gamecard;
     std::unique_ptr<FileSys::RegisteredCache> gamecard_registered;
     std::unique_ptr<FileSys::PlaceholderCache> gamecard_placeholder;
+
+    // Global factory for startup tasks and mirroring
+    std::shared_ptr<FileSys::SaveDataFactory> global_save_data_factory;
 
     Core::System& system;
 };
