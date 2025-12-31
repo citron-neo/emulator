@@ -35,6 +35,7 @@
 #include "core/core.h"
 #include "core/file_sys/patch_manager.h"
 #include "core/file_sys/registered_cache.h"
+#include "core/file_sys/savedata_factory.h"
 #include "citron/compatibility_list.h"
 #include "common/fs/path_util.h"
 #include "core/hle/service/acc/profile_manager.h"
@@ -44,6 +45,41 @@
 #include "citron/main.h"
 #include "citron/uisettings.h"
 #include "citron/util/controller_navigation.h"
+
+// Static helper for Save Detection
+static QString GetDetectedEmulatorName(const QString& path, u64 program_id, const QString& citron_nand_base) {
+    QString abs_path = QDir(path).absolutePath();
+    QString citron_abs_base = QDir(citron_nand_base).absolutePath();
+    QString tid_str = QStringLiteral("%1").arg(program_id, 16, 16, QLatin1Char('0'));
+
+    // SELF-EXCLUSION
+    if (abs_path.startsWith(citron_abs_base, Qt::CaseInsensitive)) {
+        return QString{};
+    }
+
+    // Ryujinx
+    if (abs_path.contains(QStringLiteral("bis/user/save"), Qt::CaseInsensitive)) {
+        if (abs_path.contains(QStringLiteral("ryubing"), Qt::CaseInsensitive)) return QStringLiteral("Ryubing");
+        if (abs_path.contains(QStringLiteral("ryujinx"), Qt::CaseInsensitive)) return QStringLiteral("Ryujinx");
+
+        // Fallback if it's a generic Ryujinx-structure folder
+        return abs_path.contains(tid_str, Qt::CaseInsensitive) ? QStringLiteral("Ryujinx/Ryubing") : QStringLiteral("Ryujinx/Ryubing (Manual Slot)");
+    }
+
+    // Fork
+    if (abs_path.contains(QStringLiteral("nand/user/save"), Qt::CaseInsensitive) ||
+        abs_path.contains(QStringLiteral("nand/system/Containers"), Qt::CaseInsensitive)) {
+
+        if (abs_path.contains(QStringLiteral("eden"), Qt::CaseInsensitive)) return QStringLiteral("Eden");
+        if (abs_path.contains(QStringLiteral("suyu"), Qt::CaseInsensitive)) return QStringLiteral("Suyu");
+        if (abs_path.contains(QStringLiteral("sudachi"), Qt::CaseInsensitive)) return QStringLiteral("Sudachi");
+        if (abs_path.contains(QStringLiteral("yuzu"), Qt::CaseInsensitive)) return QStringLiteral("Yuzu");
+
+        return QStringLiteral("another emulator");
+    }
+
+    return QString{};
+}
 
 GameListSearchField::KeyReleaseEater::KeyReleaseEater(GameList* gamelist_, QObject* parent)
 : QObject(parent), gamelist{gamelist_} {}
@@ -917,6 +953,10 @@ void GameList::DonePopulating(const QStringList& watch_list) {
             PopulateGridView();
         }
     }
+
+    LOG_INFO(Frontend, "Game List populated. Triggering Mirror Sync...");
+    system.GetFileSystemController().GetSaveDataFactory().PerformStartupMirrorSync();
+
     emit PopulatingCompleted();
 }
 
@@ -1077,59 +1117,82 @@ void GameList::AddGamePopup(QMenu& context_menu, u64 program_id, const std::stri
         const QString new_path = QFileDialog::getExistingDirectory(this, tr("Select Custom Save Data Location"));
         if (new_path.isEmpty()) return;
 
-        const auto nand_dir = QString::fromStdString(Common::FS::GetCitronPathString(Common::FS::CitronPath::NANDDir));
+        const auto nand_dir_str = Common::FS::GetCitronPathString(Common::FS::CitronPath::NANDDir);
+        const QString nand_dir = QString::fromStdString(nand_dir_str);
         const auto user_id = system.GetProfileManager().GetLastOpenedUser().AsU128();
         const std::string relative_save_path = fmt::format("user/save/{:016X}/{:016X}{:016X}/{:016X}", 0, user_id[1], user_id[0], program_id);
-        const QString old_save_path = QDir(nand_dir).filePath(QString::fromStdString(relative_save_path));
+        const QString citron_nand_save_path = QDir(nand_dir).filePath(QString::fromStdString(relative_save_path));
 
-        QDir old_dir(old_save_path);
-        if (old_dir.exists() && !old_dir.isEmpty()) {
-            QMessageBox::StandardButton reply = QMessageBox::question(this, tr("Move Save Data"),
-                tr("You have existing save data in the NAND. Would you like to move it to the new custom save path? Also for reference, if you'd like to use a Global Custom Save Path for all of your titles instead of setting them manually, you can do so within Emulation -> Configure -> Filesystem."),
-                QMessageBox::Yes | QMessageBox::No | QMessageBox::Cancel);
+        bool mirroring_enabled = false;
+        QString detected_emu = GetDetectedEmulatorName(new_path, program_id, nand_dir);
 
-            if (reply == QMessageBox::Cancel) return;
+        if (!detected_emu.isEmpty()) {
+            QMessageBox::StandardButton mirror_reply = QMessageBox::question(this, tr("Enable Save Mirroring?"),
+                tr("Citron has detected a %1 save structure.\n\n"
+                   "Would you like to enable 'Intelligent Mirroring'? This will pull the data into Citron's NAND "
+                   "and keep both locations synced whenever you play. A backup of what is inside of your NAND for Citron will be backed up for you with a corresponding folder name, so if you'd prefer to use Citron's data, please go to that folder & copy the contents and paste it back into the regular Title ID directory. BE WARNED: Please do not A. Have both emulators open during this process, and B. Ensure you do not fully 'delete' your backup that was provided to you incase something goes wrong.").arg(detected_emu),
+                QMessageBox::Yes | QMessageBox::No);
 
-            if (reply == QMessageBox::Yes) {
-                const QString full_dest_path = QDir(new_path).filePath(QString::fromStdString(relative_save_path));
-                if (copyWithProgress(old_save_path, full_dest_path, this)) {
-                    QDir(old_save_path).removeRecursively();
-                    QMessageBox::information(this, tr("Success"), tr("Successfully moved save data to the new location."));
-                } else {
-                    QMessageBox::warning(this, tr("Error"), tr("Failed to move save data. Please see the log for more details."));
+            if (mirror_reply == QMessageBox::Yes) {
+                mirroring_enabled = true;
+            }
+        }
+
+        QDir citron_dir(citron_nand_save_path);
+        if (citron_dir.exists() && !citron_dir.isEmpty()) {
+            if (mirroring_enabled) {
+                // Non-destructive backup for mirroring
+                QString timestamp = QDateTime::currentDateTime().toString(QStringLiteral("yyyy-MM-dd_hh-mm-ss"));
+                QString backup_path = citron_nand_save_path + QStringLiteral("_mirror_backup_") + timestamp;
+
+                // Ensure parent directory exists before renaming
+                QDir().mkpath(QFileInfo(backup_path).absolutePath());
+
+                if (QDir().rename(citron_nand_save_path, backup_path)) {
+                    LOG_INFO(Frontend, "Safety: Existing NAND data moved to backup: {}", backup_path.toStdString());
+                }
+            } else {
+                // Standard Citron behavior for manual paths (Override mode)
+                QMessageBox::StandardButton reply = QMessageBox::question(this, tr("Move Save Data"),
+                    tr("You have existing save data in the NAND. Would you like to move it to the new custom save path?"),
+                    QMessageBox::Yes | QMessageBox::No | QMessageBox::Cancel);
+
+                if (reply == QMessageBox::Cancel) return;
+
+                if (reply == QMessageBox::Yes) {
+                    // In override mode, we move files TO the new path
+                    const QString full_dest_path = QDir(new_path).filePath(QString::fromStdString(relative_save_path));
+                    if (copyWithProgress(citron_nand_save_path, full_dest_path, this)) {
+                        QDir(citron_nand_save_path).removeRecursively();
+                        QMessageBox::information(this, tr("Success"), tr("Successfully moved save data to the new location."));
+                    } else {
+                        QMessageBox::warning(this, tr("Error"), tr("Failed to move save data. Please see the log for more details."));
+                    }
                 }
             }
         }
 
-        Settings::values.custom_save_paths.insert_or_assign(program_id, new_path.toStdString());
-        emit SaveConfig();
-    });
+        if (mirroring_enabled) {
+            // Initial Pull (External -> Citron NAND)
+            // We copy FROM the selected folder TO the Citron NAND location
+            if (copyWithProgress(new_path, citron_nand_save_path, this)) {
+                // IMPORTANT: Save to the NEW mirror map
+                Settings::values.mirrored_save_paths.insert_or_assign(program_id, new_path.toStdString());
+                // CLEAR the standard custom path so the emulator boots from NAND
+                Settings::values.custom_save_paths.erase(program_id);
 
-    connect(remove_custom_save_path, &QAction::triggered, [this, program_id, copyWithProgress]() {
-        const QString custom_path_root = QString::fromStdString(Settings::values.custom_save_paths.at(program_id));
-        const auto nand_dir = QString::fromStdString(Common::FS::GetCitronPathString(Common::FS::CitronPath::NANDDir));
-        const auto user_id = system.GetProfileManager().GetLastOpenedUser().AsU128();
-        const std::string relative_save_path = fmt::format("user/save/{:016X}/{:016X}{:016X}/{:016X}", 0, user_id[1], user_id[0], program_id);
-
-        const QString custom_game_save_path = QDir(custom_path_root).filePath(QString::fromStdString(relative_save_path));
-        const QString nand_save_path = QDir(nand_dir).filePath(QString::fromStdString(relative_save_path));
-
-        QMessageBox::StandardButton reply = QMessageBox::question(this, tr("Move Save Data"),
-            tr("Would you like to move the save data from the custom path back to the NAND?"),
-            QMessageBox::Yes | QMessageBox::No | QMessageBox::Cancel);
-
-        if (reply == QMessageBox::Cancel) return;
-
-        if (reply == QMessageBox::Yes) {
-            if (copyWithProgress(custom_game_save_path, nand_save_path, this)) {
-                QDir(custom_game_save_path).removeRecursively();
-                QMessageBox::information(this, tr("Success"), tr("Successfully moved save data back to the NAND."));
+                QMessageBox::information(this, tr("Success"), tr("Mirroring established. Your data has been pulled into the Citron NAND."));
             } else {
-                QMessageBox::warning(this, tr("Error"), tr("Failed to move save data. Please see the log for more details."));
+                QMessageBox::warning(this, tr("Error"), tr("Failed to pull data from the mirror source."));
+                return;
             }
+        } else {
+            // Standard Path Override
+            Settings::values.custom_save_paths.insert_or_assign(program_id, new_path.toStdString());
+            // Remove from mirror map if it was there before
+            Settings::values.mirrored_save_paths.erase(program_id);
         }
 
-        Settings::values.custom_save_paths.erase(program_id);
         emit SaveConfig();
     });
 
