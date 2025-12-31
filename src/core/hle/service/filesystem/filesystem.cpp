@@ -807,6 +807,11 @@ void FileSystemController::CreateFactories(FileSys::VfsFilesystem& vfs, bool ove
         system.RegisterContentProvider(FileSys::ContentProviderUnionSlot::SDMC,
                                        sdmc_factory->GetSDMCContents());
     }
+
+    // factory that handles sync tasks before a game is even selected
+    if (global_save_data_factory == nullptr || overwrite) {
+        global_save_data_factory = CreateSaveDataFactory(ProgramId{});
+    }
 }
 
 void FileSystemController::Reset() {
