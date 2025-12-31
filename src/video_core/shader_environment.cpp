@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: Copyright 2021 yuzu Emulator Project
+// SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <algorithm>
@@ -66,6 +67,59 @@ static Shader::TexturePixelFormat ConvertTexturePixelFormat(const Tegra::Texture
     return static_cast<Shader::TexturePixelFormat>(
         PixelFormatFromTextureInfo(entry.format, entry.r_type, entry.g_type, entry.b_type,
                                    entry.a_type, entry.srgb_conversion));
+}
+
+static Shader::SamplerComponentType ConvertSamplerComponentType(
+    const Tegra::Texture::TICEntry& entry) {
+    const auto pixel_format = PixelFormatFromTextureInfo(entry.format, entry.r_type, entry.g_type,
+                                                        entry.b_type, entry.a_type,
+                                                        entry.srgb_conversion);
+    const auto surface_type = VideoCore::Surface::GetFormatType(pixel_format);
+    if (entry.depth_texture != 0 || surface_type == VideoCore::Surface::SurfaceType::Depth) {
+        return Shader::SamplerComponentType::Depth;
+    }
+    if (surface_type == VideoCore::Surface::SurfaceType::Stencil) {
+        return Shader::SamplerComponentType::Stencil;
+    }
+    if (surface_type == VideoCore::Surface::SurfaceType::DepthStencil) {
+        return entry.depth_texture != 0 ? Shader::SamplerComponentType::Depth
+                                        : Shader::SamplerComponentType::Stencil;
+    }
+
+    const auto accumulate = [](const Tegra::Texture::ComponentType component,
+                               bool& has_signed, bool& has_unsigned) {
+        switch (component) {
+        case Tegra::Texture::ComponentType::SINT:
+            has_signed = true;
+            break;
+        case Tegra::Texture::ComponentType::UINT:
+            has_unsigned = true;
+            break;
+        default:
+            break;
+        }
+    };
+
+    bool has_signed{};
+    bool has_unsigned{};
+    accumulate(entry.r_type, has_signed, has_unsigned);
+    accumulate(entry.g_type, has_signed, has_unsigned);
+    accumulate(entry.b_type, has_signed, has_unsigned);
+    accumulate(entry.a_type, has_signed, has_unsigned);
+
+    if (has_signed && !has_unsigned) {
+        return Shader::SamplerComponentType::Sint;
+    }
+    if (has_unsigned && !has_signed) {
+        return Shader::SamplerComponentType::Uint;
+    }
+    if (has_signed) {
+        return Shader::SamplerComponentType::Sint;
+    }
+    if (has_unsigned) {
+        return Shader::SamplerComponentType::Uint;
+    }
+    return Shader::SamplerComponentType::Float;
 }
 
 static std::string_view StageToPrefix(Shader::Stage stage) {
@@ -198,6 +252,7 @@ void GenericEnvironment::Serialize(std::ofstream& file) const {
     const u64 code_size{static_cast<u64>(CachedSizeBytes())};
     const u64 num_texture_types{static_cast<u64>(texture_types.size())};
     const u64 num_texture_pixel_formats{static_cast<u64>(texture_pixel_formats.size())};
+    const u64 num_texture_component_types{static_cast<u64>(texture_component_types.size())};
     const u64 num_cbuf_values{static_cast<u64>(cbuf_values.size())};
     const u64 num_cbuf_replacement_values{static_cast<u64>(cbuf_replacements.size())};
 
@@ -205,6 +260,8 @@ void GenericEnvironment::Serialize(std::ofstream& file) const {
         .write(reinterpret_cast<const char*>(&num_texture_types), sizeof(num_texture_types))
         .write(reinterpret_cast<const char*>(&num_texture_pixel_formats),
                sizeof(num_texture_pixel_formats))
+        .write(reinterpret_cast<const char*>(&num_texture_component_types),
+               sizeof(num_texture_component_types))
         .write(reinterpret_cast<const char*>(&num_cbuf_values), sizeof(num_cbuf_values))
         .write(reinterpret_cast<const char*>(&num_cbuf_replacement_values),
                sizeof(num_cbuf_replacement_values))
@@ -220,6 +277,10 @@ void GenericEnvironment::Serialize(std::ofstream& file) const {
     for (const auto& [key, type] : texture_types) {
         file.write(reinterpret_cast<const char*>(&key), sizeof(key))
             .write(reinterpret_cast<const char*>(&type), sizeof(type));
+    }
+    for (const auto& [key, component] : texture_component_types) {
+        file.write(reinterpret_cast<const char*>(&key), sizeof(key))
+            .write(reinterpret_cast<const char*>(&component), sizeof(component));
     }
     for (const auto& [key, format] : texture_pixel_formats) {
         file.write(reinterpret_cast<const char*>(&key), sizeof(key))
@@ -405,12 +466,31 @@ std::optional<Shader::ReplaceConstant> GraphicsEnvironment::GetReplaceConstBuffe
 }
 
 Shader::TextureType GraphicsEnvironment::ReadTextureType(u32 handle) {
+    const auto it{texture_types.find(handle)};
+    if (it != texture_types.end()) {
+        return it->second;
+    }
     const auto& regs{maxwell3d->regs};
     const bool via_header_index{regs.sampler_binding == Maxwell::SamplerBinding::ViaHeaderBinding};
     auto entry =
         ReadTextureInfo(regs.tex_header.Address(), regs.tex_header.limit, via_header_index, handle);
     const Shader::TextureType result{ConvertTextureType(entry)};
     texture_types.emplace(handle, result);
+    texture_component_types.emplace(handle, ConvertSamplerComponentType(entry));
+    return result;
+}
+
+Shader::SamplerComponentType GraphicsEnvironment::ReadTextureComponentType(u32 handle) {
+    const auto it{texture_component_types.find(handle)};
+    if (it != texture_component_types.end()) {
+        return it->second;
+    }
+    const auto& regs{maxwell3d->regs};
+    const bool via_header_index{regs.sampler_binding == Maxwell::SamplerBinding::ViaHeaderBinding};
+    auto entry =
+        ReadTextureInfo(regs.tex_header.Address(), regs.tex_header.limit, via_header_index, handle);
+    const Shader::SamplerComponentType result{ConvertSamplerComponentType(entry)};
+    texture_component_types.emplace(handle, result);
     return result;
 }
 
@@ -462,11 +542,29 @@ u32 ComputeEnvironment::ReadCbufValue(u32 cbuf_index, u32 cbuf_offset) {
 }
 
 Shader::TextureType ComputeEnvironment::ReadTextureType(u32 handle) {
+    const auto it{texture_types.find(handle)};
+    if (it != texture_types.end()) {
+        return it->second;
+    }
     const auto& regs{kepler_compute->regs};
     const auto& qmd{kepler_compute->launch_description};
     auto entry = ReadTextureInfo(regs.tic.Address(), regs.tic.limit, qmd.linked_tsc != 0, handle);
     const Shader::TextureType result{ConvertTextureType(entry)};
     texture_types.emplace(handle, result);
+    texture_component_types.emplace(handle, ConvertSamplerComponentType(entry));
+    return result;
+}
+
+Shader::SamplerComponentType ComputeEnvironment::ReadTextureComponentType(u32 handle) {
+    const auto it{texture_component_types.find(handle)};
+    if (it != texture_component_types.end()) {
+        return it->second;
+    }
+    const auto& regs{kepler_compute->regs};
+    const auto& qmd{kepler_compute->launch_description};
+    auto entry = ReadTextureInfo(regs.tic.Address(), regs.tic.limit, qmd.linked_tsc != 0, handle);
+    const Shader::SamplerComponentType result{ConvertSamplerComponentType(entry)};
+    texture_component_types.emplace(handle, result);
     return result;
 }
 
@@ -492,12 +590,15 @@ void FileEnvironment::Deserialize(std::ifstream& file) {
     u64 code_size{};
     u64 num_texture_types{};
     u64 num_texture_pixel_formats{};
+    u64 num_texture_component_types{};
     u64 num_cbuf_values{};
     u64 num_cbuf_replacement_values{};
     file.read(reinterpret_cast<char*>(&code_size), sizeof(code_size))
         .read(reinterpret_cast<char*>(&num_texture_types), sizeof(num_texture_types))
         .read(reinterpret_cast<char*>(&num_texture_pixel_formats),
               sizeof(num_texture_pixel_formats))
+        .read(reinterpret_cast<char*>(&num_texture_component_types),
+              sizeof(num_texture_component_types))
         .read(reinterpret_cast<char*>(&num_cbuf_values), sizeof(num_cbuf_values))
         .read(reinterpret_cast<char*>(&num_cbuf_replacement_values),
               sizeof(num_cbuf_replacement_values))
@@ -516,6 +617,13 @@ void FileEnvironment::Deserialize(std::ifstream& file) {
         file.read(reinterpret_cast<char*>(&key), sizeof(key))
             .read(reinterpret_cast<char*>(&type), sizeof(type));
         texture_types.emplace(key, type);
+    }
+    for (size_t i = 0; i < num_texture_component_types; ++i) {
+        u32 key;
+        Shader::SamplerComponentType component;
+        file.read(reinterpret_cast<char*>(&key), sizeof(key))
+            .read(reinterpret_cast<char*>(&component), sizeof(component));
+        texture_component_types.emplace(key, component);
     }
     for (size_t i = 0; i < num_texture_pixel_formats; ++i) {
         u32 key;
@@ -575,6 +683,15 @@ Shader::TextureType FileEnvironment::ReadTextureType(u32 handle) {
     const auto it{texture_types.find(handle)};
     if (it == texture_types.end()) {
         throw Shader::LogicError("Uncached read texture type");
+    }
+    return it->second;
+}
+
+Shader::SamplerComponentType FileEnvironment::ReadTextureComponentType(u32 handle) {
+    const auto it{texture_component_types.find(handle)};
+    if (it == texture_component_types.end()) {
+        LOG_WARNING(Render_Vulkan, "Texture component descriptor {:08x} not found", handle);
+        return Shader::SamplerComponentType::Float;
     }
     return it->second;
 }
