@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: Copyright 2024 yuzu Emulator Project
-// SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project
+// SPDX-FileCopyrightText: Copyright 2026 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #pragma once
@@ -17,5 +17,6 @@ std::unique_ptr<WindowAdaptPass> MakeLanczos(const Device& device, VkFormat fram
 std::unique_ptr<WindowAdaptPass> MakeGaussian(const Device& device, VkFormat frame_format);
 std::unique_ptr<WindowAdaptPass> MakeScaleForce(const Device& device, VkFormat frame_format);
 std::unique_ptr<WindowAdaptPass> MakeScaleFx(const Device& device, VkFormat frame_format);
+std::unique_ptr<WindowAdaptPass> MakeCRT(const Device& device, VkFormat frame_format);
 
 } // namespace Vulkan

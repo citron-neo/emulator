@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: Copyright 2023 yuzu Emulator Project
-// SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project
+// SPDX-FileCopyrightText: Copyright 2026 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #pragma once
@@ -673,7 +673,9 @@ enum class ScalingFilter : u32 {
     Lanczos = 6,
     Fsr = 7,
     Fsr2 = 8,
-    MaxEnum = 9,
+    CRTEasyMode = 9,
+    CRTRoyale = 10,
+    MaxEnum = 11,
 };
 
 template <>
@@ -689,6 +691,8 @@ EnumMetadata<ScalingFilter>::Canonicalizations() {
         {"Lanczos", ScalingFilter::Lanczos},
         {"Fsr", ScalingFilter::Fsr},
         {"Fsr2", ScalingFilter::Fsr2},
+        {"CRTEasyMode", ScalingFilter::CRTEasyMode},
+        {"CRTRoyale", ScalingFilter::CRTRoyale},
         {"MaxEnum", ScalingFilter::MaxEnum},
     };
 }
@@ -875,6 +879,7 @@ template <>
 inline u32 EnumMetadata<ExtendedDynamicState>::Index() {
     return 26;
 }
+
 
 template <typename Type>
 inline std::string CanonicalizeEnum(Type id) {

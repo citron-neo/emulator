@@ -163,8 +163,12 @@
         <item>@string/scaling_filter_bicubic</item>
         <item>@string/scaling_filter_gaussian</item>
         <item>@string/scaling_filter_scale_force</item>
+        <item>@string/scaling_filter_scale_fx</item>
+        <item>@string/scaling_filter_lanczos</item>
         <item>@string/scaling_filter_fsr</item>
         <item>@string/scaling_filter_fsr2</item>
+        <item>@string/scaling_filter_crt_easymode</item>
+        <item>@string/scaling_filter_crt_royale</item>
     </string-array>
 
     <integer-array name="rendererScalingFilterValues">
@@ -175,6 +179,10 @@
         <item>4</item>
         <item>5</item>
         <item>6</item>
+        <item>7</item>
+        <item>8</item>
+        <item>9</item>
+        <item>10</item>
     </integer-array>
 
     <string-array name="fsr2QualityModeNames">

@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: Copyright 2023 yuzu Emulator Project
-// SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project
+// SPDX-FileCopyrightText: Copyright 2026 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "citron/configuration/shared_translation.h"
@@ -130,6 +130,20 @@ std::unique_ptr<TranslationMap> InitializeTranslations(QWidget* parent) {
     INSERT(Settings, lanczos_quality, tr("Lanczos Quality:"), tr("The quality of the Lanczos filter. Higher is sharper but more expensive."));
     INSERT(Settings, fsr2_quality_mode, tr("FSR 2.0 Quality Mode:"),
            tr("Selects the quality mode for FSR 2.0 upscaling. Quality provides better image quality, Performance provides better performance."));
+    INSERT(Settings, crt_scanline_strength, tr("CRT Scanline Strength:"),
+           tr("Controls the intensity of scanlines. Higher values create more pronounced horizontal lines."));
+    INSERT(Settings, crt_curvature, tr("CRT Curvature:"),
+           tr("Applies barrel distortion to simulate the curved screen of a CRT monitor."));
+    INSERT(Settings, crt_gamma, tr("CRT Gamma:"),
+           tr("Adjusts the gamma correction curve. Higher values brighten the image, lower values darken it."));
+    INSERT(Settings, crt_bloom, tr("CRT Bloom:"),
+           tr("Controls the glow effect around bright areas, simulating phosphor persistence."));
+    INSERT(Settings, crt_mask_type, tr("CRT Mask Type:"),
+           tr("Selects the phosphor mask pattern: None, Aperture Grille (vertical stripes), or Shadow Mask (triangular pattern)."));
+    INSERT(Settings, crt_brightness, tr("CRT Brightness:"),
+           tr("Adjusts overall brightness of the CRT effect. Use to compensate for darkening from other effects."));
+    INSERT(Settings, crt_alpha, tr("CRT Alpha:"),
+           tr("Controls transparency of the CRT effect. Lower values make the effect more transparent."));
 
            INSERT(Settings, frame_skipping, tr("Frame Skipping:"),
                   tr("Skips frames to maintain performance when the system cannot keep up with the target frame rate."));
@@ -426,6 +440,8 @@ std::unique_ptr<ComboboxTranslationMap> ComboboxEnumeration(QWidget* parent) {
                               PAIR(ScalingFilter, ScaleFx, tr("ScaleFX")),
                               PAIR(ScalingFilter, Fsr, tr("AMD FidelityFX™️ Super Resolution")),
                               PAIR(ScalingFilter, Fsr2, tr("AMD FidelityFX™️ Super Resolution 2.0")),
+                              PAIR(ScalingFilter, CRTEasyMode, tr("CRT EasyMode")),
+                              PAIR(ScalingFilter, CRTRoyale, tr("CRT Royale")),
                           }});
     translations->insert({Settings::EnumMetadata<Settings::AntiAliasing>::Index(),
                           {

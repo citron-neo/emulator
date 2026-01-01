@@ -1,7 +1,8 @@
 // SPDX-FileCopyrightText: Copyright 2018 yuzu Emulator Project
-// SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project
+// SPDX-FileCopyrightText: Copyright 2026 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
+#include "common/settings.h"
 #include "video_core/framebuffer_config.h"
 #include "video_core/present.h"
 #include "video_core/renderer_vulkan/present/filters.h"
@@ -49,6 +50,10 @@ void BlitScreen::SetWindowAdaptPass() {
         break;
     case Settings::ScalingFilter::ScaleFx:
         window_adapt = MakeScaleFx(device, swapchain_view_format);
+        break;
+    case Settings::ScalingFilter::CRTEasyMode:
+    case Settings::ScalingFilter::CRTRoyale:
+        window_adapt = MakeCRT(device, swapchain_view_format);
         break;
     case Settings::ScalingFilter::Fsr:
     case Settings::ScalingFilter::Fsr2:
