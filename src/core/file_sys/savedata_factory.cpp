@@ -60,18 +60,22 @@ std::string GetFutureSaveDataPath(SaveDataSpaceId space_id, SaveDataType type, u
 
 void BufferedVfsCopy(VirtualFile source, VirtualFile dest) {
     if (!source || !dest) return;
+    const size_t source_size = source->GetSize();
+    if (source_size == 0) return;
+
     try {
-        std::vector<u8> buffer(0x100000); // 1MB buffer
+        // Move buffer to heap to prevent stack exhaustion during deep recursion
+        auto buffer = std::make_unique<std::vector<u8>>(0x100000); // 1MB
         dest->Resize(0);
         size_t offset = 0;
-        while (offset < source->GetSize()) {
-            const size_t to_read = std::min(buffer.size(), source->GetSize() - offset);
-            source->Read(buffer.data(), to_read, offset);
-            dest->Write(buffer.data(), to_read, offset);
+        while (offset < source_size) {
+            const size_t to_read = std::min(buffer->size(), source_size - offset);
+            source->Read(buffer->data(), to_read, offset);
+            dest->Write(buffer->data(), to_read, offset);
             offset += to_read;
         }
     } catch (...) {
-        LOG_ERROR(Service_FS, "Critical error during VFS mirror operation.");
+        LOG_ERROR(Service_FS, "Mirroring: Buffer copy failed.");
     }
 }
 
@@ -266,17 +270,16 @@ VirtualDir SaveDataFactory::GetMirrorDirectory(u64 title_id) const {
 }
 
 void SaveDataFactory::SmartSyncFromSource(VirtualDir source, VirtualDir dest) const {
-    // Citron: Shutdown and null safety
     if (!source || !dest || system.IsShuttingDown()) {
         return;
     }
 
-    // Sync files from Source to Destination
-    for (const auto& s_file : source->GetFiles()) {
+    // Sync files
+    const auto files = source->GetFiles();
+    for (const auto& s_file : files) {
         if (!s_file) continue;
-        std::string name = s_file->GetName();
+        const std::string name = s_file->GetName();
 
-        // Skip metadata and lock files
         if (name == ".lock" || name == ".citron_save_size" || name.find("mirror_backup") != std::string::npos) {
             continue;
         }
@@ -287,16 +290,18 @@ void SaveDataFactory::SmartSyncFromSource(VirtualDir source, VirtualDir dest) co
         }
     }
 
-    // Recurse into subdirectories
-    for (const auto& s_subdir : source->GetSubdirectories()) {
+    // Sync subdirectories
+    const auto subdirs = source->GetSubdirectories();
+    for (const auto& s_subdir : subdirs) {
         if (!s_subdir) continue;
+        const std::string sub_name = s_subdir->GetName();
 
-        // Prevent recursion into title-id-named folders to avoid infinite loops
-        if (s_subdir->GetName().find("0100") != std::string::npos) continue;
+        // Recursion guard for title-id folders
+        if (sub_name.find("0100") != std::string::npos) continue;
 
-        auto d_subdir = dest->GetDirectoryRelative(s_subdir->GetName());
+        auto d_subdir = dest->GetDirectoryRelative(sub_name);
         if (!d_subdir) {
-            d_subdir = dest->CreateDirectoryRelative(s_subdir->GetName());
+            d_subdir = dest->CreateDirectoryRelative(sub_name);
         }
 
         if (d_subdir) {
