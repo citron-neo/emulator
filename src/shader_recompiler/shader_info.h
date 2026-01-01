@@ -158,14 +158,6 @@ enum class ImageFormat : u32 {
     R32G32B32A32_SFLOAT,
 };
 
-enum class SamplerComponentType : u8 {
-    Float,
-    Sint,
-    Uint,
-    Depth,
-    Stencil,
-};
-
 enum class Interpolation {
     Smooth,
     Flat,
@@ -219,7 +211,6 @@ using ImageBufferDescriptors = boost::container::small_vector<ImageBufferDescrip
 
 struct TextureDescriptor {
     TextureType type;
-    SamplerComponentType component_type;
     bool is_depth;
     bool is_multisample;
     bool is_integer;
