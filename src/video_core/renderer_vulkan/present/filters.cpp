@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: Copyright 2024 yuzu Emulator Project
-// SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project
+// SPDX-FileCopyrightText: Copyright 2026 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "common/common_types.h"
@@ -12,6 +12,7 @@
 #include "video_core/host_shaders/vulkan_present_scaleforce_fp32_frag_spv.h"
 #include "video_core/host_shaders/vulkan_present_scalefx_fp16_frag_spv.h"
 #include "video_core/host_shaders/vulkan_present_scalefx_fp32_frag_spv.h"
+#include "video_core/host_shaders/vulkan_crt_easymode_frag_spv.h"
 #include "video_core/renderer_vulkan/present/filters.h"
 #include "video_core/renderer_vulkan/present/util.h"
 #include "video_core/renderer_vulkan/vk_shader_util.h"
@@ -73,6 +74,11 @@ std::unique_ptr<WindowAdaptPass> MakeScaleFx(const Device& device, VkFormat fram
 std::unique_ptr<WindowAdaptPass> MakeLanczos(const Device& device, VkFormat frame_format) {
     return std::make_unique<WindowAdaptPass>(device, frame_format, CreateNearestNeighborSampler(device),
                                              BuildShader(device, PRESENT_LANCZOS_FRAG_SPV));
+}
+
+std::unique_ptr<WindowAdaptPass> MakeCRT(const Device& device, VkFormat frame_format) {
+    return std::make_unique<WindowAdaptPass>(device, frame_format, CreateBilinearSampler(device),
+                                             BuildShader(device, VULKAN_CRT_EASYMODE_FRAG_SPV));
 }
 
 } // namespace Vulkan

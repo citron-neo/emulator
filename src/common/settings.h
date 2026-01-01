@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: Copyright 2021 yuzu Emulator Project
-// SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project
+// SPDX-FileCopyrightText: Copyright 2026 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #pragma once
@@ -349,6 +349,71 @@ struct Values {
                                                            Specialization::Percentage,
                                                        true,
                                                        true};
+
+    // CRT Shader Settings (only active when CRT filter is selected)
+    SwitchableSetting<float, true> crt_scanline_strength{linkage,
+                                                         1.0f,  // 100/100 = 1.0 (range 0-200, actual 0.0-2.0)
+                                                         0.0f,
+                                                         2.0f,
+                                                         "crt_scanline_strength",
+                                                         Category::Renderer,
+                                                         Specialization::Scalar,
+                                                         true,
+                                                         true};
+    SwitchableSetting<float, true> crt_curvature{linkage,
+                                                  0.0f,
+                                                  0.0f,
+                                                  1.0f,
+                                                  "crt_curvature",
+                                                  Category::Renderer,
+                                                  Specialization::Scalar,
+                                                  true,
+                                                  true};
+    SwitchableSetting<float, true> crt_gamma{linkage,
+                                              1.0f,  // 100 maps to 1.0 (range 1-300, actual 1.0-3.0)
+                                              1.0f,
+                                              3.0f,
+                                              "crt_gamma",
+                                              Category::Renderer,
+                                              Specialization::Scalar,
+                                              true,
+                                              true};
+    SwitchableSetting<float, true> crt_bloom{linkage,
+                                             0.33f,  // 33/100 = 0.33 (range 0-100, actual 0.0-1.0)
+                                             0.0f,
+                                             1.0f,
+                                             "crt_bloom",
+                                             Category::Renderer,
+                                             Specialization::Scalar,
+                                             true,
+                                             true};
+    SwitchableSetting<int, true> crt_mask_type{linkage,
+                                               1,  // Already correct
+                                               0,
+                                               2,
+                                               "crt_mask_type",
+                                               Category::Renderer,
+                                               Specialization::Scalar,
+                                               true,
+                                               true}; // 0=none, 1=aperture, 2=shadow
+    SwitchableSetting<float, true> crt_brightness{linkage,
+                                                  1.0f,  // Default brightness (1.0 = no change)
+                                                  0.0f,
+                                                  2.0f,
+                                                  "crt_brightness",
+                                                  Category::Renderer,
+                                                  Specialization::Scalar,
+                                                  true,
+                                                  true};
+    SwitchableSetting<float, true> crt_alpha{linkage,
+                                            1.0f,  // Default alpha (1.0 = fully opaque)
+                                            0.0f,
+                                            1.0f,
+                                            "crt_alpha",
+                                            Category::Renderer,
+                                            Specialization::Scalar,
+                                            true,
+                                            true};
 
 
     SwitchableSetting<int, true> lanczos_quality{linkage,

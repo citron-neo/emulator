@@ -1,5 +1,5 @@
 # SPDX-FileCopyrightText: 2018 yuzu Emulator Project
-# SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project
+# SPDX-FileCopyrightText: 2026 citron Emulator Project
 # SPDX-License-Identifier: GPL-2.0-or-later
 
 set(FIDELITYFX_INCLUDE_DIR ${CMAKE_SOURCE_DIR}/externals/FidelityFX-FSR/ffx-fsr)
@@ -74,6 +74,7 @@ set(SHADER_FILES
     vulkan_present_scaleforce_fp32.frag
     vulkan_present_scalefx_fp16.frag
     vulkan_present_scalefx_fp32.frag
+    vulkan_crt_easymode.frag
     vulkan_quad_indexed.comp
     vulkan_taa.frag
     vulkan_taa.vert

@@ -654,8 +654,12 @@
     <string name="scaling_filter_bicubic">Bicubic</string>
     <string name="scaling_filter_gaussian">Gaussian</string>
     <string name="scaling_filter_scale_force">ScaleForce</string>
+    <string name="scaling_filter_scale_fx">ScaleFX</string>
+    <string name="scaling_filter_lanczos">Lanczos</string>
     <string name="scaling_filter_fsr">AMD FidelityFX™ Super Resolution</string>
     <string name="scaling_filter_fsr2">AMD FidelityFX™ Super Resolution 2.0</string>
+    <string name="scaling_filter_crt_easymode">CRT EasyMode</string>
+    <string name="scaling_filter_crt_royale">CRT Royale</string>
 
     <!-- Anti-Aliasing -->
     <string name="anti_aliasing_none">None</string>

@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: Copyright 2024 yuzu Emulator Project
-// SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project
+// SPDX-FileCopyrightText: Copyright 2026 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "core/frontend/framebuffer_layout.h"
@@ -13,7 +13,7 @@
 #include "video_core/renderer_vulkan/vk_shader_util.h"
 #include "video_core/vulkan_common/vulkan_device.h"
 #include "video_core/vulkan_common/vulkan_memory_allocator.h"
-#include "common/settings.h" 
+#include "common/settings.h"
 
 namespace Vulkan {
 
@@ -92,16 +92,49 @@ void WindowAdaptPass::Draw(RasterizerVulkan& rasterizer, Scheduler& scheduler, s
         BeginRenderPass(cmdbuf, renderpass, host_framebuffer, render_area);
         cmdbuf.ClearAttachments({clear_attachment}, {clear_rect});
 
+        const auto current_scaling_filter = Settings::values.scaling_filter.GetValue();
+        const bool is_crt_enabled = current_scaling_filter == Settings::ScalingFilter::CRTEasyMode ||
+                                    current_scaling_filter == Settings::ScalingFilter::CRTRoyale;
+
         for (size_t i = 0; i < layer_count; i++) {
             cmdbuf.BindPipeline(VK_PIPELINE_BIND_POINT_GRAPHICS, graphics_pipelines[i]);
             cmdbuf.PushConstants(graphics_pipeline_layout, VK_SHADER_STAGE_VERTEX_BIT, 0,
                                  sizeof(PresentPushConstants), &push_constants[i]);
 
-
-            if (Settings::values.scaling_filter.GetValue() == Settings::ScalingFilter::Lanczos) {
+            // Push Lanczos quality if using Lanczos filter
+            if (current_scaling_filter == Settings::ScalingFilter::Lanczos && !is_crt_enabled) {
                 const s32 lanczos_a = Settings::values.lanczos_quality.GetValue();
                 cmdbuf.PushConstants(graphics_pipeline_layout, VK_SHADER_STAGE_FRAGMENT_BIT,
                                      sizeof(PresentPushConstants), sizeof(s32), &lanczos_a);
+            }
+
+            // Push CRT parameters if CRT filter is enabled
+            if (is_crt_enabled) {
+                struct CRTPushConstants {
+                    float scanline_strength;
+                    float curvature;
+                    float gamma;
+                    float bloom;
+                    int mask_type;
+                    float brightness;
+                    float alpha;
+                    float screen_width;
+                    float screen_height;
+                } crt_constants;
+
+                crt_constants.scanline_strength = Settings::values.crt_scanline_strength.GetValue();
+                crt_constants.curvature = Settings::values.crt_curvature.GetValue();
+                crt_constants.gamma = Settings::values.crt_gamma.GetValue();
+                crt_constants.bloom = Settings::values.crt_bloom.GetValue();
+                crt_constants.mask_type = Settings::values.crt_mask_type.GetValue();
+                crt_constants.brightness = Settings::values.crt_brightness.GetValue();
+                crt_constants.alpha = Settings::values.crt_alpha.GetValue();
+                crt_constants.screen_width = static_cast<float>(render_area.width);
+                crt_constants.screen_height = static_cast<float>(render_area.height);
+
+                cmdbuf.PushConstants(graphics_pipeline_layout, VK_SHADER_STAGE_FRAGMENT_BIT,
+                                     sizeof(PresentPushConstants) + sizeof(s32),
+                                     sizeof(CRTPushConstants), &crt_constants);
             }
 
             cmdbuf.BindDescriptorSets(VK_PIPELINE_BIND_POINT_GRAPHICS, graphics_pipeline_layout, 0,
@@ -127,8 +160,11 @@ void WindowAdaptPass::CreateDescriptorSetLayout() {
 }
 
 void WindowAdaptPass::CreatePipelineLayout() {
-
-    std::array<VkPushConstantRange, 2> ranges{};
+    // Support up to 3 push constant ranges:
+    // 0: PresentPushConstants (vertex shader)
+    // 1: Lanczos quality (fragment shader) - optional
+    // 2: CRT parameters (fragment shader) - optional
+    std::array<VkPushConstantRange, 3> ranges{};
 
     // Range 0: The existing constants for the Vertex Shader
     ranges[0] = {
@@ -137,11 +173,31 @@ void WindowAdaptPass::CreatePipelineLayout() {
         .size = sizeof(PresentPushConstants),
     };
 
-    // Range 1: Our new constant for the Fragment Shader
+    // Range 1: Lanczos quality for the Fragment Shader
     ranges[1] = {
         .stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,
         .offset = sizeof(PresentPushConstants),
         .size = sizeof(s32),
+    };
+
+    // Range 2: CRT parameters for the Fragment Shader
+    // Offset after PresentPushConstants + Lanczos (if used)
+    // CRT constants: 8 floats + 1 int = 36 bytes
+    struct CRTPushConstants {
+        float scanline_strength;
+        float curvature;
+        float gamma;
+        float bloom;
+        int mask_type;
+        float brightness;
+        float alpha;
+        float screen_width;
+        float screen_height;
+    };
+    ranges[2] = {
+        .stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,
+        .offset = sizeof(PresentPushConstants) + sizeof(s32),
+        .size = sizeof(CRTPushConstants),
     };
 
     pipeline_layout = device.GetLogical().CreatePipelineLayout(VkPipelineLayoutCreateInfo{
