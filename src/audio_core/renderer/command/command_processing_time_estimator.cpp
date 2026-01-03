@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: Copyright 2022 yuzu Emulator Project
+// SPDX-FileCopyrightText: Copyright 2026 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "audio_core/renderer/command/command_processing_time_estimator.h"
@@ -3615,6 +3616,60 @@ u32 CommandProcessingTimeEstimatorVersion5::Estimate(const CompressorCommand& co
         LOG_ERROR(Service_Audio, "Invalid channel count {}", command.parameter.channel_count);
         return 0;
     }
+}
+
+// BiquadFilterAndMixCommand estimates (REV12+)
+// Similar to BiquadFilter + Mix, but slightly optimized as combined operation
+u32 CommandProcessingTimeEstimatorVersion1::Estimate(
+    [[maybe_unused]] const BiquadFilterAndMixCommand& command) const {
+    return static_cast<u32>((static_cast<f32>(sample_count) * 60.0f) * 1.2f);
+}
+
+u32 CommandProcessingTimeEstimatorVersion2::Estimate(
+    [[maybe_unused]] const BiquadFilterAndMixCommand& command) const {
+    return static_cast<u32>((static_cast<f32>(sample_count) * 60.0f) * 1.2f);
+}
+
+u32 CommandProcessingTimeEstimatorVersion3::Estimate(
+    [[maybe_unused]] const BiquadFilterAndMixCommand& command) const {
+    return static_cast<u32>((static_cast<f32>(sample_count) * 60.0f) * 1.2f);
+}
+
+u32 CommandProcessingTimeEstimatorVersion4::Estimate(
+    [[maybe_unused]] const BiquadFilterAndMixCommand& command) const {
+    return static_cast<u32>((static_cast<f32>(sample_count) * 60.0f) * 1.2f);
+}
+
+u32 CommandProcessingTimeEstimatorVersion5::Estimate(
+    [[maybe_unused]] const BiquadFilterAndMixCommand& command) const {
+    return static_cast<u32>((static_cast<f32>(sample_count) * 60.0f) * 1.2f);
+}
+
+// MultiTapBiquadFilterAndMixCommand estimates (REV12+)
+// Similar to MultiTapBiquadFilter + Mix, but slightly optimized as combined operation
+u32 CommandProcessingTimeEstimatorVersion1::Estimate(
+    [[maybe_unused]] const MultiTapBiquadFilterAndMixCommand& command) const {
+    return static_cast<u32>((static_cast<f32>(sample_count) * 100.0f) * 1.2f);
+}
+
+u32 CommandProcessingTimeEstimatorVersion2::Estimate(
+    [[maybe_unused]] const MultiTapBiquadFilterAndMixCommand& command) const {
+    return static_cast<u32>((static_cast<f32>(sample_count) * 100.0f) * 1.2f);
+}
+
+u32 CommandProcessingTimeEstimatorVersion3::Estimate(
+    [[maybe_unused]] const MultiTapBiquadFilterAndMixCommand& command) const {
+    return static_cast<u32>((static_cast<f32>(sample_count) * 100.0f) * 1.2f);
+}
+
+u32 CommandProcessingTimeEstimatorVersion4::Estimate(
+    [[maybe_unused]] const MultiTapBiquadFilterAndMixCommand& command) const {
+    return static_cast<u32>((static_cast<f32>(sample_count) * 100.0f) * 1.2f);
+}
+
+u32 CommandProcessingTimeEstimatorVersion5::Estimate(
+    [[maybe_unused]] const MultiTapBiquadFilterAndMixCommand& command) const {
+    return static_cast<u32>((static_cast<f32>(sample_count) * 100.0f) * 1.2f);
 }
 
 } // namespace AudioCore::Renderer

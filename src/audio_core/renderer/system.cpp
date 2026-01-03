@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: Copyright 2022 yuzu Emulator Project
+// SPDX-FileCopyrightText: Copyright 2026 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <chrono>
@@ -117,6 +118,14 @@ Result System::Initialize(const AudioRendererParameterInternal& params,
     }
 
     behavior.SetUserLibRevision(params.revision);
+
+    LOG_INFO(Service_Audio, "Initializing audio renderer with revision {} (numeric: {})",
+             ::AudioCore::GetRevisionNum(params.revision), params.revision);
+    LOG_DEBUG(Service_Audio,
+              "Audio renderer params: voices={}, mixes={}, effects={}, sinks={}, "
+              "splitter_infos={}, splitter_destinations={}",
+              params.voices, params.mixes, params.effects, params.sinks,
+              params.splitter_infos, params.splitter_destinations);
 
     process_handle = process_handle_;
     applet_resource_user_id = applet_resource_user_id_;
@@ -266,9 +275,23 @@ Result System::Initialize(const AudioRendererParameterInternal& params,
         return Service::Audio::ResultInsufficientBuffer;
     }
 
-    if (!splitter_context.Initialize(behavior, params, allocator)) {
+    // Allocate biquad filter states for splitters (REV12+)
+    std::span<VoiceState::BiquadFilterState> splitter_bqf_states{};
+    if (behavior.IsBiquadFilterParameterForSplitterEnabled() &&
+        params.splitter_destinations > 0) {
+        splitter_bqf_states = allocator.Allocate<VoiceState::BiquadFilterState>(
+            params.splitter_destinations * SplitterContext::BqfStatesPerDestination, 0x10);
+        if (splitter_bqf_states.empty()) {
+            return Service::Audio::ResultInsufficientBuffer;
+        }
+        std::memset(splitter_bqf_states.data(), 0, splitter_bqf_states.size_bytes());
+    }
+
+    if (!splitter_context.Initialize(behavior, params, allocator, splitter_bqf_states)) {
+        LOG_ERROR(Service_Audio, "Failed to initialize splitter context!");
         return Service::Audio::ResultInsufficientBuffer;
     }
+    LOG_DEBUG(Service_Audio, "Splitter context initialized successfully");
 
     std::span<EffectResultState> effect_result_states_cpu{};
     if (behavior.IsEffectInfoVersion2Supported() && params.effects > 0) {
@@ -450,6 +473,9 @@ Result System::Update(std::span<const u8> input, std::span<u8> performance, std:
 
     const auto start_time{core.CoreTiming().GetGlobalTimeNs().count()};
     std::memset(output.data(), 0, output.size());
+
+    LOG_DEBUG(Service_Audio, "Audio renderer update - user revision: {} (numeric: {})",
+              behavior.GetUserRevision(), behavior.GetUserRevisionNum());
 
     InfoUpdater info_updater(input, output, process_handle, behavior);
 

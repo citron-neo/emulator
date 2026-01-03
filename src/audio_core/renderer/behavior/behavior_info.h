@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: Copyright 2022 yuzu Emulator Project
+// SPDX-FileCopyrightText: Copyright 2026 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #pragma once
@@ -393,6 +394,14 @@ public:
      * @return True if supported, otherwise false.
      */
     bool IsVoiceInParameterV2Supported() const;
+
+    /**
+     * Check if biquad filter parameters for splitter destinations are supported (revision 12+).
+     * This allows splitter destinations to specify up to 2 biquad filters for filtering before mixing.
+     *
+     * @return True if supported, otherwise false.
+     */
+    bool IsBiquadFilterParameterForSplitterEnabled() const;
 
     /// Host version
     u32 process_revision;

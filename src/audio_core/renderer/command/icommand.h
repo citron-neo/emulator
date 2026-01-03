@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: Copyright 2022 yuzu Emulator Project
+// SPDX-FileCopyrightText: Copyright 2026 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #pragma once
@@ -47,6 +48,8 @@ enum class CommandId : u8 {
     /* 0x1C */ MultiTapBiquadFilter,
     /* 0x1D */ Capture,
     /* 0x1E */ Compressor,
+    /* 0x1F */ BiquadFilterAndMix,
+    /* 0x20 */ MultiTapBiquadFilterAndMix,
 };
 
 constexpr u32 CommandMagic{0xCAFEBABE};

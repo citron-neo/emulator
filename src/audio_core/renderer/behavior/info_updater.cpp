@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright 2022 yuzu Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
+#include "audio_core/common/common.h"
 #include "audio_core/common/feature_support.h"
 #include "audio_core/renderer/behavior/behavior_info.h"
 #include "audio_core/renderer/behavior/info_updater.h"
@@ -351,9 +352,32 @@ Result InfoUpdater::UpdateMixes(MixContext& mix_context, const u32 mix_buffer_co
     u32 consumed_input_size{0};
     u32 input_mix_size{0};
 
+    LOG_DEBUG(Service_Audio,
+              "UpdateMixes: mix_size={}, dirty_update_supported={}, mix_context_count={}, "
+              "input_magic=0x{:X}",
+              in_header->mix_size, behaviour.IsMixInParameterDirtyOnlyUpdateSupported(),
+              mix_context.GetCount(),
+              input[0] | (input[1] << 8) | (input[2] << 16) | (input[3] << 24));
+
+    // Check if we're seeing splitter destination data instead of mix data
+    const u32 input_magic = input[0] | (input[1] << 8) | (input[2] << 16) | (input[3] << 24);
+    if (input_magic == AudioCore::GetSplitterSendDataMagic()) {
+        LOG_ERROR(Service_Audio,
+                  "UpdateMixes: Found splitter destination data (magic=0x{:X}) instead of mix data. "
+                  "This suggests UpdateSplitterInfo didn't consume the splitter data correctly. "
+                  "offset_from_start={}",
+                  input_magic, CpuAddr(input) - CpuAddr(input_origin.data()));
+        // Don't return error here - let it fail naturally so we can see the full error
+    }
+
     if (behaviour.IsMixInParameterDirtyOnlyUpdateSupported()) {
         auto in_dirty_params{reinterpret_cast<const MixInfo::InDirtyParameter*>(input)};
         mix_count = in_dirty_params->count;
+
+        LOG_DEBUG(Service_Audio,
+                  "Dirty parameter: count={}, magic=0x{:X}, expected_size={}, offset_from_start={}",
+                  mix_count, in_dirty_params->magic, in_header->mix_size,
+                  CpuAddr(input) - CpuAddr(input_origin.data()));
 
         // Validate against expected header size to ensure structure is correct
         if (mix_count < 0 || mix_count > 0x100) {
@@ -430,9 +454,16 @@ Result InfoUpdater::UpdateMixes(MixContext& mix_context, const u32 mix_buffer_co
         }
     }
 
+    LOG_DEBUG(Service_Audio,
+              "UpdateMixes: consumed={}, header_size={}, mix_count={}, mix_param_size={}",
+              consumed_input_size, in_header->mix_size, mix_count, sizeof(MixInfo::InParameter));
+
     if (consumed_input_size != in_header->mix_size) {
-        LOG_ERROR(Service_Audio, "Consumed an incorrect mixes size, header size={}, consumed={}",
-                  in_header->mix_size, consumed_input_size);
+        LOG_ERROR(Service_Audio,
+                  "Consumed an incorrect mixes size, header size={}, consumed={}, "
+                  "mix_count={}, mix_param_size={}, offset_from_start={}",
+                  in_header->mix_size, consumed_input_size, mix_count,
+                  sizeof(MixInfo::InParameter), CpuAddr(input) - CpuAddr(input_origin.data()));
         return Service::Audio::ResultInvalidUpdateInfo;
     }
 
@@ -604,10 +635,21 @@ Result InfoUpdater::UpdateErrorInfo(const BehaviorInfo& behaviour_) {
 }
 
 Result InfoUpdater::UpdateSplitterInfo(SplitterContext& splitter_context) {
+    LOG_DEBUG(Service_Audio,
+              "UpdateSplitterInfo: offset_from_start={}, input_magic=0x{:X}",
+              CpuAddr(input) - CpuAddr(input_origin.data()),
+              input[0] | (input[1] << 8) | (input[2] << 16) | (input[3] << 24));
+
     u32 consumed_size{0};
     if (!splitter_context.Update(input, consumed_size)) {
+        LOG_ERROR(Service_Audio, "UpdateSplitterInfo: splitter_context.Update failed, consumed_size={}",
+                  consumed_size);
         return Service::Audio::ResultInvalidUpdateInfo;
     }
+
+    LOG_DEBUG(Service_Audio,
+              "UpdateSplitterInfo: consumed={}, new_offset_from_start={}",
+              consumed_size, CpuAddr(input) - CpuAddr(input_origin.data()) + consumed_size);
 
     input += consumed_size;
 

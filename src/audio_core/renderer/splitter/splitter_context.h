@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: Copyright 2022 yuzu Emulator Project
+// SPDX-FileCopyrightText: Copyright 2026 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #pragma once
@@ -7,6 +8,7 @@
 
 #include "audio_core/renderer/splitter/splitter_destinations_data.h"
 #include "audio_core/renderer/splitter/splitter_info.h"
+#include "audio_core/renderer/voice/voice_state.h"
 #include "common/common_types.h"
 
 namespace AudioCore {
@@ -35,6 +37,10 @@ class SplitterContext {
                   "SplitterContext::InParameterHeader has the wrong size!");
 
 public:
+    /**
+     * Amount of biquad filter states per splitter destination (REV12+).
+     */
+    static constexpr u32 BqfStatesPerDestination = 4;
     /**
      * Get a destination mix from the given splitter and destination index.
      *
@@ -92,9 +98,11 @@ public:
      * @param behavior - Used to check for splitter support.
      * @param params    - Input parameters.
      * @param allocator - Allocator used to allocate workbuffer memory.
+     * @param splitter_bqf_states - Memory span for biquad filter states (REV12+).
      */
     bool Initialize(const BehaviorInfo& behavior, const AudioRendererParameterInternal& params,
-                    WorkbufferAllocator& allocator);
+                    WorkbufferAllocator& allocator,
+                    std::span<VoiceState::BiquadFilterState> splitter_bqf_states = {});
 
     /**
      * Update the context.
@@ -150,6 +158,14 @@ public:
     u32 GetDestCountPerInfoForCompat() const;
 
     /**
+     * Get biquad filter state for a specific destination (REV12+).
+     *
+     * @param destination_id - Destination index.
+     * @return Span of biquad filter states for this destination.
+     */
+    std::span<VoiceState::BiquadFilterState> GetBiquadFilterState(s32 destination_id);
+
+    /**
      * Calculate the size of the required workbuffer for splitters and destinations.
      *
      * @param behavior - Used to check splitter features.
@@ -188,6 +204,10 @@ private:
     bool splitter_prev_volume_reset_supported{};
     /// Is float coefficient/biquad filter v2b parameter supported?
     bool splitter_float_coeff_supported{};
+    /// Is biquad filter parameter for splitter enabled (REV12+)?
+    bool splitter_biquad_filter_enabled{};
+    /// Splitter biquad filtering states (REV12+)
+    std::span<VoiceState::BiquadFilterState> splitter_bqf_states{};
 };
 
 } // namespace Renderer
