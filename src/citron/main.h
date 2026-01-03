@@ -105,6 +105,7 @@ class GMainWindow : public QMainWindow {
 public:
     void filterBarSetChecked(bool state);
     void UpdateUITheme();
+    bool IsConfiguring() const { return m_is_configuring; }
     explicit GMainWindow(std::unique_ptr<QtConfig> config_, bool has_broken_vulkan);
     ~GMainWindow() override;
     bool DropAction(QDropEvent* event);
@@ -197,6 +198,7 @@ private:
     Service::AM::FrontendAppletParameters ApplicationAppletParameters();
     Service::AM::FrontendAppletParameters LibraryAppletParameters(u64 program_id, Service::AM::AppletId applet_id);
     std::unique_ptr<FileSys::ManualContentProvider> autoloader_provider;
+    u64 current_title_id{0};
 private slots:
     void OnStartGame();
     void OnRestartGame();
@@ -398,6 +400,7 @@ private:
     bool is_load_file_select_active{};
     bool is_tas_recording_dialog_active{};
     bool m_is_updating_theme = false;
+    bool m_is_configuring = false;
     #ifdef __unix__
     QSocketNotifier* sig_interrupt_notifier;
     static std::array<int, 3> sig_interrupt_fds;

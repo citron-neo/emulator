@@ -4087,6 +4087,7 @@ void GMainWindow::ResetWindowSize1080() {
 }
 
 void GMainWindow::OnConfigure() {
+    m_is_configuring = true;
     const auto old_theme = UISettings::values.theme;
     const bool old_discord_presence = UISettings::values.enable_discord_presence.GetValue();
     const auto old_language_index = Settings::values.language_index.GetValue();
@@ -4105,13 +4106,10 @@ void GMainWindow::OnConfigure() {
 
     if (result != QDialog::Accepted && !UISettings::values.configuration_applied &&
         !UISettings::values.reset_to_defaults) {
-        // Runs if the user hit Cancel or closed the window, and did not ever press the Apply button
-        // or `Reset to Defaults` button
+        // Runs if the user hit Cancel or closed the window
+        m_is_configuring = false;
         return;
     } else if (result == QDialog::Accepted) {
-        // Only apply new changes if user hit Okay
-        // This is here to avoid applying changes if the user hit Apply, made some changes, then hit
-        // Cancel
         configure_dialog.ApplyConfiguration();
     } else if (UISettings::values.reset_to_defaults) {
         LOG_INFO(Frontend, "Resetting all settings to defaults");
@@ -4127,8 +4125,6 @@ void GMainWindow::OnConfigure() {
             LOG_WARNING(Frontend, "Failed to remove game metadata cache files");
         }
 
-        // Explicitly save the game directories, since reinitializing config does not explicitly do
-        // so.
         QVector<UISettings::GameDir> old_game_dirs = std::move(UISettings::values.game_dirs);
         QVector<u64> old_favorited_ids = std::move(UISettings::values.favorited_ids);
 
@@ -4197,6 +4193,8 @@ void GMainWindow::OnConfigure() {
     UpdateStatusButtons();
     controller_dialog->refreshConfiguration();
     system->ApplySettings();
+
+    m_is_configuring = false;
 }
 
 void GMainWindow::OnConfigureTas() {
