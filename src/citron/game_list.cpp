@@ -954,8 +954,13 @@ void GameList::DonePopulating(const QStringList& watch_list) {
         }
     }
 
-    LOG_INFO(Frontend, "Game List populated. Triggering Mirror Sync...");
-    system.GetFileSystemController().GetSaveDataFactory().PerformStartupMirrorSync();
+    // Only sync if we aren't rebuilding the UI and the game isn't running.
+    if (main_window && !main_window->IsConfiguring() && !system.IsPoweredOn()) {
+        LOG_INFO(Frontend, "Game List populated. Triggering Mirror Sync...");
+        system.GetFileSystemController().GetSaveDataFactory().PerformStartupMirrorSync();
+    } else {
+        LOG_INFO(Frontend, "Mirroring: Startup sync skipped (Reason: UI Busy or Game is Emulating).");
+    }
 
     emit PopulatingCompleted();
 }
