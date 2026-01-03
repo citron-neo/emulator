@@ -49,6 +49,7 @@ enum class SupportTags {
     SplitterPrevVolumeReset,
     SplitterDestinationV2b,
     VoiceInParameterV2,
+    SplitterBiquadFilter,
 
     // Not a real tag, just here to get the count.
     Size
@@ -95,6 +96,7 @@ constexpr bool CheckFeatureSupported(SupportTags tag, u32 user_revision) {
             {SupportTags::CompressorStatistics, 13},
             {SupportTags::SplitterPrevVolumeReset, 13},
             {SupportTags::DeviceApiVersion2, 13},
+            {SupportTags::SplitterBiquadFilter, 12},
             {SupportTags::SplitterDestinationV2b, 15},
             {SupportTags::VoiceInParameterV2, 15},
         }};

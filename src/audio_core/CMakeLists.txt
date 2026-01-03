@@ -101,6 +101,10 @@ add_library(audio_core STATIC
     renderer/command/effect/limiter.h
     renderer/command/effect/multi_tap_biquad_filter.cpp
     renderer/command/effect/multi_tap_biquad_filter.h
+    renderer/command/effect/biquad_filter_and_mix.cpp
+    renderer/command/effect/biquad_filter_and_mix.h
+    renderer/command/effect/multi_tap_biquad_filter_and_mix.cpp
+    renderer/command/effect/multi_tap_biquad_filter_and_mix.h
     renderer/command/effect/reverb.cpp
     renderer/command/effect/reverb.h
     renderer/command/mix/clear_mix.cpp

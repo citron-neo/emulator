@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: Copyright 2022 yuzu Emulator Project
+// SPDX-FileCopyrightText: Copyright 2026 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #pragma once
@@ -44,6 +45,8 @@ public:
     virtual u32 Estimate(const MultiTapBiquadFilterCommand& command) const = 0;
     virtual u32 Estimate(const CaptureCommand& command) const = 0;
     virtual u32 Estimate(const CompressorCommand& command) const = 0;
+    virtual u32 Estimate(const BiquadFilterAndMixCommand& command) const = 0;
+    virtual u32 Estimate(const MultiTapBiquadFilterAndMixCommand& command) const = 0;
 };
 
 class CommandProcessingTimeEstimatorVersion1 final : public ICommandProcessingTimeEstimator {
@@ -81,6 +84,8 @@ public:
     u32 Estimate(const MultiTapBiquadFilterCommand& command) const override;
     u32 Estimate(const CaptureCommand& command) const override;
     u32 Estimate(const CompressorCommand& command) const override;
+    u32 Estimate(const BiquadFilterAndMixCommand& command) const override;
+    u32 Estimate(const MultiTapBiquadFilterAndMixCommand& command) const override;
 
 private:
     u32 sample_count{};
@@ -122,6 +127,8 @@ public:
     u32 Estimate(const MultiTapBiquadFilterCommand& command) const override;
     u32 Estimate(const CaptureCommand& command) const override;
     u32 Estimate(const CompressorCommand& command) const override;
+    u32 Estimate(const BiquadFilterAndMixCommand& command) const override;
+    u32 Estimate(const MultiTapBiquadFilterAndMixCommand& command) const override;
 
 private:
     u32 sample_count{};
@@ -163,6 +170,8 @@ public:
     u32 Estimate(const MultiTapBiquadFilterCommand& command) const override;
     u32 Estimate(const CaptureCommand& command) const override;
     u32 Estimate(const CompressorCommand& command) const override;
+    u32 Estimate(const BiquadFilterAndMixCommand& command) const override;
+    u32 Estimate(const MultiTapBiquadFilterAndMixCommand& command) const override;
 
 private:
     u32 sample_count{};
@@ -204,6 +213,8 @@ public:
     u32 Estimate(const MultiTapBiquadFilterCommand& command) const override;
     u32 Estimate(const CaptureCommand& command) const override;
     u32 Estimate(const CompressorCommand& command) const override;
+    u32 Estimate(const BiquadFilterAndMixCommand& command) const override;
+    u32 Estimate(const MultiTapBiquadFilterAndMixCommand& command) const override;
 
 private:
     u32 sample_count{};
@@ -245,6 +256,8 @@ public:
     u32 Estimate(const MultiTapBiquadFilterCommand& command) const override;
     u32 Estimate(const CaptureCommand& command) const override;
     u32 Estimate(const CompressorCommand& command) const override;
+    u32 Estimate(const BiquadFilterAndMixCommand& command) const override;
+    u32 Estimate(const MultiTapBiquadFilterAndMixCommand& command) const override;
 
 private:
     u32 sample_count{};

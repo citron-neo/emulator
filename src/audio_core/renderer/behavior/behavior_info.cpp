@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: Copyright 2022 yuzu Emulator Project
+// SPDX-FileCopyrightText: Copyright 2026 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "audio_core/common/feature_support.h"
@@ -204,6 +205,10 @@ bool BehaviorInfo::IsSplitterDestinationV2bSupported() const {
 
 bool BehaviorInfo::IsVoiceInParameterV2Supported() const {
     return CheckFeatureSupported(SupportTags::VoiceInParameterV2, user_revision);
+}
+
+bool BehaviorInfo::IsBiquadFilterParameterForSplitterEnabled() const {
+    return CheckFeatureSupported(SupportTags::SplitterBiquadFilter, user_revision);
 }
 
 } // namespace AudioCore::Renderer

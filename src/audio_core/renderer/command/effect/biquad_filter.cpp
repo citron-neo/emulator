@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: Copyright 2022 yuzu Emulator Project
+// SPDX-FileCopyrightText: Copyright 2026 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "audio_core/adsp/apps/audio_renderer/command_list_processor.h"
@@ -79,6 +80,264 @@ void ApplyBiquadFilterFloat2(std::span<s32> output, std::span<const s32> input,
     state.s1 = Common::BitCast<s64>(s[1]);
     state.s2 = Common::BitCast<s64>(s[2]);
     state.s3 = Common::BitCast<s64>(s[3]);
+}
+
+/**
+ * Apply a single biquad filter and mix the result into the output buffer (REV12+).
+ *
+ * @param output       - Output container to mix filtered samples into.
+ * @param input        - Input container for samples to be filtered.
+ * @param b            - Feedforward coefficients.
+ * @param a            - Feedback coefficients.
+ * @param state        - State to track previous samples between calls.
+ * @param sample_count - Number of samples to process.
+ * @param volume       - Mix volume.
+ */
+void ApplyBiquadFilterAndMix(std::span<s32> output, std::span<const s32> input,
+                             std::array<s16, 3>& b_, std::array<s16, 2>& a_,
+                             VoiceState::BiquadFilterState& state, const u32 sample_count,
+                             f32 volume) {
+    constexpr f64 min{std::numeric_limits<s32>::min()};
+    constexpr f64 max{std::numeric_limits<s32>::max()};
+    std::array<f64, 3> b{Common::FixedPoint<50, 14>::from_base(b_[0]).to_double(),
+                         Common::FixedPoint<50, 14>::from_base(b_[1]).to_double(),
+                         Common::FixedPoint<50, 14>::from_base(b_[2]).to_double()};
+    std::array<f64, 2> a{Common::FixedPoint<50, 14>::from_base(a_[0]).to_double(),
+                         Common::FixedPoint<50, 14>::from_base(a_[1]).to_double()};
+    std::array<f64, 4> s{Common::BitCast<f64>(state.s0), Common::BitCast<f64>(state.s1),
+                         Common::BitCast<f64>(state.s2), Common::BitCast<f64>(state.s3)};
+
+    for (u32 i = 0; i < sample_count; i++) {
+        f64 in_sample{static_cast<f64>(input[i])};
+        auto filtered{in_sample * b[0] + s[0] * b[1] + s[1] * b[2] + s[2] * a[0] + s[3] * a[1]};
+
+        s[1] = s[0];
+        s[0] = in_sample;
+        s[3] = s[2];
+        s[2] = filtered;
+
+        // Mix into output (additive)
+        f64 mixed{static_cast<f64>(output[i]) + filtered * static_cast<f64>(volume)};
+        output[i] = static_cast<s32>(std::clamp(mixed, min, max));
+    }
+
+    state.s0 = Common::BitCast<s64>(s[0]);
+    state.s1 = Common::BitCast<s64>(s[1]);
+    state.s2 = Common::BitCast<s64>(s[2]);
+    state.s3 = Common::BitCast<s64>(s[3]);
+}
+
+/**
+ * Apply a single biquad filter and mix the result into the output buffer with volume ramp (REV12+).
+ *
+ * @param output       - Output container to mix filtered samples into.
+ * @param input        - Input container for samples to be filtered.
+ * @param b            - Feedforward coefficients.
+ * @param a            - Feedback coefficients.
+ * @param state        - State to track previous samples between calls.
+ * @param sample_count - Number of samples to process.
+ * @param volume       - Initial mix volume.
+ * @param ramp         - Volume increment step per sample.
+ * @return Last filtered sample value.
+ */
+f32 ApplyBiquadFilterAndMixRamp(std::span<s32> output, std::span<const s32> input,
+                                std::array<s16, 3>& b_, std::array<s16, 2>& a_,
+                                VoiceState::BiquadFilterState& state, const u32 sample_count,
+                                f32 volume, f32 ramp) {
+    constexpr f64 min{std::numeric_limits<s32>::min()};
+    constexpr f64 max{std::numeric_limits<s32>::max()};
+    std::array<f64, 3> b{Common::FixedPoint<50, 14>::from_base(b_[0]).to_double(),
+                         Common::FixedPoint<50, 14>::from_base(b_[1]).to_double(),
+                         Common::FixedPoint<50, 14>::from_base(b_[2]).to_double()};
+    std::array<f64, 2> a{Common::FixedPoint<50, 14>::from_base(a_[0]).to_double(),
+                         Common::FixedPoint<50, 14>::from_base(a_[1]).to_double()};
+    std::array<f64, 4> s{Common::BitCast<f64>(state.s0), Common::BitCast<f64>(state.s1),
+                         Common::BitCast<f64>(state.s2), Common::BitCast<f64>(state.s3)};
+
+    f32 current_volume{volume};
+    f32 last_mixed{0.0f};
+
+    for (u32 i = 0; i < sample_count; i++) {
+        f64 in_sample{static_cast<f64>(input[i])};
+        auto filtered{in_sample * b[0] + s[0] * b[1] + s[1] * b[2] + s[2] * a[0] + s[3] * a[1]};
+
+        s[1] = s[0];
+        s[0] = in_sample;
+        s[3] = s[2];
+        s[2] = filtered;
+
+        // Mix into output with current volume
+        last_mixed = static_cast<f32>(filtered * static_cast<f64>(current_volume));
+        f64 mixed{static_cast<f64>(output[i]) + static_cast<f64>(last_mixed)};
+        output[i] = static_cast<s32>(std::clamp(mixed, min, max));
+
+        current_volume += ramp;
+    }
+
+    state.s0 = Common::BitCast<s64>(s[0]);
+    state.s1 = Common::BitCast<s64>(s[1]);
+    state.s2 = Common::BitCast<s64>(s[2]);
+    state.s3 = Common::BitCast<s64>(s[3]);
+
+    return last_mixed;
+}
+
+/**
+ * Apply double biquad filter and mix the result into the output buffer (REV12+).
+ *
+ * @param output       - Output container to mix filtered samples into.
+ * @param input        - Input container for samples to be filtered.
+ * @param biquads      - Array of two biquad filter parameters.
+ * @param states       - Array of two biquad filter states.
+ * @param sample_count - Number of samples to process.
+ * @param volume       - Mix volume.
+ */
+void ApplyDoubleBiquadFilterAndMix(std::span<s32> output, std::span<const s32> input,
+                                   std::array<VoiceInfo::BiquadFilterParameter, 2>& biquads,
+                                   std::array<VoiceState::BiquadFilterState, 2>& states,
+                                   const u32 sample_count, f32 volume) {
+    constexpr f64 min{std::numeric_limits<s32>::min()};
+    constexpr f64 max{std::numeric_limits<s32>::max()};
+
+    // Convert first filter coefficients
+    std::array<f64, 3> b0{Common::FixedPoint<50, 14>::from_base(biquads[0].b[0]).to_double(),
+                          Common::FixedPoint<50, 14>::from_base(biquads[0].b[1]).to_double(),
+                          Common::FixedPoint<50, 14>::from_base(biquads[0].b[2]).to_double()};
+    std::array<f64, 2> a0{Common::FixedPoint<50, 14>::from_base(biquads[0].a[0]).to_double(),
+                          Common::FixedPoint<50, 14>::from_base(biquads[0].a[1]).to_double()};
+
+    // Convert second filter coefficients
+    std::array<f64, 3> b1{Common::FixedPoint<50, 14>::from_base(biquads[1].b[0]).to_double(),
+                          Common::FixedPoint<50, 14>::from_base(biquads[1].b[1]).to_double(),
+                          Common::FixedPoint<50, 14>::from_base(biquads[1].b[2]).to_double()};
+    std::array<f64, 2> a1{Common::FixedPoint<50, 14>::from_base(biquads[1].a[0]).to_double(),
+                          Common::FixedPoint<50, 14>::from_base(biquads[1].a[1]).to_double()};
+
+    // Get states
+    std::array<f64, 4> s0{Common::BitCast<f64>(states[0].s0), Common::BitCast<f64>(states[0].s1),
+                          Common::BitCast<f64>(states[0].s2), Common::BitCast<f64>(states[0].s3)};
+    std::array<f64, 4> s1{Common::BitCast<f64>(states[1].s0), Common::BitCast<f64>(states[1].s1),
+                          Common::BitCast<f64>(states[1].s2), Common::BitCast<f64>(states[1].s3)};
+
+    for (u32 i = 0; i < sample_count; i++) {
+        f64 in_sample{static_cast<f64>(input[i])};
+
+        // First filter
+        auto filtered0{in_sample * b0[0] + s0[0] * b0[1] + s0[1] * b0[2] + s0[2] * a0[0] +
+                       s0[3] * a0[1]};
+
+        s0[1] = s0[0];
+        s0[0] = in_sample;
+        s0[3] = s0[2];
+        s0[2] = filtered0;
+
+        // Second filter (uses output of first)
+        auto filtered1{filtered0 * b1[0] + s1[0] * b1[1] + s1[1] * b1[2] + s1[2] * a1[0] +
+                       s1[3] * a1[1]};
+
+        s1[1] = s1[0];
+        s1[0] = filtered0;
+        s1[3] = s1[2];
+        s1[2] = filtered1;
+
+        // Mix into output (additive)
+        f64 mixed{static_cast<f64>(output[i]) + filtered1 * static_cast<f64>(volume)};
+        output[i] = static_cast<s32>(std::clamp(mixed, min, max));
+    }
+
+    // Save states back
+    states[0].s0 = Common::BitCast<s64>(s0[0]);
+    states[0].s1 = Common::BitCast<s64>(s0[1]);
+    states[0].s2 = Common::BitCast<s64>(s0[2]);
+    states[0].s3 = Common::BitCast<s64>(s0[3]);
+    states[1].s0 = Common::BitCast<s64>(s1[0]);
+    states[1].s1 = Common::BitCast<s64>(s1[1]);
+    states[1].s2 = Common::BitCast<s64>(s1[2]);
+    states[1].s3 = Common::BitCast<s64>(s1[3]);
+}
+
+/**
+ * Apply double biquad filter and mix the result into the output buffer with volume ramp (REV12+).
+ *
+ * @param output       - Output container to mix filtered samples into.
+ * @param input        - Input container for samples to be filtered.
+ * @param biquads      - Array of two biquad filter parameters.
+ * @param states       - Array of two biquad filter states.
+ * @param sample_count - Number of samples to process.
+ * @param volume       - Initial mix volume.
+ * @param ramp         - Volume increment step per sample.
+ * @return Last filtered sample value.
+ */
+f32 ApplyDoubleBiquadFilterAndMixRamp(std::span<s32> output, std::span<const s32> input,
+                                      std::array<VoiceInfo::BiquadFilterParameter, 2>& biquads,
+                                      std::array<VoiceState::BiquadFilterState, 2>& states,
+                                      const u32 sample_count, f32 volume, f32 ramp) {
+    constexpr f64 min{std::numeric_limits<s32>::min()};
+    constexpr f64 max{std::numeric_limits<s32>::max()};
+
+    // Convert first filter coefficients
+    std::array<f64, 3> b0{Common::FixedPoint<50, 14>::from_base(biquads[0].b[0]).to_double(),
+                          Common::FixedPoint<50, 14>::from_base(biquads[0].b[1]).to_double(),
+                          Common::FixedPoint<50, 14>::from_base(biquads[0].b[2]).to_double()};
+    std::array<f64, 2> a0{Common::FixedPoint<50, 14>::from_base(biquads[0].a[0]).to_double(),
+                          Common::FixedPoint<50, 14>::from_base(biquads[0].a[1]).to_double()};
+
+    // Convert second filter coefficients
+    std::array<f64, 3> b1{Common::FixedPoint<50, 14>::from_base(biquads[1].b[0]).to_double(),
+                          Common::FixedPoint<50, 14>::from_base(biquads[1].b[1]).to_double(),
+                          Common::FixedPoint<50, 14>::from_base(biquads[1].b[2]).to_double()};
+    std::array<f64, 2> a1{Common::FixedPoint<50, 14>::from_base(biquads[1].a[0]).to_double(),
+                          Common::FixedPoint<50, 14>::from_base(biquads[1].a[1]).to_double()};
+
+    // Get states
+    std::array<f64, 4> s0{Common::BitCast<f64>(states[0].s0), Common::BitCast<f64>(states[0].s1),
+                          Common::BitCast<f64>(states[0].s2), Common::BitCast<f64>(states[0].s3)};
+    std::array<f64, 4> s1{Common::BitCast<f64>(states[1].s0), Common::BitCast<f64>(states[1].s1),
+                          Common::BitCast<f64>(states[1].s2), Common::BitCast<f64>(states[1].s3)};
+
+    f32 current_volume{volume};
+    f32 last_mixed{0.0f};
+
+    for (u32 i = 0; i < sample_count; i++) {
+        f64 in_sample{static_cast<f64>(input[i])};
+
+        // First filter
+        auto filtered0{in_sample * b0[0] + s0[0] * b0[1] + s0[1] * b0[2] + s0[2] * a0[0] +
+                       s0[3] * a0[1]};
+
+        s0[1] = s0[0];
+        s0[0] = in_sample;
+        s0[3] = s0[2];
+        s0[2] = filtered0;
+
+        // Second filter (uses output of first)
+        auto filtered1{filtered0 * b1[0] + s1[0] * b1[1] + s1[1] * b1[2] + s1[2] * a1[0] +
+                       s1[3] * a1[1]};
+
+        s1[1] = s1[0];
+        s1[0] = filtered0;
+        s1[3] = s1[2];
+        s1[2] = filtered1;
+
+        // Mix into output with current volume
+        last_mixed = static_cast<f32>(filtered1 * static_cast<f64>(current_volume));
+        f64 mixed{static_cast<f64>(output[i]) + static_cast<f64>(last_mixed)};
+        output[i] = static_cast<s32>(std::clamp(mixed, min, max));
+
+        current_volume += ramp;
+    }
+
+    // Save states back
+    states[0].s0 = Common::BitCast<s64>(s0[0]);
+    states[0].s1 = Common::BitCast<s64>(s0[1]);
+    states[0].s2 = Common::BitCast<s64>(s0[2]);
+    states[0].s3 = Common::BitCast<s64>(s0[3]);
+    states[1].s0 = Common::BitCast<s64>(s1[0]);
+    states[1].s1 = Common::BitCast<s64>(s1[1]);
+    states[1].s2 = Common::BitCast<s64>(s1[2]);
+    states[1].s3 = Common::BitCast<s64>(s1[3]);
+
+    return last_mixed;
 }
 
 /**

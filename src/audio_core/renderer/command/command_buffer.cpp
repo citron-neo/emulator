@@ -363,6 +363,62 @@ void CommandBuffer::GenerateMixRampGroupedCommand(const s32 node_id, const s16 b
     GenerateEnd<MixRampGroupedCommand>(cmd);
 }
 
+void CommandBuffer::GenerateBiquadFilterAndMix(
+    s32 node_id, f32 volume0, f32 volume1, s16 input_index, s16 output_index,
+    s32 last_sample_index, CpuAddr voice_state_addr,
+    const VoiceInfo::BiquadFilterParameter& filter, CpuAddr biquad_state,
+    CpuAddr previous_biquad_state, bool need_init, bool has_volume_ramp,
+    bool is_first_mix_buffer) {
+    auto& cmd{GenerateStart<BiquadFilterAndMixCommand, CommandId::BiquadFilterAndMix>(node_id)};
+
+    cmd.input = input_index;
+    cmd.output = output_index;
+    cmd.biquad = filter;
+    cmd.state = memory_pool->Translate(biquad_state, sizeof(VoiceState::BiquadFilterState));
+    cmd.previous_state =
+        memory_pool->Translate(previous_biquad_state, sizeof(VoiceState::BiquadFilterState));
+    cmd.voice_state = memory_pool->Translate(voice_state_addr, sizeof(VoiceState));
+    cmd.last_sample_index = last_sample_index;
+    cmd.volume0 = volume0;
+    cmd.volume1 = volume1;
+    cmd.needs_init = need_init;
+    cmd.has_volume_ramp = has_volume_ramp;
+    cmd.is_first_mix_buffer = is_first_mix_buffer;
+
+    GenerateEnd<BiquadFilterAndMixCommand>(cmd);
+}
+
+void CommandBuffer::GenerateMultiTapBiquadFilterAndMix(
+    s32 node_id, f32 volume0, f32 volume1, s16 input_index, s16 output_index,
+    s32 last_sample_index, CpuAddr voice_state_addr,
+    const std::array<VoiceInfo::BiquadFilterParameter, MaxBiquadFilters>& filters,
+    const std::array<CpuAddr, MaxBiquadFilters>& biquad_states,
+    const std::array<CpuAddr, MaxBiquadFilters>& previous_biquad_states,
+    const std::array<bool, MaxBiquadFilters>& needs_init, bool has_volume_ramp,
+    bool is_first_mix_buffer) {
+    auto& cmd{GenerateStart<MultiTapBiquadFilterAndMixCommand,
+                           CommandId::MultiTapBiquadFilterAndMix>(node_id)};
+
+    cmd.input = input_index;
+    cmd.output = output_index;
+    cmd.biquads = filters;
+    for (u32 i = 0; i < MaxBiquadFilters; i++) {
+        cmd.states[i] =
+            memory_pool->Translate(biquad_states[i], sizeof(VoiceState::BiquadFilterState));
+        cmd.previous_states[i] = memory_pool->Translate(previous_biquad_states[i],
+                                                         sizeof(VoiceState::BiquadFilterState));
+        cmd.needs_init[i] = needs_init[i];
+    }
+    cmd.voice_state = memory_pool->Translate(voice_state_addr, sizeof(VoiceState));
+    cmd.last_sample_index = last_sample_index;
+    cmd.volume0 = volume0;
+    cmd.volume1 = volume1;
+    cmd.has_volume_ramp = has_volume_ramp;
+    cmd.is_first_mix_buffer = is_first_mix_buffer;
+
+    GenerateEnd<MultiTapBiquadFilterAndMixCommand>(cmd);
+}
+
 void CommandBuffer::GenerateDepopPrepareCommand(const s32 node_id, const VoiceState& voice_state,
                                                 std::span<const s32> buffer, const s16 buffer_count,
                                                 s16 buffer_offset, const bool was_playing) {

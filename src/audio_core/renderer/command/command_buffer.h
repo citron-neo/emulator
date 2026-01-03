@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: Copyright 2022 yuzu Emulator Project
+// SPDX-FileCopyrightText: Copyright 2026 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #pragma once
@@ -216,6 +217,56 @@ public:
                                        s16 output_index, std::span<const f32> volumes,
                                        std::span<const f32> prev_volumes, CpuAddr prev_samples,
                                        u8 precision);
+
+    /**
+     * Generate a biquad filter and mix command (REV12+).
+     *
+     * @param node_id              - Node id of the voice this command is generated for.
+     * @param volume0              - Initial volume (for ramp).
+     * @param volume1              - Final volume.
+     * @param input_index          - Input mix buffer index.
+     * @param output_index         - Output mix buffer index.
+     * @param last_sample_index    - Index in voice state last_samples array.
+     * @param voice_state_addr     - Voice state address.
+     * @param filter               - Biquad filter parameter.
+     * @param biquad_state         - Biquad filter state address.
+     * @param previous_biquad_state - Previous biquad filter state address.
+     * @param need_init            - If true, reset the state.
+     * @param has_volume_ramp      - If true, use volume ramp.
+     * @param is_first_mix_buffer  - If true, this is the first mix buffer.
+     */
+    void GenerateBiquadFilterAndMix(s32 node_id, f32 volume0, f32 volume1, s16 input_index,
+                                    s16 output_index, s32 last_sample_index,
+                                    CpuAddr voice_state_addr,
+                                    const VoiceInfo::BiquadFilterParameter& filter,
+                                    CpuAddr biquad_state, CpuAddr previous_biquad_state,
+                                    bool need_init, bool has_volume_ramp, bool is_first_mix_buffer);
+
+    /**
+     * Generate a multi-tap biquad filter and mix command (REV12+).
+     *
+     * @param node_id              - Node id of the voice this command is generated for.
+     * @param volume0              - Initial volume (for ramp).
+     * @param volume1              - Final volume.
+     * @param input_index          - Input mix buffer index.
+     * @param output_index         - Output mix buffer index.
+     * @param last_sample_index    - Index in voice state last_samples array.
+     * @param voice_state_addr     - Voice state address.
+     * @param filters              - Array of two biquad filter parameters.
+     * @param biquad_states        - Array of two biquad filter state addresses.
+     * @param previous_biquad_states - Array of two previous biquad filter state addresses.
+     * @param needs_init           - Array indicating if each filter needs initialization.
+     * @param has_volume_ramp      - If true, use volume ramp.
+     * @param is_first_mix_buffer  - If true, this is the first mix buffer.
+     */
+    void GenerateMultiTapBiquadFilterAndMix(
+        s32 node_id, f32 volume0, f32 volume1, s16 input_index, s16 output_index,
+        s32 last_sample_index, CpuAddr voice_state_addr,
+        const std::array<VoiceInfo::BiquadFilterParameter, MaxBiquadFilters>& filters,
+        const std::array<CpuAddr, MaxBiquadFilters>& biquad_states,
+        const std::array<CpuAddr, MaxBiquadFilters>& previous_biquad_states,
+        const std::array<bool, MaxBiquadFilters>& needs_init, bool has_volume_ramp,
+        bool is_first_mix_buffer);
 
     /**
      * Generate a depop prepare command, adding it to the command list.

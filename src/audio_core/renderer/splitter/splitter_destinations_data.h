@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: Copyright 2022 yuzu Emulator Project
+// SPDX-FileCopyrightText: Copyright 2026 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #pragma once
@@ -7,12 +8,10 @@
 #include <span>
 
 #include "audio_core/common/common.h"
+#include "audio_core/renderer/voice/voice_info.h"
 #include "common/common_types.h"
 
 namespace AudioCore::Renderer {
-
-// Forward declaration
-class VoiceInfo;
 
 /**
  * Represents a mixing node, can be connected to a previous and next destination forming a chain
@@ -45,6 +44,19 @@ public:
     };
     static_assert(sizeof(InParameter) == 0x70,
                   "SplitterDestinationData::InParameter has the wrong size!");
+
+    struct InParameterVersion2a {
+        /* 0x00 */ u32 magic; // 'SNDD'
+        /* 0x04 */ s32 id;
+        /* 0x08 */ std::array<f32, MaxMixBuffers> mix_volumes;
+        /* 0x68 */ u32 mix_id;
+        /* 0x6C */ std::array<VoiceInfo::BiquadFilterParameter, MaxBiquadFilters> biquad_filters;
+        /* 0x84 */ bool in_use;
+        /* 0x85 */ bool reset_prev_volume;
+        /* 0x86 */ u8 reserved[10];
+    };
+    static_assert(sizeof(InParameterVersion2a) == 0x90,
+                  "SplitterDestinationData::InParameterVersion2a has the wrong size!");
 
     struct InParameterVersion2b {
         /* 0x00 */ u32 magic; // 'SNDD'
@@ -121,8 +133,17 @@ public:
      * Update this destination.
      *
      * @param params - Input parameters to update the destination.
+     * @param is_prev_volume_reset_supported - If true, use explicit reset flag; otherwise use implicit reset on first use.
      */
-    void Update(const InParameter& params);
+    void Update(const InParameter& params, bool is_prev_volume_reset_supported = false);
+
+    /**
+     * Update this destination (REV12).
+     *
+     * @param params - Input parameters to update the destination.
+     * @param is_prev_volume_reset_supported - If true, use explicit reset flag; otherwise use implicit reset on first use.
+     */
+    void Update(const InParameterVersion2a& params, bool is_prev_volume_reset_supported = false);
 
     /**
      * Mark this destination as needing its volumes updated.
@@ -162,6 +183,20 @@ public:
      */
     std::span<const BiquadFilterParameter2> GetBiquadFilters() const;
 
+    /**
+     * Get biquad filter parameters for this destination (REV12).
+     *
+     * @return Span of biquad filter parameters.
+     */
+    std::span<VoiceInfo::BiquadFilterParameter> GetBiquadFiltersRev12();
+
+    /**
+     * Get const biquad filter parameters for this destination (REV12).
+     *
+     * @return Const span of biquad filter parameters.
+     */
+    std::span<const VoiceInfo::BiquadFilterParameter> GetBiquadFiltersRev12() const;
+
 private:
     /// Id of this destination
     const s32 id;
@@ -171,7 +206,9 @@ private:
     std::array<f32, MaxMixBuffers> mix_volumes{0.0f};
     /// Previous mix volumes
     std::array<f32, MaxMixBuffers> prev_mix_volumes{0.0f};
-    /// Biquad filter parameters (REV15+)
+    /// Biquad filter parameters (REV12, fixed-point)
+    std::array<VoiceInfo::BiquadFilterParameter, MaxBiquadFilters> biquad_filters_rev12{};
+    /// Biquad filter parameters (REV15+, float)
     std::array<BiquadFilterParameter2, MaxBiquadFilters> biquad_filters{};
     /// Next destination in the mix chain
     SplitterDestinationData* next{};

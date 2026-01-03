@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: Copyright 2022 yuzu Emulator Project
+// SPDX-FileCopyrightText: Copyright 2026 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #pragma once
@@ -89,5 +90,71 @@ void ApplyBiquadFilterFloat(std::span<s32> output, std::span<const s32> input,
 void ApplyBiquadFilterFloat2(std::span<s32> output, std::span<const s32> input,
                              std::array<f32, 3>& b, std::array<f32, 2>& a,
                              VoiceState::BiquadFilterState& state, const u32 sample_count);
+
+/**
+ * Apply a single biquad filter and mix the result into the output buffer (REV12+).
+ *
+ * @param output       - Output container to mix filtered samples into.
+ * @param input        - Input container for samples to be filtered.
+ * @param b            - Feedforward coefficients.
+ * @param a            - Feedback coefficients.
+ * @param state        - State to track previous samples.
+ * @param sample_count - Number of samples to process.
+ * @param volume       - Mix volume.
+ */
+void ApplyBiquadFilterAndMix(std::span<s32> output, std::span<const s32> input,
+                             std::array<s16, 3>& b, std::array<s16, 2>& a,
+                             VoiceState::BiquadFilterState& state, const u32 sample_count,
+                             f32 volume);
+
+/**
+ * Apply a single biquad filter and mix the result into the output buffer with volume ramp (REV12+).
+ *
+ * @param output       - Output container to mix filtered samples into.
+ * @param input        - Input container for samples to be filtered.
+ * @param b            - Feedforward coefficients.
+ * @param a            - Feedback coefficients.
+ * @param state        - State to track previous samples.
+ * @param sample_count - Number of samples to process.
+ * @param volume       - Initial mix volume.
+ * @param ramp         - Volume increment step per sample.
+ * @return Last filtered sample value.
+ */
+f32 ApplyBiquadFilterAndMixRamp(std::span<s32> output, std::span<const s32> input,
+                                std::array<s16, 3>& b, std::array<s16, 2>& a,
+                                VoiceState::BiquadFilterState& state, const u32 sample_count,
+                                f32 volume, f32 ramp);
+
+/**
+ * Apply double biquad filter and mix the result into the output buffer (REV12+).
+ *
+ * @param output       - Output container to mix filtered samples into.
+ * @param input        - Input container for samples to be filtered.
+ * @param biquads      - Array of two biquad filter parameters.
+ * @param states       - Array of two biquad filter states.
+ * @param sample_count - Number of samples to process.
+ * @param volume       - Mix volume.
+ */
+void ApplyDoubleBiquadFilterAndMix(std::span<s32> output, std::span<const s32> input,
+                                   std::array<VoiceInfo::BiquadFilterParameter, 2>& biquads,
+                                   std::array<VoiceState::BiquadFilterState, 2>& states,
+                                   const u32 sample_count, f32 volume);
+
+/**
+ * Apply double biquad filter and mix the result into the output buffer with volume ramp (REV12+).
+ *
+ * @param output       - Output container to mix filtered samples into.
+ * @param input        - Input container for samples to be filtered.
+ * @param biquads      - Array of two biquad filter parameters.
+ * @param states       - Array of two biquad filter states.
+ * @param sample_count - Number of samples to process.
+ * @param volume       - Initial mix volume.
+ * @param ramp         - Volume increment step per sample.
+ * @return Last filtered sample value.
+ */
+f32 ApplyDoubleBiquadFilterAndMixRamp(std::span<s32> output, std::span<const s32> input,
+                                      std::array<VoiceInfo::BiquadFilterParameter, 2>& biquads,
+                                      std::array<VoiceState::BiquadFilterState, 2>& states,
+                                      const u32 sample_count, f32 volume, f32 ramp);
 
 } // namespace AudioCore::Renderer

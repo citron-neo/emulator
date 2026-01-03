@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: Copyright 2022 yuzu Emulator Project
+// SPDX-FileCopyrightText: Copyright 2026 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "audio_core/renderer/splitter/splitter_destinations_data.h"
@@ -49,7 +50,8 @@ std::span<f32> SplitterDestinationData::GetMixVolumePrev() {
     return prev_mix_volumes;
 }
 
-void SplitterDestinationData::Update(const InParameter& params) {
+void SplitterDestinationData::Update(const InParameter& params,
+                                     bool is_prev_volume_reset_supported) {
     if (params.id != id || params.magic != GetSplitterSendDataMagic()) {
         return;
     }
@@ -57,10 +59,31 @@ void SplitterDestinationData::Update(const InParameter& params) {
     destination_id = params.mix_id;
     mix_volumes = params.mix_volumes;
 
-    if (params.reset_prev_volume) {
+    // REV13+: Use explicit reset flag if supported, otherwise use implicit reset on first use
+    bool reset_prev_volume = is_prev_volume_reset_supported ? params.reset_prev_volume
+                                                             : (!in_use && params.in_use);
+    if (reset_prev_volume) {
         prev_mix_volumes = mix_volumes;
         need_update = false;
-    } else if (!in_use && params.in_use) {
+    }
+
+    in_use = params.in_use;
+}
+
+void SplitterDestinationData::Update(const InParameterVersion2a& params,
+                                     bool is_prev_volume_reset_supported) {
+    if (params.id != id || params.magic != GetSplitterSendDataMagic()) {
+        return;
+    }
+
+    destination_id = params.mix_id;
+    mix_volumes = params.mix_volumes;
+    biquad_filters_rev12 = params.biquad_filters;  // REV12 addition
+
+    // REV13+: Use explicit reset flag if supported, otherwise use implicit reset on first use
+    bool reset_prev_volume = is_prev_volume_reset_supported ? params.reset_prev_volume
+                                                             : (!in_use && params.in_use);
+    if (reset_prev_volume) {
         prev_mix_volumes = mix_volumes;
         need_update = false;
     }
@@ -93,6 +116,14 @@ std::span<SplitterDestinationData::BiquadFilterParameter2> SplitterDestinationDa
 
 std::span<const SplitterDestinationData::BiquadFilterParameter2> SplitterDestinationData::GetBiquadFilters() const {
     return biquad_filters;
+}
+
+std::span<VoiceInfo::BiquadFilterParameter> SplitterDestinationData::GetBiquadFiltersRev12() {
+    return biquad_filters_rev12;
+}
+
+std::span<const VoiceInfo::BiquadFilterParameter> SplitterDestinationData::GetBiquadFiltersRev12() const {
+    return biquad_filters_rev12;
 }
 
 } // namespace AudioCore::Renderer
