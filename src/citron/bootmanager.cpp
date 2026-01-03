@@ -602,6 +602,10 @@ int GRenderWindow::QtModifierToSwitchModifier(Qt::KeyboardModifiers qt_modifiers
 }
 
 void GRenderWindow::keyPressEvent(QKeyEvent* event) {
+    if (!first_frame) {
+        event->ignore();
+        return;
+    }
     if (event->isAutoRepeat()) {
         return; // Ignore auto-repeated key presses
     }
@@ -621,6 +625,12 @@ void GRenderWindow::keyPressEvent(QKeyEvent* event) {
         return;                             // Stop processing
     }
 
+    if (key_sequence == hotkey_registry.GetKeySequence(main_window_id, "Toggle Framerate Limit")) {
+        emit UnlockFramerateHotkeyPressed(); // Signal the main window
+        event->accept();                     // Consume the event
+        return;                              // Stop processing
+    }
+
     // --- If not a critical hotkey, pass to game as normal ---
     const auto modifier = QtModifierToSwitchModifier(event->modifiers());
     const auto key = QtKeyToSwitchKey(static_cast<Qt::Key>(event->key()));
@@ -630,6 +640,10 @@ void GRenderWindow::keyPressEvent(QKeyEvent* event) {
 }
 
 void GRenderWindow::keyReleaseEvent(QKeyEvent* event) {
+    if (!first_frame) {
+        event->ignore();
+        return;
+    }
     /**
      * This feature can be enhanced with the following functions, but they do not provide
      * cross-platform behavior.
