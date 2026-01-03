@@ -1104,6 +1104,8 @@ void GMainWindow::InitializeWidgets() {
         if (emulation_running) {
             render_window->show();
             render_window->setFocus();
+            // The only safe time to enable screenshots:
+            ui->action_Capture_Screenshot->setEnabled(true);
         }
     });
 
@@ -1473,9 +1475,6 @@ void GMainWindow::InitializeHotkeys() {
     connect_shortcut(QStringLiteral("Audio Mute/Unmute"), &GMainWindow::OnMute);
     connect_shortcut(QStringLiteral("Audio Volume Down"), &GMainWindow::OnDecreaseVolume);
     connect_shortcut(QStringLiteral("Audio Volume Up"), &GMainWindow::OnIncreaseVolume);
-    connect_shortcut(QStringLiteral("Toggle Framerate Limit"), [] {
-        Settings::values.use_speed_limit.SetValue(!Settings::values.use_speed_limit.GetValue());
-    });
     connect_shortcut(QStringLiteral("Toggle Renderdoc Capture"), [this] {
         if (Settings::values.enable_renderdoc_hotkey) {
             system->GetRenderdocAPI().ToggleCapture();
@@ -1613,6 +1612,12 @@ void GMainWindow::ConnectWidgetEvents() {
             &GRenderWindow::OnEmulationStarting);
     connect(this, &GMainWindow::EmulationStopping, render_window,
             &GRenderWindow::OnEmulationStopping);
+
+    connect(render_window, &GRenderWindow::UnlockFramerateHotkeyPressed, this, [this] {
+        if (system->IsPoweredOn()) {
+            Settings::values.use_speed_limit.SetValue(!Settings::values.use_speed_limit.GetValue());
+        }
+    });
 
     // Software Keyboard Applet
     connect(this, &GMainWindow::EmulationStarting, this, &GMainWindow::SoftwareKeyboardExit);
@@ -2058,6 +2063,8 @@ void GMainWindow::BootGame(const QString& filename, Service::AM::FrontendAppletP
         LOG_CRITICAL(Frontend, "Failed to load game: Could not determine title ID.");
         return;
     }
+
+    current_title_id = title_id; // Store ID safely
 
     if (type == StartGameType::Normal) {
         // Load per game settings if it is a normal boot
@@ -5297,15 +5304,17 @@ void GMainWindow::OnOpenControllerMenu() {
 }
 
 void GMainWindow::OnCaptureScreenshot() {
-    if (emu_thread == nullptr || !emu_thread->IsRunning()) {
+    if (emu_thread == nullptr || !emu_thread->IsRunning() || !render_window->IsLoadingComplete()) {
         return;
     }
 
-    const u64 title_id = system->GetApplicationProcessProgramID();
+    const u64 title_id = current_title_id;
+
     const auto screenshot_path =
         QString::fromStdString(Common::FS::GetCitronPathString(Common::FS::CitronPath::ScreenshotsDir));
     const auto date =
         QDateTime::currentDateTime().toString(QStringLiteral("yyyy-MM-dd_hh-mm-ss-zzz"));
+
     QString filename = QStringLiteral("%1/%2_%3.png")
                            .arg(screenshot_path)
                            .arg(title_id, 16, 16, QLatin1Char{'0'})
@@ -5326,6 +5335,7 @@ void GMainWindow::OnCaptureScreenshot() {
         }
     }
 #endif
+
     render_window->CaptureScreenshot(filename);
 }
 

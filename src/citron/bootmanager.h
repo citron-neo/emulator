@@ -232,6 +232,7 @@ signals:
     void TasPlaybackStateChanged();
     void PanningToggleHotkeyPressed();
     void FullscreenExitHotkeyPressed();
+    void UnlockFramerateHotkeyPressed();
 
 private slots:
     void HideMouseCursor();
