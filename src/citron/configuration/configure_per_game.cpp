@@ -76,14 +76,11 @@
 static bool IsDarkMode() {
     const std::string& theme_name = UISettings::values.theme;
 
-    // Priority 1: Check for explicitly chosen dark themes.
     if (theme_name == "qdarkstyle" || theme_name == "colorful_dark" ||
         theme_name == "qdarkstyle_midnight_blue" || theme_name == "colorful_midnight_blue") {
-        return true; // These themes are always dark.
+        return true; 
     }
 
-    // Priority 2: Check for adaptive themes ("default" and "colorful").
-    // For these, we fall back to checking the OS palette.
     if (theme_name == "default" || theme_name == "colorful") {
         const QPalette palette = qApp->palette();
         const QColor text_color = palette.color(QPalette::WindowText);
@@ -91,7 +88,6 @@ static bool IsDarkMode() {
         return text_color.value() > base_color.value();
     }
 
-    // Fallback for any other unknown theme (assumed light).
     return false;
 }
 
@@ -112,7 +108,6 @@ ConfigurePerGame::ConfigurePerGame(QWidget* parent, u64 title_id_, const std::st
                                                 : fmt::format("{:016X}", title_id);
     game_config = std::make_unique<QtConfig>(config_file_name, Config::ConfigType::PerGameConfig);
 
-    // Create tab instances
     addons_tab = std::make_unique<ConfigurePerGameAddons>(system_, this);
     cheats_tab = std::make_unique<ConfigurePerGameCheats>(system_, this);
     audio_tab = std::make_unique<ConfigureAudio>(system_, tab_group, *builder, this);
@@ -126,8 +121,18 @@ ConfigurePerGame::ConfigurePerGame(QWidget* parent, u64 title_id_, const std::st
     linux_tab = std::make_unique<ConfigureLinuxTab>(system_, tab_group, *builder, this);
     system_tab = std::make_unique<ConfigureSystem>(system_, tab_group, *builder, this);
 
-    if (!UISettings::values.per_game_configure_geometry.isEmpty()) {
-        restoreGeometry(UISettings::values.per_game_configure_geometry);
+    const bool is_gamescope = UISettings::IsGamescope();
+
+    if (is_gamescope) {
+        setWindowFlags(Qt::Window | Qt::CustomizeWindowHint | Qt::WindowTitleHint);
+        setWindowModality(Qt::NonModal);
+        resize(1100, 700);
+    } else {
+        setWindowFlags(Qt::Dialog | Qt::WindowTitleHint | Qt::WindowSystemMenuHint | Qt::WindowCloseButtonHint);
+        setWindowModality(Qt::WindowModal);
+        if (!UISettings::values.per_game_configure_geometry.isEmpty()) {
+            restoreGeometry(UISettings::values.per_game_configure_geometry);
+        }
     }
 
     UpdateTheme();
@@ -140,10 +145,8 @@ ConfigurePerGame::ConfigurePerGame(QWidget* parent, u64 title_id_, const std::st
     const auto add_tab = [&](QWidget* widget, const QString& title, int id) {
         auto button = new QPushButton(title, this);
         button->setCheckable(true);
-        // This object name matches the stylesheet ID selector `QPushButton#aestheticTabButton`
         button->setObjectName(QStringLiteral("aestheticTabButton"));
-        // This custom property is used by the event filter for the animated style
-        button->setProperty("class", QStringLiteral("tabButton")); // Keep class for animation
+        button->setProperty("class", QStringLiteral("tabButton"));
         button->installEventFilter(animation_filter);
 
         ui->tabButtonsLayout->addWidget(button);
@@ -176,7 +179,6 @@ ConfigurePerGame::ConfigurePerGame(QWidget* parent, u64 title_id_, const std::st
         first_button->setChecked(true);
         ui->stackedWidget->setCurrentIndex(0);
     }
-
 
     setFocusPolicy(Qt::ClickFocus);
     setWindowTitle(tr("Properties"));
@@ -322,26 +324,25 @@ void ConfigurePerGame::UpdateTheme() {
                 if (ui->tabButtonsScrollArea) {
                     ui->tabButtonsScrollArea->setStyleSheet(QStringLiteral(
                         "QScrollBar:horizontal { height: 14px; background: transparent; border-radius: 7px; }"
-                        "QScrollBar::handle:horizontal { background-color: %1; border-radius: 6px; min-width: 30px; margin: 1px; }"
+                        "QScrollBar::handle:horizontal { background-color: %1; border-radius: 64px; min-width: 30px; margin: 1px; }"
                         "QScrollBar::add-line, QScrollBar::sub-line { background: none; width: 0px; }"
                     ).arg(hue_hex));
                 }
 
-                // 3. Action Buttons (OK/Cancel) and Trim button
-                if (ui->buttonBox && !ui->buttonBox->underMouse()) {
-                    ui->buttonBox->setStyleSheet(QStringLiteral(
-                        "QPushButton { background-color: %1; color: #ffffff; border-radius: 4px; font-weight: bold; padding: 5px 15px; }"
-                        "QPushButton:hover { background-color: %2; }"
-                        "QPushButton:pressed { background-color: %3; }"
-                    ).arg(hue_hex).arg(hue_light).arg(hue_dark));
-                }
+                // 3. Action Buttons
+                const QString button_css = QStringLiteral(
+                    "QPushButton { background-color: %1; color: #ffffff; border-radius: 4px; font-weight: bold; padding: 5px 15px; }"
+                    "QPushButton:hover { background-color: %2; }"
+                    "QPushButton:pressed { background-color: %3; }"
+                ).arg(hue_hex).arg(hue_light).arg(hue_dark);
 
-                if (ui->trim_xci_button && !ui->trim_xci_button->underMouse()) {
-                    ui->trim_xci_button->setStyleSheet(QStringLiteral(
-                        "QPushButton { background-color: %1; color: #ffffff; border: none; border-radius: 4px; padding: 10px; }"
-                        "QPushButton:hover { background-color: %2; }"
-                        "QPushButton:pressed { background-color: %3; }"
-                    ).arg(hue_hex).arg(hue_light).arg(hue_dark));
+                if (ui->buttonBox) {
+                    for (auto* button : ui->buttonBox->findChildren<QPushButton*>()) {
+                        if (!button->isDown()) button->setStyleSheet(button_css);
+                    }
+                }
+                if (ui->trim_xci_button && !ui->trim_xci_button->isDown()) {
+                    ui->trim_xci_button->setStyleSheet(button_css);
                 }
 
                 // 4. Tab Content Area
@@ -374,7 +375,25 @@ void ConfigurePerGame::UpdateTheme() {
             });
         }
         rainbow_timer->start(33);
-    } else if (rainbow_timer) {
+    } 
+
+    // Fix for Gamescope: Style buttons once outside the timer loop
+    if (ui->buttonBox) {
+        ui->buttonBox->setStyleSheet(QStringLiteral(
+            "QPushButton { background-color: %1; color: #ffffff; border-radius: 4px; font-weight: bold; padding: 5px 15px; }"
+            "QPushButton:hover { background-color: %2; }"
+            "QPushButton:pressed { background-color: %3; }"
+        ).arg(accent).arg(Theme::GetAccentColorHover()).arg(Theme::GetAccentColorPressed()));
+    }
+    if (ui->trim_xci_button) {
+        ui->trim_xci_button->setStyleSheet(QStringLiteral(
+            "QPushButton { background-color: %1; color: #ffffff; border: none; border-radius: 4px; padding: 10px; }"
+            "QPushButton:hover { background-color: %2; }"
+            "QPushButton:pressed { background-color: %3; }"
+        ).arg(accent).arg(Theme::GetAccentColorHover()).arg(Theme::GetAccentColorPressed()));
+    }
+
+    if (UISettings::values.enable_rainbow_mode.GetValue() == false && rainbow_timer) {
         rainbow_timer->stop();
         if (ui->tabButtonsContainer) ui->tabButtonsContainer->setStyleSheet({});
         if (ui->tabButtonsScrollArea) ui->tabButtonsScrollArea->setStyleSheet({});
@@ -551,8 +570,7 @@ void ConfigurePerGame::LoadConfiguration() {
                     }
                 }
             }
-        } catch (...) {
-        }
+        } catch (...) {}
     }
 
     try {
@@ -610,17 +628,18 @@ void ConfigurePerGame::LoadConfiguration() {
                 }
             }
         }
-    } catch (...) {
-    }
+    } catch (...) {}
 
-    const auto& system_build_id = system.GetApplicationProcessBuildID();
-    const auto system_build_id_hex = Common::HexToString(system_build_id, false);
+    if (system.IsPoweredOn()) {
+        const auto& system_build_id = system.GetApplicationProcessBuildID();
+        const auto system_build_id_hex = Common::HexToString(system_build_id, false);
 
-    if (!system_build_id_hex.empty() && system_build_id_hex != std::string(64, '0')) {
-        if (!base_build_id_hex.empty() && system_build_id_hex != base_build_id_hex) {
-            update_build_id_hex = system_build_id_hex;
-        } else if (base_build_id_hex.empty()) {
-            base_build_id_hex = system_build_id_hex;
+        if (!system_build_id_hex.empty() && system_build_id_hex != std::string(64, '0')) {
+            if (!base_build_id_hex.empty() && system_build_id_hex != base_build_id_hex) {
+                update_build_id_hex = system_build_id_hex;
+            } else if (base_build_id_hex.empty()) {
+                base_build_id_hex = system_build_id_hex;
+            }
         }
     }
 
@@ -863,13 +882,13 @@ void ConfigurePerGame::AnimateTabSwitch(int id) {
         current_widget->hide();
         current_widget->move(0, 0);
 
-        m_is_tab_animating = false; // Reset the flag
+        m_is_tab_animating = false; 
         for (auto button : button_group->buttons()) {
             button->setEnabled(true);
         }
     });
 
-    m_is_tab_animating = true; // Set the flag
+    m_is_tab_animating = true; 
     for (auto button : button_group->buttons()) {
         button->setEnabled(false);
     }
