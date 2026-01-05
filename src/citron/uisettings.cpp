@@ -136,4 +136,15 @@ namespace UISettings {
             config.value(QStringLiteral("microProfileDialogGeometry")).toByteArray();
     }
 
+    bool IsGamescope() {
+#ifdef __linux__
+    static const bool is_gamescope = !qgetenv("GAMESCOPE_WIDTH").isEmpty() ||
+                                     qgetenv("XDG_CURRENT_DESKTOP") == "gamescope" ||
+                                     !qgetenv("STEAM_DECK").isEmpty();
+    return is_gamescope;
+#else
+    return false;
+#endif
+}
+
 } // namespace UISettings

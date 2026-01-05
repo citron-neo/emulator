@@ -2,17 +2,19 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "citron/controller_overlay.h"
+#include "citron/uisettings.h"
 #include "citron/configuration/configure_input_player_widget.h"
 #include "citron/main.h"
 #include "core/core.h"
 #include "hid_core/hid_core.h"
 
+#include <QApplication>
 #include <QGridLayout>
 #include <QMouseEvent>
 #include <QPainter>
 #include <QPainterPath>
 #include <QSizeGrip>
-#include <QWindow> // Required for Wayland dragging
+#include <QWindow>
 #include <QResizeEvent>
 
 namespace {
@@ -26,27 +28,34 @@ Core::HID::EmulatedController* GetPlayer1Controller(Core::System* system) {
     }
     return hid_core.GetEmulatedController(Core::HID::NpadIdType::Player1);
 }
+
 }
 
 ControllerOverlay::ControllerOverlay(GMainWindow* parent)
-    : QWidget(parent, Qt::Tool | Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint),
-      main_window(parent) {
+    : QWidget(parent), main_window(parent) {
+
+    // Gamescope requires ToolTip to stay visible over the game surface,
+    // but Desktop Wayland/Windows needs Tool to behave correctly in the taskbar/stack.
+    if (UISettings::IsGamescope()) {
+        setWindowFlags(Qt::ToolTip | Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint | Qt::WindowDoesNotAcceptFocus);
+        setAttribute(Qt::WA_ShowWithoutActivating);
+        setMinimumSize(112, 87); // Use the smaller Gamescope-optimized scale
+    } else {
+        setWindowFlags(Qt::Tool | Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint);
+        setMinimumSize(225, 175); // Desktop standard scale
+    }
 
     setAttribute(Qt::WA_TranslucentBackground);
+    setAttribute(Qt::WA_NoSystemBackground);
 
     auto* layout = new QGridLayout(this);
     setLayout(layout);
-    // Set margins to 0 so the controller can go right to the edge of the resizable window
     layout->setContentsMargins(0, 0, 0, 0);
 
-    // Create the widget that draws the controller and make it transparent
+    // Create the widget that draws the controller
     controller_widget = new PlayerControlPreview(this);
     controller_widget->setAttribute(Qt::WA_TranslucentBackground);
-
-    // Disable the raw joystick (deadzone) visualization
     controller_widget->SetRawJoystickVisible(false);
-
-    // Allow the widget to expand and shrink with the window
     controller_widget->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
     layout->addWidget(controller_widget, 0, 0);
 
@@ -54,18 +63,46 @@ ControllerOverlay::ControllerOverlay(GMainWindow* parent)
     size_grip = new QSizeGrip(this);
     layout->addWidget(size_grip, 0, 0, Qt::AlignBottom | Qt::AlignRight);
 
-    // Start the timer for continuous updates
+    // Timer for updates
     connect(&update_timer, &QTimer::timeout, this, &ControllerOverlay::UpdateControllerState);
     update_timer.start(16); // ~60 FPS
 
-    // Set a minimum size and a default starting size
-    setMinimumSize(225, 175);
-    resize(450, 350);
+    // Initial Resize
+    if (UISettings::IsGamescope()) {
+        resize(225, 175);
+    } else {
+        resize(450, 350);
+    }
 }
 
 ControllerOverlay::~ControllerOverlay() = default;
 
 void ControllerOverlay::UpdateControllerState() {
+    if (!main_window || !is_enabled) return;
+
+    if (UISettings::IsGamescope()) {
+        bool ui_active = false;
+        for (QWidget* w : QApplication::topLevelWidgets()) {
+            if (w->isWindow() && w->isVisible() && w != main_window && w != this &&
+                !w->inherits("GRenderWindow") &&
+                !w->inherits("PerformanceOverlay") &&
+                !w->inherits("VramOverlay") &&
+                !w->inherits("ControllerOverlay")) {
+                ui_active = true;
+            break;
+                }
+        }
+
+        if (ui_active) {
+            if (!this->isHidden()) this->hide();
+            return;
+        }
+    }
+
+    if (is_enabled && this->isHidden()) {
+        this->show();
+    }
+
     Core::System* system = main_window->GetSystem();
     Core::HID::EmulatedController* controller = GetPlayer1Controller(system);
     if (controller_widget && controller) {
@@ -75,22 +112,23 @@ void ControllerOverlay::UpdateControllerState() {
     }
 }
 
-// The paint event is now empty, which makes the background fully transparent.
 void ControllerOverlay::paintEvent(QPaintEvent* event) {
     Q_UNUSED(event);
-    // Intentionally left blank to achieve a fully transparent window background.
 }
 
-// These functions handle dragging the frameless window
 void ControllerOverlay::mousePressEvent(QMouseEvent* event) {
     if (event->button() == Qt::LeftButton && !size_grip->geometry().contains(event->pos())) {
+
+        // LOGIC BRANCH: Desktop Linux (Wayland) requires system move.
+        // Gamescope and Windows require manual dragging.
 #if defined(Q_OS_LINUX)
-        // Use system move on Wayland/Linux for proper dragging
-        if (windowHandle()) {
+        if (!UISettings::IsGamescope() && windowHandle()) {
             windowHandle()->startSystemMove();
+        } else {
+            is_dragging = true;
+            drag_start_pos = event->globalPosition().toPoint() - this->pos();
         }
 #else
-        // Original dragging implementation for other platforms (Windows, etc.)
         is_dragging = true;
         drag_start_pos = event->globalPosition().toPoint() - this->pos();
 #endif
@@ -99,15 +137,11 @@ void ControllerOverlay::mousePressEvent(QMouseEvent* event) {
 }
 
 void ControllerOverlay::mouseMoveEvent(QMouseEvent* event) {
-#if !defined(Q_OS_LINUX)
+    // Only handle manual dragging if we aren't using startSystemMove (which handles its own move)
     if (is_dragging) {
         move(event->globalPosition().toPoint() - drag_start_pos);
         event->accept();
     }
-#else
-    // On Linux, the window manager handles the move, so we do nothing here.
-    Q_UNUSED(event);
-#endif
 }
 
 void ControllerOverlay::mouseReleaseEvent(QMouseEvent* event) {
@@ -119,6 +153,14 @@ void ControllerOverlay::mouseReleaseEvent(QMouseEvent* event) {
 
 void ControllerOverlay::resizeEvent(QResizeEvent* event) {
     QWidget::resizeEvent(event);
-    // This ensures the layout and its widgets (like the size grip) are correctly repositioned on resize.
     layout()->update();
+}
+
+void ControllerOverlay::SetVisible(bool visible) {
+    is_enabled = visible;
+    if (visible) {
+        this->show();
+    } else {
+        this->hide();
+    }
 }

@@ -18,12 +18,18 @@
 #include "network/room.h"
 #include "citron/uisettings.h"
 
-MultiplayerRoomOverlay::MultiplayerRoomOverlay(GMainWindow* parent)
-    : QWidget(parent), main_window(parent) {
+MultiplayerRoomOverlay::MultiplayerRoomOverlay(QWidget* parent)
+: QWidget(parent) {
 
-    setAttribute(Qt::WA_TranslucentBackground, true);
-    setWindowFlags(Qt::FramelessWindowHint | Qt::Tool | Qt::WindowStaysOnTopHint);
-    setFocusPolicy(Qt::ClickFocus);
+    main_window = qobject_cast<GMainWindow*>(parent->window());
+
+    // Switched to Qt::Tool to allow keyboard focus for typing in chat
+    setWindowFlags(Qt::Tool | Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint);
+    setAttribute(Qt::WA_TranslucentBackground);
+
+    // Set smaller sizes for Steam Deck
+    setMinimumSize(240, 180);
+    resize(260, 220);
 
     main_layout = new QGridLayout(this);
     main_layout->setContentsMargins(padding, padding, 0, 0);
@@ -58,11 +64,25 @@ MultiplayerRoomOverlay::MultiplayerRoomOverlay(GMainWindow* parent)
     update_timer.setSingleShot(false);
     connect(&update_timer, &QTimer::timeout, this, &MultiplayerRoomOverlay::UpdateRoomData);
 
-    connect(parent, &GMainWindow::themeChanged, this, &MultiplayerRoomOverlay::UpdateTheme);
+    if (main_window) {
+        connect(main_window, &GMainWindow::themeChanged, this, &MultiplayerRoomOverlay::UpdateTheme);
+    }
     UpdateTheme();
 
-    setMinimumSize(280, 220);
-    resize(320, 280);
+    const bool is_gamescope = UISettings::IsGamescope();
+    if (is_gamescope) {
+        setMinimumSize(320, 260);
+        resize(600, 520);
+
+        players_online_label->setFont(QFont(QString::fromUtf8("Segoe UI"), 11, QFont::Bold));
+
+        this->padding = 12;
+        main_layout->setContentsMargins(padding, padding, padding, padding);
+    } else {
+        setMinimumSize(280, 220);
+        resize(320, 280);
+    }
+
     UpdatePosition();
 }
 
@@ -108,48 +128,35 @@ void MultiplayerRoomOverlay::resizeEvent(QResizeEvent* event) { QWidget::resizeE
 bool MultiplayerRoomOverlay::eventFilter(QObject* watched, QEvent* event) { if (event->type() == QEvent::MouseButtonPress) { if (chat_room_widget->hasFocus()) { chat_room_widget->clearFocus(); } } return QObject::eventFilter(watched, event); }
 
 
-#if defined(Q_OS_LINUX)
 void MultiplayerRoomOverlay::mousePressEvent(QMouseEvent* event) {
-    if (event->button() == Qt::LeftButton) {
-        if (size_grip->geometry().contains(event->pos())) {
-             // Let the size grip handle the event
-        } else if (!childAt(event->pos()) || childAt(event->pos()) == this) {
-            if (windowHandle()) {
-                QTimer::singleShot(0, this, [this] { windowHandle()->startSystemMove(); });
-            }
-        }
-    }
-    QWidget::mousePressEvent(event);
-}
-
-void MultiplayerRoomOverlay::mouseMoveEvent(QMouseEvent* event) {
-    QWidget::mouseMoveEvent(event);
-}
-
-#else // Windows and other platforms
-void MultiplayerRoomOverlay::mousePressEvent(QMouseEvent* event) {
-    if (event->button() == Qt::LeftButton) {
-        if (size_grip->geometry().contains(event->pos())) {
-            // Let the size grip handle the event
-        } else if (!childAt(event->pos()) || childAt(event->pos()) == this) {
+    if (event->button() == Qt::LeftButton && !size_grip->geometry().contains(event->pos())) {
+        const bool is_gamescope = !qgetenv("GAMESCOPE_WIDTH").isEmpty() || qgetenv("XDG_CURRENT_DESKTOP") == "gamescope";
+        if (is_gamescope) {
             is_dragging = true;
-            drag_start_pos = event->globalPosition().toPoint();
-            widget_start_pos = this->pos();
+            drag_start_pos = event->globalPosition().toPoint() - this->pos();
             setCursor(Qt::ClosedHandCursor);
+        } else {
+            #if defined(Q_OS_LINUX)
+            if (windowHandle()) windowHandle()->startSystemMove();
+            #else
+            is_dragging = true;
+            drag_start_pos = event->globalPosition().toPoint() - this->pos();
+            setCursor(Qt::ClosedHandCursor);
+            #endif
         }
     }
     QWidget::mousePressEvent(event);
 }
 
 void MultiplayerRoomOverlay::mouseMoveEvent(QMouseEvent* event) {
-    if (is_dragging) {
-        QPoint delta = event->globalPosition().toPoint() - drag_start_pos;
-        move(widget_start_pos + delta);
-        has_been_moved = true;
+    if (is_dragging && main_window) {
+        QPoint new_pos = event->globalPosition().toPoint() - drag_start_pos;
+        QPoint win_origin = main_window->mapToGlobal(QPoint(0, 0));
+        move(std::clamp(new_pos.x(), win_origin.x(), win_origin.x() + main_window->width() - width()),
+             std::clamp(new_pos.y(), win_origin.y(), win_origin.y() + main_window->height() - height()));
     }
     QWidget::mouseMoveEvent(event);
 }
-#endif
 
 void MultiplayerRoomOverlay::mouseReleaseEvent(QMouseEvent* event) {
     if (event->button() == Qt::LeftButton && is_dragging) {

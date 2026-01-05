@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: Copyright 2017 Citra Emulator Project
+// SPDX-FileCopyrightText: Copyright 2026 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <QComboBox>
@@ -24,9 +25,21 @@
 enum class ConnectionType : u8 { TraversalServer, IP };
 
 DirectConnectWindow::DirectConnectWindow(Core::System& system_, QWidget* parent)
-    : QDialog(parent, Qt::WindowTitleHint | Qt::WindowCloseButtonHint | Qt::WindowSystemMenuHint),
+    : QDialog(parent),
       ui(std::make_unique<Ui::DirectConnect>()), system{system_}, room_network{
                                                                       system.GetRoomNetwork()} {
+
+    const bool is_gamescope = UISettings::IsGamescope();
+    if (is_gamescope) {
+        setWindowFlags(Qt::Window | Qt::CustomizeWindowHint | Qt::WindowTitleHint);
+        setWindowModality(Qt::NonModal);
+
+        int w = 800;
+        int h = 500;
+        setFixedSize(w, h);
+    } else {
+        setWindowFlags(Qt::Dialog | Qt::WindowTitleHint | Qt::WindowCloseButtonHint | Qt::WindowSystemMenuHint);
+    }
 
     ui->setupUi(this);
 

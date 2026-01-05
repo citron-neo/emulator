@@ -13,6 +13,8 @@ class ControllerOverlay : public QWidget {
 	Q_OBJECT
 
 public:
+	void SetVisible(bool visible);
+	bool is_enabled = false;
 	explicit ControllerOverlay(GMainWindow* parent);
 	~ControllerOverlay() override;
 

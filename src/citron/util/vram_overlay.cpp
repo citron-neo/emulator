@@ -5,6 +5,8 @@
 #include <QPainter>
 #include <QPainterPath>
 #include <QScreen>
+#include <QSizeGrip>
+#include <QGridLayout>
 #include <QTimer>
 #include <QMouseEvent>
 #include <QtMath>
@@ -25,58 +27,72 @@
 #include "video_core/renderer_vulkan/vk_rasterizer.h"
 #include "common/settings.h"
 
-VramOverlay::VramOverlay(GMainWindow* parent)
-: QWidget(parent), main_window(parent) {
+VramOverlay::VramOverlay(QWidget* parent) : QWidget(UISettings::IsGamescope() ? nullptr : parent) {
+    if (parent) {
+        main_window = qobject_cast<GMainWindow*>(parent);
+    }
 
-    // Set up the widget properties
+    if (UISettings::IsGamescope()) {
+        setWindowFlags(Qt::ToolTip | Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint | Qt::WindowDoesNotAcceptFocus);
+        setAttribute(Qt::WA_ShowWithoutActivating);
+    } else {
+        setWindowFlags(Qt::Tool | Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint);
+    }
+
     setAttribute(Qt::WA_TranslucentBackground, true);
-    setWindowFlags(Qt::FramelessWindowHint | Qt::Tool | Qt::WindowStaysOnTopHint);
+    setAttribute(Qt::WA_NoSystemBackground);
+    setAttribute(Qt::WA_WState_ExplicitShowHide);
 
-    // Initialize fonts with clean typography
-    title_font = QFont(QString::fromUtf8("Segoe UI"), 11, QFont::Bold);
-    value_font = QFont(QString::fromUtf8("Segoe UI"), 10, QFont::Medium);
-    small_font = QFont(QString::fromUtf8("Segoe UI"), 9, QFont::Normal);
-    warning_font = QFont(QString::fromUtf8("Segoe UI"), 10, QFont::Bold);
+    // Branching Typography and Sizing
+    if (UISettings::IsGamescope()) {
+        title_font = QFont(QString::fromUtf8("Segoe UI"), 7, QFont::Bold);
+        value_font = QFont(QString::fromUtf8("Segoe UI"), 7, QFont::Medium);
+        small_font = QFont(QString::fromUtf8("Segoe UI"), 6, QFont::Normal);
+        warning_font = QFont(QString::fromUtf8("Segoe UI"), 8, QFont::Bold);
+        setMinimumSize(180, 140);
+        resize(200, 160);
+    } else {
+        title_font = QFont(QString::fromUtf8("Segoe UI"), 11, QFont::Bold);
+        value_font = QFont(QString::fromUtf8("Segoe UI"), 10, QFont::Medium);
+        small_font = QFont(QString::fromUtf8("Segoe UI"), 9, QFont::Normal);
+        warning_font = QFont(QString::fromUtf8("Segoe UI"), 10, QFont::Bold);
+        setMinimumSize(250, 180);
+        resize(250, 180);
+    }
 
-    // VRAM usage colors - modern palette
     vram_safe_color = QColor(76, 175, 80, 255);
     vram_warning_color = QColor(255, 193, 7, 255);
     vram_danger_color = QColor(244, 67, 54, 255);
     leak_warning_color = QColor(255, 152, 0, 255);
 
-    // Graph colors - clean and modern
-    graph_background_color = QColor(25, 25, 25, 255);
-    graph_grid_color = QColor(60, 60, 60, 100);
-    graph_line_color = QColor(76, 175, 80, 255);
-    graph_fill_color = QColor(76, 175, 80, 40);
+    auto* layout = new QGridLayout(this);
+    layout->setContentsMargins(0, 0, 0, 0);
+    size_grip = new QSizeGrip(this);
+    layout->addWidget(size_grip, 0, 0, Qt::AlignBottom | Qt::AlignRight);
 
-    // Set up timer for updates
     update_timer.setSingleShot(false);
     connect(&update_timer, &QTimer::timeout, this, &VramOverlay::UpdateVramStats);
 
-    connect(parent, &GMainWindow::themeChanged, this, &VramOverlay::UpdateTheme);
+    if (main_window) {
+        connect(main_window, &GMainWindow::themeChanged, this, &VramOverlay::UpdateTheme);
+    }
+
     UpdateTheme();
-
-    // Set clean, compact size
-    resize(250, 180);
-
-    // Position in top-right corner
     UpdatePosition();
 }
 
 VramOverlay::~VramOverlay() = default;
 
 void VramOverlay::SetVisible(bool visible) {
-    if (is_visible == visible) {
-        return;
-    }
-    is_visible = visible;
+    is_enabled = visible;
+    is_visible = visible; // Properly sync the internal state
+
     if (visible) {
         show();
-        update_timer.start(1000); // Update every 1 second
+        update_timer.start(1000);
     } else {
+        update_timer.stop(); // Ensure the background loop stops updating
         hide();
-        update_timer.stop();
     }
 }
 
@@ -109,9 +125,9 @@ void VramOverlay::paintEvent(QPaintEvent* event) {
 }
 
 void VramOverlay::DrawVramInfo(QPainter& painter) {
-    const int section_padding = 12;
-    const int line_height = 14;
-    const int section_spacing = 6;
+    const int section_padding = UISettings::IsGamescope() ? 5 : 12;
+    const int line_height = UISettings::IsGamescope() ? 11 : 14;
+    const int section_spacing = UISettings::IsGamescope() ? 2 : 6;
     int y_offset = section_padding + 4;
 
     painter.setFont(title_font);
@@ -123,22 +139,19 @@ void VramOverlay::DrawVramInfo(QPainter& painter) {
     QColor vram_color = GetVramColor(current_vram_data.vram_percentage);
     painter.setPen(vram_color);
     QString vram_text = QString::fromUtf8("%1 / %2 (%3%)")
-    .arg(FormatMemorySize(current_vram_data.used_vram))
-    .arg(FormatMemorySize(current_vram_data.total_vram))
-    .arg(FormatPercentage(current_vram_data.vram_percentage));
+        .arg(FormatMemorySize(current_vram_data.used_vram))
+        .arg(FormatMemorySize(current_vram_data.total_vram))
+        .arg(FormatPercentage(current_vram_data.vram_percentage));
     painter.drawText(section_padding, y_offset, vram_text);
     y_offset += line_height + section_spacing;
 
     painter.setFont(small_font);
     painter.setPen(secondary_text_color);
-    QString buffer_text = QString::fromUtf8("Buffers: %1").arg(FormatMemorySize(current_vram_data.buffer_memory));
-    painter.drawText(section_padding, y_offset, buffer_text);
-    y_offset += line_height - 1;
-    QString texture_text = QString::fromUtf8("Textures: %1").arg(FormatMemorySize(current_vram_data.texture_memory));
-    painter.drawText(section_padding, y_offset, texture_text);
-    y_offset += line_height - 1;
-    QString staging_text = QString::fromUtf8("Staging: %1").arg(FormatMemorySize(current_vram_data.staging_memory));
-    painter.drawText(section_padding, y_offset, staging_text);
+    painter.drawText(section_padding, y_offset, QString::fromUtf8("Buffers: %1").arg(FormatMemorySize(current_vram_data.buffer_memory)));
+    y_offset += line_height - (UISettings::IsGamescope() ? 0 : 1);
+    painter.drawText(section_padding, y_offset, QString::fromUtf8("Textures: %1").arg(FormatMemorySize(current_vram_data.texture_memory)));
+    y_offset += line_height - (UISettings::IsGamescope() ? 0 : 1);
+    painter.drawText(section_padding, y_offset, QString::fromUtf8("Staging: %1").arg(FormatMemorySize(current_vram_data.staging_memory)));
     y_offset += line_height + section_spacing;
 
     painter.setPen(secondary_text_color);
@@ -157,9 +170,9 @@ void VramOverlay::DrawVramGraph(QPainter& painter) {
     if (vram_usage_history.empty()) return;
 
     const int graph_padding = 12;
-    const int graph_y = height() - 60;
+    const int graph_y = height() - (UISettings::IsGamescope() ? 50 : 60);
     const int graph_width = width() - (graph_padding * 2);
-    const int local_graph_height = 40;
+    const int local_graph_height = UISettings::IsGamescope() ? 30 : 40;
 
     QRect graph_rect(graph_padding, graph_y, graph_width, local_graph_height);
     QPainterPath graph_path;
@@ -169,13 +182,10 @@ void VramOverlay::DrawVramGraph(QPainter& painter) {
     painter.setPen(QPen(graph_grid_color, 1));
     painter.drawPath(graph_path);
 
-    for (int i = 1; i < 4; ++i) {
-        int y = graph_y + (i * local_graph_height / 4);
-        painter.drawLine(graph_padding + 1, y, graph_padding + graph_width - 1, y);
-    }
-
     if (vram_usage_history.size() > 1) {
-        painter.setPen(QPen(graph_line_color, 2));
+        QColor dynamic_color = current_vram_data.leak_detected ? leak_warning_color : GetVramColor(current_vram_data.vram_percentage);
+
+        painter.setPen(QPen(dynamic_color, 2));
         QPainterPath line_path;
         for (size_t i = 0; i < vram_usage_history.size(); ++i) {
             double x = graph_padding + 2 + (static_cast<double>(i) / (vram_usage_history.size() - 1)) * (graph_width - 4);
@@ -187,7 +197,9 @@ void VramOverlay::DrawVramGraph(QPainter& painter) {
         line_path.lineTo(graph_padding + graph_width - 2, graph_y + local_graph_height - 2);
         line_path.lineTo(graph_padding + 2, graph_y + local_graph_height - 2);
         line_path.closeSubpath();
-        painter.fillPath(line_path, graph_fill_color);
+
+        // Fill using the dynamic color with transparency
+        painter.fillPath(line_path, QColor(dynamic_color.red(), dynamic_color.green(), dynamic_color.blue(), 40));
     }
 }
 
@@ -208,54 +220,74 @@ void VramOverlay::resizeEvent(QResizeEvent* event) {
     UpdatePosition();
 }
 
+void VramOverlay::mousePressEvent(QMouseEvent* event) {
+    if (event->button() == Qt::LeftButton && !size_grip->geometry().contains(event->pos())) {
 #if defined(Q_OS_LINUX)
-// LINUX-SPECIFIC IMPLEMENTATION (Wayland Fix)
-void VramOverlay::mousePressEvent(QMouseEvent* event) {
-    if (event->button() == Qt::LeftButton) {
-        if (windowHandle()) {
+        if (!UISettings::IsGamescope() && windowHandle()) {
             windowHandle()->startSystemMove();
+        } else {
+            is_dragging = true;
+            drag_start_pos = event->globalPosition().toPoint() - this->pos();
         }
-    }
-    QWidget::mousePressEvent(event);
-}
-
-void VramOverlay::mouseMoveEvent(QMouseEvent* event) {
-    // Intentionally blank, the system compositor handles the move.
-    QWidget::mouseMoveEvent(event);
-}
-
 #else
-// ORIGINAL IMPLEMENTATION (For Windows, Android, etc.)
-void VramOverlay::mousePressEvent(QMouseEvent* event) {
-    if (event->button() == Qt::LeftButton) {
         is_dragging = true;
-        drag_start_pos = event->globalPosition().toPoint();
-        widget_start_pos = pos();
-        setCursor(Qt::ClosedHandCursor);
+        drag_start_pos = event->globalPosition().toPoint() - this->pos();
+#endif
+        event->accept();
     }
-    QWidget::mousePressEvent(event);
 }
 
 void VramOverlay::mouseMoveEvent(QMouseEvent* event) {
     if (is_dragging) {
-        QPoint delta = event->globalPosition().toPoint() - drag_start_pos;
-        move(widget_start_pos + delta);
+        move(event->globalPosition().toPoint() - drag_start_pos);
+        event->accept();
     }
-    QWidget::mouseMoveEvent(event);
 }
-#endif
 
 void VramOverlay::mouseReleaseEvent(QMouseEvent* event) {
     if (event->button() == Qt::LeftButton) {
         is_dragging = false;
         has_been_moved = true;
         setCursor(Qt::ArrowCursor);
+        event->accept();
     }
     QWidget::mouseReleaseEvent(event);
 }
 
 void VramOverlay::UpdateVramStats() {
-    if (!main_window) return;
+    if (!main_window || !is_enabled) return;
+
+    if (UISettings::IsGamescope()) {
+        bool ui_active = (QApplication::activePopupWidget() != nullptr);
+
+        if (!ui_active) {
+            for (QWidget* w : QApplication::topLevelWidgets()) {
+                if (w->isVisible() && w != main_window && w != this &&
+                    !w->inherits("GRenderWindow") &&
+                    !w->inherits("PerformanceOverlay") &&
+                    !w->inherits("ControllerOverlay") &&
+                    !w->inherits("VramOverlay")) {
+                    ui_active = true;
+                break;
+                    }
+            }
+        }
+
+        if (ui_active) {
+            if (!this->isHidden()) this->hide();
+            return;
+        }
+
+        if (this->isHidden()) {
+            this->show();
+        }
+    } else {
+        // Desktop: Respect the menu toggle strictly
+        if (is_enabled && this->isHidden()) {
+            this->show();
+        }
+    }
+
     try {
         current_vram_data.total_vram = main_window->GetTotalVram();
         current_vram_data.used_vram = main_window->GetUsedVram();
@@ -282,11 +314,12 @@ void VramOverlay::UpdateVramStats() {
             }
             last_vram_usage = current_vram_data.used_vram;
         }
-        AddVramUsage(current_vram_data.vram_percentage);
+
+        vram_usage_history.push_back(current_vram_data.vram_percentage);
+        if (vram_usage_history.size() > MAX_VRAM_HISTORY) vram_usage_history.pop_front();
+
         update();
-    } catch (...) {
-        // Ignore
-    }
+    } catch (...) {}
 }
 
 QColor VramOverlay::GetVramColor(double percentage) const {
@@ -306,24 +339,8 @@ QString VramOverlay::FormatPercentage(double percentage) const {
     return QString::number(percentage, 'f', 1);
 }
 
-void VramOverlay::AddVramUsage(double percentage) {
-    vram_usage_history.push_back(percentage);
-    if (vram_usage_history.size() > MAX_VRAM_HISTORY) {
-        vram_usage_history.pop_front();
-    }
-    if (!vram_usage_history.empty()) {
-        min_vram_usage = *std::min_element(vram_usage_history.begin(), vram_usage_history.end());
-        max_vram_usage = *std::max_element(vram_usage_history.begin(), vram_usage_history.end());
-        double range = max_vram_usage - min_vram_usage;
-        if (range < 10.0) range = 10.0;
-        min_vram_usage = std::max(0.0, min_vram_usage - range * 0.1);
-        max_vram_usage = std::min(100.0, max_vram_usage + range * 0.1);
-    }
-}
-
 void VramOverlay::UpdateTheme() {
     if (UISettings::IsDarkTheme()) {
-        // Dark Theme Colors (your original values)
         background_color = QColor(15, 15, 15, 220);
         border_color = QColor(45, 45, 45, 255);
         text_color = QColor(240, 240, 240, 255);
@@ -331,7 +348,6 @@ void VramOverlay::UpdateTheme() {
         graph_background_color = QColor(25, 25, 25, 255);
         graph_grid_color = QColor(60, 60, 60, 100);
     } else {
-        // Light Theme Colors
         background_color = QColor(245, 245, 245, 220);
         border_color = QColor(200, 200, 200, 255);
         text_color = QColor(20, 20, 20, 255);
@@ -339,5 +355,5 @@ void VramOverlay::UpdateTheme() {
         graph_background_color = QColor(225, 225, 225, 255);
         graph_grid_color = QColor(190, 190, 190, 100);
     }
-    update(); // Force a repaint
+    update();
 }

@@ -84,6 +84,7 @@ static FileSys::VirtualFile VfsDirectoryCreateFileWrapper(const FileSys::Virtual
 #include <QDir>
 #include <QFile>
 #include <QFileDialog>
+#include <QGuiApplication>
 #include <QInputDialog>
 #include <QMessageBox>
 #include <QProgressBar>
@@ -94,6 +95,7 @@ static FileSys::VirtualFile VfsDirectoryCreateFileWrapper(const FileSys::Virtual
 #include <QStandardPaths>
 #include <QStatusBar>
 #include <QString>
+#include <QStyleFactory>
 #include <QSysInfo>
 #include <QUrl>
 #include <QtConcurrent/QtConcurrent>
@@ -495,6 +497,12 @@ GMainWindow::GMainWindow(std::unique_ptr<QtConfig> config_, bool has_broken_vulk
             // Create a non-modal QMessageBox instance with a nullptr parent to make it a top-level window.
             // This prevents it from blocking the main application window.
             auto* confirmation_dialog = new QMessageBox(nullptr);
+            const bool is_gamescope = !qgetenv("GAMESCOPE_WIDTH").isEmpty() || qgetenv("XDG_CURRENT_DESKTOP") == "gamescope";
+            if (is_gamescope) {
+                confirmation_dialog->setWindowFlags(Qt::Window | Qt::CustomizeWindowHint | Qt::WindowTitleHint | Qt::WindowStaysOnTopHint);
+                confirmation_dialog->resize(650, 300);
+                confirmation_dialog->setStyleSheet(QStringLiteral("font-size: 11pt;"));
+            }
             confirmation_dialog->setAttribute(Qt::WA_DeleteOnClose); // This ensures it is deleted automatically on close.
             confirmation_dialog->setWindowModality(Qt::NonModal); // Explicitly set modality.
             confirmation_dialog->setWindowTitle(tr("First-Time Setup"));
@@ -854,15 +862,13 @@ void GMainWindow::SoftwareKeyboardShowNormal() {
     }
 
     const auto& layout = render_window->GetFramebufferLayout();
-
     const auto x = layout.screen.left;
     const auto y = layout.screen.top;
     const auto w = layout.screen.GetWidth();
     const auto h = layout.screen.GetHeight();
-    const auto scale_ratio = devicePixelRatioF();
 
-    software_keyboard->ShowNormalKeyboard(render_window->mapToGlobal(QPoint(x, y) / scale_ratio),
-                                          QSize(w, h) / scale_ratio);
+    software_keyboard->ShowNormalKeyboard(render_window->mapToGlobal(QPoint(x, y)),
+                                          QSize(w, h));
 }
 
 void GMainWindow::SoftwareKeyboardShowTextCheck(
@@ -895,11 +901,10 @@ void GMainWindow::SoftwareKeyboardShowInline(
                                                (1.0f - appear_parameters.key_top_scale_y))));
     const auto w = static_cast<int>(layout.screen.GetWidth() * appear_parameters.key_top_scale_x);
     const auto h = static_cast<int>(layout.screen.GetHeight() * appear_parameters.key_top_scale_y);
-    const auto scale_ratio = devicePixelRatioF();
 
     software_keyboard->ShowInlineKeyboard(std::move(appear_parameters),
-                                          render_window->mapToGlobal(QPoint(x, y) / scale_ratio),
-                                          QSize(w, h) / scale_ratio);
+                                          render_window->mapToGlobal(QPoint(x, y)),
+                                          QSize(w, h));
 }
 
 void GMainWindow::SoftwareKeyboardHideInline() {
@@ -979,13 +984,11 @@ void GMainWindow::WebBrowserOpenWebPage(const std::string& main_url,
         }
 
         const auto& layout = render_window->GetFramebufferLayout();
-        const auto scale_ratio = devicePixelRatioF();
-        web_applet->resize(layout.screen.GetWidth() / scale_ratio,
-                           layout.screen.GetHeight() / scale_ratio);
-        web_applet->move(layout.screen.left / scale_ratio,
-                         (layout.screen.top / scale_ratio) + menuBar()->height());
-        web_applet->setZoomFactor(static_cast<qreal>(layout.screen.GetWidth() / scale_ratio) /
-                                  static_cast<qreal>(Layout::ScreenUndocked::Width));
+        web_applet->resize(layout.screen.GetWidth(), layout.screen.GetHeight());
+        web_applet->move(layout.screen.left,
+                         (layout.screen.top) + menuBar()->height());
+        web_applet->setZoomFactor(static_cast<qreal>(layout.screen.GetWidth()) /
+        static_cast<qreal>(Layout::ScreenUndocked::Width));
 
         web_applet->setFocus();
         web_applet->show();
@@ -1158,9 +1161,6 @@ void GMainWindow::InitializeWidgets() {
 
     multiplayer_room_overlay = new MultiplayerRoomOverlay(this);
     multiplayer_room_overlay->hide();
-
-    connect(this, &GMainWindow::EmulationStarting, multiplayer_room_overlay, &MultiplayerRoomOverlay::OnEmulationStarting);
-    connect(this, &GMainWindow::EmulationStopping, multiplayer_room_overlay, &MultiplayerRoomOverlay::OnEmulationStopping);
 
     vram_overlay = new VramOverlay(this);
     vram_overlay->hide();
@@ -1353,6 +1353,26 @@ void GMainWindow::InitializeWidgets() {
 
     statusBar()->setVisible(true);
     setStyleSheet(QStringLiteral("QStatusBar::item{border: none;}"));
+
+    const bool is_gamescope = !qgetenv("GAMESCOPE_WIDTH").isEmpty() || qgetenv("XDG_CURRENT_DESKTOP") == "gamescope";
+    if (is_gamescope) {
+        statusBar()->setSizeGripEnabled(true);
+        this->menuBar()->setNativeMenuBar(false);
+
+        QString gamescope_style = qApp->styleSheet();
+        gamescope_style.append(QStringLiteral("QMenu { background-color: #2b2b2b; border: 1px solid #3d3d3d; padding: 2px; } "
+        "QMenu::item { padding: 5px 25px 5px 20px; } "
+        "QMenu::item:selected { background-color: #3d3d3d; }"));
+        qApp->setStyleSheet(gamescope_style);
+
+        multiplayer_room_overlay->resize(360, 240);
+
+        this->setContentsMargins(0, 0, 0, 0);
+        this->layout()->setContentsMargins(0, 0, 0, 0);
+        this->layout()->setSpacing(0);
+        ui->horizontalLayout->setContentsMargins(0, 0, 0, 0);
+        ui->horizontalLayout->setSpacing(0);
+    }
 }
 
 void GMainWindow::InitializeDebugWidgets() {
@@ -1483,6 +1503,12 @@ void GMainWindow::InitializeHotkeys() {
 }
 
 void GMainWindow::SetDefaultUIGeometry() {
+    const bool is_gamescope = !qgetenv("GAMESCOPE_WIDTH").isEmpty() || qgetenv("XDG_CURRENT_DESKTOP") == "gamescope";
+
+    if (is_gamescope) {
+        this->resize(1280, 800);
+        return;
+    }
     // geometry: 53% of the window contents are in the upper screen half, 47% in the lower half
     const QRect screenRect = QGuiApplication::primaryScreen()->geometry();
 
@@ -1495,15 +1521,25 @@ void GMainWindow::SetDefaultUIGeometry() {
 }
 
 void GMainWindow::RestoreUIState() {
+    const bool is_gamescope = !qgetenv("GAMESCOPE_WIDTH").isEmpty() || qgetenv("XDG_CURRENT_DESKTOP") == "gamescope";
+
     setWindowFlags(windowFlags() & ~Qt::FramelessWindowHint);
-    restoreGeometry(UISettings::values.geometry);
+
+    if (!is_gamescope) {
+        restoreGeometry(UISettings::values.geometry);
+    }
+
     // Work-around because the games list isn't supposed to be full screen
     if (isFullScreen()) {
         showNormal();
     }
     restoreState(UISettings::values.state);
-    render_window->setWindowFlags(render_window->windowFlags() & ~Qt::FramelessWindowHint);
-    render_window->restoreGeometry(UISettings::values.renderwindow_geometry);
+
+    if (!is_gamescope) {
+        render_window->setWindowFlags(render_window->windowFlags() & ~Qt::FramelessWindowHint);
+        render_window->restoreGeometry(UISettings::values.renderwindow_geometry);
+    }
+
     #if MICROPROFILE_ENABLED
     microProfileDialog->restoreGeometry(UISettings::values.microprofile_geometry);
     microProfileDialog->setVisible(UISettings::values.microprofile_visible.GetValue());
@@ -1528,13 +1564,12 @@ void GMainWindow::RestoreUIState() {
     ui->action_Show_Status_Bar->setChecked(UISettings::values.show_status_bar.GetValue());
     statusBar()->setVisible(ui->action_Show_Status_Bar->isChecked());
 
-    // Force the performance overlay to be off on startup
+    // Force overlays off on startup
     ui->action_Show_Performance_Overlay->setChecked(false);
     if (performance_overlay) {
         performance_overlay->SetVisible(false);
     }
 
-    // Force the VRAM overlay to be off on startup
     ui->action_Show_Vram_Overlay->setChecked(false);
     if (vram_overlay) {
         vram_overlay->SetVisible(false);
@@ -2937,6 +2972,12 @@ void GMainWindow::OnGameListVerifyIntegrity(const std::string& game_path) {
     };
 
     QProgressDialog progress(tr("Verifying integrity..."), tr("Cancel"), 0, 100, this);
+
+    const bool is_gamescope = !qgetenv("GAMESCOPE_WIDTH").isEmpty() || qgetenv("XDG_CURRENT_DESKTOP") == "gamescope";
+    if (is_gamescope) {
+        progress.setWindowFlags(Qt::Window | Qt::WindowTitleHint | Qt::WindowStaysOnTopHint);
+    }
+
     progress.setWindowModality(Qt::WindowModal);
     progress.setMinimumDuration(100);
     progress.setAutoClose(false);
@@ -4015,14 +4056,16 @@ void GMainWindow::ShowFullscreen() {
 }
 
 void GMainWindow::HideFullscreen() {
+    const bool is_gamescope = !qgetenv("GAMESCOPE_WIDTH").isEmpty() || qgetenv("XDG_CURRENT_DESKTOP") == "gamescope";
+
     if (ui->action_Single_Window_Mode->isChecked()) {
         if (UsingExclusiveFullscreen()) {
             showNormal();
-            restoreGeometry(UISettings::values.geometry);
+            if (!is_gamescope) restoreGeometry(UISettings::values.geometry);
         } else {
             hide();
             setWindowFlags(windowFlags() & ~Qt::FramelessWindowHint);
-            restoreGeometry(UISettings::values.geometry);
+            if (!is_gamescope) restoreGeometry(UISettings::values.geometry);
             raise();
             show();
         }
@@ -4032,14 +4075,17 @@ void GMainWindow::HideFullscreen() {
     } else {
         if (UsingExclusiveFullscreen()) {
             render_window->showNormal();
-            render_window->restoreGeometry(UISettings::values.renderwindow_geometry);
+            if (!is_gamescope) render_window->restoreGeometry(UISettings::values.renderwindow_geometry);
         } else {
             render_window->hide();
             render_window->setWindowFlags(windowFlags() & ~Qt::FramelessWindowHint);
-            render_window->restoreGeometry(UISettings::values.renderwindow_geometry);
+            if (!is_gamescope) render_window->restoreGeometry(UISettings::values.renderwindow_geometry);
             render_window->raise();
             render_window->show();
         }
+    }
+
+    if (is_gamescope) {
     }
 }
 
@@ -4069,9 +4115,14 @@ void GMainWindow::ToggleWindowMode() {
 }
 
 void GMainWindow::ResetWindowSize(u32 width, u32 height) {
+    const bool is_gamescope = !qgetenv("GAMESCOPE_WIDTH").isEmpty() || qgetenv("XDG_CURRENT_DESKTOP") == "gamescope";
+    if (is_gamescope) {
+        return;
+    }
+
     const auto aspect_ratio = Layout::EmulationAspectRatio(
         static_cast<Layout::AspectRatio>(Settings::values.aspect_ratio.GetValue()),
-        static_cast<float>(height) / width);
+                                                           static_cast<float>(height) / width);
     if (!ui->action_Single_Window_Mode->isChecked()) {
         render_window->resize(height / aspect_ratio, height);
     } else {
@@ -4441,6 +4492,15 @@ bool GMainWindow::question(QWidget* parent, const QString& title, const QString&
                            QMessageBox::StandardButtons buttons,
                            QMessageBox::StandardButton defaultButton) {
     QMessageBox* box_dialog = new QMessageBox(parent);
+
+    const bool is_gamescope = UISettings::IsGamescope();
+    if (is_gamescope) {
+        box_dialog->setWindowFlags(Qt::Window | Qt::CustomizeWindowHint | Qt::WindowTitleHint);
+        box_dialog->setWindowModality(Qt::NonModal);
+        box_dialog->setFixedSize(600, 250);
+        box_dialog->setStyleSheet(QStringLiteral("font-size: 11pt;"));
+    }
+
     box_dialog->setWindowTitle(title);
     box_dialog->setText(text);
     box_dialog->setStandardButtons(buttons);
@@ -5026,7 +5086,10 @@ void GMainWindow::OnToggleControllerOverlay() {
         controller_overlay = new ControllerOverlay(this);
     }
     if (controller_overlay) {
-        controller_overlay->setVisible(visible);
+
+        controller_overlay->SetVisible(visible);
+        this->update();
+        QCoreApplication::processEvents();
     }
 }
 
@@ -5047,7 +5110,6 @@ void GMainWindow::OnTogglePerformanceOverlay() {
     if (performance_overlay) {
         const bool is_checked = ui->action_Show_Performance_Overlay->isChecked();
         performance_overlay->SetVisible(is_checked);
-
         UISettings::values.show_performance_overlay = is_checked;
     }
 }
@@ -5066,7 +5128,6 @@ void GMainWindow::OnToggleVramOverlay() {
     if (vram_overlay) {
         const bool is_checked = ui->action_Show_Vram_Overlay->isChecked();
         vram_overlay->SetVisible(is_checked);
-
         UISettings::values.show_vram_overlay = is_checked;
     }
 }
@@ -5564,10 +5625,14 @@ void GMainWindow::UpdateStatusButtons() {
 }
 
 void GMainWindow::UpdateUISettings() {
-    if (!ui->action_Fullscreen->isChecked()) {
+    const bool is_gamescope = !qgetenv("GAMESCOPE_WIDTH").isEmpty() || qgetenv("XDG_CURRENT_DESKTOP") == "gamescope";
+
+    // Only save/restore geometry if we are NOT in gamescope to prevent resolution bugs
+    if (!ui->action_Fullscreen->isChecked() && !is_gamescope) {
         UISettings::values.geometry = saveGeometry();
         UISettings::values.renderwindow_geometry = render_window->saveGeometry();
     }
+
     UISettings::values.state = saveState();
     #if MICROPROFILE_ENABLED
     UISettings::values.microprofile_geometry = microProfileDialog->saveGeometry();
@@ -6029,80 +6094,69 @@ void VolumeButton::ResetMultiplier() {
 #endif
 
 static void SetHighDPIAttributes() {
+    [[maybe_unused]] const bool is_gamescope = !qgetenv("GAMESCOPE_WIDTH").isEmpty() ||
+    qgetenv("XDG_CURRENT_DESKTOP") == "gamescope" ||
+    !qgetenv("STEAM_DECK").isEmpty();
+
 #ifdef _WIN32
-    // For Windows, we want to avoid scaling artifacts on fractional scaling ratios.
-    // This is done by setting the optimal scaling policy for the primary screen.
+    // Windows logic: Set policy globally.
+    // removed the 'temp QApplication' here because in Qt 6 it locks the DPI logic
+    // before our environment overrides in main() can take effect.
+    QGuiApplication::setHighDpiScaleFactorRoundingPolicy(
+        Qt::HighDpiScaleFactorRoundingPolicy::Round);
 
-    // Create a temporary QApplication.
-    int temp_argc = 0;
-    char** temp_argv = nullptr;
-    QApplication temp{temp_argc, temp_argv};
-
-    // Get the current screen geometry.
-    const QScreen* primary_screen = QGuiApplication::primaryScreen();
-    if (primary_screen == nullptr) {
-        return;
-    }
-
-    const QRect screen_rect = primary_screen->geometry();
-    const int real_width = screen_rect.width();
-    const int real_height = screen_rect.height();
-    const float real_ratio = primary_screen->logicalDotsPerInch() / 96.0f;
-
-    // Recommended minimum width and height for proper window fit.
-    // Any screen with a lower resolution than this will still have a scale of 1.
-    constexpr float minimum_width = 1350.0f;
-    constexpr float minimum_height = 900.0f;
-
-    const float width_ratio = std::max(1.0f, real_width / minimum_width);
-    const float height_ratio = std::max(1.0f, real_height / minimum_height);
-
-    // Get the lower of the 2 ratios and truncate, this is the maximum integer scale.
-    const float max_ratio = std::trunc(std::min(width_ratio, height_ratio));
-
-    if (max_ratio > real_ratio) {
-        QApplication::setHighDpiScaleFactorRoundingPolicy(
-            Qt::HighDpiScaleFactorRoundingPolicy::Round);
-    } else {
-        QApplication::setHighDpiScaleFactorRoundingPolicy(
-            Qt::HighDpiScaleFactorRoundingPolicy::Floor);
-    }
-#else
-    // Other OSes should be better than Windows at fractional scaling.
-    QApplication::setHighDpiScaleFactorRoundingPolicy(
-        Qt::HighDpiScaleFactorRoundingPolicy::PassThrough);
-#endif
-
-    // Set the DPI awareness for better scaling on Windows
-#ifdef _WIN32
-    // Enable Per Monitor DPI Awareness for Windows 8.1+
     SetProcessDPIAware();
 
-    // For Windows 10+, use Per Monitor v2 DPI Awareness
-    // This provides better scaling for multi-monitor setups
     HMODULE shcore = LoadLibrary(L"shcore.dll");
     if (shcore) {
         typedef HRESULT(WINAPI* SetProcessDpiAwarenessFunc)(int);
         SetProcessDpiAwarenessFunc setProcessDpiAwareness =
             (SetProcessDpiAwarenessFunc)GetProcAddress(shcore, "SetProcessDpiAwareness");
         if (setProcessDpiAwareness) {
-            // PROCESS_PER_MONITOR_DPI_AWARE_V2 = 2
-            setProcessDpiAwareness(2);
+            setProcessDpiAwareness(2); // PROCESS_PER_MONITOR_DPI_AWARE_V2
         }
         FreeLibrary(shcore);
     }
+#else
+if (is_gamescope) {
+    // PassThrough prevents Qt6 from recursively expanding layouts to fit rounded DPIs
+    QGuiApplication::setHighDpiScaleFactorRoundingPolicy(
+        Qt::HighDpiScaleFactorRoundingPolicy::PassThrough);
+}
 #endif
 }
 
 int main(int argc, char* argv[]) {
-    // Set environment variables for AppImage compatibility
-    // This must be done before the QApplication is created.
+    // 1. Detect Gamescope/Steam Deck hardware
+    const bool is_gamescope = UISettings::IsGamescope();
+
+    if (is_gamescope) {
+        // Kill the scaling system entirely
+        qputenv("QT_ENABLE_HIGHDPI_SCALING", "0");
+        qputenv("QT_SCALE_FACTOR", "1");
+        qputenv("QT_AUTO_SCREEN_SCALE_FACTOR", "0");
+
+#ifdef __linux__
+        qputenv("QT_QPA_PLATFORM", "xcb");
+        qputenv("QT_FONT_DPI", "96");
+#endif
+
+        // Stop Qt from querying physical hardware DPI for text/widgets
+        qputenv("QT_USE_PHYSICAL_DPI", "0");
+
+        // Force the legacy coordinate system for X11/XCB
+        qputenv("QT_SCREEN_SCALE_FACTORS", "1");
+
+        // Ensure Gamescope compositor handles Citron menus correctly
+        QCoreApplication::setAttribute(Qt::AA_DontUseNativeMenuBar);
+        QCoreApplication::setAttribute(Qt::AA_DontUseNativeDialogs);
+        qputenv("QT_WAYLAND_SHELL_INTEGRATION", "xdg-shell");
+    }
+
+    // 2. Setup AppImage environment
     const bool is_appimage = !qgetenv("APPIMAGE").isEmpty();
     if (is_appimage) {
-        // Fixes Wayland crash with NVIDIA drivers by disabling explicit sync.
         qputenv("QT_WAYLAND_DISABLE_EXPLICIT_SYNC", "1");
-
-        // Tell the bundled OpenSSL where to find the bundled certificates.
         const QDir app_dir(QCoreApplication::applicationDirPath());
         const QString certs_path = app_dir.filePath(QString::fromLatin1("../etc/ssl/certs"));
         qputenv("SSL_CERT_DIR", certs_path.toUtf8());
@@ -6133,73 +6187,73 @@ int main(int argc, char* argv[]) {
 
     Common::ConfigureNvidiaEnvironmentFlags();
 
-    // Init settings params
     QCoreApplication::setOrganizationName(QStringLiteral("citron team"));
     QCoreApplication::setApplicationName(QStringLiteral("citron"));
 
 #ifdef _WIN32
-    // Increases the maximum open file limit to 8192
     _setmaxstdio(8192);
 #endif
 
 #ifdef __APPLE__
-    // If you start a bundle (binary) on OSX without the Terminal, the working directory is "/".
-    // But since we require the working directory to be the executable path for the location of
-    // the user folder in the Qt Frontend, we need to cd into that working directory
     const auto bin_path = Common::FS::GetBundleDirectory() / "..";
     chdir(Common::FS::PathToUTF8String(bin_path).c_str());
 #endif
 
 #ifdef __linux__
-    // Set the DISPLAY variable in order to open web browsers
-    // TODO (lat9nq): Find a better solution for AppImages to start external applications
     if (QString::fromLocal8Bit(qgetenv("DISPLAY")).isEmpty()) {
         qputenv("DISPLAY", ":0");
     }
-
-    // Fix the Wayland appId. This needs to match the name of the .desktop file without the .desktop
-    // suffix.
     QGuiApplication::setDesktopFileName(QStringLiteral("org.citron_emu.citron"));
 #endif
 
+    // Call policy attributes BEFORE creating the real QApplication instance
     SetHighDPIAttributes();
 
 #if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
-    // Disables the "?" button on all dialogs. Disabled by default on Qt6.
     QCoreApplication::setAttribute(Qt::AA_DisableWindowContextHelpButton);
 #endif
 
-    // Enables the core to make the qt created contexts current on std::threads
     QCoreApplication::setAttribute(Qt::AA_DontCheckOpenGLContextThreadAffinity);
 
     QApplication app(argc, argv);
+
+#ifdef _WIN32
+    OverrideWindowsFont();
+#endif
+
+    if (is_gamescope) {
+        app.setStyleSheet(app.styleSheet().append(QStringLiteral(
+            "QDialog { "
+            "   font-size: 11pt; "
+            "   margin: 0px; "
+            "   padding: 0px; "
+            "}"
+            "QLabel { font-size: 10pt; }"
+        )));
+
+        app.setStyle(QStyleFactory::create(QStringLiteral("Fusion")));
+    }
+
 #ifdef __linux__
     if (QGuiApplication::platformName().startsWith(QStringLiteral("wayland"))) {
         Settings::values.is_wayland_platform.SetValue(true);
     }
 #endif
 
-    #ifdef CITRON_USE_AUTO_UPDATER
-    // Check for and apply staged updates before starting the main application
+#ifdef CITRON_USE_AUTO_UPDATER
     std::filesystem::path app_dir = std::filesystem::path(QCoreApplication::applicationDirPath().toStdString());
 
 #ifdef _WIN32
     // On Windows, updates are applied by the helper script after the app exits.
-    // If we find a staging directory here, it means the helper script failed.
-    // Clean it up to avoid confusion.
     std::filesystem::path staging_path = app_dir / "update_staging";
     if (std::filesystem::exists(staging_path)) {
         try {
             std::filesystem::remove_all(staging_path);
-        } catch (...) {
-            // Ignore cleanup errors
-        }
+        } catch (...) {}
     }
 #else
-    // On Linux, apply staged updates at startup as before
     if (Updater::UpdaterService::HasStagedUpdate(app_dir)) {
         if (Updater::UpdaterService::ApplyStagedUpdate(app_dir)) {
-            // Show a simple message that update was applied
             QMessageBox::information(nullptr, QObject::tr("Update Applied"),
                                      QObject::tr("Citron has been updated successfully!"));
         }
@@ -6207,37 +6261,29 @@ int main(int argc, char* argv[]) {
 #endif
 #endif
 
-#ifdef _WIN32
-    OverrideWindowsFont();
-#endif
-
-    // Workaround for QTBUG-85409, for Suzhou numerals the number 1 is actually \u3021
-    // so we can see if we get \u3008 instead
-    // TL;DR all other number formats are consecutive in unicode code points
-    // This bug is fixed in Qt6, specifically 6.0.0-alpha1
-#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
-    const QLocale locale = QLocale::system();
-    if (QStringLiteral("\u3008") == locale.toString(1)) {
-        QLocale::setDefault(QLocale::system().name());
-    }
-#endif
-
-    // Qt changes the locale and causes issues in float conversion using std::to_string() when
-    // generating shaders
     setlocale(LC_ALL, "C");
 
     GMainWindow main_window{std::move(config), has_broken_vulkan};
-
     app.setStyle(new RainbowStyle(app.style()));
 
     main_window.show();
 
+    if (is_gamescope) {
+        QTimer::singleShot(200, &main_window, [&main_window]() {
+            main_window.showMaximized();
+            if (main_window.layout()) {
+                main_window.layout()->activate();
+            }
+            main_window.update();
+            main_window.raise();
+            main_window.activateWindow();
+        });
+    }
+
     QObject::connect(&app, &QGuiApplication::applicationStateChanged, &main_window,
                      &GMainWindow::OnAppFocusStateChanged);
 
-    int result = app.exec();
-    detached_tasks.WaitForAllTasks();
-    return result;
+    return app.exec();
 }
 
 void GMainWindow::OnCheckForUpdates() {

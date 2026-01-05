@@ -15,16 +15,18 @@
 #include "citron/uisettings.h"
 
 class GMainWindow;
+class QSizeGrip;
 
 class PerformanceOverlay : public QWidget {
     Q_OBJECT
 
 public:
-    explicit PerformanceOverlay(GMainWindow* parent);
+    explicit PerformanceOverlay(QWidget* parent);
     ~PerformanceOverlay() override;
 
     void SetVisible(bool visible);
     bool IsVisible() const { return is_visible; }
+    void setMainWindow(GMainWindow* window) { main_window = window; }
 
 public slots:
     void UpdateTheme();
@@ -40,6 +42,9 @@ private slots:
     void UpdatePerformanceStats();
 
 private:
+    bool is_enabled = false;
+    bool is_visible = false;
+
     void UpdatePosition();
     void UpdateHardwareTemperatures();
     void DrawPerformanceInfo(QPainter& painter);
@@ -51,6 +56,7 @@ private:
     void AddFrameTime(double frame_time_ms);
 
     GMainWindow* main_window;
+    QSizeGrip* size_grip;
     QTimer update_timer;
 
     // Performance data
@@ -66,14 +72,13 @@ private:
     float battery_temperature = 0.0f;
 
     // Frame graph data
-    static constexpr size_t MAX_FRAME_HISTORY = 120; // 2 seconds at 60 FPS
+    static constexpr size_t MAX_FRAME_HISTORY = 120;
     std::deque<double> frame_times;
     double min_frame_time = 0.0;
     double max_frame_time = 0.0;
     double avg_frame_time = 0.0;
 
     // Display settings
-    bool is_visible = false;
     QFont title_font;
     QFont value_font;
     QFont small_font;
