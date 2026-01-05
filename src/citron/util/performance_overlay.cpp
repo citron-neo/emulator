@@ -313,7 +313,6 @@ void PerformanceOverlay::UpdateHardwareTemperatures() {
         }
     }
 #endif
-}
 
 #if defined(Q_OS_ANDROID)
     QJniObject battery_status = QJniObject::callStaticObjectMethod(
@@ -370,6 +369,7 @@ void PerformanceOverlay::UpdateHardwareTemperatures() {
     if(pSvc) pSvc->Release();
     if(pLoc) pLoc->Release();
 #endif
+}
 
 void PerformanceOverlay::UpdatePosition() {
     if (main_window && !has_been_moved) {
