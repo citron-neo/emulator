@@ -27,10 +27,23 @@
 
 Lobby::Lobby(QWidget* parent, QStandardItemModel* list,
              std::shared_ptr<Core::AnnounceMultiplayerSession> session, Core::System& system_)
-    : QDialog(parent, Qt::WindowTitleHint | Qt::WindowCloseButtonHint | Qt::WindowSystemMenuHint),
+    : QDialog(parent),
       ui(std::make_unique<Ui::Lobby>()),
       announce_multiplayer_session(session), system{system_}, room_network{
                                                                   system.GetRoomNetwork()} {
+
+    const bool is_gamescope = UISettings::IsGamescope();
+    if (is_gamescope) {
+        setWindowFlags(Qt::Window | Qt::CustomizeWindowHint | Qt::WindowTitleHint);
+        setWindowModality(Qt::NonModal);
+
+        int w = 800;
+        int h = 500;
+        setFixedSize(w, h);
+    } else {
+        setWindowFlags(Qt::Dialog | Qt::WindowTitleHint | Qt::WindowCloseButtonHint | Qt::WindowSystemMenuHint);
+    }
+
     ui->setupUi(this);
 
     // setup the watcher for background connections
