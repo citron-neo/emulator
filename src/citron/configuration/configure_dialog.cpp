@@ -108,8 +108,17 @@ ConfigureDialog::ConfigureDialog(QWidget* parent, HotkeyRegistry& registry_,
     }
 
     Settings::SetConfiguringGlobal(true);
-    setWindowFlags(Qt::Dialog | Qt::WindowTitleHint | Qt::WindowSystemMenuHint |
-                   Qt::WindowMinMaxButtonsHint | Qt::WindowCloseButtonHint);
+
+    const bool is_gamescope = UISettings::IsGamescope();
+    if (is_gamescope) {
+        // GameScope: Use Window flags instead of Dialog to ensure mouse focus
+        setWindowFlags(Qt::Window | Qt::CustomizeWindowHint | Qt::WindowTitleHint);
+        setWindowModality(Qt::NonModal);
+    } else {
+        setWindowFlags(Qt::Dialog | Qt::WindowTitleHint | Qt::WindowSystemMenuHint | Qt::WindowCloseButtonHint);
+        setWindowModality(Qt::WindowModal);
+    }
+
     ui->setupUi(this);
 
     auto* animation_filter = new StyleAnimationEventFilter(this);
@@ -128,9 +137,13 @@ ConfigureDialog::ConfigureDialog(QWidget* parent, HotkeyRegistry& registry_,
     ui->topButtonWidget->setLayout(nav_layout);
 
     last_palette_text_color = qApp->palette().color(QPalette::WindowText);
-    if (!UISettings::values.configure_dialog_geometry.isEmpty()) {
+
+    if (is_gamescope) {
+        resize(1100, 700);
+    } else if (!UISettings::values.configure_dialog_geometry.isEmpty()) {
         restoreGeometry(UISettings::values.configure_dialog_geometry);
     }
+
     UpdateTheme();
 
     tab_button_group = std::make_unique<QButtonGroup>(this);
@@ -238,8 +251,6 @@ void ConfigureDialog::UpdateTheme() {
         if (!rainbow_timer) {
             rainbow_timer = new QTimer(this);
             connect(rainbow_timer, &QTimer::timeout, this, [this] {
-                // MODAL GUARD: If a color dialog or popup is open, pause updates.
-                // This makes the Color Picker buttons static and responsive.
                 if (m_is_tab_animating || !this->isVisible() || !this->isActiveWindow()) return;
 
                 const int current_index = ui->stackedWidget->currentIndex();
@@ -261,12 +272,18 @@ void ConfigureDialog::UpdateTheme() {
                 if (ui->horizontalNavWidget) ui->horizontalNavWidget->setStyleSheet(sidebar_css);
 
                 // 2. Action Buttons (OK/Apply/Cancel)
-                if (ui->buttonBox && !ui->buttonBox->underMouse()) {
-                    ui->buttonBox->setStyleSheet(QStringLiteral(
+                if (ui->buttonBox) {
+                    const QString button_css = QStringLiteral(
                         "QPushButton { background-color: %1; color: #ffffff; border-radius: 4px; font-weight: bold; padding: 5px 15px; }"
                         "QPushButton:hover { background-color: %2; }"
                         "QPushButton:pressed { background-color: %3; }"
-                    ).arg(hue_hex).arg(hue_light).arg(hue_dark));
+                    ).arg(hue_hex).arg(hue_light).arg(hue_dark);
+
+                    for (auto* button : ui->buttonBox->findChildren<QPushButton*>()) {
+                        if (!button->isDown()) {
+                            button->setStyleSheet(button_css);
+                        }
+                    }
                 }
 
                 // 3. Tab Content Area
@@ -302,7 +319,17 @@ void ConfigureDialog::UpdateTheme() {
             });
         }
         rainbow_timer->start(33);
-    } else if (rainbow_timer) {
+    }
+
+    if (ui->buttonBox) {
+        ui->buttonBox->setStyleSheet(QStringLiteral(
+            "QPushButton { background-color: %1; color: #ffffff; border-radius: 4px; font-weight: bold; padding: 5px 15px; }"
+            "QPushButton:hover { background-color: %2; }"
+            "QPushButton:pressed { background-color: %3; }"
+        ).arg(accent).arg(Theme::GetAccentColorHover()).arg(Theme::GetAccentColorPressed()));
+    }
+
+    if (UISettings::values.enable_rainbow_mode.GetValue() == false && rainbow_timer) {
         rainbow_timer->stop();
         if (ui->topButtonWidget) ui->topButtonWidget->setStyleSheet({});
         if (ui->horizontalNavWidget) ui->horizontalNavWidget->setStyleSheet({});
