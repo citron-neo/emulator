@@ -22,7 +22,7 @@ class MultiplayerRoomOverlay : public QWidget {
     Q_OBJECT
 
 public:
-    explicit MultiplayerRoomOverlay(GMainWindow* parent);
+    explicit MultiplayerRoomOverlay(QWidget* parent);
     ~MultiplayerRoomOverlay() override;
 
     void SetVisible(bool visible);
