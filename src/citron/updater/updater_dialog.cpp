@@ -220,9 +220,18 @@ void UpdaterDialog::OnRestartButtonClicked() {
 }
 
 void UpdaterDialog::SetupUI() {
-    setWindowFlags(windowFlags() & ~Qt::WindowContextHelpButtonHint);
+    const bool is_gamescope = UISettings::IsGamescope();
 
-    setMinimumSize(size());
+    if (is_gamescope) {
+        // Match the behavior of ConfigureDialog to ensure focus and visibility on Steam Deck
+        setWindowFlags(Qt::Window | Qt::CustomizeWindowHint | Qt::WindowTitleHint);
+        setWindowModality(Qt::NonModal);
+        resize(1100, 700);
+    } else {
+        // Desktop remains untouched
+        setWindowFlags(windowFlags() & ~Qt::WindowContextHelpButtonHint);
+        setMinimumSize(size());
+    }
 
     ui->currentVersionValue->setText(QString::fromStdString(updater_service->GetCurrentVersion()));
     ui->appImageSelectorLabel->setVisible(false);
