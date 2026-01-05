@@ -15,6 +15,7 @@
 #include "citron/uisettings.h"
 
 class GMainWindow;
+class QSizeGrip;
 
 struct VramUsageData {
     u64 total_vram = 0;
@@ -33,7 +34,7 @@ class VramOverlay : public QWidget {
     Q_OBJECT
 
 public:
-    explicit VramOverlay(GMainWindow* parent);
+    explicit VramOverlay(QWidget* parent);
     ~VramOverlay() override;
 
     void SetVisible(bool visible);
@@ -53,6 +54,9 @@ private slots:
     void UpdateVramStats();
 
 private:
+    bool is_enabled = false;
+    bool is_visible = false;
+
     void UpdatePosition();
     void DrawVramInfo(QPainter& painter);
     void DrawVramGraph(QPainter& painter);
@@ -63,6 +67,7 @@ private:
     void AddVramUsage(double percentage);
 
     GMainWindow* main_window;
+    QSizeGrip* size_grip;
     QTimer update_timer;
 
     // VRAM data
@@ -71,13 +76,12 @@ private:
     u32 frame_counter = 0;
 
     // VRAM graph data
-    static constexpr size_t MAX_VRAM_HISTORY = 120; // 2 seconds at 60 FPS
+    static constexpr size_t MAX_VRAM_HISTORY = 120;
     std::deque<double> vram_usage_history;
     double min_vram_usage = 0.0;
     double max_vram_usage = 100.0;
 
     // Display settings
-    bool is_visible = false;
     bool is_dragging = false;
     bool has_been_moved = false;
     QPoint drag_start_pos;
