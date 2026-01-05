@@ -37,6 +37,7 @@ namespace Settings {
 namespace UISettings {
 
     bool IsDarkTheme();
+    bool IsGamescope();
 
     struct ContextualShortcut {
         std::string keyseq;
