@@ -5133,19 +5133,17 @@ void GMainWindow::OnToggleVramOverlay() {
 }
 
 double GMainWindow::GetCurrentFPS() const {
-    if (!system || !system->IsPoweredOn()) {
+    if (!this->system || !this->system->IsPoweredOn()) {
         return 0.0;
     }
-    auto results = system->GetAndResetPerfStats();
-    return results.average_game_fps;
+    return last_perf_stats.average_game_fps;
 }
 
 double GMainWindow::GetCurrentFrameTime() const {
-    if (!system || !system->IsPoweredOn()) {
+    if (!this->system || !this->system->IsPoweredOn()) {
         return 0.0;
     }
-    auto results = system->GetAndResetPerfStats();
-    return results.frametime * 1000.0; // Convert to milliseconds
+    return last_perf_stats.frametime * 1000.0;
 }
 
 u32 GMainWindow::GetShadersBuilding() const {
@@ -5262,11 +5260,10 @@ u64 GMainWindow::GetStagingMemoryUsage() const {
 }
 
 double GMainWindow::GetEmulationSpeed() const {
-    if (!system || !system->IsPoweredOn()) {
+    if (!this->system || !this->system->IsPoweredOn()) {
         return 0.0;
     }
-    auto results = system->GetAndResetPerfStats();
-    return results.emulation_speed * 100.0; // Convert to percentage
+    return last_perf_stats.emulation_speed * 100.0;
 }
 
 void GMainWindow::OnAlbum() {
@@ -5508,7 +5505,7 @@ void GMainWindow::OnTasStateChanged() {
 }
 
 void GMainWindow::UpdateStatusBar() {
-    if (emu_thread == nullptr || !system->IsPoweredOn()) {
+    if (emu_thread == nullptr || !this->system->IsPoweredOn()) {
         status_bar_update_timer.stop();
         return;
     }
@@ -5519,8 +5516,11 @@ void GMainWindow::UpdateStatusBar() {
         tas_label->clear();
     }
 
-    auto results = system->GetAndResetPerfStats();
-    auto& shader_notify = system->GPU().ShaderNotify();
+    // Capture and SAVE the results so the overlay can see them too
+    last_perf_stats = this->system->GetAndResetPerfStats();
+
+    const auto& results = last_perf_stats;
+    auto& shader_notify = this->system->GPU().ShaderNotify();
     const int shaders_building = shader_notify.ShadersBuilding();
 
     if (shaders_building > 0) {
@@ -5537,8 +5537,8 @@ void GMainWindow::UpdateStatusBar() {
 
     if (Settings::values.use_speed_limit.GetValue()) {
         emu_speed_label->setText(tr("Speed: %1% / %2%")
-                                     .arg(results.emulation_speed * 100.0, 0, 'f', 0)
-                                     .arg(Settings::values.speed_limit.GetValue()));
+        .arg(results.emulation_speed * 100.0, 0, 'f', 0)
+        .arg(Settings::values.speed_limit.GetValue()));
     } else {
         emu_speed_label->setText(tr("Speed: %1%").arg(results.emulation_speed * 100.0, 0, 'f', 0));
     }
