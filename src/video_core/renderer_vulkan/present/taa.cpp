@@ -286,6 +286,17 @@ void TAA::UploadImages(Scheduler& scheduler) {
     if (m_images_ready) {
         return;
     }
+
+    scheduler.Record([&](vk::CommandBuffer cmdbuf) {
+        for (auto& image : m_dynamic_images) {
+            ClearColorImage(cmdbuf, *image.image);
+            ClearColorImage(cmdbuf, *image.previous_image);
+            ClearColorImage(cmdbuf, *image.motion_image);
+            ClearColorImage(cmdbuf, *image.depth_image);
+        }
+    });
+    scheduler.Finish();
+
     m_images_ready = true;
 }
 
@@ -326,6 +337,10 @@ void TAA::Draw(Scheduler& scheduler, size_t image_index, VkImage* inout_image,
 
     // Copy current frame to previous frame for next iteration
     scheduler.Record([this, &image](vk::CommandBuffer cmdbuf) {
+        // Transition images for copying
+        TransitionImageLayout(cmdbuf, *image.image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
+        TransitionImageLayout(cmdbuf, *image.previous_image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+
         const VkImageCopy copy_region{
             .srcSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1},
             .srcOffset = {0, 0, 0},
@@ -335,8 +350,12 @@ void TAA::Draw(Scheduler& scheduler, size_t image_index, VkImage* inout_image,
         };
 
         cmdbuf.CopyImage(*image.image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-                        *image.previous_image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-                        copy_region);
+                         *image.previous_image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                         copy_region);
+
+        // Transition back to general use for the next frame
+        TransitionImageLayout(cmdbuf, *image.image, VK_IMAGE_LAYOUT_GENERAL);
+        TransitionImageLayout(cmdbuf, *image.previous_image, VK_IMAGE_LAYOUT_GENERAL);
     });
 
     *inout_image = *image.image;
