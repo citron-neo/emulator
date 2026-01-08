@@ -1998,13 +1998,23 @@ int EmulatedController::SetCallback(ControllerUpdateCallback update_callback) {
 }
 
 void EmulatedController::DeleteCallback(int key) {
-    std::scoped_lock lock{callback_mutex};
-    const auto& iterator = callback_list.find(key);
-    if (iterator == callback_list.end()) {
-        LOG_ERROR(Input, "Tried to delete non-existent callback {}", key);
+    // 1. If the key is invalid, get out immediately.
+    if (key < 0) {
         return;
     }
-    callback_list.erase(iterator);
+
+    std::scoped_lock lock{callback_mutex};
+
+    // 2. Check if the list itself is valid.
+    if (callback_list.empty()) {
+        return;
+    }
+
+    // 3. Use a safe find. Do NOT use the result if it's the end of the map.
+    auto it = callback_list.find(key);
+    if (it != callback_list.end()) {
+        callback_list.erase(it);
+    }
 }
 
 void EmulatedController::StatusUpdate() {
