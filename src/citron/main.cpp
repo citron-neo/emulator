@@ -343,8 +343,10 @@ bool GMainWindow::CheckDarkMode() {
 }
 
 GMainWindow::GMainWindow(std::unique_ptr<QtConfig> config_, bool has_broken_vulkan)
-    : ui{std::make_unique<Ui::MainWindow>()}, system{std::make_unique<Core::System>()},
-      input_subsystem{std::make_shared<InputCommon::InputSubsystem>()}, config{std::move(config_)},
+    : system{std::make_unique<Core::System>()},
+      input_subsystem{std::make_shared<InputCommon::InputSubsystem>()},
+      ui{std::make_unique<Ui::MainWindow>()},
+      config{std::move(config_)},
       vfs{std::make_shared<FileSys::RealVfsFilesystem>()},
       provider{std::make_unique<FileSys::ManualContentProvider>()} {
 #ifdef __unix__
@@ -5793,27 +5795,42 @@ void GMainWindow::closeEvent(QCloseEvent* event) {
         return;
     }
 
-    // This stops mirroring threads before we start saving configs.
+    // 1. STOP the emulation first
     if (emu_thread != nullptr) {
         ShutdownGame();
     }
 
-    // Now save settings
+    // 2. FORCE the UI to stop talking to controllers
+    // Do this BEFORE UnloadInputDevices
+    if (controller_overlay) {
+        // We delete it here so its destructor runs while 'system' is still healthy
+        delete controller_overlay;
+        controller_overlay = nullptr;
+    }
+
+    if (game_list) {
+        game_list->UnloadController();
+    }
+
+    if (controller_dialog) {
+        controller_dialog->UnloadController();
+    }
+
+    // 3. Save settings
     UpdateUISettings();
     config->SaveAllValues();
-
     game_list->SaveInterfaceLayout();
     UISettings::SaveWindowState();
     hotkey_registry.SaveHotkeys();
 
-    // Unload controllers
-    controller_dialog->UnloadController();
-    game_list->UnloadController();
-
+    // 4. NOW it is safe to kill the hardware devices
     render_window->close();
     multiplayer_state->Close();
-    system->HIDCore().UnloadInputDevices();
-    system->GetRoomNetwork().Shutdown();
+
+    if (system) {
+        system->HIDCore().UnloadInputDevices();
+        system->GetRoomNetwork().Shutdown();
+    }
 
     QWidget::closeEvent(event);
 }

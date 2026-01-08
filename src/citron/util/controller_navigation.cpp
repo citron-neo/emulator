@@ -2,20 +2,33 @@
 // SPDX-FileCopyrightText: Copyright 2025 Citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
+#include <QCoreApplication>
 #include "common/settings_input.h"
 #include "hid_core/frontend/emulated_controller.h"
 #include "hid_core/hid_core.h"
 #include "citron/util/controller_navigation.h"
 
 ControllerNavigation::ControllerNavigation(Core::HID::HIDCore& hid_core, QWidget* parent) {
+    // Initialize keys to -1 immediately
+    player1_callback_key = -1;
+    handheld_callback_key = -1;
+    is_controller_set = false;
+
     player1_controller = hid_core.GetEmulatedController(Core::HID::NpadIdType::Player1);
     handheld_controller = hid_core.GetEmulatedController(Core::HID::NpadIdType::Handheld);
+
     Core::HID::ControllerUpdateCallback engine_callback{
         .on_change = [this](Core::HID::ControllerTriggerType type) { ControllerUpdateEvent(type); },
         .is_npad_service = false,
     };
-    player1_callback_key = player1_controller->SetCallback(engine_callback);
-    handheld_callback_key = handheld_controller->SetCallback(engine_callback);
+
+    if (player1_controller) {
+        player1_callback_key = player1_controller->SetCallback(engine_callback);
+    }
+    if (handheld_controller) {
+        handheld_callback_key = handheld_controller->SetCallback(engine_callback);
+    }
+
     is_controller_set = true;
 }
 
@@ -24,9 +37,27 @@ ControllerNavigation::~ControllerNavigation() {
 }
 
 void ControllerNavigation::UnloadController() {
+    // 1. If the app is already exiting, the controller memory is GONE.
+    // Touching the pointers will crash. Just reset and leave.
+    if (QCoreApplication::closingDown()) {
+        is_controller_set = false;
+        player1_controller = nullptr;
+        handheld_controller = nullptr;
+        return;
+    }
+
     if (is_controller_set) {
-        player1_controller->DeleteCallback(player1_callback_key);
-        handheld_controller->DeleteCallback(handheld_callback_key);
+        // 2. Only delete if the pointer exists AND the key is valid (>= 0)
+        if (player1_controller && player1_callback_key >= 0) {
+            player1_controller->DeleteCallback(player1_callback_key);
+            player1_callback_key = -1; // Prevent second deletion
+        }
+
+        if (handheld_controller && handheld_callback_key >= 0) {
+            handheld_controller->DeleteCallback(handheld_callback_key);
+            handheld_callback_key = -1; // Prevent second deletion
+        }
+
         is_controller_set = false;
     }
 }

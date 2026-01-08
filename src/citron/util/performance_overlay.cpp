@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <QApplication>
+#include <QCoreApplication>
 #include <QPainter>
 #include <QPainterPath>
 #include <QScreen>
@@ -90,7 +91,9 @@ PerformanceOverlay::PerformanceOverlay(QWidget* parent) : QWidget(UISettings::Is
     UpdatePosition();
 }
 
-PerformanceOverlay::~PerformanceOverlay() = default;
+PerformanceOverlay::~PerformanceOverlay() {
+    update_timer.stop();
+}
 
 void PerformanceOverlay::SetVisible(bool visible) {
     is_enabled = visible;
@@ -167,7 +170,14 @@ void PerformanceOverlay::mouseReleaseEvent(QMouseEvent* event) {
 }
 
 void PerformanceOverlay::UpdatePerformanceStats() {
-    if (!main_window || !is_enabled) return;
+    // Stop the timer and hide if the app is closing
+    if (QCoreApplication::closingDown() || !main_window || main_window->isHidden()) {
+        update_timer.stop();
+        if (!this->isHidden()) this->hide();
+        return;
+    }
+
+    if (!is_enabled) return;
 
     if (UISettings::IsGamescope()) {
         bool ui_active = (QApplication::activePopupWidget() != nullptr);

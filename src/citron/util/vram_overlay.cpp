@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <QApplication>
+#include <QCoreApplication>
 #include <QPainter>
 #include <QPainterPath>
 #include <QScreen>
@@ -45,10 +46,10 @@ VramOverlay::VramOverlay(QWidget* parent) : QWidget(UISettings::IsGamescope() ? 
 
     // Branching Typography and Sizing
     if (UISettings::IsGamescope()) {
-        title_font = QFont(QString::fromUtf8("Segoe UI"), 7, QFont::Bold);
-        value_font = QFont(QString::fromUtf8("Segoe UI"), 7, QFont::Medium);
-        small_font = QFont(QString::fromUtf8("Segoe UI"), 6, QFont::Normal);
-        warning_font = QFont(QString::fromUtf8("Segoe UI"), 8, QFont::Bold);
+        title_font = QFont(QString::fromUtf8("Segoe UI"), 8, QFont::Bold);
+        value_font = QFont(QString::fromUtf8("Segoe UI"), 8, QFont::Medium);
+        small_font = QFont(QString::fromUtf8("Segoe UI"), 7, QFont::Normal);
+        warning_font = QFont(QString::fromUtf8("Segoe UI"), 9, QFont::Bold);
         setMinimumSize(180, 140);
         resize(200, 160);
     } else {
@@ -81,7 +82,9 @@ VramOverlay::VramOverlay(QWidget* parent) : QWidget(UISettings::IsGamescope() ? 
     UpdatePosition();
 }
 
-VramOverlay::~VramOverlay() = default;
+VramOverlay::~VramOverlay() {
+    update_timer.stop();
+}
 
 void VramOverlay::SetVisible(bool visible) {
     is_enabled = visible;
@@ -255,7 +258,14 @@ void VramOverlay::mouseReleaseEvent(QMouseEvent* event) {
 }
 
 void VramOverlay::UpdateVramStats() {
-    if (!main_window || !is_enabled) return;
+    // Stop the timer and hide if the app is closing
+    if (QCoreApplication::closingDown() || !main_window || main_window->isHidden()) {
+        update_timer.stop();
+        if (!this->isHidden()) this->hide();
+        return;
+    }
+
+    if (!is_enabled) return;
 
     if (UISettings::IsGamescope()) {
         bool ui_active = (QApplication::activePopupWidget() != nullptr);
