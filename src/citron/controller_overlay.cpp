@@ -9,6 +9,7 @@
 #include "hid_core/hid_core.h"
 
 #include <QApplication>
+#include <QCoreApplication>
 #include <QGridLayout>
 #include <QMouseEvent>
 #include <QPainter>
@@ -75,10 +76,19 @@ ControllerOverlay::ControllerOverlay(GMainWindow* parent)
     }
 }
 
-ControllerOverlay::~ControllerOverlay() = default;
+ControllerOverlay::~ControllerOverlay() {
+    update_timer.stop();
+}
 
 void ControllerOverlay::UpdateControllerState() {
-    if (!main_window || !is_enabled) return;
+    // If we're shutting down, kill the timer and hide.
+    if (QCoreApplication::closingDown() || !main_window || main_window->isHidden()) {
+        update_timer.stop();
+        if (!this->isHidden()) this->hide();
+        return;
+    }
+
+    if (!is_enabled) return;
 
     if (UISettings::IsGamescope()) {
         bool ui_active = false;
