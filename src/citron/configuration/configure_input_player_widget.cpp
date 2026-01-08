@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <algorithm>
+#include <QCoreApplication>
 #include <QMenu>
 #include <QPainter>
 #include <QTimer>
@@ -23,8 +24,16 @@ PlayerControlPreview::PlayerControlPreview(QWidget* parent) : QFrame(parent) {
 }
 
 PlayerControlPreview::~PlayerControlPreview() {
+    // If the app is closing down, the "controller" memory is likely garbage.
+    // We must NOT touch it or call UnloadController().
+    if (QCoreApplication::closingDown()) {
+        controller = nullptr;
+        is_controller_set = false;
+        return;
+    }
+
     UnloadController();
-};
+}
 
 void PlayerControlPreview::SetRawJoystickVisible(bool visible) {
     raw_joystick_visible = visible;
@@ -51,14 +60,22 @@ void PlayerControlPreview::SetController(Core::HID::EmulatedController* controll
 }
 
 void PlayerControlPreview::UnloadController() {
-    // Only try to access the controller if the pointer is valid.
+    // If the app is closing or the key is invalid, just reset pointers and quit.
+    if (QCoreApplication::closingDown() || callback_key < 0) {
+        is_controller_set = false;
+        controller = nullptr;
+        callback_key = -1;
+        return;
+    }
+
     if (controller) {
         controller->DeleteCallback(callback_key);
-        // Also clear the destruction callback we set.
         controller->SetDestructionCallback(nullptr);
     }
+
     is_controller_set = false;
     controller = nullptr;
+    callback_key = -1;
 }
 
 void PlayerControlPreview::BeginMappingButton(std::size_t button_id) {
