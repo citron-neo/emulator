@@ -202,36 +202,24 @@ void PerformanceOverlay::UpdatePerformanceStats() {
 
     shaders_building = main_window->GetShadersBuilding();
 
-    static int update_counter = 0;
-    update_counter++;
+    current_fps = main_window->GetCurrentFPS();
+    current_frame_time = main_window->GetCurrentFrameTime();
+    emulation_speed = main_window->GetEmulationSpeed();
 
-    if (update_counter % 2 == 0) {
-        try {
-            current_fps = main_window->GetCurrentFPS();
-            current_frame_time = main_window->GetCurrentFrameTime();
-            emulation_speed = main_window->GetEmulationSpeed();
+    // Standard safety checks
+    if (std::isnan(current_fps) || current_fps < 0.0) current_fps = 0.0;
+    if (std::isnan(current_frame_time) || current_frame_time < 0.0) current_frame_time = 0.0;
+    if (std::isnan(emulation_speed) || emulation_speed < 0.0) emulation_speed = 0.0;
 
-            if (std::isnan(current_fps) || current_fps < 0.0 || current_fps > 1000.0) current_fps = 60.0;
-            if (std::isnan(current_frame_time) || current_frame_time < 0.0 || current_frame_time > 100.0) current_frame_time = 16.67;
-            if (std::isnan(emulation_speed) || emulation_speed < 0.0 || emulation_speed > 1000.0) emulation_speed = 100.0;
-
-            if (current_fps > 0.0) current_frame_time = 1000.0 / current_fps;
-        } catch (...) {}
-    }
-
-    if (update_counter % 4 == 0) {
+    // Update temps every 2 seconds (4 * 500ms)
+    static int temp_counter = 0;
+    if (temp_counter++ % 4 == 0) {
         UpdateHardwareTemperatures();
     }
-
-    if (std::isnan(current_fps) || current_fps <= 0.0) current_fps = 60.0;
-    if (std::isnan(current_frame_time) || current_frame_time <= 0.0) current_frame_time = 16.67;
-    if (std::isnan(emulation_speed) || emulation_speed <= 0.0) emulation_speed = 100.0;
 
     if (current_frame_time > 0.0) AddFrameTime(current_frame_time);
 
     fps_color = GetFpsColor(current_fps);
-    temperature_color = GetTemperatureColor(std::max({cpu_temperature, gpu_temperature, battery_temperature}));
-
     update();
 }
 
@@ -386,7 +374,7 @@ void PerformanceOverlay::DrawPerformanceInfo(QPainter& painter) {
     const int stat_step = painter.fontMetrics().height() + 2;
 
     int y_left = (padding / 2) + painter.fontMetrics().ascent();
-    int y_right = y_left + 10;
+    int y_right = y_left + 18;
 
     // 1. Draw Title (Left)
     painter.setFont(title_font);

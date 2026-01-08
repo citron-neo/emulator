@@ -20,6 +20,7 @@
 #include "citron/compatibility_list.h"
 #include "citron/hotkeys.h"
 #include "citron/util/controller_navigation.h"
+#include "core/perf_stats.h"
 
 #ifdef __unix__
 #include <QVariant>
@@ -195,6 +196,7 @@ private:
     void OnSigInterruptNotifierActivated();
     void SetGamemodeEnabled(bool state);
     #endif
+    Core::PerfStatsResults last_perf_stats{};
     Service::AM::FrontendAppletParameters ApplicationAppletParameters();
     Service::AM::FrontendAppletParameters LibraryAppletParameters(u64 program_id, Service::AM::AppletId applet_id);
     std::unique_ptr<FileSys::ManualContentProvider> autoloader_provider;
