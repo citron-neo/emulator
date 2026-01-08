@@ -1,5 +1,4 @@
 // SPDX-FileCopyrightText: Copyright 2021 yuzu Emulator Project
-// SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #pragma once
@@ -37,7 +36,6 @@ struct TextureDefinition {
     Id image_type;
     u32 count;
     bool is_multisample;
-    bool is_integer;
 };
 
 struct TextureBufferDefinition {
