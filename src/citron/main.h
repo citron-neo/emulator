@@ -334,11 +334,11 @@ private:
     bool MakeShortcutIcoPath(const u64 program_id, const std::string_view game_file_name, std::filesystem::path& out_icon_path);
     bool CreateShortcutLink(const std::filesystem::path& shortcut_path, const std::string& comment, const std::filesystem::path& icon_path, const std::filesystem::path& command, const std::string& arguments, const std::string& categories, const std::string& keywords, const std::string& name);
     bool question(QWidget* parent, const QString& title, const QString& text, QMessageBox::StandardButtons buttons = QMessageBox::StandardButtons(QMessageBox::Yes | QMessageBox::No), QMessageBox::StandardButton defaultButton = QMessageBox::NoButton);
-    std::unique_ptr<Ui::MainWindow> ui;
     std::unique_ptr<Core::System> system;
+    std::shared_ptr<InputCommon::InputSubsystem> input_subsystem;
+    std::unique_ptr<Ui::MainWindow> ui;
     std::unique_ptr<DiscordRPC::DiscordInterface> discord_rpc;
     std::unique_ptr<PlayTime::PlayTimeManager> play_time_manager;
-    std::shared_ptr<InputCommon::InputSubsystem> input_subsystem;
     MultiplayerState* multiplayer_state = nullptr;
     GRenderWindow* render_window;
     GameList* game_list;
