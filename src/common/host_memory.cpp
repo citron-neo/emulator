@@ -672,7 +672,11 @@ HostMemory::HostMemory(size_t backing_size_, size_t virtual_size_)
     }
 }
 
-HostMemory::~HostMemory() = default;
+HostMemory::~HostMemory() {
+    // We leave this empty.
+    // The "impl" unique_ptr handles the cleanup automatically and correctly.
+    // Manually calling munmap here causes a "double-free" crash.
+}
 
 HostMemory::HostMemory(HostMemory&&) noexcept = default;
 
