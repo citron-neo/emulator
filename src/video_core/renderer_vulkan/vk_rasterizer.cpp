@@ -212,7 +212,23 @@ RasterizerVulkan::RasterizerVulkan(Core::Frontend::EmuWindow& emu_window_, Tegra
     });
 }
 
-RasterizerVulkan::~RasterizerVulkan() = default;
+RasterizerVulkan::~RasterizerVulkan() {
+    // 1. Tell the GPU to finish current work
+    scheduler.Finish();
+
+    // 2. Force runtimes to release internal references/handles FIRST
+    // This ensures VkBuffer/VkImage handles are gone before the memory they sit on is freed
+    buffer_cache_runtime.Finish();
+    texture_cache_runtime.Finish();
+
+    // 3. Clear the Staging Pool slabs
+    staging_pool.TriggerCacheRelease(MemoryUsage::Upload);
+    staging_pool.TriggerCacheRelease(MemoryUsage::Download);
+    staging_pool.TriggerCacheRelease(MemoryUsage::DeviceLocal);
+
+    // 4. Nuke the Vulkan slabs
+    memory_allocator.NukeAllAllocations();
+}
 
 template <typename Func>
 void RasterizerVulkan::PrepareDraw(bool is_indexed, Func&& draw_func) {

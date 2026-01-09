@@ -124,6 +124,8 @@ public:
     /// Commits memory required by the buffer and binds it.
     MemoryCommit Commit(const vk::Buffer& buffer, MemoryUsage usage);
 
+    void NukeAllAllocations();
+
 private:
     /// Tries to allocate a chunk of memory.
     bool TryAllocMemory(VkMemoryPropertyFlags flags, u32 type_mask, u64 size);

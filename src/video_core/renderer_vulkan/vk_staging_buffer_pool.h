@@ -43,6 +43,8 @@ public:
 
     void TickFrame();
 
+    void Nuke();
+
     u64 GetMemoryUsage() const;
 
     void SetProgramId(u64 program_id_) {

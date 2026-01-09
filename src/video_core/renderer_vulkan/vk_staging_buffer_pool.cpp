@@ -322,4 +322,17 @@ void StagingBufferPool::ReleaseLevel(StagingBuffersCache& cache, size_t log2) {
     }
 }
 
+void StagingBufferPool::Nuke() {
+    auto nuke_cache = [](StagingBuffersCache& cache) {
+        for (auto& level : cache) {
+            level.entries.clear();
+            level.entries.shrink_to_fit();
+        }
+    };
+    nuke_cache(device_local_cache);
+    nuke_cache(upload_cache);
+    nuke_cache(download_cache);
+    stream_buffer.reset();
+}
+
 } // namespace Vulkan

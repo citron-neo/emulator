@@ -383,4 +383,11 @@ std::optional<u32> MemoryAllocator::FindType(VkMemoryPropertyFlags flags, u32 ty
     return std::nullopt;
 }
 
+void MemoryAllocator::NukeAllAllocations() {
+    // This calls the destructor for every MemoryAllocation slab.
+    // Each slab contains a Vulkan handle that will now call vkFreeMemory.
+    allocations.clear();
+    allocations.shrink_to_fit();
+}
+
 } // namespace Vulkan
