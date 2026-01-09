@@ -69,8 +69,9 @@ public:
         return address >= virtual_base && address < virtual_base + virtual_size;
     }
 
-private:
     size_t backing_size{};
+
+private:
     size_t virtual_size{};
 
     // Low level handler for the platform dependent memory routines
