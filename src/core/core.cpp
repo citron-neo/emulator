@@ -11,13 +11,25 @@
 #include <utility>
 
 #ifdef __linux__
+#include <sys/mman.h>
+#ifndef __ANDROID__
 #include <malloc.h>
-#include <sys/mman.h> // Required for madvise
+#endif
 #endif
 
 #ifdef _WIN32
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
 #include <windows.h>
 #include <psapi.h>
+
+#undef GetCurrentTime
+#undef ERROR
+#undef GetMessage
 #endif
 
 #include "audio_core/audio_core.h"
@@ -495,11 +507,16 @@ struct System::Impl {
 
         if (device_memory) {
             #ifdef __linux__
-            // Use BackingBasePointer() to get the raw pointer
             madvise(device_memory->buffer.BackingBasePointer(), device_memory->buffer.backing_size, MADV_DONTNEED);
+
+            // Only call malloc_trim on non-Android Linux (glibc)
+            #ifndef __ANDROID__
             malloc_trim(0);
+            #endif
+
+            // Give the kernel time to update /proc/stats
+            std::this_thread::sleep_for(std::chrono::milliseconds(20));
             #elif defined(_WIN32)
-            // Use BackingBasePointer() here as well
             VirtualAlloc(device_memory->buffer.BackingBasePointer(), device_memory->buffer.backing_size, MEM_RESET, PAGE_READWRITE);
             #endif
         }
