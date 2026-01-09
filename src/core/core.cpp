@@ -4,8 +4,21 @@
 
 #include <array>
 #include <atomic>
+#include <fstream>
 #include <memory>
+#include <string>
+#include <thread>
 #include <utility>
+
+#ifdef __linux__
+#include <malloc.h>
+#include <sys/mman.h> // Required for madvise
+#endif
+
+#ifdef _WIN32
+#include <windows.h>
+#include <psapi.h>
+#endif
 
 #include "audio_core/audio_core.h"
 #include "common/fs/fs.h"
@@ -65,6 +78,31 @@
 #include "video_core/renderer_base.h"
 #include "video_core/video_core.h"
 
+static u64 GetCurrentRSS() {
+#ifdef _WIN32
+    PROCESS_MEMORY_COUNTERS_EX pmc;
+    GetProcessMemoryInfo(GetCurrentProcess(), (PROCESS_MEMORY_COUNTERS*)&pmc, sizeof(pmc));
+    return static_cast<u64>(pmc.WorkingSetSize) / 1024 / 1024;
+#elif defined(__linux__)
+    u64 rss = 0;
+    std::ifstream stat_file("/proc/self/status");
+    std::string line;
+    while (std::getline(stat_file, line)) {
+        if (line.compare(0, 8, "RssAnon:") == 0) {
+            size_t start = line.find_first_of("0123456789");
+            size_t end = line.find_last_of("0123456789");
+            if (start != std::string::npos && end != std::string::npos) {
+                rss = std::stoull(line.substr(start, end - start + 1));
+            }
+            break;
+        }
+    }
+    return rss / 1024;
+#else
+    return 0; // macOS/Other implementation
+#endif
+}
+
 MICROPROFILE_DEFINE(ARM_CPU0, "ARM", "CPU 0", MP_RGB(255, 64, 64));
 MICROPROFILE_DEFINE(ARM_CPU1, "ARM", "CPU 1", MP_RGB(255, 64, 64));
 MICROPROFILE_DEFINE(ARM_CPU2, "ARM", "CPU 2", MP_RGB(255, 64, 64));
@@ -117,7 +155,10 @@ struct System::Impl {
           reporter{system}, applet_manager{system}, frontend_applets{system}, profile_manager{} {}
 
     void Initialize(System& system) {
-        device_memory = std::make_unique<Core::DeviceMemory>();
+        // Only create the memory bucket if it literally does not exist (First launch)
+        if (!device_memory) {
+            device_memory = std::make_unique<Core::DeviceMemory>();
+        }
 
         is_multicore = Settings::values.use_multi_core.GetValue();
         extended_memory_layout =
@@ -126,7 +167,7 @@ struct System::Impl {
         core_timing.SetMulticore(is_multicore);
         core_timing.Initialize([&system]() { system.RegisterHostThread(); });
 
-        // Create a default fs if one doesn't already exist.
+        // LEAVE THESE ALONE if they exist. No more make_shared/unique here.
         if (virtual_filesystem == nullptr) {
             virtual_filesystem = std::make_shared<FileSys::RealVfsFilesystem>();
         }
@@ -134,9 +175,7 @@ struct System::Impl {
             content_provider = std::make_unique<FileSys::ContentProviderUnion>();
         }
 
-        // Create default implementations of applets if one is not provided.
         frontend_applets.SetDefaultAppletsIfMissing();
-
         is_async_gpu = Settings::values.use_asynchronous_gpu_emulation.GetValue();
 
         kernel.SetMulticore(is_multicore);
@@ -145,20 +184,22 @@ struct System::Impl {
     }
 
     void ReinitializeIfNecessary(System& system) {
-        const bool must_reinitialize =
-            is_multicore != Settings::values.use_multi_core.GetValue() ||
-            extended_memory_layout != (Settings::values.memory_layout_mode.GetValue() !=
-                                       Settings::MemoryLayout::Memory_4Gb);
+        const bool layout_changed = extended_memory_layout != (Settings::values.memory_layout_mode.GetValue() != Settings::MemoryLayout::Memory_4Gb);
+        const bool must_reinitialize = !device_memory || is_multicore != Settings::values.use_multi_core.GetValue() || layout_changed;
 
         if (!must_reinitialize) {
             return;
         }
 
+        if (layout_changed) {
+            device_memory.reset();
+        }
+
         LOG_DEBUG(Kernel, "Re-initializing");
 
+        // Update the tracked values before re-initializing
         is_multicore = Settings::values.use_multi_core.GetValue();
-        extended_memory_layout =
-            Settings::values.memory_layout_mode.GetValue() != Settings::MemoryLayout::Memory_4Gb;
+        extended_memory_layout = (Settings::values.memory_layout_mode.GetValue() != Settings::MemoryLayout::Memory_4Gb);
 
         Initialize(system);
     }
@@ -400,21 +441,16 @@ struct System::Impl {
     }
 
     void ShutdownMainProcess() {
+        const u64 mem_before = GetCurrentRSS();
         SetShuttingDown(true);
 
-        // Log last frame performance stats if game was loaded
         if (perf_stats) {
             const auto perf_results = GetAndResetPerfStats();
             constexpr auto performance = Common::Telemetry::FieldType::Performance;
-
-            telemetry_session->AddField(performance, "Shutdown_EmulationSpeed",
-                                        perf_results.emulation_speed * 100.0);
-            telemetry_session->AddField(performance, "Shutdown_Framerate",
-                                        perf_results.average_game_fps);
-            telemetry_session->AddField(performance, "Shutdown_Frametime",
-                                        perf_results.frametime * 1000.0);
-            telemetry_session->AddField(performance, "Mean_Frametime_MS",
-                                        perf_stats->GetMeanFrametime());
+            telemetry_session->AddField(performance, "Shutdown_EmulationSpeed", perf_results.emulation_speed * 100.0);
+            telemetry_session->AddField(performance, "Shutdown_Framerate", perf_results.average_game_fps);
+            telemetry_session->AddField(performance, "Shutdown_Frametime", perf_results.frametime * 1000.0);
+            telemetry_session->AddField(performance, "Mean_Frametime_MS", perf_stats->GetMeanFrametime());
         }
 
         is_powered_on = false;
@@ -428,11 +464,11 @@ struct System::Impl {
         stop_event.request_stop();
         core_timing.SyncPause(false);
         Network::CancelPendingSocketOperations();
+
         kernel.SuspendEmulation(true);
         kernel.CloseServices();
         kernel.ShutdownCores();
 
-        // FIX: Shut down all major systems BEFORE destroying the ServiceManager.
         fs_controller.Reset();
         cheat_engine.reset();
         telemetry_session.reset();
@@ -442,24 +478,37 @@ struct System::Impl {
         gpu_core.reset();
         host1x_core.reset();
 
-        // Now it is safe to destroy the services and the ServiceManager.
         services.reset();
         service_manager.reset();
 
         perf_stats.reset();
         cpu_manager.Shutdown();
         debugger.reset();
+
+        // Kernel is the VERY last thing to go
         kernel.Shutdown();
+
         stop_event = {};
         Network::RestartSocketOperations();
+        arp_manager.ResetAll();
 
-        if (auto room_member = room_network.GetRoomMember().lock()) {
-            Network::GameInfo game_info{};
-            room_member->SendGameInfo(game_info);
+
+        if (device_memory) {
+            #ifdef __linux__
+            // Use BackingBasePointer() to get the raw pointer
+            madvise(device_memory->buffer.BackingBasePointer(), device_memory->buffer.backing_size, MADV_DONTNEED);
+            malloc_trim(0);
+            #elif defined(_WIN32)
+            // Use BackingBasePointer() here as well
+            VirtualAlloc(device_memory->buffer.BackingBasePointer(), device_memory->buffer.backing_size, MEM_RESET, PAGE_READWRITE);
+            #endif
         }
 
-        // Reset all glue registrations
-        arp_manager.ResetAll();
+        const u64 mem_after = GetCurrentRSS();
+        const u64 shaved = (mem_before > mem_after) ? (mem_before - mem_after) : 0;
+
+        LOG_INFO(Core, "Shutdown Memory Audit: [Before: {}MB] -> [After: {}MB] | Total Shaved: {}MB",
+                 mem_before, mem_after, shaved);
 
         LOG_DEBUG(Core, "Shutdown OK");
     }
