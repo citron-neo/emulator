@@ -4,6 +4,8 @@
 
 #pragma once
 
+#include <chrono> // time tracking
+#include <vector> // storing timestamps
 #include <memory>
 #include <unordered_map>
 #include <unordered_set>
@@ -49,6 +51,8 @@ public slots:
     void OnSendChat();
     void OnChatTextChanged();
     void PopupContextMenu(const QPoint& menu_location);
+    void OnChatContextMenu(const QPoint& menu_location);
+    void OnPlayerDoubleClicked(const QModelIndex& index);
     void Disable();
     void Enable();
     void UpdateTheme();
@@ -69,7 +73,13 @@ private:
     std::unique_ptr<Ui::ChatRoom> ui;
     std::unordered_set<std::string> block_list;
     std::unordered_map<std::string, QPixmap> icon_cache;
-    Network::RoomNetwork* room_network = nullptr; // Initialize to nullptr
+    std::unordered_map<std::string, std::string> color_overrides;
+    bool chat_muted = false;
+    bool show_timestamps = true;
+    Network::RoomNetwork* room_network = nullptr;
+    std::vector<std::chrono::steady_clock::time_point> sent_message_timestamps;
+    static constexpr size_t MAX_MESSAGES_PER_INTERVAL = 3;
+    static constexpr std::chrono::seconds THROTTLE_INTERVAL{5};
 };
 
 Q_DECLARE_METATYPE(Network::ChatEntry);
