@@ -29,28 +29,39 @@ ProxySocket::~ProxySocket() {
 }
 
 void ProxySocket::HandleProxyPacket(const ProxyPacket& packet) {
-    if (protocol != packet.protocol || local_endpoint.portno != packet.remote_endpoint.portno ||
-        closed) {
-        stats.packets_dropped++;
-        LOG_DEBUG(Network, "Dropped packet: protocol mismatch or closed socket. Stats: sent={}, recv={}, dropped={}",
-                  stats.packets_sent, stats.packets_received, stats.packets_dropped);
+    auto room_member = room_network.GetRoomMember().lock();
+    if (!room_member) return;
+
+    const auto my_ip = room_member->GetFakeIpAddress();
+
+    // If the sender (local_endpoint) is OUR IP, ignore it.
+    // We don't want to process our own sent packets.
+    if (packet.local_endpoint.ip == my_ip) {
         return;
     }
 
+    // Only accept packets meant for us or actual broadcasts.
+    if (packet.remote_endpoint.ip != my_ip && !packet.broadcast) {
+        return;
+    }
+
+    // PROTOCOL & PORT CHECK
+    if (protocol != packet.protocol || local_endpoint.portno != packet.remote_endpoint.portno || closed) {
+        stats.packets_dropped++;
+        return;
+    }
+
+    // BROADCAST CHECK
     if (!broadcast && packet.broadcast) {
         stats.packets_dropped++;
-        LOG_DEBUG(Network, "Dropped broadcast packet on non-broadcast socket");
         return;
     }
 
+    // DECOMPRESSION & QUEUEING
     auto decompressed = packet;
     decompressed.data = Common::Compression::DecompressDataZSTD(packet.data);
-
-    // Check if decompression failed (returns empty vector on error)
     if (decompressed.data.empty() && !packet.data.empty()) {
         stats.packets_dropped++;
-        LOG_WARNING(Network, "Dropped packet: ZSTD decompression failed. Stats: sent={}, recv={}, dropped={}",
-                    stats.packets_sent, stats.packets_received, stats.packets_dropped);
         return;
     }
 
@@ -58,13 +69,6 @@ void ProxySocket::HandleProxyPacket(const ProxyPacket& packet) {
     received_packets.push(decompressed);
     stats.packets_received++;
     stats.bytes_received += decompressed.data.size();
-
-    // Log statistics periodically (every 100 packets)
-    if (stats.packets_received % 100 == 0) {
-        LOG_DEBUG(Network, "ProxySocket stats: sent={} ({} bytes), recv={} ({} bytes), dropped={}",
-                  stats.packets_sent, stats.bytes_sent,
-                  stats.packets_received, stats.bytes_received, stats.packets_dropped);
-    }
 }
 
 template <typename T>
@@ -76,6 +80,24 @@ Errno ProxySocket::SetSockOpt(SOCKET fd_, int option, T value) {
 Errno ProxySocket::Initialize(Domain domain, Type type, Protocol socket_protocol) {
     protocol = socket_protocol;
     SetSockOpt(fd, SO_TYPE, type);
+
+    // Reset all state flags
+    is_bound = false;
+    closed = false;
+    broadcast = false;
+
+    // Wipe the endpoint.
+    // This forces the RoomMember to assign a new/fresh identity if possible
+    local_endpoint = {};
+
+    // Reset stats so the new session starts at 0 bytes
+    stats = {};
+
+    // Clear the queue.
+    std::lock_guard guard(packets_mutex);
+    while(!received_packets.empty()) {
+        received_packets.pop();
+    }
 
     return Errno::SUCCESS;
 }
