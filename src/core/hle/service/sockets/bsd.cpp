@@ -562,6 +562,10 @@ std::pair<s32, Errno> BSD::SocketImpl(Domain domain, Type type, Protocol protoco
         if (it != socket_pool.end() && !it->second.empty()) {
             descriptor.socket = it->second.back();
             it->second.pop_back();
+
+            // call Initialize here so socket_proxy.cpp functions work
+            descriptor.socket->Initialize(descriptor.domain, descriptor.type, descriptor.protocol);
+
             LOG_DEBUG(Service, "Reused socket from pool for fd={}", fd);
         } else {
             descriptor.socket = std::make_shared<Network::ProxySocket>(room_network);
@@ -1089,12 +1093,19 @@ void BSD::BuildErrnoResponse(HLERequestContext& ctx, Errno bsd_errno) const noex
 }
 
 void BSD::OnProxyPacketReceived(const Network::ProxyPacket& packet) {
-    for (auto& optional_descriptor : file_descriptors) {
-        if (!optional_descriptor.has_value()) {
-            continue;
+    // We must ensure we only deliver the packet ONCE
+    std::vector<Network::SocketBase*> processed_sockets;
+
+    for (auto& optional_desc : file_descriptors) {
+        if (optional_desc.has_value() && optional_desc->socket) {
+            Network::SocketBase* socket_ptr = optional_desc->socket.get();
+
+            // If we haven't given this specific socket the packet yet...
+            if (std::find(processed_sockets.begin(), processed_sockets.end(), socket_ptr) == processed_sockets.end()) {
+                socket_ptr->HandleProxyPacket(packet);
+                processed_sockets.push_back(socket_ptr);
+            }
         }
-        FileDescriptor& descriptor = *optional_descriptor;
-        descriptor.socket.get()->HandleProxyPacket(packet);
     }
 }
 
