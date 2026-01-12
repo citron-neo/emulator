@@ -199,15 +199,26 @@ void MultiplayerRoomOverlay::ConnectToRoom() {
     if (!main_window) return;
     multiplayer_state = main_window->GetMultiplayerState();
     if (!multiplayer_state) return;
+
     if (multiplayer_state->IsClientRoomVisible()) {
         chat_room_widget->setEnabled(false);
         chat_room_widget->Clear();
         chat_room_widget->AppendStatusMessage(tr("Please close the Multiplayer Room Window to use the Overlay."));
         return;
     }
+
     chat_room_widget->setEnabled(true);
     auto& room_network = multiplayer_state->GetRoomNetwork();
-    room_member = room_network.GetRoomMember().lock();
+
+    auto current_member = room_network.GetRoomMember().lock();
+    if (current_member != room_member) {
+        if (is_chat_initialized && chat_room_widget) {
+            chat_room_widget->Shutdown();
+        }
+        is_chat_initialized = false;
+        room_member = current_member;
+    }
+
     if (room_member) {
         if (!is_chat_initialized) {
             chat_room_widget->Initialize(&room_network);
@@ -233,9 +244,17 @@ void MultiplayerRoomOverlay::ClearUI() {
 }
 
 void MultiplayerRoomOverlay::UpdateRoomData() {
-    if (!multiplayer_state) { ConnectToRoom(); return; }
-    if (multiplayer_state->IsClientRoomVisible()) { chat_room_widget->setEnabled(false); return; }
-    if (!chat_room_widget->isEnabled()) ConnectToRoom();
+    if (!multiplayer_state) {
+        ConnectToRoom();
+        return;
+    }
+    if (multiplayer_state->IsClientRoomVisible()) {
+        chat_room_widget->setEnabled(false);
+        return;
+    }
+    if (!chat_room_widget->isEnabled()) {
+        ConnectToRoom();
+    }
 
     if (room_member && room_member->GetState() >= Network::RoomMember::State::Joined) {
         const auto& members = room_member->GetMemberInformation();
@@ -290,6 +309,12 @@ void MultiplayerRoomOverlay::UpdateRoomData() {
         }
         players_online_label->setText(label_text);
         if (chat_room_widget->isEnabled()) chat_room_widget->SetPlayerList(members);
+    } else {
+        ClearUI();
+
+        // Refresh the member pointer if we lost connection
+        auto& room_network = multiplayer_state->GetRoomNetwork();
+        room_member = room_network.GetRoomMember().lock();
     }
 }
 
