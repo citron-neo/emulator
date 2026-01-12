@@ -37,14 +37,7 @@
        <item>
         <widget class="QLineEdit" name="chat_message">
          <property name="placeholderText">
-          <string>Send Chat Message</string>
-         </property>
-        </widget>
-       </item>
-       <item>
-        <widget class="QPushButton" name="send_message">
-         <property name="text">
-          <string>Send Message</string>
+          <string>Type Here...</string>
          </property>
         </widget>
        </item>
