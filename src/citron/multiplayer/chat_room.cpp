@@ -17,6 +17,7 @@
 #include <QPainter>
 #include <QTime>
 #include <QUrl>
+#include <QPushButton>
 #include <QtConcurrent/QtConcurrentRun>
 #include <QToolButton>
 #include <QGridLayout>
@@ -164,9 +165,15 @@ public:
     }
 
     QVariant data(int role) const override {
+        // If compact mode is on, we tell the model to return no text
+        if (role == Qt::DisplayRole && QStandardItem::data(Qt::UserRole + 7).toBool()) {
+            return QVariant();
+        }
+
         if (role != Qt::DisplayRole) {
             return QStandardItem::data(role);
         }
+
         QString name;
         const QString nickname = data(NicknameRole).toString();
         const QString username = data(UsernameRole).toString();
@@ -190,24 +197,53 @@ public:
 ChatRoom::ChatRoom(QWidget* parent) : QWidget(parent), ui(std::make_unique<Ui::ChatRoom>()) {
     ui->setupUi(this);
 
+    // Setup the Emoji Button
     QToolButton* emoji_button = new QToolButton(this);
     emoji_button->setText(QStringLiteral("😀"));
-    emoji_button->setPopupMode(QToolButton::InstantPopup);
+    emoji_button->setToolButtonStyle(Qt::ToolButtonTextOnly);
+    emoji_button->setFixedSize(36, 30);
     emoji_button->setAutoRaise(true);
-    emoji_button->setFixedSize(30, 30);
-    // Hide the arrow indicator and remove padding to ensure the emoji is dead-center
-    emoji_button->setStyleSheet(QStringLiteral("QToolButton::menu-indicator { image: none; } QToolButton { padding: 0px; }"));
+    emoji_button->setPopupMode(QToolButton::InstantPopup);
+    emoji_button->setStyleSheet(QStringLiteral(
+        "QToolButton { padding: 0px; margin: 0px; }"
+        "QToolButton::menu-indicator { image: none; width: 0px; }"
+    ));
 
-    ui->horizontalLayout_3->insertWidget(1, emoji_button);
+    // Setup the Send Button
+    send_message = new QPushButton(QStringLiteral("➤"), this);
+    send_message->setObjectName(QStringLiteral("send_message"));
+    send_message->setFixedSize(40, 30);
+    send_message->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
+
+    // Rebuild Layout
+    ui->horizontalLayout_3->removeWidget(ui->chat_message);
+    ui->horizontalLayout_3->addWidget(ui->chat_message); // Index 0
+    ui->horizontalLayout_3->addWidget(emoji_button);     // Index 1
+    ui->horizontalLayout_3->addWidget(send_message);    // Index 2
+    ui->horizontalLayout_3->setStretch(0, 1);
+    ui->horizontalLayout_3->setStretch(1, 0);
+    ui->horizontalLayout_3->setStretch(2, 0);
+
+    connect(ui->chat_message, &QLineEdit::returnPressed, this, &ChatRoom::OnSendChat);
+    connect(send_message, &QPushButton::clicked, this, &ChatRoom::OnSendChat);
 
     QMenu* emoji_menu = new QMenu(this);
 
     QStringList emojis = {
         QStringLiteral("😀"), QStringLiteral("😂"), QStringLiteral("🤣"), QStringLiteral("😊"), QStringLiteral("😎"),
-        QStringLiteral("🤔"), QStringLiteral("🤨"), QStringLiteral("😭"), QStringLiteral("😮"), QStringLiteral("💀"),
-        QStringLiteral("👍"), QStringLiteral("👎"), QStringLiteral("🔥"), QStringLiteral("✨"), QStringLiteral("❤️"),
-        QStringLiteral("🎉"), QStringLiteral("💯"), QStringLiteral("🚀"), QStringLiteral("🎮"), QStringLiteral("🕹️"),
-        QStringLiteral("👾"), QStringLiteral("🍄"), QStringLiteral("⭐️"), QStringLiteral("⚔️"), QStringLiteral("🛡️")
+        QStringLiteral("🤔"), QStringLiteral("🤨"), QStringLiteral("🙄"), QStringLiteral("🥺"), QStringLiteral("😭"),
+        QStringLiteral("😮"), QStringLiteral("🥳"), QStringLiteral("😴"), QStringLiteral("🤡"), QStringLiteral("💀"),
+        QStringLiteral("👀"), QStringLiteral("💤"), QStringLiteral("👑"), QStringLiteral("👻"), QStringLiteral("🥀"),
+        QStringLiteral("👍"), QStringLiteral("👎"), QStringLiteral("👏"), QStringLiteral("🙌"), QStringLiteral("🙏"),
+        QStringLiteral("🤝"), QStringLiteral("💪"), QStringLiteral("👋"), QStringLiteral("👊"), QStringLiteral("👌"),
+        QStringLiteral("🎮"), QStringLiteral("🕹️"), QStringLiteral("👾"), QStringLiteral("💻"), QStringLiteral("📱"),
+        QStringLiteral("🖱️"), QStringLiteral("⌨️"), QStringLiteral("🎧"), QStringLiteral("📺"), QStringLiteral("🔋"),
+        QStringLiteral("🔥"), QStringLiteral("✨"), QStringLiteral("❤️"), QStringLiteral("🎉"), QStringLiteral("💯"),
+        QStringLiteral("🚀"), QStringLiteral("🍄"), QStringLiteral("⭐️"), QStringLiteral("⚔️"), QStringLiteral("🛡️"),
+        QStringLiteral("💎"), QStringLiteral("💡"), QStringLiteral("💣"), QStringLiteral("📢"), QStringLiteral("🔔"),
+        QStringLiteral("✅"), QStringLiteral("❌"), QStringLiteral("⚠️"), QStringLiteral("🚫"), QStringLiteral("🌈"),
+        QStringLiteral("🌊"), QStringLiteral("⚡"), QStringLiteral("🍃"), QStringLiteral("🐱"), QStringLiteral("🐉"),
+        QStringLiteral("🍋"), QStringLiteral("🏆"), QStringLiteral("🧂"), QStringLiteral("🍿"), QStringLiteral("🫠")
     };
 
     // Create a container widget for the grid
@@ -216,22 +252,22 @@ ChatRoom::ChatRoom(QWidget* parent) : QWidget(parent), ui(std::make_unique<Ui::C
     grid_layout->setSpacing(2);
     grid_layout->setContentsMargins(5, 5, 5, 5);
 
-    const int max_columns = 5;
+    const int max_columns = 7;
 
     for (int i = 0; i < emojis.size(); ++i) {
         const QString emoji = emojis[i];
         QToolButton* btn = new QToolButton(grid_container);
         btn->setText(emoji);
-        btn->setFixedSize(34, 30);
+        btn->setFixedSize(32, 30);
         btn->setAutoRaise(true);
+        btn->setStyleSheet(QStringLiteral("font-size: 16px;"));
 
         connect(btn, &QToolButton::clicked, [this, emoji, emoji_menu]() {
             ui->chat_message->insert(emoji);
             ui->chat_message->setFocus();
-            emoji_menu->close(); // Close the menu after picking
+            emoji_menu->close();
         });
 
-        // Add to grid: row = i / columns, col = i % columns
         grid_layout->addWidget(btn, i / max_columns, i % max_columns);
     }
 
@@ -265,9 +301,14 @@ ChatRoom::ChatRoom(QWidget* parent) : QWidget(parent), ui(std::make_unique<Ui::C
     connect(ui->chat_history, &QTextEdit::customContextMenuRequested, this,
             &ChatRoom::OnChatContextMenu);
     connect(ui->chat_message, &QLineEdit::returnPressed, this, &ChatRoom::OnSendChat);
+    connect(send_message, &QPushButton::clicked, this, &ChatRoom::OnSendChat);
     connect(ui->chat_message, &QLineEdit::textChanged, this, &ChatRoom::OnChatTextChanged);
-    connect(ui->send_message, &QPushButton::clicked, this, &ChatRoom::OnSendChat);
     connect(ui->player_view, &QTreeView::doubleClicked, this, &ChatRoom::OnPlayerDoubleClicked);
+    ui->horizontalLayout_3->setStretch(0, 1);
+    ui->horizontalLayout_3->setStretch(1, 0);
+    ui->horizontalLayout_3->setStretch(2, 0);
+    send_message->setFixedSize(40, 30);
+    send_message->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
 
     UpdateTheme();
 }
@@ -345,12 +386,12 @@ void ChatRoom::OnRoomUpdate(const Network::RoomInformation& info) {
 }
 
 void ChatRoom::Disable() {
-    ui->send_message->setDisabled(true);
+    if (send_message) send_message->setDisabled(true);
     ui->chat_message->setDisabled(true);
 }
 
 void ChatRoom::Enable() {
-    ui->send_message->setEnabled(true);
+    if (send_message) send_message->setEnabled(true);
     ui->chat_message->setEnabled(true);
 }
 
@@ -386,6 +427,9 @@ void ChatRoom::OnChatReceive(const Network::ChatEntry& chat) {
         }
 
         AppendChatMessage(m.GetPlayerChatMessage(static_cast<u16>(player), show_timestamps, override_color));
+
+        // Trigger the 15-second border highlight for the person who just spoke
+        HighlightPlayer(chat.nickname);
     }
 }
 
@@ -468,44 +512,139 @@ void ChatRoom::OnSendChat() {
 
         AppendChatMessage(m.GetPlayerChatMessage(static_cast<u16>(player), show_timestamps, override_color));
         ui->chat_message->clear();
+
+        HighlightPlayer(nick);
     }
 }
 
-void ChatRoom::UpdateIconDisplay() {
-    for (int row = 0; row < player_list->invisibleRootItem()->rowCount(); ++row) {
-        QStandardItem* item = player_list->invisibleRootItem()->child(row);
-        const std::string avatar_url = item->data(PlayerListItem::AvatarUrlRole).toString().toStdString();
+QColor ChatRoom::GetPlayerColor(const std::string& nickname, int index) const {
+    if (color_overrides.count(nickname)) {
+        return QColor(QString::fromStdString(color_overrides.at(nickname)));
+    }
+    const bool is_dark = QIcon::themeName().contains(QStringLiteral("dark")) ||
+    QIcon::themeName().contains(QStringLiteral("midnight"));
 
-        QPixmap pixmap;
+    static constexpr std::array<const char*, 16> default_colors = {
+        "#0000FF", "#FF0000", "#8A2BE2", "#FF69B4", "#1E90FF", "#008000", "#00FF7F", "#B22222",
+        "#DAA520", "#FF4500", "#2E8B57", "#5F9EA0", "#D2691E", "#9ACD32", "#FF7F50", "#FFFF00"};
+        static constexpr std::array<const char*, 16> dark_colors = {
+            "#559AD1", "#4EC9A8", "#D69D85", "#C6C923", "#B975B5", "#D81F1F", "#7EAE39", "#4F8733",
+            "#F7CD8A", "#6FCACF", "#CE4897", "#8A2BE2", "#D2691E", "#9ACD32", "#FF7F50", "#152ccd"};
+
+            return QColor(is_dark ? dark_colors[index % 16] : default_colors[index % 16]);
+}
+
+void ChatRoom::UpdateIconDisplay() {
+    // 1. Determine canvas size based on mode
+    int canvas_w, canvas_h;
+    if (is_compact_mode) {
+        canvas_w = std::max(80, ui->player_view->viewport()->width() - 2);
+        canvas_h = 80; // Enough for avatar + name below
+    } else {
+        canvas_w = 54; // Just enough for 44px avatar + 4px border padding
+        canvas_h = 54;
+    }
+
+    const QSize canvas_size(canvas_w, canvas_h);
+    ui->player_view->setIconSize(canvas_size);
+
+    for (int row = 0; row < player_list->rowCount(); ++row) {
+        QStandardItem* item = player_list->item(row);
+        if (!item) continue;
+
+        const QString nickname = item->data(PlayerListItem::NicknameRole).toString();
+        const std::string nickname_std = nickname.toStdString();
+        const std::string avatar_url = item->data(PlayerListItem::AvatarUrlRole).toString().toStdString();
+        const QString game = item->data(PlayerListItem::GameNameRole).toString();
+        const QString version = item->data(PlayerListItem::GameVersionRole).toString();
+
+        item->setData(is_compact_mode, Qt::UserRole + 7);
+
+        QPixmap avatar_pixmap;
         if (icon_cache.count(avatar_url)) {
-            pixmap = icon_cache.at(avatar_url);
+            avatar_pixmap = icon_cache.at(avatar_url);
         } else {
-            pixmap = QIcon::fromTheme(QStringLiteral("no_avatar")).pixmap(48);
+            avatar_pixmap = QIcon::fromTheme(QStringLiteral("no_avatar")).pixmap(48);
         }
 
-        QPixmap canvas = pixmap.copy();
+        QPixmap canvas(canvas_size);
+        canvas.fill(Qt::transparent);
         QPainter painter(&canvas);
         painter.setRenderHint(QPainter::Antialiasing);
+        painter.setRenderHint(QPainter::TextAntialiasing);
 
+        const int avatar_size = 44;
+
+        // Center for Compact, Left-Align for Regular
+        int avatar_x = is_compact_mode ? (canvas.width() - avatar_size) / 2 : 5;
+        int avatar_y = is_compact_mode ? 4 : 5;
+
+        // --- Draw Fading Border ---
+        float opacity = 0.0f;
+        if (highlight_states.count(nickname_std)) {
+            opacity = highlight_states[nickname_std].opacity;
+        }
+
+        if (opacity > 0.0f) {
+            QColor border_color = GetPlayerColor(nickname_std, row);
+            border_color.setAlphaF(opacity);
+            painter.setPen(QPen(border_color, 4));
+            painter.drawEllipse(avatar_x, avatar_y, avatar_size, avatar_size);
+        } else {
+            painter.setPen(QPen(QColor(255, 255, 255, 30), 1));
+            painter.drawEllipse(avatar_x, avatar_y, avatar_size, avatar_size);
+        }
+
+        // --- Draw Avatar ---
+        QPainterPath path;
+        path.addEllipse(avatar_x + 2, avatar_y + 2, 40, 40);
+        painter.setClipPath(path);
+        painter.drawPixmap(avatar_x + 2, avatar_y + 2, 40, 40, avatar_pixmap);
+        painter.setClipping(false);
+
+        // --- Draw Status Dot ---
         QString dot_type = item->data(PlayerListItem::StatusDotRole).toString();
-        QColor dot_color;
-        if (dot_type == QStringLiteral("🟢")) dot_color = Qt::green;
-        else if (dot_type == QStringLiteral("🟡")) dot_color = Qt::yellow;
-        else dot_color = Qt::gray;
-
-        // Draw a small "outline" circle
-        painter.setBrush(QColor(30, 30, 30));
+        QColor dot_color = (dot_type == QStringLiteral("🟢")) ? Qt::green :
+                           (dot_type == QStringLiteral("🟡")) ? Qt::yellow : Qt::gray;
         painter.setPen(Qt::NoPen);
-        painter.drawEllipse(32, 32, 14, 14);
-
-        // Draw the actual status dot
+        painter.setBrush(QColor(30, 30, 30));
+        painter.drawEllipse(avatar_x + 30, avatar_y + 30, 12, 12);
         painter.setBrush(dot_color);
-        painter.drawEllipse(34, 34, 10, 10);
+        painter.drawEllipse(avatar_x + 32, avatar_y + 32, 8, 8);
+
+        if (is_compact_mode) {
+            QFont font = painter.font();
+            int point_size = 9;
+            font.setBold(true);
+            font.setPointSize(point_size);
+            painter.setFont(font);
+
+            int text_width_limit = canvas.width() - 4;
+            while (painter.fontMetrics().horizontalAdvance(nickname) > text_width_limit && point_size > 6) {
+                point_size--;
+                font.setPointSize(point_size);
+                painter.setFont(font);
+            }
+
+            QString elided_name = painter.fontMetrics().elidedText(nickname, Qt::ElideRight, text_width_limit);
+            QRect text_rect(0, avatar_y + avatar_size + 2, canvas.width(), 20);
+
+            painter.setPen(QColor(0, 0, 0, 160));
+            painter.drawText(text_rect.adjusted(1, 1, 1, 1), Qt::AlignCenter, elided_name);
+            painter.setPen(UISettings::IsDarkTheme() ? Qt::white : Qt::black);
+            painter.drawText(text_rect, Qt::AlignCenter, elided_name);
+        }
 
         painter.end();
-
-        // Set the final icon
         item->setData(canvas, Qt::DecorationRole);
+
+        // Tooltip logic
+        QString display_game = version.isEmpty() ? game : QStringLiteral("%1 (%2)").arg(game, version);
+        item->setToolTip(tr("<b>%1</b><br>%2").arg(nickname, display_game));
+
+        if (is_compact_mode) {
+            item->setText(QString());
+        }
     }
 }
 
@@ -582,11 +721,32 @@ void ChatRoom::OnChatTextChanged() {
 }
 
 void ChatRoom::PopupContextMenu(const QPoint& menu_location) {
-    QModelIndex item = ui->player_view->indexAt(menu_location);
-    if (!item.isValid()) return;
-
-    std::string nickname = player_list->item(item.row())->data(PlayerListItem::NicknameRole).toString().toStdString();
     QMenu context_menu;
+
+    // 1. Vertical Scrollbar Toggle
+    QAction* scroll_action = context_menu.addAction(tr("Hide Member Scrollbar"));
+    scroll_action->setCheckable(true);
+    scroll_action->setChecked(member_scrollbar_hidden);
+    connect(scroll_action, &QAction::triggered, [this](bool checked) {
+        member_scrollbar_hidden = checked;
+        ui->player_view->setVerticalScrollBarPolicy(checked ? Qt::ScrollBarAlwaysOff : Qt::ScrollBarAsNeeded);
+
+        if (is_compact_mode) {
+            ui->player_view->setFixedWidth(checked ? 90 : 110);
+            UpdateIconDisplay();
+        }
+    });
+    context_menu.addSeparator();
+
+    QModelIndex item = ui->player_view->indexAt(menu_location);
+    if (!item.isValid()) {
+        // If clicking empty space, just show the scrollbar toggle and exit
+        context_menu.exec(ui->player_view->viewport()->mapToGlobal(menu_location));
+        return;
+    }
+
+    // 2. Player-specific options (Only shows if you click a name)
+    std::string nickname = player_list->item(item.row())->data(PlayerListItem::NicknameRole).toString().toStdString();
 
     QAction* color_action = context_menu.addAction(tr("Set Name Color"));
     connect(color_action, &QAction::triggered, [this, nickname] {
@@ -643,15 +803,21 @@ void ChatRoom::UpdateTheme() {
     const QString accent_color = Theme::GetAccentColor();
     if (UISettings::IsDarkTheme()) {
         style_sheet = QStringLiteral(R"(
-            QListView, QTextEdit, QLineEdit { background-color: #252525; color: #E0E0E0; border: 1px solid #4A4A4A; border-radius: 4px; }
+            QListView, QTextEdit { background-color: #252525; color: #E0E0E0; border: 1px solid #4A4A4A; border-radius: 4px; }
             QListView::item:selected { background-color: %1; }
-            QPushButton { background-color: #3E3E3E; color: #E0E0E0; border: 1px solid #5A5A5A; padding: 5px; border-radius: 4px; }
+            QLineEdit { background-color: #252525; color: #E0E0E0; border: 1px solid #4A4A4A; padding-left: 5px; border-radius: 4px; }
+            QPushButton { background-color: #3E3E3E; color: #E0E0E0; border: 1px solid #5A5A5A; padding: 2px; border-radius: 4px; }
+            QPushButton#send_message { padding: 0px; margin: 0px; min-width: 40px; max-width: 40px; }
+            QToolButton { padding: 0px; margin: 0px; font-size: 14px; border: none; }
         )").arg(accent_color);
     } else {
         style_sheet = QStringLiteral(R"(
-            QListView, QTextEdit, QLineEdit { background-color: #FFFFFF; color: #000000; border: 1px solid #CFCFCF; border-radius: 4px; }
+            QListView, QTextEdit { background-color: #FFFFFF; color: #000000; border: 1px solid #CFCFCF; border-radius: 4px; }
             QListView::item:selected { background-color: %1; }
-            QPushButton { background-color: #F0F0F0; color: #000000; border: 1px solid #BDBDBD; padding: 5px; border-radius: 4px; }
+            QLineEdit { background-color: #FFFFFF; color: #000000; border: 1px solid #CFCFCF; padding-left: 5px; border-radius: 4px; }
+            QPushButton { background-color: #F0F0F0; color: #000000; border: 1px solid #BDBDBD; padding: 2px; border-radius: 4px; }
+            QPushButton#send_message { padding: 0px; margin: 0px; min-width: 40px; max-width: 40px; }
+            QToolButton { padding: 0px; margin: 0px; font-size: 14px; border: none; }
         )").arg(accent_color);
     }
     this->setStyleSheet(style_sheet);
@@ -660,8 +826,46 @@ void ChatRoom::UpdateTheme() {
 void ChatRoom::OnChatContextMenu(const QPoint& menu_location) {
     QMenu* context_menu = ui->chat_history->createStandardContextMenu(menu_location);
     context_menu->addSeparator();
+
     QAction* clear_action = context_menu->addAction(tr("Clear Chat History"));
     connect(clear_action, &QAction::triggered, this, &ChatRoom::Clear);
+
+    QAction* compact_action = context_menu->addAction(tr("Compact Member List"));
+    compact_action->setCheckable(true);
+    compact_action->setChecked(is_compact_mode);
+    connect(compact_action, &QAction::triggered, [this](bool checked) {
+        this->is_compact_mode = checked;
+        if (checked) {
+            int view_w = member_scrollbar_hidden ? 90 : 110;
+            ui->player_view->setFixedWidth(view_w);
+            ui->player_view->setIndentation(0);
+            ui->player_view->setHeaderHidden(true);
+            ui->player_view->setRootIsDecorated(false);
+            ui->player_view->header()->setSectionResizeMode(0, QHeaderView::Stretch);
+            ui->player_view->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+            ui->player_view->setStyleSheet(QStringLiteral("QTreeView::item { padding: 0px; }"));
+        } else {
+            ui->player_view->setMinimumWidth(160);
+            ui->player_view->setMaximumWidth(1000);
+            ui->player_view->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
+            ui->player_view->setIndentation(20);
+            ui->player_view->setHeaderHidden(false);
+            ui->player_view->setRootIsDecorated(true);
+            ui->player_view->header()->setSectionResizeMode(0, QHeaderView::ResizeToContents);
+            ui->player_view->header()->setStretchLastSection(false);
+            ui->player_view->setHorizontalScrollBarPolicy(Qt::ScrollBarAsNeeded);
+            ui->player_view->setStyleSheet(QString());
+        }
+
+        UpdateIconDisplay();
+
+        // Refresh player list to restore text in regular mode
+        if (room_network) {
+            if (auto room = room_network->GetRoomMember().lock()) {
+                SetPlayerList(room->GetMemberInformation());
+            }
+        }
+    });
 
     QAction* mute_action = context_menu->addAction(tr("Hide Future Messages"));
     mute_action->setCheckable(true);
@@ -691,4 +895,81 @@ void ChatRoom::OnPlayerDoubleClicked(const QModelIndex& index) {
         ui->chat_message->setText(currentText + QStringLiteral("@%1 ").arg(nickname));
         ui->chat_message->setFocus();
     }
+}
+
+void ChatRoom::HighlightPlayer(const std::string& nickname) {
+    auto& state = highlight_states[nickname];
+
+    // 1. Clean up existing animations/timers
+    // QPointer automatically becomes null if the animation was already deleted
+    if (state.animation) {
+        state.animation->stop();
+        state.animation->deleteLater();
+    }
+
+    if (state.linger_timer) {
+        state.linger_timer->stop();
+        state.linger_timer->deleteLater();
+        state.linger_timer = nullptr;
+    }
+
+    // 2. Create Fade-In Animation
+    auto* fadeIn = new QVariantAnimation(this);
+    state.animation = fadeIn;
+    fadeIn->setDuration(400);
+    fadeIn->setStartValue(state.opacity);
+    fadeIn->setEndValue(1.0f);
+    fadeIn->setEasingCurve(QEasingCurve::OutQuad);
+
+    connect(fadeIn, &QVariantAnimation::valueChanged, [this, nickname](const QVariant& value) {
+        if (highlight_states.count(nickname)) {
+            highlight_states[nickname].opacity = value.toFloat();
+            UpdateIconDisplay();
+        }
+    });
+
+    connect(fadeIn, &QVariantAnimation::finished, [this, nickname]() {
+        if (!highlight_states.count(nickname)) return;
+
+        auto& s1 = highlight_states[nickname];
+
+        // Cleanup the finished animation
+        if (s1.animation) s1.animation->deleteLater();
+
+        s1.linger_timer = new QTimer(this);
+        s1.linger_timer->setSingleShot(true);
+
+        connect(s1.linger_timer, &QTimer::timeout, [this, nickname]() {
+            if (!highlight_states.count(nickname)) return;
+            auto& s2 = highlight_states[nickname];
+
+            auto* fadeOut = new QVariantAnimation(this);
+            s2.animation = fadeOut;
+            fadeOut->setDuration(400);
+            fadeOut->setStartValue(1.0f);
+            fadeOut->setEndValue(0.0f);
+            fadeOut->setEasingCurve(QEasingCurve::OutQuad);
+
+            connect(fadeOut, &QVariantAnimation::valueChanged, [this, nickname](const QVariant& value) {
+                if (highlight_states.count(nickname)) {
+                    highlight_states[nickname].opacity = value.toFloat();
+                    UpdateIconDisplay();
+                }
+            });
+
+            connect(fadeOut, &QVariantAnimation::finished, [this, nickname]() {
+                if (highlight_states.count(nickname)) {
+                    auto& final_state = highlight_states[nickname];
+                    if (final_state.animation) final_state.animation->deleteLater();
+                    highlight_states.erase(nickname);
+                }
+                UpdateIconDisplay();
+            });
+
+            fadeOut->start();
+        });
+        s1.linger_timer->start(10000);
+    });
+
+    fadeIn->start();
 }
