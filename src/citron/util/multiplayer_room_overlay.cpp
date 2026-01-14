@@ -224,6 +224,11 @@ void MultiplayerRoomOverlay::ConnectToRoom() {
             chat_room_widget->Initialize(&room_network);
             is_chat_initialized = true;
         }
+
+        // This ensures the server doesn't use stale data from a previous session.
+        if (room_member->IsConnected() && !main_window->IsEmulationRunning()) {
+            room_member->SendGameInfo({});
+        }
     } else {
         ClearUI();
     }
@@ -268,9 +273,8 @@ void MultiplayerRoomOverlay::UpdateRoomData() {
             }
         }
 
-        // Ensure we don't think we are emulating if the status is "Not playing a game"
-        bool is_emulating = !local_game_info.name.empty() &&
-                            local_game_info.name != tr("Not playing a game").toStdString();
+        // Check local emulator state so the UI updates instantly when stopping a game
+        bool is_emulating = main_window && main_window->IsEmulationRunning();
 
         int point_size = UISettings::IsGamescope() ? 11 : 10;
         if (this->width() < 340) point_size = 10;
