@@ -257,50 +257,32 @@ void CommandBuffer::GenerateBiquadFilterCommand(const s32 node_id, EffectInfoBas
                                                 const bool needs_init,
                                                 const bool use_float_processing) {
     auto& cmd{GenerateStart<BiquadFilterCommand, CommandId::BiquadFilter>(node_id)};
+    const u8* raw = reinterpret_cast<const u8*>(effect_info.GetParameter());
+
+    if (raw[0x16] <= 6 && raw[0x17] <= 2) {
+        const auto& parameter = *reinterpret_cast<const BiquadFilterInfo::ParameterVersion1*>(effect_info.GetParameter());
+        cmd.input = buffer_offset + parameter.inputs[channel];
+        cmd.output = buffer_offset + parameter.outputs[channel];
+        cmd.biquad.b = parameter.b;
+        cmd.biquad.a = parameter.a;
+    } else {
+        const auto& parameter = *reinterpret_cast<const BiquadFilterInfo::ParameterVersion2*>(effect_info.GetParameter());
+        cmd.input = buffer_offset + parameter.inputs[channel];
+        cmd.output = buffer_offset + parameter.outputs[channel];
+
+        constexpr f32 scale = 16384.0f;
+        cmd.biquad.b[0] = static_cast<s16>(std::clamp(parameter.b[0] * scale, -32768.0f, 32767.0f));
+        cmd.biquad.b[1] = static_cast<s16>(std::clamp(parameter.b[1] * scale, -32768.0f, 32767.0f));
+        cmd.biquad.b[2] = static_cast<s16>(std::clamp(parameter.b[2] * scale, -32768.0f, 32767.0f));
+        cmd.biquad.a[0] = static_cast<s16>(std::clamp(parameter.a[0] * scale, -32768.0f, 32767.0f));
+        cmd.biquad.a[1] = static_cast<s16>(std::clamp(parameter.a[1] * scale, -32768.0f, 32767.0f));
+    }
 
     const auto state{reinterpret_cast<VoiceState::BiquadFilterState*>(
         effect_info.GetStateBuffer() + channel * sizeof(VoiceState::BiquadFilterState))};
 
-    // Check which parameter version is being used
-    if (behavior->IsEffectInfoVersion2Supported()) {
-        const auto& parameter{
-            *reinterpret_cast<BiquadFilterInfo::ParameterVersion2*>(effect_info.GetParameter())};
-
-        cmd.input = buffer_offset + parameter.inputs[channel];
-        cmd.output = buffer_offset + parameter.outputs[channel];
-
-        // Convert float coefficients to fixed-point Q2.14 format (multiply by 16384)
-        constexpr f32 fixed_point_scale = 16384.0f;
-        cmd.biquad.b[0] = static_cast<s16>(
-            std::clamp(parameter.b[0] * fixed_point_scale, -32768.0f, 32767.0f));
-        cmd.biquad.b[1] = static_cast<s16>(
-            std::clamp(parameter.b[1] * fixed_point_scale, -32768.0f, 32767.0f));
-        cmd.biquad.b[2] = static_cast<s16>(
-            std::clamp(parameter.b[2] * fixed_point_scale, -32768.0f, 32767.0f));
-        cmd.biquad.a[0] = static_cast<s16>(
-            std::clamp(parameter.a[0] * fixed_point_scale, -32768.0f, 32767.0f));
-        cmd.biquad.a[1] = static_cast<s16>(
-            std::clamp(parameter.a[1] * fixed_point_scale, -32768.0f, 32767.0f));
-
-        // Effects use legacy fixed-point format
-        cmd.use_float_coefficients = false;
-    } else {
-        const auto& parameter{
-            *reinterpret_cast<BiquadFilterInfo::ParameterVersion1*>(effect_info.GetParameter())};
-
-        cmd.input = buffer_offset + parameter.inputs[channel];
-        cmd.output = buffer_offset + parameter.outputs[channel];
-
-        cmd.biquad.b = parameter.b;
-        cmd.biquad.a = parameter.a;
-
-        // Effects use legacy fixed-point format
-        cmd.use_float_coefficients = false;
-    }
-
-    cmd.state = memory_pool->Translate(CpuAddr(state),
-                                       MaxBiquadFilters * sizeof(VoiceState::BiquadFilterState));
-
+    cmd.state = memory_pool->Translate(CpuAddr(state), MaxBiquadFilters * sizeof(VoiceState::BiquadFilterState));
+    cmd.use_float_coefficients = false;
     cmd.needs_init = needs_init;
     cmd.use_float_processing = use_float_processing;
 
@@ -749,10 +731,8 @@ void CommandBuffer::GenerateMultitapBiquadFilterCommand(const s32 node_id, Voice
     cmd.output = buffer_count + channel;
     cmd.biquads = voice_info.biquads;
 
-    // REV15+: Use native float coefficients if available
     if (voice_info.use_float_biquads) {
-        cmd.biquads_float = voice_info.biquads_float;
-        cmd.use_float_coefficients = true;
+        cmd.use_float_coefficients = false;
     } else {
         cmd.use_float_coefficients = false;
     }
