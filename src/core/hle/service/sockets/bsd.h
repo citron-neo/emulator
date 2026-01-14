@@ -203,6 +203,7 @@ private:
     void BuildErrnoResponse(HLERequestContext& ctx, Errno bsd_errno) const noexcept;
 
     std::array<std::optional<FileDescriptor>, MAX_FD> file_descriptors;
+    std::mutex fd_table_mutex; // Protects access to the file_descriptors array
 
     Network::RoomNetwork& room_network;
 

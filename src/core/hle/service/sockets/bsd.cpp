@@ -1009,35 +1009,39 @@ Errno BSD::CloseImpl(s32 fd) {
         return Errno::BADF;
     }
 
-    auto& descriptor = file_descriptors[fd];
-    const Errno bsd_errno = Translate(descriptor->socket->Close());
+    // Capture the socket pointer and info before we lock and reset the table entry
+    std::shared_ptr<Network::SocketBase> socket_to_close;
+    SocketPoolKey key;
+    bool is_proxy = false;
+
+    {
+        std::lock_guard lock(fd_table_mutex);
+        auto& descriptor = file_descriptors[fd];
+        socket_to_close = descriptor->socket;
+        key = {descriptor->domain, descriptor->type, descriptor->protocol};
+        is_proxy = std::dynamic_pointer_cast<Network::ProxySocket>(socket_to_close) != nullptr;
+
+        // Remove it from the table immediately so OnProxyPacketReceived stops seeing it
+        file_descriptors[fd].reset();
+    }
+
+    const Errno bsd_errno = Translate(socket_to_close->Close());
     if (bsd_errno != Errno::SUCCESS) {
         return bsd_errno;
     }
 
     LOG_INFO(Service, "Close socket fd={}", fd);
 
-    // Try to return ProxySocket to the pool for reuse
-    auto proxy_socket = std::dynamic_pointer_cast<Network::ProxySocket>(descriptor->socket);
     auto room_member = room_network.GetRoomMember().lock();
-
-    if (proxy_socket && room_member && room_member->IsConnected()) {
-        // Socket is still valid, add to pool
+    if (is_proxy && room_member && room_member->IsConnected()) {
         std::lock_guard lock(socket_pool_mutex);
-
-        SocketPoolKey key{descriptor->domain, descriptor->type, descriptor->protocol};
-
-        // Limit pool size to avoid memory bloat (max 8 sockets per type)
         constexpr size_t MAX_POOL_SIZE = 8;
         if (socket_pool[key].size() < MAX_POOL_SIZE) {
-            socket_pool[key].push_back(descriptor->socket);
+            socket_pool[key].push_back(socket_to_close);
             LOG_DEBUG(Service, "Returned socket fd={} to pool", fd);
-        } else {
-            LOG_DEBUG(Service, "Socket pool full, destroying socket fd={}", fd);
         }
     }
 
-    file_descriptors[fd].reset();
     return bsd_errno;
 }
 
@@ -1093,6 +1097,9 @@ void BSD::BuildErrnoResponse(HLERequestContext& ctx, Errno bsd_errno) const noex
 }
 
 void BSD::OnProxyPacketReceived(const Network::ProxyPacket& packet) {
+    // Lock the table so CloseImpl doesn't delete a socket while we are iterating
+    std::lock_guard lock(fd_table_mutex);
+
     // We must ensure we only deliver the packet ONCE
     std::vector<Network::SocketBase*> processed_sockets;
 
