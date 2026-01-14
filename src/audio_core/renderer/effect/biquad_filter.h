@@ -35,8 +35,7 @@ public:
         /* 0x25 */ ParameterState state;
         /* 0x26 */ u16 reserved;
     };
-    static_assert(sizeof(ParameterVersion2) <= sizeof(EffectInfoBase::InParameterVersion2),
-                  "BiquadFilterInfo::ParameterVersion2 has the wrong size!");
+    static_assert(sizeof(ParameterVersion2) <= 0x28, "BiquadFilterInfo::ParameterVersion2 has the wrong size!");
 
     /**
      * Update the info with new parameters, version 1.
