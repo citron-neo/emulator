@@ -363,14 +363,14 @@ void CommandGenerator::GenerateBiquadFilterEffectCommand(const s16 buffer_offset
                                                          EffectInfoBase& effect_info,
                                                          const s32 node_id) {
     u8* raw_params = effect_info.GetParameter();
+    
+    // REV15 introduced the new native float-based Biquad Filter structure (Version 2).
+    // REV14 and older (including Rev 12 splitter updates) still use the Int16 version.
+    const bool is_rev15 = render_context.behavior->GetProcessRevision() >= 15;
 
-    // Revision 12 introduced the new float-based Biquad Filter
-    // Revision 11 and older use the original Int16 version
-    const bool is_rev12 = render_context.behavior->GetProcessRevision() >= 12;
-
-    if (is_rev12) {
+    if (is_rev15) {
         auto& parameter = *reinterpret_cast<BiquadFilterInfo::ParameterVersion2*>(raw_params);
-
+        
         s8 channels = parameter.channel_count;
         if (channels > 6 || channels < 0) channels = 0;
 
@@ -385,10 +385,10 @@ void CommandGenerator::GenerateBiquadFilterEffectCommand(const s16 buffer_offset
                 command_buffer.GenerateCopyMixBufferCommand(node_id, effect_info, buffer_offset, channel);
             }
         }
-        parameter.state = EffectInfoBase::ParameterState::Updated; // Offset 0x25
+        parameter.state = EffectInfoBase::ParameterState::Updated;
     } else {
         auto& parameter = *reinterpret_cast<BiquadFilterInfo::ParameterVersion1*>(raw_params);
-
+        
         s8 channels = parameter.channel_count;
         if (channels > 6 || channels < 0) channels = 0;
 
@@ -418,7 +418,7 @@ void CommandGenerator::GenerateBiquadFilterEffectCommand(const s16 buffer_offset
                 command_buffer.GenerateCopyMixBufferCommand(node_id, effect_info, buffer_offset, channel);
             }
         }
-        parameter.state = EffectInfoBase::ParameterState::Updated; // Offset 0x17
+        parameter.state = EffectInfoBase::ParameterState::Updated;
     }
 }
 
