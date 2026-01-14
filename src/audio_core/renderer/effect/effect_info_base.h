@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: Copyright 2022 yuzu Emulator Project
+// SPDX-FileCopyrightText: Copyright 2026 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #pragma once
@@ -206,6 +207,8 @@ public:
     u8* GetStateBuffer() {
         return state.data();
     }
+
+    size_t GetParameterSize() const { return parameter.size(); }
 
     /**
      * Set this effect's usage state.
