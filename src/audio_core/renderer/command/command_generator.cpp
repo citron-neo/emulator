@@ -362,61 +362,63 @@ void CommandGenerator::GenerateAuxCommand(const s16 buffer_offset, EffectInfoBas
 void CommandGenerator::GenerateBiquadFilterEffectCommand(const s16 buffer_offset,
                                                          EffectInfoBase& effect_info,
                                                          const s32 node_id) {
-    EffectInfoBase::ParameterState state{};
-    s8 channel_count{0};
+    u8* raw_params = effect_info.GetParameter();
+    
+    // REV15 introduced the new native float-based Biquad Filter structure (Version 2).
+    // REV14 and older (including Rev 12 splitter updates) still use the Int16 version.
+    const bool is_rev15 = render_context.behavior->GetProcessRevision() >= 15;
 
-    if (render_context.behavior->IsEffectInfoVersion2Supported()) {
-        const auto* parameter = reinterpret_cast<const BiquadFilterInfo::ParameterVersion2*>(
-            effect_info.GetParameter());
-        if (!parameter) {
-            LOG_ERROR(Service_Audio, "Biquad filter parameter is null");
-            return;
-        }
-        state = parameter->state;
-        channel_count = parameter->channel_count;
-    } else {
-        const auto* parameter = reinterpret_cast<const BiquadFilterInfo::ParameterVersion1*>(
-            effect_info.GetParameter());
-        if (!parameter) {
-            LOG_ERROR(Service_Audio, "Biquad filter parameter is null");
-            return;
-        }
-        state = parameter->state;
-        channel_count = parameter->channel_count;
-    }
+    if (is_rev15) {
+        auto& parameter = *reinterpret_cast<BiquadFilterInfo::ParameterVersion2*>(raw_params);
+        
+        s8 channels = parameter.channel_count;
+        if (channels > 6 || channels < 0) channels = 0;
 
-    if (effect_info.IsEnabled()) {
-        bool needs_init{false};
-
-        switch (state) {
-        case EffectInfoBase::ParameterState::Initialized:
-            needs_init = true;
-            break;
-        case EffectInfoBase::ParameterState::Updating:
-        case EffectInfoBase::ParameterState::Updated:
-            if (render_context.behavior->IsBiquadFilterEffectStateClearBugFixed()) {
-                needs_init = false;
-            } else {
-                needs_init = state == EffectInfoBase::ParameterState::Updating;
+        if (effect_info.IsEnabled()) {
+            const bool needs_init = (parameter.state != EffectInfoBase::ParameterState::Updated);
+            for (s8 channel = 0; channel < channels; channel++) {
+                command_buffer.GenerateBiquadFilterCommand(
+                    node_id, effect_info, buffer_offset, channel, needs_init, true);
             }
-            break;
-        default:
-            LOG_ERROR(Service_Audio, "Invalid biquad parameter state {}, treating as uninitialized",
-                      static_cast<u32>(state));
-            needs_init = true;
-            break;
+        } else {
+            for (s8 channel = 0; channel < channels; channel++) {
+                command_buffer.GenerateCopyMixBufferCommand(node_id, effect_info, buffer_offset, channel);
+            }
         }
-
-        for (s8 channel = 0; channel < channel_count; channel++) {
-            command_buffer.GenerateBiquadFilterCommand(
-                node_id, effect_info, buffer_offset, channel, needs_init,
-                render_context.behavior->UseBiquadFilterFloatProcessing());
-        }
+        parameter.state = EffectInfoBase::ParameterState::Updated;
     } else {
-        for (s8 channel = 0; channel < channel_count; channel++) {
-            command_buffer.GenerateCopyMixBufferCommand(node_id, effect_info, buffer_offset,
-                                                        channel);
+        auto& parameter = *reinterpret_cast<BiquadFilterInfo::ParameterVersion1*>(raw_params);
+        
+        s8 channels = parameter.channel_count;
+        if (channels > 6 || channels < 0) channels = 0;
+
+        if (effect_info.IsEnabled()) {
+            bool needs_init = false;
+            switch (parameter.state) {
+            case EffectInfoBase::ParameterState::Initialized:
+                needs_init = true;
+                break;
+            case EffectInfoBase::ParameterState::Updating:
+            case EffectInfoBase::ParameterState::Updated:
+                if (render_context.behavior->IsBiquadFilterEffectStateClearBugFixed()) {
+                    needs_init = false;
+                } else {
+                    needs_init = parameter.state == EffectInfoBase::ParameterState::Updating;
+                }
+                break;
+            default: break;
+            }
+
+            for (s8 channel = 0; channel < channels; channel++) {
+                command_buffer.GenerateBiquadFilterCommand(
+                    node_id, effect_info, buffer_offset, channel, needs_init, false);
+            }
+        } else {
+            for (s8 channel = 0; channel < channels; channel++) {
+                command_buffer.GenerateCopyMixBufferCommand(node_id, effect_info, buffer_offset, channel);
+            }
         }
+        parameter.state = EffectInfoBase::ParameterState::Updated;
     }
 }
 
