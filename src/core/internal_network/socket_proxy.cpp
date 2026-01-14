@@ -307,8 +307,14 @@ std::pair<s32, Errno> ProxySocket::SendTo(u32 flags, std::span<const u8> message
 }
 
 Errno ProxySocket::Close() {
+    std::lock_guard guard(packets_mutex);
     fd = INVALID_SOCKET;
     closed = true;
+
+    // Flush any pending packets so they don't get processed after closure
+    while (!received_packets.empty()) {
+        received_packets.pop();
+    }
 
     return Errno::SUCCESS;
 }
