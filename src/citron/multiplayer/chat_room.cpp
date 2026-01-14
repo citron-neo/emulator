@@ -30,6 +30,8 @@
 #include "citron/multiplayer/message.h"
 #include "citron/uisettings.h"
 #include "citron/theme.h"
+#include "citron/main.h"
+#include <QApplication>
 #ifdef ENABLE_WEB_SERVICE
 #include "web_service/web_backend.h"
 #endif
@@ -224,9 +226,6 @@ ChatRoom::ChatRoom(QWidget* parent) : QWidget(parent), ui(std::make_unique<Ui::C
     ui->horizontalLayout_3->setStretch(1, 0);
     ui->horizontalLayout_3->setStretch(2, 0);
 
-    connect(ui->chat_message, &QLineEdit::returnPressed, this, &ChatRoom::OnSendChat);
-    connect(send_message, &QPushButton::clicked, this, &ChatRoom::OnSendChat);
-
     QMenu* emoji_menu = new QMenu(this);
 
     QStringList emojis = {
@@ -271,7 +270,6 @@ ChatRoom::ChatRoom(QWidget* parent) : QWidget(parent), ui(std::make_unique<Ui::C
         grid_layout->addWidget(btn, i / max_columns, i % max_columns);
     }
 
-    // Use QWidgetAction to "stuff" the grid into the QMenu
     QWidgetAction* action = new QWidgetAction(emoji_menu);
     action->setDefaultWidget(grid_container);
     emoji_menu->addAction(action);
@@ -304,6 +302,9 @@ ChatRoom::ChatRoom(QWidget* parent) : QWidget(parent), ui(std::make_unique<Ui::C
     connect(send_message, &QPushButton::clicked, this, &ChatRoom::OnSendChat);
     connect(ui->chat_message, &QLineEdit::textChanged, this, &ChatRoom::OnChatTextChanged);
     connect(ui->player_view, &QTreeView::doubleClicked, this, &ChatRoom::OnPlayerDoubleClicked);
+    connect(this, &ChatRoom::ChatReceived, this, &ChatRoom::OnChatReceive);
+    connect(this, &ChatRoom::StatusMessageReceived, this, &ChatRoom::OnStatusMessageReceive);
+
     ui->horizontalLayout_3->setStretch(0, 1);
     ui->horizontalLayout_3->setStretch(1, 0);
     ui->horizontalLayout_3->setStretch(2, 0);
@@ -324,8 +325,6 @@ void ChatRoom::Initialize(Network::RoomNetwork* room_network_) {
             [this](const Network::StatusMessageEntry& status_message) {
                 emit StatusMessageReceived(status_message);
             });
-        connect(this, &ChatRoom::ChatReceived, this, &ChatRoom::OnChatReceive);
-        connect(this, &ChatRoom::StatusMessageReceived, this, &ChatRoom::OnStatusMessageReceive);
     }
 }
 
@@ -656,9 +655,24 @@ void ChatRoom::SetPlayerList(const Network::RoomMember::MemberList& member_list)
     if (room_network) {
         if (auto room_member = room_network->GetRoomMember().lock()) {
             std::string my_nick = room_member->GetNickname();
+
+            // Find the Main Window to see if we are actually playing a game
+            GMainWindow* main_window = nullptr;
+            for (auto* widget : QApplication::topLevelWidgets()) {
+                main_window = qobject_cast<GMainWindow*>(widget);
+                if (main_window) break;
+            }
+            bool is_actually_emulating = main_window && main_window->IsEmulationRunning();
+
             for (const auto& m : member_list) {
                 if (m.nickname == my_nick) {
                     local_game_info = m.game_info;
+
+                    // If the server thinks we're playing but the emulator is off, force-clear it
+                    if (!is_actually_emulating && !local_game_info.name.empty()) {
+                        room_member->SendGameInfo({}); // Tell server to clear our status
+                        local_game_info = {};          // Clear it locally for the UI
+                    }
                     break;
                 }
             }
@@ -670,14 +684,25 @@ void ChatRoom::SetPlayerList(const Network::RoomMember::MemberList& member_list)
         if (member.nickname.empty())
             continue;
 
+        AnnounceMultiplayerRoom::GameInfo member_game = member.game_info;
+
+        // If this is us and we aren't playing, don't show the stale game name in the UI
+        if (room_network) {
+            if (auto room = room_network->GetRoomMember().lock()) {
+                if (member.nickname == room->GetNickname() && local_game_info.name.empty()) {
+                    member_game = {};
+                }
+            }
+        }
+
         QStandardItem* name_item = new PlayerListItem(member.nickname, member.username,
-                                                      member.avatar_url, member.game_info);
+                                                      member.avatar_url, member_game);
 
         // Determine the Status Dot logic
         QString status_dot = QStringLiteral("⚪");
-        if (!member.game_info.name.empty() && !local_game_info.name.empty()) {
-            if (member.game_info.name == local_game_info.name) {
-                if (member.game_info.version == local_game_info.version) {
+        if (!member_game.name.empty() && !local_game_info.name.empty()) {
+            if (member_game.name == local_game_info.name) {
+                if (member_game.version == local_game_info.version) {
                     status_dot = QStringLiteral("🟢");
                 } else {
                     status_dot = QStringLiteral("🟡");
