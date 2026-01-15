@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: Copyright 2023 yuzu Emulator Project
+// SPDX-FileCopyrightText: Copyright 2026 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #pragma once
@@ -80,6 +81,9 @@ public:
      * @returns True if the Widget successfully created the components for the setting
      */
     bool Valid() const;
+
+    // Settings sharing
+    Settings::BasicSetting& GetSetting() { return setting; }
 
     /**
      * Creates a button to appear when a setting has been modified. This exists for custom

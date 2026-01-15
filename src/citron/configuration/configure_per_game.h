@@ -62,6 +62,8 @@ public:
 public slots:
     void accept() override;
     void OnTrimXCI();
+    void OnShareSettings();
+    void OnUseSettings();
 
 protected:
     void changeEvent(QEvent* event) override;

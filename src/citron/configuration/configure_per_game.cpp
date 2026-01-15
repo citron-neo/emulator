@@ -10,7 +10,6 @@
 #include <string>
 #include <utility>
 #include <vector>
-
 #include <fmt/format.h>
 
 #include <QAbstractButton>
@@ -28,7 +27,10 @@
 #include "citron/configuration/style_animation_event_filter.h"
 #include <QMessageBox>
 #include <QMetaObject>
+#include <QPointer>
 #include <QProgressDialog>
+#include <QSpinBox>
+#include <QDoubleSpinBox>
 #include <QPushButton>
 #include <QResizeEvent>
 #include <QScrollArea>
@@ -36,6 +38,9 @@
 #include <QTabBar>
 #include <QTimer>
 
+#ifdef ARCHITECTURE_x86_64
+#include "common/x64/cpu_detect.h"
+#endif
 #include "common/fs/fs_util.h"
 #include "common/hex_util.h"
 #include "common/settings_enums.h"
@@ -69,8 +74,11 @@
 #include "citron/util/util.h"
 #include "citron/vk_device_info.h"
 #include "citron/main.h"
+#include "common/fs/path_util.h"
 #include "common/string_util.h"
 #include "common/xci_trimmer.h"
+#include <fstream>
+#include <nlohmann/json.hpp>
 
 // Helper function to detect if the application is using a dark theme
 static bool IsDarkMode() {
@@ -136,6 +144,24 @@ ConfigurePerGame::ConfigurePerGame(QWidget* parent, u64 title_id_, const std::st
     }
 
     UpdateTheme();
+
+    auto* share_button = new QPushButton(tr("Share Settings"), this);
+    auto* use_button = new QPushButton(tr("Use Settings"), this);
+
+    share_button->setObjectName(QStringLiteral("share_settings_button"));
+    use_button->setObjectName(QStringLiteral("use_settings_button"));
+
+    share_button->setToolTip(tr("Please choose your CPU/Graphics/Advanced settings manually. "
+    "This will capture your current UI selections exactly as they appear."));
+
+    share_button->setStyleSheet(ui->trim_xci_button->styleSheet());
+    use_button->setStyleSheet(ui->trim_xci_button->styleSheet());
+
+    ui->gridLayout_2->addWidget(share_button, 11, 0, 1, 2);
+    ui->gridLayout_2->addWidget(use_button, 12, 0, 1, 2);
+
+    connect(share_button, &QPushButton::clicked, this, &ConfigurePerGame::OnShareSettings);
+    connect(use_button, &QPushButton::clicked, this, &ConfigurePerGame::OnUseSettings);
 
     auto* animation_filter = new StyleAnimationEventFilter(this);
 
@@ -893,4 +919,248 @@ void ConfigurePerGame::AnimateTabSwitch(int id) {
         button->setEnabled(false);
     }
     animation_group->start(QAbstractAnimation::DeleteWhenStopped);
+}
+
+void ConfigurePerGame::OnShareSettings() {
+    QFileInfo file_info(QString::fromStdString(file_name));
+    QString base_name = file_info.baseName();
+    auto config_path = Common::FS::GetCitronPath(Common::FS::CitronPath::ConfigDir) / "custom";
+    QString default_path = QStringLiteral("%1/%2_shared.json").arg(
+        QString::fromStdString(config_path.string()), base_name);
+
+    QString save_path = QFileDialog::getSaveFileName(this, tr("Share Settings Profile"),
+                                                     default_path, tr("JSON Files (*.json)"));
+    if (save_path.isEmpty()) return;
+
+    nlohmann::json profile;
+    profile["metadata"]["title_id"] = fmt::format("{:016X}", title_id);
+
+    int count = 0;
+
+    for (int i = 0; i < ui->stackedWidget->count(); ++i) {
+        QWidget* page = ui->stackedWidget->widget(i);
+        ConfigurationShared::Tab* tab = nullptr;
+        if (auto* scroll = qobject_cast<QScrollArea*>(page)) {
+            tab = qobject_cast<ConfigurationShared::Tab*>(scroll->widget());
+        }
+        if (!tab) continue;
+
+        auto* button = qobject_cast<QPushButton*>(button_group->button(i));
+        if (!button) continue;
+
+        QString tab_name = button->text();
+        std::string section = (tab_name == tr("CPU")) ? "Cpu" : "Renderer";
+        if (tab_name != tr("CPU") && tab_name != tr("Graphics") && tab_name != tr("Adv. Graphics")) continue;
+
+        auto widgets = tab->findChildren<ConfigurationShared::Widget*>();
+        for (auto* w : widgets) {
+            std::string label = w->GetSetting().GetLabel();
+            if (label == "renderer_force_max_clock") label = "force_max_clock";
+
+            QString final_value;
+            // Check for specific UI elements inside the wrapper
+            if (auto* dbox = w->findChild<QDoubleSpinBox*>()) {
+                final_value = QString::number(dbox->value(), 'f', 6);
+            } else if (auto* sbox = w->findChild<QSpinBox*>()) {
+                final_value = QString::number(sbox->value());
+            } else if (auto* combo = w->findChild<QComboBox*>()) {
+                final_value = QString::number(combo->currentIndex());
+            } else if (auto* slider = w->findChild<QSlider*>()) {
+                final_value = QString::number(slider->value());
+            } else {
+                auto all_checks = w->findChildren<QCheckBox*>();
+                for (auto* cb : all_checks) {
+                    if (!cb->toolTip().contains(tr("global"), Qt::CaseInsensitive)) {
+                        final_value = cb->isChecked() ? QStringLiteral("true") : QStringLiteral("false");
+                        break;
+                    }
+                }
+            }
+
+            if (!final_value.isEmpty()) {
+                profile["settings"][section][label] = final_value.toStdString();
+                count++;
+            }
+        }
+    }
+
+    #ifdef ARCHITECTURE_x86_64
+    profile["notes"]["cpu"] = Common::GetCPUCaps().cpu_string;
+    #else
+    profile["notes"]["cpu"] = "Unknown CPU";
+    #endif
+
+    // Find the GPU name from the UI dropdown specifically
+    for (int i = 0; i < ui->stackedWidget->count(); ++i) {
+        if (auto* button = qobject_cast<QPushButton*>(button_group->button(i))) {
+            if (button->text() == tr("Graphics")) {
+                QWidget* page = ui->stackedWidget->widget(i);
+                if (auto* scroll = qobject_cast<QScrollArea*>(page)) {
+                    auto combos = scroll->widget()->findChildren<QComboBox*>();
+                    QComboBox* device_box = nullptr;
+
+                    // 1. Try object name first
+                    for (auto* cb : combos) {
+                        if (cb->objectName().toLower().contains(QStringLiteral("device"))) {
+                            device_box = cb;
+                            break;
+                        }
+                    }
+
+                    // 2. If object name failed, look for a box containing GPU keywords
+                    if (!device_box) {
+                        for (auto* cb : combos) {
+                            QString txt = cb->currentText();
+                            // If the box contains a known GPU brand, it's definitely the device selector
+                            if (txt.contains(QStringLiteral("NVIDIA"), Qt::CaseInsensitive) ||
+                                txt.contains(QStringLiteral("AMD"), Qt::CaseInsensitive) ||
+                                txt.contains(QStringLiteral("Intel"), Qt::CaseInsensitive) ||
+                                txt.contains(QStringLiteral("GeForce"), Qt::CaseInsensitive) ||
+                                txt.contains(QStringLiteral("Radeon"), Qt::CaseInsensitive) ||
+                                txt.contains(QStringLiteral("Graphics"), Qt::CaseInsensitive)) {
+                                device_box = cb;
+                                break;
+                            }
+                        }
+                    }
+
+                    // 3. Final fallback: Avoid technical backend names
+                    if (!device_box) {
+                        for (auto* cb : combos) {
+                            QString txt = cb->currentText();
+                            if (cb->count() > 0 &&
+                                txt != QStringLiteral("Vulkan") &&
+                                txt != QStringLiteral("OpenGL") &&
+                                txt != QStringLiteral("GLSL") &&
+                                txt != QStringLiteral("SPIR-V") &&
+                                txt != QStringLiteral("Null")) {
+                                device_box = cb;
+                                break;
+                            }
+                        }
+                    }
+
+                    if (device_box) {
+                        profile["notes"]["gpu"] = device_box->currentText().toStdString();
+                    } else {
+                        profile["notes"]["gpu"] = "Unknown GPU";
+                    }
+                }
+            }
+        }
+    }
+
+    std::ofstream o(save_path.toStdString());
+    if (o.is_open()) {
+        o << profile.dump(4);
+        QMessageBox::information(this, tr("Success"), tr("Exported %1 settings.").arg(count));
+    }
+}
+
+void ConfigurePerGame::OnUseSettings() {
+    auto config_path = Common::FS::GetCitronPath(Common::FS::CitronPath::ConfigDir) / "custom";
+    QString load_path = QFileDialog::getOpenFileName(this, tr("Use Settings Profile"),
+                                                     QString::fromStdString(config_path.string()),
+                                                     tr("JSON Files (*.json)"));
+    if (load_path.isEmpty()) return;
+
+    std::ifstream config_file(load_path.toStdString());
+    nlohmann::json profile;
+    try { config_file >> profile; } catch (...) { return; }
+
+    // --- HARDWARE MISMATCH CHECK ---
+    if (profile.contains("notes")) {
+        QString creator_cpu = QString::fromStdString(profile["notes"].value("cpu", "Unknown"));
+        QString creator_gpu = QString::fromStdString(profile["notes"].value("gpu", "Unknown"));
+
+#ifdef ARCHITECTURE_x86_64
+        QString current_cpu = QString::fromStdString(Common::GetCPUCaps().cpu_string);
+#else
+        QString current_cpu = QStringLiteral("Unknown CPU");
+#endif
+
+        QString gpu_vendor = QStringLiteral("Other");
+        if (creator_gpu.contains(QStringLiteral("NVIDIA"), Qt::CaseInsensitive)) {
+            gpu_vendor = QStringLiteral("NVIDIA");
+        } else if (creator_gpu.contains(QStringLiteral("AMD"), Qt::CaseInsensitive) ||
+                   creator_gpu.contains(QStringLiteral("Radeon"), Qt::CaseInsensitive)) {
+            gpu_vendor = QStringLiteral("AMD");
+        } else if (creator_gpu.contains(QStringLiteral("Intel"), Qt::CaseInsensitive)) {
+            gpu_vendor = QStringLiteral("Intel");
+        }
+
+        QString msg = tr("This profile was created on:\n"
+                         "CPU: %1\n"
+                         "GPU: %2 (%3 Vendor)\n\n"
+                         "Your current CPU: %4\n\n"
+                         "Applying settings from a different GPU vendor (e.g., NVIDIA to AMD) "
+                         "can cause crashes. Do you want to continue?")
+                         .arg(creator_cpu, creator_gpu, gpu_vendor, current_cpu);
+
+        auto result = QMessageBox::question(this, tr("Hardware Info"), msg,
+                                            QMessageBox::Yes | QMessageBox::No);
+        if (result == QMessageBox::No) return;
+    }
+
+    int count = 0;
+    std::map<std::string, std::string> incoming;
+    for (auto& [section, keys] : profile["settings"].items()) {
+        for (auto& [key, value] : keys.items()) {
+            incoming[key] = value.get<std::string>();
+        }
+    }
+
+    for (int i = 0; i < ui->stackedWidget->count(); ++i) {
+        QWidget* page = ui->stackedWidget->widget(i);
+        ConfigurationShared::Tab* tab = nullptr;
+        if (auto* scroll = qobject_cast<QScrollArea*>(page)) {
+            tab = qobject_cast<ConfigurationShared::Tab*>(scroll->widget());
+        }
+        if (!tab) continue;
+
+        auto widgets = tab->findChildren<ConfigurationShared::Widget*>();
+        for (auto* w : widgets) {
+            std::string label = w->GetSetting().GetLabel();
+            std::string val;
+
+            if (incoming.count(label)) {
+                val = incoming[label];
+            } else if (label == "renderer_force_max_clock" && incoming.count("force_max_clock")) {
+                val = incoming["force_max_clock"];
+            } else {
+                continue;
+            }
+
+            // UNCHECK THE GLOBAL BUTTON (Unlock the setting)
+            auto buttons = w->findChildren<QAbstractButton*>();
+            for (auto* btn : buttons) {
+                QString tt = btn->toolTip().toLower();
+                if (tt.contains(tr("global").toLower()) || tt.contains(QStringLiteral("restore"))) {
+                    btn->setChecked(false);
+                }
+            }
+
+            // INJECT VALUES INTO UI WIDGETS
+            if (auto* dbox = w->findChild<QDoubleSpinBox*>()) {
+                dbox->setValue(std::stof(val));
+            } else if (auto* sbox = w->findChild<QSpinBox*>()) {
+                sbox->setValue(std::stoi(val));
+            } else if (auto* combo = w->findChild<QComboBox*>()) {
+                combo->setCurrentIndex(std::stoi(val));
+            } else if (auto* slider = w->findChild<QSlider*>()) {
+                slider->setValue(std::stoi(val));
+            } else {
+                auto all_checks = w->findChildren<QCheckBox*>();
+                for (auto* cb : all_checks) {
+                    if (!cb->toolTip().contains(tr("global"), Qt::CaseInsensitive)) {
+                        cb->setChecked(val == "true");
+                    }
+                }
+            }
+            count++;
+        }
+    }
+
+    QMessageBox::information(this, tr("Import Successful"),
+        tr("Applied %1 settings to the UI. Click OK or Apply to save.").arg(count));
 }
