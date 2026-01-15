@@ -146,13 +146,16 @@ ConfigurePerGame::ConfigurePerGame(QWidget* parent, u64 title_id_, const std::st
     UpdateTheme();
 
     auto* share_button = new QPushButton(tr("Share Settings"), this);
-    auto* use_button = new QPushButton(tr("Use Settings"), this);
+    auto* use_button = new QPushButton(tr("Import Settings"), this);
 
     share_button->setObjectName(QStringLiteral("share_settings_button"));
     use_button->setObjectName(QStringLiteral("use_settings_button"));
 
     share_button->setToolTip(tr("Please choose your CPU/Graphics/Advanced settings manually. "
     "This will capture your current UI selections exactly as they appear."));
+
+    use_button->setToolTip(tr("Please select a compatible .json file to use for this game. "
+    "Ensure that you understand the warning of mismatching AMD/Nvidia/Intel and it may cause issues with certain settings."));
 
     share_button->setStyleSheet(ui->trim_xci_button->styleSheet());
     use_button->setStyleSheet(ui->trim_xci_button->styleSheet());
@@ -1145,12 +1148,11 @@ void ConfigurePerGame::OnUseSettings() {
                 continue;
             }
 
-            // UNCHECK THE GLOBAL BUTTON (Unlock the setting)
-            auto buttons = w->findChildren<QAbstractButton*>();
+            auto buttons = w->findChildren<QPushButton*>();
             for (auto* btn : buttons) {
-                QString tt = btn->toolTip().toLower();
-                if (tt.contains(tr("global").toLower()) || tt.contains(QStringLiteral("restore"))) {
-                    btn->setChecked(false);
+                if (btn->objectName().startsWith(QStringLiteral("RestoreButton"))) {
+                    btn->setEnabled(true);
+                    btn->setVisible(true);
                 }
             }
 
