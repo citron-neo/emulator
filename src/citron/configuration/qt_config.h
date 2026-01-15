@@ -44,12 +44,11 @@ protected:
     void SaveUIValues() override;
     void SaveUIGamelistValues() override;
     void SaveUILayoutValues() override;
-    void SaveMultiplayerValues() override;
+    void SaveMultiplayerValues();
     void SaveNetworkValues();
 
-    std::vector<Settings::BasicSetting*>& FindRelevantList(Settings::Category category) override;
-
 public:
+    std::vector<Settings::BasicSetting*>& FindRelevantList(Settings::Category category) override;
     static const std::array<int, Settings::NativeButton::NumButtons> default_buttons;
     static const std::array<int, Settings::NativeMotion::NumMotions> default_motions;
     static const std::array<std::array<int, 4>, Settings::NativeAnalog::NumAnalogs> default_analogs;
