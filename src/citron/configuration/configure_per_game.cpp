@@ -922,6 +922,13 @@ void ConfigurePerGame::AnimateTabSwitch(int id) {
 }
 
 void ConfigurePerGame::OnShareSettings() {
+    // Check if emulation is running
+    if (system.IsPoweredOn()) {
+        QMessageBox::warning(this, tr("Emulation Running"),
+                             tr("Emulation is running! You cannot use this feature until the game is off."));
+        return;
+    }
+
     QFileInfo file_info(QString::fromStdString(file_name));
     QString base_name = file_info.baseName();
     auto config_path = Common::FS::GetCitronPath(Common::FS::CitronPath::ConfigDir) / "custom";
@@ -1058,6 +1065,13 @@ void ConfigurePerGame::OnShareSettings() {
 }
 
 void ConfigurePerGame::OnUseSettings() {
+    // Check if emulation is running
+    if (system.IsPoweredOn()) {
+        QMessageBox::warning(this, tr("Emulation Running"),
+                             tr("Emulation is running! You cannot use this feature until the game is off."));
+        return;
+    }
+
     auto config_path = Common::FS::GetCitronPath(Common::FS::CitronPath::ConfigDir) / "custom";
     QString load_path = QFileDialog::getOpenFileName(this, tr("Use Settings Profile"),
                                                      QString::fromStdString(config_path.string()),
