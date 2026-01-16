@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project
+// SPDX-FileCopyrightText: Copyright 2026 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <QNetworkAccessManager>
@@ -9,6 +9,7 @@
 #include <QMessageBox>
 #include <QListWidgetItem>
 #include <filesystem>
+#include <set>
 
 #include "citron/mod_manager/mod_downloader_dialog.h"
 
@@ -41,23 +42,26 @@ ModDownloaderDialog::~ModDownloaderDialog() {
 void ModDownloaderDialog::SetupModList() {
     ui->treeWidget->setHeaderLabel(QStringLiteral("Version / Mod Name"));
 
-    // Iterate through the map of versions we fetched
     for (auto const& [version, patches] : mod_info.version_patches) {
-        // Create the Parent (The Version Folder)
         QTreeWidgetItem* version_item = new QTreeWidgetItem(ui->treeWidget);
         version_item->setText(0, QStringLiteral("Update %1").arg(version));
         version_item->setCheckState(0, Qt::Unchecked);
         version_item->setFlags(version_item->flags() | Qt::ItemIsUserCheckable | Qt::ItemIsAutoTristate);
 
-        // Create the Children (The Mods)
+        // Track names we've already added to this version to avoid duplicates in the UI
+        std::set<QString> seen_names;
+
         for (const auto& patch : patches) {
+            if (seen_names.find(patch.name) != seen_names.end()) {
+                continue; // Skip if we already listed this mod name
+            }
+
             QTreeWidgetItem* mod_item = new QTreeWidgetItem(version_item);
             mod_item->setText(0, patch.name);
             mod_item->setCheckState(0, Qt::Unchecked);
             mod_item->setFlags(mod_item->flags() | Qt::ItemIsUserCheckable);
 
-            // Store the patch data in the item so we can find it later
-            mod_item->setData(0, Qt::UserRole, version); // Store which version it belongs to
+            seen_names.insert(patch.name);
         }
     }
     ui->treeWidget->expandAll();
@@ -66,25 +70,20 @@ void ModDownloaderDialog::SetupModList() {
 void ModDownloaderDialog::OnDownloadClicked() {
     pending_downloads.clear();
 
-    // Loop through the Tree headers (The Versions)
     for (int i = 0; i < ui->treeWidget->topLevelItemCount(); ++i) {
         QTreeWidgetItem* version_node = ui->treeWidget->topLevelItem(i);
-
-        // Extract the version name from "Update 2.0.0" -> "2.0.0"
         QString version_str = version_node->text(0).replace(QStringLiteral("Update "), QStringLiteral(""));
 
-        // Loop through the mods inside that version
         for (int j = 0; j < version_node->childCount(); ++j) {
             QTreeWidgetItem* mod_node = version_node->child(j);
-
             if (mod_node->checkState(0) == Qt::Checked) {
                 QString mod_name = mod_node->text(0);
-
-                // Find the data for this mod in our info map
                 const auto& patches = mod_info.version_patches[version_str];
+
+                // Find EVERY patch entry that matches this name
+                // (e.g., grabs both the 'exefs' and 'cheats' entries for "30FPS")
                 for (const auto& p : patches) {
                     if (p.name == mod_name) {
-                        // Add to our task list
                         pending_downloads.push_back({p, version_str});
                     }
                 }
