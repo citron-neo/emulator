@@ -1,9 +1,11 @@
 // SPDX-FileCopyrightText: Copyright 2022 yuzu Emulator Project
+// SPDX-FileCopyrightText: Copyright 2026 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #pragma once
 
 #include <mutex>
+#include <condition_variable>
 #include <span>
 #include <vector>
 #include <queue>
@@ -92,6 +94,7 @@ private:
     Protocol protocol;
 
     std::mutex packets_mutex;
+    std::condition_variable cv_packet_received;
 
     RoomNetwork& room_network;
 
