@@ -284,6 +284,17 @@ if (CITRON_USE_AUTO_UPDATER)
     target_link_libraries(citron PRIVATE Qt6::Network)
 endif()
 
+# Mod Manager functionality for downloading patches
+target_sources(citron PRIVATE
+    mod_manager/mod_service.cpp
+    mod_manager/mod_service.h
+    mod_manager/mod_downloader_dialog.cpp
+    mod_manager/mod_downloader_dialog.h
+    mod_manager/mod_downloader_dialog.ui
+)
+
+target_link_libraries(citron PRIVATE Qt6::Network)
+
 if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
     target_compile_definitions(citron PRIVATE
         $<$<VERSION_LESS:$<CXX_COMPILER_VERSION>,15>:CANNOT_EXPLICITLY_INSTANTIATE>
