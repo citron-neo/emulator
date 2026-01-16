@@ -115,7 +115,6 @@ bool IsValidModDir(const VirtualDir& dir) {
            FindSubdirectoryCaseless(dir, "cheats") != nullptr;
 }
 
-// Unified function to get enabled mods from the 'load' directory
 std::vector<VirtualDir> GetEnabledModsList(u64 title_id, const Service::FileSystem::FileSystemController& fs_controller) {
     std::vector<VirtualDir> mods;
     const auto load_dir = fs_controller.GetModificationLoadRoot(title_id);
@@ -127,12 +126,10 @@ std::vector<VirtualDir> GetEnabledModsList(u64 title_id, const Service::FileSyst
         if (!top_dir) continue;
 
         if (IsValidModDir(top_dir)) {
-            // Flat mod: /load/TID/ModName/
             if (std::find(disabled.begin(), disabled.end(), top_dir->GetName()) == disabled.end()) {
                 mods.push_back(top_dir);
             }
         } else {
-            // Grouped mod: /load/TID/VersionFolder/ModName/
             for (const auto& sub_dir : top_dir->GetSubdirectories()) {
                 if (sub_dir && IsValidModDir(sub_dir)) {
                     std::string internal_name = top_dir->GetName() + "/" + sub_dir->GetName();
@@ -377,11 +374,8 @@ static void ApplyLayeredFS(VirtualFile& romfs, u64 title_id, ContentRecordType t
     }
 
     const auto& disabled = Settings::values.disabled_addons[title_id];
-
-    // Get Citron mods using helper
     std::vector<VirtualDir> patch_dirs = GetEnabledModsList(title_id, fs_controller);
 
-    // Get Atmosphere mods
     if (sdmc_load_dir && std::find(disabled.cbegin(), disabled.cend(), "SDMC") == disabled.cend()) {
         patch_dirs.push_back(sdmc_load_dir);
     }
@@ -450,7 +444,6 @@ VirtualFile PatchManager::PatchRomFS(const NCA* base_nca, VirtualFile base_romfs
     const auto& disabled = Settings::values.disabled_addons[title_id];
     bool autoloader_update_applied = false;
 
-    // --- AUTOLOADER UPDATE (PRIORITY) ---
     if (type == ContentRecordType::Program) {
         VirtualDir sdmc_root = nullptr;
         if (fs_controller.OpenSDMC(&sdmc_root).IsSuccess() && sdmc_root) {
@@ -479,7 +472,6 @@ VirtualFile PatchManager::PatchRomFS(const NCA* base_nca, VirtualFile base_romfs
         }
     }
 
-    // --- NAND UPDATE (FALLBACK) ---
     if (!autoloader_update_applied) {
         const auto update_disabled = std::find(disabled.cbegin(), disabled.cend(), "Update") != disabled.cend();
         const auto update_tid = GetUpdateTitleID(title_id);
@@ -502,7 +494,6 @@ VirtualFile PatchManager::PatchRomFS(const NCA* base_nca, VirtualFile base_romfs
         }
     }
 
-    // --- AUTOLOADER DLC (Layering) ---
     if (type == ContentRecordType::Program) {
         VirtualDir sdmc_root = nullptr;
         if (fs_controller.OpenSDMC(&sdmc_root).IsSuccess() && sdmc_root) {
@@ -526,7 +517,6 @@ VirtualFile PatchManager::PatchRomFS(const NCA* base_nca, VirtualFile base_romfs
                                     }
                                 }
                             } else if (file->GetExtension() == "nca") {
-                                // Tentatively assume this is the data NCA
                                 data_nca_file = file;
                             }
                         }
@@ -578,25 +568,25 @@ VirtualFile PatchManager::PatchRomFS(const NCA* base_nca, VirtualFile base_romfs
 }
 
 std::vector<Patch> PatchManager::GetPatches(VirtualFile update_raw) const {
-    if (title_id == 0) {
-        return {};
-    }
+    if (title_id == 0) return {};
+
     std::vector<Patch> out;
     const auto& disabled = Settings::values.disabled_addons[title_id];
 
     // --- 1. NAND Update ---
     const auto update_tid = GetUpdateTitleID(title_id);
-    PatchManager update{update_tid, fs_controller, content_provider};
-    const auto metadata = update.GetControlMetadata();
+    PatchManager update_mgr{update_tid, fs_controller, content_provider};
+    const auto metadata = update_mgr.GetControlMetadata();
     const auto& nacp = metadata.first;
-    const auto update_disabled =
-        std::find(disabled.cbegin(), disabled.cend(), "Update") != disabled.cend();
+    const auto update_disabled = std::find(disabled.cbegin(), disabled.cend(), "Update") != disabled.cend();
+
     Patch update_patch = {.enabled = !update_disabled,
                           .name = "Update",
                           .version = "",
                           .type = PatchType::Update,
                           .program_id = title_id,
                           .title_id = title_id};
+
     if (nacp != nullptr) {
         update_patch.version = nacp->GetVersionString();
         out.push_back(update_patch);
@@ -614,8 +604,7 @@ std::vector<Patch> PatchManager::GetPatches(VirtualFile update_raw) const {
     // --- 2. Autoloader Content ---
     VirtualDir sdmc_root = nullptr;
     if (fs_controller.OpenSDMC(&sdmc_root).IsSuccess() && sdmc_root) {
-        const auto scan_autoloader_content =
-            [&](const std::string& content_type_folder, PatchType patch_type) {
+        const auto scan_autoloader_content = [&](const std::string& content_type_folder, PatchType patch_type) {
             const auto autoloader_path = fmt::format("autoloader/{:016X}/{}", title_id, content_type_folder);
             const auto content_dir = sdmc_root->GetSubdirectory(autoloader_path);
             if (!content_dir) return;
@@ -646,20 +635,17 @@ std::vector<Patch> PatchManager::GetPatches(VirtualFile update_raw) const {
                     } else {
                         version_str = "DLC";
                     }
-                } else { // Updates
+                } else {
                     for (const auto& file : mod->GetFiles()) {
                         if (file->GetExtension() == "nca") {
                             NCA nca_check(file);
                             if (nca_check.GetStatus() == Loader::ResultStatus::Success && nca_check.GetType() == NCAContentType::Control) {
-                                if (auto romfs = nca_check.GetRomFS()) {
-                                    if (auto extracted = ExtractRomFS(romfs)) {
-                                        if (auto nacp_file = extracted->GetFile("control.nacp")) {
-                                            NACP autoloader_nacp(nacp_file);
-                                            std::string nacp_version = autoloader_nacp.GetVersionString();
-                                            if (!nacp_version.empty()) {
-                                                version_str = nacp_version;
-                                                break;
-                                            }
+                                if (auto rfs = nca_check.GetRomFS()) {
+                                    if (auto ext = ExtractRomFS(rfs)) {
+                                        if (auto nacp_f = ext->GetFile("control.nacp")) {
+                                            NACP auto_nacp(nacp_f);
+                                            version_str = auto_nacp.GetVersionString();
+                                            break;
                                         }
                                     }
                                 }
@@ -688,23 +674,15 @@ std::vector<Patch> PatchManager::GetPatches(VirtualFile update_raw) const {
 
         for (const auto& top_dir : mod_dir->GetSubdirectories()) {
             if (!top_dir) continue;
-
             auto process_mod = [&](const VirtualDir& dir, bool nested) {
                 std::string types = get_mod_types(dir);
                 if (types.empty()) return;
-
                 std::string identifier = nested ? (top_dir->GetName() + "/" + dir->GetName()) : dir->GetName();
                 const auto mod_disabled = std::find(disabled.begin(), disabled.end(), identifier) != disabled.end();
                 out.push_back({.enabled = !mod_disabled, .name = identifier, .version = types, .type = PatchType::Mod, .program_id = title_id, .title_id = title_id});
             };
-
-            if (IsValidModDir(top_dir)) {
-                process_mod(top_dir, false);
-            } else {
-                for (const auto& sub_dir : top_dir->GetSubdirectories()) {
-                    if (sub_dir) process_mod(sub_dir, true);
-                }
-            }
+            if (IsValidModDir(top_dir)) process_mod(top_dir, false);
+            else for (const auto& sd : top_dir->GetSubdirectories()) if (sd) process_mod(sd, true);
         }
     }
 
@@ -734,8 +712,10 @@ std::vector<Patch> PatchManager::GetPatches(VirtualFile update_raw) const {
         for (size_t i = 0; i < dlc_match.size() - 1; ++i)
             list += fmt::format("{}, ", dlc_match[i].title_id & 0x7FF);
         list += fmt::format("{}", dlc_match.back().title_id & 0x7FF);
+
         const auto dlc_disabled = std::find(disabled.begin(), disabled.end(), "DLC") != disabled.end();
-        out.push_back({.enabled = !dlc_disabled, .name = "DLC", .version = std::move(list), .type = PatchType::DLC, .program_id = title_id, .title_id = dlc_match.back().title_id});
+        // FIX: Saved under base title_id so logic finds it
+        out.push_back({.enabled = !dlc_disabled, .name = "DLC", .version = std::move(list), .type = PatchType::DLC, .program_id = title_id, .title_id = title_id});
     }
 
     return out;
@@ -743,40 +723,13 @@ std::vector<Patch> PatchManager::GetPatches(VirtualFile update_raw) const {
 
 std::optional<u32> PatchManager::GetGameVersion() const {
     const auto& disabled = Settings::values.disabled_addons[title_id];
+    const auto update_disabled = std::find(disabled.cbegin(), disabled.cend(), "Update") != disabled.cend();
 
-    // --- Autoloader Check (PRIORITY) ---
-    VirtualDir sdmc_root = nullptr;
-    if (fs_controller.OpenSDMC(&sdmc_root).IsSuccess() && sdmc_root) {
-        const auto autoloader_updates_path = fmt::format("autoloader/{:016X}/Updates", title_id);
-        const auto autoloader_updates_dir = sdmc_root->GetSubdirectory(autoloader_updates_path);
-        if (autoloader_updates_dir) {
-            for (const auto& update_mod : autoloader_updates_dir->GetSubdirectories()) {
-                if (!update_mod) continue;
-
-                if (std::find(disabled.cbegin(), disabled.cend(), update_mod->GetName()) == disabled.cend()) {
-                    for (const auto& file : update_mod->GetFiles()) {
-                        if (file->GetName().ends_with(".cnmt.nca")) {
-                            NCA meta_nca(file);
-                            if (meta_nca.GetStatus() == Loader::ResultStatus::Success && !meta_nca.GetSubdirectories().empty()) {
-                                auto section0 = meta_nca.GetSubdirectories()[0];
-                                for (const auto& cnmt_file_entry : section0->GetFiles()) {
-                                    if (cnmt_file_entry->GetExtension() == "cnmt") {
-                                        CNMT cnmt(cnmt_file_entry);
-                                        return cnmt.GetTitleVersion();
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
+    if (!update_disabled) {
+        const auto update_tid = GetUpdateTitleID(title_id);
+        if (content_provider.HasEntry(update_tid, ContentRecordType::Program)) {
+            return content_provider.GetEntryVersion(update_tid);
         }
-    }
-
-    // --- NAND Check (FALLBACK) ---
-    const auto update_tid = GetUpdateTitleID(title_id);
-    if (content_provider.HasEntry(update_tid, ContentRecordType::Program)) {
-        return content_provider.GetEntryVersion(update_tid);
     }
 
     return content_provider.GetEntryVersion(title_id);
@@ -794,14 +747,11 @@ PatchManager::Metadata PatchManager::GetControlMetadata() const {
         if (const auto autoloader_updates_dir = sdmc_root->GetSubdirectory(autoloader_updates_path)) {
             for (const auto& update_mod : autoloader_updates_dir->GetSubdirectories()) {
                 if (!update_mod) continue;
-
-                const std::string mod_name = update_mod->GetName();
-                if (std::find(disabled_for_game.begin(), disabled_for_game.end(), mod_name) == disabled_for_game.end()) {
+                if (std::find(disabled_for_game.begin(), disabled_for_game.end(), update_mod->GetName()) == disabled_for_game.end()) {
                     for (const auto& file : update_mod->GetFiles()) {
                         if (file->GetExtension() == "nca") {
                             NCA nca_check(file);
                             if (nca_check.GetStatus() == Loader::ResultStatus::Success && nca_check.GetType() == NCAContentType::Control) {
-                                LOG_INFO(Loader, "Found active Autoloader Control NCA in '{}'", mod_name);
                                 control_nca = std::make_unique<NCA>(file);
                                 return ParseControlNCA(*control_nca);
                             }
@@ -812,58 +762,47 @@ PatchManager::Metadata PatchManager::GetControlMetadata() const {
         }
     }
 
+    // FIX: Only fetch the Update metadata if the user hasn't disabled it
+    const auto update_disabled = std::find(disabled_for_game.begin(), disabled_for_game.end(), "Update") != disabled_for_game.end();
     const auto update_tid = GetUpdateTitleID(title_id);
-    control_nca = content_provider.GetEntry(update_tid, ContentRecordType::Control);
+
+    if (!update_disabled) {
+        control_nca = content_provider.GetEntry(update_tid, ContentRecordType::Control);
+    }
+
     if (control_nca == nullptr) {
         control_nca = content_provider.GetEntry(title_id, ContentRecordType::Control);
     }
-    if (control_nca == nullptr) {
-        return {};
-    }
+
+    if (control_nca == nullptr) return {};
     return ParseControlNCA(*control_nca);
 }
 
 PatchManager::Metadata PatchManager::ParseControlNCA(const NCA& nca) const {
     const auto base_romfs = nca.GetRomFS();
-    if (base_romfs == nullptr) {
-        return {};
-    }
+    if (base_romfs == nullptr) return {};
 
     const auto romfs = PatchRomFS(&nca, base_romfs, ContentRecordType::Control);
-    if (romfs == nullptr) {
-        return {};
-    }
+    if (romfs == nullptr) return {};
 
     const auto extracted = ExtractRomFS(romfs);
-    if (extracted == nullptr) {
-        return {};
-    }
+    if (extracted == nullptr) return {};
 
     auto nacp_file = extracted->GetFile("control.nacp");
-    if (nacp_file == nullptr) {
-        nacp_file = extracted->GetFile("Control.nacp");
-    }
+    if (nacp_file == nullptr) nacp_file = extracted->GetFile("Control.nacp");
 
     auto nacp = nacp_file == nullptr ? nullptr : std::make_unique<NACP>(nacp_file);
 
-    const auto language_code = Service::Set::GetLanguageCodeFromIndex(
-        static_cast<u32>(Settings::values.language_index.GetValue()));
-
-    const auto application_language =
-        Service::NS::ConvertToApplicationLanguage(language_code)
-            .value_or(Service::NS::ApplicationLanguage::AmericanEnglish);
-    const auto language_priority_list =
-        Service::NS::GetApplicationLanguagePriorityList(application_language);
+    const auto language_code = Service::Set::GetLanguageCodeFromIndex(static_cast<u32>(Settings::values.language_index.GetValue()));
+    const auto application_language = Service::NS::ConvertToApplicationLanguage(language_code).value_or(Service::NS::ApplicationLanguage::AmericanEnglish);
+    const auto language_priority_list = Service::NS::GetApplicationLanguagePriorityList(application_language);
 
     auto priority_language_names = FileSys::LANGUAGE_NAMES;
     if (language_priority_list) {
         for (size_t i = 0; i < priority_language_names.size(); ++i) {
             const auto language_index = static_cast<u8>(language_priority_list->at(i));
-
             if (language_index < FileSys::LANGUAGE_NAMES.size()) {
                 priority_language_names[i] = FileSys::LANGUAGE_NAMES[language_index];
-            } else {
-                LOG_WARNING(Loader, "Invalid language index {}", language_index);
             }
         }
     }
@@ -871,9 +810,7 @@ PatchManager::Metadata PatchManager::ParseControlNCA(const NCA& nca) const {
     VirtualFile icon_file;
     for (const auto& language : priority_language_names) {
         icon_file = extracted->GetFile(std::string("icon_").append(language).append(".dat"));
-        if (icon_file != nullptr) {
-            break;
-        }
+        if (icon_file != nullptr) break;
     }
 
     return {std::move(nacp), icon_file};
