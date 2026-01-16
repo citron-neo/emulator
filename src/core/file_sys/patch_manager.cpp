@@ -761,7 +761,7 @@ std::vector<Patch> PatchManager::GetPatches(VirtualFile update_raw) const {
             if (!top_mod) continue;
 
             // Helper lambda to process a directory and return the patch types found
-            auto get_mod_types = [this](const VirtualDir& dir) -> std::string {
+            auto get_mod_types = [](const VirtualDir& dir) -> std::string {
                 std::string types;
                 const auto exefs_dir = FindSubdirectoryCaseless(dir, "exefs");
                 if (IsDirValidAndNonEmpty(exefs_dir)) {
