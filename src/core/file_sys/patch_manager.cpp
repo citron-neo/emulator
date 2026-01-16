@@ -125,17 +125,21 @@ std::vector<VirtualDir> GetEnabledModsList(u64 title_id, const Service::FileSyst
     for (const auto& top_dir : load_dir->GetSubdirectories()) {
         if (!top_dir) continue;
 
+        // If it's a mod directory (has exefs/romfs), check if it's disabled.
         if (IsValidModDir(top_dir)) {
             if (std::find(disabled.begin(), disabled.end(), top_dir->GetName()) == disabled.end()) {
                 mods.push_back(top_dir);
             }
         } else {
+            // If it's not a mod dir itself, check one level deeper for the actual mods.
             for (const auto& sub_dir : top_dir->GetSubdirectories()) {
                 if (sub_dir && IsValidModDir(sub_dir)) {
                     std::string internal_name = top_dir->GetName() + "/" + sub_dir->GetName();
-                    if (std::find(disabled.begin(), disabled.end(), internal_name) == disabled.end()) {
+                    // First check if the full nested path is disabled, then check if just the subfolder name is disabled.
+                    if (std::find(disabled.begin(), disabled.end(), internal_name) == disabled.end() &&
+                        std::find(disabled.begin(), disabled.end(), sub_dir->GetName()) == disabled.end()) {
                         mods.push_back(sub_dir);
-                    }
+                        }
                 }
             }
         }
@@ -395,17 +399,17 @@ static void ApplyLayeredFS(VirtualFile& romfs, u64 title_id, ContentRecordType t
         if (!subdir) continue;
         auto romfs_dir = FindSubdirectoryCaseless(subdir, "romfs");
         if (romfs_dir != nullptr)
-            layers.emplace_back(std::make_shared<CachedVfsDirectory>(std::move(romfs_dir)));
+            layers.emplace_back(std::move(romfs_dir)); // REMOVED CachedVfsDirectory hang
         auto romfslite_dir = FindSubdirectoryCaseless(subdir, "romfslite");
         if (romfslite_dir != nullptr)
-            layers.emplace_back(std::make_shared<CachedVfsDirectory>(std::move(romfslite_dir)));
+            layers.emplace_back(std::move(romfslite_dir));
         auto ext_dir = FindSubdirectoryCaseless(subdir, "romfs_ext");
         if (ext_dir != nullptr)
-            layers_ext.emplace_back(std::make_shared<CachedVfsDirectory>(std::move(ext_dir)));
+            layers_ext.emplace_back(std::move(ext_dir));
         if (type == ContentRecordType::HtmlDocument) {
             auto manual_dir = FindSubdirectoryCaseless(subdir, "manual_html");
             if (manual_dir != nullptr)
-                layers.emplace_back(std::make_shared<CachedVfsDirectory>(std::move(manual_dir)));
+                layers.emplace_back(std::move(manual_dir));
         }
     }
 
