@@ -112,7 +112,7 @@ protected:
     static constexpr Ssid fake_ssid{"CitronFakeSsidForLdn"};
 
     bool inited{};
-    std::mutex packet_mutex;
+    mutable std::mutex packet_mutex;
     std::array<LanStation, StationCountMax> stations;
     std::array<NodeLatestUpdate, NodeCountMax> node_changes{};
     std::array<u8, NodeCountMax> node_last_states{};
