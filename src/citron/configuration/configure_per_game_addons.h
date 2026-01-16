@@ -11,6 +11,7 @@
 #include <QWidget>
 
 #include "core/file_sys/vfs/vfs_types.h"
+#include "citron/mod_manager/mod_service.h"
 
 namespace Core {
 class System;
@@ -40,12 +41,15 @@ public:
     void SetTitleId(u64 id);
 
 private:
+    void OnContextMenu(const QPoint& pos);
     void changeEvent(QEvent* event) override;
     void RetranslateUI();
 
     void LoadConfiguration();
 
     std::unique_ptr<Ui::ConfigurePerGameAddons> ui;
+    ModManager::ModService* mod_service;
+    ModManager::ModUpdateInfo cached_mod_info;
     FileSys::VirtualFile file;
     u64 title_id;
 
