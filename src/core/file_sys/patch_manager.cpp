@@ -107,8 +107,27 @@ void AppendCommaIfNotEmpty(std::string& to, std::string_view with) {
     }
 }
 
+std::string GetInternalModName(const VirtualDir& mod_dir, const VirtualDir& load_root) {
+    if (!mod_dir || !load_root) return "";
+    auto parent = mod_dir->GetParentDirectory();
+    // If the parent is the root load folder, it's a flat mod (e.g., "Reduce Bloom")
+    if (parent == load_root) {
+        return mod_dir->GetName();
+    }
+    // If there is a parent in between, it's a hierarchical mod (e.g., "2.0.0/Reduce Bloom")
+    return parent->GetName() + "/" + mod_dir->GetName();
+}
+
 bool IsDirValidAndNonEmpty(const VirtualDir& dir) {
     return dir != nullptr && (!dir->GetFiles().empty() || !dir->GetSubdirectories().empty());
+}
+
+bool IsAnyModFolder(const VirtualDir& dir) {
+    if (!dir) return false;
+    return FindSubdirectoryCaseless(dir, "exefs") != nullptr ||
+    FindSubdirectoryCaseless(dir, "romfs") != nullptr ||
+    FindSubdirectoryCaseless(dir, "romfslite") != nullptr ||
+    FindSubdirectoryCaseless(dir, "cheats") != nullptr;
 }
 } // Anonymous namespace
 
@@ -174,8 +193,16 @@ VirtualDir PatchManager::PatchExeFS(VirtualDir exefs) const {
     const auto sdmc_load_dir = fs_controller.GetSDMCModificationLoadRoot(title_id);
     std::vector<VirtualDir> patch_dirs = {sdmc_load_dir};
     if (load_dir != nullptr) {
-        const auto load_patch_dirs = load_dir->GetSubdirectories();
-        patch_dirs.insert(patch_dirs.end(), load_patch_dirs.begin(), load_patch_dirs.end());
+        for (const auto& top_dir : load_dir->GetSubdirectories()) {
+            if (!top_dir) continue;
+            if (IsAnyModFolder(top_dir)) {
+                patch_dirs.push_back(top_dir);
+            } else {
+                for (const auto& sub_dir : top_dir->GetSubdirectories()) {
+                    if (IsAnyModFolder(sub_dir)) patch_dirs.push_back(sub_dir);
+                }
+            }
+        }
     }
     std::sort(patch_dirs.begin(), patch_dirs.end(),
               [](const VirtualDir& l, const VirtualDir& r) {
@@ -191,7 +218,8 @@ VirtualDir PatchManager::PatchExeFS(VirtualDir exefs) const {
     std::vector<VirtualDir> layers;
     layers.reserve(patch_dirs.size() + 1);
     for (const auto& subdir : patch_dirs) {
-        if (!subdir || std::find(disabled.begin(), disabled.end(), subdir->GetName()) != disabled.end())
+        const std::string internal_name = GetInternalModName(subdir, load_dir);
+        if (!subdir || std::find(disabled.begin(), disabled.end(), internal_name) != disabled.end())
             continue;
         auto exefs_dir = FindSubdirectoryCaseless(subdir, "exefs");
         if (exefs_dir != nullptr)
@@ -222,8 +250,10 @@ std::vector<VirtualFile> PatchManager::CollectPatches(const std::vector<VirtualD
     const auto nso_build_id = fmt::format("{:0<64}", build_id);
     std::vector<VirtualFile> out;
     out.reserve(patch_dirs.size());
+    const auto load_dir = fs_controller.GetModificationLoadRoot(title_id);
     for (const auto& subdir : patch_dirs) {
-        if (!subdir || std::find(disabled.cbegin(), disabled.cend(), subdir->GetName()) != disabled.cend())
+        const std::string internal_name = GetInternalModName(subdir, load_dir);
+        if (!subdir || std::find(disabled.cbegin(), disabled.cend(), internal_name) != disabled.cend())
             continue;
         auto exefs_dir = FindSubdirectoryCaseless(subdir, "exefs");
         if (exefs_dir != nullptr) {
@@ -276,7 +306,17 @@ std::vector<u8> PatchManager::PatchNSO(const std::vector<u8>& nso, const std::st
         LOG_ERROR(Loader, "Cannot load mods for invalid title_id={:016X}", title_id);
         return nso;
     }
-    auto patch_dirs = load_dir->GetSubdirectories();
+    std::vector<VirtualDir> patch_dirs;
+    for (const auto& top_dir : load_dir->GetSubdirectories()) {
+        if (!top_dir) continue;
+        if (IsAnyModFolder(top_dir)) {
+            patch_dirs.push_back(top_dir);
+        } else {
+            for (const auto& sub_dir : top_dir->GetSubdirectories()) {
+                if (IsAnyModFolder(sub_dir)) patch_dirs.push_back(sub_dir);
+            }
+        }
+    }
     std::sort(patch_dirs.begin(), patch_dirs.end(),
               [](const VirtualDir& l, const VirtualDir& r) { return l->GetName() < r->GetName(); });
     const auto patches = CollectPatches(patch_dirs, build_id);
@@ -313,7 +353,17 @@ bool PatchManager::HasNSOPatch(const BuildID& build_id_, std::string_view name) 
         LOG_ERROR(Loader, "Cannot load mods for invalid title_id={:016X}", title_id);
         return false;
     }
-    auto patch_dirs = load_dir->GetSubdirectories();
+    std::vector<VirtualDir> patch_dirs;
+    for (const auto& top_dir : load_dir->GetSubdirectories()) {
+        if (!top_dir) continue;
+        if (IsAnyModFolder(top_dir)) {
+            patch_dirs.push_back(top_dir);
+        } else {
+            for (const auto& sub_dir : top_dir->GetSubdirectories()) {
+                if (IsAnyModFolder(sub_dir)) patch_dirs.push_back(sub_dir);
+            }
+        }
+    }
     std::sort(patch_dirs.begin(), patch_dirs.end(),
               [](const VirtualDir& l, const VirtualDir& r) { return l->GetName() < r->GetName(); });
     return !CollectPatches(patch_dirs, build_id).empty();
@@ -332,7 +382,8 @@ std::vector<Core::Memory::CheatEntry> PatchManager::CreateCheatList(
               [](const VirtualDir& l, const VirtualDir& r) { return l->GetName() < r->GetName(); });
     std::vector<Core::Memory::CheatEntry> out;
     for (const auto& subdir : patch_dirs) {
-        if (!subdir || std::find(disabled.cbegin(), disabled.cend(), subdir->GetName()) != disabled.cend()) {
+        const std::string internal_name = GetInternalModName(subdir, load_dir);
+        if (!subdir || std::find(disabled.cbegin(), disabled.cend(), internal_name) != disabled.cend()) {
             continue;
         }
         auto cheats_dir = FindSubdirectoryCaseless(subdir, "cheats");
@@ -361,7 +412,16 @@ static void ApplyLayeredFS(VirtualFile& romfs, u64 title_id, ContentRecordType t
     const auto& disabled = Settings::values.disabled_addons[title_id];
     std::vector<VirtualDir> patch_dirs;
     if (load_dir) {
-        patch_dirs = load_dir->GetSubdirectories();
+        for (const auto& top_dir : load_dir->GetSubdirectories()) {
+            if (!top_dir) continue;
+            if (IsAnyModFolder(top_dir)) {
+                patch_dirs.push_back(top_dir);
+            } else {
+                for (const auto& sub_dir : top_dir->GetSubdirectories()) {
+                    if (IsAnyModFolder(sub_dir)) patch_dirs.push_back(sub_dir);
+                }
+            }
+        }
     }
     if (std::find(disabled.cbegin(), disabled.cend(), "SDMC") == disabled.cend()) {
         patch_dirs.push_back(sdmc_load_dir);
@@ -379,7 +439,8 @@ static void ApplyLayeredFS(VirtualFile& romfs, u64 title_id, ContentRecordType t
     layers.reserve(patch_dirs.size() + 1);
     layers_ext.reserve(patch_dirs.size() + 1);
     for (const auto& subdir : patch_dirs) {
-        if (!subdir || std::find(disabled.cbegin(), disabled.cend(), subdir->GetName()) != disabled.cend()) {
+        const std::string internal_name = GetInternalModName(subdir, load_dir);
+        if (!subdir || std::find(disabled.cbegin(), disabled.cend(), internal_name) != disabled.cend()) {
             continue;
         }
         auto romfs_dir = FindSubdirectoryCaseless(subdir, "romfs");
@@ -693,28 +754,52 @@ std::vector<Patch> PatchManager::GetPatches(VirtualFile update_raw) const {
         scan_autoloader_content("DLC", PatchType::DLC);
     }
 
-    // --- 3. General Mods (from original code) ---
+    // --- 3. General Mods (Recursive Scan) ---
     const auto mod_dir = fs_controller.GetModificationLoadRoot(title_id);
     if (mod_dir != nullptr) {
-        for (const auto& mod : mod_dir->GetSubdirectories()) {
-            std::string types;
-            const auto exefs_dir = FindSubdirectoryCaseless(mod, "exefs");
-            if (IsDirValidAndNonEmpty(exefs_dir)) {
-                bool ips = false, ipswitch = false, layeredfs = false;
-                for (const auto& file : exefs_dir->GetFiles()) {
-                    if (file->GetExtension() == "ips") ips = true;
-                    else if (file->GetExtension() == "pchtxt") ipswitch = true;
-                    else if (std::find(EXEFS_FILE_NAMES.begin(), EXEFS_FILE_NAMES.end(), file->GetName()) != EXEFS_FILE_NAMES.end()) layeredfs = true;
+        for (const auto& top_mod : mod_dir->GetSubdirectories()) {
+            if (!top_mod) continue;
+
+            // Helper lambda to process a directory and return the patch types found
+            auto get_mod_types = [this](const VirtualDir& dir) -> std::string {
+                std::string types;
+                const auto exefs_dir = FindSubdirectoryCaseless(dir, "exefs");
+                if (IsDirValidAndNonEmpty(exefs_dir)) {
+                    bool ips = false, ipswitch = false, layeredfs = false;
+                    for (const auto& file : exefs_dir->GetFiles()) {
+                        if (file->GetExtension() == "ips") ips = true;
+                        else if (file->GetExtension() == "pchtxt") ipswitch = true;
+                        else if (std::find(EXEFS_FILE_NAMES.begin(), EXEFS_FILE_NAMES.end(), file->GetName()) != EXEFS_FILE_NAMES.end()) layeredfs = true;
+                    }
+                    if (ips) AppendCommaIfNotEmpty(types, "IPS");
+                    if (ipswitch) AppendCommaIfNotEmpty(types, "IPSwitch");
+                    if (layeredfs) AppendCommaIfNotEmpty(types, "LayeredExeFS");
                 }
-                if (ips) AppendCommaIfNotEmpty(types, "IPS");
-                if (ipswitch) AppendCommaIfNotEmpty(types, "IPSwitch");
-                if (layeredfs) AppendCommaIfNotEmpty(types, "LayeredExeFS");
+                if (IsDirValidAndNonEmpty(FindSubdirectoryCaseless(dir, "romfs")) || IsDirValidAndNonEmpty(FindSubdirectoryCaseless(dir, "romfslite"))) AppendCommaIfNotEmpty(types, "LayeredFS");
+                if (IsDirValidAndNonEmpty(FindSubdirectoryCaseless(dir, "cheats"))) AppendCommaIfNotEmpty(types, "Cheats");
+                return types;
+            };
+
+            // 1. Check if the top-level folder is a mod (Existing behavior)
+            std::string top_types = get_mod_types(top_mod);
+            if (!top_types.empty()) {
+                const std::string internal_name = GetInternalModName(top_mod, mod_dir);
+                const auto mod_disabled = std::find(disabled.begin(), disabled.end(), internal_name) != disabled.end();
+                out.push_back({.enabled = !mod_disabled, .name = top_mod->GetName(), .version = top_types, .type = PatchType::Mod, .program_id = title_id, .title_id = title_id});
             }
-            if (IsDirValidAndNonEmpty(FindSubdirectoryCaseless(mod, "romfs")) || IsDirValidAndNonEmpty(FindSubdirectoryCaseless(mod, "romfslite"))) AppendCommaIfNotEmpty(types, "LayeredFS");
-            if (IsDirValidAndNonEmpty(FindSubdirectoryCaseless(mod, "cheats"))) AppendCommaIfNotEmpty(types, "Cheats");
-            if (types.empty()) continue;
-            const auto mod_disabled = std::find(disabled.begin(), disabled.end(), mod->GetName()) != disabled.end();
-            out.push_back({.enabled = !mod_disabled, .name = mod->GetName(), .version = types, .type = PatchType::Mod, .program_id = title_id, .title_id = title_id});
+            // 2. If not a mod, check one level deeper (Grouped behavior)
+            else {
+                for (const auto& sub_mod : top_mod->GetSubdirectories()) {
+                    std::string sub_types = get_mod_types(sub_mod);
+                    if (sub_types.empty()) continue;
+
+                    // We store the name as "FolderName/ModName"
+                    std::string hierarchical_name = top_mod->GetName() + "/" + sub_mod->GetName();
+                    const std::string internal_name = GetInternalModName(sub_mod, mod_dir);
+                    const auto mod_disabled = std::find(disabled.begin(), disabled.end(), internal_name) != disabled.end();
+                    out.push_back({.enabled = !mod_disabled, .name = hierarchical_name, .version = sub_types, .type = PatchType::Mod, .program_id = title_id, .title_id = title_id});
+                }
+            }
         }
     }
     const auto sdmc_mod_dir = fs_controller.GetSDMCModificationLoadRoot(title_id);

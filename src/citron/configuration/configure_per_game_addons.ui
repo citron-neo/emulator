@@ -22,16 +22,17 @@
      <property name="widgetResizable">
       <bool>true</bool>
      </property>
-     <widget class="QWidget" name="scrollAreaWidgetContents">
-      <property name="geometry">
-       <rect>
-        <x>0</x>
-        <y>0</y>
-        <width>380</width>
-        <height>280</height>
-       </rect>
-      </property>
-     </widget>
+     <widget class="QWidget" name="scrollAreaWidgetContents"/>
+    </widget>
+   </item>
+   <item row="1" column="0">
+    <widget class="QPushButton" name="button_download_mods">
+     <property name="toolTip">
+      <string>Citron uses third-party created mods that are verified safe to use. All credits for mods go to their respective creators.</string>
+     </property>
+     <property name="text">
+      <string>Download Enhancement Mods for Game</string>
+     </property>
     </widget>
    </item>
   </layout>

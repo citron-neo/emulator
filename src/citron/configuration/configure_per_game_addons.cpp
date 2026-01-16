@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: 2016 Citra Emulator Project
+// SPDX-FileCopyrightText: 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <algorithm>
@@ -11,6 +12,8 @@
 #include <QString>
 #include <QTimer>
 #include <QTreeView>
+#include <QVBoxLayout>
+#include <QMessageBox>
 
 #include "common/fs/fs.h"
 #include "common/fs/path_util.h"
@@ -23,9 +26,16 @@
 #include "citron/configuration/configure_per_game_addons.h"
 #include "citron/uisettings.h"
 
+#include "citron/mod_manager/mod_service.h"
+#include "citron/mod_manager/mod_downloader_dialog.h"
+
 ConfigurePerGameAddons::ConfigurePerGameAddons(Core::System& system_, QWidget* parent)
-    : QWidget(parent), ui{std::make_unique<Ui::ConfigurePerGameAddons>()}, system{system_} {
+: QWidget(parent), ui{std::make_unique<Ui::ConfigurePerGameAddons>()}, system{system_} {
     ui->setupUi(this);
+
+    mod_service = new ModManager::ModService(this);
+
+    ui->button_download_mods->setVisible(false);
 
     layout = new QVBoxLayout;
     tree_view = new QTreeView;
@@ -39,7 +49,8 @@ ConfigurePerGameAddons::ConfigurePerGameAddons(Core::System& system_, QWidget* p
     tree_view->setSortingEnabled(true);
     tree_view->setEditTriggers(QHeaderView::NoEditTriggers);
     tree_view->setUniformRowHeights(true);
-    tree_view->setContextMenuPolicy(Qt::NoContextMenu);
+    tree_view->setContextMenuPolicy(Qt::CustomContextMenu);
+    connect(tree_view, &QTreeView::customContextMenuRequested, this, &ConfigurePerGameAddons::OnContextMenu);
 
     item_model->insertColumns(0, 2);
     item_model->setHeaderData(0, Qt::Horizontal, tr("Patch Name"));
@@ -49,8 +60,6 @@ ConfigurePerGameAddons::ConfigurePerGameAddons(Core::System& system_, QWidget* p
     tree_view->header()->setSectionResizeMode(0, QHeaderView::ResizeMode::Stretch);
     tree_view->header()->setMinimumSectionSize(150);
 
-    // We must register all custom types with the Qt Automoc system so that we are able to use it
-    // with signals/slots. In this case, QList falls under the umbrella of custom types.
     qRegisterMetaType<QList<QStandardItem*>>("QList<QStandardItem*>");
 
     layout->setContentsMargins(0, 0, 0, 0);
@@ -58,8 +67,32 @@ ConfigurePerGameAddons::ConfigurePerGameAddons(Core::System& system_, QWidget* p
     layout->addWidget(tree_view);
 
     ui->scrollArea->setLayout(layout);
-
     ui->scrollArea->setEnabled(!system.IsPoweredOn());
+
+    // 2. BACKGROUND FETCH: When the manifest is received
+    connect(mod_service, &ModManager::ModService::ModsAvailable, this, [this](const ModManager::ModUpdateInfo& info) {
+        if (!info.version_patches.empty()) {
+            // Save the info and show the button because mods actually exist
+            this->cached_mod_info = info;
+            ui->button_download_mods->setVisible(true);
+        }
+    });
+
+    // 3. SILENT ERROR: If no mods found, just keep the button hidden (don't show a popup)
+    connect(mod_service, &ModManager::ModService::Error, this, [](const QString& message) {
+        // Do nothing, button remains invisible
+    });
+
+    // 4. BUTTON CLICK: Since we already have the data, just open the dialog
+    connect(ui->button_download_mods, &QPushButton::clicked, this, [this] {
+        auto* dialog = new ModManager::ModDownloaderDialog(cached_mod_info, this);
+
+        connect(dialog, &QDialog::accepted, this, [this] {
+            this->LoadConfiguration();
+        });
+
+        dialog->show();
+    });
 
     connect(item_model, &QStandardItemModel::itemChanged,
             [] { UISettings::values.is_game_list_reload_pending.exchange(true); });
@@ -72,13 +105,17 @@ void ConfigurePerGameAddons::ApplyConfiguration() {
 
     for (const auto& item : list_items) {
         const auto disabled = item.front()->checkState() == Qt::Unchecked;
-        if (disabled)
-            disabled_addons.push_back(item.front()->text().toStdString());
+        if (disabled) {
+            // Get the internal full name we stored in UserRole
+            QString internal_name = item.front()->data(Qt::UserRole).toString();
+            disabled_addons.push_back(internal_name.toStdString());
+        }
     }
 
     auto current = Settings::values.disabled_addons[title_id];
     std::sort(disabled_addons.begin(), disabled_addons.end());
     std::sort(current.begin(), current.end());
+
     if (disabled_addons != current) {
         Common::FS::RemoveFile(Common::FS::GetCitronPath(Common::FS::CitronPath::CacheDir) /
                                "game_list" / fmt::format("{:016X}.pv.txt", title_id));
@@ -94,6 +131,10 @@ void ConfigurePerGameAddons::LoadFromFile(FileSys::VirtualFile file_) {
 
 void ConfigurePerGameAddons::SetTitleId(u64 id) {
     this->title_id = id;
+
+    // Trigger the background check as soon as we know which game we are looking at
+    QString tid_str = QString::fromStdString(fmt::format("{:016X}", title_id));
+    mod_service->FetchAvailableMods(tid_str);
 }
 
 void ConfigurePerGameAddons::changeEvent(QEvent* event) {
@@ -109,35 +150,119 @@ void ConfigurePerGameAddons::RetranslateUI() {
 }
 
 void ConfigurePerGameAddons::LoadConfiguration() {
-    if (file == nullptr) {
-        return;
-    }
+    if (file == nullptr) return;
 
-    const FileSys::PatchManager pm{title_id, system.GetFileSystemController(),
-                                   system.GetContentProvider()};
+    item_model->removeRows(0, item_model->rowCount());
+    list_items.clear();
+
+    const FileSys::PatchManager pm{title_id, system.GetFileSystemController(), system.GetContentProvider()};
     const auto loader = Loader::GetLoader(system, file);
-
     FileSys::VirtualFile update_raw;
     loader->ReadUpdateRaw(update_raw);
 
     const auto& disabled = Settings::values.disabled_addons[title_id];
+    const auto all_patches = pm.GetPatches(update_raw);
 
-    for (const auto& patch : pm.GetPatches(update_raw)) {
-        const auto name = QString::fromStdString(patch.name);
+    // --- PASS 1: SYSTEM ITEMS (Update, DLC, etc.) ---
+    // We add these directly to the top of the list
+    for (const auto& patch : all_patches) {
+        // Skip folder-based mods for this pass
+        if (patch.type == FileSys::PatchType::Mod) continue;
 
         auto* const first_item = new QStandardItem;
-        first_item->setText(name);
+        first_item->setText(QString::fromStdString(patch.name));
         first_item->setCheckable(true);
 
-        const auto patch_disabled =
-            std::find(disabled.begin(), disabled.end(), name.toStdString()) != disabled.end();
+        first_item->setData(QString::fromStdString(patch.name), Qt::UserRole);
 
+        const auto patch_disabled = std::find(disabled.begin(), disabled.end(), patch.name) != disabled.end();
         first_item->setCheckState(patch_disabled ? Qt::Unchecked : Qt::Checked);
 
-        list_items.push_back(QList<QStandardItem*>{
-            first_item, new QStandardItem{QString::fromStdString(patch.version)}});
-        item_model->appendRow(list_items.back());
+        QList<QStandardItem*> row;
+        row << first_item << new QStandardItem{QString::fromStdString(patch.version)};
+        item_model->appendRow(row);
+        list_items.push_back(row);
     }
 
+    // --- PASS 2: FOLDER-BASED MODS (The Tree View) ---
+    std::map<QString, QStandardItem*> groups;
+    for (const auto& patch : all_patches) {
+        // ONLY process mods in this pass
+        if (patch.type != FileSys::PatchType::Mod) continue;
+
+        QString full_name = QString::fromStdString(patch.name);
+        QStandardItem* parent_to_add_to = nullptr;
+
+        if (full_name.contains(QStringLiteral("/"))) {
+            QStringList parts = full_name.split(QStringLiteral("/"));
+            QString group_name = parts[0];
+            QString mod_display_name = parts[1];
+
+            if (groups.find(group_name) == groups.end()) {
+                auto* group_item = new QStandardItem(group_name);
+                group_item->setCheckable(false);
+                group_item->setEditable(false);
+                item_model->appendRow(group_item); // Group folder goes at the bottom of the current list
+                groups[group_name] = group_item;
+            }
+            parent_to_add_to = groups[group_name];
+            full_name = mod_display_name;
+        }
+
+        auto* const mod_item = new QStandardItem(full_name);
+        mod_item->setCheckable(true);
+
+        mod_item->setData(QString::fromStdString(patch.name), Qt::UserRole);
+
+        const auto patch_disabled = std::find(disabled.begin(), disabled.end(), patch.name) != disabled.end();
+        mod_item->setCheckState(patch_disabled ? Qt::Unchecked : Qt::Checked);
+
+        QList<QStandardItem*> row;
+        row << mod_item << new QStandardItem{QString::fromStdString(patch.version)};
+
+        if (parent_to_add_to) {
+            parent_to_add_to->appendRow(row);
+        } else {
+            item_model->appendRow(row);
+        }
+        list_items.push_back(row);
+    }
+
+    tree_view->expandAll();
     tree_view->resizeColumnToContents(1);
+}
+
+void ConfigurePerGameAddons::OnContextMenu(const QPoint& pos) {
+    QModelIndex index = tree_view->indexAt(pos);
+    if (!index.isValid()) return;
+
+    // Get the item that was clicked
+    QStandardItem* item = item_model->itemFromIndex(index);
+
+    // We only want to show the menu if the item has children (it's a folder/group)
+    if (item->rowCount() == 0) return;
+
+    QMenu context_menu;
+
+    // Create "Check All" action
+    QAction* check_all = context_menu.addAction(tr("Check All Mods in Folder"));
+    connect(check_all, &QAction::triggered, this, [item] {
+        for (int i = 0; i < item->rowCount(); ++i) {
+            if (auto* child = item->child(i, 0)) {
+                child->setCheckState(Qt::Checked);
+            }
+        }
+    });
+
+    // Create "Uncheck All" action
+    QAction* uncheck_all = context_menu.addAction(tr("Uncheck All Mods in Folder"));
+    connect(uncheck_all, &QAction::triggered, this, [item] {
+        for (int i = 0; i < item->rowCount(); ++i) {
+            if (auto* child = item->child(i, 0)) {
+                child->setCheckState(Qt::Unchecked);
+            }
+        }
+    });
+
+    context_menu.exec(tree_view->viewport()->mapToGlobal(pos));
 }
