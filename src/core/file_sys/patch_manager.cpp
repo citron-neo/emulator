@@ -38,11 +38,6 @@ namespace {
 
 constexpr u32 SINGLE_BYTE_MODULUS = 0x100;
 
-constexpr std::array<const char*, 14> EXEFS_FILE_NAMES{
-    "main",    "main.npdm", "rtld",    "sdk",     "subsdk0", "subsdk1", "subsdk2",
-    "subsdk3", "subsdk4",   "subsdk5", "subsdk6", "subsdk7", "subsdk8", "subsdk9",
-};
-
 enum class TitleVersionFormat : u8 {
     ThreeElements, ///< vX.Y.Z
     FourElements,  ///< vX.Y.Z.W
