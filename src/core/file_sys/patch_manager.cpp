@@ -107,27 +107,47 @@ void AppendCommaIfNotEmpty(std::string& to, std::string_view with) {
     }
 }
 
-std::string GetInternalModName(const VirtualDir& mod_dir, const VirtualDir& load_root) {
-    if (!mod_dir || !load_root) return "";
-    auto parent = mod_dir->GetParentDirectory();
-    // If the parent is the root load folder, it's a flat mod (e.g., "Reduce Bloom")
-    if (parent == load_root) {
-        return mod_dir->GetName();
+bool IsValidModDir(const VirtualDir& dir) {
+    if (!dir) return false;
+    return FindSubdirectoryCaseless(dir, "exefs") != nullptr ||
+           FindSubdirectoryCaseless(dir, "romfs") != nullptr ||
+           FindSubdirectoryCaseless(dir, "romfslite") != nullptr ||
+           FindSubdirectoryCaseless(dir, "cheats") != nullptr;
+}
+
+// Unified function to get enabled mods from the 'load' directory
+std::vector<VirtualDir> GetEnabledModsList(u64 title_id, const Service::FileSystem::FileSystemController& fs_controller) {
+    std::vector<VirtualDir> mods;
+    const auto load_dir = fs_controller.GetModificationLoadRoot(title_id);
+    if (!load_dir) return mods;
+
+    const auto& disabled = Settings::values.disabled_addons[title_id];
+
+    for (const auto& top_dir : load_dir->GetSubdirectories()) {
+        if (!top_dir) continue;
+
+        if (IsValidModDir(top_dir)) {
+            // Flat mod: /load/TID/ModName/
+            if (std::find(disabled.begin(), disabled.end(), top_dir->GetName()) == disabled.end()) {
+                mods.push_back(top_dir);
+            }
+        } else {
+            // Grouped mod: /load/TID/VersionFolder/ModName/
+            for (const auto& sub_dir : top_dir->GetSubdirectories()) {
+                if (sub_dir && IsValidModDir(sub_dir)) {
+                    std::string internal_name = top_dir->GetName() + "/" + sub_dir->GetName();
+                    if (std::find(disabled.begin(), disabled.end(), internal_name) == disabled.end()) {
+                        mods.push_back(sub_dir);
+                    }
+                }
+            }
+        }
     }
-    // If there is a parent in between, it's a hierarchical mod (e.g., "2.0.0/Reduce Bloom")
-    return parent->GetName() + "/" + mod_dir->GetName();
+    return mods;
 }
 
 bool IsDirValidAndNonEmpty(const VirtualDir& dir) {
     return dir != nullptr && (!dir->GetFiles().empty() || !dir->GetSubdirectories().empty());
-}
-
-bool IsAnyModFolder(const VirtualDir& dir) {
-    if (!dir) return false;
-    return FindSubdirectoryCaseless(dir, "exefs") != nullptr ||
-    FindSubdirectoryCaseless(dir, "romfs") != nullptr ||
-    FindSubdirectoryCaseless(dir, "romfslite") != nullptr ||
-    FindSubdirectoryCaseless(dir, "cheats") != nullptr;
 }
 } // Anonymous namespace
 
@@ -189,38 +209,25 @@ VirtualDir PatchManager::PatchExeFS(VirtualDir exefs) const {
     }
 
     // LayeredExeFS
-    const auto load_dir = fs_controller.GetModificationLoadRoot(title_id);
+    std::vector<VirtualDir> patch_dirs = GetEnabledModsList(title_id, fs_controller);
+
+    // SDMC (Atmosphere) logic
     const auto sdmc_load_dir = fs_controller.GetSDMCModificationLoadRoot(title_id);
-    std::vector<VirtualDir> patch_dirs = {sdmc_load_dir};
-    if (load_dir != nullptr) {
-        for (const auto& top_dir : load_dir->GetSubdirectories()) {
-            if (!top_dir) continue;
-            if (IsAnyModFolder(top_dir)) {
-                patch_dirs.push_back(top_dir);
-            } else {
-                for (const auto& sub_dir : top_dir->GetSubdirectories()) {
-                    if (IsAnyModFolder(sub_dir)) patch_dirs.push_back(sub_dir);
-                }
-            }
-        }
+    if (sdmc_load_dir && std::find(disabled.begin(), disabled.end(), "SDMC") == disabled.end()) {
+        patch_dirs.push_back(sdmc_load_dir);
     }
+
     std::sort(patch_dirs.begin(), patch_dirs.end(),
               [](const VirtualDir& l, const VirtualDir& r) {
-                  if (!l) {
-                      return true;
-                  }
-                  if (!r) {
-                      return false;
-                  }
+                  if (!l) return true;
+                  if (!r) return false;
                   return l->GetName() < r->GetName();
               });
 
     std::vector<VirtualDir> layers;
     layers.reserve(patch_dirs.size() + 1);
     for (const auto& subdir : patch_dirs) {
-        const std::string internal_name = GetInternalModName(subdir, load_dir);
-        if (!subdir || std::find(disabled.begin(), disabled.end(), internal_name) != disabled.end())
-            continue;
+        if (!subdir) continue;
         auto exefs_dir = FindSubdirectoryCaseless(subdir, "exefs");
         if (exefs_dir != nullptr)
             layers.push_back(std::move(exefs_dir));
@@ -246,31 +253,23 @@ VirtualDir PatchManager::PatchExeFS(VirtualDir exefs) const {
 
 std::vector<VirtualFile> PatchManager::CollectPatches(const std::vector<VirtualDir>& patch_dirs,
                                                       const std::string& build_id) const {
-    const auto& disabled = Settings::values.disabled_addons[title_id];
     const auto nso_build_id = fmt::format("{:0<64}", build_id);
     std::vector<VirtualFile> out;
     out.reserve(patch_dirs.size());
-    const auto load_dir = fs_controller.GetModificationLoadRoot(title_id);
     for (const auto& subdir : patch_dirs) {
-        const std::string internal_name = GetInternalModName(subdir, load_dir);
-        if (!subdir || std::find(disabled.cbegin(), disabled.cend(), internal_name) != disabled.cend())
-            continue;
+        if (!subdir) continue;
         auto exefs_dir = FindSubdirectoryCaseless(subdir, "exefs");
         if (exefs_dir != nullptr) {
             for (const auto& file : exefs_dir->GetFiles()) {
                 if (file->GetExtension() == "ips") {
                     auto name = file->GetName();
-                    const auto this_build_id =
-                        fmt::format("{:0<64}", name.substr(0, name.find('.')));
-                    if (nso_build_id == this_build_id)
-                        out.push_back(file);
+                    const auto this_build_id = fmt::format("{:0<64}", name.substr(0, name.find('.')));
+                    if (nso_build_id == this_build_id) out.push_back(file);
                 } else if (file->GetExtension() == "pchtxt") {
                     IPSwitchCompiler compiler{file};
-                    if (!compiler.IsValid())
-                        continue;
+                    if (!compiler.IsValid()) continue;
                     const auto this_build_id = Common::HexToString(compiler.GetBuildID());
-                    if (nso_build_id == this_build_id)
-                        out.push_back(file);
+                    if (nso_build_id == this_build_id) out.push_back(file);
                 }
             }
         }
@@ -301,22 +300,9 @@ std::vector<u8> PatchManager::PatchNSO(const std::vector<u8>& nso, const std::st
         }
     }
     LOG_INFO(Loader, "Patching NSO for name={}, build_id={}", name, build_id);
-    const auto load_dir = fs_controller.GetModificationLoadRoot(title_id);
-    if (load_dir == nullptr) {
-        LOG_ERROR(Loader, "Cannot load mods for invalid title_id={:016X}", title_id);
-        return nso;
-    }
-    std::vector<VirtualDir> patch_dirs;
-    for (const auto& top_dir : load_dir->GetSubdirectories()) {
-        if (!top_dir) continue;
-        if (IsAnyModFolder(top_dir)) {
-            patch_dirs.push_back(top_dir);
-        } else {
-            for (const auto& sub_dir : top_dir->GetSubdirectories()) {
-                if (IsAnyModFolder(sub_dir)) patch_dirs.push_back(sub_dir);
-            }
-        }
-    }
+
+    std::vector<VirtualDir> patch_dirs = GetEnabledModsList(title_id, fs_controller);
+
     std::sort(patch_dirs.begin(), patch_dirs.end(),
               [](const VirtualDir& l, const VirtualDir& r) { return l->GetName() < r->GetName(); });
     const auto patches = CollectPatches(patch_dirs, build_id);
@@ -348,22 +334,9 @@ bool PatchManager::HasNSOPatch(const BuildID& build_id_, std::string_view name) 
     const auto build_id_raw = Common::HexToString(build_id_);
     const auto build_id = build_id_raw.substr(0, build_id_raw.find_last_not_of('0') + 1);
     LOG_INFO(Loader, "Querying NSO patch existence for build_id={}, name={}", build_id, name);
-    const auto load_dir = fs_controller.GetModificationLoadRoot(title_id);
-    if (load_dir == nullptr) {
-        LOG_ERROR(Loader, "Cannot load mods for invalid title_id={:016X}", title_id);
-        return false;
-    }
-    std::vector<VirtualDir> patch_dirs;
-    for (const auto& top_dir : load_dir->GetSubdirectories()) {
-        if (!top_dir) continue;
-        if (IsAnyModFolder(top_dir)) {
-            patch_dirs.push_back(top_dir);
-        } else {
-            for (const auto& sub_dir : top_dir->GetSubdirectories()) {
-                if (IsAnyModFolder(sub_dir)) patch_dirs.push_back(sub_dir);
-            }
-        }
-    }
+
+    std::vector<VirtualDir> patch_dirs = GetEnabledModsList(title_id, fs_controller);
+
     std::sort(patch_dirs.begin(), patch_dirs.end(),
               [](const VirtualDir& l, const VirtualDir& r) { return l->GetName() < r->GetName(); });
     return !CollectPatches(patch_dirs, build_id).empty();
@@ -371,21 +344,14 @@ bool PatchManager::HasNSOPatch(const BuildID& build_id_, std::string_view name) 
 
 std::vector<Core::Memory::CheatEntry> PatchManager::CreateCheatList(
     const BuildID& build_id_) const {
-    const auto load_dir = fs_controller.GetModificationLoadRoot(title_id);
-    if (load_dir == nullptr) {
-        LOG_ERROR(Loader, "Cannot load mods for invalid title_id={:016X}", title_id);
-        return {};
-    }
-    const auto& disabled = Settings::values.disabled_addons[title_id];
-    auto patch_dirs = load_dir->GetSubdirectories();
+
+    std::vector<VirtualDir> patch_dirs = GetEnabledModsList(title_id, fs_controller);
+
     std::sort(patch_dirs.begin(), patch_dirs.end(),
               [](const VirtualDir& l, const VirtualDir& r) { return l->GetName() < r->GetName(); });
+
     std::vector<Core::Memory::CheatEntry> out;
     for (const auto& subdir : patch_dirs) {
-        const std::string internal_name = GetInternalModName(subdir, load_dir);
-        if (!subdir || std::find(disabled.cbegin(), disabled.cend(), internal_name) != disabled.cend()) {
-            continue;
-        }
         auto cheats_dir = FindSubdirectoryCaseless(subdir, "cheats");
         if (cheats_dir != nullptr) {
             if (const auto res = ReadCheatFileFromFolder(title_id, build_id_, cheats_dir, true)) {
@@ -409,21 +375,14 @@ static void ApplyLayeredFS(VirtualFile& romfs, u64 title_id, ContentRecordType t
         (load_dir == nullptr && sdmc_load_dir == nullptr)) {
         return;
     }
+
     const auto& disabled = Settings::values.disabled_addons[title_id];
-    std::vector<VirtualDir> patch_dirs;
-    if (load_dir) {
-        for (const auto& top_dir : load_dir->GetSubdirectories()) {
-            if (!top_dir) continue;
-            if (IsAnyModFolder(top_dir)) {
-                patch_dirs.push_back(top_dir);
-            } else {
-                for (const auto& sub_dir : top_dir->GetSubdirectories()) {
-                    if (IsAnyModFolder(sub_dir)) patch_dirs.push_back(sub_dir);
-                }
-            }
-        }
-    }
-    if (std::find(disabled.cbegin(), disabled.cend(), "SDMC") == disabled.cend()) {
+
+    // Get Citron mods using helper
+    std::vector<VirtualDir> patch_dirs = GetEnabledModsList(title_id, fs_controller);
+
+    // Get Atmosphere mods
+    if (sdmc_load_dir && std::find(disabled.cbegin(), disabled.cend(), "SDMC") == disabled.cend()) {
         patch_dirs.push_back(sdmc_load_dir);
     }
 
@@ -439,10 +398,7 @@ static void ApplyLayeredFS(VirtualFile& romfs, u64 title_id, ContentRecordType t
     layers.reserve(patch_dirs.size() + 1);
     layers_ext.reserve(patch_dirs.size() + 1);
     for (const auto& subdir : patch_dirs) {
-        const std::string internal_name = GetInternalModName(subdir, load_dir);
-        if (!subdir || std::find(disabled.cbegin(), disabled.cend(), internal_name) != disabled.cend()) {
-            continue;
-        }
+        if (!subdir) continue;
         auto romfs_dir = FindSubdirectoryCaseless(subdir, "romfs");
         if (romfs_dir != nullptr)
             layers.emplace_back(std::make_shared<CachedVfsDirectory>(std::move(romfs_dir)));
@@ -628,7 +584,7 @@ std::vector<Patch> PatchManager::GetPatches(VirtualFile update_raw) const {
     std::vector<Patch> out;
     const auto& disabled = Settings::values.disabled_addons[title_id];
 
-    // --- 1. NAND Update (from original code) ---
+    // --- 1. NAND Update ---
     const auto update_tid = GetUpdateTitleID(title_id);
     PatchManager update{update_tid, fs_controller, content_provider};
     const auto metadata = update.GetControlMetadata();
@@ -655,7 +611,7 @@ std::vector<Patch> PatchManager::GetPatches(VirtualFile update_raw) const {
         out.push_back(update_patch);
     }
 
-    // --- 2. Autoloader Content (Updates and DLC) ---
+    // --- 2. Autoloader Content ---
     VirtualDir sdmc_root = nullptr;
     if (fs_controller.OpenSDMC(&sdmc_root).IsSuccess() && sdmc_root) {
         const auto scan_autoloader_content =
@@ -690,26 +646,7 @@ std::vector<Patch> PatchManager::GetPatches(VirtualFile update_raw) const {
                     } else {
                         version_str = "DLC";
                     }
-                    for (const auto& file : mod->GetFiles()) {
-                        if (file->GetExtension() == "nca") {
-                            NCA nca_check(file);
-                            if (nca_check.GetStatus() == Loader::ResultStatus::Success && nca_check.GetType() == NCAContentType::Control) {
-                                if (auto romfs = nca_check.GetRomFS()) {
-                                    if (auto extracted = ExtractRomFS(romfs)) {
-                                        if (auto nacp_file = extracted->GetFile("control.nacp")) {
-                                            NACP dlc_nacp(nacp_file);
-                                            std::string nacp_name = dlc_nacp.GetApplicationName();
-                                            if (!nacp_name.empty()) {
-                                                mod_name_str = nacp_name;
-                                                break;
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                } else { // Handle Updates
+                } else { // Updates
                     for (const auto& file : mod->GetFiles()) {
                         if (file->GetExtension() == "nca") {
                             NCA nca_check(file);
@@ -729,79 +666,48 @@ std::vector<Patch> PatchManager::GetPatches(VirtualFile update_raw) const {
                             }
                         }
                     }
-                    if (version_str == "Unknown") {
-                         for (const auto& file : mod->GetFiles()) {
-                            if (file->GetName().ends_with(".cnmt.nca")) {
-                                NCA meta_nca(file);
-                                if (meta_nca.GetStatus() == Loader::ResultStatus::Success && !meta_nca.GetSubdirectories().empty()) {
-                                    auto section0 = meta_nca.GetSubdirectories()[0];
-                                    if (!section0->GetFiles().empty()) {
-                                        CNMT cnmt(section0->GetFiles()[0]);
-                                        version_str = FormatTitleVersion(cnmt.GetTitleVersion(), TitleVersionFormat::FourElements);
-                                        break;
-                                    }
-                                }
-                            }
-                        }
-                    }
                 }
                 const auto mod_disabled = std::find(disabled.begin(), disabled.end(), mod->GetName()) != disabled.end();
                 out.push_back({.enabled = !mod_disabled, .name = mod_name_str, .version = version_str, .type = patch_type, .program_id = title_id, .title_id = title_id});
             }
         };
-
         scan_autoloader_content("Updates", PatchType::Update);
         scan_autoloader_content("DLC", PatchType::DLC);
     }
 
-    // --- 3. General Mods (Recursive Scan) ---
+    // --- 3. Citron Mods ---
     const auto mod_dir = fs_controller.GetModificationLoadRoot(title_id);
     if (mod_dir != nullptr) {
-        for (const auto& top_mod : mod_dir->GetSubdirectories()) {
-            if (!top_mod) continue;
+        auto get_mod_types = [](const VirtualDir& dir) -> std::string {
+            std::string types;
+            if (FindSubdirectoryCaseless(dir, "exefs")) AppendCommaIfNotEmpty(types, "IPSwitch/IPS");
+            if (FindSubdirectoryCaseless(dir, "romfs") || FindSubdirectoryCaseless(dir, "romfslite")) AppendCommaIfNotEmpty(types, "LayeredFS");
+            if (FindSubdirectoryCaseless(dir, "cheats")) AppendCommaIfNotEmpty(types, "Cheats");
+            return types;
+        };
 
-            // Helper lambda to process a directory and return the patch types found
-            auto get_mod_types = [](const VirtualDir& dir) -> std::string {
-                std::string types;
-                const auto exefs_dir = FindSubdirectoryCaseless(dir, "exefs");
-                if (IsDirValidAndNonEmpty(exefs_dir)) {
-                    bool ips = false, ipswitch = false, layeredfs = false;
-                    for (const auto& file : exefs_dir->GetFiles()) {
-                        if (file->GetExtension() == "ips") ips = true;
-                        else if (file->GetExtension() == "pchtxt") ipswitch = true;
-                        else if (std::find(EXEFS_FILE_NAMES.begin(), EXEFS_FILE_NAMES.end(), file->GetName()) != EXEFS_FILE_NAMES.end()) layeredfs = true;
-                    }
-                    if (ips) AppendCommaIfNotEmpty(types, "IPS");
-                    if (ipswitch) AppendCommaIfNotEmpty(types, "IPSwitch");
-                    if (layeredfs) AppendCommaIfNotEmpty(types, "LayeredExeFS");
-                }
-                if (IsDirValidAndNonEmpty(FindSubdirectoryCaseless(dir, "romfs")) || IsDirValidAndNonEmpty(FindSubdirectoryCaseless(dir, "romfslite"))) AppendCommaIfNotEmpty(types, "LayeredFS");
-                if (IsDirValidAndNonEmpty(FindSubdirectoryCaseless(dir, "cheats"))) AppendCommaIfNotEmpty(types, "Cheats");
-                return types;
+        for (const auto& top_dir : mod_dir->GetSubdirectories()) {
+            if (!top_dir) continue;
+
+            auto process_mod = [&](const VirtualDir& dir, bool nested) {
+                std::string types = get_mod_types(dir);
+                if (types.empty()) return;
+
+                std::string identifier = nested ? (top_dir->GetName() + "/" + dir->GetName()) : dir->GetName();
+                const auto mod_disabled = std::find(disabled.begin(), disabled.end(), identifier) != disabled.end();
+                out.push_back({.enabled = !mod_disabled, .name = identifier, .version = types, .type = PatchType::Mod, .program_id = title_id, .title_id = title_id});
             };
 
-            // 1. Check if the top-level folder is a mod (Existing behavior)
-            std::string top_types = get_mod_types(top_mod);
-            if (!top_types.empty()) {
-                const std::string internal_name = GetInternalModName(top_mod, mod_dir);
-                const auto mod_disabled = std::find(disabled.begin(), disabled.end(), internal_name) != disabled.end();
-                out.push_back({.enabled = !mod_disabled, .name = top_mod->GetName(), .version = top_types, .type = PatchType::Mod, .program_id = title_id, .title_id = title_id});
-            }
-            // 2. If not a mod, check one level deeper (Grouped behavior)
-            else {
-                for (const auto& sub_mod : top_mod->GetSubdirectories()) {
-                    std::string sub_types = get_mod_types(sub_mod);
-                    if (sub_types.empty()) continue;
-
-                    // We store the name as "FolderName/ModName"
-                    std::string hierarchical_name = top_mod->GetName() + "/" + sub_mod->GetName();
-                    const std::string internal_name = GetInternalModName(sub_mod, mod_dir);
-                    const auto mod_disabled = std::find(disabled.begin(), disabled.end(), internal_name) != disabled.end();
-                    out.push_back({.enabled = !mod_disabled, .name = hierarchical_name, .version = sub_types, .type = PatchType::Mod, .program_id = title_id, .title_id = title_id});
+            if (IsValidModDir(top_dir)) {
+                process_mod(top_dir, false);
+            } else {
+                for (const auto& sub_dir : top_dir->GetSubdirectories()) {
+                    if (sub_dir) process_mod(sub_dir, true);
                 }
             }
         }
     }
+
     const auto sdmc_mod_dir = fs_controller.GetSDMCModificationLoadRoot(title_id);
     if (sdmc_mod_dir != nullptr) {
         std::string types;
@@ -813,7 +719,7 @@ std::vector<Patch> PatchManager::GetPatches(VirtualFile update_raw) const {
         }
     }
 
-    // --- 4. NAND DLC (from original code) ---
+    // --- 4. NAND DLC ---
     const auto dlc_entries = content_provider.ListEntriesFilter(TitleType::AOC, ContentRecordType::Data);
     std::vector<ContentProviderEntry> dlc_match;
     dlc_match.reserve(dlc_entries.size());
@@ -897,7 +803,6 @@ PatchManager::Metadata PatchManager::GetControlMetadata() const {
                             if (nca_check.GetStatus() == Loader::ResultStatus::Success && nca_check.GetType() == NCAContentType::Control) {
                                 LOG_INFO(Loader, "Found active Autoloader Control NCA in '{}'", mod_name);
                                 control_nca = std::make_unique<NCA>(file);
-                                // Found the highest priority enabled control, we are done.
                                 return ParseControlNCA(*control_nca);
                             }
                         }
@@ -907,18 +812,14 @@ PatchManager::Metadata PatchManager::GetControlMetadata() const {
         }
     }
 
-    // Fallback to NAND if no enabled Autoloader update was found
     const auto update_tid = GetUpdateTitleID(title_id);
     control_nca = content_provider.GetEntry(update_tid, ContentRecordType::Control);
-
     if (control_nca == nullptr) {
         control_nca = content_provider.GetEntry(title_id, ContentRecordType::Control);
     }
-
     if (control_nca == nullptr) {
         return {};
     }
-
     return ParseControlNCA(*control_nca);
 }
 
