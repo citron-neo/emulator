@@ -10,6 +10,9 @@
 #include <QMenu>
 #include <QProcess>
 #include <QDir>
+#include "common/logging/log.h"
+#include <QProcess>
+#include <QDir>
 #include <QStandardItemModel>
 #include <QString>
 #include <QTimer>
@@ -250,7 +253,7 @@ void ConfigurePerGameAddons::OnContextMenu(const QPoint& pos) {
     QMenu context_menu;
 
     if (item->rowCount() > 0) {
-        // --- Folder Logic ---
+        // --- Folder/Group Logic ---
         QAction* check_all = context_menu.addAction(tr("Check All Mods in Folder"));
         connect(check_all, &QAction::triggered, this, [item] {
             for (int i = 0; i < item->rowCount(); ++i) {
