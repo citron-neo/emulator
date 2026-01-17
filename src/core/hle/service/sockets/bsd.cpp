@@ -531,9 +531,6 @@ std::pair<s32, Errno> BSD::SocketImpl(Domain domain, Type type, Protocol protoco
     UNIMPLEMENTED_IF_MSG(unk_flag, "Unknown flag in type");
     type = static_cast<Type>(static_cast<u32>(type) & ~0x20000000);
 
-    // Lock the table before searching for or creating a descriptor
-    std::lock_guard table_lock(fd_table_mutex);
-
     const s32 fd = FindFreeFileDescriptorHandle();
     if (fd < 0) {
         LOG_ERROR(Service, "No more file descriptors available");
@@ -542,6 +539,7 @@ std::pair<s32, Errno> BSD::SocketImpl(Domain domain, Type type, Protocol protoco
 
     file_descriptors[fd] = FileDescriptor{};
     FileDescriptor& descriptor = *file_descriptors[fd];
+    // ENONMEM might be thrown here
 
     auto room_member = room_network.GetRoomMember().lock();
     const bool using_proxy = room_member && room_member->IsConnected();
@@ -549,21 +547,23 @@ std::pair<s32, Errno> BSD::SocketImpl(Domain domain, Type type, Protocol protoco
     LOG_INFO(Service, "New socket fd={} domain={} type={} protocol={} proxy={}",
              fd, domain, type, protocol, using_proxy);
 
+    // Store socket type information for pooling
     descriptor.domain = Translate(domain);
     descriptor.type = Translate(type);
     descriptor.protocol = Translate(protocol);
     descriptor.is_connection_based = IsConnectionBased(type);
 
+    // Try to reuse a socket from the pool if using proxy
     if (using_proxy) {
         SocketPoolKey key{descriptor.domain, descriptor.type, descriptor.protocol};
-        std::lock_guard pool_lock(socket_pool_mutex);
+        std::lock_guard lock(socket_pool_mutex);
 
         auto it = socket_pool.find(key);
         if (it != socket_pool.end() && !it->second.empty()) {
             descriptor.socket = it->second.back();
             it->second.pop_back();
 
-            // Reset the socket state so 'closed' is false and the queue is empty
+            // call Initialize here so socket_proxy.cpp functions work
             descriptor.socket->Initialize(descriptor.domain, descriptor.type, descriptor.protocol);
 
             LOG_DEBUG(Service, "Reused socket from pool for fd={}", fd);
