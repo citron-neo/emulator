@@ -8,6 +8,8 @@
 #include <cstring>
 #include <map>
 
+#include <filesystem>
+#include "common/fs/path_util.h"
 #include "common/hex_util.h"
 #include "common/logging/log.h"
 #include "common/settings.h"
@@ -713,8 +715,58 @@ std::vector<Patch> PatchManager::GetPatches(VirtualFile update_raw) const {
         list += fmt::format("{}", dlc_match.back().title_id & 0x7FF);
 
         const auto dlc_disabled = std::find(disabled.begin(), disabled.end(), "DLC") != disabled.end();
-        // FIX: Saved under base title_id so logic finds it
         out.push_back({.enabled = !dlc_disabled, .name = "DLC", .version = std::move(list), .type = PatchType::DLC, .program_id = title_id, .title_id = title_id});
+    }
+
+    // Scan for Game-Specific Tools
+    const auto load_root = fs_controller.GetModificationLoadRoot(title_id);
+    if (load_root) {
+        if (auto tools_dir = load_root->GetSubdirectory("tools")) {
+            for (const auto& file : tools_dir->GetFiles()) {
+                FileSys::Patch tool_patch;
+                tool_patch.enabled = true;
+                tool_patch.name = file->GetName();
+                tool_patch.version = "Tool";
+                tool_patch.type = PatchType::Mod;
+                tool_patch.program_id = title_id;
+                tool_patch.title_id = title_id;
+                out.push_back(std::move(tool_patch));
+            }
+        }
+    }
+
+    // Scan for Global Tools (NX-Optimizer)
+    const std::vector<u64> optimizer_supported_ids = {
+        0x01006BB00C6F0000, 0x0100F2C0115B6000, 0x01002B00111A2000,
+        0x01007EF00011E000, 0x0100F43008C44000, 0x0100A3D008C5C000, 0x01008F6008C5E000
+    };
+
+    if (std::find(optimizer_supported_ids.begin(), optimizer_supported_ids.end(), title_id) != optimizer_supported_ids.end()) {
+        auto global_tools_path = Common::FS::GetCitronPath(Common::FS::CitronPath::ConfigDir) / "tools";
+
+        if (std::filesystem::exists(global_tools_path)) {
+            for (const auto& entry : std::filesystem::directory_iterator(global_tools_path)) {
+                if (entry.is_regular_file()) {
+                    const auto extension = entry.path().extension().string();
+
+                    // Only allow actual executables to show up in the UI
+                    bool is_tool = (extension == ".AppImage" || extension == ".exe");
+
+                    if (!is_tool) {
+                        continue;
+                    }
+
+                    FileSys::Patch global_tool;
+                    global_tool.enabled = true;
+                    global_tool.name = entry.path().filename().string();
+                    global_tool.version = "Tool";
+                    global_tool.type = PatchType::Mod;
+                    global_tool.program_id = title_id;
+                    global_tool.title_id = title_id;
+                    out.push_back(std::move(global_tool));
+                }
+            }
+        }
     }
 
     return out;
@@ -761,7 +813,7 @@ PatchManager::Metadata PatchManager::GetControlMetadata() const {
         }
     }
 
-    // FIX: Only fetch the Update metadata if the user hasn't disabled it
+    // Only fetch the Update metadata if the user hasn't disabled it
     const auto update_disabled = std::find(disabled_for_game.begin(), disabled_for_game.end(), "Update") != disabled_for_game.end();
     const auto update_tid = GetUpdateTitleID(title_id);
 
