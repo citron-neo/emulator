@@ -737,8 +737,7 @@ std::vector<Patch> PatchManager::GetPatches(VirtualFile update_raw) const {
 
     // Scan for Global Tools (NX-Optimizer)
     const std::vector<u64> optimizer_supported_ids = {
-        0x01006BB00C6F0000, 0x0100F2C0115B6000, 0x01002B00111A2000,
-        0x01007EF00011E000, 0x0100F43008C44000, 0x0100A3D008C5C000, 0x01008F6008C5E000
+        0x0100F2C0115B6000, 0x01007EF00011E000, 0x0100A3D008C5C000, 0x01008F6008C5E000
     };
 
     if (std::find(optimizer_supported_ids.begin(), optimizer_supported_ids.end(), title_id) != optimizer_supported_ids.end()) {

@@ -18,9 +18,9 @@ ModService::~ModService() = default;
 
 void ModService::FetchAvailableMods(const QString& title_id) {
     const QStringList optimizer_supported = {
-        QStringLiteral("01006BB00C6F0000"), QStringLiteral("0100F2C0115B6000"),
-        QStringLiteral("01002B00111A2000"), QStringLiteral("01007EF00011E000"),
-        QStringLiteral("0100F43008C44000"), QStringLiteral("0100A3D008C5C000"),
+        QStringLiteral("0100F2C0115B6000"),
+        QStringLiteral("01007EF00011E000"),
+        QStringLiteral("0100A3D008C5C000"),
         QStringLiteral("01008F6008C5E000")
     };
 
