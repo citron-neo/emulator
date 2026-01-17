@@ -8,6 +8,8 @@
 
 #include <QHeaderView>
 #include <QMenu>
+#include <QProcess>
+#include <QDir>
 #include <QStandardItemModel>
 #include <QString>
 #include <QTimer>
@@ -210,12 +212,20 @@ void ConfigurePerGameAddons::LoadConfiguration() {
         }
 
         auto* const mod_item = new QStandardItem(full_name);
-        mod_item->setCheckable(true);
+
+        // If it's a Tool, remove the checkbox entirely
+        if (patch.version == "Tool") {
+            mod_item->setCheckable(false);
+            // Explicitly strip the checkable flag to prevent the UI from drawing a box
+            mod_item->setFlags(mod_item->flags() & ~Qt::ItemIsUserCheckable);
+            mod_item->setForeground(QBrush(QColor(0, 120, 215))); // Keep it blue to show it's special
+        } else {
+            mod_item->setCheckable(true);
+            const auto patch_disabled = std::find(disabled.begin(), disabled.end(), patch.name) != disabled.end();
+            mod_item->setCheckState(patch_disabled ? Qt::Unchecked : Qt::Checked);
+        }
 
         mod_item->setData(QString::fromStdString(patch.name), Qt::UserRole);
-
-        const auto patch_disabled = std::find(disabled.begin(), disabled.end(), patch.name) != disabled.end();
-        mod_item->setCheckState(patch_disabled ? Qt::Unchecked : Qt::Checked);
 
         QList<QStandardItem*> row;
         row << mod_item << new QStandardItem{QString::fromStdString(patch.version)};
@@ -236,33 +246,57 @@ void ConfigurePerGameAddons::OnContextMenu(const QPoint& pos) {
     QModelIndex index = tree_view->indexAt(pos);
     if (!index.isValid()) return;
 
-    // Get the item that was clicked
     QStandardItem* item = item_model->itemFromIndex(index);
-
-    // We only want to show the menu if the item has children (it's a folder/group)
-    if (item->rowCount() == 0) return;
-
     QMenu context_menu;
 
-    // Create "Check All" action
-    QAction* check_all = context_menu.addAction(tr("Check All Mods in Folder"));
-    connect(check_all, &QAction::triggered, this, [item] {
-        for (int i = 0; i < item->rowCount(); ++i) {
-            if (auto* child = item->child(i, 0)) {
-                child->setCheckState(Qt::Checked);
+    if (item->rowCount() > 0) {
+        // --- Folder Logic ---
+        QAction* check_all = context_menu.addAction(tr("Check All Mods in Folder"));
+        connect(check_all, &QAction::triggered, this, [item] {
+            for (int i = 0; i < item->rowCount(); ++i) {
+                if (auto* child = item->child(i, 0)) child->setCheckState(Qt::Checked);
             }
-        }
-    });
-
-    // Create "Uncheck All" action
-    QAction* uncheck_all = context_menu.addAction(tr("Uncheck All Mods in Folder"));
-    connect(uncheck_all, &QAction::triggered, this, [item] {
-        for (int i = 0; i < item->rowCount(); ++i) {
-            if (auto* child = item->child(i, 0)) {
-                child->setCheckState(Qt::Unchecked);
+        });
+        QAction* uncheck_all = context_menu.addAction(tr("Uncheck All Mods in Folder"));
+        connect(uncheck_all, &QAction::triggered, this, [item] {
+            for (int i = 0; i < item->rowCount(); ++i) {
+                if (auto* child = item->child(i, 0)) child->setCheckState(Qt::Unchecked);
             }
-        }
-    });
+        });
+    } else {
+        // --- Individual Item Logic ---
+        QModelIndex v_idx = index.siblingAtColumn(1);
+        if (item_model->data(v_idx).toString() == QStringLiteral("Tool")) {
+            QAction* launch = context_menu.addAction(tr("Launch Tool"));
+            QString file_name = item->text();
 
+            connect(launch, &QAction::triggered, this, [this, file_name] {
+                // 1. Check Global Safe Zone (ConfigDir)
+                std::filesystem::path tool_path =
+                    Common::FS::GetCitronPath(Common::FS::CitronPath::ConfigDir) / "tools" / file_name.toStdString();
+
+                // 2. Fallback to Legacy/Game-specific folder
+                if (!std::filesystem::exists(tool_path)) {
+                    tool_path = Common::FS::GetCitronPath(Common::FS::CitronPath::LoadDir) /
+                                fmt::format("{:016X}", title_id) / "tools" / file_name.toStdString();
+                }
+
+                if (std::filesystem::exists(tool_path)) {
+                    QString program = QString::fromStdString(tool_path.string());
+                    QString working_dir = QString::fromStdString(tool_path.parent_path().string());
+
+                    LOG_INFO(Frontend, "Launching tool: {} with working directory: {}",
+                             program.toStdString(), working_dir.toStdString());
+
+                    // Start the process detached with an explicit working directory.
+                    // This prevents the emulator from "cleaning up" the tool's temporary files.
+                    QProcess::startDetached(program, {}, working_dir);
+                } else {
+                    QMessageBox::critical(this, tr("Launch Error"),
+                        tr("The tool executable could not be found. Please redownload it."));
+                }
+            });
+        }
+    }
     context_menu.exec(tree_view->viewport()->mapToGlobal(pos));
 }
