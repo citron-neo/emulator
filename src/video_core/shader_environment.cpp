@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: Copyright 2021 yuzu Emulator Project
+// SPDX-FileCopyrightText: Copyright 2026 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <algorithm>
@@ -692,10 +693,17 @@ void LoadPipelines(
         }
         u32 num_envs{};
         file.read(reinterpret_cast<char*>(&num_envs), sizeof(num_envs));
+
+        if (num_envs == 0 || num_envs > 64) {
+            LOG_ERROR(Common_Filesystem, "Corrupted shader cache detected: num_envs={}", num_envs);
+            throw std::ios_base::failure("Corrupted num_envs");
+        }
+
         std::vector<FileEnvironment> envs(num_envs);
         for (FileEnvironment& env : envs) {
             env.Deserialize(file);
         }
+
         if (envs.front().ShaderStage() == Shader::Stage::Compute) {
             load_compute(file, std::move(envs.front()));
         } else {
