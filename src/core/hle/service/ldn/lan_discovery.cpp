@@ -77,8 +77,6 @@ void LANDiscovery::SetState(State new_state) {
 }
 
 Result LANDiscovery::GetNetworkInfo(NetworkInfo& out_network) const {
-    // Lock must be held while copying to prevent the Network thread from corrupting the copy
-    std::scoped_lock lock{packet_mutex};
     if (state == State::AccessPointCreated || state == State::StationConnected) {
         std::memcpy(&out_network, &network_info, sizeof(network_info));
         return ResultSuccess;
@@ -119,7 +117,7 @@ Result LANDiscovery::Scan(std::span<NetworkInfo> out_networks, s16& out_count,
     }
 
     LOG_INFO(Service_LDN, "Waiting for scan replies");
-    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    std::this_thread::sleep_for(std::chrono::seconds(1));
 
     std::scoped_lock lock{packet_mutex};
     for (const auto& [key, info] : scan_results) {
@@ -569,18 +567,9 @@ void LANDiscovery::ReceivePacket(const Network::LDNPacket& packet) {
     }
     case Network::LDNPacketType::SyncNetwork: {
         if (state == State::StationOpened || state == State::StationConnected) {
-            if (packet.data.size() < sizeof(NetworkInfo)) {
-                LOG_ERROR(Service_LDN, "SyncNetwork packet too small!");
-                break;
-            }
-
+            LOG_INFO(Frontend, "SyncNetwork packet received!");
             NetworkInfo info{};
             std::memcpy(&info, packet.data.data(), sizeof(NetworkInfo));
-
-            if (info.ldn.node_count == 0) {
-                LOG_ERROR(Service_LDN, "SyncNetwork reported 0 nodes! Ignoring to prevent SDK crash.");
-                break;
-            }
 
             OnSyncNetwork(info);
         } else {
