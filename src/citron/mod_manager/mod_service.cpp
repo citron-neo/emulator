@@ -22,7 +22,8 @@ void ModService::FetchAvailableMods(const QString& title_id) {
         QStringLiteral("01007EF00011E000"),
         QStringLiteral("0100A3D008C5C000"),
         QStringLiteral("01008F6008C5E000"),
-        QStringLiteral("01008CF01BAAC000")
+        QStringLiteral("01008CF01BAAC000"),
+        QStringLiteral("0100453019AA8000")
     };
 
     QNetworkRequest request((QUrl(MANIFEST_URL)));
