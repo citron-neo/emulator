@@ -852,6 +852,11 @@ Errno BSD::SetSockOptImpl(s32 fd, u32 level, OptName optname, std::span<const u8
     }
     auto value = GetValue<u32>(optval);
 
+    if (static_cast<u32>(optname) == 0x200 || optname == OptName::BROADCAST) {
+        socket->SetBroadcast(value != 0);
+        return Errno::SUCCESS;
+    }
+
     switch (optname) {
     case OptName::REUSEADDR:
         if (value != 0 && value != 1) {
@@ -865,12 +870,6 @@ Errno BSD::SetSockOptImpl(s32 fd, u32 level, OptName optname, std::span<const u8
             return Errno::INVAL;
         }
         return Translate(socket->SetKeepAlive(value != 0));
-    case OptName::BROADCAST:
-        if (value != 0 && value != 1) {
-            LOG_WARNING(Service, "Invalid BROADCAST value: {}", value);
-            return Errno::INVAL;
-        }
-        return Translate(socket->SetBroadcast(value != 0));
     case OptName::SNDBUF:
         return Translate(socket->SetSndBuf(value));
     case OptName::RCVBUF:
