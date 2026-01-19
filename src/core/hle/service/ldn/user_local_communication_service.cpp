@@ -37,6 +37,8 @@ IUserLocalCommunicationService::IUserLocalCommunicationService(Core::System& sys
             {102, D<&IUserLocalCommunicationService::Scan>, "Scan"},
             {103, D<&IUserLocalCommunicationService::ScanPrivate>, "ScanPrivate"},
             {104, D<&IUserLocalCommunicationService::SetWirelessControllerRestriction>, "SetWirelessControllerRestriction"},
+            {105, D<&IUserLocalCommunicationService::SetWirelessAudioPolicy>, "SetWirelessAudioPolicy"},
+            {106, D<&IUserLocalCommunicationService::SetProtocol>, "SetProtocol"},
             {200, D<&IUserLocalCommunicationService::OpenAccessPoint>, "OpenAccessPoint"},
             {201, D<&IUserLocalCommunicationService::CloseAccessPoint>, "CloseAccessPoint"},
             {202, D<&IUserLocalCommunicationService::CreateNetwork>, "CreateNetwork"},
@@ -189,7 +191,39 @@ Result IUserLocalCommunicationService::ScanPrivate(
 
 Result IUserLocalCommunicationService::SetWirelessControllerRestriction(
     WirelessControllerRestriction wireless_restriction) {
-    LOG_WARNING(Service_LDN, "(STUBBED) called");
+    LOG_WARNING(Service_LDN, "(STUBBED) called, wireless_restriction={}",
+                static_cast<u32>(wireless_restriction));
+    R_SUCCEED();
+}
+
+Result IUserLocalCommunicationService::SetWirelessAudioPolicy(
+    WirelessAudioRestriction wireless_audio_restriction) {
+    LOG_WARNING(Service_LDN, "(STUBBED) called, wireless_audio_restriction={}",
+                static_cast<u32>(wireless_audio_restriction));
+    R_SUCCEED();
+}
+
+Result IUserLocalCommunicationService::SetProtocol(Protocol protocol) {
+    LOG_INFO(Service_LDN, "called, protocol={}", static_cast<u32>(protocol));
+
+    // On NX, the protocol permission bitmask is 0xA (allows 1 and 3)
+    // The SDK passes value 1 for Protocol 0/1, and 3 is passed directly if specified
+    // Input must be non-zero, and BIT(input) must be set in permission bitmask
+    const u32 protocol_value = static_cast<u32>(protocol);
+
+    // For NX compatibility, we accept protocols 1 (NX) and 3 (NXAndOunce)
+    // Protocol 0 (Default) is typically converted to 1 by the SDK before calling
+    if (protocol_value == 0) {
+        // Default is treated as NX
+        current_protocol = Protocol::NX;
+    } else if (protocol_value == 1 || protocol_value == 3) {
+        current_protocol = protocol;
+    } else {
+        // Invalid protocol for NX - but we'll accept it as a stub
+        LOG_WARNING(Service_LDN, "Invalid protocol value {} for NX, accepting anyway", protocol_value);
+        current_protocol = protocol;
+    }
+
     R_SUCCEED();
 }
 

@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: Copyright 2022 yuzu Emulator Project
+// SPDX-FileCopyrightText: Copyright 2026 citron Emulator Project
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #pragma once
@@ -126,6 +127,21 @@ enum class NodeStatus : u8 {
 enum class WirelessControllerRestriction : u32 {
     None,
     Default,
+};
+
+enum class WirelessAudioRestriction : u32 {
+    Disabled,
+    Enabled,
+};
+
+// Protocol enum for SetProtocol command (18.0.0+)
+// On NX, permission bitmask is 0xA (allows Protocol 1 and 3 only)
+enum class Protocol : u32 {
+    Default = 0,
+    NX = 1,
+    // S2 = 2, // Switch 2 only
+    NXAndOunce = 3,
+    // S2_Alt = 4, // Switch 2 only
 };
 
 struct ConnectOption {

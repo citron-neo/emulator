@@ -39,6 +39,8 @@ private:
     Result ScanPrivate(Out<s16> network_count, WifiChannel channel, const ScanFilter& scan_filter,
                       OutArray<NetworkInfo, BufferAttr_HipcAutoSelect> out_network_info);
     Result SetWirelessControllerRestriction(WirelessControllerRestriction wireless_restriction);
+    Result SetWirelessAudioPolicy(WirelessAudioRestriction wireless_audio_restriction);
+    Result SetProtocol(Protocol protocol);
     Result OpenAccessPoint();
     Result CloseAccessPoint();
     Result CreateNetwork(const CreateNetworkConfig& create_config);
@@ -61,6 +63,8 @@ private:
     Result FinalizeSystem();
     Result SetOperationMode(u32 mode);
     Result InitializeSystem2();
+
+    Protocol current_protocol{Protocol::NX};
 };
 
 } // namespace Service::LDN

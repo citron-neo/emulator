@@ -53,6 +53,10 @@ private:
 
     Result SetWirelessControllerRestriction(WirelessControllerRestriction wireless_restriction);
 
+    Result SetWirelessAudioPolicy(WirelessAudioRestriction wireless_audio_restriction);
+
+    Result SetProtocol(Protocol protocol);
+
     Result OpenAccessPoint();
 
     Result CloseAccessPoint();
@@ -106,6 +110,7 @@ private:
     Network::RoomMember::CallbackHandle<Network::LDNPacket> ldn_packet_received;
 
     bool is_initialized{};
+    Protocol current_protocol{Protocol::NX};
 };
 
 } // namespace Service::LDN
