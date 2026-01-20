@@ -9,19 +9,22 @@
 set(CURRENT_MODULE_DIR ${CMAKE_CURRENT_LIST_DIR})
 function(download_bundled_external remote_path lib_name prefix_var)
 
-set(package_base_url "https://git.citron-emu.org/Citron/")
 set(package_repo "no_platform")
 set(package_extension "no_platform")
+# Use yuzu-mirror GitHub repositories for external binaries (more reliable than self-hosted)
+set(package_base_url "https://github.com/yuzu-mirror/")
 if (WIN32)
-    set(package_repo "ext-windows-bin/raw/branch/master/")
+    # https://github.com/yuzu-mirror/ext-windows-bin
+    set(package_repo "ext-windows-bin/raw/master/")
     set(package_extension ".7z")
 elseif (${CMAKE_SYSTEM_NAME} STREQUAL "Linux")
-    set(package_repo "ext-linux-bin/raw/branch/main/")
+    # https://github.com/yuzu-mirror/ext-linux-bin
+    set(package_repo "ext-linux-bin/raw/main/")
     set(package_extension ".tar.xz")
 elseif (ANDROID)
-    # All Android binaries are on the main branch
+    # https://github.com/yuzu-mirror/ext-android-bin
     # Files are named with architecture suffix (e.g., ffmpeg-android-v5.1.LTS-aarch64.tar.xz)
-    set(package_repo "ext-android-bin/raw/branch/main/")
+    set(package_repo "ext-android-bin/raw/main/")
     set(package_extension ".tar.xz")
 else()
     message(FATAL_ERROR "No package available for this platform")
@@ -30,12 +33,32 @@ set(package_url "${package_base_url}${package_repo}")
 
 set(prefix "${CMAKE_BINARY_DIR}/externals/${lib_name}")
 if (NOT EXISTS "${prefix}")
-    message(STATUS "Downloading binaries for ${lib_name}...")
+    set(download_url "${package_url}${remote_path}${lib_name}${package_extension}")
+    set(download_path "${CMAKE_BINARY_DIR}/externals/${lib_name}${package_extension}")
+    message(STATUS "Downloading binaries for ${lib_name} from ${download_url}...")
     file(DOWNLOAD
-        ${package_url}${remote_path}${lib_name}${package_extension}
-        "${CMAKE_BINARY_DIR}/externals/${lib_name}${package_extension}" SHOW_PROGRESS)
-    execute_process(COMMAND ${CMAKE_COMMAND} -E tar xf "${CMAKE_BINARY_DIR}/externals/${lib_name}${package_extension}"
-        WORKING_DIRECTORY "${CMAKE_BINARY_DIR}/externals")
+        ${download_url}
+        ${download_path}
+        SHOW_PROGRESS
+        STATUS download_status)
+    list(GET download_status 0 status_code)
+    list(GET download_status 1 status_string)
+    if (NOT status_code EQUAL 0)
+        message(FATAL_ERROR "Failed to download ${lib_name}: ${status_string} (${status_code})\nURL: ${download_url}")
+    endif()
+    # Verify the downloaded file is not empty or an error page
+    file(SIZE ${download_path} download_size)
+    if (download_size LESS 1000)
+        file(READ ${download_path} download_content LIMIT 500)
+        message(FATAL_ERROR "Downloaded file for ${lib_name} appears invalid (size: ${download_size} bytes).\nURL: ${download_url}\nContent preview: ${download_content}")
+    endif()
+    execute_process(
+        COMMAND ${CMAKE_COMMAND} -E tar xf ${download_path}
+        WORKING_DIRECTORY "${CMAKE_BINARY_DIR}/externals"
+        RESULT_VARIABLE extract_result)
+    if (NOT extract_result EQUAL 0)
+        message(FATAL_ERROR "Failed to extract ${lib_name} archive: ${extract_result}")
+    endif()
 endif()
 message(STATUS "Using bundled binaries at ${prefix}")
 set(${prefix_var} "${prefix}" PARENT_SCOPE)
