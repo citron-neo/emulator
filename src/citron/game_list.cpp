@@ -26,6 +26,7 @@
 #include <QStyle>
 #include <QThreadPool>
 #include <QToolButton>
+#include <QUrlQuery>
 #include <QtConcurrent/QtConcurrent>
 #include <QFutureWatcher>
 #include <fmt/format.h>
@@ -727,11 +728,13 @@ play_time_manager{play_time_manager_}, system{system_} {
 
     online_status_timer = new QTimer(this);
     connect(online_status_timer, &QTimer::timeout, this, &GameList::UpdateOnlineStatus);
-    online_status_timer->start(5000); // Your refresh interval
+    online_status_timer->start(5000);
 
-    // Configure the new timer for debouncing configuration changes
+    // Configure the timer for debouncing configuration changes
     config_update_timer.setSingleShot(true);
     connect(&config_update_timer, &QTimer::timeout, this, &GameList::UpdateOnlineStatus);
+
+    network_manager = new QNetworkAccessManager(this);
 }
 
 void GameList::OnConfigurationChanged() {
@@ -962,6 +965,11 @@ void GameList::DonePopulating(const QStringList& watch_list) {
         LOG_INFO(Frontend, "Mirroring: Startup sync skipped (Reason: UI Busy or Game is Emulating).");
     }
 
+    // Automatically refresh compatibility data from GitHub if enabled
+    if (UISettings::values.show_compat) {
+        RefreshCompatibilityList();
+    }
+
     emit PopulatingCompleted();
 }
 
@@ -976,9 +984,13 @@ void GameList::PopupContextMenu(const QPoint& menu_location) {
     const auto selected = item.sibling(item.row(), 0);
     QMenu context_menu;
     switch (selected.data(GameListItem::TypeRole).value<GameListItemType>()) {
-        case GameListItemType::Game:
-            AddGamePopup(context_menu, selected.data(GameListItemPath::ProgramIdRole).toULongLong(), selected.data(GameListItemPath::FullPathRole).toString().toStdString());
+        case GameListItemType::Game: {
+            const u64 program_id = selected.data(GameListItemPath::ProgramIdRole).toULongLong();
+            const std::string path = selected.data(GameListItemPath::FullPathRole).toString().toStdString();
+            const QString game_name = selected.data(GameListItemPath::TitleRole).toString();
+            AddGamePopup(context_menu, program_id, path, game_name);
             break;
+        }
         case GameListItemType::CustomDir:
             AddPermDirPopup(context_menu, selected);
             AddCustomDirPopup(context_menu, selected);
@@ -1001,7 +1013,7 @@ void GameList::PopupContextMenu(const QPoint& menu_location) {
     }
 }
 
-void GameList::AddGamePopup(QMenu& context_menu, u64 program_id, const std::string& path) {
+void GameList::AddGamePopup(QMenu& context_menu, u64 program_id, const std::string& path, const QString& game_name) {
     QAction* favorite = context_menu.addAction(tr("Favorite"));
     context_menu.addSeparator();
     QAction* start_game = context_menu.addAction(tr("Start Game"));
@@ -1032,6 +1044,7 @@ void GameList::AddGamePopup(QMenu& context_menu, u64 program_id, const std::stri
     QAction* dump_romfs_sdmc = dump_romfs_menu->addAction(tr("Dump RomFS to SDMC"));
     QAction* verify_integrity = context_menu.addAction(tr("Verify Integrity"));
     QAction* copy_tid = context_menu.addAction(tr("Copy Title ID to Clipboard"));
+    QAction* submit_compat_report = context_menu.addAction(tr("Submit Compatibility Report"));
     QAction* navigate_to_gamedb_entry = context_menu.addAction(tr("Navigate to GameDB entry"));
     #if !defined(__APPLE__)
     QMenu* shortcut_menu = context_menu.addMenu(tr("Create Shortcut"));
@@ -1238,6 +1251,34 @@ void GameList::AddGamePopup(QMenu& context_menu, u64 program_id, const std::stri
     connect(dump_romfs_sdmc, &QAction::triggered, [this, program_id, path]() { emit DumpRomFSRequested(program_id, path, DumpRomFSTarget::SDMC); });
     connect(verify_integrity, &QAction::triggered, [this, path]() { emit VerifyIntegrityRequested(path); });
     connect(copy_tid, &QAction::triggered, [this, program_id]() { emit CopyTIDRequested(program_id); });
+
+    // Logic for GitHub Reporting
+    connect(submit_compat_report, &QAction::triggered, [this, program_id, game_name]() {
+        // 1. Show the warning message
+        const auto reply = QMessageBox::question(this, tr("GitHub Account Required"),
+            tr("In order to submit a compatibility report, you must have a GitHub account.\n\n"
+               "If you do not have one, this feature will not work. Would you like to proceed?"),
+            QMessageBox::Yes | QMessageBox::No);
+
+        if (reply != QMessageBox::Yes) {
+            return;
+        }
+
+        // 2. Build the minimal URL
+        const QString clean_tid = QStringLiteral("%1").arg(program_id, 16, 16, QLatin1Char('0')).toUpper();
+        QUrl url(QStringLiteral("https://github.com/CollectingW/Citron-Compatability/issues/new"));
+
+        QUrlQuery query;
+        query.addQueryItem(QStringLiteral("template"), QStringLiteral("compat.yml"));
+        query.addQueryItem(QStringLiteral("title"), game_name);
+        query.addQueryItem(QStringLiteral("title_id"), clean_tid);
+
+        url.setQuery(query);
+
+        // 3. Open the browser
+        QDesktopServices::openUrl(url);
+    });
+
     connect(navigate_to_gamedb_entry, &QAction::triggered, [this, program_id]() { emit NavigateToGamedbEntryRequested(program_id, compatibility_list); });
     #if !defined(__APPLE__)
     connect(create_desktop_shortcut, &QAction::triggered, [this, program_id, path]() { emit CreateShortcut(program_id, path, GameListShortcutTarget::Desktop); });
@@ -1304,37 +1345,57 @@ void GameList::AddFavoritesPopup(QMenu& context_menu) {
 }
 
 void GameList::LoadCompatibilityList() {
-    QFile compat_list{QStringLiteral(":compatibility_list/compatibility_list.json")};
+    // Clear existing entries to allow for a clean refresh
+    compatibility_list.clear();
+
+    // Look for a downloaded list in the config directory first
+    const auto config_dir = QString::fromStdString(Common::FS::GetCitronPathString(Common::FS::CitronPath::ConfigDir));
+    const QString local_path = QDir(config_dir).filePath(QStringLiteral("compatibility_list.json"));
+
+    QFile compat_list;
+    if (QFile::exists(local_path)) {
+        compat_list.setFileName(local_path);
+        LOG_INFO(Frontend, "Loading compatibility list from: {}", local_path.toStdString());
+    } else {
+        // Fallback to the internal baked-in resource
+        compat_list.setFileName(QStringLiteral(":compatibility_list/compatibility_list.json"));
+        LOG_INFO(Frontend, "No local compatibility list found, using internal resource.");
+    }
+
     if (!compat_list.open(QFile::ReadOnly | QFile::Text)) {
         LOG_ERROR(Frontend, "Unable to open game compatibility list");
         return;
     }
-    if (compat_list.size() == 0) {
-        LOG_WARNING(Frontend, "Game compatibility list is empty");
-        return;
-    }
+
     const QByteArray content = compat_list.readAll();
     if (content.isEmpty()) {
-        LOG_ERROR(Frontend, "Unable to completely read game compatibility list");
+        LOG_ERROR(Frontend, "Game compatibility list is empty or unreadable");
         return;
     }
+
     const QJsonDocument json = QJsonDocument::fromJson(content);
     const QJsonArray arr = json.array();
     for (const QJsonValue value : arr) {
         const QJsonObject game = value.toObject();
         const QString compatibility_key = QStringLiteral("compatibility");
-        if (!game.contains(compatibility_key) || !game[compatibility_key].isDouble()) {
-            continue;
-        }
+
+        // Match the legacy parser logic
+        if (!game.contains(compatibility_key)) continue;
+
         const int compatibility = game[compatibility_key].toInt();
         const QString directory = game[QStringLiteral("directory")].toString();
         const QJsonArray ids = game[QStringLiteral("releases")].toArray();
+
         for (const QJsonValue id_ref : ids) {
             const QJsonObject id_object = id_ref.toObject();
             const QString id = id_object[QStringLiteral("id")].toString();
-            compatibility_list.emplace(id.toUpper().toStdString(), std::make_pair(QString::number(compatibility), directory));
+            if (id.isEmpty()) continue;
+
+            compatibility_list.insert_or_assign(id.toUpper().toStdString(),
+                                               std::make_pair(QString::number(compatibility), directory));
         }
     }
+    LOG_INFO(Frontend, "Loaded {} compatibility entries.", compatibility_list.size());
 }
 
 void GameList::changeEvent(QEvent* event) {
@@ -1712,4 +1773,51 @@ void GameList::UpdateProgressBarColor() {
             "QProgressBar::chunk { background-color: %1; }"
         ).arg(accent.name()));
     }
+}
+
+void GameList::RefreshCompatibilityList() {
+    const QUrl url(QStringLiteral("https://raw.githubusercontent.com/CollectingW/Citron-Compatability/refs/heads/main/compatibility_list.json"));
+
+    QNetworkRequest request(url);
+    QNetworkReply* reply = network_manager->get(request);
+
+    connect(reply, &QNetworkReply::finished, this, [this, reply]() {
+        if (reply->error() == QNetworkReply::NoError) {
+            const QByteArray json_data = reply->readAll();
+
+            const auto config_dir = QString::fromStdString(Common::FS::GetCitronPathString(Common::FS::CitronPath::ConfigDir));
+            const QString local_path = QDir(config_dir).filePath(QStringLiteral("compatibility_list.json"));
+
+            QFile file(local_path);
+            if (file.open(QFile::WriteOnly)) {
+                file.write(json_data);
+                file.close();
+                LOG_INFO(Frontend, "Successfully updated compatibility list from GitHub.");
+
+                LoadCompatibilityList();
+
+                // Refresh the UI by replacing the old compatibility items with new ones
+                for (int i = 0; i < item_model->rowCount(); ++i) {
+                    QStandardItem* folder = item_model->item(i, 0);
+                    if (!folder) continue;
+                    for (int j = 0; j < folder->rowCount(); ++j) {
+                        QStandardItem* game_item = folder->child(j, 0);
+                        if (!game_item || game_item->data(GameListItem::TypeRole).value<GameListItemType>() != GameListItemType::Game) {
+                            continue;
+                        }
+
+                        u64 program_id = game_item->data(GameListItemPath::ProgramIdRole).toULongLong();
+                        auto it = FindMatchingCompatibilityEntry(compatibility_list, program_id);
+
+                        if (it != compatibility_list.end()) {
+                            folder->setChild(j, COLUMN_COMPATIBILITY, new GameListItemCompat(it->second.first));
+                        }
+                    }
+                }
+            }
+        } else {
+            LOG_ERROR(Frontend, "Failed to download compatibility list: {}", reply->errorString().toStdString());
+        }
+        reply->deleteLater();
+    });
 }
