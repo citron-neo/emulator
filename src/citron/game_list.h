@@ -23,6 +23,8 @@
 #include <QVBoxLayout>
 #include <QVector>
 #include <QWidget>
+#include <QNetworkAccessManager>
+#include <QNetworkReply>
 
 #include "common/common_types.h"
 #include "core/core.h"
@@ -178,7 +180,7 @@ private:
     void FilterTreeView(const QString& filter_text);
 
     void PopupContextMenu(const QPoint& menu_location);
-    void AddGamePopup(QMenu& context_menu, u64 program_id, const std::string& path);
+    void AddGamePopup(QMenu& context_menu, u64 program_id, const std::string& path, const QString& game_name);
     void AddCustomDirPopup(QMenu& context_menu, QModelIndex selected);
     void AddPermDirPopup(QMenu& context_menu, QModelIndex selected);
     void AddFavoritesPopup(QMenu& context_menu);
@@ -209,6 +211,9 @@ private:
     CompatibilityList compatibility_list;
     QTimer* online_status_timer;
     QTimer config_update_timer;
+
+    QNetworkAccessManager* network_manager = nullptr;
+    void RefreshCompatibilityList();
 
     friend class GameListSearchField;
 
