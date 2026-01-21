@@ -1045,7 +1045,6 @@ void GameList::AddGamePopup(QMenu& context_menu, u64 program_id, const std::stri
     QAction* verify_integrity = context_menu.addAction(tr("Verify Integrity"));
     QAction* copy_tid = context_menu.addAction(tr("Copy Title ID to Clipboard"));
     QAction* submit_compat_report = context_menu.addAction(tr("Submit Compatibility Report"));
-    QAction* navigate_to_gamedb_entry = context_menu.addAction(tr("Navigate to GameDB entry"));
     #if !defined(__APPLE__)
     QMenu* shortcut_menu = context_menu.addMenu(tr("Create Shortcut"));
     QAction* create_desktop_shortcut = shortcut_menu->addAction(tr("Add to Desktop"));
@@ -1071,8 +1070,6 @@ void GameList::AddGamePopup(QMenu& context_menu, u64 program_id, const std::stri
     remove_vk_shader_cache->setVisible(program_id != 0);
     remove_shader_cache->setVisible(program_id != 0);
     remove_all_content->setVisible(program_id != 0);
-    auto it = FindMatchingCompatibilityEntry(compatibility_list, program_id);
-    navigate_to_gamedb_entry->setVisible(it != compatibility_list.end() && program_id != 0);
 
     connect(favorite, &QAction::triggered, [this, program_id]() { ToggleFavorite(program_id); });
     connect(open_save_location, &QAction::triggered, [this, program_id, path]() { emit OpenFolderRequested(program_id, GameListOpenTarget::SaveData, path); });
@@ -1279,7 +1276,6 @@ void GameList::AddGamePopup(QMenu& context_menu, u64 program_id, const std::stri
         QDesktopServices::openUrl(url);
     });
 
-    connect(navigate_to_gamedb_entry, &QAction::triggered, [this, program_id]() { emit NavigateToGamedbEntryRequested(program_id, compatibility_list); });
     #if !defined(__APPLE__)
     connect(create_desktop_shortcut, &QAction::triggered, [this, program_id, path]() { emit CreateShortcut(program_id, path, GameListShortcutTarget::Desktop); });
     connect(create_applications_menu_shortcut, &QAction::triggered, [this, program_id, path]() { emit CreateShortcut(program_id, path, GameListShortcutTarget::Applications); });
