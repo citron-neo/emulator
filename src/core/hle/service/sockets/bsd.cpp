@@ -553,25 +553,10 @@ std::pair<s32, Errno> BSD::SocketImpl(Domain domain, Type type, Protocol protoco
     descriptor.protocol = Translate(protocol);
     descriptor.is_connection_based = IsConnectionBased(type);
 
-    // Try to reuse a socket from the pool if using proxy
     if (using_proxy) {
-        SocketPoolKey key{descriptor.domain, descriptor.type, descriptor.protocol};
-        std::lock_guard lock(socket_pool_mutex);
-
-        auto it = socket_pool.find(key);
-        if (it != socket_pool.end() && !it->second.empty()) {
-            descriptor.socket = it->second.back();
-            it->second.pop_back();
-
-            // call Initialize here so socket_proxy.cpp functions work
-            descriptor.socket->Initialize(descriptor.domain, descriptor.type, descriptor.protocol);
-
-            LOG_DEBUG(Service, "Reused socket from pool for fd={}", fd);
-        } else {
-            descriptor.socket = std::make_shared<Network::ProxySocket>(room_network);
-            descriptor.socket->Initialize(descriptor.domain, descriptor.type, descriptor.protocol);
-            LOG_DEBUG(Service, "Created new ProxySocket for fd={}", fd);
-        }
+        descriptor.socket = std::make_shared<Network::ProxySocket>(room_network);
+        descriptor.socket->Initialize(descriptor.domain, descriptor.type, descriptor.protocol);
+        LOG_DEBUG(Service, "Created new ProxySocket for fd={}", fd);
     } else {
         descriptor.socket = std::make_shared<Network::Socket>();
         descriptor.socket->Initialize(descriptor.domain, descriptor.type, descriptor.protocol);
@@ -1008,38 +993,16 @@ Errno BSD::CloseImpl(s32 fd) {
         return Errno::BADF;
     }
 
-    // Capture the socket pointer and info before we lock and reset the table entry
     std::shared_ptr<Network::SocketBase> socket_to_close;
-    SocketPoolKey key;
-    bool is_proxy = false;
 
     {
         std::lock_guard lock(fd_table_mutex);
-        auto& descriptor = file_descriptors[fd];
-        socket_to_close = descriptor->socket;
-        key = {descriptor->domain, descriptor->type, descriptor->protocol};
-        is_proxy = std::dynamic_pointer_cast<Network::ProxySocket>(socket_to_close) != nullptr;
-
-        // Remove it from the table immediately so OnProxyPacketReceived stops seeing it
+        socket_to_close = file_descriptors[fd]->socket;
         file_descriptors[fd].reset();
     }
 
     const Errno bsd_errno = Translate(socket_to_close->Close());
-    if (bsd_errno != Errno::SUCCESS) {
-        return bsd_errno;
-    }
-
     LOG_INFO(Service, "Close socket fd={}", fd);
-
-    auto room_member = room_network.GetRoomMember().lock();
-    if (is_proxy && room_member && room_member->IsConnected()) {
-        std::lock_guard lock(socket_pool_mutex);
-        constexpr size_t MAX_POOL_SIZE = 8;
-        if (socket_pool[key].size() < MAX_POOL_SIZE) {
-            socket_pool[key].push_back(socket_to_close);
-            LOG_DEBUG(Service, "Returned socket fd={} to pool", fd);
-        }
-    }
 
     return bsd_errno;
 }
