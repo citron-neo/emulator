@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: Copyright 2022 yuzu Emulator Project
+// SPDX-FileCopyrightText: Copyright 2026 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #pragma once
@@ -112,7 +113,7 @@ protected:
     static constexpr Ssid fake_ssid{"CitronFakeSsidForLdn"};
 
     bool inited{};
-    std::mutex packet_mutex;
+    mutable std::mutex packet_mutex;
     std::array<LanStation, StationCountMax> stations;
     std::array<NodeLatestUpdate, NodeCountMax> node_changes{};
     std::array<u8, NodeCountMax> node_last_states{};

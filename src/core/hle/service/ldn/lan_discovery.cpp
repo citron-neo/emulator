@@ -77,16 +77,17 @@ void LANDiscovery::SetState(State new_state) {
 }
 
 Result LANDiscovery::GetNetworkInfo(NetworkInfo& out_network) const {
+    std::scoped_lock lock{packet_mutex};
     if (state == State::AccessPointCreated || state == State::StationConnected) {
         std::memcpy(&out_network, &network_info, sizeof(network_info));
         return ResultSuccess;
     }
-
     return ResultBadState;
 }
 
 Result LANDiscovery::GetNetworkInfo(NetworkInfo& out_network,
                                     std::span<NodeLatestUpdate> out_updates) {
+    std::scoped_lock lock{packet_mutex};
     if (out_updates.size() > NodeCountMax) {
         return ResultInvalidBufferCount;
     }
@@ -376,7 +377,9 @@ void LANDiscovery::UpdateNodes() {
         }
         station.OverrideInfo();
     }
-    network_info.ldn.node_count = count + 1;
+
+    // Node Count Guard: Ensure we always report at least 1 node
+    network_info.ldn.node_count = std::max<u8>(1, count + 1);
 
     for (auto local_ip : connected_clients) {
         SendPacket(Network::LDNPacketType::SyncNetwork, network_info, local_ip);
@@ -387,6 +390,7 @@ void LANDiscovery::UpdateNodes() {
 
 void LANDiscovery::OnSyncNetwork(const NetworkInfo& info) {
     network_info = info;
+
     if (state == State::StationOpened) {
         SetState(State::StationConnected);
     }
@@ -567,10 +571,20 @@ void LANDiscovery::ReceivePacket(const Network::LDNPacket& packet) {
     }
     case Network::LDNPacketType::SyncNetwork: {
         if (state == State::StationOpened || state == State::StationConnected) {
-            LOG_INFO(Frontend, "SyncNetwork packet received!");
+            if (packet.data.size() < sizeof(NetworkInfo)) {
+                break;
+            }
+
             NetworkInfo info{};
             std::memcpy(&info, packet.data.data(), sizeof(NetworkInfo));
 
+            if (state == State::StationConnected) {
+                if (std::memcmp(&info.network_id.session_id, &network_info.network_id.session_id, sizeof(SessionId)) != 0) {
+                    break;
+                }
+            }
+
+            LOG_INFO(Frontend, "SyncNetwork packet received!");
             OnSyncNetwork(info);
         } else {
             LOG_INFO(Frontend, "SyncNetwork packet received but in wrong State!");

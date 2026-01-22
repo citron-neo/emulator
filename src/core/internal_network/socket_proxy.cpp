@@ -34,14 +34,13 @@ void ProxySocket::HandleProxyPacket(const ProxyPacket& packet) {
 
     const auto my_ip = room_member->GetFakeIpAddress();
 
-    // If the sender (local_endpoint) is OUR IP, ignore it.
-    // We don't want to process our own sent packets.
+    // 1. Ignore our own echo
     if (packet.local_endpoint.ip == my_ip) {
         return;
     }
 
-    // Only accept packets meant for us or actual broadcasts.
-    if (packet.remote_endpoint.ip != my_ip && !packet.broadcast) {
+    // 2. Ignore packets meant for other people
+    if (!packet.broadcast && packet.remote_endpoint.ip != my_ip) {
         return;
     }
 
@@ -173,7 +172,7 @@ std::pair<s32, Errno> ProxySocket::RecvFrom(int flags, std::span<u8> message, So
             return {-1, Errno::AGAIN};
         }
 
-        std::this_thread::yield();
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
 
         const auto time_diff = std::chrono::steady_clock::now() - timestamp;
         const auto time_diff_ms =
