@@ -2426,13 +2426,38 @@ void GMainWindow::OnGameListOpenFolder(u64 program_id, GameListOpenTarget target
     case GameListOpenTarget::SaveData: {
         open_target = tr("Save Data");
 
-        if (Settings::values.custom_save_paths.count(program_id)) {
+        // 1. Check for Mirrored Path FIRST (opens the external directory)
+        if (Settings::values.mirrored_save_paths.count(program_id)) {
+            const std::string& mirrored_path_str =
+                Settings::values.mirrored_save_paths.at(program_id);
+            if (!mirrored_path_str.empty() && Common::FS::IsDir(mirrored_path_str)) {
+                LOG_INFO(Frontend, "Opening mirrored save data path for program_id={:016x}",
+                         program_id);
+                QDesktopServices::openUrl(
+                    QUrl::fromLocalFile(QString::fromStdString(mirrored_path_str)));
+                return;
+            }
+        }
+        // 2. Check for Per-Game Custom Path
+        else if (Settings::values.custom_save_paths.count(program_id)) {
             const std::string& custom_path_str = Settings::values.custom_save_paths.at(program_id);
-            const std::filesystem::path custom_path = custom_path_str;
-
-            if (!custom_path_str.empty() && Common::FS::IsDir(custom_path)) {
-                LOG_INFO(Frontend, "Opening custom save data path for program_id={:016x}", program_id);
-                QDesktopServices::openUrl(QUrl::fromLocalFile(QString::fromStdString(custom_path_str)));
+            if (!custom_path_str.empty() && Common::FS::IsDir(custom_path_str)) {
+                LOG_INFO(Frontend, "Opening custom save data path for program_id={:016x}",
+                         program_id);
+                QDesktopServices::openUrl(
+                    QUrl::fromLocalFile(QString::fromStdString(custom_path_str)));
+                return;
+            }
+        }
+        // 3. Check for Global Custom Save Path
+        else if (Settings::values.global_custom_save_path_enabled.GetValue()) {
+            const std::string& global_path_str =
+                Settings::values.global_custom_save_path.GetValue();
+            if (!global_path_str.empty() && Common::FS::IsDir(global_path_str)) {
+                LOG_INFO(Frontend, "Opening global custom save data path for program_id={:016x}",
+                         program_id);
+                QDesktopServices::openUrl(
+                    QUrl::fromLocalFile(QString::fromStdString(global_path_str)));
                 return;
             }
         }
