@@ -73,6 +73,7 @@ private:
     void SendModerationRequest(Network::RoomMessageTypes type, const std::string& nickname);
     QColor GetPlayerColor(const std::string& nickname, int index) const;
     void HighlightPlayer(const std::string& nickname);
+    std::string SanitizeMessage(const std::string& message);
 
     QPushButton* send_message = nullptr;
     static constexpr u32 max_chat_lines = 1000;
