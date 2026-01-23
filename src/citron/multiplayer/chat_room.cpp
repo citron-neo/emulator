@@ -4,6 +4,10 @@
 
 #include <array>
 #include <future>
+#include <regex>
+#include <string>
+#include <algorithm>
+#include <map>
 #include <QColor>
 #include <QColorDialog>
 #include <QDesktopServices>
@@ -378,6 +382,59 @@ bool ChatRoom::ValidateMessage(const std::string& msg) {
     return !msg.empty();
 }
 
+std::string ChatRoom::SanitizeMessage(const std::string& message) {
+    std::string sanitized_message = message;
+
+    // Cyrillic 'o' -> Latin 'o'
+    for (size_t pos = 0; (pos = sanitized_message.find("о", pos)) != std::string::npos; ) {
+        sanitized_message.replace(pos, 2, "o"); // Cyrillic 'o' is 2 bytes in UTF-8
+    }
+    // Cyrillic 'а' -> Latin 'a'
+    for (size_t pos = 0; (pos = sanitized_message.find("а", pos)) != std::string::npos; ) {
+        sanitized_message.replace(pos, 2, "a"); // Cyrillic 'a' is 2 bytes
+    }
+    // Cyrillic 'е' -> Latin 'e'
+    for (size_t pos = 0; (pos = sanitized_message.find("е", pos)) != std::string::npos; ) {
+        sanitized_message.replace(pos, 2, "e");
+    }
+    // Cyrillic 'с' -> Latin 'c'
+    for (size_t pos = 0; (pos = sanitized_message.find("с", pos)) != std::string::npos; ) {
+        sanitized_message.replace(pos, 2, "c");
+    }
+     // Cyrillic 'і' -> Latin 'i'
+    for (size_t pos = 0; (pos = sanitized_message.find("і", pos)) != std::string::npos; ) {
+        sanitized_message.replace(pos, 2, "i");
+    }
+
+    // Normalize the string for detection (using the homoglyph-cleaned string).
+    std::string normalized_message = sanitized_message;
+
+    // Remove all spaces
+    normalized_message.erase(
+        std::remove_if(normalized_message.begin(), normalized_message.end(), ::isspace),
+        normalized_message.end());
+    // Convert to lowercase
+    std::transform(normalized_message.begin(), normalized_message.end(),
+                   normalized_message.begin(), ::tolower);
+    // Replace common obfuscation words
+    normalized_message = std::regex_replace(normalized_message, std::regex("dot|\\(dot\\)|, A T,"), ".");
+    normalized_message = std::regex_replace(normalized_message, std::regex("slash|\\(slash\\)"), "/");
+    normalized_message = std::regex_replace(normalized_message, std::regex("colon|\\(colon\\)"), ":");
+
+    // Define a regex to detect various URL patterns on the fully normalized string.
+    static const std::regex url_regex(
+        R"((?:(?:(?:https?|ftp):\/\/)|www\.|[a-zA-Z0-9-]{1,63}\.(?:com|org|net|gg|dev|io|info|biz|us|ca|uk|de|jp|fr|au|ru|ch|it|nl|se|no|es|mil|edu|gov|ai))\b(?:[-a-zA-Z0-9()@:%_\+.~#?&\/\/=]*))",
+        std::regex_constants::icase);
+
+    // If a link is found in the normalized version, block the entire message.
+    if (std::regex_search(normalized_message, url_regex)) {
+        return "***";
+    }
+
+    // If no link is found, return the original, untouched message.
+    return message;
+}
+
 void ChatRoom::OnRoomUpdate(const Network::RoomInformation& info) {
     if (auto room_member = room_network->GetRoomMember().lock()) {
         SetPlayerList(room_member->GetMemberInformation());
@@ -395,40 +452,44 @@ void ChatRoom::Enable() {
 }
 
 void ChatRoom::OnChatReceive(const Network::ChatEntry& chat) {
-    if (!ValidateMessage(chat.message)) {
+    Network::ChatEntry sanitized_chat = chat;
+    sanitized_chat.message = SanitizeMessage(chat.message);
+
+    if (!ValidateMessage(sanitized_chat.message)) {
         return;
     }
+
     if (auto room = room_network->GetRoomMember().lock()) {
         auto members = room->GetMemberInformation();
         auto it = std::find_if(members.begin(), members.end(),
-                               [&chat](const Network::RoomMember::MemberInformation& member) {
-                                   return member.nickname == chat.nickname &&
-                                          member.username == chat.username;
+                               [&sanitized_chat](const Network::RoomMember::MemberInformation& member) {
+                                   return member.nickname == sanitized_chat.nickname &&
+                                          member.username == sanitized_chat.username;
                                });
         if (it == members.end()) {
             LOG_INFO(Network, "Chat message received from unknown player. Ignoring it.");
             return;
         }
-        if (block_list.count(chat.nickname)) {
+        if (block_list.count(sanitized_chat.nickname)) {
             LOG_INFO(Network, "Chat message received from blocked player {}. Ignoring it.",
-                     chat.nickname);
+                     sanitized_chat.nickname);
             return;
         }
         auto player = std::distance(members.begin(), it);
-        ChatMessage m(chat, *room_network);
+        ChatMessage m(sanitized_chat, *room_network);
         if (m.ContainsPing()) {
             emit UserPinged();
         }
 
         std::string override_color = "";
-        if (color_overrides.count(chat.nickname)) {
-            override_color = color_overrides[chat.nickname];
+        if (color_overrides.count(sanitized_chat.nickname)) {
+            override_color = color_overrides[sanitized_chat.nickname];
         }
 
         AppendChatMessage(m.GetPlayerChatMessage(static_cast<u16>(player), show_timestamps, override_color));
 
         // Trigger the 15-second border highlight for the person who just spoke
-        HighlightPlayer(chat.nickname);
+        HighlightPlayer(sanitized_chat.nickname);
     }
 }
 
@@ -481,10 +542,12 @@ void ChatRoom::OnSendChat() {
             return;
         }
 
-        auto message = ui->chat_message->text().toStdString();
+        std::string message = SanitizeMessage(ui->chat_message->text().toStdString());
+
         if (!ValidateMessage(message)) {
             return;
         }
+
         auto nick = room_member->GetNickname();
         auto username = room_member->GetUsername();
         Network::ChatEntry chat{nick, username, message};
