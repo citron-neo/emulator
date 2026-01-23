@@ -422,15 +422,30 @@ std::shared_ptr<FileSys::SaveDataFactory> FileSystemController::CreateSaveDataFa
     const auto rw_mode = FileSys::OpenMode::ReadWrite;
     auto vfs = system.GetFilesystem();
 
+    // 1. Priority 1: Mirrored Path Override (Forces NAND)
+    if (Settings::values.mirrored_save_paths.count(program_id)) {
+        LOG_INFO(Service_FS,
+                 "Save Path: Mirroring detected for Program ID {:016X}. Forcing use of NAND "
+                 "directory for syncing.",
+                 program_id);
+        const auto nand_directory =
+            vfs->OpenDirectory(Common::FS::GetCitronPathString(CitronPath::NANDDir), rw_mode);
+        return std::make_shared<FileSys::SaveDataFactory>(system, program_id,
+                                                      std::move(nand_directory));
+    }
+
     std::string custom_path_str;
 
-    // 1. Priority 1: Global Override
-    if (Settings::values.global_custom_save_path_enabled.GetValue()) {
-        custom_path_str = Settings::values.global_custom_save_path.GetValue();
-    }
     // 2. Priority 2: Individual Game Override
-    else if (Settings::values.custom_save_paths.count(program_id)) {
+    if (Settings::values.custom_save_paths.count(program_id)) {
         custom_path_str = Settings::values.custom_save_paths.at(program_id);
+        LOG_INFO(Service_FS, "Save Path: Using Per-Game Custom Path for Program ID {:016X}: {}",
+                 program_id, custom_path_str);
+    }
+    // 3. Priority 3: Global Override
+    else if (Settings::values.global_custom_save_path_enabled.GetValue()) {
+        custom_path_str = Settings::values.global_custom_save_path.GetValue();
+        LOG_INFO(Service_FS, "Save Path: Using Global Custom Save Path: {}", custom_path_str);
     }
 
     // If any custom logic is hit, use that path but KEEP NAND as backup target
@@ -438,17 +453,21 @@ std::shared_ptr<FileSys::SaveDataFactory> FileSystemController::CreateSaveDataFa
         const std::filesystem::path custom_path = custom_path_str;
         if (Common::FS::IsDir(custom_path)) {
             auto custom_save_directory = vfs->OpenDirectory(custom_path_str, rw_mode);
-            auto nand_directory = vfs->OpenDirectory(Common::FS::GetCitronPathString(CitronPath::NANDDir), rw_mode);
+            auto nand_directory =
+                vfs->OpenDirectory(Common::FS::GetCitronPathString(CitronPath::NANDDir), rw_mode);
 
             return std::make_shared<FileSys::SaveDataFactory>(
                 system, program_id, std::move(custom_save_directory), std::move(nand_directory));
         }
     }
 
-    // 3. Fallback: Standard NAND
-    const auto nand_directory = vfs->OpenDirectory(Common::FS::GetCitronPathString(CitronPath::NANDDir), rw_mode);
-    return std::make_shared<FileSys::SaveDataFactory>(system, program_id, std::move(nand_directory));
-    }
+    // 4. Fallback: Standard NAND
+    LOG_INFO(Service_FS, "Save Path: No custom paths found. Falling back to default NAND.");
+    const auto nand_directory =
+        vfs->OpenDirectory(Common::FS::GetCitronPathString(CitronPath::NANDDir), rw_mode);
+    return std::make_shared<FileSys::SaveDataFactory>(system, program_id,
+                                                      std::move(nand_directory));
+}
 
 Result FileSystemController::OpenSDMC(FileSys::VirtualDir* out_sdmc) const {
     LOG_TRACE(Service_FS, "Opening SDMC");
