@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: Copyright 2023 yuzu Emulator Project
+// SPDX-FileCopyrightText: Copyright 2026 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #pragma once
@@ -34,6 +35,7 @@ public:
     virtual ~SSLConnectionBackend() {}
     virtual void SetSocket(std::shared_ptr<Network::SocketBase> socket) = 0;
     virtual Result SetHostName(const std::string& hostname) = 0;
+    virtual Result SetVerifyOption(u32 verify_option) = 0;
     virtual Result DoHandshake() = 0;
     virtual Result Read(size_t* out_size, std::span<u8> data) = 0;
     virtual Result Write(size_t* out_size, std::span<const u8> data) = 0;

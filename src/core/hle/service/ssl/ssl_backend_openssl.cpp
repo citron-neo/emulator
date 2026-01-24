@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: Copyright 2023 yuzu Emulator Project
+// SPDX-FileCopyrightText: Copyright 2026 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <mutex>
@@ -88,15 +89,43 @@ public:
         return ResultSuccess;
     }
 
+    Result SetVerifyOption(u32 verify_option) override {
+        // verify_option is a bitfield:
+        // Bit 0: PeerCa - verify peer certificate
+        // Bit 1: HostName - verify hostname matches certificate
+        // Bit 2: DateCheck - verify certificate date
+        // Bit 3: EvPolicyOid - verify EV policy OID
+        // Bit 4: ChainSignature - verify chain signatures
+        // Bit 5 and above: Reserved
+        // When verify_option is 0, skip all verification
+        skip_cert_verification = (verify_option == 0);
+        LOG_DEBUG(Service_SSL, "SetVerifyOption: option={}, skip_verification={}", verify_option,
+                  skip_cert_verification);
+
+        if (skip_cert_verification) {
+            // Disable certificate verification
+            SSL_set_verify(ssl, SSL_VERIFY_NONE, nullptr);
+        } else {
+            // Enable certificate verification
+            SSL_set_verify(ssl, SSL_VERIFY_PEER, nullptr);
+        }
+        return ResultSuccess;
+    }
+
     Result DoHandshake() override {
         SSL_set_verify_result(ssl, X509_V_OK);
         const int ret = SSL_do_handshake(ssl);
-        const long verify_result = SSL_get_verify_result(ssl);
-        if (verify_result != X509_V_OK) {
-            LOG_ERROR(Service_SSL, "SSL cert verification failed because: {}",
-                      X509_verify_cert_error_string(verify_result));
-            return CheckOpenSSLErrors();
+
+        // Only check verification result if verification is enabled
+        if (!skip_cert_verification) {
+            const long verify_result = SSL_get_verify_result(ssl);
+            if (verify_result != X509_V_OK) {
+                LOG_ERROR(Service_SSL, "SSL cert verification failed because: {}",
+                          X509_verify_cert_error_string(verify_result));
+                return CheckOpenSSLErrors();
+            }
         }
+
         if (ret <= 0) {
             const int ssl_err = SSL_get_error(ssl, ret);
             if (ssl_err == SSL_ERROR_ZERO_RETURN ||
@@ -247,6 +276,7 @@ public:
     SSL* ssl = nullptr;
     BIO* bio = nullptr;
     bool got_read_eof = false;
+    bool skip_cert_verification = false;
 
     std::shared_ptr<Network::SocketBase> socket;
 };

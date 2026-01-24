@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: Copyright 2023 yuzu Emulator Project
+// SPDX-FileCopyrightText: Copyright 2026 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <mutex>
@@ -83,6 +84,18 @@ public:
 
     Result SetHostName(const std::string& hostname_in) override {
         hostname = hostname_in;
+        return ResultSuccess;
+    }
+
+    Result SetVerifyOption(u32 verify_option) override {
+        // verify_option is a bitfield:
+        // Bit 0: PeerCa - verify peer certificate
+        // Bit 1: HostName - verify hostname matches certificate
+        // Bit 2: DateCheck - verify certificate date
+        // When verify_option is 0, skip all verification
+        skip_cert_verification = (verify_option == 0);
+        LOG_DEBUG(Service_SSL, "SetVerifyOption: option={}, skip_verification={}", verify_option,
+                  skip_cert_verification);
         return ResultSuccess;
     }
 
@@ -172,10 +185,16 @@ public:
     }
 
     Result CallInitializeSecurityContext() {
-        const unsigned long req = ISC_REQ_ALLOCATE_MEMORY | ISC_REQ_CONFIDENTIALITY |
-                                  ISC_REQ_INTEGRITY | ISC_REQ_REPLAY_DETECT |
-                                  ISC_REQ_SEQUENCE_DETECT | ISC_REQ_STREAM |
-                                  ISC_REQ_USE_SUPPLIED_CREDS;
+        unsigned long req = ISC_REQ_ALLOCATE_MEMORY | ISC_REQ_CONFIDENTIALITY |
+                            ISC_REQ_INTEGRITY | ISC_REQ_REPLAY_DETECT |
+                            ISC_REQ_SEQUENCE_DETECT | ISC_REQ_STREAM |
+                            ISC_REQ_USE_SUPPLIED_CREDS;
+
+        // When certificate verification is disabled, use manual credential validation
+        // This allows the handshake to succeed even with invalid/self-signed certificates
+        if (skip_cert_verification) {
+            req |= ISC_REQ_MANUAL_CRED_VALIDATION;
+        }
         unsigned long attr;
         // https://learn.microsoft.com/en-us/windows/win32/secauthn/initializesecuritycontext--schannel
         std::array<SecBuffer, 2> input_buffers{{
@@ -533,6 +552,7 @@ public:
     std::vector<u8> cleartext_write_buf;
 
     bool got_read_eof = false;
+    bool skip_cert_verification = false;
     size_t read_buf_fill_size = 0;
 };
 

@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: Copyright 2023 yuzu Emulator Project
+// SPDX-FileCopyrightText: Copyright 2026 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <mutex>
@@ -98,8 +99,38 @@ public:
         return ResultSuccess;
     }
 
+    Result SetVerifyOption(u32 verify_option) override {
+        // verify_option is a bitfield:
+        // Bit 0: PeerCa - verify peer certificate
+        // Bit 1: HostName - verify hostname matches certificate
+        // Bit 2: DateCheck - verify certificate date
+        // When verify_option is 0, skip all verification
+        skip_cert_verification = (verify_option == 0);
+        LOG_DEBUG(Service_SSL, "SetVerifyOption: option={}, skip_verification={}", verify_option,
+                  skip_cert_verification);
+
+        if (skip_cert_verification) {
+            // Break on server auth to allow us to bypass certificate verification
+            OSStatus status = SSLSetSessionOption(context, kSSLSessionOptionBreakOnServerAuth, true);
+            if (status) {
+                LOG_ERROR(Service_SSL, "SSLSetSessionOption(kSSLSessionOptionBreakOnServerAuth) failed: {}",
+                          OSStatusToString(status));
+                return ResultInternalError;
+            }
+        }
+        return ResultSuccess;
+    }
+
     Result DoHandshake() override {
         OSStatus status = SSLHandshake(context);
+
+        // If we're skipping verification and got errSSLServerAuthCompleted,
+        // continue the handshake without verifying the certificate
+        if (skip_cert_verification && status == errSSLServerAuthCompleted) {
+            LOG_DEBUG(Service_SSL, "Skipping certificate verification as requested");
+            status = SSLHandshake(context);
+        }
+
         return HandleReturn("SSLHandshake", 0, status);
     }
 
@@ -201,6 +232,7 @@ public:
 private:
     CFReleaser<SSLContextRef> context = nullptr;
     bool got_read_eof = false;
+    bool skip_cert_verification = false;
 
     std::shared_ptr<Network::SocketBase> socket;
 };

@@ -146,6 +146,7 @@ private:
     bool get_server_cert_chain = false;
     std::shared_ptr<Network::SocketBase> socket;
     bool did_handshake = false;
+    u32 verify_option = 0;
 
     Result SetSocketDescriptorImpl(s32* out_fd, s32 fd) {
         LOG_DEBUG(Service_SSL, "called, fd={}", fd);
@@ -184,8 +185,9 @@ private:
 
     Result SetVerifyOptionImpl(u32 option) {
         ASSERT(!did_handshake);
-        LOG_WARNING(Service_SSL, "(STUBBED) called. option={}", option);
-        return ResultSuccess;
+        LOG_DEBUG(Service_SSL, "called. option={}", option);
+        verify_option = option;
+        return backend->SetVerifyOption(option);
     }
 
     Result SetIoModeImpl(u32 input_mode) {
@@ -387,11 +389,11 @@ private:
     }
 
     void GetVerifyOption(HLERequestContext& ctx) {
-        LOG_WARNING(Service_SSL, "(STUBBED) called");
+        LOG_DEBUG(Service_SSL, "called, returning verify_option={}", verify_option);
 
         IPC::ResponseBuilder rb{ctx, 3};
         rb.Push(ResultSuccess);
-        rb.Push<u32>(0); // Stub: return default verify option
+        rb.Push<u32>(verify_option);
     }
 
     void GetIoMode(HLERequestContext& ctx) {

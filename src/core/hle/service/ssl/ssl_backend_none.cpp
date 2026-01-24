@@ -22,6 +22,11 @@ public:
         return ResultSuccess;
     }
 
+    Result SetVerifyOption(u32 verify_option) override {
+        LOG_WARNING(Service_SSL, "(STUBBED) SetVerifyOption option={}", verify_option);
+        return ResultSuccess;
+    }
+
     Result DoHandshake() override {
         LOG_WARNING(Service_SSL, "(STUBBED) Pretending to do TLS handshake");
         return ResultSuccess;
