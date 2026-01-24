@@ -118,6 +118,8 @@ public:
     void RefreshGameList();
     GRenderWindow* GetRenderWindow() const { return render_window; }
     bool ExtractZipToDirectoryPublic(const std::filesystem::path& zip_path, const std::filesystem::path& extract_path);
+    [[nodiscard]] bool HasPerformedInitialSync() const { return has_performed_initial_sync; }
+    void SetPerformedInitialSync(bool synced) { has_performed_initial_sync = synced; }
 signals:
     void EmulationStarting(EmuThread* emu_thread);
     void EmulationStopping();
@@ -403,6 +405,7 @@ private:
     bool is_tas_recording_dialog_active{};
     bool m_is_updating_theme = false;
     bool m_is_configuring = false;
+    bool has_performed_initial_sync = false;
     #ifdef __unix__
     QSocketNotifier* sig_interrupt_notifier;
     static std::array<int, 3> sig_interrupt_fds;
