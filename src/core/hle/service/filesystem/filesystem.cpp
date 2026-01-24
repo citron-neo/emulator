@@ -422,51 +422,51 @@ std::shared_ptr<FileSys::SaveDataFactory> FileSystemController::CreateSaveDataFa
     const auto rw_mode = FileSys::OpenMode::ReadWrite;
     auto vfs = system.GetFilesystem();
 
-    // 1. Priority 1: Mirrored Path Override (Forces NAND)
+    // 1. Determine the correct BASE directory FIRST.
+    // The base directory is either the Global Custom Save Path or the default NAND.
+    std::string base_save_path_str;
+    if (Settings::values.global_custom_save_path_enabled.GetValue() &&
+        !Settings::values.global_custom_save_path.GetValue().empty()) {
+
+        base_save_path_str = Settings::values.global_custom_save_path.GetValue();
+        LOG_INFO(Service_FS, "Save Path: Using Global Custom Save Path as the base: {}", base_save_path_str);
+    } else {
+        base_save_path_str = Common::FS::GetCitronPathString(CitronPath::NANDDir);
+        LOG_INFO(Service_FS, "Save Path: Using default NAND as the base.");
+    }
+
+    auto base_directory = vfs->OpenDirectory(base_save_path_str, rw_mode);
+
+    // 2. Check for Mirroring.
     if (Settings::values.mirrored_save_paths.count(program_id)) {
         LOG_INFO(Service_FS,
-                 "Save Path: Mirroring detected for Program ID {:016X}. Forcing use of NAND "
-                 "directory for syncing.",
+                 "Save Path: Mirroring detected for Program ID {:016X}. Syncing against the determined base directory.",
                  program_id);
-        const auto nand_directory =
-            vfs->OpenDirectory(Common::FS::GetCitronPathString(CitronPath::NANDDir), rw_mode);
         return std::make_shared<FileSys::SaveDataFactory>(system, program_id,
-                                                      std::move(nand_directory));
+                                                      std::move(base_directory));
     }
 
-    std::string custom_path_str;
-
-    // 2. Priority 2: Individual Game Override
+    // 3. Check for Per-Game Custom Path override.
     if (Settings::values.custom_save_paths.count(program_id)) {
-        custom_path_str = Settings::values.custom_save_paths.at(program_id);
+        const std::string custom_path_str = Settings::values.custom_save_paths.at(program_id);
         LOG_INFO(Service_FS, "Save Path: Using Per-Game Custom Path for Program ID {:016X}: {}",
                  program_id, custom_path_str);
-    }
-    // 3. Priority 3: Global Override
-    else if (Settings::values.global_custom_save_path_enabled.GetValue()) {
-        custom_path_str = Settings::values.global_custom_save_path.GetValue();
-        LOG_INFO(Service_FS, "Save Path: Using Global Custom Save Path: {}", custom_path_str);
-    }
 
-    // If any custom logic is hit, use that path but KEEP NAND as backup target
-    if (!custom_path_str.empty()) {
         const std::filesystem::path custom_path = custom_path_str;
         if (Common::FS::IsDir(custom_path)) {
             auto custom_save_directory = vfs->OpenDirectory(custom_path_str, rw_mode);
-            auto nand_directory =
-                vfs->OpenDirectory(Common::FS::GetCitronPathString(CitronPath::NANDDir), rw_mode);
 
+            // The base_directory (Global Path or NAND) is now correctly passed as the backup.
             return std::make_shared<FileSys::SaveDataFactory>(
-                system, program_id, std::move(custom_save_directory), std::move(nand_directory));
+                system, program_id, std::move(custom_save_directory), std::move(base_directory));
         }
     }
 
-    // 4. Fallback: Standard NAND
-    LOG_INFO(Service_FS, "Save Path: No custom paths found. Falling back to default NAND.");
-    const auto nand_directory =
-        vfs->OpenDirectory(Common::FS::GetCitronPathString(CitronPath::NANDDir), rw_mode);
+    // 4. Fallback: If no mirroring and no per-game path, use the determined base directory.
+    LOG_INFO(Service_FS, "Save Path: No overrides found. Using the determined base directory.");
     return std::make_shared<FileSys::SaveDataFactory>(system, program_id,
-                                                      std::move(nand_directory));
+                                                      std::move(base_directory));
+
 }
 
 Result FileSystemController::OpenSDMC(FileSys::VirtualDir* out_sdmc) const {
