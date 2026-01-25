@@ -364,3 +364,9 @@ void SetConfiguringGlobal(bool is_global) {
 }
 
 } // namespace Settings
+
+#include "common/settings_setting.h"
+#include "common/settings_enums.h"
+
+// generate the vtable for the linker
+template class Settings::SwitchableSetting<Settings::GCAggressiveness, true>;
