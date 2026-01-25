@@ -70,40 +70,11 @@ vk::Buffer CreateBuffer(const Device& device, const MemoryAllocator& memory_allo
         flags |= VK_BUFFER_USAGE_CONDITIONAL_RENDERING_BIT_EXT;
     }
 
-    // Optimize buffer size based on VRAM usage mode
-    u64 optimized_size = size;
-    const auto vram_mode = Settings::values.vram_usage_mode.GetValue();
-
-    if (vram_mode == Settings::VramUsageMode::HighEnd) {
-        // High-End GPU mode: Use larger buffer chunks for high-end GPUs to reduce allocation overhead
-        // but still keep them reasonable to avoid excessive VRAM usage
-        if (size > 64_MiB && size < 512_MiB) {
-            // Round up to next 64MB boundary for large buffers
-            optimized_size = Common::AlignUp(size, 64_MiB);
-        } else if (size > 4_MiB && size <= 64_MiB) {
-            // Round up to next 8MB boundary for medium buffers
-            optimized_size = Common::AlignUp(size, 8_MiB);
-        }
-    } else if (vram_mode == Settings::VramUsageMode::Insane) {
-        // Insane mode: Use massive buffer chunks for RTX 4090 to minimize allocation overhead
-        // and maximize performance for shader compilation and caching
-        if (size > 128_MiB && size < 1024_MiB) {
-            // Round up to next 128MB boundary for very large buffers
-            optimized_size = Common::AlignUp(size, 128_MiB);
-        } else if (size > 16_MiB && size <= 128_MiB) {
-            // Round up to next 32MB boundary for large buffers
-            optimized_size = Common::AlignUp(size, 32_MiB);
-        } else if (size > 1_MiB && size <= 16_MiB) {
-            // Round up to next 4MB boundary for medium buffers
-            optimized_size = Common::AlignUp(size, 4_MiB);
-        }
-    }
-
     const VkBufferCreateInfo buffer_ci = {
         .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
         .pNext = nullptr,
         .flags = 0,
-        .size = optimized_size,
+        .size = size,
         .usage = flags,
         .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
         .queueFamilyIndexCount = 0,
@@ -115,31 +86,8 @@ vk::Buffer CreateBuffer(const Device& device, const MemoryAllocator& memory_allo
 } // Anonymous namespace
 
 void BufferCacheRuntime::CleanupUnusedBuffers() {
-    // Aggressive cleanup for Insane mode to prevent VRAM leaks
-    const auto vram_mode = Settings::values.vram_usage_mode.GetValue();
-    if (vram_mode == Settings::VramUsageMode::Insane) {
-        // For Insane mode, periodically clean up unused large buffers to prevent memory leaks
-        static u32 cleanup_counter = 0;
-        static u64 last_buffer_memory = 0;
-        cleanup_counter++;
-
-        // Monitor buffer memory usage to detect potential leaks
-        if (cleanup_counter % 120 == 0) {
-            const u64 current_buffer_memory = GetDeviceMemoryUsage();
-
-            // Check for buffer memory leak (usage increasing without corresponding game activity)
-            if (current_buffer_memory > last_buffer_memory + 50_MiB) {
-                LOG_WARNING(Render_Vulkan, "Potential buffer memory leak detected! Usage increased by {} MB",
-                           (current_buffer_memory - last_buffer_memory) / (1024 * 1024));
-
-                // Force cleanup of any cached buffers that might be accumulating
-                LOG_INFO(Render_Vulkan, "Performed aggressive buffer cleanup (Insane mode)");
-            }
-
-            last_buffer_memory = current_buffer_memory;
-            LOG_DEBUG(Render_Vulkan, "Buffer memory usage: {} MB (Insane mode)", current_buffer_memory / (1024 * 1024));
-        }
-    }
+    // Cleanup is now handled by the VRAM management system (gc_aggressiveness setting)
+    // This function is kept for compatibility but no longer performs mode-specific cleanup
 }
 
 Buffer::Buffer(BufferCacheRuntime& runtime, VideoCommon::NullBufferParams null_params)

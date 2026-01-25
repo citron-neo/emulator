@@ -406,8 +406,6 @@ inline u32 EnumMetadata<VSyncMode>::Index() {
 enum class VramUsageMode : u32 {
     Conservative = 0,
     Aggressive = 1,
-    HighEnd = 2,
-    Insane = 3,
 };
 
 template <>
@@ -416,8 +414,6 @@ EnumMetadata<VramUsageMode>::Canonicalizations() {
     return {
         {"Conservative", VramUsageMode::Conservative},
         {"Aggressive", VramUsageMode::Aggressive},
-        {"HighEnd", VramUsageMode::HighEnd},
-        {"Insane", VramUsageMode::Insane},
     };
 }
 

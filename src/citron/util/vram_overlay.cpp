@@ -162,8 +162,6 @@ void VramOverlay::DrawVramInfo(QPainter& painter) {
     switch (Settings::values.vram_usage_mode.GetValue()) {
         case Settings::VramUsageMode::Conservative: mode_text = QString::fromUtf8("Mode: Conservative"); break;
         case Settings::VramUsageMode::Aggressive: mode_text = QString::fromUtf8("Mode: Aggressive"); break;
-        case Settings::VramUsageMode::HighEnd: mode_text = QString::fromUtf8("Mode: High-End GPU"); break;
-        case Settings::VramUsageMode::Insane: mode_text = QString::fromUtf8("Mode: Insane"); painter.setPen(leak_warning_color); break;
         default: mode_text = QString::fromUtf8("Mode: Unknown"); break;
     }
     painter.drawText(section_padding, y_offset, mode_text);

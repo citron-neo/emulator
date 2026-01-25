@@ -499,7 +499,7 @@ struct Values {
     SwitchableSetting<VramUsageMode, true> vram_usage_mode{linkage,
                                                            VramUsageMode::Conservative,
                                                            VramUsageMode::Conservative,
-                                                           VramUsageMode::Insane,
+                                                           VramUsageMode::Aggressive,
                                                            "vram_usage_mode",
                                                            Category::RendererAdvanced};
 

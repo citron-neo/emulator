@@ -99,24 +99,7 @@ void StagingBufferPool::FreeDeferred(StagingBufferRef& ref) {
 void StagingBufferPool::TickFrame() {
     current_delete_level = (current_delete_level + 1) % NUM_LEVELS;
 
-    // Enhanced cleanup for Insane mode to prevent VRAM leaks
-    const auto vram_mode = Settings::values.vram_usage_mode.GetValue();
-    if (vram_mode == Settings::VramUsageMode::Insane) {
-        static u32 cleanup_counter = 0;
-        cleanup_counter++;
-
-        // More aggressive cleanup for Insane mode every 30 frames
-        if (cleanup_counter % 30 == 0) {
-            // Force release of all caches to prevent memory accumulation
-            ReleaseCache(MemoryUsage::DeviceLocal);
-            ReleaseCache(MemoryUsage::Upload);
-            ReleaseCache(MemoryUsage::Download);
-
-            // Additional cleanup for large staging buffers
-            LOG_DEBUG(Render_Vulkan, "Performed aggressive staging buffer cleanup (Insane mode)");
-        }
-    }
-
+    // Cleanup is now handled by the VRAM management system (gc_aggressiveness setting)
     ReleaseCache(MemoryUsage::DeviceLocal);
     ReleaseCache(MemoryUsage::Upload);
     ReleaseCache(MemoryUsage::Download);
