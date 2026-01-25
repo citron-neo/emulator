@@ -66,6 +66,7 @@ SWITCHABLE(AstcDecodeMode, true);
 SWITCHABLE(AstcRecompression, true);
 SWITCHABLE(AudioMode, true);
 SWITCHABLE(ExtendedDynamicState, true);
+SWITCHABLE(GCAggressiveness, true);
 SWITCHABLE(CpuBackend, true);
 SWITCHABLE(CpuAccuracy, true);
 SWITCHABLE(FullscreenMode, true);
@@ -501,6 +502,61 @@ struct Values {
                                                            VramUsageMode::Insane,
                                                            "vram_usage_mode",
                                                            Category::RendererAdvanced};
+
+    // FIXED: VRAM leak prevention - New memory management settings
+    // VRAM limit in MB (0 = auto-detect based on GPU, default 6144 for 6GB limit)
+    SwitchableSetting<u32, true> vram_limit_mb{linkage,
+                                               0,     // 0 = auto-detect (80% of available VRAM)
+                                               0,     // min: 0 (auto)
+                                               32768, // max: 32GB
+                                               "vram_limit_mb",
+                                               Category::RendererAdvanced,
+                                               Specialization::Default,
+                                               true,
+                                               true};
+
+    // GC aggressiveness level for texture/buffer cache eviction
+    SwitchableSetting<GCAggressiveness, true> gc_aggressiveness{linkage,
+                                                                 GCAggressiveness::Moderate,
+                                                                 GCAggressiveness::Off,
+                                                                 GCAggressiveness::Extreme,
+                                                                 "gc_aggressiveness",
+                                                                 Category::RendererAdvanced,
+                                                                 Specialization::Default,
+                                                                 true,
+                                                                 true};
+
+    // Number of frames before unused textures are evicted (default 2)
+    SwitchableSetting<u32, true> texture_eviction_frames{linkage,
+                                                          2,   // default: 2 frames
+                                                          1,   // min: 1 frame
+                                                          60,  // max: 60 frames (1 second at 60fps)
+                                                          "texture_eviction_frames",
+                                                          Category::RendererAdvanced,
+                                                          Specialization::Default,
+                                                          true,
+                                                          true};
+
+    // Number of frames before unused buffers are evicted (default 5)
+    SwitchableSetting<u32, true> buffer_eviction_frames{linkage,
+                                                         5,   // default: 5 frames
+                                                         1,   // min: 1 frame
+                                                         120, // max: 120 frames (2 seconds at 60fps)
+                                                         "buffer_eviction_frames",
+                                                         Category::RendererAdvanced,
+                                                         Specialization::Default,
+                                                         true,
+                                                         true};
+
+    // Enable sparse texture priority eviction (evict large unmapped pages first)
+    SwitchableSetting<bool> sparse_texture_priority_eviction{linkage, true,
+                                                              "sparse_texture_priority_eviction",
+                                                              Category::RendererAdvanced};
+
+    // Enable VRAM usage logging for debugging
+    SwitchableSetting<bool> log_vram_usage{linkage, false, "log_vram_usage",
+                                            Category::RendererAdvanced};
+
     SwitchableSetting<bool> async_presentation{linkage,
 #ifdef ANDROID
                                                true,

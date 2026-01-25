@@ -175,6 +175,12 @@ class BufferCache : public VideoCommon::ChannelSetupCaches<BufferCacheChannelInf
     static constexpr s64 DEFAULT_CRITICAL_MEMORY = 1_GiB;
     static constexpr s64 TARGET_THRESHOLD = 4_GiB;
 
+    // FIXED: VRAM leak prevention - Enhanced buffer eviction constants
+    static constexpr u64 DEFAULT_BUFFER_EVICTION_FRAMES = 5;
+    static constexpr size_t LARGE_BUFFER_THRESHOLD = 8_MiB;
+    static constexpr f32 BUFFER_VRAM_WARNING_THRESHOLD = 0.70f;
+    static constexpr f32 BUFFER_VRAM_CRITICAL_THRESHOLD = 0.85f;
+
     // Debug Flags.
 
     static constexpr bool DISABLE_DOWNLOADS = true;
@@ -350,6 +356,31 @@ public:
         RunGarbageCollector();
     }
 
+    // FIXED: VRAM leak prevention - Enhanced public interface for buffer VRAM management
+
+    /// Get buffer VRAM usage statistics
+    struct BufferVRAMStats {
+        u64 total_used_bytes;
+        u64 large_buffer_bytes;
+        u64 evicted_total;
+        u32 buffer_count;
+        u32 large_buffer_count;
+    };
+    [[nodiscard]] BufferVRAMStats GetBufferVRAMStats() const noexcept {
+        return BufferVRAMStats{
+            .total_used_bytes = total_used_memory,
+            .large_buffer_bytes = large_buffer_memory,
+            .evicted_total = evicted_buffer_bytes,
+            .buffer_count = buffer_count,
+            .large_buffer_count = large_buffer_count,
+        };
+    }
+
+    /// Check if buffer VRAM pressure is high
+    [[nodiscard]] bool IsBufferVRAMPressureHigh() const noexcept {
+        return total_used_memory >= minimum_memory;
+    }
+
     void BindHostIndexBuffer();
 
     void BindHostVertexBuffers();
@@ -487,6 +518,13 @@ public:
     u64 minimum_memory = 0;
     u64 critical_memory = 0;
     BufferId inline_buffer_id;
+
+    // FIXED: VRAM leak prevention - Enhanced buffer memory tracking
+    u64 vram_limit_bytes = 0;           // Configured VRAM limit for buffers
+    u64 large_buffer_memory = 0;        // Memory used by large buffers (>8MB)
+    u64 evicted_buffer_bytes = 0;       // Total bytes evicted since start
+    u32 buffer_count = 0;               // Total buffer count
+    u32 large_buffer_count = 0;         // Large buffer count
 
     std::array<BufferId, ((1ULL << 34) >> CACHING_PAGEBITS)> page_table;
     Common::ScratchBuffer<u8> tmp_buffer;

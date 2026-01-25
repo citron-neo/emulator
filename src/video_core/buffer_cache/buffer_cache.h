@@ -26,24 +26,60 @@ BufferCache<P>::BufferCache(Tegra::MaxwellDeviceMemoryManager& device_memory_, R
     gpu_modified_ranges.Clear();
     inline_buffer_id = NULL_BUFFER_ID;
 
+    // FIXED: VRAM leak prevention - Initialize buffer VRAM management from settings
+    const u32 configured_limit_mb = Settings::values.vram_limit_mb.GetValue();
+
     if (!runtime.CanReportMemoryUsage()) {
         minimum_memory = DEFAULT_EXPECTED_MEMORY;
         critical_memory = DEFAULT_CRITICAL_MEMORY;
+        vram_limit_bytes = configured_limit_mb > 0 ? static_cast<u64>(configured_limit_mb) * 1_MiB
+                                                    : 6_GiB;
         return;
     }
 
     const s64 device_local_memory = static_cast<s64>(runtime.GetDeviceLocalMemory());
-    const s64 min_spacing_expected = device_local_memory - 1_GiB;
-    const s64 min_spacing_critical = device_local_memory - 512_MiB;
-    const s64 mem_threshold = std::min(device_local_memory, TARGET_THRESHOLD);
-    const s64 min_vacancy_expected = (6 * mem_threshold) / 10;
-    const s64 min_vacancy_critical = (2 * mem_threshold) / 10;
-    minimum_memory = static_cast<u64>(
-        std::max(std::min(device_local_memory - min_vacancy_expected, min_spacing_expected),
-                 DEFAULT_EXPECTED_MEMORY));
-    critical_memory = static_cast<u64>(
-        std::max(std::min(device_local_memory - min_vacancy_critical, min_spacing_critical),
-                 DEFAULT_CRITICAL_MEMORY));
+
+    // FIXED: VRAM leak prevention - Use configured limit or auto-detect
+    if (configured_limit_mb > 0) {
+        vram_limit_bytes = static_cast<u64>(configured_limit_mb) * 1_MiB;
+    } else {
+        vram_limit_bytes = static_cast<u64>(device_local_memory * 0.80);
+    }
+
+    // Adjust thresholds based on GC aggressiveness setting
+    const auto gc_level = Settings::values.gc_aggressiveness.GetValue();
+    f32 expected_ratio = 0.5f;
+    f32 critical_ratio = 0.7f;
+
+    switch (gc_level) {
+    case Settings::GCAggressiveness::Off:
+        expected_ratio = 0.90f;
+        critical_ratio = 0.95f;
+        break;
+    case Settings::GCAggressiveness::Light:
+        expected_ratio = 0.70f;
+        critical_ratio = 0.85f;
+        break;
+    case Settings::GCAggressiveness::Moderate:
+        expected_ratio = 0.50f;
+        critical_ratio = 0.70f;
+        break;
+    case Settings::GCAggressiveness::Heavy:
+        expected_ratio = 0.40f;
+        critical_ratio = 0.60f;
+        break;
+    case Settings::GCAggressiveness::Extreme:
+        expected_ratio = 0.30f;
+        critical_ratio = 0.50f;
+        break;
+    }
+
+    minimum_memory = static_cast<u64>(vram_limit_bytes * expected_ratio);
+    critical_memory = static_cast<u64>(vram_limit_bytes * critical_ratio);
+
+    LOG_INFO(Render_Vulkan,
+             "Buffer cache VRAM initialized: limit={}MB, minimum={}MB, critical={}MB",
+             vram_limit_bytes / 1_MiB, minimum_memory / 1_MiB, critical_memory / 1_MiB);
 }
 
 template <class P>
@@ -51,20 +87,90 @@ BufferCache<P>::~BufferCache() = default;
 
 template <class P>
 void BufferCache<P>::RunGarbageCollector() {
+    // FIXED: VRAM leak prevention - Enhanced buffer GC with settings integration
+
+    const auto gc_level = Settings::values.gc_aggressiveness.GetValue();
+    if (gc_level == Settings::GCAggressiveness::Off) {
+        return; // GC disabled by user
+    }
+
     const bool aggressive_gc = total_used_memory >= critical_memory;
-    const u64 ticks_to_destroy = aggressive_gc ? 60 : 120;
-    int num_iterations = aggressive_gc ? 64 : 32;
-    const auto clean_up = [this, &num_iterations](BufferId buffer_id) {
+    const bool emergency_gc = total_used_memory >= static_cast<u64>(vram_limit_bytes * BUFFER_VRAM_CRITICAL_THRESHOLD);
+
+    // FIXED: VRAM leak prevention - Get eviction frames from settings
+    const u64 eviction_frames = Settings::values.buffer_eviction_frames.GetValue();
+
+    // Adjust based on GC level
+    u64 base_ticks = eviction_frames;
+    int base_iterations = 32;
+
+    switch (gc_level) {
+    case Settings::GCAggressiveness::Light:
+        base_ticks = eviction_frames * 2;
+        base_iterations = 16;
+        break;
+    case Settings::GCAggressiveness::Moderate:
+        base_ticks = eviction_frames;
+        base_iterations = 32;
+        break;
+    case Settings::GCAggressiveness::Heavy:
+        base_ticks = std::max(1ULL, eviction_frames / 2);
+        base_iterations = 64;
+        break;
+    case Settings::GCAggressiveness::Extreme:
+        base_ticks = 1;
+        base_iterations = 128;
+        break;
+    default:
+        break;
+    }
+
+    u64 ticks_to_destroy;
+    int num_iterations;
+
+    if (emergency_gc) {
+        ticks_to_destroy = 1;
+        num_iterations = base_iterations * 4;
+        LOG_WARNING(Render_Vulkan, "Buffer cache emergency GC: usage={}MB, limit={}MB",
+                    total_used_memory / 1_MiB, vram_limit_bytes / 1_MiB);
+    } else if (aggressive_gc) {
+        ticks_to_destroy = std::max(1ULL, base_ticks / 2);
+        num_iterations = base_iterations * 2;
+    } else {
+        ticks_to_destroy = base_ticks;
+        num_iterations = base_iterations;
+    }
+
+    u64 bytes_freed = 0;
+    const auto clean_up = [this, &num_iterations, &bytes_freed](BufferId buffer_id) {
         if (num_iterations == 0) {
             return true;
         }
         --num_iterations;
         auto& buffer = slot_buffers[buffer_id];
+        const u64 buffer_size = buffer.SizeBytes();
+
         DownloadBufferMemory(buffer);
         DeleteBuffer(buffer_id);
+
+        bytes_freed += buffer_size;
+        --buffer_count;
+        if (buffer_size >= LARGE_BUFFER_THRESHOLD) {
+            large_buffer_memory -= buffer_size;
+            --large_buffer_count;
+        }
         return false;
     };
     lru_cache.ForEachItemBelow(frame_tick - ticks_to_destroy, clean_up);
+
+    evicted_buffer_bytes += bytes_freed;
+
+    // FIXED: VRAM leak prevention - Log buffer eviction if enabled
+    if (Settings::values.log_vram_usage.GetValue() && bytes_freed > 0) {
+        LOG_INFO(Render_Vulkan, "Buffer GC: evicted {}MB, total={}MB, usage={}MB/{}MB",
+                 bytes_freed / 1_MiB, evicted_buffer_bytes / 1_MiB, total_used_memory / 1_MiB,
+                 vram_limit_bytes / 1_MiB);
+    }
 }
 
 template <class P>
@@ -96,9 +202,22 @@ void BufferCache<P>::TickFrame() {
     if (runtime.CanReportMemoryUsage()) {
         total_used_memory = runtime.GetDeviceMemoryUsage();
     }
-    if (total_used_memory >= minimum_memory) {
+
+    // FIXED: VRAM leak prevention - Enhanced buffer GC triggering
+    const auto gc_level = Settings::values.gc_aggressiveness.GetValue();
+    const bool should_gc = gc_level != Settings::GCAggressiveness::Off &&
+                           (total_used_memory >= minimum_memory ||
+                            total_used_memory >= static_cast<u64>(vram_limit_bytes * BUFFER_VRAM_WARNING_THRESHOLD));
+
+    if (should_gc) {
         RunGarbageCollector();
     }
+
+    // FIXED: VRAM leak prevention - Force additional GC if still above critical
+    if (total_used_memory >= critical_memory && gc_level != Settings::GCAggressiveness::Off) {
+        RunGarbageCollector();
+    }
+
     ++frame_tick;
     delayed_destruction_ring.Tick();
 
@@ -1420,12 +1539,31 @@ template <bool insert>
 void BufferCache<P>::ChangeRegister(BufferId buffer_id) {
     Buffer& buffer = slot_buffers[buffer_id];
     const auto size = buffer.SizeBytes();
+    const u64 aligned_size = Common::AlignUp(size, 1024);
+    const bool is_large = aligned_size >= LARGE_BUFFER_THRESHOLD;
+
     if (insert) {
-        total_used_memory += Common::AlignUp(size, 1024);
+        total_used_memory += aligned_size;
         buffer.setLRUID(lru_cache.Insert(buffer_id, frame_tick));
+
+        // FIXED: VRAM leak prevention - Track buffer statistics
+        ++buffer_count;
+        if (is_large) {
+            large_buffer_memory += aligned_size;
+            ++large_buffer_count;
+        }
     } else {
-        total_used_memory -= Common::AlignUp(size, 1024);
+        total_used_memory -= aligned_size;
         lru_cache.Free(buffer.getLRUID());
+
+        // FIXED: VRAM leak prevention - Update buffer statistics on removal
+        if (buffer_count > 0) {
+            --buffer_count;
+        }
+        if (is_large && large_buffer_count > 0) {
+            large_buffer_memory -= aligned_size;
+            --large_buffer_count;
+        }
     }
     const DAddr device_addr_begin = buffer.CpuAddr();
     const DAddr device_addr_end = device_addr_begin + size;
