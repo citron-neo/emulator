@@ -549,7 +549,7 @@ struct Values {
                                                          true};
 
     // Enable sparse texture priority eviction (evict large unmapped pages first)
-    SwitchableSetting<bool> sparse_texture_priority_eviction{linkage, true,
+    SwitchableSetting<bool> sparse_texture_priority_eviction{linkage, false,
                                                               "sparse_texture_priority_eviction",
                                                               Category::RendererAdvanced};
 
