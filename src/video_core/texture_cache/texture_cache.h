@@ -156,7 +156,7 @@ void TextureCache<P>::RunGarbageCollector() {
             base_iterations = 10;
             break;
         case Settings::GCAggressiveness::Heavy:
-            base_ticks = std::max(1ULL, eviction_frames / 2);
+            base_ticks = std::max(1ULL, static_cast<unsigned long long>(eviction_frames / 2));
             base_iterations = 20;
             break;
         case Settings::GCAggressiveness::Extreme:
@@ -171,7 +171,7 @@ void TextureCache<P>::RunGarbageCollector() {
             ticks_to_destroy = 1;
             num_iterations = base_iterations * 4;
         } else if (aggressive_mode) {
-            ticks_to_destroy = std::max(1ULL, base_ticks / 2);
+            ticks_to_destroy = std::max(1ULL, static_cast<unsigned long long>(base_ticks / 2));
             num_iterations = base_iterations * 2;
         } else if (high_priority_mode) {
             ticks_to_destroy = base_ticks;

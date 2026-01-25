@@ -114,7 +114,7 @@ void BufferCache<P>::RunGarbageCollector() {
         base_iterations = 32;
         break;
     case Settings::GCAggressiveness::Heavy:
-        base_ticks = std::max(1ULL, eviction_frames / 2);
+        base_ticks = std::max(1ULL, static_cast<unsigned long long>(eviction_frames / 2));
         base_iterations = 64;
         break;
     case Settings::GCAggressiveness::Extreme:
@@ -134,7 +134,7 @@ void BufferCache<P>::RunGarbageCollector() {
         LOG_WARNING(Render_Vulkan, "Buffer cache emergency GC: usage={}MB, limit={}MB",
                     total_used_memory / 1_MiB, vram_limit_bytes / 1_MiB);
     } else if (aggressive_gc) {
-        ticks_to_destroy = std::max(1ULL, base_ticks / 2);
+        ticks_to_destroy = std::max(1ULL, static_cast<unsigned long long>(base_ticks / 2));
         num_iterations = base_iterations * 2;
     } else {
         ticks_to_destroy = base_ticks;
