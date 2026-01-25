@@ -43,7 +43,7 @@ BufferCache<P>::BufferCache(Tegra::MaxwellDeviceMemoryManager& device_memory_, R
     if (configured_limit_mb > 0) {
         vram_limit_bytes = static_cast<u64>(configured_limit_mb) * 1_MiB;
     } else {
-        vram_limit_bytes = static_cast<u64>(device_local_memory * 0.80);
+        vram_limit_bytes = static_cast<u64>(static_cast<double>(device_local_memory) * 0.80);
     }
 
     // Adjust thresholds based on GC aggressiveness setting
@@ -74,8 +74,8 @@ BufferCache<P>::BufferCache(Tegra::MaxwellDeviceMemoryManager& device_memory_, R
         break;
     }
 
-    minimum_memory = static_cast<u64>(vram_limit_bytes * expected_ratio);
-    critical_memory = static_cast<u64>(vram_limit_bytes * critical_ratio);
+    minimum_memory = static_cast<u64>(static_cast<f32>(vram_limit_bytes) * expected_ratio);
+    critical_memory = static_cast<u64>(static_cast<f32>(vram_limit_bytes) * critical_ratio);
 
     LOG_INFO(Render_Vulkan,
              "Buffer cache VRAM initialized: limit={}MB, minimum={}MB, critical={}MB",
@@ -95,7 +95,7 @@ void BufferCache<P>::RunGarbageCollector() {
     }
 
     const bool aggressive_gc = total_used_memory >= critical_memory;
-    const bool emergency_gc = total_used_memory >= static_cast<u64>(vram_limit_bytes * BUFFER_VRAM_CRITICAL_THRESHOLD);
+    const bool emergency_gc = total_used_memory >= static_cast<u64>(static_cast<f32>(vram_limit_bytes) * BUFFER_VRAM_CRITICAL_THRESHOLD);
 
     // FIXED: VRAM leak prevention - Get eviction frames from settings
     const u64 eviction_frames = Settings::values.buffer_eviction_frames.GetValue();
@@ -207,7 +207,7 @@ void BufferCache<P>::TickFrame() {
     const auto gc_level = Settings::values.gc_aggressiveness.GetValue();
     const bool should_gc = gc_level != Settings::GCAggressiveness::Off &&
                            (total_used_memory >= minimum_memory ||
-                            total_used_memory >= static_cast<u64>(vram_limit_bytes * BUFFER_VRAM_WARNING_THRESHOLD));
+                            total_used_memory >= static_cast<u64>(static_cast<f32>(vram_limit_bytes) * BUFFER_VRAM_WARNING_THRESHOLD));
 
     if (should_gc) {
         RunGarbageCollector();
