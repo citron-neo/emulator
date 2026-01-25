@@ -166,14 +166,14 @@ void RendererVulkan::Composite(std::span<const Tegra::FramebufferConfig> framebu
         const u32 configured_limit = Settings::values.vram_limit_mb.GetValue();
         const u64 vram_limit = configured_limit > 0
                                    ? static_cast<u64>(configured_limit) * 1024ULL * 1024ULL
-                                   : static_cast<u64>(total_vram * 0.80);
+                                   : static_cast<u64>(static_cast<double>(total_vram) * 0.80);
 
         // If VRAM usage is above 90% of limit, trigger emergency GC on texture/buffer caches
-        if (current_usage >= static_cast<u64>(vram_limit * 0.90)) {
+        if (current_usage >= static_cast<u64>(static_cast<double>(vram_limit) * 0.90)) {
             LOG_WARNING(Render_Vulkan,
                         "VRAM pressure critical: {}MB/{}MB ({:.1f}%), triggering emergency GC",
                         current_usage / (1024ULL * 1024ULL), vram_limit / (1024ULL * 1024ULL),
-                        (static_cast<f32>(current_usage) / vram_limit) * 100.0f);
+                        (static_cast<f32>(current_usage) / static_cast<f32>(vram_limit)) * 100.0f);
             rasterizer.TriggerMemoryGC();
         }
     }
