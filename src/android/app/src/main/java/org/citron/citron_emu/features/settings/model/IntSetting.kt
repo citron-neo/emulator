@@ -40,6 +40,12 @@ enum class IntSetting(override val key: String) : AbstractIntSetting {
     VRAM_USAGE_MODE("vram_usage_mode"),
     EXTENDED_DYNAMIC_STATE("extended_dynamic_state"),
 
+    // VRAM Management settings (FIXED: VRAM leak prevention)
+    VRAM_LIMIT_MB("vram_limit_mb"),
+    GC_AGGRESSIVENESS("gc_aggressiveness"),
+    TEXTURE_EVICTION_FRAMES("texture_eviction_frames"),
+    BUFFER_EVICTION_FRAMES("buffer_eviction_frames"),
+
     // Applet Mode settings
     CABINET_APPLET_MODE("cabinet_applet_mode"),
     CONTROLLER_APPLET_MODE("controller_applet_mode"),

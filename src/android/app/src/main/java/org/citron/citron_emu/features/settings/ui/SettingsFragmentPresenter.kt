@@ -1036,6 +1036,15 @@ class SettingsFragmentPresenter(
             add(HeaderSetting(R.string.frame_skipping_header))
             add(IntSetting.FRAME_SKIPPING.key)
             add(IntSetting.FRAME_SKIPPING_MODE.key)
+
+            // VRAM Management settings (FIXED: VRAM leak prevention)
+            add(HeaderSetting(R.string.vram_management_header))
+            add(IntSetting.VRAM_LIMIT_MB.key)
+            add(IntSetting.GC_AGGRESSIVENESS.key)
+            add(IntSetting.TEXTURE_EVICTION_FRAMES.key)
+            add(IntSetting.BUFFER_EVICTION_FRAMES.key)
+            add(BooleanSetting.SPARSE_TEXTURE_PRIORITY_EVICTION.key)
+            add(BooleanSetting.LOG_VRAM_USAGE.key)
         }
     }
 

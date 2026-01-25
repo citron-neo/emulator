@@ -159,6 +159,25 @@ void RendererVulkan::Composite(std::span<const Tegra::FramebufferConfig> framebu
         render_window.OnFrameDisplayed();
     };
 
+    // FIXED: VRAM leak prevention - Check VRAM pressure before rendering
+    if (device.CanReportMemoryUsage()) {
+        const u64 current_usage = device.GetDeviceMemoryUsage();
+        const u64 total_vram = device.GetDeviceLocalMemory();
+        const u32 configured_limit = Settings::values.vram_limit_mb.GetValue();
+        const u64 vram_limit = configured_limit > 0
+                                   ? static_cast<u64>(configured_limit) * 1024ULL * 1024ULL
+                                   : static_cast<u64>(total_vram * 0.80);
+
+        // If VRAM usage is above 90% of limit, trigger emergency GC on texture/buffer caches
+        if (current_usage >= static_cast<u64>(vram_limit * 0.90)) {
+            LOG_WARNING(Render_Vulkan,
+                        "VRAM pressure critical: {}MB/{}MB ({:.1f}%), triggering emergency GC",
+                        current_usage / (1024ULL * 1024ULL), vram_limit / (1024ULL * 1024ULL),
+                        (static_cast<f32>(current_usage) / vram_limit) * 100.0f);
+            rasterizer.TriggerMemoryGC();
+        }
+    }
+
     RenderAppletCaptureLayer(framebuffers);
 
     if (!render_window.IsShown()) {
@@ -200,6 +219,30 @@ void RendererVulkan::Report() const {
     LOG_INFO(Render_Vulkan, "Device: {}", model_name);
     LOG_INFO(Render_Vulkan, "Vulkan: {}", api_version);
     LOG_INFO(Render_Vulkan, "Available VRAM: {:.2f} GiB", available_vram);
+
+    // FIXED: VRAM leak prevention - Report VRAM management settings
+    const u32 vram_limit_mb = Settings::values.vram_limit_mb.GetValue();
+    const auto gc_level = Settings::values.gc_aggressiveness.GetValue();
+    const u32 texture_eviction = Settings::values.texture_eviction_frames.GetValue();
+    const u32 buffer_eviction = Settings::values.buffer_eviction_frames.GetValue();
+
+    if (vram_limit_mb > 0) {
+        LOG_INFO(Render_Vulkan, "VRAM Limit: {} MB (configured)", vram_limit_mb);
+    } else {
+        LOG_INFO(Render_Vulkan, "VRAM Limit: Auto ({:.0f} MB, 80% of available)",
+                 available_vram * 0.8 * 1024.0);
+    }
+    LOG_INFO(Render_Vulkan, "GC Aggressiveness: {}, Texture eviction: {} frames, Buffer eviction: {} frames",
+             static_cast<u32>(gc_level), texture_eviction, buffer_eviction);
+
+    // FIXED: VRAM leak prevention - Report VK_EXT_memory_budget support
+    if (device.CanReportMemoryUsage()) {
+        const auto current_usage = device.GetDeviceMemoryUsage();
+        LOG_INFO(Render_Vulkan, "VK_EXT_memory_budget: Supported, Current usage: {:.2f} GiB",
+                 static_cast<f64>(current_usage) / f64{1_GiB});
+    } else {
+        LOG_INFO(Render_Vulkan, "VK_EXT_memory_budget: Not supported (using estimates)");
+    }
 
     static constexpr auto field = Common::Telemetry::FieldType::UserSystem;
     telemetry_session.AddField(field, "GPU_Vendor", vendor_name);

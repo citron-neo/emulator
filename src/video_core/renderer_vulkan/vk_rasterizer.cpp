@@ -861,6 +861,17 @@ u64 RasterizerVulkan::GetStagingMemoryUsage() const {
     }
 }
 
+// FIXED: VRAM leak prevention - Trigger garbage collection on texture/buffer caches
+void RasterizerVulkan::TriggerMemoryGC() {
+    std::scoped_lock lock{texture_cache.mutex, buffer_cache.mutex};
+
+    // Trigger GC on both caches
+    texture_cache.TriggerGarbageCollection();
+    buffer_cache.TriggerGarbageCollection();
+
+    LOG_DEBUG(Render_Vulkan, "Manual memory GC triggered");
+}
+
 bool RasterizerVulkan::AccelerateConditionalRendering() {
     gpu_memory->FlushCaching();
     return query_cache.AccelerateHostConditionalRendering();

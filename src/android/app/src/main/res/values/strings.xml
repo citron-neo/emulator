@@ -448,6 +448,7 @@
     <string name="memory_layout_header">Memory Layout</string>
     <string name="astc_settings_header">ASTC Settings</string>
     <string name="advanced_graphics_header">Advanced Graphics</string>
+    <string name="vram_management_header">VRAM Management</string>
     <string name="applet_settings_header">Applet Settings</string>
 
     <!-- Applet Mode Settings -->
@@ -1273,6 +1274,25 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
     <string name="frame_skipping_enabled">Enabled</string>
     <string name="frame_skipping_mode_adaptive">Adaptive</string>
     <string name="frame_skipping_mode_fixed">Fixed</string>
+
+    <!-- VRAM Management settings (FIXED: VRAM leak prevention) -->
+    <string name="vram_limit_mb">VRAM Limit (MB)</string>
+    <string name="vram_limit_mb_description">Maximum VRAM usage limit in megabytes. Set to 0 for auto-detection (80%% of available VRAM). Recommended: 6144 for 8GB GPUs, 4096 for 6GB GPUs.</string>
+    <string name="gc_aggressiveness">GC Aggressiveness</string>
+    <string name="gc_aggressiveness_description">Controls how aggressively the emulator evicts unused textures and buffers from VRAM. Higher levels free memory faster but may cause more texture reloading.</string>
+    <string name="texture_eviction_frames">Texture Eviction Frames</string>
+    <string name="texture_eviction_frames_description">Number of frames a texture must be unused before it can be evicted. Lower values free VRAM faster but may cause more texture reloading.</string>
+    <string name="buffer_eviction_frames">Buffer Eviction Frames</string>
+    <string name="buffer_eviction_frames_description">Number of frames a buffer must be unused before it can be evicted. Lower values free VRAM faster but may cause more buffer reloading.</string>
+    <string name="sparse_texture_priority_eviction">Sparse Texture Priority Eviction</string>
+    <string name="sparse_texture_priority_eviction_description">Prioritize evicting large sparse textures when VRAM pressure is high. Helps prevent VRAM exhaustion in games with large texture atlases.</string>
+    <string name="log_vram_usage">Log VRAM Usage</string>
+    <string name="log_vram_usage_description">Enable logging of VRAM usage statistics for debugging purposes.</string>
+    <string name="gc_aggressiveness_off">Off (Not Recommended)</string>
+    <string name="gc_aggressiveness_light">Light</string>
+    <string name="gc_aggressiveness_moderate">Moderate (Recommended)</string>
+    <string name="gc_aggressiveness_heavy">Heavy (Low VRAM)</string>
+    <string name="gc_aggressiveness_extreme">Extreme (4GB VRAM)</string>
     <string name="frame_skipping_header">Frame Skipping</string>
 
 </resources>

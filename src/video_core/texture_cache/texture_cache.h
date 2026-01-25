@@ -50,21 +50,59 @@ TextureCache<P>::TextureCache(Runtime& runtime_, Tegra::MaxwellDeviceMemoryManag
     void(slot_image_views.insert(runtime, NullImageViewParams{}));
     void(slot_samplers.insert(runtime, sampler_descriptor));
 
+    // FIXED: VRAM leak prevention - Initialize VRAM limit from settings
+    const u32 configured_limit_mb = Settings::values.vram_limit_mb.GetValue();
+
     if constexpr (HAS_DEVICE_MEMORY_INFO) {
         const s64 device_local_memory = static_cast<s64>(runtime.GetDeviceLocalMemory());
-        const s64 min_spacing_expected = device_local_memory - 1_GiB;
-        const s64 min_spacing_critical = device_local_memory - 512_MiB;
-        const s64 mem_threshold = std::min(device_local_memory, TARGET_THRESHOLD);
-        const s64 min_vacancy_expected = (6 * mem_threshold) / 10;
-        const s64 min_vacancy_critical = (2 * mem_threshold) / 10;
-        expected_memory = static_cast<u64>(
-            std::max(std::min(device_local_memory - min_vacancy_expected, min_spacing_expected),
-                     DEFAULT_EXPECTED_MEMORY));
-        critical_memory = static_cast<u64>(
-            std::max(std::min(device_local_memory - min_vacancy_critical, min_spacing_critical),
-                     DEFAULT_CRITICAL_MEMORY));
-        minimum_memory = static_cast<u64>((device_local_memory - mem_threshold) / 2);
+
+        // FIXED: VRAM leak prevention - Use configured limit or auto-detect (80% of VRAM)
+        if (configured_limit_mb > 0) {
+            vram_limit_bytes = static_cast<u64>(configured_limit_mb) * 1_MiB;
+        } else {
+            // Auto-detect: use 80% of available VRAM as limit
+            vram_limit_bytes = static_cast<u64>(device_local_memory * 0.80);
+        }
+
+        // Adjust thresholds based on VRAM limit and GC aggressiveness setting
+        const auto gc_level = Settings::values.gc_aggressiveness.GetValue();
+        f32 expected_ratio = 0.6f;
+        f32 critical_ratio = 0.8f;
+
+        switch (gc_level) {
+        case Settings::GCAggressiveness::Off:
+            expected_ratio = 0.95f;
+            critical_ratio = 0.99f;
+            break;
+        case Settings::GCAggressiveness::Light:
+            expected_ratio = 0.75f;
+            critical_ratio = 0.90f;
+            break;
+        case Settings::GCAggressiveness::Moderate:
+            expected_ratio = 0.60f;
+            critical_ratio = 0.80f;
+            break;
+        case Settings::GCAggressiveness::Heavy:
+            expected_ratio = 0.50f;
+            critical_ratio = 0.70f;
+            break;
+        case Settings::GCAggressiveness::Extreme:
+            expected_ratio = 0.40f;
+            critical_ratio = 0.60f;
+            break;
+        }
+
+        expected_memory = static_cast<u64>(vram_limit_bytes * expected_ratio);
+        critical_memory = static_cast<u64>(vram_limit_bytes * critical_ratio);
+        minimum_memory = static_cast<u64>(vram_limit_bytes * 0.25f);
+
+        LOG_INFO(Render_Vulkan,
+                 "VRAM Management initialized: limit={}MB, expected={}MB, critical={}MB, gc_level={}",
+                 vram_limit_bytes / 1_MiB, expected_memory / 1_MiB, critical_memory / 1_MiB,
+                 static_cast<u32>(gc_level));
     } else {
+        vram_limit_bytes = configured_limit_mb > 0 ? static_cast<u64>(configured_limit_mb) * 1_MiB
+                                                    : 6_GiB; // Default 6GB if no info
         expected_memory = DEFAULT_EXPECTED_MEMORY + 512_MiB;
         critical_memory = DEFAULT_CRITICAL_MEMORY + 1_GiB;
         minimum_memory = 0;
@@ -73,37 +111,111 @@ TextureCache<P>::TextureCache(Runtime& runtime_, Tegra::MaxwellDeviceMemoryManag
 
 template <class P>
 void TextureCache<P>::RunGarbageCollector() {
+    // FIXED: VRAM leak prevention - Enhanced garbage collector with settings integration
+
+    const auto gc_level = Settings::values.gc_aggressiveness.GetValue();
+    if (gc_level == Settings::GCAggressiveness::Off) {
+        return; // GC disabled by user
+    }
+
+    // Reset per-frame stats
+    if (last_gc_frame != frame_tick) {
+        evicted_this_frame = 0;
+        gc_runs_this_frame = 0;
+        last_gc_frame = frame_tick;
+    }
+    ++gc_runs_this_frame;
+
     bool high_priority_mode = false;
     bool aggressive_mode = false;
+    bool emergency_mode = false;
     u64 ticks_to_destroy = 0;
     size_t num_iterations = 0;
+    u64 bytes_freed = 0;
 
-    const auto Configure = [&](bool allow_aggressive) {
+    // FIXED: VRAM leak prevention - Get eviction frames from settings
+    const u64 eviction_frames = Settings::values.texture_eviction_frames.GetValue();
+    const bool sparse_priority = Settings::values.sparse_texture_priority_eviction.GetValue();
+
+    const auto Configure = [&](bool allow_aggressive, bool allow_emergency) {
         high_priority_mode = total_used_memory >= expected_memory;
         aggressive_mode = allow_aggressive && total_used_memory >= critical_memory;
-        ticks_to_destroy = aggressive_mode ? 10ULL : high_priority_mode ? 25ULL : 50ULL;
-        num_iterations = aggressive_mode ? 40 : (high_priority_mode ? 20 : 10);
+        emergency_mode = allow_emergency && total_used_memory >= static_cast<u64>(vram_limit_bytes * VRAM_USAGE_EMERGENCY_THRESHOLD);
+
+        // FIXED: VRAM leak prevention - Adjust iterations based on GC level
+        u64 base_ticks = eviction_frames;
+        size_t base_iterations = 10;
+
+        switch (gc_level) {
+        case Settings::GCAggressiveness::Light:
+            base_ticks = eviction_frames * 2;
+            base_iterations = 5;
+            break;
+        case Settings::GCAggressiveness::Moderate:
+            base_ticks = eviction_frames;
+            base_iterations = 10;
+            break;
+        case Settings::GCAggressiveness::Heavy:
+            base_ticks = std::max(1ULL, eviction_frames / 2);
+            base_iterations = 20;
+            break;
+        case Settings::GCAggressiveness::Extreme:
+            base_ticks = 1;
+            base_iterations = 40;
+            break;
+        default:
+            break;
+        }
+
+        if (emergency_mode) {
+            ticks_to_destroy = 1;
+            num_iterations = base_iterations * 4;
+        } else if (aggressive_mode) {
+            ticks_to_destroy = std::max(1ULL, base_ticks / 2);
+            num_iterations = base_iterations * 2;
+        } else if (high_priority_mode) {
+            ticks_to_destroy = base_ticks;
+            num_iterations = static_cast<size_t>(base_iterations * 1.5);
+        } else {
+            ticks_to_destroy = base_ticks * 2;
+            num_iterations = base_iterations;
+        }
     };
-    const auto Cleanup = [this, &num_iterations, &high_priority_mode,
-                          &aggressive_mode](ImageId image_id) {
+
+    const auto Cleanup = [this, &num_iterations, &high_priority_mode, &aggressive_mode,
+                          &emergency_mode, &bytes_freed, sparse_priority](ImageId image_id) {
         if (num_iterations == 0) {
             return true;
         }
         --num_iterations;
         auto& image = slot_images[image_id];
+
+        // Skip images being decoded
         if (True(image.flags & ImageFlagBits::IsDecoding)) {
-            // This image is still being decoded, deleting it will invalidate the slot
-            // used by the async decoder thread.
             return false;
         }
-        if (!aggressive_mode && True(image.flags & ImageFlagBits::CostlyLoad)) {
-            return false;
+
+        // FIXED: VRAM leak prevention - Prioritize sparse textures if enabled
+        const bool is_sparse = True(image.flags & ImageFlagBits::Sparse);
+        const u64 image_size = std::max(image.guest_size_bytes, image.unswizzled_size_bytes);
+        const bool is_large = image_size >= LARGE_TEXTURE_THRESHOLD;
+
+        // Skip costly loads unless aggressive/emergency mode, unless it's a large sparse texture
+        if (!aggressive_mode && !emergency_mode && True(image.flags & ImageFlagBits::CostlyLoad)) {
+            if (!(sparse_priority && is_sparse && image_size >= SPARSE_EVICTION_PRIORITY_THRESHOLD)) {
+                return false;
+            }
         }
+
         const bool must_download =
             image.IsSafeDownload() && False(image.flags & ImageFlagBits::BadOverlap);
-        if (!high_priority_mode && must_download) {
+
+        // Skip downloads unless high priority or emergency
+        if (!high_priority_mode && !emergency_mode && must_download) {
             return false;
         }
+
+        // Perform download if needed
         if (must_download) {
             auto map = runtime.DownloadStagingBuffer(image.unswizzled_size_bytes);
             const auto copies = FullDownloadCopies(image.info);
@@ -112,16 +224,29 @@ void TextureCache<P>::RunGarbageCollector() {
             SwizzleImage(*gpu_memory, image.gpu_addr, image.info, copies, map.mapped_span,
                          swizzle_data_buffer);
         }
+
+        // Track eviction statistics
+        bytes_freed += Common::AlignUp(image_size, 1024);
+        if (is_sparse) {
+            sparse_texture_memory -= Common::AlignUp(image_size, 1024);
+            --sparse_texture_count;
+        }
+        if (is_large) {
+            large_texture_memory -= Common::AlignUp(image_size, 1024);
+        }
+
         if (True(image.flags & ImageFlagBits::Tracked)) {
             UntrackImage(image, image_id);
         }
         UnregisterImage(image_id);
         DeleteImage(image_id, image.scale_tick > frame_tick + 5);
+
+        // Adjust mode based on remaining memory pressure
         if (total_used_memory < critical_memory) {
-            if (aggressive_mode) {
-                // Sink the aggresiveness.
+            if (aggressive_mode || emergency_mode) {
                 num_iterations >>= 2;
                 aggressive_mode = false;
+                emergency_mode = false;
                 return false;
             }
             if (high_priority_mode && total_used_memory < expected_memory) {
@@ -132,26 +257,80 @@ void TextureCache<P>::RunGarbageCollector() {
         return false;
     };
 
-    // Try to remove anything old enough and not high priority.
-    Configure(false);
+    // FIXED: VRAM leak prevention - First pass: evict sparse textures if priority enabled
+    if (sparse_priority && sparse_texture_memory > 0 && total_used_memory >= expected_memory) {
+        Configure(false, false);
+        // Target sparse textures specifically
+        lru_cache.ForEachItemBelow(frame_tick - ticks_to_destroy, [this, &Cleanup](ImageId image_id) {
+            auto& image = slot_images[image_id];
+            if (True(image.flags & ImageFlagBits::Sparse)) {
+                return Cleanup(image_id);
+            }
+            return false;
+        });
+    }
+
+    // Normal pass: remove anything old enough
+    Configure(false, false);
     lru_cache.ForEachItemBelow(frame_tick - ticks_to_destroy, Cleanup);
 
-    // If pressure is still too high, prune aggressively.
+    // Aggressive pass if still above critical
     if (total_used_memory >= critical_memory) {
-        Configure(true);
+        Configure(true, false);
         lru_cache.ForEachItemBelow(frame_tick - ticks_to_destroy, Cleanup);
+    }
+
+    // FIXED: VRAM leak prevention - Emergency pass if still above emergency threshold
+    if (total_used_memory >= static_cast<u64>(vram_limit_bytes * VRAM_USAGE_EMERGENCY_THRESHOLD)) {
+        Configure(true, true);
+        emergency_gc_triggered = true;
+        LOG_WARNING(Render_Vulkan, "VRAM Emergency GC triggered: usage={}MB, limit={}MB",
+                    total_used_memory / 1_MiB, vram_limit_bytes / 1_MiB);
+        lru_cache.ForEachItemBelow(frame_tick, Cleanup); // Evict everything below current frame
+    }
+
+    // Update statistics
+    evicted_this_frame += bytes_freed;
+    evicted_total += bytes_freed;
+
+    // FIXED: VRAM leak prevention - Log VRAM usage if enabled
+    if (Settings::values.log_vram_usage.GetValue() && bytes_freed > 0) {
+        LOG_INFO(Render_Vulkan,
+                 "VRAM GC: evicted {}MB this frame, total={}MB, usage={}MB/{}MB ({:.1f}%)",
+                 bytes_freed / 1_MiB, evicted_total / 1_MiB, total_used_memory / 1_MiB,
+                 vram_limit_bytes / 1_MiB,
+                 (static_cast<f32>(total_used_memory) / vram_limit_bytes) * 100.0f);
     }
 }
 
 template <class P>
 void TextureCache<P>::TickFrame() {
+    // FIXED: VRAM leak prevention - Enhanced frame tick with VRAM monitoring
+
+    // Reset emergency flag at start of frame
+    emergency_gc_triggered = false;
+
     // If we can obtain the memory info, use it instead of the estimate.
     if (runtime.CanReportMemoryUsage()) {
         total_used_memory = runtime.GetDeviceMemoryUsage();
     }
-    if (total_used_memory > minimum_memory) {
+
+    // FIXED: VRAM leak prevention - Check if GC should run based on settings
+    const auto gc_level = Settings::values.gc_aggressiveness.GetValue();
+    const bool should_gc = gc_level != Settings::GCAggressiveness::Off &&
+                           (total_used_memory > minimum_memory ||
+                            total_used_memory >= static_cast<u64>(vram_limit_bytes * VRAM_USAGE_WARNING_THRESHOLD));
+
+    if (should_gc) {
         RunGarbageCollector();
     }
+
+    // FIXED: VRAM leak prevention - Force additional GC if still above critical after normal GC
+    if (total_used_memory >= critical_memory && gc_level != Settings::GCAggressiveness::Off) {
+        // Run GC again if we're still above critical
+        RunGarbageCollector();
+    }
+
     sentenced_images.Tick();
     sentenced_framebuffers.Tick();
     sentenced_image_view.Tick();
@@ -166,6 +345,183 @@ void TextureCache<P>::TickFrame() {
         }
         async_buffers_death_ring.clear();
     }
+
+    // FIXED: VRAM leak prevention - Periodic VRAM usage logging
+    if (Settings::values.log_vram_usage.GetValue() && (frame_tick % 300 == 0)) {
+        const f32 usage_ratio = vram_limit_bytes > 0
+                                    ? static_cast<f32>(total_used_memory) / vram_limit_bytes
+                                    : 0.0f;
+        LOG_INFO(Render_Vulkan,
+                 "VRAM Status: {}MB/{}MB ({:.1f}%), textures={}, sparse={}, evicted_total={}MB",
+                 total_used_memory / 1_MiB, vram_limit_bytes / 1_MiB, usage_ratio * 100.0f,
+                 texture_count, sparse_texture_count, evicted_total / 1_MiB);
+    }
+}
+
+// FIXED: VRAM leak prevention - Implementation of new VRAM management methods
+
+template <class P>
+void TextureCache<P>::ForceEmergencyGC() {
+    LOG_WARNING(Render_Vulkan, "Force emergency GC triggered: usage={}MB, limit={}MB",
+                total_used_memory / 1_MiB, vram_limit_bytes / 1_MiB);
+
+    emergency_gc_triggered = true;
+    u64 bytes_freed = 0;
+
+    // Evict 10% of textures immediately, prioritizing sparse and large textures
+    const u64 target_bytes = total_used_memory / 10;
+    bytes_freed += EvictSparseTexturesPriority(target_bytes / 2);
+    bytes_freed += EvictToFreeMemory(target_bytes - bytes_freed);
+
+    evicted_this_frame += bytes_freed;
+    evicted_total += bytes_freed;
+
+    LOG_INFO(Render_Vulkan, "Emergency GC freed {}MB", bytes_freed / 1_MiB);
+}
+
+template <class P>
+typename TextureCache<P>::VRAMStats TextureCache<P>::GetVRAMStats() const noexcept {
+    const f32 usage_ratio = vram_limit_bytes > 0
+                                ? static_cast<f32>(total_used_memory) / vram_limit_bytes
+                                : 0.0f;
+    return VRAMStats{
+        .total_used_bytes = total_used_memory,
+        .texture_bytes = total_used_memory - sparse_texture_memory,
+        .sparse_texture_bytes = sparse_texture_memory,
+        .evicted_this_frame = evicted_this_frame,
+        .evicted_total = evicted_total,
+        .texture_count = texture_count,
+        .sparse_texture_count = sparse_texture_count,
+        .usage_ratio = usage_ratio,
+    };
+}
+
+template <class P>
+void TextureCache<P>::SetVRAMLimit(u64 limit_bytes) {
+    vram_limit_bytes = limit_bytes;
+
+    // Recalculate thresholds
+    const auto gc_level = Settings::values.gc_aggressiveness.GetValue();
+    f32 expected_ratio = 0.6f;
+    f32 critical_ratio = 0.8f;
+
+    switch (gc_level) {
+    case Settings::GCAggressiveness::Off:
+        expected_ratio = 0.95f;
+        critical_ratio = 0.99f;
+        break;
+    case Settings::GCAggressiveness::Light:
+        expected_ratio = 0.75f;
+        critical_ratio = 0.90f;
+        break;
+    case Settings::GCAggressiveness::Moderate:
+        expected_ratio = 0.60f;
+        critical_ratio = 0.80f;
+        break;
+    case Settings::GCAggressiveness::Heavy:
+        expected_ratio = 0.50f;
+        critical_ratio = 0.70f;
+        break;
+    case Settings::GCAggressiveness::Extreme:
+        expected_ratio = 0.40f;
+        critical_ratio = 0.60f;
+        break;
+    }
+
+    expected_memory = static_cast<u64>(vram_limit_bytes * expected_ratio);
+    critical_memory = static_cast<u64>(vram_limit_bytes * critical_ratio);
+    minimum_memory = static_cast<u64>(vram_limit_bytes * 0.25f);
+
+    LOG_INFO(Render_Vulkan, "VRAM limit updated: {}MB, expected={}MB, critical={}MB",
+             vram_limit_bytes / 1_MiB, expected_memory / 1_MiB, critical_memory / 1_MiB);
+}
+
+template <class P>
+bool TextureCache<P>::IsVRAMPressureHigh() const noexcept {
+    return total_used_memory >= expected_memory;
+}
+
+template <class P>
+bool TextureCache<P>::IsVRAMPressureCritical() const noexcept {
+    return total_used_memory >= static_cast<u64>(vram_limit_bytes * VRAM_USAGE_EMERGENCY_THRESHOLD);
+}
+
+template <class P>
+u64 TextureCache<P>::EvictToFreeMemory(u64 target_bytes) {
+    u64 bytes_freed = 0;
+    const u64 start_memory = total_used_memory;
+
+    lru_cache.ForEachItemBelow(frame_tick, [this, &bytes_freed, target_bytes](ImageId image_id) {
+        if (bytes_freed >= target_bytes) {
+            return true;
+        }
+
+        auto& image = slot_images[image_id];
+        if (True(image.flags & ImageFlagBits::IsDecoding)) {
+            return false;
+        }
+
+        const u64 image_size = std::max(image.guest_size_bytes, image.unswizzled_size_bytes);
+
+        if (True(image.flags & ImageFlagBits::Tracked)) {
+            UntrackImage(image, image_id);
+        }
+        UnregisterImage(image_id);
+        DeleteImage(image_id, false);
+
+        bytes_freed += Common::AlignUp(image_size, 1024);
+        return false;
+    });
+
+    return start_memory - total_used_memory;
+}
+
+template <class P>
+u64 TextureCache<P>::EvictSparseTexturesPriority(u64 target_bytes) {
+    if (!Settings::values.sparse_texture_priority_eviction.GetValue()) {
+        return 0;
+    }
+
+    u64 bytes_freed = 0;
+
+    // Collect sparse textures and sort by size (largest first)
+    std::vector<std::pair<ImageId, u64>> sparse_textures;
+    lru_cache.ForEachItemBelow(frame_tick, [this, &sparse_textures](ImageId image_id) {
+        auto& image = slot_images[image_id];
+        if (True(image.flags & ImageFlagBits::Sparse) &&
+            False(image.flags & ImageFlagBits::IsDecoding)) {
+            const u64 size = std::max(image.guest_size_bytes, image.unswizzled_size_bytes);
+            sparse_textures.emplace_back(image_id, size);
+        }
+        return false;
+    });
+
+    // Sort by size descending (largest first for priority eviction)
+    std::sort(sparse_textures.begin(), sparse_textures.end(),
+              [](const auto& a, const auto& b) { return a.second > b.second; });
+
+    for (const auto& [image_id, size] : sparse_textures) {
+        if (bytes_freed >= target_bytes) {
+            break;
+        }
+
+        auto& image = slot_images[image_id];
+        if (True(image.flags & ImageFlagBits::Tracked)) {
+            UntrackImage(image, image_id);
+        }
+        UnregisterImage(image_id);
+        DeleteImage(image_id, false);
+
+        bytes_freed += Common::AlignUp(size, 1024);
+        --sparse_texture_count;
+        sparse_texture_memory -= Common::AlignUp(size, 1024);
+    }
+
+    if (bytes_freed > 0) {
+        LOG_DEBUG(Render_Vulkan, "Sparse texture priority eviction freed {}MB", bytes_freed / 1_MiB);
+    }
+
+    return bytes_freed;
 }
 
 template <class P>
@@ -2018,7 +2374,22 @@ void TextureCache<P>::RegisterImage(ImageId image_id) {
         True(image.flags & ImageFlagBits::Converted)) {
         tentative_size = TranscodedAstcSize(tentative_size, image.info.format);
     }
-    total_used_memory += Common::AlignUp(tentative_size, 1024);
+    const u64 aligned_size = Common::AlignUp(tentative_size, 1024);
+    total_used_memory += aligned_size;
+
+    // FIXED: VRAM leak prevention - Track texture statistics
+    ++texture_count;
+    const bool is_sparse = True(image.flags & ImageFlagBits::Sparse);
+    const bool is_large = aligned_size >= LARGE_TEXTURE_THRESHOLD;
+
+    if (is_sparse) {
+        sparse_texture_memory += aligned_size;
+        ++sparse_texture_count;
+    }
+    if (is_large) {
+        large_texture_memory += aligned_size;
+    }
+
     image.lru_index = lru_cache.Insert(image_id, frame_tick);
 
     ForEachGPUPage(image.gpu_addr, image.guest_size_bytes, [this, image_id](u64 page) {

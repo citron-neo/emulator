@@ -406,8 +406,6 @@ inline u32 EnumMetadata<VSyncMode>::Index() {
 enum class VramUsageMode : u32 {
     Conservative = 0,
     Aggressive = 1,
-    HighEnd = 2,
-    Insane = 3,
 };
 
 template <>
@@ -416,8 +414,6 @@ EnumMetadata<VramUsageMode>::Canonicalizations() {
     return {
         {"Conservative", VramUsageMode::Conservative},
         {"Aggressive", VramUsageMode::Aggressive},
-        {"HighEnd", VramUsageMode::HighEnd},
-        {"Insane", VramUsageMode::Insane},
     };
 }
 
@@ -878,6 +874,32 @@ EnumMetadata<ExtendedDynamicState>::Canonicalizations() {
 template <>
 inline u32 EnumMetadata<ExtendedDynamicState>::Index() {
     return 26;
+}
+
+// FIXED: VRAM leak prevention - GC aggressiveness levels
+enum class GCAggressiveness : u32 {
+    Off = 0,        // Disable automatic GC (not recommended)
+    Light = 1,      // Light GC - only evict very old textures
+    Moderate = 2,   // Moderate GC - balanced eviction (default)
+    Heavy = 3,      // Heavy GC - aggressive eviction for low VRAM systems
+    Extreme = 4,    // Extreme GC - maximum eviction for 4GB VRAM systems
+};
+
+template <>
+inline std::vector<std::pair<std::string, GCAggressiveness>>
+EnumMetadata<GCAggressiveness>::Canonicalizations() {
+    return {
+        {"Off", GCAggressiveness::Off},
+        {"Light", GCAggressiveness::Light},
+        {"Moderate", GCAggressiveness::Moderate},
+        {"Heavy", GCAggressiveness::Heavy},
+        {"Extreme", GCAggressiveness::Extreme},
+    };
+}
+
+template <>
+inline u32 EnumMetadata<GCAggressiveness>::Index() {
+    return 27;
 }
 
 
