@@ -175,7 +175,7 @@ void TextureCache<P>::RunGarbageCollector() {
             num_iterations = base_iterations * 2;
         } else if (high_priority_mode) {
             ticks_to_destroy = base_ticks;
-            num_iterations = static_cast<size_t>(base_iterations * 1.5);
+            num_iterations = static_cast<size_t>(static_cast<double>(base_iterations) * 1.5);
         } else {
             ticks_to_destroy = base_ticks * 2;
             num_iterations = base_iterations;
