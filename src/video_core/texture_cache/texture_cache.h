@@ -61,7 +61,7 @@ TextureCache<P>::TextureCache(Runtime& runtime_, Tegra::MaxwellDeviceMemoryManag
             vram_limit_bytes = static_cast<u64>(configured_limit_mb) * 1_MiB;
         } else {
             // Auto-detect: use 80% of available VRAM as limit
-            vram_limit_bytes = static_cast<u64>(device_local_memory * 0.80);
+            vram_limit_bytes = static_cast<u64>(static_cast<double>(device_local_memory) * 0.80);
         }
 
         // Adjust thresholds based on VRAM limit and GC aggressiveness setting
@@ -92,9 +92,9 @@ TextureCache<P>::TextureCache(Runtime& runtime_, Tegra::MaxwellDeviceMemoryManag
             break;
         }
 
-        expected_memory = static_cast<u64>(vram_limit_bytes * expected_ratio);
-        critical_memory = static_cast<u64>(vram_limit_bytes * critical_ratio);
-        minimum_memory = static_cast<u64>(vram_limit_bytes * 0.25f);
+        expected_memory = static_cast<u64>(static_cast<f32>(vram_limit_bytes) * expected_ratio);
+        critical_memory = static_cast<u64>(static_cast<f32>(vram_limit_bytes) * critical_ratio);
+        minimum_memory = static_cast<u64>(static_cast<f32>(vram_limit_bytes) * 0.25f);
 
         LOG_INFO(Render_Vulkan,
                  "VRAM Management initialized: limit={}MB, expected={}MB, critical={}MB, gc_level={}",
@@ -140,7 +140,7 @@ void TextureCache<P>::RunGarbageCollector() {
     const auto Configure = [&](bool allow_aggressive, bool allow_emergency) {
         high_priority_mode = total_used_memory >= expected_memory;
         aggressive_mode = allow_aggressive && total_used_memory >= critical_memory;
-        emergency_mode = allow_emergency && total_used_memory >= static_cast<u64>(vram_limit_bytes * VRAM_USAGE_EMERGENCY_THRESHOLD);
+        emergency_mode = allow_emergency && total_used_memory >= static_cast<u64>(static_cast<f32>(vram_limit_bytes) * VRAM_USAGE_EMERGENCY_THRESHOLD);
 
         // FIXED: VRAM leak prevention - Adjust iterations based on GC level
         u64 base_ticks = eviction_frames;
@@ -281,7 +281,7 @@ void TextureCache<P>::RunGarbageCollector() {
     }
 
     // FIXED: VRAM leak prevention - Emergency pass if still above emergency threshold
-    if (total_used_memory >= static_cast<u64>(vram_limit_bytes * VRAM_USAGE_EMERGENCY_THRESHOLD)) {
+    if (total_used_memory >= static_cast<u64>(static_cast<f32>(vram_limit_bytes) * VRAM_USAGE_EMERGENCY_THRESHOLD)) {
         Configure(true, true);
         emergency_gc_triggered = true;
         LOG_WARNING(Render_Vulkan, "VRAM Emergency GC triggered: usage={}MB, limit={}MB",
@@ -299,7 +299,7 @@ void TextureCache<P>::RunGarbageCollector() {
                  "VRAM GC: evicted {}MB this frame, total={}MB, usage={}MB/{}MB ({:.1f}%)",
                  bytes_freed / 1_MiB, evicted_total / 1_MiB, total_used_memory / 1_MiB,
                  vram_limit_bytes / 1_MiB,
-                 (static_cast<f32>(total_used_memory) / vram_limit_bytes) * 100.0f);
+                 (static_cast<f32>(total_used_memory) / static_cast<f32>(vram_limit_bytes)) * 100.0f);
     }
 }
 
@@ -319,7 +319,7 @@ void TextureCache<P>::TickFrame() {
     const auto gc_level = Settings::values.gc_aggressiveness.GetValue();
     const bool should_gc = gc_level != Settings::GCAggressiveness::Off &&
                            (total_used_memory > minimum_memory ||
-                            total_used_memory >= static_cast<u64>(vram_limit_bytes * VRAM_USAGE_WARNING_THRESHOLD));
+                            total_used_memory >= static_cast<u64>(static_cast<f32>(vram_limit_bytes) * VRAM_USAGE_WARNING_THRESHOLD));
 
     if (should_gc) {
         RunGarbageCollector();
@@ -349,7 +349,7 @@ void TextureCache<P>::TickFrame() {
     // FIXED: VRAM leak prevention - Periodic VRAM usage logging
     if (Settings::values.log_vram_usage.GetValue() && (frame_tick % 300 == 0)) {
         const f32 usage_ratio = vram_limit_bytes > 0
-                                    ? static_cast<f32>(total_used_memory) / vram_limit_bytes
+                                    ? static_cast<f32>(total_used_memory) / static_cast<f32>(vram_limit_bytes)
                                     : 0.0f;
         LOG_INFO(Render_Vulkan,
                  "VRAM Status: {}MB/{}MB ({:.1f}%), textures={}, sparse={}, evicted_total={}MB",
@@ -382,7 +382,7 @@ void TextureCache<P>::ForceEmergencyGC() {
 template <class P>
 typename TextureCache<P>::VRAMStats TextureCache<P>::GetVRAMStats() const noexcept {
     const f32 usage_ratio = vram_limit_bytes > 0
-                                ? static_cast<f32>(total_used_memory) / vram_limit_bytes
+                                ? static_cast<f32>(total_used_memory) / static_cast<f32>(vram_limit_bytes)
                                 : 0.0f;
     return VRAMStats{
         .total_used_bytes = total_used_memory,
@@ -428,9 +428,9 @@ void TextureCache<P>::SetVRAMLimit(u64 limit_bytes) {
         break;
     }
 
-    expected_memory = static_cast<u64>(vram_limit_bytes * expected_ratio);
-    critical_memory = static_cast<u64>(vram_limit_bytes * critical_ratio);
-    minimum_memory = static_cast<u64>(vram_limit_bytes * 0.25f);
+    expected_memory = static_cast<u64>(static_cast<f32>(vram_limit_bytes) * expected_ratio);
+    critical_memory = static_cast<u64>(static_cast<f32>(vram_limit_bytes) * critical_ratio);
+    minimum_memory = static_cast<u64>(static_cast<f32>(vram_limit_bytes) * 0.25f);
 
     LOG_INFO(Render_Vulkan, "VRAM limit updated: {}MB, expected={}MB, critical={}MB",
              vram_limit_bytes / 1_MiB, expected_memory / 1_MiB, critical_memory / 1_MiB);
@@ -443,7 +443,7 @@ bool TextureCache<P>::IsVRAMPressureHigh() const noexcept {
 
 template <class P>
 bool TextureCache<P>::IsVRAMPressureCritical() const noexcept {
-    return total_used_memory >= static_cast<u64>(vram_limit_bytes * VRAM_USAGE_EMERGENCY_THRESHOLD);
+    return total_used_memory >= static_cast<u64>(static_cast<f32>(vram_limit_bytes) * VRAM_USAGE_EMERGENCY_THRESHOLD);
 }
 
 template <class P>
