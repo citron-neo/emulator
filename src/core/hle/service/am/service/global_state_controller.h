@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: Copyright 2024 yuzu Emulator Project
-// SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project
+// SPDX-FileCopyrightText: Copyright 2026 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #pragma once
@@ -33,9 +33,11 @@ private:
     Result GetHdcpAuthenticationFailedEvent(OutCopyHandle<Kernel::KReadableEvent> out_event);
     Result OpenCradleFirmwareUpdater(
         Out<SharedPointer<ICradleFirmwareUpdater>> out_cradle_firmware_updater);
+    Result GetAccumulatedSuspendedTickChangedEvent(OutCopyHandle<Kernel::KReadableEvent> out_event);
 
     KernelHelpers::ServiceContext m_context;
     Event m_hdcp_authentication_failed_event;
+    Event m_accumulated_suspended_tick_changed_event;
 };
 
 } // namespace Service::AM

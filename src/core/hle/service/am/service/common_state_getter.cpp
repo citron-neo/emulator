@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: Copyright 2024 yuzu Emulator Project
-// SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project
+// SPDX-FileCopyrightText: Copyright 2026 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "common/settings.h"
@@ -82,13 +82,13 @@ ICommonStateGetter::ICommonStateGetter(Core::System& system_, std::shared_ptr<Ap
         {1001, nullptr, "GetScreenShotPermission"},
         {1010, nullptr, "GetNextProgramArgumentInfo"},
         {1011, nullptr, "GetPreviousProgramArgumentInfo"},
-        {1020, nullptr, "GetGpuErrorDetectedSystemEvent"},
+        {1020, D<&ICommonStateGetter::GetGpuErrorDetectedSystemEvent>, "GetGpuErrorDetectedSystemEvent"},
         {1021, nullptr, "SetDelayTimeToAbortOnGpuError"},
-        {1030, nullptr, "GetFriendInvitationStorageChannelEvent"},
+        {1030, D<&ICommonStateGetter::GetFriendInvitationStorageChannelEvent>, "GetFriendInvitationStorageChannelEvent"},
         {1031, nullptr, "TryPopFromFriendInvitationStorageChannel"},
-        {1040, nullptr, "GetNotificationStorageChannelEvent"},
+        {1040, D<&ICommonStateGetter::GetNotificationStorageChannelEvent>, "GetNotificationStorageChannelEvent"},
         {1041, nullptr, "TryPopFromNotificationStorageChannel"},
-        {1050, nullptr, "GetHealthWarningDisappearedSystemEvent"},
+        {1050, D<&ICommonStateGetter::GetHealthWarningDisappearedSystemEvent>, "GetHealthWarningDisappearedSystemEvent"},
         {1060, nullptr, "SetHdcpAuthenticationActivated"},
         {1061, nullptr, "GetLastForegroundCaptureImageEx"},
         {1062, nullptr, "GetLastApplicationCaptureImageEx"},
@@ -294,6 +294,34 @@ Result ICommonStateGetter::SetRequestExitToLibraryAppletAtExecuteNextProgramEnab
     std::scoped_lock lk{m_applet->lock};
     m_applet->request_exit_to_library_applet_at_execute_next_program_enabled = true;
 
+    R_SUCCEED();
+}
+
+Result ICommonStateGetter::GetGpuErrorDetectedSystemEvent(
+    OutCopyHandle<Kernel::KReadableEvent> out_event) {
+    LOG_DEBUG(Service_AM, "called");
+    *out_event = m_applet->gpu_error_detected_event.GetHandle();
+    R_SUCCEED();
+}
+
+Result ICommonStateGetter::GetFriendInvitationStorageChannelEvent(
+    OutCopyHandle<Kernel::KReadableEvent> out_event) {
+    LOG_DEBUG(Service_AM, "called");
+    *out_event = m_applet->friend_invitation_storage_channel_event.GetHandle();
+    R_SUCCEED();
+}
+
+Result ICommonStateGetter::GetNotificationStorageChannelEvent(
+    OutCopyHandle<Kernel::KReadableEvent> out_event) {
+    LOG_DEBUG(Service_AM, "called");
+    *out_event = m_applet->notification_storage_channel_event.GetHandle();
+    R_SUCCEED();
+}
+
+Result ICommonStateGetter::GetHealthWarningDisappearedSystemEvent(
+    OutCopyHandle<Kernel::KReadableEvent> out_event) {
+    LOG_DEBUG(Service_AM, "called");
+    *out_event = m_applet->health_warning_disappeared_system_event.GetHandle();
     R_SUCCEED();
 }
 
