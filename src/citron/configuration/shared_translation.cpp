@@ -44,6 +44,11 @@ std::unique_ptr<TranslationMap> InitializeTranslations(QWidget* parent) {
     INSERT(Settings, wifi_web_auth_applet_mode, tr("Wifi web auth"), QStringLiteral());
     INSERT(Settings, my_page_applet_mode, tr("My page"), QStringLiteral());
 
+    // System Applet
+    INSERT(Settings, qlaunch_enabled, tr("Enable Home Menu (QLaunch)"),
+           tr("When enabled, pressing the Home button will launch the firmware's Home Menu.\n"
+              "Requires firmware to be installed."));
+
     // Audio
     INSERT(Settings, sink_id, tr("Output Engine:"), QStringLiteral());
     INSERT(Settings, audio_output_device_id, tr("Output Device:"), QStringLiteral());
