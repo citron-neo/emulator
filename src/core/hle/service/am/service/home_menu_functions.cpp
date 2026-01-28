@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: Copyright 2024 yuzu Emulator Project
-// SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project
+// SPDX-FileCopyrightText: Copyright 2026 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "core/hle/result.h"
@@ -31,6 +31,8 @@ IHomeMenuFunctions::IHomeMenuFunctions(Core::System& system_, std::shared_ptr<Ap
         {41, D<&IHomeMenuFunctions::IsRebootEnabled>, "IsRebootEnabled"},
         {50, D<&IHomeMenuFunctions::LaunchSystemApplet>, "LaunchSystemApplet"},
         {51, D<&IHomeMenuFunctions::LaunchStarter>, "LaunchStarter"},
+        {60, D<&IHomeMenuFunctions::Cmd60>, "Cmd60"},
+        {61, D<&IHomeMenuFunctions::Cmd61>, "Cmd61"},
         {100, D<&IHomeMenuFunctions::PopRequestLaunchApplicationForDebug>, "PopRequestLaunchApplicationForDebug"},
         {110, D<&IHomeMenuFunctions::IsForceTerminateApplicationDisabledForDebug>, "IsForceTerminateApplicationDisabledForDebug"},
         {200, D<&IHomeMenuFunctions::LaunchDevMenu>, "LaunchDevMenu"},
@@ -146,6 +148,16 @@ Result IHomeMenuFunctions::LaunchDevMenu() {
 
 Result IHomeMenuFunctions::SetLastApplicationExitReason(s32 exit_reason) {
     LOG_WARNING(Service_AM, "(STUBBED) called, exit_reason={}", exit_reason);
+    R_SUCCEED();
+}
+
+Result IHomeMenuFunctions::Cmd60() {
+    LOG_WARNING(Service_AM, "(STUBBED) called [19.0.0+]");
+    R_SUCCEED();
+}
+
+Result IHomeMenuFunctions::Cmd61() {
+    LOG_WARNING(Service_AM, "(STUBBED) called [19.0.0+]");
     R_SUCCEED();
 }
 

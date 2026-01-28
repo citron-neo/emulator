@@ -139,8 +139,11 @@ void WindowSystem::OnExitRequested() {
 void WindowSystem::OnHomeButtonPressed(ButtonPressDuration type) {
     std::scoped_lock lk{m_lock};
 
-    // If we don't have a home menu, nothing to do.
+    // If we don't have a home menu, request frontend to launch QLaunch.
     if (!m_home_menu) {
+        if (m_home_menu_request_callback && type == ButtonPressDuration::ShortPressing) {
+            m_home_menu_request_callback();
+        }
         return;
     }
 
@@ -310,6 +313,11 @@ void WindowSystem::UpdateAppletStateLocked(Applet* applet, bool is_foreground) {
     for (const auto& child_applet : applet->child_applets) {
         this->UpdateAppletStateLocked(child_applet.get(), is_foreground);
     }
+}
+
+void WindowSystem::SetHomeMenuRequestCallback(HomeMenuRequestCallback callback) {
+    std::scoped_lock lk{m_lock};
+    m_home_menu_request_callback = std::move(callback);
 }
 
 } // namespace Service::AM

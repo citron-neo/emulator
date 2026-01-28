@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: Copyright 2024 yuzu Emulator Project
-// SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project
+// SPDX-FileCopyrightText: Copyright 2026 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "common/logging/log.h"
@@ -74,9 +74,12 @@ ISelfController::ISelfController(Core::System& system_, std::shared_ptr<Applet> 
         {160, nullptr, "SetCpuBoostRequestPriority"},
         {170, nullptr, "GetCurrentPerformanceConfiguration"},
         {180, nullptr, "GetOperationModeSystemInfo"},
-        {200, nullptr, "GetSettingsPlatformRegion"},
-        {210, nullptr, "ActivateMigrationService"},
-        {211, nullptr, "DeactivateMigrationService"},
+        {200, D<&ISelfController::Cmd200>, "Cmd200"},
+        {210, D<&ISelfController::Cmd210>, "Cmd210"},
+        {211, D<&ISelfController::Cmd211>, "Cmd211"},
+        {220, D<&ISelfController::Cmd220>, "Cmd220"},
+        {221, D<&ISelfController::Cmd221>, "Cmd221"},
+        {230, D<&ISelfController::Cmd230>, "Cmd230"},
         {300, nullptr, "SendMessage"},
         {301, nullptr, "ReceiveMessage"},
         {400, nullptr, "CreateAlbumAccessorApplicationAlbumEntry"},
@@ -421,6 +424,36 @@ Result ISelfController::SetRecordVolumeMuted(bool muted) {
     std::scoped_lock lk{m_applet->lock};
     m_applet->record_volume_muted = muted;
 
+    R_SUCCEED();
+}
+
+Result ISelfController::Cmd200() {
+    LOG_WARNING(Service_AM, "(STUBBED) called [20.0.0+]");
+    R_SUCCEED();
+}
+
+Result ISelfController::Cmd210() {
+    LOG_WARNING(Service_AM, "(STUBBED) called [20.0.0+]");
+    R_SUCCEED();
+}
+
+Result ISelfController::Cmd211() {
+    LOG_WARNING(Service_AM, "(STUBBED) called [20.0.0+]");
+    R_SUCCEED();
+}
+
+Result ISelfController::Cmd220() {
+    LOG_WARNING(Service_AM, "(STUBBED) called [20.0.0+]");
+    R_SUCCEED();
+}
+
+Result ISelfController::Cmd221() {
+    LOG_WARNING(Service_AM, "(STUBBED) called [20.0.0+]");
+    R_SUCCEED();
+}
+
+Result ISelfController::Cmd230() {
+    LOG_WARNING(Service_AM, "(STUBBED) called [20.0.0+]");
     R_SUCCEED();
 }
 

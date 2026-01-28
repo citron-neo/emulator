@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: Copyright 2024 yuzu Emulator Project
-// SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project
+// SPDX-FileCopyrightText: Copyright 2026 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #pragma once
@@ -39,6 +39,8 @@ private:
         Out<bool> out_is_force_terminate_application_disabled_for_debug);
     Result LaunchDevMenu();
     Result SetLastApplicationExitReason(s32 exit_reason);
+    Result Cmd60();
+    Result Cmd61();
 
     WindowSystem& m_window_system;
     const std::shared_ptr<Applet> m_applet;

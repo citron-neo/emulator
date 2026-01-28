@@ -47,6 +47,8 @@ IApplicationAccessor::IApplicationAccessor(Core::System& system_, std::shared_pt
         {190, nullptr, "PushToNotificationStorageChannel"},
         {200, nullptr, "RequestApplicationSoftReset"},
         {201, nullptr, "RestartApplicationTimer"},
+        {300, D<&IApplicationAccessor::Cmd300>, "Cmd300"},
+        {301, D<&IApplicationAccessor::Cmd301>, "Cmd301"},
     };
     // clang-format on
 
@@ -153,6 +155,16 @@ Result IApplicationAccessor::GetNsRightsEnvironmentHandle(Out<u64> out_handle) {
 
 Result IApplicationAccessor::ReportApplicationExitTimeout() {
     LOG_ERROR(Service_AM, "called");
+    R_SUCCEED();
+}
+
+Result IApplicationAccessor::Cmd300() {
+    LOG_WARNING(Service_AM, "(STUBBED) called [20.0.0+]");
+    R_SUCCEED();
+}
+
+Result IApplicationAccessor::Cmd301() {
+    LOG_WARNING(Service_AM, "(STUBBED) called [20.0.0+]");
     R_SUCCEED();
 }
 
