@@ -149,6 +149,7 @@ public slots:
     void OnConfigurationChanged();
 
 private slots:
+    void onSurpriseMeClicked();
     void UpdateProgressBarColor();
     void OnItemExpanded(const QModelIndex& item);
     void OnTextChanged(const QString& new_text);
@@ -200,6 +201,7 @@ private:
     QToolButton* btn_grid_view = nullptr;
     QSlider* slider_title_size = nullptr;
     QToolButton* btn_sort_az = nullptr;
+    QToolButton* btn_surprise_me = nullptr;
     Qt::SortOrder current_sort_order = Qt::AscendingOrder;
     QTreeView* tree_view = nullptr;
     QListView* list_view = nullptr;
