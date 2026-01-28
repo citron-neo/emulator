@@ -30,6 +30,7 @@ public:
             {10500, &PlayReport::SendReportWithUser, "SendReportWithUser"},
             {20100, &PlayReport::SaveSystemReport, "SaveSystemReport"},
             {20101, &PlayReport::SaveSystemReportWithUser, "SaveSystemReportWithUser"},
+            {20102, &PlayReport::SaveSystemReport2, "SaveSystemReport2"},
             {20200, &PlayReport::SetOperationMode, "SetOperationMode"},
             {30100, &PlayReport::ClearStorage, "ClearStorage"},
             {30200, &PlayReport::ClearStatistics, "ClearStatistics"},
@@ -155,6 +156,13 @@ private:
         const auto& reporter{system.GetReporter()};
         reporter.SavePlayReport(Core::Reporter::PlayReportType::System, title_id, {data1, data2},
                                 std::nullopt, user_id);
+
+        IPC::ResponseBuilder rb{ctx, 2};
+        rb.Push(ResultSuccess);
+    }
+
+    void SaveSystemReport2(HLERequestContext& ctx) {
+        LOG_WARNING(Service_PREPO, "(STUBBED) called");
 
         IPC::ResponseBuilder rb{ctx, 2};
         rb.Push(ResultSuccess);
