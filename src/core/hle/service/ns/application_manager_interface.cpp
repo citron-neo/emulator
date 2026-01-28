@@ -303,6 +303,94 @@ IApplicationManagerInterface::IApplicationManagerInterface(Core::System& system_
         {3013, nullptr, "IsGameCardEnabled"},
         {3014, nullptr, "IsLocalContentShareEnabled"},
         {3050, nullptr, "ListAssignELicenseTaskResult"},
+        // [20.0.0+]
+        {4000, nullptr, "Cmd4000"},
+        {4004, nullptr, "Cmd4004"},
+        {4006, nullptr, "Cmd4006"},
+        {4007, nullptr, "Cmd4007"},
+        {4008, nullptr, "Cmd4008"},
+        {4009, nullptr, "Cmd4009"},
+        {4010, nullptr, "Cmd4010"},
+        {4011, nullptr, "Cmd4011"},
+        {4012, nullptr, "Cmd4012"},
+        {4013, nullptr, "Cmd4013"},
+        {4015, nullptr, "Cmd4015"},
+        {4017, nullptr, "Cmd4017"},
+        {4019, nullptr, "Cmd4019"},
+        {4020, nullptr, "Cmd4020"},
+        {4021, nullptr, "Cmd4021"},
+        {4022, D<&IApplicationManagerInterface::Cmd4022>, "Cmd4022"},
+        {4023, D<&IApplicationManagerInterface::Cmd4023>, "Cmd4023"},
+        {4024, nullptr, "Cmd4024"},
+        {4025, nullptr, "Cmd4025"},
+        {4026, nullptr, "Cmd4026"},
+        {4027, nullptr, "Cmd4027"},
+        {4028, nullptr, "Cmd4028"},
+        {4029, nullptr, "Cmd4029"},
+        {4030, nullptr, "Cmd4030"},
+        {4031, nullptr, "Cmd4031"},
+        {4032, nullptr, "Cmd4032"},
+        {4033, nullptr, "Cmd4033"},
+        {4034, nullptr, "Cmd4034"},
+        {4035, nullptr, "Cmd4035"},
+        {4037, nullptr, "Cmd4037"},
+        {4038, nullptr, "Cmd4038"},
+        {4039, nullptr, "Cmd4039"},
+        {4040, nullptr, "Cmd4040"},
+        {4041, nullptr, "Cmd4041"},
+        {4042, nullptr, "Cmd4042"},
+        {4043, nullptr, "Cmd4043"},
+        {4044, nullptr, "Cmd4044"},
+        {4045, nullptr, "Cmd4045"},
+        {4046, nullptr, "Cmd4046"},
+        {4049, nullptr, "Cmd4049"},
+        {4050, nullptr, "Cmd4050"},
+        {4051, nullptr, "Cmd4051"},
+        {4052, nullptr, "Cmd4052"},
+        {4053, nullptr, "Cmd4053"},
+        {4054, nullptr, "Cmd4054"},
+        {4055, nullptr, "Cmd4055"},
+        {4056, nullptr, "Cmd4056"},
+        {4057, nullptr, "Cmd4057"},
+        {4058, nullptr, "Cmd4058"},
+        {4059, nullptr, "Cmd4059"},
+        {4060, nullptr, "Cmd4060"},
+        {4061, nullptr, "Cmd4061"},
+        {4062, nullptr, "Cmd4062"},
+        {4063, nullptr, "Cmd4063"},
+        {4064, nullptr, "Cmd4064"},
+        {4065, nullptr, "Cmd4065"},
+        {4066, nullptr, "Cmd4066"},
+        {4067, nullptr, "Cmd4067"},
+        {4068, nullptr, "Cmd4068"},
+        {4069, nullptr, "Cmd4069"},
+        {4070, nullptr, "Cmd4070"},
+        {4071, nullptr, "Cmd4071"},
+        {4072, nullptr, "Cmd4072"},
+        {4073, nullptr, "Cmd4073"},
+        {4074, nullptr, "Cmd4074"},
+        {4075, nullptr, "Cmd4075"},
+        {4076, nullptr, "Cmd4076"},
+        {4077, nullptr, "Cmd4077"},
+        {4078, nullptr, "Cmd4078"},
+        {4079, nullptr, "Cmd4079"},
+        {4080, nullptr, "Cmd4080"},
+        {4081, nullptr, "Cmd4081"},
+        {4083, nullptr, "Cmd4083"},
+        {4084, nullptr, "Cmd4084"},
+        {4085, nullptr, "Cmd4085"},
+        {4086, nullptr, "Cmd4086"},
+        {4087, nullptr, "Cmd4087"},
+        {4088, D<&IApplicationManagerInterface::Cmd4088>, "Cmd4088"},
+        {4089, nullptr, "Cmd4089"},
+        {4090, nullptr, "Cmd4090"},
+        {4091, nullptr, "Cmd4091"},
+        {4092, nullptr, "Cmd4092"},
+        {4093, nullptr, "Cmd4093"},
+        {4094, nullptr, "Cmd4094"},
+        {4095, nullptr, "Cmd4095"},
+        {4096, nullptr, "Cmd4096"},
+        {4097, nullptr, "Cmd4097"},
         {9999, nullptr, "GetApplicationCertificate"},
     };
     // clang-format on
@@ -513,6 +601,26 @@ Result IApplicationManagerInterface::GetApplicationTerminateResult(Out<Result> o
                                                                    u64 application_id) {
     LOG_WARNING(Service_NS, "(STUBBED) called. application_id={:016X}", application_id);
     *out_result = ResultSuccess;
+    R_SUCCEED();
+}
+
+Result IApplicationManagerInterface::Cmd4022(Out<u64> out_result) {
+    LOG_DEBUG(Service_NS, "(STUBBED) called [20.0.0+]");
+    // Return 0 to indicate no pending operations / ready state
+    *out_result = 0;
+    R_SUCCEED();
+}
+
+Result IApplicationManagerInterface::Cmd4023(Out<u64> out_result) {
+    LOG_DEBUG(Service_NS, "(STUBBED) called [20.0.0+]");
+    // Return 0 to indicate no pending operations / ready state
+    *out_result = 0;
+    R_SUCCEED();
+}
+
+Result IApplicationManagerInterface::Cmd4088(Out<u64> out_result) {
+    LOG_DEBUG(Service_NS, "(STUBBED) called [20.0.0+]");
+    *out_result = 0;
     R_SUCCEED();
 }
 
