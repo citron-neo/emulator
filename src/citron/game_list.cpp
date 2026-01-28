@@ -29,6 +29,15 @@
 #include <QUrlQuery>
 #include <QtConcurrent/QtConcurrent>
 #include <QFutureWatcher>
+#include <QDialog>
+#include <QPushButton>
+#include <QLabel>
+#include <QTimer>
+#include <QPropertyAnimation>
+#include <QEasingCurve>
+#include <random>
+#include <vector>
+#include <QSizePolicy>
 #include <fmt/format.h>
 #include "common/common_types.h"
 #include "common/logging/log.h"
@@ -46,6 +55,211 @@
 #include "citron/main.h"
 #include "citron/uisettings.h"
 #include "citron/util/controller_navigation.h"
+
+// A helper struct to cleanly pass game data
+struct SurpriseGame {
+    QString name;
+    QString path;
+    quint64 title_id;
+    QPixmap icon;
+};
+
+// This is the custom widget that shows the actual spinning game icons
+class GameReelWidget : public QWidget {
+    Q_OBJECT
+    Q_PROPERTY(qreal scrollOffset READ getScrollOffset WRITE setScrollOffset)
+
+public:
+    explicit GameReelWidget(QWidget* parent = nullptr) : QWidget(parent), m_scroll_offset(0.0) {
+        setFixedHeight(150);
+    }
+
+    void setGameReel(const QVector<SurpriseGame>& games) {
+        m_games = games;
+        update();
+    }
+
+    qreal getScrollOffset() const { return m_scroll_offset; }
+    void setScrollOffset(qreal offset) {
+        m_scroll_offset = offset;
+        update();
+    }
+
+protected:
+    void paintEvent(QPaintEvent* event) override {
+        if (m_games.isEmpty()) return;
+        QPainter painter(this);
+        painter.setRenderHint(QPainter::Antialiasing);
+
+        const int icon_size = 128;
+        const int icon_spacing = 15;
+        const int total_slot_width = icon_size + icon_spacing;
+
+        const int widget_center_x = width() / 2;
+        const int widget_center_y = height() / 2;
+
+        painter.fillRect(rect(), palette().color(QPalette::Window));
+        QColor highlight_color = palette().color(QPalette::Highlight);
+        painter.fillRect(widget_center_x - 2, 0, 4, height(), highlight_color);
+
+        for (int i = 0; i < m_games.size(); ++i) {
+            const qreal icon_x_position = (widget_center_x - icon_size / 2) + (i * total_slot_width) - m_scroll_offset;
+            const int draw_x = static_cast<int>(icon_x_position);
+            const int draw_y = widget_center_y - (icon_size / 2);
+
+            if (draw_x + icon_size < 0 || draw_x > width()) {
+                continue;
+            }
+
+            painter.save();
+
+            QPainterPath path;
+            path.addRoundedRect(draw_x, draw_y, icon_size, icon_size, 12, 12);
+            painter.setClipPath(path);
+
+            painter.drawPixmap(draw_x, draw_y, icon_size, icon_size, m_games[i].icon);
+
+            painter.restore();
+        }
+    }
+
+private:
+    QVector<SurpriseGame> m_games;
+    qreal m_scroll_offset;
+};
+
+// This is the main pop-up window that holds the spinning icons, title, and buttons
+class SurpriseMeDialog : public QDialog {
+    Q_OBJECT
+
+public:
+    explicit SurpriseMeDialog(QVector<SurpriseGame> games, QWidget* parent = nullptr)
+    : QDialog(parent), m_available_games(games), m_last_choice({QString(), QString(), 0, QPixmap()}) {
+        setWindowTitle(tr("Surprise Me!"));
+        setModal(true);
+        setFixedSize(540, 280);
+
+        auto* layout = new QVBoxLayout(this);
+        layout->setSpacing(15);
+        layout->setContentsMargins(15, 15, 15, 15);
+
+        m_reel_widget = new GameReelWidget(this);
+        m_game_title_label = new QLabel(tr("Spinning..."), this);
+        m_launch_button = new QPushButton(tr("Launch Game"), this);
+        m_reroll_button = new QPushButton(tr("Try Again?"), this);
+
+        m_launch_button->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+        m_reroll_button->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+
+        m_launch_button->setStyleSheet(QStringLiteral("padding: 5px;"));
+        m_reroll_button->setStyleSheet(QStringLiteral("padding: 5px;"));
+        m_launch_button->setMinimumHeight(35);
+        m_reroll_button->setMinimumHeight(35);
+
+        QFont title_font = m_game_title_label->font();
+        title_font.setPointSize(16);
+        title_font.setBold(true);
+        m_game_title_label->setFont(title_font);
+        m_game_title_label->setAlignment(Qt::AlignCenter);
+
+        m_game_title_label->setWordWrap(true);
+
+        auto* button_layout = new QHBoxLayout();
+        button_layout->addWidget(m_reroll_button);
+        button_layout->addWidget(m_launch_button);
+
+        layout->addWidget(m_reel_widget);
+        layout->addWidget(m_game_title_label);
+        layout->addLayout(button_layout);
+
+        m_launch_button->setEnabled(false);
+        m_reroll_button->setEnabled(false);
+
+        m_animation = new QPropertyAnimation(m_reel_widget, "scrollOffset", this);
+        m_animation->setEasingCurve(QEasingCurve::OutCubic);
+
+        connect(m_launch_button, &QPushButton::clicked, this, &SurpriseMeDialog::onLaunch);
+        connect(m_reroll_button, &QPushButton::clicked, this, &SurpriseMeDialog::startRoll);
+
+        QTimer::singleShot(100, this, &SurpriseMeDialog::startRoll);
+    }
+
+    const SurpriseGame& getFinalChoice() const { return m_last_choice; }
+
+private slots:
+    void startRoll() {
+        if (m_available_games.isEmpty()) {
+            m_game_title_label->setText(tr("No more games to choose!"));
+            m_reroll_button->setEnabled(false);
+            return;
+        }
+
+        m_game_title_label->setText(tr("Spinning..."));
+        m_launch_button->setEnabled(false);
+        m_reroll_button->setEnabled(false);
+
+        std::random_device rd;
+        std::mt19937 gen(rd());
+        std::uniform_int_distribution<> full_distrib(0, m_available_games.size() - 1);
+        const int winning_index = full_distrib(gen);
+
+        const SurpriseGame winner = m_available_games.at(winning_index);
+        m_available_games.removeAt(winning_index);
+
+        QVector<SurpriseGame> reel;
+        if (!m_available_games.isEmpty()) {
+            std::uniform_int_distribution<> filler_distrib(0, m_available_games.size() - 1);
+            for (int i = 0; i < 20; ++i) reel.push_back(m_available_games.at(filler_distrib(gen)));
+            reel.push_back(winner);
+            for (int i = 0; i < 20; ++i) reel.push_back(m_available_games.at(filler_distrib(gen)));
+        } else {
+            reel.push_back(winner);
+        }
+
+        m_reel_widget->setGameReel(reel);
+
+        const int icon_size = 128;
+        const int icon_spacing = 15;
+        const int total_slot_width = icon_size + icon_spacing;
+        const qreal start_offset = 0;
+
+        const int winning_reel_index = m_available_games.isEmpty() ? 0 : 20;
+        const qreal end_offset = (winning_reel_index * total_slot_width);
+
+        m_animation->stop();
+        m_reel_widget->setScrollOffset(start_offset);
+        m_animation->setDuration(4000);
+        m_animation->setStartValue(start_offset);
+        m_animation->setEndValue(end_offset);
+
+        disconnect(m_animation, &QPropertyAnimation::finished, nullptr, nullptr);
+        connect(m_animation, &QPropertyAnimation::finished, this, [this, winner]() {
+            m_last_choice = winner;
+            onRollFinished();
+        });
+
+        m_animation->start();
+    }
+
+    void onRollFinished() {
+        m_game_title_label->setText(m_last_choice.name);
+        m_launch_button->setEnabled(true);
+        if (!m_available_games.isEmpty()) {
+            m_reroll_button->setEnabled(true);
+        }
+    }
+
+    void onLaunch() { accept(); }
+
+private:
+    QVector<SurpriseGame> m_available_games;
+    SurpriseGame m_last_choice;
+    GameReelWidget* m_reel_widget;
+    QLabel* m_game_title_label;
+    QPushButton* m_launch_button;
+    QPushButton* m_reroll_button;
+    QPropertyAnimation* m_animation;
+};
 
 // Static helper for Save Detection
 static QString GetDetectedEmulatorName(const QString& path, u64 program_id, const QString& citron_nand_base) {
@@ -698,6 +912,25 @@ play_time_manager{play_time_manager_}, system{system_} {
     ));
     connect(btn_sort_az, &QToolButton::clicked, this, &GameList::ToggleSortOrder);
 
+    // Surprise Me button - positioned after sort button
+    btn_surprise_me = new QToolButton(toolbar);
+    btn_surprise_me->setIcon(QIcon(QStringLiteral(":/dist/dice.svg")));
+    btn_surprise_me->setToolTip(tr("Surprise Me! (Choose Random Game)"));
+    btn_surprise_me->setAutoRaise(true);
+    btn_surprise_me->setIconSize(QSize(16, 16));
+    btn_surprise_me->setFixedSize(32, 32);
+    btn_surprise_me->setStyleSheet(QStringLiteral(
+        "QToolButton {"
+        "  border: 1px solid palette(mid);"
+        "  border-radius: 4px;"
+        "  background: palette(button);"
+        "}"
+        "QToolButton:hover {"
+        "  background: palette(light);"
+        "}"
+    ));
+    connect(btn_surprise_me, &QToolButton::clicked, this, &GameList::onSurpriseMeClicked);
+
     // Create progress bar
     progress_bar = new QProgressBar(this);
     progress_bar->setVisible(false);
@@ -713,6 +946,7 @@ play_time_manager{play_time_manager_}, system{system_} {
     toolbar_layout->addWidget(btn_grid_view);
     toolbar_layout->addWidget(slider_title_size);
     toolbar_layout->addWidget(btn_sort_az);
+    toolbar_layout->addWidget(btn_surprise_me);
     toolbar_layout->addStretch(); // Push search to the right
     toolbar_layout->addWidget(search_field);
 
@@ -1884,3 +2118,61 @@ void GameList::RefreshCompatibilityList() {
         reply->deleteLater();
     });
 }
+
+void GameList::onSurpriseMeClicked() {
+    QVector<SurpriseGame> all_games;
+
+    // Go through the list and gather info for every game (name, icon, path)
+    for (int i = 0; i < item_model->rowCount(); ++i) {
+        QStandardItem* folder = item_model->item(i, 0);
+        if (!folder || folder->data(GameListItem::TypeRole).value<GameListItemType>() == GameListItemType::AddDir) {
+            continue;
+        }
+
+        for (int j = 0; j < folder->rowCount(); ++j) {
+            QStandardItem* game_item = folder->child(j, 0);
+            if (game_item && game_item->data(GameListItem::TypeRole).value<GameListItemType>() == GameListItemType::Game) {
+                QString game_title = game_item->data(GameListItemPath::TitleRole).toString();
+                if (game_title.isEmpty()) {
+                    std::string filename;
+                    Common::SplitPath(game_item->data(GameListItemPath::FullPathRole).toString().toStdString(), nullptr, &filename, nullptr);
+                    game_title = QString::fromStdString(filename);
+                }
+
+                QPixmap icon = game_item->data(Qt::DecorationRole).value<QPixmap>();
+                if (icon.isNull()) {
+                    // Use a generic icon if a game is missing one
+                    icon = QIcon::fromTheme(QStringLiteral("application-x-executable")).pixmap(128, 128);
+                }
+
+                all_games.append({
+                    game_title,
+                    game_item->data(GameListItemPath::FullPathRole).toString(),
+                    static_cast<quint64>(game_item->data(GameListItemPath::ProgramIdRole).toULongLong()),
+                    icon
+                });
+            }
+        }
+    }
+
+    if (all_games.empty()) {
+        QMessageBox::information(this, tr("Surprise Me!"), tr("No games available to choose from!"));
+        return;
+    }
+
+    // Create and show animated dialog
+    SurpriseMeDialog dialog(all_games, this);
+    const int result = dialog.exec();
+
+    // If the user clicked "Launch Game"...
+    if (result == QDialog::Accepted) {
+        const SurpriseGame choice = dialog.getFinalChoice();
+        if (!choice.path.isEmpty()) {
+            // ...then launch the game
+            emit GameChosen(choice.path, choice.title_id);
+        }
+    }
+    // If the user just closes the window (or clicks the 'X'), nothing happens.
+}
+
+#include "game_list.moc"
