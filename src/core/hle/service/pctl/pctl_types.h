@@ -40,4 +40,28 @@ struct PlayTimerSettings {
 };
 static_assert(sizeof(PlayTimerSettings) == 0x34, "PlayTimerSettings has incorrect size.");
 
+// This is nn::pctl::PlayTimerSettingsVer2 [18.0.0+]
+// Extended version with bedtime alarm settings
+struct PlayTimerSettingsVer2 {
+    PlayTimerSettings base_settings;
+    bool bedtime_alarm_enabled;
+    INSERT_PADDING_BYTES(3);
+    u32 bedtime_alarm_hour;
+    u32 bedtime_alarm_minute;
+    INSERT_PADDING_BYTES(4);
+};
+static_assert(sizeof(PlayTimerSettingsVer2) == 0x44, "PlayTimerSettingsVer2 has incorrect size.");
+
+// This is nn::pctl::PlayTimerRemainingTimeDisplayInfo [20.0.0+]
+struct PlayTimerRemainingTimeDisplayInfo {
+    s64 remaining_time_ns;       // Remaining time in nanoseconds
+    u32 display_hours;           // Hours to display
+    u32 display_minutes;         // Minutes to display
+    bool is_restricted;          // Whether play time is restricted
+    bool alarm_active;           // Whether the alarm is active
+    INSERT_PADDING_BYTES(6);
+};
+static_assert(sizeof(PlayTimerRemainingTimeDisplayInfo) == 0x18,
+              "PlayTimerRemainingTimeDisplayInfo has incorrect size.");
+
 } // namespace Service::PCTL

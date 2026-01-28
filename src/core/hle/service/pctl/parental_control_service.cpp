@@ -13,7 +13,8 @@ namespace Service::PCTL {
 IParentalControlService::IParentalControlService(Core::System& system_, Capability capability_)
     : ServiceFramework{system_, "IParentalControlService"}, capability{capability_},
       service_context{system_, "IParentalControlService"}, synchronization_event{service_context},
-      unlinked_event{service_context}, request_suspension_event{service_context} {
+      unlinked_event{service_context}, request_suspension_event{service_context},
+      extended_play_timer_event{service_context} {
     // clang-format off
     static const FunctionInfo functions[] = {
         {1, D<&IParentalControlService::Initialize>, "Initialize"},
@@ -77,11 +78,12 @@ IParentalControlService::IParentalControlService(Core::System& system_, Capabili
         {1451, D<&IParentalControlService::StartPlayTimer>, "StartPlayTimer"},
         {1452, D<&IParentalControlService::StopPlayTimer>, "StopPlayTimer"},
         {1453, D<&IParentalControlService::IsPlayTimerEnabled>, "IsPlayTimerEnabled"},
-        {1454, nullptr, "GetPlayTimerRemainingTime"},
+        {1454, D<&IParentalControlService::GetPlayTimerRemainingTime>, "GetPlayTimerRemainingTime"},
         {1455, D<&IParentalControlService::IsRestrictedByPlayTimer>, "IsRestrictedByPlayTimer"},
         {1456, D<&IParentalControlService::GetPlayTimerSettings>, "GetPlayTimerSettings"},
         {1457, D<&IParentalControlService::GetPlayTimerEventToRequestSuspension>, "GetPlayTimerEventToRequestSuspension"},
         {1458, D<&IParentalControlService::IsPlayTimerAlarmDisabled>, "IsPlayTimerAlarmDisabled"},
+        {1459, D<&IParentalControlService::GetPlayTimerRemainingTimeDisplayInfo>, "GetPlayTimerRemainingTimeDisplayInfo"}, // [20.0.0+]
         {1471, nullptr, "NotifyWrongPinCodeInputManyTimes"},
         {1472, nullptr, "CancelNetworkRequest"},
         {1473, D<&IParentalControlService::GetUnlinkedEvent>, "GetUnlinkedEvent"},
@@ -117,6 +119,14 @@ IParentalControlService::IParentalControlService(Core::System& system_, Capabili
         {2014, nullptr, "FinishSynchronizeParentalControlSettings"},
         {2015, nullptr, "FinishSynchronizeParentalControlSettingsWithLastUpdated"},
         {2016, nullptr, "RequestUpdateExemptionListAsync"},
+        // [18.0.0+]
+        {1475, D<&IParentalControlService::GetExtendedPlayTimerEvent>, "GetExtendedPlayTimerEvent"},
+        {1954, nullptr, "IsBedtimeAlarmEnabled"},
+        {1955, nullptr, "GetBedtimeAlarmTime"},
+        {1956, nullptr, "GetBedtimeAlarmTimeHour"},
+        {1957, nullptr, "GetBedtimeAlarmTimeMinute"},
+        {145601, D<&IParentalControlService::GetPlayTimerSettingsVer2>, "GetPlayTimerSettingsVer2"},
+        {195101, nullptr, "SetPlayTimerSettingsForDebugVer2"},
     };
     // clang-format on
     RegisterHandlers(functions);
@@ -377,10 +387,39 @@ Result IParentalControlService::GetPlayTimerSettings(
     R_SUCCEED();
 }
 
+Result IParentalControlService::GetPlayTimerRemainingTime(Out<s64> out_remaining_time) {
+    LOG_WARNING(Service_PCTL, "(STUBBED) called");
+    // Return 0 indicating no time restriction (unlimited playtime remaining)
+    *out_remaining_time = 0;
+    R_SUCCEED();
+}
+
+Result IParentalControlService::GetPlayTimerRemainingTimeDisplayInfo(
+    Out<PlayTimerRemainingTimeDisplayInfo> out_display_info) {
+    LOG_WARNING(Service_PCTL, "(STUBBED) called [20.0.0+]");
+    // Return default values indicating no time restriction
+    *out_display_info = {};
+    R_SUCCEED();
+}
+
+Result IParentalControlService::GetPlayTimerSettingsVer2(
+    Out<PlayTimerSettingsVer2> out_play_timer_settings) {
+    LOG_WARNING(Service_PCTL, "(STUBBED) called [18.0.0+]");
+    *out_play_timer_settings = {};
+    R_SUCCEED();
+}
+
 Result IParentalControlService::GetPlayTimerEventToRequestSuspension(
     OutCopyHandle<Kernel::KReadableEvent> out_event) {
     LOG_INFO(Service_PCTL, "called");
     *out_event = request_suspension_event.GetHandle();
+    R_SUCCEED();
+}
+
+Result IParentalControlService::GetExtendedPlayTimerEvent(
+    OutCopyHandle<Kernel::KReadableEvent> out_event) {
+    LOG_INFO(Service_PCTL, "called [18.0.0+]");
+    *out_event = extended_play_timer_event.GetHandle();
     R_SUCCEED();
 }
 

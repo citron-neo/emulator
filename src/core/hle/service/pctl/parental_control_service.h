@@ -47,8 +47,13 @@ private:
     Result IsPlayTimerEnabled(Out<bool> out_is_play_timer_enabled);
     Result IsRestrictedByPlayTimer(Out<bool> out_is_restricted_by_play_timer);
     Result GetPlayTimerSettings(Out<PlayTimerSettings> out_play_timer_settings);
+    Result GetPlayTimerRemainingTime(Out<s64> out_remaining_time);
+    Result GetPlayTimerRemainingTimeDisplayInfo(
+        Out<PlayTimerRemainingTimeDisplayInfo> out_display_info);
+    Result GetPlayTimerSettingsVer2(Out<PlayTimerSettingsVer2> out_play_timer_settings);
     Result GetPlayTimerEventToRequestSuspension(OutCopyHandle<Kernel::KReadableEvent> out_event);
     Result IsPlayTimerAlarmDisabled(Out<bool> out_play_timer_alarm_disabled);
+    Result GetExtendedPlayTimerEvent(OutCopyHandle<Kernel::KReadableEvent> out_event);
     Result GetUnlinkedEvent(OutCopyHandle<Kernel::KReadableEvent> out_event);
     Result GetStereoVisionRestriction(Out<bool> out_stereo_vision_restriction);
     Result SetStereoVisionRestriction(bool stereo_vision_restriction);
@@ -81,6 +86,7 @@ private:
     Event synchronization_event;
     Event unlinked_event;
     Event request_suspension_event;
+    Event extended_play_timer_event;
 };
 
 } // namespace Service::PCTL
