@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: Copyright 2018 yuzu Emulator Project
-// SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project
+// SPDX-FileCopyrightText: Copyright 2026 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #pragma once
@@ -19,6 +19,7 @@ class ILibraryAppletProxy;
 class IOverlayAppletProxy;
 class ISystemAppletProxy;
 class ISystemApplicationProxy;
+class ISystemProcessCommonFunctions;
 class WindowSystem;
 
 class IAllSystemAppletProxiesService final
@@ -31,6 +32,9 @@ private:
     Result OpenSystemAppletProxy(Out<SharedPointer<ISystemAppletProxy>> out_system_applet_proxy,
                                  ClientProcessId pid,
                                  InCopyHandle<Kernel::KProcess> process_handle);
+    Result OpenHomeMenuProxy(Out<SharedPointer<ISystemAppletProxy>> out_system_applet_proxy,
+                             ClientProcessId pid,
+                             InCopyHandle<Kernel::KProcess> process_handle);
     Result OpenLibraryAppletProxy(Out<SharedPointer<ILibraryAppletProxy>> out_library_applet_proxy,
                                   ClientProcessId pid,
                                   InCopyHandle<Kernel::KProcess> process_handle,
@@ -49,6 +53,9 @@ private:
                                                      ClientProcessId pid,
                                                      InCopyHandle<Kernel::KProcess> process_handle);
     Result GetSystemAppletControllerForDebug();
+    Result GetSystemProcessCommonFunctions(
+        Out<SharedPointer<ISystemProcessCommonFunctions>> out_system_process_common_functions);
+    Result Cmd460();
     Result GetDebugFunctions(Out<SharedPointer<IDebugFunctions>> out_debug_functions);
 
 private:
