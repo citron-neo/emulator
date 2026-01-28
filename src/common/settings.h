@@ -169,6 +169,9 @@ struct Values {
     Setting<AppletMode> my_page_applet_mode{linkage, AppletMode::LLE, "my_page_applet_mode",
                                             Category::LibraryApplet};
 
+    // System Applet
+    Setting<bool> qlaunch_enabled{linkage, true, "qlaunch_enabled", Category::System};
+
     // Audio
     SwitchableSetting<AudioEngine> sink_id{linkage, AudioEngine::Auto, "output_engine",
                                            Category::Audio, Specialization::RuntimeList};
