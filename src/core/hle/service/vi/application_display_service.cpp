@@ -1,5 +1,8 @@
 // SPDX-FileCopyrightText: Copyright 2024 yuzu Emulator Project
+// SPDX-FileCopyrightText: Copyright 2026 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
+
+#include <cstring>
 
 #include "core/hle/service/cmif_serialization.h"
 #include "core/hle/service/nvnflinger/hos_binder_driver.h"
@@ -88,8 +91,12 @@ Result IApplicationDisplayService::OpenDisplay(Out<u64> out_display_id, DisplayN
     LOG_WARNING(Service_VI, "(STUBBED) called");
 
     display_name[display_name.size() - 1] = '\0';
-    ASSERT_MSG(strcmp(display_name.data(), "Default") == 0,
-               "Non-default displays aren't supported yet");
+    if (strcmp(display_name.data(), "Default") != 0) {
+        LOG_WARNING(Service_VI, "Non-default display '{}' requested, using Default display",
+                    display_name.data());
+        // Use Default display for non-default display requests
+        R_RETURN(m_container->OpenDisplay(out_display_id, DisplayName{"Default"}));
+    }
 
     R_RETURN(m_container->OpenDisplay(out_display_id, display_name));
 }
@@ -142,14 +149,39 @@ Result IApplicationDisplayService::SetLayerScalingMode(NintendoScaleMode scale_m
 
 Result IApplicationDisplayService::ListDisplays(
     Out<u64> out_count, OutArray<DisplayInfo, BufferAttr_HipcMapAlias> out_displays) {
-    LOG_WARNING(Service_VI, "(STUBBED) called");
+    LOG_DEBUG(Service_VI, "called");
 
-    if (out_displays.size() > 0) {
-        out_displays[0] = DisplayInfo{};
-        *out_count = 1;
-    } else {
-        *out_count = 0;
+    // QLaunch expects multiple displays: Default, Edid, Internal, External, Null
+    struct DisplayEntry {
+        const char* name;
+        u8 has_limited_layers;
+        u64 max_layers;
+        u64 width;
+        u64 height;
+    };
+
+    static constexpr std::array<DisplayEntry, 5> display_entries{{
+        {"Default", 1, 1, 1920, 1080},
+        {"Edid", 1, 1, 1920, 1080},
+        {"Internal", 1, 1, 1280, 720},
+        {"External", 1, 1, 1920, 1080},
+        {"Null", 0, 0, 0, 0},
+    }};
+
+    const u64 display_count =
+        std::min(static_cast<u64>(display_entries.size()), out_displays.size());
+
+    for (u64 i = 0; i < display_count; ++i) {
+        DisplayInfo info{};
+        std::strncpy(info.display_name.data(), display_entries[i].name,
+                     info.display_name.size() - 1);
+        info.has_limited_layers = display_entries[i].has_limited_layers;
+        info.max_layers = display_entries[i].max_layers;
+        info.width = display_entries[i].width;
+        info.height = display_entries[i].height;
+        out_displays[i] = info;
     }
+    *out_count = display_count;
 
     R_SUCCEED();
 }

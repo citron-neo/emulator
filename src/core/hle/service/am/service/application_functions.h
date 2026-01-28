@@ -79,6 +79,11 @@ private:
     Result PrepareForJit();
     Result GetLaunchRequiredVersionUpgrade(OutCopyHandle<Kernel::KReadableEvent> out_event);
     Result Unknown330(); // [20.2.0+]
+    Result Cmd112();
+    Result Cmd113();
+    Result Cmd220();
+    Result Cmd310();
+    Result Cmd320();
 
     const std::shared_ptr<Applet> m_applet;
 };

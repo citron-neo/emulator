@@ -201,6 +201,8 @@ private:
     Core::PerfStatsResults last_perf_stats{};
     Service::AM::FrontendAppletParameters ApplicationAppletParameters();
     Service::AM::FrontendAppletParameters LibraryAppletParameters(u64 program_id, Service::AM::AppletId applet_id);
+    Service::AM::FrontendAppletParameters SystemAppletParameters(u64 program_id, Service::AM::AppletId applet_id);
+    void SetupHomeMenuCallback();
     std::unique_ptr<FileSys::ManualContentProvider> autoloader_provider;
     u64 current_title_id{0};
 private slots:
@@ -288,6 +290,7 @@ private slots:
     void OnCabinet(Service::NFP::CabinetMode mode);
     void OnMiiEdit();
     void OnOpenControllerMenu();
+    void OnQLaunch();
     void OnCaptureScreenshot();
     void OnCheckFirmwareDecryption();
     void OnLanguageChanged(const QString& locale);

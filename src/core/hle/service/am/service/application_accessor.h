@@ -35,6 +35,8 @@ private:
     Result CheckRightsEnvironmentAvailable(Out<bool> out_is_available);
     Result GetNsRightsEnvironmentHandle(Out<u64> out_handle);
     Result ReportApplicationExitTimeout();
+    Result Cmd300();
+    Result Cmd301();
 
     WindowSystem& m_window_system;
     const std::shared_ptr<Applet> m_applet;

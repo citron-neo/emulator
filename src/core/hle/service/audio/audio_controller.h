@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: Copyright 2018 yuzu Emulator Project
-// SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project
+// SPDX-FileCopyrightText: Copyright 2026 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #pragma once
@@ -90,6 +90,7 @@ private:
     Result OverrideDefaultTargetForDebug(u32 target); // [19.0.0-19.0.1]
     Result SetForceOverrideExternalDeviceNameForDebug(InLargeData<std::array<u8, 0x80>, BufferAttr_HipcMapAlias> device_name); // [19.0.0+]
     Result ClearForceOverrideExternalDeviceNameForDebug(); // [19.0.0+]
+    Result GetAudioController(Out<SharedPointer<IAudioController>> out_audio_controller); // [19.0.0+]
     Result Unknown10200(); // [20.0.0+]
 
     KernelHelpers::ServiceContext service_context;

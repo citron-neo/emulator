@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include <functional>
 #include <map>
 #include <memory>
 #include <mutex>
@@ -23,6 +24,8 @@ enum class ButtonPressDuration {
     MiddlePressing,
     LongPressing,
 };
+
+using HomeMenuRequestCallback = std::function<void()>;
 
 class WindowSystem {
 public:
@@ -52,6 +55,9 @@ public:
     void OnCaptureButtonPressed(ButtonPressDuration type) {}
     void OnPowerButtonPressed(ButtonPressDuration type) {}
 
+public:
+    void SetHomeMenuRequestCallback(HomeMenuRequestCallback callback);
+
 private:
     void PruneTerminatedAppletsLocked();
     bool LockHomeMenuIntoForegroundLocked();
@@ -78,6 +84,9 @@ private:
 
     // Applet map by aruid.
     std::map<u64, std::shared_ptr<Applet>> m_applets{};
+
+    // Callback for requesting home menu launch from frontend.
+    HomeMenuRequestCallback m_home_menu_request_callback{};
 };
 
 } // namespace Service::AM

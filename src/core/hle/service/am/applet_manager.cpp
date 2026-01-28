@@ -335,4 +335,11 @@ void AppletManager::SetWindowSystem(WindowSystem* window_system) {
     applet->process->Run();
 }
 
+void AppletManager::SetHomeMenuRequestCallback(std::function<void()> callback) {
+    std::unique_lock lk{m_lock};
+    if (m_window_system) {
+        m_window_system->SetHomeMenuRequestCallback(std::move(callback));
+    }
+}
+
 } // namespace Service::AM

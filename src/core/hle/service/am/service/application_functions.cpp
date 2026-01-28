@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: Copyright 2024 yuzu Emulator Project
-// SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project
+// SPDX-FileCopyrightText: Copyright 2026 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "common/settings.h"
@@ -69,6 +69,8 @@ IApplicationFunctions::IApplicationFunctions(Core::System& system_, std::shared_
         {102, D<&IApplicationFunctions::SetApplicationCopyrightVisibility>, "SetApplicationCopyrightVisibility"},
         {110, D<&IApplicationFunctions::QueryApplicationPlayStatistics>, "QueryApplicationPlayStatistics"},
         {111, D<&IApplicationFunctions::QueryApplicationPlayStatisticsByUid>, "QueryApplicationPlayStatisticsByUid"},
+        {112, D<&IApplicationFunctions::Cmd112>, "Cmd112"},
+        {113, D<&IApplicationFunctions::Cmd113>, "Cmd113"},
         {120, D<&IApplicationFunctions::ExecuteProgram>, "ExecuteProgram"},
         {121, D<&IApplicationFunctions::ClearUserChannel>, "ClearUserChannel"},
         {122, D<&IApplicationFunctions::UnpopToUserChannel>, "UnpopToUserChannel"},
@@ -88,7 +90,10 @@ IApplicationFunctions::IApplicationFunctions(Core::System& system_, std::shared_
         {200, nullptr, "GetLastApplicationExitReason"},
         {210, D<&IApplicationFunctions::GetLaunchRequiredVersionUpgrade>, "GetLaunchRequiredVersionUpgrade"},
         {211, nullptr, "GetLaunchRequiredVersionUpgradeStatus"},
+        {220, D<&IApplicationFunctions::Cmd220>, "Cmd220"},
         {300, nullptr, "RequestToLaunchApplication"},
+        {310, D<&IApplicationFunctions::Cmd310>, "Cmd310"},
+        {320, D<&IApplicationFunctions::Cmd320>, "Cmd320"},
         {301, nullptr, "RequestToLaunchApplicationWithUserAndArguments"},
         {310, nullptr, "RequestToLaunchApplicationWithArgumentsAndUserSelectionAndError"},
         {330, D<&IApplicationFunctions::Unknown330>, "Unknown330"}, // [20.2.0+]
@@ -529,6 +534,31 @@ Result IApplicationFunctions::GetLaunchRequiredVersionUpgrade(OutCopyHandle<Kern
 
 Result IApplicationFunctions::Unknown330() {
     LOG_WARNING(Service_AM, "(STUBBED) called Unknown330 [20.2.0+]");
+    R_SUCCEED();
+}
+
+Result IApplicationFunctions::Cmd112() {
+    LOG_WARNING(Service_AM, "(STUBBED) called [20.0.0+]");
+    R_SUCCEED();
+}
+
+Result IApplicationFunctions::Cmd113() {
+    LOG_WARNING(Service_AM, "(STUBBED) called [20.0.0+]");
+    R_SUCCEED();
+}
+
+Result IApplicationFunctions::Cmd220() {
+    LOG_WARNING(Service_AM, "(STUBBED) called [20.0.0+]");
+    R_SUCCEED();
+}
+
+Result IApplicationFunctions::Cmd310() {
+    LOG_WARNING(Service_AM, "(STUBBED) called [20.0.0+]");
+    R_SUCCEED();
+}
+
+Result IApplicationFunctions::Cmd320() {
+    LOG_WARNING(Service_AM, "(STUBBED) called [20.0.0+]");
     R_SUCCEED();
 }
 

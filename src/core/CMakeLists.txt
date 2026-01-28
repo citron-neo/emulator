@@ -467,6 +467,8 @@ add_library(core STATIC
     hle/service/am/service/application_creator.h
     hle/service/am/service/application_functions.cpp
     hle/service/am/service/application_functions.h
+    hle/service/am/service/application_observer.cpp
+    hle/service/am/service/application_observer.h
     hle/service/am/service/application_proxy.cpp
     hle/service/am/service/application_proxy.h
     hle/service/am/service/application_proxy_service.cpp
@@ -509,6 +511,8 @@ add_library(core STATIC
     hle/service/am/service/system_applet_proxy.h
     hle/service/am/service/system_application_proxy.cpp
     hle/service/am/service/system_application_proxy.h
+    hle/service/am/service/system_process_common_functions.cpp
+    hle/service/am/service/system_process_common_functions.h
     hle/service/am/service/window_controller.cpp
     hle/service/am/service/window_controller.h
     hle/service/am/window_system.cpp

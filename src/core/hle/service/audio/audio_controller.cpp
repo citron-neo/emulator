@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: Copyright 2018 yuzu Emulator Project
-// SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project
+// SPDX-FileCopyrightText: Copyright 2026 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "common/logging/log.h"
@@ -72,7 +72,7 @@ IAudioController::IAudioController(Core::System& system_)
         {50001, D<&IAudioController::OverrideDefaultTargetForDebug>, "OverrideDefaultTargetForDebug"}, // [19.0.0-19.0.1]
         {50003, D<&IAudioController::SetForceOverrideExternalDeviceNameForDebug>, "SetForceOverrideExternalDeviceNameForDebug"}, // [19.0.0+]
         {50004, D<&IAudioController::ClearForceOverrideExternalDeviceNameForDebug>, "ClearForceOverrideExternalDeviceNameForDebug"}, // [19.0.0+]
-        {5000, nullptr, "Unknown5000"}, // [19.0.0+]
+        {5000, D<&IAudioController::GetAudioController>, "GetAudioController"}, // [19.0.0+]
         {10200, D<&IAudioController::Unknown10200>, "Unknown10200"}, // [20.0.0+]
     };
     // clang-format on
@@ -404,6 +404,13 @@ Result IAudioController::ClearForceOverrideExternalDeviceNameForDebug() {
 
 Result IAudioController::Unknown10200() {
     LOG_WARNING(Audio, "(STUBBED) called Unknown10200 [20.0.0+]");
+    R_SUCCEED();
+}
+
+Result IAudioController::GetAudioController(
+    Out<SharedPointer<IAudioController>> out_audio_controller) {
+    LOG_DEBUG(Audio, "called GetAudioController [19.0.0+]");
+    *out_audio_controller = std::make_shared<IAudioController>(system);
     R_SUCCEED();
 }
 

@@ -53,6 +53,10 @@ private:
                                     OutArray<AppletId, BufferAttr_HipcMapAlias> out_applet_ids);
     Result GetSettingsPlatformRegion(Out<Set::PlatformRegion> out_settings_platform_region);
     Result SetRequestExitToLibraryAppletAtExecuteNextProgramEnabled();
+    Result GetGpuErrorDetectedSystemEvent(OutCopyHandle<Kernel::KReadableEvent> out_event);
+    Result GetFriendInvitationStorageChannelEvent(OutCopyHandle<Kernel::KReadableEvent> out_event);
+    Result GetNotificationStorageChannelEvent(OutCopyHandle<Kernel::KReadableEvent> out_event);
+    Result GetHealthWarningDisappearedSystemEvent(OutCopyHandle<Kernel::KReadableEvent> out_event);
 
     void SetCpuBoostMode(HLERequestContext& ctx);
 

@@ -1725,6 +1725,7 @@ void GMainWindow::ConnectMenuEvents() {
     connect(multiplayer_state, &MultiplayerState::SaveConfig, this, &GMainWindow::OnSaveConfig);
 
     // Tools
+    connect_menu(ui->action_Load_Home_Menu, &GMainWindow::OnQLaunch);
     connect_menu(ui->action_Load_Album, &GMainWindow::OnAlbum);
     connect_menu(ui->action_Load_Cabinet_Nickname_Owner,
                  [this]() { OnCabinet(Service::NFP::CabinetMode::StartNicknameAndOwnerSettings); });
@@ -1769,7 +1770,8 @@ void GMainWindow::UpdateMenuState() {
         ui->action_Pause,
     };
 
-    const std::array applet_actions{ui->action_Load_Album,
+    const std::array applet_actions{ui->action_Load_Home_Menu,
+                                    ui->action_Load_Album,
                                     ui->action_Load_Cabinet_Nickname_Owner,
                                     ui->action_Load_Cabinet_Eraser,
                                     ui->action_Load_Cabinet_Restorer,
@@ -2166,6 +2168,9 @@ void GMainWindow::BootGame(const QString& filename, Service::AM::FrontendAppletP
         emu_thread->ForceStop();
         render_window->Exit();
     });
+
+    // Set up home menu callback for QLaunch support
+    SetupHomeMenuCallback();
 
     connect(render_window, &GRenderWindow::Closed, this, &GMainWindow::OnStopGame);
     connect(render_window, &GRenderWindow::MouseActivity, this, &GMainWindow::OnMouseActivity);
@@ -5393,6 +5398,31 @@ void GMainWindow::OnOpenControllerMenu() {
              LibraryAppletParameters(ControllerAppletId, Service::AM::AppletId::Controller));
 }
 
+void GMainWindow::OnQLaunch() {
+    if (!Settings::values.qlaunch_enabled.GetValue()) {
+        return;
+    }
+
+    constexpr u64 QLaunchId = static_cast<u64>(Service::AM::AppletProgramId::QLaunch);
+    auto bis_system = system->GetFileSystemController().GetSystemNANDContents();
+    if (!bis_system) {
+        QMessageBox::warning(this, tr("No firmware available"),
+                             tr("Please install firmware to use the Home Menu."));
+        return;
+    }
+
+    auto qlaunch_nca = bis_system->GetEntry(QLaunchId, FileSys::ContentRecordType::Program);
+    if (!qlaunch_nca) {
+        QMessageBox::warning(this, tr("Home Menu"),
+                             tr("QLaunch applet not found. Please reinstall firmware."));
+        return;
+    }
+
+    const auto filename = QString::fromStdString(qlaunch_nca->GetFullPath());
+    UISettings::values.roms_path = QFileInfo(filename).path().toStdString();
+    BootGame(filename, SystemAppletParameters(QLaunchId, Service::AM::AppletId::QLaunch));
+}
+
 void GMainWindow::OnCaptureScreenshot() {
     if (emu_thread == nullptr || !emu_thread->IsRunning() || !render_window->IsLoadingComplete()) {
         return;
@@ -6108,6 +6138,22 @@ Service::AM::FrontendAppletParameters GMainWindow::LibraryAppletParameters(
         .applet_id = applet_id,
         .applet_type = Service::AM::AppletType::LibraryApplet,
     };
+}
+
+Service::AM::FrontendAppletParameters GMainWindow::SystemAppletParameters(
+    u64 program_id, Service::AM::AppletId applet_id) {
+    return Service::AM::FrontendAppletParameters{
+        .program_id = program_id,
+        .applet_id = applet_id,
+        .applet_type = Service::AM::AppletType::SystemApplet,
+    };
+}
+
+void GMainWindow::SetupHomeMenuCallback() {
+    system->GetAppletManager().SetHomeMenuRequestCallback([this]() {
+        // Use Qt's thread-safe invocation to call OnQLaunch from the main thread
+        QMetaObject::invokeMethod(this, "OnQLaunch", Qt::QueuedConnection);
+    });
 }
 
 void VolumeButton::wheelEvent(QWheelEvent* event) {

@@ -31,7 +31,13 @@ IDebugFunctions::IDebugFunctions(Core::System& system_)
         {140, nullptr, "RestrictPowerOperationForSecureLaunchModeForDebug"},
         {200, nullptr, "CreateFloatingLibraryAppletAccepterForDebug"},
         {300, nullptr, "TerminateAllRunningApplicationsForDebug"},
+        {410, nullptr, "CreateGeneralStorageForDebug"},
+        {411, nullptr, "ReadGeneralStorageForDebug"},
+        {412, nullptr, "WriteGeneralStorageForDebug"},
+        {430, nullptr, "Cmd430"},
+        {431, nullptr, "Cmd431"},
         {900, nullptr, "GetGrcProcessLaunchedSystemEvent"},
+        {910, nullptr, "Cmd910"},
     };
     // clang-format on
 

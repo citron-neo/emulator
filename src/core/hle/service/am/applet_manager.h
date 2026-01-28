@@ -4,6 +4,7 @@
 #pragma once
 
 #include <condition_variable>
+#include <functional>
 #include <mutex>
 
 #include "core/hle/service/am/am_types.h"
@@ -46,6 +47,7 @@ public:
 
 public:
     void SetWindowSystem(WindowSystem* window_system);
+    void SetHomeMenuRequestCallback(std::function<void()> callback);
 
 private:
     Core::System& m_system;

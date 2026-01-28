@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: Copyright 2024 yuzu Emulator Project
-// SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project
+// SPDX-FileCopyrightText: Copyright 2026 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "core/hle/service/am/service/cradle_firmware_updater.h"
@@ -10,7 +10,8 @@ namespace Service::AM {
 
 IGlobalStateController::IGlobalStateController(Core::System& system_)
     : ServiceFramework{system_, "IGlobalStateController"},
-      m_context{system_, "IGlobalStateController"}, m_hdcp_authentication_failed_event{m_context} {
+      m_context{system_, "IGlobalStateController"}, m_hdcp_authentication_failed_event{m_context},
+      m_accumulated_suspended_tick_changed_event{m_context} {
     // clang-format off
     static const FunctionInfo functions[] = {
         {0, D<&IGlobalStateController::RequestToEnterSleep>, "RequestToEnterSleep"},
@@ -35,7 +36,7 @@ IGlobalStateController::IGlobalStateController(Core::System& system_)
         {60, nullptr, "SetWirelessPriorityMode"},
         {61, nullptr, "GetWirelessPriorityMode"},
         {62, nullptr, "GetAccumulatedSuspendedTickValue"},
-        {63, nullptr, "GetAccumulatedSuspendedTickChangedEvent"},
+        {63, D<&IGlobalStateController::GetAccumulatedSuspendedTickChangedEvent>, "GetAccumulatedSuspendedTickChangedEvent"},
         {64, nullptr, "SetAlarmTimeChangeEvent"},
         {65, nullptr, "GetWakeupCount"},
         {66, nullptr, "GetHomeButtonInputProtectionStartTime"},
@@ -127,6 +128,13 @@ Result IGlobalStateController::SetDefaultHomeButtonLongPressTime(s64 time) {
 
 Result IGlobalStateController::UpdateDefaultDisplayResolution() {
     LOG_WARNING(Service_AM, "(STUBBED) called");
+    R_SUCCEED();
+}
+
+Result IGlobalStateController::GetAccumulatedSuspendedTickChangedEvent(
+    OutCopyHandle<Kernel::KReadableEvent> out_event) {
+    LOG_DEBUG(Service_AM, "called");
+    *out_event = m_accumulated_suspended_tick_changed_event.GetHandle();
     R_SUCCEED();
 }
 

@@ -176,6 +176,7 @@
     <addaction name="action_Install_Firmware"/>
     <addaction name="action_Verify_installed_contents"/>
     <addaction name="separator"/>
+    <addaction name="action_Load_Home_Menu"/>
     <addaction name="menu_cabinet_applet"/>
     <addaction name="action_Load_Album"/>
     <addaction name="action_Load_Mii_Edit"/>
@@ -485,6 +486,11 @@
   <action name="action_Load_Mii_Edit">
    <property name="text">
     <string>Open &amp;Mii Editor</string>
+   </property>
+  </action>
+  <action name="action_Load_Home_Menu">
+   <property name="text">
+    <string>Open &amp;Home Menu</string>
    </property>
   </action>
   <action name="action_Configure_Tas">

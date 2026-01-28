@@ -50,6 +50,11 @@ public:
     Result CheckApplicationLaunchVersion(u64 application_id);
     Result GetApplicationTerminateResult(Out<Result> out_result, u64 application_id);
 
+    // [20.0.0+] Stub functions for QLaunch compatibility
+    Result Cmd4022(Out<u64> out_result);
+    Result Cmd4023(Out<u64> out_result);
+    Result Cmd4088(Out<u64> out_result);
+
 private:
     KernelHelpers::ServiceContext service_context;
     Event record_update_system_event;
