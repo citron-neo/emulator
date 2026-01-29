@@ -224,6 +224,7 @@ namespace UISettings {
                                                                     Setting<bool> prompt_for_autoloader{linkage, true, "prompt_for_autoloader", Category::UiGameList};
                                                                     Setting<bool> favorites_expanded{linkage, true, "favorites_expanded", Category::UiGameList};
                                                                     QVector<u64> favorited_ids;
+                                                                    QStringList hidden_paths;
 
                                                                     // Compatibility List
                                                                     Setting<bool> show_compat{linkage, false, "show_compat", Category::UiGameList};
