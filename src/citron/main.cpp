@@ -4266,6 +4266,7 @@ void GMainWindow::OnConfigure() {
     UISettings::values.configuration_applied = false;
 
     config->SaveAllValues();
+    emit ConfigurationSaved();
 
     if (Settings::values.mouse_panning && emulation_running) {
         render_window->installEventFilter(render_window);
