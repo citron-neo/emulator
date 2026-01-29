@@ -17,6 +17,7 @@
 #include <QProgressBar>
 #include <QStandardItemModel>
 #include <QString>
+#include <QResizeEvent>
 #include <QTimer>
 #include <QToolButton>
 #include <QTreeView>
@@ -148,9 +149,14 @@ signals:
 public slots:
     void OnConfigurationChanged();
 
+protected:
+    void resizeEvent(QResizeEvent* event) override;
+
 private slots:
+    void OnEmulationEnded();
     void onSurpriseMeClicked();
     void UpdateProgressBarColor();
+    void UpdateAccentColorStyles();
     void OnItemExpanded(const QModelIndex& item);
     void OnTextChanged(const QString& new_text);
     void OnFilterCloseClicked();
@@ -175,6 +181,9 @@ private:
     void AddFavorite(u64 program_id);
     void RemoveFavorite(u64 program_id);
 
+    void StartLaunchAnimation(const QModelIndex& item);
+    void ToggleHidden(const QString& path);
+
     void PopulateGridView();
 
     void FilterGridView(const QString& filter_text);
@@ -196,6 +205,7 @@ private:
     GMainWindow* main_window = nullptr;
     QVBoxLayout* layout = nullptr;
     QWidget* toolbar = nullptr;
+    QWidget* fade_overlay;
     QHBoxLayout* toolbar_layout = nullptr;
     QToolButton* btn_list_view = nullptr;
     QToolButton* btn_grid_view = nullptr;
@@ -236,6 +246,7 @@ private slots:
     void onUpdateThemedIcons();
 
 protected:
+    void resizeEvent(QResizeEvent* event) override;
     void mouseDoubleClickEvent(QMouseEvent* event) override;
 
 private:
