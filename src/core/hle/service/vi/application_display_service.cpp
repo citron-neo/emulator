@@ -169,7 +169,7 @@ Result IApplicationDisplayService::ListDisplays(
     }};
 
     const u64 display_count =
-        std::min(static_cast<u64>(display_entries.size()), out_displays.size());
+        std::min(static_cast<u64>(display_entries.size()), static_cast<u64>(out_displays.size()));
 
     for (u64 i = 0; i < display_count; ++i) {
         DisplayInfo info{};
