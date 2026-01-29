@@ -1121,7 +1121,7 @@ void GameList::StartLaunchAnimation(const QModelIndex& item) {
         return;
     }
 
-    // --- 2. FADE GAME LIST TO BLACK ---
+    // --- FADE GAME LIST TO BLACK ---
     fade_overlay->setGeometry(rect()); // Ensure size is correct
     fade_overlay->raise();
     fade_overlay->show();
@@ -1130,12 +1130,12 @@ void GameList::StartLaunchAnimation(const QModelIndex& item) {
     fade_overlay->setGraphicsEffect(list_fade_effect);
     auto* list_fade_in_anim = new QPropertyAnimation(list_fade_effect, "opacity");
     list_fade_in_anim->setDuration(400); // Sync with icon zoom
-    list_fade_in_anim->setStartValue(0.0);
-    list_fade_in_anim->setEndValue(1.0);
+    list_fade_in_anim->setStartValue(0.0f);
+    list_fade_in_anim->setEndValue(1.0f);
     list_fade_in_anim->setEasingCurve(QEasingCurve::OutCubic);
     list_fade_in_anim->start(QAbstractAnimation::DeleteWhenStopped);
 
-    // --- 3. ICON ANIMATION ---
+    // --- ICON ANIMATION ---
     const auto title_id = item.data(GameListItemPath::ProgramIdRole).toULongLong();
     QRect start_geom;
     if (tree_view->isVisible()) {
@@ -1177,8 +1177,8 @@ void GameList::StartLaunchAnimation(const QModelIndex& item) {
     fly_anim->setEasingCurve(QEasingCurve::InQuad);
     auto* fade_anim = new QPropertyAnimation(effect, "opacity");
     fade_anim->setDuration(350);
-    fade_anim->setStartValue(1.0);
-    fade_anim->setEndValue(0.0);
+    fade_anim->setStartValue(1.0f);
+    fade_anim->setEndValue(0.0f);
     fade_anim->setEasingCurve(QEasingCurve::InQuad);
     fly_fade_group->addAnimation(fly_anim);
     fly_fade_group->addAnimation(fade_anim);
@@ -1208,7 +1208,7 @@ void GameList::ValidateEntry(const QModelIndex& item) {
             const QFileInfo file_info(file_path);
             if (!file_info.exists()) return;
 
-            // If the entry is a directory, launch it directly without animation.
+            // If the entry is a directory (e.g., for homebrew), launch it directly without animation.
             if (file_info.isDir()) {
                 const QDir dir{file_path};
                 const QStringList matching_main = dir.entryList({QStringLiteral("main")}, QDir::Files);
@@ -2305,23 +2305,23 @@ void GameList::UpdateAccentColorStyles() {
                                              .arg(hover_background_color.alpha());
 
     QString accent_style = QStringLiteral(
-        /* Tree View (List View) Selection & Hover Style */
+        /* Tree View (List View) Selection & Hover Style - Final */
         "QTreeView::item:hover {"
-        "    background-color: %3;"
-        "    border-radius: 4px;"
+        "    background-color: %3;"                 /* Use the new accent-based hover color */
+        "    border-radius: 4px;"                   /* Add a subtle rounding to the hover effect */
         "}"
         "QTreeView::item:selected {"
-        "    background-color: %2;"
+        "    background-color: %2;"                 /* Use the accent-based selection color */
         "    color: palette(text);"
-        "    border: none;"
-        "    border-radius: 4px;"
+        "    border: none;"                         /* NO BORDER */
+        "    border-radius: 4px;"                   /* Keep rounding consistent */
         "}"
         "QTreeView::item:selected:!active {"
-        "    background-color: palette(light);"
-        "    border: none;"
+        "    background-color: palette(light);"     /* Use a muted color when window is not focused */
+        "    border: none;"                         /* NO BORDER */
         "}"
 
-        /* List View (Grid View) Selection Style */
+        /* List View (Grid View) Selection Style - This remains correct */
         "QListView::item:selected {"
         "    background-color: palette(light);"
         "    border: 3px solid %1;"
@@ -2351,7 +2351,7 @@ void GameList::UpdateAccentColorStyles() {
     tree_view->setStyleSheet(QStringLiteral("QTreeView{ border: none; }") + accent_style);
     list_view->setStyleSheet(QStringLiteral("QListView{ border: none; background: transparent; } QListView::item { text-align: center; padding: 5px; }") + accent_style);
 
-    // Update the toolbar buttons
+    // Update the toolbar buttons as before
     QString button_base_style = QStringLiteral(
         "QToolButton {"
         "  border: 1px solid palette(mid);"
@@ -2402,8 +2402,8 @@ void GameList::OnEmulationEnded() {
 
     auto* fade_out_anim = new QPropertyAnimation(effect, "opacity");
     fade_out_anim->setDuration(300);
-    fade_out_anim->setStartValue(1.0);
-    fade_out_anim->setEndValue(0.0);
+    fade_out_anim->setStartValue(1.0f);
+    fade_out_anim->setEndValue(0.0f);
     fade_out_anim->setEasingCurve(QEasingCurve::OutQuad);
 
     // When the fade-out is complete, hide the overlay widget
