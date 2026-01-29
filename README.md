@@ -7,6 +7,8 @@
 [![Windows Build](https://github.com/Zephyron-Dev/Citron-CI/actions/workflows/build-windows.yml/badge.svg)](https://github.com/Zephyron-Dev/Citron-CI/actions/workflows/build-windows.yml)
 &nbsp;&nbsp;
 [![Linux Build](https://github.com/Zephyron-Dev/Citron-CI/actions/workflows/build-linux.yml/badge.svg)](https://github.com/Zephyron-Dev/Citron-CI/actions/workflows/build-linux.yml)
+&nbsp;&nbsp;
+[![macOS Build](https://github.com/Zephyron-Dev/Citron-CI/actions/workflows/build-macos.yml/badge.svg)](https://github.com/Zephyron-Dev/Citron-CI/actions/workflows/build-macos.yml)
 
 Welcome to **Citron**, a cutting-edge Nintendo Homebrew emulator designed to deliver an optimized experience for playing your favorite games and exploring new ones. Citron is a **high-performance** and **easy-to-use** emulator, tailored for enthusiasts and developers alike.
 
