@@ -22,6 +22,11 @@
 #include <QPainterPath>
 #include <QProgressDialog>
 #include <QProgressBar>
+#include <QPropertyAnimation>
+#include <QSequentialAnimationGroup>
+#include <QParallelAnimationGroup>
+#include <QGraphicsOpacityEffect>
+#include <random>
 #include <QScrollBar>
 #include <QStyle>
 #include <QThreadPool>
@@ -457,19 +462,16 @@ void GameList::FilterGridView(const QString& filter_text) {
     QStandardItemModel* hierarchical_model = item_model;
     QStandardItemModel* flat_model = nullptr;
 
-    // Check if we can reuse the existing model
     QAbstractItemModel* current_model = list_view->model();
     if (current_model && current_model != item_model) {
         QStandardItemModel* existing_flat = qobject_cast<QStandardItemModel*>(current_model);
         if (existing_flat) {
-            // Clear existing model instead of deleting it to avoid view flicker
             existing_flat->clear();
             flat_model = existing_flat;
         }
     }
 
     if (!flat_model) {
-        // Delete old model if it exists and create new one
         if (current_model && current_model != item_model) {
             current_model->deleteLater();
         }
@@ -479,48 +481,45 @@ void GameList::FilterGridView(const QString& filter_text) {
     int total_count = 0;
     for (int i = 0; i < hierarchical_model->rowCount(); ++i) {
         QStandardItem* folder = hierarchical_model->item(i, 0);
-        if (!folder) continue;
-        const auto folder_type = folder->data(GameListItem::TypeRole).value<GameListItemType>();
-        if (folder_type == GameListItemType::AddDir) {
+        if (!folder || folder->data(GameListItem::TypeRole).value<GameListItemType>() == GameListItemType::AddDir) {
             continue;
         }
         for (int j = 0; j < folder->rowCount(); ++j) {
             QStandardItem* game_item = folder->child(j, 0);
-            if (!game_item) continue;
-            const auto game_type = game_item->data(GameListItem::TypeRole).value<GameListItemType>();
-            if (game_type == GameListItemType::Game) {
-                total_count++;
-                bool should_show = true;
-                if (!filter_text.isEmpty()) {
-                    const QString file_path = game_item->data(GameListItemPath::FullPathRole).toString().toLower();
-                    const QString file_title = game_item->data(GameListItemPath::TitleRole).toString().toLower();
-                    const auto program_id = game_item->data(GameListItemPath::ProgramIdRole).toULongLong();
-                    const QString file_program_id = QStringLiteral("%1").arg(program_id, 16, 16, QLatin1Char{'0'});
-                    const QString file_name = file_path.mid(file_path.lastIndexOf(QLatin1Char{'/'}) + 1) + QLatin1Char{' '} + file_title;
-                    should_show = ContainsAllWords(file_name, filter_text) || (file_program_id.size() == 16 && file_program_id.contains(filter_text));
+            if (!game_item || game_item->data(GameListItem::TypeRole).value<GameListItemType>() != GameListItemType::Game) continue;
+
+            total_count++;
+            const QString full_path = game_item->data(GameListItemPath::FullPathRole).toString();
+            bool should_show = !UISettings::values.hidden_paths.contains(full_path);
+
+            if (should_show && !filter_text.isEmpty()) {
+                const QString file_title = game_item->data(GameListItemPath::TitleRole).toString().toLower();
+                const auto program_id = game_item->data(GameListItemPath::ProgramIdRole).toULongLong();
+                const QString file_program_id = QStringLiteral("%1").arg(program_id, 16, 16, QLatin1Char('0'));
+                const QString file_name = full_path.mid(full_path.lastIndexOf(QLatin1Char{'/'}) + 1).toLower() + QLatin1Char{' '} + file_title;
+                should_show = ContainsAllWords(file_name, filter_text) || (file_program_id.size() == 16 && file_program_id.contains(filter_text));
+            }
+
+            if (should_show) {
+                QStandardItem* cloned_item = game_item->clone();
+                QString game_title = game_item->data(GameListItemPath::TitleRole).toString();
+                if (game_title.isEmpty()) {
+                    std::string filename;
+                    Common::SplitPath(full_path.toStdString(), nullptr, &filename, nullptr);
+                    game_title = QString::fromStdString(filename);
                 }
-                if (should_show) {
-                    QStandardItem* cloned_item = game_item->clone();
-                    QString game_title = game_item->data(GameListItemPath::TitleRole).toString();
-                    if (game_title.isEmpty()) {
-                        std::string filename;
-                        Common::SplitPath(game_item->data(GameListItemPath::FullPathRole).toString().toStdString(), nullptr, &filename, nullptr);
-                        game_title = QString::fromStdString(filename);
-                    }
-                    cloned_item->setText(game_title);
-                    flat_model->appendRow(cloned_item);
-                    visible_count++;
-                }
+                cloned_item->setText(game_title);
+                flat_model->appendRow(cloned_item);
+                visible_count++;
             }
         }
     }
     list_view->setModel(flat_model);
     const u32 icon_size = UISettings::values.game_icon_size.GetValue();
     list_view->setGridSize(QSize(icon_size + 60, icon_size + 80));
-    // Set sort role and sort the filtered model
     flat_model->setSortRole(GameListItemPath::SortRole);
     flat_model->sort(0, current_sort_order);
-    // Update icon sizes in the model - ensure all icons are consistently sized with rounded corners
+
     for (int i = 0; i < flat_model->rowCount(); ++i) {
         QStandardItem* item = flat_model->item(i);
         if (item) {
@@ -529,25 +528,19 @@ void GameList::FilterGridView(const QString& filter_text) {
                 QPixmap pixmap = icon_data.value<QPixmap>();
                 if (!pixmap.isNull()) {
                     #ifdef __linux__
-                    // On Linux, use simple scaling to avoid QPainter bugs
                     QPixmap scaled = pixmap.scaled(icon_size, icon_size, Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
                     item->setData(scaled, Qt::DecorationRole);
                     #else
-                    // On other platforms, use the QPainter method for rounded corners
                     QPixmap rounded(icon_size, icon_size);
                     rounded.fill(Qt::transparent);
-
                     QPainter painter(&rounded);
                     painter.setRenderHint(QPainter::Antialiasing);
-
                     const int radius = icon_size / 8;
                     QPainterPath path;
                     path.addRoundedRect(0, 0, icon_size, icon_size, radius, radius);
                     painter.setClipPath(path);
-
                     QPixmap scaled = pixmap.scaled(icon_size, icon_size, Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
                     painter.drawPixmap(0, 0, scaled);
-
                     item->setData(rounded, Qt::DecorationRole);
                     #endif
                 }
@@ -558,45 +551,42 @@ void GameList::FilterGridView(const QString& filter_text) {
 }
 
 void GameList::FilterTreeView(const QString& filter_text) {
-    QStandardItem* folder;
-    int children_total = 0;
-    if (filter_text.isEmpty()) {
-        tree_view->setRowHidden(0, item_model->invisibleRootItem()->index(), UISettings::values.favorited_ids.size() == 0);
-        for (int i = 1; i < item_model->rowCount() - 1; ++i) {
-            folder = item_model->item(i, 0);
-            const QModelIndex folder_index = folder->index();
-            const int children_count = folder->rowCount();
-            for (int j = 0; j < children_count; ++j) {
-                ++children_total;
-                tree_view->setRowHidden(j, folder_index, false);
-            }
-        }
-        search_field->setFilterResult(children_total, children_total);
-    } else {
-        tree_view->setRowHidden(0, item_model->invisibleRootItem()->index(), true);
-        int result_count = 0;
-        for (int i = 1; i < item_model->rowCount() - 1; ++i) {
-            folder = item_model->item(i, 0);
-            const QModelIndex folder_index = folder->index();
-            const int children_count = folder->rowCount();
-            for (int j = 0; j < children_count; ++j) {
-                ++children_total;
-                const QStandardItem* child = folder->child(j, 0);
+    int visible_count = 0;
+    int total_count = 0;
+
+    tree_view->setRowHidden(0, item_model->invisibleRootItem()->index(), filter_text.isEmpty() ? (UISettings::values.favorited_ids.size() == 0) : true);
+
+    for (int i = 0; i < item_model->rowCount(); ++i) {
+        QStandardItem* folder = item_model->item(i, 0);
+        if (!folder) continue;
+
+        const QModelIndex folder_index = folder->index();
+        for (int j = 0; j < folder->rowCount(); ++j) {
+            const QStandardItem* child = folder->child(j, 0);
+            if (!child) continue;
+
+            total_count++;
+            const QString full_path = child->data(GameListItemPath::FullPathRole).toString();
+            bool is_hidden_by_user = UISettings::values.hidden_paths.contains(full_path);
+            bool matches_filter = true;
+
+            if (!filter_text.isEmpty()) {
                 const auto program_id = child->data(GameListItemPath::ProgramIdRole).toULongLong();
-                const QString file_path = child->data(GameListItemPath::FullPathRole).toString().toLower();
                 const QString file_title = child->data(GameListItemPath::TitleRole).toString().toLower();
-                const QString file_program_id = QStringLiteral("%1").arg(program_id, 16, 16, QLatin1Char{'0'});
-                const QString file_name = file_path.mid(file_path.lastIndexOf(QLatin1Char{'/'}) + 1) + QLatin1Char{' '} + file_title;
-                if (ContainsAllWords(file_name, filter_text) || (file_program_id.size() == 16 && file_program_id.contains(filter_text))) {
-                    tree_view->setRowHidden(j, folder_index, false);
-                    ++result_count;
-                } else {
-                    tree_view->setRowHidden(j, folder_index, true);
-                }
+                const QString file_program_id = QStringLiteral("%1").arg(program_id, 16, 16, QLatin1Char('0'));
+                const QString file_name = full_path.mid(full_path.lastIndexOf(QLatin1Char{'/'}) + 1).toLower() + QLatin1Char{' '} + file_title;
+                matches_filter = ContainsAllWords(file_name, filter_text) || (file_program_id.size() == 16 && file_program_id.contains(filter_text));
+            }
+
+            if (!is_hidden_by_user && matches_filter) {
+                tree_view->setRowHidden(j, folder_index, false);
+                visible_count++;
+            } else {
+                tree_view->setRowHidden(j, folder_index, true);
             }
         }
-        search_field->setFilterResult(result_count, children_total);
     }
+    search_field->setFilterResult(visible_count, total_count);
 }
 
 void GameList::OnUpdateThemedIcons() {
@@ -968,7 +958,18 @@ play_time_manager{play_time_manager_}, system{system_} {
     config_update_timer.setSingleShot(true);
     connect(&config_update_timer, &QTimer::timeout, this, &GameList::UpdateOnlineStatus);
 
+    // This connection handles live updates when OK/Apply is clicked in the config window.
+    connect(main_window, &GMainWindow::ConfigurationSaved, this, &GameList::UpdateAccentColorStyles);
+
     network_manager = new QNetworkAccessManager(this);
+
+    fade_overlay = new QWidget(this);
+    fade_overlay->setStyleSheet(QStringLiteral("background: black;"));
+    fade_overlay->hide(); // Start hidden
+
+    connect(main_window, &GMainWindow::EmulationStopping, this, [this]() { OnEmulationEnded(); });
+
+    UpdateAccentColorStyles();
 }
 
 void GameList::OnConfigurationChanged() {
@@ -1086,6 +1087,118 @@ void GameList::OnOnlineStatusUpdated(const std::map<u64, std::pair<int, int>>& o
     }
 }
 
+void GameList::StartLaunchAnimation(const QModelIndex& item) {
+    const QString file_path = item.data(GameListItemPath::FullPathRole).toString();
+    if (file_path.isEmpty()) return;
+
+    u64 program_id = item.data(GameListItemPath::ProgramIdRole).toULongLong();
+    QStandardItem* original_item = nullptr;
+    for (int folder_idx = 0; folder_idx < item_model->rowCount(); ++folder_idx) {
+        QStandardItem* folder = item_model->item(folder_idx, 0);
+        if (!folder) continue;
+        for (int game_idx = 0; game_idx < folder->rowCount(); ++game_idx) {
+            QStandardItem* game = folder->child(game_idx, 0);
+            if (game && game->data(GameListItemPath::ProgramIdRole).toULongLong() == program_id) {
+                original_item = game;
+                break;
+            }
+        }
+        if (original_item) break;
+    }
+
+    QPixmap icon;
+    if (original_item) {
+        icon = original_item->data(Qt::DecorationRole).value<QPixmap>();
+    } else {
+        // Fallback for safety
+        icon = item.data(Qt::DecorationRole).value<QPixmap>();
+    }
+
+    // If we still have no icon, launch instantly without animation
+    if (icon.isNull()) {
+        const auto title_id = item.data(GameListItemPath::ProgramIdRole).toULongLong();
+        emit GameChosen(file_path, title_id);
+        return;
+    }
+
+    // --- 2. FADE GAME LIST TO BLACK ---
+    fade_overlay->setGeometry(rect()); // Ensure size is correct
+    fade_overlay->raise();
+    fade_overlay->show();
+
+    auto* list_fade_effect = new QGraphicsOpacityEffect(fade_overlay);
+    fade_overlay->setGraphicsEffect(list_fade_effect);
+    auto* list_fade_in_anim = new QPropertyAnimation(list_fade_effect, "opacity");
+    list_fade_in_anim->setDuration(400); // Sync with icon zoom
+    list_fade_in_anim->setStartValue(0.0);
+    list_fade_in_anim->setEndValue(1.0);
+    list_fade_in_anim->setEasingCurve(QEasingCurve::OutCubic);
+    list_fade_in_anim->start(QAbstractAnimation::DeleteWhenStopped);
+
+    // --- 3. ICON ANIMATION ---
+    const auto title_id = item.data(GameListItemPath::ProgramIdRole).toULongLong();
+    QRect start_geom;
+    if (tree_view->isVisible()) {
+        start_geom = tree_view->visualRect(item.sibling(item.row(), 0));
+        start_geom.setTopLeft(tree_view->viewport()->mapTo(main_window, start_geom.topLeft()));
+    } else {
+        start_geom = list_view->visualRect(item);
+        start_geom.setTopLeft(list_view->viewport()->mapTo(main_window, start_geom.topLeft()));
+    }
+
+    auto* animation_label = new QLabel(main_window);
+    animation_label->setPixmap(icon);
+    animation_label->setScaledContents(true);
+    animation_label->setGeometry(start_geom);
+    animation_label->show();
+    animation_label->raise();
+
+    const int target_size = 256; // Use full 256x256 resolution
+    const QPoint center_point = main_window->rect().center();
+
+    QRect zoom_end_geom(0, 0, target_size, target_size);
+    zoom_end_geom.moveCenter(center_point);
+    QRect fly_end_geom = zoom_end_geom;
+    fly_end_geom.moveCenter(QPoint(center_point.x(), -target_size));
+
+    auto* zoom_anim = new QPropertyAnimation(animation_label, "geometry");
+    zoom_anim->setDuration(400);
+    zoom_anim->setStartValue(start_geom);
+    zoom_anim->setEndValue(zoom_end_geom);
+    zoom_anim->setEasingCurve(QEasingCurve::OutCubic);
+
+    auto* fly_fade_group = new QParallelAnimationGroup;
+    auto* effect = new QGraphicsOpacityEffect(animation_label);
+    animation_label->setGraphicsEffect(effect);
+    auto* fly_anim = new QPropertyAnimation(animation_label, "geometry");
+    fly_anim->setDuration(350);
+    fly_anim->setStartValue(zoom_end_geom);
+    fly_anim->setEndValue(fly_end_geom);
+    fly_anim->setEasingCurve(QEasingCurve::InQuad);
+    auto* fade_anim = new QPropertyAnimation(effect, "opacity");
+    fade_anim->setDuration(350);
+    fade_anim->setStartValue(1.0);
+    fade_anim->setEndValue(0.0);
+    fade_anim->setEasingCurve(QEasingCurve::InQuad);
+    fly_fade_group->addAnimation(fly_anim);
+    fly_fade_group->addAnimation(fade_anim);
+
+    auto* main_group = new QSequentialAnimationGroup(animation_label);
+    main_group->addAnimation(zoom_anim);
+    main_group->addPause(50);
+    main_group->addAnimation(fly_fade_group);
+
+    // When the icon animation finishes, launch the game and clean up.
+    // The black overlay will remain until OnEmulationEnded is called.
+    connect(main_group, &QSequentialAnimationGroup::finished, this, [this, file_path, title_id, animation_label]() {
+        search_field->clear();
+        emit GameChosen(file_path, title_id);
+        animation_label->deleteLater();
+    });
+
+    main_group->start(QAbstractAnimation::DeleteWhenStopped);
+}
+
 void GameList::ValidateEntry(const QModelIndex& item) {
     const auto selected = item.sibling(item.row(), 0);
     switch (selected.data(GameListItem::TypeRole).value<GameListItemType>()) {
@@ -1094,17 +1207,20 @@ void GameList::ValidateEntry(const QModelIndex& item) {
             if (file_path.isEmpty()) return;
             const QFileInfo file_info(file_path);
             if (!file_info.exists()) return;
+
+            // If the entry is a directory, launch it directly without animation.
             if (file_info.isDir()) {
                 const QDir dir{file_path};
                 const QStringList matching_main = dir.entryList({QStringLiteral("main")}, QDir::Files);
                 if (matching_main.size() == 1) {
                     emit GameChosen(dir.path() + QDir::separator() + matching_main[0]);
                 }
-                return;
+                return; // Exit here for directories
             }
-            const auto title_id = selected.data(GameListItemPath::ProgramIdRole).toULongLong();
-            search_field->clear();
-            emit GameChosen(file_path, title_id);
+
+            // If it's a standard game file, trigger the new launch animation.
+            // The animation function will handle emitting GameChosen when it's finished.
+            StartLaunchAnimation(selected);
             break;
         }
         case GameListItemType::AddDir:
@@ -1252,12 +1368,14 @@ void GameList::PopupContextMenu(const QPoint& menu_location) {
     }
 }
 
-void GameList::AddGamePopup(QMenu& context_menu, u64 program_id, const std::string& path, const QString& game_name) {
+void GameList::AddGamePopup(QMenu& context_menu, u64 program_id, const std::string& path_str, const QString& game_name) {
+    const QString path = QString::fromStdString(path_str);
     const bool is_mirrored = Settings::values.mirrored_save_paths.count(program_id);
     const bool has_custom_path = Settings::values.custom_save_paths.count(program_id);
     QString mirror_base_path;
 
     QAction* favorite = context_menu.addAction(tr("Favorite"));
+    QAction* hide_game = context_menu.addAction(tr("Hide Game"));
     context_menu.addSeparator();
     QAction* start_game = context_menu.addAction(tr("Start Game"));
     QAction* start_game_global = context_menu.addAction(tr("Start Game without Custom Configuration"));
@@ -1301,6 +1419,14 @@ void GameList::AddGamePopup(QMenu& context_menu, u64 program_id, const std::stri
     favorite->setVisible(program_id != 0);
     favorite->setCheckable(true);
     favorite->setChecked(UISettings::values.favorited_ids.contains(program_id));
+
+    hide_game->setVisible(program_id != 0);
+    hide_game->setCheckable(true);
+    hide_game->setChecked(UISettings::values.hidden_paths.contains(path));
+    if (hide_game->isChecked()) {
+        hide_game->setText(tr("Unhide Game"));
+    }
+
     open_save_location->setVisible(program_id != 0);
     open_nand_location->setVisible(is_mirrored);
     open_nand_location->setToolTip(tr("Citron uses your NAND while syncing. If you need to make save data modifications, do so in here."));
@@ -1326,24 +1452,17 @@ void GameList::AddGamePopup(QMenu& context_menu, u64 program_id, const std::stri
             open_nand_location->setToolTip(tr("The global save path is being used as the base for save data mirroring."));
             mirror_base_path = QString::fromStdString(Settings::values.global_custom_save_path.GetValue());
         } else {
-            // Text is already "Open NAND Location", so we just set the correct path and a more descriptive tooltip.
             open_nand_location->setToolTip(tr("Citron's default NAND is being used as the base for save data mirroring."));
             mirror_base_path = QString::fromStdString(Common::FS::GetCitronPathString(Common::FS::CitronPath::NANDDir));
         }
 
         connect(open_nand_location, &QAction::triggered, [this, program_id, mirror_base_path]() {
             const auto user_id = system.GetProfileManager().GetLastOpenedUser().AsU128();
-            // This constructs the relative path to the specific game's save folder
             const std::string relative_save_path = fmt::format("user/save/{:016X}/{:016X}{:016X}/{:016X}", 0, user_id[1], user_id[0], program_id);
-
-            // Combine the determined base path (Global or default NAND) with the relative game path
             const auto full_save_path = std::filesystem::path(mirror_base_path.toStdString()) / relative_save_path;
-
-            // Ensure the parent directory exists before trying to open it
             if (!std::filesystem::exists(full_save_path.parent_path())) {
                 std::filesystem::create_directories(full_save_path.parent_path());
             }
-
             QDesktopServices::openUrl(QUrl::fromLocalFile(QString::fromStdString(full_save_path.string())));
         });
     }
@@ -1351,7 +1470,8 @@ void GameList::AddGamePopup(QMenu& context_menu, u64 program_id, const std::stri
     submit_compat_report->setToolTip(tr("Requires GitHub account."));
 
     connect(favorite, &QAction::triggered, [this, program_id]() { ToggleFavorite(program_id); });
-    connect(open_save_location, &QAction::triggered, [this, program_id, path]() { emit OpenFolderRequested(program_id, GameListOpenTarget::SaveData, path); });
+    connect(hide_game, &QAction::triggered, [this, path]() { ToggleHidden(path); });
+    connect(open_save_location, &QAction::triggered, [this, program_id, path_str]() { emit OpenFolderRequested(program_id, GameListOpenTarget::SaveData, path_str); });
 
     auto calculateTotalSize = [](const QString& dirPath) -> qint64 {
         qint64 totalSize = 0;
@@ -1372,30 +1492,23 @@ void GameList::AddGamePopup(QMenu& context_menu, u64 program_id, const std::stri
         progress.setWindowModality(Qt::WindowModal);
         progress.setMinimumDuration(0);
         progress.setValue(0);
-
         qint64 totalSize = calculateTotalSize(sourceDir);
         qint64 copiedSize = 0;
-
         QDir dir(sourceDir);
         if (!dir.exists()) return false;
-
         QDir dest_dir(destDir);
         if (!dest_dir.exists()) dest_dir.mkpath(QStringLiteral("."));
-
         QDirIterator dir_iter(sourceDir, QDirIterator::Subdirectories);
         while (dir_iter.hasNext()) {
             dir_iter.next();
-
             const QFileInfo file_info = dir_iter.fileInfo();
             const QString relative_path = dir.relativeFilePath(file_info.absoluteFilePath());
             const QString dest_path = QDir(destDir).filePath(relative_path);
-
             if (file_info.isDir()) {
                 dest_dir.mkpath(dest_path);
             } else if (file_info.isFile()) {
                 if (QFile::exists(dest_path)) QFile::remove(dest_path);
                 if (!QFile::copy(file_info.absoluteFilePath(), dest_path)) return false;
-
                 copiedSize += file_info.size();
                 if (totalSize > 0) {
                     progress.setValue(static_cast<int>((copiedSize * 100) / totalSize));
@@ -1407,99 +1520,74 @@ void GameList::AddGamePopup(QMenu& context_menu, u64 program_id, const std::stri
         return true;
     };
 
-connect(set_custom_save_path, &QAction::triggered, [this, program_id, copyWithProgress]() {
-    const QString new_path = QFileDialog::getExistingDirectory(this, tr("Select Custom Save Data Location"));
-    if (new_path.isEmpty()) return;
-
-    std::string base_save_path_str;
-    if (Settings::values.global_custom_save_path_enabled.GetValue() &&
-        !Settings::values.global_custom_save_path.GetValue().empty()) {
-        base_save_path_str = Settings::values.global_custom_save_path.GetValue();
-    } else {
-        base_save_path_str = Common::FS::GetCitronPathString(Common::FS::CitronPath::NANDDir);
-    }
-    const QString base_dir = QString::fromStdString(base_save_path_str);
-
-    const auto user_id = system.GetProfileManager().GetLastOpenedUser().AsU128();
-    const std::string relative_save_path = fmt::format("user/save/{:016X}/{:016X}{:016X}/{:016X}", 0, user_id[1], user_id[0], program_id);
-
-    // This path points to the save data within either the Global Path or the NAND.
-    const QString internal_save_path = QDir(base_dir).filePath(QString::fromStdString(relative_save_path));
-
-    bool mirroring_enabled = false;
-    // The check for other emulators uses the determined base directory.
-    QString detected_emu = GetDetectedEmulatorName(new_path, program_id, base_dir);
-
-    if (!detected_emu.isEmpty()) {
-        QMessageBox::StandardButton mirror_reply = QMessageBox::question(this, tr("Enable Save Mirroring?"),
-            tr("Citron has detected a %1 save structure.\n\n"
-               "Would you like to enable 'Intelligent Mirroring'? This will pull the data into Citron's internal save directory "
-               "(currently set to '%2') and keep both locations synced whenever you play. A backup of your existing Citron data "
-               "will be created. BE WARNED: Please do not have both emulators open during this process.").arg(detected_emu, base_dir),
-            QMessageBox::Yes | QMessageBox::No);
-
-        if (mirror_reply == QMessageBox::Yes) {
-            mirroring_enabled = true;
-        }
-    }
-
-    QDir internal_dir(internal_save_path);
-    if (internal_dir.exists() && !internal_dir.isEmpty()) {
-        if (mirroring_enabled) {
-            // Non-destructive backup for mirroring, now created in the base directory.
-            QString timestamp = QDateTime::currentDateTime().toString(QStringLiteral("yyyy-MM-dd_hh-mm-ss"));
-            QString backup_path = internal_save_path + QStringLiteral("_mirror_backup_") + timestamp;
-
-            // Ensure parent directory exists before renaming
-            QDir().mkpath(QFileInfo(backup_path).absolutePath());
-
-            if (QDir().rename(internal_save_path, backup_path)) {
-                LOG_INFO(Frontend, "Safety: Existing internal data moved to backup: {}", backup_path.toStdString());
-            }
+    connect(set_custom_save_path, &QAction::triggered, [this, program_id, copyWithProgress]() {
+        const QString new_path = QFileDialog::getExistingDirectory(this, tr("Select Custom Save Data Location"));
+        if (new_path.isEmpty()) return;
+        std::string base_save_path_str;
+        if (Settings::values.global_custom_save_path_enabled.GetValue() &&
+            !Settings::values.global_custom_save_path.GetValue().empty()) {
+            base_save_path_str = Settings::values.global_custom_save_path.GetValue();
         } else {
-            // Standard Citron behavior for manual paths (Override mode)
-            QMessageBox::StandardButton reply = QMessageBox::question(this, tr("Move Save Data"),
-                tr("You have existing save data in your internal save directory. Would you like to move it to the new custom save path?"),
-                QMessageBox::Yes | QMessageBox::No | QMessageBox::Cancel);
+            base_save_path_str = Common::FS::GetCitronPathString(Common::FS::CitronPath::NANDDir);
+        }
+        const QString base_dir = QString::fromStdString(base_save_path_str);
+        const auto user_id = system.GetProfileManager().GetLastOpenedUser().AsU128();
+        const std::string relative_save_path = fmt::format("user/save/{:016X}/{:016X}{:016X}/{:016X}", 0, user_id[1], user_id[0], program_id);
+        const QString internal_save_path = QDir(base_dir).filePath(QString::fromStdString(relative_save_path));
+        bool mirroring_enabled = false;
+        QString detected_emu = GetDetectedEmulatorName(new_path, program_id, base_dir);
+        if (!detected_emu.isEmpty()) {
+            QMessageBox::StandardButton mirror_reply = QMessageBox::question(this, tr("Enable Save Mirroring?"),
+                tr("Citron has detected a %1 save structure.\n\n"
+                   "Would you like to enable 'Intelligent Mirroring'? This will pull the data into Citron's internal save directory "
+                   "(currently set to '%2') and keep both locations synced whenever you play. A backup of your existing Citron data "
+                   "will be created. BE WARNED: Please do not have both emulators open during this process.").arg(detected_emu, base_dir),
+                QMessageBox::Yes | QMessageBox::No);
 
-            if (reply == QMessageBox::Cancel) return;
-
-            if (reply == QMessageBox::Yes) {
-                // In override mode, we move files TO the new path
-                const QString full_dest_path = QDir(new_path).filePath(QString::fromStdString(relative_save_path));
-                if (copyWithProgress(internal_save_path, full_dest_path, this)) {
-                    QDir(internal_save_path).removeRecursively();
-                    QMessageBox::information(this, tr("Success"), tr("Successfully moved save data to the new location."));
-                } else {
-                    QMessageBox::warning(this, tr("Error"), tr("Failed to move save data. Please see the log for more details."));
+            if (mirror_reply == QMessageBox::Yes) {
+                mirroring_enabled = true;
+            }
+        }
+        QDir internal_dir(internal_save_path);
+        if (internal_dir.exists() && !internal_dir.isEmpty()) {
+            if (mirroring_enabled) {
+                QString timestamp = QDateTime::currentDateTime().toString(QStringLiteral("yyyy-MM-dd_hh-mm-ss"));
+                QString backup_path = internal_save_path + QStringLiteral("_mirror_backup_") + timestamp;
+                QDir().mkpath(QFileInfo(backup_path).absolutePath());
+                if (QDir().rename(internal_save_path, backup_path)) {
+                    LOG_INFO(Frontend, "Safety: Existing internal data moved to backup: {}", backup_path.toStdString());
+                }
+            } else {
+                QMessageBox::StandardButton reply = QMessageBox::question(this, tr("Move Save Data"),
+                    tr("You have existing save data in your internal save directory. Would you like to move it to the new custom save path?"),
+                    QMessageBox::Yes | QMessageBox::No | QMessageBox::Cancel);
+                if (reply == QMessageBox::Cancel) return;
+                if (reply == QMessageBox::Yes) {
+                    const QString full_dest_path = QDir(new_path).filePath(QString::fromStdString(relative_save_path));
+                    if (copyWithProgress(internal_save_path, full_dest_path, this)) {
+                        QDir(internal_save_path).removeRecursively();
+                        QMessageBox::information(this, tr("Success"), tr("Successfully moved save data to the new location."));
+                    } else {
+                        QMessageBox::warning(this, tr("Error"), tr("Failed to move save data. Please see the log for more details."));
+                    }
                 }
             }
         }
-    }
-
-    if (mirroring_enabled) {
-        // Initial Pull (External -> Internal)
-        // We copy FROM the selected folder TO the correct internal save location.
-        if (copyWithProgress(new_path, internal_save_path, this)) {
-            // IMPORTANT: Save to the NEW mirror map
-            Settings::values.mirrored_save_paths.insert_or_assign(program_id, new_path.toStdString());
-            // CLEAR the standard custom path so the emulator boots from the internal directory
-            Settings::values.custom_save_paths.erase(program_id);
-
-            QMessageBox::information(this, tr("Success"), tr("Mirroring established. Your data has been pulled into the internal Citron save directory."));
+        if (mirroring_enabled) {
+            if (copyWithProgress(new_path, internal_save_path, this)) {
+                Settings::values.mirrored_save_paths.insert_or_assign(program_id, new_path.toStdString());
+                Settings::values.custom_save_paths.erase(program_id);
+                QMessageBox::information(this, tr("Success"), tr("Mirroring established. Your data has been pulled into the internal Citron save directory."));
+            } else {
+                QMessageBox::warning(this, tr("Error"), tr("Failed to pull data from the mirror source."));
+                return;
+            }
         } else {
-            QMessageBox::warning(this, tr("Error"), tr("Failed to pull data from the mirror source."));
-            return;
+            Settings::values.custom_save_paths.insert_or_assign(program_id, new_path.toStdString());
+            Settings::values.mirrored_save_paths.erase(program_id);
         }
-    } else {
-        // Standard Path Override
-        Settings::values.custom_save_paths.insert_or_assign(program_id, new_path.toStdString());
-        // Remove from mirror map if it was there before
-        Settings::values.mirrored_save_paths.erase(program_id);
-    }
-
-    emit SaveConfig();
-});
+        emit SaveConfig();
+    });
 
     connect(disable_mirroring, &QAction::triggered, [this, program_id]() {
         if (QMessageBox::question(this, tr("Disable Mirroring"),
@@ -1511,85 +1599,85 @@ connect(set_custom_save_path, &QAction::triggered, [this, program_id, copyWithPr
                                      tr("Mirroring has been disabled for this game. It will now use the save data from the NAND."));
         }
     });
-
     connect(open_current_game_sdmc, &QAction::triggered, [program_id]() {
         const auto sdmc_path = Common::FS::GetCitronPath(Common::FS::CitronPath::SDMCDir);
         const auto full_path = sdmc_path / "atmosphere" / "contents" / fmt::format("{:016X}", program_id);
         const QString qpath = QString::fromStdString(Common::FS::PathToUTF8String(full_path));
-
         QDir dir(qpath);
         if (!dir.exists()) dir.mkpath(QStringLiteral("."));
         QDesktopServices::openUrl(QUrl::fromLocalFile(qpath));
     });
-
     connect(open_full_sdmc, &QAction::triggered, []() {
         const auto sdmc_path = Common::FS::GetCitronPath(Common::FS::CitronPath::SDMCDir);
         const auto full_path = sdmc_path / "atmosphere" / "contents";
         const QString qpath = QString::fromStdString(Common::FS::PathToUTF8String(full_path));
-
         QDir dir(qpath);
         if (!dir.exists()) dir.mkpath(QStringLiteral("."));
         QDesktopServices::openUrl(QUrl::fromLocalFile(qpath));
     });
-
-    connect(start_game, &QAction::triggered, [this, path]() { emit BootGame(QString::fromStdString(path), StartGameType::Normal); });
-    connect(start_game_global, &QAction::triggered, [this, path]() { emit BootGame(QString::fromStdString(path), StartGameType::Global); });
-    connect(open_mod_location, &QAction::triggered, [this, program_id, path]() { emit OpenFolderRequested(program_id, GameListOpenTarget::ModData, path); });
+    connect(start_game, &QAction::triggered, [this, path_str]() { emit BootGame(QString::fromStdString(path_str), StartGameType::Normal); });
+    connect(start_game_global, &QAction::triggered, [this, path_str]() { emit BootGame(QString::fromStdString(path_str), StartGameType::Global); });
+    connect(open_mod_location, &QAction::triggered, [this, program_id, path_str]() { emit OpenFolderRequested(program_id, GameListOpenTarget::ModData, path_str); });
     connect(open_transferable_shader_cache, &QAction::triggered, [this, program_id]() { emit OpenTransferableShaderCacheRequested(program_id); });
     connect(remove_all_content, &QAction::triggered, [this, program_id]() { emit RemoveInstalledEntryRequested(program_id, InstalledEntryType::Game); });
     connect(remove_update, &QAction::triggered, [this, program_id]() { emit RemoveInstalledEntryRequested(program_id, InstalledEntryType::Update); });
     connect(remove_dlc, &QAction::triggered, [this, program_id]() { emit RemoveInstalledEntryRequested(program_id, InstalledEntryType::AddOnContent); });
-    connect(remove_gl_shader_cache, &QAction::triggered, [this, program_id, path]() { emit RemoveFileRequested(program_id, GameListRemoveTarget::GlShaderCache, path); });
-    connect(remove_vk_shader_cache, &QAction::triggered, [this, program_id, path]() { emit RemoveFileRequested(program_id, GameListRemoveTarget::VkShaderCache, path); });
-    connect(remove_shader_cache, &QAction::triggered, [this, program_id, path]() { emit RemoveFileRequested(program_id, GameListRemoveTarget::AllShaderCache, path); });
-    connect(remove_custom_config, &QAction::triggered, [this, program_id, path]() { emit RemoveFileRequested(program_id, GameListRemoveTarget::CustomConfiguration, path); });
+    connect(remove_gl_shader_cache, &QAction::triggered, [this, program_id, path_str]() { emit RemoveFileRequested(program_id, GameListRemoveTarget::GlShaderCache, path_str); });
+    connect(remove_vk_shader_cache, &QAction::triggered, [this, program_id, path_str]() { emit RemoveFileRequested(program_id, GameListRemoveTarget::VkShaderCache, path_str); });
+    connect(remove_shader_cache, &QAction::triggered, [this, program_id, path_str]() { emit RemoveFileRequested(program_id, GameListRemoveTarget::AllShaderCache, path_str); });
+    connect(remove_custom_config, &QAction::triggered, [this, program_id, path_str]() { emit RemoveFileRequested(program_id, GameListRemoveTarget::CustomConfiguration, path_str); });
     connect(remove_play_time_data, &QAction::triggered, [this, program_id]() { emit RemovePlayTimeRequested(program_id); });
-    connect(remove_cache_storage, &QAction::triggered, [this, program_id, path] { emit RemoveFileRequested(program_id, GameListRemoveTarget::CacheStorage, path); });
-    connect(dump_romfs, &QAction::triggered, [this, program_id, path]() { emit DumpRomFSRequested(program_id, path, DumpRomFSTarget::Normal); });
-    connect(dump_romfs_sdmc, &QAction::triggered, [this, program_id, path]() { emit DumpRomFSRequested(program_id, path, DumpRomFSTarget::SDMC); });
-    connect(verify_integrity, &QAction::triggered, [this, path]() { emit VerifyIntegrityRequested(path); });
+    connect(remove_cache_storage, &QAction::triggered, [this, program_id, path_str] { emit RemoveFileRequested(program_id, GameListRemoveTarget::CacheStorage, path_str); });
+    connect(dump_romfs, &QAction::triggered, [this, program_id, path_str]() { emit DumpRomFSRequested(program_id, path_str, DumpRomFSTarget::Normal); });
+    connect(dump_romfs_sdmc, &QAction::triggered, [this, program_id, path_str]() { emit DumpRomFSRequested(program_id, path_str, DumpRomFSTarget::SDMC); });
+    connect(verify_integrity, &QAction::triggered, [this, path_str]() { emit VerifyIntegrityRequested(path_str); });
     connect(copy_tid, &QAction::triggered, [this, program_id]() { emit CopyTIDRequested(program_id); });
-
-    // Logic for GitHub Reporting
     connect(submit_compat_report, &QAction::triggered, [this, program_id, game_name]() {
-        // 1. Show the warning message
         const auto reply = QMessageBox::question(this, tr("GitHub Account Required"),
             tr("In order to submit a compatibility report, you must have a GitHub account.\n\n"
                "If you do not have one, this feature will not work. Would you like to proceed?"),
             QMessageBox::Yes | QMessageBox::No);
-
         if (reply != QMessageBox::Yes) {
             return;
         }
-
-        // 2. Build the minimal URL
         const QString clean_tid = QStringLiteral("%1").arg(program_id, 16, 16, QLatin1Char('0')).toUpper();
         QUrl url(QStringLiteral("https://github.com/CollectingW/Citron-Compatability/issues/new"));
-
         QUrlQuery query;
         query.addQueryItem(QStringLiteral("template"), QStringLiteral("compat.yml"));
         query.addQueryItem(QStringLiteral("title"), game_name);
         query.addQueryItem(QStringLiteral("title_id"), clean_tid);
-
         url.setQuery(query);
-
-        // 3. Open the browser
         QDesktopServices::openUrl(url);
     });
-
     #if !defined(__APPLE__)
-    connect(create_desktop_shortcut, &QAction::triggered, [this, program_id, path]() { emit CreateShortcut(program_id, path, GameListShortcutTarget::Desktop); });
-    connect(create_applications_menu_shortcut, &QAction::triggered, [this, program_id, path]() { emit CreateShortcut(program_id, path, GameListShortcutTarget::Applications); });
+    connect(create_desktop_shortcut, &QAction::triggered, [this, program_id, path_str]() { emit CreateShortcut(program_id, path_str, GameListShortcutTarget::Desktop); });
+    connect(create_applications_menu_shortcut, &QAction::triggered, [this, program_id, path_str]() { emit CreateShortcut(program_id, path_str, GameListShortcutTarget::Applications); });
     #endif
-    connect(properties, &QAction::triggered, [this, path]() { emit OpenPerGameGeneralRequested(path); });
+    connect(properties, &QAction::triggered, [this, path_str]() { emit OpenPerGameGeneralRequested(path_str); });
 }
 
 void GameList::AddCustomDirPopup(QMenu& context_menu, QModelIndex selected) {
     UISettings::GameDir& game_dir = UISettings::values.game_dirs[selected.data(GameListDir::GameDirRole).toInt()];
+    QAction* show_hidden = context_menu.addAction(tr("Show Hidden Games"));
+    context_menu.addSeparator();
     QAction* deep_scan = context_menu.addAction(tr("Scan Subfolders"));
     QAction* delete_dir = context_menu.addAction(tr("Remove Game Directory"));
     deep_scan->setCheckable(true);
     deep_scan->setChecked(game_dir.deep_scan);
+    connect(show_hidden, &QAction::triggered, [this, selected] {
+        QStandardItem* folder = item_model->itemFromIndex(selected);
+        bool changed = false;
+        for (int i = 0; i < folder->rowCount(); ++i) {
+            const QString path = folder->child(i)->data(GameListItemPath::FullPathRole).toString();
+            if (UISettings::values.hidden_paths.removeOne(path)) {
+                changed = true;
+            }
+        }
+        if (changed) {
+            OnTextChanged(search_field->filterText());
+            emit SaveConfig();
+        }
+    });
     connect(deep_scan, &QAction::triggered, [this, &game_dir] {
         game_dir.deep_scan = !game_dir.deep_scan;
         PopulateAsync(UISettings::values.game_dirs);
@@ -1603,12 +1691,28 @@ void GameList::AddCustomDirPopup(QMenu& context_menu, QModelIndex selected) {
 
 void GameList::AddPermDirPopup(QMenu& context_menu, QModelIndex selected) {
     const int game_dir_index = selected.data(GameListDir::GameDirRole).toInt();
+    QAction* show_hidden = context_menu.addAction(tr("Show Hidden Games"));
+    context_menu.addSeparator();
     QAction* move_up = context_menu.addAction(tr("\u25B2 Move Up"));
     QAction* move_down = context_menu.addAction(tr("\u25bc Move Down"));
     QAction* open_directory_location = context_menu.addAction(tr("Open Directory Location"));
     const int row = selected.row();
     move_up->setEnabled(row > 1);
     move_down->setEnabled(row < item_model->rowCount() - 2);
+    connect(show_hidden, &QAction::triggered, [this, selected] {
+        QStandardItem* folder = item_model->itemFromIndex(selected);
+        bool changed = false;
+        for (int i = 0; i < folder->rowCount(); ++i) {
+            const QString path = folder->child(i)->data(GameListItemPath::FullPathRole).toString();
+            if (UISettings::values.hidden_paths.removeOne(path)) {
+                changed = true;
+            }
+        }
+        if (changed) {
+            OnTextChanged(search_field->filterText());
+            emit SaveConfig();
+        }
+    });
     connect(move_up, &QAction::triggered, [this, selected, row, game_dir_index] {
         const int other_index = selected.sibling(row - 1, 0).data(GameListDir::GameDirRole).toInt();
         std::swap(UISettings::values.game_dirs[game_dir_index], UISettings::values.game_dirs[other_index]);
@@ -2173,6 +2277,141 @@ void GameList::onSurpriseMeClicked() {
         }
     }
     // If the user just closes the window (or clicks the 'X'), nothing happens.
+}
+
+void GameList::UpdateAccentColorStyles() {
+    QColor accent_color(QString::fromStdString(UISettings::values.accent_color.GetValue()));
+    if (!accent_color.isValid()) {
+        accent_color = palette().color(QPalette::Highlight);
+    }
+    const QString color_name = accent_color.name();
+
+    // Create a semi-transparent version of the accent color for the SELECTION background
+    QColor selection_background_color = accent_color;
+    selection_background_color.setAlphaF(0.25); // 25% opacity for a clear selection
+    const QString selection_background_color_name = QStringLiteral("rgba(%1, %2, %3, %4)")
+                                             .arg(selection_background_color.red())
+                                             .arg(selection_background_color.green())
+                                             .arg(selection_background_color.blue())
+                                             .arg(selection_background_color.alpha());
+
+    // Create a MORE subtle semi-transparent version for the HOVER effect
+    QColor hover_background_color = accent_color;
+    hover_background_color.setAlphaF(0.15); // 15% opacity for a subtle hover
+    const QString hover_background_color_name = QStringLiteral("rgba(%1, %2, %3, %4)")
+                                             .arg(hover_background_color.red())
+                                             .arg(hover_background_color.green())
+                                             .arg(hover_background_color.blue())
+                                             .arg(hover_background_color.alpha());
+
+    QString accent_style = QStringLiteral(
+        /* Tree View (List View) Selection & Hover Style */
+        "QTreeView::item:hover {"
+        "    background-color: %3;"
+        "    border-radius: 4px;"
+        "}"
+        "QTreeView::item:selected {"
+        "    background-color: %2;"
+        "    color: palette(text);"
+        "    border: none;"
+        "    border-radius: 4px;"
+        "}"
+        "QTreeView::item:selected:!active {"
+        "    background-color: palette(light);"
+        "    border: none;"
+        "}"
+
+        /* List View (Grid View) Selection Style */
+        "QListView::item:selected {"
+        "    background-color: palette(light);"
+        "    border: 3px solid %1;"
+        "    border-radius: 12px;"
+        "}"
+        "QListView::item:selected:!active {"
+        "    background-color: transparent;"
+        "    border: 3px solid palette(mid);"
+        "}"
+
+        /* ScrollBar Styling */
+        "QScrollBar:vertical {"
+        "    border: 1px solid black;"
+        "    background: palette(base);"
+        "    width: 12px;"
+        "    margin: 0px;"
+        "}"
+        "QScrollBar::handle:vertical {"
+        "    background: %1;"
+        "    min-height: 20px;"
+        "    border-radius: 5px;"
+        "    border: 1px solid black;"
+        "}"
+    ).arg(color_name, selection_background_color_name, hover_background_color_name);
+
+    // Apply the combined base styles and new accent styles to each view
+    tree_view->setStyleSheet(QStringLiteral("QTreeView{ border: none; }") + accent_style);
+    list_view->setStyleSheet(QStringLiteral("QListView{ border: none; background: transparent; } QListView::item { text-align: center; padding: 5px; }") + accent_style);
+
+    // Update the toolbar buttons
+    QString button_base_style = QStringLiteral(
+        "QToolButton {"
+        "  border: 1px solid palette(mid);"
+        "  border-radius: 4px;"
+        "  background: palette(button);"
+        "}"
+        "QToolButton:hover {"
+        "  background: palette(light);"
+        "}"
+    );
+    QString button_checked_style = QStringLiteral(
+        "QToolButton:checked {"
+        "  background: %1;"
+        "  border-color: %1;"
+        "}"
+    ).arg(color_name);
+
+    btn_list_view->setStyleSheet(button_base_style + button_checked_style);
+    btn_grid_view->setStyleSheet(button_base_style + button_checked_style);
+}
+
+void GameList::ToggleHidden(const QString& path) {
+    if (UISettings::values.hidden_paths.contains(path)) {
+        UISettings::values.hidden_paths.removeOne(path);
+    } else {
+        UISettings::values.hidden_paths.append(path);
+    }
+    // Refresh the current view to reflect the change
+    OnTextChanged(search_field->filterText());
+    emit SaveConfig();
+}
+
+void GameList::resizeEvent(QResizeEvent* event) {
+    QWidget::resizeEvent(event);
+    // Ensure the overlay always perfectly covers the game list widget
+    fade_overlay->setGeometry(rect());
+}
+
+void GameListPlaceholder::resizeEvent(QResizeEvent* event) {
+    QWidget::resizeEvent(event);
+}
+
+void GameList::OnEmulationEnded() {
+    // This function is called when the emulator returns to the game list.
+    // We now fade the black overlay back out.
+    auto* effect = new QGraphicsOpacityEffect(fade_overlay);
+    fade_overlay->setGraphicsEffect(effect);
+
+    auto* fade_out_anim = new QPropertyAnimation(effect, "opacity");
+    fade_out_anim->setDuration(300);
+    fade_out_anim->setStartValue(1.0);
+    fade_out_anim->setEndValue(0.0);
+    fade_out_anim->setEasingCurve(QEasingCurve::OutQuad);
+
+    // When the fade-out is complete, hide the overlay widget
+    connect(fade_out_anim, &QPropertyAnimation::finished, this, [this]() {
+        fade_overlay->hide();
+    });
+
+    fade_out_anim->start(QAbstractAnimation::DeleteWhenStopped);
 }
 
 #include "game_list.moc"
