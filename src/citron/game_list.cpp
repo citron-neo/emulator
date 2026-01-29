@@ -1121,7 +1121,7 @@ void GameList::StartLaunchAnimation(const QModelIndex& item) {
         return;
     }
 
-    // --- FADE GAME LIST TO BLACK ---
+    // --- 2. FADE GAME LIST TO BLACK ---
     fade_overlay->setGeometry(rect()); // Ensure size is correct
     fade_overlay->raise();
     fade_overlay->show();
@@ -1135,7 +1135,7 @@ void GameList::StartLaunchAnimation(const QModelIndex& item) {
     list_fade_in_anim->setEasingCurve(QEasingCurve::OutCubic);
     list_fade_in_anim->start(QAbstractAnimation::DeleteWhenStopped);
 
-    // --- ICON ANIMATION ---
+    // --- 3. ICON ANIMATION ---
     const auto title_id = item.data(GameListItemPath::ProgramIdRole).toULongLong();
     QRect start_geom;
     if (tree_view->isVisible()) {
@@ -2288,7 +2288,7 @@ void GameList::UpdateAccentColorStyles() {
 
     // Create a semi-transparent version of the accent color for the SELECTION background
     QColor selection_background_color = accent_color;
-    selection_background_color.setAlphaF(0.25); // 25% opacity for a clear selection
+    selection_background_color.setAlphaF(0.25f); // 25% opacity for a clear selection
     const QString selection_background_color_name = QStringLiteral("rgba(%1, %2, %3, %4)")
                                              .arg(selection_background_color.red())
                                              .arg(selection_background_color.green())
@@ -2297,7 +2297,7 @@ void GameList::UpdateAccentColorStyles() {
 
     // Create a MORE subtle semi-transparent version for the HOVER effect
     QColor hover_background_color = accent_color;
-    hover_background_color.setAlphaF(0.15); // 15% opacity for a subtle hover
+    hover_background_color.setAlphaF(0.15f); // 15% opacity for a subtle hover
     const QString hover_background_color_name = QStringLiteral("rgba(%1, %2, %3, %4)")
                                              .arg(hover_background_color.red())
                                              .arg(hover_background_color.green())
