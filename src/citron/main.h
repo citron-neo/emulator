@@ -135,6 +135,7 @@ signals:
     void WebBrowserExtractOfflineRomFS();
     void WebBrowserClosed(Service::AM::Frontend::WebExitReason exit_reason, std::string last_url);
     void SigInterrupt();
+    void ConfigurationSaved();
 public slots:
     void OnLoadComplete();
     void OnExecuteProgram(std::size_t program_index);
