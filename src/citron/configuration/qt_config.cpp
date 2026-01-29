@@ -299,6 +299,16 @@ void QtConfig::ReadUIGamelistValues() {
     }
     EndArray();
 
+    const int hidden_paths_size = BeginArray("hidden_paths");
+    for (int i = 0; i < hidden_paths_size; ++i) {
+        SetArrayIndex(i);
+        const std::string path = ReadStringSetting(std::string("path"));
+        if (!path.empty()) {
+            UISettings::values.hidden_paths.append(QString::fromStdString(path));
+        }
+    }
+    EndArray();
+
     EndGroup();
 }
 
@@ -498,6 +508,13 @@ void QtConfig::SaveUIGamelistValues() {
         WriteIntegerSetting(std::string("program_id"), UISettings::values.favorited_ids[i]);
     }
     EndArray(); // favorites
+
+    BeginArray(std::string("hidden_paths"));
+    for (int i = 0; i < UISettings::values.hidden_paths.size(); ++i) {
+        SetArrayIndex(i);
+        WriteStringSetting(std::string("path"), UISettings::values.hidden_paths[i].toStdString());
+    }
+    EndArray(); // hidden_paths
 
     EndGroup();
 }
