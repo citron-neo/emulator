@@ -878,11 +878,8 @@ inline u32 EnumMetadata<ExtendedDynamicState>::Index() {
 
 // FIXED: VRAM leak prevention - GC aggressiveness levels
 enum class GCAggressiveness : u32 {
-    Off = 0,        // Disable automatic GC (not recommended)
-    Light = 1,      // Light GC - only evict very old textures
-    Moderate = 2,   // Moderate GC - balanced eviction (default)
-    Heavy = 3,      // Heavy GC - aggressive eviction for low VRAM systems
-    Extreme = 4,    // Extreme GC - maximum eviction for 4GB VRAM systems
+    Off = 0,    // Disable automatic GC (not recommended)
+    Light = 1,  // Light GC - gentle eviction of old textures/buffers
 };
 
 template <>
@@ -891,9 +888,6 @@ EnumMetadata<GCAggressiveness>::Canonicalizations() {
     return {
         {"Off", GCAggressiveness::Off},
         {"Light", GCAggressiveness::Light},
-        {"Moderate", GCAggressiveness::Moderate},
-        {"Heavy", GCAggressiveness::Heavy},
-        {"Extreme", GCAggressiveness::Extreme},
     };
 }
 

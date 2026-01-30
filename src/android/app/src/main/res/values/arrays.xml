@@ -440,17 +440,11 @@
     <string-array name="gcAggressivenessNames">
         <item>@string/gc_aggressiveness_off</item>
         <item>@string/gc_aggressiveness_light</item>
-        <item>@string/gc_aggressiveness_moderate</item>
-        <item>@string/gc_aggressiveness_heavy</item>
-        <item>@string/gc_aggressiveness_extreme</item>
     </string-array>
 
     <integer-array name="gcAggressivenessValues">
         <item>0</item>
         <item>1</item>
-        <item>2</item>
-        <item>3</item>
-        <item>4</item>
     </integer-array>
 
     <!-- Applet Mode setting arrays -->

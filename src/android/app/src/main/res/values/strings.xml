@@ -153,6 +153,7 @@
     <string name="dump_exefs_extracting">Extracting ExeFS…</string>
     <string name="dump_success">Extraction completed successfully</string>
     <string name="dump_failed">Extraction failed</string>
+    <string name="dump_failed_emulation_running">Cannot dump while a game is running. Please close the game first.</string>
     <string name="select_dump_location_description">Choose where to save the extracted files. Select a location or use the default dump directory.</string>
     <string name="select_location">Select Location</string>
     <string name="use_default_location">Use Default</string>
@@ -1289,10 +1290,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
     <string name="log_vram_usage">Log VRAM Usage</string>
     <string name="log_vram_usage_description">Enable logging of VRAM usage statistics for debugging purposes.</string>
     <string name="gc_aggressiveness_off">Off (Not Recommended)</string>
-    <string name="gc_aggressiveness_light">Light</string>
-    <string name="gc_aggressiveness_moderate">Moderate (Recommended)</string>
-    <string name="gc_aggressiveness_heavy">Heavy (Low VRAM)</string>
-    <string name="gc_aggressiveness_extreme">Extreme (4GB VRAM)</string>
+    <string name="gc_aggressiveness_light">Light (Recommended)</string>
     <string name="frame_skipping_header">Frame Skipping</string>
 
 </resources>

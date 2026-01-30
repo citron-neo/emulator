@@ -400,10 +400,7 @@ std::unique_ptr<ComboboxTranslationMap> ComboboxEnumeration(QWidget* parent) {
     translations->insert({Settings::EnumMetadata<Settings::GCAggressiveness>::Index(),
                           {
                               PAIR(GCAggressiveness, Off, tr("Off (Not Recommended)")),
-                              PAIR(GCAggressiveness, Light, tr("Light")),
-                              PAIR(GCAggressiveness, Moderate, tr("Moderate (Recommended)")),
-                              PAIR(GCAggressiveness, Heavy, tr("Heavy (Low VRAM)")),
-                              PAIR(GCAggressiveness, Extreme, tr("Extreme (4GB VRAM)")),
+                              PAIR(GCAggressiveness, Light, tr("Light (Recommended)")),
                           }});
 
     translations->insert({Settings::EnumMetadata<Settings::RendererBackend>::Index(),

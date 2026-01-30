@@ -520,9 +520,9 @@ struct Values {
 
     // GC aggressiveness level for texture/buffer cache eviction
     SwitchableSetting<GCAggressiveness, true> gc_aggressiveness{linkage,
-                                                                 GCAggressiveness::Moderate,
+                                                                 GCAggressiveness::Light,
                                                                  GCAggressiveness::Off,
-                                                                 GCAggressiveness::Extreme,
+                                                                 GCAggressiveness::Light,
                                                                  "gc_aggressiveness",
                                                                  Category::RendererAdvanced,
                                                                  Specialization::Default,

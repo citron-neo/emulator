@@ -57,20 +57,9 @@ BufferCache<P>::BufferCache(Tegra::MaxwellDeviceMemoryManager& device_memory_, R
         critical_ratio = 0.95f;
         break;
     case Settings::GCAggressiveness::Light:
+    default:
         expected_ratio = 0.70f;
         critical_ratio = 0.85f;
-        break;
-    case Settings::GCAggressiveness::Moderate:
-        expected_ratio = 0.50f;
-        critical_ratio = 0.70f;
-        break;
-    case Settings::GCAggressiveness::Heavy:
-        expected_ratio = 0.40f;
-        critical_ratio = 0.60f;
-        break;
-    case Settings::GCAggressiveness::Extreme:
-        expected_ratio = 0.30f;
-        critical_ratio = 0.50f;
         break;
     }
 
@@ -106,22 +95,9 @@ void BufferCache<P>::RunGarbageCollector() {
 
     switch (gc_level) {
     case Settings::GCAggressiveness::Light:
+    default:
         base_ticks = eviction_frames * 2;
         base_iterations = 16;
-        break;
-    case Settings::GCAggressiveness::Moderate:
-        base_ticks = eviction_frames;
-        base_iterations = 32;
-        break;
-    case Settings::GCAggressiveness::Heavy:
-        base_ticks = std::max(1ULL, static_cast<unsigned long long>(eviction_frames / 2));
-        base_iterations = 64;
-        break;
-    case Settings::GCAggressiveness::Extreme:
-        base_ticks = 1;
-        base_iterations = 128;
-        break;
-    default:
         break;
     }
 
