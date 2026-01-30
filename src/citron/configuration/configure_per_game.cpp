@@ -332,7 +332,7 @@ void ConfigurePerGame::UpdateTheme() {
     if (is_rainbow) {
         if (!rainbow_timer) {
             rainbow_timer = new QTimer(this);
-            connect(rainbow_timer, &QTimer::timeout, this, [this] {
+            connect(rainbow_timer, &QTimer::timeout, this, [this, txt] {
                 if (m_is_tab_animating || !this->isVisible() || !this->isActiveWindow()) return;
 
                 const QColor current_color = RainbowStyle::GetCurrentHighlightColor();
@@ -360,9 +360,9 @@ void ConfigurePerGame::UpdateTheme() {
 
                 // 3. Action Buttons
                 const QString button_css = QStringLiteral(
-                    "QPushButton { background-color: %1; color: #ffffff; border-radius: 4px; font-weight: bold; padding: 5px 15px; }"
-                    "QPushButton:hover { background-color: %2; }"
-                    "QPushButton:pressed { background-color: %3; }"
+                    "QPushButton { background-color: transparent; color: #ffffff; border: 2px solid %1; border-radius: 4px; font-weight: bold; padding: 4px 12px; }"
+                    "QPushButton:hover { border-color: %2; color: %2; }"
+                    "QPushButton:pressed { background-color: %3; color: #ffffff; border-color: %3; }"
                 ).arg(hue_hex).arg(hue_light).arg(hue_dark);
 
                 if (ui->buttonBox) {
@@ -372,6 +372,12 @@ void ConfigurePerGame::UpdateTheme() {
                 }
                 if (ui->trim_xci_button && !ui->trim_xci_button->isDown()) {
                     ui->trim_xci_button->setStyleSheet(button_css);
+                }
+                if (auto* share_btn = findChild<QPushButton*>(QStringLiteral("share_settings_button"))) {
+                    if (!share_btn->isDown()) share_btn->setStyleSheet(button_css);
+                }
+                if (auto* use_btn = findChild<QPushButton*>(QStringLiteral("use_settings_button"))) {
+                    if (!use_btn->isDown()) use_btn->setStyleSheet(button_css);
                 }
 
                 // 4. Tab Content Area
@@ -392,9 +398,9 @@ void ConfigurePerGame::UpdateTheme() {
                             "QComboBox QAbstractItemView::item:selected { background-color: %1; color: #ffffff; }"
                             "QScrollBar::handle:vertical, QScrollBar::handle:horizontal { background-color: %1; border-radius: 7px; }"
                             "QScrollBar:vertical, QScrollBar:horizontal { background: transparent; }"
-                            "QPushButton, QToolButton { background-color: %1; color: #ffffff; border: none; border-radius: 4px; padding: 5px; }"
-                            "QPushButton:hover, QToolButton:hover { background-color: %2; }"
-                            "QPushButton:pressed, QToolButton:pressed { background-color: %3; }"
+                            "QPushButton, QToolButton { background-color: transparent; color: #ffffff; border: 2px solid %1; border-radius: 4px; padding: 5px; }"
+                            "QPushButton:hover, QToolButton:hover { border-color: %2; color: %2; }"
+                            "QPushButton:pressed, QToolButton:pressed { background-color: %3; color: #ffffff; border-color: %3; }"
                         ).arg(hue_hex).arg(hue_light).arg(hue_dark);
 
                         currentContainer->setStyleSheet(content_css);
@@ -404,21 +410,21 @@ void ConfigurePerGame::UpdateTheme() {
             });
         }
         rainbow_timer->start(33);
-    } 
+    }
 
     // Fix for Gamescope: Style buttons once outside the timer loop
     if (ui->buttonBox) {
         ui->buttonBox->setStyleSheet(QStringLiteral(
-            "QPushButton { background-color: %1; color: #ffffff; border-radius: 4px; font-weight: bold; padding: 5px 15px; }"
-            "QPushButton:hover { background-color: %2; }"
-            "QPushButton:pressed { background-color: %3; }"
+            "QPushButton { background-color: transparent; color: #ffffff; border: 2px solid %1; border-radius: 4px; font-weight: bold; padding: 4px 12px; }"
+            "QPushButton:hover { border-color: %2; color: %2; }"
+            "QPushButton:pressed { background-color: %3; color: #ffffff; border-color: %3; }"
         ).arg(accent).arg(Theme::GetAccentColorHover()).arg(Theme::GetAccentColorPressed()));
     }
     if (ui->trim_xci_button) {
         ui->trim_xci_button->setStyleSheet(QStringLiteral(
-            "QPushButton { background-color: %1; color: #ffffff; border: none; border-radius: 4px; padding: 10px; }"
-            "QPushButton:hover { background-color: %2; }"
-            "QPushButton:pressed { background-color: %3; }"
+            "QPushButton { background-color: transparent; color: #ffffff; border: 2px solid %1; border-radius: 4px; font-weight: bold; padding: 4px 12px; }"
+            "QPushButton:hover { border-color: %2; color: %2; }"
+            "QPushButton:pressed { background-color: %3; color: #ffffff; border-color: %3; }"
         ).arg(accent).arg(Theme::GetAccentColorHover()).arg(Theme::GetAccentColorPressed()));
     }
 
