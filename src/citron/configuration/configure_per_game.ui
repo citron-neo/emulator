@@ -235,46 +235,31 @@
     background-color: %%FOCUS_BG_COLOR%%;
     }
 
-    QPushButton {
-    background-color: %%ACCENT_COLOR%%;
-    color: #ffffff;
-    border: none;
-    padding: 10px 20px;
+    QPushButton, QToolButton {
+    background-color: transparent;
+    color: %%TEXT_COLOR%%;
+    border: 2px solid %%ACCENT_COLOR%%;
+    padding: 5px 15px;
     border-radius: 6px;
     font-weight: bold;
     min-height: 20px;
     }
 
-    QPushButton:hover {
-    background-color: %%ACCENT_COLOR_HOVER%%;
+    QPushButton:hover, QToolButton:hover {
+    color: %%ACCENT_COLOR_HOVER%%;
+    border-color: %%ACCENT_COLOR_HOVER%%;
     }
 
-    QPushButton:pressed {
-    background-color: %%ACCENT_COLOR_PRESSED%%;
-    }
-
-    QPushButton:disabled {
-    background-color: %%TERTIARY_BG_COLOR%%;
-    color: %%DISABLED_TEXT_COLOR%%;
-    }
-
-    QToolButton {
-    background-color: %%ACCENT_COLOR%%;
+    QPushButton:pressed, QToolButton:pressed {
     color: #ffffff;
-    border: none;
-    padding: 8px 12px;
-    border-radius: 6px;
-    font-weight: bold;
-    min-width: 32px;
-    min-height: 24px;
-    }
-
-    QToolButton:hover {
-    background-color: %%ACCENT_COLOR_HOVER%%;
-    }
-
-    QToolButton:pressed {
     background-color: %%ACCENT_COLOR_PRESSED%%;
+    border-color: %%ACCENT_COLOR_PRESSED%%;
+    }
+
+    QPushButton:disabled, QToolButton:disabled {
+    background-color: %%TERTIARY_BG_COLOR%%;
+    border-color: %%TERTIARY_BG_COLOR%%;
+    color: %%DISABLED_TEXT_COLOR%%;
     }
 
     QLabel {
@@ -399,13 +384,13 @@
           <x>0</x>
           <y>0</y>
           <width>318</width>
-          <height>836</height>
+          <height>786</height>
          </rect>
         </property>
         <property name="minimumSize">
          <size>
           <width>0</width>
-          <height>836</height>
+          <height>786</height>
          </size>
         </property>
         <property name="maximumSize">
