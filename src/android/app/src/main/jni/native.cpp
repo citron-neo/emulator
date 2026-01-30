@@ -884,6 +884,12 @@ jboolean Java_org_citron_citron_1emu_NativeLibrary_areKeysPresent(JNIEnv* env, j
 jboolean Java_org_citron_citron_1emu_NativeLibrary_dumpRomFS(JNIEnv* env, jobject jobj,
                                                          jstring jgamePath, jstring jprogramId,
                                                          jstring jdumpPath, jobject jcallback) {
+    // Check if emulation is running - dumping while emulation is active can cause crashes
+    if (EmulationSession::GetInstance().IsRunning()) {
+        LOG_ERROR(Frontend, "Cannot dump RomFS while emulation is running. Please close the game first.");
+        return false;
+    }
+
     const auto game_path = Common::Android::GetJString(env, jgamePath);
     const auto program_id = EmulationSession::GetProgramId(env, jprogramId);
 
@@ -1040,6 +1046,12 @@ jboolean Java_org_citron_citron_1emu_NativeLibrary_dumpRomFS(JNIEnv* env, jobjec
 jboolean Java_org_citron_citron_1emu_NativeLibrary_dumpExeFS(JNIEnv* env, jobject jobj,
                                                           jstring jgamePath, jstring jprogramId,
                                                           jstring jdumpPath, jobject jcallback) {
+    // Check if emulation is running - dumping while emulation is active can cause crashes
+    if (EmulationSession::GetInstance().IsRunning()) {
+        LOG_ERROR(Frontend, "Cannot dump ExeFS while emulation is running. Please close the game first.");
+        return false;
+    }
+
     const auto game_path = Common::Android::GetJString(env, jgamePath);
     const auto program_id = EmulationSession::GetProgramId(env, jprogramId);
 

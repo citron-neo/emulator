@@ -496,6 +496,16 @@ class GamePropertiesFragment : Fragment() {
     }
 
     private fun performRomFSDump(dumpPathUri: String?) {
+        // Check if emulation is running - cannot dump while game is active
+        if (NativeLibrary.isRunning()) {
+            Toast.makeText(
+                requireContext(),
+                R.string.dump_failed_emulation_running,
+                Toast.LENGTH_LONG
+            ).show()
+            return
+        }
+
         ProgressDialogFragment.newInstance(
             requireActivity(),
             R.string.dump_romfs_extracting,
@@ -539,6 +549,16 @@ class GamePropertiesFragment : Fragment() {
     }
 
     private fun performExeFSDump(dumpPathUri: String?) {
+        // Check if emulation is running - cannot dump while game is active
+        if (NativeLibrary.isRunning()) {
+            Toast.makeText(
+                requireContext(),
+                R.string.dump_failed_emulation_running,
+                Toast.LENGTH_LONG
+            ).show()
+            return
+        }
+
         ProgressDialogFragment.newInstance(
             requireActivity(),
             R.string.dump_exefs_extracting,
