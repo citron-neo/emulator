@@ -430,6 +430,7 @@ public:
 
     void clear();
     void setFocus();
+    void setStyleSheet(const QString& sheet);
 
 private:
     void changeEvent(QEvent*) override;
