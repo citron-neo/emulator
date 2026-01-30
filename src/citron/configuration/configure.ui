@@ -69,8 +69,6 @@
     border-left: 2px solid %%ACCENT_COLOR%%;
     }
 
-    /* All other styles remain the same... just paste this block at the top */
-
     QWidget {
     background-color: %%BACKGROUND_COLOR%%;
     color: %%TEXT_COLOR%%;
@@ -217,18 +215,31 @@
     selection-background-color: %%ACCENT_COLOR%%;
     }
 
-    QPushButton {
-    background-color: %%ACCENT_COLOR%%;
-    color: #ffffff;
-    border: none;
-    padding: 10px 20px;
+    QPushButton, QToolButton {
+    background-color: transparent;
+    color: %%TEXT_COLOR%%;
+    border: 2px solid %%ACCENT_COLOR%%;
+    padding: 5px 15px;
     border-radius: 6px;
     font-weight: bold;
     min-height: 20px;
     }
 
-    QPushButton:hover {
-    background-color: %%ACCENT_COLOR_HOVER%%;
+    QPushButton:hover, QToolButton:hover {
+    color: %%ACCENT_COLOR_HOVER%%;
+    border-color: %%ACCENT_COLOR_HOVER%%;
+    }
+
+    QPushButton:pressed, QToolButton:pressed {
+    color: #ffffff;
+    background-color: %%ACCENT_COLOR_PRESSED%%;
+    border-color: %%ACCENT_COLOR_PRESSED%%;
+    }
+
+    QPushButton:disabled, QToolButton:disabled {
+    background-color: %%TERTIARY_BG_COLOR%%;
+    border-color: %%TERTIARY_BG_COLOR%%;
+    color: %%DISABLED_TEXT_COLOR%%;
     }
    </string>
   </property>
