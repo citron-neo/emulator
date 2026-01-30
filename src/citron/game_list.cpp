@@ -392,19 +392,7 @@ GameListSearchField::GameListSearchField(GameList* parent) : QWidget{parent} {
     edit_filter->clear();
     edit_filter->installEventFilter(key_release_eater);
     edit_filter->setClearButtonEnabled(true);
-    // Add rounded corners styling to the search field
-    edit_filter->setStyleSheet(QStringLiteral(
-        "QLineEdit {"
-        "  border: 1px solid palette(mid);"
-        "  border-radius: 6px;"
-        "  padding: 4px 8px;"
-        "  background: palette(base);"
-        "}"
-        "QLineEdit:focus {"
-        "  border: 1px solid palette(highlight);"
-        "  background: palette(base);"
-        "}"
-    ));
+
     connect(edit_filter, &QLineEdit::textChanged, parent, &GameList::OnTextChanged);
     label_filter_result = new QLabel;
     button_filter_close = new QToolButton(this);
@@ -2305,7 +2293,7 @@ void GameList::UpdateAccentColorStyles() {
                                              .arg(hover_background_color.alpha());
 
     QString accent_style = QStringLiteral(
-        /* Tree View (List View) Selection & Hover Style - Final */
+        /* Tree View (List View) Selection & Hover Style */
         "QTreeView::item:hover {"
         "    background-color: %3;"                 /* Use the new accent-based hover color */
         "    border-radius: 4px;"                   /* Add a subtle rounding to the hover effect */
@@ -2321,7 +2309,7 @@ void GameList::UpdateAccentColorStyles() {
         "    border: none;"                         /* NO BORDER */
         "}"
 
-        /* List View (Grid View) Selection Style - This remains correct */
+        /* List View (Grid View) Selection Style */
         "QListView::item:selected {"
         "    background-color: palette(light);"
         "    border: 3px solid %1;"
@@ -2371,6 +2359,19 @@ void GameList::UpdateAccentColorStyles() {
 
     btn_list_view->setStyleSheet(button_base_style + button_checked_style);
     btn_grid_view->setStyleSheet(button_base_style + button_checked_style);
+
+    search_field->setStyleSheet(QStringLiteral(
+        "QLineEdit {"
+        "  border: 1px solid palette(mid);"
+        "  border-radius: 6px;"
+        "  padding: 4px 8px;"
+        "  background: palette(base);"
+        "}"
+        "QLineEdit:focus {"
+        "  border: 1px solid %1;"
+        "  background: palette(base);"
+        "}"
+    ).arg(color_name));
 }
 
 void GameList::ToggleHidden(const QString& path) {
@@ -2412,6 +2413,10 @@ void GameList::OnEmulationEnded() {
     });
 
     fade_out_anim->start(QAbstractAnimation::DeleteWhenStopped);
+}
+
+void GameListSearchField::setStyleSheet(const QString& sheet) {
+    edit_filter->setStyleSheet(sheet);
 }
 
 #include "game_list.moc"
