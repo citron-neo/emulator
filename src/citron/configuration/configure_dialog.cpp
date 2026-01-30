@@ -247,11 +247,24 @@ void ConfigureDialog::UpdateTheme() {
     cpu_tab->SetTemplateStyleSheet(style_sheet);
     graphics_advanced_tab->SetTemplateStyleSheet(style_sheet);
 
+    QString sidebar_css = QStringLiteral(
+        "QPushButton.tabButton { background-color: %1; color: %2; border: 2px solid transparent; }"
+        "QPushButton.tabButton:checked { color: %3; border: 2px solid %3; }"
+        "QPushButton.tabButton:hover { border: 2px solid %3; }"
+        "QPushButton.tabButton:pressed { background-color: %3; color: #ffffff; }"
+    ).arg(b_bg).arg(d_txt).arg(accent);
+
+    if (ui->topButtonWidget) ui->topButtonWidget->setStyleSheet(sidebar_css);
+    if (ui->horizontalNavWidget) ui->horizontalNavWidget->setStyleSheet(sidebar_css);
+
     if (is_rainbow) {
         if (!rainbow_timer) {
             rainbow_timer = new QTimer(this);
-            connect(rainbow_timer, &QTimer::timeout, this, [this] {
-                if (m_is_tab_animating || !this->isVisible() || !this->isActiveWindow()) return;
+            connect(rainbow_timer, &QTimer::timeout, this, [this, b_bg, d_txt, txt] {
+                // Don't update during animation to prevent lag
+                if (ui->buttonBox->underMouse() || m_is_tab_animating || !this->isVisible() || !this->isActiveWindow()) {
+                    return;
+                }
 
                 const int current_index = ui->stackedWidget->currentIndex();
                 const int input_tab_index = 7;
@@ -261,84 +274,45 @@ void ConfigureDialog::UpdateTheme() {
                 const QString hue_light = current_color.lighter(125).name();
                 const QString hue_dark = current_color.darker(150).name();
 
-                // 1. Sidebar Tabs
-                QString sidebar_css = QStringLiteral(
-                    "QPushButton.tabButton { border: 2px solid transparent; }"
-                    "QPushButton.tabButton:checked { color: %1; border: 2px solid %1; }"
-                    "QPushButton.tabButton:hover { border: 2px solid %1; }"
-                    "QPushButton.tabButton:pressed { background-color: %1; color: #ffffff; }"
-                ).arg(hue_hex);
-                if (ui->topButtonWidget) ui->topButtonWidget->setStyleSheet(sidebar_css);
-                if (ui->horizontalNavWidget) ui->horizontalNavWidget->setStyleSheet(sidebar_css);
+                // Update sidebar with rainbow colors
+                QString rainbow_sidebar_css = QStringLiteral(
+                    "QPushButton.tabButton { background-color: %1; color: %2; border: 2px solid transparent; }"
+                    "QPushButton.tabButton:checked { color: %3; border: 2px solid %3; }"
+                    "QPushButton.tabButton:hover { border: 2px solid %3; }"
+                    "QPushButton.tabButton:pressed { background-color: %3; color: #ffffff; }"
+                ).arg(b_bg).arg(d_txt).arg(hue_hex);
+                if (ui->topButtonWidget) ui->topButtonWidget->setStyleSheet(rainbow_sidebar_css);
+                if (ui->horizontalNavWidget) ui->horizontalNavWidget->setStyleSheet(rainbow_sidebar_css);
 
-                // 2. Action Buttons (OK/Apply/Cancel)
-                if (ui->buttonBox) {
-                    const QString button_css = QStringLiteral(
-                        "QPushButton { background-color: %1; color: #ffffff; border-radius: 4px; font-weight: bold; padding: 5px 15px; }"
-                        "QPushButton:hover { background-color: %2; }"
-                        "QPushButton:pressed { background-color: %3; }"
-                    ).arg(hue_hex).arg(hue_light).arg(hue_dark);
-
-                    for (auto* button : ui->buttonBox->findChildren<QPushButton*>()) {
-                        if (!button->isDown()) {
-                            button->setStyleSheet(button_css);
-                        }
-                    }
-                }
-
-                // 3. Tab Content Area
+                // Tab Content Area
                 if (current_index == input_tab_index) return;
 
                 QWidget* currentContainer = ui->stackedWidget->currentWidget();
                 if (currentContainer) {
-                    QWidget* actualTab = currentContainer;
-                    if (auto* scroll = qobject_cast<QScrollArea*>(currentContainer)) {
-                        actualTab = scroll->widget();
-                    }
-
-                    if (actualTab) {
-                        QString tab_css = QStringLiteral(
-                            "QCheckBox::indicator:checked, QRadioButton::indicator:checked { background-color: %1; border: 1px solid %1; }"
-                            "QSlider::handle:horizontal { background-color: %1; border: 1px solid %1; border-radius: 7px; }"
-                            "QScrollBar::handle:vertical, QScrollBar::handle:horizontal { background-color: %1; border-radius: 4px; min-height: 20px; }"
-                            "QScrollBar:vertical, QScrollBar:horizontal { background: transparent; }"
-                            "QComboBox { border: 1px solid %1; selection-background-color: %1; }"
-                            "QComboBox QAbstractItemView { border: 2px solid %1; selection-background-color: %1; background-color: #2b2b2b; }"
-                            "QComboBox QAbstractItemView::item:selected { background-color: %1; color: #ffffff; }"
-                            "QPushButton, QToolButton { background-color: %1; color: #ffffff; border: none; border-radius: 4px; padding: 5px; }"
-                            "QPushButton:hover, QToolButton:hover { background-color: %2; }"
-                            "QPushButton:pressed, QToolButton:pressed { background-color: %3; }"
-                            "QPushButton#aestheticTabButton { background-color: transparent; border: 2px solid %1; }"
-                            "QPushButton#aestheticTabButton:checked { background-color: %1; }"
-                        ).arg(hue_hex).arg(hue_light).arg(hue_dark);
-
-                        currentContainer->setStyleSheet(tab_css);
-                        actualTab->setStyleSheet(tab_css);
-                    }
+                    QString tab_css = QStringLiteral(
+                        "QCheckBox::indicator:checked, QRadioButton::indicator:checked { background-color: %1; border: 1px solid %1; }"
+                        "QSlider::sub-page:horizontal { background: %1; border-radius: 4px; }"
+                        "QSlider::handle:horizontal { background-color: %1; border: 1px solid %1; width: 18px; height: 18px; margin: -5px 0; border-radius: 9px; }"
+                        "QPushButton, QToolButton { background-color: transparent; color: %4; border: 2px solid %1; border-radius: 4px; padding: 5px; }"
+                        "QPushButton:hover, QToolButton:hover { border-color: %2; color: %2; }"
+                        "QPushButton:pressed, QToolButton:pressed { background-color: %3; color: #ffffff; border-color: %3; }"
+                    ).arg(hue_hex).arg(hue_light).arg(hue_dark).arg(txt);
+                    currentContainer->setStyleSheet(tab_css);
+                    if (ui->buttonBox) ui->buttonBox->setStyleSheet(tab_css);
                 }
             });
         }
         rainbow_timer->start(33);
     }
 
-    if (ui->buttonBox) {
-        ui->buttonBox->setStyleSheet(QStringLiteral(
-            "QPushButton { background-color: %1; color: #ffffff; border-radius: 4px; font-weight: bold; padding: 5px 15px; }"
-            "QPushButton:hover { background-color: %2; }"
-            "QPushButton:pressed { background-color: %3; }"
-        ).arg(accent).arg(Theme::GetAccentColorHover()).arg(Theme::GetAccentColorPressed()));
-    }
-
     if (UISettings::values.enable_rainbow_mode.GetValue() == false && rainbow_timer) {
         rainbow_timer->stop();
-        if (ui->topButtonWidget) ui->topButtonWidget->setStyleSheet({});
-        if (ui->horizontalNavWidget) ui->horizontalNavWidget->setStyleSheet({});
+
+        // Just reset the content areas
         if (ui->buttonBox) ui->buttonBox->setStyleSheet({});
         for (int i = 0; i < ui->stackedWidget->count(); ++i) {
-            QWidget* w = ui->stackedWidget->widget(i);
-            if (w) w->setStyleSheet({});
-            if (auto* s = qobject_cast<QScrollArea*>(w)) {
-                if (s->widget()) s->widget()->setStyleSheet({});
+            if (auto* w = ui->stackedWidget->widget(i)) {
+                w->setStyleSheet({});
             }
         }
     }

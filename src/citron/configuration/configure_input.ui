@@ -196,21 +196,6 @@
          </property>
          <item>
           <widget class="QPushButton" name="vibrationButton">
-           <property name="minimumSize">
-            <size>
-             <width>68</width>
-             <height>0</height>
-            </size>
-           </property>
-           <property name="maximumSize">
-            <size>
-             <width>68</width>
-             <height>16777215</height>
-            </size>
-           </property>
-           <property name="styleSheet">
-            <string notr="true">min-width: 68px;</string>
-           </property>
            <property name="text">
             <string>Configure</string>
            </property>
@@ -242,21 +227,6 @@
          </property>
          <item>
           <widget class="QPushButton" name="motionButton">
-           <property name="minimumSize">
-            <size>
-             <width>68</width>
-             <height>0</height>
-            </size>
-           </property>
-           <property name="maximumSize">
-            <size>
-             <width>68</width>
-             <height>16777215</height>
-            </size>
-           </property>
-           <property name="styleSheet">
-            <string notr="true">min-width: 68px;</string>
-           </property>
            <property name="text">
             <string>Configure</string>
            </property>
@@ -460,36 +430,6 @@
           <verstretch>0</verstretch>
          </sizepolicy>
         </property>
-        <property name="minimumSize">
-         <size>
-          <width>68</width>
-          <height>0</height>
-         </size>
-        </property>
-        <property name="maximumSize">
-         <size>
-          <width>68</width>
-          <height>16777215</height>
-         </size>
-        </property>
-        <property name="sizeIncrement">
-         <size>
-          <width>0</width>
-          <height>0</height>
-         </size>
-        </property>
-        <property name="baseSize">
-         <size>
-          <width>0</width>
-          <height>0</height>
-         </size>
-        </property>
-        <property name="layoutDirection">
-         <enum>Qt::LeftToRight</enum>
-        </property>
-        <property name="styleSheet">
-         <string notr="true">min-width: 68px;</string>
-        </property>
         <property name="text">
          <string>Defaults</string>
         </property>
@@ -502,36 +442,6 @@
           <horstretch>0</horstretch>
           <verstretch>0</verstretch>
          </sizepolicy>
-        </property>
-        <property name="minimumSize">
-         <size>
-          <width>68</width>
-          <height>0</height>
-         </size>
-        </property>
-        <property name="maximumSize">
-         <size>
-          <width>68</width>
-          <height>16777215</height>
-         </size>
-        </property>
-        <property name="sizeIncrement">
-         <size>
-          <width>0</width>
-          <height>0</height>
-         </size>
-        </property>
-        <property name="baseSize">
-         <size>
-          <width>0</width>
-          <height>0</height>
-         </size>
-        </property>
-        <property name="layoutDirection">
-         <enum>Qt::LeftToRight</enum>
-        </property>
-        <property name="styleSheet">
-         <string notr="true">min-width: 68px;</string>
         </property>
         <property name="text">
          <string>Clear</string>
