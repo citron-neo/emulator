@@ -360,10 +360,10 @@ void ConfigurePerGame::UpdateTheme() {
 
                 // 3. Action Buttons
                 const QString button_css = QStringLiteral(
-                    "QPushButton { background-color: transparent; color: #ffffff; border: 2px solid %1; border-radius: 4px; font-weight: bold; padding: 4px 12px; }"
+                    "QPushButton { background-color: transparent; color: %4; border: 2px solid %1; border-radius: 4px; font-weight: bold; padding: 4px 12px; }"
                     "QPushButton:hover { border-color: %2; color: %2; }"
                     "QPushButton:pressed { background-color: %3; color: #ffffff; border-color: %3; }"
-                ).arg(hue_hex).arg(hue_light).arg(hue_dark);
+                ).arg(hue_hex, hue_light, hue_dark, txt);
 
                 if (ui->buttonBox) {
                     for (auto* button : ui->buttonBox->findChildren<QPushButton*>()) {
@@ -415,17 +415,17 @@ void ConfigurePerGame::UpdateTheme() {
     // Fix for Gamescope: Style buttons once outside the timer loop
     if (ui->buttonBox) {
         ui->buttonBox->setStyleSheet(QStringLiteral(
-            "QPushButton { background-color: transparent; color: #ffffff; border: 2px solid %1; border-radius: 4px; font-weight: bold; padding: 4px 12px; }"
+            "QPushButton { background-color: transparent; color: %4; border: 2px solid %1; border-radius: 4px; font-weight: bold; padding: 4px 12px; }"
             "QPushButton:hover { border-color: %2; color: %2; }"
             "QPushButton:pressed { background-color: %3; color: #ffffff; border-color: %3; }"
-        ).arg(accent).arg(Theme::GetAccentColorHover()).arg(Theme::GetAccentColorPressed()));
+        ).arg(accent, Theme::GetAccentColorHover(), Theme::GetAccentColorPressed(), txt));
     }
     if (ui->trim_xci_button) {
         ui->trim_xci_button->setStyleSheet(QStringLiteral(
-            "QPushButton { background-color: transparent; color: #ffffff; border: 2px solid %1; border-radius: 4px; font-weight: bold; padding: 4px 12px; }"
+            "QPushButton { background-color: transparent; color: %4; border: 2px solid %1; border-radius: 4px; font-weight: bold; padding: 4px 12px; }"
             "QPushButton:hover { border-color: %2; color: %2; }"
             "QPushButton:pressed { background-color: %3; color: #ffffff; border-color: %3; }"
-        ).arg(accent).arg(Theme::GetAccentColorHover()).arg(Theme::GetAccentColorPressed()));
+        ).arg(accent, Theme::GetAccentColorHover(), Theme::GetAccentColorPressed(), txt));
     }
 
     if (UISettings::values.enable_rainbow_mode.GetValue() == false && rainbow_timer) {
