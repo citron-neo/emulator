@@ -662,7 +662,13 @@ GMainWindow::GMainWindow(std::unique_ptr<QtConfig> config_, bool has_broken_vulk
     }
 
     if (!game_path.isEmpty()) {
+    // Defer the game boot until after the main event loop has started.
+    QTimer::singleShot(0, this, [this, game_path, is_fullscreen, has_gamepath]() {
+        if (has_gamepath || is_fullscreen) {
+            ui->action_Fullscreen->setChecked(is_fullscreen);
+        }
         BootGame(game_path, ApplicationAppletParameters());
+    });
     }
 }
 
@@ -2183,8 +2189,8 @@ void GMainWindow::BootGame(const QString& filename, Service::AM::FrontendAppletP
     connect(emu_thread.get(), &EmuThread::LoadProgress, loading_screen,
             &LoadingScreen::OnLoadProgress, Qt::QueuedConnection);
 
-    // Start the thread AFTER all connections are set up and the event loop has started
-    QTimer::singleShot(0, this, [this] { emu_thread->start(); });
+    // Start the thread AFTER all connections are set up
+    emu_thread->start();
 
     // Update the GUI
     UpdateStatusButtons();
