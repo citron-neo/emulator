@@ -218,6 +218,9 @@ void ConfigureDialog::UpdateTheme() {
     const QString f_bg = is_dark ? QStringLiteral("#404040") : QStringLiteral("#e8f0fe");
     const QString d_txt = is_dark ? QStringLiteral("#8d8d8d") : QStringLiteral("#a0a0a0");
 
+    // Use dark shadow on light backgrounds, light shadow on dark backgrounds
+    const QString shadow_color = is_dark ? QStringLiteral("rgba(0, 0, 0, 0.5)") : QStringLiteral("rgba(255, 255, 255, 0.8)");
+
     static QString cached_template;
     if (cached_template.isEmpty()) cached_template = property("templateStyleSheet").toString();
     QString style_sheet = cached_template;
@@ -248,11 +251,23 @@ void ConfigureDialog::UpdateTheme() {
     graphics_advanced_tab->SetTemplateStyleSheet(style_sheet);
 
     QString sidebar_css = QStringLiteral(
-        "QPushButton.tabButton { background-color: %1; color: %2; border: 2px solid transparent; }"
-        "QPushButton.tabButton:checked { color: %3; border: 2px solid %3; }"
-        "QPushButton.tabButton:hover { border: 2px solid %3; }"
-        "QPushButton.tabButton:pressed { background-color: %3; color: #ffffff; }"
-    ).arg(b_bg).arg(d_txt).arg(accent);
+        "QPushButton.tabButton { "
+            "background-color: %1; "
+            "color: %2; "
+            "border: 2px solid transparent; "
+        "}"
+        "QPushButton.tabButton:checked { "
+            "color: %4; "  // Use main text color instead of dimmed color for checked state
+            "border: 2px solid %3; "
+        "}"
+        "QPushButton.tabButton:hover { "
+            "border: 2px solid %3; "
+        "}"
+        "QPushButton.tabButton:pressed { "
+            "background-color: %3; "
+            "color: #ffffff; "
+        "}"
+    ).arg(b_bg, d_txt, accent, txt);
 
     if (ui->topButtonWidget) ui->topButtonWidget->setStyleSheet(sidebar_css);
     if (ui->horizontalNavWidget) ui->horizontalNavWidget->setStyleSheet(sidebar_css);
@@ -260,8 +275,7 @@ void ConfigureDialog::UpdateTheme() {
     if (is_rainbow) {
         if (!rainbow_timer) {
             rainbow_timer = new QTimer(this);
-            connect(rainbow_timer, &QTimer::timeout, this, [this, b_bg, d_txt, txt] {
-                // Don't update during animation to prevent lag
+            connect(rainbow_timer, &QTimer::timeout, this, [this, b_bg, d_txt, txt, shadow_color] {
                 if (ui->buttonBox->underMouse() || m_is_tab_animating || !this->isVisible() || !this->isActiveWindow()) {
                     return;
                 }
@@ -274,13 +288,25 @@ void ConfigureDialog::UpdateTheme() {
                 const QString hue_light = current_color.lighter(125).name();
                 const QString hue_dark = current_color.darker(150).name();
 
-                // Update sidebar with rainbow colors
                 QString rainbow_sidebar_css = QStringLiteral(
-                    "QPushButton.tabButton { background-color: %1; color: %2; border: 2px solid transparent; }"
-                    "QPushButton.tabButton:checked { color: %3; border: 2px solid %3; }"
-                    "QPushButton.tabButton:hover { border: 2px solid %3; }"
-                    "QPushButton.tabButton:pressed { background-color: %3; color: #ffffff; }"
-                ).arg(b_bg).arg(d_txt).arg(hue_hex);
+                    "QPushButton.tabButton { "
+                        "background-color: %1; "
+                        "color: %2; "
+                        "border: 2px solid transparent; "
+                    "}"
+                    "QPushButton.tabButton:checked { "
+                        "color: %4; "  // Use main text color for visibility
+                        "border: 2px solid %3; "
+                    "}"
+                    "QPushButton.tabButton:hover { "
+                        "border: 2px solid %3; "
+                    "}"
+                    "QPushButton.tabButton:pressed { "
+                        "background-color: %3; "
+                        "color: #ffffff; "
+                    "}"
+                ).arg(b_bg, d_txt, hue_hex, txt);
+
                 if (ui->topButtonWidget) ui->topButtonWidget->setStyleSheet(rainbow_sidebar_css);
                 if (ui->horizontalNavWidget) ui->horizontalNavWidget->setStyleSheet(rainbow_sidebar_css);
 
@@ -296,7 +322,7 @@ void ConfigureDialog::UpdateTheme() {
                         "QPushButton, QToolButton { background-color: transparent; color: %4; border: 2px solid %1; border-radius: 4px; padding: 5px; }"
                         "QPushButton:hover, QToolButton:hover { border-color: %2; color: %2; }"
                         "QPushButton:pressed, QToolButton:pressed { background-color: %3; color: #ffffff; border-color: %3; }"
-                    ).arg(hue_hex).arg(hue_light).arg(hue_dark).arg(txt);
+                    ).arg(hue_hex, hue_light, hue_dark, txt);
                     currentContainer->setStyleSheet(tab_css);
                     if (ui->buttonBox) ui->buttonBox->setStyleSheet(tab_css);
                 }
@@ -308,7 +334,6 @@ void ConfigureDialog::UpdateTheme() {
     if (UISettings::values.enable_rainbow_mode.GetValue() == false && rainbow_timer) {
         rainbow_timer->stop();
 
-        // Just reset the content areas
         if (ui->buttonBox) ui->buttonBox->setStyleSheet({});
         for (int i = 0; i < ui->stackedWidget->count(); ++i) {
             if (auto* w = ui->stackedWidget->widget(i)) {
