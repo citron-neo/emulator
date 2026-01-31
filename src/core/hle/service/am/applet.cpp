@@ -1,4 +1,6 @@
 // SPDX-FileCopyrightText: Copyright 2024 yuzu Emulator Project
+// SPDX-FileCopyrightText: Copyright 2026 ReSwitched Team
+// SPDX-FileCopyrightText: Copyright 2026 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "core/core.h"
@@ -27,6 +29,7 @@ void Applet::UpdateSuspensionStateLocked(bool force_message) {
     lifecycle_manager.RemoveForceResumeIfPossible();
 
     // Check if we're runnable.
+    const bool update_requested_focus_state = lifecycle_manager.UpdateRequestedFocusState();
     const bool curr_activity_runnable = lifecycle_manager.IsRunnable();
     const bool prev_activity_runnable = is_activity_runnable;
     const bool was_changed = curr_activity_runnable != prev_activity_runnable;
@@ -48,7 +51,7 @@ void Applet::UpdateSuspensionStateLocked(bool force_message) {
     }
 
     // Signal if the focus state was changed or the process state was changed.
-    if (lifecycle_manager.UpdateRequestedFocusState() || was_changed || force_message) {
+    if (update_requested_focus_state || was_changed || force_message) {
         lifecycle_manager.SignalSystemEventIfNeeded();
     }
 }

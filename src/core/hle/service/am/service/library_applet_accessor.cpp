@@ -1,5 +1,6 @@
 // SPDX-FileCopyrightText: Copyright 2024 yuzu Emulator Project
 // SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project
+// SPDX-FileCopyrightText: Copyright 2026 ReSwitched Team
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "core/hle/service/am/applet_data_broker.h"
@@ -103,6 +104,12 @@ Result ILibraryAppletAccessor::PushInData(SharedPointer<IStorage> storage) {
 
 Result ILibraryAppletAccessor::PopOutData(Out<SharedPointer<IStorage>> out_storage) {
     LOG_DEBUG(Service_AM, "called");
+    if (auto caller_applet = m_applet->caller_applet.lock(); caller_applet) {
+        Event m_system_event = caller_applet->lifecycle_manager.GetSystemEvent();
+        m_system_event.Signal();
+        caller_applet->lifecycle_manager.RequestResumeNotification();
+        m_system_event.Clear();
+    }
     R_RETURN(m_broker->GetOutData().Pop(out_storage.Get()));
 }
 
