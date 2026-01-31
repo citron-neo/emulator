@@ -2183,8 +2183,8 @@ void GMainWindow::BootGame(const QString& filename, Service::AM::FrontendAppletP
     connect(emu_thread.get(), &EmuThread::LoadProgress, loading_screen,
             &LoadingScreen::OnLoadProgress, Qt::QueuedConnection);
 
-    // Start the thread AFTER all connections are set up
-    emu_thread->start();
+    // Start the thread AFTER all connections are set up and the event loop has started
+    QTimer::singleShot(0, this, [this] { emu_thread->start(); });
 
     // Update the GUI
     UpdateStatusButtons();
