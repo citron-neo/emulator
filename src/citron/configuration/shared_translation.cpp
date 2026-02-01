@@ -205,10 +205,7 @@ std::unique_ptr<TranslationMap> InitializeTranslations(QWidget* parent) {
     INSERT(Settings, gc_aggressiveness, tr("GC Aggressiveness:"),
            tr("Controls how aggressively the emulator evicts unused textures and buffers from VRAM.\n"
               "Off: Disable automatic cleanup (not recommended, may cause crashes).\n"
-              "Light: Gentle cleanup, keeps more textures cached.\n"
-              "Moderate: Balanced cleanup (recommended for most users).\n"
-              "Heavy: Aggressive cleanup for low VRAM systems (6GB or less).\n"
-              "Extreme: Maximum cleanup for very low VRAM systems (4GB)."));
+              "Light: Gentle cleanup, keeps more textures cached (recommended)."));
     INSERT(Settings, texture_eviction_frames, tr("Texture Eviction Frames:"),
            tr("Number of frames a texture must be unused before it can be evicted. "
               "Lower values free VRAM faster but may cause more texture reloading."));
