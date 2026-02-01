@@ -457,7 +457,7 @@ else()
     target_link_libraries(citron PRIVATE common core input_common frontend_common network video_core)
 endif()
 
-target_link_libraries(citron PRIVATE Boost::headers glad Qt6::Widgets Qt6::Network)
+target_link_libraries(citron PRIVATE Boost::headers glad Qt6::Widgets Qt6::Network Qt6::Svg)
 target_link_libraries(citron PRIVATE ${PLATFORM_LIBRARIES} Threads::Threads)
 
 # Add libarchive for updater functionality

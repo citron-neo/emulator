@@ -892,7 +892,18 @@ play_time_manager{play_time_manager_}, system{system_} {
 
     // Surprise Me button - positioned after sort button
     btn_surprise_me = new QToolButton(toolbar);
-    btn_surprise_me->setIcon(QIcon(QStringLiteral(":/dist/dice.svg")));
+    QIcon surprise_icon(QStringLiteral(":/dist/dice.svg"));
+    if (surprise_icon.isNull() || surprise_icon.availableSizes().isEmpty()) {
+        // Fallback to theme icon or standard icon on Windows where SVG may not load
+        surprise_icon = QIcon::fromTheme(QStringLiteral("media-playlist-shuffle"));
+        if (surprise_icon.isNull()) {
+            surprise_icon = QIcon::fromTheme(QStringLiteral("roll"));
+        }
+        if (surprise_icon.isNull()) {
+            surprise_icon = style()->standardIcon(QStyle::SP_BrowserReload);
+        }
+    }
+    btn_surprise_me->setIcon(surprise_icon);
     btn_surprise_me->setToolTip(tr("Surprise Me! (Choose Random Game)"));
     btn_surprise_me->setAutoRaise(true);
     btn_surprise_me->setIconSize(QSize(16, 16));

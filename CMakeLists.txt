@@ -567,7 +567,7 @@ endif()
 
 function(set_citron_qt_components)
 # Best practice is to ask for all components at once, so they are from the same version
-set(CITRON_QT_COMPONENTS2 Core Widgets Concurrent)
+set(CITRON_QT_COMPONENTS2 Core Widgets Concurrent Svg)
 if (${CMAKE_SYSTEM_NAME} STREQUAL "Linux")
 list(APPEND CITRON_QT_COMPONENTS2 DBus GuiPrivate)
 endif()
