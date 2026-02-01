@@ -27,7 +27,7 @@ AboutDialog::AboutDialog(QWidget* parent)
 
     connect(ui->buttonBox, &QDialogButtonBox::accepted, this, &QDialog::accept);
 
-    std::string citron_build_version = "citron | 2026.1.18";
+    std::string citron_build_version = "citron | 2026.2.1";
 #ifdef CITRON_ENABLE_PGO_USE
     citron_build_version += " | PGO";
 #endif
