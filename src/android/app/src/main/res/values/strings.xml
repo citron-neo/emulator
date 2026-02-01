@@ -1280,7 +1280,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
     <string name="vram_limit_mb">VRAM Limit (MB)</string>
     <string name="vram_limit_mb_description">Maximum VRAM usage limit in megabytes. Set to 0 for auto-detection (80%% of available VRAM). Recommended: 6144 for 8GB GPUs, 4096 for 6GB GPUs.</string>
     <string name="gc_aggressiveness">GC Aggressiveness</string>
-    <string name="gc_aggressiveness_description">Controls how aggressively the emulator evicts unused textures and buffers from VRAM. Higher levels free memory faster but may cause more texture reloading.</string>
+    <string name="gc_aggressiveness_description">Controls how aggressively the emulator evicts unused textures and buffers from VRAM. Off disables automatic cleanup (not recommended). Light provides gentle cleanup while keeping more textures cached (recommended).</string>
     <string name="texture_eviction_frames">Texture Eviction Frames</string>
     <string name="texture_eviction_frames_description">Number of frames a texture must be unused before it can be evicted. Lower values free VRAM faster but may cause more texture reloading.</string>
     <string name="buffer_eviction_frames">Buffer Eviction Frames</string>
