@@ -19,6 +19,7 @@ import org.citron.citron_emu.features.settings.model.AbstractBooleanSetting
 import org.citron.citron_emu.features.settings.model.AbstractIntSetting
 import org.citron.citron_emu.features.settings.model.BooleanSetting
 import org.citron.citron_emu.features.settings.model.ByteSetting
+import org.citron.citron_emu.features.settings.model.FloatSetting
 import org.citron.citron_emu.features.settings.model.IntSetting
 import org.citron.citron_emu.features.settings.model.LongSetting
 import org.citron.citron_emu.features.settings.model.Settings
@@ -1026,6 +1027,7 @@ class SettingsFragmentPresenter(
             add(HeaderSetting(R.string.astc_settings_header))
             add(IntSetting.ASTC_DECODE_MODE.key)
             add(IntSetting.ASTC_RECOMPRESSION.key)
+            add(IntSetting.ANDROID_ASTC_MODE.key)
 
             add(HeaderSetting(R.string.advanced_graphics_header))
             add(IntSetting.SHADER_BACKEND.key)
@@ -1045,6 +1047,20 @@ class SettingsFragmentPresenter(
             add(IntSetting.BUFFER_EVICTION_FRAMES.key)
             add(BooleanSetting.SPARSE_TEXTURE_PRIORITY_EVICTION.key)
             add(BooleanSetting.LOG_VRAM_USAGE.key)
+
+            // CRT Shader Settings (only shown when CRT filter is enabled)
+            // CRTEasyMode = 9, CRTRoyale = 10
+            val scalingFilter = IntSetting.RENDERER_SCALING_FILTER.getInt(false)
+            if (scalingFilter == 9 || scalingFilter == 10) {
+                add(HeaderSetting(R.string.crt_shader_header))
+                add(FloatSetting.CRT_SCANLINE_STRENGTH.key)
+                add(FloatSetting.CRT_CURVATURE.key)
+                add(FloatSetting.CRT_GAMMA.key)
+                add(FloatSetting.CRT_BLOOM.key)
+                add(IntSetting.CRT_MASK_TYPE.key)
+                add(FloatSetting.CRT_BRIGHTNESS.key)
+                add(FloatSetting.CRT_ALPHA.key)
+            }
         }
     }
 

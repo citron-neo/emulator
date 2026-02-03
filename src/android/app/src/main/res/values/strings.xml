@@ -1259,6 +1259,11 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
     <string name="astc_decode_mode_description">Controls how ASTC textures are decoded. GPU decoding is faster but may cause issues on some devices.</string>
     <string name="astc_recompression">ASTC Recompression Method</string>
     <string name="astc_recompression_description">Controls how ASTC textures are recompressed when GPU doesn\'t support them natively.</string>
+    <string name="android_astc_mode">Android ASTC Eviction</string>
+    <string name="android_astc_mode_description">Controls texture cache eviction on Android devices with native ASTC support (Adreno 740+). Native mode uses compressed sizes for eviction, allowing more textures to be cached.</string>
+    <string name="android_astc_mode_auto">Auto (Detect Hardware)</string>
+    <string name="android_astc_mode_native">Native (Adreno 740+ Optimized)</string>
+    <string name="android_astc_mode_decompress">Decompress (Legacy)</string>
     <string name="shader_backend">Shader Backend</string>
     <string name="shader_backend_description">Controls which shader backend to use for rendering.</string>
     <string name="vram_usage_mode">VRAM Usage Mode</string>
@@ -1292,5 +1297,25 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
     <string name="gc_aggressiveness_off">Off (Not Recommended)</string>
     <string name="gc_aggressiveness_light">Light (Recommended)</string>
     <string name="frame_skipping_header">Frame Skipping</string>
+
+    <!-- CRT Shader Settings -->
+    <string name="crt_shader_header">CRT Shader Settings</string>
+    <string name="crt_scanline_strength">Scanline Strength</string>
+    <string name="crt_scanline_strength_description">Controls the intensity of CRT scanlines. Higher values create darker, more visible scanlines.</string>
+    <string name="crt_curvature">Screen Curvature</string>
+    <string name="crt_curvature_description">Simulates the curved glass of old CRT monitors. 0 is flat, higher values add more curve.</string>
+    <string name="crt_gamma">Gamma</string>
+    <string name="crt_gamma_description">Adjusts the brightness curve of the image. Lower values make the image darker, higher values make it brighter.</string>
+    <string name="crt_bloom">Bloom</string>
+    <string name="crt_bloom_description">Adds a soft glow around bright areas. Creates a phosphor bloom effect typical of CRT displays.</string>
+    <string name="crt_mask_type">Mask Type</string>
+    <string name="crt_mask_type_description">Simulates the shadow mask or aperture grille of CRT displays. Affects how subpixels are rendered.</string>
+    <string name="crt_brightness">Brightness</string>
+    <string name="crt_brightness_description">Overall brightness adjustment. Values below 1.0 darken the image, above 1.0 brighten it.</string>
+    <string name="crt_alpha">Shader Intensity</string>
+    <string name="crt_alpha_description">Blends between the CRT effect and original image. 1.0 is full CRT effect, lower values show more of the original.</string>
+    <string name="crt_mask_none">None</string>
+    <string name="crt_mask_aperture">Aperture Grille</string>
+    <string name="crt_mask_shadow">Shadow Mask</string>
 
 </resources>
