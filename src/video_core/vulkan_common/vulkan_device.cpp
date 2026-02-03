@@ -441,6 +441,22 @@ Device::Device(VkInstance instance_, vk::PhysicalDevice physical_, VkSurfaceKHR 
         nvidia_arch = GetNvidiaArchitecture(physical, supported_extensions);
     }
 
+    // FIXED: Android Adreno 740 native ASTC eviction
+    // Detect Adreno GPUs and check for native ASTC support
+    is_adreno = is_qualcomm || is_turnip;
+    if (is_adreno) {
+        // Adreno 7xx series devices (Adreno 730, 740, 750+) support native ASTC
+        // Device IDs: 0x43050a01 (SD8 Gen 2), 0x43052c01 (SD8 Elite), etc.
+        // Generally 0x43050000+ indicates Adreno 7xx series
+        is_adreno_7xx_or_newer = (device_id >= 0x43050000);
+        supports_native_astc = is_adreno_7xx_or_newer && is_optimal_astc_supported;
+
+        if (supports_native_astc) {
+            LOG_INFO(Render_Vulkan,
+                     "Adreno 7xx detected — using native ASTC, eviction on compressed size");
+        }
+    }
+
     SetupFamilies(surface);
     const auto queue_cis = GetDeviceQueueCreateInfos();
 

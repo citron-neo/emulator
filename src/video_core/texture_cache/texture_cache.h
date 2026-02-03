@@ -89,6 +89,32 @@ TextureCache<P>::TextureCache(Runtime& runtime_, Tegra::MaxwellDeviceMemoryManag
                  "VRAM Management initialized: limit={}MB, expected={}MB, critical={}MB, gc_level={}",
                  vram_limit_bytes / 1_MiB, expected_memory / 1_MiB, critical_memory / 1_MiB,
                  static_cast<u32>(gc_level));
+
+        // FIXED: Android Adreno 740 native ASTC eviction
+        // Determine eviction strategy based on android_astc_mode setting and device capabilities
+        const auto astc_mode = Settings::values.android_astc_mode.GetValue();
+        if (astc_mode == Settings::AndroidAstcMode::Native) {
+            use_compressed_eviction = true;
+        } else if (astc_mode == Settings::AndroidAstcMode::Decompress) {
+            use_compressed_eviction = false;
+        } else {
+            // Auto mode: detect based on runtime device capabilities
+            use_compressed_eviction = runtime.SupportsNativeAstc();
+        }
+
+        if (use_compressed_eviction) {
+            // Android devices with native ASTC can use higher VRAM budget (90% instead of 80%)
+            // since textures stay compressed in GPU memory
+            const u64 android_vram_limit = static_cast<u64>(static_cast<double>(runtime.GetDeviceLocalMemory()) * 0.90);
+            if (configured_limit_mb == 0 && android_vram_limit > vram_limit_bytes) {
+                vram_limit_bytes = android_vram_limit;
+                expected_memory = static_cast<u64>(static_cast<f32>(vram_limit_bytes) * expected_ratio);
+                critical_memory = static_cast<u64>(static_cast<f32>(vram_limit_bytes) * critical_ratio);
+            }
+            LOG_INFO(Render_Vulkan,
+                     "Android native ASTC enabled: using compressed size eviction, VRAM budget={}MB",
+                     vram_limit_bytes / 1_MiB);
+        }
     } else {
         vram_limit_bytes = configured_limit_mb > 0 ? static_cast<u64>(configured_limit_mb) * 1_MiB
                                                     : 6_GiB; // Default 6GB if no info
@@ -171,9 +197,13 @@ void TextureCache<P>::RunGarbageCollector() {
             return false;
         }
 
-        // FIXED: VRAM leak prevention - Prioritize sparse textures if enabled
+        // FIXED: Android Adreno 740 native ASTC eviction
+        // Prioritize sparse textures if enabled
         const bool is_sparse = True(image.flags & ImageFlagBits::Sparse);
-        const u64 image_size = std::max(image.guest_size_bytes, image.unswizzled_size_bytes);
+        // Use compressed size for eviction on Android with native ASTC support
+        const u64 image_size = use_compressed_eviction
+            ? image.compressed_size_bytes
+            : std::max(image.guest_size_bytes, image.unswizzled_size_bytes);
         const bool is_large = image_size >= LARGE_TEXTURE_THRESHOLD;
 
         // Skip costly loads unless aggressive/emergency mode, unless it's a large sparse texture
@@ -426,7 +456,11 @@ u64 TextureCache<P>::EvictToFreeMemory(u64 target_bytes) {
             return false;
         }
 
-        const u64 image_size = std::max(image.guest_size_bytes, image.unswizzled_size_bytes);
+        // FIXED: Android Adreno 740 native ASTC eviction
+        // Use compressed size for eviction on Android with native ASTC support
+        const u64 image_size = use_compressed_eviction
+            ? image.compressed_size_bytes
+            : std::max(image.guest_size_bytes, image.unswizzled_size_bytes);
 
         if (True(image.flags & ImageFlagBits::Tracked)) {
             UntrackImage(image, image_id);
@@ -455,7 +489,11 @@ u64 TextureCache<P>::EvictSparseTexturesPriority(u64 target_bytes) {
         auto& image = slot_images[image_id];
         if (True(image.flags & ImageFlagBits::Sparse) &&
             False(image.flags & ImageFlagBits::IsDecoding)) {
-            const u64 size = std::max(image.guest_size_bytes, image.unswizzled_size_bytes);
+            // FIXED: Android Adreno 740 native ASTC eviction
+            // Use compressed size for eviction on Android with native ASTC support
+            const u64 size = use_compressed_eviction
+                ? image.compressed_size_bytes
+                : std::max(image.guest_size_bytes, image.unswizzled_size_bytes);
             sparse_textures.emplace_back(image_id, size);
         }
         return false;

@@ -60,7 +60,14 @@ namespace {
 ImageBase::ImageBase(const ImageInfo& info_, GPUVAddr gpu_addr_, VAddr cpu_addr_)
     : info{info_}, guest_size_bytes{CalculateGuestSizeInBytes(info)},
       unswizzled_size_bytes{CalculateUnswizzledSizeBytes(info)},
-      converted_size_bytes{CalculateConvertedSizeBytes(info)}, scale_rating{}, scale_tick{},
+      converted_size_bytes{CalculateConvertedSizeBytes(info)},
+      // FIXED: Android Adreno 740 native ASTC eviction
+      // For ASTC textures, compressed size = guest_size_bytes (raw ASTC blocks remain compressed)
+      // For non-ASTC, compressed_size = unswizzled_size_bytes (needs full decompression)
+      compressed_size_bytes{VideoCore::Surface::IsPixelFormatASTC(info.format)
+                                ? guest_size_bytes
+                                : unswizzled_size_bytes},
+      scale_rating{}, scale_tick{},
       has_scaled{}, gpu_addr{gpu_addr_}, cpu_addr{cpu_addr_},
       cpu_addr_end{cpu_addr + guest_size_bytes}, mip_level_offsets{CalculateMipLevelOffsets(info)} {
     if (info.type == ImageType::e3D) {

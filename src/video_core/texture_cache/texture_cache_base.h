@@ -506,6 +506,10 @@ public:
     u64 last_gc_frame = 0;              // Last frame GC was run
     bool emergency_gc_triggered = false; // Emergency GC flag
 
+    // FIXED: Android Adreno 740 native ASTC eviction
+    // When true, use compressed_size_bytes for eviction calculations on Android + Adreno 7xx
+    bool use_compressed_eviction = false;
+
     struct BufferDownload {
         GPUVAddr address;
         size_t size;
