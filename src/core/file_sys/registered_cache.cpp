@@ -373,6 +373,12 @@ std::optional<NcaID> RegisteredCache::GetNcaIDFromMetadata(u64 title_id,
     const auto res1 = CheckMapForContentRecord(citron_meta, title_id, type);
     if (res1)
         return res1;
+    const auto res2 = CheckMapForContentRecord(legacy_meta, title_id, type);
+    if (res2) {
+        LOG_INFO(Loader, "Found content {:016X} type {:02X} in legacy_meta", title_id,
+                 static_cast<u8>(type));
+        return res2;
+    }
     return CheckMapForContentRecord(meta, title_id, type);
 }
 
@@ -461,6 +467,7 @@ void RegisteredCache::Refresh() {
     const auto ids = AccumulateFiles();
     ProcessFiles(ids);
     AccumulateCitronMeta();
+    AccumulateLegacyMeta();
 }
 
 RegisteredCache::RegisteredCache(VirtualDir dir_, ContentProviderParsingFunction parsing_function)
@@ -488,6 +495,11 @@ std::optional<u32> RegisteredCache::GetEntryVersion(u64 title_id) const {
     const auto citron_meta_iter = citron_meta.find(title_id);
     if (citron_meta_iter != citron_meta.cend()) {
         return citron_meta_iter->second.GetTitleVersion();
+    }
+
+    const auto legacy_meta_iter = legacy_meta.find(title_id);
+    if (legacy_meta_iter != legacy_meta.cend()) {
+        return legacy_meta_iter->second.GetTitleVersion();
     }
 
     return std::nullopt;
@@ -520,6 +532,14 @@ void RegisteredCache::IterateAllMetadata(
         }
     }
     for (const auto& kv : citron_meta) {
+        const auto& cnmt = kv.second;
+        for (const auto& rec : cnmt.GetContentRecords()) {
+            if (GetFileAtID(rec.nca_id) != nullptr && filter(cnmt, rec)) {
+                out.push_back(proc(cnmt, rec));
+            }
+        }
+    }
+    for (const auto& kv : legacy_meta) {
         const auto& cnmt = kv.second;
         for (const auto& rec : cnmt.GetContentRecords()) {
             if (GetFileAtID(rec.nca_id) != nullptr && filter(cnmt, rec)) {
@@ -758,6 +778,15 @@ bool RegisteredCache::RemoveExistingEntry(u64 title_id) const {
         }
     }
 
+    // If patch entries for any program exist in yuzu meta, remove them
+    for (u8 i = 0; i < 0x10; i++) {
+        const auto meta_dir = dir->CreateDirectoryRelative("yuzu_meta");
+        const auto filename = GetCNMTName(TitleType::Update, title_id + i);
+        if (meta_dir->GetFile(filename)) {
+            removed_data |= meta_dir->DeleteFile(filename);
+        }
+    }
+
     return removed_data;
 }
 
@@ -790,7 +819,9 @@ InstallResult RegisteredCache::RawInstallNCA(const NCA& nca, const VfsCopyFuncti
     if (GetFileAtID(id) != nullptr) {
         LOG_WARNING(Loader, "Overwriting existing NCA...");
         VirtualDir c_dir;
-        { c_dir = dir->GetFileRelative(path)->GetContainingDirectory(); }
+        {
+            c_dir = dir->GetFileRelative(path)->GetContainingDirectory();
+        }
         c_dir->DeleteFile(Common::FS::GetFilename(path));
     }
 
@@ -1033,4 +1064,36 @@ std::vector<ContentProviderEntry> ManualContentProvider::ListEntriesFilter(
     out.erase(std::unique(out.begin(), out.end()), out.end());
     return out;
 }
+
+void RegisteredCache::AccumulateLegacyMeta() {
+    LOG_INFO(Loader, "AccumulateLegacyMeta: Scanning directory '{}' for yuzu_meta",
+             dir->GetFullPath());
+
+    const auto meta_dir = dir->GetSubdirectory("yuzu_meta");
+    if (meta_dir == nullptr) {
+        LOG_INFO(Loader, "AccumulateLegacyMeta: yuzu_meta directory not found in '{}'",
+                 dir->GetFullPath());
+        return;
+    }
+    LOG_INFO(Loader, "Accumulating legacy meta from yuzu_meta at '{}'", meta_dir->GetFullPath());
+
+    const auto files = meta_dir->GetFiles();
+    LOG_INFO(Loader, "yuzu_meta contains {} files", files.size());
+
+    for (const auto& file : files) {
+        LOG_INFO(Loader, "Scanning file: name={} extension={}", file->GetName(),
+                 file->GetExtension());
+        if (file->GetExtension() != "cnmt") {
+            continue;
+        }
+
+        CNMT cnmt(file);
+        LOG_INFO(Loader, "Loaded legacy CNMT: {:016X}", cnmt.GetTitleID());
+        legacy_meta.insert_or_assign(cnmt.GetTitleID(), std::move(cnmt));
+    }
+
+    const auto subdirs = meta_dir->GetSubdirectories();
+    LOG_INFO(Loader, "yuzu_meta contains {} subdirectories", subdirs.size());
+}
+
 } // namespace FileSys

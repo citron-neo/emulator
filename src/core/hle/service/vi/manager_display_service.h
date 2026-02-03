@@ -22,6 +22,7 @@ public:
     void DestroySharedLayerSession(Kernel::KProcess* owner_process);
 
     Result SetLayerBlending(bool enabled, u64 layer_id);
+    Result SetLayerZIndex(s32 z_index, u64 layer_id);
 
 public:
     Result CreateManagedLayer(Out<u64> out_layer_id, u32 flags, u64 display_id,

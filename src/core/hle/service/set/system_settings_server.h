@@ -92,6 +92,7 @@ public:
     Result SetSpeakerAutoMuteFlag(bool force_mute_on_headphone_removed);
     Result GetQuestFlag(Out<QuestFlag> out_quest_flag);
     Result SetQuestFlag(QuestFlag quest_flag);
+    Result GetRebootlessSystemUpdateVersion(Out<RebootlessSystemUpdateVersion> out_version);
     Result GetDeviceTimeZoneLocationName(Out<Service::PSC::Time::LocationName> out_name);
     Result SetDeviceTimeZoneLocationName(const Service::PSC::Time::LocationName& name);
     Result SetRegionCode(SystemRegionCode region_code);

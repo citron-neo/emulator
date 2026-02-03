@@ -190,6 +190,10 @@ void PhotoViewer::Execute() {
     case PhotoViewerAppletMode::AllApps:
         frontend.ShowAllPhotos(callback);
         break;
+    case PhotoViewerAppletMode::ShowAllFiles:
+        // For now, treat ShowAllFiles the same as AllApps in the HLE stub
+        frontend.ShowAllPhotos(callback);
+        break;
     default:
         UNIMPLEMENTED_MSG("Unimplemented PhotoViewer applet mode={:02X}!", mode);
         break;

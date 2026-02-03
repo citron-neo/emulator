@@ -6,6 +6,7 @@
 #include "core/core.h"
 #include "core/core_timing.h"
 #include "core/hle/service/acc/profile_manager.h"
+#include "core/hle/service/am/process_creation.h"
 #include "core/hle/service/am/applet_data_broker.h"
 #include "core/hle/service/am/applet_manager.h"
 #include "core/hle/service/am/frontend/applet_cabinet.h"
@@ -261,6 +262,22 @@ void AppletManager::SetWindowSystem(WindowSystem* window_system) {
     }
 
     m_cv.wait(lk, [&] { return m_pending_process != nullptr; });
+
+    if (true && m_window_system->GetOverlayDisplayApplet() == nullptr) {
+        if (auto overlay_process = CreateProcess(m_system, static_cast<u64>(AppletProgramId::OverlayDisplay), 0, 0)) {
+            auto overlay_applet = std::make_shared<Applet>(m_system, std::move(overlay_process), false);
+            overlay_applet->program_id = static_cast<u64>(AppletProgramId::OverlayDisplay);
+            overlay_applet->applet_id = AppletId::OverlayDisplay;
+            overlay_applet->type = AppletType::OverlayApplet;
+            overlay_applet->library_applet_mode = LibraryAppletMode::PartialForeground;
+            overlay_applet->window_visible = true;
+            overlay_applet->home_button_short_pressed_blocked = false;
+            overlay_applet->home_button_long_pressed_blocked = false;
+            m_window_system->TrackApplet(overlay_applet, false);
+            overlay_applet->process->Run();
+            LOG_INFO(Service_AM, "called, Overlay applet launched before application (initially hidden, watching home button)");
+        }
+    }
 
     const auto& params = m_pending_parameters;
     auto applet = std::make_shared<Applet>(m_system, std::move(m_pending_process),

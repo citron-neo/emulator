@@ -21,6 +21,12 @@ void WindowSystem::SetEventObserver(EventObserver* observer) {
     m_system.GetAppletManager().SetWindowSystem(this);
 }
 
+void WindowSystem::RequestUpdate() {
+    if (m_event_observer) {
+        m_event_observer->RequestUpdate();
+    }
+}
+
 void WindowSystem::Update() {
     std::scoped_lock lk{m_lock};
 
@@ -40,7 +46,10 @@ void WindowSystem::Update() {
 void WindowSystem::TrackApplet(std::shared_ptr<Applet> applet, bool is_application) {
     std::scoped_lock lk{m_lock};
 
-    if (applet->applet_id == AppletId::QLaunch) {
+    if (applet->type == AppletType::OverlayApplet) {
+        ASSERT(overlay_display_applet == nullptr);
+        overlay_display_applet = applet;
+    } else if (applet->applet_id == AppletId::QLaunch) {
         ASSERT(m_home_menu == nullptr);
         m_home_menu = applet.get();
     } else if (is_application) {
@@ -318,6 +327,10 @@ void WindowSystem::UpdateAppletStateLocked(Applet* applet, bool is_foreground) {
 void WindowSystem::SetHomeMenuRequestCallback(HomeMenuRequestCallback callback) {
     std::scoped_lock lk{m_lock};
     m_home_menu_request_callback = std::move(callback);
+}
+
+std::shared_ptr<Applet> WindowSystem::GetOverlayDisplayApplet() {
+    return overlay_display_applet;
 }
 
 } // namespace Service::AM

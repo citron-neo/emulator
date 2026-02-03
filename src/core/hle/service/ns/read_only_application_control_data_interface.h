@@ -16,7 +16,6 @@ public:
     explicit IReadOnlyApplicationControlDataInterface(Core::System& system_);
     ~IReadOnlyApplicationControlDataInterface() override;
 
-public:
     Result GetApplicationControlData(OutBuffer<BufferAttr_HipcMapAlias> out_buffer,
                                      Out<u32> out_actual_size,
                                      ApplicationControlSource application_control_source,
@@ -25,6 +24,16 @@ public:
                                          u32 supported_languages);
     Result ConvertApplicationLanguageToLanguageCode(Out<u64> out_language_code,
                                                     ApplicationLanguage application_language);
+    Result GetApplicationControlData2(OutBuffer<BufferAttr_HipcMapAlias> out_buffer,
+                                      Out<u64> out_total_size,
+                                      ApplicationControlSource application_control_source, u8 flag1,
+                                      u8 flag2, u64 application_id);
+    void ListApplicationTitle(HLERequestContext& ctx);
+    Result GetApplicationControlData3(OutBuffer<BufferAttr_HipcMapAlias> out_buffer,
+                                      Out<u32> out_flags_a, Out<u32> out_flags_b,
+                                      Out<u32> out_actual_size,
+                                      ApplicationControlSource application_control_source, u8 flag1,
+                                      u8 flag2, u64 application_id);
 };
 
 } // namespace Service::NS

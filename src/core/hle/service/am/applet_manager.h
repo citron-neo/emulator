@@ -46,6 +46,10 @@ public:
     void OperationModeChanged();
 
 public:
+    WindowSystem* GetWindowSystem() const {
+        return m_window_system;
+    }
+
     void SetWindowSystem(WindowSystem* window_system);
     void SetHomeMenuRequestCallback(std::function<void()> callback);
 

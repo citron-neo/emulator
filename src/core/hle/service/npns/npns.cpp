@@ -26,7 +26,7 @@ public:
             {5, C<&INpnsSystem::GetReceiveEvent>, "GetReceiveEvent"},
             {6, nullptr, "ListenUndelivered"},
             {7, nullptr, "GetStateChangeEvent"},
-            {8, nullptr, "ListenToByName"},
+            {8, C<&INpnsSystem::ListenToByName>, "ListenToByName"},
             {11, nullptr, "SubscribeTopic"},
             {12, nullptr, "UnsubscribeTopic"},
             {13, nullptr, "QueryIsTopicExist"},
@@ -64,10 +64,10 @@ public:
             {70, nullptr, "UnknownCmd70"},
             {101, nullptr, "Suspend"},
             {102, nullptr, "Resume"},
-            {103, nullptr, "GetState"},
+            {103, C<&INpnsSystem::GetState>, "GetState"},
             {104, nullptr, "GetStatistics"},
             {105, nullptr, "GetPlayReportRequestEvent"},
-            {106, nullptr, "GetLastNotifiedTime"},
+            {106, C<&INpnsSystem::GetLastNotifiedTime>, "GetLastNotifiedTime"},
             {107, nullptr, "SetLastNotifiedTime"},
             {111, nullptr, "GetJid"},
             {112, nullptr, "CreateJid"},
@@ -88,7 +88,7 @@ public:
             {154, nullptr, "CreateTokenAsync"},
             {155, nullptr, "CreateTokenAsyncWithApplicationId"},
             {156, nullptr, "CreateTokenWithNameAsync"},
-            {161, nullptr, "GetRequestChangeStateCancelEvent"},
+            {161, C<&INpnsSystem::GetRequestChangeStateCancelEvent>, "GetRequestChangeStateCancelEvent"},
             {162, nullptr, "RequestChangeStateForceTimedWithCancelEvent"},
             {201, nullptr, "RequestChangeStateForceTimed"},
             {202, nullptr, "RequestChangeStateForceAsync"},
@@ -105,10 +105,13 @@ public:
         RegisterHandlers(functions);
 
         get_receive_event = service_context.CreateEvent("npns:s:GetReceiveEvent");
+        get_request_change_state_cancel_event =
+            service_context.CreateEvent("npns:s:GetRequestChangeStateCancelEvent");
     }
 
     ~INpnsSystem() override {
         service_context.CloseEvent(get_receive_event);
+        service_context.CloseEvent(get_request_change_state_cancel_event);
     }
 
 private:
@@ -124,29 +127,54 @@ private:
         R_SUCCEED();
     }
 
+    Result GetState(Out<u32> out_state) {
+        LOG_INFO(Service_NPNS, "called");
+        *out_state = 0;
+        R_SUCCEED();
+    }
+
+    Result GetLastNotifiedTime(Out<s64> out_last_notified_time) {
+        LOG_INFO(Service_NPNS, "called");
+        *out_last_notified_time = 0;
+        R_SUCCEED();
+    }
+
+    Result GetRequestChangeStateCancelEvent(OutCopyHandle<Kernel::KReadableEvent> out_event) {
+        LOG_INFO(Service_NPNS, "called");
+        *out_event = &get_request_change_state_cancel_event->GetReadableEvent();
+        R_SUCCEED();
+    }
+
+    Result ListenToByName() {
+        LOG_DEBUG(Service_NPNS, "(STUBBED) called.");
+        R_SUCCEED();
+    }
+
     KernelHelpers::ServiceContext service_context;
     Kernel::KEvent* get_receive_event;
+    Kernel::KEvent* get_request_change_state_cancel_event;
 };
 
 class INpnsUser final : public ServiceFramework<INpnsUser> {
 public:
-    explicit INpnsUser(Core::System& system_) : ServiceFramework{system_, "npns:u"} {
+    explicit INpnsUser(Core::System& system_)
+        : ServiceFramework{system_, "npns:u"}, service_context{system, "npns:u"} {
         // clang-format off
         static const FunctionInfo functions[] = {
             {1, nullptr, "ListenAll"},
             {2, nullptr, "ListenTo"},
             {3, nullptr, "Receive"},
             {4, nullptr, "ReceiveRaw"},
-            {5, nullptr, "GetReceiveEvent"},
+            {5, C<&INpnsUser::GetReceiveEvent>, "GetReceiveEvent"},
             {7, nullptr, "GetStateChangeEvent"},
-            {8, nullptr, "ListenToByName"},
+            {8, C<&INpnsUser::ListenToByName>, "ListenToByName"},
             {21, nullptr, "CreateToken"},
             {23, nullptr, "DestroyToken"},
             {25, nullptr, "QueryIsTokenValid"},
             {26, nullptr, "ListenToMyApplicationId"},
             {101, nullptr, "Suspend"},
             {102, nullptr, "Resume"},
-            {103, nullptr, "GetState"},
+            {103, C<&INpnsUser::GetState>, "GetState"},
             {104, nullptr, "GetStatistics"},
             {111, nullptr, "GetJid"},
             {120, nullptr, "CreateNotificationReceiver"},
@@ -158,7 +186,37 @@ public:
         // clang-format on
 
         RegisterHandlers(functions);
+
+        get_receive_event = service_context.CreateEvent("npns:u:GetReceiveEvent");
     }
+
+    ~INpnsUser() override {
+        service_context.CloseEvent(get_receive_event);
+    }
+
+private:
+    Result ListenToByName(InBuffer<BufferAttr_HipcMapAlias> name_buffer) {
+        const std::string name(reinterpret_cast<const char*>(name_buffer.data()),
+                               name_buffer.size());
+        LOG_DEBUG(Service_NPNS, "called, name={}", name);
+        R_SUCCEED();
+    }
+
+    Result GetReceiveEvent(OutCopyHandle<Kernel::KReadableEvent> out_event) {
+        LOG_DEBUG(Service_NPNS, "called");
+
+        *out_event = &get_receive_event->GetReadableEvent();
+        R_SUCCEED();
+    }
+
+    Result GetState(Out<u32> out_state) {
+        LOG_INFO(Service_NPNS, "called");
+        *out_state = 0;
+        R_SUCCEED();
+    }
+
+    KernelHelpers::ServiceContext service_context;
+    Kernel::KEvent* get_receive_event;
 };
 
 class INotificationReceiver : public ServiceFramework<INotificationReceiver> {
@@ -198,8 +256,7 @@ public:
 
 class IFuture : public ServiceFramework<IFuture> {
 public:
-    explicit IFuture(Core::System& system_, const char* name)
-        : ServiceFramework{system_, name} {
+    explicit IFuture(Core::System& system_, const char* name) : ServiceFramework{system_, name} {
         // TODO: Implement functions based on documentation
         // Cmd 1: (No name)
         // Cmd 2: (No name)

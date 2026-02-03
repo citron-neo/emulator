@@ -431,6 +431,15 @@ static_assert(sizeof(FirmwareVersionFormat) == 0x100, "FirmwareVersionFormat is 
 static_assert(std::is_trivial_v<FirmwareVersionFormat>,
               "FirmwareVersionFormat type must be trivially copyable.");
 
+/// This is nn::settings::system::RebootlessSystemUpdateVersion
+struct RebootlessSystemUpdateVersion {
+    u32 version;
+    std::array<char, 0x18> display_version;
+    INSERT_PADDING_BYTES(4);
+};
+static_assert(sizeof(RebootlessSystemUpdateVersion) == 0x20,
+              "RebootlessSystemUpdateVersion is an invalid size");
+
 /// This is nn::settings::system::HomeMenuScheme
 struct HomeMenuScheme {
     u32 main;

@@ -192,6 +192,8 @@
     <addaction name="action_Report_Compatibility"/>
     <addaction name="action_Open_Support"/>
     <addaction name="separator"/>
+    <addaction name="action_Open_Log_Folder"/>
+    <addaction name="separator"/>
     <addaction name="action_Check_For_Updates"/>
     <addaction name="separator"/>
     <addaction name="action_About"/>
@@ -448,6 +450,11 @@
   <action name="action_Open_citron_Folder">
    <property name="text">
     <string>Open &amp;citron Folder</string>
+   </property>
+  </action>
+  <action name="action_Open_Log_Folder">
+   <property name="text">
+    <string>Open &amp;Log Folder</string>
    </property>
   </action>
   <action name="action_Capture_Screenshot">

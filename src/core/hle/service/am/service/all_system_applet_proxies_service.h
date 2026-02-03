@@ -4,6 +4,7 @@
 
 #pragma once
 
+#include "core/hle/service/am/am_types.h"
 #include "core/hle/service/cmif_types.h"
 #include "core/hle/service/service.h"
 
@@ -19,7 +20,9 @@ class ILibraryAppletProxy;
 class IOverlayAppletProxy;
 class ISystemAppletProxy;
 class ISystemApplicationProxy;
+class ISystemApplicationProxy;
 class ISystemProcessCommonFunctions;
+class IAppletAlternativeFunctions;
 class WindowSystem;
 
 class IAllSystemAppletProxiesService final
@@ -33,29 +36,29 @@ private:
                                  ClientProcessId pid,
                                  InCopyHandle<Kernel::KProcess> process_handle);
     Result OpenHomeMenuProxy(Out<SharedPointer<ISystemAppletProxy>> out_system_applet_proxy,
-                             ClientProcessId pid,
-                             InCopyHandle<Kernel::KProcess> process_handle);
+                             ClientProcessId pid, InCopyHandle<Kernel::KProcess> process_handle);
     Result OpenLibraryAppletProxy(Out<SharedPointer<ILibraryAppletProxy>> out_library_applet_proxy,
                                   ClientProcessId pid,
                                   InCopyHandle<Kernel::KProcess> process_handle,
-                                  InLargeData<AppletAttribute, BufferAttr_HipcMapAlias> attribute);
+                                  AppletAttribute attribute);
     Result OpenLibraryAppletProxyOld(
         Out<SharedPointer<ILibraryAppletProxy>> out_library_applet_proxy, ClientProcessId pid,
         InCopyHandle<Kernel::KProcess> process_handle);
     Result OpenOverlayAppletProxy(Out<SharedPointer<IOverlayAppletProxy>> out_overlay_applet_proxy,
                                   ClientProcessId pid,
                                   InCopyHandle<Kernel::KProcess> process_handle,
-                                  InLargeData<AppletAttribute, BufferAttr_HipcMapAlias> attribute);
-    Result OpenSystemApplicationProxy(Out<SharedPointer<ISystemApplicationProxy>> out_system_application_proxy,
-                                      ClientProcessId pid,
-                                      InCopyHandle<Kernel::KProcess> process_handle);
-    Result CreateSelfLibraryAppletCreatorForDevelop(Out<SharedPointer<ILibraryAppletCreator>> out_library_applet_creator,
-                                                     ClientProcessId pid,
-                                                     InCopyHandle<Kernel::KProcess> process_handle);
+                                  AppletAttribute attribute);
+    Result OpenSystemApplicationProxy(
+        Out<SharedPointer<ISystemApplicationProxy>> out_system_application_proxy,
+        ClientProcessId pid, InCopyHandle<Kernel::KProcess> process_handle);
+    Result CreateSelfLibraryAppletCreatorForDevelop(
+        Out<SharedPointer<ILibraryAppletCreator>> out_library_applet_creator, ClientProcessId pid,
+        InCopyHandle<Kernel::KProcess> process_handle);
     Result GetSystemAppletControllerForDebug();
     Result GetSystemProcessCommonFunctions(
         Out<SharedPointer<ISystemProcessCommonFunctions>> out_system_process_common_functions);
-    Result Cmd460();
+    Result GetAppletAlternativeFunctions(
+        Out<SharedPointer<IAppletAlternativeFunctions>> out_applet_alternative_functions);
     Result GetDebugFunctions(Out<SharedPointer<IDebugFunctions>> out_debug_functions);
 
 private:

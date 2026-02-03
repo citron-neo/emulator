@@ -16,8 +16,9 @@
 
 namespace Service::Nvidia::NvCore {
 
-Session::Session(SessionId id_, Kernel::KProcess* process_, Core::Asid asid_)
-    : id{id_}, process{process_}, asid{asid_}, has_preallocated_area{}, mapper{}, is_active{} {}
+Session::Session(SessionId id_, Kernel::KProcess* process_, u64 pid_, Core::Asid asid_)
+    : id{id_}, process{process_}, pid{pid_}, asid{asid_}, has_preallocated_area{}, mapper{},
+      is_active{} {}
 
 Session::~Session() = default;
 
@@ -49,8 +50,39 @@ SessionId Container::OpenSession(Kernel::KProcess* process) {
             continue;
         }
         if (session.process == process) {
-            session.ref_count++;
-            return session.id;
+            if (session.pid != process->GetProcessId()) {
+                LOG_WARNING(Service_NVDRV,
+                            "Container::OpenSession: Stale session detected! PID mismatch (old={}, "
+                            "new={}). Marking as inactive.",
+                            session.pid, process->GetProcessId());
+                // Force close stale session logic
+                // NOTE: We do NOT unmap handles or free memory here because it causes
+                // KSynchronizationObject::UnlinkNode segfaults if threads are still waiting on
+                // events associated with this session. We effectively leak the old session's
+                // resources to ensure stability.
+                // impl->file.UnmapAllHandles(session.id);
+
+                // auto& smmu_mgr = impl->host1x.MemoryManager();
+                /*
+                if (session.has_preallocated_area) {
+                    const DAddr region_start = session.mapper->GetRegionStart();
+                    const size_t region_size = session.mapper->GetRegionSize();
+                    session.mapper.reset();
+                    smmu_mgr.Free(region_start, region_size);
+                    session.has_preallocated_area = false;
+                }
+                */
+                session.is_active = false;
+                session.ref_count = 0;
+                // smmu_mgr.UnregisterProcess(session.asid);
+                // impl->id_pool.emplace_front(session.id.id);
+                // Continue searching to clean up other stale sessions if any?
+                // Or proceed to create new one. Stale one is now inactive.
+                continue;
+            } else {
+                session.ref_count++;
+                return session.id;
+            }
         }
     }
     size_t new_id{};
@@ -60,10 +92,10 @@ SessionId Container::OpenSession(Kernel::KProcess* process) {
     if (!impl->id_pool.empty()) {
         new_id = impl->id_pool.front();
         impl->id_pool.pop_front();
-        impl->sessions[new_id] = Session{SessionId{new_id}, process, asid};
+        impl->sessions[new_id] = Session{SessionId{new_id}, process, process->GetProcessId(), asid};
     } else {
         new_id = impl->new_ids++;
-        impl->sessions.emplace_back(SessionId{new_id}, process, asid);
+        impl->sessions.emplace_back(SessionId{new_id}, process, process->GetProcessId(), asid);
     }
     auto& session = impl->sessions[new_id];
     session.is_active = true;
