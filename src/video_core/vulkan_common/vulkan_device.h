@@ -722,6 +722,22 @@ public:
         return nvidia_arch;
     }
 
+    // FIXED: Android Adreno 740 native ASTC eviction
+    /// Returns true if the device is an Adreno GPU (Qualcomm or Turnip driver)
+    [[nodiscard]] bool IsAdrenoGpu() const noexcept {
+        return is_adreno;
+    }
+
+    /// Returns true if the device is Adreno 7xx series or newer (Adreno 730, 740, 750+)
+    [[nodiscard]] bool IsAdreno7xxOrNewer() const noexcept {
+        return is_adreno_7xx_or_newer;
+    }
+
+    /// Returns true if the device supports native ASTC decoding and compressed size eviction
+    [[nodiscard]] bool SupportsNativeAstc() const noexcept {
+        return supports_native_astc;
+    }
+
 private:
     /// Checks if the physical device is suitable and configures the object state
     /// with all necessary info about its properties.
@@ -842,6 +858,11 @@ private:
     u64 device_access_memory{};                ///< Total size of device local memory in bytes.
     u32 sets_per_pool{};                       ///< Sets per Description Pool
     NvidiaArchitecture nvidia_arch{NvidiaArchitecture::Arch_AmpereOrNewer};
+
+    // FIXED: Android Adreno 740 native ASTC eviction
+    bool is_adreno{};                          ///< Is Adreno GPU (Qualcomm or Turnip driver)
+    bool is_adreno_7xx_or_newer{};             ///< Is Adreno 7xx series or newer
+    bool supports_native_astc{};               ///< Supports native ASTC with compressed eviction
 
     // Telemetry parameters
     std::set<std::string, std::less<>> supported_extensions; ///< Reported Vulkan extensions.

@@ -14,6 +14,7 @@ import org.citron.citron_emu.features.settings.model.AbstractBooleanSetting
 import org.citron.citron_emu.features.settings.model.AbstractSetting
 import org.citron.citron_emu.features.settings.model.BooleanSetting
 import org.citron.citron_emu.features.settings.model.ByteSetting
+import org.citron.citron_emu.features.settings.model.FloatSetting
 import org.citron.citron_emu.features.settings.model.IntSetting
 import org.citron.citron_emu.features.settings.model.LongSetting
 import org.citron.citron_emu.features.settings.model.ShortSetting
@@ -427,6 +428,15 @@ abstract class SettingsItem(
             )
             put(
                 SingleChoiceSetting(
+                    IntSetting.ANDROID_ASTC_MODE,
+                    titleId = R.string.android_astc_mode,
+                    descriptionId = R.string.android_astc_mode_description,
+                    choicesId = R.array.androidAstcModeNames,
+                    valuesId = R.array.androidAstcModeValues
+                )
+            )
+            put(
+                SingleChoiceSetting(
                     IntSetting.SHADER_BACKEND,
                     titleId = R.string.shader_backend,
                     descriptionId = R.string.shader_backend_description,
@@ -531,6 +541,83 @@ abstract class SettingsItem(
                     BooleanSetting.LOG_VRAM_USAGE,
                     titleId = R.string.log_vram_usage,
                     descriptionId = R.string.log_vram_usage_description
+                )
+            )
+
+            // CRT Shader Settings (shown conditionally in Zep Zone when CRT filter is selected)
+            put(
+                SliderSetting(
+                    FloatSetting.CRT_SCANLINE_STRENGTH,
+                    titleId = R.string.crt_scanline_strength,
+                    descriptionId = R.string.crt_scanline_strength_description,
+                    min = 0,
+                    max = 200,
+                    units = "%",
+                    scale = 100.0f
+                )
+            )
+            put(
+                SliderSetting(
+                    FloatSetting.CRT_CURVATURE,
+                    titleId = R.string.crt_curvature,
+                    descriptionId = R.string.crt_curvature_description,
+                    min = 0,
+                    max = 100,
+                    units = "%",
+                    scale = 100.0f
+                )
+            )
+            put(
+                SliderSetting(
+                    FloatSetting.CRT_GAMMA,
+                    titleId = R.string.crt_gamma,
+                    descriptionId = R.string.crt_gamma_description,
+                    min = 100,
+                    max = 300,
+                    units = "%",
+                    scale = 100.0f
+                )
+            )
+            put(
+                SliderSetting(
+                    FloatSetting.CRT_BLOOM,
+                    titleId = R.string.crt_bloom,
+                    descriptionId = R.string.crt_bloom_description,
+                    min = 0,
+                    max = 100,
+                    units = "%",
+                    scale = 100.0f
+                )
+            )
+            put(
+                SingleChoiceSetting(
+                    IntSetting.CRT_MASK_TYPE,
+                    titleId = R.string.crt_mask_type,
+                    descriptionId = R.string.crt_mask_type_description,
+                    choicesId = R.array.crtMaskTypeNames,
+                    valuesId = R.array.crtMaskTypeValues
+                )
+            )
+            put(
+                SliderSetting(
+                    FloatSetting.CRT_BRIGHTNESS,
+                    titleId = R.string.crt_brightness,
+                    descriptionId = R.string.crt_brightness_description,
+                    min = 0,
+                    max = 200,
+                    units = "%",
+                    scale = 100.0f
+                )
+            )
+            put(
+                SliderSetting(
+                    FloatSetting.CRT_ALPHA,
+                    titleId = R.string.crt_alpha,
+                    descriptionId = R.string.crt_alpha_description,
+                    min = 0,
+                    max = 100,
+                    units = "%",
+                    scale = 100.0f
                 )
             )
 

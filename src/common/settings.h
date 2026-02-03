@@ -560,6 +560,16 @@ struct Values {
     SwitchableSetting<bool> log_vram_usage{linkage, false, "log_vram_usage",
                                             Category::RendererAdvanced};
 
+    // FIXED: Android Adreno 740 native ASTC eviction
+    // Controls texture cache eviction strategy on Android devices with native ASTC support
+    // Auto = detect based on GPU, Native = use compressed size, Decompress = use decompressed size
+    SwitchableSetting<AndroidAstcMode, true> android_astc_mode{linkage,
+                                                                AndroidAstcMode::Auto,
+                                                                AndroidAstcMode::Auto,
+                                                                AndroidAstcMode::Decompress,
+                                                                "android_astc_mode",
+                                                                Category::RendererAdvanced};
+
     SwitchableSetting<bool> async_presentation{linkage,
 #ifdef ANDROID
                                                true,

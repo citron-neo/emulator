@@ -400,6 +400,18 @@
         <item>2</item>
     </integer-array>
 
+    <string-array name="androidAstcModeNames">
+        <item>@string/android_astc_mode_auto</item>
+        <item>@string/android_astc_mode_native</item>
+        <item>@string/android_astc_mode_decompress</item>
+    </string-array>
+
+    <integer-array name="androidAstcModeValues">
+        <item>0</item>
+        <item>1</item>
+        <item>2</item>
+    </integer-array>
+
     <string-array name="shaderBackendNames">
         <item>GLSL</item>
         <item>GLASM</item>
@@ -456,6 +468,19 @@
     <integer-array name="appletModeValues">
         <item>0</item>
         <item>1</item>
+    </integer-array>
+
+    <!-- CRT Shader setting arrays -->
+    <string-array name="crtMaskTypeNames">
+        <item>@string/crt_mask_none</item>
+        <item>@string/crt_mask_aperture</item>
+        <item>@string/crt_mask_shadow</item>
+    </string-array>
+
+    <integer-array name="crtMaskTypeValues">
+        <item>0</item>
+        <item>1</item>
+        <item>2</item>
     </integer-array>
 
 </resources>

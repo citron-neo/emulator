@@ -19,7 +19,8 @@ class SliderSetting(
     descriptionString: String = "",
     val min: Int = 0,
     val max: Int = 100,
-    val units: String = ""
+    val units: String = "",
+    val scale: Float = 1.0f // Scale factor for float settings (e.g., 100.0 means UI value 100 = C++ value 1.0)
 ) : SettingsItem(setting, titleId, titleString, descriptionId, descriptionString) {
     override val type = TYPE_SLIDER
 
@@ -28,7 +29,7 @@ class SliderSetting(
             is AbstractByteSetting -> setting.getByte(needsGlobal).toInt()
             is AbstractShortSetting -> setting.getShort(needsGlobal).toInt()
             is AbstractIntSetting -> setting.getInt(needsGlobal)
-            is AbstractFloatSetting -> setting.getFloat(needsGlobal).roundToInt()
+            is AbstractFloatSetting -> (setting.getFloat(needsGlobal) * scale).roundToInt()
             else -> -1
         }
 
@@ -36,7 +37,7 @@ class SliderSetting(
         when (setting) {
             is AbstractByteSetting -> setting.setByte(value.toByte())
             is AbstractShortSetting -> setting.setShort(value.toShort())
-            is AbstractFloatSetting -> setting.setFloat(value.toFloat())
+            is AbstractFloatSetting -> setting.setFloat(value.toFloat() / scale)
             else -> (setting as AbstractIntSetting).setInt(value)
         }
 }

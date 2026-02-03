@@ -145,6 +145,12 @@ public:
         // OpenGL does not require a barrier for attachment feedback loops.
     }
 
+    // FIXED: Android Adreno 740 native ASTC eviction
+    // OpenGL does not have the same Adreno-specific optimizations as Vulkan
+    [[nodiscard]] bool SupportsNativeAstc() const noexcept {
+        return false;  // No Adreno-specific detection in OpenGL
+    }
+
 private:
     const Device& device;
     StateTracker& state_tracker;

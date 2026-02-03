@@ -113,6 +113,12 @@ public:
 
     void BarrierFeedbackLoop();
 
+    // FIXED: Android Adreno 740 native ASTC eviction
+    // Returns true if the device supports native ASTC and compressed size eviction
+    [[nodiscard]] bool SupportsNativeAstc() const noexcept {
+        return device.SupportsNativeAstc();
+    }
+
     const Device& device;
     Scheduler& scheduler;
     MemoryAllocator& memory_allocator;
