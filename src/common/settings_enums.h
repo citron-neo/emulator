@@ -625,7 +625,9 @@ enum class ResolutionSetup : s32 {
     Res1_2X = 0,
     Res3_4X = 1,
     Res1X = 2,
+    Res5_4X = 11,  // 1.25X
     Res3_2X = 3,
+    Res7_4X = 12,  // 1.75X
     Res2X = 4,
     Res3X = 5,
     Res4X = 6,
@@ -643,7 +645,9 @@ EnumMetadata<ResolutionSetup>::Canonicalizations() {
         {"Res1_2X", ResolutionSetup::Res1_2X},
         {"Res3_4X", ResolutionSetup::Res3_4X},
         {"Res1X", ResolutionSetup::Res1X},
+        {"Res5_4X", ResolutionSetup::Res5_4X},
         {"Res3_2X", ResolutionSetup::Res3_2X},
+        {"Res7_4X", ResolutionSetup::Res7_4X},
         {"Res2X", ResolutionSetup::Res2X},
         {"Res3X", ResolutionSetup::Res3X},
         {"Res4X", ResolutionSetup::Res4X},

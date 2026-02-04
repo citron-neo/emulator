@@ -88,12 +88,20 @@
     </integer-array>
 
     <string-array name="rendererResolutionNames">
+        <item>@string/resolution_quarter</item>
         <item>@string/resolution_half</item>
         <item>@string/resolution_three_quarter</item>
         <item>@string/resolution_one</item>
+        <item>@string/resolution_one_and_quarter</item>
+        <item>@string/resolution_one_and_half</item>
+        <item>@string/resolution_one_and_three_quarter</item>
         <item>@string/resolution_two</item>
         <item>@string/resolution_three</item>
         <item>@string/resolution_four</item>
+        <item>@string/resolution_five</item>
+        <item>@string/resolution_six</item>
+        <item>@string/resolution_seven</item>
+        <item>@string/resolution_eight</item>
     </string-array>
 
     <string-array name="rendererVSyncNames">
@@ -104,12 +112,20 @@
     </string-array>
 
     <integer-array name="rendererResolutionValues">
-        <item>0</item>
-        <item>1</item>
-        <item>2</item>
-        <item>3</item>
-        <item>4</item>
-        <item>5</item>
+        <item>-1</item>  <!-- 0.25X (Res1_4X) -->
+        <item>0</item>   <!-- 0.5X (Res1_2X) -->
+        <item>1</item>   <!-- 0.75X (Res3_4X) -->
+        <item>2</item>   <!-- 1X (Res1X) -->
+        <item>11</item>  <!-- 1.25X (Res5_4X) -->
+        <item>3</item>   <!-- 1.5X (Res3_2X) -->
+        <item>12</item>  <!-- 1.75X (Res7_4X) -->
+        <item>4</item>   <!-- 2X (Res2X) -->
+        <item>5</item>   <!-- 3X (Res3X) -->
+        <item>6</item>   <!-- 4X (Res4X) -->
+        <item>7</item>   <!-- 5X (Res5X) -->
+        <item>8</item>   <!-- 6X (Res6X) -->
+        <item>9</item>   <!-- 7X (Res7X) -->
+        <item>10</item>  <!-- 8X (Res8X) -->
     </integer-array>
 
     <integer-array name="rendererVSyncValues">
