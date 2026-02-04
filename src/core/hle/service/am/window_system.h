@@ -35,11 +35,13 @@ public:
 public:
     void SetEventObserver(EventObserver* event_observer);
     void Update();
+    void RequestUpdate();
 
 public:
     void TrackApplet(std::shared_ptr<Applet> applet, bool is_application);
     std::shared_ptr<Applet> GetByAppletResourceUserId(u64 aruid);
     std::shared_ptr<Applet> GetMainApplet();
+    std::shared_ptr<Applet> GetOverlayDisplayApplet();
 
 public:
     void RequestHomeMenuToGetForeground();
@@ -73,6 +75,9 @@ private:
 
     // Lock.
     std::mutex m_lock{};
+
+    // Overlay Display Applet.
+    std::shared_ptr<Applet> overlay_display_applet;
 
     // Home menu state.
     bool m_home_menu_foreground_locked{};

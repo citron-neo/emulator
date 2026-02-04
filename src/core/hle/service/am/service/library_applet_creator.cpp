@@ -106,15 +106,11 @@ std::shared_ptr<ILibraryAppletAccessor> CreateGuestApplet(Core::System& system,
         return {};
     }
 
-    // TODO: enable other versions of applets
-    enum : u8 {
-        Firmware1400 = 14,
-        Firmware1500 = 15,
-        Firmware1600 = 16,
-        Firmware1700 = 17,
-    };
-
-    auto process = CreateProcess(system, program_id, Firmware1400, Firmware1700);
+    // We allow any firmware generation to be loaded as a guest process if possible.
+    // If the emulator lacks the necessary keys, it will fail later and fallback to a stub.
+    const u8 min_gen = 1;
+    const u8 max_gen = 255;
+    auto process = CreateProcess(system, program_id, min_gen, max_gen);
     if (!process) {
         // Couldn't initialize the guest process
         return {};
@@ -166,8 +162,8 @@ std::shared_ptr<ILibraryAppletAccessor> CreateFrontendApplet(Core::System& syste
 
 ILibraryAppletCreator::ILibraryAppletCreator(Core::System& system_, std::shared_ptr<Applet> applet,
                                              WindowSystem& window_system)
-    : ServiceFramework{system_, "ILibraryAppletCreator"},
-      m_window_system{window_system}, m_applet{std::move(applet)} {
+    : ServiceFramework{system_, "ILibraryAppletCreator"}, m_window_system{window_system},
+      m_applet{std::move(applet)} {
     static const FunctionInfo functions[] = {
         {0, D<&ILibraryAppletCreator::CreateLibraryApplet>, "CreateLibraryApplet"},
         {1, nullptr, "TerminateAllLibraryApplets"},

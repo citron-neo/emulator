@@ -62,6 +62,9 @@ public:
 
     Result SetLayerVisibility(u64 layer_id, bool visible);
     Result SetLayerBlending(u64 layer_id, bool enabled);
+    Result SetLayerZIndex(u64 layer_id, s32 z_index);
+    Result GetLayerZIndex(u64 layer_id, s32* out_z_index);
+    Result SetLayerIsOverlay(u64 layer_id, bool is_overlay);
 
     void LinkVsyncEvent(u64 display_id, Event* event);
     void UnlinkVsyncEvent(u64 display_id, Event* event);

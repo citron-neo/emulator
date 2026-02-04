@@ -165,8 +165,8 @@ public:
                                const VfsCopyFunction& copy = &VfsRawCopy);
 
     // Due to the fact that we must use Meta-type NCAs to determine the existence of files, this
-    // poses quite a challenge. Instead of creating a new meta NCA for this file, citron will create a
-    // dir inside the NAND called 'citron_meta' and store the raw CNMT there.
+    // poses quite a challenge. Instead of creating a new meta NCA for this file, citron will create
+    // a dir inside the NAND called 'citron_meta' and store the raw CNMT there.
     // TODO(DarkLordZach): Author real meta-type NCAs and install those.
     InstallResult InstallEntry(const NCA& nca, TitleType type, bool overwrite_if_exists = false,
                                const VfsCopyFunction& copy = &VfsRawCopy);
@@ -209,7 +209,8 @@ enum class ContentProviderUnionSlot {
     UserNAND,       ///< User NAND
     SDMC,           ///< SD Card
     FrontendManual, ///< Frontend-defined game list or similar
-    Autoloader,     ///< Separate functionality for multiple Updates/DLCs without being overwritten by NAND.
+    Autoloader, ///< Separate functionality for multiple Updates/DLCs without being overwritten by
+                ///< NAND.
 };
 
 // Combines multiple ContentProvider(s) (i.e. SysNAND, UserNAND, SDMC) into one interface.

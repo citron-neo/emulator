@@ -160,7 +160,6 @@ void NVDRV::Initialize(HLERequestContext& ctx) {
     };
 
     if (is_initialized) {
-        // No need to initialize again
         return;
     }
 

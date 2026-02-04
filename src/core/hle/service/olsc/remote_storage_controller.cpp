@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: Copyright 2024 yuzu Emulator Project
+// SPDX-FileCopyrightText: Copyright 2026 Citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "core/hle/service/cmif_serialization.h"
@@ -21,11 +22,11 @@ IRemoteStorageController::IRemoteStorageController(Core::System& system_)
         {11, nullptr, "CreateDeleteDataTask"},
         {12, nullptr, "DeleteSeriesInfo"},
         {13, nullptr, "CreateRegisterNotificationTokenTask"},
-        {14, nullptr, "UpdateSeriesInfo"},
+        {14, D<&IRemoteStorageController::GetDataNewnessByApplicationId>, "GetDataNewnessByApplicationId"},
         {15, nullptr, "RegisterUploadSaveDataTransferTaskForAutonomyRegistration"},
         {16, nullptr, "CreateCleanupToDeleteSaveDataArchiveInfoTask"},
         {17, nullptr, "ListDataInfo"},
-        {18, nullptr, "GetDataInfo"},
+        {18, D<&IRemoteStorageController::GetDataInfo>, "GetDataInfo"},
         {19, nullptr, "Unknown19"},
         {20, nullptr, "CreateSaveDataArchiveInfoCacheForSaveDataBackupUpdationTask"},
         {21, nullptr, "ListSecondarySaves"},
@@ -33,6 +34,7 @@ IRemoteStorageController::IRemoteStorageController(Core::System& system_)
         {23, nullptr, "TouchSecondarySave"},
         {24, nullptr, "GetSecondarySaveDataInfo"},
         {25, nullptr, "RegisterDownloadSaveDataTransferTaskForAutonomyRegistration"},
+        {27, D<&IRemoteStorageController::GetDataInfo>, "GetDataInfoV2"}, // [20.0.0+]
         {28, D<&IRemoteStorageController::Unknown28>, "Unknown28"}, // [20.2.0+]
         {900, nullptr, "Unknown900"},
         {901, D<&IRemoteStorageController::Unknown901>, "Unknown901"}, // [20.2.0+]
@@ -43,6 +45,20 @@ IRemoteStorageController::IRemoteStorageController(Core::System& system_)
 }
 
 IRemoteStorageController::~IRemoteStorageController() = default;
+
+Result IRemoteStorageController::GetDataNewnessByApplicationId(Out<u8> out_newness,
+                                                               u64 application_id) {
+    LOG_WARNING(Service_OLSC, "(STUBBED) called, application_id={:016X}", application_id);
+    *out_newness = 0;
+    R_SUCCEED();
+}
+
+Result IRemoteStorageController::GetDataInfo(Out<std::array<u8, 0x38>> out_data,
+                                             u64 application_id) {
+    LOG_WARNING(Service_OLSC, "(STUBBED) called, application_id={:016X}", application_id);
+    out_data->fill(0);
+    R_SUCCEED();
+}
 
 Result IRemoteStorageController::GetSecondarySave(Out<bool> out_has_secondary_save,
                                                   Out<std::array<u64, 3>> out_unknown,

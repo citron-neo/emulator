@@ -45,6 +45,11 @@ static std::vector<u64> AccumulateAOCTitleIDs(Core::System& system) {
                        Loader::ResultStatus::Success;
             }),
         add_on_content.end());
+
+    LOG_WARNING(Service_AOC, "Accumulated {} AOC title IDs", add_on_content.size());
+    for (const auto& tid : add_on_content) {
+        LOG_WARNING(Service_AOC, "Found AOC: {:016X}", tid);
+    }
     return add_on_content;
 }
 
@@ -53,8 +58,8 @@ IAddOnContentManager::IAddOnContentManager(Core::System& system_)
       service_context{system_, "aoc:u"} {
     // clang-format off
     static const FunctionInfo functions[] = {
-        {0, nullptr, "CountAddOnContentByApplicationId"},
-        {1, nullptr, "ListAddOnContentByApplicationId"},
+        {0, D<&IAddOnContentManager::CountAddOnContentByApplicationId>, "CountAddOnContentByApplicationId"},
+        {1, D<&IAddOnContentManager::ListAddOnContentByApplicationId>, "ListAddOnContentByApplicationId"},
         {2, D<&IAddOnContentManager::CountAddOnContent>, "CountAddOnContent"},
         {3, D<&IAddOnContentManager::ListAddOnContent>, "ListAddOnContent"},
         {4, nullptr, "GetAddOnContentBaseIdByApplicationId"},
@@ -108,21 +113,85 @@ Result IAddOnContentManager::CountAddOnContent(Out<u32> out_count, ClientProcess
 Result IAddOnContentManager::ListAddOnContent(Out<u32> out_count,
                                               OutBuffer<BufferAttr_HipcMapAlias> out_addons,
                                               u32 offset, u32 count, ClientProcessId process_id) {
-    LOG_DEBUG(Service_AOC, "called with offset={}, count={}, process_id={}", offset, count,
-              process_id.pid);
+    LOG_WARNING(Service_AOC, "called with offset={}, count={}, process_id={}", offset, count,
+                process_id.pid);
 
     const auto current = FileSys::GetBaseTitleID(system.GetApplicationProcessProgramID());
 
     std::vector<u32> out;
     const auto& disabled = Settings::values.disabled_addons[current];
     if (std::find(disabled.begin(), disabled.end(), "DLC") == disabled.end()) {
+        LOG_WARNING(Service_AOC, "Filtering AOCs for base title ID: {:016X}", current);
         for (u64 content_id : add_on_content) {
-            if (FileSys::GetBaseTitleID(content_id) != current) {
+            const auto aoc_base = FileSys::GetBaseTitleID(content_id);
+            if (aoc_base != current) {
+                // LOG_WARNING(Service_AOC, "Skipping AOC {:016X} (Base: {:016X})", content_id,
+                // aoc_base);
                 continue;
             }
 
+            LOG_WARNING(Service_AOC, "Match! AOC {:016X} belongs to current app. Adding to list.",
+                        content_id);
             out.push_back(static_cast<u32>(FileSys::GetAOCID(content_id)));
         }
+    } else {
+        LOG_WARNING(Service_AOC, "DLCs are disabled for this title {:016X}", current);
+    }
+
+    // TODO(DarkLordZach): Find the correct error code.
+    R_UNLESS(out.size() >= offset, ResultUnknown);
+
+    *out_count = static_cast<u32>(std::min<size_t>(out.size() - offset, count));
+    std::rotate(out.begin(), out.begin() + offset, out.end());
+
+    std::memcpy(out_addons.data(), out.data(), *out_count * sizeof(u32));
+
+    R_SUCCEED();
+}
+
+Result IAddOnContentManager::CountAddOnContentByApplicationId(Out<u32> out_count,
+                                                              u64 application_id) {
+    LOG_WARNING(Service_AOC, "called. application_id={:016X}", application_id);
+
+    const auto current = application_id;
+
+    const auto& disabled = Settings::values.disabled_addons[current];
+    if (std::find(disabled.begin(), disabled.end(), "DLC") != disabled.end()) {
+        *out_count = 0;
+        R_SUCCEED();
+    }
+
+    *out_count = static_cast<u32>(
+        std::count_if(add_on_content.begin(), add_on_content.end(),
+                      [current](u64 tid) { return CheckAOCTitleIDMatchesBase(tid, current); }));
+
+    R_SUCCEED();
+}
+
+Result IAddOnContentManager::ListAddOnContentByApplicationId(
+    Out<u32> out_count, OutBuffer<BufferAttr_HipcMapAlias> out_addons, u32 offset, u32 count,
+    u64 application_id) {
+    LOG_WARNING(Service_AOC, "called with offset={}, count={}, application_id={:016X}", offset,
+                count, application_id);
+
+    const auto current = FileSys::GetBaseTitleID(application_id);
+
+    std::vector<u32> out;
+    const auto& disabled = Settings::values.disabled_addons[current];
+    if (std::find(disabled.begin(), disabled.end(), "DLC") == disabled.end()) {
+        LOG_WARNING(Service_AOC, "Filtering AOCs for base title ID: {:016X}", current);
+        for (u64 content_id : add_on_content) {
+            const auto aoc_base = FileSys::GetBaseTitleID(content_id);
+            if (aoc_base != current) {
+                continue;
+            }
+
+            LOG_WARNING(Service_AOC, "Match! AOC {:016X} belongs to current app. Adding to list.",
+                        content_id);
+            out.push_back(static_cast<u32>(FileSys::GetAOCID(content_id)));
+        }
+    } else {
+        LOG_WARNING(Service_AOC, "DLCs are disabled for this title {:016X}", current);
     }
 
     // TODO(DarkLordZach): Find the correct error code.

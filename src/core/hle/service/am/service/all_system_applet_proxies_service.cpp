@@ -5,6 +5,7 @@
 #include "core/core.h"
 #include "core/hle/service/am/applet_manager.h"
 #include "core/hle/service/am/service/all_system_applet_proxies_service.h"
+#include "core/hle/service/am/service/applet_alternative_functions.h"
 #include "core/hle/service/am/service/debug_functions.h"
 #include "core/hle/service/am/service/library_applet_creator.h"
 #include "core/hle/service/am/service/library_applet_proxy.h"
@@ -31,7 +32,7 @@ IAllSystemAppletProxiesService::IAllSystemAppletProxiesService(Core::System& sys
         {400, D<&IAllSystemAppletProxiesService::CreateSelfLibraryAppletCreatorForDevelop>, "CreateSelfLibraryAppletCreatorForDevelop"},
         {410, D<&IAllSystemAppletProxiesService::GetSystemAppletControllerForDebug>, "GetSystemAppletControllerForDebug"},
         {450, D<&IAllSystemAppletProxiesService::GetSystemProcessCommonFunctions>, "GetSystemProcessCommonFunctions"},
-        {460, D<&IAllSystemAppletProxiesService::Cmd460>, "Cmd460"},
+        {460, D<&IAllSystemAppletProxiesService::GetAppletAlternativeFunctions>, "GetAppletAlternativeFunctions"},
         {1000, D<&IAllSystemAppletProxiesService::GetDebugFunctions>, "GetDebugFunctions"},
     };
     // clang-format on
@@ -73,9 +74,8 @@ Result IAllSystemAppletProxiesService::OpenHomeMenuProxy(
 
 Result IAllSystemAppletProxiesService::OpenLibraryAppletProxy(
     Out<SharedPointer<ILibraryAppletProxy>> out_library_applet_proxy, ClientProcessId pid,
-    InCopyHandle<Kernel::KProcess> process_handle,
-    InLargeData<AppletAttribute, BufferAttr_HipcMapAlias> attribute) {
-    LOG_DEBUG(Service_AM, "called");
+    InCopyHandle<Kernel::KProcess> process_handle, AppletAttribute attribute) {
+    LOG_WARNING(Service_AM, "called");
 
     if (const auto applet = this->GetAppletFromProcessId(pid); applet) {
         *out_library_applet_proxy = std::make_shared<ILibraryAppletProxy>(
@@ -104,8 +104,7 @@ std::shared_ptr<Applet> IAllSystemAppletProxiesService::GetAppletFromProcessId(
 
 Result IAllSystemAppletProxiesService::OpenOverlayAppletProxy(
     Out<SharedPointer<IOverlayAppletProxy>> out_overlay_applet_proxy, ClientProcessId pid,
-    InCopyHandle<Kernel::KProcess> process_handle,
-    InLargeData<AppletAttribute, BufferAttr_HipcMapAlias> attribute) {
+    InCopyHandle<Kernel::KProcess> process_handle, AppletAttribute attribute) {
     LOG_DEBUG(Service_AM, "called");
     if (const auto applet = GetAppletFromProcessId(pid)) {
         *out_overlay_applet_proxy = std::make_shared<IOverlayAppletProxy>(
@@ -137,7 +136,8 @@ Result IAllSystemAppletProxiesService::CreateSelfLibraryAppletCreatorForDevelop(
     LOG_WARNING(Service_AM, "(STUBBED) called");
 
     if (const auto applet = this->GetAppletFromProcessId(pid); applet) {
-        *out_library_applet_creator = std::make_shared<ILibraryAppletCreator>(system, applet, m_window_system);
+        *out_library_applet_creator =
+            std::make_shared<ILibraryAppletCreator>(system, applet, m_window_system);
         R_SUCCEED();
     } else {
         R_THROW(ResultUnknown);
@@ -156,8 +156,11 @@ Result IAllSystemAppletProxiesService::GetSystemProcessCommonFunctions(
     R_SUCCEED();
 }
 
-Result IAllSystemAppletProxiesService::Cmd460() {
-    LOG_WARNING(Service_AM, "(STUBBED) called");
+Result IAllSystemAppletProxiesService::GetAppletAlternativeFunctions(
+    Out<SharedPointer<IAppletAlternativeFunctions>> out_applet_alternative_functions) {
+    LOG_WARNING(Service_AM, "called");
+    *out_applet_alternative_functions =
+        std::make_shared<IAppletAlternativeFunctions>(system, m_window_system);
     R_SUCCEED();
 }
 

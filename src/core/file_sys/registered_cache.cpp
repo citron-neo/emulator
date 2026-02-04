@@ -790,7 +790,9 @@ InstallResult RegisteredCache::RawInstallNCA(const NCA& nca, const VfsCopyFuncti
     if (GetFileAtID(id) != nullptr) {
         LOG_WARNING(Loader, "Overwriting existing NCA...");
         VirtualDir c_dir;
-        { c_dir = dir->GetFileRelative(path)->GetContainingDirectory(); }
+        {
+            c_dir = dir->GetFileRelative(path)->GetContainingDirectory();
+        }
         c_dir->DeleteFile(Common::FS::GetFilename(path));
     }
 
@@ -1033,4 +1035,5 @@ std::vector<ContentProviderEntry> ManualContentProvider::ListEntriesFilter(
     out.erase(std::unique(out.begin(), out.end()), out.end());
     return out;
 }
+
 } // namespace FileSys

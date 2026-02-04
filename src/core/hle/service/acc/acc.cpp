@@ -32,6 +32,7 @@
 #include "core/hle/service/acc/profile_manager.h"
 #include "core/hle/service/cmif_serialization.h"
 #include "core/hle/service/glue/glue_manager.h"
+#include "core/hle/service/ns/ns_types.h"
 #include "core/hle/service/server_manager.h"
 #include "core/loader/loader.h"
 
@@ -108,6 +109,7 @@ public:
             {150, nullptr, "CreateAuthorizationRequest"},
             {160, nullptr, "RequiresUpdateNetworkServiceAccountIdTokenCache"},
             {161, nullptr, "RequireReauthenticationOfNetworkServiceAccount"},
+            {143, D<&IManagerForSystemService::GetNetworkServiceLicenseCacheEx>, "GetNetworkServiceLicenseCacheEx"}, // 15.0.0+
         };
         // clang-format on
 
@@ -133,6 +135,15 @@ private:
 
     Result LoadIdTokenCache() {
         LOG_WARNING(Service_ACC, "(STUBBED) called");
+        R_SUCCEED();
+    }
+
+    Result GetNetworkServiceLicenseCacheEx(Out<u32> out_license, Out<s64> out_expiration) {
+        LOG_INFO(Service_ACC, "called");
+
+        *out_license = 0;
+        *out_expiration = 0;
+
         R_SUCCEED();
     }
 
@@ -333,6 +344,9 @@ public:
             {1, &IProfileCommon::GetBase, "GetBase"},
             {10, &IProfileCommon::GetImageSize, "GetImageSize"},
             {11, &IProfileCommon::LoadImage, "LoadImage"},
+            {20, &IProfileCommon::Unknown20, "Unknown20"},
+            {21, &IProfileCommon::Unknown21, "Unknown21"},
+            {30, &IProfileCommon::Unknown30, "Unknown30"},
         };
 
         RegisterHandlers(functions);
@@ -341,6 +355,7 @@ public:
             static const FunctionInfo editor_functions[] = {
                 {100, &IProfileCommon::Store, "Store"},
                 {101, &IProfileCommon::StoreWithImage, "StoreWithImage"},
+                {110, &IProfileCommon::Unknown110, "Unknown110"},
             };
 
             RegisterHandlers(editor_functions);
@@ -430,6 +445,34 @@ protected:
 
         SanitizeJPEGImageSize(buffer);
         rb.Push(static_cast<u32>(buffer.size()));
+    }
+
+    void Unknown20(HLERequestContext& ctx) {
+        LOG_DEBUG(Service_ACC, "(STUBBED) called.");
+
+        IPC::ResponseBuilder rb{ctx, 2};
+        rb.Push(ResultSuccess);
+    }
+
+    void Unknown21(HLERequestContext& ctx) {
+        LOG_DEBUG(Service_ACC, "(STUBBED) called.");
+
+        IPC::ResponseBuilder rb{ctx, 2};
+        rb.Push(ResultSuccess);
+    }
+
+    void Unknown30(HLERequestContext& ctx) {
+        LOG_DEBUG(Service_ACC, "(STUBBED) called.");
+
+        IPC::ResponseBuilder rb{ctx, 2};
+        rb.Push(ResultSuccess);
+    }
+
+    void Unknown110(HLERequestContext& ctx) {
+        LOG_DEBUG(Service_ACC, "(STUBBED) called.");
+
+        IPC::ResponseBuilder rb{ctx, 2};
+        rb.Push(ResultSuccess);
     }
 
     void Store(HLERequestContext& ctx) {
@@ -602,7 +645,8 @@ protected:
 
 class CheckNetworkServiceAvailabilityAsyncInterface final : public IAsyncContext {
 public:
-    explicit CheckNetworkServiceAvailabilityAsyncInterface(Core::System& system_) : IAsyncContext{system_} {
+    explicit CheckNetworkServiceAvailabilityAsyncInterface(Core::System& system_)
+        : IAsyncContext{system_} {
         MarkComplete();
     }
     ~CheckNetworkServiceAvailabilityAsyncInterface() = default;
@@ -621,7 +665,8 @@ protected:
 
 class EnsureSignedDeviceIdentifierCacheAsyncInterface final : public IAsyncContext {
 public:
-    explicit EnsureSignedDeviceIdentifierCacheAsyncInterface(Core::System& system_) : IAsyncContext{system_} {
+    explicit EnsureSignedDeviceIdentifierCacheAsyncInterface(Core::System& system_)
+        : IAsyncContext{system_} {
         MarkComplete();
     }
     ~EnsureSignedDeviceIdentifierCacheAsyncInterface() = default;
@@ -659,7 +704,8 @@ protected:
 
 class SynchronizeNetworkServiceAccountsSnapshotAsyncInterface final : public IAsyncContext {
 public:
-    explicit SynchronizeNetworkServiceAccountsSnapshotAsyncInterface(Core::System& system_) : IAsyncContext{system_} {
+    explicit SynchronizeNetworkServiceAccountsSnapshotAsyncInterface(Core::System& system_)
+        : IAsyncContext{system_} {
         MarkComplete();
     }
     ~SynchronizeNetworkServiceAccountsSnapshotAsyncInterface() = default;
@@ -1302,7 +1348,8 @@ void Module::Interface::ActivateOpenContextRetention(HLERequestContext& ctx) {
     rb.PushIpcInterface<ISessionObject>(system, dummy_uuid);
 }
 
-void Module::Interface::EnsureSignedDeviceIdentifierCacheForNintendoAccountAsync(HLERequestContext& ctx) {
+void Module::Interface::EnsureSignedDeviceIdentifierCacheForNintendoAccountAsync(
+    HLERequestContext& ctx) {
     LOG_WARNING(Service_ACC, "(STUBBED) called");
 
     IPC::ResponseBuilder rb{ctx, 2, 0, 1};
@@ -1366,7 +1413,8 @@ void Module::Interface::SetUserPosition(HLERequestContext& ctx) {
     const auto position = rp.Pop<u32>();
     const auto uuid = rp.PopRaw<Common::UUID>();
 
-    LOG_WARNING(Service_ACC, "(STUBBED) called, position={}, uuid=0x{}", position, uuid.RawString());
+    LOG_WARNING(Service_ACC, "(STUBBED) called, position={}, uuid=0x{}", position,
+                uuid.RawString());
 
     IPC::ResponseBuilder rb{ctx, 2};
     rb.Push(ResultSuccess);
@@ -1429,7 +1477,8 @@ void Module::Interface::ResumeProcedureToCreateUserWithNintendoAccount(HLEReques
     rb.PushIpcInterface<IOAuthProcedureForUserRegistration>(system, dummy_uuid);
 }
 
-void Module::Interface::ResumeProcedureToCreateUserWithNintendoAccountAfterApplyResponse(HLERequestContext& ctx) {
+void Module::Interface::ResumeProcedureToCreateUserWithNintendoAccountAfterApplyResponse(
+    HLERequestContext& ctx) {
     LOG_WARNING(Service_ACC, "(STUBBED) called");
 
     const Common::UUID dummy_uuid{};
@@ -1474,7 +1523,8 @@ void Module::Interface::ProxyProcedureForGuestLoginWithNintendoAccount(HLEReques
     rb.PushIpcInterface<IOAuthProcedureForExternalNsa>(system, dummy_uuid);
 }
 
-void Module::Interface::ProxyProcedureForFloatingRegistrationWithNintendoAccount(HLERequestContext& ctx) {
+void Module::Interface::ProxyProcedureForFloatingRegistrationWithNintendoAccount(
+    HLERequestContext& ctx) {
     LOG_WARNING(Service_ACC, "(STUBBED) called");
 
     const Common::UUID dummy_uuid{};
@@ -1483,7 +1533,8 @@ void Module::Interface::ProxyProcedureForFloatingRegistrationWithNintendoAccount
     rb.PushIpcInterface<IOAuthProcedureForExternalNsa>(system, dummy_uuid);
 }
 
-void Module::Interface::ProxyProcedureForDeviceMigrationAuthenticatingOperatingUser(HLERequestContext& ctx) {
+void Module::Interface::ProxyProcedureForDeviceMigrationAuthenticatingOperatingUser(
+    HLERequestContext& ctx) {
     LOG_WARNING(Service_ACC, "(STUBBED) called");
 
     const Common::UUID dummy_uuid{};
@@ -1591,8 +1642,8 @@ void Module::Interface::DebugSetUserStateOpen(HLERequestContext& ctx) {
 Module::Interface::Interface(std::shared_ptr<Module> module_,
                              std::shared_ptr<ProfileManager> profile_manager_,
                              Core::System& system_, const char* name)
-    : ServiceFramework{system_, name}, module{std::move(module_)}, profile_manager{std::move(
-                                                                       profile_manager_)} {}
+    : ServiceFramework{system_, name}, module{std::move(module_)},
+      profile_manager{std::move(profile_manager_)} {}
 
 Module::Interface::~Interface() = default;
 
@@ -1605,18 +1656,17 @@ void LoopProcess(Core::System& system) {
                                          std::make_shared<ACC_AA>(module, profile_manager, system));
     server_manager->RegisterNamedService("acc:e",
                                          std::make_shared<ACC_E>(module, profile_manager, system));
-    server_manager->RegisterNamedService("acc:e:u1",
-                                         std::make_shared<ACC_E_U1>(module, profile_manager, system));
-    server_manager->RegisterNamedService("acc:e:u2",
-                                         std::make_shared<ACC_E_U2>(module, profile_manager, system));
+    server_manager->RegisterNamedService(
+        "acc:e:u1", std::make_shared<ACC_E_U1>(module, profile_manager, system));
+    server_manager->RegisterNamedService(
+        "acc:e:u2", std::make_shared<ACC_E_U2>(module, profile_manager, system));
     server_manager->RegisterNamedService("acc:su",
                                          std::make_shared<ACC_SU>(module, profile_manager, system));
     server_manager->RegisterNamedService("acc:u0",
                                          std::make_shared<ACC_U0>(module, profile_manager, system));
     server_manager->RegisterNamedService("acc:u1",
                                          std::make_shared<ACC_U1>(module, profile_manager, system));
-    server_manager->RegisterNamedService("dauth:0",
-                                         std::make_shared<DAUTH_0>(system));
+    server_manager->RegisterNamedService("dauth:0", std::make_shared<DAUTH_0>(system));
 
     ServerManager::RunServer(std::move(server_manager));
 }

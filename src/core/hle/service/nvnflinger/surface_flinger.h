@@ -44,10 +44,12 @@ public:
 
     void SetLayerVisibility(s32 consumer_binder_id, bool visible);
     void SetLayerBlending(s32 consumer_binder_id, LayerBlending blending);
+    void SetLayerIsOverlay(s32 consumer_binder_id, bool is_overlay);
+
+    std::shared_ptr<Layer> FindLayer(s32 consumer_binder_id);
 
 private:
     Display* FindDisplay(u64 display_id);
-    std::shared_ptr<Layer> FindLayer(s32 consumer_binder_id);
 
 public:
     // TODO: these don't belong here

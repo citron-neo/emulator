@@ -39,7 +39,7 @@ ICommonStateGetter::ICommonStateGetter(Core::System& system_, std::shared_ptr<Ap
         {30, nullptr, "GetHomeButtonReaderLockAccessor"},
         {31, D<&ICommonStateGetter::GetReaderLockAccessorEx>, "GetReaderLockAccessorEx"},
         {32, D<&ICommonStateGetter::GetWriterLockAccessorEx>, "GetWriterLockAccessorEx"},
-        {40, nullptr, "GetCradleFwVersion"},
+        {40, D<&ICommonStateGetter::GetCradleFwVersion>, "GetCradleFwVersion"},
         {50, D<&ICommonStateGetter::IsVrModeEnabled>, "IsVrModeEnabled"},
         {51, D<&ICommonStateGetter::SetVrModeEnabled>, "SetVrModeEnabled"},
         {52, D<&ICommonStateGetter::SetLcdBacklighOffEnabled>, "SetLcdBacklighOffEnabled"},
@@ -262,6 +262,17 @@ Result ICommonStateGetter::PerformSystemButtonPressingIfInFocus(SystemButtonType
 Result ICommonStateGetter::GetOperationModeSystemInfo(Out<u32> out_operation_mode_system_info) {
     LOG_WARNING(Service_AM, "(STUBBED) called");
     *out_operation_mode_system_info = 0;
+    R_SUCCEED();
+}
+
+Result ICommonStateGetter::GetCradleFwVersion(Out<u32> out_major, Out<u32> out_minor,
+                                              Out<u32> out_micro) {
+    LOG_WARNING(Service_AM, "(STUBBED) called");
+
+    *out_major = 0;
+    *out_minor = 0;
+    *out_micro = 0;
+
     R_SUCCEED();
 }
 

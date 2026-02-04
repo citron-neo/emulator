@@ -131,6 +131,49 @@ Result Container::SetLayerBlending(u64 layer_id, bool enabled) {
     R_SUCCEED();
 }
 
+Result Container::SetLayerZIndex(u64 layer_id, s32 z_index) {
+    std::scoped_lock lk{m_lock};
+
+    auto* const layer = m_layers.GetLayerById(layer_id);
+    R_UNLESS(layer != nullptr, VI::ResultNotFound);
+
+    if (auto layer_ref = m_surface_flinger->FindLayer(layer->GetConsumerBinderId())) {
+        LOG_DEBUG(Service_VI, "called, SetLayerZIndex layer_id={} z={} (cid={})", layer_id, z_index,
+                  layer->GetConsumerBinderId());
+        layer_ref->z_index = z_index;
+    } else {
+        LOG_DEBUG(Service_VI,
+                  "called, SetLayerZIndex failed to find layer for layer_id={} (cid={})", layer_id,
+                  layer->GetConsumerBinderId());
+    }
+
+    R_SUCCEED();
+}
+
+Result Container::GetLayerZIndex(u64 layer_id, s32* out_z_index) {
+    std::scoped_lock lk{m_lock};
+
+    auto* const layer = m_layers.GetLayerById(layer_id);
+    R_UNLESS(layer != nullptr, VI::ResultNotFound);
+
+    if (auto layer_ref = m_surface_flinger->FindLayer(layer->GetConsumerBinderId())) {
+        *out_z_index = layer_ref->z_index;
+        R_SUCCEED();
+    }
+
+    R_RETURN(VI::ResultNotFound);
+}
+
+Result Container::SetLayerIsOverlay(u64 layer_id, bool is_overlay) {
+    std::scoped_lock lk{m_lock};
+
+    auto* const layer = m_layers.GetLayerById(layer_id);
+    R_UNLESS(layer != nullptr, VI::ResultNotFound);
+
+    m_surface_flinger->SetLayerIsOverlay(layer->GetConsumerBinderId(), is_overlay);
+    R_SUCCEED();
+}
+
 void Container::LinkVsyncEvent(u64 display_id, Event* event) {
     std::scoped_lock lk{m_lock};
     m_conductor->LinkVsyncEvent(display_id, event);

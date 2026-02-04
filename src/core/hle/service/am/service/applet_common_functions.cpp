@@ -20,7 +20,7 @@ IAppletCommonFunctions::IAppletCommonFunctions(Core::System& system_,
         {20, nullptr, "PushToAppletBoundChannel"},
         {21, nullptr, "TryPopFromAppletBoundChannel"},
         {40, nullptr, "GetDisplayLogicalResolution"},
-        {42, nullptr, "SetDisplayMagnification"},
+        {42, D<&IAppletCommonFunctions::SetDisplayMagnification>, "SetDisplayMagnification"},
         {50, D<&IAppletCommonFunctions::SetHomeButtonDoubleClickEnabled>, "SetHomeButtonDoubleClickEnabled"},
         {51, D<&IAppletCommonFunctions::GetHomeButtonDoubleClickEnabled>, "GetHomeButtonDoubleClickEnabled"},
         {52, nullptr, "IsHomeButtonShortPressedBlocked"},
@@ -67,6 +67,13 @@ Result IAppletCommonFunctions::GetHomeButtonDoubleClickEnabled(
     Out<bool> out_home_button_double_click_enabled) {
     LOG_WARNING(Service_AM, "(STUBBED) called");
     *out_home_button_double_click_enabled = false;
+    R_SUCCEED();
+}
+
+Result IAppletCommonFunctions::SetDisplayMagnification(f32 x, f32 y, f32 width, f32 height) {
+    LOG_DEBUG(Service_AM, "(STUBBED) called, x={}, y={}, width={}, height={}", x, y, width, height);
+    std::scoped_lock lk{applet->lock};
+    applet->display_magnification = Common::Rectangle<f32>{x, y, x + width, y + height};
     R_SUCCEED();
 }
 
