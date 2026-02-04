@@ -6533,10 +6533,6 @@ void GMainWindow::RegisterAutoloaderContents() {
             continue;
         }
 
-        const auto it = disabled_addons.find(title_id_val);
-        const auto& disabled_for_game =
-            (it != disabled_addons.end()) ? it->second : std::vector<std::string>{};
-
         const auto process_content_type = [&](const std::filesystem::path& content_path) {
             if (!Common::FS::IsDir(content_path))
                 return;
