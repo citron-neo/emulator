@@ -186,7 +186,6 @@ private:
     std::vector<NcaID> AccumulateFiles() const;
     void ProcessFiles(const std::vector<NcaID>& ids);
     void AccumulateCitronMeta();
-    void AccumulateLegacyMeta();
     std::optional<NcaID> GetNcaIDFromMetadata(u64 title_id, ContentRecordType type) const;
     VirtualFile GetFileAtID(NcaID id) const;
     VirtualFile OpenFileOrDirectoryConcat(const VirtualDir& open_dir, std::string_view path) const;
@@ -203,8 +202,6 @@ private:
     std::map<u64, CNMT> meta;
     // maps tid -> meta for CNMT in citron_meta
     std::map<u64, CNMT> citron_meta;
-    // maps tid -> meta for CNMT in yuzu_meta (legacy)
-    std::map<u64, CNMT> legacy_meta;
 };
 
 enum class ContentProviderUnionSlot {
