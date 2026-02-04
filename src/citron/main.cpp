@@ -6526,7 +6526,8 @@ void GMainWindow::RegisterAutoloaderContents() {
             continue;
 
         try {
-            std::stoull(title_dir_entry.path().filename().string(), nullptr, 16);
+            [[maybe_unused]] auto val =
+                std::stoull(title_dir_entry.path().filename().string(), nullptr, 16);
         } catch (const std::invalid_argument&) {
             continue;
         }
