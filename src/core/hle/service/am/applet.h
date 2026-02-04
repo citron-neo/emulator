@@ -113,6 +113,7 @@ struct Applet {
     bool is_activity_runnable{};
     bool is_interactible{true};
     bool window_visible{true};
+    bool overlay_in_foreground{};
 
     // Events
     Event gpu_error_detected_event;

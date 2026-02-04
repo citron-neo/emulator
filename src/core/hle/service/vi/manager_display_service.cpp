@@ -116,6 +116,10 @@ Result IManagerDisplayService::SetLayerBlending(bool enabled, u64 layer_id) {
     R_RETURN(m_container->SetLayerBlending(layer_id, enabled));
 }
 
+Result IManagerDisplayService::SetLayerZIndex(s32 z_index, u64 layer_id) {
+    R_RETURN(m_container->SetLayerZIndex(layer_id, z_index));
+}
+
 Result IManagerDisplayService::CreateManagedLayer(Out<u64> out_layer_id, u32 flags, u64 display_id,
                                                   AppletResourceUserId aruid) {
     LOG_DEBUG(Service_VI, "called. flags={}, display={}, aruid={}", flags, display_id, aruid.pid);

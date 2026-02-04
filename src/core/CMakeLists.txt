@@ -459,6 +459,8 @@ add_library(core STATIC
     hle/service/am/process_holder.h
     hle/service/am/service/all_system_applet_proxies_service.cpp
     hle/service/am/service/all_system_applet_proxies_service.h
+    hle/service/am/service/applet_alternative_functions.cpp
+    hle/service/am/service/applet_alternative_functions.h
     hle/service/am/service/applet_common_functions.cpp
     hle/service/am/service/applet_common_functions.h
     hle/service/am/service/application_accessor.cpp
@@ -499,6 +501,8 @@ add_library(core STATIC
     hle/service/am/service/lock_accessor.h
     hle/service/am/service/overlay_applet_proxy.cpp
     hle/service/am/service/overlay_applet_proxy.h
+    hle/service/am/service/overlay_functions.cpp
+    hle/service/am/service/overlay_functions.h
     hle/service/am/service/process_winding_controller.cpp
     hle/service/am/service/process_winding_controller.h
     hle/service/am/service/self_controller.cpp
@@ -1257,7 +1261,8 @@ target_link_libraries(core
         nlohmann_json::nlohmann_json
         mbedtls
         RenderDoc::API
-)
+        stb::headers
+    )
 
 # Conditionally link against Boost::process ONLY if it was found by the main CMakeLists.txt.
 if(Boost_PROCESS_FOUND)

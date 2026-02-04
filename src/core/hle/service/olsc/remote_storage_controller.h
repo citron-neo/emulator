@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: Copyright 2024 yuzu Emulator Project
+// SPDX-FileCopyrightText: Copyright 2026 Citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "core/hle/service/cmif_types.h"
@@ -12,9 +13,11 @@ public:
     ~IRemoteStorageController() override;
 
 private:
+    Result GetDataNewnessByApplicationId(Out<u8> out_newness, u64 application_id);
+    Result GetDataInfo(Out<std::array<u8, 0x38>> out_data, u64 application_id);
     Result GetSecondarySave(Out<bool> out_has_secondary_save, Out<std::array<u64, 3>> out_unknown,
                             u64 application_id);
-    Result Unknown28(); // [20.2.0+]
+    Result Unknown28();  // [20.2.0+]
     Result Unknown901(); // [20.2.0+]
 };
 

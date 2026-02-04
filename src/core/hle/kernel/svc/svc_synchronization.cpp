@@ -60,13 +60,13 @@ Result ResetSignal(Core::System& system, Handle handle) {
         }
     }
 
-    // Handle not found - log once and return success to prevent infinite loops
+    // Handle not found
     if (should_log) {
-        LOG_WARNING(Kernel_SVC, "ResetSignal called with invalid handle 0x{:08X}, returning success to prevent hang", handle);
+        LOG_WARNING(Kernel_SVC, "ResetSignal called with invalid handle 0x{:08X}", handle);
         logged_handles.insert(handle);
     }
 
-    R_SUCCEED(); // Return success instead of throwing to prevent infinite loops
+    R_RETURN(ResultInvalidHandle);
 }
 
 /// Wait for the given handles to synchronize, timeout after the specified nanoseconds

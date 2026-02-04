@@ -15,6 +15,7 @@ class FrontendApplet;
 enum class AppletType {
     Application,
     LibraryApplet,
+    OverlayApplet,
     SystemApplet,
 };
 
@@ -212,7 +213,7 @@ struct AppletIdentityInfo {
 };
 static_assert(sizeof(AppletIdentityInfo) == 0x10, "AppletIdentityInfo has incorrect size.");
 
-struct AppletAttribute {
+struct alignas(8) AppletAttribute {
     u8 flag;
     INSERT_PADDING_BYTES_NOINIT(0x7F);
 };

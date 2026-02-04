@@ -50,6 +50,8 @@ private:
         OutArray<u8, BufferAttr_HipcMapAlias | BufferAttr_HipcMapTransferAllowsNonSecure> out_image,
         OutArray<u8, BufferAttr_HipcMapAlias> out_buffer);
 
+    Result SetShimLibraryVersion(u64 shim_library_version, u64 applet_resource_user_id);
+
     Result TranslateResult(Result in_result);
 
     std::shared_ptr<AlbumManager> manager = nullptr;

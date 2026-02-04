@@ -53,6 +53,7 @@ IAlbumAccessorService::IAlbumAccessorService(Core::System& system_,
         {8021, nullptr, "GetAlbumEntryFromApplicationAlbumEntryAruid"},
         {10011, nullptr, "SetInternalErrorConversionEnabled"},
         {50000, nullptr, "LoadMakerNoteInfoForDebug"},
+        {50011, C<&IAlbumAccessorService::SetShimLibraryVersion>, "SetShimLibraryVersion"},
         {60002, nullptr, "OpenAccessorSession"},
     };
     // clang-format on
@@ -135,6 +136,14 @@ Result IAlbumAccessorService::LoadAlbumScreenShotThumbnailImageEx1(
     const Result result = manager->LoadAlbumScreenShotThumbnail(*out_image_output, out_image,
                                                                 file_id, decoder_options);
     R_RETURN(TranslateResult(result));
+}
+
+Result IAlbumAccessorService::SetShimLibraryVersion(u64 shim_library_version,
+                                                    u64 applet_resource_user_id) {
+    LOG_WARNING(Service_Capture,
+                "(STUBBED) called, shim_library_version={}, applet_resource_user_id={}",
+                shim_library_version, applet_resource_user_id);
+    R_SUCCEED();
 }
 
 Result IAlbumAccessorService::TranslateResult(Result in_result) {

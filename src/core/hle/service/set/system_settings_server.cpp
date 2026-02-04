@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
+#include <cstring>
 #include <fstream>
 
 #include "common/assert.h"
@@ -239,7 +240,7 @@ ISystemSettingsServer::ISystemSettingsServer(Core::System& system_)
         {146, nullptr, "SetConsoleSixAxisSensorAngularVelocityTimeBias"},
         {147, nullptr, "GetConsoleSixAxisSensorAngularAcceleration"},
         {148, nullptr, "SetConsoleSixAxisSensorAngularAcceleration"},
-        {149, nullptr, "GetRebootlessSystemUpdateVersion"},
+        {149, D<&ISystemSettingsServer::GetRebootlessSystemUpdateVersion>, "GetRebootlessSystemUpdateVersion"},
         {150, C<&ISystemSettingsServer::GetDeviceTimeZoneLocationUpdatedTime>, "GetDeviceTimeZoneLocationUpdatedTime"},
         {151, C<&ISystemSettingsServer::SetDeviceTimeZoneLocationUpdatedTime>, "SetDeviceTimeZoneLocationUpdatedTime"},
         {152, C<&ISystemSettingsServer::GetUserSystemClockAutomaticCorrectionUpdatedTime>, "GetUserSystemClockAutomaticCorrectionUpdatedTime"},
@@ -849,6 +850,17 @@ Result ISystemSettingsServer::SetQuestFlag(QuestFlag quest_flag) {
 
     m_system_settings.quest_flag = quest_flag;
     SetSaveNeeded();
+    R_SUCCEED();
+}
+
+Result ISystemSettingsServer::GetRebootlessSystemUpdateVersion(
+    Out<RebootlessSystemUpdateVersion> out_version) {
+    LOG_WARNING(Service_SET, "(STUBBED) called");
+
+    out_version->version = 0;
+    std::memset(out_version->display_version.data(), 0, out_version->display_version.size());
+    std::strcpy(out_version->display_version.data(), "0.0.0");
+
     R_SUCCEED();
 }
 

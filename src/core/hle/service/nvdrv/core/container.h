@@ -32,7 +32,7 @@ struct SessionId {
 };
 
 struct Session {
-    Session(SessionId id_, Kernel::KProcess* process_, Core::Asid asid_);
+    Session(SessionId id_, Kernel::KProcess* process_, u64 pid_, Core::Asid asid_);
     ~Session();
 
     Session(const Session&) = delete;
@@ -42,6 +42,7 @@ struct Session {
 
     SessionId id;
     Kernel::KProcess* process;
+    u64 pid;
     Core::Asid asid;
     bool has_preallocated_area{};
     std::unique_ptr<HeapMapper> mapper{};

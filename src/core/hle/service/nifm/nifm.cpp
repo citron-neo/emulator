@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
+#include <cstring>
 #include "core/core.h"
 #include "core/hle/kernel/k_event.h"
 #include "core/hle/service/ipc_helpers.h"
@@ -172,8 +173,8 @@ constexpr Result ResultNetworkCommunicationDisabled{ErrorModule::NIFM, 1111};
 
 class IScanRequest final : public ServiceFramework<IScanRequest> {
 public:
-    explicit IScanRequest(Core::System& system_) : ServiceFramework{system_, "IScanRequest"},
-                                                  service_context{system_, "IScanRequest"} {
+    explicit IScanRequest(Core::System& system_)
+        : ServiceFramework{system_, "IScanRequest"}, service_context{system_, "IScanRequest"} {
         // clang-format off
         static const FunctionInfo functions[] = {
             {0, &IScanRequest::Submit, "Submit"},
@@ -604,6 +605,41 @@ void IGeneralService::GetCurrentNetworkProfile(HLERequestContext& ctx) {
     rb.Push(ResultSuccess);
 }
 
+void IGeneralService::EnumerateNetworkInterfaces(HLERequestContext& ctx) {
+    LOG_WARNING(Service_NIFM, "(STUBBED) called");
+
+    const auto adapters = Network::GetAvailableNetworkInterfaces();
+    constexpr size_t kEntrySize = 0x3F0; // From official
+
+    std::vector<u8> blob(adapters.size() * kEntrySize, 0);
+
+    for (size_t i = 0; i < adapters.size(); ++i) {
+        const auto& host = adapters[i];
+        u8* const base = blob.data() + i * kEntrySize;
+
+        // Match expected structure
+        // Citron NetworkInterface doesn't have type/kind, so we use 2u (Ethernet) as a safe default
+        *reinterpret_cast<u32*>(base + 0x0) = 2u;
+        *reinterpret_cast<u32*>(base + 0x4) = 1u; // Status?
+
+        std::memcpy(base + 0x18, &host.ip_address, sizeof(host.ip_address));
+        std::memcpy(base + 0x1C, &host.subnet_mask, sizeof(host.subnet_mask));
+        std::memcpy(base + 0x20, &host.gateway, sizeof(host.gateway));
+
+        std::string name_utf8 = host.name;
+        name_utf8.resize(0x110, '\0');
+        std::memcpy(base + 0x2E0, name_utf8.data(), 0x110);
+    }
+
+    if (ctx.GetWriteBufferSize() > 0 && !blob.empty()) {
+        ctx.WriteBuffer(blob.data(), std::min(ctx.GetWriteBufferSize(), blob.size()));
+    }
+
+    IPC::ResponseBuilder rb{ctx, 3};
+    rb.Push(ResultSuccess);
+    rb.Push<u32>(static_cast<u32>(adapters.size()));
+}
+
 void IGeneralService::RemoveNetworkProfile(HLERequestContext& ctx) {
     LOG_WARNING(Service_NIFM, "(STUBBED) called");
 
@@ -691,6 +727,31 @@ void IGeneralService::GetCurrentIpConfigInfo(HLERequestContext& ctx) {
     rb.PushRaw<IpConfigInfo>(ip_config_info);
 }
 
+void IGeneralService::EnumerateNetworkProfiles(HLERequestContext& ctx) {
+    LOG_WARNING(Service_NIFM, "(STUBBED) called");
+
+    // Return 0 profiles for now (stub)
+    ctx.WriteBuffer(std::span<u8>{});
+
+    IPC::ResponseBuilder rb{ctx, 3};
+    rb.Push(ResultSuccess);
+    rb.Push<u32>(0); // Number of profiles
+}
+
+void IGeneralService::ConfirmSystemAvailability(HLERequestContext& ctx) {
+    LOG_WARNING(Service_NIFM, "(STUBBED) called");
+
+    IPC::ResponseBuilder rb{ctx, 2};
+    rb.Push(ResultSuccess);
+}
+
+void IGeneralService::SetBackgroundRequestEnabled(HLERequestContext& ctx) {
+    LOG_WARNING(Service_NIFM, "(STUBBED) called");
+
+    IPC::ResponseBuilder rb{ctx, 2};
+    rb.Push(ResultSuccess);
+}
+
 void IGeneralService::IsWirelessCommunicationEnabled(HLERequestContext& ctx) {
     LOG_WARNING(Service_NIFM, "(STUBBED) called");
 
@@ -748,6 +809,16 @@ void IGeneralService::IsAnyForegroundRequestAccepted(HLERequestContext& ctx) {
     IPC::ResponseBuilder rb{ctx, 3};
     rb.Push(ResultSuccess);
     rb.Push<u8>(is_accepted);
+}
+
+void IGeneralService::GetSsidListVersion(HLERequestContext& ctx) {
+    LOG_WARNING(Service_NIFM, "(STUBBED) called");
+
+    constexpr u32 ssid_list_version = 0;
+
+    IPC::ResponseBuilder rb{ctx, 3};
+    rb.Push(ResultSuccess);
+    rb.Push(ssid_list_version);
 }
 
 void IGeneralService::GetNetworkProfile(HLERequestContext& ctx) {
@@ -846,7 +917,8 @@ void IGeneralService::IsNetworkEmulationFeatureEnabled(HLERequestContext& ctx) {
 }
 
 void IGeneralService::SelectActiveNetworkEmulationProfileIdForDebug(HLERequestContext& ctx) {
-    LOG_WARNING(Service_NIFM, "(STUBBED) called SelectActiveNetworkEmulationProfileIdForDebug [18.0.0+]");
+    LOG_WARNING(Service_NIFM,
+                "(STUBBED) called SelectActiveNetworkEmulationProfileIdForDebug [18.0.0+]");
 
     IPC::ResponseBuilder rb{ctx, 2};
     rb.Push(ResultSuccess);
@@ -898,7 +970,8 @@ void IGeneralService::DestroyRewriteRule(HLERequestContext& ctx) {
 }
 
 void IGeneralService::IsActiveNetworkEmulationProfileIdSelected(HLERequestContext& ctx) {
-    LOG_WARNING(Service_NIFM, "(STUBBED) called IsActiveNetworkEmulationProfileIdSelected [20.0.0+]");
+    LOG_WARNING(Service_NIFM,
+                "(STUBBED) called IsActiveNetworkEmulationProfileIdSelected [20.0.0+]");
 
     IPC::ResponseBuilder rb{ctx, 3};
     rb.Push(ResultSuccess);
@@ -935,8 +1008,8 @@ IGeneralService::IGeneralService(Core::System& system_)
         {2, &IGeneralService::CreateScanRequest, "CreateScanRequest"},
         {4, &IGeneralService::CreateRequest, "CreateRequest"},
         {5, &IGeneralService::GetCurrentNetworkProfile, "GetCurrentNetworkProfile"},
-        {6, nullptr, "EnumerateNetworkInterfaces"},
-        {7, nullptr, "EnumerateNetworkProfiles"},
+        {6, &IGeneralService::EnumerateNetworkInterfaces, "EnumerateNetworkInterfaces"},
+        {7, &IGeneralService::EnumerateNetworkProfiles, "EnumerateNetworkProfiles"},
         {8, &IGeneralService::GetNetworkProfile, "GetNetworkProfile"},
         {9, &IGeneralService::SetNetworkProfile, "SetNetworkProfile"},
         {10, &IGeneralService::RemoveNetworkProfile, "RemoveNetworkProfile"},
@@ -954,7 +1027,7 @@ IGeneralService::IGeneralService(Core::System& system_)
         {22, &IGeneralService::IsAnyForegroundRequestAccepted, "IsAnyForegroundRequestAccepted"},
         {23, nullptr, "PutToSleep"},
         {24, nullptr, "WakeUp"},
-        {25, nullptr, "GetSsidListVersion"},
+        {25, &IGeneralService::GetSsidListVersion, "GetSsidListVersion"},
         {26, nullptr, "SetExclusiveClient"},
         {27, nullptr, "GetDefaultIpSetting"},
         {28, nullptr, "SetDefaultIpSetting"},
@@ -962,8 +1035,8 @@ IGeneralService::IGeneralService(Core::System& system_)
         {30, nullptr, "SetEthernetCommunicationEnabledForTest"},
         {31, nullptr, "GetTelemetorySystemEventReadableHandle"},
         {32, nullptr, "GetTelemetryInfo"},
-        {33, nullptr, "ConfirmSystemAvailability"},
-        {34, nullptr, "SetBackgroundRequestEnabled"},
+        {33, &IGeneralService::ConfirmSystemAvailability, "ConfirmSystemAvailability"},
+        {34, &IGeneralService::SetBackgroundRequestEnabled, "SetBackgroundRequestEnabled"},
         {35, &IGeneralService::GetScanData, "GetScanData"},
         {36, &IGeneralService::GetCurrentAccessPoint, "GetCurrentAccessPoint"},
         {37, &IGeneralService::Shutdown, "Shutdown"},

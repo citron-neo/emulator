@@ -5,6 +5,8 @@
 
 #include "core/hle/service/cmif_types.h"
 #include "core/hle/service/service.h"
+#include "core/hle/service/am/service/applet_common_functions.h"
+#include "core/hle/service/am/service/overlay_functions.h"
 
 namespace Kernel {
 class KProcess;
@@ -25,6 +27,8 @@ class IProcessWindingController;
 class ISelfController;
 class IWindowController;
 class WindowSystem;
+class IOverlayFunctions;
+class IAppletCommonFunctions;
 
 class IOverlayAppletProxy final : public ServiceFramework<IOverlayAppletProxy> {
 public:
@@ -38,11 +42,15 @@ private:
     Result GetWindowController(Out<SharedPointer<IWindowController>> out_window_controller);
     Result GetAudioController(Out<SharedPointer<IAudioController>> out_audio_controller);
     Result GetDisplayController(Out<SharedPointer<IDisplayController>> out_display_controller);
-    Result GetProcessWindingController(Out<SharedPointer<IProcessWindingController>> out_process_winding_controller);
-    Result GetLibraryAppletCreator(Out<SharedPointer<ILibraryAppletCreator>> out_library_applet_creator);
-    Result GetOverlayAppletFunctions(Out<SharedPointer<IOverlayAppletFunctions>> out_overlay_applet_functions);
-    Result GetHomeMenuFunctions(Out<SharedPointer<IHomeMenuFunctions>> out_home_menu_functions);
-    Result GetGlobalStateController(Out<SharedPointer<IGlobalStateController>> out_global_state_controller);
+    Result GetProcessWindingController(
+        Out<SharedPointer<IProcessWindingController>> out_process_winding_controller);
+    Result GetLibraryAppletCreator(
+        Out<SharedPointer<ILibraryAppletCreator>> out_library_applet_creator);
+    Result GetOverlayFunctions(Out<SharedPointer<IOverlayFunctions>> out_overlay_functions);
+    Result GetAppletCommonFunctions(
+        Out<SharedPointer<IAppletCommonFunctions>> out_applet_common_functions);
+    Result GetGlobalStateController(
+        Out<SharedPointer<IGlobalStateController>> out_global_state_controller);
     Result GetDebugFunctions(Out<SharedPointer<IDebugFunctions>> out_debug_functions);
 
     WindowSystem& m_window_system;

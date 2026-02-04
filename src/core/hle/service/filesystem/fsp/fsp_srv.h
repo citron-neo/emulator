@@ -116,12 +116,15 @@ private:
     Result OpenSdCardDetectionEventNotifier(OutInterface<IEventNotifier> out_interface);
     Result OpenGameCardDetectionEventNotifier(OutInterface<IEventNotifier> out_interface);
     Result OpenSaveDataTransferManager(OutInterface<ISaveDataTransferManager> out_interface);
-    Result OpenSaveDataTransferManagerVersion2(OutInterface<ISaveDataTransferManager> out_interface);
+    Result OpenSaveDataTransferManagerVersion2(
+        OutInterface<ISaveDataTransferManager> out_interface);
     Result OpenBisWiper(OutInterface<IWiper> out_interface);
     Result OpenBisStorage(OutInterface<IStorage> out_interface, u32 partition_id);
     Result DeleteSaveDataFileSystem(u64 save_data_id);
     Result OpenGameCardStorage(OutInterface<IStorage> out_interface, u32 handle, u32 partition_id);
-    Result OpenGameCardFileSystem(OutInterface<IFileSystem> out_interface, u32 handle, u32 partition_id);
+    Result OpenGameCardFileSystem(OutInterface<IFileSystem> out_interface, u32 handle,
+                                  u32 partition_id);
+    Result IsExFatSupported(Out<bool> out_is_supported);
 
     FileSystemController& fsc;
     const FileSys::ContentProvider& content_provider;

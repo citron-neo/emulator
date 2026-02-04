@@ -37,6 +37,7 @@ private:
     Result GetDefaultDisplayResolutionChangeEvent(OutCopyHandle<Kernel::KReadableEvent> out_event);
     Result GetOperationMode(Out<OperationMode> out_operation_mode);
     Result GetPerformanceMode(Out<APM::PerformanceMode> out_performance_mode);
+    Result GetCradleFwVersion(Out<u32> out_major, Out<u32> out_minor, Out<u32> out_micro);
     Result GetBootMode(Out<PM::SystemBootMode> out_boot_mode);
     Result IsVrModeEnabled(Out<bool> out_is_vr_mode_enabled);
     Result SetVrModeEnabled(bool is_vr_mode_enabled);

@@ -29,31 +29,48 @@ enum class BackgroundNetworkUpdateState : u8 {
     Ready,
 };
 
+/// ApplicationDownloadState
+struct ApplicationDownloadState {
+    u64 downloaded_size;
+    u64 total_size;
+    u32 unk_x10;
+    u8 state;
+    u8 unk_x15;
+    std::array<u8, 0x2> unk_x16;
+    u64 unk_x18;
+};
+static_assert(sizeof(ApplicationDownloadState) == 0x20,
+              "ApplicationDownloadState has incorrect size.");
+
 struct ApplicationRecord {
     u64 application_id;
     ApplicationRecordType type;
-    u8 unknown;
+    u8 attributes;
     INSERT_PADDING_BYTES_NOINIT(0x6);
-    u8 unknown2;
-    INSERT_PADDING_BYTES_NOINIT(0x7);
+    s64 last_updated;
 };
 static_assert(sizeof(ApplicationRecord) == 0x18, "ApplicationRecord has incorrect size.");
 
-/// ApplicationView
-struct ApplicationView {
-    u64 application_id;           ///< ApplicationId.
-    u32 unk;                      ///< Unknown.
-    u32 flags;                    ///< Flags.
-    std::array<u8, 0x10> unk_x10; ///< Unknown.
-    u32 unk_x20;                  ///< Unknown.
-    u16 unk_x24;                  ///< Unknown.
-    std::array<u8, 0x2> unk_x26;  ///< Unknown.
-    std::array<u8, 0x8> unk_x28;  ///< Unknown.
-    std::array<u8, 0x10> unk_x30; ///< Unknown.
-    u32 unk_x40;                  ///< Unknown.
-    u8 unk_x44;                   ///< Unknown.
-    std::array<u8, 0xb> unk_x45;  ///< Unknown.
+struct ApplicationViewV19 {
+    u64 application_id;
+    u32 version;
+    u32 flags;
+    ApplicationDownloadState download_state;
+    ApplicationDownloadState download_progress;
 };
+static_assert(sizeof(ApplicationViewV19) == 0x50, "ApplicationViewV19 has incorrect size.");
+
+struct ApplicationViewV20 {
+    u64 application_id;
+    u32 version;
+    u32 flags;
+    u32 unk;
+    ApplicationDownloadState download_state;
+    ApplicationDownloadState download_progress;
+};
+static_assert(sizeof(ApplicationViewV20) == 0x58, "ApplicationViewV20 has incorrect size.");
+
+using ApplicationView = ApplicationViewV19;
 static_assert(sizeof(ApplicationView) == 0x50, "ApplicationView has incorrect size.");
 
 struct ApplicationRightsOnClient {

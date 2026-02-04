@@ -29,7 +29,6 @@
 #include "core/hle/service/filesystem/save_data_controller.h"
 #include "core/hle/service/server_manager.h"
 #include "core/loader/loader.h"
-
 namespace Service::FileSystem {
 
 static FileSys::VirtualDir GetDirectoryRelativeWrapped(FileSys::VirtualDir base,
@@ -226,7 +225,8 @@ Result VfsDirectoryServiceWrapper::RenameDirectory(const std::string& src_path_,
 
     // Different parent directories - need to move by copying then deleting.
     // Based on LibHac's approach: create dest, copy contents recursively, delete source.
-    LOG_DEBUG(Service_FS, "Moving directory across tree from \"{}\" to \"{}\"", src_path, dest_path);
+    LOG_DEBUG(Service_FS, "Moving directory across tree from \"{}\" to \"{}\"", src_path,
+              dest_path);
 
     // Create the destination directory
     auto dest_parent = GetDirectoryRelativeWrapped(backing, Common::FS::GetParentPath(dest_path));
@@ -429,7 +429,8 @@ std::shared_ptr<FileSys::SaveDataFactory> FileSystemController::CreateSaveDataFa
         !Settings::values.global_custom_save_path.GetValue().empty()) {
 
         base_save_path_str = Settings::values.global_custom_save_path.GetValue();
-        LOG_INFO(Service_FS, "Save Path: Using Global Custom Save Path as the base: {}", base_save_path_str);
+        LOG_INFO(Service_FS, "Save Path: Using Global Custom Save Path as the base: {}",
+                 base_save_path_str);
     } else {
         base_save_path_str = Common::FS::GetCitronPathString(CitronPath::NANDDir);
         LOG_INFO(Service_FS, "Save Path: Using default NAND as the base.");
@@ -440,10 +441,11 @@ std::shared_ptr<FileSys::SaveDataFactory> FileSystemController::CreateSaveDataFa
     // 2. Check for Mirroring.
     if (Settings::values.mirrored_save_paths.count(program_id)) {
         LOG_INFO(Service_FS,
-                 "Save Path: Mirroring detected for Program ID {:016X}. Syncing against the determined base directory.",
+                 "Save Path: Mirroring detected for Program ID {:016X}. Syncing against the "
+                 "determined base directory.",
                  program_id);
         return std::make_shared<FileSys::SaveDataFactory>(system, program_id,
-                                                      std::move(base_directory));
+                                                          std::move(base_directory));
     }
 
     // 3. Check for Per-Game Custom Path override.
@@ -466,7 +468,6 @@ std::shared_ptr<FileSys::SaveDataFactory> FileSystemController::CreateSaveDataFa
     LOG_INFO(Service_FS, "Save Path: No overrides found. Using the determined base directory.");
     return std::make_shared<FileSys::SaveDataFactory>(system, program_id,
                                                       std::move(base_directory));
-
 }
 
 Result FileSystemController::OpenSDMC(FileSys::VirtualDir* out_sdmc) const {
@@ -616,7 +617,6 @@ FileSys::RegisteredCache* FileSystemController::GetSDMCContents() const {
 
     return sdmc_factory->GetSDMCContents();
 }
-
 FileSys::PlaceholderCache* FileSystemController::GetSystemNANDPlaceholder() const {
     LOG_TRACE(Service_FS, "Opening System NAND Placeholder");
 

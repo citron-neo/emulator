@@ -280,6 +280,9 @@ void WebBrowser::Initialize() {
     case ShimKind::Lobby:
         InitializeLobby();
         break;
+    case ShimKind::Unknown8:
+        LOG_WARNING(Service_AM, "(STUBBED) called, Unknown8 Applet is not implemented");
+        break;
     default:
         ASSERT_MSG(false, "Invalid ShimKind={}", web_arg_header.shim_kind);
         break;
@@ -316,6 +319,9 @@ void WebBrowser::Execute() {
         break;
     case ShimKind::Lobby:
         ExecuteLobby();
+        break;
+    case ShimKind::Unknown8:
+        WebBrowserExit(WebExitReason::EndButtonPressed);
         break;
     default:
         ASSERT_MSG(false, "Invalid ShimKind={}", web_arg_header.shim_kind);

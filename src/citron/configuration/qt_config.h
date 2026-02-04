@@ -44,7 +44,7 @@ protected:
     void SaveUIValues() override;
     void SaveUIGamelistValues() override;
     void SaveUILayoutValues() override;
-    void SaveMultiplayerValues();
+    void SaveMultiplayerValues() override;
     void SaveNetworkValues();
 
 public:

@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: Copyright 2024 yuzu Emulator Project
+// SPDX-FileCopyrightText: Copyright 2026 Citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "common/uuid.h"
@@ -15,6 +16,11 @@ public:
 private:
     Result GetAutoTransferEnabledForAccountAndApplication(Out<bool> out_is_enabled,
                                                           Common::UUID user_id, u64 application_id);
+    Result GetGlobalUploadEnabledForAccount(Out<bool> out_is_enabled, Common::UUID user_id);
+    Result SetGlobalUploadEnabledForAccount(bool is_enabled, Common::UUID user_id);
+    Result GetGlobalDownloadEnabledForAccount(Out<bool> out_is_enabled, Common::UUID user_id);
+    Result SetGlobalDownloadEnabledForAccount(bool is_enabled, Common::UUID user_id);
+    Result GetAutonomyTaskStatus(Out<u8> out_status, Common::UUID user_id);
 };
 
 } // namespace Service::OLSC

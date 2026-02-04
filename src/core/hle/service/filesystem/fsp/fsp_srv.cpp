@@ -72,7 +72,7 @@ FSP_SRV::FSP_SRV(Core::System& system_)
         {24, nullptr, "RegisterSaveDataFileSystemAtomicDeletion"},
         {25, nullptr, "DeleteSaveDataFileSystemBySaveDataSpaceId"},
         {26, nullptr, "FormatSdCardDryRun"},
-        {27, nullptr, "IsExFatSupported"},
+        {27, D<&FSP_SRV::IsExFatSupported>, "IsExFatSupported"},
         {28, nullptr, "DeleteSaveDataFileSystemBySaveDataAttribute"},
         {30, D<&FSP_SRV::OpenGameCardStorage>, "OpenGameCardStorage"},
         {31, D<&FSP_SRV::OpenGameCardFileSystem>, "OpenGameCardFileSystem"},
@@ -81,6 +81,7 @@ FSP_SRV::FSP_SRV(Core::System& system_)
         {34, D<&FSP_SRV::GetCacheStorageSize>, "GetCacheStorageSize"},
         {35, nullptr, "CreateSaveDataFileSystemByHashSalt"},
         {36, nullptr, "OpenHostFileSystemWithOption"},
+        {37, D<&FSP_SRV::OpenSaveDataTransferManager>, "OpenSaveDataTransferManager"},
         {51, D<&FSP_SRV::OpenSaveDataFileSystem>, "OpenSaveDataFileSystem"},
         {52, D<&FSP_SRV::OpenSaveDataFileSystemBySystemSaveDataId>, "OpenSaveDataFileSystemBySystemSaveDataId"},
         {53, D<&FSP_SRV::OpenReadOnlySaveDataFileSystem>, "OpenReadOnlySaveDataFileSystem"},
@@ -252,8 +253,8 @@ Result FSP_SRV::CreateSaveDataFileSystemBySystemSaveDataId(
 Result FSP_SRV::OpenSaveDataFileSystem(OutInterface<IFileSystem> out_interface,
                                        FileSys::SaveDataSpaceId space_id,
                                        FileSys::SaveDataAttribute attribute) {
-    LOG_INFO(Service_FS, "called, space_id={:02X}, program_id={:016X}",
-             static_cast<u8>(space_id), attribute.program_id);
+    LOG_INFO(Service_FS, "called, space_id={:02X}, program_id={:016X}", static_cast<u8>(space_id),
+             attribute.program_id);
 
     FileSys::VirtualDir dir{};
     // This triggers the 'Smart Pull' (Ryujinx -> Citron) in savedata_factory.cpp
@@ -278,9 +279,9 @@ Result FSP_SRV::OpenSaveDataFileSystem(OutInterface<IFileSystem> out_interface,
 
     // Wrap the directory in the IFileSystem interface.
     // We pass 'save_data_controller->GetFactory()' so the Commit function can find the Mirror.
-    *out_interface = std::make_shared<IFileSystem>(
-        system, std::move(dir), SizeGetter::FromStorageId(fsc, id),
-        save_data_controller->GetFactory(), space_id, attribute);
+    *out_interface =
+        std::make_shared<IFileSystem>(system, std::move(dir), SizeGetter::FromStorageId(fsc, id),
+                                      save_data_controller->GetFactory(), space_id, attribute);
 
     R_SUCCEED();
 }
@@ -338,8 +339,7 @@ Result FSP_SRV::WriteSaveDataFileSystemExtraData(InBuffer<BufferAttr_HipcMapAlia
     FileSys::SaveDataExtraData extra_data{};
     std::memcpy(&extra_data, buffer.data(), sizeof(FileSys::SaveDataExtraData));
 
-    R_RETURN(save_data_controller->WriteSaveDataExtraData(extra_data, space_id,
-                                                           extra_data.attr));
+    R_RETURN(save_data_controller->WriteSaveDataExtraData(extra_data, space_id, extra_data.attr));
 }
 
 Result FSP_SRV::WriteSaveDataFileSystemExtraDataWithMaskBySaveDataAttribute(
@@ -362,8 +362,8 @@ Result FSP_SRV::WriteSaveDataFileSystemExtraDataWithMaskBySaveDataAttribute(
     std::memcpy(&extra_data, buffer.data(), sizeof(FileSys::SaveDataExtraData));
     std::memcpy(&mask, mask_buffer.data(), sizeof(FileSys::SaveDataExtraData));
 
-    R_RETURN(
-        save_data_controller->WriteSaveDataExtraDataWithMask(extra_data, mask, space_id, attribute));
+    R_RETURN(save_data_controller->WriteSaveDataExtraDataWithMask(extra_data, mask, space_id,
+                                                                  attribute));
 }
 
 Result FSP_SRV::ReadSaveDataFileSystemExtraDataWithMaskBySaveDataAttribute(
@@ -415,7 +415,7 @@ Result FSP_SRV::ReadSaveDataFileSystemExtraData(OutBuffer<BufferAttr_HipcMapAlia
 
     FileSys::SaveDataExtraData extra_data{};
     R_TRY(save_data_controller->ReadSaveDataExtraData(&extra_data, FileSys::SaveDataSpaceId::User,
-                                                       attribute));
+                                                      attribute));
 
     std::memcpy(out_buffer.data(), &extra_data, sizeof(FileSys::SaveDataExtraData));
     R_SUCCEED();
@@ -660,7 +660,8 @@ Result FSP_SRV::OpenSaveDataTransferManager(OutInterface<ISaveDataTransferManage
     R_SUCCEED();
 }
 
-Result FSP_SRV::OpenSaveDataTransferManagerVersion2(OutInterface<ISaveDataTransferManager> out_interface) {
+Result FSP_SRV::OpenSaveDataTransferManagerVersion2(
+    OutInterface<ISaveDataTransferManager> out_interface) {
     LOG_DEBUG(Service_FS, "called");
 
     *out_interface = std::make_shared<ISaveDataTransferManager>(system);
@@ -690,18 +691,28 @@ Result FSP_SRV::DeleteSaveDataFileSystem(u64 save_data_id) {
     R_SUCCEED();
 }
 
-Result FSP_SRV::OpenGameCardStorage(OutInterface<IStorage> out_interface, u32 handle, u32 partition_id) {
+Result FSP_SRV::OpenGameCardStorage(OutInterface<IStorage> out_interface, u32 handle,
+                                    u32 partition_id) {
     LOG_WARNING(Service_FS, "(STUBBED) called, handle={}, partition_id={}", handle, partition_id);
 
     // Would need to open game card storage for the specified handle and partition
     R_THROW(FileSys::ResultTargetNotFound);
 }
 
-Result FSP_SRV::OpenGameCardFileSystem(OutInterface<IFileSystem> out_interface, u32 handle, u32 partition_id) {
+Result FSP_SRV::OpenGameCardFileSystem(OutInterface<IFileSystem> out_interface, u32 handle,
+                                       u32 partition_id) {
     LOG_WARNING(Service_FS, "(STUBBED) called, handle={}, partition_id={}", handle, partition_id);
 
     // Would need to open game card filesystem for the specified handle and partition
     R_THROW(FileSys::ResultTargetNotFound);
+}
+
+Result FSP_SRV::IsExFatSupported(Out<bool> out_is_supported) {
+    LOG_WARNING(Service_FS, "(STUBBED) called");
+
+    *out_is_supported = true;
+
+    R_SUCCEED();
 }
 
 } // namespace Service::FileSystem

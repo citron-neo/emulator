@@ -28,6 +28,7 @@ private:
     void CreateScanRequest(HLERequestContext& ctx);
     void CreateRequest(HLERequestContext& ctx);
     void GetCurrentNetworkProfile(HLERequestContext& ctx);
+    void EnumerateNetworkInterfaces(HLERequestContext& ctx);
     void RemoveNetworkProfile(HLERequestContext& ctx);
     void GetCurrentIpAddress(HLERequestContext& ctx);
     void CreateTemporaryNetworkProfile(HLERequestContext& ctx);
@@ -37,6 +38,7 @@ private:
     void IsEthernetCommunicationEnabled(HLERequestContext& ctx);
     void IsAnyInternetRequestAccepted(HLERequestContext& ctx);
     void IsAnyForegroundRequestAccepted(HLERequestContext& ctx);
+    void GetSsidListVersion(HLERequestContext& ctx);
     void SetWowlDelayedWakeTime(HLERequestContext& ctx);
     void GetNetworkProfile(HLERequestContext& ctx);
     void SetNetworkProfile(HLERequestContext& ctx);
@@ -47,6 +49,9 @@ private:
     void SetAcceptableNetworkTypeFlag(HLERequestContext& ctx);
     void GetAcceptableNetworkTypeFlag(HLERequestContext& ctx);
     void NotifyConnectionStateChanged(HLERequestContext& ctx);
+    void EnumerateNetworkProfiles(HLERequestContext& ctx);
+    void ConfirmSystemAvailability(HLERequestContext& ctx);
+    void SetBackgroundRequestEnabled(HLERequestContext& ctx);
     void SetWowlTcpKeepAliveTimeout(HLERequestContext& ctx);
     void IsWiredConnectionAvailable(HLERequestContext& ctx);
     void IsNetworkEmulationFeatureEnabled(HLERequestContext& ctx);

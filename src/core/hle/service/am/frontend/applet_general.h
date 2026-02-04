@@ -46,6 +46,7 @@ private:
 enum class PhotoViewerAppletMode : u8 {
     CurrentApp = 0,
     AllApps = 1,
+    ShowAllFiles = 2,
 };
 
 class PhotoViewer final : public FrontendApplet {

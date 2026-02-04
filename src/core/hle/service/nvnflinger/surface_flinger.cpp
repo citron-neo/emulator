@@ -121,6 +121,13 @@ std::shared_ptr<Layer> SurfaceFlinger::FindLayer(s32 consumer_binder_id) {
     return nullptr;
 }
 
+void SurfaceFlinger::SetLayerIsOverlay(s32 consumer_binder_id, bool is_overlay) {
+    if (const auto layer = this->FindLayer(consumer_binder_id); layer != nullptr) {
+        layer->is_overlay = is_overlay;
+        LOG_DEBUG(Service_VI, "Layer {} marked as overlay: {}", consumer_binder_id, is_overlay);
+    }
+}
+
 void SurfaceFlinger::CreateBufferQueue(s32* out_consumer_binder_id, s32* out_producer_binder_id) {
     auto& nvmap = nvdrv->GetContainer().GetNvMapFile();
     auto core = std::make_shared<android::BufferQueueCore>();

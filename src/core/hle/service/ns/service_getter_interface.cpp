@@ -42,77 +42,77 @@ IServiceGetterInterface::~IServiceGetterInterface() = default;
 
 Result IServiceGetterInterface::GetDynamicRightsInterface(
     Out<SharedPointer<IDynamicRightsInterface>> out_interface) {
-    LOG_DEBUG(Service_NS, "called");
+    LOG_INFO(Service_NS, "called");
     *out_interface = std::make_shared<IDynamicRightsInterface>(system);
     R_SUCCEED();
 }
 
 Result IServiceGetterInterface::GetReadOnlyApplicationControlDataInterface(
     Out<SharedPointer<IReadOnlyApplicationControlDataInterface>> out_interface) {
-    LOG_DEBUG(Service_NS, "called");
+    LOG_INFO(Service_NS, "called");
     *out_interface = std::make_shared<IReadOnlyApplicationControlDataInterface>(system);
     R_SUCCEED();
 }
 
 Result IServiceGetterInterface::GetReadOnlyApplicationRecordInterface(
     Out<SharedPointer<IReadOnlyApplicationRecordInterface>> out_interface) {
-    LOG_DEBUG(Service_NS, "called");
+    LOG_INFO(Service_NS, "called");
     *out_interface = std::make_shared<IReadOnlyApplicationRecordInterface>(system);
     R_SUCCEED();
 }
 
 Result IServiceGetterInterface::GetECommerceInterface(
     Out<SharedPointer<IECommerceInterface>> out_interface) {
-    LOG_DEBUG(Service_NS, "called");
+    LOG_INFO(Service_NS, "called");
     *out_interface = std::make_shared<IECommerceInterface>(system);
     R_SUCCEED();
 }
 
 Result IServiceGetterInterface::GetApplicationVersionInterface(
     Out<SharedPointer<IApplicationVersionInterface>> out_interface) {
-    LOG_DEBUG(Service_NS, "called");
+    LOG_INFO(Service_NS, "called");
     *out_interface = std::make_shared<IApplicationVersionInterface>(system);
     R_SUCCEED();
 }
 
 Result IServiceGetterInterface::GetFactoryResetInterface(
     Out<SharedPointer<IFactoryResetInterface>> out_interface) {
-    LOG_DEBUG(Service_NS, "called");
+    LOG_INFO(Service_NS, "called");
     *out_interface = std::make_shared<IFactoryResetInterface>(system);
     R_SUCCEED();
 }
 
 Result IServiceGetterInterface::GetAccountProxyInterface(
     Out<SharedPointer<IAccountProxyInterface>> out_interface) {
-    LOG_DEBUG(Service_NS, "called");
+    LOG_INFO(Service_NS, "called");
     *out_interface = std::make_shared<IAccountProxyInterface>(system);
     R_SUCCEED();
 }
 
 Result IServiceGetterInterface::GetApplicationManagerInterface(
     Out<SharedPointer<IApplicationManagerInterface>> out_interface) {
-    LOG_DEBUG(Service_NS, "called");
+    LOG_INFO(Service_NS, "called");
     *out_interface = std::make_shared<IApplicationManagerInterface>(system);
     R_SUCCEED();
 }
 
 Result IServiceGetterInterface::GetDownloadTaskInterface(
     Out<SharedPointer<IDownloadTaskInterface>> out_interface) {
-    LOG_DEBUG(Service_NS, "called");
+    LOG_INFO(Service_NS, "called");
     *out_interface = std::make_shared<IDownloadTaskInterface>(system);
     R_SUCCEED();
 }
 
 Result IServiceGetterInterface::GetContentManagementInterface(
     Out<SharedPointer<IContentManagementInterface>> out_interface) {
-    LOG_DEBUG(Service_NS, "called");
+    LOG_INFO(Service_NS, "called");
     *out_interface = std::make_shared<IContentManagementInterface>(system);
     R_SUCCEED();
 }
 
 Result IServiceGetterInterface::GetDocumentInterface(
     Out<SharedPointer<IDocumentInterface>> out_interface) {
-    LOG_DEBUG(Service_NS, "called");
+    LOG_INFO(Service_NS, "called");
     *out_interface = std::make_shared<IDocumentInterface>(system);
     R_SUCCEED();
 }

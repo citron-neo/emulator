@@ -37,16 +37,19 @@
 #include "applets/qt_profile_select.h"
 #include "applets/qt_software_keyboard.h"
 #include "applets/qt_web_browser.h"
+#include "citron/multiplayer/state.h"
+#include "citron/setup_wizard.h"
+#include "citron/util/controller_navigation.h"
 #include "common/hex_util.h"
 #include "common/nvidia_flags.h"
 #include "common/settings_enums.h"
 #include "configuration/configure_input.h"
 #include "configuration/configure_per_game.h"
 #include "configuration/configure_tas.h"
+#include "core/file_sys/nca_metadata.h"
 #include "core/file_sys/romfs_factory.h"
 #include "core/file_sys/vfs/vfs.h"
 #include "core/file_sys/vfs/vfs_real.h"
-#include "core/file_sys/nca_metadata.h"
 #include "core/frontend/applets/cabinet.h"
 #include "core/frontend/applets/controller.h"
 #include "core/frontend/applets/general.h"
@@ -58,9 +61,6 @@
 #include "frontend_common/content_manager.h"
 #include "hid_core/frontend/emulated_controller.h"
 #include "hid_core/hid_core.h"
-#include "citron/multiplayer/state.h"
-#include "citron/setup_wizard.h"
-#include "citron/util/controller_navigation.h"
 
 // These are wrappers to avoid the calls to CreateDirectory and CreateFile because of the Windows
 // defines.
@@ -78,8 +78,8 @@ static FileSys::VirtualFile VfsDirectoryCreateFileWrapper(const FileSys::Virtual
 #include <glad/glad.h>
 
 #define QT_NO_OPENGL
-#include <QClipboard>
 #include <QCheckBox>
+#include <QClipboard>
 #include <QDesktopServices>
 #include <QDir>
 #include <QFile>
@@ -123,6 +123,30 @@ static FileSys::VirtualFile VfsDirectoryCreateFileWrapper(const FileSys::Virtual
 #ifdef ARCHITECTURE_x86_64
 #include "common/x64/cpu_detect.h"
 #endif
+#include "citron/about_dialog.h"
+#include "citron/bootmanager.h"
+#include "citron/compatdb.h"
+#include "citron/compatibility_list.h"
+#include "citron/configuration/configure_dialog.h"
+#include "citron/configuration/configure_filesystem.h"
+#include "citron/configuration/configure_input_per_game.h"
+#include "citron/configuration/qt_config.h"
+#include "citron/controller_overlay.h"
+#include "citron/debugger/console.h"
+#include "citron/debugger/controller.h"
+#include "citron/debugger/profiler.h"
+#include "citron/debugger/wait_tree.h"
+#include "citron/discord.h"
+#include "citron/game_list.h"
+#include "citron/game_list_p.h"
+#include "citron/hotkeys.h"
+#include "citron/install_dialog.h"
+#include "citron/loading_screen.h"
+#include "citron/main.h"
+#include "citron/play_time_manager.h"
+#include "citron/startup_checks.h"
+#include "citron/uisettings.h"
+#include "citron/util/rainbow_style.h"
 #include "common/settings.h"
 #include "common/string_util.h"
 #include "common/telemetry.h"
@@ -157,38 +181,14 @@ static FileSys::VirtualFile VfsDirectoryCreateFileWrapper(const FileSys::Virtual
 #include "video_core/renderer_vulkan/renderer_vulkan.h"
 #include "video_core/renderer_vulkan/vk_rasterizer.h"
 #include "video_core/shader_notify.h"
-#include "citron/about_dialog.h"
-#include "citron/bootmanager.h"
-#include "citron/compatdb.h"
-#include "citron/controller_overlay.h"
-#include "core/core.h"
-#include "citron/compatibility_list.h"
-#include "citron/configuration/configure_dialog.h"
-#include "citron/configuration/configure_filesystem.h"
-#include "citron/configuration/configure_input_per_game.h"
-#include "citron/configuration/qt_config.h"
-#include "citron/debugger/console.h"
-#include "citron/debugger/controller.h"
-#include "citron/debugger/profiler.h"
-#include "citron/debugger/wait_tree.h"
-#include "citron/discord.h"
-#include "citron/game_list.h"
-#include "citron/game_list_p.h"
-#include "citron/hotkeys.h"
-#include "citron/install_dialog.h"
-#include "citron/loading_screen.h"
-#include "citron/main.h"
-#include "citron/play_time_manager.h"
-#include "citron/startup_checks.h"
-#include "citron/util/rainbow_style.h"
-#include "citron/uisettings.h"
+
 #ifdef CITRON_USE_AUTO_UPDATER
 #include "citron/updater/updater_dialog.h"
 #include "citron/updater/updater_service.h"
 #endif
 #include "citron/util/clickable_label.h"
-#include "citron/util/performance_overlay.h"
 #include "citron/util/multiplayer_room_overlay.h"
+#include "citron/util/performance_overlay.h"
 #include "citron/util/vram_overlay.h"
 #include "citron/vk_device_info.h"
 
@@ -207,8 +207,9 @@ Q_IMPORT_PLUGIN(QWindowsIntegrationPlugin);
 #endif
 
 #ifdef _WIN32
-#include <windows.h>
 #include <shellscalingapi.h>
+#include <windows.h>
+
 extern "C" {
 // tells Nvidia and AMD drivers to use the dedicated GPU by default on laptops with switchable
 // graphics
@@ -345,8 +346,7 @@ bool GMainWindow::CheckDarkMode() {
 GMainWindow::GMainWindow(std::unique_ptr<QtConfig> config_, bool has_broken_vulkan)
     : system{std::make_unique<Core::System>()},
       input_subsystem{std::make_shared<InputCommon::InputSubsystem>()},
-      ui{std::make_unique<Ui::MainWindow>()},
-      config{std::move(config_)},
+      ui{std::make_unique<Ui::MainWindow>()}, config{std::move(config_)},
       vfs{std::make_shared<FileSys::RealVfsFilesystem>()},
       provider{std::make_unique<FileSys::ManualContentProvider>()} {
 #ifdef __unix__
@@ -404,7 +404,8 @@ GMainWindow::GMainWindow(std::unique_ptr<QtConfig> config_, bool has_broken_vulk
     const auto description = std::string(Common::g_scm_desc);
     const auto build_id = std::string(Common::g_build_id);
 
-    const auto citron_build = fmt::format("citron Development Build | {}-{}", branch_name, description);
+    const auto citron_build =
+        fmt::format("citron Development Build | {}-{}", branch_name, description);
     const auto override_build =
         fmt::format(fmt::runtime(std::string(Common::g_title_bar_format_idle)), build_id);
     const auto citron_build_version = override_build.empty() ? citron_build : override_build;
@@ -445,19 +446,18 @@ GMainWindow::GMainWindow(std::unique_ptr<QtConfig> config_, bool has_broken_vulk
 #endif
     UpdateWindowTitle();
 
+    LOG_INFO(Frontend, "Registering system content providers...");
     system->SetContentProvider(std::make_unique<FileSys::ContentProviderUnion>());
-    system->RegisterContentProvider(FileSys::ContentProviderUnionSlot::FrontendManual, provider.get());
-    system->GetFileSystemController().CreateFactories(*vfs);
-
-    system->SetContentProvider(std::make_unique<FileSys::ContentProviderUnion>());
-    system->RegisterContentProvider(FileSys::ContentProviderUnionSlot::FrontendManual, provider.get());
+    system->RegisterContentProvider(FileSys::ContentProviderUnionSlot::FrontendManual,
+                                    provider.get());
 
     // 1. First, create the factories
+    LOG_INFO(Frontend, "Initializing factories...");
     system->GetFileSystemController().CreateFactories(*vfs);
 
     autoloader_provider = std::make_unique<FileSys::ManualContentProvider>();
     system->RegisterContentProvider(FileSys::ContentProviderUnionSlot::Autoloader,
-    autoloader_provider.get());
+                                    autoloader_provider.get());
 
     // Remove cached contents generated during the previous session
     RemoveCachedContents();
@@ -496,16 +496,19 @@ GMainWindow::GMainWindow(std::unique_ptr<QtConfig> config_, bool has_broken_vulk
         QTimer::singleShot(0, this, [this]() {
             LOG_INFO(Frontend, "Executing deferred first-time setup check.");
 
-            // Create a non-modal QMessageBox instance with a nullptr parent to make it a top-level window.
-            // This prevents it from blocking the main application window.
+            // Create a non-modal QMessageBox instance with a nullptr parent to make it a top-level
+            // window. This prevents it from blocking the main application window.
             auto* confirmation_dialog = new QMessageBox(nullptr);
-            const bool is_gamescope = !qgetenv("GAMESCOPE_WIDTH").isEmpty() || qgetenv("XDG_CURRENT_DESKTOP") == "gamescope";
+            const bool is_gamescope = !qgetenv("GAMESCOPE_WIDTH").isEmpty() ||
+                                      qgetenv("XDG_CURRENT_DESKTOP") == "gamescope";
             if (is_gamescope) {
-                confirmation_dialog->setWindowFlags(Qt::Window | Qt::CustomizeWindowHint | Qt::WindowTitleHint | Qt::WindowStaysOnTopHint);
+                confirmation_dialog->setWindowFlags(Qt::Window | Qt::CustomizeWindowHint |
+                                                    Qt::WindowTitleHint | Qt::WindowStaysOnTopHint);
                 confirmation_dialog->resize(650, 300);
                 confirmation_dialog->setStyleSheet(QStringLiteral("font-size: 11pt;"));
             }
-            confirmation_dialog->setAttribute(Qt::WA_DeleteOnClose); // This ensures it is deleted automatically on close.
+            confirmation_dialog->setAttribute(
+                Qt::WA_DeleteOnClose); // This ensures it is deleted automatically on close.
             confirmation_dialog->setWindowModality(Qt::NonModal); // Explicitly set modality.
             confirmation_dialog->setWindowTitle(tr("First-Time Setup"));
             confirmation_dialog->setText(tr("Would you like to run the first-time setup wizard?"));
@@ -545,8 +548,10 @@ GMainWindow::GMainWindow(std::unique_ptr<QtConfig> config_, bool has_broken_vulk
     if (has_broken_vulkan) {
         UISettings::values.has_broken_vulkan = true;
 
-        QMessageBox::warning(this, tr("Broken Vulkan Installation Detected"),
-                             tr("Vulkan initialization failed during boot.<br><br>For support, please visit <b>Help > Get Support (Discord)</b> in the main emulation window."));
+        QMessageBox::warning(
+            this, tr("Broken Vulkan Installation Detected"),
+            tr("Vulkan initialization failed during boot.<br><br>For support, please visit <b>Help "
+               "> Get Support (Discord)</b> in the main emulation window."));
 
 #ifdef HAS_OPENGL
         Settings::values.renderer_backend = Settings::RendererBackend::OpenGL;
@@ -662,13 +667,13 @@ GMainWindow::GMainWindow(std::unique_ptr<QtConfig> config_, bool has_broken_vulk
     }
 
     if (!game_path.isEmpty()) {
-    // Defer the game boot until after the main event loop has started.
-    QTimer::singleShot(0, this, [this, game_path, is_fullscreen, has_gamepath]() {
-        if (has_gamepath || is_fullscreen) {
-            ui->action_Fullscreen->setChecked(is_fullscreen);
-        }
-        BootGame(game_path, ApplicationAppletParameters());
-    });
+        // Defer the game boot until after the main event loop has started.
+        QTimer::singleShot(0, this, [this, game_path, is_fullscreen, has_gamepath]() {
+            if (has_gamepath || is_fullscreen) {
+                ui->action_Fullscreen->setChecked(is_fullscreen);
+            }
+            BootGame(game_path, ApplicationAppletParameters());
+        });
     }
 }
 
@@ -875,8 +880,7 @@ void GMainWindow::SoftwareKeyboardShowNormal() {
     const auto w = layout.screen.GetWidth();
     const auto h = layout.screen.GetHeight();
 
-    software_keyboard->ShowNormalKeyboard(render_window->mapToGlobal(QPoint(x, y)),
-                                          QSize(w, h));
+    software_keyboard->ShowNormalKeyboard(render_window->mapToGlobal(QPoint(x, y)), QSize(w, h));
 }
 
 void GMainWindow::SoftwareKeyboardShowTextCheck(
@@ -911,8 +915,7 @@ void GMainWindow::SoftwareKeyboardShowInline(
     const auto h = static_cast<int>(layout.screen.GetHeight() * appear_parameters.key_top_scale_y);
 
     software_keyboard->ShowInlineKeyboard(std::move(appear_parameters),
-                                          render_window->mapToGlobal(QPoint(x, y)),
-                                          QSize(w, h));
+                                          render_window->mapToGlobal(QPoint(x, y)), QSize(w, h));
 }
 
 void GMainWindow::SoftwareKeyboardHideInline() {
@@ -993,10 +996,9 @@ void GMainWindow::WebBrowserOpenWebPage(const std::string& main_url,
 
         const auto& layout = render_window->GetFramebufferLayout();
         web_applet->resize(layout.screen.GetWidth(), layout.screen.GetHeight());
-        web_applet->move(layout.screen.left,
-                         (layout.screen.top) + menuBar()->height());
+        web_applet->move(layout.screen.left, (layout.screen.top) + menuBar()->height());
         web_applet->setZoomFactor(static_cast<qreal>(layout.screen.GetWidth()) /
-        static_cast<qreal>(Layout::ScreenUndocked::Width));
+                                  static_cast<qreal>(Layout::ScreenUndocked::Width));
 
         web_applet->setFocus();
         web_applet->show();
@@ -1097,7 +1099,8 @@ void GMainWindow::InitializeWidgets() {
 #ifdef CITRON_ENABLE_COMPATIBILITY_REPORTING
     ui->action_Report_Compatibility->setVisible(true);
 #endif
-    render_window = new GRenderWindow(this, emu_thread.get(), input_subsystem, *system, hotkey_registry);
+    render_window =
+        new GRenderWindow(this, emu_thread.get(), input_subsystem, *system, hotkey_registry);
     render_window->hide();
 
     game_list = new GameList(vfs, provider.get(), *play_time_manager, *system, this);
@@ -1362,15 +1365,17 @@ void GMainWindow::InitializeWidgets() {
     statusBar()->setVisible(true);
     setStyleSheet(QStringLiteral("QStatusBar::item{border: none;}"));
 
-    const bool is_gamescope = !qgetenv("GAMESCOPE_WIDTH").isEmpty() || qgetenv("XDG_CURRENT_DESKTOP") == "gamescope";
+    const bool is_gamescope =
+        !qgetenv("GAMESCOPE_WIDTH").isEmpty() || qgetenv("XDG_CURRENT_DESKTOP") == "gamescope";
     if (is_gamescope) {
         statusBar()->setSizeGripEnabled(true);
         this->menuBar()->setNativeMenuBar(false);
 
         QString gamescope_style = qApp->styleSheet();
-        gamescope_style.append(QStringLiteral("QMenu { background-color: #2b2b2b; border: 1px solid #3d3d3d; padding: 2px; } "
-        "QMenu::item { padding: 5px 25px 5px 20px; } "
-        "QMenu::item:selected { background-color: #3d3d3d; }"));
+        gamescope_style.append(QStringLiteral(
+            "QMenu { background-color: #2b2b2b; border: 1px solid #3d3d3d; padding: 2px; } "
+            "QMenu::item { padding: 5px 25px 5px 20px; } "
+            "QMenu::item:selected { background-color: #3d3d3d; }"));
         qApp->setStyleSheet(gamescope_style);
 
         multiplayer_room_overlay->resize(360, 240);
@@ -1465,18 +1470,22 @@ void GMainWindow::InitializeHotkeys() {
     LinkActionShortcut(ui->action_Show_Filter_Bar, QStringLiteral("Toggle Filter Bar"));
     LinkActionShortcut(ui->action_Toggle_Grid_View, QStringLiteral("Toggle Grid View"));
     LinkActionShortcut(ui->action_Show_Status_Bar, QStringLiteral("Toggle Status Bar"));
-    LinkActionShortcut(ui->action_Show_Performance_Overlay, QStringLiteral("Toggle Performance Overlay"));
+    LinkActionShortcut(ui->action_Show_Performance_Overlay,
+                       QStringLiteral("Toggle Performance Overlay"));
     LinkActionShortcut(ui->action_Show_Vram_Overlay, QStringLiteral("Toggle VRAM Overlay"));
     LinkActionShortcut(ui->actionControllerOverlay, QStringLiteral("Toggle Controller Overlay"));
-    LinkActionShortcut(ui->action_Show_Multiplayer_Room_Overlay, QStringLiteral("Toggle Multiplayer Room Overlay"));
+    LinkActionShortcut(ui->action_Show_Multiplayer_Room_Overlay,
+                       QStringLiteral("Toggle Multiplayer Room Overlay"));
     LinkActionShortcut(ui->action_Fullscreen, QStringLiteral("Fullscreen"));
     LinkActionShortcut(ui->action_Capture_Screenshot, QStringLiteral("Capture Screenshot"));
     LinkActionShortcut(ui->action_TAS_Start, QStringLiteral("TAS Start/Stop"), true);
     LinkActionShortcut(ui->action_TAS_Record, QStringLiteral("TAS Record"), true);
     LinkActionShortcut(ui->action_TAS_Reset, QStringLiteral("TAS Reset"), true);
-    LinkActionShortcut(ui->action_View_Lobby, QStringLiteral("Multiplayer Browse Public Game Lobby"));
+    LinkActionShortcut(ui->action_View_Lobby,
+                       QStringLiteral("Multiplayer Browse Public Game Lobby"));
     LinkActionShortcut(ui->action_Start_Room, QStringLiteral("Multiplayer Create Room"));
-    LinkActionShortcut(ui->action_Connect_To_Room, QStringLiteral("Multiplayer Direct Connect to Room"));
+    LinkActionShortcut(ui->action_Connect_To_Room,
+                       QStringLiteral("Multiplayer Direct Connect to Room"));
     LinkActionShortcut(ui->action_Show_Room, QStringLiteral("Multiplayer Show Current Room"));
     LinkActionShortcut(ui->action_Leave_Room, QStringLiteral("Multiplayer Leave Room"));
 
@@ -1489,15 +1498,18 @@ void GMainWindow::InitializeHotkeys() {
 
     const auto connect_shortcut = [&]<typename Fn>(const QString& action_name, const Fn& function) {
         static const std::string main_window = "Main Window";
-        const auto* hotkey = hotkey_registry.GetHotkey(main_window, action_name.toStdString(), this);
+        const auto* hotkey =
+            hotkey_registry.GetHotkey(main_window, action_name.toStdString(), this);
         auto* controller = system->HIDCore().GetEmulatedController(Core::HID::NpadIdType::Player1);
         const auto* controller_hotkey =
             hotkey_registry.GetControllerHotkey(main_window, action_name.toStdString(), controller);
         connect(hotkey, &QShortcut::activated, this, function);
-        connect(controller_hotkey, &ControllerShortcut::Activated, this, function, Qt::QueuedConnection);
+        connect(controller_hotkey, &ControllerShortcut::Activated, this, function,
+                Qt::QueuedConnection);
     };
 
-    connect_shortcut(QStringLiteral("Change Adapting Filter"), &GMainWindow::OnToggleAdaptingFilter);
+    connect_shortcut(QStringLiteral("Change Adapting Filter"),
+                     &GMainWindow::OnToggleAdaptingFilter);
     connect_shortcut(QStringLiteral("Change Docked Mode"), &GMainWindow::OnToggleDockedMode);
     connect_shortcut(QStringLiteral("Change GPU Accuracy"), &GMainWindow::OnToggleGpuAccuracy);
     connect_shortcut(QStringLiteral("Audio Mute/Unmute"), &GMainWindow::OnMute);
@@ -1511,7 +1523,8 @@ void GMainWindow::InitializeHotkeys() {
 }
 
 void GMainWindow::SetDefaultUIGeometry() {
-    const bool is_gamescope = !qgetenv("GAMESCOPE_WIDTH").isEmpty() || qgetenv("XDG_CURRENT_DESKTOP") == "gamescope";
+    const bool is_gamescope =
+        !qgetenv("GAMESCOPE_WIDTH").isEmpty() || qgetenv("XDG_CURRENT_DESKTOP") == "gamescope";
 
     if (is_gamescope) {
         this->resize(1280, 800);
@@ -1529,7 +1542,8 @@ void GMainWindow::SetDefaultUIGeometry() {
 }
 
 void GMainWindow::RestoreUIState() {
-    const bool is_gamescope = !qgetenv("GAMESCOPE_WIDTH").isEmpty() || qgetenv("XDG_CURRENT_DESKTOP") == "gamescope";
+    const bool is_gamescope =
+        !qgetenv("GAMESCOPE_WIDTH").isEmpty() || qgetenv("XDG_CURRENT_DESKTOP") == "gamescope";
 
     setWindowFlags(windowFlags() & ~Qt::FramelessWindowHint);
 
@@ -1548,10 +1562,10 @@ void GMainWindow::RestoreUIState() {
         render_window->restoreGeometry(UISettings::values.renderwindow_geometry);
     }
 
-    #if MICROPROFILE_ENABLED
+#if MICROPROFILE_ENABLED
     microProfileDialog->restoreGeometry(UISettings::values.microprofile_geometry);
     microProfileDialog->setVisible(UISettings::values.microprofile_visible.GetValue());
-    #endif
+#endif
 
     game_list->LoadInterfaceLayout();
 
@@ -1639,7 +1653,8 @@ void GMainWindow::ConnectWidgetEvents() {
     connect(game_list, &GameList::AddDirectory, this, &GMainWindow::OnGameListAddDirectory);
     connect(game_list_placeholder, &GameListPlaceholder::AddDirectory, this,
             &GMainWindow::OnGameListAddDirectory);
-    connect(game_list, &GameList::RunAutoloaderRequested, this, &GMainWindow::OnRunAutoloaderFromGameList);
+    connect(game_list, &GameList::RunAutoloaderRequested, this,
+            &GMainWindow::OnRunAutoloaderFromGameList);
     connect(game_list, &GameList::ShowList, this, &GMainWindow::OnGameListShowList);
     connect(game_list, &GameList::PopulatingCompleted,
             [this] { multiplayer_state->UpdateGameList(game_list->GetModel()); });
@@ -1685,7 +1700,8 @@ void GMainWindow::ConnectMenuEvents() {
     connect_menu(ui->action_Load_File, &GMainWindow::OnMenuLoadFile);
     connect_menu(ui->action_Load_Folder, &GMainWindow::OnMenuLoadFolder);
     connect_menu(ui->action_Install_File_NAND, &GMainWindow::OnMenuInstallToNAND);
-    connect(ui->action_Install_With_Update_Manager, &QAction::triggered, this, &GMainWindow::OnMenuInstallWithUpdateManager);
+    connect(ui->action_Install_With_Update_Manager, &QAction::triggered, this,
+            &GMainWindow::OnMenuInstallWithUpdateManager);
     connect_menu(ui->action_Trim_XCI_File, &GMainWindow::OnMenuTrimXCI);
     connect_menu(ui->action_Exit, &QMainWindow::close);
     connect_menu(ui->action_Load_Amiibo, &GMainWindow::OnLoadAmiibo);
@@ -1706,7 +1722,8 @@ void GMainWindow::ConnectMenuEvents() {
     connect_menu(ui->action_Show_Filter_Bar, &GMainWindow::OnToggleFilterBar);
     connect_menu(ui->action_Show_Status_Bar, &GMainWindow::OnToggleStatusBar);
     connect_menu(ui->action_Show_Performance_Overlay, &GMainWindow::OnTogglePerformanceOverlay);
-    connect_menu(ui->action_Show_Multiplayer_Room_Overlay, &GMainWindow::OnToggleMultiplayerRoomOverlay);
+    connect_menu(ui->action_Show_Multiplayer_Room_Overlay,
+                 &GMainWindow::OnToggleMultiplayerRoomOverlay);
     connect_menu(ui->action_Show_Vram_Overlay, &GMainWindow::OnToggleVramOverlay);
     connect_menu(ui->action_Toggle_Grid_View, &GMainWindow::OnToggleGridView);
 
@@ -1753,14 +1770,15 @@ void GMainWindow::ConnectMenuEvents() {
 
     // Help
     connect_menu(ui->action_Open_citron_Folder, &GMainWindow::OnOpenCitronFolder);
+    connect_menu(ui->action_Open_Log_Folder, &GMainWindow::OnOpenLogFolder);
     connect_menu(ui->action_Verify_installed_contents, &GMainWindow::OnVerifyInstalledContents);
     connect_menu(ui->action_Install_Firmware, &GMainWindow::OnInstallFirmware);
     connect_menu(ui->action_Install_Keys, &GMainWindow::OnInstallDecryptionKeys);
     connect_menu(ui->action_Check_For_Updates, &GMainWindow::OnCheckForUpdates);
     connect_menu(ui->action_About, &GMainWindow::OnAbout);
 
-    connect(ui->actionControllerOverlay, &QAction::triggered, this, &GMainWindow::OnToggleControllerOverlay);
-
+    connect(ui->actionControllerOverlay, &QAction::triggered, this,
+            &GMainWindow::OnToggleControllerOverlay);
 }
 
 void GMainWindow::UpdateMenuState() {
@@ -1973,7 +1991,8 @@ bool GMainWindow::LoadROM(const QString& filename, Service::AM::FrontendAppletPa
             tr("You are using the deconstructed ROM directory format for this game, which is an "
                "outdated format that has been superseded by others such as NCA, NAX, XCI, or "
                "NSP. Deconstructed ROM directories lack icons, metadata, and update "
-               "support.<br><br>For support, please visit <b>Help > Get Support (Discord)</b> in the main emulation window. This message will not be shown again."));
+               "support.<br><br>For support, please visit <b>Help > Get Support (Discord)</b> in "
+               "the main emulation window. This message will not be shown again."));
     }
 
     if (result != Core::SystemResultStatus::Success) {
@@ -2003,11 +2022,11 @@ bool GMainWindow::LoadROM(const QString& filename, Service::AM::FrontendAppletPa
                 const auto title =
                     tr("Error while loading ROM! %1", "%1 signifies a numeric error code.")
                         .arg(QString::fromStdString(error_code));
-                const auto description =
-                    tr("%1<br>For support, please visit <b>Help > Get Support (Discord)</b> in the main emulation window.",
-                       "%1 signifies an error string.")
-                        .arg(QString::fromStdString(
-                            GetResultStatusString(static_cast<Loader::ResultStatus>(error_id))));
+                const auto description = tr("%1<br>For support, please visit <b>Help > Get Support "
+                                            "(Discord)</b> in the main emulation window.",
+                                            "%1 signifies an error string.")
+                                             .arg(QString::fromStdString(GetResultStatusString(
+                                                 static_cast<Loader::ResultStatus>(error_id))));
 
                 QMessageBox::critical(this, title, description);
             } else {
@@ -2128,10 +2147,10 @@ void GMainWindow::BootGame(const QString& filename, Service::AM::FrontendAppletP
 
         // Final Fantasy Tactics requires single-core mode to boot properly
         if (title_id == 0x010038B015560000ULL) {
-            LOG_INFO(Frontend, "Applying workaround: forcing single-core mode for Final Fantasy Tactics");
+            LOG_INFO(Frontend,
+                     "Applying workaround: forcing single-core mode for Final Fantasy Tactics");
             Settings::values.use_multi_core.SetValue(false);
         }
-
     }
 
     Settings::LogSettings();
@@ -2147,7 +2166,6 @@ void GMainWindow::BootGame(const QString& filename, Service::AM::FrontendAppletP
         if (SelectAndSetCurrentUser(parameters) == false) {
             return; // User cancelled profile selection
         }
-
     }
 
     user_flag_cmd_line = false;
@@ -2321,7 +2339,8 @@ void GMainWindow::OnEmulationStopped() {
 
     // Reset the startup sync flag for the next session.
     has_performed_initial_sync = false;
-    LOG_INFO(Frontend, "Mirroring: Emulation stopped. Re-arming startup sync for next game list refresh.");
+    LOG_INFO(Frontend,
+             "Mirroring: Emulation stopped. Re-arming startup sync for next game list refresh.");
 
     // This is necessary to reset the in-memory state for the next launch.
     system->GetFileSystemController().CreateFactories(*vfs, true);
@@ -2449,7 +2468,8 @@ void GMainWindow::OnGameListOpenFolder(u64 program_id, GameListOpenTarget target
             const std::string& mirrored_path_str =
                 Settings::values.mirrored_save_paths.at(program_id);
             if (!mirrored_path_str.empty() && Common::FS::IsDir(mirrored_path_str)) {
-                LOG_INFO(Frontend, "Opening external mirrored save data path for program_id={:016x}",
+                LOG_INFO(Frontend,
+                         "Opening external mirrored save data path for program_id={:016x}",
                          program_id);
                 QDesktopServices::openUrl(
                     QUrl::fromLocalFile(QString::fromStdString(mirrored_path_str)));
@@ -2460,23 +2480,29 @@ void GMainWindow::OnGameListOpenFolder(u64 program_id, GameListOpenTarget target
         else if (Settings::values.custom_save_paths.count(program_id)) {
             const std::string& custom_path_str = Settings::values.custom_save_paths.at(program_id);
             if (!custom_path_str.empty() && Common::FS::IsDir(custom_path_str)) {
-                LOG_INFO(Frontend, "Opening per-game custom save data path for program_id={:016x}", program_id);
-                QDesktopServices::openUrl(QUrl::fromLocalFile(QString::fromStdString(custom_path_str)));
+                LOG_INFO(Frontend, "Opening per-game custom save data path for program_id={:016x}",
+                         program_id);
+                QDesktopServices::openUrl(
+                    QUrl::fromLocalFile(QString::fromStdString(custom_path_str)));
                 return;
             }
         }
         // 3. Priority 3: Global Custom Path
-        else if (Settings::values.global_custom_save_path_enabled.GetValue()) {
+        std::filesystem::path nand_dir;
+        if (Settings::values.global_custom_save_path_enabled.GetValue()) {
             const std::string& global_path_str =
                 Settings::values.global_custom_save_path.GetValue();
             if (!global_path_str.empty() && Common::FS::IsDir(global_path_str)) {
-                LOG_INFO(Frontend, "Opening global custom save data path for program_id={:016x}",
-                         program_id);
-                QDesktopServices::openUrl(
-                    QUrl::fromLocalFile(QString::fromStdString(global_path_str)));
-                return;
+                nand_dir = std::filesystem::path(global_path_str);
             }
         }
+
+        if (nand_dir.empty()) {
+            nand_dir = Common::FS::GetCitronPath(Common::FS::CitronPath::NANDDir);
+        }
+
+        auto vfs_nand_dir =
+            vfs->OpenDirectory(Common::FS::PathToUTF8String(nand_dir), FileSys::OpenMode::Read);
 
         const auto [user_save_size, device_save_size] = [this, &game_path, &program_id] {
             const FileSys::PatchManager pm{program_id, system->GetFileSystemController(),
@@ -2491,7 +2517,8 @@ void GMainWindow::OnGameListOpenFolder(u64 program_id, GameListOpenTarget target
 
                 FileSys::NACP nacp{};
                 loader->ReadControlData(nacp);
-                return std::make_pair(nacp.GetDefaultNormalSaveSize(), nacp.GetDeviceSaveDataSize());
+                return std::make_pair(nacp.GetDefaultNormalSaveSize(),
+                                      nacp.GetDeviceSaveDataSize());
             }
         }();
 
@@ -2499,10 +2526,6 @@ void GMainWindow::OnGameListOpenFolder(u64 program_id, GameListOpenTarget target
         const bool has_device_save{device_save_size > 0};
 
         ASSERT_MSG(has_user_save != has_device_save, "Game uses both user and device savedata?");
-
-        const auto nand_dir = Common::FS::GetCitronPath(Common::FS::CitronPath::NANDDir);
-        auto vfs_nand_dir =
-            vfs->OpenDirectory(Common::FS::PathToUTF8String(nand_dir), FileSys::OpenMode::Read);
 
         if (has_user_save) {
             // User save data
@@ -2935,10 +2958,10 @@ void GMainWindow::OnGameListDumpRomFS(u64 program_id, const std::string& game_pa
     }
 
     const auto base_romfs = base_nca->GetRomFS();
-    const auto dump_dir =
-        target == DumpRomFSTarget::Normal
-            ? Common::FS::GetCitronPath(Common::FS::CitronPath::DumpDir)
-            : Common::FS::GetCitronPath(Common::FS::CitronPath::SDMCDir) / "atmosphere" / "contents";
+    const auto dump_dir = target == DumpRomFSTarget::Normal
+                              ? Common::FS::GetCitronPath(Common::FS::CitronPath::DumpDir)
+                              : Common::FS::GetCitronPath(Common::FS::CitronPath::SDMCDir) /
+                                    "atmosphere" / "contents";
     const auto romfs_dir = fmt::format("{:016X}/romfs", title_id);
 
     const auto path = Common::FS::PathToUTF8String(dump_dir / romfs_dir);
@@ -3016,7 +3039,8 @@ void GMainWindow::OnGameListVerifyIntegrity(const std::string& game_path) {
 
     QProgressDialog progress(tr("Verifying integrity..."), tr("Cancel"), 0, 100, this);
 
-    const bool is_gamescope = !qgetenv("GAMESCOPE_WIDTH").isEmpty() || qgetenv("XDG_CURRENT_DESKTOP") == "gamescope";
+    const bool is_gamescope =
+        !qgetenv("GAMESCOPE_WIDTH").isEmpty() || qgetenv("XDG_CURRENT_DESKTOP") == "gamescope";
     if (is_gamescope) {
         progress.setWindowFlags(Qt::Window | Qt::WindowTitleHint | Qt::WindowStaysOnTopHint);
     }
@@ -3219,8 +3243,9 @@ bool GMainWindow::MakeShortcutIcoPath(const u64 program_id, const std::string_vi
     }
 
     // Create icon file path
-    out_icon_path /= (program_id == 0 ? fmt::format("citron-{}.{}", game_file_name, ico_extension)
-                                      : fmt::format("citron-{:016X}.{}", program_id, ico_extension));
+    out_icon_path /=
+        (program_id == 0 ? fmt::format("citron-{}.{}", game_file_name, ico_extension)
+                         : fmt::format("citron-{:016X}.{}", program_id, ico_extension));
     return true;
 }
 
@@ -3324,14 +3349,14 @@ void GMainWindow::OnGameListCreateShortcut(u64 program_id, const std::string& ga
 void GMainWindow::OnGameListOpenDirectory(const QString& directory) {
     std::filesystem::path fs_path;
     if (directory == QStringLiteral("SDMC")) {
-        fs_path =
-            Common::FS::GetCitronPath(Common::FS::CitronPath::SDMCDir) / "Nintendo/Contents/registered";
+        fs_path = Common::FS::GetCitronPath(Common::FS::CitronPath::SDMCDir) /
+                  "Nintendo/Contents/registered";
     } else if (directory == QStringLiteral("UserNAND")) {
         fs_path =
             Common::FS::GetCitronPath(Common::FS::CitronPath::NANDDir) / "user/Contents/registered";
     } else if (directory == QStringLiteral("SysNAND")) {
-        fs_path =
-            Common::FS::GetCitronPath(Common::FS::CitronPath::NANDDir) / "system/Contents/registered";
+        fs_path = Common::FS::GetCitronPath(Common::FS::CitronPath::NANDDir) /
+                  "system/Contents/registered";
     } else {
         fs_path = directory.toStdString();
     }
@@ -3586,30 +3611,32 @@ void GMainWindow::OnMenuTrimXCI() {
 
     if (!trimmer.IsValid()) {
         QMessageBox::critical(this, tr("Trim XCI File"),
-                            tr("The selected file is not a valid XCI file."));
+                              tr("The selected file is not a valid XCI file."));
         return;
     }
 
     if (!trimmer.CanBeTrimmed()) {
-        QMessageBox::information(this, tr("Trim XCI File"),
-                               tr("The XCI file does not need to be trimmed (already trimmed or no padding)."));
+        QMessageBox::information(
+            this, tr("Trim XCI File"),
+            tr("The XCI file does not need to be trimmed (already trimmed or no padding)."));
         return;
     }
 
     // Show confirmation dialog with savings information
     const double current_size_mb = static_cast<double>(trimmer.GetFileSize()) / (1024.0 * 1024.0);
     const double data_size_mb = static_cast<double>(trimmer.GetDataSize()) / (1024.0 * 1024.0);
-    const double savings_mb = static_cast<double>(trimmer.GetDiskSpaceSavings()) / (1024.0 * 1024.0);
+    const double savings_mb =
+        static_cast<double>(trimmer.GetDiskSpaceSavings()) / (1024.0 * 1024.0);
 
-    const QString info_message = tr(
-        "This function will check the empty space and then trim the XCI file to save disk space.\n\n"
-        "Current file size: %1 MB\n"
-        "Data size: %2 MB\n"
-        "Potential savings: %3 MB\n\n"
-        "How would you like to proceed?")
-        .arg(QString::number(current_size_mb, 'f', 2))
-        .arg(QString::number(data_size_mb, 'f', 2))
-        .arg(QString::number(savings_mb, 'f', 2));
+    const QString info_message = tr("This function will check the empty space and then trim the "
+                                    "XCI file to save disk space.\n\n"
+                                    "Current file size: %1 MB\n"
+                                    "Data size: %2 MB\n"
+                                    "Potential savings: %3 MB\n\n"
+                                    "How would you like to proceed?")
+                                     .arg(QString::number(current_size_mb, 'f', 2))
+                                     .arg(QString::number(data_size_mb, 'f', 2))
+                                     .arg(QString::number(savings_mb, 'f', 2));
 
     // Create custom message box with three options
     QMessageBox msgBox(this);
@@ -3640,8 +3667,7 @@ void GMainWindow::OnMenuTrimXCI() {
         const QString suggested_name = QDir(file_info.path()).filePath(new_filename);
 
         const QString output_filename = QFileDialog::getSaveFileName(
-            this, tr("Save Trimmed XCI File As"), suggested_name,
-            tr("NX Cartridge Image (*.xci)"));
+            this, tr("Save Trimmed XCI File As"), suggested_name, tr("NX Cartridge Image (*.xci)"));
 
         if (output_filename.isEmpty()) {
             return;
@@ -3737,39 +3763,41 @@ void GMainWindow::OnMenuTrimXCI() {
     // Show result
     if (outcome == Common::XCITrimmer::OperationOutcome::Successful) {
         // Calculate final size based on whether it was save-as or in-place
-        const double final_size_mb = is_save_as ? data_size_mb :
-                                    static_cast<double>(trimmer.GetFileSize()) / (1024.0 * 1024.0);
+        const double final_size_mb =
+            is_save_as ? data_size_mb
+                       : static_cast<double>(trimmer.GetFileSize()) / (1024.0 * 1024.0);
         const double actual_savings_mb = current_size_mb - final_size_mb;
 
         QString success_message;
         if (is_save_as) {
-            success_message = tr("Successfully created trimmed XCI file!\n\n"
-                               "Original file: %1\n"
-                               "Original size: %2 MB\n"
-                               "New file: %3\n"
-                               "New size: %4 MB\n"
-                               "Space saved: %5 MB")
-                .arg(QFileInfo(filename).fileName())
-                .arg(QString::number(current_size_mb, 'f', 2))
-                .arg(QFileInfo(QString::fromStdString(output_path.string())).fileName())
-                .arg(QString::number(final_size_mb, 'f', 2))
-                .arg(QString::number(actual_savings_mb, 'f', 2));
+            success_message =
+                tr("Successfully created trimmed XCI file!\n\n"
+                   "Original file: %1\n"
+                   "Original size: %2 MB\n"
+                   "New file: %3\n"
+                   "New size: %4 MB\n"
+                   "Space saved: %5 MB")
+                    .arg(QFileInfo(filename).fileName())
+                    .arg(QString::number(current_size_mb, 'f', 2))
+                    .arg(QFileInfo(QString::fromStdString(output_path.string())).fileName())
+                    .arg(QString::number(final_size_mb, 'f', 2))
+                    .arg(QString::number(actual_savings_mb, 'f', 2));
         } else {
             success_message = tr("Successfully trimmed XCI file!\n\n"
-                               "Original size: %1 MB\n"
-                               "New size: %2 MB\n"
-                               "Space saved: %3 MB")
-                .arg(QString::number(current_size_mb, 'f', 2))
-                .arg(QString::number(final_size_mb, 'f', 2))
-                .arg(QString::number(actual_savings_mb, 'f', 2));
+                                 "Original size: %1 MB\n"
+                                 "New size: %2 MB\n"
+                                 "Space saved: %3 MB")
+                                  .arg(QString::number(current_size_mb, 'f', 2))
+                                  .arg(QString::number(final_size_mb, 'f', 2))
+                                  .arg(QString::number(actual_savings_mb, 'f', 2));
         }
 
         QMessageBox::information(this, tr("Trim XCI File"), success_message);
     } else {
-        const QString error_message = QString::fromStdString(
-            Common::XCITrimmer::GetOperationOutcomeString(outcome));
+        const QString error_message =
+            QString::fromStdString(Common::XCITrimmer::GetOperationOutcomeString(outcome));
         QMessageBox::critical(this, tr("Trim XCI File"),
-                            tr("Failed to trim XCI file: %1").arg(error_message));
+                              tr("Failed to trim XCI file: %1").arg(error_message));
     }
 }
 
@@ -4023,17 +4051,20 @@ void GMainWindow::OpenURL(const QUrl& url) {
 
 void GMainWindow::OnOpenSupport() {
     QMessageBox::StandardButton first_warning;
-    first_warning = QMessageBox::question(this, tr("Discord Server Rules"),
-                                          tr("WARNING: Before joining the Citron Discord server, you will be required to accept the rules of the server before talking in off-topic channels. Do you understand you must follow & read the #rules upon entering the server?"),
-                                          QMessageBox::Yes | QMessageBox::No,
-                                          QMessageBox::Yes);
+    first_warning = QMessageBox::question(
+        this, tr("Discord Server Rules"),
+        tr("WARNING: Before joining the Citron Discord server, you will be required to accept the "
+           "rules of the server before talking in off-topic channels. Do you understand you must "
+           "follow & read the #rules upon entering the server?"),
+        QMessageBox::Yes | QMessageBox::No, QMessageBox::Yes);
 
     if (first_warning == QMessageBox::Yes) {
         QMessageBox::StandardButton second_warning;
-        second_warning = QMessageBox::question(this, tr("Final Confirmation"),
-                                               tr("WARNING: Are you sure you understand that you must follow the rules of the Discord before asking for support?"),
-                                               QMessageBox::Yes | QMessageBox::No,
-                                               QMessageBox::Yes);
+        second_warning =
+            QMessageBox::question(this, tr("Final Confirmation"),
+                                  tr("WARNING: Are you sure you understand that you must follow "
+                                     "the rules of the Discord before asking for support?"),
+                                  QMessageBox::Yes | QMessageBox::No, QMessageBox::Yes);
 
         if (second_warning == QMessageBox::Yes) {
             OpenURL(QUrl(QStringLiteral("https://discord.gg/citron")));
@@ -4099,16 +4130,19 @@ void GMainWindow::ShowFullscreen() {
 }
 
 void GMainWindow::HideFullscreen() {
-    const bool is_gamescope = !qgetenv("GAMESCOPE_WIDTH").isEmpty() || qgetenv("XDG_CURRENT_DESKTOP") == "gamescope";
+    const bool is_gamescope =
+        !qgetenv("GAMESCOPE_WIDTH").isEmpty() || qgetenv("XDG_CURRENT_DESKTOP") == "gamescope";
 
     if (ui->action_Single_Window_Mode->isChecked()) {
         if (UsingExclusiveFullscreen()) {
             showNormal();
-            if (!is_gamescope) restoreGeometry(UISettings::values.geometry);
+            if (!is_gamescope)
+                restoreGeometry(UISettings::values.geometry);
         } else {
             hide();
             setWindowFlags(windowFlags() & ~Qt::FramelessWindowHint);
-            if (!is_gamescope) restoreGeometry(UISettings::values.geometry);
+            if (!is_gamescope)
+                restoreGeometry(UISettings::values.geometry);
             raise();
             show();
         }
@@ -4118,11 +4152,13 @@ void GMainWindow::HideFullscreen() {
     } else {
         if (UsingExclusiveFullscreen()) {
             render_window->showNormal();
-            if (!is_gamescope) render_window->restoreGeometry(UISettings::values.renderwindow_geometry);
+            if (!is_gamescope)
+                render_window->restoreGeometry(UISettings::values.renderwindow_geometry);
         } else {
             render_window->hide();
             render_window->setWindowFlags(windowFlags() & ~Qt::FramelessWindowHint);
-            if (!is_gamescope) render_window->restoreGeometry(UISettings::values.renderwindow_geometry);
+            if (!is_gamescope)
+                render_window->restoreGeometry(UISettings::values.renderwindow_geometry);
             render_window->raise();
             render_window->show();
         }
@@ -4158,14 +4194,15 @@ void GMainWindow::ToggleWindowMode() {
 }
 
 void GMainWindow::ResetWindowSize(u32 width, u32 height) {
-    const bool is_gamescope = !qgetenv("GAMESCOPE_WIDTH").isEmpty() || qgetenv("XDG_CURRENT_DESKTOP") == "gamescope";
+    const bool is_gamescope =
+        !qgetenv("GAMESCOPE_WIDTH").isEmpty() || qgetenv("XDG_CURRENT_DESKTOP") == "gamescope";
     if (is_gamescope) {
         return;
     }
 
     const auto aspect_ratio = Layout::EmulationAspectRatio(
         static_cast<Layout::AspectRatio>(Settings::values.aspect_ratio.GetValue()),
-                                                           static_cast<float>(height) / width);
+        static_cast<float>(height) / width);
     if (!ui->action_Single_Window_Mode->isChecked()) {
         render_window->resize(height / aspect_ratio, height);
     } else {
@@ -4593,7 +4630,12 @@ void GMainWindow::LoadAmiibo(const QString& filename) {
 
 void GMainWindow::OnOpenCitronFolder() {
     QDesktopServices::openUrl(QUrl::fromLocalFile(
-        QString::fromStdString(Common::FS::GetCitronPathString(Common::FS::CitronPath::CitronDir))));
+        QString::fromStdString(Common::FS::GetCitronPath(Common::FS::CitronPath::CitronDir))));
+}
+
+void GMainWindow::OnOpenLogFolder() {
+    QDesktopServices::openUrl(QUrl::fromLocalFile(
+        QString::fromStdString(Common::FS::GetCitronPath(Common::FS::CitronPath::LogDir))));
 }
 
 void GMainWindow::OnVerifyInstalledContents() {
@@ -4626,11 +4668,13 @@ void GMainWindow::OnVerifyInstalledContents() {
     }
 }
 
-bool GMainWindow::ExtractZipToDirectoryPublic(const std::filesystem::path& zip_path, const std::filesystem::path& extract_path) {
+bool GMainWindow::ExtractZipToDirectoryPublic(const std::filesystem::path& zip_path,
+                                              const std::filesystem::path& extract_path) {
     return ExtractZipToDirectory(zip_path, extract_path);
 }
 
-bool GMainWindow::ExtractZipToDirectory(const std::filesystem::path& zip_path, const std::filesystem::path& extract_path) {
+bool GMainWindow::ExtractZipToDirectory(const std::filesystem::path& zip_path,
+                                        const std::filesystem::path& extract_path) {
 #ifdef CITRON_ENABLE_LIBARCHIVE
     // Use libarchive if available (similar to updater code)
     struct archive* a = archive_read_new();
@@ -4693,9 +4737,9 @@ bool GMainWindow::ExtractZipToDirectory(const std::filesystem::path& zip_path, c
     // Windows fallback: use PowerShell Expand-Archive
     std::filesystem::create_directories(extract_path);
 
-    std::string powershell_cmd = "powershell -NoProfile -NonInteractive -Command \"Expand-Archive -Path \\\"" +
-                                zip_path.string() + "\\\" -DestinationPath \\\"" +
-                                extract_path.string() + "\\\" -Force\"";
+    std::string powershell_cmd =
+        "powershell -NoProfile -NonInteractive -Command \"Expand-Archive -Path \\\"" +
+        zip_path.string() + "\\\" -DestinationPath \\\"" + extract_path.string() + "\\\" -Force\"";
 
     LOG_INFO(Frontend, "Extracting firmware ZIP with PowerShell: {}", powershell_cmd);
 
@@ -4725,9 +4769,9 @@ void GMainWindow::OnInstallFirmwareFromZip() {
 
     // Check for installed keys, error out, suggest restart?
     if (!ContentManager::AreKeysPresent()) {
-        QMessageBox::information(
-            this, tr("Keys not installed"),
-            tr("Install decryption keys and restart citron before attempting to install firmware."));
+        QMessageBox::information(this, tr("Keys not installed"),
+                                 tr("Install decryption keys and restart citron before attempting "
+                                    "to install firmware."));
         return;
     }
 
@@ -4755,7 +4799,8 @@ void GMainWindow::OnInstallFirmwareFromZip() {
     QtProgressCallback(100, 5);
 
     // Create temporary extraction directory
-    std::filesystem::path temp_extract_path = std::filesystem::temp_directory_path() / "citron_firmware_temp";
+    std::filesystem::path temp_extract_path =
+        std::filesystem::temp_directory_path() / "citron_firmware_temp";
 
     // Clean up any existing temp directory
     if (std::filesystem::exists(temp_extract_path)) {
@@ -4769,8 +4814,9 @@ void GMainWindow::OnInstallFirmwareFromZip() {
     if (!ExtractZipToDirectory(firmware_zip_location.toStdString(), temp_extract_path)) {
         progress.close();
         std::filesystem::remove_all(temp_extract_path);
-        QMessageBox::critical(this, tr("Firmware install failed"),
-                            tr("Failed to extract firmware ZIP file. Make sure the file is a valid ZIP archive."));
+        QMessageBox::critical(
+            this, tr("Firmware install failed"),
+            tr("Failed to extract firmware ZIP file. Make sure the file is a valid ZIP archive."));
         return;
     }
 
@@ -4792,7 +4838,8 @@ void GMainWindow::OnInstallFirmwareFromZip() {
         progress.close();
         std::filesystem::remove_all(temp_extract_path);
         QMessageBox::warning(this, tr("Firmware install failed"),
-                             tr("Unable to locate firmware NCA files in the ZIP. Make sure the NCA files are at the root of the ZIP archive."));
+                             tr("Unable to locate firmware NCA files in the ZIP. Make sure the NCA "
+                                "files are at the root of the ZIP archive."));
         return;
     }
 
@@ -4875,7 +4922,7 @@ void GMainWindow::OnInstallFirmwareFromZip() {
 
     progress.close();
     QMessageBox::information(this, tr("Firmware installed successfully"),
-                           tr("The firmware has been installed successfully."));
+                             tr("The firmware has been installed successfully."));
     OnCheckFirmwareDecryption();
 }
 
@@ -4887,9 +4934,9 @@ void GMainWindow::OnInstallFirmware() {
 
     // Check for installed keys, error out, suggest restart?
     if (!ContentManager::AreKeysPresent()) {
-        QMessageBox::information(
-            this, tr("Keys not installed"),
-            tr("Install decryption keys and restart citron before attempting to install firmware."));
+        QMessageBox::information(this, tr("Keys not installed"),
+                                 tr("Install decryption keys and restart citron before attempting "
+                                    "to install firmware."));
         return;
     }
 
@@ -5208,7 +5255,8 @@ u64 GMainWindow::GetTotalVram() const {
         Vulkan::RendererVulkan* vulkan_renderer = dynamic_cast<Vulkan::RendererVulkan*>(&renderer);
         if (vulkan_renderer) {
             VideoCore::RasterizerInterface* rasterizer = vulkan_renderer->ReadRasterizer();
-            Vulkan::RasterizerVulkan* vulkan_rasterizer = dynamic_cast<Vulkan::RasterizerVulkan*>(rasterizer);
+            Vulkan::RasterizerVulkan* vulkan_rasterizer =
+                dynamic_cast<Vulkan::RasterizerVulkan*>(rasterizer);
             if (vulkan_rasterizer) {
                 return vulkan_rasterizer->GetTotalVram();
             }
@@ -5229,7 +5277,8 @@ u64 GMainWindow::GetUsedVram() const {
         Vulkan::RendererVulkan* vulkan_renderer = dynamic_cast<Vulkan::RendererVulkan*>(&renderer);
         if (vulkan_renderer) {
             VideoCore::RasterizerInterface* rasterizer = vulkan_renderer->ReadRasterizer();
-            Vulkan::RasterizerVulkan* vulkan_rasterizer = dynamic_cast<Vulkan::RasterizerVulkan*>(rasterizer);
+            Vulkan::RasterizerVulkan* vulkan_rasterizer =
+                dynamic_cast<Vulkan::RasterizerVulkan*>(rasterizer);
             if (vulkan_rasterizer) {
                 return vulkan_rasterizer->GetUsedVram();
             }
@@ -5250,7 +5299,8 @@ u64 GMainWindow::GetBufferMemoryUsage() const {
         Vulkan::RendererVulkan* vulkan_renderer = dynamic_cast<Vulkan::RendererVulkan*>(&renderer);
         if (vulkan_renderer) {
             VideoCore::RasterizerInterface* rasterizer = vulkan_renderer->ReadRasterizer();
-            Vulkan::RasterizerVulkan* vulkan_rasterizer = dynamic_cast<Vulkan::RasterizerVulkan*>(rasterizer);
+            Vulkan::RasterizerVulkan* vulkan_rasterizer =
+                dynamic_cast<Vulkan::RasterizerVulkan*>(rasterizer);
             if (vulkan_rasterizer) {
                 return vulkan_rasterizer->GetBufferMemoryUsage();
             }
@@ -5271,7 +5321,8 @@ u64 GMainWindow::GetTextureMemoryUsage() const {
         Vulkan::RendererVulkan* vulkan_renderer = dynamic_cast<Vulkan::RendererVulkan*>(&renderer);
         if (vulkan_renderer) {
             VideoCore::RasterizerInterface* rasterizer = vulkan_renderer->ReadRasterizer();
-            Vulkan::RasterizerVulkan* vulkan_rasterizer = dynamic_cast<Vulkan::RasterizerVulkan*>(rasterizer);
+            Vulkan::RasterizerVulkan* vulkan_rasterizer =
+                dynamic_cast<Vulkan::RasterizerVulkan*>(rasterizer);
             if (vulkan_rasterizer) {
                 return vulkan_rasterizer->GetTextureMemoryUsage();
             }
@@ -5292,7 +5343,8 @@ u64 GMainWindow::GetStagingMemoryUsage() const {
         Vulkan::RendererVulkan* vulkan_renderer = dynamic_cast<Vulkan::RendererVulkan*>(&renderer);
         if (vulkan_renderer) {
             VideoCore::RasterizerInterface* rasterizer = vulkan_renderer->ReadRasterizer();
-            Vulkan::RasterizerVulkan* vulkan_rasterizer = dynamic_cast<Vulkan::RasterizerVulkan*>(rasterizer);
+            Vulkan::RasterizerVulkan* vulkan_rasterizer =
+                dynamic_cast<Vulkan::RasterizerVulkan*>(rasterizer);
             if (vulkan_rasterizer) {
                 return vulkan_rasterizer->GetStagingMemoryUsage();
             }
@@ -5437,8 +5489,8 @@ void GMainWindow::OnCaptureScreenshot() {
 
     const u64 title_id = current_title_id;
 
-    const auto screenshot_path =
-        QString::fromStdString(Common::FS::GetCitronPathString(Common::FS::CitronPath::ScreenshotsDir));
+    const auto screenshot_path = QString::fromStdString(
+        Common::FS::GetCitronPathString(Common::FS::CitronPath::ScreenshotsDir));
     const auto date =
         QDateTime::currentDateTime().toString(QStringLiteral("yyyy-MM-dd_hh-mm-ss-zzz"));
 
@@ -5499,12 +5551,12 @@ void GMainWindow::UpdateWindowTitle(std::string_view title_name, std::string_vie
     std::string base_title = "citron ";
     base_title += Common::g_build_fullname; // This is "Nightly " or "" for Stable
     base_title += "| ";
-    base_title += Common::g_build_version;  // This is the git hash or Stable version tag.
+    base_title += Common::g_build_version; // This is the git hash or Stable version tag.
 
-    // Add the PGO tag if enabled.
-    #ifdef CITRON_ENABLE_PGO_USE
-        base_title += " | PGO";
-    #endif
+// Add the PGO tag if enabled.
+#ifdef CITRON_ENABLE_PGO_USE
+    base_title += " | PGO";
+#endif
 
     if (title_name.empty()) {
         setWindowTitle(QString::fromStdString(base_title));
@@ -5606,8 +5658,8 @@ void GMainWindow::UpdateStatusBar() {
 
     if (Settings::values.use_speed_limit.GetValue()) {
         emu_speed_label->setText(tr("Speed: %1% / %2%")
-        .arg(results.emulation_speed * 100.0, 0, 'f', 0)
-        .arg(Settings::values.speed_limit.GetValue()));
+                                     .arg(results.emulation_speed * 100.0, 0, 'f', 0)
+                                     .arg(Settings::values.speed_limit.GetValue()));
     } else {
         emu_speed_label->setText(tr("Speed: %1%").arg(results.emulation_speed * 100.0, 0, 'f', 0));
     }
@@ -5694,7 +5746,8 @@ void GMainWindow::UpdateStatusButtons() {
 }
 
 void GMainWindow::UpdateUISettings() {
-    const bool is_gamescope = !qgetenv("GAMESCOPE_WIDTH").isEmpty() || qgetenv("XDG_CURRENT_DESKTOP") == "gamescope";
+    const bool is_gamescope =
+        !qgetenv("GAMESCOPE_WIDTH").isEmpty() || qgetenv("XDG_CURRENT_DESKTOP") == "gamescope";
 
     // Only save/restore geometry if we are NOT in gamescope to prevent resolution bugs
     if (!ui->action_Fullscreen->isChecked() && !is_gamescope) {
@@ -5703,10 +5756,10 @@ void GMainWindow::UpdateUISettings() {
     }
 
     UISettings::values.state = saveState();
-    #if MICROPROFILE_ENABLED
+#if MICROPROFILE_ENABLED
     UISettings::values.microprofile_geometry = microProfileDialog->saveGeometry();
     UISettings::values.microprofile_visible = microProfileDialog->isVisible();
-    #endif
+#endif
     UISettings::values.single_window_mode = ui->action_Single_Window_Mode->isChecked();
     UISettings::values.fullscreen = ui->action_Fullscreen->isChecked();
     UISettings::values.display_titlebar = ui->action_Display_Dock_Widget_Headers->isChecked();
@@ -5736,10 +5789,10 @@ void GMainWindow::OnMouseActivity() {
 void GMainWindow::OnCheckFirmwareDecryption() {
     system->GetFileSystemController().CreateFactories(*vfs);
     if (!ContentManager::AreKeysPresent()) {
-        QMessageBox::warning(
-            this, tr("Derivation Components Missing"),
-            tr("Encryption keys are missing. "
-               "<br>For support, please visit <b>Help > Get Support (Discord)</b> in the main emulation window."));
+        QMessageBox::warning(this, tr("Derivation Components Missing"),
+                             tr("Encryption keys are missing. "
+                                "<br>For support, please visit <b>Help > Get Support (Discord)</b> "
+                                "in the main emulation window."));
     }
     SetFirmwareVersion();
     UpdateMenuState();
@@ -6013,11 +6066,13 @@ void GMainWindow::UpdateUITheme() {
     QIcon::setThemeName(current_theme);
     AdjustLinkColor();
 #else
-    bool is_adaptive_theme = (current_theme == QStringLiteral("default") || current_theme == QStringLiteral("colorful"));
+    bool is_adaptive_theme =
+        (current_theme == QStringLiteral("default") || current_theme == QStringLiteral("colorful"));
 
     if (is_adaptive_theme) {
         // For adaptive themes, check the OS state and load the appropriate stylesheet.
-        QIcon::setThemeName(current_theme == QStringLiteral("colorful") ? current_theme : startup_icon_theme);
+        QIcon::setThemeName(current_theme == QStringLiteral("colorful") ? current_theme
+                                                                        : startup_icon_theme);
         QIcon::setThemeSearchPaths(QStringList(default_theme_paths));
         if (CheckDarkMode()) {
             // If OS is dark, use the dark variant of the adaptive theme.
@@ -6195,8 +6250,8 @@ void VolumeButton::ResetMultiplier() {
 
 static void SetHighDPIAttributes() {
     [[maybe_unused]] const bool is_gamescope = !qgetenv("GAMESCOPE_WIDTH").isEmpty() ||
-    qgetenv("XDG_CURRENT_DESKTOP") == "gamescope" ||
-    !qgetenv("STEAM_DECK").isEmpty();
+                                               qgetenv("XDG_CURRENT_DESKTOP") == "gamescope" ||
+                                               !qgetenv("STEAM_DECK").isEmpty();
 
 #ifdef _WIN32
     // Windows logic: Set policy globally.
@@ -6209,7 +6264,7 @@ static void SetHighDPIAttributes() {
 
     HMODULE shcore = LoadLibrary(L"shcore.dll");
     if (shcore) {
-        typedef HRESULT(WINAPI* SetProcessDpiAwarenessFunc)(int);
+        typedef HRESULT(WINAPI * SetProcessDpiAwarenessFunc)(int);
         SetProcessDpiAwarenessFunc setProcessDpiAwareness =
             (SetProcessDpiAwarenessFunc)GetProcAddress(shcore, "SetProcessDpiAwareness");
         if (setProcessDpiAwareness) {
@@ -6218,11 +6273,11 @@ static void SetHighDPIAttributes() {
         FreeLibrary(shcore);
     }
 #else
-if (is_gamescope) {
-    // PassThrough prevents Qt6 from recursively expanding layouts to fit rounded DPIs
-    QGuiApplication::setHighDpiScaleFactorRoundingPolicy(
-        Qt::HighDpiScaleFactorRoundingPolicy::PassThrough);
-}
+    if (is_gamescope) {
+        // PassThrough prevents Qt6 from recursively expanding layouts to fit rounded DPIs
+        QGuiApplication::setHighDpiScaleFactorRoundingPolicy(
+            Qt::HighDpiScaleFactorRoundingPolicy::PassThrough);
+    }
 #endif
 }
 
@@ -6322,14 +6377,12 @@ int main(int argc, char* argv[]) {
 #endif
 
     if (is_gamescope) {
-        app.setStyleSheet(app.styleSheet().append(QStringLiteral(
-            "QDialog { "
-            "   font-size: 11pt; "
-            "   margin: 0px; "
-            "   padding: 0px; "
-            "}"
-            "QLabel { font-size: 10pt; }"
-        )));
+        app.setStyleSheet(app.styleSheet().append(QStringLiteral("QDialog { "
+                                                                 "   font-size: 11pt; "
+                                                                 "   margin: 0px; "
+                                                                 "   padding: 0px; "
+                                                                 "}"
+                                                                 "QLabel { font-size: 10pt; }")));
 
         app.setStyle(QStyleFactory::create(QStringLiteral("Fusion")));
     }
@@ -6341,7 +6394,8 @@ int main(int argc, char* argv[]) {
 #endif
 
 #ifdef CITRON_USE_AUTO_UPDATER
-    std::filesystem::path app_dir = std::filesystem::path(QCoreApplication::applicationDirPath().toStdString());
+    std::filesystem::path app_dir =
+        std::filesystem::path(QCoreApplication::applicationDirPath().toStdString());
 
 #ifdef _WIN32
     // On Windows, updates are applied by the helper script after the app exits.
@@ -6349,7 +6403,8 @@ int main(int argc, char* argv[]) {
     if (std::filesystem::exists(staging_path)) {
         try {
             std::filesystem::remove_all(staging_path);
-        } catch (...) {}
+        } catch (...) {
+        }
     }
 #else
     if (Updater::UpdaterService::HasStagedUpdate(app_dir)) {
@@ -6387,19 +6442,19 @@ int main(int argc, char* argv[]) {
 }
 
 void GMainWindow::OnCheckForUpdates() {
-    #ifdef CITRON_USE_AUTO_UPDATER
+#ifdef CITRON_USE_AUTO_UPDATER
     auto* updater_dialog = new Updater::UpdaterDialog(this);
     updater_dialog->setAttribute(Qt::WA_DeleteOnClose);
     updater_dialog->show();
     updater_dialog->CheckForUpdates();
-    #else
+#else
     QMessageBox::information(this, tr("Updates"),
                              tr("The automatic updater is not enabled in this build."));
-    #endif
+#endif
 }
 
 void GMainWindow::CheckForUpdatesAutomatically() {
-    #ifdef CITRON_USE_AUTO_UPDATER
+#ifdef CITRON_USE_AUTO_UPDATER
     // Check if automatic updates are enabled in general settings
     if (!Settings::values.enable_auto_update_check.GetValue()) {
         return;
@@ -6416,8 +6471,12 @@ void GMainWindow::CheckForUpdatesAutomatically() {
                     QMessageBox msg_box(this);
                     msg_box.setWindowTitle(tr("Update Available"));
                     msg_box.setText(tr("A new version of Citron is available: %1")
-                                      .arg(QString::fromStdString(update_info.version)));
-                    msg_box.setInformativeText(tr("Click Help → Check for Updates to download it. You can also choose whether you get notified of Stable or Nightly releases. Head over to Emulation -> Configure & go to the UI Tab and choose your selection within the Update Channel."));
+                                        .arg(QString::fromStdString(update_info.version)));
+                    msg_box.setInformativeText(
+                        tr("Click Help → Check for Updates to download it. You can also choose "
+                           "whether you get notified of Stable or Nightly releases. Head over to "
+                           "Emulation -> Configure & go to the UI Tab and choose your selection "
+                           "within the Update Channel."));
                     msg_box.setIcon(QMessageBox::Information);
                     msg_box.setStandardButtons(QMessageBox::Ok);
 
@@ -6437,17 +6496,18 @@ void GMainWindow::CheckForUpdatesAutomatically() {
                 updater_service->deleteLater();
             });
 
-    connect(updater_service, &Updater::UpdaterService::UpdateCompleted, this,
-            [updater_service](Updater::UpdaterService::UpdateResult result, const QString& message) {
-                if (result == Updater::UpdaterService::UpdateResult::NetworkError ||
-                    result == Updater::UpdaterService::UpdateResult::Failed) {
-                    LOG_WARNING(Frontend, "Automatic update check failed: {}", message.toStdString());
-                    }
-                    updater_service->deleteLater();
-            });
+    connect(
+        updater_service, &Updater::UpdaterService::UpdateCompleted, this,
+        [updater_service](Updater::UpdaterService::UpdateResult result, const QString& message) {
+            if (result == Updater::UpdaterService::UpdateResult::NetworkError ||
+                result == Updater::UpdaterService::UpdateResult::Failed) {
+                LOG_WARNING(Frontend, "Automatic update check failed: {}", message.toStdString());
+            }
+            updater_service->deleteLater();
+        });
 
     updater_service->CheckForUpdates();
-    #endif
+#endif
 }
 
 void GMainWindow::RegisterAutoloaderContents() {
@@ -6463,7 +6523,8 @@ void GMainWindow::RegisterAutoloaderContents() {
     LOG_INFO(Frontend, "Scanning for Autoloader contents...");
 
     for (const auto& title_dir_entry : std::filesystem::directory_iterator(autoloader_root)) {
-        if (!title_dir_entry.is_directory()) continue;
+        if (!title_dir_entry.is_directory())
+            continue;
 
         u64 title_id_val = 0;
         try {
@@ -6473,27 +6534,34 @@ void GMainWindow::RegisterAutoloaderContents() {
         }
 
         const auto it = disabled_addons.find(title_id_val);
-        const auto& disabled_for_game = (it != disabled_addons.end()) ? it->second : std::vector<std::string>{};
+        const auto& disabled_for_game =
+            (it != disabled_addons.end()) ? it->second : std::vector<std::string>{};
 
         const auto process_content_type = [&](const std::filesystem::path& content_path) {
-            if (!Common::FS::IsDir(content_path)) return;
+            if (!Common::FS::IsDir(content_path))
+                return;
 
             for (const auto& mod_dir_entry : std::filesystem::directory_iterator(content_path)) {
-                if (!mod_dir_entry.is_directory()) continue;
+                if (!mod_dir_entry.is_directory())
+                    continue;
 
                 const std::string mod_name = mod_dir_entry.path().filename().string();
-                if (std::find(disabled_for_game.begin(), disabled_for_game.end(), mod_name) != disabled_for_game.end()) {
-                    LOG_INFO(Frontend, "Skipping disabled Autoloader content: {}", mod_name);
-                    continue;
-                }
+                // Citron: We do NOT skip disabled content here.
+                // If we skip it here, it doesn't show up in the UI (Properties -> Add-ons),
+                // making it impossible for the user to re-enable it.
+                // The PatchManager (core/file_sys/patch_manager.cpp) handles the actual enforcement
+                // of disabled status during game load.
 
                 std::optional<FileSys::CNMT> cnmt;
-                for (const auto& file_entry : std::filesystem::directory_iterator(mod_dir_entry.path())) {
+                for (const auto& file_entry :
+                     std::filesystem::directory_iterator(mod_dir_entry.path())) {
                     if (file_entry.path().string().ends_with(".cnmt.nca")) {
-                        auto vfs_file = vfs->OpenFile(file_entry.path().string(), FileSys::OpenMode::Read);
+                        auto vfs_file =
+                            vfs->OpenFile(file_entry.path().string(), FileSys::OpenMode::Read);
                         if (vfs_file) {
                             FileSys::NCA meta_nca(vfs_file);
-                            if (meta_nca.GetStatus() == Loader::ResultStatus::Success && !meta_nca.GetSubdirectories().empty()) {
+                            if (meta_nca.GetStatus() == Loader::ResultStatus::Success &&
+                                !meta_nca.GetSubdirectories().empty()) {
                                 auto section0 = meta_nca.GetSubdirectories()[0];
                                 if (!section0->GetFiles().empty()) {
                                     cnmt.emplace(section0->GetFiles()[0]);
@@ -6504,14 +6572,16 @@ void GMainWindow::RegisterAutoloaderContents() {
                     }
                 }
 
-                if (!cnmt) continue;
+                if (!cnmt)
+                    continue;
 
                 for (const auto& record : cnmt->GetContentRecords()) {
                     std::string nca_filename = Common::HexToString(record.nca_id) + ".nca";
                     std::filesystem::path nca_path = mod_dir_entry.path() / nca_filename;
                     auto nca_vfs_file = vfs->OpenFile(nca_path.string(), FileSys::OpenMode::Read);
                     if (nca_vfs_file) {
-                        autoloader_provider->AddEntry(cnmt->GetType(), record.type, cnmt->GetTitleID(), nca_vfs_file);
+                        autoloader_provider->AddEntry(cnmt->GetType(), record.type,
+                                                      cnmt->GetTitleID(), nca_vfs_file);
                     }
                 }
             }
@@ -6540,20 +6610,23 @@ void GMainWindow::OnMenuInstallWithUpdateManager() {
     for (const QString& file : filenames) {
         QString sanitized_path = file;
         if (sanitized_path.contains(QLatin1String(".nsp/"))) {
-            sanitized_path = sanitized_path.left(sanitized_path.indexOf(QLatin1String(".nsp/")) + 4);
+            sanitized_path =
+                sanitized_path.left(sanitized_path.indexOf(QLatin1String(".nsp/")) + 4);
         }
         auto vfs_file = vfs->OpenFile(sanitized_path.toStdString(), FileSys::OpenMode::Read);
         if (vfs_file) {
             FileSys::NSP nsp(vfs_file);
             if (nsp.GetStatus() == Loader::ResultStatus::Success && !nsp.GetNCAs().empty()) {
                 const auto& [title_id, nca_map] = *nsp.GetNCAs().begin();
-                const auto meta_iter = std::find_if(nca_map.begin(), nca_map.end(), [](const auto& pair){
-                    return pair.first.second == FileSys::ContentRecordType::Meta;
-                });
+                const auto meta_iter =
+                    std::find_if(nca_map.begin(), nca_map.end(), [](const auto& pair) {
+                        return pair.first.second == FileSys::ContentRecordType::Meta;
+                    });
 
                 if (meta_iter != nca_map.end()) {
                     const auto& meta_nca = meta_iter->second;
-                    if (meta_nca && !meta_nca->GetSubdirectories().empty() && !meta_nca->GetSubdirectories()[0]->GetFiles().empty()) {
+                    if (meta_nca && !meta_nca->GetSubdirectories().empty() &&
+                        !meta_nca->GetSubdirectories()[0]->GetFiles().empty()) {
                         const auto cnmt_file = meta_nca->GetSubdirectories()[0]->GetFiles()[0];
                         const FileSys::CNMT cnmt(cnmt_file);
                         if (cnmt.GetType() != FileSys::TitleType::Update) {
@@ -6568,7 +6641,8 @@ void GMainWindow::OnMenuInstallWithUpdateManager() {
 
     if (dlc_detected) {
         QMessageBox::warning(this, tr("DLC Detected"),
-            tr("The Update Manager is not compatible with DLC installations. Please select only update files."));
+                             tr("The Update Manager is not compatible with DLC installations. "
+                                "Please select only update files."));
         return; // Abort the operation.
     }
 
@@ -6576,7 +6650,8 @@ void GMainWindow::OnMenuInstallWithUpdateManager() {
     for (const QString& file : filenames) {
         QString sanitized_path = file;
         if (sanitized_path.contains(QLatin1String(".nsp/"))) {
-            sanitized_path = sanitized_path.left(sanitized_path.indexOf(QLatin1String(".nsp/")) + 4);
+            sanitized_path =
+                sanitized_path.left(sanitized_path.indexOf(QLatin1String(".nsp/")) + 4);
         }
         auto vfs_file = vfs->OpenFile(sanitized_path.toStdString(), FileSys::OpenMode::Read);
         if (vfs_file) {
@@ -6592,7 +6667,8 @@ void GMainWindow::OnMenuInstallWithUpdateManager() {
     }
 
     if (total_size_bytes == 0) {
-        QMessageBox::warning(this, tr("No files to install"), tr("Could not find any valid files to install in the selected NSPs."));
+        QMessageBox::warning(this, tr("No files to install"),
+                             tr("Could not find any valid files to install in the selected NSPs."));
         return;
     }
 
@@ -6616,14 +6692,16 @@ void GMainWindow::OnMenuInstallWithUpdateManager() {
 
         QString sanitized_path = file;
         if (sanitized_path.contains(QLatin1String(".nsp/"))) {
-            sanitized_path = sanitized_path.left(sanitized_path.indexOf(QLatin1String(".nsp/")) + 4);
+            sanitized_path =
+                sanitized_path.left(sanitized_path.indexOf(QLatin1String(".nsp/")) + 4);
         }
         const std::string file_path = sanitized_path.toStdString();
         LOG_INFO(Loader, "UPDATE MANAGER: Processing sanitized file path: {}", file_path);
 
         auto vfs_file = vfs->OpenFile(file_path, FileSys::OpenMode::Read);
         if (!vfs_file) {
-            LOG_ERROR(Loader, "UPDATE MANAGER: FAILED at VFS Open. Could not open file: {}", file_path);
+            LOG_ERROR(Loader, "UPDATE MANAGER: FAILED at VFS Open. Could not open file: {}",
+                      file_path);
             failed_files.append(QFileInfo(file).fileName() + tr(" (File Open Error)"));
             continue;
         }
@@ -6643,12 +6721,15 @@ void GMainWindow::OnMenuInstallWithUpdateManager() {
         }
 
         const auto& [title_id, nca_map] = *title_map.begin();
-        const auto& [type_pair, meta_nca] = *std::find_if(nca_map.begin(), nca_map.end(), [](const auto& pair){
-            return pair.first.second == FileSys::ContentRecordType::Meta;
-        });
+        const auto& [type_pair, meta_nca] =
+            *std::find_if(nca_map.begin(), nca_map.end(), [](const auto& pair) {
+                return pair.first.second == FileSys::ContentRecordType::Meta;
+            });
 
-        if (!meta_nca || meta_nca->GetSubdirectories().empty() || meta_nca->GetSubdirectories()[0]->GetFiles().empty()) {
-            LOG_ERROR(Loader, "UPDATE MANAGER: FAILED at Metadata search for title {}: malformed.", title_id);
+        if (!meta_nca || meta_nca->GetSubdirectories().empty() ||
+            meta_nca->GetSubdirectories()[0]->GetFiles().empty()) {
+            LOG_ERROR(Loader, "UPDATE MANAGER: FAILED at Metadata search for title {}: malformed.",
+                      title_id);
             failed_files.append(QFileInfo(file).fileName() + tr(" (Malformed Metadata)"));
             continue;
         }
@@ -6660,11 +6741,14 @@ void GMainWindow::OnMenuInstallWithUpdateManager() {
         u64 program_id = FileSys::GetBaseTitleID(title_id);
         QString nsp_name = QFileInfo(sanitized_path).completeBaseName();
         std::string sdmc_path = Common::FS::GetCitronPathString(Common::FS::CitronPath::SDMCDir);
-        std::string dest_path_str = fmt::format("{}/autoloader/{:016X}/{}/{}", sdmc_path, program_id, type_folder, nsp_name.toStdString());
+        std::string dest_path_str = fmt::format("{}/autoloader/{:016X}/{}/{}", sdmc_path,
+                                                program_id, type_folder, nsp_name.toStdString());
 
-        auto dest_dir = VfsFilesystemCreateDirectoryWrapper(vfs, dest_path_str, FileSys::OpenMode::ReadWrite);
+        auto dest_dir =
+            VfsFilesystemCreateDirectoryWrapper(vfs, dest_path_str, FileSys::OpenMode::ReadWrite);
         if (!dest_dir) {
-            LOG_ERROR(Loader, "UPDATE MANAGER: FAILED to create destination directory: {}", dest_path_str);
+            LOG_ERROR(Loader, "UPDATE MANAGER: FAILED to create destination directory: {}",
+                      dest_path_str);
             failed_files.append(QFileInfo(file).fileName() + tr(" (Directory Creation Error)"));
             continue;
         }
@@ -6675,13 +6759,15 @@ void GMainWindow::OnMenuInstallWithUpdateManager() {
             auto dest_file = dest_dir->CreateFileRelative(source_file->GetName());
 
             if (!dest_file) {
-                LOG_ERROR(Loader, "UPDATE MANAGER: FAILED to create destination file for {}.", source_file->GetName());
+                LOG_ERROR(Loader, "UPDATE MANAGER: FAILED to create destination file for {}.",
+                          source_file->GetName());
                 copy_failed = true;
                 break;
             }
 
             if (!dest_file->Resize(source_file->GetSize())) {
-                LOG_ERROR(Loader, "UPDATE MANAGER: FAILED to resize destination file for {}.", source_file->GetName());
+                LOG_ERROR(Loader, "UPDATE MANAGER: FAILED to resize destination file for {}.",
+                          source_file->GetName());
                 copy_failed = true;
                 break;
             }
@@ -6698,7 +6784,8 @@ void GMainWindow::OnMenuInstallWithUpdateManager() {
                 const auto bytes_read = source_file->Read(buffer.data(), bytes_to_read, i);
 
                 if (bytes_read == 0 && i < source_file->GetSize()) {
-                    LOG_ERROR(Loader, "UPDATE MANAGER: FAILED to read from source file {}.", source_file->GetName());
+                    LOG_ERROR(Loader, "UPDATE MANAGER: FAILED to read from source file {}.",
+                              source_file->GetName());
                     copy_failed = true;
                     break;
                 }

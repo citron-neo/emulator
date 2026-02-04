@@ -24,17 +24,23 @@ public:
                                          u32 supported_languages);
     Result ConvertApplicationLanguageToLanguageCode(Out<u64> out_language_code,
                                                     ApplicationLanguage application_language);
+    Result GenerateApplicationRecordCount(Out<s32> out_count);
     Result ListApplicationRecord(OutArray<ApplicationRecord, BufferAttr_HipcMapAlias> out_records,
                                  Out<s32> out_count, s32 offset);
     Result GetApplicationRecordUpdateSystemEvent(OutCopyHandle<Kernel::KReadableEvent> out_event);
     Result GetGameCardMountFailureEvent(OutCopyHandle<Kernel::KReadableEvent> out_event);
     Result IsAnyApplicationEntityInstalled(Out<bool> out_is_any_application_entity_installed);
     Result GetApplicationView(
+        OutArray<ApplicationViewV20, BufferAttr_HipcMapAlias> out_application_views,
+        InArray<u64, BufferAttr_HipcMapAlias> application_ids);
+    Result GetApplicationViewDeprecated(
         OutArray<ApplicationView, BufferAttr_HipcMapAlias> out_application_views,
         InArray<u64, BufferAttr_HipcMapAlias> application_ids);
     Result GetApplicationViewWithPromotionInfo(
-        OutArray<ApplicationViewWithPromotionInfo, BufferAttr_HipcMapAlias> out_application_views,
+        OutBuffer<BufferAttr_HipcMapAlias> out_buffer, Out<u32> out_count,
         InArray<u64, BufferAttr_HipcMapAlias> application_ids);
+    Result RequestDownloadApplicationControlDataInBackground(u64 control_source,
+                                                             u64 application_id);
     Result GetApplicationRightsOnClient(
         OutArray<ApplicationRightsOnClient, BufferAttr_HipcMapAlias> out_rights, Out<u32> out_count,
         u32 flags, u64 application_id, Uid account_id);
@@ -53,7 +59,15 @@ public:
     // [20.0.0+] Stub functions for QLaunch compatibility
     Result Cmd4022(Out<u64> out_result);
     Result Cmd4023(Out<u64> out_result);
+    Result Cmd4042(Out<u64> out_result);
+    Result Cmd4053();
     Result Cmd4088(Out<u64> out_result);
+    // [1.0.0+]
+    Result CountApplicationContentMeta(Out<u32> out_count, u64 application_id);
+    Result ListAvailableAddOnContent(OutArray<u32, BufferAttr_HipcMapAlias> out_addons,
+                                     Out<u32> out_count, u32 offset, u64 application_id);
+
+    void ListApplicationTitle(HLERequestContext& ctx);
 
 private:
     KernelHelpers::ServiceContext service_context;

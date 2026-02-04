@@ -12,27 +12,29 @@
 #include <QLineEdit>
 #include <QList>
 #include <QListView>
-#include <QPushButton>
-#include <QSlider>
+#include <QNetworkAccessManager>
+#include <QNetworkReply>
 #include <QProgressBar>
+#include <QPushButton>
+#include <QResizeEvent>
+#include <QSlider>
 #include <QStandardItemModel>
 #include <QString>
-#include <QResizeEvent>
 #include <QTimer>
 #include <QToolButton>
 #include <QTreeView>
 #include <QVBoxLayout>
 #include <QVector>
 #include <QWidget>
-#include <QNetworkAccessManager>
-#include <QNetworkReply>
 
+
+#include "citron/compatibility_list.h"
+#include "citron/multiplayer/state.h"
+#include "citron/play_time_manager.h"
 #include "common/common_types.h"
 #include "core/core.h"
 #include "uisettings.h"
-#include "citron/compatibility_list.h"
-#include "citron/play_time_manager.h"
-#include "citron/multiplayer/state.h"
+
 
 class ControllerNavigation;
 class GameListWorker;
@@ -43,8 +45,8 @@ enum class AmLaunchType;
 enum class StartGameType;
 
 namespace FileSys {
-    class ManualContentProvider;
-    class VfsFilesystem;
+class ManualContentProvider;
+class VfsFilesystem;
 } // namespace FileSys
 
 enum class GameListOpenTarget {
@@ -190,8 +192,10 @@ private:
     void FilterTreeView(const QString& filter_text);
 
     void PopupContextMenu(const QPoint& menu_location);
-    void AddGamePopup(QMenu& context_menu, u64 program_id, const std::string& path, const QString& game_name);
-    void AddCustomDirPopup(QMenu& context_menu, QModelIndex selected);
+    void AddGamePopup(QMenu& context_menu, u64 program_id, const std::string& path,
+                      const QString& game_name);
+    void AddCustomDirPopup(QMenu& context_menu, QModelIndex selected,
+                           bool show_hidden_action = true);
     void AddPermDirPopup(QMenu& context_menu, QModelIndex selected);
     void AddFavoritesPopup(QMenu& context_menu);
 
