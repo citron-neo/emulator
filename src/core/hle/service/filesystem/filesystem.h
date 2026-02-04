@@ -92,7 +92,6 @@ public:
     FileSys::RegisteredCache* GetUserNANDContents() const;
     FileSys::RegisteredCache* GetSDMCContents() const;
     FileSys::RegisteredCache* GetGameCardContents() const;
-
     FileSys::PlaceholderCache* GetSystemNANDPlaceholder() const;
     FileSys::PlaceholderCache* GetUserNANDPlaceholder() const;
     FileSys::PlaceholderCache* GetSDMCPlaceholder() const;
@@ -122,7 +121,9 @@ public:
     void CreateFactories(FileSys::VfsFilesystem& vfs, bool overwrite = true);
 
     // getter for main.cpp to trigger the sync between custom game paths for separate emulators
-    FileSys::SaveDataFactory& GetSaveDataFactory() { return *global_save_data_factory; }
+    FileSys::SaveDataFactory& GetSaveDataFactory() {
+        return *global_save_data_factory;
+    }
 
     void Reset();
 

@@ -5,17 +5,21 @@
 #include "common/uuid.h"
 #include "core/core.h"
 #include "core/core_timing.h"
+#include "core/file_sys/content_archive.h"
+#include "core/file_sys/nca_metadata.h"
 #include "core/hle/service/acc/profile_manager.h"
-#include "core/hle/service/am/process_creation.h"
 #include "core/hle/service/am/applet_data_broker.h"
 #include "core/hle/service/am/applet_manager.h"
 #include "core/hle/service/am/frontend/applet_cabinet.h"
 #include "core/hle/service/am/frontend/applet_controller.h"
 #include "core/hle/service/am/frontend/applet_mii_edit_types.h"
 #include "core/hle/service/am/frontend/applet_software_keyboard_types.h"
+#include "core/hle/service/am/process_creation.h"
 #include "core/hle/service/am/service/storage.h"
 #include "core/hle/service/am/window_system.h"
+#include "core/hle/service/filesystem/filesystem.h"
 #include "hid_core/hid_types.h"
+
 
 namespace Service::AM {
 
@@ -264,8 +268,10 @@ void AppletManager::SetWindowSystem(WindowSystem* window_system) {
     m_cv.wait(lk, [&] { return m_pending_process != nullptr; });
 
     if (true && m_window_system->GetOverlayDisplayApplet() == nullptr) {
-        if (auto overlay_process = CreateProcess(m_system, static_cast<u64>(AppletProgramId::OverlayDisplay), 0, 0)) {
-            auto overlay_applet = std::make_shared<Applet>(m_system, std::move(overlay_process), false);
+        if (auto overlay_process =
+                CreateProcess(m_system, static_cast<u64>(AppletProgramId::OverlayDisplay), 0, 0)) {
+            auto overlay_applet =
+                std::make_shared<Applet>(m_system, std::move(overlay_process), false);
             overlay_applet->program_id = static_cast<u64>(AppletProgramId::OverlayDisplay);
             overlay_applet->applet_id = AppletId::OverlayDisplay;
             overlay_applet->type = AppletType::OverlayApplet;
@@ -275,7 +281,8 @@ void AppletManager::SetWindowSystem(WindowSystem* window_system) {
             overlay_applet->home_button_long_pressed_blocked = false;
             m_window_system->TrackApplet(overlay_applet, false);
             overlay_applet->process->Run();
-            LOG_INFO(Service_AM, "called, Overlay applet launched before application (initially hidden, watching home button)");
+            LOG_INFO(Service_AM, "called, Overlay applet launched before application (initially "
+                                 "hidden, watching home button)");
         }
     }
 
@@ -291,6 +298,37 @@ void AppletManager::SetWindowSystem(WindowSystem* window_system) {
     // Push UserChannel data from previous application
     if (params.launch_type == LaunchType::ApplicationInitiated) {
         applet->user_channel_launch_parameter.swap(m_system.GetUserChannel());
+
+        // Register game NCAs for QLaunch DLC support
+        m_manual_provider.ClearAllEntries();
+        const auto title_id = params.program_id;
+        auto& system_provider = m_system.GetContentProviderUnion();
+
+        LOG_INFO(Service_AM, "QLaunch Support: Registering NCAs for title_id={:016X}", title_id);
+
+        // Register Program NCA
+        auto game_nca = system_provider.GetEntry(title_id, FileSys::ContentRecordType::Program);
+        if (game_nca) {
+            m_manual_provider.AddEntry(FileSys::TitleType::Application,
+                                       FileSys::ContentRecordType::Program, title_id,
+                                       game_nca->GetBaseFile());
+            LOG_DEBUG(Service_AM, "Registered Program NCA");
+        } else {
+            LOG_WARNING(Service_AM, "Program NCA not found for title_id={:016X}", title_id);
+        }
+
+        // Register Control NCA
+        auto control_nca = system_provider.GetEntry(title_id, FileSys::ContentRecordType::Control);
+        if (control_nca) {
+            m_manual_provider.AddEntry(FileSys::TitleType::Application,
+                                       FileSys::ContentRecordType::Control, title_id,
+                                       control_nca->GetBaseFile());
+            LOG_DEBUG(Service_AM, "Registered Control NCA");
+        }
+
+        // Update the system's manual content provider slot to point to our populated provider
+        system_provider.SetSlot(FileSys::ContentProviderUnionSlot::FrontendManual,
+                                &m_manual_provider);
     }
 
     // TODO: Read whether we need a preselected user from NACP?

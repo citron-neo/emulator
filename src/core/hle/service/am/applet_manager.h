@@ -7,6 +7,7 @@
 #include <functional>
 #include <mutex>
 
+#include "core/file_sys/registered_cache.h"
 #include "core/hle/service/am/am_types.h"
 
 namespace Core {
@@ -63,6 +64,8 @@ private:
 
     FrontendAppletParameters m_pending_parameters{};
     std::unique_ptr<Process> m_pending_process{};
+
+    FileSys::ManualContentProvider m_manual_provider;
 };
 
 } // namespace Service::AM
