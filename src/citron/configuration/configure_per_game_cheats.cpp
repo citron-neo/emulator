@@ -8,14 +8,21 @@
 #include <string>
 #include <utility>
 
-#include <QHeaderView>
+#include <QDesktopServices>
+#include <QDir>
 #include <QHBoxLayout>
+#include <QHeaderView>
+#include <QMenu>
+#include <QMessageBox>
 #include <QPushButton>
 #include <QSignalBlocker>
 #include <QStandardItemModel>
 #include <QString>
 #include <QTreeView>
+#include <QUrl>
 
+#include "citron/configuration/configure_per_game_cheats.h"
+#include "common/fs/path_util.h"
 #include "common/hex_util.h"
 #include "common/settings.h"
 #include "common/string_util.h"
@@ -28,7 +35,6 @@
 #include "core/loader/loader.h"
 #include "core/memory/cheat_engine.h"
 #include "ui_configure_per_game_cheats.h"
-#include "citron/configuration/configure_per_game_cheats.h"
 
 ConfigurePerGameCheats::ConfigurePerGameCheats(Core::System& system_, QWidget* parent)
     : QWidget(parent), ui{std::make_unique<Ui::ConfigurePerGameCheats>()}, system{system_} {
@@ -46,7 +52,10 @@ ConfigurePerGameCheats::ConfigurePerGameCheats(Core::System& system_, QWidget* p
     tree_view->setSortingEnabled(true);
     tree_view->setEditTriggers(QHeaderView::NoEditTriggers);
     tree_view->setUniformRowHeights(true);
-    tree_view->setContextMenuPolicy(Qt::NoContextMenu);
+    tree_view->setContextMenuPolicy(Qt::CustomContextMenu);
+
+    connect(tree_view, &QTreeView::customContextMenuRequested, this,
+            &ConfigurePerGameCheats::OnContextMenu);
 
     item_model->insertColumns(0, 1);
     item_model->setHeaderData(0, Qt::Horizontal, tr("Cheat Name"));
@@ -64,9 +73,11 @@ ConfigurePerGameCheats::ConfigurePerGameCheats(Core::System& system_, QWidget* p
     enable_all_button = new QPushButton(tr("Enable All"));
     disable_all_button = new QPushButton(tr("Disable All"));
     save_button = new QPushButton(tr("Save"));
+    refresh_button = new QPushButton(tr("Refresh"));
 
     button_layout->addWidget(enable_all_button);
     button_layout->addWidget(disable_all_button);
+    button_layout->addWidget(refresh_button);
     button_layout->addStretch();
     button_layout->addWidget(save_button);
 
@@ -83,8 +94,8 @@ ConfigurePerGameCheats::ConfigurePerGameCheats(Core::System& system_, QWidget* p
             &ConfigurePerGameCheats::EnableAllCheats);
     connect(disable_all_button, &QPushButton::clicked, this,
             &ConfigurePerGameCheats::DisableAllCheats);
-    connect(save_button, &QPushButton::clicked, this,
-            &ConfigurePerGameCheats::SaveCheatSettings);
+    connect(save_button, &QPushButton::clicked, this, &ConfigurePerGameCheats::SaveCheatSettings);
+    connect(refresh_button, &QPushButton::clicked, this, &ConfigurePerGameCheats::RefreshCheats);
 }
 
 ConfigurePerGameCheats::~ConfigurePerGameCheats() = default;
@@ -194,7 +205,8 @@ void ConfigurePerGameCheats::LoadConfiguration() {
                     FileSys::XCI xci(file, title_id, 0);
                     if (xci.GetStatus() == Loader::ResultStatus::Success) {
                         auto program_nca = xci.GetNCAByType(FileSys::NCAContentType::Program);
-                        if (program_nca && program_nca->GetStatus() == Loader::ResultStatus::Success) {
+                        if (program_nca &&
+                            program_nca->GetStatus() == Loader::ResultStatus::Success) {
                             auto exefs = program_nca->GetExeFS();
                             if (exefs) {
                                 main_nso = exefs->GetFile("main");
@@ -241,7 +253,8 @@ void ConfigurePerGameCheats::LoadConfiguration() {
         if (load_dir) {
             auto patch_dirs = load_dir->GetSubdirectories();
             for (const auto& subdir : patch_dirs) {
-                if (!subdir) continue;
+                if (!subdir)
+                    continue;
 
                 // Use case-insensitive directory search (same as FindSubdirectoryCaseless)
                 FileSys::VirtualDir cheats_dir;
@@ -288,8 +301,10 @@ void ConfigurePerGameCheats::LoadConfiguration() {
                                     try {
                                         // Pad to full 64 chars (32 bytes) with zeros
                                         // Keep the case as-is from the filename
-                                        auto full_build_id_hex = potential_build_id + std::string(48, '0');
-                                        auto build_id_bytes = Common::HexStringToArray<0x20>(full_build_id_hex);
+                                        auto full_build_id_hex =
+                                            potential_build_id + std::string(48, '0');
+                                        auto build_id_bytes =
+                                            Common::HexStringToArray<0x20>(full_build_id_hex);
 
                                         // Verify the result is not all zeros
                                         bool is_valid_result = false;
@@ -311,7 +326,8 @@ void ConfigurePerGameCheats::LoadConfiguration() {
                                 }
                             }
                         }
-                        if (has_build_id) break;
+                        if (has_build_id)
+                            break;
                     }
                 }
             }
@@ -353,9 +369,9 @@ void ConfigurePerGameCheats::LoadConfiguration() {
     // Add cheats to tree view
     for (const auto& cheat : cheats) {
         // Extract cheat name from readable_name (null-terminated)
-        const std::string cheat_name_str(cheat.definition.readable_name.data(),
-                                         strnlen(cheat.definition.readable_name.data(),
-                                                 cheat.definition.readable_name.size()));
+        const std::string cheat_name_str(
+            cheat.definition.readable_name.data(),
+            strnlen(cheat.definition.readable_name.data(), cheat.definition.readable_name.size()));
 
         // Skip empty cheat names or cheats with no opcodes
         if (cheat_name_str.empty() || cheat.definition.num_opcodes == 0) {
@@ -369,7 +385,8 @@ void ConfigurePerGameCheats::LoadConfiguration() {
         cheat_item->setCheckable(true);
 
         // Check if cheat is disabled
-        const bool cheat_disabled = disabled_cheats_set.find(cheat_name_str) != disabled_cheats_set.end();
+        const bool cheat_disabled =
+            disabled_cheats_set.find(cheat_name_str) != disabled_cheats_set.end();
         cheat_item->setCheckState(cheat_disabled ? Qt::Unchecked : Qt::Checked);
 
         list_items.push_back(QList<QStandardItem*>{cheat_item});
@@ -473,4 +490,27 @@ void ConfigurePerGameCheats::ReloadCheatEngine() const {
     const auto& current_build_id = system.GetApplicationProcessBuildID();
     const auto cheats = pm.CreateCheatList(current_build_id);
     cheat_engine->Reload(cheats);
+}
+
+void ConfigurePerGameCheats::OnContextMenu(const QPoint& pos) {
+    const auto index = tree_view->indexAt(pos);
+    if (!index.isValid()) {
+        return;
+    }
+
+    QMenu context_menu;
+
+    auto* open_folder_action = context_menu.addAction(tr("Open Cheats Folder"));
+    connect(open_folder_action, &QAction::triggered, this, [this] {
+        const auto cheats_dir = Common::FS::GetCitronPath(Common::FS::CitronPath::LoadDir) /
+                                fmt::format("{:016X}", title_id) / "cheats";
+        QDir().mkpath(QString::fromStdString(cheats_dir.string()));
+        QDesktopServices::openUrl(QUrl::fromLocalFile(QString::fromStdString(cheats_dir.string())));
+    });
+
+    context_menu.exec(tree_view->viewport()->mapToGlobal(pos));
+}
+
+void ConfigurePerGameCheats::RefreshCheats() {
+    LoadConfiguration();
 }
