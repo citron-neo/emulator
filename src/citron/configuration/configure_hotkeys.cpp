@@ -1,6 +1,9 @@
 // SPDX-FileCopyrightText: 2017 Citra Emulator Project
+// SPDX-FileCopyrightText: 2026 Citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
+#include <QFileDialog>
+#include <QInputDialog>
 #include <QMenu>
 #include <QMessageBox>
 #include <QStandardItemModel>
@@ -9,19 +12,21 @@
 #include "hid_core/frontend/emulated_controller.h"
 #include "hid_core/hid_core.h"
 
-#include "frontend_common/config.h"
-#include "ui_configure_hotkeys.h"
 #include "citron/configuration/configure_hotkeys.h"
 #include "citron/hotkeys.h"
 #include "citron/uisettings.h"
 #include "citron/util/sequence_dialog/sequence_dialog.h"
+#include "frontend_common/config.h"
+#include "ui_configure_hotkeys.h"
 
 constexpr int name_column = 0;
 constexpr int hotkey_column = 1;
 constexpr int controller_column = 2;
 
-ConfigureHotkeys::ConfigureHotkeys(Core::HID::HIDCore& hid_core, QWidget* parent)
-    : QWidget(parent), ui(std::make_unique<Ui::ConfigureHotkeys>()),
+ConfigureHotkeys::ConfigureHotkeys(HotkeyRegistry& registry_, Core::HID::HIDCore& hid_core,
+                                   QWidget* parent)
+    : QWidget(parent), ui(std::make_unique<Ui::ConfigureHotkeys>()), registry(registry_),
+      controller(new Core::HID::EmulatedController(Core::HID::NpadIdType::Player1)),
       timeout_timer(std::make_unique<QTimer>()), poll_timer(std::make_unique<QTimer>()) {
     ui->setupUi(this);
     setFocusPolicy(Qt::ClickFocus);
@@ -36,14 +41,28 @@ ConfigureHotkeys::ConfigureHotkeys(Core::HID::HIDCore& hid_core, QWidget* parent
     ui->hotkey_list->setModel(model);
 
     ui->hotkey_list->header()->setStretchLastSection(false);
-    ui->hotkey_list->header()->setSectionResizeMode(name_column, QHeaderView::ResizeMode::Stretch);
-    ui->hotkey_list->header()->setMinimumSectionSize(150);
+    ui->hotkey_list->header()->setSectionResizeMode(name_column, QHeaderView::Interactive);
+    ui->hotkey_list->header()->setSectionResizeMode(hotkey_column, QHeaderView::Interactive);
+    ui->hotkey_list->header()->setSectionResizeMode(controller_column, QHeaderView::Stretch);
+    ui->hotkey_list->header()->setMinimumSectionSize(70);
 
     connect(ui->button_restore_defaults, &QPushButton::clicked, this,
             &ConfigureHotkeys::RestoreDefaults);
     connect(ui->button_clear_all, &QPushButton::clicked, this, &ConfigureHotkeys::ClearAll);
 
-    controller = hid_core.GetEmulatedController(Core::HID::NpadIdType::Player1);
+    // Profile Management Connections
+    connect(ui->button_new_profile, &QPushButton::clicked, this,
+            &ConfigureHotkeys::OnCreateProfile);
+    connect(ui->button_delete_profile, &QPushButton::clicked, this,
+            &ConfigureHotkeys::OnDeleteProfile);
+    connect(ui->button_rename_profile, &QPushButton::clicked, this,
+            &ConfigureHotkeys::OnRenameProfile);
+    connect(ui->button_import_profile, &QPushButton::clicked, this,
+            &ConfigureHotkeys::OnImportProfile);
+    connect(ui->button_export_profile, &QPushButton::clicked, this,
+            &ConfigureHotkeys::OnExportProfile);
+    connect(ui->combo_box_profile, qOverload<int>(&QComboBox::currentIndexChanged), this,
+            &ConfigureHotkeys::OnProfileChanged);
 
     connect(timeout_timer.get(), &QTimer::timeout, [this] {
         const bool is_button_pressed = pressed_buttons != Core::HID::NpadButton::None ||
@@ -53,8 +72,8 @@ ConfigureHotkeys::ConfigureHotkeys(Core::HID::HIDCore& hid_core, QWidget* parent
 
     connect(poll_timer.get(), &QTimer::timeout, [this] {
         pressed_buttons |= controller->GetNpadButtons().raw;
-        pressed_home_button |= this->controller->GetHomeButtons().home != 0;
-        pressed_capture_button |= this->controller->GetCaptureButtons().capture != 0;
+        pressed_home_button |= controller->GetHomeButtons().home != 0;
+        pressed_capture_button |= controller->GetCaptureButtons().capture != 0;
         if (pressed_buttons != Core::HID::NpadButton::None || pressed_home_button ||
             pressed_capture_button) {
             const QString button_name =
@@ -64,38 +83,177 @@ ConfigureHotkeys::ConfigureHotkeys(Core::HID::HIDCore& hid_core, QWidget* parent
             model->setData(button_model_index, button_name);
         }
     });
-    RetranslateUI();
+
+    ui->hotkey_list->setContextMenuPolicy(Qt::CustomContextMenu);
+
+    // Populate profile list first
+    UpdateProfileList();
 }
 
 ConfigureHotkeys::~ConfigureHotkeys() = default;
 
-void ConfigureHotkeys::Populate(const HotkeyRegistry& registry) {
-    for (const auto& group : registry.hotkey_groups) {
-        QString parent_item_data = QString::fromStdString(group.first);
-        auto* parent_item =
-            new QStandardItem(QCoreApplication::translate("Hotkeys", qPrintable(parent_item_data)));
-        parent_item->setEditable(false);
-        parent_item->setData(parent_item_data);
-        for (const auto& hotkey : group.second) {
-            QString hotkey_action_data = QString::fromStdString(hotkey.first);
-            auto* action = new QStandardItem(
-                QCoreApplication::translate("Hotkeys", qPrintable(hotkey_action_data)));
-            auto* keyseq =
-                new QStandardItem(hotkey.second.keyseq.toString(QKeySequence::NativeText));
-            auto* controller_keyseq =
-                new QStandardItem(QString::fromStdString(hotkey.second.controller_keyseq));
-            action->setEditable(false);
-            action->setData(hotkey_action_data);
-            keyseq->setEditable(false);
-            controller_keyseq->setEditable(false);
-            parent_item->appendRow({action, keyseq, controller_keyseq});
-        }
-        model->appendRow(parent_item);
+void ConfigureHotkeys::Populate() {
+    const auto& profiles = profile_manager.GetProfiles();
+    const auto& current_profile_name = profiles.current_profile;
+
+    // Use default if current profile missing (safety)
+    std::vector<Hotkey::BackendShortcut> current_shortcuts;
+    if (profiles.profiles.count(current_profile_name)) {
+        current_shortcuts = profiles.profiles.at(current_profile_name);
+    } else if (profiles.profiles.count("Default")) {
+        current_shortcuts = profiles.profiles.at("Default");
     }
 
+    // Map overrides for easy lookup: Key = Group + Name
+    std::map<std::pair<std::string, std::string>, Hotkey::BackendShortcut> overrides;
+    for (const auto& s : current_shortcuts) {
+        overrides[{s.group, s.name}] = s;
+    }
+
+    model->clear();
+    model->setColumnCount(3);
+    model->setHorizontalHeaderLabels({tr("Action"), tr("Hotkey"), tr("Controller Hotkey")});
+
+    for (const auto& [group_name, group_map] : registry.hotkey_groups) {
+        auto* parent_item = new QStandardItem(
+            QCoreApplication::translate("Hotkeys", qPrintable(QString::fromStdString(group_name))));
+        parent_item->setEditable(false);
+        parent_item->setData(QString::fromStdString(group_name));
+        model->appendRow(parent_item);
+
+        for (const auto& [action_name, hotkey] : group_map) {
+            // Determine values (Registry Default vs Profile Override)
+            QString keyseq_str = hotkey.keyseq.toString(QKeySequence::NativeText);
+            QString controller_keyseq_str = QString::fromStdString(hotkey.controller_keyseq);
+
+            if (overrides.count({group_name, action_name})) {
+                const auto& overridden = overrides.at({group_name, action_name});
+                keyseq_str = QKeySequence(QString::fromStdString(overridden.shortcut.keyseq))
+                                 .toString(QKeySequence::NativeText);
+                controller_keyseq_str =
+                    QString::fromStdString(overridden.shortcut.controller_keyseq);
+            }
+
+            auto* action_item = new QStandardItem(QCoreApplication::translate(
+                "Hotkeys", qPrintable(QString::fromStdString(action_name))));
+            action_item->setEditable(false);
+            action_item->setData(QString::fromStdString(action_name));
+
+            auto* keyseq_item = new QStandardItem(keyseq_str);
+            // Store raw keyseq string logic?
+            // The system likely expects QKeySequence string format.
+            keyseq_item->setData(keyseq_str, Qt::UserRole);
+            keyseq_item->setEditable(false);
+
+            auto* controller_item = new QStandardItem(controller_keyseq_str);
+            controller_item->setEditable(false);
+
+            parent_item->appendRow({action_item, keyseq_item, controller_item});
+        }
+
+        if (group_name == "General" || group_name == "Main Window") {
+            ui->hotkey_list->expand(parent_item->index());
+        }
+    }
     ui->hotkey_list->expandAll();
-    ui->hotkey_list->resizeColumnToContents(hotkey_column);
-    ui->hotkey_list->resizeColumnToContents(controller_column);
+
+    // Re-apply column sizing after model reset
+    ui->hotkey_list->header()->setStretchLastSection(false);
+    ui->hotkey_list->header()->setSectionResizeMode(name_column, QHeaderView::Interactive);
+    ui->hotkey_list->header()->setSectionResizeMode(hotkey_column, QHeaderView::Interactive);
+    ui->hotkey_list->header()->setSectionResizeMode(controller_column, QHeaderView::Stretch);
+    ui->hotkey_list->header()->setMinimumSectionSize(70);
+
+    ui->hotkey_list->setColumnWidth(name_column, 432);
+    ui->hotkey_list->setColumnWidth(hotkey_column, 240);
+
+    // Enforce fixed width for Restore Defaults button to prevent smudging
+    ui->button_restore_defaults->setFixedWidth(143);
+}
+
+void ConfigureHotkeys::UpdateProfileList() {
+    const QSignalBlocker blocker(ui->combo_box_profile);
+    ui->combo_box_profile->clear();
+
+    const auto& profiles = profile_manager.GetProfiles();
+    for (const auto& [name, val] : profiles.profiles) {
+        ui->combo_box_profile->addItem(QString::fromStdString(name));
+    }
+
+    ui->combo_box_profile->setCurrentText(QString::fromStdString(profiles.current_profile));
+    Populate();
+}
+
+void ConfigureHotkeys::OnCreateProfile() {
+    bool ok;
+    QString text = QInputDialog::getText(this, tr("Create Profile"), tr("Profile Name:"),
+                                         QLineEdit::Normal, QString(), &ok);
+    if (ok && !text.isEmpty()) {
+        if (profile_manager.CreateProfile(text.toStdString())) {
+            // New profile is empty. Fill with current defaults or copy current?
+            // "Defaults" logic usually implies defaults.
+            UpdateProfileList();
+        } else {
+            QMessageBox::warning(this, tr("Error"), tr("Failed to create profile."));
+        }
+    }
+}
+
+void ConfigureHotkeys::OnDeleteProfile() {
+    if (QMessageBox::question(this, tr("Delete Profile"),
+                              tr("Are you sure you want to delete this profile?"),
+                              QMessageBox::Yes | QMessageBox::No) == QMessageBox::Yes) {
+        if (profile_manager.DeleteProfile(ui->combo_box_profile->currentText().toStdString())) {
+            UpdateProfileList();
+        } else {
+            QMessageBox::warning(this, tr("Error"), tr("Failed to delete profile."));
+        }
+    }
+}
+
+void ConfigureHotkeys::OnRenameProfile() {
+    bool ok;
+    QString current_name = ui->combo_box_profile->currentText();
+    QString text = QInputDialog::getText(this, tr("Rename Profile"), tr("New Name:"),
+                                         QLineEdit::Normal, current_name, &ok);
+    if (ok && !text.isEmpty()) {
+        if (profile_manager.RenameProfile(current_name.toStdString(), text.toStdString())) {
+            UpdateProfileList();
+        } else {
+            QMessageBox::warning(this, tr("Error"), tr("Failed to rename profile."));
+        }
+    }
+}
+
+void ConfigureHotkeys::OnImportProfile() {
+    QString fileName = QFileDialog::getOpenFileName(this, tr("Import Profile"), QString(),
+                                                    tr("JSON Files (*.json)"));
+    if (!fileName.isEmpty()) {
+        if (profile_manager.ImportProfile(fileName.toStdString())) {
+            UpdateProfileList();
+        } else {
+            QMessageBox::warning(this, tr("Error"), tr("Failed to import profile."));
+        }
+    }
+}
+
+void ConfigureHotkeys::OnExportProfile() {
+    QString current = ui->combo_box_profile->currentText();
+    QString fileName = QFileDialog::getSaveFileName(
+        this, tr("Export Profile"), current + QStringLiteral(".json"), tr("JSON Files (*.json)"));
+    if (!fileName.isEmpty()) {
+        if (!profile_manager.ExportProfile(current.toStdString(), fileName.toStdString())) {
+            QMessageBox::warning(this, tr("Error"), tr("Failed to export profile."));
+        }
+    }
+}
+
+void ConfigureHotkeys::OnProfileChanged(int index) {
+    if (index == -1)
+        return;
+    const std::string name = ui->combo_box_profile->currentText().toStdString();
+    profile_manager.SetCurrentProfile(name);
+    Populate();
 }
 
 void ConfigureHotkeys::changeEvent(QEvent* event) {
@@ -108,6 +266,7 @@ void ConfigureHotkeys::changeEvent(QEvent* event) {
 
 void ConfigureHotkeys::RetranslateUI() {
     ui->retranslateUi(this);
+    ui->label_profile->setText(tr("Hotkey Profile:"));
 
     model->setHorizontalHeaderLabels({tr("Action"), tr("Hotkey"), tr("Controller Hotkey")});
     for (int key_id = 0; key_id < model->rowCount(); key_id++) {
@@ -307,28 +466,67 @@ std::pair<bool, QString> ConfigureHotkeys::IsUsedControllerKey(const QString& ke
     return std::make_pair(false, QString());
 }
 
-void ConfigureHotkeys::ApplyConfiguration(HotkeyRegistry& registry) {
-    for (int key_id = 0; key_id < model->rowCount(); key_id++) {
-        const QStandardItem* parent = model->item(key_id, 0);
-        for (int key_column_id = 0; key_column_id < parent->rowCount(); key_column_id++) {
-            const QStandardItem* action = parent->child(key_column_id, name_column);
-            const QStandardItem* keyseq = parent->child(key_column_id, hotkey_column);
-            const QStandardItem* controller_keyseq =
-                parent->child(key_column_id, controller_column);
-            for (auto& [group, sub_actions] : registry.hotkey_groups) {
-                if (group != parent->data().toString().toStdString())
-                    continue;
-                for (auto& [action_name, hotkey] : sub_actions) {
-                    if (action_name != action->data().toString().toStdString())
-                        continue;
-                    hotkey.keyseq = QKeySequence(keyseq->text());
-                    hotkey.controller_keyseq = controller_keyseq->text().toStdString();
+void ConfigureHotkeys::ApplyConfiguration() {
+    // 1. Update the runtime UISettings (Registry)
+    // We iterate the model and match against UISettings::values.shortcuts
+    const auto& children = model->invisibleRootItem();
+    for (int group_row = 0; group_row < children->rowCount(); group_row++) {
+        const auto& group_item = children->child(group_row);
+        for (int row = 0; row < group_item->rowCount(); row++) {
+            const auto& action_item = group_item->child(row, name_column);
+            const auto& keyseq_item = group_item->child(row, hotkey_column);
+            const auto& controller_item = group_item->child(row, controller_column);
+
+            const std::string group_name = group_item->data().toString().toStdString();
+            const std::string action_name = action_item->data().toString().toStdString();
+
+            // Update UISettings (Runtime)
+            for (auto& s : UISettings::values.shortcuts) {
+                if (s.group == group_name && s.name == action_name) {
+                    s.shortcut.keyseq = keyseq_item->text().toStdString();
+                    s.shortcut.controller_keyseq = controller_item->text().toStdString();
                 }
             }
         }
     }
 
-    registry.SaveHotkeys();
+    // 2. Update the ProfileManager (Storage)
+    const std::string current_profile_name = profile_manager.GetProfiles().current_profile;
+    // We need to modify the profile in the manager. GetProfiles() returns const ref.
+    // We need a method to UpdateProfile or we need to cast away const (bad) or rely on reference if
+    // GetProfiles wasn't const. The previous implementation of GetProfiles was const.
+    // ProfileManager needs a method `UpdateCurrentProfile(vector<BackendShortcut>)`?
+    // Or we can just use the internal map if we were friends.
+    // Reconstructing BackendShortcuts from UI
+    std::vector<Hotkey::BackendShortcut> new_shortcuts;
+    for (int group_row = 0; group_row < children->rowCount(); group_row++) {
+        const auto& group_item = children->child(group_row);
+        for (int row = 0; row < group_item->rowCount(); row++) {
+            const auto& action_item = group_item->child(row, name_column);
+            const auto& keyseq_item = group_item->child(row, hotkey_column);
+            const auto& controller_item = group_item->child(row, controller_column);
+
+            Hotkey::BackendShortcut s;
+            s.group = group_item->data().toString().toStdString();
+            s.name = action_item->data().toString().toStdString();
+            s.shortcut.keyseq = keyseq_item->text().toStdString();
+            s.shortcut.controller_keyseq = controller_item->text().toStdString();
+            // Context/Repeat need to be preserved from UserRole data
+            // For now, let's grab from UISettings since we just updated it or match it.
+
+            for (const auto& original : UISettings::values.shortcuts) {
+                if (original.group == s.group && original.name == s.name) {
+                    s.shortcut.context = original.shortcut.context;
+                    s.shortcut.repeat = original.shortcut.repeat;
+                    break;
+                }
+            }
+            new_shortcuts.push_back(s);
+        }
+    }
+
+    profile_manager.SetProfileShortcuts(current_profile_name, new_shortcuts);
+    profile_manager.Save();
 }
 
 void ConfigureHotkeys::RestoreDefaults() {
@@ -339,11 +537,10 @@ void ConfigureHotkeys::RestoreDefaults() {
         QStandardItem* parent = model->item(group_row, 0);
 
         for (int child_row = 0; child_row < parent->rowCount(); ++child_row) {
-            // This bounds check prevents a crash, and this was originally a safety check w/ showed if it failed,
-            // however with further testing w/ restoring default functionality, it would work yet still display, so was changed to a regular Success!.
+            // This bounds check prevents a crash.
             if (hotkey_index >= total_default_hotkeys) {
                 QMessageBox::information(this, tr("Success!"),
-                                      tr("Citron's Default hotkey entries have been restored!"));
+                                         tr("Citron's Default hotkey entries have been restored!"));
                 return;
             }
 

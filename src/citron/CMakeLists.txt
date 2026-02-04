@@ -178,6 +178,8 @@ add_executable(citron
     game_list_worker.h
     hotkeys.cpp
     hotkeys.h
+    hotkey_profile_manager.cpp
+    hotkey_profile_manager.h
     install_dialog.cpp
     install_dialog.h
     loading_screen.cpp

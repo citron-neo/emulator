@@ -1,11 +1,7 @@
-// SPDX-FileCopyrightText: 2017 Citra Emulator Project
-// SPDX-License-Identifier: GPL-2.0-or-later
-
-#pragma once
-
 #include <memory>
 #include <QStandardItemModel>
 #include <QWidget>
+#include "citron/hotkey_profile_manager.h"
 
 namespace Common {
 class ParamPackage;
@@ -28,21 +24,31 @@ class ConfigureHotkeys : public QWidget {
     Q_OBJECT
 
 public:
-    explicit ConfigureHotkeys(Core::HID::HIDCore& hid_core_, QWidget* parent = nullptr);
+    explicit ConfigureHotkeys(HotkeyRegistry& registry, Core::HID::HIDCore& hid_core_,
+                              QWidget* parent = nullptr);
     ~ConfigureHotkeys() override;
 
-    void ApplyConfiguration(HotkeyRegistry& registry);
+    void ApplyConfiguration();
 
     /**
-     * Populates the hotkey list widget using data from the provided registry.
+     * Populates the hotkey list widget using data from the provided profiles.
      * Called every time the Configure dialog is opened.
-     * @param registry The HotkeyRegistry whose data is used to populate the list.
+     * @param profiles The UserHotkeyProfiles used to populate the list.
      */
-    void Populate(const HotkeyRegistry& registry);
+    void Populate();
+
+private slots:
+    void OnCreateProfile();
+    void OnDeleteProfile();
+    void OnRenameProfile();
+    void OnImportProfile();
+    void OnExportProfile();
+    void OnProfileChanged(int index);
 
 private:
     void changeEvent(QEvent* event) override;
     void RetranslateUI();
+    void UpdateProfileList();
 
     void Configure(QModelIndex index);
     void ConfigureController(QModelIndex index);
@@ -59,6 +65,8 @@ private:
     QString GetButtonCombinationName(Core::HID::NpadButton button, bool home, bool capture) const;
 
     std::unique_ptr<Ui::ConfigureHotkeys> ui;
+    Hotkey::ProfileManager profile_manager;
+    HotkeyRegistry& registry;
 
     QStandardItemModel* model;
 
