@@ -6512,7 +6512,6 @@ void GMainWindow::CheckForUpdatesAutomatically() {
 
 void GMainWindow::RegisterAutoloaderContents() {
     autoloader_provider->ClearAllEntries();
-    const auto& disabled_addons = Settings::values.disabled_addons;
 
     const auto sdmc_path = Common::FS::GetCitronPath(Common::FS::CitronPath::SDMCDir);
     const auto autoloader_root = sdmc_path / "autoloader";
@@ -6526,9 +6525,8 @@ void GMainWindow::RegisterAutoloaderContents() {
         if (!title_dir_entry.is_directory())
             continue;
 
-        u64 title_id_val = 0;
         try {
-            title_id_val = std::stoull(title_dir_entry.path().filename().string(), nullptr, 16);
+            std::stoull(title_dir_entry.path().filename().string(), nullptr, 16);
         } catch (const std::invalid_argument&) {
             continue;
         }
@@ -6542,7 +6540,7 @@ void GMainWindow::RegisterAutoloaderContents() {
                     continue;
 
                 const std::string mod_name = mod_dir_entry.path().filename().string();
-                // Citron: We do NOT skip disabled content here.
+                // We do NOT skip disabled content here.
                 // If we skip it here, it doesn't show up in the UI (Properties -> Add-ons),
                 // making it impossible for the user to re-enable it.
                 // The PatchManager (core/file_sys/patch_manager.cpp) handles the actual enforcement
