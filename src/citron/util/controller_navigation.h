@@ -3,6 +3,8 @@
 
 #pragma once
 
+#include <mutex>
+
 #include <QKeyEvent>
 #include <QObject>
 

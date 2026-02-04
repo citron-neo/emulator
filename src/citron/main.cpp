@@ -4629,13 +4629,13 @@ void GMainWindow::LoadAmiibo(const QString& filename) {
 }
 
 void GMainWindow::OnOpenCitronFolder() {
-    QDesktopServices::openUrl(QUrl::fromLocalFile(
-        QString::fromStdString(Common::FS::GetCitronPath(Common::FS::CitronPath::CitronDir))));
+    QDesktopServices::openUrl(QUrl::fromLocalFile(QString::fromStdString(
+        Common::FS::GetCitronPath(Common::FS::CitronPath::CitronDir).string())));
 }
 
 void GMainWindow::OnOpenLogFolder() {
-    QDesktopServices::openUrl(QUrl::fromLocalFile(
-        QString::fromStdString(Common::FS::GetCitronPath(Common::FS::CitronPath::LogDir))));
+    QDesktopServices::openUrl(QUrl::fromLocalFile(QString::fromStdString(
+        Common::FS::GetCitronPath(Common::FS::CitronPath::LogDir).string())));
 }
 
 void GMainWindow::OnVerifyInstalledContents() {

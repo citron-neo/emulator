@@ -1638,10 +1638,9 @@ void GameList::AddGamePopup(QMenu& context_menu, u64 program_id, const std::stri
         const QFileInfo file_info(qpath);
         QDesktopServices::openUrl(QUrl::fromLocalFile(file_info.absolutePath()));
     });
-    connect(open_save_location, &QAction::triggered,
-            [this, program_id, game_name, copyWithProgress, path_str]() {
-                emit OpenFolderRequested(program_id, GameListOpenTarget::SaveData, path_str);
-            });
+    connect(open_save_location, &QAction::triggered, [this, program_id, path_str]() {
+        emit OpenFolderRequested(program_id, GameListOpenTarget::SaveData, path_str);
+    });
 
     connect(set_custom_save_path, &QAction::triggered, [this, program_id, copyWithProgress]() {
         const QString new_path =
