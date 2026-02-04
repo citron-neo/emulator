@@ -51,6 +51,8 @@ private:
     void SaveCheatSettings();
     void SetAllCheats(bool enabled);
     void ReloadCheatEngine() const;
+    void OnContextMenu(const QPoint& pos);
+    void RefreshCheats();
 
     std::unique_ptr<Ui::ConfigurePerGameCheats> ui;
     FileSys::VirtualFile file;
@@ -61,6 +63,7 @@ private:
     QPushButton* enable_all_button;
     QPushButton* disable_all_button;
     QPushButton* save_button;
+    QPushButton* refresh_button;
 
     QVBoxLayout* layout;
     QTreeView* tree_view;
