@@ -1187,7 +1187,13 @@ void GameList::StartLaunchAnimation(const QModelIndex& item) {
 
     QPixmap icon;
     if (original_item) {
-        icon = original_item->data(Qt::DecorationRole).value<QPixmap>();
+        icon = original_item->data(GameListItemPath::HighResIconRole).value<QPixmap>();
+        if (icon.isNull()) {
+            icon = original_item->data(Qt::DecorationRole).value<QPixmap>();
+        } else {
+            // Apply rounded corners to the high-res icon
+            icon = CreateRoundIcon(icon, 256);
+        }
     } else {
         // Fallback for safety
         icon = item.data(Qt::DecorationRole).value<QPixmap>();
@@ -1247,33 +1253,76 @@ void GameList::StartLaunchAnimation(const QModelIndex& item) {
     zoom_anim->setEasingCurve(QEasingCurve::OutCubic);
 
     auto* fly_fade_group = new QParallelAnimationGroup;
-    auto* effect = new QGraphicsOpacityEffect(animation_label);
-    animation_label->setGraphicsEffect(effect);
+    auto* icon_effect = new QGraphicsOpacityEffect(animation_label);
+    animation_label->setGraphicsEffect(icon_effect);
     auto* fly_anim = new QPropertyAnimation(animation_label, "geometry");
     fly_anim->setDuration(350);
     fly_anim->setStartValue(zoom_end_geom);
     fly_anim->setEndValue(fly_end_geom);
     fly_anim->setEasingCurve(QEasingCurve::InQuad);
-    auto* fade_anim = new QPropertyAnimation(effect, "opacity");
-    fade_anim->setDuration(350);
-    fade_anim->setStartValue(1.0f);
-    fade_anim->setEndValue(0.0f);
-    fade_anim->setEasingCurve(QEasingCurve::InQuad);
+    auto* icon_fade_anim = new QPropertyAnimation(icon_effect, "opacity");
+    icon_fade_anim->setDuration(350);
+    icon_fade_anim->setStartValue(1.0f);
+    icon_fade_anim->setEndValue(0.0f);
+    icon_fade_anim->setEasingCurve(QEasingCurve::InQuad);
     fly_fade_group->addAnimation(fly_anim);
-    fly_fade_group->addAnimation(fade_anim);
+    fly_fade_group->addAnimation(icon_fade_anim);
 
-    auto* main_group = new QSequentialAnimationGroup(animation_label);
+    // --- 4. CITRON LOGO TRANSITION ---
+    auto* logo_label = new QLabel(main_window);
+    QPixmap logo_pixmap(QStringLiteral(":/citron.svg"));
+    logo_label->setPixmap(
+        logo_pixmap.scaled(400, 400, Qt::KeepAspectRatio, Qt::SmoothTransformation));
+    logo_label->setFixedSize(400, 400);
+    logo_label->move(center_point.x() - 200, center_point.y() - 200);
+    logo_label->hide();
+
+    auto* logo_effect = new QGraphicsOpacityEffect(logo_label);
+    logo_label->setGraphicsEffect(logo_effect);
+    logo_effect->setOpacity(0.0f);
+
+    auto* logo_fade_in = new QPropertyAnimation(logo_effect, "opacity");
+    logo_fade_in->setDuration(500);
+    logo_fade_in->setStartValue(0.0f);
+    logo_fade_in->setEndValue(1.0f);
+    logo_fade_in->setEasingCurve(QEasingCurve::InOutQuad);
+
+    auto* logo_fade_out = new QPropertyAnimation(logo_effect, "opacity");
+    logo_fade_out->setDuration(500);
+    logo_fade_out->setStartValue(1.0f);
+    logo_fade_out->setEndValue(0.0f);
+    logo_fade_out->setEasingCurve(QEasingCurve::InOutQuad);
+
+    // Overlap the icon "fly-away" and the logo "fade-in"
+    auto* overlap_group = new QParallelAnimationGroup;
+    overlap_group->addAnimation(fly_fade_group);
+
+    auto* logo_fade_in_seq = new QSequentialAnimationGroup;
+    logo_fade_in_seq->addPause(100); // 100ms delay so it starts mid-fly
+    logo_fade_in_seq->addAnimation(logo_fade_in);
+    overlap_group->addAnimation(logo_fade_in_seq);
+
+    auto* main_group = new QSequentialAnimationGroup(this);
     main_group->addAnimation(zoom_anim);
     main_group->addPause(50);
-    main_group->addAnimation(fly_fade_group);
 
-    // When the icon animation finishes, launch the game and clean up.
-    // The black overlay will remain until OnEmulationEnded is called.
+    // Show logo once zoom is finished, just before fly/fade starts
+    connect(zoom_anim, &QPropertyAnimation::finished, [logo_label]() {
+        logo_label->show();
+        logo_label->raise();
+    });
+
+    main_group->addAnimation(overlap_group);
+    main_group->addPause(1000); // Shorter 1 second pause
+    main_group->addAnimation(logo_fade_out);
+
+    // When the animation finishes, launch the game and clean up.
     connect(main_group, &QSequentialAnimationGroup::finished, this,
-            [this, file_path, title_id, animation_label]() {
+            [this, file_path, title_id, animation_label, logo_label]() {
                 search_field->clear();
                 emit GameChosen(file_path, title_id);
                 animation_label->deleteLater();
+                logo_label->deleteLater();
             });
 
     main_group->start(QAbstractAnimation::DeleteWhenStopped);

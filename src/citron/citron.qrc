@@ -10,5 +10,6 @@ SPDX-License-Identifier: GPL-2.0-or-later
     </qresource>
     <qresource prefix="/">
         <file alias="dist/dice.svg">../../dist/dice.svg</file>
+        <file alias="citron.svg">../../dist/citron.svg</file>
     </qresource>
 </RCC>
