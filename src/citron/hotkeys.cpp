@@ -7,9 +7,10 @@
 #include <QTreeWidgetItem>
 #include <QtGlobal>
 
-#include "hid_core/frontend/emulated_controller.h"
 #include "citron/hotkeys.h"
 #include "citron/uisettings.h"
+#include "hid_core/frontend/emulated_controller.h"
+
 
 HotkeyRegistry::HotkeyRegistry() = default;
 HotkeyRegistry::~HotkeyRegistry() = default;
@@ -46,10 +47,10 @@ void HotkeyRegistry::SaveHotkeys() {
             if (is_modified) {
                 UISettings::values.shortcuts.push_back(
                     {action_name, group_name,
-                     UISettings::ContextualShortcut(
-                         {current_hotkey.keyseq.toString().toStdString(),
-                          current_hotkey.controller_keyseq, current_hotkey.context,
-                          current_hotkey.repeat})});
+                     UISettings::ContextualShortcut({current_hotkey.keyseq.toString().toStdString(),
+                                                     current_hotkey.controller_keyseq,
+                                                     current_hotkey.context,
+                                                     current_hotkey.repeat})});
             }
         }
     }
@@ -70,8 +71,7 @@ void HotkeyRegistry::LoadHotkeys() {
     for (const auto& shortcut : UISettings::values.shortcuts) {
         Hotkey& hk = hotkey_groups[shortcut.group][shortcut.name];
         if (!shortcut.shortcut.keyseq.empty()) {
-            hk.keyseq = QKeySequence::fromString(QString::fromStdString(shortcut.shortcut.keyseq),
-                                                 QKeySequence::NativeText);
+            hk.keyseq = QKeySequence::fromString(QString::fromStdString(shortcut.shortcut.keyseq));
         } else {
             // This is the fix: explicitly clear the key sequence if it was saved as empty.
             hk.keyseq = QKeySequence();
@@ -101,9 +101,9 @@ QShortcut* HotkeyRegistry::GetHotkey(const std::string& group, const std::string
     return hk.shortcut;
 }
 
-ControllerShortcut* HotkeyRegistry::GetControllerHotkey(const std::string& group,
-                                                        const std::string& action,
-                                                        Core::HID::EmulatedController* controller) const {
+ControllerShortcut* HotkeyRegistry::GetControllerHotkey(
+    const std::string& group, const std::string& action,
+    Core::HID::EmulatedController* controller) const {
     Hotkey& hk = hotkey_groups[group][action];
 
     if (!hk.controller_shortcut) {
@@ -114,7 +114,8 @@ ControllerShortcut* HotkeyRegistry::GetControllerHotkey(const std::string& group
     return hk.controller_shortcut;
 }
 
-QKeySequence HotkeyRegistry::GetKeySequence(const std::string& group, const std::string& action) const {
+QKeySequence HotkeyRegistry::GetKeySequence(const std::string& group,
+                                            const std::string& action) const {
     return hotkey_groups[group][action].keyseq;
 }
 

@@ -35,7 +35,7 @@ public:
      * Called every time the Configure dialog is opened.
      * @param profiles The UserHotkeyProfiles used to populate the list.
      */
-    void Populate();
+    void Populate(const std::string& profile_name = "");
 
 private slots:
     void OnCreateProfile();
@@ -60,6 +60,9 @@ private:
     void PopupContextMenu(const QPoint& menu_location);
     void RestoreControllerHotkey(QModelIndex index);
     void RestoreHotkey(QModelIndex index);
+
+    std::vector<Hotkey::BackendShortcut> GatherShortcutsFromUI() const;
+    void ApplyShortcutsToModel(const std::vector<Hotkey::BackendShortcut>& shortcuts);
 
     void SetPollingResult(bool cancel);
     QString GetButtonCombinationName(Core::HID::NpadButton button, bool home, bool capture) const;

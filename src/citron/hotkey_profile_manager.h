@@ -53,6 +53,11 @@ public:
     // Import/Export
     bool ExportProfile(const std::string& profile_name, const std::string& file_path);
     bool ImportProfile(const std::string& file_path);
+    std::string ImportProfileAndGetFinalName(const std::string& file_path);
+
+    // JSON Serialization Helpers
+    static QJsonObject SerializeShortcut(const BackendShortcut& shortcut);
+    static BackendShortcut DeserializeShortcut(const QJsonObject& obj);
 
     // IO
     void Load();
