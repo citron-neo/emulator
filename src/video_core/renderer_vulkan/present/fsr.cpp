@@ -24,8 +24,8 @@ using PushConstants = std::array<u32, 4 * 4>;
 
 FSR::FSR(const Device& device, MemoryAllocator& memory_allocator, size_t image_count,
          VkExtent2D extent)
-    : m_device{device}, m_memory_allocator{memory_allocator},
-      m_image_count{image_count}, m_extent{extent} {
+    : m_device{device}, m_memory_allocator{memory_allocator}, m_image_count{image_count},
+      m_extent{extent} {
 
     CreateImages();
     CreateRenderPasses();
@@ -157,7 +157,7 @@ void FSR::UploadImages(Scheduler& scheduler) {
 
 VkImageView FSR::Draw(Scheduler& scheduler, size_t image_index, VkImage source_image,
                       VkImageView source_image_view, VkExtent2D input_image_extent,
-                      const Common::Rectangle<f32>& crop_rect) {
+                      const Common::Rectangle<f32>& crop_rect, float sharpening) {
     Images& images = m_dynamic_images[image_index];
 
     VkImage easu_image = *images.images[Easu];
@@ -188,8 +188,6 @@ VkImageView FSR::Draw(Scheduler& scheduler, size_t image_index, VkImage source_i
                      input_image_height, output_image_width, output_image_height, viewport_x,
                      viewport_y);
 
-    const float sharpening =
-        static_cast<float>(Settings::values.fsr_sharpening_slider.GetValue()) / 100.0f;
     FsrRcasCon(rcas_con.data(), sharpening);
 
     UploadImages(scheduler);

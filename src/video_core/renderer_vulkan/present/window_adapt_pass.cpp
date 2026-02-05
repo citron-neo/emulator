@@ -2,8 +2,10 @@
 // SPDX-FileCopyrightText: Copyright 2026 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
+#include "common/settings.h"
 #include "core/frontend/framebuffer_layout.h"
 #include "video_core/framebuffer_config.h"
+#include "video_core/fsr.h"
 #include "video_core/host_shaders/vulkan_present_vert_spv.h"
 #include "video_core/renderer_vulkan/present/layer.h"
 #include "video_core/renderer_vulkan/present/present_push_constants.h"
@@ -13,7 +15,6 @@
 #include "video_core/renderer_vulkan/vk_shader_util.h"
 #include "video_core/vulkan_common/vulkan_device.h"
 #include "video_core/vulkan_common/vulkan_memory_allocator.h"
-#include "common/settings.h"
 
 namespace Vulkan {
 
@@ -93,8 +94,9 @@ void WindowAdaptPass::Draw(RasterizerVulkan& rasterizer, Scheduler& scheduler, s
         cmdbuf.ClearAttachments({clear_attachment}, {clear_rect});
 
         const auto current_scaling_filter = Settings::values.scaling_filter.GetValue();
-        const bool is_crt_enabled = current_scaling_filter == Settings::ScalingFilter::CRTEasyMode ||
-                                    current_scaling_filter == Settings::ScalingFilter::CRTRoyale;
+        const bool is_crt_enabled =
+            current_scaling_filter == Settings::ScalingFilter::CRTEasyMode ||
+            current_scaling_filter == Settings::ScalingFilter::CRTRoyale;
 
         for (size_t i = 0; i < layer_count; i++) {
             cmdbuf.BindPipeline(VK_PIPELINE_BIND_POINT_GRAPHICS, graphics_pipelines[i]);
@@ -139,6 +141,7 @@ void WindowAdaptPass::Draw(RasterizerVulkan& rasterizer, Scheduler& scheduler, s
 
             cmdbuf.BindDescriptorSets(VK_PIPELINE_BIND_POINT_GRAPHICS, graphics_pipeline_layout, 0,
                                       descriptor_sets[i], {});
+
             cmdbuf.Draw(4, 1, 0, 0);
         }
 

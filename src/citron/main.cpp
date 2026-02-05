@@ -5710,8 +5710,22 @@ void GMainWindow::UpdateAPIText() {
 void GMainWindow::UpdateFilterText() {
     const auto filter = Settings::values.scaling_filter.GetValue();
     const auto filter_text = ConfigurationShared::scaling_filter_texts_map.find(filter)->second;
-    filter_status_button->setText(filter == Settings::ScalingFilter::Fsr ? tr("FSR")
-                                                                         : filter_text.toUpper());
+    QString label;
+    switch (filter) {
+    case Settings::ScalingFilter::Fsr:
+        label = tr("FSR");
+        break;
+    case Settings::ScalingFilter::Fsr2:
+        label = tr("FSR2");
+        break;
+    case Settings::ScalingFilter::Cas:
+        label = tr("CAS");
+        break;
+    default:
+        label = filter_text.toUpper();
+        break;
+    }
+    filter_status_button->setText(label);
 }
 
 void GMainWindow::UpdateAAText() {
@@ -6512,7 +6526,6 @@ void GMainWindow::CheckForUpdatesAutomatically() {
 
 void GMainWindow::RegisterAutoloaderContents() {
     autoloader_provider->ClearAllEntries();
-    const auto& disabled_addons = Settings::values.disabled_addons;
 
     const auto sdmc_path = Common::FS::GetCitronPath(Common::FS::CitronPath::SDMCDir);
     const auto autoloader_root = sdmc_path / "autoloader";
@@ -6526,16 +6539,12 @@ void GMainWindow::RegisterAutoloaderContents() {
         if (!title_dir_entry.is_directory())
             continue;
 
-        u64 title_id_val = 0;
         try {
-            title_id_val = std::stoull(title_dir_entry.path().filename().string(), nullptr, 16);
+            [[maybe_unused]] auto val =
+                std::stoull(title_dir_entry.path().filename().string(), nullptr, 16);
         } catch (const std::invalid_argument&) {
             continue;
         }
-
-        const auto it = disabled_addons.find(title_id_val);
-        const auto& disabled_for_game =
-            (it != disabled_addons.end()) ? it->second : std::vector<std::string>{};
 
         const auto process_content_type = [&](const std::filesystem::path& content_path) {
             if (!Common::FS::IsDir(content_path))
@@ -6546,7 +6555,7 @@ void GMainWindow::RegisterAutoloaderContents() {
                     continue;
 
                 const std::string mod_name = mod_dir_entry.path().filename().string();
-                // Citron: We do NOT skip disabled content here.
+                // We do NOT skip disabled content here.
                 // If we skip it here, it doesn't show up in the UI (Properties -> Add-ons),
                 // making it impossible for the user to re-enable it.
                 // The PatchManager (core/file_sys/patch_manager.cpp) handles the actual enforcement

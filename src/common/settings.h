@@ -353,72 +353,47 @@ struct Values {
                                                            Specialization::Percentage,
                                                        true,
                                                        true};
+    SwitchableSetting<int, true> cas_sharpening_slider{linkage,
+                                                       50,
+                                                       0,
+                                                       100,
+                                                       "cas_sharpening_slider",
+                                                       Category::Renderer,
+                                                       Specialization::Scalar |
+                                                           Specialization::Percentage,
+                                                       true,
+                                                       true};
 
     // CRT Shader Settings (only active when CRT filter is selected)
-    SwitchableSetting<float, true> crt_scanline_strength{linkage,
-                                                         1.0f,  // 100/100 = 1.0 (range 0-200, actual 0.0-2.0)
-                                                         0.0f,
-                                                         2.0f,
-                                                         "crt_scanline_strength",
-                                                         Category::Renderer,
-                                                         Specialization::Scalar,
-                                                         true,
-                                                         true};
-    SwitchableSetting<float, true> crt_curvature{linkage,
-                                                  0.0f,
-                                                  0.0f,
-                                                  1.0f,
-                                                  "crt_curvature",
-                                                  Category::Renderer,
-                                                  Specialization::Scalar,
-                                                  true,
-                                                  true};
-    SwitchableSetting<float, true> crt_gamma{linkage,
-                                              1.0f,  // 100 maps to 1.0 (range 1-300, actual 1.0-3.0)
-                                              1.0f,
-                                              3.0f,
-                                              "crt_gamma",
-                                              Category::Renderer,
-                                              Specialization::Scalar,
-                                              true,
-                                              true};
-    SwitchableSetting<float, true> crt_bloom{linkage,
-                                             0.33f,  // 33/100 = 0.33 (range 0-100, actual 0.0-1.0)
-                                             0.0f,
-                                             1.0f,
-                                             "crt_bloom",
-                                             Category::Renderer,
-                                             Specialization::Scalar,
-                                             true,
-                                             true};
-    SwitchableSetting<int, true> crt_mask_type{linkage,
-                                               1,  // Already correct
-                                               0,
-                                               2,
-                                               "crt_mask_type",
-                                               Category::Renderer,
-                                               Specialization::Scalar,
-                                               true,
-                                               true}; // 0=none, 1=aperture, 2=shadow
-    SwitchableSetting<float, true> crt_brightness{linkage,
-                                                  1.0f,  // Default brightness (1.0 = no change)
-                                                  0.0f,
-                                                  2.0f,
-                                                  "crt_brightness",
-                                                  Category::Renderer,
-                                                  Specialization::Scalar,
-                                                  true,
-                                                  true};
-    SwitchableSetting<float, true> crt_alpha{linkage,
-                                            1.0f,  // Default alpha (1.0 = fully opaque)
-                                            0.0f,
-                                            1.0f,
-                                            "crt_alpha",
-                                            Category::Renderer,
-                                            Specialization::Scalar,
-                                            true,
-                                            true};
-
+    SwitchableSetting<float, true> crt_scanline_strength{
+        linkage,
+        1.0f, // 100/100 = 1.0 (range 0-200, actual 0.0-2.0)
+        0.0f,    2.0f, "crt_scanline_strength", Category::Renderer, Specialization::Scalar,
+        true,    true};
+    SwitchableSetting<float, true> crt_curvature{
+        linkage, 0.0f, 0.0f, 1.0f, "crt_curvature", Category::Renderer, Specialization::Scalar,
+        true,    true};
+    SwitchableSetting<float, true> crt_gamma{
+        linkage,
+        1.0f, // 100 maps to 1.0 (range 1-300, actual 1.0-3.0)
+        1.0f,    3.0f, "crt_gamma", Category::Renderer, Specialization::Scalar, true, true};
+    SwitchableSetting<float, true> crt_bloom{
+        linkage,
+        0.33f, // 33/100 = 0.33 (range 0-100, actual 0.0-1.0)
+        0.0f,    1.0f, "crt_bloom", Category::Renderer, Specialization::Scalar, true, true};
+    SwitchableSetting<int, true> crt_mask_type{
+        linkage,
+        1, // Already correct
+        0,       2,   "crt_mask_type", Category::Renderer, Specialization::Scalar,
+        true,    true}; // 0=none, 1=aperture, 2=shadow
+    SwitchableSetting<float, true> crt_brightness{
+        linkage,
+        1.0f, // Default brightness (1.0 = no change)
+        0.0f,    2.0f, "crt_brightness", Category::Renderer, Specialization::Scalar, true, true};
+    SwitchableSetting<float, true> crt_alpha{
+        linkage,
+        1.0f, // Default alpha (1.0 = fully opaque)
+        0.0f,    1.0f, "crt_alpha", Category::Renderer, Specialization::Scalar, true, true};
 
     SwitchableSetting<int, true> lanczos_quality{linkage,
                                                  3, // Default value
@@ -430,37 +405,38 @@ struct Values {
                                                  true,
                                                  true};
 
-    SwitchableSetting<FSR2QualityMode, true> fsr2_quality_mode{linkage,
-                                                                FSR2QualityMode::Quality,  // Quality by default
-                                                                FSR2QualityMode::Quality,  // Min value
-                                                                FSR2QualityMode::UltraPerformance,  // Max value
-                                                                "fsr2_quality_mode",
-                                                                Category::Renderer,
-                                                                Specialization::Default,
-                                                                true,
-                                                                true};
+    SwitchableSetting<FSR2QualityMode, true> fsr2_quality_mode{
+        linkage,
+        FSR2QualityMode::Quality,          // Quality by default
+        FSR2QualityMode::Quality,          // Min value
+        FSR2QualityMode::UltraPerformance, // Max value
+        "fsr2_quality_mode",
+        Category::Renderer,
+        Specialization::Default,
+        true,
+        true};
 
+    SwitchableSetting<FrameSkipping, true> frame_skipping{
+        linkage,
+        FrameSkipping::Disabled, // Disabled by default
+        FrameSkipping::Disabled,
+        FrameSkipping::Enabled,
+        "frame_skipping",
+        Category::Renderer,
+        Specialization::Default,
+        true,
+        true};
 
-
-    SwitchableSetting<FrameSkipping, true> frame_skipping{linkage,
-                                                          FrameSkipping::Disabled,  // Disabled by default
-                                                          FrameSkipping::Disabled,
-                                                          FrameSkipping::Enabled,
-                                                          "frame_skipping",
-                                                          Category::Renderer,
-                                                          Specialization::Default,
-                                                          true,
-                                                          true};
-
-    SwitchableSetting<FrameSkippingMode, true> frame_skipping_mode{linkage,
-                                                                   FrameSkippingMode::Adaptive,  // Adaptive by default
-                                                                   FrameSkippingMode::Adaptive,
-                                                                   FrameSkippingMode::Fixed,
-                                                                   "frame_skipping_mode",
-                                                                   Category::Renderer,
-                                                                   Specialization::Default,
-                                                                   true,
-                                                                   true};
+    SwitchableSetting<FrameSkippingMode, true> frame_skipping_mode{
+        linkage,
+        FrameSkippingMode::Adaptive, // Adaptive by default
+        FrameSkippingMode::Adaptive,
+        FrameSkippingMode::Fixed,
+        "frame_skipping_mode",
+        Category::Renderer,
+        Specialization::Default,
+        true,
+        true};
 
     SwitchableSetting<u8, false> bg_red{
         linkage, 0, "bg_red", Category::Renderer, Specialization::Default, true, true};
@@ -520,55 +496,54 @@ struct Values {
 
     // GC aggressiveness level for texture/buffer cache eviction
     SwitchableSetting<GCAggressiveness, true> gc_aggressiveness{linkage,
-                                                                 GCAggressiveness::Light,
-                                                                 GCAggressiveness::Off,
-                                                                 GCAggressiveness::Light,
-                                                                 "gc_aggressiveness",
-                                                                 Category::RendererAdvanced,
-                                                                 Specialization::Default,
-                                                                 true,
-                                                                 true};
+                                                                GCAggressiveness::Light,
+                                                                GCAggressiveness::Off,
+                                                                GCAggressiveness::Light,
+                                                                "gc_aggressiveness",
+                                                                Category::RendererAdvanced,
+                                                                Specialization::Default,
+                                                                true,
+                                                                true};
 
     // Number of frames before unused textures are evicted (default 2)
     SwitchableSetting<u32, true> texture_eviction_frames{linkage,
-                                                          2,   // default: 2 frames
-                                                          1,   // min: 1 frame
-                                                          60,  // max: 60 frames (1 second at 60fps)
-                                                          "texture_eviction_frames",
-                                                          Category::RendererAdvanced,
-                                                          Specialization::Default,
-                                                          true,
-                                                          true};
-
-    // Number of frames before unused buffers are evicted (default 5)
-    SwitchableSetting<u32, true> buffer_eviction_frames{linkage,
-                                                         5,   // default: 5 frames
-                                                         1,   // min: 1 frame
-                                                         120, // max: 120 frames (2 seconds at 60fps)
-                                                         "buffer_eviction_frames",
+                                                         2,  // default: 2 frames
+                                                         1,  // min: 1 frame
+                                                         60, // max: 60 frames (1 second at 60fps)
+                                                         "texture_eviction_frames",
                                                          Category::RendererAdvanced,
                                                          Specialization::Default,
                                                          true,
                                                          true};
 
+    // Number of frames before unused buffers are evicted (default 5)
+    SwitchableSetting<u32, true> buffer_eviction_frames{linkage,
+                                                        5,   // default: 5 frames
+                                                        1,   // min: 1 frame
+                                                        120, // max: 120 frames (2 seconds at 60fps)
+                                                        "buffer_eviction_frames",
+                                                        Category::RendererAdvanced,
+                                                        Specialization::Default,
+                                                        true,
+                                                        true};
+
     // Enable sparse texture priority eviction (evict large unmapped pages first)
-    SwitchableSetting<bool> sparse_texture_priority_eviction{linkage, false,
-                                                              "sparse_texture_priority_eviction",
-                                                              Category::RendererAdvanced};
+    SwitchableSetting<bool> sparse_texture_priority_eviction{
+        linkage, false, "sparse_texture_priority_eviction", Category::RendererAdvanced};
 
     // Enable VRAM usage logging for debugging
     SwitchableSetting<bool> log_vram_usage{linkage, false, "log_vram_usage",
-                                            Category::RendererAdvanced};
+                                           Category::RendererAdvanced};
 
     // FIXED: Android Adreno 740 native ASTC eviction
     // Controls texture cache eviction strategy on Android devices with native ASTC support
     // Auto = detect based on GPU, Native = use compressed size, Decompress = use decompressed size
     SwitchableSetting<AndroidAstcMode, true> android_astc_mode{linkage,
-                                                                AndroidAstcMode::Auto,
-                                                                AndroidAstcMode::Auto,
-                                                                AndroidAstcMode::Decompress,
-                                                                "android_astc_mode",
-                                                                Category::RendererAdvanced};
+                                                               AndroidAstcMode::Auto,
+                                                               AndroidAstcMode::Auto,
+                                                               AndroidAstcMode::Decompress,
+                                                               "android_astc_mode",
+                                                               Category::RendererAdvanced};
 
     SwitchableSetting<bool> async_presentation{linkage,
 #ifdef ANDROID
@@ -605,12 +580,13 @@ struct Values {
                                                 Category::RendererAdvanced};
     SwitchableSetting<bool> barrier_feedback_loops{linkage, true, "barrier_feedback_loops",
                                                    Category::RendererAdvanced};
-    SwitchableSetting<ExtendedDynamicState, true> extended_dynamic_state{linkage,
-                                                                          ExtendedDynamicState::EDS3,
-                                                                          ExtendedDynamicState::Disabled,
-                                                                          ExtendedDynamicState::EDS3,
-                                                                          "extended_dynamic_state",
-                                                                          Category::RendererAdvanced};
+    SwitchableSetting<ExtendedDynamicState, true> extended_dynamic_state{
+        linkage,
+        ExtendedDynamicState::EDS3,
+        ExtendedDynamicState::Disabled,
+        ExtendedDynamicState::EDS3,
+        "extended_dynamic_state",
+        Category::RendererAdvanced};
     SwitchableSetting<bool> use_conditional_rendering{linkage, true, "use_conditional_rendering",
                                                       Category::RendererAdvanced};
 
@@ -676,7 +652,9 @@ struct Values {
                                                    true};
 
     // Linux
-    Setting<bool, false> is_wayland_platform{linkage, false, "is_wayland_platform", Category::Miscellaneous, Specialization::Default, false};
+    Setting<bool, false> is_wayland_platform{
+        linkage, false, "is_wayland_platform", Category::Miscellaneous, Specialization::Default,
+        false};
     SwitchableSetting<bool> enable_gamemode{linkage, true, "enable_gamemode", Category::Linux};
 
     // Controls
@@ -805,11 +783,12 @@ struct Values {
     Setting<std::string> web_api_url{linkage, "api.ynet-fun.xyz", "web_api_url",
                                      Category::WebService};
     Setting<std::string> citron_username{linkage, std::string(), "citron_username",
-                                       Category::WebService};
+                                         Category::WebService};
     Setting<std::string> citron_token{linkage, std::string(), "citron_token", Category::WebService};
 
     // Updater
-    Setting<bool> enable_auto_update_check{linkage, true, "enable_auto_update_check", Category::WebService};
+    Setting<bool> enable_auto_update_check{linkage, true, "enable_auto_update_check",
+                                           Category::WebService};
 
     // Add-Ons
     std::map<u64, std::vector<std::string>> disabled_addons;
@@ -823,9 +802,12 @@ struct Values {
     // This stores the external path used for Intelligent Mirroring sync
     std::map<u64, std::string> mirrored_save_paths;
 
-    Setting<bool> global_custom_save_path_enabled{linkage, false, "global_custom_save_path_enabled", Category::DataStorage};
-    Setting<std::string> global_custom_save_path{linkage, std::string(), "global_custom_save_path", Category::DataStorage};
-    Setting<bool> backup_saves_to_nand{linkage, false, "backup_saves_to_nand", Category::DataStorage};
+    Setting<bool> global_custom_save_path_enabled{linkage, false, "global_custom_save_path_enabled",
+                                                  Category::DataStorage};
+    Setting<std::string> global_custom_save_path{linkage, std::string(), "global_custom_save_path",
+                                                 Category::DataStorage};
+    Setting<bool> backup_saves_to_nand{linkage, false, "backup_saves_to_nand",
+                                       Category::DataStorage};
 };
 
 extern Values values;

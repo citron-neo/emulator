@@ -91,8 +91,8 @@ template <>
 inline std::vector<std::pair<std::string, AudioEngine>>
 EnumMetadata<AudioEngine>::Canonicalizations() {
     return {
-        {"auto", AudioEngine::Auto}, {"cubeb", AudioEngine::Cubeb}, {"sdl2", AudioEngine::Sdl2},
-        {"openal", AudioEngine::OpenAL}, {"null", AudioEngine::Null}, {"oboe", AudioEngine::Oboe},
+        {"auto", AudioEngine::Auto},     {"cubeb", AudioEngine::Cubeb}, {"sdl2", AudioEngine::Sdl2},
+        {"openal", AudioEngine::OpenAL}, {"null", AudioEngine::Null},   {"oboe", AudioEngine::Oboe},
     };
 }
 
@@ -110,8 +110,7 @@ enum class AudioMode : u32 {
 };
 
 template <>
-inline std::vector<std::pair<std::string, AudioMode>>
-EnumMetadata<AudioMode>::Canonicalizations() {
+inline std::vector<std::pair<std::string, AudioMode>> EnumMetadata<AudioMode>::Canonicalizations() {
     return {
         {"Mono", AudioMode::Mono},
         {"Stereo", AudioMode::Stereo},
@@ -146,8 +145,7 @@ enum class Language : u32 {
 };
 
 template <>
-inline std::vector<std::pair<std::string, Language>>
-EnumMetadata<Language>::Canonicalizations() {
+inline std::vector<std::pair<std::string, Language>> EnumMetadata<Language>::Canonicalizations() {
     return {
         {"Japanese", Language::Japanese},
         {"EnglishAmerican", Language::EnglishAmerican},
@@ -186,15 +184,10 @@ enum class Region : u32 {
 };
 
 template <>
-inline std::vector<std::pair<std::string, Region>>
-EnumMetadata<Region>::Canonicalizations() {
+inline std::vector<std::pair<std::string, Region>> EnumMetadata<Region>::Canonicalizations() {
     return {
-        {"Japan", Region::Japan},
-        {"Usa", Region::Usa},
-        {"Europe", Region::Europe},
-        {"Australia", Region::Australia},
-        {"China", Region::China},
-        {"Korea", Region::Korea},
+        {"Japan", Region::Japan},         {"Usa", Region::Usa},     {"Europe", Region::Europe},
+        {"Australia", Region::Australia}, {"China", Region::China}, {"Korea", Region::Korea},
         {"Taiwan", Region::Taiwan},
     };
 }
@@ -254,8 +247,7 @@ enum class TimeZone : u32 {
 };
 
 template <>
-inline std::vector<std::pair<std::string, TimeZone>>
-EnumMetadata<TimeZone>::Canonicalizations() {
+inline std::vector<std::pair<std::string, TimeZone>> EnumMetadata<TimeZone>::Canonicalizations() {
     return {
         {"Auto", TimeZone::Auto},
         {"Default", TimeZone::Default},
@@ -388,8 +380,7 @@ enum class VSyncMode : u32 {
 };
 
 template <>
-inline std::vector<std::pair<std::string, VSyncMode>>
-EnumMetadata<VSyncMode>::Canonicalizations() {
+inline std::vector<std::pair<std::string, VSyncMode>> EnumMetadata<VSyncMode>::Canonicalizations() {
     return {
         {"Immediate", VSyncMode::Immediate},
         {"Mailbox", VSyncMode::Mailbox},
@@ -543,12 +534,9 @@ template <>
 inline std::vector<std::pair<std::string, MemoryLayout>>
 EnumMetadata<MemoryLayout>::Canonicalizations() {
     return {
-        {"Memory_4Gb", MemoryLayout::Memory_4Gb},
-        {"Memory_6Gb", MemoryLayout::Memory_6Gb},
-        {"Memory_8Gb", MemoryLayout::Memory_8Gb},
-        {"Memory_10Gb", MemoryLayout::Memory_10Gb},
-        {"Memory_12Gb", MemoryLayout::Memory_12Gb},
-        {"Memory_14Gb", MemoryLayout::Memory_14Gb},
+        {"Memory_4Gb", MemoryLayout::Memory_4Gb},   {"Memory_6Gb", MemoryLayout::Memory_6Gb},
+        {"Memory_8Gb", MemoryLayout::Memory_8Gb},   {"Memory_10Gb", MemoryLayout::Memory_10Gb},
+        {"Memory_12Gb", MemoryLayout::Memory_12Gb}, {"Memory_14Gb", MemoryLayout::Memory_14Gb},
         {"Memory_16Gb", MemoryLayout::Memory_16Gb},
     };
 }
@@ -625,9 +613,9 @@ enum class ResolutionSetup : s32 {
     Res1_2X = 0,
     Res3_4X = 1,
     Res1X = 2,
-    Res5_4X = 11,  // 1.25X
+    Res5_4X = 11, // 1.25X
     Res3_2X = 3,
-    Res7_4X = 12,  // 1.75X
+    Res7_4X = 12, // 1.75X
     Res2X = 4,
     Res3X = 5,
     Res4X = 6,
@@ -641,20 +629,13 @@ template <>
 inline std::vector<std::pair<std::string, ResolutionSetup>>
 EnumMetadata<ResolutionSetup>::Canonicalizations() {
     return {
-        {"Res1_4X", ResolutionSetup::Res1_4X},
-        {"Res1_2X", ResolutionSetup::Res1_2X},
-        {"Res3_4X", ResolutionSetup::Res3_4X},
-        {"Res1X", ResolutionSetup::Res1X},
-        {"Res5_4X", ResolutionSetup::Res5_4X},
-        {"Res3_2X", ResolutionSetup::Res3_2X},
-        {"Res7_4X", ResolutionSetup::Res7_4X},
-        {"Res2X", ResolutionSetup::Res2X},
-        {"Res3X", ResolutionSetup::Res3X},
-        {"Res4X", ResolutionSetup::Res4X},
-        {"Res5X", ResolutionSetup::Res5X},
-        {"Res6X", ResolutionSetup::Res6X},
-        {"Res7X", ResolutionSetup::Res7X},
-        {"Res8X", ResolutionSetup::Res8X},
+        {"Res1_4X", ResolutionSetup::Res1_4X}, {"Res1_2X", ResolutionSetup::Res1_2X},
+        {"Res3_4X", ResolutionSetup::Res3_4X}, {"Res1X", ResolutionSetup::Res1X},
+        {"Res5_4X", ResolutionSetup::Res5_4X}, {"Res3_2X", ResolutionSetup::Res3_2X},
+        {"Res7_4X", ResolutionSetup::Res7_4X}, {"Res2X", ResolutionSetup::Res2X},
+        {"Res3X", ResolutionSetup::Res3X},     {"Res4X", ResolutionSetup::Res4X},
+        {"Res5X", ResolutionSetup::Res5X},     {"Res6X", ResolutionSetup::Res6X},
+        {"Res7X", ResolutionSetup::Res7X},     {"Res8X", ResolutionSetup::Res8X},
     };
 }
 
@@ -675,7 +656,8 @@ enum class ScalingFilter : u32 {
     Fsr2 = 8,
     CRTEasyMode = 9,
     CRTRoyale = 10,
-    MaxEnum = 11,
+    Cas = 11,
+    MaxEnum = 12,
 };
 
 template <>
@@ -693,6 +675,7 @@ EnumMetadata<ScalingFilter>::Canonicalizations() {
         {"Fsr2", ScalingFilter::Fsr2},
         {"CRTEasyMode", ScalingFilter::CRTEasyMode},
         {"CRTRoyale", ScalingFilter::CRTRoyale},
+        {"Cas", ScalingFilter::Cas},
         {"MaxEnum", ScalingFilter::MaxEnum},
     };
 }
@@ -714,10 +697,8 @@ template <>
 inline std::vector<std::pair<std::string, AntiAliasing>>
 EnumMetadata<AntiAliasing>::Canonicalizations() {
     return {
-        {"None", AntiAliasing::None},
-        {"Fxaa", AntiAliasing::Fxaa},
-        {"Smaa", AntiAliasing::Smaa},
-        {"Taa", AntiAliasing::Taa},
+        {"None", AntiAliasing::None},       {"Fxaa", AntiAliasing::Fxaa},
+        {"Smaa", AntiAliasing::Smaa},       {"Taa", AntiAliasing::Taa},
         {"MaxEnum", AntiAliasing::MaxEnum},
     };
 }
@@ -805,12 +786,9 @@ template <>
 inline std::vector<std::pair<std::string, AspectRatio>>
 EnumMetadata<AspectRatio>::Canonicalizations() {
     return {
-        {"R16_9", AspectRatio::R16_9},
-        {"R4_3", AspectRatio::R4_3},
-        {"R21_9", AspectRatio::R21_9},
-        {"R16_10", AspectRatio::R16_10},
-        {"R32_9", AspectRatio::R32_9},
-        {"Stretch", AspectRatio::Stretch},
+        {"R16_9", AspectRatio::R16_9}, {"R4_3", AspectRatio::R4_3},
+        {"R21_9", AspectRatio::R21_9}, {"R16_10", AspectRatio::R16_10},
+        {"R32_9", AspectRatio::R32_9}, {"Stretch", AspectRatio::Stretch},
     };
 }
 
@@ -882,8 +860,8 @@ inline u32 EnumMetadata<ExtendedDynamicState>::Index() {
 
 // FIXED: VRAM leak prevention - GC aggressiveness levels
 enum class GCAggressiveness : u32 {
-    Off = 0,    // Disable automatic GC (not recommended)
-    Light = 1,  // Light GC - gentle eviction of old textures/buffers
+    Off = 0,   // Disable automatic GC (not recommended)
+    Light = 1, // Light GC - gentle eviction of old textures/buffers
 };
 
 template <>

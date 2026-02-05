@@ -18,7 +18,7 @@ public:
                  VkExtent2D extent);
     VkImageView Draw(Scheduler& scheduler, size_t image_index, VkImage source_image,
                      VkImageView source_image_view, VkExtent2D input_image_extent,
-                     const Common::Rectangle<f32>& crop_rect);
+                     const Common::Rectangle<f32>& crop_rect, float sharpening);
 
 private:
     void CreateImages();
