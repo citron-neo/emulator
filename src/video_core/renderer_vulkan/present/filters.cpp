@@ -5,14 +5,16 @@
 #include "common/common_types.h"
 
 #include "video_core/host_shaders/present_bicubic_frag_spv.h"
-#include "video_core/host_shaders/present_lanczos_frag_spv.h"
 #include "video_core/host_shaders/present_gaussian_frag_spv.h"
+#include "video_core/host_shaders/present_lanczos_frag_spv.h"
+#include "video_core/host_shaders/vulkan_crt_easymode_frag_spv.h"
+#include "video_core/host_shaders/vulkan_fidelityfx_fsr_rcas_fp16_frag_spv.h"
+#include "video_core/host_shaders/vulkan_fidelityfx_fsr_rcas_fp32_frag_spv.h"
 #include "video_core/host_shaders/vulkan_present_frag_spv.h"
 #include "video_core/host_shaders/vulkan_present_scaleforce_fp16_frag_spv.h"
 #include "video_core/host_shaders/vulkan_present_scaleforce_fp32_frag_spv.h"
 #include "video_core/host_shaders/vulkan_present_scalefx_fp16_frag_spv.h"
 #include "video_core/host_shaders/vulkan_present_scalefx_fp32_frag_spv.h"
-#include "video_core/host_shaders/vulkan_crt_easymode_frag_spv.h"
 #include "video_core/renderer_vulkan/present/filters.h"
 #include "video_core/renderer_vulkan/present/util.h"
 #include "video_core/renderer_vulkan/vk_shader_util.h"
@@ -72,7 +74,8 @@ std::unique_ptr<WindowAdaptPass> MakeScaleFx(const Device& device, VkFormat fram
 }
 
 std::unique_ptr<WindowAdaptPass> MakeLanczos(const Device& device, VkFormat frame_format) {
-    return std::make_unique<WindowAdaptPass>(device, frame_format, CreateNearestNeighborSampler(device),
+    return std::make_unique<WindowAdaptPass>(device, frame_format,
+                                             CreateNearestNeighborSampler(device),
                                              BuildShader(device, PRESENT_LANCZOS_FRAG_SPV));
 }
 

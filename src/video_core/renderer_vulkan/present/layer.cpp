@@ -57,7 +57,8 @@ Layer::Layer(const Device& device_, MemoryAllocator& memory_allocator_, Schedule
       device_memory(device_memory_), filters(filters_), image_count(image_count_) {
     CreateDescriptorPool();
     CreateDescriptorSets(layout);
-    if (filters.get_scaling_filter() == Settings::ScalingFilter::Fsr) {
+    if (filters.get_scaling_filter() == Settings::ScalingFilter::Fsr ||
+        filters.get_scaling_filter() == Settings::ScalingFilter::Cas) {
         CreateFSR(output_size);
     }
     if (filters.get_scaling_filter() == Settings::ScalingFilter::Fsr2) {
@@ -109,8 +110,16 @@ void Layer::ConfigureDraw(PresentPushConstants* out_push_constants,
     };
 
     if (fsr) {
+        float sharpening = 0.0f;
+        if (filters.get_scaling_filter() == Settings::ScalingFilter::Fsr) {
+            sharpening =
+                static_cast<float>(Settings::values.fsr_sharpening_slider.GetValue()) / 100.0f;
+        } else if (filters.get_scaling_filter() == Settings::ScalingFilter::Cas) {
+            sharpening =
+                static_cast<float>(Settings::values.cas_sharpening_slider.GetValue()) / 100.0f;
+        }
         source_image_view = fsr->Draw(scheduler, image_index, source_image, source_image_view,
-                                      render_extent, crop_rect);
+                                      render_extent, crop_rect, sharpening);
         crop_rect = {0, 0, 1, 1};
     }
     if (fsr2) {
@@ -257,7 +266,8 @@ void Layer::UpdateDescriptorSet(VkImageView image_view, VkSampler sampler, size_
     const VkDescriptorImageInfo image_info{
         .sampler = sampler,
         .imageView = image_view,
-        .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, // Correct layout for texture sampling
+        .imageLayout =
+            VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, // Correct layout for texture sampling
     };
 
     const VkWriteDescriptorSet sampler_write{
@@ -294,7 +304,7 @@ void Layer::UpdateRawImage(const Tegra::FramebufferConfig& framebuffer, size_t i
         Tegra::Texture::UnswizzleTexture(
             mapped_span.subspan(image_offset, linear_size), std::span(host_ptr, tiled_size),
             bytes_per_pixel, framebuffer.width, framebuffer.height, 1, block_height_log2, 0);
-        buffer.Flush();  // Ensure host writes are visible before the GPU copy.
+        buffer.Flush(); // Ensure host writes are visible before the GPU copy.
     }
 
     const VkBufferImageCopy copy{

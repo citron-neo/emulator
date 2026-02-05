@@ -14,11 +14,11 @@
 #include <QWidget>
 #include <qobjectdefs.h>
 #include <vulkan/vulkan_core.h>
+#include "citron/configuration/configuration_shared.h"
 #include "common/common_types.h"
 #include "common/settings_enums.h"
 #include "configuration/shared_translation.h"
 #include "vk_device_info.h"
-#include "citron/configuration/configuration_shared.h"
 
 class QPushButton;
 class QEvent;
@@ -47,7 +47,8 @@ class ConfigureGraphics : public ConfigurationShared::Tab {
     Q_OBJECT
 
     // This property allows the main UI file to pass its stylesheet to this widget
-    Q_PROPERTY(QString templateStyleSheet READ GetTemplateStyleSheet WRITE SetTemplateStyleSheet NOTIFY TemplateStyleSheetChanged)
+    Q_PROPERTY(QString templateStyleSheet READ GetTemplateStyleSheet WRITE SetTemplateStyleSheet
+                   NOTIFY TemplateStyleSheetChanged)
 
 public:
     explicit ConfigureGraphics(
@@ -125,6 +126,9 @@ private:
     QComboBox* aspect_ratio_combobox;
     QComboBox* resolution_combobox;
     QWidget* fsr_sharpness_widget;
+    QWidget* cas_sharpness_widget;
+    QWidget* lq_widget;
+    std::vector<QWidget*> crt_widgets;
 
     // This variable will hold the raw stylesheet string
     QString m_template_style_sheet;

@@ -65,8 +65,8 @@ GLuint Layer::ConfigureDraw(std::array<GLfloat, 3 * 2>& out_matrix,
             break;
         case Settings::AntiAliasing::Taa:
             CreateTAA();
-            texture = taa->Draw(program_manager, info.display_texture,
-                               GL_NONE, GL_NONE, GL_NONE, 0); // TODO: Add proper motion vectors
+            texture = taa->Draw(program_manager, info.display_texture, GL_NONE, GL_NONE, GL_NONE,
+                                0); // TODO: Add proper motion vectors
             break;
         default:
             break;
@@ -75,12 +75,23 @@ GLuint Layer::ConfigureDraw(std::array<GLfloat, 3 * 2>& out_matrix,
 
     glDisablei(GL_SCISSOR_TEST, 0);
 
-    if (filters.get_scaling_filter() == Settings::ScalingFilter::Fsr) {
+    if (filters.get_scaling_filter() == Settings::ScalingFilter::Fsr ||
+        filters.get_scaling_filter() == Settings::ScalingFilter::Cas) {
         if (!fsr || fsr->NeedsRecreation(layout.screen)) {
             fsr = std::make_unique<FSR>(layout.screen.GetWidth(), layout.screen.GetHeight());
         }
 
-        texture = fsr->Draw(program_manager, texture, info.scaled_width, info.scaled_height, crop);
+        float sharpening = 0.0f;
+        if (filters.get_scaling_filter() == Settings::ScalingFilter::Fsr) {
+            sharpening =
+                static_cast<float>(Settings::values.fsr_sharpening_slider.GetValue()) / 100.0f;
+        } else if (filters.get_scaling_filter() == Settings::ScalingFilter::Cas) {
+            sharpening =
+                static_cast<float>(Settings::values.cas_sharpening_slider.GetValue()) / 100.0f;
+        }
+
+        texture = fsr->Draw(program_manager, texture, info.scaled_width, info.scaled_height, crop,
+                            sharpening);
         crop = {0, 0, 1, 1};
     }
     if (filters.get_scaling_filter() == Settings::ScalingFilter::Fsr2) {

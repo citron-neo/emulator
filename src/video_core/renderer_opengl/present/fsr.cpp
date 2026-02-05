@@ -49,11 +49,12 @@ FSR::FSR(u32 output_width_, u32 output_height_) : width(output_width_), height(o
 FSR::~FSR() = default;
 
 GLuint FSR::Draw(ProgramManager& program_manager, GLuint texture, u32 input_image_width,
-                 u32 input_image_height, const Common::Rectangle<f32>& crop_rect) {
-    const f32 input_width = static_cast<f32>(input_image_width);
-    const f32 input_height = static_cast<f32>(input_image_height);
-    const f32 output_width = static_cast<f32>(width);
-    const f32 output_height = static_cast<f32>(height);
+                 u32 input_image_height, const Common::Rectangle<float>& crop_rect,
+                 float sharpening) {
+    const float input_width = static_cast<float>(input_image_width);
+    const float input_height = static_cast<float>(input_image_height);
+    const float output_width = static_cast<float>(width);
+    const float output_height = static_cast<float>(height);
     const f32 viewport_width = (crop_rect.right - crop_rect.left) * input_width;
     const f32 viewport_x = crop_rect.left * input_width;
     const f32 viewport_height = (crop_rect.bottom - crop_rect.top) * input_height;
@@ -65,9 +66,6 @@ GLuint FSR::Draw(ProgramManager& program_manager, GLuint texture, u32 input_imag
     FsrEasuConOffset(easu_con.data() + 0, easu_con.data() + 4, easu_con.data() + 8,
                      easu_con.data() + 12, viewport_width, viewport_height, input_width,
                      input_height, output_width, output_height, viewport_x, viewport_y);
-
-    const float sharpening =
-        static_cast<float>(Settings::values.fsr_sharpening_slider.GetValue()) / 100.0f;
 
     FsrRcasCon(rcas_con.data(), sharpening);
 

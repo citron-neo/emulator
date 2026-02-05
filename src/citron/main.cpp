@@ -5710,8 +5710,22 @@ void GMainWindow::UpdateAPIText() {
 void GMainWindow::UpdateFilterText() {
     const auto filter = Settings::values.scaling_filter.GetValue();
     const auto filter_text = ConfigurationShared::scaling_filter_texts_map.find(filter)->second;
-    filter_status_button->setText(filter == Settings::ScalingFilter::Fsr ? tr("FSR")
-                                                                         : filter_text.toUpper());
+    QString label;
+    switch (filter) {
+    case Settings::ScalingFilter::Fsr:
+        label = tr("FSR");
+        break;
+    case Settings::ScalingFilter::Fsr2:
+        label = tr("FSR2");
+        break;
+    case Settings::ScalingFilter::Cas:
+        label = tr("CAS");
+        break;
+    default:
+        label = filter_text.toUpper();
+        break;
+    }
+    filter_status_button->setText(label);
 }
 
 void GMainWindow::UpdateAAText() {

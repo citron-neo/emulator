@@ -10,11 +10,11 @@
 #include <utility>
 #include <QCoreApplication>
 #include <QWidget>
+#include "citron/uisettings.h"
 #include "common/settings.h"
 #include "common/settings_enums.h"
 #include "common/settings_setting.h"
 #include "common/time_zone.h"
-#include "citron/uisettings.h"
 
 namespace ConfigurationShared {
 
@@ -130,30 +130,42 @@ std::unique_ptr<TranslationMap> InitializeTranslations(QWidget* parent) {
               "much more VRAM and bandwidth.\n"
               "Options lower than 1X can cause rendering issues."));
     INSERT(Settings, scaling_filter, tr("Window Adapting Filter:"), QStringLiteral());
-    INSERT(Settings, fsr_sharpening_slider, tr("FSR Sharpness:"),
+    INSERT(Settings, fsr_sharpening_slider, tr("FSR Sharpness"),
            tr("Determines how sharpened the image will look while using FSR's dynamic contrast."));
-    INSERT(Settings, lanczos_quality, tr("Lanczos Quality:"), tr("The quality of the Lanczos filter. Higher is sharper but more expensive."));
+    INSERT(Settings, cas_sharpening_slider, tr("CAS Sharpness"),
+           tr("Determines the level of sharpening applied by the Contrast Adaptive Sharpening "
+              "(CAS) filter."));
+    INSERT(Settings, lanczos_quality, tr("Lanczos Quality:"),
+           tr("The quality of the Lanczos filter. Higher is sharper but more expensive."));
     INSERT(Settings, fsr2_quality_mode, tr("FSR 2.0 Quality Mode:"),
-           tr("Selects the quality mode for FSR 2.0 upscaling. Quality provides better image quality, Performance provides better performance."));
+           tr("Selects the quality mode for FSR 2.0 upscaling. Quality provides better image "
+              "quality, Performance provides better performance."));
     INSERT(Settings, crt_scanline_strength, tr("CRT Scanline Strength:"),
-           tr("Controls the intensity of scanlines. Higher values create more pronounced horizontal lines."));
+           tr("Controls the intensity of scanlines. Higher values create more pronounced "
+              "horizontal lines."));
     INSERT(Settings, crt_curvature, tr("CRT Curvature:"),
            tr("Applies barrel distortion to simulate the curved screen of a CRT monitor."));
     INSERT(Settings, crt_gamma, tr("CRT Gamma:"),
-           tr("Adjusts the gamma correction curve. Higher values brighten the image, lower values darken it."));
+           tr("Adjusts the gamma correction curve. Higher values brighten the image, lower values "
+              "darken it."));
     INSERT(Settings, crt_bloom, tr("CRT Bloom:"),
            tr("Controls the glow effect around bright areas, simulating phosphor persistence."));
     INSERT(Settings, crt_mask_type, tr("CRT Mask Type:"),
-           tr("Selects the phosphor mask pattern: None, Aperture Grille (vertical stripes), or Shadow Mask (triangular pattern)."));
+           tr("Selects the phosphor mask pattern: None, Aperture Grille (vertical stripes), or "
+              "Shadow Mask (triangular pattern)."));
     INSERT(Settings, crt_brightness, tr("CRT Brightness:"),
-           tr("Adjusts overall brightness of the CRT effect. Use to compensate for darkening from other effects."));
+           tr("Adjusts overall brightness of the CRT effect. Use to compensate for darkening from "
+              "other effects."));
     INSERT(Settings, crt_alpha, tr("CRT Alpha:"),
-           tr("Controls transparency of the CRT effect. Lower values make the effect more transparent."));
+           tr("Controls transparency of the CRT effect. Lower values make the effect more "
+              "transparent."));
 
-           INSERT(Settings, frame_skipping, tr("Frame Skipping:"),
-                  tr("Skips frames to maintain performance when the system cannot keep up with the target frame rate."));
-           INSERT(Settings, frame_skipping_mode, tr("Frame Skipping Mode:"),
-                  tr("Adaptive mode skips frames based on performance, while Fixed mode skips a specific number of frames."));
+    INSERT(Settings, frame_skipping, tr("Frame Skipping:"),
+           tr("Skips frames to maintain performance when the system cannot keep up with the target "
+              "frame rate."));
+    INSERT(Settings, frame_skipping_mode, tr("Frame Skipping Mode:"),
+           tr("Adaptive mode skips frames based on performance, while Fixed mode skips a specific "
+              "number of frames."));
     INSERT(Settings, anti_aliasing, tr("Anti-Aliasing Method:"),
            tr("The anti-aliasing method to use.\nSMAA offers the best quality.\nFXAA has a "
               "lower performance impact and can produce a better and more stable picture under "
@@ -202,10 +214,11 @@ std::unique_ptr<TranslationMap> InitializeTranslations(QWidget* parent) {
     INSERT(Settings, vram_limit_mb, tr("VRAM Limit (MB):"),
            tr("Sets the maximum VRAM usage limit in megabytes. Set to 0 for auto-detection "
               "(80% of available VRAM). Recommended: 6144 for 8GB GPUs, 4096 for 6GB GPUs."));
-    INSERT(Settings, gc_aggressiveness, tr("GC Aggressiveness:"),
-           tr("Controls how aggressively the emulator evicts unused textures and buffers from VRAM.\n"
-              "Off: Disable automatic cleanup (not recommended, may cause crashes).\n"
-              "Light: Gentle cleanup, keeps more textures cached (recommended)."));
+    INSERT(
+        Settings, gc_aggressiveness, tr("GC Aggressiveness:"),
+        tr("Controls how aggressively the emulator evicts unused textures and buffers from VRAM.\n"
+           "Off: Disable automatic cleanup (not recommended, may cause crashes).\n"
+           "Light: Gentle cleanup, keeps more textures cached (recommended)."));
     INSERT(Settings, texture_eviction_frames, tr("Texture Eviction Frames:"),
            tr("Number of frames a texture must be unused before it can be evicted. "
               "Lower values free VRAM faster but may cause more texture reloading."));
@@ -271,16 +284,18 @@ std::unique_ptr<TranslationMap> InitializeTranslations(QWidget* parent) {
               "unlocked."));
     INSERT(Settings, barrier_feedback_loops, tr("Barrier feedback loops"),
            tr("Improves rendering of transparency effects in specific games."));
-    INSERT(Settings, extended_dynamic_state, tr("Extended Dynamic State:"),
-           tr("Selects the level of Vulkan Extended Dynamic State support.\n"
-              "EDS3: Enables all Extended Dynamic State features (recommended).\n"
-              "EDS2: Enables EDS1 and EDS2 features only.\n"
-              "EDS1: Enables basic Extended Dynamic State features only.\n"
-              "Disabled: Disables all Extended Dynamic State features (may reduce compatibility)."));
-    INSERT(Settings, use_conditional_rendering, tr("Use conditional rendering"),
-           tr("Enables conditional rendering based on query results.\n"
-              "Disabling this can fix flickering objects in some games but may impact performance.\n"
-              "Try disabling if you see objects appearing and disappearing rapidly."));
+    INSERT(
+        Settings, extended_dynamic_state, tr("Extended Dynamic State:"),
+        tr("Selects the level of Vulkan Extended Dynamic State support.\n"
+           "EDS3: Enables all Extended Dynamic State features (recommended).\n"
+           "EDS2: Enables EDS1 and EDS2 features only.\n"
+           "EDS1: Enables basic Extended Dynamic State features only.\n"
+           "Disabled: Disables all Extended Dynamic State features (may reduce compatibility)."));
+    INSERT(
+        Settings, use_conditional_rendering, tr("Use conditional rendering"),
+        tr("Enables conditional rendering based on query results.\n"
+           "Disabling this can fix flickering objects in some games but may impact performance.\n"
+           "Try disabling if you see objects appearing and disappearing rapidly."));
 
     // Renderer (Debug)
 
@@ -477,6 +492,7 @@ std::unique_ptr<ComboboxTranslationMap> ComboboxEnumeration(QWidget* parent) {
                               PAIR(ScalingFilter, Fsr2, tr("AMD FidelityFX™️ Super Resolution 2.0")),
                               PAIR(ScalingFilter, CRTEasyMode, tr("CRT EasyMode")),
                               PAIR(ScalingFilter, CRTRoyale, tr("CRT Royale")),
+                              PAIR(ScalingFilter, Cas, tr("CAS (Contrast Adaptive Sharpening)")),
                           }});
     translations->insert({Settings::EnumMetadata<Settings::AntiAliasing>::Index(),
                           {
@@ -493,16 +509,16 @@ std::unique_ptr<ComboboxTranslationMap> ComboboxEnumeration(QWidget* parent) {
                               PAIR(FSR2QualityMode, UltraPerformance, tr("Ultra Performance")),
                           }});
 
-           translations->insert({Settings::EnumMetadata<Settings::FrameSkipping>::Index(),
-                                 {
-                                     PAIR(FrameSkipping, Disabled, tr("Disabled")),
-                                     PAIR(FrameSkipping, Enabled, tr("Enabled")),
-                                 }});
-           translations->insert({Settings::EnumMetadata<Settings::FrameSkippingMode>::Index(),
-                                 {
-                                     PAIR(FrameSkippingMode, Adaptive, tr("Adaptive")),
-                                     PAIR(FrameSkippingMode, Fixed, tr("Fixed")),
-                                 }});
+    translations->insert({Settings::EnumMetadata<Settings::FrameSkipping>::Index(),
+                          {
+                              PAIR(FrameSkipping, Disabled, tr("Disabled")),
+                              PAIR(FrameSkipping, Enabled, tr("Enabled")),
+                          }});
+    translations->insert({Settings::EnumMetadata<Settings::FrameSkippingMode>::Index(),
+                          {
+                              PAIR(FrameSkippingMode, Adaptive, tr("Adaptive")),
+                              PAIR(FrameSkippingMode, Fixed, tr("Fixed")),
+                          }});
     translations->insert({Settings::EnumMetadata<Settings::AspectRatio>::Index(),
                           {
                               PAIR(AspectRatio, R16_9, tr("Default (16:9)")),

@@ -95,6 +95,7 @@ void BlitScreen::CreateWindowAdapt() {
         break;
     case Settings::ScalingFilter::Fsr:
     case Settings::ScalingFilter::Fsr2:
+    case Settings::ScalingFilter::Cas:
     case Settings::ScalingFilter::Bilinear:
     default:
         window_adapt = MakeBilinear(device);

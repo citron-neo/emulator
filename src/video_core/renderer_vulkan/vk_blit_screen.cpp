@@ -55,6 +55,7 @@ void BlitScreen::SetWindowAdaptPass() {
     case Settings::ScalingFilter::CRTRoyale:
         window_adapt = MakeCRT(device, swapchain_view_format);
         break;
+    case Settings::ScalingFilter::Cas:
     case Settings::ScalingFilter::Fsr:
     case Settings::ScalingFilter::Fsr2:
     case Settings::ScalingFilter::Bilinear:
