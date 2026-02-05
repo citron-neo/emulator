@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <algorithm>
+#include <string>
+#include <vector>
 #include <QDir>
 #include <QFile>
 #include <QJsonArray>
@@ -29,7 +31,7 @@ static std::string GetSaveFilePath() {
 }
 
 // JSON Serialization Helpers
-static QJsonObject SerializeShortcut(const BackendShortcut& shortcut) {
+QJsonObject ProfileManager::SerializeShortcut(const BackendShortcut& shortcut) {
     QJsonObject obj;
     obj[QStringLiteral("name")] = QString::fromStdString(shortcut.name);
     obj[QStringLiteral("group")] = QString::fromStdString(shortcut.group);
@@ -41,7 +43,7 @@ static QJsonObject SerializeShortcut(const BackendShortcut& shortcut) {
     return obj;
 }
 
-static BackendShortcut DeserializeShortcut(const QJsonObject& obj) {
+BackendShortcut ProfileManager::DeserializeShortcut(const QJsonObject& obj) {
     BackendShortcut s;
     s.name = obj[QStringLiteral("name")].toString().toStdString();
     s.group = obj[QStringLiteral("group")].toString().toStdString();
@@ -204,26 +206,35 @@ bool ProfileManager::ExportProfile(const std::string& profile_name, const std::s
 }
 
 bool ProfileManager::ImportProfile(const std::string& file_path) {
+    return !ImportProfileAndGetFinalName(file_path).empty();
+}
+
+std::string ProfileManager::ImportProfileAndGetFinalName(const std::string& file_path) {
     QFile file(QString::fromStdString(file_path));
     if (!file.open(QIODevice::ReadOnly))
-        return false;
+        return {};
 
     const QByteArray data = file.readAll();
     const QJsonDocument doc = QJsonDocument::fromJson(data);
     const QJsonObject root = doc.object();
 
     if (!root.contains(QStringLiteral("name")) || !root.contains(QStringLiteral("shortcuts")))
-        return false;
+        return {};
 
     std::string profile_name = root[QStringLiteral("name")].toString().toStdString();
+    if (profile_name.empty()) {
+        profile_name = "Imported Profile";
+    }
 
     // Handle name collision
-    if (profiles.profiles.count(profile_name)) {
-        profile_name += " (Imported)";
+    std::string base_name = profile_name;
+    int suffix = 1;
+    while (profiles.profiles.count(profile_name)) {
+        profile_name = base_name + " (" + std::to_string(suffix++) + ")";
     }
 
     if (profiles.profiles.size() >= MAX_PROFILES)
-        return false;
+        return {};
 
     std::vector<BackendShortcut> shortcuts;
     const QJsonArray arr = root[QStringLiteral("shortcuts")].toArray();
@@ -233,7 +244,7 @@ bool ProfileManager::ImportProfile(const std::string& file_path) {
 
     profiles.profiles[profile_name] = shortcuts;
     Save();
-    return true;
+    return profile_name;
 }
 
 } // namespace Hotkey

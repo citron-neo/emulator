@@ -6,6 +6,7 @@
 #include <QInputDialog>
 #include <QMenu>
 #include <QMessageBox>
+#include <QModelIndex>
 #include <QShortcut>
 #include <QStandardItemModel>
 #include <QTimer>
@@ -93,14 +94,20 @@ ConfigureHotkeys::ConfigureHotkeys(HotkeyRegistry& registry_, Core::HID::HIDCore
 
 ConfigureHotkeys::~ConfigureHotkeys() = default;
 
-void ConfigureHotkeys::Populate() {
+void ConfigureHotkeys::Populate(const std::string& profile_name) {
     const auto& profiles = profile_manager.GetProfiles();
-    const auto& current_profile_name = profiles.current_profile;
+    std::string target_profile = profile_name;
+    if (target_profile.empty()) {
+        target_profile = ui->combo_box_profile->currentText().toStdString();
+    }
+    if (target_profile.empty()) {
+        target_profile = profiles.current_profile;
+    }
 
     // Use default if current profile missing (safety)
     std::vector<Hotkey::BackendShortcut> current_shortcuts;
-    if (profiles.profiles.count(current_profile_name)) {
-        current_shortcuts = profiles.profiles.at(current_profile_name);
+    if (profiles.profiles.count(target_profile)) {
+        current_shortcuts = profiles.profiles.at(target_profile);
     } else if (profiles.profiles.count("Default")) {
         current_shortcuts = profiles.profiles.at("Default");
     }
@@ -119,18 +126,19 @@ void ConfigureHotkeys::Populate() {
         auto* parent_item = new QStandardItem(
             QCoreApplication::translate("Hotkeys", qPrintable(QString::fromStdString(group_name))));
         parent_item->setEditable(false);
-        parent_item->setData(QString::fromStdString(group_name));
+        parent_item->setData(QString::fromStdString(group_name), Qt::UserRole);
         model->appendRow(parent_item);
 
         for (const auto& [action_name, hotkey] : group_map) {
             // Determine values (Registry Default vs Profile Override)
             QString keyseq_str = hotkey.keyseq.toString(QKeySequence::NativeText);
+            QString portable_keyseq = hotkey.keyseq.toString(QKeySequence::PortableText);
             QString controller_keyseq_str = QString::fromStdString(hotkey.controller_keyseq);
 
             if (overrides.count({group_name, action_name})) {
                 const auto& overridden = overrides.at({group_name, action_name});
-                keyseq_str = QKeySequence(QString::fromStdString(overridden.shortcut.keyseq))
-                                 .toString(QKeySequence::NativeText);
+                portable_keyseq = QString::fromStdString(overridden.shortcut.keyseq);
+                keyseq_str = QKeySequence(portable_keyseq).toString(QKeySequence::NativeText);
                 controller_keyseq_str =
                     QString::fromStdString(overridden.shortcut.controller_keyseq);
             }
@@ -141,7 +149,7 @@ void ConfigureHotkeys::Populate() {
             action_item->setData(QString::fromStdString(action_name), Qt::UserRole);
 
             auto* keyseq_item = new QStandardItem(keyseq_str);
-            keyseq_item->setData(keyseq_str, Qt::UserRole);
+            keyseq_item->setData(portable_keyseq, Qt::UserRole);
             keyseq_item->setEditable(false);
 
             auto* controller_item = new QStandardItem(controller_keyseq_str);
@@ -238,32 +246,69 @@ void ConfigureHotkeys::OnRenameProfile() {
 void ConfigureHotkeys::OnImportProfile() {
     QString fileName = QFileDialog::getOpenFileName(this, tr("Import Profile"), QString(),
                                                     tr("JSON Files (*.json)"));
-    if (!fileName.isEmpty()) {
-        if (profile_manager.ImportProfile(fileName.toStdString())) {
-            UpdateProfileList();
-        } else {
-            QMessageBox::warning(this, tr("Error"), tr("Failed to import profile."));
-        }
+    if (fileName.isEmpty())
+        return;
+
+    QFile file(fileName);
+    if (!file.open(QIODevice::ReadOnly)) {
+        QMessageBox::warning(this, tr("Error"), tr("Failed to open file for reading."));
+        return;
     }
+
+    const QByteArray jsonData = file.readAll();
+    const QJsonDocument doc = QJsonDocument::fromJson(jsonData);
+    if (!doc.isObject()) {
+        QMessageBox::warning(this, tr("Error"), tr("Invalid profile format."));
+        return;
+    }
+
+    const QJsonObject root = doc.object();
+    if (!root.contains(QStringLiteral("shortcuts"))) {
+        QMessageBox::warning(this, tr("Error"), tr("Invalid profile file (missing shortcuts)."));
+        return;
+    }
+
+    std::vector<Hotkey::BackendShortcut> shortcuts;
+    const QJsonArray arr = root[QStringLiteral("shortcuts")].toArray();
+    for (const auto& val : arr) {
+        shortcuts.push_back(Hotkey::ProfileManager::DeserializeShortcut(val.toObject()));
+    }
+
+    ApplyShortcutsToModel(shortcuts);
 }
 
 void ConfigureHotkeys::OnExportProfile() {
     QString current = ui->combo_box_profile->currentText();
     QString fileName = QFileDialog::getSaveFileName(
         this, tr("Export Profile"), current + QStringLiteral(".json"), tr("JSON Files (*.json)"));
-    if (!fileName.isEmpty()) {
-        if (!profile_manager.ExportProfile(current.toStdString(), fileName.toStdString())) {
-            QMessageBox::warning(this, tr("Error"), tr("Failed to export profile."));
-        }
+    if (fileName.isEmpty())
+        return;
+
+    const std::vector<Hotkey::BackendShortcut> shortcuts = GatherShortcutsFromUI();
+
+    QJsonObject root_obj;
+    root_obj[QStringLiteral("name")] = current;
+    QJsonArray shortcuts_arr;
+    for (const auto& s : shortcuts) {
+        shortcuts_arr.append(Hotkey::ProfileManager::SerializeShortcut(s));
     }
+    root_obj[QStringLiteral("shortcuts")] = shortcuts_arr;
+
+    QFile file(fileName);
+    if (!file.open(QIODevice::WriteOnly)) {
+        QMessageBox::warning(this, tr("Error"), tr("Failed to open file for writing."));
+        return;
+    }
+
+    file.write(QJsonDocument(root_obj).toJson());
 }
 
 void ConfigureHotkeys::OnProfileChanged(int index) {
     if (index == -1)
         return;
     const std::string name = ui->combo_box_profile->currentText().toStdString();
-    profile_manager.SetCurrentProfile(name);
-    Populate();
+    // Decoupled from permanent SetCurrentProfile to ensure "stagnant" behavior.
+    Populate(name);
 }
 
 void ConfigureHotkeys::changeEvent(QEvent* event) {
@@ -322,6 +367,7 @@ void ConfigureHotkeys::Configure(QModelIndex index) {
             tr("The entered key sequence is already assigned to: %1").arg(used_action));
     } else {
         model->setData(index, key_sequence.toString(QKeySequence::NativeText));
+        model->setData(index, key_sequence.toString(QKeySequence::PortableText), Qt::UserRole);
     }
 }
 void ConfigureHotkeys::ConfigureController(QModelIndex index) {
@@ -477,104 +523,60 @@ std::pair<bool, QString> ConfigureHotkeys::IsUsedControllerKey(const QString& ke
 }
 
 void ConfigureHotkeys::ApplyConfiguration() {
-    // 1. Update the runtime HotkeyRegistry and UISettings
-    const auto& root = model->invisibleRootItem();
-    std::vector<UISettings::Shortcut> new_ui_shortcuts;
+    // 1. Sync the current profile selection permanently
+    const std::string current_profile_name = ui->combo_box_profile->currentText().toStdString();
+    profile_manager.SetCurrentProfile(current_profile_name);
 
-    for (int group_row = 0; group_row < root->rowCount(); group_row++) {
-        const auto* group_item = root->child(group_row);
-        const std::string group_name = group_item->data().toString().toStdString();
+    // 2. Update the runtime HotkeyRegistry and UISettings
+    const auto shortcuts = GatherShortcutsFromUI();
 
-        for (int row = 0; row < group_item->rowCount(); row++) {
-            const auto* action_item = group_item->child(row, name_column);
-            const auto* keyseq_item = group_item->child(row, hotkey_column);
-            const auto* controller_item = group_item->child(row, controller_column);
+    for (const auto& s : shortcuts) {
+        // Update Registry
+        auto& hk = registry.hotkey_groups[s.group][s.name];
+        hk.keyseq = QKeySequence::fromString(QString::fromStdString(s.shortcut.keyseq));
+        hk.controller_keyseq = s.shortcut.controller_keyseq;
+        hk.context = static_cast<Qt::ShortcutContext>(s.shortcut.context);
+        hk.repeat = s.shortcut.repeat;
 
-            const std::string action_name =
-                action_item->data(Qt::UserRole).toString().toStdString();
-            const QString keyseq_str = keyseq_item->text();
-            const std::string controller_keyseq = controller_item->text().toStdString();
-            const int context = action_item->data(Qt::UserRole + 1).toInt();
-            const bool repeat = action_item->data(Qt::UserRole + 2).toBool();
-
-            // Update Registry
-            auto& hk = registry.hotkey_groups[group_name][action_name];
-            hk.keyseq = QKeySequence::fromString(keyseq_str, QKeySequence::NativeText);
-            hk.controller_keyseq = controller_keyseq;
-            hk.context = static_cast<Qt::ShortcutContext>(context);
-            hk.repeat = repeat;
-
-            if (hk.shortcut) {
-                hk.shortcut->setKey(hk.keyseq);
-            }
-            if (hk.controller_shortcut) {
-                hk.controller_shortcut->SetKey(hk.controller_keyseq);
-            }
-
-            // Sync with UISettings::values.shortcuts (only if modified from default)
-            // Actually, registry.SaveHotkeys() handles the "is_modified" check,
-            // but we'll collect them here for completeness if needed or just call SaveHotkeys.
+        if (hk.shortcut) {
+            hk.shortcut->setKey(hk.keyseq);
+        }
+        if (hk.controller_shortcut) {
+            hk.controller_shortcut->SetKey(hk.controller_keyseq);
         }
     }
 
     // This will correctly populate UISettings::values.shortcuts based on current registry state
     registry.SaveHotkeys();
 
-    // 2. Update the ProfileManager (Storage)
-    const std::string current_profile_name = profile_manager.GetProfiles().current_profile;
-    std::vector<Hotkey::BackendShortcut> new_shortcuts;
-
-    for (int group_row = 0; group_row < root->rowCount(); group_row++) {
-        const auto* group_item = root->child(group_row);
-        const std::string group_name = group_item->data().toString().toStdString();
-
-        for (int row = 0; row < group_item->rowCount(); row++) {
-            const auto* action_item = group_item->child(row, name_column);
-            const auto* keyseq_item = group_item->child(row, hotkey_column);
-            const auto* controller_item = group_item->child(row, controller_column);
-
-            Hotkey::BackendShortcut s;
-            s.group = group_name;
-            s.name = action_item->data(Qt::UserRole).toString().toStdString();
-            s.shortcut.keyseq =
-                QKeySequence::fromString(keyseq_item->text(), QKeySequence::NativeText)
-                    .toString()
-                    .toStdString();
-            s.shortcut.controller_keyseq = controller_item->text().toStdString();
-            s.shortcut.context = action_item->data(Qt::UserRole + 1).toInt();
-            s.shortcut.repeat = action_item->data(Qt::UserRole + 2).toBool();
-
-            new_shortcuts.push_back(s);
-        }
-    }
-
-    profile_manager.SetProfileShortcuts(current_profile_name, new_shortcuts);
+    // 3. Update the ProfileManager (Storage)
+    profile_manager.SetProfileShortcuts(current_profile_name, shortcuts);
     profile_manager.Save();
 }
 
 void ConfigureHotkeys::RestoreDefaults() {
-    size_t hotkey_index = 0;
-    const size_t total_default_hotkeys = UISettings::default_hotkeys.size();
-
     for (int group_row = 0; group_row < model->rowCount(); ++group_row) {
         QStandardItem* parent = model->item(group_row, 0);
+        const std::string group_name = parent->data(Qt::UserRole).toString().toStdString();
 
         for (int child_row = 0; child_row < parent->rowCount(); ++child_row) {
-            // This bounds check prevents a crash.
-            if (hotkey_index >= total_default_hotkeys) {
-                QMessageBox::information(this, tr("Success!"),
-                                         tr("Citron's Default hotkey entries have been restored!"));
-                return;
+            QStandardItem* action_item = parent->child(child_row, name_column);
+            const std::string action_name =
+                action_item->data(Qt::UserRole).toString().toStdString();
+
+            // Find default
+            for (const auto& def : UISettings::default_hotkeys) {
+                if (def.group == group_name && def.name == action_name) {
+                    QStandardItem* hotkey_item = parent->child(child_row, hotkey_column);
+                    hotkey_item->setText(
+                        QKeySequence::fromString(QString::fromStdString(def.shortcut.keyseq))
+                            .toString(QKeySequence::NativeText));
+                    hotkey_item->setData(QString::fromStdString(def.shortcut.keyseq), Qt::UserRole);
+                    parent->child(child_row, controller_column)
+                        ->setText(QString::fromStdString(def.shortcut.controller_keyseq));
+                    break;
+                }
             }
-
-            const auto& default_shortcut = UISettings::default_hotkeys[hotkey_index].shortcut;
-
-            parent->child(child_row, hotkey_column)
-                ->setText(QString::fromStdString(default_shortcut.keyseq));
-            parent->child(child_row, controller_column)
-                ->setText(QString::fromStdString(default_shortcut.controller_keyseq));
-
-            hotkey_index++;
         }
     }
 
@@ -586,7 +588,9 @@ void ConfigureHotkeys::ClearAll() {
         const QStandardItem* parent = model->item(r, 0);
 
         for (int r2 = 0; r2 < parent->rowCount(); ++r2) {
-            model->item(r, 0)->child(r2, hotkey_column)->setText(QString{});
+            QStandardItem* hotkey_item = model->item(r, 0)->child(r2, hotkey_column);
+            hotkey_item->setText(QString{});
+            hotkey_item->setData(QString{}, Qt::UserRole);
             model->item(r, 0)->child(r2, controller_column)->setText(QString{});
         }
     }
@@ -623,8 +627,8 @@ void ConfigureHotkeys::PopupContextMenu(const QPoint& menu_location) {
 void ConfigureHotkeys::RestoreControllerHotkey(QModelIndex index) {
     const auto* group_item = model->itemFromIndex(index.parent());
     const auto* action_item = group_item->child(index.row(), name_column);
-    const std::string group_name = group_item->data().toString().toStdString();
-    const std::string action_name = action_item->data().toString().toStdString();
+    const std::string group_name = group_item->data(Qt::UserRole).toString().toStdString();
+    const std::string action_name = action_item->data(Qt::UserRole).toString().toStdString();
 
     QString default_key_sequence;
     for (const auto& def : UISettings::default_hotkeys) {
@@ -648,8 +652,8 @@ void ConfigureHotkeys::RestoreControllerHotkey(QModelIndex index) {
 void ConfigureHotkeys::RestoreHotkey(QModelIndex index) {
     const auto* group_item = model->itemFromIndex(index.parent());
     const auto* action_item = group_item->child(index.row(), name_column);
-    const std::string group_name = group_item->data().toString().toStdString();
-    const std::string action_name = action_item->data().toString().toStdString();
+    const std::string group_name = group_item->data(Qt::UserRole).toString().toStdString();
+    const std::string action_name = action_item->data(Qt::UserRole).toString().toStdString();
 
     QString default_key_str;
     for (const auto& def : UISettings::default_hotkeys) {
@@ -667,7 +671,64 @@ void ConfigureHotkeys::RestoreHotkey(QModelIndex index) {
         QMessageBox::warning(
             this, tr("Conflicting Key Sequence"),
             tr("The default key sequence is already assigned to: %1").arg(used_action));
-    } else {
-        model->setData(index, default_key_sequence.toString(QKeySequence::NativeText));
+    }
+}
+
+std::vector<Hotkey::BackendShortcut> ConfigureHotkeys::GatherShortcutsFromUI() const {
+    std::vector<Hotkey::BackendShortcut> shortcuts;
+    const auto& root = model->invisibleRootItem();
+    for (int group_row = 0; group_row < root->rowCount(); group_row++) {
+        const auto* group_item = root->child(group_row);
+        const std::string group_name = group_item->data(Qt::UserRole).toString().toStdString();
+        for (int row = 0; row < group_item->rowCount(); row++) {
+            const auto* action_item = group_item->child(row, name_column);
+            const auto* keyseq_item = group_item->child(row, hotkey_column);
+            const auto* controller_item = group_item->child(row, controller_column);
+
+            Hotkey::BackendShortcut s;
+            s.group = group_name;
+            s.name = action_item->data(Qt::UserRole).toString().toStdString();
+            s.shortcut.keyseq = keyseq_item->data(Qt::UserRole).toString().toStdString();
+            s.shortcut.controller_keyseq = controller_item->text().toStdString();
+            s.shortcut.context = action_item->data(Qt::UserRole + 1).toInt();
+            s.shortcut.repeat = action_item->data(Qt::UserRole + 2).toBool();
+            shortcuts.push_back(s);
+        }
+    }
+    return shortcuts;
+}
+
+void ConfigureHotkeys::ApplyShortcutsToModel(
+    const std::vector<Hotkey::BackendShortcut>& shortcuts) {
+    // Map for faster lookup
+    std::map<std::pair<std::string, std::string>, Hotkey::BackendShortcut> shortcut_map;
+    for (const auto& s : shortcuts) {
+        shortcut_map[{s.group, s.name}] = s;
+    }
+
+    const auto& root = model->invisibleRootItem();
+    for (int group_row = 0; group_row < root->rowCount(); group_row++) {
+        auto* group_item = root->child(group_row);
+        const std::string group_name = group_item->data(Qt::UserRole).toString().toStdString();
+        for (int row = 0; row < group_item->rowCount(); row++) {
+            auto* action_item = group_item->child(row, name_column);
+            const std::string action_name =
+                action_item->data(Qt::UserRole).toString().toStdString();
+
+            if (shortcut_map.count({group_name, action_name})) {
+                const auto& s = shortcut_map.at({group_name, action_name});
+                QStandardItem* hotkey_item = group_item->child(row, hotkey_column);
+                hotkey_item->setText(QKeySequence(QString::fromStdString(s.shortcut.keyseq))
+                                         .toString(QKeySequence::NativeText));
+                hotkey_item->setData(QString::fromStdString(s.shortcut.keyseq), Qt::UserRole);
+
+                model->setData(model->index(row, controller_column, group_item->index()),
+                               QString::fromStdString(s.shortcut.controller_keyseq));
+                model->setData(model->index(row, name_column, group_item->index()),
+                               s.shortcut.context, Qt::UserRole + 1);
+                model->setData(model->index(row, name_column, group_item->index()),
+                               s.shortcut.repeat, Qt::UserRole + 2);
+            }
+        }
     }
 }
