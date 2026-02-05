@@ -18,12 +18,13 @@
 #include <QString>
 #include <QWidget>
 
-#include "common/common_types.h"
-#include "common/logging/log.h"
-#include "common/string_util.h"
 #include "citron/play_time_manager.h"
 #include "citron/uisettings.h"
 #include "citron/util/util.h"
+#include "common/common_types.h"
+#include "common/logging/log.h"
+#include "common/string_util.h"
+
 
 enum class GameListItemType {
     Game = QStandardItem::UserType + 1,
@@ -62,7 +63,8 @@ static QPixmap CreateRoundIcon(const QPixmap& pixmap, u32 size) {
     painter.setRenderHint(QPainter::Antialiasing);
 
     // Create a rounded rectangle clipping path
-    const int radius = size / 8; // Adjust this value to control roundness (size/8 gives subtle rounding)
+    const int radius =
+        size / 8; // Adjust this value to control roundness (size/8 gives subtle rounding)
     QPainterPath path;
     path.addRoundedRect(0, 0, size, size, radius, radius);
     painter.setClipPath(path);
@@ -98,6 +100,7 @@ public:
     static constexpr int FullPathRole = SortRole + 2;
     static constexpr int ProgramIdRole = SortRole + 3;
     static constexpr int FileTypeRole = SortRole + 4;
+    static constexpr int HighResIconRole = SortRole + 5;
 
     GameListItemPath() = default;
     GameListItemPath(const QString& game_path, const std::vector<u8>& picture_data,
@@ -114,6 +117,9 @@ public:
         if (!picture.loadFromData(picture_data.data(), static_cast<u32>(picture_data.size()))) {
             picture = GetDefaultIcon(size);
         }
+
+        // Store unscaled pixmap for high-quality animations
+        setData(picture, HighResIconRole);
 
         // Create a round icon
         QPixmap round_picture = CreateRoundIcon(picture, size);
