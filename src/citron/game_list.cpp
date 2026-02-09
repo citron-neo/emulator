@@ -2144,6 +2144,13 @@ void GameList::RefreshGameDirectory() {
     }
 }
 
+void GameList::CancelPopulation() {
+    if (current_worker) {
+        current_worker->Cancel();
+    }
+    current_worker.reset();
+}
+
 void GameList::ToggleFavorite(u64 program_id) {
     if (!UISettings::values.favorited_ids.contains(program_id)) {
         tree_view->setRowHidden(0, item_model->invisibleRootItem()->index(),

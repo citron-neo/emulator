@@ -123,6 +123,8 @@ static FileSys::VirtualFile VfsDirectoryCreateFileWrapper(const FileSys::Virtual
 #ifdef ARCHITECTURE_x86_64
 #include "common/x64/cpu_detect.h"
 #endif
+#include "audio_core/audio_core.h"
+#include "audio_core/sink/sink.h"
 #include "citron/about_dialog.h"
 #include "citron/bootmanager.h"
 #include "citron/compatdb.h"
@@ -2100,6 +2102,8 @@ void GMainWindow::BootGame(const QString& filename, Service::AM::FrontendAppletP
                            StartGameType type) {
     LOG_INFO(Frontend, "citron starting...");
 
+    game_list->CancelPopulation();
+
     RegisterAutoloaderContents();
 
     if (params.program_id == 0 ||
@@ -2342,8 +2346,14 @@ void GMainWindow::OnEmulationStopped() {
     LOG_INFO(Frontend,
              "Mirroring: Emulation stopped. Re-arming startup sync for next game list refresh.");
 
+    // This is necessary to stop the game list worker from accessing the filesystem.
+    game_list->CancelPopulation();
+
     // This is necessary to reset the in-memory state for the next launch.
     system->GetFileSystemController().CreateFactories(*vfs, true);
+
+    // Refresh the game list now that the filesystem is valid again.
+    game_list->PopulateAsync(UISettings::values.game_dirs);
 
     discord_rpc->Update();
 
@@ -5745,6 +5755,14 @@ void GMainWindow::UpdateVolumeUI() {
     } else {
         volume_button->setChecked(true);
         volume_button->setText(tr("VOLUME: %1%", "Volume percentage (e.g. 50%)").arg(volume_value));
+    }
+    float volume_scale = static_cast<float>(volume_value) / 100.0f;
+    if (Settings::values.audio_muted) {
+        volume_scale = 0.0f;
+    }
+
+    if (system && system->IsPoweredOn()) {
+        system->AudioCore().GetOutputSink().SetSystemVolume(volume_scale);
     }
 }
 

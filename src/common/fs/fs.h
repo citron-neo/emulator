@@ -400,9 +400,9 @@ void IterateDirEntriesRecursively(const std::filesystem::path& path,
                                   const DirEntryCallable& callback,
                                   DirEntryFilter filter = DirEntryFilter::All);
 
-void IterateDirEntriesRecursivelyInternal(const std::filesystem::path& path,
-                                          const DirEntryCallable& callback,
-                                          DirEntryFilter filter, int depth);
+bool IterateDirEntriesRecursivelyInternal(const std::filesystem::path& path,
+                                          const DirEntryCallable& callback, DirEntryFilter filter,
+                                          int depth);
 
 #ifdef _WIN32
 template <typename Path>
