@@ -6,24 +6,26 @@
 
 #include <atomic>
 #include <deque>
+#include <map> // Required for the online_stats map
 #include <memory>
 #include <string>
-#include <map> // Required for the online_stats map
 #include <utility> // Required for std::pair
+
 
 #include <QList>
 #include <QObject>
 #include <QRunnable>
 #include <QString>
 
-#include "common/thread.h"
 #include "citron/compatibility_list.h"
-#include "citron/play_time_manager.h"
 #include "citron/multiplayer/state.h"
+#include "citron/play_time_manager.h"
+#include "common/thread.h"
 #include "network/announce_multiplayer_session.h"
 
+
 namespace Core {
-    class System;
+class System;
 }
 
 class GameList;
@@ -31,9 +33,9 @@ class GameListDir; // Forward declare GameListDir
 class QStandardItem;
 
 namespace FileSys {
-    class NCA;
-    class VfsFilesystem;
-    class ManualContentProvider;
+class NCA;
+class VfsFilesystem;
+class ManualContentProvider;
 } // namespace FileSys
 
 /**
@@ -61,6 +63,9 @@ public:
 
     /// Starts the processing of directory tree information.
     void run() override;
+
+    /// Request the worker to stop.
+    void Cancel();
 
 public:
     /**

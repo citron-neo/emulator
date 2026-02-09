@@ -27,14 +27,12 @@
 #include <QVector>
 #include <QWidget>
 
-
 #include "citron/compatibility_list.h"
 #include "citron/multiplayer/state.h"
 #include "citron/play_time_manager.h"
 #include "common/common_types.h"
 #include "core/core.h"
 #include "uisettings.h"
-
 
 class ControllerNavigation;
 class GameListWorker;
@@ -107,6 +105,7 @@ public:
 
     void LoadCompatibilityList();
     void PopulateAsync(QVector<UISettings::GameDir>& game_dirs);
+    void CancelPopulation();
 
     void SaveInterfaceLayout();
     void LoadInterfaceLayout();

@@ -437,18 +437,17 @@ void IterateDirEntries(const std::filesystem::path& path, const DirEntryCallable
 
         std::error_code status_ec;
         const auto st = entry.status(status_ec);
-        if (status_ec) continue;
+        if (status_ec)
+            continue;
 
-        if (True(filter & DirEntryFilter::File) &&
-            st.type() == fs::file_type::regular) {
+        if (True(filter & DirEntryFilter::File) && st.type() == fs::file_type::regular) {
             if (!callback(entry)) {
                 callback_error = true;
                 break;
             }
         }
 
-        if (True(filter & DirEntryFilter::Directory) &&
-            st.type() == fs::file_type::directory) {
+        if (True(filter & DirEntryFilter::Directory) && st.type() == fs::file_type::directory) {
             if (!callback(entry)) {
                 callback_error = true;
                 break;
@@ -467,14 +466,16 @@ void IterateDirEntries(const std::filesystem::path& path, const DirEntryCallable
               PathToUTF8String(path));
 }
 
-void IterateDirEntriesRecursivelyInternal(const std::filesystem::path& path,
+bool IterateDirEntriesRecursivelyInternal(const std::filesystem::path& path,
                                           const DirEntryCallable& callback, DirEntryFilter filter,
                                           int depth) {
-    if (depth > 12) return;
+    if (depth > 12)
+        return true;
 
     std::error_code ec;
     auto it = fs::directory_iterator(path, ec);
-    if (ec) return;
+    if (ec)
+        return true;
 
     while (it != fs::directory_iterator() && !ec) {
         const auto& entry = *it;
@@ -483,8 +484,8 @@ void IterateDirEntriesRecursivelyInternal(const std::filesystem::path& path,
         const std::string filename = entry.path().filename().string();
         if (filename[0] == '$' || filename == "Windows" || filename == "Program Files" ||
             filename == "Program Files (x86)" || filename == "System Volume Information" ||
-            filename == "ProgramData" || filename == "Application Data" ||
-            filename == "Users" || filename == "SteamLibrary") {
+            filename == "ProgramData" || filename == "Application Data" || filename == "Users" ||
+            filename == "SteamLibrary") {
             it.increment(ec);
             continue;
         }
@@ -492,15 +493,29 @@ void IterateDirEntriesRecursivelyInternal(const std::filesystem::path& path,
 
         std::error_code status_ec;
         if (entry.is_directory(status_ec)) {
-            if (True(filter & DirEntryFilter::Directory)) { if (!callback(entry)) break; }
-            IterateDirEntriesRecursivelyInternal(entry.path(), callback, filter, depth + 1);
+            if (True(filter & DirEntryFilter::Directory)) {
+                if (!callback(entry)) {
+                    return false;
+                }
+            }
+            if (!IterateDirEntriesRecursivelyInternal(entry.path(), callback, filter, depth + 1)) {
+                return false;
+            }
         } else {
-            if (True(filter & DirEntryFilter::File)) { if (!callback(entry)) break; }
+            if (True(filter & DirEntryFilter::File)) {
+                if (!callback(entry)) {
+                    return false;
+                }
+            }
         }
 
         it.increment(ec);
-        if (ec) { ec.clear(); break; }
+        if (ec) {
+            ec.clear();
+            break;
+        }
     }
+    return true;
 }
 
 void IterateDirEntriesRecursively(const std::filesystem::path& path,
