@@ -21,7 +21,6 @@
 #include <QSettings>
 #include <QStandardPaths>
 
-
 #include "citron/compatibility_list.h"
 #include "citron/game_list.h"
 #include "citron/game_list_p.h"
@@ -39,7 +38,6 @@
 #include "core/file_sys/registered_cache.h"
 #include "core/file_sys/submission_package.h"
 #include "core/loader/loader.h"
-
 
 namespace {
 
@@ -485,6 +483,11 @@ GameListWorker::~GameListWorker() {
     processing_completed.Wait();
 }
 
+void GameListWorker::Cancel() {
+    this->disconnect();
+    stop_requested.store(true);
+}
+
 void GameListWorker::ProcessEvents(GameList* game_list) {
     while (true) {
         std::function<void(GameList*)> func;
@@ -542,6 +545,10 @@ void GameListWorker::AddTitlesToGameList(GameListDir* parent_dir,
     }
 
     for (const auto& [slot, game] : installed_games) {
+        if (stop_requested) {
+            break;
+        }
+
         if (slot == ContentProviderUnionSlot::FrontendManual) {
             continue;
         }
@@ -580,10 +587,16 @@ void GameListWorker::ScanFileSystem(ScanTarget target, const std::string& dir_pa
                                     const std::map<u64, std::pair<int, int>>& online_stats,
                                     int& processed_files, int total_files) {
     const auto callback = [this, target, parent_dir, &online_stats, &processed_files,
-                           total_files](const std::filesystem::path& path) -> bool {
-        if (stop_requested)
+                           total_files](const std::filesystem::directory_entry& dir_entry) -> bool {
+        if (stop_requested) {
             return false;
+        }
 
+        if (dir_entry.is_directory()) {
+            return true;
+        }
+
+        const auto& path = dir_entry.path();
         const auto physical_name = Common::FS::PathToUTF8String(path);
 
         if (physical_name.find("/nand/") != std::string::npos ||
@@ -714,7 +727,7 @@ void GameListWorker::ScanFileSystem(ScanTarget target, const std::string& dir_pa
 
     if (deep_scan) {
         Common::FS::IterateDirEntriesRecursively(dir_path, callback,
-                                                 Common::FS::DirEntryFilter::File);
+                                                 Common::FS::DirEntryFilter::All);
     } else {
         Common::FS::IterateDirEntries(dir_path, callback, Common::FS::DirEntryFilter::File);
     }
@@ -745,7 +758,16 @@ void GameListWorker::run() {
         if (game_dir.path == "SDMC" || game_dir.path == "UserNAND" || game_dir.path == "SysNAND")
             continue;
 
-        auto count_callback = [&](const std::filesystem::path& path) -> bool {
+        auto count_callback = [&](const std::filesystem::directory_entry& dir_entry) -> bool {
+            if (stop_requested) {
+                return false;
+            }
+
+            if (dir_entry.is_directory()) {
+                return true;
+            }
+
+            const auto& path = dir_entry.path();
             const std::string physical_name = Common::FS::PathToUTF8String(path);
             if (HasSupportedFileExtension(physical_name)) {
                 total_files++;
@@ -755,7 +777,7 @@ void GameListWorker::run() {
 
         if (game_dir.deep_scan) {
             Common::FS::IterateDirEntriesRecursively(game_dir.path, count_callback,
-                                                     Common::FS::DirEntryFilter::File);
+                                                     Common::FS::DirEntryFilter::All);
         } else {
             Common::FS::IterateDirEntries(game_dir.path, count_callback,
                                           Common::FS::DirEntryFilter::File);
