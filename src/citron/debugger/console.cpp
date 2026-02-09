@@ -7,11 +7,11 @@
 #include <wincon.h>
 #endif
 
-#include "common/logging/backend.h"
 #include "citron/debugger/console.h"
 #include "citron/uisettings.h"
+#include "common/logging/backend.h"
 
-namespace Debugger {
+namespace CitronDebugger {
 void ToggleConsole() {
     static bool console_shown = false;
     if (console_shown == UISettings::values.show_console.GetValue()) {
@@ -46,4 +46,4 @@ void ToggleConsole() {
     SetColorConsoleBackendEnabled(UISettings::values.show_console.GetValue());
 #endif
 }
-} // namespace Debugger
+} // namespace CitronDebugger
