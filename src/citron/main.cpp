@@ -1599,7 +1599,7 @@ void GMainWindow::RestoreUIState() {
         vram_overlay->SetVisible(false);
     }
 
-    Debugger::ToggleConsole();
+    CitronDebugger::ToggleConsole();
 }
 
 void GMainWindow::OnAppFocusStateChanged(Qt::ApplicationState state) {
