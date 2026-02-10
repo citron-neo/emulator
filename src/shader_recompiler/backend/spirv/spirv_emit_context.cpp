@@ -33,17 +33,18 @@ enum class Operation {
     case SamplerComponentType::Depth:
         return ctx.F32[1];
     case SamplerComponentType::Sint:
-    case SamplerComponentType::Stencil:
         return ctx.S32[1];
     case SamplerComponentType::Uint:
         return ctx.U32[1];
+    case SamplerComponentType::Stencil:
+        return ctx.F32[1];
     }
     throw InvalidArgument("Invalid sampler component type {}", component_type);
 }
 
 Id ImageType(EmitContext& ctx, const TextureDescriptor& desc, Id sampled_type) {
     const spv::ImageFormat format{spv::ImageFormat::Unknown};
->>>>>>> f8de99641 (feat(spirv): implement texture component type handling in SPIR-V backend)
+
     const bool depth{desc.is_depth};
     const bool ms{desc.is_multisample};
     switch (desc.type) {
@@ -1406,7 +1407,6 @@ void EmitContext::DefineTextures(const Info& info, u32& binding, u32& scaling_in
             .count = desc.count,
             .is_multisample = desc.is_multisample,
             .component_type = desc.component_type,
->>>>>>> f8de99641 (feat(spirv): implement texture component type handling in SPIR-V backend)
         });
         if (profile.supported_spirv >= 0x00010400) {
             interfaces.push_back(id);

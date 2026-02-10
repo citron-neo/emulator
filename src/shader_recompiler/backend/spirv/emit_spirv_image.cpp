@@ -201,10 +201,10 @@ Id Texture(EmitContext& ctx, IR::TextureInstInfo info, [[maybe_unused]] const IR
     switch (def.component_type) {
     case SamplerComponentType::Float:
     case SamplerComponentType::Depth:
+    case SamplerComponentType::Stencil:
         return ctx.F32[4];
     case SamplerComponentType::Sint:
         return ctx.S32[4];
-    case SamplerComponentType::Stencil:
     case SamplerComponentType::Uint:
         return ctx.U32[4];
     }
@@ -212,19 +212,16 @@ Id Texture(EmitContext& ctx, IR::TextureInstInfo info, [[maybe_unused]] const IR
 }
 
 /// Convert texture sample result to float, handling integer and stencil types
-[[nodiscard]] Id TextureSampleResultToFloat(EmitContext& ctx, const TextureDefinition& def, Id color) {
+[[nodiscard]] Id TextureSampleResultToFloat(EmitContext& ctx, const TextureDefinition& def,
+                                            Id color) {
     switch (def.component_type) {
     case SamplerComponentType::Float:
     case SamplerComponentType::Depth:
+    case SamplerComponentType::Stencil:
         return color;
     case SamplerComponentType::Sint:
         return ctx.OpConvertSToF(ctx.F32[4], color);
-    case SamplerComponentType::Stencil: {
-        const Id converted{ctx.OpConvertUToF(ctx.F32[4], color)};
-        const Id inv255{ctx.Const(1.0f / 255.0f)};
-        const Id scale{ctx.ConstantComposite(ctx.F32[4], inv255, inv255, inv255, inv255)};
-        return ctx.OpFMul(ctx.F32[4], converted, scale);
-    }
+
     case SamplerComponentType::Uint:
         return ctx.OpConvertUToF(ctx.F32[4], color);
     }
@@ -493,8 +490,8 @@ Id EmitImageSampleImplicitLod(EmitContext& ctx, IR::Inst* inst, const IR::Value&
         const ImageOperands operands(ctx, info.has_bias != 0, false, info.has_lod_clamp != 0,
                                      bias_lc, offset);
         color = Emit(&EmitContext::OpImageSparseSampleImplicitLod,
-                     &EmitContext::OpImageSampleImplicitLod, ctx, inst, color_type, texture,
-                     coords, operands.MaskOptional(), operands.Span());
+                     &EmitContext::OpImageSampleImplicitLod, ctx, inst, color_type, texture, coords,
+                     operands.MaskOptional(), operands.Span());
     } else {
         // We can't use implicit lods on non-fragment stages on SPIR-V. Maxwell hardware behaves as
         // if the lod was explicitly zero.  This may change on Turing with implicit compute
@@ -502,8 +499,8 @@ Id EmitImageSampleImplicitLod(EmitContext& ctx, IR::Inst* inst, const IR::Value&
         const Id lod{ctx.Const(0.0f)};
         const ImageOperands operands(ctx, false, true, info.has_lod_clamp != 0, lod, offset);
         color = Emit(&EmitContext::OpImageSparseSampleExplicitLod,
-                     &EmitContext::OpImageSampleExplicitLod, ctx, inst, color_type, texture,
-                     coords, operands.Mask(), operands.Span());
+                     &EmitContext::OpImageSampleExplicitLod, ctx, inst, color_type, texture, coords,
+                     operands.Mask(), operands.Span());
     }
     return TextureSampleResultToFloat(ctx, def, color);
 }
@@ -560,10 +557,9 @@ Id EmitImageGather(EmitContext& ctx, IR::Inst* inst, const IR::Value& index, Id 
     if (ctx.profile.need_gather_subpixel_offset) {
         coords = ImageGatherSubpixelOffset(ctx, info, TextureImage(ctx, info, index), coords);
     }
-    const Id color{
-        Emit(&EmitContext::OpImageSparseGather, &EmitContext::OpImageGather, ctx, inst, color_type,
-             texture, coords, ctx.Const(info.gather_component), operands.MaskOptional(),
-             operands.Span())};
+    const Id color{Emit(&EmitContext::OpImageSparseGather, &EmitContext::OpImageGather, ctx, inst,
+                        color_type, texture, coords, ctx.Const(info.gather_component),
+                        operands.MaskOptional(), operands.Span())};
     return TextureSampleResultToFloat(ctx, def, color);
 }
 
