@@ -67,14 +67,13 @@ struct DrawParams {
 VkViewport GetViewportState(const Device& device, const Maxwell& regs, size_t index, float scale) {
     const auto& src = regs.viewport_transform[index];
     const auto conv = [scale](float value) {
-        if (scale >= 1.0f) {
-            return value * scale;
-        }
-        // Use double only when scaling down to avoid sub-pixel jitter (MP4 fix)
         const double new_value = static_cast<double>(value) * static_cast<double>(scale);
-        const bool sign = std::signbit(value);
-        const double rounded = std::round(std::abs(new_value));
-        return static_cast<float>(sign ? -rounded : rounded);
+        if (scale < 1.0f) {
+            const bool sign = std::signbit(value);
+            double rounded = std::round(std::abs(new_value));
+            return static_cast<float>(sign ? -rounded : rounded);
+        }
+        return static_cast<float>(new_value);
     };
     const float x = conv(src.translate_x - src.scale_x);
     const float width = conv(src.scale_x * 2.0f);
