@@ -158,6 +158,25 @@ enum class ImageFormat : u32 {
     R32G32B32A32_SFLOAT,
 };
 
+/// Texture sampler component type classification
+enum class SamplerComponentType : u8 {
+    Float,   ///< Floating-point texture components
+    Sint,    ///< Signed integer texture components
+    Uint,    ///< Unsigned integer texture components
+    Depth,   ///< Depth texture components
+    Stencil, ///< Stencil texture components
+};
+
+/// Check if a component type represents an integer type
+[[nodiscard]] constexpr bool IsInteger(SamplerComponentType type) noexcept {
+    return type == SamplerComponentType::Sint || type == SamplerComponentType::Uint;
+}
+
+/// Check if a component type represents a depth or stencil type
+[[nodiscard]] constexpr bool IsDepthStencil(SamplerComponentType type) noexcept {
+    return type == SamplerComponentType::Depth || type == SamplerComponentType::Stencil;
+}
+
 enum class Interpolation {
     Smooth,
     Flat,
@@ -211,6 +230,7 @@ using ImageBufferDescriptors = boost::container::small_vector<ImageBufferDescrip
 
 struct TextureDescriptor {
     TextureType type;
+    SamplerComponentType component_type;
     bool is_depth;
     bool is_multisample;
     bool has_secondary;
