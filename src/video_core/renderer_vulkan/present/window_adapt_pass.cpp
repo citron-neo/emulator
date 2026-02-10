@@ -163,11 +163,10 @@ void WindowAdaptPass::CreateDescriptorSetLayout() {
 }
 
 void WindowAdaptPass::CreatePipelineLayout() {
-    // Support up to 3 push constant ranges:
+    // Support up to 2 push constant ranges:
     // 0: PresentPushConstants (vertex shader)
-    // 1: Lanczos quality (fragment shader) - optional
-    // 2: CRT parameters (fragment shader) - optional
-    std::array<VkPushConstantRange, 3> ranges{};
+    // 1: Fragment shader parameters (Lanczos + CRT)
+    std::array<VkPushConstantRange, 2> ranges{};
 
     // Range 0: The existing constants for the Vertex Shader
     ranges[0] = {
@@ -176,16 +175,14 @@ void WindowAdaptPass::CreatePipelineLayout() {
         .size = sizeof(PresentPushConstants),
     };
 
-    // Range 1: Lanczos quality for the Fragment Shader
-    ranges[1] = {
-        .stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,
-        .offset = sizeof(PresentPushConstants),
-        .size = sizeof(s32),
-    };
-
-    // Range 2: CRT parameters for the Fragment Shader
-    // Offset after PresentPushConstants + Lanczos (if used)
-    // CRT constants: 8 floats + 1 int = 36 bytes
+    // Range 1: All parameters for the Fragment Shader (Lanczos + CRT)
+    // We combine them into a single range because Vulkan does not allow multiple ranges
+    // for the same stage if they are provided separately in some drivers/configs.
+    // Spec says: "For each shader stage, there must be at most one push constant range
+    // that includes that stage in its stageFlags." - actually the spec says:
+    // "Each element of pPushConstantRanges must contain at least one stage flag in stageFlags"
+    // and "Any two elements of pPushConstantRanges must not include the same stage flag in
+    // stageFlags"
     struct CRTPushConstants {
         float scanline_strength;
         float curvature;
@@ -197,10 +194,10 @@ void WindowAdaptPass::CreatePipelineLayout() {
         float screen_width;
         float screen_height;
     };
-    ranges[2] = {
+    ranges[1] = {
         .stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,
-        .offset = sizeof(PresentPushConstants) + sizeof(s32),
-        .size = sizeof(CRTPushConstants),
+        .offset = sizeof(PresentPushConstants),
+        .size = sizeof(s32) + sizeof(CRTPushConstants),
     };
 
     pipeline_layout = device.GetLogical().CreatePipelineLayout(VkPipelineLayoutCreateInfo{

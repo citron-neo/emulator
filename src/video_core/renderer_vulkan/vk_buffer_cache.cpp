@@ -8,9 +8,10 @@
 #include <vector>
 
 #include "common/alignment.h"
-#include "common/literals.h"
 #include "common/common_types.h"
+#include "common/literals.h"
 #include "video_core/renderer_vulkan/vk_buffer_cache.h"
+
 
 #include "video_core/renderer_vulkan/maxwell_to_vk.h"
 #include "video_core/renderer_vulkan/vk_scheduler.h"
@@ -660,7 +661,8 @@ vk::Buffer BufferCacheRuntime::CreateNullBuffer() {
         .flags = 0,
         .size = 4,
         .usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT |
-                 VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT,
+                 VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT |
+                 VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
         .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
         .queueFamilyIndexCount = 0,
         .pQueueFamilyIndices = nullptr,

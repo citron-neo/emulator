@@ -899,15 +899,17 @@ private:
                     cmdbuf.EndTransformFeedbackEXT(0, 0, nullptr, nullptr);
                 });
             } else {
-                scheduler.Record([this,
-                                  total = static_cast<u32>(buffers_count)](vk::CommandBuffer cmdbuf) {
-                    cmdbuf.EndTransformFeedbackEXT(0, total, counter_buffers.data(), offsets.data());
-                });
+                scheduler.Record(
+                    [this, total = static_cast<u32>(buffers_count)](vk::CommandBuffer cmdbuf) {
+                        cmdbuf.EndTransformFeedbackEXT(0, total, counter_buffers.data(),
+                                                       offsets.data());
+                    });
             }
         } catch (...) {
             // If query ending fails, we'll log it but continue
             // This prevents crashes from malformed query states
-            LOG_WARNING(Render_Vulkan, "Failed to end transform feedback query, continuing execution");
+            LOG_WARNING(Render_Vulkan,
+                        "Failed to end transform feedback query, continuing execution");
         }
     }
 
@@ -1188,10 +1190,9 @@ struct QueryCacheRuntimeImpl {
                           StagingBufferPool& staging_pool_,
                           ComputePassDescriptorQueue& compute_pass_descriptor_queue,
                           DescriptorPool& descriptor_pool)
-        : rasterizer{rasterizer_}, device_memory{device_memory_},
-          buffer_cache{buffer_cache_}, device{device_},
-          memory_allocator{memory_allocator_}, scheduler{scheduler_}, staging_pool{staging_pool_},
-          guest_streamer(0, runtime),
+        : rasterizer{rasterizer_}, device_memory{device_memory_}, buffer_cache{buffer_cache_},
+          device{device_}, memory_allocator{memory_allocator_}, scheduler{scheduler_},
+          staging_pool{staging_pool_}, guest_streamer(0, runtime),
           sample_streamer(static_cast<size_t>(QueryType::ZPassPixelCount64), runtime, rasterizer,
                           device, scheduler, memory_allocator, compute_pass_descriptor_queue,
                           descriptor_pool),
