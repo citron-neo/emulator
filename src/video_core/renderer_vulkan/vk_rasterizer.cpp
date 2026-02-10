@@ -9,6 +9,7 @@
 
 #include "video_core/renderer_vulkan/renderer_vulkan.h"
 
+#include "citron/util/title_ids.h"
 #include "common/assert.h"
 #include "common/logging/log.h"
 #include "common/microprofile.h"
@@ -38,7 +39,7 @@
 #include "video_core/texture_cache/texture_cache_base.h"
 #include "video_core/vulkan_common/vulkan_device.h"
 #include "video_core/vulkan_common/vulkan_wrapper.h"
-#include "citron/util/title_ids.h"
+
 
 namespace Vulkan {
 
@@ -66,13 +67,13 @@ struct DrawParams {
 VkViewport GetViewportState(const Device& device, const Maxwell& regs, size_t index, float scale) {
     const auto& src = regs.viewport_transform[index];
     const auto conv = [scale](float value) {
-        float new_value = value * scale;
+        const double new_value = static_cast<double>(value) * static_cast<double>(scale);
         if (scale < 1.0f) {
             const bool sign = std::signbit(value);
-            new_value = std::round(std::abs(new_value));
-            new_value = sign ? -new_value : new_value;
+            double rounded = std::round(std::abs(new_value));
+            return static_cast<float>(sign ? -rounded : rounded);
         }
-        return new_value;
+        return static_cast<float>(new_value);
     };
     const float x = conv(src.translate_x - src.scale_x);
     const float width = conv(src.scale_x * 2.0f);
@@ -1107,7 +1108,8 @@ void RasterizerVulkan::UpdateViewportsState(Tegra::Engines::Maxwell3D::Regs& reg
             };
         }
         scheduler.Record([this, viewport_list](vk::CommandBuffer cmdbuf) {
-            const u32 num_viewports = std::min<u32>(device.GetMaxViewports(), Maxwell::NumViewports);
+            const u32 num_viewports =
+                std::min<u32>(device.GetMaxViewports(), Maxwell::NumViewports);
             const vk::Span<VkViewport> viewports(viewport_list.data(), num_viewports);
             cmdbuf.SetViewport(0, viewports);
         });
