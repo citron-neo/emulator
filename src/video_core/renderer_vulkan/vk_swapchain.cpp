@@ -64,35 +64,35 @@ static VkPresentModeKHR ChooseSwapPresentMode(bool has_imm, bool has_mailbox,
             return mode;
         }
         switch (mode) {
-            case Settings::VSyncMode::Fifo:
-            case Settings::VSyncMode::FifoRelaxed:
-                if (has_mailbox) {
-                    return Settings::VSyncMode::Mailbox;
-                } else if (has_imm) {
-                    return Settings::VSyncMode::Immediate;
-                }
-                [[fallthrough]];
-            default:
-                return mode;
+        case Settings::VSyncMode::Fifo:
+        case Settings::VSyncMode::FifoRelaxed:
+            if (has_mailbox) {
+                return Settings::VSyncMode::Mailbox;
+            } else if (has_imm) {
+                return Settings::VSyncMode::Immediate;
+            }
+            [[fallthrough]];
+        default:
+            return mode;
         }
     }();
     if ((setting == Settings::VSyncMode::Mailbox && !has_mailbox) ||
         (setting == Settings::VSyncMode::Immediate && !has_imm) ||
         (setting == Settings::VSyncMode::FifoRelaxed && !has_fifo_relaxed)) {
         setting = Settings::VSyncMode::Fifo;
-        }
+    }
 
-        switch (setting) {
-            case Settings::VSyncMode::Immediate:
-                return VK_PRESENT_MODE_IMMEDIATE_KHR;
-            case Settings::VSyncMode::Mailbox:
-                return VK_PRESENT_MODE_MAILBOX_KHR;
-            case Settings::VSyncMode::Fifo:
-                return VK_PRESENT_MODE_FIFO_KHR;
-            case Settings::VSyncMode::FifoRelaxed:
-                return VK_PRESENT_MODE_FIFO_RELAXED_KHR;
-            default:
-                return VK_PRESENT_MODE_FIFO_KHR;
+    switch (setting) {
+    case Settings::VSyncMode::Immediate:
+        return VK_PRESENT_MODE_IMMEDIATE_KHR;
+    case Settings::VSyncMode::Mailbox:
+        return VK_PRESENT_MODE_MAILBOX_KHR;
+    case Settings::VSyncMode::Fifo:
+        return VK_PRESENT_MODE_FIFO_KHR;
+    case Settings::VSyncMode::FifoRelaxed:
+        return VK_PRESENT_MODE_FIFO_RELAXED_KHR;
+    default:
+        return VK_PRESENT_MODE_FIFO_KHR;
     }
 }
 
@@ -174,7 +174,7 @@ bool Swapchain::AcquireNextImage() {
         break;
     }
 
-    scheduler.Wait(resource_ticks[image_index]);
+    scheduler.GetMasterSemaphore().Wait(resource_ticks[image_index]);
     resource_ticks[image_index] = scheduler.CurrentTick();
 
     return is_suboptimal || is_outdated;

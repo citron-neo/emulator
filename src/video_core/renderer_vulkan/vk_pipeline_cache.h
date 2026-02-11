@@ -8,6 +8,7 @@
 #include <cstddef>
 #include <filesystem>
 #include <memory>
+#include <mutex>
 #include <type_traits>
 #include <unordered_map>
 #include <vector>
@@ -176,6 +177,8 @@ public:
     static constexpr u64 MEMORY_PRESSURE_COOLDOWN = 300;
 
     ShaderPools main_pools;
+    std::mutex pools_mutex;
+    std::mutex pipeline_cache_mutex;
 
     Shader::Profile profile;
     Shader::HostTranslateInfo host_info;
