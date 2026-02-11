@@ -411,9 +411,12 @@ PipelineCache::PipelineCache(Tegra::MaxwellDeviceMemoryManager& device_memory_,
     dynamic_features = DynamicFeatures{
         .has_extended_dynamic_state = allow_eds1 && device.IsExtExtendedDynamicStateSupported(),
         .has_extended_dynamic_state_2 = allow_eds2 && device.IsExtExtendedDynamicState2Supported(),
-        .has_extended_dynamic_state_2_extra = allow_eds2 && device.IsExtExtendedDynamicState2ExtrasSupported(),
-        .has_extended_dynamic_state_3_blend = allow_eds3 && device.IsExtExtendedDynamicState3BlendingSupported(),
-        .has_extended_dynamic_state_3_enables = allow_eds3 && device.IsExtExtendedDynamicState3EnablesSupported(),
+        .has_extended_dynamic_state_2_extra =
+            allow_eds2 && device.IsExtExtendedDynamicState2ExtrasSupported(),
+        .has_extended_dynamic_state_3_blend =
+            allow_eds3 && device.IsExtExtendedDynamicState3BlendingSupported(),
+        .has_extended_dynamic_state_3_enables =
+            allow_eds3 && device.IsExtExtendedDynamicState3EnablesSupported(),
         .has_dynamic_vertex_input = allow_eds3 && device.IsExtVertexInputDynamicStateSupported(),
     };
 }
@@ -427,15 +430,19 @@ PipelineCache::~PipelineCache() {
 
 void PipelineCache::EvictOldPipelines() {
     constexpr u64 FRAMES_TO_KEEP = 2000;
+    constexpr u64 AGGRESSIVE_FRAMES_TO_KEEP = 60;
 
     const u64 current_frame = scheduler.CurrentTick();
+    const bool aggressive = (graphics_cache.size() + compute_cache.size()) > MAX_PIPELINES_IN_RAM;
 
-    if (current_frame - last_memory_pressure_frame < MEMORY_PRESSURE_COOLDOWN) {
+    if (!aggressive && current_frame - last_memory_pressure_frame < MEMORY_PRESSURE_COOLDOWN) {
         return;
     }
     last_memory_pressure_frame = current_frame;
 
-    const u64 evict_before_frame = current_frame > FRAMES_TO_KEEP ? current_frame - FRAMES_TO_KEEP : 0;
+    const u64 frames_to_keep = aggressive ? AGGRESSIVE_FRAMES_TO_KEEP : FRAMES_TO_KEEP;
+    const u64 evict_before_frame =
+        current_frame > frames_to_keep ? current_frame - frames_to_keep : 0;
 
     size_t evicted_graphics = 0;
     size_t evicted_compute = 0;
@@ -682,6 +689,9 @@ std::unique_ptr<GraphicsPipeline> PipelineCache::CreateGraphicsPipeline(
     ShaderPools& pools, const GraphicsPipelineCacheKey& key,
     std::span<Shader::Environment* const> envs, PipelineStatistics* statistics,
     bool build_in_parallel) try {
+    if (graphics_cache.size() + compute_cache.size() >= MAX_PIPELINES_IN_RAM) {
+        EvictOldPipelines();
+    }
     auto hash = key.Hash();
     LOG_INFO(Render_Vulkan, "0x{:016x}", hash);
     size_t env_index{0};
@@ -766,7 +776,8 @@ std::unique_ptr<GraphicsPipeline> PipelineCache::CreateGraphicsPipeline(
 
 } catch (const vk::Exception& exception) {
     if (exception.GetResult() == VK_ERROR_OUT_OF_DEVICE_MEMORY) {
-        LOG_ERROR(Render_Vulkan, "Out of device memory during graphics pipeline creation, attempting recovery");
+        LOG_ERROR(Render_Vulkan,
+                  "Out of device memory during graphics pipeline creation, attempting recovery");
         EvictOldPipelines();
         return nullptr;
     }
@@ -834,6 +845,9 @@ std::unique_ptr<ComputePipeline> PipelineCache::CreateComputePipeline(
 std::unique_ptr<ComputePipeline> PipelineCache::CreateComputePipeline(
     ShaderPools& pools, const ComputePipelineCacheKey& key, Shader::Environment& env,
     PipelineStatistics* statistics, bool build_in_parallel) try {
+    if (graphics_cache.size() + compute_cache.size() >= MAX_PIPELINES_IN_RAM) {
+        EvictOldPipelines();
+    }
     auto hash = key.Hash();
     if (device.HasBrokenCompute()) {
         LOG_ERROR(Render_Vulkan, "Skipping 0x{:016x}", hash);
@@ -866,7 +880,8 @@ std::unique_ptr<ComputePipeline> PipelineCache::CreateComputePipeline(
 
 } catch (const vk::Exception& exception) {
     if (exception.GetResult() == VK_ERROR_OUT_OF_DEVICE_MEMORY) {
-        LOG_ERROR(Render_Vulkan, "Out of device memory during compute pipeline creation, attempting recovery");
+        LOG_ERROR(Render_Vulkan,
+                  "Out of device memory during compute pipeline creation, attempting recovery");
         EvictOldPipelines();
         return nullptr;
     }
