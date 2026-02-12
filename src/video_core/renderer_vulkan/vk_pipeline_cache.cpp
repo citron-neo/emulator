@@ -677,6 +677,11 @@ GraphicsPipeline* PipelineCache::BuiltPipeline(GraphicsPipeline* pipeline) const
     if (pipeline->IsBuilt()) {
         return pipeline;
     }
+    if (!use_asynchronous_shaders) {
+        return pipeline;
+    }
+    // When asynchronous shaders are enabled, avoid blocking the main thread completely.
+    // Skip the draw until the pipeline is ready to prevent stutter.
     return nullptr;
 }
 
@@ -764,11 +769,10 @@ std::unique_ptr<GraphicsPipeline> PipelineCache::CreateGraphicsPipeline(
         previous_stage = &program;
     }
     Common::ThreadWorker* const thread_worker{build_in_parallel ? &workers : nullptr};
-    auto pipeline{std::make_unique<GraphicsPipeline>(
-        scheduler, buffer_cache, texture_cache, vulkan_pipeline_cache, pipeline_cache_mutex,
-        &shader_notify, device, descriptor_pool, guest_descriptor_queue, thread_worker, statistics,
-        render_pass_cache, key, std::move(modules), infos)};
-    return pipeline;
+    return std::make_unique<GraphicsPipeline>(
+        scheduler, buffer_cache, texture_cache, vulkan_pipeline_cache, &shader_notify, device,
+        descriptor_pool, guest_descriptor_queue, thread_worker, statistics, render_pass_cache, key,
+        std::move(modules), infos);
 
 } catch (const vk::Exception& exception) {
     if (exception.GetResult() == VK_ERROR_OUT_OF_DEVICE_MEMORY) {
@@ -800,7 +804,6 @@ std::unique_ptr<GraphicsPipeline> PipelineCache::CreateGraphicsPipeline() {
     GraphicsEnvironments environments;
     GetGraphicsEnvironments(environments, graphics_key.unique_hashes);
 
-    std::scoped_lock lock{pools_mutex};
     main_pools.ReleaseContents();
     auto pipeline{
         CreateGraphicsPipeline(main_pools, graphics_key, environments.Span(), nullptr, true)};
@@ -827,7 +830,6 @@ std::unique_ptr<ComputePipeline> PipelineCache::CreateComputePipeline(
     ComputeEnvironment env{*kepler_compute, *gpu_memory, program_base, qmd.program_start};
     env.SetCachedSize(shader->size_bytes);
 
-    std::scoped_lock lock{pools_mutex};
     main_pools.ReleaseContents();
     auto pipeline{CreateComputePipeline(main_pools, key, env, nullptr, true)};
     if (!pipeline || pipeline_cache_filename.empty()) {
@@ -872,10 +874,9 @@ std::unique_ptr<ComputePipeline> PipelineCache::CreateComputePipeline(
         spv_module.SetObjectNameEXT(name.c_str());
     }
     Common::ThreadWorker* const thread_worker{build_in_parallel ? &workers : nullptr};
-    return std::make_unique<ComputePipeline>(device, vulkan_pipeline_cache, pipeline_cache_mutex,
-                                             descriptor_pool, guest_descriptor_queue, thread_worker,
-                                             statistics, &shader_notify, program.info,
-                                             std::move(spv_module));
+    return std::make_unique<ComputePipeline>(device, vulkan_pipeline_cache, descriptor_pool,
+                                             guest_descriptor_queue, thread_worker, statistics,
+                                             &shader_notify, program.info, std::move(spv_module));
 
 } catch (const vk::Exception& exception) {
     if (exception.GetResult() == VK_ERROR_OUT_OF_DEVICE_MEMORY) {
@@ -903,7 +904,6 @@ void PipelineCache::SerializeVulkanPipelineCache(const std::filesystem::path& fi
     file.write(VULKAN_CACHE_MAGIC_NUMBER.data(), VULKAN_CACHE_MAGIC_NUMBER.size())
         .write(reinterpret_cast<const char*>(&cache_version), sizeof(cache_version));
 
-    std::scoped_lock lock{pipeline_cache_mutex};
     size_t cache_size = 0;
     std::vector<char> cache_data;
     if (pipeline_cache) {

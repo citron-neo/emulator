@@ -25,14 +25,14 @@ using Shader::Backend::SPIRV::RESCALING_LAYOUT_WORDS_OFFSET;
 using Tegra::Texture::TexturePair;
 
 ComputePipeline::ComputePipeline(const Device& device_, vk::PipelineCache& pipeline_cache_,
-                                 std::mutex& pipeline_cache_mutex_, DescriptorPool& descriptor_pool,
+                                 DescriptorPool& descriptor_pool,
                                  GuestDescriptorQueue& guest_descriptor_queue_,
                                  Common::ThreadWorker* thread_worker,
                                  PipelineStatistics* pipeline_statistics,
                                  VideoCore::ShaderNotify* shader_notify, const Shader::Info& info_,
                                  vk::ShaderModule spv_module_)
-    : device{device_}, pipeline_cache(pipeline_cache_), pipeline_cache_mutex(pipeline_cache_mutex_),
-      guest_descriptor_queue{guest_descriptor_queue_}, info{info_},
+    : device{device_},
+      pipeline_cache(pipeline_cache_), guest_descriptor_queue{guest_descriptor_queue_}, info{info_},
       spv_module(std::move(spv_module_)) {
     if (shader_notify) {
         shader_notify->MarkShaderBuilding();
@@ -58,7 +58,6 @@ ComputePipeline::ComputePipeline(const Device& device_, vk::PipelineCache& pipel
         if (device.IsKhrPipelineExecutablePropertiesEnabled()) {
             flags |= VK_PIPELINE_CREATE_CAPTURE_STATISTICS_BIT_KHR;
         }
-        std::scoped_lock cache_lock{pipeline_cache_mutex};
         pipeline = device.GetLogical().CreateComputePipeline(
             {
                 .sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO,

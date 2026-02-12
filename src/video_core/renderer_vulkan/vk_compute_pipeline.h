@@ -3,11 +3,9 @@
 
 #pragma once
 
-#include <array>
 #include <atomic>
 #include <condition_variable>
 #include <mutex>
-
 
 #include "common/common_types.h"
 #include "common/thread_worker.h"
@@ -31,7 +29,7 @@ class Scheduler;
 class ComputePipeline {
 public:
     explicit ComputePipeline(const Device& device, vk::PipelineCache& pipeline_cache,
-                             std::mutex& pipeline_cache_mutex, DescriptorPool& descriptor_pool,
+                             DescriptorPool& descriptor_pool,
                              GuestDescriptorQueue& guest_descriptor_queue,
                              Common::ThreadWorker* thread_worker,
                              PipelineStatistics* pipeline_statistics,
@@ -50,7 +48,6 @@ public:
 private:
     const Device& device;
     vk::PipelineCache& pipeline_cache;
-    std::mutex& pipeline_cache_mutex;
     GuestDescriptorQueue& guest_descriptor_queue;
     Shader::Info info;
 

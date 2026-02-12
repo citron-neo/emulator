@@ -88,8 +88,7 @@ bool SupportsPrimitiveRestart(VkPrimitiveTopology topology) {
 
 bool IsLine(VkPrimitiveTopology topology) {
     static constexpr std::array line_topologies{
-        VK_PRIMITIVE_TOPOLOGY_LINE_LIST,
-        VK_PRIMITIVE_TOPOLOGY_LINE_STRIP,
+        VK_PRIMITIVE_TOPOLOGY_LINE_LIST, VK_PRIMITIVE_TOPOLOGY_LINE_STRIP,
         // VK_PRIMITIVE_TOPOLOGY_LINE_LOOP_EXT,
     };
     return std::ranges::find(line_topologies, topology) == line_topologies.end();
@@ -238,16 +237,15 @@ ConfigureFuncPtr ConfigureFunc(const std::array<vk::ShaderModule, NUM_STAGES>& m
 
 GraphicsPipeline::GraphicsPipeline(
     Scheduler& scheduler_, BufferCache& buffer_cache_, TextureCache& texture_cache_,
-    vk::PipelineCache& pipeline_cache_, std::mutex& pipeline_cache_mutex_,
-    VideoCore::ShaderNotify* shader_notify, const Device& device_, DescriptorPool& descriptor_pool,
+    vk::PipelineCache& pipeline_cache_, VideoCore::ShaderNotify* shader_notify,
+    const Device& device_, DescriptorPool& descriptor_pool,
     GuestDescriptorQueue& guest_descriptor_queue_, Common::ThreadWorker* worker_thread,
     PipelineStatistics* pipeline_statistics, RenderPassCache& render_pass_cache,
     const GraphicsPipelineCacheKey& key_, std::array<vk::ShaderModule, NUM_STAGES> stages,
     const std::array<const Shader::Info*, NUM_STAGES>& infos)
     : key{key_}, device{device_}, texture_cache{texture_cache_}, buffer_cache{buffer_cache_},
-      pipeline_cache(pipeline_cache_), pipeline_cache_mutex(pipeline_cache_mutex_),
-      scheduler{scheduler_}, guest_descriptor_queue{guest_descriptor_queue_},
-      spv_modules{std::move(stages)} {
+      pipeline_cache(pipeline_cache_), scheduler{scheduler_},
+      guest_descriptor_queue{guest_descriptor_queue_}, spv_modules{std::move(stages)} {
     if (shader_notify) {
         shader_notify->MarkShaderBuilding();
     }
@@ -927,7 +925,6 @@ void GraphicsPipeline::MakePipeline(VkRenderPass render_pass) {
     if (device.IsKhrPipelineExecutablePropertiesEnabled()) {
         flags |= VK_PIPELINE_CREATE_CAPTURE_STATISTICS_BIT_KHR;
     }
-    std::scoped_lock lock{pipeline_cache_mutex};
     pipeline = device.GetLogical().CreateGraphicsPipeline(
         {
             .sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
