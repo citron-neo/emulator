@@ -144,8 +144,6 @@ private:
     /// Evicts old unused pipelines to free memory when under pressure
     void EvictOldPipelines();
 
-    static constexpr size_t MAX_PIPELINES_IN_RAM = 4096;
-
 public:
     /// Public interface to evict old pipelines (for memory pressure handling)
     void TriggerPipelineEviction() {
@@ -188,6 +186,7 @@ public:
     Common::ThreadWorker workers;
     Common::ThreadWorker serialization_thread;
     DynamicFeatures dynamic_features;
+
 };
 
 } // namespace Vulkan
