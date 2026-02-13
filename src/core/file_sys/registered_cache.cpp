@@ -1209,8 +1209,9 @@ void ExternalContentProvider::ProcessNSP(const VirtualFile& file) {
 
                 if (!content_file) {
                     std::string nca_id_lower = nca_id_str;
-                    std::transform(nca_id_lower.begin(), nca_id_lower.end(), nca_id_lower.begin(),
-                                   ::tolower);
+                    std::transform(
+                        nca_id_lower.begin(), nca_id_lower.end(), nca_id_lower.begin(),
+                        [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
                     content_file = nsp.GetFile(fmt::format("{}.nca", nca_id_lower));
                     if (!content_file)
                         content_file = nsp.GetFile(nca_id_lower);
@@ -1239,8 +1240,9 @@ void ExternalContentProvider::ProcessNSP(const VirtualFile& file) {
 
                 if (!content_file) {
                     std::string nca_id_lower = nca_id_str;
-                    std::transform(nca_id_lower.begin(), nca_id_lower.end(), nca_id_lower.begin(),
-                                   ::tolower);
+                    std::transform(
+                        nca_id_lower.begin(), nca_id_lower.end(), nca_id_lower.begin(),
+                        [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
                     content_file = nsp.GetFile(fmt::format("{}.nca", nca_id_lower));
                     if (!content_file)
                         content_file = nsp.GetFile(nca_id_lower);

@@ -27,7 +27,6 @@
 #include <psapi.h>
 #include <windows.h>
 
-
 #undef GetCurrentTime
 #undef ERROR
 #undef GetMessage
