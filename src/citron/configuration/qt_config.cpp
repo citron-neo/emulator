@@ -97,9 +97,12 @@ void QtConfig::ReadQtPlayerValues(const std::size_t player_index) {
         }
     }
 
-    const auto body_color_str = ReadStringSetting(std::string(player_prefix).append("body_color"), fmt::format("{:x}", Settings::DEFAULT_CONTROLLER_COLOR));
+    const auto body_color_str =
+        ReadStringSetting(std::string(player_prefix).append("body_color"),
+                          fmt::format("{:x}", Settings::DEFAULT_CONTROLLER_COLOR));
     player.body_color = std::stoul(body_color_str, nullptr, 16);
-    player.gyro_overlay_visible = ReadBooleanSetting(std::string(player_prefix).append("gyro_overlay_visible"), true);
+    player.gyro_overlay_visible =
+        ReadBooleanSetting(std::string(player_prefix).append("gyro_overlay_visible"), true);
 
     for (int i = 0; i < Settings::NativeButton::NumButtons; ++i) {
         const std::string default_param = InputCommon::GenerateKeyboardParam(default_buttons[i]);
@@ -229,6 +232,18 @@ void QtConfig::ReadPathValues() {
             UISettings::values.game_dirs.append(game_dir);
         }
     }
+
+    const int external_dirs_size = BeginArray(std::string("external_content_dirs"));
+    Settings::values.external_content_dirs.clear();
+    for (int i = 0; i < external_dirs_size; ++i) {
+        SetArrayIndex(i);
+        const std::string path = ReadStringSetting(std::string("path"));
+        if (!path.empty()) {
+            Settings::values.external_content_dirs.push_back(path);
+        }
+    }
+    EndArray();
+
     UISettings::values.recent_files =
         QString::fromStdString(ReadStringSetting(std::string("recentFiles")))
             .split(QStringLiteral(", "), Qt::SkipEmptyParts, Qt::CaseSensitive);
@@ -371,8 +386,11 @@ void QtConfig::SaveQtPlayerValues(const std::size_t player_index) {
         return;
     }
 
-    WriteStringSetting(std::string(player_prefix).append("body_color"), fmt::format("{:x}", player.body_color), fmt::format("{:x}", Settings::DEFAULT_CONTROLLER_COLOR));
-    WriteBooleanSetting(std::string(player_prefix).append("gyro_overlay_visible"), player.gyro_overlay_visible, true);
+    WriteStringSetting(std::string(player_prefix).append("body_color"),
+                       fmt::format("{:x}", player.body_color),
+                       fmt::format("{:x}", Settings::DEFAULT_CONTROLLER_COLOR));
+    WriteBooleanSetting(std::string(player_prefix).append("gyro_overlay_visible"),
+                        player.gyro_overlay_visible, true);
 
     for (int i = 0; i < Settings::NativeButton::NumButtons; ++i) {
         const std::string default_param = InputCommon::GenerateKeyboardParam(default_buttons[i]);
@@ -448,6 +466,13 @@ void QtConfig::SavePathValues() {
         WriteBooleanSetting(std::string("deep_scan"), game_dir.deep_scan,
                             std::make_optional(false));
         WriteBooleanSetting(std::string("expanded"), game_dir.expanded, std::make_optional(true));
+    }
+    EndArray();
+
+    BeginArray(std::string("external_content_dirs"));
+    for (size_t i = 0; i < Settings::values.external_content_dirs.size(); ++i) {
+        SetArrayIndex(static_cast<int>(i));
+        WriteStringSetting(std::string("path"), Settings::values.external_content_dirs[i]);
     }
     EndArray();
 

@@ -901,6 +901,8 @@ inline u32 EnumMetadata<AndroidAstcMode>::Index() {
     return 28;
 }
 
+ENUM(SpirvOptimizeMode, Never, Always, BestEffort);
+
 template <typename Type>
 inline std::string CanonicalizeEnum(Type id) {
     const auto group = EnumMetadata<Type>::Canonicalizations();

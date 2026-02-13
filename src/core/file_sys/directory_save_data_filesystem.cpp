@@ -5,8 +5,8 @@
 #include <thread>
 #include "common/logging/log.h"
 #include "common/settings.h"
-#include "core/file_sys/errors.h"
 #include "core/file_sys/directory_save_data_filesystem.h"
+#include "core/file_sys/errors.h"
 
 namespace FileSys {
 
@@ -21,12 +21,9 @@ constexpr int RetryWaitTimeMs = 100;
 DirectorySaveDataFileSystem::DirectorySaveDataFileSystem(VirtualDir base_filesystem,
                                                          VirtualDir backup_filesystem,
                                                          VirtualDir mirror_filesystem)
-    : base_fs(std::move(base_filesystem)),
-      backup_fs(std::move(backup_filesystem)),
-      mirror_fs(std::move(mirror_filesystem)),
-      extra_data_accessor(base_fs),
-      journaling_enabled(true),
-      open_writable_files(0) {}
+    : base_fs(std::move(base_filesystem)), backup_fs(std::move(backup_filesystem)),
+      mirror_fs(std::move(mirror_filesystem)), extra_data_accessor(base_fs),
+      journaling_enabled(true), open_writable_files(0) {}
 
 DirectorySaveDataFileSystem::~DirectorySaveDataFileSystem() = default;
 
@@ -166,7 +163,7 @@ bool DirectorySaveDataFileSystem::HasUncommittedChanges() const {
 }
 
 Result DirectorySaveDataFileSystem::SynchronizeDirectory(const char* dest_name,
-                                                          const char* source_name) {
+                                                         const char* source_name) {
     auto source_dir = base_fs->GetSubdirectory(source_name);
     if (source_dir == nullptr) {
         return ResultPathNotFound;
@@ -217,7 +214,8 @@ Result DirectorySaveDataFileSystem::CopyDirectoryRecursively(VirtualDir dest, Vi
     return ResultSuccess;
 }
 
-Result DirectorySaveDataFileSystem::RetryFinitelyForTargetLocked(std::function<Result()> operation) {
+Result DirectorySaveDataFileSystem::RetryFinitelyForTargetLocked(
+    std::function<Result()> operation) {
     int remaining_retries = MaxRetryCount;
 
     while (true) {
@@ -240,7 +238,8 @@ Result DirectorySaveDataFileSystem::RetryFinitelyForTargetLocked(std::function<R
     }
 }
 
-void DirectorySaveDataFileSystem::SmartSyncToMirror(VirtualDir mirror_dest, VirtualDir citron_source) {
+void DirectorySaveDataFileSystem::SmartSyncToMirror(VirtualDir mirror_dest,
+                                                    VirtualDir citron_source) {
     // Citron: Extra safety check for valid pointers and writable permissions
     if (mirror_dest == nullptr || citron_source == nullptr || !mirror_dest->IsWritable()) {
         return;

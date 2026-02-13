@@ -644,6 +644,10 @@ FileSys::PlaceholderCache* FileSystemController::GetSDMCPlaceholder() const {
     return sdmc_factory->GetSDMCPlaceholder();
 }
 
+FileSys::ExternalContentProvider* FileSystemController::GetExternalContentProvider() const {
+    return external_provider.get();
+}
+
 FileSys::RegisteredCache* FileSystemController::GetRegisteredCacheForStorage(
     FileSys::StorageId id) const {
     switch (id) {
@@ -794,6 +798,7 @@ void FileSystemController::CreateFactories(FileSys::VfsFilesystem& vfs, bool ove
     if (overwrite) {
         bis_factory = nullptr;
         sdmc_factory = nullptr;
+        external_provider = nullptr;
     }
 
     using CitronPath = Common::FS::CitronPath;
@@ -827,10 +832,39 @@ void FileSystemController::CreateFactories(FileSys::VfsFilesystem& vfs, bool ove
                                        sdmc_factory->GetSDMCContents());
     }
 
+    if (external_provider == nullptr) {
+        std::vector<FileSys::VirtualDir> load_dirs;
+        for (const auto& path : Settings::values.external_content_dirs) {
+            auto dir = vfs.OpenDirectory(path, FileSys::OpenMode::Read);
+            if (dir != nullptr) {
+                load_dirs.push_back(std::move(dir));
+            }
+        }
+        external_provider =
+            std::make_unique<FileSys::ExternalContentProvider>(std::move(load_dirs));
+        system.RegisterContentProvider(FileSys::ContentProviderUnionSlot::External,
+                                       external_provider.get());
+    }
+
     // factory that handles sync tasks before a game is even selected
     if (global_save_data_factory == nullptr || overwrite) {
         global_save_data_factory = CreateSaveDataFactory(ProgramId{});
     }
+}
+
+void FileSystemController::RefreshExternalContentProvider() {
+    auto vfs = system.GetFilesystem();
+    std::vector<FileSys::VirtualDir> load_dirs;
+    for (const auto& path : Settings::values.external_content_dirs) {
+        auto dir = vfs->OpenDirectory(path, FileSys::OpenMode::Read);
+        if (dir != nullptr) {
+            load_dirs.push_back(std::move(dir));
+        }
+    }
+
+    external_provider = std::make_unique<FileSys::ExternalContentProvider>(std::move(load_dirs));
+    system.RegisterContentProvider(FileSys::ContentProviderUnionSlot::External,
+                                   external_provider.get());
 }
 
 void FileSystemController::Reset() {

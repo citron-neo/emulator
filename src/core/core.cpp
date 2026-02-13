@@ -24,8 +24,9 @@
 #ifndef NOMINMAX
 #define NOMINMAX
 #endif
-#include <windows.h>
 #include <psapi.h>
+#include <windows.h>
+
 
 #undef GetCurrentTime
 #undef ERROR
@@ -196,8 +197,12 @@ struct System::Impl {
     }
 
     void ReinitializeIfNecessary(System& system) {
-        const bool layout_changed = extended_memory_layout != (Settings::values.memory_layout_mode.GetValue() != Settings::MemoryLayout::Memory_4Gb);
-        const bool must_reinitialize = !device_memory || is_multicore != Settings::values.use_multi_core.GetValue() || layout_changed;
+        const bool layout_changed =
+            extended_memory_layout !=
+            (Settings::values.memory_layout_mode.GetValue() != Settings::MemoryLayout::Memory_4Gb);
+        const bool must_reinitialize = !device_memory ||
+                                       is_multicore != Settings::values.use_multi_core.GetValue() ||
+                                       layout_changed;
 
         if (!must_reinitialize) {
             return;
@@ -211,7 +216,8 @@ struct System::Impl {
 
         // Update the tracked values before re-initializing
         is_multicore = Settings::values.use_multi_core.GetValue();
-        extended_memory_layout = (Settings::values.memory_layout_mode.GetValue() != Settings::MemoryLayout::Memory_4Gb);
+        extended_memory_layout =
+            (Settings::values.memory_layout_mode.GetValue() != Settings::MemoryLayout::Memory_4Gb);
 
         Initialize(system);
     }
@@ -459,10 +465,14 @@ struct System::Impl {
         if (perf_stats) {
             const auto perf_results = GetAndResetPerfStats();
             constexpr auto performance = Common::Telemetry::FieldType::Performance;
-            telemetry_session->AddField(performance, "Shutdown_EmulationSpeed", perf_results.emulation_speed * 100.0);
-            telemetry_session->AddField(performance, "Shutdown_Framerate", perf_results.average_game_fps);
-            telemetry_session->AddField(performance, "Shutdown_Frametime", perf_results.frametime * 1000.0);
-            telemetry_session->AddField(performance, "Mean_Frametime_MS", perf_stats->GetMeanFrametime());
+            telemetry_session->AddField(performance, "Shutdown_EmulationSpeed",
+                                        perf_results.emulation_speed * 100.0);
+            telemetry_session->AddField(performance, "Shutdown_Framerate",
+                                        perf_results.average_game_fps);
+            telemetry_session->AddField(performance, "Shutdown_Frametime",
+                                        perf_results.frametime * 1000.0);
+            telemetry_session->AddField(performance, "Mean_Frametime_MS",
+                                        perf_stats->GetMeanFrametime());
         }
 
         is_powered_on = false;
@@ -504,27 +514,29 @@ struct System::Impl {
         Network::RestartSocketOperations();
         arp_manager.ResetAll();
 
-
         if (device_memory) {
-            #ifdef __linux__
-            madvise(device_memory->buffer.BackingBasePointer(), device_memory->buffer.backing_size, MADV_DONTNEED);
+#ifdef __linux__
+            madvise(device_memory->buffer.BackingBasePointer(), device_memory->buffer.backing_size,
+                    MADV_DONTNEED);
 
-            // Only call malloc_trim on non-Android Linux (glibc)
-            #ifndef __ANDROID__
+// Only call malloc_trim on non-Android Linux (glibc)
+#ifndef __ANDROID__
             malloc_trim(0);
-            #endif
+#endif
 
             // Give the kernel time to update /proc/stats
             std::this_thread::sleep_for(std::chrono::milliseconds(20));
-            #elif defined(_WIN32)
-            VirtualAlloc(device_memory->buffer.BackingBasePointer(), device_memory->buffer.backing_size, MEM_RESET, PAGE_READWRITE);
-            #endif
+#elif defined(_WIN32)
+            VirtualAlloc(device_memory->buffer.BackingBasePointer(),
+                         device_memory->buffer.backing_size, MEM_RESET, PAGE_READWRITE);
+#endif
         }
 
         const u64 mem_after = GetCurrentRSS();
         const u64 shaved = (mem_before > mem_after) ? (mem_before - mem_after) : 0;
 
-        LOG_INFO(Core, "Shutdown Memory Audit: [Before: {}MB] -> [After: {}MB] | Total Shaved: {}MB",
+        LOG_INFO(Core,
+                 "Shutdown Memory Audit: [Before: {}MB] -> [After: {}MB] | Total Shaved: {}MB",
                  mem_before, mem_after, shaved);
 
         LOG_DEBUG(Core, "Shutdown OK");
@@ -1101,6 +1113,13 @@ void System::ApplySettings() {
     if (IsPoweredOn()) {
         Renderer().RefreshBaseSettings();
     }
+    if (IsPoweredOn()) {
+        Renderer().RefreshBaseSettings();
+    }
+}
+
+void System::RefreshExternalContent() {
+    impl->fs_controller.RefreshExternalContentProvider();
 }
 
 } // namespace Core
