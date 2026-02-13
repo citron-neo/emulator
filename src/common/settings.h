@@ -793,6 +793,8 @@ struct Values {
     // Add-Ons
     std::map<u64, std::vector<std::string>> disabled_addons;
 
+    std::vector<std::string> external_content_dirs;
+
     // Cheats
     // Key: build_id (hex string), Value: set of disabled cheat names
     std::map<std::string, std::set<std::string>> disabled_cheats;

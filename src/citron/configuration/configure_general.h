@@ -28,7 +28,7 @@ class ConfigureGeneral : public ConfigurationShared::Tab {
     Q_OBJECT
 
 public:
-    explicit ConfigureGeneral(const Core::System& system_,
+    explicit ConfigureGeneral(Core::System& system_,
                               std::shared_ptr<std::vector<ConfigurationShared::Tab*>> group,
                               const ConfigurationShared::Builder& builder,
                               QWidget* parent = nullptr);
@@ -41,6 +41,9 @@ public:
 
 private:
     void Setup(const ConfigurationShared::Builder& builder);
+    void RefreshExternalContentList();
+    void AddExternalContentDir();
+    void RemoveExternalContentDir();
 
     void changeEvent(QEvent* event) override;
     void RetranslateUI();
@@ -51,5 +54,5 @@ private:
 
     std::vector<std::function<void(bool)>> apply_funcs{};
 
-    const Core::System& system;
+    Core::System& system;
 };

@@ -25,6 +25,7 @@ class RomFSFactory;
 class SaveDataFactory;
 class SDMCFactory;
 class XCI;
+class ExternalContentProvider;
 
 enum class BisPartitionId : u32;
 enum class ContentRecordType : u8;
@@ -97,6 +98,8 @@ public:
     FileSys::PlaceholderCache* GetSDMCPlaceholder() const;
     FileSys::PlaceholderCache* GetGameCardPlaceholder() const;
 
+    FileSys::ExternalContentProvider* GetExternalContentProvider() const;
+
     FileSys::RegisteredCache* GetRegisteredCacheForStorage(FileSys::StorageId id) const;
     FileSys::PlaceholderCache* GetPlaceholderCacheForStorage(FileSys::StorageId id) const;
 
@@ -115,6 +118,8 @@ public:
     FileSys::VirtualDir GetModificationDumpRoot(u64 title_id) const;
 
     FileSys::VirtualDir GetBCATDirectory(u64 title_id) const;
+
+    void RefreshExternalContentProvider();
 
     // Creates the SaveData, SDMC, and BIS Factories. Should be called once and before any function
     // above is called.
@@ -145,6 +150,8 @@ private:
     std::unique_ptr<FileSys::XCI> gamecard;
     std::unique_ptr<FileSys::RegisteredCache> gamecard_registered;
     std::unique_ptr<FileSys::PlaceholderCache> gamecard_placeholder;
+
+    std::unique_ptr<FileSys::ExternalContentProvider> external_provider;
 
     // Global factory for startup tasks and mirroring
     std::shared_ptr<FileSys::SaveDataFactory> global_save_data_factory;

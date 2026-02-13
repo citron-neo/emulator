@@ -299,6 +299,8 @@ std::unique_ptr<TranslationMap> InitializeTranslations(QWidget* parent) {
 
     // Renderer (Debug)
 
+    // Renderer (Debug)
+
     // System
     INSERT(Settings, rng_seed, tr("RNG Seed"),
            tr("Controls the seed of the random number generator.\nMainly used for speedrunning "

@@ -467,6 +467,9 @@ public:
     /// Applies any changes to settings to this core instance.
     void ApplySettings();
 
+    /// Refreshes the external content provider with the latest settings.
+    void RefreshExternalContent();
+
 private:
     struct Impl;
     std::unique_ptr<Impl> impl;
