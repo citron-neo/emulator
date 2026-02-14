@@ -93,15 +93,25 @@ u32 HardwareComposer::ComposeLocked(f32* out_speed_scale, Display& display,
 
         // We need to compose again either before this frame is supposed to
         // be released, or exactly on the vsync period it should be released.
-        const s32 item_swap_interval = NormalizeSwapInterval(out_speed_scale, item.swap_interval);
+        //
+        // Only non-overlay layers should affect frame timing. Overlay layers
+        // (e.g., system applets like QLaunch's overlay display) may queue buffers
+        // with swap_interval=0 or 1 for responsive UI updates. Including these in
+        // the min() calculation would incorrectly lower the game's intended
+        // swap_interval (e.g., from 2 to 1), causing the Conductor to schedule
+        // vsync events at 60 Hz instead of 30 Hz and doubling emulation speed.
+        if (!layer->is_overlay) {
+            const s32 item_swap_interval =
+                NormalizeSwapInterval(out_speed_scale, item.swap_interval);
 
-        // TODO: handle cases where swap intervals are relatively prime. So far,
-        // only swap intervals of 0, 1 and 2 have been observed, but if 3 were
-        // to be introduced, this would cause an issue.
-        if (swap_interval) {
-            swap_interval = std::min(*swap_interval, item_swap_interval);
-        } else {
-            swap_interval = item_swap_interval;
+            // TODO: handle cases where swap intervals are relatively prime. So far,
+            // only swap intervals of 0, 1 and 2 have been observed, but if 3 were
+            // to be introduced, this would cause an issue.
+            if (swap_interval) {
+                swap_interval = std::min(*swap_interval, item_swap_interval);
+            } else {
+                swap_interval = item_swap_interval;
+            }
         }
     }
 
