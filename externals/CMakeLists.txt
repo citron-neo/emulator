@@ -130,8 +130,6 @@ if (USE_DISCORD_PRESENCE AND NOT TARGET DiscordRPC::discord-rpc)
     add_library(DiscordRPC::discord-rpc ALIAS discord-rpc)
 endif()
 
-# Sirit
-add_subdirectory(sirit)
 
 # httplib
 if (ENABLE_WEB_SERVICE AND NOT TARGET httplib::httplib)
