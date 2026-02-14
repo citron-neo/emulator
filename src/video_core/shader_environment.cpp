@@ -3,7 +3,6 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <algorithm>
-#include <bitset>
 #include <filesystem>
 #include <fstream>
 #include <memory>
@@ -87,36 +86,16 @@ static Shader::SamplerComponentType ConvertSamplerComponentType(
                                         : Shader::SamplerComponentType::Stencil;
     }
 
-    // Use std::bitset for cleaner tracking of component types
-    std::bitset<2> component_flags{}; // [0]=has_signed, [1]=has_unsigned
-    const auto accumulate = [&component_flags](const Tegra::Texture::ComponentType component) {
-        switch (component) {
-        case Tegra::Texture::ComponentType::SINT:
-            component_flags.set(0);
-            break;
-        case Tegra::Texture::ComponentType::UINT:
-            component_flags.set(1);
-            break;
-        default:
-            break;
-        }
-    };
-
-    accumulate(entry.r_type);
-    accumulate(entry.g_type);
-    accumulate(entry.b_type);
-    accumulate(entry.a_type);
-
-    if (component_flags[0] && !component_flags[1]) {
+    // Use the resolved pixel format to determine the component type, rather than
+    // checking individual TIC component type fields. This ensures the SPIR-V image
+    // sampled type matches the Vulkan image view format. Checking individual component
+    // types (r_type, g_type, b_type, a_type) can misclassify textures when unused
+    // channels have arbitrary type values (e.g., BCn compressed or single-channel
+    // formats where unused component types may default to SINT/UINT).
+    if (VideoCore::Surface::IsPixelFormatSignedInteger(pixel_format)) {
         return Shader::SamplerComponentType::Sint;
     }
-    if (component_flags[1] && !component_flags[0]) {
-        return Shader::SamplerComponentType::Uint;
-    }
-    if (component_flags[0]) {
-        return Shader::SamplerComponentType::Sint;
-    }
-    if (component_flags[1]) {
+    if (VideoCore::Surface::IsPixelFormatInteger(pixel_format)) {
         return Shader::SamplerComponentType::Uint;
     }
     return Shader::SamplerComponentType::Float;
