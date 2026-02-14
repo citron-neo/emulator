@@ -71,3 +71,6 @@
 [submodule "externals/spirv-tools"]
 	path = externals/spirv-tools
 	url = https://github.com/KhronosGroup/SPIRV-Tools.git
+[submodule "externals/SPIRV-Headers"]
+	path = externals/SPIRV-Headers
+	url = https://github.com/KhronosGroup/SPIRV-Headers

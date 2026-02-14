@@ -48,16 +48,20 @@ if (NOT MSVC)
         -Wno-string-concatenation)
 endif()
 
-# SPIRV-Headers (from sirit)
-set(SPIRV_HEADERS_SKIP_EXAMPLES ON)
-set(SPIRV_HEADERS_SKIP_INSTALL ON)
+# SPIRV-Headers
+if (NOT TARGET SPIRV-Headers)
+    add_subdirectory(SPIRV-Headers)
+endif()
 
-# Sirit (adds SPIRV-Headers as a dependency)
+# Sirit
+# Tell sirit to use our target
+set(SIRIT_USE_SYSTEM_SPIRV_HEADERS ON)
+list(APPEND CMAKE_PREFIX_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 add_subdirectory(sirit)
 
 # SPIRV-Tools
-# Point SPIRV-Tools to the same source directory so it finds the headers
-set(SPIRV-Headers_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/sirit/externals/SPIRV-Headers")
+# Point to our new SPIRV-Headers
+set(SPIRV-Headers_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/SPIRV-Headers")
 set(SPIRV_HEADER_DIR "${SPIRV-Headers_SOURCE_DIR}")
 set(SPIRV_SKIP_TESTS ON)
 set(SPIRV_SKIP_EXECUTABLES ON)

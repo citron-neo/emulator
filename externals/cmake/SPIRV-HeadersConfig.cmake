@@ -1,0 +1,5 @@
+if (NOT TARGET SPIRV-Headers::SPIRV-Headers)
+    if (TARGET SPIRV-Headers)
+        add_library(SPIRV-Headers::SPIRV-Headers ALIAS SPIRV-Headers)
+    endif()
+endif()
