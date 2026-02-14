@@ -68,3 +68,6 @@
 [submodule "Vulkan-Utility-Libraries"]
 	path = externals/Vulkan-Utility-Libraries
 	url = https://github.com/KhronosGroup/Vulkan-Utility-Libraries.git
+[submodule "externals/spirv-tools"]
+	path = externals/spirv-tools
+	url = https://github.com/KhronosGroup/SPIRV-Tools.git

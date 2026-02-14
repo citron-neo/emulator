@@ -250,6 +250,8 @@ std::unique_ptr<TranslationMap> InitializeTranslations(QWidget* parent) {
         Settings, renderer_force_max_clock, tr("Force maximum clocks (Vulkan only)"),
         tr("Runs work in the background while waiting for graphics commands to keep the GPU from "
            "lowering its clock speed."));
+    INSERT(Settings, optimize_spirv_output, tr("SPIR-V Shader Optimization"),
+           tr("Optimizes SPIR-V shaders for potentially better performance."));
     INSERT(Settings, max_anisotropy, tr("Anisotropic Filtering:"),
            tr("Controls the quality of texture rendering at oblique angles.\nIt's a light setting "
               "and safe to set at 16x on most GPUs."));
@@ -653,6 +655,13 @@ std::unique_ptr<ComboboxTranslationMap> ComboboxEnumeration(QWidget* parent) {
              PAIR(ConfirmStop, Ask_Always, tr("Always ask (Default)")),
              PAIR(ConfirmStop, Ask_Based_On_Game, tr("Only if game specifies not to stop")),
              PAIR(ConfirmStop, Ask_Never, tr("Never ask")),
+         }});
+
+    translations->insert(
+        {Settings::EnumMetadata<Settings::Values::SpirvShaderOptimization>::Index(),
+         {
+             PAIR(Values::SpirvShaderOptimization, Auto, tr("Auto")),
+             PAIR(Values::SpirvShaderOptimization, Off, tr("Off")),
          }});
 
 #undef PAIR

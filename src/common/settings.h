@@ -601,6 +601,14 @@ struct Values {
                                           Category::RendererDebug};
     Setting<bool> disable_buffer_reorder{linkage, false, "disable_buffer_reorder",
                                          Category::RendererDebug};
+    enum class SpirvShaderOptimization : u32 {
+        Off,
+        Auto,
+    };
+
+    SwitchableSetting<SpirvShaderOptimization> optimize_spirv_output{
+        linkage, SpirvShaderOptimization::Auto, "optimize_spirv_output",
+        Category::RendererAdvanced};
 
     // System
     SwitchableSetting<Language, true> language_index{linkage,
@@ -840,4 +848,18 @@ void RestoreGlobalState(bool is_powered_on);
 bool IsConfiguringGlobal();
 void SetConfiguringGlobal(bool is_global);
 
+template <>
+struct EnumMetadata<Values::SpirvShaderOptimization> {
+    static constexpr u32 Index() {
+        return 45;
+    }
+
+    static constexpr std::array<std::pair<const char*, Values::SpirvShaderOptimization>, 2>
+    Canonicalizations() {
+        return {{
+            {"off", Values::SpirvShaderOptimization::Off},
+            {"auto", Values::SpirvShaderOptimization::Auto},
+        }};
+    }
+};
 } // namespace Settings

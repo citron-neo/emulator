@@ -411,9 +411,12 @@ PipelineCache::PipelineCache(Tegra::MaxwellDeviceMemoryManager& device_memory_,
     dynamic_features = DynamicFeatures{
         .has_extended_dynamic_state = allow_eds1 && device.IsExtExtendedDynamicStateSupported(),
         .has_extended_dynamic_state_2 = allow_eds2 && device.IsExtExtendedDynamicState2Supported(),
-        .has_extended_dynamic_state_2_extra = allow_eds2 && device.IsExtExtendedDynamicState2ExtrasSupported(),
-        .has_extended_dynamic_state_3_blend = allow_eds3 && device.IsExtExtendedDynamicState3BlendingSupported(),
-        .has_extended_dynamic_state_3_enables = allow_eds3 && device.IsExtExtendedDynamicState3EnablesSupported(),
+        .has_extended_dynamic_state_2_extra =
+            allow_eds2 && device.IsExtExtendedDynamicState2ExtrasSupported(),
+        .has_extended_dynamic_state_3_blend =
+            allow_eds3 && device.IsExtExtendedDynamicState3BlendingSupported(),
+        .has_extended_dynamic_state_3_enables =
+            allow_eds3 && device.IsExtExtendedDynamicState3EnablesSupported(),
         .has_dynamic_vertex_input = allow_eds3 && device.IsExtVertexInputDynamicStateSupported(),
     };
 }
@@ -435,7 +438,8 @@ void PipelineCache::EvictOldPipelines() {
     }
     last_memory_pressure_frame = current_frame;
 
-    const u64 evict_before_frame = current_frame > FRAMES_TO_KEEP ? current_frame - FRAMES_TO_KEEP : 0;
+    const u64 evict_before_frame =
+        current_frame > FRAMES_TO_KEEP ? current_frame - FRAMES_TO_KEEP : 0;
 
     size_t evicted_graphics = 0;
     size_t evicted_compute = 0;
@@ -747,7 +751,9 @@ std::unique_ptr<GraphicsPipeline> PipelineCache::CreateGraphicsPipeline(
 
         const auto runtime_info{MakeRuntimeInfo(programs, key, program, previous_stage)};
         ConvertLegacyToGeneric(program, runtime_info);
-        std::vector<u32> code = EmitSPIRV(profile, runtime_info, program, binding);
+        bool optimize = Settings::values.optimize_spirv_output.GetValue() ==
+                        Settings::Values::SpirvShaderOptimization::Auto;
+        std::vector<u32> code = EmitSPIRV(profile, runtime_info, program, binding, optimize);
         // Reserve space to reduce allocations during shader compilation
         code.reserve(std::max<size_t>(code.size(), 16 * 1024 / sizeof(u32)));
         device.SaveShader(code);
@@ -766,7 +772,8 @@ std::unique_ptr<GraphicsPipeline> PipelineCache::CreateGraphicsPipeline(
 
 } catch (const vk::Exception& exception) {
     if (exception.GetResult() == VK_ERROR_OUT_OF_DEVICE_MEMORY) {
-        LOG_ERROR(Render_Vulkan, "Out of device memory during graphics pipeline creation, attempting recovery");
+        LOG_ERROR(Render_Vulkan,
+                  "Out of device memory during graphics pipeline creation, attempting recovery");
         EvictOldPipelines();
         return nullptr;
     }
@@ -850,7 +857,9 @@ std::unique_ptr<ComputePipeline> PipelineCache::CreateComputePipeline(
     }
 
     auto program{TranslateProgram(pools.inst, pools.block, env, cfg, host_info)};
-    std::vector<u32> code = EmitSPIRV(profile, program);
+    bool optimize = Settings::values.optimize_spirv_output.GetValue() ==
+                    Settings::Values::SpirvShaderOptimization::Auto;
+    std::vector<u32> code = EmitSPIRV(profile, program, optimize);
     // Reserve space to reduce allocations during shader compilation
     code.reserve(std::max<size_t>(code.size(), 16 * 1024 / sizeof(u32)));
     device.SaveShader(code);
@@ -866,7 +875,8 @@ std::unique_ptr<ComputePipeline> PipelineCache::CreateComputePipeline(
 
 } catch (const vk::Exception& exception) {
     if (exception.GetResult() == VK_ERROR_OUT_OF_DEVICE_MEMORY) {
-        LOG_ERROR(Render_Vulkan, "Out of device memory during compute pipeline creation, attempting recovery");
+        LOG_ERROR(Render_Vulkan,
+                  "Out of device memory during compute pipeline creation, attempting recovery");
         EvictOldPipelines();
         return nullptr;
     }

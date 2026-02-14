@@ -26,6 +26,8 @@ class IProducerListener;
 
 class BufferQueueCore final {
     friend class BufferQueueProducer;
+    friend class BufferQueueProducer; // Typo in original file? No, it's friend class
+                                      // BufferQueueProducer; friend class BufferQueueConsumer;
     friend class BufferQueueConsumer;
 
 public:
@@ -69,6 +71,7 @@ private:
     const s32 max_acquired_buffer_count{}; // This is always zero on HOS
     bool buffer_has_been_queued{};
     u64 frame_counter{};
+
     u32 transform_hint{};
     bool is_allocating{};
     mutable std::condition_variable_any is_allocating_condition;

@@ -48,6 +48,12 @@ if (NOT MSVC)
         -Wno-string-concatenation)
 endif()
 
+# SPIRV-Tools
+set(SPIRV-Headers_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/spirv-tools/external/spirv-headers")
+set(SPIRV_SKIP_TESTS ON)
+set(SPIRV_SKIP_EXECUTABLES ON)
+add_subdirectory(spirv-tools)
+
 # MicroProfile
 add_library(microprofile INTERFACE)
 target_include_directories(microprofile INTERFACE ./microprofile)
