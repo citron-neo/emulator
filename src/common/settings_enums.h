@@ -901,6 +901,7 @@ inline u32 EnumMetadata<AndroidAstcMode>::Index() {
     return 28;
 }
 
+ENUM(SpirvShaderOptimization, Off, Auto);
 ENUM(SpirvOptimizeMode, Never, Always, BestEffort);
 
 template <typename Type>

@@ -657,12 +657,11 @@ std::unique_ptr<ComboboxTranslationMap> ComboboxEnumeration(QWidget* parent) {
              PAIR(ConfirmStop, Ask_Never, tr("Never ask")),
          }});
 
-    translations->insert(
-        {Settings::EnumMetadata<Settings::Values::SpirvShaderOptimization>::Index(),
-         {
-             PAIR(Values::SpirvShaderOptimization, Auto, tr("Auto")),
-             PAIR(Values::SpirvShaderOptimization, Off, tr("Off")),
-         }});
+    translations->insert({Settings::EnumMetadata<Settings::SpirvShaderOptimization>::Index(),
+                          {
+                              PAIR(SpirvShaderOptimization, Auto, tr("Auto")),
+                              PAIR(SpirvShaderOptimization, Off, tr("Off")),
+                          }});
 
 #undef PAIR
 #undef CTX_PAIR
