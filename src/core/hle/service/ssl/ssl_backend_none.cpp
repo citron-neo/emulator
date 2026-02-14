@@ -3,8 +3,9 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "common/logging/log.h"
-#include "core/internal_network/network.h"
 #include "core/hle/service/ssl/ssl_backend.h"
+#include "core/internal_network/network.h"
+#include "core/internal_network/sockets.h"
 
 namespace Service::SSL {
 
@@ -45,7 +46,8 @@ public:
         LOG_WARNING(Service_SSL, "(STUBBED) Read not implemented on Android");
         return ResultSuccess;
 #else
-        Network::Errno recv_result = socket->Recv(buffer.data(), buffer.size(), 0, *out_size);
+        auto [received, recv_result] = socket->Recv(0, buffer);
+        *out_size = static_cast<size_t>(received);
         if (recv_result == Network::Errno::AGAIN) {
             return ResultWouldBlock;
         } else if (recv_result != Network::Errno::SUCCESS) {
@@ -70,7 +72,8 @@ public:
         LOG_WARNING(Service_SSL, "(STUBBED) Write not implemented on Android");
         return ResultSuccess;
 #else
-        Network::Errno send_result = socket->Send(data.data(), data.size(), 0, *out_size);
+        auto [sent, send_result] = socket->Send(data, 0);
+        *out_size = static_cast<size_t>(sent);
         if (send_result == Network::Errno::AGAIN) {
             return ResultWouldBlock;
         } else if (send_result != Network::Errno::SUCCESS) {
@@ -85,7 +88,8 @@ public:
     Result GetServerCerts(std::vector<std::vector<u8>>* out_certs) override {
         LOG_WARNING(Service_SSL, "(STUBBED) GetServerCerts called");
         // Return an empty certificate to prevent crashes
-        out_certs->emplace_back(std::vector<u8>{0x30, 0x82, 0x01, 0x01}); // Minimal dummy DER certificate header
+        out_certs->emplace_back(
+            std::vector<u8>{0x30, 0x82, 0x01, 0x01}); // Minimal dummy DER certificate header
         return ResultSuccess;
     }
 
