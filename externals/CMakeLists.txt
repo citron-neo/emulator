@@ -1,4 +1,5 @@
 # SPDX-FileCopyrightText: 2016 Citra Emulator Project
+# SPDX-FileCopyrightText: 2026 citron Emulator Project
 # SPDX-License-Identifier: GPL-2.0-or-later
 
 # Dynarmic has cmake_minimum_required(3.12) and we may want to override
@@ -54,6 +55,9 @@ if (NOT TARGET SPIRV-Headers)
 endif()
 
 # Sirit
+# Tell sirit to use our target
+set(SIRIT_USE_SYSTEM_SPIRV_HEADERS ON)
+list(APPEND CMAKE_PREFIX_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 add_subdirectory(sirit)
 
 # SPIRV-Tools
