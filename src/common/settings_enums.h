@@ -901,8 +901,45 @@ inline u32 EnumMetadata<AndroidAstcMode>::Index() {
     return 28;
 }
 
-ENUM(SpirvShaderOptimization, Off, Auto);
-ENUM(SpirvOptimizeMode, Never, Always, BestEffort);
+enum class SpirvShaderOptimization : u32 {
+    Off,
+    Auto,
+};
+
+template <>
+inline std::vector<std::pair<std::string, SpirvShaderOptimization>>
+EnumMetadata<SpirvShaderOptimization>::Canonicalizations() {
+    return {
+        {"Off", SpirvShaderOptimization::Off},
+        {"Auto", SpirvShaderOptimization::Auto},
+    };
+}
+
+template <>
+inline u32 EnumMetadata<SpirvShaderOptimization>::Index() {
+    return 29;
+}
+
+enum class SpirvOptimizeMode : u32 {
+    Never,
+    Always,
+    BestEffort,
+};
+
+template <>
+inline std::vector<std::pair<std::string, SpirvOptimizeMode>>
+EnumMetadata<SpirvOptimizeMode>::Canonicalizations() {
+    return {
+        {"Never", SpirvOptimizeMode::Never},
+        {"Always", SpirvOptimizeMode::Always},
+        {"BestEffort", SpirvOptimizeMode::BestEffort},
+    };
+}
+
+template <>
+inline u32 EnumMetadata<SpirvOptimizeMode>::Index() {
+    return 30;
+}
 
 template <typename Type>
 inline std::string CanonicalizeEnum(Type id) {
