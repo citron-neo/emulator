@@ -422,7 +422,54 @@ if (UNIX AND NOT APPLE)
     find_package(gamemode 1.7 MODULE)
 endif()
 
-add_subdirectory(externals)
+# Apply patches to submodules before they are added
+# =======================================================================
+
+# Apply a patch to sirit's CMakeLists.txt to fix SPIRV-Headers duplication
+message(STATUS "Applying custom patch to sirit's CMakeLists.txt...")
+
+set(SIRIT_PATCH_FILE "${CMAKE_CURRENT_SOURCE_DIR}/patches/sirit-spirv-headers-fix.patch")
+set(SIRIT_PATCH_TARGET_DIR "${CMAKE_CURRENT_SOURCE_DIR}/externals/sirit")
+
+if(EXISTS "${SIRIT_PATCH_TARGET_DIR}")
+    # Check if the patch can be applied or is already applied
+    execute_process(
+        COMMAND git apply --ignore-whitespace --check "${SIRIT_PATCH_FILE}"
+        WORKING_DIRECTORY "${SIRIT_PATCH_TARGET_DIR}"
+        RESULT_VARIABLE PATCH_CHECK_RESULT
+        OUTPUT_QUIET
+        ERROR_QUIET
+    )
+
+    if(PATCH_CHECK_RESULT EQUAL 0)
+        execute_process(
+            COMMAND git apply --ignore-whitespace "${SIRIT_PATCH_FILE}"
+            WORKING_DIRECTORY "${SIRIT_PATCH_TARGET_DIR}"
+            RESULT_VARIABLE PATCH_RESULT
+            OUTPUT_QUIET
+            ERROR_QUIET
+        )
+
+        if(NOT PATCH_RESULT EQUAL 0)
+            message(WARNING "Failed to apply sirit CMakeLists.txt patch!")
+        endif()
+    else()
+        # Check if already applied
+        execute_process(
+            COMMAND git apply --ignore-whitespace --check --reverse "${SIRIT_PATCH_FILE}"
+            WORKING_DIRECTORY "${SIRIT_PATCH_TARGET_DIR}"
+            RESULT_VARIABLE PATCH_REVERSE_CHECK_RESULT
+            OUTPUT_QUIET
+            ERROR_QUIET
+        )
+        if(NOT PATCH_REVERSE_CHECK_RESULT EQUAL 0)
+            message(WARNING "sirit patch is not applicable and not already applied.")
+        endif()
+    endif()
+else()
+    message(WARNING "Could not find sirit directory to patch. It may not have been downloaded yet.")
+endif()
+
 if(USE_DISCORD_PRESENCE)
     message(STATUS "Applying custom patch to submodule's rapidjson for Discord presence...")
 
@@ -430,8 +477,16 @@ if(USE_DISCORD_PRESENCE)
     set(PATCH_FILE "${CMAKE_CURRENT_SOURCE_DIR}/patches/rapidjson-compiler-fix.patch")
     set(PATCH_TARGET_DIR "${CMAKE_CURRENT_SOURCE_DIR}/externals/discord-rpc/thirdparty/rapidjson-1.1.0")
 
-    # Check if the target directory exists before trying to patch
-    if(EXISTS "${PATCH_TARGET_DIR}")
+    # Check if the patch can be applied or is already applied
+    execute_process(
+        COMMAND git apply --ignore-whitespace --check "${PATCH_FILE}"
+        WORKING_DIRECTORY "${PATCH_TARGET_DIR}"
+        RESULT_VARIABLE PATCH_CHECK_RESULT
+        OUTPUT_QUIET
+        ERROR_QUIET
+    )
+
+    if(PATCH_CHECK_RESULT EQUAL 0)
         execute_process(
             COMMAND git apply --ignore-whitespace "${PATCH_FILE}"
             WORKING_DIRECTORY "${PATCH_TARGET_DIR}"
@@ -441,11 +496,23 @@ if(USE_DISCORD_PRESENCE)
         )
 
         if(NOT PATCH_RESULT EQUAL 0)
-            message(WARNING "Failed to apply rapidjson compiler fix patch! This might be okay if it's already applied.")
+            message(WARNING "Failed to apply rapidjson compiler fix patch!")
         endif()
     else()
-        message(WARNING "Could not find rapidjson directory to patch. It may not have been downloaded yet.")
+        # Check if already applied
+        execute_process(
+            COMMAND git apply --ignore-whitespace --check --reverse "${PATCH_FILE}"
+            WORKING_DIRECTORY "${PATCH_TARGET_DIR}"
+            RESULT_VARIABLE PATCH_REVERSE_CHECK_RESULT
+            OUTPUT_QUIET
+            ERROR_QUIET
+        )
+        if(NOT PATCH_REVERSE_CHECK_RESULT EQUAL 0)
+            message(WARNING "rapidjson patch is not applicable and not already applied.")
+        endif()
     endif()
+else()
+    message(WARNING "Could not find rapidjson directory to patch. It may not have been downloaded yet.")
 endif()
 
 if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
@@ -455,16 +522,39 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
     set(MCL_PATCH_TARGET_DIR "${CMAKE_CURRENT_SOURCE_DIR}/externals/dynarmic/externals/mcl")
 
     if(EXISTS "${MCL_PATCH_TARGET_DIR}")
+        # Check if the patch can be applied or is already applied
         execute_process(
-            COMMAND git apply --ignore-whitespace "${MCL_PATCH_FILE}"
+            COMMAND git apply --ignore-whitespace --check "${MCL_PATCH_FILE}"
             WORKING_DIRECTORY "${MCL_PATCH_TARGET_DIR}"
-            RESULT_VARIABLE MCL_PATCH_RESULT
+            RESULT_VARIABLE PATCH_CHECK_RESULT
             OUTPUT_QUIET
             ERROR_QUIET
         )
 
-        if(NOT MCL_PATCH_RESULT EQUAL 0)
-            message(WARNING "Failed to apply mcl Clang compatibility patch! This might be okay if it's already applied.")
+        if(PATCH_CHECK_RESULT EQUAL 0)
+            execute_process(
+                COMMAND git apply --ignore-whitespace "${MCL_PATCH_FILE}"
+                WORKING_DIRECTORY "${MCL_PATCH_TARGET_DIR}"
+                RESULT_VARIABLE PATCH_RESULT
+                OUTPUT_QUIET
+                ERROR_QUIET
+            )
+
+            if(NOT PATCH_RESULT EQUAL 0)
+                message(WARNING "Failed to apply mcl Clang compatibility patch!")
+            endif()
+        else()
+            # Check if already applied
+            execute_process(
+                COMMAND git apply --ignore-whitespace --check --reverse "${MCL_PATCH_FILE}"
+                WORKING_DIRECTORY "${MCL_PATCH_TARGET_DIR}"
+                RESULT_VARIABLE PATCH_REVERSE_CHECK_RESULT
+                OUTPUT_QUIET
+                ERROR_QUIET
+            )
+            if(NOT PATCH_REVERSE_CHECK_RESULT EQUAL 0)
+                message(WARNING "mcl patch is not applicable and not already applied.")
+            endif()
         endif()
     else()
         message(WARNING "Could not find mcl directory to patch. It may not have been downloaded yet.")
@@ -475,21 +565,43 @@ endif()
 message(STATUS "Applying custom patch to stb_image.h...")
 
 set(STB_PATCH_FILE "${CMAKE_CURRENT_SOURCE_DIR}/patches/stb_image-overflow-fix.patch")
-
 set(STB_PATCH_WORKING_DIR "${CMAKE_CURRENT_SOURCE_DIR}")
 
 # Check if the file to be patched exists before trying to patch
 if(EXISTS "${STB_PATCH_WORKING_DIR}/externals/stb/stb_image.h")
+    # Check if the patch can be applied or is already applied
     execute_process(
-        COMMAND git apply -p0 --ignore-whitespace "${STB_PATCH_FILE}"
+        COMMAND git apply -p0 --ignore-whitespace --check "${STB_PATCH_FILE}"
         WORKING_DIRECTORY "${STB_PATCH_WORKING_DIR}"
-        RESULT_VARIABLE PATCH_RESULT
+        RESULT_VARIABLE PATCH_CHECK_RESULT
         OUTPUT_QUIET
         ERROR_QUIET
     )
 
-    if(NOT PATCH_RESULT EQUAL 0)
-        message(WARNING "Failed to apply stb_image.h compiler fix patch! This might be okay if it's already applied.")
+    if(PATCH_CHECK_RESULT EQUAL 0)
+        execute_process(
+            COMMAND git apply -p0 --ignore-whitespace "${STB_PATCH_FILE}"
+            WORKING_DIRECTORY "${STB_PATCH_WORKING_DIR}"
+            RESULT_VARIABLE PATCH_RESULT
+            OUTPUT_QUIET
+            ERROR_QUIET
+        )
+
+        if(NOT PATCH_RESULT EQUAL 0)
+            message(WARNING "Failed to apply stb_image.h compiler fix patch!")
+        endif()
+    else()
+        # Check if already applied
+        execute_process(
+            COMMAND git apply -p0 --ignore-whitespace --check --reverse "${STB_PATCH_FILE}"
+            WORKING_DIRECTORY "${STB_PATCH_WORKING_DIR}"
+            RESULT_VARIABLE PATCH_REVERSE_CHECK_RESULT
+            OUTPUT_QUIET
+            ERROR_QUIET
+        )
+        if(NOT PATCH_REVERSE_CHECK_RESULT EQUAL 0)
+            message(WARNING "stb_image.h patch is not applicable and not already applied.")
+        endif()
     endif()
 else()
     message(WARNING "Could not find stb_image.h to patch. It may not have been downloaded yet.")
@@ -504,20 +616,46 @@ set(DISCORD_RPC_PATCH_TARGET_DIR "${CMAKE_CURRENT_SOURCE_DIR}/externals/discord-
 
 # Check if the target directory exists before trying to patch
 if(EXISTS "${DISCORD_RPC_PATCH_TARGET_DIR}")
+    # Check if the patch can be applied or is already applied
     execute_process(
-        COMMAND git apply -p0 --ignore-whitespace "${DISCORD_RPC_PATCH_FILE}"
+        COMMAND git apply -p0 --ignore-whitespace --check "${DISCORD_RPC_PATCH_FILE}"
         WORKING_DIRECTORY "${DISCORD_RPC_PATCH_TARGET_DIR}"
-        RESULT_VARIABLE PATCH_RESULT
+        RESULT_VARIABLE PATCH_CHECK_RESULT
         OUTPUT_QUIET
         ERROR_QUIET
     )
 
-    if(NOT PATCH_RESULT EQUAL 0)
-        message(WARNING "Failed to apply discord-rpc CMakeLists.txt patch! This might be okay if it's already applied.")
+    if(PATCH_CHECK_RESULT EQUAL 0)
+        execute_process(
+            COMMAND git apply -p0 --ignore-whitespace "${DISCORD_RPC_PATCH_FILE}"
+            WORKING_DIRECTORY "${DISCORD_RPC_PATCH_TARGET_DIR}"
+            RESULT_VARIABLE PATCH_RESULT
+            OUTPUT_QUIET
+            ERROR_QUIET
+        )
+
+        if(NOT PATCH_RESULT EQUAL 0)
+            message(WARNING "Failed to apply discord-rpc CMakeLists.txt patch!")
+        endif()
+    else()
+        # Check if already applied
+        execute_process(
+            COMMAND git apply -p0 --ignore-whitespace --check --reverse "${DISCORD_RPC_PATCH_FILE}"
+            WORKING_DIRECTORY "${DISCORD_RPC_PATCH_TARGET_DIR}"
+            RESULT_VARIABLE PATCH_REVERSE_CHECK_RESULT
+            OUTPUT_QUIET
+            ERROR_QUIET
+        )
+        if(NOT PATCH_REVERSE_CHECK_RESULT EQUAL 0)
+            message(WARNING "discord-rpc patch is not applicable and not already applied.")
+        endif()
     endif()
 else()
     message(WARNING "Could not find discord-rpc directory to patch. It may not have been downloaded yet.")
 endif()
+
+add_subdirectory(externals)
+
 
 if (ENABLE_QT)
     if (NOT USE_SYSTEM_QT)
