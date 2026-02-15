@@ -25,7 +25,6 @@
 #include "common/logging/log.h"
 #include "common/string_util.h"
 
-
 enum class GameListItemType {
     Game = QStandardItem::UserType + 1,
     CustomDir = QStandardItem::UserType + 2,
@@ -70,8 +69,10 @@ static QPixmap CreateRoundIcon(const QPixmap& pixmap, u32 size) {
     painter.setClipPath(path);
 
     // Draw the scaled pixmap
-    QPixmap scaled = pixmap.scaled(size, size, Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
-    painter.drawPixmap(0, 0, scaled);
+    QPixmap scaled = pixmap.scaled(size, size, Qt::KeepAspectRatio, Qt::SmoothTransformation);
+    int x = (size - scaled.width()) / 2;
+    int y = (size - scaled.height()) / 2;
+    painter.drawPixmap(x, y, scaled);
 
     return rounded;
 }

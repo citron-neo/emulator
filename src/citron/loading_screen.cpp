@@ -2,12 +2,14 @@
 // SPDX-FileCopyrightText: 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
-#include "citron/loading_screen.h"
 #include <QGraphicsOpacityEffect>
+#include <QMovie>
 #include <QPainter>
 #include <QPropertyAnimation>
 #include <QStyleOption>
 #include <QTime>
+#include "citron/custom_metadata.h"
+#include "citron/loading_screen.h"
 #include "citron/theme.h"
 #include "core/frontend/framebuffer_layout.h"
 #include "core/loader/loader.h"
@@ -35,7 +37,8 @@ LoadingScreen::LoadingScreen(QWidget* parent)
     });
 
     loading_text_animation_timer = new QTimer(this);
-    connect(loading_text_animation_timer, &QTimer::timeout, this, &LoadingScreen::UpdateLoadingText);
+    connect(loading_text_animation_timer, &QTimer::timeout, this,
+            &LoadingScreen::UpdateLoadingText);
 
     connect(this, &LoadingScreen::LoadProgress, this, &LoadingScreen::OnLoadProgress,
             Qt::QueuedConnection);
@@ -48,37 +51,92 @@ LoadingScreen::~LoadingScreen() {
 
 void LoadingScreen::Prepare(Loader::AppLoader& loader) {
     QPixmap game_icon_pixmap;
-    std::vector<u8> buffer;
-    if (loader.ReadIcon(buffer) == Loader::ResultStatus::Success) {
-        game_icon_pixmap.loadFromData(buffer.data(), static_cast<uint>(buffer.size()));
-    } else {
-        game_icon_pixmap = QPixmap(QStringLiteral(":/icons/scalable/actions/games.svg"));
+    u64 program_id = 0;
+    loader.ReadProgramId(program_id);
+    auto& custom_metadata = Citron::CustomMetadata::GetInstance();
+
+    bool is_custom_icon = false;
+    if (auto custom_icon_path = custom_metadata.GetCustomIconPath(program_id)) {
+        if (custom_icon_path->ends_with(".gif")) {
+            if (movie) {
+                movie->stop();
+                delete movie;
+            }
+            movie = new QMovie(QString::fromStdString(*custom_icon_path), QByteArray(), this);
+            if (movie->isValid()) {
+                ui->game_icon->setMovie(movie);
+                movie->setScaledSize(ui->game_icon->size());
+                movie->start();
+                is_custom_icon = true;
+            }
+        } else {
+            game_icon_pixmap.load(QString::fromStdString(*custom_icon_path));
+            // Custom icons should also be rounded
+            if (!game_icon_pixmap.isNull()) {
+                QPixmap rounded_pixmap(game_icon_pixmap.size());
+                rounded_pixmap.fill(Qt::transparent);
+                QPainter painter(&rounded_pixmap);
+                painter.setRenderHint(QPainter::Antialiasing);
+                QPainterPath path;
+                const int radius = game_icon_pixmap.width() / 6;
+                path.addRoundedRect(rounded_pixmap.rect(), radius, radius);
+                painter.setClipPath(path);
+                painter.drawPixmap(0, 0, game_icon_pixmap);
+                game_icon_pixmap = rounded_pixmap;
+                is_custom_icon = true;
+            }
+        }
+    }
+
+    if (!is_custom_icon) {
+        if (movie) {
+            movie->stop();
+            ui->game_icon->setMovie(nullptr);
+        }
+        std::vector<u8> buffer;
+        if (loader.ReadIcon(buffer) == Loader::ResultStatus::Success) {
+            game_icon_pixmap.loadFromData(buffer.data(), static_cast<uint>(buffer.size()));
+        } else {
+            game_icon_pixmap = QPixmap(QStringLiteral(":/icons/scalable/actions/games.svg"));
+        }
     }
 
     if (!game_icon_pixmap.isNull()) {
-        QPixmap rounded_pixmap(game_icon_pixmap.size());
-        rounded_pixmap.fill(Qt::transparent);
-        QPainter painter(&rounded_pixmap);
-        painter.setRenderHint(QPainter::Antialiasing);
-        QPainterPath path;
-        const int radius = game_icon_pixmap.width() / 6;
-        path.addRoundedRect(rounded_pixmap.rect(), radius, radius);
-        painter.setClipPath(path);
-        painter.drawPixmap(0, 0, game_icon_pixmap);
-        ui->game_icon->setPixmap(rounded_pixmap.scaled(ui->game_icon->size(), Qt::KeepAspectRatio, Qt::SmoothTransformation));
-    } else {
-        ui->game_icon->setPixmap(game_icon_pixmap);
+        // Apply rounding if not already done (standard icons need this)
+        if (!is_custom_icon) {
+            QPixmap rounded_pixmap(game_icon_pixmap.size());
+            rounded_pixmap.fill(Qt::transparent);
+            QPainter painter(&rounded_pixmap);
+            painter.setRenderHint(QPainter::Antialiasing);
+            QPainterPath path;
+            const int radius = game_icon_pixmap.width() / 6;
+            path.addRoundedRect(rounded_pixmap.rect(), radius, radius);
+            painter.setClipPath(path);
+            painter.drawPixmap(0, 0, game_icon_pixmap);
+            game_icon_pixmap = rounded_pixmap;
+        }
+
+        ui->game_icon->setPixmap(game_icon_pixmap.scaled(ui->game_icon->size(), Qt::KeepAspectRatio,
+                                                         Qt::SmoothTransformation));
     }
 
     std::string title;
-    if (loader.ReadTitle(title) == Loader::ResultStatus::Success && !title.empty()) {
+    if (auto custom_title = custom_metadata.GetCustomTitle(program_id)) {
+        title = *custom_title;
+    } else {
+        loader.ReadTitle(title);
+    }
+
+    if (!title.empty()) {
         stage_translations = {
-            {VideoCore::LoadCallbackStage::Prepare, tr("Loading %1").arg(QString::fromStdString(title))},
-            {VideoCore::LoadCallbackStage::Build, tr("Loading %1").arg(QString::fromStdString(title))},
+            {VideoCore::LoadCallbackStage::Prepare,
+             tr("Loading %1").arg(QString::fromStdString(title))},
+            {VideoCore::LoadCallbackStage::Build,
+             tr("Loading %1").arg(QString::fromStdString(title))},
             {VideoCore::LoadCallbackStage::Complete, tr("Launching...")},
         };
     } else {
-         stage_translations = {
+        stage_translations = {
             {VideoCore::LoadCallbackStage::Prepare, tr("Loading Game...")},
             {VideoCore::LoadCallbackStage::Build, tr("Loading Game...")},
             {VideoCore::LoadCallbackStage::Complete, tr("Launching...")},
@@ -129,13 +187,15 @@ void LoadingScreen::OnLoadProgress(VideoCore::LoadCallbackStage stage, std::size
             style = QString::fromUtf8(R"(
                 QProgressBar { background-color: #3a3a3a; border: none; border-radius: 4px; }
                 QProgressBar::chunk { background-color: %1; border-radius: 4px; }
-            )").arg(Theme::GetAccentColor());
+            )")
+                        .arg(Theme::GetAccentColor());
             break;
         case VideoCore::LoadCallbackStage::Complete:
             style = QString::fromUtf8(R"(
                 QProgressBar { background-color: #3a3a3a; border: none; border-radius: 4px; }
                 QProgressBar::chunk { background-color: %1; border-radius: 4px; }
-            )").arg(Theme::GetAccentColor());
+            )")
+                        .arg(Theme::GetAccentColor());
             break;
         default:
             style = QStringLiteral("");
@@ -187,17 +247,17 @@ void LoadingScreen::OnLoadProgress(VideoCore::LoadCallbackStage stage, std::size
                     static_cast<long>(static_cast<double>(total - slow_shader_first_value) /
                                       (value - slow_shader_first_value) * diff.count());
                 estimate =
-                    tr("ETA: %1")
-                        .arg(QTime(0, 0, 0, 0)
-                                 .addMSecs(std::max<long>(eta_mseconds - diff.count(), 0))
-                                 .toString(QStringLiteral("mm:ss")));
+                    tr("ETA: %1").arg(QTime(0, 0, 0, 0)
+                                          .addMSecs(std::max<long>(eta_mseconds - diff.count(), 0))
+                                          .toString(QStringLiteral("mm:ss")));
             }
         }
 
         ui->shader_stage_label->setText(tr("Building Shaders..."));
 
         if (!estimate.isEmpty()) {
-            ui->shader_value_label->setText(QStringLiteral("%1 / %2 (%3)").arg(value).arg(total).arg(estimate));
+            ui->shader_value_label->setText(
+                QStringLiteral("%1 / %2 (%3)").arg(value).arg(total).arg(estimate));
         } else {
             ui->shader_value_label->setText(QStringLiteral("%1 / %2").arg(value).arg(total));
         }

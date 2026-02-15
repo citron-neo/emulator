@@ -37,6 +37,7 @@
 #include "applets/qt_profile_select.h"
 #include "applets/qt_software_keyboard.h"
 #include "applets/qt_web_browser.h"
+#include "citron/custom_metadata.h"
 #include "citron/multiplayer/state.h"
 #include "citron/setup_wizard.h"
 #include "citron/util/controller_navigation.h"
@@ -2243,6 +2244,10 @@ void GMainWindow::BootGame(const QString& filename, Service::AM::FrontendAppletP
             std::filesystem::path{Common::U16StringFromBuffer(filename.utf16(), filename.size())}
                 .filename());
     }
+    if (auto custom_title = Citron::CustomMetadata::GetInstance().GetCustomTitle(title_id)) {
+        title_name = *custom_title;
+    }
+
     const bool is_64bit = system->Kernel().ApplicationProcess()->Is64Bit();
     const auto instruction_set_suffix = is_64bit ? tr("(64-bit)") : tr("(32-bit)");
     title_name = tr("%1 %2", "%1 is the title name. %2 indicates if the title is 64-bit or 32-bit")

@@ -180,6 +180,11 @@ add_executable(citron
     hotkeys.h
     hotkey_profile_manager.cpp
     hotkey_profile_manager.h
+    custom_metadata.cpp
+    custom_metadata.h
+    custom_metadata_dialog.cpp
+    custom_metadata_dialog.h
+    custom_metadata_dialog.ui
     install_dialog.cpp
     install_dialog.h
     loading_screen.cpp

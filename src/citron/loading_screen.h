@@ -7,12 +7,14 @@
 #include <chrono>
 #include <memory>
 #include <unordered_map>
+#include <QMovie>
 #include <QPainterPath>
 #include <QPixmap>
 #include <QString>
 #include <QTimer>
 #include <QWidget>
 #include <QtGlobal>
+
 
 class QGraphicsOpacityEffect;
 class QPropertyAnimation;
@@ -58,6 +60,7 @@ private:
     QGraphicsOpacityEffect* opacity_effect = nullptr;
     QPropertyAnimation* fadeout_animation = nullptr;
     QTimer* loading_text_animation_timer = nullptr;
+    QMovie* movie = nullptr;
 
     std::unordered_map<VideoCore::LoadCallbackStage, QString> stage_translations;
     QString base_loading_text;

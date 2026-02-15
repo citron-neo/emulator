@@ -22,6 +22,7 @@
 #include <QStandardPaths>
 
 #include "citron/compatibility_list.h"
+#include "citron/custom_metadata.h"
 #include "citron/game_list.h"
 #include "citron/game_list_p.h"
 #include "citron/game_list_worker.h"
@@ -347,11 +348,26 @@ std::pair<std::vector<u8>, std::string> GetGameListCachedObject(
 
 void GetMetadataFromControlNCA(const FileSys::PatchManager& patch_manager, const FileSys::NCA& nca,
                                std::vector<u8>& icon, std::string& name) {
-    std::tie(icon, name) = GetGameListCachedObject(
-        fmt::format("{:016X}", patch_manager.GetTitleID()), {}, [&patch_manager, &nca] {
+    const auto program_id = patch_manager.GetTitleID();
+    auto& custom_metadata = Citron::CustomMetadata::GetInstance();
+
+    std::tie(icon, name) =
+        GetGameListCachedObject(fmt::format("{:016X}", program_id), {}, [&patch_manager, &nca] {
             const auto [nacp, icon_f] = patch_manager.ParseControlNCA(nca);
             return std::make_pair(icon_f->ReadAllBytes(), nacp->GetApplicationName());
         });
+
+    if (auto custom_title = custom_metadata.GetCustomTitle(program_id)) {
+        name = *custom_title;
+    }
+
+    if (auto custom_icon_path = custom_metadata.GetCustomIconPath(program_id)) {
+        QFile icon_file(QString::fromStdString(*custom_icon_path));
+        if (icon_file.open(QFile::ReadOnly)) {
+            const QByteArray data = icon_file.readAll();
+            icon.assign(data.begin(), data.end());
+        }
+    }
 }
 
 bool HasSupportedFileExtension(const std::string& file_name) {
@@ -645,10 +661,28 @@ void GameListWorker::ScanFileSystem(ScanTarget target, const std::string& dir_pa
                                                       system.GetContentProvider()};
                     auto loader = Loader::GetLoader(system, file);
                     if (loader) {
-                        auto entry = MakeGameListEntry(physical_name, cached->title,
-                                                       cached->file_size, cached->icon, *loader,
-                                                       cached->program_id, compatibility_list,
-                                                       play_time_manager, patch, online_stats);
+                        std::string title = cached->title;
+                        std::vector<u8> icon = cached->icon;
+
+                        auto& custom_metadata = Citron::CustomMetadata::GetInstance();
+                        if (auto custom_title =
+                                custom_metadata.GetCustomTitle(cached->program_id)) {
+                            title = *custom_title;
+                        }
+
+                        if (auto custom_icon_path =
+                                custom_metadata.GetCustomIconPath(cached->program_id)) {
+                            QFile icon_file(QString::fromStdString(*custom_icon_path));
+                            if (icon_file.open(QFile::ReadOnly)) {
+                                const QByteArray data = icon_file.readAll();
+                                icon.assign(data.begin(), data.end());
+                            }
+                        }
+
+                        auto entry =
+                            MakeGameListEntry(physical_name, title, cached->file_size, icon,
+                                              *loader, cached->program_id, compatibility_list,
+                                              play_time_manager, patch, online_stats);
                         RecordEvent(
                             [=](GameList* game_list) { game_list->AddEntry(entry, parent_dir); });
                     }
@@ -705,6 +739,20 @@ void GameListWorker::ScanFileSystem(ScanTarget target, const std::string& dir_pa
                     std::string name = " ";
                     loader->ReadIcon(icon);
                     loader->ReadTitle(name);
+
+                    auto& custom_metadata = Citron::CustomMetadata::GetInstance();
+                    if (auto custom_title = custom_metadata.GetCustomTitle(program_id)) {
+                        name = *custom_title;
+                    }
+
+                    if (auto custom_icon_path = custom_metadata.GetCustomIconPath(program_id)) {
+                        QFile icon_file(QString::fromStdString(*custom_icon_path));
+                        if (icon_file.open(QFile::ReadOnly)) {
+                            const QByteArray data = icon_file.readAll();
+                            icon.assign(data.begin(), data.end());
+                        }
+                    }
+
                     std::size_t file_size = Common::FS::GetSize(physical_name);
 
                     CacheGameMetadata(physical_name, program_id, file_type, file_size, name, icon);

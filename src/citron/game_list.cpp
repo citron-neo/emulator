@@ -43,6 +43,8 @@
 #include <QtConcurrent/QtConcurrent>
 #include <fmt/format.h>
 #include "citron/compatibility_list.h"
+#include "citron/custom_metadata.h"
+#include "citron/custom_metadata_dialog.h"
 #include "citron/game_list.h"
 #include "citron/game_list_p.h"
 #include "citron/game_list_worker.h"
@@ -1617,7 +1619,27 @@ void GameList::AddGamePopup(QMenu& context_menu, u64 program_id, const std::stri
         shortcut_menu->addAction(tr("Add to Applications Menu"));
 #endif
     context_menu.addSeparator();
+    QAction* edit_metadata = context_menu.addAction(tr("Edit Metadata"));
     QAction* properties = context_menu.addAction(tr("Properties"));
+
+    connect(edit_metadata, &QAction::triggered, [this, program_id, game_name] {
+        CustomMetadataDialog dialog(this, program_id, game_name.toStdString());
+        if (dialog.exec() == QDialog::Accepted) {
+            auto& custom_metadata = Citron::CustomMetadata::GetInstance();
+            if (dialog.WasReset()) {
+                custom_metadata.RemoveCustomMetadata(program_id);
+            } else {
+                custom_metadata.SetCustomTitle(program_id, dialog.GetTitle());
+                const std::string icon_path = dialog.GetIconPath();
+                if (!icon_path.empty()) {
+                    custom_metadata.SetCustomIcon(program_id, icon_path);
+                }
+            }
+            if (main_window) {
+                main_window->RefreshGameList();
+            }
+        }
+    });
 
     favorite->setVisible(program_id != 0);
     favorite->setCheckable(true);
