@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: 2015 Citra Emulator Project
-// SPDX-FileCopyrightText: 2025 citron Emulator Project
+// SPDX-FileCopyrightText: 2026 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <random>
@@ -967,7 +967,7 @@ GameList::GameList(std::shared_ptr<FileSys::VfsFilesystem> vfs_,
     // Surprise Me button - positioned after sort button
     btn_surprise_me = new QToolButton(toolbar);
     QIcon surprise_icon(QStringLiteral(":/dist/dice.svg"));
-    if (surprise_icon.isNull() || surprise_icon.availableSizes().isEmpty()) {
+    if (surprise_icon.isNull()) {
         // Fallback to theme icon or standard icon on Windows where SVG may not load
         surprise_icon = QIcon::fromTheme(QStringLiteral("media-playlist-shuffle"));
         if (surprise_icon.isNull()) {
@@ -1623,7 +1623,8 @@ void GameList::AddGamePopup(QMenu& context_menu, u64 program_id, const std::stri
     QAction* properties = context_menu.addAction(tr("Properties"));
 
     connect(edit_metadata, &QAction::triggered, [this, program_id, game_name] {
-        CustomMetadataDialog dialog(this, program_id, game_name.toStdString());
+        const u64 current_play_time = play_time_manager.GetPlayTime(program_id);
+        CustomMetadataDialog dialog(this, program_id, game_name.toStdString(), current_play_time);
         if (dialog.exec() == QDialog::Accepted) {
             auto& custom_metadata = Citron::CustomMetadata::GetInstance();
             if (dialog.WasReset()) {
@@ -1634,6 +1635,7 @@ void GameList::AddGamePopup(QMenu& context_menu, u64 program_id, const std::stri
                 if (!icon_path.empty()) {
                     custom_metadata.SetCustomIcon(program_id, icon_path);
                 }
+                play_time_manager.SetPlayTime(program_id, dialog.GetPlayTime());
             }
             if (main_window) {
                 main_window->RefreshGameList();

@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: 2015 Citra Emulator Project
-// SPDX-FileCopyrightText: 2025 citron Emulator Project
+// SPDX-FileCopyrightText: 2026 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #pragma once
@@ -232,7 +232,7 @@ private:
 
     friend class GameListSearchField;
 
-    const PlayTime::PlayTimeManager& play_time_manager;
+    PlayTime::PlayTimeManager& play_time_manager;
     Core::System& system;
 };
 

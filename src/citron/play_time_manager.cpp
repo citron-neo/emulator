@@ -1,6 +1,8 @@
 // SPDX-FileCopyrightText: 2023 yuzu Emulator Project
+// SPDX-FileCopyrightText: 2026 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
+#include "citron/play_time_manager.h"
 #include "common/alignment.h"
 #include "common/fs/file.h"
 #include "common/fs/fs.h"
@@ -9,7 +11,6 @@
 #include "common/settings.h"
 #include "common/thread.h"
 #include "core/hle/service/acc/profile_manager.h"
-#include "citron/play_time_manager.h"
 
 namespace PlayTime {
 
@@ -157,6 +158,14 @@ u64 PlayTimeManager::GetPlayTime(u64 program_id) const {
     } else {
         return 0;
     }
+}
+
+void PlayTimeManager::SetPlayTime(u64 program_id, u64 play_time) {
+    if (program_id == 0) {
+        return;
+    }
+    database[program_id] = play_time;
+    Save();
 }
 
 void PlayTimeManager::ResetProgramPlayTime(u64 program_id) {
