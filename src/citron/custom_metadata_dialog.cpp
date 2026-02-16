@@ -1,3 +1,4 @@
+// SPDX-FileCopyrightText: 2026 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <QFileDialog>
@@ -8,13 +9,19 @@
 #include <QPushButton>
 #include "citron/custom_metadata.h"
 #include "citron/custom_metadata_dialog.h"
+#include "common/common_types.h"
 #include "ui_custom_metadata_dialog.h"
 
 CustomMetadataDialog::CustomMetadataDialog(QWidget* parent, u64 program_id_,
-                                           const std::string& current_title)
+                                           const std::string& current_title, u64 current_play_time)
     : QDialog(parent), ui(std::make_unique<Ui::CustomMetadataDialog>()), program_id(program_id_) {
     ui->setupUi(this);
     ui->title_edit->setText(QString::fromStdString(current_title));
+
+    const u64 hours = current_play_time / 3600;
+    const u64 minutes = (current_play_time % 3600) / 60;
+    ui->playtime_hours->setValue(static_cast<int>(hours));
+    ui->playtime_minutes->setValue(static_cast<int>(minutes));
 
     if (auto current_icon_path =
             Citron::CustomMetadata::GetInstance().GetCustomIconPath(program_id)) {
@@ -40,6 +47,12 @@ std::string CustomMetadataDialog::GetTitle() const {
 
 std::string CustomMetadataDialog::GetIconPath() const {
     return icon_path;
+}
+
+u64 CustomMetadataDialog::GetPlayTime() const {
+    const u64 hours = static_cast<u64>(ui->playtime_hours->value());
+    const u64 minutes = static_cast<u64>(ui->playtime_minutes->value());
+    return (hours * 3600) + (minutes * 60);
 }
 
 bool CustomMetadataDialog::WasReset() const {

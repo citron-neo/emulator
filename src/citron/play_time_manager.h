@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: 2023 yuzu Emulator Project
+// SPDX-FileCopyrightText: 2026 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #pragma once
@@ -30,6 +31,7 @@ public:
     CITRON_NON_MOVEABLE(PlayTimeManager);
 
     u64 GetPlayTime(u64 program_id) const;
+    void SetPlayTime(u64 program_id, u64 play_time);
     void ResetProgramPlayTime(u64 program_id);
     void SetProgramId(u64 program_id);
     void Start();
