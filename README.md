@@ -1,3 +1,13 @@
+# ARCHIVE NOTE
+
+This repository is archived, the text below is taken as-is.
+
+To comply with our own hosting policies there is an additional commit in the archive, if you want a "virgin" repository as last seen on 2026-02-06, we recommend you just go back 1 commit.
+
+Here is the commit hash: 659b23d6420406dabb617de49aee0ec1fcf167fe
+
+Just do `git checkout 659b23d6420406dabb617de49aee0ec1fcf167fe`
+
 # Citron - Nintendo Homebrew Emulator 🍋
 
 [![Discord](https://img.shields.io/discord/1325735818714943498?color=5865F2&label=Citron&logo=discord&logoColor=white)](https://discord.gg/citron)

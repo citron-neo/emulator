@@ -36,16 +36,7 @@ public:
     EncryptedKeyBlob GetEncryptedKeyblob(std::size_t index) const;
     EncryptedKeyBlobs GetEncryptedKeyblobs() const;
     std::vector<u8> GetSecureMonitor() const;
-    std::array<u8, 0x10> GetPackage2KeySource() const;
-    std::array<u8, 0x10> GetAESKekGenerationSource() const;
-    std::array<u8, 0x10> GetTitlekekSource() const;
-    std::array<std::array<u8, 0x10>, 0x20> GetTZMasterKeys(std::array<u8, 0x10> master_key) const;
-    std::array<u8, 0x10> GetRSAKekSeed3() const;
-    std::array<u8, 0x10> GetRSAKekMask0() const;
     std::vector<u8> GetPackage1Decrypted() const;
-    std::array<u8, 0x10> GetMasterKeySource() const;
-    std::array<u8, 0x10> GetKeyblobMACKeySource() const;
-    std::array<u8, 0x10> GetKeyblobKeySource(std::size_t revision) const;
 
     // Fuses
     bool HasFuses() const;
@@ -63,20 +54,7 @@ public:
                          Package2Type type);
     const std::vector<u8>& GetPackage2FSDecompressed(
         Package2Type type = Package2Type::NormalMain) const;
-    std::array<u8, 0x10> GetKeyAreaKeyApplicationSource(
-        Package2Type type = Package2Type::NormalMain) const;
-    std::array<u8, 0x10> GetKeyAreaKeyOceanSource(
-        Package2Type type = Package2Type::NormalMain) const;
-    std::array<u8, 0x10> GetKeyAreaKeySystemSource(
-        Package2Type type = Package2Type::NormalMain) const;
-    std::array<u8, 0x10> GetSDKekSource(Package2Type type = Package2Type::NormalMain) const;
-    std::array<u8, 0x20> GetSDSaveKeySource(Package2Type type = Package2Type::NormalMain) const;
-    std::array<u8, 0x20> GetSDNCAKeySource(Package2Type type = Package2Type::NormalMain) const;
-    std::array<u8, 0x10> GetHeaderKekSource(Package2Type type = Package2Type::NormalMain) const;
-    std::array<u8, 0x20> GetHeaderKeySource(Package2Type type = Package2Type::NormalMain) const;
     const std::vector<u8>& GetPackage2SPLDecompressed(
-        Package2Type type = Package2Type::NormalMain) const;
-    std::array<u8, 0x10> GetAESKeyGenerationSource(
         Package2Type type = Package2Type::NormalMain) const;
 
     // PRODINFO
@@ -103,7 +81,5 @@ private:
     std::array<std::vector<u8>, 6> package2_fs;
     std::array<std::vector<u8>, 6> package2_spl;
 };
-
-std::array<u8, 0x10> FindKeyFromHex16(const std::vector<u8>& binary, std::array<u8, 0x20> hash);
 
 } // namespace Core::Crypto

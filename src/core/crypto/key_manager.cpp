@@ -1265,22 +1265,6 @@ void KeyManager::PopulateFromPartitionData(PartitionDataManager& data) {
                              encrypted_keyblobs[i]);
     }
 
-    SetKeyWrapped(S128KeyType::Source, data.GetPackage2KeySource(),
-                  static_cast<u64>(SourceKeyType::Package2));
-    SetKeyWrapped(S128KeyType::Source, data.GetAESKekGenerationSource(),
-                  static_cast<u64>(SourceKeyType::AESKekGeneration));
-    SetKeyWrapped(S128KeyType::Source, data.GetTitlekekSource(),
-                  static_cast<u64>(SourceKeyType::Titlekek));
-    SetKeyWrapped(S128KeyType::Source, data.GetMasterKeySource(),
-                  static_cast<u64>(SourceKeyType::Master));
-    SetKeyWrapped(S128KeyType::Source, data.GetKeyblobMACKeySource(),
-                  static_cast<u64>(SourceKeyType::KeyblobMAC));
-
-    for (size_t i = 0; i < PartitionDataManager::MAX_KEYBLOB_SOURCE_HASH; ++i) {
-        SetKeyWrapped(S128KeyType::Source, data.GetKeyblobKeySource(i),
-                      static_cast<u64>(SourceKeyType::Keyblob), i);
-    }
-
     if (data.HasFuses()) {
         SetKeyWrapped(S128KeyType::SecureBoot, data.GetSecureBootKey());
     }
@@ -1292,13 +1276,6 @@ void KeyManager::PopulateFromPartitionData(PartitionDataManager& data) {
         if (GetKey(S128KeyType::Master, static_cast<u8>(i)) != Key128{}) {
             latest_master = GetKey(S128KeyType::Master, static_cast<u8>(i));
             break;
-        }
-    }
-
-    const auto masters = data.GetTZMasterKeys(latest_master);
-    for (size_t i = 0; i < masters.size(); ++i) {
-        if (masters[i] != Key128{} && !HasKey(S128KeyType::Master, i)) {
-            SetKey(S128KeyType::Master, masters[i], i);
         }
     }
 
@@ -1314,27 +1291,6 @@ void KeyManager::PopulateFromPartitionData(PartitionDataManager& data) {
         }
     }
     data.DecryptPackage2(package2_keys, Package2Type::NormalMain);
-
-    SetKeyWrapped(S128KeyType::Source, data.GetKeyAreaKeyApplicationSource(),
-                  static_cast<u64>(SourceKeyType::KeyAreaKey),
-                  static_cast<u64>(KeyAreaKeyType::Application));
-    SetKeyWrapped(S128KeyType::Source, data.GetKeyAreaKeyOceanSource(),
-                  static_cast<u64>(SourceKeyType::KeyAreaKey),
-                  static_cast<u64>(KeyAreaKeyType::Ocean));
-    SetKeyWrapped(S128KeyType::Source, data.GetKeyAreaKeySystemSource(),
-                  static_cast<u64>(SourceKeyType::KeyAreaKey),
-                  static_cast<u64>(KeyAreaKeyType::System));
-    SetKeyWrapped(S128KeyType::Source, data.GetSDKekSource(),
-                  static_cast<u64>(SourceKeyType::SDKek));
-    SetKeyWrapped(S256KeyType::SDKeySource, data.GetSDSaveKeySource(),
-                  static_cast<u64>(SDKeyType::Save));
-    SetKeyWrapped(S256KeyType::SDKeySource, data.GetSDNCAKeySource(),
-                  static_cast<u64>(SDKeyType::NCA));
-    SetKeyWrapped(S128KeyType::Source, data.GetHeaderKekSource(),
-                  static_cast<u64>(SourceKeyType::HeaderKek));
-    SetKeyWrapped(S256KeyType::HeaderSource, data.GetHeaderKeySource());
-    SetKeyWrapped(S128KeyType::Source, data.GetAESKeyGenerationSource(),
-                  static_cast<u64>(SourceKeyType::AESKeyGeneration));
 
     DeriveBase();
 }
