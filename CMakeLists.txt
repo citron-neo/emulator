@@ -316,8 +316,11 @@ if (MSVC)
     # boost still makes use of deprecated result_of.
     add_definitions(-D_HAS_DEPRECATED_RESULT_OF)
 
-    # Enable Link Time Code Generation for better optimization
-    add_link_options(/LTCG)
+    # Enable Link Time Code Generation when PGO or LTO is active.
+    # Without /GL on compilation units, /LTCG has no effect and slows linking.
+    if(CITRON_ENABLE_PGO_GENERATE OR CITRON_ENABLE_PGO_USE OR CITRON_ENABLE_LTO)
+        add_link_options(/LTCG)
+    endif()
 else()
     set(CMAKE_CXX_STANDARD 20)
     set(CMAKE_CXX_STANDARD_REQUIRED ON)

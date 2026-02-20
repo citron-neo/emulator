@@ -6,7 +6,7 @@
 
 param(
     [Parameter(Position=0, Mandatory=$true)]
-    [ValidateSet('generate', 'use', 'clean')]
+    [ValidateSet('generate', 'use', 'clean', 'merge', 'summary')]
     [string]$Stage,
     
     [Parameter()]
@@ -14,6 +14,9 @@ param(
     
     [Parameter()]
     [switch]$EnableLTO,
+
+    [Parameter()]
+    [switch]$Exact,
     
     [Parameter()]
     [switch]$Help
@@ -32,15 +35,20 @@ STAGE can be:
   generate  - Build with PGO instrumentation (Stage 1)
   use       - Build using PGO profile data (Stage 2)
   clean     - Clean build directory but preserve profiles
+  merge     - Merge PGC files into PGD without rebuilding
+  summary   - Show profile coverage statistics
 
-Example:
-  .\pgo-build.ps1 generate    # Build instrumented version
-  # Run citron.exe to collect profiles
-  .\pgo-build.ps1 use         # Build optimized version
+Example workflow:
+  .\pgo-build.ps1 generate       # Build instrumented version
+  # Run citron.exe, play 2-3 games for 5-10 min each, exit cleanly
+  .\pgo-build.ps1 merge          # Merge collected profiles
+  .\pgo-build.ps1 summary        # Check coverage
+  .\pgo-build.ps1 use            # Build optimized version
 
 Options:
   -Jobs N       Number of parallel jobs (default: auto-detect)
   -EnableLTO    Enable Link-Time Optimization
+  -Exact        Use /GENPROFILE:EXACT for maximum precision (slower)
   -Help         Show this help message
 "@
 }
@@ -67,6 +75,85 @@ function Write-Error-Custom {
     Write-Host "[ERROR] $Message" -ForegroundColor Red
 }
 
+function Find-Pgomgr {
+    $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+    if (Test-Path $vswhere) {
+        $vsPath = & $vswhere -latest -property installationPath
+        $pgomgr = Get-ChildItem -Path "$vsPath\VC\Tools\MSVC" -Recurse -Filter "pgomgr.exe" -ErrorAction SilentlyContinue |
+            Where-Object { $_.FullName -match "Hostx64\\x64" } |
+            Select-Object -First 1
+        if ($pgomgr) { return $pgomgr.FullName }
+    }
+    $found = Get-Command pgomgr.exe -ErrorAction SilentlyContinue
+    if ($found) { return $found.Source }
+    return $null
+}
+
+function Clean-StaleProfiles {
+    if (-not (Test-Path $PgoProfilesDir)) { return }
+
+    $pgcFiles = Get-ChildItem -Path $PgoProfilesDir -Filter "*.pgc" -ErrorAction SilentlyContinue
+    if ($pgcFiles -and $pgcFiles.Count -gt 0) {
+        Write-Info "Removing $($pgcFiles.Count) stale PGC file(s)..."
+        $pgcFiles | Remove-Item -Force
+    }
+}
+
+function Merge-Profiles {
+    $pgomgr = Find-Pgomgr
+    if (-not $pgomgr) {
+        Write-Warning "pgomgr.exe not found. Cannot merge profiles."
+        Write-Info "Ensure Visual Studio Build Tools are installed and on PATH."
+        return $false
+    }
+
+    $pgdFiles = Get-ChildItem -Path $PgoProfilesDir -Filter "*.pgd" -ErrorAction SilentlyContinue
+    if (-not $pgdFiles -or $pgdFiles.Count -eq 0) {
+        Write-Warning "No PGD files found in $PgoProfilesDir"
+        return $false
+    }
+
+    $pgcFiles = Get-ChildItem -Path $PgoProfilesDir -Filter "*.pgc" -ErrorAction SilentlyContinue
+    if (-not $pgcFiles -or $pgcFiles.Count -eq 0) {
+        Write-Info "No PGC files to merge."
+        return $true
+    }
+
+    foreach ($pgd in $pgdFiles) {
+        Write-Info "Merging PGC files into $($pgd.Name)..."
+        & $pgomgr /merge $pgd.FullName
+        if ($LASTEXITCODE -ne 0) {
+            Write-Warning "pgomgr /merge returned exit code $LASTEXITCODE for $($pgd.Name)"
+        }
+    }
+
+    # Clean PGC files after successful merge
+    Write-Info "Cleaning merged PGC files..."
+    Get-ChildItem -Path $PgoProfilesDir -Filter "*.pgc" -ErrorAction SilentlyContinue | Remove-Item -Force
+
+    return $true
+}
+
+function Show-ProfileSummary {
+    $pgomgr = Find-Pgomgr
+    if (-not $pgomgr) {
+        Write-Warning "pgomgr.exe not found. Cannot show summary."
+        return
+    }
+
+    $pgdFiles = Get-ChildItem -Path $PgoProfilesDir -Filter "*.pgd" -ErrorAction SilentlyContinue
+    if (-not $pgdFiles -or $pgdFiles.Count -eq 0) {
+        Write-Warning "No PGD files found in $PgoProfilesDir"
+        return
+    }
+
+    foreach ($pgd in $pgdFiles) {
+        Write-Header "Profile Summary: $($pgd.Name)"
+        & $pgomgr /summary $pgd.FullName
+        Write-Host ""
+    }
+}
+
 if ($Help) {
     Show-Usage
     exit 0
@@ -79,8 +166,9 @@ if ($Jobs -eq 0) {
 }
 
 $LtoFlag = if ($EnableLTO) { "ON" } else { "OFF" }
+$ExactFlag = if ($Exact) { "ON" } else { "OFF" }
 
-# Clean stage
+# --- Clean stage ---
 if ($Stage -eq "clean") {
     Write-Header "Cleaning Build Directory"
     
@@ -106,9 +194,46 @@ if ($Stage -eq "clean") {
     exit 0
 }
 
-# Generate stage
+# --- Merge stage ---
+if ($Stage -eq "merge") {
+    Write-Header "Merging PGO Profiles"
+    
+    if (-not (Test-Path $PgoProfilesDir)) {
+        Write-Error-Custom "Profile directory not found: $PgoProfilesDir"
+        exit 1
+    }
+
+    $result = Merge-Profiles
+    if ($result) {
+        Write-Info "Merge complete! Run '.\pgo-build.ps1 summary' to check coverage."
+    } else {
+        Write-Error-Custom "Merge failed."
+        exit 1
+    }
+    exit 0
+}
+
+# --- Summary stage ---
+if ($Stage -eq "summary") {
+    Write-Header "PGO Profile Summary"
+
+    if (-not (Test-Path $PgoProfilesDir)) {
+        Write-Error-Custom "Profile directory not found: $PgoProfilesDir"
+        exit 1
+    }
+
+    Show-ProfileSummary
+    exit 0
+}
+
+# --- Generate stage ---
 if ($Stage -eq "generate") {
     Write-Header "PGO Stage 1: Generate Profile Data"
+
+    # Clean stale PGC files from any previous run
+    if (Test-Path $PgoProfilesDir) {
+        Clean-StaleProfiles
+    }
     
     # Create build directory
     New-Item -ItemType Directory -Force -Path $BuildDir | Out-Null
@@ -118,6 +243,7 @@ if ($Stage -eq "generate") {
     Write-Info "Configuring CMake..."
     cmake .. `
         -DCITRON_ENABLE_PGO_GENERATE=ON `
+        -DCITRON_PGO_EXACT=$ExactFlag `
         -DCITRON_ENABLE_LTO=$LtoFlag `
         -DCMAKE_BUILD_TYPE=Release
     
@@ -136,16 +262,29 @@ if ($Stage -eq "generate") {
     }
     
     Write-Header "Build Complete!"
-    Write-Info "Next steps:"
-    Write-Host "  1. Run: .\bin\Release\citron.exe"
-    Write-Host "  2. Play games for 15-30 minutes to collect profile data"
-    Write-Host "  3. Exit citron"
-    Write-Host "  4. Run: .\pgo-build.ps1 use"
+    Write-Host ""
+    Write-Host "  Training guide for best PGO results:" -ForegroundColor Yellow
+    Write-Host ""
+    Write-Host "  1. Run:  .\bin\Release\citron.exe"
+    Write-Host "  2. Launch a game and play PAST initial loading"
+    Write-Host "     (first-time shader compilation is a critical hot path)"
+    Write-Host "  3. Play for at least 5-10 minutes per game"
+    Write-Host "  4. Test 2-3 different games for broader code coverage"
+    Write-Host "  5. Navigate menus, settings, and game list to profile the UI"
+    Write-Host "  6. Exit citron cleanly (File -> Exit or Ctrl+Q)"
+    Write-Host ""
+    Write-Host "  After each session, you can run:" -ForegroundColor Yellow
+    Write-Host "    .\pgo-build.ps1 merge     # Consolidate collected profiles"
+    Write-Host "    .\pgo-build.ps1 summary   # Check profile coverage"
+    Write-Host ""
+    Write-Host "  When satisfied with coverage, build the optimized binary:" -ForegroundColor Yellow
+    Write-Host "    .\pgo-build.ps1 use"
+    Write-Host ""
     
     Set-Location $ScriptDir
 }
 
-# Use stage
+# --- Use stage ---
 if ($Stage -eq "use") {
     Write-Header "PGO Stage 2: Build Optimized Binary"
     
@@ -155,6 +294,10 @@ if ($Stage -eq "use") {
         Write-Info "Please run the generate stage first and collect profile data"
         exit 1
     }
+
+    # Merge any outstanding PGC files before building
+    Write-Info "Merging any outstanding PGC files..."
+    Merge-Profiles | Out-Null
     
     # Backup profiles if build directory exists
     if (Test-Path $BuildDir) {
@@ -202,8 +345,6 @@ if ($Stage -eq "use") {
     Write-Info "Location: $BuildDir\bin\Release\citron.exe"
     Write-Host ""
     Write-Info "This build is optimized for your specific usage patterns."
-    Write-Info "Enjoy improved performance! 🚀"
     
     Set-Location $ScriptDir
 }
-

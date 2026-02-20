@@ -38,22 +38,114 @@ print_error() {
 }
 
 show_usage() {
-    echo "Usage: $0 [STAGE]"
+    echo "Usage: $0 [STAGE] [OPTIONS]"
     echo ""
     echo "STAGE can be:"
     echo "  generate  - Build with PGO instrumentation (Stage 1)"
     echo "  use       - Build using PGO profile data (Stage 2)"
     echo "  clean     - Clean build directory but preserve profiles"
+    echo "  merge     - Merge profile data (Clang: .profraw -> .profdata)"
+    echo "  summary   - Show profile file statistics"
     echo ""
-    echo "Example:"
-    echo "  $0 generate    # Build instrumented version"
-    echo "  # Run citron to collect profiles"
-    echo "  $0 use         # Build optimized version"
+    echo "Example workflow:"
+    echo "  $0 generate       # Build instrumented version"
+    echo "  # Run citron, play 2-3 games for 5-10 min each, exit cleanly"
+    echo "  $0 merge          # Merge collected profiles"
+    echo "  $0 summary        # Check coverage"
+    echo "  $0 use            # Build optimized version"
     echo ""
     echo "Options:"
     echo "  -j N      Number of parallel jobs (default: auto-detect)"
     echo "  -lto      Enable Link-Time Optimization"
     echo "  -h        Show this help message"
+}
+
+clean_stale_profiles() {
+    if [ ! -d "$PGO_PROFILES_DIR" ]; then
+        return
+    fi
+
+    local gcda_count
+    gcda_count=$(find "$PGO_PROFILES_DIR" -name "*.gcda" 2>/dev/null | wc -l)
+    if [ "$gcda_count" -gt 0 ]; then
+        print_info "Removing $gcda_count stale .gcda file(s)..."
+        find "$PGO_PROFILES_DIR" -name "*.gcda" -delete
+    fi
+
+    local profraw_count
+    profraw_count=$(find "$PGO_PROFILES_DIR" -name "*.profraw" 2>/dev/null | wc -l)
+    if [ "$profraw_count" -gt 0 ]; then
+        print_info "Removing $profraw_count stale .profraw file(s)..."
+        find "$PGO_PROFILES_DIR" -name "*.profraw" -delete
+    fi
+}
+
+merge_clang_profiles() {
+    if ! command -v llvm-profdata &>/dev/null; then
+        print_warning "llvm-profdata not found. Cannot merge Clang profiles."
+        return 1
+    fi
+
+    local profraw_files
+    profraw_files=$(find "$PGO_PROFILES_DIR" -name "*.profraw" 2>/dev/null)
+    if [ -z "$profraw_files" ]; then
+        print_info "No .profraw files to merge."
+        return 0
+    fi
+
+    local count
+    count=$(echo "$profraw_files" | wc -l)
+    print_info "Merging $count .profraw file(s)..."
+
+    llvm-profdata merge \
+        -output="${PGO_PROFILES_DIR}/default.profdata" \
+        ${profraw_files}
+
+    print_info "Merged into ${PGO_PROFILES_DIR}/default.profdata"
+
+    # Clean raw files after merge
+    print_info "Cleaning merged .profraw files..."
+    find "$PGO_PROFILES_DIR" -name "*.profraw" -delete
+
+    return 0
+}
+
+show_profile_summary() {
+    if [ ! -d "$PGO_PROFILES_DIR" ]; then
+        print_warning "Profile directory not found: $PGO_PROFILES_DIR"
+        return
+    fi
+
+    print_header "Profile Summary"
+
+    local profdata="${PGO_PROFILES_DIR}/default.profdata"
+    if [ -f "$profdata" ]; then
+        local size
+        size=$(du -h "$profdata" | cut -f1)
+        print_info "Clang profile: $profdata ($size)"
+        if command -v llvm-profdata &>/dev/null; then
+            llvm-profdata show --counts --all-functions "$profdata" 2>/dev/null | tail -5
+        fi
+    fi
+
+    local gcda_count
+    gcda_count=$(find "$PGO_PROFILES_DIR" -name "*.gcda" 2>/dev/null | wc -l)
+    if [ "$gcda_count" -gt 0 ]; then
+        print_info "GCC profile files: $gcda_count .gcda files"
+        local total_size
+        total_size=$(find "$PGO_PROFILES_DIR" -name "*.gcda" -exec du -ch {} + 2>/dev/null | tail -1 | cut -f1)
+        print_info "Total .gcda size: $total_size"
+    fi
+
+    local profraw_count
+    profraw_count=$(find "$PGO_PROFILES_DIR" -name "*.profraw" 2>/dev/null | wc -l)
+    if [ "$profraw_count" -gt 0 ]; then
+        print_warning "$profraw_count unmerged .profraw file(s) found. Run '$0 merge' first."
+    fi
+
+    if [ "$gcda_count" -eq 0 ] && [ ! -f "$profdata" ] && [ "$profraw_count" -eq 0 ]; then
+        print_warning "No profile data found in $PGO_PROFILES_DIR"
+    fi
 }
 
 # Parse arguments
@@ -63,7 +155,7 @@ ENABLE_LTO="OFF"
 
 while [[ $# -gt 0 ]]; do
     case $1 in
-        generate|use|clean)
+        generate|use|clean|merge|summary)
             STAGE="$1"
             shift
             ;;
@@ -93,7 +185,7 @@ if [ -z "$STAGE" ]; then
     exit 1
 fi
 
-# Clean stage
+# --- Clean stage ---
 if [ "$STAGE" == "clean" ]; then
     print_header "Cleaning Build Directory"
     
@@ -119,9 +211,34 @@ if [ "$STAGE" == "clean" ]; then
     exit 0
 fi
 
-# Generate stage
+# --- Merge stage ---
+if [ "$STAGE" == "merge" ]; then
+    print_header "Merging PGO Profiles"
+
+    if [ ! -d "$PGO_PROFILES_DIR" ]; then
+        print_error "Profile directory not found: $PGO_PROFILES_DIR"
+        exit 1
+    fi
+
+    merge_clang_profiles
+    print_info "Done! Run '$0 summary' to check coverage."
+    exit 0
+fi
+
+# --- Summary stage ---
+if [ "$STAGE" == "summary" ]; then
+    show_profile_summary
+    exit 0
+fi
+
+# --- Generate stage ---
 if [ "$STAGE" == "generate" ]; then
     print_header "PGO Stage 1: Generate Profile Data"
+
+    # Clean stale profile data from any previous run
+    if [ -d "$PGO_PROFILES_DIR" ]; then
+        clean_stale_profiles
+    fi
     
     # Create build directory
     mkdir -p "$BUILD_DIR"
@@ -139,21 +256,27 @@ if [ "$STAGE" == "generate" ]; then
     cmake --build . -j"$JOBS"
     
     print_header "Build Complete!"
-    print_info "Next steps:"
-    echo "  1. Run: ./bin/citron"
-    echo "  2. Play games for 15-30 minutes to collect profile data"
-    echo "  3. Exit citron"
-    
-    # Clang-specific instructions
-    if [ "$(cmake --system-information | grep CMAKE_CXX_COMPILER_ID | grep -i clang)" ]; then
-        echo "  4. Merge profiles: llvm-profdata merge -output=$PGO_PROFILES_DIR/default.profdata $PGO_PROFILES_DIR/*.profraw"
-        echo "  5. Run: $0 use"
-    else
-        echo "  4. Run: $0 use"
-    fi
+    echo ""
+    echo -e "${YELLOW}  Training guide for best PGO results:${NC}"
+    echo ""
+    echo "  1. Run:  ./bin/citron"
+    echo "  2. Launch a game and play PAST initial loading"
+    echo "     (first-time shader compilation is a critical hot path)"
+    echo "  3. Play for at least 5-10 minutes per game"
+    echo "  4. Test 2-3 different games for broader code coverage"
+    echo "  5. Navigate menus, settings, and game list to profile the UI"
+    echo "  6. Exit citron cleanly (File -> Exit or Ctrl+Q)"
+    echo ""
+    echo -e "${YELLOW}  After each session, you can run:${NC}"
+    echo "    $0 merge     # Consolidate collected profiles"
+    echo "    $0 summary   # Check profile coverage"
+    echo ""
+    echo -e "${YELLOW}  When satisfied with coverage, build the optimized binary:${NC}"
+    echo "    $0 use"
+    echo ""
 fi
 
-# Use stage
+# --- Use stage ---
 if [ "$STAGE" == "use" ]; then
     print_header "PGO Stage 2: Build Optimized Binary"
     
@@ -163,6 +286,10 @@ if [ "$STAGE" == "use" ]; then
         print_info "Please run the generate stage first and collect profile data"
         exit 1
     fi
+
+    # Merge any outstanding raw profiles before building
+    print_info "Merging any outstanding profile data..."
+    merge_clang_profiles || true
     
     # Backup profiles if build directory exists
     if [ -d "$BUILD_DIR" ]; then
@@ -198,6 +325,4 @@ if [ "$STAGE" == "use" ]; then
     print_info "Location: $BUILD_DIR/bin/citron"
     echo ""
     print_info "This build is optimized for your specific usage patterns."
-    print_info "Enjoy improved performance! 🚀"
 fi
-
