@@ -496,7 +496,7 @@ struct Values {
 
     // GC aggressiveness level for texture/buffer cache eviction
     SwitchableSetting<GCAggressiveness, true> gc_aggressiveness{linkage,
-                                                                GCAggressiveness::Light,
+                                                                GCAggressiveness::Off,
                                                                 GCAggressiveness::Off,
                                                                 GCAggressiveness::Light,
                                                                 "gc_aggressiveness",
@@ -505,10 +505,10 @@ struct Values {
                                                                 true,
                                                                 true};
 
-    // Number of frames before unused textures are evicted (default 2)
+    // Number of frames before unused textures are evicted (0 = auto-tune based on VRAM pressure)
     SwitchableSetting<u32, true> texture_eviction_frames{linkage,
-                                                         2,  // default: 2 frames
-                                                         1,  // min: 1 frame
+                                                         0,  // default: 0 (auto-tune)
+                                                         0,  // min: 0 (auto)
                                                          60, // max: 60 frames (1 second at 60fps)
                                                          "texture_eviction_frames",
                                                          Category::RendererAdvanced,
@@ -516,10 +516,10 @@ struct Values {
                                                          true,
                                                          true};
 
-    // Number of frames before unused buffers are evicted (default 5)
+    // Number of frames before unused buffers are evicted (0 = auto-tune based on VRAM pressure)
     SwitchableSetting<u32, true> buffer_eviction_frames{linkage,
-                                                        5,   // default: 5 frames
-                                                        1,   // min: 1 frame
+                                                        0,   // default: 0 (auto-tune)
+                                                        0,   // min: 0 (auto)
                                                         120, // max: 120 frames (2 seconds at 60fps)
                                                         "buffer_eviction_frames",
                                                         Category::RendererAdvanced,

@@ -232,8 +232,10 @@ void RendererVulkan::Report() const {
         LOG_INFO(Render_Vulkan, "VRAM Limit: Auto ({:.0f} MB, 80% of available)",
                  available_vram * 0.8 * 1024.0);
     }
-    LOG_INFO(Render_Vulkan, "GC Aggressiveness: {}, Texture eviction: {} frames, Buffer eviction: {} frames",
-             static_cast<u32>(gc_level), texture_eviction, buffer_eviction);
+    LOG_INFO(Render_Vulkan, "GC Aggressiveness: {}, Texture eviction: {}, Buffer eviction: {}",
+             static_cast<u32>(gc_level),
+             texture_eviction == 0 ? "Auto" : fmt::format("{} frames", texture_eviction),
+             buffer_eviction == 0 ? "Auto" : fmt::format("{} frames", buffer_eviction));
 
     // FIXED: VRAM leak prevention - Report VK_EXT_memory_budget support
     if (device.CanReportMemoryUsage()) {

@@ -86,10 +86,27 @@ void BufferCache<P>::RunGarbageCollector() {
     const bool aggressive_gc = total_used_memory >= critical_memory;
     const bool emergency_gc = total_used_memory >= static_cast<u64>(static_cast<f32>(vram_limit_bytes) * BUFFER_VRAM_CRITICAL_THRESHOLD);
 
-    // FIXED: VRAM leak prevention - Get eviction frames from settings
-    const u64 eviction_frames = Settings::values.buffer_eviction_frames.GetValue();
+    const u64 eviction_frames_setting = Settings::values.buffer_eviction_frames.GetValue();
 
-    // Adjust based on GC level
+    // Auto-tune eviction frames based on VRAM pressure when set to 0
+    u64 eviction_frames = eviction_frames_setting;
+    if (eviction_frames == 0) {
+        if (vram_limit_bytes == 0) {
+            eviction_frames = 10;
+        } else {
+            const f32 usage_ratio = static_cast<f32>(total_used_memory) / static_cast<f32>(vram_limit_bytes);
+            if (usage_ratio > 0.90f) {
+                eviction_frames = 1;
+            } else if (usage_ratio > 0.75f) {
+                eviction_frames = 3;
+            } else if (usage_ratio > 0.50f) {
+                eviction_frames = 5;
+            } else {
+                eviction_frames = 10;
+            }
+        }
+    }
+
     u64 base_ticks = eviction_frames;
     int base_iterations = 32;
 

@@ -148,16 +148,34 @@ void TextureCache<P>::RunGarbageCollector() {
     size_t num_iterations = 0;
     u64 bytes_freed = 0;
 
-    // FIXED: VRAM leak prevention - Get eviction frames from settings
-    const u64 eviction_frames = Settings::values.texture_eviction_frames.GetValue();
+    const u64 eviction_frames_setting = Settings::values.texture_eviction_frames.GetValue();
     const bool sparse_priority = Settings::values.sparse_texture_priority_eviction.GetValue();
+
+    // Auto-tune eviction frames based on VRAM pressure when set to 0
+    const auto ComputeEvictionFrames = [&]() -> u64 {
+        if (eviction_frames_setting != 0) {
+            return eviction_frames_setting;
+        }
+        if (vram_limit_bytes == 0) {
+            return 6;
+        }
+        const f32 usage_ratio = static_cast<f32>(total_used_memory) / static_cast<f32>(vram_limit_bytes);
+        if (usage_ratio > 0.90f) {
+            return 1;
+        } else if (usage_ratio > 0.75f) {
+            return 2;
+        } else if (usage_ratio > 0.50f) {
+            return 3;
+        }
+        return 6;
+    };
+    const u64 eviction_frames = ComputeEvictionFrames();
 
     const auto Configure = [&](bool allow_aggressive, bool allow_emergency) {
         high_priority_mode = total_used_memory >= expected_memory;
         aggressive_mode = allow_aggressive && total_used_memory >= critical_memory;
         emergency_mode = allow_emergency && total_used_memory >= static_cast<u64>(static_cast<f32>(vram_limit_bytes) * VRAM_USAGE_EMERGENCY_THRESHOLD);
 
-        // FIXED: VRAM leak prevention - Adjust iterations based on GC level
         u64 base_ticks = eviction_frames;
         size_t base_iterations = 10;
 
