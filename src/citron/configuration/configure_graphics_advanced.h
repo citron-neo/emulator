@@ -58,6 +58,9 @@ private:
     std::vector<std::function<void(bool)>> apply_funcs;
 
     QWidget* checkbox_enable_compute_pipelines{};
+    QWidget* widget_texture_eviction_frames{};
+    QWidget* widget_buffer_eviction_frames{};
+    QWidget* widget_sparse_texture_priority_eviction{};
 
     // This variable will hold the raw stylesheet string
     QString m_template_style_sheet;

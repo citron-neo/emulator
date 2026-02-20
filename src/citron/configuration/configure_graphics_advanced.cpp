@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <vector>
+#include <QComboBox>
 #include <QLabel>
 #include <qnamespace.h>
 #include "citron/configuration/configuration_shared.h"
@@ -34,7 +35,9 @@ void ConfigureGraphicsAdvanced::SetConfiguration() {}
 
 void ConfigureGraphicsAdvanced::Setup(const ConfigurationShared::Builder& builder) {
     auto& layout = *ui->populate_target->layout();
-    std::map<u32, QWidget*> hold{}; // A map will sort the data for us
+    std::map<u32, QWidget*> hold{};
+
+    ConfigurationShared::Widget* gc_widget = nullptr;
 
     for (auto setting :
          Settings::values.linkage.by_category[Settings::Category::RendererAdvanced]) {
@@ -55,13 +58,40 @@ void ConfigureGraphicsAdvanced::Setup(const ConfigurationShared::Builder& builde
 
         hold.emplace(setting->Id(), widget);
 
-        // Keep track of enable_compute_pipelines so we can display it when needed
         if (setting->Id() == Settings::values.enable_compute_pipelines.Id()) {
             checkbox_enable_compute_pipelines = widget;
+        } else if (setting->Id() == Settings::values.gc_aggressiveness.Id()) {
+            gc_widget = widget;
+        } else if (setting->Id() == Settings::values.texture_eviction_frames.Id()) {
+            widget_texture_eviction_frames = widget;
+        } else if (setting->Id() == Settings::values.buffer_eviction_frames.Id()) {
+            widget_buffer_eviction_frames = widget;
+        } else if (setting->Id() == Settings::values.sparse_texture_priority_eviction.Id()) {
+            widget_sparse_texture_priority_eviction = widget;
         }
     }
     for (const auto& [id, widget] : hold) {
         layout.addWidget(widget);
+    }
+
+    // Only show eviction settings when GC is set to Light
+    const auto updateEvictionVisibility = [this](int index) {
+        const bool visible = (index == static_cast<int>(Settings::GCAggressiveness::Light));
+        if (widget_texture_eviction_frames)
+            widget_texture_eviction_frames->setVisible(visible);
+        if (widget_buffer_eviction_frames)
+            widget_buffer_eviction_frames->setVisible(visible);
+        if (widget_sparse_texture_priority_eviction)
+            widget_sparse_texture_priority_eviction->setVisible(visible);
+    };
+
+    if (gc_widget && gc_widget->combobox) {
+        connect(gc_widget->combobox, qOverload<int>(&QComboBox::currentIndexChanged), this,
+                updateEvictionVisibility);
+        updateEvictionVisibility(gc_widget->combobox->currentIndex());
+    } else {
+        updateEvictionVisibility(
+            static_cast<int>(Settings::values.gc_aggressiveness.GetValue()));
     }
 }
 

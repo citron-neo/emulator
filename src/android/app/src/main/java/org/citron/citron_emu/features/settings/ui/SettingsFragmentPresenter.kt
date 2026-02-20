@@ -1043,9 +1043,14 @@ class SettingsFragmentPresenter(
             add(HeaderSetting(R.string.vram_management_header))
             add(IntSetting.VRAM_LIMIT_MB.key)
             add(IntSetting.GC_AGGRESSIVENESS.key)
-            add(IntSetting.TEXTURE_EVICTION_FRAMES.key)
-            add(IntSetting.BUFFER_EVICTION_FRAMES.key)
-            add(BooleanSetting.SPARSE_TEXTURE_PRIORITY_EVICTION.key)
+
+            // Only show eviction tuning when GC is set to Light (1)
+            val gcLevel = IntSetting.GC_AGGRESSIVENESS.getInt(false)
+            if (gcLevel == 1) {
+                add(IntSetting.TEXTURE_EVICTION_FRAMES.key)
+                add(IntSetting.BUFFER_EVICTION_FRAMES.key)
+                add(BooleanSetting.SPARSE_TEXTURE_PRIORITY_EVICTION.key)
+            }
             add(BooleanSetting.LOG_VRAM_USAGE.key)
 
             // CRT Shader Settings (only shown when CRT filter is enabled)

@@ -514,7 +514,7 @@ abstract class SettingsItem(
                     IntSetting.TEXTURE_EVICTION_FRAMES,
                     titleId = R.string.texture_eviction_frames,
                     descriptionId = R.string.texture_eviction_frames_description,
-                    min = 1,
+                    min = 0,
                     max = 60,
                     units = " frames"
                 )
@@ -524,7 +524,7 @@ abstract class SettingsItem(
                     IntSetting.BUFFER_EVICTION_FRAMES,
                     titleId = R.string.buffer_eviction_frames,
                     descriptionId = R.string.buffer_eviction_frames_description,
-                    min = 1,
+                    min = 0,
                     max = 120,
                     units = " frames"
                 )

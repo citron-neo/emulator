@@ -217,13 +217,15 @@ std::unique_ptr<TranslationMap> InitializeTranslations(QWidget* parent) {
     INSERT(
         Settings, gc_aggressiveness, tr("GC Aggressiveness:"),
         tr("Controls how aggressively the emulator evicts unused textures and buffers from VRAM.\n"
-           "Off: Disable automatic cleanup (not recommended, may cause crashes).\n"
-           "Light: Gentle cleanup, keeps more textures cached (recommended)."));
+           "Off: Disable automatic cleanup (default).\n"
+           "Light: Gentle cleanup, keeps more textures cached."));
     INSERT(Settings, texture_eviction_frames, tr("Texture Eviction Frames:"),
            tr("Number of frames a texture must be unused before it can be evicted. "
+              "Set to 0 for auto-tuning based on VRAM pressure (recommended). "
               "Lower values free VRAM faster but may cause more texture reloading."));
     INSERT(Settings, buffer_eviction_frames, tr("Buffer Eviction Frames:"),
            tr("Number of frames a buffer must be unused before it can be evicted. "
+              "Set to 0 for auto-tuning based on VRAM pressure (recommended). "
               "Lower values free VRAM faster but may cause more buffer reloading."));
     INSERT(Settings, sparse_texture_priority_eviction, tr("Sparse Texture Priority Eviction"),
            tr("Prioritize evicting large sparse textures when VRAM pressure is high. "
