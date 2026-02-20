@@ -1262,6 +1262,7 @@ target_link_libraries(core
         mbedtls
         RenderDoc::API
         stb::headers
+        ZLIB::ZLIB
     )
 
 # Conditionally link against Boost::process ONLY if it was found by the main CMakeLists.txt.

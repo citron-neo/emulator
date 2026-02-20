@@ -1223,7 +1223,8 @@ PatchManager::Metadata PatchManager::ParseControlNCA(const NCA& nca) const {
 
     auto priority_language_names = FileSys::LANGUAGE_NAMES;
     if (language_priority_list) {
-        for (size_t i = 0; i < priority_language_names.size(); ++i) {
+        for (size_t i = 0; i < priority_language_names.size() && i < language_priority_list->size();
+             ++i) {
             const auto language_index = static_cast<u8>(language_priority_list->at(i));
             if (language_index < FileSys::LANGUAGE_NAMES.size()) {
                 priority_language_names[i] = FileSys::LANGUAGE_NAMES[language_index];

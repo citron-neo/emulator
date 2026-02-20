@@ -23,9 +23,25 @@ struct LanguageEntry {
 };
 static_assert(sizeof(LanguageEntry) == 0x300, "LanguageEntry has incorrect size.");
 
+// Max entries in an uncompressed title block (indices 0-15).
+static constexpr u8 UncompressedLanguageCount = 16;
+// Max entries in a decompressed (compressed) title block (indices 0-31).
+static constexpr u8 MaxLanguageEntries = 32;
+
+// Zlib-compressed title block, used when title_compression is enabled.
+// Decompresses to MaxLanguageEntries * sizeof(LanguageEntry) = 0x6000 bytes.
+struct CompressedTitleBlock {
+    u16_le compressed_size;
+    std::array<u8, 0x2FFE> compressed_data;
+};
+static_assert(sizeof(CompressedTitleBlock) == 0x3000, "CompressedTitleBlock has incorrect size.");
+
 // The raw file format of a NACP file.
 struct RawNACP {
-    std::array<LanguageEntry, 16> language_entries;
+    union {
+        std::array<LanguageEntry, UncompressedLanguageCount> language_entries;
+        CompressedTitleBlock compressed_title;
+    };
     std::array<u8, 0x25> isbn;
     u8 startup_user_account;
     u8 user_account_switch_lock;
@@ -65,7 +81,9 @@ struct RawNACP {
     u64_le cache_storage_journal_size;
     u64_le cache_storage_data_and_journal_max_size;
     u16_le cache_storage_max_index;
-    INSERT_PADDING_BYTES(0xE76);
+    INSERT_PADDING_BYTES(0x8B);
+    u8 title_compression;
+    INSERT_PADDING_BYTES(0xDEA);
 };
 static_assert(sizeof(RawNACP) == 0x4000, "RawNACP has incorrect size.");
 
@@ -87,11 +105,14 @@ enum class Language : u8 {
     TraditionalChinese = 13,
     SimplifiedChinese = 14,
     BrazilianPortuguese = 15,
+    Polish = 16,
+    Thai = 17,
 
+    Count = 18,
     Default = 255,
 };
 
-extern const std::array<const char*, 16> LANGUAGE_NAMES;
+extern const std::array<const char*, static_cast<size_t>(Language::Count)> LANGUAGE_NAMES;
 
 // A class representing the format used by NX metadata files, typically named Control.nacp.
 // These store application name, dev name, title id, and other miscellaneous data.
@@ -117,7 +138,10 @@ public:
     const std::array<u8, 0x20>& GetRatingAge() const;
 
 private:
+    void DecompressTitleBlock();
+
     RawNACP raw{};
+    std::array<LanguageEntry, MaxLanguageEntries> language_entries_{};
 };
 
 } // namespace FileSys

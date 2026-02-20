@@ -1,6 +1,9 @@
 // SPDX-FileCopyrightText: Copyright 2018 yuzu Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
+#include <zlib.h>
+
+#include "common/logging/log.h"
 #include "common/settings.h"
 #include "common/string_util.h"
 #include "common/swap.h"
@@ -9,7 +12,7 @@
 
 namespace FileSys {
 
-const std::array<const char*, 16> LANGUAGE_NAMES{{
+const std::array<const char*, static_cast<size_t>(Language::Count)> LANGUAGE_NAMES{{
     "AmericanEnglish",
     "BritishEnglish",
     "Japanese",
@@ -26,6 +29,8 @@ const std::array<const char*, 16> LANGUAGE_NAMES{{
     "TraditionalChinese",
     "SimplifiedChinese",
     "BrazilianPortuguese",
+    "Polish",
+    "Thai",
 }};
 
 std::string LanguageEntry::GetApplicationName() const {
@@ -63,6 +68,7 @@ NACP::NACP() = default;
 
 NACP::NACP(VirtualFile file) {
     file->ReadObject(&raw);
+    DecompressTitleBlock();
 }
 
 NACP::~NACP() = default;
@@ -72,17 +78,57 @@ const LanguageEntry& NACP::GetLanguageEntry() const {
         language_to_codes[static_cast<s32>(Settings::values.language_index.GetValue())];
 
     {
-        const auto& language_entry = raw.language_entries.at(static_cast<u8>(language));
+        const auto& language_entry = language_entries_[static_cast<u8>(language)];
         if (!language_entry.GetApplicationName().empty())
             return language_entry;
     }
 
-    for (const auto& language_entry : raw.language_entries) {
+    for (u8 i = 0; i < static_cast<u8>(Language::Count); ++i) {
+        const auto& language_entry = language_entries_[i];
         if (!language_entry.GetApplicationName().empty())
             return language_entry;
     }
 
-    return raw.language_entries.at(static_cast<u8>(Language::AmericanEnglish));
+    return language_entries_[static_cast<u8>(Language::AmericanEnglish)];
+}
+
+void NACP::DecompressTitleBlock() {
+    if (raw.title_compression == 0) {
+        std::memcpy(language_entries_.data(), raw.language_entries.data(),
+                     sizeof(LanguageEntry) * UncompressedLanguageCount);
+        return;
+    }
+
+    constexpr size_t decompressed_size = sizeof(LanguageEntry) * MaxLanguageEntries;
+    const u16 compressed_size = raw.compressed_title.compressed_size;
+
+    if (compressed_size == 0 || compressed_size > raw.compressed_title.compressed_data.size()) {
+        LOG_ERROR(Service_FS, "Invalid compressed title block size: 0x{:X}", compressed_size);
+        return;
+    }
+
+    z_stream zstrm{};
+    int ret = inflateInit2(&zstrm, -15);
+    if (ret != Z_OK) {
+        LOG_ERROR(Service_FS, "inflateInit2 failed: {}", ret);
+        return;
+    }
+
+    std::array<u8, decompressed_size> decompressed{};
+    zstrm.next_in = raw.compressed_title.compressed_data.data();
+    zstrm.avail_in = static_cast<uInt>(compressed_size);
+    zstrm.next_out = decompressed.data();
+    zstrm.avail_out = static_cast<uInt>(decompressed_size);
+
+    ret = inflate(&zstrm, Z_FINISH);
+    inflateEnd(&zstrm);
+
+    if (ret != Z_STREAM_END) {
+        LOG_ERROR(Service_FS, "Failed to decompress NACP title block: zlib error {}", ret);
+        return;
+    }
+
+    std::memcpy(language_entries_.data(), decompressed.data(), decompressed_size);
 }
 
 std::string NACP::GetApplicationName() const {
