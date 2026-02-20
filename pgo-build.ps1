@@ -16,9 +16,6 @@ param(
     [switch]$EnableLTO,
 
     [Parameter()]
-    [switch]$Exact,
-    
-    [Parameter()]
     [switch]$Help
 )
 
@@ -48,7 +45,6 @@ Example workflow:
 Options:
   -Jobs N       Number of parallel jobs (default: auto-detect)
   -EnableLTO    Enable Link-Time Optimization
-  -Exact        Use /GENPROFILE:EXACT for maximum precision (slower)
   -Help         Show this help message
 "@
 }
@@ -166,7 +162,6 @@ if ($Jobs -eq 0) {
 }
 
 $LtoFlag = if ($EnableLTO) { "ON" } else { "OFF" }
-$ExactFlag = if ($Exact) { "ON" } else { "OFF" }
 
 # --- Clean stage ---
 if ($Stage -eq "clean") {
@@ -243,7 +238,6 @@ if ($Stage -eq "generate") {
     Write-Info "Configuring CMake..."
     cmake .. `
         -DCITRON_ENABLE_PGO_GENERATE=ON `
-        -DCITRON_PGO_EXACT=$ExactFlag `
         -DCITRON_ENABLE_LTO=$LtoFlag `
         -DCMAKE_BUILD_TYPE=Release
     

@@ -18,8 +18,6 @@ if(NOT DEFINED CITRON_PGO_PROFILE_DIR)
     set(CITRON_PGO_PROFILE_DIR "${CMAKE_BINARY_DIR}/pgo-profiles" CACHE PATH "Directory to store PGO profile data")
 endif()
 
-option(CITRON_PGO_EXACT "Use /GENPROFILE:EXACT for maximum precision PGO (slower instrumented runs)" OFF)
-
 # Create the profile directory if it doesn't exist
 file(MAKE_DIRECTORY "${CITRON_PGO_PROFILE_DIR}")
 
@@ -162,12 +160,7 @@ function(citron_configure_pgo target_name)
     if(MSVC)
         if(CITRON_ENABLE_PGO_GENERATE)
             message(STATUS "  [${target_name}] MSVC PGO: GENERATE stage")
-            if(CITRON_PGO_EXACT)
-                set(PGO_GEN_FLAG "/GENPROFILE:EXACT")
-                message(STATUS "  [${target_name}] Using EXACT counters (maximum precision)")
-            else()
-                set(PGO_GEN_FLAG "/GENPROFILE")
-            endif()
+            set(PGO_GEN_FLAG "/FASTGENPROFILE")
             target_link_options(${target_name} PRIVATE
                 /LTCG
                 ${PGO_GEN_FLAG}
