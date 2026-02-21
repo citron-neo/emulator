@@ -159,7 +159,8 @@ void RendererVulkan::Composite(std::span<const Tegra::FramebufferConfig> framebu
         render_window.OnFrameDisplayed();
     };
 
-    // FIXED: VRAM leak prevention - Check VRAM pressure before rendering
+    ++composite_frame_count;
+
     if (device.CanReportMemoryUsage()) {
         const u64 current_usage = device.GetDeviceMemoryUsage();
         const u64 total_vram = device.GetDeviceLocalMemory();
@@ -168,13 +169,18 @@ void RendererVulkan::Composite(std::span<const Tegra::FramebufferConfig> framebu
                                    ? static_cast<u64>(configured_limit) * 1024ULL * 1024ULL
                                    : static_cast<u64>(static_cast<double>(total_vram) * 0.80);
 
-        // If VRAM usage is above 90% of limit, trigger emergency GC on texture/buffer caches
-        if (current_usage >= static_cast<u64>(static_cast<double>(vram_limit) * 0.90)) {
+        const bool above_threshold =
+            current_usage >= static_cast<u64>(static_cast<double>(vram_limit) * 0.90);
+        const bool cooldown_elapsed =
+            (composite_frame_count - last_emergency_gc_frame) >= EMERGENCY_GC_COOLDOWN_FRAMES;
+
+        if (above_threshold && cooldown_elapsed) {
             LOG_WARNING(Render_Vulkan,
                         "VRAM pressure critical: {}MB/{}MB ({:.1f}%), triggering emergency GC",
                         current_usage / (1024ULL * 1024ULL), vram_limit / (1024ULL * 1024ULL),
                         (static_cast<f32>(current_usage) / static_cast<f32>(vram_limit)) * 100.0f);
             rasterizer.TriggerMemoryGC();
+            last_emergency_gc_frame = composite_frame_count;
         }
     }
 

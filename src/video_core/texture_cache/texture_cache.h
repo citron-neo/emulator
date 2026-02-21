@@ -126,18 +126,20 @@ TextureCache<P>::TextureCache(Runtime& runtime_, Tegra::MaxwellDeviceMemoryManag
 
 template <class P>
 void TextureCache<P>::RunGarbageCollector() {
-    // FIXED: VRAM leak prevention - Enhanced garbage collector with settings integration
-
     const auto gc_level = Settings::values.gc_aggressiveness.GetValue();
     if (gc_level == Settings::GCAggressiveness::Off) {
-        return; // GC disabled by user
+        return;
     }
 
-    // Reset per-frame stats
     if (last_gc_frame != frame_tick) {
         evicted_this_frame = 0;
         gc_runs_this_frame = 0;
         last_gc_frame = frame_tick;
+    }
+
+    static constexpr u32 MAX_GC_RUNS_PER_FRAME = 2;
+    if (gc_runs_this_frame >= MAX_GC_RUNS_PER_FRAME) {
+        return;
     }
     ++gc_runs_this_frame;
 
@@ -304,13 +306,14 @@ void TextureCache<P>::RunGarbageCollector() {
         lru_cache.ForEachItemBelow(frame_tick - ticks_to_destroy, Cleanup);
     }
 
-    // FIXED: VRAM leak prevention - Emergency pass if still above emergency threshold
     if (total_used_memory >= static_cast<u64>(static_cast<f32>(vram_limit_bytes) * VRAM_USAGE_EMERGENCY_THRESHOLD)) {
-        Configure(true, true);
-        emergency_gc_triggered = true;
-        LOG_WARNING(Render_Vulkan, "VRAM Emergency GC triggered: usage={}MB, limit={}MB",
-                    total_used_memory / 1_MiB, vram_limit_bytes / 1_MiB);
-        lru_cache.ForEachItemBelow(frame_tick, Cleanup); // Evict everything below current frame
+        if (!emergency_gc_triggered) {
+            Configure(true, true);
+            emergency_gc_triggered = true;
+            LOG_WARNING(Render_Vulkan, "VRAM Emergency GC triggered: usage={}MB, limit={}MB",
+                        total_used_memory / 1_MiB, vram_limit_bytes / 1_MiB);
+            lru_cache.ForEachItemBelow(frame_tick, Cleanup);
+        }
     }
 
     // Update statistics
@@ -339,19 +342,12 @@ void TextureCache<P>::TickFrame() {
         total_used_memory = runtime.GetDeviceMemoryUsage();
     }
 
-    // FIXED: VRAM leak prevention - Check if GC should run based on settings
     const auto gc_level = Settings::values.gc_aggressiveness.GetValue();
     const bool should_gc = gc_level != Settings::GCAggressiveness::Off &&
                            (total_used_memory > minimum_memory ||
                             total_used_memory >= static_cast<u64>(static_cast<f32>(vram_limit_bytes) * VRAM_USAGE_WARNING_THRESHOLD));
 
     if (should_gc) {
-        RunGarbageCollector();
-    }
-
-    // FIXED: VRAM leak prevention - Force additional GC if still above critical after normal GC
-    if (total_used_memory >= critical_memory && gc_level != Settings::GCAggressiveness::Off) {
-        // Run GC again if we're still above critical
         RunGarbageCollector();
     }
 

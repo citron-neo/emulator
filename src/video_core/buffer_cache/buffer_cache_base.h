@@ -519,12 +519,14 @@ public:
     u64 critical_memory = 0;
     BufferId inline_buffer_id;
 
-    // FIXED: VRAM leak prevention - Enhanced buffer memory tracking
-    u64 vram_limit_bytes = 0;           // Configured VRAM limit for buffers
-    u64 large_buffer_memory = 0;        // Memory used by large buffers (>8MB)
-    u64 evicted_buffer_bytes = 0;       // Total bytes evicted since start
-    u32 buffer_count = 0;               // Total buffer count
-    u32 large_buffer_count = 0;         // Large buffer count
+    u64 vram_limit_bytes = 0;
+    u64 large_buffer_memory = 0;
+    u64 evicted_buffer_bytes = 0;
+    u32 buffer_count = 0;
+    u32 large_buffer_count = 0;
+    u64 last_gc_frame = 0;
+    u32 gc_runs_this_frame = 0;
+    bool emergency_gc_triggered = false;
 
     std::array<BufferId, ((1ULL << 34) >> CACHING_PAGEBITS)> page_table;
     Common::ScratchBuffer<u8> tmp_buffer;

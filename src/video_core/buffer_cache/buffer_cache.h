@@ -76,15 +76,26 @@ BufferCache<P>::~BufferCache() = default;
 
 template <class P>
 void BufferCache<P>::RunGarbageCollector() {
-    // FIXED: VRAM leak prevention - Enhanced buffer GC with settings integration
-
     const auto gc_level = Settings::values.gc_aggressiveness.GetValue();
     if (gc_level == Settings::GCAggressiveness::Off) {
-        return; // GC disabled by user
+        return;
     }
 
+    if (last_gc_frame != frame_tick) {
+        gc_runs_this_frame = 0;
+        emergency_gc_triggered = false;
+        last_gc_frame = frame_tick;
+    }
+
+    static constexpr u32 MAX_GC_RUNS_PER_FRAME = 2;
+    if (gc_runs_this_frame >= MAX_GC_RUNS_PER_FRAME) {
+        return;
+    }
+    ++gc_runs_this_frame;
+
     const bool aggressive_gc = total_used_memory >= critical_memory;
-    const bool emergency_gc = total_used_memory >= static_cast<u64>(static_cast<f32>(vram_limit_bytes) * BUFFER_VRAM_CRITICAL_THRESHOLD);
+    const bool emergency_gc = !emergency_gc_triggered &&
+        total_used_memory >= static_cast<u64>(static_cast<f32>(vram_limit_bytes) * BUFFER_VRAM_CRITICAL_THRESHOLD);
 
     const u64 eviction_frames_setting = Settings::values.buffer_eviction_frames.GetValue();
 
@@ -124,6 +135,7 @@ void BufferCache<P>::RunGarbageCollector() {
     if (emergency_gc) {
         ticks_to_destroy = 1;
         num_iterations = base_iterations * 4;
+        emergency_gc_triggered = true;
         LOG_WARNING(Render_Vulkan, "Buffer cache emergency GC: usage={}MB, limit={}MB",
                     total_used_memory / 1_MiB, vram_limit_bytes / 1_MiB);
     } else if (aggressive_gc) {
@@ -196,18 +208,12 @@ void BufferCache<P>::TickFrame() {
         total_used_memory = runtime.GetDeviceMemoryUsage();
     }
 
-    // FIXED: VRAM leak prevention - Enhanced buffer GC triggering
     const auto gc_level = Settings::values.gc_aggressiveness.GetValue();
     const bool should_gc = gc_level != Settings::GCAggressiveness::Off &&
                            (total_used_memory >= minimum_memory ||
                             total_used_memory >= static_cast<u64>(static_cast<f32>(vram_limit_bytes) * BUFFER_VRAM_WARNING_THRESHOLD));
 
     if (should_gc) {
-        RunGarbageCollector();
-    }
-
-    // FIXED: VRAM leak prevention - Force additional GC if still above critical
-    if (total_used_memory >= critical_memory && gc_level != Settings::GCAggressiveness::Off) {
         RunGarbageCollector();
     }
 
