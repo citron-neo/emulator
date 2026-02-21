@@ -43,7 +43,7 @@ PerfStats::~PerfStats() {
     const auto path = Common::FS::GetCitronPath(Common::FS::CitronPath::LogDir);
     // %F Date format expanded is "%Y-%m-%d"
     char time_buf[128];
-    std::strftime(time_buf, sizeof(time_buf), "%F-%H-%M", std::localtime(&t));
+    std::strftime(time_buf, sizeof(time_buf), "%Y-%m-%d-%H-%M", std::localtime(&t));
     const auto filename = fmt::format("{}_{:016X}.csv", time_buf, title_id);
     const auto filepath = path / filename;
 

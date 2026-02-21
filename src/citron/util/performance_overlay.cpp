@@ -25,7 +25,9 @@
 #include <Windows.h>
 #include <comdef.h>
 #include <WbemIdl.h>
+#ifdef _MSC_VER
 #pragma comment(lib, "wbemuuid.lib")
+#endif
 #endif
 
 #ifdef Q_OS_ANDROID
@@ -337,7 +339,7 @@ void PerformanceOverlay::UpdateHardwareTemperatures() {
     IWbemServices* pSvc = nullptr;
     hres = CoCreateInstance(CLSID_WbemLocator, 0, CLSCTX_INPROC_SERVER, IID_IWbemLocator, (LPVOID*)&pLoc);
     if (SUCCEEDED(hres)) {
-        hres = pLoc->ConnectServer(_bstr_t(L"ROOT\\WMI"), NULL, NULL, 0, NULL, 0, 0, &pSvc);
+        hres = pLoc->ConnectServer(_bstr_t(L"ROOT\\WMI"), NULL, NULL, 0, 0, 0, 0, &pSvc);
         if (SUCCEEDED(hres)) {
             hres = CoSetProxyBlanket(pSvc, RPC_C_AUTHN_WINNT, RPC_C_AUTHZ_NONE, NULL,
                                      RPC_C_AUTHN_LEVEL_CALL, RPC_C_IMP_LEVEL_IMPERSONATE, NULL, EOAC_NONE);

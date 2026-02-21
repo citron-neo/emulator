@@ -442,8 +442,10 @@ endif()
 
 # Robust static linking and linker selection under GCC LTO
 if (NOT MSVC AND NOT APPLE)
-    # Use GNU ld.bfd for GCC LTO plugin-aware archive resolution
     target_link_options(citron PRIVATE -fuse-ld=bfd)
+    if (MINGW AND CITRON_ENABLE_LTO)
+        target_link_options(citron PRIVATE "-Wl,--allow-multiple-definition")
+    endif()
 
     # Force-include critical static archives and resolve cycles
     if (ENABLE_WEB_SERVICE)
@@ -561,6 +563,9 @@ if (MSVC)
     include(CopyCitronFFmpegDeps)
     copy_citron_SDL_deps(citron)
     copy_citron_FFmpeg_deps(citron)
+elseif(MINGW)
+    include(CopyMinGWDeps)
+    copy_mingw_deps(citron)
 endif()
 
 if (NOT APPLE AND ENABLE_OPENGL)

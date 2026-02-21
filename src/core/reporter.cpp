@@ -35,7 +35,7 @@ std::filesystem::path GetPath(std::string_view type, u64 title_id, std::string_v
 std::string GetTimestamp() {
     const auto time = std::time(nullptr);
     char time_buf[128];
-    std::strftime(time_buf, sizeof(time_buf), "%FT%H-%M-%S", std::localtime(&time));
+    std::strftime(time_buf, sizeof(time_buf), "%Y-%m-%dT%H-%M-%S", std::localtime(&time));
     return std::string(time_buf);
 }
 
