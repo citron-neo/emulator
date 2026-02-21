@@ -27,10 +27,10 @@ AboutDialog::AboutDialog(QWidget* parent)
 
     connect(ui->buttonBox, &QDialogButtonBox::accepted, this, &QDialog::accept);
 
-    std::string citron_build_version = "citron | 2026.2.1";
-#ifdef CITRON_ENABLE_PGO_USE
-    citron_build_version += " | PGO";
-#endif
+    const auto build_flags = std::string(Common::g_build_flags);
+    const auto citron_build_version = fmt::format("citron {} | {} | {}",
+        Common::g_build_version, Common::g_build_compiler,
+        build_flags != "None" ? build_flags : "Standard");
 
     if (is_gamescope) {
         resize(700, 450);
@@ -54,7 +54,7 @@ AboutDialog::AboutDialog(QWidget* parent)
 
     ui->labelBuildInfo->setText(
         ui->labelBuildInfo->text().arg(QString::fromStdString(citron_build_version),
-                                       QString::fromUtf8(Common::g_build_date).left(10)));
+                                       QString::fromUtf8(Common::g_build_date)));
 }
 
 AboutDialog::~AboutDialog() = default;
