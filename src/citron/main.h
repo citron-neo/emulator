@@ -51,6 +51,7 @@ class QProgressDialog;
 class QSlider;
 class QHBoxLayout;
 class WaitTreeWidget;
+class MemoryToolsWidget;
 enum class GameListOpenTarget;
 enum class GameListRemoveTarget;
 enum class GameListShortcutTarget;
@@ -485,6 +486,7 @@ private:
     ProfilerWidget* profilerWidget;
     MicroProfileDialog* microProfileDialog;
     WaitTreeWidget* waitTreeWidget;
+    MemoryToolsWidget* memory_tools_widget = nullptr;
     ControllerDialog* controller_dialog;
     QAction* actions_recent_files[max_recent_files_item];
     QStringList default_theme_paths;

@@ -139,6 +139,7 @@ static FileSys::VirtualFile VfsDirectoryCreateFileWrapper(const FileSys::Virtual
 #include "citron/debugger/controller.h"
 #include "citron/debugger/profiler.h"
 #include "citron/debugger/wait_tree.h"
+#include "citron/debugger/memory_tools.h"
 #include "citron/discord.h"
 #include "citron/game_list.h"
 #include "citron/game_list_p.h"
@@ -1409,10 +1410,21 @@ void GMainWindow::InitializeDebugWidgets() {
     controller_dialog->hide();
     debug_menu->addAction(controller_dialog->toggleViewAction());
 
+    memory_tools_widget = new MemoryToolsWidget(*system, this);
+    addDockWidget(Qt::RightDockWidgetArea, memory_tools_widget);
+    memory_tools_widget->hide();
+    auto* memory_tools_action = memory_tools_widget->toggleViewAction();
+    memory_tools_action->setText(tr("Memory & Cheat Engine"));
+    ui->menu_Tools->insertAction(ui->action_Capture_Screenshot, memory_tools_action);
+
     connect(this, &GMainWindow::EmulationStarting, waitTreeWidget,
             &WaitTreeWidget::OnEmulationStarting);
     connect(this, &GMainWindow::EmulationStopping, waitTreeWidget,
             &WaitTreeWidget::OnEmulationStopping);
+    connect(this, &GMainWindow::EmulationStarting, memory_tools_widget,
+            &MemoryToolsWidget::OnEmulationStarting);
+    connect(this, &GMainWindow::EmulationStopping, memory_tools_widget,
+            &MemoryToolsWidget::OnEmulationStopping);
 }
 
 void GMainWindow::InitializeRecentFileMenuActions() {
@@ -1481,6 +1493,8 @@ void GMainWindow::InitializeHotkeys() {
                        QStringLiteral("Toggle Multiplayer Room Overlay"));
     LinkActionShortcut(ui->action_Fullscreen, QStringLiteral("Fullscreen"));
     LinkActionShortcut(ui->action_Capture_Screenshot, QStringLiteral("Capture Screenshot"));
+    LinkActionShortcut(memory_tools_widget->toggleViewAction(),
+                       QStringLiteral("Toggle Memory & Cheat Engine"));
     LinkActionShortcut(ui->action_TAS_Start, QStringLiteral("TAS Start/Stop"), true);
     LinkActionShortcut(ui->action_TAS_Record, QStringLiteral("TAS Record"), true);
     LinkActionShortcut(ui->action_TAS_Reset, QStringLiteral("TAS Reset"), true);

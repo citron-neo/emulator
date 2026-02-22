@@ -170,6 +170,16 @@ add_executable(citron
     debugger/profiler.h
     debugger/wait_tree.cpp
     debugger/wait_tree.h
+    debugger/memory_viewer.cpp
+    debugger/memory_viewer.h
+    debugger/function_browser.cpp
+    debugger/function_browser.h
+    debugger/memory_tools.cpp
+    debugger/memory_tools.h
+    debugger/address_list.cpp
+    debugger/address_list.h
+    debugger/disassembler_view.cpp
+    debugger/disassembler_view.h
     discord.h
     game_list.cpp
     game_list.h
