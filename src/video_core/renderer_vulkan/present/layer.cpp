@@ -197,11 +197,15 @@ void Layer::RefreshResources(const Tegra::FramebufferConfig& framebuffer) {
 }
 
 void Layer::SetAntiAliasPass() {
-    if (anti_alias && anti_alias_setting == filters.get_anti_aliasing()) {
+    // OPTIMIZED FOR LOW GPU ACCURACY - skip FXAA/SMAA/TAA for performance
+    const auto effective_aa = Settings::IsGPULevelLow()
+                                 ? Settings::AntiAliasing::None
+                                 : filters.get_anti_aliasing();
+    if (anti_alias && anti_alias_setting == effective_aa) {
         return;
     }
 
-    anti_alias_setting = filters.get_anti_aliasing();
+    anti_alias_setting = effective_aa;
 
     const VkExtent2D render_area{
         .width = Settings::values.resolution_info.ScaleUp(raw_width),
