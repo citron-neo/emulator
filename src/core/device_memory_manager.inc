@@ -412,13 +412,17 @@ void DeviceMemoryManager<Traits>::WalkBlock(DAddr addr, std::size_t size, auto o
 template <typename Traits>
 void DeviceMemoryManager<Traits>::ReadBlock(DAddr address, void* dest_pointer, size_t size) {
     device_inter->FlushRegion(address, size);
+    static std::atomic<u64> unmapped_read_count{0};
     WalkBlock(
         address, size,
         [&](size_t copy_amount, DAddr current_vaddr) {
-            LOG_ERROR(
-                HW_Memory,
-                "Unmapped Device ReadBlock @ 0x{:016X} (start address = 0x{:016X}, size = {})",
-                current_vaddr, address, size);
+            const u64 count = unmapped_read_count.fetch_add(1, std::memory_order_relaxed);
+            if (count < 5 || (count % 100 == 0)) {
+                LOG_ERROR(HW_Memory,
+                          "Unmapped Device ReadBlock @ 0x{:016X} (start = 0x{:016X}, size = {}) "
+                          "[total occurrences: {}]. Try disabling async GPU emulation if crashes.",
+                          current_vaddr, address, size, count + 1);
+            }
             std::memset(dest_pointer, 0, copy_amount);
         },
         [&](size_t copy_amount, const u8* const src_ptr) {
@@ -450,13 +454,17 @@ void DeviceMemoryManager<Traits>::WriteBlock(DAddr address, const void* src_poin
 
 template <typename Traits>
 void DeviceMemoryManager<Traits>::ReadBlockUnsafe(DAddr address, void* dest_pointer, size_t size) {
+    static std::atomic<u64> unmapped_read_unsafe_count{0};
     WalkBlock(
         address, size,
         [&](size_t copy_amount, DAddr current_vaddr) {
-            LOG_ERROR(
-                HW_Memory,
-                "Unmapped Device ReadBlock @ 0x{:016X} (start address = 0x{:016X}, size = {})",
-                current_vaddr, address, size);
+            const u64 count = unmapped_read_unsafe_count.fetch_add(1, std::memory_order_relaxed);
+            if (count < 5 || (count % 100 == 0)) {
+                LOG_ERROR(HW_Memory,
+                          "Unmapped Device ReadBlockUnsafe @ 0x{:016X} (start = 0x{:016X}, size = "
+                          "{}) [total: {}]. Try disabling async GPU emulation if crashes.",
+                          current_vaddr, address, size, count + 1);
+            }
             std::memset(dest_pointer, 0, copy_amount);
         },
         [&](size_t copy_amount, const u8* const src_ptr) {
