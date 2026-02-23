@@ -32,7 +32,14 @@ void BlitScreen::SetWindowAdaptPass() {
     layers.clear();
     scaling_filter = filters.get_scaling_filter();
 
-    switch (scaling_filter) {
+    // OPTIMIZED FOR LOW GPU ACCURACY - use Bilinear instead of heavy filters for performance
+    const auto effective_filter =
+        Settings::IsGPULevelLow() && scaling_filter != Settings::ScalingFilter::NearestNeighbor &&
+                scaling_filter != Settings::ScalingFilter::Bilinear
+            ? Settings::ScalingFilter::Bilinear
+            : scaling_filter;
+
+    switch (effective_filter) {
     case Settings::ScalingFilter::NearestNeighbor:
         window_adapt = MakeNearestNeighbor(device, swapchain_view_format);
         break;
