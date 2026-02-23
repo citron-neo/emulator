@@ -243,6 +243,12 @@ void RendererVulkan::Report() const {
              texture_eviction == 0 ? "Auto" : fmt::format("{} frames", texture_eviction),
              buffer_eviction == 0 ? "Auto" : fmt::format("{} frames", buffer_eviction));
 
+    // OPTIMIZED FOR LOW GPU ACCURACY - performance focused optimizations active
+    if (Settings::IsGPULevelLow()) {
+        LOG_INFO(Render_Vulkan, "Low GPU Accuracy mode: Performance optimizations active (simplified "
+                               "shaders, disabled depth bounds/stencil, lighter post-processing)");
+    }
+
     // FIXED: VRAM leak prevention - Report VK_EXT_memory_budget support
     if (device.CanReportMemoryUsage()) {
         const auto current_usage = device.GetDeviceMemoryUsage();
