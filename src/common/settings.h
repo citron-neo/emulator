@@ -821,6 +821,7 @@ extern Values values;
 
 void UpdateGPUAccuracy();
 bool IsGPULevelExtreme();
+bool IsGPULevelLow();
 bool IsGPULevelHigh();
 bool IsGPULevelNormal();
 

@@ -155,6 +155,10 @@ bool IsGPULevelExtreme() {
     return values.current_gpu_accuracy == GpuAccuracy::Extreme;
 }
 
+bool IsGPULevelLow() {
+    return values.current_gpu_accuracy == GpuAccuracy::Low;
+}
+
 bool IsGPULevelHigh() {
     return values.current_gpu_accuracy == GpuAccuracy::Extreme ||
            values.current_gpu_accuracy == GpuAccuracy::High;
