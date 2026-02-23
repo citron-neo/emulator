@@ -24,6 +24,8 @@ public:
             {10103, &PlayReport::SaveReportWithUser<Core::Reporter::PlayReportType::Old2>, "SaveReportWithUserOld2"},
             {10104, &PlayReport::SaveReport<Core::Reporter::PlayReportType::New>, "SaveReport"},
             {10105, &PlayReport::SaveReportWithUser<Core::Reporter::PlayReportType::New>, "SaveReportWithUser"},
+            {10106, &PlayReport::Unknown10106, "Unknown10106"},
+            {10107, &PlayReport::Unknown10107, "Unknown10107"},
             {10200, &PlayReport::RequestImmediateTransmission, "RequestImmediateTransmission"},
             {10300, &PlayReport::GetTransmissionStatus, "GetTransmissionStatus"},
             {10400, &PlayReport::GetSystemSessionId, "GetSystemSessionId"},
@@ -260,6 +262,27 @@ private:
     void ReadAllReportFiles(HLERequestContext& ctx) {
         LOG_WARNING(Service_PREPO, "(STUBBED) called");
 
+        IPC::ResponseBuilder rb{ctx, 2};
+        rb.Push(ResultSuccess);
+    }
+
+    void Unknown10106(HLERequestContext& ctx) {
+        LOG_WARNING(Service_PREPO, "(STUBBED) called");
+        IPC::RequestParser rp{ctx};
+        rp.PopRaw<u64>();
+        ctx.ReadBufferA(0);
+        ctx.ReadBufferX(0);
+        IPC::ResponseBuilder rb{ctx, 2};
+        rb.Push(ResultSuccess);
+    }
+
+    void Unknown10107(HLERequestContext& ctx) {
+        LOG_WARNING(Service_PREPO, "(STUBBED) called");
+        IPC::RequestParser rp{ctx};
+        rp.PopRaw<u128>();
+        rp.PopRaw<u64>();
+        ctx.ReadBufferA(0);
+        ctx.ReadBufferX(0);
         IPC::ResponseBuilder rb{ctx, 2};
         rb.Push(ResultSuccess);
     }
