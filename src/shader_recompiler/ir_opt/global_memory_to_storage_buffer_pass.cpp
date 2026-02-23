@@ -369,32 +369,38 @@ std::optional<StorageBufferAddr> Track(const IR::Value& value, const Bias* bias)
 /// Collects the storage buffer used by a global memory instruction and the instruction itself
 void CollectStorageBuffers(IR::Block& block, IR::Inst& inst, StorageInfo& info) {
     // NVN puts storage buffers in a specific range, we have to bias towards these addresses to
-    // avoid getting false positives
+    // avoid getting false positives. Additional biases cover games (e.g. Zelda TOTK) that use
+    // storage buffers at index 6 or extended offset ranges.
     static constexpr Bias nvn_bias{
         .index = 0,
         .offset_begin = 0x110,
-        .offset_end = 0x610,
+        .offset_end = 0x810,
+        .alignment = 16,
+    };
+    static constexpr Bias extended_index_bias{
+        .index = 6,
+        .offset_begin = 0,
+        .offset_end = 0x800,
         .alignment = 16,
     };
     // Track the low address of the instruction
     const std::optional<LowAddrInfo> low_addr_info{TrackLowAddress(&inst)};
     if (!low_addr_info) {
-        // Failed to track the low address, use NVN fallbacks
         return;
     }
-    // First try to find storage buffers in the NVN address
     const IR::U32 low_addr{low_addr_info->value};
     std::optional<StorageBufferAddr> storage_buffer{Track(low_addr, &nvn_bias)};
     if (!storage_buffer) {
-        // If it fails, track without a bias
+        storage_buffer = Track(low_addr, &extended_index_bias);
+    }
+    if (!storage_buffer) {
         storage_buffer = Track(low_addr, nullptr);
         if (!storage_buffer) {
-            // If that also fails, use NVN fallbacks
-            LOG_WARNING(Shader, "Storage buffer failed to track, using global memory fallbacks");
+            LOG_DEBUG(Shader, "Storage buffer failed to track, using global memory fallbacks");
             return;
         }
-        LOG_WARNING(Shader, "Storage buffer tracked without bias, index {} offset {}",
-                    storage_buffer->index, storage_buffer->offset);
+        LOG_DEBUG(Shader, "Storage buffer tracked without bias, index {} offset {}",
+                  storage_buffer->index, storage_buffer->offset);
     }
     // Collect storage buffer and the instruction
     if (IsGlobalMemoryWrite(inst)) {
