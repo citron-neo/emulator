@@ -11,6 +11,7 @@
 
 #include "common/bit_cast.h"
 #include "common/cityhash.h"
+#include "common/settings.h"
 #include "common/fs/fs.h"
 #include "common/fs/path_util.h"
 #include "common/microprofile.h"
@@ -224,11 +225,15 @@ Shader::RuntimeInfo MakeRuntimeInfo(std::span<const Shader::IR::Program> program
         }
         info.convert_depth_mode = gl_ndc;
         break;
-    case Shader::Stage::Fragment:
-        info.alpha_test_func = MaxwellToCompareFunction(
-            key.state.UnpackComparisonOp(key.state.alpha_test_func.Value()));
-        info.alpha_test_reference = Common::BitCast<float>(key.state.alpha_test_ref);
+    case Shader::Stage::Fragment: {
+        // OPTIMIZED FOR LOW GPU ACCURACY - skip alpha test to reduce shader complexity
+        if (!Settings::IsGPULevelLow()) {
+            info.alpha_test_func = MaxwellToCompareFunction(
+                key.state.UnpackComparisonOp(key.state.alpha_test_func.Value()));
+            info.alpha_test_reference = Common::BitCast<float>(key.state.alpha_test_ref);
+        }
         break;
+    }
     default:
         break;
     }
@@ -316,6 +321,9 @@ PipelineCache::PipelineCache(Tegra::MaxwellDeviceMemoryManager& device_memory_,
       serialization_thread(1, "VkPipelineSerialization") {
     const auto& float_control{device.FloatControlProperties()};
     const VkDriverId driver_id{device.GetDriverID()};
+    // OPTIMIZED FOR LOW GPU ACCURACY - enable mediump in fragment shaders for better perf
+    const bool low_gpu_accuracy = Settings::IsGPULevelLow();
+
     profile = Shader::Profile{
         .supported_spirv = device.SupportedSpirvVersion(),
         .unified_descriptor_binding = true,
@@ -359,6 +367,8 @@ PipelineCache::PipelineCache(Tegra::MaxwellDeviceMemoryManager& device_memory_,
 
         .lower_left_origin_mode = false,
         .need_declared_frag_colors = false,
+        .need_fastmath_off = false,
+        .force_fragment_relaxed_precision = low_gpu_accuracy,
         .need_gather_subpixel_offset = driver_id == VK_DRIVER_ID_AMD_PROPRIETARY ||
                                        driver_id == VK_DRIVER_ID_AMD_OPEN_SOURCE ||
                                        driver_id == VK_DRIVER_ID_MESA_RADV ||

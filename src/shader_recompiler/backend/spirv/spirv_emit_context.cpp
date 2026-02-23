@@ -1715,6 +1715,10 @@ void EmitContext::DefineOutputs(const IR::Program& program) {
             }
             frag_color[index] = DefineOutput(*this, F32[4], std::nullopt);
             Decorate(frag_color[index], spv::Decoration::Location, index);
+            // OPTIMIZED FOR LOW GPU ACCURACY - mediump for fragment outputs
+            if (profile.force_fragment_relaxed_precision) {
+                Decorate(frag_color[index], spv::Decoration::RelaxedPrecision);
+            }
             Name(frag_color[index], fmt::format("frag_color{}", index));
         }
         if (info.stores_frag_depth) {
