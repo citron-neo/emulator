@@ -8,6 +8,7 @@
 #include "common/cityhash.h"
 #include "common/common_types.h"
 #include "common/polyfill_ranges.h"
+#include "common/settings.h"
 #include "video_core/engines/draw_manager.h"
 #include "video_core/renderer_vulkan/fixed_pipeline_state.h"
 #include "video_core/renderer_vulkan/vk_state_tracker.h"
@@ -219,9 +220,11 @@ void FixedPipelineState::DynamicState::Refresh(const Maxwell& regs) {
         back.action_depth_pass.Assign(front.action_depth_pass);
         back.test_func.Assign(front.test_func);
     }
-    stencil_enable.Assign(regs.stencil_enable);
+    // OPTIMIZED FOR LOW GPU ACCURACY - disable stencil test for performance
+    stencil_enable.Assign(Settings::IsGPULevelLow() ? 0 : regs.stencil_enable);
     depth_write_enable.Assign(regs.depth_write_enabled);
-    depth_bounds_enable.Assign(regs.depth_bounds_enable);
+    // OPTIMIZED FOR LOW GPU ACCURACY - disable depth bounds test for performance
+    depth_bounds_enable.Assign(Settings::IsGPULevelLow() ? 0 : regs.depth_bounds_enable);
     depth_test_enable.Assign(regs.depth_test_enable);
     front_face.Assign(packed_front_face);
     depth_test_func.Assign(PackComparisonOp(regs.depth_test_func));
