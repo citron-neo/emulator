@@ -6,6 +6,8 @@
 #include <QDockWidget>
 #include <QTabWidget>
 
+#include "common/common_types.h"
+
 namespace Core {
 class System;
 }

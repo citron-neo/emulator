@@ -269,7 +269,7 @@ private:
     void Unknown10106(HLERequestContext& ctx) {
         LOG_WARNING(Service_PREPO, "(STUBBED) called");
         IPC::RequestParser rp{ctx};
-        rp.PopRaw<u64>();
+        [[maybe_unused]] const auto _ = rp.PopRaw<u64>();
         ctx.ReadBufferA(0);
         ctx.ReadBufferX(0);
         IPC::ResponseBuilder rb{ctx, 2};
@@ -279,8 +279,8 @@ private:
     void Unknown10107(HLERequestContext& ctx) {
         LOG_WARNING(Service_PREPO, "(STUBBED) called");
         IPC::RequestParser rp{ctx};
-        rp.PopRaw<u128>();
-        rp.PopRaw<u64>();
+        [[maybe_unused]] const auto _1 = rp.PopRaw<u128>();
+        [[maybe_unused]] const auto _2 = rp.PopRaw<u64>();
         ctx.ReadBufferA(0);
         ctx.ReadBufferX(0);
         IPC::ResponseBuilder rb{ctx, 2};
