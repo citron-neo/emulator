@@ -270,8 +270,8 @@ private:
         LOG_WARNING(Service_PREPO, "(STUBBED) called");
         IPC::RequestParser rp{ctx};
         [[maybe_unused]] const auto _ = rp.PopRaw<u64>();
-        ctx.ReadBufferA(0);
-        ctx.ReadBufferX(0);
+        [[maybe_unused]] const auto _a = ctx.ReadBufferA(0);
+        [[maybe_unused]] const auto _x = ctx.ReadBufferX(0);
         IPC::ResponseBuilder rb{ctx, 2};
         rb.Push(ResultSuccess);
     }
@@ -281,8 +281,8 @@ private:
         IPC::RequestParser rp{ctx};
         [[maybe_unused]] const auto _1 = rp.PopRaw<u128>();
         [[maybe_unused]] const auto _2 = rp.PopRaw<u64>();
-        ctx.ReadBufferA(0);
-        ctx.ReadBufferX(0);
+        [[maybe_unused]] const auto _a = ctx.ReadBufferA(0);
+        [[maybe_unused]] const auto _x = ctx.ReadBufferX(0);
         IPC::ResponseBuilder rb{ctx, 2};
         rb.Push(ResultSuccess);
     }
