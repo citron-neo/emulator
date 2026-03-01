@@ -28,6 +28,10 @@
 #include <archive_entry.h>
 #endif
 
+#if defined(_MSC_VER) && defined(CITRON_ENABLE_PGO_GENERATE)
+#include <pgobootrun.h>
+#endif
+
 #include <boost/container/flat_set.hpp>
 
 // VFS includes must be before glad as they will conflict with Windows file api, which uses defines.
@@ -5965,6 +5969,12 @@ void GMainWindow::closeEvent(QCloseEvent* event) {
         event->ignore();
         return;
     }
+
+#if defined(_MSC_VER) && defined(CITRON_ENABLE_PGO_GENERATE)
+    // Explicitly flush PGO profile data when closing via X or File->Exit.
+    // Without this, .pgc may not be written on some shutdown paths.
+    PgoAutoSweep(L"close");
+#endif
 
     // 1. STOP the emulation first
     if (emu_thread != nullptr) {

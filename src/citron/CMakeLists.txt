@@ -539,6 +539,11 @@ if (CITRON_USE_QT_WEB_ENGINE)
     target_compile_definitions(citron PRIVATE -DCITRON_USE_QT_WEB_ENGINE)
 endif ()
 
+if (CITRON_ENABLE_PGO_GENERATE AND MSVC)
+    target_compile_definitions(citron PRIVATE -DCITRON_ENABLE_PGO_GENERATE)
+    target_link_libraries(citron PRIVATE pgobootrun)
+endif()
+
 if (CITRON_ENABLE_PGO_USE)
     target_compile_definitions(citron PRIVATE -DCITRON_ENABLE_PGO_USE)
 endif()
