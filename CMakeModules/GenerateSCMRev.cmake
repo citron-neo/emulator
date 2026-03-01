@@ -30,7 +30,7 @@ if(CITRON_BUILD_TYPE STREQUAL "Stable")
     if(DEFINED CITRON_VERSION_MAJOR)
         set(BUILD_VERSION "${CITRON_VERSION_MAJOR}.${CITRON_VERSION_MINOR}.${CITRON_VERSION_PATCH}")
     else()
-        set(BUILD_VERSION "2026.02.21") # Fallback stable version
+        set(BUILD_VERSION "2026.03.01") # Fallback stable version
     endif()
     set(BUILD_ID ${DISPLAY_VERSION})
 
