@@ -5968,6 +5968,15 @@ void GMainWindow::closeEvent(QCloseEvent* event) {
 
     // 1. STOP the emulation first
     if (emu_thread != nullptr) {
+        // Request exit before shutdown so Qlaunch (and other applets) receive the request
+        // and can shut down gracefully. Process events briefly to let it propagate.
+        if (system->IsPoweredOn()) {
+            RequestGameExit();
+            for (int i = 0; i < 5; ++i) {
+                QApplication::processEvents(QEventLoop::ExcludeUserInputEvents);
+                std::this_thread::sleep_for(std::chrono::milliseconds(50));
+            }
+        }
         ShutdownGame();
     }
 
