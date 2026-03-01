@@ -524,7 +524,7 @@ endif()
 
 if (ENABLE_QT)
     if (NOT USE_SYSTEM_QT)
-        download_qt(6.7.3)
+        download_qt(6.9.3)
     endif()
 
     find_package(Qt6 REQUIRED COMPONENTS Widgets Multimedia Concurrent)
@@ -538,8 +538,17 @@ if (ENABLE_QT)
     endif()
 
     if (NOT DEFINED QT_TARGET_PATH)
-        # Try to find Qt6 installation path
-        if (EXISTS "${CMAKE_BINARY_DIR}/externals/qt/6.8.3/msvc2019_64")
+        # Try to find Qt6 installation path (aqtinstall layout: externals/qt/<version>/<arch>)
+        # Qt 6.8+ uses msvc2022_64; Qt 6.7 and older use msvc2019_64
+        if (EXISTS "${CMAKE_BINARY_DIR}/externals/qt/6.9.3/msvc2022_64")
+            set(QT_TARGET_PATH "${CMAKE_BINARY_DIR}/externals/qt/6.9.3/msvc2022_64")
+        elseif (EXISTS "${CMAKE_BINARY_DIR}/externals/qt/6.9.3/msvc2022_arm64")
+            set(QT_TARGET_PATH "${CMAKE_BINARY_DIR}/externals/qt/6.9.3/msvc2022_arm64")
+        elseif (EXISTS "${CMAKE_BINARY_DIR}/externals/qt/6.9.3/msvc2019_64")
+            set(QT_TARGET_PATH "${CMAKE_BINARY_DIR}/externals/qt/6.9.3/msvc2019_64")
+        elseif (EXISTS "${CMAKE_BINARY_DIR}/externals/qt/6.8.3/msvc2022_64")
+            set(QT_TARGET_PATH "${CMAKE_BINARY_DIR}/externals/qt/6.8.3/msvc2022_64")
+        elseif (EXISTS "${CMAKE_BINARY_DIR}/externals/qt/6.8.3/msvc2019_64")
             set(QT_TARGET_PATH "${CMAKE_BINARY_DIR}/externals/qt/6.8.3/msvc2019_64")
         elseif (EXISTS "${CMAKE_BINARY_DIR}/externals/qt/6.7.3/msvc2019_64")
             set(QT_TARGET_PATH "${CMAKE_BINARY_DIR}/externals/qt/6.7.3/msvc2019_64")

@@ -86,29 +86,37 @@ function(download_moltenvk_external platform version)
 endfunction()
 
 # Determine installation parameters for OS, architecture, and compiler
+# Qt 6.8+ uses msvc2022; Qt 6.7 and older use msvc2019
 function(determine_qt_parameters target host_out type_out arch_out arch_path_out host_type_out host_arch_out host_arch_path_out)
     if (WIN32)
         set(host "windows")
         set(type "desktop")
 
         if (NOT tool)
+            # Check if target is Qt 6.8+ (use msvc2022) or 6.7.x and older (use msvc2019)
+            if (target MATCHES "^6\\.([89]|[0-9][0-9])\\.|^[7-9]\\.")
+                set(msvc_arch "msvc2022")
+            else()
+                set(msvc_arch "msvc2019")
+            endif()
+
             if (MINGW)
                 set(arch "win64_mingw")
                 set(arch_path "mingw_64")
             elseif (MSVC)
                 if ("arm64" IN_LIST ARCHITECTURE)
-                    set(arch_path "msvc2019_arm64")
+                    set(arch_path "${msvc_arch}_arm64")
                 elseif ("x86_64" IN_LIST ARCHITECTURE)
-                    set(arch_path "msvc2019_64")
+                    set(arch_path "${msvc_arch}_64")
                 else()
                     message(FATAL_ERROR "Unsupported bundled Qt architecture. Enable USE_SYSTEM_QT and provide your own.")
                 endif()
                 set(arch "win64_${arch_path}")
 
                 if (CMAKE_HOST_SYSTEM_PROCESSOR STREQUAL "AMD64")
-                    set(host_arch_path "msvc2019_64")
+                    set(host_arch_path "${msvc_arch}_64")
                 elseif (CMAKE_HOST_SYSTEM_PROCESSOR STREQUAL "ARM64")
-                    set(host_arch_path "msvc2019_64")
+                    set(host_arch_path "${msvc_arch}_64")
                 endif()
                 set(host_arch "win64_${host_arch_path}")
             else()
@@ -162,8 +170,14 @@ function(download_qt_configuration prefix_out target host type arch arch_path ba
         set(install_args ${install_args} install-tool --outputdir ${base_path} ${host} desktop ${target})
     else()
         set(prefix "${base_path}/${target}/${arch_path}")
-        set(install_args ${install_args} install-qt --outputdir ${base_path} ${host} ${type} ${target} ${arch}
-                -m qtmultimedia --archives qttranslations qttools qtsvg qtbase)
+        # Use --autodesktop for Qt 6.8+ (package structure changed); otherwise explicit archives
+        if (target MATCHES "^6\\.([89]|[0-9][0-9])\\.|^[7-9]\\.")
+            set(install_args ${install_args} install-qt --outputdir ${base_path} ${host} ${type} ${target} ${arch}
+                    --autodesktop -m qtmultimedia)
+        else()
+            set(install_args ${install_args} install-qt --outputdir ${base_path} ${host} ${type} ${target} ${arch}
+                    -m qtmultimedia --archives qttranslations qttools qtsvg qtbase)
+        endif()
     endif()
 
     if (NOT EXISTS "${prefix}")
@@ -181,7 +195,11 @@ function(download_qt_configuration prefix_out target host type arch arch_path ba
                     RESULT_VARIABLE aqt_result)
             if (NOT aqt_result EQUAL 0)
                 message(WARNING "aqt install failed, trying without multimedia module")
-                set(install_args -c "${CURRENT_MODULE_DIR}/aqt_config.ini" install-qt --outputdir ${base_path} ${host} ${type} ${target} ${arch} --archives qttranslations qttools qtsvg qtbase)
+                if (target MATCHES "^6\\.([89]|[0-9][0-9])\\.|^[7-9]\\.")
+                    set(install_args -c "${CURRENT_MODULE_DIR}/aqt_config.ini" install-qt --outputdir ${base_path} ${host} ${type} ${target} ${arch} --autodesktop)
+                else()
+                    set(install_args -c "${CURRENT_MODULE_DIR}/aqt_config.ini" install-qt --outputdir ${base_path} ${host} ${type} ${target} ${arch} --archives qttranslations qttools qtsvg qtbase)
+                endif()
                 execute_process(COMMAND ${aqt_path} ${install_args}
                         WORKING_DIRECTORY ${base_path})
             endif()
