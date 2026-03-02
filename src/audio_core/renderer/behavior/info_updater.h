@@ -35,7 +35,7 @@ class InfoUpdater {
         /* 0x18 */ u32 mix_size{};
         /* 0x1C */ u32 sinks_size{};
         /* 0x20 */ u32 performance_buffer_size{};
-        /* 0x24 */ char unk24[4];
+        /* 0x24 */ u32 splitter_size{};
         /* 0x28 */ u32 render_info_size{};
         /* 0x2C */ char unk2C[0x10];
         /* 0x3C */ u32 size{sizeof(UpdateDataHeader)};

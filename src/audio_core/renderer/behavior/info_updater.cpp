@@ -647,11 +647,12 @@ Result InfoUpdater::UpdateSplitterInfo(SplitterContext& splitter_context) {
         return Service::Audio::ResultInvalidUpdateInfo;
     }
 
+    // Use header's splitter_size to advance (fixes crash due to invalid splitter size)
+    input += in_header->splitter_size;
+
     LOG_DEBUG(Service_Audio,
               "UpdateSplitterInfo: consumed={}, new_offset_from_start={}",
-              consumed_size, CpuAddr(input) - CpuAddr(input_origin.data()) + consumed_size);
-
-    input += consumed_size;
+              in_header->splitter_size, CpuAddr(input) - CpuAddr(input_origin.data()));
 
     return ResultSuccess;
 }
