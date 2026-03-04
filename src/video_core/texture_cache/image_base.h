@@ -118,6 +118,10 @@ struct ImageBase {
     std::vector<AliasedImage> aliased_images;
     std::vector<ImageId> overlapping_images;
     ImageMapId map_view_id{};
+
+    /// Texture cache: storage_id of the page tables this image was registered in.
+    /// Used when unregistering so we clear the correct table (channel may have changed).
+    std::optional<size_t> registration_storage_id;
 };
 
 struct ImageMapView {

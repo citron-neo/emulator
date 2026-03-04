@@ -2385,6 +2385,10 @@ void TextureCache<P>::RegisterImage(ImageId image_id) {
     ASSERT_MSG(False(image.flags & ImageFlagBits::Registered),
                "Trying to register an already registered image");
     image.flags |= ImageFlagBits::Registered;
+    const auto storage_id = getStorageID(channel_state->gpu_memory.GetID());
+    if (storage_id) {
+        image.registration_storage_id = *storage_id;
+    }
     u64 tentative_size = std::max(image.guest_size_bytes, image.unswizzled_size_bytes);
     if ((IsPixelFormatASTC(image.info.format) &&
          True(image.flags & ImageFlagBits::AcceleratedUpload)) ||
@@ -2442,6 +2446,15 @@ void TextureCache<P>::UnregisterImage(ImageId image_id) {
     image.flags &= ~ImageFlagBits::Registered;
     image.flags &= ~ImageFlagBits::BadOverlap;
     lru_cache.Free(image.lru_index);
+    // Use the page tables this image was registered in (channel may have changed since then).
+    TextureCacheGPUMap* gpu_table = channel_state->gpu_page_table;
+    TextureCacheGPUMap* sparse_table = channel_state->sparse_page_table;
+    if (image.registration_storage_id &&
+        *image.registration_storage_id * 2 + 1 < gpu_page_table_storage.size()) {
+        gpu_table = &gpu_page_table_storage[*image.registration_storage_id * 2];
+        sparse_table = &gpu_page_table_storage[*image.registration_storage_id * 2 + 1];
+    }
+    image.registration_storage_id = std::nullopt;
     const auto& clear_page_table =
         [image_id](u64 page,
                    std::unordered_map<u64, std::vector<ImageId>, Common::IdentityHash<u64>>&
@@ -2460,8 +2473,8 @@ void TextureCache<P>::UnregisterImage(ImageId image_id) {
             }
             image_ids.erase(vector_it);
         };
-    ForEachGPUPage(image.gpu_addr, image.guest_size_bytes, [this, &clear_page_table](u64 page) {
-        clear_page_table(page, (*channel_state->gpu_page_table));
+    ForEachGPUPage(image.gpu_addr, image.guest_size_bytes, [this, &clear_page_table, gpu_table](u64 page) {
+        clear_page_table(page, *gpu_table);
     });
     if (False(image.flags & ImageFlagBits::Sparse)) {
         const auto map_id = image.map_view_id;
@@ -2483,8 +2496,8 @@ void TextureCache<P>::UnregisterImage(ImageId image_id) {
         slot_map_views.erase(map_id);
         return;
     }
-    ForEachGPUPage(image.gpu_addr, image.guest_size_bytes, [this, &clear_page_table](u64 page) {
-        clear_page_table(page, (*channel_state->sparse_page_table));
+    ForEachGPUPage(image.gpu_addr, image.guest_size_bytes, [this, &clear_page_table, sparse_table](u64 page) {
+        clear_page_table(page, *sparse_table);
     });
     auto it = sparse_views.find(image_id);
     ASSERT(it != sparse_views.end());
