@@ -2473,7 +2473,7 @@ void TextureCache<P>::UnregisterImage(ImageId image_id) {
             }
             image_ids.erase(vector_it);
         };
-    ForEachGPUPage(image.gpu_addr, image.guest_size_bytes, [this, &clear_page_table, gpu_table](u64 page) {
+    ForEachGPUPage(image.gpu_addr, image.guest_size_bytes, [&clear_page_table, gpu_table](u64 page) {
         clear_page_table(page, *gpu_table);
     });
     if (False(image.flags & ImageFlagBits::Sparse)) {
@@ -2496,7 +2496,7 @@ void TextureCache<P>::UnregisterImage(ImageId image_id) {
         slot_map_views.erase(map_id);
         return;
     }
-    ForEachGPUPage(image.gpu_addr, image.guest_size_bytes, [this, &clear_page_table, sparse_table](u64 page) {
+    ForEachGPUPage(image.gpu_addr, image.guest_size_bytes, [&clear_page_table, sparse_table](u64 page) {
         clear_page_table(page, *sparse_table);
     });
     auto it = sparse_views.find(image_id);
