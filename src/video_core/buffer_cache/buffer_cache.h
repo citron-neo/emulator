@@ -136,8 +136,28 @@ void BufferCache<P>::RunGarbageCollector() {
         ticks_to_destroy = 1;
         num_iterations = base_iterations * 4;
         emergency_gc_triggered = true;
-        LOG_WARNING(Render_Vulkan, "Buffer cache emergency GC: usage={}MB, limit={}MB",
-                    total_used_memory / 1_MiB, vram_limit_bytes / 1_MiB);
+
+        // Avoid log spam when emergency GC is triggered every frame.
+        static constexpr u64 EMERGENCY_GC_LOG_INTERVAL_FRAMES = 120;
+        static constexpr u64 EMERGENCY_GC_LOG_USAGE_DELTA = 64_MiB;
+        const bool interval_elapsed =
+            frame_tick >= (last_emergency_gc_log_frame + EMERGENCY_GC_LOG_INTERVAL_FRAMES);
+        const u64 usage_delta = total_used_memory > last_emergency_gc_log_usage
+                                    ? total_used_memory - last_emergency_gc_log_usage
+                                    : last_emergency_gc_log_usage - total_used_memory;
+        const bool usage_changed = usage_delta >= EMERGENCY_GC_LOG_USAGE_DELTA;
+
+        if (interval_elapsed || usage_changed || !was_in_emergency_gc) {
+            LOG_WARNING(
+                Render_Vulkan,
+                "Buffer cache emergency GC: usage={}MB, limit={}MB, suppressed_logs={}",
+                total_used_memory / 1_MiB, vram_limit_bytes / 1_MiB, emergency_gc_logs_suppressed);
+            last_emergency_gc_log_frame = frame_tick;
+            last_emergency_gc_log_usage = total_used_memory;
+            emergency_gc_logs_suppressed = 0;
+        } else {
+            ++emergency_gc_logs_suppressed;
+        }
     } else if (aggressive_gc) {
         ticks_to_destroy = std::max(1ULL, static_cast<unsigned long long>(base_ticks / 2));
         num_iterations = base_iterations * 2;
@@ -145,6 +165,13 @@ void BufferCache<P>::RunGarbageCollector() {
         ticks_to_destroy = base_ticks;
         num_iterations = base_iterations;
     }
+
+    if (!emergency_gc && was_in_emergency_gc && emergency_gc_logs_suppressed > 0) {
+        LOG_INFO(Render_Vulkan, "Buffer cache emergency GC recovered; suppressed {} repeated logs",
+                 emergency_gc_logs_suppressed);
+        emergency_gc_logs_suppressed = 0;
+    }
+    was_in_emergency_gc = emergency_gc;
 
     u64 bytes_freed = 0;
     const auto clean_up = [this, &num_iterations, &bytes_freed](BufferId buffer_id) {
