@@ -177,6 +177,10 @@ bool IsFastmemEnabled() {
     return true;
 }
 
+bool IsCpuUltraLowAccuracy() {
+    return values.cpu_accuracy.GetValue() == CpuAccuracy::UltraLow;
+}
+
 static bool is_nce_enabled = false;
 
 void SetNceEnabled(bool is_39bit) {

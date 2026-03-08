@@ -452,6 +452,7 @@ std::unique_ptr<ComboboxTranslationMap> ComboboxEnumeration(QWidget* parent) {
              PAIR(CpuAccuracy, Accurate, tr("Accurate")),
              PAIR(CpuAccuracy, Unsafe, tr("Unsafe")),
              PAIR(CpuAccuracy, Paranoid, tr("Paranoid (disables most optimizations)")),
+             PAIR(CpuAccuracy, UltraLow, tr("Ultra Low (aggressive, may break some games)")),
          }});
     translations->insert({Settings::EnumMetadata<Settings::CpuBackend>::Index(),
                           {

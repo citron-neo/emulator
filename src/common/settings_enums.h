@@ -502,6 +502,7 @@ enum class CpuAccuracy : u32 {
     Accurate = 1,
     Unsafe = 2,
     Paranoid = 3,
+    UltraLow = 4,
 };
 
 template <>
@@ -512,6 +513,7 @@ EnumMetadata<CpuAccuracy>::Canonicalizations() {
         {"Accurate", CpuAccuracy::Accurate},
         {"Unsafe", CpuAccuracy::Unsafe},
         {"Paranoid", CpuAccuracy::Paranoid},
+        {"UltraLow", CpuAccuracy::UltraLow},
     };
 }
 

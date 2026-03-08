@@ -14,6 +14,7 @@
 #include "common/fs/file.h"
 #include "common/fs/fs.h"
 #include "common/fs/path_util.h"
+#include "common/logging/log.h"
 #include "common/settings.h"
 #include "core/perf_stats.h"
 
@@ -109,6 +110,14 @@ PerfStatsResults PerfStats::GetAndResetStats(microseconds current_system_time_us
                      static_cast<double>(system_frames),
         .emulation_speed = system_us_per_second.count() / 1'000'000.0,
     };
+
+    if (Settings::values.ultralow_benchmark_logging.GetValue() &&
+        Settings::IsCpuUltraLowAccuracy()) {
+        LOG_INFO(Core, "[UltraLowBenchmark] system_fps={:.2f} game_fps={:.2f} frametime_ms={:.3f} "
+                       "speed={:.3f}",
+                 results.system_fps, results.average_game_fps, results.frametime * 1000.0,
+                 results.emulation_speed);
+    }
 
     // Reset counters
     reset_point = now;

@@ -234,7 +234,7 @@ struct Values {
                                                     "cpu_backend",
                                                     Category::Cpu};
     SwitchableSetting<CpuAccuracy, true> cpu_accuracy{linkage,           CpuAccuracy::Auto,
-                                                      CpuAccuracy::Auto, CpuAccuracy::Paranoid,
+                                                      CpuAccuracy::Auto, CpuAccuracy::UltraLow,
                                                       "cpu_accuracy",    Category::Cpu};
     SwitchableSetting<bool> cpu_debug_mode{linkage, false, "cpu_debug_mode", Category::CpuDebug};
 
@@ -745,6 +745,8 @@ struct Values {
 
     // Debugging
     bool record_frame_times;
+    Setting<bool> ultralow_benchmark_logging{
+        linkage, false, "ultralow_benchmark_logging", Category::Debugging};
     Setting<bool> use_gdbstub{linkage, false, "use_gdbstub", Category::Debugging};
     Setting<u16> gdbstub_port{linkage, 6543, "gdbstub_port", Category::Debugging};
     Setting<std::string> program_args{linkage, std::string(), "program_args", Category::Debugging};
@@ -826,6 +828,7 @@ bool IsGPULevelHigh();
 bool IsGPULevelNormal();
 
 bool IsFastmemEnabled();
+bool IsCpuUltraLowAccuracy();
 void SetNceEnabled(bool is_64bit);
 bool IsNceEnabled();
 

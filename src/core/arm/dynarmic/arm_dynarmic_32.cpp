@@ -265,8 +265,10 @@ std::shared_ptr<Dynarmic::A32::Jit> ArmDynarmic32::MakeJit(Common::PageTable* pa
             config.check_halt_on_memory_access = true;
         }
     } else {
+        const auto cpu_accuracy = Settings::values.cpu_accuracy.GetValue();
+
         // Unsafe optimizations
-        if (Settings::values.cpu_accuracy.GetValue() == Settings::CpuAccuracy::Unsafe) {
+        if (cpu_accuracy == Settings::CpuAccuracy::Unsafe) {
             config.unsafe_optimizations = true;
             if (Settings::values.cpuopt_unsafe_unfuse_fma) {
                 config.optimizations |= Dynarmic::OptimizationFlag::Unsafe_UnfuseFMA;
@@ -285,8 +287,18 @@ std::shared_ptr<Dynarmic::A32::Jit> ArmDynarmic32::MakeJit(Common::PageTable* pa
             }
         }
 
+        // Aggressive low-accuracy profile intended for CPU-bound workloads.
+        if (cpu_accuracy == Settings::CpuAccuracy::UltraLow) {
+            config.unsafe_optimizations = true;
+            config.optimizations |= Dynarmic::OptimizationFlag::Unsafe_UnfuseFMA;
+            config.optimizations |= Dynarmic::OptimizationFlag::Unsafe_ReducedErrorFP;
+            config.optimizations |= Dynarmic::OptimizationFlag::Unsafe_IgnoreStandardFPCRValue;
+            config.optimizations |= Dynarmic::OptimizationFlag::Unsafe_InaccurateNaN;
+            config.optimizations |= Dynarmic::OptimizationFlag::Unsafe_IgnoreGlobalMonitor;
+        }
+
         // Curated optimizations
-        if (Settings::values.cpu_accuracy.GetValue() == Settings::CpuAccuracy::Auto) {
+        if (cpu_accuracy == Settings::CpuAccuracy::Auto) {
             config.unsafe_optimizations = true;
             config.optimizations |= Dynarmic::OptimizationFlag::Unsafe_UnfuseFMA;
             config.optimizations |= Dynarmic::OptimizationFlag::Unsafe_IgnoreStandardFPCRValue;
@@ -295,7 +307,7 @@ std::shared_ptr<Dynarmic::A32::Jit> ArmDynarmic32::MakeJit(Common::PageTable* pa
         }
 
         // Paranoia mode for debugging optimizations
-        if (Settings::values.cpu_accuracy.GetValue() == Settings::CpuAccuracy::Paranoid) {
+        if (cpu_accuracy == Settings::CpuAccuracy::Paranoid) {
             config.unsafe_optimizations = false;
             config.optimizations = Dynarmic::no_optimizations;
         }
