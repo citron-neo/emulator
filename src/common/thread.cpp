@@ -87,6 +87,14 @@ void SetCurrentThreadName(const char* name) {
     SetThreadDescription(GetCurrentThread(), UTF8ToUTF16W(name).data());
 }
 
+bool SetCurrentThreadAffinityMask(u64 affinity_mask) {
+    if (affinity_mask == 0) {
+        return false;
+    }
+    const auto previous_mask = SetThreadAffinityMask(GetCurrentThread(), affinity_mask);
+    return previous_mask != 0;
+}
+
 #else // !MSVC_VER, so must be POSIX threads
 
 // MinGW with the POSIX threading model does not support pthread_setname_np
@@ -117,6 +125,24 @@ void SetCurrentThreadName(const char* name) {
     // Do Nothing on MingW
 }
 #endif
+
+bool SetCurrentThreadAffinityMask(u64 affinity_mask) {
+    if (affinity_mask == 0) {
+        return false;
+    }
+#if defined(__linux__)
+    cpu_set_t set{};
+    CPU_ZERO(&set);
+    for (u32 bit = 0; bit < 64; ++bit) {
+        if ((affinity_mask >> bit) & 1ULL) {
+            CPU_SET(static_cast<int>(bit), &set);
+        }
+    }
+    return pthread_setaffinity_np(pthread_self(), sizeof(set), &set) == 0;
+#else
+    return false;
+#endif
+}
 
 #endif
 

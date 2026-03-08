@@ -86,7 +86,7 @@ private:
     void ShutdownThread();
     void RunThread(std::stop_token stop_token, std::size_t core);
 
-    struct CoreData {
+    struct alignas(64) CoreData {
         std::shared_ptr<Common::Fiber> host_context;
         std::jthread host_thread;
     };

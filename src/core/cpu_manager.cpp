@@ -4,7 +4,11 @@
 #include "common/fiber.h"
 #include "common/microprofile.h"
 #include "common/scope_exit.h"
+#include "common/settings.h"
 #include "common/thread.h"
+#ifdef ARCHITECTURE_x86_64
+#include "common/x64/cpu_detect.h"
+#endif
 #include "core/core.h"
 #include "core/core_timing.h"
 #include "core/cpu_manager.h"
@@ -195,6 +199,18 @@ void CpuManager::RunThread(std::stop_token token, std::size_t core) {
     MicroProfileOnThreadCreate(name.c_str());
     Common::SetCurrentThreadName(name.c_str());
     Common::SetCurrentThreadPriority(Common::ThreadPriority::Critical);
+
+    // Optional host-side pinning for ultra-low mode. This keeps emulation worker threads
+    // on stable cores to reduce migration overhead and cache thrash.
+    if (Settings::values.cpu_accuracy.GetValue() == Settings::CpuAccuracy::UltraLow && core < 64
+#ifdef ARCHITECTURE_x86_64
+        && Common::GetCPUCaps().manufacturer == Common::CPUCaps::Manufacturer::AMD
+#endif
+    ) {
+        const u64 affinity_mask = 1ULL << static_cast<u32>(core);
+        Common::SetCurrentThreadAffinityMask(affinity_mask);
+    }
+
     auto& data = core_data[core];
     data.host_context = Common::Fiber::ThreadToFiber();
 
