@@ -337,11 +337,22 @@ std::vector<u8> HLERequestContext::ReadBufferCopy(std::size_t buffer_index) cons
 std::span<const u8> HLERequestContext::ReadBufferA(std::size_t buffer_index) const {
     Core::Memory::CpuGuestMemory<u8, Core::Memory::GuestMemoryFlags::UnsafeRead> gm(memory, 0, 0);
 
-    ASSERT_OR_EXECUTE_MSG(
-        BufferDescriptorA().size() > buffer_index, { return {}; },
-        "BufferDescriptorA invalid buffer_index {}", buffer_index);
-    return gm.Read(BufferDescriptorA()[buffer_index].Address(),
-                   BufferDescriptorA()[buffer_index].Size(), &read_buffer_data_a[buffer_index]);
+    if (BufferDescriptorA().size() > buffer_index) {
+        return gm.Read(BufferDescriptorA()[buffer_index].Address(),
+                       BufferDescriptorA()[buffer_index].Size(), &read_buffer_data_a[buffer_index]);
+    }
+
+    // Some games/modded code paths provide X where services expect A.
+    // Treat this as a soft compatibility fallback instead of a hard assert.
+    if (BufferDescriptorX().size() > buffer_index && BufferDescriptorX()[buffer_index].Size()) {
+        LOG_WARNING(IPC, "ReadBufferA fallback to BufferDescriptorX for buffer_index={}",
+                    buffer_index);
+        return gm.Read(BufferDescriptorX()[buffer_index].Address(),
+                       BufferDescriptorX()[buffer_index].Size(), &read_buffer_data_x[buffer_index]);
+    }
+
+    LOG_WARNING(IPC, "ReadBufferA missing descriptor, buffer_index={}", buffer_index);
+    return {};
 }
 
 std::span<const u8> HLERequestContext::ReadBufferX(std::size_t buffer_index) const {
