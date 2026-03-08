@@ -106,4 +106,7 @@ void SetCurrentThreadPriority(ThreadPriority new_priority);
 
 void SetCurrentThreadName(const char* name);
 
+/// Pin current thread to a CPU bitmask. Returns false if unsupported or failed.
+bool SetCurrentThreadAffinityMask(u64 affinity_mask);
+
 } // namespace Common
