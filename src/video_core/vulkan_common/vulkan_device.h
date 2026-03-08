@@ -84,6 +84,7 @@ VK_DEFINE_HANDLE(VmaAllocator)
     EXTENSION(KHR, IMAGE_FORMAT_LIST, image_format_list)                                           \
     EXTENSION(NV, DEVICE_DIAGNOSTICS_CONFIG, device_diagnostics_config)                            \
     EXTENSION(NV, GEOMETRY_SHADER_PASSTHROUGH, geometry_shader_passthrough)                        \
+    EXTENSION(NV, LOW_LATENCY_2, low_latency2)                                                     \
     EXTENSION(NV, VIEWPORT_ARRAY2, viewport_array2)                                                \
     EXTENSION(NV, VIEWPORT_SWIZZLE, viewport_swizzle)
 
@@ -413,6 +414,11 @@ public:
     /// Returns true if the device supports VK_NV_geometry_shader_passthrough.
     bool IsNvGeometryShaderPassthroughSupported() const {
         return extensions.geometry_shader_passthrough;
+    }
+
+    /// Returns true if the device supports VK_NV_low_latency2.
+    bool IsNvLowLatency2Supported() const {
+        return extensions.low_latency2;
     }
 
     /// Returns true if the device supports VK_KHR_uniform_buffer_standard_layout.
