@@ -527,6 +527,10 @@ public:
     u64 last_gc_frame = 0;
     u32 gc_runs_this_frame = 0;
     bool emergency_gc_triggered = false;
+    bool was_in_emergency_gc = false;
+    u64 last_emergency_gc_log_frame = 0;
+    u64 last_emergency_gc_log_usage = 0;
+    u32 emergency_gc_logs_suppressed = 0;
 
     std::array<BufferId, ((1ULL << 34) >> CACHING_PAGEBITS)> page_table;
     Common::ScratchBuffer<u8> tmp_buffer;
