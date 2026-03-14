@@ -670,6 +670,9 @@ Errno BSD::BindImpl(s32 fd, std::span<const u8> addr) {
         LOG_ERROR(Service, "Bind failed: Invalid fd={}", fd);
         return Errno::BADF;
     }
+    if (!file_descriptors[fd]->socket)
+        return Errno::BADF;
+
     ASSERT(addr.size() == sizeof(SockAddrIn));
     auto addr_in = GetValue<SockAddrIn>(addr);
 
@@ -688,6 +691,8 @@ Errno BSD::ConnectImpl(s32 fd, std::span<const u8> addr) {
         LOG_ERROR(Service, "Connect failed: Invalid fd={}", fd);
         return Errno::BADF;
     }
+    if (!file_descriptors[fd]->socket)
+        return Errno::BADF;
 
     UNIMPLEMENTED_IF(addr.size() != sizeof(SockAddrIn));
     auto addr_in = GetValue<SockAddrIn>(addr);
@@ -708,6 +713,8 @@ Errno BSD::GetPeerNameImpl(s32 fd, std::vector<u8>& write_buffer) {
     if (!IsFileDescriptorValid(fd)) {
         return Errno::BADF;
     }
+    if (!file_descriptors[fd]->socket)
+        return Errno::BADF;
 
     const auto [addr_in, bsd_errno] = file_descriptors[fd]->socket->GetPeerName();
     if (bsd_errno != Network::Errno::SUCCESS) {
@@ -725,6 +732,8 @@ Errno BSD::GetSockNameImpl(s32 fd, std::vector<u8>& write_buffer) {
     if (!IsFileDescriptorValid(fd)) {
         return Errno::BADF;
     }
+    if (!file_descriptors[fd]->socket)
+        return Errno::BADF;
 
     const auto [addr_in, bsd_errno] = file_descriptors[fd]->socket->GetSockName();
     if (bsd_errno != Network::Errno::SUCCESS) {
@@ -742,6 +751,8 @@ Errno BSD::ListenImpl(s32 fd, s32 backlog) {
     if (!IsFileDescriptorValid(fd)) {
         return Errno::BADF;
     }
+    if (!file_descriptors[fd]->socket)
+        return Errno::BADF;
     return Translate(file_descriptors[fd]->socket->Listen(backlog));
 }
 
@@ -749,6 +760,8 @@ std::pair<s32, Errno> BSD::FcntlImpl(s32 fd, FcntlCmd cmd, s32 arg) {
     if (!IsFileDescriptorValid(fd)) {
         return {-1, Errno::BADF};
     }
+    if (!file_descriptors[fd]->socket)
+        return Errno::BADF;
 
     FileDescriptor& descriptor = *file_descriptors[fd];
 
@@ -775,6 +788,8 @@ Errno BSD::GetSockOptImpl(s32 fd, u32 level, OptName optname, std::vector<u8>& o
     if (!IsFileDescriptorValid(fd)) {
         return Errno::BADF;
     }
+    if (!file_descriptors[fd]->socket)
+        return Errno::BADF;
 
     if (level != static_cast<u32>(SocketLevel::SOCKET)) {
         LOG_WARNING(Service, "(STUBBED) Unknown getsockopt level={}, returning INVAL", level);
@@ -804,9 +819,10 @@ Errno BSD::GetSockOptImpl(s32 fd, u32 level, OptName optname, std::vector<u8>& o
 }
 
 Errno BSD::SetSockOptImpl(s32 fd, u32 level, OptName optname, std::span<const u8> optval) {
-    if (!IsFileDescriptorValid(fd)) {
+    if (!IsFileDescriptorValid(fd))
         return Errno::BADF;
-    }
+    if (!file_descriptors[fd]->socket)
+        return Errno::BADF;
 
     if (level != static_cast<u32>(SocketLevel::SOCKET)) {
         LOG_WARNING(Service, "(STUBBED) Unknown setsockopt level={}, returning INVAL", level);
@@ -877,6 +893,8 @@ Errno BSD::ShutdownImpl(s32 fd, s32 how) {
     if (!IsFileDescriptorValid(fd)) {
         return Errno::BADF;
     }
+    if (!file_descriptors[fd]->socket)
+        return Errno::BADF;
     const Network::ShutdownHow host_how = Translate(static_cast<ShutdownHow>(how));
     return Translate(file_descriptors[fd]->socket->Shutdown(host_how));
 }
@@ -959,6 +977,8 @@ std::pair<s32, Errno> BSD::SendImpl(s32 fd, u32 flags, std::span<const u8> messa
     if (!IsFileDescriptorValid(fd)) {
         return {-1, Errno::BADF};
     }
+    if (!file_descriptors[fd]->socket)
+        return Errno::BADF;
     return Translate(file_descriptors[fd]->socket->Send(message, flags));
 }
 
@@ -967,6 +987,8 @@ std::pair<s32, Errno> BSD::SendToImpl(s32 fd, u32 flags, std::span<const u8> mes
     if (!IsFileDescriptorValid(fd)) {
         return {-1, Errno::BADF};
     }
+    if (!file_descriptors[fd]->socket)
+        return Errno::BADF;
 
     FileDescriptor& descriptor = *file_descriptors[fd];
 
@@ -997,6 +1019,8 @@ Errno BSD::CloseImpl(s32 fd) {
 
     {
         std::lock_guard lock(fd_table_mutex);
+        if (!file_descriptors[fd]->socket)
+            return Errno::BADF;
         socket_to_close = file_descriptors[fd]->socket;
         file_descriptors[fd].reset();
     }
