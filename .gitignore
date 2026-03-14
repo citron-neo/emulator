@@ -45,3 +45,10 @@ pgo-profiles-backup/
 *.gcda
 *.gcno
 
+
+*.core
+*.tar.xz
+*.tar.zstd
+*.tar.zst
+*.tar.gz
+*.tar
