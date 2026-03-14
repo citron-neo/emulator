@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: Copyright 2026 Eden Emulator Project
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 // SPDX-FileCopyrightText: Copyright 2018 yuzu Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
@@ -9,7 +12,7 @@
 
 namespace Service::NS {
 
-enum class ApplicationRecordType : u8 {
+enum class ApplicationEvent : u8 {
     Installing = 2,
     Installed = 3,
     GameCardNotInserted = 5,
@@ -23,55 +26,41 @@ enum class ApplicationControlSource : u8 {
     StorageOnly = 2,
 };
 
+enum class ApplicationDownloadState : u8 {
+    Runnable = 0,
+    Suspended,
+    NotEnoughSpace,
+    Fatal,
+    Finished,
+    SystemUpdateRequired
+};
+
 enum class BackgroundNetworkUpdateState : u8 {
     None,
     InProgress,
     Ready,
 };
 
-/// ApplicationDownloadState
-struct ApplicationDownloadState {
-    u64 downloaded_size;
-    u64 total_size;
-    u32 unk_x10;
-    u8 state;
-    u8 unk_x15;
-    std::array<u8, 0x2> unk_x16;
-    u64 unk_x18;
-};
-static_assert(sizeof(ApplicationDownloadState) == 0x20,
-              "ApplicationDownloadState has incorrect size.");
-
 struct ApplicationRecord {
     u64 application_id;
-    ApplicationRecordType type;
+    ApplicationEvent last_event;
     u8 attributes;
     INSERT_PADDING_BYTES_NOINIT(0x6);
     s64 last_updated;
 };
 static_assert(sizeof(ApplicationRecord) == 0x18, "ApplicationRecord has incorrect size.");
 
-struct ApplicationViewV19 {
-    u64 application_id;
-    u32 version;
-    u32 flags;
-    ApplicationDownloadState download_state;
-    ApplicationDownloadState download_progress;
+/// ApplicationDownloadProgress
+struct ApplicationDownloadProgress {
+    u64 downloaded_size;
+    u64 total_size;
+    u32 last_result;
+    ApplicationDownloadState state;
+    bool is_running;
+    INSERT_PADDING_BYTES_NOINIT(0x2);
+    u64 time;
 };
-static_assert(sizeof(ApplicationViewV19) == 0x50, "ApplicationViewV19 has incorrect size.");
-
-struct ApplicationViewV20 {
-    u64 application_id;
-    u32 version;
-    u32 flags;
-    u32 unk;
-    ApplicationDownloadState download_state;
-    ApplicationDownloadState download_progress;
-};
-static_assert(sizeof(ApplicationViewV20) == 0x58, "ApplicationViewV20 has incorrect size.");
-
-using ApplicationView = ApplicationViewV19;
-static_assert(sizeof(ApplicationView) == 0x50, "ApplicationView has incorrect size.");
+static_assert(sizeof(ApplicationDownloadProgress) == 0x20, "ApplicationDownloadProgress has incorrect size.");
 
 struct ApplicationRightsOnClient {
     u64 application_id;
@@ -96,13 +85,74 @@ struct PromotionInfo {
 };
 static_assert(sizeof(PromotionInfo) == 0x20, "PromotionInfo has incorrect size.");
 
-/// NsApplicationViewWithPromotionInfo
-struct ApplicationViewWithPromotionInfo {
-    ApplicationView view;    ///< \ref NsApplicationView
-    PromotionInfo promotion; ///< \ref NsPromotionInfo
+struct ApplicationViewV19 {
+    u64 application_id;
+    u32 version;
+    u32 flags;
+    ApplicationDownloadProgress download_state;
+    ApplicationDownloadProgress download_progress;
 };
-static_assert(sizeof(ApplicationViewWithPromotionInfo) == 0x70,
-              "ApplicationViewWithPromotionInfo has incorrect size.");
+static_assert(sizeof(ApplicationViewV19) == 0x50, "ApplicationViewV19 has incorrect size.");
+
+struct ApplicationViewV20 {
+    u64 application_id;
+    u32 version;
+    u32 flags;
+    u32 unk;
+    ApplicationDownloadProgress download_state;
+    ApplicationDownloadProgress download_progress;
+};
+static_assert(sizeof(ApplicationViewV20) == 0x58, "ApplicationViewV20 has incorrect size.");
+
+struct ApplicationViewData {
+    u64 application_id{};
+    u32 version{};
+    u32 flags{};
+    u32 unk{};
+    ApplicationDownloadProgress download_state{};
+    ApplicationDownloadProgress download_progress{};
+};
+
+inline size_t WriteApplicationView(void* dst, size_t dst_size, const ApplicationViewData& data,
+                                   bool is_fw20) {
+    if (is_fw20) {
+        if (dst_size < sizeof(ApplicationViewV20)) return 0;
+        auto* out = reinterpret_cast<ApplicationViewV20*>(dst);
+        out->application_id = data.application_id;
+        out->version = data.version;
+        out->flags = data.flags;
+        out->unk = data.unk;
+        out->download_state = data.download_state;
+        out->download_progress = data.download_progress;
+        return sizeof(ApplicationViewV20);
+    } else {
+        if (dst_size < sizeof(ApplicationViewV19)) return 0;
+        auto* out = reinterpret_cast<ApplicationViewV19*>(dst);
+        out->application_id = data.application_id;
+        out->version = data.version;
+        out->flags = data.flags;
+        out->download_state = data.download_state;
+        out->download_progress = data.download_progress;
+        return sizeof(ApplicationViewV19);
+    }
+}
+
+struct ApplicationViewWithPromotionData {
+    ApplicationViewData view;
+    PromotionInfo promotion;
+};
+
+inline size_t WriteApplicationViewWithPromotion(void* dst, size_t dst_size,
+                                                const ApplicationViewWithPromotionData& data,
+                                                bool sdk20_plus) {
+    const size_t view_written = WriteApplicationView(dst, dst_size, data.view, sdk20_plus);
+    if (view_written == 0) return 0;
+    const size_t remaining = dst_size - view_written;
+    if (remaining < sizeof(PromotionInfo)) return 0;
+    auto* promo_dst = reinterpret_cast<u8*>(dst) + view_written;
+    std::memcpy(promo_dst, &data.promotion, sizeof(PromotionInfo));
+    return view_written + sizeof(PromotionInfo);
+}
 
 struct ApplicationOccupiedSizeEntity {
     FileSys::StorageId storage_id;
@@ -129,5 +179,16 @@ struct Uid {
     alignas(8) Common::UUID uuid;
 };
 static_assert(sizeof(Uid) == 0x10, "Uid has incorrect size.");
+
+struct ApplicationDisplayData {
+    std::array<char, 0x200> application_name;
+    std::array<char, 0x100> developer_name;
+};
+static_assert(sizeof(ApplicationDisplayData) == 0x300, "ApplicationDisplayData has incorrect size.");
+
+struct LogoPath {
+    std::array<char, 0x300> path;
+};
+static_assert(std::is_trivially_copyable_v<LogoPath>, "LogoPath must be trivially copyable.");
 
 } // namespace Service::NS
