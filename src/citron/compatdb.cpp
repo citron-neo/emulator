@@ -6,14 +6,12 @@
 #include <QPushButton>
 #include <QtConcurrent/qtconcurrentrun.h>
 #include "common/logging/log.h"
-#include "common/telemetry.h"
-#include "core/telemetry_session.h"
 #include "ui_compatdb.h"
 #include "citron/compatdb.h"
 
-CompatDB::CompatDB(Core::TelemetrySession& telemetry_session_, QWidget* parent)
+CompatDB::CompatDB(QWidget* parent)
     : QWizard(parent, Qt::WindowTitleHint | Qt::WindowCloseButtonHint | Qt::WindowSystemMenuHint),
-      ui{std::make_unique<Ui::CompatDB>()}, telemetry_session{telemetry_session_} {
+      ui{std::make_unique<Ui::CompatDB>()} {
     ui->setupUi(this);
 
     connect(ui->radioButton_GameBoot_Yes, &QRadioButton::clicked, this, &CompatDB::EnableNext);
@@ -50,84 +48,7 @@ enum class CompatDBPage {
 };
 
 void CompatDB::Submit() {
-    QButtonGroup* compatibility_GameBoot = new QButtonGroup(this);
-    compatibility_GameBoot->addButton(ui->radioButton_GameBoot_Yes, 0);
-    compatibility_GameBoot->addButton(ui->radioButton_GameBoot_No, 1);
 
-    QButtonGroup* compatibility_Gameplay = new QButtonGroup(this);
-    compatibility_Gameplay->addButton(ui->radioButton_Gameplay_Yes, 0);
-    compatibility_Gameplay->addButton(ui->radioButton_Gameplay_No, 1);
-
-    QButtonGroup* compatibility_NoFreeze = new QButtonGroup(this);
-    compatibility_NoFreeze->addButton(ui->radioButton_NoFreeze_Yes, 0);
-    compatibility_NoFreeze->addButton(ui->radioButton_NoFreeze_No, 1);
-
-    QButtonGroup* compatibility_Complete = new QButtonGroup(this);
-    compatibility_Complete->addButton(ui->radioButton_Complete_Yes, 0);
-    compatibility_Complete->addButton(ui->radioButton_Complete_No, 1);
-
-    QButtonGroup* compatibility_Graphical = new QButtonGroup(this);
-    compatibility_Graphical->addButton(ui->radioButton_Graphical_Major, 0);
-    compatibility_Graphical->addButton(ui->radioButton_Graphical_Minor, 1);
-    compatibility_Graphical->addButton(ui->radioButton_Graphical_No, 2);
-
-    QButtonGroup* compatibility_Audio = new QButtonGroup(this);
-    compatibility_Audio->addButton(ui->radioButton_Audio_Major, 0);
-    compatibility_Graphical->addButton(ui->radioButton_Audio_Minor, 1);
-    compatibility_Audio->addButton(ui->radioButton_Audio_No, 2);
-
-    const int compatibility = static_cast<int>(CalculateCompatibility());
-
-    switch ((static_cast<CompatDBPage>(currentId()))) {
-    case CompatDBPage::Intro:
-        break;
-    case CompatDBPage::GameBoot:
-        if (compatibility_GameBoot->checkedId() == -1) {
-            button(NextButton)->setEnabled(false);
-        }
-        break;
-    case CompatDBPage::GamePlay:
-        if (compatibility_Gameplay->checkedId() == -1) {
-            button(NextButton)->setEnabled(false);
-        }
-        break;
-    case CompatDBPage::Freeze:
-        if (compatibility_NoFreeze->checkedId() == -1) {
-            button(NextButton)->setEnabled(false);
-        }
-        break;
-    case CompatDBPage::Completion:
-        if (compatibility_Complete->checkedId() == -1) {
-            button(NextButton)->setEnabled(false);
-        }
-        break;
-    case CompatDBPage::Graphical:
-        if (compatibility_Graphical->checkedId() == -1) {
-            button(NextButton)->setEnabled(false);
-        }
-        break;
-    case CompatDBPage::Audio:
-        if (compatibility_Audio->checkedId() == -1) {
-            button(NextButton)->setEnabled(false);
-        }
-        break;
-    case CompatDBPage::Final:
-        back();
-        LOG_INFO(Frontend, "Compatibility Rating: {}", compatibility);
-        telemetry_session.AddField(Common::Telemetry::FieldType::UserFeedback, "Compatibility",
-                                   compatibility);
-
-        button(NextButton)->setEnabled(false);
-        button(NextButton)->setText(tr("Submitting"));
-        button(CancelButton)->setVisible(false);
-
-        testcase_watcher.setFuture(
-            QtConcurrent::run([this] { return telemetry_session.SubmitTestcase(); }));
-        break;
-    default:
-        LOG_ERROR(Frontend, "Unexpected page: {}", currentId());
-        break;
-    }
 }
 
 int CompatDB::nextId() const {

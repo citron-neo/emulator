@@ -22,10 +22,6 @@
 #include "video_core/vulkan_common/vulkan_wrapper.h"
 #include "video_core/frame_skipping.h"
 
-namespace Core {
-class TelemetrySession;
-}
-
 namespace Core::Memory {
 class Memory;
 }
@@ -41,8 +37,7 @@ Device CreateDevice(const vk::Instance& instance, const vk::InstanceDispatch& dl
 
 class RendererVulkan final : public VideoCore::RendererBase {
 public:
-    explicit RendererVulkan(Core::TelemetrySession& telemtry_session,
-                            Core::Frontend::EmuWindow& emu_window,
+    explicit RendererVulkan(Core::Frontend::EmuWindow& emu_window,
                             Tegra::MaxwellDeviceMemoryManager& device_memory_, Tegra::GPU& gpu_,
                             std::unique_ptr<Core::Frontend::GraphicsContext> context_);
     ~RendererVulkan() override;
@@ -68,7 +63,6 @@ private:
     void RenderScreenshot(std::span<const Tegra::FramebufferConfig> framebuffers);
     void RenderAppletCaptureLayer(std::span<const Tegra::FramebufferConfig> framebuffers);
 
-    Core::TelemetrySession& telemetry_session;
     Tegra::MaxwellDeviceMemoryManager& device_memory;
     Tegra::GPU& gpu;
 

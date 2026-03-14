@@ -6,7 +6,6 @@
 #include <QMessageBox>
 #include "common/settings.h"
 #include "common/uuid.h"
-#include "core/telemetry_session.h"
 #include "ui_configure_web.h"
 #include "citron/configuration/configure_web.h"
 #include "citron/uisettings.h"
@@ -14,8 +13,6 @@
 ConfigureWeb::ConfigureWeb(QWidget* parent)
     : QWidget(parent), ui(std::make_unique<Ui::ConfigureWeb>()) {
     ui->setupUi(this);
-    connect(ui->button_regenerate_telemetry_id, &QPushButton::clicked, this,
-            &ConfigureWeb::RefreshTelemetryID);
     connect(ui->button_reset_token, &QPushButton::clicked, this, &ConfigureWeb::ResetToken);
 
 #ifndef USE_DISCORD_PRESENCE
@@ -38,18 +35,10 @@ void ConfigureWeb::changeEvent(QEvent* event) {
 
 void ConfigureWeb::RetranslateUI() {
     ui->retranslateUi(this);
-
-    ui->telemetry_learn_more->setText(
-        tr("<a href='https://citron-emu.org/help/feature/telemetry/'><span style=\"text-decoration: "
-           "underline; color:#039be5;\">Learn more</span></a>"));
-
-    ui->label_telemetry_id->setText(
-        tr("Telemetry ID: 0x%1").arg(QString::number(Core::GetTelemetryId(), 16).toUpper()));
 }
 
 void ConfigureWeb::SetConfiguration() {
     ui->web_credentials_disclaimer->setWordWrap(true);
-    ui->telemetry_learn_more->setOpenExternalLinks(true);
 
     if (Settings::values.citron_username.GetValue().empty()) {
         ui->username->setText(tr("Unspecified"));
@@ -57,13 +46,11 @@ void ConfigureWeb::SetConfiguration() {
         ui->username->setText(QString::fromStdString(Settings::values.citron_username.GetValue()));
     }
 
-    ui->toggle_telemetry->setChecked(Settings::values.enable_telemetry.GetValue());
     ui->edit_token->setText(QString::fromStdString(Settings::values.citron_token.GetValue()));
     ui->toggle_discordrpc->setChecked(UISettings::values.enable_discord_presence.GetValue());
 }
 
 void ConfigureWeb::ApplyConfiguration() {
-    Settings::values.enable_telemetry = ui->toggle_telemetry->isChecked();
     UISettings::values.enable_discord_presence = ui->toggle_discordrpc->isChecked();
 
     // Username is set from the profile manager via UpdateCurrentUser()
@@ -78,12 +65,6 @@ void ConfigureWeb::ApplyConfiguration() {
     } else {
         Settings::values.citron_token = ui->edit_token->text().toStdString();
     }
-}
-
-void ConfigureWeb::RefreshTelemetryID() {
-    const u64 new_telemetry_id{Core::RegenerateTelemetryId()};
-    ui->label_telemetry_id->setText(
-        tr("Telemetry ID: 0x%1").arg(QString::number(new_telemetry_id, 16).toUpper()));
 }
 
 void ConfigureWeb::ResetToken() {

@@ -24,10 +24,7 @@ public:
 private:
     void changeEvent(QEvent* event) override;
     void RetranslateUI();
-
-    void RefreshTelemetryID();
     void ResetToken();
-
     void SetConfiguration();
 
     std::unique_ptr<Ui::ConfigureWeb> ui;

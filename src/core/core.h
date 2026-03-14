@@ -123,7 +123,6 @@ class GPUDirtyMemoryManager;
 class PerfStats;
 class Reporter;
 class SpeedLimiter;
-class TelemetrySession;
 
 struct PerfStatsResults;
 
@@ -218,12 +217,6 @@ public:
      * @returns True if the emulated system is powered on, otherwise false.
      */
     [[nodiscard]] bool IsPoweredOn() const;
-
-    /// Gets a reference to the telemetry session for this emulation session.
-    [[nodiscard]] Core::TelemetrySession& TelemetrySession();
-
-    /// Gets a reference to the telemetry session for this emulation session.
-    [[nodiscard]] const Core::TelemetrySession& TelemetrySession() const;
 
     /// Prepare the core emulation for a reschedule
     void PrepareReschedule(u32 core_index);

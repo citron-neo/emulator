@@ -81,7 +81,6 @@
 #include "core/memory/cheat_engine.h"
 #include "core/perf_stats.h"
 #include "core/reporter.h"
-#include "core/telemetry_session.h"
 #include "core/tools/freezer.h"
 #include "core/tools/renderdoc.h"
 #include "hid_core/hid_core.h"
@@ -331,8 +330,6 @@ struct System::Impl {
     }
 
     SystemResultStatus SetupForApplicationProcess(System& system, Frontend::EmuWindow& emu_window) {
-        telemetry_session = std::make_unique<Core::TelemetrySession>();
-
         host1x_core = std::make_unique<Tegra::Host1x::Host1x>(system);
         gpu_core = VideoCore::CreateGPU(emu_window, system);
         if (!gpu_core) {
@@ -413,8 +410,6 @@ struct System::Impl {
             return init_result;
         }
 
-        telemetry_session->AddInitialInfo(*app_loader, fs_controller, *content_provider);
-
         // Initialize cheat engine
         if (cheat_engine) {
             cheat_engine->Initialize();
@@ -461,19 +456,6 @@ struct System::Impl {
         const u64 mem_before = GetCurrentRSS();
         SetShuttingDown(true);
 
-        if (perf_stats) {
-            const auto perf_results = GetAndResetPerfStats();
-            constexpr auto performance = Common::Telemetry::FieldType::Performance;
-            telemetry_session->AddField(performance, "Shutdown_EmulationSpeed",
-                                        perf_results.emulation_speed * 100.0);
-            telemetry_session->AddField(performance, "Shutdown_Framerate",
-                                        perf_results.average_game_fps);
-            telemetry_session->AddField(performance, "Shutdown_Frametime",
-                                        perf_results.frametime * 1000.0);
-            telemetry_session->AddField(performance, "Mean_Frametime_MS",
-                                        perf_stats->GetMeanFrametime());
-        }
-
         is_powered_on = false;
         exit_locked = false;
         exit_requested = false;
@@ -492,7 +474,6 @@ struct System::Impl {
 
         fs_controller.Reset();
         cheat_engine.reset();
-        telemetry_session.reset();
         core_timing.ClearPendingEvents();
         app_loader.reset();
         audio_core.reset();
@@ -616,9 +597,6 @@ struct System::Impl {
 
     /// Services
     std::unique_ptr<Service::Services> services;
-
-    /// Telemetry session for this emulation session
-    std::unique_ptr<Core::TelemetrySession> telemetry_session;
 
     /// Network instance
     Network::NetworkInstance network_instance;
@@ -744,14 +722,6 @@ void System::GatherGPUDirtyMemory(std::function<void(PAddr, size_t)>& callback) 
 
 PerfStatsResults System::GetAndResetPerfStats() {
     return impl->GetAndResetPerfStats();
-}
-
-TelemetrySession& System::TelemetrySession() {
-    return *impl->telemetry_session;
-}
-
-const TelemetrySession& System::TelemetrySession() const {
-    return *impl->telemetry_session;
 }
 
 Kernel::PhysicalCore& System::CurrentPhysicalCore() {
