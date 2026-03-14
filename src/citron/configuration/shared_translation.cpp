@@ -286,6 +286,8 @@ std::unique_ptr<TranslationMap> InitializeTranslations(QWidget* parent) {
               "unlocked."));
     INSERT(Settings, barrier_feedback_loops, tr("Barrier feedback loops"),
            tr("Improves rendering of transparency effects in specific games."));
+    INSERT(Settings, wider_reciprocals, tr("Wider reciprocals"),
+           tr("Widens Recip32 to use F64 in intermediate stages."));
     INSERT(
         Settings, extended_dynamic_state, tr("Extended Dynamic State:"),
         tr("Selects the level of Vulkan Extended Dynamic State support.\n"

@@ -4,6 +4,7 @@
 #include "shader_recompiler/backend/spirv/emit_spirv_instructions.h"
 #include "shader_recompiler/backend/spirv/spirv_emit_context.h"
 #include "shader_recompiler/frontend/ir/modifiers.h"
+#include "common/settings.h"
 
 namespace Shader::Backend::SPIRV {
 namespace {
@@ -139,6 +140,10 @@ Id EmitFPLog2(EmitContext& ctx, Id value) {
 }
 
 Id EmitFPRecip32(EmitContext& ctx, Id value) {
+    if (Settings::values.wider_reciprocals.GetValue()) {
+        // %res = f32(f64(1) / f64(value))
+        return ctx.OpFConvert(ctx.F32[1], ctx.OpFDiv(ctx.F64[1], ctx.Constant(ctx.F64[1], 1.0f), ctx.OpFConvert(ctx.F64[1], value)));
+    }
     return ctx.OpFDiv(ctx.F32[1], ctx.Const(1.0f), value);
 }
 
