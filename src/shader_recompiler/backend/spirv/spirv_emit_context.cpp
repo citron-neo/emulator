@@ -26,43 +26,27 @@ enum class Operation {
     FPMax,
 };
 
-/// Get the scalar type ID for a given sampler component type
-[[nodiscard]] Id ComponentScalarType(EmitContext& ctx, SamplerComponentType component_type) {
-    switch (component_type) {
-    case SamplerComponentType::Float:
-    case SamplerComponentType::Depth:
-        return ctx.F32[1];
-    case SamplerComponentType::Sint:
-        return ctx.S32[1];
-    case SamplerComponentType::Uint:
-        return ctx.U32[1];
-    case SamplerComponentType::Stencil:
-        return ctx.F32[1];
-    }
-    throw InvalidArgument("Invalid sampler component type {}", component_type);
-}
-
-Id ImageType(EmitContext& ctx, const TextureDescriptor& desc, Id sampled_type) {
+Id ImageType(EmitContext& ctx, const TextureDescriptor& desc) {
     const spv::ImageFormat format{spv::ImageFormat::Unknown};
-
+    const Id type{ctx.F32[1]};
     const bool depth{desc.is_depth};
     const bool ms{desc.is_multisample};
     switch (desc.type) {
     case TextureType::Color1D:
-        return ctx.TypeImage(sampled_type, spv::Dim::Dim1D, depth, false, false, 1, format);
+        return ctx.TypeImage(type, spv::Dim::Dim1D, depth, false, false, 1, format);
     case TextureType::ColorArray1D:
-        return ctx.TypeImage(sampled_type, spv::Dim::Dim1D, depth, true, false, 1, format);
+        return ctx.TypeImage(type, spv::Dim::Dim1D, depth, true, false, 1, format);
     case TextureType::Color2D:
     case TextureType::Color2DRect:
-        return ctx.TypeImage(sampled_type, spv::Dim::Dim2D, depth, false, ms, 1, format);
+        return ctx.TypeImage(type, spv::Dim::Dim2D, depth, false, ms, 1, format);
     case TextureType::ColorArray2D:
-        return ctx.TypeImage(sampled_type, spv::Dim::Dim2D, depth, true, ms, 1, format);
+        return ctx.TypeImage(type, spv::Dim::Dim2D, depth, true, ms, 1, format);
     case TextureType::Color3D:
-        return ctx.TypeImage(sampled_type, spv::Dim::Dim3D, depth, false, false, 1, format);
+        return ctx.TypeImage(type, spv::Dim::Dim3D, depth, false, false, 1, format);
     case TextureType::ColorCube:
-        return ctx.TypeImage(sampled_type, spv::Dim::Cube, depth, false, false, 1, format);
+        return ctx.TypeImage(type, spv::Dim::Cube, depth, false, false, 1, format);
     case TextureType::ColorArrayCube:
-        return ctx.TypeImage(sampled_type, spv::Dim::Cube, depth, true, false, 1, format);
+        return ctx.TypeImage(type, spv::Dim::Cube, depth, true, false, 1, format);
     case TextureType::Buffer:
         break;
     }
@@ -291,7 +275,7 @@ void Name(EmitContext& ctx, Id object, std::string_view format_str, Args&&... ar
                          .c_str());
 }
 
-void DefineConstBuffers(EmitContext& ctx, const Info& info, Id UniformDefinitions::* member_type,
+void DefineConstBuffers(EmitContext& ctx, const Info& info, Id UniformDefinitions::*member_type,
                         u32 binding, Id type, char type_char, u32 element_size) {
     const Id array_type{ctx.TypeArray(type, ctx.Const(65536U / element_size))};
     ctx.Decorate(array_type, spv::Decoration::ArrayStride, element_size);
@@ -322,7 +306,7 @@ void DefineConstBuffers(EmitContext& ctx, const Info& info, Id UniformDefinition
 }
 
 void DefineSsbos(EmitContext& ctx, StorageTypeDefinition& type_def,
-                 Id StorageDefinitions::* member_type, const Info& info, u32 binding, Id type,
+                 Id StorageDefinitions::*member_type, const Info& info, u32 binding, Id type,
                  u32 stride) {
     const Id array_type{ctx.TypeRuntimeArray(type)};
     ctx.Decorate(array_type, spv::Decoration::ArrayStride, stride);
@@ -341,9 +325,6 @@ void DefineSsbos(EmitContext& ctx, StorageTypeDefinition& type_def,
         ctx.Decorate(id, spv::Decoration::Binding, binding);
         ctx.Decorate(id, spv::Decoration::DescriptorSet, 0U);
         ctx.Name(id, fmt::format("ssbo{}", index));
-        if (!desc.is_written) {
-            ctx.Decorate(id, spv::Decoration::NonWritable);
-        }
         if (ctx.profile.supported_spirv >= 0x00010400) {
             ctx.interfaces.push_back(id);
         }
@@ -575,7 +556,6 @@ void EmitContext::DefineCommonTypes(const Info& info) {
 
     output_f32 = Name(TypePointer(spv::StorageClass::Output, F32[1]), "output_f32");
     output_u32 = Name(TypePointer(spv::StorageClass::Output, U32[1]), "output_u32");
-    output_s32 = Name(TypePointer(spv::StorageClass::Output, S32[1]), "output_s32");
 
     if (info.uses_int8 && profile.support_int8) {
         AddCapability(spv::Capability::Int8);
@@ -1189,7 +1169,7 @@ void EmitContext::DefineConstantBufferIndirectFunctions(const Info& info) {
     if (!info.uses_cbuf_indirect) {
         return;
     }
-    const auto make_accessor{[&](Id buffer_type, Id UniformDefinitions::* member_ptr) {
+    const auto make_accessor{[&](Id buffer_type, Id UniformDefinitions::*member_ptr) {
         const Id func_type{TypeFunction(buffer_type, U32[1], U32[1])};
         const Id func{OpFunction(buffer_type, spv::FunctionControlMask::MaskNone, func_type)};
         const Id binding{OpFunctionParameter(U32[1])};
@@ -1389,8 +1369,7 @@ void EmitContext::DefineImageBuffers(const Info& info, u32& binding) {
 void EmitContext::DefineTextures(const Info& info, u32& binding, u32& scaling_index) {
     textures.reserve(info.texture_descriptors.size());
     for (const TextureDescriptor& desc : info.texture_descriptors) {
-        const Id result_type{ComponentScalarType(*this, desc.component_type)};
-        const Id image_type{ImageType(*this, desc, result_type)};
+        const Id image_type{ImageType(*this, desc)};
         const Id sampled_type{TypeSampledImage(image_type)};
         const Id pointer_type{TypePointer(spv::StorageClass::UniformConstant, sampled_type)};
         const Id desc_type{DescType(*this, sampled_type, pointer_type, desc.count)};
@@ -1403,10 +1382,8 @@ void EmitContext::DefineTextures(const Info& info, u32& binding, u32& scaling_in
             .sampled_type = sampled_type,
             .pointer_type = pointer_type,
             .image_type = image_type,
-            .result_type = result_type,
             .count = desc.count,
             .is_multisample = desc.is_multisample,
-            .component_type = desc.component_type,
         });
         if (profile.supported_spirv >= 0x00010400) {
             interfaces.push_back(id);
@@ -1465,9 +1442,6 @@ void EmitContext::DefineInputs(const IR::Program& program) {
     }
     if (info.uses_sample_id) {
         sample_id = DefineInput(*this, U32[1], false, spv::BuiltIn::SampleId);
-        if (stage == Stage::Fragment) {
-            Decorate(sample_id, spv::Decoration::Flat);
-        }
     }
     if (info.uses_is_helper_invocation) {
         is_helper_invocation = DefineInput(*this, U1, false, spv::BuiltIn::HelperInvocation);
@@ -1478,13 +1452,6 @@ void EmitContext::DefineInputs(const IR::Program& program) {
         subgroup_mask_le = DefineInput(*this, U32[4], false, spv::BuiltIn::SubgroupLeMaskKHR);
         subgroup_mask_gt = DefineInput(*this, U32[4], false, spv::BuiltIn::SubgroupGtMaskKHR);
         subgroup_mask_ge = DefineInput(*this, U32[4], false, spv::BuiltIn::SubgroupGeMaskKHR);
-        if (stage == Stage::Fragment) {
-            Decorate(subgroup_mask_eq, spv::Decoration::Flat);
-            Decorate(subgroup_mask_lt, spv::Decoration::Flat);
-            Decorate(subgroup_mask_le, spv::Decoration::Flat);
-            Decorate(subgroup_mask_gt, spv::Decoration::Flat);
-            Decorate(subgroup_mask_ge, spv::Decoration::Flat);
-        }
     }
     if (info.uses_fswzadd || info.uses_subgroup_invocation_id || info.uses_subgroup_shuffles ||
         (profile.warp_size_potentially_larger_than_guest &&
@@ -1492,9 +1459,7 @@ void EmitContext::DefineInputs(const IR::Program& program) {
         AddCapability(spv::Capability::GroupNonUniform);
         subgroup_local_invocation_id =
             DefineInput(*this, U32[1], false, spv::BuiltIn::SubgroupLocalInvocationId);
-        if (stage == Stage::Fragment) {
-            Decorate(subgroup_local_invocation_id, spv::Decoration::Flat);
-        }
+        Decorate(subgroup_local_invocation_id, spv::Decoration::Flat);
     }
     if (info.uses_fswzadd) {
         const Id f32_one{Const(1.0f)};
@@ -1506,9 +1471,6 @@ void EmitContext::DefineInputs(const IR::Program& program) {
     }
     if (loads[IR::Attribute::PrimitiveId]) {
         primitive_id = DefineInput(*this, U32[1], false, spv::BuiltIn::PrimitiveId);
-        if (stage == Stage::Fragment) {
-            Decorate(primitive_id, spv::Decoration::Flat);
-        }
     }
     if (loads[IR::Attribute::Layer]) {
         AddCapability(spv::Capability::Geometry);
@@ -1600,23 +1562,17 @@ void EmitContext::DefineInputs(const IR::Program& program) {
         if (stage != Stage::Fragment) {
             continue;
         }
-        const bool is_integer =
-            input_type == AttributeType::SignedInt || input_type == AttributeType::UnsignedInt;
-        if (is_integer) {
+        switch (info.interpolation[index]) {
+        case Interpolation::Smooth:
+            // Default
+            // Decorate(id, spv::Decoration::Smooth);
+            break;
+        case Interpolation::NoPerspective:
+            Decorate(id, spv::Decoration::NoPerspective);
+            break;
+        case Interpolation::Flat:
             Decorate(id, spv::Decoration::Flat);
-        } else {
-            switch (info.interpolation[index]) {
-            case Interpolation::Smooth:
-                // Default
-                // Decorate(id, spv::Decoration::Smooth);
-                break;
-            case Interpolation::NoPerspective:
-                Decorate(id, spv::Decoration::NoPerspective);
-                break;
-            case Interpolation::Flat:
-                Decorate(id, spv::Decoration::Flat);
-                break;
-            }
+            break;
         }
     }
     if (stage == Stage::TessellationEval) {

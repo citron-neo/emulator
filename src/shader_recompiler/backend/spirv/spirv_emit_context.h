@@ -34,10 +34,8 @@ struct TextureDefinition {
     Id sampled_type;
     Id pointer_type;
     Id image_type;
-    Id result_type;
     u32 count;
     bool is_multisample;
-    SamplerComponentType component_type;
 };
 
 struct TextureBufferDefinition {
@@ -72,7 +70,7 @@ struct UniformDefinitions {
     Id U32x2{};
     Id U32x4{};
 
-    constexpr static size_t NumElements(Id UniformDefinitions::* member_ptr) {
+    constexpr static size_t NumElements(Id UniformDefinitions::*member_ptr) {
         if (member_ptr == &UniformDefinitions::U8) {
             return 1;
         }
@@ -101,7 +99,7 @@ struct UniformDefinitions {
         return 1;
     }
 
-    constexpr static bool IsFloat(Id UniformDefinitions::* member_ptr) {
+    constexpr static bool IsFloat(Id UniformDefinitions::*member_ptr) {
         if (member_ptr == &UniformDefinitions::F32) {
             return true;
         }
@@ -247,7 +245,6 @@ public:
 
     Id output_f32{};
     Id output_u32{};
-    Id output_s32{};
 
     Id image_buffer_type{};
     Id image_u32{};
