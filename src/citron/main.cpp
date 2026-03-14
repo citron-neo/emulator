@@ -561,12 +561,7 @@ GMainWindow::GMainWindow(std::unique_ptr<QtConfig> config_, bool has_broken_vulk
             tr("Vulkan initialization failed during boot.<br><br>For support, please visit <b>Help "
                "> Get Support (Discord)</b> in the main emulation window."));
 
-#ifdef HAS_OPENGL
-        Settings::values.renderer_backend = Settings::RendererBackend::OpenGL;
-#else
         Settings::values.renderer_backend = Settings::RendererBackend::Null;
-#endif
-
         UpdateAPIText();
         renderer_status_button->setDisabled(true);
         renderer_status_button->setChecked(false);
@@ -4519,11 +4514,7 @@ void GMainWindow::OnToggleGraphicsAPI() {
     if (api != Settings::RendererBackend::Vulkan) {
         api = Settings::RendererBackend::Vulkan;
     } else {
-#ifdef HAS_OPENGL
-        api = Settings::RendererBackend::OpenGL;
-#else
         api = Settings::RendererBackend::Null;
-#endif
     }
     Settings::values.renderer_backend.SetValue(api);
     renderer_status_button->setChecked(api == Settings::RendererBackend::Vulkan);
@@ -5729,15 +5720,8 @@ void GMainWindow::UpdateDockedButton() {
 
 void GMainWindow::UpdateAPIText() {
     const auto api = Settings::values.renderer_backend.GetValue();
-    const auto renderer_status_text =
-        ConfigurationShared::renderer_backend_texts_map.find(api)->second;
-    renderer_status_button->setText(
-        api == Settings::RendererBackend::OpenGL
-            ? tr("%1 %2").arg(renderer_status_text.toUpper(),
-                              ConfigurationShared::shader_backend_texts_map
-                                  .find(Settings::values.shader_backend.GetValue())
-                                  ->second)
-            : renderer_status_text.toUpper());
+    const auto renderer_status_text = ConfigurationShared::renderer_backend_texts_map.find(api)->second;
+    renderer_status_button->setText(renderer_status_text.toUpper());
 }
 
 void GMainWindow::UpdateFilterText() {

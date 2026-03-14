@@ -128,8 +128,6 @@ ENUM(VramUsageMode, Conservative, Aggressive, HighEnd, Insane);
 
 ENUM(RendererBackend, OpenGL, Vulkan, Null);
 
-ENUM(ShaderBackend, Glsl, Glasm, SpirV);
-
 ENUM(GpuAccuracy, Low, Normal, High, Extreme);
 
 ENUM(CpuBackend, Dynarmic, Nce);

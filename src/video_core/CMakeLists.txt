@@ -121,66 +121,6 @@ add_library(video_core STATIC
     renderer_null/null_rasterizer.h
     renderer_null/renderer_null.cpp
     renderer_null/renderer_null.h
-    renderer_opengl/present/filters.cpp
-    renderer_opengl/present/filters.h
-    renderer_opengl/present/fsr.cpp
-    renderer_opengl/present/fsr.h
-    renderer_opengl/present/fsr2.cpp
-    renderer_opengl/present/fsr2.h
-    renderer_opengl/present/fxaa.cpp
-    renderer_opengl/present/fxaa.h
-    renderer_opengl/present/layer.cpp
-    renderer_opengl/present/layer.h
-    renderer_opengl/present/present_uniforms.h
-    renderer_opengl/present/smaa.cpp
-    renderer_opengl/present/smaa.h
-    renderer_opengl/present/taa.cpp
-    renderer_opengl/present/taa.h
-    renderer_opengl/present/util.h
-    renderer_opengl/present/window_adapt_pass.cpp
-    renderer_opengl/present/window_adapt_pass.h
-    renderer_opengl/blit_image.cpp
-    renderer_opengl/blit_image.h
-    renderer_opengl/gl_blit_screen.cpp
-    renderer_opengl/gl_blit_screen.h
-    renderer_opengl/gl_buffer_cache_base.cpp
-    renderer_opengl/gl_buffer_cache.cpp
-    renderer_opengl/gl_buffer_cache.h
-    renderer_opengl/gl_compute_pipeline.cpp
-    renderer_opengl/gl_compute_pipeline.h
-    renderer_opengl/gl_device.cpp
-    renderer_opengl/gl_device.h
-    renderer_opengl/gl_fence_manager.cpp
-    renderer_opengl/gl_fence_manager.h
-    renderer_opengl/gl_graphics_pipeline.cpp
-    renderer_opengl/gl_graphics_pipeline.h
-    renderer_opengl/gl_rasterizer.cpp
-    renderer_opengl/gl_rasterizer.h
-    renderer_opengl/gl_zbc_clear.cpp
-    renderer_opengl/gl_zbc_clear.h
-    renderer_opengl/gl_resource_manager.cpp
-    renderer_opengl/gl_resource_manager.h
-    renderer_opengl/gl_shader_cache.cpp
-    renderer_opengl/gl_shader_cache.h
-    renderer_opengl/gl_shader_manager.cpp
-    renderer_opengl/gl_shader_manager.h
-    renderer_opengl/gl_shader_context.h
-    renderer_opengl/gl_shader_util.cpp
-    renderer_opengl/gl_shader_util.h
-    renderer_opengl/gl_state_tracker.cpp
-    renderer_opengl/gl_state_tracker.h
-    renderer_opengl/gl_staging_buffer_pool.cpp
-    renderer_opengl/gl_staging_buffer_pool.h
-    renderer_opengl/gl_texture_cache.cpp
-    renderer_opengl/gl_texture_cache.h
-    renderer_opengl/gl_texture_cache_base.cpp
-    renderer_opengl/gl_query_cache.cpp
-    renderer_opengl/gl_query_cache.h
-    renderer_opengl/maxwell_to_gl.h
-    renderer_opengl/renderer_opengl.cpp
-    renderer_opengl/renderer_opengl.h
-    renderer_opengl/util_shaders.cpp
-    renderer_opengl/util_shaders.h
     renderer_vulkan/present/anti_alias_pass.h
     renderer_vulkan/present/filters.cpp
     renderer_vulkan/present/filters.h

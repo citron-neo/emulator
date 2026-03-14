@@ -275,8 +275,6 @@ void TelemetrySession::AddInitialInfo(Loader::AppLoader& app_loader,
              TranslateASTCDecodeMode(Settings::values.accelerate_astc.GetValue()));
     AddField(field_type, "Renderer_UseVsync",
              TranslateVSyncMode(Settings::values.vsync_mode.GetValue()));
-    AddField(field_type, "Renderer_ShaderBackend",
-             static_cast<u32>(Settings::values.shader_backend.GetValue()));
     AddField(field_type, "Renderer_UseAsynchronousShaders",
              Settings::values.use_asynchronous_shaders.GetValue());
     AddField(field_type, "System_UseDockedMode", Settings::IsDockedMode());

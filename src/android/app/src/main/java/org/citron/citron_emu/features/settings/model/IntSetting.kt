@@ -36,7 +36,6 @@ enum class IntSetting(override val key: String) : AbstractIntSetting {
     MEMORY_LAYOUT_MODE("memory_layout_mode"),
     ASTC_DECODE_MODE("accelerate_astc"),
     ASTC_RECOMPRESSION("astc_recompression"),
-    SHADER_BACKEND("shader_backend"),
     VRAM_USAGE_MODE("vram_usage_mode"),
     EXTENDED_DYNAMIC_STATE("extended_dynamic_state"),
     ANDROID_ASTC_MODE("android_astc_mode"),

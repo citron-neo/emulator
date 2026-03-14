@@ -77,7 +77,6 @@ SWITCHABLE(NvdecEmulation, false);
 SWITCHABLE(Region, true);
 SWITCHABLE(RendererBackend, true);
 SWITCHABLE(ScalingFilter, false);
-SWITCHABLE(ShaderBackend, true);
 SWITCHABLE(TimeZone, true);
 SETTING(VSyncMode, true);
 SWITCHABLE(bool, false);
@@ -275,9 +274,6 @@ struct Values {
     SwitchableSetting<RendererBackend, true> renderer_backend{
         linkage,   RendererBackend::Vulkan, RendererBackend::OpenGL, RendererBackend::Null,
         "backend", Category::Renderer};
-    SwitchableSetting<ShaderBackend, true> shader_backend{
-        linkage,          ShaderBackend::Glsl, ShaderBackend::Glsl,        ShaderBackend::SpirV,
-        "shader_backend", Category::Renderer,  Specialization::RuntimeList};
     SwitchableSetting<int> vulkan_device{linkage, 0, "vulkan_device", Category::Renderer,
                                          Specialization::RuntimeList};
 

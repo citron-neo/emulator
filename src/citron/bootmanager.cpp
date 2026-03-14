@@ -34,11 +34,6 @@
 #include <QWindow>
 #include <QtCore/qobjectdefs.h>
 
-#ifdef HAS_OPENGL
-#include <QOffscreenSurface>
-#include <QOpenGLContext>
-#endif
-
 #include "common/microprofile.h"
 #include "common/polyfill_thread.h"
 #include "common/scm_rev.h"
@@ -145,97 +140,6 @@ void EmuThread::EmulationResumed(std::unique_lock<std::mutex>& lk) {
     emit DebugModeLeft();
     lk.lock();
 }
-
-#ifdef HAS_OPENGL
-class OpenGLSharedContext : public Core::Frontend::GraphicsContext {
-public:
-    /// Create the original context that should be shared from
-    explicit OpenGLSharedContext(QSurface* surface_) : surface{surface_} {
-        QSurfaceFormat format;
-        format.setVersion(4, 6);
-        format.setProfile(QSurfaceFormat::CompatibilityProfile);
-        format.setOption(QSurfaceFormat::FormatOption::DeprecatedFunctions);
-        if (Settings::values.renderer_debug) {
-            format.setOption(QSurfaceFormat::FormatOption::DebugContext);
-        }
-        // TODO: expose a setting for buffer value (ie default/single/double/triple)
-        format.setSwapBehavior(QSurfaceFormat::DefaultSwapBehavior);
-        format.setSwapInterval(0);
-
-        context = std::make_unique<QOpenGLContext>();
-        context->setFormat(format);
-        if (!context->create()) {
-            LOG_ERROR(Frontend, "Unable to create main openGL context");
-        }
-    }
-
-    /// Create the shared contexts for rendering and presentation
-    explicit OpenGLSharedContext(QOpenGLContext* share_context, QSurface* main_surface = nullptr) {
-
-        // disable vsync for any shared contexts
-        auto format = share_context->format();
-        const int swap_interval =
-            Settings::values.vsync_mode.GetValue() == Settings::VSyncMode::Immediate ? 0 : 1;
-
-        format.setSwapInterval(main_surface ? swap_interval : 0);
-
-        context = std::make_unique<QOpenGLContext>();
-        context->setShareContext(share_context);
-        context->setFormat(format);
-        if (!context->create()) {
-            LOG_ERROR(Frontend, "Unable to create shared openGL context");
-        }
-
-        if (!main_surface) {
-            offscreen_surface = std::make_unique<QOffscreenSurface>(nullptr);
-            offscreen_surface->setFormat(format);
-            offscreen_surface->create();
-            surface = offscreen_surface.get();
-        } else {
-            surface = main_surface;
-        }
-    }
-
-    ~OpenGLSharedContext() {
-        DoneCurrent();
-    }
-
-    void SwapBuffers() override {
-        context->swapBuffers(surface);
-    }
-
-    void MakeCurrent() override {
-        // We can't track the current state of the underlying context in this wrapper class because
-        // Qt may make the underlying context not current for one reason or another. In particular,
-        // the WebBrowser uses GL, so it seems to conflict if we aren't careful.
-        // Instead of always just making the context current (which does not have any caching to
-        // check if the underlying context is already current) we can check for the current context
-        // in the thread local data by calling `currentContext()` and checking if its ours.
-        if (QOpenGLContext::currentContext() != context.get()) {
-            context->makeCurrent(surface);
-        }
-    }
-
-    void DoneCurrent() override {
-        context->doneCurrent();
-    }
-
-    QOpenGLContext* GetShareContext() {
-        return context.get();
-    }
-
-    const QOpenGLContext* GetShareContext() const {
-        return context.get();
-    }
-
-private:
-    // Avoid using Qt parent system here since we might move the QObjects to new threads
-    // As a note, this means we should avoid using slots/signals with the objects too
-    std::unique_ptr<QOpenGLContext> context;
-    std::unique_ptr<QOffscreenSurface> offscreen_surface{};
-    QSurface* surface;
-};
-#endif
 
 class DummyContext : public Core::Frontend::GraphicsContext {};
 
@@ -347,6 +251,10 @@ void GRenderWindow::OnFrameDisplayed() {
         last_tas_state = new_tas_state;
         emit TasPlaybackStateChanged();
     }
+}
+
+std::unique_ptr<Core::Frontend::GraphicsContext> GRenderWindow::CreateSharedContext() const {
+    return std::make_unique<DummyContext>();
 }
 
 bool GRenderWindow::IsShown() const {
@@ -966,19 +874,6 @@ void GRenderWindow::resizeEvent(QResizeEvent* event) {
     OnFramebufferSizeChanged();
 }
 
-std::unique_ptr<Core::Frontend::GraphicsContext> GRenderWindow::CreateSharedContext() const {
-#ifdef HAS_OPENGL
-    if (Settings::values.renderer_backend.GetValue() == Settings::RendererBackend::OpenGL) {
-        auto c = static_cast<OpenGLSharedContext*>(main_context.get());
-        // Bind the shared contexts to the main surface in case the backend wants to take over
-        // presentation
-        return std::make_unique<OpenGLSharedContext>(c->GetShareContext(),
-                                                     child_widget->windowHandle());
-    }
-#endif
-    return std::make_unique<DummyContext>();
-}
-
 bool GRenderWindow::InitRenderTarget() {
     ReleaseRenderTarget();
 
@@ -991,16 +886,12 @@ bool GRenderWindow::InitRenderTarget() {
     first_frame = false;
 
     switch (Settings::values.renderer_backend.GetValue()) {
-    case Settings::RendererBackend::OpenGL:
-        if (!InitializeOpenGL()) {
-            return false;
-        }
-        break;
     case Settings::RendererBackend::Vulkan:
         if (!InitializeVulkan()) {
             return false;
         }
         break;
+    case Settings::RendererBackend::OpenGL:
     case Settings::RendererBackend::Null:
         InitializeNull();
         break;
@@ -1019,13 +910,6 @@ bool GRenderWindow::InitRenderTarget() {
     OnMinimalClientAreaChangeRequest(GetActiveConfig().min_client_area_size);
     OnFramebufferSizeChanged();
     BackupGeometry();
-
-    if (Settings::values.renderer_backend.GetValue() == Settings::RendererBackend::OpenGL) {
-        if (!LoadOpenGL()) {
-            return false;
-        }
-    }
-
     return true;
 }
 
@@ -1081,32 +965,6 @@ void GRenderWindow::OnMinimalClientAreaChangeRequest(std::pair<u32, u32> minimal
     setMinimumSize(minimal_size.first, minimal_size.second);
 }
 
-bool GRenderWindow::InitializeOpenGL() {
-#ifdef HAS_OPENGL
-    if (!QOpenGLContext::supportsThreadedOpenGL()) {
-        QMessageBox::warning(this, tr("OpenGL not available!"),
-                             tr("OpenGL shared contexts are not supported."));
-        return false;
-    }
-
-    // TODO: One of these flags might be interesting: WA_OpaquePaintEvent, WA_NoBackground,
-    // WA_DontShowOnScreen, WA_DeleteOnClose
-    auto child = new OpenGLRenderWidget(this);
-    child_widget = child;
-    child_widget->windowHandle()->create();
-    auto context = std::make_shared<OpenGLSharedContext>(child->windowHandle());
-    main_context = context;
-    child->SetContext(
-        std::make_unique<OpenGLSharedContext>(context->GetShareContext(), child->windowHandle()));
-
-    return true;
-#else
-    QMessageBox::warning(this, tr("OpenGL not available!"),
-                         tr("citron has not been compiled with OpenGL support."));
-    return false;
-#endif
-}
-
 bool GRenderWindow::InitializeVulkan() {
     auto child = new VulkanRenderWidget(this);
     child_widget = child;
@@ -1119,42 +977,6 @@ bool GRenderWindow::InitializeVulkan() {
 void GRenderWindow::InitializeNull() {
     child_widget = new NullRenderWidget(this);
     main_context = std::make_unique<DummyContext>();
-}
-
-bool GRenderWindow::LoadOpenGL() {
-    auto context = CreateSharedContext();
-    auto scope = context->Acquire();
-    if (!gladLoadGL()) {
-        QMessageBox::warning(
-            this, tr("Error while initializing OpenGL!"),
-            tr("Your GPU may not support OpenGL, or you do not have the latest graphics driver."));
-        return false;
-    }
-
-    const QString renderer =
-        QString::fromUtf8(reinterpret_cast<const char*>(glGetString(GL_RENDERER)));
-
-    if (!GLAD_GL_VERSION_4_6) {
-        LOG_ERROR(Frontend, "GPU does not support OpenGL 4.6: {}", renderer.toStdString());
-        QMessageBox::warning(this, tr("Error while initializing OpenGL 4.6!"),
-                             tr("Your GPU may not support OpenGL 4.6, or you do not have the "
-                                "latest graphics driver.<br><br>GL Renderer:<br>%1")
-                                 .arg(renderer));
-        return false;
-    }
-
-    QStringList unsupported_gl_extensions = GetUnsupportedGLExtensions();
-    if (!unsupported_gl_extensions.empty()) {
-        QMessageBox::warning(
-            this, tr("Error while initializing OpenGL!"),
-            tr("Your GPU may not support one or more required OpenGL extensions. Please ensure you "
-               "have the latest graphics driver.<br><br>GL Renderer:<br>%1<br><br>Unsupported "
-               "extensions:<br>%2")
-                .arg(renderer)
-                .arg(unsupported_gl_extensions.join(QStringLiteral("<br>"))));
-        return false;
-    }
-    return true;
 }
 
 QStringList GRenderWindow::GetUnsupportedGLExtensions() const {

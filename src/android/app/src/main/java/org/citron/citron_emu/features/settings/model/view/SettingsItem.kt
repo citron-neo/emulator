@@ -437,15 +437,6 @@ abstract class SettingsItem(
             )
             put(
                 SingleChoiceSetting(
-                    IntSetting.SHADER_BACKEND,
-                    titleId = R.string.shader_backend,
-                    descriptionId = R.string.shader_backend_description,
-                    choicesId = R.array.shaderBackendNames,
-                    valuesId = R.array.shaderBackendValues
-                )
-            )
-            put(
-                SingleChoiceSetting(
                     IntSetting.VRAM_USAGE_MODE,
                     titleId = R.string.vram_usage_mode,
                     descriptionId = R.string.vram_usage_mode_description,

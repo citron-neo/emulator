@@ -1271,8 +1271,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
     <string name="android_astc_mode_auto">Auto (Detect Hardware)</string>
     <string name="android_astc_mode_native">Native (Adreno 740+ Optimized)</string>
     <string name="android_astc_mode_decompress">Decompress (Legacy)</string>
-    <string name="shader_backend">Shader Backend</string>
-    <string name="shader_backend_description">Controls which shader backend to use for rendering.</string>
     <string name="vram_usage_mode">VRAM Usage Mode</string>
     <string name="vram_usage_mode_description">Controls how aggressively VRAM is used. Conservative mode limits VRAM usage for better stability.</string>
     <string name="extended_dynamic_state">Extended Dynamic State</string>

@@ -45,8 +45,6 @@ CMAKE_DEPENDENT_OPTION(CITRON_USE_EXTERNAL_SDL2 "Compile external SDL2" ON "ENAB
 
 cmake_dependent_option(ENABLE_LIBUSB "Enable the use of LibUSB" ON "NOT ANDROID" OFF)
 
-option(ENABLE_OPENGL "Enable OpenGL" ON)
-mark_as_advanced(FORCE ENABLE_OPENGL)
 option(ENABLE_QT "Enable the Qt frontend" ON)
 
 option(ENABLE_QT_TRANSLATION "Enable translations for the Qt frontend" OFF)

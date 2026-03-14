@@ -28,7 +28,6 @@ class QComboBox;
 namespace Settings {
 enum class NvdecEmulation : u32;
 enum class RendererBackend : u32;
-enum class ShaderBackend : u32;
 } // namespace Settings
 
 namespace Core {
@@ -106,23 +105,19 @@ private:
         vsync_mode_combobox_enum_map{}; //< Keeps track of which present mode corresponds to which
                                         // selection in the combobox
     u32 vulkan_device{};
-    Settings::ShaderBackend shader_backend{};
     const std::function<void()>& expose_compute_option;
     const std::function<void(Settings::AspectRatio, Settings::ResolutionSetup)> update_aspect_ratio;
 
     const Core::System& system;
     const ConfigurationShared::ComboboxTranslationMap& combobox_translations;
-    const std::vector<std::pair<u32, QString>>& shader_mapping;
 
     QPushButton* api_restore_global_button;
     QComboBox* vulkan_device_combobox;
     QComboBox* api_combobox;
-    QComboBox* shader_backend_combobox;
     QComboBox* vsync_mode_combobox;
     QPushButton* vsync_restore_global_button;
     QWidget* vulkan_device_widget;
     QWidget* api_widget;
-    QWidget* shader_backend_widget;
     QComboBox* aspect_ratio_combobox;
     QComboBox* resolution_combobox;
     QWidget* fsr_sharpness_widget;

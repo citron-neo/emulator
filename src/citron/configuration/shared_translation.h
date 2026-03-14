@@ -70,10 +70,4 @@ static const std::map<Settings::RendererBackend, QString> renderer_backend_texts
     {Settings::RendererBackend::Null, QStringLiteral(QT_TRANSLATE_NOOP("GMainWindow", "Null"))},
 };
 
-static const std::map<Settings::ShaderBackend, QString> shader_backend_texts_map = {
-    {Settings::ShaderBackend::Glsl, QStringLiteral(QT_TRANSLATE_NOOP("GMainWindow", "GLSL"))},
-    {Settings::ShaderBackend::Glasm, QStringLiteral(QT_TRANSLATE_NOOP("GMainWindow", "GLASM"))},
-    {Settings::ShaderBackend::SpirV, QStringLiteral(QT_TRANSLATE_NOOP("GMainWindow", "SPIRV"))},
-};
-
 } // namespace ConfigurationShared

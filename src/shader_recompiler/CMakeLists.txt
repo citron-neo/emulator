@@ -3,55 +3,6 @@
 
 add_library(shader_recompiler STATIC
     backend/bindings.h
-    backend/glasm/emit_glasm.cpp
-    backend/glasm/emit_glasm.h
-    backend/glasm/emit_glasm_barriers.cpp
-    backend/glasm/emit_glasm_bitwise_conversion.cpp
-    backend/glasm/emit_glasm_composite.cpp
-    backend/glasm/emit_glasm_context_get_set.cpp
-    backend/glasm/emit_glasm_control_flow.cpp
-    backend/glasm/emit_glasm_convert.cpp
-    backend/glasm/emit_glasm_floating_point.cpp
-    backend/glasm/emit_glasm_image.cpp
-    backend/glasm/emit_glasm_instructions.h
-    backend/glasm/emit_glasm_integer.cpp
-    backend/glasm/emit_glasm_logical.cpp
-    backend/glasm/emit_glasm_memory.cpp
-    backend/glasm/emit_glasm_not_implemented.cpp
-    backend/glasm/emit_glasm_select.cpp
-    backend/glasm/emit_glasm_shared_memory.cpp
-    backend/glasm/emit_glasm_special.cpp
-    backend/glasm/emit_glasm_undefined.cpp
-    backend/glasm/emit_glasm_warp.cpp
-    backend/glasm/glasm_emit_context.cpp
-    backend/glasm/glasm_emit_context.h
-    backend/glasm/reg_alloc.cpp
-    backend/glasm/reg_alloc.h
-    backend/glsl/emit_glsl.cpp
-    backend/glsl/emit_glsl.h
-    backend/glsl/emit_glsl_atomic.cpp
-    backend/glsl/emit_glsl_barriers.cpp
-    backend/glsl/emit_glsl_bitwise_conversion.cpp
-    backend/glsl/emit_glsl_composite.cpp
-    backend/glsl/emit_glsl_context_get_set.cpp
-    backend/glsl/emit_glsl_control_flow.cpp
-    backend/glsl/emit_glsl_convert.cpp
-    backend/glsl/emit_glsl_floating_point.cpp
-    backend/glsl/emit_glsl_image.cpp
-    backend/glsl/emit_glsl_instructions.h
-    backend/glsl/emit_glsl_integer.cpp
-    backend/glsl/emit_glsl_logical.cpp
-    backend/glsl/emit_glsl_memory.cpp
-    backend/glsl/emit_glsl_not_implemented.cpp
-    backend/glsl/emit_glsl_select.cpp
-    backend/glsl/emit_glsl_shared_memory.cpp
-    backend/glsl/emit_glsl_special.cpp
-    backend/glsl/emit_glsl_undefined.cpp
-    backend/glsl/emit_glsl_warp.cpp
-    backend/glsl/glsl_emit_context.cpp
-    backend/glsl/glsl_emit_context.h
-    backend/glsl/var_alloc.cpp
-    backend/glsl/var_alloc.h
     backend/spirv/emit_spirv.cpp
     backend/spirv/emit_spirv.h
     backend/spirv/emit_spirv_atomic.cpp
