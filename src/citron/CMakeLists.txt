@@ -474,7 +474,7 @@ if (TARGET LibArchive::LibArchive)
 endif()
 
 target_link_libraries(citron PRIVATE Vulkan::Headers)
-if (NOT WIN32)
+if (NOT WIN32 AND NOT ${CMAKE_SYSTEM_NAME} STREQUAL "FreeBSD")
     target_link_libraries(citron PRIVATE Qt6::GuiPrivate)
 endif()
 if (UNIX AND NOT APPLE)

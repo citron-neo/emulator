@@ -8,7 +8,9 @@
 #include "core/frontend/emu_window.h"
 #include "citron/qt_common.h"
 
-#if !defined(WIN32) && !defined(__APPLE__)
+#if defined(__FreeBSD__)
+#include "/usr/local/include/qt6/QtGui/6.10.1/QtGui/qpa/qplatformnativeinterface.h"
+#elif !defined(WIN32) && !defined(__APPLE__)
 #include <qpa/qplatformnativeinterface.h>
 #elif defined(__APPLE__)
 #include <objc/message.h>

@@ -19,6 +19,9 @@
 #include "input_common/input_poller.h"
 #include "input_common/main.h"
 
+#ifdef __FreeBSD__
+#undef HAVE_LIBUSB
+#endif
 #ifdef HAVE_LIBUSB
 #include "input_common/drivers/gc_adapter.h"
 #endif
@@ -29,6 +32,10 @@
 
 #ifdef ANDROID
 #include "input_common/drivers/android.h"
+#endif
+
+#ifdef __FreeBSD__
+#undef HAVE_LIBUSB
 #endif
 
 namespace InputCommon {
