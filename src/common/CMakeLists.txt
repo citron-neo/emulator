@@ -64,8 +64,6 @@ add_library(common STATIC
     fs/path_util.cpp
     fs/path_util.h
     hash.h
-    heap_tracker.cpp
-    heap_tracker.h
     hex_util.cpp
     hex_util.h
     host_memory.cpp
