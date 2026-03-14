@@ -474,7 +474,7 @@ Result IApplicationManagerInterface::ListApplicationRecord(
 
         ApplicationRecord record{};
         record.application_id = game.title_id;
-        record.type = ApplicationRecordType::Installed;
+        record.last_event = ApplicationEvent::Installed;
         record.attributes = 0;
         record.last_updated = 0; // TODO: Implement launch timestamp tracking
 
@@ -536,8 +536,8 @@ Result IApplicationManagerInterface::GetApplicationView(
         view.version = 0;      // TODO: Get actual version
         view.flags = 0x401f17; // Typical flags for installed app
         view.unk = 0;
-        view.download_state = {0, 0, 0, 0, 0, {0, 0}, 0};
-        view.download_progress = {0, 0, 0, 0, 0, {0, 0}, 0};
+        view.download_state = {};
+        view.download_progress = {};
 
         out_application_views[i] = view;
     }
@@ -546,18 +546,18 @@ Result IApplicationManagerInterface::GetApplicationView(
 }
 
 Result IApplicationManagerInterface::GetApplicationViewDeprecated(
-    OutArray<ApplicationView, BufferAttr_HipcMapAlias> out_application_views,
+    OutArray<ApplicationViewV19, BufferAttr_HipcMapAlias> out_application_views,
     InArray<u64, BufferAttr_HipcMapAlias> application_ids) {
     const auto size = std::min(out_application_views.size(), application_ids.size());
     LOG_INFO(Service_NS, "called (deprecated v19), size={}", application_ids.size());
 
     for (size_t i = 0; i < size; i++) {
-        ApplicationView view{};
+        ApplicationViewV19 view{};
         view.application_id = application_ids[i];
         view.version = 0;
         view.flags = 0x401f17;
-        view.download_state = {0, 0, 0, 0, 0, {0, 0}, 0};
-        view.download_progress = {0, 0, 0, 0, 0, {0, 0}, 0};
+        view.download_state = {};
+        view.download_progress = {};
 
         out_application_views[i] = view;
     }

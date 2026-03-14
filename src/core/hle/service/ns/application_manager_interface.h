@@ -34,7 +34,7 @@ public:
         OutArray<ApplicationViewV20, BufferAttr_HipcMapAlias> out_application_views,
         InArray<u64, BufferAttr_HipcMapAlias> application_ids);
     Result GetApplicationViewDeprecated(
-        OutArray<ApplicationView, BufferAttr_HipcMapAlias> out_application_views,
+        OutArray<ApplicationViewV19, BufferAttr_HipcMapAlias> out_application_views,
         InArray<u64, BufferAttr_HipcMapAlias> application_ids);
     Result GetApplicationViewWithPromotionInfo(
         OutBuffer<BufferAttr_HipcMapAlias> out_buffer, Out<u32> out_count,

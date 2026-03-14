@@ -761,7 +761,7 @@ std::pair<s32, Errno> BSD::FcntlImpl(s32 fd, FcntlCmd cmd, s32 arg) {
         return {-1, Errno::BADF};
     }
     if (!file_descriptors[fd]->socket)
-        return Errno::BADF;
+        return {-1, Errno::BADF};
 
     FileDescriptor& descriptor = *file_descriptors[fd];
 
@@ -978,7 +978,7 @@ std::pair<s32, Errno> BSD::SendImpl(s32 fd, u32 flags, std::span<const u8> messa
         return {-1, Errno::BADF};
     }
     if (!file_descriptors[fd]->socket)
-        return Errno::BADF;
+        return {-1, Errno::BADF};
     return Translate(file_descriptors[fd]->socket->Send(message, flags));
 }
 
@@ -988,7 +988,7 @@ std::pair<s32, Errno> BSD::SendToImpl(s32 fd, u32 flags, std::span<const u8> mes
         return {-1, Errno::BADF};
     }
     if (!file_descriptors[fd]->socket)
-        return Errno::BADF;
+        return {-1, Errno::BADF};
 
     FileDescriptor& descriptor = *file_descriptors[fd];
 
