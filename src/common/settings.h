@@ -580,7 +580,7 @@ struct Values {
                                                 Category::RendererAdvanced};
     SwitchableSetting<bool> barrier_feedback_loops{linkage, true, "barrier_feedback_loops",
                                                    Category::RendererAdvanced};
-    SwitchableSetting<bool> wider_reciprocals{linkage, true, "wider_reciprocals", Category::RendererAdvanced};
+    SwitchableSetting<bool> wider_reciprocals{linkage, false, "wider_reciprocals", Category::RendererAdvanced};
     SwitchableSetting<ExtendedDynamicState, true> extended_dynamic_state{
         linkage,
         ExtendedDynamicState::EDS3,
