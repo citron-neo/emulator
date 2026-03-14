@@ -38,13 +38,6 @@ constexpr u64 CURRENT_CRYPTO_REVISION = 0x5;
 
 using Common::AsArray;
 
-// clang-format off
-constexpr std::array eticket_source_hashes{
-    AsArray("B71DB271DC338DF380AA2C4335EF8873B1AFD408E80B3582D8719FC81C5E511C"), // eticket_rsa_kek_source
-    AsArray("E8965A187D30E57869F562D04383C996DE487BBA5761363D2D4D32391866A85C"), // eticket_rsa_kekek_source
-};
-// clang-format on
-
 constexpr std::array<std::pair<std::string_view, KeyIndex<S128KeyType>>, 30> s128_file_id{{
     {"eticket_rsa_kek", {S128KeyType::ETicketRSAKek, 0, 0}},
     {"eticket_rsa_kek_source",
@@ -1126,66 +1119,7 @@ void KeyManager::DeriveETicket(PartitionDataManager& data,
     if (main == nullptr) {
         return;
     }
-
     const auto bytes = main->ReadAllBytes();
-
-    const auto eticket_kek = FindKeyFromHex16(bytes, eticket_source_hashes[0]);
-    const auto eticket_kekek = FindKeyFromHex16(bytes, eticket_source_hashes[1]);
-
-    const auto seed3 = data.GetRSAKekSeed3();
-    const auto mask0 = data.GetRSAKekMask0();
-
-    if (eticket_kek != Key128{}) {
-        SetKey(S128KeyType::Source, eticket_kek, static_cast<size_t>(SourceKeyType::ETicketKek));
-    }
-    if (eticket_kekek != Key128{}) {
-        SetKey(S128KeyType::Source, eticket_kekek,
-               static_cast<size_t>(SourceKeyType::ETicketKekek));
-    }
-    if (seed3 != Key128{}) {
-        SetKey(S128KeyType::RSAKek, seed3, static_cast<size_t>(RSAKekType::Seed3));
-    }
-    if (mask0 != Key128{}) {
-        SetKey(S128KeyType::RSAKek, mask0, static_cast<size_t>(RSAKekType::Mask0));
-    }
-    if (eticket_kek == Key128{} || eticket_kekek == Key128{} || seed3 == Key128{} ||
-        mask0 == Key128{}) {
-        return;
-    }
-
-    const Key128 rsa_oaep_kek = seed3 ^ mask0;
-    if (rsa_oaep_kek == Key128{}) {
-        return;
-    }
-
-    SetKey(S128KeyType::Source, rsa_oaep_kek,
-           static_cast<u64>(SourceKeyType::RSAOaepKekGeneration));
-
-    Key128 temp_kek{};
-    Key128 temp_kekek{};
-    Key128 eticket_final{};
-
-    // Derive ETicket RSA Kek
-    AESCipher<Key128> es_master(GetKey(S128KeyType::Master), Mode::ECB);
-    es_master.Transcode(rsa_oaep_kek.data(), rsa_oaep_kek.size(), temp_kek.data(), Op::Decrypt);
-    AESCipher<Key128> es_kekek(temp_kek, Mode::ECB);
-    es_kekek.Transcode(eticket_kekek.data(), eticket_kekek.size(), temp_kekek.data(), Op::Decrypt);
-    AESCipher<Key128> es_kek(temp_kekek, Mode::ECB);
-    es_kek.Transcode(eticket_kek.data(), eticket_kek.size(), eticket_final.data(), Op::Decrypt);
-
-    if (eticket_final == Key128{}) {
-        return;
-    }
-
-    SetKey(S128KeyType::ETicketRSAKek, eticket_final);
-
-    // Titlekeys
-    data.DecryptProdInfo(GetBISKey(0));
-
-    eticket_extended_kek = data.GetETicketExtendedKek();
-    WriteKeyToFile(KeyCategory::Console, "eticket_extended_kek", eticket_extended_kek);
-    DeriveETicketRSAKey();
-    PopulateTickets();
 }
 
 void KeyManager::PopulateTickets() {
