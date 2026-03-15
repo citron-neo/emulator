@@ -1892,7 +1892,7 @@ void GameList::AddGamePopup(QMenu& context_menu, u64 program_id, const std::stri
         }
         const QString clean_tid =
             QStringLiteral("%1").arg(program_id, 16, 16, QLatin1Char('0')).toUpper();
-        QUrl url(QStringLiteral("https://github.com/CollectingW/Citron-Compatability/issues/new"));
+        QUrl url(QStringLiteral("https://github.com/citron-neo/Citron-Compatability/issues/new"));
         QUrlQuery query;
         query.addQueryItem(QStringLiteral("template"), QStringLiteral("compat.yml"));
         query.addQueryItem(QStringLiteral("title"), game_name);
@@ -2478,7 +2478,7 @@ void GameList::UpdateProgressBarColor() {
 }
 
 void GameList::RefreshCompatibilityList() {
-    const QUrl url(QStringLiteral("https://raw.githubusercontent.com/CollectingW/"
+    const QUrl url(QStringLiteral("https://raw.githubusercontent.com/citron-neo/"
                                   "Citron-Compatability/refs/heads/main/compatibility_list.json"));
 
     QNetworkRequest request(url);
