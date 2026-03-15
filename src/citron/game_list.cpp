@@ -1665,7 +1665,6 @@ void GameList::AddGamePopup(QMenu& context_menu, u64 program_id, const std::stri
     open_transferable_shader_cache->setVisible(program_id != 0);
     remove_update->setVisible(program_id != 0);
     remove_dlc->setVisible(program_id != 0);
-    remove_gl_shader_cache->setVisible(program_id != 0);
     remove_vk_shader_cache->setVisible(program_id != 0);
     remove_shader_cache->setVisible(program_id != 0);
     remove_all_content->setVisible(program_id != 0);
