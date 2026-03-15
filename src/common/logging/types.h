@@ -115,7 +115,6 @@ enum class Class : u8 {
     Frontend,           ///< Emulator UI
     Render,             ///< Emulator video output and hardware acceleration
     Render_Software,    ///< Software renderer backend
-    Render_OpenGL,      ///< OpenGL backend
     Render_Vulkan,      ///< Vulkan backend
     Shader,             ///< Shader recompiler
     Shader_SPIRV,       ///< Shader SPIR-V code generation

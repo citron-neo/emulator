@@ -64,6 +64,11 @@
     {
       "name": "fmt",
       "version": "10.1.1"
+    },
+    {
+      "name": "openal-soft",
+      "version": "1.24.3",
+      "port-version": 1
     }
   ]
 }

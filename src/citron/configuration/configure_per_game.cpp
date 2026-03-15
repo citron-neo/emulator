@@ -1046,7 +1046,6 @@ void ConfigurePerGame::OnShareSettings() {
                             QString txt = cb->currentText();
                             if (cb->count() > 0 &&
                                 txt != QStringLiteral("Vulkan") &&
-                                txt != QStringLiteral("OpenGL") &&
                                 txt != QStringLiteral("GLSL") &&
                                 txt != QStringLiteral("SPIR-V") &&
                                 txt != QStringLiteral("Null")) {

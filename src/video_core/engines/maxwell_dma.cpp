@@ -67,7 +67,7 @@ void MaxwellDMA::CallMultiMethod(u32 method, const u32* base_start, u32 amount,
 
 void MaxwellDMA::Launch() {
     MICROPROFILE_SCOPE(GPU_DMAEngine);
-    LOG_TRACE(Render_OpenGL, "DMA copy 0x{:x} -> 0x{:x}", static_cast<GPUVAddr>(regs.offset_in),
+    LOG_TRACE(Render, "DMA copy 0x{:x} -> 0x{:x}", static_cast<GPUVAddr>(regs.offset_in),
               static_cast<GPUVAddr>(regs.offset_out));
 
     // TODO(Subv): Perform more research and implement all features of this engine.

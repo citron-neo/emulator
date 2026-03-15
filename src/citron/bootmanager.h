@@ -248,11 +248,8 @@ private:
 
     void OnMinimalClientAreaChangeRequest(std::pair<u32, u32> minimal_size) override;
 
-    bool InitializeOpenGL();
     bool InitializeVulkan();
     void InitializeNull();
-    bool LoadOpenGL();
-    QStringList GetUnsupportedGLExtensions() const;
 
     EmuThread* emu_thread;
     std::shared_ptr<InputCommon::InputSubsystem> input_subsystem;
