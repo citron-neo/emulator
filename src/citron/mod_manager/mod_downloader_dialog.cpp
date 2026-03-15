@@ -114,7 +114,7 @@ void ModDownloaderDialog::StartNextDownload() {
     }
     QString file_val = task.patch.files[current_file_index];
     QUrl url = (task.patch.type == QStringLiteral("tool")) ? QUrl(file_val) :
-           QUrl(QStringLiteral("https://raw.githubusercontent.com/CollectingW/Citron-Mods/main/%1/%2")
+           QUrl(QStringLiteral("https://raw.githubusercontent.com/citron-neo/Citron-Mods/main/%1/%2")
            .arg(task.patch.rel_path).arg(file_val));
 
     QString fileName = file_val.contains(u'/') ? file_val.split(u'/').last() : file_val;

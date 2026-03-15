@@ -43,7 +43,7 @@ signals:
 
 private:
     std::unique_ptr<QNetworkAccessManager> network_manager;
-    const QString MANIFEST_URL = QStringLiteral("https://raw.githubusercontent.com/CollectingW/Citron-Mods/main/manifest.json");
+    const QString MANIFEST_URL = QStringLiteral("https://raw.githubusercontent.com/citron-neo/Citron-Mods/main/manifest.json");
 };
 
 } // namespace ModManager
