@@ -142,13 +142,15 @@ Id EmitFPLog2(EmitContext& ctx, Id value) {
 Id EmitFPRecip32(EmitContext& ctx, Id value) {
     if (Settings::values.wider_reciprocals.GetValue()) {
         // %res = f32(f64(1) / f64(value))
-        return ctx.OpFConvert(ctx.F32[1], ctx.OpFDiv(ctx.F64[1], ctx.Constant(ctx.F64[1], 1.0f), ctx.OpFConvert(ctx.F64[1], value)));
+        auto const d0 = ctx.Const(f64{1.0});
+        auto const d1 = ctx.OpFConvert(ctx.F64[1], value);
+        return ctx.OpFConvert(ctx.F32[1], ctx.OpFDiv(ctx.F64[1], d0, d1));
     }
     return ctx.OpFDiv(ctx.F32[1], ctx.Const(1.0f), value);
 }
 
 Id EmitFPRecip64(EmitContext& ctx, Id value) {
-    return ctx.OpFDiv(ctx.F64[1], ctx.Constant(ctx.F64[1], 1.0f), value);
+    return ctx.OpFDiv(ctx.F64[1], ctx.Const(f64{1.0}), value);
 }
 
 Id EmitFPRecipSqrt32(EmitContext& ctx, Id value) {

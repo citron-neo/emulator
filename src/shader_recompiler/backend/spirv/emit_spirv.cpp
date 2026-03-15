@@ -511,26 +511,21 @@ std::vector<u32> EmitSPIRV(const Profile& profile, const RuntimeInfo& runtime_in
     SetupTransformFeedbackCapabilities(ctx, main);
     PatchPhiNodes(program, ctx);
 
-    if (!optimize) {
-        return ctx.Assemble();
-    }
-
     std::vector<u32> spirv = ctx.Assemble();
-
-    // Use thread-local optimizer instead of creating a new one
-    auto& spv_opt = GetThreadOptimizer();
-    spv_opt.SetMessageConsumer([](spv_message_level_t, const char*, const spv_position_t&,
-                                  const char* m) { LOG_ERROR(HW_GPU, "spirv-opt: {}", m); });
-
-    spvtools::OptimizerOptions opt_options;
-    opt_options.set_run_validator(false);
-
-    std::vector<u32> result;
-    if (!spv_opt.Run(spirv.data(), spirv.size(), &result, opt_options)) {
-        LOG_ERROR(HW_GPU, "Failed to optimize SPIRV output, continuing without optimization");
-        return spirv;
+    if (optimize) {
+        // Use thread-local optimizer instead of creating a new one
+        auto& spv_opt = GetThreadOptimizer();
+        spv_opt.SetMessageConsumer([](spv_message_level_t, const char*, const spv_position_t&, const char* m) { LOG_ERROR(HW_GPU, "spirv-opt: {}", m); });
+        spvtools::OptimizerOptions opt_options;
+        opt_options.set_run_validator(false);
+        std::vector<u32> result{};
+        if (!spv_opt.Run(spirv.data(), spirv.size(), &result, opt_options)) {
+            LOG_ERROR(HW_GPU, "Failed to optimize SPIRV output, continuing without optimization");
+            return spirv;
+        }
+        return result;
     }
-    return result;
+    return spirv;
 }
 
 Id EmitPhi(EmitContext& ctx, IR::Inst* inst) {

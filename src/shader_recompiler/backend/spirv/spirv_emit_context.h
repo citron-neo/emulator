@@ -202,7 +202,12 @@ public:
     }
 
     Id Const(f32 value) {
-        return Constant(F32[1], value);
+        return Constant(F32[1], Sirit::Literal(float(value)));
+    }
+
+    // Force type cohercion for f64
+    Id Const(f64 value) {
+        return Constant(F64[1], Sirit::Literal(double(value)));
     }
 
     const Profile& profile;
