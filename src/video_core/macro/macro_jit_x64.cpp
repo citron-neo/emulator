@@ -352,8 +352,8 @@ void Send(Engines::Maxwell3D* maxwell3d, Macro::MethodAddress method_address, u3
 void MacroJITx64Impl::Compile_Send(Xbyak::Reg32 value) {
     Common::X64::ABI_PushRegistersAndAdjustStack(*this, PersistentCallerSavedRegs(), 0);
     mov(Common::X64::ABI_PARAM1, qword[STATE]);
-    mov(Common::X64::ABI_PARAM2, METHOD_ADDRESS);
-    mov(Common::X64::ABI_PARAM3, value);
+    mov(Common::X64::ABI_PARAM2.cvt32(), METHOD_ADDRESS);
+    mov(Common::X64::ABI_PARAM3.cvt32(), value);
     Common::X64::CallFarFunction(*this, &Send);
     Common::X64::ABI_PopRegistersAndAdjustStack(*this, PersistentCallerSavedRegs(), 0);
 

@@ -83,13 +83,6 @@ public:
                m_memory.WriteExclusive64(vaddr, value, expected);
     }
 
-    void InterpreterFallback(u32 pc, std::size_t num_instructions) override {
-        m_parent.LogBacktrace(m_process);
-        LOG_ERROR(Core_ARM,
-                  "Unimplemented instruction @ 0x{:X} for {} instructions (instr = {:08X})", pc,
-                  num_instructions, m_memory.Read32(pc));
-    }
-
     void ExceptionRaised(u32 pc, Dynarmic::A32::Exception exception) override {
         switch (exception) {
         case Dynarmic::A32::Exception::NoExecuteFault:
@@ -186,8 +179,8 @@ std::shared_ptr<Dynarmic::A32::Jit> ArmDynarmic32::MakeJit(Common::PageTable* pa
         constexpr size_t PageBits = 12;
         constexpr size_t NumPageTableEntries = 1 << (32 - PageBits);
 
-        config.page_table = reinterpret_cast<std::array<std::uint8_t*, NumPageTableEntries>*>(
-            page_table->pointers.data());
+        config.page_table = reinterpret_cast<std::array<std::uint8_t*, NumPageTableEntries>*>(page_table->pointers.data());
+        config.page_table_log2_stride = 3;
         config.absolute_offset_page_table = true;
         config.page_table_pointer_mask_bits = Common::PageTable::ATTRIBUTE_BITS;
         config.detect_misaligned_access_via_page_table = 16 | 32 | 64 | 128;
@@ -200,7 +193,7 @@ std::shared_ptr<Dynarmic::A32::Jit> ArmDynarmic32::MakeJit(Common::PageTable* pa
     }
 
     // Multi-process state
-    config.processor_id = m_core_index;
+    config.processor_id = uint8_t(m_core_index);
     config.global_monitor = &m_exclusive_monitor.monitor;
 
     // Timing
