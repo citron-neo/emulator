@@ -32,7 +32,7 @@ void ExitFragment(TranslatorVisitor& v) {
 }
 } // Anonymous namespace
 
-void TranslatorVisitor::EXIT() {
+void TranslatorVisitor::EXIT(u64) {
     switch (env.ShaderStage()) {
     case Stage::Fragment:
         ExitFragment(*this);
