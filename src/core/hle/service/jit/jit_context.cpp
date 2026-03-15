@@ -7,6 +7,7 @@
 #include <boost/icl/interval_set.hpp>
 #include <dynarmic/interface/A64/a64.h>
 #include <dynarmic/interface/A64/config.h>
+#include <dynarmic/interface/code_page.h>
 
 #include "common/alignment.h"
 #include "common/common_funcs.h"
@@ -43,6 +44,15 @@ public:
         : memory{memory_}, local_memory{local_memory_},
           mapped_ranges{mapped_ranges_}, parent{parent_} {}
 
+    std::optional<std::uint32_t> MemoryReadCode(VAddr vaddr) override {
+        static_assert(Core::Memory::CITRON_PAGESIZE == Dynarmic::CODE_PAGE_SIZE);
+        auto const aligned_vaddr = vaddr & ~Core::Memory::CITRON_PAGEMASK;
+        if (last_code_addr != aligned_vaddr) {
+            cached_code_page = ReadMemory<Dynarmic::CodePage>(aligned_vaddr);
+            last_code_addr = aligned_vaddr;
+        }
+        return cached_code_page.inst[(vaddr & Core::Memory::CITRON_PAGEMASK) / sizeof(u32)];
+    }
     u8 MemoryRead8(u64 vaddr) override {
         return ReadMemory<u8>(vaddr);
     }
@@ -142,6 +152,8 @@ private:
     std::vector<u8>& local_memory;
     IntervalSet& mapped_ranges;
     JITContextImpl& parent;
+    Dynarmic::CodePage cached_code_page;
+    u64 last_code_addr = 0;
 };
 
 class JITContextImpl {
