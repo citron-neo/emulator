@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "common/alignment.h"
+#include "common/settings.h"
 #include "shader_recompiler/environment.h"
 #include "shader_recompiler/frontend/ir/modifiers.h"
 #include "shader_recompiler/frontend/ir/program.h"
@@ -969,6 +970,11 @@ void CollectShaderInfoPass(Environment& env, IR::Program& program) {
             Visit(info, inst);
         }
     }
+
+    if (Settings::values.wider_reciprocals.GetValue()) {
+        info.uses_fp64 = true;
+    }
+
     GatherInfoFromHeader(env, info);
 }
 
