@@ -3,7 +3,7 @@
 
 #include <catch2/catch_test_macros.hpp>
 #include <math.h>
-#include "common/logging/backend.h"
+#include "common/logging.h"
 #include "common/param_package.h"
 
 namespace Common {

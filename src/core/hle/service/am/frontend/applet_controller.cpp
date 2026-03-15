@@ -5,7 +5,7 @@
 #include <cstring>
 
 #include "common/assert.h"
-#include "common/logging/log.h"
+#include "common/logging.h"
 #include "common/string_util.h"
 #include "core/core.h"
 #include "core/frontend/applets/controller.h"

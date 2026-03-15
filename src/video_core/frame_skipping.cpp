@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "video_core/frame_skipping.h"
-#include "common/logging/log.h"
+#include "common/logging.h"
 
 namespace VideoCore {
 

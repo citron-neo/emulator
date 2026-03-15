@@ -13,7 +13,7 @@
 #include "common/common_funcs.h"
 #include "common/div_ceil.h"
 #include "common/elf.h"
-#include "common/logging/log.h"
+#include "common/logging.h"
 #include "core/hle/service/jit/jit_context.h"
 #include "core/memory.h"
 

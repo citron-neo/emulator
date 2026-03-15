@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <cstring>
-#include "common/logging/log.h"
+#include "common/logging.h"
 #include "core/file_sys/errors.h"
 #include "core/file_sys/savedata_extra_data_accessor.h"
 

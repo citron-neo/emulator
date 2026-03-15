@@ -6,7 +6,7 @@
 #include <fmt/format.h>
 
 #include "common/common_types.h"
-#include "common/logging/log.h"
+#include "common/logging.h"
 #include "video_core/renderer_vulkan/pipeline_statistics.h"
 #include "video_core/vulkan_common/vulkan_device.h"
 #include "video_core/vulkan_common/vulkan_wrapper.h"

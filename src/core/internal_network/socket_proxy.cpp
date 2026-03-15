@@ -6,7 +6,7 @@
 #include <thread>
 
 #include "common/assert.h"
-#include "common/logging/log.h"
+#include "common/logging.h"
 #include "common/zstd_compression.h"
 #include "core/internal_network/network.h"
 #include "core/internal_network/network_interface.h"

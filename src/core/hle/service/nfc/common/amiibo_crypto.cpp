@@ -11,7 +11,7 @@
 #include "common/fs/file.h"
 #include "common/fs/fs.h"
 #include "common/fs/path_util.h"
-#include "common/logging/log.h"
+#include "common/logging.h"
 #include "core/hle/service/nfc/common/amiibo_crypto.h"
 
 namespace Service::NFP::AmiiboCrypto {

@@ -14,7 +14,7 @@
 #include "common/common_funcs.h"
 #include "common/common_types.h"
 #include "common/hex_util.h"
-#include "common/logging/log.h"
+#include "common/logging.h"
 #include "common/string_util.h"
 #include "common/swap.h"
 #include "core/crypto/key_manager.h"

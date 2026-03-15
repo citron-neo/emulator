@@ -4,7 +4,7 @@
 #include "core/hle/service/aoc/contents_service_manager.h"
 #include "core/hle/service/cmif_serialization.h"
 #include "core/hle/kernel/k_event.h"
-#include "common/logging/log.h"
+#include "common/logging.h"
 
 namespace Service::AOC {
 

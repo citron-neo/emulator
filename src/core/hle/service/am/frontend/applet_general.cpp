@@ -3,7 +3,7 @@
 
 #include "common/assert.h"
 #include "common/hex_util.h"
-#include "common/logging/log.h"
+#include "common/logging.h"
 #include "core/core.h"
 #include "core/frontend/applets/general.h"
 #include "core/hle/result.h"

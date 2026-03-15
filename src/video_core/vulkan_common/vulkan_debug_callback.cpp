@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <string_view>
-#include "common/logging/log.h"
+#include "common/logging.h"
 #include "video_core/vulkan_common/vulkan_debug_callback.h"
 
 namespace Vulkan {

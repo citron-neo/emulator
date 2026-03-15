@@ -7,7 +7,7 @@
 
 #include <fmt/format.h>
 
-#include "common/logging/log.h"
+#include "common/logging.h"
 #include "common/scm_rev.h"
 #include "video_core/renderer_null/renderer_null.h"
 #include "citron_cmd/emu_window/emu_window_sdl2_null.h"

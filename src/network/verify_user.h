@@ -4,7 +4,7 @@
 #pragma once
 
 #include <string>
-#include "common/logging/log.h"
+#include "common/logging.h"
 
 namespace Network::VerifyUser {
 

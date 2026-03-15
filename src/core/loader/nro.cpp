@@ -6,7 +6,7 @@
 
 #include "common/common_funcs.h"
 #include "common/common_types.h"
-#include "common/logging/log.h"
+#include "common/logging.h"
 #include "common/settings.h"
 #include "common/swap.h"
 #include "core/core.h"

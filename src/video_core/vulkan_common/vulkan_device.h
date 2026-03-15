@@ -10,7 +10,7 @@
 #include <vector>
 
 #include "common/common_types.h"
-#include "common/logging/log.h"
+#include "common/logging.h"
 #include "common/settings.h"
 #include "video_core/vulkan_common/vulkan_wrapper.h"
 

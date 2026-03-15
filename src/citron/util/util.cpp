@@ -5,7 +5,7 @@
 #include <cmath>
 #include <QPainter>
 
-#include "common/logging/log.h"
+#include "common/logging.h"
 #include "citron/util/util.h"
 
 #ifdef _WIN32

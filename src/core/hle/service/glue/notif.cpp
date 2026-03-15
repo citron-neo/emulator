@@ -5,7 +5,7 @@
 #include <cstring>
 
 #include "common/assert.h"
-#include "common/logging/log.h"
+#include "common/logging.h"
 #include "core/hle/service/cmif_serialization.h"
 #include "core/hle/service/glue/notif.h"
 #include "core/hle/service/ipc_helpers.h"

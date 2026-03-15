@@ -3,7 +3,7 @@
 
 #include <memory>
 
-#include "common/logging/log.h"
+#include "common/logging.h"
 #include "common/settings.h"
 #include "core/hle/service/ipc_helpers.h"
 #include "core/hle/service/nfc/nfc.h"

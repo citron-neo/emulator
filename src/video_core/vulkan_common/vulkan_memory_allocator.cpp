@@ -11,7 +11,7 @@
 #include "common/assert.h"
 #include "common/common_types.h"
 #include "common/literals.h"
-#include "common/logging/log.h"
+#include "common/logging.h"
 #include "common/polyfill_ranges.h"
 #include "video_core/vulkan_common/vma.h"
 #include "video_core/vulkan_common/vulkan_device.h"

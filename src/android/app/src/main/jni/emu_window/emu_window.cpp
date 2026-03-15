@@ -4,7 +4,7 @@
 #include <android/native_window_jni.h>
 
 #include "common/android/id_cache.h"
-#include "common/logging/log.h"
+#include "common/logging.h"
 #include "input_common/drivers/android.h"
 #include "input_common/drivers/touch_screen.h"
 #include "input_common/drivers/virtual_amiibo.h"

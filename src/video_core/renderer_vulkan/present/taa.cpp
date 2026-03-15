@@ -10,7 +10,7 @@
 #include "video_core/renderer_vulkan/vk_scheduler.h"
 #include "video_core/renderer_vulkan/vk_shader_util.h"
 #include "video_core/vulkan_common/vulkan_device.h"
-#include "common/logging/log.h"
+#include "common/logging.h"
 
 namespace Vulkan {
 

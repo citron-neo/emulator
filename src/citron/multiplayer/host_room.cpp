@@ -12,7 +12,7 @@
 #include <QMetaType>
 #include <QTime>
 #include <QtConcurrent/QtConcurrentRun>
-#include "common/logging/log.h"
+#include "common/logging.h"
 #include "common/settings.h"
 #include "core/core.h"
 #include "core/internal_network/network_interface.h"

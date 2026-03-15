@@ -19,7 +19,7 @@
 #include "common/fs/fs.h"
 #include "common/fs/path_util.h"
 #include "common/hex_util.h"
-#include "common/logging/log.h"
+#include "common/logging.h"
 #include "common/settings.h"
 #include "common/string_util.h"
 #include "core/crypto/aes_util.h"

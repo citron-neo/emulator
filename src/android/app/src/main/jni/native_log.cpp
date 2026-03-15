@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <common/android/android_common.h>
-#include <common/logging/log.h>
+#include <common/logging.h>
 #include <jni.h>
 
 extern "C" {

@@ -30,7 +30,7 @@
 
 #include "common/common_types.h"
 #include "common/fs/path_util.h"
-#include "common/logging/log.h"
+#include "common/logging.h"
 #include "common/settings.h"
 #include "common/settings_enums.h"
 #include "core/core.h"

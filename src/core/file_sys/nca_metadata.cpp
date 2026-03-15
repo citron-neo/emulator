@@ -3,7 +3,7 @@
 
 #include <cstring>
 #include "common/common_types.h"
-#include "common/logging/log.h"
+#include "common/logging.h"
 #include "common/swap.h"
 #include "core/file_sys/nca_metadata.h"
 #include "core/file_sys/vfs/vfs.h"

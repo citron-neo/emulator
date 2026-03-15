@@ -4,7 +4,7 @@
 #include <array>
 #include <mbedtls/cipher.h>
 #include "common/assert.h"
-#include "common/logging/log.h"
+#include "common/logging.h"
 #include "core/crypto/aes_util.h"
 #include "core/crypto/key_manager.h"
 

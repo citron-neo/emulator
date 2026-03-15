@@ -6,7 +6,7 @@
 #include "core/hle/service/ipc_helpers.h"
 #include "core/hle/service/server_manager.h"
 #include "core/hle/service/service.h"
-#include "common/logging/log.h"
+#include "common/logging.h"
 
 namespace Service::Nex {
 

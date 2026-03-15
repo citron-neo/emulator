@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: Copyright 2020 yuzu Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
-#include "common/logging/log.h"
+#include "common/logging.h"
 #include "core/hle/service/caps/caps_manager.h"
 #include "core/hle/service/caps/caps_types.h"
 #include "core/hle/service/caps/caps_u.h"

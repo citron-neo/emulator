@@ -6,7 +6,7 @@
 #include <cstring>
 #include <ctime>
 #include <fmt/chrono.h>
-#include "common/logging/log.h"
+#include "common/logging.h"
 #include "common/scm_rev.h"
 #include "common/swap.h"
 #include "core/core.h"

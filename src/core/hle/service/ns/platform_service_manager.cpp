@@ -8,7 +8,7 @@
 
 #include "common/assert.h"
 #include "common/common_types.h"
-#include "common/logging/log.h"
+#include "common/logging.h"
 #include "common/swap.h"
 #include "core/core.h"
 #include "core/file_sys/content_archive.h"

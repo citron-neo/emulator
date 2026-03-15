@@ -4,7 +4,7 @@
 
 #include "common/algorithm.h"
 #include "common/assert.h"
-#include "common/logging/log.h"
+#include "common/logging.h"
 #include "common/microprofile.h"
 #include "common/polyfill_ranges.h"
 #include "common/settings.h"

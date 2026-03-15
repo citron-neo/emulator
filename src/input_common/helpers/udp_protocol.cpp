@@ -3,7 +3,7 @@
 
 #include <cstddef>
 #include <cstring>
-#include "common/logging/log.h"
+#include "common/logging.h"
 #include "input_common/helpers/udp_protocol.h"
 
 namespace InputCommon::CemuhookUDP {

@@ -12,7 +12,7 @@
 #include "common/assert.h"
 #include "common/common_types.h"
 #include "common/hex_util.h"
-#include "common/logging/log.h"
+#include "common/logging.h"
 #include "common/settings.h"
 #include "common/string_util.h"
 #include "core/core.h"

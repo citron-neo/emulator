@@ -11,7 +11,7 @@
 #include <shared_mutex>
 #include <sstream>
 #include <thread>
-#include "common/logging/log.h"
+#include "common/logging.h"
 #include "enet/enet.h"
 #include "network/packet.h"
 #include "network/room.h"

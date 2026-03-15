@@ -4,7 +4,7 @@
 #include <QGuiApplication>
 #include <QStringLiteral>
 #include <QWindow>
-#include "common/logging/log.h"
+#include "common/logging.h"
 #include "core/frontend/emu_window.h"
 #include "citron/qt_common.h"
 

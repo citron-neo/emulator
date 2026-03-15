@@ -34,7 +34,7 @@
 #include "common/assert.h"
 #include "common/free_region_manager.h"
 #include "common/host_memory.h"
-#include "common/logging/log.h"
+#include "common/logging.h"
 
 namespace Common {
 

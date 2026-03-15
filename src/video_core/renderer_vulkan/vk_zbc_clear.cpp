@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "video_core/renderer_vulkan/vk_zbc_clear.h"
-#include "common/logging/log.h"
+#include "common/logging.h"
 #include "video_core/zbc_manager.h"
 
 namespace Vulkan {

@@ -11,7 +11,7 @@
 #include <boost/process/v1/async_pipe.hpp>
 #endif
 
-#include "common/logging/log.h"
+#include "common/logging.h"
 #include "common/polyfill_thread.h"
 #include "common/thread.h"
 #include "core/core.h"

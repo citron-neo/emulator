@@ -3,7 +3,7 @@
 
 #include "audio_core/device/shared_ring_buffer.h"
 #include "audio_core/renderer/final_output_recorder/final_output_recorder_buffer.h"
-#include "common/logging/log.h"
+#include "common/logging.h"
 #include "core/memory.h"
 
 namespace AudioCore {

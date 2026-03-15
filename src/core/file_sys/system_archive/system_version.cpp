@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: Copyright 2019 yuzu Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
-#include "common/logging/log.h"
+#include "common/logging.h"
 #include "core/file_sys/system_archive/system_version.h"
 #include "core/file_sys/vfs/vfs_vector.h"
 #include "core/hle/api_version.h"

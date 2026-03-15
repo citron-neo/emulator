@@ -4,7 +4,7 @@
 
 #include <thread>
 
-#include "common/logging/log.h"
+#include "common/logging.h"
 #include "common/string_util.h"
 #include "core/frontend/applets/software_keyboard.h"
 

@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "common/assert.h"
-#include "common/logging/log.h"
+#include "common/logging.h"
 #include "common/microprofile.h"
 #include "video_core/engines/fermi_2d.h"
 #include "video_core/engines/sw_blitter/blitter.h"

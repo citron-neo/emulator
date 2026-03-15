@@ -4,7 +4,7 @@
 #include <algorithm>
 #include <array>
 #include <chrono>
-#include "common/logging/log.h"
+#include "common/logging.h"
 #include "common/settings.h"
 #include "core/hle/service/cmif_serialization.h"
 #include "core/hle/service/ipc_helpers.h"

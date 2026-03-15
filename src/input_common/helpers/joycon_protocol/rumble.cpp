@@ -5,7 +5,7 @@
 #include <cmath>
 
 #include "common/input.h"
-#include "common/logging/log.h"
+#include "common/logging.h"
 #include "input_common/helpers/joycon_protocol/rumble.h"
 
 namespace InputCommon::Joycon {

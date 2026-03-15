@@ -3,7 +3,7 @@
 
 #include <zlib.h>
 
-#include "common/logging/log.h"
+#include "common/logging.h"
 #include "common/settings.h"
 #include "common/string_util.h"
 #include "common/swap.h"

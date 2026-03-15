@@ -11,7 +11,7 @@
 #include "common/assert.h"
 #include "common/fs/path_util.h"
 #include "common/hex_util.h"
-#include "common/logging/log.h"
+#include "common/logging.h"
 #include "common/scope_exit.h"
 #include "core/crypto/key_manager.h"
 #include "core/file_sys/card_image.h"

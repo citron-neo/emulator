@@ -16,7 +16,7 @@
 #include "citron/mod_manager/mod_downloader_dialog.h"
 #include "ui_mod_downloader_dialog.h"
 #include "common/fs/path_util.h"
-#include "common/logging/log.h"
+#include "common/logging.h"
 
 namespace ModManager {
 

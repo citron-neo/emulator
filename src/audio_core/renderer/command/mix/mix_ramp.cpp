@@ -4,7 +4,7 @@
 #include "audio_core/adsp/apps/audio_renderer/command_list_processor.h"
 #include "audio_core/renderer/command/mix/mix_ramp.h"
 #include "common/fixed_point.h"
-#include "common/logging/log.h"
+#include "common/logging.h"
 
 namespace AudioCore::Renderer {
 

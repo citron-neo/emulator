@@ -7,7 +7,7 @@
 #include <limits>
 #include <vector>
 
-#include "common/logging/log.h"
+#include "common/logging.h"
 #include "common/polyfill_ranges.h"
 #include "common/settings.h"
 #include "core/core.h"

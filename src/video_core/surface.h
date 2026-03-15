@@ -7,7 +7,7 @@
 #include <utility>
 #include "common/assert.h"
 #include "common/common_types.h"
-#include "common/logging/log.h"
+#include "common/logging.h"
 #include "video_core/gpu.h"
 #include "video_core/textures/texture.h"
 

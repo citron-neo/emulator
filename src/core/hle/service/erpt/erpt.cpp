@@ -3,7 +3,7 @@
 
 #include <memory>
 
-#include "common/logging/log.h"
+#include "common/logging.h"
 #include "core/hle/service/cmif_serialization.h"
 #include "core/hle/service/erpt/erpt.h"
 #include "core/hle/service/server_manager.h"

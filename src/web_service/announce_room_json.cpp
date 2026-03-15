@@ -4,7 +4,7 @@
 #include <future>
 #include <nlohmann/json.hpp>
 #include "common/detached_tasks.h"
-#include "common/logging/log.h"
+#include "common/logging.h"
 #include "web_service/announce_room_json.h"
 #include "web_service/web_backend.h"
 

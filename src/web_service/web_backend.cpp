@@ -19,7 +19,7 @@
 #pragma GCC diagnostic pop
 #endif
 
-#include "common/logging/log.h"
+#include "common/logging.h"
 #include "web_service/web_backend.h"
 #include "web_service/web_result.h"
 
