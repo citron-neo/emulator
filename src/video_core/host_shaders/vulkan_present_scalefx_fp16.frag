@@ -3,10 +3,10 @@
 
 #version 460
 
-#extension GL_GOOGLE_include_directive : enable
-#extension GL_AMD_gpu_shader_half_float : enable
-#extension GL_NV_gpu_shader5 : enable
+layout (location = 0) in vec2 frag_tex_coord;
+layout (location = 0) out vec4 color;
+layout (binding = 0) uniform sampler2D color_texture;
 
-#define VERSION 2
-
-#include "opengl_present_scalefx.frag"
+void main() {
+    color = texture(color_texture, frag_tex_coord);
+}
