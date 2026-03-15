@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
+#include <dynarmic/interface/code_page.h>
 #include "common/settings.h"
 #include "core/arm/dynarmic/arm_dynarmic.h"
 #include "core/arm/dynarmic/arm_dynarmic_32.h"
@@ -9,6 +10,7 @@
 #include "core/arm/dynarmic/dynarmic_exclusive_monitor.h"
 #include "core/core_timing.h"
 #include "core/hle/kernel/k_process.h"
+#include "core/memory.h"
 
 namespace Core {
 
@@ -39,10 +41,14 @@ public:
         return m_memory.Read64(vaddr);
     }
     std::optional<u32> MemoryReadCode(u32 vaddr) override {
-        if (!m_memory.IsValidVirtualAddressRange(vaddr, sizeof(u32))) {
+        if (!m_memory.IsValidVirtualAddressRange(vaddr, sizeof(u32)))
             return std::nullopt;
+        auto const aligned_vaddr = vaddr & ~Core::Memory::CITRON_PAGEMASK;
+        if (last_code_addr != aligned_vaddr) {
+            m_memory.ReadBlock(aligned_vaddr, &cached_code_page, sizeof(cached_code_page));
+            last_code_addr = aligned_vaddr;
         }
-        return m_memory.Read32(vaddr);
+        return cached_code_page.inst[(vaddr & Core::Memory::CITRON_PAGEMASK) / sizeof(u32)];
     }
 
     void MemoryWrite8(u32 vaddr, u8 value) override {
@@ -167,6 +173,8 @@ public:
     const bool m_debugger_enabled{};
     const bool m_check_memory_access{};
     static constexpr u64 MinimumRunCycles = 10000U;
+    Dynarmic::CodePage cached_code_page;
+    u64 last_code_addr = 0;
 };
 
 std::shared_ptr<Dynarmic::A32::Jit> ArmDynarmic32::MakeJit(Common::PageTable* page_table) const {
