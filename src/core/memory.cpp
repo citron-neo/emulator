@@ -1116,9 +1116,8 @@ bool Memory::InvalidateNCE(Common::ProcessAddress vaddr, size_t size) {
     }
 
 #ifdef __linux__
-    if (!rasterizer && mapped) {
-        impl->buffer->DeferredMapSeparateHeap(GetInteger(vaddr));
-    }
+    // HostMemory no longer exposes deferred separate-heap remapping.
+    // Keep the invalidate path side-effect free here.
 #endif
 
     return mapped && ptr != nullptr;
@@ -1126,7 +1125,8 @@ bool Memory::InvalidateNCE(Common::ProcessAddress vaddr, size_t size) {
 
 bool Memory::InvalidateSeparateHeap(void* fault_address) {
 #ifdef __linux__
-    return impl->buffer->DeferredMapSeparateHeap(static_cast<u8*>(fault_address));
+    (void)fault_address;
+    return false;
 #else
     return false;
 #endif
