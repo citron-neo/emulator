@@ -29,7 +29,7 @@ void TranslatorVisitor::MEMBAR(u64 inst) {
     }
 }
 
-void TranslatorVisitor::DEPBAR() {
+void TranslatorVisitor::DEPBAR(u64) {
     // DEPBAR is a no-op
 }
 

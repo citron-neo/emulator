@@ -80,9 +80,10 @@ public:
     void BRA(u64 insn);
     void BRK(u64 insn);
     void BRX(u64 insn);
-    void CAL();
+    void CAL(u64 insn);
     void CCTL(u64 insn);
     void CCTLL(u64 insn);
+    void CCTLT(u64 insn);
     void CONT(u64 insn);
     void CS2R(u64 insn);
     void CSET(u64 insn);
@@ -90,7 +91,7 @@ public:
     void DADD_reg(u64 insn);
     void DADD_cbuf(u64 insn);
     void DADD_imm(u64 insn);
-    void DEPBAR();
+    void DEPBAR(u64 insn);
     void DFMA_reg(u64 insn);
     void DFMA_rc(u64 insn);
     void DFMA_cr(u64 insn);
@@ -107,7 +108,7 @@ public:
     void DSETP_reg(u64 insn);
     void DSETP_cbuf(u64 insn);
     void DSETP_imm(u64 insn);
-    void EXIT();
+    void EXIT(u64 insn);
     void F2F_reg(u64 insn);
     void F2F_cbuf(u64 insn);
     void F2F_imm(u64 insn);
@@ -219,7 +220,7 @@ public:
     void JCAL(u64 insn);
     void JMP(u64 insn);
     void JMX(u64 insn);
-    void KIL();
+    void KIL(u64 insn);
     void LD(u64 insn);
     void LDC(u64 insn);
     void LDG(u64 insn);
@@ -252,8 +253,8 @@ public:
     void P2R_reg(u64 insn);
     void P2R_cbuf(u64 insn);
     void P2R_imm(u64 insn);
-    void PBK();
-    void PCNT();
+    void PBK(u64 insn);
+    void PCNT(u64 insn);
     void PEXIT(u64 insn);
     void PIXLD(u64 insn);
     void PLONGJMP(u64 insn);
@@ -296,7 +297,7 @@ public:
     void SHR_reg(u64 insn);
     void SHR_cbuf(u64 insn);
     void SHR_imm(u64 insn);
-    void SSY();
+    void SSY(u64 insn);
     void ST(u64 insn);
     void STG(u64 insn);
     void STL(u64 insn);
