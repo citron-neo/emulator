@@ -138,7 +138,11 @@ bool SetCurrentThreadAffinityMask(u64 affinity_mask) {
             CPU_SET(static_cast<int>(bit), &set);
         }
     }
+#if defined(__ANDROID__)
+    return sched_setaffinity(0, sizeof(set), &set) == 0;
+#else
     return pthread_setaffinity_np(pthread_self(), sizeof(set), &set) == 0;
+#endif
 #else
     return false;
 #endif
