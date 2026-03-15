@@ -170,10 +170,13 @@ bool IsGPULevelNormal() {
 }
 
 bool IsFastmemEnabled() {
-    if (values.cpu_debug_mode) {
-        return static_cast<bool>(values.cpuopt_fastmem);
-    }
+    if (values.cpu_debug_mode)
+        return bool(values.cpuopt_fastmem);
+#ifdef __FreeBSD__
+    return false;
+#else
     return true;
+#endif
 }
 
 bool IsCpuUltraLowAccuracy() {
