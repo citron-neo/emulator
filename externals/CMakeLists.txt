@@ -57,6 +57,7 @@ endif()
 # Sirit
 # Tell sirit to use our target
 set(SIRIT_USE_SYSTEM_SPIRV_HEADERS ON)
+set(SPIRV-Headers_DIR "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 list(APPEND CMAKE_PREFIX_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 add_subdirectory(sirit)
 
