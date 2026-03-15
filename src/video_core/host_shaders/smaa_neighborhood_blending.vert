@@ -3,8 +3,6 @@
 
 #version 460
 
-#extension GL_GOOGLE_include_directive : enable
-
 #ifdef VULKAN
 #define VERTEX_ID gl_VertexIndex
 #else // ^^^ Vulkan ^^^ // vvv OpenGL vvv
@@ -24,18 +22,9 @@ layout (binding = 1) uniform sampler2D blend_tex;
 layout (location = 0) out vec2 tex_coord;
 layout (location = 1) out vec4 offset;
 
-vec4 metrics = vec4(1.0 / textureSize(input_tex, 0), textureSize(input_tex, 0));
-#define SMAA_RT_METRICS metrics
-#define SMAA_GLSL_4
-#define SMAA_PRESET_ULTRA
-#define SMAA_INCLUDE_VS 1
-#define SMAA_INCLUDE_PS 0
-
-#include "opengl_smaa.glsl"
-
 void main() {
     vec2 vertex = vertices[VERTEX_ID];
     gl_Position = vec4(vertex, 0.0, 1.0);
     tex_coord = (vertex + 1.0) / 2.0;
-    SMAANeighborhoodBlendingVS(tex_coord, offset);
+    offset = vec4(0.0);
 }

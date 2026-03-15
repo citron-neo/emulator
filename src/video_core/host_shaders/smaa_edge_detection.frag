@@ -3,8 +3,6 @@
 
 #version 460
 
-#extension GL_GOOGLE_include_directive : enable
-
 layout (binding = 0) uniform sampler2D input_tex;
 
 layout (location = 0) in vec2 tex_coord;
@@ -12,15 +10,13 @@ layout (location = 1) in vec4 offset[3];
 
 layout (location = 0) out vec2 frag_color;
 
-vec4 metrics = vec4(1.0 / textureSize(input_tex, 0), textureSize(input_tex, 0));
-#define SMAA_RT_METRICS metrics
-#define SMAA_GLSL_4
-#define SMAA_PRESET_ULTRA
-#define SMAA_INCLUDE_VS 0
-#define SMAA_INCLUDE_PS 1
-
-#include "opengl_smaa.glsl"
-
 void main() {
-    frag_color = SMAAColorEdgeDetectionPS(tex_coord, offset, input_tex);
+    vec3 c = texture(input_tex, tex_coord).rgb;
+    vec3 cx = texture(input_tex, offset[0].zw).rgb;
+    vec3 cy = texture(input_tex, offset[1].zw).rgb;
+    float l = dot(c, vec3(0.299, 0.587, 0.114));
+    float lx = dot(cx, vec3(0.299, 0.587, 0.114));
+    float ly = dot(cy, vec3(0.299, 0.587, 0.114));
+    float th = 0.1;
+    frag_color = vec2(step(th, abs(l - lx)), step(th, abs(l - ly)));
 }
