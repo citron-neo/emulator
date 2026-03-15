@@ -1030,7 +1030,6 @@ class SettingsFragmentPresenter(
             add(IntSetting.ANDROID_ASTC_MODE.key)
 
             add(HeaderSetting(R.string.advanced_graphics_header))
-            add(IntSetting.SHADER_BACKEND.key)
             add(IntSetting.VRAM_USAGE_MODE.key)
             add(IntSetting.EXTENDED_DYNAMIC_STATE.key)
             add(BooleanSetting.USE_CONDITIONAL_RENDERING.key)
