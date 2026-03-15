@@ -6595,8 +6595,9 @@ void GMainWindow::OnMenuInstallWithUpdateManager() {
         auto vfs_file = vfs->OpenFile(sanitized_path.toStdString(), FileSys::OpenMode::Read);
         if (vfs_file) {
             FileSys::NSP nsp(vfs_file);
-            if (nsp.GetStatus() == Loader::ResultStatus::Success && !nsp.GetNCAs().empty()) {
-                const auto& [title_id, nca_map] = *nsp.GetNCAs().begin();
+            auto nsp_ncas = nsp.GetNCAs();
+            if (nsp.GetStatus() == Loader::ResultStatus::Success && !nsp_ncas.empty()) {
+                const auto& [title_id, nca_map] = *nsp_ncas.begin();
                 const auto meta_iter =
                     std::find_if(nca_map.begin(), nca_map.end(), [](const auto& pair) {
                         return pair.first.second == FileSys::ContentRecordType::Meta;
