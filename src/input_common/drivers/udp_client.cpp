@@ -6,7 +6,7 @@
 #include <boost/asio.hpp>
 #include <fmt/format.h>
 
-#include "common/logging/log.h"
+#include "common/logging.h"
 #include "common/param_package.h"
 #include "common/settings.h"
 #include "input_common/drivers/udp_client.h"

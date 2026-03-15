@@ -10,7 +10,7 @@
 #include <fmt/chrono.h>
 #include <fmt/core.h>
 
-#include "common/logging/log.h"
+#include "common/logging.h"
 #include "common/time_zone.h"
 
 namespace Common::TimeZone {

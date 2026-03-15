@@ -4,7 +4,7 @@
 #include <gamemode_client.h>
 
 #include "common/linux/gamemode.h"
-#include "common/logging/log.h"
+#include "common/logging.h"
 #include "common/settings.h"
 
 namespace Common::Linux {

@@ -9,7 +9,7 @@
 #include "common/android/android_common.h"
 #include "common/android/applets/software_keyboard.h"
 #include "common/android/id_cache.h"
-#include "common/logging/log.h"
+#include "common/logging.h"
 #include "common/string_util.h"
 #include "core/core.h"
 

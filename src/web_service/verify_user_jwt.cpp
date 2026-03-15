@@ -12,7 +12,7 @@
 #endif
 
 #include <system_error>
-#include "common/logging/log.h"
+#include "common/logging.h"
 #include "web_service/verify_user_jwt.h"
 #include "web_service/web_backend.h"
 #include "web_service/web_result.h"

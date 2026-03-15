@@ -5,7 +5,7 @@
 #include <cstdlib>
 #include <ctime>
 #include <vector>
-#include "common/logging/log.h"
+#include "common/logging.h"
 #include "common/settings.h"
 #include "core/hle/api_version.h"
 #include "core/hle/service/ipc_helpers.h"

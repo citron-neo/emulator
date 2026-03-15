@@ -7,7 +7,7 @@
 
 #include "common/common_funcs.h"
 #include "common/hex_util.h"
-#include "common/logging/log.h"
+#include "common/logging.h"
 #include "common/lz4_compression.h"
 #include "common/settings.h"
 #include "common/swap.h"

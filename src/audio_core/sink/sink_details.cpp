@@ -21,7 +21,7 @@
 #include "audio_core/sink/openal_sink.h"
 #endif
 #include "audio_core/sink/null_sink.h"
-#include "common/logging/log.h"
+#include "common/logging.h"
 #include "common/settings_enums.h"
 
 namespace AudioCore::Sink {

@@ -12,7 +12,7 @@
 #include <vector>
 #include "common/bit_util.h"
 #include "common/common_types.h"
-#include "common/logging/log.h"
+#include "common/logging.h"
 #include "common/x64/cpu_detect.h"
 #include "common/x64/rdtsc.h"
 

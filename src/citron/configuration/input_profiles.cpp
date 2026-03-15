@@ -5,7 +5,7 @@
 
 #include "common/fs/fs.h"
 #include "common/fs/path_util.h"
-#include "common/logging/log.h"
+#include "common/logging.h"
 #include "frontend_common/config.h"
 #include "citron/configuration/input_profiles.h"
 

@@ -9,7 +9,7 @@
 #include <utility>
 
 #include "common/hex_util.h"
-#include "common/logging/log.h"
+#include "common/logging.h"
 #include "common/swap.h"
 #include "core/file_sys/ips_layer.h"
 #include "core/file_sys/vfs/vfs_vector.h"

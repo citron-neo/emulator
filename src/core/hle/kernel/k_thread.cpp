@@ -14,7 +14,7 @@
 #include "common/common_funcs.h"
 #include "common/common_types.h"
 #include "common/fiber.h"
-#include "common/logging/log.h"
+#include "common/logging.h"
 #include "common/settings.h"
 #include "core/core.h"
 #include "core/cpu_manager.h"

@@ -15,7 +15,7 @@
 #include <thread>
 #include <unordered_map>
 
-#include "common/logging/log.h"
+#include "common/logging.h"
 #include "common/socket_types.h"
 #include "core/hle/result.h"
 #include "core/hle/service/ldn/ldn_results.h"

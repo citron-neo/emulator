@@ -9,7 +9,7 @@
 
 #include "common/assert.h"
 #include "common/bit_field.h"
-#include "common/logging/log.h"
+#include "common/logging.h"
 #include "common/microprofile.h"
 #include "common/x64/xbyak_abi.h"
 #include "common/x64/xbyak_util.h"

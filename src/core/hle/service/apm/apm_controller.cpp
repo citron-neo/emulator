@@ -5,7 +5,7 @@
 #include <array>
 #include <utility>
 
-#include "common/logging/log.h"
+#include "common/logging.h"
 #include "common/settings.h"
 #include "common/settings_enums.h"
 #include "core/core_timing.h"

@@ -5,7 +5,7 @@
 #include <QMessageBox>
 #include <QPushButton>
 #include <QtConcurrent/qtconcurrentrun.h>
-#include "common/logging/log.h"
+#include "common/logging.h"
 #include "ui_compatdb.h"
 #include "citron/compatdb.h"
 

@@ -9,7 +9,7 @@
 
 #include "citron/debugger/console.h"
 #include "citron/uisettings.h"
-#include "common/logging/backend.h"
+#include "common/logging.h"
 
 namespace CitronDebugger {
 void ToggleConsole() {

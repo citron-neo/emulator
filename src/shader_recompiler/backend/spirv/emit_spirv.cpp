@@ -11,7 +11,7 @@
 #include <spirv-tools/optimizer.hpp>
 #include "common/settings.h"
 
-#include "common/logging/log.h"
+#include "common/logging.h"
 #include "common/settings.h"
 #include "shader_recompiler/backend/spirv/emit_spirv.h"
 #include "shader_recompiler/backend/spirv/emit_spirv_instructions.h"

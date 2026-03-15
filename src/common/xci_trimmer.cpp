@@ -7,7 +7,7 @@
 
 #include "common/fs/file.h"
 #include "common/fs/fs.h"
-#include "common/logging/log.h"
+#include "common/logging.h"
 #include "common/xci_trimmer.h"
 
 namespace Common {

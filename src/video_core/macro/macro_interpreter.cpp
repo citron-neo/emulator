@@ -5,7 +5,7 @@
 #include <optional>
 
 #include "common/assert.h"
-#include "common/logging/log.h"
+#include "common/logging.h"
 #include "common/microprofile.h"
 #include "video_core/engines/maxwell_3d.h"
 #include "video_core/macro/macro_interpreter.h"

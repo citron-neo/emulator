@@ -18,7 +18,7 @@
 
 #include "common/fs/fs.h"
 #include "common/fs/path_util.h"
-#include "common/logging/log.h"
+#include "common/logging.h"
 #include "common/settings.h"
 #include "core/crypto/key_manager.h"
 #include "core/file_sys/vfs/vfs.h"

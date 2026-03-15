@@ -26,7 +26,7 @@
 #include <QToolButton>
 #include <QGridLayout>
 #include <QWidgetAction>
-#include "common/logging/log.h"
+#include "common/logging.h"
 #include "network/announce_multiplayer_session.h"
 #include "ui_chat_room.h"
 #include "citron/game_list_p.h"

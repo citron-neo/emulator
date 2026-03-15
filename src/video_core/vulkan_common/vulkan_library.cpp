@@ -5,7 +5,7 @@
 
 #include "common/dynamic_library.h"
 #include "common/fs/path_util.h"
-#include "common/logging/log.h"
+#include "common/logging.h"
 #include "video_core/vulkan_common/vulkan_library.h"
 
 namespace Vulkan {

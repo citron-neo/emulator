@@ -8,7 +8,7 @@
 #include "common/fs/fs_android.h"
 #endif
 #include "common/fs/path_util.h"
-#include "common/logging/log.h"
+#include "common/logging.h"
 
 namespace Common::FS {
 

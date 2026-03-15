@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <algorithm>
-#include "common/logging/log.h"
+#include "common/logging.h"
 #include "common/uuid.h"
 #include "core/core.h"
 #include "core/file_sys/nca_metadata.h"

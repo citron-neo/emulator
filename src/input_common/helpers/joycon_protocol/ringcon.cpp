@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "common/input.h"
-#include "common/logging/log.h"
+#include "common/logging.h"
 #include "input_common/helpers/joycon_protocol/ringcon.h"
 
 namespace InputCommon::Joycon {

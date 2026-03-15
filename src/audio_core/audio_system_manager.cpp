@@ -4,7 +4,7 @@
 #include <algorithm>
 
 #include "audio_core/audio_system_manager.h"
-#include "common/logging/log.h"
+#include "common/logging.h"
 #include "core/core.h"
 #include "core/hle/result.h"
 #include "core/hle/service/audio/errors.h"

@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#include "common/logging/log.h"
+#include "common/logging.h"
 #include "core/hle/service/bcat/news/download_context.h"
 #include "core/hle/service/cmif_serialization.h"
 

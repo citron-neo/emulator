@@ -22,7 +22,7 @@
 #include "citron/uisettings.h"
 #include "citron/util/util.h"
 #include "common/common_types.h"
-#include "common/logging/log.h"
+#include "common/logging.h"
 #include "common/string_util.h"
 
 enum class GameListItemType {

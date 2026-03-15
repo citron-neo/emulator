@@ -6,7 +6,7 @@
 #include "audio_core/audio_event.h"
 #include "audio_core/audio_manager.h"
 #include "audio_core/in/audio_in_system.h"
-#include "common/logging/log.h"
+#include "common/logging.h"
 #include "core/core.h"
 #include "core/core_timing.h"
 #include "core/hle/kernel/k_event.h"

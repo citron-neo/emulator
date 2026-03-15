@@ -11,7 +11,7 @@
 #include <utility>
 
 #include "common/assert.h"
-#include "common/logging/log.h"
+#include "common/logging.h"
 #include "common/microprofile.h"
 #include "common/scope_exit.h"
 #include "common/thread.h"

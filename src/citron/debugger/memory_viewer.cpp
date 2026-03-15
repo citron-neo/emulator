@@ -29,7 +29,7 @@
 #include "core/hle/kernel/k_page_table.h"
 #include "core/hle/kernel/k_process.h"
 #include "core/hle/kernel/svc_types.h"
-#include "common/logging/log.h"
+#include "common/logging.h"
 #include "core/memory.h"
 #include "core/memory/dmnt_cheat_types.h"
 

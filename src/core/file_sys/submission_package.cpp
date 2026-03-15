@@ -7,7 +7,7 @@
 #include <fmt/ostream.h>
 
 #include "common/hex_util.h"
-#include "common/logging/log.h"
+#include "common/logging.h"
 #include "core/crypto/key_manager.h"
 #include "core/file_sys/content_archive.h"
 #include "core/file_sys/nca_metadata.h"

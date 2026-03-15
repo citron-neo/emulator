@@ -4,7 +4,7 @@
 #include <fmt/format.h>
 #include <libusb.h>
 
-#include "common/logging/log.h"
+#include "common/logging.h"
 #include "common/param_package.h"
 #include "common/polyfill_thread.h"
 #include "common/settings_input.h"

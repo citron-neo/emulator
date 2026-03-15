@@ -10,7 +10,7 @@
 #include "citron/custom_metadata.h"
 #include "common/fs/fs.h"
 #include "common/fs/path_util.h"
-#include "common/logging/log.h"
+#include "common/logging.h"
 
 namespace Citron {
 

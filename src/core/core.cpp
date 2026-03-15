@@ -34,7 +34,7 @@
 
 #include "audio_core/audio_core.h"
 #include "common/fs/fs.h"
-#include "common/logging/log.h"
+#include "common/logging.h"
 #include "common/microprofile.h"
 #include "common/settings.h"
 #include "common/settings_enums.h"

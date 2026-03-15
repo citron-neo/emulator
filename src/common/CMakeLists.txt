@@ -71,16 +71,8 @@ add_library(common STATIC
     input.h
     intrusive_red_black_tree.h
     literals.h
-    logging/backend.cpp
-    logging/backend.h
-    logging/filter.cpp
-    logging/filter.h
-    logging/formatter.h
-    logging/log.h
-    logging/log_entry.h
-    logging/text_formatter.cpp
-    logging/text_formatter.h
-    logging/types.h
+    logging.cpp
+    logging.h
     lz4_compression.cpp
     lz4_compression.h
     make_unique_for_overwrite.h

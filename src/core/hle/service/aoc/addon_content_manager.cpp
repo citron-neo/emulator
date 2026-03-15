@@ -6,7 +6,7 @@
 #include <numeric>
 #include <vector>
 
-#include "common/logging/log.h"
+#include "common/logging.h"
 #include "common/settings.h"
 #include "core/core.h"
 #include "core/file_sys/common_funcs.h"

@@ -9,7 +9,7 @@
 #include "android_settings.h"
 #include "common/android/android_common.h"
 #include "common/android/id_cache.h"
-#include "common/logging/log.h"
+#include "common/logging.h"
 #include "common/settings.h"
 #include "frontend_common/config.h"
 #include "native.h"

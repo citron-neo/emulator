@@ -10,7 +10,7 @@
 #include "common/assert.h"
 #include "common/atomic_ops.h"
 #include "common/common_types.h"
-#include "common/logging/log.h"
+#include "common/logging.h"
 #include "common/page_table.h"
 #include "common/scope_exit.h"
 #include "common/settings.h"

@@ -4,7 +4,7 @@
 #include "citron/uisettings.h"
 #include "citron/updater/updater_service.h"
 #include "common/fs/path_util.h"
-#include "common/logging/log.h"
+#include "common/logging.h"
 #include "common/scm_rev.h"
 
 #include <QApplication>

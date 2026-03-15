@@ -7,7 +7,7 @@
 #include <QMessageBox>
 #include <QStringListModel>
 
-#include "common/logging/log.h"
+#include "common/logging.h"
 #include "common/settings.h"
 #include "input_common/drivers/udp_client.h"
 #include "input_common/helpers/udp_protocol.h"

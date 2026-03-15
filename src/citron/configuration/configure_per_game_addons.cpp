@@ -10,7 +10,7 @@
 #include <QMenu>
 #include <QProcess>
 #include <QDir>
-#include "common/logging/log.h"
+#include "common/logging.h"
 #include <QProcess>
 #include <QDir>
 #include <QStandardItemModel>

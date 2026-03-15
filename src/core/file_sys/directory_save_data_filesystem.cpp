@@ -3,7 +3,7 @@
 
 #include <chrono>
 #include <thread>
-#include "common/logging/log.h"
+#include "common/logging.h"
 #include "common/settings.h"
 #include "core/file_sys/directory_save_data_filesystem.h"
 #include "core/file_sys/errors.h"

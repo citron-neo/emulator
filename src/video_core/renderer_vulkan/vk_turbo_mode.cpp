@@ -7,7 +7,7 @@
 #endif
 
 #include "common/literals.h"
-#include "common/logging/log.h"
+#include "common/logging.h"
 #include "video_core/host_shaders/vulkan_turbo_mode_comp_spv.h"
 #include "video_core/renderer_vulkan/renderer_vulkan.h"
 #include "video_core/renderer_vulkan/vk_shader_util.h"

@@ -9,7 +9,7 @@
 #include "audio_core/common/common.h"
 #include "audio_core/sink/oboe_sink.h"
 #include "audio_core/sink/sink_stream.h"
-#include "common/logging/log.h"
+#include "common/logging.h"
 #include "common/scope_exit.h"
 #include "core/core.h"
 

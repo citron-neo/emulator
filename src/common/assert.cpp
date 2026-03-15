@@ -3,7 +3,7 @@
 
 #include "common/assert.h"
 #include "common/common_funcs.h"
-#include "common/logging/backend.h"
+#include "common/logging.h"
 
 #include "common/settings.h"
 

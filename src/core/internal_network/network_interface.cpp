@@ -9,7 +9,7 @@
 
 #include "common/bit_cast.h"
 #include "common/common_types.h"
-#include "common/logging/log.h"
+#include "common/logging.h"
 #include "common/polyfill_ranges.h"
 #include "common/settings.h"
 #include "common/string_util.h"

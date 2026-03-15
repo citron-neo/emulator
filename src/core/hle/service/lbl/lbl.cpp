@@ -4,7 +4,7 @@
 #include <cmath>
 #include <memory>
 
-#include "common/logging/log.h"
+#include "common/logging.h"
 #include "core/hle/service/ipc_helpers.h"
 #include "core/hle/service/lbl/lbl.h"
 #include "core/hle/service/server_manager.h"

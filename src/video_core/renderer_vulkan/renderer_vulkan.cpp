@@ -12,7 +12,7 @@
 #include <fmt/format.h>
 #include <fmt/ranges.h>
 
-#include "common/logging/log.h"
+#include "common/logging.h"
 #include "common/polyfill_ranges.h"
 #include "common/scope_exit.h"
 #include "common/settings.h"

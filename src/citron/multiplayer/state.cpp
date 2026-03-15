@@ -8,7 +8,7 @@
 #include <QMessageBox>
 #include <QStandardItemModel>
 #include "common/announce_multiplayer_room.h"
-#include "common/logging/log.h"
+#include "common/logging.h"
 #include "core/core.h"
 #include "citron/game_list.h"
 #include "citron/multiplayer/client_room.h"

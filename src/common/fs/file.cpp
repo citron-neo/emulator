@@ -8,7 +8,7 @@
 #ifdef ANDROID
 #include "common/fs/fs_android.h"
 #endif
-#include "common/logging/log.h"
+#include "common/logging.h"
 
 #ifdef _WIN32
 #include <io.h>

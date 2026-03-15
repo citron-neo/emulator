@@ -5,7 +5,7 @@
 #define SDL_MAIN_HANDLED
 #include <SDL.h>
 
-#include "common/logging/log.h"
+#include "common/logging.h"
 #include "input_common/main.h"
 #include "sdl_config.h"
 

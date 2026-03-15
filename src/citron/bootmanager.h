@@ -26,7 +26,7 @@
 #include <qobjectdefs.h>
 
 #include "common/common_types.h"
-#include "common/logging/log.h"
+#include "common/logging.h"
 #include "common/polyfill_thread.h"
 #include "common/thread.h"
 #include "core/frontend/emu_window.h"

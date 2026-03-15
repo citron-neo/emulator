@@ -8,7 +8,7 @@
 #include "common/common_types.h"
 #include "common/fs/file.h"
 #include "common/fs/path_util.h"
-#include "common/logging/log.h"
+#include "common/logging.h"
 #include "common/polyfill_ranges.h"
 #include "common/stb.h"
 #include "common/string_util.h"

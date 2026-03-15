@@ -6,7 +6,7 @@
 #include <numbers>
 
 #include "audio_core/common/loudness_calculator.h"
-#include "common/logging/log.h"
+#include "common/logging.h"
 
 namespace AudioCore {
 

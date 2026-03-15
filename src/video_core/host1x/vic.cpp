@@ -17,7 +17,7 @@ extern "C" {
 
 #include "common/assert.h"
 #include "common/bit_field.h"
-#include "common/logging/log.h"
+#include "common/logging.h"
 
 #include "video_core/engines/maxwell_3d.h"
 #include "video_core/host1x/host1x.h"

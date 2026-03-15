@@ -7,7 +7,7 @@
 #include "audio_core/renderer/command/data_source/decode.h"
 #include "audio_core/renderer/command/resample/resample.h"
 #include "common/fixed_point.h"
-#include "common/logging/log.h"
+#include "common/logging.h"
 #include "common/scratch_buffer.h"
 #include "core/guest_memory.h"
 #include "core/memory.h"

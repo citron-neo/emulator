@@ -6,7 +6,7 @@
 
 #include <fmt/ostream.h>
 
-#include "common/logging/log.h"
+#include "common/logging.h"
 #include "core/crypto/key_manager.h"
 #include "core/file_sys/card_image.h"
 #include "core/file_sys/content_archive.h"

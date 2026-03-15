@@ -3,7 +3,7 @@
 
 #include "common/assert.h"
 #include "common/alignment.h"
-#include "common/logging/log.h"
+#include "common/logging.h"
 #include "core/core.h"
 #include "core/hle/kernel/k_client_port.h"
 #include "core/hle/kernel/k_port.h"
