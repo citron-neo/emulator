@@ -9,7 +9,6 @@
 #include <string>
 #include <tuple>
 #include <type_traits>
-#include <glad/glad.h>
 
 #include <QtCore/qglobal.h>
 #include "common/settings_enums.h"
@@ -161,19 +160,6 @@ public:
 
 private:
     GRenderWindow* render_window;
-};
-
-struct OpenGLRenderWidget : public RenderWidget {
-    explicit OpenGLRenderWidget(GRenderWindow* parent) : RenderWidget(parent) {
-        windowHandle()->setSurfaceType(QWindow::OpenGLSurface);
-    }
-
-    void SetContext(std::unique_ptr<Core::Frontend::GraphicsContext>&& context_) {
-        context = std::move(context_);
-    }
-
-private:
-    std::unique_ptr<Core::Frontend::GraphicsContext> context;
 };
 
 struct VulkanRenderWidget : public RenderWidget {
@@ -891,8 +877,10 @@ bool GRenderWindow::InitRenderTarget() {
             return false;
         }
         break;
-    case Settings::RendererBackend::OpenGL:
     case Settings::RendererBackend::Null:
+        InitializeNull();
+        break;
+    default:
         InitializeNull();
         break;
     }
@@ -977,28 +965,6 @@ bool GRenderWindow::InitializeVulkan() {
 void GRenderWindow::InitializeNull() {
     child_widget = new NullRenderWidget(this);
     main_context = std::make_unique<DummyContext>();
-}
-
-QStringList GRenderWindow::GetUnsupportedGLExtensions() const {
-    QStringList unsupported_ext;
-
-    // Extensions required to support some texture formats.
-    if (!GLAD_GL_EXT_texture_compression_s3tc) {
-        unsupported_ext.append(QStringLiteral("EXT_texture_compression_s3tc"));
-    }
-    if (!GLAD_GL_ARB_texture_compression_rgtc) {
-        unsupported_ext.append(QStringLiteral("ARB_texture_compression_rgtc"));
-    }
-
-    if (!unsupported_ext.empty()) {
-        const std::string gl_renderer{reinterpret_cast<const char*>(glGetString(GL_RENDERER))};
-        LOG_ERROR(Frontend, "GPU does not support all required extensions: {}", gl_renderer);
-    }
-    for (const QString& ext : unsupported_ext) {
-        LOG_ERROR(Frontend, "Unsupported GL extension: {}", ext.toStdString());
-    }
-
-    return unsupported_ext;
 }
 
 void GRenderWindow::OnEmulationStarting(EmuThread* emu_thread_) {

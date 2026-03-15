@@ -80,7 +80,6 @@ static FileSys::VirtualFile VfsDirectoryCreateFileWrapper(const FileSys::Virtual
 }
 
 #include <fmt/ostream.h>
-#include <glad/glad.h>
 
 #define QT_NO_OPENGL
 #include <QCheckBox>
@@ -2767,8 +2766,6 @@ void GMainWindow::OnGameListRemoveFile(u64 program_id, GameListRemoveTarget targ
                                        const std::string& game_path) {
     const QString question = [target] {
         switch (target) {
-        case GameListRemoveTarget::GlShaderCache:
-            return tr("Delete OpenGL Transferable Shader Cache?");
         case GameListRemoveTarget::VkShaderCache:
             return tr("Delete Vulkan Transferable Shader Cache?");
         case GameListRemoveTarget::AllShaderCache:
@@ -2790,9 +2787,7 @@ void GMainWindow::OnGameListRemoveFile(u64 program_id, GameListRemoveTarget targ
     switch (target) {
     case GameListRemoveTarget::VkShaderCache:
         RemoveVulkanDriverPipelineCache(program_id);
-        [[fallthrough]];
-    case GameListRemoveTarget::GlShaderCache:
-        RemoveTransferableShaderCache(program_id, target);
+        RemoveTransferableShaderCache(program_id);
         break;
     case GameListRemoveTarget::AllShaderCache:
         RemoveAllTransferableShaderCaches(program_id);
@@ -2817,17 +2812,8 @@ void GMainWindow::OnGameListRemovePlayTimeData(u64 program_id) {
     game_list->PopulateAsync(UISettings::values.game_dirs);
 }
 
-void GMainWindow::RemoveTransferableShaderCache(u64 program_id, GameListRemoveTarget target) {
-    const auto target_file_name = [target] {
-        switch (target) {
-        case GameListRemoveTarget::GlShaderCache:
-            return "opengl.bin";
-        case GameListRemoveTarget::VkShaderCache:
-            return "vulkan.bin";
-        default:
-            return "";
-        }
-    }();
+void GMainWindow::RemoveTransferableShaderCache(u64 program_id) {
+    constexpr auto target_file_name = "vulkan.bin";
     const auto shader_cache_dir = Common::FS::GetCitronPath(Common::FS::CitronPath::ShaderDir);
     const auto shader_cache_folder_path = shader_cache_dir / fmt::format("{:016x}", program_id);
     const auto target_file = shader_cache_folder_path / target_file_name;
@@ -5661,7 +5647,11 @@ void GMainWindow::UpdateDockedButton() {
 
 void GMainWindow::UpdateAPIText() {
     const auto api = Settings::values.renderer_backend.GetValue();
-    const auto renderer_status_text = ConfigurationShared::renderer_backend_texts_map.find(api)->second;
+    const auto text_it = ConfigurationShared::renderer_backend_texts_map.find(api);
+    const auto renderer_status_text =
+        text_it != ConfigurationShared::renderer_backend_texts_map.end()
+            ? text_it->second
+            : ConfigurationShared::renderer_backend_texts_map.at(Settings::RendererBackend::Vulkan);
     renderer_status_button->setText(renderer_status_text.toUpper());
 }
 
@@ -6363,7 +6353,6 @@ int main(int argc, char* argv[]) {
     QCoreApplication::setAttribute(Qt::AA_DisableWindowContextHelpButton);
 #endif
 
-    QCoreApplication::setAttribute(Qt::AA_DontCheckOpenGLContextThreadAffinity);
 
     QApplication app(argc, argv);
 

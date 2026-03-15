@@ -34,7 +34,6 @@
 #include "sdl_config.h"
 #include "video_core/renderer_base.h"
 #include "citron_cmd/emu_window/emu_window_sdl2.h"
-#include "citron_cmd/emu_window/emu_window_sdl2_gl.h"
 #include "citron_cmd/emu_window/emu_window_sdl2_null.h"
 #include "citron_cmd/emu_window/emu_window_sdl2_vk.h"
 
@@ -351,6 +350,9 @@ int main(int argc, char** argv) {
         break;
     case Settings::RendererBackend::Null:
         emu_window = std::make_unique<EmuWindow_SDL2_Null>(&input_subsystem, system, fullscreen);
+        break;
+    default:
+        emu_window = std::make_unique<EmuWindow_SDL2_VK>(&input_subsystem, system, fullscreen);
         break;
     }
 

@@ -15,8 +15,6 @@ endfunction()
 add_executable(citron-cmd
     emu_window/emu_window_sdl2.cpp
     emu_window/emu_window_sdl2.h
-    emu_window/emu_window_sdl2_gl.cpp
-    emu_window/emu_window_sdl2_gl.h
     emu_window/emu_window_sdl2_null.cpp
     emu_window/emu_window_sdl2_null.h
     emu_window/emu_window_sdl2_vk.cpp

@@ -31,17 +31,6 @@ set(SHADER_FILES
     full_screen_triangle.vert
     fxaa.frag
     fxaa.vert
-    opengl_convert_s8d24.comp
-    opengl_copy_bc4.comp
-    opengl_fidelityfx_fsr.frag
-    opengl_fidelityfx_fsr_easu.frag
-    opengl_fidelityfx_fsr_rcas.frag
-    opengl_lmem_warmup.comp
-    opengl_present.frag
-    opengl_present.vert
-    opengl_present_scaleforce.frag
-    opengl_present_scalefx.frag
-    opengl_smaa.glsl
     pitch_unswizzle.comp
     present_bicubic.frag
     present_lanczos.frag
@@ -133,20 +122,17 @@ foreach(FILENAME IN ITEMS ${SHADER_FILES})
         )
         set(SHADER_HEADERS ${SHADER_HEADERS} ${SOURCE_HEADER_FILE})
     endif()
-    # Skip compiling to SPIR-V OpenGL exclusive files
-    if (NOT ${FILENAME} MATCHES "opengl.*")
-        string(TOUPPER ${SHADER_NAME}_SPV SPIRV_VARIABLE_NAME)
-        set(SPIRV_HEADER_FILE ${SHADER_DIR}/${SHADER_NAME}_spv.h)
-        add_custom_command(
-            OUTPUT
-                ${SPIRV_HEADER_FILE}
-            COMMAND
-                ${GLSLANGVALIDATOR} -V ${QUIET_FLAG} -I"${FIDELITYFX_INCLUDE_DIR}" ${GLSL_FLAGS} --variable-name ${SPIRV_VARIABLE_NAME} -o ${SPIRV_HEADER_FILE} ${SOURCE_FILE} --target-env ${SPIR_V_VERSION}
-            MAIN_DEPENDENCY
-                ${SOURCE_FILE}
-        )
-        set(SHADER_HEADERS ${SHADER_HEADERS} ${SPIRV_HEADER_FILE})
-    endif()
+    string(TOUPPER ${SHADER_NAME}_SPV SPIRV_VARIABLE_NAME)
+    set(SPIRV_HEADER_FILE ${SHADER_DIR}/${SHADER_NAME}_spv.h)
+    add_custom_command(
+        OUTPUT
+            ${SPIRV_HEADER_FILE}
+        COMMAND
+            ${GLSLANGVALIDATOR} -V ${QUIET_FLAG} -I"${FIDELITYFX_INCLUDE_DIR}" ${GLSL_FLAGS} --variable-name ${SPIRV_VARIABLE_NAME} -o ${SPIRV_HEADER_FILE} ${SOURCE_FILE} --target-env ${SPIR_V_VERSION}
+        MAIN_DEPENDENCY
+            ${SOURCE_FILE}
+    )
+    set(SHADER_HEADERS ${SHADER_HEADERS} ${SPIRV_HEADER_FILE})
 endforeach()
 
 foreach(FILEPATH IN ITEMS ${FIDELITYFX_FILES})

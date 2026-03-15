@@ -1601,7 +1601,6 @@ void GameList::AddGamePopup(QMenu& context_menu, u64 program_id, const std::stri
     QAction* remove_custom_config = remove_menu->addAction(tr("Remove Custom Configuration"));
     QAction* remove_play_time_data = remove_menu->addAction(tr("Remove Play Time Data"));
     QAction* remove_cache_storage = remove_menu->addAction(tr("Remove Cache Storage"));
-    QAction* remove_gl_shader_cache = remove_menu->addAction(tr("Remove OpenGL Pipeline Cache"));
     QAction* remove_vk_shader_cache = remove_menu->addAction(tr("Remove Vulkan Pipeline Cache"));
     remove_menu->addSeparator();
     QAction* remove_shader_cache = remove_menu->addAction(tr("Remove All Pipeline Caches"));
@@ -1858,9 +1857,6 @@ void GameList::AddGamePopup(QMenu& context_menu, u64 program_id, const std::stri
     });
     connect(remove_dlc, &QAction::triggered, [this, program_id]() {
         emit RemoveInstalledEntryRequested(program_id, InstalledEntryType::AddOnContent);
-    });
-    connect(remove_gl_shader_cache, &QAction::triggered, [this, program_id, path_str]() {
-        emit RemoveFileRequested(program_id, GameListRemoveTarget::GlShaderCache, path_str);
     });
     connect(remove_vk_shader_cache, &QAction::triggered, [this, program_id, path_str]() {
         emit RemoveFileRequested(program_id, GameListRemoveTarget::VkShaderCache, path_str);

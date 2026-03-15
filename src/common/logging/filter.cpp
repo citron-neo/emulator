@@ -147,7 +147,6 @@ bool ParseFilterRule(Filter& instance, Iterator begin, Iterator end) {
     CLS(Frontend)                                                                                  \
     CLS(Render)                                                                                    \
     SUB(Render, Software)                                                                          \
-    SUB(Render, OpenGL)                                                                            \
     SUB(Render, Vulkan)                                                                            \
     CLS(Shader)                                                                                    \
     SUB(Shader, SPIRV)                                                                             \

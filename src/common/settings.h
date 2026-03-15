@@ -272,8 +272,7 @@ struct Values {
 
     // Renderer
     SwitchableSetting<RendererBackend, true> renderer_backend{
-        linkage,   RendererBackend::Vulkan, RendererBackend::OpenGL, RendererBackend::Null,
-        "backend", Category::Renderer};
+        linkage, RendererBackend::Vulkan, RendererBackend::Null, "backend", Category::Renderer};
     SwitchableSetting<int> vulkan_device{linkage, 0, "vulkan_device", Category::Renderer,
                                          Specialization::RuntimeList};
 

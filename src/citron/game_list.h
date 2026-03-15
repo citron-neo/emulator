@@ -53,7 +53,6 @@ enum class GameListOpenTarget {
 };
 
 enum class GameListRemoveTarget {
-    GlShaderCache,
     VkShaderCache,
     AllShaderCache,
     CustomConfiguration,

@@ -126,7 +126,7 @@ ENUM(VSyncMode, Immediate, Mailbox, Fifo, FifoRelaxed);
 
 ENUM(VramUsageMode, Conservative, Aggressive, HighEnd, Insane);
 
-ENUM(RendererBackend, OpenGL, Vulkan, Null);
+ENUM(RendererBackend, Vulkan, Null);
 
 ENUM(GpuAccuracy, Low, Normal, High, Extreme);
 

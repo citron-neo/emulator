@@ -211,11 +211,7 @@ void ConfigureGraphics::PopulateVSyncModeSelection(bool use_setting) {
         vsync_restore_global_button->setVisible(!Settings::values.vsync_mode.UsingGlobal());
 
         const Settings::VSyncMode global_vsync_mode = Settings::values.vsync_mode.GetValue(true);
-        vsync_restore_global_button->setEnabled(
-            (backend == Settings::RendererBackend::OpenGL &&
-             (global_vsync_mode == Settings::VSyncMode::Immediate ||
-              global_vsync_mode == Settings::VSyncMode::Fifo)) ||
-            backend == Settings::RendererBackend::Vulkan);
+        vsync_restore_global_button->setEnabled(backend == Settings::RendererBackend::Vulkan);
     }
 }
 
@@ -479,17 +475,14 @@ void ConfigureGraphics::Setup(const ConfigurationShared::Builder& builder) {
 
 const QString ConfigureGraphics::TranslateVSyncMode(VkPresentModeKHR mode,
                                                     Settings::RendererBackend backend) const {
+    (void)backend;
     switch (mode) {
     case VK_PRESENT_MODE_IMMEDIATE_KHR:
-        return backend == Settings::RendererBackend::OpenGL
-                   ? tr("Off")
-                   : QStringLiteral("Immediate (%1)").arg(tr("VSync Off"));
+        return QStringLiteral("Immediate (%1)").arg(tr("VSync Off"));
     case VK_PRESENT_MODE_MAILBOX_KHR:
         return QStringLiteral("Mailbox (%1)").arg(tr("Recommended"));
     case VK_PRESENT_MODE_FIFO_KHR:
-        return backend == Settings::RendererBackend::OpenGL
-                   ? tr("On")
-                   : QStringLiteral("FIFO (%1)").arg(tr("VSync On"));
+        return QStringLiteral("FIFO (%1)").arg(tr("VSync On"));
     case VK_PRESENT_MODE_FIFO_RELAXED_KHR:
         return QStringLiteral("FIFO Relaxed");
     default:
@@ -528,8 +521,9 @@ void ConfigureGraphics::ApplyConfiguration() {
             Settings::values.vulkan_device.SetGlobal(Settings::IsConfiguringGlobal());
             Settings::values.vulkan_device.SetValue(vulkan_device_combobox->currentIndex());
             break;
-        case Settings::RendererBackend::OpenGL:
         case Settings::RendererBackend::Null:
+            break;
+        default:
             break;
         }
     }
@@ -598,7 +592,7 @@ Settings::RendererBackend ConfigureGraphics::GetCurrentGraphicsBackend() const {
 
     if (selected_backend == Settings::RendererBackend::Vulkan &&
         UISettings::values.has_broken_vulkan) {
-        return Settings::RendererBackend::OpenGL;
+        return Settings::RendererBackend::Null;
     }
     return selected_backend;
 }
