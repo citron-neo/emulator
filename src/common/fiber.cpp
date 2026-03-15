@@ -11,13 +11,13 @@
 
 namespace Common {
 
-constexpr std::size_t default_stack_size = 512 * 1024;
+constexpr std::size_t DEFAULT_STACK_SIZE = 512 * 1024;
 
 struct Fiber::FiberImpl {
-    FiberImpl() : stack{default_stack_size}, rewind_stack{default_stack_size} {}
+    FiberImpl() {}
 
-    VirtualBuffer<u8> stack;
-    VirtualBuffer<u8> rewind_stack;
+    std::array<u8, DEFAULT_STACK_SIZE> stack = {};
+    std::array<u8, DEFAULT_STACK_SIZE> rewind_stack = {};
 
     std::mutex guard;
     std::function<void()> entry_point;
@@ -70,7 +70,7 @@ Fiber::Fiber(std::function<void()>&& entry_point_func) : impl{std::make_unique<F
     impl->entry_point = std::move(entry_point_func);
     impl->stack_limit = impl->stack.data();
     impl->rewind_stack_limit = impl->rewind_stack.data();
-    u8* stack_base = impl->stack_limit + default_stack_size;
+    u8* stack_base = impl->stack_limit + DEFAULT_STACK_SIZE;
     impl->context =
         boost::context::detail::make_fcontext(stack_base, impl->stack.size(), FiberStartFunc);
 }
@@ -101,7 +101,7 @@ void Fiber::Exit() {
 void Fiber::Rewind() {
     ASSERT(impl->rewind_point);
     ASSERT(impl->rewind_context == nullptr);
-    u8* stack_base = impl->rewind_stack_limit + default_stack_size;
+    u8* stack_base = impl->rewind_stack_limit + DEFAULT_STACK_SIZE;
     impl->rewind_context =
         boost::context::detail::make_fcontext(stack_base, impl->stack.size(), RewindStartFunc);
     boost::context::detail::jump_fcontext(impl->rewind_context, this);
