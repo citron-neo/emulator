@@ -5,7 +5,7 @@
 
 #ifdef _WIN32
 #include <windows.h>
-#elif defined(CITRON_UNIX)
+#elif defined(__unix__)
 #include <sys/types.h>
 #endif
 
@@ -19,6 +19,6 @@ bool StartupChecks(const char* arg0, bool* has_broken_vulkan, bool perform_vulka
 
 #ifdef _WIN32
 bool SpawnChild(const char* arg0, PROCESS_INFORMATION* pi, int flags);
-#elif defined(CITRON_UNIX)
+#elif defined(__unix__)
 pid_t SpawnChild(const char* arg0);
 #endif
