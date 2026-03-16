@@ -103,7 +103,7 @@ android {
                 signingConfigs.getByName("default")
             }
 
-            resValue("string", "app_name_suffixed", "citron")
+            resValue("string", "app_name_suffixed", "citron-neo: The switch fell off")
             isMinifyEnabled = true
             isDebuggable = false
             proguardFiles(
@@ -116,7 +116,7 @@ android {
         // Attaches 'debug' suffix to version and package name, allowing installation alongside the release build.
         register("relWithDebInfo") {
             isDefault = true
-            resValue("string", "app_name_suffixed", "citron Debug Release")
+            resValue("string", "app_name_suffixed", "citron-neo: The switch fell off Debug Release")
             signingConfig = signingConfigs.getByName("default")
             isMinifyEnabled = true
             isDebuggable = true
@@ -133,7 +133,7 @@ android {
         // Attaches 'debug' suffix to version and package name, allowing installation alongside the release build.
         debug {
             signingConfig = signingConfigs.getByName("default")
-            resValue("string", "app_name_suffixed", "citron Debug")
+            resValue("string", "app_name_suffixed", "citron-neo: The switch fell off Debug")
             isDebuggable = true
             isJniDebuggable = true
             versionNameSuffix = "-debug"

@@ -6,7 +6,7 @@
    <rect><x>0</x><y>0</y><width>620</width><height>300</height></rect>
   </property>
   <property name="windowTitle">
-   <string>About citron</string>
+   <string>About citron-neo: The switch fell off</string>
   </property>
   <layout class="QVBoxLayout" name="mainVerticalLayout">
    <property name="spacing"><number>12</number></property>

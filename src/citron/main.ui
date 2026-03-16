@@ -272,7 +272,7 @@
   </action>
   <action name="action_About">
    <property name="text">
-    <string>&amp;About citron</string>
+    <string>&amp;About citron-neo: The switch fell off</string>
    </property>
   </action>
   <action name="action_Single_Window_Mode">

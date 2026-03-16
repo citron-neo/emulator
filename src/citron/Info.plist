@@ -23,7 +23,9 @@ SPDX-License-Identifier: GPL-2.0-or-later
     <key>CFBundleLongVersionString</key>
     <string></string>
     <key>CFBundleName</key>
-    <string>citron</string>
+    <string>citron-neo: The switch fell off</string>
+    <key>CFBundleDisplayName</key>
+    <string>citron-neo: The switch fell off</string>
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleShortVersionString</key>

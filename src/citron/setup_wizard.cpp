@@ -65,7 +65,7 @@ SetupWizard::SetupWizard(Core::System& system_, GMainWindow* main_window_, QWidg
       profile_name{QStringLiteral("citron")}, firmware_installed{false} {
     ui->setupUi(this);
 
-    setWindowTitle(tr("citron Setup Wizard"));
+    setWindowTitle(tr("citron-neo: The switch fell off Setup Wizard"));
 
     setWindowFlags(Qt::Dialog | Qt::WindowTitleHint | Qt::WindowCloseButtonHint |
                    Qt::WindowSystemMenuHint | Qt::WindowStaysOnTopHint);

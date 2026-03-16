@@ -178,7 +178,7 @@ GRenderWindow::GRenderWindow(GMainWindow* parent, EmuThread* emu_thread_,
 : QWidget(parent),
 emu_thread(emu_thread_), input_subsystem{std::move(input_subsystem_)}, system{system_},
 hotkey_registry{hotkey_registry_} {
-    setWindowTitle(QStringLiteral("citron %1 | %2-%3")
+    setWindowTitle(QStringLiteral("citron-neo: The switch fell off %1 | %2-%3")
     .arg(QString::fromUtf8(Common::g_build_name),
          QString::fromUtf8(Common::g_scm_branch),
          QString::fromUtf8(Common::g_scm_desc)));

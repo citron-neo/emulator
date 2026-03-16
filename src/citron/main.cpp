@@ -6328,7 +6328,7 @@ int main(int argc, char* argv[]) {
     Common::ConfigureNvidiaEnvironmentFlags();
 
     QCoreApplication::setOrganizationName(QStringLiteral("citron team"));
-    QCoreApplication::setApplicationName(QStringLiteral("citron"));
+    QCoreApplication::setApplicationName(QStringLiteral("citron-neo: The switch fell off"));
 
 #ifdef _WIN32
     _setmaxstdio(8192);
