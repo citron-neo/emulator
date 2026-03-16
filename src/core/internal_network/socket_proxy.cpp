@@ -13,7 +13,7 @@
 #include "core/internal_network/socket_proxy.h"
 #include "network/network.h"
 
-#if CITRON_UNIX
+#if defined(__unix__) || defined(__APPLE__)
 #include <sys/socket.h>
 #endif
 
