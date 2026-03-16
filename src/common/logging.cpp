@@ -232,7 +232,8 @@ struct ColorConsoleBackend final : public Backend {
 /// @brief Backend that writes to a file passed into the constructor
 struct FileBackend final : public Backend {
     explicit FileBackend(const std::filesystem::path& filename) noexcept {
-        auto old_filename = std::string{filename} + ".old.txt";
+        auto old_filename = filename;
+        old_filename += ".old.txt";
         // Existence checks are done within the functions themselves.
         // We don't particularly care if these succeed or not.
         void(FS::RemoveFile(old_filename));
