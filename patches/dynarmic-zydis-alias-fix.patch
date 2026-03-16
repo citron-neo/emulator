@@ -1,0 +1,14 @@
+diff --git a/externals/CMakeLists.txt b/externals/CMakeLists.txt
+index 41b07320..8e887850 100644
+--- a/externals/CMakeLists.txt
++++ b/externals/CMakeLists.txt
+@@ -80,7 +80,9 @@ if (NOT TARGET Zydis::Zydis)
+         set(ZYAN_ZYCORE_PATH "${CMAKE_CURRENT_LIST_DIR}/zycore" CACHE PATH "")
+         set(CMAKE_DISABLE_FIND_PACKAGE_Doxygen ON)
+         add_subdirectory(zydis)
+-        add_library(Zydis::Zydis ALIAS Zydis)
++        if (TARGET Zydis AND NOT TARGET Zydis::Zydis)
++            add_library(Zydis::Zydis ALIAS Zydis)
++        endif()
+     endif()
+ endif()
