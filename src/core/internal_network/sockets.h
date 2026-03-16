@@ -27,7 +27,6 @@ using SOCKET = ::SOCKET;
 #else
 using SOCKET = int;
 constexpr SOCKET INVALID_SOCKET = -1;
-constexpr SOCKET SOCKET_ERROR = -1;
 #endif
 
 class SocketBase {
