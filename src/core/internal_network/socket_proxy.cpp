@@ -13,7 +13,7 @@
 #include "core/internal_network/socket_proxy.h"
 #include "network/network.h"
 
-#if defined(__unix__)
+#if CITRON_UNIX
 #include <sys/socket.h>
 #endif
 
