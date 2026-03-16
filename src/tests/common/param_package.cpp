@@ -9,7 +9,6 @@
 namespace Common {
 
 TEST_CASE("ParamPackage", "[common]") {
-    Common::Log::DisableLoggingInTests();
     ParamPackage original{
         {"abc", "xyz"},
         {"def", "42"},
