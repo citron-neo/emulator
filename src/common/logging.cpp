@@ -355,8 +355,9 @@ struct Impl {
 } // namespace
 // @brief Constructor shall NOT depend upon Settings() or whatever
 // it's ran at global static ctor() time... so BE CAREFUL MFER!
-static Common::Log::Impl logging_instance{};
+static std::optional<Common::Log::Impl> logging_instance{};
 void Initialize() noexcept {
+    logging_instance.emplace();
     logging_instance.filter.ParseFilterString(Settings::values.log_filter.GetValue());
 #ifndef __OPENORBIS__
     using namespace Common::FS;
@@ -367,26 +368,30 @@ void Initialize() noexcept {
 }
 /// @brief Initializes the logging system. This should be the first thing called in main.
 void Start() noexcept {
-    logging_instance.StartBackendThread();
+    if (logging_instance)
+        logging_instance->StartBackendThread();
 }
 /// @brief Explicitly stops the logger thread and flushes the buffers
 void Stop() noexcept {
-    logging_instance.StopBackendThread();
+    if (logging_instance)
+        logging_instance->StopBackendThread();
 }
 /// @brief The global filter will prevent any messages from even being processed if they are filtered.
 void SetGlobalFilter(const Filter& filter) noexcept {
-    logging_instance.filter = filter;
+    if (logging_instance)
+        logging_instance->filter = filter;
 }
 void SetColorConsoleBackendEnabled(bool enabled) noexcept {
-    logging_instance.color_console_backend.enabled = enabled;
+    if (logging_instance)
+        logging_instance->color_console_backend.enabled = enabled;
 }
 void FmtLogMessageImpl(Class log_class, Level log_level, const char* filename, unsigned int line_num, const char* function, fmt::string_view format, const fmt::format_args& args) {
-    if (logging_instance.filter.CheckMessage(log_class, log_level)) {
-        logging_instance.message_queue.EmplaceWait(Entry{
+    if (logging_instance && logging_instance->filter.CheckMessage(log_class, log_level)) {
+        logging_instance->message_queue.EmplaceWait(Entry{
             .message = fmt::vformat(format, args),
             .filename = TrimSourcePath(filename),
             .function = function,
-            .timestamp = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now() - logging_instance.time_origin),
+            .timestamp = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now() - logging_instance->time_origin),
             .log_class = log_class,
             .log_level = log_level,
             .line_num = line_num,
