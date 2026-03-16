@@ -78,7 +78,7 @@ SOCKET GetInterruptSocket() {
 sockaddr TranslateFromSockAddrIn(SockAddrIn input) {
     sockaddr_in result;
 
-#if __unix__
+#if defined(__unix__)
     result.sin_len = sizeof(result);
 #endif
 
@@ -841,7 +841,7 @@ std::pair<s32, Errno> Socket::Send(std::span<const u8> message, int flags) {
     ASSERT(flags == 0);
 
     int native_flags = 0;
-#if __unix__
+#if defined(__unix__)
     native_flags |= MSG_NOSIGNAL; // do not send us SIGPIPE
 #endif
     const auto result = send(fd, reinterpret_cast<const char*>(message.data()),

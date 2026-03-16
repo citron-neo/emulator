@@ -9,7 +9,8 @@
 #include <utility>
 
 #if defined(_WIN32)
-#elif !__unix__
+
+#elif !defined(__unix__)
 #error "Platform not implemented"
 #endif
 
