@@ -20,17 +20,18 @@
 #endif
 #include <boost/algorithm/string/replace.hpp>
 #include <fmt/ranges.h>
+#include "common/bounded_threadsafe_queue.h"
 #include "common/fs/file.h"
 #include "common/fs/fs.h"
 #include "common/fs/fs_paths.h"
 #include "common/fs/path_util.h"
 #include "common/literals.h"
-#include "common/polyfill_thread.h"
-#include "common/thread.h"
 #include "common/logging.h"
+#include "common/polyfill_thread.h"
 #include "common/settings.h"
 #include "common/string_util.h"
-#include "common/bounded_threadsafe_queue.h"
+#include "common/thread.h"
+
 
 namespace Common::Log {
 /// @brief A log entry. Log entries are store in a structured format to permit more varied output
@@ -45,60 +46,77 @@ struct Entry {
     unsigned int line_num = 0;
 };
 namespace {
-/// @brief Returns the name of the passed log class as a C-string. Subclasses are separated by periods
-/// instead of underscores as in the enumeration.
+/// @brief Returns the name of the passed log class as a C-string. Subclasses are separated by
+/// periods instead of underscores as in the enumeration.
 /// @note GetClassName is a macro defined by Windows.h, grrr...
 const char* GetLogClassName(Class log_class) noexcept {
     switch (log_class) {
-#define CLS(x) case Class::x: return #x;
-#define SUB(x, y) case Class::x##_##y: return #x "." #y;
+#define CLS(x)                                                                                     \
+    case Class::x:                                                                                 \
+        return #x;
+#define SUB(x, y)                                                                                  \
+    case Class::x##_##y:                                                                           \
+        return #x "." #y;
 #include "common/log_classes.inc"
 #undef CLS
 #undef SUB
-    default: return "?";
+    default:
+        return "?";
     }
 }
 /// @brief Returns the name of the passed log level as a C-string.
 const char* GetLevelName(Level log_level) noexcept {
     switch (log_level) {
-#define LVL(x) case Level::x: return #x;
-    LVL(Trace)
-    LVL(Debug)
-    LVL(Info)
-    LVL(Warning)
-    LVL(Error)
-    LVL(Critical)
+#define LVL(x)                                                                                     \
+    case Level::x:                                                                                 \
+        return #x;
+        LVL(Trace)
+        LVL(Debug)
+        LVL(Info)
+        LVL(Warning)
+        LVL(Error)
+        LVL(Critical)
 #undef LVL
-    default: return "?";
+    default:
+        return "?";
     }
-}
 }
 /// @brief Some IDEs prefer <file>:<line> instead, so let's just do that :)
 std::string FormatLogMessage(const Entry& entry) noexcept {
-    if (!entry.filename) return "";
+    if (!entry.filename)
+        return "";
     auto const time_seconds = uint32_t(entry.timestamp.count() / 1000000);
     auto const time_fractional = uint32_t(entry.timestamp.count() % 1000000);
     auto const class_name = GetLogClassName(entry.log_class);
     auto const level_name = GetLevelName(entry.log_level);
-    return fmt::format("[{:4d}.{:06d}] {} <{}> {}:{}:{}: {}", time_seconds, time_fractional, class_name, level_name, entry.filename, entry.line_num, entry.function, entry.message);
+    return fmt::format("[{:4d}.{:06d}] {} <{}> {}:{}:{}: {}", time_seconds, time_fractional,
+                       class_name, level_name, entry.filename, entry.line_num, entry.function,
+                       entry.message);
 }
+} // namespace
 namespace {
-template <typename It> Level GetLevelByName(const It begin, const It end) noexcept {
+template <typename It>
+Level GetLevelByName(const It begin, const It end) noexcept {
     for (u32 i = 0; i < u32(Level::Count); ++i)
-        if (auto const name = GetLevelName(Level(i)); Common::ComparePartialString(begin, end, name))
+        if (auto const name = GetLevelName(Level(i));
+            Common::ComparePartialString(begin, end, name))
             return Level(i);
     return Level::Count;
 }
-template <typename It> Class GetClassByName(const It begin, const It end) noexcept {
+template <typename It>
+Class GetClassByName(const It begin, const It end) noexcept {
     for (u32 i = 0; i < u32(Class::Count); ++i)
-        if (auto const name = GetLogClassName(Class(i)); Common::ComparePartialString(begin, end, name))
+        if (auto const name = GetLogClassName(Class(i));
+            Common::ComparePartialString(begin, end, name))
             return Class(i);
     return Class::Count;
 }
-template <typename Iterator> bool ParseFilterRule(Filter& instance, Iterator begin, Iterator end) noexcept {
+template <typename Iterator>
+bool ParseFilterRule(Filter& instance, Iterator begin, Iterator end) noexcept {
     auto level_separator = std::find(begin, end, ':');
     if (level_separator == end) {
-        LOG_ERROR(Log, "Invalid log filter. Must specify a log level after `:`: {}", std::string(begin, end));
+        LOG_ERROR(Log, "Invalid log filter. Must specify a log level after `:`: {}",
+                  std::string(begin, end));
         return false;
     }
     const Level level = GetLevelByName(level_separator + 1, end);
@@ -160,8 +178,8 @@ struct Backend {
 #define CCB_PRINTF_FMT "[%4d.%06d] %s <%s> %s:%u:%s: %s"
 /// @brief Instead of using fmt::format() just use the system's formatting capabilities directly
 struct DirectFormatArgs {
-    const char *class_name;
-    const char *level_name;
+    const char* class_name;
+    const char* level_name;
     uint32_t time_seconds;
     uint32_t time_fractional;
 };
@@ -185,18 +203,27 @@ struct ColorConsoleBackend final : public Backend {
     }
     void Write(const Entry& entry) noexcept override {
         if (enabled && console_handle != INVALID_HANDLE_VALUE) {
-            SetConsoleTextAttribute(console_handle, WORD([&entry]() {
-                switch (entry.log_level) {
-                case Level::Debug: return FOREGROUND_GREEN | FOREGROUND_BLUE; // Cyan
-                case Level::Info: return FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE; // Bright gray
-                case Level::Warning: return FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_INTENSITY;
-                case Level::Error: return FOREGROUND_RED | FOREGROUND_INTENSITY;
-                case Level::Critical: return FOREGROUND_RED | FOREGROUND_BLUE | FOREGROUND_INTENSITY;
-                default: return FOREGROUND_INTENSITY; // Grey
-                }
-            }()));
+            SetConsoleTextAttribute(
+                console_handle, WORD([&entry]() {
+                    switch (entry.log_level) {
+                    case Level::Debug:
+                        return FOREGROUND_GREEN | FOREGROUND_BLUE; // Cyan
+                    case Level::Info:
+                        return FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE; // Bright gray
+                    case Level::Warning:
+                        return FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_INTENSITY;
+                    case Level::Error:
+                        return FOREGROUND_RED | FOREGROUND_INTENSITY;
+                    case Level::Critical:
+                        return FOREGROUND_RED | FOREGROUND_BLUE | FOREGROUND_INTENSITY;
+                    default:
+                        return FOREGROUND_INTENSITY; // Grey
+                    }
+                }()));
             auto const df = GetDirectFormatArgs(entry);
-            std::fprintf(stdout, CCB_PRINTF_FMT "\n", df.time_seconds, df.time_fractional, df.class_name, df.level_name, entry.filename, entry.line_num, entry.function, entry.message.c_str());
+            std::fprintf(stdout, CCB_PRINTF_FMT "\n", df.time_seconds, df.time_fractional,
+                         df.class_name, df.level_name, entry.filename, entry.line_num,
+                         entry.function, entry.message.c_str());
         }
     }
     void Flush() noexcept override {}
@@ -210,18 +237,28 @@ struct ColorConsoleBackend final : public Backend {
         if (enabled) {
 #define ESC "\x1b"
             auto const df = GetDirectFormatArgs(entry);
-            std::fprintf(stdout, [&entry]() -> const char* {
-                switch (entry.log_level) {
+            std::fprintf(
+                stdout,
+                [&entry]() -> const char* {
+                    switch (entry.log_level) {
 #define CCB_MAKE_COLOR_FMT(X) ESC X CCB_PRINTF_FMT ESC "[0m\n"
-                case Level::Debug: return CCB_MAKE_COLOR_FMT("[0;36m"); // Cyan
-                case Level::Info: return CCB_MAKE_COLOR_FMT("[0;37m"); // Bright gray
-                case Level::Warning: return CCB_MAKE_COLOR_FMT("[1;33m"); // Bright yellow
-                case Level::Error: return CCB_MAKE_COLOR_FMT("[1;31m"); // Bright red
-                case Level::Critical: return CCB_MAKE_COLOR_FMT("[1;35m"); // Bright magenta
-                default: return CCB_MAKE_COLOR_FMT("[1;30m"); // Grey
+                    case Level::Debug:
+                        return CCB_MAKE_COLOR_FMT("[0;36m"); // Cyan
+                    case Level::Info:
+                        return CCB_MAKE_COLOR_FMT("[0;37m"); // Bright gray
+                    case Level::Warning:
+                        return CCB_MAKE_COLOR_FMT("[1;33m"); // Bright yellow
+                    case Level::Error:
+                        return CCB_MAKE_COLOR_FMT("[1;31m"); // Bright red
+                    case Level::Critical:
+                        return CCB_MAKE_COLOR_FMT("[1;35m"); // Bright magenta
+                    default:
+                        return CCB_MAKE_COLOR_FMT("[1;30m"); // Grey
 #undef CCB_MAKE_COLOR_FMT
-                }
-            }(), df.time_seconds, df.time_fractional, df.class_name, df.level_name, entry.filename, entry.line_num, entry.function, entry.message.c_str());
+                    }
+                }(),
+                df.time_seconds, df.time_fractional, df.class_name, df.level_name, entry.filename,
+                entry.line_num, entry.function, entry.message.c_str());
 #undef ESC
         }
     }
@@ -245,7 +282,8 @@ struct FileBackend final : public Backend {
         if (enabled) {
             bytes_written += file->WriteString(FormatLogMessage(entry).append(1, '\n'));
             using namespace Common::Literals;
-            // Prevent logs from exceeding a set maximum size in the event that log entries are spammed.
+            // Prevent logs from exceeding a set maximum size in the event that log entries are
+            // spammed.
             const auto write_limit = Settings::values.extended_logging.GetValue() ? 1_GiB : 100_MiB;
             const bool write_limit_exceeded = bytes_written > write_limit;
             if (entry.log_level >= Level::Error || write_limit_exceeded) {
@@ -257,7 +295,9 @@ struct FileBackend final : public Backend {
             }
         }
     }
-    void Flush() noexcept override { file->Flush(); }
+    void Flush() noexcept override {
+        file->Flush();
+    }
     std::optional<FS::IOFile> file;
     std::size_t bytes_written = 0;
     bool enabled = true;
@@ -280,16 +320,25 @@ struct LogcatBackend : public Backend {
     ~LogcatBackend() noexcept override = default;
     void Write(const Entry& entry) noexcept override {
         auto const df = GetDirectFormatArgs(entry);
-        __android_log_print([&]() {
-            switch (entry.log_level) {
-            case Level::Debug: return ANDROID_LOG_DEBUG;
-            case Level::Info: return ANDROID_LOG_INFO;
-            case Level::Warning: return ANDROID_LOG_WARN;
-            case Level::Error: return ANDROID_LOG_ERROR;
-            case Level::Critical: return ANDROID_LOG_FATAL;
-            default: return ANDROID_LOG_VERBOSE;
-            }
-        }(), "YuzuNative", CCB_PRINTF_FMT, df.time_seconds, df.time_fractional, df.class_name, df.level_name, entry.filename, entry.line_num, entry.function, entry.message.c_str());
+        __android_log_print(
+            [&]() {
+                switch (entry.log_level) {
+                case Level::Debug:
+                    return ANDROID_LOG_DEBUG;
+                case Level::Info:
+                    return ANDROID_LOG_INFO;
+                case Level::Warning:
+                    return ANDROID_LOG_WARN;
+                case Level::Error:
+                    return ANDROID_LOG_ERROR;
+                case Level::Critical:
+                    return ANDROID_LOG_FATAL;
+                default:
+                    return ANDROID_LOG_VERBOSE;
+                }
+            }(),
+            "YuzuNative", CCB_PRINTF_FMT, df.time_seconds, df.time_fractional, df.class_name,
+            df.level_name, entry.filename, entry.line_num, entry.function, entry.message.c_str());
     }
     void Flush() noexcept override {}
 };
@@ -303,9 +352,7 @@ struct Impl {
             Common::SetCurrentThreadName("Logger");
             Entry entry;
             const auto write_logs = [this, &entry]() {
-                ForEachBackend([&entry](Backend& backend) {
-                    backend.Write(entry);
-                });
+                ForEachBackend([&entry](Backend& backend) { backend.Write(entry); });
             };
             do {
                 message_queue.PopWait(entry, stop_token);
@@ -378,7 +425,8 @@ void Stop() noexcept {
     if (logging_instance)
         logging_instance->StopBackendThread();
 }
-/// @brief The global filter will prevent any messages from even being processed if they are filtered.
+/// @brief The global filter will prevent any messages from even being processed if they are
+/// filtered.
 void SetGlobalFilter(const Filter& filter) noexcept {
     if (logging_instance)
         logging_instance->filter = filter;
@@ -387,13 +435,16 @@ void SetColorConsoleBackendEnabled(bool enabled) noexcept {
     if (logging_instance)
         logging_instance->color_console_backend.enabled = enabled;
 }
-void FmtLogMessageImpl(Class log_class, Level log_level, const char* filename, unsigned int line_num, const char* function, fmt::string_view format, const fmt::format_args& args) {
+void FmtLogMessageImpl(Class log_class, Level log_level, const char* filename,
+                       unsigned int line_num, const char* function, fmt::string_view format,
+                       const fmt::format_args& args) {
     if (logging_instance && logging_instance->filter.CheckMessage(log_class, log_level)) {
         logging_instance->message_queue.EmplaceWait(Entry{
             .message = fmt::vformat(format, args),
             .filename = TrimSourcePath(filename),
             .function = function,
-            .timestamp = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now() - logging_instance->time_origin),
+            .timestamp = std::chrono::duration_cast<std::chrono::microseconds>(
+                std::chrono::steady_clock::now() - logging_instance->time_origin),
             .log_class = log_class,
             .log_level = log_level,
             .line_num = line_num,
