@@ -7,7 +7,7 @@
 #include <cstring>
 #include <processthreadsapi.h>
 #include <windows.h>
-#elif defined(__unix__)
+#elif defined(__unix__) || defined(__APPLE__)
 #include <cstring>
 #include <errno.h>
 #include <spawn.h>
@@ -56,7 +56,7 @@ bool CheckEnvVars(bool* is_child) {
                    IS_CHILD_ENV_VAR, GetLastError());
         return true;
     }
-#elif defined(__unix__)
+#elif defined(__unix__) || defined(__APPLE__)
     const char* startup_check_var = getenv(STARTUP_CHECK_ENV_VAR);
     if (startup_check_var != nullptr &&
         std::strncmp(startup_check_var, ENV_VAR_ENABLED_TEXT, 8) == 0) {
@@ -110,7 +110,7 @@ bool StartupChecks(const char* arg0, bool* has_broken_vulkan, bool perform_vulka
                    STARTUP_CHECK_ENV_VAR, GetLastError());
     }
 
-#elif defined(__unix__)
+#elif defined(__unix__) || defined(__APPLE__)
     const int env_var_set = setenv(STARTUP_CHECK_ENV_VAR, ENV_VAR_ENABLED_TEXT, 1);
     if (env_var_set == -1) {
         const int err = errno;
@@ -175,7 +175,7 @@ bool SpawnChild(const char* arg0, PROCESS_INFORMATION* pi, int flags) {
 
     return true;
 }
-#elif defined(__unix__)
+#elif defined(__unix__) || defined(__APPLE__)
 pid_t SpawnChild(const char* arg0) {
     const pid_t pid = fork();
 

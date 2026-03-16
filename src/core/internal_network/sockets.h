@@ -9,8 +9,7 @@
 #include <utility>
 
 #if defined(_WIN32)
-
-#elif !defined(__unix__)
+#elif !(defined(__unix__) || defined(__APPLE__))
 #error "Platform not implemented"
 #endif
 
@@ -25,7 +24,7 @@ struct ProxyPacket;
 
 class SocketBase {
 public:
-#ifdef __unix__
+#ifdef defined(__unix__) || defined(__APPLE__)
     using SOCKET = int;
     static constexpr SOCKET INVALID_SOCKET = -1;
     static constexpr SOCKET SOCKET_ERROR = -1;

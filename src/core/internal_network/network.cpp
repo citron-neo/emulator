@@ -13,7 +13,7 @@
 #ifdef _WIN32
 #include <winsock2.h>
 #include <ws2tcpip.h>
-#elif defined(__unix__)
+#elif defined(__unix__) || defined(__APPLE__)
 #include <arpa/inet.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -78,7 +78,7 @@ SOCKET GetInterruptSocket() {
 sockaddr TranslateFromSockAddrIn(SockAddrIn input) {
     sockaddr_in result;
 
-#if defined(__unix__)
+#if defined(__unix__) || defined(__APPLE__)
     result.sin_len = sizeof(result);
 #endif
 
@@ -166,7 +166,7 @@ Errno TranslateNativeError(int e, CallType call_type = CallType::Other) {
     }
 }
 
-#else // ^ _WIN32 v __unix__
+#elif defined(__unix__) || defined(__APPLE__) // ^ _WIN32 v (defined(__unix__) || defined(__APPLE__))
 
 using SOCKET = int;
 using WSAPOLLFD = pollfd;
@@ -841,7 +841,7 @@ std::pair<s32, Errno> Socket::Send(std::span<const u8> message, int flags) {
     ASSERT(flags == 0);
 
     int native_flags = 0;
-#if defined(__unix__)
+#if defined(__unix__) || defined(__APPLE__)
     native_flags |= MSG_NOSIGNAL; // do not send us SIGPIPE
 #endif
     const auto result = send(fd, reinterpret_cast<const char*>(message.data()),
