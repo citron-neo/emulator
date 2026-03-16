@@ -357,14 +357,16 @@ struct Impl {
 // it's ran at global static ctor() time... so BE CAREFUL MFER!
 static std::optional<Common::Log::Impl> logging_instance{};
 void Initialize() noexcept {
-    logging_instance.emplace();
-    logging_instance.filter.ParseFilterString(Settings::values.log_filter.GetValue());
-#ifndef __OPENORBIS__
-    using namespace Common::FS;
-    const auto& log_dir = GetCitronPath(CitronPath::LogDir);
-    void(CreateDir(log_dir));
-    logging_instance.file_backend.emplace(log_dir / LOG_FILE);
-#endif
+    if (logging_instance) {
+
+    } else {
+        logging_instance.emplace();
+        logging_instance->filter.ParseFilterString(Settings::values.log_filter.GetValue());
+        using namespace Common::FS;
+        const auto& log_dir = GetCitronPath(CitronPath::LogDir);
+        void(CreateDir(log_dir));
+        logging_instance->file_backend.emplace(log_dir / LOG_FILE);
+    }
 }
 /// @brief Initializes the logging system. This should be the first thing called in main.
 void Start() noexcept {
