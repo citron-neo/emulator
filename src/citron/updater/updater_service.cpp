@@ -44,7 +44,7 @@ namespace Updater {
 const std::string STABLE_UPDATE_URL =
     "https://git.citron-emu.org/api/v1/repos/Citron/Emulator/releases";
 const std::string NIGHTLY_UPDATE_URL =
-    "https://api.github.com/repos/citron-neo/PR/releases";
+    "https://api.github.com/repos/citron-neo/CI/releases";
 
 std::string ExtractCommitHash(const std::string& version_string) {
     // Hashes in git describe often start with 'g'.
