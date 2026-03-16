@@ -785,16 +785,16 @@ void GameListWorker::run() {
     LoadGameMetadataCache();
 
     std::map<u64, std::pair<int, int>> online_stats;
-    if (session) {
-        AnnounceMultiplayerRoom::RoomList room_list = session->GetRoomList();
-        for (const auto& room : room_list) {
-            u64 game_id = room.information.preferred_game.id;
-            if (game_id != 0) {
-                online_stats[game_id].first += (int)room.members.size();
-                online_stats[game_id].second++;
-            }
-        }
-    }
+    // if (session) {
+    //     AnnounceMultiplayerRoom::RoomList room_list = session->GetRoomList();
+    //     for (const auto& room : room_list) {
+    //         u64 game_id = room.information.preferred_game.id;
+    //         if (game_id != 0) {
+    //             online_stats[game_id].first += (int)room.members.size();
+    //             online_stats[game_id].second++;
+    //         }
+    //     }
+    // }
 
     watch_list.clear();
     provider->ClearAllEntries();
