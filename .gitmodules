@@ -10,7 +10,7 @@
 	url = https://github.com/mozilla/cubeb.git
 [submodule "dynarmic"]
 	path = externals/dynarmic
-	url = https://github.com/xinitrcn1/dynarmic
+	url = https://github.com/xinitrcn1/dynarmic.git
 [submodule "libusb"]
 	path = externals/libusb/libusb
 	url = https://github.com/libusb/libusb.git
