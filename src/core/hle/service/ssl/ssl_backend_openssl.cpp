@@ -315,9 +315,7 @@ Result CheckOpenSSLErrors() {
             msg.append(" | ");
             msg.append(data);
         }
-        Common::Log::FmtLogMessage(Common::Log::Class::Service_SSL, Common::Log::Level::Error,
-                                   Common::Log::TrimSourcePath(file), line, func, "OpenSSL: {}",
-                                   msg);
+        LOG_ERROR(Service_SSL, "OpenSSL: {}", msg);
     }
     return ResultInternalError;
 }

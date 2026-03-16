@@ -106,11 +106,10 @@ VirtualDir PartitionFilesystem::GetParentDirectory() const {
 }
 
 void PartitionFilesystem::PrintDebugInfo() const {
-    LOG_DEBUG(Service_FS, "Magic:                  {:.4}", pfs_header.magic);
-    LOG_DEBUG(Service_FS, "Files:                  {}", pfs_header.num_entries);
-    for (u32 i = 0; i < pfs_header.num_entries; i++) {
-        LOG_DEBUG(Service_FS, " > File {}:              {} (0x{:X} bytes)", i,
-                  pfs_files[i]->GetName(), pfs_files[i]->GetSize());
-    }
+    // LOG_DEBUG(Service_FS, "Magic:                  {:.4}", pfs_header.magic);
+    // LOG_DEBUG(Service_FS, "Files:                  {}", pfs_header.num_entries);
+    // for (u32 i = 0; i < pfs_header.num_entries; i++) {
+    //     LOG_DEBUG(Service_FS, " > File {}:              {} (0x{:X} bytes)", i, pfs_files[i]->GetName(), pfs_files[i]->GetSize());
+    // }
 }
 } // namespace FileSys
