@@ -419,6 +419,28 @@ if (UNIX AND NOT APPLE)
     find_package(gamemode 1.7 MODULE)
 endif()
 
+# Apply a patch to dynarmic to avoid duplicate Zydis alias target creation.
+# Newer Zydis already exports Zydis::Zydis, so re-aliasing can fail at configure time.
+message(STATUS "Applying custom patch to dynarmic Zydis alias handling...")
+set(DYNARMIC_ZYDIS_ALIAS_PATCH_FILE
+    "${CMAKE_CURRENT_SOURCE_DIR}/patches/dynarmic-zydis-alias-fix.patch")
+set(DYNARMIC_PATCH_TARGET_DIR "${CMAKE_CURRENT_SOURCE_DIR}/externals/dynarmic")
+if (EXISTS "${DYNARMIC_PATCH_TARGET_DIR}")
+    execute_process(
+        COMMAND git apply --ignore-whitespace "${DYNARMIC_ZYDIS_ALIAS_PATCH_FILE}"
+        WORKING_DIRECTORY "${DYNARMIC_PATCH_TARGET_DIR}"
+        RESULT_VARIABLE DYNARMIC_ZYDIS_ALIAS_PATCH_RESULT
+        OUTPUT_QUIET
+        ERROR_QUIET
+    )
+
+    if (NOT DYNARMIC_ZYDIS_ALIAS_PATCH_RESULT EQUAL 0)
+        message(WARNING "Failed to apply dynarmic Zydis alias patch! This might be okay if it's already applied.")
+    endif()
+else()
+    message(WARNING "Could not find dynarmic directory to patch. It may not have been downloaded yet.")
+endif()
+
 add_subdirectory(externals)
 if(USE_DISCORD_PRESENCE)
     message(STATUS "Applying custom patch to submodule's rapidjson for Discord presence...")
