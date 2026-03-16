@@ -7,7 +7,7 @@
 #include <string>
 #include <utility>
 
-#include "common/logging/formatter.h"
+#include "common/logging.h"
 
 namespace Shader {
 

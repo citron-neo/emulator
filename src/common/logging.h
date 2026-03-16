@@ -20,13 +20,6 @@ struct fmt::formatter<T, std::enable_if_t<std::is_enum_v<T>, char>> : formatter<
     }
 };
 #endif
-template <typename T, typename U>
-struct fmt::formatter<SwapStructT<T, U>> {
-    constexpr auto parse(format_parse_context& ctx) { return ctx.begin(); }
-    template<typename F> auto format(const SwapStructT<T, U>& reg, F& ctx) const {
-        return fmt::format_to(ctx.out(), "{}", T(reg));
-    }
-};
 
 #define LOG_TRACE(log_class, ...) ::Common::Log::FmtLogMessage(Common::Log::Class::log_class, Common::Log::Level::Trace, __FILE__, __LINE__, __func__, __VA_ARGS__)
 #define LOG_DEBUG(log_class, ...) ::Common::Log::FmtLogMessage(::Common::Log::Class::log_class, ::Common::Log::Level::Debug, __FILE__, __LINE__, __func__, __VA_ARGS__)
@@ -43,7 +36,7 @@ enum class Level : u8 { Trace, Debug, Info, Warning, Error, Critical, Count };
 enum class Class : u8 {
 #define SUB(A, B) A##_##B,
 #define CLS(A) A,
-#include "log_classes.inc"
+#include "common/log_classes.inc"
 #undef SUB
 #undef CLS
     Count,
