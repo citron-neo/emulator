@@ -22,14 +22,16 @@ namespace Network {
 
 struct ProxyPacket;
 
-class SocketBase {
-public:
-#ifdef defined(__unix__) || defined(__APPLE__)
-    using SOCKET = int;
-    static constexpr SOCKET INVALID_SOCKET = -1;
-    static constexpr SOCKET SOCKET_ERROR = -1;
+#ifdef _WIN32
+using SOCKET = ::SOCKET;
+#else
+using SOCKET = int;
+constexpr SOCKET INVALID_SOCKET = -1;
+constexpr SOCKET SOCKET_ERROR = -1;
 #endif
 
+class SocketBase {
+public:
     struct AcceptResult {
         std::unique_ptr<SocketBase> socket;
         SockAddrIn sockaddr_in;
