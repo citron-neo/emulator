@@ -878,6 +878,7 @@ void Java_org_citron_citron_1emu_NativeLibrary_clearFilesystemProvider(JNIEnv* e
 jboolean Java_org_citron_citron_1emu_NativeLibrary_areKeysPresent(JNIEnv* env, jobject jobj) {
     auto& system = EmulationSession::GetInstance().System();
     system.GetFileSystemController().CreateFactories(*system.GetFilesystem());
+    Core::Crypto::KeyManager::Instance().ReloadKeys();
     return ContentManager::AreKeysPresent();
 }
 
