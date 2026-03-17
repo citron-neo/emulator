@@ -232,8 +232,8 @@ std::shared_ptr<Dynarmic::A64::Jit> ArmDynarmic64::MakeJit(Common::PageTable* pa
 
     // Memory
     if (page_table) {
-        config.page_table = reinterpret_cast<void**>(page_table->pointers.data());
-        config.page_table_log2_stride = 3;
+        config.page_table = reinterpret_cast<void**>(page_table->entries.data());
+        config.page_table_log2_stride = 5;
         config.page_table_address_space_bits = uint32_t(address_space_bits);
         config.page_table_pointer_mask_bits = Common::PageTable::ATTRIBUTE_BITS;
         config.silently_mirror_page_table = false;

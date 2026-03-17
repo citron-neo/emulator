@@ -133,6 +133,19 @@ if (ANDROID AND CITRON_DOWNLOAD_ANDROID_VVL)
     endif()
 endif()
 
+# EXPERIMENTAL LIBC++
+if ((ANDROID OR APPLE OR UNIX) AND (NOT (${CMAKE_SYSTEM_NAME} STREQUAL "Linux") OR ANDROID) AND NOT WIN32)
+    if(CXX_APPLE OR CXX_CLANG)
+        # libc++ has stop_token and jthread as experimental
+        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fexperimental-library")
+        set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fexperimental-library")
+    else()
+        # Uses glibc, mostly?
+        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D_LIBCPP_ENABLE_EXPERIMENTAL=1")
+        set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -D_LIBCPP_ENABLE_EXPERIMENTAL=1")
+    endif()
+endif()
+
 if (ANDROID)
     set(CMAKE_SKIP_INSTALL_RULES ON)
 endif()
@@ -364,7 +377,7 @@ if (NOT CITRON_USE_EXTERNAL_VULKAN_UTILITY_LIBRARIES)
     find_package(VulkanUtilityLibraries REQUIRED)
 endif()
 
-if (ENABLE_LIBUSB)
+if (ENABLE_LIBUSB AND NOT ${CMAKE_SYSTEM_NAME} STREQUAL "FreeBSD")
     find_package(libusb 1.0.24 MODULE)
 endif()
 

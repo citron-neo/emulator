@@ -114,28 +114,26 @@ struct PageTable {
      */
     void Resize(std::size_t address_space_width_in_bits, std::size_t page_size_in_bits);
 
-    std::size_t GetAddressSpaceBits() const {
+    inline std::size_t GetAddressSpaceBits() const noexcept {
         return current_address_space_width_in_bits;
     }
 
-    bool GetPhysicalAddress(Common::PhysicalAddress* out_phys_addr,
-                            Common::ProcessAddress virt_addr) const {
-        if (virt_addr > (1ULL << this->GetAddressSpaceBits())) {
+    [[nodiscard]] inline bool GetPhysicalAddress(Common::PhysicalAddress* out_phys_addr, Common::ProcessAddress virt_addr) const noexcept {
+        if (virt_addr > (1ULL << this->GetAddressSpaceBits()))
             return false;
-        }
-
-        *out_phys_addr = backing_addr[virt_addr / page_size] + GetInteger(virt_addr);
+        *out_phys_addr = entries[virt_addr / page_size].backing_addr + GetInteger(virt_addr);
         return true;
     }
 
-    /**
-     * Vector of memory pointers backing each page. An entry can only be non-null if the
-     * corresponding attribute element is of type `Memory`.
-     */
-    VirtualBuffer<PageInfo> pointers;
-    VirtualBuffer<u64> blocks;
-
-    VirtualBuffer<u64> backing_addr;
+    struct PageTableEntry {
+        PageInfo pointer;
+        u64 block;
+        u64 backing_addr;
+        u64 padding;
+    };
+    /// @brief Vector of memory pointers backing each page. An entry can only be non-null if the
+    /// corresponding attribute element is of type `Memory`.
+    VirtualBuffer<PageTableEntry> entries;
 
     std::size_t current_address_space_width_in_bits{};
 

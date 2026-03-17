@@ -96,7 +96,7 @@ struct Memory::Impl {
         u64 protect_begin{};
         for (u64 addr = vaddr; addr < vaddr + size; addr += CITRON_PAGESIZE) {
             const Common::PageType page_type{
-                current_page_table->pointers[addr >> CITRON_PAGEBITS].Type()};
+                current_page_table->entries[addr >> CITRON_PAGEBITS].pointer.Type()};
             switch (page_type) {
             case Common::PageType::RasterizerCachedMemory:
                 if (protect_bytes > 0) {
@@ -119,7 +119,7 @@ struct Memory::Impl {
 
     [[nodiscard]] u8* GetPointerFromRasterizerCachedMemory(u64 vaddr) const {
         const Common::PhysicalAddress paddr{
-            current_page_table->backing_addr[vaddr >> CITRON_PAGEBITS]};
+            current_page_table->entries[vaddr >> CITRON_PAGEBITS].backing_addr};
 
         if (!paddr) {
             return {};
@@ -130,7 +130,7 @@ struct Memory::Impl {
 
     [[nodiscard]] u8* GetPointerFromDebugMemory(u64 vaddr) const {
         const Common::PhysicalAddress paddr{
-            current_page_table->backing_addr[vaddr >> CITRON_PAGEBITS]};
+            current_page_table->entries[vaddr >> CITRON_PAGEBITS].backing_addr};
 
         if (paddr == 0) {
             return {};
@@ -254,7 +254,7 @@ struct Memory::Impl {
             const auto current_vaddr =
                 static_cast<u64>((page_index << CITRON_PAGEBITS) + page_offset);
 
-            const auto [pointer, type] = page_table.pointers[page_index].PointerType();
+            const auto [pointer, type] = page_table.entries[page_index].pointer.PointerType();
             switch (type) {
             case Common::PageType::Unmapped: {
                 user_accessible = false;
@@ -328,16 +328,16 @@ struct Memory::Impl {
     }
 
     const u8* GetSpan(const VAddr src_addr, const std::size_t size) const {
-        if (current_page_table->blocks[src_addr >> CITRON_PAGEBITS] ==
-            current_page_table->blocks[(src_addr + size) >> CITRON_PAGEBITS]) {
+        if (current_page_table->entries[src_addr >> CITRON_PAGEBITS].block ==
+            current_page_table->entries[(src_addr + size) >> CITRON_PAGEBITS].block) {
             return GetPointerSilent(src_addr);
         }
         return nullptr;
     }
 
     u8* GetSpan(const VAddr src_addr, const std::size_t size) {
-        if (current_page_table->blocks[src_addr >> CITRON_PAGEBITS] ==
-            current_page_table->blocks[(src_addr + size) >> CITRON_PAGEBITS]) {
+        if (current_page_table->entries[src_addr >> CITRON_PAGEBITS].block ==
+            current_page_table->entries[(src_addr + size) >> CITRON_PAGEBITS].block) {
             return GetPointerSilent(src_addr);
         }
         return nullptr;
@@ -494,7 +494,7 @@ struct Memory::Impl {
         const u64 num_pages = ((vaddr + size - 1) >> CITRON_PAGEBITS) - (vaddr >> CITRON_PAGEBITS) + 1;
         for (u64 i = 0; i < num_pages; ++i, vaddr += CITRON_PAGESIZE) {
             const Common::PageType page_type{
-                current_page_table->pointers[vaddr >> CITRON_PAGEBITS].Type()};
+                current_page_table->entries[vaddr >> CITRON_PAGEBITS].pointer.Type()};
             if (debug) {
                 // Switch page type to debug if now debug
                 switch (page_type) {
@@ -506,7 +506,7 @@ struct Memory::Impl {
                     // Page is already marked.
                     break;
                 case Common::PageType::Memory:
-                    current_page_table->pointers[vaddr >> CITRON_PAGEBITS].Store(
+                    current_page_table->entries[vaddr >> CITRON_PAGEBITS].pointer.Store(
                         0, Common::PageType::DebugMemory);
                     break;
                 default:
@@ -524,8 +524,8 @@ struct Memory::Impl {
                     break;
                 case Common::PageType::DebugMemory: {
                     u8* const pointer{GetPointerFromDebugMemory(vaddr & ~CITRON_PAGEMASK)};
-                    current_page_table->pointers[vaddr >> CITRON_PAGEBITS].Store(
-                        reinterpret_cast<uintptr_t>(pointer) - (vaddr & ~CITRON_PAGEMASK),
+                    current_page_table->entries[vaddr >> CITRON_PAGEBITS].pointer.Store(
+                        uintptr_t(pointer) - (vaddr & ~CITRON_PAGEMASK),
                         Common::PageType::Memory);
                     break;
                 }
@@ -560,7 +560,7 @@ struct Memory::Impl {
         const u64 num_pages = ((vaddr + size - 1) >> CITRON_PAGEBITS) - (vaddr >> CITRON_PAGEBITS) + 1;
         for (u64 i = 0; i < num_pages; ++i, vaddr += CITRON_PAGESIZE) {
             const Common::PageType page_type{
-                current_page_table->pointers[vaddr >> CITRON_PAGEBITS].Type()};
+                current_page_table->entries[vaddr >> CITRON_PAGEBITS].pointer.Type()};
             if (cached) {
                 // Switch page type to cached if now cached
                 switch (page_type) {
@@ -570,7 +570,7 @@ struct Memory::Impl {
                     break;
                 case Common::PageType::DebugMemory:
                 case Common::PageType::Memory:
-                    current_page_table->pointers[vaddr >> CITRON_PAGEBITS].Store(
+                    current_page_table->entries[vaddr >> CITRON_PAGEBITS].pointer.Store(
                         0, Common::PageType::RasterizerCachedMemory);
                     break;
                 case Common::PageType::RasterizerCachedMemory:
@@ -598,10 +598,10 @@ struct Memory::Impl {
                         // It's possible that this function has been called while updating the
                         // pagetable after unmapping a VMA. In that case the underlying VMA will no
                         // longer exist, and we should just leave the pagetable entry blank.
-                        current_page_table->pointers[vaddr >> CITRON_PAGEBITS].Store(
+                        current_page_table->entries[vaddr >> CITRON_PAGEBITS].pointer.Store(
                             0, Common::PageType::Unmapped);
                     } else {
-                        current_page_table->pointers[vaddr >> CITRON_PAGEBITS].Store(
+                        current_page_table->entries[vaddr >> CITRON_PAGEBITS].pointer.Store(
                             reinterpret_cast<uintptr_t>(pointer) - (vaddr & ~CITRON_PAGEMASK),
                             Common::PageType::Memory);
                     }
@@ -631,17 +631,17 @@ struct Memory::Impl {
                   base * CITRON_PAGESIZE, (base + size) * CITRON_PAGESIZE);
 
         const auto end = base + size;
-        ASSERT_MSG(end <= page_table.pointers.size(), "out of range mapping at {:016X}",
-                   base + page_table.pointers.size());
+        ASSERT_MSG(end <= page_table.entries.size(), "out of range mapping at {:016X}",
+                   base + page_table.entries.size());
 
         if (!target) {
             ASSERT_MSG(type != Common::PageType::Memory,
                        "Mapping memory page without a pointer @ {:016x}", base * CITRON_PAGESIZE);
 
             while (base != end) {
-                page_table.pointers[base].Store(0, type);
-                page_table.backing_addr[base] = 0;
-                page_table.blocks[base] = 0;
+                page_table.entries[base].pointer.Store(0, type);
+                page_table.entries[base].backing_addr = 0;
+                page_table.entries[base].block = 0;
                 base += 1;
             }
         } else {
@@ -651,13 +651,10 @@ struct Memory::Impl {
                     reinterpret_cast<uintptr_t>(system.DeviceMemory().GetPointer<u8>(target)) -
                     (base << CITRON_PAGEBITS);
                 auto backing = GetInteger(target) - (base << CITRON_PAGEBITS);
-                page_table.pointers[base].Store(host_ptr, type);
-                page_table.backing_addr[base] = backing;
-                page_table.blocks[base] = orig_base << CITRON_PAGEBITS;
-
-                ASSERT_MSG(page_table.pointers[base].Pointer(),
-                           "memory mapping base yield a nullptr within the table");
-
+                page_table.entries[base].pointer.Store(host_ptr, type);
+                page_table.entries[base].backing_addr = backing;
+                page_table.entries[base].block = orig_base << CITRON_PAGEBITS;
+                ASSERT(page_table.entries[base].pointer.Pointer() && "memory mapping base yield a nullptr within the table");
                 base += 1;
                 target += CITRON_PAGESIZE;
             }
@@ -674,7 +671,7 @@ struct Memory::Impl {
         }
 
         // Avoid adding any extra logic to this fast-path block
-        const uintptr_t raw_pointer = current_page_table->pointers[vaddr >> CITRON_PAGEBITS].Raw();
+        const uintptr_t raw_pointer = current_page_table->entries[vaddr >> CITRON_PAGEBITS].pointer.Raw();
         if (const uintptr_t pointer = Common::PageTable::PageInfo::ExtractPointer(raw_pointer)) {
             return reinterpret_cast<u8*>(pointer + vaddr);
         }
@@ -949,10 +946,10 @@ void Memory::ProtectRegion(Common::PageTable& page_table, Common::ProcessAddress
 bool Memory::IsValidVirtualAddress(const Common::ProcessAddress vaddr) const {
     const auto& page_table = *impl->current_page_table;
     const size_t page = vaddr >> CITRON_PAGEBITS;
-    if (page >= page_table.pointers.size()) {
+    if (page >= page_table.entries.size()) {
         return false;
     }
-    const auto [pointer, type] = page_table.pointers[page].PointerType();
+    const auto [pointer, type] = page_table.entries[page].pointer.PointerType();
     return pointer != 0 || type == Common::PageType::RasterizerCachedMemory ||
            type == Common::PageType::DebugMemory;
 }

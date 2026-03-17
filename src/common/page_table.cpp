@@ -31,12 +31,12 @@ bool PageTable::ContinueTraversal(TraversalEntry* out_entry, TraversalContext* c
 
     // Validate that we can read the actual entry.
     const auto page = context->next_page;
-    if (page >= backing_addr.size()) {
+    if (page >= entries.size()) {
         return false;
     }
 
     // Validate that the entry is mapped.
-    const auto phys_addr = backing_addr[page];
+    const auto phys_addr = entries[page].backing_addr;
     if (phys_addr == 0) {
         return false;
     }
@@ -48,11 +48,8 @@ bool PageTable::ContinueTraversal(TraversalEntry* out_entry, TraversalContext* c
 }
 
 void PageTable::Resize(std::size_t address_space_width_in_bits, std::size_t page_size_in_bits) {
-    const std::size_t num_page_table_entries{1ULL
-                                             << (address_space_width_in_bits - page_size_in_bits)};
-    pointers.resize(num_page_table_entries);
-    backing_addr.resize(num_page_table_entries);
-    blocks.resize(num_page_table_entries);
+    const std::size_t num_page_table_entries = 1ULL << (address_space_width_in_bits - page_size_in_bits);
+    entries.resize(num_page_table_entries);
     current_address_space_width_in_bits = address_space_width_in_bits;
     page_size = 1ULL << page_size_in_bits;
 }

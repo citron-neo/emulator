@@ -64,3 +64,4 @@ pgo-profiles-backup/
 *.7z
 dtrace-out/
 *.diff
+.cache/

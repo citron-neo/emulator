@@ -90,7 +90,7 @@ public:
 
     PAddr GetPhysicalRawAddressFromDAddr(DAddr address) const {
         PAddr subbits = static_cast<PAddr>(address & page_mask);
-        auto paddr = compressed_physical_ptr[(address >> page_bits)];
+        auto paddr = entries[(address >> page_bits)].compressed_physical_ptr;
         if (paddr == 0) {
             return 0;
         }
@@ -155,9 +155,14 @@ private:
 
     const uintptr_t physical_base;
     DeviceInterface* device_inter;
-    Common::VirtualBuffer<u32> compressed_physical_ptr;
+
+    struct GpuCoalescedEntry {
+        VAddr cpu_backing_address;
+        u32 compressed_physical_ptr;
+        u32 continuity_tracker;
+    };
+    Common::VirtualBuffer<GpuCoalescedEntry> entries;
     Common::VirtualBuffer<u32> compressed_device_addr;
-    Common::VirtualBuffer<u32> continuity_tracker;
 
     // Process memory interfaces
 
@@ -172,17 +177,16 @@ private:
     static constexpr size_t asid_start_bit = guest_max_as_bits;
 
     std::pair<Asid, VAddr> ExtractCPUBacking(size_t page_index) {
-        auto content = cpu_backing_address[page_index];
+        auto content = entries[page_index].cpu_backing_address;
         const VAddr address = content & guest_mask;
         const Asid asid{static_cast<size_t>(content >> asid_start_bit)};
         return std::make_pair(asid, address);
     }
 
     void InsertCPUBacking(size_t page_index, VAddr address, Asid asid) {
-        cpu_backing_address[page_index] = address | (asid.id << asid_start_bit);
+        entries[page_index].cpu_backing_address = address | (asid.id << asid_start_bit);
     }
 
-    Common::VirtualBuffer<VAddr> cpu_backing_address;
     using CounterType = u8;
     using CounterAtomicType = std::atomic_uint8_t;
     static constexpr size_t subentries = 8 / sizeof(CounterType);
