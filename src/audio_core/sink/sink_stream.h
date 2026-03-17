@@ -12,9 +12,9 @@
 #include <vector>
 
 #include "audio_core/common/common.h"
+#include "common/bounded_threadsafe_queue.h"
 #include "common/common_types.h"
 #include "common/polyfill_thread.h"
-#include "common/reader_writer_queue.h"
 #include "common/ring_buffer.h"
 #include "common/thread.h"
 
@@ -237,7 +237,7 @@ private:
     /// Ring buffer of the samples waiting to be played or consumed
     Common::RingBuffer<s16, 0x10000> samples_buffer;
     /// Audio buffers queued and waiting to play
-    Common::ReaderWriterQueue<SinkBuffer> queue;
+    Common::SPSCQueue<SinkBuffer, 0x10000> queue;
     /// The currently-playing audio buffer
     SinkBuffer playing_buffer{};
     /// The last played (or received) frame of audio, used when the callback underruns
