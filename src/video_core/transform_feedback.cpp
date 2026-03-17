@@ -7,7 +7,7 @@
 
 #include "common/alignment.h"
 #include "common/assert.h"
-#include "common/polyfill_ranges.h"
+#include <ranges>
 #include "shader_recompiler/shader_info.h"
 #include "video_core/transform_feedback.h"
 

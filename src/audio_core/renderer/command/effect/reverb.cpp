@@ -7,7 +7,7 @@
 
 #include "audio_core/adsp/apps/audio_renderer/command_list_processor.h"
 #include "audio_core/renderer/command/effect/reverb.h"
-#include "common/polyfill_ranges.h"
+#include <ranges>
 
 namespace AudioCore::Renderer {
 

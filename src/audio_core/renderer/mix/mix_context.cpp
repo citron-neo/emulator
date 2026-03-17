@@ -5,7 +5,7 @@
 
 #include "audio_core/renderer/mix/mix_context.h"
 #include "audio_core/renderer/splitter/splitter_context.h"
-#include "common/polyfill_ranges.h"
+#include <ranges>
 
 namespace AudioCore::Renderer {
 

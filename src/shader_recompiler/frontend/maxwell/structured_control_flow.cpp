@@ -13,7 +13,7 @@
 
 #include <boost/intrusive/list.hpp>
 
-#include "common/polyfill_ranges.h"
+#include <ranges>
 #include "shader_recompiler/environment.h"
 #include "shader_recompiler/frontend/ir/basic_block.h"
 #include "shader_recompiler/frontend/ir/ir_emitter.h"
