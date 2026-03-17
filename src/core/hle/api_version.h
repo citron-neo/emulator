@@ -12,19 +12,19 @@ namespace HLE::ApiVersion {
 
 // Horizon OS version constants.
 
-constexpr u8 HOS_VERSION_MAJOR = 21;
-constexpr u8 HOS_VERSION_MINOR = 2;
+constexpr u8 HOS_VERSION_MAJOR = 22;
+constexpr u8 HOS_VERSION_MINOR = 0;
 constexpr u8 HOS_VERSION_MICRO = 0;
 
 // NintendoSDK version constants.
 
-constexpr u8 SDK_REVISION_MAJOR = 1;
+constexpr u8 SDK_REVISION_MAJOR = 3;
 constexpr u8 SDK_REVISION_MINOR = 0;
 
 constexpr char PLATFORM_STRING[] = "NX";
-constexpr char VERSION_HASH[] = "ff8d6ddacae7c7fd1287e22c3c88bb961acb290c";
-constexpr char DISPLAY_VERSION[] = "21.2.0";
-constexpr char DISPLAY_TITLE[] = "NintendoSDK Firmware for NX 21.2.0-1.0";
+constexpr char VERSION_HASH[] = "da42070c4ad25840c9ee25344bde9d0a8584f5a9";
+constexpr char DISPLAY_VERSION[] = "22.0.0";
+constexpr char DISPLAY_TITLE[] = "NintendoSDK Firmware for NX 22.0.0-3.0";
 
 // Atmosphere version constants.
 
