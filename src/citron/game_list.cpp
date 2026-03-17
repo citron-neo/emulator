@@ -137,6 +137,61 @@ private:
     qreal m_scroll_offset;
 };
 
+class LogoAnimationWidget : public QWidget {
+    Q_OBJECT
+    Q_PROPERTY(qreal rotation READ getRotation WRITE setRotation)
+    Q_PROPERTY(qreal scale READ getScale WRITE setScale)
+
+public:
+    explicit LogoAnimationWidget(QWidget* parent = nullptr)
+        : QWidget(parent), m_rotation(0.0), m_scale(1.0) {
+        m_logo_pixmap.load(QStringLiteral(":/citron.svg"));
+        setAttribute(Qt::WA_TranslucentBackground);
+    }
+
+    qreal getRotation() const {
+        return m_rotation;
+    }
+    void setRotation(qreal rotation) {
+        m_rotation = rotation;
+        update();
+    }
+
+    qreal getScale() const {
+        return m_scale;
+    }
+    void setScale(qreal scale) {
+        m_scale = scale;
+        update();
+    }
+
+protected:
+    void paintEvent(QPaintEvent* event) override {
+        if (m_logo_pixmap.isNull())
+            return;
+
+        QPainter painter(this);
+        painter.setRenderHint(QPainter::Antialiasing);
+        painter.setRenderHint(QPainter::SmoothPixmapTransform);
+
+        const int centerX = width() / 2;
+        const int centerY = height() / 2;
+
+        painter.translate(centerX, centerY);
+        painter.rotate(m_rotation);
+        painter.scale(m_scale, m_scale);
+
+        // Draw the logo centered at (0, 0)
+        const int logoSize = 400;
+        painter.drawPixmap(-logoSize / 2, -logoSize / 2, logoSize, logoSize, m_logo_pixmap);
+    }
+
+private:
+    QPixmap m_logo_pixmap;
+    qreal m_rotation;
+    qreal m_scale;
+};
+
 // This is the main pop-up window that holds the spinning icons, title, and buttons
 class SurpriseMeDialog : public QDialog {
     Q_OBJECT
@@ -1271,60 +1326,87 @@ void GameList::StartLaunchAnimation(const QModelIndex& item) {
     fly_fade_group->addAnimation(icon_fade_anim);
 
     // --- 4. CITRON LOGO TRANSITION ---
-    auto* logo_label = new QLabel(main_window);
-    QPixmap logo_pixmap(QStringLiteral(":/citron.svg"));
-    logo_label->setPixmap(
-        logo_pixmap.scaled(400, 400, Qt::KeepAspectRatio, Qt::SmoothTransformation));
-    logo_label->setFixedSize(400, 400);
-    logo_label->move(center_point.x() - 200, center_point.y() - 200);
-    logo_label->hide();
+    auto* logo_widget = new LogoAnimationWidget(main_window);
+    logo_widget->setFixedSize(500, 500); // Larger container for rotation/scaling
+    logo_widget->move(center_point.x() - 250, center_point.y() - 250);
+    logo_widget->hide();
 
-    auto* logo_effect = new QGraphicsOpacityEffect(logo_label);
-    logo_label->setGraphicsEffect(logo_effect);
+    auto* logo_effect = new QGraphicsOpacityEffect(logo_widget);
+    logo_widget->setGraphicsEffect(logo_effect);
     logo_effect->setOpacity(0.0f);
 
+    // Fade in animation
     auto* logo_fade_in = new QPropertyAnimation(logo_effect, "opacity");
-    logo_fade_in->setDuration(500);
+    logo_fade_in->setDuration(600);
     logo_fade_in->setStartValue(0.0f);
     logo_fade_in->setEndValue(1.0f);
-    logo_fade_in->setEasingCurve(QEasingCurve::InOutQuad);
+    logo_fade_in->setEasingCurve(QEasingCurve::OutCubic);
+
+    // Initial scale-up and spin
+    auto* logo_spin = new QPropertyAnimation(logo_widget, "rotation");
+    logo_spin->setDuration(1200);
+    logo_spin->setStartValue(0.0);
+    logo_spin->setEndValue(360.0 * 2.0); // Two full spins
+    logo_spin->setEasingCurve(QEasingCurve::OutQuint);
+
+    auto* logo_scale_up = new QPropertyAnimation(logo_widget, "scale");
+    logo_scale_up->setDuration(1000);
+    logo_scale_up->setStartValue(0.1);
+    logo_scale_up->setEndValue(1.0);
+    logo_scale_up->setEasingCurve(QEasingCurve::OutBack);
+
+    // Final "coming towards screen" and fade out
+    auto* logo_final_scale = new QPropertyAnimation(logo_widget, "scale");
+    logo_final_scale->setDuration(600);
+    logo_final_scale->setStartValue(1.0);
+    logo_final_scale->setEndValue(2.5); // Fly towards camera
+    logo_final_scale->setEasingCurve(QEasingCurve::InExpo);
 
     auto* logo_fade_out = new QPropertyAnimation(logo_effect, "opacity");
     logo_fade_out->setDuration(500);
     logo_fade_out->setStartValue(1.0f);
     logo_fade_out->setEndValue(0.0f);
-    logo_fade_out->setEasingCurve(QEasingCurve::InOutQuad);
+    logo_fade_out->setEasingCurve(QEasingCurve::InQuad);
+
+    auto* final_fly_fade = new QParallelAnimationGroup;
+    final_fly_fade->addAnimation(logo_final_scale);
+    final_fly_fade->addAnimation(logo_fade_out);
 
     // Overlap the icon "fly-away" and the logo "fade-in"
     auto* overlap_group = new QParallelAnimationGroup;
     overlap_group->addAnimation(fly_fade_group);
 
-    auto* logo_fade_in_seq = new QSequentialAnimationGroup;
-    logo_fade_in_seq->addPause(100); // 100ms delay so it starts mid-fly
-    logo_fade_in_seq->addAnimation(logo_fade_in);
-    overlap_group->addAnimation(logo_fade_in_seq);
+    auto* logo_intro_group = new QParallelAnimationGroup;
+    logo_intro_group->addAnimation(logo_fade_in);
+    logo_intro_group->addAnimation(logo_spin);
+    logo_intro_group->addAnimation(logo_scale_up);
+
+    auto* logo_intro_seq = new QSequentialAnimationGroup;
+    logo_intro_seq->addPause(100); // 100ms delay so it starts mid-fly
+    logo_intro_seq->addAnimation(logo_intro_group);
+    overlap_group->addAnimation(logo_intro_seq);
 
     auto* main_group = new QSequentialAnimationGroup(this);
     main_group->addAnimation(zoom_anim);
     main_group->addPause(50);
 
     // Show logo once zoom is finished, just before fly/fade starts
-    connect(zoom_anim, &QPropertyAnimation::finished, [logo_label]() {
-        logo_label->show();
-        logo_label->raise();
+    connect(zoom_anim, &QPropertyAnimation::finished, [logo_widget]() {
+        logo_widget->show();
+        logo_widget->raise();
     });
 
     main_group->addAnimation(overlap_group);
-    main_group->addPause(1000); // Shorter 1 second pause
-    main_group->addAnimation(logo_fade_out);
+    main_group->addPause(400); // Shorter pause before final effect
+    main_group->addAnimation(final_fly_fade);
 
     // When the animation finishes, launch the game and clean up.
     connect(main_group, &QSequentialAnimationGroup::finished, this,
-            [this, file_path, title_id, animation_label, logo_label]() {
+            [this, file_path, title_id, animation_label, logo_widget]() {
                 search_field->clear();
                 emit GameChosen(file_path, title_id);
                 animation_label->deleteLater();
-                logo_label->deleteLater();
+                logo_widget->deleteLater();
             });
 
     main_group->start(QAbstractAnimation::DeleteWhenStopped);
