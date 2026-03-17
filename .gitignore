@@ -62,3 +62,5 @@ pgo-profiles-backup/
 *.dstore
 *.patch
 *.7z
+dtrace-out/
+*.diff
