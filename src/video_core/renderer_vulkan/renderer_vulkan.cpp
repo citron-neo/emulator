@@ -13,7 +13,7 @@
 #include <fmt/ranges.h>
 
 #include "common/logging.h"
-#include "common/polyfill_ranges.h"
+#include <ranges>
 #include "common/scope_exit.h"
 #include "common/settings.h"
 #include "core/core_timing.h"

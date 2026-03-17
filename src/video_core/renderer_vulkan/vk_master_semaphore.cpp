@@ -3,7 +3,7 @@
 
 #include <thread>
 
-#include "common/polyfill_ranges.h"
+#include <ranges>
 #include "common/settings.h"
 #include "video_core/renderer_vulkan/vk_master_semaphore.h"
 #include "video_core/vulkan_common/vulkan_device.h"

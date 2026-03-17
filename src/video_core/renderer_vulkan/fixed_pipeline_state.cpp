@@ -7,7 +7,7 @@
 #include "common/bit_cast.h"
 #include "common/cityhash.h"
 #include "common/common_types.h"
-#include "common/polyfill_ranges.h"
+#include <ranges>
 #include "common/settings.h"
 #include "video_core/engines/draw_manager.h"
 #include "video_core/renderer_vulkan/fixed_pipeline_state.h"

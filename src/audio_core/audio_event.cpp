@@ -3,7 +3,7 @@
 
 #include "audio_core/audio_event.h"
 #include "common/assert.h"
-#include "common/polyfill_ranges.h"
+#include <ranges>
 
 namespace AudioCore {
 

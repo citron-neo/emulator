@@ -6,7 +6,7 @@
 #include <chrono>
 #include <common/scope_exit.h>
 
-#include "common/polyfill_ranges.h"
+#include <ranges>
 #include "common/thread.h"
 #include "hid_core/frontend/emulated_controller.h"
 #include "hid_core/frontend/input_converter.h"
