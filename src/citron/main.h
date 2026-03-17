@@ -36,7 +36,6 @@ class GameList;
 class GImageInfo;
 class GRenderWindow;
 class LoadingScreen;
-class MicroProfileDialog;
 class OverlayDialog;
 class PerformanceOverlay;
 class MultiplayerRoomOverlay;
@@ -483,7 +482,6 @@ private:
     std::shared_ptr<FileSys::VfsFilesystem> vfs;
     std::unique_ptr<FileSys::ManualContentProvider> provider;
     ProfilerWidget* profilerWidget;
-    MicroProfileDialog* microProfileDialog;
     WaitTreeWidget* waitTreeWidget;
     MemoryToolsWidget* memory_tools_widget = nullptr;
     ControllerDialog* controller_dialog;

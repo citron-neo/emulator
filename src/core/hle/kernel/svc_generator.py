@@ -596,15 +596,11 @@ void Call(Core::System& system, u32 imm) {
 
     std::array<uint64_t, 8> args;
     kernel.CurrentPhysicalCore().SaveSvcArguments(process, args);
-    kernel.EnterSVCProfile();
-
     if (process.Is64Bit()) {
         Call64(system, imm, args);
     } else {
         Call32(system, imm, args);
     }
-
-    kernel.ExitSVCProfile();
     kernel.CurrentPhysicalCore().LoadSvcArguments(process, args);
 }
 

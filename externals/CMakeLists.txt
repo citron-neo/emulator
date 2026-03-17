@@ -69,15 +69,6 @@ set(SPIRV_SKIP_TESTS ON)
 set(SPIRV_SKIP_EXECUTABLES ON)
 add_subdirectory(spirv-tools)
 
-# MicroProfile
-add_library(microprofile INTERFACE)
-target_include_directories(microprofile INTERFACE ./microprofile)
-
-# GCC bugs
-if (CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL "12" AND CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND MINGW)
-    target_compile_options(microprofile INTERFACE "-Wno-array-bounds")
-endif()
-
 # libusb
 if (ENABLE_LIBUSB AND NOT TARGET libusb::usb)
     add_subdirectory(libusb)

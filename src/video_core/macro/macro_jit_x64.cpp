@@ -10,15 +10,11 @@
 #include "common/assert.h"
 #include "common/bit_field.h"
 #include "common/logging.h"
-#include "common/microprofile.h"
 #include "common/x64/xbyak_abi.h"
 #include "common/x64/xbyak_util.h"
 #include "video_core/engines/maxwell_3d.h"
 #include "video_core/macro/macro_interpreter.h"
 #include "video_core/macro/macro_jit_x64.h"
-
-MICROPROFILE_DEFINE(MacroJitCompile, "GPU", "Compile macro JIT", MP_RGB(173, 255, 47));
-MICROPROFILE_DEFINE(MacroJitExecute, "GPU", "Execute macro JIT", MP_RGB(255, 255, 0));
 
 namespace Tegra {
 namespace {
@@ -109,7 +105,6 @@ private:
 };
 
 void MacroJITx64Impl::Execute(const std::vector<u32>& parameters, u32 method) {
-    MICROPROFILE_SCOPE(MacroJitExecute);
     ASSERT_OR_EXECUTE(program != nullptr, { return; });
     JITState state{};
     state.maxwell3d = &maxwell3d;
@@ -449,7 +444,6 @@ void MacroJITx64Impl::Optimizer_ScanFlags() {
 }
 
 void MacroJITx64Impl::Compile() {
-    MICROPROFILE_SCOPE(MacroJitCompile);
     labels.fill(Xbyak::Label());
 
     Common::X64::ABI_PushRegistersAndAdjustStack(*this, Common::X64::ABI_ALL_CALLEE_SAVED, 8);
