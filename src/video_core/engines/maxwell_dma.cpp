@@ -5,7 +5,6 @@
 #include "common/algorithm.h"
 #include "common/assert.h"
 #include "common/logging.h"
-#include "common/microprofile.h"
 #include "common/polyfill_ranges.h"
 #include "common/settings.h"
 #include "core/core.h"
@@ -15,15 +14,6 @@
 #include "video_core/memory_manager.h"
 #include "video_core/renderer_base.h"
 #include "video_core/textures/decoders.h"
-
-MICROPROFILE_DECLARE(GPU_DMAEngine);
-MICROPROFILE_DECLARE(GPU_DMAEngineBL);
-MICROPROFILE_DECLARE(GPU_DMAEngineLB);
-MICROPROFILE_DECLARE(GPU_DMAEngineBB);
-MICROPROFILE_DEFINE(GPU_DMAEngine, "GPU", "DMA Engine", MP_RGB(224, 224, 128));
-MICROPROFILE_DEFINE(GPU_DMAEngineBL, "GPU", "DMA Engine Block - Linear", MP_RGB(224, 224, 128));
-MICROPROFILE_DEFINE(GPU_DMAEngineLB, "GPU", "DMA Engine Linear - Block", MP_RGB(224, 224, 128));
-MICROPROFILE_DEFINE(GPU_DMAEngineBB, "GPU", "DMA Engine Block - Block", MP_RGB(224, 224, 128));
 
 namespace Tegra::Engines {
 
@@ -66,7 +56,6 @@ void MaxwellDMA::CallMultiMethod(u32 method, const u32* base_start, u32 amount,
 }
 
 void MaxwellDMA::Launch() {
-    MICROPROFILE_SCOPE(GPU_DMAEngine);
     LOG_TRACE(Render, "DMA copy 0x{:x} -> 0x{:x}", static_cast<GPUVAddr>(regs.offset_in),
               static_cast<GPUVAddr>(regs.offset_out));
 
@@ -91,7 +80,6 @@ void MaxwellDMA::Launch() {
         memory_manager.FlushCaching();
         if (!is_src_pitch && !is_dst_pitch) {
             // If both the source and the destination are in block layout, assert.
-            MICROPROFILE_SCOPE(GPU_DMAEngineBB);
             CopyBlockLinearToBlockLinear();
             ReleaseSemaphore();
             return;
@@ -107,10 +95,8 @@ void MaxwellDMA::Launch() {
             }
         } else {
             if (!is_src_pitch && is_dst_pitch) {
-                MICROPROFILE_SCOPE(GPU_DMAEngineBL);
                 CopyBlockLinearToPitch();
             } else {
-                MICROPROFILE_SCOPE(GPU_DMAEngineLB);
                 CopyPitchToBlockLinear();
             }
         }

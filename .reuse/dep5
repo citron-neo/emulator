@@ -100,10 +100,6 @@ Files: externals/glad/include/KHR/khrplatform.h
 Copyright: 2008-2018 The Khronos Group Inc.
 License: MIT
 
-Files: externals/microprofile/*
-Copyright: Jonas Meyer
-License: Unlicense
-
 Files: externals/FidelityFX-FSR/*
 Copyright: 2021 Advanced Micro Devices, Inc.
 License: MIT

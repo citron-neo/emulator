@@ -79,9 +79,6 @@ add_library(common STATIC
     math_util.h
     memory_detect.cpp
     memory_detect.h
-    microprofile.cpp
-    microprofile.h
-    microprofileui.h
     multi_level_page_table.cpp
     multi_level_page_table.h
     nvidia_flags.cpp
@@ -244,7 +241,7 @@ if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
   )
 endif()
 
-target_link_libraries(common PUBLIC Boost::context Boost::headers fmt::fmt microprofile stb::headers Threads::Threads)
+target_link_libraries(common PUBLIC Boost::context Boost::headers fmt::fmt stb::headers Threads::Threads)
 target_link_libraries(common PRIVATE lz4::lz4 zstd::zstd LLVM::Demangle)
 
 if (ANDROID)

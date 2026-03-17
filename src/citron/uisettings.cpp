@@ -89,7 +89,6 @@ namespace UISettings {
         config.setValue(QStringLiteral("configureDialogGeometry"), values.configure_dialog_geometry);
         config.setValue(QStringLiteral("perGameConfigureGeometry"), values.per_game_configure_geometry);
         config.setValue(QStringLiteral("gameListHeaderState"), values.gamelist_header_state);
-        config.setValue(QStringLiteral("microProfileDialogGeometry"), values.microprofile_geometry);
 
         config.sync();
     }
@@ -112,8 +111,6 @@ namespace UISettings {
                 config.value(QStringLiteral("geometryRenderWindow")).toByteArray();
             values.gamelist_header_state =
                 config.value(QStringLiteral("gameListHeaderState")).toByteArray();
-            values.microprofile_geometry =
-                config.value(QStringLiteral("microProfileDialogGeometry")).toByteArray();
             config.endGroup();
             config.endGroup();
             return;
@@ -132,8 +129,6 @@ namespace UISettings {
             config.value(QStringLiteral("perGameConfigureGeometry")).toByteArray();
         values.gamelist_header_state =
             config.value(QStringLiteral("gameListHeaderState")).toByteArray();
-        values.microprofile_geometry =
-            config.value(QStringLiteral("microProfileDialogGeometry")).toByteArray();
     }
 
     bool IsGamescope() {

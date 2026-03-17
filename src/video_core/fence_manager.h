@@ -14,7 +14,6 @@
 #include <queue>
 
 #include "common/common_types.h"
-#include "common/microprofile.h"
 #include "common/scope_exit.h"
 #include "common/settings.h"
 #include "common/thread.h"
@@ -193,15 +192,7 @@ private:
     }
 
     void ReleaseThreadFunc(std::stop_token stop_token) {
-        std::string name = "GPUFencingThread";
-        MicroProfileOnThreadCreate(name.c_str());
-
-        // Cleanup
-        SCOPE_EXIT {
-            MicroProfileOnThreadExit();
-        };
-
-        Common::SetCurrentThreadName(name.c_str());
+        Common::SetCurrentThreadName("GPUFencingThread");
         Common::SetCurrentThreadPriority(Common::ThreadPriority::High);
 
         TFence current_fence;

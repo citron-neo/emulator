@@ -18,7 +18,6 @@
 #include "common/div_ceil.h"
 #include "common/literals.h"
 #include "common/lru_cache.h"
-#include "common/microprofile.h"
 #include "common/range_sets.h"
 #include "common/scope_exit.h"
 #include "common/settings.h"
@@ -35,10 +34,6 @@
 #include "video_core/texture_cache/types.h"
 
 namespace VideoCommon {
-
-MICROPROFILE_DECLARE(GPU_PrepareBuffers);
-MICROPROFILE_DECLARE(GPU_BindUploadBuffers);
-MICROPROFILE_DECLARE(GPU_DownloadMemory);
 
 using BufferId = Common::SlotId;
 

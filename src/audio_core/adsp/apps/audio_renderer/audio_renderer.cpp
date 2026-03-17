@@ -9,12 +9,9 @@
 #include "audio_core/common/common.h"
 #include "audio_core/sink/sink.h"
 #include "common/logging.h"
-#include "common/microprofile.h"
 #include "common/thread.h"
 #include "core/core.h"
 #include "core/core_timing.h"
-
-MICROPROFILE_DEFINE(Audio_Renderer, "Audio", "DSP_AudioRenderer", MP_RGB(60, 19, 97));
 
 namespace AudioCore::ADSP::AudioRenderer {
 
@@ -130,9 +127,7 @@ void AudioRenderer::CreateSinkStreams() {
 }
 
 void AudioRenderer::Main(std::stop_token stop_token) {
-    static constexpr char name[]{"DSP_AudioRenderer_Main"};
-    MicroProfileOnThreadCreate(name);
-    Common::SetCurrentThreadName(name);
+    Common::SetCurrentThreadName("DSP_AudioRenderer_Main");
     Common::SetCurrentThreadPriority(Common::ThreadPriority::High);
 
     // TODO: Create buffer map/unmap thread + mailbox
@@ -202,11 +197,7 @@ void AudioRenderer::Main(std::stop_token stop_token) {
                     }
 
                     // Process the command list
-                    {
-                        MICROPROFILE_SCOPE(Audio_Renderer);
-                        render_times_taken[index] =
-                            command_list_processor.Process(index) - start_time;
-                    }
+                    render_times_taken[index] = command_list_processor.Process(index) - start_time;
 
                     const auto end_time{system.CoreTiming().GetGlobalTimeUs().count()};
 

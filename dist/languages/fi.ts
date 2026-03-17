@@ -5370,14 +5370,6 @@ Screen.</source>
     </message>
 </context>
 <context>
-    <name>MicroProfileDialog</name>
-    <message>
-        <location filename="../../src/citron/debugger/profiler.cpp" line="51"/>
-        <source>&amp;MicroProfile</source>
-        <translation type="unfinished"/>
-    </message>
-</context>
-<context>
     <name>OverlayDialog</name>
     <message>
         <location filename="../../src/citron/util/overlay_dialog.ui" line="14"/>

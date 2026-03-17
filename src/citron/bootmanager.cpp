@@ -33,7 +33,6 @@
 #include <QWindow>
 #include <QtCore/qobjectdefs.h>
 
-#include "common/microprofile.h"
 #include "common/polyfill_thread.h"
 #include "common/scm_rev.h"
 #include "common/settings.h"
@@ -67,9 +66,7 @@ EmuThread::EmuThread(Core::System& system) : m_system{system} {}
 EmuThread::~EmuThread() = default;
 
 void EmuThread::run() {
-    const char* name = "EmuControlThread";
-    MicroProfileOnThreadCreate(name);
-    Common::SetCurrentThreadName(name);
+    Common::SetCurrentThreadName("EmuControlThread");
 
     auto& gpu = m_system.GPU();
     auto stop_token = m_stop_source.get_token();
@@ -119,10 +116,6 @@ void EmuThread::run() {
     // Shutdown the main emulated process
     m_system.DetachDebugger();
     m_system.ShutdownMainProcess();
-
-#if MICROPROFILE_ENABLED
-    MicroProfileOnThreadExit();
-#endif
 }
 
 // Unlock while emitting signals so that the main thread can
