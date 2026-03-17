@@ -37,14 +37,14 @@
 #ifdef _WIN32
 #include <windows.h>
 #include <shellapi.h>
+
 #endif
 
 namespace Updater {
 
 const std::string STABLE_UPDATE_URL =
     "https://git.citron-emu.org/api/v1/repos/Citron/Emulator/releases";
-const std::string NIGHTLY_UPDATE_URL =
-    "https://api.github.com/repos/citron-neo/CI/releases";
+const std::string NIGHTLY_UPDATE_URL = "https://api.github.com/repos/citron-neo/CI/releases";
 
 std::string ExtractCommitHash(const std::string& version_string) {
     // Hashes in git describe often start with 'g'.
@@ -60,7 +60,8 @@ std::string ExtractCommitHash(const std::string& version_string) {
 std::string ExtractVersionTag(const std::string& version_string) {
     // Matches tag parts like v1.2.3 or 2026.02.1 at the start of the string.
     // We stop at the first hyphen to avoid the -count-gHASH part.
-    std::regex re("^v?([0-9.]+)");
+    // We also ensure it's not just a hex character that could be part of a hash.
+    std::regex re("^v?([0-9]+\\.[0-9.]*)");
     std::smatch match;
     if (std::regex_search(version_string, match, re) && match.size() > 1) {
         return match[1].str();
@@ -231,7 +232,7 @@ void UpdaterService::CancelUpdate() {
 std::string UpdaterService::GetCurrentVersion() const {
     QSettings settings;
     QString channel =
-        settings.value(QStringLiteral("updater/channel"), QStringLiteral("Stable")).toString();
+        settings.value(QStringLiteral("updater/channel"), QStringLiteral("Nightly")).toString();
 
     const std::string build_version = Common::g_build_version;
 
