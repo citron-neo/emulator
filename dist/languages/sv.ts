@@ -7406,14 +7406,6 @@ Debug Message: </source>
     </message>
 </context>
 <context>
-    <name>MicroProfileDialog</name>
-    <message>
-        <location filename="../../src/citron/debugger/profiler.cpp" line="50"/>
-        <source>&amp;MicroProfile</source>
-        <translation type="unfinished"/>
-    </message>
-</context>
-<context>
     <name>ModerationDialog</name>
     <message>
         <location filename="../../src/citron/multiplayer/moderation_dialog.ui" line="6"/>

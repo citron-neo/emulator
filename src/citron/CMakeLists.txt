@@ -166,8 +166,6 @@ add_executable(citron
     debugger/console.h
     debugger/controller.cpp
     debugger/controller.h
-    debugger/profiler.cpp
-    debugger/profiler.h
     debugger/wait_tree.cpp
     debugger/wait_tree.h
     debugger/memory_viewer.cpp

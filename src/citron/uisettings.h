@@ -97,10 +97,6 @@ namespace UISettings {
 
         QByteArray gamelist_header_state;
 
-        QByteArray microprofile_geometry;
-        Setting<bool> microprofile_visible{linkage, false, "microProfileDialogVisible",
-            Category::UiLayout};
-
             Setting<bool> single_window_mode{linkage, true, "singleWindowMode", Category::Ui};
             Setting<bool> fullscreen{linkage, false, "fullscreen", Category::Ui};
             Setting<bool> display_titlebar{linkage, true, "displayTitleBars", Category::Ui};

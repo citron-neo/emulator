@@ -5,16 +5,12 @@
 #include <mutex>
 #include <string>
 #include <tuple>
-
 #ifdef _WIN32
 #include "common/windows/timer_resolution.h"
 #endif
-
 #ifdef ARCHITECTURE_x86_64
 #include "common/x64/cpu_wait.h"
 #endif
-
-#include "common/microprofile.h"
 #include "core/core_timing.h"
 #include "core/hardware_properties.h"
 
@@ -51,13 +47,10 @@ CoreTiming::~CoreTiming() {
 }
 
 void CoreTiming::ThreadEntry(CoreTiming& instance) {
-    static constexpr char name[] = "HostTiming";
-    MicroProfileOnThreadCreate(name);
-    Common::SetCurrentThreadName(name);
+    Common::SetCurrentThreadName("HostTiming");
     Common::SetCurrentThreadPriority(Common::ThreadPriority::High);
     instance.on_thread_init();
     instance.ThreadLoop();
-    MicroProfileOnThreadExit();
 }
 
 void CoreTiming::Initialize(std::function<void()>&& on_thread_init_) {
