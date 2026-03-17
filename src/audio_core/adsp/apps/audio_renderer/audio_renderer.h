@@ -12,7 +12,6 @@
 #include "audio_core/adsp/mailbox.h"
 #include "common/common_types.h"
 #include "common/polyfill_thread.h"
-#include "common/reader_writer_queue.h"
 #include "common/thread.h"
 
 namespace Core {

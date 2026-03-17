@@ -21,7 +21,7 @@ namespace AudioCore::Sink {
 
 void SinkStream::AppendBuffer(SinkBuffer& buffer, std::span<s16> samples) {
     SCOPE_EXIT {
-        queue.enqueue(buffer);
+        queue.EmplaceWait(buffer);
         ++queued_buffers;
     };
 
@@ -145,8 +145,8 @@ std::vector<s16> SinkStream::ReleaseBuffer(u64 num_samples) {
 
 void SinkStream::ClearQueue() {
     samples_buffer.Pop();
-    while (queue.pop()) {
-    }
+    SinkBuffer tmp;
+    while (queue.TryPop(tmp));
     queued_buffers = 0;
     playing_buffer = {};
     playing_buffer.consumed = true;
@@ -167,7 +167,7 @@ void SinkStream::ProcessAudioIn(std::span<const s16> input_buffer, std::size_t n
     while (frames_written < num_frames) {
         // If the playing buffer has been consumed or has no frames, we need a new one
         if (playing_buffer.consumed || playing_buffer.frames == 0) {
-            if (!queue.try_dequeue(playing_buffer)) {
+            if (!queue.TryPop(playing_buffer)) {
                 // If no buffer was available we've underrun, just push the samples and
                 // continue.
                 samples_buffer.Push(&input_buffer[frames_written * frame_size],
@@ -228,7 +228,7 @@ void SinkStream::ProcessAudioOutAndRender(std::span<s16> output_buffer, std::siz
     while (frames_written < num_frames) {
         // If the playing buffer has been consumed or has no frames, we need a new one
         if (playing_buffer.consumed || playing_buffer.frames == 0) {
-            if (!queue.try_dequeue(playing_buffer)) {
+            if (!queue.TryPop(playing_buffer)) {
                 // If no buffer was available we've underrun, fill the remaining buffer with
                 // the last written frame and continue.
                 for (size_t i = frames_written; i < num_frames; i++) {
