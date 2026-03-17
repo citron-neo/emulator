@@ -2,10 +2,10 @@
 // SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
+#include <ranges>
 #include "common/algorithm.h"
 #include "common/assert.h"
 #include "common/logging.h"
-#include "common/polyfill_ranges.h"
 #include "common/settings.h"
 #include "core/core.h"
 #include "video_core/engines/maxwell_3d.h"

@@ -77,7 +77,7 @@ if (ENABLE_SDL2)
     target_compile_definitions(input_common PRIVATE HAVE_SDL2)
 endif()
 
-if (ENABLE_LIBUSB)
+if (ENABLE_LIBUSB AND NOT ${CMAKE_SYSTEM_NAME} STREQUAL "FreeBSD")
     target_sources(input_common PRIVATE
         drivers/gc_adapter.cpp
         drivers/gc_adapter.h
