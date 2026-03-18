@@ -192,7 +192,7 @@ void MaxwellDMA::Launch() {
 }
 
 void MaxwellDMA::CopyBlockLinearToPitch() {
-    UNIMPLEMENTED_IF(regs.launch_dma.remap_enable != 0);
+    //UNIMPLEMENTED_IF(regs.launch_dma.remap_enable != 0);
 
     u32 bytes_per_pixel = 1;
     DMA::ImageOperand src_operand;
