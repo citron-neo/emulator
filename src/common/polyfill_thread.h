@@ -10,7 +10,9 @@
 #include <version>
 #include <chrono>
 #include <condition_variable>
+#if __has_include(<stop_token>)
 #include <stop_token>
+#endif
 #include <thread>
 #include <utility>
 
