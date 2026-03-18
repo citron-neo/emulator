@@ -1,11 +1,19 @@
+// SPDX-FileCopyrightText: Copyright 2026 Citron Emulator Project
+// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-FileCopyrightText: Copyright 2026 Eden Emulator Project
+// SPDX-License-Identifier: GPL-3.0-or-later
 // SPDX-FileCopyrightText: 2015 Citra Emulator Project
 // SPDX-FileCopyrightText: 2018 yuzu Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <algorithm>
+#include <bit>
 #include <cstring>
 #include <mutex>
 #include <span>
+#include <thread>
+#include <type_traits>
+#include <vector>
 
 #include "common/assert.h"
 #include "common/atomic_ops.h"
@@ -29,24 +37,24 @@
 
 namespace Core::Memory {
 
-namespace {
-
-bool AddressSpaceContains(const Common::PageTable& table, const Common::ProcessAddress addr,
-                          const std::size_t size) {
+static inline bool AddressSpaceContains(const Common::PageTable& table, const Common::ProcessAddress addr, const std::size_t size) {
     const Common::ProcessAddress max_addr = 1ULL << table.GetAddressSpaceBits();
     return addr + size >= addr && addr + size <= max_addr;
 }
-
-} // namespace
 
 // Implementation class used to keep the specifics of the memory subsystem hidden
 // from outside classes. This also allows modification to the internals of the memory
 // subsystem without needing to rebuild all files that make use of the memory interface.
 struct Memory::Impl {
-    explicit Impl(Core::System& system_) : system{system_} {}
+    explicit Impl(Core::System& system_) : system{system_} {
+        // Initialize thread count based on available cores for parallel memory operations
+        const unsigned int hw_concurrency = std::thread::hardware_concurrency();
+        thread_count = (std::max)(2u, (std::min)(hw_concurrency, 8u)); // Limit to 8 threads max
+    }
 
     void SetCurrentPageTable(Kernel::KProcess& process) {
         current_page_table = &process.GetPageTable().GetImpl();
+
         if (process.IsApplication() && Settings::IsFastmemEnabled()) {
             current_page_table->fastmem_arena = system.DeviceMemory().buffer.VirtualBasePointer();
         } else {
@@ -92,11 +100,9 @@ struct Memory::Impl {
             return;
         }
 
-        u64 protect_bytes{};
-        u64 protect_begin{};
+        u64 protect_bytes = 0, protect_begin = 0;
         for (u64 addr = vaddr; addr < vaddr + size; addr += CITRON_PAGESIZE) {
-            const Common::PageType page_type{
-                current_page_table->entries[addr >> CITRON_PAGEBITS].pointer.Type()};
+            const Common::PageType page_type = current_page_table->entries[addr >> CITRON_PAGEBITS].pointer.Type();
             switch (page_type) {
             case Common::PageType::RasterizerCachedMemory:
                 if (protect_bytes > 0) {
@@ -105,9 +111,8 @@ struct Memory::Impl {
                 }
                 break;
             default:
-                if (protect_bytes == 0) {
+                if (protect_bytes == 0)
                     protect_begin = addr;
-                }
                 protect_bytes += CITRON_PAGESIZE;
             }
         }
@@ -117,91 +122,14 @@ struct Memory::Impl {
         }
     }
 
-    [[nodiscard]] u8* GetPointerFromRasterizerCachedMemory(u64 vaddr) const {
-        const Common::PhysicalAddress paddr{
-            current_page_table->entries[vaddr >> CITRON_PAGEBITS].backing_addr};
-
-        if (!paddr) {
-            return {};
-        }
-
-        return system.DeviceMemory().GetPointer<u8>(paddr + vaddr);
+    [[nodiscard]] inline u8* GetPointerFromRasterizerCachedMemory(u64 vaddr) const {
+        auto const paddr = current_page_table->entries[vaddr >> CITRON_PAGEBITS].backing_addr;
+        return paddr ? system.DeviceMemory().GetPointer<u8>(paddr + vaddr) : nullptr;
     }
 
-    [[nodiscard]] u8* GetPointerFromDebugMemory(u64 vaddr) const {
-        const Common::PhysicalAddress paddr{
-            current_page_table->entries[vaddr >> CITRON_PAGEBITS].backing_addr};
-
-        if (paddr == 0) {
-            return {};
-        }
-
-        return system.DeviceMemory().GetPointer<u8>(paddr + vaddr);
-    }
-
-    u8 Read8(const Common::ProcessAddress addr) {
-        return Read<u8>(addr);
-    }
-
-    u16 Read16(const Common::ProcessAddress addr) {
-        if ((addr & 1) == 0) {
-            return Read<u16_le>(addr);
-        } else {
-            const u32 a{Read<u8>(addr)};
-            const u32 b{Read<u8>(addr + sizeof(u8))};
-            return static_cast<u16>((b << 8) | a);
-        }
-    }
-
-    u32 Read32(const Common::ProcessAddress addr) {
-        if ((addr & 3) == 0) {
-            return Read<u32_le>(addr);
-        } else {
-            const u32 a{Read16(addr)};
-            const u32 b{Read16(addr + sizeof(u16))};
-            return (b << 16) | a;
-        }
-    }
-
-    u64 Read64(const Common::ProcessAddress addr) {
-        if ((addr & 7) == 0) {
-            return Read<u64_le>(addr);
-        } else {
-            const u32 a{Read32(addr)};
-            const u32 b{Read32(addr + sizeof(u32))};
-            return (static_cast<u64>(b) << 32) | a;
-        }
-    }
-
-    void Write8(const Common::ProcessAddress addr, const u8 data) {
-        Write<u8>(addr, data);
-    }
-
-    void Write16(const Common::ProcessAddress addr, const u16 data) {
-        if ((addr & 1) == 0) {
-            Write<u16_le>(addr, data);
-        } else {
-            Write<u8>(addr, static_cast<u8>(data));
-            Write<u8>(addr + sizeof(u8), static_cast<u8>(data >> 8));
-        }
-    }
-
-    void Write32(const Common::ProcessAddress addr, const u32 data) {
-        if ((addr & 3) == 0) {
-            Write<u32_le>(addr, data);
-        } else {
-            Write16(addr, static_cast<u16>(data));
-            Write16(addr + sizeof(u16), static_cast<u16>(data >> 16));
-        }
-    }
-
-    void Write64(const Common::ProcessAddress addr, const u64 data) {
-        if ((addr & 7) == 0) {
-            Write<u64_le>(addr, data);
-        } else {
-            Write32(addr, static_cast<u32>(data));
-            Write32(addr + sizeof(u32), static_cast<u32>(data >> 32));
-        }
+    [[nodiscard]] inline u8* GetPointerFromDebugMemory(u64 vaddr) const {
+        auto const paddr = current_page_table->entries[vaddr >> CITRON_PAGEBITS].backing_addr;
+        return paddr ? system.DeviceMemory().GetPointer<u8>(paddr + vaddr) : nullptr;
     }
 
     bool WriteExclusive8(const Common::ProcessAddress addr, const u8 data, const u8 expected) {
@@ -250,7 +178,7 @@ struct Memory::Impl {
 
         while (remaining_size) {
             const std::size_t copy_amount =
-                std::min(static_cast<std::size_t>(CITRON_PAGESIZE) - page_offset, remaining_size);
+                (std::min)(static_cast<std::size_t>(CITRON_PAGESIZE) - page_offset, remaining_size);
             const auto current_vaddr =
                 static_cast<u64>((page_index << CITRON_PAGEBITS) + page_offset);
 
@@ -300,7 +228,7 @@ struct Memory::Impl {
                 LOG_ERROR(HW_Memory,
                           "Unmapped ReadBlock @ 0x{:016X} (start address = 0x{:016X}, size = {})",
                           GetInteger(current_vaddr), GetInteger(src_addr), size);
-                std::memset(dest_buffer, 0, copy_amount);
+               std::memset(dest_buffer, 0, copy_amount);
             },
             [&](const std::size_t copy_amount, const u8* const src_ptr) {
                 std::memcpy(dest_buffer, src_ptr, copy_amount);
@@ -319,6 +247,8 @@ struct Memory::Impl {
 
     bool ReadBlock(const Common::ProcessAddress src_addr, void* dest_buffer,
                    const std::size_t size) {
+        // TODO: If you want a proper multithreaded implementation (w/o cache coherency fights)
+        // use TBB or something that splits the job properly
         return ReadBlockImpl<false>(src_addr, dest_buffer, size);
     }
 
@@ -371,6 +301,8 @@ struct Memory::Impl {
 
     bool WriteBlock(const Common::ProcessAddress dest_addr, const void* src_buffer,
                     const std::size_t size) {
+        // TODO: If you want a proper multithreaded implementation (w/o cache coherency fights)
+        // use TBB or something that splits the job properly
         return WriteBlockImpl<false>(dest_addr, src_buffer, size);
     }
 
@@ -389,12 +321,12 @@ struct Memory::Impl {
                           GetInteger(current_vaddr), GetInteger(dest_addr), size);
             },
             [](const std::size_t copy_amount, u8* const dest_ptr) {
-                std::memset(dest_ptr, 0, copy_amount);
+               std::memset(dest_ptr, 0, copy_amount);
             },
             [&](const Common::ProcessAddress current_vaddr, const std::size_t copy_amount,
                 u8* const host_ptr) {
                 HandleRasterizerWrite(GetInteger(current_vaddr), copy_amount);
-                std::memset(host_ptr, 0, copy_amount);
+               std::memset(host_ptr, 0, copy_amount);
             },
             [](const std::size_t copy_amount) {});
     }
@@ -493,21 +425,19 @@ struct Memory::Impl {
 
         const u64 num_pages = ((vaddr + size - 1) >> CITRON_PAGEBITS) - (vaddr >> CITRON_PAGEBITS) + 1;
         for (u64 i = 0; i < num_pages; ++i, vaddr += CITRON_PAGESIZE) {
-            const Common::PageType page_type{
-                current_page_table->entries[vaddr >> CITRON_PAGEBITS].pointer.Type()};
+            const Common::PageType page_type = current_page_table->entries[vaddr >> CITRON_PAGEBITS].pointer.Type();
             if (debug) {
                 // Switch page type to debug if now debug
                 switch (page_type) {
                 case Common::PageType::Unmapped:
-                    ASSERT_MSG(false, "Attempted to mark unmapped pages as debug");
+                    ASSERT(false && "Attempted to mark unmapped pages as debug");
                     break;
                 case Common::PageType::RasterizerCachedMemory:
                 case Common::PageType::DebugMemory:
                     // Page is already marked.
                     break;
                 case Common::PageType::Memory:
-                    current_page_table->entries[vaddr >> CITRON_PAGEBITS].pointer.Store(
-                        0, Common::PageType::DebugMemory);
+                    current_page_table->entries[vaddr >> CITRON_PAGEBITS].pointer.Store(0, Common::PageType::DebugMemory);
                     break;
                 default:
                     UNREACHABLE();
@@ -516,17 +446,15 @@ struct Memory::Impl {
                 // Switch page type to non-debug if now non-debug
                 switch (page_type) {
                 case Common::PageType::Unmapped:
-                    ASSERT_MSG(false, "Attempted to mark unmapped pages as non-debug");
+                    ASSERT(false && "Attempted to mark unmapped pages as non-debug");
                     break;
                 case Common::PageType::RasterizerCachedMemory:
                 case Common::PageType::Memory:
                     // Don't mess with already non-debug or rasterizer memory.
                     break;
                 case Common::PageType::DebugMemory: {
-                    u8* const pointer{GetPointerFromDebugMemory(vaddr & ~CITRON_PAGEMASK)};
-                    current_page_table->entries[vaddr >> CITRON_PAGEBITS].pointer.Store(
-                        uintptr_t(pointer) - (vaddr & ~CITRON_PAGEMASK),
-                        Common::PageType::Memory);
+                    u8* const pointer = GetPointerFromDebugMemory(vaddr & ~CITRON_PAGEMASK);
+                    current_page_table->entries[vaddr >> CITRON_PAGEBITS].pointer.Store(uintptr_t(pointer) - (vaddr & ~CITRON_PAGEMASK), Common::PageType::Memory);
                     break;
                 }
                 default:
@@ -559,8 +487,7 @@ struct Memory::Impl {
 
         const u64 num_pages = ((vaddr + size - 1) >> CITRON_PAGEBITS) - (vaddr >> CITRON_PAGEBITS) + 1;
         for (u64 i = 0; i < num_pages; ++i, vaddr += CITRON_PAGESIZE) {
-            const Common::PageType page_type{
-                current_page_table->entries[vaddr >> CITRON_PAGEBITS].pointer.Type()};
+            const Common::PageType page_type= current_page_table->entries[vaddr >> CITRON_PAGEBITS].pointer.Type();
             if (cached) {
                 // Switch page type to cached if now cached
                 switch (page_type) {
@@ -570,8 +497,7 @@ struct Memory::Impl {
                     break;
                 case Common::PageType::DebugMemory:
                 case Common::PageType::Memory:
-                    current_page_table->entries[vaddr >> CITRON_PAGEBITS].pointer.Store(
-                        0, Common::PageType::RasterizerCachedMemory);
+                    current_page_table->entries[vaddr >> CITRON_PAGEBITS].pointer.Store(0, Common::PageType::RasterizerCachedMemory);
                     break;
                 case Common::PageType::RasterizerCachedMemory:
                     // There can be more than one GPU region mapped per CPU region, so it's common
@@ -593,17 +519,13 @@ struct Memory::Impl {
                     // that this area is already unmarked as cached.
                     break;
                 case Common::PageType::RasterizerCachedMemory: {
-                    u8* const pointer{GetPointerFromRasterizerCachedMemory(vaddr & ~CITRON_PAGEMASK)};
-                    if (pointer == nullptr) {
+                    if (u8* const pointer = GetPointerFromRasterizerCachedMemory(vaddr & ~CITRON_PAGEMASK); pointer == nullptr) {
                         // It's possible that this function has been called while updating the
                         // pagetable after unmapping a VMA. In that case the underlying VMA will no
                         // longer exist, and we should just leave the pagetable entry blank.
-                        current_page_table->entries[vaddr >> CITRON_PAGEBITS].pointer.Store(
-                            0, Common::PageType::Unmapped);
+                        current_page_table->entries[vaddr >> CITRON_PAGEBITS].pointer.Store(0, Common::PageType::Unmapped);
                     } else {
-                        current_page_table->entries[vaddr >> CITRON_PAGEBITS].pointer.Store(
-                            reinterpret_cast<uintptr_t>(pointer) - (vaddr & ~CITRON_PAGEMASK),
-                            Common::PageType::Memory);
+                        current_page_table->entries[vaddr >> CITRON_PAGEBITS].pointer.Store(uintptr_t(pointer) - (vaddr & ~CITRON_PAGEMASK), Common::PageType::Memory);
                     }
                     break;
                 }
@@ -631,8 +553,7 @@ struct Memory::Impl {
                   base * CITRON_PAGESIZE, (base + size) * CITRON_PAGESIZE);
 
         const auto end = base + size;
-        ASSERT_MSG(end <= page_table.entries.size(), "out of range mapping at {:016X}",
-                   base + page_table.entries.size());
+        ASSERT_MSG(end <= page_table.entries.size(), "out of range mapping at {:016X}", base + page_table.entries.size());
 
         if (!target) {
             ASSERT_MSG(type != Common::PageType::Memory,
@@ -647,9 +568,7 @@ struct Memory::Impl {
         } else {
             auto orig_base = base;
             while (base != end) {
-                auto host_ptr =
-                    reinterpret_cast<uintptr_t>(system.DeviceMemory().GetPointer<u8>(target)) -
-                    (base << CITRON_PAGEBITS);
+                auto host_ptr = uintptr_t(system.DeviceMemory().GetPointer<u8>(target)) - (base << CITRON_PAGEBITS);
                 auto backing = GetInteger(target) - (base << CITRON_PAGEBITS);
                 page_table.entries[base].pointer.Store(host_ptr, type);
                 page_table.entries[base].backing_addr = backing;
@@ -661,58 +580,47 @@ struct Memory::Impl {
         }
     }
 
-    [[nodiscard]] u8* GetPointerImpl(u64 vaddr, auto on_unmapped, auto on_rasterizer) const {
+    template<typename F, typename G>
+    [[nodiscard]] inline u8* GetPointerImpl(u64 vaddr, F&& on_unmapped, G&& on_rasterizer) const {
         // AARCH64 masks the upper 16 bit of all memory accesses
-        vaddr = vaddr & 0xffffffffffffULL;
-
-        if (!AddressSpaceContains(*current_page_table, vaddr, 1)) [[unlikely]] {
+        vaddr &= 0xffffffffffffULL;
+        if (AddressSpaceContains(*current_page_table, vaddr, 1)) [[likely]] {
+            // Avoid adding any extra logic to this fast-path block
+            const uintptr_t raw_pointer = current_page_table->entries[vaddr >> CITRON_PAGEBITS].pointer.Raw();
+            if (const uintptr_t pointer = Common::PageTable::PageInfo::ExtractPointer(raw_pointer)) [[likely]] {
+                return reinterpret_cast<u8*>(pointer + vaddr);
+            } else {
+                switch (Common::PageTable::PageInfo::ExtractType(raw_pointer)) {
+                case Common::PageType::Memory:
+                    ASSERT_MSG(false, "Mapped memory page without a pointer @ 0x{:016X}", vaddr);
+                    return nullptr;
+                case Common::PageType::DebugMemory:
+                    return GetPointerFromDebugMemory(vaddr);
+                case Common::PageType::RasterizerCachedMemory: {
+                    u8* const host_ptr{GetPointerFromRasterizerCachedMemory(vaddr)};
+                    on_rasterizer();
+                    return host_ptr;
+                }
+                case Common::PageType::Unmapped: [[unlikely]] {
+                    on_unmapped();
+                    return nullptr;
+                }
+                default:
+                    UNREACHABLE();
+                }
+                return nullptr;
+            }
+        } else {
             on_unmapped();
             return nullptr;
         }
-
-        // Avoid adding any extra logic to this fast-path block
-        const uintptr_t raw_pointer = current_page_table->entries[vaddr >> CITRON_PAGEBITS].pointer.Raw();
-        if (const uintptr_t pointer = Common::PageTable::PageInfo::ExtractPointer(raw_pointer)) {
-            return reinterpret_cast<u8*>(pointer + vaddr);
-        }
-        switch (Common::PageTable::PageInfo::ExtractType(raw_pointer)) {
-        case Common::PageType::Unmapped:
-            on_unmapped();
-            return nullptr;
-        case Common::PageType::Memory:
-            ASSERT_MSG(false, "Mapped memory page without a pointer @ 0x{:016X}", vaddr);
-            return nullptr;
-        case Common::PageType::DebugMemory:
-            return GetPointerFromDebugMemory(vaddr);
-        case Common::PageType::RasterizerCachedMemory: {
-            u8* const host_ptr{GetPointerFromRasterizerCachedMemory(vaddr)};
-            on_rasterizer();
-            return host_ptr;
-        }
-        default:
-            UNREACHABLE();
-        }
-        return nullptr;
     }
 
     [[nodiscard]] u8* GetPointer(const Common::ProcessAddress vaddr) const {
         return GetPointerImpl(
             GetInteger(vaddr),
             [vaddr]() {
-                // Enhanced unmapped memory handling
-                const u64 addr = GetInteger(vaddr);
-
-                // Check if this is a very low address
-                if (addr < 0x1000) {
-                    LOG_WARNING(HW_Memory, "UE4-style low address read detected @ 0x{:016X}, returning 0 for stability",
-                               addr);
-                    // For UE4 games, we'll return 0 for these reads to prevent crashes
-                    // This is a common pattern in UE4 games where they read from low addresses
-                    return;
-                }
-
-                LOG_ERROR(HW_Memory, "Unmapped Read{} @ 0x{:016X}", sizeof(u8) * 8,
-                          GetInteger(vaddr));
+                LOG_ERROR(HW_Memory, "Unmapped GetPointer @ 0x{:016X}", GetInteger(vaddr));
             },
             []() {});
     }
@@ -722,77 +630,87 @@ struct Memory::Impl {
             GetInteger(vaddr), []() {}, []() {});
     }
 
-    /**
-     * Reads a particular data type out of memory at the given virtual address.
-     *
-     * @param vaddr The virtual address to read the data type from.
-     *
-     * @tparam T The data type to read out of memory. This type *must* be
-     *           trivially copyable, otherwise the behavior of this function
-     *           is undefined.
-     *
-     * @returns The instance of T read from the specified virtual address.
-     */
+    /// @brief Reads a particular data type out of memory at the given virtual address.
+    /// @param vaddr The virtual address to read the data type from.
+    /// @tparam T The data type to read out of memory.
+    /// @returns The instance of T read from the specified virtual address.
     template <typename T>
-    T Read(Common::ProcessAddress vaddr) {
-        T result = 0;
-        const u8* const ptr = GetPointerImpl(
-            GetInteger(vaddr),
-            [vaddr]() {
-                // Enhanced unmapped memory handling
-                const u64 addr = GetInteger(vaddr);
-
-                // Check if this is a very low address
-                if (addr < 0x1000) {
-                    LOG_WARNING(HW_Memory, "UE4-style low address read detected @ 0x{:016X}, returning 0 for stability",
-                               addr);
-                    // For UE4 games, we'll return 0 for these reads to prevent crashes
-                    // This is a common pattern in UE4 games where they read from low addresses
-                    return;
+    inline T Read(Common::ProcessAddress vaddr) noexcept requires(std::is_trivially_copyable_v<T>) {
+        auto const addr_c1 = GetInteger(vaddr);
+        if (!(sizeof(T) > 1 && (addr_c1 & 4095) + sizeof(T) > 4096)) {
+            if (auto const ptr_c1 = GetPointerImpl(addr_c1, [addr_c1] {
+                LOG_ERROR(HW_Memory, "Unmapped Read{} @ 0x{:016X}", sizeof(T) * 8, addr_c1);
+            }, [&] {
+                HandleRasterizerDownload(addr_c1, sizeof(T));
+            }); ptr_c1) {
+                // It may be tempting to rewrite this particular section to use "reinterpret_cast";
+                // afterall, it's trivially copyable so surely it can be copied ov- Alignment.
+                // Remember, alignment. memcpy() will deal with all the alignment extremely fast.
+                T result{};
+                std::memcpy(&result, ptr_c1, sizeof(T));
+                return result;
+            }
+        } else {
+            auto const addr_c2 = (addr_c1 & (~0xfff)) + 0x1000;
+            // page crossing: say if sizeof(T) = 2, vaddr = 4095
+            // 4095 + 2 mod 4096 = 1 => 2 - 1 = 1, thus c1=1, c2=1
+            auto const count_c2 = (addr_c1 + sizeof(T)) & 4095;
+            auto const count_c1 = sizeof(T) - count_c2;
+            if (auto const ptr_c1 = GetPointerImpl(addr_c1, [addr_c1] {
+                LOG_ERROR(HW_Memory, "Unmapped Read{} @ 0x{:016X}", sizeof(T) * 8, addr_c1);
+            }, [&] {
+                HandleRasterizerDownload(addr_c1, count_c1);
+            }); ptr_c1) {
+                if (auto const ptr_c2 = GetPointerImpl(addr_c2, [addr_c2] {
+                    LOG_ERROR(HW_Memory, "Unmapped Read{} @ 0x{:016X}", sizeof(T) * 8, addr_c2);
+                }, [&] {
+                    HandleRasterizerDownload(addr_c2, count_c2);
+                }); ptr_c2) {
+                    std::array<char, sizeof(T)> result{};
+                    std::memcpy(result.data() + 0, ptr_c1, count_c1);
+                    std::memcpy(result.data() + count_c1, ptr_c2, count_c2);
+                    return std::bit_cast<T>(result);
                 }
-
-                LOG_ERROR(HW_Memory, "Unmapped Read{} @ 0x{:016X}", sizeof(T) * 8,
-                          GetInteger(vaddr));
-            },
-            [&]() { HandleRasterizerDownload(GetInteger(vaddr), sizeof(T)); });
-        if (ptr) {
-            std::memcpy(&result, ptr, sizeof(T));
+            }
         }
-        return result;
+        return T{};
     }
 
-    /**
-     * Writes a particular data type to memory at the given virtual address.
-     *
-     * @param vaddr The virtual address to write the data type to.
-     *
-     * @tparam T The data type to write to memory. This type *must* be
-     *           trivially copyable, otherwise the behavior of this function
-     *           is undefined.
-     */
+    /// @brief Writes a particular data type to memory at the given virtual address.
+    /// @param vaddr The virtual address to write the data type to.
+    /// @tparam T The data type to write to memory.
     template <typename T>
-    void Write(Common::ProcessAddress vaddr, const T data) {
-        u8* const ptr = GetPointerImpl(
-            GetInteger(vaddr),
-            [vaddr, data]() {
-                // Enhanced unmapped memory handling for UE4 games like Hogwarts Legacy
-                const u64 addr = GetInteger(vaddr);
-
-                // Check if this is a very low address that might be used by UE4
-                if (addr < 0x1000) {
-                    LOG_WARNING(HW_Memory, "UE4-style low address write detected @ 0x{:016X} = 0x{:016X}, ignoring for stability",
-                               addr, static_cast<u64>(data));
-                    // For UE4 games, we'll ignore these writes to prevent crashes
-                    // This is a common pattern in UE4 games where they write to low addresses
-                    return;
+    inline void Write(Common::ProcessAddress vaddr, const T data) noexcept requires(std::is_trivially_copyable_v<T>) {
+        auto const addr_c1 = GetInteger(vaddr);
+        if (!(sizeof(T) > 1 && (addr_c1 & 4095) + sizeof(T) > 4096)) {
+            if (auto const ptr_c1 = GetPointerImpl(addr_c1, [addr_c1] {
+                LOG_ERROR(HW_Memory, "Unmapped Write{} @ 0x{:016X}", sizeof(T) * 8, addr_c1);
+            }, [&] {
+                HandleRasterizerWrite(addr_c1, sizeof(T));
+            }); ptr_c1) {
+                std::memcpy(ptr_c1, &data, sizeof(T));
+            }
+        } else {
+            auto const addr_c2 = (addr_c1 & (~0xfff)) + 0x1000;
+            // page crossing: say if sizeof(T) = 2, vaddr = 4095
+            // 4095 + 2 mod 4096 = 1 => 2 - 1 = 1, thus c1=1, c2=1
+            auto const count_c2 = (addr_c1 + sizeof(T)) & 4095;
+            auto const count_c1 = sizeof(T) - count_c2;
+            if (auto const ptr_c1 = GetPointerImpl(addr_c1, [addr_c1] {
+                LOG_ERROR(HW_Memory, "Unmapped Write{} @ 0x{:016X}", sizeof(T) * 8, addr_c1);
+            }, [&] {
+                HandleRasterizerWrite(addr_c1, count_c1);
+            }); ptr_c1) {
+                if (auto const ptr_c2 = GetPointerImpl(addr_c2, [addr_c2] {
+                    LOG_ERROR(HW_Memory, "Unmapped Write{} @ 0x{:016X}", sizeof(T) * 8, addr_c2);
+                }, [&] {
+                    HandleRasterizerWrite(addr_c2, count_c2);
+                }); ptr_c2) {
+                    std::array<char, sizeof(T)> tmp = std::bit_cast<std::array<char, sizeof(T)>>(data);
+                    std::memcpy(ptr_c1, tmp.data() + 0, count_c1);
+                    std::memcpy(ptr_c2, tmp.data() + count_c1, count_c2);
                 }
-
-                LOG_ERROR(HW_Memory, "Unmapped Write{} @ 0x{:016X} = 0x{:016X}", sizeof(T) * 8,
-                          GetInteger(vaddr), static_cast<u64>(data));
-            },
-            [&]() { HandleRasterizerWrite(GetInteger(vaddr), sizeof(T)); });
-        if (ptr) {
-            std::memcpy(ptr, &data, sizeof(T));
+            }
         }
     }
 
@@ -847,7 +765,7 @@ struct Memory::Impl {
         const auto* p = GetPointerImpl(
             v_address, []() {}, []() {});
         constexpr size_t sys_core = Core::Hardware::NUM_CPU_CORES - 1;
-        const size_t core = std::min(system.GetCurrentHostThreadID(),
+        const size_t core = (std::min)(system.GetCurrentHostThreadID(),
                                      sys_core); // any other calls threads go to syscore.
         if (!gpu_device_memory) [[unlikely]] {
             gpu_device_memory = &system.Host1x().MemoryManager();
@@ -864,13 +782,19 @@ struct Memory::Impl {
         gpu_device_memory->ApplyOpOnPointer(p, scratch_buffers[core], [&](DAddr address) {
             auto& current_area = rasterizer_write_areas[core];
             PAddr subaddress = address >> CITRON_PAGEBITS;
-            bool do_collection = current_area.last_address == subaddress;
-            if (!do_collection) [[unlikely]] {
-                do_collection = system.GPU().OnCPUWrite(address, size);
-                if (!do_collection) {
+            // Performance note:
+            // It may not be a good idea to assume accesses are within the same subaddress (i.e same page)
+            // It is often the case the games like to access wildly different addresses. Hence why I propose
+            // we should let the compiler just do it's thing...
+            if (current_area.last_address != subaddress) {
+                // Short circuit the need to check for address/size
+                auto const do_collection = (address != 0 && size != 0)
+                    && system.GPU().OnCPUWrite(address, size);
+                if (do_collection) {
+                    current_area.last_address = subaddress;
+                } else {
                     return;
                 }
-                current_area.last_address = subaddress;
             }
             gpu_dirty_managers[core].Collect(address, size);
         });
@@ -882,7 +806,7 @@ struct Memory::Impl {
 
     void InvalidateGPUMemory(u8* p, size_t size) {
         constexpr size_t sys_core = Core::Hardware::NUM_CPU_CORES - 1;
-        const size_t core = std::min(system.GetCurrentHostThreadID(),
+        const size_t core = (std::min)(system.GetCurrentHostThreadID(),
                                      sys_core); // any other calls threads go to syscore.
         if (!gpu_device_memory) [[unlikely]] {
             gpu_device_memory = &system.Host1x().MemoryManager();
@@ -904,6 +828,12 @@ struct Memory::Impl {
     Core::System& system;
     Tegra::MaxwellDeviceMemoryManager* gpu_device_memory{};
     Common::PageTable* current_page_table = nullptr;
+
+    // Number of threads to use for parallel memory operations
+    unsigned int thread_count = 2;
+
+    // Minimum size in bytes for which parallel processing is beneficial
+    //size_t PARALLEL_THRESHOLD = (L3 CACHE * NUM PHYSICAL CORES); // 64 KB
     std::array<VideoCore::RasterizerDownloadArea, Core::Hardware::NUM_CPU_CORES>
         rasterizer_read_areas{};
     std::array<GPUDirtyState, Core::Hardware::NUM_CPU_CORES> rasterizer_write_areas{};
@@ -980,35 +910,35 @@ const u8* Memory::GetPointer(Common::ProcessAddress vaddr) const {
 }
 
 u8 Memory::Read8(const Common::ProcessAddress addr) {
-    return impl->Read8(addr);
+    return impl->Read<u8>(addr);
 }
 
 u16 Memory::Read16(const Common::ProcessAddress addr) {
-    return impl->Read16(addr);
+    return impl->Read<u16_le>(addr);
 }
 
 u32 Memory::Read32(const Common::ProcessAddress addr) {
-    return impl->Read32(addr);
+    return impl->Read<u32_le>(addr);
 }
 
 u64 Memory::Read64(const Common::ProcessAddress addr) {
-    return impl->Read64(addr);
+    return impl->Read<u64_le>(addr);
 }
 
 void Memory::Write8(Common::ProcessAddress addr, u8 data) {
-    impl->Write8(addr, data);
+    impl->Write<u8>(addr, data);
 }
 
 void Memory::Write16(Common::ProcessAddress addr, u16 data) {
-    impl->Write16(addr, data);
+    impl->Write<u16_le>(addr, data);
 }
 
 void Memory::Write32(Common::ProcessAddress addr, u32 data) {
-    impl->Write32(addr, data);
+    impl->Write<u32_le>(addr, data);
 }
 
 void Memory::Write64(Common::ProcessAddress addr, u64 data) {
-    impl->Write64(addr, data);
+    impl->Write<u64_le>(addr, data);
 }
 
 bool Memory::WriteExclusive8(Common::ProcessAddress addr, u8 data, u8 expected) {
@@ -1111,22 +1041,11 @@ bool Memory::InvalidateNCE(Common::ProcessAddress vaddr, size_t size) {
     if (rasterizer) {
         impl->InvalidateGPUMemory(ptr, size);
     }
-
-#ifdef __linux__
-    // HostMemory no longer exposes deferred separate-heap remapping.
-    // Keep the invalidate path side-effect free here.
-#endif
-
     return mapped && ptr != nullptr;
 }
 
 bool Memory::InvalidateSeparateHeap(void* fault_address) {
-#ifdef __linux__
-    (void)fault_address;
     return false;
-#else
-    return false;
-#endif
 }
 
 } // namespace Core::Memory
