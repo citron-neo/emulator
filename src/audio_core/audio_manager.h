@@ -66,10 +66,6 @@ public:
     void SetEvent(Event::Type type, bool signalled);
 
 private:
-    /**
-     * Main thread, waiting on a manager signal and calling the registered function.
-     */
-    void ThreadFunc();
 
     /// Is the main thread running?
     std::atomic<bool> running{};
