@@ -6232,11 +6232,19 @@ static void SetHighDPIAttributes() {
 
     HMODULE shcore = LoadLibrary(L"shcore.dll");
     if (shcore) {
-        typedef HRESULT(WINAPI * SetProcessDpiAwarenessFunc)(int);
-        SetProcessDpiAwarenessFunc setProcessDpiAwareness =
-            (SetProcessDpiAwarenessFunc)GetProcAddress(shcore, "SetProcessDpiAwareness");
+        using SetProcessDpiAwarenessFunc =
+            HRESULT(WINAPI*)(PROCESS_DPI_AWARENESS);
+
+        auto* shcoreProcAddress {
+            reinterpret_cast<void*>(GetProcAddress(shcore,
+                                                   "SetProcessDpiAwareness"))
+        };
+
+        auto setProcessDpiAwareness =
+                reinterpret_cast<SetProcessDpiAwarenessFunc>(shcoreProcAddress);
+
         if (setProcessDpiAwareness) {
-            setProcessDpiAwareness(2); // PROCESS_PER_MONITOR_DPI_AWARE_V2
+            setProcessDpiAwareness(PROCESS_PER_MONITOR_DPI_AWARE);
         }
         FreeLibrary(shcore);
     }

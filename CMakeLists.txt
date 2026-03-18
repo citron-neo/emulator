@@ -4,6 +4,9 @@
 
 cmake_minimum_required(VERSION 3.22)
 
+# Workaround for mbedtls as it doesn't work with CMake versions below 3.5
+set(CMAKE_POLICY_VERSION_MINIMUM 3.5)
+
 project(citron)
 
 # Define the build type, defaulting to "Nightly" for development and CI builds.
