@@ -16,9 +16,7 @@
 namespace VideoCommon::GPUThread {
 
 /// Runs the GPU thread
-static void RunThread(std::stop_token stop_token, Core::System& system,
-                      VideoCore::RendererBase& renderer, Core::Frontend::GraphicsContext& context,
-                      Tegra::Control::Scheduler& scheduler, SynchState& state) {
+static void RunThread(std::stop_token stop_token, Core::System& system, VideoCore::RendererBase& renderer, Core::Frontend::GraphicsContext& context, Tegra::Control::Scheduler& scheduler, SynchState& state) {
     Common::SetCurrentThreadName("GPU");
     Common::SetCurrentThreadPriority(Common::ThreadPriority::Critical);
     system.RegisterHostThread();
