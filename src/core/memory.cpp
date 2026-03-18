@@ -430,7 +430,7 @@ struct Memory::Impl {
                 // Switch page type to debug if now debug
                 switch (page_type) {
                 case Common::PageType::Unmapped:
-                    ASSERT(false && "Attempted to mark unmapped pages as debug");
+                    UNREACHABLE_MSG("Attempted to mark unmapped pages as debug");
                     break;
                 case Common::PageType::RasterizerCachedMemory:
                 case Common::PageType::DebugMemory:
@@ -446,7 +446,7 @@ struct Memory::Impl {
                 // Switch page type to non-debug if now non-debug
                 switch (page_type) {
                 case Common::PageType::Unmapped:
-                    ASSERT(false && "Attempted to mark unmapped pages as non-debug");
+                    UNREACHABLE_MSG("Attempted to mark unmapped pages as non-debug");
                     break;
                 case Common::PageType::RasterizerCachedMemory:
                 case Common::PageType::Memory:
@@ -637,7 +637,7 @@ struct Memory::Impl {
     template <typename T>
     inline T Read(Common::ProcessAddress vaddr) noexcept requires(std::is_trivially_copyable_v<T>) {
         auto const addr_c1 = GetInteger(vaddr);
-        if (!(sizeof(T) > 1 && (addr_c1 & 4095) + sizeof(T) > 4096)) {
+        if constexpr (sizeof(T) <= 1) {
             if (auto const ptr_c1 = GetPointerImpl(addr_c1, [addr_c1] {
                 LOG_ERROR(HW_Memory, "Unmapped Read{} @ 0x{:016X}", sizeof(T) * 8, addr_c1);
             }, [&] {
@@ -651,25 +651,38 @@ struct Memory::Impl {
                 return result;
             }
         } else {
-            auto const addr_c2 = (addr_c1 & (~0xfff)) + 0x1000;
-            // page crossing: say if sizeof(T) = 2, vaddr = 4095
-            // 4095 + 2 mod 4096 = 1 => 2 - 1 = 1, thus c1=1, c2=1
-            auto const count_c2 = (addr_c1 + sizeof(T)) & 4095;
-            auto const count_c1 = sizeof(T) - count_c2;
-            if (auto const ptr_c1 = GetPointerImpl(addr_c1, [addr_c1] {
-                LOG_ERROR(HW_Memory, "Unmapped Read{} @ 0x{:016X}", sizeof(T) * 8, addr_c1);
-            }, [&] {
-                HandleRasterizerDownload(addr_c1, count_c1);
-            }); ptr_c1) {
-                if (auto const ptr_c2 = GetPointerImpl(addr_c2, [addr_c2] {
-                    LOG_ERROR(HW_Memory, "Unmapped Read{} @ 0x{:016X}", sizeof(T) * 8, addr_c2);
+            const bool crosses_page = (addr_c1 & 4095) + sizeof(T) > 4096;
+            if (!crosses_page) {
+                if (auto const ptr_c1 = GetPointerImpl(addr_c1, [addr_c1] {
+                    LOG_ERROR(HW_Memory, "Unmapped Read{} @ 0x{:016X}", sizeof(T) * 8, addr_c1);
                 }, [&] {
-                    HandleRasterizerDownload(addr_c2, count_c2);
-                }); ptr_c2) {
-                    std::array<char, sizeof(T)> result{};
-                    std::memcpy(result.data() + 0, ptr_c1, count_c1);
-                    std::memcpy(result.data() + count_c1, ptr_c2, count_c2);
-                    return std::bit_cast<T>(result);
+                    HandleRasterizerDownload(addr_c1, sizeof(T));
+                }); ptr_c1) {
+                    T result{};
+                    std::memcpy(&result, ptr_c1, sizeof(T));
+                    return result;
+                }
+            } else {
+                auto const addr_c2 = (addr_c1 & (~0xfff)) + 0x1000;
+                // page crossing: say if sizeof(T) = 2, vaddr = 4095
+                // 4095 + 2 mod 4096 = 1 => 2 - 1 = 1, thus c1=1, c2=1
+                auto const count_c2 = (addr_c1 + sizeof(T)) & 4095;
+                auto const count_c1 = sizeof(T) - count_c2;
+                if (auto const ptr_c1 = GetPointerImpl(addr_c1, [addr_c1] {
+                    LOG_ERROR(HW_Memory, "Unmapped Read{} @ 0x{:016X}", sizeof(T) * 8, addr_c1);
+                }, [&] {
+                    HandleRasterizerDownload(addr_c1, count_c1);
+                }); ptr_c1) {
+                    if (auto const ptr_c2 = GetPointerImpl(addr_c2, [addr_c2] {
+                        LOG_ERROR(HW_Memory, "Unmapped Read{} @ 0x{:016X}", sizeof(T) * 8, addr_c2);
+                    }, [&] {
+                        HandleRasterizerDownload(addr_c2, count_c2);
+                    }); ptr_c2) {
+                        std::array<char, sizeof(T)> result{};
+                        std::memcpy(result.data() + 0, ptr_c1, count_c1);
+                        std::memcpy(result.data() + count_c1, ptr_c2, count_c2);
+                        return std::bit_cast<T>(result);
+                    }
                 }
             }
         }
@@ -682,7 +695,7 @@ struct Memory::Impl {
     template <typename T>
     inline void Write(Common::ProcessAddress vaddr, const T data) noexcept requires(std::is_trivially_copyable_v<T>) {
         auto const addr_c1 = GetInteger(vaddr);
-        if (!(sizeof(T) > 1 && (addr_c1 & 4095) + sizeof(T) > 4096)) {
+        if constexpr (sizeof(T) <= 1) {
             if (auto const ptr_c1 = GetPointerImpl(addr_c1, [addr_c1] {
                 LOG_ERROR(HW_Memory, "Unmapped Write{} @ 0x{:016X}", sizeof(T) * 8, addr_c1);
             }, [&] {
@@ -691,24 +704,35 @@ struct Memory::Impl {
                 std::memcpy(ptr_c1, &data, sizeof(T));
             }
         } else {
-            auto const addr_c2 = (addr_c1 & (~0xfff)) + 0x1000;
-            // page crossing: say if sizeof(T) = 2, vaddr = 4095
-            // 4095 + 2 mod 4096 = 1 => 2 - 1 = 1, thus c1=1, c2=1
-            auto const count_c2 = (addr_c1 + sizeof(T)) & 4095;
-            auto const count_c1 = sizeof(T) - count_c2;
-            if (auto const ptr_c1 = GetPointerImpl(addr_c1, [addr_c1] {
-                LOG_ERROR(HW_Memory, "Unmapped Write{} @ 0x{:016X}", sizeof(T) * 8, addr_c1);
-            }, [&] {
-                HandleRasterizerWrite(addr_c1, count_c1);
-            }); ptr_c1) {
-                if (auto const ptr_c2 = GetPointerImpl(addr_c2, [addr_c2] {
-                    LOG_ERROR(HW_Memory, "Unmapped Write{} @ 0x{:016X}", sizeof(T) * 8, addr_c2);
+            const bool crosses_page = (addr_c1 & 4095) + sizeof(T) > 4096;
+            if (!crosses_page) {
+                if (auto const ptr_c1 = GetPointerImpl(addr_c1, [addr_c1] {
+                    LOG_ERROR(HW_Memory, "Unmapped Write{} @ 0x{:016X}", sizeof(T) * 8, addr_c1);
                 }, [&] {
-                    HandleRasterizerWrite(addr_c2, count_c2);
-                }); ptr_c2) {
-                    std::array<char, sizeof(T)> tmp = std::bit_cast<std::array<char, sizeof(T)>>(data);
-                    std::memcpy(ptr_c1, tmp.data() + 0, count_c1);
-                    std::memcpy(ptr_c2, tmp.data() + count_c1, count_c2);
+                    HandleRasterizerWrite(addr_c1, sizeof(T));
+                }); ptr_c1) {
+                    std::memcpy(ptr_c1, &data, sizeof(T));
+                }
+            } else {
+                auto const addr_c2 = (addr_c1 & (~0xfff)) + 0x1000;
+                // page crossing: say if sizeof(T) = 2, vaddr = 4095
+                // 4095 + 2 mod 4096 = 1 => 2 - 1 = 1, thus c1=1, c2=1
+                auto const count_c2 = (addr_c1 + sizeof(T)) & 4095;
+                auto const count_c1 = sizeof(T) - count_c2;
+                if (auto const ptr_c1 = GetPointerImpl(addr_c1, [addr_c1] {
+                    LOG_ERROR(HW_Memory, "Unmapped Write{} @ 0x{:016X}", sizeof(T) * 8, addr_c1);
+                }, [&] {
+                    HandleRasterizerWrite(addr_c1, count_c1);
+                }); ptr_c1) {
+                    if (auto const ptr_c2 = GetPointerImpl(addr_c2, [addr_c2] {
+                        LOG_ERROR(HW_Memory, "Unmapped Write{} @ 0x{:016X}", sizeof(T) * 8, addr_c2);
+                    }, [&] {
+                        HandleRasterizerWrite(addr_c2, count_c2);
+                    }); ptr_c2) {
+                        std::array<char, sizeof(T)> tmp = std::bit_cast<std::array<char, sizeof(T)>>(data);
+                        std::memcpy(ptr_c1, tmp.data() + 0, count_c1);
+                        std::memcpy(ptr_c2, tmp.data() + count_c1, count_c2);
+                    }
                 }
             }
         }
