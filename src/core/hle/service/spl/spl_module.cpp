@@ -175,7 +175,7 @@ void LoopProcess(Core::System& system) {
     auto module = std::make_shared<Module>();
 
     server_manager->RegisterNamedService("csrng", std::make_shared<CSRNG>(system, module));
-    server_manager->RegisterNamedService("spl", std::make_shared<SPL>(system, module));
+    server_manager->RegisterNamedService("spl:", std::make_shared<SPL>(system, module));
     server_manager->RegisterNamedService("spl:mig", std::make_shared<SPL_MIG>(system, module));
     server_manager->RegisterNamedService("spl:fs", std::make_shared<SPL_FS>(system, module));
     server_manager->RegisterNamedService("spl:ssl", std::make_shared<SPL_SSL>(system, module));
