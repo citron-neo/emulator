@@ -9,7 +9,7 @@
 namespace Shader::Maxwell {
 namespace {
 
-enum class TextureType : u64 {
+enum class TextureTypeTG : u64 {
     _1D,
     ARRAY_1D,
     _2D,
@@ -27,77 +27,77 @@ enum class OffsetType : u64 {
     Invalid,
 };
 
-enum class ComponentType : u64 {
+enum class ComponentTypeTG : u64 {
     R = 0,
     G = 1,
     B = 2,
     A = 3,
 };
 
-Shader::TextureType GetType(TextureType type) {
+Shader::TextureType GetType(TextureTypeTG type) {
     switch (type) {
-    case TextureType::_1D:
+    case TextureTypeTG::_1D:
         return Shader::TextureType::Color1D;
-    case TextureType::ARRAY_1D:
+    case TextureTypeTG::ARRAY_1D:
         return Shader::TextureType::ColorArray1D;
-    case TextureType::_2D:
+    case TextureTypeTG::_2D:
         return Shader::TextureType::Color2D;
-    case TextureType::ARRAY_2D:
+    case TextureTypeTG::ARRAY_2D:
         return Shader::TextureType::ColorArray2D;
-    case TextureType::_3D:
+    case TextureTypeTG::_3D:
         return Shader::TextureType::Color3D;
-    case TextureType::ARRAY_3D:
+    case TextureTypeTG::ARRAY_3D:
         throw NotImplementedException("3D array texture type");
-    case TextureType::CUBE:
+    case TextureTypeTG::CUBE:
         return Shader::TextureType::ColorCube;
-    case TextureType::ARRAY_CUBE:
+    case TextureTypeTG::ARRAY_CUBE:
         return Shader::TextureType::ColorArrayCube;
     }
     throw NotImplementedException("Invalid texture type {}", type);
 }
 
-IR::Value MakeCoords(TranslatorVisitor& v, IR::Reg reg, TextureType type) {
+IR::Value MakeCoords(TranslatorVisitor& v, IR::Reg reg, TextureTypeTG type) {
     const auto read_array{[&]() -> IR::F32 { return v.ir.ConvertUToF(32, 16, v.X(reg)); }};
     switch (type) {
-    case TextureType::_1D:
+    case TextureTypeTG::_1D:
         return v.F(reg);
-    case TextureType::ARRAY_1D:
+    case TextureTypeTG::ARRAY_1D:
         return v.ir.CompositeConstruct(v.F(reg + 1), read_array());
-    case TextureType::_2D:
+    case TextureTypeTG::_2D:
         return v.ir.CompositeConstruct(v.F(reg), v.F(reg + 1));
-    case TextureType::ARRAY_2D:
+    case TextureTypeTG::ARRAY_2D:
         return v.ir.CompositeConstruct(v.F(reg + 1), v.F(reg + 2), read_array());
-    case TextureType::_3D:
+    case TextureTypeTG::_3D:
         return v.ir.CompositeConstruct(v.F(reg), v.F(reg + 1), v.F(reg + 2));
-    case TextureType::ARRAY_3D:
+    case TextureTypeTG::ARRAY_3D:
         throw NotImplementedException("3D array texture type");
-    case TextureType::CUBE:
+    case TextureTypeTG::CUBE:
         return v.ir.CompositeConstruct(v.F(reg), v.F(reg + 1), v.F(reg + 2));
-    case TextureType::ARRAY_CUBE:
+    case TextureTypeTG::ARRAY_CUBE:
         return v.ir.CompositeConstruct(v.F(reg + 1), v.F(reg + 2), v.F(reg + 3), read_array());
     }
     throw NotImplementedException("Invalid texture type {}", type);
 }
 
-IR::Value MakeOffset(TranslatorVisitor& v, IR::Reg& reg, TextureType type) {
+IR::Value MakeOffset(TranslatorVisitor& v, IR::Reg& reg, TextureTypeTG type) {
     const IR::U32 value{v.X(reg++)};
     switch (type) {
-    case TextureType::_1D:
-    case TextureType::ARRAY_1D:
+    case TextureTypeTG::_1D:
+    case TextureTypeTG::ARRAY_1D:
         return v.ir.BitFieldExtract(value, v.ir.Imm32(0), v.ir.Imm32(6), true);
-    case TextureType::_2D:
-    case TextureType::ARRAY_2D:
+    case TextureTypeTG::_2D:
+    case TextureTypeTG::ARRAY_2D:
         return v.ir.CompositeConstruct(
             v.ir.BitFieldExtract(value, v.ir.Imm32(0), v.ir.Imm32(6), true),
             v.ir.BitFieldExtract(value, v.ir.Imm32(8), v.ir.Imm32(6), true));
-    case TextureType::_3D:
-    case TextureType::ARRAY_3D:
+    case TextureTypeTG::_3D:
+    case TextureTypeTG::ARRAY_3D:
         return v.ir.CompositeConstruct(
             v.ir.BitFieldExtract(value, v.ir.Imm32(0), v.ir.Imm32(6), true),
             v.ir.BitFieldExtract(value, v.ir.Imm32(8), v.ir.Imm32(6), true),
             v.ir.BitFieldExtract(value, v.ir.Imm32(16), v.ir.Imm32(6), true));
-    case TextureType::CUBE:
-    case TextureType::ARRAY_CUBE:
+    case TextureTypeTG::CUBE:
+    case TextureTypeTG::ARRAY_CUBE:
         throw NotImplementedException("Illegal offset on CUBE sample");
     }
     throw NotImplementedException("Invalid texture type {}", type);
@@ -116,7 +116,7 @@ std::pair<IR::Value, IR::Value> MakeOffsetPTP(TranslatorVisitor& v, IR::Reg& reg
     return {make_vector(value1), make_vector(value2)};
 }
 
-void Impl(TranslatorVisitor& v, u64 insn, ComponentType component_type, OffsetType offset_type,
+void Impl(TranslatorVisitor& v, u64 insn, ComponentTypeTG component_type, OffsetType offset_type,
           bool is_bindless) {
     union {
         u64 raw;
@@ -127,7 +127,7 @@ void Impl(TranslatorVisitor& v, u64 insn, ComponentType component_type, OffsetTy
         BitField<0, 8, IR::Reg> dest_reg;
         BitField<8, 8, IR::Reg> coord_reg;
         BitField<20, 8, IR::Reg> meta_reg;
-        BitField<28, 3, TextureType> type;
+        BitField<28, 3, TextureTypeTG> type;
         BitField<31, 4, u64> mask;
         BitField<36, 13, u64> cbuf_offset;
     } const tld4{insn};
@@ -187,7 +187,7 @@ void Impl(TranslatorVisitor& v, u64 insn, ComponentType component_type, OffsetTy
 void TranslatorVisitor::TLD4(u64 insn) {
     union {
         u64 raw;
-        BitField<56, 2, ComponentType> component;
+        BitField<56, 2, ComponentTypeTG> component;
         BitField<54, 2, OffsetType> offset;
     } const tld4{insn};
     Impl(*this, insn, tld4.component, tld4.offset, false);
@@ -196,7 +196,7 @@ void TranslatorVisitor::TLD4(u64 insn) {
 void TranslatorVisitor::TLD4_b(u64 insn) {
     union {
         u64 raw;
-        BitField<38, 2, ComponentType> component;
+        BitField<38, 2, ComponentTypeTG> component;
         BitField<36, 2, OffsetType> offset;
     } const tld4{insn};
     Impl(*this, insn, tld4.component, tld4.offset, true);

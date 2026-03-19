@@ -252,3 +252,6 @@ StateTracker::StateTracker()
     : flags{&default_flags}, default_flags{}, invalidation_flags{MakeInvalidationFlags()} {}
 
 } // namespace Vulkan
+
+#undef OFF
+#undef NUM

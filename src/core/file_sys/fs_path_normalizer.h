@@ -10,8 +10,8 @@
 namespace FileSys {
 
 /// Path normalization and validation utilities
-/// Based on LibHac's PathNormalizer and PathUtility
-class PathNormalizer {
+/// Based on LibHac's PathNormalizerV2 and PathUtility
+class PathNormalizerV2 {
 public:
     /// Maximum path length for Nintendo Switch filesystem
     static constexpr size_t MaxPathLength = 0x300; // 768 bytes

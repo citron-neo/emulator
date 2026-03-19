@@ -13,7 +13,7 @@
 namespace Loader {
 
 namespace {
-constexpr u32 PageAlignSize(u32 size) {
+constexpr u32 PageAlignSizeKIP(u32 size) {
     return static_cast<u32>((size + Core::Memory::CITRON_PAGEMASK) & ~Core::Memory::CITRON_PAGEMASK);
 }
 } // Anonymous namespace
@@ -77,7 +77,7 @@ AppLoader::LoadResult AppLoader_KIP::Load(Kernel::KProcess& process,
                                                const std::vector<u8>& data, u32 offset) {
         segment.addr = offset;
         segment.offset = offset;
-        segment.size = PageAlignSize(static_cast<u32>(data.size()));
+        segment.size = PageAlignSizeKIP(static_cast<u32>(data.size()));
         program_image.resize(offset + data.size());
         std::memcpy(program_image.data() + offset, data.data(), data.size());
     };
@@ -86,7 +86,7 @@ AppLoader::LoadResult AppLoader_KIP::Load(Kernel::KProcess& process,
     load_segment(codeset.RODataSegment(), kip->GetRODataSection(), kip->GetRODataOffset());
     load_segment(codeset.DataSegment(), kip->GetDataSection(), kip->GetDataOffset());
 
-    program_image.resize(PageAlignSize(kip->GetBSSOffset()) + kip->GetBSSSize());
+    program_image.resize(PageAlignSizeKIP(kip->GetBSSOffset()) + kip->GetBSSSize());
     codeset.DataSegment().size += kip->GetBSSSize();
 
     // Setup the process code layout

@@ -44,16 +44,16 @@ namespace InputCommon {
 class UpdateEngine final : public InputEngine {
 public:
     explicit UpdateEngine(std::string input_engine_) : InputEngine(std::move(input_engine_)) {
-        PreSetController(identifier);
+        PreSetController(main_identifier);
     }
 
     void PumpEvents() {
-        SetButton(identifier, 0, last_state);
+        SetButton(main_identifier, 0, last_state);
         last_state = !last_state;
     }
 
 private:
-    static constexpr PadIdentifier identifier = {
+    static constexpr PadIdentifier main_identifier = {
         .guid = Common::UUID{},
         .port = 0,
         .pad = 0,

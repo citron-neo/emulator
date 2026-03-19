@@ -27,8 +27,6 @@
 #define WORDS_BIGENDIAN 1
 #endif
 
-using namespace std;
-
 namespace Common {
 
 static u64 unaligned_load64(const char* p) {
@@ -135,20 +133,19 @@ static u64 HashLen17to32(const char* s, size_t len) {
 
 // Return a 16-byte hash for 48 bytes.  Quick and dirty.
 // Callers do best to use "random-looking" values for a and b.
-static pair<u64, u64> WeakHashLen32WithSeeds(u64 w, u64 x, u64 y, u64 z, u64 a, u64 b) {
+static std::pair<u64, u64> WeakHashLen32WithSeeds(u64 w, u64 x, u64 y, u64 z, u64 a, u64 b) {
     a += w;
     b = Rotate(b + a + z, 21);
     u64 c = a;
     a += x;
     a += y;
     b += Rotate(a, 44);
-    return make_pair(a + z, b + c);
+    return std::make_pair(a + z, b + c);
 }
 
 // Return a 16-byte hash for s[0] ... s[31], a, and b.  Quick and dirty.
-static pair<u64, u64> WeakHashLen32WithSeeds(const char* s, u64 a, u64 b) {
-    return WeakHashLen32WithSeeds(Fetch64(s), Fetch64(s + 8), Fetch64(s + 16), Fetch64(s + 24), a,
-                                  b);
+static std::pair<u64, u64> WeakHashLen32WithSeeds(const char* s, u64 a, u64 b) {
+    return WeakHashLen32WithSeeds(Fetch64(s), Fetch64(s + 8), Fetch64(s + 16), Fetch64(s + 24), a, b);
 }
 
 // Return an 8-byte hash for 33 to 64 bytes.
@@ -189,8 +186,8 @@ u64 CityHash64(const char* s, size_t len) {
     u64 x = Fetch64(s + len - 40);
     u64 y = Fetch64(s + len - 16) + Fetch64(s + len - 56);
     u64 z = HashLen16(Fetch64(s + len - 48) + len, Fetch64(s + len - 24));
-    pair<u64, u64> v = WeakHashLen32WithSeeds(s + len - 64, len, z);
-    pair<u64, u64> w = WeakHashLen32WithSeeds(s + len - 32, y + k1, x);
+    std::pair<u64, u64> v = WeakHashLen32WithSeeds(s + len - 64, len, z);
+    std::pair<u64, u64> w = WeakHashLen32WithSeeds(s + len - 32, y + k1, x);
     x = x * k1 + Fetch64(s);
 
     // Decrease len to the nearest multiple of 64, and operate on 64-byte chunks.
@@ -258,7 +255,7 @@ u128 CityHash128WithSeed(const char* s, size_t len, u128 seed) {
 
     // We expect len >= 128 to be the common case.  Keep 56 bytes of state:
     // v, w, x, y, and z.
-    pair<u64, u64> v, w;
+    std::pair<u64, u64> v, w;
     u64 x = seed[0];
     u64 y = seed[1];
     u64 z = len * k1;

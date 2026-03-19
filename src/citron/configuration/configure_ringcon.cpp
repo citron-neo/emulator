@@ -26,7 +26,7 @@ const std::array<std::string, ConfigureRingController::ANALOG_SUB_BUTTONS_NUM>
 
 namespace {
 
-QString GetKeyName(int key_code) {
+QString GetRingconKeyName(int key_code) {
     switch (key_code) {
     case Qt::Key_Shift:
         return QObject::tr("Shift");
@@ -41,7 +41,7 @@ QString GetKeyName(int key_code) {
     }
 }
 
-QString GetButtonName(Common::Input::ButtonNames button_name) {
+QString GetRingconButtonName(Common::Input::ButtonNames button_name) {
     switch (button_name) {
     case Common::Input::ButtonNames::ButtonLeft:
         return QObject::tr("Left");
@@ -96,7 +96,7 @@ QString GetButtonName(Common::Input::ButtonNames button_name) {
     }
 }
 
-void SetAnalogParam(const Common::ParamPackage& input_param, Common::ParamPackage& analog_param,
+void SetAnalogRingconParam(const Common::ParamPackage& input_param, Common::ParamPackage& analog_param,
                     const std::string& button_name) {
     // The poller returned a complete axis, so set all the buttons
     if (input_param.Has("axis_x") && input_param.Has("axis_y")) {
@@ -153,7 +153,7 @@ ConfigureRingController::ConfigureRingController(QWidget* parent,
                 analog_map_buttons[sub_button_id],
                 [=, this](const Common::ParamPackage& params) {
                     Common::ParamPackage param = emulated_controller->GetRingParam();
-                    SetAnalogParam(params, param, analog_sub_buttons[sub_button_id]);
+                    SetAnalogRingconParam(params, param, analog_sub_buttons[sub_button_id]);
                     emulated_controller->SetRingParam(param);
                 },
                 InputCommon::Polling::InputType::Stick);
@@ -398,7 +398,7 @@ QString ConfigureRingController::ButtonToText(const Common::ParamPackage& param)
 
     // Retrieve the names from Qt
     if (param.Get("engine", "") == "keyboard") {
-        const QString button_str = GetKeyName(param.Get("code", 0));
+        const QString button_str = GetRingconKeyName(param.Get("code", 0));
         return QObject::tr("%1%2").arg(toggle, button_str);
     }
 
@@ -435,7 +435,7 @@ QString ConfigureRingController::ButtonToText(const Common::ParamPackage& param)
         }
     }
 
-    QString button_name = GetButtonName(common_button_name);
+    QString button_name = GetRingconButtonName(common_button_name);
     if (param.Has("hat")) {
         return QObject::tr("%1%2Hat %3").arg(toggle, inverted, button_name);
     }

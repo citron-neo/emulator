@@ -1,6 +1,8 @@
 // SPDX-FileCopyrightText: Copyright 2024 yuzu Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
+#pragma once
+
 #include "common/math_util.h"
 #include "core/hle/service/cmif_types.h"
 #include "core/hle/service/nvnflinger/ui/fence.h"

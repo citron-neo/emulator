@@ -98,11 +98,11 @@ void ControllerNavigation::ControllerUpdateButton() {
     }
 
     const auto controller_type = player1_controller->GetNpadStyleIndex();
-    const auto& player1_buttons = player1_controller->GetButtonsValues();
-    const auto& handheld_buttons = handheld_controller->GetButtonsValues();
+    const auto& player1_btns = player1_controller->GetButtonsValues();
+    const auto& handheld_btns = handheld_controller->GetButtonsValues();
 
-    for (std::size_t i = 0; i < player1_buttons.size(); ++i) {
-        const bool button = player1_buttons[i].value || handheld_buttons[i].value;
+    for (std::size_t i = 0; i < player1_btns.size(); ++i) {
+        const bool button = player1_btns[i].value || handheld_btns[i].value;
         // Trigger only once
         button_values[i].locked = button == button_values[i].value;
         button_values[i].value = button;

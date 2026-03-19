@@ -7,14 +7,14 @@
 #include "input_common/drivers/camera.h"
 
 namespace InputCommon {
-constexpr PadIdentifier identifier = {
+constexpr PadIdentifier camera_identifier = {
     .guid = Common::UUID{},
     .port = 0,
     .pad = 0,
 };
 
 Camera::Camera(std::string input_engine_) : InputEngine(std::move(input_engine_)) {
-    PreSetController(identifier);
+    PreSetController(camera_identifier);
 }
 
 void Camera::SetCameraData(std::size_t width, std::size_t height, std::span<const u32> data) {
@@ -33,7 +33,7 @@ void Camera::SetCameraData(std::size_t width, std::size_t height, std::span<cons
         }
     }
 
-    SetCamera(identifier, status);
+    SetCamera(camera_identifier, status);
 }
 
 std::size_t Camera::getImageWidth() const {

@@ -13,7 +13,7 @@ namespace AudioCore::Renderer {
  * @param memory   - Core memory for writing.
  * @param aux_info - Memory address pointing to the AuxInfo to reset.
  */
-static void ResetAuxBufferDsp(Core::Memory::Memory& memory, const CpuAddr aux_info) {
+static void CaptureResetAuxBufferDsp(Core::Memory::Memory& memory, const CpuAddr aux_info) {
     if (aux_info == 0) {
         LOG_ERROR(Service_Audio, "Aux info is 0!");
         return;
@@ -131,7 +131,7 @@ void CaptureCommand::Process(const AudioRenderer::CommandListProcessor& processo
         WriteAuxBufferDsp(*processor.memory, send_buffer_info, send_buffer, count_max, input_buffer,
                           processor.sample_count, write_offset, update_count);
     } else {
-        ResetAuxBufferDsp(*processor.memory, send_buffer_info);
+        CaptureResetAuxBufferDsp(*processor.memory, send_buffer_info);
     }
 }
 

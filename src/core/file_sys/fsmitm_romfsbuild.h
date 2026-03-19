@@ -11,10 +11,14 @@
 
 namespace FileSys {
 
+namespace RomFSBuilder {
+
 struct RomFSBuildDirectoryContext;
 struct RomFSBuildFileContext;
 struct RomFSDirectoryEntry;
 struct RomFSFileEntry;
+
+}
 
 class RomFSBuildContext {
 public:
@@ -27,9 +31,9 @@ public:
 private:
     VirtualDir base;
     VirtualDir ext;
-    std::shared_ptr<RomFSBuildDirectoryContext> root;
-    std::vector<std::shared_ptr<RomFSBuildDirectoryContext>> directories;
-    std::vector<std::shared_ptr<RomFSBuildFileContext>> files;
+    std::shared_ptr<RomFSBuilder::RomFSBuildDirectoryContext> root;
+    std::vector<std::shared_ptr<RomFSBuilder::RomFSBuildDirectoryContext>> directories;
+    std::vector<std::shared_ptr<RomFSBuilder::RomFSBuildFileContext>> files;
     u64 num_dirs = 0;
     u64 num_files = 0;
     u64 dir_table_size = 0;
@@ -38,13 +42,10 @@ private:
     u64 file_hash_table_size = 0;
     u64 file_partition_size = 0;
 
-    void VisitDirectory(VirtualDir filesys, VirtualDir ext_dir,
-                        std::shared_ptr<RomFSBuildDirectoryContext> parent);
+    void VisitDirectory(VirtualDir filesys, VirtualDir ext_dir, std::shared_ptr<RomFSBuilder::RomFSBuildDirectoryContext> parent);
 
-    bool AddDirectory(std::shared_ptr<RomFSBuildDirectoryContext> parent_dir_ctx,
-                      std::shared_ptr<RomFSBuildDirectoryContext> dir_ctx);
-    bool AddFile(std::shared_ptr<RomFSBuildDirectoryContext> parent_dir_ctx,
-                 std::shared_ptr<RomFSBuildFileContext> file_ctx);
+    bool AddDirectory(std::shared_ptr<RomFSBuilder::RomFSBuildDirectoryContext> parent_dir_ctx, std::shared_ptr<RomFSBuilder::RomFSBuildDirectoryContext> dir_ctx);
+    bool AddFile(std::shared_ptr<RomFSBuilder::RomFSBuildDirectoryContext> parent_dir_ctx, std::shared_ptr<RomFSBuilder::RomFSBuildFileContext> file_ctx);
 };
 
 } // namespace FileSys

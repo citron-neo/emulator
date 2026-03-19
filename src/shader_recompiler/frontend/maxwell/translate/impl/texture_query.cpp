@@ -9,24 +9,24 @@
 
 namespace Shader::Maxwell {
 namespace {
-enum class Mode : u64 {
+enum class ModeTQ : u64 {
     Dimension = 1,
     TextureType = 2,
     SamplePos = 5,
 };
 
-IR::Value Query(TranslatorVisitor& v, const IR::U32& handle, Mode mode, IR::Reg src_reg, u64 mask) {
+IR::Value Query(TranslatorVisitor& v, const IR::U32& handle, ModeTQ mode, IR::Reg src_reg, u64 mask) {
     switch (mode) {
-    case Mode::Dimension: {
+    case ModeTQ::Dimension: {
         const bool needs_num_mips{((mask >> 3) & 1) != 0};
         const IR::U1 skip_mips{v.ir.Imm1(!needs_num_mips)};
         const IR::U32 lod{v.X(src_reg)};
         return v.ir.ImageQueryDimension(handle, lod, skip_mips);
     }
-    case Mode::TextureType:
-    case Mode::SamplePos:
+    case ModeTQ::TextureType:
+    case ModeTQ::SamplePos:
     default:
-        throw NotImplementedException("Mode {}", mode);
+        throw NotImplementedException("ModeTQ {}", mode);
     }
 }
 
@@ -36,7 +36,7 @@ void Impl(TranslatorVisitor& v, u64 insn, std::optional<u32> cbuf_offset) {
         BitField<49, 1, u64> nodep;
         BitField<0, 8, IR::Reg> dest_reg;
         BitField<8, 8, IR::Reg> src_reg;
-        BitField<22, 3, Mode> mode;
+        BitField<22, 3, ModeTQ> mode;
         BitField<31, 4, u64> mask;
     } const txq{insn};
 

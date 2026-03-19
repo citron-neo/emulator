@@ -12,7 +12,7 @@
 #include "input_common/drivers/virtual_amiibo.h"
 
 namespace InputCommon {
-constexpr PadIdentifier identifier = {
+constexpr PadIdentifier virtual_amiibo_identifier = {
     .guid = Common::UUID{},
     .port = 0,
     .pad = 0,
@@ -225,13 +225,13 @@ VirtualAmiibo::Info VirtualAmiibo::LoadAmiibo(std::span<u8> data) {
     status.state = Common::Input::NfcState::NewAmiibo,
     memcpy(nfc_data.data(), data.data(), data.size_bytes());
     memcpy(status.uuid.data(), nfc_data.data(), status.uuid_length);
-    SetNfc(identifier, status);
+    SetNfc(virtual_amiibo_identifier, status);
     return Info::Success;
 }
 
 VirtualAmiibo::Info VirtualAmiibo::ReloadAmiibo() {
     if (state == State::TagNearby) {
-        SetNfc(identifier, status);
+        SetNfc(virtual_amiibo_identifier, status);
         return Info::Success;
     }
 
@@ -245,7 +245,7 @@ VirtualAmiibo::Info VirtualAmiibo::CloseAmiibo() {
 
     state = State::WaitingForAmiibo;
     status.state = Common::Input::NfcState::AmiiboRemoved;
-    SetNfc(identifier, status);
+    SetNfc(virtual_amiibo_identifier, status);
     status.tag_type = 0;
     return Info::Success;
 }

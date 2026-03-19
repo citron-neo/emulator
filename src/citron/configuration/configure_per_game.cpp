@@ -81,7 +81,7 @@
 #include <nlohmann/json.hpp>
 
 // Helper function to detect if the application is using a dark theme
-static bool IsDarkMode() {
+static bool GameIsDarkMode() {
     const std::string& theme_name = UISettings::values.theme;
 
     if (theme_name == "qdarkstyle" || theme_name == "colorful_dark" ||
@@ -287,7 +287,7 @@ void ConfigurePerGame::LoadFromFile(FileSys::VirtualFile file_) {
 
 void ConfigurePerGame::UpdateTheme() {
     const bool is_rainbow = UISettings::values.enable_rainbow_mode.GetValue();
-    const bool is_dark = IsDarkMode();
+    const bool is_dark = GameIsDarkMode();
 
     const QString accent = is_rainbow ? QStringLiteral("palette(highlight)") : Theme::GetAccentColor();
 

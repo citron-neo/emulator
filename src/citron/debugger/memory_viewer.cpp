@@ -37,7 +37,7 @@ namespace {
 
 constexpr int NUM_WATCHPOINTS = 4;  // Switch Cortex-A57 hardware limit
 
-QString FormatAddress(u64 addr) {
+QString MemoryViewFormatAddress(u64 addr) {
     return QString::asprintf("0x%016llX", static_cast<unsigned long long>(addr));
 }
 
@@ -233,7 +233,7 @@ void MemoryViewerWidget::RefreshMemoryView() {
     QString out;
     for (size_t i = 0; i < mem_block.size(); i += BYTES_PER_ROW) {
         u64 line_addr = view_addr + i;
-        out += FormatAddress(line_addr) + QStringLiteral(": ");
+        out += MemoryViewFormatAddress(line_addr) + QStringLiteral(": ");
         QString hex_part;
         QString ascii_part;
         for (size_t j = 0; j < BYTES_PER_ROW && (i + j) < mem_block.size(); ++j) {
@@ -261,7 +261,7 @@ void MemoryViewerWidget::UpdateWatchList() {
 
     for (size_t i = 0; i < watch_entries.size(); ++i) {
         const auto& e = watch_entries[i];
-        watch_table->setItem(static_cast<int>(i), 0, new QTableWidgetItem(FormatAddress(e.address)));
+        watch_table->setItem(static_cast<int>(i), 0, new QTableWidgetItem(MemoryViewFormatAddress(e.address)));
         watch_table->setItem(static_cast<int>(i), 1,
                              new QTableWidgetItem(QString::number(e.size)));
 
@@ -783,7 +783,7 @@ void MemoryViewerWidget::RemoveWatchpoint(u64 address) {
 }
 
 void MemoryViewerWidget::GotoAddress(u64 address) {
-    address_input->setText(FormatAddress(address));
+    address_input->setText(MemoryViewFormatAddress(address));
     RefreshMemoryView();
 }
 

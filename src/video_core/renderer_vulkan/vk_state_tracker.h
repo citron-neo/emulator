@@ -69,8 +69,6 @@ static_assert(Last <= std::numeric_limits<u8>::max());
 } // namespace Dirty
 
 class StateTracker {
-    using Maxwell = Tegra::Engines::Maxwell3D::Regs;
-
 public:
     explicit StateTracker();
 
@@ -248,7 +246,7 @@ public:
         return Exchange(Dirty::LogicOp, false);
     }
 
-    bool ChangePrimitiveTopology(Maxwell::PrimitiveTopology new_topology) {
+    bool ChangePrimitiveTopology(Tegra::Engines::Maxwell3D::Regs::PrimitiveTopology new_topology) {
         const bool has_changed = current_topology != new_topology;
         current_topology = new_topology;
         return has_changed;
@@ -261,7 +259,7 @@ public:
     void InvalidateState();
 
 private:
-    static constexpr auto INVALID_TOPOLOGY = static_cast<Maxwell::PrimitiveTopology>(~0u);
+    static constexpr auto INVALID_TOPOLOGY = static_cast<Tegra::Engines::Maxwell3D::Regs::PrimitiveTopology>(~0u);
 
     bool Exchange(std::size_t id, bool new_value) const noexcept {
         const bool is_dirty = (*flags)[id];
@@ -278,7 +276,7 @@ private:
     Tegra::Engines::Maxwell3D::DirtyState::Flags* flags;
     Tegra::Engines::Maxwell3D::DirtyState::Flags default_flags;
     Tegra::Engines::Maxwell3D::DirtyState::Flags invalidation_flags;
-    Maxwell::PrimitiveTopology current_topology = INVALID_TOPOLOGY;
+    Tegra::Engines::Maxwell3D::Regs::PrimitiveTopology current_topology = INVALID_TOPOLOGY;
     bool two_sided_stencil = false;
     StencilProperties front{};
     StencilProperties back{};

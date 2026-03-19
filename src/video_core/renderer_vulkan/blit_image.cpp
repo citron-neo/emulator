@@ -35,7 +35,7 @@ namespace Vulkan {
 using VideoCommon::ImageViewType;
 
 namespace {
-struct PushConstants {
+struct BlitPushConstants {
     std::array<float, 2> tex_scale;
     std::array<float, 2> tex_offset;
 };
@@ -341,7 +341,7 @@ void BindBlitState(vk::CommandBuffer cmdbuf, VkPipelineLayout layout, const Regi
                           static_cast<float>(src_size.width);
     const float scale_y = static_cast<float>(src_region.end.y - src_region.start.y) /
                           static_cast<float>(src_size.height);
-    const PushConstants push_constants{
+    const BlitPushConstants push_constants{
         .tex_scale = {scale_x, scale_y},
         .tex_offset = {static_cast<float>(src_region.start.x) / static_cast<float>(src_size.width),
                        static_cast<float>(src_region.start.y) /
@@ -361,7 +361,7 @@ VkExtent2D GetConversionExtent(const ImageView& src_image_view) {
     };
 }
 
-void TransitionImageLayout(vk::CommandBuffer& cmdbuf, VkImage image, VkImageLayout target_layout,
+void BlitTransitionImageLayout(vk::CommandBuffer& cmdbuf, VkImage image, VkImageLayout target_layout,
                            VkImageLayout source_layout = VK_IMAGE_LAYOUT_GENERAL) {
     constexpr VkFlags flags{VK_ACCESS_COLOR_ATTACHMENT_READ_BIT |
                             VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_SHADER_READ_BIT};
@@ -420,11 +420,11 @@ BlitImageHelper::BlitImageHelper(const Device& device_, Scheduler& scheduler_,
           descriptor_pool.Allocator(*two_textures_set_layout, TEXTURE_DESCRIPTOR_BANK_INFO<2>)},
       one_texture_pipeline_layout(device.GetLogical().CreatePipelineLayout(PipelineLayoutCreateInfo(
           one_texture_set_layout.address(),
-          PUSH_CONSTANT_RANGE<VK_SHADER_STAGE_VERTEX_BIT, sizeof(PushConstants)>))),
+          PUSH_CONSTANT_RANGE<VK_SHADER_STAGE_VERTEX_BIT, sizeof(BlitPushConstants)>))),
       two_textures_pipeline_layout(
           device.GetLogical().CreatePipelineLayout(PipelineLayoutCreateInfo(
               two_textures_set_layout.address(),
-              PUSH_CONSTANT_RANGE<VK_SHADER_STAGE_VERTEX_BIT, sizeof(PushConstants)>))),
+              PUSH_CONSTANT_RANGE<VK_SHADER_STAGE_VERTEX_BIT, sizeof(BlitPushConstants)>))),
       clear_color_pipeline_layout(device.GetLogical().CreatePipelineLayout(PipelineLayoutCreateInfo(
           nullptr, PUSH_CONSTANT_RANGE<VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(float) * 4>))),
       full_screen_vert(BuildShader(device, FULL_SCREEN_TRIANGLE_VERT_SPV)),
@@ -485,7 +485,7 @@ void BlitImageHelper::BlitColor(const Framebuffer* dst_framebuffer, VkImageView 
     scheduler.RequestOutsideRenderPassOperationContext();
     scheduler.Record([this, dst_framebuffer, src_image_view, src_image, src_sampler, dst_region,
                       src_region, src_size, pipeline, layout](vk::CommandBuffer cmdbuf) {
-        TransitionImageLayout(cmdbuf, src_image, VK_IMAGE_LAYOUT_READ_ONLY_OPTIMAL);
+        BlitTransitionImageLayout(cmdbuf, src_image, VK_IMAGE_LAYOUT_READ_ONLY_OPTIMAL);
         BeginRenderPass(cmdbuf, dst_framebuffer);
         const VkDescriptorSet descriptor_set = one_texture_descriptor_allocator.Commit();
         UpdateOneTextureDescriptorSet(device, descriptor_set, src_sampler, src_image_view);
@@ -667,7 +667,7 @@ void BlitImageHelper::Convert(VkPipeline pipeline, const Framebuffer* dst_frameb
             .offset = offset,
             .extent = extent,
         };
-        const PushConstants push_constants{
+        const BlitPushConstants push_constants{
             .tex_scale = {viewport.width, viewport.height},
             .tex_offset = {0.0f, 0.0f},
         };
@@ -713,7 +713,7 @@ void BlitImageHelper::ConvertDepthStencil(VkPipeline pipeline, const Framebuffer
             .offset = offset,
             .extent = extent,
         };
-        const PushConstants push_constants{
+        const BlitPushConstants push_constants{
             .tex_scale = {viewport.width, viewport.height},
             .tex_offset = {0.0f, 0.0f},
         };

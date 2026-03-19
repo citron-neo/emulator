@@ -24,7 +24,7 @@ constexpr int mouse_axis_x = 0;
 constexpr int mouse_axis_y = 1;
 constexpr int wheel_axis_x = 2;
 constexpr int wheel_axis_y = 3;
-constexpr PadIdentifier identifier = {
+constexpr PadIdentifier mouse_identifier = {
     .guid = Common::UUID{},
     .port = 0,
     .pad = 0,
@@ -42,27 +42,27 @@ constexpr PadIdentifier real_mouse_identifier = {
     .pad = 0,
 };
 
-constexpr PadIdentifier touch_identifier = {
+constexpr PadIdentifier mouse_touch_identifier = {
     .guid = Common::UUID{},
     .port = 2,
     .pad = 0,
 };
 
 Mouse::Mouse(std::string input_engine_) : InputEngine(std::move(input_engine_)) {
-    PreSetController(identifier);
+    PreSetController(mouse_identifier);
     PreSetController(real_mouse_identifier);
-    PreSetController(touch_identifier);
+    PreSetController(mouse_touch_identifier);
     PreSetController(motion_identifier);
 
     // Initialize all mouse axis
-    PreSetAxis(identifier, mouse_axis_x);
-    PreSetAxis(identifier, mouse_axis_y);
-    PreSetAxis(identifier, wheel_axis_x);
-    PreSetAxis(identifier, wheel_axis_y);
+    PreSetAxis(mouse_identifier, mouse_axis_x);
+    PreSetAxis(mouse_identifier, mouse_axis_y);
+    PreSetAxis(mouse_identifier, wheel_axis_x);
+    PreSetAxis(mouse_identifier, wheel_axis_y);
     PreSetAxis(real_mouse_identifier, mouse_axis_x);
     PreSetAxis(real_mouse_identifier, mouse_axis_y);
-    PreSetAxis(touch_identifier, mouse_axis_x);
-    PreSetAxis(touch_identifier, mouse_axis_y);
+    PreSetAxis(mouse_touch_identifier, mouse_axis_x);
+    PreSetAxis(mouse_touch_identifier, mouse_axis_y);
 
     // Initialize variables
     mouse_origin = {};
@@ -99,8 +99,8 @@ void Mouse::UpdateStickInput() {
         last_mouse_change *= maximum_stick_range;
     }
 
-    SetAxis(identifier, mouse_axis_x, last_mouse_change.x);
-    SetAxis(identifier, mouse_axis_y, -last_mouse_change.y);
+    SetAxis(mouse_identifier, mouse_axis_x, last_mouse_change.x);
+    SetAxis(mouse_identifier, mouse_axis_y, -last_mouse_change.y);
 
     // Decay input over time
     const float clamped_length = std::min(1.0f, length);
@@ -176,8 +176,8 @@ void Mouse::Move(int x, int y, int center_x, int center_y) {
             Settings::values.mouse_panning_x_sensitivity.GetValue() * default_stick_sensitivity;
         const float y_sensitivity =
             Settings::values.mouse_panning_y_sensitivity.GetValue() * default_stick_sensitivity;
-        SetAxis(identifier, mouse_axis_x, static_cast<float>(mouse_move.x) * x_sensitivity);
-        SetAxis(identifier, mouse_axis_y, static_cast<float>(-mouse_move.y) * y_sensitivity);
+        SetAxis(mouse_identifier, mouse_axis_x, static_cast<float>(mouse_move.x) * x_sensitivity);
+        SetAxis(mouse_identifier, mouse_axis_y, static_cast<float>(-mouse_move.y) * y_sensitivity);
 
         last_motion_change = {
             static_cast<float>(-mouse_move.y) * x_sensitivity,
@@ -193,12 +193,12 @@ void Mouse::MouseMove(f32 touch_x, f32 touch_y) {
 }
 
 void Mouse::TouchMove(f32 touch_x, f32 touch_y) {
-    SetAxis(touch_identifier, mouse_axis_x, touch_x);
-    SetAxis(touch_identifier, mouse_axis_y, touch_y);
+    SetAxis(mouse_touch_identifier, mouse_axis_x, touch_x);
+    SetAxis(mouse_touch_identifier, mouse_axis_y, touch_y);
 }
 
 void Mouse::PressButton(int x, int y, MouseButton button) {
-    SetButton(identifier, static_cast<int>(button), true);
+    SetButton(mouse_identifier, static_cast<int>(button), true);
 
     // Set initial analog parameters
     mouse_origin = {x, y};
@@ -211,19 +211,19 @@ void Mouse::PressMouseButton(MouseButton button) {
 }
 
 void Mouse::PressTouchButton(f32 touch_x, f32 touch_y, MouseButton button) {
-    SetAxis(touch_identifier, mouse_axis_x, touch_x);
-    SetAxis(touch_identifier, mouse_axis_y, touch_y);
-    SetButton(touch_identifier, static_cast<int>(button), true);
+    SetAxis(mouse_touch_identifier, mouse_axis_x, touch_x);
+    SetAxis(mouse_touch_identifier, mouse_axis_y, touch_y);
+    SetButton(mouse_touch_identifier, static_cast<int>(button), true);
 }
 
 void Mouse::ReleaseButton(MouseButton button) {
-    SetButton(identifier, static_cast<int>(button), false);
+    SetButton(mouse_identifier, static_cast<int>(button), false);
     SetButton(real_mouse_identifier, static_cast<int>(button), false);
-    SetButton(touch_identifier, static_cast<int>(button), false);
+    SetButton(mouse_touch_identifier, static_cast<int>(button), false);
 
     if (!IsMousePanningEnabled()) {
-        SetAxis(identifier, mouse_axis_x, 0);
-        SetAxis(identifier, mouse_axis_y, 0);
+        SetAxis(mouse_identifier, mouse_axis_x, 0);
+        SetAxis(mouse_identifier, mouse_axis_y, 0);
     }
 
     last_motion_change.x = 0;
@@ -237,8 +237,8 @@ void Mouse::MouseWheelChange(int x, int y) {
     wheel_position.y += y;
     last_motion_change.z += static_cast<f32>(y);
     LOG_DEBUG(Input, "Mouse wheel change: x={}, y={}, wheel_pos=({}, {})", x, y, wheel_position.x, wheel_position.y);
-    SetAxis(identifier, wheel_axis_x, static_cast<f32>(wheel_position.x));
-    SetAxis(identifier, wheel_axis_y, static_cast<f32>(wheel_position.y));
+    SetAxis(mouse_identifier, wheel_axis_x, static_cast<f32>(wheel_position.x));
+    SetAxis(mouse_identifier, wheel_axis_y, static_cast<f32>(wheel_position.y));
 }
 
 void Mouse::ReleaseAllButtons() {

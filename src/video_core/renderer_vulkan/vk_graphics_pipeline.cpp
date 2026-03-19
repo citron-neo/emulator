@@ -31,8 +31,6 @@
 
 namespace Vulkan {
 namespace {
-using boost::container::small_vector;
-using boost::container::static_vector;
 using Shader::ImageBufferDescriptor;
 using Shader::Backend::SPIRV::RENDERAREA_LAYOUT_OFFSET;
 using Shader::Backend::SPIRV::RESCALING_LAYOUT_DOWN_FACTOR_OFFSET;
@@ -42,7 +40,7 @@ using VideoCore::Surface::PixelFormat;
 using VideoCore::Surface::PixelFormatFromDepthFormat;
 using VideoCore::Surface::PixelFormatFromRenderTargetFormat;
 
-constexpr size_t NUM_STAGES = Maxwell::MaxShaderStage;
+constexpr size_t NUM_STAGES = Tegra::Engines::Maxwell3D::Regs::MaxShaderStage;
 constexpr size_t MAX_IMAGE_ELEMENTS = 64;
 
 DescriptorLayoutBuilder MakeBuilder(const Device& device, std::span<const Shader::Info> infos) {
@@ -97,10 +95,10 @@ bool IsLine(VkPrimitiveTopology topology) {
 VkViewportSwizzleNV UnpackViewportSwizzle(u16 swizzle) {
     union Swizzle {
         u32 raw;
-        BitField<0, 3, Maxwell::ViewportSwizzle> x;
-        BitField<4, 3, Maxwell::ViewportSwizzle> y;
-        BitField<8, 3, Maxwell::ViewportSwizzle> z;
-        BitField<12, 3, Maxwell::ViewportSwizzle> w;
+        BitField<0, 3, Tegra::Engines::Maxwell3D::Regs::ViewportSwizzle> x;
+        BitField<4, 3, Tegra::Engines::Maxwell3D::Regs::ViewportSwizzle> y;
+        BitField<8, 3, Tegra::Engines::Maxwell3D::Regs::ViewportSwizzle> z;
+        BitField<12, 3, Tegra::Engines::Maxwell3D::Regs::ViewportSwizzle> w;
     };
     const Swizzle unpacked{swizzle};
     return VkViewportSwizzleNV{
@@ -134,7 +132,7 @@ RenderPassKey MakeRenderPassKey(const FixedPipelineState& state) {
 
 size_t NumAttachments(const FixedPipelineState& state) {
     size_t num{};
-    for (size_t index = 0; index < Maxwell::NumRenderTargets; ++index) {
+    for (size_t index = 0; index < Tegra::Engines::Maxwell3D::Regs::NumRenderTargets; ++index) {
         const auto format{static_cast<Tegra::RenderTargetFormat>(state.color_formats[index])};
         if (format != Tegra::RenderTargetFormat::NONE) {
             num = index + 1;
@@ -310,7 +308,7 @@ void GraphicsPipeline::ConfigureImpl(bool is_indexed) {
     buffer_cache.SetUniformBuffersState(enabled_uniform_buffer_masks, &uniform_buffer_sizes);
 
     const auto& regs{maxwell3d->regs};
-    const bool via_header_index{regs.sampler_binding == Maxwell::SamplerBinding::ViaHeaderBinding};
+    const bool via_header_index{regs.sampler_binding == Tegra::Engines::Maxwell3D::Regs::SamplerBinding::ViaHeaderBinding};
     const auto config_stage{[&](size_t stage) LAMBDA_FORCEINLINE {
         const Shader::Info& info{stage_infos[stage]};
         buffer_cache.UnbindGraphicsStorageBuffers(stage);
@@ -549,12 +547,12 @@ void GraphicsPipeline::MakePipeline(VkRenderPass render_pass) {
     } else {
         dynamic.raw1 = key.state.dynamic_state.raw1;
     }
-    static_vector<VkVertexInputBindingDescription, 32> vertex_bindings;
-    static_vector<VkVertexInputBindingDivisorDescriptionEXT, 32> vertex_binding_divisors;
-    static_vector<VkVertexInputAttributeDescription, 32> vertex_attributes;
+    boost::container::static_vector<VkVertexInputBindingDescription, 32> vertex_bindings;
+    boost::container::static_vector<VkVertexInputBindingDivisorDescriptionEXT, 32> vertex_binding_divisors;
+    boost::container::static_vector<VkVertexInputAttributeDescription, 32> vertex_attributes;
     if (!key.state.dynamic_vertex_input) {
         const size_t num_vertex_arrays = std::min(
-            Maxwell::NumVertexArrays, static_cast<size_t>(device.GetMaxVertexInputBindings()));
+            Tegra::Engines::Maxwell3D::Regs::NumVertexArrays, static_cast<size_t>(device.GetMaxVertexInputBindings()));
         for (size_t index = 0; index < num_vertex_arrays; ++index) {
             const bool instanced = key.state.binding_divisors[index] != 0;
             const auto rate =
@@ -641,13 +639,13 @@ void GraphicsPipeline::MakePipeline(VkRenderPass render_pass) {
         .flags = 0,
         .patchControlPoints = key.state.patch_control_points_minus_one.Value() + 1,
     };
-    std::array<VkViewportSwizzleNV, Maxwell::NumViewports> swizzles;
+    std::array<VkViewportSwizzleNV, Tegra::Engines::Maxwell3D::Regs::NumViewports> swizzles;
     std::ranges::transform(key.state.viewport_swizzles, swizzles.begin(), UnpackViewportSwizzle);
     VkPipelineViewportSwizzleStateCreateInfoNV swizzle_ci{
         .sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_SWIZZLE_STATE_CREATE_INFO_NV,
         .pNext = nullptr,
         .flags = 0,
-        .viewportCount = Maxwell::NumViewports,
+        .viewportCount = Tegra::Engines::Maxwell3D::Regs::NumViewports,
         .pViewportSwizzles = swizzles.data(),
     };
     VkPipelineViewportDepthClipControlCreateInfoEXT ndc_info{
@@ -655,7 +653,7 @@ void GraphicsPipeline::MakePipeline(VkRenderPass render_pass) {
         .pNext = nullptr,
         .negativeOneToOne = key.state.ndc_minus_one_to_one.Value() != 0 ? VK_TRUE : VK_FALSE,
     };
-    const u32 num_viewports = std::min<u32>(device.GetMaxViewports(), Maxwell::NumViewports);
+    const u32 num_viewports = std::min<u32>(device.GetMaxViewports(), Tegra::Engines::Maxwell3D::Regs::NumViewports);
     VkPipelineViewportStateCreateInfo viewport_ci{
         .sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO,
         .pNext = nullptr,
@@ -771,26 +769,26 @@ void GraphicsPipeline::MakePipeline(VkRenderPass render_pass) {
     };
 
     // Helper function to filter blend factors for formats without alpha
-    const auto FilterBlendFactor = [&](Maxwell::Blend::Factor factor,
-                                       Tegra::RenderTargetFormat format) -> Maxwell::Blend::Factor {
+    const auto FilterBlendFactor = [&](Tegra::Engines::Maxwell3D::Regs::Blend::Factor factor,
+                                       Tegra::RenderTargetFormat format) -> Tegra::Engines::Maxwell3D::Regs::Blend::Factor {
         if (!FormatHasNoAlpha(format)) {
             return factor;
         }
         // If format has no alpha, replace destination alpha factors to prevent issues
         // since RGBX formats are emulated using host RGBA formats
         switch (factor) {
-        case Maxwell::Blend::Factor::DestAlpha_D3D:
-        case Maxwell::Blend::Factor::DestAlpha_GL:
-            return Maxwell::Blend::Factor::One_D3D;
-        case Maxwell::Blend::Factor::OneMinusDestAlpha_D3D:
-        case Maxwell::Blend::Factor::OneMinusDestAlpha_GL:
-            return Maxwell::Blend::Factor::Zero_D3D;
+        case Tegra::Engines::Maxwell3D::Regs::Blend::Factor::DestAlpha_D3D:
+        case Tegra::Engines::Maxwell3D::Regs::Blend::Factor::DestAlpha_GL:
+            return Tegra::Engines::Maxwell3D::Regs::Blend::Factor::One_D3D;
+        case Tegra::Engines::Maxwell3D::Regs::Blend::Factor::OneMinusDestAlpha_D3D:
+        case Tegra::Engines::Maxwell3D::Regs::Blend::Factor::OneMinusDestAlpha_GL:
+            return Tegra::Engines::Maxwell3D::Regs::Blend::Factor::Zero_D3D;
         default:
             return factor;
         }
     };
 
-    static_vector<VkPipelineColorBlendAttachmentState, Maxwell::NumRenderTargets> cb_attachments;
+    boost::container::static_vector<VkPipelineColorBlendAttachmentState, Tegra::Engines::Maxwell3D::Regs::NumRenderTargets> cb_attachments;
     const size_t num_attachments{NumAttachments(key.state)};
     for (size_t index = 0; index < num_attachments; ++index) {
         static constexpr std::array mask_table{
@@ -838,7 +836,7 @@ void GraphicsPipeline::MakePipeline(VkRenderPass render_pass) {
         .pAttachments = cb_attachments.data(),
         .blendConstants = {},
     };
-    static_vector<VkDynamicState, 28> dynamic_states{
+    boost::container::static_vector<VkDynamicState, 28> dynamic_states{
         VK_DYNAMIC_STATE_VIEWPORT,           VK_DYNAMIC_STATE_SCISSOR,
         VK_DYNAMIC_STATE_DEPTH_BIAS,         VK_DYNAMIC_STATE_BLEND_CONSTANTS,
         VK_DYNAMIC_STATE_DEPTH_BOUNDS,       VK_DYNAMIC_STATE_STENCIL_COMPARE_MASK,
@@ -900,8 +898,8 @@ void GraphicsPipeline::MakePipeline(VkRenderPass render_pass) {
         .pNext = nullptr,
         .requiredSubgroupSize = GuestWarpSize,
     };
-    static_vector<VkPipelineShaderStageCreateInfo, 5> shader_stages;
-    for (size_t stage = 0; stage < Maxwell::MaxShaderStage; ++stage) {
+    boost::container::static_vector<VkPipelineShaderStageCreateInfo, 5> shader_stages;
+    for (size_t stage = 0; stage < Tegra::Engines::Maxwell3D::Regs::MaxShaderStage; ++stage) {
         if (!spv_modules[stage]) {
             continue;
         }

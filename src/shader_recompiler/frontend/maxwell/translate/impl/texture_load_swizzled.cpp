@@ -10,38 +10,14 @@
 
 namespace Shader::Maxwell {
 namespace {
-enum class Precision : u64 {
+enum class PrecisionTLS : u64 {
     F16,
     F32,
 };
 
-constexpr unsigned R = 1;
-constexpr unsigned G = 2;
-constexpr unsigned B = 4;
-constexpr unsigned A = 8;
-
-constexpr std::array RG_LUT{
-    R,     //
-    G,     //
-    B,     //
-    A,     //
-    R | G, //
-    R | A, //
-    G | A, //
-    B | A, //
-};
-
-constexpr std::array RGBA_LUT{
-    R | G | B,     //
-    R | G | A,     //
-    R | B | A,     //
-    G | B | A,     //
-    R | G | B | A, //
-};
-
-union Encoding {
+union EncodingTLS {
     u64 raw;
-    BitField<59, 1, Precision> precision;
+    BitField<59, 1, PrecisionTLS> precision;
     BitField<54, 1, u64> aoffi;
     BitField<53, 1, u64> lod;
     BitField<55, 1, u64> ms;
@@ -55,20 +31,20 @@ union Encoding {
     BitField<53, 4, u64> encoding;
 };
 
-void CheckAlignment(IR::Reg reg, size_t alignment) {
+void CheckAlignmentTLS(IR::Reg reg, size_t alignment) {
     if (!IR::IsAligned(reg, alignment)) {
         throw NotImplementedException("Unaligned source register {}", reg);
     }
 }
 
-IR::Value MakeOffset(TranslatorVisitor& v, IR::Reg reg) {
+IR::Value LoadMakeOffset(TranslatorVisitor& v, IR::Reg reg) {
     const IR::U32 value{v.X(reg)};
     return v.ir.CompositeConstruct(v.ir.BitFieldExtract(value, v.ir.Imm32(0), v.ir.Imm32(4), true),
                                    v.ir.BitFieldExtract(value, v.ir.Imm32(4), v.ir.Imm32(4), true));
 }
 
-IR::Value Sample(TranslatorVisitor& v, u64 insn) {
-    const Encoding tlds{insn};
+IR::Value LoadSample(TranslatorVisitor& v, u64 insn) {
+    const EncodingTLS tlds{insn};
     const IR::U32 handle{v.ir.Imm32(static_cast<u32>(tlds.cbuf_offset * 4))};
     const IR::Reg reg_a{tlds.src_reg_a};
     const IR::Reg reg_b{tlds.src_reg_b};
@@ -92,56 +68,81 @@ IR::Value Sample(TranslatorVisitor& v, u64 insn) {
         coords = v.ir.CompositeConstruct(v.X(reg_a), v.X(reg_b));
         break;
     case 4:
-        CheckAlignment(reg_a, 2);
+        CheckAlignmentTLS(reg_a, 2);
         texture_type = Shader::TextureType::Color2D;
         coords = v.ir.CompositeConstruct(v.X(reg_a), v.X(reg_a + 1));
-        offsets = MakeOffset(v, reg_b);
+        offsets = LoadMakeOffset(v, reg_b);
         break;
     case 5:
-        CheckAlignment(reg_a, 2);
+        CheckAlignmentTLS(reg_a, 2);
         texture_type = Shader::TextureType::Color2D;
         coords = v.ir.CompositeConstruct(v.X(reg_a), v.X(reg_a + 1));
         lod = v.X(reg_b);
         break;
     case 6:
-        CheckAlignment(reg_a, 2);
+        CheckAlignmentTLS(reg_a, 2);
         texture_type = Shader::TextureType::Color2D;
         coords = v.ir.CompositeConstruct(v.X(reg_a), v.X(reg_a + 1));
         multisample = v.X(reg_b);
         break;
     case 7:
-        CheckAlignment(reg_a, 2);
+        CheckAlignmentTLS(reg_a, 2);
         texture_type = Shader::TextureType::Color3D;
         coords = v.ir.CompositeConstruct(v.X(reg_a), v.X(reg_a + 1), v.X(reg_b));
         break;
     case 8: {
-        CheckAlignment(reg_b, 2);
+        CheckAlignmentTLS(reg_b, 2);
         const IR::U32 array{v.ir.BitFieldExtract(v.X(reg_a), v.ir.Imm32(0), v.ir.Imm32(16))};
         texture_type = Shader::TextureType::ColorArray2D;
         coords = v.ir.CompositeConstruct(v.X(reg_b), v.X(reg_b + 1), array);
         break;
     }
     case 12:
-        CheckAlignment(reg_a, 2);
-        CheckAlignment(reg_b, 2);
+        CheckAlignmentTLS(reg_a, 2);
+        CheckAlignmentTLS(reg_b, 2);
         texture_type = Shader::TextureType::Color2D;
         coords = v.ir.CompositeConstruct(v.X(reg_a), v.X(reg_a + 1));
         lod = v.X(reg_b);
-        offsets = MakeOffset(v, reg_b + 1);
+        offsets = LoadMakeOffset(v, reg_b + 1);
         break;
     default:
         throw NotImplementedException("Illegal encoding {}", tlds.encoding.Value());
     }
     IR::TextureInstInfo info{};
-    if (tlds.precision == Precision::F16) {
+    if (tlds.precision == PrecisionTLS::F16) {
         info.relaxed_precision.Assign(1);
     }
     info.type.Assign(texture_type);
     return v.ir.ImageFetch(handle, coords, offsets, lod, multisample, info);
 }
 
-unsigned Swizzle(u64 insn) {
-    const Encoding tlds{insn};
+unsigned LoadSwizzle(u64 insn) {
+#define R 1
+#define G 2
+#define B 4
+#define A 8
+    constexpr std::array<unsigned, 8> RG_LUT{
+        R,     //
+        G,     //
+        B,     //
+        A,     //
+        R | G, //
+        R | A, //
+        G | A, //
+        B | A, //
+    };
+    constexpr std::array<unsigned, 5> RGBA_LUT{
+        R | G | B,     //
+        R | G | A,     //
+        R | B | A,     //
+        G | B | A,     //
+        R | G | B | A, //
+    };
+#undef R
+#undef G
+#undef B
+#undef A
+    const EncodingTLS tlds{insn};
     const size_t encoding{tlds.swizzle};
     if (tlds.dest_reg_b == IR::Reg::RZ) {
         if (encoding >= RG_LUT.size()) {
@@ -161,24 +162,24 @@ IR::F32 Extract(TranslatorVisitor& v, const IR::Value& sample, unsigned componen
 }
 
 IR::Reg RegStoreComponent32(u64 insn, unsigned index) {
-    const Encoding tlds{insn};
+    const EncodingTLS tlds{insn};
     switch (index) {
     case 0:
         return tlds.dest_reg_a;
     case 1:
-        CheckAlignment(tlds.dest_reg_a, 2);
+        CheckAlignmentTLS(tlds.dest_reg_a, 2);
         return tlds.dest_reg_a + 1;
     case 2:
         return tlds.dest_reg_b;
     case 3:
-        CheckAlignment(tlds.dest_reg_b, 2);
+        CheckAlignmentTLS(tlds.dest_reg_b, 2);
         return tlds.dest_reg_b + 1;
     }
     throw LogicError("Invalid store index {}", index);
 }
 
 void Store32(TranslatorVisitor& v, u64 insn, const IR::Value& sample) {
-    const unsigned swizzle{Swizzle(insn)};
+    const unsigned swizzle{LoadSwizzle(insn)};
     unsigned store_index{0};
     for (unsigned component = 0; component < 4; ++component) {
         if (((swizzle >> component) & 1) == 0) {
@@ -195,7 +196,7 @@ IR::U32 Pack(TranslatorVisitor& v, const IR::F32& lhs, const IR::F32& rhs) {
 }
 
 void Store16(TranslatorVisitor& v, u64 insn, const IR::Value& sample) {
-    const unsigned swizzle{Swizzle(insn)};
+    const unsigned swizzle{LoadSwizzle(insn)};
     unsigned store_index{0};
     std::array<IR::F32, 4> swizzled;
     for (unsigned component = 0; component < 4; ++component) {
@@ -206,7 +207,7 @@ void Store16(TranslatorVisitor& v, u64 insn, const IR::Value& sample) {
         ++store_index;
     }
     const IR::F32 zero{v.ir.Imm32(0.0f)};
-    const Encoding tlds{insn};
+    const EncodingTLS tlds{insn};
     switch (store_index) {
     case 1:
         v.X(tlds.dest_reg_a, Pack(v, swizzled[0], zero));
@@ -231,8 +232,8 @@ void Store16(TranslatorVisitor& v, u64 insn, const IR::Value& sample) {
 } // Anonymous namespace
 
 void TranslatorVisitor::TLDS(u64 insn) {
-    const IR::Value sample{Sample(*this, insn)};
-    if (Encoding{insn}.precision == Precision::F32) {
+    const IR::Value sample{LoadSample(*this, insn)};
+    if (EncodingTLS{insn}.precision == PrecisionTLS::F32) {
         Store32(*this, insn, sample);
     } else {
         Store16(*this, insn, sample);

@@ -7,48 +7,48 @@
 
 namespace Shader::Maxwell {
 namespace {
-enum class Shift : u64 {
+enum class ShiftIADD3 : u64 {
     None,
     Right,
     Left,
 };
-enum class Half : u64 {
+enum class HalfIADD3 : u64 {
     All,
     Lower,
     Upper,
 };
 
-[[nodiscard]] IR::U32 IntegerHalf(IR::IREmitter& ir, const IR::U32& value, Half half) {
+[[nodiscard]] IR::U32 IntegerHalf(IR::IREmitter& ir, const IR::U32& value, HalfIADD3 half) {
     constexpr bool is_signed{false};
     switch (half) {
-    case Half::All:
+    case HalfIADD3::All:
         return value;
-    case Half::Lower:
+    case HalfIADD3::Lower:
         return ir.BitFieldExtract(value, ir.Imm32(0), ir.Imm32(16), is_signed);
-    case Half::Upper:
+    case HalfIADD3::Upper:
         return ir.BitFieldExtract(value, ir.Imm32(16), ir.Imm32(16), is_signed);
     }
     throw NotImplementedException("Invalid half");
 }
 
-[[nodiscard]] IR::U32 IntegerShift(IR::IREmitter& ir, const IR::U32& value, Shift shift) {
+[[nodiscard]] IR::U32 IntegerShift(IR::IREmitter& ir, const IR::U32& value, ShiftIADD3 shift) {
     switch (shift) {
-    case Shift::None:
+    case ShiftIADD3::None:
         return value;
-    case Shift::Right: {
+    case ShiftIADD3::Right: {
         // 33-bit RS IADD3 edge case
         const IR::U1 edge_case{ir.GetCarryFromOp(value)};
         const IR::U32 shifted{ir.ShiftRightLogical(value, ir.Imm32(16))};
         return IR::U32{ir.Select(edge_case, ir.IAdd(shifted, ir.Imm32(0x10000)), shifted)};
     }
-    case Shift::Left:
+    case ShiftIADD3::Left:
         return ir.ShiftLeftLogical(value, ir.Imm32(16));
     }
     throw NotImplementedException("Invalid shift");
 }
 
 void IADD3(TranslatorVisitor& v, u64 insn, IR::U32 op_a, IR::U32 op_b, IR::U32 op_c,
-           Shift shift = Shift::None) {
+           ShiftIADD3 shift = ShiftIADD3::None) {
     union {
         u64 insn;
         BitField<0, 8, IR::Reg> dest_reg;
@@ -71,7 +71,7 @@ void IADD3(TranslatorVisitor& v, u64 insn, IR::U32 op_a, IR::U32 op_b, IR::U32 o
     IR::U32 lhs_1{v.ir.IAdd(op_a, op_b)};
     if (iadd3.x != 0) {
         // TODO: How does RS behave when X is set?
-        if (shift == Shift::Right) {
+        if (shift == ShiftIADD3::Right) {
             throw NotImplementedException("IADD3 X+RS");
         }
         const IR::U32 carry{v.ir.Select(v.ir.GetCFlag(), v.ir.Imm32(1), v.ir.Imm32(0))};
@@ -98,10 +98,10 @@ void IADD3(TranslatorVisitor& v, u64 insn, IR::U32 op_a, IR::U32 op_b, IR::U32 o
 void TranslatorVisitor::IADD3_reg(u64 insn) {
     union {
         u64 insn;
-        BitField<37, 2, Shift> shift;
-        BitField<35, 2, Half> half_a;
-        BitField<33, 2, Half> half_b;
-        BitField<31, 2, Half> half_c;
+        BitField<37, 2, ShiftIADD3> shift;
+        BitField<35, 2, HalfIADD3> half_a;
+        BitField<33, 2, HalfIADD3> half_b;
+        BitField<31, 2, HalfIADD3> half_c;
     } const iadd3{insn};
 
     const auto op_a{IntegerHalf(ir, GetReg8(insn), iadd3.half_a)};

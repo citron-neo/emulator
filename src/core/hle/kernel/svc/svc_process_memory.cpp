@@ -8,11 +8,11 @@
 namespace Kernel::Svc {
 namespace {
 
-constexpr bool IsValidAddressRange(u64 address, u64 size) {
+constexpr bool IsValidSetAddressRange(u64 address, u64 size) {
     return address + size > address;
 }
 
-constexpr bool IsValidProcessMemoryPermission(Svc::MemoryPermission perm) {
+constexpr bool IsValidSetProcessMemoryPermission(Svc::MemoryPermission perm) {
     switch (perm) {
     case Svc::MemoryPermission::None:
     case Svc::MemoryPermission::Read:
@@ -41,7 +41,7 @@ Result SetProcessMemoryPermission(Core::System& system, Handle process_handle, u
     R_UNLESS(size == static_cast<uint64_t>(size), ResultInvalidCurrentMemory);
 
     // Validate the memory permission.
-    R_UNLESS(IsValidProcessMemoryPermission(perm), ResultInvalidNewMemoryPermission);
+    R_UNLESS(IsValidSetProcessMemoryPermission(perm), ResultInvalidNewMemoryPermission);
 
     // Get the process from its handle.
     KScopedAutoObject process =
@@ -154,7 +154,7 @@ Result MapProcessCodeMemory(Core::System& system, Handle process_handle, u64 dst
         R_THROW(ResultInvalidSize);
     }
 
-    if (!IsValidAddressRange(dst_address, size)) {
+    if (!IsValidSetAddressRange(dst_address, size)) {
         LOG_ERROR(Kernel_SVC,
                   "Destination address range overflows the address space (dst_address=0x{:016X}, "
                   "size=0x{:016X}).",
@@ -162,7 +162,7 @@ Result MapProcessCodeMemory(Core::System& system, Handle process_handle, u64 dst
         R_THROW(ResultInvalidCurrentMemory);
     }
 
-    if (!IsValidAddressRange(src_address, size)) {
+    if (!IsValidSetAddressRange(src_address, size)) {
         LOG_ERROR(Kernel_SVC,
                   "Source address range overflows the address space (src_address=0x{:016X}, "
                   "size=0x{:016X}).",
@@ -214,7 +214,7 @@ Result UnmapProcessCodeMemory(Core::System& system, Handle process_handle, u64 d
         R_THROW(ResultInvalidSize);
     }
 
-    if (!IsValidAddressRange(dst_address, size)) {
+    if (!IsValidSetAddressRange(dst_address, size)) {
         LOG_ERROR(Kernel_SVC,
                   "Destination address range overflows the address space (dst_address=0x{:016X}, "
                   "size=0x{:016X}).",
@@ -222,7 +222,7 @@ Result UnmapProcessCodeMemory(Core::System& system, Handle process_handle, u64 d
         R_THROW(ResultInvalidCurrentMemory);
     }
 
-    if (!IsValidAddressRange(src_address, size)) {
+    if (!IsValidSetAddressRange(src_address, size)) {
         LOG_ERROR(Kernel_SVC,
                   "Source address range overflows the address space (src_address=0x{:016X}, "
                   "size=0x{:016X}).",

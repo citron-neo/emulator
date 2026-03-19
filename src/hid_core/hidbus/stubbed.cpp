@@ -6,7 +6,6 @@
 #include "hid_core/hidbus/stubbed.h"
 
 namespace Service::HID {
-constexpr u8 DEVICE_ID = 0xFF;
 
 HidbusStubbed::HidbusStubbed(Core::System& system_, KernelHelpers::ServiceContext& service_context_)
     : HidbusBase(system_, service_context_) {}
@@ -35,7 +34,7 @@ void HidbusStubbed::OnUpdate() {
 }
 
 u8 HidbusStubbed::GetDeviceId() const {
-    return DEVICE_ID;
+    return 0xFF;
 }
 
 u64 HidbusStubbed::GetReply(std::span<u8> out_data) const {

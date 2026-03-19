@@ -1,21 +1,21 @@
 // SPDX-FileCopyrightText: Copyright 2024 yuzu Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
+#include "audio_core/audio_core.h"
+#include "audio_core/renderer/audio_renderer.h"
 #include "core/hle/service/audio/audio_renderer.h"
 #include "core/hle/service/cmif_serialization.h"
 
 namespace Service::Audio {
-using namespace AudioCore::Renderer;
 
-IAudioRenderer::IAudioRenderer(Core::System& system_, Manager& manager_,
+IAudioRenderer::IAudioRenderer(Core::System& system_, AudioCore::Renderer::Manager& manager_,
                                AudioCore::AudioRendererParameterInternal& params,
                                Kernel::KTransferMemory* transfer_memory, u64 transfer_memory_size,
                                Kernel::KProcess* process_handle_, u64 applet_resource_user_id,
                                s32 session_id)
     : ServiceFramework{system_, "IAudioRenderer"}, service_context{system_, "IAudioRenderer"},
       rendered_event{service_context.CreateEvent("IAudioRendererEvent")}, manager{manager_},
-      impl{std::make_unique<Renderer>(system_, manager, rendered_event)}, process_handle{
-                                                                              process_handle_} {
+      impl{std::make_unique<AudioCore::Renderer::Renderer>(system_, manager, rendered_event)}, process_handle{process_handle_} {
     // clang-format off
     static const FunctionInfo functions[] = {
         {0, D<&IAudioRenderer::GetSampleRate>, "GetSampleRate"},

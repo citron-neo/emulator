@@ -1,6 +1,20 @@
 // SPDX-FileCopyrightText: Copyright 2024 yuzu Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
+#include <algorithm>
+#include <vector>
+#include "common/settings.h"
+#include "core/file_sys/control_metadata.h"
+#include "core/file_sys/patch_manager.h"
+#include "core/file_sys/vfs/vfs.h"
+#include "core/hle/kernel/k_transfer_memory.h"
+#include "core/hle/service/cmif_serialization.h"
+#include "core/hle/service/kernel_helpers.h"
+#include "core/hle/service/ns/language.h"
+#include "core/hle/service/ns/ns_results.h"
+#include "core/hle/service/ns/read_only_application_control_data_interface.h"
+#include "core/hle/service/set/settings_server.h"
+
 // Suppress warnings from stb headers - use compiler-specific pragmas
 #ifdef _MSC_VER
 #pragma warning(push)
@@ -24,17 +38,7 @@
 #pragma GCC diagnostic ignored "-Wconversion"
 #pragma GCC diagnostic ignored "-Wimplicit-fallthrough"
 #endif
-
-#define STB_IMAGE_IMPLEMENTATION
-#define STB_IMAGE_STATIC
-#define STB_IMAGE_RESIZE_IMPLEMENTATION
-#define STB_IMAGE_RESIZE_STATIC
-#define STB_IMAGE_WRITE_IMPLEMENTATION
-#define STB_IMAGE_WRITE_STATIC
-#include <stb_image.h>
-#include <stb_image_resize.h>
-#include <stb_image_write.h>
-
+#include "common/stb.h"
 #ifdef _MSC_VER
 #pragma warning(pop)
 #elif defined(__clang__)
@@ -42,20 +46,6 @@
 #elif defined(__GNUC__)
 #pragma GCC diagnostic pop
 #endif
-
-#include <algorithm>
-#include <vector>
-#include "common/settings.h"
-#include "core/file_sys/control_metadata.h"
-#include "core/file_sys/patch_manager.h"
-#include "core/file_sys/vfs/vfs.h"
-#include "core/hle/kernel/k_transfer_memory.h"
-#include "core/hle/service/cmif_serialization.h"
-#include "core/hle/service/kernel_helpers.h"
-#include "core/hle/service/ns/language.h"
-#include "core/hle/service/ns/ns_results.h"
-#include "core/hle/service/ns/read_only_application_control_data_interface.h"
-#include "core/hle/service/set/settings_server.h"
 
 namespace Service::NS {
 

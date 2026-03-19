@@ -6,7 +6,7 @@
 
 namespace Shader::Maxwell {
 namespace {
-enum class FloatFormat : u64 {
+enum class FloatFormatFPCFP : u64 {
     F16 = 1,
     F32 = 2,
     F64 = 3,
@@ -21,13 +21,13 @@ enum class RoundingOp : u64 {
     Trunc = 11,
 };
 
-[[nodiscard]] u32 WidthSize(FloatFormat width) {
+[[nodiscard]] u32 WidthSize(FloatFormatFPCFP width) {
     switch (width) {
-    case FloatFormat::F16:
+    case FloatFormatFPCFP::F16:
         return 16;
-    case FloatFormat::F32:
+    case FloatFormatFPCFP::F32:
         return 32;
-    case FloatFormat::F64:
+    case FloatFormatFPCFP::F64:
         return 64;
     default:
         throw NotImplementedException("Invalid width {}", width);
@@ -44,8 +44,8 @@ void F2F(TranslatorVisitor& v, u64 insn, const IR::F16F32F64& src_a, bool abs) {
         BitField<50, 1, u64> sat;
         BitField<39, 4, u64> rounding_op;
         BitField<39, 2, FpRounding> rounding;
-        BitField<10, 2, FloatFormat> src_size;
-        BitField<8, 2, FloatFormat> dst_size;
+        BitField<10, 2, FloatFormatFPCFP> src_size;
+        BitField<8, 2, FloatFormatFPCFP> dst_size;
 
         [[nodiscard]] RoundingOp RoundingOperation() const {
             constexpr u64 rounding_mask = 0x0B;
@@ -59,7 +59,7 @@ void F2F(TranslatorVisitor& v, u64 insn, const IR::F16F32F64& src_a, bool abs) {
 
     IR::F16F32F64 input{v.ir.FPAbsNeg(src_a, abs, f2f.neg != 0)};
 
-    const bool any_fp64{f2f.src_size == FloatFormat::F64 || f2f.dst_size == FloatFormat::F64};
+    const bool any_fp64{f2f.src_size == FloatFormatFPCFP::F64 || f2f.dst_size == FloatFormatFPCFP::F64};
     IR::FpControl fp_control{
         .no_contraction = false,
         .rounding = IR::FpRounding::DontCare,
@@ -74,13 +74,13 @@ void F2F(TranslatorVisitor& v, u64 insn, const IR::F16F32F64& src_a, bool abs) {
         case RoundingOp::Pass:
             // Make sure NANs are handled properly
             switch (f2f.src_size) {
-            case FloatFormat::F16:
+            case FloatFormatFPCFP::F16:
                 input = v.ir.FPAdd(input, v.ir.FPConvert(16, v.ir.Imm32(0.0f)), fp_control);
                 break;
-            case FloatFormat::F32:
+            case FloatFormatFPCFP::F32:
                 input = v.ir.FPAdd(input, v.ir.Imm32(0.0f), fp_control);
                 break;
-            case FloatFormat::F64:
+            case FloatFormatFPCFP::F64:
                 input = v.ir.FPAdd(input, v.ir.Imm64(0.0), fp_control);
                 break;
             }
@@ -106,15 +106,15 @@ void F2F(TranslatorVisitor& v, u64 insn, const IR::F16F32F64& src_a, bool abs) {
     }
 
     switch (f2f.dst_size) {
-    case FloatFormat::F16: {
+    case FloatFormatFPCFP::F16: {
         const IR::F16 imm{v.ir.FPConvert(16, v.ir.Imm32(0.0f))};
         v.X(f2f.dest_reg, v.ir.PackFloat2x16(v.ir.CompositeConstruct(input, imm)));
         break;
     }
-    case FloatFormat::F32:
+    case FloatFormatFPCFP::F32:
         v.F(f2f.dest_reg, input);
         break;
-    case FloatFormat::F64:
+    case FloatFormatFPCFP::F64:
         v.D(f2f.dest_reg, input);
         break;
     default:
@@ -127,21 +127,21 @@ void TranslatorVisitor::F2F_reg(u64 insn) {
     union {
         u64 insn;
         BitField<49, 1, u64> abs;
-        BitField<10, 2, FloatFormat> src_size;
+        BitField<10, 2, FloatFormatFPCFP> src_size;
         BitField<41, 1, u64> selector;
     } const f2f{insn};
 
     IR::F16F32F64 src_a;
     switch (f2f.src_size) {
-    case FloatFormat::F16: {
+    case FloatFormatFPCFP::F16: {
         auto [lhs_a, rhs_a]{Extract(ir, GetReg20(insn), Swizzle::H1_H0)};
         src_a = f2f.selector != 0 ? rhs_a : lhs_a;
         break;
     }
-    case FloatFormat::F32:
+    case FloatFormatFPCFP::F32:
         src_a = GetFloatReg20(insn);
         break;
-    case FloatFormat::F64:
+    case FloatFormatFPCFP::F64:
         src_a = GetDoubleReg20(insn);
         break;
     default:
@@ -154,21 +154,21 @@ void TranslatorVisitor::F2F_cbuf(u64 insn) {
     union {
         u64 insn;
         BitField<49, 1, u64> abs;
-        BitField<10, 2, FloatFormat> src_size;
+        BitField<10, 2, FloatFormatFPCFP> src_size;
         BitField<41, 1, u64> selector;
     } const f2f{insn};
 
     IR::F16F32F64 src_a;
     switch (f2f.src_size) {
-    case FloatFormat::F16: {
+    case FloatFormatFPCFP::F16: {
         auto [lhs_a, rhs_a]{Extract(ir, GetCbuf(insn), Swizzle::H1_H0)};
         src_a = f2f.selector != 0 ? rhs_a : lhs_a;
         break;
     }
-    case FloatFormat::F32:
+    case FloatFormatFPCFP::F32:
         src_a = GetFloatCbuf(insn);
         break;
-    case FloatFormat::F64:
+    case FloatFormatFPCFP::F64:
         src_a = GetDoubleCbuf(insn);
         break;
     default:
@@ -181,7 +181,7 @@ void TranslatorVisitor::F2F_imm([[maybe_unused]] u64 insn) {
     union {
         u64 insn;
         BitField<49, 1, u64> abs;
-        BitField<10, 2, FloatFormat> src_size;
+        BitField<10, 2, FloatFormatFPCFP> src_size;
         BitField<41, 1, u64> selector;
         BitField<20, 19, u64> imm;
         BitField<56, 1, u64> imm_neg;
@@ -189,7 +189,7 @@ void TranslatorVisitor::F2F_imm([[maybe_unused]] u64 insn) {
 
     IR::F16F32F64 src_a;
     switch (f2f.src_size) {
-    case FloatFormat::F16: {
+    case FloatFormatFPCFP::F16: {
         const u32 imm{static_cast<u32>(f2f.imm & 0x0000ffff)};
         const IR::Value vector{ir.UnpackFloat2x16(ir.Imm32(imm | (imm << 16)))};
         src_a = IR::F16{ir.CompositeExtract(vector, f2f.selector != 0 ? 0 : 1)};
@@ -198,10 +198,10 @@ void TranslatorVisitor::F2F_imm([[maybe_unused]] u64 insn) {
         }
         break;
     }
-    case FloatFormat::F32:
+    case FloatFormatFPCFP::F32:
         src_a = GetFloatImm20(insn);
         break;
-    case FloatFormat::F64:
+    case FloatFormatFPCFP::F64:
         src_a = GetDoubleImm20(insn);
         break;
     default:

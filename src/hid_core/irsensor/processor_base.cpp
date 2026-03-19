@@ -12,8 +12,8 @@ bool ProcessorBase::IsProcessorActive() const {
     return is_active;
 }
 
-std::size_t ProcessorBase::GetDataSize(Core::IrSensor::ImageTransferProcessorFormat format) const {
-    switch (format) {
+std::size_t ProcessorBase::GetDataSize(Core::IrSensor::ImageTransferProcessorFormat f) const {
+    switch (f) {
     case Core::IrSensor::ImageTransferProcessorFormat::Size320x240:
         return 320 * 240;
     case Core::IrSensor::ImageTransferProcessorFormat::Size160x120:
@@ -29,8 +29,8 @@ std::size_t ProcessorBase::GetDataSize(Core::IrSensor::ImageTransferProcessorFor
     }
 }
 
-std::size_t ProcessorBase::GetDataWidth(Core::IrSensor::ImageTransferProcessorFormat format) const {
-    switch (format) {
+std::size_t ProcessorBase::GetDataWidth(Core::IrSensor::ImageTransferProcessorFormat f) const {
+    switch (f) {
     case Core::IrSensor::ImageTransferProcessorFormat::Size320x240:
         return 320;
     case Core::IrSensor::ImageTransferProcessorFormat::Size160x120:
@@ -47,8 +47,8 @@ std::size_t ProcessorBase::GetDataWidth(Core::IrSensor::ImageTransferProcessorFo
 }
 
 std::size_t ProcessorBase::GetDataHeight(
-    Core::IrSensor::ImageTransferProcessorFormat format) const {
-    switch (format) {
+    Core::IrSensor::ImageTransferProcessorFormat f) const {
+    switch (f) {
     case Core::IrSensor::ImageTransferProcessorFormat::Size320x240:
         return 240;
     case Core::IrSensor::ImageTransferProcessorFormat::Size160x120:

@@ -15,7 +15,7 @@
 #include "citron/configuration/configure_touch_from_button.h"
 #include "citron/configuration/configure_touch_widget.h"
 
-static QString GetKeyName(int key_code) {
+static QString GetTouchKeyName(int key_code) {
     switch (key_code) {
     case Qt::Key_Shift:
         return QObject::tr("Shift");
@@ -30,13 +30,13 @@ static QString GetKeyName(int key_code) {
     }
 }
 
-static QString ButtonToText(const Common::ParamPackage& param) {
+static QString TouchButtonToText(const Common::ParamPackage& param) {
     if (!param.Has("engine")) {
         return QObject::tr("[not set]");
     }
 
     if (param.Get("engine", "") == "keyboard") {
-        return GetKeyName(param.Get("code", 0));
+        return GetTouchKeyName(param.Get("code", 0));
     }
 
     if (param.Get("engine", "") == "sdl") {
@@ -116,7 +116,7 @@ void ConfigureTouchFromButton::UpdateUiDisplay() {
 
     for (const auto& button_str : touch_maps[selected_index].buttons) {
         Common::ParamPackage package{button_str};
-        QStandardItem* button = new QStandardItem(ButtonToText(package));
+        QStandardItem* button = new QStandardItem(TouchButtonToText(package));
         button->setData(QString::fromStdString(button_str));
         button->setEditable(false);
         QStandardItem* xcoord = new QStandardItem(QString::number(package.Get("x", 0)));
@@ -238,10 +238,10 @@ void ConfigureTouchFromButton::GetButtonInput(const int row_index, const bool is
                 binding_list_model->removeRow(row_index);
             } else {
                 cell->setText(
-                    ButtonToText(Common::ParamPackage{cell->data().toString().toStdString()}));
+                    TouchButtonToText(Common::ParamPackage{cell->data().toString().toStdString()}));
             }
         } else {
-            cell->setText(ButtonToText(params));
+            cell->setText(TouchButtonToText(params));
             cell->setData(QString::fromStdString(params.Serialize()));
         }
     };

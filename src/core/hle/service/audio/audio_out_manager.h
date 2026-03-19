@@ -5,6 +5,7 @@
 
 #include "audio_core/audio_out_manager.h"
 #include "audio_core/out/audio_out.h"
+#include "audio_core/out/audio_out_system.h"
 #include "core/hle/service/cmif_types.h"
 #include "core/hle/service/service.h"
 

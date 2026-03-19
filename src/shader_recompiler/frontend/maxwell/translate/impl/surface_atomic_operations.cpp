@@ -9,7 +9,7 @@
 
 namespace Shader::Maxwell {
 namespace {
-enum class Type : u64 {
+enum class TypeSAO : u64 {
     _1D,
     BUFFER_1D,
     ARRAY_1D,
@@ -20,7 +20,7 @@ enum class Type : u64 {
     CUBE,
 };
 
-enum class Size : u64 {
+enum class SizeSAO : u64 {
     U32,
     S32,
     U64,
@@ -43,46 +43,46 @@ enum class AtomicOp : u64 {
     EXCH,
 };
 
-enum class Clamp : u64 {
+enum class ClampSAO : u64 {
     IGN,
     Default,
     TRAP,
 };
 
-TextureType GetType(Type type) {
+TextureType GetType(TypeSAO type) {
     switch (type) {
-    case Type::_1D:
+    case TypeSAO::_1D:
         return TextureType::Color1D;
-    case Type::BUFFER_1D:
+    case TypeSAO::BUFFER_1D:
         return TextureType::Buffer;
-    case Type::ARRAY_1D:
+    case TypeSAO::ARRAY_1D:
         return TextureType::ColorArray1D;
-    case Type::_2D:
+    case TypeSAO::_2D:
         return TextureType::Color2D;
-    case Type::ARRAY_2D:
+    case TypeSAO::ARRAY_2D:
         return TextureType::ColorArray2D;
-    case Type::_3D:
+    case TypeSAO::_3D:
         return TextureType::Color3D;
-    case Type::ARRAY_3D:
+    case TypeSAO::ARRAY_3D:
         return TextureType::Color3D; // 3D arrays not directly supported, treat as 3D
-    case Type::CUBE:
+    case TypeSAO::CUBE:
         return TextureType::ColorCube;
     }
     throw NotImplementedException("Invalid type {}", type);
 }
 
-IR::Value MakeCoords(TranslatorVisitor& v, IR::Reg reg, Type type) {
+IR::Value MakeCoords(TranslatorVisitor& v, IR::Reg reg, TypeSAO type) {
     switch (type) {
-    case Type::_1D:
-    case Type::BUFFER_1D:
-    case Type::ARRAY_1D:
+    case TypeSAO::_1D:
+    case TypeSAO::BUFFER_1D:
+    case TypeSAO::ARRAY_1D:
         return v.X(reg);
-    case Type::_2D:
-    case Type::ARRAY_2D:
+    case TypeSAO::_2D:
+    case TypeSAO::ARRAY_2D:
         return v.ir.CompositeConstruct(v.X(reg), v.X(reg + 1));
-    case Type::_3D:
-    case Type::ARRAY_3D:
-    case Type::CUBE:
+    case TypeSAO::_3D:
+    case TypeSAO::ARRAY_3D:
+    case TypeSAO::CUBE:
         return v.ir.CompositeConstruct(v.X(reg), v.X(reg + 1), v.X(reg + 2));
     }
     throw NotImplementedException("Invalid type {}", type);
@@ -115,11 +115,11 @@ IR::Value ApplyAtomicOp(IR::IREmitter& ir, const IR::U32& handle, const IR::Valu
     }
 }
 
-ImageFormat Format(Size size) {
+ImageFormat Format(SizeSAO size) {
     switch (size) {
-    case Size::U32:
-    case Size::S32:
-    case Size::SD32:
+    case SizeSAO::U32:
+    case SizeSAO::S32:
+    case SizeSAO::SD32:
         return ImageFormat::R32_UINT;
     default:
         break;
@@ -127,11 +127,11 @@ ImageFormat Format(Size size) {
     throw NotImplementedException("Invalid size {}", size);
 }
 
-bool IsSizeInt32(Size size) {
+bool IsSizeInt32(SizeSAO size) {
     switch (size) {
-    case Size::U32:
-    case Size::S32:
-    case Size::SD32:
+    case SizeSAO::U32:
+    case SizeSAO::S32:
+    case SizeSAO::SD32:
         return true;
     default:
         return false;
@@ -139,15 +139,15 @@ bool IsSizeInt32(Size size) {
 }
 
 void ImageAtomOp(TranslatorVisitor& v, IR::Reg dest_reg, IR::Reg operand_reg, IR::Reg coord_reg,
-                 IR::Reg bindless_reg, AtomicOp op, Clamp clamp, Size size, Type type,
+                 IR::Reg bindless_reg, AtomicOp op, ClampSAO clamp, SizeSAO size, TypeSAO type,
                  u64 bound_offset, bool is_bindless, bool write_result) {
-    if (clamp != Clamp::IGN) {
-        throw NotImplementedException("Clamp {}", clamp);
+    if (clamp != ClampSAO::IGN) {
+        throw NotImplementedException("ClampSAO {}", clamp);
     }
     if (!IsSizeInt32(size)) {
-        throw NotImplementedException("Size {}", size);
+        throw NotImplementedException("SizeSAO {}", size);
     }
-    const bool is_signed{size == Size::S32};
+    const bool is_signed{size == SizeSAO::S32};
     const ImageFormat format{Format(size)};
     const TextureType tex_type{GetType(type)};
     const IR::Value coords{MakeCoords(v, coord_reg, type)};
@@ -173,9 +173,9 @@ void TranslatorVisitor::SUATOM(u64 insn) {
         u64 raw;
         BitField<54, 1, u64> is_bindless;
         BitField<29, 4, AtomicOp> op;
-        BitField<33, 3, Type> type;
-        BitField<51, 3, Size> size;
-        BitField<49, 2, Clamp> clamp;
+        BitField<33, 3, TypeSAO> type;
+        BitField<51, 3, SizeSAO> size;
+        BitField<49, 2, ClampSAO> clamp;
         BitField<0, 8, IR::Reg> dest_reg;
         BitField<8, 8, IR::Reg> coord_reg;
         BitField<20, 8, IR::Reg> operand_reg;
@@ -194,9 +194,9 @@ void TranslatorVisitor::SURED(u64 insn) {
         u64 raw;
         BitField<51, 1, u64> is_bound;
         BitField<21, 3, AtomicOp> op;
-        BitField<33, 3, Type> type;
-        BitField<20, 3, Size> size;
-        BitField<49, 2, Clamp> clamp;
+        BitField<33, 3, TypeSAO> type;
+        BitField<20, 3, SizeSAO> size;
+        BitField<49, 2, ClampSAO> clamp;
         BitField<0, 8, IR::Reg> operand_reg;
         BitField<8, 8, IR::Reg> coord_reg;
         BitField<36, 13, u64> bound_offset;    // is_bound

@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright 2024 yuzu Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
+#include "audio_core/audio_manager.h"
 #include "audio_core/out/audio_out.h"
 #include "audio_core/out/audio_out_system.h"
 #include "core/hle/kernel/k_process.h"
@@ -10,10 +11,8 @@
 #include "core/hle/service/service.h"
 
 namespace Service::Audio {
-using namespace AudioCore::AudioOut;
-
-IAudioOut::IAudioOut(Core::System& system_, Manager& manager, size_t session_id,
-                     const std::string& device_name, const AudioOutParameter& in_params,
+IAudioOut::IAudioOut(Core::System& system_, AudioCore::AudioOut::Manager& manager, size_t session_id,
+                     const std::string& device_name, const AudioCore::AudioOut::AudioOutParameter& in_params,
                      Kernel::KProcess* handle, u64 applet_resource_user_id)
     : ServiceFramework{system_, "IAudioOut"}, service_context{system_, "IAudioOut"},
       event{service_context.CreateEvent("AudioOutEvent")}, process{handle},
@@ -65,12 +64,12 @@ Result IAudioOut::Stop() {
 }
 
 Result IAudioOut::AppendAudioOutBuffer(
-    InArray<AudioOutBuffer, BufferAttr_HipcMapAlias> audio_out_buffer, u64 buffer_client_ptr) {
+    InArray<AudioCore::AudioOut::AudioOutBuffer, BufferAttr_HipcMapAlias> audio_out_buffer, u64 buffer_client_ptr) {
     R_RETURN(this->AppendAudioOutBufferAuto(audio_out_buffer, buffer_client_ptr));
 }
 
 Result IAudioOut::AppendAudioOutBufferAuto(
-    InArray<AudioOutBuffer, BufferAttr_HipcAutoSelect> audio_out_buffer, u64 buffer_client_ptr) {
+    InArray<AudioCore::AudioOut::AudioOutBuffer, BufferAttr_HipcAutoSelect> audio_out_buffer, u64 buffer_client_ptr) {
     if (audio_out_buffer.empty()) {
         LOG_ERROR(Service_Audio, "Input buffer is too small for an AudioOutBuffer!");
         R_THROW(Audio::ResultInsufficientBuffer);

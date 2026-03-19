@@ -41,7 +41,7 @@
 #endif
 
 // Helper function to detect if the application is using a dark theme
-static bool IsDarkMode() {
+static bool WizardIsDarkMode() {
     const std::string& theme_name = UISettings::values.theme;
 
     if (theme_name == "qdarkstyle" || theme_name == "colorful_dark" ||
@@ -345,7 +345,7 @@ void SetupWizard::changeEvent(QEvent* event) {
 }
 
 void SetupWizard::UpdateTheme() {
-    const bool is_dark = IsDarkMode();
+    const bool is_dark = WizardIsDarkMode();
     const QString bg_color = is_dark ? QStringLiteral("#1e1e1e") : QStringLiteral("#f5f5f5");
     const QString text_color = is_dark ? QStringLiteral("#ffffff") : QStringLiteral("#000000");
     const QString secondary_bg_color = is_dark ? QStringLiteral("#2b2b2b") : QStringLiteral("#e9e9e9");

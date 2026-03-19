@@ -20,7 +20,7 @@
 
 namespace {
 
-QString FormatAddress(u64 addr) {
+QString AddressListFormatAddress(u64 addr) {
     return QString::asprintf("0x%016llX", static_cast<unsigned long long>(addr));
 }
 
@@ -99,7 +99,7 @@ void AddressListWidget::UpdateTable() {
 
     for (size_t i = 0; i < entries.size(); ++i) {
         const auto& e = entries[i];
-        table->setItem(static_cast<int>(i), 0, new QTableWidgetItem(FormatAddress(e.address)));
+        table->setItem(static_cast<int>(i), 0, new QTableWidgetItem(AddressListFormatAddress(e.address)));
 
         QString type_str = QStringLiteral("u32");
         int size = 4;

@@ -15,8 +15,6 @@
 
 namespace Vulkan {
 
-using Maxwell = Tegra::Engines::Maxwell3D::Regs;
-
 struct DynamicFeatures {
     bool has_extended_dynamic_state;
     bool has_extended_dynamic_state_2;
@@ -27,29 +25,29 @@ struct DynamicFeatures {
 };
 
 struct FixedPipelineState {
-    static u32 PackComparisonOp(Maxwell::ComparisonOp op) noexcept;
-    static Maxwell::ComparisonOp UnpackComparisonOp(u32 packed) noexcept;
+    static u32 PackComparisonOp(Tegra::Engines::Maxwell3D::Regs::ComparisonOp op) noexcept;
+    static Tegra::Engines::Maxwell3D::Regs::ComparisonOp UnpackComparisonOp(u32 packed) noexcept;
 
-    static u32 PackStencilOp(Maxwell::StencilOp::Op op) noexcept;
-    static Maxwell::StencilOp::Op UnpackStencilOp(u32 packed) noexcept;
+    static u32 PackStencilOp(Tegra::Engines::Maxwell3D::Regs::StencilOp::Op op) noexcept;
+    static Tegra::Engines::Maxwell3D::Regs::StencilOp::Op UnpackStencilOp(u32 packed) noexcept;
 
-    static u32 PackCullFace(Maxwell::CullFace cull) noexcept;
-    static Maxwell::CullFace UnpackCullFace(u32 packed) noexcept;
+    static u32 PackCullFace(Tegra::Engines::Maxwell3D::Regs::CullFace cull) noexcept;
+    static Tegra::Engines::Maxwell3D::Regs::CullFace UnpackCullFace(u32 packed) noexcept;
 
-    static u32 PackFrontFace(Maxwell::FrontFace face) noexcept;
-    static Maxwell::FrontFace UnpackFrontFace(u32 packed) noexcept;
+    static u32 PackFrontFace(Tegra::Engines::Maxwell3D::Regs::FrontFace face) noexcept;
+    static Tegra::Engines::Maxwell3D::Regs::FrontFace UnpackFrontFace(u32 packed) noexcept;
 
-    static u32 PackPolygonMode(Maxwell::PolygonMode mode) noexcept;
-    static Maxwell::PolygonMode UnpackPolygonMode(u32 packed) noexcept;
+    static u32 PackPolygonMode(Tegra::Engines::Maxwell3D::Regs::PolygonMode mode) noexcept;
+    static Tegra::Engines::Maxwell3D::Regs::PolygonMode UnpackPolygonMode(u32 packed) noexcept;
 
-    static u32 PackLogicOp(Maxwell::LogicOp::Op op) noexcept;
-    static Maxwell::LogicOp::Op UnpackLogicOp(u32 packed) noexcept;
+    static u32 PackLogicOp(Tegra::Engines::Maxwell3D::Regs::LogicOp::Op op) noexcept;
+    static Tegra::Engines::Maxwell3D::Regs::LogicOp::Op UnpackLogicOp(u32 packed) noexcept;
 
-    static u32 PackBlendEquation(Maxwell::Blend::Equation equation) noexcept;
-    static Maxwell::Blend::Equation UnpackBlendEquation(u32 packed) noexcept;
+    static u32 PackBlendEquation(Tegra::Engines::Maxwell3D::Regs::Blend::Equation equation) noexcept;
+    static Tegra::Engines::Maxwell3D::Regs::Blend::Equation UnpackBlendEquation(u32 packed) noexcept;
 
-    static u32 PackBlendFactor(Maxwell::Blend::Factor factor) noexcept;
-    static Maxwell::Blend::Factor UnpackBlendFactor(u32 packed) noexcept;
+    static u32 PackBlendFactor(Tegra::Engines::Maxwell3D::Regs::Blend::Factor factor) noexcept;
+    static Tegra::Engines::Maxwell3D::Regs::Blend::Factor UnpackBlendFactor(u32 packed) noexcept;
 
     struct BlendingAttachment {
         union {
@@ -67,33 +65,33 @@ struct FixedPipelineState {
             BitField<30, 1, u32> enable;
         };
 
-        void Refresh(const Maxwell& regs, size_t index);
+        void Refresh(const Tegra::Engines::Maxwell3D::Regs& regs, size_t index);
 
         std::array<bool, 4> Mask() const noexcept {
             return {mask_r != 0, mask_g != 0, mask_b != 0, mask_a != 0};
         }
 
-        Maxwell::Blend::Equation EquationRGB() const noexcept {
+        Tegra::Engines::Maxwell3D::Regs::Blend::Equation EquationRGB() const noexcept {
             return UnpackBlendEquation(equation_rgb.Value());
         }
 
-        Maxwell::Blend::Equation EquationAlpha() const noexcept {
+        Tegra::Engines::Maxwell3D::Regs::Blend::Equation EquationAlpha() const noexcept {
             return UnpackBlendEquation(equation_a.Value());
         }
 
-        Maxwell::Blend::Factor SourceRGBFactor() const noexcept {
+        Tegra::Engines::Maxwell3D::Regs::Blend::Factor SourceRGBFactor() const noexcept {
             return UnpackBlendFactor(factor_source_rgb.Value());
         }
 
-        Maxwell::Blend::Factor DestRGBFactor() const noexcept {
+        Tegra::Engines::Maxwell3D::Regs::Blend::Factor DestRGBFactor() const noexcept {
             return UnpackBlendFactor(factor_dest_rgb.Value());
         }
 
-        Maxwell::Blend::Factor SourceAlphaFactor() const noexcept {
+        Tegra::Engines::Maxwell3D::Regs::Blend::Factor SourceAlphaFactor() const noexcept {
             return UnpackBlendFactor(factor_source_a.Value());
         }
 
-        Maxwell::Blend::Factor DestAlphaFactor() const noexcept {
+        Tegra::Engines::Maxwell3D::Regs::Blend::Factor DestAlphaFactor() const noexcept {
             return UnpackBlendFactor(factor_dest_a.Value());
         }
     };
@@ -106,12 +104,12 @@ struct FixedPipelineState {
         BitField<20, 3, u32> type;
         BitField<23, 6, u32> size;
 
-        Maxwell::VertexAttribute::Type Type() const noexcept {
-            return static_cast<Maxwell::VertexAttribute::Type>(type.Value());
+        Tegra::Engines::Maxwell3D::Regs::VertexAttribute::Type Type() const noexcept {
+            return static_cast<Tegra::Engines::Maxwell3D::Regs::VertexAttribute::Type>(type.Value());
         }
 
-        Maxwell::VertexAttribute::Size Size() const noexcept {
-            return static_cast<Maxwell::VertexAttribute::Size>(size.Value());
+        Tegra::Engines::Maxwell3D::Regs::VertexAttribute::Size Size() const noexcept {
+            return static_cast<Tegra::Engines::Maxwell3D::Regs::VertexAttribute::Size>(size.Value());
         }
     };
 
@@ -122,19 +120,19 @@ struct FixedPipelineState {
         BitField<Position + 6, 3, u32> action_depth_pass;
         BitField<Position + 9, 3, u32> test_func;
 
-        Maxwell::StencilOp::Op ActionStencilFail() const noexcept {
+        Tegra::Engines::Maxwell3D::Regs::StencilOp::Op ActionStencilFail() const noexcept {
             return UnpackStencilOp(action_stencil_fail);
         }
 
-        Maxwell::StencilOp::Op ActionDepthFail() const noexcept {
+        Tegra::Engines::Maxwell3D::Regs::StencilOp::Op ActionDepthFail() const noexcept {
             return UnpackStencilOp(action_depth_fail);
         }
 
-        Maxwell::StencilOp::Op ActionDepthPass() const noexcept {
+        Tegra::Engines::Maxwell3D::Regs::StencilOp::Op ActionDepthPass() const noexcept {
             return UnpackStencilOp(action_depth_pass);
         }
 
-        Maxwell::ComparisonOp TestFunc() const noexcept {
+        Tegra::Engines::Maxwell3D::Regs::ComparisonOp TestFunc() const noexcept {
             return UnpackComparisonOp(test_func);
         }
     };
@@ -163,20 +161,20 @@ struct FixedPipelineState {
             BitField<29, 3, u32> depth_test_func;
         };
 
-        void Refresh(const Maxwell& regs);
-        void Refresh2(const Maxwell& regs, Maxwell::PrimitiveTopology topology,
+        void Refresh(const Tegra::Engines::Maxwell3D::Regs& regs);
+        void Refresh2(const Tegra::Engines::Maxwell3D::Regs& regs, Tegra::Engines::Maxwell3D::Regs::PrimitiveTopology topology,
                       bool base_features_supported);
-        void Refresh3(const Maxwell& regs);
+        void Refresh3(const Tegra::Engines::Maxwell3D::Regs& regs);
 
-        Maxwell::ComparisonOp DepthTestFunc() const noexcept {
+        Tegra::Engines::Maxwell3D::Regs::ComparisonOp DepthTestFunc() const noexcept {
             return UnpackComparisonOp(depth_test_func);
         }
 
-        Maxwell::CullFace CullFace() const noexcept {
+        Tegra::Engines::Maxwell3D::Regs::CullFace CullFace() const noexcept {
             return UnpackCullFace(cull_face.Value());
         }
 
-        Maxwell::FrontFace FrontFace() const noexcept {
+        Tegra::Engines::Maxwell3D::Regs::FrontFace FrontFace() const noexcept {
             return UnpackFrontFace(front_face.Value());
         }
     };
@@ -197,7 +195,7 @@ struct FixedPipelineState {
         BitField<14, 1, u32> tessellation_clockwise;
         BitField<15, 5, u32> patch_control_points_minus_one;
 
-        BitField<24, 4, Maxwell::PrimitiveTopology> topology;
+        BitField<24, 4, Tegra::Engines::Maxwell3D::Regs::PrimitiveTopology> topology;
         BitField<28, 4, Tegra::Texture::MsaaMode> msaa_mode;
     };
     union {
@@ -214,22 +212,22 @@ struct FixedPipelineState {
         BitField<16, 1, u32> alpha_to_one_enabled;
         BitField<17, 3, Tegra::Engines::Maxwell3D::EngineHint> app_stage;
     };
-    std::array<u8, Maxwell::NumRenderTargets> color_formats;
+    std::array<u8, Tegra::Engines::Maxwell3D::Regs::NumRenderTargets> color_formats;
 
     u32 alpha_test_ref;
     u32 point_size;
-    std::array<u16, Maxwell::NumViewports> viewport_swizzles;
+    std::array<u16, Tegra::Engines::Maxwell3D::Regs::NumViewports> viewport_swizzles;
     union {
         u64 attribute_types; // Used with VK_EXT_vertex_input_dynamic_state
         u64 enabled_divisors;
     };
 
     DynamicState dynamic_state;
-    std::array<BlendingAttachment, Maxwell::NumRenderTargets> attachments;
-    std::array<VertexAttribute, Maxwell::NumVertexAttributes> attributes;
-    std::array<u32, Maxwell::NumVertexArrays> binding_divisors;
+    std::array<BlendingAttachment, Tegra::Engines::Maxwell3D::Regs::NumRenderTargets> attachments;
+    std::array<VertexAttribute, Tegra::Engines::Maxwell3D::Regs::NumVertexAttributes> attributes;
+    std::array<u32, Tegra::Engines::Maxwell3D::Regs::NumVertexArrays> binding_divisors;
     // Vertex stride is a 12 bits value, we have 4 bits to spare per element
-    std::array<u16, Maxwell::NumVertexArrays> vertex_strides;
+    std::array<u16, Tegra::Engines::Maxwell3D::Regs::NumVertexArrays> vertex_strides;
 
     VideoCommon::TransformFeedbackState xfb_state;
 

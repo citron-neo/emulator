@@ -177,12 +177,12 @@ static_assert(sizeof(SaveDataFilter) == 0x48, "SaveDataFilter has invalid size."
 static_assert(std::is_trivially_copyable_v<SaveDataFilter>,
               "Data type must be trivially copyable.");
 
-struct HashSalt {
+struct SaveDataHashSalt {
     static constexpr size_t Size = 32;
 
     std::array<u8, Size> value;
 };
-static_assert(std::is_trivially_copyable_v<HashSalt>, "Data type must be trivially copyable.");
-static_assert(sizeof(HashSalt) == HashSalt::Size);
+static_assert(std::is_trivially_copyable_v<SaveDataHashSalt>, "Data type must be trivially copyable.");
+static_assert(sizeof(SaveDataHashSalt) == SaveDataHashSalt::Size);
 
 } // namespace FileSys

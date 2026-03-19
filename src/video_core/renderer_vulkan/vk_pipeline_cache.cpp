@@ -61,42 +61,42 @@ auto MakeSpan(Container& container) {
     return std::span(container.data(), container.size());
 }
 
-Shader::OutputTopology MaxwellToOutputTopology(Maxwell::PrimitiveTopology topology) {
+Shader::OutputTopology MaxwellToOutputTopology(Tegra::Engines::Maxwell3D::Regs::PrimitiveTopology topology) {
     switch (topology) {
-    case Maxwell::PrimitiveTopology::Points:
+    case Tegra::Engines::Maxwell3D::Regs::PrimitiveTopology::Points:
         return Shader::OutputTopology::PointList;
-    case Maxwell::PrimitiveTopology::LineStrip:
+    case Tegra::Engines::Maxwell3D::Regs::PrimitiveTopology::LineStrip:
         return Shader::OutputTopology::LineStrip;
     default:
         return Shader::OutputTopology::TriangleStrip;
     }
 }
 
-Shader::CompareFunction MaxwellToCompareFunction(Maxwell::ComparisonOp comparison) {
+Shader::CompareFunction MaxwellToCompareFunction(Tegra::Engines::Maxwell3D::Regs::ComparisonOp comparison) {
     switch (comparison) {
-    case Maxwell::ComparisonOp::Never_D3D:
-    case Maxwell::ComparisonOp::Never_GL:
+    case Tegra::Engines::Maxwell3D::Regs::ComparisonOp::Never_D3D:
+    case Tegra::Engines::Maxwell3D::Regs::ComparisonOp::Never_GL:
         return Shader::CompareFunction::Never;
-    case Maxwell::ComparisonOp::Less_D3D:
-    case Maxwell::ComparisonOp::Less_GL:
+    case Tegra::Engines::Maxwell3D::Regs::ComparisonOp::Less_D3D:
+    case Tegra::Engines::Maxwell3D::Regs::ComparisonOp::Less_GL:
         return Shader::CompareFunction::Less;
-    case Maxwell::ComparisonOp::Equal_D3D:
-    case Maxwell::ComparisonOp::Equal_GL:
+    case Tegra::Engines::Maxwell3D::Regs::ComparisonOp::Equal_D3D:
+    case Tegra::Engines::Maxwell3D::Regs::ComparisonOp::Equal_GL:
         return Shader::CompareFunction::Equal;
-    case Maxwell::ComparisonOp::LessEqual_D3D:
-    case Maxwell::ComparisonOp::LessEqual_GL:
+    case Tegra::Engines::Maxwell3D::Regs::ComparisonOp::LessEqual_D3D:
+    case Tegra::Engines::Maxwell3D::Regs::ComparisonOp::LessEqual_GL:
         return Shader::CompareFunction::LessThanEqual;
-    case Maxwell::ComparisonOp::Greater_D3D:
-    case Maxwell::ComparisonOp::Greater_GL:
+    case Tegra::Engines::Maxwell3D::Regs::ComparisonOp::Greater_D3D:
+    case Tegra::Engines::Maxwell3D::Regs::ComparisonOp::Greater_GL:
         return Shader::CompareFunction::Greater;
-    case Maxwell::ComparisonOp::NotEqual_D3D:
-    case Maxwell::ComparisonOp::NotEqual_GL:
+    case Tegra::Engines::Maxwell3D::Regs::ComparisonOp::NotEqual_D3D:
+    case Tegra::Engines::Maxwell3D::Regs::ComparisonOp::NotEqual_GL:
         return Shader::CompareFunction::NotEqual;
-    case Maxwell::ComparisonOp::GreaterEqual_D3D:
-    case Maxwell::ComparisonOp::GreaterEqual_GL:
+    case Tegra::Engines::Maxwell3D::Regs::ComparisonOp::GreaterEqual_D3D:
+    case Tegra::Engines::Maxwell3D::Regs::ComparisonOp::GreaterEqual_GL:
         return Shader::CompareFunction::GreaterThanEqual;
-    case Maxwell::ComparisonOp::Always_D3D:
-    case Maxwell::ComparisonOp::Always_GL:
+    case Tegra::Engines::Maxwell3D::Regs::ComparisonOp::Always_D3D:
+    case Tegra::Engines::Maxwell3D::Regs::ComparisonOp::Always_GL:
         return Shader::CompareFunction::Always;
     }
     UNIMPLEMENTED_MSG("Unimplemented comparison op={}", comparison);
@@ -108,20 +108,20 @@ Shader::AttributeType CastAttributeType(const FixedPipelineState::VertexAttribut
         return Shader::AttributeType::Disabled;
     }
     switch (attr.Type()) {
-    case Maxwell::VertexAttribute::Type::UnusedEnumDoNotUseBecauseItWillGoAway:
+    case Tegra::Engines::Maxwell3D::Regs::VertexAttribute::Type::UnusedEnumDoNotUseBecauseItWillGoAway:
         ASSERT_MSG(false, "Invalid vertex attribute type!");
         return Shader::AttributeType::Disabled;
-    case Maxwell::VertexAttribute::Type::SNorm:
-    case Maxwell::VertexAttribute::Type::UNorm:
-    case Maxwell::VertexAttribute::Type::Float:
+    case Tegra::Engines::Maxwell3D::Regs::VertexAttribute::Type::SNorm:
+    case Tegra::Engines::Maxwell3D::Regs::VertexAttribute::Type::UNorm:
+    case Tegra::Engines::Maxwell3D::Regs::VertexAttribute::Type::Float:
         return Shader::AttributeType::Float;
-    case Maxwell::VertexAttribute::Type::SInt:
+    case Tegra::Engines::Maxwell3D::Regs::VertexAttribute::Type::SInt:
         return Shader::AttributeType::SignedInt;
-    case Maxwell::VertexAttribute::Type::UInt:
+    case Tegra::Engines::Maxwell3D::Regs::VertexAttribute::Type::UInt:
         return Shader::AttributeType::UnsignedInt;
-    case Maxwell::VertexAttribute::Type::UScaled:
+    case Tegra::Engines::Maxwell3D::Regs::VertexAttribute::Type::UScaled:
         return Shader::AttributeType::UnsignedScaled;
-    case Maxwell::VertexAttribute::Type::SScaled:
+    case Tegra::Engines::Maxwell3D::Regs::VertexAttribute::Type::SScaled:
         return Shader::AttributeType::SignedScaled;
     }
     return Shader::AttributeType::Float;
@@ -162,7 +162,7 @@ Shader::RuntimeInfo MakeRuntimeInfo(std::span<const Shader::IR::Program> program
     switch (stage) {
     case Shader::Stage::VertexB:
         if (!has_geometry) {
-            if (key.state.topology == Maxwell::PrimitiveTopology::Points) {
+            if (key.state.topology == Tegra::Engines::Maxwell3D::Regs::PrimitiveTopology::Points) {
                 info.fixed_state_point_size = point_size;
             }
             if (key.state.xfb_enabled) {
@@ -174,7 +174,7 @@ Shader::RuntimeInfo MakeRuntimeInfo(std::span<const Shader::IR::Program> program
             info.convert_depth_mode = gl_ndc;
         }
         if (key.state.dynamic_vertex_input) {
-            for (size_t index = 0; index < Maxwell::NumVertexAttributes; ++index) {
+            for (size_t index = 0; index < Tegra::Engines::Maxwell3D::Regs::NumVertexAttributes; ++index) {
                 info.generic_input_types[index] = AttributeType(key.state, index);
             }
         } else {
@@ -186,12 +186,12 @@ Shader::RuntimeInfo MakeRuntimeInfo(std::span<const Shader::IR::Program> program
         info.tess_clockwise = key.state.tessellation_clockwise != 0;
         info.tess_primitive = [&key] {
             const u32 raw{key.state.tessellation_primitive.Value()};
-            switch (static_cast<Maxwell::Tessellation::DomainType>(raw)) {
-            case Maxwell::Tessellation::DomainType::Isolines:
+            switch (static_cast<Tegra::Engines::Maxwell3D::Regs::Tessellation::DomainType>(raw)) {
+            case Tegra::Engines::Maxwell3D::Regs::Tessellation::DomainType::Isolines:
                 return Shader::TessPrimitive::Isolines;
-            case Maxwell::Tessellation::DomainType::Triangles:
+            case Tegra::Engines::Maxwell3D::Regs::Tessellation::DomainType::Triangles:
                 return Shader::TessPrimitive::Triangles;
-            case Maxwell::Tessellation::DomainType::Quads:
+            case Tegra::Engines::Maxwell3D::Regs::Tessellation::DomainType::Quads:
                 return Shader::TessPrimitive::Quads;
             }
             ASSERT(false);
@@ -199,12 +199,12 @@ Shader::RuntimeInfo MakeRuntimeInfo(std::span<const Shader::IR::Program> program
         }();
         info.tess_spacing = [&] {
             const u32 raw{key.state.tessellation_spacing};
-            switch (static_cast<Maxwell::Tessellation::Spacing>(raw)) {
-            case Maxwell::Tessellation::Spacing::Integer:
+            switch (static_cast<Tegra::Engines::Maxwell3D::Regs::Tessellation::Spacing>(raw)) {
+            case Tegra::Engines::Maxwell3D::Regs::Tessellation::Spacing::Integer:
                 return Shader::TessSpacing::Equal;
-            case Maxwell::Tessellation::Spacing::FractionalOdd:
+            case Tegra::Engines::Maxwell3D::Regs::Tessellation::Spacing::FractionalOdd:
                 return Shader::TessSpacing::FractionalOdd;
-            case Maxwell::Tessellation::Spacing::FractionalEven:
+            case Tegra::Engines::Maxwell3D::Regs::Tessellation::Spacing::FractionalEven:
                 return Shader::TessSpacing::FractionalEven;
             }
             ASSERT(false);
@@ -236,29 +236,29 @@ Shader::RuntimeInfo MakeRuntimeInfo(std::span<const Shader::IR::Program> program
         break;
     }
     switch (key.state.topology) {
-    case Maxwell::PrimitiveTopology::Points:
+    case Tegra::Engines::Maxwell3D::Regs::PrimitiveTopology::Points:
         info.input_topology = Shader::InputTopology::Points;
         break;
-    case Maxwell::PrimitiveTopology::Lines:
-    case Maxwell::PrimitiveTopology::LineLoop:
-    case Maxwell::PrimitiveTopology::LineStrip:
+    case Tegra::Engines::Maxwell3D::Regs::PrimitiveTopology::Lines:
+    case Tegra::Engines::Maxwell3D::Regs::PrimitiveTopology::LineLoop:
+    case Tegra::Engines::Maxwell3D::Regs::PrimitiveTopology::LineStrip:
         info.input_topology = Shader::InputTopology::Lines;
         break;
-    case Maxwell::PrimitiveTopology::Triangles:
-    case Maxwell::PrimitiveTopology::TriangleStrip:
-    case Maxwell::PrimitiveTopology::TriangleFan:
-    case Maxwell::PrimitiveTopology::Quads:
-    case Maxwell::PrimitiveTopology::QuadStrip:
-    case Maxwell::PrimitiveTopology::Polygon:
-    case Maxwell::PrimitiveTopology::Patches:
+    case Tegra::Engines::Maxwell3D::Regs::PrimitiveTopology::Triangles:
+    case Tegra::Engines::Maxwell3D::Regs::PrimitiveTopology::TriangleStrip:
+    case Tegra::Engines::Maxwell3D::Regs::PrimitiveTopology::TriangleFan:
+    case Tegra::Engines::Maxwell3D::Regs::PrimitiveTopology::Quads:
+    case Tegra::Engines::Maxwell3D::Regs::PrimitiveTopology::QuadStrip:
+    case Tegra::Engines::Maxwell3D::Regs::PrimitiveTopology::Polygon:
+    case Tegra::Engines::Maxwell3D::Regs::PrimitiveTopology::Patches:
         info.input_topology = Shader::InputTopology::Triangles;
         break;
-    case Maxwell::PrimitiveTopology::LinesAdjacency:
-    case Maxwell::PrimitiveTopology::LineStripAdjacency:
+    case Tegra::Engines::Maxwell3D::Regs::PrimitiveTopology::LinesAdjacency:
+    case Tegra::Engines::Maxwell3D::Regs::PrimitiveTopology::LineStripAdjacency:
         info.input_topology = Shader::InputTopology::LinesAdjacency;
         break;
-    case Maxwell::PrimitiveTopology::TrianglesAdjacency:
-    case Maxwell::PrimitiveTopology::TriangleStripAdjacency:
+    case Tegra::Engines::Maxwell3D::Regs::PrimitiveTopology::TrianglesAdjacency:
+    case Tegra::Engines::Maxwell3D::Regs::PrimitiveTopology::TriangleStripAdjacency:
         info.input_topology = Shader::InputTopology::TrianglesAdjacency;
         break;
     }
@@ -401,13 +401,13 @@ PipelineCache::PipelineCache(Tegra::MaxwellDeviceMemoryManager& device_memory_,
         .support_conditional_barrier = device.SupportsConditionalBarriers(),
     };
 
-    if (device.GetMaxVertexInputAttributes() < Maxwell::NumVertexAttributes) {
+    if (device.GetMaxVertexInputAttributes() < Tegra::Engines::Maxwell3D::Regs::NumVertexAttributes) {
         LOG_WARNING(Render_Vulkan, "maxVertexInputAttributes is too low: {} < {}",
-                    device.GetMaxVertexInputAttributes(), Maxwell::NumVertexAttributes);
+                    device.GetMaxVertexInputAttributes(), Tegra::Engines::Maxwell3D::Regs::NumVertexAttributes);
     }
-    if (device.GetMaxVertexInputBindings() < Maxwell::NumVertexArrays) {
+    if (device.GetMaxVertexInputBindings() < Tegra::Engines::Maxwell3D::Regs::NumVertexArrays) {
         LOG_WARNING(Render_Vulkan, "maxVertexInputBindings is too low: {} < {}",
-                    device.GetMaxVertexInputBindings(), Maxwell::NumVertexArrays);
+                    device.GetMaxVertexInputBindings(), Tegra::Engines::Maxwell3D::Regs::NumVertexArrays);
     }
 
     // Apply user's Extended Dynamic State setting
@@ -693,16 +693,16 @@ std::unique_ptr<GraphicsPipeline> PipelineCache::CreateGraphicsPipeline(
     auto hash = key.Hash();
     LOG_INFO(Render_Vulkan, "0x{:016x}", hash);
     size_t env_index{0};
-    std::array<Shader::IR::Program, Maxwell::MaxShaderProgram> programs;
+    std::array<Shader::IR::Program, Tegra::Engines::Maxwell3D::Regs::MaxShaderProgram> programs;
     const bool uses_vertex_a{key.unique_hashes[0] != 0};
     const bool uses_vertex_b{key.unique_hashes[1] != 0};
 
     // Layer passthrough generation for devices without VK_EXT_shader_viewport_index_layer
     Shader::IR::Program* layer_source_program{};
 
-    for (size_t index = 0; index < Maxwell::MaxShaderProgram; ++index) {
+    for (size_t index = 0; index < Tegra::Engines::Maxwell3D::Regs::MaxShaderProgram; ++index) {
         const bool is_emulated_stage = layer_source_program != nullptr &&
-                                       index == static_cast<u32>(Maxwell::ShaderType::Geometry);
+                                       index == static_cast<u32>(Tegra::Engines::Maxwell3D::Regs::ShaderType::Geometry);
         if (key.unique_hashes[index] == 0 && is_emulated_stage) {
             auto topology = MaxwellToOutputTopology(key.state.topology);
             programs[index] = GenerateGeometryPassthrough(pools.inst, pools.block, host_info,
@@ -735,15 +735,15 @@ std::unique_ptr<GraphicsPipeline> PipelineCache::CreateGraphicsPipeline(
             layer_source_program = &programs[index];
         }
     }
-    std::array<const Shader::Info*, Maxwell::MaxShaderStage> infos{};
-    std::array<vk::ShaderModule, Maxwell::MaxShaderStage> modules;
+    std::array<const Shader::Info*, Tegra::Engines::Maxwell3D::Regs::MaxShaderStage> infos{};
+    std::array<vk::ShaderModule, Tegra::Engines::Maxwell3D::Regs::MaxShaderStage> modules;
 
     const Shader::IR::Program* previous_stage{};
     Shader::Backend::Bindings binding;
-    for (size_t index = uses_vertex_a && uses_vertex_b ? 1 : 0; index < Maxwell::MaxShaderProgram;
+    for (size_t index = uses_vertex_a && uses_vertex_b ? 1 : 0; index < Tegra::Engines::Maxwell3D::Regs::MaxShaderProgram;
          ++index) {
         const bool is_emulated_stage = layer_source_program != nullptr &&
-                                       index == static_cast<u32>(Maxwell::ShaderType::Geometry);
+                                       index == static_cast<u32>(Tegra::Engines::Maxwell3D::Regs::ShaderType::Geometry);
         if (key.unique_hashes[index] == 0 && !is_emulated_stage) {
             continue;
         }
@@ -785,7 +785,7 @@ std::unique_ptr<GraphicsPipeline> PipelineCache::CreateGraphicsPipeline(
 } catch (const Shader::Exception& exception) {
     auto hash = key.Hash();
     size_t env_index{0};
-    for (size_t index = 0; index < Maxwell::MaxShaderProgram; ++index) {
+    for (size_t index = 0; index < Tegra::Engines::Maxwell3D::Regs::MaxShaderProgram; ++index) {
         if (key.unique_hashes[index] == 0) {
             continue;
         }
@@ -811,9 +811,9 @@ std::unique_ptr<GraphicsPipeline> PipelineCache::CreateGraphicsPipeline() {
         return pipeline;
     }
     serialization_thread.QueueWork([this, key = graphics_key, envs = std::move(environments.envs)] {
-        boost::container::static_vector<const GenericEnvironment*, Maxwell::MaxShaderProgram>
+        boost::container::static_vector<const GenericEnvironment*, Tegra::Engines::Maxwell3D::Regs::MaxShaderProgram>
             env_ptrs;
-        for (size_t index = 0; index < Maxwell::MaxShaderProgram; ++index) {
+        for (size_t index = 0; index < Tegra::Engines::Maxwell3D::Regs::MaxShaderProgram; ++index) {
             if (key.unique_hashes[index] != 0) {
                 env_ptrs.push_back(&envs[index]);
             }

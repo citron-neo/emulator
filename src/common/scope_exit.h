@@ -6,46 +6,26 @@
 #include <utility>
 #include "common/common_funcs.h"
 
-namespace detail {
 template <class F>
-class ScopeGuard {
+struct ScopeGuard {
     CITRON_NON_COPYABLE(ScopeGuard);
-
-private:
+    inline constexpr ScopeGuard(F f_) : f(std::move(f_)), active(true) {}
+    inline constexpr ~ScopeGuard() { if (active) f(); }
+    inline constexpr void Cancel() { active = false; }
+    inline constexpr ScopeGuard(ScopeGuard&& rhs) : f(std::move(rhs.f)), active(rhs.active) { rhs.Cancel(); }
+    inline ScopeGuard& operator=(ScopeGuard&& rhs) = delete;
     F f;
     bool active;
-
-public:
-    constexpr ScopeGuard(F f_) : f(std::move(f_)), active(true) {}
-    constexpr ~ScopeGuard() {
-        if (active) {
-            f();
-        }
-    }
-    constexpr void Cancel() {
-        active = false;
-    }
-
-    constexpr ScopeGuard(ScopeGuard&& rhs) : f(std::move(rhs.f)), active(rhs.active) {
-        rhs.Cancel();
-    }
-
-    ScopeGuard& operator=(ScopeGuard&& rhs) = delete;
 };
-
 template <class F>
-constexpr ScopeGuard<F> MakeScopeGuard(F f) {
+[[nodiscard]] inline constexpr ScopeGuard<F> MakeScopeGuard(F f) {
     return ScopeGuard<F>(std::move(f));
 }
-
 enum class ScopeGuardOnExit {};
-
 template <typename F>
-constexpr ScopeGuard<F> operator+(ScopeGuardOnExit, F&& f) {
+[[nodiscard]] inline constexpr ScopeGuard<F> operator+(ScopeGuardOnExit, F&& f) {
     return ScopeGuard<F>(std::forward<F>(f));
 }
-
-} // namespace detail
 
 #define CONCATENATE_IMPL(s1, s2) s1##s2
 #define CONCATENATE(s1, s2) CONCATENATE_IMPL(s1, s2)
@@ -60,7 +40,7 @@ constexpr ScopeGuard<F> operator+(ScopeGuardOnExit, F&& f) {
  * This macro is similar to SCOPE_EXIT, except the object is caller managed. This is intended to be
  * used when the caller might want to cancel the ScopeExit.
  */
-#define SCOPE_GUARD detail::ScopeGuardOnExit() + [&]()
+#define SCOPE_GUARD ::ScopeGuardOnExit() + [&]()
 
 /**
  * This macro allows you to conveniently specify a block of code that will run on scope exit. Handy

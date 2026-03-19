@@ -7,13 +7,13 @@
 namespace AudioCore::ADSP::OpusDecoder {
 
 namespace {
-bool IsValidChannelCount(u32 channel_count) {
+bool IsValidChannelCount3(u32 channel_count) {
     return channel_count == 1 || channel_count == 2;
 }
 
 bool IsValidStreamCounts(u32 total_stream_count, u32 stereo_stream_count) {
     return total_stream_count > 0 && static_cast<s32>(stereo_stream_count) >= 0 &&
-           stereo_stream_count <= total_stream_count && IsValidChannelCount(total_stream_count);
+           stereo_stream_count <= total_stream_count && IsValidChannelCount3(total_stream_count);
 }
 } // namespace
 

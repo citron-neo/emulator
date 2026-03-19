@@ -8,7 +8,7 @@
 
 namespace Shader::Maxwell {
 namespace {
-enum class Mode : u64 {
+enum class ModeISBER : u64 {
     Default,
     Patch,
     Prim,

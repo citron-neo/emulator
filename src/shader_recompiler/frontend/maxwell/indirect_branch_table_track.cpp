@@ -12,7 +12,7 @@
 
 namespace Shader::Maxwell {
 namespace {
-union Encoding {
+union EncodingIBTT {
     u64 raw;
     BitField<0, 8, IR::Reg> dest_reg;
     BitField<8, 8, IR::Reg> src_reg;
@@ -45,7 +45,7 @@ std::optional<u64> TrackLDC(Environment& env, Location block_begin, Location& po
 std::optional<u64> TrackSHL(Environment& env, Location block_begin, Location& pos,
                             IR::Reg ldc_reg) {
     return Track(env, block_begin, pos, [ldc_reg](u64 insn, Opcode opcode) {
-        const Encoding shl{insn};
+        const EncodingIBTT shl{insn};
         return opcode == Opcode::SHL_imm && shl.dest_reg == ldc_reg;
     });
 }
@@ -53,7 +53,7 @@ std::optional<u64> TrackSHL(Environment& env, Location block_begin, Location& po
 std::optional<u64> TrackIMNMX(Environment& env, Location block_begin, Location& pos,
                               IR::Reg shl_reg) {
     return Track(env, block_begin, pos, [shl_reg](u64 insn, Opcode opcode) {
-        const Encoding imnmx{insn};
+        const EncodingIBTT imnmx{insn};
         return opcode == Opcode::IMNMX_imm && imnmx.dest_reg == shl_reg;
     });
 }
@@ -66,8 +66,8 @@ std::optional<IndirectBranchTableInfo> TrackIndirectBranchTable(Environment& env
     if (brx_opcode != Opcode::BRX && brx_opcode != Opcode::JMX) {
         throw LogicError("Tracked instruction is not BRX or JMX");
     }
-    const IR::Reg brx_reg{Encoding{brx_insn}.src_reg};
-    const s32 brx_offset{static_cast<s32>(Encoding{brx_insn}.brx_offset)};
+    const IR::Reg brx_reg{EncodingIBTT{brx_insn}.src_reg};
+    const s32 brx_offset{static_cast<s32>(EncodingIBTT{brx_insn}.brx_offset)};
 
     Location pos{brx_pos};
     const std::optional<u64> ldc_insn{TrackLDC(env, block_begin, pos, brx_reg)};
@@ -83,14 +83,14 @@ std::optional<IndirectBranchTableInfo> TrackIndirectBranchTable(Environment& env
     if (!shl_insn) {
         return std::nullopt;
     }
-    const Encoding shl{*shl_insn};
+    const EncodingIBTT shl{*shl_insn};
     const IR::Reg shl_reg{shl.src_reg};
 
     const std::optional<u64> imnmx_insn{TrackIMNMX(env, block_begin, pos, shl_reg)};
     if (!imnmx_insn) {
         return std::nullopt;
     }
-    const Encoding imnmx{*imnmx_insn};
+    const EncodingIBTT imnmx{*imnmx_insn};
     if (imnmx.is_negative != 0) {
         return std::nullopt;
     }

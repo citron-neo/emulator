@@ -20,7 +20,7 @@
 #include "frontend_common/content_manager.h"
 #include "ui_configure_filesystem.h"
 
-static constexpr size_t CopyBufferSize = 0x400000;
+static constexpr size_t ChunkCopyBufferSize = 0x400000;
 
 ConfigureFilesystem::ConfigureFilesystem(QWidget* parent)
     : QWidget(parent), ui(std::make_unique<Ui::ConfigureFilesystem>()) {
@@ -375,7 +375,7 @@ void ConfigureFilesystem::OnRunAutoloader(bool skip_confirmation) {
 
     qint64 total_chunks = 0;
     for (const QString& file : files_to_install) {
-        total_chunks += (QFileInfo(file).size() + CopyBufferSize - 1) / CopyBufferSize;
+        total_chunks += (QFileInfo(file).size() + ChunkCopyBufferSize - 1) / ChunkCopyBufferSize;
     }
     if (total_chunks == 0) {
         QMessageBox::information(this, tr("Autoloader"), tr("Selected files are empty."));

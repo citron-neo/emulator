@@ -10,7 +10,7 @@ namespace AudioCore::OpusDecoder {
 using namespace Service::Audio;
 
 namespace {
-bool IsValidChannelCount(u32 channel_count) {
+bool IsValidChannelCount4(u32 channel_count) {
     return channel_count == 1 || channel_count == 2;
 }
 
@@ -52,7 +52,7 @@ Result OpusDecoderManager::GetWorkBufferSizeEx(const OpusParametersEx& params, u
 }
 
 Result OpusDecoderManager::GetWorkBufferSizeExEx(const OpusParametersEx& params, u32& out_size) {
-    R_UNLESS(IsValidChannelCount(params.channel_count), ResultInvalidOpusChannelCount);
+    R_UNLESS(IsValidChannelCount4(params.channel_count), ResultInvalidOpusChannelCount);
     R_UNLESS(IsValidSampleRate(params.sample_rate), ResultInvalidOpusSampleRate);
 
     auto work_buffer_size{required_workbuffer_sizes[params.channel_count - 1]};
