@@ -15,11 +15,28 @@
 
 #include "core/hle/service/nvnflinger/buffer_item.h"
 #include "core/hle/service/nvnflinger/buffer_queue_defs.h"
+#include "core/hle/service/nvnflinger/buffer_slot.h"
 #include "core/hle/service/nvnflinger/pixel_format.h"
 #include "core/hle/service/nvnflinger/status.h"
 #include "core/hle/service/nvnflinger/window.h"
 
 namespace Service::android {
+
+#ifdef _MSC_VER
+#pragma pack(push, 1)
+struct BufferHistoryInfo {
+#elif defined(__GNUC__) || defined(__clang__)
+struct __attribute__((packed)) BufferHistoryInfo {
+#endif
+    u64 frame_number;
+    s64 queue_time;
+    s64 presentation_time;
+    BufferState state;
+};
+#ifdef _MSC_VER
+#pragma pack(pop)
+#endif
+static_assert(sizeof(BufferHistoryInfo) == 0x1C, "BufferHistoryInfo must be 28 bytes");
 
 class IConsumerListener;
 class IProducerListener;
@@ -32,9 +49,12 @@ class BufferQueueCore final {
 
 public:
     static constexpr s32 INVALID_BUFFER_SLOT = BufferItem::INVALID_BUFFER_SLOT;
+    static constexpr u32 BUFFER_HISTORY_SIZE = 8;
 
     BufferQueueCore();
     ~BufferQueueCore();
+
+    void PushHistory(u64 frame_number, s64 queue_time, s64 presentation_time, BufferState state);
 
 private:
     void SignalDequeueCondition();
@@ -71,6 +91,8 @@ private:
     const s32 max_acquired_buffer_count{}; // This is always zero on HOS
     bool buffer_has_been_queued{};
     u64 frame_counter{};
+    std::array<BufferHistoryInfo, BUFFER_HISTORY_SIZE> buffer_history{};
+    u32 buffer_history_pos{BUFFER_HISTORY_SIZE-1};
 
     u32 transform_hint{};
     bool is_allocating{};
