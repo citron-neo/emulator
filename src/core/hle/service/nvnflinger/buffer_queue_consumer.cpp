@@ -97,6 +97,14 @@ Status BufferQueueConsumer::AcquireBuffer(BufferItem* out_buffer,
         slots[slot].needs_cleanup_on_release = false;
         slots[slot].buffer_state = BufferState::Acquired;
 
+        // Mark tracked buffer history records as acquired
+        for (auto& buffer_history_record : core->buffer_history) {
+            if (buffer_history_record.frame_number == core->frame_counter) {
+                buffer_history_record.state = BufferState::Acquired;
+                break;
+            }
+        }
+
         // TODO: for now, avoid resetting the fence, so that when we next return this
         // slot to the producer, it will wait for the fence to pass. We should fix this
         // by properly waiting for the fence in the BufferItemConsumer.
