@@ -4,6 +4,11 @@
 # Enable modules to include each other's files
 include_directories(.)
 
+if (ENABLE_UNITY_BUILD)
+    set(CMAKE_UNITY_BUILD ON)
+    set(CMAKE_UNITY_BUILD_BATCH_SIZE 9999)
+endif()
+
 # CMake seems to only define _DEBUG on Windows
 set_property(DIRECTORY APPEND PROPERTY
     COMPILE_DEFINITIONS $<$<CONFIG:Debug>:_DEBUG> $<$<NOT:$<CONFIG:Debug>>:NDEBUG>)

@@ -13,7 +13,6 @@
 
 namespace Vulkan::MaxwellToVK {
 
-using Maxwell = Tegra::Engines::Maxwell3D::Regs;
 using PixelFormat = VideoCore::Surface::PixelFormat;
 
 namespace Sampler {
@@ -48,30 +47,30 @@ struct FormatInfo {
 
 VkShaderStageFlagBits ShaderStage(Shader::Stage stage);
 
-VkPrimitiveTopology PrimitiveTopology(const Device& device, Maxwell::PrimitiveTopology topology);
+VkPrimitiveTopology PrimitiveTopology(const Device& device, Tegra::Engines::Maxwell3D::Regs::PrimitiveTopology topology);
 
-VkFormat VertexFormat(const Device& device, Maxwell::VertexAttribute::Type type,
-                      Maxwell::VertexAttribute::Size size);
+VkFormat VertexFormat(const Device& device, Tegra::Engines::Maxwell3D::Regs::VertexAttribute::Type type,
+                      Tegra::Engines::Maxwell3D::Regs::VertexAttribute::Size size);
 
-VkCompareOp ComparisonOp(Maxwell::ComparisonOp comparison);
+VkCompareOp ComparisonOp(Tegra::Engines::Maxwell3D::Regs::ComparisonOp comparison);
 
-VkIndexType IndexFormat(Maxwell::IndexFormat index_format);
+VkIndexType IndexFormat(Tegra::Engines::Maxwell3D::Regs::IndexFormat index_format);
 
-VkStencilOp StencilOp(Maxwell::StencilOp::Op stencil_op);
+VkStencilOp StencilOp(Tegra::Engines::Maxwell3D::Regs::StencilOp::Op stencil_op);
 
-VkBlendOp BlendEquation(Maxwell::Blend::Equation equation);
+VkBlendOp BlendEquation(Tegra::Engines::Maxwell3D::Regs::Blend::Equation equation);
 
-VkBlendFactor BlendFactor(Maxwell::Blend::Factor factor);
+VkBlendFactor BlendFactor(Tegra::Engines::Maxwell3D::Regs::Blend::Factor factor);
 
-VkFrontFace FrontFace(Maxwell::FrontFace front_face);
+VkFrontFace FrontFace(Tegra::Engines::Maxwell3D::Regs::FrontFace front_face);
 
-VkCullModeFlagBits CullFace(Maxwell::CullFace cull_face);
+VkCullModeFlagBits CullFace(Tegra::Engines::Maxwell3D::Regs::CullFace cull_face);
 
-VkPolygonMode PolygonMode(Maxwell::PolygonMode polygon_mode);
+VkPolygonMode PolygonMode(Tegra::Engines::Maxwell3D::Regs::PolygonMode polygon_mode);
 
 VkComponentSwizzle SwizzleSource(Tegra::Texture::SwizzleSource swizzle);
 
-VkViewportCoordinateSwizzleNV ViewportSwizzle(Maxwell::ViewportSwizzle swizzle);
+VkViewportCoordinateSwizzleNV ViewportSwizzle(Tegra::Engines::Maxwell3D::Regs::ViewportSwizzle swizzle);
 
 VkSamplerReductionMode SamplerReduction(Tegra::Texture::SamplerReduction reduction);
 

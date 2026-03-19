@@ -11,7 +11,7 @@
 
 namespace Shader::Maxwell {
 namespace {
-enum class Type : u64 {
+enum class TypeSLS : u64 {
     _1D,
     BUFFER_1D,
     ARRAY_1D,
@@ -20,12 +20,11 @@ enum class Type : u64 {
     _3D,
 };
 
-constexpr unsigned R = 1 << 0;
-constexpr unsigned G = 1 << 1;
-constexpr unsigned B = 1 << 2;
-constexpr unsigned A = 1 << 3;
-
-constexpr std::array MASK{
+#define R (1 << 0)
+#define G (1 << 1)
+#define B (1 << 2)
+#define A (1 << 3)
+constexpr std::array<unsigned, 16> MASK{
     0U,            //
     R,             //
     G,             //
@@ -43,8 +42,12 @@ constexpr std::array MASK{
     G | B | A,     //
     R | G | B | A, //
 };
+#undef R
+#undef G
+#undef B
+#undef A
 
-enum class Size : u64 {
+enum class SizeSLS : u64 {
     U8,
     S8,
     U16,
@@ -54,96 +57,96 @@ enum class Size : u64 {
     B128,
 };
 
-enum class Clamp : u64 {
+enum class ClampSLS : u64 {
     IGN,
     Default,
     TRAP,
 };
 
 // https://docs.nvidia.com/cuda/parallel-thread-execution/index.html#cache-operators
-enum class LoadCache : u64 {
+enum class LoadCacheSLS : u64 {
     CA, // Cache at all levels, likely to be accessed again
     CG, // Cache at global level (L2 and below, not L1)
     CI, // ???
     CV, // Don't cache and fetch again (volatile)
 };
 
-enum class StoreCache : u64 {
+enum class StoreCacheSLS : u64 {
     WB, // Cache write-back all coherent levels
     CG, // Cache at global level (L2 and below, not L1)
     CS, // Cache streaming, likely to be accessed once
     WT, // Cache write-through (to system memory, volatile?)
 };
 
-ImageFormat Format(Size size) {
+ImageFormat Format(SizeSLS size) {
     switch (size) {
-    case Size::U8:
+    case SizeSLS::U8:
         return ImageFormat::R8_UINT;
-    case Size::S8:
+    case SizeSLS::S8:
         return ImageFormat::R8_SINT;
-    case Size::U16:
+    case SizeSLS::U16:
         return ImageFormat::R16_UINT;
-    case Size::S16:
+    case SizeSLS::S16:
         return ImageFormat::R16_SINT;
-    case Size::B32:
+    case SizeSLS::B32:
         return ImageFormat::R32_UINT;
-    case Size::B64:
+    case SizeSLS::B64:
         return ImageFormat::R32G32_UINT;
-    case Size::B128:
+    case SizeSLS::B128:
         return ImageFormat::R32G32B32A32_UINT;
     }
     throw NotImplementedException("Invalid size {}", size);
 }
 
-int SizeInRegs(Size size) {
+int SizeInRegs(SizeSLS size) {
     switch (size) {
-    case Size::U8:
-    case Size::S8:
-    case Size::U16:
-    case Size::S16:
-    case Size::B32:
+    case SizeSLS::U8:
+    case SizeSLS::S8:
+    case SizeSLS::U16:
+    case SizeSLS::S16:
+    case SizeSLS::B32:
         return 1;
-    case Size::B64:
+    case SizeSLS::B64:
         return 2;
-    case Size::B128:
+    case SizeSLS::B128:
         return 4;
     }
     throw NotImplementedException("Invalid size {}", size);
 }
 
-TextureType GetType(Type type) {
+TextureType GetType(TypeSLS type) {
     switch (type) {
-    case Type::_1D:
+    case TypeSLS::_1D:
         return TextureType::Color1D;
-    case Type::BUFFER_1D:
+    case TypeSLS::BUFFER_1D:
         return TextureType::Buffer;
-    case Type::ARRAY_1D:
+    case TypeSLS::ARRAY_1D:
         return TextureType::ColorArray1D;
-    case Type::_2D:
+    case TypeSLS::_2D:
         return TextureType::Color2D;
-    case Type::ARRAY_2D:
+    case TypeSLS::ARRAY_2D:
         return TextureType::ColorArray2D;
-    case Type::_3D:
+    case TypeSLS::_3D:
         return TextureType::Color3D;
     }
     throw NotImplementedException("Invalid type {}", type);
 }
 
-IR::Value MakeCoords(TranslatorVisitor& v, IR::Reg reg, Type type) {
+IR::Value MakeCoords(TranslatorVisitor& v, IR::Reg reg, TypeSLS type) {
     const auto array{[&](int index) {
         return v.ir.BitFieldExtract(v.X(reg + index), v.ir.Imm32(0), v.ir.Imm32(16));
     }};
     switch (type) {
-    case Type::_1D:
-    case Type::BUFFER_1D:
+    case TypeSLS::_1D:
+    case TypeSLS::BUFFER_1D:
         return v.X(reg);
-    case Type::ARRAY_1D:
+    case TypeSLS::ARRAY_1D:
         return v.ir.CompositeConstruct(v.X(reg), array(1));
-    case Type::_2D:
+    case TypeSLS::_2D:
         return v.ir.CompositeConstruct(v.X(reg), v.X(reg + 1));
-    case Type::ARRAY_2D:
+    case TypeSLS::ARRAY_2D:
         return v.ir.CompositeConstruct(v.X(reg), v.X(reg + 1), array(2));
-    case Type::_3D:
+    case TypeSLS::_3D:
         return v.ir.CompositeConstruct(v.X(reg), v.X(reg + 1), v.X(reg + 2));
     }
     throw NotImplementedException("Invalid type {}", type);
@@ -174,21 +177,21 @@ void TranslatorVisitor::SULD(u64 insn) {
         BitField<51, 1, u64> is_bound;
         BitField<52, 1, u64> d;
         BitField<23, 1, u64> ba;
-        BitField<33, 3, Type> type;
-        BitField<24, 2, LoadCache> cache;
-        BitField<20, 3, Size> size;   // .D
+        BitField<33, 3, TypeSLS> type;
+        BitField<24, 2, LoadCacheSLS> cache;
+        BitField<20, 3, SizeSLS> size;   // .D
         BitField<20, 4, u64> swizzle; // .P
-        BitField<49, 2, Clamp> clamp;
+        BitField<49, 2, ClampSLS> clamp;
         BitField<0, 8, IR::Reg> dest_reg;
         BitField<8, 8, IR::Reg> coord_reg;
         BitField<36, 13, u64> bound_offset;    // is_bound
         BitField<39, 8, IR::Reg> bindless_reg; // !is_bound
     } const suld{insn};
 
-    if (suld.clamp != Clamp::IGN) {
-        throw NotImplementedException("Clamp {}", suld.clamp.Value());
+    if (suld.clamp != ClampSLS::IGN) {
+        throw NotImplementedException("ClampSLS {}", suld.clamp.Value());
     }
-    if (suld.cache != LoadCache::CA && suld.cache != LoadCache::CG) {
+    if (suld.cache != LoadCacheSLS::CA && suld.cache != LoadCacheSLS::CG) {
         throw NotImplementedException("Cache {}", suld.cache.Value());
     }
     const bool is_typed{suld.d != 0};
@@ -234,21 +237,21 @@ void TranslatorVisitor::SUST(u64 insn) {
         BitField<51, 1, u64> is_bound;
         BitField<52, 1, u64> d;
         BitField<23, 1, u64> ba;
-        BitField<33, 3, Type> type;
-        BitField<24, 2, StoreCache> cache;
-        BitField<20, 3, Size> size;   // .D
+        BitField<33, 3, TypeSLS> type;
+        BitField<24, 2, StoreCacheSLS> cache;
+        BitField<20, 3, SizeSLS> size;   // .D
         BitField<20, 4, u64> swizzle; // .P
-        BitField<49, 2, Clamp> clamp;
+        BitField<49, 2, ClampSLS> clamp;
         BitField<0, 8, IR::Reg> data_reg;
         BitField<8, 8, IR::Reg> coord_reg;
         BitField<36, 13, u64> bound_offset;    // is_bound
         BitField<39, 8, IR::Reg> bindless_reg; // !is_bound
     } const sust{insn};
 
-    if (sust.clamp != Clamp::IGN) {
-        throw NotImplementedException("Clamp {}", sust.clamp.Value());
+    if (sust.clamp != ClampSLS::IGN) {
+        throw NotImplementedException("ClampSLS {}", sust.clamp.Value());
     }
-    if (sust.cache != StoreCache::WB && sust.cache != StoreCache::CG) {
+    if (sust.cache != StoreCacheSLS::WB && sust.cache != StoreCacheSLS::CG) {
         throw NotImplementedException("Cache {}", sust.cache.Value());
     }
     const bool is_typed{sust.d != 0};

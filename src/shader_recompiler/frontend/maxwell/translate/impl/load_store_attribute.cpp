@@ -9,7 +9,7 @@
 
 namespace Shader::Maxwell {
 namespace {
-enum class Size : u64 {
+enum class SizeLSA : u64 {
     B32,
     B64,
     B96,
@@ -29,15 +29,15 @@ enum class SampleMode : u64 {
     Offset,
 };
 
-u32 NumElements(Size size) {
+u32 NumElements(SizeLSA size) {
     switch (size) {
-    case Size::B32:
+    case SizeLSA::B32:
         return 1;
-    case Size::B64:
+    case SizeLSA::B64:
         return 2;
-    case Size::B96:
+    case SizeLSA::B96:
         return 3;
-    case Size::B128:
+    case SizeLSA::B128:
         return 4;
     }
     throw InvalidArgument("Invalid size {}", size);
@@ -65,7 +65,7 @@ void TranslatorVisitor::ALD(u64 insn) {
         BitField<39, 8, IR::Reg> vertex_reg;
         BitField<32, 1, u64> o;
         BitField<31, 1, u64> patch;
-        BitField<47, 2, Size> size;
+        BitField<47, 2, SizeLSA> size;
     } const ald{insn};
 
     const u64 offset{ald.absolute_offset.Value()};
@@ -103,7 +103,7 @@ void TranslatorVisitor::AST(u64 insn) {
         BitField<20, 11, s64> relative_offset;
         BitField<31, 1, u64> patch;
         BitField<39, 8, IR::Reg> vertex_reg;
-        BitField<47, 2, Size> size;
+        BitField<47, 2, SizeLSA> size;
     } const ast{insn};
 
     if (ast.index_reg != IR::Reg::RZ) {

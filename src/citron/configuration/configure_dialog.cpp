@@ -59,7 +59,7 @@ static QScrollArea* CreateScrollArea(QWidget* widget) {
     return scroll_area;
 }
 
-static bool IsDarkMode() {
+static bool DialogIsDarkMode() {
     const std::string& theme_name = UISettings::values.theme;
     if (theme_name == "qdarkstyle" || theme_name == "colorful_dark" ||
         theme_name == "qdarkstyle_midnight_blue" || theme_name == "colorful_midnight_blue") {
@@ -211,7 +211,7 @@ ConfigureDialog::~ConfigureDialog() {
 void ConfigureDialog::UpdateTheme() {
     const bool is_rainbow = UISettings::values.enable_rainbow_mode.GetValue();
     const QString accent = Theme::GetAccentColor();
-    const bool is_dark = IsDarkMode();
+    const bool is_dark = DialogIsDarkMode();
 
     const QString bg = is_dark ? QStringLiteral("#2b2b2b") : QStringLiteral("#ffffff");
     const QString txt = is_dark ? QStringLiteral("#ffffff") : QStringLiteral("#000000");

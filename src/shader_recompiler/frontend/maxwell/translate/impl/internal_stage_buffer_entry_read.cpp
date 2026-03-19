@@ -11,14 +11,14 @@
 
 namespace Shader::Maxwell {
 namespace {
-enum class Mode : u64 {
+enum class ModeISBER : u64 {
     Default,
     Patch,
     Prim,
     Attr,
 };
 
-enum class Shift : u64 {
+enum class ShiftISBER : u64 {
     Default,
     U16,
     B32,
@@ -33,23 +33,23 @@ void TranslatorVisitor::ISBERD(u64 insn) {
         BitField<8, 8, IR::Reg> src_reg;
         BitField<31, 1, u64> skew;
         BitField<32, 1, u64> o;
-        BitField<33, 2, Mode> mode;
-        BitField<47, 2, Shift> shift;
+        BitField<33, 2, ModeISBER> mode;
+        BitField<47, 2, ShiftISBER> shift;
     } const isberd{insn};
 
     const IR::U32 buffer_index{X(isberd.src_reg)};
     IR::U32 result;
 
     switch (isberd.mode) {
-    case Mode::Default:
+    case ModeISBER::Default:
         // Default mode: direct register copy (fallback for compatibility)
         result = buffer_index;
         break;
-    case Mode::Patch:
+    case ModeISBER::Patch:
         // Patch mode: read tessellation patch attributes
         // For now, implement a simplified version that works with the current IR system
         // The buffer_index contains the patch component index, we'll use it directly
-        if (isberd.shift == Shift::Default) {
+        if (isberd.shift == ShiftISBER::Default) {
             // Standard 32-bit patch component read
             // Use a generic patch component based on the buffer index
             const IR::Patch patch{IR::Patch::Component0};
@@ -59,11 +59,11 @@ void TranslatorVisitor::ISBERD(u64 insn) {
             const IR::Patch patch{IR::Patch::Component0};
             const IR::F32 patch_value{ir.GetPatch(patch)};
             switch (isberd.shift) {
-            case Shift::U16:
+            case ShiftISBER::U16:
                 // Convert to 16-bit unsigned format
                 result = ir.ConvertFToU(16, patch_value);
                 break;
-            case Shift::B32:
+            case ShiftISBER::B32:
                 // Convert to 32-bit byte format (packed)
                 result = ir.BitCast<IR::U32>(patch_value);
                 break;
@@ -72,9 +72,9 @@ void TranslatorVisitor::ISBERD(u64 insn) {
             }
         }
         break;
-    case Mode::Prim:
+    case ModeISBER::Prim:
         // Prim mode: read primitive attributes (geometry shader inputs)
-        if (isberd.shift == Shift::Default) {
+        if (isberd.shift == ShiftISBER::Default) {
             // Standard primitive attribute read
             // Use a generic attribute based on the buffer index
             const IR::Attribute attr{IR::Attribute::Generic0X};
@@ -84,10 +84,10 @@ void TranslatorVisitor::ISBERD(u64 insn) {
             const IR::Attribute attr{IR::Attribute::Generic0X};
             const IR::F32 attr_value{ir.GetAttribute(attr, ir.Imm32(0))};
             switch (isberd.shift) {
-            case Shift::U16:
+            case ShiftISBER::U16:
                 result = ir.ConvertFToU(16, attr_value);
                 break;
-            case Shift::B32:
+            case ShiftISBER::B32:
                 result = ir.BitCast<IR::U32>(attr_value);
                 break;
             default:
@@ -95,9 +95,9 @@ void TranslatorVisitor::ISBERD(u64 insn) {
             }
         }
         break;
-    case Mode::Attr:
+    case ModeISBER::Attr:
         // Attr mode: read generic vertex attributes
-        if (isberd.shift == Shift::Default) {
+        if (isberd.shift == ShiftISBER::Default) {
             // Standard generic attribute read
             // Use a generic attribute based on the buffer index
             const IR::Attribute attr{IR::Attribute::Generic0X};
@@ -107,10 +107,10 @@ void TranslatorVisitor::ISBERD(u64 insn) {
             const IR::Attribute attr{IR::Attribute::Generic0X};
             const IR::F32 attr_value{ir.GetAttribute(attr, ir.Imm32(0))};
             switch (isberd.shift) {
-            case Shift::U16:
+            case ShiftISBER::U16:
                 result = ir.ConvertFToU(16, attr_value);
                 break;
-            case Shift::B32:
+            case ShiftISBER::B32:
                 result = ir.BitCast<IR::U32>(attr_value);
                 break;
             default:

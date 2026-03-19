@@ -361,7 +361,7 @@ Result InfoUpdater::UpdateMixes(MixContext& mix_context, const u32 mix_buffer_co
 
     // Check if we're seeing splitter destination data instead of mix data
     const u32 input_magic = input[0] | (input[1] << 8) | (input[2] << 16) | (input[3] << 24);
-    if (input_magic == AudioCore::GetSplitterSendDataMagic()) {
+    if (input_magic == GetSplitterSendDataMagic()) {
         LOG_ERROR(Service_Audio,
                   "UpdateMixes: Found splitter destination data (magic=0x{:X}) instead of mix data. "
                   "This suggests UpdateSplitterInfo didn't consume the splitter data correctly. "

@@ -17,7 +17,7 @@ Id Image(EmitContext& ctx, IR::TextureInstInfo info) {
     }
 }
 
-std::pair<Id, Id> AtomicArgs(EmitContext& ctx) {
+std::pair<Id, Id> AtomicImageArgs(EmitContext& ctx) {
     const Id scope{ctx.Const(static_cast<u32>(spv::Scope::Device))};
     const Id semantics{ctx.u32_zero_value};
     return {scope, semantics};
@@ -32,7 +32,7 @@ Id ImageAtomicU32(EmitContext& ctx, IR::Inst* inst, const IR::Value& index, Id c
     const auto info{inst->Flags<IR::TextureInstInfo>()};
     const Id image{Image(ctx, info)};
     const Id pointer{ctx.OpImageTexelPointer(ctx.image_u32, image, coords, ctx.Const(0U))};
-    const auto [scope, semantics]{AtomicArgs(ctx)};
+    const auto [scope, semantics]{AtomicImageArgs(ctx)};
     return (ctx.*atomic_func)(ctx.U32[1], pointer, scope, semantics, value);
 }
 } // Anonymous namespace

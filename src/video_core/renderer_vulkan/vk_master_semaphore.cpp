@@ -111,7 +111,7 @@ VkResult MasterSemaphore::SubmitQueue(vk::CommandBuffer& cmdbuf, vk::CommandBuff
     }
 }
 
-static constexpr std::array<VkPipelineStageFlags, 2> wait_stage_masks{
+static constexpr std::array<VkPipelineStageFlags, 2> master_wait_stage_masks{
     VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
     VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
 };
@@ -142,7 +142,7 @@ VkResult MasterSemaphore::SubmitQueueTimeline(vk::CommandBuffer& cmdbuf,
         .pNext = &timeline_si,
         .waitSemaphoreCount = num_wait_semaphores,
         .pWaitSemaphores = &wait_semaphore,
-        .pWaitDstStageMask = wait_stage_masks.data(),
+        .pWaitDstStageMask = master_wait_stage_masks.data(),
         .commandBufferCount = static_cast<u32>(cmdbuffers.size()),
         .pCommandBuffers = cmdbuffers.data(),
         .signalSemaphoreCount = num_signal_semaphores,
@@ -166,7 +166,7 @@ VkResult MasterSemaphore::SubmitQueueFence(vk::CommandBuffer& cmdbuf,
         .pNext = nullptr,
         .waitSemaphoreCount = num_wait_semaphores,
         .pWaitSemaphores = &wait_semaphore,
-        .pWaitDstStageMask = wait_stage_masks.data(),
+        .pWaitDstStageMask = master_wait_stage_masks.data(),
         .commandBufferCount = static_cast<u32>(cmdbuffers.size()),
         .pCommandBuffers = cmdbuffers.data(),
         .signalSemaphoreCount = num_signal_semaphores,

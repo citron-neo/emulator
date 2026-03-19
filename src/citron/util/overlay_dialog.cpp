@@ -13,10 +13,10 @@
 
 namespace {
 
-constexpr float BASE_TITLE_FONT_SIZE = 14.0f;
-constexpr float BASE_FONT_SIZE = 18.0f;
-constexpr float BASE_WIDTH = 1280.0f;
-constexpr float BASE_HEIGHT = 720.0f;
+constexpr float OVERLAY_BASE_TITLE_FONT_SIZE = 14.0f;
+constexpr float OVERLAY_BASE_FONT_SIZE = 18.0f;
+constexpr float OVERLAY_BASE_WIDTH = 1280.0f;
+constexpr float OVERLAY_BASE_HEIGHT = 720.0f;
 
 } // Anonymous namespace
 
@@ -165,10 +165,10 @@ void OverlayDialog::MoveAndResizeWindow() {
     // High DPI
     const float dpi_scale = screen()->logicalDotsPerInch() / 96.0f;
 
-    const auto title_text_font_size = BASE_TITLE_FONT_SIZE * (height / BASE_HEIGHT) / dpi_scale;
+    const auto title_text_font_size = OVERLAY_BASE_TITLE_FONT_SIZE * (height / OVERLAY_BASE_HEIGHT) / dpi_scale;
     const auto body_text_font_size =
-        BASE_FONT_SIZE * (((width / BASE_WIDTH) + (height / BASE_HEIGHT)) / 2.0f) / dpi_scale;
-    const auto button_text_font_size = BASE_FONT_SIZE * (height / BASE_HEIGHT) / dpi_scale;
+        OVERLAY_BASE_FONT_SIZE * (((width / OVERLAY_BASE_WIDTH) + (height / OVERLAY_BASE_HEIGHT)) / 2.0f) / dpi_scale;
+    const auto button_text_font_size = OVERLAY_BASE_FONT_SIZE * (height / OVERLAY_BASE_HEIGHT) / dpi_scale;
 
     QFont title_text_font(QStringLiteral("MS Shell Dlg 2"), title_text_font_size, QFont::Normal);
     QFont body_text_font(QStringLiteral("MS Shell Dlg 2"), body_text_font_size, QFont::Normal);

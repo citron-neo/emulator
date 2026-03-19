@@ -74,7 +74,7 @@ CPUCaps::Manufacturer CPUCaps::ParseManufacturer(std::string_view brand_string) 
 }
 
 // Detects the various CPU features
-static CPUCaps Detect() {
+static CPUCaps DetectCPUCapabilities() {
     CPUCaps caps = {};
 
     // Assumes the CPU supports the CPUID instruction. Those that don't would likely not support
@@ -82,7 +82,7 @@ static CPUCaps Detect() {
 
     int cpu_id[4];
 
-    // Detect CPU's CPUID capabilities and grab manufacturer string
+    // DetectCPUCapabilities CPU's CPUID capabilities and grab manufacturer string
     __cpuid(cpu_id, 0x00000000);
     const u32 max_std_fn = cpu_id[0]; // EAX
 
@@ -100,7 +100,7 @@ static CPUCaps Detect() {
 
     const u32 max_ex_fn = cpu_id[0];
 
-    // Detect family and other miscellaneous features
+    // DetectCPUCapabilities family and other miscellaneous features
     if (max_std_fn >= 1) {
         __cpuid(cpu_id, 0x00000001);
         caps.sse = Common::Bit<25>(cpu_id[3]);
@@ -205,7 +205,7 @@ static CPUCaps Detect() {
 }
 
 const CPUCaps& GetCPUCaps() {
-    static CPUCaps caps = Detect();
+    static CPUCaps caps = DetectCPUCapabilities();
     return caps;
 }
 

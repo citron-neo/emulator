@@ -48,7 +48,7 @@ Result System::IsConfigValid(std::string_view device_name,
     return Service::Audio::ResultInvalidChannelCount;
 }
 
-Result System::Initialize(std::string device_name, const AudioOutParameter& in_params,
+Result System::Initialize(std::string device_name, const AudioOut::AudioOutParameter& in_params,
                           Kernel::KProcess* handle_, u64 applet_resource_user_id_) {
     auto result = IsConfigValid(device_name, in_params);
     if (result.IsError()) {

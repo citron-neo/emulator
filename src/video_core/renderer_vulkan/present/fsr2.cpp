@@ -20,7 +20,7 @@
 namespace Vulkan {
 using namespace FSR;
 
-using PushConstants = std::array<u32, 4 * 4>;
+using Fsr2PushConstants = std::array<u32, 4 * 4>;
 
 FSR2::FSR2(const Device& device, MemoryAllocator& memory_allocator, size_t image_count,
            VkExtent2D extent)
@@ -103,7 +103,7 @@ void FSR2::CreatePipelineLayouts() {
     const VkPushConstantRange range{
         .stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,
         .offset = 0,
-        .size = sizeof(PushConstants),
+        .size = sizeof(Fsr2PushConstants),
     };
     VkPipelineLayoutCreateInfo ci{
         .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
@@ -181,8 +181,8 @@ VkImageView FSR2::Draw(Scheduler& scheduler, size_t image_index, VkImage source_
     const f32 viewport_height = (crop_rect.bottom - crop_rect.top) * input_image_height;
     const f32 viewport_y = crop_rect.top * input_image_height;
 
-    PushConstants easu_con{};
-    PushConstants rcas_con{};
+    Fsr2PushConstants easu_con{};
+    Fsr2PushConstants rcas_con{};
     FsrEasuConOffset(easu_con.data() + 0, easu_con.data() + 4, easu_con.data() + 8,
                      easu_con.data() + 12, viewport_width, viewport_height, input_image_width,
                      input_image_height, output_image_width, output_image_height, viewport_x,

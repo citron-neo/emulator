@@ -9,7 +9,7 @@
 namespace Shader::Maxwell {
 namespace {
 
-enum class TextureType : u64 {
+enum class TextureTypeTGRAD : u64 {
     _1D,
     ARRAY_1D,
     _2D,
@@ -20,24 +20,16 @@ enum class TextureType : u64 {
     ARRAY_CUBE,
 };
 
-Shader::TextureType GetType(TextureType type) {
+Shader::TextureType GetType(TextureTypeTGRAD type) {
     switch (type) {
-    case TextureType::_1D:
-        return Shader::TextureType::Color1D;
-    case TextureType::ARRAY_1D:
-        return Shader::TextureType::ColorArray1D;
-    case TextureType::_2D:
-        return Shader::TextureType::Color2D;
-    case TextureType::ARRAY_2D:
-        return Shader::TextureType::ColorArray2D;
-    case TextureType::_3D:
-        return Shader::TextureType::Color3D;
-    case TextureType::ARRAY_3D:
-        throw NotImplementedException("3D array texture type");
-    case TextureType::CUBE:
-        return Shader::TextureType::ColorCube;
-    case TextureType::ARRAY_CUBE:
-        return Shader::TextureType::ColorArrayCube;
+    case TextureTypeTGRAD::_1D: return Shader::TextureType::Color1D;
+    case TextureTypeTGRAD::ARRAY_1D: return Shader::TextureType::ColorArray1D;
+    case TextureTypeTGRAD::_2D: return Shader::TextureType::Color2D;
+    case TextureTypeTGRAD::ARRAY_2D: return Shader::TextureType::ColorArray2D;
+    case TextureTypeTGRAD::_3D: return Shader::TextureType::Color3D;
+    case TextureTypeTGRAD::ARRAY_3D: throw NotImplementedException("3D array texture type");
+    case TextureTypeTGRAD::CUBE: return Shader::TextureType::ColorCube;
+    case TextureTypeTGRAD::ARRAY_CUBE: return Shader::TextureType::ColorArrayCube;
     }
     throw NotImplementedException("Invalid texture type {}", type);
 }
@@ -50,7 +42,7 @@ IR::Value MakeOffset(TranslatorVisitor& v, IR::Reg reg, bool has_lod_clamp) {
         v.ir.BitFieldExtract(value, v.ir.Imm32(base + 4), v.ir.Imm32(4), true));
 }
 
-void Impl(TranslatorVisitor& v, u64 insn, bool is_bindless) {
+void ImplTGRAD(TranslatorVisitor& v, u64 insn, bool is_bindless) {
     union {
         u64 raw;
         BitField<49, 1, u64> nodep;
@@ -60,7 +52,7 @@ void Impl(TranslatorVisitor& v, u64 insn, bool is_bindless) {
         BitField<0, 8, IR::Reg> dest_reg;
         BitField<8, 8, IR::Reg> coord_reg;
         BitField<20, 8, IR::Reg> derivative_reg;
-        BitField<28, 3, TextureType> type;
+        BitField<28, 3, TextureTypeTGRAD> type;
         BitField<31, 4, u64> mask;
         BitField<36, 13, u64> cbuf_offset;
     } const txd{insn};
@@ -88,25 +80,25 @@ void Impl(TranslatorVisitor& v, u64 insn, bool is_bindless) {
         return v.ir.ConvertUToF(32, 16, array_index);
     }};
     switch (txd.type) {
-    case TextureType::_1D: {
+    case TextureTypeTGRAD::_1D: {
         coords = v.F(base_reg);
         num_derivatives = 1;
         last_reg = base_reg + 1;
         break;
     }
-    case TextureType::ARRAY_1D: {
+    case TextureTypeTGRAD::ARRAY_1D: {
         last_reg = base_reg + 1;
         coords = v.ir.CompositeConstruct(v.F(base_reg), read_array());
         num_derivatives = 1;
         break;
     }
-    case TextureType::_2D: {
+    case TextureTypeTGRAD::_2D: {
         last_reg = base_reg + 2;
         coords = v.ir.CompositeConstruct(v.F(base_reg), v.F(base_reg + 1));
         num_derivatives = 2;
         break;
     }
-    case TextureType::ARRAY_2D: {
+    case TextureTypeTGRAD::ARRAY_2D: {
         last_reg = base_reg + 2;
         coords = v.ir.CompositeConstruct(v.F(base_reg), v.F(base_reg + 1), read_array());
         num_derivatives = 2;
@@ -170,11 +162,11 @@ void Impl(TranslatorVisitor& v, u64 insn, bool is_bindless) {
 } // Anonymous namespace
 
 void TranslatorVisitor::TXD(u64 insn) {
-    Impl(*this, insn, false);
+    ImplTGRAD(*this, insn, false);
 }
 
 void TranslatorVisitor::TXD_b(u64 insn) {
-    Impl(*this, insn, true);
+    ImplTGRAD(*this, insn, true);
 }
 
 } // namespace Shader::Maxwell

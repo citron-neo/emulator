@@ -75,3 +75,6 @@ void SetupDirtyFlags(Maxwell3D::DirtyState::Tables& tables) {
 }
 
 } // namespace VideoCommon::Dirty
+
+#undef OFF
+#undef NUM

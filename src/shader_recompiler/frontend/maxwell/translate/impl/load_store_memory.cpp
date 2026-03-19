@@ -30,7 +30,7 @@ enum class StoreSize : u64 {
 };
 
 // See Table 27 in https://docs.nvidia.com/cuda/parallel-thread-execution/index.html
-enum class LoadCache : u64 {
+enum class LoadCacheLSM : u64 {
     CA, // Cache at all levels, likely to be accessed again
     CG, // Cache at global level (cache in L2 and below, not L1)
     CI, // ???
@@ -38,7 +38,7 @@ enum class LoadCache : u64 {
 };
 
 // See Table 28 in https://docs.nvidia.com/cuda/parallel-thread-execution/index.html
-enum class StoreCache : u64 {
+enum class StoreCacheLSM : u64 {
     WB, // Cache write-back all coherent levels
     CG, // Cache at global level
     CS, // Cache streaming, likely to be accessed once
@@ -83,7 +83,7 @@ void TranslatorVisitor::LDG(u64 insn) {
     union {
         u64 raw;
         BitField<0, 8, IR::Reg> dest_reg;
-        BitField<46, 2, LoadCache> cache;
+        BitField<46, 2, LoadCacheLSM> cache;
         BitField<48, 3, LoadSize> size;
     } const ldg{insn};
 
@@ -137,7 +137,7 @@ void TranslatorVisitor::STG(u64 insn) {
     union {
         u64 raw;
         BitField<0, 8, IR::Reg> data_reg;
-        BitField<46, 2, StoreCache> cache;
+        BitField<46, 2, StoreCacheLSM> cache;
         BitField<48, 3, StoreSize> size;
     } const stg{insn};
 

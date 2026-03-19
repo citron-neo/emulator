@@ -7,7 +7,7 @@
 
 namespace Shader::Maxwell {
 namespace {
-enum class AtomOp : u64 {
+enum class AtomOpSMEM : u64 {
     ADD,
     MIN,
     MAX,
@@ -25,26 +25,26 @@ enum class AtomsSize : u64 {
     U64,
 };
 
-IR::U32U64 ApplyAtomsOp(IR::IREmitter& ir, const IR::U32& offset, const IR::U32U64& op_b, AtomOp op,
+IR::U32U64 ApplyAtomsOp(IR::IREmitter& ir, const IR::U32& offset, const IR::U32U64& op_b, AtomOpSMEM op,
                         bool is_signed) {
     switch (op) {
-    case AtomOp::ADD:
+    case AtomOpSMEM::ADD:
         return ir.SharedAtomicIAdd(offset, op_b);
-    case AtomOp::MIN:
+    case AtomOpSMEM::MIN:
         return ir.SharedAtomicIMin(offset, op_b, is_signed);
-    case AtomOp::MAX:
+    case AtomOpSMEM::MAX:
         return ir.SharedAtomicIMax(offset, op_b, is_signed);
-    case AtomOp::INC:
+    case AtomOpSMEM::INC:
         return ir.SharedAtomicInc(offset, op_b);
-    case AtomOp::DEC:
+    case AtomOpSMEM::DEC:
         return ir.SharedAtomicDec(offset, op_b);
-    case AtomOp::AND:
+    case AtomOpSMEM::AND:
         return ir.SharedAtomicAnd(offset, op_b);
-    case AtomOp::OR:
+    case AtomOpSMEM::OR:
         return ir.SharedAtomicOr(offset, op_b);
-    case AtomOp::XOR:
+    case AtomOpSMEM::XOR:
         return ir.SharedAtomicXor(offset, op_b);
-    case AtomOp::EXCH:
+    case AtomOpSMEM::EXCH:
         return ir.SharedAtomicExchange(offset, op_b);
     default:
         throw NotImplementedException("Integer Atoms Operation {}", op);
@@ -87,11 +87,11 @@ void TranslatorVisitor::ATOMS(u64 insn) {
         BitField<8, 8, IR::Reg> addr_reg;
         BitField<20, 8, IR::Reg> src_reg_b;
         BitField<28, 2, AtomsSize> size;
-        BitField<52, 4, AtomOp> op;
+        BitField<52, 4, AtomOpSMEM> op;
     } const atoms{insn};
 
     const bool size_64{atoms.size == AtomsSize::U64};
-    if (size_64 && atoms.op != AtomOp::EXCH) {
+    if (size_64 && atoms.op != AtomOpSMEM::EXCH) {
         throw NotImplementedException("64-bit Atoms Operation {}", atoms.op.Value());
     }
     const bool is_signed{atoms.size == AtomsSize::S32};

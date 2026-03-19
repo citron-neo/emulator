@@ -6,13 +6,13 @@
 
 namespace AudioCore::ADSP::OpusDecoder {
 namespace {
-bool IsValidChannelCount(u32 channel_count) {
+bool IsValidChannelCount1(u32 channel_count) {
     return channel_count == 1 || channel_count == 2;
 }
 } // namespace
 
 u32 OpusDecodeObject::GetWorkBufferSize(u32 channel_count) {
-    if (!IsValidChannelCount(channel_count)) {
+    if (!IsValidChannelCount1(channel_count)) {
         return 0;
     }
     return static_cast<u32>(sizeof(OpusDecodeObject)) + opus_decoder_get_size(channel_count);

@@ -15,28 +15,7 @@
 
 namespace Vulkan {
 namespace {
-constexpr size_t POINT = 0;
-constexpr size_t LINE = 1;
-constexpr size_t POLYGON = 2;
-constexpr std::array POLYGON_OFFSET_ENABLE_LUT = {
-    POINT,   // Points
-    LINE,    // Lines
-    LINE,    // LineLoop
-    LINE,    // LineStrip
-    POLYGON, // Triangles
-    POLYGON, // TriangleStrip
-    POLYGON, // TriangleFan
-    POLYGON, // Quads
-    POLYGON, // QuadStrip
-    POLYGON, // Polygon
-    LINE,    // LinesAdjacency
-    LINE,    // LineStripAdjacency
-    POLYGON, // TrianglesAdjacency
-    POLYGON, // TriangleStripAdjacency
-    POLYGON, // Patches
-};
-
-void RefreshXfbState(VideoCommon::TransformFeedbackState& state, const Maxwell& regs) {
+void RefreshXfbState(VideoCommon::TransformFeedbackState& state, const Tegra::Engines::Maxwell3D::Regs& regs) {
     std::ranges::transform(regs.transform_feedback.controls, state.layouts.begin(),
                            [](const auto& layout) {
                                return VideoCommon::TransformFeedbackState::Layout{
@@ -50,7 +29,7 @@ void RefreshXfbState(VideoCommon::TransformFeedbackState& state, const Maxwell& 
 } // Anonymous namespace
 
 void FixedPipelineState::Refresh(Tegra::Engines::Maxwell3D& maxwell3d, DynamicFeatures& features) {
-    const Maxwell& regs = maxwell3d.regs;
+    const Tegra::Engines::Maxwell3D::Regs& regs = maxwell3d.regs;
     const auto topology_ = maxwell3d.draw_manager->GetDrawState().topology;
 
     raw1 = 0;
@@ -61,12 +40,12 @@ void FixedPipelineState::Refresh(Tegra::Engines::Maxwell3D& maxwell3d, DynamicFe
     extended_dynamic_state_3_enables.Assign(features.has_extended_dynamic_state_3_enables ? 1 : 0);
     dynamic_vertex_input.Assign(features.has_dynamic_vertex_input ? 1 : 0);
     xfb_enabled.Assign(regs.transform_feedback_enabled != 0);
-    ndc_minus_one_to_one.Assign(regs.depth_mode == Maxwell::DepthMode::MinusOneToOne ? 1 : 0);
+    ndc_minus_one_to_one.Assign(regs.depth_mode == Tegra::Engines::Maxwell3D::Regs::DepthMode::MinusOneToOne ? 1 : 0);
     polygon_mode.Assign(PackPolygonMode(regs.polygon_mode_front));
     tessellation_primitive.Assign(static_cast<u32>(regs.tessellation.params.domain_type.Value()));
     tessellation_spacing.Assign(static_cast<u32>(regs.tessellation.params.spacing.Value()));
     tessellation_clockwise.Assign(regs.tessellation.params.output_primitives.Value() ==
-                                  Maxwell::Tessellation::OutputPrimitives::Triangles_CW);
+                                  Tegra::Engines::Maxwell3D::Regs::Tessellation::OutputPrimitives::Triangles_CW);
     patch_control_points_minus_one.Assign(regs.patch_vertices - 1);
     topology.Assign(topology_);
     msaa_mode.Assign(regs.anti_alias_samples_mode);
@@ -74,13 +53,13 @@ void FixedPipelineState::Refresh(Tegra::Engines::Maxwell3D& maxwell3d, DynamicFe
     raw2 = 0;
 
     const auto test_func =
-        regs.alpha_test_enabled != 0 ? regs.alpha_test_func : Maxwell::ComparisonOp::Always_GL;
+        regs.alpha_test_enabled != 0 ? regs.alpha_test_func : Tegra::Engines::Maxwell3D::Regs::ComparisonOp::Always_GL;
     alpha_test_func.Assign(PackComparisonOp(test_func));
     early_z.Assign(regs.mandated_early_z != 0 ? 1 : 0);
     depth_enabled.Assign(regs.zeta_enable != 0 ? 1 : 0);
     depth_format.Assign(static_cast<u32>(regs.zeta.format));
-    y_negate.Assign(regs.window_origin.mode != Maxwell::WindowOrigin::Mode::UpperLeft ? 1 : 0);
-    provoking_vertex_last.Assign(regs.provoking_vertex == Maxwell::ProvokingVertex::Last ? 1 : 0);
+    y_negate.Assign(regs.window_origin.mode != Tegra::Engines::Maxwell3D::Regs::WindowOrigin::Mode::UpperLeft ? 1 : 0);
+    provoking_vertex_last.Assign(regs.provoking_vertex == Tegra::Engines::Maxwell3D::Regs::ProvokingVertex::Last ? 1 : 0);
     conservative_raster_enable.Assign(regs.conservative_raster_enable != 0 ? 1 : 0);
     smooth_lines.Assign(regs.line_anti_alias_enable != 0 ? 1 : 0);
     alpha_to_coverage_enabled.Assign(regs.anti_alias_alpha_control.alpha_to_coverage != 0 ? 1 : 0);
@@ -108,7 +87,7 @@ void FixedPipelineState::Refresh(Tegra::Engines::Maxwell3D& maxwell3d, DynamicFe
             };
             const auto& attrs = regs.vertex_attrib_format;
             attribute_types = 0;
-            for (size_t i = 0; i < Maxwell::NumVertexAttributes; ++i) {
+            for (size_t i = 0; i < Tegra::Engines::Maxwell3D::Regs::NumVertexAttributes; ++i) {
                 const u32 mask = attrs[i].constant != 0 ? 0 : 3;
                 const u32 type = LUT[static_cast<size_t>(attrs[i].type.Value())];
                 attribute_types |= static_cast<u64>(type & mask) << (i * 2);
@@ -116,12 +95,12 @@ void FixedPipelineState::Refresh(Tegra::Engines::Maxwell3D& maxwell3d, DynamicFe
         } else {
             maxwell3d.dirty.flags[Dirty::VertexInput] = false;
             enabled_divisors = 0;
-            for (size_t index = 0; index < Maxwell::NumVertexArrays; ++index) {
+            for (size_t index = 0; index < Tegra::Engines::Maxwell3D::Regs::NumVertexArrays; ++index) {
                 const bool is_enabled = regs.vertex_stream_instances.IsInstancingEnabled(index);
                 binding_divisors[index] = is_enabled ? regs.vertex_streams[index].frequency : 0;
                 enabled_divisors |= (is_enabled ? u64{1} : 0) << index;
             }
-            for (size_t index = 0; index < Maxwell::NumVertexAttributes; ++index) {
+            for (size_t index = 0; index < Tegra::Engines::Maxwell3D::Regs::NumVertexAttributes; ++index) {
                 const auto& input = regs.vertex_attrib_format[index];
                 auto& attribute = attributes[index];
                 attribute.raw = 0;
@@ -167,7 +146,7 @@ void FixedPipelineState::Refresh(Tegra::Engines::Maxwell3D& maxwell3d, DynamicFe
     }
 }
 
-void FixedPipelineState::BlendingAttachment::Refresh(const Maxwell& regs, size_t index) {
+void FixedPipelineState::BlendingAttachment::Refresh(const Tegra::Engines::Maxwell3D::Regs& regs, size_t index) {
     const auto& mask = regs.color_mask[regs.color_mask_common ? 0 : index];
 
     raw = 0;
@@ -198,7 +177,7 @@ void FixedPipelineState::BlendingAttachment::Refresh(const Maxwell& regs, size_t
     setup_blend(regs.blend_per_target[index]);
 }
 
-void FixedPipelineState::DynamicState::Refresh(const Maxwell& regs) {
+void FixedPipelineState::DynamicState::Refresh(const Tegra::Engines::Maxwell3D::Regs& regs) {
     u32 packed_front_face = PackFrontFace(regs.gl_front_face);
     if (regs.window_origin.flip_y != 0) {
         // Flip front face
@@ -232,8 +211,8 @@ void FixedPipelineState::DynamicState::Refresh(const Maxwell& regs) {
     cull_enable.Assign(regs.gl_cull_test_enabled != 0 ? 1 : 0);
 }
 
-void FixedPipelineState::DynamicState::Refresh2(const Maxwell& regs,
-                                                Maxwell::PrimitiveTopology topology_,
+void FixedPipelineState::DynamicState::Refresh2(const Tegra::Engines::Maxwell3D::Regs& regs,
+                                                Tegra::Engines::Maxwell3D::Regs::PrimitiveTopology topology_,
                                                 bool base_features_supported) {
     logic_op.Assign(PackLogicOp(regs.logic_op.op));
 
@@ -250,17 +229,38 @@ void FixedPipelineState::DynamicState::Refresh2(const Maxwell& regs,
 
     rasterize_enable.Assign(regs.rasterize_enable != 0 ? 1 : 0);
     primitive_restart_enable.Assign(regs.primitive_restart.enabled != 0 ? 1 : 0);
+
+    constexpr size_t POLYGON_ENABLE_POINT = 0;
+    constexpr size_t POLYGON_ENABLE_LINE = 1;
+    constexpr size_t POLYGON_ENABLE_POLYGON = 2;
+    constexpr std::array POLYGON_OFFSET_ENABLE_LUT = {
+        POLYGON_ENABLE_POINT,   // Points
+        POLYGON_ENABLE_LINE,    // Lines
+        POLYGON_ENABLE_LINE,    // LineLoop
+        POLYGON_ENABLE_LINE,    // LineStrip
+        POLYGON_ENABLE_POLYGON, // Triangles
+        POLYGON_ENABLE_POLYGON, // TriangleStrip
+        POLYGON_ENABLE_POLYGON, // TriangleFan
+        POLYGON_ENABLE_POLYGON, // Quads
+        POLYGON_ENABLE_POLYGON, // QuadStrip
+        POLYGON_ENABLE_POLYGON, // Polygon
+        POLYGON_ENABLE_LINE,    // LinesAdjacency
+        POLYGON_ENABLE_LINE,    // LineStripAdjacency
+        POLYGON_ENABLE_POLYGON, // TrianglesAdjacency
+        POLYGON_ENABLE_POLYGON, // TriangleStripAdjacency
+        POLYGON_ENABLE_POLYGON, // Patches
+    };
     depth_bias_enable.Assign(enabled_lut[POLYGON_OFFSET_ENABLE_LUT[topology_index]] != 0 ? 1 : 0);
 }
 
-void FixedPipelineState::DynamicState::Refresh3(const Maxwell& regs) {
+void FixedPipelineState::DynamicState::Refresh3(const Tegra::Engines::Maxwell3D::Regs& regs) {
     logic_op_enable.Assign(regs.logic_op.enable != 0 ? 1 : 0);
     depth_clamp_disabled.Assign(regs.viewport_clip_control.geometry_clip ==
-                                    Maxwell::ViewportClipControl::GeometryClip::Passthrough ||
+                                    Tegra::Engines::Maxwell3D::Regs::ViewportClipControl::GeometryClip::Passthrough ||
                                 regs.viewport_clip_control.geometry_clip ==
-                                    Maxwell::ViewportClipControl::GeometryClip::FrustumXYZ ||
+                                    Tegra::Engines::Maxwell3D::Regs::ViewportClipControl::GeometryClip::FrustumXYZ ||
                                 regs.viewport_clip_control.geometry_clip ==
-                                    Maxwell::ViewportClipControl::GeometryClip::FrustumZ);
+                                    Tegra::Engines::Maxwell3D::Regs::ViewportClipControl::GeometryClip::FrustumZ);
 }
 
 size_t FixedPipelineState::Hash() const noexcept {
@@ -272,7 +272,7 @@ bool FixedPipelineState::operator==(const FixedPipelineState& rhs) const noexcep
     return std::memcmp(this, &rhs, Size()) == 0;
 }
 
-u32 FixedPipelineState::PackComparisonOp(Maxwell::ComparisonOp op) noexcept {
+u32 FixedPipelineState::PackComparisonOp(Tegra::Engines::Maxwell3D::Regs::ComparisonOp op) noexcept {
     // OpenGL enums go from 0x200 to 0x207 and the others from 1 to 8
     // If we subtract 0x200 to OpenGL enums and 1 to the others we get a 0-7 range.
     // Perfect for a hash.
@@ -280,201 +280,201 @@ u32 FixedPipelineState::PackComparisonOp(Maxwell::ComparisonOp op) noexcept {
     return value - (value >= 0x200 ? 0x200 : 1);
 }
 
-Maxwell::ComparisonOp FixedPipelineState::UnpackComparisonOp(u32 packed) noexcept {
+Tegra::Engines::Maxwell3D::Regs::ComparisonOp FixedPipelineState::UnpackComparisonOp(u32 packed) noexcept {
     // Read PackComparisonOp for the logic behind this.
-    return static_cast<Maxwell::ComparisonOp>(packed + 1);
+    return static_cast<Tegra::Engines::Maxwell3D::Regs::ComparisonOp>(packed + 1);
 }
 
-u32 FixedPipelineState::PackStencilOp(Maxwell::StencilOp::Op op) noexcept {
+u32 FixedPipelineState::PackStencilOp(Tegra::Engines::Maxwell3D::Regs::StencilOp::Op op) noexcept {
     switch (op) {
-    case Maxwell::StencilOp::Op::Keep_D3D:
-    case Maxwell::StencilOp::Op::Keep_GL:
+    case Tegra::Engines::Maxwell3D::Regs::StencilOp::Op::Keep_D3D:
+    case Tegra::Engines::Maxwell3D::Regs::StencilOp::Op::Keep_GL:
         return 0;
-    case Maxwell::StencilOp::Op::Zero_D3D:
-    case Maxwell::StencilOp::Op::Zero_GL:
+    case Tegra::Engines::Maxwell3D::Regs::StencilOp::Op::Zero_D3D:
+    case Tegra::Engines::Maxwell3D::Regs::StencilOp::Op::Zero_GL:
         return 1;
-    case Maxwell::StencilOp::Op::Replace_D3D:
-    case Maxwell::StencilOp::Op::Replace_GL:
+    case Tegra::Engines::Maxwell3D::Regs::StencilOp::Op::Replace_D3D:
+    case Tegra::Engines::Maxwell3D::Regs::StencilOp::Op::Replace_GL:
         return 2;
-    case Maxwell::StencilOp::Op::IncrSaturate_D3D:
-    case Maxwell::StencilOp::Op::IncrSaturate_GL:
+    case Tegra::Engines::Maxwell3D::Regs::StencilOp::Op::IncrSaturate_D3D:
+    case Tegra::Engines::Maxwell3D::Regs::StencilOp::Op::IncrSaturate_GL:
         return 3;
-    case Maxwell::StencilOp::Op::DecrSaturate_D3D:
-    case Maxwell::StencilOp::Op::DecrSaturate_GL:
+    case Tegra::Engines::Maxwell3D::Regs::StencilOp::Op::DecrSaturate_D3D:
+    case Tegra::Engines::Maxwell3D::Regs::StencilOp::Op::DecrSaturate_GL:
         return 4;
-    case Maxwell::StencilOp::Op::Invert_D3D:
-    case Maxwell::StencilOp::Op::Invert_GL:
+    case Tegra::Engines::Maxwell3D::Regs::StencilOp::Op::Invert_D3D:
+    case Tegra::Engines::Maxwell3D::Regs::StencilOp::Op::Invert_GL:
         return 5;
-    case Maxwell::StencilOp::Op::Incr_D3D:
-    case Maxwell::StencilOp::Op::Incr_GL:
+    case Tegra::Engines::Maxwell3D::Regs::StencilOp::Op::Incr_D3D:
+    case Tegra::Engines::Maxwell3D::Regs::StencilOp::Op::Incr_GL:
         return 6;
-    case Maxwell::StencilOp::Op::Decr_D3D:
-    case Maxwell::StencilOp::Op::Decr_GL:
+    case Tegra::Engines::Maxwell3D::Regs::StencilOp::Op::Decr_D3D:
+    case Tegra::Engines::Maxwell3D::Regs::StencilOp::Op::Decr_GL:
         return 7;
     }
     return 0;
 }
 
-Maxwell::StencilOp::Op FixedPipelineState::UnpackStencilOp(u32 packed) noexcept {
+Tegra::Engines::Maxwell3D::Regs::StencilOp::Op FixedPipelineState::UnpackStencilOp(u32 packed) noexcept {
     static constexpr std::array LUT = {
-        Maxwell::StencilOp::Op::Keep_D3D,         Maxwell::StencilOp::Op::Zero_D3D,
-        Maxwell::StencilOp::Op::Replace_D3D,      Maxwell::StencilOp::Op::IncrSaturate_D3D,
-        Maxwell::StencilOp::Op::DecrSaturate_D3D, Maxwell::StencilOp::Op::Invert_D3D,
-        Maxwell::StencilOp::Op::Incr_D3D,         Maxwell::StencilOp::Op::Decr_D3D};
+        Tegra::Engines::Maxwell3D::Regs::StencilOp::Op::Keep_D3D,         Tegra::Engines::Maxwell3D::Regs::StencilOp::Op::Zero_D3D,
+        Tegra::Engines::Maxwell3D::Regs::StencilOp::Op::Replace_D3D,      Tegra::Engines::Maxwell3D::Regs::StencilOp::Op::IncrSaturate_D3D,
+        Tegra::Engines::Maxwell3D::Regs::StencilOp::Op::DecrSaturate_D3D, Tegra::Engines::Maxwell3D::Regs::StencilOp::Op::Invert_D3D,
+        Tegra::Engines::Maxwell3D::Regs::StencilOp::Op::Incr_D3D,         Tegra::Engines::Maxwell3D::Regs::StencilOp::Op::Decr_D3D};
     return LUT[packed];
 }
 
-u32 FixedPipelineState::PackCullFace(Maxwell::CullFace cull) noexcept {
+u32 FixedPipelineState::PackCullFace(Tegra::Engines::Maxwell3D::Regs::CullFace cull) noexcept {
     // FrontAndBack is 0x408, by subtracting 0x406 in it we get 2.
     // Individual cull faces are in 0x404 and 0x405, subtracting 0x404 we get 0 and 1.
     const u32 value = static_cast<u32>(cull);
     return value - (value == 0x408 ? 0x406 : 0x404);
 }
 
-Maxwell::CullFace FixedPipelineState::UnpackCullFace(u32 packed) noexcept {
-    static constexpr std::array LUT = {Maxwell::CullFace::Front, Maxwell::CullFace::Back,
-                                       Maxwell::CullFace::FrontAndBack};
+Tegra::Engines::Maxwell3D::Regs::CullFace FixedPipelineState::UnpackCullFace(u32 packed) noexcept {
+    static constexpr std::array LUT = {Tegra::Engines::Maxwell3D::Regs::CullFace::Front, Tegra::Engines::Maxwell3D::Regs::CullFace::Back,
+                                       Tegra::Engines::Maxwell3D::Regs::CullFace::FrontAndBack};
     return LUT[packed];
 }
 
-u32 FixedPipelineState::PackFrontFace(Maxwell::FrontFace face) noexcept {
+u32 FixedPipelineState::PackFrontFace(Tegra::Engines::Maxwell3D::Regs::FrontFace face) noexcept {
     return static_cast<u32>(face) - 0x900;
 }
 
-Maxwell::FrontFace FixedPipelineState::UnpackFrontFace(u32 packed) noexcept {
-    return static_cast<Maxwell::FrontFace>(packed + 0x900);
+Tegra::Engines::Maxwell3D::Regs::FrontFace FixedPipelineState::UnpackFrontFace(u32 packed) noexcept {
+    return static_cast<Tegra::Engines::Maxwell3D::Regs::FrontFace>(packed + 0x900);
 }
 
-u32 FixedPipelineState::PackPolygonMode(Maxwell::PolygonMode mode) noexcept {
+u32 FixedPipelineState::PackPolygonMode(Tegra::Engines::Maxwell3D::Regs::PolygonMode mode) noexcept {
     return static_cast<u32>(mode) - 0x1B00;
 }
 
-Maxwell::PolygonMode FixedPipelineState::UnpackPolygonMode(u32 packed) noexcept {
-    return static_cast<Maxwell::PolygonMode>(packed + 0x1B00);
+Tegra::Engines::Maxwell3D::Regs::PolygonMode FixedPipelineState::UnpackPolygonMode(u32 packed) noexcept {
+    return static_cast<Tegra::Engines::Maxwell3D::Regs::PolygonMode>(packed + 0x1B00);
 }
 
-u32 FixedPipelineState::PackLogicOp(Maxwell::LogicOp::Op op) noexcept {
+u32 FixedPipelineState::PackLogicOp(Tegra::Engines::Maxwell3D::Regs::LogicOp::Op op) noexcept {
     return static_cast<u32>(op) - 0x1500;
 }
 
-Maxwell::LogicOp::Op FixedPipelineState::UnpackLogicOp(u32 packed) noexcept {
-    return static_cast<Maxwell::LogicOp::Op>(packed + 0x1500);
+Tegra::Engines::Maxwell3D::Regs::LogicOp::Op FixedPipelineState::UnpackLogicOp(u32 packed) noexcept {
+    return static_cast<Tegra::Engines::Maxwell3D::Regs::LogicOp::Op>(packed + 0x1500);
 }
 
-u32 FixedPipelineState::PackBlendEquation(Maxwell::Blend::Equation equation) noexcept {
+u32 FixedPipelineState::PackBlendEquation(Tegra::Engines::Maxwell3D::Regs::Blend::Equation equation) noexcept {
     switch (equation) {
-    case Maxwell::Blend::Equation::Add_D3D:
-    case Maxwell::Blend::Equation::Add_GL:
+    case Tegra::Engines::Maxwell3D::Regs::Blend::Equation::Add_D3D:
+    case Tegra::Engines::Maxwell3D::Regs::Blend::Equation::Add_GL:
         return 0;
-    case Maxwell::Blend::Equation::Subtract_D3D:
-    case Maxwell::Blend::Equation::Subtract_GL:
+    case Tegra::Engines::Maxwell3D::Regs::Blend::Equation::Subtract_D3D:
+    case Tegra::Engines::Maxwell3D::Regs::Blend::Equation::Subtract_GL:
         return 1;
-    case Maxwell::Blend::Equation::ReverseSubtract_D3D:
-    case Maxwell::Blend::Equation::ReverseSubtract_GL:
+    case Tegra::Engines::Maxwell3D::Regs::Blend::Equation::ReverseSubtract_D3D:
+    case Tegra::Engines::Maxwell3D::Regs::Blend::Equation::ReverseSubtract_GL:
         return 2;
-    case Maxwell::Blend::Equation::Min_D3D:
-    case Maxwell::Blend::Equation::Min_GL:
+    case Tegra::Engines::Maxwell3D::Regs::Blend::Equation::Min_D3D:
+    case Tegra::Engines::Maxwell3D::Regs::Blend::Equation::Min_GL:
         return 3;
-    case Maxwell::Blend::Equation::Max_D3D:
-    case Maxwell::Blend::Equation::Max_GL:
+    case Tegra::Engines::Maxwell3D::Regs::Blend::Equation::Max_D3D:
+    case Tegra::Engines::Maxwell3D::Regs::Blend::Equation::Max_GL:
         return 4;
     }
     return 0;
 }
 
-Maxwell::Blend::Equation FixedPipelineState::UnpackBlendEquation(u32 packed) noexcept {
+Tegra::Engines::Maxwell3D::Regs::Blend::Equation FixedPipelineState::UnpackBlendEquation(u32 packed) noexcept {
     static constexpr std::array LUT = {
-        Maxwell::Blend::Equation::Add_D3D, Maxwell::Blend::Equation::Subtract_D3D,
-        Maxwell::Blend::Equation::ReverseSubtract_D3D, Maxwell::Blend::Equation::Min_D3D,
-        Maxwell::Blend::Equation::Max_D3D};
+        Tegra::Engines::Maxwell3D::Regs::Blend::Equation::Add_D3D, Tegra::Engines::Maxwell3D::Regs::Blend::Equation::Subtract_D3D,
+        Tegra::Engines::Maxwell3D::Regs::Blend::Equation::ReverseSubtract_D3D, Tegra::Engines::Maxwell3D::Regs::Blend::Equation::Min_D3D,
+        Tegra::Engines::Maxwell3D::Regs::Blend::Equation::Max_D3D};
     return LUT[packed];
 }
 
-u32 FixedPipelineState::PackBlendFactor(Maxwell::Blend::Factor factor) noexcept {
+u32 FixedPipelineState::PackBlendFactor(Tegra::Engines::Maxwell3D::Regs::Blend::Factor factor) noexcept {
     switch (factor) {
-    case Maxwell::Blend::Factor::Zero_D3D:
-    case Maxwell::Blend::Factor::Zero_GL:
+    case Tegra::Engines::Maxwell3D::Regs::Blend::Factor::Zero_D3D:
+    case Tegra::Engines::Maxwell3D::Regs::Blend::Factor::Zero_GL:
         return 0;
-    case Maxwell::Blend::Factor::One_D3D:
-    case Maxwell::Blend::Factor::One_GL:
+    case Tegra::Engines::Maxwell3D::Regs::Blend::Factor::One_D3D:
+    case Tegra::Engines::Maxwell3D::Regs::Blend::Factor::One_GL:
         return 1;
-    case Maxwell::Blend::Factor::SourceColor_D3D:
-    case Maxwell::Blend::Factor::SourceColor_GL:
+    case Tegra::Engines::Maxwell3D::Regs::Blend::Factor::SourceColor_D3D:
+    case Tegra::Engines::Maxwell3D::Regs::Blend::Factor::SourceColor_GL:
         return 2;
-    case Maxwell::Blend::Factor::OneMinusSourceColor_D3D:
-    case Maxwell::Blend::Factor::OneMinusSourceColor_GL:
+    case Tegra::Engines::Maxwell3D::Regs::Blend::Factor::OneMinusSourceColor_D3D:
+    case Tegra::Engines::Maxwell3D::Regs::Blend::Factor::OneMinusSourceColor_GL:
         return 3;
-    case Maxwell::Blend::Factor::SourceAlpha_D3D:
-    case Maxwell::Blend::Factor::SourceAlpha_GL:
+    case Tegra::Engines::Maxwell3D::Regs::Blend::Factor::SourceAlpha_D3D:
+    case Tegra::Engines::Maxwell3D::Regs::Blend::Factor::SourceAlpha_GL:
         return 4;
-    case Maxwell::Blend::Factor::OneMinusSourceAlpha_D3D:
-    case Maxwell::Blend::Factor::OneMinusSourceAlpha_GL:
+    case Tegra::Engines::Maxwell3D::Regs::Blend::Factor::OneMinusSourceAlpha_D3D:
+    case Tegra::Engines::Maxwell3D::Regs::Blend::Factor::OneMinusSourceAlpha_GL:
         return 5;
-    case Maxwell::Blend::Factor::DestAlpha_D3D:
-    case Maxwell::Blend::Factor::DestAlpha_GL:
+    case Tegra::Engines::Maxwell3D::Regs::Blend::Factor::DestAlpha_D3D:
+    case Tegra::Engines::Maxwell3D::Regs::Blend::Factor::DestAlpha_GL:
         return 6;
-    case Maxwell::Blend::Factor::OneMinusDestAlpha_D3D:
-    case Maxwell::Blend::Factor::OneMinusDestAlpha_GL:
+    case Tegra::Engines::Maxwell3D::Regs::Blend::Factor::OneMinusDestAlpha_D3D:
+    case Tegra::Engines::Maxwell3D::Regs::Blend::Factor::OneMinusDestAlpha_GL:
         return 7;
-    case Maxwell::Blend::Factor::DestColor_D3D:
-    case Maxwell::Blend::Factor::DestColor_GL:
+    case Tegra::Engines::Maxwell3D::Regs::Blend::Factor::DestColor_D3D:
+    case Tegra::Engines::Maxwell3D::Regs::Blend::Factor::DestColor_GL:
         return 8;
-    case Maxwell::Blend::Factor::OneMinusDestColor_D3D:
-    case Maxwell::Blend::Factor::OneMinusDestColor_GL:
+    case Tegra::Engines::Maxwell3D::Regs::Blend::Factor::OneMinusDestColor_D3D:
+    case Tegra::Engines::Maxwell3D::Regs::Blend::Factor::OneMinusDestColor_GL:
         return 9;
-    case Maxwell::Blend::Factor::SourceAlphaSaturate_D3D:
-    case Maxwell::Blend::Factor::SourceAlphaSaturate_GL:
+    case Tegra::Engines::Maxwell3D::Regs::Blend::Factor::SourceAlphaSaturate_D3D:
+    case Tegra::Engines::Maxwell3D::Regs::Blend::Factor::SourceAlphaSaturate_GL:
         return 10;
-    case Maxwell::Blend::Factor::Source1Color_D3D:
-    case Maxwell::Blend::Factor::Source1Color_GL:
+    case Tegra::Engines::Maxwell3D::Regs::Blend::Factor::Source1Color_D3D:
+    case Tegra::Engines::Maxwell3D::Regs::Blend::Factor::Source1Color_GL:
         return 11;
-    case Maxwell::Blend::Factor::OneMinusSource1Color_D3D:
-    case Maxwell::Blend::Factor::OneMinusSource1Color_GL:
+    case Tegra::Engines::Maxwell3D::Regs::Blend::Factor::OneMinusSource1Color_D3D:
+    case Tegra::Engines::Maxwell3D::Regs::Blend::Factor::OneMinusSource1Color_GL:
         return 12;
-    case Maxwell::Blend::Factor::Source1Alpha_D3D:
-    case Maxwell::Blend::Factor::Source1Alpha_GL:
+    case Tegra::Engines::Maxwell3D::Regs::Blend::Factor::Source1Alpha_D3D:
+    case Tegra::Engines::Maxwell3D::Regs::Blend::Factor::Source1Alpha_GL:
         return 13;
-    case Maxwell::Blend::Factor::OneMinusSource1Alpha_D3D:
-    case Maxwell::Blend::Factor::OneMinusSource1Alpha_GL:
+    case Tegra::Engines::Maxwell3D::Regs::Blend::Factor::OneMinusSource1Alpha_D3D:
+    case Tegra::Engines::Maxwell3D::Regs::Blend::Factor::OneMinusSource1Alpha_GL:
         return 14;
-    case Maxwell::Blend::Factor::BlendFactor_D3D:
-    case Maxwell::Blend::Factor::ConstantColor_GL:
+    case Tegra::Engines::Maxwell3D::Regs::Blend::Factor::BlendFactor_D3D:
+    case Tegra::Engines::Maxwell3D::Regs::Blend::Factor::ConstantColor_GL:
         return 15;
-    case Maxwell::Blend::Factor::OneMinusBlendFactor_D3D:
-    case Maxwell::Blend::Factor::OneMinusConstantColor_GL:
+    case Tegra::Engines::Maxwell3D::Regs::Blend::Factor::OneMinusBlendFactor_D3D:
+    case Tegra::Engines::Maxwell3D::Regs::Blend::Factor::OneMinusConstantColor_GL:
         return 16;
-    case Maxwell::Blend::Factor::BothSourceAlpha_D3D:
-    case Maxwell::Blend::Factor::ConstantAlpha_GL:
+    case Tegra::Engines::Maxwell3D::Regs::Blend::Factor::BothSourceAlpha_D3D:
+    case Tegra::Engines::Maxwell3D::Regs::Blend::Factor::ConstantAlpha_GL:
         return 17;
-    case Maxwell::Blend::Factor::OneMinusBothSourceAlpha_D3D:
-    case Maxwell::Blend::Factor::OneMinusConstantAlpha_GL:
+    case Tegra::Engines::Maxwell3D::Regs::Blend::Factor::OneMinusBothSourceAlpha_D3D:
+    case Tegra::Engines::Maxwell3D::Regs::Blend::Factor::OneMinusConstantAlpha_GL:
         return 18;
     }
     UNIMPLEMENTED_MSG("Unknown blend factor {}", static_cast<u32>(factor));
     return 0;
 }
 
-Maxwell::Blend::Factor FixedPipelineState::UnpackBlendFactor(u32 packed) noexcept {
+Tegra::Engines::Maxwell3D::Regs::Blend::Factor FixedPipelineState::UnpackBlendFactor(u32 packed) noexcept {
     static constexpr std::array LUT = {
-        Maxwell::Blend::Factor::Zero_D3D,
-        Maxwell::Blend::Factor::One_D3D,
-        Maxwell::Blend::Factor::SourceColor_D3D,
-        Maxwell::Blend::Factor::OneMinusSourceColor_D3D,
-        Maxwell::Blend::Factor::SourceAlpha_D3D,
-        Maxwell::Blend::Factor::OneMinusSourceAlpha_D3D,
-        Maxwell::Blend::Factor::DestAlpha_D3D,
-        Maxwell::Blend::Factor::OneMinusDestAlpha_D3D,
-        Maxwell::Blend::Factor::DestColor_D3D,
-        Maxwell::Blend::Factor::OneMinusDestColor_D3D,
-        Maxwell::Blend::Factor::SourceAlphaSaturate_D3D,
-        Maxwell::Blend::Factor::Source1Color_D3D,
-        Maxwell::Blend::Factor::OneMinusSource1Color_D3D,
-        Maxwell::Blend::Factor::Source1Alpha_D3D,
-        Maxwell::Blend::Factor::OneMinusSource1Alpha_D3D,
-        Maxwell::Blend::Factor::BlendFactor_D3D,
-        Maxwell::Blend::Factor::OneMinusBlendFactor_D3D,
-        Maxwell::Blend::Factor::BothSourceAlpha_D3D,
-        Maxwell::Blend::Factor::OneMinusBothSourceAlpha_D3D,
+        Tegra::Engines::Maxwell3D::Regs::Blend::Factor::Zero_D3D,
+        Tegra::Engines::Maxwell3D::Regs::Blend::Factor::One_D3D,
+        Tegra::Engines::Maxwell3D::Regs::Blend::Factor::SourceColor_D3D,
+        Tegra::Engines::Maxwell3D::Regs::Blend::Factor::OneMinusSourceColor_D3D,
+        Tegra::Engines::Maxwell3D::Regs::Blend::Factor::SourceAlpha_D3D,
+        Tegra::Engines::Maxwell3D::Regs::Blend::Factor::OneMinusSourceAlpha_D3D,
+        Tegra::Engines::Maxwell3D::Regs::Blend::Factor::DestAlpha_D3D,
+        Tegra::Engines::Maxwell3D::Regs::Blend::Factor::OneMinusDestAlpha_D3D,
+        Tegra::Engines::Maxwell3D::Regs::Blend::Factor::DestColor_D3D,
+        Tegra::Engines::Maxwell3D::Regs::Blend::Factor::OneMinusDestColor_D3D,
+        Tegra::Engines::Maxwell3D::Regs::Blend::Factor::SourceAlphaSaturate_D3D,
+        Tegra::Engines::Maxwell3D::Regs::Blend::Factor::Source1Color_D3D,
+        Tegra::Engines::Maxwell3D::Regs::Blend::Factor::OneMinusSource1Color_D3D,
+        Tegra::Engines::Maxwell3D::Regs::Blend::Factor::Source1Alpha_D3D,
+        Tegra::Engines::Maxwell3D::Regs::Blend::Factor::OneMinusSource1Alpha_D3D,
+        Tegra::Engines::Maxwell3D::Regs::Blend::Factor::BlendFactor_D3D,
+        Tegra::Engines::Maxwell3D::Regs::Blend::Factor::OneMinusBlendFactor_D3D,
+        Tegra::Engines::Maxwell3D::Regs::Blend::Factor::BothSourceAlpha_D3D,
+        Tegra::Engines::Maxwell3D::Regs::Blend::Factor::OneMinusBothSourceAlpha_D3D,
     };
     ASSERT(packed < LUT.size());
     return LUT[packed];

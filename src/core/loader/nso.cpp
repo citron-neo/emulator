@@ -48,7 +48,7 @@ std::vector<u8> DecompressSegment(const std::vector<u8>& compressed_data,
     return uncompressed_data;
 }
 
-constexpr u32 PageAlignSize(u32 size) {
+constexpr u32 PageAlignSizeNSO(u32 size) {
     return static_cast<u32>((size + Core::Memory::CITRON_PAGEMASK) & ~Core::Memory::CITRON_PAGEMASK);
 }
 } // Anonymous namespace
@@ -139,11 +139,11 @@ std::optional<VAddr> AppLoader_NSO::LoadModule(Kernel::KProcess& process, Core::
 
     codeset.DataSegment().size += nso_header.segments[2].bss_size;
     u32 image_size{
-        PageAlignSize(static_cast<u32>(program_image.size()) + nso_header.segments[2].bss_size)};
+        PageAlignSizeNSO(static_cast<u32>(program_image.size()) + nso_header.segments[2].bss_size)};
     program_image.resize(image_size);
 
     for (std::size_t i = 0; i < nso_header.segments.size(); ++i) {
-        codeset.segments[i].size = PageAlignSize(codeset.segments[i].size);
+        codeset.segments[i].size = PageAlignSizeNSO(codeset.segments[i].size);
     }
 
     // Apply patches if necessary

@@ -15,18 +15,18 @@ enum class SelectMode : u64 {
     CBCC,
 };
 
-enum class Half : u64 {
+enum class HalfISMAD : u64 {
     H0, // Least-significant bits (15:0)
     H1, // Most-significant bits (31:16)
 };
 
-IR::U32 ExtractHalf(TranslatorVisitor& v, const IR::U32& src, Half half, bool is_signed) {
-    const IR::U32 offset{v.ir.Imm32(half == Half::H1 ? 16 : 0)};
+IR::U32 ExtractHalf(TranslatorVisitor& v, const IR::U32& src, HalfISMAD half, bool is_signed) {
+    const IR::U32 offset{v.ir.Imm32(half == HalfISMAD::H1 ? 16 : 0)};
     return v.ir.BitFieldExtract(src, offset, v.ir.Imm32(16), is_signed);
 }
 
 void XMAD(TranslatorVisitor& v, u64 insn, const IR::U32& src_b, const IR::U32& src_c,
-          SelectMode select_mode, Half half_b, bool psl, bool mrg, bool x) {
+          SelectMode select_mode, HalfISMAD half_b, bool psl, bool mrg, bool x) {
     union {
         u64 raw;
         BitField<0, 8, IR::Reg> dest_reg;
@@ -34,7 +34,7 @@ void XMAD(TranslatorVisitor& v, u64 insn, const IR::U32& src_b, const IR::U32& s
         BitField<47, 1, u64> cc;
         BitField<48, 1, u64> is_a_signed;
         BitField<49, 1, u64> is_b_signed;
-        BitField<53, 1, Half> half_a;
+        BitField<53, 1, HalfISMAD> half_a;
     } const xmad{insn};
 
     if (x) {
@@ -53,9 +53,9 @@ void XMAD(TranslatorVisitor& v, u64 insn, const IR::U32& src_b, const IR::U32& s
         case SelectMode::Default:
             return src_c;
         case SelectMode::CLO:
-            return ExtractHalf(v, src_c, Half::H0, false);
+            return ExtractHalf(v, src_c, HalfISMAD::H0, false);
         case SelectMode::CHI:
-            return ExtractHalf(v, src_c, Half::H1, false);
+            return ExtractHalf(v, src_c, HalfISMAD::H1, false);
         case SelectMode::CBCC:
             return v.ir.IAdd(v.ir.ShiftLeftLogical(src_b, v.ir.Imm32(16)), src_c);
         case SelectMode::CSFU:
@@ -66,7 +66,7 @@ void XMAD(TranslatorVisitor& v, u64 insn, const IR::U32& src_b, const IR::U32& s
     IR::U32 result{v.ir.IAdd(product, op_c)};
     if (mrg) {
         // .MRG inserts src_b [15:0] into result's [31:16].
-        const IR::U32 lsb_b{ExtractHalf(v, src_b, Half::H0, false)};
+        const IR::U32 lsb_b{ExtractHalf(v, src_b, HalfISMAD::H0, false)};
         result = v.ir.BitFieldInsert(result, lsb_b, v.ir.Imm32(16), v.ir.Imm32(16));
     }
     if (xmad.cc) {
@@ -80,7 +80,7 @@ void XMAD(TranslatorVisitor& v, u64 insn, const IR::U32& src_b, const IR::U32& s
 void TranslatorVisitor::XMAD_reg(u64 insn) {
     union {
         u64 raw;
-        BitField<35, 1, Half> half_b;
+        BitField<35, 1, HalfISMAD> half_b;
         BitField<36, 1, u64> psl;
         BitField<37, 1, u64> mrg;
         BitField<38, 1, u64> x;
@@ -95,7 +95,7 @@ void TranslatorVisitor::XMAD_rc(u64 insn) {
     union {
         u64 raw;
         BitField<50, 2, SelectMode> select_mode;
-        BitField<52, 1, Half> half_b;
+        BitField<52, 1, HalfISMAD> half_b;
         BitField<54, 1, u64> x;
     } const xmad{insn};
 
@@ -107,7 +107,7 @@ void TranslatorVisitor::XMAD_cr(u64 insn) {
     union {
         u64 raw;
         BitField<50, 2, SelectMode> select_mode;
-        BitField<52, 1, Half> half_b;
+        BitField<52, 1, HalfISMAD> half_b;
         BitField<54, 1, u64> x;
         BitField<55, 1, u64> psl;
         BitField<56, 1, u64> mrg;
@@ -128,7 +128,7 @@ void TranslatorVisitor::XMAD_imm(u64 insn) {
     } const xmad{insn};
 
     XMAD(*this, insn, ir.Imm32(static_cast<u32>(xmad.src_b)), GetReg39(insn), xmad.select_mode,
-         Half::H0, xmad.psl != 0, xmad.mrg != 0, xmad.x != 0);
+         HalfISMAD::H0, xmad.psl != 0, xmad.mrg != 0, xmad.x != 0);
 }
 
 } // namespace Shader::Maxwell

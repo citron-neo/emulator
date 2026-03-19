@@ -18,7 +18,7 @@
 
 namespace {
 
-QString FormatAddress(u64 addr) {
+QString FunctionBrowserFormatAddress(u64 addr) {
     return QString::asprintf("0x%016llX", static_cast<unsigned long long>(addr));
 }
 
@@ -206,7 +206,7 @@ void FunctionBrowserWidget::OnFilterTextChanged(const QString& text) {
     } else {
         std::string filter = q.toStdString();
         for (const auto& f : functions) {
-            if (FormatAddress(f.address).toLower().contains(q) ||
+            if (FunctionBrowserFormatAddress(f.address).toLower().contains(q) ||
                 QString::fromStdString(f.name).toLower().contains(q) ||
                 QString::fromStdString(f.module).toLower().contains(q)) {
                 filtered_functions.push_back(f);
@@ -218,7 +218,7 @@ void FunctionBrowserWidget::OnFilterTextChanged(const QString& text) {
     table->setRowCount(static_cast<int>(filtered_functions.size()));
     for (int i = 0; i < static_cast<int>(filtered_functions.size()); ++i) {
         const auto& f = filtered_functions[i];
-        table->setItem(i, 0, new QTableWidgetItem(FormatAddress(f.address)));
+        table->setItem(i, 0, new QTableWidgetItem(FunctionBrowserFormatAddress(f.address)));
         table->setItem(i, 1, new QTableWidgetItem(QString::fromStdString(f.name)));
         table->setItem(i, 2, new QTableWidgetItem(QString::number(f.size)));
         table->setItem(i, 3, new QTableWidgetItem(QString::fromStdString(f.module)));

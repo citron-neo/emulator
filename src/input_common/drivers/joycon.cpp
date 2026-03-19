@@ -237,15 +237,15 @@ std::shared_ptr<Joycon::JoyconDriver> Joycons::GetNextFreeHandle(
     return nullptr;
 }
 
-bool Joycons::IsVibrationEnabled(const PadIdentifier& identifier) {
-    const auto handle = GetHandle(identifier);
+bool Joycons::IsVibrationEnabled(const PadIdentifier& joycon_identifier) {
+    const auto handle = GetHandle(joycon_identifier);
     if (handle == nullptr) {
         return false;
     }
     return handle->IsVibrationEnabled();
 }
 
-Common::Input::DriverResult Joycons::SetVibration(const PadIdentifier& identifier,
+Common::Input::DriverResult Joycons::SetVibration(const PadIdentifier& joycon_identifier,
                                                   const Common::Input::VibrationStatus& vibration) {
     const Joycon::VibrationValue native_vibration{
         .low_amplitude = vibration.low_amplitude,
@@ -253,7 +253,7 @@ Common::Input::DriverResult Joycons::SetVibration(const PadIdentifier& identifie
         .high_amplitude = vibration.high_amplitude,
         .high_frequency = vibration.high_frequency,
     };
-    auto handle = GetHandle(identifier);
+    auto handle = GetHandle(joycon_identifier);
     if (handle == nullptr) {
         return Common::Input::DriverResult::InvalidHandle;
     }
@@ -262,9 +262,9 @@ Common::Input::DriverResult Joycons::SetVibration(const PadIdentifier& identifie
     return Common::Input::DriverResult::Success;
 }
 
-Common::Input::DriverResult Joycons::SetLeds(const PadIdentifier& identifier,
+Common::Input::DriverResult Joycons::SetLeds(const PadIdentifier& joycon_identifier,
                                              const Common::Input::LedStatus& led_status) {
-    auto handle = GetHandle(identifier);
+    auto handle = GetHandle(joycon_identifier);
     if (handle == nullptr) {
         return Common::Input::DriverResult::InvalidHandle;
     }
@@ -276,9 +276,9 @@ Common::Input::DriverResult Joycons::SetLeds(const PadIdentifier& identifier,
     return handle->SetLedConfig(static_cast<u8>(led_config));
 }
 
-Common::Input::DriverResult Joycons::SetCameraFormat(const PadIdentifier& identifier,
+Common::Input::DriverResult Joycons::SetCameraFormat(const PadIdentifier& joycon_identifier,
                                                      Common::Input::CameraFormat camera_format) {
-    auto handle = GetHandle(identifier);
+    auto handle = GetHandle(joycon_identifier);
     if (handle == nullptr) {
         return Common::Input::DriverResult::InvalidHandle;
     }
@@ -290,44 +290,44 @@ Common::Input::NfcState Joycons::SupportsNfc(const PadIdentifier& identifier_) c
     return Common::Input::NfcState::Success;
 };
 
-Common::Input::NfcState Joycons::StartNfcPolling(const PadIdentifier& identifier) {
-    auto handle = GetHandle(identifier);
+Common::Input::NfcState Joycons::StartNfcPolling(const PadIdentifier& joycon_identifier) {
+    auto handle = GetHandle(joycon_identifier);
     if (handle == nullptr) {
         return Common::Input::NfcState::Unknown;
     }
     return TranslateDriverResult(handle->StartNfcPolling());
 };
 
-Common::Input::NfcState Joycons::StopNfcPolling(const PadIdentifier& identifier) {
-    auto handle = GetHandle(identifier);
+Common::Input::NfcState Joycons::StopNfcPolling(const PadIdentifier& joycon_identifier) {
+    auto handle = GetHandle(joycon_identifier);
     if (handle == nullptr) {
         return Common::Input::NfcState::Unknown;
     }
     return TranslateDriverResult(handle->StopNfcPolling());
 };
 
-Common::Input::NfcState Joycons::ReadAmiiboData(const PadIdentifier& identifier,
+Common::Input::NfcState Joycons::ReadAmiiboData(const PadIdentifier& joycon_identifier,
                                                 std::vector<u8>& out_data) {
-    auto handle = GetHandle(identifier);
+    auto handle = GetHandle(joycon_identifier);
     if (handle == nullptr) {
         return Common::Input::NfcState::Unknown;
     }
     return TranslateDriverResult(handle->ReadAmiiboData(out_data));
 }
 
-Common::Input::NfcState Joycons::WriteNfcData(const PadIdentifier& identifier,
+Common::Input::NfcState Joycons::WriteNfcData(const PadIdentifier& joycon_identifier,
                                               const std::vector<u8>& data) {
-    auto handle = GetHandle(identifier);
+    auto handle = GetHandle(joycon_identifier);
     if (handle == nullptr) {
         return Common::Input::NfcState::Unknown;
     }
     return TranslateDriverResult(handle->WriteNfcData(data));
 };
 
-Common::Input::NfcState Joycons::ReadMifareData(const PadIdentifier& identifier,
+Common::Input::NfcState Joycons::ReadMifareData(const PadIdentifier& joycon_identifier,
                                                 const Common::Input::MifareRequest& request,
                                                 Common::Input::MifareRequest& data) {
-    auto handle = GetHandle(identifier);
+    auto handle = GetHandle(joycon_identifier);
     if (handle == nullptr) {
         return Common::Input::NfcState::Unknown;
     }
@@ -363,9 +363,9 @@ Common::Input::NfcState Joycons::ReadMifareData(const PadIdentifier& identifier,
     return TranslateDriverResult(result);
 };
 
-Common::Input::NfcState Joycons::WriteMifareData(const PadIdentifier& identifier,
+Common::Input::NfcState Joycons::WriteMifareData(const PadIdentifier& joycon_identifier,
                                                  const Common::Input::MifareRequest& request) {
-    auto handle = GetHandle(identifier);
+    auto handle = GetHandle(joycon_identifier);
     if (handle == nullptr) {
         return Common::Input::NfcState::Unknown;
     }
@@ -391,11 +391,11 @@ Common::Input::NfcState Joycons::WriteMifareData(const PadIdentifier& identifier
     return TranslateDriverResult(handle->WriteMifareData(write_request));
 };
 
-Common::Input::DriverResult Joycons::SetPollingMode(const PadIdentifier& identifier,
+Common::Input::DriverResult Joycons::SetPollingMode(const PadIdentifier& joycon_identifier,
                                                     const Common::Input::PollingMode polling_mode) {
-    auto handle = GetHandle(identifier);
+    auto handle = GetHandle(joycon_identifier);
     if (handle == nullptr) {
-        LOG_ERROR(Input, "Invalid handle {}", identifier.port);
+        LOG_ERROR(Input, "Invalid handle {}", joycon_identifier.port);
         return Common::Input::DriverResult::InvalidHandle;
     }
 
@@ -417,9 +417,9 @@ Common::Input::DriverResult Joycons::SetPollingMode(const PadIdentifier& identif
 
 void Joycons::OnBatteryUpdate(std::size_t port, Joycon::ControllerType type,
                               Joycon::Battery value) {
-    const auto identifier = GetIdentifier(port, type);
+    const auto joycon_identifier = GetIdentifier(port, type);
     if (value.charging != 0) {
-        SetBattery(identifier, Common::Input::BatteryLevel::Charging);
+        SetBattery(joycon_identifier, Common::Input::BatteryLevel::Charging);
         return;
     }
 
@@ -442,34 +442,34 @@ void Joycons::OnBatteryUpdate(std::size_t port, Joycon::ControllerType type,
         battery = Common::Input::BatteryLevel::Full;
         break;
     }
-    SetBattery(identifier, battery);
+    SetBattery(joycon_identifier, battery);
 }
 
 void Joycons::OnColorUpdate(std::size_t port, Joycon::ControllerType type,
                             const Joycon::Color& value) {
-    const auto identifier = GetIdentifier(port, type);
+    const auto joycon_identifier = GetIdentifier(port, type);
     Common::Input::BodyColorStatus color{
         .body = value.body,
         .buttons = value.buttons,
         .left_grip = value.left_grip,
         .right_grip = value.right_grip,
     };
-    SetColor(identifier, color);
+    SetColor(joycon_identifier, color);
 }
 
 void Joycons::OnButtonUpdate(std::size_t port, Joycon::ControllerType type, int id, bool value) {
-    const auto identifier = GetIdentifier(port, type);
-    SetButton(identifier, id, value);
+    const auto joycon_identifier = GetIdentifier(port, type);
+    SetButton(joycon_identifier, id, value);
 }
 
 void Joycons::OnStickUpdate(std::size_t port, Joycon::ControllerType type, int id, f32 value) {
-    const auto identifier = GetIdentifier(port, type);
-    SetAxis(identifier, id, value);
+    const auto joycon_identifier = GetIdentifier(port, type);
+    SetAxis(joycon_identifier, id, value);
 }
 
 void Joycons::OnMotionUpdate(std::size_t port, Joycon::ControllerType type, int id,
                              const Joycon::MotionData& value) {
-    const auto identifier = GetIdentifier(port, type);
+    const auto joycon_identifier = GetIdentifier(port, type);
     BasicMotion motion_data{
         .gyro_x = value.gyro_x,
         .gyro_y = value.gyro_y,
@@ -479,23 +479,23 @@ void Joycons::OnMotionUpdate(std::size_t port, Joycon::ControllerType type, int 
         .accel_z = value.accel_z,
         .delta_timestamp = 15000,
     };
-    SetMotion(identifier, id, motion_data);
+    SetMotion(joycon_identifier, id, motion_data);
 }
 
 void Joycons::OnRingConUpdate(f32 ring_data) {
-    // To simplify ring detection it will always be mapped to an empty identifier for all
+    // To simplify ring detection it will always be mapped to an empty joycon_identifier for all
     // controllers
-    static constexpr PadIdentifier identifier = {
+    static constexpr PadIdentifier joycon_identifier = {
         .guid = Common::UUID{},
         .port = 0,
         .pad = 0,
     };
-    SetAxis(identifier, 100, ring_data);
+    SetAxis(joycon_identifier, 100, ring_data);
 }
 
 void Joycons::OnAmiiboUpdate(std::size_t port, Joycon::ControllerType type,
                              const Joycon::TagInfo& tag_info) {
-    const auto identifier = GetIdentifier(port, type);
+    const auto joycon_identifier = GetIdentifier(port, type);
     const auto nfc_state = tag_info.uuid_length == 0 ? Common::Input::NfcState::AmiiboRemoved
                                                      : Common::Input::NfcState::NewAmiibo;
 
@@ -507,16 +507,16 @@ void Joycons::OnAmiiboUpdate(std::size_t port, Joycon::ControllerType type,
         .uuid = tag_info.uuid,
     };
 
-    SetNfc(identifier, nfc_status);
+    SetNfc(joycon_identifier, nfc_status);
 }
 
 void Joycons::OnCameraUpdate(std::size_t port, const std::vector<u8>& camera_data,
                              Joycon::IrsResolution format) {
-    const auto identifier = GetIdentifier(port, Joycon::ControllerType::Right);
-    SetCamera(identifier, {static_cast<Common::Input::CameraFormat>(format), camera_data});
+    const auto joycon_identifier = GetIdentifier(port, Joycon::ControllerType::Right);
+    SetCamera(joycon_identifier, {static_cast<Common::Input::CameraFormat>(format), camera_data});
 }
 
-std::shared_ptr<Joycon::JoyconDriver> Joycons::GetHandle(PadIdentifier identifier) const {
+std::shared_ptr<Joycon::JoyconDriver> Joycons::GetHandle(PadIdentifier joycon_identifier) const {
     auto is_handle_active = [&](std::shared_ptr<Joycon::JoyconDriver> device) {
         if (!device) {
             return false;
@@ -524,12 +524,12 @@ std::shared_ptr<Joycon::JoyconDriver> Joycons::GetHandle(PadIdentifier identifie
         if (!device->IsConnected()) {
             return false;
         }
-        if (device->GetDevicePort() == identifier.port) {
+        if (device->GetDevicePort() == joycon_identifier.port) {
             return true;
         }
         return false;
     };
-    const auto type = static_cast<Joycon::ControllerType>(identifier.pad);
+    const auto type = static_cast<Joycon::ControllerType>(joycon_identifier.pad);
 
     if (type == Joycon::ControllerType::Left) {
         const auto matching_device = std::ranges::find_if(
@@ -572,12 +572,12 @@ PadIdentifier Joycons::GetIdentifier(std::size_t port, Joycon::ControllerType ty
 }
 
 Common::ParamPackage Joycons::GetParamPackage(std::size_t port, Joycon::ControllerType type) const {
-    const auto identifier = GetIdentifier(port, type);
+    const auto joycon_identifier = GetIdentifier(port, type);
     return {
         {"engine", GetEngineName()},
-        {"guid", identifier.guid.RawString()},
-        {"port", std::to_string(identifier.port)},
-        {"pad", std::to_string(identifier.pad)},
+        {"guid", joycon_identifier.guid.RawString()},
+        {"port", std::to_string(joycon_identifier.port)},
+        {"pad", std::to_string(joycon_identifier.pad)},
     };
 }
 

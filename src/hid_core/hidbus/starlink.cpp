@@ -6,7 +6,6 @@
 #include "hid_core/hidbus/starlink.h"
 
 namespace Service::HID {
-constexpr u8 DEVICE_ID = 0x28;
 
 Starlink::Starlink(Core::System& system_, KernelHelpers::ServiceContext& service_context_)
     : HidbusBase(system_, service_context_) {}
@@ -35,7 +34,7 @@ void Starlink::OnUpdate() {
 }
 
 u8 Starlink::GetDeviceId() const {
-    return DEVICE_ID;
+    return 0x28;
 }
 
 u64 Starlink::GetReply(std::span<u8> out_data) const {

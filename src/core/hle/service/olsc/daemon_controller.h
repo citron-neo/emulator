@@ -2,6 +2,8 @@
 // SPDX-FileCopyrightText: Copyright 2026 Citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
+#pragma once
+
 #include "common/uuid.h"
 #include "core/hle/service/cmif_types.h"
 #include "core/hle/service/service.h"

@@ -8,10 +8,9 @@
 #include "core/memory.h"
 
 namespace Service::Audio {
-using namespace AudioCore::AudioOut;
 
 IAudioOutManager::IAudioOutManager(Core::System& system_)
-    : ServiceFramework{system_, "audout:u"}, impl{std::make_unique<Manager>(system_)} {
+    : ServiceFramework{system_, "audout:u"}, impl{std::make_unique<AudioCore::AudioOut::Manager>(system_)} {
     // clang-format off
     static const FunctionInfo functions[] = {
         {0, D<&IAudioOutManager::ListAudioOuts>, "ListAudioOuts"},
@@ -31,11 +30,11 @@ Result IAudioOutManager::ListAudioOuts(
     R_RETURN(this->ListAudioOutsAuto(out_audio_outs, out_count));
 }
 
-Result IAudioOutManager::OpenAudioOut(Out<AudioOutParameterInternal> out_parameter_internal,
+Result IAudioOutManager::OpenAudioOut(Out<AudioCore::AudioOut::AudioOutParameterInternal> out_parameter_internal,
                                       Out<SharedPointer<IAudioOut>> out_audio_out,
                                       OutArray<AudioDeviceName, BufferAttr_HipcMapAlias> out_name,
                                       InArray<AudioDeviceName, BufferAttr_HipcMapAlias> name,
-                                      AudioOutParameter parameter,
+                                      AudioCore::AudioOut::AudioOutParameter parameter,
                                       InCopyHandle<Kernel::KProcess> process_handle,
                                       ClientAppletResourceUserId aruid) {
     R_RETURN(this->OpenAudioOutAuto(out_parameter_internal, out_audio_out, out_name, name,
@@ -57,10 +56,10 @@ Result IAudioOutManager::ListAudioOutsAuto(
 }
 
 Result IAudioOutManager::OpenAudioOutAuto(
-    Out<AudioOutParameterInternal> out_parameter_internal,
+    Out<AudioCore::AudioOut::AudioOutParameterInternal> out_parameter_internal,
     Out<SharedPointer<IAudioOut>> out_audio_out,
     OutArray<AudioDeviceName, BufferAttr_HipcAutoSelect> out_name,
-    InArray<AudioDeviceName, BufferAttr_HipcAutoSelect> name, AudioOutParameter parameter,
+    InArray<AudioDeviceName, BufferAttr_HipcAutoSelect> name, AudioCore::AudioOut::AudioOutParameter parameter,
     InCopyHandle<Kernel::KProcess> process_handle, ClientAppletResourceUserId aruid) {
     if (!process_handle) {
         LOG_ERROR(Service_Audio, "Failed to get process handle");
@@ -90,7 +89,7 @@ Result IAudioOutManager::OpenAudioOutAuto(
 
     auto& out_system = impl->sessions[new_session_id]->GetSystem();
     *out_parameter_internal =
-        AudioOutParameterInternal{.sample_rate = out_system.GetSampleRate(),
+        AudioCore::AudioOut::AudioOutParameterInternal{.sample_rate = out_system.GetSampleRate(),
                                   .channel_count = out_system.GetChannelCount(),
                                   .sample_format = static_cast<u32>(out_system.GetSampleFormat()),
                                   .state = static_cast<u32>(out_system.GetState())};

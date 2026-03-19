@@ -15,7 +15,7 @@
 
 namespace {
 
-QString FormatAddress(u64 addr) {
+QString DisassemblerViewFormatAddress(u64 addr) {
     return QString::asprintf("0x%016llX", static_cast<unsigned long long>(addr));
 }
 
@@ -54,7 +54,7 @@ void DisassemblerViewWidget::SetupUI() {
 
 void DisassemblerViewWidget::GotoAddress(u64 address) {
     current_address = address;
-    address_input->setText(FormatAddress(address));
+    address_input->setText(DisassemblerViewFormatAddress(address));
     RefreshView();
 }
 
@@ -78,7 +78,7 @@ void DisassemblerViewWidget::RefreshView() {
         u64 addr = current_address + i * instr_size;
         u32 insn;
         std::memcpy(&insn, buf.data() + i * 4, 4);
-        out += FormatAddress(addr) + QStringLiteral("  ");
+        out += DisassemblerViewFormatAddress(addr) + QStringLiteral("  ");
         out += QString::asprintf("%02X %02X %02X %02X  ", buf[i * 4], buf[i * 4 + 1],
                                  buf[i * 4 + 2], buf[i * 4 + 3]);
         out += QString::asprintf("  .long 0x%08X  ; (ARM64 - use Ghidra for full disasm)", insn);

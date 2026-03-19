@@ -9,7 +9,7 @@
 namespace Shader::Maxwell {
 namespace {
 
-enum class TextureType : u64 {
+enum class TextureTypeTML : u64 {
     _1D,
     ARRAY_1D,
     _2D,
@@ -20,53 +20,53 @@ enum class TextureType : u64 {
     ARRAY_CUBE,
 };
 
-Shader::TextureType GetType(TextureType type) {
+Shader::TextureType GetType(TextureTypeTML type) {
     switch (type) {
-    case TextureType::_1D:
+    case TextureTypeTML::_1D:
         return Shader::TextureType::Color1D;
-    case TextureType::ARRAY_1D:
+    case TextureTypeTML::ARRAY_1D:
         return Shader::TextureType::ColorArray1D;
-    case TextureType::_2D:
+    case TextureTypeTML::_2D:
         return Shader::TextureType::Color2D;
-    case TextureType::ARRAY_2D:
+    case TextureTypeTML::ARRAY_2D:
         return Shader::TextureType::ColorArray2D;
-    case TextureType::_3D:
+    case TextureTypeTML::_3D:
         return Shader::TextureType::Color3D;
-    case TextureType::ARRAY_3D:
+    case TextureTypeTML::ARRAY_3D:
         throw NotImplementedException("3D array texture type");
-    case TextureType::CUBE:
+    case TextureTypeTML::CUBE:
         return Shader::TextureType::ColorCube;
-    case TextureType::ARRAY_CUBE:
+    case TextureTypeTML::ARRAY_CUBE:
         return Shader::TextureType::ColorArrayCube;
     }
     throw NotImplementedException("Invalid texture type {}", type);
 }
 
-IR::Value MakeCoords(TranslatorVisitor& v, IR::Reg reg, TextureType type) {
+IR::Value MakeCoords(TranslatorVisitor& v, IR::Reg reg, TextureTypeTML type) {
     // The ISA reads an array component here, but this is not needed on high level shading languages
     // We are dropping this information.
     switch (type) {
-    case TextureType::_1D:
+    case TextureTypeTML::_1D:
         return v.F(reg);
-    case TextureType::ARRAY_1D:
+    case TextureTypeTML::ARRAY_1D:
         return v.F(reg + 1);
-    case TextureType::_2D:
+    case TextureTypeTML::_2D:
         return v.ir.CompositeConstruct(v.F(reg), v.F(reg + 1));
-    case TextureType::ARRAY_2D:
+    case TextureTypeTML::ARRAY_2D:
         return v.ir.CompositeConstruct(v.F(reg + 1), v.F(reg + 2));
-    case TextureType::_3D:
+    case TextureTypeTML::_3D:
         return v.ir.CompositeConstruct(v.F(reg), v.F(reg + 1), v.F(reg + 2));
-    case TextureType::ARRAY_3D:
+    case TextureTypeTML::ARRAY_3D:
         throw NotImplementedException("3D array texture type");
-    case TextureType::CUBE:
+    case TextureTypeTML::CUBE:
         return v.ir.CompositeConstruct(v.F(reg), v.F(reg + 1), v.F(reg + 2));
-    case TextureType::ARRAY_CUBE:
+    case TextureTypeTML::ARRAY_CUBE:
         return v.ir.CompositeConstruct(v.F(reg + 1), v.F(reg + 2), v.F(reg + 3));
     }
     throw NotImplementedException("Invalid texture type {}", type);
 }
 
-void Impl(TranslatorVisitor& v, u64 insn, bool is_bindless) {
+void ImplTML(TranslatorVisitor& v, u64 insn, bool is_bindless) {
     union {
         u64 raw;
         BitField<49, 1, u64> nodep;
@@ -74,7 +74,7 @@ void Impl(TranslatorVisitor& v, u64 insn, bool is_bindless) {
         BitField<0, 8, IR::Reg> dest_reg;
         BitField<8, 8, IR::Reg> coord_reg;
         BitField<20, 8, IR::Reg> meta_reg;
-        BitField<28, 3, TextureType> type;
+        BitField<28, 3, TextureTypeTML> type;
         BitField<31, 4, u64> mask;
         BitField<36, 13, u64> cbuf_offset;
     } const tmml{insn};
@@ -113,11 +113,11 @@ void Impl(TranslatorVisitor& v, u64 insn, bool is_bindless) {
 } // Anonymous namespace
 
 void TranslatorVisitor::TMML(u64 insn) {
-    Impl(*this, insn, false);
+    ImplTML(*this, insn, false);
 }
 
 void TranslatorVisitor::TMML_b(u64 insn) {
-    Impl(*this, insn, true);
+    ImplTML(*this, insn, true);
 }
 
 } // namespace Shader::Maxwell

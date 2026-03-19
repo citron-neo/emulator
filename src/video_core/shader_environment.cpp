@@ -31,8 +31,6 @@ constexpr std::array<char, 8> MAGIC_NUMBER{'y', 'u', 'z', 'u', 'c', 'a', 'c', 'h
 
 constexpr size_t INST_SIZE = sizeof(u64);
 
-using Maxwell = Tegra::Engines::Maxwell3D::Regs;
-
 static u64 MakeCbufKey(u32 index, u32 offset) {
     return (static_cast<u64>(index) << 32) | offset;
 }
@@ -324,34 +322,34 @@ Tegra::Texture::TICEntry GenericEnvironment::ReadTextureInfo(GPUVAddr tic_addr, 
 
 GraphicsEnvironment::GraphicsEnvironment(Tegra::Engines::Maxwell3D& maxwell3d_,
                                          Tegra::MemoryManager& gpu_memory_,
-                                         Maxwell::ShaderType program, GPUVAddr program_base_,
+                                         Tegra::Engines::Maxwell3D::Regs::ShaderType program, GPUVAddr program_base_,
                                          u32 start_address_)
     : GenericEnvironment{gpu_memory_, program_base_, start_address_}, maxwell3d{&maxwell3d_} {
     gpu_memory->ReadBlock(program_base + start_address, &sph, sizeof(sph));
     initial_offset = sizeof(sph);
     gp_passthrough_mask = maxwell3d->regs.post_vtg_shader_attrib_skip_mask;
     switch (program) {
-    case Maxwell::ShaderType::VertexA:
+    case Tegra::Engines::Maxwell3D::Regs::ShaderType::VertexA:
         stage = Shader::Stage::VertexA;
         stage_index = 0;
         break;
-    case Maxwell::ShaderType::VertexB:
+    case Tegra::Engines::Maxwell3D::Regs::ShaderType::VertexB:
         stage = Shader::Stage::VertexB;
         stage_index = 0;
         break;
-    case Maxwell::ShaderType::TessellationInit:
+    case Tegra::Engines::Maxwell3D::Regs::ShaderType::TessellationInit:
         stage = Shader::Stage::TessellationControl;
         stage_index = 1;
         break;
-    case Maxwell::ShaderType::Tessellation:
+    case Tegra::Engines::Maxwell3D::Regs::ShaderType::Tessellation:
         stage = Shader::Stage::TessellationEval;
         stage_index = 2;
         break;
-    case Maxwell::ShaderType::Geometry:
+    case Tegra::Engines::Maxwell3D::Regs::ShaderType::Geometry:
         stage = Shader::Stage::Geometry;
         stage_index = 3;
         break;
-    case Maxwell::ShaderType::Pixel:
+    case Tegra::Engines::Maxwell3D::Regs::ShaderType::Pixel:
         stage = Shader::Stage::Fragment;
         stage_index = 4;
         break;
@@ -407,7 +405,7 @@ std::optional<Shader::ReplaceConstant> GraphicsEnvironment::GetReplaceConstBuffe
 
 Shader::TextureType GraphicsEnvironment::ReadTextureType(u32 handle) {
     const auto& regs{maxwell3d->regs};
-    const bool via_header_index{regs.sampler_binding == Maxwell::SamplerBinding::ViaHeaderBinding};
+    const bool via_header_index{regs.sampler_binding == Tegra::Engines::Maxwell3D::Regs::SamplerBinding::ViaHeaderBinding};
     auto entry =
         ReadTextureInfo(regs.tex_header.Address(), regs.tex_header.limit, via_header_index, handle);
     const Shader::TextureType result{ConvertTextureType(entry)};
@@ -417,7 +415,7 @@ Shader::TextureType GraphicsEnvironment::ReadTextureType(u32 handle) {
 
 Shader::TexturePixelFormat GraphicsEnvironment::ReadTexturePixelFormat(u32 handle) {
     const auto& regs{maxwell3d->regs};
-    const bool via_header_index{regs.sampler_binding == Maxwell::SamplerBinding::ViaHeaderBinding};
+    const bool via_header_index{regs.sampler_binding == Tegra::Engines::Maxwell3D::Regs::SamplerBinding::ViaHeaderBinding};
     auto entry =
         ReadTextureInfo(regs.tex_header.Address(), regs.tex_header.limit, via_header_index, handle);
     const Shader::TexturePixelFormat result(ConvertTexturePixelFormat(entry));

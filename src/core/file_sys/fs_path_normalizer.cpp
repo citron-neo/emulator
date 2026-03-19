@@ -9,9 +9,9 @@
 
 namespace FileSys {
 
-namespace {
+namespace InternalPathNormalizer {
 
-constexpr char DirectorySeparator = '/';
+constexpr char NativeDirectorySeparator = '/';
 constexpr std::string_view CurrentDirectory = ".";
 constexpr std::string_view ParentDirectory = "..";
 
@@ -39,20 +39,20 @@ bool IsInvalidCharacter(char c) {
 
 } // Anonymous namespace
 
-bool PathNormalizer::IsValidCharacter(char c) {
-    return !IsInvalidCharacter(c);
+bool PathNormalizerV2::IsValidCharacter(char c) {
+    return !InternalPathNormalizer::IsInvalidCharacter(c);
 }
 
-Result PathNormalizer::ValidateCharacters(std::string_view path) {
+Result PathNormalizerV2::ValidateCharacters(std::string_view path) {
     for (char c : path) {
-        if (IsInvalidCharacter(c)) {
+        if (InternalPathNormalizer::IsInvalidCharacter(c)) {
             return ResultInvalidCharacter;
         }
     }
     return ResultSuccess;
 }
 
-Result PathNormalizer::ValidatePath(std::string_view path) {
+Result PathNormalizerV2::ValidatePath(std::string_view path) {
     // Check path length
     if (path.length() >= MaxPathLength) {
         return ResultTooLongPath;
@@ -69,7 +69,7 @@ Result PathNormalizer::ValidatePath(std::string_view path) {
     return ResultSuccess;
 }
 
-Result PathNormalizer::Normalize(std::string* out_path, std::string_view path) {
+Result PathNormalizerV2::Normalize(std::string* out_path, std::string_view path) {
     // Validate input
     R_TRY(ValidatePath(path));
 
@@ -82,7 +82,7 @@ Result PathNormalizer::Normalize(std::string* out_path, std::string_view path) {
     return NormalizeImpl(out_path, path);
 }
 
-Result PathNormalizer::NormalizeImpl(std::string* out_path, std::string_view path) {
+Result PathNormalizerV2::NormalizeImpl(std::string* out_path, std::string_view path) {
     std::vector<std::string> components;
     std::string current_component;
 
@@ -90,11 +90,11 @@ Result PathNormalizer::NormalizeImpl(std::string* out_path, std::string_view pat
     for (size_t i = 0; i < path.length(); ++i) {
         char c = path[i];
 
-        if (c == DirectorySeparator) {
+        if (c == InternalPathNormalizer::NativeDirectorySeparator) {
             if (!current_component.empty()) {
-                if (current_component == CurrentDirectory) {
+                if (current_component == InternalPathNormalizer::CurrentDirectory) {
                     // Skip "." components
-                } else if (current_component == ParentDirectory) {
+                } else if (current_component == InternalPathNormalizer::ParentDirectory) {
                     // Go up one directory
                     if (components.empty()) {
                         // Can't go above root
@@ -114,9 +114,9 @@ Result PathNormalizer::NormalizeImpl(std::string* out_path, std::string_view pat
 
     // Handle last component
     if (!current_component.empty()) {
-        if (current_component == CurrentDirectory) {
+        if (current_component == InternalPathNormalizer::CurrentDirectory) {
             // Skip
-        } else if (current_component == ParentDirectory) {
+        } else if (current_component == InternalPathNormalizer::ParentDirectory) {
             if (components.empty()) {
                 return ResultInvalidPath;
             }
@@ -134,7 +134,7 @@ Result PathNormalizer::NormalizeImpl(std::string* out_path, std::string_view pat
 
     std::string normalized = "";
     for (const auto& component : components) {
-        normalized += DirectorySeparator;
+        normalized += InternalPathNormalizer::NativeDirectorySeparator;
         normalized += component;
     }
 
@@ -147,7 +147,7 @@ Result PathNormalizer::NormalizeImpl(std::string* out_path, std::string_view pat
     return ResultSuccess;
 }
 
-bool PathNormalizer::IsNormalized(std::string_view path) {
+bool PathNormalizerV2::IsNormalized(std::string_view path) {
     // Empty path is normalized
     if (path.empty()) {
         return true;
@@ -171,7 +171,7 @@ bool PathNormalizer::IsNormalized(std::string_view path) {
     }
 
     // Check for trailing slashes (except for root)
-    if (path.length() > 1 && path.back() == DirectorySeparator) {
+    if (path.length() > 1 && path.back() == InternalPathNormalizer::NativeDirectorySeparator) {
         return false;
     }
 
@@ -185,37 +185,27 @@ bool IsRootPath(std::string_view path) {
 }
 
 bool IsAbsolutePath(std::string_view path) {
-    return !path.empty() && path[0] == DirectorySeparator;
+    return !path.empty() && path[0] == InternalPathNormalizer::NativeDirectorySeparator;
 }
 
 std::string RemoveTrailingSlashes(std::string_view path) {
-    if (path.empty() || path == "/") {
+    if (path.empty() || path == "/")
         return std::string(path);
-    }
-
     size_t end = path.length();
-    while (end > 1 && path[end - 1] == DirectorySeparator) {
+    while (end > 1 && path[end - 1] == InternalPathNormalizer::NativeDirectorySeparator)
         --end;
-    }
-
     return std::string(path.substr(0, end));
 }
 
 std::string CombinePaths(std::string_view base, std::string_view relative) {
-    if (relative.empty()) {
+    if (relative.empty())
         return std::string(base);
-    }
-
-    if (IsAbsolutePath(relative)) {
+    if (IsAbsolutePath(relative))
         return std::string(relative);
-    }
-
     std::string result(base);
-    if (!result.empty() && result.back() != DirectorySeparator) {
-        result += DirectorySeparator;
-    }
+    if (!result.empty() && result.back() != InternalPathNormalizer::NativeDirectorySeparator)
+        result += InternalPathNormalizer::NativeDirectorySeparator;
     result += relative;
-
     return result;
 }
 

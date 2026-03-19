@@ -6,14 +6,14 @@
 
 namespace InputCommon {
 
-constexpr PadIdentifier identifier = {
+constexpr PadIdentifier touch_identifier = {
     .guid = Common::UUID{},
     .port = 0,
     .pad = 0,
 };
 
 TouchScreen::TouchScreen(std::string input_engine_) : InputEngine(std::move(input_engine_)) {
-    PreSetController(identifier);
+    PreSetController(touch_identifier);
     ReleaseAllTouch();
 }
 
@@ -26,9 +26,9 @@ void TouchScreen::TouchMoved(float x, float y, std::size_t finger_id) {
     }
     const auto i = index.value();
     fingers[i].is_active = true;
-    SetButton(identifier, static_cast<int>(i), true);
-    SetAxis(identifier, static_cast<int>(i * 2), x);
-    SetAxis(identifier, static_cast<int>(i * 2 + 1), y);
+    SetButton(touch_identifier, static_cast<int>(i), true);
+    SetAxis(touch_identifier, static_cast<int>(i * 2), x);
+    SetAxis(touch_identifier, static_cast<int>(i * 2 + 1), y);
 }
 
 void TouchScreen::TouchPressed(float x, float y, std::size_t finger_id) {
@@ -55,9 +55,9 @@ void TouchScreen::TouchReleased(std::size_t finger_id) {
     }
     const auto i = index.value();
     fingers[i].is_enabled = false;
-    SetButton(identifier, static_cast<int>(i), false);
-    SetAxis(identifier, static_cast<int>(i * 2), 0.0f);
-    SetAxis(identifier, static_cast<int>(i * 2 + 1), 0.0f);
+    SetButton(touch_identifier, static_cast<int>(i), false);
+    SetAxis(touch_identifier, static_cast<int>(i * 2), 0.0f);
+    SetAxis(touch_identifier, static_cast<int>(i * 2 + 1), 0.0f);
 }
 
 std::optional<std::size_t> TouchScreen::GetIndexFromFingerId(std::size_t finger_id) const {

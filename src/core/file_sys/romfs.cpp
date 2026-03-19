@@ -35,7 +35,7 @@ struct RomFSHeader {
 };
 static_assert(sizeof(RomFSHeader) == 0x50, "RomFSHeader has incorrect size.");
 
-struct DirectoryEntry {
+struct RomFSDirectoryEntry {
     u32_le parent;
     u32_le sibling;
     u32_le child_dir;
@@ -43,9 +43,9 @@ struct DirectoryEntry {
     u32_le hash;
     u32_le name_length;
 };
-static_assert(sizeof(DirectoryEntry) == 0x18, "DirectoryEntry has incorrect size.");
+static_assert(sizeof(RomFSDirectoryEntry) == 0x18, "RomFSDirectoryEntry has incorrect size.");
 
-struct FileEntry {
+struct RomFSFileEntry {
     u32_le parent;
     u32_le sibling;
     u64_le offset;
@@ -53,7 +53,7 @@ struct FileEntry {
     u32_le hash;
     u32_le name_length;
 };
-static_assert(sizeof(FileEntry) == 0x20, "FileEntry has incorrect size.");
+static_assert(sizeof(RomFSFileEntry) == 0x20, "RomFSFileEntry has incorrect size.");
 
 struct RomFSTraversalContext {
     RomFSHeader header;
@@ -81,14 +81,14 @@ std::pair<EntryType, std::string> GetEntry(const RomFSTraversalContext& ctx, siz
     return {entry, std::move(name)};
 }
 
-std::pair<DirectoryEntry, std::string> GetDirectoryEntry(const RomFSTraversalContext& ctx,
+std::pair<RomFSDirectoryEntry, std::string> GetDirectoryEntry(const RomFSTraversalContext& ctx,
                                                          size_t directory_offset) {
-    return GetEntry<DirectoryEntry, &RomFSTraversalContext::directory_meta>(ctx, directory_offset);
+    return GetEntry<RomFSDirectoryEntry, &RomFSTraversalContext::directory_meta>(ctx, directory_offset);
 }
 
-std::pair<FileEntry, std::string> GetFileEntry(const RomFSTraversalContext& ctx,
+std::pair<RomFSFileEntry, std::string> GetFileEntry(const RomFSTraversalContext& ctx,
                                                size_t file_offset) {
-    return GetEntry<FileEntry, &RomFSTraversalContext::file_meta>(ctx, file_offset);
+    return GetEntry<RomFSFileEntry, &RomFSTraversalContext::file_meta>(ctx, file_offset);
 }
 
 void ProcessFile(const RomFSTraversalContext& ctx, u32 this_file_offset,

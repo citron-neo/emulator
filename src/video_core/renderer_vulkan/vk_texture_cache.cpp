@@ -273,7 +273,7 @@ constexpr VkBorderColor ConvertBorderColor(const std::array<float, 4>& color) {
     return VK_COMPONENT_SWIZZLE_ZERO;
 }
 
-[[nodiscard]] VkImageViewType ImageViewType(Shader::TextureType type) {
+[[nodiscard]] VkImageViewType ToImageViewType(Shader::TextureType type) {
     switch (type) {
     case Shader::TextureType::Color1D:
         return VK_IMAGE_VIEW_TYPE_1D;
@@ -298,7 +298,7 @@ constexpr VkBorderColor ConvertBorderColor(const std::array<float, 4>& color) {
     return VK_IMAGE_VIEW_TYPE_2D;
 }
 
-[[nodiscard]] VkImageViewType ImageViewType(VideoCommon::ImageViewType type) {
+[[nodiscard]] VkImageViewType ToImageViewType(VideoCommon::ImageViewType type) {
     switch (type) {
     case VideoCommon::ImageViewType::e1D:
         return VK_IMAGE_VIEW_TYPE_1D;
@@ -1780,7 +1780,7 @@ ImageView::ImageView(TextureCacheRuntime& runtime, const VideoCommon::ImageViewI
     };
     const auto create = [&](TextureType tex_type, std::optional<u32> num_layers) {
         VkImageViewCreateInfo ci{create_info};
-        ci.viewType = ImageViewType(tex_type);
+        ci.viewType = ToImageViewType(tex_type);
         if (num_layers) {
             ci.subresourceRange.layerCount = *num_layers;
         }
@@ -1940,7 +1940,7 @@ vk::ImageView ImageView::MakeView(VkFormat vk_format, VkImageAspectFlags aspect_
         .pNext = nullptr,
         .flags = 0,
         .image = image_handle,
-        .viewType = ImageViewType(type),
+        .viewType = ToImageViewType(type),
         .format = vk_format,
         .components = components,
         .subresourceRange = MakeSubresourceRange(aspect_mask, range),

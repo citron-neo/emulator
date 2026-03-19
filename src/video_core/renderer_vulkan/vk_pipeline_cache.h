@@ -43,8 +43,6 @@ class ShaderNotify;
 
 namespace Vulkan {
 
-using Maxwell = Tegra::Engines::Maxwell3D::Regs;
-
 struct ComputePipelineCacheKey {
     u64 unique_hash;
     u32 shared_memory_size;

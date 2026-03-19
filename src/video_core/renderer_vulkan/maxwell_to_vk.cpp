@@ -16,8 +16,6 @@
 
 namespace Vulkan::MaxwellToVK {
 
-using Maxwell = Tegra::Engines::Maxwell3D::Regs;
-
 namespace Sampler {
 
 VkFilter Filter(Tegra::Texture::TextureFilter filter) {
@@ -360,38 +358,38 @@ VkShaderStageFlagBits ShaderStage(Shader::Stage stage) {
 }
 
 VkPrimitiveTopology PrimitiveTopology([[maybe_unused]] const Device& device,
-                                      Maxwell::PrimitiveTopology topology) {
+                                      Tegra::Engines::Maxwell3D::Regs::PrimitiveTopology topology) {
     switch (topology) {
-    case Maxwell::PrimitiveTopology::Points:
+    case Tegra::Engines::Maxwell3D::Regs::PrimitiveTopology::Points:
         return VK_PRIMITIVE_TOPOLOGY_POINT_LIST;
-    case Maxwell::PrimitiveTopology::Lines:
+    case Tegra::Engines::Maxwell3D::Regs::PrimitiveTopology::Lines:
         return VK_PRIMITIVE_TOPOLOGY_LINE_LIST;
-    case Maxwell::PrimitiveTopology::LineLoop:
+    case Tegra::Engines::Maxwell3D::Regs::PrimitiveTopology::LineLoop:
         return VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
-    case Maxwell::PrimitiveTopology::LineStrip:
+    case Tegra::Engines::Maxwell3D::Regs::PrimitiveTopology::LineStrip:
         return VK_PRIMITIVE_TOPOLOGY_LINE_STRIP;
-    case Maxwell::PrimitiveTopology::Triangles:
+    case Tegra::Engines::Maxwell3D::Regs::PrimitiveTopology::Triangles:
         return VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
-    case Maxwell::PrimitiveTopology::TriangleStrip:
+    case Tegra::Engines::Maxwell3D::Regs::PrimitiveTopology::TriangleStrip:
         return VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP;
-    case Maxwell::PrimitiveTopology::TriangleFan:
+    case Tegra::Engines::Maxwell3D::Regs::PrimitiveTopology::TriangleFan:
         return VK_PRIMITIVE_TOPOLOGY_TRIANGLE_FAN;
-    case Maxwell::PrimitiveTopology::LinesAdjacency:
+    case Tegra::Engines::Maxwell3D::Regs::PrimitiveTopology::LinesAdjacency:
         return VK_PRIMITIVE_TOPOLOGY_LINE_LIST_WITH_ADJACENCY;
-    case Maxwell::PrimitiveTopology::LineStripAdjacency:
+    case Tegra::Engines::Maxwell3D::Regs::PrimitiveTopology::LineStripAdjacency:
         return VK_PRIMITIVE_TOPOLOGY_LINE_STRIP_WITH_ADJACENCY;
-    case Maxwell::PrimitiveTopology::TrianglesAdjacency:
+    case Tegra::Engines::Maxwell3D::Regs::PrimitiveTopology::TrianglesAdjacency:
         return VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST_WITH_ADJACENCY;
-    case Maxwell::PrimitiveTopology::TriangleStripAdjacency:
+    case Tegra::Engines::Maxwell3D::Regs::PrimitiveTopology::TriangleStripAdjacency:
         return VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP_WITH_ADJACENCY;
-    case Maxwell::PrimitiveTopology::Quads:
-    case Maxwell::PrimitiveTopology::QuadStrip:
+    case Tegra::Engines::Maxwell3D::Regs::PrimitiveTopology::Quads:
+    case Tegra::Engines::Maxwell3D::Regs::PrimitiveTopology::QuadStrip:
         // TODO: Use VK_PRIMITIVE_TOPOLOGY_QUAD_LIST_EXT/VK_PRIMITIVE_TOPOLOGY_QUAD_STRIP_EXT
         // whenever it releases
         return VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
-    case Maxwell::PrimitiveTopology::Patches:
+    case Tegra::Engines::Maxwell3D::Regs::PrimitiveTopology::Patches:
         return VK_PRIMITIVE_TOPOLOGY_PATCH_LIST;
-    case Maxwell::PrimitiveTopology::Polygon:
+    case Tegra::Engines::Maxwell3D::Regs::PrimitiveTopology::Polygon:
         LOG_WARNING(Render_Vulkan, "Draw mode is Polygon with a polygon mode of lines should be a "
                                    "single body and not a bunch of triangles.");
         return VK_PRIMITIVE_TOPOLOGY_TRIANGLE_FAN;
@@ -400,218 +398,218 @@ VkPrimitiveTopology PrimitiveTopology([[maybe_unused]] const Device& device,
     return {};
 }
 
-VkFormat VertexFormat(const Device& device, Maxwell::VertexAttribute::Type type,
-                      Maxwell::VertexAttribute::Size size) {
+VkFormat VertexFormat(const Device& device, Tegra::Engines::Maxwell3D::Regs::VertexAttribute::Type type,
+                      Tegra::Engines::Maxwell3D::Regs::VertexAttribute::Size size) {
     if (device.MustEmulateScaledFormats()) {
-        if (type == Maxwell::VertexAttribute::Type::SScaled) {
-            type = Maxwell::VertexAttribute::Type::SInt;
-        } else if (type == Maxwell::VertexAttribute::Type::UScaled) {
-            type = Maxwell::VertexAttribute::Type::UInt;
+        if (type == Tegra::Engines::Maxwell3D::Regs::VertexAttribute::Type::SScaled) {
+            type = Tegra::Engines::Maxwell3D::Regs::VertexAttribute::Type::SInt;
+        } else if (type == Tegra::Engines::Maxwell3D::Regs::VertexAttribute::Type::UScaled) {
+            type = Tegra::Engines::Maxwell3D::Regs::VertexAttribute::Type::UInt;
         }
     }
 
     const VkFormat format{([&]() {
         switch (type) {
-        case Maxwell::VertexAttribute::Type::UnusedEnumDoNotUseBecauseItWillGoAway:
+        case Tegra::Engines::Maxwell3D::Regs::VertexAttribute::Type::UnusedEnumDoNotUseBecauseItWillGoAway:
             ASSERT_MSG(false, "Invalid vertex attribute type!");
             break;
-        case Maxwell::VertexAttribute::Type::UNorm:
+        case Tegra::Engines::Maxwell3D::Regs::VertexAttribute::Type::UNorm:
             switch (size) {
-            case Maxwell::VertexAttribute::Size::Size_R8:
-            case Maxwell::VertexAttribute::Size::Size_A8:
+            case Tegra::Engines::Maxwell3D::Regs::VertexAttribute::Size::Size_R8:
+            case Tegra::Engines::Maxwell3D::Regs::VertexAttribute::Size::Size_A8:
                 return VK_FORMAT_R8_UNORM;
-            case Maxwell::VertexAttribute::Size::Size_R8_G8:
-            case Maxwell::VertexAttribute::Size::Size_G8_R8:
+            case Tegra::Engines::Maxwell3D::Regs::VertexAttribute::Size::Size_R8_G8:
+            case Tegra::Engines::Maxwell3D::Regs::VertexAttribute::Size::Size_G8_R8:
                 return VK_FORMAT_R8G8_UNORM;
-            case Maxwell::VertexAttribute::Size::Size_R8_G8_B8:
+            case Tegra::Engines::Maxwell3D::Regs::VertexAttribute::Size::Size_R8_G8_B8:
                 return VK_FORMAT_R8G8B8_UNORM;
-            case Maxwell::VertexAttribute::Size::Size_R8_G8_B8_A8:
-            case Maxwell::VertexAttribute::Size::Size_X8_B8_G8_R8:
+            case Tegra::Engines::Maxwell3D::Regs::VertexAttribute::Size::Size_R8_G8_B8_A8:
+            case Tegra::Engines::Maxwell3D::Regs::VertexAttribute::Size::Size_X8_B8_G8_R8:
                 return VK_FORMAT_R8G8B8A8_UNORM;
-            case Maxwell::VertexAttribute::Size::Size_R16:
+            case Tegra::Engines::Maxwell3D::Regs::VertexAttribute::Size::Size_R16:
                 return VK_FORMAT_R16_UNORM;
-            case Maxwell::VertexAttribute::Size::Size_R16_G16:
+            case Tegra::Engines::Maxwell3D::Regs::VertexAttribute::Size::Size_R16_G16:
                 return VK_FORMAT_R16G16_UNORM;
-            case Maxwell::VertexAttribute::Size::Size_R16_G16_B16:
+            case Tegra::Engines::Maxwell3D::Regs::VertexAttribute::Size::Size_R16_G16_B16:
                 return VK_FORMAT_R16G16B16_UNORM;
-            case Maxwell::VertexAttribute::Size::Size_R16_G16_B16_A16:
+            case Tegra::Engines::Maxwell3D::Regs::VertexAttribute::Size::Size_R16_G16_B16_A16:
                 return VK_FORMAT_R16G16B16A16_UNORM;
-            case Maxwell::VertexAttribute::Size::Size_A2_B10_G10_R10:
+            case Tegra::Engines::Maxwell3D::Regs::VertexAttribute::Size::Size_A2_B10_G10_R10:
                 return VK_FORMAT_A2B10G10R10_UNORM_PACK32;
             default:
                 break;
             }
             break;
-        case Maxwell::VertexAttribute::Type::SNorm:
+        case Tegra::Engines::Maxwell3D::Regs::VertexAttribute::Type::SNorm:
             switch (size) {
-            case Maxwell::VertexAttribute::Size::Size_R8:
-            case Maxwell::VertexAttribute::Size::Size_A8:
+            case Tegra::Engines::Maxwell3D::Regs::VertexAttribute::Size::Size_R8:
+            case Tegra::Engines::Maxwell3D::Regs::VertexAttribute::Size::Size_A8:
                 return VK_FORMAT_R8_SNORM;
-            case Maxwell::VertexAttribute::Size::Size_R8_G8:
-            case Maxwell::VertexAttribute::Size::Size_G8_R8:
+            case Tegra::Engines::Maxwell3D::Regs::VertexAttribute::Size::Size_R8_G8:
+            case Tegra::Engines::Maxwell3D::Regs::VertexAttribute::Size::Size_G8_R8:
                 return VK_FORMAT_R8G8_SNORM;
-            case Maxwell::VertexAttribute::Size::Size_R8_G8_B8:
+            case Tegra::Engines::Maxwell3D::Regs::VertexAttribute::Size::Size_R8_G8_B8:
                 return VK_FORMAT_R8G8B8_SNORM;
-            case Maxwell::VertexAttribute::Size::Size_R8_G8_B8_A8:
-            case Maxwell::VertexAttribute::Size::Size_X8_B8_G8_R8:
+            case Tegra::Engines::Maxwell3D::Regs::VertexAttribute::Size::Size_R8_G8_B8_A8:
+            case Tegra::Engines::Maxwell3D::Regs::VertexAttribute::Size::Size_X8_B8_G8_R8:
                 return VK_FORMAT_R8G8B8A8_SNORM;
-            case Maxwell::VertexAttribute::Size::Size_R16:
+            case Tegra::Engines::Maxwell3D::Regs::VertexAttribute::Size::Size_R16:
                 return VK_FORMAT_R16_SNORM;
-            case Maxwell::VertexAttribute::Size::Size_R16_G16:
+            case Tegra::Engines::Maxwell3D::Regs::VertexAttribute::Size::Size_R16_G16:
                 return VK_FORMAT_R16G16_SNORM;
-            case Maxwell::VertexAttribute::Size::Size_R16_G16_B16:
+            case Tegra::Engines::Maxwell3D::Regs::VertexAttribute::Size::Size_R16_G16_B16:
                 return VK_FORMAT_R16G16B16_SNORM;
-            case Maxwell::VertexAttribute::Size::Size_R16_G16_B16_A16:
+            case Tegra::Engines::Maxwell3D::Regs::VertexAttribute::Size::Size_R16_G16_B16_A16:
                 return VK_FORMAT_R16G16B16A16_SNORM;
-            case Maxwell::VertexAttribute::Size::Size_A2_B10_G10_R10:
+            case Tegra::Engines::Maxwell3D::Regs::VertexAttribute::Size::Size_A2_B10_G10_R10:
                 return VK_FORMAT_A2B10G10R10_SNORM_PACK32;
             default:
                 break;
             }
             break;
-        case Maxwell::VertexAttribute::Type::UScaled:
+        case Tegra::Engines::Maxwell3D::Regs::VertexAttribute::Type::UScaled:
             switch (size) {
-            case Maxwell::VertexAttribute::Size::Size_R8:
-            case Maxwell::VertexAttribute::Size::Size_A8:
+            case Tegra::Engines::Maxwell3D::Regs::VertexAttribute::Size::Size_R8:
+            case Tegra::Engines::Maxwell3D::Regs::VertexAttribute::Size::Size_A8:
                 return VK_FORMAT_R8_USCALED;
-            case Maxwell::VertexAttribute::Size::Size_R8_G8:
-            case Maxwell::VertexAttribute::Size::Size_G8_R8:
+            case Tegra::Engines::Maxwell3D::Regs::VertexAttribute::Size::Size_R8_G8:
+            case Tegra::Engines::Maxwell3D::Regs::VertexAttribute::Size::Size_G8_R8:
                 return VK_FORMAT_R8G8_USCALED;
-            case Maxwell::VertexAttribute::Size::Size_R8_G8_B8:
+            case Tegra::Engines::Maxwell3D::Regs::VertexAttribute::Size::Size_R8_G8_B8:
                 return VK_FORMAT_R8G8B8_USCALED;
-            case Maxwell::VertexAttribute::Size::Size_R8_G8_B8_A8:
-            case Maxwell::VertexAttribute::Size::Size_X8_B8_G8_R8:
+            case Tegra::Engines::Maxwell3D::Regs::VertexAttribute::Size::Size_R8_G8_B8_A8:
+            case Tegra::Engines::Maxwell3D::Regs::VertexAttribute::Size::Size_X8_B8_G8_R8:
                 return VK_FORMAT_R8G8B8A8_USCALED;
-            case Maxwell::VertexAttribute::Size::Size_R16:
+            case Tegra::Engines::Maxwell3D::Regs::VertexAttribute::Size::Size_R16:
                 return VK_FORMAT_R16_USCALED;
-            case Maxwell::VertexAttribute::Size::Size_R16_G16:
+            case Tegra::Engines::Maxwell3D::Regs::VertexAttribute::Size::Size_R16_G16:
                 return VK_FORMAT_R16G16_USCALED;
-            case Maxwell::VertexAttribute::Size::Size_R16_G16_B16:
+            case Tegra::Engines::Maxwell3D::Regs::VertexAttribute::Size::Size_R16_G16_B16:
                 return VK_FORMAT_R16G16B16_USCALED;
-            case Maxwell::VertexAttribute::Size::Size_R16_G16_B16_A16:
+            case Tegra::Engines::Maxwell3D::Regs::VertexAttribute::Size::Size_R16_G16_B16_A16:
                 return VK_FORMAT_R16G16B16A16_USCALED;
-            case Maxwell::VertexAttribute::Size::Size_A2_B10_G10_R10:
+            case Tegra::Engines::Maxwell3D::Regs::VertexAttribute::Size::Size_A2_B10_G10_R10:
                 return VK_FORMAT_A2B10G10R10_USCALED_PACK32;
             default:
                 break;
             }
             break;
-        case Maxwell::VertexAttribute::Type::SScaled:
+        case Tegra::Engines::Maxwell3D::Regs::VertexAttribute::Type::SScaled:
             switch (size) {
-            case Maxwell::VertexAttribute::Size::Size_R8:
-            case Maxwell::VertexAttribute::Size::Size_A8:
+            case Tegra::Engines::Maxwell3D::Regs::VertexAttribute::Size::Size_R8:
+            case Tegra::Engines::Maxwell3D::Regs::VertexAttribute::Size::Size_A8:
                 return VK_FORMAT_R8_SSCALED;
-            case Maxwell::VertexAttribute::Size::Size_R8_G8:
-            case Maxwell::VertexAttribute::Size::Size_G8_R8:
+            case Tegra::Engines::Maxwell3D::Regs::VertexAttribute::Size::Size_R8_G8:
+            case Tegra::Engines::Maxwell3D::Regs::VertexAttribute::Size::Size_G8_R8:
                 return VK_FORMAT_R8G8_SSCALED;
-            case Maxwell::VertexAttribute::Size::Size_R8_G8_B8:
+            case Tegra::Engines::Maxwell3D::Regs::VertexAttribute::Size::Size_R8_G8_B8:
                 return VK_FORMAT_R8G8B8_SSCALED;
-            case Maxwell::VertexAttribute::Size::Size_R8_G8_B8_A8:
-            case Maxwell::VertexAttribute::Size::Size_X8_B8_G8_R8:
+            case Tegra::Engines::Maxwell3D::Regs::VertexAttribute::Size::Size_R8_G8_B8_A8:
+            case Tegra::Engines::Maxwell3D::Regs::VertexAttribute::Size::Size_X8_B8_G8_R8:
                 return VK_FORMAT_R8G8B8A8_SSCALED;
-            case Maxwell::VertexAttribute::Size::Size_R16:
+            case Tegra::Engines::Maxwell3D::Regs::VertexAttribute::Size::Size_R16:
                 return VK_FORMAT_R16_SSCALED;
-            case Maxwell::VertexAttribute::Size::Size_R16_G16:
+            case Tegra::Engines::Maxwell3D::Regs::VertexAttribute::Size::Size_R16_G16:
                 return VK_FORMAT_R16G16_SSCALED;
-            case Maxwell::VertexAttribute::Size::Size_R16_G16_B16:
+            case Tegra::Engines::Maxwell3D::Regs::VertexAttribute::Size::Size_R16_G16_B16:
                 return VK_FORMAT_R16G16B16_SSCALED;
-            case Maxwell::VertexAttribute::Size::Size_R16_G16_B16_A16:
+            case Tegra::Engines::Maxwell3D::Regs::VertexAttribute::Size::Size_R16_G16_B16_A16:
                 return VK_FORMAT_R16G16B16A16_SSCALED;
-            case Maxwell::VertexAttribute::Size::Size_A2_B10_G10_R10:
+            case Tegra::Engines::Maxwell3D::Regs::VertexAttribute::Size::Size_A2_B10_G10_R10:
                 return VK_FORMAT_A2B10G10R10_SSCALED_PACK32;
             default:
                 break;
             }
             break;
-        case Maxwell::VertexAttribute::Type::UInt:
+        case Tegra::Engines::Maxwell3D::Regs::VertexAttribute::Type::UInt:
             switch (size) {
-            case Maxwell::VertexAttribute::Size::Size_R8:
-            case Maxwell::VertexAttribute::Size::Size_A8:
+            case Tegra::Engines::Maxwell3D::Regs::VertexAttribute::Size::Size_R8:
+            case Tegra::Engines::Maxwell3D::Regs::VertexAttribute::Size::Size_A8:
                 return VK_FORMAT_R8_UINT;
-            case Maxwell::VertexAttribute::Size::Size_R8_G8:
-            case Maxwell::VertexAttribute::Size::Size_G8_R8:
+            case Tegra::Engines::Maxwell3D::Regs::VertexAttribute::Size::Size_R8_G8:
+            case Tegra::Engines::Maxwell3D::Regs::VertexAttribute::Size::Size_G8_R8:
                 return VK_FORMAT_R8G8_UINT;
-            case Maxwell::VertexAttribute::Size::Size_R8_G8_B8:
+            case Tegra::Engines::Maxwell3D::Regs::VertexAttribute::Size::Size_R8_G8_B8:
                 return VK_FORMAT_R8G8B8_UINT;
-            case Maxwell::VertexAttribute::Size::Size_R8_G8_B8_A8:
-            case Maxwell::VertexAttribute::Size::Size_X8_B8_G8_R8:
+            case Tegra::Engines::Maxwell3D::Regs::VertexAttribute::Size::Size_R8_G8_B8_A8:
+            case Tegra::Engines::Maxwell3D::Regs::VertexAttribute::Size::Size_X8_B8_G8_R8:
                 return VK_FORMAT_R8G8B8A8_UINT;
-            case Maxwell::VertexAttribute::Size::Size_R16:
+            case Tegra::Engines::Maxwell3D::Regs::VertexAttribute::Size::Size_R16:
                 return VK_FORMAT_R16_UINT;
-            case Maxwell::VertexAttribute::Size::Size_R16_G16:
+            case Tegra::Engines::Maxwell3D::Regs::VertexAttribute::Size::Size_R16_G16:
                 return VK_FORMAT_R16G16_UINT;
-            case Maxwell::VertexAttribute::Size::Size_R16_G16_B16:
+            case Tegra::Engines::Maxwell3D::Regs::VertexAttribute::Size::Size_R16_G16_B16:
                 return VK_FORMAT_R16G16B16_UINT;
-            case Maxwell::VertexAttribute::Size::Size_R16_G16_B16_A16:
+            case Tegra::Engines::Maxwell3D::Regs::VertexAttribute::Size::Size_R16_G16_B16_A16:
                 return VK_FORMAT_R16G16B16A16_UINT;
-            case Maxwell::VertexAttribute::Size::Size_R32:
+            case Tegra::Engines::Maxwell3D::Regs::VertexAttribute::Size::Size_R32:
                 return VK_FORMAT_R32_UINT;
-            case Maxwell::VertexAttribute::Size::Size_R32_G32:
+            case Tegra::Engines::Maxwell3D::Regs::VertexAttribute::Size::Size_R32_G32:
                 return VK_FORMAT_R32G32_UINT;
-            case Maxwell::VertexAttribute::Size::Size_R32_G32_B32:
+            case Tegra::Engines::Maxwell3D::Regs::VertexAttribute::Size::Size_R32_G32_B32:
                 return VK_FORMAT_R32G32B32_UINT;
-            case Maxwell::VertexAttribute::Size::Size_R32_G32_B32_A32:
+            case Tegra::Engines::Maxwell3D::Regs::VertexAttribute::Size::Size_R32_G32_B32_A32:
                 return VK_FORMAT_R32G32B32A32_UINT;
-            case Maxwell::VertexAttribute::Size::Size_A2_B10_G10_R10:
+            case Tegra::Engines::Maxwell3D::Regs::VertexAttribute::Size::Size_A2_B10_G10_R10:
                 return VK_FORMAT_A2B10G10R10_UINT_PACK32;
             default:
                 break;
             }
             break;
-        case Maxwell::VertexAttribute::Type::SInt:
+        case Tegra::Engines::Maxwell3D::Regs::VertexAttribute::Type::SInt:
             switch (size) {
-            case Maxwell::VertexAttribute::Size::Size_R8:
-            case Maxwell::VertexAttribute::Size::Size_A8:
+            case Tegra::Engines::Maxwell3D::Regs::VertexAttribute::Size::Size_R8:
+            case Tegra::Engines::Maxwell3D::Regs::VertexAttribute::Size::Size_A8:
                 return VK_FORMAT_R8_SINT;
-            case Maxwell::VertexAttribute::Size::Size_R8_G8:
-            case Maxwell::VertexAttribute::Size::Size_G8_R8:
+            case Tegra::Engines::Maxwell3D::Regs::VertexAttribute::Size::Size_R8_G8:
+            case Tegra::Engines::Maxwell3D::Regs::VertexAttribute::Size::Size_G8_R8:
                 return VK_FORMAT_R8G8_SINT;
-            case Maxwell::VertexAttribute::Size::Size_R8_G8_B8:
+            case Tegra::Engines::Maxwell3D::Regs::VertexAttribute::Size::Size_R8_G8_B8:
                 return VK_FORMAT_R8G8B8_SINT;
-            case Maxwell::VertexAttribute::Size::Size_R8_G8_B8_A8:
-            case Maxwell::VertexAttribute::Size::Size_X8_B8_G8_R8:
+            case Tegra::Engines::Maxwell3D::Regs::VertexAttribute::Size::Size_R8_G8_B8_A8:
+            case Tegra::Engines::Maxwell3D::Regs::VertexAttribute::Size::Size_X8_B8_G8_R8:
                 return VK_FORMAT_R8G8B8A8_SINT;
-            case Maxwell::VertexAttribute::Size::Size_R16:
+            case Tegra::Engines::Maxwell3D::Regs::VertexAttribute::Size::Size_R16:
                 return VK_FORMAT_R16_SINT;
-            case Maxwell::VertexAttribute::Size::Size_R16_G16:
+            case Tegra::Engines::Maxwell3D::Regs::VertexAttribute::Size::Size_R16_G16:
                 return VK_FORMAT_R16G16_SINT;
-            case Maxwell::VertexAttribute::Size::Size_R16_G16_B16:
+            case Tegra::Engines::Maxwell3D::Regs::VertexAttribute::Size::Size_R16_G16_B16:
                 return VK_FORMAT_R16G16B16_SINT;
-            case Maxwell::VertexAttribute::Size::Size_R16_G16_B16_A16:
+            case Tegra::Engines::Maxwell3D::Regs::VertexAttribute::Size::Size_R16_G16_B16_A16:
                 return VK_FORMAT_R16G16B16A16_SINT;
-            case Maxwell::VertexAttribute::Size::Size_R32:
+            case Tegra::Engines::Maxwell3D::Regs::VertexAttribute::Size::Size_R32:
                 return VK_FORMAT_R32_SINT;
-            case Maxwell::VertexAttribute::Size::Size_R32_G32:
+            case Tegra::Engines::Maxwell3D::Regs::VertexAttribute::Size::Size_R32_G32:
                 return VK_FORMAT_R32G32_SINT;
-            case Maxwell::VertexAttribute::Size::Size_R32_G32_B32:
+            case Tegra::Engines::Maxwell3D::Regs::VertexAttribute::Size::Size_R32_G32_B32:
                 return VK_FORMAT_R32G32B32_SINT;
-            case Maxwell::VertexAttribute::Size::Size_R32_G32_B32_A32:
+            case Tegra::Engines::Maxwell3D::Regs::VertexAttribute::Size::Size_R32_G32_B32_A32:
                 return VK_FORMAT_R32G32B32A32_SINT;
-            case Maxwell::VertexAttribute::Size::Size_A2_B10_G10_R10:
+            case Tegra::Engines::Maxwell3D::Regs::VertexAttribute::Size::Size_A2_B10_G10_R10:
                 return VK_FORMAT_A2B10G10R10_SINT_PACK32;
             default:
                 break;
             }
             break;
-        case Maxwell::VertexAttribute::Type::Float:
+        case Tegra::Engines::Maxwell3D::Regs::VertexAttribute::Type::Float:
             switch (size) {
-            case Maxwell::VertexAttribute::Size::Size_R16:
+            case Tegra::Engines::Maxwell3D::Regs::VertexAttribute::Size::Size_R16:
                 return VK_FORMAT_R16_SFLOAT;
-            case Maxwell::VertexAttribute::Size::Size_R16_G16:
+            case Tegra::Engines::Maxwell3D::Regs::VertexAttribute::Size::Size_R16_G16:
                 return VK_FORMAT_R16G16_SFLOAT;
-            case Maxwell::VertexAttribute::Size::Size_R16_G16_B16:
+            case Tegra::Engines::Maxwell3D::Regs::VertexAttribute::Size::Size_R16_G16_B16:
                 return VK_FORMAT_R16G16B16_SFLOAT;
-            case Maxwell::VertexAttribute::Size::Size_R16_G16_B16_A16:
+            case Tegra::Engines::Maxwell3D::Regs::VertexAttribute::Size::Size_R16_G16_B16_A16:
                 return VK_FORMAT_R16G16B16A16_SFLOAT;
-            case Maxwell::VertexAttribute::Size::Size_R32:
+            case Tegra::Engines::Maxwell3D::Regs::VertexAttribute::Size::Size_R32:
                 return VK_FORMAT_R32_SFLOAT;
-            case Maxwell::VertexAttribute::Size::Size_R32_G32:
+            case Tegra::Engines::Maxwell3D::Regs::VertexAttribute::Size::Size_R32_G32:
                 return VK_FORMAT_R32G32_SFLOAT;
-            case Maxwell::VertexAttribute::Size::Size_R32_G32_B32:
+            case Tegra::Engines::Maxwell3D::Regs::VertexAttribute::Size::Size_R32_G32_B32:
                 return VK_FORMAT_R32G32B32_SFLOAT;
-            case Maxwell::VertexAttribute::Size::Size_R32_G32_B32_A32:
+            case Tegra::Engines::Maxwell3D::Regs::VertexAttribute::Size::Size_R32_G32_B32_A32:
                 return VK_FORMAT_R32G32B32A32_SFLOAT;
-            case Maxwell::VertexAttribute::Size::Size_B10_G11_R11:
+            case Tegra::Engines::Maxwell3D::Regs::VertexAttribute::Size::Size_B10_G11_R11:
                 return VK_FORMAT_B10G11R11_UFLOAT_PACK32;
             default:
                 break;
@@ -629,198 +627,198 @@ VkFormat VertexFormat(const Device& device, Maxwell::VertexAttribute::Type type,
                                      FormatType::Buffer);
 }
 
-VkCompareOp ComparisonOp(Maxwell::ComparisonOp comparison) {
+VkCompareOp ComparisonOp(Tegra::Engines::Maxwell3D::Regs::ComparisonOp comparison) {
     switch (comparison) {
-    case Maxwell::ComparisonOp::Never_D3D:
-    case Maxwell::ComparisonOp::Never_GL:
+    case Tegra::Engines::Maxwell3D::Regs::ComparisonOp::Never_D3D:
+    case Tegra::Engines::Maxwell3D::Regs::ComparisonOp::Never_GL:
         return VK_COMPARE_OP_NEVER;
-    case Maxwell::ComparisonOp::Less_D3D:
-    case Maxwell::ComparisonOp::Less_GL:
+    case Tegra::Engines::Maxwell3D::Regs::ComparisonOp::Less_D3D:
+    case Tegra::Engines::Maxwell3D::Regs::ComparisonOp::Less_GL:
         return VK_COMPARE_OP_LESS;
-    case Maxwell::ComparisonOp::Equal_D3D:
-    case Maxwell::ComparisonOp::Equal_GL:
+    case Tegra::Engines::Maxwell3D::Regs::ComparisonOp::Equal_D3D:
+    case Tegra::Engines::Maxwell3D::Regs::ComparisonOp::Equal_GL:
         return VK_COMPARE_OP_EQUAL;
-    case Maxwell::ComparisonOp::LessEqual_D3D:
-    case Maxwell::ComparisonOp::LessEqual_GL:
+    case Tegra::Engines::Maxwell3D::Regs::ComparisonOp::LessEqual_D3D:
+    case Tegra::Engines::Maxwell3D::Regs::ComparisonOp::LessEqual_GL:
         return VK_COMPARE_OP_LESS_OR_EQUAL;
-    case Maxwell::ComparisonOp::Greater_D3D:
-    case Maxwell::ComparisonOp::Greater_GL:
+    case Tegra::Engines::Maxwell3D::Regs::ComparisonOp::Greater_D3D:
+    case Tegra::Engines::Maxwell3D::Regs::ComparisonOp::Greater_GL:
         return VK_COMPARE_OP_GREATER;
-    case Maxwell::ComparisonOp::NotEqual_D3D:
-    case Maxwell::ComparisonOp::NotEqual_GL:
+    case Tegra::Engines::Maxwell3D::Regs::ComparisonOp::NotEqual_D3D:
+    case Tegra::Engines::Maxwell3D::Regs::ComparisonOp::NotEqual_GL:
         return VK_COMPARE_OP_NOT_EQUAL;
-    case Maxwell::ComparisonOp::GreaterEqual_D3D:
-    case Maxwell::ComparisonOp::GreaterEqual_GL:
+    case Tegra::Engines::Maxwell3D::Regs::ComparisonOp::GreaterEqual_D3D:
+    case Tegra::Engines::Maxwell3D::Regs::ComparisonOp::GreaterEqual_GL:
         return VK_COMPARE_OP_GREATER_OR_EQUAL;
-    case Maxwell::ComparisonOp::Always_D3D:
-    case Maxwell::ComparisonOp::Always_GL:
+    case Tegra::Engines::Maxwell3D::Regs::ComparisonOp::Always_D3D:
+    case Tegra::Engines::Maxwell3D::Regs::ComparisonOp::Always_GL:
         return VK_COMPARE_OP_ALWAYS;
     }
     UNIMPLEMENTED_MSG("Unimplemented comparison op={}", comparison);
     return {};
 }
 
-VkIndexType IndexFormat(Maxwell::IndexFormat index_format) {
+VkIndexType IndexFormat(Tegra::Engines::Maxwell3D::Regs::IndexFormat index_format) {
     switch (index_format) {
-    case Maxwell::IndexFormat::UnsignedByte:
+    case Tegra::Engines::Maxwell3D::Regs::IndexFormat::UnsignedByte:
         return VK_INDEX_TYPE_UINT8_EXT;
-    case Maxwell::IndexFormat::UnsignedShort:
+    case Tegra::Engines::Maxwell3D::Regs::IndexFormat::UnsignedShort:
         return VK_INDEX_TYPE_UINT16;
-    case Maxwell::IndexFormat::UnsignedInt:
+    case Tegra::Engines::Maxwell3D::Regs::IndexFormat::UnsignedInt:
         return VK_INDEX_TYPE_UINT32;
     }
     UNIMPLEMENTED_MSG("Unimplemented index_format={}", index_format);
     return {};
 }
 
-VkStencilOp StencilOp(Maxwell::StencilOp::Op stencil_op) {
+VkStencilOp StencilOp(Tegra::Engines::Maxwell3D::Regs::StencilOp::Op stencil_op) {
     switch (stencil_op) {
-    case Maxwell::StencilOp::Op::Keep_D3D:
-    case Maxwell::StencilOp::Op::Keep_GL:
+    case Tegra::Engines::Maxwell3D::Regs::StencilOp::Op::Keep_D3D:
+    case Tegra::Engines::Maxwell3D::Regs::StencilOp::Op::Keep_GL:
         return VK_STENCIL_OP_KEEP;
-    case Maxwell::StencilOp::Op::Zero_D3D:
-    case Maxwell::StencilOp::Op::Zero_GL:
+    case Tegra::Engines::Maxwell3D::Regs::StencilOp::Op::Zero_D3D:
+    case Tegra::Engines::Maxwell3D::Regs::StencilOp::Op::Zero_GL:
         return VK_STENCIL_OP_ZERO;
-    case Maxwell::StencilOp::Op::Replace_D3D:
-    case Maxwell::StencilOp::Op::Replace_GL:
+    case Tegra::Engines::Maxwell3D::Regs::StencilOp::Op::Replace_D3D:
+    case Tegra::Engines::Maxwell3D::Regs::StencilOp::Op::Replace_GL:
         return VK_STENCIL_OP_REPLACE;
-    case Maxwell::StencilOp::Op::IncrSaturate_D3D:
-    case Maxwell::StencilOp::Op::IncrSaturate_GL:
+    case Tegra::Engines::Maxwell3D::Regs::StencilOp::Op::IncrSaturate_D3D:
+    case Tegra::Engines::Maxwell3D::Regs::StencilOp::Op::IncrSaturate_GL:
         return VK_STENCIL_OP_INCREMENT_AND_CLAMP;
-    case Maxwell::StencilOp::Op::DecrSaturate_D3D:
-    case Maxwell::StencilOp::Op::DecrSaturate_GL:
+    case Tegra::Engines::Maxwell3D::Regs::StencilOp::Op::DecrSaturate_D3D:
+    case Tegra::Engines::Maxwell3D::Regs::StencilOp::Op::DecrSaturate_GL:
         return VK_STENCIL_OP_DECREMENT_AND_CLAMP;
-    case Maxwell::StencilOp::Op::Invert_D3D:
-    case Maxwell::StencilOp::Op::Invert_GL:
+    case Tegra::Engines::Maxwell3D::Regs::StencilOp::Op::Invert_D3D:
+    case Tegra::Engines::Maxwell3D::Regs::StencilOp::Op::Invert_GL:
         return VK_STENCIL_OP_INVERT;
-    case Maxwell::StencilOp::Op::Incr_D3D:
-    case Maxwell::StencilOp::Op::Incr_GL:
+    case Tegra::Engines::Maxwell3D::Regs::StencilOp::Op::Incr_D3D:
+    case Tegra::Engines::Maxwell3D::Regs::StencilOp::Op::Incr_GL:
         return VK_STENCIL_OP_INCREMENT_AND_WRAP;
-    case Maxwell::StencilOp::Op::Decr_D3D:
-    case Maxwell::StencilOp::Op::Decr_GL:
+    case Tegra::Engines::Maxwell3D::Regs::StencilOp::Op::Decr_D3D:
+    case Tegra::Engines::Maxwell3D::Regs::StencilOp::Op::Decr_GL:
         return VK_STENCIL_OP_DECREMENT_AND_WRAP;
     }
     UNIMPLEMENTED_MSG("Unimplemented stencil op={}", stencil_op);
     return {};
 }
 
-VkBlendOp BlendEquation(Maxwell::Blend::Equation equation) {
+VkBlendOp BlendEquation(Tegra::Engines::Maxwell3D::Regs::Blend::Equation equation) {
     switch (equation) {
-    case Maxwell::Blend::Equation::Add_D3D:
-    case Maxwell::Blend::Equation::Add_GL:
+    case Tegra::Engines::Maxwell3D::Regs::Blend::Equation::Add_D3D:
+    case Tegra::Engines::Maxwell3D::Regs::Blend::Equation::Add_GL:
         return VK_BLEND_OP_ADD;
-    case Maxwell::Blend::Equation::Subtract_D3D:
-    case Maxwell::Blend::Equation::Subtract_GL:
+    case Tegra::Engines::Maxwell3D::Regs::Blend::Equation::Subtract_D3D:
+    case Tegra::Engines::Maxwell3D::Regs::Blend::Equation::Subtract_GL:
         return VK_BLEND_OP_SUBTRACT;
-    case Maxwell::Blend::Equation::ReverseSubtract_D3D:
-    case Maxwell::Blend::Equation::ReverseSubtract_GL:
+    case Tegra::Engines::Maxwell3D::Regs::Blend::Equation::ReverseSubtract_D3D:
+    case Tegra::Engines::Maxwell3D::Regs::Blend::Equation::ReverseSubtract_GL:
         return VK_BLEND_OP_REVERSE_SUBTRACT;
-    case Maxwell::Blend::Equation::Min_D3D:
-    case Maxwell::Blend::Equation::Min_GL:
+    case Tegra::Engines::Maxwell3D::Regs::Blend::Equation::Min_D3D:
+    case Tegra::Engines::Maxwell3D::Regs::Blend::Equation::Min_GL:
         return VK_BLEND_OP_MIN;
-    case Maxwell::Blend::Equation::Max_D3D:
-    case Maxwell::Blend::Equation::Max_GL:
+    case Tegra::Engines::Maxwell3D::Regs::Blend::Equation::Max_D3D:
+    case Tegra::Engines::Maxwell3D::Regs::Blend::Equation::Max_GL:
         return VK_BLEND_OP_MAX;
     }
     UNIMPLEMENTED_MSG("Unimplemented blend equation={}", equation);
     return {};
 }
 
-VkBlendFactor BlendFactor(Maxwell::Blend::Factor factor) {
+VkBlendFactor BlendFactor(Tegra::Engines::Maxwell3D::Regs::Blend::Factor factor) {
     switch (factor) {
-    case Maxwell::Blend::Factor::Zero_D3D:
-    case Maxwell::Blend::Factor::Zero_GL:
+    case Tegra::Engines::Maxwell3D::Regs::Blend::Factor::Zero_D3D:
+    case Tegra::Engines::Maxwell3D::Regs::Blend::Factor::Zero_GL:
         return VK_BLEND_FACTOR_ZERO;
-    case Maxwell::Blend::Factor::One_D3D:
-    case Maxwell::Blend::Factor::One_GL:
+    case Tegra::Engines::Maxwell3D::Regs::Blend::Factor::One_D3D:
+    case Tegra::Engines::Maxwell3D::Regs::Blend::Factor::One_GL:
         return VK_BLEND_FACTOR_ONE;
-    case Maxwell::Blend::Factor::SourceColor_D3D:
-    case Maxwell::Blend::Factor::SourceColor_GL:
+    case Tegra::Engines::Maxwell3D::Regs::Blend::Factor::SourceColor_D3D:
+    case Tegra::Engines::Maxwell3D::Regs::Blend::Factor::SourceColor_GL:
         return VK_BLEND_FACTOR_SRC_COLOR;
-    case Maxwell::Blend::Factor::OneMinusSourceColor_D3D:
-    case Maxwell::Blend::Factor::OneMinusSourceColor_GL:
+    case Tegra::Engines::Maxwell3D::Regs::Blend::Factor::OneMinusSourceColor_D3D:
+    case Tegra::Engines::Maxwell3D::Regs::Blend::Factor::OneMinusSourceColor_GL:
         return VK_BLEND_FACTOR_ONE_MINUS_SRC_COLOR;
-    case Maxwell::Blend::Factor::SourceAlpha_D3D:
-    case Maxwell::Blend::Factor::SourceAlpha_GL:
+    case Tegra::Engines::Maxwell3D::Regs::Blend::Factor::SourceAlpha_D3D:
+    case Tegra::Engines::Maxwell3D::Regs::Blend::Factor::SourceAlpha_GL:
         return VK_BLEND_FACTOR_SRC_ALPHA;
-    case Maxwell::Blend::Factor::OneMinusSourceAlpha_D3D:
-    case Maxwell::Blend::Factor::OneMinusSourceAlpha_GL:
+    case Tegra::Engines::Maxwell3D::Regs::Blend::Factor::OneMinusSourceAlpha_D3D:
+    case Tegra::Engines::Maxwell3D::Regs::Blend::Factor::OneMinusSourceAlpha_GL:
         return VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
-    case Maxwell::Blend::Factor::DestAlpha_D3D:
-    case Maxwell::Blend::Factor::DestAlpha_GL:
+    case Tegra::Engines::Maxwell3D::Regs::Blend::Factor::DestAlpha_D3D:
+    case Tegra::Engines::Maxwell3D::Regs::Blend::Factor::DestAlpha_GL:
         return VK_BLEND_FACTOR_DST_ALPHA;
-    case Maxwell::Blend::Factor::OneMinusDestAlpha_D3D:
-    case Maxwell::Blend::Factor::OneMinusDestAlpha_GL:
+    case Tegra::Engines::Maxwell3D::Regs::Blend::Factor::OneMinusDestAlpha_D3D:
+    case Tegra::Engines::Maxwell3D::Regs::Blend::Factor::OneMinusDestAlpha_GL:
         return VK_BLEND_FACTOR_ONE_MINUS_DST_ALPHA;
-    case Maxwell::Blend::Factor::DestColor_D3D:
-    case Maxwell::Blend::Factor::DestColor_GL:
+    case Tegra::Engines::Maxwell3D::Regs::Blend::Factor::DestColor_D3D:
+    case Tegra::Engines::Maxwell3D::Regs::Blend::Factor::DestColor_GL:
         return VK_BLEND_FACTOR_DST_COLOR;
-    case Maxwell::Blend::Factor::OneMinusDestColor_D3D:
-    case Maxwell::Blend::Factor::OneMinusDestColor_GL:
+    case Tegra::Engines::Maxwell3D::Regs::Blend::Factor::OneMinusDestColor_D3D:
+    case Tegra::Engines::Maxwell3D::Regs::Blend::Factor::OneMinusDestColor_GL:
         return VK_BLEND_FACTOR_ONE_MINUS_DST_COLOR;
-    case Maxwell::Blend::Factor::SourceAlphaSaturate_D3D:
-    case Maxwell::Blend::Factor::SourceAlphaSaturate_GL:
+    case Tegra::Engines::Maxwell3D::Regs::Blend::Factor::SourceAlphaSaturate_D3D:
+    case Tegra::Engines::Maxwell3D::Regs::Blend::Factor::SourceAlphaSaturate_GL:
         return VK_BLEND_FACTOR_SRC_ALPHA_SATURATE;
-    case Maxwell::Blend::Factor::Source1Color_D3D:
-    case Maxwell::Blend::Factor::Source1Color_GL:
+    case Tegra::Engines::Maxwell3D::Regs::Blend::Factor::Source1Color_D3D:
+    case Tegra::Engines::Maxwell3D::Regs::Blend::Factor::Source1Color_GL:
         return VK_BLEND_FACTOR_SRC1_COLOR;
-    case Maxwell::Blend::Factor::OneMinusSource1Color_D3D:
-    case Maxwell::Blend::Factor::OneMinusSource1Color_GL:
+    case Tegra::Engines::Maxwell3D::Regs::Blend::Factor::OneMinusSource1Color_D3D:
+    case Tegra::Engines::Maxwell3D::Regs::Blend::Factor::OneMinusSource1Color_GL:
         return VK_BLEND_FACTOR_ONE_MINUS_SRC1_COLOR;
-    case Maxwell::Blend::Factor::Source1Alpha_D3D:
-    case Maxwell::Blend::Factor::Source1Alpha_GL:
+    case Tegra::Engines::Maxwell3D::Regs::Blend::Factor::Source1Alpha_D3D:
+    case Tegra::Engines::Maxwell3D::Regs::Blend::Factor::Source1Alpha_GL:
         return VK_BLEND_FACTOR_SRC1_ALPHA;
-    case Maxwell::Blend::Factor::OneMinusSource1Alpha_D3D:
-    case Maxwell::Blend::Factor::OneMinusSource1Alpha_GL:
+    case Tegra::Engines::Maxwell3D::Regs::Blend::Factor::OneMinusSource1Alpha_D3D:
+    case Tegra::Engines::Maxwell3D::Regs::Blend::Factor::OneMinusSource1Alpha_GL:
         return VK_BLEND_FACTOR_ONE_MINUS_SRC1_ALPHA;
-    case Maxwell::Blend::Factor::BlendFactor_D3D:
-    case Maxwell::Blend::Factor::ConstantColor_GL:
+    case Tegra::Engines::Maxwell3D::Regs::Blend::Factor::BlendFactor_D3D:
+    case Tegra::Engines::Maxwell3D::Regs::Blend::Factor::ConstantColor_GL:
         return VK_BLEND_FACTOR_CONSTANT_COLOR;
-    case Maxwell::Blend::Factor::OneMinusBlendFactor_D3D:
-    case Maxwell::Blend::Factor::OneMinusConstantColor_GL:
+    case Tegra::Engines::Maxwell3D::Regs::Blend::Factor::OneMinusBlendFactor_D3D:
+    case Tegra::Engines::Maxwell3D::Regs::Blend::Factor::OneMinusConstantColor_GL:
         return VK_BLEND_FACTOR_ONE_MINUS_CONSTANT_COLOR;
-    case Maxwell::Blend::Factor::BothSourceAlpha_D3D:
-    case Maxwell::Blend::Factor::ConstantAlpha_GL:
+    case Tegra::Engines::Maxwell3D::Regs::Blend::Factor::BothSourceAlpha_D3D:
+    case Tegra::Engines::Maxwell3D::Regs::Blend::Factor::ConstantAlpha_GL:
         return VK_BLEND_FACTOR_CONSTANT_ALPHA;
-    case Maxwell::Blend::Factor::OneMinusBothSourceAlpha_D3D:
-    case Maxwell::Blend::Factor::OneMinusConstantAlpha_GL:
+    case Tegra::Engines::Maxwell3D::Regs::Blend::Factor::OneMinusBothSourceAlpha_D3D:
+    case Tegra::Engines::Maxwell3D::Regs::Blend::Factor::OneMinusConstantAlpha_GL:
         return VK_BLEND_FACTOR_ONE_MINUS_CONSTANT_ALPHA;
     }
     UNIMPLEMENTED_MSG("Unimplemented blend factor={}", factor);
     return {};
 }
 
-VkFrontFace FrontFace(Maxwell::FrontFace front_face) {
+VkFrontFace FrontFace(Tegra::Engines::Maxwell3D::Regs::FrontFace front_face) {
     switch (front_face) {
-    case Maxwell::FrontFace::ClockWise:
+    case Tegra::Engines::Maxwell3D::Regs::FrontFace::ClockWise:
         return VK_FRONT_FACE_CLOCKWISE;
-    case Maxwell::FrontFace::CounterClockWise:
+    case Tegra::Engines::Maxwell3D::Regs::FrontFace::CounterClockWise:
         return VK_FRONT_FACE_COUNTER_CLOCKWISE;
     }
     UNIMPLEMENTED_MSG("Unimplemented front face={}", front_face);
     return {};
 }
 
-VkCullModeFlagBits CullFace(Maxwell::CullFace cull_face) {
+VkCullModeFlagBits CullFace(Tegra::Engines::Maxwell3D::Regs::CullFace cull_face) {
     switch (cull_face) {
-    case Maxwell::CullFace::Front:
+    case Tegra::Engines::Maxwell3D::Regs::CullFace::Front:
         return VK_CULL_MODE_FRONT_BIT;
-    case Maxwell::CullFace::Back:
+    case Tegra::Engines::Maxwell3D::Regs::CullFace::Back:
         return VK_CULL_MODE_BACK_BIT;
-    case Maxwell::CullFace::FrontAndBack:
+    case Tegra::Engines::Maxwell3D::Regs::CullFace::FrontAndBack:
         return VK_CULL_MODE_FRONT_AND_BACK;
     }
     UNIMPLEMENTED_MSG("Unimplemented cull face={}", cull_face);
     return {};
 }
 
-VkPolygonMode PolygonMode(Maxwell::PolygonMode polygon_mode) {
+VkPolygonMode PolygonMode(Tegra::Engines::Maxwell3D::Regs::PolygonMode polygon_mode) {
     switch (polygon_mode) {
-    case Maxwell::PolygonMode::Point:
+    case Tegra::Engines::Maxwell3D::Regs::PolygonMode::Point:
         return VK_POLYGON_MODE_POINT;
-    case Maxwell::PolygonMode::Line:
+    case Tegra::Engines::Maxwell3D::Regs::PolygonMode::Line:
         return VK_POLYGON_MODE_LINE;
-    case Maxwell::PolygonMode::Fill:
+    case Tegra::Engines::Maxwell3D::Regs::PolygonMode::Fill:
         return VK_POLYGON_MODE_FILL;
     }
     UNIMPLEMENTED_MSG("Unimplemented polygon mode={}", polygon_mode);
@@ -847,23 +845,23 @@ VkComponentSwizzle SwizzleSource(Tegra::Texture::SwizzleSource swizzle) {
     return {};
 }
 
-VkViewportCoordinateSwizzleNV ViewportSwizzle(Maxwell::ViewportSwizzle swizzle) {
+VkViewportCoordinateSwizzleNV ViewportSwizzle(Tegra::Engines::Maxwell3D::Regs::ViewportSwizzle swizzle) {
     switch (swizzle) {
-    case Maxwell::ViewportSwizzle::PositiveX:
+    case Tegra::Engines::Maxwell3D::Regs::ViewportSwizzle::PositiveX:
         return VK_VIEWPORT_COORDINATE_SWIZZLE_POSITIVE_X_NV;
-    case Maxwell::ViewportSwizzle::NegativeX:
+    case Tegra::Engines::Maxwell3D::Regs::ViewportSwizzle::NegativeX:
         return VK_VIEWPORT_COORDINATE_SWIZZLE_NEGATIVE_X_NV;
-    case Maxwell::ViewportSwizzle::PositiveY:
+    case Tegra::Engines::Maxwell3D::Regs::ViewportSwizzle::PositiveY:
         return VK_VIEWPORT_COORDINATE_SWIZZLE_POSITIVE_Y_NV;
-    case Maxwell::ViewportSwizzle::NegativeY:
+    case Tegra::Engines::Maxwell3D::Regs::ViewportSwizzle::NegativeY:
         return VK_VIEWPORT_COORDINATE_SWIZZLE_NEGATIVE_Y_NV;
-    case Maxwell::ViewportSwizzle::PositiveZ:
+    case Tegra::Engines::Maxwell3D::Regs::ViewportSwizzle::PositiveZ:
         return VK_VIEWPORT_COORDINATE_SWIZZLE_POSITIVE_Z_NV;
-    case Maxwell::ViewportSwizzle::NegativeZ:
+    case Tegra::Engines::Maxwell3D::Regs::ViewportSwizzle::NegativeZ:
         return VK_VIEWPORT_COORDINATE_SWIZZLE_NEGATIVE_Z_NV;
-    case Maxwell::ViewportSwizzle::PositiveW:
+    case Tegra::Engines::Maxwell3D::Regs::ViewportSwizzle::PositiveW:
         return VK_VIEWPORT_COORDINATE_SWIZZLE_POSITIVE_W_NV;
-    case Maxwell::ViewportSwizzle::NegativeW:
+    case Tegra::Engines::Maxwell3D::Regs::ViewportSwizzle::NegativeW:
         return VK_VIEWPORT_COORDINATE_SWIZZLE_NEGATIVE_W_NV;
     }
     ASSERT_MSG(false, "Invalid swizzle={}", swizzle);

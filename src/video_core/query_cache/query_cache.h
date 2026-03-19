@@ -27,8 +27,6 @@
 
 namespace VideoCommon {
 
-using Maxwell = Tegra::Engines::Maxwell3D;
-
 struct SyncValuesStruct {
     VAddr address;
     u64 value;
@@ -419,7 +417,7 @@ bool QueryCacheBase<Traits>::AccelerateHostConditionalRendering() {
     };
 
     auto& regs = maxwell3d->regs;
-    if (regs.render_enable_override != Maxwell::Regs::RenderEnable::Override::UseRenderEnable) {
+    if (regs.render_enable_override != Tegra::Engines::Maxwell3D::Regs::RenderEnable::Override::UseRenderEnable) {
         impl->runtime.EndHostConditionalRendering();
         return false;
     }
