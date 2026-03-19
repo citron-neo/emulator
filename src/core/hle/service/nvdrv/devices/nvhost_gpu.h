@@ -183,6 +183,7 @@ private:
     s32_le nvmap_fd{};
     u64_le user_data{};
     IoctlZCullBind zcull_params{};
+    std::array<std::optional<IoctlAllocObjCtx>, 6> ctxObjs;
     u32_le channel_priority{};
     u32_le channel_timeslice{};
 
@@ -193,6 +194,8 @@ private:
     NvResult SetErrorNotifier(IoctlSetErrorNotifier& params);
     NvResult SetChannelPriority(IoctlChannelSetPriority& params);
     NvResult AllocGPFIFOEx2(IoctlAllocGpfifoEx2& params, DeviceFD fd);
+
+    s32_le GetObjectContextClassNumberIndex(CtxObjects classObj);
     NvResult AllocateObjectContext(IoctlAllocObjCtx& params);
 
     NvResult SubmitGPFIFOImpl(IoctlSubmitGpfifo& params, Tegra::CommandList&& entries);
