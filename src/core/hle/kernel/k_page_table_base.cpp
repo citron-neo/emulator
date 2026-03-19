@@ -291,6 +291,23 @@ Result KPageTableBase::InitializeForProcess(Svc::CreateProcessFlag as_type, bool
         alloc_start = process_code_end;
         alloc_size = GetInteger(end) - GetInteger(process_code_end);
     }
+
+    // FW 18+: Apply extra region size calculations for already available region size
+    const auto as_mask = Svc::CreateProcessFlag::AddressSpaceMask;
+    const bool is_64bit_as = (as_type & as_mask) == Svc::CreateProcessFlag::AddressSpace64Bit;
+
+    if (is_64bit_as && (as_type & Svc::CreateProcessFlag::EnableAliasRegionExtraSize)
+        != Svc::CreateProcessFlag{0} && alias_region_size) {
+        const size_t address_space_size = (GetInteger(end) - GetInteger(start));
+
+        // Same as address_space_size/8 but faster due to bit shifting operation
+        const size_t alias_region_extra_size = address_space_size >> 3;
+        alias_region_size += alias_region_extra_size;
+
+        // Store for later processing
+        m_alias_region_extra_size = alias_region_extra_size;
+    }
+
     const size_t needed_size =
         (alias_region_size + heap_region_size + stack_region_size + kernel_map_region_size);
     R_UNLESS(alloc_size >= needed_size, ResultOutOfMemory);
