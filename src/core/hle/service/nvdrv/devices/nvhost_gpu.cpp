@@ -191,12 +191,60 @@ NvResult nvhost_gpu::AllocGPFIFOEx2(IoctlAllocGpfifoEx2& params, DeviceFD fd) {
     return NvResult::Success;
 }
 
-NvResult nvhost_gpu::AllocateObjectContext(IoctlAllocObjCtx& params) {
-    LOG_WARNING(Service_NVDRV, "(STUBBED) called, class_num={:X}, flags={:X}", params.class_num,
-                params.flags);
+s32_le nvhost_gpu::GetObjectContextClassNumberIndex(CtxObjects classObj)
+{
+    using enum CtxObjects;
 
-    params.obj_id = 0x0;
+    constexpr s32_le invalidIndex = -1;
+
+    switch (classObj) {
+    case Ctx2D: return 0;
+    case Ctx3D: return 1;
+    case CtxCompute: return 2;
+    case CtxKepler: return 3;
+    case CtxDMA: return 4;
+    case CtxChannelGPFIFO: return 5;
+    default: return invalidIndex;
+    }
+}
+
+NvResult nvhost_gpu::AllocateObjectContext(IoctlAllocObjCtx& params) {
+    LOG_DEBUG(Service_NVDRV, "called, class_num={:#X}, flags={:#X}, obj_id={:#X}", params.class_num,
+              params.flags, params.obj_id);
+
+    if (!channel_state || !channel_state->initialized) {
+        LOG_CRITICAL(Service_NVDRV, "No address space bound to allocate a object context!");
+        return NvResult::NotInitialized;
+    }
+
+    std::scoped_lock lk(channel_mutex);
+
+    if (params.flags) {
+        LOG_WARNING(Service_NVDRV, "non-zero flags={:#X} for class={:#X}", params.flags,
+                    params.class_num);
+
+        constexpr u32 allowed_mask{};
+        params.flags = allowed_mask;
+    }
+
+    s32_le ctx_class_number_index =
+        GetObjectContextClassNumberIndex(static_cast<CtxObjects>(params.class_num));
+    if (ctx_class_number_index < 0) {
+        LOG_ERROR(Service_NVDRV, "Invalid class number for object context: {:#X}",
+                  params.class_num);
+        return NvResult::BadParameter;
+    }
+
+    if (ctxObjs[ctx_class_number_index].has_value()) {
+        LOG_ERROR(Service_NVDRV, "Object context for class {:#X} already allocated on this channel",
+                  params.class_num);
+        return NvResult::AlreadyAllocated;
+    }
+
+    ctxObjs[ctx_class_number_index] = params;
+
     return NvResult::Success;
+
 }
 
 static boost::container::small_vector<Tegra::CommandHeader, 512> BuildWaitCommandList(
