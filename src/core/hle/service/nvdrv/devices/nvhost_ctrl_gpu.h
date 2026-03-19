@@ -21,48 +21,10 @@ class EventInterface;
 
 namespace Service::Nvidia::Devices {
 
-// Global ZBC manager for GPU memory management integration
-class ZBCManager {
-public:
-    static ZBCManager& Instance() {
-        static ZBCManager instance;
-        return instance;
-    }
-
-    // ZBC table entry structure
-    struct ZBCEntry {
-        std::array<u32, 4> color_ds;
-        std::array<u32, 4> color_l2;
-        u32 depth;
-        u32 format;
-        u32 type;
-        u32 ref_count;
-    };
-
-    // ZBC table access methods for GPU clearing operations
-    std::optional<std::array<u32, 4>> GetZBCColor(u32 format, u32 type) const;
-    std::optional<u32> GetZBCDepth(u32 format, u32 type) const;
-
-    // Store ZBC entry (called by nvhost_ctrl_gpu)
-    void StoreZBCEntry(u32 format, u32 type, const std::array<u32, 4>& color_ds,
-                       const std::array<u32, 4>& color_l2, u32 depth);
-
-private:
-    ZBCManager() = default;
-    ~ZBCManager() = default;
-    ZBCManager(const ZBCManager&) = delete;
-    ZBCManager& operator=(const ZBCManager&) = delete;
-
-    mutable std::mutex zbc_table_mutex;
-    std::map<std::pair<u32, u32>, ZBCEntry> zbc_table; // Key: (format, type)
+enum class ZBCTypes {
+    color = 1,
+    depth = 2,
 };
-
-// Forward declaration for external access
-namespace ZBC {
-    // Helper functions for GPU clearing operations
-    std::optional<std::array<u32, 4>> GetColor(u32 format, u32 type);
-    std::optional<u32> GetDepth(u32 format, u32 type);
-}
 
 class nvhost_ctrl_gpu final : public nvdevice {
 public:
@@ -191,6 +153,21 @@ private:
     };
     static_assert(sizeof(IoctlZbcQueryTable) == 52, "IoctlZbcQueryTable is incorrect size");
 
+    struct ZbcColorEntry {
+        std::array<u32, 4> color_ds{};
+        std::array<u32, 4> color_l2{};
+        u32 format{};
+        u32 ref_cnt{};
+    };
+    static_assert(sizeof(ZbcColorEntry) == 40, "ZbcColorEntry is incorrect size");
+
+    struct ZbcDepthEntry {
+        u32 depth{};
+        u32 format{};
+        u32 ref_cnt{};
+    };
+    static_assert(sizeof(ZbcDepthEntry) == 12, "ZbcDepthEntry is incorrect size");
+
     struct IoctlFlushL2 {
         u32_le flush; // l2_flush | l2_invalidate << 1 | fb_flush << 2
         u32_le reserved;
@@ -241,6 +218,12 @@ private:
     // Events
     Kernel::KEvent* error_notifier_event;
     Kernel::KEvent* unknown_event;
+
+    // ZBC Tables
+    std::mutex zbc_mutex{};
+    std::vector<ZbcColorEntry> zbc_colors{};
+    std::vector<ZbcDepthEntry> zbc_depths{};
+    const u32 supported_types = 2u;
 };
 
 } // namespace Service::Nvidia::Devices
