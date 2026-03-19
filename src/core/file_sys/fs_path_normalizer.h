@@ -9,6 +9,11 @@
 
 namespace FileSys {
 
+namespace InternalPathNormalizer
+{
+    bool IsInvalidCharacter(char c);
+}
+
 /// Path normalization and validation utilities
 /// Based on LibHac's PathNormalizerV2 and PathUtility
 class PathNormalizerV2 {
