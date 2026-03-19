@@ -61,7 +61,7 @@ void TranslatorVisitor::ISBERD(u64 insn) {
         BitField<24, 8, u32> imm;
         BitField<31, 1, u64> skew;
         BitField<32, 1, u64> o;
-        BitField<33, 2, Mode> mode;
+        BitField<33, 2, ModeISBER> mode;
         BitField<36, 4, SZ> sz;
         BitField<47, 2, Shift> shift;
     } const isberd{insn};
@@ -93,18 +93,18 @@ void TranslatorVisitor::ISBERD(u64 insn) {
         return;
     }
 
-    if (isberd.mode.Value() != Mode::Default) {
+    if (isberd.mode.Value() != ModeISBER::Default) {
         if (isberd.skew.Value()) {
             index = ir.IAdd(index, skewBytes(ir, SZ::U32));
         }
 
         IR::F32 float_index{};
         switch (isberd.mode.Value()) {
-        case Mode::Patch: float_index = ir.GetPatch(index.Patch());
+        case ModeISBER::Patch: float_index = ir.GetPatch(index.Patch());
             break;
-        case Mode::Prim:  float_index = ir.GetAttribute(index.Attribute());
+        case ModeISBER::Prim:  float_index = ir.GetAttribute(index.Attribute());
             break;
-        case Mode::Attr:  float_index = ir.GetAttributeIndexed(index);
+        case ModeISBER::Attr:  float_index = ir.GetAttributeIndexed(index);
             break;
         default: UNREACHABLE();
         }
