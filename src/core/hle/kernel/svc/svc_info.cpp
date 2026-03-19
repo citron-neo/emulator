@@ -218,11 +218,10 @@ Result GetInfo(Core::System& system, u64* result, InfoType info_id_type, Handle 
         R_SUCCEED();
     }
 
-    case InfoType::TLSCapability: {
-        // This is related to TLS capabilities
-        // For now, let's return a successful result with a value that indicates TLS is supported
-        LOG_WARNING(Kernel_SVC, "(STUBBED) TLS capability check requested, returning supported");
-        *result = 1; // Indicate support
+    case InfoType::AliasRegionExtraSize: {
+        const auto& handle_table = GetCurrentProcess(system.Kernel()).GetHandleTable();
+        KScopedAutoObject process = handle_table.GetObject<KProcess>(handle);
+        R_UNLESS(process.IsNotNull(), ResultInvalidHandle);
         R_SUCCEED();
     }
 
