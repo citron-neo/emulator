@@ -522,9 +522,9 @@ void Widget::SetupComponent(const QString& label, std::function<void()>& load_fu
     }
 
     const bool require_checkbox =
-        other_setting != nullptr && other_setting->TypeId() == typeid(bool);
+        other_setting != nullptr && other_setting->TypeId() == "bool";
 
-    if (other_setting != nullptr && other_setting->TypeId() != typeid(bool)) {
+    if (other_setting != nullptr && other_setting->TypeId() != "bool") {
         LOG_WARNING(
             Frontend,
             "Extra setting \"{}\" specified but is not bool, refusing to create checkbox for it.",
@@ -582,12 +582,12 @@ void Widget::SetupComponent(const QString& label, std::function<void()>& load_fu
         QWidget* lhs =
             CreateCheckBox(other_setting, label, checkbox_serializer, checkbox_restore_func, touch);
         layout->addWidget(lhs);
-    } else if (setting.TypeId() != typeid(bool)) {
+    } else if (setting.TypeId() != "bool") {
         QLabel* qt_label = CreateLabel(label);
         layout->addWidget(qt_label);
     }
 
-    if (setting.TypeId() == typeid(bool)) {
+    if (setting.TypeId() == "bool") {
         data_component = CreateCheckBox(&setting, label, serializer, restore_func, touch);
     } else if (setting.IsEnum()) {
         if (request == RequestType::RadioGroup) {
@@ -636,7 +636,7 @@ void Widget::SetupComponent(const QString& label, std::function<void()>& load_fu
         default:
             UNIMPLEMENTED();
         }
-    } else if (type == typeid(std::string)) {
+    } else if (type == "std::string") {
         switch (request) {
         case RequestType::Default:
         case RequestType::LineEdit:

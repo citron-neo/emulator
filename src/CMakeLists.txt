@@ -57,6 +57,7 @@ if (MSVC)
         /Zc:preprocessor
         /Zc:throwingNew
         /GT
+        /GR-
 
         # Modules
         /experimental:module- # Explicitly disable module support due to conflicts with precompiled headers.
@@ -116,6 +117,8 @@ if (MSVC)
 else()
     add_compile_options(
         -fwrapv
+        -fno-rtti
+        -pipe
 
         -Werror=all
         -Werror=extra
