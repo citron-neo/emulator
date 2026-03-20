@@ -74,3 +74,6 @@
 [submodule "externals/SPIRV-Headers"]
 	path = externals/SPIRV-Headers
 	url = https://github.com/KhronosGroup/SPIRV-Headers
+[submodule "externals/unordered_dense"]
+	path = externals/unordered_dense
+	url = https://github.com/martinus/unordered_dense.git
