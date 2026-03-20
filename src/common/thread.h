@@ -10,7 +10,6 @@
 #include <cstddef>
 #include <mutex>
 #include <thread>
-#include <stop_token>
 #include "common/common_types.h"
 #include "common/polyfill_thread.h"
 
