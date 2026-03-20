@@ -8,6 +8,7 @@
 #include <optional>
 #include <stdexcept>
 #include <string>
+#include <type_traits>
 #include <typeindex>
 #include <typeinfo>
 #include <fmt/core.h>
@@ -215,8 +216,14 @@ public:
      *
      * @returns the type_index of the setting's type
      */
-    [[nodiscard]] std::type_index TypeId() const override final {
-        return std::type_index(typeid(Type));
+    [[nodiscard]] std::string TypeId() const override final {
+        if constexpr (std::is_same_v<Type, std::string>) {
+            return "std::string";
+        } else if constexpr (std::is_same_v<Type, bool>) {
+            return "bool";
+        } else {
+            return "?";
+        }
     }
 
     [[nodiscard]] constexpr u32 EnumIndex() const override final {
