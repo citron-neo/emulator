@@ -218,7 +218,7 @@ VirtualDir PatchManager::PatchExeFS(VirtualDir exefs) const {
 
         // 1. External Updates
         const auto* content_provider_union =
-            dynamic_cast<const ContentProviderUnion*>(&content_provider);
+            static_cast<const ContentProviderUnion*>(&content_provider);
         if (content_provider_union) {
             const auto* external_provider = content_provider_union->GetExternalProvider();
             if (external_provider) {
@@ -598,7 +598,7 @@ VirtualFile PatchManager::PatchRomFS(const NCA* base_nca, VirtualFile base_romfs
 
         // 1. External Updates
         const auto* content_provider_union =
-            dynamic_cast<const ContentProviderUnion*>(&content_provider);
+            static_cast<const ContentProviderUnion*>(&content_provider);
         if (content_provider_union) {
             const auto* external_provider = content_provider_union->GetExternalProvider();
             if (external_provider) {
@@ -843,7 +843,7 @@ std::vector<Patch> PatchManager::GetPatches(VirtualFile update_raw) const {
 
     // Next, check for external updates
     const auto* content_provider_union =
-        dynamic_cast<const ContentProviderUnion*>(&content_provider);
+        static_cast<const ContentProviderUnion*>(&content_provider);
     if (content_provider_union) {
         const auto* external_provider = content_provider_union->GetExternalProvider();
         if (external_provider) {

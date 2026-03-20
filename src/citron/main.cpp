@@ -5190,11 +5190,11 @@ u64 GMainWindow::GetTotalVram() const {
         auto& gpu = system->GPU();
         VideoCore::RendererBase& renderer = gpu.Renderer();
         // Check if it's a Vulkan renderer
-        Vulkan::RendererVulkan* vulkan_renderer = dynamic_cast<Vulkan::RendererVulkan*>(&renderer);
+        Vulkan::RendererVulkan* vulkan_renderer = static_cast<Vulkan::RendererVulkan*>(&renderer);
         if (vulkan_renderer) {
             VideoCore::RasterizerInterface* rasterizer = vulkan_renderer->ReadRasterizer();
             Vulkan::RasterizerVulkan* vulkan_rasterizer =
-                dynamic_cast<Vulkan::RasterizerVulkan*>(rasterizer);
+                static_cast<Vulkan::RasterizerVulkan*>(rasterizer);
             if (vulkan_rasterizer) {
                 return vulkan_rasterizer->GetTotalVram();
             }
@@ -5212,11 +5212,11 @@ u64 GMainWindow::GetUsedVram() const {
     try {
         auto& gpu = system->GPU();
         VideoCore::RendererBase& renderer = gpu.Renderer();
-        Vulkan::RendererVulkan* vulkan_renderer = dynamic_cast<Vulkan::RendererVulkan*>(&renderer);
+        Vulkan::RendererVulkan* vulkan_renderer = static_cast<Vulkan::RendererVulkan*>(&renderer);
         if (vulkan_renderer) {
             VideoCore::RasterizerInterface* rasterizer = vulkan_renderer->ReadRasterizer();
             Vulkan::RasterizerVulkan* vulkan_rasterizer =
-                dynamic_cast<Vulkan::RasterizerVulkan*>(rasterizer);
+                static_cast<Vulkan::RasterizerVulkan*>(rasterizer);
             if (vulkan_rasterizer) {
                 return vulkan_rasterizer->GetUsedVram();
             }
@@ -5234,11 +5234,11 @@ u64 GMainWindow::GetBufferMemoryUsage() const {
     try {
         auto& gpu = system->GPU();
         VideoCore::RendererBase& renderer = gpu.Renderer();
-        Vulkan::RendererVulkan* vulkan_renderer = dynamic_cast<Vulkan::RendererVulkan*>(&renderer);
+        Vulkan::RendererVulkan* vulkan_renderer = static_cast<Vulkan::RendererVulkan*>(&renderer);
         if (vulkan_renderer) {
             VideoCore::RasterizerInterface* rasterizer = vulkan_renderer->ReadRasterizer();
             Vulkan::RasterizerVulkan* vulkan_rasterizer =
-                dynamic_cast<Vulkan::RasterizerVulkan*>(rasterizer);
+                static_cast<Vulkan::RasterizerVulkan*>(rasterizer);
             if (vulkan_rasterizer) {
                 return vulkan_rasterizer->GetBufferMemoryUsage();
             }
@@ -5256,11 +5256,11 @@ u64 GMainWindow::GetTextureMemoryUsage() const {
     try {
         auto& gpu = system->GPU();
         VideoCore::RendererBase& renderer = gpu.Renderer();
-        Vulkan::RendererVulkan* vulkan_renderer = dynamic_cast<Vulkan::RendererVulkan*>(&renderer);
+        Vulkan::RendererVulkan* vulkan_renderer = static_cast<Vulkan::RendererVulkan*>(&renderer);
         if (vulkan_renderer) {
             VideoCore::RasterizerInterface* rasterizer = vulkan_renderer->ReadRasterizer();
             Vulkan::RasterizerVulkan* vulkan_rasterizer =
-                dynamic_cast<Vulkan::RasterizerVulkan*>(rasterizer);
+                static_cast<Vulkan::RasterizerVulkan*>(rasterizer);
             if (vulkan_rasterizer) {
                 return vulkan_rasterizer->GetTextureMemoryUsage();
             }
@@ -5278,11 +5278,11 @@ u64 GMainWindow::GetStagingMemoryUsage() const {
     try {
         auto& gpu = system->GPU();
         VideoCore::RendererBase& renderer = gpu.Renderer();
-        Vulkan::RendererVulkan* vulkan_renderer = dynamic_cast<Vulkan::RendererVulkan*>(&renderer);
+        Vulkan::RendererVulkan* vulkan_renderer = static_cast<Vulkan::RendererVulkan*>(&renderer);
         if (vulkan_renderer) {
             VideoCore::RasterizerInterface* rasterizer = vulkan_renderer->ReadRasterizer();
             Vulkan::RasterizerVulkan* vulkan_rasterizer =
-                dynamic_cast<Vulkan::RasterizerVulkan*>(rasterizer);
+                static_cast<Vulkan::RasterizerVulkan*>(rasterizer);
             if (vulkan_rasterizer) {
                 return vulkan_rasterizer->GetStagingMemoryUsage();
             }

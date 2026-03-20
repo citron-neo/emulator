@@ -839,7 +839,7 @@ ContentProviderUnion::~ContentProviderUnion() = default;
 const ExternalContentProvider* ContentProviderUnion::GetExternalProvider() const {
     auto it = providers.find(ContentProviderUnionSlot::External);
     if (it != providers.end()) {
-        return dynamic_cast<const ExternalContentProvider*>(it->second);
+        return static_cast<const ExternalContentProvider*>(it->second);
     }
     return nullptr;
 }
