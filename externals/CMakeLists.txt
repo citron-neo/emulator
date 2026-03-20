@@ -2,6 +2,9 @@
 # SPDX-FileCopyrightText: 2026 citron Emulator Project
 # SPDX-License-Identifier: GPL-2.0-or-later
 
+# Needed for ankerls map implementation used in various places
+add_subdirectory(unordered_dense)
+
 # Dynarmic has cmake_minimum_required(3.12) and we may want to override
 # some of its variables, which is only possible in 3.13+
 set(CMAKE_POLICY_DEFAULT_CMP0077 NEW)

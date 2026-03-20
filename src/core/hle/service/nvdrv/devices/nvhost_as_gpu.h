@@ -6,7 +6,7 @@
 
 #include <bit>
 #include <list>
-#include <map>
+#include <ankerl/unordered_dense.h>
 #include <memory>
 #include <mutex>
 #include <optional>
@@ -181,7 +181,7 @@ private:
         bool big_pages;
     };
 
-    std::map<u64, std::shared_ptr<Mapping>>
+    ankerl::unordered_dense::map<u64, std::shared_ptr<Mapping>>
         mapping_map; //!< This maps the base addresses of mapped buffers to their total sizes and
                      //!< mapping type, this is needed as what was originally a single buffer may
                      //!< have been split into multiple GPU side buffers with the remap flag.
