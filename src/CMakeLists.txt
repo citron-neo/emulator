@@ -117,7 +117,7 @@ if (MSVC)
 else()
     add_compile_options(
         -fwrapv
-        -fno-rtti
+        # -fno-rtti (dynamic_cast complains about it)
         -pipe
 
         -Werror=all
