@@ -53,7 +53,11 @@ option(ENABLE_QT "Enable the Qt frontend" ON)
 option(ENABLE_QT_TRANSLATION "Enable translations for the Qt frontend" OFF)
 CMAKE_DEPENDENT_OPTION(CITRON_USE_BUNDLED_QT "Download bundled Qt binaries" "${MSVC}" "ENABLE_QT" OFF)
 
-option(ENABLE_WEB_SERVICE "Enable web services (telemetry, etc.)" ON)
+set(DEFAULT_ENABLE_WEB_SERVICE ON)
+if (CMAKE_SYSTEM_NAME STREQUAL "FreeBSD")
+    set(DEFAULT_ENABLE_WEB_SERVICE OFF)
+endif()
+option(ENABLE_WEB_SERVICE "Enable web services (telemetry, etc.)" "${DEFAULT_ENABLE_WEB_SERVICE}")
 
 option(CITRON_USE_BUNDLED_FFMPEG "Download/Build bundled FFmpeg" "${WIN32}")
 
