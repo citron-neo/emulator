@@ -354,7 +354,7 @@ public:
 
     [[nodiscard]] Service::AM::AppletManager& GetAppletManager();
 
-    void SetContentProvider(std::unique_ptr<FileSys::ContentProviderUnion> provider);
+    void SetContentProvider(std::unique_ptr<FileSys::ContentProviderUnion>&& provider);
 
     [[nodiscard]] FileSys::ContentProvider& GetContentProvider();
     [[nodiscard]] const FileSys::ContentProvider& GetContentProvider() const;
