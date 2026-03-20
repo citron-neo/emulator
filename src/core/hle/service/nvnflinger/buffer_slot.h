@@ -34,9 +34,7 @@ struct BufferSlot final {
     bool needs_cleanup_on_release{};
     bool attached_by_consumer{};
     bool is_preallocated{};
-
-    s64 queue_time{};
-    s64 presentation_time{};
+    s64 queue_time{}, presentation_time{};
 };
 
 } // namespace Service::android

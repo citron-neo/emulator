@@ -5,7 +5,6 @@
 // https://cs.android.com/android/platform/superproject/+/android-5.1.1_r38:frameworks/native/libs/gui/BufferQueueConsumer.cpp
 
 #include "common/assert.h"
-#include "common/logging.h"
 #include "core/hle/service/nvnflinger/buffer_item.h"
 #include "core/hle/service/nvnflinger/buffer_queue_consumer.h"
 #include "core/hle/service/nvnflinger/buffer_queue_core.h"
@@ -96,19 +95,6 @@ Status BufferQueueConsumer::AcquireBuffer(BufferItem* out_buffer,
         slots[slot].acquire_called = true;
         slots[slot].needs_cleanup_on_release = false;
         slots[slot].buffer_state = BufferState::Acquired;
-
-        // Mark tracked buffer history records as acquired
-        for (auto& buffer_history_record : core->buffer_history) {
-            if (buffer_history_record.frame_number == core->frame_counter) {
-                buffer_history_record.state = BufferState::Acquired;
-                break;
-            }
-        }
-
-        // TODO: for now, avoid resetting the fence, so that when we next return this
-        // slot to the producer, it will wait for the fence to pass. We should fix this
-        // by properly waiting for the fence in the BufferItemConsumer.
-        // slots[slot].fence = Fence::NoFence();
     }
 
     // If the buffer has previously been acquired by the consumer, set graphic_buffer to nullptr to
@@ -328,7 +314,7 @@ void BufferQueueConsumer::Transact(u32 code, std::span<const u8> parcel_data,
 
     const auto serialized = parcel_out.Serialize();
     std::memcpy(parcel_reply.data(), serialized.data(),
-                std::min(parcel_reply.size(), serialized.size()));
+                (std::min)(parcel_reply.size(), serialized.size()));
 }
 
 Kernel::KReadableEvent* BufferQueueConsumer::GetNativeHandle(u32 type_id) {

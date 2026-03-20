@@ -15,13 +15,36 @@ BufferQueueCore::BufferQueueCore() = default;
 BufferQueueCore::~BufferQueueCore() = default;
 
 void BufferQueueCore::PushHistory(u64 frame_number, s64 queue_time, s64 presentation_time, BufferState state) {
-    buffer_history_pos = (buffer_history_pos + 1) % BUFFER_HISTORY_SIZE;
-    buffer_history[buffer_history_pos] = BufferHistoryInfo{
-        .frame_number = frame_number,
-        .queue_time = queue_time,
-        .presentation_time = presentation_time,
-        .state = state,
-    };
+    std::lock_guard lk(buffer_history_mutex);
+
+    auto it = buffer_history_map.find(frame_number);
+    if (it != buffer_history_map.end()) {
+        it->second.state = state;
+        return;
+    }
+
+    buffer_history_map.emplace(frame_number, BufferHistoryInfo{
+                                                 frame_number,
+                                                 queue_time,
+                                                 presentation_time,
+                                                 state
+                                             });
+    buffer_history_order.push_back(frame_number);
+
+    if (buffer_history_order.size() > BUFFER_HISTORY_SIZE) {
+        u64 oldest_frame = buffer_history_order.front();
+        buffer_history_order.pop_front();
+        buffer_history_map.erase(oldest_frame);
+    }
+}
+
+void BufferQueueCore::UpdateHistory(u64 frame_number, BufferState state) {
+    std::lock_guard lk(buffer_history_mutex);
+
+    auto it = buffer_history_map.find(frame_number);
+    if (it != buffer_history_map.end()) {
+        it->second.state = state;
+    }
 }
 
 void BufferQueueCore::SignalDequeueCondition() {
@@ -37,7 +60,6 @@ bool BufferQueueCore::WaitForDequeueCondition(std::unique_lock<std::mutex>& lk) 
 }
 
 s32 BufferQueueCore::GetMinUndequeuedBufferCountLocked(bool async) const {
-    // If DequeueBuffer is allowed to error out, we don't have to add an extra buffer.
     if (!use_async_buffer) {
         return 0;
     }
@@ -62,8 +84,6 @@ s32 BufferQueueCore::GetMaxBufferCountLocked(bool async) const {
         return override_max_buffer_count;
     }
 
-    // Any buffers that are dequeued by the producer or sitting in the queue waiting to be consumed
-    // need to have their slots preserved.
     for (s32 slot = max_buffer_count; slot < BufferQueueDefs::NUM_BUFFER_SLOTS; ++slot) {
         const auto state = slots[slot].buffer_state;
         if (state == BufferState::Queued || state == BufferState::Dequeued) {

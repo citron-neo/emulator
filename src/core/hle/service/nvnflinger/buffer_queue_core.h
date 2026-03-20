@@ -7,11 +7,14 @@
 #pragma once
 
 #include <condition_variable>
+#include <deque>
 #include <list>
 #include <memory>
 #include <mutex>
 #include <set>
 #include <vector>
+#include <unordered_map>
+#include <algorithm>
 
 #include "core/hle/service/nvnflinger/buffer_item.h"
 #include "core/hle/service/nvnflinger/buffer_queue_defs.h"
@@ -22,29 +25,18 @@
 
 namespace Service::android {
 
-#ifdef _MSC_VER
-#pragma pack(push, 1)
 struct BufferHistoryInfo {
-#elif defined(__GNUC__) || defined(__clang__)
-struct __attribute__((packed)) BufferHistoryInfo {
-#endif
-    u64 frame_number;
-    s64 queue_time;
-    s64 presentation_time;
-    BufferState state;
+    u64 frame_number{};
+    s64 queue_time{};
+    s64 presentation_time{};
+    BufferState state{};
 };
-#ifdef _MSC_VER
-#pragma pack(pop)
-#endif
-static_assert(sizeof(BufferHistoryInfo) == 0x1C, "BufferHistoryInfo must be 28 bytes");
 
 class IConsumerListener;
 class IProducerListener;
 
 class BufferQueueCore final {
     friend class BufferQueueProducer;
-    friend class BufferQueueProducer; // Typo in original file? No, it's friend class
-                                      // BufferQueueProducer; friend class BufferQueueConsumer;
     friend class BufferQueueConsumer;
 
 public:
@@ -55,6 +47,7 @@ public:
     ~BufferQueueCore();
 
     void PushHistory(u64 frame_number, s64 queue_time, s64 presentation_time, BufferState state);
+    void UpdateHistory(u64 frame_number, BufferState state);
 
 private:
     void SignalDequeueCondition();
@@ -91,8 +84,10 @@ private:
     const s32 max_acquired_buffer_count{}; // This is always zero on HOS
     bool buffer_has_been_queued{};
     u64 frame_counter{};
-    std::array<BufferHistoryInfo, BUFFER_HISTORY_SIZE> buffer_history{};
-    u32 buffer_history_pos{BUFFER_HISTORY_SIZE-1};
+
+    std::unordered_map<u64, BufferHistoryInfo> buffer_history_map{};
+    mutable std::mutex buffer_history_mutex{};
+    std::deque<u64> buffer_history_order;
 
     u32 transform_hint{};
     bool is_allocating{};

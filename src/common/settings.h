@@ -576,6 +576,18 @@ struct Values {
                                                 Category::RendererAdvanced};
     SwitchableSetting<bool> barrier_feedback_loops{linkage, true, "barrier_feedback_loops",
                                                    Category::RendererAdvanced};
+
+    SwitchableSetting<bool> enable_buffer_history
+    {
+        linkage,
+        false,
+        "enable_buffer_history",
+        Category::RendererAdvanced,
+        Specialization::Default,
+        true,
+        true
+    };
+
     SwitchableSetting<bool> wider_reciprocals{linkage, false, "wider_reciprocals", Category::RendererAdvanced};
     SwitchableSetting<ExtendedDynamicState, true> extended_dynamic_state{
         linkage,
