@@ -4,14 +4,12 @@
 // Parts of this implementation were based on:
 // https://cs.android.com/android/platform/superproject/+/android-5.1.1_r38:frameworks/native/libs/gui/BufferQueueProducer.cpp
 
-#include <chrono>
 #include "common/assert.h"
-#include "common/logging.h"
+#include "common/settings.h"
 #include "core/hle/kernel/k_event.h"
 #include "core/hle/kernel/k_readable_event.h"
 #include "core/hle/kernel/kernel.h"
 #include "core/hle/service/kernel_helpers.h"
-
 #include "core/hle/service/nvnflinger/buffer_queue_core.h"
 #include "core/hle/service/nvnflinger/buffer_queue_producer.h"
 #include "core/hle/service/nvnflinger/consumer_listener.h"
@@ -25,7 +23,7 @@ BufferQueueProducer::BufferQueueProducer(Service::KernelHelpers::ServiceContext&
                                          std::shared_ptr<BufferQueueCore> buffer_queue_core_,
                                          Service::Nvidia::NvCore::NvMap& nvmap_)
     : service_context{service_context_}, core{std::move(buffer_queue_core_)}, slots(core->slots),
-      nvmap(nvmap_) {
+      clock{Common::CreateOptimalClock()}, nvmap(nvmap_) {
     buffer_wait_event = service_context.CreateEvent("BufferQueue:WaitEvent");
 }
 
@@ -77,7 +75,7 @@ Status BufferQueueProducer::SetBufferCount(s32 buffer_count) {
             return Status::BadValue;
         }
 
-        // There must be no dequeued buffers when changing the buffer count.
+               // There must be no dequeued buffers when changing the buffer count.
         for (s32 s{}; s < BufferQueueDefs::NUM_BUFFER_SLOTS; ++s) {
             if (slots[s].buffer_state == BufferState::Dequeued) {
                 LOG_ERROR(Service_Nvnflinger, "buffer owned by producer");
@@ -98,8 +96,8 @@ Status BufferQueueProducer::SetBufferCount(s32 buffer_count) {
             return Status::BadValue;
         }
 
-        // Here we are guaranteed that the producer doesn't have any dequeued buffers and will
-        // release all of its buffer references.
+               // Here we are guaranteed that the producer doesn't have any dequeued buffers and will
+               // release all of its buffer references.
         if (core->GetPreallocatedBufferCountLocked() <= 0) {
             core->FreeAllBuffersLocked();
         }
@@ -110,7 +108,7 @@ Status BufferQueueProducer::SetBufferCount(s32 buffer_count) {
         listener = core->consumer_listener;
     }
 
-    // Call back without lock held
+           // Call back without lock held
     if (listener != nullptr) {
         listener->OnBuffersReleased();
     }
@@ -136,7 +134,7 @@ Status BufferQueueProducer::WaitForFreeSlotThenRelock(bool async, s32* found, St
             }
         }
 
-        // Free up any buffers that are in slots beyond the max buffer count
+               // Free up any buffers that are in slots beyond the max buffer count
         for (s32 s = max_buffer_count; s < BufferQueueDefs::NUM_BUFFER_SLOTS; ++s) {
             ASSERT(slots[s].buffer_state == BufferState::Free);
             if (slots[s].graphic_buffer != nullptr && slots[s].buffer_state == BufferState::Free &&
@@ -146,7 +144,7 @@ Status BufferQueueProducer::WaitForFreeSlotThenRelock(bool async, s32* found, St
             }
         }
 
-        // Look for a free buffer to give to the client
+               // Look for a free buffer to give to the client
         *found = BufferQueueCore::INVALID_BUFFER_SLOT;
         s32 dequeued_count{};
         s32 acquired_count{};
@@ -171,16 +169,16 @@ Status BufferQueueProducer::WaitForFreeSlotThenRelock(bool async, s32* found, St
             }
         }
 
-        // Producers are not allowed to dequeue more than one buffer if they did not set a buffer
-        // count
+               // Producers are not allowed to dequeue more than one buffer if they did not set a buffer
+               // count
         if (!core->override_max_buffer_count && dequeued_count) {
             LOG_ERROR(Service_Nvnflinger,
                       "can't dequeue multiple buffers without setting the buffer count");
             return Status::InvalidOperation;
         }
 
-        // See whether a buffer has been queued since the last SetBufferCount so we know whether to
-        // perform the min undequeued buffers check below
+               // See whether a buffer has been queued since the last SetBufferCount so we know whether to
+               // perform the min undequeued buffers check below
         if (core->buffer_has_been_queued) {
             // Make sure the producer is not trying to dequeue more buffers than allowed
             const s32 new_undequeued_count = max_buffer_count - (dequeued_count + 1);
@@ -193,16 +191,16 @@ Status BufferQueueProducer::WaitForFreeSlotThenRelock(bool async, s32* found, St
             }
         }
 
-        // If we disconnect and reconnect quickly, we can be in a state where our slots are empty
-        // but we have many buffers in the queue. This can cause us to run out of memory if we
-        // outrun the consumer. Wait here if it looks like we have too many buffers queued up.
+               // If we disconnect and reconnect quickly, we can be in a state where our slots are empty
+               // but we have many buffers in the queue. This can cause us to run out of memory if we
+               // outrun the consumer. Wait here if it looks like we have too many buffers queued up.
         const bool too_many_buffers = core->queue.size() > static_cast<size_t>(max_buffer_count);
         if (too_many_buffers) {
             LOG_ERROR(Service_Nvnflinger, "queue size is {}, waiting", core->queue.size());
         }
 
-        // If no buffer is found, or if the queue has too many buffers outstanding, wait for a
-        // buffer to be acquired or released, or for the max buffer count to change.
+               // If no buffer is found, or if the queue has too many buffers outstanding, wait for a
+               // buffer to be acquired or released, or for the max buffer count to change.
         try_again = (*found == BufferQueueCore::INVALID_BUFFER_SLOT) || too_many_buffers;
         if (try_again) {
             // Return an error if we're in non-blocking mode (producer and consumer are controlled
@@ -242,7 +240,7 @@ Status BufferQueueProducer::DequeueBuffer(s32* out_slot, Fence* out_fence, bool 
             format = core->default_buffer_format;
         }
 
-        // Enable the usage bits the consumer requested
+               // Enable the usage bits the consumer requested
         usage |= core->consumer_usage_bit;
 
         s32 found{};
@@ -251,7 +249,7 @@ Status BufferQueueProducer::DequeueBuffer(s32* out_slot, Fence* out_fence, bool 
             return status;
         }
 
-        // This should not happen
+               // This should not happen
         if (found == BufferQueueCore::INVALID_BUFFER_SLOT) {
             LOG_ERROR(Service_Nvnflinger, "no available buffer slots");
             return Status::Busy;
@@ -363,7 +361,7 @@ Status BufferQueueProducer::DetachNextBuffer(std::shared_ptr<GraphicBuffer>* out
         return Status::NoInit;
     }
 
-    // Find the oldest valid slot
+           // Find the oldest valid slot
     int found = BufferQueueCore::INVALID_BUFFER_SLOT;
     for (int s = 0; s < BufferQueueDefs::NUM_BUFFER_SLOTS; ++s) {
         if (slots[s].buffer_state == BufferState::Free && slots[s].graphic_buffer != nullptr) {
@@ -409,7 +407,7 @@ Status BufferQueueProducer::AttachBuffer(s32* out_slot,
         return status;
     }
 
-    // This should not happen
+           // This should not happen
     if (found == BufferQueueCore::INVALID_BUFFER_SLOT) {
         LOG_ERROR(Service_Nvnflinger, "No available buffer slots");
         return Status::Busy;
@@ -427,8 +425,7 @@ Status BufferQueueProducer::AttachBuffer(s32* out_slot,
     return return_flags;
 }
 
-Status BufferQueueProducer::QueueBuffer(s32 slot, const QueueBufferInput& input,
-                                        QueueBufferOutput* output) {
+Status BufferQueueProducer::QueueBuffer(s32 slot, const QueueBufferInput& input, QueueBufferOutput* output) {
     s64 timestamp{};
     bool is_auto_timestamp{};
     Common::Rectangle<s32> crop;
@@ -439,8 +436,7 @@ Status BufferQueueProducer::QueueBuffer(s32 slot, const QueueBufferInput& input,
     s32 swap_interval{};
     Fence fence{};
 
-    input.Deflate(&timestamp, &is_auto_timestamp, &crop, &scaling_mode, &transform,
-                  &sticky_transform_, &async, &swap_interval, &fence);
+    input.Deflate(&timestamp, &is_auto_timestamp, &crop, &scaling_mode, &transform, &sticky_transform_, &async, &swap_interval, &fence);
 
     switch (scaling_mode) {
     case NativeWindowScalingMode::Freeze:
@@ -454,10 +450,9 @@ Status BufferQueueProducer::QueueBuffer(s32 slot, const QueueBufferInput& input,
         return Status::BadValue;
     }
 
-    std::shared_ptr<IConsumerListener> frame_available_listener;
-    std::shared_ptr<IConsumerListener> frame_replaced_listener;
-    s32 callback_ticket{};
     BufferItem item;
+    std::shared_ptr<IConsumerListener> listener_available;
+    std::shared_ptr<IConsumerListener> listener_replaced;
 
     {
         std::scoped_lock lock{core->mutex};
@@ -468,137 +463,82 @@ Status BufferQueueProducer::QueueBuffer(s32 slot, const QueueBufferInput& input,
         }
 
         const s32 max_buffer_count = core->GetMaxBufferCountLocked(async);
-        if (async && core->override_max_buffer_count) {
-            if (core->override_max_buffer_count < max_buffer_count) {
-                LOG_ERROR(Service_Nvnflinger, "async mode is invalid with "
-                                              "buffer count override");
-                return Status::BadValue;
-            }
-        }
 
         if (slot < 0 || slot >= max_buffer_count) {
-            LOG_ERROR(Service_Nvnflinger, "slot index {} out of range [0, {})", slot,
-                      max_buffer_count);
+            LOG_ERROR(Service_Nvnflinger, "slot {} out of range [0, {})", slot, max_buffer_count);
             return Status::BadValue;
-        } else if (slots[slot].buffer_state != BufferState::Dequeued) {
-            LOG_ERROR(Service_Nvnflinger,
-                      "slot {} is not owned by the producer "
-                      "(state = {})",
-                      slot, slots[slot].buffer_state);
+        }
+        if (slots[slot].buffer_state != BufferState::Dequeued) {
+            LOG_ERROR(Service_Nvnflinger, "slot {} is not owned by producer", slot);
             return Status::BadValue;
-        } else if (!slots[slot].request_buffer_called) {
-            LOG_ERROR(Service_Nvnflinger,
-                      "slot {} was queued without requesting "
-                      "a buffer",
-                      slot);
+        }
+        if (!slots[slot].request_buffer_called) {
+            LOG_ERROR(Service_Nvnflinger, "slot {} was queued without request", slot);
             return Status::BadValue;
         }
 
-        LOG_DEBUG(Service_Nvnflinger,
-                  "slot={} frame={} time={} crop=[{},{},{},{}] transform={} scale={}", slot,
-                  core->frame_counter + 1, timestamp, crop.Left(), crop.Top(), crop.Right(),
-                  crop.Bottom(), transform, scaling_mode);
-
-        const std::shared_ptr<GraphicBuffer>& graphic_buffer(slots[slot].graphic_buffer);
-        Common::Rectangle<s32> buffer_rect(graphic_buffer->Width(), graphic_buffer->Height());
-        Common::Rectangle<s32> cropped_rect;
-        [[maybe_unused]] const bool unused = crop.Intersect(buffer_rect, &cropped_rect);
-
-        if (cropped_rect != crop) {
-            LOG_ERROR(Service_Nvnflinger, "crop rect is not contained within the buffer in slot {}",
-                      slot);
-            return Status::BadValue;
-        }
-
-        slots[slot].fence = fence;
-        slots[slot].buffer_state = BufferState::Queued;
         ++core->frame_counter;
+        slots[slot].buffer_state = BufferState::Queued;
         slots[slot].frame_number = core->frame_counter;
+        slots[slot].queue_time = timestamp;
+        slots[slot].presentation_time = clock->GetTimeNS().count();
+        slots[slot].fence = fence;
 
-        item.acquire_called = slots[slot].acquire_called;
+        item.slot = slot;
         item.graphic_buffer = slots[slot].graphic_buffer;
-        item.crop = crop;
-        item.transform = transform & ~NativeWindowTransform::InverseDisplay;
-        item.transform_to_display_inverse =
-            (transform & NativeWindowTransform::InverseDisplay) != NativeWindowTransform::None;
-        item.scaling_mode = static_cast<u32>(scaling_mode);
+        item.frame_number = core->frame_counter;
         item.timestamp = timestamp;
         item.is_auto_timestamp = is_auto_timestamp;
-        item.frame_number = core->frame_counter;
-        item.slot = slot;
+        item.crop = crop;
+        item.transform = transform & ~NativeWindowTransform::InverseDisplay;
+        item.transform_to_display_inverse = (transform & NativeWindowTransform::InverseDisplay) != NativeWindowTransform::None;
+        item.scaling_mode = static_cast<u32>(scaling_mode);
         item.fence = fence;
         item.is_droppable = core->dequeue_buffer_cannot_block || async;
         item.swap_interval = swap_interval;
+        item.acquire_called = slots[slot].acquire_called;
 
         sticky_transform = sticky_transform_;
 
         if (core->queue.empty()) {
-            // When the queue is empty, we can simply queue this buffer
             core->queue.push_back(item);
-            frame_available_listener = core->consumer_listener;
+            listener_available = core->consumer_listener;
         } else {
-            // When the queue is not empty, we need to look at the front buffer
-            // state to see if we need to replace it
-            auto front(core->queue.begin());
+            auto front = core->queue.begin();
+            if (front->is_droppable && core->StillTracking(*front)) {
+                slots[front->slot].buffer_state = BufferState::Free;
+                if (Settings::values.enable_buffer_history.GetValue()) {
+                    core->UpdateHistory(front->frame_number, BufferState::Free);
+                }
+                slots[front->slot].frame_number = 0;
+            }
 
             if (front->is_droppable) {
-                // If the front queued buffer is still being tracked, we first
-                // mark it as freed
-                if (core->StillTracking(*front)) {
-                    slots[front->slot].buffer_state = BufferState::Free;
-
-                    // Mark tracked buffer history records as free
-                    for (auto& buffer_history_record : core->buffer_history) {
-                        if (buffer_history_record.frame_number == front->frame_number) {
-                            buffer_history_record.state = BufferState::Free;
-                            break;
-                        }
-                    }
-
-                    // Reset the frame number of the freed buffer so that it is the first in line to
-                    // be dequeued again
-                    slots[front->slot].frame_number = 0;
-                }
-                // Overwrite the droppable buffer with the incoming one
                 *front = item;
-                frame_replaced_listener = core->consumer_listener;
+                listener_replaced = core->consumer_listener;
             } else {
                 core->queue.push_back(item);
-                frame_available_listener = core->consumer_listener;
+                listener_available = core->consumer_listener;
             }
         }
 
-         core->PushHistory(core->frame_counter, slots[slot].queue_time, slots[slot].presentation_time, BufferState::Queued);
+        if (Settings::values.enable_buffer_history.GetValue()) {
+            core->PushHistory(core->frame_counter, slots[slot].queue_time, slots[slot].presentation_time, BufferState::Queued);
+        }
+
         core->buffer_has_been_queued = true;
         core->SignalDequeueCondition();
-        output->Inflate(core->default_width, core->default_height, core->transform_hint,
-                        static_cast<u32>(core->queue.size()));
 
-        // Take a ticket for the callback functions
-        callback_ticket = next_callback_ticket++;
+        output->Inflate(core->default_width, core->default_height, core->transform_hint, static_cast<u32>(core->queue.size()));
     }
 
-    // Don't send the GraphicBuffer through the callback, and don't send the slot number, since the
-    // consumer shouldn't need it
     item.graphic_buffer.reset();
     item.slot = BufferItem::INVALID_BUFFER_SLOT;
 
-    // Call back without the main BufferQueue lock held, but with the callback lock held so we can
-    // ensure that callbacks occur in order
-    {
-        std::scoped_lock lock{callback_mutex};
-        while (callback_ticket != current_callback_ticket) {
-            callback_condition.wait(callback_mutex);
-        }
-
-        if (frame_available_listener != nullptr) {
-            frame_available_listener->OnFrameAvailable(item);
-        } else if (frame_replaced_listener != nullptr) {
-            frame_replaced_listener->OnFrameReplaced(item);
-        }
-
-        ++current_callback_ticket;
-        callback_condition.notify_all();
+    if (listener_available) {
+        listener_available->OnFrameAvailable(item);
+    } else if (listener_replaced) {
+        listener_replaced->OnFrameReplaced(item);
     }
 
     return Status::NoError;
@@ -733,20 +673,24 @@ Status BufferQueueProducer::Connect(const std::shared_ptr<IProducerListener>& li
     return status;
 }
 
+// https://android.googlesource.com/platform/frameworks/native/%2B/master/libs/gui/BufferQueueProducer.cpp#1457
 Status BufferQueueProducer::Disconnect(NativeWindowApi api) {
-    LOG_DEBUG(Service_Nvnflinger, "api = {}", api);
+    LOG_DEBUG(Service_Nvnflinger, "disconnect api = {}", api);
 
-    Status status = Status::NoError;
     std::shared_ptr<IConsumerListener> listener;
+    Status status = Status::NoError;
 
     {
         std::scoped_lock lock{core->mutex};
-
         core->WaitWhileAllocatingLocked();
 
         if (core->is_abandoned) {
-            // Disconnecting after the surface has been abandoned is a no-op.
             return Status::NoError;
+        }
+
+        if (core->connected_api == NativeWindowApi::NoConnectedApi) {
+            LOG_DEBUG(Service_Nvnflinger, "disconnect: not connected (req = {})", api);
+            return Status::NoInit;
         }
 
         switch (api) {
@@ -763,20 +707,20 @@ Status BufferQueueProducer::Disconnect(NativeWindowApi api) {
                 buffer_wait_event->Signal();
                 listener = core->consumer_listener;
             } else {
-                LOG_ERROR(Service_Nvnflinger, "still connected to another api (cur = {} req = {})",
+                LOG_ERROR(Service_Nvnflinger,
+                          "disconnect: still connected to another api (cur = {} req = {})",
                           core->connected_api, api);
                 status = Status::BadValue;
             }
             break;
         default:
-            LOG_ERROR(Service_Nvnflinger, "unknown api = {}", api);
+            LOG_ERROR(Service_Nvnflinger, "disconnect: unknown api = {}", api);
             status = Status::BadValue;
             break;
         }
     }
 
-    // Call back without lock held
-    if (listener != nullptr) {
+    if (listener) {
         listener->OnBuffersReleased();
     }
 
@@ -798,8 +742,8 @@ Status BufferQueueProducer::SetPreallocatedBuffer(s32 slot,
     slots[slot].graphic_buffer = std::make_shared<GraphicBuffer>(nvmap, buffer);
     slots[slot].frame_number = 0;
 
-    // Most games preallocate a buffer and pass a valid buffer here. However, it is possible for
-    // this to be called with an empty buffer, Naruto Ultimate Ninja Storm is a game that does this.
+           // Most games preallocate a buffer and pass a valid buffer here. However, it is possible for
+           // this to be called with an empty buffer, Naruto Ultimate Ninja Storm is a game that does this.
     if (buffer) {
         slots[slot].is_preallocated = true;
 
@@ -813,6 +757,10 @@ Status BufferQueueProducer::SetPreallocatedBuffer(s32 slot,
     buffer_wait_event->Signal();
 
     return Status::NoError;
+}
+
+Kernel::KReadableEvent* BufferQueueProducer::GetNativeHandle(u32 type_id) {
+    return &buffer_wait_event->GetReadableEvent();
 }
 
 void BufferQueueProducer::Transact(u32 code, std::span<const u8> parcel_data,
@@ -935,6 +883,11 @@ void BufferQueueProducer::Transact(u32 code, std::span<const u8> parcel_data,
         break;
     }
     case TransactionId::GetBufferHistory: {
+        if (!Settings::values.enable_buffer_history.GetValue()) {
+            LOG_DEBUG(Service_Nvnflinger, "(STUBBED) called");
+            break;
+        }
+
         LOG_DEBUG(Service_Nvnflinger, "called, transaction=GetBufferHistory");
 
         const s32 request = parcel_in.Read<s32>();
@@ -944,37 +897,25 @@ void BufferQueueProducer::Transact(u32 code, std::span<const u8> parcel_data,
             break;
         }
 
-        constexpr u32 history_max = BufferQueueCore::BUFFER_HISTORY_SIZE;
-        std::array<BufferHistoryInfo, history_max> buffer_history_snapshot{};
-        s32 valid_index{};
+        std::vector<BufferHistoryInfo> snapshot;
+
         {
-            std::scoped_lock lk(core->mutex);
-
-            const u32 current_history_pos = core->buffer_history_pos;
-            u32 index_reversed{};
-            for (u32 i = 0; i < history_max; ++i) {
-                // Wrap values backwards e.g. 7, 6, 5, etc. in the range of 0-7
-                index_reversed = (current_history_pos + history_max - i) % history_max;
-                const auto& current_history_buffer = core->buffer_history[index_reversed];
-
-                // Here we use the frame number as a terminator.
-                // Because a buffer without frame_number is not considered complete
-                if (current_history_buffer.frame_number == 0) {
-                    break;
-                }
-
-                buffer_history_snapshot[valid_index] = current_history_buffer;
-                ++valid_index;
+            std::scoped_lock lk(core->buffer_history_mutex);
+            for (auto& [frame, info] : core->buffer_history_map) {
+                snapshot.push_back(info);
             }
         }
 
-        const s32 limit = std::min(request, valid_index);
+        std::sort(snapshot.begin(), snapshot.end(), [](auto& a, auto& b){
+            return a.frame_number > b.frame_number;
+        });
+
+        const s32 limit = std::min(request, (s32)snapshot.size());
         parcel_out.Write(Status::NoError);
         parcel_out.Write<s32>(limit);
         for (s32 i = 0; i < limit; ++i) {
-            parcel_out.Write(buffer_history_snapshot[i]);
+            parcel_out.Write(snapshot[i]);
         }
-
         break;
     }
     default:
@@ -986,11 +927,7 @@ void BufferQueueProducer::Transact(u32 code, std::span<const u8> parcel_data,
 
     const auto serialized = parcel_out.Serialize();
     std::memcpy(parcel_reply.data(), serialized.data(),
-                std::min(parcel_reply.size(), serialized.size()));
-}
-
-Kernel::KReadableEvent* BufferQueueProducer::GetNativeHandle(u32 type_id) {
-    return &buffer_wait_event->GetReadableEvent();
+                (std::min)(parcel_reply.size(), serialized.size()));
 }
 
 } // namespace Service::android

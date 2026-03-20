@@ -282,6 +282,12 @@ std::unique_ptr<TranslationMap> InitializeTranslations(QWidget* parent) {
               "unlocked."));
     INSERT(Settings, barrier_feedback_loops, tr("Barrier feedback loops"),
            tr("Improves rendering of transparency effects in specific games."));
+
+    INSERT(Settings,
+           enable_buffer_history,
+           tr("Enable buffer history"),
+           tr("Enables access to previous buffer states.\nThis option may improve rendering quality and performance consistency in some games."));
+
     INSERT(Settings, wider_reciprocals, tr("Wider reciprocals"),
            tr("Widens Recip32 to use F64 in intermediate stages."));
     INSERT(
