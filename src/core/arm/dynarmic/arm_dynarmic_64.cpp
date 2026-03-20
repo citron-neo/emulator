@@ -377,15 +377,11 @@ std::shared_ptr<Dynarmic::A64::Jit> ArmDynarmic64::MakeJit(Common::PageTable* pa
 }
 
 HaltReason ArmDynarmic64::RunThread(Kernel::KThread* thread) {
-    ScopedJitExecution sj(thread->GetOwnerProcess());
-
     m_jit->ClearExclusiveState();
     return TranslateHaltReason(m_jit->Run());
 }
 
 HaltReason ArmDynarmic64::StepThread(Kernel::KThread* thread) {
-    ScopedJitExecution sj(thread->GetOwnerProcess());
-
     m_jit->ClearExclusiveState();
     return TranslateHaltReason(m_jit->Step());
 }
@@ -425,7 +421,6 @@ ArmDynarmic64::ArmDynarmic64(System& system, bool uses_wall_clock, Kernel::KProc
     auto& page_table = process->GetPageTable().GetBasePageTable();
     auto& page_table_impl = page_table.GetImpl();
     m_jit = MakeJit(&page_table_impl, page_table.GetAddressSpaceWidth());
-    ScopedJitExecution::RegisterHandler();
 }
 
 ArmDynarmic64::~ArmDynarmic64() = default;

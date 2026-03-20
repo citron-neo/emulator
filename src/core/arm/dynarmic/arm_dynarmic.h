@@ -16,35 +16,14 @@ constexpr Dynarmic::HaltReason InstructionBreakpoint = Dynarmic::HaltReason::Use
 constexpr Dynarmic::HaltReason PrefetchAbort = Dynarmic::HaltReason::UserDefined6;
 
 constexpr HaltReason TranslateHaltReason(Dynarmic::HaltReason hr) {
-    static_assert(static_cast<u64>(HaltReason::StepThread) == static_cast<u64>(StepThread));
-    static_assert(static_cast<u64>(HaltReason::DataAbort) == static_cast<u64>(DataAbort));
-    static_assert(static_cast<u64>(HaltReason::BreakLoop) == static_cast<u64>(BreakLoop));
-    static_assert(static_cast<u64>(HaltReason::SupervisorCall) == static_cast<u64>(SupervisorCall));
-    static_assert(static_cast<u64>(HaltReason::InstructionBreakpoint) ==
-                  static_cast<u64>(InstructionBreakpoint));
-    static_assert(static_cast<u64>(HaltReason::PrefetchAbort) == static_cast<u64>(PrefetchAbort));
+    static_assert(u64(HaltReason::StepThread) == u64(StepThread));
+    static_assert(u64(HaltReason::DataAbort) == u64(DataAbort));
+    static_assert(u64(HaltReason::BreakLoop) == u64(BreakLoop));
+    static_assert(u64(HaltReason::SupervisorCall) == u64(SupervisorCall));
+    static_assert(u64(HaltReason::InstructionBreakpoint) == u64(InstructionBreakpoint));
+    static_assert(u64(HaltReason::PrefetchAbort) == u64(PrefetchAbort));
 
-    return static_cast<HaltReason>(hr);
+    return HaltReason(hr);
 }
-
-#ifdef __linux__
-
-class ScopedJitExecution {
-public:
-    explicit ScopedJitExecution(Kernel::KProcess* process);
-    ~ScopedJitExecution();
-    static void RegisterHandler();
-};
-
-#else
-
-class ScopedJitExecution {
-public:
-    explicit ScopedJitExecution(Kernel::KProcess* process) {}
-    ~ScopedJitExecution() {}
-    static void RegisterHandler() {}
-};
-
-#endif
 
 } // namespace Core
