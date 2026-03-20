@@ -1273,10 +1273,6 @@ void KProcess::InitializeInterfaces() {
 
 #ifdef HAS_NCE
     if (this->IsApplication() && Settings::IsNceEnabled()) {
-        // Register the scoped JIT handler before creating any NCE instances
-        // so that its signal handler will appear first in the signal chain.
-        Core::ScopedJitExecution::RegisterHandler();
-
         for (size_t i = 0; i < Core::Hardware::NUM_CPU_CORES; i++) {
             m_arm_interfaces[i] = std::make_unique<Core::ArmNce>(m_kernel.System(), true, i);
         }
