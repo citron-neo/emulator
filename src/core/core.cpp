@@ -8,6 +8,7 @@
 #include <memory>
 #include <string>
 #include <thread>
+#include <optional>
 #include <utility>
 
 #ifdef __linux__
@@ -162,7 +163,7 @@ struct System::Impl {
     void Initialize(System& system) {
         // Only create the memory bucket if it literally does not exist (First launch)
         if (!device_memory) {
-            device_memory = std::make_unique<Core::DeviceMemory>();
+            device_memory.emplace();
         }
 
         is_multicore = Settings::values.use_multi_core.GetValue();
@@ -176,7 +177,7 @@ struct System::Impl {
         if (virtual_filesystem == nullptr) {
             virtual_filesystem = std::make_shared<FileSys::RealVfsFilesystem>();
         }
-        if (content_provider == nullptr) {
+        if (!content_provider) {
             content_provider = std::make_unique<FileSys::ContentProviderUnion>();
         }
 
@@ -310,7 +311,7 @@ struct System::Impl {
     }
 
     void InitializeDebugger(System& system, u16 port) {
-        debugger = std::make_unique<Debugger>(system, port);
+        debugger.emplace(system, port);
     }
 
     void InitializeKernel(System& system) {
@@ -324,24 +325,22 @@ struct System::Impl {
     }
 
     SystemResultStatus SetupForApplicationProcess(System& system, Frontend::EmuWindow& emu_window) {
-        host1x_core = std::make_unique<Tegra::Host1x::Host1x>(system);
+        host1x_core.emplace(system);
         gpu_core = VideoCore::CreateGPU(emu_window, system);
         if (!gpu_core) {
             return SystemResultStatus::ErrorVideoCore;
         }
 
-        audio_core = std::make_unique<AudioCore::AudioCore>(system);
-
+        audio_core.emplace(system);
         service_manager = std::make_shared<Service::SM::ServiceManager>(kernel);
-        services =
-            std::make_unique<Service::Services>(service_manager, system, stop_event.get_token());
+        services.emplace(service_manager, system, stop_event.get_token());
 
         is_powered_on = true;
         exit_locked = false;
         exit_requested = false;
 
         if (Settings::values.enable_renderdoc_hotkey) {
-            renderdoc_api = std::make_unique<Tools::RenderdocAPI>();
+            renderdoc_api.emplace();
         }
 
         LOG_DEBUG(Core, "Initialized OK");
@@ -417,7 +416,7 @@ struct System::Impl {
             }
         }
 
-        perf_stats = std::make_unique<PerfStats>(params.program_id);
+        perf_stats.emplace(params.program_id);
         // Reset counters and set time origin to current frame
         GetAndResetPerfStats();
         perf_stats->BeginSystemFrame();
@@ -449,7 +448,7 @@ struct System::Impl {
         exit_locked = false;
         exit_requested = false;
 
-        if (gpu_core != nullptr) {
+        if (gpu_core) {
             gpu_core->NotifyShutdown();
         }
 
@@ -550,9 +549,9 @@ struct System::Impl {
     /// AppLoader used to load the current executing application
     std::unique_ptr<Loader::AppLoader> app_loader;
     std::unique_ptr<Tegra::GPU> gpu_core;
-    std::unique_ptr<Tegra::Host1x::Host1x> host1x_core;
-    std::unique_ptr<Core::DeviceMemory> device_memory;
-    std::unique_ptr<AudioCore::AudioCore> audio_core;
+    std::optional<Tegra::Host1x::Host1x> host1x_core;
+    std::optional<Core::DeviceMemory> device_memory;
+    std::optional<AudioCore::AudioCore> audio_core;
     Core::HID::HIDCore hid_core;
     Network::RoomNetwork room_network;
 
@@ -564,11 +563,11 @@ struct System::Impl {
     bool nvdec_active{};
 
     Reporter reporter;
-    std::unique_ptr<Memory::CheatEngine> cheat_engine;
-    std::unique_ptr<Tools::Freezer> memory_freezer;
+    std::optional<Memory::CheatEngine> cheat_engine;
+    std::optional<Tools::Freezer> memory_freezer;
     std::array<u8, 0x20> build_id{};
 
-    std::unique_ptr<Tools::RenderdocAPI> renderdoc_api;
+    std::optional<Tools::RenderdocAPI> renderdoc_api;
 
     /// Applets
     Service::AM::AppletManager applet_manager;
@@ -585,18 +584,18 @@ struct System::Impl {
     std::shared_ptr<Service::SM::ServiceManager> service_manager;
 
     /// Services
-    std::unique_ptr<Service::Services> services;
+    std::optional<Service::Services> services;
 
     /// Network instance
     Network::NetworkInstance network_instance;
 
     /// Debugger
-    std::unique_ptr<Core::Debugger> debugger;
+    std::optional<Core::Debugger> debugger;
 
     SystemResultStatus status = SystemResultStatus::Success;
     std::string status_details = "";
 
-    std::unique_ptr<Core::PerfStats> perf_stats;
+    std::optional<Core::PerfStats> perf_stats;
     Core::SpeedLimiter speed_limiter;
 
     bool is_multicore{};
@@ -855,19 +854,17 @@ FileSys::VirtualFilesystem System::GetFilesystem() const {
     return impl->virtual_filesystem;
 }
 
-void System::RegisterCheatList(const std::vector<Memory::CheatEntry>& list,
-                               const std::array<u8, 0x20>& build_id, u64 main_region_begin,
-                               u64 main_region_size) {
-    impl->cheat_engine = std::make_unique<Memory::CheatEngine>(*this, list, build_id);
+void System::RegisterCheatList(const std::vector<Memory::CheatEntry>& list, const std::array<u8, 0x20>& build_id, u64 main_region_begin, u64 main_region_size) {
+    impl->cheat_engine.emplace(*this, list, build_id);
     impl->cheat_engine->SetMainMemoryParameters(main_region_begin, main_region_size);
 }
 
 Memory::CheatEngine* System::GetCheatEngine() {
-    return impl->cheat_engine.get();
+    return std::addressof(impl->cheat_engine.value());
 }
 
 const Memory::CheatEngine* System::GetCheatEngine() const {
-    return impl->cheat_engine.get();
+    return std::addressof(impl->cheat_engine.value());
 }
 
 void System::SetFrontendAppletSet(Service::AM::Frontend::FrontendAppletSet&& set) {
@@ -886,7 +883,7 @@ Service::AM::AppletManager& System::GetAppletManager() {
     return impl->applet_manager;
 }
 
-void System::SetContentProvider(std::unique_ptr<FileSys::ContentProviderUnion> provider) {
+void System::SetContentProvider(std::unique_ptr<FileSys::ContentProviderUnion>&& provider) {
     impl->content_provider = std::move(provider);
 }
 
