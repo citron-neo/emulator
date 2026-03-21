@@ -275,18 +275,7 @@ void Scheduler::InvalidateState() {
 }
 
 void Scheduler::EndPendingOperations() {
-#if ANDROID
-    if (Settings::IsGPULevelHigh()) {
-        // This is problematic on Android, disable on GPU Normal and Low.
-        // query_cache->DisableStreams();
-    }
-#else
-    // query_cache->DisableStreams();
-#endif
-    if (Settings::IsGPULevelNormal()) {
-        // Skip query cache operations for Low accuracy
-        query_cache->NotifySegment(false);
-    }
+    query_cache->CounterReset(VideoCommon::QueryType::ZPassPixelCount64);
     EndRenderPass();
 }
 
@@ -294,6 +283,8 @@ void Scheduler::EndRenderPass() {
     if (!state.renderpass) {
         return;
     }
+    query_cache->CounterEnable(VideoCommon::QueryType::ZPassPixelCount64, false);
+    query_cache->NotifySegment(false);
     Record([num_images = num_renderpass_images, images = renderpass_images,
             ranges = renderpass_image_ranges](vk::CommandBuffer cmdbuf) {
         std::array<VkImageMemoryBarrier, 9> barriers;
