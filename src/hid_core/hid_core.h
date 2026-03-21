@@ -4,15 +4,13 @@
 #pragma once
 
 #include <memory>
+#include <optional>
 
 #include "common/common_funcs.h"
 #include "hid_core/hid_types.h"
-
-namespace Core::HID {
-class EmulatedConsole;
-class EmulatedController;
-class EmulatedDevices;
-} // namespace Core::HID
+#include "hid_core/frontend/emulated_controller.h"
+#include "hid_core/frontend/emulated_console.h"
+#include "hid_core/frontend/emulated_devices.h"
 
 namespace Core::HID {
 
@@ -30,14 +28,15 @@ public:
     EmulatedController* GetEmulatedControllerByIndex(std::size_t index);
     const EmulatedController* GetEmulatedControllerByIndex(std::size_t index) const;
 
-    EmulatedConsole* GetEmulatedConsole();
-    const EmulatedConsole* GetEmulatedConsole() const;
-
-    EmulatedDevices* GetEmulatedDevices();
-    const EmulatedDevices* GetEmulatedDevices() const;
+    [[nodiscard]] inline EmulatedConsole* GetEmulatedConsole() noexcept { return std::addressof(console.value()); }
+    [[nodiscard]] inline const EmulatedConsole* GetEmulatedConsole() const noexcept { return std::addressof(console.value()); }
+    [[nodiscard]] inline EmulatedDevices* GetEmulatedDevices() noexcept { return std::addressof(devices.value()); }
+    [[nodiscard]] inline const EmulatedDevices* GetEmulatedDevices() const noexcept { return std::addressof(devices.value()); }
 
     void SetSupportedStyleTag(NpadStyleTag style_tag);
-    NpadStyleTag GetSupportedStyleTag() const;
+    [[nodiscard]] inline NpadStyleTag GetSupportedStyleTag() const noexcept {
+        return supported_style_tag;
+    }
 
     /// Counts the connected players from P1-P8
     s8 GetPlayerCount() const;
@@ -70,18 +69,18 @@ public:
     static constexpr std::size_t available_controllers{10};
 
 private:
-    std::unique_ptr<EmulatedController> player_1;
-    std::unique_ptr<EmulatedController> player_2;
-    std::unique_ptr<EmulatedController> player_3;
-    std::unique_ptr<EmulatedController> player_4;
-    std::unique_ptr<EmulatedController> player_5;
-    std::unique_ptr<EmulatedController> player_6;
-    std::unique_ptr<EmulatedController> player_7;
-    std::unique_ptr<EmulatedController> player_8;
-    std::unique_ptr<EmulatedController> other;
-    std::unique_ptr<EmulatedController> handheld;
-    std::unique_ptr<EmulatedConsole> console;
-    std::unique_ptr<EmulatedDevices> devices;
+    std::optional<EmulatedController> player_1;
+    std::optional<EmulatedController> player_2;
+    std::optional<EmulatedController> player_3;
+    std::optional<EmulatedController> player_4;
+    std::optional<EmulatedController> player_5;
+    std::optional<EmulatedController> player_6;
+    std::optional<EmulatedController> player_7;
+    std::optional<EmulatedController> player_8;
+    std::optional<EmulatedController> other;
+    std::optional<EmulatedController> handheld;
+    std::optional<EmulatedConsole> console;
+    std::optional<EmulatedDevices> devices;
     NpadStyleTag supported_style_tag{NpadStyleSet::All};
     NpadIdType last_active_controller{NpadIdType::Handheld};
 };

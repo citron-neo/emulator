@@ -20,7 +20,7 @@
 #include "video_core/engines/engine_interface.h"
 #include "video_core/engines/engine_upload.h"
 #include "video_core/gpu.h"
-#include "video_core/macro/macro.h"
+#include "video_core/macro.h"
 #include "video_core/textures/texture.h"
 
 namespace Core {
@@ -3200,7 +3200,7 @@ private:
     std::vector<u32> macro_params;
 
     /// Interpreter for the macro codes uploaded to the GPU.
-    std::unique_ptr<MacroEngine> macro_engine;
+    MacroEngine macro_engine;
 
     Upload::State upload_state;
 

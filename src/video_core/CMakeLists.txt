@@ -89,12 +89,8 @@ add_library(video_core STATIC
     host1x/syncpoint_manager.h
     host1x/vic.cpp
     host1x/vic.h
-    macro/macro.cpp
-    macro/macro.h
-    macro/macro_hle.cpp
-    macro/macro_hle.h
-    macro/macro_interpreter.cpp
-    macro/macro_interpreter.h
+    macro.cpp
+    macro.h
     fence_manager.h
     gpu.cpp
     gpu.h
@@ -321,18 +317,11 @@ else()
         -Wno-sign-conversion
     )
 
-    # xbyak
-    set_source_files_properties(macro/macro_jit_x64.cpp PROPERTIES COMPILE_OPTIONS "-Wno-conversion;-Wno-shadow")
-
     # VMA
     set_source_files_properties(vulkan_common/vma.cpp PROPERTIES COMPILE_OPTIONS "-Wno-conversion;-Wno-unused-variable;-Wno-unused-parameter;-Wno-missing-field-initializers")
 endif()
 
 if (ARCHITECTURE_x86_64)
-    target_sources(video_core PRIVATE
-        macro/macro_jit_x64.cpp
-        macro/macro_jit_x64.h
-    )
     target_link_libraries(video_core PUBLIC xbyak::xbyak)
 endif()
 
