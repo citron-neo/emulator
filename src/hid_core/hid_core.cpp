@@ -11,42 +11,44 @@
 namespace Core::HID {
 
 HIDCore::HIDCore()
-    : player_1{std::make_unique<EmulatedController>(NpadIdType::Player1)},
-      player_2{std::make_unique<EmulatedController>(NpadIdType::Player2)},
-      player_3{std::make_unique<EmulatedController>(NpadIdType::Player3)},
-      player_4{std::make_unique<EmulatedController>(NpadIdType::Player4)},
-      player_5{std::make_unique<EmulatedController>(NpadIdType::Player5)},
-      player_6{std::make_unique<EmulatedController>(NpadIdType::Player6)},
-      player_7{std::make_unique<EmulatedController>(NpadIdType::Player7)},
-      player_8{std::make_unique<EmulatedController>(NpadIdType::Player8)},
-      other{std::make_unique<EmulatedController>(NpadIdType::Other)},
-      handheld{std::make_unique<EmulatedController>(NpadIdType::Handheld)},
-      console{std::make_unique<EmulatedConsole>()}, devices{std::make_unique<EmulatedDevices>()} {}
+    : player_1{std::make_optional<EmulatedController>(NpadIdType::Player1)}
+    , player_2{std::make_optional<EmulatedController>(NpadIdType::Player2)}
+    , player_3{std::make_optional<EmulatedController>(NpadIdType::Player3)}
+    , player_4{std::make_optional<EmulatedController>(NpadIdType::Player4)}
+    , player_5{std::make_optional<EmulatedController>(NpadIdType::Player5)}
+    , player_6{std::make_optional<EmulatedController>(NpadIdType::Player6)}
+    , player_7{std::make_optional<EmulatedController>(NpadIdType::Player7)}
+    , player_8{std::make_optional<EmulatedController>(NpadIdType::Player8)}
+    , other{std::make_optional<EmulatedController>(NpadIdType::Other)}
+    , handheld{std::make_optional<EmulatedController>(NpadIdType::Handheld)}
+    , console{std::make_optional<EmulatedConsole>()}
+    , devices{std::make_optional<EmulatedDevices>()}
+{}
 
 HIDCore::~HIDCore() = default;
 
 EmulatedController* HIDCore::GetEmulatedController(NpadIdType npad_id_type) {
     switch (npad_id_type) {
     case NpadIdType::Player1:
-        return player_1.get();
+        return std::addressof(player_1.value());
     case NpadIdType::Player2:
-        return player_2.get();
+        return std::addressof(player_2.value());
     case NpadIdType::Player3:
-        return player_3.get();
+        return std::addressof(player_3.value());
     case NpadIdType::Player4:
-        return player_4.get();
+        return std::addressof(player_4.value());
     case NpadIdType::Player5:
-        return player_5.get();
+        return std::addressof(player_5.value());
     case NpadIdType::Player6:
-        return player_6.get();
+        return std::addressof(player_6.value());
     case NpadIdType::Player7:
-        return player_7.get();
+        return std::addressof(player_7.value());
     case NpadIdType::Player8:
-        return player_8.get();
+        return std::addressof(player_8.value());
     case NpadIdType::Other:
-        return other.get();
+        return std::addressof(other.value());
     case NpadIdType::Handheld:
-        return handheld.get();
+        return std::addressof(handheld.value());
     case NpadIdType::Invalid:
     default:
         ASSERT_MSG(false, "Invalid NpadIdType={}", npad_id_type);
@@ -57,45 +59,30 @@ EmulatedController* HIDCore::GetEmulatedController(NpadIdType npad_id_type) {
 const EmulatedController* HIDCore::GetEmulatedController(NpadIdType npad_id_type) const {
     switch (npad_id_type) {
     case NpadIdType::Player1:
-        return player_1.get();
+        return std::addressof(player_1.value());
     case NpadIdType::Player2:
-        return player_2.get();
+        return std::addressof(player_2.value());
     case NpadIdType::Player3:
-        return player_3.get();
+        return std::addressof(player_3.value());
     case NpadIdType::Player4:
-        return player_4.get();
+        return std::addressof(player_4.value());
     case NpadIdType::Player5:
-        return player_5.get();
+        return std::addressof(player_5.value());
     case NpadIdType::Player6:
-        return player_6.get();
+        return std::addressof(player_6.value());
     case NpadIdType::Player7:
-        return player_7.get();
+        return std::addressof(player_7.value());
     case NpadIdType::Player8:
-        return player_8.get();
+        return std::addressof(player_8.value());
     case NpadIdType::Other:
-        return other.get();
+        return std::addressof(other.value());
     case NpadIdType::Handheld:
-        return handheld.get();
+        return std::addressof(handheld.value());
     case NpadIdType::Invalid:
     default:
         ASSERT_MSG(false, "Invalid NpadIdType={}", npad_id_type);
         return nullptr;
     }
-}
-EmulatedConsole* HIDCore::GetEmulatedConsole() {
-    return console.get();
-}
-
-const EmulatedConsole* HIDCore::GetEmulatedConsole() const {
-    return console.get();
-}
-
-EmulatedDevices* HIDCore::GetEmulatedDevices() {
-    return devices.get();
-}
-
-const EmulatedDevices* HIDCore::GetEmulatedDevices() const {
-    return devices.get();
 }
 
 EmulatedController* HIDCore::GetEmulatedControllerByIndex(std::size_t index) {
@@ -118,10 +105,6 @@ void HIDCore::SetSupportedStyleTag(NpadStyleTag style_tag) {
     player_8->SetSupportedNpadStyleTag(supported_style_tag);
     other->SetSupportedNpadStyleTag(supported_style_tag);
     handheld->SetSupportedNpadStyleTag(supported_style_tag);
-}
-
-NpadStyleTag HIDCore::GetSupportedStyleTag() const {
-    return supported_style_tag;
 }
 
 s8 HIDCore::GetPlayerCount() const {
