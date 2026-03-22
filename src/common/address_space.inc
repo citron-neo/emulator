@@ -34,7 +34,7 @@ MAP_MEMBER_CONST()::FlatAddressSpaceMap(VaType va_limit_,
                                         std::function<void(VaType, VaType)> unmap_callback_)
     : va_limit{va_limit_}, unmap_callback{std::move(unmap_callback_)} {
     if (va_limit > VaMaximum) {
-        ASSERT_MSG(false, "Invalid VA limit!");
+        ASSERT(false && "Invalid VA limit!");
     }
 }
 

@@ -115,53 +115,7 @@ void PhysicalCore::RunThread(Kernel::KThread* thread) {
             // Enhanced crash handling for Nintendo SDK crashes
             bool should_continue = false;
             if (!system.DebuggerEnabled()) {
-                // Log the backtrace to analyze the crash
-                interface->LogBacktrace(process);
-
-                // Check if this is a Nintendo SDK crash that might be recoverable
-                // Many Nintendo SDK crashes during initialization can be safely ignored
-                if (prefetch_abort) {
-                    LOG_WARNING(Core_ARM, "Prefetch abort detected - checking if recoverable...");
-
-                    // Get the current PC to check if we're in a null pointer execution loop
-                    Kernel::Svc::ThreadContext ctx;
-                    interface->GetContext(ctx);
-                    u64 current_pc = ctx.pc;
-
-                    // Get the program ID (title ID) to check if this fix should apply
-                    u64 program_id = process->GetProgramId();
-
-                    // Detect null pointer execution loop (PC in very low memory addresses)
-                    // Only apply this recovery fix for Little Nightmares 3 to avoid issues with other games
-                    // Check if the base title ID matches Little Nightmares 3 (covers both base and update variants)
-                    if (current_pc < 0x1000 &&
-                        FileSys::GetBaseTitleID(program_id) == UICommon::TitleID::LittleNightmares3Base) {
-                        LOG_WARNING(Core_ARM, "Null pointer execution detected at PC={:016X}", current_pc);
-                        LOG_WARNING(Core_ARM, "Attempting to recover by returning from invalid function call");
-
-                        // Try to recover by returning from the function using LR (X30)
-                        // This simulates a function return
-                        u64 return_address = ctx.lr;
-
-                        if (return_address != 0 && return_address >= 0x1000) {
-                            LOG_INFO(Core_ARM, "Recovering: Setting PC to return address {:016X}", return_address);
-                            ctx.pc = return_address;
-                            // Set return value to 0 in X0
-                            ctx.r[0] = 0;
-                            interface->SetContext(ctx);
-                            should_continue = true;
-                        } else {
-                            LOG_ERROR(Core_ARM, "Cannot recover: Invalid return address {:016X}", return_address);
-                            LOG_ERROR(Core_ARM, "Thread will be suspended due to unrecoverable crash");
-                            should_continue = false;
-                        }
-                    } else {
-                        // For Nintendo SDK crashes at valid addresses, try to continue execution
-                        // This is especially important for games like Phoenix Switch
-                        should_continue = true;
-                        LOG_INFO(Core_ARM, "Attempting to continue execution after Nintendo SDK crash");
-                    }
-                }
+                //???
             } else {
                 system.GetDebugger().NotifyThreadStopped(thread);
             }

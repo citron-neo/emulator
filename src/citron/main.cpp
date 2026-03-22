@@ -2513,7 +2513,7 @@ void GMainWindow::OnGameListOpenFolder(u64 program_id, GameListOpenTarget target
         const bool has_user_save{user_save_size > 0};
         const bool has_device_save{device_save_size > 0};
 
-        ASSERT_MSG(has_user_save != has_device_save, "Game uses both user and device savedata?");
+        ASSERT(has_user_save != has_device_save && "Game uses both user and device savedata?");
 
         if (has_user_save) {
             // User save data

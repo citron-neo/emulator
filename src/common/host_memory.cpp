@@ -189,11 +189,6 @@ public:
         }
     }
 
-    bool ClearBackingRegion(size_t physical_offset, size_t length) {
-        // TODO: This does not seem to be possible on Windows.
-        return false;
-    }
-
     void EnableDirectMappedAddress() {
         // TODO
         UNREACHABLE();
@@ -549,19 +544,6 @@ public:
         ASSERT_MSG(ret == 0, "mprotect failed: {}", strerror(errno));
     }
 
-    bool ClearBackingRegion(size_t physical_offset, size_t length) {
-#ifdef __linux__
-        // Set MADV_REMOVE on backing map to destroy it instantly.
-        // This also deletes the area from the backing file.
-        int ret = madvise(backing_base + physical_offset, length, MADV_REMOVE);
-        ASSERT_MSG(ret == 0, "madvise failed: {}", strerror(errno));
-
-        return true;
-#else
-        return false;
-#endif
-    }
-
     void EnableDirectMappedAddress() {
         virtual_base = nullptr;
     }
@@ -633,10 +615,6 @@ public:
 
     void Protect(size_t virtual_offset, size_t length, bool read, bool write, bool execute) {}
 
-    bool ClearBackingRegion(size_t physical_offset, size_t length) {
-        return false;
-    }
-
     void EnableDirectMappedAddress() {}
 
     u8* backing_base{nullptr};
@@ -646,29 +624,18 @@ public:
 #endif // ^^^ Generic ^^^
 
 HostMemory::HostMemory(size_t backing_size_, size_t virtual_size_)
-    : backing_size(backing_size_), virtual_size(virtual_size_) {
-    try {
-        // Try to allocate a fastmem arena.
-        // The implementation will fail with std::bad_alloc on errors.
-        impl =
-            std::make_unique<HostMemory::Impl>(AlignUp(backing_size, PageAlignment),
-                                               AlignUp(virtual_size, PageAlignment) + HugePageSize);
-        backing_base = impl->backing_base;
-        virtual_base = impl->virtual_base;
-
-        if (virtual_base) {
-            // Ensure the virtual base is aligned to the L2 block size.
-            virtual_base = reinterpret_cast<u8*>(
-                Common::AlignUp(reinterpret_cast<uintptr_t>(virtual_base), HugePageSize));
-            virtual_base_offset = virtual_base - impl->virtual_base;
-        }
-
-    } catch (const std::bad_alloc&) {
-        LOG_CRITICAL(HW_Memory,
-                     "Fastmem unavailable, falling back to VirtualBuffer for memory allocation");
-        fallback_buffer = std::make_unique<Common::VirtualBuffer<u8>>(backing_size);
-        backing_base = fallback_buffer->data();
-        virtual_base = nullptr;
+    : backing_size(backing_size_)
+    , virtual_size(virtual_size_)
+{
+    // Try to allocate a fastmem arena.
+    // The implementation will fail with std::bad_alloc on errors.
+    impl = std::make_unique<HostMemory::Impl>(AlignUp(backing_size, PageAlignment), AlignUp(virtual_size, PageAlignment) + HugePageSize);
+    backing_base = impl->backing_base;
+    virtual_base = impl->virtual_base;
+    if (virtual_base) {
+        // Ensure the virtual base is aligned to the L2 block size.
+        virtual_base = reinterpret_cast<u8*>(Common::AlignUp(uintptr_t(virtual_base), HugePageSize));
+        virtual_base_offset = virtual_base - impl->virtual_base;
     }
 }
 
@@ -719,9 +686,7 @@ void HostMemory::Protect(size_t virtual_offset, size_t length, MemoryPermission 
 }
 
 void HostMemory::ClearBackingRegion(size_t physical_offset, size_t length, u32 fill_value) {
-    if (!impl || fill_value != 0 || !impl->ClearBackingRegion(physical_offset, length)) {
-        std::memset(backing_base + physical_offset, fill_value, length);
-    }
+    std::memset(backing_base + physical_offset, fill_value, length);
 }
 
 void HostMemory::EnableDirectMappedAddress() {
