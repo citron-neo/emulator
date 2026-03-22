@@ -130,6 +130,19 @@ static std::vector<u8> SerializeAddrInfoAsHostEnt(const std::vector<Network::Add
     return data;
 }
 
+std::set<std::string> blocked_domains{
+    "srv.nintendo.net",
+    // stupid hogwarts
+    "phoenix-api.wbagora.com",
+    // prevents various battle net games from crashing
+    "battle.net",
+    // minecraft from crashing
+    "microsoft.com",
+    "mojang.com",
+    "xboxlive.com",
+    "minecraftservices.com",
+};
+
 static std::pair<u32, GetAddrInfoError> GetHostByNameRequestImpl(HLERequestContext& ctx) {
     struct InputParameters {
         u8 use_nsd_resolve;
@@ -151,7 +164,7 @@ static std::pair<u32, GetAddrInfoError> GetHostByNameRequestImpl(HLERequestConte
     // For now, ignore options, which are in input buffer 1 for GetHostByNameRequestWithOptions.
 
     // Prevent resolution of Nintendo servers
-    if (host.find("srv.nintendo.net") != std::string::npos) {
+    if (blocked_domains.find(host) != blocked_domains.end()) {
         LOG_WARNING(Network, "Resolution of hostname {} requested, returning EAI_AGAIN", host);
         return {0, GetAddrInfoError::AGAIN};
     }
@@ -268,7 +281,7 @@ static std::pair<u32, GetAddrInfoError> GetAddrInfoRequestImpl(HLERequestContext
     const std::string host = Common::StringFromBuffer(host_buffer);
 
     // Prevent resolution of Nintendo servers
-    if (host.find("srv.nintendo.net") != std::string::npos) {
+    if (blocked_domains.find(host) != blocked_domains.end()) {
         LOG_WARNING(Network, "Resolution of hostname {} requested, returning EAI_AGAIN", host);
         return {0, GetAddrInfoError::AGAIN};
     }
