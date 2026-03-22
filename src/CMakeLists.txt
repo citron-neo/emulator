@@ -57,7 +57,7 @@ if (MSVC)
         /Zc:preprocessor
         /Zc:throwingNew
         /GT
-        /GR-
+        # causes crashes on windows probably? /GR-
 
         # Modules
         /experimental:module- # Explicitly disable module support due to conflicts with precompiled headers.
