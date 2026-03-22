@@ -30,12 +30,11 @@
         FlatAllocator<VaType, UnmappedVa, AddressSpaceBits>
 
 namespace Common {
-MAP_MEMBER_CONST()::FlatAddressSpaceMap(VaType va_limit_,
-                                        std::function<void(VaType, VaType)> unmap_callback_)
-    : va_limit{va_limit_}, unmap_callback{std::move(unmap_callback_)} {
-    if (va_limit > VaMaximum) {
-        ASSERT(false && "Invalid VA limit!");
-    }
+MAP_MEMBER_CONST()::FlatAddressSpaceMap(VaType va_limit_, std::function<void(VaType, VaType)> unmap_callback_)
+    : va_limit{va_limit_}
+    , unmap_callback{std::move(unmap_callback_)}
+{
+    ASSERT(va_limit > VaMaximum && "Invalid VA limit!");
 }
 
 MAP_MEMBER(void)::MapLocked(VaType virt, PaType phys, VaType size, ExtraBlockInfo extra_info) {
