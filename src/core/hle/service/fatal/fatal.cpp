@@ -200,7 +200,7 @@ void Module::Interface::ThrowFatalWithCpuContext(HLERequestContext& ctx) {
     const auto fatal_info = ctx.ReadBuffer();
     FatalInfo info{};
 
-    ASSERT_MSG(fatal_info.size() == sizeof(FatalInfo), "Invalid fatal info buffer size!");
+    ASSERT(fatal_info.size() == sizeof(FatalInfo) && "Invalid fatal info buffer size!");
     std::memcpy(&info, fatal_info.data(), sizeof(FatalInfo));
 
     ThrowFatalError(system, error_code, fatal_type, info);

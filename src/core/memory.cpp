@@ -911,13 +911,9 @@ bool Memory::IsValidVirtualAddress(const Common::ProcessAddress vaddr) const {
 bool Memory::IsValidVirtualAddressRange(Common::ProcessAddress base, u64 size) const {
     Common::ProcessAddress end = base + size;
     Common::ProcessAddress page = Common::AlignDown(GetInteger(base), CITRON_PAGESIZE);
-
-    for (; page < end; page += CITRON_PAGESIZE) {
-        if (!IsValidVirtualAddress(page)) {
+    for (; page < end; page += CITRON_PAGESIZE)
+        if (!IsValidVirtualAddress(page))
             return false;
-        }
-    }
-
     return true;
 }
 
