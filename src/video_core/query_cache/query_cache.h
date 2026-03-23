@@ -265,10 +265,7 @@ void QueryCacheBase<Traits>::CounterReport(GPUVAddr addr, QueryType counter_type
             return;
         }
         if (False(query_base->flags & QueryFlagBits::IsFinalValueSynced)) [[unlikely]] {
-            LOG_ERROR(HW_GPU, "Query report value not synchronized. Consider increasing GPU accuracy.");
-            if (!is_synced) [[likely]] {
-                impl->pending_unregister.push_back(query_location);
-            }
+            ASSERT(false);
             return;
         }
         query_base->value += streamer->GetAmendValue();
@@ -372,6 +369,8 @@ void QueryCacheBase<Traits>::NotifySegment(bool resume) {
     if (resume) {
         impl->runtime.ResumeHostConditionalRendering();
     } else {
+        CounterClose(VideoCommon::QueryType::ZPassPixelCount64);
+        CounterClose(VideoCommon::QueryType::StreamingByteCount);
         impl->runtime.PauseHostConditionalRendering();
     }
 }
