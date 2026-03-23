@@ -231,6 +231,8 @@ void RasterizerVulkan::PrepareDraw(bool is_indexed, Func&& draw_func) {
     FlushWork();
     gpu_memory->FlushCaching();
 
+    query_cache.NotifySegment(true);
+
     GraphicsPipeline* const pipeline{pipeline_cache.CurrentGraphicsPipeline()};
     if (!pipeline) {
         return;
@@ -243,10 +245,9 @@ void RasterizerVulkan::PrepareDraw(bool is_indexed, Func&& draw_func) {
     UpdateDynamicStates();
 
     HandleTransformFeedback();
-    query_cache.NotifySegment(true);
-    query_cache.CounterEnable(VideoCommon::QueryType::ZPassPixelCount64, maxwell3d->regs.zpass_pixel_count_enable);
+    query_cache.CounterEnable(VideoCommon::QueryType::ZPassPixelCount64,
+                              maxwell3d->regs.zpass_pixel_count_enable);
     draw_func();
-    query_cache.CounterEnable(VideoCommon::QueryType::StreamingByteCount, false);
 }
 
 void RasterizerVulkan::Draw(bool is_indexed, u32 instance_count) {
@@ -321,6 +322,8 @@ void RasterizerVulkan::DrawTexture() {
     };
     FlushWork();
 
+    query_cache.NotifySegment(true);
+
     std::scoped_lock l{texture_cache.mutex};
     texture_cache.SynchronizeGraphicsDescriptors();
     texture_cache.UpdateRenderTargets(false);
@@ -365,6 +368,10 @@ void RasterizerVulkan::Clear(u32 layer_count) {
     FlushWork();
     gpu_memory->FlushCaching();
 
+    query_cache.NotifySegment(true);
+    query_cache.CounterEnable(VideoCommon::QueryType::ZPassPixelCount64,
+                              maxwell3d->regs.zpass_pixel_count_enable);
+
     auto& regs = maxwell3d->regs;
     const bool use_color = regs.clear_surface.R || regs.clear_surface.G || regs.clear_surface.B ||
                            regs.clear_surface.A;
@@ -379,9 +386,6 @@ void RasterizerVulkan::Clear(u32 layer_count) {
     const Framebuffer* const framebuffer = texture_cache.GetFramebuffer();
     const VkExtent2D render_area = framebuffer->RenderArea();
     scheduler.RequestRenderpass(framebuffer);
-
-    query_cache.NotifySegment(true);
-    query_cache.CounterEnable(VideoCommon::QueryType::ZPassPixelCount64, maxwell3d->regs.zpass_pixel_count_enable);
 
     u32 up_scale = 1;
     u32 down_shift = 0;
