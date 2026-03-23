@@ -92,6 +92,7 @@ if (MSVC)
         /wd4324 # 'struct_name': structure was padded due to __declspec(align())
         /wd4201 # nonstandard extension used : nameless struct/union
         /wd4702 # unreachable code (when used with LTO)
+        /wd4127 # if constexpr bullshit
     )
 
     if (USE_CCACHE OR CITRON_USE_PRECOMPILED_HEADERS)
