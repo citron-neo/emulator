@@ -71,6 +71,8 @@ ICommonStateGetter::ICommonStateGetter(Core::System& system_, std::shared_ptr<Ap
         {502, nullptr, "IsSleepEnabled"},
         {503, nullptr, "IsDisablingSleepSuppressed"},
         {600, nullptr, "GetLaunchStorageInfoForDebug"},
+        {610, D<&ICommonStateGetter::Unknown610>, "Unknown610"}, //21.0.0+
+        {611, D<&ICommonStateGetter::Unknown611>, "Unknown611"}, //22.0.0+
         {700, nullptr, "ExtendSaveData"},
         {701, nullptr, "GetSaveDataSize"},
         {800, nullptr, "CreateCacheStorage"},
@@ -333,6 +335,16 @@ Result ICommonStateGetter::GetHealthWarningDisappearedSystemEvent(
     OutCopyHandle<Kernel::KReadableEvent> out_event) {
     LOG_DEBUG(Service_AM, "called");
     *out_event = m_applet->health_warning_disappeared_system_event.GetHandle();
+    R_SUCCEED();
+}
+
+Result ICommonStateGetter::Unknown610() {
+    LOG_WARNING(Service_AM, "(STUBBED) called");
+    R_SUCCEED();
+}
+
+Result ICommonStateGetter::Unknown611() {
+    LOG_WARNING(Service_AM, "(STUBBED) called");
     R_SUCCEED();
 }
 

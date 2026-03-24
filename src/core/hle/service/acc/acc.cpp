@@ -1209,6 +1209,13 @@ void Module::Interface::StoreSaveDataThumbnailSystem(HLERequestContext& ctx) {
     StoreSaveDataThumbnail(ctx, uuid, tid);
 }
 
+void Module::Interface::GetPinCodeLength(HLERequestContext& ctx) {
+    LOG_WARNING(Service_ACC, "(STUBBED) called");
+    IPC::ResponseBuilder rb{ctx, 3};
+    rb.Push(ResultSuccess);
+    rb.Push<u32>(0);
+}
+
 void Module::Interface::StoreSaveDataThumbnail(HLERequestContext& ctx, const Common::UUID& uuid,
                                                const u64 tid) {
     IPC::ResponseBuilder rb{ctx, 2};

@@ -58,6 +58,8 @@ private:
     Result GetFriendInvitationStorageChannelEvent(OutCopyHandle<Kernel::KReadableEvent> out_event);
     Result GetNotificationStorageChannelEvent(OutCopyHandle<Kernel::KReadableEvent> out_event);
     Result GetHealthWarningDisappearedSystemEvent(OutCopyHandle<Kernel::KReadableEvent> out_event);
+    Result Unknown610();
+    Result Unknown611();
 
     void SetCpuBoostMode(HLERequestContext& ctx);
 

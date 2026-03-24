@@ -30,6 +30,10 @@ public:
         m_page_table.Finalize();
     }
 
+    void AllowDeviceMappingOfExecPages() {
+        m_page_table.AllowDeviceMappingOfExecPages();
+    }
+
     Core::Memory::Memory& GetMemory() {
         return m_page_table.GetMemory();
     }

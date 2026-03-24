@@ -72,7 +72,10 @@ Result CreateThread(Core::System& system, Handle* out_handle, u64 entry_point, u
     KThread::Register(kernel, thread);
 
     // Add the thread to the handle table.
-    R_RETURN(process.GetHandleTable().Add(out_handle, thread));
+    R_TRY(process.GetHandleTable().Add(out_handle, thread));
+    // Pass the thread handle to the thread local region.
+    process.GetMemory().Write32(GetInteger(thread->GetTlsAddress()) + 0x110, *out_handle);
+    R_SUCCEED();
 }
 
 /// Starts the thread for the provided handle
