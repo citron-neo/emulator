@@ -147,10 +147,6 @@ add_library(common STATIC
     zstd_compression.h
 )
 
-if (CITRON_ENABLE_PORTABLE)
-    add_compile_definitions(CITRON_ENABLE_PORTABLE)
-endif()
-
 if (WIN32)
   target_sources(common PRIVATE
     windows/timer_resolution.cpp
