@@ -1162,26 +1162,26 @@ void GameList::UpdateOnlineStatus() {
                 online_status_watcher->deleteLater(); // Clean up the watcher
             });
 
-    // Run the blocking network call in a background thread using QtConcurrent
-    QFuture<std::map<u64, std::pair<int, int>>> future = QtConcurrent::run([session]() {
-        try {
-            std::map<u64, std::pair<int, int>> stats;
-            AnnounceMultiplayerRoom::RoomList room_list = session->GetRoomList();
-            for (const auto& room : room_list) {
-                u64 game_id = room.information.preferred_game.id;
-                if (game_id != 0) {
-                    stats[game_id].first += (int)room.members.size();
-                    stats[game_id].second++;
-                }
-            }
-            return stats;
-        } catch (const std::exception& e) {
-            LOG_ERROR(Frontend, "Exception in Online Status thread: {}", e.what());
-            return std::map<u64, std::pair<int, int>>{};
-        }
-    });
+    // // Run the blocking network call in a background thread using QtConcurrent
+    // QFuture<std::map<u64, std::pair<int, int>>> future = QtConcurrent::run([session]() {
+    //     try {
+    //         std::map<u64, std::pair<int, int>> stats;
+    //         AnnounceMultiplayerRoom::RoomList room_list = session->GetRoomList();
+    //         for (const auto& room : room_list) {
+    //             u64 game_id = room.information.preferred_game.id;
+    //             if (game_id != 0) {
+    //                 stats[game_id].first += (int)room.members.size();
+    //                 stats[game_id].second++;
+    //             }
+    //         }
+    //         return stats;
+    //     } catch (const std::exception& e) {
+    //         LOG_ERROR(Frontend, "Exception in Online Status thread: {}", e.what());
+    //         return std::map<u64, std::pair<int, int>>{};
+    //     }
+    // });
 
-    online_status_watcher->setFuture(future);
+    // online_status_watcher->setFuture(future);
 }
 
 void GameList::OnOnlineStatusUpdated(const std::map<u64, std::pair<int, int>>& online_stats) {
