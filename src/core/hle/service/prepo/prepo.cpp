@@ -33,6 +33,7 @@ public:
             {20100, &PlayReport::SaveSystemReport, "SaveSystemReport"},
             {20101, &PlayReport::SaveSystemReportWithUser, "SaveSystemReportWithUser"},
             {20102, &PlayReport::SaveSystemReport2, "SaveSystemReport2"},
+            {20103, &PlayReport::SaveSystemReportWithUser2, "SaveSystemReportWithUser2"},
             {20200, &PlayReport::SetOperationMode, "SetOperationMode"},
             {30100, &PlayReport::ClearStorage, "ClearStorage"},
             {30200, &PlayReport::ClearStatistics, "ClearStatistics"},
@@ -158,6 +159,30 @@ private:
         const auto& reporter{system.GetReporter()};
         reporter.SavePlayReport(Core::Reporter::PlayReportType::System, title_id, {data1, data2},
                                 std::nullopt, user_id);
+
+        IPC::ResponseBuilder rb{ctx, 2};
+        rb.Push(ResultSuccess);
+    }
+
+    // (21.0.0+) buffers: [0x9 (X), 0x5 (A)], inbytes: 0x20
+    void SaveSystemReportWithUser2(HLERequestContext& ctx) {
+        IPC::RequestParser rp{ctx};
+
+        // 21.0.0+: field0 (u64), user_id (u128), title_id (u64)
+        const auto field0 = rp.PopRaw<u64>();
+        const auto user_id = rp.PopRaw<u128>();
+        const auto title_id = rp.PopRaw<u64>();
+
+        const auto data_x = ctx.ReadBufferX(0);
+        const auto data_a = ctx.ReadBufferA(0);
+
+        Common::UUID uuid{};
+        std::memcpy(uuid.uuid.data(), user_id.data(), sizeof(Common::UUID));
+
+        LOG_DEBUG(Service_PREPO, "called, user_id={}, field0={:016X}, title_id={:016X}, data_a_size={}, data_x_size={}", uuid.FormattedString(), field0, title_id, data_a.size(), data_x.size());
+
+        const auto& reporter{system.GetReporter()};
+        reporter.SavePlayReport(Core::Reporter::PlayReportType::System, title_id, {data_a, data_x}, std::nullopt, user_id);
 
         IPC::ResponseBuilder rb{ctx, 2};
         rb.Push(ResultSuccess);

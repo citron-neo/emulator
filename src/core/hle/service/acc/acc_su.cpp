@@ -67,6 +67,7 @@ ACC_SU::ACC_SU(std::shared_ptr<Module> module_, std::shared_ptr<ProfileManager> 
         {351, &ACC_SU::UploadNasCredential, "UploadNasCredential"}, // [20.0.0+]
         {352, &ACC_SU::CreateDeviceMigrationUserImportRequest, "CreateDeviceMigrationUserImportRequest"}, // [20.0.0+]
         {353, &ACC_SU::DeleteUserMigrationInfo, "DeleteUserMigrationInfo"}, // [20.0.0+]
+        {401, &ACC_SU::GetPinCodeLength, "GetPinCodeLength"},
         {900, &ACC_SU::SetUserUnqualifiedForDebug, "SetUserUnqualifiedForDebug"},
         {901, &ACC_SU::UnsetUserUnqualifiedForDebug, "UnsetUserUnqualifiedForDebug"},
         {902, &ACC_SU::ListUsersUnqualifiedForDebug, "ListUsersUnqualifiedForDebug"},

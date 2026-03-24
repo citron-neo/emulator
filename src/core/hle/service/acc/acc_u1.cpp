@@ -41,6 +41,7 @@ ACC_U1::ACC_U1(std::shared_ptr<Module> module_, std::shared_ptr<ProfileManager> 
         {152, &ACC_U1::LoadSignedDeviceIdentifierCacheForNintendoAccount, "LoadSignedDeviceIdentifierCacheForNintendoAccount"},
         {190, &ACC_U1::GetUserLastOpenedApplication, "GetUserLastOpenedApplication"},
         {191, &ACC_U1::ActivateOpenContextHolder, "ActivateOpenContextHolder"},
+        {401, &ACC_U1::GetPinCodeLength, "GetPinCodeLength"},
         {997, &ACC_U1::DebugInvalidateTokenCacheForUser, "DebugInvalidateTokenCacheForUser"},
         {998, &ACC_U1::DebugSetUserStateClose, "DebugSetUserStateClose"},
         {999, &ACC_U1::DebugSetUserStateOpen, "DebugSetUserStateOpen"},

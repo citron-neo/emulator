@@ -49,6 +49,7 @@ public:
         void DebugActivateOpenContextRetention(HLERequestContext& ctx);
         void GetBaasAccountManagerForSystemService(HLERequestContext& ctx);
         void StoreSaveDataThumbnailSystem(HLERequestContext& ctx);
+        void GetPinCodeLength(HLERequestContext& ctx);
         // Additional functions for acc:su
         void GetUserRegistrationNotifier(HLERequestContext& ctx);
         void GetUserStateChangeNotifier(HLERequestContext& ctx);
