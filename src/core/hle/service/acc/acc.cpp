@@ -750,9 +750,8 @@ public:
 private:
     void CheckAvailability(HLERequestContext& ctx) {
         LOG_DEBUG(Service_ACC, "(STUBBED) called");
-        IPC::ResponseBuilder rb{ctx, 3};
+        IPC::ResponseBuilder rb{ctx, 2};
         rb.Push(ResultSuccess);
-        rb.Push(false); // TODO: Check when this is supposed to return true and when not
     }
 
     void GetAccountId(HLERequestContext& ctx) {
