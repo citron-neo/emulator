@@ -527,15 +527,32 @@ std::unique_ptr<ComboboxTranslationMap> ComboboxEnumeration(QWidget* parent) {
                               PAIR(AspectRatio, R32_9, tr("Force 32:9")),
                               PAIR(AspectRatio, Stretch, tr("Stretch to Window")),
                           }});
-    translations->insert({Settings::EnumMetadata<Settings::AnisotropyMode>::Index(),
-                          {
-                              PAIR(AnisotropyMode, Automatic, tr("Automatic")),
-                              PAIR(AnisotropyMode, Default, tr("Default")),
-                              PAIR(AnisotropyMode, X2, tr("2x")),
-                              PAIR(AnisotropyMode, X4, tr("4x")),
-                              PAIR(AnisotropyMode, X8, tr("8x")),
-                              PAIR(AnisotropyMode, X16, tr("16x")),
-                          }});
+    translations->insert({Settings::EnumMetadata<Settings::AnisotropyMode>::Index(), {
+        PAIR(AnisotropyMode, Automatic, tr("Automatic")),
+        PAIR(AnisotropyMode, Default, tr("Default")),
+        PAIR(AnisotropyMode, X2, tr("2x")),
+        PAIR(AnisotropyMode, X4, tr("4x")),
+        PAIR(AnisotropyMode, X8, tr("8x")),
+        PAIR(AnisotropyMode, X16, tr("16x")),
+        PAIR(AnisotropyMode, X32, tr("32x")),
+        PAIR(AnisotropyMode, X64, tr("64x")),
+        PAIR(AnisotropyMode, X128, tr("128x")),
+        PAIR(AnisotropyMode, X256, tr("256x")),
+        PAIR(AnisotropyMode, X512, tr("512x")),
+        PAIR(AnisotropyMode, X1024, tr("1024x")),
+        PAIR(AnisotropyMode, X2048, tr("2048x")),
+        PAIR(AnisotropyMode, X4096, tr("4096x")),
+        PAIR(AnisotropyMode, X8192, tr("8192x")),
+        PAIR(AnisotropyMode, X16384, tr("16384x")),
+        PAIR(AnisotropyMode, X32768, tr("32768x")),
+        PAIR(AnisotropyMode, X65536, tr("65536x")),
+        PAIR(AnisotropyMode, X131072, tr("131072x")),
+        PAIR(AnisotropyMode, X262144, tr("262144x")),
+        PAIR(AnisotropyMode, X524288, tr("524288x")),
+        PAIR(AnisotropyMode, X1048576, tr("1048576x")),
+        PAIR(AnisotropyMode, X2097152, tr("2097152x")),
+        PAIR(AnisotropyMode, X4194304, tr("4194304x")),
+    }});
     translations->insert(
         {Settings::EnumMetadata<Settings::Language>::Index(),
          {
