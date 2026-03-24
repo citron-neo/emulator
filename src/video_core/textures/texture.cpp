@@ -73,13 +73,12 @@ float TSCEntry::MaxAnisotropy() const noexcept {
     const auto anisotropic_settings = Settings::values.max_anisotropy.GetValue();
     s32 added_anisotropic{};
     if (anisotropic_settings == Settings::AnisotropyMode::Automatic) {
-        added_anisotropic = Settings::values.resolution_info.up_scale >>
-                            Settings::values.resolution_info.down_shift;
+        added_anisotropic = Settings::values.resolution_info.up_scale >> Settings::values.resolution_info.down_shift;
         added_anisotropic = std::max(added_anisotropic - 1, 0);
     } else {
-        added_anisotropic = static_cast<u32>(Settings::values.max_anisotropy.GetValue()) - 1U;
+        added_anisotropic = u32(Settings::values.max_anisotropy.GetValue()) - 1U;
     }
-    return static_cast<float>(1U << (max_anisotropy + added_anisotropic));
+    return f32(1U << (max_anisotropy + added_anisotropic));
 }
 
 } // namespace Tegra::Texture

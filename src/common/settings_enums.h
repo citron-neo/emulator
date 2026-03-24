@@ -111,12 +111,9 @@ ENUM(Language, Japanese, EnglishAmerican, French, German, Italian, Spanish, Chin
 
 ENUM(Region, Japan, Usa, Europe, Australia, China, Korea, Taiwan);
 
-ENUM(TimeZone, Auto, Default, Cet, Cst6Cdt, Cuba, Eet, Egypt, Eire, Est, Est5Edt, Gb, GbEire, Gmt,
-     GmtPlusZero, GmtMinusZero, GmtZero, Greenwich, Hongkong, Hst, Iceland, Iran, Israel, Jamaica,
-     Japan, Kwajalein, Libya, Met, Mst, Mst7Mdt, Navajo, Nz, NzChat, Poland, Portugal, Prc, Pst8Pdt,
-     Roc, Rok, Singapore, Turkey, Uct, Universal, Utc, WSu, Wet, Zulu);
+ENUM(TimeZone, Auto, Default, Cet, Cst6Cdt, Cuba, Eet, Egypt, Eire, Est, Est5Edt, Gb, GbEire, Gmt, GmtPlusZero, GmtMinusZero, GmtZero, Greenwich, Hongkong, Hst, Iceland, Iran, Israel, Jamaica, Japan, Kwajalein, Libya, Met, Mst, Mst7Mdt, Navajo, Nz, NzChat, Poland, Portugal, Prc, Pst8Pdt, Roc, Rok, Singapore, Turkey, Uct, Universal, Utc, WSu, Wet, Zulu);
 
-ENUM(AnisotropyMode, Automatic, Default, X2, X4, X8, X16);
+ENUM(AnisotropyMode, Automatic, Default, X2, X4, X8, X16, X32, X64, X128, X256, X512, X1024, X2048, X4096, X8192, X16384, X32768, X65536, X131072, X262144, X524288, X1048576, X2097152, X4194304);
 
 ENUM(AstcDecodeMode, Cpu, Gpu, CpuAsynchronous);
 
