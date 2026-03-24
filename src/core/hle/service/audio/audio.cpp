@@ -25,9 +25,9 @@ void LoopProcess(Core::System& system) {
     auto server_manager = std::make_unique<ServerManager>(system);
 
     // Main audio services
-    server_manager->RegisterNamedService("audctl", std::make_shared<IAudioController>(system));
     server_manager->RegisterNamedService("audin:u", std::make_shared<IAudioInManager>(system));
     server_manager->RegisterNamedService("audout:u", std::make_shared<IAudioOutManager>(system));
+    server_manager->RegisterNamedService("audctl", std::make_shared<IAudioController>(system));
     server_manager->RegisterNamedService("audren:u", std::make_shared<IAudioRendererManager>(system));
     server_manager->RegisterNamedService("hwopus", std::make_shared<IHardwareOpusDecoderManager>(system));
 
