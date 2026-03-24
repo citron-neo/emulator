@@ -395,8 +395,13 @@ struct AccountNotificationSettings {
     FriendPresenceOverlayPermission friend_invitation_permission;
     INSERT_PADDING_BYTES(0x2);
 };
-static_assert(sizeof(AccountNotificationSettings) == 0x18,
-              "AccountNotificationSettings is an invalid size");
+static_assert(sizeof(AccountNotificationSettings) == 0x18, "AccountNotificationSettings is an invalid size");
+
+/// This is nn::settings::system::AccountUserSettings (stubbed)
+struct AccountUserSettings {
+    std::array<u8, 0x40> data;
+};
+static_assert(sizeof(AccountUserSettings) == 0x40, "AccountUserSettings is an invalid size");
 
 /// This is nn::settings::factory::BatteryLot
 struct BatteryLot {

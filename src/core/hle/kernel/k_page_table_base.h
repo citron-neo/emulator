@@ -220,6 +220,7 @@ private:
     bool m_is_kernel{};
     bool m_enable_aslr{};
     bool m_enable_device_address_space_merge{};
+    bool m_allowed_exec_device_mapping{};
     KMemoryBlockSlabManager* m_memory_block_slab_manager{};
     KBlockInfoManager* m_block_info_manager{};
     KResourceLimit* m_resource_limit{};
@@ -248,8 +249,13 @@ public:
     bool IsKernel() const {
         return m_is_kernel;
     }
+
     bool IsAslrEnabled() const {
         return m_enable_aslr;
+    }
+
+    void AllowDeviceMappingOfExecPages() {
+        m_allowed_exec_device_mapping = true;
     }
 
     bool Contains(KProcessAddress addr) const {

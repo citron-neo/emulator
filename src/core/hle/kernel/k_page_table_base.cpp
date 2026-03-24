@@ -273,6 +273,7 @@ Result KPageTableBase::InitializeForProcess(Svc::CreateProcessFlag as_type, bool
     // Set other basic fields.
     m_enable_aslr = enable_aslr;
     m_enable_device_address_space_merge = enable_das_merge;
+    m_allowed_exec_device_mapping = false;
     m_address_space_start = start;
     m_address_space_end = end;
     m_is_kernel = false;

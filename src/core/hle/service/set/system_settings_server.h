@@ -165,6 +165,8 @@ public:
     Result Unknown301(); // [20.0.0+]
     Result Unknown306(); // [20.0.0+]
     Result Unknown307(); // [20.0.0+]
+    Result GetAccountUserSettings(Out<u32> out_count, OutLargeData<AccountUserSettings, BufferAttr_HipcMapAlias> out_settings);
+    Result GetDefaultAccountUserSettings(Out<AccountUserSettings> out_settings);
 
 private:
     bool LoadSettingsFile(std::filesystem::path& path, auto&& default_func);

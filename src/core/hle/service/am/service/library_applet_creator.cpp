@@ -108,9 +108,7 @@ std::shared_ptr<ILibraryAppletAccessor> CreateGuestApplet(Core::System& system,
 
     // We allow any firmware generation to be loaded as a guest process if possible.
     // If the emulator lacks the necessary keys, it will fail later and fallback to a stub.
-    const u8 min_gen = 1;
-    const u8 max_gen = 255;
-    auto process = CreateProcess(system, program_id, min_gen, max_gen);
+    auto process = CreateProcess(system, program_id, 14, 22);
     if (!process) {
         // Couldn't initialize the guest process
         return {};

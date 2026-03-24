@@ -311,6 +311,9 @@ ISystemSettingsServer::ISystemSettingsServer(Core::System& system_)
         {301, C<&ISystemSettingsServer::Unknown301>, "Unknown301"}, // [20.0.0+]
         {306, C<&ISystemSettingsServer::Unknown306>, "Unknown306"}, // [20.0.0+]
         {307, C<&ISystemSettingsServer::Unknown307>, "Unknown307"}, // [20.0.0+]
+        {319, C<&ISystemSettingsServer::GetAccountUserSettings>, "GetAccountUserSettings"}, //21.0.0+
+        {320, nullptr, "SetAccountUserSettings"}, //21.0.0+
+        {321, C<&ISystemSettingsServer::GetDefaultAccountUserSettings>, "GetDefaultAccountUserSettings"}, //21.0.0+
     };
     // clang-format on
 
@@ -1452,6 +1455,21 @@ Result ISystemSettingsServer::Unknown306() {
 
 Result ISystemSettingsServer::Unknown307() {
     LOG_WARNING(Service_SET, "(STUBBED) called Unknown307 [20.0.0+]");
+    R_SUCCEED();
+}
+
+Result ISystemSettingsServer::GetAccountUserSettings(Out<u32> out_count, OutLargeData<AccountUserSettings, BufferAttr_HipcMapAlias> out_settings) {
+    LOG_WARNING(Service_SET, "(STUBBED) called");
+
+    *out_count = 0;
+    *out_settings = {};
+    R_SUCCEED();
+}
+
+Result ISystemSettingsServer::GetDefaultAccountUserSettings(Out<AccountUserSettings> out_settings) {
+    LOG_WARNING(Service_SET, "(STUBBED) called");
+
+    *out_settings = {};
     R_SUCCEED();
 }
 

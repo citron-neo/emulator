@@ -345,6 +345,11 @@ Result KProcess::Initialize(const Svc::CreateProcessParameter& params, const KPa
     // Initialize capabilities.
     R_TRY(m_capabilities.InitializeForKip(caps, std::addressof(m_page_table)));
 
+    // Enable mapping device pages as executable on legacy processes.
+    if (m_capabilities.GetIntendedKernelMajorVersion() < 26) {
+        m_page_table.AllowDeviceMappingOfExecPages();
+    }
+
     // Initialize the process id.
     m_process_id = m_kernel.CreateNewUserProcessID();
     ASSERT(InitialProcessIdMin <= m_process_id);
@@ -440,6 +445,11 @@ Result KProcess::Initialize(const Svc::CreateProcessParameter& params,
 
     // Initialize capabilities.
     R_TRY(m_capabilities.InitializeForUser(user_caps, std::addressof(m_page_table)));
+
+    // Enable mapping device pages as executable on legacy processes.
+    if (m_capabilities.GetIntendedKernelMajorVersion() < 26) {
+        m_page_table.AllowDeviceMappingOfExecPages();
+    }
 
     // Initialize the process id.
     m_process_id = m_kernel.CreateNewUserProcessID();
@@ -992,6 +1002,9 @@ Result KProcess::Run(s32 priority, size_t stack_size) {
     // Set the thread arguments.
     main_thread->GetContext().r[0] = 0;
     main_thread->GetContext().r[1] = thread_handle;
+
+    // Pass the thread handle to the thread local region.
+    this->GetMemory().Write32(GetInteger(main_thread->GetTlsAddress()) + 0x110, thread_handle);
 
     // Update our state.
     this->ChangeState((state == State::Created) ? State::Running : State::RunningAttached);
