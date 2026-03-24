@@ -88,9 +88,7 @@ public:
         fs::path citron_path_config;
 
 #ifdef _WIN32
-#ifdef CITRON_ENABLE_PORTABLE
         citron_path = GetExeDirectory() / PORTABLE_DIR;
-#endif
         if (!IsDir(citron_path)) {
             citron_path = GetAppDataRoamingDirectory() / CITRON_DIR;
         }
@@ -102,9 +100,7 @@ public:
         citron_path_cache = citron_path / CACHE_DIR;
         citron_path_config = citron_path / CONFIG_DIR;
 #else
-#ifdef CITRON_ENABLE_PORTABLE
         citron_path = GetCurrentDir() / PORTABLE_DIR;
-#endif
         if (Exists(citron_path) && IsDir(citron_path)) {
             citron_path_cache = citron_path / CACHE_DIR;
             citron_path_config = citron_path / CONFIG_DIR;
