@@ -99,8 +99,6 @@ set(CITRON_PGO_PROFILE_DIR "${CMAKE_BINARY_DIR}/pgo-profiles" CACHE PATH "Direct
 
 option(CITRON_DOWNLOAD_TIME_ZONE_DATA "Always download time zone binaries" OFF)
 
-option(CITRON_ENABLE_PORTABLE "Allow citron to enable portable mode if a user folder is found in the CWD" ON)
-
 CMAKE_DEPENDENT_OPTION(CITRON_USE_FASTER_LD "Check if a faster linker is available" ON "NOT WIN32" OFF)
 
 CMAKE_DEPENDENT_OPTION(USE_SYSTEM_MOLTENVK "Use the system MoltenVK lib (instead of the bundled one)" OFF "APPLE" OFF)
