@@ -902,11 +902,8 @@ const KProcess* KernelCore::ApplicationProcess() const {
 std::list<KScopedAutoObject<KProcess>> KernelCore::GetProcessList() {
     std::list<KScopedAutoObject<KProcess>> processes;
     std::scoped_lock lk{impl->process_list_lock};
-
-    for (auto* const process : impl->process_list) {
+    for (auto* const process : impl->process_list)
         processes.emplace_back(process);
-    }
-
     return processes;
 }
 

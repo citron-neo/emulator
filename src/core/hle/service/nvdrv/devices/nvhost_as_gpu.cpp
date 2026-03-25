@@ -186,8 +186,8 @@ NvResult nvhost_as_gpu::AllocateSpace(IoctlAllocSpace& params) {
     }
 
     allocation_map[params.offset] = {
-        .size = size,
         .mappings{},
+        .size = size,
         .page_size = params.page_size,
         .sparse = (params.flags & MappingFlags::Sparse) != MappingFlags::None,
         .big_pages = params.page_size != VM::CITRON_PAGESIZE,
@@ -390,8 +390,7 @@ NvResult nvhost_as_gpu::MapBufferEx(IoctlMapBufferEx& params) {
         gmmu->Map(params.offset, device_address, size, static_cast<Tegra::PTEKind>(params.kind),
                   use_big_pages);
 
-        auto mapping{std::make_shared<Mapping>(params.handle, device_address, params.offset, size,
-                                               true, use_big_pages, alloc->second.sparse)};
+        auto mapping{std::make_shared<Mapping>(params.handle, device_address, params.offset, size, true, use_big_pages, alloc->second.sparse)};
         alloc->second.mappings.push_back(mapping);
         mapping_map[params.offset] = mapping;
     } else {

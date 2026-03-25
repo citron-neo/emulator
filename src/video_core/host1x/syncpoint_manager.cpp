@@ -7,9 +7,7 @@ namespace Tegra {
 
 namespace Host1x {
 
-SyncpointManager::ActionHandle SyncpointManager::RegisterAction(
-    std::atomic<u32>& syncpoint, std::list<RegisteredAction>& action_storage, u32 expected_value,
-    std::function<void()>&& action) {
+SyncpointManager::ActionHandle SyncpointManager::RegisterAction(std::atomic<u32>& syncpoint, std::vector<RegisteredAction>& action_storage, u32 expected_value, std::function<void()>&& action) {
     if (syncpoint.load(std::memory_order_acquire) >= expected_value) {
         action();
         return {};
@@ -30,8 +28,7 @@ SyncpointManager::ActionHandle SyncpointManager::RegisterAction(
     return action_storage.emplace(it, expected_value, std::move(action));
 }
 
-void SyncpointManager::DeregisterAction(std::list<RegisteredAction>& action_storage,
-                                        const ActionHandle& handle) {
+void SyncpointManager::DeregisterAction(std::vector<RegisteredAction>& action_storage, const ActionHandle& handle) {
     std::unique_lock lk(guard);
 
     // We want to ensure the iterator still exists prior to erasing it
@@ -70,8 +67,7 @@ void SyncpointManager::WaitHost(u32 syncpoint_id, u32 expected_value) {
     Wait(syncpoints_host[syncpoint_id], wait_host_cv, expected_value);
 }
 
-void SyncpointManager::Increment(std::atomic<u32>& syncpoint, std::condition_variable& wait_cv,
-                                 std::list<RegisteredAction>& action_storage) {
+void SyncpointManager::Increment(std::atomic<u32>& syncpoint, std::condition_variable& wait_cv, std::vector<RegisteredAction>& action_storage) {
     auto new_value{syncpoint.fetch_add(1, std::memory_order_acq_rel) + 1};
 
     std::unique_lock lk(guard);
@@ -86,8 +82,7 @@ void SyncpointManager::Increment(std::atomic<u32>& syncpoint, std::condition_var
     wait_cv.notify_all();
 }
 
-void SyncpointManager::Wait(std::atomic<u32>& syncpoint, std::condition_variable& wait_cv,
-                            u32 expected_value) {
+void SyncpointManager::Wait(std::atomic<u32>& syncpoint, std::condition_variable& wait_cv, u32 expected_value) {
     const auto pred = [&]() { return syncpoint.load(std::memory_order_acquire) >= expected_value; };
     if (pred()) {
         return;
