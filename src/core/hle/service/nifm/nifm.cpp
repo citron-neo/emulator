@@ -24,6 +24,11 @@ namespace {
 #include "core/internal_network/network.h"
 #include "core/internal_network/network_interface.h"
 
+// [UNITY-FIX] undef Win32 macros shadowing ServiceContext methods.
+#undef CreateEvent
+#undef CreateMutex
+#undef CreateSemaphore
+
 namespace Service::NIFM {
 
 // This is nn::nifm::RequestState

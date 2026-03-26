@@ -9,6 +9,11 @@
 #include "core/hle/service/btm/btm_user_core.h"
 #include "core/hle/service/cmif_serialization.h"
 
+// [UNITY-FIX] undef Win32 macros shadowing ServiceContext methods.
+#undef CreateEvent
+#undef CreateMutex
+#undef CreateSemaphore
+
 namespace Service::BTM {
 
 IBtmUserCore::IBtmUserCore(Core::System& system_)

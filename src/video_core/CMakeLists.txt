@@ -340,3 +340,9 @@ if (ANDROID AND ARCHITECTURE_arm64)
 endif()
 
 create_target_directory_groups(video_core)
+
+# [UNITY-FIX]
+# Make the PixelFormat formatter visible before any unity TU uses it.
+target_precompile_headers(video_core PRIVATE
+    "${CMAKE_CURRENT_SOURCE_DIR}/texture_cache/formatter.h"
+)

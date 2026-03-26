@@ -10,6 +10,11 @@
 #include "core/hle/service/kernel_helpers.h"
 #include "core/hle/service/ptm/psm.h"
 
+// [UNITY-FIX] undef Win32 macros shadowing ServiceContext methods.
+#undef CreateEvent
+#undef CreateMutex
+#undef CreateSemaphore
+
 namespace Service::PTM {
 
 class IPsmSession final : public ServiceFramework<IPsmSession> {

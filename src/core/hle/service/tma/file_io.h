@@ -8,6 +8,15 @@
 
 namespace Service::TMA {
 
+
+// [UNITY-FIX] winbase.h A/W macros shadow C++ method names.
+#undef DeleteFile
+#undef CreateFile
+#undef CopyFile
+#undef MoveFile
+#undef MoveFileEx
+#undef CreateDirectory
+#undef RemoveDirectory
 class IFileAccessor final : public ServiceFramework<IFileAccessor> {
 public:
     explicit IFileAccessor(Core::System& system_);

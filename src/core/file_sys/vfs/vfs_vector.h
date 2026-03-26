@@ -14,6 +14,15 @@ namespace FileSys {
 
 // An implementation of VfsFile that is backed by a statically-sized array
 template <std::size_t size>
+
+// [UNITY-FIX] winbase.h A/W macros shadow C++ method names.
+#undef DeleteFile
+#undef CreateFile
+#undef CopyFile
+#undef MoveFile
+#undef MoveFileEx
+#undef CreateDirectory
+#undef RemoveDirectory
 class ArrayVfsFile : public VfsFile {
 public:
     explicit ArrayVfsFile(const std::array<u8, size>& data_, std::string name_ = "",

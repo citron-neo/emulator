@@ -12,6 +12,15 @@
 #include "core/hle/service/mii/types/store_data.h"
 #include "core/hle/service/mii/types/ver3_store_data.h"
 
+// [UNITY-FIX] winbase.h A/W macros shadow C++ method names.
+#undef DeleteFile
+#undef CreateFile
+#undef CopyFile
+#undef MoveFile
+#undef MoveFileEx
+#undef CreateDirectory
+#undef RemoveDirectory
+
 namespace Service::Mii {
 constexpr std::size_t DefaultMiiCount{RawData::DefaultMii.size()};
 

@@ -28,6 +28,15 @@ enum class VfsEntryType {
 // A class representing an abstract filesystem. A default implementation given the root VirtualDir
 // is provided for convenience, but if the Vfs implementation has any additional state or
 // functionality, they will need to override.
+
+// [UNITY-FIX] winbase.h A/W macros shadow C++ method names.
+#undef DeleteFile
+#undef CreateFile
+#undef CopyFile
+#undef MoveFile
+#undef MoveFileEx
+#undef CreateDirectory
+#undef RemoveDirectory
 class VfsFilesystem {
 public:
     CITRON_NON_COPYABLE(VfsFilesystem);

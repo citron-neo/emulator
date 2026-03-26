@@ -35,6 +35,15 @@
 #include "core/loader/nso.h"
 #include "core/memory/cheat_engine.h"
 
+// [UNITY-FIX] winbase.h A/W macros shadow C++ method names.
+#undef DeleteFile
+#undef CreateFile
+#undef CopyFile
+#undef MoveFile
+#undef MoveFileEx
+#undef CreateDirectory
+#undef RemoveDirectory
+
 namespace FileSys {
 namespace {
 

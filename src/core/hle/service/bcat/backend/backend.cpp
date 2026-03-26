@@ -7,6 +7,11 @@
 #include "core/hle/kernel/k_event.h"
 #include "core/hle/service/bcat/backend/backend.h"
 
+// [UNITY-FIX] undef Win32 macros shadowing ServiceContext methods.
+#undef CreateEvent
+#undef CreateMutex
+#undef CreateSemaphore
+
 namespace Service::BCAT {
 
 ProgressServiceBackend::ProgressServiceBackend(Core::System& system, std::string_view event_name)

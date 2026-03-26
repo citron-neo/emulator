@@ -29,6 +29,15 @@
 #include "core/hle/service/filesystem/save_data_controller.h"
 #include "core/hle/service/server_manager.h"
 #include "core/loader/loader.h"
+
+// [UNITY-FIX] winbase.h A/W macros shadow C++ method names.
+#undef DeleteFile
+#undef CreateFile
+#undef CopyFile
+#undef MoveFile
+#undef MoveFileEx
+#undef CreateDirectory
+#undef RemoveDirectory
 namespace Service::FileSystem {
 
 static FileSys::VirtualDir GetDirectoryRelativeWrapped(FileSys::VirtualDir base,

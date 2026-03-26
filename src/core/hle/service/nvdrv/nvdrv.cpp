@@ -27,6 +27,11 @@
 #include "core/hle/service/server_manager.h"
 #include "video_core/gpu.h"
 
+// [UNITY-FIX] undef Win32 macros shadowing ServiceContext methods.
+#undef CreateEvent
+#undef CreateMutex
+#undef CreateSemaphore
+
 namespace Service::Nvidia {
 
 EventInterface::EventInterface(Module& module_) : module{module_}, guard{}, on_signal{} {}

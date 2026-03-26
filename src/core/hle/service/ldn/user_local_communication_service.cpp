@@ -15,6 +15,11 @@
 #include "core/internal_network/network_interface.h"
 #include "network/network.h"
 
+// [UNITY-FIX] undef Win32 macros shadowing ServiceContext methods.
+#undef CreateEvent
+#undef CreateMutex
+#undef CreateSemaphore
+
 // This is defined by synchapi.h and conflicts with ServiceContext::CreateEvent
 #undef CreateEvent
 

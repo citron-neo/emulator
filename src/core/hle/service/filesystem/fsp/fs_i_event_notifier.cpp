@@ -6,6 +6,11 @@
 #include "core/hle/service/filesystem/fsp/fs_i_event_notifier.h"
 #include "core/hle/service/kernel_helpers.h"
 
+// [UNITY-FIX] undef Win32 macros shadowing ServiceContext methods.
+#undef CreateEvent
+#undef CreateMutex
+#undef CreateSemaphore
+
 // This is defined by synchapi.h and conflicts with ServiceContext::CreateEvent
 #undef CreateEvent
 

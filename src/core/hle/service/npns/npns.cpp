@@ -11,6 +11,11 @@
 #include "core/hle/service/server_manager.h"
 #include "core/hle/service/service.h"
 
+// [UNITY-FIX] undef Win32 macros shadowing ServiceContext methods.
+#undef CreateEvent
+#undef CreateMutex
+#undef CreateSemaphore
+
 namespace Service::NPNS {
 
 class INpnsSystem final : public ServiceFramework<INpnsSystem> {

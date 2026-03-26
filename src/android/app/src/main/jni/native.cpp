@@ -66,6 +66,15 @@
 #include "video_core/vulkan_common/vulkan_surface.h"
 #include "video_core/shader_notify.h"
 
+// [UNITY-FIX] winbase.h A/W macros shadow C++ method names.
+#undef DeleteFile
+#undef CreateFile
+#undef CopyFile
+#undef MoveFile
+#undef MoveFileEx
+#undef CreateDirectory
+#undef RemoveDirectory
+
 #define jconst [[maybe_unused]] const auto
 #define jauto [[maybe_unused]] auto
 

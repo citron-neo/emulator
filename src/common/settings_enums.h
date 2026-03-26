@@ -72,7 +72,8 @@ struct EnumMetadata {
     }                                                                                              \
     template <>                                                                                    \
     inline u32 EnumMetadata<NAME>::Index() {                                                       \
-        return __COUNTER__;                                                                        \
+        /* [UNITY-FIX] __COUNTER__ depends on TU merge order; use a stable ID here. */            \
+        return 1000u + __LINE__;                                                                   \
     }
 
 // AudioEngine must be specified discretely due to having existing but slightly different

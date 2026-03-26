@@ -11,6 +11,15 @@ namespace FileSys {
 // Class that stacks multiple VfsDirectories on top of each other, attempting to read from the first
 // one and falling back to the one after. The highest priority directory (overwrites all others)
 // should be element 0 in the dirs vector.
+
+// [UNITY-FIX] winbase.h A/W macros shadow C++ method names.
+#undef DeleteFile
+#undef CreateFile
+#undef CopyFile
+#undef MoveFile
+#undef MoveFileEx
+#undef CreateDirectory
+#undef RemoveDirectory
 class LayeredVfsDirectory : public VfsDirectory {
     explicit LayeredVfsDirectory(std::vector<VirtualDir> dirs_, std::string name_);
 

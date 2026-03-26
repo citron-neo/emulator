@@ -6,6 +6,11 @@
 #include "core/hle/service/audio/audio_renderer.h"
 #include "core/hle/service/cmif_serialization.h"
 
+// [UNITY-FIX] undef Win32 macros shadowing ServiceContext methods.
+#undef CreateEvent
+#undef CreateMutex
+#undef CreateSemaphore
+
 namespace Service::Audio {
 
 IAudioRenderer::IAudioRenderer(Core::System& system_, AudioCore::Renderer::Manager& manager_,

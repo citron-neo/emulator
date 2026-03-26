@@ -12,6 +12,24 @@
 #include "core/file_sys/vfs/vfs.h"
 
 namespace Common::FS {
+// [UNITY-FIX] winbase.h macros shadow VFS method names.
+#undef CreateFile
+#undef CopyFile
+#undef MoveFile
+#undef MoveFileEx
+#undef DeleteFile
+#undef CreateDirectory
+#undef RemoveDirectory
+
+
+// [UNITY-FIX] winbase.h A/W macros shadow C++ method names.
+#undef DeleteFile
+#undef CreateFile
+#undef CopyFile
+#undef MoveFile
+#undef MoveFileEx
+#undef CreateDirectory
+#undef RemoveDirectory
 class IOFile;
 }
 

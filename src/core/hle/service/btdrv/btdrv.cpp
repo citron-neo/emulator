@@ -12,6 +12,11 @@
 #include "core/hle/service/service.h"
 #include "core/hle/service/sm/sm.h"
 
+// [UNITY-FIX] undef Win32 macros shadowing ServiceContext methods.
+#undef CreateEvent
+#undef CreateMutex
+#undef CreateSemaphore
+
 namespace Service::BtDrv {
 
 class IBluetoothUser final : public ServiceFramework<IBluetoothUser> {

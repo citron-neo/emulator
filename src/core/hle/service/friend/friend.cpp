@@ -14,6 +14,11 @@
 #include "core/hle/service/kernel_helpers.h"
 #include "core/hle/service/server_manager.h"
 
+// [UNITY-FIX] undef Win32 macros shadowing ServiceContext methods.
+#undef CreateEvent
+#undef CreateMutex
+#undef CreateSemaphore
+
 namespace Service::Friend {
 
 class IFriendService final : public ServiceFramework<IFriendService> {

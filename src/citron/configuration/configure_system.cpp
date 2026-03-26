@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
+// [UNITY-FIX] renamed IsValidLocale→IsValidLocaleImpl
 #include <chrono>
 #include <optional>
 #include <vector>
@@ -39,7 +40,7 @@ constexpr std::array<u32, 7> LOCALE_BLOCKLIST{
     0b0100111100001000000, // Taiwan
 };
 
-static bool IsValidLocale(u32 region_index, u32 language_index) {
+static bool IsValidLocaleImpl(u32 region_index, u32 language_index) {
     if (region_index >= LOCALE_BLOCKLIST.size()) {
         return false;
     }
@@ -62,7 +63,7 @@ ConfigureSystem::ConfigureSystem(Core::System& system_,
     const auto locale_check = [this]() {
         const auto region_index = combo_region->currentIndex();
         const auto language_index = combo_language->currentIndex();
-        const bool valid_locale = IsValidLocale(region_index, language_index);
+        const bool valid_locale = IsValidLocaleImpl(region_index, language_index);
         ui->label_warn_invalid_locale->setVisible(!valid_locale);
         if (!valid_locale) {
             ui->label_warn_invalid_locale->setText(

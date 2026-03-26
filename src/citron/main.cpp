@@ -213,6 +213,15 @@ Q_IMPORT_PLUGIN(QWindowsIntegrationPlugin);
 #include <shellscalingapi.h>
 #include <windows.h>
 
+// [UNITY-FIX] winbase.h A/W macros shadow C++ method names.
+#undef DeleteFile
+#undef CreateFile
+#undef CopyFile
+#undef MoveFile
+#undef MoveFileEx
+#undef CreateDirectory
+#undef RemoveDirectory
+
 extern "C" {
 // tells Nvidia and AMD drivers to use the dedicated GPU by default on laptops with switchable
 // graphics
@@ -6257,6 +6266,10 @@ static void SetHighDPIAttributes() {
 #endif
 }
 
+// [UNITY-FIX] Keep this entry point as main() in unity builds.
+#ifdef main
+#undef main
+#endif
 int main(int argc, char* argv[]) {
     // 1. Detect Gamescope/Steam Deck hardware
     const bool is_gamescope = UISettings::IsGamescope();

@@ -25,6 +25,15 @@
 #include "core/hle/service/ns/platform_service_manager.h"
 #include "core/loader/loader.h"
 
+// [UNITY-FIX] winbase.h A/W macros shadow C++ method names.
+#undef DeleteFile
+#undef CreateFile
+#undef CopyFile
+#undef MoveFile
+#undef MoveFileEx
+#undef CreateDirectory
+#undef RemoveDirectory
+
 namespace Service::AM::Frontend {
 
 namespace {

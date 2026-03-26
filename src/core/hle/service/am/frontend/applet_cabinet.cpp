@@ -14,6 +14,11 @@
 #include "core/hle/service/nfc/common/device.h"
 #include "hid_core/hid_core.h"
 
+// [UNITY-FIX] undef Win32 macros shadowing ServiceContext methods.
+#undef CreateEvent
+#undef CreateMutex
+#undef CreateSemaphore
+
 namespace Service::AM::Frontend {
 
 Cabinet::Cabinet(Core::System& system_, std::shared_ptr<Applet> applet_,
