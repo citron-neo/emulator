@@ -18,6 +18,8 @@ add_executable(citron
     about_dialog.cpp
     about_dialog.h
     aboutdialog.ui
+    spinning_logo.cpp
+    spinning_logo.h
     applets/qt_amiibo_settings.cpp
     applets/qt_amiibo_settings.h
     applets/qt_amiibo_settings.ui
@@ -152,6 +154,9 @@ add_executable(citron
     configuration/configure_web.cpp
     configuration/configure_web.h
     configuration/configure_web.ui
+    configuration/configure_adaptive_triggers.cpp
+    configuration/configure_adaptive_triggers.h
+    configuration/configure_adaptive_triggers.ui
     configuration/input_profiles.cpp
     configuration/input_profiles.h
     configuration/shared_translation.cpp
