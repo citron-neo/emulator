@@ -20,6 +20,15 @@
 #include "core/file_sys/vfs/vfs_real.h"
 #include "core/hle/service/acc/profile_manager.h"
 
+// [UNITY-FIX] winbase.h A/W macros shadow C++ method names.
+#undef DeleteFile
+#undef CreateFile
+#undef CopyFile
+#undef MoveFile
+#undef MoveFileEx
+#undef CreateDirectory
+#undef RemoveDirectory
+
 namespace FileSys {
 
 namespace {

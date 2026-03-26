@@ -5,6 +5,11 @@
 #include "core/hle/service/bcat/delivery_task_suspension_service.h"
 #include "core/hle/service/cmif_serialization.h"
 
+// [UNITY-FIX] undef Win32 macros shadowing ServiceContext methods.
+#undef CreateEvent
+#undef CreateMutex
+#undef CreateSemaphore
+
 namespace Service::BCAT {
 
 IDeliveryTaskSuspensionService::IDeliveryTaskSuspensionService(Core::System& system_)

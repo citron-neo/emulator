@@ -6,6 +6,11 @@
 #include "core/hle/kernel/k_event.h"
 #include "common/logging.h"
 
+// [UNITY-FIX] undef Win32 macros shadowing ServiceContext methods.
+#undef CreateEvent
+#undef CreateMutex
+#undef CreateSemaphore
+
 namespace Service::AOC {
 
 IContentsServiceManager::IContentsServiceManager(Core::System& system_)

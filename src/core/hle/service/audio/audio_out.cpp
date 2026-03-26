@@ -10,6 +10,11 @@
 #include "core/hle/service/kernel_helpers.h"
 #include "core/hle/service/service.h"
 
+// [UNITY-FIX] undef Win32 macros shadowing ServiceContext methods.
+#undef CreateEvent
+#undef CreateMutex
+#undef CreateSemaphore
+
 namespace Service::Audio {
 IAudioOut::IAudioOut(Core::System& system_, AudioCore::AudioOut::Manager& manager, size_t session_id,
                      const std::string& device_name, const AudioCore::AudioOut::AudioOutParameter& in_params,

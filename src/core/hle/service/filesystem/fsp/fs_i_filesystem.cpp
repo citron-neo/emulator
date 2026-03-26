@@ -10,6 +10,15 @@
 #include "core/hle/service/filesystem/fsp/fs_i_file.h"
 #include "core/hle/service/filesystem/fsp/fs_i_filesystem.h"
 
+// [UNITY-FIX] winbase.h A/W macros shadow C++ method names.
+#undef DeleteFile
+#undef CreateFile
+#undef CopyFile
+#undef MoveFile
+#undef MoveFileEx
+#undef CreateDirectory
+#undef RemoveDirectory
+
 namespace Service::FileSystem {
 
 IFileSystem::IFileSystem(Core::System& system_, FileSys::VirtualDir dir_, SizeGetter size_getter_,

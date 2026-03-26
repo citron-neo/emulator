@@ -12,6 +12,11 @@
 #include "core/hle/service/server_manager.h"
 #include "core/hle/service/service.h"
 
+// [UNITY-FIX] undef Win32 macros shadowing ServiceContext methods.
+#undef CreateEvent
+#undef CreateMutex
+#undef CreateSemaphore
+
 namespace Service::NIM {
 
 class IAsyncValue final : public ServiceFramework<IAsyncValue> {

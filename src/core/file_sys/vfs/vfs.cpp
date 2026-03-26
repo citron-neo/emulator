@@ -7,6 +7,15 @@
 #include "common/fs/path_util.h"
 #include "core/file_sys/vfs/vfs.h"
 
+// [UNITY-FIX] winbase.h A/W macros shadow C++ method names.
+#undef DeleteFile
+#undef CreateFile
+#undef CopyFile
+#undef MoveFile
+#undef MoveFileEx
+#undef CreateDirectory
+#undef RemoveDirectory
+
 namespace FileSys {
 
 VfsFilesystem::VfsFilesystem(VirtualDir root_) : root(std::move(root_)) {}

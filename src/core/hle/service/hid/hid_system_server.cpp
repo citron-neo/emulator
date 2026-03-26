@@ -13,6 +13,11 @@
 #include "hid_core/resources/palma/palma.h"
 #include "hid_core/resources/touch_screen/touch_screen.h"
 
+// [UNITY-FIX] undef Win32 macros shadowing ServiceContext methods.
+#undef CreateEvent
+#undef CreateMutex
+#undef CreateSemaphore
+
 namespace Service::HID {
 
 IHidSystemServer::IHidSystemServer(Core::System& system_, std::shared_ptr<ResourceManager> resource,

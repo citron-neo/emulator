@@ -9,6 +9,12 @@
 #include <typeindex>
 #include "common/common_types.h"
 
+// [UNITY-FIX] winuser.h defines LoadString as LoadStringA/LoadStringW.
+// Undefine it here so the settings method name stays stable.
+#ifdef LoadString
+#undef LoadString
+#endif
+
 namespace Settings {
 
 enum class Category : u32 {

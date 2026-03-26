@@ -182,6 +182,10 @@ static void InitializeLogging(const std::string& log_file) {
 }
 
 /// Application entry point
+// [UNITY-FIX] Keep this entry point as main() in unity builds.
+#ifdef main
+#undef main
+#endif
 int main(int argc, char** argv) {
     Common::DetachedTasks detached_tasks;
     int option_index = 0;

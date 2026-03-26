@@ -6,6 +6,15 @@
 #include "core/file_sys/errors.h"
 #include "core/file_sys/savedata_extra_data_accessor.h"
 
+// [UNITY-FIX] winbase.h A/W macros shadow C++ method names.
+#undef DeleteFile
+#undef CreateFile
+#undef CopyFile
+#undef MoveFile
+#undef MoveFileEx
+#undef CreateDirectory
+#undef RemoveDirectory
+
 namespace FileSys {
 
 SaveDataExtraDataAccessor::SaveDataExtraDataAccessor(VirtualDir save_data_directory)

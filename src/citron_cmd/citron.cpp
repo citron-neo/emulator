@@ -180,6 +180,10 @@ static void OnStatusMessageReceived(const Network::StatusMessageEntry& msg) {
 }
 
 /// Application entry point
+// [UNITY-FIX] Keep this entry point as main() in unity builds.
+#ifdef main
+#undef main
+#endif
 int main(int argc, char** argv) {
 #ifdef _WIN32
     if (AttachConsole(ATTACH_PARENT_PROCESS)) {

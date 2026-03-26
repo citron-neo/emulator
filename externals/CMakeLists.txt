@@ -2,6 +2,11 @@
 # SPDX-FileCopyrightText: 2026 citron Emulator Project
 # SPDX-License-Identifier: GPL-2.0-or-later
 
+# [UNITY-FIX] disable unity build for all externals.
+# Third-party sources hit macro/symbol collisions under CMake unity.
+set(CMAKE_UNITY_BUILD OFF)
+
+
 # Needed for ankerls map implementation used in various places
 add_subdirectory(unordered_dense)
 

@@ -24,6 +24,11 @@
 #include "core/hle/service/server_manager.h"
 #include "core/loader/loader.h"
 
+// [UNITY-FIX] undef Win32 macros shadowing ServiceContext methods.
+#undef CreateEvent
+#undef CreateMutex
+#undef CreateSemaphore
+
 namespace Service::AOC {
 
 static bool CheckAOCTitleIDMatchesBase(u64 title_id, u64 base) {

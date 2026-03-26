@@ -39,6 +39,11 @@
 #pragma GCC diagnostic ignored "-Wimplicit-fallthrough"
 #endif
 #include "common/stb.h"
+
+// [UNITY-FIX] undef Win32 macros shadowing ServiceContext methods.
+#undef CreateEvent
+#undef CreateMutex
+#undef CreateSemaphore
 #ifdef _MSC_VER
 #pragma warning(pop)
 #elif defined(__clang__)

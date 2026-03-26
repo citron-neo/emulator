@@ -5,6 +5,11 @@
 #include "core/hle/service/cmif_serialization.h"
 #include "core/hle/service/olsc/native_handle_holder.h"
 
+// [UNITY-FIX] undef Win32 macros shadowing ServiceContext methods.
+#undef CreateEvent
+#undef CreateMutex
+#undef CreateSemaphore
+
 namespace Service::OLSC {
 
 INativeHandleHolder::INativeHandleHolder(Core::System& system_)

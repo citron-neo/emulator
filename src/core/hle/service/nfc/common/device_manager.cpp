@@ -18,6 +18,11 @@
 #include "hid_core/hid_types.h"
 #include "hid_core/hid_util.h"
 
+// [UNITY-FIX] undef Win32 macros shadowing ServiceContext methods.
+#undef CreateEvent
+#undef CreateMutex
+#undef CreateSemaphore
+
 namespace Service::NFC {
 
 DeviceManager::DeviceManager(Core::System& system_, KernelHelpers::ServiceContext& service_context_)

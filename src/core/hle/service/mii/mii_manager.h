@@ -10,6 +10,15 @@
 #include "core/hle/service/mii/mii_types.h"
 
 namespace Service::Mii {
+
+// [UNITY-FIX] winbase.h A/W macros shadow C++ method names.
+#undef DeleteFile
+#undef CreateFile
+#undef CopyFile
+#undef MoveFile
+#undef MoveFileEx
+#undef CreateDirectory
+#undef RemoveDirectory
 class CharInfo;
 class CoreData;
 class StoreData;

@@ -17,6 +17,11 @@
 #include "core/hle/service/nvnflinger/ui/graphic_buffer.h"
 #include "core/hle/service/nvnflinger/window.h"
 
+// [UNITY-FIX] undef Win32 macros shadowing ServiceContext methods.
+#undef CreateEvent
+#undef CreateMutex
+#undef CreateSemaphore
+
 namespace Service::android {
 
 BufferQueueProducer::BufferQueueProducer(Service::KernelHelpers::ServiceContext& service_context_,

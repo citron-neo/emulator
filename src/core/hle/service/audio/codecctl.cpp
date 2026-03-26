@@ -5,6 +5,11 @@
 #include "core/hle/service/audio/codecctl.h"
 #include "core/hle/service/cmif_serialization.h"
 
+// [UNITY-FIX] undef Win32 macros shadowing ServiceContext methods.
+#undef CreateEvent
+#undef CreateMutex
+#undef CreateSemaphore
+
 namespace Service::Audio {
 
 ICodecController::ICodecController(Core::System& system_)

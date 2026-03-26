@@ -17,6 +17,11 @@ class KProcess;
 
 namespace Service::KernelHelpers {
 
+// [UNITY-FIX] synchapi.h macros shadow ServiceContext methods.
+#undef CreateEvent
+#undef CreateMutex
+#undef CreateSemaphore
+
 class ServiceContext {
 public:
     ServiceContext(Core::System& system_, std::string name_);

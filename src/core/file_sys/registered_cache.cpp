@@ -23,6 +23,15 @@
 #include "core/file_sys/vfs/vfs_concat.h"
 #include "core/loader/loader.h"
 
+// [UNITY-FIX] winbase.h A/W macros shadow C++ method names.
+#undef DeleteFile
+#undef CreateFile
+#undef CopyFile
+#undef MoveFile
+#undef MoveFileEx
+#undef CreateDirectory
+#undef RemoveDirectory
+
 namespace FileSys {
 
 // The size of blocks to use when vfs raw copying into nand.

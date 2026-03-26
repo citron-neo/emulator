@@ -5,6 +5,11 @@
 #include "core/hle/service/cmif_serialization.h"
 #include "core/hle/service/omm/power_state_interface.h"
 
+// [UNITY-FIX] undef Win32 macros shadowing ServiceContext methods.
+#undef CreateEvent
+#undef CreateMutex
+#undef CreateSemaphore
+
 namespace Service::OMM {
 
 IPowerStateInterface::IPowerStateInterface(Core::System& system_)

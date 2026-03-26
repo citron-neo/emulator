@@ -5,6 +5,11 @@
 #include "core/hle/service/cmif_serialization.h"
 #include "core/hle/service/ipc_helpers.h"
 
+// [UNITY-FIX] undef Win32 macros shadowing ServiceContext methods.
+#undef CreateEvent
+#undef CreateMutex
+#undef CreateSemaphore
+
 namespace Service::Audio {
 
 IAudioIn::IAudioIn(Core::System& system_, AudioCore::AudioIn::Manager& manager, size_t session_id,

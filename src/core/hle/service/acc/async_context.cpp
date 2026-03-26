@@ -6,6 +6,11 @@
 #include "core/hle/service/acc/async_context.h"
 #include "core/hle/service/ipc_helpers.h"
 
+// [UNITY-FIX] undef Win32 macros shadowing ServiceContext methods.
+#undef CreateEvent
+#undef CreateMutex
+#undef CreateSemaphore
+
 namespace Service::Account {
 IAsyncContext::IAsyncContext(Core::System& system_)
     : ServiceFramework{system_, "IAsyncContext"}, service_context{system_, "IAsyncContext"} {

@@ -22,6 +22,15 @@
 
 #ifdef ANDROID
 #include "common/fs/fs_android.h"
+
+// [UNITY-FIX] winbase.h A/W macros shadow C++ method names.
+#undef DeleteFile
+#undef CreateFile
+#undef CopyFile
+#undef MoveFile
+#undef MoveFileEx
+#undef CreateDirectory
+#undef RemoveDirectory
 #endif
 
 namespace FileSys {
