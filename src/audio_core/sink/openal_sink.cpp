@@ -140,30 +140,14 @@ public:
                         LOG_INFO(Audio_Sink, "OpenAL source creation succeeded on attempt {}", attempt + 1);
                     }
                 } else {
-                    const char* error_str = "";
-                    switch (error) {
-                    case AL_INVALID_VALUE:
-                        error_str = "AL_INVALID_VALUE";
-                        break;
-                    case AL_INVALID_OPERATION:
-                        error_str = "AL_INVALID_OPERATION";
-                        break;
-                    case AL_OUT_OF_MEMORY:
-                        error_str = "AL_OUT_OF_MEMORY";
-                        break;
-                    default:
-                        error_str = "Unknown error";
-                        break;
-                    }
-
                     if (attempt == 2) {
-                        LOG_CRITICAL(Audio_Sink, "Final attempt failed - Error creating OpenAL source: {} ({})", error_str, error);
+                        LOG_CRITICAL(Audio_Sink, "Final attempt failed - Error creating OpenAL source: {} ({})", alGetErrorString(error), error);
                         LOG_CRITICAL(Audio_Sink, "This may indicate OpenAL driver issues or resource exhaustion");
                         LOG_WARNING(Audio_Sink, "Creating dummy audio stream to allow system to continue");
                         is_dummy_stream = true;
                         return;
                     } else {
-                        LOG_WARNING(Audio_Sink, "Attempt {} failed - Error creating OpenAL source: {} ({})", attempt + 1, error_str, error);
+                        LOG_WARNING(Audio_Sink, "Attempt {} failed - Error creating OpenAL source: {} ({})", attempt + 1, alGetErrorString(error), error);
                     }
                 }
             }
@@ -178,22 +162,7 @@ public:
             alGenBuffers(num_buffers, buffers.data());
             ALenum error = alGetError();
             if (error != AL_NO_ERROR) {
-                const char* error_str = "";
-                switch (error) {
-                case AL_INVALID_VALUE:
-                    error_str = "AL_INVALID_VALUE";
-                    break;
-                case AL_INVALID_OPERATION:
-                    error_str = "AL_INVALID_OPERATION";
-                    break;
-                case AL_OUT_OF_MEMORY:
-                    error_str = "AL_OUT_OF_MEMORY";
-                    break;
-                default:
-                    error_str = "Unknown error";
-                    break;
-                }
-                LOG_CRITICAL(Audio_Sink, "Error creating OpenAL buffers: {} ({})", error_str, error);
+                LOG_CRITICAL(Audio_Sink, "Error creating OpenAL buffers: {} ({})", alGetErrorString(error), error);
                 // Clean up the source we created
                 alDeleteSources(1, &source);
                 source = 0;
@@ -210,8 +179,7 @@ public:
             // Initialize buffers with silence
             std::vector<s16> silence(TargetSampleCount * device_channels, 0);
             for (auto& buffer : buffers) {
-                alBufferData(buffer, device_channels == 1 ? AL_FORMAT_MONO16 : AL_FORMAT_STEREO16,
-                             silence.data(), static_cast<ALsizei>(silence.size() * sizeof(s16)), TargetSampleRate);
+                alBufferData(buffer, device_channels == 1 ? AL_FORMAT_MONO16 : AL_FORMAT_STEREO16, silence.data(), static_cast<ALsizei>(silence.size() * sizeof(s16)), TargetSampleRate);
             }
 
             // Queue all buffers
@@ -489,28 +457,7 @@ OpenALSink::OpenALSink(std::string_view target_device_name) {
     device = alcOpenDevice(device_name);
     if (!device) {
         ALenum error = alcGetError(nullptr);
-        const char* error_str = "";
-        switch (error) {
-        case ALC_INVALID_DEVICE:
-            error_str = "ALC_INVALID_DEVICE";
-            break;
-        case ALC_INVALID_CONTEXT:
-            error_str = "ALC_INVALID_CONTEXT";
-            break;
-        case ALC_INVALID_VALUE:
-            error_str = "ALC_INVALID_VALUE";
-            break;
-        case ALC_OUT_OF_MEMORY:
-            error_str = "ALC_OUT_OF_MEMORY";
-            break;
-        default:
-            error_str = "Unknown error";
-            break;
-        }
-
-        LOG_WARNING(Audio_Sink, "Failed to open OpenAL device '{}': {} ({}), trying fallback strategies",
-                   device_name ? device_name : "nullptr", error_str, error);
-
+        LOG_WARNING(Audio_Sink, "Failed to open OpenAL device '{}': {} ({}), trying fallback strategies", device_name ? device_name : "nullptr", alGetErrorString(error), error);
         // Fallback 1: Try with nullptr (system default)
         if (device_name) {
             LOG_INFO(Audio_Sink, "Trying fallback 1: nullptr (system default)");
@@ -519,7 +466,7 @@ OpenALSink::OpenALSink(std::string_view target_device_name) {
                 LOG_INFO(Audio_Sink, "Successfully opened OpenAL device with nullptr fallback");
             } else {
                 error = alcGetError(nullptr);
-                LOG_WARNING(Audio_Sink, "Fallback 1 failed: {} ({})", error_str, error);
+                LOG_WARNING(Audio_Sink, "Fallback 1 failed: {} ({})", alGetErrorString(error), error);
             }
         }
 
@@ -531,7 +478,7 @@ OpenALSink::OpenALSink(std::string_view target_device_name) {
                 LOG_INFO(Audio_Sink, "Successfully opened OpenAL device with empty string fallback");
             } else {
                 error = alcGetError(nullptr);
-                LOG_WARNING(Audio_Sink, "Fallback 2 failed: {} ({})", error_str, error);
+                LOG_WARNING(Audio_Sink, "Fallback 2 failed: {} ({})", alGetErrorString(error), error);
             }
         }
 
@@ -560,46 +507,13 @@ OpenALSink::OpenALSink(std::string_view target_device_name) {
 
         if (!context) {
             ALenum error = alcGetError(static_cast<ALCdevice*>(device));
-            const char* error_str = "";
-            switch (error) {
-            case ALC_INVALID_DEVICE:
-                error_str = "ALC_INVALID_DEVICE";
-                break;
-            case ALC_INVALID_CONTEXT:
-                error_str = "ALC_INVALID_CONTEXT";
-                break;
-            case ALC_INVALID_VALUE:
-                error_str = "ALC_INVALID_VALUE";
-                break;
-            case ALC_OUT_OF_MEMORY:
-                error_str = "ALC_OUT_OF_MEMORY";
-                break;
-            default:
-                error_str = "Unknown error";
-                break;
-            }
-            LOG_CRITICAL(Audio_Sink, "Failed to create OpenAL context: {} ({})", error_str, error);
+            LOG_CRITICAL(Audio_Sink, "Failed to create OpenAL context: {} ({})", alGetErrorString(error), error);
             alcCloseDevice(static_cast<ALCdevice*>(device));
             device = nullptr;
         } else {
             if (!alcMakeContextCurrent(static_cast<ALCcontext*>(context))) {
                 ALenum error = alcGetError(static_cast<ALCdevice*>(device));
-                const char* error_str = "";
-                switch (error) {
-                case ALC_INVALID_DEVICE:
-                    error_str = "ALC_INVALID_DEVICE";
-                    break;
-                case ALC_INVALID_CONTEXT:
-                    error_str = "ALC_INVALID_CONTEXT";
-                    break;
-                case ALC_INVALID_VALUE:
-                    error_str = "ALC_INVALID_VALUE";
-                    break;
-                default:
-                    error_str = "Unknown error";
-                    break;
-                }
-                LOG_CRITICAL(Audio_Sink, "Failed to make OpenAL context current: {} ({})", error_str, error);
+                LOG_CRITICAL(Audio_Sink, "Failed to make OpenAL context current: {} ({})", alGetErrorString(error), error);
                 alcDestroyContext(static_cast<ALCcontext*>(context));
                 alcCloseDevice(static_cast<ALCdevice*>(device));
                 context = nullptr;
