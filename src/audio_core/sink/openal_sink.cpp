@@ -45,6 +45,28 @@
 #define ALC_CAPTURE_SAMPLES                      0x312
 #endif
 
+extern "C" const char *alGetErrorString(ALCenum error) {
+    switch (error) {
+#define X(N) case N: return #N;
+    X(AL_INVALID_VALUE)
+    X(AL_INVALID_OPERATION)
+    X(AL_OUT_OF_MEMORY)
+#undef X
+    default: return "Unknown error";
+    }
+}
+extern "C" const char *alcGetErrorString(ALCenum error) {
+    switch (error) {
+#define X(N) case N: return #N;
+    X(ALC_INVALID_DEVICE)
+    X(ALC_INVALID_CONTEXT)
+    X(ALC_INVALID_VALUE)
+    X(ALC_OUT_OF_MEMORY)
+#undef X
+    default: return "Unknown error";
+    }
+}
+
 namespace AudioCore::Sink {
 /**
  * OpenAL sink stream, responsible for sinking samples to hardware.
@@ -457,7 +479,7 @@ OpenALSink::OpenALSink(std::string_view target_device_name) {
     device = alcOpenDevice(device_name);
     if (!device) {
         ALenum error = alcGetError(nullptr);
-        LOG_WARNING(Audio_Sink, "Failed to open OpenAL device '{}': {} ({}), trying fallback strategies", device_name ? device_name : "nullptr", alGetErrorString(error), error);
+        LOG_WARNING(Audio_Sink, "Failed to open OpenAL device '{}': {} ({}), trying fallback strategies", device_name ? device_name : "nullptr", alcGetErrorString(error), error);
         // Fallback 1: Try with nullptr (system default)
         if (device_name) {
             LOG_INFO(Audio_Sink, "Trying fallback 1: nullptr (system default)");
@@ -466,7 +488,7 @@ OpenALSink::OpenALSink(std::string_view target_device_name) {
                 LOG_INFO(Audio_Sink, "Successfully opened OpenAL device with nullptr fallback");
             } else {
                 error = alcGetError(nullptr);
-                LOG_WARNING(Audio_Sink, "Fallback 1 failed: {} ({})", alGetErrorString(error), error);
+                LOG_WARNING(Audio_Sink, "Fallback 1 failed: {} ({})", alcGetErrorString(error), error);
             }
         }
 
@@ -478,7 +500,7 @@ OpenALSink::OpenALSink(std::string_view target_device_name) {
                 LOG_INFO(Audio_Sink, "Successfully opened OpenAL device with empty string fallback");
             } else {
                 error = alcGetError(nullptr);
-                LOG_WARNING(Audio_Sink, "Fallback 2 failed: {} ({})", alGetErrorString(error), error);
+                LOG_WARNING(Audio_Sink, "Fallback 2 failed: {} ({})", alcGetErrorString(error), error);
             }
         }
 
@@ -507,13 +529,13 @@ OpenALSink::OpenALSink(std::string_view target_device_name) {
 
         if (!context) {
             ALenum error = alcGetError(static_cast<ALCdevice*>(device));
-            LOG_CRITICAL(Audio_Sink, "Failed to create OpenAL context: {} ({})", alGetErrorString(error), error);
+            LOG_CRITICAL(Audio_Sink, "Failed to create OpenAL context: {} ({})", alcGetErrorString(error), error);
             alcCloseDevice(static_cast<ALCdevice*>(device));
             device = nullptr;
         } else {
             if (!alcMakeContextCurrent(static_cast<ALCcontext*>(context))) {
                 ALenum error = alcGetError(static_cast<ALCdevice*>(device));
-                LOG_CRITICAL(Audio_Sink, "Failed to make OpenAL context current: {} ({})", alGetErrorString(error), error);
+                LOG_CRITICAL(Audio_Sink, "Failed to make OpenAL context current: {} ({})", alcGetErrorString(error), error);
                 alcDestroyContext(static_cast<ALCcontext*>(context));
                 alcCloseDevice(static_cast<ALCdevice*>(device));
                 context = nullptr;
