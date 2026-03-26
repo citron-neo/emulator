@@ -10,6 +10,8 @@ namespace Ui {
 class AboutDialog;
 }
 
+class SpinningLogo;
+
 class AboutDialog : public QDialog {
     Q_OBJECT
 
@@ -19,4 +21,5 @@ public:
 
 private:
     std::unique_ptr<Ui::AboutDialog> ui;
+    SpinningLogo* m_spinning_logo = nullptr;
 };
