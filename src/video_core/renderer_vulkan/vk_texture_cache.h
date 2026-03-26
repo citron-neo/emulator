@@ -258,6 +258,11 @@ public:
         return buffer_size;
     }
 
+    /// VkImage type backing this view (e3D images use VK_IMAGE_CREATE_2D_ARRAY_COMPATIBLE_BIT).
+    [[nodiscard]] VideoCommon::ImageType PhysicalImageType() const noexcept {
+        return physical_image_type;
+    }
+
 private:
     struct StorageViews {
         std::array<vk::ImageView, Shader::NUM_TEXTURE_TYPES> signeds;
@@ -279,6 +284,7 @@ private:
     VkImageView render_target = VK_NULL_HANDLE;
     VkSampleCountFlagBits samples = VK_SAMPLE_COUNT_1_BIT;
     u32 buffer_size = 0;
+    VideoCommon::ImageType physical_image_type = VideoCommon::ImageType::e2D;
 };
 
 class ImageAlloc : public VideoCommon::ImageAllocBase {};
