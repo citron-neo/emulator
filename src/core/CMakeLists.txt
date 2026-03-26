@@ -1295,7 +1295,8 @@ if (HAS_NCE)
         arm/nce/patcher.h
         arm/nce/visitor_base.h
     )
-    target_link_libraries(core PRIVATE merry::mcl merry::oaknut)
+    # NCE uses Oaknut headers directly; mcl is not required as an explicit dependency here.
+    target_link_libraries(core PRIVATE merry::oaknut)
 endif()
 
 if (ARCHITECTURE_x86_64 OR ARCHITECTURE_arm64)
