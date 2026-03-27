@@ -11,6 +11,7 @@
 #include <mutex>
 #include <optional>
 #include <vector>
+#include <map>
 
 #include "common/address_space.h"
 #include "common/common_funcs.h"
