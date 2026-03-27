@@ -8,6 +8,14 @@
 #include <QApplication>
 #include <QCheckBox>
 #include <QDesktopServices>
+#include "citron/util/card_flip.h"
+#include "citron/util/confetti.h"
+#include "citron/util/plinko_widget.h"
+#include "citron/util/blackjack_widget.h"
+#include "common/settings.h"
+#include <QGraphicsDropShadowEffect>
+#include <QHBoxLayout>
+#include <QStackedWidget>
 #include <QDialog>
 #include <QDir>
 #include <QDirIterator>
@@ -76,7 +84,7 @@ class GameReelWidget : public QWidget {
 
 public:
     explicit GameReelWidget(QWidget* parent = nullptr) : QWidget(parent), m_scroll_offset(0.0) {
-        setFixedHeight(150);
+        setMinimumHeight(160);
     }
 
     void setGameReel(const QVector<SurpriseGame>& games) {
@@ -98,17 +106,25 @@ protected:
             return;
         QPainter painter(this);
         painter.setRenderHint(QPainter::Antialiasing);
+        painter.setRenderHint(QPainter::SmoothPixmapTransform);
 
-        const int icon_size = 128;
-        const int icon_spacing = 15;
+        painter.fillRect(rect(), palette().color(QPalette::Window));
+
+        const int icon_size = 192;
+        const int icon_spacing = 30;
         const int total_slot_width = icon_size + icon_spacing;
-
         const int widget_center_x = width() / 2;
         const int widget_center_y = height() / 2;
 
-        painter.fillRect(rect(), palette().color(QPalette::Window));
-        QColor highlight_color = palette().color(QPalette::Highlight);
-        painter.fillRect(widget_center_x - 2, 0, 4, height(), highlight_color);
+        // Subtle horizontal track line behind icons
+        painter.setPen(QPen(QColor(255, 255, 255, 40), 1, Qt::DashLine));
+        painter.drawLine(0, widget_center_y, width(), widget_center_y);
+        
+        // Sleek small centering markers at top and bottom
+        painter.setPen(QPen(QColor(0, 150, 255), 3));
+        painter.drawLine(widget_center_x, 5, widget_center_x, 25);
+        painter.drawLine(widget_center_x, height() - 25, widget_center_x, height() - 5);
+
 
         for (int i = 0; i < m_games.size(); ++i) {
             const qreal icon_x_position =
@@ -126,6 +142,7 @@ protected:
             path.addRoundedRect(draw_x, draw_y, icon_size, icon_size, 12, 12);
             painter.setClipPath(path);
 
+            // Draw original high-res icon with smooth scaling
             painter.drawPixmap(draw_x, draw_y, icon_size, icon_size, m_games[i].icon);
 
             painter.restore();
@@ -197,29 +214,53 @@ class SurpriseMeDialog : public QDialog {
     Q_OBJECT
 
 public:
+    enum class Mode { Reel, Cards, Plinko, Blackjack };
+
     explicit SurpriseMeDialog(QVector<SurpriseGame> games, QWidget* parent = nullptr)
         : QDialog(parent), m_available_games(games),
           m_last_choice({QString(), QString(), 0, QPixmap()}) {
         setWindowTitle(tr("Surprise Me!"));
         setModal(true);
-        setFixedSize(540, 280);
+        setFixedSize(850, 640);
 
         auto* layout = new QVBoxLayout(this);
         layout->setSpacing(15);
         layout->setContentsMargins(15, 15, 15, 15);
 
+        // Navigation Bar
+        auto* nav_layout = new QHBoxLayout();
+        auto* reel_btn = new QPushButton(tr("Reel"), this);
+        auto* cards_btn = new QPushButton(tr("Cards"), this);
+        auto* plinko_btn = new QPushButton(tr("Plinko"), this);
+        auto* blackjack_btn = new QPushButton(tr("Blackjack"), this);
+
+        QString nav_style = QStringLiteral("QPushButton { background: #333; color: #aaa; border: none; padding: 5px 15px; border-radius: 4px; }"
+                            "QPushButton:checked { background: #555; color: white; font-weight: bold; }");
+        for (auto* btn : {reel_btn, cards_btn, plinko_btn, blackjack_btn}) {
+            btn->setCheckable(true);
+            btn->setStyleSheet(nav_style);
+            nav_layout->addWidget(btn);
+        }
+        reel_btn->setChecked(true);
+
         m_reel_widget = new GameReelWidget(this);
-        m_game_title_label = new QLabel(tr("Spinning..."), this);
+        m_card_widget = new CardFlipWidget(this);
+        m_plinko_widget = new PlinkoWidget(this);
+        m_blackjack_widget = new BlackjackWidget(this);
+        m_confetti_widget = new ConfettiWidget(this);
+
+        m_stack = new QStackedWidget(this);
+        m_stack->addWidget(m_reel_widget);
+        m_stack->addWidget(m_card_widget);
+        m_stack->addWidget(m_plinko_widget);
+        m_stack->addWidget(m_blackjack_widget);
+
+        m_game_title_label = new QLabel(tr("Ready?"), this);
         m_launch_button = new QPushButton(tr("Launch Game"), this);
         m_reroll_button = new QPushButton(tr("Try Again?"), this);
 
-        m_launch_button->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
-        m_reroll_button->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
-
-        m_launch_button->setStyleSheet(QStringLiteral("padding: 5px;"));
-        m_reroll_button->setStyleSheet(QStringLiteral("padding: 5px;"));
-        m_launch_button->setMinimumHeight(35);
-        m_reroll_button->setMinimumHeight(35);
+        m_launch_button->setFixedHeight(35);
+        m_reroll_button->setFixedHeight(35);
 
         QFont title_font = m_game_title_label->font();
         title_font.setPointSize(16);
@@ -227,13 +268,13 @@ public:
         m_game_title_label->setFont(title_font);
         m_game_title_label->setAlignment(Qt::AlignCenter);
 
-        m_game_title_label->setWordWrap(true);
-
         auto* button_layout = new QHBoxLayout();
+        button_layout->addStretch();
         button_layout->addWidget(m_reroll_button);
         button_layout->addWidget(m_launch_button);
 
-        layout->addWidget(m_reel_widget);
+        layout->addLayout(nav_layout);
+        layout->addWidget(m_stack);
         layout->addWidget(m_game_title_label);
         layout->addLayout(button_layout);
 
@@ -243,10 +284,23 @@ public:
         m_animation = new QPropertyAnimation(m_reel_widget, "scrollOffset", this);
         m_animation->setEasingCurve(QEasingCurve::OutCubic);
 
+        connect(reel_btn, &QPushButton::clicked, this, [this] { setMode(Mode::Reel); });
+        connect(cards_btn, &QPushButton::clicked, this, [this] { setMode(Mode::Cards); });
+        connect(plinko_btn, &QPushButton::clicked, this, [this] { setMode(Mode::Plinko); });
+        connect(blackjack_btn, &QPushButton::clicked, this, [this] { setMode(Mode::Blackjack); });
+
         connect(m_launch_button, &QPushButton::clicked, this, &SurpriseMeDialog::onLaunch);
         connect(m_reroll_button, &QPushButton::clicked, this, &SurpriseMeDialog::startRoll);
+        connect(m_card_widget, &CardFlipWidget::gameSelected, this, &SurpriseMeDialog::onGameSelected);
+        connect(m_plinko_widget, &PlinkoWidget::gameSelected, this, &SurpriseMeDialog::onGameSelected);
+        connect(m_blackjack_widget, &BlackjackWidget::gameSelected, this, &SurpriseMeDialog::onGameSelected);
 
         QTimer::singleShot(100, this, &SurpriseMeDialog::startRoll);
+    }
+
+    void resizeEvent(QResizeEvent* event) override {
+        QDialog::resizeEvent(event);
+        m_confetti_widget->setGeometry(rect());
     }
 
     const SurpriseGame& getFinalChoice() const {
@@ -254,20 +308,125 @@ public:
     }
 
 private slots:
+    void setMode(Mode mode) {
+        m_current_mode = mode;
+        m_stack->setCurrentIndex(static_cast<int>(mode));
+        updateTitleFont();
+        
+        // Update check state of nav buttons
+        for (int i = 0; i < 4; ++i) {
+            auto* btn = qobject_cast<QPushButton*>(layout()->itemAt(0)->layout()->itemAt(i)->widget());
+            if (btn) btn->setChecked(i == static_cast<int>(mode));
+        }
+
+        startRoll();
+    }
+
+    void onGameSelected(int index) {
+        // Ignore signals from widgets that are not currently visible
+        if (sender() != m_stack->currentWidget()) {
+            return;
+        }
+
+        if (m_current_mode == Mode::Reel) {
+            return;
+        }
+
+        if (index == -1) {
+            // Loss or Push
+            m_last_choice.name = tr("Try again!");
+            m_launch_button->setEnabled(false);
+            if (!m_available_games.isEmpty()) {
+                m_reroll_button->setEnabled(true);
+            } else if (m_current_mode != Mode::Reel) {
+                // Allow reroll in minigames even if pool is empty (for fun)
+                m_reroll_button->setEnabled(true);
+            }
+            m_game_title_label->setText(m_last_choice.name);
+            m_reroll_button->update(); 
+            return;
+        }
+
+        if (m_current_mode == Mode::Cards || m_current_mode == Mode::Plinko || m_current_mode == Mode::Blackjack) {
+            if (index >= 0 && index < m_card_pool.size()) {
+                m_last_choice = m_card_pool[index];
+            }
+        } else {
+            m_last_choice = m_available_games[index % m_available_games.size()];
+        }
+        
+        m_confetti_widget->burst();
+        onRollFinished();
+    }
+
+    void updateTitleFont() {
+        QFont font = m_game_title_label->font();
+        font.setBold(true);
+        if (m_current_mode == Mode::Reel) {
+            font.setPointSize(28);
+        } else if (m_current_mode == Mode::Cards) {
+            font.setPointSize(24);
+        } else {
+            font.setPointSize(18);
+        }
+        m_game_title_label->setFont(font);
+    }
+
     void startRoll() {
-        if (m_available_games.isEmpty()) {
+        m_animation->stop();
+        disconnect(m_animation, &QPropertyAnimation::finished, nullptr, nullptr);
+
+        if (m_available_games.isEmpty() && m_current_mode == Mode::Reel) {
             m_game_title_label->setText(tr("No more games to choose!"));
             m_reroll_button->setEnabled(false);
             return;
         }
 
-        m_game_title_label->setText(tr("Spinning..."));
         m_launch_button->setEnabled(false);
         m_reroll_button->setEnabled(false);
+        m_last_choice = {QString(), QString(), 0, QPixmap()}; 
 
+        // Prep data for widgets
+        std::vector<QImage> icons;
+        QVector<SurpriseGame> temp_pool = m_available_games;
+        m_card_pool.clear();
+        
         std::random_device rd;
         std::mt19937 gen(rd());
-        std::uniform_int_distribution<> full_distrib(0, m_available_games.size() - 1);
+
+        auto pickGames = [&](int count) {
+            for (int i = 0; i < count && !temp_pool.isEmpty(); ++i) {
+                std::uniform_int_distribution<> d(0, temp_pool.size() - 1);
+                int idx = d(gen);
+                icons.push_back(temp_pool[idx].icon.toImage());
+                m_card_pool.push_back(temp_pool[idx]);
+                temp_pool.removeAt(idx);
+            }
+        };
+
+        if (m_current_mode == Mode::Cards) {
+            m_game_title_label->setText(tr("Pick a Card!"));
+            pickGames(5);
+            m_card_widget->setGames(icons);
+            m_card_widget->reset();
+            return;
+        } else if (m_current_mode == Mode::Plinko) {
+            m_game_title_label->setText(tr("Drop the Ball!"));
+            pickGames(5); // 5 Bins
+            m_plinko_widget->setGames(icons);
+            m_plinko_widget->reset();
+            return;
+        } else if (m_current_mode == Mode::Blackjack) {
+            m_game_title_label->setText(tr("Blackjack!"));
+            pickGames(m_available_games.size());
+            m_blackjack_widget->setGames(icons);
+            m_blackjack_widget->reset();
+            return;
+        }
+
+        m_game_title_label->setText(tr("Spinning..."));
+        
+        std::uniform_int_distribution<> full_distrib(0, static_cast<int>(m_available_games.size() - 1));
         const int winning_index = full_distrib(gen);
 
         const SurpriseGame winner = m_available_games.at(winning_index);
@@ -286,9 +445,9 @@ private slots:
         }
 
         m_reel_widget->setGameReel(reel);
-
-        const int icon_size = 128;
-        const int icon_spacing = 15;
+        
+        const int icon_size = 192;
+        const int icon_spacing = 30;
         const int total_slot_width = icon_size + icon_spacing;
         const qreal start_offset = 0;
 
@@ -304,6 +463,7 @@ private slots:
         disconnect(m_animation, &QPropertyAnimation::finished, nullptr, nullptr);
         connect(m_animation, &QPropertyAnimation::finished, this, [this, winner]() {
             m_last_choice = winner;
+            m_confetti_widget->burst();
             onRollFinished();
         });
 
@@ -313,9 +473,8 @@ private slots:
     void onRollFinished() {
         m_game_title_label->setText(m_last_choice.name);
         m_launch_button->setEnabled(true);
-        if (!m_available_games.isEmpty()) {
-            m_reroll_button->setEnabled(true);
-        }
+        m_reroll_button->setEnabled(true); // Always allow try again on finish
+        update();
     }
 
     void onLaunch() {
@@ -324,12 +483,21 @@ private slots:
 
 private:
     QVector<SurpriseGame> m_available_games;
+    QVector<SurpriseGame> m_card_pool;
     SurpriseGame m_last_choice;
+    
+    QStackedWidget* m_stack;
     GameReelWidget* m_reel_widget;
+    CardFlipWidget* m_card_widget;
+    PlinkoWidget* m_plinko_widget;
+    BlackjackWidget* m_blackjack_widget;
+    ConfettiWidget* m_confetti_widget;
+    
     QLabel* m_game_title_label;
     QPushButton* m_launch_button;
     QPushButton* m_reroll_button;
     QPropertyAnimation* m_animation;
+    Mode m_current_mode = Mode::Reel;
 };
 
 // Static helper for Save Detection
@@ -1735,6 +1903,7 @@ void GameList::AddGamePopup(QMenu& context_menu, u64 program_id, const std::stri
         hide_game->setText(tr("Unhide Game"));
     }
 
+    open_file_location->setVisible(program_id != 0);
     open_save_location->setVisible(program_id != 0);
     open_nand_location->setVisible(is_mirrored);
     open_nand_location->setToolTip(tr("Citron uses your NAND while syncing. If you need to make "
