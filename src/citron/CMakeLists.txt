@@ -154,9 +154,6 @@ add_executable(citron
     configuration/configure_web.cpp
     configuration/configure_web.h
     configuration/configure_web.ui
-    configuration/configure_adaptive_triggers.cpp
-    configuration/configure_adaptive_triggers.h
-    configuration/configure_adaptive_triggers.ui
     configuration/input_profiles.cpp
     configuration/input_profiles.h
     configuration/shared_translation.cpp
