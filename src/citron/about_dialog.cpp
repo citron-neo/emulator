@@ -85,7 +85,8 @@ AboutDialog::AboutDialog(QWidget* parent) : QDialog(parent) {
             m_spinning_logo->setSpinMode(clamped);
         }
 
-        connect(combo, qOverload<int>(&QComboBox::currentIndexChanged), this, [combo](int index) {
+        connect(combo, &QComboBox::currentIndexChanged, this, [this](int index) {
+            m_spinning_logo->setSpinMode(index);
             QSettings qs;
             qs.setValue(QStringLiteral("About/logoSpinMode"), index);
         });
