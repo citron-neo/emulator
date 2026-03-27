@@ -7,6 +7,7 @@
 #include <memory>
 #include <span>
 #include <vector>
+#include <map>
 
 #include "common/common_types.h"
 #include "common/expected.h"
