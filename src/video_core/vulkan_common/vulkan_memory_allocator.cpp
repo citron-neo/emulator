@@ -46,21 +46,29 @@ struct Range {
     case MemoryUsage::DeviceLocal:
         return VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
     case MemoryUsage::Upload:
-        return VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
+        return VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT |
+               VK_MEMORY_PROPERTY_HOST_CACHED_BIT;
     case MemoryUsage::Download:
         return VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT |
                VK_MEMORY_PROPERTY_HOST_CACHED_BIT;
     case MemoryUsage::Stream:
         return VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
-               VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
+               VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | VK_MEMORY_PROPERTY_HOST_CACHED_BIT;
     }
     ASSERT_MSG(false, "Invalid memory usage={}", usage);
     return VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
 }
 
 [[nodiscard]] VkMemoryPropertyFlags MemoryUsagePreferredVmaFlags(MemoryUsage usage) {
-    return usage != MemoryUsage::DeviceLocal ? VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
-                                             : VkMemoryPropertyFlagBits{};
+    switch (usage) {
+    case MemoryUsage::DeviceLocal:
+        return {};
+    case MemoryUsage::Upload:
+    case MemoryUsage::Download:
+    case MemoryUsage::Stream:
+        return VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | VK_MEMORY_PROPERTY_HOST_CACHED_BIT;
+    }
+    return {};
 }
 
 [[nodiscard]] VmaAllocationCreateFlags MemoryUsageVmaFlags(MemoryUsage usage) {
