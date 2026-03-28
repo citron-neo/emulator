@@ -480,6 +480,7 @@ GMainWindow::GMainWindow(std::unique_ptr<QtConfig> config_, bool has_broken_vulk
     // Process events to ensure main window is fully rendered
     QApplication::processEvents();
 
+    /*
     // Defer the first-time setup check until after the main window is fully constructed.
     if (UISettings::values.first_start.GetValue()) {
         LOG_INFO(Frontend, "Scheduling first-time setup check.");
@@ -534,6 +535,8 @@ GMainWindow::GMainWindow(std::unique_ptr<QtConfig> config_, bool has_broken_vulk
     } else {
         LOG_INFO(Frontend, "Skipping setup wizard - first_start is false");
     }
+    */
+
 
     if (has_broken_vulkan) {
         UISettings::values.has_broken_vulkan = true;
