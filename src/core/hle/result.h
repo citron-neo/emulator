@@ -388,7 +388,7 @@ constexpr void UpdateCurrentResultReference<const Result>(Result result_referenc
 
 #define ON_RESULT_RETURN_IMPL(...)                                                                 \
     static_assert(std::same_as<decltype(__TmpCurrentResultReference), Result&>);                   \
-    auto CONCAT2(RESULT_GUARD_STATE_, __COUNTER__) =                                               \
+    auto CONCAT2(RESULT_GUARD_STATE_, __LINE__) =                                               \
         ResultImpl::ResultReferenceForScopedResultGuard<__VA_ARGS__>(                              \
             __TmpCurrentResultReference) +                                                         \
         [&]()
@@ -396,20 +396,20 @@ constexpr void UpdateCurrentResultReference<const Result>(Result result_referenc
 #define ON_RESULT_FAILURE_2 ON_RESULT_RETURN_IMPL(ResultImpl::EvaluateResultFailure)
 
 #define ON_RESULT_FAILURE                                                                          \
-    DECLARE_CURRENT_RESULT_REFERENCE_AND_STORAGE(__COUNTER__);                                     \
+    DECLARE_CURRENT_RESULT_REFERENCE_AND_STORAGE(__LINE__);                                     \
     ON_RESULT_FAILURE_2
 
 #define ON_RESULT_SUCCESS_2 ON_RESULT_RETURN_IMPL(ResultImpl::EvaluateResultSuccess)
 
 #define ON_RESULT_SUCCESS                                                                          \
-    DECLARE_CURRENT_RESULT_REFERENCE_AND_STORAGE(__COUNTER__);                                     \
+    DECLARE_CURRENT_RESULT_REFERENCE_AND_STORAGE(__LINE__);                                     \
     ON_RESULT_SUCCESS_2
 
 #define ON_RESULT_INCLUDED_2(...)                                                                  \
     ON_RESULT_RETURN_IMPL(ResultImpl::EvaluateAnyResultIncludes<__VA_ARGS__>)
 
 #define ON_RESULT_INCLUDED(...)                                                                    \
-    DECLARE_CURRENT_RESULT_REFERENCE_AND_STORAGE(__COUNTER__);                                     \
+    DECLARE_CURRENT_RESULT_REFERENCE_AND_STORAGE(__LINE__);                                     \
     ON_RESULT_INCLUDED_2(__VA_ARGS__)
 
 constexpr inline Result __TmpCurrentResultReference = ResultSuccess;

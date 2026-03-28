@@ -29,12 +29,7 @@ template <typename F>
 
 #define CONCATENATE_IMPL(s1, s2) s1##s2
 #define CONCATENATE(s1, s2) CONCATENATE_IMPL(s1, s2)
-
-#ifdef __COUNTER__
-#define ANONYMOUS_VARIABLE(pref) CONCATENATE(pref, __COUNTER__)
-#else
 #define ANONYMOUS_VARIABLE(pref) CONCATENATE(pref, __LINE__)
-#endif
 
 /**
  * This macro is similar to SCOPE_EXIT, except the object is caller managed. This is intended to be
