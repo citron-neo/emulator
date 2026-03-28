@@ -30,6 +30,6 @@ static_assert(offsetof(ApplnSettings, service_discovery_control_settings) == 0x5
 static_assert(offsetof(ApplnSettings, in_repair_process_enable_flag) == 0x74);
 static_assert(sizeof(ApplnSettings) == 0x78, "ApplnSettings has the wrong size!");
 
-ApplnSettings DefaultApplnSettings();
+void DefaultApplnSettings(ApplnSettings& settings);
 
 } // namespace Service::Set

@@ -5,12 +5,10 @@
 
 namespace Service::Set {
 
-ApplnSettings DefaultApplnSettings() {
-    ApplnSettings settings{};
+void DefaultApplnSettings(ApplnSettings& settings) {
+    settings = {};
 
     settings.mii_author_id = Common::UUID::MakeDefault();
-
-    return settings;
 }
 
 } // namespace Service::Set

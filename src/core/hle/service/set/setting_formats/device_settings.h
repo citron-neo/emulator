@@ -49,6 +49,6 @@ static_assert(offsetof(DeviceSettings, console_six_axis_sensor_acceleration_bias
 static_assert(offsetof(DeviceSettings, console_six_axis_sensor_angular_acceleration) == 0x13C);
 static_assert(sizeof(DeviceSettings) == 0x160, "DeviceSettings has the wrong size!");
 
-DeviceSettings DefaultDeviceSettings();
+void DefaultDeviceSettings(DeviceSettings& settings);
 
 } // namespace Service::Set
