@@ -45,7 +45,8 @@
 #define ALC_CAPTURE_SAMPLES                      0x312
 #endif
 
-extern "C" const char *alGetErrorString(ALCenum error) {
+namespace {
+const char* alGetErrorString(ALCenum error) {
     switch (error) {
 #define X(N) case N: return #N;
     X(AL_INVALID_VALUE)
@@ -55,7 +56,7 @@ extern "C" const char *alGetErrorString(ALCenum error) {
     default: return "Unknown error";
     }
 }
-extern "C" const char *alcGetErrorString(ALCenum error) {
+const char* alcGetErrorString(ALCenum error) {
     switch (error) {
 #define X(N) case N: return #N;
     X(ALC_INVALID_DEVICE)
@@ -66,6 +67,8 @@ extern "C" const char *alcGetErrorString(ALCenum error) {
     default: return "Unknown error";
     }
 }
+} // Anonymous namespace
+
 
 namespace AudioCore::Sink {
 /**
