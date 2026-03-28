@@ -455,6 +455,28 @@ TransformBufferCopies(std::span<const VideoCommon::BufferCopy> copies, size_t bu
     return MakeSubresourceRange(ImageAspectMask(image_view->format), range);
 }
 
+// 3D images use VK_IMAGE_CREATE_2D_ARRAY_COMPATIBLE_BIT. Without VK_KHR_maintenance9, layerCount==1
+// in image memory barriers is ambiguous; use VK_REMAINING_ARRAY_LAYERS for full-image barriers.
+void FixBarrierRangeFor3DCompatibleImage(VkImageSubresourceRange& range,
+                                         VideoCommon::ImageType image_type) {
+    if (image_type != VideoCommon::ImageType::e3D) {
+        return;
+    }
+    if (range.baseArrayLayer == 0 && range.layerCount == 1) {
+        range.layerCount = VK_REMAINING_ARRAY_LAYERS;
+    }
+}
+
+[[nodiscard]] VkImageSubresourceRange MakeFramebufferBarrierRange(const ImageView* image_view) {
+    VkImageSubresourceRange range = MakeSubresourceRange(image_view);
+    if (image_view->PhysicalImageType() == VideoCommon::ImageType::e3D &&
+        image_view->type == VideoCommon::ImageViewType::e3D && range.baseArrayLayer == 0 &&
+        range.layerCount == 1) {
+        range.layerCount = VK_REMAINING_ARRAY_LAYERS;
+    }
+    return range;
+}
+
 [[nodiscard]] VkImageSubresourceLayers MakeSubresourceLayers(const ImageView* image_view) {
     return VkImageSubresourceLayers{
         .aspectMask = ImageAspectMask(image_view->format),
@@ -997,7 +1019,8 @@ void TextureCacheRuntime::ReinterpretImage(Image& dst, Image& src,
     const VkImage src_image = src.Handle();
     scheduler.RequestOutsideRenderPassOperationContext();
     scheduler.Record([dst_image, src_image, copy_buffer, src_aspect_mask, dst_aspect_mask,
-                      vk_in_copies, vk_out_copies](vk::CommandBuffer cmdbuf) {
+                      vk_in_copies, vk_out_copies, src_type = src.info.type,
+                      dst_type = dst.info.type](vk::CommandBuffer cmdbuf) {
         RangedBarrierRange dst_range;
         RangedBarrierRange src_range;
         for (const VkBufferImageCopy& copy : vk_in_copies) {
@@ -1018,6 +1041,10 @@ void TextureCacheRuntime::ReinterpretImage(Image& dst, Image& src,
             .srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT,
             .dstAccessMask = VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_MEMORY_WRITE_BIT,
         };
+        auto src_barrier_range = src_range.SubresourceRange(src_aspect_mask);
+        auto dst_barrier_range = dst_range.SubresourceRange(dst_aspect_mask);
+        FixBarrierRangeFor3DCompatibleImage(src_barrier_range, src_type);
+        FixBarrierRangeFor3DCompatibleImage(dst_barrier_range, dst_type);
         const std::array pre_barriers{
             VkImageMemoryBarrier{
                 .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
@@ -1031,7 +1058,7 @@ void TextureCacheRuntime::ReinterpretImage(Image& dst, Image& src,
                 .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
                 .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
                 .image = src_image,
-                .subresourceRange = src_range.SubresourceRange(src_aspect_mask),
+                .subresourceRange = src_barrier_range,
             },
         };
         const std::array middle_in_barrier{
@@ -1045,7 +1072,7 @@ void TextureCacheRuntime::ReinterpretImage(Image& dst, Image& src,
                 .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
                 .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
                 .image = src_image,
-                .subresourceRange = src_range.SubresourceRange(src_aspect_mask),
+                .subresourceRange = src_barrier_range,
             },
         };
         const std::array middle_out_barrier{
@@ -1061,7 +1088,7 @@ void TextureCacheRuntime::ReinterpretImage(Image& dst, Image& src,
                 .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
                 .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
                 .image = dst_image,
-                .subresourceRange = dst_range.SubresourceRange(dst_aspect_mask),
+                .subresourceRange = dst_barrier_range,
             },
         };
         const std::array post_barriers{
@@ -1080,7 +1107,7 @@ void TextureCacheRuntime::ReinterpretImage(Image& dst, Image& src,
                 .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
                 .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
                 .image = dst_image,
-                .subresourceRange = dst_range.SubresourceRange(dst_aspect_mask),
+                .subresourceRange = dst_barrier_range,
             },
         };
         cmdbuf.PipelineBarrier(VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
@@ -1274,6 +1301,11 @@ void TextureCacheRuntime::ConvertImage(Framebuffer* dst, ImageView& dst_view, Im
     case PixelFormat::S8_UINT_D24_UNORM:
         if (src_view.format == PixelFormat::A8B8G8R8_UNORM ||
             src_view.format == PixelFormat::B8G8R8A8_UNORM) {
+            if (!device.IsExtShaderStencilExportSupported()) {
+                UNIMPLEMENTED_MSG(
+                    "ABGR8 to D24S8 conversion requires VK_EXT_shader_stencil_export, which is "
+                    "unsupported on this device");
+            }
             return blit_image_helper.ConvertABGR8ToD24S8(dst, src_view);
         }
         break;
@@ -1306,13 +1338,18 @@ void TextureCacheRuntime::CopyImage(Image& dst, Image& src,
     const VkImage dst_image = dst.Handle();
     const VkImage src_image = src.Handle();
     scheduler.RequestOutsideRenderPassOperationContext();
-    scheduler.Record([dst_image, src_image, aspect_mask, vk_copies](vk::CommandBuffer cmdbuf) {
+    scheduler.Record([dst_image, src_image, aspect_mask, vk_copies, src_type = src.info.type,
+                      dst_type = dst.info.type](vk::CommandBuffer cmdbuf) {
         RangedBarrierRange dst_range;
         RangedBarrierRange src_range;
         for (const VkImageCopy& copy : vk_copies) {
             dst_range.AddLayers(copy.dstSubresource);
             src_range.AddLayers(copy.srcSubresource);
         }
+        auto src_barrier_range = src_range.SubresourceRange(aspect_mask);
+        auto dst_barrier_range = dst_range.SubresourceRange(aspect_mask);
+        FixBarrierRangeFor3DCompatibleImage(src_barrier_range, src_type);
+        FixBarrierRangeFor3DCompatibleImage(dst_barrier_range, dst_type);
         const std::array pre_barriers{
             VkImageMemoryBarrier{
                 .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
@@ -1326,7 +1363,7 @@ void TextureCacheRuntime::CopyImage(Image& dst, Image& src,
                 .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
                 .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
                 .image = src_image,
-                .subresourceRange = src_range.SubresourceRange(aspect_mask),
+                .subresourceRange = src_barrier_range,
             },
             VkImageMemoryBarrier{
                 .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
@@ -1340,7 +1377,7 @@ void TextureCacheRuntime::CopyImage(Image& dst, Image& src,
                 .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
                 .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
                 .image = dst_image,
-                .subresourceRange = dst_range.SubresourceRange(aspect_mask),
+                .subresourceRange = dst_barrier_range,
             },
         };
         const std::array post_barriers{
@@ -1354,7 +1391,7 @@ void TextureCacheRuntime::CopyImage(Image& dst, Image& src,
                 .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
                 .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
                 .image = src_image,
-                .subresourceRange = src_range.SubresourceRange(aspect_mask),
+                .subresourceRange = src_barrier_range,
             },
             VkImageMemoryBarrier{
                 .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
@@ -1371,7 +1408,7 @@ void TextureCacheRuntime::CopyImage(Image& dst, Image& src,
                 .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
                 .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
                 .image = dst_image,
-                .subresourceRange = dst_range.SubresourceRange(aspect_mask),
+                .subresourceRange = dst_barrier_range,
             },
         };
         cmdbuf.PipelineBarrier(VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
@@ -1739,7 +1776,8 @@ ImageView::ImageView(TextureCacheRuntime& runtime, const VideoCommon::ImageViewI
                      ImageId image_id_, Image& image)
     : VideoCommon::ImageViewBase{info, image.info, image_id_, image.gpu_addr},
       device{&runtime.device}, image_handle{image.Handle()},
-      samples(ConvertSampleCount(image.info.num_samples)) {
+      samples(ConvertSampleCount(image.info.num_samples)),
+      physical_image_type{image.info.type} {
     using Shader::TextureType;
 
     const VkImageAspectFlags aspect_mask = ImageViewAspectMask(info);
@@ -1828,7 +1866,8 @@ ImageView::ImageView(TextureCacheRuntime& runtime, const VideoCommon::ImageViewI
 ImageView::ImageView(TextureCacheRuntime&, const VideoCommon::ImageInfo& info,
                      const VideoCommon::ImageViewInfo& view_info, GPUVAddr gpu_addr_)
     : VideoCommon::ImageViewBase{info, view_info, gpu_addr_},
-      buffer_size{VideoCommon::CalculateGuestSizeInBytes(info)} {}
+      buffer_size{VideoCommon::CalculateGuestSizeInBytes(info)},
+      physical_image_type{info.type} {}
 
 ImageView::ImageView(TextureCacheRuntime& runtime, const VideoCommon::NullImageViewParams& params)
     : VideoCommon::ImageViewBase{params}, device{&runtime.device} {
@@ -2102,7 +2141,7 @@ void Framebuffer::CreateFramebuffer(TextureCacheRuntime& runtime,
         renderpass_key.color_formats[index] = color_buffer->format;
         num_layers = std::max(num_layers, color_buffer->range.extent.layers);
         images[num_images] = color_buffer->ImageHandle();
-        image_ranges[num_images] = MakeSubresourceRange(color_buffer);
+        image_ranges[num_images] = MakeFramebufferBarrierRange(color_buffer);
         rt_map[index] = num_images;
         samples = color_buffer->Samples();
         ++num_images;
@@ -2117,7 +2156,7 @@ void Framebuffer::CreateFramebuffer(TextureCacheRuntime& runtime,
         renderpass_key.depth_format = depth_buffer->format;
         num_layers = std::max(num_layers, depth_buffer->range.extent.layers);
         images[num_images] = depth_buffer->ImageHandle();
-        const VkImageSubresourceRange subresource_range = MakeSubresourceRange(depth_buffer);
+        const VkImageSubresourceRange subresource_range = MakeFramebufferBarrierRange(depth_buffer);
         image_ranges[num_images] = subresource_range;
         samples = depth_buffer->Samples();
         ++num_images;

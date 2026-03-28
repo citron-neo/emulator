@@ -1185,10 +1185,28 @@ void RasterizerVulkan::UpdateDepthBias(Tegra::Engines::Maxwell3D::Regs& regs) {
             static_cast<double>(1ULL << (32 - 24)) / (static_cast<double>(0x1.ep+127));
         units = static_cast<float>(static_cast<double>(units) * rescale_factor);
     }
-    scheduler.Record([constant = units, clamp = regs.depth_bias_clamp,
-                      factor = regs.slope_scale_depth_bias](vk::CommandBuffer cmdbuf) {
-        cmdbuf.SetDepthBias(constant, clamp, factor);
-    });
+    const float clamp = regs.depth_bias_clamp;
+    const float factor = regs.slope_scale_depth_bias;
+
+    // Match Maxwell/D3D UNORM depth-bias semantics when supported; default Vulkan bias can skew
+    // slope scale for dense tessellation and break shadow maps.
+    if (device.IsExtDepthBiasControlSupported()) {
+        const VkDepthBiasRepresentationInfoEXT representation{
+            .sType = VK_STRUCTURE_TYPE_DEPTH_BIAS_REPRESENTATION_INFO_EXT,
+            .pNext = nullptr,
+            .depthBiasRepresentation =
+                VK_DEPTH_BIAS_REPRESENTATION_LEAST_REPRESENTABLE_VALUE_FORCE_UNORM_EXT,
+            .depthBiasExact = device.HasExactDepthBiasControl() ? VK_TRUE : VK_FALSE,
+        };
+        scheduler.Record([constant = units, clamp, factor, representation](vk::CommandBuffer cmdbuf) {
+            VkDepthBiasRepresentationInfoEXT rep = representation;
+            cmdbuf.SetDepthBias(constant, clamp, factor, &rep);
+        });
+    } else {
+        scheduler.Record([constant = units, clamp, factor](vk::CommandBuffer cmdbuf) {
+            cmdbuf.SetDepthBias(constant, clamp, factor);
+        });
+    }
 }
 
 void RasterizerVulkan::UpdateBlendConstants(Tegra::Engines::Maxwell3D::Regs& regs) {
