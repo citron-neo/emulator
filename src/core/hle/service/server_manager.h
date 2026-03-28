@@ -84,7 +84,7 @@ private:
     MultiWait m_multi_wait{};
     Common::IntrusiveListBaseTraits<Port>::ListType m_servers{};
     Common::IntrusiveListBaseTraits<Session>::ListType m_sessions{};
-    std::list<Session*> m_deferred_sessions{};
+    std::vector<Session*> m_deferred_sessions{};
     std::optional<MultiWaitHolder> m_wakeup_holder{};
     std::optional<MultiWaitHolder> m_deferral_holder{};
 

@@ -360,16 +360,12 @@ Result ServerManager::OnSessionEvent(Session* session) {
 }
 
 Result ServerManager::CompleteSyncRequest(Session* session) {
-    Result res = ResultSuccess;
-    Result service_res = ResultSuccess;
-
     // Mark the request as not deferred.
     session->GetContext()->SetIsDeferred(false);
 
     // Complete the request. We have exclusive access to this session.
     auto* server_session = static_cast<Kernel::KServerSession*>(session->GetNativeHandle());
-    service_res =
-        session->GetManager()->CompleteSyncRequest(server_session, *session->GetContext());
+    Result service_res = session->GetManager()->CompleteSyncRequest(server_session, *session->GetContext());
 
     // If we've been deferred, we're done.
     if (session->GetContext()->GetIsDeferred()) {
@@ -382,8 +378,7 @@ Result ServerManager::CompleteSyncRequest(Session* session) {
     }
 
     // Send the reply.
-    res = server_session->SendReplyHLE();
-
+    Result res = server_session->SendReplyHLE();
     // If the session has been closed, we're done.
     if (res == Kernel::ResultSessionClosed || service_res == IPC::ResultSessionClosed) {
         this->DestroySession(session);
