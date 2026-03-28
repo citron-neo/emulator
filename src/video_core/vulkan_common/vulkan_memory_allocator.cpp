@@ -292,6 +292,9 @@ MemoryCommit MemoryAllocator::Commit(const VkMemoryRequirements& requirements, M
     // Find the fastest memory flags we can afford with the current requirements
     const u32 type_mask = requirements.memoryTypeBits;
     const VkMemoryPropertyFlags usage_flags = MemoryUsagePropertyFlags(usage);
+    if (usage == MemoryUsage::Stream && device.GetDriverID() == VK_DRIVER_ID_INTEL_OPEN_SOURCE_MESA)
+        usage_flags |= VK_MEMORY_PROPERTY_HOST_CACHED_BIT;
+
     const VkMemoryPropertyFlags flags = MemoryPropertyFlags(type_mask, usage_flags);
     if (std::optional<MemoryCommit> commit = TryCommit(requirements, flags)) {
         return std::move(*commit);
