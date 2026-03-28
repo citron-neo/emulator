@@ -70,7 +70,7 @@ IR::Value ApplyFpAtomOp(IR::IREmitter& ir, const IR::U64& offset, const IR::Valu
     switch (op) {
     case AtomOpGMEM::ADD:
         return size == AtomSize::F32 ? ir.GlobalAtomicF32Add(offset, op_b, f32_control)
-                                     : ir.GlobalAtomicF16x2Add(offset, op_b, f16_control);
+            : ir.GlobalAtomicF16x2Add(offset, op_b, f16_control);
     case AtomOpGMEM::MIN:
         return ir.GlobalAtomicF16x2Min(offset, op_b, f16_control);
     case AtomOpGMEM::MAX:
@@ -106,14 +106,19 @@ IR::U64 AtomOffset(TranslatorVisitor& v, u64 insn) {
     return v.ir.IAdd(address, v.ir.Imm64(addr_offset));
 }
 
+// INC, DEC for U32/S32/U64 does nothing
+// ADD, INC, DEC for S64 does nothing
+// Only ADD does something for F32
+// Only ADD, MIN and MAX does something for F16x2
 bool AtomOpNotApplicable(AtomSize size, AtomOpGMEM op) {
     // TODO: SAFEADD
     switch (size) {
+    case AtomSize::U32:
     case AtomSize::S32:
     case AtomSize::U64:
         return (op == AtomOpGMEM::INC || op == AtomOpGMEM::DEC);
     case AtomSize::S64:
-        return !(op == AtomOpGMEM::MIN || op == AtomOpGMEM::MAX);
+        return (op == AtomOpGMEM::ADD || op == AtomOpGMEM::INC || op == AtomOpGMEM::DEC);
     case AtomSize::F32:
         return op != AtomOpGMEM::ADD;
     case AtomSize::F16x2:
@@ -122,6 +127,7 @@ bool AtomOpNotApplicable(AtomSize size, AtomOpGMEM op) {
         return false;
     }
 }
+
 
 IR::U32U64 LoadGlobal(IR::IREmitter& ir, const IR::U64& offset, AtomSize size) {
     switch (size) {
