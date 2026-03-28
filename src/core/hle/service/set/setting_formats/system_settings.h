@@ -386,6 +386,6 @@ static_assert(offsetof(SystemSettings, nx_controller_settings_data_from_offset_3
 
 static_assert(sizeof(SystemSettings) == 0x336A0, "SystemSettings has the wrong size!");
 
-SystemSettings DefaultSystemSettings();
+void DefaultSystemSettings(SystemSettings& settings);
 
 } // namespace Service::Set

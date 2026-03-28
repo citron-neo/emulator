@@ -343,9 +343,8 @@ ISystemSettingsServer::~ISystemSettingsServer() {
     m_save_thread.request_stop();
 }
 
+template <typename SettingsType>
 bool ISystemSettingsServer::LoadSettingsFile(std::filesystem::path& path, auto&& default_func) {
-    using settings_type = decltype(default_func());
-
     if (!Common::FS::CreateDirs(path)) {
         return false;
     }
@@ -353,10 +352,11 @@ bool ISystemSettingsServer::LoadSettingsFile(std::filesystem::path& path, auto&&
     auto settings_file = path / "settings.dat";
     auto exists = std::filesystem::exists(settings_file);
     auto file_size_ok = exists && std::filesystem::file_size(settings_file) ==
-                                      sizeof(SettingsHeader) + sizeof(settings_type);
+                                      sizeof(SettingsHeader) + sizeof(SettingsType);
 
     auto ResetToDefault = [&]() {
-        auto default_settings{default_func()};
+        auto default_settings = std::make_unique<SettingsType>();
+        default_func(*default_settings);
 
         SettingsHeader hdr{
             .magic = SETTINGS_MAGIC,
@@ -366,8 +366,8 @@ bool ISystemSettingsServer::LoadSettingsFile(std::filesystem::path& path, auto&&
 
         std::ofstream out_settings_file(settings_file, std::ios::out | std::ios::binary);
         out_settings_file.write(reinterpret_cast<const char*>(&hdr), sizeof(hdr));
-        out_settings_file.write(reinterpret_cast<const char*>(&default_settings),
-                                sizeof(settings_type));
+        out_settings_file.write(reinterpret_cast<const char*>(default_settings.get()),
+                                sizeof(SettingsType));
         out_settings_file.flush();
         out_settings_file.close();
     };
@@ -395,14 +395,14 @@ bool ISystemSettingsServer::LoadSettingsFile(std::filesystem::path& path, auto&&
         }
     }
 
-    if constexpr (std::is_same_v<settings_type, PrivateSettings>) {
-        file.read(reinterpret_cast<char*>(&m_private_settings), sizeof(settings_type));
-    } else if constexpr (std::is_same_v<settings_type, DeviceSettings>) {
-        file.read(reinterpret_cast<char*>(&m_device_settings), sizeof(settings_type));
-    } else if constexpr (std::is_same_v<settings_type, ApplnSettings>) {
-        file.read(reinterpret_cast<char*>(&m_appln_settings), sizeof(settings_type));
-    } else if constexpr (std::is_same_v<settings_type, SystemSettings>) {
-        file.read(reinterpret_cast<char*>(&m_system_settings), sizeof(settings_type));
+    if constexpr (std::is_same_v<SettingsType, PrivateSettings>) {
+        file.read(reinterpret_cast<char*>(&m_private_settings), sizeof(SettingsType));
+    } else if constexpr (std::is_same_v<SettingsType, DeviceSettings>) {
+        file.read(reinterpret_cast<char*>(&m_device_settings), sizeof(SettingsType));
+    } else if constexpr (std::is_same_v<SettingsType, ApplnSettings>) {
+        file.read(reinterpret_cast<char*>(&m_appln_settings), sizeof(SettingsType));
+    } else if constexpr (std::is_same_v<SettingsType, SystemSettings>) {
+        file.read(reinterpret_cast<char*>(&m_system_settings), sizeof(SettingsType));
     } else {
         UNREACHABLE();
     }
@@ -1334,25 +1334,25 @@ Result ISystemSettingsServer::SetPanelCrcMode(s32 panel_crc_mode) {
 void ISystemSettingsServer::SetupSettings() {
     auto system_dir =
         Common::FS::GetCitronPath(Common::FS::CitronPath::NANDDir) / "system/save/8000000000000050";
-    if (!LoadSettingsFile(system_dir, []() { return DefaultSystemSettings(); })) {
+    if (!LoadSettingsFile<SystemSettings>(system_dir, DefaultSystemSettings)) {
         ASSERT(false);
     }
 
     auto private_dir =
         Common::FS::GetCitronPath(Common::FS::CitronPath::NANDDir) / "system/save/8000000000000052";
-    if (!LoadSettingsFile(private_dir, []() { return DefaultPrivateSettings(); })) {
+    if (!LoadSettingsFile<PrivateSettings>(private_dir, DefaultPrivateSettings)) {
         ASSERT(false);
     }
 
     auto device_dir =
         Common::FS::GetCitronPath(Common::FS::CitronPath::NANDDir) / "system/save/8000000000000053";
-    if (!LoadSettingsFile(device_dir, []() { return DefaultDeviceSettings(); })) {
+    if (!LoadSettingsFile<DeviceSettings>(device_dir, DefaultDeviceSettings)) {
         ASSERT(false);
     }
 
     auto appln_dir =
         Common::FS::GetCitronPath(Common::FS::CitronPath::NANDDir) / "system/save/8000000000000054";
-    if (!LoadSettingsFile(appln_dir, []() { return DefaultApplnSettings(); })) {
+    if (!LoadSettingsFile<ApplnSettings>(appln_dir, DefaultApplnSettings)) {
         ASSERT(false);
     }
 }

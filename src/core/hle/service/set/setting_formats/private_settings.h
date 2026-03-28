@@ -33,6 +33,6 @@ static_assert(offsetof(PrivateSettings, external_steady_clock_internal_offset) =
 static_assert(offsetof(PrivateSettings, platform_region) == 0xD0);
 static_assert(sizeof(PrivateSettings) == 0xD8, "PrivateSettings has the wrong size!");
 
-PrivateSettings DefaultPrivateSettings();
+void DefaultPrivateSettings(PrivateSettings& settings);
 
 } // namespace Service::Set

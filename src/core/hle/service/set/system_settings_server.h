@@ -169,6 +169,7 @@ public:
     Result GetDefaultAccountUserSettings(Out<AccountUserSettings> out_settings);
 
 private:
+    template <typename SettingsType>
     bool LoadSettingsFile(std::filesystem::path& path, auto&& default_func);
     bool StoreSettingsFile(std::filesystem::path& path, auto& settings);
     void SetupSettings();

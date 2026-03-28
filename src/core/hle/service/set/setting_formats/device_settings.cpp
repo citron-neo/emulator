@@ -5,8 +5,8 @@
 
 namespace Service::Set {
 
-DeviceSettings DefaultDeviceSettings() {
-    return {};
+void DefaultDeviceSettings(DeviceSettings& settings) {
+    settings = {};
 }
 
 } // namespace Service::Set
