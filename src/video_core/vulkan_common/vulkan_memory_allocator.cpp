@@ -291,7 +291,7 @@ vk::Buffer MemoryAllocator::CreateBuffer(const VkBufferCreateInfo& ci, MemoryUsa
 MemoryCommit MemoryAllocator::Commit(const VkMemoryRequirements& requirements, MemoryUsage usage) {
     // Find the fastest memory flags we can afford with the current requirements
     const u32 type_mask = requirements.memoryTypeBits;
-    const VkMemoryPropertyFlags usage_flags = MemoryUsagePropertyFlags(usage);
+    VkMemoryPropertyFlags usage_flags = MemoryUsagePropertyFlags(usage);
     if (usage == MemoryUsage::Stream && device.GetDriverID() == VK_DRIVER_ID_INTEL_OPEN_SOURCE_MESA)
         usage_flags |= VK_MEMORY_PROPERTY_HOST_CACHED_BIT;
 
