@@ -32,7 +32,7 @@ public:
         u32 expected_value;
         std::function<void()> action;
     };
-    using ActionHandle = std::list<RegisteredAction>::iterator;
+    using ActionHandle = std::vector<RegisteredAction>::iterator;
 
     template <typename Func>
     ActionHandle RegisterGuestAction(u32 syncpoint_id, u32 expected_value, Func&& action) {
@@ -68,13 +68,13 @@ public:
 
 private:
     void Increment(std::atomic<u32>& syncpoint, std::condition_variable& wait_cv,
-                   std::list<RegisteredAction>& action_storage);
+                   std::vector<RegisteredAction>& action_storage);
 
     ActionHandle RegisterAction(std::atomic<u32>& syncpoint,
-                                std::list<RegisteredAction>& action_storage, u32 expected_value,
+                                std::vector<RegisteredAction>& action_storage, u32 expected_value,
                                 std::function<void()>&& action);
 
-    void DeregisterAction(std::list<RegisteredAction>& action_storage, const ActionHandle& handle);
+    void DeregisterAction(std::vector<RegisteredAction>& action_storage, const ActionHandle& handle);
 
     void Wait(std::atomic<u32>& syncpoint, std::condition_variable& wait_cv, u32 expected_value);
 
@@ -83,8 +83,8 @@ private:
     std::array<std::atomic<u32>, NUM_MAX_SYNCPOINTS> syncpoints_guest{};
     std::array<std::atomic<u32>, NUM_MAX_SYNCPOINTS> syncpoints_host{};
 
-    std::array<std::list<RegisteredAction>, NUM_MAX_SYNCPOINTS> guest_action_storage;
-    std::array<std::list<RegisteredAction>, NUM_MAX_SYNCPOINTS> host_action_storage;
+    std::array<std::vector<RegisteredAction>, NUM_MAX_SYNCPOINTS> guest_action_storage;
+    std::array<std::vector<RegisteredAction>, NUM_MAX_SYNCPOINTS> host_action_storage;
 
     std::mutex guard;
     std::condition_variable wait_guest_cv;
