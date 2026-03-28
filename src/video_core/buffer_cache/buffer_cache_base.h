@@ -155,17 +155,6 @@ class BufferCache : public VideoCommon::ChannelSetupCaches<BufferCacheChannelInf
     static constexpr u32 CACHING_PAGEBITS = 16;
     static constexpr u64 CACHING_PAGESIZE = u64{1} << CACHING_PAGEBITS;
 
-    static constexpr bool IS_OPENGL = P::IS_OPENGL;
-    static constexpr bool HAS_PERSISTENT_UNIFORM_BUFFER_BINDINGS =
-        P::HAS_PERSISTENT_UNIFORM_BUFFER_BINDINGS;
-    static constexpr bool HAS_FULL_INDEX_AND_PRIMITIVE_SUPPORT =
-        P::HAS_FULL_INDEX_AND_PRIMITIVE_SUPPORT;
-    static constexpr bool NEEDS_BIND_UNIFORM_INDEX = P::NEEDS_BIND_UNIFORM_INDEX;
-    static constexpr bool NEEDS_BIND_STORAGE_INDEX = P::NEEDS_BIND_STORAGE_INDEX;
-    static constexpr bool USE_MEMORY_MAPS = P::USE_MEMORY_MAPS;
-    static constexpr bool SEPARATE_IMAGE_BUFFERS_BINDINGS = P::SEPARATE_IMAGE_BUFFER_BINDINGS;
-    static constexpr bool USE_MEMORY_MAPS_FOR_UPLOADS = P::USE_MEMORY_MAPS_FOR_UPLOADS;
-
     static constexpr s64 DEFAULT_EXPECTED_MEMORY = 512_MiB;
     static constexpr s64 DEFAULT_CRITICAL_MEMORY = 1_GiB;
     static constexpr s64 TARGET_THRESHOLD = 4_GiB;
