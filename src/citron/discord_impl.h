@@ -10,37 +10,44 @@
 #include "citron/discord.h"
 
 namespace Core {
-	class System;
+class System;
+}
+
+namespace PlayTime {
+class PlayTimeManager;
 }
 
 namespace DiscordRPC {
 
-	class DiscordImpl : public DiscordInterface {
-	public:
-		DiscordImpl(Core::System& system_);
-		~DiscordImpl() override;
+class DiscordImpl : public DiscordInterface {
+public:
+    DiscordImpl(Core::System& system_, const PlayTime::PlayTimeManager& play_time_manager_);
+    ~DiscordImpl() override;
 
-		void Pause() override;
-		void Update() override;
+    void Pause() override;
+    void Update() override;
 
-		void ThreadRun();
-		std::thread discord_thread;
-		std::atomic<bool> discord_thread_running;
+    void ThreadRun();
+    std::thread discord_thread;
+    std::atomic<bool> discord_thread_running;
 
-	private:
-		void UpdateGameStatus(bool use_default);
+private:
+    std::string FormatTotalPlayTime(u64 total_seconds) const;
+    void UpdateGameStatus(bool use_default);
 
-		std::string game_url{};
-		std::string game_title{};
-		std::string game_title_id{};
-		std::string cached_url;
+    std::string game_url{};
+    std::string game_title{};
+    std::string game_title_id{};
+    std::string game_details{};
+    std::string cached_url;
 
-		Core::System& system;
-		u64 program_id = 0;
+    Core::System& system;
+    const PlayTime::PlayTimeManager& play_time_manager;
+    u64 program_id = 0;
 
-		s64 current_state_start_time = 0;
+    s64 current_state_start_time = 0;
 
-		bool was_powered_on = false;
-	};
+    bool was_powered_on = false;
+};
 
 } // namespace DiscordRPC

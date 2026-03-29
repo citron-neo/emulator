@@ -370,10 +370,10 @@ GMainWindow::GMainWindow(std::unique_ptr<QtConfig> config_, bool has_broken_vulk
     default_theme_paths = QIcon::themeSearchPaths();
     UpdateUITheme();
 
+    play_time_manager = std::make_unique<PlayTime::PlayTimeManager>(system->GetProfileManager());
+
     SetDiscordEnabled(UISettings::values.enable_discord_presence.GetValue());
     discord_rpc->Update();
-
-    play_time_manager = std::make_unique<PlayTime::PlayTimeManager>(system->GetProfileManager());
 
     system->GetRoomNetwork().Init();
 
@@ -6128,7 +6128,7 @@ void GMainWindow::OnLanguageChanged(const QString& locale) {
 void GMainWindow::SetDiscordEnabled([[maybe_unused]] bool state) {
 #ifdef USE_DISCORD_PRESENCE
     if (state) {
-        discord_rpc = std::make_unique<DiscordRPC::DiscordImpl>(*system);
+        discord_rpc = std::make_unique<DiscordRPC::DiscordImpl>(*system, *play_time_manager);
     } else {
         discord_rpc = std::make_unique<DiscordRPC::NullImpl>();
     }
