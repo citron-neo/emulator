@@ -23,17 +23,35 @@ namespace Vulkan {
 namespace {
 
 VkSurfaceFormatKHR ChooseSwapSurfaceFormat(vk::Span<VkSurfaceFormatKHR> formats) {
+    for (u32 i = 0; i < formats.size(); ++i) {
+        LOG_INFO(Render_Vulkan, "Available swapchain format [{}]: format={}, colorSpace={}", i,
+                 formats[i].format, formats[i].colorSpace);
+    }
     if (formats.size() == 1 && formats[0].format == VK_FORMAT_UNDEFINED) {
         VkSurfaceFormatKHR format;
-        format.format = VK_FORMAT_B8G8R8A8_UNORM;
+        format.format = VK_FORMAT_B8G8R8A8_SRGB;
         format.colorSpace = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR;
+        LOG_INFO(Render_Vulkan, "Swapchain format: B8G8R8A8_SRGB (undefined fallback)");
         return format;
     }
-    const auto& found = std::find_if(formats.begin(), formats.end(), [](const auto& format) {
+    const auto& found_srgb = std::find_if(formats.begin(), formats.end(), [](const auto& format) {
+        return format.format == VK_FORMAT_B8G8R8A8_SRGB &&
+               format.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR;
+    });
+    if (found_srgb != formats.end()) {
+        LOG_INFO(Render_Vulkan, "Swapchain format: B8G8R8A8_SRGB (preferred)");
+        return *found_srgb;
+    }
+    const auto& found_unorm = std::find_if(formats.begin(), formats.end(), [](const auto& format) {
         return format.format == VK_FORMAT_B8G8R8A8_UNORM &&
                format.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR;
     });
-    return found != formats.end() ? *found : formats[0];
+    if (found_unorm != formats.end()) {
+        LOG_INFO(Render_Vulkan, "Swapchain format: B8G8R8A8_UNORM (SRGB not available, fallback)");
+        return *found_unorm;
+    }
+    LOG_INFO(Render_Vulkan, "Swapchain format: using first available format={}", formats[0].format);
+    return formats[0];
 }
 
 static VkPresentModeKHR ChooseSwapPresentMode(bool has_imm, bool has_mailbox,
@@ -297,10 +315,9 @@ void Swapchain::CreateSwapchain(const VkSurfaceCapabilitiesKHR& capabilities) {
     images = swapchain.GetImages();
     image_count = static_cast<u32>(images.size());
 #ifdef ANDROID
-    // Android is already ordered the same as Switch.
-    image_view_format = VK_FORMAT_R8G8B8A8_UNORM;
+    image_view_format = VK_FORMAT_R8G8B8A8_SRGB;
 #else
-    image_view_format = VK_FORMAT_B8G8R8A8_UNORM;
+    image_view_format = VK_FORMAT_B8G8R8A8_SRGB;
 #endif
 }
 
