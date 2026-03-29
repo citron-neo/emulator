@@ -246,11 +246,6 @@ template <u32 GOB_EXTENT>
 }
 
 [[nodiscard]] constexpr LevelArray CalculateLevelSizes(const LevelInfo& info, u32 num_levels) {
-    ASSERT_MSG(num_levels <= MAX_MIP_LEVELS,
-               "Requested {} mip levels exceeds maximum of {}. Clamping to prevent crash. "
-               "This may occur with certain mods like CTGP-DX.",
-               num_levels, MAX_MIP_LEVELS);
-    // Clamp to MAX_MIP_LEVELS to prevent out-of-bounds access
     const u32 clamped_levels = std::min(num_levels, static_cast<u32>(MAX_MIP_LEVELS));
     LevelArray sizes{};
     for (u32 level = 0; level < clamped_levels; ++level) {
@@ -359,7 +354,8 @@ template <u32 GOB_EXTENT>
         return std::nullopt;
     }
     return SubresourceExtent{
-        .levels = std::max(new_info.resources.levels, info.resources.levels + base.level),
+        .levels = std::min(std::max(new_info.resources.levels, info.resources.levels + base.level),
+                           static_cast<s32>(MAX_MIP_LEVELS)),
         .layers = 1,
     };
 }
@@ -393,7 +389,8 @@ template <u32 GOB_EXTENT>
         return std::nullopt;
     }
     return SubresourceExtent{
-        .levels = std::max(new_info.resources.levels, info.resources.levels + base.level),
+        .levels = std::min(std::max(new_info.resources.levels, info.resources.levels + base.level),
+                           static_cast<s32>(MAX_MIP_LEVELS)),
         .layers = std::max(new_info.resources.layers, info.resources.layers + base.layer),
     };
 }
@@ -445,7 +442,8 @@ template <u32 GOB_EXTENT>
         .cpu_addr = overlap.cpu_addr,
         .resources =
             {
-                .levels = std::max(resources.levels + base->level, info.resources.levels),
+                .levels = std::min(std::max(resources.levels + base->level, info.resources.levels),
+                                   static_cast<s32>(MAX_MIP_LEVELS)),
                 .layers = layers,
             },
     };
@@ -645,11 +643,6 @@ LevelArray CalculateMipLevelOffsets(const ImageInfo& info) noexcept {
     if (info.type == ImageType::Linear) {
         return {};
     }
-    ASSERT_MSG(info.resources.levels <= static_cast<s32>(MAX_MIP_LEVELS),
-               "Image has {} mip levels, exceeds maximum of {}. Clamping to prevent crash. "
-               "This may occur with certain mods like CTGP-DX.",
-               info.resources.levels, MAX_MIP_LEVELS);
-    // Clamp to MAX_MIP_LEVELS to prevent out-of-bounds access
     const s32 clamped_levels = std::min(info.resources.levels, static_cast<s32>(MAX_MIP_LEVELS));
     const LevelInfo level_info = MakeLevelInfo(info);
     LevelArray offsets{};
