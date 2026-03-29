@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright 2024 yuzu Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
+#include <cstdio>
 #include "core/file_sys/common_funcs.h"
 #include "core/file_sys/nca_metadata.h"
 #include "core/file_sys/registered_cache.h"
@@ -12,6 +13,20 @@
 #include "core/hle/service/ns/read_only_application_control_data_interface.h"
 
 namespace Service::NS {
+
+namespace {
+void CtorDiag(const char* msg) {
+    static std::FILE* f = nullptr;
+    if (!f) {
+        f = std::fopen("diag_crash.log", "a");
+    }
+    if (f) {
+        std::fprintf(f, "[CTOR] %s\n", msg);
+        std::fflush(f);
+    }
+}
+} // namespace
+
 IApplicationManagerInterface::IApplicationManagerInterface(Core::System& system_)
 
     : ServiceFramework{system_, "IApplicationManagerInterface"},
@@ -19,6 +34,8 @@ IApplicationManagerInterface::IApplicationManagerInterface(Core::System& system_
       record_update_system_event{service_context}, sd_card_mount_status_event{service_context},
       gamecard_update_detection_event{service_context},
       gamecard_mount_status_event{service_context}, gamecard_mount_failure_event{service_context} {
+    CtorDiag("member init list complete (ServiceFramework, ServiceContext, 5 Events)");
+    LOG_INFO(Service_NS, "IApplicationManagerInterface ctor: member init complete, registering {} handlers...", 340);
     // clang-format off
     static const FunctionInfo functions[] = {
         {0, D<&IApplicationManagerInterface::ListApplicationRecord>, "ListApplicationRecord"},
@@ -403,7 +420,10 @@ IApplicationManagerInterface::IApplicationManagerInterface(Core::System& system_
     };
     // clang-format on
 
+    CtorDiag("about to call RegisterHandlers with static function table");
     RegisterHandlers(functions);
+    CtorDiag("RegisterHandlers complete, constructor done");
+    LOG_INFO(Service_NS, "IApplicationManagerInterface ctor: handlers registered, construction complete");
 }
 
 IApplicationManagerInterface::~IApplicationManagerInterface() = default;
@@ -411,7 +431,8 @@ IApplicationManagerInterface::~IApplicationManagerInterface() = default;
 Result IApplicationManagerInterface::GetApplicationControlData(
     OutBuffer<BufferAttr_HipcMapAlias> out_buffer, Out<u32> out_actual_size,
     ApplicationControlSource application_control_source, u64 application_id) {
-    LOG_INFO(Service_NS, "called");
+    LOG_INFO(Service_NS, "called, source={}, app_id={:016X}, buf_size={}", application_control_source,
+             application_id, out_buffer.size());
     R_RETURN(IReadOnlyApplicationControlDataInterface(system).GetApplicationControlData(
         out_buffer, out_actual_size, application_control_source, application_id));
 }

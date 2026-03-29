@@ -46,8 +46,8 @@ static std::vector<u64> AccumulateAOCTitleIDs(Core::System& system) {
         std::remove_if(
             add_on_content.begin(), add_on_content.end(),
             [&rcu](u64 tid) {
-                return rcu.GetEntry(tid, FileSys::ContentRecordType::Data)->GetStatus() !=
-                       Loader::ResultStatus::Success;
+                const auto entry = rcu.GetEntry(tid, FileSys::ContentRecordType::Data);
+                return !entry || entry->GetStatus() != Loader::ResultStatus::Success;
             }),
         add_on_content.end());
 

@@ -17,7 +17,13 @@ namespace Tegra::Control {
 ChannelState::ChannelState(s32 bind_id_) : bind_id{bind_id_}, initialized{} {}
 
 void ChannelState::Init(Core::System& system, GPU& gpu, u64 program_id_) {
-    ASSERT(memory_manager);
+    if (!memory_manager) {
+        LOG_CRITICAL(HW_GPU,
+                     "Cannot initialize channel {}: memory_manager not bound (missing "
+                     "nvhost-as-gpu BindChannel?)",
+                     bind_id);
+        return;
+    }
     program_id = program_id_;
     dma_pusher = std::make_unique<Tegra::DmaPusher>(system, gpu, *memory_manager, *this);
     maxwell_3d = std::make_unique<Engines::Maxwell3D>(system, *memory_manager);
