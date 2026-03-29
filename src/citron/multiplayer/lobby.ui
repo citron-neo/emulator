@@ -6,26 +6,50 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>903</width>
-    <height>487</height>
+    <width>1000</width>
+    <height>580</height>
    </rect>
+  </property>
+  <property name="minimumSize">
+   <size>
+    <width>720</width>
+    <height>420</height>
+   </size>
   </property>
   <property name="windowTitle">
    <string>Public Room Browser</string>
   </property>
   <layout class="QVBoxLayout" name="verticalLayout">
+   <property name="spacing">
+    <number>6</number>
+   </property>
+   <property name="leftMargin">
+    <number>10</number>
+   </property>
+   <property name="topMargin">
+    <number>10</number>
+   </property>
+   <property name="rightMargin">
+    <number>10</number>
+   </property>
+   <property name="bottomMargin">
+    <number>10</number>
+   </property>
    <item>
     <layout class="QVBoxLayout" name="verticalLayout_2">
      <property name="spacing">
-      <number>3</number>
+      <number>6</number>
      </property>
      <item>
       <layout class="QHBoxLayout" name="horizontalLayout_3">
        <property name="spacing">
-        <number>6</number>
+        <number>8</number>
        </property>
        <item>
         <layout class="QHBoxLayout" name="horizontalLayout_5">
+         <property name="spacing">
+          <number>6</number>
+         </property>
          <item>
           <widget class="QLabel" name="label">
            <property name="text">
@@ -35,6 +59,9 @@
          </item>
          <item>
           <widget class="QLineEdit" name="nickname">
+           <property name="maximumWidth">
+            <number>160</number>
+           </property>
            <property name="placeholderText">
             <string>Nickname</string>
            </property>
@@ -47,7 +74,7 @@
            </property>
            <property name="sizeHint" stdset="0">
             <size>
-             <width>40</width>
+             <width>16</width>
              <height>20</height>
             </size>
            </property>
@@ -63,7 +90,7 @@
          <item>
           <widget class="QLineEdit" name="search">
            <property name="placeholderText">
-            <string>Search</string>
+            <string>Search rooms…</string>
            </property>
            <property name="clearButtonEnabled">
             <bool>true</bool>
@@ -80,14 +107,24 @@
          <item>
           <widget class="QCheckBox" name="hide_empty">
            <property name="text">
-            <string>Hide Empty Rooms</string>
+            <string>Hide Empty</string>
            </property>
           </widget>
          </item>
          <item>
           <widget class="QCheckBox" name="hide_full">
            <property name="text">
-            <string>Hide Full Rooms</string>
+            <string>Hide Full</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QCheckBox" name="scroll_names">
+           <property name="text">
+            <string>Scroll Names</string>
+           </property>
+           <property name="checked">
+            <bool>true</bool>
            </property>
           </widget>
          </item>
@@ -98,7 +135,7 @@
            </property>
            <property name="sizeHint" stdset="0">
             <size>
-             <width>40</width>
+             <width>16</width>
              <height>20</height>
             </size>
            </property>
@@ -107,7 +144,7 @@
          <item>
           <widget class="QPushButton" name="refresh_list">
            <property name="text">
-            <string>Refresh Lobby</string>
+            <string>Refresh List</string>
            </property>
           </widget>
          </item>
@@ -116,7 +153,17 @@
       </layout>
      </item>
      <item>
-      <widget class="QTreeView" name="room_list"/>
+      <widget class="QTreeView" name="room_list">
+       <property name="sizePolicy">
+        <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+         <horstretch>1</horstretch>
+         <verstretch>1</verstretch>
+        </sizepolicy>
+       </property>
+       <property name="mouseTracking">
+        <bool>true</bool>
+       </property>
+      </widget>
      </item>
      <item>
       <widget class="QWidget" name="widget" native="true"/>

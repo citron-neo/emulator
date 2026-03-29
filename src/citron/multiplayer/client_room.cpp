@@ -9,6 +9,8 @@
 #include <QMetaType>
 #include <QTime>
 #include <QtConcurrent/QtConcurrentRun>
+#include <QMessageBox>
+#include <QMenu>
 #include "common/logging.h"
 #include "network/announce_multiplayer_session.h"
 #include "ui_client_room.h"
@@ -22,7 +24,12 @@ ClientRoomWindow::ClientRoomWindow(QWidget* parent, Network::RoomNetwork& room_n
     : QDialog(parent, Qt::WindowTitleHint | Qt::WindowCloseButtonHint | Qt::WindowSystemMenuHint),
       ui(std::make_unique<Ui::ClientRoom>()), room_network{room_network_} {
     ui->setupUi(this);
+    this->setMinimumSize(454, 286);
     ui->chat->Initialize(&room_network);
+
+    // Establish "True Citron" dark base aesthetic for the entire window wrapper
+    this->setAttribute(Qt::WA_StyledBackground, true);
+    this->setStyleSheet(QStringLiteral("ClientRoomWindow { background-color: #121212; }"));
 
     // setup the callbacks for network updates
     if (auto member = room_network.GetRoomMember().lock()) {
@@ -40,15 +47,32 @@ ClientRoomWindow::ClientRoomWindow(QWidget* parent, Network::RoomNetwork& room_n
         // TODO (jroweboy) network was not initialized?
     }
 
-    connect(ui->disconnect, &QPushButton::clicked, this, &ClientRoomWindow::Disconnect);
-    ui->disconnect->setDefault(false);
-    ui->disconnect->setAutoDefault(false);
-    connect(ui->moderation, &QPushButton::clicked, [this] {
+    QMenu* options_menu = new QMenu(this);
+    options_menu->setStyleSheet(QStringLiteral(
+        "QMenu { background-color: #2D2D30; color: #EAEAEA; border: 1px solid #404040; border-radius: 4px; padding: 4px; }"
+        "QMenu::item { padding: 6px 24px; border-radius: 4px; }"
+        "QMenu::item:selected { background-color: #404040; }"
+        "QMenu::separator { height: 1px; background: #404040; margin: 4px 8px; }"
+    ));
+
+    QAction* info_action = options_menu->addAction(tr("ℹ️ View Room Details"));
+    connect(info_action, &QAction::triggered, [this] {
+        QMessageBox::information(this, tr("Room Details"), current_description);
+    });
+    
+    moderation_action = options_menu->addAction(tr("🛠️ Moderation..."));
+    moderation_action->setVisible(false);
+    connect(moderation_action, &QAction::triggered, [this] {
         ModerationDialog dialog(room_network, this);
         dialog.exec();
     });
-    ui->moderation->setDefault(false);
-    ui->moderation->setAutoDefault(false);
+    
+    options_menu->addSeparator();
+    
+    QAction* leave_action = options_menu->addAction(tr("🚪 Leave Room"));
+    connect(leave_action, &QAction::triggered, this, &ClientRoomWindow::Disconnect);
+    
+    ui->chat->SetMenu(options_menu);
     connect(ui->chat, &ChatRoom::UserPinged, this, &ClientRoomWindow::ShowNotification);
     UpdateView();
 }
@@ -57,9 +81,9 @@ ClientRoomWindow::~ClientRoomWindow() = default;
 
 void ClientRoomWindow::SetModPerms(bool is_mod) {
     ui->chat->SetModPerms(is_mod);
-    ui->moderation->setVisible(is_mod);
-    ui->moderation->setDefault(false);
-    ui->moderation->setAutoDefault(false);
+    if (moderation_action) {
+        moderation_action->setVisible(is_mod);
+    }
 }
 
 void ClientRoomWindow::RetranslateUi() {
@@ -93,7 +117,6 @@ void ClientRoomWindow::UpdateView() {
     if (auto member = room_network.GetRoomMember().lock()) {
         if (member->IsConnected()) {
             ui->chat->Enable();
-            ui->disconnect->setEnabled(true);
             auto memberlist = member->GetMemberInformation();
             ui->chat->SetPlayerList(memberlist);
             const auto information = member->GetRoomInformation();
@@ -102,7 +125,7 @@ void ClientRoomWindow::UpdateView() {
                                .arg(QString::fromStdString(information.preferred_game.name))
                                .arg(memberlist.size())
                                .arg(information.member_slots));
-            ui->description->setText(QString::fromStdString(information.description));
+            current_description = QString::fromStdString(information.description);
             return;
         }
     }

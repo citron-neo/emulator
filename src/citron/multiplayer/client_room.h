@@ -5,6 +5,8 @@
 #pragma once
 
 #include <QDialog>
+#include <QStandardItemModel>
+#include <QString>
 #include <QWidget>
 #include "citron/multiplayer/chat_room.h"
 
@@ -38,5 +40,7 @@ private:
 
     QStandardItemModel* player_list;
     std::unique_ptr<Ui::ClientRoom> ui;
+    QAction* moderation_action = nullptr;
+    QString current_description;
     Network::RoomNetwork& room_network;
 };

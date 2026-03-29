@@ -6,6 +6,7 @@
 #include <memory>
 #include <QDialog>
 #include <QFutureWatcher>
+#include <QLabel>
 #include <QSortFilterProxyModel>
 #include <QStandardItemModel>
 #include "common/announce_multiplayer_room.h"
@@ -103,6 +104,10 @@ private:
     Validation validation;
     Core::System& system;
     Network::RoomNetwork& room_network;
+
+    /// Semi-transparent overlay shown while room data is loading.
+    /// Prevents the user from seeing the pre-populated column flash.
+    QLabel* loading_overlay{};
 };
 
 /**

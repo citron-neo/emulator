@@ -40,6 +40,7 @@ MultiplayerRoomOverlay::MultiplayerRoomOverlay(QWidget* parent)
     players_online_label->setGraphicsEffect(shadow);
 
     chat_room_widget = new ChatRoom(this);
+    chat_room_widget->SetShowOptions(false);
     size_grip = new QSizeGrip(this);
 
     players_online_label->setFont(QFont(QString::fromUtf8("Segoe UI"), 12, QFont::Bold));
