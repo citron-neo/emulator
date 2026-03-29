@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <array>
+#include <cmath>
 #include <span>
 #include <vector>
 #include <boost/container/small_vector.hpp>
@@ -138,6 +139,12 @@ constexpr VkBorderColor ConvertBorderColor(const std::array<float, 4>& color) {
         flags |= VK_IMAGE_CREATE_2D_ARRAY_COMPATIBLE_BIT;
     }
     const auto [samples_x, samples_y] = VideoCommon::SamplesLog2(info.num_samples);
+    const u32 width = info.size.width >> samples_x;
+    const u32 height = info.size.height >> samples_y;
+    const u32 depth = info.size.depth;
+    const u32 max_dim = std::max({width, height, depth});
+    const u32 max_mips = max_dim > 0 ? static_cast<u32>(std::floor(std::log2(max_dim))) + 1 : 1;
+    const u32 mip_levels = std::min(static_cast<u32>(info.resources.levels), max_mips);
     return VkImageCreateInfo{
         .sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
         .pNext = nullptr,
@@ -145,11 +152,11 @@ constexpr VkBorderColor ConvertBorderColor(const std::array<float, 4>& color) {
         .imageType = ConvertImageType(info.type),
         .format = format_info.format,
         .extent{
-            .width = info.size.width >> samples_x,
-            .height = info.size.height >> samples_y,
-            .depth = info.size.depth,
+            .width = width,
+            .height = height,
+            .depth = depth,
         },
-        .mipLevels = static_cast<u32>(info.resources.levels),
+        .mipLevels = mip_levels,
         .arrayLayers = static_cast<u32>(info.resources.layers),
         .samples = ConvertSampleCount(info.num_samples),
         .tiling = VK_IMAGE_TILING_OPTIMAL,
@@ -174,7 +181,8 @@ constexpr VkBorderColor ConvertBorderColor(const std::array<float, 4>& color) {
         .pViewFormats = view_formats.data(),
     };
     if (view_formats.size() > 1) {
-        image_ci.flags |= VK_IMAGE_CREATE_MUTABLE_FORMAT_BIT;
+        image_ci.flags |= VK_IMAGE_CREATE_MUTABLE_FORMAT_BIT |
+                          VK_IMAGE_CREATE_EXTENDED_USAGE_BIT;
         if (device.IsKhrImageFormatListSupported()) {
             image_ci.pNext = &image_format_list;
         }
@@ -898,12 +906,13 @@ TextureCacheRuntime::TextureCacheRuntime(const Device& device_, Scheduler& sched
     for (size_t index_a = 0; index_a < VideoCore::Surface::MaxPixelFormat; index_a++) {
         const auto image_format = static_cast<PixelFormat>(index_a);
         if (IsPixelFormatASTC(image_format) && !device.IsOptimalAstcSupported()) {
-            view_formats[index_a].push_back(VK_FORMAT_A8B8G8R8_UNORM_PACK32);
+            view_formats[index_a].push_back(VK_FORMAT_R8G8B8A8_UNORM);
+            view_formats[index_a].push_back(VK_FORMAT_R8G8B8A8_SRGB);
         }
         if (IsPixelFormatETC2(image_format) && !device.IsOptimalEtc2Supported()) {
             const bool is_srgb = VideoCore::Surface::IsPixelFormatSRGB(image_format);
-            view_formats[index_a].push_back(is_srgb ? VK_FORMAT_A8B8G8R8_SRGB_PACK32
-                                                    : VK_FORMAT_A8B8G8R8_UNORM_PACK32);
+            view_formats[index_a].push_back(is_srgb ? VK_FORMAT_R8G8B8A8_SRGB
+                                                    : VK_FORMAT_R8G8B8A8_UNORM);
         }
         for (size_t index_b = 0; index_b < VideoCore::Surface::MaxPixelFormat; index_b++) {
             const auto view_format = static_cast<PixelFormat>(index_b);
@@ -1486,7 +1495,7 @@ Image::Image(TextureCacheRuntime& runtime_, const ImageInfo& info_, GPUVAddr gpu
         const auto& device = runtime->device.GetLogical();
         for (s32 level = 0; level < info.resources.levels; ++level) {
             storage_image_views[level] =
-                MakeStorageView(device, level, *original_image, VK_FORMAT_A8B8G8R8_UNORM_PACK32);
+                MakeStorageView(device, level, *original_image, VK_FORMAT_R8G8B8A8_UNORM);
         }
     }
 }
@@ -1796,6 +1805,14 @@ ImageView::ImageView(TextureCacheRuntime& runtime, const VideoCommon::ImageViewI
         }
     }
     const auto format_info = MaxwellToVK::SurfaceFormat(*device, FormatType::Optimal, true, format);
+    vk_format = format_info.format;
+    stored_components = VkComponentMapping{
+        .r = ComponentSwizzle(swizzle[0]),
+        .g = ComponentSwizzle(swizzle[1]),
+        .b = ComponentSwizzle(swizzle[2]),
+        .a = ComponentSwizzle(swizzle[3]),
+    };
+    view_aspect_mask = aspect_mask;
     const VkImageViewUsageCreateInfo image_view_usage{
         .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_USAGE_CREATE_INFO,
         .pNext = nullptr,
@@ -1808,12 +1825,7 @@ ImageView::ImageView(TextureCacheRuntime& runtime, const VideoCommon::ImageViewI
         .image = image.Handle(),
         .viewType = VkImageViewType{},
         .format = format_info.format,
-        .components{
-            .r = ComponentSwizzle(swizzle[0]),
-            .g = ComponentSwizzle(swizzle[1]),
-            .b = ComponentSwizzle(swizzle[2]),
-            .a = ComponentSwizzle(swizzle[3]),
-        },
+        .components = stored_components,
         .subresourceRange = MakeSubresourceRange(aspect_mask, info.range),
     };
     const auto create = [&](TextureType tex_type, std::optional<u32> num_layers) {
@@ -1957,36 +1969,78 @@ bool ImageView::IsRescaled() const noexcept {
     return src_image.IsRescaled();
 }
 
-vk::ImageView ImageView::MakeView(VkFormat vk_format, VkImageAspectFlags aspect_mask) {
-    // Enhanced swizzle handling for storage images and input attachments
-    VkComponentMapping components{
-        .r = VK_COMPONENT_SWIZZLE_IDENTITY,
-        .g = VK_COMPONENT_SWIZZLE_IDENTITY,
-        .b = VK_COMPONENT_SWIZZLE_IDENTITY,
-        .a = VK_COMPONENT_SWIZZLE_IDENTITY,
-    };
-
-    // For storage images and input attachments, we must use identity swizzles
-    // This is a Vulkan requirement to prevent validation errors
-    const bool is_storage_or_input = (aspect_mask & (VK_IMAGE_ASPECT_COLOR_BIT | VK_IMAGE_ASPECT_DEPTH_BIT)) != 0;
-
-    if (!is_storage_or_input) {
-        // For now, we'll keep identity swizzles for all cases to ensure compatibility
+[[nodiscard]] static VkFormat SrgbToUnormFormat(VkFormat srgb_fmt) {
+    switch (srgb_fmt) {
+    case VK_FORMAT_A8B8G8R8_SRGB_PACK32:
+        return VK_FORMAT_A8B8G8R8_UNORM_PACK32;
+    case VK_FORMAT_R8G8B8A8_SRGB:
+        return VK_FORMAT_R8G8B8A8_UNORM;
+    case VK_FORMAT_B8G8R8A8_SRGB:
+        return VK_FORMAT_B8G8R8A8_UNORM;
+    case VK_FORMAT_BC1_RGBA_SRGB_BLOCK:
+        return VK_FORMAT_BC1_RGBA_UNORM_BLOCK;
+    case VK_FORMAT_BC2_SRGB_BLOCK:
+        return VK_FORMAT_BC2_UNORM_BLOCK;
+    case VK_FORMAT_BC3_SRGB_BLOCK:
+        return VK_FORMAT_BC3_UNORM_BLOCK;
+    case VK_FORMAT_BC7_SRGB_BLOCK:
+        return VK_FORMAT_BC7_UNORM_BLOCK;
+    case VK_FORMAT_ETC2_R8G8B8_SRGB_BLOCK:
+        return VK_FORMAT_ETC2_R8G8B8_UNORM_BLOCK;
+    case VK_FORMAT_ETC2_R8G8B8A1_SRGB_BLOCK:
+        return VK_FORMAT_ETC2_R8G8B8A1_UNORM_BLOCK;
+    case VK_FORMAT_ETC2_R8G8B8A8_SRGB_BLOCK:
+        return VK_FORMAT_ETC2_R8G8B8A8_UNORM_BLOCK;
+    default:
+        return srgb_fmt;
     }
+}
 
+VkImageView ImageView::HandleNonSrgb(Shader::TextureType texture_type) {
+    if (!VideoCore::Surface::IsPixelFormatSRGB(format) || !device) {
+        return Handle(texture_type);
+    }
+    auto& view = non_srgb_image_views[static_cast<size_t>(texture_type)];
+    if (view) {
+        return *view;
+    }
+    const VkFormat unorm_fmt = SrgbToUnormFormat(vk_format);
+    if (unorm_fmt == vk_format) {
+        return Handle(texture_type);
+    }
+    view = device->GetLogical().CreateImageView({
+        .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
+        .pNext = nullptr,
+        .flags = 0,
+        .image = image_handle,
+        .viewType = ToImageViewType(texture_type),
+        .format = unorm_fmt,
+        .components = stored_components,
+        .subresourceRange = MakeSubresourceRange(view_aspect_mask, range),
+    });
+    return *view;
+}
+
+vk::ImageView ImageView::MakeView(VkFormat view_format, VkImageAspectFlags aspect) {
     return device->GetLogical().CreateImageView({
         .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
         .pNext = nullptr,
         .flags = 0,
         .image = image_handle,
         .viewType = ToImageViewType(type),
-        .format = vk_format,
-        .components = components,
-        .subresourceRange = MakeSubresourceRange(aspect_mask, range),
+        .format = view_format,
+        .components{
+            .r = VK_COMPONENT_SWIZZLE_IDENTITY,
+            .g = VK_COMPONENT_SWIZZLE_IDENTITY,
+            .b = VK_COMPONENT_SWIZZLE_IDENTITY,
+            .a = VK_COMPONENT_SWIZZLE_IDENTITY,
+        },
+        .subresourceRange = MakeSubresourceRange(aspect, range),
     });
 }
 
-Sampler::Sampler(TextureCacheRuntime& runtime, const Tegra::Texture::TSCEntry& tsc) {
+Sampler::Sampler(TextureCacheRuntime& runtime, const Tegra::Texture::TSCEntry& tsc)
+    : srgb_conversion{tsc.srgb_conversion != 0} {
     const auto& device = runtime.device;
     const bool arbitrary_borders = runtime.device.IsExtCustomBorderColorSupported();
     const auto color = tsc.BorderColor();

@@ -1136,7 +1136,10 @@ std::pair<typename P::ImageView*, bool> TextureCache<P>::TryFindFramebufferImage
     }();
 
     const auto GetImageViewForFramebuffer = [&](ImageId image_id) {
-        ImageViewInfo info{ImageViewType::e2D, view_format};
+        const PixelFormat image_format = slot_images[image_id].info.format;
+        const PixelFormat actual_format = VideoCore::Surface::IsPixelFormatSRGB(image_format)
+            ? image_format : view_format;
+        ImageViewInfo info{ImageViewType::e2D, actual_format};
         if (config.blending == Tegra::BlendMode::Opaque) {
             info.x_source = static_cast<u8>(SwizzleSource::R);
             info.y_source = static_cast<u8>(SwizzleSource::G);
@@ -1495,6 +1498,51 @@ ImageViewId TextureCache<P>::CreateImageView(const TICEntry& config) {
     }
     const u32 layer_offset = config.BaseLayer() * info.layer_stride;
     const GPUVAddr image_gpu_addr = config.Address() - layer_offset;
+
+    using PixelFormat = VideoCore::Surface::PixelFormat;
+    if (info.format == PixelFormat::R32_FLOAT || info.format == PixelFormat::R16_UNORM) {
+        const PixelFormat depth_format = info.format == PixelFormat::R32_FLOAT
+                                             ? PixelFormat::D32_FLOAT
+                                             : PixelFormat::D16_UNORM;
+        std::optional<DAddr> cpu_addr = gpu_memory->GpuToCpuAddress(image_gpu_addr);
+        if (cpu_addr) {
+            ImageId depth_image_id;
+            ForEachImageInRegion(
+                *cpu_addr, CalculateGuestSizeInBytes(info),
+                [&](ImageId existing_id, ImageBase& existing) {
+                    if (existing.info.format == depth_format &&
+                        existing.gpu_addr == image_gpu_addr &&
+                        existing.info.size.width == info.size.width &&
+                        existing.info.size.height == info.size.height &&
+                        !True(existing.flags & ImageFlagBits::Remapped)) {
+                        depth_image_id = existing_id;
+                        return true;
+                    }
+                    return false;
+                });
+            if (depth_image_id) {
+                ImageBase& depth_image = slot_images[depth_image_id];
+                const auto base_opt = depth_image.TryFindBase(config.Address());
+                if (base_opt) {
+                    PrepareImage(depth_image_id, false, false);
+                    ImageViewInfo view_info(config, base_opt->layer);
+                    view_info.format = depth_format;
+                    const s32 max_levels =
+                        depth_image.info.resources.levels - view_info.range.base.level;
+                    if (max_levels > 0 && view_info.range.extent.levels > max_levels) {
+                        view_info.range.extent.levels = max_levels;
+                    }
+                    const ImageViewId view_id =
+                        FindOrEmplaceImageView(depth_image_id, view_info);
+                    ImageViewBase& image_view = slot_image_views[view_id];
+                    image_view.flags |= ImageViewFlagBits::Strong;
+                    depth_image.flags |= ImageFlagBits::Strong;
+                    return view_id;
+                }
+            }
+        }
+    }
+
     const ImageId image_id = FindOrInsertImage(info, image_gpu_addr);
     if (!image_id) {
         return NULL_IMAGE_VIEW_ID;
@@ -1502,7 +1550,11 @@ ImageViewId TextureCache<P>::CreateImageView(const TICEntry& config) {
     ImageBase& image = slot_images[image_id];
     const SubresourceBase base = image.TryFindBase(config.Address()).value();
     ASSERT(base.level == 0);
-    const ImageViewInfo view_info(config, base.layer);
+    ImageViewInfo view_info(config, base.layer);
+    const s32 max_levels = image.info.resources.levels - view_info.range.base.level;
+    if (max_levels > 0 && view_info.range.extent.levels > max_levels) {
+        view_info.range.extent.levels = max_levels;
+    }
     const ImageViewId image_view_id = FindOrEmplaceImageView(image_id, view_info);
     ImageViewBase& image_view = slot_image_views[image_view_id];
     image_view.flags |= ImageViewFlagBits::Strong;
@@ -2183,6 +2235,17 @@ ImageViewId TextureCache<P>::FindRenderTargetView(const ImageInfo& info, GPUVAdd
         return NULL_IMAGE_VIEW_ID;
     }
     Image& image = slot_images[image_id];
+    if (VideoCore::Surface::IsPixelFormatSRGB(info.format) !=
+        VideoCore::Surface::IsPixelFormatSRGB(image.info.format)) {
+        LOG_WARNING(Render_Vulkan,
+                    "RT format mismatch: requested={} (sRGB={}), image={} (sRGB={}), "
+                    "size={}x{}, gpu_addr={:#x}",
+                    static_cast<u32>(info.format),
+                    VideoCore::Surface::IsPixelFormatSRGB(info.format),
+                    static_cast<u32>(image.info.format),
+                    VideoCore::Surface::IsPixelFormatSRGB(image.info.format),
+                    info.size.width, info.size.height, gpu_addr);
+    }
     const ImageViewType view_type = RenderTargetImageViewType(info);
     SubresourceBase base;
     if (image.info.type == ImageType::Linear) {
