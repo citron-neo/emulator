@@ -175,6 +175,15 @@ struct BufferCacheParams {
     using Buffer = Vulkan::Buffer;
     using Async_Buffer = Vulkan::StagingBufferRef;
     using MemoryTracker = VideoCommon::MemoryTrackerBase<Tegra::MaxwellDeviceMemoryManager>;
+
+    static constexpr bool IS_OPENGL = false;
+    static constexpr bool HAS_PERSISTENT_UNIFORM_BUFFER_BINDINGS = false;
+    static constexpr bool HAS_FULL_INDEX_AND_PRIMITIVE_SUPPORT = false;
+    static constexpr bool NEEDS_BIND_UNIFORM_INDEX = false;
+    static constexpr bool NEEDS_BIND_STORAGE_INDEX = false;
+    static constexpr bool USE_MEMORY_MAPS = true;
+    static constexpr bool SEPARATE_IMAGE_BUFFER_BINDINGS = false;
+    static constexpr bool USE_MEMORY_MAPS_FOR_UPLOADS = true;
 };
 
 using BufferCache = VideoCommon::BufferCache<BufferCacheParams>;
