@@ -6273,7 +6273,90 @@ static void SetHighDPIAttributes() {
 #ifdef main
 #undef main
 #endif
+// TEMPORARY: Comprehensive crash diagnostics for MinGW builds
+#ifdef _WIN32
+#include <windows.h>
+#endif
+#include <csignal>
+
+static void WriteCrashDiag(const char* reason) {
+    FILE* f = fopen("crash_diag.log", "a");
+    if (f) {
+#ifdef _WIN32
+        fprintf(f, "[TID=%lu] %s\n", GetCurrentThreadId(), reason);
+#else
+        fprintf(f, "%s\n", reason);
+#endif
+        fflush(f);
+        fclose(f);
+    }
+}
+
+#ifdef _WIN32
+static LONG WINAPI CrashDiagVEH(PEXCEPTION_POINTERS info) {
+    if (!info || !info->ExceptionRecord)
+        return EXCEPTION_CONTINUE_SEARCH;
+    auto code = info->ExceptionRecord->ExceptionCode;
+    if (code == EXCEPTION_ACCESS_VIOLATION || code == EXCEPTION_STACK_OVERFLOW ||
+        code == EXCEPTION_ILLEGAL_INSTRUCTION || code == EXCEPTION_IN_PAGE_ERROR) {
+        auto* rec = info->ExceptionRecord;
+        auto* ctx = info->ContextRecord;
+        auto rip = ctx ? ctx->Rip : 0;
+        auto base = (unsigned long long)GetModuleHandleA(NULL);
+        // Only log if RIP is in citron.exe (not JIT code) — avoids 2MB spam from Dynarmic fastmem
+        if (rip >= base && rip < base + 0x10000000) {
+            FILE* f = fopen("crash_diag.log", "a");
+            if (f) {
+                fprintf(f, "=== VEH EXCEPTION (code=0x%08lX) ===\n", code);
+                fprintf(f, "Module base: 0x%llX\n", base);
+                fprintf(f, "RIP: 0x%llX (offset: 0x%llX)\n", (unsigned long long)rip, (unsigned long long)(rip - base));
+                fprintf(f, "RSP: 0x%llX\n", ctx ? (unsigned long long)ctx->Rsp : 0ULL);
+                fprintf(f, "Exception address: 0x%llX\n", (unsigned long long)rec->ExceptionAddress);
+                if (code == EXCEPTION_ACCESS_VIOLATION && rec->NumberParameters >= 2) {
+                    fprintf(f, "Access type: %s\n",
+                            rec->ExceptionInformation[0] == 0 ? "READ" : "WRITE");
+                    fprintf(f, "Target address: 0x%llX\n",
+                            (unsigned long long)rec->ExceptionInformation[1]);
+                }
+                fprintf(f, "Thread ID: %lu\n", GetCurrentThreadId());
+                fflush(f);
+                fclose(f);
+            }
+        }
+    }
+    return EXCEPTION_CONTINUE_SEARCH;
+}
+#endif
+
+static void SignalCrashHandler(int sig) {
+    const char* name = "UNKNOWN";
+    switch (sig) {
+    case SIGSEGV: name = "SIGSEGV"; break;
+    case SIGABRT: name = "SIGABRT"; break;
+    case SIGFPE:  name = "SIGFPE"; break;
+    case SIGILL:  name = "SIGILL"; break;
+    }
+    char buf[128];
+    snprintf(buf, sizeof(buf), "SIGNAL received: %s (%d)", name, sig);
+    WriteCrashDiag(buf);
+    signal(sig, SIG_DFL);
+    raise(sig);
+}
+
+static void TerminateHandler() {
+    WriteCrashDiag("std::terminate() called — unhandled C++ exception or noexcept violation");
+    std::abort();
+}
+
 int main(int argc, char* argv[]) {
+#ifdef _WIN32
+    AddVectoredExceptionHandler(0, CrashDiagVEH);
+#endif
+    signal(SIGSEGV, SignalCrashHandler);
+    signal(SIGABRT, SignalCrashHandler);
+    signal(SIGFPE, SignalCrashHandler);
+    signal(SIGILL, SignalCrashHandler);
+    std::set_terminate(TerminateHandler);
     // 1. Detect Gamescope/Steam Deck hardware
     const bool is_gamescope = UISettings::IsGamescope();
 

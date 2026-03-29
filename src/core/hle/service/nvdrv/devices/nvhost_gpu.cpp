@@ -237,9 +237,14 @@ NvResult nvhost_gpu::AllocateObjectContext(IoctlAllocObjCtx& params) {
     LOG_DEBUG(Service_NVDRV, "called, class_num={:#X}, flags={:#X}, obj_id={:#X}", params.class_num,
               params.flags, params.obj_id);
 
-    if (!channel_state || !channel_state->initialized) {
-        LOG_CRITICAL(Service_NVDRV, "No address space bound to allocate a object context!");
+    if (!channel_state) {
+        LOG_CRITICAL(Service_NVDRV, "No channel allocated for object context!");
         return NvResult::NotInitialized;
+    }
+
+    if (!channel_state->initialized) {
+        LOG_WARNING(Service_NVDRV,
+                    "Channel not yet initialized, registering object context early");
     }
 
     std::scoped_lock lk(channel_mutex);
@@ -315,6 +320,15 @@ static boost::container::small_vector<Tegra::CommandHeader, 512> BuildIncrementW
 NvResult nvhost_gpu::SubmitGPFIFOImpl(IoctlSubmitGpfifo& params, Tegra::CommandList&& entries) {
     LOG_TRACE(Service_NVDRV, "called, gpfifo={:X}, num_entries={:X}, flags={:X}", params.address,
               params.num_entries, params.flags.raw);
+
+    if (!channel_state || !channel_state->initialized) {
+        LOG_WARNING(Service_NVDRV,
+                    "Dropping GPFIFO submission: channel not initialized");
+        params.fence.id = channel_syncpoint;
+        params.fence.value = 0;
+        params.flags.raw = 0;
+        return NvResult::Success;
+    }
 
     auto& gpu = system.GPU();
 
