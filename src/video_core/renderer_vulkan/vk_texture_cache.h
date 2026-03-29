@@ -238,6 +238,8 @@ public:
         return *image_views[static_cast<size_t>(texture_type)];
     }
 
+    [[nodiscard]] VkImageView HandleNonSrgb(Shader::TextureType texture_type);
+
     [[nodiscard]] VkImage ImageHandle() const noexcept {
         return image_handle;
     }
@@ -269,12 +271,13 @@ private:
         std::array<vk::ImageView, Shader::NUM_TEXTURE_TYPES> unsigneds;
     };
 
-    [[nodiscard]] vk::ImageView MakeView(VkFormat vk_format, VkImageAspectFlags aspect_mask);
+    [[nodiscard]] vk::ImageView MakeView(VkFormat view_format, VkImageAspectFlags aspect);
 
     const Device* device = nullptr;
     const SlotVector<Image>* slot_images = nullptr;
 
     std::array<vk::ImageView, Shader::NUM_TEXTURE_TYPES> image_views;
+    std::array<vk::ImageView, Shader::NUM_TEXTURE_TYPES> non_srgb_image_views;
     std::unique_ptr<StorageViews> storage_views;
     vk::ImageView depth_view;
     vk::ImageView stencil_view;
@@ -283,6 +286,9 @@ private:
     VkImage image_handle = VK_NULL_HANDLE;
     VkImageView render_target = VK_NULL_HANDLE;
     VkSampleCountFlagBits samples = VK_SAMPLE_COUNT_1_BIT;
+    VkFormat vk_format = VK_FORMAT_UNDEFINED;
+    VkComponentMapping stored_components{};
+    VkImageAspectFlags view_aspect_mask = 0;
     u32 buffer_size = 0;
     VideoCommon::ImageType physical_image_type = VideoCommon::ImageType::e2D;
 };
@@ -305,9 +311,14 @@ public:
         return static_cast<bool>(sampler_default_anisotropy);
     }
 
+    [[nodiscard]] bool IsSrgbConversion() const noexcept {
+        return srgb_conversion;
+    }
+
 private:
     vk::Sampler sampler;
     vk::Sampler sampler_default_anisotropy;
+    bool srgb_conversion = true;
 };
 
 class Framebuffer {
