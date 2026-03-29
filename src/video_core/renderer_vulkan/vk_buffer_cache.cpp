@@ -333,20 +333,24 @@ private:
     }
 };
 
-BufferCacheRuntime::BufferCacheRuntime(const Device& device_, MemoryAllocator& memory_allocator_, Scheduler& scheduler_, StagingBufferPool& staging_pool_, GuestDescriptorQueue& guest_descriptor_queue_, ComputePassDescriptorQueue& compute_pass_descriptor_queue, DescriptorPool& descriptor_pool)
-    : device{device_}
-    , memory_allocator{memory_allocator_}
-    , scheduler{scheduler_}
-    , staging_pool{staging_pool_}
-    , guest_descriptor_queue{guest_descriptor_queue_}
-    , quad_index_pass(device, scheduler, descriptor_pool, staging_pool, compute_pass_descriptor_queue)
-{
+BufferCacheRuntime::BufferCacheRuntime(const Device& device_, MemoryAllocator& memory_allocator_,
+                                       Scheduler& scheduler_, StagingBufferPool& staging_pool_,
+                                       GuestDescriptorQueue& guest_descriptor_queue_,
+                                       ComputePassDescriptorQueue& compute_pass_descriptor_queue,
+                                       DescriptorPool& descriptor_pool)
+    : device{device_}, memory_allocator{memory_allocator_}, scheduler{scheduler_},
+      staging_pool{staging_pool_}, guest_descriptor_queue{guest_descriptor_queue_},
+      quad_index_pass(device, scheduler, descriptor_pool, staging_pool,
+                      compute_pass_descriptor_queue) {
     if (device.GetDriverID() != VK_DRIVER_ID_QUALCOMM_PROPRIETARY) {
         // TODO: FixMe: Uint8Pass compute shader does not build on some Qualcomm drivers.
-        uint8_pass = std::make_unique<Uint8Pass>(device, scheduler, descriptor_pool, staging_pool, compute_pass_descriptor_queue);
+        uint8_pass = std::make_unique<Uint8Pass>(device, scheduler, descriptor_pool, staging_pool,
+                                                 compute_pass_descriptor_queue);
     }
-    quad_array_index_buffer = std::make_shared<QuadArrayIndexBuffer>(device_, memory_allocator_, scheduler_, staging_pool_);
-    quad_strip_index_buffer = std::make_shared<QuadStripIndexBuffer>(device_, memory_allocator_, scheduler_, staging_pool_);
+    quad_array_index_buffer = std::make_shared<QuadArrayIndexBuffer>(device_, memory_allocator_,
+                                                                     scheduler_, staging_pool_);
+    quad_strip_index_buffer = std::make_shared<QuadStripIndexBuffer>(device_, memory_allocator_,
+                                                                     scheduler_, staging_pool_);
 }
 
 StagingBufferRef BufferCacheRuntime::UploadStagingBuffer(size_t size) {
