@@ -16,6 +16,8 @@
 #include <QList>
 #include <QLocale>
 #include <QMenu>
+#include <QClipboard>
+#include <QRegularExpression>
 #include <QMessageBox>
 #include <QMetaType>
 #include <QPainter>
@@ -26,6 +28,13 @@
 #include <QToolButton>
 #include <QGridLayout>
 #include <QWidgetAction>
+#include <QLabel>
+#include <QGraphicsOpacityEffect>
+#include <QPropertyAnimation>
+#include <QScrollBar>
+#include <QScrollArea>
+#include <QVBoxLayout>
+#include "multiplayer/chat_room_member_delegate.h"
 #include "common/logging.h"
 #include "network/announce_multiplayer_session.h"
 #include "ui_chat_room.h"
@@ -101,9 +110,9 @@ public:
             text_color = QStringLiteral("color='#000000'");
         }
 
-        QString time_str = show_timestamps ? QStringLiteral("[%1] ").arg(timestamp) : QStringLiteral("");
-        return QStringLiteral("%1<font color='%2'>&lt;%3&gt;</font> <font style='%4' "
-        "%5>%6</font>")
+        QString time_str = show_timestamps ? QStringLiteral("<span style='color: #999999; font-size: 10px;'>[%1]</span> ").arg(timestamp) : QStringLiteral("");
+        return QStringLiteral("%1<span style='color: %2; font-weight: bold;'>%3</span>&nbsp;&nbsp;<span style='%4' "
+        "%5>%6</span>")
         .arg(time_str, QString::fromStdString(color), name.toHtmlEscaped(), style, text_color,
              message.toHtmlEscaped());
     }
@@ -202,6 +211,12 @@ public:
 
 ChatRoom::ChatRoom(QWidget* parent) : QWidget(parent), ui(std::make_unique<Ui::ChatRoom>()) {
     ui->setupUi(this);
+    setAttribute(Qt::WA_StyledBackground, true);
+    
+    // Enable flexible widths by default for the member pane
+    ui->player_view->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
+    ui->player_view->setMinimumWidth(106);
+    ui->player_view->setMaximumWidth(16777215);
 
     // Setup the Emoji Button
     QToolButton* emoji_button = new QToolButton(this);
@@ -222,13 +237,16 @@ ChatRoom::ChatRoom(QWidget* parent) : QWidget(parent), ui(std::make_unique<Ui::C
     send_message->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
 
     // Rebuild Layout
+    ui->options_button->setText(QStringLiteral("⚙"));
     ui->horizontalLayout_3->removeWidget(ui->chat_message);
-    ui->horizontalLayout_3->addWidget(ui->chat_message); // Index 0
-    ui->horizontalLayout_3->addWidget(emoji_button);     // Index 1
-    ui->horizontalLayout_3->addWidget(send_message);    // Index 2
-    ui->horizontalLayout_3->setStretch(0, 1);
-    ui->horizontalLayout_3->setStretch(1, 0);
-    ui->horizontalLayout_3->setStretch(2, 0);
+    ui->horizontalLayout_3->addWidget(ui->options_button);
+    ui->horizontalLayout_3->addWidget(ui->chat_message); 
+    ui->horizontalLayout_3->addWidget(emoji_button); 
+    ui->horizontalLayout_3->addWidget(send_message); 
+    ui->horizontalLayout_3->setStretch(0, 0); // Cog 
+    ui->horizontalLayout_3->setStretch(1, 1); // Message
+    ui->horizontalLayout_3->setStretch(3, 0);
+    ui->horizontalLayout_3->setStretch(3, 0);
 
     QMenu* emoji_menu = new QMenu(this);
 
@@ -283,15 +301,26 @@ ChatRoom::ChatRoom(QWidget* parent) : QWidget(parent), ui(std::make_unique<Ui::C
     player_list = new QStandardItemModel(ui->player_view);
     ui->player_view->setModel(player_list);
     ui->player_view->setContextMenuPolicy(Qt::CustomContextMenu);
+    ui->player_view->setIndentation(0);
+    ui->player_view->setRootIsDecorated(false);
+    ui->player_view->setHeaderHidden(true);
     player_list->insertColumns(0, 1);
     player_list->setHeaderData(0, Qt::Horizontal, tr("Members"));
 
-    ui->chat_history->document()->setMaximumBlockCount(max_chat_lines);
+    chat_container = new QWidget(ui->chat_history);
+    chat_layout = new QVBoxLayout(chat_container);
+    chat_layout->setSpacing(2);
+    chat_layout->setContentsMargins(4, 4, 4, 4);
+    chat_layout->addStretch(1); // pushes messages to bottom
+    chat_container->setStyleSheet(QStringLiteral("background: transparent;"));
+    
+    ui->chat_history->setWidget(chat_container);
+    ui->chat_history->setWidgetResizable(true);
+    
+    // Wire up the new custom Delegate
+    ui->player_view->setItemDelegate(new ChatRoomMemberDelegate(this));
+    
     ui->chat_history->setContextMenuPolicy(Qt::CustomContextMenu);
-
-    auto font = ui->chat_history->font();
-    font.setPointSizeF(10);
-    ui->chat_history->setFont(font);
 
     qRegisterMetaType<Network::ChatEntry>();
     qRegisterMetaType<Network::StatusMessageEntry>();
@@ -300,7 +329,7 @@ ChatRoom::ChatRoom(QWidget* parent) : QWidget(parent), ui(std::make_unique<Ui::C
 
     connect(ui->player_view, &QTreeView::customContextMenuRequested, this,
             &ChatRoom::PopupContextMenu);
-    connect(ui->chat_history, &QTextEdit::customContextMenuRequested, this,
+    connect(ui->chat_history, &QWidget::customContextMenuRequested, this,
             &ChatRoom::OnChatContextMenu);
     connect(ui->chat_message, &QLineEdit::returnPressed, this, &ChatRoom::OnSendChat);
     connect(send_message, &QPushButton::clicked, this, &ChatRoom::OnSendChat);
@@ -309,16 +338,18 @@ ChatRoom::ChatRoom(QWidget* parent) : QWidget(parent), ui(std::make_unique<Ui::C
     connect(this, &ChatRoom::ChatReceived, this, &ChatRoom::OnChatReceive);
     connect(this, &ChatRoom::StatusMessageReceived, this, &ChatRoom::OnStatusMessageReceive);
 
-    ui->horizontalLayout_3->setStretch(0, 1);
-    ui->horizontalLayout_3->setStretch(1, 0);
-    ui->horizontalLayout_3->setStretch(2, 0);
-    send_message->setFixedSize(40, 30);
-    send_message->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
+    ui->horizontalLayout->setStretch(0, 30);
+    ui->horizontalLayout->setStretch(1, 70);
 
     UpdateTheme();
 }
 
 ChatRoom::~ChatRoom() = default;
+
+void ChatRoom::SetShowOptions(bool show) {
+    ui->options_button->setVisible(show);
+}
+
 
 void ChatRoom::Initialize(Network::RoomNetwork* room_network_) {
     room_network = room_network_;
@@ -349,18 +380,142 @@ void ChatRoom::RetranslateUi() {
 }
 
 void ChatRoom::Clear() {
-    ui->chat_history->clear();
+    if (chat_layout) {
+        QLayoutItem* item;
+        while ((item = chat_layout->takeAt(0)) != nullptr) {
+            if (item->widget()) {
+                delete item->widget();
+            }
+            delete item;
+        }
+        chat_layout->addStretch(1);
+    }
     block_list.clear();
 }
 
 void ChatRoom::AppendStatusMessage(const QString& msg) {
-    if (chat_muted) return;
-    ui->chat_history->append(StatusMessage(msg).GetSystemChatMessage(show_timestamps));
+    if (chat_muted || !chat_layout) return;
+
+    while (chat_layout->count() > static_cast<int>(max_chat_lines)) {
+        QLayoutItem* item = chat_layout->takeAt(0);
+        if (item->widget()) delete item->widget();
+        delete item;
+    }
+
+    QWidget* row = new QWidget(chat_container);
+    QHBoxLayout* row_layout = new QHBoxLayout(row);
+    row_layout->setContentsMargins(4, 2, 4, 2);
+
+    QLabel* message_label = new QLabel(StatusMessage(msg).GetSystemChatMessage(show_timestamps));
+    message_label->setAlignment(Qt::AlignLeft | Qt::AlignVCenter);
+    message_label->setWordWrap(true);
+    message_label->setTextInteractionFlags(Qt::TextSelectableByMouse | Qt::LinksAccessibleByMouse);
+    message_label->setContextMenuPolicy(Qt::CustomContextMenu);
+    connect(message_label, &QWidget::customContextMenuRequested, this, &ChatRoom::OnChatContextMenu);
+    message_label->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
+
+    const bool is_dark = UISettings::IsDarkTheme();
+    const QString pill_bg = is_dark ? QStringLiteral("rgba(50, 50, 55, 60)") : QStringLiteral("rgba(200, 200, 205, 60)");
+
+    row_layout->addWidget(message_label);
+
+    row->setStyleSheet(QStringLiteral(
+        "QWidget { background-color: %1; border-left: 2px solid gray; border-radius: 4px; padding: 2px 6px; font-style: italic; margin-top: 2px; }"
+        "QLabel { background: none; border: none; }"
+    ).arg(pill_bg));
+
+    auto* effect = new QGraphicsOpacityEffect(row);
+    row->setGraphicsEffect(effect);
+    auto* anim = new QPropertyAnimation(effect, "opacity", row);
+    anim->setDuration(300);
+    anim->setStartValue(0.0);
+    anim->setEndValue(1.0);
+    anim->setEasingCurve(QEasingCurve::OutQuad);
+
+    chat_layout->insertWidget(chat_layout->count() - 1, row);
+    anim->start(QAbstractAnimation::DeleteWhenStopped);
+
+    QScrollBar* bar = ui->chat_history->verticalScrollBar();
+    bool is_at_bottom = bar->value() == bar->maximum();
+    row->show();
+    QCoreApplication::processEvents();
+    if (is_at_bottom) {
+        auto* scroll_anim = new QPropertyAnimation(bar, "value", bar);
+        scroll_anim->setDuration(250);
+        scroll_anim->setStartValue(bar->value());
+        scroll_anim->setEndValue(bar->maximum());
+        scroll_anim->setEasingCurve(QEasingCurve::OutCubic);
+        scroll_anim->start(QAbstractAnimation::DeleteWhenStopped);
+    }
 }
 
-void ChatRoom::AppendChatMessage(const QString& msg) {
-    if (chat_muted) return;
-    ui->chat_history->append(msg);
+void ChatRoom::AppendChatMessage(const QString& html_msg, const std::string& sender_nickname, const QColor& color) {
+    if (chat_muted || !chat_layout) return;
+
+    while (chat_layout->count() > static_cast<int>(max_chat_lines)) {
+        QLayoutItem* item = chat_layout->takeAt(0);
+        if (item->widget()) delete item->widget();
+        delete item;
+    }
+
+    QWidget* row = new QWidget(chat_container);
+    QHBoxLayout* row_layout = new QHBoxLayout(row);
+    row_layout->setContentsMargins(4, 2, 4, 2);
+
+    QLabel* message_label = new QLabel(html_msg);
+    message_label->setWordWrap(true);
+    message_label->setTextInteractionFlags(Qt::TextSelectableByMouse | Qt::LinksAccessibleByMouse);
+    message_label->setContextMenuPolicy(Qt::CustomContextMenu);
+    connect(message_label, &QWidget::customContextMenuRequested, this, &ChatRoom::OnChatContextMenu);
+    message_label->setOpenExternalLinks(true);
+
+    QString bg_color = QStringLiteral("rgba(%1, %2, %3, 20)").arg(color.red()).arg(color.green()).arg(color.blue());
+    QString border_color = color.name();
+
+    bool is_me = false;
+    if (auto room = room_network->GetRoomMember().lock()) {
+        if (sender_nickname == room->GetNickname()) {
+            is_me = true;
+        }
+    }
+
+    row_layout->addWidget(message_label);
+
+    if (is_me) {
+        row->setStyleSheet(QStringLiteral(
+            "QWidget { background-color: %1; border-left: 2px solid %2; border-radius: 6px; padding: 4px; margin-top: 2px; }"
+            "QLabel { background: none; border: none; padding-left: 4px; padding-right: 4px; }"
+        ).arg(bg_color, border_color));
+    } else {
+        row->setStyleSheet(QStringLiteral(
+            "QWidget { background-color: %1; border-left: 2px solid %2; border-radius: 6px; padding: 4px; margin-top: 2px; }"
+            "QLabel { background: none; border: none; padding-left: 4px; padding-right: 4px; }"
+        ).arg(bg_color, border_color));
+    }
+
+    auto* effect = new QGraphicsOpacityEffect(row);
+    row->setGraphicsEffect(effect);
+    auto* anim = new QPropertyAnimation(effect, "opacity", row);
+    anim->setDuration(300);
+    anim->setStartValue(0.0);
+    anim->setEndValue(1.0);
+    anim->setEasingCurve(QEasingCurve::OutQuad);
+
+    chat_layout->insertWidget(chat_layout->count() - 1, row);
+    anim->start(QAbstractAnimation::DeleteWhenStopped);
+
+    QScrollBar* bar = ui->chat_history->verticalScrollBar();
+    bool is_at_bottom = bar->value() == bar->maximum();
+    row->show();
+    QCoreApplication::processEvents();
+    if (is_at_bottom || is_me) {
+        auto* scroll_anim = new QPropertyAnimation(bar, "value", bar);
+        scroll_anim->setDuration(250);
+        scroll_anim->setStartValue(bar->value());
+        scroll_anim->setEndValue(bar->maximum());
+        scroll_anim->setEasingCurve(QEasingCurve::OutCubic);
+        scroll_anim->start(QAbstractAnimation::DeleteWhenStopped);
+    }
 }
 
 void ChatRoom::SendModerationRequest(Network::RoomMessageTypes type, const std::string& nickname) {
@@ -486,7 +641,8 @@ void ChatRoom::OnChatReceive(const Network::ChatEntry& chat) {
             override_color = color_overrides[sanitized_chat.nickname];
         }
 
-        AppendChatMessage(m.GetPlayerChatMessage(static_cast<u16>(player), show_timestamps, override_color));
+        QColor color = GetPlayerColor(sanitized_chat.nickname, player);
+        AppendChatMessage(m.GetPlayerChatMessage(static_cast<u16>(player), show_timestamps, override_color), sanitized_chat.nickname, color);
 
         // Trigger the 15-second border highlight for the person who just spoke
         HighlightPlayer(sanitized_chat.nickname);
@@ -572,7 +728,8 @@ void ChatRoom::OnSendChat() {
             override_color = color_overrides[nick];
         }
 
-        AppendChatMessage(m.GetPlayerChatMessage(static_cast<u16>(player), show_timestamps, override_color));
+        QColor color = GetPlayerColor(nick, player);
+        AppendChatMessage(m.GetPlayerChatMessage(static_cast<u16>(player), show_timestamps, override_color), nick, color);
         ui->chat_message->clear();
 
         HighlightPlayer(nick);
@@ -597,116 +754,37 @@ QColor ChatRoom::GetPlayerColor(const std::string& nickname, int index) const {
 }
 
 void ChatRoom::UpdateIconDisplay() {
-    // 1. Determine canvas size based on mode
-    int canvas_w, canvas_h;
-    if (is_compact_mode) {
-        canvas_w = std::max(80, ui->player_view->viewport()->width() - 2);
-        canvas_h = 80; // Enough for avatar + name below
-    } else {
-        canvas_w = 54; // Just enough for 44px avatar + 4px border padding
-        canvas_h = 54;
-    }
-
-    const QSize canvas_size(canvas_w, canvas_h);
-    ui->player_view->setIconSize(canvas_size);
-
     for (int row = 0; row < player_list->rowCount(); ++row) {
         QStandardItem* item = player_list->item(row);
         if (!item) continue;
 
         const QString nickname = item->data(PlayerListItem::NicknameRole).toString();
         const std::string nickname_std = nickname.toStdString();
-        const std::string avatar_url = item->data(PlayerListItem::AvatarUrlRole).toString().toStdString();
-        const QString game = item->data(PlayerListItem::GameNameRole).toString();
-        const QString version = item->data(PlayerListItem::GameVersionRole).toString();
 
+        // Pass compact mode state to the delegate
         item->setData(is_compact_mode, Qt::UserRole + 7);
 
-        QPixmap avatar_pixmap;
-        if (icon_cache.count(avatar_url)) {
-            avatar_pixmap = icon_cache.at(avatar_url);
-        } else {
-            avatar_pixmap = QIcon::fromTheme(QStringLiteral("no_avatar")).pixmap(48);
-        }
+        // Compute Base Color
+        QColor user_color = GetPlayerColor(nickname_std, static_cast<u16>(row));
+        item->setData(user_color, Qt::UserRole + 8);
 
-        QPixmap canvas(canvas_size);
-        canvas.fill(Qt::transparent);
-        QPainter painter(&canvas);
-        painter.setRenderHint(QPainter::Antialiasing);
-        painter.setRenderHint(QPainter::TextAntialiasing);
-
-        const int avatar_size = 44;
-
-        // Center for Compact, Left-Align for Regular
-        int avatar_x = is_compact_mode ? (canvas.width() - avatar_size) / 2 : 5;
-        int avatar_y = is_compact_mode ? 4 : 5;
-
-        // --- Draw Fading Border ---
+        // Compute Fading Ring Highlight Opacity
         float opacity = 0.0f;
         if (highlight_states.count(nickname_std)) {
             opacity = highlight_states[nickname_std].opacity;
         }
+        item->setData(opacity, Qt::UserRole + 9);
 
-        if (opacity > 0.0f) {
-            QColor border_color = GetPlayerColor(nickname_std, row);
-            border_color.setAlphaF(opacity);
-            painter.setPen(QPen(border_color, 4));
-            painter.drawEllipse(avatar_x, avatar_y, avatar_size, avatar_size);
-        } else {
-            painter.setPen(QPen(QColor(255, 255, 255, 30), 1));
-            painter.drawEllipse(avatar_x, avatar_y, avatar_size, avatar_size);
-        }
-
-        // --- Draw Avatar ---
-        QPainterPath path;
-        path.addEllipse(avatar_x + 2, avatar_y + 2, 40, 40);
-        painter.setClipPath(path);
-        painter.drawPixmap(avatar_x + 2, avatar_y + 2, 40, 40, avatar_pixmap);
-        painter.setClipping(false);
-
-        // --- Draw Status Dot ---
-        QString dot_type = item->data(PlayerListItem::StatusDotRole).toString();
-        QColor dot_color = (dot_type == QStringLiteral("🟢")) ? Qt::green :
-                           (dot_type == QStringLiteral("🟡")) ? Qt::yellow : Qt::gray;
-        painter.setPen(Qt::NoPen);
-        painter.setBrush(QColor(30, 30, 30));
-        painter.drawEllipse(avatar_x + 30, avatar_y + 30, 12, 12);
-        painter.setBrush(dot_color);
-        painter.drawEllipse(avatar_x + 32, avatar_y + 32, 8, 8);
-
-        if (is_compact_mode) {
-            QFont font = painter.font();
-            int point_size = 9;
-            font.setBold(true);
-            font.setPointSize(point_size);
-            painter.setFont(font);
-
-            int text_width_limit = canvas.width() - 4;
-            while (painter.fontMetrics().horizontalAdvance(nickname) > text_width_limit && point_size > 6) {
-                point_size--;
-                font.setPointSize(point_size);
-                painter.setFont(font);
-            }
-
-            QString elided_name = painter.fontMetrics().elidedText(nickname, Qt::ElideRight, text_width_limit);
-            QRect text_rect(0, avatar_y + avatar_size + 2, canvas.width(), 20);
-
-            painter.setPen(QColor(0, 0, 0, 160));
-            painter.drawText(text_rect.adjusted(1, 1, 1, 1), Qt::AlignCenter, elided_name);
-            painter.setPen(UISettings::IsDarkTheme() ? Qt::white : Qt::black);
-            painter.drawText(text_rect, Qt::AlignCenter, elided_name);
-        }
-
-        painter.end();
-        item->setData(canvas, Qt::DecorationRole);
-
-        // Tooltip logic
+        // Format Tooltip natively (delegate ignores tooltips, so standard item model handles it via hover)
+        const QString game = item->data(PlayerListItem::GameNameRole).toString();
+        const QString version = item->data(PlayerListItem::GameVersionRole).toString();
         QString display_game = version.isEmpty() ? game : QStringLiteral("%1 (%2)").arg(game, version);
         item->setToolTip(tr("<b>%1</b><br>%2").arg(nickname, display_game));
 
-        if (is_compact_mode) {
-            item->setText(QString());
-        }
+        // Let the custom ChatRoomMemberDelegate do all the drawing.
+        // We wipe the native text and decoration icon so it doesn't double-render beneath the card.
+        item->setText(QString());
+        item->setData(QVariant(), Qt::DecorationRole);
     }
 }
 
@@ -891,63 +969,89 @@ void ChatRoom::UpdateTheme() {
     const QString accent_color = Theme::GetAccentColor();
     if (UISettings::IsDarkTheme()) {
         style_sheet = QStringLiteral(R"(
-            QListView, QTextEdit { background-color: #252525; color: #E0E0E0; border: 1px solid #4A4A4A; border-radius: 4px; }
-            QListView::item:selected { background-color: %1; }
-            QLineEdit { background-color: #252525; color: #E0E0E0; border: 1px solid #4A4A4A; padding-left: 5px; border-radius: 4px; }
-            QPushButton { background-color: #3E3E3E; color: #E0E0E0; border: 1px solid #5A5A5A; padding: 2px; border-radius: 4px; }
+            ChatRoom { background-color: #121212; }
+            QWidget#chat_container { background: transparent; }
+            QScrollArea { background-color: #1A1A1B; border: 1px solid #282828; border-radius: 8px; }
+            QTreeView { background-color: #1A1A1B; color: #E0E0E0; border: 1px solid #282828; border-radius: 8px; outline: none; selection-background-color: transparent; selection-color: inherit; show-decoration-selected: 0; }
+            QTreeView::item { margin: 2px; padding: 0px; }
+            QTreeView::branch { border-image: none; image: none; }
+            QLineEdit { background-color: #202022; color: #EAEAEA; border: 1px solid #282828; padding: 6px 10px; border-radius: 8px; font-size: 13px; }
+            QLineEdit:focus { border: 1px solid %1; }
+            QPushButton { background-color: #2D2D30; color: #FFFFFF; border: none; padding: 4px; border-radius: 6px; }
+            QPushButton:hover { background-color: #38383B; }
             QPushButton#send_message { padding: 0px; margin: 0px; min-width: 40px; max-width: 40px; }
-            QToolButton { padding: 0px; margin: 0px; font-size: 14px; border: none; }
+            QToolButton { padding: 4px; margin: 0px; font-size: 14px; border: none; border-radius: 4px; background: #2D2D30; color: #E0E0E0; }
+            QToolButton:hover { background: #38383B; }
+            QToolButton::menu-indicator { image: none; }
         )").arg(accent_color);
     } else {
         style_sheet = QStringLiteral(R"(
-            QListView, QTextEdit { background-color: #FFFFFF; color: #000000; border: 1px solid #CFCFCF; border-radius: 4px; }
-            QListView::item:selected { background-color: %1; }
-            QLineEdit { background-color: #FFFFFF; color: #000000; border: 1px solid #CFCFCF; padding-left: 5px; border-radius: 4px; }
-            QPushButton { background-color: #F0F0F0; color: #000000; border: 1px solid #BDBDBD; padding: 2px; border-radius: 4px; }
+            ChatRoom { background-color: #F0F0F0; }
+            QWidget#chat_container { background: transparent; }
+            QScrollArea { background-color: #FAFAFA; border: 1px solid #E0E0E0; border-radius: 8px; }
+            QTreeView { background-color: #FAFAFA; color: #000000; border: 1px solid #E0E0E0; border-radius: 8px; outline: none; selection-background-color: transparent; selection-color: inherit; show-decoration-selected: 0; }
+            QTreeView::item { margin: 2px; padding: 0px; }
+            QTreeView::branch { border-image: none; image: none; }
+            QLineEdit { background-color: #FFFFFF; color: #000000; border: 1px solid #DFDFDF; padding: 6px 10px; border-radius: 8px; font-size: 13px; }
+            QLineEdit:focus { border: 1px solid %1; }
+            QPushButton { background-color: #E2E2E2; color: #000000; border: none; padding: 4px; border-radius: 6px; }
+            QPushButton:hover { background-color: #D5D5D5; }
             QPushButton#send_message { padding: 0px; margin: 0px; min-width: 40px; max-width: 40px; }
-            QToolButton { padding: 0px; margin: 0px; font-size: 14px; border: none; }
+            QToolButton { padding: 4px; margin: 0px; font-size: 14px; border: none; border-radius: 4px; background: #E2E2E2; color: #000000; }
+            QToolButton:hover { background: #D5D5D5; }
+            QToolButton::menu-indicator { image: none; }
         )").arg(accent_color);
     }
     this->setStyleSheet(style_sheet);
 }
 
-void ChatRoom::OnChatContextMenu(const QPoint& menu_location) {
-    QMenu* context_menu = ui->chat_history->createStandardContextMenu(menu_location);
-    context_menu->addSeparator();
+void ChatRoom::SetMenu(QMenu* menu) {
+    ui->options_button->setMenu(menu);
+}
 
-    QAction* clear_action = context_menu->addAction(tr("Clear Chat History"));
+void ChatRoom::OnChatContextMenu(const QPoint& menu_location) {
+    QMenu context_menu(this);
+
+    // If we right-clicked a message label, add a Copy action
+    QLabel* label = qobject_cast<QLabel*>(sender());
+    if (label) {
+        QAction* copy_action = context_menu.addAction(tr("Copy"));
+        connect(copy_action, &QAction::triggered, [label] {
+            if (label->hasSelectedText()) {
+                QApplication::clipboard()->setText(label->selectedText());
+            } else {
+                // If no selection, copy the whole text after stripping HTML tags
+                QString plain = label->text();
+                if (plain.contains(QStringLiteral("<"))) {
+                    plain.remove(QRegularExpression(QStringLiteral("<[^>]*>")));
+                }
+                QApplication::clipboard()->setText(plain);
+            }
+        });
+        context_menu.addSeparator();
+    }
+
+    QAction* clear_action = context_menu.addAction(tr("Clear Chat History"));
     connect(clear_action, &QAction::triggered, this, &ChatRoom::Clear);
 
-    QAction* compact_action = context_menu->addAction(tr("Compact Member List"));
+    QAction* compact_action = context_menu.addAction(tr("Compact Member List"));
     compact_action->setCheckable(true);
     compact_action->setChecked(is_compact_mode);
     connect(compact_action, &QAction::triggered, [this](bool checked) {
         this->is_compact_mode = checked;
         if (checked) {
             int view_w = member_scrollbar_hidden ? 90 : 110;
-            ui->player_view->setFixedWidth(view_w);
-            ui->player_view->setIndentation(0);
-            ui->player_view->setHeaderHidden(true);
-            ui->player_view->setRootIsDecorated(false);
-            ui->player_view->header()->setSectionResizeMode(0, QHeaderView::Stretch);
-            ui->player_view->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
-            ui->player_view->setStyleSheet(QStringLiteral("QTreeView::item { padding: 0px; }"));
+            ui->player_view->setMinimumWidth(view_w);
+            ui->player_view->setMaximumWidth(view_w);
         } else {
-            ui->player_view->setMinimumWidth(160);
-            ui->player_view->setMaximumWidth(1000);
-            ui->player_view->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
-            ui->player_view->setIndentation(20);
-            ui->player_view->setHeaderHidden(false);
-            ui->player_view->setRootIsDecorated(true);
-            ui->player_view->header()->setSectionResizeMode(0, QHeaderView::ResizeToContents);
-            ui->player_view->header()->setStretchLastSection(false);
-            ui->player_view->setHorizontalScrollBarPolicy(Qt::ScrollBarAsNeeded);
-            ui->player_view->setStyleSheet(QString());
+            ui->player_view->setMinimumWidth(106);
+            ui->player_view->setMaximumWidth(16777215);
+            ui->horizontalLayout->setStretch(0, 30);
+            ui->horizontalLayout->setStretch(1, 70);
         }
 
         UpdateIconDisplay();
 
-        // Refresh player list to restore text in regular mode
         if (room_network) {
             if (auto room = room_network->GetRoomMember().lock()) {
                 SetPlayerList(room->GetMemberInformation());
@@ -955,24 +1059,32 @@ void ChatRoom::OnChatContextMenu(const QPoint& menu_location) {
         }
     });
 
-    QAction* mute_action = context_menu->addAction(tr("Hide Future Messages"));
+    QAction* mute_action = context_menu.addAction(tr("Hide Future Messages"));
     mute_action->setCheckable(true);
     mute_action->setChecked(chat_muted);
     connect(mute_action, &QAction::triggered, [this](bool checked) {
         this->chat_muted = checked;
         if (checked) {
-            ui->chat_history->clear();
-            ui->chat_history->append(tr("<font color='#FF8C00'>* Chat Paused. Right-click to resume.</font>"));
+            this->Clear();
+            this->chat_muted = false;
+            this->AppendStatusMessage(tr("* Chat Paused. Right-click to resume."));
+            this->chat_muted = true;
         }
     });
 
-    QAction* time_action = context_menu->addAction(tr("Show Timestamps"));
+    QAction* time_action = context_menu.addAction(tr("Show Timestamps"));
     time_action->setCheckable(true);
     time_action->setChecked(show_timestamps);
     connect(time_action, &QAction::triggered, [this](bool checked) { show_timestamps = checked; });
 
-    context_menu->exec(ui->chat_history->viewport()->mapToGlobal(menu_location));
-    delete context_menu;
+    // Correctly map the context menu position regardless of which widget sent the signal
+    QPoint global_pos;
+    if (label) {
+        global_pos = label->mapToGlobal(menu_location);
+    } else {
+        global_pos = ui->chat_history->viewport()->mapToGlobal(menu_location);
+    }
+    context_menu.exec(global_pos);
 }
 
 void ChatRoom::OnPlayerDoubleClicked(const QModelIndex& index) {
@@ -988,8 +1100,6 @@ void ChatRoom::OnPlayerDoubleClicked(const QModelIndex& index) {
 void ChatRoom::HighlightPlayer(const std::string& nickname) {
     auto& state = highlight_states[nickname];
 
-    // 1. Clean up existing animations/timers
-    // QPointer automatically becomes null if the animation was already deleted
     if (state.animation) {
         state.animation->stop();
         state.animation->deleteLater();
@@ -1001,7 +1111,6 @@ void ChatRoom::HighlightPlayer(const std::string& nickname) {
         state.linger_timer = nullptr;
     }
 
-    // 2. Create Fade-In Animation
     auto* fadeIn = new QVariantAnimation(this);
     state.animation = fadeIn;
     fadeIn->setDuration(400);
@@ -1020,8 +1129,6 @@ void ChatRoom::HighlightPlayer(const std::string& nickname) {
         if (!highlight_states.count(nickname)) return;
 
         auto& s1 = highlight_states[nickname];
-
-        // Cleanup the finished animation
         if (s1.animation) s1.animation->deleteLater();
 
         s1.linger_timer = new QTimer(this);

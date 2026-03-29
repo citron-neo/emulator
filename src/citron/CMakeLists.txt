@@ -214,6 +214,8 @@ add_executable(citron
     multiplayer/chat_room.cpp
     multiplayer/chat_room.h
     multiplayer/chat_room.ui
+    multiplayer/chat_room_member_delegate.cpp
+    multiplayer/chat_room_member_delegate.h
     multiplayer/client_room.h
     multiplayer/client_room.cpp
     multiplayer/client_room.ui
@@ -226,6 +228,8 @@ add_executable(citron
     multiplayer/lobby.cpp
     multiplayer/lobby.h
     multiplayer/lobby.ui
+    multiplayer/lobby_card_delegate.cpp
+    multiplayer/lobby_card_delegate.h
     multiplayer/lobby_p.h
     multiplayer/message.cpp
     multiplayer/message.h

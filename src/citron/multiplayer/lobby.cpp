@@ -2,9 +2,21 @@
 // SPDX-FileCopyrightText: 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
+#include <QAbstractItemView>
+#include <QHeaderView>
 #include <QInputDialog>
 #include <QList>
 #include <QtConcurrent/QtConcurrentRun>
+#include "citron/game_list_p.h"
+#include "citron/main.h"
+#include "citron/multiplayer/client_room.h"
+#include "citron/multiplayer/lobby.h"
+#include "citron/multiplayer/lobby_card_delegate.h"
+#include "citron/multiplayer/lobby_p.h"
+#include "citron/multiplayer/message.h"
+#include "citron/multiplayer/state.h"
+#include "citron/multiplayer/validation.h"
+#include "citron/uisettings.h"
 #include "common/logging.h"
 #include "common/settings.h"
 #include "core/core.h"
@@ -12,25 +24,15 @@
 #include "core/internal_network/network_interface.h"
 #include "network/network.h"
 #include "ui_lobby.h"
-#include "citron/game_list_p.h"
-#include "citron/main.h"
-#include "citron/multiplayer/client_room.h"
-#include "citron/multiplayer/lobby.h"
-#include "citron/multiplayer/lobby_p.h"
-#include "citron/multiplayer/message.h"
-#include "citron/multiplayer/state.h"
-#include "citron/multiplayer/validation.h"
-#include "citron/uisettings.h"
+
 #ifdef ENABLE_WEB_SERVICE
 #include "web_service/web_backend.h"
 #endif
 
 Lobby::Lobby(QWidget* parent, QStandardItemModel* list,
              std::shared_ptr<Core::AnnounceMultiplayerSession> session, Core::System& system_)
-    : QDialog(parent),
-      ui(std::make_unique<Ui::Lobby>()),
-      announce_multiplayer_session(session), system{system_}, room_network{
-                                                                  system.GetRoomNetwork()} {
+    : QDialog(parent), ui(std::make_unique<Ui::Lobby>()), announce_multiplayer_session(session),
+      system{system_}, room_network{system.GetRoomNetwork()} {
 
     const bool is_gamescope = UISettings::IsGamescope();
     if (is_gamescope) {
@@ -41,7 +43,8 @@ Lobby::Lobby(QWidget* parent, QStandardItemModel* list,
         int h = 500;
         setFixedSize(w, h);
     } else {
-        setWindowFlags(Qt::Dialog | Qt::WindowTitleHint | Qt::WindowCloseButtonHint | Qt::WindowSystemMenuHint);
+        setWindowFlags(Qt::Dialog | Qt::WindowTitleHint | Qt::WindowCloseButtonHint |
+                       Qt::WindowSystemMenuHint);
     }
 
     ui->setupUi(this);
@@ -61,21 +64,174 @@ Lobby::Lobby(QWidget* parent, QStandardItemModel* list,
     proxy->setFilterCaseSensitivity(Qt::CaseInsensitive);
     proxy->setSortLocaleAware(true);
     ui->room_list->setModel(proxy);
-    ui->room_list->header()->setSectionResizeMode(QHeaderView::Interactive);
-    ui->room_list->header()->stretchLastSection();
-    ui->room_list->setAlternatingRowColors(true);
-    ui->room_list->setSelectionMode(QHeaderView::SingleSelection);
-    ui->room_list->setSelectionBehavior(QHeaderView::SelectRows);
-    ui->room_list->setVerticalScrollMode(QHeaderView::ScrollPerPixel);
-    ui->room_list->setHorizontalScrollMode(QHeaderView::ScrollPerPixel);
+
+    QPalette p = ui->room_list->palette();
+    p.setColor(QPalette::Highlight, Qt::transparent);
+    p.setColor(QPalette::HighlightedText, Qt::transparent);
+    p.setColor(QPalette::Base, QColor("#121212"));
+    ui->room_list->setPalette(p);
+
+    // NOTE: section resize modes and column widths are set further below
+    // after the delegate is installed, so we don't set them here.
+    ui->room_list->setAlternatingRowColors(false);                   // cards handle their own bg
+    ui->room_list->setSelectionMode(QAbstractItemView::NoSelection); // Kill selection flicker
+    ui->room_list->setSelectionBehavior(QAbstractItemView::SelectRows);
+    ui->room_list->setVerticalScrollMode(QAbstractItemView::ScrollPerPixel);
+    ui->room_list->setHorizontalScrollMode(QAbstractItemView::ScrollPerPixel);
     ui->room_list->setSortingEnabled(true);
-    ui->room_list->setEditTriggers(QHeaderView::NoEditTriggers);
+    ui->room_list->setEditTriggers(QAbstractItemView::NoEditTriggers);
     ui->room_list->setExpandsOnDoubleClick(false);
     ui->room_list->setContextMenuPolicy(Qt::CustomContextMenu);
 
     ui->nickname->setValidator(validation.GetNickname());
     ui->nickname->setText(
         QString::fromStdString(UISettings::values.multiplayer_nickname.GetValue()));
+
+    auto* card_delegate = new LobbyCardDelegate(ui->room_list, this);
+    ui->room_list->setItemDelegate(card_delegate);
+
+    {
+        auto* hdr = ui->room_list->header();
+        hdr->setStretchLastSection(false);
+        hdr->setSectionResizeMode(Column::GAME_NAME, QHeaderView::Interactive);
+        hdr->setSectionResizeMode(Column::ROOM_NAME, QHeaderView::Stretch);
+        hdr->setSectionResizeMode(Column::MEMBER, QHeaderView::Interactive);
+        hdr->setMinimumSectionSize(60);
+
+        ui->room_list->setColumnWidth(Column::GAME_NAME, 128);
+        ui->room_list->setColumnWidth(Column::MEMBER, 100);
+
+        hdr->hideSection(Column::HOST);
+    }
+
+    ui->room_list->setIconSize(QSize(LobbyCardDelegate::kIconSize, LobbyCardDelegate::kIconSize));
+    ui->room_list->setUniformRowHeights(false);
+    ui->room_list->setIndentation(0);
+    ui->room_list->setRootIsDecorated(true); // keep expand arrow for member list
+
+    const bool dark = UISettings::IsDarkTheme();
+
+    loading_overlay = new QLabel(tr("Loading rooms..."));
+    loading_overlay->setAlignment(Qt::AlignCenter);
+    loading_overlay->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
+    const QString loading_bg =
+        dark ? QStringLiteral("rgba(30, 30, 33, 200)") : QStringLiteral("rgba(225, 225, 228, 200)");
+    const QString loading_fg = dark ? QStringLiteral("#9898a4") : QStringLiteral("#444450");
+    loading_overlay->setStyleSheet(
+        QStringLiteral(
+            "background: %1; color: %2; font-size: 16pt; font-weight: bold; border-radius: 10px;")
+            .arg(loading_bg, loading_fg));
+    if (QLayout* layout = ui->room_list->parentWidget()->layout()) {
+        layout->addWidget(loading_overlay);
+    }
+    loading_overlay->hide();
+
+    const QString arrow_closed =
+        dark ? QStringLiteral(
+                   "data:image/svg+xml;base64,"
+                   "PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMiIgaGVpZ2h0PSI"
+                   "xMiI+"
+                   "PHBvbHlnb24gcG9pbnRzPSIzLDIgOSw2IDMsMTAiIGZpbGw9IiM2NDk1ZWQiLz48L3N2Zz4=")
+             : QStringLiteral(
+                   "data:image/svg+xml;base64,"
+                   "PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMiIgaGVpZ2h0PSI"
+                   "xMiI+"
+                   "PHBvbHlnb24gcG9pbnRzPSIzLDIgOSw2IDMsMTAiIGZpbGw9IiM0NDQ0NjYiLz48L3N2Zz4=");
+
+    const QString arrow_open =
+        dark ? QStringLiteral(
+                   "data:image/svg+xml;base64,"
+                   "PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMiIgaGVpZ2h0PSI"
+                   "xMiI+"
+                   "PHBvbHlnb24gcG9pbnRzPSIyLDQgMTAsNCAxNiw5IiBmaWxsPSIjNjQ5NWVkIi8+PC9zdmc+")
+             : QStringLiteral(
+                   "data:image/svg+xml;base64,"
+                   "PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMiIgaGVpZ2h0PSI"
+                   "xMiI+"
+                   "PHBvbHlnb24gcG9pbnRzPSIyLDQgMTAsNCAxNiw5IiBmaWxsPSIjNDQ0NDY2Ii8+PC9zdmc+");
+
+    const QString header_bg = dark ? QStringLiteral("#222226") : QStringLiteral("#dddde2");
+    const QString header_fg = dark ? QStringLiteral("#9898a4") : QStringLiteral("#444450");
+    const QString header_border = dark ? QStringLiteral("#30303a") : QStringLiteral("#c8c8d0");
+    const QString header_bg_hov = dark ? QStringLiteral("#2a2a30") : QStringLiteral("#cdcdd4");
+    const QString header_fg_hov = dark ? QStringLiteral("#d0d0e0") : QStringLiteral("#222230");
+    const QString scroll_bg = dark ? QStringLiteral("#181818") : QStringLiteral("#e2e2e6");
+    const QString scroll_handle = dark ? QStringLiteral("#3e3e44") : QStringLiteral("#b0b0b8");
+
+    const QString tree_style =
+        QStringLiteral("QTreeView {"
+                       "  background-color: #121212;"
+                       "  border: none;"
+                       "  outline: 0;"
+                       "  show-decoration-selected: 0;"
+                       "}"
+                       "QTreeView::item {"
+                       "  padding: 0px;"
+                       "  border: none;"
+                       "  background: transparent;"
+                       "}"
+                       "QTreeView::item:hover {"
+                       "  background: transparent;"
+                       "}"
+                       "QTreeView::item:selected {"
+                       "  background: transparent;"
+                       "}"
+                       "QTreeView::branch {"
+                       "  background: transparent;"
+                       "}"
+                       "QTreeView::branch:has-children:!has-siblings:closed,"
+                       "QTreeView::branch:closed:has-children:has-siblings {"
+                       "  image: url(%1);"
+                       "}"
+                       "QTreeView::branch:open:has-children:!has-siblings,"
+                       "QTreeView::branch:open:has-children:has-siblings {"
+                       "  image: url(%2);"
+                       "}"
+                       "QHeaderView::section, QHeaderView::section:pressed {"
+                       "  background-color: %3;"
+                       "  color: %4;"
+                       "  border: none;"
+                       "  border-bottom: 1px solid %5;"
+                       "  border-right: 1px solid %5;"
+                       "  padding: 4px 8px;"
+                       "  font-weight: bold;"
+                       "  font-size: 9pt;"
+                       "}"
+                       "QHeaderView::section:hover {"
+                       "  background-color: %6;"
+                       "  color: %7;"
+                       "}"
+                       "QHeaderView::section:first {"
+                       "  border-top-left-radius: 6px;"
+                       "}"
+                       "QScrollBar:vertical {"
+                       "  background: %8;"
+                       "  width: 8px;"
+                       "  border-radius: 4px;"
+                       "  margin: 0px;"
+                       "}"
+                       "QScrollBar::handle:vertical {"
+                       "  background: %9;"
+                       "  border-radius: 4px;"
+                       "  min-height: 20px;"
+                       "}"
+                       "QScrollBar::handle:vertical:hover {"
+                       "  background: #6495ed;"
+                       "}"
+                       "QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {"
+                       "  height: 0px;"
+                       "}")
+            .arg(arrow_closed, arrow_open, header_bg, header_fg, header_border, header_bg_hov,
+                 header_fg_hov, scroll_bg, scroll_handle);
+
+    ui->room_list->setStyleSheet(tree_style);
+
+    // Container background — greyish-black
+    const QString container_bg = dark ? QStringLiteral("#1a1a1e") : QStringLiteral("#eaeaee");
+    if (QWidget* parent_w = ui->room_list->parentWidget()) {
+        parent_w->setStyleSheet(
+            QStringLiteral("background: %1; border-radius: 10px;").arg(container_bg));
+    }
 
     // Try find the best nickname by default
     if (ui->nickname->text().isEmpty() || ui->nickname->text() == QStringLiteral("citron")) {
@@ -95,8 +251,16 @@ Lobby::Lobby(QWidget* parent, QStandardItemModel* list,
     connect(ui->games_owned, &QCheckBox::toggled, proxy, &LobbyFilterProxyModel::SetFilterOwned);
     connect(ui->hide_empty, &QCheckBox::toggled, proxy, &LobbyFilterProxyModel::SetFilterEmpty);
     connect(ui->hide_full, &QCheckBox::toggled, proxy, &LobbyFilterProxyModel::SetFilterFull);
+    // "Scroll Names" toggle — wired directly to the delegate
+    connect(ui->scroll_names, &QCheckBox::toggled,
+            qobject_cast<LobbyCardDelegate*>(ui->room_list->itemDelegate()),
+            &LobbyCardDelegate::SetAnimateNames);
     connect(ui->room_list, &QTreeView::doubleClicked, this, &Lobby::OnJoinRoom);
     connect(ui->room_list, &QTreeView::clicked, this, &Lobby::OnExpandRoom);
+    // Feed click events into the delegate for the pulse border effect
+    connect(ui->room_list, &QTreeView::clicked,
+            qobject_cast<LobbyCardDelegate*>(ui->room_list->itemDelegate()),
+            &LobbyCardDelegate::OnRowClicked);
 
     // Actions
     connect(&room_list_watcher, &QFutureWatcher<AnnounceMultiplayerRoom::RoomList>::finished, this,
@@ -213,7 +377,9 @@ void Lobby::OnJoinRoom(const QModelIndex& source) {
                 LOG_INFO(WebService, "Successfully requested external JWT: size={}", token.size());
             }
         } else if (verify_uid.empty()) {
-            LOG_DEBUG(WebService, "Skipping JWT request: verify_uid is empty (room may not require verification)");
+            LOG_DEBUG(
+                WebService,
+                "Skipping JWT request: verify_uid is empty (room may not require verification)");
         }
 #endif
         if (auto room_member = room_network.GetRoomMember().lock()) {
@@ -252,6 +418,10 @@ void Lobby::RefreshLobby() {
         ResetModel();
         ui->refresh_list->setEnabled(false);
         ui->refresh_list->setText(tr("Refreshing"));
+        ui->room_list->hide();
+        if (loading_overlay) {
+            loading_overlay->show();
+        }
         room_list_watcher.setFuture(
             QtConcurrent::run([session]() { return session->GetRoomList(); }));
     } else {
@@ -306,13 +476,26 @@ void Lobby::OnRefreshLobby() {
         }
     }
 
-    // Re-enable the refresh button and resize the columns
+    // Re-enable the refresh button
     ui->refresh_list->setEnabled(true);
     ui->refresh_list->setText(tr("Refresh List"));
-    ui->room_list->header()->stretchLastSection();
-    for (int i = 0; i < Column::TOTAL - 1; ++i) {
-        ui->room_list->resizeColumnToContents(i);
+
+    // Re-apply the column layout every time (model reset can undo hideSection etc.)
+    {
+        auto* hdr = ui->room_list->header();
+        hdr->setStretchLastSection(false);
+        hdr->setSectionResizeMode(Column::GAME_NAME, QHeaderView::Interactive);
+        hdr->setSectionResizeMode(Column::ROOM_NAME, QHeaderView::Stretch);
+        hdr->setSectionResizeMode(Column::MEMBER, QHeaderView::Interactive);
+        ui->room_list->setColumnWidth(Column::GAME_NAME, 128);
+        ui->room_list->setColumnWidth(Column::MEMBER, 100);
+        hdr->hideSection(Column::HOST);
     }
+
+    if (loading_overlay) {
+        loading_overlay->hide();
+    }
+    ui->room_list->show();
 
     // Set the member list child items to span all columns
     for (int i = 0; i < proxy->rowCount(); i++) {
