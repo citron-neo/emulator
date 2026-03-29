@@ -103,8 +103,6 @@ static CPUCaps DetectCPUCapabilities() {
     // DetectCPUCapabilities family and other miscellaneous features
     if (max_std_fn >= 1) {
         __cpuid(cpu_id, 0x00000001);
-        caps.sse = Common::Bit<25>(cpu_id[3]);
-        caps.sse2 = Common::Bit<26>(cpu_id[3]);
         caps.sse3 = Common::Bit<0>(cpu_id[2]);
         caps.pclmulqdq = Common::Bit<1>(cpu_id[2]);
         caps.ssse3 = Common::Bit<9>(cpu_id[2]);
@@ -167,7 +165,6 @@ static CPUCaps DetectCPUCapabilities() {
         // Check for more features
         __cpuid(cpu_id, 0x80000001);
         caps.lzcnt = Common::Bit<5>(cpu_id[2]);
-        caps.fma4 = Common::Bit<16>(cpu_id[2]);
         caps.monitorx = Common::Bit<29>(cpu_id[2]);
     }
 

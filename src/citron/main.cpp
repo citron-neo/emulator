@@ -416,7 +416,7 @@ GMainWindow::GMainWindow(std::unique_ptr<QtConfig> config_, bool has_broken_vulk
         } else if (caps.avx2) {
             cpu_string += '2';
         }
-        if (caps.fma || caps.fma4) {
+        if (caps.fma) {
             cpu_string += " | FMA";
         }
     }
