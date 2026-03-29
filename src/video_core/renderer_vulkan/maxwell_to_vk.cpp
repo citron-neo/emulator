@@ -269,9 +269,9 @@ FormatInfo SurfaceFormat(const Device& device, FormatType format_type, bool with
         switch (Settings::values.astc_recompression.GetValue()) {
         case Settings::AstcRecompression::Uncompressed:
             if (is_srgb) {
-                tuple.format = VK_FORMAT_A8B8G8R8_SRGB_PACK32;
+                tuple.format = VK_FORMAT_R8G8B8A8_SRGB;
             } else {
-                tuple.format = VK_FORMAT_A8B8G8R8_UNORM_PACK32;
+                tuple.format = VK_FORMAT_R8G8B8A8_UNORM;
                 tuple.usage |= Storage;
             }
             break;
@@ -298,18 +298,18 @@ FormatInfo SurfaceFormat(const Device& device, FormatType format_type, bool with
                    pixel_format == PixelFormat::BC6H_UFLOAT) {
             tuple.format = VK_FORMAT_R16G16B16A16_SFLOAT;
         } else if (is_srgb) {
-            tuple.format = VK_FORMAT_A8B8G8R8_SRGB_PACK32;
+            tuple.format = VK_FORMAT_R8G8B8A8_SRGB;
         } else {
-            tuple.format = VK_FORMAT_A8B8G8R8_UNORM_PACK32;
+            tuple.format = VK_FORMAT_R8G8B8A8_UNORM;
         }
     }
     // Transcode on hardware that doesn't support ETC2 natively (shouldn't happen on Vulkan 1.0)
     if (!device.IsOptimalEtc2Supported() && VideoCore::Surface::IsPixelFormatETC2(pixel_format)) {
         const bool is_srgb = with_srgb && VideoCore::Surface::IsPixelFormatSRGB(pixel_format);
         if (is_srgb) {
-            tuple.format = VK_FORMAT_A8B8G8R8_SRGB_PACK32;
+            tuple.format = VK_FORMAT_R8G8B8A8_SRGB;
         } else {
-            tuple.format = VK_FORMAT_A8B8G8R8_UNORM_PACK32;
+            tuple.format = VK_FORMAT_R8G8B8A8_UNORM;
         }
     }
     const bool attachable = (tuple.usage & Attachable) != 0;
