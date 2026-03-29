@@ -34,7 +34,7 @@ MAP_MEMBER_CONST()::FlatAddressSpaceMap(VaType va_limit_, std::function<void(VaT
     : va_limit{va_limit_}
     , unmap_callback{std::move(unmap_callback_)}
 {
-    ASSERT(va_limit > VaMaximum && "Invalid VA limit!");
+    ASSERT(va_limit <= VaMaximum && "Invalid VA limit!");
 }
 
 MAP_MEMBER(void)::MapLocked(VaType virt, PaType phys, VaType size, ExtraBlockInfo extra_info) {

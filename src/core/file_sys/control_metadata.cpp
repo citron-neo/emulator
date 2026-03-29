@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright 2018 yuzu Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
+#include <memory>
 #include <zlib.h>
 
 #include "common/logging.h"
@@ -114,10 +115,10 @@ void NACP::DecompressTitleBlock() {
         return;
     }
 
-    std::array<u8, decompressed_size> decompressed{};
+    auto decompressed = std::make_unique<std::array<u8, decompressed_size>>();
     zstrm.next_in = raw.compressed_title.compressed_data.data();
     zstrm.avail_in = static_cast<uInt>(compressed_size);
-    zstrm.next_out = decompressed.data();
+    zstrm.next_out = decompressed->data();
     zstrm.avail_out = static_cast<uInt>(decompressed_size);
 
     ret = inflate(&zstrm, Z_FINISH);
@@ -128,7 +129,7 @@ void NACP::DecompressTitleBlock() {
         return;
     }
 
-    std::memcpy(language_entries_.data(), decompressed.data(), decompressed_size);
+    std::memcpy(language_entries_.data(), decompressed->data(), decompressed_size);
 }
 
 std::string NACP::GetApplicationName() const {

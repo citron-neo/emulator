@@ -11,7 +11,7 @@
 
 namespace Common {
 
-constexpr std::size_t DEFAULT_STACK_SIZE = 512 * 1024;
+constexpr std::size_t DEFAULT_STACK_SIZE = 1024 * 1024;
 
 struct Fiber::FiberImpl {
     FiberImpl() {}
