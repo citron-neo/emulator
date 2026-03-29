@@ -196,33 +196,41 @@ Id Texture(EmitContext& ctx, IR::TextureInstInfo info, [[maybe_unused]] const IR
 }
 
 Id TextureImage(EmitContext& ctx, IR::TextureInstInfo info, const IR::Value& index) {
-    if (!index.IsImmediate() || index.U32() != 0) {
-        throw NotImplementedException("Indirect image indexing");
-    }
     if (info.type == TextureType::Buffer) {
         const TextureBufferDefinition& def{ctx.texture_buffers.at(info.descriptor_index)};
         if (def.count > 1) {
-            throw NotImplementedException("Indirect texture sample");
+            const Id idx{index.IsImmediate() ? ctx.Const(index.U32()) : ctx.Def(index)};
+            const Id ptr{ctx.OpAccessChain(ctx.image_buffer_type, def.id, idx)};
+            return ctx.OpLoad(ctx.image_buffer_type, ptr);
         }
         return ctx.OpLoad(ctx.image_buffer_type, def.id);
     } else {
         const TextureDefinition& def{ctx.textures.at(info.descriptor_index)};
         if (def.count > 1) {
-            throw NotImplementedException("Indirect texture sample");
+            const Id idx{index.IsImmediate() ? ctx.Const(index.U32()) : ctx.Def(index)};
+            const Id ptr{ctx.OpAccessChain(def.pointer_type, def.id, idx)};
+            return ctx.OpImage(def.image_type, ctx.OpLoad(def.sampled_type, ptr));
         }
         return ctx.OpImage(def.image_type, ctx.OpLoad(def.sampled_type, def.id));
     }
 }
 
 std::pair<Id, bool> Image(EmitContext& ctx, const IR::Value& index, IR::TextureInstInfo info) {
-    if (!index.IsImmediate() || index.U32() != 0) {
-        throw NotImplementedException("Indirect image indexing");
-    }
     if (info.type == TextureType::Buffer) {
         const ImageBufferDefinition def{ctx.image_buffers.at(info.descriptor_index)};
+        if (def.count > 1) {
+            const Id idx{index.IsImmediate() ? ctx.Const(index.U32()) : ctx.Def(index)};
+            const Id ptr{ctx.OpAccessChain(def.pointer_type, def.id, idx)};
+            return {ctx.OpLoad(def.image_type, ptr), def.is_integer};
+        }
         return {ctx.OpLoad(def.image_type, def.id), def.is_integer};
     } else {
         const ImageDefinition def{ctx.images.at(info.descriptor_index)};
+        if (def.count > 1) {
+            const Id idx{index.IsImmediate() ? ctx.Const(index.U32()) : ctx.Def(index)};
+            const Id ptr{ctx.OpAccessChain(def.pointer_type, def.id, idx)};
+            return {ctx.OpLoad(def.image_type, ptr), def.is_integer};
+        }
         return {ctx.OpLoad(def.image_type, def.id), def.is_integer};
     }
 }
