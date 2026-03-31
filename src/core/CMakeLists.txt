@@ -731,8 +731,6 @@ add_library(core STATIC
     hle/service/glue/time/time_zone_binary.h
     hle/service/glue/time/worker.cpp
     hle/service/glue/time/worker.h
-    hle/service/grc/continuous_recorder.cpp
-    hle/service/grc/continuous_recorder.h
     hle/service/grc/grc.cpp
     hle/service/grc/grc.h
     hle/service/hid/active_vibration_device_list.cpp
