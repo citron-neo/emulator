@@ -9,7 +9,7 @@
 
 namespace FileSys {
 
-constexpr u64 SDMC_TOTAL_SIZE = 0x10000000000; // 1 TiB
+constexpr u64 SDMC_TOTAL_SIZE = 35733492472; // random shit
 
 SDMCFactory::SDMCFactory(VirtualDir sd_dir_, VirtualDir sd_mod_dir_)
     : sd_dir(std::move(sd_dir_)), sd_mod_dir(std::move(sd_mod_dir_)),
