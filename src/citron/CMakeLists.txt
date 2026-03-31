@@ -193,6 +193,8 @@ add_executable(citron
     game_list.h
     game_list_delegate.cpp
     game_list_delegate.h
+    game_list_loading_overlay.cpp
+    game_list_loading_overlay.h
     game_list_p.h
     game_list_worker.cpp
     game_list_worker.h

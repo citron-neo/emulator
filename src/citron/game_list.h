@@ -38,6 +38,8 @@ class ControllerNavigation;
 class GameListWorker;
 class GameListSearchField;
 class GameListDir;
+class GameListLoadingOverlay;
+class GameListDelegate;
 class GMainWindow;
 enum class AmLaunchType;
 enum class StartGameType;
@@ -115,6 +117,8 @@ public:
     void ToggleSortOrder();
 
     QStandardItemModel* GetModel() const;
+    QWidget* GetToolbarWidget() const { return toolbar; }
+    void SetToolbarInMain(bool state) { toolbar_in_main = state; }
 
     /// Disables events from the emulated controller
     void UnloadController();
@@ -218,6 +222,8 @@ private:
     QTreeView* tree_view = nullptr;
     QListView* list_view = nullptr;
     QStandardItemModel* item_model = nullptr;
+    GameListDelegate* item_delegate = nullptr;
+    GameListLoadingOverlay* loading_overlay = nullptr;
     std::unique_ptr<GameListWorker> current_worker;
     QProgressBar* progress_bar = nullptr;
     QFileSystemWatcher* watcher = nullptr;
@@ -233,6 +239,7 @@ private:
 
     PlayTime::PlayTimeManager& play_time_manager;
     Core::System& system;
+    bool toolbar_in_main = false;
 };
 
 class GameListPlaceholder : public QWidget {

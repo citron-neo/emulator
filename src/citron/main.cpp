@@ -1083,6 +1083,39 @@ void GMainWindow::WebBrowserRequestExit() {
 #endif
 }
 
+#include <QPropertyAnimation>
+#include <QParallelAnimationGroup>
+
+class MenuAnimationFilter : public QObject {
+public:
+    explicit MenuAnimationFilter(QMenu* menu) : QObject(menu), target_menu(menu) {}
+
+    bool eventFilter(QObject* obj, QEvent* event) override {
+        if (event->type() == QEvent::Show && obj == target_menu && !is_animating) {
+            is_animating = true;
+            QPropertyAnimation* geom = new QPropertyAnimation(target_menu, "geometry", target_menu);
+            geom->setDuration(150);
+            QRect final_geom = target_menu->geometry();
+            // Ensure we keep the SAME x and width to prevent horizontal shifting
+            QRect start_geom = QRect(final_geom.x(), final_geom.y() - 5, final_geom.width(), final_geom.height());
+            geom->setStartValue(start_geom);
+            geom->setEndValue(final_geom);
+            geom->setEasingCurve(QEasingCurve::OutCubic);
+
+            connect(geom, &QAbstractAnimation::finished, [this]() { 
+                is_animating = false; 
+            });
+            geom->start(QAbstractAnimation::DeleteWhenStopped);
+        }
+        return QObject::eventFilter(obj, event);
+    }
+private:
+    QMenu* target_menu;
+    bool is_animating = false;
+};
+
+#include <QGraphicsOpacityEffect>
+
 void GMainWindow::InitializeWidgets() {
 #ifdef CITRON_ENABLE_COMPATIBILITY_REPORTING
     ui->action_Report_Compatibility->setVisible(true);
@@ -1092,7 +1125,98 @@ void GMainWindow::InitializeWidgets() {
     render_window->hide();
 
     game_list = new GameList(vfs, provider.get(), *play_time_manager, *system, this);
+    game_list->SetToolbarInMain(true);
     ui->horizontalLayout->addWidget(game_list);
+    
+    // Create a new master layout for centralwidget
+    // We create it first without a parent to avoid warnings
+    QVBoxLayout* master_layout = new QVBoxLayout();
+    master_layout->setContentsMargins(0, 0, 0, 0);
+    master_layout->setSpacing(0);
+
+    // Unified Top Bar creation
+    unified_top_bar = new QWidget(this);
+    unified_top_bar->setObjectName(QStringLiteral("UnifiedTopBar"));
+    unified_top_bar->setAutoFillBackground(true);
+    unified_top_bar->setStyleSheet(QStringLiteral("QWidget#UnifiedTopBar { background-color: #24242a; border-bottom: 1px solid #32323a; }"));
+    
+    // Retrieve dynamic accent color
+    const QString accent_hex = QString::fromStdString(UISettings::values.accent_color.GetValue());
+    const QColor accent_color = QColor(accent_hex).isValid() ? QColor(accent_hex) : QColor(60, 120, 216);
+    const QString accent_str = accent_color.name();
+    const QString accent_dim = accent_color.darker(120).name();
+
+    unified_top_bar_layout = new QHBoxLayout(unified_top_bar);
+    unified_top_bar_layout->setContentsMargins(10, 0, 10, 0);
+    unified_top_bar_layout->setSpacing(0);
+
+    auto add_menu = [this, accent_str](QMenu* menu) {
+        if (!menu) return;
+        menu->installEventFilter(new MenuAnimationFilter(menu));
+        menu->setWindowFlags(menu->windowFlags() | Qt::NoDropShadowWindowHint | Qt::FramelessWindowHint);
+        menu->setAttribute(Qt::WA_TranslucentBackground);
+        menu->setStyleSheet(QString::asprintf(
+            "QMenu { background-color: #1a1a1e; border: 1px solid #3a3a40; border-radius: 8px; padding: 6px; color: #e0e0e4; }"
+            "QMenu::item { padding: 4px 28px 4px 32px; border-radius: 4px; margin: 1px; font-size: 8.5pt; min-width: 140px; }"
+            "QMenu::item:selected { background-color: %s; color: #ffffff; }"
+            "QMenu::item:disabled { color: #555558; }"
+            "QMenu::separator { height: 1px; background: #32323a; margin: 4px 10px; }"
+            "QMenu::indicator { width: 14px; height: 14px; left: 10px; border-radius: 3px; border: 1px solid #4a4a50; background: #121214; }"
+            "QMenu::indicator:checked { background: %s; border: 1px solid %s; }",
+            accent_str.toUtf8().constData(), accent_str.toUtf8().constData(), accent_str.toUtf8().constData()
+        ));
+        QPushButton* btn = new QPushButton(menu->title().remove(QLatin1Char('&')), unified_top_bar);
+        btn->setFlat(true);
+        btn->setFocusPolicy(Qt::NoFocus);
+        btn->setCursor(Qt::PointingHandCursor);
+        btn->setFixedHeight(32);
+        btn->setStyleSheet(QString::asprintf(
+            "QPushButton { border: none; padding: 0 10px; font-weight: normal; font-size: 8.5pt; "
+            "background: transparent; color: #e0e0e4; text-align: center; margin: 0; outline: none; }"
+            "QPushButton:hover { background: rgba(255, 255, 255, 0.05); color: #ffffff; "
+            "border-bottom: 2px solid %s; }"
+            "QPushButton:pressed { background: rgba(255, 255, 255, 0.10); }"
+            "QPushButton::menu-indicator { image: none; width: 0; }",
+            accent_str.toUtf8().constData()
+        ));
+        btn->setMenu(menu);
+        unified_top_bar_layout->addWidget(btn);
+    };
+
+    add_menu(ui->menu_File);
+    add_menu(ui->menu_Emulation);
+    add_menu(ui->menu_View);
+    add_menu(ui->menu_Tools);
+    add_menu(ui->menu_Multiplayer);
+    add_menu(ui->menu_Help);
+    
+    // Set first/last button specific styling if needed, but the new flat look is preferred
+    // Padding logic handled in QPushButton style above
+
+    unified_top_bar_layout->addSpacing(10);
+    unified_top_bar_layout->addStretch();
+
+    if (game_list && game_list->GetToolbarWidget()) {
+        unified_top_bar_layout->addWidget(game_list->GetToolbarWidget(), 0, Qt::AlignRight | Qt::AlignVCenter);
+    }
+    
+    ui->action_Show_Filter_Bar->setChecked(true);
+    ui->action_Show_Status_Bar->setChecked(true);
+    ui->action_Fullscreen->setChecked(windowState().testFlag(Qt::WindowFullScreen));
+    game_list->SetFilterVisible(true);
+
+    // Re-parent the existing horizontal layout (which contains game list etc) into our master layout
+    QWidget* content_container = new QWidget(this);
+    // Taking the layout from centralwidget (this removes the old layout from centralwidget)
+    content_container->setLayout(ui->centralwidget->layout()); 
+    
+    master_layout->addWidget(unified_top_bar, 0);
+    master_layout->addWidget(content_container, 1);
+
+    // Now set the new master layout as the central layout
+    ui->centralwidget->setLayout(master_layout);
+
+    ui->menubar->hide();
 
     game_list_placeholder = new GameListPlaceholder(this);
     ui->horizontalLayout->addWidget(game_list_placeholder);
@@ -1116,6 +1240,8 @@ void GMainWindow::InitializeWidgets() {
     multiplayer_state->setVisible(false);
 
     // Create status bar
+    statusBar()->setStyleSheet(QStringLiteral("QStatusBar { background-color: #24242a; border-top: 1px solid #32323a; color: #aaa; }"
+                                              "QStatusBar::item { border: none; }"));
     message_label = new QLabel();
     message_label->setFrameStyle(QFrame::NoFrame);
     message_label->setContentsMargins(4, 0, 4, 0);
@@ -1534,6 +1660,7 @@ void GMainWindow::SetDefaultUIGeometry() {
     const int y = (screenRect.y() + screenRect.height()) / 2 - h * 53 / 100;
 
     setGeometry(x, y, w, h);
+    setMinimumSize(1280, 720);
 }
 
 void GMainWindow::RestoreUIState() {
@@ -1660,6 +1787,46 @@ void GMainWindow::ConnectWidgetEvents() {
             &GRenderWindow::OnEmulationStarting);
     connect(this, &GMainWindow::EmulationStopping, render_window,
             &GRenderWindow::OnEmulationStopping);
+
+    connect(this, &GMainWindow::EmulationStarting, [this]() {
+        if (game_list) {
+            if (QWidget* toolbar = game_list->GetToolbarWidget()) {
+                QGraphicsOpacityEffect* effect = new QGraphicsOpacityEffect(toolbar);
+                toolbar->setGraphicsEffect(effect);
+                
+                QPropertyAnimation* anim = new QPropertyAnimation(effect, "opacity", this);
+                anim->setDuration(250);
+                anim->setStartValue(1.0);
+                anim->setEndValue(0.0);
+                anim->setEasingCurve(QEasingCurve::OutCubic);
+                
+                connect(anim, &QPropertyAnimation::finished, toolbar, &QWidget::hide);
+                anim->start(QAbstractAnimation::DeleteWhenStopped);
+            }
+        }
+    });
+
+    connect(this, &GMainWindow::EmulationStopping, [this]() {
+        if (game_list) {
+            if (QWidget* toolbar = game_list->GetToolbarWidget()) {
+                toolbar->show();
+                
+                QGraphicsOpacityEffect* effect = new QGraphicsOpacityEffect(toolbar);
+                toolbar->setGraphicsEffect(effect);
+                
+                QPropertyAnimation* anim = new QPropertyAnimation(effect, "opacity", this);
+                anim->setDuration(250);
+                anim->setStartValue(0.0);
+                anim->setEndValue(1.0);
+                anim->setEasingCurve(QEasingCurve::OutCubic);
+                
+                connect(anim, &QPropertyAnimation::finished, [toolbar]() {
+                    toolbar->setGraphicsEffect(nullptr);
+                });
+                anim->start(QAbstractAnimation::DeleteWhenStopped);
+            }
+        }
+    });
 
     connect(render_window, &GRenderWindow::UnlockFramerateHotkeyPressed, this, [this] {
         if (system->IsPoweredOn()) {

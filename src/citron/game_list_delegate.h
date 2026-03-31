@@ -46,6 +46,10 @@ public:
 
 public slots:
     void AdvanceAnimations();
+    void SetPopulating(bool populating);
+    void RegisterEntryAnimation(const QModelIndex& index);
+    void ClearAnimations();
+
 
 private:
     // ---- Per-column paint helpers ----
@@ -69,10 +73,15 @@ private:
     mutable QMap<QPersistentModelIndex, int> vertical_scroll_offsets;
     mutable QMap<QPersistentModelIndex, int> vertical_scroll_pause;
     mutable QMap<QPersistentModelIndex, qreal> hover_states;
+    mutable QMap<QPersistentModelIndex, qreal> entry_animations;
     mutable QMap<QPersistentModelIndex, qreal> pulse_states;
     mutable QMap<QPersistentModelIndex, bool> pulse_direction;
     
+    bool is_populating = false;
+    bool enable_bubble_animations = false;
+    qreal population_fade_global = 1.0;
     // Performance optimizations
+    mutable QMap<QString, QIcon> greyscale_icon_cache;
     mutable QMap<QString, QStringList> addons_item_cache;
     mutable QSet<QPersistentModelIndex> animating_indices;
     QTimer* animation_timer;

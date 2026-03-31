@@ -442,6 +442,8 @@ private:
     MultiplayerState* multiplayer_state = nullptr;
     GRenderWindow* render_window;
     GameList* game_list;
+    QWidget* unified_top_bar = nullptr;
+    QHBoxLayout* unified_top_bar_layout = nullptr;
     LoadingScreen* loading_screen;
     QTimer shutdown_timer;
     OverlayDialog* shutdown_dialog{};
