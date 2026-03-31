@@ -44,10 +44,11 @@ void RenderdocAPI::ToggleCapture() {
     if (!rdoc_api) [[unlikely]] {
         return;
     }
+    auto* api = static_cast<RENDERDOC_API_1_6_0*>(rdoc_api);
     if (!is_capturing) {
-        rdoc_api->StartFrameCapture(NULL, NULL);
+        api->StartFrameCapture(NULL, NULL);
     } else {
-        rdoc_api->EndFrameCapture(NULL, NULL);
+        api->EndFrameCapture(NULL, NULL);
     }
     is_capturing = !is_capturing;
 }

@@ -7,6 +7,7 @@
 #include <QInputDialog>
 #include <QList>
 #include <QtConcurrent/QtConcurrentRun>
+#include <QScrollBar>
 #include "citron/game_list_p.h"
 #include "citron/main.h"
 #include "citron/multiplayer/client_room.h"
@@ -150,13 +151,15 @@ Lobby::Lobby(QWidget* parent, QStandardItemModel* list,
                    "xMiI+"
                    "PHBvbHlnb24gcG9pbnRzPSIyLDQgMTAsNCAxNiw5IiBmaWxsPSIjNDQ0NDY2Ii8+PC9zdmc+");
 
+    const QString hex = QString::fromStdString(UISettings::values.accent_color.GetValue());
+    const QColor accent_col = QColor(hex).isValid() ? QColor(hex) : QColor("#6495ed");
+
     const QString header_bg = dark ? QStringLiteral("#222226") : QStringLiteral("#dddde2");
     const QString header_fg = dark ? QStringLiteral("#9898a4") : QStringLiteral("#444450");
     const QString header_border = dark ? QStringLiteral("#30303a") : QStringLiteral("#c8c8d0");
     const QString header_bg_hov = dark ? QStringLiteral("#2a2a30") : QStringLiteral("#cdcdd4");
     const QString header_fg_hov = dark ? QStringLiteral("#d0d0e0") : QStringLiteral("#222230");
     const QString scroll_bg = dark ? QStringLiteral("#181818") : QStringLiteral("#e2e2e6");
-    const QString scroll_handle = dark ? QStringLiteral("#3e3e44") : QStringLiteral("#b0b0b8");
 
     const QString tree_style =
         QStringLiteral("QTreeView {"
@@ -216,15 +219,46 @@ Lobby::Lobby(QWidget* parent, QStandardItemModel* list,
                        "  min-height: 20px;"
                        "}"
                        "QScrollBar::handle:vertical:hover {"
-                       "  background: #6495ed;"
+                       "  background: %10;"
                        "}"
-                       "QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {"
+                       "QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical,"
+                       "QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {"
+                       "  background: none;"
                        "  height: 0px;"
                        "}")
-            .arg(arrow_closed, arrow_open, header_bg, header_fg, header_border, header_bg_hov,
-                 header_fg_hov, scroll_bg, scroll_handle);
+            .arg(arrow_closed)
+            .arg(arrow_open)
+            .arg(header_bg)
+            .arg(header_fg)
+            .arg(header_border)
+            .arg(header_bg_hov)
+            .arg(header_fg_hov)
+            .arg(scroll_bg)
+            .arg(accent_col.name())
+            .arg(accent_col.lighter(110).name());
 
     ui->room_list->setStyleSheet(tree_style);
+    ui->room_list->verticalScrollBar()->setStyleSheet(
+        QStringLiteral("QScrollBar:vertical {"
+                       "  background: %1;"
+                       "  width: 8px;"
+                       "  border-radius: 4px;"
+                       "  margin: 0px;"
+                       "}"
+                       "QScrollBar::handle:vertical {"
+                       "  background: %2;"
+                       "  border-radius: 4px;"
+                       "  min-height: 20px;"
+                       "}"
+                       "QScrollBar::handle:vertical:hover {"
+                       "  background: %3;"
+                       "}"
+                       "QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical,"
+                       "QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {"
+                       "  background: none;"
+                       "  height: 0px;"
+                       "}")
+            .arg(scroll_bg, accent_col.name(), accent_col.lighter(110).name()));
 
     // Container background — greyish-black
     const QString container_bg = dark ? QStringLiteral("#1a1a1e") : QStringLiteral("#eaeaee");

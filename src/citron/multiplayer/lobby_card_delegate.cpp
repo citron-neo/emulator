@@ -549,6 +549,10 @@ QColor LobbyCardDelegate::DimColor() const {
 }
 
 QColor LobbyCardDelegate::AccentColor() const {
+    const QString hex = QString::fromStdString(UISettings::values.accent_color.GetValue());
+    if (QColor(hex).isValid()) {
+        return QColor(hex);
+    }
     const QColor pa = QApplication::palette().color(QPalette::Highlight);
     return (pa.isValid() && pa != Qt::black) ? pa : QColor(100, 149, 237);
 }
