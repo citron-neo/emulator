@@ -26,8 +26,7 @@ class System;
 
 namespace Service::Set {
 
-Result GetFirmwareVersionImpl(FirmwareVersionFormat& out_firmware, Core::System& system,
-                              GetFirmwareVersionType type);
+Result GetFirmwareVersionImpl(FirmwareVersionFormat& out_firmware, Core::System& system, GetFirmwareVersionType type);
 
 class ISystemSettingsServer final : public ServiceFramework<ISystemSettingsServer> {
 public:
@@ -156,15 +155,15 @@ public:
     Result GetFieldTestingFlag(Out<bool> out_field_testing_flag);
     Result GetPanelCrcMode(Out<s32> out_panel_crc_mode);
     Result SetPanelCrcMode(s32 panel_crc_mode);
-    Result Unknown263(); // [20.0.0+]
-    Result Unknown264(); // [20.0.0+]
-    Result Unknown282(); // [20.0.0+]
-    Result Unknown283(); // [20.0.0+]
-    Result Unknown289(); // [20.0.0+]
-    Result Unknown300(); // [20.0.0+]
-    Result Unknown301(); // [20.0.0+]
-    Result Unknown306(); // [20.0.0+]
-    Result Unknown307(); // [20.0.0+]
+    Result AcquireVphymDirtyFlagEventHandle(); // [20.0.0+]
+    Result GetVphymDirtyFlags(); // [20.0.0+]
+    Result ConvertToProductModel(); // [20.0.0+]
+    Result ConvertToProductModelName(); // [20.0.0+]
+    Result GetDefaultAccountIdentificationFlagSet(); // [20.0.0+]
+    Result AcquirePushNotificationDirtyFlagEventHandle(); // [20.0.0+]
+    Result GetPushNotificationDirtyFlags(); // [20.0.0+]
+    Result GetPinCodeReregistrationGuideAccounts(); // [20.0.0+]
+    Result SetPinCodeReregistrationGuideAccounts(); // [20.0.0+]
     Result GetAccountUserSettings(Out<u32> out_count, OutLargeData<AccountUserSettings, BufferAttr_HipcMapAlias> out_settings);
     Result GetDefaultAccountUserSettings(Out<AccountUserSettings> out_settings);
 

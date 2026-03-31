@@ -52,6 +52,7 @@ IFactorySettingsServer::IFactorySettingsServer(Core::System& system_)
         {41, nullptr, "GetBatteryVersion"},
         {42, nullptr, "GetDeviceId"},
         {43, nullptr, "GetConsoleSixAxisSensorMountType"},
+        {119, nullptr, "GetRegionCode"}
     };
     // clang-format on
 

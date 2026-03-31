@@ -302,18 +302,28 @@ ISystemSettingsServer::ISystemSettingsServer(Core::System& system_)
         {208, nullptr, "SetHearingProtectionSafeguardFlag"},
         {209, nullptr, "GetHearingProtectionSafeguardRemainingTime"},
         {210, nullptr, "SetHearingProtectionSafeguardRemainingTime"},
-        {263, C<&ISystemSettingsServer::Unknown263>, "Unknown263"}, // [20.0.0+]
-        {264, C<&ISystemSettingsServer::Unknown264>, "Unknown264"}, // [20.0.0+]
-        {282, C<&ISystemSettingsServer::Unknown282>, "Unknown282"}, // [20.0.0+]
-        {283, C<&ISystemSettingsServer::Unknown283>, "Unknown283"}, // [20.0.0+]
-        {289, C<&ISystemSettingsServer::Unknown289>, "Unknown289"}, // [20.0.0+]
-        {300, C<&ISystemSettingsServer::Unknown300>, "Unknown300"}, // [20.0.0+]
-        {301, C<&ISystemSettingsServer::Unknown301>, "Unknown301"}, // [20.0.0+]
-        {306, C<&ISystemSettingsServer::Unknown306>, "Unknown306"}, // [20.0.0+]
-        {307, C<&ISystemSettingsServer::Unknown307>, "Unknown307"}, // [20.0.0+]
+        {221, nullptr, "GetForceMonauralOutputFlag"},
+        {222, nullptr, "SetForceMonauralOutputFlag"},
+        {251, nullptr, "GetAccountIdentificationSettings"},
+        {252, nullptr, "SetAccountIdentificationSettings"},
+        {263, C<&ISystemSettingsServer::AcquireVphymDirtyFlagEventHandle>, "AcquireVphymDirtyFlagEventHandle"}, // [20.0.0+]
+        {264, C<&ISystemSettingsServer::GetVphymDirtyFlags>, "GetVphymDirtyFlags"}, // [20.0.0+]
+        {282, C<&ISystemSettingsServer::ConvertToProductModel>, "ConvertToProductModel"}, // [20.0.0+]
+        {283, C<&ISystemSettingsServer::ConvertToProductModelName>, "ConvertToProductModelName"}, // [20.0.0+]
+        {289, C<&ISystemSettingsServer::GetDefaultAccountIdentificationFlagSet>, "GetDefaultAccountIdentificationFlagSet"}, // [20.0.0+]
+        {300, C<&ISystemSettingsServer::AcquirePushNotificationDirtyFlagEventHandle>, "AcquirePushNotificationDirtyFlagEventHandle"}, // [20.0.0+]
+        {301, C<&ISystemSettingsServer::GetPushNotificationDirtyFlags>, "GetPushNotificationDirtyFlags"}, // [20.0.0+]
+        {306, C<&ISystemSettingsServer::GetPinCodeReregistrationGuideAccounts>, "GetPinCodeReregistrationGuideAccounts"}, // [20.0.0+]
+        {307, C<&ISystemSettingsServer::SetPinCodeReregistrationGuideAccounts>, "SetPinCodeReregistrationGuideAccounts"}, // [20.0.0+]
+        {315, nullptr, "GetHttpAuthConfigs"},
         {319, C<&ISystemSettingsServer::GetAccountUserSettings>, "GetAccountUserSettings"}, //21.0.0+
         {320, nullptr, "SetAccountUserSettings"}, //21.0.0+
         {321, C<&ISystemSettingsServer::GetDefaultAccountUserSettings>, "GetDefaultAccountUserSettings"}, //21.0.0+
+        {324, nullptr, "GetPtmQhClearCount"},
+        {325, nullptr, "SetPtmQhClearCount"},
+        {326, nullptr, "GetAirPlaneModeRestoreFlagSet"},
+        {327, nullptr, "SetAirPlaneModeRestoreFlagSet"},
+        {328, nullptr, "DeleteSettingsPerAccount"},
     };
     // clang-format on
 
@@ -321,8 +331,7 @@ ISystemSettingsServer::ISystemSettingsServer(Core::System& system_)
 
     SetupSettings();
 
-    m_system_settings.region_code =
-        static_cast<SystemRegionCode>(::Settings::values.region_index.GetValue());
+    m_system_settings.region_code = SystemRegionCode(::Settings::values.region_index.GetValue());
 
     // TODO: Remove this when starter applet is fully functional
     EulaVersion eula_version{
@@ -334,8 +343,7 @@ ISystemSettingsServer::ISystemSettingsServer(Core::System& system_)
     m_system_settings.eula_versions[0] = eula_version;
     m_system_settings.eula_version_count = 1;
 
-    m_save_thread =
-        std::jthread([this](std::stop_token stop_token) { StoreSettingsThreadFunc(stop_token); });
+    m_save_thread = std::jthread([this](std::stop_token stop_token) { StoreSettingsThreadFunc(stop_token); });
 }
 
 ISystemSettingsServer::~ISystemSettingsServer() {
@@ -1413,48 +1421,48 @@ Result ISystemSettingsServer::GetSettingsItemValueImpl(std::span<u8> out_value, 
     R_SUCCEED();
 }
 
-Result ISystemSettingsServer::Unknown263() {
-    LOG_WARNING(Service_SET, "(STUBBED) called Unknown263 [20.0.0+]");
+Result ISystemSettingsServer::AcquireVphymDirtyFlagEventHandle() {
+    LOG_WARNING(Service_SET, "(STUBBED) called AcquireVphymDirtyFlagEventHandle [20.0.0+]");
     R_SUCCEED();
 }
 
-Result ISystemSettingsServer::Unknown264() {
-    LOG_WARNING(Service_SET, "(STUBBED) called Unknown264 [20.0.0+]");
+Result ISystemSettingsServer::GetVphymDirtyFlags() {
+    LOG_WARNING(Service_SET, "(STUBBED) called GetVphymDirtyFlags [20.0.0+]");
     R_SUCCEED();
 }
 
-Result ISystemSettingsServer::Unknown282() {
-    LOG_WARNING(Service_SET, "(STUBBED) called Unknown282 [20.0.0+]");
+Result ISystemSettingsServer::ConvertToProductModel() {
+    LOG_WARNING(Service_SET, "(STUBBED) called ConvertToProductModel [20.0.0+]");
     R_SUCCEED();
 }
 
-Result ISystemSettingsServer::Unknown283() {
-    LOG_WARNING(Service_SET, "(STUBBED) called Unknown283 [20.0.0+]");
+Result ISystemSettingsServer::ConvertToProductModelName() {
+    LOG_WARNING(Service_SET, "(STUBBED) called ConvertToProductModelName [20.0.0+]");
     R_SUCCEED();
 }
 
-Result ISystemSettingsServer::Unknown289() {
-    LOG_WARNING(Service_SET, "(STUBBED) called Unknown289 [20.0.0+]");
+Result ISystemSettingsServer::GetDefaultAccountIdentificationFlagSet() {
+    LOG_WARNING(Service_SET, "(STUBBED) called GetDefaultAccountIdentificationFlagSet [20.0.0+]");
     R_SUCCEED();
 }
 
-Result ISystemSettingsServer::Unknown300() {
-    LOG_WARNING(Service_SET, "(STUBBED) called Unknown300 [20.0.0+]");
+Result ISystemSettingsServer::AcquirePushNotificationDirtyFlagEventHandle() {
+    LOG_WARNING(Service_SET, "(STUBBED) called AcquirePushNotificationDirtyFlagEventHandle [20.0.0+]");
     R_SUCCEED();
 }
 
-Result ISystemSettingsServer::Unknown301() {
-    LOG_WARNING(Service_SET, "(STUBBED) called Unknown301 [20.0.0+]");
+Result ISystemSettingsServer::GetPushNotificationDirtyFlags() {
+    LOG_WARNING(Service_SET, "(STUBBED) called GetPushNotificationDirtyFlags [20.0.0+]");
     R_SUCCEED();
 }
 
-Result ISystemSettingsServer::Unknown306() {
-    LOG_WARNING(Service_SET, "(STUBBED) called Unknown306 [20.0.0+]");
+Result ISystemSettingsServer::GetPinCodeReregistrationGuideAccounts() {
+    LOG_WARNING(Service_SET, "(STUBBED) called GetPinCodeReregistrationGuideAccounts [20.0.0+]");
     R_SUCCEED();
 }
 
-Result ISystemSettingsServer::Unknown307() {
-    LOG_WARNING(Service_SET, "(STUBBED) called Unknown307 [20.0.0+]");
+Result ISystemSettingsServer::SetPinCodeReregistrationGuideAccounts() {
+    LOG_WARNING(Service_SET, "(STUBBED) called SetPinCodeReregistrationGuideAccounts [20.0.0+]");
     R_SUCCEED();
 }
 
