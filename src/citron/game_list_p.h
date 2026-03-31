@@ -272,6 +272,8 @@ public:
     GameListItemPlayTime() = default;
     explicit GameListItemPlayTime(const qulonglong time_seconds) {
         setData(time_seconds, PlayTimeRole);
+        // Explicitly set display role since constructor doesn't call virtual setData
+        GameListItem::setData(PlayTime::ReadablePlayTime(time_seconds), Qt::DisplayRole);
     }
 
     void setData(const QVariant& value, int role) override {
@@ -290,7 +292,6 @@ public:
     static constexpr int OnlineRole = SortRole;
 
     GameListItemOnline() {
-
         setData(QStringLiteral("N/A"), Qt::DisplayRole);
         setData(QStringLiteral("N/A"), OnlineRole);
     }

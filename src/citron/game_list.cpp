@@ -8,14 +8,6 @@
 #include <QApplication>
 #include <QCheckBox>
 #include <QDesktopServices>
-#include "citron/util/card_flip.h"
-#include "citron/util/confetti.h"
-#include "citron/util/plinko_widget.h"
-#include "citron/util/blackjack_widget.h"
-#include "common/settings.h"
-#include <QGraphicsDropShadowEffect>
-#include <QHBoxLayout>
-#include <QStackedWidget>
 #include <QDialog>
 #include <QDir>
 #include <QDirIterator>
@@ -23,7 +15,9 @@
 #include <QFileDialog>
 #include <QFileInfo>
 #include <QFutureWatcher>
+#include <QGraphicsDropShadowEffect>
 #include <QGraphicsOpacityEffect>
+#include <QHBoxLayout>
 #include <QHeaderView>
 #include <QIcon>
 #include <QJsonArray>
@@ -43,6 +37,7 @@
 #include <QScrollBar>
 #include <QSequentialAnimationGroup>
 #include <QSizePolicy>
+#include <QStackedWidget>
 #include <QStyle>
 #include <QThreadPool>
 #include <QTimer>
@@ -54,14 +49,20 @@
 #include "citron/custom_metadata.h"
 #include "citron/custom_metadata_dialog.h"
 #include "citron/game_list.h"
+#include "citron/game_list_delegate.h"
 #include "citron/game_list_p.h"
 #include "citron/game_list_worker.h"
 #include "citron/main.h"
 #include "citron/uisettings.h"
+#include "citron/util/blackjack_widget.h"
+#include "citron/util/card_flip.h"
+#include "citron/util/confetti.h"
 #include "citron/util/controller_navigation.h"
+#include "citron/util/plinko_widget.h"
 #include "common/common_types.h"
 #include "common/fs/path_util.h"
 #include "common/logging.h"
+#include "common/settings.h"
 #include "common/string_util.h"
 #include "core/core.h"
 #include "core/file_sys/patch_manager.h"
@@ -119,12 +120,11 @@ protected:
         // Subtle horizontal track line behind icons
         painter.setPen(QPen(QColor(255, 255, 255, 40), 1, Qt::DashLine));
         painter.drawLine(0, widget_center_y, width(), widget_center_y);
-        
+
         // Sleek small centering markers at top and bottom
         painter.setPen(QPen(QColor(0, 150, 255), 3));
         painter.drawLine(widget_center_x, 5, widget_center_x, 25);
         painter.drawLine(widget_center_x, height() - 25, widget_center_x, height() - 5);
-
 
         for (int i = 0; i < m_games.size(); ++i) {
             const qreal icon_x_position =
@@ -234,8 +234,10 @@ public:
         auto* plinko_btn = new QPushButton(tr("Plinko"), this);
         auto* blackjack_btn = new QPushButton(tr("Blackjack"), this);
 
-        QString nav_style = QStringLiteral("QPushButton { background: #333; color: #aaa; border: none; padding: 5px 15px; border-radius: 4px; }"
-                            "QPushButton:checked { background: #555; color: white; font-weight: bold; }");
+        QString nav_style = QStringLiteral(
+            "QPushButton { background: #333; color: #aaa; border: none; padding: 5px 15px; "
+            "border-radius: 4px; }"
+            "QPushButton:checked { background: #555; color: white; font-weight: bold; }");
         for (auto* btn : {reel_btn, cards_btn, plinko_btn, blackjack_btn}) {
             btn->setCheckable(true);
             btn->setStyleSheet(nav_style);
@@ -291,9 +293,12 @@ public:
 
         connect(m_launch_button, &QPushButton::clicked, this, &SurpriseMeDialog::onLaunch);
         connect(m_reroll_button, &QPushButton::clicked, this, &SurpriseMeDialog::startRoll);
-        connect(m_card_widget, &CardFlipWidget::gameSelected, this, &SurpriseMeDialog::onGameSelected);
-        connect(m_plinko_widget, &PlinkoWidget::gameSelected, this, &SurpriseMeDialog::onGameSelected);
-        connect(m_blackjack_widget, &BlackjackWidget::gameSelected, this, &SurpriseMeDialog::onGameSelected);
+        connect(m_card_widget, &CardFlipWidget::gameSelected, this,
+                &SurpriseMeDialog::onGameSelected);
+        connect(m_plinko_widget, &PlinkoWidget::gameSelected, this,
+                &SurpriseMeDialog::onGameSelected);
+        connect(m_blackjack_widget, &BlackjackWidget::gameSelected, this,
+                &SurpriseMeDialog::onGameSelected);
 
         QTimer::singleShot(100, this, &SurpriseMeDialog::startRoll);
     }
@@ -312,11 +317,13 @@ private slots:
         m_current_mode = mode;
         m_stack->setCurrentIndex(static_cast<int>(mode));
         updateTitleFont();
-        
+
         // Update check state of nav buttons
         for (int i = 0; i < 4; ++i) {
-            auto* btn = qobject_cast<QPushButton*>(layout()->itemAt(0)->layout()->itemAt(i)->widget());
-            if (btn) btn->setChecked(i == static_cast<int>(mode));
+            auto* btn =
+                qobject_cast<QPushButton*>(layout()->itemAt(0)->layout()->itemAt(i)->widget());
+            if (btn)
+                btn->setChecked(i == static_cast<int>(mode));
         }
 
         startRoll();
@@ -343,18 +350,19 @@ private slots:
                 m_reroll_button->setEnabled(true);
             }
             m_game_title_label->setText(m_last_choice.name);
-            m_reroll_button->update(); 
+            m_reroll_button->update();
             return;
         }
 
-        if (m_current_mode == Mode::Cards || m_current_mode == Mode::Plinko || m_current_mode == Mode::Blackjack) {
+        if (m_current_mode == Mode::Cards || m_current_mode == Mode::Plinko ||
+            m_current_mode == Mode::Blackjack) {
             if (index >= 0 && index < m_card_pool.size()) {
                 m_last_choice = m_card_pool[index];
             }
         } else {
             m_last_choice = m_available_games[index % m_available_games.size()];
         }
-        
+
         m_confetti_widget->burst();
         onRollFinished();
     }
@@ -384,13 +392,13 @@ private slots:
 
         m_launch_button->setEnabled(false);
         m_reroll_button->setEnabled(false);
-        m_last_choice = {QString(), QString(), 0, QPixmap()}; 
+        m_last_choice = {QString(), QString(), 0, QPixmap()};
 
         // Prep data for widgets
         std::vector<QImage> icons;
         QVector<SurpriseGame> temp_pool = m_available_games;
         m_card_pool.clear();
-        
+
         std::random_device rd;
         std::mt19937 gen(rd());
 
@@ -425,8 +433,9 @@ private slots:
         }
 
         m_game_title_label->setText(tr("Spinning..."));
-        
-        std::uniform_int_distribution<> full_distrib(0, static_cast<int>(m_available_games.size() - 1));
+
+        std::uniform_int_distribution<> full_distrib(
+            0, static_cast<int>(m_available_games.size() - 1));
         const int winning_index = full_distrib(gen);
 
         const SurpriseGame winner = m_available_games.at(winning_index);
@@ -445,7 +454,7 @@ private slots:
         }
 
         m_reel_widget->setGameReel(reel);
-        
+
         const int icon_size = 192;
         const int icon_spacing = 30;
         const int total_slot_width = icon_size + icon_spacing;
@@ -485,14 +494,14 @@ private:
     QVector<SurpriseGame> m_available_games;
     QVector<SurpriseGame> m_card_pool;
     SurpriseGame m_last_choice;
-    
+
     QStackedWidget* m_stack;
     GameReelWidget* m_reel_widget;
     CardFlipWidget* m_card_widget;
     PlinkoWidget* m_plinko_widget;
     BlackjackWidget* m_blackjack_widget;
     ConfettiWidget* m_confetti_widget;
-    
+
     QLabel* m_game_title_label;
     QPushButton* m_launch_button;
     QPushButton* m_reroll_button;
@@ -923,7 +932,7 @@ GameList::GameList(std::shared_ptr<FileSys::VfsFilesystem> vfs_,
     tree_view->setModel(item_model);
     list_view->setModel(item_model);
 
-    tree_view->setAlternatingRowColors(true);
+    tree_view->setAlternatingRowColors(false);
     tree_view->setSelectionMode(QHeaderView::SingleSelection);
     tree_view->setSelectionBehavior(QHeaderView::SelectRows);
     tree_view->setVerticalScrollMode(QHeaderView::ScrollPerPixel);
@@ -932,6 +941,7 @@ GameList::GameList(std::shared_ptr<FileSys::VfsFilesystem> vfs_,
     tree_view->setEditTriggers(QHeaderView::NoEditTriggers);
     tree_view->setContextMenuPolicy(Qt::CustomContextMenu);
     tree_view->setStyleSheet(QStringLiteral("QTreeView{ border: none; }"));
+    tree_view->setItemDelegate(new GameListDelegate(tree_view, this));
 
     list_view->setViewMode(QListView::IconMode);
     list_view->setResizeMode(QListView::Adjust);
@@ -1096,6 +1106,7 @@ GameList::GameList(std::shared_ptr<FileSys::VfsFilesystem> vfs_,
         QFont font = tree_view->font();
         font.setPointSize(qBound(8, value / 8, 24));
         tree_view->setFont(font);
+        tree_view->doItemsLayout(); // Force redraw and size recalculation
 
 #ifndef __linux__
         // On non-Linux platforms, also update game icon size and repaint grid view
@@ -1245,7 +1256,10 @@ GameList::GameList(std::shared_ptr<FileSys::VfsFilesystem> vfs_,
 
     online_status_timer = new QTimer(this);
     connect(online_status_timer, &QTimer::timeout, this, &GameList::UpdateOnlineStatus);
-    online_status_timer->start(5000);
+    online_status_timer->start(30000);
+
+    // Trigger an initial update shortly after startup
+    QTimer::singleShot(2500, this, &GameList::UpdateOnlineStatus);
 
     // Configure the timer for debouncing configuration changes
     config_update_timer.setSingleShot(true);
@@ -1317,8 +1331,27 @@ void GameList::AddEntry(const QList<QStandardItem*>& entry_items, GameListDir* p
 }
 
 void GameList::UpdateOnlineStatus() {
-    auto session = main_window->GetMultiplayerState()->GetSession();
-    if (!session || !item_model) {
+    // If the Online column is hidden in settings, skip all network pings and retries.
+    if (!UISettings::values.show_online_column) {
+        return;
+    }
+
+    auto mp_state = main_window->GetMultiplayerState();
+    // If Multiplayer state or game list model isn't ready/populated yet, retry shortly.
+    // This ensures we populate the "Online" column as soon as boot-up is complete.
+    if (!mp_state || !item_model || item_model->rowCount() == 0) {
+        QTimer::singleShot(3000, this, &GameList::UpdateOnlineStatus);
+        return;
+    }
+
+    auto session = mp_state->GetSession();
+    if (!session) {
+        QTimer::singleShot(3000, this, &GameList::UpdateOnlineStatus);
+        return;
+    }
+
+    // Skip network pings while a game is actively emulating
+    if (main_window->IsEmulationRunning()) {
         return;
     }
 
@@ -1330,26 +1363,59 @@ void GameList::UpdateOnlineStatus() {
                 online_status_watcher->deleteLater(); // Clean up the watcher
             });
 
-    // // Run the blocking network call in a background thread using QtConcurrent
-    // QFuture<std::map<u64, std::pair<int, int>>> future = QtConcurrent::run([session]() {
-    //     try {
-    //         std::map<u64, std::pair<int, int>> stats;
-    //         AnnounceMultiplayerRoom::RoomList room_list = session->GetRoomList();
-    //         for (const auto& room : room_list) {
-    //             u64 game_id = room.information.preferred_game.id;
-    //             if (game_id != 0) {
-    //                 stats[game_id].first += (int)room.members.size();
-    //                 stats[game_id].second++;
-    //             }
-    //         }
-    //         return stats;
-    //     } catch (const std::exception& e) {
-    //         LOG_ERROR(Frontend, "Exception in Online Status thread: {}", e.what());
-    //         return std::map<u64, std::pair<int, int>>{};
-    //     }
-    // });
+    // Run the blocking network call in a background thread using QtConcurrent
+    QFuture<std::map<u64, std::pair<int, int>>> future = QtConcurrent::run([session]() {
+        try {
+            std::map<u64, std::pair<int, int>> stats;
+            AnnounceMultiplayerRoom::RoomList room_list = session->GetRoomList();
+            for (const auto& room : room_list) {
+                u64 game_id = room.information.preferred_game.id;
+                if (game_id != 0) {
+                    stats[game_id].first += (int)room.members.size();
+                    stats[game_id].second++;
+                }
+            }
+            return stats;
+        } catch (const std::exception& e) {
+            LOG_ERROR(Frontend, "Exception in Online Status thread: {}", e.what());
+            return std::map<u64, std::pair<int, int>>{};
+        }
+    });
 
-    // online_status_watcher->setFuture(future);
+    online_status_watcher->setFuture(future);
+}
+
+static void UpdateOnlineStatusRecursive(QStandardItem* parent,
+                                        const std::map<u64, std::pair<int, int>>& online_stats) {
+    if (!parent)
+        return;
+
+    for (int i = 0; i < parent->rowCount(); ++i) {
+        QStandardItem* item = parent->child(i, GameList::COLUMN_NAME);
+        if (!item)
+            continue;
+
+        const auto item_type = item->data(GameListItem::TypeRole).value<GameListItemType>();
+
+        if (item_type == GameListItemType::Game) {
+            u64 program_id = item->data(GameListItemPath::ProgramIdRole).toULongLong();
+            QString online_text = QObject::tr("N/A");
+
+            auto it_stats = online_stats.find(program_id);
+            if (it_stats != online_stats.end()) {
+                const auto& stats = it_stats->second;
+                online_text = QObject::tr("Players: %1 | Servers: %2").arg(stats.first).arg(stats.second);
+            }
+
+            QStandardItem* online_item = parent->child(i, GameList::COLUMN_ONLINE);
+            if (online_item && online_item->data(Qt::DisplayRole).toString() != online_text) {
+                online_item->setData(online_text, Qt::DisplayRole);
+            }
+        } else {
+            // Recursive call for folders/categories
+            UpdateOnlineStatusRecursive(item, online_stats);
+        }
+    }
 }
 
 void GameList::OnOnlineStatusUpdated(const std::map<u64, std::pair<int, int>>& online_stats) {
@@ -1357,35 +1423,7 @@ void GameList::OnOnlineStatusUpdated(const std::map<u64, std::pair<int, int>>& o
         return;
     }
 
-    for (int i = 0; i < item_model->rowCount(); ++i) {
-        QStandardItem* folder = item_model->item(i, 0);
-        if (!folder)
-            continue;
-
-        for (int j = 0; j < folder->rowCount(); ++j) {
-            QStandardItem* game_item = folder->child(j, COLUMN_NAME);
-            if (!game_item || game_item->data(GameListItem::TypeRole).value<GameListItemType>() !=
-                                  GameListItemType::Game)
-                continue;
-
-            u64 program_id = game_item->data(GameListItemPath::ProgramIdRole).toULongLong();
-            QString online_text = QStringLiteral("N/A");
-
-            auto it_stats = online_stats.find(program_id);
-            if (it_stats != online_stats.end()) {
-                const auto& stats = it_stats->second;
-                online_text =
-                    QStringLiteral("Players: %1 | Servers: %2").arg(stats.first).arg(stats.second);
-            }
-
-            QStandardItem* online_item = folder->child(j, COLUMN_ONLINE);
-            if (online_item) {
-                if (online_item->data(Qt::DisplayRole).toString() != online_text) {
-                    online_item->setData(online_text, Qt::DisplayRole);
-                }
-            }
-        }
-    }
+    UpdateOnlineStatusRecursive(item_model->invisibleRootItem(), online_stats);
 }
 
 void GameList::StartLaunchAnimation(const QModelIndex& item) {
@@ -2875,53 +2913,93 @@ void GameList::UpdateAccentColorStyles() {
                                                     .arg(hover_background_color.blue())
                                                     .arg(hover_background_color.alpha());
 
-    QString accent_style =
-        QStringLiteral(
-            /* Tree View (List View) Selection & Hover Style */
-            "QTreeView::item:hover {"
-            "    background-color: %3;" /* Use the new accent-based hover color */
-            "    border-radius: 4px;"   /* Add a subtle rounding to the hover effect */
-            "}"
-            "QTreeView::item:selected {"
-            "    background-color: %2;" /* Use the accent-based selection color */
-            "    color: palette(text);"
-            "    border: none;"       /* NO BORDER */
-            "    border-radius: 4px;" /* Keep rounding consistent */
-            "}"
-            "QTreeView::item:selected:!active {"
-            "    background-color: palette(light);" /* Use a muted color when window is not focused
-                                                     */
-            "    border: none;"                     /* NO BORDER */
-            "}"
+    const bool dark = UISettings::IsDarkTheme();
+    const QString header_bg = dark ? QStringLiteral("#222226") : QStringLiteral("#dddde2");
+    const QString header_fg = dark ? QStringLiteral("#9898a4") : QStringLiteral("#444450");
+    const QString header_border = dark ? QStringLiteral("#30303a") : QStringLiteral("#c8c8d0");
+    const QString header_bg_hov = dark ? QStringLiteral("#2a2a30") : QStringLiteral("#cdcdd4");
+    const QString header_fg_hov = dark ? QStringLiteral("#d0d0e0") : QStringLiteral("#222230");
 
-            /* List View (Grid View) Selection Style */
-            "QListView::item:selected {"
-            "    background-color: palette(light);"
-            "    border: 3px solid %1;"
-            "    border-radius: 12px;"
-            "}"
-            "QListView::item:selected:!active {"
-            "    background-color: transparent;"
-            "    border: 3px solid palette(mid);"
-            "}"
+    QString accent_style = QStringLiteral(
+                               /* Tree View (List View) Selection & Hover Style */
+                               "QTreeView {"
+                               "    background-color: transparent;"
+                               "    background: transparent;"
+                               "    show-decoration-selected: 0;"
+                               "    outline: 0;"
+                               "    selection-background-color: transparent;"
+                               "    selection-color: inherit;"
+                               "}"
+                               "QTreeView::viewport {"
+                               "    background: transparent;"
+                               "    background-color: transparent;"
+                               "}"
+                               "QTreeView::item {"
+                               "    padding: 0px;"
+                               "    border: none;"
+                               "    background: transparent;"
+                               "}"
+                               "QTreeView::item:hover {"
+                               "    background-color: transparent;"
+                               "}"
+                               "QTreeView::item:selected {"
+                               "    background-color: transparent;"
+                               "    outline: 0;"
+                               "}"
+                               "QTreeView::item:selected:!active {"
+                               "    background-color: transparent;"
+                               "    outline: 0;"
+                               "}"
 
-            /* ScrollBar Styling */
-            "QScrollBar:vertical {"
-            "    border: 1px solid black;"
-            "    background: palette(base);"
-            "    width: 12px;"
-            "    margin: 0px;"
-            "}"
-            "QScrollBar::handle:vertical {"
-            "    background: %1;"
-            "    min-height: 20px;"
-            "    border-radius: 5px;"
-            "    border: 1px solid black;"
-            "}")
-            .arg(color_name, selection_background_color_name, hover_background_color_name);
+                               /* Modern Header Style */
+                               "QHeaderView::section, QHeaderView::section:pressed {"
+                               "    background-color: %2;"
+                               "    color: %3;"
+                               "    border: none;"
+                               "    border-bottom: 1px solid %4;"
+                               "    border-right: 1px solid %4;"
+                               "    padding: 6px 10px;"
+                               "    font-weight: bold;"
+                               "    font-size: 9pt;"
+                               "}"
+                               "QHeaderView::section:hover {"
+                               "    background-color: %5;"
+                               "    color: %6;"
+                               "}"
+
+                               /* List View (Grid View) Selection Style */
+                               "QListView::item:selected {"
+                               "    background-color: palette(light);"
+                               "    border: 3px solid %1;"
+                               "    border-radius: 12px;"
+                               "}"
+                               "QListView::item:selected:!active {"
+                               "    background-color: transparent;"
+                               "    border: 3px solid palette(mid);"
+                               "}"
+
+                               /* ScrollBar Styling */
+                               "QScrollBar:vertical {"
+                               "    border: 1px solid black;"
+                               "    background: palette(base);"
+                               "    width: 12px;"
+                               "    margin: 0px;"
+                               "}"
+                               "QScrollBar::handle:vertical {"
+                               "    background: %1;"
+                               "    min-height: 20px;"
+                               "    border-radius: 5px;"
+                               "    border: 1px solid black;"
+                               "}")
+                               .arg(color_name)     // %1
+                               .arg(header_bg)      // %2
+                               .arg(header_fg)      // %3
+                               .arg(header_border)  // %4
+                               .arg(header_bg_hov)  // %5
+                               .arg(header_fg_hov); // %6
 
     // Apply the combined base styles and new accent styles to each view
-    tree_view->setStyleSheet(QStringLiteral("QTreeView{ border: none; }") + accent_style);
+    tree_view->setStyleSheet(accent_style);
     list_view->setStyleSheet(
         QStringLiteral("QListView{ border: none; background: transparent; } QListView::item { "
                        "text-align: center; padding: 5px; }") +

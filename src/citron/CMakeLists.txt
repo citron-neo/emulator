@@ -191,6 +191,8 @@ add_executable(citron
     discord.h
     game_list.cpp
     game_list.h
+    game_list_delegate.cpp
+    game_list_delegate.h
     game_list_p.h
     game_list_worker.cpp
     game_list_worker.h
