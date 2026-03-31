@@ -47,20 +47,32 @@ struct Client::Impl {
     WebResult GenericRequest(const std::string& method, const std::string& path,
                              const std::string& data, bool allow_anonymous,
                              const std::string& accept) {
-        if (jwt.empty()) {
-            UpdateJWT();
+        std::string current_jwt;
+        {
+            std::scoped_lock lock{mutex};
+            current_jwt = jwt;
         }
 
-        if (jwt.empty() && !allow_anonymous) {
+        if (current_jwt.empty()) {
+            UpdateJWT();
+            std::scoped_lock lock{mutex};
+            current_jwt = jwt;
+        }
+
+        if (current_jwt.empty() && !allow_anonymous) {
             LOG_ERROR(WebService, "Credentials must be provided for authenticated requests");
             return WebResult{WebResult::Code::CredentialsMissing, "Credentials needed", ""};
         }
 
-        auto result = GenericRequest(method, path, data, accept, jwt);
+        auto result = GenericRequest(method, path, data, accept, current_jwt);
         if (result.result_string == "401") {
             // Try again with new JWT
             UpdateJWT();
-            result = GenericRequest(method, path, data, accept, jwt);
+            {
+                std::scoped_lock lock{mutex};
+                current_jwt = jwt;
+            }
+            result = GenericRequest(method, path, data, accept, current_jwt);
         }
 
         return result;
@@ -163,7 +175,7 @@ struct Client::Impl {
         if (result.result_code != WebResult::Code::Success) {
             LOG_ERROR(WebService, "UpdateJWT failed");
         } else {
-            std::scoped_lock lock{jwt_cache.mutex};
+            std::scoped_lock lock{jwt_cache.mutex, mutex};
             jwt_cache.username = username;
             jwt_cache.token = token;
             jwt_cache.jwt = jwt = result.returned_data;
@@ -174,6 +186,7 @@ struct Client::Impl {
     std::string username;
     std::string token;
     std::string jwt;
+    std::mutex mutex;
 
     struct JWTCache {
         std::mutex mutex;
