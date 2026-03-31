@@ -50,6 +50,7 @@
 #include "citron/custom_metadata_dialog.h"
 #include "citron/game_list.h"
 #include "citron/game_list_delegate.h"
+#include "citron/game_list_loading_overlay.h"
 #include "citron/game_list_p.h"
 #include "citron/game_list_worker.h"
 #include "citron/main.h"
@@ -638,12 +639,13 @@ void GameListSearchField::setFocus() {
 GameListSearchField::GameListSearchField(GameList* parent) : QWidget{parent} {
     auto* const key_release_eater = new KeyReleaseEater(parent, this);
     layout_filter = new QHBoxLayout;
-    layout_filter->setContentsMargins(8, 8, 8, 8);
+    layout_filter->setContentsMargins(0, 0, 0, 0);
     label_filter = new QLabel;
     edit_filter = new QLineEdit;
     edit_filter->clear();
     edit_filter->installEventFilter(key_release_eater);
     edit_filter->setClearButtonEnabled(true);
+    edit_filter->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
 
     connect(edit_filter, &QLineEdit::textChanged, parent, &GameList::OnTextChanged);
     label_filter_result = new QLabel;
@@ -656,8 +658,9 @@ GameListSearchField::GameListSearchField(GameList* parent) : QWidget{parent} {
         "QToolButton:hover{ border: 1px solid palette(highlight); color: "
         "palette(highlighted-text); background: palette(highlight)}"));
     connect(button_filter_close, &QToolButton::clicked, parent, &GameList::OnFilterCloseClicked);
-    layout_filter->setSpacing(10);
-    layout_filter->addWidget(label_filter);
+    layout_filter->setSpacing(4);
+    // Hide label_filter to save critical horizontal space on 720p
+    label_filter->hide();
     layout_filter->addWidget(edit_filter);
     layout_filter->addWidget(label_filter_result);
     layout_filter->addWidget(button_filter_close);
@@ -928,6 +931,8 @@ GameList::GameList(std::shared_ptr<FileSys::VfsFilesystem> vfs_,
     list_view = new QListView;
     controller_navigation = new ControllerNavigation(system.HIDCore(), this);
     search_field = new GameListSearchField(this);
+    search_field->setMinimumWidth(150);
+    search_field->setMaximumWidth(600);
     item_model = new QStandardItemModel(tree_view);
     tree_view->setModel(item_model);
     list_view->setModel(item_model);
@@ -941,7 +946,11 @@ GameList::GameList(std::shared_ptr<FileSys::VfsFilesystem> vfs_,
     tree_view->setEditTriggers(QHeaderView::NoEditTriggers);
     tree_view->setContextMenuPolicy(Qt::CustomContextMenu);
     tree_view->setStyleSheet(QStringLiteral("QTreeView{ border: none; }"));
-    tree_view->setItemDelegate(new GameListDelegate(tree_view, this));
+    item_delegate = new GameListDelegate(tree_view, this);
+    tree_view->setItemDelegate(item_delegate);
+
+    loading_overlay = new GameListLoadingOverlay(this);
+    loading_overlay->hide();
 
     list_view->setViewMode(QListView::IconMode);
     list_view->setResizeMode(QListView::Adjust);
@@ -1005,8 +1014,8 @@ GameList::GameList(std::shared_ptr<FileSys::VfsFilesystem> vfs_,
     // Create toolbar
     toolbar = new QWidget(this);
     toolbar_layout = new QHBoxLayout(toolbar);
-    toolbar_layout->setContentsMargins(8, 6, 8, 6);
-    toolbar_layout->setSpacing(6);
+    toolbar_layout->setContentsMargins(2, 0, 2, 0);
+    toolbar_layout->setSpacing(1);
 
     // List view button - icon-only with rounded corners
     btn_list_view = new QToolButton(toolbar);
@@ -1023,7 +1032,7 @@ GameList::GameList(std::shared_ptr<FileSys::VfsFilesystem> vfs_,
     btn_list_view->setChecked(!UISettings::values.game_list_grid_view.GetValue());
     btn_list_view->setAutoRaise(true);
     btn_list_view->setIconSize(QSize(16, 16));
-    btn_list_view->setFixedSize(32, 32);
+    btn_list_view->setFixedSize(26, 26);
     btn_list_view->setStyleSheet(QStringLiteral("QToolButton {"
                                                 "  border: 1px solid palette(mid);"
                                                 "  border-radius: 4px;"
@@ -1057,7 +1066,7 @@ GameList::GameList(std::shared_ptr<FileSys::VfsFilesystem> vfs_,
     btn_grid_view->setChecked(UISettings::values.game_list_grid_view.GetValue());
     btn_grid_view->setAutoRaise(true);
     btn_grid_view->setIconSize(QSize(16, 16));
-    btn_grid_view->setFixedSize(32, 32);
+    btn_grid_view->setFixedSize(26, 26);
     btn_grid_view->setStyleSheet(QStringLiteral("QToolButton {"
                                                 "  border: 1px solid palette(mid);"
                                                 "  border-radius: 4px;"
@@ -1187,7 +1196,7 @@ GameList::GameList(std::shared_ptr<FileSys::VfsFilesystem> vfs_,
     btn_sort_az->setToolTip(tr("Sort by Name"));
     btn_sort_az->setAutoRaise(true);
     btn_sort_az->setIconSize(QSize(16, 16));
-    btn_sort_az->setFixedSize(32, 32);
+    btn_sort_az->setFixedSize(26, 26);
     btn_sort_az->setStyleSheet(QStringLiteral("QToolButton {"
                                               "  border: 1px solid palette(mid);"
                                               "  border-radius: 4px;"
@@ -1215,7 +1224,7 @@ GameList::GameList(std::shared_ptr<FileSys::VfsFilesystem> vfs_,
     btn_surprise_me->setToolTip(tr("Surprise Me! (Choose Random Game)"));
     btn_surprise_me->setAutoRaise(true);
     btn_surprise_me->setIconSize(QSize(16, 16));
-    btn_surprise_me->setFixedSize(32, 32);
+    btn_surprise_me->setFixedSize(26, 26);
     btn_surprise_me->setStyleSheet(QStringLiteral("QToolButton {"
                                                   "  border: 1px solid palette(mid);"
                                                   "  border-radius: 4px;"
@@ -1236,17 +1245,33 @@ GameList::GameList(std::shared_ptr<FileSys::VfsFilesystem> vfs_,
                        "QProgressBar::chunk { background-color: #0078d4; }"));
 
     // Add widgets to toolbar
+    toolbar->setStyleSheet(QStringLiteral("background: transparent; border: none;"));
     toolbar_layout->addWidget(btn_list_view);
     toolbar_layout->addWidget(btn_grid_view);
     toolbar_layout->addWidget(slider_title_size);
     toolbar_layout->addWidget(btn_sort_az);
     toolbar_layout->addWidget(btn_surprise_me);
-    toolbar_layout->addStretch(); // Push search to the right
     toolbar_layout->addWidget(search_field);
+    search_field->setVisible(true); // Default to visible to fix the "missing" issue
+
+    // Context menu to allow toggling the search bar
+    toolbar->setContextMenuPolicy(Qt::CustomContextMenu);
+    connect(toolbar, &QWidget::customContextMenuRequested, [this](const QPoint& pos) {
+        QMenu menu(this);
+        QAction* toggle_search = menu.addAction(tr("Show Search Bar"));
+        toggle_search->setCheckable(true);
+        toggle_search->setChecked(search_field->isVisible());
+        connect(toggle_search, &QAction::toggled, [this](bool checked) {
+            main_window->filterBarSetChecked(checked);
+        });
+        menu.exec(toolbar->mapToGlobal(pos));
+    });
 
     layout->setContentsMargins(0, 0, 0, 0);
     layout->setSpacing(0);
-    layout->addWidget(toolbar);
+    if (!toolbar_in_main) {
+        layout->addWidget(toolbar);
+    }
     layout->addWidget(progress_bar);
     layout->addWidget(tree_view);
     layout->addWidget(list_view);
@@ -1328,6 +1353,16 @@ void GameList::AddDirEntry(GameListDir* entry_items) {
 
 void GameList::AddEntry(const QList<QStandardItem*>& entry_items, GameListDir* parent) {
     parent->appendRow(entry_items);
+    
+    // Register the new index for bubble animation immediately
+    if (item_delegate) {
+        item_delegate->RegisterEntryAnimation(entry_items.first()->index());
+    }
+
+    // Auto-scroll to show new games as they appear
+    if (loading_overlay && loading_overlay->isVisible() && tree_view) {
+        tree_view->scrollTo(entry_items.first()->index(), QAbstractItemView::PositionAtBottom);
+    }
 }
 
 void GameList::UpdateOnlineStatus() {
@@ -1691,6 +1726,41 @@ bool GameList::IsEmpty() const {
 }
 
 void GameList::DonePopulating(const QStringList& watch_list) {
+    if (loading_overlay) {
+        loading_overlay->ShowPopulated();
+        
+        // Animated scroll back to the top
+        if (tree_view && tree_view->verticalScrollBar()) {
+            auto* scroll_anim = new QPropertyAnimation(tree_view->verticalScrollBar(), "value");
+            scroll_anim->setDuration(800);
+            scroll_anim->setStartValue(tree_view->verticalScrollBar()->value());
+            scroll_anim->setEndValue(0);
+            scroll_anim->setEasingCurve(QEasingCurve::InOutSine);
+            scroll_anim->start(QAbstractAnimation::DeleteWhenStopped);
+        }
+
+        // Give it a moment to show the success message before fading
+        QTimer::singleShot(1500, this, [this]() {
+            if (loading_overlay) loading_overlay->FadeOut();
+            if (item_delegate) item_delegate->SetPopulating(false);
+            
+            // Clean up worker safely outside of its execution context
+            QTimer::singleShot(0, this, [this]() {
+                current_worker.reset();
+            });
+        });
+    } else {
+        if (item_delegate) item_delegate->SetPopulating(false);
+        QTimer::singleShot(0, this, [this]() {
+            current_worker.reset();
+        });
+    }
+
+    for (const auto& watch_dir : watch_list) {
+        watcher->addPath(watch_dir);
+    }
+    emit PopulatingCompleted();
+
     if (progress_bar) {
         progress_bar->setVisible(false);
     }
@@ -1756,8 +1826,6 @@ void GameList::DonePopulating(const QStringList& watch_list) {
     if (UISettings::values.show_compat) {
         RefreshCompatibilityList();
     }
-
-    emit PopulatingCompleted();
 }
 
 void GameList::PopupContextMenu(const QPoint& menu_location) {
@@ -2396,6 +2464,44 @@ QStandardItemModel* GameList::GetModel() const {
 }
 
 void GameList::PopulateAsync(QVector<UISettings::GameDir>& game_dirs) {
+    if (current_worker) {
+        return;
+    }
+
+    if (loading_overlay) {
+        loading_overlay->ShowLoading();
+    }
+    if (item_delegate) {
+        item_delegate->SetPopulating(true);
+    }
+
+    item_model->clear();
+    item_model->insertColumns(0, COLUMN_COUNT);
+    RetranslateUI();
+    
+    // Set columns to interactive sizing and calibrate for 720p displays
+    if (tree_view && tree_view->header()) {
+        auto* header = tree_view->header();
+        
+        // Ensure ALL columns are interactive and have a safe minimum floor
+        header->setMinimumSectionSize(80);
+        header->setStretchLastSection(true); // Fill the window space on the right
+        
+        for (int i = 0; i < COLUMN_COUNT; ++i) {
+            header->setSectionResizeMode(i, QHeaderView::Interactive);
+        }
+        
+        // FORCE widths for 1280x720 resolution (Total: ~1155px + Stretch)
+        // We set these every time to ensure the layout remains 'perfect' on each refresh
+        header->resizeSection(COLUMN_NAME, 495); // Forced as per requirement
+        header->resizeSection(COLUMN_COMPATIBILITY, 110);
+        header->resizeSection(COLUMN_ADD_ONS, 190);
+        header->resizeSection(COLUMN_FILE_TYPE, 85);
+        header->resizeSection(COLUMN_SIZE, 95);
+        header->resizeSection(COLUMN_PLAY_TIME, 100);
+        header->resizeSection(COLUMN_ONLINE, 80);
+    }
+
     UpdateProgressBarColor();
     tree_view->setEnabled(false);
     emit ShowList(true);
@@ -2435,10 +2541,28 @@ void GameList::SaveInterfaceLayout() {
 
 void GameList::LoadInterfaceLayout() {
     auto* header = tree_view->header();
+    
+    // Set modes and minimums first so they are consistent even after restore
+    header->setMinimumSectionSize(80);
+    header->setStretchLastSection(true);
+    for (int i = 0; i < COLUMN_COUNT; ++i) {
+        header->setSectionResizeMode(i, QHeaderView::Interactive);
+    }
+
     if (header->restoreState(UISettings::values.gamelist_header_state)) {
+        // After restoration, FORCE the name width on boot as requested
+        header->resizeSection(COLUMN_NAME, 495);
         return;
     }
-    header->resizeSection(COLUMN_NAME, header->width());
+
+    // Default Fallback calibration for 1280x720
+    header->resizeSection(COLUMN_NAME, 495);
+    header->resizeSection(COLUMN_COMPATIBILITY, 110);
+    header->resizeSection(COLUMN_ADD_ONS, 190);
+    header->resizeSection(COLUMN_FILE_TYPE, 85);
+    header->resizeSection(COLUMN_SIZE, 95);
+    header->resizeSection(COLUMN_PLAY_TIME, 100);
+    header->resizeSection(COLUMN_ONLINE, 80);
 }
 
 const QStringList GameList::supported_file_extensions = {
@@ -2914,10 +3038,10 @@ void GameList::UpdateAccentColorStyles() {
                                                     .arg(hover_background_color.alpha());
 
     const bool dark = UISettings::IsDarkTheme();
-    const QString header_bg = dark ? QStringLiteral("#222226") : QStringLiteral("#dddde2");
+    const QString header_bg = dark ? QStringLiteral("#24242a") : QStringLiteral("#dddde2");
     const QString header_fg = dark ? QStringLiteral("#9898a4") : QStringLiteral("#444450");
-    const QString header_border = dark ? QStringLiteral("#30303a") : QStringLiteral("#c8c8d0");
-    const QString header_bg_hov = dark ? QStringLiteral("#2a2a30") : QStringLiteral("#cdcdd4");
+    const QString header_border = dark ? QStringLiteral("#32323a") : QStringLiteral("#c8c8d0");
+    const QString header_bg_hov = dark ? QStringLiteral("#2e2e34") : QStringLiteral("#cdcdd4");
     const QString header_fg_hov = dark ? QStringLiteral("#d0d0e0") : QStringLiteral("#222230");
 
     QString accent_style = QStringLiteral(
@@ -3049,8 +3173,12 @@ void GameList::ToggleHidden(const QString& path) {
 
 void GameList::resizeEvent(QResizeEvent* event) {
     QWidget::resizeEvent(event);
-    // Ensure the overlay always perfectly covers the game list widget
-    fade_overlay->setGeometry(rect());
+    if (fade_overlay) {
+        fade_overlay->resize(size());
+    }
+    if (loading_overlay) {
+        loading_overlay->resize(size());
+    }
 }
 
 void GameListPlaceholder::resizeEvent(QResizeEvent* event) {

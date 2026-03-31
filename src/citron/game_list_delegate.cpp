@@ -15,6 +15,7 @@
 #include <QStyleOptionViewItem>
 #include <QTimer>
 #include <QTreeView>
+#include <QHeaderView>
 
 #include "citron/game_list.h"
 #include "citron/game_list_delegate.h"
@@ -65,6 +66,26 @@ void GameListDelegate::paint(QPainter* painter, const QStyleOptionViewItem& opti
     painter->save();
     painter->setRenderHints(QPainter::Antialiasing | QPainter::TextAntialiasing |
                             QPainter::SmoothPixmapTransform);
+
+    // ---- Bubble/Fade-in Animation Logic ----
+    // Only apply animations if population is active or if specifically enabled
+    qreal entry_val = 1.0;
+    int vertical_offset = 0;
+    
+    if (enable_bubble_animations) {
+        const QPersistentModelIndex key(index.siblingAtColumn(0));
+        if (entry_animations.contains(key)) {
+            entry_val = entry_animations[key];
+        } else {
+            // No active animation. Default to full visibility.
+            entry_val = 1.0;
+        }
+        // Reduced offset (10px) and slide UP to prevent clipping artifacts
+        vertical_offset = static_cast<int>(10.0 * (1.0 - entry_val));
+    }
+    
+    painter->translate(0, vertical_offset);
+    painter->setOpacity(entry_val * population_fade_global);
 
     if (is_game_row) {
         // --- Game Row Rendering ---
@@ -199,18 +220,36 @@ void GameListDelegate::AdvanceAnimations() {
         ++it_pulse;
     }
 
-    // 3. Vertical scroll animations (Marquee)
-    auto it_scroll = vertical_scroll_offsets.begin();
-    while (it_scroll != vertical_scroll_offsets.end()) {
-        const QPersistentModelIndex& key = it_scroll.key();
+    // 4. Entry animations (Bubble/Fade-in)
+    auto it_entry = entry_animations.begin();
+    while (it_entry != entry_animations.end()) {
+        const QPersistentModelIndex& key = it_entry.key();
         if (!key.isValid()) {
-            it_scroll = vertical_scroll_offsets.erase(it_scroll);
-            vertical_scroll_pause.remove(key);
+            it_entry = entry_animations.erase(it_entry);
             continue;
         }
 
-        indices_to_update.append(key);
-        ++it_scroll;
+        qreal& val = it_entry.value();
+        if (val < 1.0) {
+            val += 0.08; // Smooth entry
+            if (val >= 1.0) val = 1.0;
+            indices_to_update.append(key);
+            ++it_entry;
+        } else {
+            // Animation finished. Remove from map to reduce overhead.
+            it_entry = entry_animations.erase(it_entry);
+        }
+    }
+
+    // 5. Global population fade transition
+    if (is_populating && population_fade_global > 0.6) {
+        population_fade_global -= 0.02;
+        if (population_fade_global < 0.6) population_fade_global = 0.6;
+        tree_view->viewport()->update();
+    } else if (!is_populating && population_fade_global < 1.0) {
+        population_fade_global += 0.04;
+        if (population_fade_global > 1.0) population_fade_global = 1.0;
+        tree_view->viewport()->update();
     }
 
     // Perform granular row-spanning updates
@@ -234,9 +273,16 @@ void GameListDelegate::PaintBackground(QPainter* painter, const QStyleOptionView
 
     // The 'Card Rect' spans the entire row width
     QRect card_rect = option.rect;
-    if (tree_view && tree_view->viewport()) {
+    if (tree_view && tree_view->header()) {
+        auto* header = tree_view->header();
+        int total_width = 0;
+        for (int i = 0; i < header->count(); ++i) {
+            if (!header->isSectionHidden(i)) {
+                total_width += header->sectionSize(i);
+            }
+        }
         card_rect.setLeft(2);
-        card_rect.setRight(tree_view->viewport()->width() - 4);
+        card_rect.setRight(total_width - 4);
     }
     card_rect.adjust(0, kCardMarginV, 0, -kCardMarginV);
 
@@ -299,6 +345,8 @@ void GameListDelegate::PaintBackground(QPainter* painter, const QStyleOptionView
 void GameListDelegate::PaintGameInfo(QPainter* painter, const QRect& rect,
                                     const QStyleOptionViewItem& option,
                                     const QModelIndex& index) const {
+    painter->save();
+    painter->setClipRect(rect);
     const QModelIndex master_index = index.siblingAtColumn(0);
     const int icon_size = GetIconSize();
     const int margin_h = 12;
@@ -317,6 +365,16 @@ void GameListDelegate::PaintGameInfo(QPainter* painter, const QRect& rect,
     }
 
     if (!pixmap.isNull()) {
+        // True Greyscale logic during population
+        if (is_populating) {
+            QString path = master_index.data(GameListItemPath::FullPathRole).toString();
+            if (!greyscale_icon_cache.contains(path)) {
+                QImage img = pixmap.toImage().convertToFormat(QImage::Format_Grayscale8);
+                greyscale_icon_cache[path] = QIcon(QPixmap::fromImage(img));
+            }
+            pixmap = greyscale_icon_cache[path].pixmap(icon_size, icon_size);
+        }
+
         QPainterPath icon_path;
         icon_path.addRoundedRect(icon_rect, 6, 6);
         painter->save();
@@ -388,6 +446,7 @@ void GameListDelegate::PaintGameInfo(QPainter* painter, const QRect& rect,
         const int id_baseline = title_baseline + title_descent + spacing + id_metrics.ascent();
         painter->drawText(text_x, id_baseline, id);
     }
+    painter->restore();
 }
 
 void GameListDelegate::PaintCompatibility(QPainter* painter, const QRect& rect,
@@ -610,4 +669,37 @@ QColor GameListDelegate::AccentColor() const {
     }
     const QColor pa = QApplication::palette().color(QPalette::Highlight);
     return (pa.isValid() && pa != Qt::black) ? pa : QColor(100, 149, 237);
+}
+
+void GameListDelegate::SetPopulating(bool populating) {
+    if (is_populating == populating) return;
+    is_populating = populating;
+    enable_bubble_animations = populating;
+    
+    if (!populating) {
+        // Accelerate final fade-up when population ends
+        if (population_fade_global < 0.95) population_fade_global = 0.95;
+        // NOTE: We no longer ClearAnimations() here to allow in-progress fades to finish.
+        greyscale_icon_cache.clear();
+    }
+    
+    // Force a full update to transition the opacity
+    if (tree_view && tree_view->viewport()) {
+        tree_view->viewport()->update();
+    }
+}
+
+void GameListDelegate::RegisterEntryAnimation(const QModelIndex& index) {
+    if (!index.isValid() || !enable_bubble_animations) return;
+    const QPersistentModelIndex key(index.siblingAtColumn(0));
+    if (!entry_animations.contains(key)) {
+        entry_animations[key] = is_populating ? 0.2 : 0.0;
+    }
+}
+
+void GameListDelegate::ClearAnimations() {
+    entry_animations.clear();
+    if (tree_view && tree_view->viewport()) {
+        tree_view->viewport()->update();
+    }
 }

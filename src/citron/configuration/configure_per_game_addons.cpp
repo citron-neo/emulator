@@ -61,9 +61,12 @@ ConfigurePerGameAddons::ConfigurePerGameAddons(Core::System& system_, QWidget* p
     item_model->setHeaderData(0, Qt::Horizontal, tr("Patch Name"));
     item_model->setHeaderData(1, Qt::Horizontal, tr("Version"));
 
-    tree_view->header()->setStretchLastSection(false);
-    tree_view->header()->setSectionResizeMode(0, QHeaderView::ResizeMode::Stretch);
-    tree_view->header()->setMinimumSectionSize(150);
+    tree_view->header()->setStretchLastSection(true);
+    tree_view->header()->setSectionResizeMode(0, QHeaderView::Interactive);
+    tree_view->header()->setSectionResizeMode(1, QHeaderView::Interactive);
+    tree_view->setColumnWidth(0, 300);
+    tree_view->setColumnWidth(1, 80);
+    tree_view->header()->setMinimumSectionSize(40);
 
     qRegisterMetaType<QList<QStandardItem*>>("QList<QStandardItem*>");
 
@@ -71,8 +74,11 @@ ConfigurePerGameAddons::ConfigurePerGameAddons(Core::System& system_, QWidget* p
     layout->setSpacing(0);
     layout->addWidget(tree_view);
 
-    ui->scrollArea->setLayout(layout);
-    ui->scrollArea->setEnabled(!system.IsPoweredOn());
+    // Replace the scrollArea in the UI's gridLayout with our tree_view layout
+    // QTreeView has its own scrollbars; QScrollArea was redundant and causing layout issues here.
+    ui->scrollArea->hide();
+    ui->gridLayout->addLayout(layout, 0, 0);
+    ui->gridLayout->setEnabled(!system.IsPoweredOn());
 
     // 2. BACKGROUND FETCH: When the manifest is received
     connect(mod_service, &ModManager::ModService::ModsAvailable, this, [this](const ModManager::ModUpdateInfo& info) {
