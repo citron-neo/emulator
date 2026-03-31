@@ -34,11 +34,7 @@ namespace Ui {
 class ChatRoom;
 }
 
-namespace Network {
-struct ChatEntry;
-struct StatusMessageEntry;
-struct RoomInformation;
-}
+
 
 class QPushButton;
 class QStandardItemModel;
