@@ -490,22 +490,17 @@ public:
         free_manager.AllocateBlock(virtual_base + virtual_offset, length);
 
         // Deduce mapping protection flags.
-        int flags = PROT_NONE;
-        if (True(perms & MemoryPermission::Read)) {
-            flags |= PROT_READ;
-        }
-        if (True(perms & MemoryPermission::Write)) {
-            flags |= PROT_WRITE;
-        }
+        int prot_flags = PROT_NONE;
+        if (True(perms & MemoryPermission::Read))
+            prot_flags |= PROT_READ;
+        if (True(perms & MemoryPermission::Write))
+            prot_flags |= PROT_WRITE;
 #ifdef ARCHITECTURE_arm64
-        if (True(perms & MemoryPermission::Execute)) {
-            flags |= PROT_EXEC;
-        }
+        if (True(perms & MemoryPermission::Execute))
+            prot_flags |= PROT_EXEC;
 #endif
-
-        void* ret = mmap(virtual_base + virtual_offset, length, flags, MAP_SHARED | MAP_FIXED, fd,
-                         host_offset);
-        ASSERT_MSG(ret != MAP_FAILED, "mmap failed: {}", strerror(errno));
+        int ret = mprotect(virtual_base + virtual_offset, length, prot_flags);
+        ASSERT_MSG(ret == 0, "mprotect failed: {}", strerror(errno));
     }
 
     void Unmap(size_t virtual_offset, size_t length) {
@@ -519,9 +514,8 @@ public:
         auto [merged_pointer, merged_size] =
             free_manager.FreeBlock(virtual_base + virtual_offset, length);
 
-        void* ret = mmap(merged_pointer, merged_size, PROT_NONE,
-                         MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED, -1, 0);
-        ASSERT_MSG(ret != MAP_FAILED, "mmap failed: {}", strerror(errno));
+        int ret = mprotect(merged_pointer, merged_size, PROT_NONE);
+        ASSERT_MSG(ret == 0, "mmap failed: {}", strerror(errno));
     }
 
     void Protect(size_t virtual_offset, size_t length, bool read, bool write, bool execute) {
