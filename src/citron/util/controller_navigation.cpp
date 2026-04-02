@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Copyright 2021 yuzu Emulator Project
+// SPDX-FileCopyrightText: Copyright 2025 Citron Emulator Project
+// SPDX-License-Identifier: GPL-2.0-or-later
+
 #include "citron/util/controller_navigation.h"
 #include "citron/uisettings.h"
 #include "common/settings_input.h"
