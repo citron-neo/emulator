@@ -189,6 +189,10 @@ add_executable(citron
     debugger/disassembler_view.cpp
     debugger/disassembler_view.h
     discord.h
+    game_details_panel.cpp
+    game_details_panel.h
+    game_grid_delegate.cpp
+    game_grid_delegate.h
     game_list.cpp
     game_list.h
     game_list_delegate.cpp
@@ -283,6 +287,16 @@ add_executable(citron
     compatdb.h
     setup_wizard.cpp
     setup_wizard.h
+    ui/game_view_base.cpp
+    ui/game_view_base.h
+    ui/game_grid_view.cpp
+    ui/game_grid_view.h
+    ui/game_carousel_view.cpp
+    ui/game_carousel_view.h
+    ui/game_tree_view.cpp
+    ui/game_tree_view.h
+    ui/nav_settings_overlay.cpp
+    ui/nav_settings_overlay.h
     citron.qrc
     citron.rc
 )
