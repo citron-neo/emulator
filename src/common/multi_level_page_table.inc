@@ -56,11 +56,9 @@ template <typename BaseAddr>
 void MultiLevelPageTable<BaseAddr>::ReserveRange(u64 start, std::size_t size) {
     const u64 new_start = start >> first_level_shift;
     const u64 new_end = (start + size) >> first_level_shift;
-    for (u64 i = new_start; i <= new_end; i++) {
-        if (!first_level_map[i]) {
+    for (u64 i = new_start; i <= new_end; i++)
+        if (!first_level_map[i])
             AllocateLevel(i);
-        }
-    }
 }
 
 template <typename BaseAddr>
@@ -68,16 +66,10 @@ void MultiLevelPageTable<BaseAddr>::AllocateLevel(u64 level) {
     void* ptr = reinterpret_cast<char *>(base_ptr) + level * first_level_chunk_size;
 #ifdef _WIN32
     void* base{VirtualAlloc(ptr, first_level_chunk_size, MEM_COMMIT, PAGE_READWRITE)};
-#else
-    void* base{mmap(ptr, first_level_chunk_size, PROT_READ | PROT_WRITE,
-                    MAP_ANONYMOUS | MAP_PRIVATE, -1, 0)};
-
-    if (base == MAP_FAILED) {
-        base = nullptr;
-    }
-#endif
     ASSERT(base);
-
+#else
+    void* base = ptr;
+#endif
     first_level_map[level] = base;
 }
 
