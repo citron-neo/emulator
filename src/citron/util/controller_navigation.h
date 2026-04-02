@@ -31,6 +31,9 @@ public:
     /// Disables events from the emulated controller
     void UnloadController();
 
+    /// Re-registers callbacks from the HID core
+    void LoadController(Core::HID::HIDCore& hid_core);
+
     enum class FocusTarget {
         MainView,    // Grid or Carousel
         DetailsView, // Action buttons side panel

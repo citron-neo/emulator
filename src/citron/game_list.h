@@ -134,6 +134,7 @@ public:
 
     /// Disables events from the emulated controller
     void UnloadController();
+    void LoadController();
     void JumpToNextLetter();
 
     static const QStringList supported_file_extensions;

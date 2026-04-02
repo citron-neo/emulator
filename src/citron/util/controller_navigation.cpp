@@ -11,9 +11,23 @@
 #include <QWidget>
 
 ControllerNavigation::ControllerNavigation(Core::HID::HIDCore& hid_core, QWidget* parent) : QObject(parent) {
+    m_repeat_timer = new QTimer(this);
+    connect(m_repeat_timer, &QTimer::timeout, this, &ControllerNavigation::navigationRepeat);
+    LoadController(hid_core);
+}
+
+ControllerNavigation::~ControllerNavigation() {
+    UnloadController();
+}
+
+void ControllerNavigation::LoadController(Core::HID::HIDCore& hid_core) {
+    std::scoped_lock lock{mutex};
+    if (is_controller_set) {
+        return;
+    }
+
     player1_callback_key = -1;
     handheld_callback_key = -1;
-    is_controller_set = false;
 
     player1_controller = hid_core.GetEmulatedController(Core::HID::NpadIdType::Player1);
     handheld_controller = hid_core.GetEmulatedController(Core::HID::NpadIdType::Handheld);
@@ -31,12 +45,6 @@ ControllerNavigation::ControllerNavigation(Core::HID::HIDCore& hid_core, QWidget
     }
 
     is_controller_set = true;
-    m_repeat_timer = new QTimer(this);
-    connect(m_repeat_timer, &QTimer::timeout, this, &ControllerNavigation::navigationRepeat);
-}
-
-ControllerNavigation::~ControllerNavigation() {
-    UnloadController();
 }
 
 void ControllerNavigation::UnloadController() {

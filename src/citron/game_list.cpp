@@ -1569,7 +1569,15 @@ void GameList::JumpToNextLetter() {
 }
 
 void GameList::UnloadController() {
-    controller_navigation->UnloadController();
+    if (controller_navigation) {
+        controller_navigation->UnloadController();
+    }
+}
+
+void GameList::LoadController() {
+    if (controller_navigation) {
+        controller_navigation->LoadController(system.HIDCore());
+    }
 }
 
 GameList::~GameList() {

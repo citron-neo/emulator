@@ -2255,6 +2255,10 @@ void GMainWindow::ConfigureFilesystemProvider(const std::string& filepath) {
 
 void GMainWindow::BootGame(const QString& filename, Service::AM::FrontendAppletParameters params,
                            StartGameType type) {
+    if (game_list) {
+        game_list->UnloadController();
+    }
+
     LOG_INFO(Frontend, "citron starting...");
 
     game_list->CancelPopulation();
@@ -2577,6 +2581,7 @@ void GMainWindow::OnEmulationStopped() {
     Settings::RestoreGlobalState(system->IsPoweredOn());
     system->HIDCore().ReloadInputDevices();
     UpdateStatusButtons();
+    game_list->LoadController();
 }
 
 void GMainWindow::ShutdownGame() {
@@ -4719,16 +4724,10 @@ bool GMainWindow::question(QWidget* parent, const QString& title, const QString&
     box_dialog->setStandardButtons(buttons);
     box_dialog->setDefaultButton(defaultButton);
 
-    ControllerNavigation* controller_navigation =
-        new ControllerNavigation(system->HIDCore(), box_dialog);
-    connect(controller_navigation, &ControllerNavigation::TriggerKeyboardEvent,
-            [box_dialog](Qt::Key key) {
-                QKeyEvent* event = new QKeyEvent(QEvent::KeyPress, key, Qt::NoModifier);
-                QCoreApplication::postEvent(box_dialog, event);
-            });
+    game_list->LoadController();
     int res = box_dialog->exec();
 
-    controller_navigation->UnloadController();
+    game_list->UnloadController();
     return res == QMessageBox::Yes;
 }
 
