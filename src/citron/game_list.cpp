@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <random>
-#include <regex>
+
 #include <vector>
 #include <QApplication>
 #include <QCheckBox>
@@ -17,6 +17,16 @@
 #include <QFutureWatcher>
 #include <QGraphicsDropShadowEffect>
 #include <QGraphicsOpacityEffect>
+#include <QKeyEvent>
+#include <QMenu>
+#include <QMessageBox>
+#include <QMouseEvent>
+#include <QScrollBar>
+#include <QStandardItem>
+#include <QStandardItemModel>
+#include <QTimer>
+#include <QtGlobal>
+
 #include <QHBoxLayout>
 #include <QHeaderView>
 #include <QIcon>
@@ -35,8 +45,10 @@
 #include <QPropertyAnimation>
 #include <QPushButton>
 #include <QScrollBar>
+#include <QScroller>
+#include <QScrollerProperties>
 #include <QSequentialAnimationGroup>
-#include <QSizePolicy>
+#include <QSpacerItem>
 #include <QStackedWidget>
 #include <QStyle>
 #include <QThreadPool>
@@ -48,12 +60,18 @@
 #include "citron/compatibility_list.h"
 #include "citron/custom_metadata.h"
 #include "citron/custom_metadata_dialog.h"
+#include "citron/game_details_panel.h"
+#include "citron/game_grid_delegate.h"
 #include "citron/game_list.h"
 #include "citron/game_list_delegate.h"
 #include "citron/game_list_loading_overlay.h"
 #include "citron/game_list_p.h"
 #include "citron/game_list_worker.h"
 #include "citron/main.h"
+#include "citron/ui/game_carousel_view.h"
+#include "citron/ui/game_grid_view.h"
+#include "citron/ui/game_tree_view.h"
+#include "citron/ui/nav_settings_overlay.h"
 #include "citron/uisettings.h"
 #include "citron/util/blackjack_widget.h"
 #include "citron/util/card_flip.h"
@@ -128,8 +146,9 @@ protected:
         painter.drawLine(widget_center_x, height() - 25, widget_center_x, height() - 5);
 
         for (int i = 0; i < m_games.size(); ++i) {
-            const qreal icon_x_position =
-                (widget_center_x - icon_size / 2) + (i * total_slot_width) - m_scroll_offset;
+            const qreal icon_x_position = (static_cast<qreal>(widget_center_x) - icon_size / 2.0) +
+                                          (i * static_cast<qreal>(total_slot_width)) -
+                                          m_scroll_offset;
             const int draw_x = static_cast<int>(icon_x_position);
             const int draw_y = widget_center_y - (icon_size / 2);
 
@@ -694,18 +713,16 @@ void GameList::OnItemExpanded(const QModelIndex& item) {
 
 void GameList::OnTextChanged(const QString& new_text) {
     QString edit_filter_text = new_text.toLower();
-    if (list_view->isVisible()) {
-        FilterGridView(edit_filter_text);
-    } else {
-        FilterTreeView(edit_filter_text);
-    }
+    FilterGridView(edit_filter_text);
+    FilterTreeView(edit_filter_text);
 }
 
 void GameList::FilterGridView(const QString& filter_text) {
     QStandardItemModel* hierarchical_model = item_model;
     QStandardItemModel* flat_model = nullptr;
 
-    QAbstractItemModel* current_model = list_view->model();
+    const u32 icon_size = UISettings::values.game_icon_size.GetValue();
+    QAbstractItemModel* current_model = grid_view->view()->model();
     if (current_model && current_model != item_model) {
         QStandardItemModel* existing_flat = qobject_cast<QStandardItemModel*>(current_model);
         if (existing_flat) {
@@ -767,9 +784,8 @@ void GameList::FilterGridView(const QString& filter_text) {
             }
         }
     }
-    list_view->setModel(flat_model);
-    const u32 icon_size = UISettings::values.game_icon_size.GetValue();
-    list_view->setGridSize(QSize(icon_size + 60, icon_size + 80));
+    grid_view->setModel(flat_model);
+    carousel_view->setModel(flat_model);
     flat_model->setSortRole(GameListItemPath::SortRole);
     flat_model->sort(0, current_sort_order);
 
@@ -927,56 +943,78 @@ GameList::GameList(std::shared_ptr<FileSys::VfsFilesystem> vfs_,
 
     this->main_window = parent;
     layout = new QVBoxLayout;
-    tree_view = new QTreeView;
-    list_view = new QListView;
     controller_navigation = new ControllerNavigation(system.HIDCore(), this);
     search_field = new GameListSearchField(this);
     search_field->setMinimumWidth(150);
     search_field->setMaximumWidth(600);
-    item_model = new QStandardItemModel(tree_view);
-    tree_view->setModel(item_model);
-    list_view->setModel(item_model);
+    item_model = new QStandardItemModel(this);
 
-    tree_view->setAlternatingRowColors(false);
-    tree_view->setSelectionMode(QHeaderView::SingleSelection);
-    tree_view->setSelectionBehavior(QHeaderView::SelectRows);
-    tree_view->setVerticalScrollMode(QHeaderView::ScrollPerPixel);
-    tree_view->setHorizontalScrollMode(QHeaderView::ScrollPerPixel);
-    tree_view->setSortingEnabled(true);
-    tree_view->setEditTriggers(QHeaderView::NoEditTriggers);
-    tree_view->setContextMenuPolicy(Qt::CustomContextMenu);
-    tree_view->setStyleSheet(QStringLiteral("QTreeView{ border: none; }"));
-    item_delegate = new GameListDelegate(tree_view, this);
-    tree_view->setItemDelegate(item_delegate);
+    // New Decoupled View Architecture
+    details_panel = new GameDetailsPanel(this);
+    details_panel->hide();
+
+    main_stack = new QStackedWidget(this);
+    tree_view = new GameTreeView(this);
+    grid_view = new GameGridView(this);
+    carousel_view = new GameCarouselView(this);
+
+    main_stack->addWidget(tree_view);     // Index 0: List
+    main_stack->addWidget(grid_view);     // Index 1: Grid
+    main_stack->addWidget(carousel_view); // Index 2: Carousel
+
+    auto* root_layout = new QHBoxLayout();
+    root_layout->setContentsMargins(0, 0, 0, 0);
+    root_layout->setSpacing(0);
+    root_layout->addWidget(main_stack, 1);
+    root_layout->addWidget(details_panel, 0);
+    // Initial Model Setup
+    tree_view->setModel(item_model);
+    grid_view->setModel(new QStandardItemModel(this));
+    carousel_view->setModel(new QStandardItemModel(this));
 
     loading_overlay = new GameListLoadingOverlay(this);
     loading_overlay->hide();
 
-    list_view->setViewMode(QListView::IconMode);
-    list_view->setResizeMode(QListView::Adjust);
-    list_view->setUniformItemSizes(true);
-    list_view->setSelectionMode(QAbstractItemView::SingleSelection);
-    list_view->setVerticalScrollMode(QAbstractItemView::ScrollPerPixel);
-    list_view->setHorizontalScrollMode(QAbstractItemView::ScrollPerPixel);
-    list_view->setEditTriggers(QAbstractItemView::NoEditTriggers);
-    list_view->setContextMenuPolicy(Qt::CustomContextMenu);
-    list_view->setStyleSheet(
-        QStringLiteral("QListView{ border: none; background: transparent; } QListView::item { "
-                       "text-align: center; padding: 5px; }"));
-    list_view->setGridSize(QSize(140, 160));
-    list_view->setSpacing(10);
-    list_view->setWordWrap(true);
-    list_view->setTextElideMode(Qt::ElideRight);
-    list_view->setFlow(QListView::LeftToRight);
-    list_view->setWrapping(true);
+    // Unified Signal Connections
+    auto handleSelection = [this](const QModelIndex& index) {
+        if (details_panel->isVisible()) {
+            details_panel->updateDetails(index);
+        }
+    };
+
+    connect(tree_view, &GameTreeView::itemSelectionChanged, this, handleSelection);
+    connect(grid_view, &GameGridView::itemSelectionChanged, this, handleSelection);
+    connect(carousel_view, &GameCarouselView::itemSelectionChanged, this, handleSelection);
+
+    connect(tree_view, &GameTreeView::itemActivated, this, &GameList::ValidateEntry);
+    connect(grid_view, &GameGridView::itemActivated, this, &GameList::ValidateEntry);
+    connect(carousel_view, &GameCarouselView::itemActivated, this, &GameList::ValidateEntry);
+
+    tree_view->setContextMenuPolicy(Qt::CustomContextMenu);
+    grid_view->view()->setContextMenuPolicy(Qt::CustomContextMenu);
+    carousel_view->view()->setContextMenuPolicy(Qt::CustomContextMenu);
+
+    connect(tree_view, &QTreeView::customContextMenuRequested, this, &GameList::PopupContextMenu);
+    connect(grid_view->view(), &QListView::customContextMenuRequested, this,
+            &GameList::PopupContextMenu);
+    connect(carousel_view->view(), &QWidget::customContextMenuRequested, this,
+            &GameList::PopupContextMenu);
 
     item_model->insertColumns(0, COLUMN_COUNT);
     RetranslateUI();
 
-    tree_view->setColumnHidden(COLUMN_ADD_ONS, !UISettings::values.show_add_ons);
-    tree_view->setColumnHidden(COLUMN_COMPATIBILITY, !UISettings::values.show_compat);
-    tree_view->setColumnHidden(COLUMN_PLAY_TIME, !UISettings::values.show_play_time);
+    item_model->insertColumns(0, COLUMN_COUNT);
+    RetranslateUI();
+
     item_model->setSortRole(GameListItemPath::SortRole);
+
+    // Apply modernized delegate
+    tree_view->setItemDelegate(new GameListDelegate(tree_view, this));
+    tree_view->setIndentation(0);
+    tree_view->setRootIsDecorated(true);
+
+    // Always default to List View on launch as requested
+    SetViewMode(ViewMode::List);
 
     connect(main_window, &GMainWindow::UpdateThemedIcons, this, &GameList::OnUpdateThemedIcons);
     connect(tree_view, &QTreeView::activated, this, &GameList::ValidateEntry);
@@ -991,22 +1029,24 @@ GameList::GameList(std::shared_ptr<FileSys::VfsFilesystem> vfs_,
                     UpdateSortButtonIcon();
                 }
             });
-    connect(list_view, &QListView::activated, this, &GameList::ValidateEntry);
-    connect(list_view, &QListView::customContextMenuRequested, this, &GameList::PopupContextMenu);
-    connect(controller_navigation, &ControllerNavigation::TriggerKeyboardEvent,
-            [this](Qt::Key key) {
-                if (system.IsPoweredOn() || !this->isActiveWindow()) {
-                    return;
-                }
-                QKeyEvent* event = new QKeyEvent(QEvent::KeyPress, key, Qt::NoModifier);
-                if (tree_view->isVisible() && tree_view->model()) {
-                    QCoreApplication::postEvent(tree_view, event);
-                }
-                if (list_view->isVisible() && list_view->model()) {
-                    QKeyEvent* list_event = new QKeyEvent(QEvent::KeyPress, key, Qt::NoModifier);
-                    QCoreApplication::postEvent(list_view, list_event);
-                }
-            });
+    connect(
+        controller_navigation, &ControllerNavigation::TriggerKeyboardEvent, [this](Qt::Key key) {
+            if (system.IsPoweredOn() || !this->isActiveWindow()) {
+                return;
+            }
+            QKeyEvent* event = new QKeyEvent(QEvent::KeyPress, key, Qt::NoModifier);
+            if (tree_view->isVisible() && tree_view->model()) {
+                QCoreApplication::postEvent(tree_view, event);
+            }
+            if (grid_view->isVisible() && grid_view->view()->model()) {
+                QCoreApplication::postEvent(grid_view->view(),
+                                            new QKeyEvent(QEvent::KeyPress, key, Qt::NoModifier));
+            }
+            if (carousel_view->isVisible()) {
+                QCoreApplication::postEvent(carousel_view->view(),
+                                            new QKeyEvent(QEvent::KeyPress, key, Qt::NoModifier));
+            }
+        });
 
     qRegisterMetaType<QList<QStandardItem*>>("QList<QStandardItem*>");
     qRegisterMetaType<std::map<u64, std::pair<int, int>>>("std::map<u64, std::pair<int, int>>");
@@ -1045,11 +1085,8 @@ GameList::GameList(std::shared_ptr<FileSys::VfsFilesystem> vfs_,
                                                 "  background: palette(highlight);"
                                                 "  border-color: palette(highlight);"
                                                 "}"));
-    connect(btn_list_view, &QToolButton::clicked, [this]() {
-        SetViewMode(false);
-        btn_list_view->setChecked(true);
-        btn_grid_view->setChecked(false);
-    });
+    connect(btn_list_view, &QToolButton::clicked,
+            [this]() { SetViewMode(GameList::ViewMode::List); });
 
     // Grid view button - icon-only with rounded corners
     btn_grid_view = new QToolButton(toolbar);
@@ -1079,11 +1116,33 @@ GameList::GameList(std::shared_ptr<FileSys::VfsFilesystem> vfs_,
                                                 "  background: palette(highlight);"
                                                 "  border-color: palette(highlight);"
                                                 "}"));
-    connect(btn_grid_view, &QToolButton::clicked, [this]() {
-        SetViewMode(true);
-        btn_list_view->setChecked(false);
-        btn_grid_view->setChecked(true);
-    });
+    connect(btn_grid_view, &QToolButton::clicked,
+            [this]() { SetViewMode(GameList::ViewMode::Grid); });
+
+    btn_carousel_view = new QToolButton(toolbar);
+    QIcon carousel_icon = QIcon::fromTheme(QStringLiteral("view-presentation"));
+    if (carousel_icon.isNull())
+        carousel_icon = QIcon::fromTheme(QStringLiteral("media-playlist-play"));
+    btn_carousel_view->setIcon(carousel_icon);
+    btn_carousel_view->setToolTip(tr("Carousel View"));
+    btn_carousel_view->setCheckable(true);
+    btn_carousel_view->setAutoRaise(true);
+    btn_carousel_view->setIconSize(QSize(16, 16));
+    btn_carousel_view->setFixedSize(26, 26);
+    btn_carousel_view->setStyleSheet(QStringLiteral("QToolButton {"
+                                                    "  border: 1px solid palette(mid);"
+                                                    "  border-radius: 4px;"
+                                                    "  background: palette(button);"
+                                                    "}"
+                                                    "QToolButton:hover {"
+                                                    "  background: palette(light);"
+                                                    "}"
+                                                    "QToolButton:checked {"
+                                                    "  background: palette(highlight);"
+                                                    "  border-color: palette(highlight);"
+                                                    "}"));
+    connect(btn_carousel_view, &QToolButton::clicked,
+            [this]() { SetViewMode(GameList::ViewMode::Carousel); });
 
     // Title/Icon size slider - compact with rounded corners
     slider_title_size = new QSlider(Qt::Horizontal, toolbar);
@@ -1248,9 +1307,28 @@ GameList::GameList(std::shared_ptr<FileSys::VfsFilesystem> vfs_,
     toolbar->setStyleSheet(QStringLiteral("background: transparent; border: none;"));
     toolbar_layout->addWidget(btn_list_view);
     toolbar_layout->addWidget(btn_grid_view);
+    toolbar_layout->addWidget(btn_carousel_view);
     toolbar_layout->addWidget(slider_title_size);
     toolbar_layout->addWidget(btn_sort_az);
     toolbar_layout->addWidget(btn_surprise_me);
+
+    // Controller Settings Button
+    auto* btn_controller_settings = new QToolButton(toolbar);
+    btn_controller_settings->setIcon(QIcon::fromTheme(QStringLiteral("input-gaming")));
+    btn_controller_settings->setToolTip(tr("Controller Navigation Settings"));
+    btn_controller_settings->setAutoRaise(true);
+    btn_controller_settings->setIconSize(QSize(16, 16));
+    btn_controller_settings->setFixedSize(26, 26);
+    btn_controller_settings->setStyleSheet(btn_list_view->styleSheet());
+    connect(btn_controller_settings, &QToolButton::clicked, [this]() {
+        if (!m_nav_overlay) {
+            m_nav_overlay = new NavigationSettingsOverlay(this);
+        }
+        m_nav_overlay->setGeometry(rect());
+        m_nav_overlay->showAnimated();
+    });
+    toolbar_layout->addWidget(btn_controller_settings);
+
     toolbar_layout->addWidget(search_field);
     search_field->setVisible(true); // Default to visible to fix the "missing" issue
 
@@ -1261,23 +1339,80 @@ GameList::GameList(std::shared_ptr<FileSys::VfsFilesystem> vfs_,
         QAction* toggle_search = menu.addAction(tr("Show Search Bar"));
         toggle_search->setCheckable(true);
         toggle_search->setChecked(search_field->isVisible());
-        connect(toggle_search, &QAction::toggled, [this](bool checked) {
-            main_window->filterBarSetChecked(checked);
-        });
+        connect(toggle_search, &QAction::toggled,
+                [this](bool checked) { main_window->filterBarSetChecked(checked); });
         menu.exec(toolbar->mapToGlobal(pos));
     });
 
     layout->setContentsMargins(0, 0, 0, 0);
     layout->setSpacing(0);
+    main_stack->setContentsMargins(0, 0, 0, 0);
+    root_layout->setContentsMargins(0, 0, 0, 0);
+    root_layout->setSpacing(0);
+
     if (!toolbar_in_main) {
         layout->addWidget(toolbar);
     }
-    layout->addWidget(progress_bar);
-    layout->addWidget(tree_view);
-    layout->addWidget(list_view);
+
+    setStyleSheet(QStringLiteral("background: #161618;"));
+    tree_view->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
+    main_stack->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
+    tree_view->setFocusPolicy(Qt::StrongFocus);
+
+    main_stack->setStyleSheet(QStringLiteral("background: transparent; border: none;"));
+    tree_view->setStyleSheet(QStringLiteral("background: transparent; border: none;"));
+
+    layout->addLayout(root_layout, 1);
     setLayout(layout);
 
-    SetViewMode(UISettings::values.game_list_grid_view.GetValue());
+    SetViewMode(UISettings::values.game_list_grid_view.GetValue() ? GameList::ViewMode::Grid
+                                                                  : GameList::ViewMode::List);
+
+    // Selection handling is now unified in the view components
+
+    connect(details_panel, &GameDetailsPanel::actionTriggered, this,
+            [this](const QString& action, u64 program_id, const QString& pathName) {
+                if (action == QStringLiteral("start")) {
+                    QModelIndex current;
+                    int idx = main_stack->currentIndex();
+                    if (idx == 0)
+                        current = tree_view->currentIndex();
+                    else if (idx == 1)
+                        current = grid_view->currentIndex();
+                    else
+                        current = carousel_view->view()->currentIndex();
+
+                    if (current.isValid()) {
+                        StartLaunchAnimation(current);
+                    } else {
+                        emit BootGame(pathName, StartGameType::Normal);
+                    }
+                } else if (action == QStringLiteral("favorite")) {
+                    ToggleFavorite(program_id);
+
+                    // Refresh details for active item
+                    QModelIndex current;
+                    int idx = main_stack->currentIndex();
+                    if (idx == 0)
+                        current = tree_view->currentIndex();
+                    else if (idx == 1)
+                        current = grid_view->currentIndex();
+                    else
+                        current = carousel_view->view()->currentIndex();
+
+                    if (current.isValid()) {
+                        details_panel->updateDetails(current);
+                    }
+                } else if (action == QStringLiteral("properties")) {
+                    emit OpenPerGameGeneralRequested(pathName.toStdString());
+                } else if (action == QStringLiteral("save_data")) {
+                    emit OpenFolderRequested(program_id, GameListOpenTarget::SaveData,
+                                             pathName.toStdString());
+                } else if (action == QStringLiteral("mod_data")) {
+                    emit OpenFolderRequested(program_id, GameListOpenTarget::ModData,
+                                             pathName.toStdString());
+                }
+            });
 
     online_status_timer = new QTimer(this);
     connect(online_status_timer, &QTimer::timeout, this, &GameList::UpdateOnlineStatus);
@@ -1303,6 +1438,60 @@ GameList::GameList(std::shared_ptr<FileSys::VfsFilesystem> vfs_,
     connect(main_window, &GMainWindow::EmulationStopping, this, [this]() { OnEmulationEnded(); });
 
     UpdateAccentColorStyles();
+
+    // Controller Navigation Integration
+    if (controller_navigation) {
+        connect(controller_navigation, &ControllerNavigation::activityDetected, this,
+                &GameList::SwitchToControllerMode);
+
+        auto connectView = [this](auto* view) {
+            using ViewType = std::remove_pointer_t<decltype(view)>;
+            connect(controller_navigation, &ControllerNavigation::navigated, view,
+                    &ViewType::onNavigated);
+            connect(controller_navigation, &ControllerNavigation::activated, view,
+                    &ViewType::onActivated);
+            connect(controller_navigation, &ControllerNavigation::cancelled, view,
+                    &ViewType::onCancelled);
+        };
+
+        connectView(tree_view);
+        connectView(grid_view);
+
+        // Connect CarouselView explicitly to resolve lint errors
+        connect(controller_navigation, &ControllerNavigation::navigated, carousel_view,
+                &GameCarouselView::onNavigated);
+        connect(controller_navigation, &ControllerNavigation::activated, carousel_view,
+                &GameCarouselView::onActivated);
+        connect(controller_navigation, &ControllerNavigation::cancelled, carousel_view,
+                &GameCarouselView::onCancelled);
+
+        // Install event filter to catch shortcuts even when views have focus
+        tree_view->installEventFilter(this);
+        grid_view->installEventFilter(this);
+        carousel_view->installEventFilter(this);
+
+        // Connect Details Panel navigation
+        connect(controller_navigation, &ControllerNavigation::navigated, details_panel,
+                &GameDetailsPanel::onNavigated);
+        connect(controller_navigation, &ControllerNavigation::activated, details_panel,
+                &GameDetailsPanel::onActivated);
+        connect(controller_navigation, &ControllerNavigation::cancelled, details_panel,
+                &GameDetailsPanel::onCancelled);
+
+        connect(controller_navigation, &ControllerNavigation::auxiliaryAction, this,
+                [this](int id) {
+                    if (id == 0) { // Mapping X to Alphabetical Jump
+                        this->JumpToNextLetter();
+                    }
+                });
+
+        connect(controller_navigation, &ControllerNavigation::focusChanged, this,
+                &GameList::onControllerFocusChanged);
+        connect(details_panel, &GameDetailsPanel::focusReturned, this, [this]() {
+            if (controller_navigation)
+                controller_navigation->setFocus(ControllerNavigation::FocusTarget::MainView);
+        });
+    }
 }
 
 void GameList::OnConfigurationChanged() {
@@ -1313,15 +1502,92 @@ void GameList::OnConfigurationChanged() {
     config_update_timer.start(500);
 }
 
+void GameList::SwitchToControllerMode() {
+    if (m_is_controller_mode)
+        return;
+    m_is_controller_mode = true;
+    onControllerFocusChanged(controller_navigation ? controller_navigation->currentFocus()
+                                                   : ControllerNavigation::FocusTarget::MainView);
+}
+
+void GameList::SwitchToKeyboardMode() {
+    if (!m_is_controller_mode)
+        return;
+    m_is_controller_mode = false;
+    unsetCursor();
+    tree_view->setControllerFocus(false);
+    grid_view->setControllerFocus(false);
+    carousel_view->setControllerFocus(false);
+}
+
+void GameList::JumpToNextLetter() {
+    QAbstractItemModel* model = nullptr;
+    QModelIndex current;
+    int mode = main_stack->currentIndex();
+
+    if (mode == 0) { // Tree
+        model = tree_view->model();
+        current = tree_view->selectionModel()->currentIndex();
+    } else if (mode == 1) { // Grid
+        model = grid_view->model();
+        current = grid_view->selectionModel()->currentIndex();
+    } else if (mode == 2) { // Carousel
+        model = carousel_view->view()->model();
+        current = carousel_view->view()->currentIndex();
+    }
+
+    if (!model || model->rowCount() == 0)
+        return;
+    if (!current.isValid())
+        current = model->index(0, 0);
+
+    QString current_name = current.data(Qt::DisplayRole).toString().toUpper();
+    QChar current_char = current_name.isEmpty() ? QLatin1Char(' ') : current_name[0];
+
+    int total = model->rowCount();
+    int start_row = current.row();
+
+    for (int i = 1; i <= total; ++i) {
+        int next_row = (start_row + i) % total;
+        QModelIndex next_idx = model->index(next_row, 0);
+        QString next_name = next_idx.data(Qt::DisplayRole).toString().toUpper();
+        QChar next_char = next_name.isEmpty() ? QLatin1Char(' ') : next_name[0];
+
+        if (next_char != current_char) {
+            if (mode == 0) {
+                tree_view->setCurrentIndex(next_idx);
+                tree_view->scrollTo(next_idx);
+            } else if (mode == 1) {
+                grid_view->setCurrentIndex(next_idx);
+                grid_view->scrollTo(next_idx);
+            } else if (mode == 2) {
+                carousel_view->view()->scrollTo(next_row);
+            }
+            return;
+        }
+    }
+}
+
 void GameList::UnloadController() {
-    controller_navigation->UnloadController();
+    if (controller_navigation) {
+        controller_navigation->UnloadController();
+    }
+}
+
+void GameList::LoadController() {
+    if (controller_navigation) {
+        controller_navigation->LoadController(system.HIDCore());
+    }
 }
 
 GameList::~GameList() {
     UnloadController();
-    if (QAbstractItemModel* current_model = list_view->model()) {
-        if (current_model != item_model) {
-            current_model->deleteLater();
+    // Grid and Carousel share the same flat model
+    if (grid_view) {
+        if (QAbstractItemModel* current_model = grid_view->model()) {
+            if (current_model != item_model) {
+                current_model->deleteLater();
+            }
         }
     }
 }
@@ -1353,10 +1619,11 @@ void GameList::AddDirEntry(GameListDir* entry_items) {
 
 void GameList::AddEntry(const QList<QStandardItem*>& entry_items, GameListDir* parent) {
     parent->appendRow(entry_items);
-    
+
     // Register the new index for bubble animation immediately
-    if (item_delegate) {
-        item_delegate->RegisterEntryAnimation(entry_items.first()->index());
+    auto* delegate = qobject_cast<GameListDelegate*>(tree_view->itemDelegate());
+    if (delegate) {
+        delegate->RegisterEntryAnimation(entry_items.first()->index());
     }
 
     // Auto-scroll to show new games as they appear
@@ -1439,7 +1706,8 @@ static void UpdateOnlineStatusRecursive(QStandardItem* parent,
             auto it_stats = online_stats.find(program_id);
             if (it_stats != online_stats.end()) {
                 const auto& stats = it_stats->second;
-                online_text = QObject::tr("Players: %1 | Servers: %2").arg(stats.first).arg(stats.second);
+                online_text =
+                    QObject::tr("Players: %1 | Servers: %2").arg(stats.first).arg(stats.second);
             }
 
             QStandardItem* online_item = parent->child(i, GameList::COLUMN_ONLINE);
@@ -1521,12 +1789,16 @@ void GameList::StartLaunchAnimation(const QModelIndex& item) {
     // --- 3. ICON ANIMATION ---
     const auto title_id = item.data(GameListItemPath::ProgramIdRole).toULongLong();
     QRect start_geom;
-    if (tree_view->isVisible()) {
+    if (main_stack->currentIndex() == 0) {
         start_geom = tree_view->visualRect(item.sibling(item.row(), 0));
         start_geom.setTopLeft(tree_view->viewport()->mapTo(main_window, start_geom.topLeft()));
+    } else if (main_stack->currentIndex() == 1) {
+        start_geom = grid_view->visualRect(item);
+        start_geom.setTopLeft(grid_view->viewport()->mapTo(main_window, start_geom.topLeft()));
     } else {
-        start_geom = list_view->visualRect(item);
-        start_geom.setTopLeft(list_view->viewport()->mapTo(main_window, start_geom.topLeft()));
+        start_geom = carousel_view->view()->visualRect(item);
+        start_geom.setTopLeft(
+            carousel_view->view()->viewport()->mapTo(main_window, start_geom.topLeft()));
     }
 
     auto* animation_label = new QLabel(main_window);
@@ -1726,9 +1998,13 @@ bool GameList::IsEmpty() const {
 }
 
 void GameList::DonePopulating(const QStringList& watch_list) {
+    if (item_model) {
+        item_model->sort(COLUMN_NAME, Qt::AscendingOrder);
+    }
+
     if (loading_overlay) {
         loading_overlay->ShowPopulated();
-        
+
         // Animated scroll back to the top
         if (tree_view && tree_view->verticalScrollBar()) {
             auto* scroll_anim = new QPropertyAnimation(tree_view->verticalScrollBar(), "value");
@@ -1741,19 +2017,20 @@ void GameList::DonePopulating(const QStringList& watch_list) {
 
         // Give it a moment to show the success message before fading
         QTimer::singleShot(1500, this, [this]() {
-            if (loading_overlay) loading_overlay->FadeOut();
-            if (item_delegate) item_delegate->SetPopulating(false);
-            
+            if (loading_overlay)
+                loading_overlay->FadeOut();
+            auto* delegate = qobject_cast<GameListDelegate*>(tree_view->itemDelegate());
+            if (delegate)
+                delegate->SetPopulating(false);
+
             // Clean up worker safely outside of its execution context
-            QTimer::singleShot(0, this, [this]() {
-                current_worker.reset();
-            });
+            QTimer::singleShot(0, this, [this]() { current_worker.reset(); });
         });
     } else {
-        if (item_delegate) item_delegate->SetPopulating(false);
-        QTimer::singleShot(0, this, [this]() {
-            current_worker.reset();
-        });
+        auto* delegate = qobject_cast<GameListDelegate*>(tree_view->itemDelegate());
+        if (delegate)
+            delegate->SetPopulating(false);
+        QTimer::singleShot(0, this, [this]() { current_worker.reset(); });
     }
 
     for (const auto& watch_dir : watch_list) {
@@ -1765,6 +2042,8 @@ void GameList::DonePopulating(const QStringList& watch_list) {
         progress_bar->setVisible(false);
     }
     emit ShowList(!IsEmpty());
+    // Only add the "Add Directory" item to the main model for List View.
+    // Grid and Carousel use a flat model and explicitly skip this type.
     item_model->invisibleRootItem()->appendRow(new GameListAddDir());
     item_model->invisibleRootItem()->insertRow(0, new GameListFavorites());
     tree_view->setRowHidden(0, item_model->invisibleRootItem()->index(),
@@ -1796,14 +2075,10 @@ void GameList::DonePopulating(const QStringList& watch_list) {
     }
     item_model->sort(tree_view->header()->sortIndicatorSection(),
                      tree_view->header()->sortIndicatorOrder());
-    if (list_view->isVisible()) {
+    if (main_stack->currentIndex() > 0) {
         // Preserve filter when repopulating
         QString filter_text = search_field->filterText();
-        if (!filter_text.isEmpty()) {
-            FilterGridView(filter_text);
-        } else {
-            PopulateGridView();
-        }
+        FilterGridView(filter_text);
     } else {
         FilterTreeView(search_field->filterText());
     }
@@ -1830,15 +2105,34 @@ void GameList::DonePopulating(const QStringList& watch_list) {
 
 void GameList::PopupContextMenu(const QPoint& menu_location) {
     QModelIndex item;
-    if (tree_view->isVisible()) {
+    int current = main_stack->currentIndex();
+    if (current == 0) {
         item = tree_view->indexAt(menu_location);
+    } else if (current == 1) {
+        item = grid_view->indexAt(menu_location);
     } else {
-        item = list_view->indexAt(menu_location);
+        item = carousel_view->view()->indexAt(menu_location);
     }
+
     if (!item.isValid())
         return;
     const auto selected = item.sibling(item.row(), 0);
-    QMenu context_menu;
+    QWidget* parent_widget = nullptr;
+    if (current == 0)
+        parent_widget = tree_view->viewport();
+    else if (current == 1)
+        parent_widget = grid_view->view()->viewport();
+    else
+        parent_widget = carousel_view->view()->viewport();
+
+    QMenu context_menu(parent_widget);
+    context_menu.setAttribute(Qt::WA_TranslucentBackground, false);
+    context_menu.setStyleSheet(QStringLiteral(
+        "QMenu { background: #24242a; border: 1px solid #32323a; border-radius: 8px; padding: 6px; color: #ffffff; }"
+        "QMenu::item { padding: 6px 30px; border-radius: 4px; margin: 2px; color: #ffffff; }"
+        "QMenu::item:selected { background-color: #32323a; border: 1px solid #42424a; }"
+        "QMenu::separator { height: 1px; background: #32323a; margin: 4px 10px; }"
+    ));
     switch (selected.data(GameListItem::TypeRole).value<GameListItemType>()) {
     case GameListItemType::Game: {
         const u64 program_id = selected.data(GameListItemPath::ProgramIdRole).toULongLong();
@@ -1864,10 +2158,13 @@ void GameList::PopupContextMenu(const QPoint& menu_location) {
     default:
         break;
     }
-    if (tree_view->isVisible()) {
+
+    if (current == 0) {
         context_menu.exec(tree_view->viewport()->mapToGlobal(menu_location));
+    } else if (current == 1) {
+        context_menu.exec(grid_view->view()->viewport()->mapToGlobal(menu_location));
     } else {
-        context_menu.exec(list_view->viewport()->mapToGlobal(menu_location));
+        context_menu.exec(carousel_view->view()->viewport()->mapToGlobal(menu_location));
     }
 }
 
@@ -2471,26 +2768,27 @@ void GameList::PopulateAsync(QVector<UISettings::GameDir>& game_dirs) {
     if (loading_overlay) {
         loading_overlay->ShowLoading();
     }
-    if (item_delegate) {
-        item_delegate->SetPopulating(true);
+    auto* delegate = qobject_cast<GameListDelegate*>(tree_view->itemDelegate());
+    if (delegate) {
+        delegate->SetPopulating(true);
     }
 
     item_model->clear();
     item_model->insertColumns(0, COLUMN_COUNT);
     RetranslateUI();
-    
+
     // Set columns to interactive sizing and calibrate for 720p displays
     if (tree_view && tree_view->header()) {
         auto* header = tree_view->header();
-        
+
         // Ensure ALL columns are interactive and have a safe minimum floor
         header->setMinimumSectionSize(80);
         header->setStretchLastSection(true); // Fill the window space on the right
-        
+
         for (int i = 0; i < COLUMN_COUNT; ++i) {
             header->setSectionResizeMode(i, QHeaderView::Interactive);
         }
-        
+
         // FORCE widths for 1280x720 resolution (Total: ~1155px + Stretch)
         // We set these every time to ensure the layout remains 'perfect' on each refresh
         header->resizeSection(COLUMN_NAME, 495); // Forced as per requirement
@@ -2536,12 +2834,12 @@ void GameList::PopulateAsync(QVector<UISettings::GameDir>& game_dirs) {
 
 void GameList::SaveInterfaceLayout() {
     UISettings::values.gamelist_header_state = tree_view->header()->saveState();
-    UISettings::values.game_list_grid_view.SetValue(list_view->isVisible());
+    UISettings::values.game_list_grid_view.SetValue(main_stack->currentIndex() > 0);
 }
 
 void GameList::LoadInterfaceLayout() {
     auto* header = tree_view->header();
-    
+
     // Set modes and minimums first so they are consistent even after restore
     header->setMinimumSectionSize(80);
     header->setStretchLastSection(true);
@@ -2598,14 +2896,10 @@ void GameList::ToggleFavorite(u64 program_id) {
             tree_view->setRowHidden(0, item_model->invisibleRootItem()->index(), true);
         }
     }
-    if (list_view->isVisible()) {
+    if (main_stack->currentIndex() > 0) {
         // Preserve filter when updating favorites
         QString filter_text = search_field->filterText();
-        if (!filter_text.isEmpty()) {
-            FilterGridView(filter_text);
-        } else {
-            PopulateGridView();
-        }
+        FilterGridView(filter_text);
     }
     SaveConfig();
 }
@@ -2682,153 +2976,19 @@ void GameListPlaceholder::RetranslateUI() {
     text->setText(tr("Double-click to add a new folder to the game list"));
 }
 
-void GameList::SetViewMode(bool grid_view) {
-    if (grid_view) {
-        // Check if there's an active filter - if so, use FilterGridView instead
-        QString filter_text = search_field->filterText();
-        if (!filter_text.isEmpty()) {
-            FilterGridView(filter_text);
-        } else {
-            PopulateGridView();
-        }
-        tree_view->setVisible(false);
-        list_view->setVisible(true);
-        if (list_view->model() && list_view->model()->rowCount() > 0) {
-            list_view->setCurrentIndex(list_view->model()->index(0, 0));
-        }
-    } else {
-        list_view->setVisible(false);
-        tree_view->setVisible(true);
-        if (item_model && item_model->rowCount() > 0) {
-            tree_view->setCurrentIndex(item_model->index(0, 0));
-        }
-    }
-    // Update button states
-    if (btn_list_view && btn_grid_view) {
-        btn_list_view->setChecked(!grid_view);
-        btn_grid_view->setChecked(grid_view);
-    }
-}
+// UpdateCarouselSelection removed as it's now handled by GameCarouselView
 
 void GameList::PopulateGridView() {
-    QStandardItemModel* hierarchical_model = item_model;
-    if (QAbstractItemModel* old_model = list_view->model()) {
-        if (old_model != item_model) {
-            old_model->deleteLater();
-        }
-    }
-    QStandardItemModel* flat_model = new QStandardItemModel(this);
-    flat_model->setSortRole(GameListItemPath::SortRole);
-    for (int i = 0; i < hierarchical_model->rowCount(); ++i) {
-        QStandardItem* folder = hierarchical_model->item(i, 0);
-        if (!folder)
-            continue;
-        const auto folder_type = folder->data(GameListItem::TypeRole).value<GameListItemType>();
-        if (folder_type == GameListItemType::AddDir) {
-            continue;
-        }
-        for (int j = 0; j < folder->rowCount(); ++j) {
-            QStandardItem* game_item = folder->child(j, 0);
-            if (!game_item)
-                continue;
-            const auto game_type =
-                game_item->data(GameListItem::TypeRole).value<GameListItemType>();
-            if (game_type == GameListItemType::Game) {
-                const QString full_path =
-                    game_item->data(GameListItemPath::FullPathRole).toString();
-                if (UISettings::values.hidden_paths.contains(full_path)) {
-                    continue;
-                }
-                QStandardItem* cloned_item = game_item->clone();
-                QString game_title = game_item->data(GameListItemPath::TitleRole).toString();
-                if (game_title.isEmpty()) {
-                    std::string filename;
-                    Common::SplitPath(
-                        game_item->data(GameListItemPath::FullPathRole).toString().toStdString(),
-                        nullptr, &filename, nullptr);
-                    game_title = QString::fromStdString(filename);
-                }
-                cloned_item->setText(game_title);
-                flat_model->appendRow(cloned_item);
-            }
-        }
-    }
-    list_view->setModel(flat_model);
-    const u32 icon_size = UISettings::values.game_icon_size.GetValue();
-    list_view->setGridSize(QSize(icon_size + 60, icon_size + 80));
-    // Sort the grid view using current sort order
-    flat_model->sort(0, current_sort_order);
-    // Update icon sizes in the model - ensure all icons are consistently sized with rounded corners
-    for (int i = 0; i < flat_model->rowCount(); ++i) {
-        QStandardItem* item = flat_model->item(i);
-        if (item) {
-            QVariant icon_data = item->data(Qt::DecorationRole);
-            if (icon_data.isValid() && icon_data.canConvert<QPixmap>()) {
-                QPixmap pixmap = icon_data.value<QPixmap>();
-                if (!pixmap.isNull()) {
-#ifdef __linux__
-                    // On Linux, use simple scaling to avoid QPainter bugs
-                    QPixmap scaled = pixmap.scaled(icon_size, icon_size, Qt::IgnoreAspectRatio,
-                                                   Qt::SmoothTransformation);
-                    item->setData(scaled, Qt::DecorationRole);
-#else
-                    // On other platforms, use the QPainter method for rounded corners
-                    QPixmap rounded(icon_size, icon_size);
-                    rounded.fill(Qt::transparent);
-
-                    QPainter painter(&rounded);
-                    painter.setRenderHint(QPainter::Antialiasing);
-
-                    const int radius = icon_size / 8;
-                    QPainterPath path;
-                    path.addRoundedRect(0, 0, icon_size, icon_size, radius, radius);
-                    painter.setClipPath(path);
-
-                    QPixmap scaled = pixmap.scaled(icon_size, icon_size, Qt::IgnoreAspectRatio,
-                                                   Qt::SmoothTransformation);
-                    painter.drawPixmap(0, 0, scaled);
-
-                    item->setData(rounded, Qt::DecorationRole);
-#endif
-                }
-            }
-        }
-    }
-}
-
-void GameList::ToggleViewMode() {
-    bool current_grid_view = UISettings::values.game_list_grid_view.GetValue();
-    UISettings::values.game_list_grid_view.SetValue(!current_grid_view);
-    SetViewMode(!current_grid_view);
-    // Button states are updated in SetViewMode
+    FilterGridView(QString());
 }
 
 void GameList::SortAlphabetically() {
-    if (tree_view->isVisible()) {
-        // Sort tree view by name column using current sort order
+    if (main_stack->currentIndex() == 0) {
         tree_view->header()->setSortIndicator(COLUMN_NAME, current_sort_order);
         item_model->sort(COLUMN_NAME, current_sort_order);
-    } else if (list_view->isVisible()) {
-        // Sort grid view alphabetically using current sort order
-        QAbstractItemModel* current_model = list_view->model();
-        if (current_model && current_model != item_model) {
-            // Sort the flat model used by list view (filtered or unfiltered)
-            QStandardItemModel* flat_model = qobject_cast<QStandardItemModel*>(current_model);
-            if (flat_model) {
-                // Use SortRole for proper alphabetical sorting
-                flat_model->setSortRole(GameListItemPath::SortRole);
-                flat_model->sort(0, current_sort_order);
-            }
-        } else {
-            // If using item_model directly, repopulate grid view to apply sort
-            // Preserve filter if active
-            QString filter_text = search_field->filterText();
-            if (!filter_text.isEmpty()) {
-                FilterGridView(filter_text);
-            } else {
-                PopulateGridView();
-            }
-        }
+    } else {
+        // Grid/Carousel share the same flat layout which is rebuilt on FilterGridView
+        FilterGridView(search_field->filterText());
     }
     UpdateSortButtonIcon();
 }
@@ -3124,10 +3284,8 @@ void GameList::UpdateAccentColorStyles() {
 
     // Apply the combined base styles and new accent styles to each view
     tree_view->setStyleSheet(accent_style);
-    list_view->setStyleSheet(
-        QStringLiteral("QListView{ border: none; background: transparent; } QListView::item { "
-                       "text-align: center; padding: 5px; }") +
-        accent_style);
+    grid_view->setStyleSheet(accent_style);
+    carousel_view->ApplyTheme();
 
     // Update the toolbar buttons as before
     QString button_base_style = QStringLiteral("QToolButton {"
@@ -3146,6 +3304,8 @@ void GameList::UpdateAccentColorStyles() {
 
     btn_list_view->setStyleSheet(button_base_style + button_checked_style);
     btn_grid_view->setStyleSheet(button_base_style + button_checked_style);
+    if (btn_carousel_view)
+        btn_carousel_view->setStyleSheet(button_base_style + button_checked_style);
 
     search_field->setStyleSheet(QStringLiteral("QLineEdit {"
                                                "  border: 1px solid palette(mid);"
@@ -3158,6 +3318,59 @@ void GameList::UpdateAccentColorStyles() {
                                                "  background: palette(base);"
                                                "}")
                                     .arg(color_name));
+}
+
+void GameList::OnEmulationEnded() {
+    auto* effect = new QGraphicsOpacityEffect(fade_overlay);
+    fade_overlay->setGraphicsEffect(effect);
+    auto* fade_anim = new QPropertyAnimation(effect, "opacity");
+    fade_anim->setDuration(300);
+    fade_anim->setStartValue(1.0);
+    fade_anim->setEndValue(0.0);
+    fade_anim->setEasingCurve(QEasingCurve::OutQuad);
+    connect(fade_anim, &QPropertyAnimation::finished, fade_overlay, &QWidget::hide);
+    fade_anim->start(QAbstractAnimation::DeleteWhenStopped);
+}
+
+void GameList::SetViewMode(ViewMode view) {
+    if (view == ViewMode::List) {
+        main_stack->setCurrentIndex(0);
+        AnimateDetailsPanel(false);
+        UISettings::values.game_list_grid_view.SetValue(false);
+    } else if (view == ViewMode::Grid) {
+        main_stack->setCurrentIndex(1);
+        AnimateDetailsPanel(true);
+        UISettings::values.game_list_grid_view.SetValue(true);
+        FilterGridView(search_field->filterText());
+    } else if (view == ViewMode::Carousel) {
+        main_stack->setCurrentIndex(2);
+        AnimateDetailsPanel(true);
+        FilterGridView(search_field->filterText());
+    }
+
+    if (btn_list_view)
+        btn_list_view->setChecked(view == ViewMode::List);
+    if (btn_grid_view)
+        btn_grid_view->setChecked(view == ViewMode::Grid);
+    if (btn_carousel_view)
+        btn_carousel_view->setChecked(view == ViewMode::Carousel);
+
+    if (m_is_controller_mode) {
+        onControllerFocusChanged(ControllerNavigation::FocusTarget::MainView);
+    }
+
+    emit SaveConfig();
+}
+
+void GameList::ToggleViewMode() {
+    ViewMode current = static_cast<ViewMode>(main_stack->currentIndex());
+    if (current == ViewMode::List) {
+        SetViewMode(ViewMode::Grid);
+    } else if (current == ViewMode::Grid) {
+        SetViewMode(ViewMode::Carousel);
+    } else {
+        SetViewMode(ViewMode::List);
+    }
 }
 
 void GameList::ToggleHidden(const QString& path) {
@@ -3181,26 +3394,121 @@ void GameList::resizeEvent(QResizeEvent* event) {
     }
 }
 
-void GameListPlaceholder::resizeEvent(QResizeEvent* event) {
-    QWidget::resizeEvent(event);
+void GameList::showEvent(QShowEvent* event) {
+    QWidget::showEvent(event);
 }
 
-void GameList::OnEmulationEnded() {
-    // This function is called when the emulator returns to the game list.
-    // We now fade the black overlay back out.
-    auto* effect = new QGraphicsOpacityEffect(fade_overlay);
-    fade_overlay->setGraphicsEffect(effect);
+void GameList::AnimateDetailsPanel(bool show) {
+    if (!details_panel)
+        return;
 
-    auto* fade_out_anim = new QPropertyAnimation(effect, "opacity");
-    fade_out_anim->setDuration(300);
-    fade_out_anim->setStartValue(1.0f);
-    fade_out_anim->setEndValue(0.0f);
-    fade_out_anim->setEasingCurve(QEasingCurve::OutQuad);
+    int start_w = details_panel->width();
+    int end_w = 0;
+    if (show) {
+        end_w = (width() > 1400) ? 380 : 280;
+    }
 
-    // When the fade-out is complete, hide the overlay widget
-    connect(fade_out_anim, &QPropertyAnimation::finished, this, [this]() { fade_overlay->hide(); });
+    if (show && !details_panel->isVisible()) {
+        details_panel->setFixedWidth(0);
+        details_panel->show();
+    }
 
-    fade_out_anim->start(QAbstractAnimation::DeleteWhenStopped);
+    auto* anim = new QPropertyAnimation(details_panel, "minimumWidth");
+    anim->setDuration(250);
+    anim->setStartValue(start_w);
+    anim->setEndValue(end_w);
+    anim->setEasingCurve(show ? QEasingCurve::OutQuint : QEasingCurve::InQuint);
+
+    auto* anim_max = new QPropertyAnimation(details_panel, "maximumWidth");
+    anim_max->setDuration(250);
+    anim_max->setStartValue(start_w);
+    anim_max->setEndValue(end_w);
+    anim_max->setEasingCurve(show ? QEasingCurve::OutQuint : QEasingCurve::InQuint);
+
+    if (!show) {
+        connect(anim, &QPropertyAnimation::finished, details_panel, &QWidget::hide);
+    }
+
+    anim->start(QAbstractAnimation::DeleteWhenStopped);
+    anim_max->start(QAbstractAnimation::DeleteWhenStopped);
+}
+
+void GameList::onControllerFocusChanged(ControllerNavigation::FocusTarget target) {
+    if (target == ControllerNavigation::FocusTarget::MainView) {
+        int idx = main_stack->currentIndex();
+        if (idx == 0)
+            tree_view->setControllerFocus(true);
+        else if (idx == 1)
+            grid_view->setControllerFocus(true);
+        else
+            carousel_view->setControllerFocus(true);
+        details_panel->setControllerFocus(false);
+        // Ensure panel hides in List view if focus returns to list, but stays for Grid/Carousel
+        if (main_stack->currentIndex() == 0) AnimateDetailsPanel(false);
+    } else {
+        tree_view->setControllerFocus(false);
+        grid_view->setControllerFocus(false);
+        carousel_view->setControllerFocus(false);
+        details_panel->setControllerFocus(true);
+        
+        // CRITICAL: Actually show the panel when focus moves to it!
+        if (!details_panel->isVisible() || details_panel->width() < 10) {
+            AnimateDetailsPanel(true);
+        }
+    }
+}
+
+void GameList::keyPressEvent(QKeyEvent* event) {
+    const int key = event->key();
+    bool is_toggle = (key == Qt::Key_R || key == Qt::Key_Minus || key == Qt::Key_Underscore ||
+                      key == Qt::Key_Equal || key == Qt::Key_Plus || key == Qt::Key_F11 ||
+                      key == Qt::Key_F12 || key == Qt::Key_Semicolon);
+    if (is_toggle) {
+        if (m_is_controller_mode)
+            return; // Deduplicate: controller button handler will handle it
+        if (controller_navigation) {
+            controller_navigation->toggleFocus();
+        }
+        return;
+    }
+    QWidget::keyPressEvent(event);
+}
+
+bool GameList::eventFilter(QObject* obj, QEvent* event) {
+    if (event->type() == QEvent::KeyPress) {
+        QKeyEvent* key_event = static_cast<QKeyEvent*>(event);
+        const int key = key_event->key();
+        bool is_toggle = (key == Qt::Key_R || key == Qt::Key_Minus || key == Qt::Key_Underscore ||
+                          key == Qt::Key_Equal || key == Qt::Key_Plus || key == Qt::Key_F11 ||
+                          key == Qt::Key_F12 || key == Qt::Key_Semicolon);
+        if (is_toggle) {
+            if (m_is_controller_mode)
+                return true; // Consume but skip to avoid double-toggle
+            if (controller_navigation) {
+                controller_navigation->toggleFocus();
+            }
+            return true; // Consume event
+        }
+    }
+    return QWidget::eventFilter(obj, event);
+}
+
+void GameList::mouseMoveEvent(QMouseEvent* event) {
+    if (m_is_controller_mode) {
+        SwitchToKeyboardMode();
+    }
+    QWidget::mouseMoveEvent(event);
+}
+
+void GameList::mousePressEvent(QMouseEvent* event) {
+    if (m_is_controller_mode) {
+        SwitchToKeyboardMode();
+    }
+    QWidget::mousePressEvent(event);
+}
+
+void GameListPlaceholder::resizeEvent(QResizeEvent* event) {
+    QWidget::resizeEvent(event);
 }
 
 void GameListSearchField::setStyleSheet(const QString& sheet) {

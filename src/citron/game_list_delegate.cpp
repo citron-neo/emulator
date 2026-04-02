@@ -6,6 +6,7 @@
 #include <QColor>
 #include <QFont>
 #include <QFontMetrics>
+#include <QHeaderView>
 #include <QIcon>
 #include <QModelIndex>
 #include <QPainter>
@@ -15,12 +16,87 @@
 #include <QStyleOptionViewItem>
 #include <QTimer>
 #include <QTreeView>
-#include <QHeaderView>
+#include <QHelpEvent>
+#include <QLabel>
+#include <QVBoxLayout>
+#include <QPainter>
+#include <QScreen>
+#include <QGuiApplication>
 
 #include "citron/game_list.h"
 #include "citron/game_list_delegate.h"
 #include "citron/game_list_p.h"
 #include "citron/uisettings.h"
+
+/**
+ * OnyxTooltip is a custom tooltip widget designed for the "Grey Onyx" aesthetic.
+ * It enforces total opacity and provides high-end styling for HTML content.
+ */
+class OnyxTooltip : public QWidget {
+    Q_OBJECT
+public:
+    explicit OnyxTooltip(QWidget* parent = nullptr) : QWidget(parent, Qt::ToolTip | Qt::FramelessWindowHint) {
+        setAttribute(Qt::WA_TranslucentBackground, false);
+        setAttribute(Qt::WA_ShowWithoutActivating);
+        setAttribute(Qt::WA_StyledBackground);
+        
+        auto* layout = new QVBoxLayout(this);
+        layout->setContentsMargins(12, 12, 12, 12);
+        
+        m_label = new QLabel(this);
+        m_label->setTextFormat(Qt::RichText);
+        m_label->setWordWrap(true);
+        m_label->setAlignment(Qt::AlignLeft | Qt::AlignTop);
+        layout->addWidget(m_label);
+
+        setStyleSheet(QStringLiteral(
+            "QWidget { background-color: #24242a; border: 1px solid #32323a; border-radius: 8px; }"
+            "QLabel { color: #ffffff; background: transparent; border: none; font-family: 'Outfit', 'Inter', sans-serif; }"
+        ));
+    }
+
+    static void showText(const QPoint& pos, const QString& text, QWidget* w) {
+        static OnyxTooltip* instance = nullptr;
+        if (!instance) {
+            instance = new OnyxTooltip();
+        }
+        
+        instance->m_label->setText(text);
+        instance->adjustSize();
+        
+        QScreen* screen = QGuiApplication::screenAt(pos);
+        if (!screen) screen = QGuiApplication::primaryScreen();
+        QRect screenGeom = screen->availableGeometry();
+        
+        QPoint showPos = pos + QPoint(10, 10);
+        if (showPos.x() + instance->width() > screenGeom.right()) {
+            showPos.setX(pos.x() - instance->width() - 10);
+        }
+        if (showPos.y() + instance->height() > screenGeom.bottom()) {
+            showPos.setY(pos.y() - instance->height() - 10);
+        }
+        
+        instance->move(showPos);
+        instance->show();
+        QTimer::singleShot(5000, instance, &QWidget::hide);
+    }
+
+    static void hideTooltip() {
+        // Implementation simplified as static instance persists
+    }
+
+protected:
+    void paintEvent(QPaintEvent* event) override {
+        QPainter painter(this);
+        painter.setRenderHint(QPainter::Antialiasing);
+        painter.setBrush(QColor(0x24, 0x24, 0x2a));
+        painter.setPen(QColor(0x32, 0x32, 0x3a));
+        painter.drawRoundedRect(rect().adjusted(0, 0, -1, -1), 8, 8);
+    }
+
+private:
+    QLabel* m_label;
+};
 
 GameListDelegate::GameListDelegate(QTreeView* view, QObject* parent)
     : QStyledItemDelegate(parent), tree_view(view) {
@@ -71,7 +147,7 @@ void GameListDelegate::paint(QPainter* painter, const QStyleOptionViewItem& opti
     // Only apply animations if population is active or if specifically enabled
     qreal entry_val = 1.0;
     int vertical_offset = 0;
-    
+
     if (enable_bubble_animations) {
         const QPersistentModelIndex key(index.siblingAtColumn(0));
         if (entry_animations.contains(key)) {
@@ -83,7 +159,7 @@ void GameListDelegate::paint(QPainter* painter, const QStyleOptionViewItem& opti
         // Reduced offset (10px) and slide UP to prevent clipping artifacts
         vertical_offset = static_cast<int>(10.0 * (1.0 - entry_val));
     }
-    
+
     painter->translate(0, vertical_offset);
     painter->setOpacity(entry_val * population_fade_global);
 
@@ -232,7 +308,8 @@ void GameListDelegate::AdvanceAnimations() {
         qreal& val = it_entry.value();
         if (val < 1.0) {
             val += 0.08; // Smooth entry
-            if (val >= 1.0) val = 1.0;
+            if (val >= 1.0)
+                val = 1.0;
             indices_to_update.append(key);
             ++it_entry;
         } else {
@@ -244,11 +321,13 @@ void GameListDelegate::AdvanceAnimations() {
     // 5. Global population fade transition
     if (is_populating && population_fade_global > 0.6) {
         population_fade_global -= 0.02;
-        if (population_fade_global < 0.6) population_fade_global = 0.6;
+        if (population_fade_global < 0.6)
+            population_fade_global = 0.6;
         tree_view->viewport()->update();
     } else if (!is_populating && population_fade_global < 1.0) {
         population_fade_global += 0.04;
-        if (population_fade_global > 1.0) population_fade_global = 1.0;
+        if (population_fade_global > 1.0)
+            population_fade_global = 1.0;
         tree_view->viewport()->update();
     }
 
@@ -265,6 +344,19 @@ void GameListDelegate::AdvanceAnimations() {
             }
         }
     }
+}
+
+bool GameListDelegate::helpEvent(QHelpEvent* event, QAbstractItemView* view,
+                                 const QStyleOptionViewItem& option, const QModelIndex& index) {
+    if (event->type() == QEvent::ToolTip && index.isValid()) {
+        const QString text = index.data(Qt::ToolTipRole).toString();
+        if (!text.isEmpty()) {
+            OnyxTooltip::showText(event->globalPos(), text, view);
+            return true;
+        }
+    }
+    OnyxTooltip::hideTooltip();
+    return QStyledItemDelegate::helpEvent(event, view, option, index);
 }
 
 void GameListDelegate::PaintBackground(QPainter* painter, const QStyleOptionViewItem& option,
@@ -289,7 +381,7 @@ void GameListDelegate::PaintBackground(QPainter* painter, const QStyleOptionView
     // CRITICAL: We only paint the 'slice' of the card that belongs to this column.
     // This prevents subsequent columns (e.g. 'Size') from overdrawing Column 0's text.
     painter->save();
-    
+
     // Expand clip for Column 0 to include the indentation/margin area
     QRect clip_rect = option.rect;
     if (index.column() == 0) {
@@ -343,8 +435,8 @@ void GameListDelegate::PaintBackground(QPainter* painter, const QStyleOptionView
 }
 
 void GameListDelegate::PaintGameInfo(QPainter* painter, const QRect& rect,
-                                    const QStyleOptionViewItem& option,
-                                    const QModelIndex& index) const {
+                                     const QStyleOptionViewItem& option,
+                                     const QModelIndex& index) const {
     painter->save();
     painter->setClipRect(rect);
     const QModelIndex master_index = index.siblingAtColumn(0);
@@ -379,9 +471,10 @@ void GameListDelegate::PaintGameInfo(QPainter* painter, const QRect& rect,
         icon_path.addRoundedRect(icon_rect, 6, 6);
         painter->save();
         painter->setClipPath(icon_path);
-        painter->drawPixmap(icon_rect, pixmap.scaled(icon_size, icon_size, Qt::KeepAspectRatio, Qt::SmoothTransformation));
+        painter->drawPixmap(icon_rect, pixmap.scaled(icon_size, icon_size, Qt::KeepAspectRatio,
+                                                     Qt::SmoothTransformation));
         painter->restore();
-        
+
         painter->setPen(QPen(QColor(255, 255, 255, 30), 1.0));
         painter->setBrush(Qt::NoBrush);
         painter->drawRoundedRect(icon_rect, 6, 6);
@@ -390,7 +483,7 @@ void GameListDelegate::PaintGameInfo(QPainter* painter, const QRect& rect,
     // 2. Metadata Extraction (Title & Program ID)
     QString title = master_index.data(GameListItemPath::TitleRole).toString();
     u64 program_id = master_index.data(GameListItemPath::ProgramIdRole).toULongLong();
-    
+
     // Absolute fallback: If TitleRole is empty, parse DisplayRole
     if (title.isEmpty()) {
         QString full_display = master_index.data(Qt::DisplayRole).toString();
@@ -405,9 +498,9 @@ void GameListDelegate::PaintGameInfo(QPainter* painter, const QRect& rect,
         }
     }
 
-    const QString id = program_id > 0 ? 
-        QStringLiteral("0x%1").arg(program_id, 16, 16, QLatin1Char('0')).toUpper() : 
-        QString();
+    const QString id =
+        program_id > 0 ? QStringLiteral("0x%1").arg(program_id, 16, 16, QLatin1Char('0')).toUpper()
+                       : QString();
 
     // 3. Text Rendering (Safe Baseline-based Drawing)
     const int text_x = icon_rect.right() + 18;
@@ -415,7 +508,7 @@ void GameListDelegate::PaintGameInfo(QPainter* painter, const QRect& rect,
     const int title_ascent = metrics.ascent();
     const int title_descent = metrics.descent();
     const int title_h = title_ascent + title_descent;
-    
+
     // Subtext (ID) metrics
     QFont f_id = option.font;
     f_id.setPointSize(std::max(6, f_id.pointSize() - 2));
@@ -431,7 +524,7 @@ void GameListDelegate::PaintGameInfo(QPainter* painter, const QRect& rect,
     QFont f_title = option.font;
     f_title.setBold(true);
     painter->setFont(f_title);
-    
+
     // Explicitly draw at the title baseline
     const int title_baseline = start_y + title_ascent;
     QString elided_title = metrics.elidedText(title, Qt::ElideRight, rect.right() - text_x - 12);
@@ -441,7 +534,7 @@ void GameListDelegate::PaintGameInfo(QPainter* painter, const QRect& rect,
     if (!id.isEmpty()) {
         painter->setPen(DimColor());
         painter->setFont(f_id);
-        
+
         // Explicitly draw at the ID baseline
         const int id_baseline = title_baseline + title_descent + spacing + id_metrics.ascent();
         painter->drawText(text_x, id_baseline, id);
@@ -547,12 +640,8 @@ void GameListDelegate::PaintDefault(QPainter* painter, const QRect& rect,
     if (is_addons) {
         // Optimization: Use cache for string processing
         if (!addons_item_cache.contains(text)) {
-            QString processed_text = text;
-            processed_text.replace(QLatin1String(", "), QLatin1String("\n"));
-            processed_text.replace(QLatin1String("; "), QLatin1String("\n"));
-            processed_text.replace(QLatin1String(" | "), QLatin1String("\n"));
-            addons_item_cache.insert(text,
-                                     processed_text.split(QLatin1Char('\n'), Qt::SkipEmptyParts));
+            QStringList lines = text.split(QLatin1Char('\n'), Qt::SkipEmptyParts);
+            addons_item_cache.insert(text, lines);
 
             // Limit cache size
             if (addons_item_cache.size() > 500)
@@ -672,17 +761,19 @@ QColor GameListDelegate::AccentColor() const {
 }
 
 void GameListDelegate::SetPopulating(bool populating) {
-    if (is_populating == populating) return;
+    if (is_populating == populating)
+        return;
     is_populating = populating;
     enable_bubble_animations = populating;
-    
+
     if (!populating) {
         // Accelerate final fade-up when population ends
-        if (population_fade_global < 0.95) population_fade_global = 0.95;
+        if (population_fade_global < 0.95)
+            population_fade_global = 0.95;
         // NOTE: We no longer ClearAnimations() here to allow in-progress fades to finish.
         greyscale_icon_cache.clear();
     }
-    
+
     // Force a full update to transition the opacity
     if (tree_view && tree_view->viewport()) {
         tree_view->viewport()->update();
@@ -690,7 +781,8 @@ void GameListDelegate::SetPopulating(bool populating) {
 }
 
 void GameListDelegate::RegisterEntryAnimation(const QModelIndex& index) {
-    if (!index.isValid() || !enable_bubble_animations) return;
+    if (!index.isValid() || !enable_bubble_animations)
+        return;
     const QPersistentModelIndex key(index.siblingAtColumn(0));
     if (!entry_animations.contains(key)) {
         entry_animations[key] = is_populating ? 0.2 : 0.0;
@@ -703,3 +795,5 @@ void GameListDelegate::ClearAnimations() {
         tree_view->viewport()->update();
     }
 }
+
+#include "game_list_delegate.moc"

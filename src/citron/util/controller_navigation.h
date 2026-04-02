@@ -7,6 +7,8 @@
 
 #include <QKeyEvent>
 #include <QObject>
+#include <QTimer>
+#include <QWidget>
 
 #include "common/input.h"
 #include "common/settings_input.h"
@@ -29,8 +31,30 @@ public:
     /// Disables events from the emulated controller
     void UnloadController();
 
+    /// Re-registers callbacks from the HID core
+    void LoadController(Core::HID::HIDCore& hid_core);
+
+    enum class FocusTarget {
+        MainView,    // Grid or Carousel
+        DetailsView, // Action buttons side panel
+    };
+
+    /// Switches focus between main list and details
+    void toggleFocus();
+    void setFocus(FocusTarget target);
+    FocusTarget currentFocus() const { return m_current_focus; }
+
 signals:
-    void TriggerKeyboardEvent(Qt::Key key);
+    void TriggerKeyboardEvent(Qt::Key key); // Kept for legacy compatibility if needed
+    void navigated(int dx, int dy);
+    void activated(); // Controller 'A'
+    void cancelled(); // Controller 'B'
+    void focusChanged(FocusTarget new_focus);
+    void auxiliaryAction(int action_id); // For mapping X, Y, etc.
+    void activityDetected(); // Emitted on any controller input
+
+private slots:
+    void navigationRepeat();
 
 private:
     void TriggerButton(Settings::NativeButton::Values native_button, Qt::Key key);
@@ -39,6 +63,9 @@ private:
     void ControllerUpdateButton();
 
     void ControllerUpdateStick();
+
+    void startRepeatTimer(int dx, int dy);
+    void stopRepeatTimer();
 
     Core::HID::ButtonValues button_values{};
     Core::HID::SticksValues stick_values{};
@@ -49,4 +76,9 @@ private:
     mutable std::mutex mutex;
     Core::HID::EmulatedController* player1_controller;
     Core::HID::EmulatedController* handheld_controller;
+
+    FocusTarget m_current_focus = FocusTarget::MainView;
+    QTimer* m_repeat_timer;
+    int m_repeat_dx = 0;
+    int m_repeat_dy = 0;
 };

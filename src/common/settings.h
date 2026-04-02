@@ -683,6 +683,9 @@ struct Values {
 #endif
     };
     Setting<bool> controller_navigation{linkage, true, "controller_navigation", Category::Controls};
+    Setting<int> navigation_repeat_delay{linkage, 500, "navigation_repeat_delay", Category::Controls};
+    Setting<int> navigation_repeat_interval{linkage, 150, "navigation_repeat_interval", Category::Controls};
+    Setting<float> navigation_deadzone{linkage, 0.5f, "navigation_deadzone", Category::Controls};
     Setting<bool> enable_joycon_driver{linkage, true, "enable_joycon_driver", Category::Controls};
     Setting<bool> enable_procon_driver{linkage, false, "enable_procon_driver", Category::Controls};
 

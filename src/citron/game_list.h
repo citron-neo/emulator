@@ -3,9 +3,14 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #pragma once
+#include "citron/util/controller_navigation.h"
 
 #include <map>
 #include <utility>
+#include <QEvent>
+#include <QKeyEvent>
+#include <QMouseEvent>
+#include <QObject>
 #include <QFileSystemWatcher>
 #include <QHBoxLayout>
 #include <QLabel>
@@ -18,6 +23,7 @@
 #include <QPushButton>
 #include <QResizeEvent>
 #include <QSlider>
+#include <QStackedWidget>
 #include <QStandardItemModel>
 #include <QString>
 #include <QTimer>
@@ -40,6 +46,11 @@ class GameListSearchField;
 class GameListDir;
 class GameListLoadingOverlay;
 class GameListDelegate;
+class GameGridDelegate;
+class GameDetailsPanel;
+class GameTreeView;
+class GameGridView;
+class GameCarouselView;
 class GMainWindow;
 enum class AmLaunchType;
 enum class StartGameType;
@@ -111,7 +122,8 @@ public:
     void SaveInterfaceLayout();
     void LoadInterfaceLayout();
 
-    void SetViewMode(bool grid_view);
+    enum class ViewMode { List, Grid, Carousel };
+    void SetViewMode(ViewMode mode);
     void ToggleViewMode();
     void SortAlphabetically();
     void ToggleSortOrder();
@@ -122,6 +134,8 @@ public:
 
     /// Disables events from the emulated controller
     void UnloadController();
+    void LoadController();
+    void JumpToNextLetter();
 
     static const QStringList supported_file_extensions;
 
@@ -152,9 +166,14 @@ signals:
 
 public slots:
     void OnConfigurationChanged();
+    void SwitchToControllerMode();
+    void SwitchToKeyboardMode();
 
 protected:
     void resizeEvent(QResizeEvent* event) override;
+    void showEvent(QShowEvent* event) override;
+    void keyPressEvent(QKeyEvent* event) override;
+    bool eventFilter(QObject* obj, QEvent* event) override;
 
 private slots:
     void OnEmulationEnded();
@@ -167,6 +186,11 @@ private slots:
     void OnUpdateThemedIcons();
     void UpdateOnlineStatus();
     void OnOnlineStatusUpdated(const std::map<u64, std::pair<int, int>>& online_stats);
+    void onControllerFocusChanged(ControllerNavigation::FocusTarget target);
+
+protected:
+    void mouseMoveEvent(QMouseEvent* event) override;
+    void mousePressEvent(QMouseEvent* event) override;
 
 private:
     friend class GameListWorker;
@@ -187,6 +211,8 @@ private:
 
     void StartLaunchAnimation(const QModelIndex& item);
     void ToggleHidden(const QString& path);
+    void UpdateCarouselSelection();
+    void AnimateDetailsPanel(bool show);
 
     void PopulateGridView();
 
@@ -215,14 +241,19 @@ private:
     QHBoxLayout* toolbar_layout = nullptr;
     QToolButton* btn_list_view = nullptr;
     QToolButton* btn_grid_view = nullptr;
+    QToolButton* btn_carousel_view = nullptr;
     QSlider* slider_title_size = nullptr;
     QToolButton* btn_sort_az = nullptr;
     QToolButton* btn_surprise_me = nullptr;
     Qt::SortOrder current_sort_order = Qt::AscendingOrder;
-    QTreeView* tree_view = nullptr;
-    QListView* list_view = nullptr;
     QStandardItemModel* item_model = nullptr;
-    GameListDelegate* item_delegate = nullptr;
+    GameDetailsPanel* details_panel = nullptr;
+    
+    QStackedWidget* main_stack = nullptr;
+    GameTreeView* tree_view = nullptr;
+    GameGridView* grid_view = nullptr;
+    GameCarouselView* carousel_view = nullptr;
+
     GameListLoadingOverlay* loading_overlay = nullptr;
     std::unique_ptr<GameListWorker> current_worker;
     QProgressBar* progress_bar = nullptr;
@@ -240,6 +271,11 @@ private:
     PlayTime::PlayTimeManager& play_time_manager;
     Core::System& system;
     bool toolbar_in_main = false;
+    class NavigationSettingsOverlay* m_nav_overlay = nullptr;
+    bool m_is_controller_mode = false;
+    
+    QWidget* footer_widget = nullptr;
+    QToolButton* btn_add_dir = nullptr;
 };
 
 class GameListPlaceholder : public QWidget {

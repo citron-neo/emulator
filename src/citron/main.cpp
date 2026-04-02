@@ -98,6 +98,7 @@ static FileSys::VirtualFile VfsDirectoryCreateFileWrapper(const FileSys::Virtual
 #include <QShortcut>
 #include <QStandardPaths>
 #include <QStatusBar>
+#include <QToolTip>
 #include <QString>
 #include <QStyleFactory>
 #include <QSysInfo>
@@ -1154,13 +1155,13 @@ void GMainWindow::InitializeWidgets() {
         if (!menu) return;
         menu->installEventFilter(new MenuAnimationFilter(menu));
         menu->setWindowFlags(menu->windowFlags() | Qt::NoDropShadowWindowHint | Qt::FramelessWindowHint);
-        menu->setAttribute(Qt::WA_TranslucentBackground);
+        menu->setAttribute(Qt::WA_TranslucentBackground, false);
         menu->setStyleSheet(QString::asprintf(
-            "QMenu { background-color: #1a1a1e; border: 1px solid #3a3a40; border-radius: 8px; padding: 6px; color: #e0e0e4; }"
-            "QMenu::item { padding: 4px 28px 4px 32px; border-radius: 4px; margin: 1px; font-size: 8.5pt; min-width: 140px; }"
+            "QMenu { background: #24242a; border: 1px solid #32323a; border-radius: 8px; padding: 6px; color: #ffffff; }"
+            "QMenu::item { padding: 4px 28px 4px 32px; border-radius: 4px; margin: 1px; font-size: 8.5pt; min-width: 140px; color: #e0e0e4; }"
             "QMenu::item:selected { background-color: %s; color: #ffffff; }"
             "QMenu::item:disabled { color: #555558; }"
-            "QMenu::separator { height: 1px; background: #32323a; margin: 4px 10px; }"
+            "QMenu::separator { height: 1px; background: #303035; margin: 4px 10px; }"
             "QMenu::indicator { width: 14px; height: 14px; left: 10px; border-radius: 3px; border: 1px solid #4a4a50; background: #121214; }"
             "QMenu::indicator:checked { background: %s; border: 1px solid %s; }",
             accent_str.toUtf8().constData(), accent_str.toUtf8().constData(), accent_str.toUtf8().constData()
@@ -1487,9 +1488,10 @@ void GMainWindow::InitializeWidgets() {
 
         QString gamescope_style = qApp->styleSheet();
         gamescope_style.append(QStringLiteral(
-            "QMenu { background-color: #2b2b2b; border: 1px solid #3d3d3d; padding: 2px; } "
-            "QMenu::item { padding: 5px 25px 5px 20px; } "
-            "QMenu::item:selected { background-color: #3d3d3d; }"));
+            "QMenu { background: #24242a !important; border: 1px solid #32323a; border-radius: 8px; padding: 6px; color: #ffffff; }"
+            "QMenu::item { padding: 6px 30px; border-radius: 4px; margin: 2px; color: #ffffff; }"
+            "QMenu::item:selected { background-color: #32323a; border: 1px solid #42424a; }"
+            "QToolTip { background: #24242a !important; color: #ffffff; border: 1px solid #32323a; border-radius: 6px; padding: 8px; }"));
         qApp->setStyleSheet(gamescope_style);
 
         multiplayer_room_overlay->resize(360, 240);
@@ -2253,6 +2255,10 @@ void GMainWindow::ConfigureFilesystemProvider(const std::string& filepath) {
 
 void GMainWindow::BootGame(const QString& filename, Service::AM::FrontendAppletParameters params,
                            StartGameType type) {
+    if (game_list) {
+        game_list->UnloadController();
+    }
+
     LOG_INFO(Frontend, "citron starting...");
 
     game_list->CancelPopulation();
@@ -2413,8 +2419,13 @@ void GMainWindow::BootGame(const QString& filename, Service::AM::FrontendAppletP
     loading_screen->show();
 
     emulation_running = true;
-    if (ui->action_Fullscreen->isChecked()) {
+    // Honor the persistent setting instead of the UI action state, which
+    // can be accidentally toggled by hotkey conflicts during launch.
+    if (UISettings::values.fullscreen.GetValue()) {
+        ui->action_Fullscreen->setChecked(true);
         ShowFullscreen();
+    } else {
+        ui->action_Fullscreen->setChecked(false);
     }
     OnStartGame();
 }
@@ -2570,6 +2581,7 @@ void GMainWindow::OnEmulationStopped() {
     Settings::RestoreGlobalState(system->IsPoweredOn());
     system->HIDCore().ReloadInputDevices();
     UpdateStatusButtons();
+    game_list->LoadController();
 }
 
 void GMainWindow::ShutdownGame() {
@@ -4244,6 +4256,9 @@ void GMainWindow::ShowFullscreen() {
 
         ui->menubar->hide();
         statusBar()->hide();
+        if (unified_top_bar) {
+            unified_top_bar->hide();
+        }
 
         show_fullscreen(this);
     } else {
@@ -4271,7 +4286,12 @@ void GMainWindow::HideFullscreen() {
         }
 
         statusBar()->setVisible(ui->action_Show_Status_Bar->isChecked());
-        ui->menubar->show();
+        if (unified_top_bar) {
+            ui->menubar->hide();
+            unified_top_bar->show();
+        } else {
+            ui->menubar->show();
+        }
     } else {
         if (UsingExclusiveFullscreen()) {
             render_window->showNormal();
@@ -4704,16 +4724,10 @@ bool GMainWindow::question(QWidget* parent, const QString& title, const QString&
     box_dialog->setStandardButtons(buttons);
     box_dialog->setDefaultButton(defaultButton);
 
-    ControllerNavigation* controller_navigation =
-        new ControllerNavigation(system->HIDCore(), box_dialog);
-    connect(controller_navigation, &ControllerNavigation::TriggerKeyboardEvent,
-            [box_dialog](Qt::Key key) {
-                QKeyEvent* event = new QKeyEvent(QEvent::KeyPress, key, Qt::NoModifier);
-                QCoreApplication::postEvent(box_dialog, event);
-            });
+    game_list->LoadController();
     int res = box_dialog->exec();
 
-    controller_navigation->UnloadController();
+    game_list->UnloadController();
     return res == QMessageBox::Yes;
 }
 
@@ -6248,7 +6262,16 @@ void GMainWindow::UpdateUITheme() {
     QString theme_uri{QStringLiteral(":%1/style.qss").arg(current_theme)};
     QFile f(theme_uri);
     if (f.open(QFile::ReadOnly | QFile::Text)) {
-        qApp->setStyleSheet(QString::fromUtf8(f.readAll()));
+        QString style = QString::fromUtf8(f.readAll());
+        
+        // Append Grey Onyx overrides for popups (Menus)
+        const QString onyx_popups = QStringLiteral(
+            "QMenu { background-color: #24242a !important; border: 1px solid #32323a; border-radius: 8px; padding: 4px; color: #ffffff; }"
+            "QMenu::item { padding: 6px 25px; border-radius: 4px; margin: 1px; color: #ffffff; }"
+            "QMenu::item:selected { background-color: #32323a; border: 1px solid #42424a; }"
+            "QMenu::separator { height: 1px; background: #32323a; margin: 4px 10px; }"
+        );
+        qApp->setStyleSheet(style + onyx_popups);
     } else {
         LOG_ERROR(Frontend, "Unable to set style \"{}\", stylesheet file not found",
                   UISettings::values.theme);

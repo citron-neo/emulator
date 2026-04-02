@@ -404,33 +404,49 @@ QString FormatGameName(const std::string& physical_name) {
 
 QString FormatPatchNameVersions(const FileSys::PatchManager& patch_manager,
                                 Loader::AppLoader& loader, bool updatable = true) {
-    QString out;
+    QString updates;
+    QString dlcs;
+    QString mods;
+
     FileSys::VirtualFile update_raw;
     loader.ReadUpdateRaw(update_raw);
     for (const auto& patch : patch_manager.GetPatches(update_raw)) {
-        const bool is_update = patch.name == "Update";
+        const QString patch_name = QString::fromStdString(patch.name);
+        const bool is_update = patch_name == QLatin1String("Update");
+        const bool is_dlc = patch_name.startsWith(QLatin1String("DLC")) || 
+                           patch_name.contains(QLatin1String("Add-On"), Qt::CaseInsensitive);
+
         if (!updatable && is_update) {
             continue;
         }
 
-        const QString type =
-            QString::fromStdString(patch.enabled ? patch.name : "[D] " + patch.name);
+        QString type = patch.enabled ? patch_name : QLatin1String("[D] ") + patch_name;
+        QString version = QString::fromStdString(patch.version);
+        if (is_update && version == QLatin1String("PACKED")) {
+            version = QString::fromStdString(Loader::GetFileTypeString(loader.GetFileType()));
+        }
 
-        if (patch.version.empty()) {
-            out.append(QStringLiteral("%1\n").arg(type));
+        QString entry = version.isEmpty() ? type : QStringLiteral("%1 (%2)").arg(type, version);
+
+        if (is_update) {
+            updates.append(entry + QStringLiteral("\n"));
+        } else if (is_dlc) {
+            dlcs.append(entry + QStringLiteral(", "));
         } else {
-            auto ver = patch.version;
-
-            // Display container name for packed updates
-            if (is_update && ver == "PACKED") {
-                ver = Loader::GetFileTypeString(loader.GetFileType());
-            }
-
-            out.append(QStringLiteral("%1 (%2)\n").arg(type, QString::fromStdString(ver)));
+            mods.append(entry + QStringLiteral("\n"));
         }
     }
 
-    out.chop(1);
+    if (!dlcs.isEmpty()) {
+        dlcs.chop(2); // Remove trailing comma and space
+        dlcs.prepend(QStringLiteral("DLC: "));
+        dlcs.append(QStringLiteral("\n"));
+    }
+
+    QString out = updates + dlcs + mods;
+    if (out.endsWith(QLatin1Char('\n'))) {
+        out.chop(1);
+    }
     return out;
 }
 
@@ -473,7 +489,27 @@ QList<QStandardItem*> MakeGameListEntry(const std::string& path, const std::stri
         fmt::format("{:016X}", patch.GetTitleID()), "pv.txt", [&patch, &loader] {
             return FormatPatchNameVersions(patch, loader, loader.IsRomFSUpdatable());
         });
-    list.insert(2, new GameListItem(patch_versions));
+
+    auto* addon_item = new GameListItem(patch_versions);
+
+    // Create a high-end HTML tooltip for the Add-ons column
+    if (!patch_versions.isEmpty()) {
+        QString tooltip = QStringLiteral(
+            "<html><body style='background-color: #24242a; color: #ffffff; padding: 15px; border-radius: 10px; font-family: \"Outfit\", \"Inter\", sans-serif;'>"
+            "<div style='margin-bottom: 8px; color: #0096ff; font-size: 13px; font-weight: bold; border-bottom: 1px solid #303035; padding-bottom: 4px;'>ACTIVE ADD-ONS & MODS</div>"
+            "<div style='line-height: 1.5;'>"
+        );
+
+        QStringList categories = patch_versions.split(QLatin1Char('\n'), Qt::SkipEmptyParts);
+        for (const auto& line : categories) {
+            tooltip.append(QStringLiteral("<div style='margin: 3px 0; color: #e0e0e4;'><b>•</b> %1</div>").arg(line.toHtmlEscaped()));
+        }
+
+        tooltip.append(QStringLiteral("</div></body></html>"));
+        addon_item->setData(tooltip, Qt::ToolTipRole);
+    }
+
+    list.insert(2, addon_item);
 
     return list;
 }
