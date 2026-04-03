@@ -3,6 +3,12 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "citron/configuration/shared_widget.h"
+// [UNITY-FIX] win32 headers define LoadString as LoadStringW.
+// Undefine it here to prevent macro collision in shared_widget.cpp unity builds.
+#ifdef LoadString
+#undef LoadString
+#endif
+
 
 #include <functional>
 #include <limits>
