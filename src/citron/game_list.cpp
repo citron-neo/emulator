@@ -27,6 +27,7 @@
 #include <QTimer>
 #include <QtGlobal>
 
+#include <QDateTime>
 #include <QHBoxLayout>
 #include <QHeaderView>
 #include <QIcon>
@@ -58,6 +59,7 @@
 #include <QtConcurrent/QtConcurrent>
 #include <fmt/format.h>
 #include "citron/compatibility_list.h"
+#include "citron/mod_manager/gamebanana_dialog.h"
 #include "citron/custom_metadata.h"
 #include "citron/custom_metadata_dialog.h"
 #include "citron/game_details_panel.h"
@@ -79,6 +81,7 @@
 #include "citron/util/controller_navigation.h"
 #include "citron/util/plinko_widget.h"
 #include "common/common_types.h"
+#include "common/fs/fs.h"
 #include "common/fs/path_util.h"
 #include "common/logging.h"
 #include "common/settings.h"
@@ -2138,7 +2141,7 @@ void GameList::PopupContextMenu(const QPoint& menu_location) {
         const u64 program_id = selected.data(GameListItemPath::ProgramIdRole).toULongLong();
         const std::string path =
             selected.data(GameListItemPath::FullPathRole).toString().toStdString();
-        const QString game_name = selected.data(GameListItemPath::TitleRole).toString();
+        const QString game_name = selected.data(GameListItemPath::OriginalTitleRole).toString();
         AddGamePopup(context_menu, program_id, path, game_name);
         break;
     }
@@ -2274,26 +2277,36 @@ void GameList::AddGamePopup(QMenu& context_menu, u64 program_id, const std::stri
     QAction* edit_metadata = context_menu.addAction(tr("Edit Metadata"));
     QAction* properties = context_menu.addAction(tr("Properties"));
 
-    connect(edit_metadata, &QAction::triggered, [this, program_id, game_name] {
-        const u64 current_play_time = play_time_manager.GetPlayTime(program_id);
-        CustomMetadataDialog dialog(this, program_id, game_name.toStdString(), current_play_time);
-        if (dialog.exec() == QDialog::Accepted) {
-            auto& custom_metadata = Citron::CustomMetadata::GetInstance();
-            if (dialog.WasReset()) {
-                custom_metadata.RemoveCustomMetadata(program_id);
-            } else {
-                custom_metadata.SetCustomTitle(program_id, dialog.GetTitle());
-                const std::string icon_path = dialog.GetIconPath();
-                if (!icon_path.empty()) {
-                    custom_metadata.SetCustomIcon(program_id, icon_path);
+    connect(edit_metadata, &QAction::triggered, this,
+            [this, program_id, game_name] {
+                const u64 current_play_time = play_time_manager.GetPlayTime(program_id);
+                CustomMetadataDialog dialog(this, program_id, game_name.toStdString(),
+                                            current_play_time);
+                if (dialog.exec() == QDialog::Accepted) {
+                    auto& custom_metadata = Citron::CustomMetadata::GetInstance();
+                    if (dialog.WasReset()) {
+                        custom_metadata.RemoveCustomMetadata(program_id);
+                    } else {
+                        custom_metadata.SetCustomTitle(program_id, dialog.GetTitle());
+                        const std::string icon_path = dialog.GetIconPath();
+                        if (!icon_path.empty()) {
+                            custom_metadata.SetCustomIcon(program_id, icon_path);
+                        }
+                        play_time_manager.SetPlayTime(program_id, dialog.GetPlayTime());
+                    }
+                    // Invalidate game list cache to force re-scan of canonical titles
+                    const auto cache_dir =
+                        Common::FS::GetCitronPath(Common::FS::CitronPath::CacheDir) / "game_list";
+                    const auto cache_file =
+                        Common::FS::PathToUTF8String(cache_dir / "game_metadata_cache.json");
+                    Common::FS::RemoveFile(cache_file);
+
+                    if (main_window) {
+                        main_window->RefreshGameList();
+                    }
                 }
-                play_time_manager.SetPlayTime(program_id, dialog.GetPlayTime());
-            }
-            if (main_window) {
-                main_window->RefreshGameList();
-            }
-        }
-    });
+            },
+            Qt::QueuedConnection);
 
     favorite->setVisible(program_id != 0);
     favorite->setCheckable(true);
@@ -2343,7 +2356,9 @@ void GameList::AddGamePopup(QMenu& context_menu, u64 program_id, const std::stri
         connect(open_nand_location, &QAction::triggered, [this, program_id, mirror_base_path]() {
             const auto user_id = system.GetProfileManager().GetLastOpenedUser().AsU128();
             const std::string relative_save_path = fmt::format(
-                "user/save/{:016X}/{:016X}{:016X}/{:016X}", 0, user_id[1], user_id[0], program_id);
+                "user/save/{:016X}/{:016X}{:016X}/{:016X}", 0,
+                static_cast<uint64_t>(user_id[1]), static_cast<uint64_t>(user_id[0]),
+                static_cast<uint64_t>(program_id));
             const auto full_save_path =
                 std::filesystem::path(mirror_base_path.toStdString()) / relative_save_path;
             if (!std::filesystem::exists(full_save_path.parent_path())) {
@@ -2382,7 +2397,9 @@ void GameList::AddGamePopup(QMenu& context_menu, u64 program_id, const std::stri
         const QString base_dir = QString::fromStdString(base_save_path_str);
         const auto user_id = system.GetProfileManager().GetLastOpenedUser().AsU128();
         const std::string relative_save_path = fmt::format(
-            "user/save/{:016X}/{:016X}{:016X}/{:016X}", 0, user_id[1], user_id[0], program_id);
+            "user/save/{:016X}/{:016X}{:016X}/{:016X}", 0,
+            static_cast<uint64_t>(user_id[1]), static_cast<uint64_t>(user_id[0]),
+            static_cast<uint64_t>(program_id));
         const QString internal_save_path =
             QDir(base_dir).filePath(QString::fromStdString(relative_save_path));
         bool mirroring_enabled = false;
@@ -2474,8 +2491,8 @@ void GameList::AddGamePopup(QMenu& context_menu, u64 program_id, const std::stri
     });
     connect(open_current_game_sdmc, &QAction::triggered, [program_id]() {
         const auto sdmc_path = Common::FS::GetCitronPath(Common::FS::CitronPath::SDMCDir);
-        const auto full_path =
-            sdmc_path / "atmosphere" / "contents" / fmt::format("{:016X}", program_id);
+        const auto full_path = sdmc_path / "atmosphere" / "contents" /
+                               fmt::format("{:016X}", static_cast<uint64_t>(program_id));
         const QString qpath = QString::fromStdString(Common::FS::PathToUTF8String(full_path));
         QDir dir(qpath);
         if (!dir.exists())
@@ -2525,6 +2542,7 @@ void GameList::AddGamePopup(QMenu& context_menu, u64 program_id, const std::stri
     connect(remove_cache_storage, &QAction::triggered, [this, program_id, path_str] {
         emit RemoveFileRequested(program_id, GameListRemoveTarget::CacheStorage, path_str);
     });
+
     connect(dump_romfs, &QAction::triggered, [this, program_id, path_str]() {
         emit DumpRomFSRequested(program_id, path_str, DumpRomFSTarget::Normal);
     });
@@ -2544,8 +2562,10 @@ void GameList::AddGamePopup(QMenu& context_menu, u64 program_id, const std::stri
         if (reply != QMessageBox::Yes) {
             return;
         }
-        const QString clean_tid =
-            QStringLiteral("%1").arg(program_id, 16, 16, QLatin1Char('0')).toUpper();
+        const QString clean_tid = QStringLiteral("%1")
+                                      .arg(static_cast<qulonglong>(program_id), 16, 16,
+                                           QLatin1Char('0'))
+                                      .toUpper();
         QUrl url(QStringLiteral("https://github.com/citron-neo/Citron-Compatability/issues/new"));
         QUrlQuery query;
         query.addQueryItem(QStringLiteral("template"), QStringLiteral("compat.yml"));
@@ -2562,8 +2582,9 @@ void GameList::AddGamePopup(QMenu& context_menu, u64 program_id, const std::stri
         emit CreateShortcut(program_id, path_str, GameListShortcutTarget::Applications);
     });
 #endif
-    connect(properties, &QAction::triggered,
-            [this, path_str]() { emit OpenPerGameGeneralRequested(path_str); });
+    connect(properties, &QAction::triggered, this,
+            [this, path_str]() { emit OpenPerGameGeneralRequested(path_str); },
+            Qt::QueuedConnection);
 }
 
 void GameList::AddCustomDirPopup(QMenu& context_menu, QModelIndex selected,

@@ -11,7 +11,6 @@
 #include <QWidget>
 
 #include "core/file_sys/vfs/vfs_types.h"
-#include "citron/mod_manager/mod_service.h"
 
 namespace Core {
 class System;
@@ -21,6 +20,10 @@ class QStandardItem;
 class QStandardItemModel;
 class QTreeView;
 class QVBoxLayout;
+
+namespace ModManager {
+class GameBananaDialog;
+}
 
 namespace Ui {
 class ConfigurePerGameAddons;
@@ -48,8 +51,6 @@ private:
     void LoadConfiguration();
 
     std::unique_ptr<Ui::ConfigurePerGameAddons> ui;
-    ModManager::ModService* mod_service;
-    ModManager::ModUpdateInfo cached_mod_info;
     FileSys::VirtualFile file;
     u64 title_id;
 

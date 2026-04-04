@@ -6264,14 +6264,17 @@ void GMainWindow::UpdateUITheme() {
     if (f.open(QFile::ReadOnly | QFile::Text)) {
         QString style = QString::fromUtf8(f.readAll());
         
-        // Append Grey Onyx overrides for popups (Menus)
-        const QString onyx_popups = QStringLiteral(
-            "QMenu { background-color: #24242a !important; border: 1px solid #32323a; border-radius: 8px; padding: 4px; color: #ffffff; }"
+        // Append Grey Onyx overrides for popups (Menus) and the Top Unified Toolbar
+        const QString onyx_overrides = QStringLiteral(
+            "QMenuBar { background-color: #08080a; border-bottom: 1px solid #1a1a1e; min-height: 38px; }"
+            "QMenuBar::item { padding: 0px 14px; background: transparent; border-radius: 4px; color: #ffffff; margin: 4px 2px; height: 30px; }"
+            "QMenuBar::item:selected { background-color: #24242a; }"
+            "QMenu { background-color: #1a1a1e !important; border: 1px solid #32323a; border-radius: 8px; padding: 4px; color: #ffffff; }"
             "QMenu::item { padding: 6px 25px; border-radius: 4px; margin: 1px; color: #ffffff; }"
             "QMenu::item:selected { background-color: #32323a; border: 1px solid #42424a; }"
             "QMenu::separator { height: 1px; background: #32323a; margin: 4px 10px; }"
         );
-        qApp->setStyleSheet(style + onyx_popups);
+        qApp->setStyleSheet(style + onyx_overrides);
     } else {
         LOG_ERROR(Frontend, "Unable to set style \"{}\", stylesheet file not found",
                   UISettings::values.theme);

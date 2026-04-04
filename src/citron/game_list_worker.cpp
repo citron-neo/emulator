@@ -347,16 +347,18 @@ std::pair<std::vector<u8>, std::string> GetGameListCachedObject(
 }
 
 void GetMetadataFromControlNCA(const FileSys::PatchManager& patch_manager, const FileSys::NCA& nca,
-                               std::vector<u8>& icon, std::string& name) {
+                               std::vector<u8>& icon, std::string& name,
+                               std::string& original_name) {
     const auto program_id = patch_manager.GetTitleID();
     auto& custom_metadata = Citron::CustomMetadata::GetInstance();
 
-    std::tie(icon, name) =
+    std::tie(icon, original_name) =
         GetGameListCachedObject(fmt::format("{:016X}", program_id), {}, [&patch_manager, &nca] {
             const auto [nacp, icon_f] = patch_manager.ParseControlNCA(nca);
             return std::make_pair(icon_f->ReadAllBytes(), nacp->GetApplicationName());
         });
 
+    name = original_name;
     if (auto custom_title = custom_metadata.GetCustomTitle(program_id)) {
         name = *custom_title;
     }
@@ -451,6 +453,7 @@ QString FormatPatchNameVersions(const FileSys::PatchManager& patch_manager,
 }
 
 QList<QStandardItem*> MakeGameListEntry(const std::string& path, const std::string& name,
+                                        const std::string& original_name,
                                         const std::size_t size, const std::vector<u8>& icon,
                                         Loader::AppLoader& loader, u64 program_id,
                                         const CompatibilityList& compatibility_list,
@@ -477,8 +480,9 @@ QList<QStandardItem*> MakeGameListEntry(const std::string& path, const std::stri
     }
 
     QList<QStandardItem*> list{new GameListItemPath(FormatGameName(path), icon,
-                                                    QString::fromStdString(name), file_type_string,
-                                                    program_id),
+                                                    QString::fromStdString(name),
+                                                    QString::fromStdString(original_name),
+                                                    file_type_string, program_id),
                                new GameListItemCompat(compatibility),
                                new GameListItem(file_type_string),
                                new GameListItemSize(size),
@@ -613,6 +617,7 @@ void GameListWorker::AddTitlesToGameList(GameListDir* parent_dir,
 
         std::vector<u8> icon;
         std::string name;
+        std::string original_name;
         u64 program_id = 0;
         const auto result = loader->ReadProgramId(program_id);
 
@@ -624,12 +629,12 @@ void GameListWorker::AddTitlesToGameList(GameListDir* parent_dir,
                                  system.GetContentProvider()};
         const auto control = cache.GetEntry(game.title_id, ContentRecordType::Control);
         if (control != nullptr) {
-            GetMetadataFromControlNCA(patch, *control, icon, name);
+            GetMetadataFromControlNCA(patch, *control, icon, name, original_name);
         }
 
-        auto entry =
-            MakeGameListEntry(file->GetFullPath(), name, file->GetSize(), icon, *loader, program_id,
-                              compatibility_list, play_time_manager, patch, online_stats);
+        auto entry = MakeGameListEntry(file->GetFullPath(), name, original_name, file->GetSize(),
+                                       icon, *loader, program_id, compatibility_list,
+                                       play_time_manager, patch, online_stats);
         RecordEvent([=](GameList* game_list) { game_list->AddEntry(entry, parent_dir); });
     }
 }
@@ -697,13 +702,14 @@ void GameListWorker::ScanFileSystem(ScanTarget target, const std::string& dir_pa
                                                       system.GetContentProvider()};
                     auto loader = Loader::GetLoader(system, file);
                     if (loader) {
-                        std::string title = cached->title;
+                        std::string name = cached->title;
+                        std::string original_name = cached->title;
                         std::vector<u8> icon = cached->icon;
 
                         auto& custom_metadata = Citron::CustomMetadata::GetInstance();
                         if (auto custom_title =
                                 custom_metadata.GetCustomTitle(cached->program_id)) {
-                            title = *custom_title;
+                            name = *custom_title;
                         }
 
                         if (auto custom_icon_path =
@@ -716,8 +722,8 @@ void GameListWorker::ScanFileSystem(ScanTarget target, const std::string& dir_pa
                         }
 
                         auto entry =
-                            MakeGameListEntry(physical_name, title, cached->file_size, icon,
-                                              *loader, cached->program_id, compatibility_list,
+                            MakeGameListEntry(physical_name, name, original_name, cached->file_size,
+                                              icon, *loader, cached->program_id, compatibility_list,
                                               play_time_manager, patch, online_stats);
                         RecordEvent(
                             [=](GameList* game_list) { game_list->AddEntry(entry, parent_dir); });
@@ -772,9 +778,11 @@ void GameListWorker::ScanFileSystem(ScanTarget target, const std::string& dir_pa
                 // 3. FILTER UPDATES: Only add to UI if it's a Base Game (ID ends in 000)
                 if ((program_id & 0xFFF) == 0) {
                     std::vector<u8> icon;
+                    std::string original_name = " ";
                     std::string name = " ";
                     loader->ReadIcon(icon);
-                    loader->ReadTitle(name);
+                    loader->ReadTitle(original_name);
+                    name = original_name;
 
                     auto& custom_metadata = Citron::CustomMetadata::GetInstance();
                     if (auto custom_title = custom_metadata.GetCustomTitle(program_id)) {
@@ -791,12 +799,13 @@ void GameListWorker::ScanFileSystem(ScanTarget target, const std::string& dir_pa
 
                     std::size_t file_size = Common::FS::GetSize(physical_name);
 
-                    CacheGameMetadata(physical_name, program_id, file_type, file_size, name, icon);
+                    CacheGameMetadata(physical_name, program_id, file_type, file_size,
+                                      original_name, icon);
 
                     const FileSys::PatchManager patch{program_id, system.GetFileSystemController(),
                                                       system.GetContentProvider()};
-                    auto entry = MakeGameListEntry(physical_name, name, file_size, icon, *loader,
-                                                   program_id, compatibility_list,
+                    auto entry = MakeGameListEntry(physical_name, name, original_name, file_size,
+                                                   icon, *loader, program_id, compatibility_list,
                                                    play_time_manager, patch, online_stats);
                     RecordEvent(
                         [=](GameList* game_list) { game_list->AddEntry(entry, parent_dir); });

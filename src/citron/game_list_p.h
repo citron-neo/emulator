@@ -102,13 +102,16 @@ public:
     static constexpr int ProgramIdRole = SortRole + 3;
     static constexpr int FileTypeRole = SortRole + 4;
     static constexpr int HighResIconRole = SortRole + 5;
+    static constexpr int OriginalTitleRole = SortRole + 6;
 
     GameListItemPath() = default;
     GameListItemPath(const QString& game_path, const std::vector<u8>& picture_data,
-                     const QString& game_name, const QString& game_type, u64 program_id) {
+                     const QString& game_name, const QString& original_name,
+                     const QString& game_type, u64 program_id) {
         setData(type(), TypeRole);
         setData(game_path, FullPathRole);
         setData(game_name, TitleRole);
+        setData(original_name, OriginalTitleRole);
         setData(qulonglong(program_id), ProgramIdRole);
         setData(game_type, FileTypeRole);
 
