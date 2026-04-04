@@ -1179,15 +1179,15 @@ GameList::GameList(std::shared_ptr<FileSys::VfsFilesystem> vfs_,
 #ifndef __linux__
         // On non-Linux platforms, also update game icon size and repaint grid view
         UISettings::values.game_icon_size.SetValue(static_cast<u32>(value));
-        if (list_view->isVisible()) {
-            QAbstractItemModel* current_model = list_view->model();
+        if (grid_view->isVisible()) {
+            QAbstractItemModel* current_model = grid_view->model();
             if (current_model && current_model != item_model) {
                 QStandardItemModel* flat_model = qobject_cast<QStandardItemModel*>(current_model);
                 if (flat_model) {
                     const u32 icon_size = static_cast<u32>(value);
-                    list_view->setGridSize(QSize(icon_size + 60, icon_size + 80));
-                    int scroll_position = list_view->verticalScrollBar()->value();
-                    QModelIndex current_index = list_view->currentIndex();
+                    grid_view->view()->setGridSize(QSize(icon_size + 60, icon_size + 80));
+                    int scroll_position = grid_view->view()->verticalScrollBar()->value();
+                    QModelIndex current_index = grid_view->currentIndex();
 
                     for (int i = 0; i < flat_model->rowCount(); ++i) {
                         QStandardItem* item = flat_model->item(i);
@@ -1236,10 +1236,10 @@ GameList::GameList(std::shared_ptr<FileSys::VfsFilesystem> vfs_,
                         }
                     }
                     if (scroll_position >= 0) {
-                        list_view->verticalScrollBar()->setValue(scroll_position);
+                        grid_view->view()->verticalScrollBar()->setValue(scroll_position);
                     }
                     if (current_index.isValid() && current_index.row() < flat_model->rowCount()) {
-                        list_view->setCurrentIndex(flat_model->index(current_index.row(), 0));
+                        grid_view->setCurrentIndex(flat_model->index(current_index.row(), 0));
                     }
                 }
             } else {

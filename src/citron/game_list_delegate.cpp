@@ -416,7 +416,7 @@ void GameListDelegate::PaintBackground(QPainter* painter, const QStyleOptionView
 
     float pulse_width_extra = is_selected ? (0.2f + (float)pulse * 0.8f) : 0.0f;
     if (is_selected) {
-        border_color.setAlphaF(0.3 + (pulse * 0.7));
+        border_color.setAlphaF(static_cast<float>(0.3 + (pulse * 0.7)));
     }
 
     painter->setPen(QPen(border_color, 1.2f + pulse_width_extra));
