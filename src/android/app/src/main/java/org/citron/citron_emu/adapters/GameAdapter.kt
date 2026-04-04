@@ -33,58 +33,10 @@ import org.citron.citron_emu.viewholder.AbstractViewHolder
 class GameAdapter(private val activity: AppCompatActivity) :
     AbstractDiffAdapter<Game, AbstractViewHolder<Game>>(exact = false) {
 
-    companion object {
-        const val VIEW_TYPE_GRID = 0
-        const val VIEW_TYPE_LIST = 1
-    }
-
-    private var isListView = false
-
-    fun setListView(listView: Boolean) {
-        if (isListView != listView) {
-            isListView = listView
-            notifyDataSetChanged()
-        }
-    }
-
-    override fun getItemViewType(position: Int): Int {
-        return if (isListView) VIEW_TYPE_LIST else VIEW_TYPE_GRID
-    }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): AbstractViewHolder<Game> {
-        return when (viewType) {
-            VIEW_TYPE_GRID -> {
-                val binding = CardGameBinding.inflate(LayoutInflater.from(parent.context), parent, false)
-                GameGridViewHolder(binding)
-            }
-            VIEW_TYPE_LIST -> {
-                val binding = CardGameListBinding.inflate(LayoutInflater.from(parent.context), parent, false)
-                GameListViewHolder(binding)
-            }
-            else -> throw IllegalArgumentException("Invalid view type")
-        }
-    }
-
-    inner class GameGridViewHolder(val binding: CardGameBinding) :
-        AbstractViewHolder<Game>(binding) {
-        override fun bind(model: Game) {
-            binding.imageGameScreen.scaleType = ImageView.ScaleType.CENTER_CROP
-            GameIconUtils.loadGameIcon(model, binding.imageGameScreen)
-
-            binding.textGameTitle.text = model.title.replace("[\\t\\n\\r]+".toRegex(), " ")
-
-            binding.textGameTitle.marquee()
-            binding.cardGame.setOnClickListener { onClick(model) }
-            binding.cardGame.setOnLongClickListener { onLongClick(model) }
-        }
-
-        fun onClick(game: Game) {
-            handleGameClick(game)
-        }
-
-        fun onLongClick(game: Game): Boolean {
-            return handleGameLongClick(game)
-        }
+        val binding = CardGameListBinding.inflate(LayoutInflater.from(parent.context), parent, false)
+        return GameListViewHolder(binding)
     }
 
     inner class GameListViewHolder(val binding: CardGameListBinding) :
