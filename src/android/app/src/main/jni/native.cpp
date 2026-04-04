@@ -724,6 +724,9 @@ jboolean Java_org_citron_citron_1emu_NativeLibrary_isFirmwareAvailable(JNIEnv* e
         return false;
     }
 
+    // refresh to fix firmware detection on app restart
+    bis_system->Refresh();
+
     // Query an applet to see if it's available
     auto applet_nca =
         bis_system->GetEntry(0x010000000000100Dull, FileSys::ContentRecordType::Program);
