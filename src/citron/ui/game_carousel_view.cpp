@@ -117,8 +117,8 @@ void CinematicCarousel::paintEvent(QPaintEvent* event) {
         const bool focal = std::abs(i - m_focal_index) < 0.5;
         if (focal) {
             p.save(); QColor acc = AccentColor(); qreal pulse = (std::sin(m_pulse_tick * 0.1) + 1.0) / 2.0;
-            if (m_has_focus) { p.setPen(QPen(acc, 4.5 + pulse * 1.5)); acc.setAlphaF(0.12 + pulse * 0.08); p.setBrush(acc); }
-            else { acc.setAlphaF(0.4); p.setPen(QPen(acc, 3.0)); p.setBrush(Qt::NoBrush); }
+            if (m_has_focus) { p.setPen(QPen(acc, 4.5 + pulse * 1.5)); acc.setAlphaF(static_cast<float>(0.12 + pulse * 0.08)); p.setBrush(acc); }
+            else { acc.setAlphaF(0.4f); p.setPen(QPen(acc, 3.0)); p.setBrush(Qt::NoBrush); }
             p.drawPath(path); p.restore();
 
             // Draw the alphabetical header ONLY when it changes (category boundary)

@@ -113,7 +113,7 @@ void GameGridDelegate::PaintGridItem(QPainter* painter, const QStyleOptionViewIt
 
     if (is_selected) {
         QColor glow = AccentColor();
-        glow.setAlphaF(0.2);
+        glow.setAlphaF(0.2f);
         painter->save();
         painter->setBrush(glow);
         painter->setPen(Qt::NoPen);
