@@ -123,7 +123,7 @@ void GameDetailsPanel::setupUI() {
     connect(pulse, &QVariantAnimation::valueChanged, this, [icon_glow](const QVariant& value) {
         const QString hex = QString::fromStdString(UISettings::values.accent_color.GetValue());
         QColor accent = QColor(hex).isValid() ? QColor(hex) : QColor(0, 150, 255);
-        accent.setAlphaF(0.2 + (value.toReal() / 50.0));
+        accent.setAlphaF(static_cast<float>(0.2 + (value.toReal() / 50.0)));
         icon_glow->setColor(accent);
         icon_glow->setBlurRadius(value.toReal());
     });
