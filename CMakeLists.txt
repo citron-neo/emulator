@@ -648,10 +648,10 @@ endif()
 
 # List of all FFmpeg components required
 set(FFmpeg_COMPONENTS
-    avcodec
     avfilter
-    avutil
-    swscale)
+    swscale
+    avcodec
+    avutil)
 
 if (UNIX AND NOT APPLE AND NOT ANDROID)
     find_package(PkgConfig REQUIRED)

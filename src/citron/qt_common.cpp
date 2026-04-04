@@ -16,6 +16,21 @@
 #include <objc/message.h>
 #endif
 
+#if defined(__linux__) || defined(__FreeBSD__)
+// Fix X11 macro pollution for unity builds
+#undef Always
+#undef Bool
+#undef CurrentTime
+#undef False
+#undef FocusIn
+#undef FocusOut
+#undef FontChange
+#undef None
+#undef Status
+#undef Success
+#undef True
+#endif
+
 namespace QtCommon {
 Core::Frontend::WindowSystemType GetWindowSystemType() {
     // Determine WSI type based on Qt platform.
