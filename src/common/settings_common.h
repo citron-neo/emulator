@@ -3,6 +3,11 @@
 
 #pragma once
 
+// [UNITY-FIX] win32 headers define LoadString as LoadStringW.
+// Undefine it here so Settings::BasicSetting::LoadString remains stable in unity builds.
+#ifdef LoadString
+#undef LoadString
+#endif
 #include <functional>
 #include <map>
 #include <string>

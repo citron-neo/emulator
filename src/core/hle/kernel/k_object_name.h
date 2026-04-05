@@ -3,6 +3,12 @@
 
 #pragma once
 
+// [UNITY-FIX] wingdi.h defines GetObject as GetObjectA/GetObjectW.
+// Undefine it here so internal kernel GetObject APIs remain stable in unity builds.
+#ifdef GetObject
+#undef GetObject
+#endif
+
 #include <array>
 #include <memory>
 

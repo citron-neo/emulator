@@ -633,8 +633,6 @@ endif()
 
 create_target_directory_groups(citron)
 
-
-# [UNITY-FIX] Skip unity build for X11-polluted files.
 if(UNIX AND CMAKE_UNITY_BUILD)
     set_source_files_properties(
         startup_checks.cpp compatdb.cpp setup_wizard.cpp

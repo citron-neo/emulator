@@ -171,8 +171,9 @@ Reporter::Reporter(System& system_) : system(system_) {
 
 Reporter::~Reporter() = default;
 
+// [UNITY-FIX] far renamed to far_reg
 void Reporter::SaveCrashReport(u64 title_id, Result result, u64 set_flags, u64 entry_point, u64 sp,
-                               u64 pc, u64 pstate, u64 afsr0, u64 afsr1, u64 esr, u64 far,
+                               u64 pc, u64 pstate, u64 afsr0, u64 afsr1, u64 esr, u64 far_reg,
                                const std::array<u64, 31>& registers,
                                const std::array<u64, 32>& backtrace, u32 backtrace_size,
                                const std::string& arch, u32 unk10) const {
@@ -191,7 +192,7 @@ void Reporter::SaveCrashReport(u64 title_id, Result result, u64 set_flags, u64 e
     proc_out["afsr0"] = fmt::format("{:016X}", afsr0);
     proc_out["afsr1"] = fmt::format("{:016X}", afsr1);
     proc_out["esr"] = fmt::format("{:016X}", esr);
-    proc_out["far"] = fmt::format("{:016X}", far);
+    proc_out["far_reg"] = fmt::format("{:016X}", far_reg);
     proc_out["backtrace_size"] = fmt::format("{:08X}", backtrace_size);
     proc_out["unknown_10"] = fmt::format("{:08X}", unk10);
 

@@ -42,7 +42,8 @@ struct FatalInfo {
     u64_le afsr0{};
     u64_le afsr1{};
     u64_le esr{};
-    u64_le far{};
+    // [UNITY-FIX] far renamed to far_reg
+    u64_le far_reg{};
 
     std::array<u64_le, 32> backtrace{};
     u64_le program_entry_point{};
@@ -117,7 +118,8 @@ static void GenerateErrorReport(Core::System& system, Result error_code, const F
         crash_report += fmt::format("    AFSR0:                       {:016x}\n", info.afsr0);
         crash_report += fmt::format("    AFSR1:                       {:016x}\n", info.afsr1);
         crash_report += fmt::format("    ESR:                         {:016x}\n", info.esr);
-        crash_report += fmt::format("    FAR:                         {:016x}\n", info.far);
+        // [UNITY-FIX] far renamed to far_reg
+        crash_report += fmt::format("    FAR:                         {:016x}\n", info.far_reg);
         crash_report += "\nBacktrace:\n";
         for (u32 i = 0; i < std::min<u32>(info.backtrace_size, 32); i++) {
             crash_report +=
@@ -129,10 +131,10 @@ static void GenerateErrorReport(Core::System& system, Result error_code, const F
     }
 
     LOG_ERROR(Service_Fatal, "{}", crash_report);
-
+    // [UNITY-FIX] far renamed to far_reg
     system.GetReporter().SaveCrashReport(
         title_id, error_code, info.set_flags, info.program_entry_point, info.sp, info.pc,
-        info.pstate, info.afsr0, info.afsr1, info.esr, info.far, info.registers, info.backtrace,
+        info.pstate, info.afsr0, info.afsr1, info.esr, info.far_reg, info.registers, info.backtrace,
         info.backtrace_size, info.ArchAsString(), info.unk10);
 }
 
