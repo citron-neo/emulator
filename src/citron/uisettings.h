@@ -147,6 +147,10 @@ namespace UISettings {
 
                                     Setting<bool> check_for_updates_on_start{linkage, true, "check_for_updates_on_start", Category::Ui};
 
+                                    // GameBanana Mod Manager
+                                    Setting<bool> always_ask_manual_extraction{linkage, false, "always_ask_manual_extraction", Category::Ui};
+                                    Setting<bool> disable_backup_archives{linkage, false, "disable_backup_archives", Category::Ui};
+
                                     // User might not want backups. Allow them to disable/re-enable accordingly.
                                     Setting<bool> updater_enable_backups{linkage, true, "updater/enableBackups", Category::Ui};
 

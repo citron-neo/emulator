@@ -2262,6 +2262,7 @@ void GMainWindow::BootGame(const QString& filename, Service::AM::FrontendAppletP
     LOG_INFO(Frontend, "citron starting...");
 
     game_list->CancelPopulation();
+    game_list->ClearLaunchOverlays();
 
     RegisterAutoloaderContents();
 
@@ -2521,7 +2522,14 @@ void GMainWindow::OnEmulationStopped() {
     system->GetFileSystemController().CreateFactories(*vfs, true);
 
     // Refresh the game list now that the filesystem is valid again.
-    game_list->PopulateAsync(UISettings::values.game_dirs);
+    game_list->ClearLaunchOverlays();
+    if (play_time_manager) {
+        const u64 program_id = play_time_manager->GetProgramId();
+        game_list->RefreshGame(program_id, play_time_manager->GetPlayTime(program_id));
+    }
+    game_list->PopulateAsync(UISettings::values.game_dirs, true);
+    game_list->setEnabled(true);
+    game_list->setFocus();
 
     discord_rpc->Update();
 
@@ -4092,9 +4100,9 @@ void GMainWindow::OnPauseContinueGame() {
 
 void GMainWindow::OnStopGame() {
     if (ConfirmShutdownGame()) {
-        play_time_manager->Stop();
         // Update game list to show new play time
-        game_list->PopulateAsync(UISettings::values.game_dirs);
+        game_list->ClearLaunchOverlays();
+        game_list->PopulateAsync(UISettings::values.game_dirs, true);
         if (OnShutdownBegin()) {
             OnShutdownBeginDialog();
         } else {
@@ -6264,14 +6272,17 @@ void GMainWindow::UpdateUITheme() {
     if (f.open(QFile::ReadOnly | QFile::Text)) {
         QString style = QString::fromUtf8(f.readAll());
         
-        // Append Grey Onyx overrides for popups (Menus)
-        const QString onyx_popups = QStringLiteral(
-            "QMenu { background-color: #24242a !important; border: 1px solid #32323a; border-radius: 8px; padding: 4px; color: #ffffff; }"
+        // Append Grey Onyx overrides for popups (Menus) and the Top Unified Toolbar
+        const QString onyx_overrides = QStringLiteral(
+            "QMenuBar { background-color: #08080a; border-bottom: 1px solid #1a1a1e; min-height: 38px; }"
+            "QMenuBar::item { padding: 0px 14px; background: transparent; border-radius: 4px; color: #ffffff; margin: 4px 2px; height: 30px; }"
+            "QMenuBar::item:selected { background-color: #24242a; }"
+            "QMenu { background-color: #1a1a1e !important; border: 1px solid #32323a; border-radius: 8px; padding: 4px; color: #ffffff; }"
             "QMenu::item { padding: 6px 25px; border-radius: 4px; margin: 1px; color: #ffffff; }"
             "QMenu::item:selected { background-color: #32323a; border: 1px solid #42424a; }"
             "QMenu::separator { height: 1px; background: #32323a; margin: 4px 10px; }"
         );
-        qApp->setStyleSheet(style + onyx_popups);
+        qApp->setStyleSheet(style + onyx_overrides);
     } else {
         LOG_ERROR(Frontend, "Unable to set style \"{}\", stylesheet file not found",
                   UISettings::values.theme);

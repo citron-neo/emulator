@@ -181,6 +181,9 @@ void GameListDelegate::paint(QPainter* painter, const QStyleOptionViewItem& opti
         case GameList::COLUMN_COMPATIBILITY:
             PaintCompatibility(painter, rect, index);
             break;
+        case GameList::COLUMN_PLAY_TIME:
+            PaintPlayTime(painter, rect, option, index);
+            break;
         default:
             PaintDefault(painter, rect, option, index);
             break;
@@ -298,6 +301,21 @@ void GameListDelegate::AdvanceAnimations() {
 
     // 4. Entry animations (Bubble/Fade-in)
     auto it_entry = entry_animations.begin();
+    
+    // 5. Global Refresh Spinner Animation
+    refresh_angle -= 10.0; // Rotate 10 degrees per frame
+    if (refresh_angle <= -360.0) refresh_angle += 360.0;
+    
+    // Trigger repaint for any item currently in 'Refreshing' state
+    for (int i = 0; i < tree_view->model()->rowCount(); ++i) {
+        QModelIndex folder = tree_view->model()->index(i, 0);
+        for (int j = 0; j < tree_view->model()->rowCount(folder); ++j) {
+            QModelIndex play_time_idx = tree_view->model()->index(j, GameList::COLUMN_PLAY_TIME, folder);
+            if (play_time_idx.data(GameListItem::IsRefreshingRole).toBool()) {
+                indices_to_update.append(play_time_idx);
+            }
+        }
+    }
     while (it_entry != entry_animations.end()) {
         const QPersistentModelIndex& key = it_entry.key();
         if (!key.isValid()) {
@@ -793,6 +811,35 @@ void GameListDelegate::ClearAnimations() {
     entry_animations.clear();
     if (tree_view && tree_view->viewport()) {
         tree_view->viewport()->update();
+    }
+}
+
+void GameListDelegate::PaintPlayTime(QPainter* painter, const QRect& rect,
+                                     const QStyleOptionViewItem& option,
+                                     const QModelIndex& index) const {
+    const bool is_refreshing = index.data(GameListItem::IsRefreshingRole).toBool();
+
+    if (is_refreshing) {
+        painter->save();
+        painter->setRenderHint(QPainter::Antialiasing);
+
+        // Center the spinner in the cell
+        const int size = 16;
+        const int x = rect.left() + (rect.width() - size) / 2;
+        const int y = rect.top() + (rect.height() - size) / 2;
+        QRect spinner_rect(x, y, size, size);
+
+        QPen pen(AccentColor(), 2);
+        pen.setCapStyle(Qt::RoundCap);
+        painter->setPen(pen);
+
+        // Draw a partial arc that rotates based on the global refresh_angle
+        painter->drawArc(spinner_rect, static_cast<int>(refresh_angle * 16), 270 * 16);
+
+        painter->restore();
+    } else {
+        // Fallback to standard text rendering if not refreshing
+        PaintDefault(painter, rect, option, index);
     }
 }
 

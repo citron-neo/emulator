@@ -15,6 +15,8 @@ GameTreeView::GameTreeView(QWidget* parent) : QTreeView(parent) {
     header()->setStretchLastSection(true);
     header()->setSectionsMovable(true);
     ApplyTheme();
+
+    connect(this, &QTreeView::activated, this, &GameTreeView::itemActivated);
 }
 
 void GameTreeView::ApplyTheme() {
@@ -67,8 +69,6 @@ void GameTreeView::onActivated() {
 void GameTreeView::onCancelled() {}
 
 void GameTreeView::mouseDoubleClickEvent(QMouseEvent* event) {
-    QModelIndex index = indexAt(event->pos());
-    if (index.isValid()) emit itemActivated(index);
     QTreeView::mouseDoubleClickEvent(event);
 }
 

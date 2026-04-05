@@ -60,6 +60,8 @@ private:
                          const QModelIndex& index) const;
     void PaintGameInfo(QPainter* painter, const QRect& rect, const QStyleOptionViewItem& option,
                        const QModelIndex& index) const;
+    void PaintPlayTime(QPainter* painter, const QRect& rect, const QStyleOptionViewItem& option,
+                       const QModelIndex& index) const;
     void PaintCompatibility(QPainter* painter, const QRect& rect,
                              const QModelIndex& index) const;
     void PaintDefault(QPainter* painter, const QRect& rect, const QStyleOptionViewItem& option,
@@ -83,6 +85,7 @@ private:
     bool is_populating = false;
     bool enable_bubble_animations = false;
     qreal population_fade_global = 1.0;
+    mutable qreal refresh_angle = 0.0;
     // Performance optimizations
     mutable QMap<QString, QIcon> greyscale_icon_cache;
     mutable QMap<QString, QStringList> addons_item_cache;
