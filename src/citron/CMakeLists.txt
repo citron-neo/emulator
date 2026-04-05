@@ -336,11 +336,13 @@ endif()
 
 # Mod Manager functionality for downloading patches
 target_sources(citron PRIVATE
-    mod_manager/mod_service.cpp
-    mod_manager/mod_service.h
-    mod_manager/mod_downloader_dialog.cpp
-    mod_manager/mod_downloader_dialog.h
-    mod_manager/mod_downloader_dialog.ui
+    mod_manager/gamebanana_service.cpp
+    mod_manager/gamebanana_service.h
+    mod_manager/gamebanana_dialog.cpp
+    mod_manager/gamebanana_dialog.h
+    mod_manager/gamebanana_dialog.ui
+    mod_manager/zip_extractor.cpp
+    mod_manager/zip_extractor.h
 )
 
 target_link_libraries(citron PRIVATE Qt6::Network)
@@ -630,3 +632,10 @@ if (CITRON_USE_PRECOMPILED_HEADERS)
 endif()
 
 create_target_directory_groups(citron)
+
+if(UNIX AND CMAKE_UNITY_BUILD)
+    set_source_files_properties(
+        startup_checks.cpp compatdb.cpp setup_wizard.cpp
+        PROPERTIES SKIP_UNITY_BUILD_INCLUSION TRUE
+    )
+endif()

@@ -31,18 +31,6 @@
             android:defaultFocusHighlightEnabled="false"
             tools:listitem="@layout/card_game" />
 
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/btn_view_toggle"
-            style="@style/Widget.Material3.Button.IconButton"
-            android:layout_width="56dp"
-            android:layout_height="56dp"
-            android:layout_alignParentEnd="true"
-            android:layout_alignParentBottom="true"
-            android:layout_margin="16dp"
-            android:contentDescription="@string/switch_to_list_view"
-            app:icon="@drawable/ic_view_list"
-            app:iconSize="24dp" />
-
     </RelativeLayout>
 
 </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>

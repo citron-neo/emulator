@@ -52,16 +52,8 @@ class GamesFragment : Fragment() {
         gameAdapter = GameAdapter(requireActivity() as AppCompatActivity)
 
         binding.gridGames.apply {
-            layoutManager = AutofitGridLayoutManager(
-                requireContext(),
-                requireContext().resources.getDimensionPixelSize(R.dimen.card_width)
-            )
+            layoutManager =  LinearLayoutManager(requireContext())
             adapter = gameAdapter
-        }
-
-        // Set up button for view switching
-        binding.btnViewToggle.setOnClickListener {
-            toggleViewMode()
         }
 
         binding.swipeRefresh.apply {
@@ -74,7 +66,7 @@ class GamesFragment : Fragment() {
             setProgressBackgroundColorSchemeColor(
                 MaterialColors.getColor(
                     binding.swipeRefresh,
-                    com.google.android.material.R.attr.colorPrimary
+                    com.google.android.material.R.attr.colorOnPrimary
                 )
             )
             setColorSchemeColors(
@@ -118,28 +110,6 @@ class GamesFragment : Fragment() {
 
         setInsets()
     }
-
-    private fun toggleViewMode() {
-        isListView = !isListView
-
-        if (isListView) {
-            // Switch to list view
-            binding.gridGames.layoutManager = LinearLayoutManager(requireContext())
-            binding.btnViewToggle.setIconResource(R.drawable.ic_view_grid)
-            binding.btnViewToggle.contentDescription = getString(R.string.switch_to_grid_view)
-        } else {
-            // Switch to grid view
-            binding.gridGames.layoutManager = AutofitGridLayoutManager(
-                requireContext(),
-                requireContext().resources.getDimensionPixelSize(R.dimen.card_width)
-            )
-            binding.btnViewToggle.setIconResource(R.drawable.ic_view_list)
-            binding.btnViewToggle.contentDescription = getString(R.string.switch_to_list_view)
-        }
-
-        gameAdapter.setListView(isListView)
-    }
-
     override fun onDestroyView() {
         super.onDestroyView()
         _binding = null
@@ -186,14 +156,6 @@ class GamesFragment : Fragment() {
             binding.swipeRefresh.updateMargins(left = left, right = right)
 
             binding.noticeText.updatePadding(bottom = spacingNavigation)
-
-            // Update button margins
-            val buttonSpacing = resources.getDimensionPixelSize(R.dimen.spacing_fab)
-            binding.btnViewToggle.updateMargins(
-                left = leftInsets + buttonSpacing,
-                right = rightInsets + buttonSpacing,
-                bottom = barInsets.bottom + spacingNavigation + buttonSpacing
-            )
 
             windowInsets
         }

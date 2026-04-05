@@ -31,16 +31,13 @@
 #include "citron/configuration/configure_per_game_addons.h"
 #include "citron/uisettings.h"
 
-#include "citron/mod_manager/mod_service.h"
-#include "citron/mod_manager/mod_downloader_dialog.h"
+#include "citron/mod_manager/gamebanana_dialog.h"
 
 ConfigurePerGameAddons::ConfigurePerGameAddons(Core::System& system_, QWidget* parent)
 : QWidget(parent), ui{std::make_unique<Ui::ConfigurePerGameAddons>()}, system{system_} {
     ui->setupUi(this);
 
-    mod_service = new ModManager::ModService(this);
-
-    ui->button_download_mods->setVisible(false);
+    ui->button_download_mods->setVisible(true);
 
     layout = new QVBoxLayout;
     tree_view = new QTreeView;
@@ -80,23 +77,17 @@ ConfigurePerGameAddons::ConfigurePerGameAddons(Core::System& system_, QWidget* p
     ui->gridLayout->addLayout(layout, 0, 0);
     ui->gridLayout->setEnabled(!system.IsPoweredOn());
 
-    // 2. BACKGROUND FETCH: When the manifest is received
-    connect(mod_service, &ModManager::ModService::ModsAvailable, this, [this](const ModManager::ModUpdateInfo& info) {
-        if (!info.version_patches.empty()) {
-            // Save the info and show the button because mods actually exist
-            this->cached_mod_info = info;
-            ui->button_download_mods->setVisible(true);
-        }
-    });
-
-    // 3. SILENT ERROR: If no mods found, just keep the button hidden (don't show a popup)
-    connect(mod_service, &ModManager::ModService::Error, this, [](const QString& message) {
-        // Do nothing, button remains invisible
-    });
-
-    // 4. BUTTON CLICK: Since we already have the data, just open the dialog
+    // BUTTON CLICK: Open GameBanana Dialog
     connect(ui->button_download_mods, &QPushButton::clicked, this, [this] {
-        auto* dialog = new ModManager::ModDownloaderDialog(cached_mod_info, this);
+        if (file == nullptr) return;
+        const auto loader = Loader::GetLoader(system, file);
+        std::string title;
+        loader->ReadTitle(title);
+        QString game_name = QString::fromStdString(title);
+
+        const QString tid_str = QStringLiteral("%1").arg(title_id, 16, 16, QLatin1Char('0')).toUpper();
+        auto* dialog = new ModManager::GameBananaDialog(tid_str, game_name, this);
+        dialog->setAttribute(Qt::WA_DeleteOnClose);
 
         connect(dialog, &QDialog::accepted, this, [this] {
             this->LoadConfiguration();
@@ -142,10 +133,6 @@ void ConfigurePerGameAddons::LoadFromFile(FileSys::VirtualFile file_) {
 
 void ConfigurePerGameAddons::SetTitleId(u64 id) {
     this->title_id = id;
-
-    // Trigger the background check as soon as we know which game we are looking at
-    QString tid_str = QString::fromStdString(fmt::format("{:016X}", title_id));
-    mod_service->FetchAvailableMods(tid_str);
 }
 
 void ConfigurePerGameAddons::changeEvent(QEvent* event) {

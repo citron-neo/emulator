@@ -116,11 +116,13 @@ public:
     bool IsEmpty() const;
 
     void LoadCompatibilityList();
-    void PopulateAsync(QVector<UISettings::GameDir>& game_dirs);
+    void PopulateAsync(QVector<UISettings::GameDir>& game_dirs, bool is_smart_update = false);
     void CancelPopulation();
+    void RefreshGame(u64 program_id, u64 play_time);
 
     void SaveInterfaceLayout();
     void LoadInterfaceLayout();
+    void ClearLaunchOverlays();
 
     enum class ViewMode { List, Grid, Carousel };
     void SetViewMode(ViewMode mode);
@@ -197,7 +199,7 @@ private:
     void WorkerEvent();
 
     void AddDirEntry(GameListDir* entry_items);
-    void AddEntry(const QList<QStandardItem*>& entry_items, GameListDir* parent);
+    void AddEntry(const QList<QStandardItem*>& entry_items, const QString& parent_path);
     void DonePopulating(const QStringList& watch_list);
 
 private:
@@ -210,6 +212,8 @@ private:
     void RemoveFavorite(u64 program_id);
 
     void StartLaunchAnimation(const QModelIndex& item);
+    void SaveGameListIndex();
+    void LoadGameListIndex();
     void ToggleHidden(const QString& path);
     void UpdateCarouselSelection();
     void AnimateDetailsPanel(bool show);
@@ -220,8 +224,8 @@ private:
     void FilterTreeView(const QString& filter_text);
 
     void PopupContextMenu(const QPoint& menu_location);
-    void AddGamePopup(QMenu& context_menu, u64 program_id, const std::string& path,
-                      const QString& game_name);
+    void AddGamePopup(QMenu& context_menu, const QModelIndex& index, u64 program_id,
+                      const std::string& path, const QString& game_name);
     void AddCustomDirPopup(QMenu& context_menu, QModelIndex selected,
                            bool show_hidden_action = true);
     void AddPermDirPopup(QMenu& context_menu, QModelIndex selected);
@@ -273,6 +277,7 @@ private:
     bool toolbar_in_main = false;
     class NavigationSettingsOverlay* m_nav_overlay = nullptr;
     bool m_is_controller_mode = false;
+    bool m_is_launching = false;
     
     QWidget* footer_widget = nullptr;
     QToolButton* btn_add_dir = nullptr;
