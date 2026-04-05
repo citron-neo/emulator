@@ -580,7 +580,7 @@ void GameListWorker::RecordEvent(F&& func) {
     emit DataAvailable();
 }
 
-void GameListWorker::AddTitlesToGameList(GameListDir* parent_dir,
+void GameListWorker::AddTitlesToGameList(const QString& parent_path,
                                          const std::map<u64, std::pair<int, int>>& online_stats) {
     using namespace FileSys;
 
@@ -589,13 +589,13 @@ void GameListWorker::AddTitlesToGameList(GameListDir* parent_dir,
     auto installed_games = cache.ListEntriesFilterOrigin(std::nullopt, TitleType::Application,
                                                          ContentRecordType::Program);
 
-    if (parent_dir->type() == static_cast<int>(GameListItemType::SdmcDir)) {
+    if (parent_path == QObject::tr("Installed SD Titles")) {
         installed_games = cache.ListEntriesFilterOrigin(
             ContentProviderUnionSlot::SDMC, TitleType::Application, ContentRecordType::Program);
-    } else if (parent_dir->type() == static_cast<int>(GameListItemType::UserNandDir)) {
+    } else if (parent_path == QObject::tr("Installed NAND Titles")) {
         installed_games = cache.ListEntriesFilterOrigin(
             ContentProviderUnionSlot::UserNAND, TitleType::Application, ContentRecordType::Program);
-    } else if (parent_dir->type() == static_cast<int>(GameListItemType::SysNandDir)) {
+    } else if (parent_path == QObject::tr("System Titles")) {
         installed_games = cache.ListEntriesFilterOrigin(
             ContentProviderUnionSlot::SysNAND, TitleType::Application, ContentRecordType::Program);
     }
@@ -635,15 +635,15 @@ void GameListWorker::AddTitlesToGameList(GameListDir* parent_dir,
         auto entry = MakeGameListEntry(file->GetFullPath(), name, original_name, file->GetSize(),
                                        icon, *loader, program_id, compatibility_list,
                                        play_time_manager, patch, online_stats);
-        RecordEvent([=](GameList* game_list) { game_list->AddEntry(entry, parent_dir); });
+        RecordEvent([=](GameList* game_list) { game_list->AddEntry(entry, parent_path); });
     }
 }
 
 void GameListWorker::ScanFileSystem(ScanTarget target, const std::string& dir_path, bool deep_scan,
-                                    GameListDir* parent_dir,
+                                    const QString& parent_path,
                                     const std::map<u64, std::pair<int, int>>& online_stats,
                                     int& processed_files, int total_files) {
-    const auto callback = [this, target, parent_dir, &online_stats, &processed_files,
+    const auto callback = [this, target, parent_path, &online_stats, &processed_files,
                            total_files](const std::filesystem::directory_entry& dir_entry) -> bool {
         if (stop_requested) {
             return false;
@@ -726,7 +726,7 @@ void GameListWorker::ScanFileSystem(ScanTarget target, const std::string& dir_pa
                                               icon, *loader, cached->program_id, compatibility_list,
                                               play_time_manager, patch, online_stats);
                         RecordEvent(
-                            [=](GameList* game_list) { game_list->AddEntry(entry, parent_dir); });
+                            [=](GameList* game_list) { game_list->AddEntry(entry, parent_path); });
                     }
                 }
             }
@@ -808,7 +808,7 @@ void GameListWorker::ScanFileSystem(ScanTarget target, const std::string& dir_pa
                                                    icon, *loader, program_id, compatibility_list,
                                                    play_time_manager, patch, online_stats);
                     RecordEvent(
-                        [=](GameList* game_list) { game_list->AddEntry(entry, parent_dir); });
+                        [=](GameList* game_list) { game_list->AddEntry(entry, parent_path); });
                 }
             }
         }
@@ -893,9 +893,10 @@ void GameListWorker::run() {
 
         watch_list.append(QString::fromStdString(game_dir.path));
         auto* const game_list_dir = new GameListDir(game_dir);
+        const QString dir_path_q = game_list_dir->data(GameListDir::FullPathRole).toString();
         DirEntryReady(game_list_dir);
 
-        ScanFileSystem(ScanTarget::Both, game_dir.path, game_dir.deep_scan, game_list_dir,
+        ScanFileSystem(ScanTarget::Both, game_dir.path, game_dir.deep_scan, dir_path_q,
                        online_stats, processed_files, total_files);
     }
 

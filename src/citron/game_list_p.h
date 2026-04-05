@@ -83,6 +83,7 @@ public:
     // used to access type from item index
     static constexpr int TypeRole = Qt::UserRole + 1;
     static constexpr int SortRole = Qt::UserRole + 2;
+    static constexpr int IsRefreshingRole = Qt::UserRole + 20;
     GameListItem() = default;
     explicit GameListItem(const QString& string) : QStandardItem(string) {
         setData(string, SortRole);
@@ -274,15 +275,19 @@ public:
 
     GameListItemPlayTime() = default;
     explicit GameListItemPlayTime(const qulonglong time_seconds) {
-        setData(time_seconds, PlayTimeRole);
-        // Explicitly set display role since constructor doesn't call virtual setData
-        GameListItem::setData(PlayTime::ReadablePlayTime(time_seconds), Qt::DisplayRole);
+        // setData(time_seconds, PlayTimeRole) might call virtual and it is safer here to be explicit
+        QStandardItem::setData(PlayTime::ReadablePlayTime(time_seconds), Qt::DisplayRole);
+        QStandardItem::setData(time_seconds, PlayTimeRole);
     }
 
     void setData(const QVariant& value, int role) override {
-        qulonglong time_seconds = value.toULongLong();
-        GameListItem::setData(PlayTime::ReadablePlayTime(time_seconds), Qt::DisplayRole);
-        GameListItem::setData(value, PlayTimeRole);
+        if (role == PlayTimeRole) {
+            qulonglong time_seconds = value.toULongLong();
+            QStandardItem::setData(PlayTime::ReadablePlayTime(time_seconds), Qt::DisplayRole);
+            QStandardItem::setData(value, PlayTimeRole);
+        } else {
+            QStandardItem::setData(value, role);
+        }
     }
 
     bool operator<(const QStandardItem& other) const override {
@@ -312,6 +317,7 @@ public:
 class GameListDir : public GameListItem {
 public:
     static constexpr int GameDirRole = Qt::UserRole + 2;
+    static constexpr int FullPathRole = Qt::UserRole + 3;
 
     explicit GameListDir(UISettings::GameDir& directory,
                          GameListItemType dir_type_ = GameListItemType::CustomDir)
@@ -330,6 +336,7 @@ public:
                     .scaled(icon_size, icon_size, Qt::IgnoreAspectRatio, Qt::SmoothTransformation),
                 Qt::DecorationRole);
             setData(QObject::tr("Installed SD Titles"), Qt::DisplayRole);
+            setData(QObject::tr("Installed SD Titles"), FullPathRole);
             break;
         case GameListItemType::UserNandDir:
             setData(
@@ -338,6 +345,7 @@ public:
                     .scaled(icon_size, icon_size, Qt::IgnoreAspectRatio, Qt::SmoothTransformation),
                 Qt::DecorationRole);
             setData(QObject::tr("Installed NAND Titles"), Qt::DisplayRole);
+            setData(QObject::tr("Installed NAND Titles"), FullPathRole);
             break;
         case GameListItemType::SysNandDir:
             setData(
@@ -346,6 +354,7 @@ public:
                     .scaled(icon_size, icon_size, Qt::IgnoreAspectRatio, Qt::SmoothTransformation),
                 Qt::DecorationRole);
             setData(QObject::tr("System Titles"), Qt::DisplayRole);
+            setData(QObject::tr("System Titles"), FullPathRole);
             break;
         case GameListItemType::CustomDir: {
             const QString path = QString::fromStdString(game_dir->path);
@@ -355,6 +364,7 @@ public:
                         icon_size, icon_size, Qt::IgnoreAspectRatio, Qt::SmoothTransformation),
                     Qt::DecorationRole);
             setData(path, Qt::DisplayRole);
+            setData(path, FullPathRole);
             break;
         }
         default:

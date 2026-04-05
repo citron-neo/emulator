@@ -100,7 +100,7 @@ std::optional<std::filesystem::path> GetCurrentUserPlayTimePath(
 } // namespace
 
 PlayTimeManager::PlayTimeManager(Service::Account::ProfileManager& profile_manager)
-    : manager{profile_manager} {
+    : running_program_id{0}, last_timestamp{std::chrono::steady_clock::now()}, manager{profile_manager} {
     if (!ReadPlayTimeFile(database, manager)) {
         LOG_ERROR(Frontend, "Failed to read play time database! Resetting to default.");
     }
@@ -115,33 +115,38 @@ void PlayTimeManager::SetProgramId(u64 program_id) {
 }
 
 void PlayTimeManager::Start() {
+    last_timestamp = std::chrono::steady_clock::now();
     play_time_thread = std::jthread([&](std::stop_token stop_token) { AutoTimestamp(stop_token); });
 }
 
 void PlayTimeManager::Stop() {
     play_time_thread = {};
+
+    // Record the final duration since the last tick
+    std::lock_guard lock{database_mutex};
+    if (running_program_id != 0) {
+        database[running_program_id] += GetDuration();
+        Save();
+    }
+}
+
+u64 PlayTimeManager::GetProgramId() const {
+    return running_program_id;
 }
 
 void PlayTimeManager::AutoTimestamp(std::stop_token stop_token) {
     Common::SetCurrentThreadName("PlayTimeReport");
 
     using namespace std::literals::chrono_literals;
-    using std::chrono::seconds;
-    using std::chrono::steady_clock;
-
-    auto timestamp = steady_clock::now();
-
-    const auto GetDuration = [&]() -> u64 {
-        const auto last_timestamp = std::exchange(timestamp, steady_clock::now());
-        const auto duration = std::chrono::duration_cast<seconds>(timestamp - last_timestamp);
-        return static_cast<u64>(duration.count());
-    };
 
     while (!stop_token.stop_requested()) {
         Common::StoppableTimedWait(stop_token, 30s);
 
-        database[running_program_id] += GetDuration();
-        Save();
+        std::lock_guard lock{database_mutex};
+        if (running_program_id != 0) {
+            database[running_program_id] += GetDuration();
+            Save();
+        }
     }
 }
 
@@ -152,6 +157,7 @@ void PlayTimeManager::Save() {
 }
 
 u64 PlayTimeManager::GetPlayTime(u64 program_id) const {
+    std::lock_guard lock{database_mutex};
     auto it = database.find(program_id);
     if (it != database.end()) {
         return it->second;
@@ -161,6 +167,7 @@ u64 PlayTimeManager::GetPlayTime(u64 program_id) const {
 }
 
 void PlayTimeManager::SetPlayTime(u64 program_id, u64 play_time) {
+    std::lock_guard lock{database_mutex};
     if (program_id == 0) {
         return;
     }
@@ -171,6 +178,16 @@ void PlayTimeManager::SetPlayTime(u64 program_id, u64 play_time) {
 void PlayTimeManager::ResetProgramPlayTime(u64 program_id) {
     database.erase(program_id);
     Save();
+}
+
+u64 PlayTimeManager::GetDuration() {
+    using std::chrono::seconds;
+    using std::chrono::steady_clock;
+
+    const auto now = steady_clock::now();
+    const auto duration = std::chrono::duration_cast<seconds>(now - last_timestamp);
+    last_timestamp = now;
+    return static_cast<u64>(duration.count());
 }
 
 QString ReadablePlayTime(qulonglong time_seconds) {

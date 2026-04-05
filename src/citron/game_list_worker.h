@@ -86,11 +86,11 @@ private:
     void RecordEvent(F&& func);
 
 private:
-    void AddTitlesToGameList(GameListDir* parent_dir,
+    void AddTitlesToGameList(const QString& parent_path,
                              const std::map<u64, std::pair<int, int>>& online_stats);
 
     void ScanFileSystem(ScanTarget target, const std::string& dir_path, bool deep_scan,
-                        GameListDir* parent_dir,
+                        const QString& parent_path,
                         const std::map<u64, std::pair<int, int>>& online_stats,
                         int& processed_files, int total_files);
 
