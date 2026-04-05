@@ -12,6 +12,7 @@
 #include <QTimer>
 
 #include "citron/ui/game_carousel_view.h"
+#include "citron/game_list_p.h"
 #include "citron/uisettings.h"
 #include "citron/game_list_p.h"
 
@@ -100,7 +101,12 @@ void CinematicCarousel::paintEvent(QPaintEvent* event) {
     if (!m_model || m_model->rowCount() == 0) return;
     QPainter p(this); p.setRenderHints(QPainter::Antialiasing | QPainter::SmoothPixmapTransform | QPainter::TextAntialiasing);
     const int count = m_model->rowCount(); const qreal vcx = width() / 2.0; const qreal vcy = height() / 2.0;
-    const int is = UISettings::values.game_icon_size.GetValue(); const qreal bs = is + 35.0; const qreal th = is * 2.0;
+    const int is = UISettings::values.game_icon_size.GetValue();
+    const float scale = static_cast<float>(is) / 128.0f;
+    const qreal bs = is + (35.0f * scale);
+    const qreal th = is * 2.0;
+    const qreal arrow_ay = std::max(55.0, vcy - (1.4 * ((is + static_cast<int>(25 * scale)) / 2.0)) - (28.0f * scale));
+
     QVector<int> order;
     for (int i = 0; i < count; ++i) order << i;
     std::sort(order.begin(), order.end(), [this](int a, int b) { return std::abs(a - m_focal_index) > std::abs(b - m_focal_index); });
@@ -111,31 +117,56 @@ void CinematicCarousel::paintEvent(QPaintEvent* event) {
         if (dist < th) { qreal f = 1.0 - (dist / th); s = 1.0 + (f * 0.40); dx = d * (is / 2.0) * f; }
         const qreal x = vcx + (d * bs) + dx; const qreal y = vcy;
         p.save(); p.translate(x, y); p.scale(s, s);
-        const int cs_w = is + 25; const int cs_h = is + 25;
+        const int cs_w = is + static_cast<int>(25 * scale); 
+        const int cs_h = is + static_cast<int>(25 * scale);
         QRectF cr(-cs_w / 2.0, -cs_h / 2.0, cs_w, cs_h);
-        QPainterPath path; path.addRoundedRect(cr, 16, 16);
+        QPainterPath path; path.addRoundedRect(cr, 16 * scale, 16 * scale);
         const bool focal = std::abs(i - m_focal_index) < 0.5;
         if (focal) {
             p.save(); QColor acc = AccentColor(); qreal pulse = (std::sin(m_pulse_tick * 0.1) + 1.0) / 2.0;
-            if (m_has_focus) { p.setPen(QPen(acc, 4.5 + pulse * 1.5)); acc.setAlphaF(static_cast<float>(0.12 + pulse * 0.08)); p.setBrush(acc); }
-            else { acc.setAlphaF(0.4f); p.setPen(QPen(acc, 3.0)); p.setBrush(Qt::NoBrush); }
+            if (m_has_focus) { p.setPen(QPen(acc, (4.5f + pulse * 1.5f) * scale)); acc.setAlphaF(static_cast<float>(0.12 + pulse * 0.08)); p.setBrush(acc); }
+            else { acc.setAlphaF(0.4f); p.setPen(QPen(acc, 3.0f * scale)); p.setBrush(Qt::NoBrush); }
             p.drawPath(path); p.restore();
 
-            // Draw the alphabetical header ONLY when it changes (category boundary)
+            // 1. Determine Section Boundary & Header Drawing
             bool draw_header = (i == 0);
+            int type = m_model->index(i, 0).data(GameListItem::TypeRole).toInt();
+            int prev_type = (i > 0) ? m_model->index(i - 1, 0).data(GameListItem::TypeRole).toInt() : -1;
+            bool is_fav = (type == static_cast<int>(GameListItemType::Favorites));
+            bool was_fav = (prev_type == static_cast<int>(GameListItemType::Favorites));
+
             if (i > 0) {
-                QString t1 = m_model->index(i, 0).data(Qt::DisplayRole).toString();
-                QString t2 = m_model->index(i - 1, 0).data(Qt::DisplayRole).toString();
-                if (t1.isEmpty() || t2.isEmpty() || t1[0].toUpper() != t2[0].toUpper()) draw_header = true;
+                if (is_fav != was_fav) {
+                    draw_header = true;
+                } else if (!is_fav) {
+                    QString t1 = m_model->index(i, 0).data(Qt::DisplayRole).toString();
+                    QString t2 = m_model->index(i - 1, 0).data(Qt::DisplayRole).toString();
+                    if (t1.isEmpty() || t2.isEmpty() || t1[0].toUpper() != t2[0].toUpper()) draw_header = true;
+                }
             }
+
             if (draw_header) {
                 p.save(); p.resetTransform(); p.setPen(acc); p.setOpacity(0.9);
-                qreal ay = std::max(90.0, y - (s * (cs_h / 2.0)) - 42);
-                QString title = m_model->index(i, 0).data(Qt::DisplayRole).toString();
-                QChar cl = title.isEmpty() ? QLatin1Char('#') : title[0].toUpper();
-                if (!cl.isLetter()) cl = QLatin1Char('#');
-                QFont hf = font(); hf.setBold(true); hf.setPointSizeF(48.0); p.setFont(hf); p.setPen(acc);
-                p.drawText(QRectF(x - 80, ay - 130, 160, 100), Qt::AlignCenter, cl); p.restore();
+                qreal header_ay = arrow_ay - (15.0f * scale);
+                
+                if (is_fav) {
+                    QFont hf = font(); hf.setBold(true); hf.setPointSizeF(24.0f * scale); p.setFont(hf);
+                    p.drawText(QRectF(x - 150 * scale, header_ay - 90 * scale, 300 * scale, 60 * scale), Qt::AlignCenter, tr("★ FAVORITES"));
+                } else {
+                    QString title = m_model->index(i, 0).data(Qt::DisplayRole).toString();
+                    QChar cl = title.isEmpty() ? QLatin1Char('#') : title[0].toUpper();
+                    if (!cl.isLetter()) cl = QLatin1Char('#');
+                    QFont hf = font(); hf.setBold(true); hf.setPointSizeF(48.0f * scale); p.setFont(hf);
+                    p.drawText(QRectF(x - 80 * scale, header_ay - 110 * scale, 160 * scale, 100 * scale), Qt::AlignCenter, cl);
+                }
+                p.restore();
+            }
+
+            if (i > 0 && was_fav && !is_fav) {
+                p.save(); p.setOpacity(0.4); p.setPen(QPen(acc, 2.5f * scale));
+                qreal dx_line = -bs / 2.0;
+                p.drawLine(QPointF(dx_line, -cs_h / 1.5), QPointF(dx_line, cs_h / 1.5));
+                p.restore();
             }
         }
         if (!focal) { p.setPen(Qt::NoPen); p.setBrush(CardBg()); p.setOpacity(0.85); p.drawPath(path); }
@@ -152,10 +183,12 @@ void CinematicCarousel::paintEvent(QPaintEvent* event) {
         p.restore();
     }
 
-    // Static Down Arrow Indicator (ALWAYS centered at the top)
     p.save(); QColor acc = AccentColor(); p.setPen(acc); p.setOpacity(0.9);
-    qreal ay = std::max(55.0, vcy - (1.4 * ((is + 60) / 2.0)) - 28);
-    QPainterPath static_arr; static_arr.moveTo(vcx, ay); static_arr.lineTo(vcx - 12, ay - 12); static_arr.lineTo(vcx + 12, ay - 12); static_arr.closeSubpath();
+    qreal arr_size = 12.0f * scale;
+    QPainterPath static_arr; static_arr.moveTo(vcx, arrow_ay); 
+    static_arr.lineTo(vcx - arr_size, arrow_ay - arr_size); 
+    static_arr.lineTo(vcx + arr_size, arrow_ay - arr_size); 
+    static_arr.closeSubpath();
     p.drawPath(static_arr); p.restore();
     const int aw = 60, ah = 60;
     auto drawArrow = [&](bool left, bool hover) {
@@ -176,7 +209,9 @@ void CinematicCarousel::paintEvent(QPaintEvent* event) {
 void CinematicCarousel::mousePressEvent(QMouseEvent* event) {
     if (m_left_arrow_hover || m_right_arrow_hover) { m_scroll_timer->start(); return; }
     if (m_snap_animation->state() == QAbstractAnimation::Running) m_snap_animation->stop();
-    m_last_mouse_pos = event->pos(); m_drag_start_pos = event->pos(); m_is_dragging = true;
+    if (event->button() == Qt::LeftButton) {
+        m_last_mouse_pos = event->pos(); m_drag_start_pos = event->pos(); m_is_dragging = true;
+    }
 }
 
 void CinematicCarousel::mouseMoveEvent(QMouseEvent* event) {
@@ -226,14 +261,21 @@ void CinematicCarousel::keyPressEvent(QKeyEvent* event) {
     if (event->key() == Qt::Key_X || event->key() == Qt::Key_Y) {
         QModelIndex cur = currentIndex();
         if (cur.isValid()) {
+            int type = cur.data(GameListItem::TypeRole).toInt();
             QString title = cur.data(Qt::DisplayRole).toString();
             QChar cc = title.isEmpty() ? QLatin1Char(' ') : title[0].toUpper();
             int tot = m_model->rowCount(); int sr = cur.row();
             for (int i = 1; i <= tot; ++i) {
                 int nr = (sr + i) % tot;
-                QString nt = m_model->index(nr, 0).data(Qt::DisplayRole).toString();
-                QChar nc = nt.isEmpty() ? QLatin1Char(' ') : nt[0].toUpper();
-                if (nc != cc) { scrollTo(nr); return; }
+                QModelIndex nidx = m_model->index(nr, 0);
+                int nt = nidx.data(GameListItem::TypeRole).toInt();
+                if (nt != type) { scrollTo(nr); return; } // Section jump
+
+                if (nt != static_cast<int>(GameListItemType::Favorites)) {
+                    QString ntit = nidx.data(Qt::DisplayRole).toString();
+                    QChar nc = ntit.isEmpty() ? QLatin1Char(' ') : ntit[0].toUpper();
+                    if (nc != cc) { scrollTo(nr); return; } // Alpha jump
+                }
             }
         }
     }
@@ -247,6 +289,10 @@ void CinematicCarousel::resizeEvent(QResizeEvent* event) { QWidget::resizeEvent(
 void CinematicCarousel::startSnapAnimation(qreal target) { m_snap_animation->stop(); m_snap_animation->setStartValue(m_focal_index); m_snap_animation->setEndValue(target); m_snap_animation->start(); }
 
 void CinematicCarousel::updateFocalItem() { if (!m_model) return; int idx = std::round(m_focal_index); if (idx >= 0 && idx < m_model->rowCount()) emit focalItemChanged(m_model->index(idx, 0)); }
+
+void CinematicCarousel::focusOutEvent(QFocusEvent* event) { m_is_dragging = false; m_scroll_timer->stop(); update(); QWidget::focusOutEvent(event); }
+void CinematicCarousel::leaveEvent(QEvent* event) { m_is_dragging = false; m_left_arrow_hover = false; m_right_arrow_hover = false; m_hover_icon_index = -1; update(); QWidget::leaveEvent(event); }
+
 
 QColor CinematicCarousel::CardBg() const { return QColor(25, 25, 28, 205); }
 QColor CinematicCarousel::TextColor() const { return QColor(255, 255, 255); }

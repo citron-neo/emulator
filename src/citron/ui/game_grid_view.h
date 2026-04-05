@@ -1,5 +1,6 @@
 #pragma once
 
+#include <QWidget>
 #include <QListView>
 #include <QVBoxLayout>
 #include <QLabel>
@@ -19,23 +20,26 @@ class GameGridView : public QWidget {
 public:
     explicit GameGridView(QWidget* parent = nullptr);
 
-    void setModel(QAbstractItemModel* model);
+    void setModels(QAbstractItemModel* fav_model, QAbstractItemModel* main_model);
     void ApplyTheme();
     
-    // Accessors for compatibility
-    QListView* view() const { return m_view; }
-    QAbstractItemModel* model() const;
+    QListView* view() const { return m_main_view; }
+    QListView* favView() const { return m_fav_view; }
+    QAbstractItemModel* model() const { return mainModel(); }
     QItemSelectionModel* selectionModel() const;
+    void setModel(QAbstractItemModel* model);
+    
+    QAbstractItemModel* favModel() const;
+    QAbstractItemModel* mainModel() const;
+    
     QRect visualRect(const QModelIndex& index) const;
     QWidget* viewport() const;
     void scrollTo(const QModelIndex& index);
     
-    // Forwarded from GameViewBase equivalents
-    QModelIndex currentIndex() const { return m_view->currentIndex(); }
-    void setCurrentIndex(const QModelIndex& index) { m_view->setCurrentIndex(index); }
-    QModelIndex indexAt(const QPoint& p) const { return m_view->indexAt(p); }
+    QModelIndex currentIndex() const;
+    void setCurrentIndex(const QModelIndex& index);
+    QModelIndex indexAt(const QPoint& p) const;
 
-    // Controller Navigation
     void setControllerFocus(bool focus);
     bool hasControllerFocus() const { return m_has_focus; }
 
@@ -53,10 +57,20 @@ protected:
     void resizeEvent(QResizeEvent* event) override;
 
 private:
-    QListView* m_view = nullptr;
-    GameGridDelegate* m_delegate = nullptr;
+    void UpdateGridSize();
+    void UpdateLayoutHeights();
+
+    QScrollArea* m_scroll_area = nullptr;
+    QWidget* m_container = nullptr;
+    QListView* m_fav_view = nullptr;
+    QListView* m_main_view = nullptr;
+    QLabel* m_fav_label = nullptr;
+    QLabel* m_main_label = nullptr;
+    GameGridDelegate* m_fav_delegate = nullptr;
+    GameGridDelegate* m_main_delegate = nullptr;
     QVBoxLayout* m_layout = nullptr;
     QLabel* m_top_help = nullptr;
     QLabel* m_bottom_hint = nullptr;
     bool m_has_focus = false;
 };
+

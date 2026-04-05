@@ -52,6 +52,8 @@ protected:
     void wheelEvent(QWheelEvent* event) override;
     void keyPressEvent(QKeyEvent* event) override;
     void resizeEvent(QResizeEvent* event) override;
+    void focusOutEvent(QFocusEvent* event) override;
+    void leaveEvent(QEvent* event) override;
 
 private:
     void startSnapAnimation(qreal target);
@@ -91,6 +93,7 @@ public:
     void ApplyTheme();
     
     CinematicCarousel* view() const { return m_carousel; }
+    QAbstractItemModel* model() const { return m_carousel->model(); }
 
     void setControllerFocus(bool focus) { m_carousel->setControllerFocus(focus); }
     bool hasControllerFocus() const { return m_carousel->hasControllerFocus(); }
