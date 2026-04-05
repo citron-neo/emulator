@@ -1148,7 +1148,7 @@ void GMainWindow::InitializeWidgets() {
     const QString accent_dim = accent_color.darker(120).name();
 
     unified_top_bar_layout = new QHBoxLayout(unified_top_bar);
-    unified_top_bar_layout->setContentsMargins(10, 0, 10, 0);
+    unified_top_bar_layout->setContentsMargins(10, 4, 10, 4);
     unified_top_bar_layout->setSpacing(0);
 
     auto add_menu = [this, accent_str](QMenu* menu) {
@@ -1170,9 +1170,9 @@ void GMainWindow::InitializeWidgets() {
         btn->setFlat(true);
         btn->setFocusPolicy(Qt::NoFocus);
         btn->setCursor(Qt::PointingHandCursor);
-        btn->setFixedHeight(32);
+        btn->setFixedHeight(42);
         btn->setStyleSheet(QString::asprintf(
-            "QPushButton { border: none; padding: 0 10px; font-weight: normal; font-size: 8.5pt; "
+            "QPushButton { border: none; padding: 0 14px; font-weight: normal; font-size: 9pt; "
             "background: transparent; color: #e0e0e4; text-align: center; margin: 0; outline: none; }"
             "QPushButton:hover { background: rgba(255, 255, 255, 0.05); color: #ffffff; "
             "border-bottom: 2px solid %s; }"

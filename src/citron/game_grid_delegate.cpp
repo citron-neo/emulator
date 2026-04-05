@@ -31,7 +31,8 @@ void GameGridDelegate::setGridMode(GridMode mode) {
 
 QSize GameGridDelegate::sizeHint(const QStyleOptionViewItem& option, const QModelIndex& index) const {
     const int icon_size = UISettings::values.game_icon_size.GetValue();
-    return QSize(icon_size + 40, icon_size + 85);
+    const float scale = static_cast<float>(icon_size) / 128.0f;
+    return QSize(icon_size + static_cast<int>(40 * scale), icon_size + static_cast<int>(85 * scale));
 }
 
 void GameGridDelegate::paint(QPainter* painter, const QStyleOptionViewItem& option,
@@ -98,6 +99,8 @@ void GameGridDelegate::PaintGridItem(QPainter* painter, const QStyleOptionViewIt
                                    const QModelIndex& index) const {
     const bool is_selected = option.state & QStyle::State_Selected;
     QRect rect = option.rect;
+    const int icon_size = UISettings::values.game_icon_size.GetValue();
+    const float scale = static_cast<float>(icon_size) / 128.0f;
 
     qreal entry_val = 1.0;
     const QPersistentModelIndex key(index);
@@ -106,10 +109,12 @@ void GameGridDelegate::PaintGridItem(QPainter* painter, const QStyleOptionViewIt
     qreal final_opacity = entry_val * m_population_fade_global;
     painter->setOpacity(final_opacity);
 
-    QRect card_rect = rect.adjusted(12, 12, -12, -12);
-    const int icon_size = UISettings::values.game_icon_size.GetValue();
-    const int card_h = icon_size + 64; 
-    card_rect.setHeight(card_h);
+    const int card_w = icon_size + static_cast<int>(16 * scale);
+    const int card_h = icon_size + static_cast<int>(64 * scale);
+    const int cx = rect.x() + (rect.width() - card_w) / 2;
+    QRect card_rect(cx, rect.y() + static_cast<int>(12 * scale), card_w, card_h);
+
+    const int radius = static_cast<int>(14 * scale);
 
     if (is_selected) {
         QColor glow = AccentColor();
@@ -117,31 +122,53 @@ void GameGridDelegate::PaintGridItem(QPainter* painter, const QStyleOptionViewIt
         painter->save();
         painter->setBrush(glow);
         painter->setPen(Qt::NoPen);
-        painter->drawRoundedRect(card_rect.adjusted(-4, -4, 4, 4), 16, 16);
+        painter->drawRoundedRect(card_rect.adjusted(static_cast<int>(-4 * scale), static_cast<int>(-4 * scale), 
+                                                   static_cast<int>(4 * scale), static_cast<int>(4 * scale)), 
+                                 radius + 2, radius + 2);
         painter->restore();
     }
 
     QColor onyx(22, 22, 26);
     painter->setPen(Qt::NoPen);
     painter->setBrush(onyx);
-    painter->drawRoundedRect(card_rect, 14, 14);
+    painter->drawRoundedRect(card_rect, radius, radius);
 
     if (is_selected) {
         QColor border = AccentColor();
         qreal pulse = (m_pulse_states.contains(key)) ? m_pulse_states[key] : 0.0;
-        painter->setPen(QPen(border, 3.5 + pulse * 1.5));
+        painter->setPen(QPen(border, (3.5f + pulse * 1.5f) * scale));
         painter->setBrush(Qt::NoBrush);
-        painter->drawRoundedRect(card_rect, 14, 14);
+        painter->drawRoundedRect(card_rect, radius, radius);
     }
 
-    QRectF label_rect = card_rect.adjusted(6, 6, -6, -22);
+    QRectF label_rect = card_rect.adjusted(6 * scale, 6 * scale, -6 * scale, -22 * scale);
     QPainterPath label_path;
-    label_path.addRoundedRect(label_rect, 8, 8);
+    label_path.addRoundedRect(label_rect, radius - 6, radius - 6);
+
+    // --- Favorites Indicator ---
+    bool is_fav = (index.data(GameListItem::TypeRole).toInt() == static_cast<int>(GameListItemType::Favorites));
+    if (is_fav) {
+        painter->save();
+        QColor fav_gold(255, 215, 0, 220); // Vibrant Gold
+        painter->setPen(QPen(fav_gold, 1.2f * scale));
+        painter->setBrush(QColor(40, 40, 45, 180));
+        qreal star_size = 22.0f * scale;
+        QRectF star_rect(card_rect.right() - (10.0f * scale) - star_size, card_rect.top() + (10.0f * scale), 
+                         star_size, star_size);
+        painter->drawRoundedRect(star_rect, 6 * scale, 6 * scale);
+        painter->setPen(fav_gold);
+        QFont sf = painter->font(); sf.setBold(true); sf.setPointSizeF(11.0f * scale); painter->setFont(sf);
+        painter->drawText(star_rect.adjusted(0, -1 * scale, 0, 0), Qt::AlignCenter, QStringLiteral("★"));
+        painter->restore();
+    }
+
+    // Removed old vertical divider logic in favor of section headers
 
     painter->save();
     painter->setClipPath(label_path);
     
-    QRectF bottom_bar(label_rect.left(), label_rect.bottom() - 28, label_rect.width(), 28);
+    qreal bar_h = 28.0f * scale;
+    QRectF bottom_bar(label_rect.left(), label_rect.bottom() - bar_h, label_rect.width(), bar_h);
     painter->fillRect(bottom_bar, QColor(10, 10, 12));
 
     QPixmap pixmap = index.data(GameListItemPath::HighResIconRole).value<QPixmap>();
@@ -155,21 +182,21 @@ void GameGridDelegate::PaintGridItem(QPainter* painter, const QStyleOptionViewIt
     painter->setPen(Qt::white);
     QFont tf = option.font;
     tf.setBold(true);
-    tf.setPointSizeF(8.5);
+    tf.setPointSizeF(8.5f * scale);
     painter->setFont(tf);
 
-    QRectF text_rect = bottom_bar.adjusted(10, 0, -10, 0);
+    QRectF text_rect = bottom_bar.adjusted(10 * scale, 0, -10 * scale, 0);
     QString elided = painter->fontMetrics().elidedText(title, Qt::ElideRight, text_rect.width());
     painter->drawText(text_rect, Qt::AlignCenter, elided);
     
     painter->restore();
 
-    int pins_y = card_rect.bottom() - 10;
+    int pins_y = card_rect.bottom() - static_cast<int>(10 * scale);
     int p_c = 6;
-    int p_w = (card_rect.width() - 40) / p_c;
+    int p_w = (card_rect.width() - static_cast<int>(40 * scale)) / p_c;
     painter->setOpacity(0.8 * final_opacity);
     for (int i = 0; i < p_c; ++i) {
-        painter->fillRect(card_rect.left() + 20 + i * p_w, pins_y, p_w - 6, 6, QColor(40, 40, 45));
+        painter->fillRect(card_rect.left() + static_cast<int>(20 * scale) + i * p_w, pins_y, p_w - static_cast<int>(6 * scale), static_cast<int>(6 * scale), QColor(40, 40, 45));
     }
 }
 
