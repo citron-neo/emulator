@@ -691,6 +691,11 @@ QDialog#QtSoftwareKeyboardDialog QPushButton#button_space_shift:disabled {
     image: url(:/overlay/osk_button_Y_disabled.png);
 }
 
+QMenuBar::item {
+    background-color: transparent;
+    padding: 18px 18px;
+}
+
 /*
  * Adaptive Dropdown Menu Styling
  */

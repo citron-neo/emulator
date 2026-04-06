@@ -1398,9 +1398,17 @@ GameList::GameList(std::shared_ptr<FileSys::VfsFilesystem> vfs_,
                     else
                         current = carousel_view->view()->currentIndex();
 
+                    if (!current.isValid() && !pathName.isEmpty()) {
+                        // Attempt to find the index if the view lost focus
+                        auto matches = item_model->match(item_model->index(0, 0), GameListItemPath::FullPathRole, pathName, 1, Qt::MatchExactly | Qt::MatchRecursive);
+                        if (!matches.isEmpty()) {
+                            current = matches.first();
+                        }
+                    }
+
                     if (current.isValid()) {
                         StartLaunchAnimation(current);
-                    } else {
+                    } else if (!pathName.isEmpty()) {
                         emit BootGame(pathName, StartGameType::Normal);
                     }
                 } else if (action == QStringLiteral("favorite")) {
@@ -2096,7 +2104,8 @@ void GameList::ValidateEntry(const QModelIndex& item) {
     }
     const auto selected = item.sibling(item.row(), 0);
     switch (selected.data(GameListItem::TypeRole).value<GameListItemType>()) {
-    case GameListItemType::Game: {
+    case GameListItemType::Game:
+    case GameListItemType::Favorites: {
         const QString file_path = selected.data(GameListItemPath::FullPathRole).toString();
         if (file_path.isEmpty())
             return;
