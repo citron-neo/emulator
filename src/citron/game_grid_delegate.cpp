@@ -130,10 +130,10 @@ void GameGridDelegate::PaintGridItem(QPainter* painter, const QStyleOptionViewIt
 
     painter->save();
     if (is_selected) {
-        double time_t = m_pulse_tick * 0.032;
-        double hover_y = std::sin(time_t* 3.0) * (4.0 * scale);
-        double yaw_angle = std::sin(time_t* 2.5) * 20.0;
-        double pitch_angle = std::cos(time_t* 1.5) * 10.0;
+        double pulse_t = m_pulse_tick * 0.032;
+        double hover_y = std::sin(pulse_t* 3.0) * (4.0 * scale);
+        double yaw_angle = std::sin(pulse_t* 2.5) * 20.0;
+        double pitch_angle = std::cos(pulse_t* 1.5) * 10.0;
 
         painter->translate(rect.center());
 
