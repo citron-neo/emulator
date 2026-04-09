@@ -98,12 +98,13 @@ static FileSys::VirtualFile VfsDirectoryCreateFileWrapper(const FileSys::Virtual
 #include <QShortcut>
 #include <QStandardPaths>
 #include <QStatusBar>
-#include <QToolTip>
 #include <QString>
 #include <QStyleFactory>
 #include <QSysInfo>
+#include <QToolTip>
 #include <QUrl>
 #include <QtConcurrent/QtConcurrent>
+
 
 #ifdef HAVE_SDL2
 #include <SDL.h> // For SDL ScreenSaver functions
@@ -116,10 +117,10 @@ static FileSys::VirtualFile VfsDirectoryCreateFileWrapper(const FileSys::Virtual
 #include "common/fs/path_util.h"
 #include "common/literals.h"
 #include "common/logging.h"
-#include "common/logging.h"
 #include "common/memory_detect.h"
 #include "common/scm_rev.h"
 #include "common/scope_exit.h"
+
 #ifdef _WIN32
 #include <shlobj.h>
 #include "common/windows/timer_resolution.h"
@@ -140,8 +141,8 @@ static FileSys::VirtualFile VfsDirectoryCreateFileWrapper(const FileSys::Virtual
 #include "citron/controller_overlay.h"
 #include "citron/debugger/console.h"
 #include "citron/debugger/controller.h"
-#include "citron/debugger/wait_tree.h"
 #include "citron/debugger/memory_tools.h"
+#include "citron/debugger/wait_tree.h"
 #include "citron/discord.h"
 #include "citron/game_list.h"
 #include "citron/game_list_p.h"
@@ -185,6 +186,7 @@ static FileSys::VirtualFile VfsDirectoryCreateFileWrapper(const FileSys::Virtual
 #include "video_core/renderer_vulkan/renderer_vulkan.h"
 #include "video_core/renderer_vulkan/vk_rasterizer.h"
 #include "video_core/shader_notify.h"
+
 
 #ifdef CITRON_USE_AUTO_UPDATER
 #include "citron/updater/updater_dialog.h"
@@ -537,7 +539,6 @@ GMainWindow::GMainWindow(std::unique_ptr<QtConfig> config_, bool has_broken_vulk
         LOG_INFO(Frontend, "Skipping setup wizard - first_start is false");
     }
     */
-
 
     if (has_broken_vulkan) {
         UISettings::values.has_broken_vulkan = true;
@@ -1084,38 +1085,94 @@ void GMainWindow::WebBrowserRequestExit() {
 #endif
 }
 
-#include <QPropertyAnimation>
 #include <QParallelAnimationGroup>
+#include <QPropertyAnimation>
+
 
 class MenuAnimationFilter : public QObject {
 public:
     explicit MenuAnimationFilter(QMenu* menu) : QObject(menu), target_menu(menu) {}
 
     bool eventFilter(QObject* obj, QEvent* event) override {
+        // [HOVER-TO-SWITCH] Restore fluid navigation logic
+        if (event->type() == QEvent::Enter) {
+            // Check if any other menu is already open
+            for (auto* topLevel : QApplication::topLevelWidgets()) {
+                if (topLevel->inherits("QMenu") && topLevel->isVisible() &&
+                    topLevel != target_menu) {
+                    // Instantly switch to this menu for a premium console-grade feel
+                    target_menu->show();
+                    break;
+                }
+            }
+        }
+
         if (event->type() == QEvent::Show && obj == target_menu && !is_animating) {
             is_animating = true;
             QPropertyAnimation* geom = new QPropertyAnimation(target_menu, "geometry", target_menu);
             geom->setDuration(150);
             QRect final_geom = target_menu->geometry();
             // Ensure we keep the SAME x and width to prevent horizontal shifting
-            QRect start_geom = QRect(final_geom.x(), final_geom.y() - 5, final_geom.width(), final_geom.height());
+            QRect start_geom =
+                QRect(final_geom.x(), final_geom.y() - 5, final_geom.width(), final_geom.height());
             geom->setStartValue(start_geom);
             geom->setEndValue(final_geom);
             geom->setEasingCurve(QEasingCurve::OutCubic);
 
-            connect(geom, &QAbstractAnimation::finished, [this]() { 
-                is_animating = false; 
-            });
+            connect(geom, &QAbstractAnimation::finished, [this]() { is_animating = false; });
             geom->start(QAbstractAnimation::DeleteWhenStopped);
         }
         return QObject::eventFilter(obj, event);
     }
+
 private:
     QMenu* target_menu;
     bool is_animating = false;
 };
 
 #include <QGraphicsOpacityEffect>
+
+class GlobalOnyxUIFilter : public QObject {
+public:
+    explicit GlobalOnyxUIFilter(QObject* parent = nullptr) : QObject(parent) {}
+    bool eventFilter(QObject* obj, QEvent* event) override {
+        // [RIBBON STYLING] Enforce style on Paint to prevent 'clear' tooltips during recycling
+        if ((event->type() == QEvent::Show || event->type() == QEvent::Paint) &&
+            obj->inherits("QTipLabel")) {
+            auto* widget = qobject_cast<QWidget*>(obj);
+            if (widget) {
+                widget->setStyleSheet(
+                    QStringLiteral("QToolTip, QTipLabel { "
+                                   "   background-color: #24242a; "
+                                   "   color: #e0e0e4; "
+                                   "   border: 1px solid #32323a; "
+                                   "   border-radius: 3px; "
+                                   "   padding: 1px 8px; font-size: 10pt; "
+                                   "   font-family: 'Outfit', 'Inter', sans-serif; "
+                                   "}"));
+            }
+        }
+
+        // [FLUID NAVIGATION] Global Grab-Aware hand-off logic
+        // This MUST be MouseMove to catch transitions while a menu has the mouse grab
+        if (event->type() == QEvent::MouseMove) {
+            QWidget* active_popup = QApplication::activePopupWidget();
+            if (active_popup && active_popup->inherits("QMenu")) {
+                QWidget* hovered = QApplication::widgetAt(QCursor::pos());
+                if (hovered && hovered->inherits("QPushButton") && hovered->parent() &&
+                    hovered->parent()->objectName() == QStringLiteral("UnifiedTopBar")) {
+                    auto* btn = static_cast<QPushButton*>(hovered);
+                    if (btn->menu() && btn->menu() != active_popup) {
+                        active_popup->close();
+                        btn->showMenu();
+                        return true;
+                    }
+                }
+            }
+        }
+        return QObject::eventFilter(obj, event);
+    }
+};
 
 void GMainWindow::InitializeWidgets() {
 #ifdef CITRON_ENABLE_COMPATIBILITY_REPORTING
@@ -1128,7 +1185,7 @@ void GMainWindow::InitializeWidgets() {
     game_list = new GameList(vfs, provider.get(), *play_time_manager, *system, this);
     game_list->SetToolbarInMain(true);
     ui->horizontalLayout->addWidget(game_list);
-    
+
     // Create a new master layout for centralwidget
     // We create it first without a parent to avoid warnings
     QVBoxLayout* master_layout = new QVBoxLayout();
@@ -1139,11 +1196,13 @@ void GMainWindow::InitializeWidgets() {
     unified_top_bar = new QWidget(this);
     unified_top_bar->setObjectName(QStringLiteral("UnifiedTopBar"));
     unified_top_bar->setAutoFillBackground(true);
-    unified_top_bar->setStyleSheet(QStringLiteral("QWidget#UnifiedTopBar { background-color: #24242a; border-bottom: 1px solid #32323a; }"));
-    
+    unified_top_bar->setStyleSheet(QStringLiteral(
+        "QWidget#UnifiedTopBar { background-color: #24242a; border-bottom: 1px solid #32323a; }"));
+
     // Retrieve dynamic accent color
     const QString accent_hex = QString::fromStdString(UISettings::values.accent_color.GetValue());
-    const QColor accent_color = QColor(accent_hex).isValid() ? QColor(accent_hex) : QColor(60, 120, 216);
+    const QColor accent_color =
+        QColor(accent_hex).isValid() ? QColor(accent_hex) : QColor(60, 120, 216);
     const QString accent_str = accent_color.name();
     const QString accent_dim = accent_color.darker(120).name();
 
@@ -1152,20 +1211,25 @@ void GMainWindow::InitializeWidgets() {
     unified_top_bar_layout->setSpacing(0);
 
     auto add_menu = [this, accent_str](QMenu* menu) {
-        if (!menu) return;
+        if (!menu)
+            return;
         menu->installEventFilter(new MenuAnimationFilter(menu));
-        menu->setWindowFlags(menu->windowFlags() | Qt::NoDropShadowWindowHint | Qt::FramelessWindowHint);
+        menu->setWindowFlags(menu->windowFlags() | Qt::NoDropShadowWindowHint |
+                             Qt::FramelessWindowHint);
         menu->setAttribute(Qt::WA_TranslucentBackground, false);
         menu->setStyleSheet(QString::asprintf(
-            "QMenu { background: #24242a; border: 1px solid #32323a; border-radius: 8px; padding: 6px; color: #ffffff; }"
-            "QMenu::item { padding: 4px 28px 4px 32px; border-radius: 4px; margin: 1px; font-size: 8.5pt; min-width: 140px; color: #e0e0e4; }"
+            "QMenu { background: #24242a; border: 1px solid #32323a; border-radius: 8px; padding: "
+            "6px; color: #ffffff; }"
+            "QMenu::item { padding: 4px 28px 4px 32px; border-radius: 4px; margin: 1px; font-size: "
+            "8.5pt; min-width: 140px; color: #e0e0e4; }"
             "QMenu::item:selected { background-color: %s; color: #ffffff; }"
             "QMenu::item:disabled { color: #555558; }"
             "QMenu::separator { height: 1px; background: #303035; margin: 4px 10px; }"
-            "QMenu::indicator { width: 14px; height: 14px; left: 10px; border-radius: 3px; border: 1px solid #4a4a50; background: #121214; }"
+            "QMenu::indicator { width: 14px; height: 14px; left: 10px; border-radius: 3px; border: "
+            "1px solid #4a4a50; background: #121214; }"
             "QMenu::indicator:checked { background: %s; border: 1px solid %s; }",
-            accent_str.toUtf8().constData(), accent_str.toUtf8().constData(), accent_str.toUtf8().constData()
-        ));
+            accent_str.toUtf8().constData(), accent_str.toUtf8().constData(),
+            accent_str.toUtf8().constData()));
         QPushButton* btn = new QPushButton(menu->title().remove(QLatin1Char('&')), unified_top_bar);
         btn->setFlat(true);
         btn->setFocusPolicy(Qt::NoFocus);
@@ -1173,13 +1237,13 @@ void GMainWindow::InitializeWidgets() {
         btn->setFixedHeight(42);
         btn->setStyleSheet(QString::asprintf(
             "QPushButton { border: none; padding: 0 14px; font-weight: normal; font-size: 9pt; "
-            "background: transparent; color: #e0e0e4; text-align: center; margin: 0; outline: none; }"
+            "background: transparent; color: #e0e0e4; text-align: center; margin: 0; outline: "
+            "none; }"
             "QPushButton:hover { background: rgba(255, 255, 255, 0.05); color: #ffffff; "
             "border-bottom: 2px solid %s; }"
             "QPushButton:pressed { background: rgba(255, 255, 255, 0.10); }"
             "QPushButton::menu-indicator { image: none; width: 0; }",
-            accent_str.toUtf8().constData()
-        ));
+            accent_str.toUtf8().constData()));
         btn->setMenu(menu);
         unified_top_bar_layout->addWidget(btn);
     };
@@ -1190,7 +1254,7 @@ void GMainWindow::InitializeWidgets() {
     add_menu(ui->menu_Tools);
     add_menu(ui->menu_Multiplayer);
     add_menu(ui->menu_Help);
-    
+
     // Set first/last button specific styling if needed, but the new flat look is preferred
     // Padding logic handled in QPushButton style above
 
@@ -1198,19 +1262,21 @@ void GMainWindow::InitializeWidgets() {
     unified_top_bar_layout->addStretch();
 
     if (game_list && game_list->GetToolbarWidget()) {
-        unified_top_bar_layout->addWidget(game_list->GetToolbarWidget(), 0, Qt::AlignRight | Qt::AlignVCenter);
+        unified_top_bar_layout->addWidget(game_list->GetToolbarWidget(), 0,
+                                          Qt::AlignRight | Qt::AlignVCenter);
     }
-    
+
     ui->action_Show_Filter_Bar->setChecked(true);
     ui->action_Show_Status_Bar->setChecked(true);
     ui->action_Fullscreen->setChecked(windowState().testFlag(Qt::WindowFullScreen));
     game_list->SetFilterVisible(true);
 
-    // Re-parent the existing horizontal layout (which contains game list etc) into our master layout
+    // Re-parent the existing horizontal layout (which contains game list etc) into our master
+    // layout
     QWidget* content_container = new QWidget(this);
     // Taking the layout from centralwidget (this removes the old layout from centralwidget)
-    content_container->setLayout(ui->centralwidget->layout()); 
-    
+    content_container->setLayout(ui->centralwidget->layout());
+
     master_layout->addWidget(unified_top_bar, 0);
     master_layout->addWidget(content_container, 1);
 
@@ -1241,8 +1307,9 @@ void GMainWindow::InitializeWidgets() {
     multiplayer_state->setVisible(false);
 
     // Create status bar
-    statusBar()->setStyleSheet(QStringLiteral("QStatusBar { background-color: #24242a; border-top: 1px solid #32323a; color: #aaa; }"
-                                              "QStatusBar::item { border: none; }"));
+    statusBar()->setStyleSheet(QStringLiteral(
+        "QStatusBar { background-color: #24242a; border-top: 1px solid #32323a; color: #aaa; }"
+        "QStatusBar::item { border: none; }"));
     message_label = new QLabel();
     message_label->setFrameStyle(QFrame::NoFrame);
     message_label->setContentsMargins(4, 0, 4, 0);
@@ -1488,10 +1555,12 @@ void GMainWindow::InitializeWidgets() {
 
         QString gamescope_style = qApp->styleSheet();
         gamescope_style.append(QStringLiteral(
-            "QMenu { background: #24242a !important; border: 1px solid #32323a; border-radius: 8px; padding: 6px; color: #ffffff; }"
+            "QMenu { background: #24242a !important; border: 1px solid #32323a; border-radius: "
+            "8px; padding: 6px; color: #ffffff; }"
             "QMenu::item { padding: 6px 30px; border-radius: 4px; margin: 2px; color: #ffffff; }"
             "QMenu::item:selected { background-color: #32323a; border: 1px solid #42424a; }"
-            "QToolTip { background: #24242a !important; color: #ffffff; border: 1px solid #32323a; border-radius: 6px; padding: 8px; }"));
+            "QToolTip { background: #24242a !important; color: #ffffff; border: 1px solid #32323a; "
+            "border-radius: 6px; padding: 8px; }"));
         qApp->setStyleSheet(gamescope_style);
 
         multiplayer_room_overlay->resize(360, 240);
@@ -1795,13 +1864,13 @@ void GMainWindow::ConnectWidgetEvents() {
             if (QWidget* toolbar = game_list->GetToolbarWidget()) {
                 QGraphicsOpacityEffect* effect = new QGraphicsOpacityEffect(toolbar);
                 toolbar->setGraphicsEffect(effect);
-                
+
                 QPropertyAnimation* anim = new QPropertyAnimation(effect, "opacity", this);
                 anim->setDuration(250);
                 anim->setStartValue(1.0);
                 anim->setEndValue(0.0);
                 anim->setEasingCurve(QEasingCurve::OutCubic);
-                
+
                 connect(anim, &QPropertyAnimation::finished, toolbar, &QWidget::hide);
                 anim->start(QAbstractAnimation::DeleteWhenStopped);
             }
@@ -1812,19 +1881,18 @@ void GMainWindow::ConnectWidgetEvents() {
         if (game_list) {
             if (QWidget* toolbar = game_list->GetToolbarWidget()) {
                 toolbar->show();
-                
+
                 QGraphicsOpacityEffect* effect = new QGraphicsOpacityEffect(toolbar);
                 toolbar->setGraphicsEffect(effect);
-                
+
                 QPropertyAnimation* anim = new QPropertyAnimation(effect, "opacity", this);
                 anim->setDuration(250);
                 anim->setStartValue(0.0);
                 anim->setEndValue(1.0);
                 anim->setEasingCurve(QEasingCurve::OutCubic);
-                
-                connect(anim, &QPropertyAnimation::finished, [toolbar]() {
-                    toolbar->setGraphicsEffect(nullptr);
-                });
+
+                connect(anim, &QPropertyAnimation::finished,
+                        [toolbar]() { toolbar->setGraphicsEffect(nullptr); });
                 anim->start(QAbstractAnimation::DeleteWhenStopped);
             }
         }
@@ -3351,7 +3419,9 @@ bool GMainWindow::CreateShortcutLink(const std::filesystem::path& shortcut_path,
         LOG_ERROR(Frontend, "Failed to get IPersistFile interface");
         return false;
     }
-    hres = persist_file->Save(std::filesystem::path{shortcut_path / (Common::UTF8ToUTF16W(name) + L".lnk")}.c_str(), TRUE);
+    hres = persist_file->Save(
+        std::filesystem::path{shortcut_path / (Common::UTF8ToUTF16W(name) + L".lnk")}.c_str(),
+        TRUE);
     if (FAILED(hres)) {
         LOG_ERROR(Frontend, "Failed to save shortcut");
         return false;
@@ -4180,9 +4250,7 @@ void GMainWindow::ErrorDisplayRequestExit() {
     }
 }
 
-void GMainWindow::OnMenuReportCompatibility() {
-
-}
+void GMainWindow::OnMenuReportCompatibility() {}
 
 void GMainWindow::OpenURL(const QUrl& url) {
     const bool open = QDesktopServices::openUrl(url);
@@ -6263,35 +6331,68 @@ void GMainWindow::UpdateUITheme() {
         if (!f.open(QFile::ReadOnly | QFile::Text)) {
             LOG_ERROR(Frontend, "Unable to open style \"{}\", fallback to the default theme",
                       UISettings::values.theme);
-            current_theme = default_theme_name;
+        } else {
+            qApp->setStyleSheet(QString::fromUtf8(f.readAll()));
+        }
+    } else {
+        qApp->setStyleSheet(QStringLiteral(""));
+    }
+
+    // Refresh status bar style to follow the theme (Silver for Light, Onyx for Dark)
+    // We STRICTLY follow the text-only aesthetic from Screenshot 1 (No boxes/borders)
+    const bool is_dark = UISettings::IsDarkTheme();
+    const QString status_bg = is_dark ? QStringLiteral("#24242a") : QStringLiteral("#f0f0f5");
+    const QString status_fg = is_dark ? QStringLiteral("#aaa") : QStringLiteral("#1a1a1e");
+    const QString status_border = is_dark ? QStringLiteral("#32323a") : QStringLiteral("#d0d0d5");
+
+    // Unified Top Bar styling (Reverting hardcoded dark segments)
+    const QString toolbar_bg = is_dark ? QStringLiteral("#24242a") : QStringLiteral("#ffffff");
+    const QString toolbar_border = is_dark ? QStringLiteral("#32323a") : QStringLiteral("#d0d0d5");
+    const QString toolbar_fg = is_dark ? QStringLiteral("#e0e0e4") : QStringLiteral("#1a1a1e");
+
+    if (unified_top_bar) {
+        unified_top_bar->setStyleSheet(
+            QStringLiteral("QWidget#UnifiedTopBar { background-color: %1; border-bottom: 1px solid %2; }")
+                .arg(toolbar_bg, toolbar_border));
+        
+        // Update top bar buttons to adapt text color
+        const QString accent_hex = QString::fromStdString(UISettings::values.accent_color.GetValue());
+        const QColor accent_color = QColor(accent_hex).isValid() ? QColor(accent_hex) : QColor(60, 120, 216);
+        const QString accent_str = accent_color.name();
+        
+        QString top_btn_style = QString::fromLatin1(
+            "QPushButton { border: none; padding: 0 14px; font-weight: normal; font-size: 9pt; "
+            "background: transparent; color: %1; text-align: center; margin: 0; outline: none; }"
+            "QPushButton:hover { background: %2; color: %3; border-bottom: 2px solid %4; }"
+            "QPushButton:pressed { background: %5; }"
+            "QPushButton::menu-indicator { image: none; width: 0; }")
+            .arg(toolbar_fg, (is_dark ? "rgba(255, 255, 255, 0.05)" : "rgba(0, 0, 0, 0.05)"),
+                 (is_dark ? "#ffffff" : "#000000"), accent_str,
+                 (is_dark ? "rgba(255, 255, 255, 0.10)" : "rgba(0, 0, 0, 0.10)"));
+        
+        for (auto* btn : unified_top_bar->findChildren<QPushButton*>()) {
+            btn->setStyleSheet(top_btn_style);
         }
     }
 
-    QString theme_uri{QStringLiteral(":%1/style.qss").arg(current_theme)};
-    QFile f(theme_uri);
-    if (f.open(QFile::ReadOnly | QFile::Text)) {
-        QString style = QString::fromUtf8(f.readAll());
-        
-        // Append Grey Onyx overrides for popups (Menus) and the Top Unified Toolbar
-        const QString onyx_overrides = QStringLiteral(
-            "QMenuBar { background-color: #08080a; border-bottom: 1px solid #1a1a1e; min-height: 38px; }"
-            "QMenuBar::item { padding: 0px 14px; background: transparent; border-radius: 4px; color: #ffffff; margin: 4px 2px; height: 30px; }"
-            "QMenuBar::item:selected { background-color: #24242a; }"
-            "QMenu { background-color: #1a1a1e !important; border: 1px solid #32323a; border-radius: 8px; padding: 4px; color: #ffffff; }"
-            "QMenu::item { padding: 6px 25px; border-radius: 4px; margin: 1px; color: #ffffff; }"
-            "QMenu::item:selected { background-color: #32323a; border: 1px solid #42424a; }"
-            "QMenu::separator { height: 1px; background: #32323a; margin: 4px 10px; }"
-        );
-        qApp->setStyleSheet(style + onyx_overrides);
-    } else {
-        LOG_ERROR(Frontend, "Unable to set style \"{}\", stylesheet file not found",
-                  UISettings::values.theme);
-        qApp->setStyleSheet({});
-    }
+    // Force aggressive transparency for status bar children to kill redundant 'boxes'
+    // We explicitly target :checked and :hover states to ensure native styles don't apply backgrounds
+    statusBar()->setStyleSheet(
+        QStringLiteral(
+            "QStatusBar { background-color: %1; border-top: 1px solid %2; color: %3; }"
+            "QStatusBar QLabel { color: %3 !important; background: transparent !important; border: none !important; }"
+            "QStatusBar QPushButton, QStatusBar QToolButton, "
+            "QStatusBar QPushButton:checked, QStatusBar QToolButton:checked, "
+            "QStatusBar QPushButton:hover, QStatusBar QToolButton:hover { "
+            "background: transparent !important; background-color: transparent !important; "
+            "border: none !important; color: %3 !important; padding: 0px 6px !important; outline: none !important; }"
+            "QStatusBar QPushButton#RendererStatusBarButton { color: #ff8c00 !important; font-weight: bold !important; background: transparent !important; border: none !important; }"
+            "QStatusBar QPushButton#GPUStatusBarButton { color: #32cd32 !important; font-weight: bold !important; background: transparent !important; border: none !important; }"
+            "QStatusBar::item { border: none !important; }")
+            .arg(status_bg, status_border, status_fg));
 
-    emit themeChanged();
+    emit UpdateThemedIcons();
 
-    // Once everything is done, reset the flag to false.
     m_is_updating_theme = false;
 }
 
@@ -6359,7 +6460,7 @@ void GMainWindow::changeEvent(QEvent* event) {
         const QColor window_color = test_palette.color(QPalette::Active, QPalette::Window);
         if (last_window_color != window_color && (current_theme == QStringLiteral("default") ||
                                                   current_theme == QStringLiteral("colorful"))) {
-            UpdateUITheme();
+            QTimer::singleShot(0, this, &GMainWindow::UpdateUITheme);
         }
         last_window_color = window_color;
     }
@@ -6445,16 +6546,13 @@ static void SetHighDPIAttributes() {
 
     HMODULE shcore = LoadLibrary(L"shcore.dll");
     if (shcore) {
-        using SetProcessDpiAwarenessFunc =
-            HRESULT(WINAPI*)(PROCESS_DPI_AWARENESS);
+        using SetProcessDpiAwarenessFunc = HRESULT(WINAPI*)(PROCESS_DPI_AWARENESS);
 
-        auto* shcoreProcAddress {
-            reinterpret_cast<void*>(GetProcAddress(shcore,
-                                                   "SetProcessDpiAwareness"))
-        };
+        auto* shcoreProcAddress{
+            reinterpret_cast<void*>(GetProcAddress(shcore, "SetProcessDpiAwareness"))};
 
         auto setProcessDpiAwareness =
-                reinterpret_cast<SetProcessDpiAwarenessFunc>(shcoreProcAddress);
+            reinterpret_cast<SetProcessDpiAwarenessFunc>(shcoreProcAddress);
 
         if (setProcessDpiAwareness) {
             setProcessDpiAwareness(PROCESS_PER_MONITOR_DPI_AWARE);
@@ -6555,7 +6653,6 @@ int main(int argc, char* argv[]) {
 #if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
     QCoreApplication::setAttribute(Qt::AA_DisableWindowContextHelpButton);
 #endif
-
 
     QApplication app(argc, argv);
 

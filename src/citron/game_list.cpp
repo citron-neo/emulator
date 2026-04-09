@@ -926,10 +926,14 @@ void GameList::OnUpdateThemedIcons() {
                     .scaled(icon_size, icon_size, Qt::IgnoreAspectRatio, Qt::SmoothTransformation),
                 Qt::DecorationRole);
             break;
-        default:
+        case GameListItemType::Game:
             break;
         }
     }
+    
+    // Refresh all theme-aware styles and icons
+    UpdateProgressBarColor();
+    UpdateAccentColorStyles();
 }
 
 void GameList::OnFilterCloseClicked() {
@@ -1064,12 +1068,13 @@ GameList::GameList(std::shared_ptr<FileSys::VfsFilesystem> vfs_,
 
     // List view button - icon-only with rounded corners
     btn_list_view = new QToolButton(toolbar);
-    QIcon list_icon = QIcon::fromTheme(QStringLiteral("view-list-details"));
+    QIcon list_icon(QStringLiteral(":/dist/list.svg"));
     if (list_icon.isNull()) {
-        list_icon = QIcon::fromTheme(QStringLiteral("view-list"));
-    }
-    if (list_icon.isNull()) {
-        list_icon = style()->standardIcon(QStyle::SP_FileDialogListView);
+        list_icon = QIcon::fromTheme(QStringLiteral("view-list-details"));
+        if (list_icon.isNull())
+            list_icon = QIcon::fromTheme(QStringLiteral("view-list"));
+        if (list_icon.isNull())
+            list_icon = style()->standardIcon(QStyle::SP_FileDialogListView);
     }
     btn_list_view->setIcon(list_icon);
     btn_list_view->setToolTip(tr("List View"));
@@ -1079,28 +1084,30 @@ GameList::GameList(std::shared_ptr<FileSys::VfsFilesystem> vfs_,
     btn_list_view->setIconSize(QSize(16, 16));
     btn_list_view->setFixedSize(26, 26);
     btn_list_view->setStyleSheet(QStringLiteral("QToolButton {"
-                                                "  border: 1px solid palette(mid);"
+                                                "  border: 1px solid #3e3e42;"
                                                 "  border-radius: 4px;"
-                                                "  background: palette(button);"
+                                                "  background: #2b2b2f;"
+                                                "  color: #ffffff;"
                                                 "}"
                                                 "QToolButton:hover {"
-                                                "  background: palette(light);"
+                                                "  background: #3e3e42;"
                                                 "}"
                                                 "QToolButton:checked {"
-                                                "  background: palette(highlight);"
-                                                "  border-color: palette(highlight);"
+                                                "  background: #0078d4;"
+                                                "  border-color: #0078d4;"
                                                 "}"));
     connect(btn_list_view, &QToolButton::clicked,
             [this]() { SetViewMode(GameList::ViewMode::List); });
 
     // Grid view button - icon-only with rounded corners
     btn_grid_view = new QToolButton(toolbar);
-    QIcon grid_icon = QIcon::fromTheme(QStringLiteral("view-grid"));
+    QIcon grid_icon(QStringLiteral(":/dist/grid.svg"));
     if (grid_icon.isNull()) {
-        grid_icon = QIcon::fromTheme(QStringLiteral("view-grid-details"));
-    }
-    if (grid_icon.isNull()) {
-        grid_icon = style()->standardIcon(QStyle::SP_FileDialogDetailedView);
+        grid_icon = QIcon::fromTheme(QStringLiteral("view-grid"));
+        if (grid_icon.isNull())
+            grid_icon = QIcon::fromTheme(QStringLiteral("view-grid-details"));
+        if (grid_icon.isNull())
+            grid_icon = style()->standardIcon(QStyle::SP_FileDialogDetailedView);
     }
     btn_grid_view->setIcon(grid_icon);
     btn_grid_view->setToolTip(tr("Grid View"));
@@ -1110,16 +1117,17 @@ GameList::GameList(std::shared_ptr<FileSys::VfsFilesystem> vfs_,
     btn_grid_view->setIconSize(QSize(16, 16));
     btn_grid_view->setFixedSize(26, 26);
     btn_grid_view->setStyleSheet(QStringLiteral("QToolButton {"
-                                                "  border: 1px solid palette(mid);"
+                                                "  border: 1px solid #3e3e42;"
                                                 "  border-radius: 4px;"
-                                                "  background: palette(button);"
+                                                "  background: #2b2b2f;"
+                                                "  color: #ffffff;"
                                                 "}"
                                                 "QToolButton:hover {"
-                                                "  background: palette(light);"
+                                                "  background: #3e3e42;"
                                                 "}"
                                                 "QToolButton:checked {"
-                                                "  background: palette(highlight);"
-                                                "  border-color: palette(highlight);"
+                                                "  background: #0078d4;"
+                                                "  border-color: #0078d4;"
                                                 "}"));
     connect(btn_grid_view, &QToolButton::clicked,
             [this]() { SetViewMode(GameList::ViewMode::Grid); });
@@ -1140,16 +1148,17 @@ GameList::GameList(std::shared_ptr<FileSys::VfsFilesystem> vfs_,
     btn_carousel_view->setIconSize(QSize(16, 16));
     btn_carousel_view->setFixedSize(26, 26);
     btn_carousel_view->setStyleSheet(QStringLiteral("QToolButton {"
-                                                    "  border: 1px solid palette(mid);"
+                                                    "  border: 1px solid #3e3e42;"
                                                     "  border-radius: 4px;"
-                                                    "  background: palette(button);"
+                                                    "  background: #2b2b2f;"
+                                                    "  color: #ffffff;"
                                                     "}"
                                                     "QToolButton:hover {"
-                                                    "  background: palette(light);"
+                                                    "  background: #3e3e42;"
                                                     "}"
                                                     "QToolButton:checked {"
-                                                    "  background: palette(highlight);"
-                                                    "  border-color: palette(highlight);"
+                                                    "  background: #0078d4;"
+                                                    "  border-color: #0078d4;"
                                                     "}"));
     connect(btn_carousel_view, &QToolButton::clicked,
             [this]() { SetViewMode(GameList::ViewMode::Carousel); });
@@ -1267,12 +1276,13 @@ GameList::GameList(std::shared_ptr<FileSys::VfsFilesystem> vfs_,
     btn_sort_az->setIconSize(QSize(16, 16));
     btn_sort_az->setFixedSize(26, 26);
     btn_sort_az->setStyleSheet(QStringLiteral("QToolButton {"
-                                              "  border: 1px solid palette(mid);"
+                                              "  border: 1px solid #3e3e42;"
                                               "  border-radius: 4px;"
-                                              "  background: palette(button);"
+                                              "  background: #2b2b2f;"
+                                              "  color: #ffffff;"
                                               "}"
                                               "QToolButton:hover {"
-                                              "  background: palette(light);"
+                                              "  background: #3e3e42;"
                                               "}"));
     connect(btn_sort_az, &QToolButton::clicked, this, &GameList::ToggleSortOrder);
 
@@ -1295,12 +1305,13 @@ GameList::GameList(std::shared_ptr<FileSys::VfsFilesystem> vfs_,
     btn_surprise_me->setIconSize(QSize(16, 16));
     btn_surprise_me->setFixedSize(26, 26);
     btn_surprise_me->setStyleSheet(QStringLiteral("QToolButton {"
-                                                  "  border: 1px solid palette(mid);"
+                                                  "  border: 1px solid #3e3e42;"
                                                   "  border-radius: 4px;"
-                                                  "  background: palette(button);"
+                                                  "  background: #2b2b2f;"
+                                                  "  color: #ffffff;"
                                                   "}"
                                                   "QToolButton:hover {"
-                                                  "  background: palette(light);"
+                                                  "  background: #3e3e42;"
                                                   "}"));
     connect(btn_surprise_me, &QToolButton::clicked, this, &GameList::onSurpriseMeClicked);
 
@@ -1322,8 +1333,13 @@ GameList::GameList(std::shared_ptr<FileSys::VfsFilesystem> vfs_,
     toolbar_layout->addWidget(btn_sort_az);
     toolbar_layout->addWidget(btn_surprise_me);
 
+    // Install event filter on toolbar for tooltip dismissal
+    if (auto* delegate = qobject_cast<GameListDelegate*>(tree_view->itemDelegate())) {
+        toolbar->installEventFilter(delegate);
+    }
+
     // Controller Settings Button
-    auto* btn_controller_settings = new QToolButton(toolbar);
+    btn_controller_settings = new QToolButton(toolbar);
     QIcon ctrl_icon(QStringLiteral(":/dist/controller_navigation.svg"));
     if (ctrl_icon.isNull()) {
         ctrl_icon = QIcon::fromTheme(QStringLiteral("input-gaming"));
@@ -1370,7 +1386,7 @@ GameList::GameList(std::shared_ptr<FileSys::VfsFilesystem> vfs_,
         layout->addWidget(toolbar);
     }
 
-    setStyleSheet(QStringLiteral("background: #161618;"));
+    UpdateProgressBarColor();
     tree_view->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
     main_stack->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
     tree_view->setFocusPolicy(Qt::StrongFocus);
@@ -3227,6 +3243,7 @@ void GameList::ToggleSortOrder() {
     current_sort_order =
         (current_sort_order == Qt::AscendingOrder) ? Qt::DescendingOrder : Qt::AscendingOrder;
     SortAlphabetically();
+    UpdateSortButtonIcon(); // Force update immediately
 }
 
 void GameList::UpdateSortButtonIcon() {
@@ -3234,25 +3251,21 @@ void GameList::UpdateSortButtonIcon() {
         return;
 
     QIcon sort_icon;
-    if (current_sort_order == Qt::AscendingOrder) {
-        // Ascending (A-Z) - arrow up
-        sort_icon = QIcon::fromTheme(QStringLiteral("view-sort-ascending"));
-        if (sort_icon.isNull()) {
-            sort_icon = QIcon::fromTheme(QStringLiteral("sort-ascending"));
-        }
-        if (sort_icon.isNull()) {
-            sort_icon = style()->standardIcon(QStyle::SP_ArrowUp);
-        }
-    } else {
+    if (current_sort_order == Qt::DescendingOrder) {
         // Descending (Z-A) - arrow down
-        sort_icon = QIcon::fromTheme(QStringLiteral("view-sort-descending"));
-        if (sort_icon.isNull()) {
-            sort_icon = QIcon::fromTheme(QStringLiteral("sort-descending"));
-        }
-        if (sort_icon.isNull()) {
-            sort_icon = style()->standardIcon(QStyle::SP_ArrowDown);
-        }
+        sort_icon = GetThemedIcon(QStringLiteral(":/dist/sort_descending.svg"), true);
+    } else {
+        // Ascending (A-Z) - arrow up
+        sort_icon = GetThemedIcon(QStringLiteral(":/dist/sort_ascending.svg"), true);
     }
+
+    if (sort_icon.isNull()) {
+        // Fallback to theme if resources fail
+        sort_icon = QIcon::fromTheme(current_sort_order == Qt::AscendingOrder
+                                         ? QStringLiteral("view-sort-ascending")
+                                         : QStringLiteral("view-sort-descending"));
+    }
+
     btn_sort_az->setIcon(sort_icon);
 }
 
@@ -3427,11 +3440,15 @@ void GameList::UpdateAccentColorStyles() {
                                                     .arg(hover_background_color.alpha());
 
     const bool dark = UISettings::IsDarkTheme();
-    const QString header_bg = dark ? QStringLiteral("#24242a") : QStringLiteral("#dddde2");
-    const QString header_fg = dark ? QStringLiteral("#9898a4") : QStringLiteral("#444450");
-    const QString header_border = dark ? QStringLiteral("#32323a") : QStringLiteral("#c8c8d0");
-    const QString header_bg_hov = dark ? QStringLiteral("#2e2e34") : QStringLiteral("#cdcdd4");
-    const QString header_fg_hov = dark ? QStringLiteral("#d0d0e0") : QStringLiteral("#222230");
+    
+    // Header & Search Colors: Onyx (Dark) vs Silver (Light)
+    const QString header_bg = dark ? QStringLiteral("#1c1c1e") : QStringLiteral("#ececf0");
+    const QString header_fg = dark ? QStringLiteral("#d0d0e0") : QStringLiteral("#1a1a1e");
+    const QString header_border = dark ? QStringLiteral("#2e2e34") : QStringLiteral("#d0d0d5");
+    const QString header_bg_hov = dark ? QStringLiteral("#2e2e34") : QStringLiteral("#e0e0e5");
+    const QString header_fg_hov = dark ? QStringLiteral("#ffffff") : QStringLiteral("#000000");
+    const QString search_bg = dark ? QStringLiteral("#1c1c1e") : QStringLiteral("#fdfdfd");
+    const QString search_fg = dark ? QStringLiteral("#f0f0f5") : QStringLiteral("#1a1a1e");
 
     QString accent_style = QStringLiteral(
                                /* Tree View (List View) Selection & Hover Style */
@@ -3516,37 +3533,128 @@ void GameList::UpdateAccentColorStyles() {
     grid_view->setStyleSheet(accent_style);
     carousel_view->ApplyTheme();
 
-    // Update the toolbar buttons as before
-    QString button_base_style = QStringLiteral("QToolButton {"
-                                               "  border: 1px solid palette(mid);"
+    // Explicitly style the header with a clean, high-fidelity theme
+    tree_view->header()->setStyleSheet(QString::fromLatin1(
+        "QHeaderView::section { background-color: %1; color: %2; border: none; border-bottom: 1px solid %3; padding: 6px 10px; font-weight: bold; }"
+        "QHeaderView::section:hover { background-color: %4; }")
+        .arg(header_bg, header_fg, header_border, header_bg_hov));
+
+    // Restore theme-aware button styling
+    const QString button_bg = dark ? QStringLiteral("#2b2b2f") : QStringLiteral("#fdfdfd");
+    const QString button_border = dark ? QStringLiteral("#3e3e42") : QStringLiteral("#d0d0d5");
+    const QString button_hover = dark ? QStringLiteral("#3e3e42") : QStringLiteral("#eeeeef");
+    const QString button_fg = dark ? QStringLiteral("#ffffff") : QStringLiteral("#1a1a1e");
+
+    // Locked Dark Style for top-right buttons: consistently dark grey (#2b2b2f)
+    const QString icon_btn_bg = QStringLiteral("#2b2b2f");
+    const QString icon_btn_border = QStringLiteral("#3e3e42");
+    const QString icon_btn_hover = QStringLiteral("#3e3e42");
+    const QString icon_btn_fg = QStringLiteral("#ffffff");
+
+    QString button_base_style = QString::fromLatin1("QToolButton {"
+                                               "  border: 1px solid %1;"
                                                "  border-radius: 4px;"
-                                               "  background: palette(button);"
+                                               "  background: %2;"
+                                               "  color: %3;"
                                                "}"
                                                "QToolButton:hover {"
-                                               "  background: palette(light);"
-                                               "}");
-    QString button_checked_style = QStringLiteral("QToolButton:checked {"
-                                                  "  background: %1;"
-                                                  "  border-color: %1;"
-                                                  "}")
+                                               "  background: %4;"
+                                               "}")
+                                    .arg(button_border, button_bg, button_fg, button_hover);
+
+    QString icon_button_style = QString::fromLatin1("QToolButton {"
+                                               "  border: 1px solid %1;"
+                                               "  border-radius: 4px;"
+                                               "  background: %2;"
+                                               "  color: %3;"
+                                               "}"
+                                               "QToolButton:hover {"
+                                               "  background: %4;"
+                                               "}")
+                                    .arg(icon_btn_border, icon_btn_bg, icon_btn_fg, icon_btn_hover);
+
+    QString button_checked_style = QString::fromLatin1("QToolButton:checked {"
+                                                   "  background: %1;"
+                                                   "  border-color: %1;"
+                                                   "  color: #ffffff;"
+                                                   "}")
                                        .arg(color_name);
 
-    btn_list_view->setStyleSheet(button_base_style + button_checked_style);
-    btn_grid_view->setStyleSheet(button_base_style + button_checked_style);
+    btn_list_view->setStyleSheet(icon_button_style + button_checked_style);
+    btn_grid_view->setStyleSheet(icon_button_style + button_checked_style);
     if (btn_carousel_view)
-        btn_carousel_view->setStyleSheet(button_base_style + button_checked_style);
+        btn_carousel_view->setStyleSheet(icon_button_style + button_checked_style);
+    
+    // Also update Sort, Surprise Me and Controller buttons with the locked dark style
+    btn_sort_az->setStyleSheet(icon_button_style);
+    btn_surprise_me->setStyleSheet(icon_button_style);
+    btn_controller_settings->setStyleSheet(icon_button_style);
+    
+    // Update toolbar background: Onyx Grey in Dark Mode, Pure White in Light Mode
+    toolbar->setStyleSheet(dark ? QStringLiteral("background: #24242a; border: none;")
+                                : QStringLiteral("background: #ffffff; border: none;"));
+
+    // Update main GameList background
+    setStyleSheet(dark ? QStringLiteral("background: #161618;") : QStringLiteral("background: #ffffff;"));
 
     search_field->setStyleSheet(QStringLiteral("QLineEdit {"
                                                "  border: 1px solid palette(mid);"
                                                "  border-radius: 6px;"
                                                "  padding: 4px 8px;"
-                                               "  background: palette(base);"
+                                               "  background: %2;"
+                                               "  color: %3;"
                                                "}"
                                                "QLineEdit:focus {"
                                                "  border: 1px solid %1;"
-                                               "  background: palette(base);"
+                                               "  background: %2;"
                                                "}")
-                                    .arg(color_name));
+                                    .arg(color_name, search_bg, search_fg));
+
+    // Force light icons for the locked-dark buttons even in Light Mode
+    const bool force_light = true;
+    btn_list_view->setIcon(GetThemedIcon(QStringLiteral(":/dist/list.svg"), force_light));
+    btn_grid_view->setIcon(GetThemedIcon(QStringLiteral(":/dist/grid.svg"), force_light));
+    if (btn_carousel_view)
+        btn_carousel_view->setIcon(GetThemedIcon(QStringLiteral(":/dist/carousel.svg"), force_light));
+    
+    UpdateSortButtonIcon();
+    btn_surprise_me->setIcon(GetThemedIcon(QStringLiteral(":/dist/dice.svg"), force_light));
+    btn_controller_settings->setIcon(GetThemedIcon(QStringLiteral(":/dist/controller_navigation.svg"), force_light));
+
+    // Standarize icon size for consistent aesthetic accountability
+    const QSize icon_size(20, 20);
+    btn_list_view->setIconSize(icon_size);
+    btn_grid_view->setIconSize(icon_size);
+    if (btn_carousel_view)
+        btn_carousel_view->setIconSize(icon_size);
+    btn_sort_az->setIconSize(icon_size);
+    btn_surprise_me->setIconSize(icon_size);
+    btn_controller_settings->setIconSize(icon_size);
+}
+
+QIcon GameList::GetThemedIcon(const QString& path, bool force_light) {
+    const bool dark = UISettings::IsDarkTheme();
+    const QColor icon_color = (dark || force_light) ? QColor(224, 224, 228) : QColor(32, 32, 36);
+    
+    // Load at 2x resolution for high-fidelity rendering on all displays
+    const QSize base_size(24, 24);
+    QPixmap pixmap = QIcon(path).pixmap(base_size * 2);
+    if (pixmap.isNull()) return QIcon(path);
+    
+    QPainter painter(&pixmap);
+    
+    // Special handling for Surprise Me (Dice) to preserve internal details (dots)
+    if (path.contains(QStringLiteral("dice.svg"))) {
+        // Use Multiply mode to tint the body while keeping black dots sharp
+        painter.setCompositionMode(QPainter::CompositionMode_Multiply);
+    } else {
+        // Standard tinting for flat icons
+        painter.setCompositionMode(QPainter::CompositionMode_SourceIn);
+    }
+    
+    painter.fillRect(pixmap.rect(), icon_color);
+    painter.end();
+    return QIcon(pixmap);
 }
 
 void GameList::SaveGameListIndex() {

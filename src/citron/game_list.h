@@ -234,6 +234,7 @@ private:
     void changeEvent(QEvent*) override;
     void RetranslateUI();
     void UpdateSortButtonIcon();
+    QIcon GetThemedIcon(const QString& path, bool force_light = false);
 
     std::shared_ptr<FileSys::VfsFilesystem> vfs;
     FileSys::ManualContentProvider* provider;
@@ -249,6 +250,7 @@ private:
     QSlider* slider_title_size = nullptr;
     QToolButton* btn_sort_az = nullptr;
     QToolButton* btn_surprise_me = nullptr;
+    QToolButton* btn_controller_settings = nullptr;
     Qt::SortOrder current_sort_order = Qt::AscendingOrder;
     QStandardItemModel* item_model = nullptr;
     GameDetailsPanel* details_panel = nullptr;

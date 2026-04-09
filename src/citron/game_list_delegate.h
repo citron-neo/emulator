@@ -5,6 +5,7 @@
 
 #include <QColor>
 #include <QMap>
+#include <QEvent>
 #include <QObject>
 #include <QPersistentModelIndex>
 #include <QSize>
@@ -37,6 +38,7 @@ public:
                const QModelIndex& index) const override;
     bool helpEvent(QHelpEvent* event, QAbstractItemView* view, const QStyleOptionViewItem& option,
                    const QModelIndex& index) override;
+    bool eventFilter(QObject* obj, QEvent* event) override;
 
     // Constants for layout
     static constexpr int kCardMarginV = 3;

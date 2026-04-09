@@ -12,6 +12,8 @@
 #include <QPainter>
 #include <QPainterPath>
 #include <QPixmap>
+#include <QPoint>
+#include <QRect>
 #include <QStyle>
 #include <QStyleOptionViewItem>
 #include <QTimer>
@@ -19,9 +21,15 @@
 #include <QHelpEvent>
 #include <QLabel>
 #include <QVBoxLayout>
-#include <QPainter>
 #include <QScreen>
 #include <QGuiApplication>
+#include <QWidget>
+#include <QMouseEvent>
+#include <QWheelEvent>
+
+#include <QWidget>
+#include <QObject>
+#include <QEvent>
 
 #include "citron/game_list.h"
 #include "citron/game_list_delegate.h"
@@ -49,48 +57,27 @@ public:
         m_label->setAlignment(Qt::AlignLeft | Qt::AlignTop);
         layout->addWidget(m_label);
 
-        setStyleSheet(QStringLiteral(
-            "QWidget { background-color: #24242a; border: 1px solid #32323a; border-radius: 8px; }"
-            "QLabel { color: #ffffff; background: transparent; border: none; font-family: 'Outfit', 'Inter', sans-serif; }"
-        ));
+        const bool is_dark = UISettings::IsDarkTheme();
+        const QString bg_color = is_dark ? QStringLiteral("#24242a") : QStringLiteral("#f5f5fa");
+        const QString text_color = is_dark ? QStringLiteral("#ffffff") : QStringLiteral("#1a1a1e");
+        const QString border_color = is_dark ? QStringLiteral("#32323a") : QStringLiteral("#dcdce2");
+
+        setStyleSheet(QString::fromLatin1(
+            "QWidget { background-color: %1; border: 1px solid %2; border-radius: 8px; }"
+            "QLabel { color: %3; background: transparent; border: none; font-family: 'Outfit', 'Inter', sans-serif; }"
+        ).arg(bg_color, border_color, text_color));
     }
 
-    static void showText(const QPoint& pos, const QString& text, QWidget* w) {
-        static OnyxTooltip* instance = nullptr;
-        if (!instance) {
-            instance = new OnyxTooltip();
-        }
-        
-        instance->m_label->setText(text);
-        instance->adjustSize();
-        
-        QScreen* screen = QGuiApplication::screenAt(pos);
-        if (!screen) screen = QGuiApplication::primaryScreen();
-        QRect screenGeom = screen->availableGeometry();
-        
-        QPoint showPos = pos + QPoint(10, 10);
-        if (showPos.x() + instance->width() > screenGeom.right()) {
-            showPos.setX(pos.x() - instance->width() - 10);
-        }
-        if (showPos.y() + instance->height() > screenGeom.bottom()) {
-            showPos.setY(pos.y() - instance->height() - 10);
-        }
-        
-        instance->move(showPos);
-        instance->show();
-        QTimer::singleShot(5000, instance, &QWidget::hide);
-    }
-
-    static void hideTooltip() {
-        // Implementation simplified as static instance persists
-    }
+    static void showText(const QPoint& pos, const QString& text, QWidget* w);
+    static void hideTooltip();
 
 protected:
     void paintEvent(QPaintEvent* event) override {
+        const bool is_dark = UISettings::IsDarkTheme();
         QPainter painter(this);
         painter.setRenderHint(QPainter::Antialiasing);
-        painter.setBrush(QColor(0x24, 0x24, 0x2a));
-        painter.setPen(QColor(0x32, 0x32, 0x3a));
+        painter.setBrush(is_dark ? QColor(0x24, 0x24, 0x2a) : QColor(0xf5, 0xf5, 0xfa));
+        painter.setPen(is_dark ? QColor(0x32, 0x32, 0x3a) : QColor(0xdc, 0xdc, 0xe2));
         painter.drawRoundedRect(rect().adjusted(0, 0, -1, -1), 8, 8);
     }
 
@@ -98,11 +85,52 @@ private:
     QLabel* m_label;
 };
 
+static OnyxTooltip* s_onyx_tooltip_instance = nullptr;
+
+void OnyxTooltip::showText(const QPoint& pos, const QString& text, QWidget* w) {
+    if (!s_onyx_tooltip_instance) {
+        s_onyx_tooltip_instance = new OnyxTooltip();
+    }
+    
+    s_onyx_tooltip_instance->m_label->setText(text);
+    s_onyx_tooltip_instance->adjustSize();
+    
+    QScreen* screen = QGuiApplication::screenAt(pos);
+    if (!screen) screen = QGuiApplication::primaryScreen();
+    QRect screenGeom = screen->availableGeometry();
+    
+    QPoint showPos = pos + QPoint(10, 10);
+    if (showPos.x() + s_onyx_tooltip_instance->width() > screenGeom.right()) {
+        showPos.setX(pos.x() - s_onyx_tooltip_instance->width() - 10);
+    }
+    if (showPos.y() + s_onyx_tooltip_instance->height() > screenGeom.bottom()) {
+        showPos.setY(pos.y() - s_onyx_tooltip_instance->height() - 10);
+    }
+    
+    s_onyx_tooltip_instance->move(showPos);
+    s_onyx_tooltip_instance->show();
+}
+
+void OnyxTooltip::hideTooltip() {
+    if (s_onyx_tooltip_instance) {
+        s_onyx_tooltip_instance->hide();
+    }
+}
+
 GameListDelegate::GameListDelegate(QTreeView* view, QObject* parent)
     : QStyledItemDelegate(parent), tree_view(view) {
     animation_timer = new QTimer(this);
     connect(animation_timer, &QTimer::timeout, this, &GameListDelegate::AdvanceAnimations);
     animation_timer->start(40); // ~25 FPS
+
+    if (tree_view) {
+        if (tree_view->viewport()) {
+            tree_view->viewport()->installEventFilter(this);
+        }
+        if (tree_view->header()) {
+            tree_view->header()->installEventFilter(this);
+        }
+    }
 }
 
 GameListDelegate::~GameListDelegate() = default;
@@ -377,6 +405,32 @@ bool GameListDelegate::helpEvent(QHelpEvent* event, QAbstractItemView* view,
     return QStyledItemDelegate::helpEvent(event, view, option, index);
 }
 
+bool GameListDelegate::eventFilter(QObject* obj, QEvent* event) {
+    if (obj == tree_view->viewport()) {
+        if (event->type() == QEvent::MouseMove) {
+            auto* mouseEvent = static_cast<QMouseEvent*>(event);
+            int column = tree_view->header()->logicalIndexAt(mouseEvent->pos().x());
+            
+            // If the mouse is NOT horizontally within the add-ons column, hide the tooltip.
+            // Also hide if moving too far up (towards the header/toolbar boundaries).
+            if (column != GameList::COLUMN_ADD_ONS || mouseEvent->pos().y() < 0) {
+                OnyxTooltip::hideTooltip();
+            }
+        } else if (event->type() == QEvent::Leave) {
+            // Hide tooltip when leaving the main viewport area
+            OnyxTooltip::hideTooltip();
+        } else if (event->type() == QEvent::Wheel) {
+            // Hide tooltip immediately on any scroll action
+            OnyxTooltip::hideTooltip();
+        }
+    } else if (event->type() == QEvent::MouseMove || event->type() == QEvent::Enter ||
+               event->type() == QEvent::HoverMove || event->type() == QEvent::HoverEnter) {
+        // Fallback dismissal for other monitored widgets (like the header or toolbar)
+        OnyxTooltip::hideTooltip();
+    }
+    return QStyledItemDelegate::eventFilter(obj, event);
+}
+
 void GameListDelegate::PaintBackground(QPainter* painter, const QStyleOptionViewItem& option,
                                        const QModelIndex& index) const {
     const bool is_selected = option.state & QStyle::State_Selected;
@@ -647,101 +701,64 @@ void GameListDelegate::PaintDefault(QPainter* painter, const QRect& rect,
         painter->setPen(TextColor());
     }
 
-    painter->setFont(option.font);
-
     const int margin = 10;
     QRect content_rect = rect.adjusted(margin, 4, -margin, -4);
 
-    // Check if we need scrolling (only for Add-ons or columns with likely multi-line text)
-    const bool is_addons = index.column() == GameList::COLUMN_ADD_ONS;
-
-    if (is_addons) {
-        // Optimization: Use cache for string processing
+    // [MARQUEE RESTORATION] Restore full vertical list for Add-ons column
+    if (index.column() == GameList::COLUMN_ADD_ONS) {
         if (!addons_item_cache.contains(text)) {
             QStringList lines = text.split(QLatin1Char('\n'), Qt::SkipEmptyParts);
             addons_item_cache.insert(text, lines);
-
-            // Limit cache size
-            if (addons_item_cache.size() > 500)
-                addons_item_cache.clear();
+            if (addons_item_cache.size() > 500) addons_item_cache.clear();
         }
 
         const QStringList& lines = addons_item_cache[text];
-
-        // Increase line height for breathing room
-        const int line_v_padding = 2;
-        const int line_h = painter->fontMetrics().height() + line_v_padding;
-        const int max_lines = content_rect.height() / line_h;
+        const int line_h = painter->fontMetrics().height() + 2;
+        const int total_h = lines.size() * line_h;
         const bool is_hovered = option.state & QStyle::State_MouseOver;
 
-        const int total_h = lines.size() * line_h;
-
-        if (lines.size() > 1 || total_h > content_rect.height()) {
+        if (total_h > content_rect.height() && is_hovered) {
             const QPersistentModelIndex key(index);
-
-            if (is_hovered && total_h > content_rect.height()) {
-                if (!vertical_scroll_offsets.contains(key)) {
-                    vertical_scroll_offsets[key] = 0;
-                    vertical_scroll_pause[key] = 30;
-                }
-
-                int& offset = vertical_scroll_offsets[key];
-                int& pause = vertical_scroll_pause[key];
-                const int full_max_offset = total_h - content_rect.height() + 10;
-
-                if (pause > 0) {
-                    pause--;
-                } else if (offset < full_max_offset) {
-                    offset++;
-                } else {
-                    offset = 0;
-                    pause = 60;
-                }
-
-                painter->save();
-                painter->setClipRect(content_rect);
-                painter->translate(0, -offset);
-                for (int i = 0; i < lines.size(); ++i) {
-                    painter->drawText(QRect(content_rect.left(), content_rect.top() + (i * line_h),
-                                            content_rect.width(), line_h),
-                                      Qt::AlignVCenter | Qt::AlignLeft,
-                                      painter->fontMetrics().elidedText(lines[i], Qt::ElideRight,
-                                                                        content_rect.width()));
-                }
-                painter->restore();
-            } else {
-                // Decay scroll offset when not hovered
-                if (vertical_scroll_offsets.contains(key)) {
-                    vertical_scroll_offsets.remove(key);
-                    vertical_scroll_pause.remove(key);
-                }
-
-                painter->save();
-                painter->setClipRect(content_rect);
-                const int block_h = std::min((int)lines.size(), max_lines) * line_h;
-                const int block_top =
-                    content_rect.top() + std::max(0, (content_rect.height() - block_h) / 2);
-
-                for (int i = 0; i < std::min((int)lines.size(), max_lines); ++i) {
-                    painter->drawText(QRect(content_rect.left(), block_top + (i * line_h),
-                                            content_rect.width(), line_h),
-                                      Qt::AlignVCenter | Qt::AlignLeft,
-                                      painter->fontMetrics().elidedText(lines[i], Qt::ElideRight,
-                                                                        content_rect.width()));
-                }
-
-                if (lines.size() > max_lines) {
-                    painter->setPen(DimColor());
-                    painter->drawText(content_rect, Qt::AlignBottom | Qt::AlignRight,
-                                      QStringLiteral("..."));
-                }
-                painter->restore();
+            if (!vertical_scroll_offsets.contains(key)) {
+                vertical_scroll_offsets[key] = 0;
+                vertical_scroll_pause[key] = 30;
             }
+            int& offset = vertical_scroll_offsets[key];
+            int& pause = vertical_scroll_pause[key];
+            const int max_offset = total_h - content_rect.height() + 10;
+            if (pause > 0) pause--;
+            else if (offset < max_offset) offset++;
+            else { offset = 0; pause = 60; }
+
+            painter->save();
+            painter->setClipRect(content_rect);
+            painter->translate(0, -offset);
+            for (int i = 0; i < lines.size(); ++i) {
+                painter->drawText(QRect(content_rect.left(), content_rect.top() + (i * line_h), 
+                                        content_rect.width(), line_h),
+                                  Qt::AlignVCenter | Qt::AlignLeft,
+                                  painter->fontMetrics().elidedText(lines[i], Qt::ElideRight, content_rect.width()));
+            }
+            painter->restore();
+            return;
+        } else {
+            // Static centered vertical list
+            painter->save();
+            painter->setClipRect(content_rect);
+            const int block_h = std::min((int)total_h, content_rect.height());
+            const int block_top = content_rect.top() + std::max(0, (content_rect.height() - block_h) / 2);
+            for (int i = 0; i < lines.size() && (i * line_h) < content_rect.height(); ++i) {
+                painter->drawText(QRect(content_rect.left(), block_top + (i * line_h), 
+                                        content_rect.width(), line_h),
+                                  Qt::AlignVCenter | Qt::AlignLeft,
+                                  painter->fontMetrics().elidedText(lines[i], Qt::ElideRight, content_rect.width()));
+            }
+            painter->restore();
             return;
         }
     }
 
-    // Default static rendering
+    // Default static rendering for other columns
     painter->drawText(
         content_rect, Qt::AlignVCenter | Qt::AlignLeft,
         painter->fontMetrics().elidedText(text, Qt::ElideRight, content_rect.width()));
