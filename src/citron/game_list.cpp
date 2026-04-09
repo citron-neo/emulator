@@ -142,11 +142,14 @@ protected:
         const int widget_center_y = height() / 2;
 
         // Subtle horizontal track line behind icons
-        painter.setPen(QPen(QColor(255, 255, 255, 40), 1, Qt::DashLine));
+        const bool dark = Theme::IsDarkMode();
+        painter.setPen(QPen(dark ? QColor(255, 255, 255, 40) : QColor(0, 0, 0, 20), 1, Qt::DashLine));
         painter.drawLine(0, widget_center_y, width(), widget_center_y);
 
         // Sleek small centering markers at top and bottom
-        painter.setPen(QPen(QColor(0, 150, 255), 3));
+        QColor accent(Theme::GetAccentColor());
+        if (!accent.isValid()) accent = QColor(0, 150, 255);
+        painter.setPen(QPen(accent, 3));
         painter.drawLine(widget_center_x, 5, widget_center_x, 25);
         painter.drawLine(widget_center_x, height() - 25, widget_center_x, height() - 5);
 
@@ -253,16 +256,25 @@ public:
         layout->setContentsMargins(15, 15, 15, 15);
 
         // Navigation Bar
+        const bool dark = Theme::IsDarkMode();
         auto* nav_layout = new QHBoxLayout();
         auto* reel_btn = new QPushButton(tr("Reel"), this);
         auto* cards_btn = new QPushButton(tr("Cards"), this);
         auto* plinko_btn = new QPushButton(tr("Plinko"), this);
         auto* blackjack_btn = new QPushButton(tr("Blackjack"), this);
 
-        QString nav_style = QStringLiteral(
-            "QPushButton { background: #333; color: #aaa; border: none; padding: 5px 15px; "
-            "border-radius: 4px; }"
-            "QPushButton:checked { background: #555; color: white; font-weight: bold; }");
+        QString accent = Theme::GetAccentColor();
+        if (accent.isEmpty()) accent = QStringLiteral("#0096ff");
+
+        QString nav_style = dark ? QStringLiteral(
+            "QPushButton { background: #333; color: #bbb; border: none; padding: 5px 15px; border-radius: 4px; }"
+            "QPushButton:hover { background: #444; color: white; }"
+            "QPushButton:checked { background: #555; color: %1; font-weight: bold; }").arg(accent)
+        : QStringLiteral(
+            "QPushButton { background: #eee; color: #666; border: 1px solid #ddd; padding: 5px 15px; border-radius: 4px; }"
+            "QPushButton:hover { background: #f5f5f5; color: #333; border-color: #ccc; }"
+            "QPushButton:checked { background: #fff; color: %1; border-color: %1; font-weight: bold; }").arg(accent);
+
         for (auto* btn : {reel_btn, cards_btn, plinko_btn, blackjack_btn}) {
             btn->setCheckable(true);
             btn->setStyleSheet(nav_style);
@@ -285,9 +297,26 @@ public:
         m_game_title_label = new QLabel(tr("Ready?"), this);
         m_launch_button = new QPushButton(tr("Launch Game"), this);
         m_reroll_button = new QPushButton(tr("Try Again?"), this);
+        m_exit_button = new QPushButton(tr("Exit"), this);
 
         m_launch_button->setFixedHeight(35);
         m_reroll_button->setFixedHeight(35);
+        m_exit_button->setFixedHeight(35);
+
+        QString btn_style = dark ? QStringLiteral(
+            "QPushButton { background: #333; color: white; border: 1px solid #444; border-radius: 6px; padding: 0 20px; }"
+            "QPushButton:hover { background: #444; border-color: #555; }"
+            "QPushButton:pressed { background: #222; }"
+            "QPushButton:disabled { background: #222; color: #555; border-color: #333; }")
+        : QStringLiteral(
+            "QPushButton { background: white; color: #333; border: 1px solid #ccc; border-radius: 6px; padding: 0 20px; }"
+            "QPushButton:hover { background: #f8f8f8; border-color: #bbb; }"
+            "QPushButton:pressed { background: #eeeeee; }"
+            "QPushButton:disabled { background: #f0f0f0; color: #aaa; border-color: #ddd; }");
+
+        for (auto* btn : {m_launch_button, m_reroll_button, m_exit_button}) {
+            btn->setStyleSheet(btn_style);
+        }
 
         QFont title_font = m_game_title_label->font();
         title_font.setPointSize(16);
@@ -299,6 +328,7 @@ public:
         button_layout->addStretch();
         button_layout->addWidget(m_reroll_button);
         button_layout->addWidget(m_launch_button);
+        button_layout->addWidget(m_exit_button);
 
         layout->addLayout(nav_layout);
         layout->addWidget(m_stack);
@@ -318,6 +348,7 @@ public:
 
         connect(m_launch_button, &QPushButton::clicked, this, &SurpriseMeDialog::onLaunch);
         connect(m_reroll_button, &QPushButton::clicked, this, &SurpriseMeDialog::startRoll);
+        connect(m_exit_button, &QPushButton::clicked, this, &SurpriseMeDialog::reject);
         connect(m_card_widget, &CardFlipWidget::gameSelected, this,
                 &SurpriseMeDialog::onGameSelected);
         connect(m_plinko_widget, &PlinkoWidget::gameSelected, this,
@@ -530,6 +561,7 @@ private:
     QLabel* m_game_title_label;
     QPushButton* m_launch_button;
     QPushButton* m_reroll_button;
+    QPushButton* m_exit_button;
     QPropertyAnimation* m_animation;
     Mode m_current_mode = Mode::Reel;
 };

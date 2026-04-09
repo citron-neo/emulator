@@ -114,4 +114,6 @@ protected:
 private:
     CinematicCarousel* m_carousel = nullptr;
     QVBoxLayout* m_layout = nullptr;
+    QLabel* m_top_hint = nullptr;
+    QLabel* m_bottom_hint = nullptr;
 };

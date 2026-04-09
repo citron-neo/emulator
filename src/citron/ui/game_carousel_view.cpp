@@ -14,7 +14,7 @@
 #include "citron/ui/game_carousel_view.h"
 #include "citron/game_list_p.h"
 #include "citron/uisettings.h"
-#include "citron/game_list_p.h"
+#include "citron/theme.h"
 
 CinematicCarousel::CinematicCarousel(QWidget* parent) : QWidget(parent) {
     m_snap_animation = new QPropertyAnimation(this, "focalIndex");
@@ -146,7 +146,7 @@ void CinematicCarousel::paintEvent(QPaintEvent* event) {
             }
 
             if (draw_header) {
-                p.save(); p.resetTransform(); p.setPen(acc); p.setOpacity(0.9);
+                p.save(); p.resetTransform(); p.setPen(acc); p.setOpacity(Theme::IsDarkMode() ? 0.9 : 1.0);
                 qreal header_ay = arrow_ay - (15.0f * scale);
                 
                 if (is_fav) {
@@ -178,7 +178,7 @@ void CinematicCarousel::paintEvent(QPaintEvent* event) {
             const int pad = 10; QRectF ir(-is / 2.0 + pad / 2.0, -is / 2.0 + pad / 2.0, is - pad, is - pad);
             QPainterPath ip; ip.addRoundedRect(ir, 12, 12);
             p.save(); p.setClipPath(ip); p.drawPixmap(ir, pix, pix.rect()); p.restore();
-            p.setPen(QPen(QColor(255, 255, 255, 30), 1.0)); p.drawPath(ip);
+            p.setPen(QPen(Theme::IsDarkMode() ? QColor(255, 255, 255, 30) : QColor(0, 0, 0, 15), 1.0)); p.drawPath(ip);
         }
         p.restore();
     }
@@ -195,9 +195,9 @@ void CinematicCarousel::paintEvent(QPaintEvent* event) {
         int ax = left ? 40 : static_cast<int>(width()) - 40 - aw;
         int arrow_y = static_cast<int>(height() - ah) / 2;
         p.save(); p.setOpacity(hover ? 1.0 : 0.4);
-        p.setPen(Qt::NoPen); p.setBrush(QColor(0,0,0,115));
+        p.setPen(Qt::NoPen); p.setBrush(Theme::IsDarkMode() ? QColor(0,0,0,115) : QColor(0,0,0,15));
         p.drawEllipse(ax, arrow_y, aw, ah);
-        p.setPen(QPen(Qt::white, 4.0, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin)); p.setBrush(Qt::NoBrush);
+        p.setPen(QPen(Theme::IsDarkMode() ? Qt::white : QColor(30, 30, 30), 4.0, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin)); p.setBrush(Qt::NoBrush);
         QPainterPath ap;
         if (left) { ap.moveTo(ax + aw * 0.65, arrow_y + ah * 0.25); ap.lineTo(ax + aw * 0.35, arrow_y + ah * 0.5); ap.lineTo(ax + aw * 0.65, arrow_y + ah * 0.75); }
         else { ap.moveTo(ax + aw * 0.35, arrow_y + ah * 0.25); ap.lineTo(ax + aw * 0.65, arrow_y + ah * 0.5); ap.lineTo(ax + aw * 0.35, arrow_y + ah * 0.75); }
@@ -294,35 +294,50 @@ void CinematicCarousel::focusOutEvent(QFocusEvent* event) { m_is_dragging = fals
 void CinematicCarousel::leaveEvent(QEvent* event) { m_is_dragging = false; m_left_arrow_hover = false; m_right_arrow_hover = false; m_hover_icon_index = -1; update(); QWidget::leaveEvent(event); }
 
 
-QColor CinematicCarousel::CardBg() const { return QColor(25, 25, 28, 205); }
-QColor CinematicCarousel::TextColor() const { return QColor(255, 255, 255); }
+QColor CinematicCarousel::CardBg() const { 
+    return Theme::IsDarkMode() ? QColor(25, 25, 28, 205) : QColor(240, 240, 245, 180); 
+}
+QColor CinematicCarousel::TextColor() const { 
+    return Theme::IsDarkMode() ? QColor(255, 255, 255) : QColor(45, 45, 48); 
+}
 QColor CinematicCarousel::AccentColor() const { const QString h = QString::fromStdString(UISettings::values.accent_color.GetValue()); return QColor(h).isValid() ? QColor(h) : QColor(0, 150, 255); }
 
 GameCarouselView::GameCarouselView(QWidget* parent) : QWidget(parent) {
     m_layout = new QVBoxLayout(this);
     m_layout->setContentsMargins(30, 20, 30, 20);
     m_layout->setSpacing(0);
-    auto* th = new QLabel(this);
-    th->setText(tr("if using controller* Press X for Next Alphabetical Letter | Press -/R/ZR for Details Tab | Press B for Back to List"));
-    th->setStyleSheet(QStringLiteral("QLabel { color: rgba(255, 255, 255, 140); font-weight: bold; font-family: 'Outfit', 'Inter', sans-serif; font-size: 14px; }"));
-    th->setAlignment(Qt::AlignCenter);
+    m_top_hint = new QLabel(this);
+    m_top_hint->setText(tr("if using controller* Press X for Next Alphabetical Letter | Press -/R/ZR for Details Tab | Press B for Back to List"));
+    m_top_hint->setAlignment(Qt::AlignCenter);
     m_layout->addSpacing(10);
-    m_layout->addWidget(th);
+    m_layout->addWidget(m_top_hint);
     m_layout->addSpacing(30);
     m_carousel = new CinematicCarousel(this);
     m_layout->addSpacerItem(new QSpacerItem(20, 20, QSizePolicy::Minimum, QSizePolicy::Expanding));
     m_layout->addWidget(m_carousel);
     m_layout->addSpacerItem(new QSpacerItem(20, 20, QSizePolicy::Minimum, QSizePolicy::Expanding));
-    auto* bh = new QLabel(this);
-    bh->setText(tr("*You can Drag to Scroll, or Click on Game Icons manually, you can also use your mouse wheel!*"));
-    bh->setStyleSheet(QStringLiteral("QLabel { color: rgba(255, 255, 255, 100); font-style: italic; font-size: 13px; }"));
-    bh->setAlignment(Qt::AlignCenter);
-    m_layout->addWidget(bh);
+    m_bottom_hint = new QLabel(this);
+    m_bottom_hint->setText(tr("*You can Drag to Scroll, or Click on Game Icons manually, you can also use your mouse wheel!*"));
+    m_bottom_hint->setAlignment(Qt::AlignCenter);
+    m_layout->addWidget(m_bottom_hint);
     connect(m_carousel, &CinematicCarousel::focalItemChanged, this, &GameCarouselView::itemSelectionChanged);
     connect(m_carousel, &CinematicCarousel::itemActivated, this, &GameCarouselView::itemActivated);
     ApplyTheme();
 }
 
-void GameCarouselView::ApplyTheme() { m_carousel->ApplyTheme(); }
+void GameCarouselView::ApplyTheme() { 
+    m_carousel->ApplyTheme(); 
+    bool dark = Theme::IsDarkMode();
+    if (m_top_hint) {
+        m_top_hint->setStyleSheet(QStringLiteral(
+            "QLabel { color: %1; font-weight: bold; font-family: 'Outfit', 'Inter', sans-serif; font-size: 14px; }"
+        ).arg(dark ? QStringLiteral("rgba(255, 255, 255, 140)") : QStringLiteral("rgba(30, 30, 35, 180)")));
+    }
+    if (m_bottom_hint) {
+        m_bottom_hint->setStyleSheet(QStringLiteral(
+            "QLabel { color: %1; font-style: italic; font-size: 13px; }"
+        ).arg(dark ? QStringLiteral("rgba(255, 255, 255, 100)") : QStringLiteral("rgba(30, 30, 35, 120)")));
+    }
+}
 void GameCarouselView::setModel(QAbstractItemModel* model) { m_carousel->setModel(model); }
 void GameCarouselView::resizeEvent(QResizeEvent* event) { QWidget::resizeEvent(event); m_carousel->setMinimumHeight(UISettings::values.game_icon_size.GetValue() + 380); }
