@@ -506,30 +506,7 @@ QList<QStandardItem*> MakeGameListEntry(const std::string& path, const std::stri
 
     // Create a high-end HTML tooltip for the Add-ons column
     if (!patch_versions.isEmpty()) {
-        const bool is_dark = UISettings::IsDarkTheme();
-        const QString bg_color = is_dark ? QStringLiteral("#24242a") : QStringLiteral("#f5f5fa");
-        const QString divider_color = is_dark ? QStringLiteral("#303035") : QStringLiteral("#dcdce2");
-        const QString text_color = is_dark ? QStringLiteral("#ffffff") : QStringLiteral("#000000");
-        const QString bullet_color = is_dark ? QStringLiteral("#e0e0e4") : QStringLiteral("#222228");
-
-        QString tooltip = QString::fromLatin1(
-            "<html><body style='background-color: %1; color: %2; padding: 15px; border-radius: 10px; font-family: \"Outfit\", \"Inter\", sans-serif;'>"
-            "<div style='margin-bottom: 8px; color: %3; font-size: 13px; font-weight: bold; border-bottom: 1px solid %4; padding-bottom: 4px;'>ACTIVE ADD-ONS & MODS</div>"
-            "<div style='line-height: 1.5;'>");
-        
-        tooltip = tooltip.arg(bg_color, text_color, 
-                             QString::fromStdString(UISettings::values.accent_color.GetValue()),
-                             divider_color);
-
-        QStringList categories = patch_versions.split(QLatin1Char('\n'), Qt::SkipEmptyParts);
-        for (const auto& line : categories) {
-            tooltip.append(QString::fromLatin1("<div style='margin: 3px 0; color: %1;'><b>•</b> %2</div>")
-                .arg(is_dark ? QStringLiteral("#e0e0e4") : QStringLiteral("#444444"), line.toHtmlEscaped()));
-        }
-
-
-        tooltip.append(QStringLiteral("</div></body></html>"));
-        addon_item->setData(tooltip, Qt::ToolTipRole);
+        addon_item->setData(GameList::GenerateAddonsTooltip(patch_versions), Qt::ToolTipRole);
     }
 
     list.insert(2, addon_item);

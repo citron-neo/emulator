@@ -515,4 +515,5 @@ protected:
     void dropEvent(QDropEvent* event) override;
     void dragEnterEvent(QDragEnterEvent* event) override;
     void dragMoveEvent(QDragMoveEvent* event) override;
+    bool eventFilter(QObject* obj, QEvent* event) override;
 };

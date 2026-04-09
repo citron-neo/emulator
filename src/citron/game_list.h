@@ -138,6 +138,8 @@ public:
     void UnloadController();
     void LoadController();
     void JumpToNextLetter();
+    
+    static QString GenerateAddonsTooltip(const QString& patch_versions);
 
     static const QStringList supported_file_extensions;
 
@@ -214,6 +216,7 @@ private:
     void StartLaunchAnimation(const QModelIndex& item);
     void SaveGameListIndex();
     void LoadGameListIndex();
+    void RefreshTooltips();
     void ToggleHidden(const QString& path);
     void UpdateCarouselSelection();
     void AnimateDetailsPanel(bool show);

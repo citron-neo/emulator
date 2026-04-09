@@ -3,7 +3,9 @@
 
 #pragma once
 
+#include <QApplication>
 #include <QColor>
+#include <QPalette>
 #include <QString>
 #include "citron/uisettings.h"
 
@@ -25,5 +27,19 @@ namespace Theme {
 		QColor color(GetAccentColor());
 		return color.darker(120).name(); // 120% of original darkness
 	}
+    
+    // Checks if the current theme is Dark Mode.
+    inline bool IsDarkMode() {
+        const std::string& theme_name = UISettings::values.theme;
+        if (theme_name == "qdarkstyle" || theme_name == "colorful_dark" ||
+            theme_name == "qdarkstyle_midnight_blue" || theme_name == "colorful_midnight_blue") {
+            return true;
+        }
+        if (theme_name == "default" || theme_name == "colorful") {
+            return qApp->palette().color(QPalette::WindowText).value() >
+                   qApp->palette().color(QPalette::Window).value();
+        }
+        return false;
+    }
 
 } // namespace Theme

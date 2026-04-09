@@ -15,6 +15,7 @@
 
 #include "citron/game_details_panel.h"
 #include "citron/game_list_p.h"
+#include "citron/theme.h"
 #include "citron/uisettings.h"
 
 GameDetailsPanel::GameDetailsPanel(QWidget* parent) : QWidget(parent) {
@@ -22,6 +23,7 @@ GameDetailsPanel::GameDetailsPanel(QWidget* parent) : QWidget(parent) {
     setAttribute(Qt::WA_StyledBackground);
     setMinimumWidth(280);
     setupUI();
+    updateStyles();
 }
 
 GameDetailsPanel::~GameDetailsPanel() = default;
@@ -40,19 +42,10 @@ void GameDetailsPanel::setupUI() {
     m_icon_label = new QLabel(header_container);
     m_icon_label->setFixedSize(160, 160);
     m_icon_label->setAlignment(Qt::AlignCenter);
-    m_icon_label->setStyleSheet(QStringLiteral("border: 2px solid rgba(255,255,255,0.15); border-radius: 18px; background: #000;"));
     header_layout->addWidget(m_icon_label, 0, Qt::AlignCenter);
     
     m_title_card = new QFrame(header_container);
     m_title_card->setObjectName(QStringLiteral("titleCard"));
-    m_title_card->setStyleSheet(QStringLiteral(
-        "QFrame#titleCard {"
-        "  background: rgba(255,255,255,0.04);"
-        "  border-radius: 10px;"
-        "  border: 1px solid rgba(255,255,255,0.1);"
-        "  padding: 10px;"
-        "}"
-    ));
     auto* card_layout = new QVBoxLayout(m_title_card);
     card_layout->setContentsMargins(8, 8, 8, 8);
     
@@ -63,14 +56,12 @@ void GameDetailsPanel::setupUI() {
     title_font.setPointSize(16);
     title_font.setWeight(QFont::Black);
     m_title_label->setFont(title_font);
-    m_title_label->setStyleSheet(QStringLiteral("color: #fff; line-height: 1.1;"));
     card_layout->addWidget(m_title_label);
     header_layout->addWidget(m_title_card);
     
     m_meta_card = new QFrame(header_container);
     m_meta_card->setObjectName(QStringLiteral("metaCard"));
     m_meta_card->setFixedHeight(38);
-    m_meta_card->setStyleSheet(QStringLiteral("QFrame#metaCard { background: rgba(255, 255, 255, 0.05); border-radius: 6px; border: 1px solid rgba(255, 255, 255, 0.05); }"));
     auto* meta_layout = new QHBoxLayout(m_meta_card);
     meta_layout->setContentsMargins(12, 0, 12, 0);
     m_id_label = new QLabel(m_meta_card);
@@ -79,7 +70,6 @@ void GameDetailsPanel::setupUI() {
     id_font.setPointSizeF(10.0);
     id_font.setBold(true);
     m_id_label->setFont(id_font);
-    m_id_label->setStyleSheet(QStringLiteral("color: rgba(255, 255, 255, 0.4); letter-spacing: 1.5px;"));
     meta_layout->addWidget(m_id_label);
     header_layout->addWidget(m_meta_card, 0, Qt::AlignCenter);
     main_layout->addWidget(header_container);
@@ -96,13 +86,6 @@ void GameDetailsPanel::setupUI() {
     m_actions_layout->addStretch();
     m_scroll_area->setWidget(m_actions_container);
     main_layout->addWidget(m_scroll_area);
-    
-    setStyleSheet(QStringLiteral(
-        "QWidget#GameDetailsPanel {"
-        "  background: #1c1c22;"
-        "  border: 2px solid #32323a;"
-        "}"
-    ));
     
     auto* panel_shadow = new QGraphicsDropShadowEffect(this);
     panel_shadow->setBlurRadius(30);
@@ -130,6 +113,63 @@ void GameDetailsPanel::setupUI() {
     pulse->start();
 }
 
+bool GameDetailsPanel::IsDarkMode() const {
+    return Theme::IsDarkMode();
+}
+
+void GameDetailsPanel::updateStyles() {
+    const bool is_dark = IsDarkMode();
+    
+    // Main Panel Style
+    const QString panel_bg = is_dark ? QStringLiteral("#1c1c22") : QStringLiteral("#ffffff");
+    const QString panel_border = is_dark ? QStringLiteral("#32323a") : QStringLiteral("#e0e0e0");
+    
+    setStyleSheet(QStringLiteral(
+        "QWidget#GameDetailsPanel {"
+        "  background: %1;"
+        "  border: 2px solid %2;"
+        "}"
+    ).arg(panel_bg, panel_border));
+
+    // Icon Label Style
+    const QString icon_bg = is_dark ? QStringLiteral("#000") : QStringLiteral("#f0f0f0");
+    const QString icon_border = is_dark ? QStringLiteral("rgba(255,255,255,0.15)") : QStringLiteral("rgba(0,0,0,0.1)");
+    m_icon_label->setStyleSheet(QStringLiteral(
+        "border: 2px solid %1; border-radius: 18px; background: %2;"
+    ).arg(icon_border, icon_bg));
+
+    // Title Card Style
+    const QString card_bg = is_dark ? QStringLiteral("rgba(255,255,255,0.04)") : QStringLiteral("rgba(0,0,0,0.04)");
+    const QString card_border = is_dark ? QStringLiteral("rgba(255,255,255,0.1)") : QStringLiteral("rgba(0,0,0,0.08)");
+    const QString title_color = is_dark ? QStringLiteral("#fff") : QStringLiteral("#111");
+    
+    m_title_card->setStyleSheet(QStringLiteral(
+        "QFrame#titleCard {"
+        "  background: %1;"
+        "  border-radius: 10px;"
+        "  border: 1px solid %2;"
+        "  padding: 10px;"
+        "}"
+    ).arg(card_bg, card_border));
+    
+    m_title_label->setStyleSheet(QStringLiteral("color: %1; line-height: 1.1;").arg(title_color));
+
+    // Meta Card Style
+    const QString meta_bg = is_dark ? QStringLiteral("rgba(255, 255, 255, 0.05)") : QStringLiteral("rgba(0, 0, 0, 0.03)");
+    const QString meta_border = is_dark ? QStringLiteral("rgba(255, 255, 255, 0.05)") : QStringLiteral("rgba(0, 0, 0, 0.05)");
+    const QString meta_text = is_dark ? QStringLiteral("rgba(255, 255, 255, 0.4)") : QStringLiteral("rgba(0, 0, 0, 0.5)");
+
+    m_meta_card->setStyleSheet(QStringLiteral(
+        "QFrame#metaCard {"
+        "  background: %1;"
+        "  border-radius: 6px;"
+        "  border: 1px solid %2;"
+        "}"
+    ).arg(meta_bg, meta_border));
+    
+    m_id_label->setStyleSheet(QStringLiteral("color: %1; letter-spacing: 1.5px;").arg(meta_text));
+}
+
 void GameDetailsPanel::resizeEvent(QResizeEvent* event) {
     QWidget::resizeEvent(event);
     bool high_res = width() > 340;
@@ -147,7 +187,38 @@ void GameDetailsPanel::updateDetails(const QModelIndex& index) {
     show();
 }
 
-void GameDetailsPanel::ApplyTheme() { update(); }
+void GameDetailsPanel::ApplyTheme() { 
+    updateStyles(); 
+    
+    // Refresh existing buttons without destroying them
+    const bool is_dark = IsDarkMode();
+    const QString accent_hex = QString::fromStdString(UISettings::values.accent_color.GetValue());
+    const QColor accent = QColor(accent_hex).isValid() ? QColor(accent_hex) : QColor(0, 150, 255);
+    
+    const QString btn_bg = is_dark ? QStringLiteral("#121216") : QStringLiteral("#f5f5f7");
+    const QString btn_border = is_dark ? QStringLiteral("#2a2a35") : QStringLiteral("#d0d0d8");
+    const QString btn_text = is_dark ? QStringLiteral("#ccc") : QStringLiteral("#444");
+    const QString btn_hover_bg = is_dark ? QStringLiteral("#1a1a20") : QStringLiteral("#e8e8ed");
+    const QString btn_hover_text = is_dark ? QStringLiteral("#fff") : QStringLiteral("#000");
+    const QString btn_pressed_bg = is_dark ? QStringLiteral("#050507") : QStringLiteral("#dcdce2");
+
+    const QString btn_style = QStringLiteral(
+        "QPushButton {"
+        "  background: %5; color: %7; border: 1px solid %6;"
+        "  border-radius: 9px; font-weight: bold; padding-left: 15px; text-align: left; font-size: 10.5pt;"
+        "}"
+        "QPushButton:hover { background: %8; border-color: %4; color: %9; }"
+        "QPushButton:focus { background: rgba(%1, %2, %3, 0.25); border: 2px solid %4; color: %9; }"
+        "QPushButton:pressed { background: %10; }"
+    ).arg(accent.red()).arg(accent.green()).arg(accent.blue()).arg(accent.name())
+     .arg(btn_bg, btn_border, btn_text, btn_hover_bg, btn_hover_text, btn_pressed_bg);
+
+    for (auto* btn : m_action_buttons) {
+        btn->setStyleSheet(btn_style);
+    }
+
+    update(); 
+}
 
 void GameDetailsPanel::setControllerFocus(bool focus) {
     m_has_focus = focus;
@@ -217,17 +288,29 @@ void GameDetailsPanel::clearActions() {
 void GameDetailsPanel::addAction(const QString& label, const QString& action_id) {
     auto* btn = new QPushButton(label, this);
     btn->setFixedHeight(48); btn->setCursor(Qt::PointingHandCursor);
+    
+    const bool is_dark = IsDarkMode();
     const QString accent_hex = QString::fromStdString(UISettings::values.accent_color.GetValue());
     const QColor accent = QColor(accent_hex).isValid() ? QColor(accent_hex) : QColor(0, 150, 255);
-    btn->setStyleSheet(QString::fromLatin1(
+    
+    const QString btn_bg = is_dark ? QStringLiteral("#121216") : QStringLiteral("#f5f5f7");
+    const QString btn_border = is_dark ? QStringLiteral("#2a2a35") : QStringLiteral("#d0d0d8");
+    const QString btn_text = is_dark ? QStringLiteral("#ccc") : QStringLiteral("#444");
+    const QString btn_hover_bg = is_dark ? QStringLiteral("#1a1a20") : QStringLiteral("#e8e8ed");
+    const QString btn_hover_text = is_dark ? QStringLiteral("#fff") : QStringLiteral("#000");
+    const QString btn_pressed_bg = is_dark ? QStringLiteral("#050507") : QStringLiteral("#dcdce2");
+
+    btn->setStyleSheet(QStringLiteral(
         "QPushButton {"
-        "  background: #121216; color: #ccc; border: 1px solid #2a2a35;"
+        "  background: %5; color: %7; border: 1px solid %6;"
         "  border-radius: 9px; font-weight: bold; padding-left: 15px; text-align: left; font-size: 10.5pt;"
         "}"
-        "QPushButton:hover { background: #1a1a20; border-color: %4; color: #fff; }"
-        "QPushButton:focus { background: rgba(%1, %2, %3, 0.25); border: 2px solid %4; color: #fff; }"
-        "QPushButton:pressed { background: #050507; }"
-    ).arg(accent.red()).arg(accent.green()).arg(accent.blue()).arg(accent.name()));
+        "QPushButton:hover { background: %8; border-color: %4; color: %9; }"
+        "QPushButton:focus { background: rgba(%1, %2, %3, 0.25); border: 2px solid %4; color: %9; }"
+        "QPushButton:pressed { background: %10; }"
+    ).arg(accent.red()).arg(accent.green()).arg(accent.blue()).arg(accent.name())
+     .arg(btn_bg, btn_border, btn_text, btn_hover_bg, btn_hover_text, btn_pressed_bg));
+     
     connect(btn, &QPushButton::clicked, this, [this, action_id]() { emit actionTriggered(action_id, m_current_program_id, m_current_path); });
     m_action_buttons.append(btn); m_actions_layout->addWidget(btn);
 }

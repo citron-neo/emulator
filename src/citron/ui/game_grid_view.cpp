@@ -325,17 +325,27 @@ QModelIndex GameGridView::indexAt(const QPoint& p) const {
 void GameGridView::setControllerFocus(bool focus) {
     m_has_focus = focus;
     if (focus) {
+        // Preserve existing selection if possible
+        if (m_fav_view->currentIndex().isValid()) {
+            m_fav_view->setFocus();
+            return;
+        }
+        if (m_main_view->currentIndex().isValid()) {
+            m_main_view->setFocus();
+            return;
+        }
+
+        // Default to first available item
         if (m_fav_view->isVisible() && m_fav_view->model()->rowCount() > 0) {
             m_fav_view->setFocus();
-            if (!m_fav_view->currentIndex().isValid())
-                m_fav_view->setCurrentIndex(m_fav_view->model()->index(0, 0));
-        } else {
+            m_fav_view->setCurrentIndex(m_fav_view->model()->index(0, 0));
+        } else if (m_main_view->model() && m_main_view->model()->rowCount() > 0) {
             m_main_view->setFocus();
-            if (!m_main_view->currentIndex().isValid())
-                m_main_view->setCurrentIndex(m_main_view->model()->index(0, 0));
+            m_main_view->setCurrentIndex(m_main_view->model()->index(0, 0));
         }
     }
 }
+
 
 void GameGridView::onNavigated(int dx, int dy) {
     if (!m_has_focus)
