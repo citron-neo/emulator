@@ -105,7 +105,6 @@ static FileSys::VirtualFile VfsDirectoryCreateFileWrapper(const FileSys::Virtual
 #include <QUrl>
 #include <QtConcurrent/QtConcurrent>
 
-
 #ifdef HAVE_SDL2
 #include <SDL.h> // For SDL ScreenSaver functions
 #endif
@@ -186,7 +185,6 @@ static FileSys::VirtualFile VfsDirectoryCreateFileWrapper(const FileSys::Virtual
 #include "video_core/renderer_vulkan/renderer_vulkan.h"
 #include "video_core/renderer_vulkan/vk_rasterizer.h"
 #include "video_core/shader_notify.h"
-
 
 #ifdef CITRON_USE_AUTO_UPDATER
 #include "citron/updater/updater_dialog.h"
@@ -358,6 +356,7 @@ GMainWindow::GMainWindow(std::unique_ptr<QtConfig> config_, bool has_broken_vulk
 
     setAcceptDrops(true);
     ui->setupUi(this);
+    qApp->installEventFilter(this);
     statusBar()->hide();
 
     // Controller Overlay toggle
@@ -1089,25 +1088,12 @@ void GMainWindow::WebBrowserRequestExit() {
 #include <QParallelAnimationGroup>
 #include <QPropertyAnimation>
 
-
 class MenuAnimationFilter : public QObject {
 public:
-    explicit MenuAnimationFilter(QMenu* menu) : QObject(menu), target_menu(menu) {}
+    explicit MenuAnimationFilter(QMenu* menu, QPushButton* btn = nullptr)
+        : QObject(menu), target_menu(menu), target_btn(btn) {}
 
     bool eventFilter(QObject* obj, QEvent* event) override {
-        // [HOVER-TO-SWITCH] Restore fluid navigation logic
-        if (event->type() == QEvent::Enter) {
-            // Check if any other menu is already open
-            for (auto* topLevel : QApplication::topLevelWidgets()) {
-                if (topLevel->inherits("QMenu") && topLevel->isVisible() &&
-                    topLevel != target_menu) {
-                    // Instantly switch to this menu for a premium console-grade feel
-                    target_menu->show();
-                    break;
-                }
-            }
-        }
-
         if (event->type() == QEvent::Show && obj == target_menu && !is_animating) {
             is_animating = true;
             QPropertyAnimation* geom = new QPropertyAnimation(target_menu, "geometry", target_menu);
@@ -1128,6 +1114,7 @@ public:
 
 private:
     QMenu* target_menu;
+    QPushButton* target_btn;
     bool is_animating = false;
 };
 
@@ -1207,23 +1194,29 @@ void GMainWindow::InitializeWidgets() {
     const QString accent_dim = accent_color.darker(120).name();
 
     unified_top_bar_layout = new QHBoxLayout(unified_top_bar);
-    unified_top_bar_layout->setContentsMargins(10, 4, 10, 4);
+    unified_top_bar_layout->setContentsMargins(10, 2, 10, 2);
     unified_top_bar_layout->setSpacing(0);
 
     auto add_menu = [this](QMenu* menu) {
         if (!menu)
             return;
-        menu->installEventFilter(new MenuAnimationFilter(menu));
-        menu->setWindowFlags(menu->windowFlags() | Qt::NoDropShadowWindowHint |
-                             Qt::FramelessWindowHint);
-        menu->setAttribute(Qt::WA_TranslucentBackground, false);
+
         QPushButton* btn = new QPushButton(menu->title().remove(QLatin1Char('&')), unified_top_bar);
         btn->setFlat(true);
         btn->setFocusPolicy(Qt::NoFocus);
         btn->setCursor(Qt::PointingHandCursor);
-        btn->setFixedHeight(42);
+        btn->setFixedHeight(32);
         // Styles applied in UpdateUITheme()
         btn->setMenu(menu);
+
+        auto* filter = new MenuAnimationFilter(menu, btn);
+        menu->installEventFilter(filter);
+        btn->installEventFilter(filter);
+
+        menu->setWindowFlags(menu->windowFlags() | Qt::NoDropShadowWindowHint |
+                             Qt::FramelessWindowHint);
+        menu->setAttribute(Qt::WA_TranslucentBackground, false);
+
         unified_top_bar_layout->addWidget(btn);
     };
 
@@ -6329,25 +6322,29 @@ void GMainWindow::UpdateUITheme() {
 
     // Retrieve dynamic accent color for UI elements
     const QString accent_hex = QString::fromStdString(UISettings::values.accent_color.GetValue());
-    const QColor accent_color = QColor(accent_hex).isValid() ? QColor(accent_hex) : QColor(60, 120, 216);
+    const QColor accent_color =
+        QColor(accent_hex).isValid() ? QColor(accent_hex) : QColor(60, 120, 216);
     const QString accent_str = accent_color.name();
 
     if (unified_top_bar) {
         unified_top_bar->setStyleSheet(
-            QStringLiteral("QWidget#UnifiedTopBar { background-color: %1; border-bottom: 1px solid %2; }")
+            QStringLiteral(
+                "QWidget#UnifiedTopBar { background-color: %1; border-bottom: 1px solid %2; }")
                 .arg(toolbar_bg, toolbar_border));
-        
+
         // Update top bar buttons to adapt text color
-        QString top_btn_style = QString::fromLatin1(
-            "QPushButton { border: none; padding: 0 14px; font-weight: normal; font-size: 9pt; "
-            "background: transparent; color: %1; text-align: center; margin: 0; outline: none; }"
-            "QPushButton:hover { background: %2; color: %3; border-bottom: 2px solid %4; }"
-            "QPushButton:pressed { background: %5; }"
-            "QPushButton::menu-indicator { image: none; width: 0; }")
-            .arg(toolbar_fg, (is_dark ? "rgba(255, 255, 255, 0.05)" : "rgba(0, 0, 0, 0.05)"),
-                 (is_dark ? "#ffffff" : "#000000"), accent_str,
-                 (is_dark ? "rgba(255, 255, 255, 0.10)" : "rgba(0, 0, 0, 0.10)"));
-        
+        QString top_btn_style =
+            QString::fromLatin1(
+                "QPushButton { border: none; padding: 0 14px; font-weight: normal; font-size: 8.5pt; "
+                "background: transparent; color: %1; text-align: center; margin: 0; outline: none; "
+                "}"
+                "QPushButton:hover { background: %2; color: %3; border-bottom: 1.5px solid %4; }"
+                "QPushButton:pressed { background: %5; }"
+                "QPushButton::menu-indicator { image: none; width: 0; }")
+                .arg(toolbar_fg, (is_dark ? "rgba(255, 255, 255, 0.05)" : "rgba(0, 0, 0, 0.05)"),
+                     (is_dark ? "#ffffff" : "#000000"), accent_str,
+                     (is_dark ? "rgba(255, 255, 255, 0.10)" : "rgba(0, 0, 0, 0.10)"));
+
         for (auto* btn : unified_top_bar->findChildren<QPushButton*>()) {
             btn->setStyleSheet(top_btn_style);
         }
@@ -6357,29 +6354,37 @@ void GMainWindow::UpdateUITheme() {
     statusBar()->setStyleSheet(
         QStringLiteral(
             "QStatusBar { background-color: %1; border-top: 1px solid %2; color: %3; }"
-            "QStatusBar QLabel { color: %3 !important; background: transparent !important; border: none !important; }"
+            "QStatusBar QLabel { color: %3 !important; background: transparent !important; border: "
+            "none !important; }"
             "QStatusBar QPushButton, QStatusBar QToolButton, "
             "QStatusBar QPushButton:checked, QStatusBar QToolButton:checked, "
             "QStatusBar QPushButton:hover, QStatusBar QToolButton:hover { "
             "background: transparent !important; background-color: transparent !important; "
-            "border: none !important; color: %3 !important; padding: 0px 6px !important; outline: none !important; }"
-            "QStatusBar QPushButton#RendererStatusBarButton { color: #ff8c00 !important; font-weight: bold !important; background: transparent !important; border: none !important; }"
-            "QStatusBar QPushButton#GPUStatusBarButton { color: #32cd32 !important; font-weight: bold !important; background: transparent !important; border: none !important; }"
+            "border: none !important; color: %3 !important; padding: 0px 6px !important; outline: "
+            "none !important; }"
+            "QStatusBar QPushButton#RendererStatusBarButton { color: #ff8c00 !important; "
+            "font-weight: bold !important; background: transparent !important; border: none "
+            "!important; }"
+            "QStatusBar QPushButton#GPUStatusBarButton { color: #32cd32 !important; font-weight: "
+            "bold !important; background: transparent !important; border: none !important; }"
             "QStatusBar::item { border: none !important; }")
             .arg(status_bg, status_border, status_fg));
 
     // Dynamic Menu Styling (Refactored from hardcoded Dark Onyx)
-    QString menu_style = QString::fromLatin1(
-        "QMenu { background: %1; border: 1px solid %2; border-radius: 8px; padding: 6px; color: %3; }"
-        "QMenu::item { padding: 4px 28px 4px 32px; border-radius: 4px; margin: 1px; font-size: 8.5pt; min-width: 140px; color: %4; }"
-        "QMenu::item:selected { background-color: %5; color: #ffffff; }"
-        "QMenu::item:disabled { color: %6; }"
-        "QMenu::separator { height: 1px; background: %7; margin: 4px 10px; }"
-        "QMenu::indicator { width: 14px; height: 14px; left: 10px; border-radius: 3px; border: 1px solid %2; background: %1; }"
-        "QMenu::indicator:checked { background: %5; border: 1px solid %5; }")
-        .arg(toolbar_bg, toolbar_border, (is_dark ? "#ffffff" : "#1a1a1e"),
-             (is_dark ? "#e0e0e4" : "#1a1a1e"), accent_str,
-             (is_dark ? "#555558" : "#aab0b4"), (is_dark ? "#303035" : "#d0d0d5"));
+    QString menu_style =
+        QString::fromLatin1("QMenu { background: %1; border: 1px solid %2; border-radius: 8px; "
+                            "padding: 6px; color: %3; }"
+                            "QMenu::item { padding: 4px 28px 4px 32px; border-radius: 4px; margin: "
+                            "1px; font-size: 8.5pt; min-width: 140px; color: %4; }"
+                            "QMenu::item:selected { background-color: %5; color: #ffffff; }"
+                            "QMenu::item:disabled { color: %6; }"
+                            "QMenu::separator { height: 1px; background: %7; margin: 4px 10px; }"
+                            "QMenu::indicator { width: 14px; height: 14px; left: 10px; "
+                            "border-radius: 3px; border: 1px solid %2; background: %1; }"
+                            "QMenu::indicator:checked { background: %5; border: 1px solid %5; }")
+            .arg(toolbar_bg, toolbar_border, (is_dark ? "#ffffff" : "#1a1a1e"),
+                 (is_dark ? "#e0e0e4" : "#1a1a1e"), accent_str, (is_dark ? "#555558" : "#aab0b4"),
+                 (is_dark ? "#303035" : "#d0d0d5"));
 
     for (QMenu* menu : findChildren<QMenu*>()) {
         menu->setStyleSheet(menu_style);
@@ -6460,6 +6465,24 @@ void GMainWindow::changeEvent(QEvent* event) {
     }
 #endif // __unix__
     QWidget::changeEvent(event);
+}
+
+bool GMainWindow::eventFilter(QObject* obj, QEvent* event) {
+    if (event->type() == QEvent::MouseMove) {
+        if (auto* popup = QApplication::activePopupWidget()) {
+            if (popup->inherits("QMenu")) {
+                auto* mouseEvent = static_cast<QMouseEvent*>(event);
+                QWidget* widget = QApplication::widgetAt(mouseEvent->globalPos());
+                if (auto* btn = qobject_cast<QPushButton*>(widget)) {
+                    if (btn->parentWidget() == unified_top_bar && btn->menu() != popup) {
+                        popup->close();
+                        btn->showMenu();
+                    }
+                }
+            }
+        }
+    }
+    return QMainWindow::eventFilter(obj, event);
 }
 
 Service::AM::FrontendAppletParameters GMainWindow::ApplicationAppletParameters() {

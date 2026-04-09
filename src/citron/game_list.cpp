@@ -70,6 +70,8 @@
 #include "citron/game_list_worker.h"
 #include "citron/main.h"
 #include "citron/mod_manager/gamebanana_dialog.h"
+#include "citron/multiplayer/state.h"
+#include "citron/theme.h"
 #include "citron/ui/game_carousel_view.h"
 #include "citron/ui/game_grid_view.h"
 #include "citron/ui/game_tree_view.h"
@@ -937,10 +939,61 @@ void GameList::OnUpdateThemedIcons() {
     // Refresh all theme-aware styles and icons
     UpdateProgressBarColor();
     UpdateAccentColorStyles();
+    RefreshTooltips();
 }
 
 void GameList::OnFilterCloseClicked() {
     main_window->filterBarSetChecked(false);
+}
+
+QString GameList::GenerateAddonsTooltip(const QString& patch_versions) {
+    if (patch_versions.isEmpty()) return {};
+    
+    const bool is_dark = Theme::IsDarkMode();
+    const QString bg_color = is_dark ? QStringLiteral("#24242a") : QStringLiteral("#f5f5fa");
+    const QString divider_color = is_dark ? QStringLiteral("#303035") : QStringLiteral("#dcdce2");
+    const QString text_color = is_dark ? QStringLiteral("#ffffff") : QStringLiteral("#000000");
+    const QString accent_color = Theme::GetAccentColor();
+    const QString item_text_color = is_dark ? QStringLiteral("#e0e0e4") : QStringLiteral("#444444");
+
+    QString tooltip = QStringLiteral(
+        "<html><body style='background-color: %1; color: %2; padding: 15px; border-radius: 10px; font-family: \"Outfit\", \"Inter\", sans-serif;'>"
+        "<div style='margin-bottom: 8px; color: %3; font-size: 13px; font-weight: bold; border-bottom: 1px solid %4; padding-bottom: 4px;'>ACTIVE ADD-ONS & MODS</div>"
+        "<div style='line-height: 1.5;'>")
+        .arg(bg_color, text_color, accent_color, divider_color);
+    
+    QStringList categories = patch_versions.split(QLatin1Char('\n'), Qt::SkipEmptyParts);
+    for (const auto& line : categories) {
+        tooltip.append(QStringLiteral("<div style='margin: 3px 0; color: %1;'><b>&bull;</b> %2</div>")
+            .arg(item_text_color, line.toHtmlEscaped()));
+    }
+
+    tooltip.append(QStringLiteral("</div></body></html>"));
+    return tooltip;
+}
+
+void GameList::RefreshTooltips() {
+    if (!item_model) return;
+
+    std::function<void(QStandardItem*)> update_item = [&](QStandardItem* parent) {
+        for (int i = 0; i < parent->rowCount(); ++i) {
+            QStandardItem* name_item = parent->child(i, COLUMN_NAME);
+            if (!name_item) continue;
+            
+            // Recurse if it's a directory
+            if (name_item->hasChildren()) {
+                update_item(name_item);
+            }
+            
+            // Update addon column if it's a game row
+            QStandardItem* addon_item = parent->child(i, COLUMN_ADD_ONS);
+            if (addon_item && !addon_item->text().isEmpty()) {
+                addon_item->setData(GenerateAddonsTooltip(addon_item->text()), Qt::ToolTipRole);
+            }
+        }
+    };
+    
+    update_item(item_model->invisibleRootItem());
 }
 
 GameList::GameList(std::shared_ptr<FileSys::VfsFilesystem> vfs_,
@@ -1323,9 +1376,7 @@ GameList::GameList(std::shared_ptr<FileSys::VfsFilesystem> vfs_,
     progress_bar->setVisible(false);
     progress_bar->setFixedHeight(4);
     progress_bar->setTextVisible(false);
-    progress_bar->setStyleSheet(
-        QStringLiteral("QProgressBar { border: none; background: transparent; } "
-                       "QProgressBar::chunk { background-color: #0078d4; }"));
+    progress_bar->setStyleSheet(QStringLiteral("QProgressBar::chunk { background-color: %1; }").arg(Theme::GetAccentColor()));
 
     // Add widgets to toolbar
     toolbar->setStyleSheet(QStringLiteral("background: transparent; border: none;"));
@@ -3535,6 +3586,10 @@ void GameList::UpdateAccentColorStyles() {
     tree_view->setStyleSheet(accent_style);
     grid_view->setStyleSheet(accent_style);
     carousel_view->ApplyTheme();
+    if (details_panel) {
+        details_panel->ApplyTheme();
+    }
+    RefreshTooltips();
 
     // Explicitly style the header with a clean, high-fidelity theme
     tree_view->header()->setStyleSheet(QString::fromLatin1(

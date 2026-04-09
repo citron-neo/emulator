@@ -38,6 +38,8 @@ protected:
 
 private:
     void setupUI();
+    void updateStyles();
+    bool IsDarkMode() const;
     void applyDetails(const QModelIndex& index);
     void clearActions();
     void addAction(const QString& label, const QString& action_id);
