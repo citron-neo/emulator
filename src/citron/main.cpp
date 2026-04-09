@@ -371,7 +371,6 @@ GMainWindow::GMainWindow(std::unique_ptr<QtConfig> config_, bool has_broken_vulk
     QIcon::setFallbackSearchPaths(QStringList(QStringLiteral(":/icons")));
 
     default_theme_paths = QIcon::themeSearchPaths();
-    UpdateUITheme();
 
     play_time_manager = std::make_unique<PlayTime::PlayTimeManager>(system->GetProfileManager());
 
@@ -392,6 +391,8 @@ GMainWindow::GMainWindow(std::unique_ptr<QtConfig> config_, bool has_broken_vulk
 
     ConnectMenuEvents();
     ConnectWidgetEvents();
+
+    UpdateUITheme();
 
     system->HIDCore().ReloadInputDevices();
     controller_dialog->refreshConfiguration();
@@ -1196,8 +1197,7 @@ void GMainWindow::InitializeWidgets() {
     unified_top_bar = new QWidget(this);
     unified_top_bar->setObjectName(QStringLiteral("UnifiedTopBar"));
     unified_top_bar->setAutoFillBackground(true);
-    unified_top_bar->setStyleSheet(QStringLiteral(
-        "QWidget#UnifiedTopBar { background-color: #24242a; border-bottom: 1px solid #32323a; }"));
+    // Style applied in UpdateUITheme()
 
     // Retrieve dynamic accent color
     const QString accent_hex = QString::fromStdString(UISettings::values.accent_color.GetValue());
@@ -1210,40 +1210,19 @@ void GMainWindow::InitializeWidgets() {
     unified_top_bar_layout->setContentsMargins(10, 4, 10, 4);
     unified_top_bar_layout->setSpacing(0);
 
-    auto add_menu = [this, accent_str](QMenu* menu) {
+    auto add_menu = [this](QMenu* menu) {
         if (!menu)
             return;
         menu->installEventFilter(new MenuAnimationFilter(menu));
         menu->setWindowFlags(menu->windowFlags() | Qt::NoDropShadowWindowHint |
                              Qt::FramelessWindowHint);
         menu->setAttribute(Qt::WA_TranslucentBackground, false);
-        menu->setStyleSheet(QString::asprintf(
-            "QMenu { background: #24242a; border: 1px solid #32323a; border-radius: 8px; padding: "
-            "6px; color: #ffffff; }"
-            "QMenu::item { padding: 4px 28px 4px 32px; border-radius: 4px; margin: 1px; font-size: "
-            "8.5pt; min-width: 140px; color: #e0e0e4; }"
-            "QMenu::item:selected { background-color: %s; color: #ffffff; }"
-            "QMenu::item:disabled { color: #555558; }"
-            "QMenu::separator { height: 1px; background: #303035; margin: 4px 10px; }"
-            "QMenu::indicator { width: 14px; height: 14px; left: 10px; border-radius: 3px; border: "
-            "1px solid #4a4a50; background: #121214; }"
-            "QMenu::indicator:checked { background: %s; border: 1px solid %s; }",
-            accent_str.toUtf8().constData(), accent_str.toUtf8().constData(),
-            accent_str.toUtf8().constData()));
         QPushButton* btn = new QPushButton(menu->title().remove(QLatin1Char('&')), unified_top_bar);
         btn->setFlat(true);
         btn->setFocusPolicy(Qt::NoFocus);
         btn->setCursor(Qt::PointingHandCursor);
         btn->setFixedHeight(42);
-        btn->setStyleSheet(QString::asprintf(
-            "QPushButton { border: none; padding: 0 14px; font-weight: normal; font-size: 9pt; "
-            "background: transparent; color: #e0e0e4; text-align: center; margin: 0; outline: "
-            "none; }"
-            "QPushButton:hover { background: rgba(255, 255, 255, 0.05); color: #ffffff; "
-            "border-bottom: 2px solid %s; }"
-            "QPushButton:pressed { background: rgba(255, 255, 255, 0.10); }"
-            "QPushButton::menu-indicator { image: none; width: 0; }",
-            accent_str.toUtf8().constData()));
+        // Styles applied in UpdateUITheme()
         btn->setMenu(menu);
         unified_top_bar_layout->addWidget(btn);
     };
@@ -1307,9 +1286,7 @@ void GMainWindow::InitializeWidgets() {
     multiplayer_state->setVisible(false);
 
     // Create status bar
-    statusBar()->setStyleSheet(QStringLiteral(
-        "QStatusBar { background-color: #24242a; border-top: 1px solid #32323a; color: #aaa; }"
-        "QStatusBar::item { border: none; }"));
+    // Style applied in UpdateUITheme()
     message_label = new QLabel();
     message_label->setFrameStyle(QFrame::NoFrame);
     message_label->setContentsMargins(4, 0, 4, 0);
@@ -6350,16 +6327,17 @@ void GMainWindow::UpdateUITheme() {
     const QString toolbar_border = is_dark ? QStringLiteral("#32323a") : QStringLiteral("#d0d0d5");
     const QString toolbar_fg = is_dark ? QStringLiteral("#e0e0e4") : QStringLiteral("#1a1a1e");
 
+    // Retrieve dynamic accent color for UI elements
+    const QString accent_hex = QString::fromStdString(UISettings::values.accent_color.GetValue());
+    const QColor accent_color = QColor(accent_hex).isValid() ? QColor(accent_hex) : QColor(60, 120, 216);
+    const QString accent_str = accent_color.name();
+
     if (unified_top_bar) {
         unified_top_bar->setStyleSheet(
             QStringLiteral("QWidget#UnifiedTopBar { background-color: %1; border-bottom: 1px solid %2; }")
                 .arg(toolbar_bg, toolbar_border));
         
         // Update top bar buttons to adapt text color
-        const QString accent_hex = QString::fromStdString(UISettings::values.accent_color.GetValue());
-        const QColor accent_color = QColor(accent_hex).isValid() ? QColor(accent_hex) : QColor(60, 120, 216);
-        const QString accent_str = accent_color.name();
-        
         QString top_btn_style = QString::fromLatin1(
             "QPushButton { border: none; padding: 0 14px; font-weight: normal; font-size: 9pt; "
             "background: transparent; color: %1; text-align: center; margin: 0; outline: none; }"
@@ -6376,7 +6354,6 @@ void GMainWindow::UpdateUITheme() {
     }
 
     // Force aggressive transparency for status bar children to kill redundant 'boxes'
-    // We explicitly target :checked and :hover states to ensure native styles don't apply backgrounds
     statusBar()->setStyleSheet(
         QStringLiteral(
             "QStatusBar { background-color: %1; border-top: 1px solid %2; color: %3; }"
@@ -6390,6 +6367,23 @@ void GMainWindow::UpdateUITheme() {
             "QStatusBar QPushButton#GPUStatusBarButton { color: #32cd32 !important; font-weight: bold !important; background: transparent !important; border: none !important; }"
             "QStatusBar::item { border: none !important; }")
             .arg(status_bg, status_border, status_fg));
+
+    // Dynamic Menu Styling (Refactored from hardcoded Dark Onyx)
+    QString menu_style = QString::fromLatin1(
+        "QMenu { background: %1; border: 1px solid %2; border-radius: 8px; padding: 6px; color: %3; }"
+        "QMenu::item { padding: 4px 28px 4px 32px; border-radius: 4px; margin: 1px; font-size: 8.5pt; min-width: 140px; color: %4; }"
+        "QMenu::item:selected { background-color: %5; color: #ffffff; }"
+        "QMenu::item:disabled { color: %6; }"
+        "QMenu::separator { height: 1px; background: %7; margin: 4px 10px; }"
+        "QMenu::indicator { width: 14px; height: 14px; left: 10px; border-radius: 3px; border: 1px solid %2; background: %1; }"
+        "QMenu::indicator:checked { background: %5; border: 1px solid %5; }")
+        .arg(toolbar_bg, toolbar_border, (is_dark ? "#ffffff" : "#1a1a1e"),
+             (is_dark ? "#e0e0e4" : "#1a1a1e"), accent_str,
+             (is_dark ? "#555558" : "#aab0b4"), (is_dark ? "#303035" : "#d0d0d5"));
+
+    for (QMenu* menu : findChildren<QMenu*>()) {
+        menu->setStyleSheet(menu_style);
+    }
 
     emit UpdateThemedIcons();
 

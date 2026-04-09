@@ -877,6 +877,9 @@ void GameList::FilterTreeView(const QString& filter_text) {
 void GameList::OnUpdateThemedIcons() {
     for (int i = 0; i < item_model->invisibleRootItem()->rowCount(); i++) {
         QStandardItem* child = item_model->invisibleRootItem()->child(i);
+        if (!child) {
+            continue;
+        }
         const int icon_size = UISettings::values.folder_icon_size.GetValue();
         switch (child->data(GameListItem::TypeRole).value<GameListItemType>()) {
         case GameListItemType::SdmcDir:
