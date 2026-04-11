@@ -67,8 +67,8 @@ ConfigurePerGameCheats::ConfigurePerGameCheats(Core::System& system_, QWidget* p
     qRegisterMetaType<QList<QStandardItem*>>("QList<QStandardItem*>");
 
     button_layout = new QHBoxLayout;
-    button_layout->setContentsMargins(0, 0, 0, 0);
-    button_layout->setSpacing(6);
+    button_layout->setContentsMargins(5, 5, 5, 5);
+    button_layout->setSpacing(8);
 
     enable_all_button = new QPushButton(tr("Enable All"));
     disable_all_button = new QPushButton(tr("Disable All"));
@@ -81,12 +81,29 @@ ConfigurePerGameCheats::ConfigurePerGameCheats(Core::System& system_, QWidget* p
     button_layout->addStretch();
     button_layout->addWidget(save_button);
 
+    // Wrap buttons in a scroll area to prevent overlapping in narrow windows
+    QWidget* button_container = new QWidget;
+    button_container->setLayout(button_layout);
+    QScrollArea* button_scroll = new QScrollArea;
+    button_scroll->setWidget(button_container);
+    button_scroll->setWidgetResizable(true);
+    button_scroll->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    button_scroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAsNeeded);
+    button_scroll->setFrameShape(QFrame::NoFrame);
+    button_scroll->setStyleSheet(QStringLiteral("background: transparent; border: none;"));
+    button_scroll->setFixedHeight(42);
+
     layout->setContentsMargins(0, 0, 0, 0);
-    layout->setSpacing(6);
-    layout->addLayout(button_layout);
+    layout->setSpacing(0);
+    layout->addWidget(button_scroll);
     layout->addWidget(tree_view);
 
-    ui->scrollArea->setLayout(layout);
+    ui->scrollArea->setWidgetResizable(true);
+    QWidget* main_widget = new QWidget;
+    main_widget->setLayout(layout);
+    ui->scrollArea->setWidget(main_widget);
+    ui->scrollArea->setFrameShape(QFrame::NoFrame);
+    ui->scrollArea->setStyleSheet(QStringLiteral("background: transparent; border: none;"));
 
     connect(item_model, &QStandardItemModel::itemChanged, this,
             &ConfigurePerGameCheats::OnCheatToggled);

@@ -36,6 +36,7 @@ class ConfigureSystem;
 class ConfigureUi;
 class ConfigureWeb;
 class GameList;
+class StyleAnimationEventFilter;
 
 class ConfigureDialog final : public QDialog {
     Q_OBJECT
@@ -60,7 +61,7 @@ signals:
 
 private slots:
     void SetUIPositioning(const QString& positioning);
-    void AnimateTabSwitch(int id);
+    void SwitchTab(int id);
 
 private:
     void SetConfiguration();
@@ -69,7 +70,6 @@ private:
     void RetranslateUI();
     void OnLanguageChanged(const QString& locale);
 
-    bool m_is_tab_animating{false};
     QColor last_palette_text_color;
     std::unique_ptr<Ui::ConfigureDialog> ui;
     HotkeyRegistry& registry;
@@ -92,5 +92,6 @@ private:
     std::unique_ptr<ConfigureWeb> web_tab;
     std::unique_ptr<QButtonGroup> tab_button_group;
     std::vector<QPushButton*> tab_buttons;
+    StyleAnimationEventFilter* animation_filter{nullptr};
     QTimer* rainbow_timer{nullptr};
 };

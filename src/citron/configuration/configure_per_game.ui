@@ -6,365 +6,155 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>900</width>
-    <height>607</height>
+    <width>1280</width>
+    <height>720</height>
    </rect>
-  </property>
-  <property name="minimumSize">
-   <size>
-    <width>640</width>
-    <height>480</height>
-   </size>
   </property>
   <property name="windowTitle">
    <string>Properties</string>
   </property>
   <property name="templateStyleSheet" stdset="0">
-   <string>QDialog {
+   <string>
+QDialog {
     background-color: %%BACKGROUND_COLOR%%;
-    color: %%TEXT_COLOR%%;
-    }
+}
 
-    QWidget {
-    background-color: %%BACKGROUND_COLOR%%;
-    color: %%TEXT_COLOR%%;
-    }
+#info_panel, #tabButtonsContainer {
+    background-color: transparent;
+}
 
-    QStackedWidget {
-    background-color: %%BACKGROUND_COLOR%%;
-    border: 1px solid %%SECONDARY_BG_COLOR%%;
-    border-radius: 8px;
-    margin: 0px;
-    padding: 0px;
-    }
-
-    QScrollArea {
-    background-color: %%BACKGROUND_COLOR%%;
-    border: none;
-    border-radius: 8px;
-    }
-
-    QScrollArea > QWidget > QWidget {
-    background-color: %%BACKGROUND_COLOR%%;
-    }
-
-    QScrollBar:vertical {
-    background-color: %%SECONDARY_BG_COLOR%%;
-    width: 14px;
-    border-radius: 7px;
-    margin: 2px;
-    }
-
-    QScrollBar::handle:vertical {
+#info_panel QLineEdit {
     background-color: %%TERTIARY_BG_COLOR%%;
+    border: 1px solid %%SECONDARY_BG_COLOR%%;
+    border-radius: 4px;
+    padding: 2px 10px;
+    color: %%TEXT_COLOR%%;
+}
+
+#dev_box, #version_box, #id_box {
+    background-color: %%SECONDARY_BG_COLOR%%;
+    border-radius: 8px;
+    padding: 5px;
+}
+
+#label_dev_header, #label_version_header, #label_id_header {
+    color: %%TEXT_COLOR_DIM%%;
+    font-weight: bold;
+    font-size: 10px;
+    text-transform: uppercase;
+}
+
+#game_title_label {
+    padding: 10px 0px;
+    color: %%TEXT_COLOR%%;
+}
+
+#label_console_hints {
+    color: %%TEXT_COLOR_DIM%%;
+    font-size: 11px;
+}
+
+/* Wireframe Action Buttons */
+#info_panel QPushButton {
+    background-color: transparent;
+    border: 1px solid %%ACCENT_COLOR%%;
     border-radius: 6px;
-    min-height: 30px;
-    margin: 1px;
-    }
+    color: %%ACCENT_COLOR%%;
+    font-weight: bold;
+    height: 34px;
+}
 
-    QScrollBar::handle:vertical:hover {
-    background-color: %%ACCENT_COLOR%%;
-    }
+#info_panel QPushButton:hover {
+    background-color: rgba(%%ACCENT_COLOR_R%%, %%ACCENT_COLOR_G%%, %%ACCENT_COLOR_B%%, 30);
+}
 
-    QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
+/* Vertical Tab Buttons */
+#aestheticTabButton {
+    background-color: transparent;
     border: none;
+    color: %%TEXT_COLOR_DIM%%;
+    text-align: left;
+    padding: 12px 20px;
+    font-weight: bold;
+    font-size: 13px;
+}
+
+#aestheticTabButton:checked {
+    color: %%TEXT_COLOR%%;
+    border-left: 3px solid %%ACCENT_COLOR%%;
+    background-color: rgba(%%ACCENT_COLOR_R%%, %%ACCENT_COLOR_G%%, %%ACCENT_COLOR_B%%, 20);
+}
+
+#aestheticTabButton:hover:!checked {
+    color: %%TEXT_COLOR%%;
+    background-color: rgba(%%ACCENT_COLOR_R%%, %%ACCENT_COLOR_G%%, %%ACCENT_COLOR_B%%, 10);
+}
+
+#full_info_button {
+    background: transparent;
+    border: none;
+    color: %%TEXT_COLOR_DIM%%;
+}
+
+#full_info_button:hover {
+    color: %%ACCENT_COLOR%%;
+}
+
+/* Accent-Aware ScrollBars (Referencing Game List) */
+QScrollBar:vertical {
+    border: 1px solid %%SECONDARY_BG_COLOR%%;
+    background: transparent;
+    width: 10px;
+    margin: 0px;
+}
+
+QScrollBar::handle:vertical {
+    background: %%ACCENT_COLOR%%;
+    min-height: 20px;
+    border-radius: 5px;
+    border: 1px solid %%SECONDARY_BG_COLOR%%;
+}
+
+QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
     background: none;
     height: 0px;
-    }
+}
 
-    QScrollBar:horizontal {
-    background-color: %%SECONDARY_BG_COLOR%%;
-    height: 14px;
-    border-radius: 7px;
-    margin: 2px;
-    }
-
-    QScrollBar::handle:horizontal {
-    background-color: %%TERTIARY_BG_COLOR%%;
-    border-radius: 6px;
-    min-width: 30px;
-    margin: 1px;
-    }
-
-    QScrollBar::handle:horizontal:hover {
-    background-color: %%ACCENT_COLOR%%;
-    }
-
-    QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {
+QScrollArea {
     border: none;
-    background: none;
-    width: 0px;
-    }
+    background: transparent;
+}
 
-    QPushButton#aestheticTabButton {
-        background-color: transparent;
-        color: %%TEXT_COLOR%%;
-        border: none;
-        padding: 10px;
-        padding-left: 20px; /* Indent text from the left */
-        border-radius: 8px;
-        font-weight: bold;
-        font-size: 10pt;
-        text-align: left center; /* Align text to the left like the original */
-        min-width: 110px;        /* Stricter minimum width to prevent smudging */
-        max-height: 25px;        /* Enforce a consistent height */
-    }
-
-    QPushButton#aestheticTabButton:checked {
-        background-color: %%SECONDARY_BG_COLOR%%;   /* Add subtle background when checked */
-        color: %%TEXT_COLOR%%;                      /* Keep text color consistent when checked */
-        border-left: 3px solid %%ACCENT_COLOR%%;    /* Accent color bar on the LEFT */
-        padding-left: 17px;                         /* Adjust padding to keep text aligned perfectly */
-    }
-
-    QPushButton#aestheticTabButton:hover:!checked {
-        background-color: %%HOVER_BG_COLOR%%;
-    }
-
-    QPushButton#aestheticTabButton:pressed {
-        background-color: %%TERTIARY_BG_COLOR%%;
-    }
-
-    QGroupBox {
-    font-weight: bold;
-    border: 1px solid %%SECONDARY_BG_COLOR%%;
-    border-radius: 8px;
-    margin-top: 12px;
-    padding-top: 12px;
-    background-color: %%BACKGROUND_COLOR%%;
-    color: %%TEXT_COLOR%%;
-    }
-
-    QGroupBox::title {
-    subcontrol-origin: margin;
-    left: 12px;
-    padding: 0 8px 0 8px;
-    color: %%TEXT_COLOR%%;
-    font-weight: bold;
-    }
-
-    QCheckBox {
-    color: %%TEXT_COLOR%%;
-    spacing: 10px;
-    padding: 4px;
-    background-color: transparent;
-    }
-
-    QCheckBox::indicator {
-    width: 18px;
-    height: 18px;
-    border: 2px solid %%TERTIARY_BG_COLOR%%;
-    border-radius: 4px;
-    background-color: %%SECONDARY_BG_COLOR%%;
-    }
-
-    QCheckBox::indicator:checked {
-    background-color: %%ACCENT_COLOR%%;
-    border-color: %%ACCENT_COLOR%%;
-    }
-
-    QCheckBox::indicator:hover {
-    border-color: %%ACCENT_COLOR%%;
-    }
-
-    QComboBox {
-    background-color: %%SECONDARY_BG_COLOR%%;
-    border: 1px solid %%TERTIARY_BG_COLOR%%;
-    border-radius: 6px;
-    padding: 8px 12px;
-    color: %%TEXT_COLOR%%;
-    min-width: 120px;
-    min-height: 28px;
-    selection-background-color: %%ACCENT_COLOR%%;
-    }
-
-    QComboBox:hover {
-    border-color: %%ACCENT_COLOR%%;
-    background-color: %%HOVER_BG_COLOR%%;
-    }
-
-    QComboBox:focus {
-    border-color: %%ACCENT_COLOR%%;
-    background-color: %%FOCUS_BG_COLOR%%;
-    }
-
-    QComboBox::drop-down {
-    border: none;
-    width: 25px;
-    subcontrol-origin: padding;
-    subcontrol-position: top right;
-    background-color: transparent;
-    }
-
-    QComboBox QAbstractItemView {
-    background-color: %%SECONDARY_BG_COLOR%%;
-    border: 1px solid %%ACCENT_COLOR%%;
-    selection-background-color: %%ACCENT_COLOR%%;
-    color: %%TEXT_COLOR%%;
-    outline: none;
-    }
-
-    QComboBox QAbstractItemView::item {
-    padding: 8px;
-    border: none;
-    background-color: transparent;
-    }
-
-    QComboBox QAbstractItemView::item:selected {
-    background-color: %%ACCENT_COLOR%%;
-    color: #ffffff;
-    }
-
-    QComboBox QAbstractItemView::item:hover {
-    background-color: %%ACCENT_COLOR_HOVER%%;
-    color: #ffffff;
-    }
-
-    QLineEdit {
-    background-color: %%SECONDARY_BG_COLOR%%;
-    border: 1px solid %%TERTIARY_BG_COLOR%%;
-    border-radius: 6px;
-    padding: 8px 12px;
-    color: %%TEXT_COLOR%%;
-    min-height: 20px;
-    selection-background-color: %%ACCENT_COLOR%%;
-    }
-
-    QLineEdit:focus {
-    border-color: %%ACCENT_COLOR%%;
-    background-color: %%FOCUS_BG_COLOR%%;
-    }
-
-    QPushButton, QToolButton {
-    background-color: transparent;
-    color: %%TEXT_COLOR%%;
-    border: 2px solid %%ACCENT_COLOR%%;
-    padding: 5px 15px;
-    border-radius: 6px;
-    font-weight: bold;
-    min-height: 20px;
-    }
-
-    QPushButton:hover, QToolButton:hover {
-    color: %%ACCENT_COLOR_HOVER%%;
-    border-color: %%ACCENT_COLOR_HOVER%%;
-    }
-
-    QPushButton:pressed, QToolButton:pressed {
-    color: #ffffff;
-    background-color: %%ACCENT_COLOR_PRESSED%%;
-    border-color: %%ACCENT_COLOR_PRESSED%%;
-    }
-
-    QPushButton:disabled, QToolButton:disabled {
-    background-color: %%TERTIARY_BG_COLOR%%;
-    border-color: %%TERTIARY_BG_COLOR%%;
-    color: %%DISABLED_TEXT_COLOR%%;
-    }
-
-    QLabel {
-    color: %%TEXT_COLOR%%;
-    background-color: transparent;
-    padding: 2px;
-    }
-
-    QListWidget {
-    background-color: %%SECONDARY_BG_COLOR%%;
-    border: 1px solid %%TERTIARY_BG_COLOR%%;
-    border-radius: 6px;
-    color: %%TEXT_COLOR%%;
-    padding: 4px;
-    }
-
-    QListWidget::item {
-    padding: 8px;
-    border-radius: 4px;
-    margin: 1px;
-    }
-
-    QListWidget::item:selected {
-    background-color: %%ACCENT_COLOR%%;
-    color: #ffffff;
-    }
-
-    QListWidget::item:hover:!selected {
-    background-color: %%HOVER_BG_COLOR%%;
-    }
-
-    QSlider::groove:horizontal {
-        height: 8px;
-        background: %%SECONDARY_BG_COLOR%%;
-        border-radius: 4px;
-        border: 1px solid %%TERTIARY_BG_COLOR%%;
-    }
-
-    QSlider::sub-page:horizontal {
-        background: %%ACCENT_COLOR%%;
-        border-radius: 4px;
-    }
-
-    QSlider::add-page:horizontal {
-        background: %%SECONDARY_BG_COLOR%%;
-        border-radius: 4px;
-    }
-
-    QSlider::handle:horizontal {
-    background-color: %%ACCENT_COLOR%%;
-    border: 1px solid %%ACCENT_COLOR%%;
-    width: 18px;
-    margin: -5px 0;
-    border-radius: 9px;
-    }
-
-    QSlider::handle:horizontal:hover {
-    background-color: %%ACCENT_COLOR_HOVER%%;
-    }
-
-    QSpinBox, QDoubleSpinBox {
-    background-color: %%SECONDARY_BG_COLOR%%;
-    border: 1px solid %%TERTIARY_BG_COLOR%%;
-    border-radius: 6px;
-    padding: 6px;
-    color: %%TEXT_COLOR%%;
-    min-height: 20px;
-    }
-
-    QSpinBox:focus, QDoubleSpinBox:focus {
-    border-color: %%ACCENT_COLOR%%;
-    background-color: %%FOCUS_BG_COLOR%%;
-    }
-
-    QRadioButton {
-    color: %%TEXT_COLOR%%;
-    spacing: 8px;
-    padding: 4px;
-    }
-
-    QRadioButton::indicator {
-    width: 16px;
-    height: 16px;
-    border: 2px solid %%TERTIARY_BG_COLOR%%;
-    border-radius: 8px;
-    background-color: %%SECONDARY_BG_COLOR%%;
-    }
-
-    QRadioButton::indicator:checked {
-    background-color: %%ACCENT_COLOR%%;
-    border-color: %%ACCENT_COLOR%%;
-    }
-
-    QRadioButton::indicator:hover {
-    border-color: %%ACCENT_COLOR%%;
-    }
+QScrollArea &gt; QWidget &gt; QWidget {
+    background: transparent;
+}
    </string>
   </property>
-  <layout class="QVBoxLayout" name="verticalLayout_3">
+  <layout class="QVBoxLayout" name="verticalLayout_2">
+   <property name="spacing">
+    <number>0</number>
+   </property>
+   <property name="leftMargin">
+    <number>0</number>
+   </property>
+   <property name="topMargin">
+    <number>0</number>
+   </property>
+   <property name="rightMargin">
+    <number>0</number>
+   </property>
+   <property name="bottomMargin">
+    <number>0</number>
+   </property>
    <item>
     <layout class="QHBoxLayout" name="horizontalLayout">
+     <property name="spacing">
+      <number>0</number>
+     </property>
      <item>
       <widget class="QScrollArea" name="scrollArea">
        <property name="sizePolicy">
-        <sizepolicy hsizetype="Maximum" vsizetype="Expanding">
+        <sizepolicy hsizetype="Minimum" vsizetype="Expanding">
          <horstretch>0</horstretch>
          <verstretch>0</verstretch>
         </sizepolicy>
@@ -375,6 +165,18 @@
          <height>0</height>
         </size>
        </property>
+       <property name="maximumSize">
+        <size>
+         <width>400</width>
+         <height>16777215</height>
+        </size>
+       </property>
+       <property name="horizontalScrollBarPolicy">
+        <enum>Qt::ScrollBarAlwaysOff</enum>
+       </property>
+       <property name="frameShape">
+        <enum>QFrame::NoFrame</enum>
+       </property>
        <property name="widgetResizable">
         <bool>true</bool>
        </property>
@@ -383,224 +185,257 @@
          <rect>
           <x>0</x>
           <y>0</y>
-          <width>318</width>
-          <height>786</height>
+          <width>320</width>
+          <height>720</height>
          </rect>
         </property>
-        <property name="minimumSize">
-         <size>
-          <width>0</width>
-          <height>786</height>
-         </size>
-        </property>
-        <property name="maximumSize">
-         <size>
-          <width>16777215</width>
-          <height>836</height>
-         </size>
-        </property>
-        <layout class="QVBoxLayout" name="verticalLayout_5">
-         <property name="leftMargin">
-          <number>0</number>
-         </property>
-         <property name="topMargin">
-          <number>0</number>
-         </property>
-         <property name="rightMargin">
-          <number>0</number>
-         </property>
-         <property name="bottomMargin">
+        <layout class="QVBoxLayout" name="verticalLayout_3">
+         <property name="spacing">
           <number>0</number>
          </property>
          <item>
-          <widget class="QGroupBox" name="groupBox">
-           <property name="title">
-            <string>Info</string>
-           </property>
-           <layout class="QVBoxLayout" name="verticalLayout">
-            <item alignment="Qt::AlignHCenter">
-             <widget class="QGraphicsView" name="icon_view">
-              <property name="sizePolicy">
-               <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
-                <horstretch>0</horstretch>
-                <verstretch>0</verstretch>
-               </sizepolicy>
-              </property>
-              <property name="minimumSize">
-               <size>
-                <width>256</width>
-                <height>256</height>
-               </size>
-              </property>
-              <property name="maximumSize">
-               <size>
-                <width>256</width>
-                <height>256</height>
-               </size>
-              </property>
-              <property name="verticalScrollBarPolicy">
-               <enum>Qt::ScrollBarAlwaysOff</enum>
-              </property>
-              <property name="horizontalScrollBarPolicy">
-               <enum>Qt::ScrollBarAlwaysOff</enum>
-              </property>
-              <property name="interactive">
-               <bool>false</bool>
-              </property>
-             </widget>
-            </item>
+          <widget class="QWidget" name="info_panel">
+           <layout class="QVBoxLayout" name="info_layout">
+            <property name="spacing">
+             <number>20</number>
+            </property>
+            <property name="leftMargin">
+             <number>25</number>
+            </property>
+            <property name="topMargin">
+             <number>25</number>
+            </property>
+            <property name="rightMargin">
+             <number>25</number>
+            </property>
+            <property name="bottomMargin">
+             <number>20</number>
+            </property>
             <item>
-             <layout class="QGridLayout" name="gridLayout_2">
-              <item row="1" column="0">
-               <widget class="QLabel" name="label">
-                <property name="sizePolicy"><sizepolicy hsizetype="Preferred" vsizetype="Fixed"><horstretch>0</horstretch><verstretch>0</verstretch></sizepolicy></property>
-                <property name="minimumSize"><size><width>0</width><height>32</height></size></property>
-                <property name="text"><string>Name</string></property>
+             <layout class="QVBoxLayout" name="icon_layout">
+              <property name="spacing">
+               <number>0</number>
+              </property>
+              <item alignment="Qt::AlignHCenter">
+               <widget class="QGraphicsView" name="icon_view">
+                <property name="sizePolicy">
+                 <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+                  <horstretch>0</horstretch>
+                  <verstretch>0</verstretch>
+                 </sizepolicy>
+                </property>
+                <property name="minimumSize">
+                 <size>
+                  <width>160</width>
+                  <height>160</height>
+                 </size>
+                </property>
+                <property name="maximumSize">
+                 <size>
+                  <width>160</width>
+                  <height>160</height>
+                 </size>
+                </property>
+                <property name="verticalScrollBarPolicy">
+                 <enum>Qt::ScrollBarAlwaysOff</enum>
+                </property>
+                <property name="horizontalScrollBarPolicy">
+                 <enum>Qt::ScrollBarAlwaysOff</enum>
+                </property>
+                <property name="interactive">
+                 <bool>false</bool>
+                </property>
                </widget>
               </item>
-              <item row="1" column="1">
-               <widget class="QLineEdit" name="display_name">
-                <property name="sizePolicy"><sizepolicy hsizetype="Expanding" vsizetype="Fixed"><horstretch>0</horstretch><verstretch>0</verstretch></sizepolicy></property>
-                <property name="minimumSize"><size><width>0</width><height>32</height></size></property>
-                <property name="enabled"><bool>true</bool></property>
-                <property name="readOnly"><bool>true</bool></property>
-               </widget>
-              </item>
-              <item row="2" column="0">
-               <widget class="QLabel" name="label_2">
-                <property name="sizePolicy"><sizepolicy hsizetype="Preferred" vsizetype="Fixed"><horstretch>0</horstretch><verstretch>0</verstretch></sizepolicy></property>
-                <property name="minimumSize"><size><width>0</width><height>32</height></size></property>
-                <property name="text"><string>Developer</string></property>
-               </widget>
-              </item>
-              <item row="2" column="1">
-               <widget class="QLineEdit" name="display_developer">
-                <property name="sizePolicy"><sizepolicy hsizetype="Expanding" vsizetype="Fixed"><horstretch>0</horstretch><verstretch>0</verstretch></sizepolicy></property>
-                <property name="minimumSize"><size><width>0</width><height>32</height></size></property>
-                <property name="enabled"><bool>true</bool></property>
-                <property name="readOnly"><bool>true</bool></property>
-               </widget>
-              </item>
-              <item row="3" column="0">
-               <widget class="QLabel" name="label_3">
-                <property name="sizePolicy"><sizepolicy hsizetype="Preferred" vsizetype="Fixed"><horstretch>0</horstretch><verstretch>0</verstretch></sizepolicy></property>
-                <property name="minimumSize"><size><width>0</width><height>32</height></size></property>
-                <property name="text"><string>Version</string></property>
-               </widget>
-              </item>
-              <item row="3" column="1">
-               <widget class="QLineEdit" name="display_version">
-                <property name="sizePolicy"><sizepolicy hsizetype="Expanding" vsizetype="Fixed"><horstretch>0</horstretch><verstretch>0</verstretch></sizepolicy></property>
-                <property name="minimumSize"><size><width>0</width><height>32</height></size></property>
-                <property name="enabled"><bool>true</bool></property>
-                <property name="readOnly"><bool>true</bool></property>
-               </widget>
-              </item>
-              <item row="4" column="0">
-               <widget class="QLabel" name="label_4">
-                <property name="sizePolicy"><sizepolicy hsizetype="Preferred" vsizetype="Fixed"><horstretch>0</horstretch><verstretch>0</verstretch></sizepolicy></property>
-                <property name="minimumSize"><size><width>0</width><height>32</height></size></property>
-                <property name="text"><string>Title ID</string></property>
-               </widget>
-              </item>
-              <item row="4" column="1">
-               <widget class="QLineEdit" name="display_title_id">
-                <property name="sizePolicy"><sizepolicy hsizetype="Expanding" vsizetype="Fixed"><horstretch>0</horstretch><verstretch>0</verstretch></sizepolicy></property>
-                <property name="minimumSize"><size><width>0</width><height>32</height></size></property>
-                <property name="enabled"><bool>true</bool></property>
-                <property name="readOnly"><bool>true</bool></property>
-               </widget>
-              </item>
-              <item row="5" column="0">
-               <widget class="QLabel" name="label_5">
-                <property name="sizePolicy"><sizepolicy hsizetype="Preferred" vsizetype="Fixed"><horstretch>0</horstretch><verstretch>0</verstretch></sizepolicy></property>
-                <property name="minimumSize"><size><width>0</width><height>32</height></size></property>
-                <property name="text"><string>Format</string></property>
-               </widget>
-              </item>
-              <item row="5" column="1">
-               <widget class="QLineEdit" name="display_format">
-                <property name="sizePolicy"><sizepolicy hsizetype="Expanding" vsizetype="Fixed"><horstretch>0</horstretch><verstretch>0</verstretch></sizepolicy></property>
-                <property name="minimumSize"><size><width>0</width><height>32</height></size></property>
-                <property name="enabled"><bool>true</bool></property>
-                <property name="readOnly"><bool>true</bool></property>
-               </widget>
-              </item>
-              <item row="6" column="0">
-               <widget class="QLabel" name="label_6">
-                <property name="sizePolicy"><sizepolicy hsizetype="Preferred" vsizetype="Fixed"><horstretch>0</horstretch><verstretch>0</verstretch></sizepolicy></property>
-                <property name="minimumSize"><size><width>0</width><height>32</height></size></property>
-                <property name="text"><string>Size</string></property>
-               </widget>
-              </item>
-              <item row="6" column="1">
-               <widget class="QLineEdit" name="display_size">
-                <property name="sizePolicy"><sizepolicy hsizetype="Expanding" vsizetype="Fixed"><horstretch>0</horstretch><verstretch>0</verstretch></sizepolicy></property>
-                <property name="minimumSize"><size><width>0</width><height>32</height></size></property>
-                <property name="enabled"><bool>true</bool></property>
-                <property name="readOnly"><bool>true</bool></property>
-               </widget>
-              </item>
-              <item row="7" column="0">
-               <widget class="QLabel" name="label_7">
-                <property name="sizePolicy"><sizepolicy hsizetype="Preferred" vsizetype="Fixed"><horstretch>0</horstretch><verstretch>0</verstretch></sizepolicy></property>
-                <property name="minimumSize"><size><width>0</width><height>32</height></size></property>
-                <property name="text"><string>Filename</string></property>
-               </widget>
-              </item>
-              <item row="7" column="1">
-               <widget class="QLineEdit" name="display_filename">
-                <property name="sizePolicy"><sizepolicy hsizetype="Expanding" vsizetype="Fixed"><horstretch>0</horstretch><verstretch>0</verstretch></sizepolicy></property>
-                <property name="minimumSize"><size><width>0</width><height>32</height></size></property>
-                <property name="enabled"><bool>true</bool></property>
-                <property name="readOnly"><bool>true</bool></property>
-               </widget>
-              </item>
-              <item row="8" column="0">
-               <widget class="QLabel" name="label_build_id">
-                <property name="sizePolicy"><sizepolicy hsizetype="Preferred" vsizetype="Fixed"><horstretch>0</horstretch><verstretch>0</verstretch></sizepolicy></property>
-                <property name="minimumSize"><size><width>0</width><height>32</height></size></property>
-                <property name="text"><string>Base Build ID</string></property>
-               </widget>
-              </item>
-              <item row="8" column="1">
-               <widget class="QLineEdit" name="display_build_id">
-                <property name="sizePolicy"><sizepolicy hsizetype="Expanding" vsizetype="Fixed"><horstretch>0</horstretch><verstretch>0</verstretch></sizepolicy></property>
-                <property name="minimumSize"><size><width>0</width><height>32</height></size></property>
-                <property name="enabled"><bool>true</bool></property>
-                <property name="readOnly"><bool>true</bool></property>
-               </widget>
-              </item>
-              <item row="9" column="0">
-               <widget class="QLabel" name="label_update_build_id">
-                <property name="sizePolicy"><sizepolicy hsizetype="Preferred" vsizetype="Fixed"><horstretch>0</horstretch><verstretch>0</verstretch></sizepolicy></property>
-                <property name="minimumSize"><size><width>0</width><height>32</height></size></property>
-                <property name="text"><string>Update Build ID</string></property>
-               </widget>
-              </item>
-              <item row="9" column="1">
-               <widget class="QLineEdit" name="display_update_build_id">
-                <property name="sizePolicy"><sizepolicy hsizetype="Expanding" vsizetype="Fixed"><horstretch>0</horstretch><verstretch>0</verstretch></sizepolicy></property>
-                <property name="minimumSize"><size><width>0</width><height>32</height></size></property>
-                <property name="enabled"><bool>true</bool></property>
-                <property name="readOnly"><bool>true</bool></property>
-               </widget>
-              </item>
-              <item row="10" column="0" colspan="2">
-               <widget class="QPushButton" name="trim_xci_button">
-                <property name="sizePolicy"><sizepolicy hsizetype="Minimum" vsizetype="Fixed"><horstretch>0</horstretch><verstretch>0</verstretch></sizepolicy></property>
-                <property name="minimumSize"><size><width>0</width><height>40</height></size></property>
-                <property name="text"><string>Trim XCI File</string></property>
-                <property name="toolTip"><string>Remove unused space from XCI file to reduce file size</string></property>
+              <item alignment="Qt::AlignRight">
+               <widget class="QToolButton" name="full_info_button">
+                <property name="maximumSize">
+                 <size>
+                  <width>24</width>
+                  <height>24</height>
+                 </size>
+                </property>
+                <property name="text">
+                 <string>...</string>
+                </property>
+                <property name="toolTip">
+                 <string>View Full Technical Information</string>
+                </property>
                </widget>
               </item>
              </layout>
             </item>
             <item>
-             <spacer name="verticalSpacer">
-              <property name="orientation"><enum>Qt::Vertical</enum></property>
-              <property name="sizeHint" stdset="0"><size><width>20</width><height>10</height></size></property>
+             <widget class="QLabel" name="game_title_label">
+              <property name="font">
+               <font>
+                <pointsize>14</pointsize>
+                <weight>75</weight>
+                <bold>true</bold>
+               </font>
+              </property>
+              <property name="text">
+               <string>Game Title</string>
+              </property>
+              <property name="alignment">
+               <set>Qt::AlignCenter</set>
+              </property>
+              <property name="wordWrap">
+               <bool>true</bool>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <layout class="QVBoxLayout" name="properties_stack">
+              <property name="spacing">
+               <number>12</number>
+              </property>
+              <item>
+               <widget class="QWidget" name="dev_box" native="true">
+                <layout class="QVBoxLayout" name="dev_layout">
+                 <property name="spacing">
+                  <number>2</number>
+                 </property>
+                 <item>
+                  <widget class="QLabel" name="label_dev_header">
+                   <property name="text">
+                    <string>DEVELOPER</string>
+                   </property>
+                  </widget>
+                 </item>
+                 <item>
+                  <widget class="QLineEdit" name="display_developer">
+                   <property name="minimumSize">
+                    <size>
+                     <width>0</width>
+                     <height>28</height>
+                    </size>
+                   </property>
+                   <property name="readOnly">
+                    <bool>true</bool>
+                   </property>
+                  </widget>
+                 </item>
+                </layout>
+               </widget>
+              </item>
+              <item>
+               <widget class="QWidget" name="version_box" native="true">
+                <layout class="QVBoxLayout" name="version_layout">
+                 <property name="spacing">
+                  <number>2</number>
+                 </property>
+                 <item>
+                  <widget class="QLabel" name="label_version_header">
+                   <property name="text">
+                    <string>VERSION</string>
+                   </property>
+                  </widget>
+                 </item>
+                 <item>
+                  <widget class="QLineEdit" name="display_version">
+                   <property name="minimumSize">
+                    <size>
+                     <width>0</width>
+                     <height>28</height>
+                    </size>
+                   </property>
+                   <property name="readOnly">
+                    <bool>true</bool>
+                   </property>
+                  </widget>
+                 </item>
+                </layout>
+               </widget>
+              </item>
+              <item>
+               <widget class="QWidget" name="id_box" native="true">
+                <layout class="QVBoxLayout" name="id_layout">
+                 <property name="spacing">
+                  <number>2</number>
+                 </property>
+                 <item>
+                  <widget class="QLabel" name="label_id_header">
+                   <property name="text">
+                    <string>TITLE ID</string>
+                   </property>
+                  </widget>
+                 </item>
+                 <item>
+                  <widget class="QLineEdit" name="display_title_id">
+                   <property name="minimumSize">
+                    <size>
+                     <width>0</width>
+                     <height>28</height>
+                    </size>
+                   </property>
+                   <property name="readOnly">
+                    <bool>true</bool>
+                   </property>
+                  </widget>
+                 </item>
+                </layout>
+               </widget>
+              </item>
+             </layout>
+            </item>
+            <item>
+             <spacer name="verticalSpacer_2">
+              <property name="orientation">
+               <enum>Qt::Vertical</enum>
+              </property>
+              <property name="sizeType">
+               <enum>QSizePolicy::Expanding</enum>
+              </property>
+              <property name="sizeHint" stdset="0">
+               <size>
+                <width>20</width>
+                <height>40</height>
+               </size>
+              </property>
              </spacer>
+            </item>
+            <item>
+             <layout class="QVBoxLayout" name="action_buttons_layout">
+              <property name="spacing">
+               <number>12</number>
+              </property>
+              <item>
+               <widget class="QPushButton" name="trim_xci_button">
+                <property name="text">
+                 <string>Trim XCI File</string>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <widget class="QPushButton" name="share_settings_button">
+                <property name="text">
+                 <string>Share Settings</string>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <widget class="QPushButton" name="import_settings_button">
+                <property name="text">
+                 <string>Import Settings</string>
+                </property>
+               </widget>
+              </item>
+             </layout>
+            </item>
+            <item alignment="Qt::AlignHCenter">
+             <widget class="QLabel" name="label_console_hints">
+              <property name="font">
+               <font>
+                <pointsize>8</pointsize>
+                <weight>75</weight>
+                <bold>true</bold>
+               </font>
+              </property>
+              <property name="text">
+               <string>L / R Change Tab  A Select  B Back</string>
+              </property>
+             </widget>
             </item>
            </layout>
           </widget>
@@ -610,56 +445,65 @@
       </widget>
      </item>
      <item>
+      <widget class="QScrollArea" name="tabButtonsScrollArea">
+       <property name="sizePolicy">
+        <sizepolicy hsizetype="Minimum" vsizetype="Expanding">
+         <horstretch>0</horstretch>
+         <verstretch>0</verstretch>
+        </sizepolicy>
+       </property>
+       <property name="minimumSize">
+        <size>
+         <width>160</width>
+         <height>0</height>
+        </size>
+       </property>
+       <property name="maximumSize">
+        <size>
+         <width>200</width>
+         <height>16777215</height>
+        </size>
+       </property>
+       <property name="horizontalScrollBarPolicy">
+        <enum>Qt::ScrollBarAlwaysOff</enum>
+       </property>
+       <property name="frameShape">
+        <enum>QFrame::NoFrame</enum>
+       </property>
+       <property name="widgetResizable">
+        <bool>true</bool>
+       </property>
+       <widget class="QWidget" name="tabButtonsContainer">
+        <layout class="QVBoxLayout" name="tabButtonsLayout">
+         <property name="spacing">
+          <number>5</number>
+         </property>
+         <property name="topMargin">
+          <number>50</number>
+         </property>
+        </layout>
+       </widget>
+      </widget>
+     </item>
+     <item>
       <layout class="QVBoxLayout" name="VerticalLayout">
-       <item>
-        <widget class="QScrollArea" name="tabButtonsScrollArea">
-         <property name="sizePolicy">
-          <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
-           <horstretch>0</horstretch>
-           <verstretch>0</verstretch>
-          </sizepolicy>
-         </property>
-         <property name="maximumSize">
-          <size>
-           <width>16777215</width>
-           <height>60</height>
-          </size>
-         </property>
-         <property name="verticalScrollBarPolicy">
-          <enum>Qt::ScrollBarAlwaysOff</enum>
-         </property>
-         <property name="horizontalScrollBarPolicy">
-          <enum>Qt::ScrollBarAsNeeded</enum>
-         </property>
-         <property name="widgetResizable">
-          <bool>true</bool>
-         </property>
-         <widget class="QWidget" name="tabButtonsContainer">
-          <layout class="QHBoxLayout" name="tabButtonsLayout">
-           <property name="spacing">
-            <number>2</number>
-           </property>
-           <property name="leftMargin">
-            <number>0</number>
-           </property>
-           <property name="topMargin">
-            <number>0</number>
-           </property>
-           <property name="rightMargin">
-            <number>0</number>
-           </property>
-           <property name="bottomMargin">
-            <number>0</number>
-           </property>
-          </layout>
-         </widget>
-        </widget>
-       </item>
+       <property name="leftMargin">
+        <number>20</number>
+       </property>
+       <property name="topMargin">
+        <number>20</number>
+       </property>
+       <property name="rightMargin">
+        <number>20</number>
+       </property>
+       <property name="bottomMargin">
+        <number>0</number>
+       </property>
        <item>
         <widget class="QStackedWidget" name="stackedWidget">
          <property name="sizePolicy">
           <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
-           <horstretch>0</horstretch>
+           <horstretch>1</horstretch>
            <verstretch>0</verstretch>
           </sizepolicy>
          </property>
@@ -671,6 +515,15 @@
    </item>
    <item>
     <layout class="QHBoxLayout" name="horizontalLayout_2">
+     <property name="leftMargin">
+      <number>20</number>
+     </property>
+     <property name="rightMargin">
+      <number>20</number>
+     </property>
+     <property name="bottomMargin">
+      <number>20</number>
+     </property>
      <item>
       <widget class="QLabel" name="label_8">
        <property name="text">
@@ -680,12 +533,6 @@
      </item>
      <item>
       <widget class="QDialogButtonBox" name="buttonBox">
-       <property name="sizePolicy">
-        <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
-         <horstretch>0</horstretch>
-         <verstretch>0</verstretch>
-        </sizepolicy>
-       </property>
        <property name="orientation">
         <enum>Qt::Horizontal</enum>
        </property>
@@ -696,6 +543,33 @@
      </item>
     </layout>
    </item>
+   <item>
+    <widget class="QWidget" name="legacy_hidden_members" native="true">
+     <property name="visible">
+      <bool>false</bool>
+     </property>
+     <layout class="QVBoxLayout" name="legacy_layout">
+      <item>
+       <widget class="QLineEdit" name="display_name"/>
+      </item>
+      <item>
+       <widget class="QLineEdit" name="display_format"/>
+      </item>
+      <item>
+       <widget class="QLineEdit" name="display_size"/>
+      </item>
+      <item>
+       <widget class="QLineEdit" name="display_filename"/>
+      </item>
+      <item>
+       <widget class="QLineEdit" name="display_build_id"/>
+      </item>
+      <item>
+       <widget class="QLineEdit" name="display_update_build_id"/>
+      </item>
+     </layout>
+    </widget>
+   </item>
   </layout>
  </widget>
  <resources/>
@@ -705,32 +579,12 @@
    <signal>accepted()</signal>
    <receiver>ConfigurePerGame</receiver>
    <slot>accept()</slot>
-   <hints>
-    <hint type="sourcelabel">
-     <x>20</x>
-     <y>20</y>
-    </hint>
-    <hint type="destinationlabel">
-     <x>20</x>
-     <y>20</y>
-    </hint>
-   </hints>
   </connection>
   <connection>
    <sender>buttonBox</sender>
    <signal>rejected()</signal>
    <receiver>ConfigurePerGame</receiver>
    <slot>reject()</slot>
-   <hints>
-    <hint type="sourcelabel">
-     <x>20</x>
-     <y>20</y>
-    </hint>
-    <hint type="destinationlabel">
-     <x>20</x>
-     <y>20</y>
-    </hint>
-   </hints>
   </connection>
  </connections>
 </ui>

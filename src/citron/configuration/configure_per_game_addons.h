@@ -42,6 +42,7 @@ public:
     void LoadFromFile(FileSys::VirtualFile file_);
 
     void SetTitleId(u64 id);
+    void UpdateTheme(const QString& custom_accent = QString{});
 
 private:
     void OnContextMenu(const QPoint& pos);

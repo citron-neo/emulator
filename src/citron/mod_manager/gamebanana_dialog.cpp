@@ -19,6 +19,8 @@
 
 #include "citron/mod_manager/gamebanana_dialog.h"
 #include "citron/mod_manager/zip_extractor.h"
+#include "citron/configuration/configuration_styling.h"
+#include "citron/theme.h"
 #include "citron/uisettings.h"
 #include "common/fs/fs.h"
 #include "common/fs/path_util.h"
@@ -59,6 +61,7 @@ GameBananaDialog::GameBananaDialog(const QString& title_id_, const QString& game
         // Auto-search for the game on GameBanana
         SearchForGame();
     }
+    UpdateTheme();
 }
 
 GameBananaDialog::~GameBananaDialog() = default;
@@ -240,10 +243,11 @@ void GameBananaDialog::UpdateModDetails(const GameBananaMod& mod) {
         mod_url = QStringLiteral("https://gamebanana.com/%1/%2").arg(item_type_plural, mod.id);
     }
 
+    const QString accent = Theme::GetAccentColor();
     ui->statusLinkLabel->setText(
-        tr("<a href=\"%1\" style=\"color: #3ed194; text-decoration: none;\">Website Link For "
+        tr("<a href=\"%1\" style=\"color: %2; text-decoration: none;\">Website Link For "
            "Mod</a>")
-            .arg(mod_url));
+            .arg(mod_url, accent));
 
     if (!mod.description.isEmpty()) {
         ui->modDescriptionBrowser->setHtml(mod.description);
@@ -397,6 +401,50 @@ void GameBananaDialog::OpenModFolder(const QString& path) {
 void GameBananaDialog::OnCancelClicked() {
     service->CancelDownload();
     reject();
+}
+
+void GameBananaDialog::UpdateTheme() {
+    const bool is_dark = UISettings::IsDarkTheme();
+    const QString accent = Theme::GetAccentColor();
+    const QString bg = is_dark ? QStringLiteral("#15151a") : QStringLiteral("#f5f5fa");
+    const QString txt = is_dark ? QStringLiteral("#ffffff") : QStringLiteral("#1a1a1e");
+    const QString sub_txt = is_dark ? QStringLiteral("#888890") : QStringLiteral("#666670");
+    const QString panel = is_dark ? QStringLiteral("#1c1c22") : QStringLiteral("#ffffff");
+    const QString border = is_dark ? QStringLiteral("#2d2d35") : QStringLiteral("#dcdce2");
+
+    QString style = ConfigurationStyling::GetMasterStyleSheet();
+    style += QStringLiteral(
+        "QDialog#GameBananaDialog { background-color: %1; color: %2; }"
+        "QLabel { color: %2; }"
+        "QLineEdit, QComboBox { background-color: %4; border: 1px solid %5; border-radius: 6px; "
+        "padding: 5px; color: %2; }"
+        "QListWidget { background-color: %6; border: 1px solid %5; border-radius: 12px; padding: "
+        "8px; }"
+        "QListWidget::item { background-color: %4; border-radius: 8px; margin-bottom: 6px; "
+        "padding: 12px; color: %2; }"
+        "QListWidget::item:selected { background-color: %5; border: 2px solid %3; }"
+        "QPushButton { background-color: %4; border: 1px solid %5; border-radius: 10px; padding: "
+        "8px 16px; color: %2; font-weight: bold; }"
+        "QPushButton:hover { background-color: %5; }"
+        "QPushButton#buttonDownload { background-color: %3; color: #000000; }"
+        "QPushButton#buttonDownload:disabled { background-color: %5; color: %7; }"
+        "QGroupBox { border: 2px solid %5; border-radius: 12px; margin-top: 24px; padding-top: "
+        "18px; color: %3; font-weight: bold; }"
+        "QTextBrowser { background-color: %6; border: 1px solid %5; border-radius: 8px; color: "
+        "%2; padding: 10px; }"
+        "QProgressBar { border: 1px solid %5; border-radius: 6px; text-align: center; "
+        "background-color: %6; height: 10px; }"
+        "QProgressBar::chunk { background-color: %3; border-radius: 5px; }"
+        "QCheckBox { color: %2; font-weight: 600; }"
+        "QCheckBox::indicator { width: 18px; height: 18px; border: 2px solid %5; border-radius: "
+        "5px; background: %4; }"
+        "QCheckBox::indicator:checked { background: %3; border-color: %3; }")
+        .arg(bg, txt, accent, panel, border, bg, sub_txt);
+
+    setStyleSheet(style);
+
+    // Update the mod version label color specifically
+    ui->modVersionLabel->setStyleSheet(QStringLiteral("color: %1; font-weight: bold;").arg(accent));
 }
 
 } // namespace ModManager

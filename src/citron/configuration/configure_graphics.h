@@ -45,29 +45,18 @@ class Builder;
 class ConfigureGraphics : public ConfigurationShared::Tab {
     Q_OBJECT
 
-    // This property allows the main UI file to pass its stylesheet to this widget
-    Q_PROPERTY(QString templateStyleSheet READ GetTemplateStyleSheet WRITE SetTemplateStyleSheet
-                   NOTIFY TemplateStyleSheetChanged)
-
 public:
     explicit ConfigureGraphics(
-        const Core::System& system_, std::vector<VkDeviceInfo::Record>& records,
-        const std::function<void()>& expose_compute_option,
+        const Core::System& system_, std::vector<VkDeviceInfo::Record>& records_,
+        const std::function<void()>& expose_compute_option_,
         const std::function<void(Settings::AspectRatio, Settings::ResolutionSetup)>&
-            update_aspect_ratio,
-        std::shared_ptr<std::vector<ConfigurationShared::Tab*>> group,
+            update_aspect_ratio_,
+        std::shared_ptr<std::vector<ConfigurationShared::Tab*>> group_,
         const ConfigurationShared::Builder& builder, QWidget* parent = nullptr);
     ~ConfigureGraphics() override;
 
     void ApplyConfiguration() override;
     void SetConfiguration() override;
-
-    // These functions get and set the stylesheet property
-    QString GetTemplateStyleSheet() const;
-    void SetTemplateStyleSheet(const QString& sheet);
-
-signals:
-    void TemplateStyleSheetChanged();
 
 private:
     void changeEvent(QEvent* event) override;

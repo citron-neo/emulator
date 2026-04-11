@@ -261,17 +261,17 @@ void ConfigureInput::LoadPlayerControllerIndices() {
 }
 
 void ConfigureInput::ClearAll() {
-    // We don't have a good way to know what tab is active, but we can find out by getting the
-    // parent of the consoleInputSettings
-    auto* player_tab = static_cast<ConfigureInputPlayer*>(ui->consoleInputSettings->parent());
-    player_tab->ClearAll();
+    int current_index = ui->tabWidget->currentIndex();
+    if (current_index >= 0 && current_index < static_cast<int>(player_controllers.size())) {
+        player_controllers[current_index]->ClearAll();
+    }
 }
 
 void ConfigureInput::RestoreDefaults() {
-    // We don't have a good way to know what tab is active, but we can find out by getting the
-    // parent of the consoleInputSettings
-    auto* player_tab = static_cast<ConfigureInputPlayer*>(ui->consoleInputSettings->parent());
-    player_tab->RestoreDefaults();
+    int current_index = ui->tabWidget->currentIndex();
+    if (current_index >= 0 && current_index < static_cast<int>(player_controllers.size())) {
+        player_controllers[current_index]->RestoreDefaults();
+    }
 
     ui->radioDocked->setChecked(true);
     ui->radioUndocked->setChecked(false);

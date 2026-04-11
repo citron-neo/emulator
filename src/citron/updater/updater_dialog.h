@@ -43,6 +43,8 @@ namespace Updater {
     private:
         enum class State { Checking, NoUpdate, UpdateAvailable, Downloading, Installing, Completed, Error };
 
+        void UpdateTheme();
+        void SetupHUD(bool update_mode);
         void SetupUI();
         void ShowCheckingState();
         void ShowNoUpdateState(const Updater::UpdateInfo& update_info);
@@ -55,12 +57,13 @@ namespace Updater {
         QString GetUpdateMessage(Updater::UpdaterService::UpdateResult result) const;
 
         std::unique_ptr<Ui::UpdaterDialog> ui;
-        std::unique_ptr<Updater::UpdaterService> updater_service;
+        Updater::UpdaterService* updater_service;
         UpdateInfo current_update_info;
         State current_state;
         qint64 total_download_size;
         qint64 downloaded_bytes;
-        QTimer* progress_timer;
+        QTimer* progress_timer = nullptr;
+        bool m_is_closing = false;
     };
 
 } // namespace Updater

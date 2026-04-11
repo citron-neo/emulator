@@ -3,8 +3,8 @@
 
 #include <filesystem>
 
-#include "citron/updater/updater_dialog.h"
 #include "citron/uisettings.h"
+#include "citron/updater/updater_dialog.h"
 #include "ui_updater_dialog.h"
 
 #include <QApplication>
@@ -18,6 +18,8 @@
 #include <QSettings>
 #include <QTimer>
 #include <QUrl>
+#include "citron/configuration/configuration_styling.h"
+#include "citron/theme.h"
 
 namespace Updater {
 
@@ -36,7 +38,8 @@ QString FormatDateTimeString(const std::string& iso_string) {
 // Helper function to reformat the changelog with the correct commit link.
 QString FormatChangelog(const std::string& raw_changelog) {
     QString changelog = QString::fromStdString(raw_changelog);
-    const QString new_url = QStringLiteral("https://git.citron-emu.org/Citron/Emulator/commits/branch/main");
+    const QString new_url =
+        QStringLiteral("https://git.citron-emu.org/Citron/Emulator/commits/branch/main");
 
     QRegularExpression regex(QStringLiteral("\\[\\`([0-9a-fA-F]{7,40})\\`\\]\\(.*?\\)"));
     QString replacement = QStringLiteral("[`\\1`](%1)").arg(new_url);
@@ -47,9 +50,8 @@ QString FormatChangelog(const std::string& raw_changelog) {
 
 UpdaterDialog::UpdaterDialog(QWidget* parent)
     : QDialog(parent), ui(std::make_unique<Ui::UpdaterDialog>()),
-      updater_service(std::make_unique<Updater::UpdaterService>(this)),
-      current_state(State::Checking), total_download_size(0), downloaded_bytes(0),
-      progress_timer(new QTimer(this)) {
+      updater_service(new Updater::UpdaterService(this)), current_state(State::Checking),
+      total_download_size(0), downloaded_bytes(0), progress_timer(new QTimer(this)) {
 
     ui->setupUi(this);
 
@@ -60,24 +62,24 @@ UpdaterDialog::UpdaterDialog(QWidget* parent)
     ui->changelogText->setOpenLinks(false);
 
     // Manually handle link clicks to ensure they always open in an external browser.
-    connect(ui->changelogText, &QTextBrowser::anchorClicked, this, [](const QUrl& link) {
-        QDesktopServices::openUrl(link);
-    });
+    connect(ui->changelogText, &QTextBrowser::anchorClicked, this,
+            [](const QUrl& link) { QDesktopServices::openUrl(link); });
 
     // Set up connections
-    connect(updater_service.get(), &Updater::UpdaterService::UpdateCheckCompleted, this,
+    connect(updater_service, &Updater::UpdaterService::UpdateCheckCompleted, this,
             &UpdaterDialog::OnUpdateCheckCompleted);
-    connect(updater_service.get(), &Updater::UpdaterService::UpdateDownloadProgress, this,
+    connect(updater_service, &Updater::UpdaterService::UpdateDownloadProgress, this,
             &UpdaterDialog::OnUpdateDownloadProgress);
-    connect(updater_service.get(), &Updater::UpdaterService::UpdateInstallProgress, this,
+    connect(updater_service, &Updater::UpdaterService::UpdateInstallProgress, this,
             &UpdaterDialog::OnUpdateInstallProgress);
-    connect(updater_service.get(), &Updater::UpdaterService::UpdateCompleted, this,
+    connect(updater_service, &Updater::UpdaterService::UpdateCompleted, this,
             &UpdaterDialog::OnUpdateCompleted);
-    connect(updater_service.get(), &Updater::UpdaterService::UpdateError, this,
+    connect(updater_service, &Updater::UpdaterService::UpdateError, this,
             &UpdaterDialog::OnUpdateError);
 
     // Set up UI connections
-    connect(ui->downloadButton, &QPushButton::clicked, this, &UpdaterDialog::OnDownloadButtonClicked);
+    connect(ui->downloadButton, &QPushButton::clicked, this,
+            &UpdaterDialog::OnDownloadButtonClicked);
     connect(ui->cancelButton, &QPushButton::clicked, this, &UpdaterDialog::OnCancelButtonClicked);
     connect(ui->closeButton, &QPushButton::clicked, this, &UpdaterDialog::OnCloseButtonClicked);
     connect(ui->restartButton, &QPushButton::clicked, this, &UpdaterDialog::OnRestartButtonClicked);
@@ -88,22 +90,30 @@ UpdaterDialog::UpdaterDialog(QWidget* parent)
     progress_timer->setInterval(100); // Update every 100ms
     connect(progress_timer, &QTimer::timeout, this, [this]() {
         if (current_state == State::Downloading) {
-            ui->downloadInfoLabel->setText(
-                QStringLiteral("Downloaded: %1 / %2")
-                    .arg(FormatBytes(downloaded_bytes))
-                    .arg(FormatBytes(total_download_size)));
+            ui->downloadInfoLabel->setText(QStringLiteral("Downloaded: %1 / %2")
+                                               .arg(FormatBytes(downloaded_bytes))
+                                               .arg(FormatBytes(total_download_size)));
         }
     });
 }
 
-UpdaterDialog::~UpdaterDialog() = default;
+UpdaterDialog::~UpdaterDialog() {
+    m_is_closing = true;
+    if (progress_timer) {
+        progress_timer->stop();
+    }
+    if (updater_service) {
+        updater_service->CancelUpdate();
+    }
+}
 
 void UpdaterDialog::CheckForUpdates() {
     ShowCheckingState();
     updater_service->CheckForUpdates();
 }
 
-void UpdaterDialog::OnUpdateCheckCompleted(bool has_update, const Updater::UpdateInfo& update_info) {
+void UpdaterDialog::OnUpdateCheckCompleted(bool has_update,
+                                           const Updater::UpdateInfo& update_info) {
     if (has_update) {
         current_update_info = update_info;
         ShowUpdateAvailableState();
@@ -113,7 +123,7 @@ void UpdaterDialog::OnUpdateCheckCompleted(bool has_update, const Updater::Updat
 }
 
 void UpdaterDialog::OnUpdateDownloadProgress(int percentage, qint64 bytes_received,
-                                           qint64 bytes_total) {
+                                             qint64 bytes_total) {
     downloaded_bytes = bytes_received;
     total_download_size = bytes_total;
 
@@ -134,7 +144,7 @@ void UpdaterDialog::OnUpdateInstallProgress(int percentage, const QString& curre
 }
 
 void UpdaterDialog::OnUpdateCompleted(Updater::UpdaterService::UpdateResult result,
-                                    const QString& message) {
+                                      const QString& message) {
     progress_timer->stop();
 
     switch (result) {
@@ -163,7 +173,8 @@ void UpdaterDialog::OnDownloadButtonClicked() {
 #ifdef __linux__
     if (ui->appImageSelector->isVisible() && !current_update_info.download_options.empty()) {
         int current_index = ui->appImageSelector->currentIndex();
-        if (current_index >= 0 && static_cast<size_t>(current_index) < current_update_info.download_options.size()) {
+        if (current_index >= 0 &&
+            static_cast<size_t>(current_index) < current_update_info.download_options.size()) {
             download_url = current_update_info.download_options[current_index].url;
         }
     }
@@ -195,8 +206,8 @@ void UpdaterDialog::OnCloseButtonClicked() {
 
 void UpdaterDialog::OnRestartButtonClicked() {
     int ret = QMessageBox::question(this, QStringLiteral("Restart Citron"),
-                                   QStringLiteral("Are you sure you want to restart Citron now?"),
-                                   QMessageBox::Yes | QMessageBox::No, QMessageBox::Yes);
+                                    QStringLiteral("Are you sure you want to restart Citron now?"),
+                                    QMessageBox::Yes | QMessageBox::No, QMessageBox::Yes);
 
     if (ret == QMessageBox::Yes) {
 
@@ -207,7 +218,8 @@ void UpdaterDialog::OnRestartButtonClicked() {
             // We are running from an AppImage. The program to restart is the AppImage file itself.
             program = QString::fromUtf8(appimage_path);
         } else {
-            // Not an AppImage (e.g., Windows or a non-AppImage Linux build), use the default method.
+            // Not an AppImage (e.g., Windows or a non-AppImage Linux build), use the default
+            // method.
             program = QApplication::applicationFilePath();
         }
 
@@ -220,18 +232,41 @@ void UpdaterDialog::OnRestartButtonClicked() {
 }
 
 void UpdaterDialog::SetupUI() {
+    UpdateTheme();
     const bool is_gamescope = UISettings::IsGamescope();
 
     if (is_gamescope) {
-        // Match the behavior of ConfigureDialog to ensure focus and visibility on Steam Deck
         setWindowFlags(Qt::Window | Qt::CustomizeWindowHint | Qt::WindowTitleHint);
-        setWindowModality(Qt::NonModal);
+        setWindowModality(Qt::WindowModal);
         resize(1100, 700);
     } else {
-        // Desktop remains untouched
         setWindowFlags(windowFlags() & ~Qt::WindowContextHelpButtonHint);
-        setMinimumSize(size());
+        setFixedSize(520, 350);
     }
+
+    // Kill ghost titles causing overlaps
+    ui->updateInfoGroup->setTitle(QString());
+    ui->changelogGroup->setTitle(QString());
+
+    // Global Alignment & Centering
+    ui->titleLabel->setAlignment(Qt::AlignCenter);
+    ui->statusLabel->setAlignment(Qt::AlignCenter);
+
+    ui->verticalLayout->setContentsMargins(0, 35, 15, 15);
+    ui->verticalLayout->setSpacing(10);
+
+    // Robust cleanup: Delete existing spacers
+    for (int i = 0; i < ui->verticalLayout->count(); ++i) {
+        if (ui->verticalLayout->itemAt(i)->spacerItem()) {
+            delete ui->verticalLayout->takeAt(i);
+            --i;
+        }
+    }
+
+    ui->verticalLayout->insertStretch(0, 100);
+    ui->verticalLayout->insertStretch(ui->verticalLayout->count() - 1, 100);
+
+    SetupHUD(false);
 
     ui->currentVersionValue->setText(QString::fromStdString(updater_service->GetCurrentVersion()));
     ui->appImageSelectorLabel->setVisible(false);
@@ -253,12 +288,15 @@ void UpdaterDialog::ShowCheckingState() {
     ui->cancelButton->setText(QStringLiteral("Cancel"));
     ui->appImageSelectorLabel->setVisible(false);
     ui->appImageSelector->setVisible(false);
+
+    setFixedSize(520, 350);
+    ui->verticalLayout->setContentsMargins(0, 35, 15, 15);
 }
 
 void UpdaterDialog::ShowNoUpdateState(const Updater::UpdateInfo& update_info) {
     current_state = State::NoUpdate;
     ui->titleLabel->setText(QStringLiteral("No updates available"));
-    ui->statusLabel->setText(QStringLiteral("You are running the latest version of Citron."));
+    ui->statusLabel->setText(QStringLiteral("You are running the latest version of Citron Neo."));
     ui->updateInfoGroup->setVisible(true);
 
     ui->latestVersionValue->setText(QString::fromStdString(update_info.version));
@@ -273,12 +311,21 @@ void UpdaterDialog::ShowNoUpdateState(const Updater::UpdateInfo& update_info) {
     ui->restartButton->setVisible(false);
     ui->appImageSelectorLabel->setVisible(false);
     ui->appImageSelector->setVisible(false);
+
+    setFixedSize(520, 350);
+    ui->verticalLayout->setContentsMargins(0, 35, 15, 15);
+    ui->verticalLayout->setSpacing(10);
+    ui->verticalLayout->setStretch(0, 100);
+    ui->verticalLayout->setStretch(ui->verticalLayout->count() - 1, 100);
+
+    SetupHUD(false);
 }
 
 void UpdaterDialog::ShowUpdateAvailableState() {
     current_state = State::UpdateAvailable;
     ui->titleLabel->setText(QStringLiteral("Update available"));
-    ui->statusLabel->setText(QStringLiteral("A new version of Citron is available for download."));
+    ui->statusLabel->setText(
+        QStringLiteral("A new version of Citron Neo is available for download."));
     ui->latestVersionValue->setText(QString::fromStdString(current_update_info.version));
 
     ui->releaseDateValue->setText(FormatDateTimeString(current_update_info.release_date));
@@ -314,6 +361,16 @@ void UpdaterDialog::ShowUpdateAvailableState() {
     ui->closeButton->setVisible(false);
     ui->restartButton->setVisible(false);
     ui->cancelButton->setText(QStringLiteral("Later"));
+
+    SetupHUD(true);
+
+    setFixedSize(600, 480);
+    ui->verticalLayout->setContentsMargins(15, 20, 15, 15);
+    ui->verticalLayout->setSpacing(10);
+    
+    // Adjust stretches to give changelog more priority while protecting the HUD
+    ui->verticalLayout->setStretch(0, 10); // Top stretch
+    ui->verticalLayout->setStretch(ui->verticalLayout->count() - 1, 10); // Bottom stretch
 }
 
 void UpdaterDialog::ShowDownloadingState() {
@@ -335,6 +392,9 @@ void UpdaterDialog::ShowDownloadingState() {
     ui->appImageSelectorLabel->setVisible(false);
     ui->appImageSelector->setVisible(false);
     progress_timer->start();
+
+    setFixedSize(520, 400);
+    ui->verticalLayout->setContentsMargins(0, 35, 15, 15);
 }
 
 void UpdaterDialog::ShowInstallingState() {
@@ -355,7 +415,7 @@ void UpdaterDialog::ShowCompletedState() {
 #ifdef _WIN32
     // On Windows, launch the update helper script and exit immediately
     ui->titleLabel->setText(QStringLiteral("Update ready!"));
-    ui->statusLabel->setText(QStringLiteral("Citron will now restart to apply the update..."));
+    ui->statusLabel->setText(QStringLiteral("Citron Neo will now restart to apply the update..."));
     ui->progressGroup->setVisible(false);
     ui->downloadButton->setVisible(false);
     ui->cancelButton->setVisible(false);
@@ -371,16 +431,18 @@ void UpdaterDialog::ShowCompletedState() {
             QApplication::quit();
         } else {
             ShowErrorState();
-            ui->statusLabel->setText(QStringLiteral("Failed to launch update helper. Please restart Citron manually to apply the update."));
+            ui->statusLabel->setText(
+                QStringLiteral("Failed to launch update helper. Please restart Citron manually to "
+                               "apply the update."));
         }
     });
 #else
     // On Linux, show the restart button and provide backup information.
     ui->titleLabel->setText(QStringLiteral("Update ready!"));
 
-    QString status_message = QStringLiteral(
-        "The update has been downloaded and prepared successfully. "
-        "The update will be applied when you restart Citron.");
+    QString status_message =
+        QStringLiteral("The update has been downloaded and prepared successfully. "
+                       "The update will be applied when you restart Citron Neo.");
 
     QByteArray appimage_path_env = qgetenv("APPIMAGE");
     // Only show backup information if backups are enabled and we're in an AppImage.
@@ -392,21 +454,24 @@ void UpdaterDialog::ShowCompletedState() {
         if (!custom_path.empty()) {
             // User HAS set a custom path.
             backup_dir = custom_path;
-            native_backup_path = QDir::toNativeSeparators(QString::fromStdString(backup_dir.string()));
-            status_message.append(
-                QStringLiteral("\n\nA backup of the previous version has been saved to your custom location:\n%1")
-                    .arg(native_backup_path));
+            native_backup_path =
+                QDir::toNativeSeparators(QString::fromStdString(backup_dir.string()));
+            status_message.append(QStringLiteral("\n\nA backup of the previous version has been "
+                                                 "saved to your custom location:\n%1")
+                                      .arg(native_backup_path));
         } else {
             // User has NOT set a custom path, use the default.
             std::filesystem::path appimage_path(appimage_path_env.constData());
             backup_dir = appimage_path.parent_path() / "backup";
-            native_backup_path = QDir::toNativeSeparators(QString::fromStdString(backup_dir.string()));
+            native_backup_path =
+                QDir::toNativeSeparators(QString::fromStdString(backup_dir.string()));
             status_message.append(
                 QStringLiteral("\n\nA backup of the previous version has been saved to:\n%1")
                     .arg(native_backup_path));
             // Add the helpful tip.
             status_message.append(
-                QStringLiteral("\n\nP.S. You can change the backup location or disable backups in Emulation > Configure > Filesystem."));
+                QStringLiteral("\n\nP.S. You can change the backup location or disable backups in "
+                               "Emulation > Configure > Filesystem."));
         }
     }
 
@@ -470,7 +535,94 @@ QString UpdaterDialog::GetUpdateMessage(Updater::UpdaterService::UpdateResult re
     case Updater::UpdaterService::UpdateResult::NoUpdateAvailable:
         return QStringLiteral("No update is available.");
     default:
-        return QStringLiteral("Unknown error occurred.");
+        return QStringLiteral("An unexpected error occurred during the update process.");
+    }
+}
+
+void UpdaterDialog::UpdateTheme() {
+    const bool is_dark = UISettings::IsDarkTheme();
+
+    const QString bg = is_dark ? QStringLiteral("#15151a") : QStringLiteral("#f5f5fa");
+    const QString txt = is_dark ? QStringLiteral("#ffffff") : QStringLiteral("#1a1a1e");
+    const QString sub_txt = is_dark ? QStringLiteral("#888890") : QStringLiteral("#666670");
+    const QString panel = is_dark ? QStringLiteral("#1c1c22") : QStringLiteral("#ffffff");
+    const QString border = is_dark ? QStringLiteral("#2d2d35") : QStringLiteral("#dcdce2");
+    const QString accent = Theme::GetAccentColor();
+
+    QString style = ConfigurationStyling::GetMasterStyleSheet();
+    style +=
+        QStringLiteral(
+            "QDialog#UpdaterDialog { background-color: %1; }"
+            "QGroupBox { border: none; background: transparent; margin: 0; padding: 0; }"
+            "#titleLabel { color: %3; font-size: 18px; font-weight: 600; margin-bottom: 2px; "
+            "text-transform: uppercase; letter-spacing: 1.2px; }"
+            "#statusLabel { color: %2; font-size: 11px; margin-bottom: 2px; }"
+            "QLabel#currentVersionLabel, QLabel#latestVersionLabel, QLabel#releaseDateLabel { "
+            "color: %2; font-size: 10px; text-transform: uppercase; font-weight: bold; "
+            "letter-spacing: 1.5px; }"
+            "QLabel#currentVersionValue, QLabel#latestVersionValue, QLabel#releaseDateValue { "
+            "color: %3; font-size: 16px; font-weight: bold; margin-bottom: 0px; }"
+            "QProgressBar { border: 1px solid %4; border-radius: 4px; background: %1; text-align: "
+            "center; height: 10px; color: transparent; }"
+            "QProgressBar::chunk { background-color: %5; border-radius: 3px; }"
+            "QTextBrowser#changelogText { background-color: %6; border: 1px solid %4; "
+            "border-radius: 8px; padding: 12px; color: %3; font-size: 13px; }"
+            "QPushButton { padding: 3px 10px; border-radius: 10px; font-weight: "
+            "bold; font-size: 11px; }")
+            .arg(bg, sub_txt, txt, border, accent, panel);
+
+    setStyleSheet(style);
+}
+
+void UpdaterDialog::SetupHUD(bool update_mode) {
+    if (ui->updateInfoGroup->layout()) {
+        delete ui->updateInfoGroup->layout();
+    }
+
+    QVBoxLayout* info_layout = new QVBoxLayout(ui->updateInfoGroup);
+    info_layout->setContentsMargins(0, 0, 0, 0);
+    info_layout->setSpacing(update_mode ? 12 : 8);
+    info_layout->setAlignment(Qt::AlignCenter);
+
+    auto add_hud_pair_vertical = [&](QLabel* label, QLabel* val, QVBoxLayout* layout) {
+        label->setAlignment(Qt::AlignCenter);
+        val->setAlignment(Qt::AlignCenter);
+        layout->addWidget(label);
+        layout->addWidget(val);
+    };
+
+    if (update_mode) {
+        // Horizontal Mode: [Current] | [Latest]
+        QHBoxLayout* version_row = new QHBoxLayout();
+        version_row->setSpacing(25);
+        version_row->setAlignment(Qt::AlignCenter);
+
+        QVBoxLayout* current_col = new QVBoxLayout();
+        current_col->setSpacing(2);
+        add_hud_pair_vertical(ui->currentVersionLabel, ui->currentVersionValue, current_col);
+        
+        QVBoxLayout* latest_col = new QVBoxLayout();
+        latest_col->setSpacing(2);
+        add_hud_pair_vertical(ui->latestVersionLabel, ui->latestVersionValue, latest_col);
+
+        version_row->addLayout(current_col);
+        version_row->addLayout(latest_col);
+        info_layout->addLayout(version_row);
+        
+        info_layout->addSpacing(5);
+        add_hud_pair_vertical(ui->releaseDateLabel, ui->releaseDateValue, info_layout);
+    } else {
+        // Vertical Mode (Default)
+        auto add_hud_pair = [&](QLabel* label, QLabel* val) {
+            label->setAlignment(Qt::AlignCenter);
+            val->setAlignment(Qt::AlignCenter);
+            info_layout->addWidget(label);
+            info_layout->addWidget(val);
+            info_layout->addSpacing(15);
+        };
+        add_hud_pair(ui->currentVersionLabel, ui->currentVersionValue);
+        add_hud_pair(ui->latestVersionLabel, ui->latestVersionValue);
+        add_hud_pair(ui->releaseDateLabel, ui->releaseDateValue);
     }
 }
 
