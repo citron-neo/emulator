@@ -1716,7 +1716,11 @@ void GMainWindow::RestoreUIState() {
 
     // Work-around because the games list isn't supposed to be full screen
     if (isFullScreen()) {
-        showNormal();
+        if (UISettings::IsGamescope()) {
+            showMaximized();
+        } else {
+            showNormal();
+        }
     }
     restoreState(UISettings::values.state);
 
@@ -4294,7 +4298,11 @@ void GMainWindow::ShowFullscreen() {
         window->setGeometry(screen_geometry.x(), screen_geometry.y(), screen_geometry.width(),
                             screen_geometry.height() + 1);
         window->raise();
-        window->showNormal();
+        if (UISettings::IsGamescope()) {
+            window->showMaximized();
+        } else {
+            window->showNormal();
+        }
     };
 
     if (ui->action_Single_Window_Mode->isChecked()) {
@@ -4319,7 +4327,11 @@ void GMainWindow::HideFullscreen() {
 
     if (ui->action_Single_Window_Mode->isChecked()) {
         if (UsingExclusiveFullscreen()) {
-            showNormal();
+            if (is_gamescope) {
+                showMaximized();
+            } else {
+                showNormal();
+            }
             if (!is_gamescope)
                 restoreGeometry(UISettings::values.geometry);
         } else {
@@ -4340,12 +4352,21 @@ void GMainWindow::HideFullscreen() {
         }
     } else {
         if (UsingExclusiveFullscreen()) {
-            render_window->showNormal();
+            if (is_gamescope) {
+                render_window->showMaximized();
+            } else {
+                render_window->showNormal();
+            }
             if (!is_gamescope)
                 render_window->restoreGeometry(UISettings::values.renderwindow_geometry);
         } else {
             render_window->hide();
             render_window->setWindowFlags(windowFlags() & ~Qt::FramelessWindowHint);
+            if (is_gamescope) {
+                render_window->showMaximized();
+            } else {
+                render_window->showNormal();
+            }
             if (!is_gamescope)
                 render_window->restoreGeometry(UISettings::values.renderwindow_geometry);
             render_window->raise();
@@ -4755,15 +4776,16 @@ void GMainWindow::OnLoadAmiibo() {
 bool GMainWindow::question(QWidget* parent, const QString& title, const QString& text,
                            QMessageBox::StandardButtons buttons,
                            QMessageBox::StandardButton defaultButton) {
-    QMessageBox* box_dialog = new QMessageBox(parent);
-
     const bool is_gamescope = UISettings::IsGamescope();
     if (is_gamescope) {
-        box_dialog->setWindowFlags(Qt::Window | Qt::CustomizeWindowHint | Qt::WindowTitleHint);
-        box_dialog->setWindowModality(Qt::NonModal);
-        box_dialog->setFixedSize(600, 250);
-        box_dialog->setStyleSheet(QStringLiteral("font-size: 11pt;"));
+        // Use OverlayDialog for a native-feeling full-screen prompt on Steam Deck
+        // This avoids the 'bloat' and layout issues of standard QMessageBox
+        OverlayDialog* dialog = new OverlayDialog(parent, *system, title, text, tr("No"), tr("Yes"));
+        int res = dialog->exec();
+        return res == QDialog::Accepted;
     }
+
+    QMessageBox* box_dialog = new QMessageBox(parent);
 
     box_dialog->setWindowTitle(title);
     box_dialog->setText(text);

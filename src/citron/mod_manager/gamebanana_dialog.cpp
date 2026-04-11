@@ -61,6 +61,10 @@ GameBananaDialog::GameBananaDialog(const QString& title_id_, const QString& game
         // Auto-search for the game on GameBanana
         SearchForGame();
     }
+    if (UISettings::IsGamescope()) {
+        resize(720, 540);
+    }
+
     UpdateTheme();
 }
 
@@ -428,8 +432,8 @@ void GameBananaDialog::UpdateTheme() {
         "QPushButton:hover { background-color: %5; }"
         "QPushButton#buttonDownload { background-color: %3; color: #000000; }"
         "QPushButton#buttonDownload:disabled { background-color: %5; color: %7; }"
-        "QGroupBox { border: 2px solid %5; border-radius: 12px; margin-top: 24px; padding-top: "
-        "18px; color: %3; font-weight: bold; }"
+        "QGroupBox { border: 2px solid %5; border-radius: 12px; margin-top: %8px; padding-top: "
+        "%9px; color: %3; font-weight: bold; }"
         "QTextBrowser { background-color: %6; border: 1px solid %5; border-radius: 8px; color: "
         "%2; padding: 10px; }"
         "QProgressBar { border: 1px solid %5; border-radius: 6px; text-align: center; "
@@ -439,7 +443,9 @@ void GameBananaDialog::UpdateTheme() {
         "QCheckBox::indicator { width: 18px; height: 18px; border: 2px solid %5; border-radius: "
         "5px; background: %4; }"
         "QCheckBox::indicator:checked { background: %3; border-color: %3; }")
-        .arg(bg, txt, accent, panel, border, bg, sub_txt);
+        .arg(bg, txt, accent, panel, border, bg, sub_txt, 
+             UISettings::IsGamescope() ? "12" : "24", 
+             UISettings::IsGamescope() ? "10" : "18");
 
     setStyleSheet(style);
 

@@ -227,7 +227,7 @@ protected:
         painter.scale(m_scale, m_scale);
 
         // Draw the logo centered at (0, 0)
-        const int logoSize = 400;
+        const int logoSize = UISettings::IsGamescope() ? 250 : 400;
         painter.drawPixmap(-logoSize / 2, -logoSize / 2, logoSize, logoSize, m_logo_pixmap);
     }
 
@@ -249,11 +249,18 @@ public:
           m_last_choice({QString(), QString(), 0, QPixmap()}) {
         setWindowTitle(tr("Surprise Me!"));
         setModal(true);
-        setFixedSize(850, 640);
+
+        const bool is_gamescope = UISettings::IsGamescope();
+        if (is_gamescope) {
+            setFixedSize(680, 500);
+        } else {
+            setFixedSize(850, 640);
+        }
 
         auto* layout = new QVBoxLayout(this);
-        layout->setSpacing(15);
-        layout->setContentsMargins(15, 15, 15, 15);
+        layout->setSpacing(is_gamescope ? 8 : 15);
+        layout->setContentsMargins(is_gamescope ? 10 : 15, is_gamescope ? 10 : 15,
+                                   is_gamescope ? 10 : 15, is_gamescope ? 10 : 15);
 
         // Navigation Bar
         const bool dark = Theme::IsDarkMode();
