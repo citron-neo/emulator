@@ -12,7 +12,9 @@
 #include <QVBoxLayout>
 #include <fmt/format.h>
 #include "citron/about_dialog.h"
+#include "citron/configuration/configuration_styling.h"
 #include "citron/spinning_logo.h"
+#include "citron/theme.h"
 #include "citron/uisettings.h"
 #include "common/scm_rev.h"
 #include "ui_aboutdialog.h"
@@ -28,6 +30,14 @@ AboutDialog::AboutDialog(QWidget* parent) : QDialog(parent) {
     ui = std::make_unique<Ui::AboutDialog>();
     ui->setupUi(this);
 
+    // Mathematical Centering: Top & Bottom Stretches
+    if (auto* main_layout = qobject_cast<QVBoxLayout*>(layout())) {
+        main_layout->insertStretch(0, 100);
+        main_layout->insertStretch(main_layout->count() - 1, 100);
+    }
+
+    UpdateTheme();
+
     connect(ui->buttonBox, &QDialogButtonBox::accepted, this, &QDialog::accept);
 
     const auto build_flags = std::string(Common::g_build_name);
@@ -36,15 +46,9 @@ AboutDialog::AboutDialog(QWidget* parent) : QDialog(parent) {
                     build_flags != "None" ? build_flags : "Standard");
 
     if (is_gamescope) {
-        resize(700, 450);
-
-        // Scale fonts up slightly so they aren't "too small"
-        QFont font = this->font();
-        font.setPointSize(font.pointSize() + 1);
-        this->setFont(font);
-
-        // Keep the Citron header large
-        ui->labelCitron->setStyleSheet(QStringLiteral("font-size: 24pt; font-weight: bold;"));
+        resize(720, 480);
+    } else {
+        setFixedSize(778, 358);
     }
 
     QPixmap logo_pixmap(QStringLiteral(":/citron.svg"));
@@ -70,22 +74,22 @@ AboutDialog::AboutDialog(QWidget* parent) : QDialog(parent) {
         }
 
         // Add the spin mode combo box — small, bottom-left, sharing the row with the OK button
-        auto* combo = new QComboBox(this);
-        combo->addItem(QStringLiteral("None"));
-        combo->addItem(QStringLiteral("Spinning"));
-        combo->addItem(QStringLiteral("Drag-To-Spin"));
-        combo->setFixedWidth(110);
-        combo->setToolTip(QStringLiteral("Logo spin mode"));
+        m_logo_spin_combo = new QComboBox(this);
+        m_logo_spin_combo->setObjectName(QStringLiteral("logoSpinCombo"));
+        m_logo_spin_combo->addItem(QStringLiteral("None"));
+        m_logo_spin_combo->addItem(QStringLiteral("Spinning"));
+        m_logo_spin_combo->addItem(QStringLiteral("Drag-To-Spin"));
+        m_logo_spin_combo->setToolTip(QStringLiteral("Logo spin mode"));
 
         {
             QSettings qs;
             const int saved = qs.value(QStringLiteral("About/logoSpinMode"), 0).toInt();
-            const int clamped = qBound(0, saved, combo->count() - 1);
-            combo->setCurrentIndex(clamped);
+            const int clamped = qBound(0, saved, m_logo_spin_combo->count() - 1);
+            m_logo_spin_combo->setCurrentIndex(clamped);
             m_spinning_logo->setSpinMode(clamped);
         }
 
-        connect(combo, &QComboBox::currentIndexChanged, this, [this](int index) {
+        connect(m_logo_spin_combo, &QComboBox::currentIndexChanged, this, [this](int index) {
             m_spinning_logo->setSpinMode(index);
             QSettings qs;
             qs.setValue(QStringLiteral("About/logoSpinMode"), index);
@@ -95,23 +99,70 @@ AboutDialog::AboutDialog(QWidget* parent) : QDialog(parent) {
         // horizontal row: [combo] [stretch] [buttonBox]
         auto* main_layout = qobject_cast<QVBoxLayout*>(layout());
         if (main_layout) {
-            const int bb_idx = main_layout->indexOf(ui->buttonBox);
+            main_layout->setContentsMargins(12, 20, 12, 12);
             main_layout->removeWidget(ui->buttonBox);
 
             auto* bottom_row = new QHBoxLayout();
-            bottom_row->addWidget(combo);
+            bottom_row->setContentsMargins(0, 0, 0, 0);
+            bottom_row->addWidget(m_logo_spin_combo);
             bottom_row->addStretch();
             bottom_row->addWidget(ui->buttonBox);
 
-            main_layout->insertLayout(bb_idx >= 0 ? bb_idx : main_layout->count(), bottom_row);
+            // Precision Anchoring: Ensure the stretch is BEFORE the buttons to shove them down
+            main_layout->addLayout(bottom_row);
+            main_layout->setSpacing(0);
         }
 
-        connect(combo, qOverload<int>(&QComboBox::currentIndexChanged), m_spinning_logo,
+        connect(m_logo_spin_combo, qOverload<int>(&QComboBox::currentIndexChanged), m_spinning_logo,
                 qOverload<int>(&SpinningLogo::setSpinMode));
     }
 
     ui->labelBuildInfo->setText(ui->labelBuildInfo->text().arg(
         QString::fromStdString(citron_build_version), QString::fromUtf8(Common::g_build_date)));
+
+    UpdateTheme();
+}
+
+void AboutDialog::UpdateTheme() {
+    const bool is_dark = UISettings::IsDarkTheme();
+
+    const QString bg = is_dark ? QStringLiteral("#15151a") : QStringLiteral("#f5f5fa");
+    const QString txt = is_dark ? QStringLiteral("#ffffff") : QStringLiteral("#1a1a1e");
+    const QString sub_txt = is_dark ? QStringLiteral("#888890") : QStringLiteral("#666670");
+    const QString panel = is_dark ? QStringLiteral("#1c1c22") : QStringLiteral("#ffffff");
+    const QString border = is_dark ? QStringLiteral("#2d2d35") : QStringLiteral("#dcdce2");
+    const QString accent = Theme::GetAccentColor();
+
+    ui->labelLinks->setText(
+        QStringLiteral("<a style='color: %1; text-decoration: none;' "
+                       "href='https://citron-emu.org/'>Website</a> | "
+                       "<a style='color: %1; text-decoration: none;' "
+                       "href='https://git.citron-emu.org/citron/emulator'>Source</a> | "
+                       "<a style='color: %1; text-decoration: none;' "
+                       "href='https://git.citron-emu.org/'>Commits</a>")
+            .arg(accent));
+
+    QString style = ConfigurationStyling::GetMasterStyleSheet();
+    style +=
+        QStringLiteral(
+            "QDialog#AboutDialog { background-color: %1; color: %3; }"
+            "#labelCitron { color: %3; font-size: 42px; font-weight: bold; text-transform: "
+            "lowercase; letter-spacing: -1.5px; margin-bottom: 2px; }"
+            "#labelBuildInfo { color: %2; font-size: 11px; font-weight: 800; text-transform: "
+            "uppercase; letter-spacing: 1.5px; opacity: 0.8; }"
+            "#labelAbout { color: %3; font-size: 16px; margin-top: 10px; }"
+            "#labelLinks { font-weight: bold; font-size: 16px; margin-top: 5px; }"
+            "#labelLiability { color: %2; font-size: 10px; font-style: italic; opacity: 0.6; }"
+            "QComboBox#logoSpinCombo { background: %4; border: 1px solid %5; border-radius: 8px; "
+            "padding: 4px 8px; color: %3; font-size: 10px; font-weight: bold; min-width: 140px; }"
+            "QComboBox::drop-down { border: none; width: 0px; }"
+            "QPushButton { background: %4; border: 1px solid %5; border-radius: 10px; padding: 4px "
+            "12px; color: %3; font-weight: bold; font-size: 11px; }"
+            "QPushButton:hover { background: %5; border-color: %6; }"
+            "QPushButton:pressed { background: %1; }")
+            .arg(bg, sub_txt, txt, panel, border, accent);
+
+    setStyleSheet(style);
 }
 
 AboutDialog::~AboutDialog() = default;

@@ -37,6 +37,7 @@
 #include "citron/configuration/configure_system.h"
 #include "citron/configuration/configure_ui.h"
 #include "citron/configuration/configure_web.h"
+#include "citron/configuration/configuration_styling.h"
 #include "citron/configuration/style_animation_event_filter.h"
 #include "citron/game_list.h"
 #include "citron/hotkeys.h"
@@ -121,19 +122,38 @@ ConfigureDialog::ConfigureDialog(QWidget* parent, HotkeyRegistry& registry_,
     }
 
     ui->setupUi(this);
+ 
+    animation_filter = new StyleAnimationEventFilter(this);
+    
+    // Explicitly list buttons to ensure correct order in the layout
+    const std::vector<QPushButton*> ordered_buttons = {
+        ui->generalTabButton, ui->uiTabButton,      ui->systemTabButton,
+        ui->cpuTabButton,     ui->graphicsTabButton, ui->graphicsAdvancedTabButton,
+        ui->audioTabButton,   ui->inputTabButton,    ui->hotkeysTabButton,
+        ui->networkTabButton, ui->webTabButton,      ui->filesystemTabButton,
+        ui->profilesTabButton, ui->appletsTabButton,  ui->loggingTabButton,
+    };
+    tab_buttons = ordered_buttons;
 
-    auto* animation_filter = new StyleAnimationEventFilter(this);
-    const auto button_qlist = ui->topButtonWidget->findChildren<QPushButton*>();
-    tab_buttons = std::vector<QPushButton*>(button_qlist.begin(), button_qlist.end());
-    auto* nav_layout = new QVBoxLayout();
-    nav_layout->setContentsMargins(8, 8, 8, 8);
-    nav_layout->setSpacing(4);
     for (QPushButton* button : tab_buttons) {
+        button->setProperty("class", QStringLiteral("tabButton"));
         button->setParent(ui->topButtonWidget);
-        if (button->property("class").toString() == QStringLiteral("tabButton")) {
-            button->installEventFilter(animation_filter);
-        }
     }
+
+    auto* nav_layout = new QVBoxLayout();
+    nav_layout->setContentsMargins(10, 10, 10, 10);
+    nav_layout->setSpacing(0);
+
+    nav_layout->addStretch(10);
+    for (size_t i = 0; i < tab_buttons.size(); ++i) {
+        if (i > 0) {
+            nav_layout->addStretch(1);
+        }
+        nav_layout->addWidget(tab_buttons[i]);
+        tab_buttons[i]->installEventFilter(animation_filter);
+    }
+    nav_layout->addStretch(10);
+
     delete ui->topButtonWidget->layout();
     ui->topButtonWidget->setLayout(nav_layout);
 
@@ -182,7 +202,7 @@ ConfigureDialog::ConfigureDialog(QWidget* parent, HotkeyRegistry& registry_,
     ui->stackedWidget->addWidget(CreateScrollArea(debug_tab_tab.get()));
 
     connect(tab_button_group.get(), qOverload<int>(&QButtonGroup::idClicked), this,
-            &ConfigureDialog::AnimateTabSwitch);
+            &ConfigureDialog::SwitchTab);
     connect(ui_tab.get(), &ConfigureUi::themeChanged, this, &ConfigureDialog::UpdateTheme);
     connect(ui_tab.get(), &ConfigureUi::UIPositioningChanged, this,
             &ConfigureDialog::SetUIPositioning);
@@ -201,6 +221,8 @@ ConfigureDialog::ConfigureDialog(QWidget* parent, HotkeyRegistry& registry_,
     ui->stackedWidget->setCurrentIndex(0);
     ui->generalTabButton->setChecked(true);
 
+    animation_filter->triggerInitialState(ui->generalTabButton);
+
     SetUIPositioning(QString::fromStdString(UISettings::values.ui_positioning.GetValue()));
 }
 
@@ -213,48 +235,26 @@ void ConfigureDialog::UpdateTheme() {
     const QString accent = Theme::GetAccentColor();
     const bool is_dark = DialogIsDarkMode();
 
-    const QString bg = is_dark ? QStringLiteral("#2b2b2b") : QStringLiteral("#ffffff");
-    const QString txt = is_dark ? QStringLiteral("#ffffff") : QStringLiteral("#000000");
-    const QString sec = is_dark ? QStringLiteral("#3d3d3d") : QStringLiteral("#f0f0f0");
-    const QString ter = is_dark ? QStringLiteral("#5d5d5d") : QStringLiteral("#d3d3d3");
-    const QString b_bg = is_dark ? QStringLiteral("#383838") : QStringLiteral("#e1e1e1");
-    const QString h_bg = is_dark ? QStringLiteral("#4d4d4d") : QStringLiteral("#e8f0fe");
-    const QString f_bg = is_dark ? QStringLiteral("#404040") : QStringLiteral("#e8f0fe");
-    const QString d_txt = is_dark ? QStringLiteral("#8d8d8d") : QStringLiteral("#a0a0a0");
+    // Onyx Palette
+    const QString bg = is_dark ? QStringLiteral("#24242a") : QStringLiteral("#f5f5fa");
+    const QString txt = is_dark ? QStringLiteral("#ffffff") : QStringLiteral("#1a1a1e");
+    const QString sec = is_dark ? QStringLiteral("#2a2a32") : QStringLiteral("#ffffff");
+    const QString ter = is_dark ? QStringLiteral("#32323a") : QStringLiteral("#dc dce2");
+    const QString b_bg = is_dark ? QStringLiteral("#1e1e24") : QStringLiteral("#f0f0f5");
+    const QString h_bg = is_dark ? QStringLiteral("#24242a") : QStringLiteral("#e8e8ed");
+    const QString f_bg = is_dark ? QStringLiteral("#3d3d47") : QStringLiteral("#ccccd4");
+    const QString d_txt = is_dark ? QStringLiteral("#aaaab4") : QStringLiteral("#666670");
 
     // Use dark shadow on light backgrounds, light shadow on dark backgrounds
     const QString shadow_color =
         is_dark ? QStringLiteral("rgba(0, 0, 0, 0.5)") : QStringLiteral("rgba(255, 255, 255, 0.8)");
 
-    static QString cached_template;
-    if (cached_template.isEmpty())
-        cached_template = property("templateStyleSheet").toString();
-    QString style_sheet = cached_template;
-
-    style_sheet.replace(QStringLiteral("%%ACCENT_COLOR%%"), accent);
-    style_sheet.replace(QStringLiteral("%%ACCENT_COLOR_HOVER%%"), Theme::GetAccentColorHover());
-    style_sheet.replace(QStringLiteral("%%ACCENT_COLOR_PRESSED%%"), Theme::GetAccentColorPressed());
-    style_sheet.replace(QStringLiteral("%%BACKGROUND_COLOR%%"), bg);
-    style_sheet.replace(QStringLiteral("%%TEXT_COLOR%%"), txt);
-    style_sheet.replace(QStringLiteral("%%SECONDARY_BG_COLOR%%"), sec);
-    style_sheet.replace(QStringLiteral("%%TERTIARY_BG_COLOR%%"), ter);
-    style_sheet.replace(QStringLiteral("%%BUTTON_BG_COLOR%%"), b_bg);
-    style_sheet.replace(QStringLiteral("%%HOVER_BG_COLOR%%"), h_bg);
-    style_sheet.replace(QStringLiteral("%%FOCUS_BG_COLOR%%"), f_bg);
-    style_sheet.replace(QStringLiteral("%%DISABLED_TEXT_COLOR%%"), d_txt);
-
-    style_sheet +=
-        QStringLiteral("QSlider::handle:horizontal { background-color: %1; }"
-                       "QCheckBox::indicator:checked { background-color: %1; border-color: %1; }")
-            .arg(accent);
-
-    setStyleSheet(style_sheet);
-
-    graphics_tab->SetTemplateStyleSheet(style_sheet);
-    system_tab->SetTemplateStyleSheet(style_sheet);
-    audio_tab->SetTemplateStyleSheet(style_sheet);
-    cpu_tab->SetTemplateStyleSheet(style_sheet);
-    graphics_advanced_tab->SetTemplateStyleSheet(style_sheet);
+    QString style_sheet = ConfigurationStyling::GetMasterStyleSheet();
+    QString full_style = style_sheet;
+    full_style +=
+        QStringLiteral("QDialog#ConfigureDialog { background-color: %1; color: %2; }").arg(bg, txt);
+    setStyleSheet(full_style);
+    ui->stackedWidget->setStyleSheet(style_sheet);
 
     QString sidebar_css =
         QStringLiteral(
@@ -262,17 +262,18 @@ void ConfigureDialog::UpdateTheme() {
             "background-color: %1; "
             "color: %2; "
             "border: 2px solid transparent; "
+            "text-align: left; "
+            "padding: 8px 16px 8px 12px; "
+            "font-size: 13px; "
+            "outline: none; "
             "}"
             "QPushButton.tabButton:checked { "
-            "color: %4; " // Use main text color instead of dimmed color for checked state
+            "color: %4; "
             "border: 2px solid %3; "
+            "background-color: rgba(255, 255, 255, 10); "
             "}"
             "QPushButton.tabButton:hover { "
             "border: 2px solid %3; "
-            "}"
-            "QPushButton.tabButton:pressed { "
-            "background-color: %3; "
-            "color: #ffffff; "
             "}")
             .arg(b_bg, d_txt, accent, txt);
 
@@ -285,7 +286,7 @@ void ConfigureDialog::UpdateTheme() {
         if (!rainbow_timer) {
             rainbow_timer = new QTimer(this);
             connect(rainbow_timer, &QTimer::timeout, this, [this, b_bg, d_txt, txt, shadow_color] {
-                if (ui->buttonBox->underMouse() || m_is_tab_animating || !this->isVisible() ||
+                if (ui->buttonBox->underMouse() || !this->isVisible() ||
                     !this->isActiveWindow()) {
                     return;
                 }
@@ -384,7 +385,6 @@ void ConfigureDialog::SetUIPositioning(const QString& positioning) {
         for (QPushButton* button : tab_buttons) {
             v_layout->removeWidget(button);
             h_layout->addWidget(button);
-            button->setStyleSheet(QStringLiteral("text-align: left center; padding-left: 15px;"));
         }
         h_layout->addStretch(1);
 
@@ -403,25 +403,38 @@ void ConfigureDialog::SetUIPositioning(const QString& positioning) {
         ui->topButtonWidget->setSizePolicy(policy);
 
     } else { // Vertical
-
         ui->horizontalNavScrollArea->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
         ui->horizontalNavScrollArea->setMaximumHeight(QWIDGETSIZE_MAX);
         ui->horizontalNavScrollArea->setMinimumHeight(0);
 
         ui->horizontalNavScrollArea->hide();
         ui->nav_container->show();
-        if (h_layout->count() > 0) {
-            if (auto* item = h_layout->itemAt(h_layout->count() - 1); item && item->spacerItem()) {
-                h_layout->takeAt(h_layout->count() - 1);
+        
+        // Clear all items from layouts to avoid duplicates or orphaned stretches
+        auto clear_layout = [](QLayout* layout) {
+            if (!layout) return;
+            QLayoutItem* item;
+            while ((item = layout->takeAt(0)) != nullptr) {
+                if (item->widget()) {
+                    item->widget()->setParent(nullptr);
+                }
                 delete item;
             }
+        };
+
+        clear_layout(h_layout);
+        clear_layout(v_layout);
+
+        v_layout->setSpacing(0);
+        v_layout->addStretch(10);
+
+        for (size_t i = 0; i < tab_buttons.size(); ++i) {
+            if (i > 0) {
+                v_layout->addStretch(1);
+            }
+            v_layout->addWidget(tab_buttons[i]);
         }
-        for (QPushButton* button : tab_buttons) {
-            h_layout->removeWidget(button);
-            v_layout->addWidget(button);
-            button->setStyleSheet(QStringLiteral(""));
-        }
-        v_layout->addStretch(1);
+        v_layout->addStretch(10);
 
         QSizePolicy policy = ui->topButtonWidget->sizePolicy();
         policy.setVerticalPolicy(QSizePolicy::Expanding);
@@ -484,90 +497,18 @@ void ConfigureDialog::OnLanguageChanged(const QString& locale) {
     SetConfiguration();
 }
 
-void ConfigureDialog::AnimateTabSwitch(int id) {
-    if (m_is_tab_animating) {
-        return;
+void ConfigureDialog::SwitchTab(int id) {
+    if (animation_filter && tab_button_group) {
+        QPushButton* from_button = qobject_cast<QPushButton*>(tab_button_group->button(ui->stackedWidget->currentIndex()));
+        QPushButton* to_button = qobject_cast<QPushButton*>(tab_button_group->button(id));
+
+        if (to_button) {
+            // Restore the sidebar "volt" animation
+            animation_filter->triggerElectrification(from_button, to_button);
+
+            // Trigger the massive Thunderstrike on the right half of the dialog window
+            animation_filter->triggerPageLightning(this, QPoint(width() * 0.65, 0));
+        }
     }
-
-    QWidget* current_widget = ui->stackedWidget->currentWidget();
-    QWidget* next_widget = ui->stackedWidget->widget(id);
-
-    if (current_widget == next_widget || !current_widget || !next_widget) {
-        return;
-    }
-
-    const int duration = 400;
-
-    next_widget->setGeometry(0, 0, ui->stackedWidget->width(), ui->stackedWidget->height());
-    next_widget->move(0, 0);
-    next_widget->show();
-    next_widget->raise();
-
-    auto anim_old_pos = new QPropertyAnimation(current_widget, "pos");
-    anim_old_pos->setEndValue(QPoint(-ui->stackedWidget->width(), 0));
-    anim_old_pos->setDuration(duration);
-    anim_old_pos->setEasingCurve(QEasingCurve::InOutQuart);
-
-    auto anim_new_pos = new QPropertyAnimation(next_widget, "pos");
-    anim_new_pos->setStartValue(QPoint(ui->stackedWidget->width(), 0));
-    anim_new_pos->setEndValue(QPoint(0, 0));
-    anim_new_pos->setDuration(duration);
-    anim_new_pos->setEasingCurve(QEasingCurve::InOutQuart);
-
-    auto new_opacity_effect = new QGraphicsOpacityEffect(next_widget);
-    next_widget->setGraphicsEffect(new_opacity_effect);
-    auto anim_new_opacity = new QPropertyAnimation(new_opacity_effect, "opacity");
-    anim_new_opacity->setStartValue(0.0);
-    anim_new_opacity->setEndValue(1.0);
-    anim_new_opacity->setDuration(duration);
-    anim_new_opacity->setEasingCurve(QEasingCurve::InQuad);
-
-    auto* button_opacity_effect =
-        qobject_cast<QGraphicsOpacityEffect*>(ui->buttonBox->graphicsEffect());
-    if (!button_opacity_effect) {
-        button_opacity_effect = new QGraphicsOpacityEffect(ui->buttonBox);
-        ui->buttonBox->setGraphicsEffect(button_opacity_effect);
-    }
-    auto* button_anim_sequence = new QSequentialAnimationGroup(this);
-
-    auto* anim_buttons_fade_out = new QPropertyAnimation(button_opacity_effect, "opacity");
-    anim_buttons_fade_out->setDuration(duration / 2);
-    anim_buttons_fade_out->setStartValue(1.0);
-    anim_buttons_fade_out->setEndValue(0.0);
-    anim_buttons_fade_out->setEasingCurve(QEasingCurve::OutCubic);
-
-    auto* anim_buttons_fade_in = new QPropertyAnimation(button_opacity_effect, "opacity");
-    anim_buttons_fade_in->setDuration(duration / 2);
-    anim_buttons_fade_in->setStartValue(0.0);
-    anim_buttons_fade_in->setEndValue(1.0);
-    anim_buttons_fade_in->setEasingCurve(QEasingCurve::InCubic);
-
-    button_anim_sequence->addAnimation(anim_buttons_fade_out);
-    button_anim_sequence->addAnimation(anim_buttons_fade_in);
-
-    auto animation_group = new QParallelAnimationGroup(this);
-    animation_group->addAnimation(anim_old_pos);
-    animation_group->addAnimation(anim_new_pos);
-    animation_group->addAnimation(anim_new_opacity);
-    animation_group->addAnimation(button_anim_sequence);
-
-    connect(animation_group, &QAbstractAnimation::finished, this,
-            [this, current_widget, next_widget, id]() {
-                ui->stackedWidget->setCurrentIndex(id);
-
-                next_widget->setGraphicsEffect(nullptr);
-                current_widget->hide();
-                current_widget->move(0, 0);
-
-                m_is_tab_animating = false; // Reset the flag
-                for (auto button : tab_button_group->buttons()) {
-                    button->setEnabled(true);
-                }
-            });
-
-    m_is_tab_animating = true; // Set the flag
-    for (auto button : tab_button_group->buttons()) {
-        button->setEnabled(false);
-    }
-    animation_group->start(QAbstractAnimation::DeleteWhenStopped);
+    ui->stackedWidget->setCurrentIndex(id);
 }

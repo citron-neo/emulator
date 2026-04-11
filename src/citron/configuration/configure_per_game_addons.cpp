@@ -36,6 +36,7 @@
 ConfigurePerGameAddons::ConfigurePerGameAddons(Core::System& system_, QWidget* parent)
 : QWidget(parent), ui{std::make_unique<Ui::ConfigurePerGameAddons>()}, system{system_} {
     ui->setupUi(this);
+    UpdateTheme();
 
     ui->button_download_mods->setVisible(true);
 
@@ -145,6 +146,53 @@ void ConfigurePerGameAddons::changeEvent(QEvent* event) {
 
 void ConfigurePerGameAddons::RetranslateUI() {
     ui->retranslateUi(this);
+    UpdateTheme();
+}
+
+void ConfigurePerGameAddons::UpdateTheme(const QString& custom_accent) {
+    QString accent = custom_accent;
+    if (accent.isEmpty()) {
+        accent = QString::fromStdString(UISettings::values.accent_color.GetValue());
+    }
+
+    const QColor accent_qcolor{accent};
+    const QString hue_light = accent_qcolor.lighter(125).name();
+    const QString hue_dark = accent_qcolor.darker(150).name();
+    const QString text_color = palette().color(QPalette::WindowText).name();
+
+    // Use a more robust stylesheet approach to ensure the accent highlight is always drawn.
+    ui->button_download_mods->setStyleSheet(
+        QStringLiteral(
+            "QPushButton { "
+            "  background-color: rgba(%1, %2, %3, 15); "
+            "  color: %4; "
+            "  border: 2px solid %5; "
+            "  border-radius: 6px; "
+            "  font-weight: bold; "
+            "  padding: 6px 16px; "
+            "  margin-top: 15px; "
+            "} "
+            "QPushButton:hover { "
+            "  border-color: %6; "
+            "  color: %6; "
+            "  background-color: rgba(%1, %2, %3, 40); "
+            "} "
+            "QPushButton:pressed { "
+            "  background-color: %5; "
+            "  color: #ffffff; "
+            "  border-color: %5; "
+            "}")
+            .arg(QString::number(accent_qcolor.red()))
+            .arg(QString::number(accent_qcolor.green()))
+            .arg(QString::number(accent_qcolor.blue()))
+            .arg(text_color)
+            .arg(accent)
+            .arg(hue_light));
+
+    ui->button_download_mods->setToolTip(
+        tr("Citron uses the v11 API of Gamebanana for mod installation. Some mods may not be "
+           "compatible or available for download. Use the \"Website Link For Mod\" option if you "
+           "run into any issues."));
 }
 
 void ConfigurePerGameAddons::LoadConfiguration() {

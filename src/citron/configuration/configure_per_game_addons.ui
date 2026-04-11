@@ -28,7 +28,7 @@
    <item row="1" column="0">
     <widget class="QPushButton" name="button_download_mods">
      <property name="toolTip">
-      <string>Citron uses third-party created mods that are verified safe to use. All credits for mods go to their respective creators.</string>
+      <string>Citron uses the v11 API of Gamebanana for mod installation. Some mods may not be compatible or available for download. Use the &quot;Website Link For Mod&quot; option if you run into any issues.</string>
      </property>
      <property name="text">
       <string>Download Mods VIA Gamebanana</string>

@@ -271,17 +271,16 @@ void PlayerControlPreview::paintEvent(QPaintEvent* event) {
     p.setRenderHint(QPainter::Antialiasing);
 
     // Define the base size that the original drawing coordinates were designed for.
-    // A Pro Controller is roughly 420x320 pixels in its drawing function.
-    constexpr QSizeF base_size(450.0, 350.0);
+    // Increased base size significantly to shrink the drawing and avoid overlap with side labels.
+    constexpr QSizeF base_size(620.0, 480.0);
 
     // Get the current size of the widget.
     const QSize current_size = this->size();
 
-    // Calculate the scaling factor. We want to maintain aspect ratio,
-    // so we use the smaller of the width/height scaling factors.
+    // Calculate the scaling factor. Maintaining aspect ratio with a safety buffer.
     const double scale_x = current_size.width() / base_size.width();
     const double scale_y = current_size.height() / base_size.height();
-    const double scale = std::min(scale_x, scale_y);
+    const double scale = std::min(scale_x, scale_y) * 0.85; // Buffer to prevent edge overlap
 
     // Save the painter's state, apply the scaling, and center the drawing.
     p.save();

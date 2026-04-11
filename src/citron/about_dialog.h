@@ -11,6 +11,7 @@ class AboutDialog;
 }
 
 class SpinningLogo;
+class QComboBox;
 
 class AboutDialog : public QDialog {
     Q_OBJECT
@@ -19,7 +20,10 @@ public:
     explicit AboutDialog(QWidget* parent);
     ~AboutDialog() override;
 
+    void UpdateTheme();
+
 private:
     std::unique_ptr<Ui::AboutDialog> ui;
     SpinningLogo* m_spinning_logo = nullptr;
+    QComboBox* m_logo_spin_combo = nullptr;
 };

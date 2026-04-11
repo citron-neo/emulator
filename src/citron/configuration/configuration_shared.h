@@ -22,6 +22,12 @@ public:
 
     virtual void ApplyConfiguration() = 0;
     virtual void SetConfiguration() = 0;
+
+    /**
+     * Applies the master unified stylesheet to this tab.
+     * This ensures all tabs (General, CPU, etc.) follow the same high-fidelity design.
+     */
+    void ApplyMasterStyle();
 };
 
 } // namespace ConfigurationShared

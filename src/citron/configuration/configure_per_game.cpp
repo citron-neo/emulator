@@ -2,7 +2,6 @@
 // SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
-#include "citron/configuration/configure_per_game.h"
 #include <algorithm>
 #include <cstring>
 #include <filesystem>
@@ -10,54 +9,54 @@
 #include <string>
 #include <utility>
 #include <vector>
+#include <QApplication>
+#include <QColor>
+#include <QPalette>
+#include <QShowEvent>
 #include <fmt/format.h>
+#include "citron/configuration/configure_per_game.h"
+#include "common/common_types.h"
+#include "common/settings.h"
+
 
 #include <QAbstractButton>
 #include <QButtonGroup>
 #include <QCheckBox>
 #include <QDialogButtonBox>
+#include <QDoubleSpinBox>
 #include <QFileDialog>
 #include <QFileInfo>
-#include <QGraphicsPixmapItem>
+#include <QGraphicsDropShadowEffect>
+#include <QGraphicsItem>
 #include <QGraphicsOpacityEffect>
-#include <QParallelAnimationGroup>
-#include <QPropertyAnimation>
-#include <QSequentialAnimationGroup>
-#include <QTimer>
-#include "citron/configuration/style_animation_event_filter.h"
+#include <QGraphicsPixmapItem>
+#include <QGraphicsScene>
 #include <QMessageBox>
 #include <QMetaObject>
+#include <QPainter>
+#include <QPainterPath>
+#include <QParallelAnimationGroup>
+#include <QPen>
 #include <QPointer>
 #include <QProgressDialog>
-#include <QSpinBox>
-#include <QDoubleSpinBox>
+#include <QPropertyAnimation>
 #include <QPushButton>
 #include <QResizeEvent>
 #include <QScrollArea>
+#include <QSequentialAnimationGroup>
+#include <QSpinBox>
 #include <QString>
 #include <QTabBar>
 #include <QTimer>
+#include <QToolButton>
+#include <QVariantAnimation>
+#include "citron/configuration/style_animation_event_filter.h"
 
 #ifdef ARCHITECTURE_x86_64
 #include "common/x64/cpu_detect.h"
 #endif
-#include "common/fs/fs_util.h"
-#include "common/hex_util.h"
-#include "common/settings_enums.h"
-#include "common/settings_input.h"
-#include "configuration/shared_widget.h"
-#include "core/core.h"
-#include "core/file_sys/card_image.h"
-#include "core/file_sys/content_archive.h"
-#include "core/file_sys/control_metadata.h"
-#include "core/file_sys/patch_manager.h"
-#include "core/file_sys/submission_package.h"
-#include "core/file_sys/xts_archive.h"
-#include "core/file_sys/registered_cache.h"
-#include "core/loader/loader.h"
-#include "frontend_common/config.h"
-#include "ui_configure_per_game.h"
-#include "citron/uisettings.h"
+#include <fstream>
+#include <nlohmann/json.hpp>
 #include "citron/configuration/configuration_shared.h"
 #include "citron/configuration/configure_audio.h"
 #include "citron/configuration/configure_cpu.h"
@@ -68,17 +67,32 @@
 #include "citron/configuration/configure_per_game_addons.h"
 #include "citron/configuration/configure_per_game_cheats.h"
 #include "citron/configuration/configure_system.h"
-#include "citron/util/rainbow_style.h"
+#include "citron/main.h"
 #include "citron/theme.h"
 #include "citron/uisettings.h"
+#include "citron/configuration/configuration_styling.h"
+#include "citron/util/rainbow_style.h"
 #include "citron/util/util.h"
 #include "citron/vk_device_info.h"
-#include "citron/main.h"
+#include "common/fs/fs_util.h"
 #include "common/fs/path_util.h"
+#include "common/hex_util.h"
+#include "common/settings_enums.h"
+#include "common/settings_input.h"
 #include "common/string_util.h"
 #include "common/xci_trimmer.h"
-#include <fstream>
-#include <nlohmann/json.hpp>
+#include "configuration/shared_widget.h"
+#include "core/core.h"
+#include "core/file_sys/card_image.h"
+#include "core/file_sys/content_archive.h"
+#include "core/file_sys/control_metadata.h"
+#include "core/file_sys/patch_manager.h"
+#include "core/file_sys/registered_cache.h"
+#include "core/file_sys/submission_package.h"
+#include "core/file_sys/xts_archive.h"
+#include "core/loader/loader.h"
+#include "frontend_common/config.h"
+#include "ui_configure_per_game.h"
 
 // Helper function to detect if the application is using a dark theme
 static bool GameIsDarkMode() {
@@ -86,7 +100,7 @@ static bool GameIsDarkMode() {
 
     if (theme_name == "qdarkstyle" || theme_name == "colorful_dark" ||
         theme_name == "qdarkstyle_midnight_blue" || theme_name == "colorful_midnight_blue") {
-        return true; 
+        return true;
     }
 
     if (theme_name == "default" || theme_name == "colorful") {
@@ -105,7 +119,7 @@ ConfigurePerGame::ConfigurePerGame(QWidget* parent, u64 title_id_, const std::st
     : QDialog(parent), ui(std::make_unique<Ui::ConfigurePerGame>()), title_id{title_id_},
       file_name{file_name_}, system{system_},
       builder{std::make_unique<ConfigurationShared::Builder>(this, !system_.IsPoweredOn())},
-      tab_group{std::make_shared<std::vector<ConfigurationShared::Tab*>>() } {
+      tab_group{std::make_shared<std::vector<ConfigurationShared::Tab*>>()} {
 
     ui->setupUi(this);
 
@@ -136,7 +150,8 @@ ConfigurePerGame::ConfigurePerGame(QWidget* parent, u64 title_id_, const std::st
         setWindowModality(Qt::NonModal);
         resize(1100, 700);
     } else {
-        setWindowFlags(Qt::Dialog | Qt::WindowTitleHint | Qt::WindowSystemMenuHint | Qt::WindowCloseButtonHint);
+        setWindowFlags(Qt::Dialog | Qt::WindowTitleHint | Qt::WindowSystemMenuHint |
+                       Qt::WindowCloseButtonHint);
         setWindowModality(Qt::WindowModal);
         if (!UISettings::values.per_game_configure_geometry.isEmpty()) {
             restoreGeometry(UISettings::values.per_game_configure_geometry);
@@ -145,33 +160,42 @@ ConfigurePerGame::ConfigurePerGame(QWidget* parent, u64 title_id_, const std::st
 
     UpdateTheme();
 
-    auto* share_button = new QPushButton(tr("Share Settings"), this);
-    auto* use_button = new QPushButton(tr("Import Settings"), this);
+    ui->share_settings_button->setToolTip(
+        tr("Please choose your CPU/Graphics/Advanced settings manually. "
+           "This will capture your current UI selections exactly as they appear."));
 
-    share_button->setObjectName(QStringLiteral("share_settings_button"));
-    use_button->setObjectName(QStringLiteral("use_settings_button"));
+    ui->import_settings_button->setToolTip(
+        tr("Please select a compatible .json file to use for this game. "
+           "Ensure that you understand the warning of mismatching AMD/Nvidia/Intel and it may "
+           "cause issues with certain settings."));
 
-    share_button->setToolTip(tr("Please choose your CPU/Graphics/Advanced settings manually. "
-    "This will capture your current UI selections exactly as they appear."));
+    connect(ui->trim_xci_button, &QPushButton::clicked, this, &ConfigurePerGame::OnTrimXCI);
+    connect(ui->share_settings_button, &QPushButton::clicked, this,
+            &ConfigurePerGame::OnShareSettings);
+    connect(ui->import_settings_button, &QPushButton::clicked, this,
+            &ConfigurePerGame::OnUseSettings);
+    ui->full_info_button->setText(QStringLiteral("i"));
+    ui->full_info_button->setToolButtonStyle(Qt::ToolButtonTextOnly);
+    connect(ui->full_info_button, &QToolButton::clicked, this, &ConfigurePerGame::OnFullInfo);
 
-    use_button->setToolTip(tr("Please select a compatible .json file to use for this game. "
-    "Ensure that you understand the warning of mismatching AMD/Nvidia/Intel and it may cause issues with certain settings."));
+    // Pin the info button directly to the graphics view viewport for absolute stable positioning
+    ui->full_info_button->setParent(ui->icon_view->viewport());
 
-    share_button->setStyleSheet(ui->trim_xci_button->styleSheet());
-    use_button->setStyleSheet(ui->trim_xci_button->styleSheet());
-
-    ui->gridLayout_2->addWidget(share_button, 11, 0, 1, 2);
-    ui->gridLayout_2->addWidget(use_button, 12, 0, 1, 2);
-
-    connect(share_button, &QPushButton::clicked, this, &ConfigurePerGame::OnShareSettings);
-    connect(use_button, &QPushButton::clicked, this, &ConfigurePerGame::OnUseSettings);
-
-    auto* animation_filter = new StyleAnimationEventFilter(this);
+    animation_filter = new StyleAnimationEventFilter(this);
 
     button_group = new QButtonGroup(this);
     button_group->setExclusive(true);
 
+    // Ensure the info panel is centered
+    ui->info_layout->setAlignment(Qt::AlignCenter);
+
+    ui->tabButtonsLayout->setSpacing(0);
+    ui->tabButtonsLayout->addStretch(10);
+
     const auto add_tab = [&](QWidget* widget, const QString& title, int id) {
+        if (id > 0) {
+            ui->tabButtonsLayout->addStretch(1);
+        }
         auto button = new QPushButton(title, this);
         button->setCheckable(true);
         button->setObjectName(QStringLiteral("aestheticTabButton"));
@@ -196,13 +220,14 @@ ConfigurePerGame::ConfigurePerGame(QWidget* parent, u64 title_id_, const std::st
     add_tab(graphics_advanced_tab.get(), tr("Adv. Graphics"), tab_id++);
     add_tab(audio_tab.get(), tr("Audio"), tab_id++);
     add_tab(input_tab.get(), tr("Input Profiles"), tab_id++);
-    #ifdef __unix__
+#ifdef __unix__
     add_tab(linux_tab.get(), tr("Linux"), tab_id++);
-    #endif
+#endif
 
-    ui->tabButtonsLayout->addStretch();
+    ui->tabButtonsLayout->addStretch(5);
 
-    connect(button_group, qOverload<int>(&QButtonGroup::idClicked), this, &ConfigurePerGame::AnimateTabSwitch);
+    connect(button_group, qOverload<int>(&QButtonGroup::idClicked), this,
+            &ConfigurePerGame::AnimateTabSwitch);
 
     if (auto first_button = qobject_cast<QPushButton*>(button_group->button(0))) {
         first_button->setChecked(true);
@@ -217,14 +242,28 @@ ConfigurePerGame::ConfigurePerGame(QWidget* parent, u64 title_id_, const std::st
     scene = new QGraphicsScene;
     ui->icon_view->setScene(scene);
 
+    // Initialize premium accent halo effect
+    auto* halo = new QGraphicsDropShadowEffect(ui->icon_view);
+    halo->setOffset(0);
+    halo->setBlurRadius(50);
+    ui->icon_view->setGraphicsEffect(halo);
+
     if (system.IsPoweredOn()) {
         QPushButton* apply_button = ui->buttonBox->addButton(QDialogButtonBox::Apply);
-        connect(apply_button, &QAbstractButton::clicked, this, &ConfigurePerGame::HandleApplyButtonClicked);
+        connect(apply_button, &QAbstractButton::clicked, this,
+                &ConfigurePerGame::HandleApplyButtonClicked);
     }
 
-    connect(ui->trim_xci_button, &QPushButton::clicked, this, &ConfigurePerGame::OnTrimXCI);
-
     LoadConfiguration();
+ 
+    // Trigger initial electrification for the first tab
+    const auto buttons = ui->tabButtonsLayout->parentWidget()->findChildren<QPushButton*>();
+    for (auto* button : buttons) {
+        if (button->property("class").toString() == QStringLiteral("tabButton")) {
+            animation_filter->triggerInitialState(button);
+            break;
+        }
+    }
 }
 
 ConfigurePerGame::~ConfigurePerGame() {
@@ -245,7 +284,7 @@ void ConfigurePerGame::ApplyConfiguration() {
     input_tab->ApplyConfiguration();
 
     if (Settings::IsDockedMode() && Settings::values.players.GetValue()[0].controller_type ==
-        Settings::ControllerType::Handheld) {
+                                        Settings::ControllerType::Handheld) {
         Settings::values.use_docked_mode.SetValue(Settings::ConsoleMode::Handheld);
         Settings::values.use_docked_mode.SetGlobal(true);
     }
@@ -289,95 +328,149 @@ void ConfigurePerGame::UpdateTheme() {
     const bool is_rainbow = UISettings::values.enable_rainbow_mode.GetValue();
     const bool is_dark = GameIsDarkMode();
 
-    const QString accent = is_rainbow ? QStringLiteral("palette(highlight)") : Theme::GetAccentColor();
+    const QString accent =
+        is_rainbow ? QStringLiteral("palette(highlight)") : Theme::GetAccentColor();
 
-    const QString bg = is_dark ? QStringLiteral("#2b2b2b") : QStringLiteral("#ffffff");
-    const QString txt = is_dark ? QStringLiteral("#ffffff") : QStringLiteral("#000000");
-    const QString sec = is_dark ? QStringLiteral("#3d3d3d") : QStringLiteral("#f0f0f0");
-    const QString ter = is_dark ? QStringLiteral("#5d5d5d") : QStringLiteral("#d3d3d3");
-    const QString b_bg = is_dark ? QStringLiteral("#383838") : QStringLiteral("#e1e1e1");
-    const QString h_bg = is_dark ? QStringLiteral("#4d4d4d") : QStringLiteral("#e8f0fe");
-    const QString f_bg = is_dark ? QStringLiteral("#404040") : QStringLiteral("#e8f0fe");
-    const QString d_txt = is_dark ? QStringLiteral("#8d8d8d") : QStringLiteral("#a0a0a0");
+    // Onyx Palette
+    const QString bg = is_dark ? QStringLiteral("#24242a") : QStringLiteral("#f5f5fa");
+    const QString txt = is_dark ? QStringLiteral("#ffffff") : QStringLiteral("#1a1a1e");
+    const QString sec = is_dark ? QStringLiteral("#2a2a32") : QStringLiteral("#ffffff");
+    const QString ter = is_dark ? QStringLiteral("#32323a") : QStringLiteral("#dcdce2");
+    const QString d_txt = is_dark ? QStringLiteral("#aaaab4") : QStringLiteral("#666670");
 
-    static QString cached_template;
-    if (cached_template.isEmpty()) cached_template = property("templateStyleSheet").toString();
-    QString style_sheet = cached_template;
+    QString style_sheet = ConfigurationStyling::GetMasterStyleSheet();
+    setStyleSheet(QStringLiteral("QDialog#ConfigurePerGame { background-color: %1; color: %2; }").arg(bg, txt));
+    ui->stackedWidget->setStyleSheet(style_sheet);
 
-    style_sheet.replace(QStringLiteral("%%ACCENT_COLOR%%"), accent);
-    style_sheet.replace(QStringLiteral("%%ACCENT_COLOR_HOVER%%"), Theme::GetAccentColorHover());
-    style_sheet.replace(QStringLiteral("%%ACCENT_COLOR_PRESSED%%"), Theme::GetAccentColorPressed());
-    style_sheet.replace(QStringLiteral("%%BACKGROUND_COLOR%%"), bg);
-    style_sheet.replace(QStringLiteral("%%TEXT_COLOR%%"), txt);
-    style_sheet.replace(QStringLiteral("%%SECONDARY_BG_COLOR%%"), sec);
-    style_sheet.replace(QStringLiteral("%%TERTIARY_BG_COLOR%%"), ter);
-    style_sheet.replace(QStringLiteral("%%BUTTON_BG_COLOR%%"), b_bg);
-    style_sheet.replace(QStringLiteral("%%HOVER_BG_COLOR%%"), h_bg);
-    style_sheet.replace(QStringLiteral("%%FOCUS_BG_COLOR%%"), f_bg);
-    style_sheet.replace(QStringLiteral("%%DISABLED_TEXT_COLOR%%"), d_txt);
+    // RGB replacements for alpha-based hover effects
+    const QColor accent_qcolor =
+        is_rainbow ? RainbowStyle::GetCurrentHighlightColor() : QColor(accent);
 
-    style_sheet += QStringLiteral(
-        "QSlider::handle:horizontal { background-color: %1; }"
-        "QCheckBox::indicator:checked { background-color: %1; border-color: %1; }"
-    ).arg(accent);
+    // Update icon glow color (Ambient Halo) based on accent color
+    if (auto* shadow = qobject_cast<QGraphicsDropShadowEffect*>(ui->icon_view->graphicsEffect())) {
+        shadow->setColor(accent_qcolor);
+        shadow->setBlurRadius(is_dark ? 60 : 40);
+        shadow->setOffset(0);
+    }
 
-    setStyleSheet(style_sheet);
+    QString final_style = style_sheet;
+    final_style +=
+        QStringLiteral("QDialog#ConfigurePerGame { background-color: %1; color: %2; }").arg(bg, txt);
 
-    graphics_tab->SetTemplateStyleSheet(style_sheet);
-    system_tab->SetTemplateStyleSheet(style_sheet);
-    audio_tab->SetTemplateStyleSheet(style_sheet);
-    cpu_tab->SetTemplateStyleSheet(style_sheet);
-    graphics_advanced_tab->SetTemplateStyleSheet(style_sheet);
+    // Premium Sidebar Tabs (Console-grade sliding bar look)
+    const QString tab_css =
+        QStringLiteral(
+            "QPushButton.tabButton { "
+            "background: transparent; border: none; color: %1; text-align: left; "
+            "padding: 8px 16px 8px 8px; border-radius: 4px; font-weight: bold; font-size: 13px; "
+            "border-left: 4px solid transparent; outline: none; "
+            "} "
+            "QPushButton.tabButton:hover { "
+            "background: rgba(255, 255, 255, 12); color: %2; "
+            "border-left: 4px solid rgba(%3, %4, %5, 80); "
+            "} "
+            "QPushButton.tabButton:checked { "
+            "background: rgba(%3, %4, %5, 25); color: %2; "
+            "border-left: 4px solid %2; "
+            "} ")
+            .arg(d_txt)
+            .arg(accent)
+            .arg(accent_qcolor.red())
+            .arg(accent_qcolor.green())
+            .arg(accent_qcolor.blue());
+
+    final_style += tab_css;
+    final_style +=
+        QStringLiteral(
+            "#icon_view { border-radius: 20px; border: 1px solid transparent; background: "
+            "transparent; }"
+            "#label_console_hints { color: #888888; font-size: 11px; margin-top: 10px; }"
+            "QToolButton#full_info_button { background: #0d0d12; color: #ffffff; border: none; "
+            "font-weight: bold; font-family: 'Times New Roman', serif; font-size: 14px; }"
+            "QToolButton#full_info_button:hover { background: %3; }")
+            .arg(d_txt, bg, accent);
+    addons_tab->UpdateTheme();
+
+    setStyleSheet(final_style);
 
     if (is_rainbow) {
         if (!rainbow_timer) {
             rainbow_timer = new QTimer(this);
-            connect(rainbow_timer, &QTimer::timeout, this, [this, txt] {
-                if (m_is_tab_animating || !this->isVisible() || !this->isActiveWindow()) return;
+            connect(rainbow_timer, &QTimer::timeout, this, [this, txt, bg, ter, sec] {
+                if (m_is_tab_animating || !this->isVisible() || !this->isActiveWindow())
+                    return;
 
                 const QColor current_color = RainbowStyle::GetCurrentHighlightColor();
                 const QString hue_hex = current_color.name();
                 const QString hue_light = current_color.lighter(125).name();
                 const QString hue_dark = current_color.darker(150).name();
 
-                // 1. Top Tab Buttons
-                QString tab_buttons_css = QStringLiteral(
-                    "QPushButton.tabButton { border: 2px solid transparent; background: transparent; }"
-                    "QPushButton.tabButton:checked { color: %1; border: 2px solid %1; }"
-                    "QPushButton.tabButton:hover { border: 2px solid %1; }"
-                    "QPushButton.tabButton:pressed { background-color: %1; color: #ffffff; }"
-                ).arg(hue_hex);
-                if (ui->tabButtonsContainer) ui->tabButtonsContainer->setStyleSheet(tab_buttons_css);
+                const float factor = std::max(1.0f, height() / 720.0f);
+                const int tab_font_size = static_cast<int>(12 * factor);
+                const int tab_padding_v = static_cast<int>(12 * factor);
+                const int tab_padding_h = static_cast<int>(20 * factor);
 
-                // 2. Horizontal Scrollbar for Tabs
+                // Update Icon Glow and Laser in real-time for Rainbow Mode
+                if (auto* shadow =
+                        qobject_cast<QGraphicsDropShadowEffect*>(ui->icon_view->graphicsEffect())) {
+                    shadow->setColor(current_color);
+                }
+                if (m_laser_path) {
+                    QPen p = m_laser_path->pen();
+                    p.setColor(current_color);
+                    m_laser_path->setPen(p);
+                }
+
+                // 1. Top Tab Buttons
+                QString tab_buttons_css =
+                    QStringLiteral(
+                        "QPushButton.tabButton { border: 2px solid transparent; background: "
+                        "transparent; padding: %2px %3px; font-size: %4px; outline: none; }"
+                        "QPushButton.tabButton:checked { color: %1; border: 2px solid %1; }"
+                        "QPushButton.tabButton:hover { border: 2px solid %1; }"
+                        "QPushButton.tabButton:pressed { background-color: %1; color: #ffffff; }")
+                        .arg(hue_hex)
+                        .arg(tab_padding_v)
+                        .arg(tab_padding_h)
+                        .arg(tab_font_size);
+                if (ui->tabButtonsContainer)
+                    ui->tabButtonsContainer->setStyleSheet(tab_buttons_css);
+
+                // 2. Horizontal Scrollbar for Tabs (Ensuring it remains invisible if unused)
                 if (ui->tabButtonsScrollArea) {
                     ui->tabButtonsScrollArea->setStyleSheet(QStringLiteral(
-                        "QScrollBar:horizontal { height: 14px; background: transparent; border-radius: 7px; }"
-                        "QScrollBar::handle:horizontal { background-color: %1; border-radius: 64px; min-width: 30px; margin: 1px; }"
-                        "QScrollBar::add-line, QScrollBar::sub-line { background: none; width: 0px; }"
-                    ).arg(hue_hex));
+                        "QScrollBar:horizontal { height: 0px; background: transparent; }"));
                 }
 
                 // 3. Action Buttons
-                const QString button_css = QStringLiteral(
-                    "QPushButton { background-color: transparent; color: %4; border: 2px solid %1; border-radius: 4px; font-weight: bold; padding: 4px 12px; }"
-                    "QPushButton:hover { border-color: %2; color: %2; }"
-                    "QPushButton:pressed { background-color: %3; color: #ffffff; border-color: %3; }"
-                ).arg(hue_hex, hue_light, hue_dark, txt);
+                const QString button_css =
+                    QStringLiteral(
+                        "QPushButton { background-color: transparent; color: %4; border: 2px solid "
+                        "%1; border-radius: 4px; font-weight: bold; padding: 4px 12px; }"
+                        "QPushButton:hover { border-color: %2; color: %2; background-color: "
+                        "rgba(%5, %6, %7, 40); }"
+                        "QPushButton:pressed { background-color: %3; color: #ffffff; border-color: "
+                        "%3; }")
+                        .arg(hue_hex, hue_light, hue_dark, txt)
+                        .arg(current_color.red())
+                        .arg(current_color.green())
+                        .arg(current_color.blue());
 
                 if (ui->buttonBox) {
                     for (auto* button : ui->buttonBox->findChildren<QPushButton*>()) {
-                        if (!button->isDown()) button->setStyleSheet(button_css);
+                        if (!button->isDown())
+                            button->setStyleSheet(button_css);
                     }
                 }
+                addons_tab->UpdateTheme(hue_hex);
                 if (ui->trim_xci_button && !ui->trim_xci_button->isDown()) {
                     ui->trim_xci_button->setStyleSheet(button_css);
                 }
-                if (auto* share_btn = findChild<QPushButton*>(QStringLiteral("share_settings_button"))) {
-                    if (!share_btn->isDown()) share_btn->setStyleSheet(button_css);
+                if (ui->share_settings_button && !ui->share_settings_button->isDown()) {
+                    ui->share_settings_button->setStyleSheet(button_css);
                 }
-                if (auto* use_btn = findChild<QPushButton*>(QStringLiteral("use_settings_button"))) {
-                    if (!use_btn->isDown()) use_btn->setStyleSheet(button_css);
+                if (ui->import_settings_button && !ui->import_settings_button->isDown()) {
+                    ui->import_settings_button->setStyleSheet(button_css);
                 }
 
                 // 4. Tab Content Area
@@ -389,22 +482,28 @@ void ConfigurePerGame::UpdateTheme() {
                     }
 
                     if (actualTab) {
-                        QString content_css = QStringLiteral(
-                            "QCheckBox::indicator:checked, QRadioButton::indicator:checked { background-color: %1; border: 1px solid %1; }"
-                            "QSlider::sub-page:horizontal { background: %1; border-radius: 4px; }"
-                            "QSlider::handle:horizontal { background-color: %1; border: 1px solid %1; width: 18px; height: 18px; margin: -5px 0; border-radius: 9px; }"
-                            "QComboBox { border: 1px solid %1; selection-background-color: %1; }"
-                            "QComboBox QAbstractItemView { border: 2px solid %1; selection-background-color: %1; background-color: #2b2b2b; }"
-                            "QComboBox QAbstractItemView::item:selected { background-color: %1; color: #ffffff; }"
-                            "QScrollBar::handle:vertical, QScrollBar::handle:horizontal { background-color: %1; border-radius: 7px; }"
-                            "QScrollBar:vertical, QScrollBar:horizontal { background: transparent; }"
-                            "QPushButton, QToolButton { background-color: transparent; color: #ffffff; border: 2px solid %1; border-radius: 4px; padding: 5px; }"
-                            "QPushButton:hover, QToolButton:hover { border-color: %2; color: %2; }"
-                            "QPushButton:pressed, QToolButton:pressed { background-color: %3; color: #ffffff; border-color: %3; }"
-                        ).arg(hue_hex).arg(hue_light).arg(hue_dark);
+                        const QString current_content_css =
+                            QStringLiteral(
+                                "QWidget { background-color: %1; color: %2; }"
+                                "QScrollArea { background-color: transparent; border: none; }"
+                                "QCheckBox::indicator:checked, QRadioButton::indicator:checked { "
+                                "background-color: %3; border: 1px solid %3; }"
+                                "QSlider::sub-page:horizontal { background: %3; border-radius: "
+                                "4px; }"
+                                "QSlider::handle:horizontal { background-color: %3; border: 1px "
+                                "solid %3; width: 14px; height: 14px; margin: -5px 0; "
+                                "border-radius: 7px; }"
+                                "QComboBox { background-color: %4; border: 1px solid %5; color: "
+                                "%2; padding: 2px 5px; border-radius: 4px; }"
+                                "QAbstractItemView { background-color: %4; border: 1px solid %5; "
+                                "selection-background-color: %3; color: %2; }"
+                                "QScrollBar { background: transparent; width: 8px; height: 8px; }"
+                                "QScrollBar::handle { background-color: %3; border-radius: 4px; "
+                                "min-height: 20px; }")
+                                .arg(bg, txt, hue_hex, ter, sec);
 
-                        currentContainer->setStyleSheet(content_css);
-                        actualTab->setStyleSheet(content_css);
+                        currentContainer->setStyleSheet(current_content_css);
+                        actualTab->setStyleSheet(current_content_css);
                     }
                 }
             });
@@ -412,33 +511,43 @@ void ConfigurePerGame::UpdateTheme() {
         rainbow_timer->start(33);
     }
 
-    // Fix for Gamescope: Style buttons once outside the timer loop
+    const QString action_button_css =
+        QStringLiteral(
+            "QPushButton { background-color: transparent; color: %4; border: 2px solid %1; "
+            "border-radius: 4px; font-weight: bold; padding: 4px 12px; }"
+            "QPushButton:hover { border-color: %2; color: %2; background-color: rgba(%5, %6, %7, "
+            "40); }"
+            "QPushButton:pressed { background-color: %3; color: #ffffff; border-color: %3; }")
+            .arg(accent, Theme::GetAccentColorHover(), Theme::GetAccentColorPressed(), txt)
+            .arg(accent_qcolor.red())
+            .arg(accent_qcolor.green())
+            .arg(accent_qcolor.blue());
+
     if (ui->buttonBox) {
-        ui->buttonBox->setStyleSheet(QStringLiteral(
-            "QPushButton { background-color: transparent; color: %4; border: 2px solid %1; border-radius: 4px; font-weight: bold; padding: 4px 12px; }"
-            "QPushButton:hover { border-color: %2; color: %2; }"
-            "QPushButton:pressed { background-color: %3; color: #ffffff; border-color: %3; }"
-        ).arg(accent, Theme::GetAccentColorHover(), Theme::GetAccentColorPressed(), txt));
+        ui->buttonBox->setStyleSheet(action_button_css);
     }
     if (ui->trim_xci_button) {
-        ui->trim_xci_button->setStyleSheet(QStringLiteral(
-            "QPushButton { background-color: transparent; color: %4; border: 2px solid %1; border-radius: 4px; font-weight: bold; padding: 4px 12px; }"
-            "QPushButton:hover { border-color: %2; color: %2; }"
-            "QPushButton:pressed { background-color: %3; color: #ffffff; border-color: %3; }"
-        ).arg(accent, Theme::GetAccentColorHover(), Theme::GetAccentColorPressed(), txt));
+        ui->trim_xci_button->setStyleSheet(action_button_css);
+    }
+    if (ui->share_settings_button) {
+        ui->share_settings_button->setStyleSheet(action_button_css);
+    }
+    if (ui->import_settings_button) {
+        ui->import_settings_button->setStyleSheet(action_button_css);
     }
 
     if (UISettings::values.enable_rainbow_mode.GetValue() == false && rainbow_timer) {
         rainbow_timer->stop();
-        if (ui->tabButtonsContainer) ui->tabButtonsContainer->setStyleSheet({});
-        if (ui->tabButtonsScrollArea) ui->tabButtonsScrollArea->setStyleSheet({});
-        if (ui->buttonBox) ui->buttonBox->setStyleSheet({});
-        if (ui->trim_xci_button) ui->trim_xci_button->setStyleSheet({});
+        if (ui->tabButtonsContainer)
+            ui->tabButtonsContainer->setStyleSheet({});
+        if (ui->tabButtonsScrollArea)
+            ui->tabButtonsScrollArea->setStyleSheet({});
         for (int i = 0; i < ui->stackedWidget->count(); ++i) {
             QWidget* w = ui->stackedWidget->widget(i);
             w->setStyleSheet({});
             if (auto* s = qobject_cast<QScrollArea*>(w)) {
-                if (s->widget()) s->widget()->setStyleSheet({});
+                if (s->widget())
+                    s->widget()->setStyleSheet({});
             }
         }
     }
@@ -456,18 +565,18 @@ void ConfigurePerGame::LoadConfiguration() {
         QStringLiteral("%1").arg(title_id, 16, 16, QLatin1Char{'0'}).toUpper());
 
     const FileSys::PatchManager pm{title_id, system.GetFileSystemController(),
-        system.GetContentProvider()};
+                                   system.GetContentProvider()};
     const auto control = pm.GetControlMetadata();
     const auto loader = Loader::GetLoader(system, file);
 
     if (control.first != nullptr) {
         ui->display_version->setText(QString::fromStdString(control.first->GetVersionString()));
-        ui->display_name->setText(QString::fromStdString(control.first->GetApplicationName()));
+        ui->game_title_label->setText(QString::fromStdString(control.first->GetApplicationName()));
         ui->display_developer->setText(QString::fromStdString(control.first->GetDeveloperName()));
     } else {
         std::string title;
         if (loader->ReadTitle(title) == Loader::ResultStatus::Success)
-            ui->display_name->setText(QString::fromStdString(title));
+            ui->game_title_label->setText(QString::fromStdString(title));
 
         FileSys::NACP nacp;
         if (loader->ReadControlData(nacp) == Loader::ResultStatus::Success)
@@ -493,8 +602,76 @@ void ConfigurePerGame::LoadConfiguration() {
 
     if (has_icon) {
         scene->clear();
-        scene->addPixmap(map);
+        m_laser_path = nullptr; // scene->clear() deletes it
+
+        const bool is_dark = GameIsDarkMode();
+        const QColor accent_qcolor = UISettings::values.enable_rainbow_mode.GetValue()
+                                         ? RainbowStyle::GetCurrentHighlightColor()
+                                         : QColor(Theme::GetAccentColor());
+
+        // Round the icon corners to match premium console aesthetic (20px radius)
+        QPixmap rounded_pixmap(map.size());
+        rounded_pixmap.fill(Qt::transparent);
+
+        QPainter painter(&rounded_pixmap);
+        painter.setRenderHint(QPainter::Antialiasing);
+        painter.setRenderHint(QPainter::SmoothPixmapTransform);
+
+        QPainterPath path;
+        path.addRoundedRect(QRectF(0, 0, map.width(), map.height()), 20, 20);
+        painter.setClipPath(path);
+        painter.drawPixmap(0, 0, map);
+        painter.end();
+
+        scene->addPixmap(rounded_pixmap);
         ui->icon_view->fitInView(scene->itemsBoundingRect(), Qt::KeepAspectRatio);
+
+        // Add premium glow effect matched to accent color
+        auto* shadow = new QGraphicsDropShadowEffect(this);
+        shadow->setBlurRadius(is_dark ? 60 : 40);
+        shadow->setColor(accent_qcolor);
+        shadow->setOffset(0, 0);
+        ui->icon_view->setGraphicsEffect(shadow);
+
+        // Initialize Laser Border Animation
+        const QRectF rect = scene->itemsBoundingRect();
+        QPainterPath laser_border_path;
+        laser_border_path.addRoundedRect(rect, 20, 20);
+
+        m_laser_path = new QGraphicsPathItem();
+        m_laser_path->setPath(laser_border_path);
+
+        QPen laser_pen(accent_qcolor, 3.0);
+        laser_pen.setCapStyle(Qt::RoundCap);
+        m_laser_path->setPen(laser_pen);
+        scene->addItem(m_laser_path);
+
+        // Laser Beam Animation
+        if (m_laser_anim)
+            m_laser_anim->stop();
+        m_laser_anim = new QVariantAnimation(this);
+        m_laser_anim->setDuration(3000);
+        m_laser_anim->setStartValue(0.0);
+        m_laser_anim->setEndValue(1.0);
+        m_laser_anim->setLoopCount(-1);
+
+        connect(m_laser_anim, &QVariantAnimation::valueChanged, this,
+                [this, laser_border_path](const QVariant& value) {
+                    if (!this->isVisible() || !m_laser_path)
+                        return;
+
+                    float progress = value.toFloat();
+                    float length = laser_border_path.length();
+                    float dash_len = length * 0.2f;
+
+                    QPen p = m_laser_path->pen();
+                    QVector<qreal> pattern;
+                    pattern << dash_len / p.width() << (length - dash_len) / p.width();
+                    p.setDashPattern(pattern);
+                    p.setDashOffset((length * progress) / p.width());
+                    m_laser_path->setPen(p);
+                });
+        m_laser_anim->start();
     }
 
     ui->display_filename->setText(QString::fromStdString(file->GetName()));
@@ -538,16 +715,20 @@ void ConfigurePerGame::LoadConfiguration() {
                         FileSys::XCI xci(file, title_id, 0);
                         if (xci.GetStatus() == Loader::ResultStatus::Success) {
                             auto program_nca = xci.GetNCAByType(FileSys::NCAContentType::Program);
-                            if (program_nca && program_nca->GetStatus() == Loader::ResultStatus::Success) {
+                            if (program_nca &&
+                                program_nca->GetStatus() == Loader::ResultStatus::Success) {
                                 auto exefs = program_nca->GetExeFS();
                                 if (exefs) {
                                     auto main_nso = exefs->GetFile("main");
                                     if (main_nso && main_nso->GetSize() >= 0x100) {
                                         std::array<u8, 0x100> header_data{};
-                                        if (main_nso->ReadBytes(header_data.data(), 0x100, 0) == 0x100) {
+                                        if (main_nso->ReadBytes(header_data.data(), 0x100, 0) ==
+                                            0x100) {
                                             std::array<u8, 0x20> build_id{};
-                                            std::memcpy(build_id.data(), header_data.data() + 0x40, 0x20);
-                                            base_build_id_hex = Common::HexToString(build_id, false);
+                                            std::memcpy(build_id.data(), header_data.data() + 0x40,
+                                                        0x20);
+                                            base_build_id_hex =
+                                                Common::HexToString(build_id, false);
                                         }
                                     }
                                 }
@@ -556,7 +737,8 @@ void ConfigurePerGame::LoadConfiguration() {
                     }
                 } catch (...) {
                     const auto& content_provider = system.GetContentProvider();
-                    auto base_nca = content_provider.GetEntry(title_id, FileSys::ContentRecordType::Program);
+                    auto base_nca =
+                        content_provider.GetEntry(title_id, FileSys::ContentRecordType::Program);
                     if (base_nca && base_nca->GetStatus() == Loader::ResultStatus::Success) {
                         auto exefs = base_nca->GetExeFS();
                         if (exefs) {
@@ -605,18 +787,20 @@ void ConfigurePerGame::LoadConfiguration() {
                     }
                 }
             }
-        } catch (...) {}
+        } catch (...) {
+        }
     }
 
     try {
         const FileSys::PatchManager pm_update{title_id, system.GetFileSystemController(),
-            system.GetContentProvider()};
+                                              system.GetContentProvider()};
 
         const auto update_version = pm_update.GetGameVersion();
         if (update_version.has_value() && update_version.value() > 0) {
             const auto& content_provider = system.GetContentProvider();
             const auto update_title_id = FileSys::GetUpdateTitleID(title_id);
-            auto update_nca = content_provider.GetEntry(update_title_id, FileSys::ContentRecordType::Program);
+            auto update_nca =
+                content_provider.GetEntry(update_title_id, FileSys::ContentRecordType::Program);
 
             if (update_nca && update_nca->GetStatus() == Loader::ResultStatus::Success) {
                 auto exefs = update_nca->GetExeFS();
@@ -637,7 +821,8 @@ void ConfigurePerGame::LoadConfiguration() {
         if (update_build_id_hex.empty()) {
             const auto& content_provider = system.GetContentProvider();
             const auto update_title_id = FileSys::GetUpdateTitleID(title_id);
-            auto update_nca = content_provider.GetEntry(update_title_id, FileSys::ContentRecordType::Program);
+            auto update_nca =
+                content_provider.GetEntry(update_title_id, FileSys::ContentRecordType::Program);
 
             if (update_nca && update_nca->GetStatus() == Loader::ResultStatus::Success) {
                 auto exefs = update_nca->GetExeFS();
@@ -663,7 +848,8 @@ void ConfigurePerGame::LoadConfiguration() {
                 }
             }
         }
-    } catch (...) {}
+    } catch (...) {
+    }
 
     if (system.IsPoweredOn()) {
         const auto& system_build_id = system.GetApplicationProcessBuildID();
@@ -712,11 +898,179 @@ void ConfigurePerGame::LoadConfiguration() {
     }
 }
 
-void ConfigurePerGame::resizeEvent(QResizeEvent* event) {
-    QDialog::resizeEvent(event);
+void ConfigurePerGame::UpdateLayoutScaling() {
+    const int h = height();
+
+    // Recursion guard and performance threshold
+    if (m_is_scaling || (m_last_height > 0 && std::abs(h - m_last_height) < 4)) {
+        return;
+    }
+    m_is_scaling = true;
+    m_last_height = h;
+
+    // Hybrid-Clamped scaling Model: Elements stop shrinking below 720p baseline.
+    // This allows scrollbars to take over at smaller sizes rather than breaking the UI.
+    const float factor = std::max(1.0f, h / 720.0f);
+
+    // 1. Dynamic Icon Sizing (160px baseline for 720p, capped at 256px to prevent blur)
+    int icon_size = std::min(256, static_cast<int>(160 * factor));
+    ui->icon_view->setFixedSize(icon_size, icon_size);
     if (scene && !scene->items().isEmpty()) {
         ui->icon_view->fitInView(scene->itemsBoundingRect(), Qt::KeepAspectRatio);
     }
+
+    int margin_side = static_cast<int>(20 * factor);
+    int margin_top = static_cast<int>(20 * factor);
+
+    // Use dampened scaling for spacing (0.4x) to keep UI compacted on high-res
+    const float dampened_factor = 1.0f + (factor - 1.0f) * 0.4f;
+    ui->info_layout->setSpacing(static_cast<int>(10 * dampened_factor));
+    ui->info_layout->setContentsMargins(margin_side, margin_top, margin_side, margin_side);
+
+    // Dynamic Distribution: fill unused UI void with dampened spacing
+    ui->properties_stack->setSpacing(static_cast<int>(8 * dampened_factor)); // Tightened from 12
+    ui->action_buttons_layout->setSpacing(static_cast<int>(10 * dampened_factor));
+
+    // Systematic Centering: Clear existing spacers and apply equal top/bottom pressure
+    for (int i = 0; i < ui->info_layout->count();) {
+        if (ui->info_layout->itemAt(i)->spacerItem()) {
+            ui->info_layout->removeItem(ui->info_layout->itemAt(i));
+        } else {
+            i++;
+        }
+    }
+    ui->info_layout->insertStretch(0, 1);
+    ui->info_layout->addStretch(1);
+    ui->info_layout->setAlignment(Qt::AlignCenter);
+
+    // 3. Middle Navigation Padding & Spacing (Robust Vertical Centering)
+    for (int i = 0; i < ui->tabButtonsLayout->count();) {
+        if (ui->tabButtonsLayout->itemAt(i)->spacerItem()) {
+            ui->tabButtonsLayout->removeItem(ui->tabButtonsLayout->itemAt(i));
+        } else {
+            i++;
+        }
+    }
+    ui->tabButtonsLayout->insertStretch(0, 1);
+    ui->tabButtonsLayout->addStretch(1);
+    ui->tabButtonsLayout->setAlignment(Qt::AlignCenter);
+    ui->tabButtonsLayout->setSpacing(static_cast<int>(24 * factor));
+    ui->tabButtonsLayout->setContentsMargins(0, 0, 0, 0);
+
+    // 4. Column Width Protection (Expanded for text safety)
+    int info_w = static_cast<int>(320 * factor);
+    int nav_w = static_cast<int>(180 * factor);
+
+    ui->scrollArea->setMaximumWidth(16777215);
+    ui->scrollArea->setFixedWidth(info_w);
+    ui->tabButtonsScrollArea->setMaximumWidth(16777215);
+    ui->tabButtonsScrollArea->setFixedWidth(nav_w);
+
+    // Use AsNeeded policy to prevent content clipping at 720p
+    const auto policy = Qt::ScrollBarAsNeeded;
+    ui->scrollArea->setVerticalScrollBarPolicy(policy);
+    ui->scrollArea->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    ui->tabButtonsScrollArea->setVerticalScrollBarPolicy(policy);
+    ui->tabButtonsScrollArea->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+
+    int title_font_size = static_cast<int>(14 * dampened_factor);
+    int tab_font_size = static_cast<int>(12 * dampened_factor);
+    // High-density compaction: small 8.5pt font and 24px height for action buttons
+    int action_font_size = static_cast<int>(8.5 * dampened_factor);
+    int action_btn_h = static_cast<int>(24 * dampened_factor);
+    int tab_btn_h = static_cast<int>(
+        44 * dampened_factor); // Increased to prevent descender clipping (e.g., 'p', 'g')
+
+    // Update Game Title (Strict centering and width protection)
+    ui->game_title_label->setMaximumWidth(static_cast<int>(280 * factor));
+    QFont title_font = ui->game_title_label->font();
+    title_font.setPointSize(title_font_size);
+    ui->game_title_label->setFont(title_font);
+    ui->game_title_label->setAlignment(Qt::AlignCenter);
+
+    // Position "View More Info" button (Overlaying the icon bottom-right)
+    if (ui->full_info_button) {
+        ui->full_info_button->setFixedSize(24, 24);
+
+        // Force circular shape via pixel mask (bypasses platform square-button constraints)
+        ui->full_info_button->setMask(QRegion(0, 0, 24, 24, QRegion::Ellipse));
+
+        if (ui->full_info_button->parentWidget() != ui->scrollAreaWidgetContents) {
+            ui->full_info_button->setParent(ui->scrollAreaWidgetContents);
+        }
+
+        // Map from the physical icon corner in the graphics scene to the UI layer
+        const QRectF icon_rect = scene->itemsBoundingRect();
+        const QPoint corner = ui->icon_view->mapTo(ui->scrollAreaWidgetContents, 
+                              ui->icon_view->mapFromScene(icon_rect.bottomRight()));
+
+        ui->full_info_button->move(corner.x() - 28, corner.y() - 28);
+        ui->full_info_button->show();
+        ui->full_info_button->raise();
+    }
+
+    // Update Tab Buttons
+    QFont nav_font = font();
+    nav_font.setPointSize(tab_font_size);
+    nav_font.setBold(true);
+
+    if (button_group) {
+        for (auto* btn : button_group->buttons()) {
+            if (auto* push_btn = qobject_cast<QPushButton*>(btn)) {
+                push_btn->setFont(nav_font);
+                push_btn->setFixedHeight(tab_btn_h);
+            }
+        }
+    }
+
+    // Update Action Buttons (Strict font isolation to prevent style leaks)
+    QFont action_font = font();
+    action_font.setPointSize(action_font_size);
+    action_font.setBold(false);
+
+    const auto setup_action_btn = [&](QPushButton* btn) {
+        if (!btn)
+            return;
+        btn->setFont(action_font);
+        btn->setMinimumSize(0, 0);
+        btn->setMaximumSize(16777215, action_btn_h);
+        btn->setFixedHeight(action_btn_h);
+        btn->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+    };
+
+    setup_action_btn(ui->trim_xci_button);
+    setup_action_btn(ui->share_settings_button);
+    setup_action_btn(ui->import_settings_button);
+
+    if (ui->buttonBox) {
+        for (auto* btn : ui->buttonBox->findChildren<QPushButton*>()) {
+            btn->setFont(nav_font);
+            btn->setFixedHeight(action_btn_h);
+        }
+    }
+
+    m_is_scaling = false;
+}
+
+void ConfigurePerGame::resizeEvent(QResizeEvent* event) {
+    QDialog::resizeEvent(event);
+    // De-bounce the layout update to avoid recursive layout loops
+    QTimer::singleShot(0, this, &ConfigurePerGame::UpdateLayoutScaling);
+}
+
+void ConfigurePerGame::showEvent(QShowEvent* event) {
+    QDialog::showEvent(event);
+    // Force a layout re-calculation after the widget is mapped to coordinates
+    QTimer::singleShot(50, this, [this]() {
+        UpdateLayoutScaling();
+        
+        // Instant electrification for the initially selected tab
+        if (button_group && button_group->checkedButton()) {
+            if (auto* btn = qobject_cast<QPushButton*>(button_group->checkedButton())) {
+                animation_filter->triggerInitialState(btn);
+            }
+        }
+    });
 }
 
 void ConfigurePerGame::OnTrimXCI() {
@@ -729,26 +1083,25 @@ void ConfigurePerGame::OnTrimXCI() {
     const std::string extension = filepath.extension().string();
     if (extension != ".xci" && extension != ".XCI") {
         QMessageBox::warning(this, tr("Trim XCI File"),
-                           tr("This feature only works with XCI files."));
+                             tr("This feature only works with XCI files."));
         return;
     }
 
     if (!std::filesystem::exists(filepath)) {
-        QMessageBox::warning(this, tr("Trim XCI File"),
-                           tr("The game file no longer exists."));
+        QMessageBox::warning(this, tr("Trim XCI File"), tr("The game file no longer exists."));
         return;
     }
 
     Common::XCITrimmer trimmer(filepath);
     if (!trimmer.IsValid()) {
         QMessageBox::warning(this, tr("Trim XCI File"),
-                           tr("Invalid XCI file or file cannot be read."));
+                             tr("Invalid XCI file or file cannot be read."));
         return;
     }
 
     if (!trimmer.CanBeTrimmed()) {
         QMessageBox::information(this, tr("Trim XCI File"),
-                                tr("This XCI file does not need to be trimmed."));
+                                 tr("This XCI file does not need to be trimmed."));
         return;
     }
 
@@ -756,13 +1109,14 @@ void ConfigurePerGame::OnTrimXCI() {
     const u64 data_size_mb = trimmer.GetDataSize() / (1024 * 1024);
     const u64 savings_mb = trimmer.GetDiskSpaceSavings() / (1024 * 1024);
 
-    const QString info_message = tr(
-        "XCI File Information:\n\n"
-        "Current Size: %1 MB\n"
-        "Data Size: %2 MB\n"
-        "Potential Savings: %3 MB\n\n"
-        "This will remove unused space from the XCI file."
-    ).arg(current_size_mb).arg(data_size_mb).arg(savings_mb);
+    const QString info_message = tr("XCI File Information:\n\n"
+                                    "Current Size: %1 MB\n"
+                                    "Data Size: %2 MB\n"
+                                    "Potential Savings: %3 MB\n\n"
+                                    "This will remove unused space from the XCI file.")
+                                     .arg(current_size_mb)
+                                     .arg(data_size_mb)
+                                     .arg(savings_mb);
 
     QMessageBox msgBox(this);
     msgBox.setWindowTitle(tr("Trim XCI File"));
@@ -789,8 +1143,7 @@ void ConfigurePerGame::OnTrimXCI() {
         const QString suggested_name = QDir(file_info.path()).filePath(new_filename);
 
         const QString output_filename = QFileDialog::getSaveFileName(
-            this, tr("Save Trimmed XCI File As"), suggested_name,
-            tr("NX Cartridge Image (*.xci)"));
+            this, tr("Save Trimmed XCI File As"), suggested_name, tr("NX Cartridge Image (*.xci)"));
 
         if (output_filename.isEmpty()) {
             return;
@@ -805,7 +1158,8 @@ void ConfigurePerGame::OnTrimXCI() {
     size_t last_total = 0;
     QString current_operation;
 
-    QProgressDialog progress_dialog(tr("Preparing to trim XCI file..."), tr("Cancel"), 0, 100, this);
+    QProgressDialog progress_dialog(tr("Preparing to trim XCI file..."), tr("Cancel"), 0, 100,
+                                    this);
     progress_dialog.setWindowTitle(tr("Trim XCI File"));
     progress_dialog.setWindowModality(Qt::WindowModal);
     progress_dialog.setMinimumDuration(0);
@@ -845,108 +1199,66 @@ void ConfigurePerGame::OnTrimXCI() {
         QCoreApplication::processEvents();
     };
 
-    auto cancel_callback = [&]() -> bool {
-        return progress_dialog.wasCanceled();
-    };
+    auto cancel_callback = [&]() -> bool { return progress_dialog.wasCanceled(); };
 
     const auto result = trimmer.Trim(progress_callback, cancel_callback, output_path);
     progress_dialog.close();
 
     if (result == Common::XCITrimmer::OperationOutcome::Successful) {
-        const QString success_message = is_save_as ?
-            tr("XCI file successfully trimmed and saved as:\n%1")
-                .arg(QString::fromStdString(output_path.string())) :
-            tr("XCI file successfully trimmed in-place!");
+        const QString success_message = is_save_as
+                                            ? tr("XCI file successfully trimmed and saved as:\n%1")
+                                                  .arg(QString::fromStdString(output_path.string()))
+                                            : tr("XCI file successfully trimmed in-place!");
 
         QMessageBox::information(this, tr("Trim XCI File"), success_message);
     } else {
-        const QString error_message = QString::fromStdString(
-            Common::XCITrimmer::GetOperationOutcomeString(result));
+        const QString error_message =
+            QString::fromStdString(Common::XCITrimmer::GetOperationOutcomeString(result));
         QMessageBox::warning(this, tr("Trim XCI File"),
-                           tr("Failed to trim XCI file:\n%1").arg(error_message));
+                             tr("Failed to trim XCI file:\n%1").arg(error_message));
     }
 }
 
 void ConfigurePerGame::AnimateTabSwitch(int id) {
-    if (m_is_tab_animating) {
+    if (ui->stackedWidget->currentIndex() == id) {
         return;
     }
 
-    QWidget* current_widget = ui->stackedWidget->currentWidget();
-    QWidget* next_widget = ui->stackedWidget->widget(id);
+    if (animation_filter && button_group) {
+        QPushButton* from_button = qobject_cast<QPushButton*>(button_group->button(ui->stackedWidget->currentIndex()));
+        QPushButton* to_button = qobject_cast<QPushButton*>(button_group->button(id));
 
-    if (current_widget == next_widget || !current_widget || !next_widget) {
-        return;
-    }
+        if (to_button) {
+            // Restore the sidebar "volt" animation
+            animation_filter->triggerElectrification(from_button, to_button);
 
-    const int duration = 350;
-
-    next_widget->setGeometry(0, 0, ui->stackedWidget->width(), ui->stackedWidget->height());
-    next_widget->move(0, 0);
-    next_widget->show();
-    next_widget->raise();
-
-    auto anim_old_pos = new QPropertyAnimation(current_widget, "pos");
-    anim_old_pos->setEndValue(QPoint(-ui->stackedWidget->width(), 0));
-    anim_old_pos->setDuration(duration);
-    anim_old_pos->setEasingCurve(QEasingCurve::InOutQuart);
-
-    auto anim_new_pos = new QPropertyAnimation(next_widget, "pos");
-    anim_new_pos->setStartValue(QPoint(ui->stackedWidget->width(), 0));
-    anim_new_pos->setEndValue(QPoint(0, 0));
-    anim_new_pos->setDuration(duration);
-    anim_new_pos->setEasingCurve(QEasingCurve::InOutQuart);
-
-    auto new_opacity_effect = new QGraphicsOpacityEffect(next_widget);
-    next_widget->setGraphicsEffect(new_opacity_effect);
-    auto anim_new_opacity = new QPropertyAnimation(new_opacity_effect, "opacity");
-    anim_new_opacity->setStartValue(0.0);
-    anim_new_opacity->setEndValue(1.0);
-    anim_new_opacity->setDuration(duration);
-    anim_new_opacity->setEasingCurve(QEasingCurve::InQuad);
-
-    auto animation_group = new QParallelAnimationGroup(this);
-    animation_group->addAnimation(anim_old_pos);
-    animation_group->addAnimation(anim_new_pos);
-    animation_group->addAnimation(anim_new_opacity);
-
-    connect(animation_group, &QAbstractAnimation::finished, this, [this, current_widget, next_widget, id]() {
-        ui->stackedWidget->setCurrentIndex(id);
-
-        next_widget->setGraphicsEffect(nullptr);
-        current_widget->hide();
-        current_widget->move(0, 0);
-
-        m_is_tab_animating = false; 
-        for (auto button : button_group->buttons()) {
-            button->setEnabled(true);
+            // Trigger the massive Thunderstrike on the right half of the properties window
+            animation_filter->triggerPageLightning(this, QPoint(width() * 0.75, 0));
         }
-    });
-
-    m_is_tab_animating = true; 
-    for (auto button : button_group->buttons()) {
-        button->setEnabled(false);
     }
-    animation_group->start(QAbstractAnimation::DeleteWhenStopped);
+
+    ui->stackedWidget->setCurrentIndex(id);
 }
 
 void ConfigurePerGame::OnShareSettings() {
     // Check if emulation is running
     if (system.IsPoweredOn()) {
-        QMessageBox::warning(this, tr("Emulation Running"),
-                             tr("Emulation is running! You cannot use this feature until the game is off."));
+        QMessageBox::warning(
+            this, tr("Emulation Running"),
+            tr("Emulation is running! You cannot use this feature until the game is off."));
         return;
     }
 
     QFileInfo file_info(QString::fromStdString(file_name));
     QString base_name = file_info.baseName();
     auto config_path = Common::FS::GetCitronPath(Common::FS::CitronPath::ConfigDir) / "custom";
-    QString default_path = QStringLiteral("%1/%2_shared.json").arg(
-        QString::fromStdString(config_path.string()), base_name);
+    QString default_path = QStringLiteral("%1/%2_shared.json")
+                               .arg(QString::fromStdString(config_path.string()), base_name);
 
     QString save_path = QFileDialog::getSaveFileName(this, tr("Share Settings Profile"),
                                                      default_path, tr("JSON Files (*.json)"));
-    if (save_path.isEmpty()) return;
+    if (save_path.isEmpty())
+        return;
 
     nlohmann::json profile;
     profile["metadata"]["title_id"] = fmt::format("{:016X}", title_id);
@@ -959,19 +1271,23 @@ void ConfigurePerGame::OnShareSettings() {
         if (auto* scroll = qobject_cast<QScrollArea*>(page)) {
             tab = qobject_cast<ConfigurationShared::Tab*>(scroll->widget());
         }
-        if (!tab) continue;
+        if (!tab)
+            continue;
 
         auto* button = qobject_cast<QPushButton*>(button_group->button(i));
-        if (!button) continue;
+        if (!button)
+            continue;
 
         QString tab_name = button->text();
         std::string section = (tab_name == tr("CPU")) ? "Cpu" : "Renderer";
-        if (tab_name != tr("CPU") && tab_name != tr("Graphics") && tab_name != tr("Adv. Graphics")) continue;
+        if (tab_name != tr("CPU") && tab_name != tr("Graphics") && tab_name != tr("Adv. Graphics"))
+            continue;
 
         auto widgets = tab->findChildren<ConfigurationShared::Widget*>();
         for (auto* w : widgets) {
             std::string label = w->GetSetting().GetLabel();
-            if (label == "renderer_force_max_clock") label = "force_max_clock";
+            if (label == "renderer_force_max_clock")
+                label = "force_max_clock";
 
             QString final_value;
             // Check for specific UI elements inside the wrapper
@@ -987,7 +1303,8 @@ void ConfigurePerGame::OnShareSettings() {
                 auto all_checks = w->findChildren<QCheckBox*>();
                 for (auto* cb : all_checks) {
                     if (!cb->toolTip().contains(tr("global"), Qt::CaseInsensitive)) {
-                        final_value = cb->isChecked() ? QStringLiteral("true") : QStringLiteral("false");
+                        final_value =
+                            cb->isChecked() ? QStringLiteral("true") : QStringLiteral("false");
                         break;
                     }
                 }
@@ -1000,11 +1317,11 @@ void ConfigurePerGame::OnShareSettings() {
         }
     }
 
-    #ifdef ARCHITECTURE_x86_64
+#ifdef ARCHITECTURE_x86_64
     profile["notes"]["cpu"] = Common::GetCPUCaps().cpu_string;
-    #else
+#else
     profile["notes"]["cpu"] = "Unknown CPU";
-    #endif
+#endif
 
     // Find the GPU name from the UI dropdown specifically
     for (int i = 0; i < ui->stackedWidget->count(); ++i) {
@@ -1027,7 +1344,8 @@ void ConfigurePerGame::OnShareSettings() {
                     if (!device_box) {
                         for (auto* cb : combos) {
                             QString txt = cb->currentText();
-                            // If the box contains a known GPU brand, it's definitely the device selector
+                            // If the box contains a known GPU brand, it's definitely the device
+                            // selector
                             if (txt.contains(QStringLiteral("NVIDIA"), Qt::CaseInsensitive) ||
                                 txt.contains(QStringLiteral("AMD"), Qt::CaseInsensitive) ||
                                 txt.contains(QStringLiteral("Intel"), Qt::CaseInsensitive) ||
@@ -1044,10 +1362,8 @@ void ConfigurePerGame::OnShareSettings() {
                     if (!device_box) {
                         for (auto* cb : combos) {
                             QString txt = cb->currentText();
-                            if (cb->count() > 0 &&
-                                txt != QStringLiteral("Vulkan") &&
-                                txt != QStringLiteral("GLSL") &&
-                                txt != QStringLiteral("SPIR-V") &&
+                            if (cb->count() > 0 && txt != QStringLiteral("Vulkan") &&
+                                txt != QStringLiteral("GLSL") && txt != QStringLiteral("SPIR-V") &&
                                 txt != QStringLiteral("Null")) {
                                 device_box = cb;
                                 break;
@@ -1075,8 +1391,9 @@ void ConfigurePerGame::OnShareSettings() {
 void ConfigurePerGame::OnUseSettings() {
     // Check if emulation is running
     if (system.IsPoweredOn()) {
-        QMessageBox::warning(this, tr("Emulation Running"),
-                             tr("Emulation is running! You cannot use this feature until the game is off."));
+        QMessageBox::warning(
+            this, tr("Emulation Running"),
+            tr("Emulation is running! You cannot use this feature until the game is off."));
         return;
     }
 
@@ -1084,11 +1401,16 @@ void ConfigurePerGame::OnUseSettings() {
     QString load_path = QFileDialog::getOpenFileName(this, tr("Use Settings Profile"),
                                                      QString::fromStdString(config_path.string()),
                                                      tr("JSON Files (*.json)"));
-    if (load_path.isEmpty()) return;
+    if (load_path.isEmpty())
+        return;
 
     std::ifstream config_file(load_path.toStdString());
     nlohmann::json profile;
-    try { config_file >> profile; } catch (...) { return; }
+    try {
+        config_file >> profile;
+    } catch (...) {
+        return;
+    }
 
     // --- HARDWARE MISMATCH CHECK ---
     if (profile.contains("notes")) {
@@ -1117,11 +1439,12 @@ void ConfigurePerGame::OnUseSettings() {
                          "Your current CPU: %4\n\n"
                          "Applying settings from a different GPU vendor (e.g., NVIDIA to AMD) "
                          "can cause crashes. Do you want to continue?")
-                         .arg(creator_cpu, creator_gpu, gpu_vendor, current_cpu);
+                          .arg(creator_cpu, creator_gpu, gpu_vendor, current_cpu);
 
         auto result = QMessageBox::question(this, tr("Hardware Info"), msg,
                                             QMessageBox::Yes | QMessageBox::No);
-        if (result == QMessageBox::No) return;
+        if (result == QMessageBox::No)
+            return;
     }
 
     int count = 0;
@@ -1138,7 +1461,8 @@ void ConfigurePerGame::OnUseSettings() {
         if (auto* scroll = qobject_cast<QScrollArea*>(page)) {
             tab = qobject_cast<ConfigurationShared::Tab*>(scroll->widget());
         }
-        if (!tab) continue;
+        if (!tab)
+            continue;
 
         auto widgets = tab->findChildren<ConfigurationShared::Widget*>();
         for (auto* w : widgets) {
@@ -1182,6 +1506,18 @@ void ConfigurePerGame::OnUseSettings() {
         }
     }
 
-    QMessageBox::information(this, tr("Import Successful"),
+    QMessageBox::information(
+        this, tr("Import Successful"),
         tr("Applied %1 settings to the UI. Click OK or Apply to save.").arg(count));
+}
+
+void ConfigurePerGame::OnFullInfo() {
+    QString info = tr("<b>Technical Information</b><br><br>");
+    info += tr("<b>Filename:</b> %1<br>").arg(ui->display_filename->text());
+    info += tr("<b>Format:</b> %1<br>").arg(ui->display_format->text());
+    info += tr("<b>Size:</b> %1<br>").arg(ui->display_size->text());
+    info += tr("<b>Base Build ID:</b> %1<br>").arg(ui->display_build_id->text());
+    info += tr("<b>Update Build ID:</b> %1<br>").arg(ui->display_update_build_id->text());
+
+    QMessageBox::information(this, tr("Game Information"), info);
 }

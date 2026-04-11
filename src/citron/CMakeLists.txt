@@ -54,6 +54,7 @@ add_executable(citron
     compatibility_list.h
     configuration/configuration_shared.cpp
     configuration/configuration_shared.h
+    configuration/configuration_styling.h
     configuration/configure.ui
     configuration/configure_applets.cpp
     configuration/configure_applets.h

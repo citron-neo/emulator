@@ -12,6 +12,9 @@
 #include <QDialog>
 #include <QList>
 #include <QPixmap>
+#include <QEvent>
+#include <QResizeEvent>
+#include <QShowEvent>
 
 #include "configuration/shared_widget.h"
 #include "core/file_sys/vfs/vfs_types.h"
@@ -23,7 +26,10 @@
 
 class QButtonGroup;
 class QGraphicsScene;
+class QGraphicsPathItem;
+class QVariantAnimation;
 class QTimer;
+class StyleAnimationEventFilter;
 
 namespace Core {
 class System;
@@ -64,10 +70,12 @@ public slots:
     void OnTrimXCI();
     void OnShareSettings();
     void OnUseSettings();
+    void OnFullInfo();
 
 protected:
     void changeEvent(QEvent* event) override;
     void resizeEvent(QResizeEvent* event) override;
+    void showEvent(QShowEvent* event) override;
 
 private slots:
     void AnimateTabSwitch(int id);
@@ -103,8 +111,15 @@ private:
     std::unique_ptr<ConfigureInputPerGame> input_tab;
     std::unique_ptr<ConfigureLinuxTab> linux_tab;
     std::unique_ptr<ConfigureSystem> system_tab;
+    void UpdateLayoutScaling();
+    StyleAnimationEventFilter* animation_filter{nullptr};
     QTimer* rainbow_timer{nullptr};
 
     QButtonGroup* button_group;
     QPixmap map;
+    float current_factor{0.0f};
+    bool m_is_scaling{false};
+    int m_last_height{0};
+    QGraphicsPathItem* m_laser_path{nullptr};
+    QVariantAnimation* m_laser_anim{nullptr};
 };
