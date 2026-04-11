@@ -589,7 +589,40 @@ endif()
 
 if (WIN32 AND QT_VERSION VERSION_GREATER_EQUAL 6)
     set(CITRON_EXE_DIR "$<TARGET_FILE_DIR:citron>")
-    add_custom_command(TARGET citron POST_BUILD COMMAND ${WINDEPLOYQT_EXECUTABLE} "${CITRON_EXE_DIR}/citron.exe" --dir "${CITRON_EXE_DIR}" --libdir "${CITRON_EXE_DIR}" --plugindir "${CITRON_EXE_DIR}/plugins" --no-compiler-runtime --no-opengl-sw --no-system-d3d-compiler --no-translations --verbose 0)
+
+    if (MSVC)
+        # Locate windeployqt from the Qt6 tools directory (bundled Qt).
+        # Under MSVC with CITRON_USE_BUNDLED_QT=ON, Qt6 is in build/externals/qt/.
+        find_program(WINDEPLOYQT_EXECUTABLE
+            NAMES windeployqt6 windeployqt
+            HINTS "${Qt6_DIR}/../../../bin"
+            NO_DEFAULT_PATH
+        )
+        if (WINDEPLOYQT_EXECUTABLE)
+            add_custom_command(TARGET citron POST_BUILD
+                COMMAND ${WINDEPLOYQT_EXECUTABLE}
+                    "${CITRON_EXE_DIR}/citron.exe"
+                    --dir "${CITRON_EXE_DIR}"
+                    --libdir "${CITRON_EXE_DIR}"
+                    --plugindir "${CITRON_EXE_DIR}/plugins"
+                    --no-compiler-runtime
+                    --no-opengl-sw
+                    --no-system-d3d-compiler
+                    --no-translations
+                    --verbose 0
+                COMMENT "Running windeployqt for MSVC build"
+            )
+        else()
+            message(WARNING "windeployqt6 not found. Qt plugins will not be deployed automatically.")
+        endif()
+    else()
+        # MinGW: windeployqt is unreliable in CI environments and conflicts with
+        # CopyMinGWDeps.cmake which handles both DLLs and plugins (platforms, TLS,
+        # imageformats, styles) directly from /ucrt64/share/qt6/plugins/.
+        # Do not run windeployqt here to avoid double-deployment and potential
+        # DLL version conflicts between Qt's bundled GCC runtime and MSYS2's.
+        message(STATUS "MinGW build: Qt plugins deployed by CopyMinGWDeps.cmake")
+    endif()
 
     # Create the "user" directory for portable mode
     add_custom_command(TARGET citron POST_BUILD
