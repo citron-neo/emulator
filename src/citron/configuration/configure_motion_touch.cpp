@@ -85,7 +85,7 @@ ConfigureMotionTouch::ConfigureMotionTouch(QWidget* parent,
     ui->udp_learn_more->setOpenExternalLinks(true);
     ui->udp_learn_more->setText(
         tr("<a "
-           "href='https://discord.gg/citron'><span "
+           "href='https://discord.gg/axqZFEyzPQ'><span "
            "style=\"text-decoration: underline; color:#039be5;\">Get Support</span></a>"));
 
     SetConfiguration();

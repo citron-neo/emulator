@@ -4248,7 +4248,7 @@ void GMainWindow::OnOpenSupport() {
                                   QMessageBox::Yes | QMessageBox::No, QMessageBox::Yes);
 
         if (second_warning == QMessageBox::Yes) {
-            OpenURL(QUrl(QStringLiteral("https://discord.gg/citron")));
+            OpenURL(QUrl(QStringLiteral("https://discord.gg/axqZFEyzPQ")));
         }
     }
 }
