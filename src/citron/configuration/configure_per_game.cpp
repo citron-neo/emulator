@@ -387,8 +387,8 @@ void ConfigurePerGame::UpdateTheme() {
             "#label_console_hints { color: #888888; font-size: 11px; margin-top: 10px; }"
             "QToolButton#full_info_button { background: #0d0d12; color: #ffffff; border: none; "
             "font-weight: bold; font-family: 'Times New Roman', serif; font-size: 14px; }"
-            "QToolButton#full_info_button:hover { background: %3; }")
-            .arg(d_txt, bg, accent);
+            "QToolButton#full_info_button:hover { background: %1; }")
+            .arg(accent);
     addons_tab->UpdateTheme();
 
     setStyleSheet(final_style);

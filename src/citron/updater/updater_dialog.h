@@ -44,6 +44,7 @@ namespace Updater {
         enum class State { Checking, NoUpdate, UpdateAvailable, Downloading, Installing, Completed, Error };
 
         void UpdateTheme();
+        void SetupHUD(bool update_mode);
         void SetupUI();
         void ShowCheckingState();
         void ShowNoUpdateState(const Updater::UpdateInfo& update_info);

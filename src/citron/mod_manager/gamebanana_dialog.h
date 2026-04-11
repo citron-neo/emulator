@@ -39,6 +39,7 @@ private:
     void StartDownload(const GameBananaMod& mod);
     void FinishDownload(const QString& file_path);
     void OpenModFolder(const QString& path);
+    void UpdateTheme();
 
     std::unique_ptr<Ui::GameBananaDialog> ui;
     GameBananaService* service;

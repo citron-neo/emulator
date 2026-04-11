@@ -244,8 +244,9 @@ void UpdaterDialog::SetupUI() {
         setFixedSize(520, 350);
     }
 
-    // Kill the ghost title causing the overlap
+    // Kill ghost titles causing overlaps
     ui->updateInfoGroup->setTitle(QString());
+    ui->changelogGroup->setTitle(QString());
 
     // Global Alignment & Centering
     ui->titleLabel->setAlignment(Qt::AlignCenter);
@@ -265,24 +266,7 @@ void UpdaterDialog::SetupUI() {
     ui->verticalLayout->insertStretch(0, 100);
     ui->verticalLayout->insertStretch(ui->verticalLayout->count() - 1, 100);
 
-    // RECONSTRUCT INFO GROUP AS STACKED HUD
-    delete ui->updateInfoGroup->layout();
-    QVBoxLayout* info_layout = new QVBoxLayout(ui->updateInfoGroup);
-    info_layout->setContentsMargins(0, 0, 0, 0);
-    info_layout->setSpacing(8);
-    info_layout->setAlignment(Qt::AlignCenter);
-
-    auto add_hud_pair = [&](QLabel* label, QLabel* val) {
-        label->setAlignment(Qt::AlignCenter);
-        val->setAlignment(Qt::AlignCenter);
-        info_layout->addWidget(label);
-        info_layout->addWidget(val);
-        info_layout->addSpacing(15);
-    };
-
-    add_hud_pair(ui->currentVersionLabel, ui->currentVersionValue);
-    add_hud_pair(ui->latestVersionLabel, ui->latestVersionValue);
-    add_hud_pair(ui->releaseDateLabel, ui->releaseDateValue);
+    SetupHUD(false);
 
     ui->currentVersionValue->setText(QString::fromStdString(updater_service->GetCurrentVersion()));
     ui->appImageSelectorLabel->setVisible(false);
@@ -304,6 +288,9 @@ void UpdaterDialog::ShowCheckingState() {
     ui->cancelButton->setText(QStringLiteral("Cancel"));
     ui->appImageSelectorLabel->setVisible(false);
     ui->appImageSelector->setVisible(false);
+
+    setFixedSize(520, 350);
+    ui->verticalLayout->setContentsMargins(0, 35, 15, 15);
 }
 
 void UpdaterDialog::ShowNoUpdateState(const Updater::UpdateInfo& update_info) {
@@ -324,6 +311,14 @@ void UpdaterDialog::ShowNoUpdateState(const Updater::UpdateInfo& update_info) {
     ui->restartButton->setVisible(false);
     ui->appImageSelectorLabel->setVisible(false);
     ui->appImageSelector->setVisible(false);
+
+    setFixedSize(520, 350);
+    ui->verticalLayout->setContentsMargins(0, 35, 15, 15);
+    ui->verticalLayout->setSpacing(10);
+    ui->verticalLayout->setStretch(0, 100);
+    ui->verticalLayout->setStretch(ui->verticalLayout->count() - 1, 100);
+
+    SetupHUD(false);
 }
 
 void UpdaterDialog::ShowUpdateAvailableState() {
@@ -366,6 +361,16 @@ void UpdaterDialog::ShowUpdateAvailableState() {
     ui->closeButton->setVisible(false);
     ui->restartButton->setVisible(false);
     ui->cancelButton->setText(QStringLiteral("Later"));
+
+    SetupHUD(true);
+
+    setFixedSize(600, 480);
+    ui->verticalLayout->setContentsMargins(15, 20, 15, 15);
+    ui->verticalLayout->setSpacing(10);
+    
+    // Adjust stretches to give changelog more priority while protecting the HUD
+    ui->verticalLayout->setStretch(0, 10); // Top stretch
+    ui->verticalLayout->setStretch(ui->verticalLayout->count() - 1, 10); // Bottom stretch
 }
 
 void UpdaterDialog::ShowDownloadingState() {
@@ -387,6 +392,9 @@ void UpdaterDialog::ShowDownloadingState() {
     ui->appImageSelectorLabel->setVisible(false);
     ui->appImageSelector->setVisible(false);
     progress_timer->start();
+
+    setFixedSize(520, 400);
+    ui->verticalLayout->setContentsMargins(0, 35, 15, 15);
 }
 
 void UpdaterDialog::ShowInstallingState() {
@@ -562,6 +570,58 @@ void UpdaterDialog::UpdateTheme() {
             .arg(bg, sub_txt, txt, border, accent, panel);
 
     setStyleSheet(style);
+}
+
+void UpdaterDialog::SetupHUD(bool update_mode) {
+    if (ui->updateInfoGroup->layout()) {
+        delete ui->updateInfoGroup->layout();
+    }
+
+    QVBoxLayout* info_layout = new QVBoxLayout(ui->updateInfoGroup);
+    info_layout->setContentsMargins(0, 0, 0, 0);
+    info_layout->setSpacing(update_mode ? 12 : 8);
+    info_layout->setAlignment(Qt::AlignCenter);
+
+    auto add_hud_pair_vertical = [&](QLabel* label, QLabel* val, QVBoxLayout* layout) {
+        label->setAlignment(Qt::AlignCenter);
+        val->setAlignment(Qt::AlignCenter);
+        layout->addWidget(label);
+        layout->addWidget(val);
+    };
+
+    if (update_mode) {
+        // Horizontal Mode: [Current] | [Latest]
+        QHBoxLayout* version_row = new QHBoxLayout();
+        version_row->setSpacing(25);
+        version_row->setAlignment(Qt::AlignCenter);
+
+        QVBoxLayout* current_col = new QVBoxLayout();
+        current_col->setSpacing(2);
+        add_hud_pair_vertical(ui->currentVersionLabel, ui->currentVersionValue, current_col);
+        
+        QVBoxLayout* latest_col = new QVBoxLayout();
+        latest_col->setSpacing(2);
+        add_hud_pair_vertical(ui->latestVersionLabel, ui->latestVersionValue, latest_col);
+
+        version_row->addLayout(current_col);
+        version_row->addLayout(latest_col);
+        info_layout->addLayout(version_row);
+        
+        info_layout->addSpacing(5);
+        add_hud_pair_vertical(ui->releaseDateLabel, ui->releaseDateValue, info_layout);
+    } else {
+        // Vertical Mode (Default)
+        auto add_hud_pair = [&](QLabel* label, QLabel* val) {
+            label->setAlignment(Qt::AlignCenter);
+            val->setAlignment(Qt::AlignCenter);
+            info_layout->addWidget(label);
+            info_layout->addWidget(val);
+            info_layout->addSpacing(15);
+        };
+        add_hud_pair(ui->currentVersionLabel, ui->currentVersionValue);
+        add_hud_pair(ui->latestVersionLabel, ui->latestVersionValue);
+        add_hud_pair(ui->releaseDateLabel, ui->releaseDateValue);
+    }
 }
 
 } // namespace Updater
