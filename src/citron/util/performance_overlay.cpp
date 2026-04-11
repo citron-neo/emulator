@@ -334,40 +334,58 @@ void PerformanceOverlay::UpdateHardwareTemperatures() {
 #endif
 
 #if defined(Q_OS_WIN)
-    HRESULT hres;
-    IWbemLocator* pLoc = nullptr;
-    IWbemServices* pSvc = nullptr;
-    hres = CoCreateInstance(CLSID_WbemLocator, 0, CLSCTX_INPROC_SERVER, IID_IWbemLocator, (LPVOID*)&pLoc);
-    if (SUCCEEDED(hres)) {
-        hres = pLoc->ConnectServer(_bstr_t(L"ROOT\\WMI"), NULL, NULL, 0, 0, 0, 0, &pSvc);
+    // CoInitializeEx must be called on this thread before using any COM/WMI APIs.
+    // Without it, CoCreateInstance corrupts the heap under MinGW's GCC runtime,
+    // which manifests as a c0000374 heap corruption crash when the emulation threads
+    // start and their GCC TLS (_emutls_get_address) calls malloc on the dirty heap.
+    // COINIT_APARTMENTTHREADED matches Qt's COM apartment model on Windows.
+    // S_FALSE means COM was already initialised on this thread — both S_OK and
+    // S_FALSE are success codes and must both be followed by CoUninitialize().
+    const HRESULT co_init_hr = CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
+    const bool co_init_ok = SUCCEEDED(co_init_hr);
+
+    if (co_init_ok) {
+        HRESULT hres;
+        IWbemLocator* pLoc = nullptr;
+        IWbemServices* pSvc = nullptr;
+        hres = CoCreateInstance(CLSID_WbemLocator, 0, CLSCTX_INPROC_SERVER, IID_IWbemLocator, (LPVOID*)&pLoc);
         if (SUCCEEDED(hres)) {
-            hres = CoSetProxyBlanket(pSvc, RPC_C_AUTHN_WINNT, RPC_C_AUTHZ_NONE, NULL,
-                                     RPC_C_AUTHN_LEVEL_CALL, RPC_C_IMP_LEVEL_IMPERSONATE, NULL, EOAC_NONE);
+            hres = pLoc->ConnectServer(_bstr_t(L"ROOT\\WMI"), NULL, NULL, 0, 0, 0, 0, &pSvc);
             if (SUCCEEDED(hres)) {
-                IEnumWbemClassObject* pEnumerator = nullptr;
-                hres = pSvc->ExecQuery(bstr_t("WQL"), bstr_t("SELECT * FROM MSAcpi_ThermalZoneTemperature"),
-                                       WBEM_FLAG_FORWARD_ONLY | WBEM_FLAG_RETURN_IMMEDIATELY, NULL, &pEnumerator);
+                hres = CoSetProxyBlanket(pSvc, RPC_C_AUTHN_WINNT, RPC_C_AUTHZ_NONE, NULL,
+                                         RPC_C_AUTHN_LEVEL_CALL, RPC_C_IMP_LEVEL_IMPERSONATE, NULL, EOAC_NONE);
                 if (SUCCEEDED(hres)) {
-                    IWbemClassObject* pclsObj = nullptr;
-                    ULONG uReturn = 0;
-                    while (pEnumerator) {
-                        pEnumerator->Next(WBEM_INFINITE, 1, &pclsObj, &uReturn);
-                        if (uReturn == 0) break;
-                        VARIANT vtProp;
-                        pclsObj->Get(L"CurrentTemperature", 0, &vtProp, 0, 0);
-                        float temp_kelvin = vtProp.uintVal / 10.0f;
-                        cpu_temperature = temp_kelvin - 273.15f;
-                        cpu_sensor_type = QStringLiteral("CPU");
-                        VariantClear(&vtProp);
-                        pclsObj->Release();
+                    IEnumWbemClassObject* pEnumerator = nullptr;
+                    hres = pSvc->ExecQuery(bstr_t("WQL"), bstr_t("SELECT * FROM MSAcpi_ThermalZoneTemperature"),
+                                           WBEM_FLAG_FORWARD_ONLY | WBEM_FLAG_RETURN_IMMEDIATELY, NULL, &pEnumerator);
+                    if (SUCCEEDED(hres)) {
+                        IWbemClassObject* pclsObj = nullptr;
+                        ULONG uReturn = 0;
+                        while (pEnumerator) {
+                            pEnumerator->Next(WBEM_INFINITE, 1, &pclsObj, &uReturn);
+                            if (uReturn == 0) break;
+                            VARIANT vtProp;
+                            pclsObj->Get(L"CurrentTemperature", 0, &vtProp, 0, 0);
+                            float temp_kelvin = vtProp.uintVal / 10.0f;
+                            cpu_temperature = temp_kelvin - 273.15f;
+                            cpu_sensor_type = QStringLiteral("CPU");
+                            VariantClear(&vtProp);
+                            pclsObj->Release();
+                        }
+                        pEnumerator->Release();
                     }
-                    pEnumerator->Release();
                 }
             }
         }
+        if (pSvc) pSvc->Release();
+        if (pLoc) pLoc->Release();
+
+        // Pair every successful CoInitializeEx with CoUninitialize.
+        // This is critical: failing to uninitialize leaks the COM apartment and
+        // leaves internal COM heap structures in an inconsistent state that can
+        // corrupt allocations made by other threads in the process.
+        CoUninitialize();
     }
-    if(pSvc) pSvc->Release();
-    if(pLoc) pLoc->Release();
 #endif
 }
 
