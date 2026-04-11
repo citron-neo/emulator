@@ -534,6 +534,8 @@ QString UpdaterDialog::GetUpdateMessage(Updater::UpdaterService::UpdateResult re
         return QStringLiteral("The downloaded update archive is invalid.");
     case Updater::UpdaterService::UpdateResult::NoUpdateAvailable:
         return QStringLiteral("No update is available.");
+    default:
+        return QStringLiteral("An unexpected error occurred during the update process.");
     }
 }
 

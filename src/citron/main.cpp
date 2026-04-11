@@ -5862,6 +5862,23 @@ void GMainWindow::UpdateGPUAccuracyButton() {
         ConfigurationShared::gpu_accuracy_texts_map.find(gpu_accuracy)->second;
     gpu_accuracy_button->setText(gpu_accuracy_text.toUpper());
     gpu_accuracy_button->setChecked(gpu_accuracy != Settings::GpuAccuracy::Normal);
+
+    QString color;
+    switch (gpu_accuracy) {
+    case Settings::GpuAccuracy::Low:
+        color = QStringLiteral("#c6ff00"); // Yellowish Green
+        break;
+    case Settings::GpuAccuracy::High:
+    case Settings::GpuAccuracy::Extreme:
+        color = QStringLiteral("#ff4500"); // Reddish Orange
+        break;
+    case Settings::GpuAccuracy::Normal:
+    default:
+        color = QStringLiteral("#34dd34"); // Green
+        break;
+    }
+    gpu_accuracy_button->setStyleSheet(
+        QStringLiteral("QPushButton { color: %1; }").arg(color));
 }
 
 void GMainWindow::UpdateDockedButton() {
