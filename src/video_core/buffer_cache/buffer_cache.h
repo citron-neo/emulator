@@ -76,133 +76,20 @@ BufferCache<P>::~BufferCache() = default;
 
 template <class P>
 void BufferCache<P>::RunGarbageCollector() {
-    const auto gc_level = Settings::values.gc_aggressiveness.GetValue();
-    if (gc_level == Settings::GCAggressiveness::Off) {
-        return;
-    }
-
-    if (last_gc_frame != frame_tick) {
-        gc_runs_this_frame = 0;
-        emergency_gc_triggered = false;
-        last_gc_frame = frame_tick;
-    }
-
-    static constexpr u32 MAX_GC_RUNS_PER_FRAME = 2;
-    if (gc_runs_this_frame >= MAX_GC_RUNS_PER_FRAME) {
-        return;
-    }
-    ++gc_runs_this_frame;
-
     const bool aggressive_gc = total_used_memory >= critical_memory;
-    const bool emergency_gc = !emergency_gc_triggered &&
-        total_used_memory >= static_cast<u64>(static_cast<f32>(vram_limit_bytes) * BUFFER_VRAM_CRITICAL_THRESHOLD);
-
-    const u64 eviction_frames_setting = Settings::values.buffer_eviction_frames.GetValue();
-
-    // Auto-tune eviction frames based on VRAM pressure when set to 0
-    u64 eviction_frames = eviction_frames_setting;
-    if (eviction_frames == 0) {
-        if (vram_limit_bytes == 0) {
-            eviction_frames = 10;
-        } else {
-            const f32 usage_ratio = static_cast<f32>(total_used_memory) / static_cast<f32>(vram_limit_bytes);
-            if (usage_ratio > 0.90f) {
-                eviction_frames = 1;
-            } else if (usage_ratio > 0.75f) {
-                eviction_frames = 3;
-            } else if (usage_ratio > 0.50f) {
-                eviction_frames = 5;
-            } else {
-                eviction_frames = 10;
-            }
-        }
-    }
-
-    u64 base_ticks = eviction_frames;
-    int base_iterations = 32;
-
-    switch (gc_level) {
-    case Settings::GCAggressiveness::Light:
-    default:
-        base_ticks = eviction_frames * 2;
-        base_iterations = 16;
-        break;
-    }
-
-    u64 ticks_to_destroy;
-    int num_iterations;
-
-    if (emergency_gc) {
-        ticks_to_destroy = 1;
-        num_iterations = base_iterations * 4;
-        emergency_gc_triggered = true;
-
-        // Avoid log spam when emergency GC is triggered every frame.
-        static constexpr u64 EMERGENCY_GC_LOG_INTERVAL_FRAMES = 120;
-        static constexpr u64 EMERGENCY_GC_LOG_USAGE_DELTA = 64_MiB;
-        const bool interval_elapsed =
-            frame_tick >= (last_emergency_gc_log_frame + EMERGENCY_GC_LOG_INTERVAL_FRAMES);
-        const u64 usage_delta = total_used_memory > last_emergency_gc_log_usage
-                                    ? total_used_memory - last_emergency_gc_log_usage
-                                    : last_emergency_gc_log_usage - total_used_memory;
-        const bool usage_changed = usage_delta >= EMERGENCY_GC_LOG_USAGE_DELTA;
-
-        if (interval_elapsed || usage_changed || !was_in_emergency_gc) {
-            LOG_WARNING(
-                Render_Vulkan,
-                "Buffer cache emergency GC: usage={}MB, limit={}MB, suppressed_logs={}",
-                total_used_memory / 1_MiB, vram_limit_bytes / 1_MiB, emergency_gc_logs_suppressed);
-            last_emergency_gc_log_frame = frame_tick;
-            last_emergency_gc_log_usage = total_used_memory;
-            emergency_gc_logs_suppressed = 0;
-        } else {
-            ++emergency_gc_logs_suppressed;
-        }
-    } else if (aggressive_gc) {
-        ticks_to_destroy = std::max(1ULL, static_cast<unsigned long long>(base_ticks / 2));
-        num_iterations = base_iterations * 2;
-    } else {
-        ticks_to_destroy = base_ticks;
-        num_iterations = base_iterations;
-    }
-
-    if (!emergency_gc && was_in_emergency_gc && emergency_gc_logs_suppressed > 0) {
-        LOG_INFO(Render_Vulkan, "Buffer cache emergency GC recovered; suppressed {} repeated logs",
-                 emergency_gc_logs_suppressed);
-        emergency_gc_logs_suppressed = 0;
-    }
-    was_in_emergency_gc = emergency_gc;
-
-    u64 bytes_freed = 0;
-    const auto clean_up = [this, &num_iterations, &bytes_freed](BufferId buffer_id) {
+    const u64 ticks_to_destroy = aggressive_gc ? 60 : 120;
+    int num_iterations = aggressive_gc ? 64 : 32;
+    const auto clean_up = [this, &num_iterations](BufferId buffer_id) {
         if (num_iterations == 0) {
             return true;
         }
         --num_iterations;
         auto& buffer = slot_buffers[buffer_id];
-        const u64 buffer_size = buffer.SizeBytes();
-
         DownloadBufferMemory(buffer);
         DeleteBuffer(buffer_id);
-
-        bytes_freed += buffer_size;
-        --buffer_count;
-        if (buffer_size >= LARGE_BUFFER_THRESHOLD) {
-            large_buffer_memory -= buffer_size;
-            --large_buffer_count;
-        }
         return false;
     };
     lru_cache.ForEachItemBelow(frame_tick - ticks_to_destroy, clean_up);
-
-    evicted_buffer_bytes += bytes_freed;
-
-    // FIXED: VRAM leak prevention - Log buffer eviction if enabled
-    if (Settings::values.log_vram_usage.GetValue() && bytes_freed > 0) {
-        LOG_INFO(Render_Vulkan, "Buffer GC: evicted {}MB, total={}MB, usage={}MB/{}MB",
-                 bytes_freed / 1_MiB, evicted_buffer_bytes / 1_MiB, total_used_memory / 1_MiB,
-                 vram_limit_bytes / 1_MiB);
-    }
 }
 
 template <class P>
@@ -230,20 +117,12 @@ void BufferCache<P>::TickFrame() {
     const bool skip_preferred = hits * 256 < shots * 251;
     channel_state->uniform_buffer_skip_cache_size = skip_preferred ? DEFAULT_SKIP_CACHE_SIZE : 0;
 
-    // If we can obtain the memory info, use it instead of the estimate.
     if (runtime.CanReportMemoryUsage()) {
         total_used_memory = runtime.GetDeviceMemoryUsage();
     }
-
-    const auto gc_level = Settings::values.gc_aggressiveness.GetValue();
-    const bool should_gc = gc_level != Settings::GCAggressiveness::Off &&
-                           (total_used_memory >= minimum_memory ||
-                            total_used_memory >= static_cast<u64>(static_cast<f32>(vram_limit_bytes) * BUFFER_VRAM_WARNING_THRESHOLD));
-
-    if (should_gc) {
+    if (total_used_memory >= minimum_memory) {
         RunGarbageCollector();
     }
-
     ++frame_tick;
     delayed_destruction_ring.Tick();
 

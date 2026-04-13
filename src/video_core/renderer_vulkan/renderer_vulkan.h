@@ -86,10 +86,6 @@ private:
     std::optional<TurboMode> turbo_mode;
     VideoCore::FrameSkipping frame_skipping;
 
-    u64 last_emergency_gc_frame = 0;
-    u64 composite_frame_count = 0;
-    static constexpr u64 EMERGENCY_GC_COOLDOWN_FRAMES = 10;
-
     Frame applet_frame;
 };
 

@@ -126,122 +126,41 @@ TextureCache<P>::TextureCache(Runtime& runtime_, Tegra::MaxwellDeviceMemoryManag
 
 template <class P>
 void TextureCache<P>::RunGarbageCollector() {
-    const auto gc_level = Settings::values.gc_aggressiveness.GetValue();
-    if (gc_level == Settings::GCAggressiveness::Off) {
-        return;
-    }
-
-    if (last_gc_frame != frame_tick) {
-        evicted_this_frame = 0;
-        gc_runs_this_frame = 0;
-        last_gc_frame = frame_tick;
-    }
-
-    static constexpr u32 MAX_GC_RUNS_PER_FRAME = 2;
-    if (gc_runs_this_frame >= MAX_GC_RUNS_PER_FRAME) {
-        return;
-    }
-    ++gc_runs_this_frame;
-
     bool high_priority_mode = false;
     bool aggressive_mode = false;
-    bool emergency_mode = false;
     u64 ticks_to_destroy = 0;
     size_t num_iterations = 0;
-    u64 bytes_freed = 0;
 
-    const u64 eviction_frames_setting = Settings::values.texture_eviction_frames.GetValue();
-    const bool sparse_priority = Settings::values.sparse_texture_priority_eviction.GetValue();
-
-    // Auto-tune eviction frames based on VRAM pressure when set to 0
-    const auto ComputeEvictionFrames = [&]() -> u64 {
-        if (eviction_frames_setting != 0) {
-            return eviction_frames_setting;
-        }
-        if (vram_limit_bytes == 0) {
-            return 6;
-        }
-        const f32 usage_ratio = static_cast<f32>(total_used_memory) / static_cast<f32>(vram_limit_bytes);
-        if (usage_ratio > 0.90f) {
-            return 1;
-        } else if (usage_ratio > 0.75f) {
-            return 2;
-        } else if (usage_ratio > 0.50f) {
-            return 3;
-        }
-        return 6;
-    };
-    const u64 eviction_frames = ComputeEvictionFrames();
-
-    const auto Configure = [&](bool allow_aggressive, bool allow_emergency) {
+    const auto Configure = [&](bool allow_aggressive) {
         high_priority_mode = total_used_memory >= expected_memory;
         aggressive_mode = allow_aggressive && total_used_memory >= critical_memory;
-        emergency_mode = allow_emergency && total_used_memory >= static_cast<u64>(static_cast<f32>(vram_limit_bytes) * VRAM_USAGE_EMERGENCY_THRESHOLD);
-
-        u64 base_ticks = eviction_frames;
-        size_t base_iterations = 10;
-
-        switch (gc_level) {
-        case Settings::GCAggressiveness::Light:
-        default:
-            base_ticks = eviction_frames * 2;
-            base_iterations = 5;
-            break;
-        }
-
-        if (emergency_mode) {
-            ticks_to_destroy = 1;
-            num_iterations = base_iterations * 4;
-        } else if (aggressive_mode) {
-            ticks_to_destroy = std::max(1ULL, static_cast<unsigned long long>(base_ticks / 2));
-            num_iterations = base_iterations * 2;
-        } else if (high_priority_mode) {
-            ticks_to_destroy = base_ticks;
-            num_iterations = static_cast<size_t>(static_cast<double>(base_iterations) * 1.5);
-        } else {
-            ticks_to_destroy = base_ticks * 2;
-            num_iterations = base_iterations;
-        }
+        ticks_to_destroy = aggressive_mode ? 10ULL : high_priority_mode ? 25ULL : 50ULL;
+        num_iterations = aggressive_mode ? 40 : (high_priority_mode ? 20 : 10);
     };
 
-    const auto Cleanup = [this, &num_iterations, &high_priority_mode, &aggressive_mode,
-                          &emergency_mode, &bytes_freed, sparse_priority](ImageId image_id) {
+    const auto Cleanup = [this, &num_iterations, &high_priority_mode,
+                          &aggressive_mode](ImageId image_id) {
         if (num_iterations == 0) {
             return true;
         }
         --num_iterations;
         auto& image = slot_images[image_id];
 
-        // Skip images being decoded
         if (True(image.flags & ImageFlagBits::IsDecoding)) {
             return false;
         }
 
-        // FIXED: Android Adreno 740 native ASTC eviction
-        // Prioritize sparse textures if enabled
-        const bool is_sparse = True(image.flags & ImageFlagBits::Sparse);
-        // Use compressed size for eviction on Android with native ASTC support
-        const u64 image_size = use_compressed_eviction
-            ? image.compressed_size_bytes
-            : std::max(image.guest_size_bytes, image.unswizzled_size_bytes);
-        const bool is_large = image_size >= LARGE_TEXTURE_THRESHOLD;
-
-        // Skip costly loads unless aggressive/emergency mode, unless it's a large sparse texture
-        if (!aggressive_mode && !emergency_mode && True(image.flags & ImageFlagBits::CostlyLoad)) {
-            if (!(sparse_priority && is_sparse && image_size >= SPARSE_EVICTION_PRIORITY_THRESHOLD)) {
-                return false;
-            }
+        if (!aggressive_mode && True(image.flags & ImageFlagBits::CostlyLoad)) {
+            return false;
         }
 
         const bool must_download =
             image.IsSafeDownload() && False(image.flags & ImageFlagBits::BadOverlap);
 
-        // Skip downloads unless high priority or emergency
-        if (!high_priority_mode && !emergency_mode && must_download) {
+        if (!high_priority_mode && must_download) {
             return false;
         }
 
-        // Perform download if needed
         if (must_download) {
             auto map = runtime.DownloadStagingBuffer(image.unswizzled_size_bytes);
             const auto copies = FullDownloadCopies(image.info);
@@ -251,28 +170,16 @@ void TextureCache<P>::RunGarbageCollector() {
                          swizzle_data_buffer);
         }
 
-        // Track eviction statistics
-        bytes_freed += Common::AlignUp(image_size, 1024);
-        if (is_sparse) {
-            sparse_texture_memory -= Common::AlignUp(image_size, 1024);
-            --sparse_texture_count;
-        }
-        if (is_large) {
-            large_texture_memory -= Common::AlignUp(image_size, 1024);
-        }
-
         if (True(image.flags & ImageFlagBits::Tracked)) {
             UntrackImage(image, image_id);
         }
         UnregisterImage(image_id);
         DeleteImage(image_id, image.scale_tick > frame_tick + 5);
 
-        // Adjust mode based on remaining memory pressure
         if (total_used_memory < critical_memory) {
-            if (aggressive_mode || emergency_mode) {
+            if (aggressive_mode) {
                 num_iterations >>= 2;
                 aggressive_mode = false;
-                emergency_mode = false;
                 return false;
             }
             if (high_priority_mode && total_used_memory < expected_memory) {
@@ -283,74 +190,41 @@ void TextureCache<P>::RunGarbageCollector() {
         return false;
     };
 
-    // FIXED: VRAM leak prevention - First pass: evict sparse textures if priority enabled
-    if (sparse_priority && sparse_texture_memory > 0 && total_used_memory >= expected_memory) {
-        Configure(false, false);
-        // Target sparse textures specifically
-        lru_cache.ForEachItemBelow(frame_tick - ticks_to_destroy, [this, &Cleanup](ImageId image_id) {
+    if (total_used_memory >= expected_memory) {
+        lru_cache.ForEachItemBelow(frame_tick, [this](ImageId image_id) {
             auto& image = slot_images[image_id];
-            if (True(image.flags & ImageFlagBits::Sparse)) {
-                return Cleanup(image_id);
+            if (True(image.flags & ImageFlagBits::Sparse) &&
+                !True(image.flags & ImageFlagBits::IsDecoding)) {
+                const u64 image_size = std::max(image.guest_size_bytes, image.unswizzled_size_bytes);
+                if (image_size >= 256_MiB) {
+                    if (True(image.flags & ImageFlagBits::Tracked)) {
+                        UntrackImage(image, image_id);
+                    }
+                    UnregisterImage(image_id);
+                    DeleteImage(image_id, true);
+                }
             }
             return false;
         });
     }
 
-    // Normal pass: remove anything old enough
-    Configure(false, false);
+    Configure(false);
     lru_cache.ForEachItemBelow(frame_tick - ticks_to_destroy, Cleanup);
 
-    // Aggressive pass if still above critical
     if (total_used_memory >= critical_memory) {
-        Configure(true, false);
+        Configure(true);
         lru_cache.ForEachItemBelow(frame_tick - ticks_to_destroy, Cleanup);
-    }
-
-    if (total_used_memory >= static_cast<u64>(static_cast<f32>(vram_limit_bytes) * VRAM_USAGE_EMERGENCY_THRESHOLD)) {
-        if (!emergency_gc_triggered) {
-            Configure(true, true);
-            emergency_gc_triggered = true;
-            LOG_WARNING(Render_Vulkan, "VRAM Emergency GC triggered: usage={}MB, limit={}MB",
-                        total_used_memory / 1_MiB, vram_limit_bytes / 1_MiB);
-            lru_cache.ForEachItemBelow(frame_tick, Cleanup);
-        }
-    }
-
-    // Update statistics
-    evicted_this_frame += bytes_freed;
-    evicted_total += bytes_freed;
-
-    // FIXED: VRAM leak prevention - Log VRAM usage if enabled
-    if (Settings::values.log_vram_usage.GetValue() && bytes_freed > 0) {
-        LOG_INFO(Render_Vulkan,
-                 "VRAM GC: evicted {}MB this frame, total={}MB, usage={}MB/{}MB ({:.1f}%)",
-                 bytes_freed / 1_MiB, evicted_total / 1_MiB, total_used_memory / 1_MiB,
-                 vram_limit_bytes / 1_MiB,
-                 (static_cast<f32>(total_used_memory) / static_cast<f32>(vram_limit_bytes)) * 100.0f);
     }
 }
 
 template <class P>
 void TextureCache<P>::TickFrame() {
-    // FIXED: VRAM leak prevention - Enhanced frame tick with VRAM monitoring
-
-    // Reset emergency flag at start of frame
-    emergency_gc_triggered = false;
-
-    // If we can obtain the memory info, use it instead of the estimate.
     if (runtime.CanReportMemoryUsage()) {
         total_used_memory = runtime.GetDeviceMemoryUsage();
     }
-
-    const auto gc_level = Settings::values.gc_aggressiveness.GetValue();
-    const bool should_gc = gc_level != Settings::GCAggressiveness::Off &&
-                           (total_used_memory > minimum_memory ||
-                            total_used_memory >= static_cast<u64>(static_cast<f32>(vram_limit_bytes) * VRAM_USAGE_WARNING_THRESHOLD));
-
-    if (should_gc) {
+    if (total_used_memory > minimum_memory) {
         RunGarbageCollector();
     }
-
     sentenced_images.Tick();
     sentenced_framebuffers.Tick();
     sentenced_image_view.Tick();
@@ -364,17 +238,6 @@ void TextureCache<P>::TickFrame() {
             runtime.FreeDeferredStagingBuffer(buffer);
         }
         async_buffers_death_ring.clear();
-    }
-
-    // FIXED: VRAM leak prevention - Periodic VRAM usage logging
-    if (Settings::values.log_vram_usage.GetValue() && (frame_tick % 300 == 0)) {
-        const f32 usage_ratio = vram_limit_bytes > 0
-                                    ? static_cast<f32>(total_used_memory) / static_cast<f32>(vram_limit_bytes)
-                                    : 0.0f;
-        LOG_INFO(Render_Vulkan,
-                 "VRAM Status: {}MB/{}MB ({:.1f}%), textures={}, sparse={}, evicted_total={}MB",
-                 total_used_memory / 1_MiB, vram_limit_bytes / 1_MiB, usage_ratio * 100.0f,
-                 texture_count, sparse_texture_count, evicted_total / 1_MiB);
     }
 }
 
