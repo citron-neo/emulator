@@ -27,7 +27,7 @@ using namespace Common::Literals;
 // Maximum potential alignment of a Vulkan buffer
 constexpr VkDeviceSize MAX_ALIGNMENT = 256;
 // Stream buffer size in bytes
-constexpr VkDeviceSize MAX_STREAM_BUFFER_SIZE = 128_MiB;
+constexpr VkDeviceSize MAX_STREAM_BUFFER_SIZE = 256_MiB;
 
 size_t GetStreamBufferSize(const Device& device) {
     VkDeviceSize size{0};
@@ -97,12 +97,13 @@ void StagingBufferPool::FreeDeferred(StagingBufferRef& ref) {
 }
 
 void StagingBufferPool::TickFrame() {
-    current_delete_level = (current_delete_level + 1) % NUM_LEVELS;
-
-    // Cleanup is now handled by the VRAM management system (gc_aggressiveness setting)
-    ReleaseCache(MemoryUsage::DeviceLocal);
-    ReleaseCache(MemoryUsage::Upload);
-    ReleaseCache(MemoryUsage::Download);
+    static constexpr size_t LEVELS_PER_TICK = 4;
+    for (size_t i = 0; i < LEVELS_PER_TICK; ++i) {
+        current_delete_level = (current_delete_level + 1) % NUM_LEVELS;
+        ReleaseCache(MemoryUsage::DeviceLocal);
+        ReleaseCache(MemoryUsage::Upload);
+        ReleaseCache(MemoryUsage::Download);
+    }
 }
 
 u64 StagingBufferPool::GetMemoryUsage() const {
@@ -281,7 +282,7 @@ void StagingBufferPool::ReleaseCache(MemoryUsage usage) {
 }
 
 void StagingBufferPool::ReleaseLevel(StagingBuffersCache& cache, size_t log2) {
-    constexpr size_t deletions_per_tick = 16;
+    constexpr size_t deletions_per_tick = 64;
     auto& staging = cache[log2];
     auto& entries = staging.entries;
     const size_t old_size = entries.size();
@@ -303,6 +304,24 @@ void StagingBufferPool::ReleaseLevel(StagingBuffersCache& cache, size_t log2) {
     if (staging.iterate_index > new_size) {
         staging.iterate_index = 0;
     }
+}
+
+void StagingBufferPool::ReleaseAllFreeBuffers() {
+    const auto nuke_free = [this](StagingBuffersCache& cache) {
+        for (auto& staging : cache) {
+            auto& entries = staging.entries;
+            const auto is_deletable = [this](const StagingBuffer& entry) {
+                return !entry.deferred && scheduler.IsFree(entry.tick);
+            };
+            entries.erase(std::remove_if(entries.begin(), entries.end(), is_deletable),
+                          entries.end());
+            staging.delete_index = 0;
+            staging.iterate_index = std::min(staging.iterate_index, entries.size());
+        }
+    };
+    nuke_free(device_local_cache);
+    nuke_free(upload_cache);
+    nuke_free(download_cache);
 }
 
 void StagingBufferPool::Nuke() {

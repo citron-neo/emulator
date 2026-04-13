@@ -28,7 +28,7 @@ struct StagingBufferRef {
 
 class StagingBufferPool {
 public:
-    static constexpr size_t NUM_SYNCS = 16;
+    static constexpr size_t NUM_SYNCS = 32;
 
     explicit StagingBufferPool(const Device& device, MemoryAllocator& memory_allocator,
                                Scheduler& scheduler);
@@ -109,6 +109,8 @@ public:
     void TriggerCacheRelease(MemoryUsage usage) {
         ReleaseCache(usage);
     }
+
+    void ReleaseAllFreeBuffers();
     size_t Region(size_t iter) const noexcept {
         return iter / region_size;
     }
