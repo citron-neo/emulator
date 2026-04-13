@@ -309,6 +309,12 @@ public:
     /// Force emergency garbage collection when VRAM pressure is critical
     void ForceEmergencyGC();
 
+    void FlushSentencedRings() {
+        sentenced_images.Flush();
+        sentenced_framebuffers.Flush();
+        sentenced_image_view.Flush();
+    }
+
     /// Get current VRAM usage statistics
     struct VRAMStats {
         u64 total_used_bytes;

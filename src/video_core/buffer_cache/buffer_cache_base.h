@@ -351,6 +351,10 @@ public:
         RunGarbageCollector();
     }
 
+    void FlushDelayedDestructionRing() {
+        delayed_destruction_ring.Flush();
+    }
+
     // FIXED: VRAM leak prevention - Enhanced public interface for buffer VRAM management
 
     /// Get buffer VRAM usage statistics
