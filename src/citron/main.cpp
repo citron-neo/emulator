@@ -1689,7 +1689,7 @@ void GMainWindow::SetDefaultUIGeometry() {
         !qgetenv("GAMESCOPE_WIDTH").isEmpty() || qgetenv("XDG_CURRENT_DESKTOP") == "gamescope";
 
     if (is_gamescope) {
-        this->resize(1280, 800);
+        setFixedSize(1280, 800);
         return;
     }
     // geometry: 53% of the window contents are in the upper screen half, 47% in the lower half
@@ -1717,6 +1717,7 @@ void GMainWindow::RestoreUIState() {
     // Work-around because the games list isn't supposed to be full screen
     if (isFullScreen()) {
         if (UISettings::IsGamescope()) {
+            setFixedSize(1280, 800);
             showMaximized();
         } else {
             showNormal();
@@ -2584,6 +2585,11 @@ void GMainWindow::OnEmulationStopped() {
 
     // Update the GUI
     UpdateMenuState();
+
+    if (UISettings::IsGamescope()) {
+        setFixedSize(1280, 800);
+        showMaximized();
+    }
 
     render_window->hide();
     loading_screen->hide();
@@ -6409,26 +6415,29 @@ void GMainWindow::UpdateUITheme() {
             "QStatusBar::item { border: none !important; }")
             .arg(status_bg, status_border, status_fg));
 
-    // Dynamic Menu Styling (Refactored from hardcoded Dark Onyx)
-    QString menu_style =
-        QString::fromLatin1("QMenu { background: %1; border: 1px solid %2; border-radius: 8px; "
-                            "padding: 6px; color: %3; }"
-                            "QMenu::item { padding: 4px 28px 4px 32px; border-radius: 4px; margin: "
-                            "1px; font-size: 8.5pt; min-width: 140px; color: %4; }"
-                            "QMenu::item:selected { background-color: %5; color: #ffffff; }"
-                            "QMenu::item:disabled { color: %6; }"
-                            "QMenu::separator { height: 1px; background: %7; margin: 4px 10px; }"
-                            "QMenu::indicator { width: 14px; height: 14px; left: 10px; "
-                            "border-radius: 3px; border: 1px solid %2; background: %1; }"
-                            "QMenu::indicator:checked { background: %5; border: 1px solid %5; }")
+    // Dynamic Menu & ToolTip Styling (Unified adaptive styling)
+    const QString global_style =
+        QString::fromLatin1(
+            "QToolTip { background: %1; color: %3; border: 1px solid %2; border-radius: 4px; "
+            "padding: 5px; font-size: 9pt; }"
+            "QMenu { background: %1; border: 1px solid %2; border-radius: 8px; padding: 6px; color: "
+            "%3; }"
+            "QMenu::item { padding: 4px 28px 4px 32px; border-radius: 4px; margin: 1px; "
+            "font-size: 8.5pt; min-width: 140px; color: %4; }"
+            "QMenu::item:selected { background-color: %5; color: #ffffff; }"
+            "QMenu::item:disabled { color: %6; }"
+            "QMenu::separator { height: 1px; background: %7; margin: 4px 10px; }"
+            "QMenu::indicator { width: 14px; height: 14px; left: 10px; border-radius: 3px; border: "
+            "1px solid %2; background: %1; }"
+            "QMenu::indicator:checked { background: %5; border: 1px solid %5; }")
             .arg(toolbar_bg, toolbar_border, (is_dark ? "#ffffff" : "#1a1a1e"),
                  (is_dark ? "#e0e0e4" : "#1a1a1e"), accent_str, (is_dark ? "#555558" : "#aab0b4"),
                  (is_dark ? "#303035" : "#d0d0d5"));
 
-    for (QMenu* menu : findChildren<QMenu*>()) {
-        menu->setStyleSheet(menu_style);
-    }
-
+    // Apply to qApp to ensure context menus and tooltips are captured globally
+    // This fixes the hardcoded dark look on desktop's light mode
+    qApp->setStyleSheet(qApp->styleSheet() + global_style);
+ 
     emit UpdateThemedIcons();
 
     m_is_updating_theme = false;

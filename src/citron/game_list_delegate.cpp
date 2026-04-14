@@ -6,30 +6,32 @@
 #include <QColor>
 #include <QFont>
 #include <QFontMetrics>
+#include <QGuiApplication>
 #include <QHeaderView>
+#include <QHelpEvent>
 #include <QIcon>
+#include <QLabel>
 #include <QModelIndex>
+#include <QMouseEvent>
 #include <QPainter>
 #include <QPainterPath>
 #include <QPixmap>
 #include <QPoint>
 #include <QRect>
+#include <QScreen>
 #include <QStyle>
 #include <QStyleOptionViewItem>
 #include <QTimer>
 #include <QTreeView>
-#include <QHelpEvent>
-#include <QLabel>
 #include <QVBoxLayout>
-#include <QScreen>
-#include <QGuiApplication>
-#include <QWidget>
-#include <QMouseEvent>
 #include <QWheelEvent>
-
 #include <QWidget>
-#include <QObject>
+
+
 #include <QEvent>
+#include <QObject>
+#include <QWidget>
+
 
 #include "citron/game_list.h"
 #include "citron/game_list_delegate.h"
@@ -43,14 +45,15 @@
 class OnyxTooltip : public QWidget {
     Q_OBJECT
 public:
-    explicit OnyxTooltip(QWidget* parent = nullptr) : QWidget(parent, Qt::ToolTip | Qt::FramelessWindowHint) {
+    explicit OnyxTooltip(QWidget* parent = nullptr)
+        : QWidget(parent, Qt::ToolTip | Qt::FramelessWindowHint) {
         setAttribute(Qt::WA_TranslucentBackground, false);
         setAttribute(Qt::WA_ShowWithoutActivating);
         setAttribute(Qt::WA_StyledBackground);
-        
+
         auto* layout = new QVBoxLayout(this);
         layout->setContentsMargins(12, 12, 12, 12);
-        
+
         m_label = new QLabel(this);
         m_label->setTextFormat(Qt::RichText);
         m_label->setWordWrap(true);
@@ -60,12 +63,15 @@ public:
         const bool is_dark = UISettings::IsDarkTheme();
         const QString bg_color = is_dark ? QStringLiteral("#24242a") : QStringLiteral("#f5f5fa");
         const QString text_color = is_dark ? QStringLiteral("#ffffff") : QStringLiteral("#1a1a1e");
-        const QString border_color = is_dark ? QStringLiteral("#32323a") : QStringLiteral("#dcdce2");
+        const QString border_color =
+            is_dark ? QStringLiteral("#32323a") : QStringLiteral("#dcdce2");
 
-        setStyleSheet(QString::fromLatin1(
-            "QWidget { background-color: %1; border: 1px solid %2; border-radius: 8px; }"
-            "QLabel { color: %3; background: transparent; border: none; font-family: 'Outfit', 'Inter', sans-serif; }"
-        ).arg(bg_color, border_color, text_color));
+        setStyleSheet(
+            QString::fromLatin1(
+                "QWidget { background-color: %1; border: 1px solid %2; border-radius: 8px; }"
+                "QLabel { color: %3; background: transparent; border: none; font-family: 'Outfit', "
+                "'Inter', sans-serif; }")
+                .arg(bg_color, border_color, text_color));
     }
 
     static void showText(const QPoint& pos, const QString& text, QWidget* w);
@@ -91,14 +97,15 @@ void OnyxTooltip::showText(const QPoint& pos, const QString& text, QWidget* w) {
     if (!s_onyx_tooltip_instance) {
         s_onyx_tooltip_instance = new OnyxTooltip();
     }
-    
+
     s_onyx_tooltip_instance->m_label->setText(text);
     s_onyx_tooltip_instance->adjustSize();
-    
+
     QScreen* screen = QGuiApplication::screenAt(pos);
-    if (!screen) screen = QGuiApplication::primaryScreen();
+    if (!screen)
+        screen = QGuiApplication::primaryScreen();
     QRect screenGeom = screen->availableGeometry();
-    
+
     QPoint showPos = pos + QPoint(10, 10);
     if (showPos.x() + s_onyx_tooltip_instance->width() > screenGeom.right()) {
         showPos.setX(pos.x() - s_onyx_tooltip_instance->width() - 10);
@@ -106,7 +113,7 @@ void OnyxTooltip::showText(const QPoint& pos, const QString& text, QWidget* w) {
     if (showPos.y() + s_onyx_tooltip_instance->height() > screenGeom.bottom()) {
         showPos.setY(pos.y() - s_onyx_tooltip_instance->height() - 10);
     }
-    
+
     s_onyx_tooltip_instance->move(showPos);
     s_onyx_tooltip_instance->show();
 }
@@ -329,16 +336,18 @@ void GameListDelegate::AdvanceAnimations() {
 
     // 4. Entry animations (Bubble/Fade-in)
     auto it_entry = entry_animations.begin();
-    
+
     // 5. Global Refresh Spinner Animation
     refresh_angle -= 10.0; // Rotate 10 degrees per frame
-    if (refresh_angle <= -360.0) refresh_angle += 360.0;
-    
+    if (refresh_angle <= -360.0)
+        refresh_angle += 360.0;
+
     // Trigger repaint for any item currently in 'Refreshing' state
     for (int i = 0; i < tree_view->model()->rowCount(); ++i) {
         QModelIndex folder = tree_view->model()->index(i, 0);
         for (int j = 0; j < tree_view->model()->rowCount(folder); ++j) {
-            QModelIndex play_time_idx = tree_view->model()->index(j, GameList::COLUMN_PLAY_TIME, folder);
+            QModelIndex play_time_idx =
+                tree_view->model()->index(j, GameList::COLUMN_PLAY_TIME, folder);
             if (play_time_idx.data(GameListItem::IsRefreshingRole).toBool()) {
                 indices_to_update.append(play_time_idx);
             }
@@ -410,7 +419,7 @@ bool GameListDelegate::eventFilter(QObject* obj, QEvent* event) {
         if (event->type() == QEvent::MouseMove) {
             auto* mouseEvent = static_cast<QMouseEvent*>(event);
             int column = tree_view->header()->logicalIndexAt(mouseEvent->pos().x());
-            
+
             // If the mouse is NOT horizontally within the add-ons column, hide the tooltip.
             // Also hide if moving too far up (towards the header/toolbar boundaries).
             if (column != GameList::COLUMN_ADD_ONS || mouseEvent->pos().y() < 0) {
@@ -709,7 +718,8 @@ void GameListDelegate::PaintDefault(QPainter* painter, const QRect& rect,
         if (!addons_item_cache.contains(text)) {
             QStringList lines = text.split(QLatin1Char('\n'), Qt::SkipEmptyParts);
             addons_item_cache.insert(text, lines);
-            if (addons_item_cache.size() > 500) addons_item_cache.clear();
+            if (addons_item_cache.size() > 500)
+                addons_item_cache.clear();
         }
 
         const QStringList& lines = addons_item_cache[text];
@@ -726,18 +736,24 @@ void GameListDelegate::PaintDefault(QPainter* painter, const QRect& rect,
             int& offset = vertical_scroll_offsets[key];
             int& pause = vertical_scroll_pause[key];
             const int max_offset = total_h - content_rect.height() + 10;
-            if (pause > 0) pause--;
-            else if (offset < max_offset) offset++;
-            else { offset = 0; pause = 60; }
+            if (pause > 0)
+                pause--;
+            else if (offset < max_offset)
+                offset++;
+            else {
+                offset = 0;
+                pause = 60;
+            }
 
             painter->save();
             painter->setClipRect(content_rect);
             painter->translate(0, -offset);
             for (int i = 0; i < lines.size(); ++i) {
-                painter->drawText(QRect(content_rect.left(), content_rect.top() + (i * line_h), 
+                painter->drawText(QRect(content_rect.left(), content_rect.top() + (i * line_h),
                                         content_rect.width(), line_h),
                                   Qt::AlignVCenter | Qt::AlignLeft,
-                                  painter->fontMetrics().elidedText(lines[i], Qt::ElideRight, content_rect.width()));
+                                  painter->fontMetrics().elidedText(lines[i], Qt::ElideRight,
+                                                                    content_rect.width()));
             }
             painter->restore();
             return;
@@ -746,12 +762,14 @@ void GameListDelegate::PaintDefault(QPainter* painter, const QRect& rect,
             painter->save();
             painter->setClipRect(content_rect);
             const int block_h = std::min((int)total_h, content_rect.height());
-            const int block_top = content_rect.top() + std::max(0, (content_rect.height() - block_h) / 2);
+            const int block_top =
+                content_rect.top() + std::max(0, (content_rect.height() - block_h) / 2);
             for (int i = 0; i < lines.size() && (i * line_h) < content_rect.height(); ++i) {
-                painter->drawText(QRect(content_rect.left(), block_top + (i * line_h), 
+                painter->drawText(QRect(content_rect.left(), block_top + (i * line_h),
                                         content_rect.width(), line_h),
                                   Qt::AlignVCenter | Qt::AlignLeft,
-                                  painter->fontMetrics().elidedText(lines[i], Qt::ElideRight, content_rect.width()));
+                                  painter->fontMetrics().elidedText(lines[i], Qt::ElideRight,
+                                                                    content_rect.width()));
             }
             painter->restore();
             return;

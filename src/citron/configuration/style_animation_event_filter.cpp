@@ -109,19 +109,23 @@ void StyleAnimationEventFilter::triggerElectrification(QPushButton* from, QPushB
     if (to->width() <= 0 || to->height() <= 0)
         return;
 
+    QWidget* window = sidebar->window();
+    if (!window)
+        window = sidebar;
+
     if (!m_overlay) {
-        m_overlay = new ElectricSparkOverlay(sidebar);
-    } else if (m_overlay->parentWidget() != sidebar) {
-        m_overlay->setParent(sidebar);
+        m_overlay = new ElectricSparkOverlay(window);
+    } else if (m_overlay->parentWidget() != window) {
+        m_overlay->setParent(window);
         m_overlay->show();
     }
 
-    m_overlay->setGeometry(sidebar->rect());
+    m_overlay->setGeometry(window->rect());
     m_overlay->raise();
 
-    QPoint p1 = from ? from->mapTo(sidebar, from->rect().center())
-                     : to->mapTo(sidebar, to->rect().center());
-    QPoint p2 = to->mapTo(sidebar, to->rect().center());
+    QPoint p1 = from ? from->mapTo(window, from->rect().center())
+                     : to->mapTo(window, to->rect().center());
+    QPoint p2 = to->mapTo(window, to->rect().center());
 
     if (p1.manhattanLength() < 5 || (p1 - p2).manhattanLength() < 10)
         p1 = p2;

@@ -252,15 +252,15 @@ public:
 
         const bool is_gamescope = UISettings::IsGamescope();
         if (is_gamescope) {
-            setFixedSize(680, 500);
+            setFixedSize(1280, 800);
         } else {
             setFixedSize(850, 640);
         }
 
         auto* layout = new QVBoxLayout(this);
-        layout->setSpacing(is_gamescope ? 8 : 15);
-        layout->setContentsMargins(is_gamescope ? 10 : 15, is_gamescope ? 10 : 15,
-                                   is_gamescope ? 10 : 15, is_gamescope ? 10 : 15);
+        layout->setSpacing(is_gamescope ? 12 : 15);
+        layout->setContentsMargins(is_gamescope ? 20 : 15, is_gamescope ? 20 : 15,
+                                   is_gamescope ? 20 : 15, is_gamescope ? 20 : 15);
 
         // Navigation Bar
         const bool dark = Theme::IsDarkMode();
@@ -1986,6 +1986,59 @@ void GameList::OnOnlineStatusUpdated(const std::map<u64, std::pair<int, int>>& o
     UpdateOnlineStatusRecursive(item_model->invisibleRootItem(), online_stats);
 }
 
+
+void GameList::ShowTechnicalInformation(const QModelIndex& index) {
+    if (!index.isValid()) {
+        return;
+    }
+
+    const auto file_path = index.data(GameListItemPath::FullPathRole).toString();
+    const auto program_id = index.data(GameListItemPath::ProgramIdRole).toULongLong();
+    const auto format = index.data(GameListItemPath::FileTypeRole).toString();
+
+    // Get size from the model (COLUMN_SIZE)
+    const auto* model = index.model();
+    const auto size_index = model->index(index.row(), COLUMN_SIZE, index.parent());
+    const QString size_str = size_index.data(Qt::DisplayRole).toString();
+
+    // Get Add-ons / Updates from the model (COLUMN_ADD_ONS)
+    const auto addons_index = model->index(index.row(), COLUMN_ADD_ONS, index.parent());
+    const QString updates = addons_index.data(Qt::DisplayRole).toString();
+
+    QString technical_info =
+        tr("File Path: %1\n\n"
+           "Program ID: 0x%2\n\n"
+           "Format: %3\n\n"
+           "Size: %4\n\n"
+           "Updates/Add-ons:\n%5")
+            .arg(file_path)
+            .arg(QString::number(program_id, 16).toUpper().mid(0, 16), 16, QLatin1Char('0'))
+            .arg(format)
+            .arg(size_str)
+            .arg(updates.isEmpty() ? tr("None") : updates);
+
+    QMessageBox msg_box(this);
+    msg_box.setWindowTitle(tr("Game Information"));
+    msg_box.setText(technical_info);
+    msg_box.setIcon(QMessageBox::Information);
+
+    const bool is_dark = UISettings::IsDarkTheme();
+    const QString bg_color = is_dark ? QStringLiteral("#1c1c22") : QStringLiteral("#ffffff");
+    const QString text_color = is_dark ? QStringLiteral("#ffffff") : QStringLiteral("#1a1a1e");
+    const QString accent_hex = QString::fromStdString(UISettings::values.accent_color.GetValue());
+    const QColor accent = QColor(accent_hex).isValid() ? QColor(accent_hex) : QColor(0, 150, 255);
+
+    msg_box.setStyleSheet(QStringLiteral(
+                              "QMessageBox { background-color: %1; }"
+                              "QLabel { color: %2; font-family: 'Segoe UI', 'Roboto', sans-serif; font-size: 10pt; }"
+                              "QPushButton { background-color: %3; color: white; border: none; "
+                              "padding: 6px 20px; border-radius: 4px; font-weight: bold; min-width: 80px; }"
+                              "QPushButton:hover { background-color: %4; }")
+                              .arg(bg_color, text_color, accent.name(), accent.lighter(110).name()));
+
+    msg_box.exec();
+}
+
 void GameList::StartLaunchAnimation(const QModelIndex& item) {
     if (m_is_launching || !item.isValid() || !item.model()) {
         return;
@@ -2429,12 +2482,21 @@ void GameList::PopupContextMenu(const QPoint& menu_location) {
 
     QMenu context_menu(parent_widget);
     context_menu.setAttribute(Qt::WA_TranslucentBackground, false);
-    context_menu.setStyleSheet(QStringLiteral(
-        "QMenu { background: #24242a; border: 1px solid #32323a; border-radius: 8px; padding: 6px; "
-        "color: #ffffff; }"
-        "QMenu::item { padding: 6px 30px; border-radius: 4px; margin: 2px; color: #ffffff; }"
-        "QMenu::item:selected { background-color: #32323a; border: 1px solid #42424a; }"
-        "QMenu::separator { height: 1px; background: #32323a; margin: 4px 10px; }"));
+    if (Theme::IsDarkMode()) {
+        context_menu.setStyleSheet(QStringLiteral(
+            "QMenu { background: #24242a; border: 1px solid #32323a; border-radius: 8px; padding: 6px; "
+            "color: #ffffff; }"
+            "QMenu::item { padding: 6px 30px; border-radius: 4px; margin: 2px; color: #ffffff; }"
+            "QMenu::item:selected { background-color: #32323a; border: 1px solid #42424a; }"
+            "QMenu::separator { height: 1px; background: #32323a; margin: 4px 10px; }"));
+    } else {
+        context_menu.setStyleSheet(QStringLiteral(
+            "QMenu { background: #ffffff; border: 1px solid #d0d0d8; border-radius: 8px; padding: 6px; "
+            "color: #1a1a1a; }"
+            "QMenu::item { padding: 6px 30px; border-radius: 4px; margin: 2px; color: #1a1a1a; }"
+            "QMenu::item:selected { background-color: #ebebf0; border: 1px solid #c8c8d0; }"
+            "QMenu::separator { height: 1px; background: #d8d8e0; margin: 4px 10px; }"));
+    }
     switch (selected.data(GameListItem::TypeRole).value<GameListItemType>()) {
     case GameListItemType::Favorites:
     case GameListItemType::Game: {

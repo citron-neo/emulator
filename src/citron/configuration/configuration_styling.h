@@ -15,6 +15,7 @@ static const char* MASTER_STYLE_TEMPLATE = R"(
         background-color: transparent;
         color: %%TEXT_COLOR%%;
         outline: none;
+        font-family: "Segoe UI", "Roboto", "Inter", "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif;
     }
 
     QScrollArea, QStackedWidget {
@@ -181,6 +182,81 @@ static const char* MASTER_STYLE_TEMPLATE = R"(
 
     QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
         height: 0px;
+    }
+
+    /* Tooltips and Popups */
+    QToolTip {
+        background-color: %%INPUT_BG%%;
+        color: %%TEXT_COLOR%%;
+        border: 1px solid %%INPUT_BORDER%%;
+        border-radius: 4px;
+        padding: 4px;
+    }
+
+    QMenu {
+        background-color: %%PANEL_COLOR%%;
+        border: 1px solid %%BORDER_COLOR%%;
+        border-radius: 8px;
+        padding: 6px;
+        color: %%TEXT_COLOR%%;
+    }
+
+    QMenu::item {
+        padding: 4px 28px 4px 32px;
+        border-radius: 4px;
+        margin: 1px;
+        font-size: 8.5pt;
+        color: %%TEXT_COLOR%%;
+    }
+
+    QMenu::item:selected {
+        background-color: %%ACCENT_COLOR%%;
+        color: #ffffff;
+    }
+
+    QMenu::item:disabled {
+        color: %%TEXT_COLOR_DIM%%;
+    }
+
+    QMenu::separator {
+        height: 1px;
+        background: %%BORDER_COLOR%%;
+        margin: 4px 10px;
+    }
+
+    QMenu::indicator {
+        width: 14px;
+        height: 14px;
+        left: 10px;
+        border-radius: 3px;
+        border: 1px solid %%BORDER_COLOR%%;
+        background: %%PANEL_COLOR%%;
+    }
+
+    QMenu::indicator:checked {
+        background: %%ACCENT_COLOR%%;
+        border: 1px solid %%ACCENT_COLOR%%;
+    }
+
+    /* ComboBox Dropdown / List Styling */
+    QAbstractItemView {
+        background-color: %%PANEL_COLOR%%;
+        border: 1px solid %%INPUT_BORDER%%;
+        border-radius: 8px;
+        selection-background-color: %%ACCENT_COLOR%%;
+        selection-color: #ffffff;
+        color: %%TEXT_COLOR%%;
+        outline: none;
+        padding: 4px;
+    }
+
+    QListView::item {
+        padding: 4px;
+        border-radius: 4px;
+    }
+
+    QListView::item:hover {
+        background-color: %%INPUT_BG_HOVER%%;
     }
 )";
 

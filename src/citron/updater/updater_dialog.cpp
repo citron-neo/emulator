@@ -238,10 +238,14 @@ void UpdaterDialog::SetupUI() {
     if (is_gamescope) {
         setWindowFlags(Qt::Window | Qt::CustomizeWindowHint | Qt::WindowTitleHint);
         setWindowModality(Qt::WindowModal);
-        resize(1100, 700);
+        setFixedSize(1280, 800);
     } else {
         setWindowFlags(windowFlags() & ~Qt::WindowContextHelpButtonHint);
-        setFixedSize(520, 350);
+        if (UISettings::IsGamescope()) {
+            setFixedSize(1280, 800);
+        } else {
+            setFixedSize(520, 350);
+        }
     }
 
     // Kill ghost titles causing overlaps
@@ -289,7 +293,11 @@ void UpdaterDialog::ShowCheckingState() {
     ui->appImageSelectorLabel->setVisible(false);
     ui->appImageSelector->setVisible(false);
 
-    setFixedSize(520, 350);
+    if (UISettings::IsGamescope()) {
+        setFixedSize(1280, 800);
+    } else {
+        setFixedSize(520, 350);
+    }
     ui->verticalLayout->setContentsMargins(0, 35, 15, 15);
 }
 
@@ -312,7 +320,11 @@ void UpdaterDialog::ShowNoUpdateState(const Updater::UpdateInfo& update_info) {
     ui->appImageSelectorLabel->setVisible(false);
     ui->appImageSelector->setVisible(false);
 
-    setFixedSize(520, 350);
+    if (UISettings::IsGamescope()) {
+        setFixedSize(1280, 800);
+    } else {
+        setFixedSize(520, 350);
+    }
     ui->verticalLayout->setContentsMargins(0, 35, 15, 15);
     ui->verticalLayout->setSpacing(10);
     ui->verticalLayout->setStretch(0, 100);
@@ -364,12 +376,16 @@ void UpdaterDialog::ShowUpdateAvailableState() {
 
     SetupHUD(true);
 
-    setFixedSize(600, 480);
+    if (UISettings::IsGamescope()) {
+        setFixedSize(1280, 800);
+    } else {
+        setFixedSize(600, 480);
+    }
     ui->verticalLayout->setContentsMargins(15, 20, 15, 15);
     ui->verticalLayout->setSpacing(10);
-    
+
     // Adjust stretches to give changelog more priority while protecting the HUD
-    ui->verticalLayout->setStretch(0, 10); // Top stretch
+    ui->verticalLayout->setStretch(0, 10);                               // Top stretch
     ui->verticalLayout->setStretch(ui->verticalLayout->count() - 1, 10); // Bottom stretch
 }
 
@@ -393,7 +409,11 @@ void UpdaterDialog::ShowDownloadingState() {
     ui->appImageSelector->setVisible(false);
     progress_timer->start();
 
-    setFixedSize(520, 400);
+    if (UISettings::IsGamescope()) {
+        setFixedSize(1280, 800);
+    } else {
+        setFixedSize(520, 400);
+    }
     ui->verticalLayout->setContentsMargins(0, 35, 15, 15);
 }
 
@@ -542,34 +562,46 @@ QString UpdaterDialog::GetUpdateMessage(Updater::UpdaterService::UpdateResult re
 void UpdaterDialog::UpdateTheme() {
     const bool is_dark = UISettings::IsDarkTheme();
 
-    const QString bg = is_dark ? QStringLiteral("#15151a") : QStringLiteral("#f5f5fa");
+    const bool is_gs = UISettings::IsGamescope();
+    const int title_px = is_gs ? 19 : 18;
+    const int status_px = is_gs ? 12 : 11;
+    const int val_px = is_gs ? 17 : 16;
+    const int change_px = is_gs ? 14 : 13;
+    const int btn_px = is_gs ? 12 : 11;
+
+    const QString bg = is_dark ? QStringLiteral("#24242a") : QStringLiteral("#f5f5fa");
+    const QString sub_txt = is_dark ? QStringLiteral("#aaaab4") : QStringLiteral("#666670");
     const QString txt = is_dark ? QStringLiteral("#ffffff") : QStringLiteral("#1a1a1e");
-    const QString sub_txt = is_dark ? QStringLiteral("#888890") : QStringLiteral("#666670");
-    const QString panel = is_dark ? QStringLiteral("#1c1c22") : QStringLiteral("#ffffff");
-    const QString border = is_dark ? QStringLiteral("#2d2d35") : QStringLiteral("#dcdce2");
+    const QString border = is_dark ? QStringLiteral("#32323a") : QStringLiteral("#dcdce2");
     const QString accent = Theme::GetAccentColor();
+    const QString panel = is_dark ? QStringLiteral("#2a2a32") : QStringLiteral("#ffffff");
 
     QString style = ConfigurationStyling::GetMasterStyleSheet();
     style +=
         QStringLiteral(
             "QDialog#UpdaterDialog { background-color: %1; }"
             "QGroupBox { border: none; background: transparent; margin: 0; padding: 0; }"
-            "#titleLabel { color: %3; font-size: 18px; font-weight: 600; margin-bottom: 2px; "
+            "#titleLabel { color: %3; font-size: %7px; font-weight: 600; margin-bottom: 2px; "
             "text-transform: uppercase; letter-spacing: 1.2px; }"
-            "#statusLabel { color: %2; font-size: 11px; margin-bottom: 2px; }"
+            "#statusLabel { color: %2; font-size: %8px; margin-bottom: 2px; }"
             "QLabel#currentVersionLabel, QLabel#latestVersionLabel, QLabel#releaseDateLabel { "
             "color: %2; font-size: 10px; text-transform: uppercase; font-weight: bold; "
             "letter-spacing: 1.5px; }"
             "QLabel#currentVersionValue, QLabel#latestVersionValue, QLabel#releaseDateValue { "
-            "color: %3; font-size: 16px; font-weight: bold; margin-bottom: 0px; }"
+            "color: %3; font-size: %9px; font-weight: bold; margin-bottom: 0px; }"
             "QProgressBar { border: 1px solid %4; border-radius: 4px; background: %1; text-align: "
             "center; height: 10px; color: transparent; }"
             "QProgressBar::chunk { background-color: %5; border-radius: 3px; }"
             "QTextBrowser#changelogText { background-color: %6; border: 1px solid %4; "
-            "border-radius: 8px; padding: 12px; color: %3; font-size: 13px; }"
+            "border-radius: 8px; padding: 12px; color: %3; font-size: %10px; }"
             "QPushButton { padding: 3px 10px; border-radius: 10px; font-weight: "
-            "bold; font-size: 11px; }")
-            .arg(bg, sub_txt, txt, border, accent, panel);
+            "bold; font-size: %11px; }")
+            .arg(bg, sub_txt, txt, border, accent, panel)
+            .arg(title_px)
+            .arg(status_px)
+            .arg(val_px)
+            .arg(change_px)
+            .arg(btn_px);
 
     setStyleSheet(style);
 }
@@ -600,7 +632,7 @@ void UpdaterDialog::SetupHUD(bool update_mode) {
         QVBoxLayout* current_col = new QVBoxLayout();
         current_col->setSpacing(2);
         add_hud_pair_vertical(ui->currentVersionLabel, ui->currentVersionValue, current_col);
-        
+
         QVBoxLayout* latest_col = new QVBoxLayout();
         latest_col->setSpacing(2);
         add_hud_pair_vertical(ui->latestVersionLabel, ui->latestVersionValue, latest_col);
@@ -608,7 +640,7 @@ void UpdaterDialog::SetupHUD(bool update_mode) {
         version_row->addLayout(current_col);
         version_row->addLayout(latest_col);
         info_layout->addLayout(version_row);
-        
+
         info_layout->addSpacing(5);
         add_hud_pair_vertical(ui->releaseDateLabel, ui->releaseDateValue, info_layout);
     } else {

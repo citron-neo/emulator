@@ -53,6 +53,7 @@ public:
                 const QModelIndex&) const override;
     bool  helpEvent(QHelpEvent*, QAbstractItemView*,
                     const QStyleOptionViewItem&, const QModelIndex&) override;
+    void  initStyleOption(QStyleOptionViewItem*, const QModelIndex&) const override;
 
 public slots:
     void AdvanceAnimations();

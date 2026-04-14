@@ -181,6 +181,7 @@ namespace UISettings {
 
                                         Setting<std::string> accent_color{linkage, "#4a9eff", "accent_color", Category::Ui};
                                         Setting<bool> enable_rainbow_mode{linkage, false, "enable_rainbow_mode", Category::Ui};
+                                        Setting<std::string> neo_ui_theme{linkage, "none", "neo_ui_theme", Category::Ui};
 
                                         // Shortcut name <Shortcut, context>
                                         std::vector<Shortcut> shortcuts;

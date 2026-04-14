@@ -221,7 +221,9 @@ ConfigureDialog::ConfigureDialog(QWidget* parent, HotkeyRegistry& registry_,
     ui->stackedWidget->setCurrentIndex(0);
     ui->generalTabButton->setChecked(true);
 
-    animation_filter->triggerInitialState(ui->generalTabButton);
+    if (UISettings::values.neo_ui_theme.GetValue() == "lightning") {
+        animation_filter->triggerInitialState(ui->generalTabButton);
+    }
 
     SetUIPositioning(QString::fromStdString(UISettings::values.ui_positioning.GetValue()));
 }
@@ -498,7 +500,9 @@ void ConfigureDialog::OnLanguageChanged(const QString& locale) {
 }
 
 void ConfigureDialog::SwitchTab(int id) {
-    if (animation_filter && tab_button_group) {
+    const bool lightning_enabled = UISettings::values.neo_ui_theme.GetValue() == "lightning";
+
+    if (animation_filter && tab_button_group && lightning_enabled) {
         QPushButton* from_button = qobject_cast<QPushButton*>(tab_button_group->button(ui->stackedWidget->currentIndex()));
         QPushButton* to_button = qobject_cast<QPushButton*>(tab_button_group->button(id));
 
