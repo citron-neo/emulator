@@ -145,11 +145,11 @@ void AboutDialog::UpdateTheme() {
 
     ui->labelLinks->setText(
         QStringLiteral("<a style='color: %1; text-decoration: none;' "
-                       "href='https://citron-emu.org/'>Website</a> | "
+                       "href='https://citron-neo.org/'>Website</a> | "
                        "<a style='color: %1; text-decoration: none;' "
-                       "href='https://git.citron-emu.org/citron/emulator'>Source</a> | "
+                       "href='https://git.citron-neo.org/citron/emulator'>Source</a> | "
                        "<a style='color: %1; text-decoration: none;' "
-                       "href='https://git.citron-emu.org/'>Commits</a>")
+                       "href='https://git.citron-neo.org/'>Commits</a>")
             .arg(accent));
 
     QString style = ConfigurationStyling::GetMasterStyleSheet();

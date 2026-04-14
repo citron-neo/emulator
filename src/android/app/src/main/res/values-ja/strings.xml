@@ -122,7 +122,7 @@
     <string name="about_app_description">オープンソースのSwitchエミュレータ</string>
     <string name="contributors">貢献者</string>
     <string name="contributors_description">citronチームの\u2764で作られた</string>
-    <string name="contributors_link">https://github.com/citron-emu/citron/graphs/contributors</string>
+    <string name="contributors_link">https://github.com/citron-neo/citron/graphs/contributors</string>
     <string name="licenses_description">citron for Androidの作成を可能にしたプロジェクト</string>
     <string name="build">ビルド</string>
     <string name="user_data">ユーザデータ</string>
@@ -133,8 +133,8 @@
     <string name="user_data_import_success">ユーザデータのインポートに成功しました</string>
     <string name="user_data_export_cancelled">エクスポートをキャンセルしました</string>
     <string name="support_link">https://discord.gg/axqZFEyzPQ</string>
-    <string name="website_link">https://citron-emu.org/</string>
-    <string name="github_link">https://github.com/citron-emu</string>
+    <string name="website_link">https://citron-neo.org/</string>
+    <string name="github_link">https://github.com/citron-neo</string>
 
     <!-- Early access upgrade strings -->
     <string name="early_access">早期アクセス</string>

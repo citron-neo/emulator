@@ -163,7 +163,7 @@
     <string name="about_app_description">一個開放原始碼的 Switch 模擬器</string>
     <string name="contributors">參與者</string>
     <string name="contributors_description">使用來自 citron 團隊的 \u2764 製作</string>
-    <string name="contributors_link">https://github.com/citron-emu/citron/graphs/contributors</string>
+    <string name="contributors_link">https://github.com/citron-neo/citron/graphs/contributors</string>
     <string name="licenses_description">這些專案使 citron Android 版成為可能</string>
     <string name="build">組建</string>
     <string name="user_data">使用者資料</string>
@@ -177,8 +177,8 @@
     <string name="user_data_export_cancelled">匯出已取消</string>
     <string name="user_data_import_failed_description">請確保使用者資料夾位於 zip 壓縮檔的根目錄，並在 config/config.ini 路徑中包含組態檔案，並再試一次。</string>
     <string name="support_link">https://discord.gg/axqZFEyzPQ</string>
-    <string name="website_link">https://citron-emu.org/</string>
-    <string name="github_link">https://github.com/citron-emu</string>
+    <string name="website_link">https://citron-neo.org/</string>
+    <string name="github_link">https://github.com/citron-neo</string>
 
     <!-- Early access upgrade strings -->
     <string name="early_access">搶先體驗</string>

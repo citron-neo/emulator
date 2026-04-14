@@ -17,7 +17,7 @@ SPDX-License-Identifier: GPL-2.0-or-later
     <key>CFBundleIconFile</key>
     <string>citron.icns</string>
     <key>CFBundleIdentifier</key>
-    <string>com.citron-emu.citron</string>
+    <string>com.citron-neo.citron</string>
     <key>CFBundleInfoDictionaryVersion</key>
     <string>6.0</string>
     <key>CFBundleLongVersionString</key>

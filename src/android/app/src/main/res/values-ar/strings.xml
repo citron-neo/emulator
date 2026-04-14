@@ -137,7 +137,7 @@
     <string name="about_app_description">محاكي سويتش مفتوح المصدر</string>
     <string name="contributors">المساهمين</string>
     <string name="contributors_description">مصنوع من فريق يوزو</string>
-    <string name="contributors_link">https://github.com/citron-emu/citron/graphs/contributors</string>
+    <string name="contributors_link">https://github.com/citron-neo/citron/graphs/contributors</string>
     <string name="licenses_description">المشاريع التي تجعل تطبيق يوزو لنظام أندرويد ممكنًا</string>
     <string name="build">البناء</string>
     <string name="user_data">بيانات المستخدم</string>
@@ -150,8 +150,8 @@
     <string name="user_data_import_success">تم استيراد بيانات المستخدم بنجاح</string>
     <string name="user_data_export_cancelled">تم إلغاء التصدير</string>
     <string name="support_link">https://discord.gg/axqZFEyzPQ</string>
-    <string name="website_link">https://citron-emu.org/</string>
-    <string name="github_link">https://github.com/citron-emu</string>
+    <string name="website_link">https://citron-neo.org/</string>
+    <string name="github_link">https://github.com/citron-neo</string>
 
     <!-- Early access upgrade strings -->
     <string name="early_access">الوصول المبكر</string>

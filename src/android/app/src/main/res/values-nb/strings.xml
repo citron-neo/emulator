@@ -103,12 +103,12 @@
     <string name="about_app_description">En Switch-emulator med åpen kildekode</string>
     <string name="contributors">Bidragsytere</string>
     <string name="contributors_description">Laget med \u2764 fra citron-teamet</string>
-    <string name="contributors_link">https://github.com/citron-emu/citron/graphs/contributors</string>
+    <string name="contributors_link">https://github.com/citron-neo/citron/graphs/contributors</string>
     <string name="licenses_description">Prosjekter som gjør citron for Android mulig</string>
     <string name="build">Bygg</string>
     <string name="support_link">https://discord.gg/axqZFEyzPQ</string>
-    <string name="website_link">https://citron-emu.org/</string>
-    <string name="github_link">https://github.com/citron-emu</string>
+    <string name="website_link">https://citron-neo.org/</string>
+    <string name="github_link">https://github.com/citron-neo</string>
 
     <!-- Early access upgrade strings -->
     <string name="early_access">Tidlig tilgang</string>

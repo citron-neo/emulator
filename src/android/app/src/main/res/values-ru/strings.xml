@@ -170,7 +170,7 @@
     <string name="about_app_description">Эмулятор Switch с открытым исходным кодом</string>
     <string name="contributors">Контрибьюторы</string>
     <string name="contributors_description">Сделано с \u2764 от команды citron</string>
-    <string name="contributors_link">https://github.com/citron-emu/citron/graphs/contributors</string>
+    <string name="contributors_link">https://github.com/citron-neo/citron/graphs/contributors</string>
     <string name="licenses_description">Проекты, которые сделали citron для Android возможным</string>
     <string name="build">Сборка</string>
     <string name="user_data">Данные пользователя</string>
@@ -184,8 +184,8 @@
     <string name="user_data_export_cancelled">Экспорт отменен</string>
     <string name="user_data_import_failed_description">Убедитесь что папки пользовательских данных находятся в корне zip-папки и содержат файл конфигурации config/config.ini и повторите попытку.</string>
     <string name="support_link">https://discord.gg/axqZFEyzPQ</string>
-    <string name="website_link">https://citron-emu.org/</string>
-    <string name="github_link">https://github.com/citron-emu</string>
+    <string name="website_link">https://citron-neo.org/</string>
+    <string name="github_link">https://github.com/citron-neo</string>
 
     <!-- Early access upgrade strings -->
     <string name="early_access">Ранний доступ</string>

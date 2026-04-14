@@ -89,11 +89,11 @@
     <string name="about_app_description">Емулятор Switch із відкритим першокодом</string>
     <string name="contributors">Вкладники</string>
     <string name="contributors_description">Зроблено з \u2764 від команди citron</string>
-    <string name="contributors_link">https://github.com/citron-emu/citron/graphs/contributors</string>
+    <string name="contributors_link">https://github.com/citron-neo/citron/graphs/contributors</string>
     <string name="build">Збірка</string>
     <string name="support_link">https://discord.gg/axqZFEyzPQ</string>
-    <string name="website_link">https://citron-emu.org/</string>
-    <string name="github_link">https://github.com/citron-emu</string>
+    <string name="website_link">https://citron-neo.org/</string>
+    <string name="github_link">https://github.com/citron-neo</string>
 
     <!-- Early access upgrade strings -->
     <string name="early_access">Ранній доступ</string>
