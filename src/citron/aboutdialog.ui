@@ -57,7 +57,7 @@
        <item>
         <widget class="QLabel" name="labelLinks">
          <property name="text">
-          <string>&lt;a href=&quot;https://citron-emu.org/&quot;&gt;Website&lt;/a&gt; | &lt;a href=&quot;https://git.citron-emu.org/citron/emulator&quot;&gt;Source&lt;/a&gt; | &lt;a href=&quot;https://git.citron-emu.org/&quot;&gt;Commits&lt;/a&gt;</string>
+          <string>&lt;a href=&quot;https://citron-neo.org/&quot;&gt;Website&lt;/a&gt; | &lt;a href=&quot;https://git.citron-neo.org/citron/emulator&quot;&gt;Source&lt;/a&gt; | &lt;a href=&quot;https://git.citron-emu.org/&quot;&gt;Commits&lt;/a&gt;</string>
          </property>
          <property name="openExternalLinks"><bool>true</bool></property>
         </widget>

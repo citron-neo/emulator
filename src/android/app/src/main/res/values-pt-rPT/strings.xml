@@ -167,7 +167,7 @@
     <string name="about_app_description">Um emulador Switch de código aberto</string>
     <string name="contributors">Contribuidores</string>
     <string name="contributors_description">Feito com \u2764 da equipa do Citron</string>
-    <string name="contributors_link">https://github.com/citron-emu/citron/graphs/contributors</string>
+    <string name="contributors_link">https://github.com/citron-neo/citron/graphs/contributors</string>
     <string name="licenses_description">Projetos que tornam o citron para Android possível</string>
     <string name="build">Versão</string>
     <string name="user_data">Dado de utilizados</string>
@@ -181,8 +181,8 @@
     <string name="user_data_export_cancelled">Exportação cancelada</string>
     <string name="user_data_import_failed_description">Verifiqua se as pastas de dados do utilizados estão na raiz da pasta zip e contêm um arquivo de configuração em config/config.ini e tenta novamente.</string>
     <string name="support_link">https://discord.gg/axqZFEyzPQ</string>
-    <string name="website_link">https://citron-emu.org/</string>
-    <string name="github_link">https://github.com/citron-emu</string>
+    <string name="website_link">https://citron-neo.org/</string>
+    <string name="github_link">https://github.com/citron-neo</string>
 
     <!-- Early access upgrade strings -->
     <string name="early_access">Acesso antecipado</string>

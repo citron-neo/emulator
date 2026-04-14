@@ -182,7 +182,7 @@
     <string name="about_app_description">An open-source Switch emulator</string>
     <string name="contributors">Contributors</string>
     <string name="contributors_description">Made with \u2764 from the citron team</string>
-    <string name="contributors_link">https://github.com/citron-emu/citron/graphs/contributors</string>
+    <string name="contributors_link">https://github.com/citron-neo/citron/graphs/contributors</string>
     <string name="licenses_description">Projects that make citron for Android possible</string>
     <string name="build">Build</string>
     <string name="user_data">User data</string>
@@ -196,8 +196,8 @@
     <string name="user_data_export_cancelled">Export cancelled</string>
     <string name="user_data_import_failed_description">Make sure the user data folders are at the root of the zip folder and contain a config file at config/config.ini and try again.</string>
     <string name="support_link">https://discord.gg/axqZFEyzPQ</string>
-    <string name="website_link">https://citron-emu.org/</string>
-    <string name="github_link">https://github.com/citron-emu</string>
+    <string name="website_link">https://citron-neo.org/</string>
+    <string name="github_link">https://github.com/citron-neo</string>
 
     <!-- Early access upgrade strings -->
     <string name="early_access">Early Access</string>

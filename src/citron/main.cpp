@@ -2211,7 +2211,7 @@ bool GMainWindow::LoadROM(const QString& filename, Service::AM::FrontendAppletPa
                    "This is usually caused by outdated GPU drivers, including integrated ones. "
                    "Please see the log for more details. "
                    "For more information on accessing the log, please see the following page: "
-                   "<a href='https://citron-emu.org/help/reference/log-files/'>"
+                   "<a href='https://citron-neo.org/help/reference/log-files/'>"
                    "How to Upload the Log File</a>. "));
             break;
         default:
@@ -3307,7 +3307,7 @@ void GMainWindow::OnGameListNavigateToGamedbEntry(u64 program_id,
         directory = it->second.second;
     }
 
-    QDesktopServices::openUrl(QUrl(QStringLiteral("https://citron-emu.org/game/") + directory));
+    QDesktopServices::openUrl(QUrl(QStringLiteral("https://citron-neo.org/game/") + directory));
 }
 
 bool GMainWindow::CreateShortcutLink(const std::filesystem::path& shortcut_path,

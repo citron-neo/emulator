@@ -103,12 +103,12 @@
     <string name="about_app_description">Otwarto-źródłowy emulator konsoli Switch</string>
     <string name="contributors">Współtwórcy</string>
     <string name="contributors_description">Stworzone z \u2764 przez zespół citron</string>
-    <string name="contributors_link">https://github.com/citron-emu/citron/graphs/contributors</string>
+    <string name="contributors_link">https://github.com/citron-neo/citron/graphs/contributors</string>
     <string name="licenses_description">Projekty dzięki którym citron mógł zostać stworzony</string>
     <string name="build">Wersja</string>
     <string name="support_link">https://discord.gg/axqZFEyzPQ</string>
-    <string name="website_link">https://citron-emu.org/</string>
-    <string name="github_link">https://github.com/citron-emu</string>
+    <string name="website_link">https://citron-neo.org/</string>
+    <string name="github_link">https://github.com/citron-neo</string>
 
     <!-- Early access upgrade strings -->
     <string name="early_access">Wczesny dostęp</string>

@@ -86,7 +86,7 @@
     <string name="about_app_description">Open-source Switch emulátor</string>
     <string name="contributors">Přispěvatelé</string>
     <string name="contributors_description">Vyrobeno s \u2764 od citron týmu</string>
-    <string name="contributors_link">https://github.com/citron-emu/citron/graphs/contributors</string>
+    <string name="contributors_link">https://github.com/citron-neo/citron/graphs/contributors</string>
     <string name="build">Číslo sestavení</string>
     <string name="user_data">Uživatelská data</string>
     <string name="exporting_user_data">Exportování uživatelských dat...</string>
@@ -97,8 +97,8 @@
     <string name="user_data_import_success">Uživatelská data byla úspěšně importována.</string>
     <string name="user_data_export_cancelled">Export zrušen</string>
     <string name="support_link">https://discord.gg/axqZFEyzPQ</string>
-    <string name="website_link">https://citron-emu.org/</string>
-    <string name="github_link">https://github.com/citron-emu</string>
+    <string name="website_link">https://citron-neo.org/</string>
+    <string name="github_link">https://github.com/citron-neo</string>
 
     <string name="play_store_link">https://play.google.com/store/apps/details?id=org.citron.citron_emu.ea</string>
     <string name="no_manual_installation">Žádná manuální instalace</string>
