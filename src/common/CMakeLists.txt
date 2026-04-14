@@ -164,7 +164,7 @@ endif()
 
 if(ANDROID)
     target_sources(common
-        PUBLIC
+        PRIVATE
             fs/fs_android.cpp
             fs/fs_android.h
             android/android_common.cpp
