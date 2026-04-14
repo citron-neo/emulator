@@ -221,6 +221,8 @@ private:
     void UpdateCarouselSelection();
     void AnimateDetailsPanel(bool show);
 
+    void ShowTechnicalInformation(const QModelIndex& index);
+
     void PopulateGridView();
 
     void FilterGridView(const QString& filter_text);

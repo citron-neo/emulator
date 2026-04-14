@@ -40,8 +40,8 @@ Lobby::Lobby(QWidget* parent, QStandardItemModel* list,
         setWindowFlags(Qt::Window | Qt::CustomizeWindowHint | Qt::WindowTitleHint);
         setWindowModality(Qt::NonModal);
 
-        int w = 800;
-        int h = 500;
+        int w = 1280;
+        int h = 800;
         setFixedSize(w, h);
     } else {
         setWindowFlags(Qt::Dialog | Qt::WindowTitleHint | Qt::WindowCloseButtonHint |

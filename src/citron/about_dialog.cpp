@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <QComboBox>
+#include <QDateTime>
 #include <QDialogButtonBox>
 #include <QHBoxLayout>
 #include <QIcon>
@@ -117,8 +118,17 @@ AboutDialog::AboutDialog(QWidget* parent) : QDialog(parent) {
                 qOverload<int>(&SpinningLogo::setSpinMode));
     }
 
+    const QString raw_date = QString::fromUtf8(Common::g_build_date);
+    QDateTime date_time = QDateTime::fromString(raw_date, Qt::ISODate);
+    QString formatted_date;
+    if (date_time.isValid()) {
+        formatted_date = date_time.toLocalTime().toString(QStringLiteral("MMMM d, yyyy 'at' h:mm AP"));
+    } else {
+        formatted_date = raw_date;
+    }
+
     ui->labelBuildInfo->setText(ui->labelBuildInfo->text().arg(
-        QString::fromStdString(citron_build_version), QString::fromUtf8(Common::g_build_date)));
+        QString::fromStdString(citron_build_version), formatted_date));
 
     UpdateTheme();
 }
@@ -148,8 +158,8 @@ void AboutDialog::UpdateTheme() {
             "QDialog#AboutDialog { background-color: %1; color: %3; }"
             "#labelCitron { color: %3; font-size: 42px; font-weight: bold; text-transform: "
             "lowercase; letter-spacing: -1.5px; margin-bottom: 2px; }"
-            "#labelBuildInfo { color: %2; font-size: 11px; font-weight: 800; text-transform: "
-            "uppercase; letter-spacing: 1.5px; opacity: 0.8; }"
+            "#labelBuildInfo { color: %2; font-size: 11px; font-weight: 800; "
+            "letter-spacing: 1.5px; opacity: 0.8; }"
             "#labelAbout { color: %3; font-size: 16px; margin-top: 10px; }"
             "#labelLinks { font-weight: bold; font-size: 16px; margin-top: 5px; }"
             "#labelLiability { color: %2; font-size: 10px; font-style: italic; opacity: 0.6; }"

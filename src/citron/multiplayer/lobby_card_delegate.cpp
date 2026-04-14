@@ -43,6 +43,29 @@ LobbyCardDelegate::LobbyCardDelegate(QTreeView* view, QObject* parent)
 LobbyCardDelegate::~LobbyCardDelegate() = default;
 
 // ============================================================
+// initStyleOption  — strip Qt's built-in selection/focus paint
+// ============================================================
+// Qt's item-view style engine draws an opaque selection rectangle
+// (often solid black on some platforms/themes) immediately before
+// paint() is called.  Because we handle selection visually ourselves
+// (accent stripe + hover glow) we must remove those state flags so
+// the style engine produces a transparent/no-op base layer.
+
+void LobbyCardDelegate::initStyleOption(QStyleOptionViewItem* option,
+                                         const QModelIndex& index) const {
+    QStyledItemDelegate::initStyleOption(option, index);
+    // Remove the flags that trigger Qt's native highlight painting
+    option->state &= ~(QStyle::State_Selected |
+                       QStyle::State_HasFocus  |
+                       QStyle::State_Active    |
+                       QStyle::State_Sunken);
+    // Also clear the showDecorationSelected hint so no highlight bleeds
+    // through via QPalette::Highlight on any column
+    option->showDecorationSelected = false;
+}
+
+
+// ============================================================
 // sizeHint
 // ============================================================
 
@@ -65,10 +88,6 @@ void LobbyCardDelegate::paint(QPainter* painter,
     painter->setRenderHints(QPainter::Antialiasing |
                             QPainter::TextAntialiasing |
                             QPainter::SmoothPixmapTransform);
-    // Allow glow effects to bleed slightly outside individual cell rects
-    if (tree_view) {
-        painter->setClipRect(tree_view->viewport()->rect());
-    }
 
     const bool is_child = index.parent().isValid();
 
@@ -82,11 +101,14 @@ void LobbyCardDelegate::paint(QPainter* painter,
         }
         // Other child columns: transparent, nothing to draw
     } else {
-        // Top-level room rows — each column draws its portion of the card
+        // Top-level room rows — paint the card background for every column so
+        // Qt's native selection highlight is fully overwritten (matching the
+        // GameListDelegate pattern that prevents the click-flash).
+        PaintBackground(painter, option, index);
+
         switch (index.column()) {
         case Column::GAME_NAME:
-            PaintBackground(painter, option, index);   // full-row card BG
-            PaintIcon(painter, option.rect, index);    // centred icon
+            PaintIcon(painter, option.rect, index);
             break;
         case Column::ROOM_NAME:
             PaintRoomName(painter, option.rect, option, index);
@@ -237,12 +259,30 @@ void LobbyCardDelegate::PaintBackground(QPainter* painter,
     }
     full_rect.adjust(0, kCardMarginV, 0, -kCardMarginV);
 
+    // Clip to this column's cell so we don't overdraw adjacent columns.
+    // For the leftmost column (GAME_NAME), extend to the left viewport edge
+    // so the card left edge and rounded corner are fully visible.
+    QRect clip_rect = option.rect;
+    if (index.column() == Column::GAME_NAME) {
+        clip_rect.setLeft(0);
+    }
+    painter->save();
+    painter->setClipRect(clip_rect);
+
     const QPersistentModelIndex key = RowKey(index);
     const qreal hov  = hover_prog.value(key, 0.0);
-    const bool  sel  = option.state & QStyle::State_Selected;
+    // Read from selection model — initStyleOption strips State_Selected from option
+    const bool  sel  = tree_view && tree_view->selectionModel() &&
+                       tree_view->selectionModel()->isRowSelected(index.row(), index.parent());
 
-    // Hover glow behind card
-    if (hov > 0.01) DrawHoverGlow(painter, full_rect, hov);
+    // Hover glow — only drawn once per row (from GAME_NAME column) to avoid
+    // triple-intensity overdraw. Temporarily widen clip to viewport so the
+    // glow can bleed outside the cell, then restore the column clip.
+    if (hov > 0.01 && index.column() == Column::GAME_NAME) {
+        if (tree_view) painter->setClipRect(tree_view->viewport()->rect());
+        DrawHoverGlow(painter, full_rect, hov);
+        painter->setClipRect(clip_rect); // restore column clip
+    }
 
     // Card fill
     QColor bg = CardBg();
@@ -252,18 +292,21 @@ void LobbyCardDelegate::PaintBackground(QPainter* painter,
     path.addRoundedRect(full_rect, kCardRadius, kCardRadius);
     painter->fillPath(path, bg);
 
-    // Selected accent stripe
-    if (sel) {
+    // Selected accent stripe (only painted once, from the leftmost column)
+    if (sel && index.column() == Column::GAME_NAME) {
         QPainterPath stripe;
         stripe.addRoundedRect(QRect(full_rect.left(), full_rect.top() + 6,
                                     3, full_rect.height() - 12), 2, 2);
         painter->fillPath(stripe, AccentColor());
     }
 
-    // Pulse border (on click)
-    if (click_idx.isValid() && click_prog > 0.0 && key == click_idx) {
+    // Pulse border (only painted once, from the leftmost column)
+    if (index.column() == Column::GAME_NAME &&
+        click_idx.isValid() && click_prog > 0.0 && key == click_idx) {
         DrawPulseBorder(painter, full_rect, click_prog);
     }
+
+    painter->restore();
 }
 
 // ============================================================

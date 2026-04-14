@@ -43,6 +43,7 @@ public:
 private:
     void changeEvent(QEvent* event) override;
     void RetranslateUI();
+    void UpdateTheme(const QString& custom_accent = {});
 
     void LoadConfiguration();
     void OnCheatToggled(QStandardItem* item);

@@ -62,7 +62,9 @@ GameBananaDialog::GameBananaDialog(const QString& title_id_, const QString& game
         SearchForGame();
     }
     if (UISettings::IsGamescope()) {
-        resize(720, 540);
+        setFixedSize(1280, 800);
+    } else {
+        resize(1280, 800);
     }
 
     UpdateTheme();
@@ -416,19 +418,22 @@ void GameBananaDialog::UpdateTheme() {
     const QString panel = is_dark ? QStringLiteral("#1c1c22") : QStringLiteral("#ffffff");
     const QString border = is_dark ? QStringLiteral("#2d2d35") : QStringLiteral("#dcdce2");
 
+    const bool is_gs = UISettings::IsGamescope();
+    const QString btn_font = is_gs ? QStringLiteral("font-size: 12px;") : QStringLiteral("font-size: 11px;");
+
     QString style = ConfigurationStyling::GetMasterStyleSheet();
     style += QStringLiteral(
         "QDialog#GameBananaDialog { background-color: %1; color: %2; }"
         "QLabel { color: %2; }"
         "QLineEdit, QComboBox { background-color: %4; border: 1px solid %5; border-radius: 6px; "
-        "padding: 5px; color: %2; }"
+        "padding: 5px; color: %2; %10 }"
         "QListWidget { background-color: %6; border: 1px solid %5; border-radius: 12px; padding: "
         "8px; }"
         "QListWidget::item { background-color: %4; border-radius: 8px; margin-bottom: 6px; "
         "padding: 12px; color: %2; }"
         "QListWidget::item:selected { background-color: %5; border: 2px solid %3; }"
         "QPushButton { background-color: %4; border: 1px solid %5; border-radius: 10px; padding: "
-        "8px 16px; color: %2; font-weight: bold; }"
+        "8px 16px; color: %2; font-weight: bold; %10 }"
         "QPushButton:hover { background-color: %5; }"
         "QPushButton#buttonDownload { background-color: %3; color: #000000; }"
         "QPushButton#buttonDownload:disabled { background-color: %5; color: %7; }"
@@ -444,8 +449,9 @@ void GameBananaDialog::UpdateTheme() {
         "5px; background: %4; }"
         "QCheckBox::indicator:checked { background: %3; border-color: %3; }")
         .arg(bg, txt, accent, panel, border, bg, sub_txt, 
-             UISettings::IsGamescope() ? "12" : "24", 
-             UISettings::IsGamescope() ? "10" : "18");
+             is_gs ? "12" : "24", 
+             is_gs ? "10" : "18")
+        .arg(btn_font);
 
     setStyleSheet(style);
 

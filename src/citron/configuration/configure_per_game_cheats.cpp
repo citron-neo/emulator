@@ -12,6 +12,7 @@
 #include <QDir>
 #include <QHBoxLayout>
 #include <QHeaderView>
+#include <QApplication>
 #include <QMenu>
 #include <QMessageBox>
 #include <QPushButton>
@@ -34,6 +35,7 @@
 #include "core/hle/service/filesystem/filesystem.h"
 #include "core/loader/loader.h"
 #include "core/memory/cheat_engine.h"
+#include "citron/uisettings.h"
 #include "ui_configure_per_game_cheats.h"
 
 ConfigurePerGameCheats::ConfigurePerGameCheats(Core::System& system_, QWidget* parent)
@@ -98,6 +100,8 @@ ConfigurePerGameCheats::ConfigurePerGameCheats(Core::System& system_, QWidget* p
     layout->addWidget(button_scroll);
     layout->addWidget(tree_view);
 
+    UpdateTheme();
+
     ui->scrollArea->setWidgetResizable(true);
     QWidget* main_widget = new QWidget;
     main_widget->setLayout(layout);
@@ -144,6 +148,51 @@ void ConfigurePerGameCheats::RetranslateUI() {
     enable_all_button->setText(tr("Enable All"));
     disable_all_button->setText(tr("Disable All"));
     save_button->setText(tr("Save"));
+    UpdateTheme();
+}
+
+void ConfigurePerGameCheats::UpdateTheme(const QString& custom_accent) {
+    QString accent = custom_accent;
+    if (accent.isEmpty()) {
+        accent = QString::fromStdString(UISettings::values.accent_color.GetValue());
+    }
+
+    const QColor accent_qcolor{accent};
+    const QString hue_light = accent_qcolor.lighter(125).name();
+    const QString hue_dark  = accent_qcolor.darker(150).name();
+
+    const QPalette pal = qApp->palette();
+    const bool is_dark = pal.color(QPalette::WindowText).value() >
+                         pal.color(QPalette::Window).value();
+
+    const QString bg      = is_dark ? QStringLiteral("#24242a") : QStringLiteral("#ffffff");
+    const QString bg_alt  = is_dark ? QStringLiteral("#2a2a32") : QStringLiteral("#f5f5fa");
+    const QString txt     = is_dark ? QStringLiteral("#e0e0e4") : QStringLiteral("#1a1a1e");
+    const QString border  = is_dark ? QStringLiteral("#32323a") : QStringLiteral("#d0d0d5");
+    const QString sel_bg  = accent;
+    const QString sel_txt = QStringLiteral("#ffffff");
+
+    if (tree_view) {
+        tree_view->setStyleSheet(QStringLiteral(
+            "QTreeView { background-color: %1; color: %2; "
+            "border: 1px solid %3; border-radius: 4px; outline: none; "
+            "alternate-background-color: %4; }"
+            "QTreeView::item { padding: 2px 4px; color: %2; background-color: transparent; }"
+            "QTreeView::item:selected { background-color: %5; color: %6; }"
+            "QTreeView::item:hover { background-color: rgba(128,128,128,0.12); }"
+            "QTreeView::branch { background: %1; }"
+            "QHeaderView::section { background-color: %4; color: %2; "
+            "padding: 4px 6px; border: none; border-bottom: 1px solid %3; font-weight: bold; }"
+            "QCheckBox::indicator { width: 14px; height: 14px; border-radius: 3px; "
+            "border: 1px solid %3; background: %1; }"
+            "QCheckBox::indicator:checked { background: %5; border-color: %5; }"
+            "QScrollBar:vertical { background: transparent; width: 8px; }"
+            "QScrollBar::handle:vertical { background: %3; border-radius: 4px; min-height: 20px; }"
+            "QScrollBar:horizontal { background: transparent; height: 8px; }"
+            "QScrollBar::handle:horizontal { background: %3; border-radius: 4px; min-width: 20px; }"
+            "QScrollBar::add-line, QScrollBar::sub-line { background: none; height: 0; width: 0; }")
+            .arg(bg, txt, border, bg_alt, sel_bg, sel_txt));
+    }
 }
 
 void ConfigurePerGameCheats::LoadConfiguration() {

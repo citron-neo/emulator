@@ -73,6 +73,7 @@
 #include "citron/configuration/configuration_styling.h"
 #include "citron/util/rainbow_style.h"
 #include "citron/util/util.h"
+#include "citron/util/overlay_dialog.h"
 #include "citron/vk_device_info.h"
 #include "common/fs/fs_util.h"
 #include "common/fs/path_util.h"
@@ -255,15 +256,6 @@ ConfigurePerGame::ConfigurePerGame(QWidget* parent, u64 title_id_, const std::st
     }
 
     LoadConfiguration();
- 
-    // Trigger initial electrification for the first tab
-    const auto buttons = ui->tabButtonsLayout->parentWidget()->findChildren<QPushButton*>();
-    for (auto* button : buttons) {
-        if (button->property("class").toString() == QStringLiteral("tabButton")) {
-            animation_filter->triggerInitialState(button);
-            break;
-        }
-    }
 }
 
 ConfigurePerGame::~ConfigurePerGame() {
@@ -1063,13 +1055,6 @@ void ConfigurePerGame::showEvent(QShowEvent* event) {
     // Force a layout re-calculation after the widget is mapped to coordinates
     QTimer::singleShot(50, this, [this]() {
         UpdateLayoutScaling();
-        
-        // Instant electrification for the initially selected tab
-        if (button_group && button_group->checkedButton()) {
-            if (auto* btn = qobject_cast<QPushButton*>(button_group->checkedButton())) {
-                animation_filter->triggerInitialState(btn);
-            }
-        }
     });
 }
 
@@ -1224,15 +1209,18 @@ void ConfigurePerGame::AnimateTabSwitch(int id) {
         return;
     }
 
-    if (animation_filter && button_group) {
+    const bool lightning_enabled =
+        UISettings::values.neo_ui_theme.GetValue() == "lightning";
+
+    if (animation_filter && button_group && lightning_enabled) {
         QPushButton* from_button = qobject_cast<QPushButton*>(button_group->button(ui->stackedWidget->currentIndex()));
         QPushButton* to_button = qobject_cast<QPushButton*>(button_group->button(id));
 
         if (to_button) {
-            // Restore the sidebar "volt" animation
+            // Sidebar electric arc between buttons
             animation_filter->triggerElectrification(from_button, to_button);
 
-            // Trigger the massive Thunderstrike on the right half of the properties window
+            // Full-screen lightning strike on the right half of the properties window
             animation_filter->triggerPageLightning(this, QPoint(width() * 0.75, 0));
         }
     }
@@ -1519,5 +1507,36 @@ void ConfigurePerGame::OnFullInfo() {
     info += tr("<b>Base Build ID:</b> %1<br>").arg(ui->display_build_id->text());
     info += tr("<b>Update Build ID:</b> %1<br>").arg(ui->display_update_build_id->text());
 
-    QMessageBox::information(this, tr("Game Information"), info);
+    if (UISettings::IsGamescope()) {
+        auto* dialog = new OverlayDialog(this, system, tr("Game Information"), info,
+                                        QString{}, tr("Close"), Qt::AlignCenter);
+        dialog->setWindowFlags(Qt::Window | Qt::CustomizeWindowHint | Qt::WindowTitleHint |
+                              Qt::WindowStaysOnTopHint);
+        dialog->open();
+    } else {
+        const bool is_dark = GameIsDarkMode();
+        const QString bg  = is_dark ? QStringLiteral("#24242a") : QStringLiteral("#ffffff");
+        const QString txt = is_dark ? QStringLiteral("#e0e0e4") : QStringLiteral("#1a1a1e");
+        const QString bdr = is_dark ? QStringLiteral("#32323a") : QStringLiteral("#d0d0d5");
+        const QString accent = QString::fromStdString(UISettings::values.accent_color.GetValue());
+
+        QMessageBox msg(this);
+        msg.setWindowTitle(tr("Game Information"));
+        msg.setText(info);
+        msg.setIcon(QMessageBox::Information);
+        msg.setStandardButtons(QMessageBox::Ok);
+        msg.setStyleSheet(QStringLiteral(
+            "QMessageBox { background-color: %1; color: %2; }"
+            "QMessageBox QLabel { background-color: transparent; color: %2; font-size: 9pt; }"
+            "QMessageBox QPushButton { "
+            "  background-color: transparent; color: %2; "
+            "  border: 1px solid %3; border-radius: 4px; padding: 4px 16px; min-width: 60px; "
+            "}"
+            "QMessageBox QPushButton:hover { background-color: %4; color: #ffffff; border-color: %4; }"
+            "QScrollBar:vertical { background: transparent; width: 8px; }"
+            "QScrollBar::handle:vertical { background: %3; border-radius: 4px; min-height: 20px; }")
+            .arg(bg, txt, bdr, accent));
+        msg.exec();
+    }
 }
+

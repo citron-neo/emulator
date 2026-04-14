@@ -140,6 +140,9 @@ resolution_setting{Settings::values.resolution_setup.GetValue()}, system{system_
     InitializeIconSizeComboBox();
     InitializeRowComboBoxes();
 
+    ui->neo_ui_theme_combobox->addItem(tr("None"), QStringLiteral("none"));
+    ui->neo_ui_theme_combobox->addItem(tr("Electrifying"), QStringLiteral("lightning"));
+
     PopulateResolutionComboBox(ui->screenshot_height, this);
 
     SetConfiguration();
@@ -199,6 +202,7 @@ void ConfigureUi::ApplyConfiguration() {
     UISettings::values.theme =
     ui->theme_combobox->itemData(ui->theme_combobox->currentIndex()).toString().toStdString();
     UISettings::values.ui_positioning = ui->ui_positioning_combo->currentData().toString().toStdString();
+    UISettings::values.neo_ui_theme = ui->neo_ui_theme_combobox->currentData().toString().toStdString();
 
     auto* update_channel_combo = findChild<QComboBox*>("update_channel_combo");
     if (update_channel_combo) {
@@ -268,6 +272,8 @@ void ConfigureUi::SetConfiguration() {
         QString::fromStdString(UISettings::values.language.GetValue())));
     ui->ui_positioning_combo->setCurrentIndex(ui->ui_positioning_combo->findData(
         QString::fromStdString(UISettings::values.ui_positioning.GetValue())));
+    ui->neo_ui_theme_combobox->setCurrentIndex(ui->neo_ui_theme_combobox->findData(
+        QString::fromStdString(UISettings::values.neo_ui_theme.GetValue())));
 
     auto* update_channel_combo = findChild<QComboBox*>("update_channel_combo");
     if (update_channel_combo) {
