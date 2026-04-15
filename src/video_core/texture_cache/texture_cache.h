@@ -1341,7 +1341,13 @@ ImageViewId TextureCache<P>::FindImageView(const TICEntry& config) {
     if (!IsValidEntry(*gpu_memory, config)) {
         return NULL_IMAGE_VIEW_ID;
     }
-    const auto [pair, is_new] = channel_state->image_views.try_emplace(config);
+    using Tegra::Texture::TextureType;
+    TICEntry cache_key = config;
+    const auto tex_type = config.texture_type.Value();
+    if (tex_type == TextureType::Texture2D || tex_type == TextureType::Texture2DNoMipmap) {
+        cache_key.depth_minus_1.Assign(0);
+    }
+    const auto [pair, is_new] = channel_state->image_views.try_emplace(cache_key);
     ImageViewId& image_view_id = pair->second;
     if (is_new) {
         image_view_id = CreateImageView(config);

@@ -63,7 +63,6 @@ ImageInfo::ImageInfo(const TICEntry& config) noexcept {
         break;
     case TextureType::Texture2D:
     case TextureType::Texture2DNoMipmap:
-        ASSERT(config.Depth() == 1);
         type = config.IsPitchLinear() ? ImageType::Linear : ImageType::e2D;
         rescaleable = !config.IsPitchLinear();
         size.width = config.Width();
