@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright 2024 yuzu Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
+#include <cstdio>
 #include "core/hle/service/cmif_serialization.h"
 #include "core/hle/service/ns/account_proxy_interface.h"
 #include "core/hle/service/ns/application_manager_interface.h"
@@ -16,6 +17,19 @@
 #include "core/hle/service/ns/service_getter_interface.h"
 
 namespace Service::NS {
+
+namespace {
+void DiagWrite(const char* msg) {
+    static std::FILE* diag_file = nullptr;
+    if (!diag_file) {
+        diag_file = std::fopen("diag_crash.log", "w");
+    }
+    if (diag_file) {
+        std::fprintf(diag_file, "%s\n", msg);
+        std::fflush(diag_file);
+    }
+}
+} // namespace
 
 IServiceGetterInterface::IServiceGetterInterface(Core::System& system_, const char* name)
     : ServiceFramework{system_, name} {
@@ -91,8 +105,25 @@ Result IServiceGetterInterface::GetAccountProxyInterface(
 
 Result IServiceGetterInterface::GetApplicationManagerInterface(
     Out<SharedPointer<IApplicationManagerInterface>> out_interface) {
-    LOG_INFO(Service_NS, "called");
-    *out_interface = std::make_shared<IApplicationManagerInterface>(system);
+    DiagWrite("STEP 1: GetApplicationManagerInterface called");
+    LOG_INFO(Service_NS, "called, about to construct IApplicationManagerInterface");
+    try {
+        DiagWrite("STEP 2: About to call make_shared<IApplicationManagerInterface>");
+        auto iface = std::make_shared<IApplicationManagerInterface>(system);
+        DiagWrite("STEP 3: make_shared completed successfully");
+        LOG_INFO(Service_NS, "make_shared<IApplicationManagerInterface> returned successfully");
+        *out_interface = std::move(iface);
+        DiagWrite("STEP 4: out_interface assigned");
+        LOG_INFO(Service_NS, "out_interface assigned, returning");
+    } catch (const std::exception& e) {
+        DiagWrite("STEP ERROR: C++ exception caught");
+        LOG_CRITICAL(Service_NS, "Exception in IApplicationManagerInterface construction: {}",
+                     e.what());
+    } catch (...) {
+        DiagWrite("STEP ERROR: Unknown exception caught");
+        LOG_CRITICAL(Service_NS, "Unknown exception in IApplicationManagerInterface construction");
+    }
+    DiagWrite("STEP 5: GetApplicationManagerInterface returning");
     R_SUCCEED();
 }
 

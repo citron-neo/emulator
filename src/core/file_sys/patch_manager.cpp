@@ -628,8 +628,8 @@ VirtualFile PatchManager::PatchRomFS(const NCA* base_nca, VirtualFile base_romfs
                                         nacp_file = extracted->GetFile("Control.nacp");
                                     }
                                     if (nacp_file) {
-                                        NACP nacp(nacp_file);
-                                        version_str = nacp.GetVersionString();
+                                        auto nacp = std::make_unique<NACP>(nacp_file);
+                                        version_str = nacp->GetVersionString();
                                     }
                                 }
                             }
@@ -872,8 +872,8 @@ std::vector<Patch> PatchManager::GetPatches(VirtualFile update_raw) const {
                                     nacp_file = extracted->GetFile("Control.nacp");
                                 }
                                 if (nacp_file) {
-                                    NACP control_nacp(nacp_file);
-                                    version_str = control_nacp.GetVersionString();
+                                    auto control_nacp = std::make_unique<NACP>(nacp_file);
+                                    version_str = control_nacp->GetVersionString();
                                 }
                             }
                         }
@@ -969,8 +969,8 @@ std::vector<Patch> PatchManager::GetPatches(VirtualFile update_raw) const {
                                 if (auto rfs = nca_check.GetRomFS()) {
                                     if (auto ext = ExtractRomFS(rfs)) {
                                         if (auto nacp_f = ext->GetFile("control.nacp")) {
-                                            NACP auto_nacp(nacp_f);
-                                            version_str = auto_nacp.GetVersionString();
+                                            auto auto_nacp = std::make_unique<NACP>(nacp_f);
+                                            version_str = auto_nacp->GetVersionString();
                                             break;
                                         }
                                     }

@@ -90,6 +90,11 @@ void ServiceFrameworkBase::InvokeRequest(HLERequestContext& ctx) {
         return ReportUnimplementedFunction(ctx, info);
     }
 
+    if (service_name == "IApplicationManagerInterface") {
+        LOG_INFO(Service_NS, "dispatching cmd={} ({})", ctx.GetCommand(),
+                 info->name ? info->name : "unknown");
+    }
+
     LOG_TRACE(Service, "{}", MakeFunctionString(info->name, GetServiceName(), ctx.CommandBuffer()));
     handler_invoker(this, info->handler_callback, ctx);
 }

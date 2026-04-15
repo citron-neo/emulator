@@ -18,7 +18,7 @@ BlitScreen::BlitScreen(Tegra::MaxwellDeviceMemoryManager& device_memory_, const 
                        Scheduler& scheduler_, const PresentFilters& filters_)
     : device_memory{device_memory_}, device{device_}, memory_allocator{memory_allocator_},
       present_manager{present_manager_}, scheduler{scheduler_}, filters{filters_}, image_count{1},
-      swapchain_view_format{VK_FORMAT_B8G8R8A8_UNORM} {}
+      swapchain_view_format{VK_FORMAT_B8G8R8A8_SRGB} {}
 
 BlitScreen::~BlitScreen() = default;
 

@@ -1,6 +1,9 @@
 // SPDX-FileCopyrightText: Copyright 2020 yuzu Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
+#include <algorithm>
+#include <cmath>
+
 #include <fmt/format.h>
 
 #include "common/assert.h"
@@ -32,6 +35,11 @@ ImageInfo::ImageInfo(const TICEntry& config) noexcept {
                                         config.a_type, config.srgb_conversion);
     num_samples = NumSamples(config.msaa_mode);
     resources.levels = config.max_mip_level + 1;
+    if (resources.levels > static_cast<s32>(MAX_MIP_LEVELS)) {
+        LOG_WARNING(HW_GPU, "Image requested {} mip levels, clamping to maximum of {}",
+                    resources.levels, MAX_MIP_LEVELS);
+        resources.levels = static_cast<s32>(MAX_MIP_LEVELS);
+    }
     if (config.IsPitchLinear()) {
         pitch = config.Pitch();
     } else if (config.IsBlockLinear()) {
@@ -106,6 +114,16 @@ ImageInfo::ImageInfo(const TICEntry& config) noexcept {
     default:
         ASSERT_MSG(false, "Invalid texture_type={}", static_cast<int>(config.texture_type.Value()));
         break;
+    }
+    if (type != ImageType::Buffer) {
+        const u32 max_dim = std::max({size.width, size.height, size.depth});
+        if (max_dim > 0) {
+            const s32 max_mips =
+                static_cast<s32>(std::floor(std::log2(static_cast<float>(max_dim)))) + 1;
+            if (resources.levels > max_mips) {
+                resources.levels = max_mips;
+            }
+        }
     }
     if (num_samples > 1) {
         size.width *= NumSamplesX(config.msaa_mode);
