@@ -53,11 +53,11 @@ private:
 
     std::unique_ptr<Ui::ConfigurePerGameAddons> ui;
     FileSys::VirtualFile file;
-    u64 title_id;
+    u64 title_id = 0;
 
-    QVBoxLayout* layout;
-    QTreeView* tree_view;
-    QStandardItemModel* item_model;
+    QVBoxLayout* layout = nullptr;
+    QTreeView* tree_view = nullptr;
+    QStandardItemModel* item_model = nullptr;
 
     std::vector<QList<QStandardItem*>> list_items;
 

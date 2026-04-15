@@ -120,6 +120,7 @@ private:
     float current_factor{0.0f};
     bool m_is_scaling{false};
     int m_last_height{0};
+    bool pending_initial_load{false};
     QGraphicsPathItem* m_laser_path{nullptr};
     QVariantAnimation* m_laser_anim{nullptr};
 };

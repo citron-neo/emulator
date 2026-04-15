@@ -313,7 +313,17 @@ void ConfigurePerGame::HandleApplyButtonClicked() {
 
 void ConfigurePerGame::LoadFromFile(FileSys::VirtualFile file_) {
     file = std::move(file_);
-    LoadConfiguration();
+    if (file == nullptr) {
+        return;
+    }
+
+    if (isVisible()) {
+        QTimer::singleShot(0, this, [this] {
+            LoadConfiguration();
+        });
+    } else {
+        pending_initial_load = true;
+    }
 }
 
 void ConfigurePerGame::UpdateTheme() {
@@ -1052,6 +1062,14 @@ void ConfigurePerGame::resizeEvent(QResizeEvent* event) {
 
 void ConfigurePerGame::showEvent(QShowEvent* event) {
     QDialog::showEvent(event);
+
+    if (pending_initial_load) {
+        pending_initial_load = false;
+        QTimer::singleShot(0, this, [this]() {
+            LoadConfiguration();
+        });
+    }
+
     // Force a layout re-calculation after the widget is mapped to coordinates
     QTimer::singleShot(50, this, [this]() {
         UpdateLayoutScaling();
