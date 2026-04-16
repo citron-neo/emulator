@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: Copyright 2024 yuzu Emulator Project
+// SPDX-FileCopyrightText: Copyright 2026 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #pragma once
@@ -18,6 +19,8 @@ namespace Service::AM {
 
 struct Applet;
 class EventObserver;
+enum class AppletMessage : u32;
+enum class SystemButtonType;
 
 enum class ButtonPressDuration {
     ShortPressing,
@@ -54,43 +57,47 @@ public:
     void OnOperationModeChanged();
     void OnExitRequested();
     void OnHomeButtonPressed(ButtonPressDuration type);
-    void OnCaptureButtonPressed(ButtonPressDuration type) {}
+    void OnCaptureButtonPressed(ButtonPressDuration type);
     void OnPowerButtonPressed(ButtonPressDuration type) {}
 
 public:
     void SetHomeMenuRequestCallback(HomeMenuRequestCallback callback);
 
 private:
+    struct DisplayParams {
+        bool visible{};
+        bool interactible{};
+        s32 z_index{};
+    };
+
+    DisplayParams ComputeOverlayDisplayParams(Applet& applet) const;
+    DisplayParams ComputeStandardDisplayParams(Applet& applet, bool is_foreground,
+                                               bool input_intercepted) const;
+
     void PruneTerminatedAppletsLocked();
     bool LockHomeMenuIntoForegroundLocked();
     void TerminateChildAppletsLocked(Applet* applet);
-    void UpdateAppletStateLocked(Applet* applet, bool is_foreground);
+    void ReconcileAppletTreeLocked(Applet* applet, bool is_foreground, bool input_intercepted);
+    void ApplyDisplayParams(Applet& applet, const DisplayParams& params);
+
+    void BroadcastButtonMessage(AppletMessage message);
 
 private:
-    // System reference.
     Core::System& m_system;
 
-    // Event observer.
     EventObserver* m_event_observer{};
 
-    // Lock.
     std::mutex m_lock{};
 
-    // Overlay Display Applet.
-    std::shared_ptr<Applet> overlay_display_applet;
-
-    // Home menu state.
     bool m_home_menu_foreground_locked{};
     Applet* m_foreground_requested_applet{};
 
-    // Foreground roots.
     Applet* m_home_menu{};
     Applet* m_application{};
+    Applet* m_overlay{};
 
-    // Applet map by aruid.
     std::map<u64, std::shared_ptr<Applet>> m_applets{};
 
-    // Callback for requesting home menu launch from frontend.
     HomeMenuRequestCallback m_home_menu_request_callback{};
 };
 

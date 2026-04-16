@@ -11,12 +11,13 @@ namespace Service::AM {
 
 Applet::Applet(Core::System& system, std::unique_ptr<Process> process_, bool is_application)
     : context(system, "Applet"), lifecycle_manager(system, context, is_application),
-      process(std::move(process_)), hid_registration(system, *process),
+      process(std::move(process_)), hid_registration(system, *process), overlay_event(context),
       gpu_error_detected_event(context), friend_invitation_storage_channel_event(context),
       notification_storage_channel_event(context), health_warning_disappeared_system_event(context),
-      acquired_sleep_lock_event(context), pop_from_general_channel_event(context),
-      library_applet_launchable_event(context), accumulated_suspended_tick_changed_event(context),
-      sleep_lock_event(context), state_changed_event(context) {
+      unknown_event(context), acquired_sleep_lock_event(context),
+      pop_from_general_channel_event(context), library_applet_launchable_event(context),
+      accumulated_suspended_tick_changed_event(context), sleep_lock_event(context),
+      state_changed_event(context) {
 
     aruid.pid = process->GetProcessId();
     program_id = process->GetProgramId();
