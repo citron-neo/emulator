@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: Copyright 2026 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
+#include "core/core.h"
 #include "core/hle/result.h"
 #include "core/hle/service/am/am_results.h"
 #include "core/hle/service/am/applet_manager.h"
@@ -16,8 +17,7 @@ namespace Service::AM {
 IHomeMenuFunctions::IHomeMenuFunctions(Core::System& system_, std::shared_ptr<Applet> applet,
                                        WindowSystem& window_system)
     : ServiceFramework{system_, "IHomeMenuFunctions"}, m_window_system{window_system},
-      m_applet{std::move(applet)}, m_context{system, "IHomeMenuFunctions"},
-      m_pop_from_general_channel_event{m_context} {
+      m_applet{std::move(applet)} {
     // clang-format off
     static const FunctionInfo functions[] = {
         {10, D<&IHomeMenuFunctions::RequestToGetForeground>, "RequestToGetForeground"},
@@ -83,7 +83,7 @@ Result IHomeMenuFunctions::UnlockForeground() {
 Result IHomeMenuFunctions::GetPopFromGeneralChannelEvent(
     OutCopyHandle<Kernel::KReadableEvent> out_event) {
     LOG_INFO(Service_AM, "called");
-    *out_event = m_pop_from_general_channel_event.GetHandle();
+    *out_event = system.GetGeneralChannelEvent().GetHandle();
     R_SUCCEED();
 }
 
@@ -101,8 +101,15 @@ Result IHomeMenuFunctions::IsForceTerminateApplicationDisabledForDebug(
 }
 
 Result IHomeMenuFunctions::PopFromGeneralChannel(Out<SharedPointer<IStorage>> out_storage) {
-    LOG_WARNING(Service_AM, "(STUBBED) called");
-    R_THROW(ResultNoDataInChannel);
+    LOG_DEBUG(Service_AM, "called");
+
+    std::vector<u8> data;
+    if (!system.TryPopGeneralChannel(data)) {
+        R_THROW(AM::ResultNoDataInChannel);
+    }
+
+    *out_storage = std::make_shared<IStorage>(system, std::move(data));
+    R_SUCCEED();
 }
 
 Result IHomeMenuFunctions::GetHomeButtonWriterLockAccessor(
@@ -119,7 +126,7 @@ Result IHomeMenuFunctions::GetWriterLockAccessorEx(
 
 Result IHomeMenuFunctions::IsSleepEnabled(Out<bool> out_is_sleep_enabled) {
     LOG_INFO(Service_AM, "called");
-    *out_is_sleep_enabled = true;
+    *out_is_sleep_enabled = false;
     R_SUCCEED();
 }
 

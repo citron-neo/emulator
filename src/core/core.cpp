@@ -71,6 +71,8 @@
 #include "core/hle/service/psc/time/steady_clock.h"
 #include "core/hle/service/psc/time/system_clock.h"
 #include "core/hle/service/psc/time/time_zone_service.h"
+#include "core/hle/service/kernel_helpers.h"
+#include "core/hle/service/os/event.h"
 #include "core/hle/service/service.h"
 #include "core/hle/service/services.h"
 #include "core/hle/service/set/system_settings_server.h"
@@ -609,6 +611,38 @@ struct System::Impl {
     std::array<u64, Core::Hardware::NUM_CPU_CORES> dynarmic_ticks{};
     std::array<Core::GPUDirtyMemoryManager, Core::Hardware::NUM_CPU_CORES> gpu_dirty_memory_managers;
     std::deque<std::vector<u8>> user_channel;
+
+    struct GeneralChannel {
+        std::deque<std::vector<u8>> queue;
+        std::mutex mutex;
+        std::optional<Service::KernelHelpers::ServiceContext> svc_ctx;
+        std::optional<Service::Event> readable_event;
+
+        void Initialize(System& sys) {
+            if (readable_event) {
+                return;
+            }
+            svc_ctx.emplace(sys, "IPC:GeneralChannel");
+            readable_event.emplace(*svc_ctx);
+        }
+
+        void Push(std::vector<u8>&& data) {
+            queue.push_back(std::move(data));
+            readable_event->Signal();
+        }
+
+        bool Pop(std::vector<u8>& out) {
+            if (queue.empty()) {
+                return false;
+            }
+            out = std::move(queue.front());
+            queue.pop_front();
+            if (queue.empty()) {
+                readable_event->Clear();
+            }
+            return true;
+        }
+    } general_channel;
 };
 
 System::System() : impl{std::make_unique<Impl>(*this)} {}
@@ -1034,6 +1068,29 @@ void System::ExecuteProgram(std::size_t program_index) {
 
 std::deque<std::vector<u8>>& System::GetUserChannel() {
     return impl->user_channel;
+}
+
+void System::PushGeneralChannelData(std::vector<u8>&& data) {
+    auto& gc = impl->general_channel;
+    std::scoped_lock lk{gc.mutex};
+    gc.Initialize(*this);
+    gc.Push(std::move(data));
+}
+
+bool System::TryPopGeneralChannel(std::vector<u8>& out_data) {
+    auto& gc = impl->general_channel;
+    std::scoped_lock lk{gc.mutex};
+    if (!gc.readable_event) {
+        return false;
+    }
+    return gc.Pop(out_data);
+}
+
+Service::Event& System::GetGeneralChannelEvent() {
+    auto& gc = impl->general_channel;
+    std::scoped_lock lk{gc.mutex};
+    gc.Initialize(*this);
+    return *gc.readable_event;
 }
 
 void System::RegisterExitCallback(ExitCallback&& callback) {

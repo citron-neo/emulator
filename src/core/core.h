@@ -73,7 +73,12 @@ namespace Glue {
 class ARPManager;
 }
 
+class Event;
 class ServerManager;
+
+namespace KernelHelpers {
+class ServiceContext;
+} // namespace KernelHelpers
 
 namespace SM {
 class ServiceManager;
@@ -438,6 +443,10 @@ public:
      * It is used to transfer data between programs.
      */
     [[nodiscard]] std::deque<std::vector<u8>>& GetUserChannel();
+
+    void PushGeneralChannelData(std::vector<u8>&& data);
+    bool TryPopGeneralChannel(std::vector<u8>& out_data);
+    Service::Event& GetGeneralChannelEvent();
 
     /// Type used for the frontend to designate a callback for System to exit the application.
     using ExitCallback = std::function<void()>;

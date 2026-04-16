@@ -5,9 +5,11 @@
 #pragma once
 
 #include "core/hle/service/cmif_types.h"
-#include "core/hle/service/kernel_helpers.h"
-#include "core/hle/service/os/event.h"
 #include "core/hle/service/service.h"
+
+namespace Kernel {
+class KReadableEvent;
+}
 
 namespace Service::AM {
 
@@ -44,8 +46,6 @@ private:
 
     WindowSystem& m_window_system;
     const std::shared_ptr<Applet> m_applet;
-    KernelHelpers::ServiceContext m_context;
-    Event m_pop_from_general_channel_event;
 };
 
 } // namespace Service::AM
