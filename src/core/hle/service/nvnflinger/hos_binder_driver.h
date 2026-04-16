@@ -3,6 +3,9 @@
 
 #pragma once
 
+#include <mutex>
+#include <unordered_map>
+
 #include "core/hle/service/cmif_types.h"
 #include "core/hle/service/service.h"
 
@@ -41,8 +44,15 @@ private:
                               OutBuffer<BufferAttr_HipcAutoSelect> parcel_reply, u32 flags);
 
 private:
+    struct BinderRefcount {
+        s32 strong{1};
+        s32 weak{};
+    };
+
     const std::shared_ptr<HosBinderDriverServer> m_server;
     const std::shared_ptr<SurfaceFlinger> m_surface_flinger;
+    std::mutex m_refcount_lock;
+    std::unordered_map<s32, BinderRefcount> m_refcounts;
 };
 
 } // namespace Service::Nvnflinger
