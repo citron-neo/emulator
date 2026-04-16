@@ -211,7 +211,7 @@ static const char* MASTER_STYLE_TEMPLATE = R"(
 
     QMenu::item:selected {
         background-color: %%ACCENT_COLOR%%;
-        color: #ffffff;
+        color: %%ACCENT_TEXT_COLOR%%;
     }
 
     QMenu::item:disabled {
@@ -244,7 +244,7 @@ static const char* MASTER_STYLE_TEMPLATE = R"(
         border: 1px solid %%INPUT_BORDER%%;
         border-radius: 8px;
         selection-background-color: %%ACCENT_COLOR%%;
-        selection-color: #ffffff;
+        selection-color: %%ACCENT_TEXT_COLOR%%;
         color: %%TEXT_COLOR%%;
         outline: none;
         padding: 4px;
@@ -285,10 +285,14 @@ inline QString GetMasterStyleSheet() {
                                         .arg(accent_color.green())
                                         .arg(accent_color.blue());
 
+    const double luminance = (0.299 * accent_color.red() + 0.587 * accent_color.green() + 0.114 * accent_color.blue()) / 255.0;
+    const QColor accent_text = luminance > 0.5 ? QColor(0, 0, 0) : QColor(255, 255, 255);
+
     QString sheet = QString::fromLatin1(MASTER_STYLE_TEMPLATE);
     sheet.replace(QStringLiteral("%%ACCENT_COLOR%%"), accent_color.name(QColor::HexRgb));
     sheet.replace(QStringLiteral("%%ACCENT_COLOR_HOVER%%"), accent_hover.name(QColor::HexRgb));
     sheet.replace(QStringLiteral("%%ACCENT_COLOR_LOW_ALPHA%%"), accent_rgba_low);
+    sheet.replace(QStringLiteral("%%ACCENT_TEXT_COLOR%%"), accent_text.name(QColor::HexRgb));
     sheet.replace(QStringLiteral("%%TEXT_COLOR%%"), text_color.name(QColor::HexRgb));
     sheet.replace(QStringLiteral("%%TEXT_COLOR_DIM%%"), text_dim.name(QColor::HexRgb));
     sheet.replace(QStringLiteral("%%PANEL_COLOR%%"), onyx_panel.name(QColor::HexRgb));

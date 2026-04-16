@@ -161,16 +161,15 @@ void ConfigurePerGameCheats::UpdateTheme(const QString& custom_accent) {
     const QString hue_light = accent_qcolor.lighter(125).name();
     const QString hue_dark  = accent_qcolor.darker(150).name();
 
-    const QPalette pal = qApp->palette();
-    const bool is_dark = pal.color(QPalette::WindowText).value() >
-                         pal.color(QPalette::Window).value();
+    const bool is_dark = UISettings::IsDarkTheme();
 
     const QString bg      = is_dark ? QStringLiteral("#24242a") : QStringLiteral("#ffffff");
     const QString bg_alt  = is_dark ? QStringLiteral("#2a2a32") : QStringLiteral("#f5f5fa");
     const QString txt     = is_dark ? QStringLiteral("#e0e0e4") : QStringLiteral("#1a1a1e");
     const QString border  = is_dark ? QStringLiteral("#32323a") : QStringLiteral("#d0d0d5");
     const QString sel_bg  = accent;
-    const QString sel_txt = QStringLiteral("#ffffff");
+    const double luminance = (0.299 * accent_qcolor.red() + 0.587 * accent_qcolor.green() + 0.114 * accent_qcolor.blue()) / 255.0;
+    const QString sel_txt = luminance > 0.5 ? QStringLiteral("#000000") : QStringLiteral("#ffffff");
 
     if (tree_view) {
         tree_view->setStyleSheet(QStringLiteral(

@@ -424,17 +424,22 @@ void ConfigurePerGame::UpdateTheme() {
                 }
 
                 // 1. Top Tab Buttons
+                const QColor actual_current_color(hue_hex);
+                const double current_luminance = (0.299 * actual_current_color.red() + 0.587 * actual_current_color.green() + 0.114 * actual_current_color.blue()) / 255.0;
+                const QString current_accent_text = current_luminance > 0.5 ? QStringLiteral("#000000") : QStringLiteral("#ffffff");
+
                 QString tab_buttons_css =
                     QStringLiteral(
                         "QPushButton.tabButton { border: 2px solid transparent; background: "
                         "transparent; padding: %2px %3px; font-size: %4px; outline: none; }"
                         "QPushButton.tabButton:checked { color: %1; border: 2px solid %1; }"
                         "QPushButton.tabButton:hover { border: 2px solid %1; }"
-                        "QPushButton.tabButton:pressed { background-color: %1; color: #ffffff; }")
+                        "QPushButton.tabButton:pressed { background-color: %1; color: %5; }")
                         .arg(hue_hex)
                         .arg(tab_padding_v)
                         .arg(tab_padding_h)
-                        .arg(tab_font_size);
+                        .arg(tab_font_size)
+                        .arg(current_accent_text);
                 if (ui->tabButtonsContainer)
                     ui->tabButtonsContainer->setStyleSheet(tab_buttons_css);
 
@@ -451,12 +456,13 @@ void ConfigurePerGame::UpdateTheme() {
                         "%1; border-radius: 4px; font-weight: bold; padding: 4px 12px; }"
                         "QPushButton:hover { border-color: %2; color: %2; background-color: "
                         "rgba(%5, %6, %7, 40); }"
-                        "QPushButton:pressed { background-color: %3; color: #ffffff; border-color: "
+                        "QPushButton:pressed { background-color: %3; color: %8; border-color: "
                         "%3; }")
                         .arg(hue_hex, hue_light, hue_dark, txt)
                         .arg(current_color.red())
                         .arg(current_color.green())
-                        .arg(current_color.blue());
+                        .arg(current_color.blue())
+                        .arg(current_accent_text);
 
                 if (ui->buttonBox) {
                     for (auto* button : ui->buttonBox->findChildren<QPushButton*>()) {
@@ -513,17 +519,21 @@ void ConfigurePerGame::UpdateTheme() {
         rainbow_timer->start(33);
     }
 
+    const double static_luminance = (0.299 * accent_qcolor.red() + 0.587 * accent_qcolor.green() + 0.114 * accent_qcolor.blue()) / 255.0;
+    const QString static_accent_text = static_luminance > 0.5 ? QStringLiteral("#000000") : QStringLiteral("#ffffff");
+
     const QString action_button_css =
         QStringLiteral(
             "QPushButton { background-color: transparent; color: %4; border: 2px solid %1; "
             "border-radius: 4px; font-weight: bold; padding: 4px 12px; }"
             "QPushButton:hover { border-color: %2; color: %2; background-color: rgba(%5, %6, %7, "
             "40); }"
-            "QPushButton:pressed { background-color: %3; color: #ffffff; border-color: %3; }")
+            "QPushButton:pressed { background-color: %3; color: %8; border-color: %3; }")
             .arg(accent, Theme::GetAccentColorHover(), Theme::GetAccentColorPressed(), txt)
             .arg(accent_qcolor.red())
             .arg(accent_qcolor.green())
-            .arg(accent_qcolor.blue());
+            .arg(accent_qcolor.blue())
+            .arg(static_accent_text);
 
     if (ui->buttonBox) {
         ui->buttonBox->setStyleSheet(action_button_css);
