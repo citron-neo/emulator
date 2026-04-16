@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: Copyright 2026 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
+#include "core/core.h"
 #include "core/hle/service/am/service/cradle_firmware_updater.h"
 #include "core/hle/service/am/service/global_state_controller.h"
 #include "core/hle/service/cmif_serialization.h"
@@ -101,12 +102,14 @@ Result IGlobalStateController::StartSleepSequence(bool sleep_requested) {
 }
 
 Result IGlobalStateController::StartShutdownSequence() {
-    LOG_WARNING(Service_AM, "(STUBBED) called");
+    LOG_INFO(Service_AM, "called");
+    system.Exit();
     R_SUCCEED();
 }
 
 Result IGlobalStateController::StartRebootSequence() {
-    LOG_WARNING(Service_AM, "(STUBBED) called");
+    LOG_INFO(Service_AM, "called");
+    system.Exit();
     R_SUCCEED();
 }
 
