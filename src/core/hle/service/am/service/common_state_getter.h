@@ -18,6 +18,7 @@ namespace Service::AM {
 
 struct Applet;
 class ILockAccessor;
+class IStorage;
 
 class ICommonStateGetter final : public ServiceFramework<ICommonStateGetter> {
 public:
@@ -29,7 +30,10 @@ private:
     Result ReceiveMessage(Out<AppletMessage> out_applet_message);
     Result GetCurrentFocusState(Out<FocusState> out_focus_state);
     Result RequestToAcquireSleepLock();
+    Result ReleaseSleepLock();
+    Result ReleaseSleepLockTransiently();
     Result GetAcquiredSleepLockEvent(OutCopyHandle<Kernel::KReadableEvent> out_event);
+    Result PushToGeneralChannel(SharedPointer<IStorage> storage);
     Result GetReaderLockAccessorEx(Out<SharedPointer<ILockAccessor>> out_lock_accessor,
                                    u32 button_type);
     Result GetWriterLockAccessorEx(Out<SharedPointer<ILockAccessor>> out_lock_accessor,
@@ -49,6 +53,7 @@ private:
     Result GetDefaultDisplayResolution(Out<s32> out_width, Out<s32> out_height);
     Result GetBuiltInDisplayType(Out<s32> out_display_type);
     Result PerformSystemButtonPressingIfInFocus(SystemButtonType type);
+    Result SetHandlingHomeButtonShortPressedEnabled(bool enabled);
     Result GetOperationModeSystemInfo(Out<u32> out_operation_mode_system_info);
     Result GetAppletLaunchedHistory(Out<s32> out_count,
                                     OutArray<AppletId, BufferAttr_HipcMapAlias> out_applet_ids);
