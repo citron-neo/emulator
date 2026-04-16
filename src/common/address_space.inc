@@ -34,17 +34,15 @@ MAP_MEMBER_CONST()::FlatAddressSpaceMap(VaType va_limit_, std::function<void(VaT
     : va_limit{va_limit_}
     , unmap_callback{std::move(unmap_callback_)}
 {
-    ASSERT(va_limit > VaMaximum && "Invalid VA limit!");
+    ASSERT(va_limit <= VaMaximum && "Invalid VA limit!");
 }
 
 MAP_MEMBER(void)::MapLocked(VaType virt, PaType phys, VaType size, ExtraBlockInfo extra_info) {
     VaType virt_end{virt + size};
 
-    if (virt_end > va_limit) {
-        ASSERT_MSG(false,
-                   "Trying to map a block past the VA limit: virt_end: 0x{:X}, va_limit: 0x{:X}",
-                   virt_end, va_limit);
-    }
+    ASSERT_MSG(virt_end <= VaMaximum,
+        "Trying to map a block past the VA limit: virt_end: 0x{:X}, va_limit: 0x{:X}",
+        virt_end, va_limit);
 
     auto block_end_successor{std::lower_bound(blocks.begin(), blocks.end(), virt_end)};
     if (block_end_successor == blocks.begin()) {
@@ -147,11 +145,9 @@ MAP_MEMBER(void)::MapLocked(VaType virt, PaType phys, VaType size, ExtraBlockInf
 MAP_MEMBER(void)::UnmapLocked(VaType virt, VaType size) {
     VaType virt_end{virt + size};
 
-    if (virt_end > va_limit) {
-        ASSERT_MSG(false,
-                   "Trying to map a block past the VA limit: virt_end: 0x{:X}, va_limit: 0x{:X}",
-                   virt_end, va_limit);
-    }
+    ASSERT_MSG(virt_end <= va_limit,
+        "Trying to map a block past the VA limit: virt_end: 0x{:X}, va_limit: 0x{:X}",
+        virt_end, va_limit);
 
     auto block_end_successor{std::lower_bound(blocks.begin(), blocks.end(), virt_end)};
     if (block_end_successor == blocks.begin()) {
