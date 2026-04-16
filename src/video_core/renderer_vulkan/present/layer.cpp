@@ -270,8 +270,7 @@ void Layer::UpdateDescriptorSet(VkImageView image_view, VkSampler sampler, size_
     const VkDescriptorImageInfo image_info{
         .sampler = sampler,
         .imageView = image_view,
-        .imageLayout =
-            VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, // Correct layout for texture sampling
+        .imageLayout = VK_IMAGE_LAYOUT_GENERAL,
     };
 
     const VkWriteDescriptorSet sampler_write{
@@ -359,7 +358,7 @@ void Layer::UpdateRawImage(const Tegra::FramebufferConfig& framebuffer, size_t i
         write_barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
         write_barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
         write_barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-        write_barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        write_barrier.newLayout = VK_IMAGE_LAYOUT_GENERAL;
 
         cmdbuf.PipelineBarrier(VK_PIPELINE_STAGE_HOST_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0,
                                read_barrier);

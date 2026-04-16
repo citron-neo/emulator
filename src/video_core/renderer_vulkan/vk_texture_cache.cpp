@@ -1796,10 +1796,12 @@ ImageView::ImageView(TextureCacheRuntime& runtime, const VideoCommon::ImageViewI
         }
     }
     const auto format_info = MaxwellToVK::SurfaceFormat(*device, FormatType::Optimal, true, format);
+    const auto image_format_info =
+        MaxwellToVK::SurfaceFormat(*device, FormatType::Optimal, false, image.info.format);
     const VkImageViewUsageCreateInfo image_view_usage{
         .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_USAGE_CREATE_INFO,
         .pNext = nullptr,
-        .usage = ImageUsageFlags(format_info, format),
+        .usage = ImageUsageFlags(format_info, format) & ImageUsageFlags(image_format_info, image.info.format),
     };
     const VkImageViewCreateInfo create_info{
         .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
