@@ -4,6 +4,7 @@
 
 #include "core/core.h"
 #include "core/core_timing.h"
+#include "core/hle/kernel/k_memory_manager.h"
 #include "core/hle/kernel/k_process.h"
 #include "core/hle/kernel/k_resource_limit.h"
 #include "core/hle/kernel/svc.h"
@@ -225,6 +226,30 @@ Result GetInfo(Core::System& system, u64* result, InfoType info_id_type, Handle 
         R_SUCCEED();
     }
 
+    case InfoType::MesosphereMeta: {
+        R_UNLESS(handle == InvalidHandle, ResultInvalidHandle);
+
+        switch (info_sub_id) {
+        case 0: {
+            // KernelVersion — packed (major << 4 | minor).
+            // Matches Atmosphère: SVC major 26, minor 2 (SDK 22.2).
+            constexpr u64 KernelVersion = (26u << 4) | 2u;
+            *result = KernelVersion;
+            R_SUCCEED();
+        }
+        case 1:
+            // IsKTraceEnabled — disabled in the emulator.
+            *result = 0;
+            R_SUCCEED();
+        case 2:
+            // IsSingleStepEnabled — not supported in emulator.
+            *result = 0;
+            R_SUCCEED();
+        default:
+            R_THROW(ResultInvalidCombination);
+        }
+    }
+
     case InfoType::MesosphereCurrentProcess: {
         // Verify the input handle is invalid.
         R_UNLESS(handle == InvalidHandle, ResultInvalidHandle);
@@ -254,8 +279,38 @@ Result GetInfo(Core::System& system, u64* result, InfoType info_id_type, Handle 
 
 Result GetSystemInfo(Core::System& system, uint64_t* out, SystemInfoType info_type, Handle handle,
                      uint64_t info_subtype) {
-    UNIMPLEMENTED();
-    R_THROW(ResultNotImplemented);
+    LOG_TRACE(Kernel_SVC, "called info_type={}, handle={:#X}, info_subtype={}", info_type, handle,
+              info_subtype);
+
+    R_UNLESS(handle == 0, ResultInvalidHandle);
+
+    switch (info_type) {
+    case SystemInfoType::TotalPhysicalMemorySize:
+    case SystemInfoType::UsedPhysicalMemorySize: {
+        // Subtypes 0-3 correspond to the four memory pools (Application,
+        // Applet, System, SystemNonSecure) defined by the kernel.
+        constexpr u64 kMaxPoolIndex = 3;
+        R_UNLESS(info_subtype <= kMaxPoolIndex, ResultInvalidCombination);
+
+        auto& mem = system.Kernel().MemoryManager();
+        const auto pool = static_cast<KMemoryManager::Pool>(info_subtype);
+        const u64 total = mem.GetSize(pool);
+
+        *out = (info_type == SystemInfoType::TotalPhysicalMemorySize)
+                   ? total
+                   : total - mem.GetFreeSize(pool);
+        R_SUCCEED();
+    }
+    case SystemInfoType::InitialProcessIdRange: {
+        // Subtype 0 = lowest privileged process ID, 1 = highest.
+        R_UNLESS(info_subtype <= 1, ResultInvalidCombination);
+        constexpr u64 kPrivilegedIdBounds[] = {1, 8};
+        *out = kPrivilegedIdBounds[info_subtype];
+        R_SUCCEED();
+    }
+    default:
+        R_THROW(ResultInvalidEnumValue);
+    }
 }
 
 Result GetInfo64(Core::System& system, uint64_t* out, InfoType info_type, Handle handle,
