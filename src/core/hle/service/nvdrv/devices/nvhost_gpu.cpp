@@ -169,14 +169,9 @@ NvResult nvhost_gpu::SetChannelPriority(IoctlChannelSetPriority& params) {
     return NvResult::Success;
 }
 
-NvResult nvhost_gpu::AllocGPFIFOEx(IoctlAllocGpfifoEx& params, DeviceFD fd) {
-    LOG_DEBUG(Service_NVDRV, "called, num_entries={:X}, flags={:X}, reserved1={:X}, "
-                             "reserved2={:X}, reserved3={:X}",
-              params.num_entries, params.flags, params.reserved[0], params.reserved[1],
-              params.reserved[2]);
-
+NvResult nvhost_gpu::SetupGPFIFOChannel(IoctlAllocGpfifoEx& params, DeviceFD fd) {
     if (channel_state->initialized) {
-        LOG_CRITICAL(Service_NVDRV, "Already allocated!");
+        LOG_WARNING(Service_NVDRV, "GPFIFO channel already initialized, rejecting duplicate alloc");
         return NvResult::AlreadyAllocated;
     }
 
@@ -185,11 +180,25 @@ NvResult nvhost_gpu::AllocGPFIFOEx(IoctlAllocGpfifoEx& params, DeviceFD fd) {
         program_id = session->process->GetProgramId();
     }
 
-    system.GPU().InitChannel(*channel_state, program_id);
-
+    channel_state->program_id = program_id;
     params.fence_out = syncpoint_manager.GetSyncpointFence(channel_syncpoint);
 
+    // When the address space hasn't been bound yet, record the program_id and
+    // let the channel be materialized lazily on the first GPFIFO submission.
+    if (channel_state->memory_manager) {
+        system.GPU().InitChannel(*channel_state, program_id);
+    }
+
     return NvResult::Success;
+}
+
+NvResult nvhost_gpu::AllocGPFIFOEx(IoctlAllocGpfifoEx& params, DeviceFD fd) {
+    LOG_DEBUG(Service_NVDRV, "called, num_entries={:X}, flags={:X}, reserved1={:X}, "
+                             "reserved2={:X}, reserved3={:X}",
+              params.num_entries, params.flags, params.reserved[0], params.reserved[1],
+              params.reserved[2]);
+
+    return SetupGPFIFOChannel(params, fd);
 }
 
 NvResult nvhost_gpu::AllocGPFIFOEx2(IoctlAllocGpfifoEx& params, DeviceFD fd) {
@@ -199,21 +208,7 @@ NvResult nvhost_gpu::AllocGPFIFOEx2(IoctlAllocGpfifoEx& params, DeviceFD fd) {
               params.num_entries, params.flags, params.reserved[0], params.reserved[1],
               params.reserved[2]);
 
-    if (channel_state->initialized) {
-        LOG_CRITICAL(Service_NVDRV, "Already allocated!");
-        return NvResult::AlreadyAllocated;
-    }
-
-    u64 program_id{};
-    if (auto* const session = core.GetSession(sessions[fd]); session != nullptr) {
-        program_id = session->process->GetProgramId();
-    }
-
-    system.GPU().InitChannel(*channel_state, program_id);
-
-    params.fence_out = syncpoint_manager.GetSyncpointFence(channel_syncpoint);
-
-    return NvResult::Success;
+    return SetupGPFIFOChannel(params, fd);
 }
 
 s32_le nvhost_gpu::GetObjectContextClassNumberIndex(CtxObjects classObj)
@@ -237,9 +232,12 @@ NvResult nvhost_gpu::AllocateObjectContext(IoctlAllocObjCtx& params) {
     LOG_DEBUG(Service_NVDRV, "called, class_num={:#X}, flags={:#X}, obj_id={:#X}", params.class_num,
               params.flags, params.obj_id);
 
-    if (!channel_state || !channel_state->initialized) {
-        LOG_CRITICAL(Service_NVDRV, "No address space bound to allocate a object context!");
-        return NvResult::NotInitialized;
+    // Object contexts may be allocated before the channel's address space is
+    // bound.  The context entries are stored locally and applied once the
+    // channel is fully materialized during SubmitGPFIFO.
+    if (!channel_state) {
+        LOG_ERROR(Service_NVDRV, "Cannot allocate object context without a channel");
+        return NvResult::InvalidState;
     }
 
     std::scoped_lock lk(channel_mutex);
@@ -319,6 +317,12 @@ NvResult nvhost_gpu::SubmitGPFIFOImpl(IoctlSubmitGpfifo& params, Tegra::CommandL
     auto& gpu = system.GPU();
 
     std::scoped_lock lock(channel_mutex);
+
+    // Materialize the channel if it was deferred during AllocGPFIFO because
+    // the address space wasn't bound at that point.
+    if (!channel_state->initialized && channel_state->memory_manager) {
+        system.GPU().InitChannel(*channel_state, channel_state->program_id);
+    }
 
     const auto bind_id = channel_state->bind_id;
 

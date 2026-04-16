@@ -179,6 +179,7 @@ private:
     NvResult ZCullBind(IoctlZCullBind& params);
     NvResult SetErrorNotifier(IoctlSetErrorNotifier& params);
     NvResult SetChannelPriority(IoctlChannelSetPriority& params);
+    NvResult SetupGPFIFOChannel(IoctlAllocGpfifoEx& params, DeviceFD fd);
     NvResult AllocGPFIFOEx(IoctlAllocGpfifoEx& params, DeviceFD fd);
     NvResult AllocGPFIFOEx2(IoctlAllocGpfifoEx& params, DeviceFD fd);
 
