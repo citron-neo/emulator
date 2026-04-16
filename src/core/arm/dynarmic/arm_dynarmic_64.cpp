@@ -133,11 +133,21 @@ public:
         case Dynarmic::A64::Exception::SendEventLocal:
         case Dynarmic::A64::Exception::Yield:
             return;
-        case Dynarmic::A64::Exception::NoExecuteFault:
+        case Dynarmic::A64::Exception::NoExecuteFault: {
             LOG_CRITICAL(Core_ARM, "Cannot execute instruction at unmapped address {:#016x}", pc);
+
+            m_consecutive_faults++;
+            if (pc < 0x1000 || m_consecutive_faults > 2) {
+                LOG_CRITICAL(Core_ARM,
+                             "Fatal: fault at {:#016x} (consecutive={}), suspending thread",
+                             pc, m_consecutive_faults);
+            }
+
             ReturnException(pc, PrefetchAbort);
             return;
+        }
         default:
+            m_consecutive_faults = 0;
             if (m_debugger_enabled) {
                 ReturnException(pc, InstructionBreakpoint);
                 return;
@@ -146,6 +156,8 @@ public:
             m_parent.LogBacktrace(m_process);
             LOG_CRITICAL(Core_ARM, "ExceptionRaised(exception = {}, pc = {:08X}, code = {:08X})",
                          static_cast<std::size_t>(exception), pc, m_memory.Read32(pc));
+            ReturnException(pc, PrefetchAbort);
+            return;
         }
     }
 
@@ -218,6 +230,7 @@ public:
     Kernel::KProcess* m_process{};
     const bool m_debugger_enabled{};
     const bool m_check_memory_access{};
+    u32 m_consecutive_faults{};
     static constexpr u64 MinimumRunCycles = 10000U;
     Dynarmic::CodePage cached_code_page;
     u64 last_code_addr = 0;
