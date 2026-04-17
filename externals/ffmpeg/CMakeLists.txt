@@ -254,7 +254,7 @@ elseif(ANDROID)
     set(FFmpeg_INCLUDE_DIR "${FFmpeg_INCLUDE_DIR}" PARENT_SCOPE)
 elseif(WIN32)
     # Use citron FFmpeg binaries
-    set(FFmpeg_EXT_NAME "ffmpeg-6.0")
+    set(FFmpeg_EXT_NAME "ffmpeg-7.1.3")
     set(FFmpeg_PATH "${CMAKE_BINARY_DIR}/externals/${FFmpeg_EXT_NAME}")
     download_bundled_external("ffmpeg/" ${FFmpeg_EXT_NAME} "")
     set(FFmpeg_FOUND YES)
