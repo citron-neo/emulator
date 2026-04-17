@@ -20,15 +20,17 @@ extern "C" {
 #endif
 
 #include <libavcodec/avcodec.h>
-#include <libavfilter/avfilter.h>
-#include <libavfilter/buffersink.h>
-#include <libavfilter/buffersrc.h>
-#include <libavutil/avutil.h>
+#include <libavcodec/codec.h>
 #include <libavutil/opt.h>
+#include <libavutil/pixdesc.h>
 
 #if defined(__GNUC__) || defined(__clang__)
 #pragma GCC diagnostic pop
 #endif
+}
+
+namespace Tegra {
+class MemoryManager;
 }
 
 namespace FFmpeg {
@@ -90,12 +92,28 @@ public:
         return m_frame->data[plane];
     }
 
+    const u8* GetPlane(int plane) const {
+        return m_frame->data[plane];
+    }
+
     u8** GetPlanes() const {
         return m_frame->data;
     }
 
     void SetFormat(int format) {
         m_frame->format = format;
+    }
+
+    bool IsInterlaced() const {
+#if defined(FF_API_INTERLACED_FRAME) || LIBAVUTIL_VERSION_MAJOR >= 59
+        return m_frame->flags & AV_FRAME_FLAG_INTERLACED;
+#else
+        return m_frame->interlaced_frame;
+#endif
+    }
+
+    bool IsHardwareDecoded() const {
+        return m_frame->hw_frames_ctx != nullptr;
     }
 
     AVFrame* GetFrame() const {
@@ -160,33 +178,21 @@ public:
     void InitializeHardwareDecoder(const HardwareContext& context, AVPixelFormat hw_pix_fmt);
     bool OpenContext(const Decoder& decoder);
     bool SendPacket(const Packet& packet);
-    std::unique_ptr<Frame> ReceiveFrame(bool* out_is_interlaced);
+    std::shared_ptr<Frame> ReceiveFrame();
 
     AVCodecContext* GetCodecContext() const {
         return m_codec_context;
     }
 
+    bool UsingDecodeOrder() const {
+        return m_decode_order;
+    }
+
 private:
+    const Decoder& m_decoder;
     AVCodecContext* m_codec_context{};
-};
-
-// Wraps an AVFilterGraph.
-class DeinterlaceFilter {
-public:
-    CITRON_NON_COPYABLE(DeinterlaceFilter);
-    CITRON_NON_MOVEABLE(DeinterlaceFilter);
-
-    explicit DeinterlaceFilter(const Frame& frame);
-    ~DeinterlaceFilter();
-
-    bool AddSourceFrame(const Frame& frame);
-    std::unique_ptr<Frame> DrainSinkFrame();
-
-private:
-    AVFilterGraph* m_filter_graph{};
-    AVFilterContext* m_source_context{};
-    AVFilterContext* m_sink_context{};
-    bool m_initialized{};
+    std::shared_ptr<Frame> m_final_frame{};
+    bool m_decode_order{};
 };
 
 class DecodeApi {
@@ -200,14 +206,17 @@ public:
     bool Initialize(Tegra::Host1x::NvdecCommon::VideoCodec codec);
     void Reset();
 
-    bool SendPacket(std::span<const u8> packet_data, size_t configuration_size);
-    void ReceiveFrames(std::queue<std::unique_ptr<Frame>>& frame_queue);
+    bool UsingDecodeOrder() const {
+        return m_decoder_context->UsingDecodeOrder();
+    }
+
+    bool SendPacket(std::span<const u8> packet_data);
+    std::shared_ptr<Frame> ReceiveFrame();
 
 private:
     std::optional<FFmpeg::Decoder> m_decoder;
     std::optional<FFmpeg::DecoderContext> m_decoder_context;
     std::optional<FFmpeg::HardwareContext> m_hardware_context;
-    std::optional<FFmpeg::DeinterlaceFilter> m_deinterlace_filter;
 };
 
 } // namespace FFmpeg
