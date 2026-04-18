@@ -398,20 +398,6 @@ require_llvm_mingw() {
     setup_llvm_mingw_path
 }
 
-# Source unity-build compatibility patches.
-# unityfixes.sh must live alongside build-clangtron-windows.sh.  When sourced it defines
-# apply_unity_fixes() and individual patch_unity_* functions but does not run
-# anything — patches are applied explicitly in stage_generate (and carried
-# forward to all subsequent stages since they modify source files).
-_UNITYFIXES_SH="$(dirname "$(realpath "${BASH_SOURCE[0]}")")/unityfixes.sh"
-if [[ -f "${_UNITYFIXES_SH}" ]]; then
-    # shellcheck source=unityfixes.sh
-    source "${_UNITYFIXES_SH}"
-else
-    warn "unityfixes.sh not found at ${_UNITYFIXES_SH} — unity build patches will NOT be applied"
-    apply_unity_fixes() { warn "apply_unity_fixes: unityfixes.sh not found — skipping"; }
-fi
-
 check_tool() {
     if ! command -v "$1" &>/dev/null; then
         error "Required tool not found: $1\n       Run: ./build-clangtron-windows.sh setup"
@@ -1501,31 +1487,126 @@ PYEOF_VULKAN
     success "Vulkan import lib built: ${lib_file} (${sym_count} entry points)"
 }
 
-# Replace GCC-built FFmpeg DLLs with pthread-free llvm-mingw builds
+# =============================================================================
+# detect_ffmpeg_version — Read FFmpeg version from the submodule RELEASE file
+#   and export FFMPEG_VERSION plus per-library soname variables.
 #
-# WHY THIS IS NEEDED:
-#   CITRON_USE_BUNDLED_FFMPEG=ON downloads pre-built GCC FFmpeg DLLs that
-#   import libwinpthread-1.dll.  That DLL's TLS initialiser races with
-#   llvm-mingw libc++ at game boot → interval_map.hpp:557 assertion crash.
+# Sets globals:
+#   FFMPEG_VERSION        e.g. "7.1.3"
+#   FFMPEG_AVCODEC_VER    e.g. "61"
+#   FFMPEG_AVFORMAT_VER   e.g. "61"
+#   FFMPEG_AVFILTER_VER   e.g. "10"
+#   FFMPEG_AVUTIL_VER     e.g. "59"
+#   FFMPEG_SWSCALE_VER    e.g. "8"
+#   FFMPEG_SWRESAMPLE_VER e.g. "5"
 #
-#   cmake --build places the GCC DLLs in TWO places:
-#     <build>/externals/ffmpeg-7.1.3/bin/  (source for deploy step)
-#     <build>/bin/                        (already in final output dir)
-#   Both must be overwritten AFTER cmake --build.
+# The soname major numbers are NOT mechanically derivable from the package
+# version (7.1.3 → 61 is an upstream decision), so they live in a lookup table
+# keyed by FFmpeg major version.  Only one new entry is needed per major release.
+# =============================================================================
+detect_ffmpeg_version() {
+    local release_file="${SOURCE_DIR}/externals/ffmpeg/ffmpeg/RELEASE"
+
+    if [[ ! -f "${release_file}" ]]; then
+        error "[detect_ffmpeg_version] RELEASE file not found: ${release_file}
+  Ensure the ffmpeg submodule is initialised:
+    git submodule update --init externals/ffmpeg/ffmpeg"
+    fi
+
+    # Strip whitespace/newlines from the RELEASE file content
+    FFMPEG_VERSION="$(tr -d '[:space:]' < "${release_file}")"
+
+    if [[ -z "${FFMPEG_VERSION}" ]]; then
+        error "[detect_ffmpeg_version] RELEASE file is empty: ${release_file}"
+    fi
+
+    # Extract the upstream major version number (first component of X.Y.Z)
+    local _major
+    _major="$(echo "${FFMPEG_VERSION}" | cut -d. -f1)"
+
+    # Soname lookup table — one entry per FFmpeg major release.
+    # Library sonames are set independently by upstream FFmpeg and do not follow
+    # the package version number.  Update this table when a new major is released.
+    case "${_major}" in
+        8)
+            FFMPEG_AVCODEC_VER=62
+            FFMPEG_AVFORMAT_VER=62
+            FFMPEG_AVFILTER_VER=11
+            FFMPEG_AVUTIL_VER=60
+            FFMPEG_SWSCALE_VER=9
+            FFMPEG_SWRESAMPLE_VER=6
+            ;;
+        7)
+            FFMPEG_AVCODEC_VER=61
+            FFMPEG_AVFORMAT_VER=61
+            FFMPEG_AVFILTER_VER=10
+            FFMPEG_AVUTIL_VER=59
+            FFMPEG_SWSCALE_VER=8
+            FFMPEG_SWRESAMPLE_VER=5
+            ;;
+        6)
+            FFMPEG_AVCODEC_VER=60
+            FFMPEG_AVFORMAT_VER=60
+            FFMPEG_AVFILTER_VER=9
+            FFMPEG_AVUTIL_VER=58
+            FFMPEG_SWSCALE_VER=7
+            FFMPEG_SWRESAMPLE_VER=4
+            ;;
+        5)
+            FFMPEG_AVCODEC_VER=59
+            FFMPEG_AVFORMAT_VER=59
+            FFMPEG_AVFILTER_VER=8
+            FFMPEG_AVUTIL_VER=57
+            FFMPEG_SWSCALE_VER=6
+            FFMPEG_SWRESAMPLE_VER=4
+            ;;
+        *)
+            error "[detect_ffmpeg_version] Unknown FFmpeg major version '${_major}' (from ${FFMPEG_VERSION}).
+  Add a soname entry for this major version in detect_ffmpeg_version()."
+            ;;
+    esac
+
+    info "[ffmpeg] Detected FFmpeg ${FFMPEG_VERSION} (avcodec-${FFMPEG_AVCODEC_VER}, avutil-${FFMPEG_AVUTIL_VER}, swscale-${FFMPEG_SWSCALE_VER})"
+}
+
+# Pre-build FFmpeg for Windows (pthread-free, llvm-mingw, shared DLLs).
 #
-#   Source priority:
-#     1. Cached/extracted FFmpeg 7.1.3 source in ${BUILD_ROOT}/ffmpeg-7.1.3-src
-#     2. Vendored submodule, but ONLY if its ABI matches FFmpeg 6.0
-#     3. Downloaded ffmpeg-7.1.3.tar.bz2 from ffmpeg.org
+# WHY THIS EXISTS:
+#   The citron WIN32 cmake path calls download_bundled_external() which fetches
+#   a pre-built FFmpeg archive from yuzu-mirror/ext-windows-bin.  That repo is
+#   a frozen mirror of the original yuzu binaries and only carries FFmpeg 6.0
+#   (and earlier) archives; newer versions produce an HTTP 404 at cmake configure
+#   time, aborting the build.
+#
+#   Additionally, the pre-built GCC DLLs import libwinpthread-1.dll, whose TLS
+#   initialiser races with llvm-mingw's libc++ at game boot and triggers an
+#   interval_map.hpp assertion crash.
+#
+#   This function solves both problems by:
+#     1. Running BEFORE cmake configure so the externals/ffmpeg-VERSION/ directory
+#        tree already exists and cmake's download_bundled_external() is skipped.
+#     2. Building FFmpeg with llvm-mingw using --disable-pthreads --enable-w32threads,
+#        eliminating the libwinpthread dependency entirely.
+#
+# PREREQUISITES:
+#   - detect_ffmpeg_version() has been called (sets FFMPEG_VERSION and soname vars)
+#   - require_llvm_mingw() has been called (sets LLVM_MINGW_DIR, MINGW_CLANG, etc.)
 #
 # ARGS:
-#   $1  build_dir  — BUILD_GENERATE, BUILD_USE, or BUILD_BOLT
+#   $1  build_dir  — e.g. BUILD_GENERATE, BUILD_USE, BUILD_BOLT, BUILD_PROPELLER
 # =============================================================================
 rebuild_ffmpeg_pthread_free() {
     local build_dir="$1"
-    local ffmpeg_dst="${build_dir}/externals/ffmpeg-7.1.3/bin"
-    local ffmpeg_bld="${build_dir}/externals/ffmpeg-llvm-bld-6.0"
-    local ffmpeg_src_dir="${BUILD_ROOT}/ffmpeg-7.1.3-src"  # shared across stages
+
+    # detect_ffmpeg_version must have been called by the caller.
+    [[ -n "${FFMPEG_VERSION:-}" ]] \
+        || error "[ffmpeg-rebuild] FFMPEG_VERSION not set — call detect_ffmpeg_version() first"
+
+    local ffmpeg_ext_dir="${build_dir}/externals/ffmpeg-${FFMPEG_VERSION}"
+    local ffmpeg_dst="${ffmpeg_ext_dir}/bin"
+    local ffmpeg_hdr="${ffmpeg_ext_dir}/include"
+    local ffmpeg_bld="${build_dir}/externals/ffmpeg-${FFMPEG_VERSION}-llvm-bld"
+    local ffmpeg_src_dir="${BUILD_ROOT}/ffmpeg-${FFMPEG_VERSION}-src"  # shared across stages
     local sentinel="${ffmpeg_dst}/.llvm_built"
 
     # Skip if already built for this build_dir
@@ -1534,73 +1615,127 @@ rebuild_ffmpeg_pthread_free() {
         return 0
     fi
 
-    # ── Locate or download FFmpeg 6.0 source ──────────────────────────────────
-    local ffmpeg_src=""
-    _ffmpeg_is_7_1_abi() {
+    # ── Locate or download FFmpeg source matching FFMPEG_VERSION ─────────────
+    #
+    # _ffmpeg_abi_matches: verify that a source tree's library sonames match
+    # the version declared by detect_ffmpeg_version().  Uses the env vars set
+    # by detect_ffmpeg_version() so no version strings are hardcoded here.
+    _ffmpeg_abi_matches() {
         local dir="$1"
         [[ -f "${dir}/configure" ]] || return 1
-        [[ -f "${dir}/libavcodec/version_major.h" ]] || return 1
-        [[ -f "${dir}/libavformat/version_major.h" ]] || return 1
-        [[ -f "${dir}/libswscale/version_major.h" ]] || return 1
+        [[ -f "${dir}/libavcodec/version_major.h" ]]    || return 1
+        [[ -f "${dir}/libavformat/version_major.h" ]]   || return 1
+        [[ -f "${dir}/libswscale/version_major.h" ]]    || return 1
         [[ -f "${dir}/libswresample/version_major.h" ]] || return 1
 
-        grep -q '^#define LIBAVCODEC_VERSION_MAJOR  61$' "${dir}/libavcodec/version_major.h" &&
-        grep -q '^#define LIBAVFORMAT_VERSION_MAJOR  61$' "${dir}/libavformat/version_major.h" &&
-        grep -q '^#define LIBSWSCALE_VERSION_MAJOR   8$' "${dir}/libswscale/version_major.h" &&
-        grep -q '^#define LIBSWRESAMPLE_VERSION_MAJOR   5$' "${dir}/libswresample/version_major.h"
+        # Use awk instead of grep -oP lookbehind — variable-length lookbehinds
+        # are not supported by the grep shipped in MSYS2/clang64 (and many other
+        # non-GNU environments), causing silent empty matches and false negatives.
+        local _codec _fmt _scale _resample
+        _codec=$(awk '/^#define LIBAVCODEC_VERSION_MAJOR/{print $NF; exit}' \
+                     "${dir}/libavcodec/version_major.h")
+        _fmt=$(awk '/^#define LIBAVFORMAT_VERSION_MAJOR/{print $NF; exit}' \
+                   "${dir}/libavformat/version_major.h")
+        _scale=$(awk '/^#define LIBSWSCALE_VERSION_MAJOR/{print $NF; exit}' \
+                     "${dir}/libswscale/version_major.h")
+        _resample=$(awk '/^#define LIBSWRESAMPLE_VERSION_MAJOR/{print $NF; exit}' \
+                        "${dir}/libswresample/version_major.h")
+
+        [[ "${_codec}"    == "${FFMPEG_AVCODEC_VER}" ]] &&
+        [[ "${_fmt}"      == "${FFMPEG_AVFORMAT_VER}" ]] &&
+        [[ "${_scale}"    == "${FFMPEG_SWSCALE_VER}" ]] &&
+        [[ "${_resample}" == "${FFMPEG_SWRESAMPLE_VER}" ]]
     }
 
-    # Priority 1: previously downloaded/extracted FFmpeg 6.0 tree
+    local ffmpeg_src=""
+
+    # Priority 1: previously downloaded/extracted source tree
     if [[ -f "${ffmpeg_src_dir}/configure" ]]; then
-        if _ffmpeg_is_7_1_abi "${ffmpeg_src_dir}"; then
+        if _ffmpeg_abi_matches "${ffmpeg_src_dir}"; then
             ffmpeg_src="${ffmpeg_src_dir}"
-            info "[ffmpeg-rebuild] Using cached FFmpeg 6.0 source"
+            info "[ffmpeg-rebuild] Using cached FFmpeg ${FFMPEG_VERSION} source"
         else
-            warn "[ffmpeg-rebuild] Cached FFmpeg source is not ABI-compatible with 6.0 — ignoring it"
+            warn "[ffmpeg-rebuild] Cached source ABI does not match FFmpeg ${FFMPEG_VERSION} — ignoring"
         fi
     fi
 
-    # Priority 2: vendored submodule (only if it still matches FFmpeg 6.0 ABI)
+    # Priority 2: vendored submodule (only if sonames match)
     local submodule="${SOURCE_DIR}/externals/ffmpeg/ffmpeg"
     if [[ -z "${ffmpeg_src}" && -f "${submodule}/configure" ]]; then
-        if _ffmpeg_is_7_1_abi "${submodule}"; then
+        if _ffmpeg_abi_matches "${submodule}"; then
             ffmpeg_src="${submodule}"
-            info "[ffmpeg-rebuild] Using vendored FFmpeg submodule (ABI-compatible with 6.0)"
+            info "[ffmpeg-rebuild] Using vendored FFmpeg submodule (ABI matches ${FFMPEG_VERSION})"
         else
-            warn "[ffmpeg-rebuild] Vendored FFmpeg submodule is not ABI-compatible with 6.0 — ignoring it"
+            warn "[ffmpeg-rebuild] Vendored submodule ABI does not match FFmpeg ${FFMPEG_VERSION} — ignoring"
         fi
     fi
 
-    # Priority 3: download tarball now
+    # Priority 3: download tarball from ffmpeg.org
     if [[ -z "${ffmpeg_src}" ]]; then
-        local tarball="${BUILD_ROOT}/ffmpeg-7.1.3.tar.bz2"
-        local ffmpeg_url="https://ffmpeg.org/releases/ffmpeg-7.1.3.tar.bz2"
-        info "[ffmpeg-rebuild] Downloading FFmpeg 6.0 source from ffmpeg.org..."
+        # Git snapshot versions (e.g. "8.0.git") have no release tarball on
+        # ffmpeg.org.  If the submodule ABI check failed for a git version it
+        # means the soname table in detect_ffmpeg_version() is out of date —
+        # not that we should construct a bogus URL.
+        if [[ "${FFMPEG_VERSION}" == *git* || "${FFMPEG_VERSION}" == *dev* ]]; then
+            error "[ffmpeg-rebuild] FFmpeg version '${FFMPEG_VERSION}' is a git snapshot with no release tarball.
+  The vendored submodule ABI check failed — the soname table in
+  detect_ffmpeg_version() may be wrong for this development version.
+  Check libavcodec/version_major.h in the submodule and update the
+  soname table, or check out a tagged FFmpeg release."
+        fi
+        local tarball="${BUILD_ROOT}/ffmpeg-${FFMPEG_VERSION}.tar.bz2"
+        local ffmpeg_url="https://ffmpeg.org/releases/ffmpeg-${FFMPEG_VERSION}.tar.bz2"
+        info "[ffmpeg-rebuild] Downloading FFmpeg ${FFMPEG_VERSION} source from ffmpeg.org..."
         mkdir -p "${BUILD_ROOT}"
         if ! wget -q --show-progress -O "${tarball}" "${ffmpeg_url}"; then
-            warn "[ffmpeg-rebuild] Download failed — GCC DLLs remain (WILL CRASH)"
+            warn "[ffmpeg-rebuild] Download failed — FFmpeg DLLs will NOT be built (cmake will fail)"
             return 0
         fi
-        info "[ffmpeg-rebuild] Extracting FFmpeg 6.0..."
+        info "[ffmpeg-rebuild] Extracting FFmpeg ${FFMPEG_VERSION}..."
         mkdir -p "${ffmpeg_src_dir}"
         tar -xjf "${tarball}" -C "${ffmpeg_src_dir}" --strip-components=1 || {
-            warn "[ffmpeg-rebuild] Extraction failed — GCC DLLs remain (WILL CRASH)"
+            warn "[ffmpeg-rebuild] Extraction failed"
             return 0
         }
         ffmpeg_src="${ffmpeg_src_dir}"
-        success "[ffmpeg-rebuild] FFmpeg 6.0 source ready"
+        success "[ffmpeg-rebuild] FFmpeg ${FFMPEG_VERSION} source ready"
     fi
 
-    info "[ffmpeg-rebuild] Building pthread-free FFmpeg DLLs with llvm-mingw..."
-    mkdir -p "${ffmpeg_bld}" "${ffmpeg_dst}"
+    info "[ffmpeg-rebuild] Building pthread-free FFmpeg ${FFMPEG_VERSION} DLLs with llvm-mingw..."
+    mkdir -p "${ffmpeg_bld}" "${ffmpeg_dst}" "${ffmpeg_hdr}"
 
     local cross_prefix="${LLVM_MINGW_DIR}/bin/${MINGW_TRIPLE}-"
     local cc="${LLVM_MINGW_DIR}/bin/${MINGW_TRIPLE}-clang"
     local ar="${LLVM_MINGW_DIR}/bin/llvm-ar"
-    local nm="${LLVM_MINGW_DIR}/bin/llvm-nm"
+    local nm_bin="${LLVM_MINGW_DIR}/bin/llvm-nm"
     local strip_tool="${LLVM_MINGW_DIR}/bin/llvm-strip"
     local ranlib="${LLVM_MINGW_DIR}/bin/llvm-ranlib"
     local windres="${LLVM_MINGW_DIR}/bin/${MINGW_TRIPLE}-windres"
+    local dlltool_bin="${LLVM_MINGW_DIR}/bin/llvm-dlltool"
+    [[ -x "${dlltool_bin}" ]] || dlltool_bin="$(command -v llvm-dlltool 2>/dev/null || true)"
+
+    # On MSYS2/Windows the host and target are the same machine (both
+    # x86_64-w64-mingw32), so --enable-cross-compile must NOT be used.
+    # With cross-compile enabled FFmpeg looks for a separate host compiler
+    # (defaults to bare `cc`) for build-time utilities; on MSYS2 that
+    # resolves to nothing or MSVC, producing "Host compiler lacks C11 support".
+    # On a real Linux→Windows cross, --enable-cross-compile is still required.
+    local _ffmpeg_cross_flags=()
+    if [[ "${_HOST_OS}" == "linux" || "${_HOST_OS}" == "macos" ]]; then
+        # True cross-compilation: Linux/macOS host → Windows target
+        _ffmpeg_cross_flags=(
+            --enable-cross-compile
+            "--cross-prefix=${cross_prefix}"
+        )
+    else
+        # MSYS2/Windows native build: host == target, no cross-compile mode.
+        # Set --host-cc explicitly so FFmpeg's build-tool probes don't fall
+        # back to bare `cc` (which may be MSVC or absent on MSYS2).
+        local _host_clang
+        _host_clang="$(command -v clang 2>/dev/null \
+                       || echo "${MSYS2_PREFIX}/bin/clang")"
+        _ffmpeg_cross_flags=("--host-cc=${_host_clang}")
+    fi
 
     info "[ffmpeg-rebuild] Configuring FFmpeg..."
     (
@@ -1608,11 +1743,10 @@ rebuild_ffmpeg_pthread_free() {
         bash "${ffmpeg_src}/configure" \
             --arch=x86_64 \
             --target-os=mingw32 \
-            --enable-cross-compile \
-            "--cross-prefix=${cross_prefix}" \
+            "${_ffmpeg_cross_flags[@]}" \
             "--cc=${cc}" \
             "--ar=${ar}" \
-            "--nm=${nm}" \
+            "--nm=${nm_bin}" \
             "--strip=${strip_tool}" \
             "--ranlib=${ranlib}" \
             "--windres=${windres}" \
@@ -1631,17 +1765,17 @@ rebuild_ffmpeg_pthread_free() {
             --enable-protocol=file \
             2>&1 | tail -8
     ) || {
-        warn "[ffmpeg-rebuild] FFmpeg configure failed — GCC DLLs remain (WILL CRASH)"
+        warn "[ffmpeg-rebuild] FFmpeg configure failed — cmake will fail at link time"
         return 0
     }
 
     info "[ffmpeg-rebuild] Compiling (this takes a few minutes)..."
     make -C "${ffmpeg_bld}" -j"${JOBS}" 2>&1 | tail -5 || {
-        warn "[ffmpeg-rebuild] FFmpeg make failed — GCC DLLs remain (WILL CRASH)"
+        warn "[ffmpeg-rebuild] FFmpeg make failed"
         return 0
     }
 
-    # ── Install DLLs to all locations cmake may have seeded with GCC DLLs ─────
+    # ── Install DLLs and import libraries ────────────────────────────────────
     local installed=0
     local bin_dir="${build_dir}/bin"
 
@@ -1649,21 +1783,41 @@ rebuild_ffmpeg_pthread_free() {
         local dst_dir="$1"
         mkdir -p "${dst_dir}"
         for lib in avutil avcodec avfilter swscale swresample avformat; do
+            # DLL (named with soname, e.g. avcodec-${FFMPEG_AVCODEC_VER}.dll)
             local dll
             dll="$(find "${ffmpeg_bld}" -maxdepth 2 -name "${lib}-*.dll" 2>/dev/null | head -1)"
             [[ -z "${dll}" ]] && continue
             local dll_name; dll_name="$(basename "${dll}")"
             cp -f "${dll}" "${dst_dir}/${dll_name}"
             info "  [ffmpeg-rebuild] ${dst_dir##*/}/: ${dll_name}"
+
             if [[ "${dst_dir}" == "${ffmpeg_dst}" ]]; then
                 (( installed++ )) || true
-                # Also copy .lib import library for future linker use
-                local lib_file
+
+                # Import library for linking.  FFmpeg MinGW cross-compile generates
+                # GNU-format lib${lib}.dll.a files; lld accepts these directly.
+                # We also probe for MSVC-format .lib in case FFmpeg generated one.
+                local lib_file=""
                 lib_file="$(find "${ffmpeg_bld}" -maxdepth 2 -name "${lib}.lib" 2>/dev/null | head -1)"
-                [[ -n "${lib_file}" ]] && cp -f "${lib_file}" "${dst_dir}/${lib}.lib"
+                if [[ -z "${lib_file}" ]]; then
+                    lib_file="$(find "${ffmpeg_bld}" -maxdepth 2 -name "lib${lib}.dll.a" 2>/dev/null | head -1)"
+                fi
+                if [[ -n "${lib_file}" ]]; then
+                    cp -f "${lib_file}" "${dst_dir}/${lib}.lib"
+                elif [[ -n "${dlltool_bin}" && -x "${dlltool_bin}" ]]; then
+                    # Generate .lib from .def via llvm-dlltool as last resort
+                    local deffile
+                    deffile="$(find "${ffmpeg_bld}" -maxdepth 2 -name "${lib}.def" 2>/dev/null | head -1)"
+                    if [[ -n "${deffile}" ]]; then
+                        "${dlltool_bin}" -m i386:x86-64 \
+                            --input-def "${deffile}" \
+                            --output-lib "${dst_dir}/${lib}.lib" 2>/dev/null \
+                            && info "  [ffmpeg-rebuild] ${lib}.lib (generated from ${lib}.def)"
+                    fi
+                fi
             fi
         done
-        # Remove any GCC runtime DLLs that landed here
+        # Remove any GCC runtime DLLs that may have landed here from a previous run
         for gcc_dll in libwinpthread-1.dll libgcc_s_seh-1.dll libstdc++-6.dll; do
             if [[ -f "${dst_dir}/${gcc_dll}" ]]; then
                 rm -f "${dst_dir}/${gcc_dll}"
@@ -1672,16 +1826,34 @@ rebuild_ffmpeg_pthread_free() {
         done
     }
 
-    info "[ffmpeg-rebuild] Installing to externals/ffmpeg-7.1.3/bin/..."
+    info "[ffmpeg-rebuild] Installing to externals/ffmpeg-${FFMPEG_VERSION}/bin/..."
     _ffmpeg_install_dll "${ffmpeg_dst}"
 
+    # ── Install public headers (needed by cmake at configure time) ────────────
+    info "[ffmpeg-rebuild] Installing headers to externals/ffmpeg-${FFMPEG_VERSION}/include/..."
+    for lib in libavcodec libavfilter libavformat libavutil libswresample libswscale; do
+        local inc_dst="${ffmpeg_hdr}/${lib}"
+        mkdir -p "${inc_dst}"
+        # Source-tree public headers
+        if [[ -d "${ffmpeg_src}/${lib}" ]]; then
+            find "${ffmpeg_src}/${lib}" -maxdepth 1 -name "*.h" \
+                -exec cp -f {} "${inc_dst}/" \; 2>/dev/null || true
+        fi
+        # Build-generated headers (version.h, config.h, etc.)
+        if [[ -d "${ffmpeg_bld}/${lib}" ]]; then
+            find "${ffmpeg_bld}/${lib}" -maxdepth 1 -name "*.h" \
+                -exec cp -f {} "${inc_dst}/" \; 2>/dev/null || true
+        fi
+    done
+
+    # ── Also seed build_dir/bin/ so the final output dir is populated ─────────
     if [[ -d "${bin_dir}" ]]; then
-        info "[ffmpeg-rebuild] Force-overwriting ${bin_dir}/..."
+        info "[ffmpeg-rebuild] Seeding ${bin_dir}/..."
         _ffmpeg_install_dll "${bin_dir}"
     fi
 
     if [[ "${installed}" -eq 0 ]]; then
-        warn "[ffmpeg-rebuild] No DLLs were installed — something went wrong"
+        warn "[ffmpeg-rebuild] No DLLs were installed — FFmpeg configure/make may have failed"
         return 0
     fi
 
@@ -1693,18 +1865,21 @@ rebuild_ffmpeg_pthread_free() {
 
     if [[ -n "${readobj}" ]]; then
         while IFS= read -r -d '' dll; do
-            if "${readobj}" --coff-imports "${dll}" 2>/dev/null                     | grep -qi 'libwinpthread'; then
-                error "[ffmpeg-rebuild] FATAL: ${dll##*/} still imports libwinpthread-1.dll"                       "after rebuild. Check configure output for '--enable-pthreads'."
+            if "${readobj}" --coff-imports "${dll}" 2>/dev/null \
+                    | grep -qi 'libwinpthread'; then
+                error "[ffmpeg-rebuild] FATAL: ${dll##*/} still imports libwinpthread-1.dll " \
+                      "after rebuild. Check configure output for '--enable-pthreads'."
             fi
-        done < <(find "${ffmpeg_dst}" "${bin_dir}" -maxdepth 1 -name "*.dll" -print0 2>/dev/null                  | sort -z -u)
+        done < <(find "${ffmpeg_dst}" -maxdepth 1 -name "*.dll" -print0 2>/dev/null)
         success "[ffmpeg-rebuild] Verified: all FFmpeg DLLs are pthread-free"
     else
         warn "[ffmpeg-rebuild] llvm-readobj not found — skipping pthread verification"
     fi
 
     touch "${sentinel}"
-    success "[ffmpeg-rebuild] pthread-free FFmpeg DLLs installed (${installed} libs)"
+    success "[ffmpeg-rebuild] pthread-free FFmpeg ${FFMPEG_VERSION} DLLs installed (${installed} libs)"
 }
+
 
 # =============================================================================
 # Runtime DLL deployment
@@ -1738,17 +1913,35 @@ deploy_runtime_dlls() {
     done
 
     # ── 2. FFmpeg DLLs ────────────────────────────────────────────────────────
-    local ffmpeg_bin="${build_dir}/externals/ffmpeg-7.1.3/bin"
+    # DLL soname variables are set by detect_ffmpeg_version() (called per-stage).
+    # Fall back to the canonical avcodec DLL name if the caller omitted that call.
+    local _av_codec_ver="${FFMPEG_AVCODEC_VER:-61}"
+    local _av_format_ver="${FFMPEG_AVFORMAT_VER:-61}"
+    local _av_filter_ver="${FFMPEG_AVFILTER_VER:-10}"
+    local _av_util_ver="${FFMPEG_AVUTIL_VER:-59}"
+    local _sw_scale_ver="${FFMPEG_SWSCALE_VER:-8}"
+    local _sw_resample_ver="${FFMPEG_SWRESAMPLE_VER:-5}"
+    local _ffmpeg_ver="${FFMPEG_VERSION:-}"
+
+    local ffmpeg_bin=""
+    if [[ -n "${_ffmpeg_ver}" ]]; then
+        ffmpeg_bin="${build_dir}/externals/ffmpeg-${_ffmpeg_ver}/bin"
+    fi
     if [[ ! -d "${ffmpeg_bin}" ]]; then
+        # Fallback: locate by the versioned avcodec DLL
         local candidate
         candidate="$(find "${build_dir}/externals" -maxdepth 3 \
-                          -name "avcodec-61.dll" 2>/dev/null | head -1)"
+                          -name "avcodec-${_av_codec_ver}.dll" 2>/dev/null | head -1)"
         [[ -n "${candidate}" ]] && ffmpeg_bin="$(dirname "${candidate}")"
     fi
 
     if [[ -d "${ffmpeg_bin}" ]]; then
-        for dll in avcodec-61.dll avfilter-10.dll avutil-59.dll \
-                   swscale-8.dll swresample-5.dll avformat-61.dll; do
+        for dll in "avcodec-${_av_codec_ver}.dll" \
+                   "avfilter-${_av_filter_ver}.dll" \
+                   "avutil-${_av_util_ver}.dll" \
+                   "swscale-${_sw_scale_ver}.dll" \
+                   "swresample-${_sw_resample_ver}.dll" \
+                   "avformat-${_av_format_ver}.dll"; do
             [[ -f "${bin_dir}/${dll}" ]] && continue
             if [[ -f "${ffmpeg_bin}/${dll}" ]]; then
                 cp "${ffmpeg_bin}/${dll}" "${bin_dir}/"
@@ -1759,7 +1952,8 @@ deploy_runtime_dlls() {
             fi
         done
     else
-        warn "  [MISS] ffmpeg-7.1.3/bin not found"
+        local _ffmpeg_label="${_ffmpeg_ver:+ffmpeg-${_ffmpeg_ver}/bin}"
+        warn "  [MISS] ${_ffmpeg_label:-ffmpeg bin dir} not found"
         missing=$(( missing + 1 ))
     fi
 
@@ -2156,7 +2350,6 @@ stage_generate() {
     rm -f "${BUILD_ROOT}/vulkan-stub/libvulkan-1.a" 2>/dev/null || true
     ensure_vulkan_import_lib
     setup_case_fixup_headers
-    apply_unity_fixes
 
     GLSLC_PATH="$(command -v glslc 2>/dev/null || true)"
     if [[ -n "${GLSLC_PATH}" ]]; then
@@ -2167,6 +2360,12 @@ stage_generate() {
             && info "Using glslangValidator: ${GLSLC_PATH}" \
             || warn "No Vulkan shader compiler found — install glslang-tools"
     fi
+
+    # Detect FFmpeg version from the submodule and pre-build pthread-free DLLs
+    # BEFORE cmake configure so download_bundled_external() finds them already
+    # present and skips the network download (yuzu-mirror lacks FFmpeg >= 7.x).
+    detect_ffmpeg_version
+    rebuild_ffmpeg_pthread_free "${BUILD_GENERATE}"
 
     info "Configuring CMake (instrumented build)..."
     cd "${BUILD_GENERATE}"
@@ -2189,11 +2388,6 @@ stage_generate() {
     [[ ${cmake_exit} -eq 0 ]] || error "CMake configure failed"
     info "Building instrumented citron..."
     cmake --build . --config Release -j "${JOBS}"
-
-    # Replace GCC FFmpeg DLLs with pthread-free llvm-mingw builds.
-    # MUST run after cmake --build — cmake downloads GCC DLLs during the build
-    # and would overwrite any pre-build replacement.
-    rebuild_ffmpeg_pthread_free "${BUILD_GENERATE}"
 
     success "Instrumented build complete: ${BUILD_GENERATE}/bin/citron.exe"
 
@@ -2430,7 +2624,6 @@ stage_csgenerate() {
 
     ensure_profile_runtime_mingw
     ensure_vulkan_import_lib
-    apply_unity_fixes
     local qt_install_dir="${BUILD_GENERATE}/externals/qt/6.9.3/llvm-mingw_64"
     local qt_host_dir="${BUILD_GENERATE}/externals/qt-host/6.9.3/gcc_64"
     if [[ "${_HOST_OS}" == "windows" ]]; then
@@ -2440,6 +2633,10 @@ stage_csgenerate() {
 
     GLSLC_PATH="$(command -v glslc 2>/dev/null || true)"
     [[ -z "${GLSLC_PATH}" ]] && GLSLC_PATH="$(command -v glslangValidator 2>/dev/null || true)"
+
+    # Pre-build FFmpeg (sentinel makes this a fast no-op if already built for this dir)
+    detect_ffmpeg_version
+    rebuild_ffmpeg_pthread_free "${BUILD_CSGENERATE}"
 
     info "Configuring CMake (CS-IRPGO instrumented build)..."
     cd "${BUILD_CSGENERATE}"
@@ -2463,8 +2660,6 @@ stage_csgenerate() {
 
     info "Building CS-IRPGO instrumented citron..."
     cmake --build . --config Release -j "${JOBS}"
-
-    rebuild_ffmpeg_pthread_free "${BUILD_CSGENERATE}"
 
     success "CS-IRPGO instrumented build complete: ${BUILD_CSGENERATE}/bin/citron.exe"
 
@@ -2576,7 +2771,6 @@ stage_use() {
         create_vcpkg_llvm_triplet
         compile_comsupp_stubs
         setup_case_fixup_headers
-        apply_unity_fixes
 
         # ── Qt path detection ─────────────────────────────────────────────────
         # Search order: (1) generate's cached Qt (correct llvm-mingw variant),
@@ -2694,6 +2888,10 @@ stage_use() {
 
         local lto_flag; lto_flag="$(lto_clang_flag)"
 
+        # Pre-build FFmpeg for this build directory
+        detect_ffmpeg_version
+        rebuild_ffmpeg_pthread_free "${nopgo_dir}"
+
         info "Configuring CMake (no-PGO Windows PE, LTO=${LTO_MODE})..."
         cd "${nopgo_dir}"
         rm -f CMakeCache.txt; rm -rf CMakeFiles
@@ -2710,7 +2908,6 @@ stage_use() {
         info "Building citron.exe (no PGO)..."
         cmake --build . --config Release -j "${JOBS}"
 
-        rebuild_ffmpeg_pthread_free "${nopgo_dir}"
         success "No-PGO Windows PE: ${nopgo_dir}/bin/citron.exe"
 
         # Derive the Qt install root from qt6_cmake_dir for DLL deployment
@@ -2846,9 +3043,12 @@ stage_use() {
     local lto_pgo_flag="${lto_flag:+${lto_flag} }${pgo_flag}"
 
     ensure_vulkan_import_lib
-    apply_unity_fixes
 
     # ── 2a. Cross-compiled Windows PE ────────────────────────────────────────
+    # Pre-build FFmpeg for this build directory
+    detect_ffmpeg_version
+    rebuild_ffmpeg_pthread_free "${BUILD_USE}"
+
     info "Configuring CMake (PGO+LTO Windows PE)..."
     mkdir -p "${BUILD_USE}"; cd "${BUILD_USE}"
     rm -f CMakeCache.txt; rm -rf CMakeFiles
@@ -2883,9 +3083,6 @@ stage_use() {
         ${qt_host_dir:+"-DQT_HOST_PATH=${qt_host_dir}"}
     info "Building PGO+LTO citron.exe..."
     cmake --build . --config Release -j "${JOBS}"
-
-    # Replace GCC FFmpeg DLLs with pthread-free llvm-mingw builds.
-    rebuild_ffmpeg_pthread_free "${BUILD_USE}"
 
     success "PGO+LTO Windows PE: ${BUILD_USE}/bin/citron.exe"
 
@@ -3372,10 +3569,6 @@ XBYAK_PATCH_EOF
         warn "ELF build: emit_x64_vector.cpp not found at ${_ev_cpp}"
     fi
 
-    # Apply unity-build source patches (idempotent — safe to call even if
-    # stage_generate already ran them; also covers the case where build-elf
-    # is invoked directly without a preceding generate stage).
-    apply_unity_fixes
 
     # Run cmake; if it fails, re-run with --trace-expand to pinpoint silent
     # FATAL_ERROR messages that produce "Configuring incomplete" with no text.
@@ -3736,7 +3929,10 @@ BOLT_ORDER_EOF
         qt_host_dir=""
     fi
     local qt6_cmake_dir="${qt_install_dir}/lib/cmake/Qt6"
-    apply_unity_fixes
+
+    # Pre-build FFmpeg for this build directory
+    detect_ffmpeg_version
+    rebuild_ffmpeg_pthread_free "${BUILD_BOLT}"
 
     # shellcheck disable=SC2046
     cmake "${SOURCE_DIR}" \
@@ -3753,9 +3949,6 @@ BOLT_ORDER_EOF
 
     info "Building final optimized Windows PE (PGO + LTO + BOLT function order)..."
     cmake --build . --config Release -j "${JOBS}"
-
-    # Replace GCC FFmpeg DLLs with pthread-free llvm-mingw builds.
-    rebuild_ffmpeg_pthread_free "${BUILD_BOLT}"
 
     deploy_runtime_dlls \
         "${BUILD_BOLT}/bin" \
@@ -4200,7 +4393,10 @@ stage_propeller() {
         qt_host_dir=""
     fi
     local qt6_cmake_dir="${qt_install_dir}/lib/cmake/Qt6"
-    apply_unity_fixes
+
+    # Pre-build FFmpeg for this build directory
+    detect_ffmpeg_version
+    rebuild_ffmpeg_pthread_free "${BUILD_PROPELLER}"
 
     # shellcheck disable=SC2046
     cmake "${SOURCE_DIR}" \
@@ -4214,11 +4410,8 @@ stage_propeller() {
         ${qt6_cmake_dir:+"-DQt6_DIR=${qt6_cmake_dir}"} \
         ${qt_host_dir:+"-DQT_HOST_PATH=${qt_host_dir}"} \
         -Wno-dev
-    # # be applied after every cmake configure.
     info "Building Propeller-optimized Windows PE..."
     cmake --build . --config Release -j "${JOBS}"
-
-    rebuild_ffmpeg_pthread_free "${BUILD_PROPELLER}"
 
     deploy_runtime_dlls \
         "${BUILD_PROPELLER}/bin" \
