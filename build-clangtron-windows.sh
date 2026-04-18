@@ -1997,6 +1997,7 @@ common_cmake_args() {
         ${GLSLC_PATH:+"-DVulkan_GLSLANG_VALIDATOR_EXECUTABLE=${GLSLC_PATH}"} \
         "-DCITRON_USE_PRECOMPILED_HEADERS=OFF" \
         "-Wno-dev"
+    [[ -n "${CITRON_BUILD_TYPE:-}" ]] && echo "-DCITRON_BUILD_TYPE=${CITRON_BUILD_TYPE}"
     [[ "${UNITY_BUILD}" == "ON" ]] && echo "-DENABLE_UNITY_BUILD=ON"
 }
 
