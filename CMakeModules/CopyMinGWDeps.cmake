@@ -81,7 +81,7 @@ if (NOT EXISTS \"\${QT_PLUGIN_BASE}\")
 endif()
 if (EXISTS \"\${QT_PLUGIN_BASE}\")
     # Core platform / style / imageformat plugins
-    foreach(plugin_dir platforms styles imageformats)
+    foreach(plugin_dir platforms styles imageformats iconengines)
         if (EXISTS \"\${QT_PLUGIN_BASE}/\${plugin_dir}\")
             file(MAKE_DIRECTORY \"\${EXE_DIR}/\${plugin_dir}\")
             file(GLOB plugin_dlls \"\${QT_PLUGIN_BASE}/\${plugin_dir}/*.dll\")
