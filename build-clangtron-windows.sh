@@ -2119,23 +2119,33 @@ stage_generate() {
         [[ "$qt_mm_ok" -eq 0 ]] && warn "Qt6 modules install failed after 3 attempts"
     fi
 
-    if [[ ! -f "${qt_host_dir}/lib/cmake/Qt6/Qt6Config.cmake" ]]; then
-        info "Downloading Qt 6.9.3 Linux host tools via aqt..."
-        mkdir -p "${BUILD_GENERATE}/externals/qt-host"
-        "${aqt_bin}" install-qt linux desktop 6.9.3 linux_gcc_64 \
-            --outputdir "${BUILD_GENERATE}/externals/qt-host"
-    fi
-    # Ensure qtsvg + qtmultimedia are present in the host Qt — needed by the native ELF (BOLT) build
-    # aqt often cannot install multimedia for linux desktop; fall back to system Qt if needed.
-    local _qt_host_needs_modules=0
-    [[ ! -f "${qt_host_dir}/lib/cmake/Qt6Svg/Qt6SvgConfig.cmake" ]] && _qt_host_needs_modules=1
-    [[ ! -f "${qt_host_dir}/lib/cmake/Qt6Multimedia/Qt6MultimediaConfig.cmake" ]] && _qt_host_needs_modules=1
-    if [[ "${_qt_host_needs_modules}" -eq 1 ]]; then
-        info "Attempting aqt install of Qt6Svg + Qt6Multimedia for Linux host Qt..."
-        "${aqt_bin}" install-qt linux desktop 6.9.3 linux_gcc_64 \
-            --outputdir "${BUILD_GENERATE}/externals/qt-host" \
-            --modules qtsvg qtmultimedia 2>/dev/null \
-            || warn "aqt Qt6 module install failed — will try system Qt for ELF build"
+    # Qt host tools (Linux gcc_64) are only needed on Linux for cross-compilation.
+    # On Windows we are doing a native build — the target Qt IS the host Qt, and
+    # CMake must NOT receive QT_HOST_PATH (it would switch to cross-compile mode).
+    # The Linux Qt package contains Unix symlinks that Windows cannot create without
+    # Developer Mode enabled (OSError WinError 1314), so skip this entirely here.
+    if [[ "${_HOST_OS}" != "windows" ]]; then
+        if [[ ! -f "${qt_host_dir}/lib/cmake/Qt6/Qt6Config.cmake" ]]; then
+            info "Downloading Qt 6.9.3 Linux host tools via aqt..."
+            mkdir -p "${BUILD_GENERATE}/externals/qt-host"
+            "${aqt_bin}" install-qt linux desktop 6.9.3 linux_gcc_64 \
+                --outputdir "${BUILD_GENERATE}/externals/qt-host"
+        fi
+        # Ensure qtsvg + qtmultimedia are present in the host Qt — needed by the native ELF (BOLT) build
+        # aqt often cannot install multimedia for linux desktop; fall back to system Qt if needed.
+        local _qt_host_needs_modules=0
+        [[ ! -f "${qt_host_dir}/lib/cmake/Qt6Svg/Qt6SvgConfig.cmake" ]] && _qt_host_needs_modules=1
+        [[ ! -f "${qt_host_dir}/lib/cmake/Qt6Multimedia/Qt6MultimediaConfig.cmake" ]] && _qt_host_needs_modules=1
+        if [[ "${_qt_host_needs_modules}" -eq 1 ]]; then
+            info "Attempting aqt install of Qt6Svg + Qt6Multimedia for Linux host Qt..."
+            "${aqt_bin}" install-qt linux desktop 6.9.3 linux_gcc_64 \
+                --outputdir "${BUILD_GENERATE}/externals/qt-host" \
+                --modules qtsvg qtmultimedia 2>/dev/null \
+                || warn "aqt Qt6 module install failed — will try system Qt for ELF build"
+        fi
+    else
+        info "Windows native build: skipping Linux host Qt download (not needed for native builds)."
+        qt_host_dir=""  # Ensure QT_HOST_PATH is NOT passed to CMake on Windows
     fi
 
     info "Qt6 cmake dir: ${qt6_cmake_dir}"
@@ -2167,7 +2177,7 @@ stage_generate() {
     cmake "${SOURCE_DIR}" \
         $(common_cmake_args) \
         ${qt6_cmake_dir:+"-DQt6_DIR=${qt6_cmake_dir}"} \
-        "-DQT_HOST_PATH=${qt_host_dir}" \
+        ${qt_host_dir:+"-DQT_HOST_PATH=${qt_host_dir}"} \
         "-DCITRON_ENABLE_PGO_GENERATE=ON" \
         "-DCITRON_PGO_FLAGS_MANAGED_BY_SCRIPT=ON" \
         "-DCITRON_ENABLE_LTO=${generate_lto_cmake}" \
@@ -2423,6 +2433,9 @@ stage_csgenerate() {
     apply_unity_fixes
     local qt_install_dir="${BUILD_GENERATE}/externals/qt/6.9.3/llvm-mingw_64"
     local qt_host_dir="${BUILD_GENERATE}/externals/qt-host/6.9.3/gcc_64"
+    if [[ "${_HOST_OS}" == "windows" ]]; then
+        qt_host_dir=""
+    fi
     local qt6_cmake_dir="${qt_install_dir}/lib/cmake/Qt6"
 
     GLSLC_PATH="$(command -v glslc 2>/dev/null || true)"
@@ -2437,7 +2450,7 @@ stage_csgenerate() {
     cmake "${SOURCE_DIR}" \
         $(common_cmake_args) \
         ${qt6_cmake_dir:+"-DQt6_DIR=${qt6_cmake_dir}"} \
-        "-DQT_HOST_PATH=${qt_host_dir}" \
+        ${qt_host_dir:+"-DQT_HOST_PATH=${qt_host_dir}"} \
         "-DCITRON_ENABLE_PGO_GENERATE=ON" \
         "-DCITRON_PGO_FLAGS_MANAGED_BY_SCRIPT=ON" \
         "-DCITRON_ENABLE_LTO=${generate_lto_cmake}" \
@@ -2845,6 +2858,9 @@ stage_use() {
     # (win64_mingw → mingw_64 instead of win64_llvm_mingw → llvm-mingw_64).
     local qt_install_dir="${BUILD_GENERATE}/externals/qt/6.9.3/llvm-mingw_64"
     local qt_host_dir="${BUILD_GENERATE}/externals/qt-host/6.9.3/gcc_64"
+    if [[ "${_HOST_OS}" == "windows" ]]; then
+        qt_host_dir=""
+    fi
     local qt6_cmake_dir="${qt_install_dir}/lib/cmake/Qt6"
 
     # Note on BOLT PE relocation coverage:
@@ -2864,7 +2880,7 @@ stage_use() {
         "-DCMAKE_EXE_LINKER_FLAGS_RELEASE=-O3 -DNDEBUG ${lto_pgo_flag}" \
         "-DCITRON_PGO_PROFILE_DIR=${PROFILE_DIR}" \
         ${qt6_cmake_dir:+"-DQt6_DIR=${qt6_cmake_dir}"} \
-        "-DQT_HOST_PATH=${qt_host_dir}"
+        ${qt_host_dir:+"-DQT_HOST_PATH=${qt_host_dir}"}
     info "Building PGO+LTO citron.exe..."
     cmake --build . --config Release -j "${JOBS}"
 
@@ -3716,6 +3732,9 @@ BOLT_ORDER_EOF
 
     local qt_install_dir="${BUILD_GENERATE}/externals/qt/6.9.3/llvm-mingw_64"
     local qt_host_dir="${BUILD_GENERATE}/externals/qt-host/6.9.3/gcc_64"
+    if [[ "${_HOST_OS}" == "windows" ]]; then
+        qt_host_dir=""
+    fi
     local qt6_cmake_dir="${qt_install_dir}/lib/cmake/Qt6"
     apply_unity_fixes
 
@@ -3729,7 +3748,7 @@ BOLT_ORDER_EOF
         "-DCMAKE_EXE_LINKER_FLAGS_RELEASE=-O3 -DNDEBUG ${lto_pgo_flag}${order_linker_flag:+ ${order_linker_flag}}" \
         "-DCITRON_PGO_PROFILE_DIR=${PROFILE_DIR}" \
         ${qt6_cmake_dir:+"-DQt6_DIR=${qt6_cmake_dir}"} \
-        "-DQT_HOST_PATH=${qt_host_dir}" \
+        ${qt_host_dir:+"-DQT_HOST_PATH=${qt_host_dir}"} \
         -Wno-dev
 
     info "Building final optimized Windows PE (PGO + LTO + BOLT function order)..."
@@ -4177,6 +4196,9 @@ stage_propeller() {
 
     local qt_install_dir="${BUILD_GENERATE}/externals/qt/6.9.3/llvm-mingw_64"
     local qt_host_dir="${BUILD_GENERATE}/externals/qt-host/6.9.3/gcc_64"
+    if [[ "${_HOST_OS}" == "windows" ]]; then
+        qt_host_dir=""
+    fi
     local qt6_cmake_dir="${qt_install_dir}/lib/cmake/Qt6"
     apply_unity_fixes
 
@@ -4190,7 +4212,7 @@ stage_propeller() {
         "-DCMAKE_EXE_LINKER_FLAGS_RELEASE=-O3 -DNDEBUG ${lto_pgo_flag}${propeller_linker_flag:+ ${propeller_linker_flag}}" \
         "-DCITRON_PGO_PROFILE_DIR=${PROFILE_DIR}" \
         ${qt6_cmake_dir:+"-DQt6_DIR=${qt6_cmake_dir}"} \
-        "-DQT_HOST_PATH=${qt_host_dir}" \
+        ${qt_host_dir:+"-DQT_HOST_PATH=${qt_host_dir}"} \
         -Wno-dev
     # # be applied after every cmake configure.
     info "Building Propeller-optimized Windows PE..."
