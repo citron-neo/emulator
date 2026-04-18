@@ -267,7 +267,3 @@ This warning comes from `CopyMinGWDeps.cmake` during the cmake build step. The s
 **MSYS2: `pacman: command not found`**
 
 Launch the script from the **MSYS2 CLANG64** terminal, not a standard Windows Command Prompt or PowerShell. Use `build-clangtron-windows.bat` to open the correct environment automatically.
-
-**Build fails with `-fuse-ld=bfd` not found**
-
-This flag is GCC-only and should not reach Clang builds. Ensure you are using the upstream `src/citron/CMakeLists.txt` with the fix applied (see commit notes), or update from the repository.
