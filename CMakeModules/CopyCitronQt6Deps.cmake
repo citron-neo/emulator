@@ -76,7 +76,7 @@ function(copy_citron_Qt6_deps target_dir)
         # Resolve the plugin root from Qt6_DIR (which points to lib/cmake/Qt6).
         set(Qt6_BUNDLED_PLUGINS "${Qt6_DIR}/../../../plugins")
 
-        foreach(plugin_dir platforms styles imageformats)
+        foreach(plugin_dir platforms styles imageformats iconengines)
             if (EXISTS "${Qt6_BUNDLED_PLUGINS}/${plugin_dir}")
                 add_custom_command(TARGET ${target_dir} POST_BUILD
                     COMMAND ${CMAKE_COMMAND} -E make_directory "${DLL_DEST}${plugin_dir}"
