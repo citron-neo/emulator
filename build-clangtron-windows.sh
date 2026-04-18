@@ -2166,6 +2166,7 @@ common_cmake_args() {
         "-G" "Ninja" \
         "-DCMAKE_BUILD_TYPE=Release" \
         "-DCMAKE_TOOLCHAIN_FILE=${CMAKE_TOOLCHAIN_FILE_PATH}" \
+        "-DCMAKE_DISABLE_FIND_PACKAGE_LLVM=ON" \
         "-DCITRON_ENABLE_LTO=${lto_flag}" \
         "-DCITRON_TESTS=OFF" \
         "-DCITRON_USE_BUNDLED_FFMPEG=ON" \
