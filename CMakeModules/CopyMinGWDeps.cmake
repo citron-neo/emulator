@@ -19,52 +19,7 @@ set(OBJDUMP \"${OBJDUMP_EXECUTABLE}\")
 set(MINGW_BIN \"${MINGW_BIN_DIR}\")
 set(EXE_DIR \"\${TARGET_DIR}\")
 
-# Recursively collect all DLL dependencies from the MinGW prefix.
-# NOTE: We always overwrite existing DLLs (no NOT EXISTS guard) so that a
-# restored build cache never leaves stale DLLs from an older MSYS2 snapshot.
-# Stale Qt DLLs cause \"no Qt platform plugin\" errors at startup because
-# citron.exe is compiled against the current Qt headers but links the old DLLs.
-function(resolve_deps file visited_var deps_var)
-    execute_process(
-        COMMAND \${OBJDUMP} -p \"\${file}\"
-        OUTPUT_VARIABLE objdump_out
-        ERROR_QUIET
-        OUTPUT_STRIP_TRAILING_WHITESPACE
-    )
-    string(REGEX MATCHALL \"DLL Name: [^\r\n]+\" dll_entries \"\${objdump_out}\")
-    foreach(entry \${dll_entries})
-        string(REGEX REPLACE \"DLL Name: +\" \"\" dll_name \"\${entry}\")
-        string(STRIP \"\${dll_name}\" dll_name)
-        list(FIND \${visited_var} \"\${dll_name}\" idx)
-        if (NOT idx EQUAL -1)
-            continue()
-        endif()
-        set(dll_path \"\${MINGW_BIN}/\${dll_name}\")
-        if (EXISTS \"\${dll_path}\")
-            list(APPEND \${visited_var} \"\${dll_name}\")
-            list(APPEND \${deps_var} \"\${dll_path}\")
-            resolve_deps(\"\${dll_path}\" \${visited_var} \${deps_var})
-        endif()
-    endforeach()
-    set(\${visited_var} \${\${visited_var}} PARENT_SCOPE)
-    set(\${deps_var} \${\${deps_var}} PARENT_SCOPE)
-endfunction()
-
-set(visited \"\")
-set(all_deps \"\")
-resolve_deps(\"\${EXE_DIR}/citron.exe\" visited all_deps)
-
-list(LENGTH all_deps dep_count)
-message(STATUS \"Deploying \${dep_count} MinGW DLL(s) to \${EXE_DIR}\")
-foreach(dll \${all_deps})
-    get_filename_component(dll_name \"\${dll}\" NAME)
-    # Always overwrite — do NOT use NOT EXISTS here.
-    file(COPY \"\${dll}\" DESTINATION \"\${EXE_DIR}\")
-    message(STATUS \"  Deployed: \${dll_name}\")
-endforeach()
-
-# Deploy Qt6 plugins from the MSYS2 UCRT64 Qt installation.
-# CopyMinGWDeps handles the Qt DLL binaries; this block handles the plugins.
+# 1. Deploy Qt6 plugins from the MSYS2 UCRT64 Qt installation.
 # windeployqt6 is unreliable when WINDEPLOYQT_EXECUTABLE is not found by cmake,
 # so we copy the plugin directories directly from the Qt share tree.
 set(QT_PLUGIN_BASE \"\${MINGW_BIN}/../share/qt6/plugins\")
@@ -93,7 +48,7 @@ if (EXISTS \"\${QT_PLUGIN_BASE}\")
         endif()
     endforeach()
 
-    # TLS plugins — required for Qt network SSL/HTTPS (OpenSSL + Schannel backends).
+    # TLS plugins - required for Qt network SSL/HTTPS (OpenSSL + Schannel backends).
     # Without these, QNetworkAccessManager silently fails all HTTPS requests and
     # web service features are broken. Qt 6 no longer bundles TLS statically;
     # it loads these at runtime via the plugin system.
@@ -111,12 +66,59 @@ if (EXISTS \"\${QT_PLUGIN_BASE}\")
     endif()
 else()
     message(WARNING \"Qt plugin base not found at \${QT_PLUGIN_BASE}\")
-    message(WARNING \"Qt plugins (platforms, TLS, imageformats) will not be deployed.\")
+    message(WARNING \"Qt plugins (platforms, TLS, imageformats, iconengines) will not be deployed.\")
 endif()
+
+# 2. Recursively collect all DLL dependencies from the MinGW prefix.
+function(resolve_deps file visited_var deps_var)
+    execute_process(
+        COMMAND \${OBJDUMP} -p \"\${file}\"
+        OUTPUT_VARIABLE objdump_out
+        ERROR_QUIET
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+    )
+    string(REGEX MATCHALL \"DLL Name: [^\r\n]+\" dll_entries \"\${objdump_out}\")
+    foreach(entry \${dll_entries})
+        string(REGEX REPLACE \"DLL Name: +\" \"\" dll_name \"\${entry}\")
+        string(STRIP \"\${dll_name}\" dll_name)
+        list(FIND \${visited_var} \"\${dll_name}\" idx)
+        if (NOT idx EQUAL -1)
+            continue()
+        endif()
+        set(dll_path \"\${MINGW_BIN}/\${dll_name}\")
+        if (EXISTS \"\${dll_path}\")
+            list(APPEND \${visited_var} \"\${dll_name}\")
+            list(APPEND \${deps_var} \"\${dll_path}\")
+            resolve_deps(\"\${dll_path}\" \${visited_var} \${deps_var})
+        endif()
+    endforeach()
+    set(\${visited_var} \${\${visited_var}} PARENT_SCOPE)
+    set(\${deps_var} \${\${deps_var}} PARENT_SCOPE)
+endfunction()
+
+set(visited \"\")
+set(all_deps \"\")
+
+# Resolve for the targeted executable
+resolve_deps(\"\${EXE_DIR}/\${TARGET_FILE}\" visited all_deps)
+
+# Resolve for all deployed Qt plugins
+file(GLOB_RECURSE deployed_plugins \"\${EXE_DIR}/*/*.dll\")
+foreach(plugin \${deployed_plugins})
+    resolve_deps(\"\${plugin}\" visited all_deps)
+endforeach()
+
+# 3. Deploy everything
+list(LENGTH all_deps dep_count)
+message(STATUS \"Deploying \${dep_count} MinGW DLL(s) to \${EXE_DIR}\")
+foreach(dll \${all_deps})
+    # Always overwrite
+    file(COPY \"\${dll}\" DESTINATION \"\${EXE_DIR}\")
+endforeach()
 ")
 
     add_custom_command(TARGET ${target} POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -DTARGET_DIR="$<TARGET_FILE_DIR:${target}>" -P "${DEPLOY_SCRIPT}"
+        COMMAND ${CMAKE_COMMAND} -DTARGET_DIR="$<TARGET_FILE_DIR:${target}>" -DTARGET_FILE="$<TARGET_FILE_NAME:${target}>" -P "${DEPLOY_SCRIPT}"
         COMMENT "Deploying MinGW runtime DLLs and Qt plugins for ${target}"
     )
 endfunction()
