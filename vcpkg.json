@@ -31,11 +31,11 @@
     "openal-soft",
     {
       "name": "openssl",
-      "platform": "windows"
+      "platform": "!linux & !osx & !android"
     },
     {
       "name": "opus",
-      "platform": "windows"
+      "platform": "!linux & !osx & !android"
     },
     "zlib",
     "zstd"
@@ -50,7 +50,7 @@
       "dependencies": [
         {
           "name": "openssl",
-          "platform": "windows"
+          "platform": "!linux & !osx & !android"
         }
       ]
     },
