@@ -654,7 +654,7 @@ stage_setup() {
     fi
     # ── Linux path ───────────────────────────────────────────────────────────
 
-    info "Updating package lists...
+    info "Updating package lists..."
     _sudo apt-get update -qq
 
     info "Installing core build tools..."
@@ -718,7 +718,7 @@ stage_setup() {
 
     # ── Verify ────────────────────────────────────────────────────────────────
     echo ""
-    info "Verifying installation...
+    info "Verifying installation..."
     local ok=1
 
     for tool in "clang-${CLANG_VERSION}" "clang++-${CLANG_VERSION}" \
