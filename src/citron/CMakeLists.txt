@@ -7,6 +7,10 @@ set(CMAKE_AUTORCC ON)
 set(CMAKE_AUTOUIC ON)
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
 
+# Prevent parallel LTO links from OOMing the runner
+set_property(GLOBAL PROPERTY JOB_POOLS link_pool=1)
+set(CMAKE_JOB_POOL_LINK link_pool)
+
 # Set the RPATH for Qt Libraries
 # This must be done before the `citron` target is created
 if (CITRON_USE_BUNDLED_QT AND (${CMAKE_SYSTEM_NAME} STREQUAL "Linux"))
