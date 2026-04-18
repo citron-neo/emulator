@@ -2609,8 +2609,10 @@ stage_csgenerate() {
     # cs-default-%p.profraw — %p expands to PID so parallel runs don't collide.
     # The output is relative (no directory prefix) so it writes next to the .exe
     # on Windows, where the Linux absolute path would be meaningless.
+    local stage1_pd_compiler="${stage1_pd}"
+    [[ "${_HOST_OS}" == "windows" ]] && stage1_pd_compiler="$(cygpath -m "${stage1_pd}")"
     local cs_gen_flag="-fcs-profile-generate=cs-default-%p.profraw"
-    local pgo_use_flag="-fprofile-use=${stage1_pd}"
+    local pgo_use_flag="-fprofile-use=${stage1_pd_compiler}"
     local c_flags="-O3 -DNDEBUG ${pgo_use_flag} ${cs_gen_flag}${lto_generate_flag:+ ${lto_generate_flag}}"
     local cxx_flags="${c_flags}"
 
@@ -3034,11 +3036,13 @@ stage_use() {
     fi
 
     local lto_flag; lto_flag="$(lto_clang_flag)"
+    local profdata_compiler="${profdata}"
+    [[ "${_HOST_OS}" == "windows" ]] && profdata_compiler="$(cygpath -m "${profdata}")"
     local pgo_flag
     if [[ "${PGO_MODE}" == "ir" ]]; then
-        pgo_flag="-fprofile-use=${profdata}"
+        pgo_flag="-fprofile-use=${profdata_compiler}"
     else
-        pgo_flag="-fprofile-instr-use=${profdata} -Wno-profile-instr-unprofiled -Wno-profile-instr-out-of-date"
+        pgo_flag="-fprofile-instr-use=${profdata_compiler} -Wno-profile-instr-unprofiled -Wno-profile-instr-out-of-date"
     fi
     local lto_pgo_flag="${lto_flag:+${lto_flag} }${pgo_flag}"
 
