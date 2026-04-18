@@ -68,6 +68,17 @@ endforeach()
 # windeployqt6 is unreliable when WINDEPLOYQT_EXECUTABLE is not found by cmake,
 # so we copy the plugin directories directly from the Qt share tree.
 set(QT_PLUGIN_BASE \"\${MINGW_BIN}/../share/qt6/plugins\")
+# On a Linux cross-compile host the toolchain bin dir has no Qt share tree.
+# Fall back to the path derived from Qt6_DIR (resolved at configure time).
+# Qt6_DIR points to <qt_root>/lib/cmake/Qt6, so ../../.. is <qt_root>.
+if (NOT EXISTS \\"\\${QT_PLUGIN_BASE}\\")
+    set(QT_PLUGIN_BASE \\"${Qt6_DIR}/../../../plugins\\")
+    if (EXISTS \\"\\${QT_PLUGIN_BASE}\\")
+        message(STATUS \\"Qt plugins: aqt install at \\${QT_PLUGIN_BASE}\\")
+    else()
+        set(QT_PLUGIN_BASE \\"\\")
+    endif()
+endif()
 if (EXISTS \"\${QT_PLUGIN_BASE}\")
     # Core platform / style / imageformat plugins
     foreach(plugin_dir platforms styles imageformats)

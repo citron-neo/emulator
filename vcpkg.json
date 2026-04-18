@@ -29,6 +29,14 @@
     "lz4",
     "nlohmann-json",
     "openal-soft",
+    {
+      "name": "openssl",
+      "platform": "windows"
+    },
+    {
+      "name": "opus",
+      "platform": "windows"
+    },
     "zlib",
     "zstd"
   ],

@@ -487,8 +487,11 @@ elseif(WIN32)
 endif()
 
 # Robust static linking and linker selection under GCC LTO
+# -fuse-ld=bfd is a GCC-only flag — Clang (llvm-mingw / MSYS2 clang64) uses
+# lld by default and does not accept -fuse-ld=bfd.  The generator expression
+# restricts the flag to GNU builds so MinGW/Clang cross-compile builds are unaffected.
 if (NOT MSVC AND NOT APPLE)
-    target_link_options(citron PRIVATE -fuse-ld=bfd)
+    target_link_options(citron PRIVATE "$<$<CXX_COMPILER_ID:GNU>:-fuse-ld=bfd>")
     if (MINGW AND CITRON_ENABLE_LTO)
         target_link_options(citron PRIVATE "-Wl,--allow-multiple-definition")
     endif()

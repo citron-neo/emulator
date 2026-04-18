@@ -435,6 +435,9 @@ void SetColorConsoleBackendEnabled(bool enabled) noexcept {
     if (logging_instance)
         logging_instance->color_console_backend.enabled = enabled;
 }
+#ifdef __clang__
+[[clang::no_profile_instrument_function]]
+#endif
 void FmtLogMessageImpl(Class log_class, Level log_level, const char* filename,
                        unsigned int line_num, const char* function, fmt::string_view format,
                        const fmt::format_args& args) {

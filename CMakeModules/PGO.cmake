@@ -21,6 +21,17 @@ endif()
 # Create the profile directory if it doesn't exist
 file(MAKE_DIRECTORY "${CITRON_PGO_PROFILE_DIR}")
 
+# Allow an external build script (e.g. build-for-clang-windows.sh) to supply its
+# own PGO compiler/linker flags directly via CMAKE_C/CXX_FLAGS_RELEASE and
+# CMAKE_EXE_LINKER_FLAGS_RELEASE.  When this cache variable is ON the GCC/Clang
+# flag-injection block below is bypassed so that the script flags and CMake's own
+# PGO flags do not collide (which would produce invalid combinations such as
+# -fprofile-generate with -fprofile-instr-generate simultaneously).
+if(NOT DEFINED CITRON_PGO_FLAGS_MANAGED_BY_SCRIPT)
+    set(CITRON_PGO_FLAGS_MANAGED_BY_SCRIPT OFF CACHE BOOL
+        "PGO compiler/linker flags are supplied externally by build-for-clang-windows.sh")
+endif()
+
 # Apply /GL globally so ALL compilation units (libraries included) emit MSIL for
 # the linker to instrument (GENERATE) or optimize (USE). Without this, only the
 # executable target's own sources are visible to PGO -- the hot code in video_core,
@@ -33,7 +44,11 @@ if(MSVC)
 endif()
 
 # GCC/Clang: apply profile flags globally so library targets are also instrumented
-if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+if(CITRON_PGO_FLAGS_MANAGED_BY_SCRIPT)
+    if(CITRON_ENABLE_PGO_GENERATE OR CITRON_ENABLE_PGO_USE)
+        message(STATUS "PGO: compiler/linker flags are managed externally by build-for-clang-windows.sh")
+    endif()
+elseif(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
     if(CITRON_ENABLE_PGO_GENERATE)
         add_compile_options(-fprofile-generate -fprofile-dir=${CITRON_PGO_PROFILE_DIR})
         add_link_options(-fprofile-generate -fprofile-dir=${CITRON_PGO_PROFILE_DIR})
