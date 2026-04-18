@@ -59,25 +59,30 @@ exit /b 1
 :found_msys2
 echo Found MSYS2 at: %MSYS2_PATH%
 
-REM ---------- resolve script directory as MSYS2 path ----------
+REM ---------- resolve script directory ----------
+REM Strip trailing backslash left by %%~dp0
 set "SCRIPT_DIR=%~dp0"
 if "%SCRIPT_DIR:~-1%"=="\" set "SCRIPT_DIR=%SCRIPT_DIR:~0,-1%"
 
-REM C:\foo\bar  ->  /c/foo/bar
-set "MSYS_SOURCE=%SCRIPT_DIR:\=/%"
-set "DRIVE=%MSYS_SOURCE:~1,1%"
-set "MSYS_SOURCE=/%DRIVE%%MSYS_SOURCE:~2%"
+REM Use cygpath (always present in MSYS2) to convert the Windows path to a
+REM POSIX path.  The manual letter-by-letter loop it replaces was inserting
+REM extra slashes into every path component (e.g. /citron -> /c/itron).
+for /f "delims=" %%P in ('^""%MSYS2_PATH%\usr\bin\cygpath.exe" "%SCRIPT_DIR%"^"') do set "MSYS_SOURCE=%%P"
 
-REM Lowercase the drive letter (MSYS2 paths are lowercase)
-for %%L in (a b c d e f g h i j k l m n o p q r s t u v w x y z) do (
-    set "MSYS_SOURCE=!MSYS_SOURCE:/%%L=/%%L/!"
+if "%MSYS_SOURCE%"=="" (
+    echo.
+    echo  ERROR: cygpath failed to convert path: %SCRIPT_DIR%
+    echo  Ensure MSYS2 is installed correctly.
+    echo.
+    pause
+    exit /b 1
 )
 
 REM ---------- open CLANG64 shell, print help, leave prompt open ----------
 echo.
 echo  Opening MSYS2 CLANG64 shell.
 echo  The build script help will be printed above the prompt.
-echo  Run stages manually — see docs/BUILDING-CLANG-MINGW.md for guidance.
+echo  Run stages manually -- see docs/BUILDING-CLANG-MINGW.md for guidance.
 echo.
 
 "%MSYS2_PATH%\usr\bin\env.exe" MSYSTEM=CLANG64 ^
