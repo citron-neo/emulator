@@ -179,6 +179,7 @@ To produce an unoptimized release binary (useful for comparison or debugging):
 | `--build DIR` | `./build` | Build root directory |
 | `--jobs N` | `nproc` | Parallel compile jobs |
 | `--unity` | off | Enable unity builds (~30–90% faster compilation, no runtime effect) |
+| `--relwithdebinfo` | off | Enable RelWithDebInfo build (Release with debug symbols). Injects `-g` while keeping O3/LTO/PGO. |
 | `--clang-version N` | `21` | Host Clang version (Linux only) |
 | `--llvm-mingw-version VER` | `20260224` | llvm-mingw release tag to download (Linux only) |
 

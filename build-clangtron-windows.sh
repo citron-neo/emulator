@@ -170,6 +170,8 @@
 #     --unity                  Enable unity builds (passes ENABLE_UNITY_BUILD=ON)
 #                              ~30-90% faster compilation; no runtime effect.
 #     --clang-version N        Host Clang version (default: 21)
+#     --relwithdebinfo         Enable RelWithDebInfo build (Release with debug symbols).
+#                              Injects -g into all build stages while keeping O3/LTO/PGO.
 #     --llvm-mingw-version VER llvm-mingw release tag (default: 20260224)
 #
 #   LTO mode details:
@@ -277,6 +279,7 @@ LTO_MODE="${LTO_MODE:-full}"
 PGO_MODE="${PGO_MODE:-ir}"     # ir = LLVM IR PGO (-fprofile-generate/-fprofile-use)
                                # fe = Frontend PGO (-fprofile-instr-generate/-fprofile-instr-use)
 UNITY_BUILD="${UNITY_BUILD:-OFF}"   # ENABLE_UNITY_BUILD: batch TUs to speed up compilation
+BUILD_TYPE="${BUILD_TYPE:-Release}" # Release, RelWithDebInfo
 
 # =============================================================================
 # Host OS detection
@@ -558,7 +561,7 @@ build_bolt_from_source() {
         -S "${bolt_src}/llvm" \
         -B "${bolt_build}" \
         -G Ninja \
-        -DCMAKE_BUILD_TYPE=Release \
+        -DCMAKE_BUILD_TYPE=${BUILD_TYPE} \
         -DLLVM_ENABLE_PROJECTS="bolt" \
         -DLLVM_TARGETS_TO_BUILD="X86" \
         -DLLVM_INCLUDE_TESTS=OFF \
@@ -2055,7 +2058,7 @@ common_cmake_args() {
 
     echo \
         "-G" "Ninja" \
-        "-DCMAKE_BUILD_TYPE=Release" \
+        "-DCMAKE_BUILD_TYPE=${BUILD_TYPE}" \
         "-DCMAKE_TOOLCHAIN_FILE=${CMAKE_TOOLCHAIN_FILE_PATH}" \
         "-DCMAKE_DISABLE_FIND_PACKAGE_LLVM=ON" \
         "-DCITRON_ENABLE_LTO=${lto_flag}" \
@@ -2137,8 +2140,10 @@ stage_generate() {
     else
         pgo_gen_flag="-fprofile-instr-generate=default-%p.profraw"
     fi
-    local c_flags="-O3 -DNDEBUG ${pgo_gen_flag}${lto_generate_flag:+ ${lto_generate_flag}}"
-    local cxx_flags="-O3 -DNDEBUG ${pgo_gen_flag}${lto_generate_flag:+ ${lto_generate_flag}}"
+    local debug_flag=""
+    [[ "${BUILD_TYPE}" == "RelWithDebInfo" ]] && debug_flag="-g"
+    local c_flags="-O3 -DNDEBUG ${debug_flag} ${pgo_gen_flag}${lto_generate_flag:+ ${lto_generate_flag}}"
+    local cxx_flags="${c_flags}"
 
     # Force-keep the profile runtime symbols so lld does not dead-strip them.
     # -u,__llvm_profile_write_file: pulls InstrProfilingFile.o (write logic)
@@ -2264,6 +2269,7 @@ stage_generate() {
     rm -f CMakeCache.txt; rm -rf CMakeFiles
     [[ -d "src/citron/citron_autogen" ]] && rm -rf src/citron/citron_autogen
 
+    local bt_upper; bt_upper=$(echo "${BUILD_TYPE}" | tr '[:lower:]' '[:upper:]')
     # shellcheck disable=SC2046
     cmake "${SOURCE_DIR}" \
         $(common_cmake_args) \
@@ -2272,14 +2278,14 @@ stage_generate() {
         "-DCITRON_ENABLE_PGO_GENERATE=ON" \
         "-DCITRON_PGO_FLAGS_MANAGED_BY_SCRIPT=ON" \
         "-DCITRON_ENABLE_LTO=${generate_lto_cmake}" \
-        "-DCMAKE_C_FLAGS_RELEASE=${c_flags}" \
-        "-DCMAKE_CXX_FLAGS_RELEASE=${cxx_flags}" \
-        "-DCMAKE_EXE_LINKER_FLAGS_RELEASE=${c_flags} ${PROFILE_RUNTIME_LIB:+${PROFILE_RUNTIME_LIB}} ${extra_link_flags}" \
+        "-DCMAKE_C_FLAGS_${bt_upper}=${c_flags}" \
+        "-DCMAKE_CXX_FLAGS_${bt_upper}=${cxx_flags}" \
+        "-DCMAKE_EXE_LINKER_FLAGS_${bt_upper}=${c_flags} ${PROFILE_RUNTIME_LIB:+${PROFILE_RUNTIME_LIB}} ${extra_link_flags}" \
         "-DCITRON_PGO_PROFILE_DIR=${PROFILE_DIR}" \
         2>&1 | grep -v '^-- '; cmake_exit=${PIPESTATUS[0]}
     [[ ${cmake_exit} -eq 0 ]] || error "CMake configure failed"
-    info "Building instrumented citron..."
-    cmake --build . --config Release -j "${JOBS}"
+    info "Building instrumented citron (${BUILD_TYPE})..."
+    cmake --build . --config "${BUILD_TYPE}" -j "${JOBS}"
 
     success "Instrumented build complete: ${BUILD_GENERATE}/bin/citron.exe"
 
@@ -2505,8 +2511,11 @@ stage_csgenerate() {
     [[ "${_HOST_OS}" == "windows" ]] && stage1_pd_compiler="$(cygpath -m "${stage1_pd}")"
     local cs_gen_flag="-fcs-profile-generate=cs-default-%p.profraw"
     local pgo_use_flag="-fprofile-use=${stage1_pd_compiler}"
-    local c_flags="-O3 -DNDEBUG ${pgo_use_flag} ${cs_gen_flag}${lto_generate_flag:+ ${lto_generate_flag}}"
+    local debug_flag=""
+    [[ "${BUILD_TYPE}" == "RelWithDebInfo" ]] && debug_flag="-g"
+    local c_flags="-O3 -DNDEBUG ${debug_flag} ${pgo_use_flag} ${cs_gen_flag}${lto_generate_flag:+ ${lto_generate_flag}}"
     local cxx_flags="${c_flags}"
+    local bt_upper; bt_upper=$(echo "${BUILD_TYPE}" | tr '[:lower:]' '[:upper:]')
 
     # Force-keep profile runtime entry points.
     # CS-IRPGO uses the same LLVM InstrProfiling runtime as standard IR/FE PGO.
@@ -2780,6 +2789,9 @@ stage_use() {
         info "Qt target cmake dir: ${qt6_cmake_dir}"
         [[ -n "${qt_host_dir}" ]] && info "Qt host dir:         ${qt_host_dir}"
 
+        local debug_flag=""
+        [[ "${BUILD_TYPE}" == "RelWithDebInfo" ]] && debug_flag="-g"
+        local bt_upper; bt_upper=$(echo "${BUILD_TYPE}" | tr '[:lower:]' '[:upper:]')
         local lto_flag; lto_flag="$(lto_clang_flag)"
 
         # Pre-build FFmpeg for this build directory
@@ -2795,12 +2807,12 @@ stage_use() {
             $(common_cmake_args) \
             "-DCITRON_ENABLE_PGO_USE=OFF" \
             "-DCITRON_PGO_FLAGS_MANAGED_BY_SCRIPT=ON" \
-            "-DCMAKE_C_FLAGS_RELEASE=-O3 -DNDEBUG ${lto_flag}" \
-            "-DCMAKE_CXX_FLAGS_RELEASE=-O3 -DNDEBUG ${lto_flag}" \
+            "-DCMAKE_C_FLAGS_${bt_upper}=-O3 -DNDEBUG ${debug_flag} ${lto_flag}" \
+            "-DCMAKE_CXX_FLAGS_${bt_upper}=-O3 -DNDEBUG ${debug_flag} ${lto_flag}" \
             ${qt6_cmake_dir:+"-DQt6_DIR=${qt6_cmake_dir}"} \
             ${qt_host_dir:+"-DQT_HOST_PATH=${qt_host_dir}"}
-        info "Building citron.exe (no PGO)..."
-        cmake --build . --config Release -j "${JOBS}"
+        info "Building citron.exe (no PGO, ${BUILD_TYPE})..."
+        cmake --build . --config "${BUILD_TYPE}" -j "${JOBS}"
 
         success "No-PGO Windows PE: ${nopgo_dir}/bin/citron.exe"
 
@@ -2966,19 +2978,22 @@ stage_use() {
     # locate and patch code references. The ELF build (use-elf) retains its own
     # --emit-relocs flag for the ELF-proxy BOLT path.
 
+    local debug_flag=""
+    [[ "${BUILD_TYPE}" == "RelWithDebInfo" ]] && debug_flag="-g"
+    local bt_upper; bt_upper=$(echo "${BUILD_TYPE}" | tr '[:lower:]' '[:upper:]')
     # shellcheck disable=SC2046
     cmake "${SOURCE_DIR}" \
         $(common_cmake_args) \
         "-DCITRON_ENABLE_PGO_USE=ON" \
         "-DCITRON_PGO_FLAGS_MANAGED_BY_SCRIPT=ON" \
-        "-DCMAKE_C_FLAGS_RELEASE=-O3 -DNDEBUG ${lto_pgo_flag}" \
-        "-DCMAKE_CXX_FLAGS_RELEASE=-O3 -DNDEBUG ${lto_pgo_flag}" \
-        "-DCMAKE_EXE_LINKER_FLAGS_RELEASE=-O3 -DNDEBUG ${lto_pgo_flag}" \
+        "-DCMAKE_C_FLAGS_${bt_upper}=-O3 -DNDEBUG ${debug_flag} ${lto_pgo_flag}" \
+        "-DCMAKE_CXX_FLAGS_${bt_upper}=-O3 -DNDEBUG ${debug_flag} ${lto_pgo_flag}" \
+        "-DCMAKE_EXE_LINKER_FLAGS_${bt_upper}=-O3 -DNDEBUG ${debug_flag} ${lto_pgo_flag}" \
         "-DCITRON_PGO_PROFILE_DIR=${PROFILE_DIR}" \
         ${qt6_cmake_dir:+"-DQt6_DIR=${qt6_cmake_dir}"} \
         ${qt_host_dir:+"-DQT_HOST_PATH=${qt_host_dir}"}
-    info "Building PGO+LTO citron.exe..."
-    cmake --build . --config Release -j "${JOBS}"
+    info "Building PGO+LTO citron.exe (${BUILD_TYPE})..."
+    cmake --build . --config "${BUILD_TYPE}" -j "${JOBS}"
 
     success "PGO+LTO Windows PE: ${BUILD_USE}/bin/citron.exe"
 
@@ -3286,7 +3301,10 @@ QTGPEOF
     # -fbasic-block-address-map, so the section never appears in the final binary.
     # Without LTO, every TU is compiled directly to native code and the section
     # is always emitted. PGO data alone provides representative hot-path coverage.
-    local elf_compile_flags="-O3 -DNDEBUG -D_stat64=stat ${elf_pgo_flag} -fbasic-block-address-map -Wno-error=backend-plugin"
+    local debug_flag=""
+    [[ "${BUILD_TYPE}" == "RelWithDebInfo" ]] && debug_flag="-g"
+    local bt_upper; bt_upper=$(echo "${BUILD_TYPE}" | tr '[:lower:]' '[:upper:]')
+    local elf_compile_flags="-O3 -DNDEBUG ${debug_flag} -D_stat64=stat ${elf_pgo_flag} -fbasic-block-address-map -Wno-error=backend-plugin"
     local elf_linker_flags="-fuse-ld=lld-${CLANG_VERSION} -Wl,--emit-relocs"
 
     # ── Flag-change detection: wipe stale object cache if compile flags changed ──
@@ -3471,15 +3489,15 @@ XBYAK_PATCH_EOF
     local _elf_cmake_args=(
         "${SOURCE_DIR}"
         -G Ninja
-        -DCMAKE_BUILD_TYPE=Release
+        -DCMAKE_BUILD_TYPE=${BUILD_TYPE}
         -DCMAKE_C_COMPILER="${CLANG}"
         -DCMAKE_CXX_COMPILER="${CLANGPP}"
         "-DCMAKE_EXE_LINKER_FLAGS=${elf_linker_flags}"
         "-DCITRON_ENABLE_LTO=OFF"
         $([ "${_elf_nopgo}" -eq 1 ] && echo "-DCITRON_ENABLE_PGO_USE=OFF" || echo "-DCITRON_ENABLE_PGO_USE=ON")
         "-DCITRON_PGO_FLAGS_MANAGED_BY_SCRIPT=ON"
-        "-DCMAKE_C_FLAGS_RELEASE=${elf_compile_flags}"
-        "-DCMAKE_CXX_FLAGS_RELEASE=${elf_compile_flags}"
+        "-DCMAKE_C_FLAGS_${bt_upper}=${elf_compile_flags}"
+        "-DCMAKE_CXX_FLAGS_${bt_upper}=${elf_compile_flags}"
         $([ "${_elf_nopgo}" -eq 0 ] && echo "-DCITRON_PGO_PROFILE_DIR=${PROFILE_DIR}")
         "-DCITRON_TESTS=OFF"
         "-DCITRON_USE_BUNDLED_FFMPEG=ON"
@@ -3531,8 +3549,8 @@ XBYAK_PATCH_EOF
         error "ELF cmake configure failed — see trace above to identify the fatal error source"
     fi
 
-    info "Building native Linux ELF..."
-    cmake --build . --config Release -j "${JOBS}"
+    info "Building native Linux ELF (${BUILD_TYPE})..."
+    cmake --build . --config "${BUILD_TYPE}" -j "${JOBS}"
     # Record the compile flags hash so the next run can detect changes
     printf '%s' "${_elf_flags_hash}" > "${_elf_flags_sentinel}"
     success "Native ELF: ${BUILD_USE_ELF}/bin/citron"
@@ -3792,6 +3810,9 @@ BOLT_ORDER_EOF
     # profile and function-order file. The re-link is free to apply full
     # LTO on top — PGO profiles and BOLT ordering are already baked in,
     # and full LTO's whole-program inlining yields better runtime performance.
+    local debug_flag=""
+    [[ "${BUILD_TYPE}" == "RelWithDebInfo" ]] && debug_flag="-g"
+    local bt_upper; bt_upper=$(echo "${BUILD_TYPE}" | tr '[:lower:]' '[:upper:]')
     local lto_flag; lto_flag="$(lto_clang_flag)"
     local _bolt_merged="${PROFILE_DIR}/merged.profdata"
     local profdata
@@ -3835,16 +3856,16 @@ BOLT_ORDER_EOF
         $(common_cmake_args) \
         "-DCITRON_ENABLE_PGO_USE=ON" \
         "-DCITRON_PGO_FLAGS_MANAGED_BY_SCRIPT=ON" \
-        "-DCMAKE_C_FLAGS_RELEASE=-O3 -DNDEBUG ${lto_pgo_flag}" \
-        "-DCMAKE_CXX_FLAGS_RELEASE=-O3 -DNDEBUG ${lto_pgo_flag}" \
-        "-DCMAKE_EXE_LINKER_FLAGS_RELEASE=-O3 -DNDEBUG ${lto_pgo_flag}${order_linker_flag:+ ${order_linker_flag}}" \
+        "-DCMAKE_C_FLAGS_${bt_upper}=-O3 -DNDEBUG ${debug_flag} ${lto_pgo_flag}" \
+        "-DCMAKE_CXX_FLAGS_${bt_upper}=-O3 -DNDEBUG ${debug_flag} ${lto_pgo_flag}" \
+        "-DCMAKE_EXE_LINKER_FLAGS_${bt_upper}=-O3 -DNDEBUG ${debug_flag} ${lto_pgo_flag}${order_linker_flag:+ ${order_linker_flag}}" \
         "-DCITRON_PGO_PROFILE_DIR=${PROFILE_DIR}" \
         ${qt6_cmake_dir:+"-DQt6_DIR=${qt6_cmake_dir}"} \
         ${qt_host_dir:+"-DQT_HOST_PATH=${qt_host_dir}"} \
         -Wno-dev
 
-    info "Building final optimized Windows PE (PGO + LTO + BOLT function order)..."
-    cmake --build . --config Release -j "${JOBS}"
+    info "Building final optimized Windows PE (PGO + LTO + BOLT function order, ${BUILD_TYPE})..."
+    cmake --build . --config "${BUILD_TYPE}" -j "${JOBS}"
 
     deploy_runtime_dlls \
         "${BUILD_BOLT}/bin" \
@@ -4015,7 +4036,7 @@ ensure_create_llvm_prof() {
 
     info "Configuring llvm-propeller cmake..."
     rm -rf "${build_dir}"
-    CC="${CLANG}" CXX="${CLANGPP}"     cmake -S "${src_dir}" -B "${build_dir}"         -G Ninja         -DCMAKE_BUILD_TYPE=Release         || error "llvm-propeller cmake configure failed"
+    CC="${CLANG}" CXX="${CLANGPP}"     cmake -S "${src_dir}" -B "${build_dir}"         -G Ninja         -DCMAKE_BUILD_TYPE=${BUILD_TYPE}         || error "llvm-propeller cmake configure failed"
 
     info "Building generate_propeller_profiles (~15-30 min)..."
     cmake --build "${build_dir}" --target generate_propeller_profiles -j "${JOBS}"         || error "llvm-propeller build failed"
@@ -4259,6 +4280,9 @@ stage_propeller() {
     rm -rf "${BUILD_PROPELLER}"
     mkdir -p "${BUILD_PROPELLER}"; cd "${BUILD_PROPELLER}"
 
+    local debug_flag=""
+    [[ "${BUILD_TYPE}" == "RelWithDebInfo" ]] && debug_flag="-g"
+    local bt_upper; bt_upper=$(echo "${BUILD_TYPE}" | tr '[:lower:]' '[:upper:]')
     local lto_flag; lto_flag="$(lto_clang_flag)"
     local _prop_merged="${PROFILE_DIR}/merged.profdata"
     local profdata
@@ -4299,15 +4323,15 @@ stage_propeller() {
         $(common_cmake_args) \
         "-DCITRON_ENABLE_PGO_USE=ON" \
         "-DCITRON_PGO_FLAGS_MANAGED_BY_SCRIPT=ON" \
-        "-DCMAKE_C_FLAGS_RELEASE=-O3 -DNDEBUG ${lto_pgo_flag}" \
-        "-DCMAKE_CXX_FLAGS_RELEASE=-O3 -DNDEBUG ${lto_pgo_flag}" \
-        "-DCMAKE_EXE_LINKER_FLAGS_RELEASE=-O3 -DNDEBUG ${lto_pgo_flag}${propeller_linker_flag:+ ${propeller_linker_flag}}" \
+        "-DCMAKE_C_FLAGS_${bt_upper}=-O3 -DNDEBUG ${debug_flag} ${lto_pgo_flag}" \
+        "-DCMAKE_CXX_FLAGS_${bt_upper}=-O3 -DNDEBUG ${debug_flag} ${lto_pgo_flag}" \
+        "-DCMAKE_EXE_LINKER_FLAGS_${bt_upper}=-O3 -DNDEBUG ${debug_flag} ${lto_pgo_flag}${propeller_linker_flag:+ ${propeller_linker_flag}}" \
         "-DCITRON_PGO_PROFILE_DIR=${PROFILE_DIR}" \
         ${qt6_cmake_dir:+"-DQt6_DIR=${qt6_cmake_dir}"} \
         ${qt_host_dir:+"-DQT_HOST_PATH=${qt_host_dir}"} \
         -Wno-dev
-    info "Building Propeller-optimized Windows PE..."
-    cmake --build . --config Release -j "${JOBS}"
+    info "Building Propeller-optimized Windows PE (${BUILD_TYPE})..."
+    cmake --build . --config "${BUILD_TYPE}" -j "${JOBS}"
 
     deploy_runtime_dlls \
         "${BUILD_PROPELLER}/bin" \
@@ -4468,6 +4492,8 @@ while [[ $# -gt 0 ]]; do
                 ir|fe|none) PGO_MODE="$2"; shift 2 ;;
                 *) echo "[ERROR] --pgo-type requires: ir, fe, or none"; exit 1 ;;
             esac ;;
+        --relwithdebinfo)
+            BUILD_TYPE="RelWithDebInfo"; shift ;;
         --unity)
             UNITY_BUILD="ON"; shift ;;
         --no-unity)
