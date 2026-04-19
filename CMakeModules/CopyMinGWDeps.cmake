@@ -4,23 +4,28 @@
 # Usage: copy_mingw_deps(target_name)
 
 function(copy_mingw_deps target)
+    set(options \"\")
+    set(oneValueArgs \"\")
+    set(multiValueArgs SEARCH_PATHS)
+    cmake_parse_arguments(ARG \"\${options}\" \"\${oneValueArgs}\" \"\${multiValueArgs}\" \${ARGN})
+
     # Prefer llvm-readobj for robust PE parsing on both Linux and Windows hosts.
     # We look for it in the same directory as the compiler.
-    get_filename_component(COMPILER_BIN_DIR "${CMAKE_CXX_COMPILER}" DIRECTORY)
+    get_filename_component(COMPILER_BIN_DIR \"\${CMAKE_CXX_COMPILER}\" DIRECTORY)
     find_program(READOBJ_EXECUTABLE NAMES llvm-readobj llvm-readobj-19 llvm-readobj-18 llvm-readobj-17
-                 HINTS "${COMPILER_BIN_DIR}")
+                 HINTS \"\${COMPILER_BIN_DIR}\")
     
     if (READOBJ_EXECUTABLE)
-        set(DUMP_TOOL "${READOBJ_EXECUTABLE}")
-        set(DUMP_MODE "READOBJ")
+        set(DUMP_TOOL \"\${READOBJ_EXECUTABLE}\")
+        set(DUMP_MODE \"READOBJ\")
     else()
         find_program(OBJDUMP_EXECUTABLE NAMES objdump x86_64-w64-mingw32-objdump
-                     HINTS "${COMPILER_BIN_DIR}")
+                     HINTS \"\${COMPILER_BIN_DIR}\")
         if (OBJDUMP_EXECUTABLE)
-            set(DUMP_TOOL "${OBJDUMP_EXECUTABLE}")
-            set(DUMP_MODE "OBJDUMP")
+            set(DUMP_TOOL \"\${OBJDUMP_EXECUTABLE}\")
+            set(DUMP_MODE \"OBJDUMP\")
         else()
-            message(WARNING "Neither llvm-readobj nor objdump found. MinGW DLL deployment may fail.")
+            message(WARNING \"Neither llvm-readobj nor objdump found. MinGW DLL deployment may fail.\")
             return()
         endif()
     endif()
@@ -28,10 +33,22 @@ function(copy_mingw_deps target)
     # Define search paths for MinGW DLLs.
     # 1. The compiler's bin directory (standard for MSYS2).
     # 2. The sysroot's bin directory (standard for llvm-mingw cross-compilation).
-    set(MINGW_SEARCH_PATHS "${COMPILER_BIN_DIR}")
+    # 3. Any additional paths provided in SEARCH_PATHS (e.g. Qt, FFmpeg).
+    set(MINGW_SEARCH_PATHS \"\${COMPILER_BIN_DIR}\")
     if (CMAKE_CROSSCOMPILING AND CMAKE_FIND_ROOT_PATH)
-        list(APPEND MINGW_SEARCH_PATHS "${CMAKE_FIND_ROOT_PATH}/bin")
+        list(APPEND MINGW_SEARCH_PATHS \"\${CMAKE_FIND_ROOT_PATH}/bin\")
     endif()
+    
+    if (ARG_SEARCH_PATHS)
+        list(APPEND MINGW_SEARCH_PATHS \${ARG_SEARCH_PATHS})
+    endif()
+
+    # Automatically add Qt target bin path if defined
+    if (QT_TARGET_PATH AND EXISTS \"\${QT_TARGET_PATH}/bin\")
+        list(APPEND MINGW_SEARCH_PATHS \"\${QT_TARGET_PATH}/bin\")
+    endif()
+    
+    list(REMOVE_DUPLICATES MINGW_SEARCH_PATHS)
 
     set(DEPLOY_SCRIPT "${CMAKE_BINARY_DIR}/deploy_mingw_deps_${target}.cmake")
     file(WRITE "${DEPLOY_SCRIPT}" "

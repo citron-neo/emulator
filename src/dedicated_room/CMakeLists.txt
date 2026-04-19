@@ -41,7 +41,12 @@ target_link_libraries(citron-room PRIVATE mbedtls mbedcrypto)
 if (MSVC)
     target_link_libraries(citron-room PRIVATE getopt)
 endif()
-target_link_libraries(citron-room PRIVATE ${PLATFORM_LIBRARIES} Threads::Threads)
+target_link_libraries(citron-room PRIVATE \${PLATFORM_LIBRARIES} Threads::Threads)
+
+if (MINGW)
+    include(CopyMinGWDeps)
+    copy_mingw_deps(citron-room)
+endif()
 
 if(UNIX AND NOT APPLE)
     install(TARGETS citron-room)
