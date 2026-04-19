@@ -463,6 +463,9 @@ void NPad::RequestPadStateUpdate(u64 aruid, Core::HID::NpadIdType npad_id) {
     }
 }
 
+#ifdef __clang__
+[[clang::no_profile_instrument_function]]
+#endif
 void NPad::OnUpdate(const Core::Timing::CoreTiming& core_timing) {
     if (ref_counter == 0) {
         return;

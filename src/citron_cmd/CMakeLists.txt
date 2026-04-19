@@ -27,9 +27,10 @@ add_executable(citron-cmd
 )
 
 # Robust static linking and linker selection under GCC LTO
+# Linker selection: For Clang, the global configuration defaults to lld.
+# This guard ensures we only use BFD for legacy GCC builds.
 if (NOT MSVC AND NOT APPLE)
-    # Use GNU ld.bfd for GCC LTO plugin-aware archive resolution
-    target_link_options(citron-cmd PRIVATE -fuse-ld=bfd)
+    target_link_options(citron-cmd PRIVATE "$<$<CXX_COMPILER_ID:GNU>:-fuse-ld=bfd>")
 
     # Force-include critical static archives and resolve cycles
     if (ENABLE_WEB_SERVICE)
@@ -77,9 +78,11 @@ endif()
 if (MSVC)
     include(CopyCitronSDLDeps)
     copy_citron_SDL_deps(citron-cmd)
+elseif(MINGW)
+    include(CopyMinGWDeps)
+    copy_mingw_deps(citron-cmd SEARCH_PATHS "${FFmpeg_PATH}/bin")
 endif()
 
-# Create the "user" directory for portable mode on Windows
 if(WIN32)
     add_custom_command(TARGET citron-cmd POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_FILE_DIR:citron-cmd>/user"

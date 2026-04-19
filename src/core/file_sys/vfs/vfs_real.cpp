@@ -16,7 +16,7 @@
 // For FileTimeStampRaw
 #include <sys/stat.h>
 
-#ifdef _MSC_VER
+#if defined(_MSC_VER) || defined(__MINGW32__)
 #define stat _stat64
 #endif
 

@@ -253,20 +253,45 @@ elseif(ANDROID)
     set(FFmpeg_LIBRARIES "${FFmpeg_LIBRARIES}" PARENT_SCOPE)
     set(FFmpeg_INCLUDE_DIR "${FFmpeg_INCLUDE_DIR}" PARENT_SCOPE)
 elseif(WIN32)
-    # Use citron FFmpeg binaries
-    set(FFmpeg_EXT_NAME "ffmpeg-7.1.3")
+    set(_ffmpeg_release_file "${CMAKE_SOURCE_DIR}/externals/ffmpeg/ffmpeg/RELEASE")
+    if(EXISTS "${_ffmpeg_release_file}")
+        file(READ "${_ffmpeg_release_file}" _ffmpeg_win_ver)
+        string(STRIP "${_ffmpeg_win_ver}" _ffmpeg_win_ver)
+    elseif(FFmpeg_VERSION)
+        # Fallback: use the version already read by the non-WIN32 branch above.
+        set(_ffmpeg_win_ver "${FFmpeg_VERSION}")
+    else()
+        message(FATAL_ERROR
+            "Cannot determine FFmpeg version: ${_ffmpeg_release_file} not found "
+            "and FFmpeg_VERSION is unset. Ensure the ffmpeg submodule is checked out.")
+    endif()
+
+    set(FFmpeg_EXT_NAME "ffmpeg-${_ffmpeg_win_ver}")
     set(FFmpeg_PATH "${CMAKE_BINARY_DIR}/externals/${FFmpeg_EXT_NAME}")
-    download_bundled_external("ffmpeg/" ${FFmpeg_EXT_NAME} "")
+
+    # The yuzu-mirror archive only carries older FFmpeg releases; relying on it
+    # for newer versions causes an HTTP 404 and a hard configure failure.
+    # Only download if the directory itself doesn't exist.
+    # rebuild_ffmpeg_pthread_free() always creates this directory via mkdir -p
+    # before cmake runs, so its presence means our script has already handled
+    # the FFmpeg setup (successfully or not).  Attempting the download when
+    # the dir exists but avcodec.lib is absent causes cmake to loop
+    # indefinitely: the yuzu-mirror HTTP 404 leaves cmake in a dirty state
+    # that triggers another reconfigure on every ninja invocation.
+    if(NOT EXISTS "${FFmpeg_PATH}")
+        download_bundled_external("ffmpeg/" ${FFmpeg_EXT_NAME} "")
+    endif()
+
     set(FFmpeg_FOUND YES)
     set(FFmpeg_INCLUDE_DIR "${FFmpeg_PATH}/include" CACHE PATH "Path to FFmpeg headers" FORCE)
     set(FFmpeg_LIBRARY_DIR "${FFmpeg_PATH}/bin" CACHE PATH "Path to FFmpeg library directory" FORCE)
     set(FFmpeg_LDFLAGS "" CACHE STRING "FFmpeg linker flags" FORCE)
     set(FFmpeg_LIBRARIES
-    ${FFmpeg_LIBRARY_DIR}/swscale.lib
-    ${FFmpeg_LIBRARY_DIR}/avcodec.lib
-    ${FFmpeg_LIBRARY_DIR}/avfilter.lib
-    ${FFmpeg_LIBRARY_DIR}/avutil.lib
-    CACHE PATH "Paths to FFmpeg libraries" FORCE)
+        ${FFmpeg_LIBRARY_DIR}/swscale.lib
+        ${FFmpeg_LIBRARY_DIR}/avcodec.lib
+        ${FFmpeg_LIBRARY_DIR}/avfilter.lib
+        ${FFmpeg_LIBRARY_DIR}/avutil.lib
+        CACHE PATH "Paths to FFmpeg libraries" FORCE)
     # exported variables
     set(FFmpeg_PATH "${FFmpeg_PATH}" PARENT_SCOPE)
     set(FFmpeg_LDFLAGS "${FFmpeg_LDFLAGS}" PARENT_SCOPE)

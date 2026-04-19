@@ -7,6 +7,10 @@ set(CMAKE_AUTORCC ON)
 set(CMAKE_AUTOUIC ON)
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
 
+# Prevent parallel LTO links from OOMing the runner
+set_property(GLOBAL PROPERTY JOB_POOLS link_pool=1)
+set(CMAKE_JOB_POOL_LINK link_pool)
+
 # Set the RPATH for Qt Libraries
 # This must be done before the `citron` target is created
 if (CITRON_USE_BUNDLED_QT AND (${CMAKE_SYSTEM_NAME} STREQUAL "Linux"))
@@ -487,8 +491,11 @@ elseif(WIN32)
 endif()
 
 # Robust static linking and linker selection under GCC LTO
+# -fuse-ld=bfd is a GCC-only flag — Clang (llvm-mingw / MSYS2 clang64) uses
+# lld by default and does not accept -fuse-ld=bfd.  The generator expression
+# restricts the flag to GNU builds so MinGW/Clang cross-compile builds are unaffected.
 if (NOT MSVC AND NOT APPLE)
-    target_link_options(citron PRIVATE -fuse-ld=bfd)
+    target_link_options(citron PRIVATE "$<$<CXX_COMPILER_ID:GNU>:-fuse-ld=bfd>")
     if (MINGW AND CITRON_ENABLE_LTO)
         target_link_options(citron PRIVATE "-Wl,--allow-multiple-definition")
     endif()
@@ -649,7 +656,7 @@ if (MSVC)
     copy_citron_FFmpeg_deps(citron)
 elseif(MINGW)
     include(CopyMinGWDeps)
-    copy_mingw_deps(citron)
+    copy_mingw_deps(citron SEARCH_PATHS "${FFmpeg_PATH}/bin" "${QT_TARGET_PATH}/bin")
 endif()
 
 if (ARCHITECTURE_x86_64 OR ARCHITECTURE_arm64)

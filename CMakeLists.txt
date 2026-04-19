@@ -816,7 +816,9 @@ if (MSVC AND CMAKE_GENERATOR STREQUAL "Ninja")
     )
 endif()
 
-if (CITRON_USE_FASTER_LD AND (CMAKE_CXX_COMPILER_ID STREQUAL "GNU" OR CMAKE_CXX_COMPILER_ID MATCHES "Clang"))
+# Select a faster linker (mold > lld) for GCC/Clang builds.
+# For Clang, we always default to lld.
+if (CMAKE_CXX_COMPILER_ID MATCHES "Clang" OR (CITRON_USE_FASTER_LD AND CMAKE_CXX_COMPILER_ID STREQUAL "GNU"))
     # We will assume that if the compiler is GCC, it will attempt to use ld.bfd by default.
     # Try to pick a faster linker.
     find_program(LLD lld)

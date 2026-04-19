@@ -29,6 +29,14 @@
     "lz4",
     "nlohmann-json",
     "openal-soft",
+    {
+      "name": "openssl",
+      "platform": "!linux & !osx & !android"
+    },
+    {
+      "name": "opus",
+      "platform": "!linux & !osx & !android"
+    },
     "zlib",
     "zstd"
   ],
@@ -42,7 +50,7 @@
       "dependencies": [
         {
           "name": "openssl",
-          "platform": "windows"
+          "platform": "!linux & !osx & !android"
         }
       ]
     },
