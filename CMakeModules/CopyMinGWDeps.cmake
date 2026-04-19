@@ -46,9 +46,9 @@ function(copy_mingw_deps target)
     # Automatically add Qt target bin path if defined
     if (QT_TARGET_PATH AND EXISTS "${QT_TARGET_PATH}/bin")
         list(APPEND MINGW_SEARCH_PATHS "${QT_TARGET_PATH}/bin")
-    elseif (Qt6_DIR AND EXISTS "${Qt6_DIR}/../../bin")
+    elseif (Qt6_DIR AND EXISTS "${Qt6_DIR}/../../../bin")
         # Infer bin path from Qt6_DIR (.../lib/cmake/Qt6 -> .../bin)
-        get_filename_component(QT_BIN_DIR "${Qt6_DIR}/../../bin" ABSOLUTE)
+        get_filename_component(QT_BIN_DIR "${Qt6_DIR}/../../../bin" ABSOLUTE)
         list(APPEND MINGW_SEARCH_PATHS "${QT_BIN_DIR}")
     endif()
     
