@@ -8,6 +8,7 @@
 #include "video_core/host1x/ffmpeg/ffmpeg.h"
 
 extern "C" {
+#include <libavutil/pixdesc.h>
 #ifdef LIBVA_FOUND
 // for querying VAAPI driver information
 #include <libavutil/hwcontext_vaapi.h>
