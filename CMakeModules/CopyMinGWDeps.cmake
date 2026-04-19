@@ -148,7 +148,7 @@ if (all_deps)
     
     if (files_to_copy)
         list(LENGTH files_to_copy copy_count)
-        message(STATUS \"  Copying \${copy_count} missing DLL(s)...\\\")
+        message(STATUS \"  Copying \${copy_count} missing DLL(s)...\")
         foreach(f \${files_to_copy})
             get_filename_component(fn \"\${f}\" NAME)
             message(STATUS \"    -> \${fn}\")
