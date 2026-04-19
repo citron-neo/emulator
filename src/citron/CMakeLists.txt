@@ -656,7 +656,7 @@ if (MSVC)
     copy_citron_FFmpeg_deps(citron)
 elseif(MINGW)
     include(CopyMinGWDeps)
-    copy_mingw_deps(citron SEARCH_PATHS \"\${FFmpeg_PATH}/bin\")
+    copy_mingw_deps(citron SEARCH_PATHS "${FFmpeg_PATH}/bin")
 endif()
 
 if (ARCHITECTURE_x86_64 OR ARCHITECTURE_arm64)
