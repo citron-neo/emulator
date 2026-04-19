@@ -8,9 +8,10 @@ add_executable(citron-room
 )
 
 # Robust static linking order using GNU ld group to resolve cycles
+# Linker selection: For Clang, the global configuration defaults to lld.
+# This guard ensures we only use BFD for legacy GCC builds.
 if (NOT MSVC AND NOT APPLE)
-    # Use GNU ld.bfd for GCC LTO archives (ld.lld cannot consume GCC LTO plugin objects)
-    target_link_options(citron-room PRIVATE -fuse-ld=bfd)
+    target_link_options(citron-room PRIVATE "$<$<CXX_COMPILER_ID:GNU>:-fuse-ld=bfd>")
 
     # Robust static linking under LTO: force-include these archives and allow cyclic resolution
     if (ENABLE_WEB_SERVICE)
