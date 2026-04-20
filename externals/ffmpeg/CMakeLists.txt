@@ -253,50 +253,85 @@ elseif(ANDROID)
     set(FFmpeg_LIBRARIES "${FFmpeg_LIBRARIES}" PARENT_SCOPE)
     set(FFmpeg_INCLUDE_DIR "${FFmpeg_INCLUDE_DIR}" PARENT_SCOPE)
 elseif(WIN32)
-    set(_ffmpeg_release_file "${CMAKE_SOURCE_DIR}/externals/ffmpeg/ffmpeg/RELEASE")
-    if(EXISTS "${_ffmpeg_release_file}")
-        file(READ "${_ffmpeg_release_file}" _ffmpeg_win_ver)
-        string(STRIP "${_ffmpeg_win_ver}" _ffmpeg_win_ver)
-    elseif(FFmpeg_VERSION)
-        # Fallback: use the version already read by the non-WIN32 branch above.
-        set(_ffmpeg_win_ver "${FFmpeg_VERSION}")
+    if(MSVC)
+        # ── MSVC / vcpkg path ─────────────────────────────────────────────────
+        # FFmpeg is built and installed by vcpkg (guarded by "!mingw & windows"
+        # in vcpkg.json). FindFFmpeg.cmake locates it via CMAKE_PREFIX_PATH,
+        # which the vcpkg toolchain injects automatically.
+        find_package(FFmpeg REQUIRED COMPONENTS avfilter swscale avcodec avutil)
+        if(NOT FFmpeg_FOUND)
+            message(FATAL_ERROR
+                "FFmpeg not found. Ensure 'ffmpeg' is listed in vcpkg.json and "
+                "vcpkg install has completed successfully.")
+        endif()
+
+        # Derive the DLL directory from the first .lib in FFmpeg_LIBRARIES.
+        # vcpkg layout:  vcpkg_installed/<triplet>/lib/avcodec.lib
+        #                vcpkg_installed/<triplet>/bin/avcodec-XX.dll
+        # CopyCitronFFmpegDeps.cmake reads FFmpeg_LIBRARY_DIR to locate DLLs.
+        list(GET FFmpeg_LIBRARIES 0 _ffmpeg_first_lib)
+        get_filename_component(_ffmpeg_lib_dir "${_ffmpeg_first_lib}" DIRECTORY)
+        get_filename_component(_ffmpeg_install_root "${_ffmpeg_lib_dir}" DIRECTORY)
+        set(FFmpeg_LIBRARY_DIR "${_ffmpeg_install_root}/bin"
+            CACHE PATH "Path to FFmpeg DLL directory" FORCE)
+
+        # Promote to CACHE and PARENT_SCOPE so video_core and the copy helper
+        # can read these variables regardless of CMake call depth.
+        set(FFmpeg_FOUND       YES                      CACHE BOOL   "FFmpeg found"              FORCE)
+        set(FFmpeg_INCLUDE_DIR "${FFmpeg_INCLUDE_DIR}"  CACHE PATH   "Path to FFmpeg headers"    FORCE)
+        set(FFmpeg_LIBRARIES   "${FFmpeg_LIBRARIES}"    CACHE PATH   "Paths to FFmpeg libraries" FORCE)
+        set(FFmpeg_LDFLAGS     ""                       CACHE STRING "FFmpeg linker flags"       FORCE)
+        set(FFmpeg_FOUND       YES                     PARENT_SCOPE)
+        set(FFmpeg_INCLUDE_DIR "${FFmpeg_INCLUDE_DIR}" PARENT_SCOPE)
+        set(FFmpeg_LIBRARIES   "${FFmpeg_LIBRARIES}"   PARENT_SCOPE)
+        set(FFmpeg_LDFLAGS     ""                      PARENT_SCOPE)
+        set(FFmpeg_LIBRARY_DIR "${FFmpeg_LIBRARY_DIR}" PARENT_SCOPE)
     else()
-        message(FATAL_ERROR
-            "Cannot determine FFmpeg version: ${_ffmpeg_release_file} not found "
-            "and FFmpeg_VERSION is unset. Ensure the ffmpeg submodule is checked out.")
+        # ── MinGW / Clangtron (llvm-mingw) path ──────────────────────────────
+        # For Clangtron cross-builds, rebuild_ffmpeg_pthread_free() in
+        # build-clangtron-windows.sh pre-populates
+        #   ${CMAKE_BINARY_DIR}/externals/ffmpeg-<VERSION>/
+        # before cmake runs, so the directory already exists and the download
+        # guard below is never reached.
+        # For a plain MSYS2 MinGW build, -DCITRON_USE_BUNDLED_FFMPEG=OFF is
+        # passed explicitly, so this block is never entered at all.
+        set(_ffmpeg_release_file "${CMAKE_SOURCE_DIR}/externals/ffmpeg/ffmpeg/RELEASE")
+        if(EXISTS "${_ffmpeg_release_file}")
+            file(READ "${_ffmpeg_release_file}" _ffmpeg_win_ver)
+            string(STRIP "${_ffmpeg_win_ver}" _ffmpeg_win_ver)
+        elseif(FFmpeg_VERSION)
+            # Fallback: use the version already read by the non-WIN32 branch above.
+            set(_ffmpeg_win_ver "${FFmpeg_VERSION}")
+        else()
+            message(FATAL_ERROR
+                "Cannot determine FFmpeg version: ${_ffmpeg_release_file} not found "
+                "and FFmpeg_VERSION is unset. Ensure the ffmpeg submodule is checked out.")
+        endif()
+
+        set(FFmpeg_EXT_NAME "ffmpeg-${_ffmpeg_win_ver}")
+        set(FFmpeg_PATH "${CMAKE_BINARY_DIR}/externals/${FFmpeg_EXT_NAME}")
+
+        if(NOT EXISTS "${FFmpeg_PATH}")
+            download_bundled_external("ffmpeg/" ${FFmpeg_EXT_NAME} "")
+        endif()
+
+        set(FFmpeg_FOUND YES)
+        set(FFmpeg_INCLUDE_DIR "${FFmpeg_PATH}/include" CACHE PATH "Path to FFmpeg headers" FORCE)
+        set(FFmpeg_LIBRARY_DIR "${FFmpeg_PATH}/bin" CACHE PATH "Path to FFmpeg library directory" FORCE)
+        set(FFmpeg_LDFLAGS "" CACHE STRING "FFmpeg linker flags" FORCE)
+        set(FFmpeg_LIBRARIES
+            ${FFmpeg_LIBRARY_DIR}/swscale.lib
+            ${FFmpeg_LIBRARY_DIR}/avcodec.lib
+            ${FFmpeg_LIBRARY_DIR}/avfilter.lib
+            ${FFmpeg_LIBRARY_DIR}/avutil.lib
+            CACHE PATH "Paths to FFmpeg libraries" FORCE)
+        # exported variables
+        set(FFmpeg_PATH      "${FFmpeg_PATH}"      PARENT_SCOPE)
+        set(FFmpeg_LDFLAGS   "${FFmpeg_LDFLAGS}"   PARENT_SCOPE)
+        set(FFmpeg_LIBRARIES "${FFmpeg_LIBRARIES}"  PARENT_SCOPE)
+        set(FFmpeg_INCLUDE_DIR "${FFmpeg_INCLUDE_DIR}" PARENT_SCOPE)
+        set(FFmpeg_LIBRARY_DIR "${FFmpeg_LIBRARY_DIR}" PARENT_SCOPE)
     endif()
-
-    set(FFmpeg_EXT_NAME "ffmpeg-${_ffmpeg_win_ver}")
-    set(FFmpeg_PATH "${CMAKE_BINARY_DIR}/externals/${FFmpeg_EXT_NAME}")
-
-    # The yuzu-mirror archive only carries older FFmpeg releases; relying on it
-    # for newer versions causes an HTTP 404 and a hard configure failure.
-    # Only download if the directory itself doesn't exist.
-    # rebuild_ffmpeg_pthread_free() always creates this directory via mkdir -p
-    # before cmake runs, so its presence means our script has already handled
-    # the FFmpeg setup (successfully or not).  Attempting the download when
-    # the dir exists but avcodec.lib is absent causes cmake to loop
-    # indefinitely: the yuzu-mirror HTTP 404 leaves cmake in a dirty state
-    # that triggers another reconfigure on every ninja invocation.
-    if(NOT EXISTS "${FFmpeg_PATH}")
-        download_bundled_external("ffmpeg/" ${FFmpeg_EXT_NAME} "")
-    endif()
-
-    set(FFmpeg_FOUND YES)
-    set(FFmpeg_INCLUDE_DIR "${FFmpeg_PATH}/include" CACHE PATH "Path to FFmpeg headers" FORCE)
-    set(FFmpeg_LIBRARY_DIR "${FFmpeg_PATH}/bin" CACHE PATH "Path to FFmpeg library directory" FORCE)
-    set(FFmpeg_LDFLAGS "" CACHE STRING "FFmpeg linker flags" FORCE)
-    set(FFmpeg_LIBRARIES
-        ${FFmpeg_LIBRARY_DIR}/swscale.lib
-        ${FFmpeg_LIBRARY_DIR}/avcodec.lib
-        ${FFmpeg_LIBRARY_DIR}/avfilter.lib
-        ${FFmpeg_LIBRARY_DIR}/avutil.lib
-        CACHE PATH "Paths to FFmpeg libraries" FORCE)
-    # exported variables
-    set(FFmpeg_PATH "${FFmpeg_PATH}" PARENT_SCOPE)
-    set(FFmpeg_LDFLAGS "${FFmpeg_LDFLAGS}" PARENT_SCOPE)
-    set(FFmpeg_LIBRARIES "${FFmpeg_LIBRARIES}" PARENT_SCOPE)
-    set(FFmpeg_INCLUDE_DIR "${FFmpeg_INCLUDE_DIR}" PARENT_SCOPE)
 endif()
 
 unset(FFmpeg_COMPONENTS)

@@ -25,6 +25,12 @@
     "boost-test",
     "boost-timer",
     "boost-variant",
+    {
+      "name": "ffmpeg",
+      "platform": "!mingw & windows",
+      "default-features": false,
+      "features": ["avcodec", "avfilter", "swscale"]
+    },
     "fmt",
     "lz4",
     "nlohmann-json",
