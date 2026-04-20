@@ -13,6 +13,8 @@ SPDX-License-Identifier: GPL-2.0-or-later
         <file alias="dist/carousel.svg">../../dist/carousel.svg</file>
         <file alias="dist/list.svg">../../dist/list.svg</file>
         <file alias="dist/grid.svg">../../dist/grid.svg</file>
+        <file alias="dist/font_size.svg">../../dist/font_size.svg</file>
+        <file alias="dist/game_icon.svg">../../dist/game_icon.svg</file>
         <file alias="dist/sort_ascending.svg">../../dist/sort_ascending.svg</file>
         <file alias="dist/sort_descending.svg">../../dist/sort_descending.svg</file>
         <file alias="dist/controller_navigation.svg">../../dist/controller_navigation.svg</file>

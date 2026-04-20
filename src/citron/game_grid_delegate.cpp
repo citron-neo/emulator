@@ -111,7 +111,8 @@ void GameGridDelegate::PaintGridItem(QPainter* painter, const QStyleOptionViewIt
     const bool is_selected = option.state & QStyle::State_Selected;
     QRect rect = option.rect;
     const int icon_size = UISettings::values.game_icon_size.GetValue();
-    const float scale = static_cast<float>(icon_size) / 128.0f;
+    const float raw_scale = static_cast<float>(icon_size) / 128.0f;
+    const float scale = std::max(0.1f, raw_scale);
 
     qreal entry_val = 1.0;
     const QPersistentModelIndex key(index);
@@ -218,7 +219,7 @@ void GameGridDelegate::PaintGridItem(QPainter* painter, const QStyleOptionViewIt
         painter->setPen(fav_gold);
         QFont sf = painter->font();
         sf.setBold(true);
-        sf.setPointSizeF(11.0f * scale);
+        sf.setPointSizeF(std::max(1.0f, 11.0f * scale));
         painter->setFont(sf);
         painter->drawText(star_rect.adjusted(0, -1 * scale, 0, 0), Qt::AlignCenter,
                           QStringLiteral("★"));
@@ -238,16 +239,18 @@ void GameGridDelegate::PaintGridItem(QPainter* painter, const QStyleOptionViewIt
     if (pixmap.isNull())
         pixmap = index.data(Qt::DecorationRole).value<QPixmap>();
     if (!pixmap.isNull()) {
-        QRectF mid_area(label_rect.left(), label_rect.top(), label_rect.width(),
-                        bottom_bar.top() - label_rect.top());
-        painter->drawPixmap(mid_area, pixmap, pixmap.rect());
+        const qreal mid_h = bottom_bar.top() - label_rect.top();
+        if (mid_h > 0) {
+            QRectF mid_area(label_rect.left(), label_rect.top(), label_rect.width(), mid_h);
+            painter->drawPixmap(mid_area, pixmap, pixmap.rect());
+        }
     }
 
     QString title = index.data(Qt::DisplayRole).toString().split(QLatin1Char('\n')).first();
     painter->setPen(Qt::white);
     QFont tf = option.font;
     tf.setBold(true);
-    tf.setPointSizeF(8.5f * scale);
+    tf.setPointSizeF(std::max(1.0f, 8.5f * scale));
     painter->setFont(tf);
 
     QRectF text_rect = bottom_bar.adjusted(10 * scale, 0, -10 * scale, 0);

@@ -26,6 +26,7 @@
 #include <QVBoxLayout>
 #include <QWheelEvent>
 #include <QWidget>
+#include <QWindow>
 
 
 #include <QEvent>
@@ -114,6 +115,16 @@ void OnyxTooltip::showText(const QPoint& pos, const QString& text, QWidget* w) {
         showPos.setY(pos.y() - s_onyx_tooltip_instance->height() - 10);
     }
 
+    // Wayland fix: Popups must have a transient parent to be positioned correctly
+    if (w && w->window()) {
+        s_onyx_tooltip_instance->winId(); // Ensure window handle is created
+        if (auto* window = s_onyx_tooltip_instance->windowHandle()) {
+            if (auto* parent_window = w->window()->windowHandle()) {
+                window->setTransientParent(parent_window);
+            }
+        }
+    }
+
     s_onyx_tooltip_instance->move(showPos);
     s_onyx_tooltip_instance->show();
 }
@@ -159,7 +170,21 @@ QSize GameListDelegate::sizeHint(const QStyleOptionViewItem& option,
     const bool is_game_row = index.parent().isValid();
 
     if (is_game_row) {
-        size.setHeight(GetCardHeight());
+        int base_height = GetCardHeight();
+        
+        // Calculate the height needed for the text based on current font metrics
+        QFontMetrics title_metrics(option.font);
+        const int title_h = title_metrics.ascent() + title_metrics.descent();
+
+        QFont f_id = option.font;
+        f_id.setPointSize(std::max(6, f_id.pointSize() - 2));
+        QFontMetrics id_metrics(f_id);
+        const int id_h = id_metrics.ascent() + id_metrics.descent();
+
+        // 6px spacing between lines + 24px total top/bottom margin
+        const int text_required_height = title_h + id_h + 6 + 24;
+
+        size.setHeight(std::max(base_height, text_required_height));
     } else {
         size.setHeight(36); // Clean height for folder headers
     }
@@ -552,7 +577,9 @@ void GameListDelegate::PaintGameInfo(QPainter* painter, const QRect& rect,
         icon_path.addRoundedRect(icon_rect, 6, 6);
         painter->save();
         painter->setClipPath(icon_path);
-        painter->drawPixmap(icon_rect, pixmap.scaled(icon_size, icon_size, Qt::KeepAspectRatio,
+        
+        const int final_icon_size = std::max(1, icon_size);
+        painter->drawPixmap(icon_rect, pixmap.scaled(final_icon_size, final_icon_size, Qt::KeepAspectRatio,
                                                      Qt::SmoothTransformation));
         painter->restore();
 

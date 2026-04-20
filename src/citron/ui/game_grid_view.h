@@ -43,6 +43,8 @@ public:
     void setControllerFocus(bool focus);
     bool hasControllerFocus() const { return m_has_focus; }
 
+    void UpdateGridSize();
+
 public slots:
     void onNavigated(int dx, int dy);
     void onActivated();
@@ -56,10 +58,14 @@ protected:
     void keyPressEvent(QKeyEvent* event) override;
     void showEvent(QShowEvent* event) override;
     void resizeEvent(QResizeEvent* event) override;
+    bool eventFilter(QObject* obj, QEvent* event) override;
 
 private:
-    void UpdateGridSize();
     void UpdateLayoutHeights();
+    int m_last_tw = -1;
+    int m_last_is = -1;
+    int m_last_fav_count = -1;
+    int m_last_main_count = -1;
 
     QScrollArea* m_scroll_area = nullptr;
     QWidget* m_container = nullptr;

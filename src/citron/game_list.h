@@ -254,6 +254,9 @@ private:
     QToolButton* btn_grid_view = nullptr;
     QToolButton* btn_carousel_view = nullptr;
     QSlider* slider_title_size = nullptr;
+    QToolButton* btn_slider_font_mode = nullptr;
+    QToolButton* btn_slider_icon_mode = nullptr;
+    bool slider_icon_mode = false; // false = font size, true = icon size
     QToolButton* btn_sort_az = nullptr;
     QToolButton* btn_surprise_me = nullptr;
     QToolButton* btn_controller_settings = nullptr;

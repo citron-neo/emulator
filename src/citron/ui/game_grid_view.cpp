@@ -175,6 +175,7 @@ GameGridView::GameGridView(QWidget* parent) : QWidget(parent) {
     m_scroll_area->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     m_scroll_area->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
     m_scroll_area->setStyleSheet(QStringLiteral("QScrollArea { background: transparent; }"));
+    m_scroll_area->viewport()->installEventFilter(this);
 
     m_container = new WoodBackgroundContainer(m_scroll_area);
     m_layout = new QVBoxLayout(m_container);
@@ -455,6 +456,14 @@ void GameGridView::keyPressEvent(QKeyEvent* event) {
     }
 }
 
+bool GameGridView::eventFilter(QObject* obj, QEvent* event) {
+    if (m_scroll_area && obj == m_scroll_area->viewport() && event->type() == QEvent::Resize) {
+        // Trigger grid size update slightly later to let layout settle, preventing feedback loop
+        QTimer::singleShot(10, this, &GameGridView::UpdateGridSize);
+    }
+    return QWidget::eventFilter(obj, event);
+}
+
 void GameGridView::showEvent(QShowEvent* event) {
     QWidget::showEvent(event);
     QTimer::singleShot(10, this, &GameGridView::UpdateGridSize);
@@ -479,22 +488,46 @@ void GameGridView::UpdateGridSize() {
         return;
     }
 
-    if (tw > 50) {
-        int cols = qMax(1, tw / bw);
-        int aw = tw / cols;
-        const int item_h = qMax(is + static_cast<int>(85 * s), is + 40);
-        QSize gs(aw, item_h);
+    int fav_count = m_fav_view->model() ? m_fav_view->model()->rowCount() : 0;
+    int main_count = m_main_view->model() ? m_main_view->model()->rowCount() : 0;
+
+    if (tw == m_last_tw && is == m_last_is && fav_count == m_last_fav_count && main_count == m_last_main_count) {
+        return;
+    }
+    m_last_tw = tw;
+    m_last_is = is;
+    m_last_fav_count = fav_count;
+    m_last_main_count = main_count;
+
+    // Ensure the entire Grid View widget never compresses horizontally below 1 column. 
+    // + 30 for scrollbar allowance, minimizing grid squishing side-effects.
+    setMinimumWidth(bw + 30);
+
+    int cols = qMax(1, tw / bw);
+    int aw = tw / cols;
+    const int item_h = qMax(is + static_cast<int>(85 * s), is + 40);
+    QSize gs(aw, item_h);
+
+    // Unhide Favorites section if we now have items during discovery
+    if (fav_count > 0 && m_fav_view->isHidden()) {
+        m_fav_label->show();
+        m_fav_view->show();
+    }
+
         m_fav_view->setGridSize(gs);
         m_main_view->setGridSize(gs);
         m_fav_view->setFixedWidth(tw);
         m_main_view->setFixedWidth(tw);
-    }
+        m_fav_view->doItemsLayout();
+        m_main_view->doItemsLayout();
+        m_fav_view->viewport()->update();
+        m_main_view->viewport()->update();
     UpdateLayoutHeights();
 }
 
 void GameGridView::UpdateLayoutHeights() {
     auto updateHeight = [&](QListView* view) {
-        if (!view || !view->isVisible() || !view->model() || view->model()->rowCount() == 0) {
+        if (!view || !view->model() || view->model()->rowCount() == 0) {
             view->setFixedHeight(0);
             return;
         }

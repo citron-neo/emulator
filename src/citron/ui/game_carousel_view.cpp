@@ -22,7 +22,26 @@ CinematicCarousel::CinematicCarousel(QWidget* parent) : QWidget(parent) {
     m_snap_animation->setEasingCurve(QEasingCurve::OutCubic);
     
     m_pulse_timer = new QTimer(this);
-    connect(m_pulse_timer, &QTimer::timeout, this, [this]{ m_pulse_tick++; update(); });
+    connect(m_pulse_timer, &QTimer::timeout, this, [this]{ 
+        m_pulse_tick++; 
+
+        // Advance entry animations
+        auto it = m_entry_animations.begin();
+        while (it != m_entry_animations.end()) {
+            if (!it.key().isValid()) {
+                it = m_entry_animations.erase(it);
+                continue;
+            }
+            if (it.value() < 1.0) {
+                it.value() += 0.06;
+                if (it.value() >= 1.0) it.value() = 1.0;
+                ++it;
+            } else {
+                it = m_entry_animations.erase(it);
+            }
+        }
+        update(); 
+    });
     m_pulse_timer->start(32);
     
     m_scroll_timer = new QTimer(this);
@@ -85,8 +104,19 @@ QRect CinematicCarousel::visualRect(const QModelIndex& index) const {
     return QRect(x - (cs * s) / 2.0, vcy - (cs * s) / 2.0, cs * s, cs * s);
 }
 
-void CinematicCarousel::setModel(QAbstractItemModel* model) { m_model = model; if (m_model && m_model->rowCount() > 0) setFocalIndex(0.0); update(); }
-
+void CinematicCarousel::setModel(QAbstractItemModel* model) {
+    if (m_model) {
+        m_model->disconnect(this);
+    }
+    m_model = model;
+    if (m_model) {
+        connect(m_model, &QAbstractItemModel::rowsInserted, this, [this]() { update(); });
+        connect(m_model, &QAbstractItemModel::modelReset, this, [this]() { update(); });
+        connect(m_model, &QAbstractItemModel::dataChanged, this, [this]() { update(); });
+    }
+    if (m_model && m_model->rowCount() > 0) setFocalIndex(0.0);
+    update();
+}
 void CinematicCarousel::setFocalIndex(qreal index) {
     if (!m_model || m_model->rowCount() == 0) m_focal_index = 0.0;
     else m_focal_index = std::max(0.0, std::min(static_cast<qreal>(m_model->rowCount() - 1), index));
@@ -94,6 +124,12 @@ void CinematicCarousel::setFocalIndex(qreal index) {
 }
 
 void CinematicCarousel::scrollTo(int index) { if (!m_model || index < 0 || index >= m_model->rowCount()) return; startSnapAnimation(index); }
+
+void CinematicCarousel::RegisterEntryAnimation(const QModelIndex& index) {
+    if (index.isValid()) {
+        m_entry_animations[QPersistentModelIndex(index)] = 0.0;
+    }
+}
 
 void CinematicCarousel::scrollToLetter(QChar letter) {
     if (!m_model) return;
@@ -118,10 +154,10 @@ void CinematicCarousel::paintEvent(QPaintEvent* event) {
     QPainter p(this); p.setRenderHints(QPainter::Antialiasing | QPainter::SmoothPixmapTransform | QPainter::TextAntialiasing);
     const int count = m_model->rowCount(); const qreal vcx = width() / 2.0; const qreal vcy = height() / 2.0;
     const int is = UISettings::values.game_icon_size.GetValue();
-    const float scale = static_cast<float>(is) / 128.0f;
+    const float raw_scale = static_cast<float>(is) / 128.0f;
+    const float scale = std::max(0.1f, raw_scale);
     const qreal bs = is + (35.0f * scale);
-    const qreal th = is * 2.0;
-    const qreal arrow_ay = std::max(55.0, vcy - (1.4 * ((is + static_cast<int>(25 * scale)) / 2.0)) - (28.0f * scale));
+    const qreal arrow_ay = std::max(35.0, vcy - (1.4 * ((is + static_cast<int>(25 * scale)) / 2.0)) - (28.0f * scale));
 
     QVector<int> order;
     for (int i = 0; i < count; ++i) order << i;
@@ -130,9 +166,22 @@ void CinematicCarousel::paintEvent(QPaintEvent* event) {
         const qreal d = i - m_focal_index; const qreal dist = std::abs(d * bs);
         if (dist > width()) continue;
         qreal s = 1.0; qreal dx = 0.0;
-        if (dist < th) { qreal f = 1.0 - (dist / th); s = 1.0 + (f * 0.40); dx = d * (is / 2.0) * f; }
         const qreal x = vcx + (d * bs) + dx; const qreal y = vcy;
-        p.save(); p.translate(x, y); p.scale(s, s);
+        p.save(); p.translate(x, y);
+
+        // Apply Entry Animation (discovery "pop" effect)
+        qreal entry_anim = 1.0;
+        QPersistentModelIndex pidx(m_model->index(i, 0));
+        if (m_entry_animations.contains(pidx)) {
+            entry_anim = m_entry_animations[pidx];
+        }
+        if (entry_anim < 1.0) {
+            qreal pop_s = 0.7 + (entry_anim * 0.3);
+            p.scale(pop_s, pop_s);
+            p.setOpacity(entry_anim);
+        }
+
+        p.scale(s, s);
         const int cs_w = is + static_cast<int>(25 * scale); 
         const int cs_h = is + static_cast<int>(25 * scale);
         QRectF cr(-cs_w / 2.0, -cs_h / 2.0, cs_w, cs_h);
@@ -166,14 +215,16 @@ void CinematicCarousel::paintEvent(QPaintEvent* event) {
                 qreal header_ay = arrow_ay - (15.0f * scale);
                 
                 if (is_fav) {
-                    QFont hf = font(); hf.setBold(true); hf.setPointSizeF(24.0f * scale); p.setFont(hf);
-                    p.drawText(QRectF(x - 150 * scale, header_ay - 90 * scale, 300 * scale, 60 * scale), Qt::AlignCenter, tr("★ FAVORITES"));
+                    QFont hf = font(); hf.setBold(true); hf.setPointSizeF(std::max(1.0f, 24.0f * scale)); p.setFont(hf);
+                    QRectF text_rect(x - 300 * scale, header_ay - 150 * scale, 600 * scale, 150 * scale);
+                    p.drawText(text_rect, Qt::AlignHCenter | Qt::AlignBottom | Qt::TextDontClip, tr("★ FAVORITES"));
                 } else {
                     QString title = m_model->index(i, 0).data(Qt::DisplayRole).toString();
                     QChar cl = title.isEmpty() ? QLatin1Char('#') : title[0].toUpper();
                     if (!cl.isLetter()) cl = QLatin1Char('#');
-                    QFont hf = font(); hf.setBold(true); hf.setPointSizeF(48.0f * scale); p.setFont(hf);
-                    p.drawText(QRectF(x - 80 * scale, header_ay - 110 * scale, 160 * scale, 100 * scale), Qt::AlignCenter, cl);
+                    QFont hf = font(); hf.setBold(true); hf.setPointSizeF(std::max(1.0f, 48.0f * scale)); p.setFont(hf);
+                    QRectF text_rect(x - 200 * scale, header_ay - 200 * scale, 400 * scale, 200 * scale);
+                    p.drawText(text_rect, Qt::AlignHCenter | Qt::AlignBottom | Qt::TextDontClip, cl);
                 }
                 p.restore();
             }
@@ -351,6 +402,7 @@ GameCarouselView::GameCarouselView(QWidget* parent) : QWidget(parent) {
     m_top_hint = new QLabel(this);
     m_top_hint->setText(tr("if using controller* Press X for Next Alphabetical Letter | Press -/R/ZR for Details Tab | Press B for Back to List"));
     m_top_hint->setAlignment(Qt::AlignCenter);
+    m_top_hint->setWordWrap(true);
     m_layout->addSpacing(10);
     m_layout->addWidget(m_top_hint);
     m_layout->addSpacing(30);
@@ -361,6 +413,7 @@ GameCarouselView::GameCarouselView(QWidget* parent) : QWidget(parent) {
     m_bottom_hint = new QLabel(this);
     m_bottom_hint->setText(tr("*You can Drag to Scroll, or Click on Game Icons manually, you can also use your mouse wheel!*"));
     m_bottom_hint->setAlignment(Qt::AlignCenter);
+    m_bottom_hint->setWordWrap(true);
     m_layout->addWidget(m_bottom_hint);
     connect(m_carousel, &CinematicCarousel::focalItemChanged, this, &GameCarouselView::itemSelectionChanged);
     connect(m_carousel, &CinematicCarousel::itemActivated, this, &GameCarouselView::itemActivated);
@@ -382,4 +435,4 @@ void GameCarouselView::ApplyTheme() {
     }
 }
 void GameCarouselView::setModel(QAbstractItemModel* model) { m_carousel->setModel(model); }
-void GameCarouselView::resizeEvent(QResizeEvent* event) { QWidget::resizeEvent(event); m_carousel->setMinimumHeight(UISettings::values.game_icon_size.GetValue() + 380); }
+void GameCarouselView::resizeEvent(QResizeEvent* event) { QWidget::resizeEvent(event); m_carousel->setMinimumHeight((UISettings::values.game_icon_size.GetValue() * 2.0) + 450); }

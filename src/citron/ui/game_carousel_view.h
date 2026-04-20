@@ -29,6 +29,7 @@ public:
 
     void scrollTo(int index);
     void scrollToLetter(QChar letter);
+    void RegisterEntryAnimation(const QModelIndex& index);
     void ApplyTheme();
 
     void setControllerFocus(bool focus);
@@ -86,6 +87,8 @@ private:
     QTimer* m_momentum_timer = nullptr;
     qreal m_velocity = 0.0;
     qint64 m_last_move_timestamp = 0;
+
+    mutable QMap<QPersistentModelIndex, qreal> m_entry_animations;
 };
 
 class GameCarouselView : public QWidget {

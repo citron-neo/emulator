@@ -251,6 +251,7 @@ void UpdaterDialog::SetupUI() {
     // Kill ghost titles causing overlaps
     ui->updateInfoGroup->setTitle(QString());
     ui->changelogGroup->setTitle(QString());
+    ui->progressGroup->setTitle(QString());
 
     // Global Alignment & Centering
     ui->titleLabel->setAlignment(Qt::AlignCenter);
