@@ -1704,7 +1704,7 @@ void GMainWindow::SetDefaultUIGeometry() {
     const int y = (screenRect.y() + screenRect.height()) / 2 - h * 53 / 100;
 
     setGeometry(x, y, w, h);
-    setMinimumSize(1280, 720);
+    setMinimumSize(400, 300);
 }
 
 void GMainWindow::RestoreUIState() {
