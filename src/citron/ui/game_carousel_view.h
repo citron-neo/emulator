@@ -81,6 +81,11 @@ private:
     QColor AccentColor() const;
 
     bool m_has_focus = false;
+    
+    // Momentum / Physics members
+    QTimer* m_momentum_timer = nullptr;
+    qreal m_velocity = 0.0;
+    qint64 m_last_move_timestamp = 0;
 };
 
 class GameCarouselView : public QWidget {

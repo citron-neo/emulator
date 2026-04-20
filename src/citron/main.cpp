@@ -1213,8 +1213,11 @@ void GMainWindow::InitializeWidgets() {
         menu->installEventFilter(filter);
         btn->installEventFilter(filter);
 
-        menu->setWindowFlags(menu->windowFlags() | Qt::NoDropShadowWindowHint |
-                             Qt::FramelessWindowHint);
+        const bool gamescope = UISettings::IsGamescope();
+        if (!gamescope) {
+            menu->setWindowFlags(menu->windowFlags() | Qt::NoDropShadowWindowHint |
+                                 Qt::FramelessWindowHint);
+        }
         menu->setAttribute(Qt::WA_TranslucentBackground, false);
 
         unified_top_bar_layout->addWidget(btn);
@@ -4465,6 +4468,10 @@ void GMainWindow::OnConfigure() {
         return;
     } else if (result == QDialog::Accepted) {
         configure_dialog.ApplyConfiguration();
+        // Defer theme update to allow dialog to close first (prevents Wayland focus hangs)
+        if (UISettings::values.theme != old_theme) {
+            QTimer::singleShot(0, this, &GMainWindow::UpdateUITheme);
+        }
     } else if (UISettings::values.reset_to_defaults) {
         LOG_INFO(Frontend, "Resetting all settings to defaults");
         if (!Common::FS::RemoveFile(config->GetConfigFilePath())) {
@@ -4497,7 +4504,9 @@ void GMainWindow::OnConfigure() {
     }
     InitializeHotkeys();
 
-    if (UISettings::values.theme != old_theme) {
+    // Already handled via singleShot above if theme changed via Dialog OK
+    // This is for other configuration sources
+    if (UISettings::values.theme != old_theme && !m_is_configuring) {
         UpdateUITheme();
     }
     if (UISettings::values.enable_discord_presence.GetValue() != old_discord_presence) {
@@ -4834,13 +4843,29 @@ void GMainWindow::LoadAmiibo(const QString& filename) {
 }
 
 void GMainWindow::OnOpenCitronFolder() {
-    QDesktopServices::openUrl(QUrl::fromLocalFile(QString::fromStdString(
-        Common::FS::GetCitronPath(Common::FS::CitronPath::CitronDir).string())));
+    const QString path = QString::fromStdString(
+        Common::FS::GetCitronPath(Common::FS::CitronPath::CitronDir).string());
+    if (UISettings::IsGamescope()) {
+        QFileDialog dialog(this, tr("Citron Folder"), path);
+        dialog.setFileMode(QFileDialog::Directory);
+        dialog.setOption(QFileDialog::ShowDirsOnly, true);
+        dialog.exec();
+        return;
+    }
+    QDesktopServices::openUrl(QUrl::fromLocalFile(path));
 }
 
 void GMainWindow::OnOpenLogFolder() {
-    QDesktopServices::openUrl(QUrl::fromLocalFile(QString::fromStdString(
-        Common::FS::GetCitronPath(Common::FS::CitronPath::LogDir).string())));
+    const QString path = QString::fromStdString(
+        Common::FS::GetCitronPath(Common::FS::CitronPath::LogDir).string());
+    if (UISettings::IsGamescope()) {
+        QFileDialog dialog(this, tr("Log Folder"), path);
+        dialog.setFileMode(QFileDialog::Directory);
+        dialog.setOption(QFileDialog::ShowDirsOnly, true);
+        dialog.exec();
+        return;
+    }
+    QDesktopServices::openUrl(QUrl::fromLocalFile(path));
 }
 
 void GMainWindow::OnVerifyInstalledContents() {
@@ -5587,6 +5612,9 @@ void GMainWindow::OnAlbum() {
 
     const auto filename = QString::fromStdString(album_nca->GetFullPath());
     UISettings::values.roms_path = QFileInfo(filename).path().toStdString();
+    if (UISettings::IsGamescope()) {
+        statusBar()->showMessage(tr("Album Applet started. Use 'Stop Emulation' hotkey to exit."), 5000);
+    }
     BootGame(filename, LibraryAppletParameters(AlbumId, Service::AM::AppletId::PhotoViewer));
 }
 
@@ -6520,7 +6548,7 @@ bool GMainWindow::eventFilter(QObject* obj, QEvent* event) {
         if (auto* popup = QApplication::activePopupWidget()) {
             if (popup->inherits("QMenu")) {
                 auto* mouseEvent = static_cast<QMouseEvent*>(event);
-                QWidget* widget = QApplication::widgetAt(mouseEvent->globalPos());
+                QWidget* widget = QApplication::widgetAt(mouseEvent->globalPosition().toPoint());
                 if (auto* btn = qobject_cast<QPushButton*>(widget)) {
                     if (btn->parentWidget() == unified_top_bar && btn->menu() != popup) {
                         popup->close();

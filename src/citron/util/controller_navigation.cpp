@@ -136,7 +136,9 @@ void ControllerNavigation::ControllerUpdateButton() {
             case Settings::NativeButton::A: // Nintendo A / PS Circle (East)
                 emit activated();
                 break;
-            case Settings::NativeButton::B: // Nintendo B / PS Cross (South)
+            case Settings::NativeButton::B:  // Nintendo B / PS Cross (South)
+            case Settings::NativeButton::L:  // L1
+            case Settings::NativeButton::ZL: // L2
                 emit cancelled();
                 break;
             case Settings::NativeButton::DDown:

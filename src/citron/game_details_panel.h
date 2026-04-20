@@ -8,6 +8,9 @@
 #include <QGraphicsOpacityEffect>
 #include <QVector>
 #include <QFrame>
+#include <QTimer>
+#include <QModelIndex>
+#include <QPersistentModelIndex>
 
 #include "common/common_types.h"
 
@@ -60,4 +63,6 @@ private:
     QList<QPushButton*> m_action_buttons;
     int m_focused_button_index = -1;
     bool m_has_focus = false;
+    QTimer* m_debounce_timer;
+    QPersistentModelIndex m_pending_index;
 };

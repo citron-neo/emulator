@@ -213,6 +213,7 @@ private:
     void AddFavorite(u64 program_id);
     void RemoveFavorite(u64 program_id);
 
+    void OnSelectionChanged(const QModelIndex& item);
     void StartLaunchAnimation(const QModelIndex& item);
     void SaveGameListIndex();
     void LoadGameListIndex();

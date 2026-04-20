@@ -219,6 +219,7 @@ namespace UISettings {
                                                                     Setting<u8> row_1_text_id{linkage, 3, "row_1_text_id", Category::UiGameList};
                                                                     Setting<u8> row_2_text_id{linkage, 2, "row_2_text_id", Category::UiGameList};
                                                                     Setting<bool> game_list_grid_view{linkage, false, "game_list_grid_view", Category::UiGameList};
+                                                                    Setting<int> game_list_view_mode{linkage, 0, "game_list_view_mode", Category::UiGameList};
                                                                     std::atomic_bool is_game_list_reload_pending{false};
                                                                     Setting<bool> cache_game_list{linkage, true, "cache_game_list", Category::UiGameList};
                                                                     Setting<bool> scan_nca{linkage, false, "scan_nca", Category::UiGameList};

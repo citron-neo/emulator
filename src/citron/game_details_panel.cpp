@@ -24,6 +24,15 @@ GameDetailsPanel::GameDetailsPanel(QWidget* parent) : QWidget(parent) {
     setMinimumWidth(280);
     setupUI();
     updateStyles();
+
+    m_debounce_timer = new QTimer(this);
+    m_debounce_timer->setSingleShot(true);
+    m_debounce_timer->setInterval(50);
+    connect(m_debounce_timer, &QTimer::timeout, this, [this] {
+        if (m_pending_index.isValid()) {
+            applyDetails(m_pending_index);
+        }
+    });
 }
 
 GameDetailsPanel::~GameDetailsPanel() = default;
@@ -173,17 +182,36 @@ void GameDetailsPanel::updateStyles() {
 void GameDetailsPanel::resizeEvent(QResizeEvent* event) {
     QWidget::resizeEvent(event);
     bool high_res = width() > 340;
-    m_icon_label->setFixedSize(high_res ? 200 : 140, high_res ? 200 : 140);
+    int target_size = high_res ? 200 : 140;
+    
+    if (m_icon_label->width() != target_size) {
+        m_icon_label->setFixedSize(target_size, target_size);
+        // Re-render current icon to match new size class
+        if (m_pending_index.isValid() || m_current_program_id != 0) {
+            applyDetails(m_pending_index.isValid() ? QModelIndex(m_pending_index) : QModelIndex()); 
+        }
+    }
+
     QFont tf = m_title_label->font();
     tf.setPointSize(high_res ? 19 : 14);
     m_title_label->setFont(tf);
 }
 
 void GameDetailsPanel::updateDetails(const QModelIndex& index) {
-    if (!index.isValid()) { hide(); return; }
+    if (!index.isValid()) {
+        m_debounce_timer->stop();
+        m_pending_index = QModelIndex();
+        hide();
+        return;
+    }
     u64 program_id = index.data(GameListItemPath::ProgramIdRole).toULongLong();
-    if (program_id == m_current_program_id && isVisible()) return;
-    applyDetails(index);
+    if (program_id == m_current_program_id && isVisible()) {
+        m_debounce_timer->stop();
+        return;
+    }
+
+    m_pending_index = index;
+    m_debounce_timer->start();
     show();
 }
 
@@ -249,31 +277,49 @@ void GameDetailsPanel::onCancelled() { emit focusReturned(); }
 void GameDetailsPanel::applyDetails(const QModelIndex& index) {
     m_current_program_id = index.data(GameListItemPath::ProgramIdRole).toULongLong();
     m_current_path = index.data(GameListItemPath::FullPathRole).toString();
+
     QPixmap pixmap = index.data(GameListItemPath::HighResIconRole).value<QPixmap>();
-    if (pixmap.isNull()) pixmap = index.data(Qt::DecorationRole).value<QPixmap>();
+    if (pixmap.isNull())
+        pixmap = index.data(Qt::DecorationRole).value<QPixmap>();
+
     if (!pixmap.isNull()) {
-        const int is = m_icon_label->width();
+        const bool high_res = width() > 340;
+        const int is = high_res ? 200 : 140;
+        
         QPixmap rounded(is, is);
         rounded.fill(Qt::transparent);
         {
-            QPainter painter(&rounded); painter.setRenderHint(QPainter::Antialiasing);
-            QPainterPath path; path.addRoundedRect(0, 0, is, is, 22, 22);
-            painter.setClipPath(path); painter.drawPixmap(0, 0, pixmap.scaled(is, is, Qt::KeepAspectRatio, Qt::SmoothTransformation));
+            QPainter painter(&rounded);
+            painter.setRenderHint(QPainter::Antialiasing);
+            painter.setRenderHint(QPainter::SmoothPixmapTransform);
+            QPainterPath path;
+            path.addRoundedRect(0, 0, is, is, 22, 22);
+            painter.setClipPath(path);
+            
+            // Fill the rounded rect with the scaled pixmap
+            painter.drawPixmap(0, 0, 
+                pixmap.scaled(is, is, Qt::KeepAspectRatioByExpanding, Qt::SmoothTransformation));
         }
         m_icon_label->setPixmap(rounded);
     }
+
     QString title = index.data(Qt::DisplayRole).toString();
-    if (title.contains(QLatin1Char('\n'))) title = title.split(QLatin1Char('\n')).first();
+    if (title.contains(QLatin1Char('\n')))
+        title = title.split(QLatin1Char('\n')).first();
     m_title_label->setText(title);
-    m_id_label->setText(QStringLiteral("0x%1").arg(m_current_program_id, 16, 16, QLatin1Char('0')).toUpper());
-    
-    clearActions();
-    addAction(tr("Launch Game"), QStringLiteral("start"));
-    addAction(tr("Favorite"), QStringLiteral("favorite"));
-    addAction(tr("Properties"), QStringLiteral("properties"));
-    addAction(tr("Open Save Data"), QStringLiteral("save_data"));
-    addAction(tr("Open Mod Location"), QStringLiteral("mod_data"));
-    m_actions_layout->addStretch();
+    m_id_label->setText(
+        QStringLiteral("0x%1").arg(m_current_program_id, 16, 16, QLatin1Char('0')).toUpper());
+
+    // Only rebuild actions if they aren't already there (they are always the same for all games currently)
+    if (m_action_buttons.isEmpty()) {
+        clearActions();
+        addAction(tr("Launch Game"), QStringLiteral("start"));
+        addAction(tr("Favorite"), QStringLiteral("favorite"));
+        addAction(tr("Properties"), QStringLiteral("properties"));
+        addAction(tr("Open Save Data"), QStringLiteral("save_data"));
+        addAction(tr("Open Mod Location"), QStringLiteral("mod_data"));
+        m_actions_layout->addStretch();
+    }
 }
 
 void GameDetailsPanel::clearActions() {

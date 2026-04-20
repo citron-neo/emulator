@@ -143,9 +143,29 @@ protected:
                                  QColor(10, 4, 1, 220));
             }
         }
-
         QListView::paintEvent(e);
     }
+
+protected:
+    void mousePressEvent(QMouseEvent* e) override {
+        m_press_pos = e->pos();
+        m_is_drag_candidate = true;
+        // Don't call base class immediately to prevent eager selection on press
+    }
+
+    void mouseReleaseEvent(QMouseEvent* e) override {
+        // If we haven't moved much and the scroller isn't actively moving, 
+        // then this is a valid click.
+        if (m_is_drag_candidate && (e->pos() - m_press_pos).manhattanLength() < 10) {
+            QListView::mousePressEvent(e); // Trigger selection
+            QListView::mouseReleaseEvent(e); // Trigger activation
+        }
+        m_is_drag_candidate = false;
+    }
+
+private:
+    QPoint m_press_pos;
+    bool m_is_drag_candidate = false;
 };
 
 GameGridView::GameGridView(QWidget* parent) : QWidget(parent) {
@@ -163,7 +183,7 @@ GameGridView::GameGridView(QWidget* parent) : QWidget(parent) {
 
     m_top_help = new QLabel(m_container);
     m_top_help->setText(tr("if using controller* Press X for Next Alphabetical Letter | Press "
-                           "-/R/ZR for Details Tab | Press B for Back to List"));
+                           "-/R/ZR for Details Tab | Press B/L/ZL for Go Back"));
     m_top_help->setStyleSheet(
         QStringLiteral("QLabel { color: rgba(255, 255, 255, 140); font-weight: bold; font-family: "
                        "'Outfit', 'Inter', sans-serif; font-size: 14px; }"));

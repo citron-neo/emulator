@@ -179,8 +179,16 @@ ConfigurePerGame::ConfigurePerGame(QWidget* parent, u64 title_id_, const std::st
     ui->full_info_button->setToolButtonStyle(Qt::ToolButtonTextOnly);
     connect(ui->full_info_button, &QToolButton::clicked, this, &ConfigurePerGame::OnFullInfo);
 
-    // Pin the info button directly to the graphics view viewport for absolute stable positioning
-    ui->full_info_button->setParent(ui->icon_view->viewport());
+    // Pin the info button to a dedicated bottom-right anchored layout on the viewport.
+    // This removes all coordinate dependency and ensures it's always in the corner.
+    if (ui->icon_view->viewport()) {
+        auto* grid = new QGridLayout(ui->icon_view->viewport());
+        grid->setContentsMargins(0, 0, 8, 8); // 8px margin from icon edge
+        grid->addItem(new QSpacerItem(1, 1, QSizePolicy::Expanding, QSizePolicy::Expanding), 0, 0);
+        grid->addWidget(ui->full_info_button, 1, 1);
+        ui->full_info_button->setFixedSize(24, 24);
+        ui->full_info_button->setMask(QRegion(0, 0, 24, 24, QRegion::Ellipse));
+    }
 
     animation_filter = new StyleAnimationEventFilter(this);
 
@@ -1000,23 +1008,9 @@ void ConfigurePerGame::UpdateLayoutScaling() {
     ui->game_title_label->setFont(title_font);
     ui->game_title_label->setAlignment(Qt::AlignCenter);
 
-    // Position "View More Info" button (Overlaying the icon bottom-right)
+    // "View More Info" button is now handled by the viewport's QGridLayout for absolute stability.
+    // No manual move mapping is required.
     if (ui->full_info_button) {
-        ui->full_info_button->setFixedSize(24, 24);
-
-        // Force circular shape via pixel mask (bypasses platform square-button constraints)
-        ui->full_info_button->setMask(QRegion(0, 0, 24, 24, QRegion::Ellipse));
-
-        if (ui->full_info_button->parentWidget() != ui->scrollAreaWidgetContents) {
-            ui->full_info_button->setParent(ui->scrollAreaWidgetContents);
-        }
-
-        // Map from the physical icon corner in the graphics scene to the UI layer
-        const QRectF icon_rect = scene->itemsBoundingRect();
-        const QPoint corner = ui->icon_view->mapTo(ui->scrollAreaWidgetContents, 
-                              ui->icon_view->mapFromScene(icon_rect.bottomRight()));
-
-        ui->full_info_button->move(corner.x() - 28, corner.y() - 28);
         ui->full_info_button->show();
         ui->full_info_button->raise();
     }

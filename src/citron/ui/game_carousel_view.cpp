@@ -20,19 +20,35 @@ CinematicCarousel::CinematicCarousel(QWidget* parent) : QWidget(parent) {
     m_snap_animation = new QPropertyAnimation(this, "focalIndex");
     m_snap_animation->setDuration(350);
     m_snap_animation->setEasingCurve(QEasingCurve::OutCubic);
+    
     m_pulse_timer = new QTimer(this);
     connect(m_pulse_timer, &QTimer::timeout, this, [this]{ m_pulse_tick++; update(); });
     m_pulse_timer->start(32);
+    
     m_scroll_timer = new QTimer(this);
     m_scroll_timer->setInterval(16);
     connect(m_scroll_timer, &QTimer::timeout, this, [this]{
         if (m_left_arrow_hover) setFocalIndex(m_focal_index - 0.1);
         else if (m_right_arrow_hover) setFocalIndex(m_focal_index + 0.1);
     });
+
     setMouseTracking(true);
     setCursor(Qt::ArrowCursor);
     setMinimumHeight(450);
     setContextMenuPolicy(Qt::CustomContextMenu);
+
+    m_momentum_timer = new QTimer(this);
+    m_momentum_timer->setInterval(16);
+    connect(m_momentum_timer, &QTimer::timeout, this, [this] {
+        if (std::abs(m_velocity) < 0.05) {
+            m_momentum_timer->stop();
+            startSnapAnimation(std::round(m_focal_index));
+            return;
+        }
+
+        setFocalIndex(m_focal_index + m_velocity);
+        m_velocity *= 0.92; // Friction factor
+    });
 }
 
 QModelIndex CinematicCarousel::currentIndex() const {
@@ -209,8 +225,12 @@ void CinematicCarousel::paintEvent(QPaintEvent* event) {
 void CinematicCarousel::mousePressEvent(QMouseEvent* event) {
     if (m_left_arrow_hover || m_right_arrow_hover) { m_scroll_timer->start(); return; }
     if (m_snap_animation->state() == QAbstractAnimation::Running) m_snap_animation->stop();
+    if (m_momentum_timer->isActive()) m_momentum_timer->stop();
+    
     if (event->button() == Qt::LeftButton) {
         m_last_mouse_pos = event->pos(); m_drag_start_pos = event->pos(); m_is_dragging = true;
+        m_velocity = 0.0;
+        m_last_move_timestamp = QDateTime::currentMSecsSinceEpoch();
     }
 }
 
@@ -228,15 +248,37 @@ void CinematicCarousel::mouseMoveEvent(QMouseEvent* event) {
         m_left_arrow_hover = left; m_right_arrow_hover = right; update();
     }
     if (!m_is_dragging) return;
+    qint64 now = QDateTime::currentMSecsSinceEpoch();
+    qint64 dt = now - m_last_move_timestamp;
+    
     qreal dx = m_last_mouse_pos.x() - pt.x();
-    setFocalIndex(m_focal_index + (dx / (UISettings::values.game_icon_size.GetValue() + 35.0)));
+    qreal delta_index = (dx / (UISettings::values.game_icon_size.GetValue() + 35.0));
+    
+    if (dt > 0) {
+        // Instantaneous velocity (index change per frame)
+        m_velocity = (delta_index / static_cast<qreal>(dt)) * 16.0; 
+    }
+
+    setFocalIndex(m_focal_index + delta_index);
     m_last_mouse_pos = pt;
+    m_last_move_timestamp = now;
 }
 
 void CinematicCarousel::mouseReleaseEvent(QMouseEvent* event) {
     m_scroll_timer->stop(); m_is_dragging = false;
-    if ((event->pos() - m_drag_start_pos).manhattanLength() < 15) { QModelIndex idx = indexAt(event->pos()); if (idx.isValid()) { startSnapAnimation(idx.row()); return; } }
-    startSnapAnimation(std::round(m_focal_index));
+
+    // Handle standard click
+    if ((event->pos() - m_drag_start_pos).manhattanLength() < 15) { 
+        QModelIndex idx = indexAt(event->pos()); 
+        if (idx.isValid()) { startSnapAnimation(idx.row()); return; } 
+    }
+    
+    // Begin momentum glide if velocity is significant
+    if (std::abs(m_velocity) > 0.05) {
+        m_momentum_timer->start();
+    } else {
+        startSnapAnimation(std::round(m_focal_index));
+    }
 }
 
 void CinematicCarousel::mouseDoubleClickEvent(QMouseEvent* event) {
