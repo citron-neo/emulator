@@ -468,4 +468,3 @@ void ConfigureUi::UpdateScreenshotInfo(Settings::AspectRatio ratio_,
     UpdateWidthText();
 }
 
-#include "configure_ui.moc"

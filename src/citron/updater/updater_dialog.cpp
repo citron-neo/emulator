@@ -256,7 +256,7 @@ void UpdaterDialog::SetupUI() {
     ui->titleLabel->setAlignment(Qt::AlignCenter);
     ui->statusLabel->setAlignment(Qt::AlignCenter);
 
-    ui->verticalLayout->setContentsMargins(0, 35, 15, 15);
+    ui->verticalLayout->setContentsMargins(15, 35, 15, 15);
     ui->verticalLayout->setSpacing(10);
 
     // Robust cleanup: Delete existing spacers
@@ -298,7 +298,7 @@ void UpdaterDialog::ShowCheckingState() {
     } else {
         setFixedSize(520, 350);
     }
-    ui->verticalLayout->setContentsMargins(0, 35, 15, 15);
+    ui->verticalLayout->setContentsMargins(15, 35, 15, 15);
 }
 
 void UpdaterDialog::ShowNoUpdateState(const Updater::UpdateInfo& update_info) {
@@ -414,7 +414,7 @@ void UpdaterDialog::ShowDownloadingState() {
     } else {
         setFixedSize(520, 400);
     }
-    ui->verticalLayout->setContentsMargins(0, 35, 15, 15);
+    ui->verticalLayout->setContentsMargins(15, 35, 15, 15);
 }
 
 void UpdaterDialog::ShowInstallingState() {
@@ -563,11 +563,11 @@ void UpdaterDialog::UpdateTheme() {
     const bool is_dark = UISettings::IsDarkTheme();
 
     const bool is_gs = UISettings::IsGamescope();
-    const int title_px = is_gs ? 19 : 18;
-    const int status_px = is_gs ? 12 : 11;
-    const int val_px = is_gs ? 17 : 16;
-    const int change_px = is_gs ? 14 : 13;
-    const int btn_px = is_gs ? 12 : 11;
+    const int title_px = is_gs ? 36 : 18;
+    const int status_px = is_gs ? 22 : 11;
+    const int val_px = is_gs ? 32 : 16;
+    const int change_px = is_gs ? 26 : 13;
+    const int btn_px = is_gs ? 24 : 11;
 
     const QString bg = is_dark ? QStringLiteral("#24242a") : QStringLiteral("#f5f5fa");
     const QString sub_txt = is_dark ? QStringLiteral("#aaaab4") : QStringLiteral("#666670");

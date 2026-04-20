@@ -148,6 +148,9 @@ p, li { white-space: pre-wrap; }
         <property name="text">
          <string>Preparing...</string>
         </property>
+        <property name="alignment">
+         <set>Qt::AlignCenter</set>
+        </property>
        </widget>
       </item>
       <item>
