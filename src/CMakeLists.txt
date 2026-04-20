@@ -142,6 +142,13 @@ else()
             -Werror=implicit-fallthrough
             -Werror=type-limits
         )
+        # apply hidden visibility to unity clang builds in the internal src subtree only.
+        if(ENABLE_UNITY_BUILD)
+            add_compile_options(
+                "$<$<COMPILE_LANGUAGE:C,CXX>:-fvisibility=hidden>"
+                "$<$<COMPILE_LANGUAGE:CXX>:-fvisibility-inlines-hidden>"
+            )
+        endif()
     endif()
 
     if (ARCHITECTURE_x86_64)
