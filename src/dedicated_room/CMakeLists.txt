@@ -28,16 +28,6 @@ if (NOT MSVC AND NOT APPLE)
             "-Wl,--end-group"
         )
     endif()
-elseif(APPLE)
-    # On macOS/Apple, disable LTO at link time to prevent Apple lld from crashing when
-    # processing dynarmic's bitcode which contains RISC-V target features (+zcm, +zcz)
-    # that are unrecognized by the AArch64 backend (LLVM ERROR: Unsupported stack probing method).
-    target_link_options(citron-room PRIVATE -Wl,-no_lto)
-    target_link_libraries(citron-room PRIVATE common network core)
-    if (ENABLE_WEB_SERVICE)
-        target_compile_definitions(citron-room PRIVATE -DENABLE_WEB_SERVICE)
-        target_link_libraries(citron-room PRIVATE web_service)
-    endif()
 else()
     # Fallback for MSVC (no --start-group/--end-group)
     target_link_libraries(citron-room PRIVATE common network core)
