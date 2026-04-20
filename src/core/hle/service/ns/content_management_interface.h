@@ -20,6 +20,7 @@ public:
     Result CheckSdCardMountStatus();
     Result GetTotalSpaceSize(Out<s64> out_total_space_size, FileSys::StorageId storage_id);
     Result GetFreeSpaceSize(Out<s64> out_free_space_size, FileSys::StorageId storage_id);
+    Result GetApplicationTotalSize(Out<s64> out_size, Out<s64> out_free_space, u64 application_id);
 };
 
 } // namespace Service::NS

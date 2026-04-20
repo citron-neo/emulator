@@ -267,6 +267,10 @@ void AppletManager::SetWindowSystem(WindowSystem* window_system) {
 
     m_cv.wait(lk, [&] { return m_pending_process != nullptr; });
 
+    if (!m_window_system) {
+        return;
+    }
+
     if (Settings::values.qlaunch_enabled.GetValue() &&
         m_window_system->GetOverlayDisplayApplet() == nullptr) {
         if (auto overlay_process =

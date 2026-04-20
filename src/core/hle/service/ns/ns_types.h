@@ -13,6 +13,7 @@
 namespace Service::NS {
 
 enum class ApplicationEvent : u8 {
+    None = 0,
     Installing = 2,
     Installed = 3,
     GameCardNotInserted = 5,
@@ -20,11 +21,21 @@ enum class ApplicationEvent : u8 {
     GameCard = 16,
 };
 
+enum ApplicationViewFlags : u32 {
+    ApplicationViewFlags_Installed = 1 << 0,
+    ApplicationViewFlags_Visible = 1 << 1,
+    ApplicationViewFlags_Initialized = 1 << 2,
+    ApplicationViewFlags_Accessible = 1 << 3,
+};
+
 enum class ApplicationControlSource : u8 {
     CacheOnly = 0,
     Storage = 1,
     StorageOnly = 2,
 };
+
+constexpr u32 DefaultApplicationViewFlags = 0x401f17;
+constexpr u32 DefaultApplicationVersion = 0x70000;
 
 enum class ApplicationDownloadState : u8 {
     Runnable = 0,

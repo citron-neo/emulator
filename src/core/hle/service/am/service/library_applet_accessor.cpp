@@ -39,6 +39,7 @@ ILibraryAppletAccessor::ILibraryAppletAccessor(Core::System& system_,
         {120, nullptr, "GetLibraryAppletInfo"},
         {150, nullptr, "RequestForAppletToGetForeground"},
         {160, D<&ILibraryAppletAccessor::GetIndirectLayerConsumerHandle>, "GetIndirectLayerConsumerHandle"},
+        {170, D<&ILibraryAppletAccessor::GetMainAppletRequestExitEvent>, "GetMainAppletRequestExitEvent"},
     };
     // clang-format on
 
@@ -84,6 +85,7 @@ Result ILibraryAppletAccessor::RequestExit() {
     {
         std::scoped_lock lk{m_applet->lock};
         m_applet->lifecycle_manager.RequestExit();
+        m_applet->main_applet_request_exit_event.Signal();
     }
     FrontendRequestExit();
     R_SUCCEED();
@@ -144,6 +146,13 @@ Result ILibraryAppletAccessor::GetIndirectLayerConsumerHandle(Out<u64> out_handl
     // We require a non-zero handle to be valid. Using 0xdeadbeef allows us to trace if this is
     // actually used anywhere
     *out_handle = 0xdeadbeef;
+    R_SUCCEED();
+}
+
+Result ILibraryAppletAccessor::GetMainAppletRequestExitEvent(
+    OutCopyHandle<Kernel::KReadableEvent> out_event) {
+    LOG_DEBUG(Service_AM, "called");
+    *out_event = m_applet->main_applet_request_exit_event.GetHandle();
     R_SUCCEED();
 }
 

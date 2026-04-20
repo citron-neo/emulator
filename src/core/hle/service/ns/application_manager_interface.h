@@ -56,9 +56,14 @@ public:
                                         u64 application_id);
     Result CheckApplicationLaunchVersion(u64 application_id);
     Result GetApplicationTerminateResult(Out<Result> out_result, u64 application_id);
+    Result GetApplicationRecord(Out<ApplicationRecord> out_record, u64 application_id);
+    Result HasApplicationRecord(Out<bool> out_has_record, u64 application_id);
+
+    Result GetApplicationShellEvent(OutCopyHandle<Kernel::KReadableEvent> out_event);
+    Result PopApplicationShellEventInfo(Out<u32> out_event_info_type, Out<u64> out_application_id);
 
     // [20.0.0+] Stub functions for QLaunch compatibility
-    Result Cmd4022(Out<u64> out_result);
+    Result Cmd4022(OutCopyHandle<Kernel::KReadableEvent> out_event);
     Result Cmd4023(Out<u64> out_result);
     Result Cmd4042(Out<u64> out_result);
     Result Cmd4053();
@@ -69,6 +74,7 @@ public:
                                      Out<u32> out_count, u32 offset, u64 application_id);
 
     void ListApplicationTitle(HLERequestContext& ctx);
+    void ListApplicationIcon(HLERequestContext& ctx);
 
 private:
     KernelHelpers::ServiceContext service_context;
@@ -77,6 +83,8 @@ private:
     Event gamecard_update_detection_event;
     Event gamecard_mount_status_event;
     Event gamecard_mount_failure_event;
+    Event application_shell_event;
+    Event unknown_event;
 };
 
 } // namespace Service::NS

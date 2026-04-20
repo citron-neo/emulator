@@ -84,7 +84,7 @@ void SanitizeJPEGImageSize(std::vector<u8>& image) {
         image.clear();
         if (!stbi_write_jpg_to_func(JPGToMemory, &image, profile_dimensions, profile_dimensions,
                                     STBI_rgb, out_image.data(), 90)) {
-            LOG_ERROR(Service_NS, "Failed to resize the user provided image.");
+            LOG_ERROR(Service_NS, "Failed to resize the user provided image. Image size might be too large or decompression failed.");
         }
     }
 
@@ -99,25 +99,26 @@ void SanitizeJPEGImageSize(std::vector<u8>& image) {
 
 // IAsyncValue implementation for ListApplicationTitle
 // https://switchbrew.org/wiki/NS_services#ListApplicationTitle
-class IAsyncValueForListApplicationTitle final
-    : public ServiceFramework<IAsyncValueForListApplicationTitle> {
+// IAsyncValue implementation for ListApplicationTitle and ListApplicationIcon
+// https://switchbrew.org/wiki/NS_services#ListApplicationTitle
+class IAsyncValueForTransferMemory final : public ServiceFramework<IAsyncValueForTransferMemory> {
 public:
-    explicit IAsyncValueForListApplicationTitle(Core::System& system_, s32 offset, s32 size)
+    explicit IAsyncValueForTransferMemory(Core::System& system_, s32 offset, s32 size)
         : ServiceFramework{system_, "IAsyncValue"}, service_context{system_, "IAsyncValue"},
           data_offset{offset}, data_size{size} {
         static const FunctionInfo functions[] = {
-            {0, &IAsyncValueForListApplicationTitle::GetSize, "GetSize"},
-            {1, &IAsyncValueForListApplicationTitle::Get, "Get"},
-            {2, &IAsyncValueForListApplicationTitle::Cancel, "Cancel"},
-            {3, &IAsyncValueForListApplicationTitle::GetErrorContext, "GetErrorContext"},
+            {0, &IAsyncValueForTransferMemory::GetSize, "GetSize"},
+            {1, &IAsyncValueForTransferMemory::Get, "Get"},
+            {2, &IAsyncValueForTransferMemory::Cancel, "Cancel"},
+            {3, &IAsyncValueForTransferMemory::GetErrorContext, "GetErrorContext"},
         };
         RegisterHandlers(functions);
 
         completion_event = service_context.CreateEvent("IAsyncValue:Completion");
-        completion_event->GetReadableEvent().Signal();
+        completion_event->Signal();
     }
 
-    ~IAsyncValueForListApplicationTitle() override {
+    ~IAsyncValueForTransferMemory() override {
         service_context.CloseEvent(completion_event);
     }
 
@@ -135,12 +136,9 @@ private:
 
     void Get(HLERequestContext& ctx) {
         LOG_DEBUG(Service_NS, "called");
-        std::vector<u8> buffer(sizeof(s32));
-        std::memcpy(buffer.data(), &data_offset, sizeof(s32));
-        ctx.WriteBuffer(buffer);
-
-        IPC::ResponseBuilder rb{ctx, 2};
+        IPC::ResponseBuilder rb{ctx, 3};
         rb.Push(ResultSuccess);
+        rb.Push<s32>(0);
     }
 
     void Cancel(HLERequestContext& ctx) {
@@ -173,6 +171,7 @@ IReadOnlyApplicationControlDataInterface::IReadOnlyApplicationControlDataInterfa
         {4, nullptr, "SelectApplicationDesiredLanguage"},
         {5, D<&IReadOnlyApplicationControlDataInterface::GetApplicationControlData2>, "GetApplicationControlData"},
         {13, &IReadOnlyApplicationControlDataInterface::ListApplicationTitle, "ListApplicationTitle"},
+        {14, &IReadOnlyApplicationControlDataInterface::ListApplicationIcon, "ListApplicationIcon"},
         {19, D<&IReadOnlyApplicationControlDataInterface::GetApplicationControlData3>, "GetApplicationControlData"},
     };
     // clang-format on
@@ -342,6 +341,8 @@ void IReadOnlyApplicationControlDataInterface::ListApplicationTitle(HLERequestCo
     const auto app_ids_buffer = ctx.ReadBuffer();
     const size_t app_count = app_ids_buffer.size() / sizeof(u64);
 
+    LOG_INFO(Service_NS, "called, app_count={}", app_count);
+
     std::vector<u64> application_ids(app_count);
     if (app_count > 0) {
         std::memcpy(application_ids.data(), app_ids_buffer.data(), app_count * sizeof(u64));
@@ -375,8 +376,76 @@ void IReadOnlyApplicationControlDataInterface::ListApplicationTitle(HLERequestCo
         }
     }
 
-    auto async_value = std::make_shared<IAsyncValueForListApplicationTitle>(
+    auto async_value = std::make_shared<IAsyncValueForTransferMemory>(
         system, data_offset, static_cast<s32>(total_data_size));
+
+    IPC::ResponseBuilder rb{ctx, 2, 1, 1};
+    rb.Push(ResultSuccess);
+    rb.PushCopyObjects(async_value->ReadableEvent());
+    rb.PushIpcInterface(std::move(async_value));
+}
+
+void IReadOnlyApplicationControlDataInterface::ListApplicationIcon(HLERequestContext& ctx) {
+    const auto app_ids_buffer = ctx.ReadBuffer();
+    const size_t app_count = app_ids_buffer.size() / sizeof(u64);
+
+    LOG_INFO(Service_NS, "called, app_count={}", app_count);
+
+    std::vector<u64> application_ids(app_count);
+    if (app_count > 0) {
+        std::memcpy(application_ids.data(), app_ids_buffer.data(), app_count * sizeof(u64));
+    }
+
+    auto t_mem_obj = ctx.GetObjectFromHandle<Kernel::KTransferMemory>(ctx.GetCopyHandle(0));
+    auto* t_mem = t_mem_obj.GetPointerUnsafe();
+
+    constexpr size_t icon_size = 0x20000;
+    const size_t total_data_size = app_count * icon_size;
+
+    constexpr s32 data_offset = 0;
+
+    if (t_mem != nullptr && app_count > 0) {
+        auto& memory = system.ApplicationMemory();
+        const auto t_mem_address = t_mem->GetSourceAddress();
+
+        for (size_t i = 0; i < app_count; ++i) {
+            const u64 app_id = application_ids[i];
+            LOG_INFO(Service_NS, "[{}/{}] Processing icon for app_id={:016X}", i + 1, app_count,
+                     app_id);
+
+            const FileSys::PatchManager pm{app_id, system.GetFileSystemController(),
+                                           system.GetContentProvider()};
+            const auto control = pm.GetControlMetadata();
+
+            const size_t offset = i * icon_size;
+            if (control.second != nullptr) {
+                LOG_INFO(Service_NS, "Retrieving control metadata for app_id={:016X}, size={}",
+                         app_id, control.second->GetSize());
+                std::vector<u8> icon_data(control.second->GetSize());
+                control.second->Read(icon_data.data(), icon_data.size());
+
+                // QLaunch Home Menu and All Software menu expect sanitized icons (usually 174x174)
+                SanitizeJPEGImageSize(icon_data);
+                LOG_INFO(Service_NS, "Sanitized icon for app_id={:016X}, final_size={}", app_id,
+                         icon_data.size());
+
+                if (icon_data.size() < icon_size) {
+                    icon_data.resize(icon_size, 0);
+                }
+
+                memory.WriteBlock(t_mem_address + offset, icon_data.data(), icon_size);
+            } else {
+                LOG_WARNING(Service_NS, "No control metadata found for app_id={:016X}", app_id);
+                std::vector<u8> zero_data(icon_size, 0);
+                memory.WriteBlock(t_mem_address + offset, zero_data.data(), icon_size);
+            }
+        }
+    }
+
+    auto async_value = std::make_shared<IAsyncValueForTransferMemory>(
+        system, data_offset, static_cast<s32>(total_data_size));
+
+    LOG_INFO(Service_NS, "returning async value with size={}", total_data_size);
 
     IPC::ResponseBuilder rb{ctx, 2, 1, 1};
     rb.Push(ResultSuccess);
@@ -427,7 +496,10 @@ Result IReadOnlyApplicationControlDataInterface::GetApplicationControlData3(
         if (full_size > 0) {
             final_icon_data.resize(full_size);
             control.second->Read(final_icon_data.data(), full_size);
-            // TODO: Implement SanitizeJPEGImageSize(final_icon_data) if flag1 == 1
+
+            if (flag1 == 1) {
+                SanitizeJPEGImageSize(final_icon_data);
+            }
         }
     }
 

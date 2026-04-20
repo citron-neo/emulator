@@ -128,6 +128,7 @@ struct Applet {
     Event accumulated_suspended_tick_changed_event;
     Event sleep_lock_event;
     Event state_changed_event;
+    Event main_applet_request_exit_event;
 
     // Frontend state
     std::shared_ptr<Frontend::FrontendApplet> frontend{};

@@ -12,13 +12,16 @@
 #include "core/hle/service/ns/read_only_application_control_data_interface.h"
 
 namespace Service::NS {
+
 IApplicationManagerInterface::IApplicationManagerInterface(Core::System& system_)
 
     : ServiceFramework{system_, "IApplicationManagerInterface"},
       service_context{system, "IApplicationManagerInterface"},
       record_update_system_event{service_context}, sd_card_mount_status_event{service_context},
       gamecard_update_detection_event{service_context},
-      gamecard_mount_status_event{service_context}, gamecard_mount_failure_event{service_context} {
+      gamecard_mount_status_event{service_context}, gamecard_mount_failure_event{service_context},
+      application_shell_event{service_context}, unknown_event{service_context} {
+    record_update_system_event.Signal();
     // clang-format off
     static const FunctionInfo functions[] = {
         {0, D<&IApplicationManagerInterface::ListApplicationRecord>, "ListApplicationRecord"},
@@ -110,8 +113,8 @@ IApplicationManagerInterface::IApplicationManagerInterface(Core::System& system_
         {211, nullptr, "DeleteSaveData"},
         {220, nullptr, "UnregisterNetworkServiceAccount"},
         {221, nullptr, "UnregisterNetworkServiceAccountWithUserSaveDataDeletion"},
-        {300, nullptr, "GetApplicationShellEvent"},
-        {301, nullptr, "PopApplicationShellEventInfo"},
+        {300, D<&IApplicationManagerInterface::GetApplicationShellEvent>, "GetApplicationShellEvent"},
+        {301, D<&IApplicationManagerInterface::PopApplicationShellEventInfo>, "PopApplicationShellEventInfo"},
         {302, nullptr, "LaunchLibraryApplet"},
         {303, nullptr, "TerminateLibraryApplet"},
         {304, nullptr, "LaunchSystemApplet"},
@@ -126,7 +129,7 @@ IApplicationManagerInterface::IApplicationManagerInterface(Core::System& system_
         {405, nullptr, "ListApplicationControlCacheEntryInfo"},
         {406, nullptr, "GetApplicationControlProperty"},
         {407, &IApplicationManagerInterface::ListApplicationTitle, "ListApplicationTitle"},
-        {408, nullptr, "ListApplicationIcon"},
+        {408, &IApplicationManagerInterface::ListApplicationIcon, "ListApplicationIcon"},
         {419, D<&IApplicationManagerInterface::RequestDownloadApplicationControlDataInBackground>, "RequestDownloadApplicationControlDataInBackground"},
         {502, nullptr, "RequestCheckGameCardRegistration"},
         {503, nullptr, "RequestGameCardRegistrationGoldPoint"},
@@ -159,7 +162,7 @@ IApplicationManagerInterface::IApplicationManagerInterface(Core::System& system_
         {800, nullptr, "RequestVersionList"},
         {801, nullptr, "ListVersionList"},
         {802, nullptr, "RequestVersionListData"},
-        {900, nullptr, "GetApplicationRecord"},
+        {900, D<&IApplicationManagerInterface::GetApplicationRecord>, "GetApplicationRecord"},
         {901, nullptr, "GetApplicationRecordProperty"},
         {902, nullptr, "EnableApplicationAutoUpdate"},
         {903, nullptr, "DisableApplicationAutoUpdate"},
@@ -169,7 +172,7 @@ IApplicationManagerInterface::IApplicationManagerInterface(Core::System& system_
         {907, nullptr, "WithdrawApplicationUpdateRequest"},
         {908, nullptr, "ListApplicationRecordInstalledContentMeta"},
         {909, nullptr, "WithdrawCleanupAddOnContentsWithNoRightsRecommendation"},
-        {910, nullptr, "HasApplicationRecord"},
+        {910, D<&IApplicationManagerInterface::HasApplicationRecord>, "HasApplicationRecord"},
         {911, nullptr, "SetPreInstalledApplication"},
         {912, nullptr, "ClearPreInstalledApplicationFlag"},
         {913, nullptr, "ListAllApplicationRecord"},
@@ -335,7 +338,7 @@ IApplicationManagerInterface::IApplicationManagerInterface(Core::System& system_
         {4029, nullptr, "Cmd4029"},
         {4030, nullptr, "Cmd4030"},
         {4031, nullptr, "Cmd4031"},
-        {4032, nullptr, "Cmd4032"},
+        {4032, nullptr, "VerifyUser"},
         {4033, nullptr, "Cmd4033"},
         {4034, nullptr, "Cmd4034"},
         {4035, nullptr, "Cmd4035"},
@@ -344,14 +347,12 @@ IApplicationManagerInterface::IApplicationManagerInterface(Core::System& system_
         {4039, nullptr, "Cmd4039"},
         {4040, nullptr, "Cmd4040"},
         {4041, nullptr, "Cmd4041"},
-        {4041, nullptr, "Cmd4041"},
         {4042, D<&IApplicationManagerInterface::Cmd4042>, "Cmd4042"},
-        {4043, nullptr, "Cmd4043"},
         {4043, nullptr, "Cmd4043"},
         {4044, nullptr, "Cmd4044"},
         {4045, nullptr, "Cmd4045"},
         {4046, nullptr, "Cmd4046"},
-        {4049, nullptr, "Cmd4049"},
+        {4049, nullptr, "ConfirmLaunchApplicationPermission"},
         {4050, nullptr, "Cmd4050"},
         {4051, nullptr, "Cmd4051"},
         {4052, nullptr, "Cmd4052"},
@@ -476,10 +477,15 @@ Result IApplicationManagerInterface::ListApplicationRecord(
         record.application_id = game.title_id;
         record.last_event = ApplicationEvent::Installed;
         record.attributes = 0;
-        record.last_updated = 0; // TODO: Implement launch timestamp tracking
+        record.last_updated = 1;
 
         records.push_back(record);
     }
+
+    std::sort(records.begin(), records.end(),
+              [](const ApplicationRecord& lhs, const ApplicationRecord& rhs) {
+                  return lhs.application_id < rhs.application_id;
+              });
 
     LOG_INFO(Service_NS, "called, offset={} limit={} total_found={}", offset, limit,
              records.size());
@@ -502,11 +508,8 @@ Result IApplicationManagerInterface::ListApplicationRecord(
 
 Result IApplicationManagerInterface::GetApplicationRecordUpdateSystemEvent(
     OutCopyHandle<Kernel::KReadableEvent> out_event) {
-    LOG_INFO(Service_NS, "called");
-
-    record_update_system_event.Signal();
+    LOG_DEBUG(Service_NS, "called");
     *out_event = record_update_system_event.GetHandle();
-
     R_SUCCEED();
 }
 
@@ -533,8 +536,8 @@ Result IApplicationManagerInterface::GetApplicationView(
     for (size_t i = 0; i < size; i++) {
         ApplicationViewV20 view{};
         view.application_id = application_ids[i];
-        view.version = 0;      // TODO: Get actual version
-        view.flags = 0x401f17; // Typical flags for installed app
+        view.version = DefaultApplicationVersion;
+        view.flags = DefaultApplicationViewFlags;
         view.unk = 0;
         view.download_state = {};
         view.download_progress = {};
@@ -554,10 +557,8 @@ Result IApplicationManagerInterface::GetApplicationViewDeprecated(
     for (size_t i = 0; i < size; i++) {
         ApplicationViewV19 view{};
         view.application_id = application_ids[i];
-        view.version = 0;
-        view.flags = 0x401f17;
-        view.download_state = {};
-        view.download_progress = {};
+        view.version = DefaultApplicationVersion;
+        view.flags = DefaultApplicationViewFlags;
 
         out_application_views[i] = view;
     }
@@ -568,29 +569,41 @@ Result IApplicationManagerInterface::GetApplicationViewDeprecated(
 Result IApplicationManagerInterface::GetApplicationViewWithPromotionInfo(
     OutBuffer<BufferAttr_HipcMapAlias> out_buffer, Out<u32> out_count,
     InArray<u64, BufferAttr_HipcMapAlias> application_ids) {
-    const auto size = application_ids.size();
-    LOG_INFO(Service_NS, "called, size={}", size);
+    const auto requested = application_ids.size();
+    LOG_INFO(Service_NS, "called, size={}", requested);
 
-    // Using 0x78 per entry (V20 + PromotionInfo)
-    constexpr size_t entry_size = 0x58 + 0x20;
-    const size_t limit = out_buffer.size() / entry_size;
-    const size_t actual_count = std::min(size, limit);
-
-    for (size_t i = 0; i < actual_count; i++) {
-        ApplicationViewV20 view{};
-        view.application_id = application_ids[i];
-        view.version = 0;
-        view.flags = 0x401f17;
-        view.unk = 0;
-
-        PromotionInfo promotion{};
-
-        const size_t offset = i * entry_size;
-        std::memcpy(out_buffer.data() + offset, &view, sizeof(view));
-        std::memcpy(out_buffer.data() + offset + sizeof(view), &promotion, sizeof(promotion));
+    if (requested == 0 || out_buffer.size() == 0) {
+        *out_count = 0;
+        return ResultSuccess;
     }
 
-    *out_count = static_cast<u32>(actual_count);
+    const size_t expected_per_entry = out_buffer.size() / requested;
+    const bool is_fw20 = expected_per_entry >= (sizeof(ApplicationViewV20) + sizeof(PromotionInfo));
+
+    const size_t per_entry_size = is_fw20 ? (sizeof(ApplicationViewV20) + sizeof(PromotionInfo))
+                                          : (sizeof(ApplicationViewV19) + sizeof(PromotionInfo));
+    const size_t capacity_entries = out_buffer.size() / per_entry_size;
+    const size_t to_write_entries = std::min(requested, capacity_entries);
+
+    u8* dst = out_buffer.data();
+    for (size_t i = 0; i < to_write_entries; ++i) {
+        ApplicationViewWithPromotionData data{};
+        data.view.application_id = application_ids[i];
+        data.view.version = DefaultApplicationVersion;
+        data.view.unk = 0;
+        data.view.flags = DefaultApplicationViewFlags;
+        data.view.download_state = {};
+        data.view.download_progress = {};
+        data.promotion = {};
+
+        const size_t written = WriteApplicationViewWithPromotion(dst, out_buffer.size() - (dst - out_buffer.data()), data, is_fw20);
+        if (written == 0) {
+            break;
+        }
+        dst += written;
+    }
+
+    *out_count = static_cast<u32>(dst - out_buffer.data()) / static_cast<u32>(per_entry_size);
     R_SUCCEED();
 }
 
@@ -632,6 +645,7 @@ Result IApplicationManagerInterface::CheckSdCardMountStatus() {
 Result IApplicationManagerInterface::GetSdCardMountStatusChangedEvent(
     OutCopyHandle<Kernel::KReadableEvent> out_event) {
     LOG_INFO(Service_NS, "called");
+    sd_card_mount_status_event.Clear();
     *out_event = sd_card_mount_status_event.GetHandle();
     R_SUCCEED();
 }
@@ -688,27 +702,55 @@ Result IApplicationManagerInterface::GetApplicationTerminateResult(Out<Result> o
     R_SUCCEED();
 }
 
-Result IApplicationManagerInterface::Cmd4022(Out<u64> out_result) {
+Result IApplicationManagerInterface::GetApplicationRecord(Out<ApplicationRecord> out_record,
+                                                          u64 application_id) {
+    LOG_INFO(Service_NS, "called, application_id={:016X}", application_id);
+
+    const auto& cache = system.GetContentProviderUnion();
+    if (cache.HasEntry(application_id, FileSys::ContentRecordType::Program)) {
+        ApplicationRecord record{};
+        record.application_id = application_id;
+        record.last_event = ApplicationEvent::Installed;
+        record.attributes = 0;
+        record.last_updated = 1;
+
+        *out_record = record;
+        R_SUCCEED();
+    }
+
+    LOG_ERROR(Service_NS, "Application record not found for id={:016X}", application_id);
+    R_THROW(ResultUnknown); // TODO: Return correct error code for "not found"
+}
+
+Result IApplicationManagerInterface::HasApplicationRecord(Out<bool> out_has_record,
+                                                          u64 application_id) {
+    LOG_INFO(Service_NS, "called, application_id={:016X}", application_id);
+
+    const auto& cache = system.GetContentProviderUnion();
+    *out_has_record = cache.HasEntry(application_id, FileSys::ContentRecordType::Program);
+    R_SUCCEED();
+}
+
+Result IApplicationManagerInterface::Cmd4022(OutCopyHandle<Kernel::KReadableEvent> out_event) {
     LOG_DEBUG(Service_NS, "(STUBBED) called [20.0.0+]");
-    // Return 0 to indicate no pending operations / ready state
-    *out_result = 0;
+    unknown_event.Signal();
+    *out_event = unknown_event.GetHandle();
     R_SUCCEED();
 }
 
 Result IApplicationManagerInterface::Cmd4023(Out<u64> out_result) {
-    LOG_DEBUG(Service_NS, "(STUBBED) called [20.0.0+]");
-    // Return 0 to indicate no pending operations / ready state
-    *out_result = 0;
-    R_SUCCEED();
-}
-
-Result IApplicationManagerInterface::Cmd4088(Out<u64> out_result) {
     LOG_DEBUG(Service_NS, "(STUBBED) called [20.0.0+]");
     *out_result = 0;
     R_SUCCEED();
 }
 
 Result IApplicationManagerInterface::Cmd4042(Out<u64> out_result) {
+    LOG_DEBUG(Service_NS, "(STUBBED) called [20.0.0+]");
+    *out_result = 0;
+    R_SUCCEED();
+}
+
+Result IApplicationManagerInterface::Cmd4088(Out<u64> out_result) {
     LOG_DEBUG(Service_NS, "(STUBBED) called [20.0.0+]");
     *out_result = 0;
     R_SUCCEED();
@@ -784,9 +826,36 @@ Result IApplicationManagerInterface::Cmd4053() {
     R_SUCCEED();
 }
 
+Result IApplicationManagerInterface::GetApplicationShellEvent(
+    OutCopyHandle<Kernel::KReadableEvent> out_event) {
+    LOG_INFO(Service_NS, "called");
+    
+    // Ensure the event is clear so QLaunch doesn't think there's a pending state change
+    application_shell_event.Clear();
+    *out_event = application_shell_event.GetHandle();
+    
+    R_SUCCEED();
+}
+
+Result IApplicationManagerInterface::PopApplicationShellEventInfo(Out<u32> out_event_info_type,
+                                                              Out<u64> out_application_id) {
+    LOG_INFO(Service_NS, "called");
+    
+    // Return 0 for no event to prevent QLaunch from incorrectly processing phantom state changes
+    *out_event_info_type = 0;
+    *out_application_id = 0;
+    
+    R_SUCCEED();
+}
+
 void IApplicationManagerInterface::ListApplicationTitle(HLERequestContext& ctx) {
     LOG_DEBUG(Service_NS, "called");
     IReadOnlyApplicationControlDataInterface(system).ListApplicationTitle(ctx);
+}
+
+void IApplicationManagerInterface::ListApplicationIcon(HLERequestContext& ctx) {
+    LOG_DEBUG(Service_NS, "called");
+    IReadOnlyApplicationControlDataInterface(system).ListApplicationIcon(ctx);
 }
 
 } // namespace Service::NS

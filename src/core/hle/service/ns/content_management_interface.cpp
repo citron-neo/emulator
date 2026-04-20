@@ -18,6 +18,7 @@ IContentManagementInterface::IContentManagementInterface(Core::System& system_)
         {43, D<&IContentManagementInterface::CheckSdCardMountStatus>, "CheckSdCardMountStatus"},
         {47, D<&IContentManagementInterface::GetTotalSpaceSize>, "GetTotalSpaceSize"},
         {48, D<&IContentManagementInterface::GetFreeSpaceSize>, "GetFreeSpaceSize"},
+        {71, D<&IContentManagementInterface::GetApplicationTotalSize>, "GetApplicationTotalSize"},
         {600, nullptr, "CountApplicationContentMeta"},
         {601, nullptr, "ListApplicationContentMetaStatus"},
         {605, nullptr, "ListApplicationContentMetaStatusWithRightsCheck"},
@@ -66,6 +67,18 @@ Result IContentManagementInterface::GetFreeSpaceSize(Out<s64> out_free_space_siz
                                                      FileSys::StorageId storage_id) {
     LOG_INFO(Service_NS, "(STUBBED) called, storage_id={}", storage_id);
     *out_free_space_size = system.GetFileSystemController().GetFreeSpaceSize(storage_id);
+    R_SUCCEED();
+}
+
+Result IContentManagementInterface::GetApplicationTotalSize(Out<s64> out_size,
+                                                            Out<s64> out_free_space,
+                                                            u64 application_id) {
+    LOG_WARNING(Service_NS, "(STUBBED) called, application_id={:016X}", application_id);
+
+    using namespace Common::Literals;
+    *out_size = 16_GiB;
+    *out_free_space = 4_GiB;
+
     R_SUCCEED();
 }
 
