@@ -143,7 +143,7 @@ else()
             -Werror=type-limits
         )
         # apply hidden visibility to unity clang builds in the internal src subtree only.
-        if(ENABLE_UNITY_BUILD)
+        if(ENABLE_UNITY_BUILD AND NOT CMAKE_SYSTEM_NAME STREQUAL "Linux" AND NOT APPLE AND NOT ANDROID)
             add_compile_options(
                 "$<$<COMPILE_LANGUAGE:C,CXX>:-fvisibility=hidden>"
                 "$<$<COMPILE_LANGUAGE:CXX>:-fvisibility-inlines-hidden>"
