@@ -65,6 +65,19 @@ static const char* MASTER_STYLE_TEMPLATE = R"(
         background-color: transparent;
     }
 
+    /* Window Control Buttons (Circles) - Fallback characters if SVG fails */
+    QPushButton#btnClose, QPushButton#btnMin, QPushButton#btnMax, 
+    QPushButton#buttonClose, QPushButton#buttonMin, QPushButton#buttonMax {
+        border-radius: 6px;
+        min-width: 12px;
+        min-height: 12px;
+        max-width: 12px;
+        max-height: 12px;
+    }
+    QPushButton#btnClose::after, QPushButton#buttonClose::after { content: "×"; color: rgba(255,255,255,0.7); font-size: 9px; }
+    QPushButton#btnMin::after, QPushButton#buttonMin::after { content: "−"; color: rgba(255,255,255,0.7); font-size: 9px; }
+    QPushButton#btnMax::after, QPushButton#buttonMax::after { content: "▢"; color: rgba(255,255,255,0.7); font-size: 8px; }
+
     QPushButton[class="tabButton"] {
         background-color: transparent;
         border: 1px solid transparent;
@@ -133,8 +146,7 @@ static const char* MASTER_STYLE_TEMPLATE = R"(
     QCheckBox::indicator:checked {
         background-color: %%ACCENT_COLOR%%;
         border-color: %%ACCENT_COLOR%%;
-        /* Using a simple checkmark vector or character is preferred if no image tool is used,
-           but we'll assume the theme handles the icons or we use background colors for now. */
+        image: url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAwAAAAMCAYAAABWdVznAAAAmklEQVQoU2NkgID/DAxMDKQAxoMIsSg6CkhBfEBAAn0EwASQB9AHkAIIDyLIAYwB5AEMAeQTkAQIDyTIDoQBFAGkAUIPIMgBpAH0ByQBAoMJYgB9ACmA8EACXFCAKIB+gCRAMEAMIAygH0ARIDCYIAYQBpAHEAWIDCaIAQwB5AFEASLDCGIA/QFJAFGAyGCCCmIAfQApgPDAslEALz4fF+uU904AAAAASUVORK5CYII=");
     }
 
     QCheckBox::indicator:hover {
