@@ -207,7 +207,7 @@ Result Container::CreateLayerLocked(u64* out_layer_id, u64 display_id, u64 owner
         m_layers.CreateLayer(owner_aruid, display, consumer_binder_id, producer_binder_id);
     R_UNLESS(layer != nullptr, VI::ResultNotFound);
 
-    m_surface_flinger->CreateLayer(consumer_binder_id);
+    m_surface_flinger->CreateLayer(consumer_binder_id, owner_aruid);
 
     *out_layer_id = layer->GetId();
     R_SUCCEED();

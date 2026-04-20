@@ -62,6 +62,9 @@
 #include "core/hle/service/acc/profile_manager.h"
 #include "core/hle/service/am/applet_manager.h"
 #include "core/hle/service/am/frontend/applets.h"
+#include "core/hle/service/am/applet.h"
+#include "core/hle/service/am/applet_manager.h"
+#include "core/hle/service/am/window_system.h"
 #include "core/hle/service/am/process_creation.h"
 #include "core/hle/service/apm/apm_controller.h"
 #include "core/hle/service/filesystem/filesystem.h"
@@ -1118,6 +1121,15 @@ void System::ApplySettings() {
 
 void System::RefreshExternalContent() {
     impl->fs_controller.RefreshExternalContentProvider();
+}
+
+u64 System::GetMainApplicationAruid() const {
+    if (auto* window_system = impl->applet_manager.GetWindowSystem()) {
+        if (auto main_applet = window_system->GetMainApplet()) {
+            return main_applet->aruid.pid;
+        }
+    }
+    return 0;
 }
 
 } // namespace Core

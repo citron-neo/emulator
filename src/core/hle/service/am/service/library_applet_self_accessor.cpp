@@ -11,6 +11,7 @@
 #include "core/hle/service/am/frontend/applets.h"
 #include "core/hle/service/am/service/library_applet_self_accessor.h"
 #include "core/hle/service/am/service/storage.h"
+#include "core/hle/service/am/window_system.h"
 #include "core/hle/service/cmif_serialization.h"
 #include "core/hle/service/filesystem/filesystem.h"
 #include "core/hle/service/glue/glue_manager.h"
@@ -40,9 +41,10 @@ AppletIdentityInfo GetCallerIdentity(Applet& applet) {
 } // namespace
 
 ILibraryAppletSelfAccessor::ILibraryAppletSelfAccessor(Core::System& system_,
-                                                       std::shared_ptr<Applet> applet)
-    : ServiceFramework{system_, "ILibraryAppletSelfAccessor"}, m_applet{std::move(applet)},
-      m_broker{m_applet->caller_applet_broker} {
+                                                       std::shared_ptr<Applet> applet,
+                                                       WindowSystem& window_system)
+    : ServiceFramework{system_, "ILibraryAppletSelfAccessor"}, m_window_system{window_system},
+      m_applet{std::move(applet)}, m_broker{m_applet->caller_applet_broker} {
     // clang-format off
     static const FunctionInfo functions[] = {
         {0, D<&ILibraryAppletSelfAccessor::PopInData>, "PopInData"},
@@ -153,13 +155,18 @@ Result ILibraryAppletSelfAccessor::CanUseApplicationCore(Out<bool> out_can_use_a
 
 Result ILibraryAppletSelfAccessor::GetMainAppletApplicationControlProperty(
     OutLargeData<std::array<u8, 0x4000>, BufferAttr_HipcMapAlias> out_nacp) {
-    LOG_WARNING(Service_AM, "(STUBBED) called");
+    LOG_INFO(Service_AM, "called");
 
-    // TODO: this should be the main applet, not the caller applet
-    const auto application = GetCallerIdentity(*m_applet);
+    auto applet = m_window_system.GetMainApplet();
+    if (!applet) {
+        LOG_ERROR(Service_AM, "Main applet not found!");
+        R_THROW(ResultUnknown);
+    }
+
+    const auto program_id = applet->program_id;
     std::vector<u8> nacp;
     const auto result =
-        system.GetARPManager().GetControlProperty(&nacp, application.application_id);
+        system.GetARPManager().GetControlProperty(&nacp, program_id);
 
     if (R_SUCCEEDED(result)) {
         std::memcpy(out_nacp->data(), nacp.data(), std::min(nacp.size(), out_nacp->size()));
@@ -276,12 +283,15 @@ Result ILibraryAppletSelfAccessor::GetMainAppletApplicationDesiredLanguage(
 }
 
 Result ILibraryAppletSelfAccessor::GetCurrentApplicationId(Out<u64> out_application_id) {
-    LOG_WARNING(Service_AM, "(STUBBED) called");
+    LOG_INFO(Service_AM, "called");
 
-    // TODO: this should be the main applet, not the caller applet
-    const auto main_applet = GetCallerIdentity(*m_applet);
-    *out_application_id = main_applet.application_id;
+    auto applet = m_window_system.GetMainApplet();
+    if (!applet) {
+        LOG_ERROR(Service_AM, "Main applet not found!");
+        R_THROW(ResultUnknown);
+    }
 
+    *out_application_id = applet->program_id;
     R_SUCCEED();
 }
 

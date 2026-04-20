@@ -29,6 +29,9 @@ struct FramebufferConfig {
     Service::android::PixelFormat pixel_format{};
     Service::android::BufferTransformFlags transform_flags{};
     Common::Rectangle<int> crop_rect{};
+    u64 owner_aruid{};
+    s32 z_index{};
+    bool is_applet{};
     BlendMode blending{};
 };
 

@@ -327,6 +327,8 @@ public:
 
     [[nodiscard]] u64 GetApplicationProcessProgramID() const;
 
+    [[nodiscard]] u64 GetMainApplicationAruid() const;
+
     /// Gets the name of the current game
     [[nodiscard]] Loader::ResultStatus GetGameName(std::string& out) const;
 

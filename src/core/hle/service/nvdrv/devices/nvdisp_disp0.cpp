@@ -12,6 +12,7 @@
 #include "core/hle/service/nvdrv/devices/nvdisp_disp0.h"
 #include "core/perf_stats.h"
 #include "video_core/gpu.h"
+#include "video_core/renderer_base.h"
 
 namespace Service::Nvidia::Devices {
 
@@ -72,6 +73,9 @@ void nvdisp_disp0::Composite(std::span<const Nvnflinger::HwcLayer> sorted_layers
             .pixel_format = layer.format,
             .transform_flags = layer.transform,
             .crop_rect = layer.crop_rect,
+            .owner_aruid = layer.owner_aruid,
+            .z_index = layer.z_index,
+            .is_applet = layer.is_applet,
             .blending = ConvertBlending(layer.blending),
         });
 
@@ -80,6 +84,7 @@ void nvdisp_disp0::Composite(std::span<const Nvnflinger::HwcLayer> sorted_layers
         }
     }
 
+    system.Renderer().SetMainApplicationAruid(system.GetMainApplicationAruid());
     system.GPU().RequestComposite(std::move(output_layers), std::move(output_fences));
     system.SpeedLimiter().DoSpeedLimiting(system.CoreTiming().GetGlobalTimeUs());
     system.GetPerfStats().EndSystemFrame();

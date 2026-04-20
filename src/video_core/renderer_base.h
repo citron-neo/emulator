@@ -43,6 +43,14 @@ public:
     /// Get the tiled applet layer capture buffer
     virtual std::vector<u8> GetAppletCaptureBuffer() = 0;
 
+    void SetMainApplicationAruid(u64 aruid) {
+        m_main_application_aruid = aruid;
+    }
+
+    [[nodiscard]] u64 GetMainApplicationAruid() const {
+        return m_main_application_aruid;
+    }
+
     [[nodiscard]] virtual RasterizerInterface* ReadRasterizer() = 0;
 
     [[nodiscard]] virtual std::string GetDeviceVendor() const = 0;
@@ -93,6 +101,7 @@ public:
                            const Layout::FramebufferLayout& layout);
 
 protected:
+    u64 m_main_application_aruid{0};
     Core::Frontend::EmuWindow& render_window; ///< Reference to the render window handle.
     std::unique_ptr<Core::Frontend::GraphicsContext> context;
     f32 m_current_fps = 0.0f; ///< Current framerate, should be set by the renderer

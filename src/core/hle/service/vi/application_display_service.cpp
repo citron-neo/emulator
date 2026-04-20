@@ -13,6 +13,7 @@
 #include "core/hle/service/vi/manager_display_service.h"
 #include "core/hle/service/vi/system_display_service.h"
 #include "core/hle/service/vi/vi_results.h"
+#include "video_core/gpu.h"
 
 namespace Service::VI {
 
@@ -308,12 +309,24 @@ Result IApplicationDisplayService::GetIndirectLayerImageMap(
     Out<u64> out_size, Out<u64> out_stride,
     OutBuffer<BufferAttr_HipcMapTransferAllowsNonSecure | BufferAttr_HipcMapAlias> out_buffer,
     s64 width, s64 height, u64 indirect_layer_consumer_handle, ClientAppletResourceUserId aruid) {
-    LOG_WARNING(
-        Service_VI,
-        "(STUBBED) called, width={}, height={}, indirect_layer_consumer_handle={}, aruid={:#x}",
-        width, height, indirect_layer_consumer_handle, aruid.pid);
-    *out_size = 0;
-    *out_stride = 0;
+    LOG_INFO(Service_VI,
+             "called, width={}, height={}, indirect_layer_consumer_handle={}, aruid={:#x}", width,
+             height, indirect_layer_consumer_handle, aruid.pid);
+
+    const u64 stride = static_cast<u64>(width) * 4;
+    const u64 texture_size = stride * static_cast<u64>(height);
+
+    *out_size = texture_size;
+    *out_stride = stride;
+
+    if (texture_size > 0 && !out_buffer.empty()) {
+        const auto capture = system.GPU().GetAppletCaptureBuffer();
+        if (!capture.empty()) {
+            const size_t copy_size = std::min<size_t>(texture_size, capture.size());
+            std::memcpy(out_buffer.data(), capture.data(), copy_size);
+        }
+    }
+
     R_SUCCEED();
 }
 

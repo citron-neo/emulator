@@ -105,7 +105,7 @@ Result ILibraryAppletProxy::OpenLibraryAppletSelfAccessor(
     Out<SharedPointer<ILibraryAppletSelfAccessor>> out_library_applet_self_accessor) {
     LOG_DEBUG(Service_AM, "called");
     *out_library_applet_self_accessor =
-        std::make_shared<ILibraryAppletSelfAccessor>(system, m_applet);
+        std::make_shared<ILibraryAppletSelfAccessor>(system, m_applet, m_window_system);
     R_SUCCEED();
 }
 

@@ -10,15 +10,17 @@ namespace Service::Nvnflinger {
 
 struct Layer {
     explicit Layer(std::shared_ptr<android::BufferItemConsumer> buffer_item_consumer_,
-                   s32 consumer_id_)
+                   s32 consumer_id_, u64 owner_aruid_)
         : buffer_item_consumer(std::move(buffer_item_consumer_)), consumer_id(consumer_id_),
-          blending(LayerBlending::None), visible(true), z_index(0), is_overlay(false) {}
+          owner_aruid(owner_aruid_), blending(LayerBlending::None), visible(true), z_index(0),
+          is_overlay(false) {}
     ~Layer() {
         buffer_item_consumer->Abandon();
     }
 
     std::shared_ptr<android::BufferItemConsumer> buffer_item_consumer;
     s32 consumer_id;
+    u64 owner_aruid;
     LayerBlending blending;
     bool visible;
     s32 z_index;

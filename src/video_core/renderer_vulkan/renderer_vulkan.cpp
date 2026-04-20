@@ -278,14 +278,15 @@ void RendererVulkan::RenderScreenshot(std::span<const Tegra::FramebufferConfig> 
 std::vector<u8> RendererVulkan::GetAppletCaptureBuffer() {
     using namespace VideoCore::Capture;
 
-    std::vector<u8> out(VideoCore::Capture::TiledSize);
+    const size_t out_size = static_cast<size_t>(LinearWidth) * LinearHeight * BytesPerPixel;
+    std::vector<u8> out(out_size);
 
     if (!applet_frame.image) {
         return out;
     }
 
     const auto dst_buffer =
-        CreateWrappedBuffer(memory_allocator, VideoCore::Capture::TiledSize, MemoryUsage::Download);
+        CreateWrappedBuffer(memory_allocator, out_size, MemoryUsage::Download);
 
     scheduler.RequestOutsideRenderPassOperationContext();
     scheduler.Record([&](vk::CommandBuffer cmdbuf) {
@@ -295,24 +296,43 @@ std::vector<u8> RendererVulkan::GetAppletCaptureBuffer() {
     // Ensure the copy is fully completed before writing the capture
     scheduler.Finish();
 
-    // Swizzle image data to the capture buffer
+    // Copy linear image data to the capture buffer
     dst_buffer.Invalidate();
-    Tegra::Texture::SwizzleTexture(out, dst_buffer.Mapped(), BytesPerPixel, LinearWidth,
-                                   LinearHeight, LinearDepth, BlockHeight, BlockDepth);
+    std::memcpy(out.data(), dst_buffer.Mapped().data(), out_size);
 
     return out;
 }
 
 void RendererVulkan::RenderAppletCaptureLayer(
     std::span<const Tegra::FramebufferConfig> framebuffers) {
+    // Filter layers that belong to applets (non-zero owner_aruid and not main application)
+    const u64 main_aruid = GetMainApplicationAruid();
+    std::vector<Tegra::FramebufferConfig> applet_layers;
+
+    std::copy_if(framebuffers.begin(), framebuffers.end(), std::back_inserter(applet_layers),
+                 [main_aruid](const auto& layer) {
+                     // Capture if it's explicitly marked as an applet, OR if it's not the main application and has a high Z-index.
+                     return layer.is_applet || (layer.owner_aruid != main_aruid && layer.z_index > 0);
+                 });
+
+    // Sort by Z-index to ensure topmost layers are drawn last
+    std::stable_sort(applet_layers.begin(), applet_layers.end(),
+                     [](const auto& a, const auto& b) { return a.z_index < b.z_index; });
+
+    if (applet_layers.empty()) {
+        return;
+    }
+
     if (!applet_frame.image) {
+        applet_frame.width = VideoCore::Capture::Layout.width;
+        applet_frame.height = VideoCore::Capture::Layout.height;
         applet_frame.image = CreateWrappedImage(memory_allocator, CaptureImageSize, CaptureFormat);
         applet_frame.image_view = CreateWrappedImageView(device, applet_frame.image, CaptureFormat);
         applet_frame.framebuffer = blit_applet.CreateFramebuffer(
             VideoCore::Capture::Layout, *applet_frame.image_view, CaptureFormat);
     }
 
-    blit_applet.DrawToFrame(rasterizer, &applet_frame, framebuffers, VideoCore::Capture::Layout, 1,
+    blit_applet.DrawToFrame(rasterizer, &applet_frame, applet_layers, VideoCore::Capture::Layout, 1,
                             CaptureFormat);
 }
 

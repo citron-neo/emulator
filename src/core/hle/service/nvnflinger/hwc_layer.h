@@ -31,6 +31,8 @@ struct HwcLayer {
     u32 height;
     u32 stride;
     s32 z_index;
+    u64 owner_aruid;
+    bool is_applet;
     LayerBlending blending;
     android::BufferTransformFlags transform;
     Common::Rectangle<int> crop_rect;

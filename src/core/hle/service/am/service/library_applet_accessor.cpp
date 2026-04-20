@@ -141,11 +141,8 @@ Result ILibraryAppletAccessor::GetPopInteractiveOutDataEvent(
 }
 
 Result ILibraryAppletAccessor::GetIndirectLayerConsumerHandle(Out<u64> out_handle) {
-    LOG_WARNING(Service_AM, "(STUBBED) called");
-
-    // We require a non-zero handle to be valid. Using 0xdeadbeef allows us to trace if this is
-    // actually used anywhere
-    *out_handle = 0xdeadbeef;
+    LOG_DEBUG(Service_AM, "called");
+    *out_handle = m_applet->aruid.pid;
     R_SUCCEED();
 }
 

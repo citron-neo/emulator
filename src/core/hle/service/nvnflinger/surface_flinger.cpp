@@ -46,7 +46,7 @@ bool SurfaceFlinger::ComposeDisplay(s32* out_swap_interval, f32* out_compose_spe
     return true;
 }
 
-void SurfaceFlinger::CreateLayer(s32 consumer_binder_id) {
+void SurfaceFlinger::CreateLayer(s32 consumer_binder_id, u64 owner_aruid) {
     auto binder = std::static_pointer_cast<android::BufferQueueConsumer>(
         m_server.TryGetBinder(consumer_binder_id));
     if (!binder) {
@@ -57,7 +57,7 @@ void SurfaceFlinger::CreateLayer(s32 consumer_binder_id) {
     buffer_item_consumer->Connect(false);
 
     m_layers.layers.emplace_back(
-        std::make_shared<Layer>(std::move(buffer_item_consumer), consumer_binder_id));
+        std::make_shared<Layer>(std::move(buffer_item_consumer), consumer_binder_id, owner_aruid));
 }
 
 void SurfaceFlinger::DestroyLayer(s32 consumer_binder_id) {

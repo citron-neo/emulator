@@ -44,7 +44,8 @@ static_assert(sizeof(ErrorContext) == 0x200, "ErrorContext has incorrect size.")
 
 class ILibraryAppletSelfAccessor final : public ServiceFramework<ILibraryAppletSelfAccessor> {
 public:
-    explicit ILibraryAppletSelfAccessor(Core::System& system_, std::shared_ptr<Applet> applet);
+    explicit ILibraryAppletSelfAccessor(Core::System& system_, std::shared_ptr<Applet> applet,
+                                        WindowSystem& window_system);
     ~ILibraryAppletSelfAccessor() override;
 
 private:
@@ -76,6 +77,7 @@ private:
     Result ShouldSetGpuTimeSliceManually(Out<bool> out_should_set_gpu_time_slice_manually);
     Result Cmd160(Out<u64> out_unknown0);
 
+    WindowSystem& m_window_system;
     const std::shared_ptr<Applet> m_applet;
     const std::shared_ptr<AppletDataBroker> m_broker;
 };
