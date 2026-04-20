@@ -897,11 +897,11 @@ void System::RegisterCheatList(const std::vector<Memory::CheatEntry>& list, cons
 }
 
 Memory::CheatEngine* System::GetCheatEngine() {
-    return std::addressof(impl->cheat_engine.value());
+    return impl->cheat_engine.has_value() ? std::addressof(impl->cheat_engine.value()) : nullptr;
 }
 
 const Memory::CheatEngine* System::GetCheatEngine() const {
-    return std::addressof(impl->cheat_engine.value());
+    return impl->cheat_engine.has_value() ? std::addressof(impl->cheat_engine.value()) : nullptr;
 }
 
 void System::SetFrontendAppletSet(Service::AM::Frontend::FrontendAppletSet&& set) {
