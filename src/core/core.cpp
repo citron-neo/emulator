@@ -646,6 +646,8 @@ struct System::Impl {
             return true;
         }
     } general_channel;
+
+    bool is_qlaunch_session = false;
 };
 
 System::System() : impl{std::make_unique<Impl>(*this)} {}
@@ -1114,9 +1116,14 @@ void System::ApplySettings() {
     if (IsPoweredOn()) {
         Renderer().RefreshBaseSettings();
     }
-    if (IsPoweredOn()) {
-        Renderer().RefreshBaseSettings();
-    }
+}
+
+void System::SetQLaunchSession(bool is_qlaunch) {
+    impl->is_qlaunch_session = is_qlaunch;
+}
+
+bool System::IsQLaunchSession() const {
+    return impl->is_qlaunch_session;
 }
 
 void System::RefreshExternalContent() {

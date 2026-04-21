@@ -2305,6 +2305,13 @@ void GMainWindow::BootGame(const QString& filename, Service::AM::FrontendAppletP
         game_list->UnloadController();
     }
 
+    // Safeguard: Mark the session as QLaunch if booting the home menu.
+    // Standard game boots will remain isolated from background applet processes.
+    if (params.applet_id == Service::AM::AppletId::QLaunch) {
+        LOG_INFO(Frontend, "QLaunch session detected. Enabling full Home Menu integration.");
+        system->SetQLaunchSession(true);
+    }
+
     LOG_INFO(Frontend, "citron starting...");
 
     game_list->CancelPopulation();
