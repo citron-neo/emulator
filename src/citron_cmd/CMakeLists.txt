@@ -80,7 +80,7 @@ if (MSVC)
     copy_citron_SDL_deps(citron-cmd)
 elseif(MINGW)
     include(CopyMinGWDeps)
-    copy_mingw_deps(citron-cmd SEARCH_PATHS "${FFmpeg_PATH}/bin")
+    copy_mingw_deps(citron-cmd SEARCH_PATHS "${FFmpeg_PATH}/bin" "${QT_TARGET_PATH}/bin")
 endif()
 
 if(WIN32)

@@ -31,14 +31,9 @@ function(copy_mingw_deps target)
     endif()
 
     # Define search paths for MinGW DLLs.
-    # 1. The compiler's bin directory (standard for MSYS2).
-    # 2. The sysroot's bin directory (standard for llvm-mingw cross-compilation).
-    # 3. Any additional paths provided in SEARCH_PATHS (e.g. Qt, FFmpeg).
-    set(MINGW_SEARCH_PATHS "${COMPILER_BIN_DIR}")
-    if (CMAKE_CROSSCOMPILING AND CMAKE_FIND_ROOT_PATH)
-        list(APPEND MINGW_SEARCH_PATHS "${CMAKE_FIND_ROOT_PATH}/bin")
-    endif()
-    
+    # We prioritize explicitly provided paths (FFmpeg, Qt) over the compiler's bin directory
+    # so that bundled/minimal libraries are found before fat system ones.
+    set(MINGW_SEARCH_PATHS "")
     if (ARG_SEARCH_PATHS)
         list(APPEND MINGW_SEARCH_PATHS ${ARG_SEARCH_PATHS})
     endif()
@@ -47,9 +42,13 @@ function(copy_mingw_deps target)
     if (QT_TARGET_PATH AND EXISTS "${QT_TARGET_PATH}/bin")
         list(APPEND MINGW_SEARCH_PATHS "${QT_TARGET_PATH}/bin")
     elseif (Qt6_DIR AND EXISTS "${Qt6_DIR}/../../../bin")
-        # Infer bin path from Qt6_DIR (.../lib/cmake/Qt6 -> .../bin)
         get_filename_component(QT_BIN_DIR "${Qt6_DIR}/../../../bin" ABSOLUTE)
         list(APPEND MINGW_SEARCH_PATHS "${QT_BIN_DIR}")
+    endif()
+
+    list(APPEND MINGW_SEARCH_PATHS "${COMPILER_BIN_DIR}")
+    if (CMAKE_CROSSCOMPILING AND CMAKE_FIND_ROOT_PATH)
+        list(APPEND MINGW_SEARCH_PATHS "${CMAKE_FIND_ROOT_PATH}/bin")
     endif()
     
     list(REMOVE_DUPLICATES MINGW_SEARCH_PATHS)
@@ -65,12 +64,17 @@ set(TARGET_FILE \"\${TARGET_FILE}\")
 set(COMPILER_BIN_DIR \"${COMPILER_BIN_DIR}\")
 
 # 1. Deploy Qt6 plugins (Targeted scan to avoid hanging on large 'user' data folder)
+# We use a strict whitelist based on the cross-compiled build reference to avoid pulling in 
+# heavy transitive dependencies like Glib/GTK/GIO (often triggered by obscure image formats).
+set(QT_PLATFORMS_PLUGINS qdirect2d qminimal qoffscreen qwindows)
+set(QT_STYLES_PLUGINS qmodernwindowsstyle qwindowsvistastyle)
+set(QT_IMAGEFORMATS_PLUGINS qgif qicns qico qjpeg qsvg qtga qtiff qwbmp qwebp)
+set(QT_ICONENGINES_PLUGINS qsvgicon)
+set(QT_TLS_PLUGINS qcertonlybackend qopensslbackend qschannelbackend)
+
 set(QT_PLUGIN_BASE \"\${COMPILER_BIN_DIR}/../share/qt6/plugins\")
 if (NOT EXISTS \"\${QT_PLUGIN_BASE}\")
     set(QT_PLUGIN_BASE \"${Qt6_DIR}/../../../plugins\")
-    if (NOT EXISTS \"\${QT_PLUGIN_BASE}\")
-        set(QT_PLUGIN_BASE \"\")
-    endif()
 endif()
 
 if (EXISTS \"\${QT_PLUGIN_BASE}\")
@@ -78,13 +82,22 @@ if (EXISTS \"\${QT_PLUGIN_BASE}\")
     foreach(subdir \${PLUGIN_SUBDIRS})
         if (EXISTS \"\${QT_PLUGIN_BASE}/\${subdir}\")
             file(MAKE_DIRECTORY \"\${EXE_DIR}/\${subdir}\")
-            file(GLOB plugin_dlls \"\${QT_PLUGIN_BASE}/\${subdir}/*.dll\")
-            foreach(plugin \${plugin_dlls})
-                file(COPY \"\${plugin}\" DESTINATION \"\${EXE_DIR}/\${subdir}\")
+            
+            # Use the defined whitelist for this subdirectory
+            string(TOUPPER \"\${subdir}\" subdir_upper)
+            set(whitelist \${QT_\${subdir_upper}_PLUGINS})
+            
+            set(pcount 0)
+            foreach(plugin_name \${whitelist})
+                set(plugin_path \"\${QT_PLUGIN_BASE}/\${subdir}/\${plugin_name}.dll\")
+                if (EXISTS \"\${plugin_path}\")
+                    file(COPY \"\${plugin_path}\" DESTINATION \"\${EXE_DIR}/\${subdir}\")
+                    math(EXPR pcount \"\${pcount} + 1\")
+                endif()
             endforeach()
-            list(LENGTH plugin_dlls pcount)
+
             if (pcount GREATER 0)
-                message(STATUS \"  Deployed \${pcount} plugin(s) to \${subdir}/\")
+                message(STATUS \"  Deployed \${pcount} whitelist plugin(s) to \${subdir}/\")
             endif()
         endif()
     endforeach()
@@ -134,8 +147,12 @@ function(resolve_deps file visited_var deps_var)
         if (EXISTS \"\${dll_path}\" AND NOT IS_DIRECTORY \"\${dll_path}\")
             list(APPEND \${visited_var} \"\${dll_name_lower}\")
             list(APPEND \${deps_var} \"\${dll_path}\")
+            
+            # Diagnostic status message to verify which path was chosen (bundled vs system)
+            message(STATUS \"  Found \${dll_name} in: \${dll_path}\")
+            
             resolve_deps(\"\${dll_path}\" \${visited_var} \${deps_var})
-        elseif (NOT \"\${dll_name_lower}\" MATCHES \"^(advapi32|kernel32|user32|gdi32|shell32|ole32|oleaut32|ws2_32|comdlg32|mpr|winmm|version|imm32|msvcrt|comctl32|shlwapi|crypt32|bcrypt|ntdll|dbghelp|setupapi|iphlpapi|winhttp|wininet|dwmapi|uxtheme|dnsapi|cryptui|wintrust|api-ms-win-|ext-ms-win-).+\\\\.dll$\")
+        elseif (NOT \"\${dll_name_lower}\" MATCHES \"^(advapi32|kernel32|user32|gdi32|shell32|ole32|oleaut32|ws2_32|comdlg32|mpr|winmm|version|imm32|msvcrt|comctl32|shlwapi|crypt32|bcrypt|ntdll|dbghelp|setupapi|iphlpapi|winhttp|wininet|dwmapi|uxtheme|dnsapi|cryptui|wintrust|cfgmgr32|powrprof|onecore|hid|dsound|msvcp_win|winspool|api-ms-win-|ext-ms-win-).*\\.dll$\")
             message(STATUS \"  Warning: Could not find DLL: \${dll_name}\")
         endif()
     endforeach()
@@ -149,10 +166,16 @@ set(all_deps \"\")
 # Resolve for the targeted executable
 resolve_deps(\"\${EXE_DIR}/\${TARGET_FILE}\" visited all_deps)
 
-# Resolve for all deployed DLLs in the output directory (plugins, etc.)
-file(GLOB_RECURSE deployed_dlls \"\${EXE_DIR}/*/*.dll\")
-foreach(dll \${deployed_dlls})
-    resolve_deps(\"\${dll}\" visited all_deps)
+# Recursively resolve only for the explicitly whitelisted plugins we deployed above.
+# We skip a global recursive scan of the output directory to avoid pulling in unneeded 
+# dependencies from \"other\" DLLs that might have been present in the bin folder.
+foreach(subdir platforms styles imageformats iconengines tls)
+    if (EXISTS \"\${EXE_DIR}/\${subdir}\")
+        file(GLOB plugin_dlls \"\${EXE_DIR}/\${subdir}/*.dll\")
+        foreach(dll \${plugin_dlls})
+            resolve_deps(\"\${dll}\" visited all_deps)
+        endforeach()
+    endif()
 endforeach()
 
 # 3. Deploy everything
@@ -163,10 +186,7 @@ if (all_deps)
     
     set(files_to_copy \"\")
     foreach(dll \${all_deps})
-        get_filename_component(name \"\${dll}\" NAME)
-        if (NOT EXISTS \"\${EXE_DIR}/\${name}\")
-            list(APPEND files_to_copy \"\${dll}\")
-        endif()
+        list(APPEND files_to_copy \"\${dll}\")
     endforeach()
     
     if (files_to_copy)
