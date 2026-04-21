@@ -45,7 +45,7 @@ target_link_libraries(citron-room PRIVATE ${PLATFORM_LIBRARIES} Threads::Threads
 
 if (MINGW)
     include(CopyMinGWDeps)
-    copy_mingw_deps(citron-room)
+    copy_mingw_deps(citron-room SEARCH_PATHS "${FFmpeg_PATH}/bin" "${QT_TARGET_PATH}/bin")
 endif()
 
 if(UNIX AND NOT APPLE)
