@@ -278,7 +278,7 @@ void ConfigureUi::SetConfiguration() {
     auto* update_channel_combo = findChild<QComboBox*>("update_channel_combo");
     if (update_channel_combo) {
         QSettings settings;
-        QString channel = settings.value("updater/channel", QStringLiteral("Stable")).toString();
+        QString channel = settings.value("updater/channel", QStringLiteral("Nightly")).toString();
         update_channel_combo->setCurrentIndex(update_channel_combo->findData(channel));
     }
 

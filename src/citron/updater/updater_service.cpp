@@ -307,7 +307,7 @@ void UpdaterService::OnDownloadFinished() {
     QByteArray downloaded_data = current_reply->readAll();
     QSettings settings;
     QString channel =
-        settings.value(QStringLiteral("updater/channel"), QStringLiteral("Stable")).toString();
+        settings.value(QStringLiteral("updater/channel"), QStringLiteral("Nightly")).toString();
 
 #if defined(_WIN32)
     QString filename = QStringLiteral("citron_update_%1.zip")
