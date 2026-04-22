@@ -1233,6 +1233,44 @@ CHAINLOAD_EOF
     success "vcpkg llvm-mingw triplet written"
 }
 
+# Clear stale CMake/vcpkg state when the recorded triplets change.
+refresh_vcpkg_build_cache() {
+    local build_dir="$1"
+    local target_triplet="${2:-x64-mingw-llvm-static}"
+    local host_triplet
+    host_triplet="$(current_vcpkg_host_triplet)"
+
+    local marker="${build_dir}/.citron-vcpkg-triplets"
+    local desired="HOST=${host_triplet}
+TARGET=${target_triplet}"
+    local cached=""
+
+    if [[ -f "${marker}" ]]; then
+        cached="$(cat "${marker}" 2>/dev/null || true)"
+    elif [[ -d "${build_dir}/vcpkg_installed" ]]; then
+        warn "vcpkg cache marker missing for ${build_dir} — clearing existing cached install tree"
+        rm -rf \
+            "${build_dir}/CMakeCache.txt" \
+            "${build_dir}/CMakeFiles" \
+            "${build_dir}/vcpkg_installed" \
+            "${build_dir}/vcpkg-manifest-install.log" \
+            2>/dev/null || true
+    fi
+
+    if [[ -n "${cached}" && "${cached}" != "${desired}" ]]; then
+        warn "vcpkg triplets changed for ${build_dir} — clearing cached CMake/vcpkg state"
+        rm -rf \
+            "${build_dir}/CMakeCache.txt" \
+            "${build_dir}/CMakeFiles" \
+            "${build_dir}/vcpkg_installed" \
+            "${build_dir}/vcpkg-manifest-install.log" \
+            2>/dev/null || true
+    fi
+
+    mkdir -p "${build_dir}"
+    printf '%s\n' "${desired}" > "${marker}"
+}
+
 # =============================================================================
 # comsupp stub
 # MSVC provides _com_util::ConvertStringToBSTR via comsuppw.lib.
@@ -2079,12 +2117,21 @@ EOF
 # =============================================================================
 # Common CMake arguments for cross-compilation to Windows
 # =============================================================================
+current_vcpkg_host_triplet() {
+    if [[ "${_HOST_OS}" == "windows" ]]; then
+        echo "x64-mingw-llvm-static"
+    else
+        echo "x64-linux"
+    fi
+}
+
 common_cmake_args() {
     local lto_flag; lto_flag="$(lto_cmake_flag)"
     local toolchain_file="${BUILD_ROOT}/mingw-clang-toolchain.cmake"
     write_toolchain_file "$toolchain_file"
 
-    local host_triplet="x64-linux"
+    local host_triplet
+    host_triplet="$(current_vcpkg_host_triplet)"
     
     local CMAKE_BUILD_ROOT="${BUILD_ROOT}"
     local CMAKE_SOURCE_DIR="${SOURCE_DIR}"
@@ -2093,7 +2140,6 @@ common_cmake_args() {
     local CMAKE_TOOLCHAIN_FILE_PATH="${toolchain_file}"
 
     if [[ "${_HOST_OS}" == "windows" ]]; then
-        host_triplet="x64-windows"
         CMAKE_BUILD_ROOT="$(cygpath -m "${BUILD_ROOT}")"
         CMAKE_SOURCE_DIR="$(cygpath -m "${SOURCE_DIR}")"
         CMAKE_SPIRV_HEADERS_INSTALL="$(cygpath -m "${SPIRV_HEADERS_INSTALL}")"
@@ -2311,6 +2357,7 @@ stage_generate() {
 
     info "Configuring CMake (instrumented build)..."
     cd "${BUILD_GENERATE}"
+    refresh_vcpkg_build_cache "${BUILD_GENERATE}"
     rm -f CMakeCache.txt; rm -rf CMakeFiles
     [[ -d "src/citron/citron_autogen" ]] && rm -rf src/citron/citron_autogen
 
@@ -2588,6 +2635,7 @@ stage_csgenerate() {
 
     info "Configuring CMake (CS-IRPGO instrumented build)..."
     cd "${BUILD_CSGENERATE}"
+    refresh_vcpkg_build_cache "${BUILD_CSGENERATE}"
     rm -f CMakeCache.txt; rm -rf CMakeFiles
     [[ -d "src/citron/citron_autogen" ]] && rm -rf src/citron/citron_autogen
 
@@ -2845,6 +2893,7 @@ stage_use() {
 
         info "Configuring CMake (no-PGO Windows PE, LTO=${LTO_MODE})..."
         cd "${nopgo_dir}"
+        refresh_vcpkg_build_cache "${nopgo_dir}"
         rm -f CMakeCache.txt; rm -rf CMakeFiles
 
         # shellcheck disable=SC2046
@@ -3004,6 +3053,7 @@ stage_use() {
 
     info "Configuring CMake (PGO+LTO Windows PE)..."
     mkdir -p "${BUILD_USE}"; cd "${BUILD_USE}"
+    refresh_vcpkg_build_cache "${BUILD_USE}"
     rm -f CMakeCache.txt; rm -rf CMakeFiles
 
     # Reuse generate's already-downloaded Qt — passing Qt6_DIR prevents citron's
@@ -3849,6 +3899,7 @@ BOLT_ORDER_EOF
     # from a previous failed run and cause the compiler test to fail.
     rm -rf "${BUILD_BOLT}"
     mkdir -p "${BUILD_BOLT}"; cd "${BUILD_BOLT}"
+    refresh_vcpkg_build_cache "${BUILD_BOLT}"
 
     # Use LTO_MODE (default: full) for the final PE re-link.
     # generate and use stages ran with ThinLTO, giving BOLT a consistent
@@ -4324,6 +4375,7 @@ stage_propeller() {
     info "Rebuilding Windows PE with Propeller profiles (PGO + LTO + Propeller)..."
     rm -rf "${BUILD_PROPELLER}"
     mkdir -p "${BUILD_PROPELLER}"; cd "${BUILD_PROPELLER}"
+    refresh_vcpkg_build_cache "${BUILD_PROPELLER}"
 
     local debug_flag=""
     [[ "${BUILD_TYPE}" == "RelWithDebInfo" ]] && debug_flag="-g"
