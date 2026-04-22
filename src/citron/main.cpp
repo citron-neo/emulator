@@ -1269,6 +1269,7 @@ void GMainWindow::InitializeWidgets() {
     ui->horizontalLayout->addWidget(loading_screen);
     connect(loading_screen, &LoadingScreen::Hidden, [&] {
         loading_screen->Clear();
+        UpdateMenuState();
         if (emulation_running) {
             render_window->show();
             render_window->setFocus();
@@ -1993,11 +1994,12 @@ void GMainWindow::UpdateMenuState() {
     const std::array running_actions{
         ui->action_Stop,
         ui->action_Restart,
-        ui->action_Configure_Current_Game,
         ui->action_Report_Compatibility,
         ui->action_Load_Amiibo,
         ui->action_Pause,
     };
+
+    const bool is_loading = loading_screen && loading_screen->isVisible();
 
     const std::array applet_actions{ui->action_Load_Home_Menu,
                                     ui->action_Load_Album,
@@ -2011,6 +2013,9 @@ void GMainWindow::UpdateMenuState() {
     for (QAction* action : running_actions) {
         action->setEnabled(emulation_running);
     }
+
+    ui->action_Configure->setEnabled(!is_loading);
+    ui->action_Configure_Current_Game->setEnabled(emulation_running && !is_loading);
 
     ui->action_Install_Firmware->setEnabled(!emulation_running);
     ui->action_Install_Keys->setEnabled(!emulation_running);
@@ -2471,6 +2476,7 @@ void GMainWindow::BootGame(const QString& filename, Service::AM::FrontendAppletP
 
     loading_screen->Prepare(system->GetAppLoader());
     loading_screen->show();
+    UpdateMenuState();
 
     emulation_running = true;
     // Honor the persistent setting instead of the UI action state, which
@@ -4196,6 +4202,7 @@ bool GMainWindow::ConfirmShutdownGame() {
 
 void GMainWindow::OnLoadComplete() {
     loading_screen->OnLoadComplete();
+    UpdateMenuState();
 }
 
 void GMainWindow::OnExecuteProgram(std::size_t program_index) {
