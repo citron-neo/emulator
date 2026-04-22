@@ -9,8 +9,7 @@ function(copy_mingw_deps target)
     set(multiValueArgs SEARCH_PATHS)
     cmake_parse_arguments(ARG "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
 
-    # Prefer llvm-readobj for robust PE parsing on both Linux and Windows hosts.
-    # We look for it in the same directory as the compiler.
+    # Prefer llvm-readobj from the compiler toolchain.
     get_filename_component(COMPILER_BIN_DIR "${CMAKE_CXX_COMPILER}" DIRECTORY)
     find_program(READOBJ_EXECUTABLE NAMES llvm-readobj llvm-readobj-19 llvm-readobj-18 llvm-readobj-17
                  HINTS "${COMPILER_BIN_DIR}")
@@ -30,15 +29,13 @@ function(copy_mingw_deps target)
         endif()
     endif()
 
-    # Define search paths for MinGW DLLs.
-    # We prioritize explicitly provided paths (FFmpeg, Qt) over the compiler's bin directory
-    # so that bundled/minimal libraries are found before fat system ones.
+    # Prefer bundled DLL locations before the toolchain bin dir.
     set(MINGW_SEARCH_PATHS "")
     if (ARG_SEARCH_PATHS)
         list(APPEND MINGW_SEARCH_PATHS ${ARG_SEARCH_PATHS})
     endif()
 
-    # Automatically add Qt target bin path if defined
+    # Add Qt runtime bin if available.
     if (QT_TARGET_PATH AND EXISTS "${QT_TARGET_PATH}/bin")
         list(APPEND MINGW_SEARCH_PATHS "${QT_TARGET_PATH}/bin")
     elseif (Qt6_DIR AND EXISTS "${Qt6_DIR}/../../../bin")
@@ -58,23 +55,39 @@ function(copy_mingw_deps target)
 # Auto-generated MinGW DLL deployment script
 set(DUMP_TOOL \"${DUMP_TOOL}\")
 set(DUMP_MODE \"${DUMP_MODE}\")
-set(SEARCH_PATHS \"${MINGW_SEARCH_PATHS}\")
+# Search local bin first.
+set(SEARCH_PATHS \"\${EXE_DIR};${MINGW_SEARCH_PATHS}\")
 set(EXE_DIR \"\${TARGET_DIR}\")
 set(TARGET_FILE \"\${TARGET_FILE}\")
 set(COMPILER_BIN_DIR \"${COMPILER_BIN_DIR}\")
+set(QT_TARGET_PLUGIN_DIR \"${QT_TARGET_PATH}/plugins\")
 
-# 1. Deploy Qt6 plugins (Targeted scan to avoid hanging on large 'user' data folder)
-# We use a strict whitelist based on the cross-compiled build reference to avoid pulling in 
-# heavy transitive dependencies like Glib/GTK/GIO (often triggered by obscure image formats).
+# 1. Deploy whitelisted Qt6 plugins.
 set(QT_PLATFORMS_PLUGINS qdirect2d qminimal qoffscreen qwindows)
 set(QT_STYLES_PLUGINS qmodernwindowsstyle qwindowsvistastyle)
 set(QT_IMAGEFORMATS_PLUGINS qgif qicns qico qjpeg qsvg qtga qtiff qwbmp qwebp)
 set(QT_ICONENGINES_PLUGINS qsvgicon)
 set(QT_TLS_PLUGINS qcertonlybackend qopensslbackend qschannelbackend)
+set(TOOLCHAIN_RUNTIME_DLLS
+    libc++.dll
+    libunwind.dll)
+set(ALLOWED_COMPILER_BIN_DLLS
+    libbrotlicommon.dll
+    libbrotlidec.dll
+    libenet-7.dll
+    libiconv-2.dll
+    libopus-0.dll
+    libspeexdsp-1.dll
+    libva.dll
+    libva_win32.dll
+    zlib1.dll)
 
-set(QT_PLUGIN_BASE \"\${COMPILER_BIN_DIR}/../share/qt6/plugins\")
+set(QT_PLUGIN_BASE \"\${QT_TARGET_PLUGIN_DIR}\")
 if (NOT EXISTS \"\${QT_PLUGIN_BASE}\")
     set(QT_PLUGIN_BASE \"${Qt6_DIR}/../../../plugins\")
+endif()
+if (NOT EXISTS \"\${QT_PLUGIN_BASE}\")
+    set(QT_PLUGIN_BASE \"\${COMPILER_BIN_DIR}/../share/qt6/plugins\")
 endif()
 
 if (EXISTS \"\${QT_PLUGIN_BASE}\")
@@ -83,7 +96,7 @@ if (EXISTS \"\${QT_PLUGIN_BASE}\")
         if (EXISTS \"\${QT_PLUGIN_BASE}/\${subdir}\")
             file(MAKE_DIRECTORY \"\${EXE_DIR}/\${subdir}\")
             
-            # Use the defined whitelist for this subdirectory
+            # Use the matching whitelist for this plugin dir.
             string(TOUPPER \"\${subdir}\" subdir_upper)
             set(whitelist \${QT_\${subdir_upper}_PLUGINS})
             
@@ -102,6 +115,8 @@ if (EXISTS \"\${QT_PLUGIN_BASE}\")
         endif()
     endforeach()
 endif()
+
+file(WRITE \"\${EXE_DIR}/qt.conf\" \"[Paths]\nPlugins = .\n\")
 
 # 2. Recursively collect all DLL dependencies
 function(resolve_deps file visited_var deps_var)
@@ -135,9 +150,22 @@ function(resolve_deps file visited_var deps_var)
             continue()
         endif()
         
-        # Search for the DLL in all provided search paths
+        # Search all candidate paths in order.
         set(dll_path \"\${dll_name}-NOTFOUND\")
         foreach(search_path \${SEARCH_PATHS})
+            # Skip host MSYS2 DLLs except the allowed leaves and toolchain runtimes.
+            if (\"\${search_path}\" MATCHES \"([/\\\\])msys64([/\\\\])\")
+                list(FIND TOOLCHAIN_RUNTIME_DLLS \"\${dll_name_lower}\" toolchain_runtime_idx)
+                if (NOT toolchain_runtime_idx EQUAL -1)
+                    # Keep Clang runtimes from the active toolchain.
+                else()
+                list(FIND ALLOWED_COMPILER_BIN_DLLS \"\${dll_name_lower}\" compiler_bin_allow_idx)
+                if (compiler_bin_allow_idx EQUAL -1)
+                    continue()
+                endif()
+                endif()
+            endif()
+            
             if (EXISTS \"\${search_path}/\${dll_name}\")
                 set(dll_path \"\${search_path}/\${dll_name}\")
                 break()
@@ -148,11 +176,11 @@ function(resolve_deps file visited_var deps_var)
             list(APPEND \${visited_var} \"\${dll_name_lower}\")
             list(APPEND \${deps_var} \"\${dll_path}\")
             
-            # Diagnostic status message to verify which path was chosen (bundled vs system)
+            # Log the chosen path for the DLL.
             message(STATUS \"  Found \${dll_name} in: \${dll_path}\")
             
             resolve_deps(\"\${dll_path}\" \${visited_var} \${deps_var})
-        elseif (NOT \"\${dll_name_lower}\" MATCHES \"^(advapi32|kernel32|user32|gdi32|shell32|ole32|oleaut32|ws2_32|comdlg32|mpr|winmm|version|imm32|msvcrt|comctl32|shlwapi|crypt32|bcrypt|ntdll|dbghelp|setupapi|iphlpapi|winhttp|wininet|dwmapi|uxtheme|dnsapi|cryptui|wintrust|cfgmgr32|powrprof|onecore|hid|dsound|msvcp_win|winspool|api-ms-win-|ext-ms-win-).*\\.dll$\")
+        elseif (NOT \"\${dll_name_lower}\" MATCHES \"^(advapi32|authz|avrt|bcrypt|cfgmgr32|comctl32|comdlg32|crypt32|cryptui|d2d1|d3d9|d3d11|d3d12|dbghelp|dnsapi|dsound|dwmapi|dxgi|dwrite|ext-ms-win-|gdi32|hid|imm32|iphlpapi|kernel32|mpr|msvcp_win|mswsock|ncrypt|netapi32|ntdll|ole32|oleaut32|onecore|powrprof|secur32|setupapi|shcore|shell32|shlwapi|user32|userenv|uxtheme|version|winhttp|wininet|winmm|winspool|wintrust|wtsapi32|ws2_32|api-ms-win-).*[.]dll$\")
             message(STATUS \"  Warning: Could not find DLL: \${dll_name}\")
         endif()
     endforeach()
@@ -163,12 +191,28 @@ endfunction()
 set(visited \"\")
 set(all_deps \"\")
 
+# 2.3 Pin core Clang runtimes first.
+foreach(runtime libc++.dll libunwind.dll libgcc_s_seh-1.dll libstdc++-6.dll)
+    set(runtime_search_paths \"\${COMPILER_BIN_DIR};\${SEARCH_PATHS}\")
+    foreach(search_path \${runtime_search_paths})
+        if (EXISTS \"\${search_path}/\${runtime}\")
+            string(TOLOWER \"\${runtime}\" runtime_lower)
+            list(FIND visited \"\${runtime_lower}\" runtime_idx)
+            if (runtime_idx EQUAL -1)
+                list(APPEND visited \"\${runtime_lower}\")
+                list(APPEND all_deps \"\${search_path}/\${runtime}\")
+                message(STATUS \"  Pinned \${runtime} from: \${search_path}/\${runtime}\")
+            endif()
+            resolve_deps(\"\${search_path}/\${runtime}\" visited all_deps)
+            break()
+        endif()
+    endforeach()
+endforeach()
+
 # Resolve for the targeted executable
 resolve_deps(\"\${EXE_DIR}/\${TARGET_FILE}\" visited all_deps)
 
-# Recursively resolve only for the explicitly whitelisted plugins we deployed above.
-# We skip a global recursive scan of the output directory to avoid pulling in unneeded 
-# dependencies from \"other\" DLLs that might have been present in the bin folder.
+# Resolve only the plugins we deployed above.
 foreach(subdir platforms styles imageformats iconengines tls)
     if (EXISTS \"\${EXE_DIR}/\${subdir}\")
         file(GLOB plugin_dlls \"\${EXE_DIR}/\${subdir}/*.dll\")
