@@ -442,11 +442,7 @@ struct Values {
         linkage, 0, "bg_blue", Category::Renderer, Specialization::Default, true, true};
 
     SwitchableSetting<GpuAccuracy, true> gpu_accuracy{linkage,
-#ifdef ANDROID
                                                       GpuAccuracy::Normal,
-#else
-                                                      GpuAccuracy::High,
-#endif
                                                       GpuAccuracy::Low,
                                                       GpuAccuracy::Extreme,
                                                       "gpu_accuracy",
@@ -454,7 +450,7 @@ struct Values {
                                                       Specialization::Default,
                                                       true,
                                                       true};
-    GpuAccuracy current_gpu_accuracy{GpuAccuracy::High};
+    GpuAccuracy current_gpu_accuracy{GpuAccuracy::Normal};
     SwitchableSetting<AnisotropyMode, true> max_anisotropy{linkage,
 #ifdef ANDROID
                                                            AnisotropyMode::Default,

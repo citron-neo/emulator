@@ -13,6 +13,7 @@
 #include "common/hex_util.h"
 #include "common/logging.h"
 #include "common/scope_exit.h"
+#include "common/settings.h"
 #include "core/crypto/key_manager.h"
 #include "core/file_sys/card_image.h"
 #include "core/file_sys/common_funcs.h"
@@ -1012,30 +1013,31 @@ void ManualContentProvider::AddEntryWithVersion(TitleType title_type,
                                                 u32 version, const std::string& version_string,
                                                 VirtualFile file) {
     if (title_type == TitleType::Update) {
-        auto it = std::find_if(multi_version_entries.begin(), multi_version_entries.end(),
-                               [title_id, version](const ExternalUpdateEntry& entry) {
+        auto it = std::find_if(all_entries.begin(), all_entries.end(),
+                               [title_id, version](const ExternalContentEntry& entry) {
                                    return entry.title_id == title_id && entry.version == version;
                                });
 
-        if (it != multi_version_entries.end()) {
+        if (it != all_entries.end()) {
             it->files[content_type] = file;
             if (!version_string.empty()) {
                 it->version_string = version_string;
             }
         } else {
-            ExternalUpdateEntry new_entry;
+            ExternalContentEntry new_entry;
             new_entry.title_id = title_id;
+            new_entry.title_type = title_type;
             new_entry.version = version;
             new_entry.version_string = version_string;
             new_entry.files[content_type] = file;
-            multi_version_entries.push_back(new_entry);
+            all_entries.push_back(new_entry);
         }
 
         auto existing = entries.find({title_type, content_type, title_id});
         if (existing == entries.end()) {
             entries.insert_or_assign({title_type, content_type, title_id}, file);
         } else {
-            for (const auto& entry : multi_version_entries) {
+            for (const auto& entry : all_entries) {
                 if (entry.title_id == title_id && entry.version > version) {
                     return;
                 }
@@ -1049,7 +1051,7 @@ void ManualContentProvider::AddEntryWithVersion(TitleType title_type,
 
 void ManualContentProvider::ClearAllEntries() {
     entries.clear();
-    multi_version_entries.clear();
+    all_entries.clear();
 }
 
 void ManualContentProvider::Refresh() {}
@@ -1124,7 +1126,7 @@ void ExternalContentProvider::ClearDirectories() {
 void ExternalContentProvider::Refresh() {
     entries.clear();
     versions.clear();
-    multi_version_entries.clear();
+    all_entries.clear();
     for (const auto& dir : load_dirs) {
         ScanDirectory(dir);
     }
@@ -1189,86 +1191,58 @@ void ExternalContentProvider::ProcessNSP(const VirtualFile& file) {
             versions[title_id] = version;
         }
 
-        if (title_type == TitleType::Update) {
-            size_t entry_index = std::numeric_limits<size_t>::max();
+        size_t entry_index = std::numeric_limits<size_t>::max();
 
-            // Find existing entry index
-            for (size_t i = 0; i < multi_version_entries.size(); ++i) {
-                if (multi_version_entries[i].title_id == title_id &&
-                    multi_version_entries[i].version == version) {
-                    entry_index = i;
-                    break;
-                }
-            }
-
-            if (entry_index == std::numeric_limits<size_t>::max()) {
-                ExternalUpdateEntry new_entry;
-                new_entry.title_id = title_id;
-                new_entry.version = version;
-                new_entry.version_string = fmt::format("v{}", version);
-                multi_version_entries.push_back(std::move(new_entry));
-                entry_index = multi_version_entries.size() - 1;
-            }
-
-            for (const auto& record : cnmt.GetContentRecords()) {
-                const auto nca_id_str = Common::HexToString(record.nca_id);
-                auto content_file = nsp.GetFile(fmt::format("{}.nca", nca_id_str));
-                if (!content_file)
-                    content_file = nsp.GetFile(nca_id_str);
-
-                if (!content_file) {
-                    std::string nca_id_lower = nca_id_str;
-                    std::transform(
-                        nca_id_lower.begin(), nca_id_lower.end(), nca_id_lower.begin(),
-                        [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
-                    content_file = nsp.GetFile(fmt::format("{}.nca", nca_id_lower));
-                    if (!content_file)
-                        content_file = nsp.GetFile(nca_id_lower);
-                }
-
-                if (content_file) {
-                    multi_version_entries[entry_index].files[record.type] = content_file;
-
-                    if (versions[title_id] == version) {
-                        entries.insert_or_assign(std::make_tuple(title_id, record.type, title_type),
-                                                 content_file);
-                    }
-                }
-            }
-
-            if (versions[title_id] == version) {
-                entries.insert_or_assign(
-                    std::make_tuple(title_id, ContentRecordType::Meta, title_type), nca_file);
-            }
-        } else {
-            for (const auto& record : cnmt.GetContentRecords()) {
-                const auto nca_id_str = Common::HexToString(record.nca_id);
-                auto content_file = nsp.GetFile(fmt::format("{}.nca", nca_id_str));
-                if (!content_file)
-                    content_file = nsp.GetFile(nca_id_str);
-
-                if (!content_file) {
-                    std::string nca_id_lower = nca_id_str;
-                    std::transform(
-                        nca_id_lower.begin(), nca_id_lower.end(), nca_id_lower.begin(),
-                        [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
-                    content_file = nsp.GetFile(fmt::format("{}.nca", nca_id_lower));
-                    if (!content_file)
-                        content_file = nsp.GetFile(nca_id_lower);
-                }
-
-                if (content_file) {
-                    if (versions[title_id] == version) {
-                        entries.insert_or_assign(std::make_tuple(title_id, record.type, title_type),
-                                                 content_file);
-                    }
-                }
-            }
-            if (versions[title_id] == version) {
-                entries.insert_or_assign(
-                    std::make_tuple(title_id, ContentRecordType::Meta, title_type), nca_file);
+        // Find existing entry index
+        for (size_t i = 0; i < all_entries.size(); ++i) {
+            if (all_entries[i].title_id == title_id && all_entries[i].version == version) {
+                entry_index = i;
+                break;
             }
         }
+
+        if (entry_index == std::numeric_limits<size_t>::max()) {
+            ExternalContentEntry new_entry;
+            new_entry.title_id = title_id;
+            new_entry.title_type = title_type;
+            new_entry.version = version;
+            new_entry.version_string = FormatTitleVersion(version);
+            all_entries.push_back(std::move(new_entry));
+            entry_index = all_entries.size() - 1;
+        }
+
+        for (const auto& record : cnmt.GetContentRecords()) {
+            const auto nca_id_str = Common::HexToString(record.nca_id);
+            auto content_file = nsp.GetFile(fmt::format("{}.nca", nca_id_str));
+            if (!content_file)
+                content_file = nsp.GetFile(nca_id_str);
+
+            if (!content_file) {
+                std::string nca_id_lower = nca_id_str;
+                std::transform(
+                    nca_id_lower.begin(), nca_id_lower.end(), nca_id_lower.begin(),
+                    [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+                content_file = nsp.GetFile(fmt::format("{}.nca", nca_id_lower));
+                if (!content_file)
+                    content_file = nsp.GetFile(nca_id_lower);
+            }
+
+            if (content_file) {
+                all_entries[entry_index].files[record.type] = content_file;
+
+                if (versions[title_id] == version) {
+                    entries.insert_or_assign(std::make_tuple(title_id, record.type, title_type),
+                                             content_file);
+                }
+            }
+        }
+
+        if (versions[title_id] == version) {
+            entries.insert_or_assign(std::make_tuple(title_id, ContentRecordType::Meta, title_type),
+                                     nca_file);
+        }
+        // Always store Meta in all_entries as well
+        all_entries[entry_index].files[ContentRecordType::Meta] = nca_file;
     }
 }
 
@@ -1310,10 +1284,30 @@ void ExternalContentProvider::ProcessXCI(const VirtualFile& file) {
                 versions[title_id] = version;
             }
 
+            size_t entry_index = std::numeric_limits<size_t>::max();
+            for (size_t i = 0; i < all_entries.size(); ++i) {
+                if (all_entries[i].title_id == title_id && all_entries[i].version == version) {
+                    entry_index = i;
+                    break;
+                }
+            }
+
+            if (entry_index == std::numeric_limits<size_t>::max()) {
+                ExternalContentEntry new_entry;
+                new_entry.title_id = title_id;
+                new_entry.title_type = title_type;
+                new_entry.version = version;
+                new_entry.version_string = FormatTitleVersion(version);
+                all_entries.push_back(std::move(new_entry));
+                entry_index = all_entries.size() - 1;
+            }
+
             for (const auto& record : cnmt.GetContentRecords()) {
                 const auto nca_id_str = Common::HexToString(record.nca_id);
                 auto content_file = partition->GetFile(fmt::format("{}.nca", nca_id_str));
                 if (content_file) {
+                    all_entries[entry_index].files[record.type] = content_file;
+
                     if (versions[title_id] == version) {
                         entries.insert_or_assign(std::make_tuple(title_id, record.type, title_type),
                                                  content_file);
@@ -1321,22 +1315,53 @@ void ExternalContentProvider::ProcessXCI(const VirtualFile& file) {
                 }
             }
             if (versions[title_id] == version) {
-                entries.insert_or_assign(
-                    std::make_tuple(title_id, ContentRecordType::Meta, title_type), part_file);
+                entries.insert_or_assign(std::make_tuple(title_id, ContentRecordType::Meta, title_type),
+                                         part_file);
             }
+            // Always store Meta in all_entries as well
+            all_entries[entry_index].files[ContentRecordType::Meta] = part_file;
         }
     }
 }
 
 bool ExternalContentProvider::HasEntry(u64 title_id, ContentRecordType type) const {
-    for (const auto& [key, val] : entries) {
-        if (std::get<0>(key) == title_id && std::get<1>(key) == type)
-            return true;
-    }
-    return false;
+    return GetEntryRaw(title_id, type) != nullptr;
 }
 
 std::optional<u32> ExternalContentProvider::GetEntryVersion(u64 title_id) const {
+    const auto base_id = GetBaseTitleID(title_id);
+    const auto& disabled = Settings::values.disabled_addons[base_id];
+
+    u32 best_version = 0;
+    bool found_any = false;
+
+    for (const auto& entry : all_entries) {
+        if (entry.title_id != title_id)
+            continue;
+
+        bool is_disabled = false;
+        if (entry.title_type == TitleType::Update) {
+            std::string ver = entry.version_string;
+            if (!ver.empty() && ver[0] == 'v') {
+                ver = ver.substr(1);
+            }
+            const auto name_v = fmt::format("Update v{}", ver);
+            const auto name_no_v = fmt::format("Update {}", ver);
+            is_disabled = std::find(disabled.begin(), disabled.end(), name_v) != disabled.end() ||
+                          std::find(disabled.begin(), disabled.end(), name_no_v) != disabled.end();
+        }
+
+        if (!is_disabled) {
+            if (!found_any || entry.version > best_version) {
+                best_version = entry.version;
+                found_any = true;
+            }
+        }
+    }
+
+    if (found_any)
+        return best_version;
+
     if (auto it = versions.find(title_id); it != versions.end()) {
         return it->second;
     }
@@ -1348,6 +1373,46 @@ VirtualFile ExternalContentProvider::GetEntryUnparsed(u64 title_id, ContentRecor
 }
 
 VirtualFile ExternalContentProvider::GetEntryRaw(u64 title_id, ContentRecordType type) const {
+    const auto base_id = GetBaseTitleID(title_id);
+    const auto& disabled = Settings::values.disabled_addons[base_id];
+
+    u32 best_version = 0;
+    VirtualFile best_file = nullptr;
+    bool found_best = false;
+
+    for (const auto& entry : all_entries) {
+        if (entry.title_id != title_id)
+            continue;
+
+        const auto file_it = entry.files.find(type);
+        if (file_it == entry.files.end())
+            continue;
+
+        bool is_disabled = false;
+        if (entry.title_type == TitleType::Update) {
+            std::string ver = entry.version_string;
+            if (!ver.empty() && ver[0] == 'v') {
+                ver = ver.substr(1);
+            }
+            const auto name_v = fmt::format("Update v{}", ver);
+            const auto name_no_v = fmt::format("Update {}", ver);
+            is_disabled = std::find(disabled.begin(), disabled.end(), name_v) != disabled.end() ||
+                          std::find(disabled.begin(), disabled.end(), name_no_v) != disabled.end();
+        }
+
+        if (!is_disabled) {
+            if (!found_best || entry.version > best_version) {
+                best_version = entry.version;
+                best_file = file_it->second;
+                found_best = true;
+            }
+        }
+    }
+
+    if (found_best)
+        return best_file;
+
+    // Fallback to legacy entries map if no dynamic match found
     for (const auto& [key, val] : entries) {
         if (std::get<0>(key) == title_id && std::get<1>(key) == type)
             return val;
@@ -1384,22 +1449,22 @@ std::vector<ContentProviderEntry> ExternalContentProvider::ListEntriesFilter(
     return out;
 }
 
-std::vector<ExternalUpdateEntry> ExternalContentProvider::ListUpdateVersions(u64 title_id) const {
-    std::vector<ExternalUpdateEntry> out;
+std::vector<ExternalContentEntry> ExternalContentProvider::ListUpdateVersions(u64 title_id) const {
+    std::vector<ExternalContentEntry> out;
     std::copy_if(
-        multi_version_entries.begin(), multi_version_entries.end(), std::back_inserter(out),
-        [title_id](const ExternalUpdateEntry& entry) { return entry.title_id == title_id; });
+        all_entries.begin(), all_entries.end(), std::back_inserter(out),
+        [title_id](const ExternalContentEntry& entry) { return entry.title_id == title_id; });
     return out;
 }
 
 VirtualFile ExternalContentProvider::GetEntryForVersion(u64 title_id, ContentRecordType type,
                                                         u32 version) const {
-    const auto it = std::find_if(multi_version_entries.begin(), multi_version_entries.end(),
-                                 [title_id, version](const ExternalUpdateEntry& entry) {
+    const auto it = std::find_if(all_entries.begin(), all_entries.end(),
+                                 [title_id, version](const ExternalContentEntry& entry) {
                                      return entry.title_id == title_id && entry.version == version;
                                  });
 
-    if (it != multi_version_entries.end()) {
+    if (it != all_entries.end()) {
         const auto file_it = it->files.find(type);
         if (file_it != it->files.end()) {
             return file_it->second;
@@ -1411,8 +1476,8 @@ VirtualFile ExternalContentProvider::GetEntryForVersion(u64 title_id, ContentRec
 bool ExternalContentProvider::HasMultipleVersions(u64 title_id, ContentRecordType type) const {
     // Only updates (type check usually handled by caller, but good to be safe if strictly for
     // updates) Multi_version_entries only stores updates currently.
-    return std::count_if(multi_version_entries.begin(), multi_version_entries.end(),
-                         [title_id](const ExternalUpdateEntry& entry) {
+    return std::count_if(all_entries.begin(), all_entries.end(),
+                         [title_id](const ExternalContentEntry& entry) {
                              return entry.title_id == title_id;
                          }) > 1;
 }

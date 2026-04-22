@@ -3,9 +3,33 @@
 
 #pragma once
 
+#include <array>
+#include <string>
+#include <fmt/format.h>
 #include "common/common_types.h"
 
 namespace FileSys {
+
+enum class TitleVersionFormat : u8 {
+    ThreeElements, ///< vX.Y.Z
+    FourElements,  ///< vX.Y.Z.W
+};
+
+inline std::string FormatTitleVersion(u32 version,
+                                      TitleVersionFormat format = TitleVersionFormat::ThreeElements) {
+    constexpr u32 SINGLE_BYTE_MODULUS = 0x100;
+    std::array<u8, sizeof(u32)> bytes{};
+    bytes[0] = static_cast<u8>(version % SINGLE_BYTE_MODULUS);
+    for (std::size_t i = 1; i < bytes.size(); ++i) {
+        version /= SINGLE_BYTE_MODULUS;
+        bytes[i] = static_cast<u8>(version % SINGLE_BYTE_MODULUS);
+    }
+
+    if (format == TitleVersionFormat::FourElements) {
+        return fmt::format("v{}.{}.{}.{}", bytes[3], bytes[2], bytes[1], bytes[0]);
+    }
+    return fmt::format("v{}.{}.{}", bytes[3], bytes[2], bytes[1]);
+}
 
 constexpr u64 AOC_TITLE_ID_MASK = 0x7FF;
 constexpr u64 AOC_TITLE_ID_OFFSET = 0x1000;

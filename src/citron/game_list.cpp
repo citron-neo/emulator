@@ -2561,29 +2561,7 @@ void GameList::ValidateEntry(const QModelIndex& item) {
     case GameListItemType::AddDir:
         emit AddDirectory();
 
-        if (UISettings::values.prompt_for_autoloader) {
-            QMessageBox msg_box(this);
-            msg_box.setWindowTitle(tr("Autoloader"));
-            msg_box.setText(
-                tr("Would you like to use the Autoloader to install all Updates/DLC within your "
-                   "game directories?\n\n"
-                   "If not now, you can always go to Emulation -> Configure -> Filesystem in order "
-                   "to use this feature. Also, if you have multiple update files for a single "
-                   "game, you can use the Update Manager "
-                   "in File -> Install Updates with Update Manager."));
-            msg_box.setStandardButtons(QMessageBox::Yes | QMessageBox::No);
-            QCheckBox* check_box = new QCheckBox(tr("Do not ask me again"));
-            msg_box.setCheckBox(check_box);
 
-            if (msg_box.exec() == QMessageBox::Yes) {
-                emit RunAutoloaderRequested();
-            }
-
-            if (check_box->isChecked()) {
-                UISettings::values.prompt_for_autoloader = false;
-                emit SaveConfig();
-            }
-        }
         break;
     default:
         break;
@@ -3967,6 +3945,25 @@ void GameList::UpdateAccentColorStyles() {
     if (details_panel) {
         details_panel->ApplyTheme();
     }
+    if (slider_title_size) {
+        slider_title_size->setStyleSheet(
+            QStringLiteral("QSlider::groove:horizontal {"
+                           "  border: 1px solid %2;"
+                           "  height: 4px;"
+                           "  background: %3;"
+                           "  border-radius: 2px;"
+                           "}"
+                           "QSlider::handle:horizontal {"
+                           "  background: %1;"
+                           "  border: 1px solid %2;"
+                           "  width: 14px; height: 14px;"
+                           "  margin: -5px 0;"
+                           "  border-radius: 7px;"
+                           "}"
+                           "QSlider::handle:horizontal:hover { background: %4; }")
+                .arg(color_name, header_border, header_bg, accent_color.lighter(120).name()));
+    }
+
     RefreshTooltips();
 
     // Explicitly style the header with a clean, high-fidelity theme

@@ -468,6 +468,9 @@ public:
     /// Refreshes the external content provider with the latest settings.
     void RefreshExternalContent();
 
+    void SetQLaunchSession(bool is_qlaunch);
+    [[nodiscard]] bool IsQLaunchSession() const;
+
 private:
     struct Impl;
     std::unique_ptr<Impl> impl;

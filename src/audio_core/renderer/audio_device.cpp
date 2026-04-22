@@ -64,11 +64,13 @@ u32 AudioDevice::ListAudioOutputDeviceName(std::span<AudioDeviceName> out_buffer
 }
 
 void AudioDevice::SetDeviceVolumes(const f32 volume) {
-    output_sink.SetDeviceVolume(volume);
+    // Not forwarded to output_sink: on hardware this is a user-facing system
+    // setting, not a per-sample gain on game output.
+    last_requested_device_volume = volume;
 }
 
 f32 AudioDevice::GetDeviceVolume([[maybe_unused]] std::string_view name) const {
-    return output_sink.GetDeviceVolume();
+    return last_requested_device_volume;
 }
 
 Result AudioDevice::AcquireAudioOutputDeviceNotification(u32& event_handle, u64 device_id) const {

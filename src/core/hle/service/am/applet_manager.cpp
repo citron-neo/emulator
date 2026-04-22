@@ -271,7 +271,7 @@ void AppletManager::SetWindowSystem(WindowSystem* window_system) {
         return;
     }
 
-    if (Settings::values.qlaunch_enabled.GetValue() &&
+    if (Settings::values.qlaunch_enabled.GetValue() && m_system.IsQLaunchSession() &&
         m_window_system->GetOverlayDisplayApplet() == nullptr) {
         if (auto overlay_process =
                 CreateProcess(m_system, static_cast<u64>(AppletProgramId::OverlayDisplay), 0, 0)) {
