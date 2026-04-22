@@ -147,12 +147,11 @@ Result TimeZoneService::ToPosixTime(Out<u32> out_count,
                                     const CalendarTime& calendar_time, InRule rule) {
     SCOPE_EXIT {
         LOG_DEBUG(Service_Time,
-                  "called. calendar_time={} out_count={} out_times[0]={} out_times[1]={} ",
-                  calendar_time, *out_count, out_times[0], out_times[1]);
+            "called. calendar_time={} out_count={} out_times[0]={} out_times[1]={} ",
+            calendar_time, *out_count, out_times.size() > 0 ? out_times[0] : u64{0},
+            out_times.size() > 1 ? out_times[1] : u64{0});
     };
-
-    R_RETURN(
-        m_time_zone.ToPosixTime(*out_count, out_times, out_times.size(), calendar_time, *rule));
+    R_RETURN(m_time_zone.ToPosixTime(*out_count, out_times, out_times.size(), calendar_time, *rule));
 }
 
 Result TimeZoneService::ToPosixTimeWithMyRule(Out<u32> out_count,
