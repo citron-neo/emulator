@@ -7,6 +7,7 @@
 #include <span>
 
 #include <tz/tz.h>
+#include "common/thread_mutex.h"
 #include "core/hle/service/psc/time/common.h"
 
 namespace Service::PSC::Time {
@@ -52,7 +53,7 @@ private:
                            const CalendarTime& calendar, const Tz::Rule& rule, s32 is_dst);
 
     bool m_initialized{};
-    std::recursive_mutex m_mutex;
+    Common::ThreadIdMutex m_mutex;
     LocationName m_location{};
     Tz::Rule m_my_rule{};
     SteadyClockTimePoint m_steady_clock_time_point{};

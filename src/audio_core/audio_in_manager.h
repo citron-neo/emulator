@@ -8,6 +8,7 @@
 #include <vector>
 
 #include "audio_core/renderer/audio_device.h"
+#include "common/thread_mutex.h"
 
 namespace Core {
 class System;
@@ -85,7 +86,7 @@ public:
     /// Whether the sessions have been started
     bool sessions_started{};
     /// Protect state due to audio manager callback
-    std::recursive_mutex mutex{};
+    Common::ThreadIdMutex mutex{};
 };
 
 } // namespace AudioCore::AudioIn

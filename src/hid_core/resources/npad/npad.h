@@ -9,6 +9,7 @@
 #include <span>
 
 #include "common/common_types.h"
+#include "common/thread_mutex.h"
 #include "hid_core/hid_types.h"
 #include "hid_core/resources/abstracted_pad/abstract_pad.h"
 #include "hid_core/resources/controller_base.h"
@@ -131,7 +132,7 @@ public:
     Result RegisterAppletResourceUserId(u64 aruid);
     void UnregisterAppletResourceUserId(u64 aruid);
     void SetNpadExternals(std::shared_ptr<AppletResource> resource,
-                          std::recursive_mutex* shared_mutex,
+                          Common::ThreadIdMutex* shared_mutex,
                           std::shared_ptr<HandheldConfig> handheld_config,
                           Kernel::KEvent* input_event, std::mutex* input_mutex,
                           std::shared_ptr<Service::Set::ISystemSettingsServer> settings);

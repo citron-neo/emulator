@@ -197,7 +197,7 @@ void TouchResource::SetTouchDriver(std::shared_ptr<TouchDriver> driver) {
 }
 
 void TouchResource::SetAppletResource(std::shared_ptr<AppletResource> shared,
-                                      std::recursive_mutex* mutex) {
+                                      Common::ThreadIdMutex* mutex) {
     applet_resource = shared;
     shared_mutex = mutex;
 }

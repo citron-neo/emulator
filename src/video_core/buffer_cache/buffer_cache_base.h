@@ -32,6 +32,7 @@
 #include "video_core/memory_manager.h"
 #include "video_core/surface.h"
 #include "video_core/texture_cache/types.h"
+#include "common/thread_mutex.h"
 
 namespace VideoCommon {
 
@@ -307,7 +308,7 @@ public:
         } while (channel_state->has_deleted_buffers);
     }
 
-    std::recursive_mutex mutex;
+    Common::ThreadIdMutex mutex;
     Runtime& runtime;
 
 private:

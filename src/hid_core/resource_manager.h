@@ -5,6 +5,7 @@
 
 #include "core/hle/service/kernel_helpers.h"
 #include "core/hle/service/service.h"
+#include "common/thread_mutex.h"
 
 namespace Core {
 class System;
@@ -124,7 +125,7 @@ private:
 
     bool is_initialized{false};
 
-    mutable std::recursive_mutex shared_mutex;
+    mutable Common::ThreadIdMutex shared_mutex;
     std::shared_ptr<AppletResource> applet_resource{nullptr};
 
     mutable std::mutex input_mutex;

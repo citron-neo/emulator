@@ -17,6 +17,7 @@
 #include <vector>
 
 #include "common/assert.h"
+#include "common/thread_mutex.h"
 #include "common/settings.h"
 #include "common/slot_vector.h"
 #include "video_core/control/channel_state_cache.h"
@@ -155,7 +156,7 @@ public:
             async_job.value = *result;
             query->SetAsyncJob(NULL_ASYNC_JOB_ID);
         }
-        AsyncFlushQuery(query, timestamp, lock);
+        AsyncFlushQuery(query, timestamp, std::move(lock));
     }
 
     /// Enables all available GPU counters
@@ -299,8 +300,8 @@ private:
         return found != std::end(contents) ? &*found : nullptr;
     }
 
-    void AsyncFlushQuery(CachedQuery* query, std::optional<u64> timestamp,
-                         std::unique_lock<std::recursive_mutex>& lock) {
+    template<typename T>
+    void AsyncFlushQuery(CachedQuery* query, std::optional<u64> timestamp, std::unique_lock<T>&& lock) {
         const AsyncJobId new_async_job_id = slot_async_jobs.insert();
         {
             AsyncJob& async_job = slot_async_jobs[new_async_job_id];
@@ -346,7 +347,7 @@ private:
     VideoCore::RasterizerInterface& rasterizer;
     Tegra::MaxwellDeviceMemoryManager& device_memory;
 
-    mutable std::recursive_mutex mutex;
+    mutable Common::ThreadIdMutex mutex;
 
     std::unordered_map<u64, std::vector<CachedQuery>> cached_queries;
 

@@ -6,6 +6,7 @@
 #include <mutex>
 
 #include "audio_core/out/audio_out_system.h"
+#include "common/thread_mutex.h"
 
 namespace Core {
 class System;
@@ -137,7 +138,7 @@ private:
     /// The AudioOut::Manager this audio out is registered with
     Manager& manager;
     /// Manager's mutex
-    std::recursive_mutex& parent_mutex;
+    Common::ThreadIdMutex& parent_mutex;
     /// Buffer event, signalled when buffers are ready to be released
     Kernel::KEvent* event;
     /// Main audio out system

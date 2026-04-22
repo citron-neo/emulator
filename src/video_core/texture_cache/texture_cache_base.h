@@ -36,6 +36,7 @@
 #include "video_core/texture_cache/render_targets.h"
 #include "video_core/texture_cache/types.h"
 #include "video_core/textures/texture.h"
+#include "common/thread_mutex.h"
 
 namespace Tegra {
 namespace Control {
@@ -259,7 +260,7 @@ public:
     /// Prepare an image to be used
     void PrepareImage(ImageId image_id, bool is_modification, bool invalidate);
 
-    std::recursive_mutex mutex;
+    Common::ThreadIdMutex mutex;
 
 private:
     /// Iterate over all page indices in a range

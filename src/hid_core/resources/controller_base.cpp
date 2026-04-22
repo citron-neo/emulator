@@ -33,7 +33,7 @@ bool ControllerBase::IsControllerActivated() const {
 }
 
 void ControllerBase::SetAppletResource(std::shared_ptr<AppletResource> resource,
-                                       std::recursive_mutex* resource_mutex) {
+                                       Common::ThreadIdMutex* resource_mutex) {
     applet_resource = resource;
     shared_mutex = resource_mutex;
 }
