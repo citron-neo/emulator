@@ -22,7 +22,6 @@
 #include "frontend_common/content_manager.h"
 #include "input_common/drivers/tas_input.h"
 
-
 #ifdef __unix__
 #include <QVariant>
 #include <QtDBus/QDBusInterface>
@@ -190,6 +189,7 @@ signals:
     void UpdateThemedIcons();
     void themeChanged();
     void UpdateInstallProgress();
+
     void AmiiboSettingsFinished(bool is_success, const std::string& name);
     void ControllerSelectorReconfigureFinished(bool is_success);
     void ErrorDisplayFinished();
@@ -238,7 +238,6 @@ private:
     void LinkActionShortcut(QAction* action, const QString& action_name,
                             const bool tas_allowed = false);
     void RegisterMetaTypes();
-    void RegisterAutoloaderContents();
     void InitializeWidgets();
     void InitializeDebugWidgets();
     void InitializeRecentFileMenuActions();
@@ -281,7 +280,7 @@ private:
     Service::AM::FrontendAppletParameters SystemAppletParameters(u64 program_id,
                                                                  Service::AM::AppletId applet_id);
     void SetupHomeMenuCallback();
-    std::unique_ptr<FileSys::ManualContentProvider> autoloader_provider;
+
     u64 current_title_id{0};
 private slots:
     void OnStartGame();
@@ -315,8 +314,7 @@ private slots:
     void OnMenuLoadFolder();
     void OnMenuInstallToNAND();
     void OnMenuTrimXCI();
-    void OnMenuInstallWithUpdateManager();
-    void OnRunAutoloaderFromGameList();
+
     void OnMenuRecentFile();
     void OnConfigure();
     void OnConfigureTas();
@@ -440,10 +438,10 @@ private:
     std::unique_ptr<DiscordRPC::DiscordInterface> discord_rpc;
     std::unique_ptr<PlayTime::PlayTimeManager> play_time_manager;
     MultiplayerState* multiplayer_state = nullptr;
-    GRenderWindow *render_window;
-    GameList *game_list;
-    ControllerNavigation *controller_navigation = nullptr;
-    QWidget *unified_top_bar = nullptr;
+    GRenderWindow* render_window;
+    GameList* game_list;
+    ControllerNavigation* controller_navigation = nullptr;
+    QWidget* unified_top_bar = nullptr;
     QHBoxLayout* unified_top_bar_layout = nullptr;
     LoadingScreen* loading_screen;
     QTimer shutdown_timer;

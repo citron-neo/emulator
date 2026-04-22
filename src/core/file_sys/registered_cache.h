@@ -222,8 +222,7 @@ enum class ContentProviderUnionSlot {
     UserNAND,       ///< User NAND
     SDMC,           ///< SD Card
     FrontendManual, ///< Frontend-defined game list or similar
-    Autoloader, ///< Separate functionality for multiple Updates/DLCs without being overwritten by
-                ///< NAND.
+
 };
 
 // Combines multiple ContentProvider(s) (i.e. SysNAND, UserNAND, SDMC) into one interface.

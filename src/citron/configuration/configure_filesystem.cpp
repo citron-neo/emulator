@@ -20,14 +20,13 @@
 #include "frontend_common/content_manager.h"
 #include "ui_configure_filesystem.h"
 
-static constexpr size_t ChunkCopyBufferSize = 0x400000;
+
 
 ConfigureFilesystem::ConfigureFilesystem(QWidget* parent)
     : QWidget(parent), ui(std::make_unique<Ui::ConfigureFilesystem>()) {
     ui->setupUi(this);
     SetConfiguration();
 
-    connect(ui->run_autoloader_button, &QPushButton::clicked, this, &ConfigureFilesystem::OnRunAutoloader);
     connect(ui->nand_directory_button, &QToolButton::pressed, this, [this] { SetDirectory(DirectoryTarget::NAND, ui->nand_directory_edit); });
     connect(ui->sdmc_directory_button, &QToolButton::pressed, this, [this] { SetDirectory(DirectoryTarget::SD, ui->sdmc_directory_edit); });
     connect(ui->gamecard_path_button, &QToolButton::pressed, this, [this] { SetDirectory(DirectoryTarget::Gamecard, ui->gamecard_path_edit); });
@@ -38,7 +37,7 @@ ConfigureFilesystem::ConfigureFilesystem(QWidget* parent)
     connect(ui->reset_game_list_cache, &QPushButton::pressed, this, &ConfigureFilesystem::ResetMetadata);
     connect(ui->gamecard_inserted, &QCheckBox::checkStateChanged, this, &ConfigureFilesystem::UpdateEnabledControls);
     connect(ui->gamecard_current_game, &QCheckBox::checkStateChanged, this, &ConfigureFilesystem::UpdateEnabledControls);
-    connect(this, &ConfigureFilesystem::UpdateInstallProgress, this, &ConfigureFilesystem::OnUpdateInstallProgress);
+
 
 #ifdef __linux__
     connect(ui->enable_backups_checkbox, &QCheckBox::toggled, this, &ConfigureFilesystem::UpdateEnabledControls);
@@ -74,7 +73,7 @@ void ConfigureFilesystem::SetConfiguration() {
     ui->dump_exefs->setChecked(Settings::values.dump_exefs.GetValue());
     ui->dump_nso->setChecked(Settings::values.dump_nso.GetValue());
     ui->cache_game_list->setChecked(UISettings::values.cache_game_list.GetValue());
-    ui->prompt_for_autoloader->setChecked(UISettings::values.prompt_for_autoloader.GetValue());
+
     ui->backup_saves_to_nand->setChecked(Settings::values.backup_saves_to_nand.GetValue());
 
     // NCA Scanning Toggle
@@ -106,7 +105,7 @@ void ConfigureFilesystem::ApplyConfiguration() {
     Settings::values.dump_exefs = ui->dump_exefs->isChecked();
     Settings::values.dump_nso = ui->dump_nso->isChecked();
     UISettings::values.cache_game_list = ui->cache_game_list->isChecked();
-    UISettings::values.prompt_for_autoloader = ui->prompt_for_autoloader->isChecked();
+
     Settings::values.backup_saves_to_nand.SetValue(ui->backup_saves_to_nand->isChecked());
 
     // NCA Scanning Toggle
@@ -323,147 +322,9 @@ void ConfigureFilesystem::MigrateBackups(const QString& old_path, const QString&
 }
 #endif
 
-void ConfigureFilesystem::OnUpdateInstallProgress() {
-    if (install_progress) {
-        install_progress->setValue(install_progress->value() + 1);
-    }
-}
 
-void ConfigureFilesystem::OnRunAutoloader(bool skip_confirmation) {
-    if (!skip_confirmation) {
-        QMessageBox msgBox;
-        msgBox.setWindowTitle(tr("Begin Autoloader?"));
-        msgBox.setText(tr("The Autoloader will scan your Game Directories for all .nsp files "
-                          "and attempt to install any found updates or DLC. This may take a while."));
-        msgBox.setStandardButtons(QMessageBox::Ok | QMessageBox::Cancel);
-        msgBox.setDefaultButton(QMessageBox::Ok);
-        if (msgBox.exec() != QMessageBox::Ok) {
-            return;
-        }
-    }
 
-    GMainWindow* main_window = qobject_cast<GMainWindow*>(this->parent());
-    if (!main_window) {
-        main_window = qobject_cast<GMainWindow*>(this->window()->parent());
-    }
 
-    if (!main_window) {
-        QMessageBox::critical(this, tr("Error"), tr("Could not find the main window."));
-        return;
-    }
-    Core::System* system = main_window->GetSystem();
-    const auto& vfs = main_window->GetVFS();
-    if (!system) {
-        QMessageBox::critical(this, tr("Error"), tr("System is not initialized."));
-        return;
-    }
-
-    QStringList files_to_install;
-    for (const auto& game_dir : UISettings::values.game_dirs) {
-        Common::FS::IterateDirEntriesRecursively(game_dir.path, [&](const auto& entry) {
-            if (!entry.is_directory() && entry.path().extension() == ".nsp") {
-                files_to_install.append(QString::fromStdString(entry.path().string()));
-            }
-            return true;
-        });
-    }
-
-    if (files_to_install.isEmpty()) {
-        QMessageBox::information(this, tr("Autoloader"), tr("No .nsp files found to install."));
-        return;
-    }
-
-    qint64 total_chunks = 0;
-    for (const QString& file : files_to_install) {
-        total_chunks += (QFileInfo(file).size() + ChunkCopyBufferSize - 1) / ChunkCopyBufferSize;
-    }
-    if (total_chunks == 0) {
-        QMessageBox::information(this, tr("Autoloader"), tr("Selected files are empty."));
-        return;
-    }
-
-    QStringList new_files{}, overwritten_files{}, failed_files{};
-    bool detected_base_install{};
-    bool was_cancelled = false;
-
-    install_progress = new QProgressDialog(QString{}, tr("Cancel"), 0, static_cast<int>(total_chunks), this);
-    install_progress->setWindowFlags(install_progress->windowFlags() & ~Qt::WindowContextHelpButtonHint);
-    install_progress->setAttribute(Qt::WA_DeleteOnClose, true);
-    install_progress->setFixedWidth(400);
-    connect(install_progress, &QObject::destroyed, this, [this]() { install_progress = nullptr; });
-    install_progress->show();
-
-    int remaining = files_to_install.size();
-    for (const QString& file : files_to_install) {
-        if (!install_progress || install_progress->wasCanceled()) {
-            was_cancelled = true;
-            break;
-        }
-
-        install_progress->setWindowTitle(tr("Autoloader - %n file(s) remaining", "", remaining));
-        install_progress->setLabelText(tr("Installing: %1").arg(QFileInfo(file).fileName()));
-
-        auto progress_callback = [this](size_t, size_t) {
-            emit UpdateInstallProgress();
-            if (!install_progress) return true;
-            return install_progress->wasCanceled();
-        };
-
-        QFuture<ContentManager::InstallResult> future =
-            QtConcurrent::run([&] { return ContentManager::InstallNSP(*system, *vfs, file.toStdString(), progress_callback); });
-
-        while (!future.isFinished()) {
-            QCoreApplication::processEvents();
-            std::this_thread::sleep_for(std::chrono::milliseconds(1));
-        }
-
-        ContentManager::InstallResult result = future.result();
-
-        switch (result) {
-        case ContentManager::InstallResult::Success:
-            new_files.append(QFileInfo(file).fileName());
-            break;
-        case ContentManager::InstallResult::Overwrite:
-            overwritten_files.append(QFileInfo(file).fileName());
-            break;
-        case ContentManager::InstallResult::Failure:
-            failed_files.append(QFileInfo(file).fileName());
-            break;
-        case ContentManager::InstallResult::BaseInstallAttempted:
-            failed_files.append(QFileInfo(file).fileName());
-            detected_base_install = true;
-            break;
-        }
-        --remaining;
-    }
-
-    if (install_progress) {
-        install_progress->close();
-    }
-
-    if (detected_base_install) {
-        QMessageBox::warning(this, tr("Install Results"), tr("Warning: Base games were detected and skipped. The autoloader is intended for updates and DLC."));
-    }
-
-    if (new_files.isEmpty() && overwritten_files.isEmpty() && failed_files.isEmpty()) {
-        if (!was_cancelled) {
-            QMessageBox::information(this, tr("Autoloader"), tr("No new files were installed."));
-        }
-    } else {
-        QString install_results = tr("Installation Complete!");
-        install_results.append(QLatin1String("\n\n"));
-        if (!new_files.isEmpty())
-            install_results.append(tr("%n file(s) were newly installed.", nullptr, new_files.size()));
-        if (!overwritten_files.isEmpty())
-            install_results.append(tr("\n%n file(s) were overwritten.", nullptr, overwritten_files.size()));
-        if (!failed_files.isEmpty())
-            install_results.append(tr("\n%n file(s) failed to install.", nullptr, failed_files.size()));
-        QMessageBox::information(this, tr("Install Results"), install_results);
-    }
-
-    Common::FS::RemoveDirRecursively(Common::FS::GetCitronPath(Common::FS::CitronPath::CacheDir) / "game_list");
-    emit RequestGameListRefresh();
-}
 
 void ConfigureFilesystem::MigrateSavesToGlobal(const QString& new_global_path) {
     const QString nand_root = QString::fromStdString(Common::FS::GetCitronPathString(Common::FS::CitronPath::NANDDir));

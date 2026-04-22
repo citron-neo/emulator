@@ -131,6 +131,8 @@ public:
     void ToggleSortOrder();
 
     QStandardItemModel* GetModel() const;
+    // Force MOC refresh
+
     QWidget* GetToolbarWidget() const { return toolbar; }
     void SetToolbarInMain(bool state) { toolbar_in_main = state; }
 
@@ -166,7 +168,7 @@ signals:
     void ShowList(bool show);
     void PopulatingCompleted();
     void SaveConfig();
-    void RunAutoloaderRequested();
+
 
 public slots:
     void OnConfigurationChanged();
@@ -318,3 +320,4 @@ private:
     QLabel* image = nullptr;
     QLabel* text = nullptr;
 };
+

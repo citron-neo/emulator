@@ -451,9 +451,7 @@ GMainWindow::GMainWindow(std::unique_ptr<QtConfig> config_, bool has_broken_vulk
     LOG_INFO(Frontend, "Initializing factories...");
     system->GetFileSystemController().CreateFactories(*vfs);
 
-    autoloader_provider = std::make_unique<FileSys::ManualContentProvider>();
-    system->RegisterContentProvider(FileSys::ContentProviderUnionSlot::Autoloader,
-                                    autoloader_provider.get());
+
 
     // Remove cached contents generated during the previous session
     RemoveCachedContents();
@@ -1820,8 +1818,7 @@ void GMainWindow::ConnectWidgetEvents() {
     connect(game_list, &GameList::AddDirectory, this, &GMainWindow::OnGameListAddDirectory);
     connect(game_list_placeholder, &GameListPlaceholder::AddDirectory, this,
             &GMainWindow::OnGameListAddDirectory);
-    connect(game_list, &GameList::RunAutoloaderRequested, this,
-            &GMainWindow::OnRunAutoloaderFromGameList);
+
     connect(game_list, &GameList::ShowList, this, &GMainWindow::OnGameListShowList);
     connect(game_list, &GameList::PopulatingCompleted,
             [this] { multiplayer_state->UpdateGameList(game_list->GetModel()); });
@@ -1906,8 +1903,7 @@ void GMainWindow::ConnectMenuEvents() {
     connect_menu(ui->action_Load_File, &GMainWindow::OnMenuLoadFile);
     connect_menu(ui->action_Load_Folder, &GMainWindow::OnMenuLoadFolder);
     connect_menu(ui->action_Install_File_NAND, &GMainWindow::OnMenuInstallToNAND);
-    connect(ui->action_Install_With_Update_Manager, &QAction::triggered, this,
-            &GMainWindow::OnMenuInstallWithUpdateManager);
+
     connect_menu(ui->action_Trim_XCI_File, &GMainWindow::OnMenuTrimXCI);
     connect_menu(ui->action_Exit, &QMainWindow::close);
     connect_menu(ui->action_Load_Amiibo, &GMainWindow::OnLoadAmiibo);
@@ -2322,7 +2318,7 @@ void GMainWindow::BootGame(const QString& filename, Service::AM::FrontendAppletP
     game_list->CancelPopulation();
     game_list->ClearLaunchOverlays();
 
-    RegisterAutoloaderContents();
+
 
     if (params.program_id == 0 ||
         params.program_id > static_cast<u64>(Service::AM::AppletProgramId::MaxProgramId)) {
@@ -6901,332 +6897,12 @@ void GMainWindow::CheckForUpdatesAutomatically() {
 #endif
 }
 
-void GMainWindow::RegisterAutoloaderContents() {
-    autoloader_provider->ClearAllEntries();
 
-    const auto sdmc_path = Common::FS::GetCitronPath(Common::FS::CitronPath::SDMCDir);
-    const auto autoloader_root = sdmc_path / "autoloader";
-    if (!Common::FS::IsDir(autoloader_root)) {
-        return;
-    }
 
-    LOG_INFO(Frontend, "Scanning for Autoloader contents...");
 
-    for (const auto& title_dir_entry : std::filesystem::directory_iterator(autoloader_root)) {
-        if (!title_dir_entry.is_directory())
-            continue;
-
-        try {
-            [[maybe_unused]] auto val =
-                std::stoull(title_dir_entry.path().filename().string(), nullptr, 16);
-        } catch (const std::invalid_argument&) {
-            continue;
-        }
-
-        const auto process_content_type = [&](const std::filesystem::path& content_path) {
-            if (!Common::FS::IsDir(content_path))
-                return;
-
-            for (const auto& mod_dir_entry : std::filesystem::directory_iterator(content_path)) {
-                if (!mod_dir_entry.is_directory())
-                    continue;
-
-                const std::string mod_name = mod_dir_entry.path().filename().string();
-                // We do NOT skip disabled content here.
-                // If we skip it here, it doesn't show up in the UI (Properties -> Add-ons),
-                // making it impossible for the user to re-enable it.
-                // The PatchManager (core/file_sys/patch_manager.cpp) handles the actual enforcement
-                // of disabled status during game load.
-
-                std::optional<FileSys::CNMT> cnmt;
-                for (const auto& file_entry :
-                     std::filesystem::directory_iterator(mod_dir_entry.path())) {
-                    if (file_entry.path().string().ends_with(".cnmt.nca")) {
-                        auto vfs_file =
-                            vfs->OpenFile(file_entry.path().string(), FileSys::OpenMode::Read);
-                        if (vfs_file) {
-                            FileSys::NCA meta_nca(vfs_file);
-                            if (meta_nca.GetStatus() == Loader::ResultStatus::Success &&
-                                !meta_nca.GetSubdirectories().empty()) {
-                                auto section0 = meta_nca.GetSubdirectories()[0];
-                                if (!section0->GetFiles().empty()) {
-                                    cnmt.emplace(section0->GetFiles()[0]);
-                                    break;
-                                }
-                            }
-                        }
-                    }
-                }
-
-                if (!cnmt)
-                    continue;
-
-                for (const auto& record : cnmt->GetContentRecords()) {
-                    std::string nca_filename = Common::HexToString(record.nca_id) + ".nca";
-                    std::filesystem::path nca_path = mod_dir_entry.path() / nca_filename;
-                    auto nca_vfs_file = vfs->OpenFile(nca_path.string(), FileSys::OpenMode::Read);
-                    if (nca_vfs_file) {
-                        autoloader_provider->AddEntry(cnmt->GetType(), record.type,
-                                                      cnmt->GetTitleID(), nca_vfs_file);
-                    }
-                }
-            }
-        };
-
-        process_content_type(title_dir_entry.path() / "Updates");
-        process_content_type(title_dir_entry.path() / "DLC");
-    }
-}
-
-void GMainWindow::OnMenuInstallWithUpdateManager() {
-    LOG_INFO(Loader, "UPDATE MANAGER: Starting update installation process.");
-
-    const QString file_filter = tr("Nintendo Submission Package (*.nsp)");
-    QStringList filenames = QFileDialog::getOpenFileNames(
-        this, tr("Select Update Files for Update Manager"),
-        QString::fromStdString(UISettings::values.roms_path), file_filter);
-
-    if (filenames.isEmpty()) {
-        return;
-    }
-
-    UISettings::values.roms_path = QFileInfo(filenames[0]).path().toStdString();
-
-    bool dlc_detected = false;
-    for (const QString& file : filenames) {
-        QString sanitized_path = file;
-        if (sanitized_path.contains(QLatin1String(".nsp/"))) {
-            sanitized_path =
-                sanitized_path.left(sanitized_path.indexOf(QLatin1String(".nsp/")) + 4);
-        }
-        auto vfs_file = vfs->OpenFile(sanitized_path.toStdString(), FileSys::OpenMode::Read);
-        if (vfs_file) {
-            FileSys::NSP nsp(vfs_file);
-            auto nsp_ncas = nsp.GetNCAs();
-            if (nsp.GetStatus() == Loader::ResultStatus::Success && !nsp_ncas.empty()) {
-                const auto& [title_id, nca_map] = *nsp_ncas.begin();
-                const auto meta_iter =
-                    std::find_if(nca_map.begin(), nca_map.end(), [](const auto& pair) {
-                        return pair.first.second == FileSys::ContentRecordType::Meta;
-                    });
-
-                if (meta_iter != nca_map.end()) {
-                    const auto& meta_nca = meta_iter->second;
-                    if (meta_nca && !meta_nca->GetSubdirectories().empty() &&
-                        !meta_nca->GetSubdirectories()[0]->GetFiles().empty()) {
-                        const auto cnmt_file = meta_nca->GetSubdirectories()[0]->GetFiles()[0];
-                        const FileSys::CNMT cnmt(cnmt_file);
-                        if (cnmt.GetType() != FileSys::TitleType::Update) {
-                            dlc_detected = true;
-                            break; // Found one DLC, no need to check further.
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    if (dlc_detected) {
-        QMessageBox::warning(this, tr("DLC Detected"),
-                             tr("The Update Manager is not compatible with DLC installations. "
-                                "Please select only update files."));
-        return; // Abort the operation.
-    }
-
-    qint64 total_size_bytes = 0;
-    for (const QString& file : filenames) {
-        QString sanitized_path = file;
-        if (sanitized_path.contains(QLatin1String(".nsp/"))) {
-            sanitized_path =
-                sanitized_path.left(sanitized_path.indexOf(QLatin1String(".nsp/")) + 4);
-        }
-        auto vfs_file = vfs->OpenFile(sanitized_path.toStdString(), FileSys::OpenMode::Read);
-        if (vfs_file) {
-            FileSys::NSP nsp(vfs_file);
-            if (nsp.GetStatus() == Loader::ResultStatus::Success) {
-                for (const auto& title_pair : nsp.GetNCAs()) {
-                    for (const auto& nca_pair : title_pair.second) {
-                        total_size_bytes += nca_pair.second->GetBaseFile()->GetSize();
-                    }
-                }
-            }
-        }
-    }
-
-    if (total_size_bytes == 0) {
-        QMessageBox::warning(this, tr("No files to install"),
-                             tr("Could not find any valid files to install in the selected NSPs."));
-        return;
-    }
-
-    QProgressDialog progress(tr("Installing Updates..."), tr("Cancel"), 0, 100, this);
-    progress.setWindowModality(Qt::WindowModal);
-    progress.setMinimumDuration(0);
-    progress.setValue(0);
-    progress.show();
-
-    qint64 total_copied_bytes = 0;
-    int success_count = 0;
-    QStringList failed_files;
-
-    for (const QString& file : filenames) {
-        progress.setLabelText(tr("Installing %1...").arg(QFileInfo(file).fileName()));
-        QCoreApplication::processEvents();
-
-        if (progress.wasCanceled()) {
-            break;
-        }
-
-        QString sanitized_path = file;
-        if (sanitized_path.contains(QLatin1String(".nsp/"))) {
-            sanitized_path =
-                sanitized_path.left(sanitized_path.indexOf(QLatin1String(".nsp/")) + 4);
-        }
-        const std::string file_path = sanitized_path.toStdString();
-        LOG_INFO(Loader, "UPDATE MANAGER: Processing sanitized file path: {}", file_path);
-
-        auto vfs_file = vfs->OpenFile(file_path, FileSys::OpenMode::Read);
-        if (!vfs_file) {
-            LOG_ERROR(Loader, "UPDATE MANAGER: FAILED at VFS Open. Could not open file: {}",
-                      file_path);
-            failed_files.append(QFileInfo(file).fileName() + tr(" (File Open Error)"));
-            continue;
-        }
-
-        FileSys::NSP nsp(vfs_file);
-        if (nsp.GetStatus() != Loader::ResultStatus::Success) {
-            LOG_ERROR(Loader, "UPDATE MANAGER: FAILED at NSP Parse for file: {}", file_path);
-            failed_files.append(QFileInfo(file).fileName() + tr(" (NSP Parse Error)"));
-            continue;
-        }
-
-        const auto title_map = nsp.GetNCAs();
-        if (title_map.empty()) {
-            LOG_ERROR(Loader, "UPDATE MANAGER: FAILED, NSP contains no titles: {}", file_path);
-            failed_files.append(QFileInfo(file).fileName() + tr(" (Empty NSP)"));
-            continue;
-        }
-
-        const auto& [title_id, nca_map] = *title_map.begin();
-        const auto& [type_pair, meta_nca] =
-            *std::find_if(nca_map.begin(), nca_map.end(), [](const auto& pair) {
-                return pair.first.second == FileSys::ContentRecordType::Meta;
-            });
-
-        if (!meta_nca || meta_nca->GetSubdirectories().empty() ||
-            meta_nca->GetSubdirectories()[0]->GetFiles().empty()) {
-            LOG_ERROR(Loader, "UPDATE MANAGER: FAILED at Metadata search for title {}: malformed.",
-                      title_id);
-            failed_files.append(QFileInfo(file).fileName() + tr(" (Malformed Metadata)"));
-            continue;
-        }
-
-        const auto cnmt_file = meta_nca->GetSubdirectories()[0]->GetFiles()[0];
-        const FileSys::CNMT cnmt(cnmt_file);
-
-        std::string type_folder = "Updates";
-        u64 program_id = FileSys::GetBaseTitleID(title_id);
-        QString nsp_name = QFileInfo(sanitized_path).completeBaseName();
-        std::string sdmc_path = Common::FS::GetCitronPathString(Common::FS::CitronPath::SDMCDir);
-        std::string dest_path_str = fmt::format("{}/autoloader/{:016X}/{}/{}", sdmc_path,
-                                                program_id, type_folder, nsp_name.toStdString());
-
-        auto dest_dir =
-            VfsFilesystemCreateDirectoryWrapper(vfs, dest_path_str, FileSys::OpenMode::ReadWrite);
-        if (!dest_dir) {
-            LOG_ERROR(Loader, "UPDATE MANAGER: FAILED to create destination directory: {}",
-                      dest_path_str);
-            failed_files.append(QFileInfo(file).fileName() + tr(" (Directory Creation Error)"));
-            continue;
-        }
-
-        bool copy_failed = false;
-        for (const auto& [key, nca] : nca_map) {
-            auto source_file = nca->GetBaseFile();
-            auto dest_file = dest_dir->CreateFileRelative(source_file->GetName());
-
-            if (!dest_file) {
-                LOG_ERROR(Loader, "UPDATE MANAGER: FAILED to create destination file for {}.",
-                          source_file->GetName());
-                copy_failed = true;
-                break;
-            }
-
-            if (!dest_file->Resize(source_file->GetSize())) {
-                LOG_ERROR(Loader, "UPDATE MANAGER: FAILED to resize destination file for {}.",
-                          source_file->GetName());
-                copy_failed = true;
-                break;
-            }
-
-            std::vector<u8> buffer(CopyBufferSize);
-            for (std::size_t i = 0; i < source_file->GetSize(); i += buffer.size()) {
-                if (progress.wasCanceled()) {
-                    dest_file->Resize(0);
-                    copy_failed = true;
-                    break;
-                }
-
-                const auto bytes_to_read = std::min(buffer.size(), source_file->GetSize() - i);
-                const auto bytes_read = source_file->Read(buffer.data(), bytes_to_read, i);
-
-                if (bytes_read == 0 && i < source_file->GetSize()) {
-                    LOG_ERROR(Loader, "UPDATE MANAGER: FAILED to read from source file {}.",
-                              source_file->GetName());
-                    copy_failed = true;
-                    break;
-                }
-
-                dest_file->Write(buffer.data(), bytes_read, i);
-
-                total_copied_bytes += bytes_read;
-                progress.setValue((total_copied_bytes * 100) / total_size_bytes);
-                QCoreApplication::processEvents();
-            }
-
-            if (copy_failed) {
-                break;
-            }
-        }
-
-        if (progress.wasCanceled()) {
-            failed_files.append(QFileInfo(file).fileName() + tr(" (Cancelled)"));
-            vfs->DeleteDirectory(dest_path_str);
-            break;
-        }
-
-        if (copy_failed) {
-            failed_files.append(QFileInfo(file).fileName());
-            vfs->DeleteDirectory(dest_path_str);
-        } else {
-            success_count++;
-        }
-    }
-
-    progress.close();
-
-    QString message = tr("Update Manager install finished.");
-    if (success_count > 0) {
-        message += tr("\n%n file(s) successfully installed.", "", success_count);
-    }
-    if (!failed_files.isEmpty()) {
-        message += tr("\n%n file(s) failed to install:", "", failed_files.size());
-        message += QStringLiteral("\n- ") + failed_files.join(QStringLiteral("\n- "));
-    }
-    QMessageBox::information(this, tr("Install Complete"), message);
-
-    RegisterAutoloaderContents();
-    game_list->PopulateAsync(UISettings::values.game_dirs);
-}
 
 void GMainWindow::OnToggleGridView() {
     game_list->ToggleViewMode();
 }
 
-void GMainWindow::OnRunAutoloaderFromGameList() {
-    // This creates a temporary instance of the filesystem logic,
-    // calls the autoloader function, and then the instance is automatically cleaned up.
-    // We pass 'this' (the GMainWindow) as the parent.
-    ConfigureFilesystem fs_logic(this);
-    fs_logic.OnRunAutoloader(true);
-}
+

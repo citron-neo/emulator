@@ -22,14 +22,15 @@ public:
     ~ConfigureFilesystem() override;
 
     void ApplyConfiguration();
-    void OnRunAutoloader(bool skip_confirmation = false);
+    // Force MOC refresh
+
 
 signals:
-    void UpdateInstallProgress();
+
     void RequestGameListRefresh();
 
 private slots:
-    void OnUpdateInstallProgress();
+
 
 private:
     void changeEvent(QEvent* event) override;
@@ -50,3 +51,4 @@ private:
     bool m_old_custom_backup_enabled{};
     QString m_old_backup_path;
 };
+

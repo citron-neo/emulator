@@ -93,7 +93,7 @@ public:
     [[nodiscard]] Metadata ParseControlNCA(const NCA& nca) const;
 
 private:
-    [[nodiscard]] VirtualFile FindAutoloaderNCA(ContentRecordType type) const;
+
     [[nodiscard]] std::vector<VirtualFile> CollectPatches(const std::vector<VirtualDir>& patch_dirs,
                                                           const std::string& build_id) const;
 
