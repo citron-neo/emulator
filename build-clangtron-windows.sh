@@ -495,6 +495,28 @@ setup_llvm_mingw_path() {
     MINGW_CLANGPP="${LLVM_MINGW_DIR}/bin/${MINGW_TRIPLE}-clang++"
 }
 
+ensure_aqt() {
+    if command -v aqt &>/dev/null || "${HOME}/.local/bin/aqt" --version &>/dev/null 2>&1; then
+        return 0
+    fi
+
+    local python_mm=""
+    python_mm="$(python3 -c 'import sys; print(f"{sys.version_info[0]}.{sys.version_info[1]}")' 2>/dev/null || true)"
+
+    if [[ "${_HOST_OS}" == "windows" && "${python_mm}" == "3.11" ]]; then
+        error "aqt is not installed, and auto-install is disabled on MSYS2 CLANG64 Python 3.11.\n" \
+              "       Reason: pip may try to build backports.zstd from source, which commonly fails\n" \
+              "       in this environment with: unknown file type '.s'.\n" \
+              "       Recommended next steps:\n" \
+              "         1. Update MSYS2 fully (pacman -Syu, restart shell, then pacman -Su)\n" \
+              "         2. Re-check python3 --version in the CLANG64 shell\n" \
+              "         3. If Python is still 3.11, install aqt via pacman if available, or use a\n" \
+              "            newer Python environment before re-running this script."
+    fi
+
+    python3 -m pip install aqtinstall --break-system-packages --quiet
+}
+
 # =============================================================================
 # Build BOLT from source (LLVM subproject)
 # BOLT for current LLVM versions is not in the LLVM apt repo for noble
@@ -2269,9 +2291,7 @@ stage_generate() {
     local qt_host_dir="${BUILD_GENERATE}/externals/qt-host/6.9.3/gcc_64"
     local qt6_cmake_dir="${qt_install_dir}/lib/cmake/Qt6"
 
-    if ! command -v aqt &>/dev/null && ! "${HOME}/.local/bin/aqt" --version &>/dev/null; then
-        python3 -m pip install aqtinstall --break-system-packages --quiet
-    fi
+    ensure_aqt
     local aqt_bin
     aqt_bin="$(command -v aqt 2>/dev/null || echo "${HOME}/.local/bin/aqt")"
 
@@ -2807,10 +2827,7 @@ stage_use() {
         if [[ -z "${qt6_cmake_dir}" ]]; then
             warn "No cached Qt found in generate or prior nopgo build."
             warn "Downloading Qt via aqt into ${nopgo_dir}/externals/qt ..."
-            if ! command -v aqt &>/dev/null && \
-               ! "${HOME}/.local/bin/aqt" --version &>/dev/null 2>&1; then
-                python3 -m pip install aqtinstall --break-system-packages --quiet
-            fi
+            ensure_aqt
             local _aqt; _aqt="$(command -v aqt 2>/dev/null || echo "${HOME}/.local/bin/aqt")"
             mkdir -p "${nopgo_dir}/externals/qt"
             "${_aqt}" install-qt windows desktop 6.9.3 win64_llvm_mingw \
@@ -2834,10 +2851,7 @@ stage_use() {
             [[ ! -d "${_qt_install_root}/plugins/imageformats" ]] && _nopgo_needs_modules=1
             if [[ "${_nopgo_needs_modules}" -eq 1 ]]; then
                 info "Qt6 modules (multimedia + imageformats) missing — installing via aqt..."
-                if ! command -v aqt &>/dev/null && \
-                   ! "${HOME}/.local/bin/aqt" --version &>/dev/null 2>&1; then
-                    python3 -m pip install aqtinstall --break-system-packages --quiet
-                fi
+                ensure_aqt
                 local _aqt_mm; _aqt_mm="$(command -v aqt 2>/dev/null || echo "${HOME}/.local/bin/aqt")"
                 local _mm_ver _mm_outdir
                 _mm_ver="$(basename "$(dirname "${_qt_install_root}")")"
