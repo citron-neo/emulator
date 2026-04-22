@@ -47,27 +47,6 @@
 namespace FileSys {
 namespace {
 
-constexpr u32 SINGLE_BYTE_MODULUS = 0x100;
-
-enum class TitleVersionFormat : u8 {
-    ThreeElements, ///< vX.Y.Z
-    FourElements,  ///< vX.Y.Z.W
-};
-
-std::string FormatTitleVersion(u32 version,
-                               TitleVersionFormat format = TitleVersionFormat::ThreeElements) {
-    std::array<u8, sizeof(u32)> bytes{};
-    bytes[0] = static_cast<u8>(version % SINGLE_BYTE_MODULUS);
-    for (std::size_t i = 1; i < bytes.size(); ++i) {
-        version /= SINGLE_BYTE_MODULUS;
-        bytes[i] = static_cast<u8>(version % SINGLE_BYTE_MODULUS);
-    }
-
-    if (format == TitleVersionFormat::FourElements) {
-        return fmt::format("v{}.{}.{}.{}", bytes[3], bytes[2], bytes[1], bytes[0]);
-    }
-    return fmt::format("v{}.{}.{}", bytes[3], bytes[2], bytes[1]);
-}
 
 VirtualDir FindSubdirectoryCaseless(const VirtualDir dir, std::string_view name) {
 #ifdef _WIN32
@@ -231,16 +210,21 @@ VirtualDir PatchManager::PatchExeFS(VirtualDir exefs) const {
         if (content_provider_union) {
             const auto* external_provider = content_provider_union->GetExternalProvider();
             if (external_provider) {
-                const auto updates = external_provider->ListUpdateVersions(title_id);
+                const auto update_tid = GetUpdateTitleID(title_id);
+                const auto updates = external_provider->ListUpdateVersions(update_tid);
                 for (const auto& update : updates) {
-                    const auto name = fmt::format("Update {}", update.version_string);
+                    std::string ver = update.version_string;
+                    if (!ver.empty() && ver[0] == 'v') {
+                        ver = ver.substr(1);
+                    }
+                    const auto name = fmt::format("Update v{}", ver);
                     const auto patch_disabled =
                         std::find(disabled.cbegin(), disabled.cend(), name) != disabled.cend();
                     if (!patch_disabled) {
                         if (!found_best || update.version > best_version) {
                             best_version = update.version;
                             best_update_raw = external_provider->GetEntryForVersion(
-                                title_id, ContentRecordType::Program, update.version);
+                                update_tid, ContentRecordType::Program, update.version);
                             found_best = true;
                         }
                     }
@@ -255,7 +239,10 @@ VirtualDir PatchManager::PatchExeFS(VirtualDir exefs) const {
         const auto& nacp = metadata.first;
 
         if (nacp) {
-            const auto version_str = nacp->GetVersionString();
+            auto version_str = nacp->GetVersionString();
+            if (!version_str.empty() && version_str[0] == 'v') {
+                version_str = version_str.substr(1);
+            }
             const auto name =
                 fmt::format("Update v{}", version_str); // Matches GetPatches NACP branch
             const auto patch_disabled =
@@ -272,9 +259,12 @@ VirtualDir PatchManager::PatchExeFS(VirtualDir exefs) const {
         } else if (content_provider.HasEntry(update_tid, ContentRecordType::Program)) {
             const auto meta_ver = content_provider.GetEntryVersion(update_tid);
             if (meta_ver.value_or(0) != 0) {
-                const auto version_str = FormatTitleVersion(*meta_ver);
+                auto version_str = FormatTitleVersion(*meta_ver);
+                if (!version_str.empty() && version_str[0] == 'v') {
+                    version_str = version_str.substr(1);
+                }
                 const auto name =
-                    fmt::format("Update {}", version_str); // Matches GetPatches fallback
+                    fmt::format("Update v{}", version_str); // Matches GetPatches fallback
                 const auto patch_disabled =
                     std::find(disabled.cbegin(), disabled.cend(), name) != disabled.cend();
                 if (!patch_disabled) {
@@ -640,6 +630,10 @@ VirtualFile PatchManager::PatchRomFS(const NCA* base_nca, VirtualFile base_romfs
                         version_str = FormatTitleVersion(update.version);
                     }
 
+                    if (!version_str.empty() && version_str[0] == 'v') {
+                        version_str = version_str.substr(1);
+                    }
+
                     const auto name = fmt::format("Update v{}", version_str);
                     const auto patch_disabled =
                         std::find(disabled.cbegin(), disabled.cend(), name) != disabled.cend();
@@ -663,7 +657,10 @@ VirtualFile PatchManager::PatchRomFS(const NCA* base_nca, VirtualFile base_romfs
             const auto& nacp = metadata.first;
 
             if (nacp) {
-                const auto version_str = nacp->GetVersionString();
+                auto version_str = nacp->GetVersionString();
+                if (!version_str.empty() && version_str[0] == 'v') {
+                    version_str = version_str.substr(1);
+                }
                 const auto name = fmt::format("Update v{}", version_str);
                 const auto patch_disabled =
                     std::find(disabled.cbegin(), disabled.cend(), name) != disabled.cend();
@@ -678,8 +675,11 @@ VirtualFile PatchManager::PatchRomFS(const NCA* base_nca, VirtualFile base_romfs
             } else if (content_provider.HasEntry(update_tid, ContentRecordType::Program)) {
                 const auto meta_ver = content_provider.GetEntryVersion(update_tid);
                 if (meta_ver.value_or(0) != 0) {
-                    const auto version_str = FormatTitleVersion(*meta_ver);
-                    const auto name = fmt::format("Update {}", version_str);
+                    auto version_str = FormatTitleVersion(*meta_ver);
+                    if (!version_str.empty() && version_str[0] == 'v') {
+                        version_str = version_str.substr(1);
+                    }
+                    const auto name = fmt::format("Update v{}", version_str);
                     const auto patch_disabled =
                         std::find(disabled.cbegin(), disabled.cend(), name) != disabled.cend();
                     if (!patch_disabled) {
@@ -819,7 +819,10 @@ std::vector<Patch> PatchManager::GetPatches(VirtualFile update_raw) const {
 
     if (nacp != nullptr) {
         // System update found
-        const auto version_str = nacp->GetVersionString();
+        auto version_str = nacp->GetVersionString();
+        if (!version_str.empty() && version_str[0] == 'v') {
+            version_str = version_str.substr(1);
+        }
         const auto name = fmt::format("Update v{}", version_str);
         const auto patch_disabled =
             std::find(disabled.cbegin(), disabled.cend(), name) != disabled.cend();
@@ -835,8 +838,11 @@ std::vector<Patch> PatchManager::GetPatches(VirtualFile update_raw) const {
         // Fallback for system update without control NCA (rare)
         const auto meta_ver = content_provider.GetEntryVersion(update_tid);
         if (meta_ver.value_or(0) != 0) {
-            const auto version_str = FormatTitleVersion(*meta_ver);
-            const auto name = fmt::format("Update {}", version_str);
+            auto version_str = FormatTitleVersion(*meta_ver);
+            if (!version_str.empty() && version_str[0] == 'v') {
+                version_str = version_str.substr(1);
+            }
+            const auto name = fmt::format("Update v{}", version_str);
             const auto patch_disabled =
                 std::find(disabled.cbegin(), disabled.cend(), name) != disabled.cend();
 
