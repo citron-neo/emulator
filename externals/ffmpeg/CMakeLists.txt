@@ -265,15 +265,23 @@ elseif(WIN32)
                 "vcpkg install has completed successfully.")
         endif()
 
-        # Derive the DLL directory from the first .lib in FFmpeg_LIBRARIES.
-        # vcpkg layout:  vcpkg_installed/<triplet>/lib/avcodec.lib
-        #                vcpkg_installed/<triplet>/bin/avcodec-XX.dll
-        # CopyCitronFFmpegDeps.cmake reads FFmpeg_LIBRARY_DIR to locate DLLs.
-        list(GET FFmpeg_LIBRARIES 0 _ffmpeg_first_lib)
-        get_filename_component(_ffmpeg_lib_dir "${_ffmpeg_first_lib}" DIRECTORY)
-        get_filename_component(_ffmpeg_install_root "${_ffmpeg_lib_dir}" DIRECTORY)
-        set(FFmpeg_LIBRARY_DIR "${_ffmpeg_install_root}/bin"
-            CACHE PATH "Path to FFmpeg DLL directory" FORCE)
+        # Derive the DLL directories from the include path.
+        # vcpkg layout:
+        #   <triplet>/include/libavcodec/avcodec.h   ← always release tree
+        #   <triplet>/bin/avcodec-NN.dll             ← release DLLs
+        #   <triplet>/debug/bin/avcodec-NN.dll       ← debug DLLs
+        #
+        # Using the include path (not the lib path) as the anchor avoids the
+        # config-unaware find_library() problem: for a multi-config generator
+        # CMAKE_BUILD_TYPE is undefined at configure time, so vcpkg injects both
+        # the release and debug lib dirs into CMAKE_LIBRARY_PATH and find_library()
+        # may return the debug .lib.  The include dir is always in the release
+        # tree regardless of which lib was found.
+        get_filename_component(_vcpkg_triplet_root "${FFmpeg_INCLUDE_avcodec}" DIRECTORY)
+        set(FFmpeg_LIBRARY_DIR       "${_vcpkg_triplet_root}/bin"
+            CACHE PATH "Path to FFmpeg release DLLs" FORCE)
+        set(FFmpeg_LIBRARY_DIR_DEBUG "${_vcpkg_triplet_root}/debug/bin"
+            CACHE PATH "Path to FFmpeg debug DLLs"   FORCE)
 
         # Promote to CACHE and PARENT_SCOPE so video_core and the copy helper
         # can read these variables regardless of CMake call depth.
@@ -285,7 +293,8 @@ elseif(WIN32)
         set(FFmpeg_INCLUDE_DIR "${FFmpeg_INCLUDE_DIR}" PARENT_SCOPE)
         set(FFmpeg_LIBRARIES   "${FFmpeg_LIBRARIES}"   PARENT_SCOPE)
         set(FFmpeg_LDFLAGS     ""                      PARENT_SCOPE)
-        set(FFmpeg_LIBRARY_DIR "${FFmpeg_LIBRARY_DIR}" PARENT_SCOPE)
+        set(FFmpeg_LIBRARY_DIR       "${FFmpeg_LIBRARY_DIR}"       PARENT_SCOPE)
+        set(FFmpeg_LIBRARY_DIR_DEBUG "${FFmpeg_LIBRARY_DIR_DEBUG}" PARENT_SCOPE)
     else()
         # ── MinGW / Clangtron (llvm-mingw) path ──────────────────────────────
         # For Clangtron cross-builds, rebuild_ffmpeg_pthread_free() in
