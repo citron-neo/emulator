@@ -902,6 +902,51 @@ _profile_rt_valid() {
     # the download loop doesn't skip them and silently use corrupt stubs.
     find "${src_dir}" "${inc_dir}" -maxdepth 1 -type f -empty -delete 2>/dev/null || true
 
+    _populate_profile_sources_from_git() {
+        local git_src="${build_dir}/llvm-project-src-${llvm_tag}"
+        local repo_profile="${git_src}/compiler-rt/lib/profile"
+        local repo_include="${git_src}/compiler-rt/include/profile"
+
+        if [[ ! -d "${git_src}/.git" ]]; then
+            command -v git >/dev/null 2>&1 \
+                || { warn "git not available for LLVM source fallback"; return 1; }
+
+            info "  Falling back to sparse llvm-project checkout..."
+            git clone \
+                --depth=1 \
+                --branch "${llvm_tag}" \
+                --filter=blob:none \
+                --sparse \
+                https://github.com/llvm/llvm-project.git \
+                "${git_src}" \
+                || return 1
+
+            pushd "${git_src}" >/dev/null
+            git sparse-checkout set compiler-rt/lib/profile compiler-rt/include/profile \
+                || { popd >/dev/null; return 1; }
+            popd >/dev/null
+        elif [[ ! -d "${repo_profile}" || ! -d "${repo_include}" ]]; then
+            pushd "${git_src}" >/dev/null
+            git sparse-checkout set compiler-rt/lib/profile compiler-rt/include/profile \
+                || { popd >/dev/null; return 1; }
+            popd >/dev/null
+        fi
+
+        [[ -d "${repo_profile}" ]] || return 1
+        [[ -d "${repo_include}" ]] || return 1
+
+        for f in "${profile_c_srcs[@]}"; do
+            cp -f "${repo_profile}/${f}" "${src_dir}/${f}" || return 1
+        done
+        for f in InstrProfiling.h InstrProfilingInternal.h InstrProfilingPort.h \
+                  InstrProfilingUtil.h WindowsMMap.h; do
+            cp -f "${repo_profile}/${f}" "${src_dir}/${f}" || return 1
+        done
+        cp -f "${repo_include}/InstrProfData.inc" "${inc_dir}/InstrProfData.inc" \
+            || return 1
+        return 0
+    }
+
     # curl_retry: download $1 → $2 with exponential backoff.
     # GitHub's raw content CDN returns HTTP 429 (Too Many Requests) when multiple
     # files are fetched in rapid succession from the same IP.  We retry up to 4
@@ -926,7 +971,7 @@ _profile_rt_valid() {
         [[ -f "${src_dir}/${f}" ]] && continue
         info "  Downloading ${f}..."
         curl_retry "${raw_base}/compiler-rt/lib/profile/${f}" "${src_dir}/${f}" 1 \
-            || return 1
+            || { warn "Raw source fetch failed; using sparse llvm-project checkout."; _populate_profile_sources_from_git || return 1; break; }
     done
     for f in InstrProfiling.h InstrProfilingInternal.h InstrProfilingPort.h \
               InstrProfilingUtil.h WindowsMMap.h; do
@@ -936,7 +981,7 @@ _profile_rt_valid() {
     [[ -f "${inc_dir}/InstrProfData.inc" ]] || \
         curl_retry "${raw_base}/compiler-rt/include/profile/InstrProfData.inc" \
             "${inc_dir}/InstrProfData.inc" 1 \
-        || return 1
+        || { warn "Raw include fetch failed; using sparse llvm-project checkout."; _populate_profile_sources_from_git || return 1; }
 
     mkdir -p "${inc_dir}/sys"
     [[ -f "${inc_dir}/sys/utsname.h" ]] || cat > "${inc_dir}/sys/utsname.h" <<'EOF'
