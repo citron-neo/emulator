@@ -495,7 +495,7 @@ SamplerId TextureCache<P>::GetGraphicsSamplerId(u32 index) {
         LOG_DEBUG(HW_GPU, "Invalid sampler index={}", index);
         return NULL_SAMPLER_ID;
     }
-    const auto [descriptor, is_new] = channel_state->graphics_sampler_table.Read(index);
+    const auto [descriptor, is_new] = channel_state->graphics_sampler_table.Read(*gpu_memory, index);
     SamplerId& id = channel_state->graphics_sampler_ids[index];
     if (is_new) {
         id = FindSampler(descriptor);
@@ -509,7 +509,7 @@ SamplerId TextureCache<P>::GetComputeSamplerId(u32 index) {
         LOG_DEBUG(HW_GPU, "Invalid sampler index={}", index);
         return NULL_SAMPLER_ID;
     }
-    const auto [descriptor, is_new] = channel_state->compute_sampler_table.Read(index);
+    const auto [descriptor, is_new] = channel_state->compute_sampler_table.Read(*gpu_memory, index);
     SamplerId& id = channel_state->compute_sampler_ids[index];
     if (is_new) {
         id = FindSampler(descriptor);
@@ -739,7 +739,7 @@ ImageViewId TextureCache<P>::VisitImageView(DescriptorTable<TICEntry>& table,
         LOG_DEBUG(HW_GPU, "Invalid image view index={}", index);
         return NULL_IMAGE_VIEW_ID;
     }
-    const auto [descriptor, is_new] = table.Read(index);
+    const auto [descriptor, is_new] = table.Read(*gpu_memory, index);
     ImageViewId& image_view_id = cached_image_view_ids[index];
     if (is_new) {
         image_view_id = FindImageView(descriptor);
