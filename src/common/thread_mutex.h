@@ -17,7 +17,11 @@ struct ThreadIdMutex {
 
     inline void lock() noexcept {
         while (!try_lock())
-            ;
+#ifdef ARCHITECTURE_x86_64
+            asm volatile ("pause");
+#elif defined(ARCHITECTURE_arm64)
+            asm volatile ("yield");
+#endif
     }
 
     inline void unlock() noexcept {
