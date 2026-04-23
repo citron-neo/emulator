@@ -1871,6 +1871,8 @@ rebuild_ffmpeg_pthread_free() {
             --enable-demuxer=mp4,matroska,ogg \
             --enable-filter=yadif,scale,aresample \
             --enable-protocol=file \
+            --enable-dxva2 \
+            --enable-d3d11va \
             2>&1 | tail -8
     ) || {
         warn "[ffmpeg-rebuild] FFmpeg configure failed — cmake will fail at link time"
