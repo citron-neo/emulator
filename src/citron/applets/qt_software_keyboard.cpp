@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: Copyright 2021 yuzu Emulator Project
+// SPDX-FileCopyrightText: Copyright 2026 citron-neo Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <QCursor>
@@ -39,9 +40,7 @@ QtSoftwareKeyboardDialog::QtSoftwareKeyboardDialog(
     : QDialog(parent), ui{std::make_unique<Ui::QtSoftwareKeyboardDialog>()}, system{system_},
       is_inline{is_inline_}, initialize_parameters{std::move(initialize_parameters_)} {
     ui->setupUi(this);
-
-    setWindowFlags(Qt::Dialog | Qt::FramelessWindowHint | Qt::WindowTitleHint |
-                   Qt::WindowSystemMenuHint | Qt::CustomizeWindowHint);
+    setWindowFlags(Qt::Dialog | Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint);
     setWindowModality(Qt::WindowModal);
     setAttribute(Qt::WA_DeleteOnClose);
     setAttribute(Qt::WA_TranslucentBackground);
@@ -475,6 +474,11 @@ void QtSoftwareKeyboardDialog::ExitKeyboard() {
 
 void QtSoftwareKeyboardDialog::open() {
     QDialog::open();
+
+    show();
+    raise();
+    activateWindow();
+    setFocus(Qt::OtherFocusReason);
 
     row = 0;
     column = 0;

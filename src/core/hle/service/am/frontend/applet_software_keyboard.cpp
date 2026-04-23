@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: Copyright 2021 yuzu Emulator Project
+// SPDX-FileCopyrightText: Copyright 2026 citron-neo Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "common/string_util.h"
@@ -190,32 +191,35 @@ void SoftwareKeyboard::InitializeForeground() {
 
     std::memcpy(&swkbd_config_common, swkbd_config_data.data(), sizeof(SwkbdConfigCommon));
 
+    const auto payload_size = swkbd_config_data.size() - sizeof(SwkbdConfigCommon);
+    const auto* const payload = swkbd_config_data.data() + sizeof(SwkbdConfigCommon);
+    const auto copy_payload = [&](auto& dst, std::size_t dst_size, const char* name) {
+        if (payload_size < dst_size) {
+            LOG_ERROR(Service_AM, "Swkbd payload {} bytes < expected {} bytes for {}",
+                      payload_size, dst_size, name);
+            return;
+        }
+        std::memcpy(&dst, payload, dst_size);
+    };
+
     switch (swkbd_applet_version) {
     case SwkbdAppletVersion::Version5:
     case SwkbdAppletVersion::Version65542:
-        ASSERT(swkbd_config_data.size() == sizeof(SwkbdConfigCommon) + sizeof(SwkbdConfigOld));
-        std::memcpy(&swkbd_config_old, swkbd_config_data.data() + sizeof(SwkbdConfigCommon),
-                    sizeof(SwkbdConfigOld));
+        copy_payload(swkbd_config_old, sizeof(SwkbdConfigOld), "SwkbdConfigOld");
         break;
     case SwkbdAppletVersion::Version196615:
     case SwkbdAppletVersion::Version262152:
     case SwkbdAppletVersion::Version327689:
-        ASSERT(swkbd_config_data.size() == sizeof(SwkbdConfigCommon) + sizeof(SwkbdConfigOld2));
-        std::memcpy(&swkbd_config_old2, swkbd_config_data.data() + sizeof(SwkbdConfigCommon),
-                    sizeof(SwkbdConfigOld2));
+        copy_payload(swkbd_config_old2, sizeof(SwkbdConfigOld2), "SwkbdConfigOld2");
         break;
     case SwkbdAppletVersion::Version393227:
     case SwkbdAppletVersion::Version524301:
-        ASSERT(swkbd_config_data.size() == sizeof(SwkbdConfigCommon) + sizeof(SwkbdConfigNew));
-        std::memcpy(&swkbd_config_new, swkbd_config_data.data() + sizeof(SwkbdConfigCommon),
-                    sizeof(SwkbdConfigNew));
+        copy_payload(swkbd_config_new, sizeof(SwkbdConfigNew), "SwkbdConfigNew");
         break;
     default:
-        UNIMPLEMENTED_MSG("Unknown SwkbdConfig revision={} with size={}", swkbd_applet_version,
-                          swkbd_config_data.size());
-        ASSERT(swkbd_config_data.size() >= sizeof(SwkbdConfigCommon) + sizeof(SwkbdConfigNew));
-        std::memcpy(&swkbd_config_new, swkbd_config_data.data() + sizeof(SwkbdConfigCommon),
-                    sizeof(SwkbdConfigNew));
+        LOG_WARNING(Service_AM, "Unknown SwkbdConfig revision={} (size={}); assuming newest layout",
+                    swkbd_applet_version, swkbd_config_data.size());
+        copy_payload(swkbd_config_new, sizeof(SwkbdConfigNew), "SwkbdConfigNew");
         break;
     }
 
@@ -252,15 +256,26 @@ void SoftwareKeyboard::InitializePartialForeground(LibraryAppletMode library_app
     ASSERT(swkbd_inline_initialize_arg_storage != nullptr);
 
     const auto& swkbd_inline_initialize_arg = swkbd_inline_initialize_arg_storage->GetData();
-    ASSERT(swkbd_inline_initialize_arg.size() == sizeof(SwkbdInitializeArg));
+    if (swkbd_inline_initialize_arg.size() < sizeof(SwkbdInitializeArg)) {
+        LOG_ERROR(Service_AM, "Inline swkbd init arg too small ({} < {}); aborting init",
+                  swkbd_inline_initialize_arg.size(), sizeof(SwkbdInitializeArg));
+        return;
+    }
 
     std::memcpy(&swkbd_initialize_arg, swkbd_inline_initialize_arg.data(),
-                swkbd_inline_initialize_arg.size());
+                sizeof(SwkbdInitializeArg));
 
-    if (swkbd_initialize_arg.library_applet_mode_flag) {
-        ASSERT(library_applet_mode == LibraryAppletMode::PartialForeground);
-    } else {
-        ASSERT(library_applet_mode == LibraryAppletMode::PartialForegroundIndirectDisplay);
+    // These mode/flag mismatches have been seen on newer firmware without breaking the protocol.
+    if (swkbd_initialize_arg.library_applet_mode_flag &&
+        library_applet_mode != LibraryAppletMode::PartialForeground) {
+        LOG_WARNING(Service_AM,
+                    "Inline swkbd flag=true but LibraryAppletMode={}, continuing",
+                    library_applet_mode);
+    } else if (!swkbd_initialize_arg.library_applet_mode_flag &&
+               library_applet_mode != LibraryAppletMode::PartialForegroundIndirectDisplay) {
+        LOG_WARNING(Service_AM,
+                    "Inline swkbd flag=false but LibraryAppletMode={}, continuing",
+                    library_applet_mode);
     }
 }
 

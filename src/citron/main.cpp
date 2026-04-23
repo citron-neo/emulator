@@ -1,5 +1,6 @@
 // SPDX-FileCopyrightText: 2014 Citra Emulator Project
 // SPDX-FileCopyrightText: 2025 citron Emulator Project
+// SPDX-FileCopyrightText: 2026 citron-neo Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <cinttypes>
@@ -834,7 +835,8 @@ void GMainWindow::SoftwareKeyboardInitialize(
         return;
     }
 
-    software_keyboard = new QtSoftwareKeyboardDialog(render_window, *system, is_inline,
+    QWidget* const dialog_parent = render_window ? render_window->window() : this;
+    software_keyboard = new QtSoftwareKeyboardDialog(dialog_parent, *system, is_inline,
                                                      std::move(initialize_parameters));
 
     if (is_inline) {
@@ -6475,7 +6477,7 @@ void GMainWindow::UpdateUITheme() {
     // Apply to qApp to ensure context menus and tooltips are captured globally
     // This fixes the hardcoded dark look on desktop's light mode
     qApp->setStyleSheet(qApp->styleSheet() + global_style);
- 
+
     emit UpdateThemedIcons();
 
     m_is_updating_theme = false;
