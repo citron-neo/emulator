@@ -755,9 +755,7 @@ std::unique_ptr<GraphicsPipeline> PipelineCache::CreateGraphicsPipeline(
 
         const auto runtime_info{MakeRuntimeInfo(programs, key, program, previous_stage)};
         ConvertLegacyToGeneric(program, runtime_info);
-        const bool optimize = Settings::values.optimize_spirv_output.GetValue() ==
-                              Settings::SpirvShaderOptimization::Auto;
-        std::vector<u32> code = EmitSPIRV(profile, runtime_info, program, binding, optimize);
+        std::vector<u32> code = EmitSPIRV(profile, runtime_info, program, binding);
         // Reserve space to reduce allocations during shader compilation
         code.reserve(std::max<size_t>(code.size(), 16 * 1024 / sizeof(u32)));
         device.SaveShader(code);
@@ -861,9 +859,7 @@ std::unique_ptr<ComputePipeline> PipelineCache::CreateComputePipeline(
     }
 
     auto program{TranslateProgram(pools.inst, pools.block, env, cfg, host_info)};
-    bool optimize = Settings::values.optimize_spirv_output.GetValue() ==
-                    Settings::SpirvShaderOptimization::Auto;
-    std::vector<u32> code = EmitSPIRV(profile, program, optimize);
+    std::vector<u32> code = EmitSPIRV(profile, program);
     // Reserve space to reduce allocations during shader compilation
     code.reserve(std::max<size_t>(code.size(), 16 * 1024 / sizeof(u32)));
     device.SaveShader(code);

@@ -8,7 +8,6 @@
 #include <utility>
 #include <vector>
 
-#include <spirv-tools/optimizer.hpp>
 #include "common/settings.h"
 
 #include "common/logging.h"
@@ -21,16 +20,6 @@
 
 namespace Shader::Backend::SPIRV {
 namespace {
-
-thread_local std::unique_ptr<spvtools::Optimizer> thread_optimizer;
-
-spvtools::Optimizer& GetThreadOptimizer() {
-    if (!thread_optimizer) {
-        thread_optimizer = std::make_unique<spvtools::Optimizer>(SPV_ENV_VULKAN_1_3);
-        thread_optimizer->RegisterPerformancePasses();
-    }
-    return *thread_optimizer;
-}
 
 template <class Func>
 struct FuncTraits {};
@@ -497,8 +486,7 @@ void PatchPhiNodes(IR::Program& program, EmitContext& ctx) {
 }
 } // Anonymous namespace
 
-std::vector<u32> EmitSPIRV(const Profile& profile, const RuntimeInfo& runtime_info,
-                           IR::Program& program, Bindings& bindings, bool optimize) {
+std::vector<u32> EmitSPIRV(const Profile& profile, const RuntimeInfo& runtime_info, IR::Program& program, Bindings& bindings) {
     EmitContext ctx{profile, runtime_info, program, bindings};
     const Id main{DefineMain(ctx, program)};
     DefineEntryPoint(program, ctx, main);
@@ -510,22 +498,7 @@ std::vector<u32> EmitSPIRV(const Profile& profile, const RuntimeInfo& runtime_in
     SetupCapabilities(profile, program.info, ctx);
     SetupTransformFeedbackCapabilities(ctx, main);
     PatchPhiNodes(program, ctx);
-
-    std::vector<u32> spirv = ctx.Assemble();
-    if (optimize) {
-        // Use thread-local optimizer instead of creating a new one
-        auto& spv_opt = GetThreadOptimizer();
-        spv_opt.SetMessageConsumer([](spv_message_level_t, const char*, const spv_position_t&, const char* m) { LOG_ERROR(HW_GPU, "spirv-opt: {}", m); });
-        spvtools::OptimizerOptions opt_options;
-        opt_options.set_run_validator(false);
-        std::vector<u32> result{};
-        if (!spv_opt.Run(spirv.data(), spirv.size(), &result, opt_options)) {
-            LOG_ERROR(HW_GPU, "Failed to optimize SPIRV output, continuing without optimization");
-            return spirv;
-        }
-        return result;
-    }
-    return spirv;
+    return ctx.Assemble();
 }
 
 Id EmitPhi(EmitContext& ctx, IR::Inst* inst) {
