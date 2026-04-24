@@ -607,10 +607,6 @@ struct Values {
     Setting<bool> disable_buffer_reorder{linkage, false, "disable_buffer_reorder",
                                          Category::RendererDebug};
 
-    SwitchableSetting<SpirvShaderOptimization> optimize_spirv_output{
-        linkage, SpirvShaderOptimization::Auto, "optimize_spirv_output",
-        Category::RendererAdvanced};
-
     // System
     SwitchableSetting<Language, true> language_index{linkage,
                                                      Language::EnglishAmerican,

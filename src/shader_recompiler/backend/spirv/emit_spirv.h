@@ -30,14 +30,11 @@ constexpr u32 RESCALING_LAYOUT_WORDS_OFFSET = offsetof(RescalingLayout, rescalin
 constexpr u32 RESCALING_LAYOUT_DOWN_FACTOR_OFFSET = offsetof(RescalingLayout, down_factor);
 constexpr u32 RENDERAREA_LAYOUT_OFFSET = offsetof(RenderAreaLayout, render_area);
 
-[[nodiscard]] std::vector<u32> EmitSPIRV(const Profile& profile, const RuntimeInfo& runtime_info,
-                                         IR::Program& program, Bindings& bindings,
-                                         bool optimize = false);
+[[nodiscard]] std::vector<u32> EmitSPIRV(const Profile& profile, const RuntimeInfo& runtime_info, IR::Program& program, Bindings& bindings);
 
-[[nodiscard]] inline std::vector<u32> EmitSPIRV(const Profile& profile, IR::Program& program,
-                                                bool optimize = false) {
+[[nodiscard]] inline std::vector<u32> EmitSPIRV(const Profile& profile, IR::Program& program) {
     Bindings binding;
-    return EmitSPIRV(profile, {}, program, binding, optimize);
+    return EmitSPIRV(profile, {}, program, binding);
 }
 
 } // namespace Shader::Backend::SPIRV

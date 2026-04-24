@@ -193,7 +193,7 @@ add_library(shader_recompiler STATIC
     varying_state.h
 )
 
-target_link_libraries(shader_recompiler PUBLIC common fmt::fmt sirit SPIRV-Tools-opt)
+target_link_libraries(shader_recompiler PUBLIC common fmt::fmt sirit)
 
 if (MSVC)
     target_compile_options(shader_recompiler PRIVATE
