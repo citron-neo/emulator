@@ -1,7 +1,3 @@
-// SPDX-FileCopyrightText: Copyright 2026 Citron Neo Emulator Project
-// SPDX-License-Identifier: GPL-3.0-or-later
-// SPDX-FileCopyrightText: Copyright 2026 Eden Emulator Project
-// SPDX-License-Identifier: GPL-3.0-or-later
 // SPDX-FileCopyrightText: Copyright 2020 yuzu Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
@@ -10,39 +6,37 @@
 #include <algorithm>
 #include <vector>
 
-#include "common/alignment.h"
 #include "common/common_types.h"
 #include "common/div_ceil.h"
-#include "common/assert.h"
 #include "video_core/memory_manager.h"
 #include "video_core/rasterizer_interface.h"
 
 namespace VideoCommon {
 
-template <typename T>
+template <typename Descriptor>
 class DescriptorTable {
 public:
-    [[nodiscard]] bool Synchronize(GPUVAddr gpu_addr, u32 limit) noexcept {
-        bool ret = !(current_gpu_addr == gpu_addr && current_limit == limit);
-        if (ret) {
-            Refresh(gpu_addr, limit);
-        }
-        return ret;
+    explicit DescriptorTable(Tegra::MemoryManager& gpu_memory_) : gpu_memory{gpu_memory_} {}
+
+    [[nodiscard]] bool Synchronize(GPUVAddr gpu_addr, u32 limit) {
+        [[likely]] if (current_gpu_addr == gpu_addr && current_limit == limit) { return false; }
+        Refresh(gpu_addr, limit);
+        return true;
     }
 
     void Invalidate() noexcept {
         std::ranges::fill(read_descriptors, 0);
     }
 
-    [[nodiscard]] std::pair<T, bool> Read(Tegra::MemoryManager const& gpu_memory, u32 index) noexcept {
+    [[nodiscard]] std::pair<Descriptor, bool> Read(u32 index) {
         DEBUG_ASSERT(index <= current_limit);
-        const GPUVAddr gpu_addr = current_gpu_addr + index * sizeof(T);
-        std::pair<T, bool> result;
-        gpu_memory.ReadBlockUnsafe(gpu_addr, std::addressof(result.first), sizeof(T));
-        if ((read_descriptors[index / 64] & (1ULL << (index % 64))) != 0) {
+        const GPUVAddr gpu_addr = current_gpu_addr + index * sizeof(Descriptor);
+        std::pair<Descriptor, bool> result;
+        gpu_memory.ReadBlockUnsafe(gpu_addr, &result.first, sizeof(Descriptor));
+        if (IsDescriptorRead(index)) {
             result.second = result.first != descriptors[index];
         } else {
-            read_descriptors[index / 64] |= 1ULL << (index % 64);
+            MarkDescriptorAsRead(index);
             result.second = true;
         }
         if (result.second) {
@@ -58,21 +52,26 @@ public:
     void Refresh(GPUVAddr gpu_addr, u32 limit) noexcept {
         current_gpu_addr = gpu_addr;
         current_limit = limit;
-        // Mario Brothership reallocates a lot of times, so use aggressive pre-alloc sizes
-        // std::vector<T> by default uses quadratic growth, but that isn't even enough to satisfy brothership
-        const size_t num_descriptors = ((limit + 0x80000) & (~0x7ffff)) + 1;
-        size_t old_size = read_descriptors.size();
-        read_descriptors.resize(Common::DivCeil(num_descriptors, 64U));
-        old_size = (std::min)(old_size, read_descriptors.size());
-        std::fill(read_descriptors.begin(), read_descriptors.begin() + old_size, 0);
-        //
+
+        const size_t num_descriptors = static_cast<size_t>(limit) + 1;
+        read_descriptors.clear();
+        read_descriptors.resize(Common::DivCeil(num_descriptors, 64U), 0);
         descriptors.resize(num_descriptors);
     }
 
-    std::vector<u64> read_descriptors;
-    std::vector<T> descriptors;
+    void MarkDescriptorAsRead(u32 index) noexcept {
+        read_descriptors[index / 64] |= 1ULL << (index % 64);
+    }
+
+    [[nodiscard]] bool IsDescriptorRead(u32 index) const noexcept {
+        return (read_descriptors[index / 64] & (1ULL << (index % 64))) != 0;
+    }
+
+    Tegra::MemoryManager& gpu_memory;
     GPUVAddr current_gpu_addr{};
     u32 current_limit{};
+    std::vector<u64> read_descriptors;
+    std::vector<Descriptor> descriptors;
 };
 
 } // namespace VideoCommon
