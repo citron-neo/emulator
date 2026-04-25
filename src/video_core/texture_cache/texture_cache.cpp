@@ -7,8 +7,8 @@
 namespace VideoCommon {
 
 TextureCacheChannelInfo::TextureCacheChannelInfo(Tegra::Control::ChannelState& state) noexcept
-    : ChannelInfo(state)
-{}
+    : ChannelInfo(state), graphics_image_table{gpu_memory}, graphics_sampler_table{gpu_memory},
+      compute_image_table{gpu_memory}, compute_sampler_table{gpu_memory} {}
 
 template class VideoCommon::ChannelSetupCaches<VideoCommon::TextureCacheChannelInfo>;
 
