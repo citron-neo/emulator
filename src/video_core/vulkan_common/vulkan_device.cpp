@@ -823,7 +823,53 @@ VkFormat Device::GetSupportedFormat(VkFormat wanted_format, VkFormatFeatureFlags
 
 void Device::ReportLoss() const {
     LOG_CRITICAL(Render_Vulkan, "Device loss occurred!");
-
+    if (extensions.device_fault) {
+        VkDeviceFaultCountsEXT fault_counts{
+            .sType = VK_STRUCTURE_TYPE_DEVICE_FAULT_COUNTS_EXT
+        };
+        dld.vkGetDeviceFaultInfoEXT(VkDevice(GetLogical().address()), &fault_counts, nullptr);
+        std::vector<VkDeviceFaultAddressInfoEXT> address_info(fault_counts.addressInfoCount);
+        std::vector<VkDeviceFaultVendorInfoEXT> vendor_info(fault_counts.vendorInfoCount);
+        std::vector<u8> vendor_binary_data(fault_counts.vendorBinarySize);
+        VkDeviceFaultInfoEXT fault_info{
+            .sType = VK_STRUCTURE_TYPE_DEVICE_FAULT_INFO_EXT,
+            .pAddressInfos = address_info.data(),
+            .pVendorInfos = vendor_info.data(),
+            .pVendorBinaryData = vendor_binary_data.data()
+        };
+        dld.vkGetDeviceFaultInfoEXT(VkDevice(GetLogical().address()), &fault_counts, &fault_info);
+        std::string s = "Fault report\n";
+        if (address_info.size() > 0) {
+            s += "address-info\n";
+            for (auto const& ai : address_info) {
+                s += fmt::format("{:#x} => {}\n", ai.reportedAddress, [t = ai.addressType] {
+                    switch (t) {
+#define VKFATC(n) case n: return #n;
+                    VKFATC(VK_DEVICE_FAULT_ADDRESS_TYPE_INSTRUCTION_POINTER_INVALID_EXT)
+                    VKFATC(VK_DEVICE_FAULT_ADDRESS_TYPE_INSTRUCTION_POINTER_FAULT_EXT)
+                    VKFATC(VK_DEVICE_FAULT_ADDRESS_TYPE_INSTRUCTION_POINTER_UNKNOWN_EXT)
+                    VKFATC(VK_DEVICE_FAULT_ADDRESS_TYPE_WRITE_INVALID_EXT)
+                    VKFATC(VK_DEVICE_FAULT_ADDRESS_TYPE_READ_INVALID_EXT)
+                    VKFATC(VK_DEVICE_FAULT_ADDRESS_TYPE_EXECUTE_INVALID_EXT)
+                    VKFATC(VK_DEVICE_FAULT_ADDRESS_TYPE_NONE_EXT)
+#undef VKFATC
+                    default: return "unknown";
+                    }
+                }());
+            }
+        }
+        if (vendor_info.size() > 0) {
+            s += "vendor-info\n";
+            for (auto const& vi : vendor_info)
+                s += fmt::format("{:#x}-{:#x}: {}\n", vi.vendorFaultCode, vi.vendorFaultCode, vi.description);
+        }
+        if (vendor_binary_data.size() > 0) {
+            s += "vendor-binary-data\n";
+            for (size_t i = 0; i < vendor_binary_data.size(); ++i)
+                s += fmt::format("{:02x} ", vendor_binary_data[i]);
+            s += "\n";
+        }
+    }
     // Wait for the log to flush and for Nsight Aftermath to dump the results
     std::this_thread::sleep_for(std::chrono::seconds{15});
 }

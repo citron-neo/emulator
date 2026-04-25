@@ -326,6 +326,7 @@ struct DeviceDispatch : InstanceDispatch {
     PFN_vkUpdateDescriptorSets vkUpdateDescriptorSets{};
     PFN_vkWaitForFences vkWaitForFences{};
     PFN_vkWaitSemaphores vkWaitSemaphores{};
+    PFN_vkGetDeviceFaultInfoEXT vkGetDeviceFaultInfoEXT{};
 };
 
 /// Loads instance agnostic function pointers.
