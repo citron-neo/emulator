@@ -20,10 +20,13 @@ endif()
 if (NOT DATE_PROG)
     set(CAN_BUILD_NX_TZDB false)
 endif()
-if (CMAKE_SYSTEM_NAME STREQUAL "Windows" OR ANDROID)
-    # tzdb_to_nx currently requires a posix-compliant host
-    # MinGW and Android are handled here due to the executable format being different from the host system
-    # TODO (lat9nq): cross-compiling support
+
+if (ANDROID)
+    set(CAN_BUILD_NX_TZDB false)
+elseif (WIN32)
+    # Native Windows builds and MSYS2 builds cannot run the generated host tools.
+    # Linux cross-compiling to Windows also falls through here, so it keeps
+    # using the downloaded archive instead of trying to execute a target binary.
     set(CAN_BUILD_NX_TZDB false)
 endif()
 
@@ -49,7 +52,11 @@ if ((NOT CAN_BUILD_NX_TZDB OR CITRON_DOWNLOAD_TIME_ZONE_DATA) AND NOT EXISTS ${N
         DESTINATION
             ${NX_TZDB_ROMFS_DIR})
 elseif (CAN_BUILD_NX_TZDB AND NOT CITRON_DOWNLOAD_TIME_ZONE_DATA)
-    add_subdirectory(tzdb_to_nx)
+    if (DEFINED TZDB_TO_NX_SOURCE_DIR AND EXISTS "${TZDB_TO_NX_SOURCE_DIR}/CMakeLists.txt")
+        add_subdirectory("${TZDB_TO_NX_SOURCE_DIR}" tzdb_to_nx)
+    else()
+        message(FATAL_ERROR "tzdb_to_nx source not found. Enable CITRON_USE_CPM so the source can be fetched.")
+    endif()
     add_dependencies(nx_tzdb x80e)
 
     set(NX_TZDB_ROMFS_DIR "${NX_TZDB_DIR}")

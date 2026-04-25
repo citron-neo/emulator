@@ -297,49 +297,66 @@ elseif(WIN32)
         set(FFmpeg_LIBRARY_DIR_DEBUG "${FFmpeg_LIBRARY_DIR_DEBUG}" PARENT_SCOPE)
     else()
         # ── MinGW / Clangtron (llvm-mingw) path ──────────────────────────────
-        # For Clangtron cross-builds, rebuild_ffmpeg_pthread_free() in
-        # build-clangtron-windows.sh pre-populates
-        #   ${CMAKE_BINARY_DIR}/externals/ffmpeg-<VERSION>/
-        # before cmake runs, so the directory already exists and the download
-        # guard below is never reached.
-        # For a plain MSYS2 MinGW build, -DCITRON_USE_BUNDLED_FFMPEG=OFF is
-        # passed explicitly, so this block is never entered at all.
-        set(_ffmpeg_release_file "${CMAKE_SOURCE_DIR}/externals/ffmpeg/ffmpeg/RELEASE")
-        if(EXISTS "${_ffmpeg_release_file}")
-            file(READ "${_ffmpeg_release_file}" _ffmpeg_win_ver)
-            string(STRIP "${_ffmpeg_win_ver}" _ffmpeg_win_ver)
-        elseif(FFmpeg_VERSION)
-            # Fallback: use the version already read by the non-WIN32 branch above.
-            set(_ffmpeg_win_ver "${FFmpeg_VERSION}")
+        if(DEFINED CITRON_FFMPEG_STATIC_DIR AND EXISTS "${CITRON_FFMPEG_STATIC_DIR}/lib")
+            # ── Static FFmpeg (Clangtron CPM path) ───────────────────────────
+            # rebuild_ffmpeg_pthread_free() built static .a libs into this dir.
+            message(STATUS "Using static FFmpeg from ${CITRON_FFMPEG_STATIC_DIR}")
+            set(FFmpeg_FOUND YES)
+            set(FFmpeg_INCLUDE_DIR "${CITRON_FFMPEG_STATIC_DIR}/include"
+                CACHE PATH "Path to FFmpeg headers" FORCE)
+            set(FFmpeg_LDFLAGS "" CACHE STRING "FFmpeg linker flags" FORCE)
+            # Static FFmpeg needs Windows system libs for HW accel (dxva2/d3d11va)
+            # and general Win32 APIs used by w32threads and the codecs.
+            set(FFmpeg_LIBRARIES
+                ${CITRON_FFMPEG_STATIC_DIR}/lib/libavfilter.a
+                ${CITRON_FFMPEG_STATIC_DIR}/lib/libswscale.a
+                ${CITRON_FFMPEG_STATIC_DIR}/lib/libswresample.a
+                ${CITRON_FFMPEG_STATIC_DIR}/lib/libavcodec.a
+                ${CITRON_FFMPEG_STATIC_DIR}/lib/libavutil.a
+                bcrypt ole32 strmiids mfuuid mfplat uuid
+                d3d11 dxgi dxva2 iconv
+                CACHE PATH "Paths to FFmpeg libraries" FORCE)
+            set(FFmpeg_PATH       "${CITRON_FFMPEG_STATIC_DIR}" PARENT_SCOPE)
+            set(FFmpeg_LDFLAGS    "${FFmpeg_LDFLAGS}"           PARENT_SCOPE)
+            set(FFmpeg_LIBRARIES  "${FFmpeg_LIBRARIES}"         PARENT_SCOPE)
+            set(FFmpeg_INCLUDE_DIR "${FFmpeg_INCLUDE_DIR}"      PARENT_SCOPE)
         else()
-            message(FATAL_ERROR
-                "Cannot determine FFmpeg version: ${_ffmpeg_release_file} not found "
-                "and FFmpeg_VERSION is unset. Ensure the ffmpeg submodule is checked out.")
+            # ── Shared FFmpeg (legacy DLL path) ──────────────────────────────
+            set(_ffmpeg_release_file "${CMAKE_SOURCE_DIR}/externals/ffmpeg/ffmpeg/RELEASE")
+            if(EXISTS "${_ffmpeg_release_file}")
+                file(READ "${_ffmpeg_release_file}" _ffmpeg_win_ver)
+                string(STRIP "${_ffmpeg_win_ver}" _ffmpeg_win_ver)
+            elseif(FFmpeg_VERSION)
+                set(_ffmpeg_win_ver "${FFmpeg_VERSION}")
+            else()
+                message(FATAL_ERROR
+                    "Cannot determine FFmpeg version: ${_ffmpeg_release_file} not found "
+                    "and FFmpeg_VERSION is unset.")
+            endif()
+
+            set(FFmpeg_EXT_NAME "ffmpeg-${_ffmpeg_win_ver}")
+            set(FFmpeg_PATH "${CMAKE_BINARY_DIR}/externals/${FFmpeg_EXT_NAME}")
+
+            if(NOT EXISTS "${FFmpeg_PATH}")
+                download_bundled_external("ffmpeg/" ${FFmpeg_EXT_NAME} "")
+            endif()
+
+            set(FFmpeg_FOUND YES)
+            set(FFmpeg_INCLUDE_DIR "${FFmpeg_PATH}/include" CACHE PATH "Path to FFmpeg headers" FORCE)
+            set(FFmpeg_LIBRARY_DIR "${FFmpeg_PATH}/bin" CACHE PATH "Path to FFmpeg library directory" FORCE)
+            set(FFmpeg_LDFLAGS "" CACHE STRING "FFmpeg linker flags" FORCE)
+            set(FFmpeg_LIBRARIES
+                ${FFmpeg_LIBRARY_DIR}/swscale.lib
+                ${FFmpeg_LIBRARY_DIR}/avcodec.lib
+                ${FFmpeg_LIBRARY_DIR}/avfilter.lib
+                ${FFmpeg_LIBRARY_DIR}/avutil.lib
+                CACHE PATH "Paths to FFmpeg libraries" FORCE)
+            set(FFmpeg_PATH        "${FFmpeg_PATH}"        PARENT_SCOPE)
+            set(FFmpeg_LDFLAGS     "${FFmpeg_LDFLAGS}"     PARENT_SCOPE)
+            set(FFmpeg_LIBRARIES   "${FFmpeg_LIBRARIES}"   PARENT_SCOPE)
+            set(FFmpeg_INCLUDE_DIR "${FFmpeg_INCLUDE_DIR}" PARENT_SCOPE)
+            set(FFmpeg_LIBRARY_DIR "${FFmpeg_LIBRARY_DIR}" PARENT_SCOPE)
         endif()
-
-        set(FFmpeg_EXT_NAME "ffmpeg-${_ffmpeg_win_ver}")
-        set(FFmpeg_PATH "${CMAKE_BINARY_DIR}/externals/${FFmpeg_EXT_NAME}")
-
-        if(NOT EXISTS "${FFmpeg_PATH}")
-            download_bundled_external("ffmpeg/" ${FFmpeg_EXT_NAME} "")
-        endif()
-
-        set(FFmpeg_FOUND YES)
-        set(FFmpeg_INCLUDE_DIR "${FFmpeg_PATH}/include" CACHE PATH "Path to FFmpeg headers" FORCE)
-        set(FFmpeg_LIBRARY_DIR "${FFmpeg_PATH}/bin" CACHE PATH "Path to FFmpeg library directory" FORCE)
-        set(FFmpeg_LDFLAGS "" CACHE STRING "FFmpeg linker flags" FORCE)
-        set(FFmpeg_LIBRARIES
-            ${FFmpeg_LIBRARY_DIR}/swscale.lib
-            ${FFmpeg_LIBRARY_DIR}/avcodec.lib
-            ${FFmpeg_LIBRARY_DIR}/avfilter.lib
-            ${FFmpeg_LIBRARY_DIR}/avutil.lib
-            CACHE PATH "Paths to FFmpeg libraries" FORCE)
-        # exported variables
-        set(FFmpeg_PATH      "${FFmpeg_PATH}"      PARENT_SCOPE)
-        set(FFmpeg_LDFLAGS   "${FFmpeg_LDFLAGS}"   PARENT_SCOPE)
-        set(FFmpeg_LIBRARIES "${FFmpeg_LIBRARIES}"  PARENT_SCOPE)
-        set(FFmpeg_INCLUDE_DIR "${FFmpeg_INCLUDE_DIR}" PARENT_SCOPE)
-        set(FFmpeg_LIBRARY_DIR "${FFmpeg_LIBRARY_DIR}" PARENT_SCOPE)
     endif()
 endif()
 

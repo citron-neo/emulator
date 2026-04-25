@@ -93,6 +93,8 @@ option(CITRON_USE_BUNDLED_VCPKG "Use vcpkg for citron dependencies" "${MSVC}")
 
 option(CITRON_CHECK_SUBMODULES "Check if submodules are present" ON)
 
+option(CITRON_USE_CPM "Use CPM.cmake to fetch dependencies instead of git submodules (Clangtron builds)" OFF)
+
 option(CITRON_ENABLE_LTO "Enable link-time optimization" OFF)
 
 option(CITRON_ENABLE_PGO_GENERATE "Build with PGO instrumentation to generate profile data (Stage 1)" OFF)
@@ -252,7 +254,7 @@ function(check_submodules_present)
     endforeach()
 endfunction()
 
-if(EXISTS ${PROJECT_SOURCE_DIR}/.gitmodules AND CITRON_CHECK_SUBMODULES)
+if(EXISTS ${PROJECT_SOURCE_DIR}/.gitmodules AND CITRON_CHECK_SUBMODULES AND NOT CITRON_USE_CPM)
     check_submodules_present()
 endif()
 configure_file(${PROJECT_SOURCE_DIR}/dist/compatibility_list/compatibility_list.qrc
@@ -346,11 +348,32 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/bin)
 # System imported libraries
 # =======================================================================
 
+# ── CPM (Clangtron / cross-compile builds) ───────────────────────────────────
+# When CITRON_USE_CPM is ON, fetch all dependencies via CPM.cmake at configure
+# time instead of requiring git submodules or vcpkg.  This must run BEFORE
+# find_package() calls so CPM-created targets and Find modules are available.
+# Gated behind an option so MSVC/Linux/macOS/Android builds are unaffected.
+if (CITRON_USE_CPM)
+    # Disable vcpkg manifest auto-install — CPM provides all packages
+    set(VCPKG_MANIFEST_MODE OFF CACHE BOOL "" FORCE)
+    set(CPM_SOURCE_CACHE "${CMAKE_BINARY_DIR}/_cpm_cache"
+        CACHE PATH "CPM download cache — point to a shared directory on CI")
+    option(CPM_USE_LOCAL_PACKAGES "Prefer system find_package over CPM fetch" OFF)
+    include(${CMAKE_SOURCE_DIR}/CMakeModules/CPM.cmake)
+    include(${CMAKE_SOURCE_DIR}/CMakeModules/dependencies.cmake)
+endif()
+
 # Enforce the search mode of non-required packages for better and shorter failure messages
 
 # Find Boost and its components.
 # 'process' is optional. The build will continue if it's not found.
-find_package(Boost 1.79.0 REQUIRED COMPONENTS context OPTIONAL_COMPONENTS process)
+if (NOT TARGET Boost::context)
+    find_package(Boost 1.79.0 REQUIRED COMPONENTS context OPTIONAL_COMPONENTS process)
+elseif (TARGET Boost::process)
+    set(Boost_PROCESS_FOUND TRUE)
+else()
+    set(Boost_PROCESS_FOUND FALSE)
+endif()
 
 # Check if the optional 'process' component was successfully found.
 if(Boost_PROCESS_FOUND)
@@ -363,18 +386,39 @@ else()
 endif()
 
 # Find the Boost package with our dynamically built list of required components.
-find_package(Boost 1.79.0 REQUIRED ${BOOST_COMPONENTS})
-find_package(enet 1.3 MODULE)
-find_package(fmt 9 REQUIRED)
+if (NOT TARGET Boost::context)
+    find_package(Boost 1.79.0 REQUIRED ${BOOST_COMPONENTS})
+endif()
+if (NOT TARGET enet::enet)
+    find_package(enet 1.3 MODULE)
+endif()
+if (NOT TARGET fmt::fmt)
+    find_package(fmt 9 REQUIRED)
+endif()
 find_package(LLVM 17.0.2 MODULE COMPONENTS Demangle)
-find_package(lz4 REQUIRED)
-find_package(nlohmann_json 3.8 REQUIRED)
-find_package(Opus 1.3 MODULE)
+if (NOT TARGET lz4::lz4)
+    find_package(lz4 REQUIRED)
+endif()
+if (NOT TARGET nlohmann_json::nlohmann_json)
+    find_package(nlohmann_json 3.8 REQUIRED)
+endif()
+if (NOT TARGET Opus::opus)
+    find_package(Opus 1.3 MODULE)
+endif()
 find_package(RenderDoc MODULE)
 find_package(stb MODULE)
-find_package(VulkanMemoryAllocator CONFIG)
-find_package(ZLIB 1.2 REQUIRED)
-find_package(zstd 1.5 REQUIRED)
+if (NOT TARGET GPUOpen::VulkanMemoryAllocator)
+    find_package(VulkanMemoryAllocator CONFIG)
+endif()
+if (NOT TARGET ZLIB::ZLIB)
+    if (WIN32)
+        set(ZLIB_USE_STATIC_LIBS ON)
+    endif()
+    find_package(ZLIB 1.2 REQUIRED)
+endif()
+if (NOT TARGET zstd::zstd)
+    find_package(zstd 1.5 REQUIRED)
+endif()
 
 if (NOT CITRON_USE_EXTERNAL_VULKAN_HEADERS)
     find_package(VulkanHeaders 1.3.274 REQUIRED)
@@ -389,19 +433,27 @@ if (ENABLE_LIBUSB AND NOT ${CMAKE_SYSTEM_NAME} STREQUAL "FreeBSD")
 endif()
 
 if (ARCHITECTURE_x86 OR ARCHITECTURE_x86_64)
-    find_package(xbyak 6 CONFIG)
+    if (NOT TARGET xbyak::xbyak)
+        find_package(xbyak 6 CONFIG)
+    endif()
 endif()
 
 if (ARCHITECTURE_arm64)
-    find_package(oaknut 2.0.1 CONFIG)
+    if (NOT TARGET merry::oaknut)
+        find_package(oaknut 2.0.1 CONFIG)
+    endif()
 endif()
 
 # We create a variable to remember if dynarmic was found
 set(CITRON_HAS_DYNARMIC FALSE)
 
 if ((ARCHITECTURE_x86_64 OR ARCHITECTURE_arm64) AND NOT (MSVC AND ARCHITECTURE_arm64))
-    find_package(dynarmic 6.4.0 CONFIG)
-    if(dynarmic_FOUND)
+    if (TARGET dynarmic::dynarmic)
+        set(dynarmic_FOUND TRUE)
+    else()
+        find_package(dynarmic 6.4.0 CONFIG)
+    endif()
+    if (dynarmic_FOUND)
         message(STATUS "Dynarmic found, enabling dynamic recompilation support.")
         set(CITRON_HAS_DYNARMIC TRUE) # Set our variable to TRUE
     else()
@@ -410,7 +462,9 @@ if ((ARCHITECTURE_x86_64 OR ARCHITECTURE_arm64) AND NOT (MSVC AND ARCHITECTURE_a
 endif()
 
 if (ENABLE_CUBEB)
-    find_package(cubeb CONFIG)
+    if (NOT TARGET cubeb::cubeb)
+        find_package(cubeb CONFIG)
+    endif()
 endif()
 
 if (USE_DISCORD_PRESENCE)
@@ -418,8 +472,12 @@ if (USE_DISCORD_PRESENCE)
 endif()
 
 if (ENABLE_WEB_SERVICE)
-    find_package(cpp-jwt 1.4 CONFIG)
-    find_package(httplib 0.12 MODULE COMPONENTS OpenSSL)
+    if (NOT TARGET cpp-jwt::cpp-jwt)
+        find_package(cpp-jwt 1.4 CONFIG)
+    endif()
+    if (NOT TARGET httplib::httplib)
+        find_package(httplib 0.12 MODULE COMPONENTS OpenSSL)
+    endif()
 endif()
 
 if (CITRON_TESTS)
@@ -432,15 +490,21 @@ if (MINGW)
 endif()
 
 if(ENABLE_OPENSSL)
-    find_package(OpenSSL 1.1.1 REQUIRED)
+    if (NOT (TARGET OpenSSL::SSL AND TARGET OpenSSL::Crypto))
+        find_package(OpenSSL 1.1.1 REQUIRED)
+    endif()
 endif()
 
 if (UNIX AND NOT APPLE)
     find_package(gamemode 1.7 MODULE)
 endif()
 
+# CPM dependencies are loaded above (before find_package calls).
+
 add_subdirectory(externals)
-if(USE_DISCORD_PRESENCE)
+# When CPM is ON, discord-rpc and dynarmic/mcl patches are applied post-populate
+# inside CMakeModules/dependencies.cmake. Skip the submodule-path patches.
+if(USE_DISCORD_PRESENCE AND NOT CITRON_USE_CPM)
     message(STATUS "Applying custom patch to submodule's rapidjson for Discord presence...")
 
     # Define the path to the patch file and the target directory
@@ -465,7 +529,7 @@ if(USE_DISCORD_PRESENCE)
     endif()
 endif()
 
-if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+if(CMAKE_CXX_COMPILER_ID MATCHES "Clang" AND NOT CITRON_USE_CPM)
     message(STATUS "Applying custom patch to submodule's mcl for Clang compatibility...")
 
     set(MCL_PATCH_FILE "${CMAKE_CURRENT_SOURCE_DIR}/patches/mcl_clang_template_fix.patch")
@@ -513,30 +577,33 @@ else()
 endif()
 
 # Apply a patch to discord-rpc's CMakeLists.txt to suppress -Wclass-memaccess
-message(STATUS "Applying custom patch to submodule's discord-rpc CMakeLists.txt...")
+# (skipped when CPM is ON — patches applied in CMakeModules/dependencies.cmake)
+if(NOT CITRON_USE_CPM)
+    message(STATUS "Applying custom patch to submodule's discord-rpc CMakeLists.txt...")
 
-# Define the path to the patch file and the target directory using unique names
-set(DISCORD_RPC_PATCH_FILE "${CMAKE_CURRENT_SOURCE_DIR}/patches/discord-rpc-wclass-memaccess-fix.patch")
-set(DISCORD_RPC_PATCH_TARGET_DIR "${CMAKE_CURRENT_SOURCE_DIR}/externals/discord-rpc")
+    # Define the path to the patch file and the target directory using unique names
+    set(DISCORD_RPC_PATCH_FILE "${CMAKE_CURRENT_SOURCE_DIR}/patches/discord-rpc-wclass-memaccess-fix.patch")
+    set(DISCORD_RPC_PATCH_TARGET_DIR "${CMAKE_CURRENT_SOURCE_DIR}/externals/discord-rpc")
 
-# Check if the target directory exists before trying to patch
-if(EXISTS "${DISCORD_RPC_PATCH_TARGET_DIR}")
-    execute_process(
-        COMMAND git apply -p0 --ignore-whitespace "${DISCORD_RPC_PATCH_FILE}"
-        WORKING_DIRECTORY "${DISCORD_RPC_PATCH_TARGET_DIR}"
-        RESULT_VARIABLE PATCH_RESULT
-        OUTPUT_QUIET
-        ERROR_QUIET
-    )
+    # Check if the target directory exists before trying to patch
+    if(EXISTS "${DISCORD_RPC_PATCH_TARGET_DIR}")
+        execute_process(
+            COMMAND git apply -p0 --ignore-whitespace "${DISCORD_RPC_PATCH_FILE}"
+            WORKING_DIRECTORY "${DISCORD_RPC_PATCH_TARGET_DIR}"
+            RESULT_VARIABLE PATCH_RESULT
+            OUTPUT_QUIET
+            ERROR_QUIET
+        )
 
-    if(NOT PATCH_RESULT EQUAL 0)
-        message(WARNING "Failed to apply discord-rpc CMakeLists.txt patch! This might be okay if it's already applied.")
+        if(NOT PATCH_RESULT EQUAL 0)
+            message(WARNING "Failed to apply discord-rpc CMakeLists.txt patch! This might be okay if it's already applied.")
+        endif()
+    else()
+        message(WARNING "Could not find discord-rpc directory to patch. It may not have been downloaded yet.")
     endif()
-else()
-    message(WARNING "Could not find discord-rpc directory to patch. It may not have been downloaded yet.")
 endif()
 
-if (ENABLE_QT)
+if (ENABLE_QT AND NOT CITRON_USE_CPM)
     if (NOT USE_SYSTEM_QT)
         download_qt(6.9.3)
     endif()
@@ -605,7 +672,7 @@ endif()
 
 function(set_citron_qt_components)
 # Best practice is to ask for all components at once, so they are from the same version
-set(CITRON_QT_COMPONENTS2 Core Widgets Concurrent Svg)
+set(CITRON_QT_COMPONENTS2 Core Widgets Concurrent Network Svg)
 if (${CMAKE_SYSTEM_NAME} STREQUAL "Linux")
 list(APPEND CITRON_QT_COMPONENTS2 DBus GuiPrivate)
 endif()
@@ -617,9 +684,6 @@ list(APPEND CITRON_QT_COMPONENTS2 Multimedia)
     endif()
     if (ENABLE_QT_TRANSLATION)
     list(APPEND CITRON_QT_COMPONENTS2 LinguistTools)
-    endif()
-    if (USE_DISCORD_PRESENCE)
-    list(APPEND CITRON_QT_COMPONENTS2 Network)
     endif()
     set(CITRON_QT_COMPONENTS ${CITRON_QT_COMPONENTS2} PARENT_SCOPE)
     endfunction(set_citron_qt_components)
@@ -818,7 +882,14 @@ function(citron_configure_lto target_name)
 endfunction()
 
 # Prevent boost from linking against libs when building
-target_link_libraries(Boost::headers INTERFACE Boost::disable_autolinking)
+if(TARGET Boost::disable_autolinking)
+    get_target_property(_is_alias Boost::headers ALIASED_TARGET)
+    if(_is_alias)
+        target_link_libraries(${_is_alias} INTERFACE Boost::disable_autolinking)
+    else()
+        target_link_libraries(Boost::headers INTERFACE Boost::disable_autolinking)
+    endif()
+endif()
 # Adjustments for MSVC + Ninja
 if (MSVC AND CMAKE_GENERATOR STREQUAL "Ninja")
     add_compile_options(
