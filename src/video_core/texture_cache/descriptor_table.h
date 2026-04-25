@@ -51,6 +51,10 @@ public:
         return result;
     }
 
+    [[nodiscard]] u32 Limit() const noexcept {
+        return current_limit;
+    }
+
     void Refresh(GPUVAddr gpu_addr, u32 limit) noexcept {
         current_gpu_addr = gpu_addr;
         current_limit = limit;
