@@ -153,11 +153,14 @@ Result ILibraryAppletAccessor::GetMainAppletRequestExitEvent(
     R_SUCCEED();
 }
 
-Result ILibraryAppletAccessor::Unknown90(s64 param_1, s64 param_2) {
-    LOG_WARNING(Service_AM, "(STUBBED) called, param_1={} param_2={}", param_1, param_2);
-
-    // Unknown function added in newer firmware
-    // Stubbed for now
+Result ILibraryAppletAccessor::Unknown90(u64 arg0, u64 arg1, u64 arg2, u64 arg3) {
+    if (arg0 != 0 || arg1 != 0 || arg2 != 0 || arg3 != 0) {
+        LOG_WARNING(Service_AM,
+                    "(STUBBED) non-zero args: {:#x} {:#x} {:#x} {:#x}",
+                    arg0, arg1, arg2, arg3);
+    } else {
+        LOG_DEBUG(Service_AM, "(STUBBED) called");
+    }
     R_SUCCEED();
 }
 
