@@ -122,7 +122,6 @@ private:
     mutable std::map<u64, bool> input_device_notifications{};
     /// Auto tune enabled state
     mutable bool auto_tune_enabled{false};
-    mutable f32 last_requested_device_volume{1.0f};
 
 private:
     /// Backend output sink for the device
