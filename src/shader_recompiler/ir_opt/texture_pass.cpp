@@ -39,6 +39,7 @@ using TextureInstVector = boost::container::small_vector<TextureInst, 24>;
 
 constexpr u32 DESCRIPTOR_SIZE = 8;
 constexpr u32 DESCRIPTOR_SIZE_SHIFT = static_cast<u32>(std::countr_zero(DESCRIPTOR_SIZE));
+constexpr u32 BINDLESS_ARRAY_LENGTH = 1024;
 
 IR::Opcode IndexedInstruction(const IR::Inst& inst) {
     switch (inst.GetOpcode()) {
@@ -322,7 +323,7 @@ std::optional<ConstBufferAddr> TryGetConstBuffer(const IR::Inst* inst, Environme
         .secondary_offset = 0,
         .secondary_shift_left = 0,
         .dynamic_offset = dynamic_offset,
-        .count = 8,
+        .count = BINDLESS_ARRAY_LENGTH,
         .has_secondary = false,
     };
 }
@@ -689,7 +690,7 @@ void TexturePass(Environment& env, IR::Program& program, const HostTranslateInfo
             IR::IREmitter ir{*texture_inst.block, insert_point};
             const IR::U32 shift{ir.Imm32(std::countr_zero(DESCRIPTOR_SIZE))};
             inst->SetArg(0, ir.UMin(ir.ShiftRightArithmetic(cbuf.dynamic_offset, shift),
-                                    ir.Imm32(DESCRIPTOR_SIZE - 1)));
+                                    ir.Imm32(BINDLESS_ARRAY_LENGTH - 1)));
         } else {
             inst->SetArg(0, IR::Value{});
         }
