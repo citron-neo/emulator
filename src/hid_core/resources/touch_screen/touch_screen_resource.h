@@ -7,6 +7,7 @@
 #include <mutex>
 
 #include "common/common_types.h"
+#include "common/thread_mutex.h"
 #include "common/point.h"
 #include "core/hle/result.h"
 #include "hid_core/hid_types.h"
@@ -53,7 +54,7 @@ public:
     bool IsGestureActive() const;
 
     void SetTouchDriver(std::shared_ptr<TouchDriver> driver);
-    void SetAppletResource(std::shared_ptr<AppletResource> shared, std::recursive_mutex* mutex);
+    void SetAppletResource(std::shared_ptr<AppletResource> shared, Common::ThreadIdMutex* mutex);
     void SetInputEvent(Kernel::KEvent* event, std::mutex* mutex);
     void SetHandheldConfig(std::shared_ptr<HandheldConfig> config);
     void SetTimerEvent(std::shared_ptr<Core::Timing::EventType> event);
@@ -101,7 +102,7 @@ private:
     std::shared_ptr<Core::Timing::EventType> timer_event{nullptr};
     std::shared_ptr<TouchDriver> touch_driver{nullptr};
     std::shared_ptr<AppletResource> applet_resource{nullptr};
-    std::recursive_mutex* shared_mutex{nullptr};
+    Common::ThreadIdMutex* shared_mutex{nullptr};
     std::shared_ptr<HandheldConfig> handheld_config{nullptr};
     Kernel::KEvent* input_event{nullptr};
     std::mutex* input_mutex{nullptr};

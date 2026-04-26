@@ -10,6 +10,7 @@
 #include <boost/container/static_vector.hpp>
 
 #include "audio_buffer.h"
+#include "common/thread_mutex.h"
 #include "audio_core/device/device_session.h"
 #include "core/core_timing.h"
 
@@ -303,7 +304,7 @@ public:
 
 private:
     /// Buffer lock
-    mutable std::recursive_mutex lock{};
+    mutable Common::ThreadIdMutex lock{};
     /// The audio buffers
     std::array<AudioBuffer, N> buffers{};
     /// Current released index

@@ -7,6 +7,7 @@
 #include <mutex>
 
 #include "common/bit_field.h"
+#include "common/thread_mutex.h"
 #include "common/common_types.h"
 #include "core/hle/result.h"
 #include "hid_core/resources/shared_memory_holder.h"
@@ -71,7 +72,7 @@ static_assert(sizeof(HandheldConfig) == 0x4, "HandheldConfig is an invalid size"
 
 struct AppletResourceHolder {
     std::shared_ptr<AppletResource> applet_resource{nullptr};
-    std::recursive_mutex* shared_mutex{nullptr};
+    Common::ThreadIdMutex* shared_mutex{nullptr};
     NPadResource* shared_npad_resource{nullptr};
     std::shared_ptr<HandheldConfig> handheld_config{nullptr};
     Kernel::KEvent* input_event{nullptr};
