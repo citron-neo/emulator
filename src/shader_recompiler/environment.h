@@ -20,9 +20,9 @@ public:
 
     [[nodiscard]] virtual u32 ReadCbufValue(u32 cbuf_index, u32 cbuf_offset) = 0;
 
-    /// Returns the byte size of the const buffer at cbuf_index, or 0 if not bound.
-    /// Default returns 0 so that callers fall back to a conservative upper bound
-    /// when the environment can't provide a real size (e.g. disk-cache replay).
+    /// Returns the byte size of the const buffer at cbuf_index, or 0 if not bound /
+    /// not knowable from this environment. Callers treat 0 as "unknown" and fall
+    /// back to the original conservative default (e.g. disk-cache replay path).
     [[nodiscard]] virtual u32 ReadCbufSize([[maybe_unused]] u32 cbuf_index) {
         return 0;
     }
