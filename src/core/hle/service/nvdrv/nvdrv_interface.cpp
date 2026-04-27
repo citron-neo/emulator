@@ -264,7 +264,7 @@ NVDRV::NVDRV(Core::System& system_, std::shared_ptr<Module> nvdrv_, const char* 
 NVDRV::~NVDRV() {
     if (is_initialized) {
         auto& container = nvdrv->GetContainer();
-        container.CloseSession(session_id);
+        container.CloseSession(session_id, true);
     }
 }
 

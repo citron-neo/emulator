@@ -465,16 +465,23 @@ struct System::Impl {
         kernel.CloseServices();
         kernel.ShutdownCores();
 
-        fs_controller.Reset();
+        // Reset the cheat engine BEFORE the service manager is torn down.
+        // CheatEngine::~CheatEngine() calls core_timing.UnscheduleEvent(), and its
+        // FrameCallback can call HidKeysDown() which accesses SM. If SM is destroyed
+        // first a pending CoreTiming callback will dereference a null/freed pointer
+        // and cause a SIGSEGV (seen as this=0x40 inside std::unordered_map::find).
         cheat_engine.reset();
         core_timing.ClearPendingEvents();
+
+        services.reset();
+        service_manager.reset();
+
+        fs_controller.Reset();
         app_loader.reset();
         audio_core.reset();
         gpu_core.reset();
         host1x_core.reset();
 
-        services.reset();
-        service_manager.reset();
 
         perf_stats.reset();
         cpu_manager.Shutdown();

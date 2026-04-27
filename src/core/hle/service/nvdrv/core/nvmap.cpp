@@ -7,6 +7,7 @@
 
 #include "common/alignment.h"
 #include "common/assert.h"
+#include "common/common_types.h"
 #include "common/logging.h"
 #include "core/hle/service/nvdrv/core/container.h"
 #include "core/hle/service/nvdrv/core/heap_mapper.h"
@@ -14,10 +15,9 @@
 #include "core/memory.h"
 #include "video_core/host1x/host1x.h"
 
-using Core::Memory::CITRON_PAGESIZE;
-constexpr size_t BIG_PAGE_SIZE = CITRON_PAGESIZE * 16;
-
 namespace Service::Nvidia::NvCore {
+
+constexpr size_t BIG_PAGE_SIZE = 4096 * 16;
 NvMap::Handle::Handle(u64 size_, Id id_)
     : size(size_), aligned_size(size), orig_size(size), id(id_) {
     flags.raw = 0;
@@ -33,7 +33,7 @@ NvResult NvMap::Handle::Alloc(Flags pFlags, u32 pAlign, u8 pKind, u64 pAddress,
 
     flags = pFlags;
     kind = pKind;
-    align = pAlign < CITRON_PAGESIZE ? CITRON_PAGESIZE : pAlign;
+    align = pAlign < 4096 ? 4096 : pAlign;
     session_id = pSessionId;
 
     // This flag is only applicable for handles with an address passed
@@ -44,7 +44,7 @@ NvResult NvMap::Handle::Alloc(Flags pFlags, u32 pAlign, u8 pKind, u64 pAddress,
                      "Mapping nvmap handles without a CPU side address is unimplemented!");
     }
 
-    size = Common::AlignUp(size, CITRON_PAGESIZE);
+    size = Common::AlignUp(size, 4096);
     aligned_size = Common::AlignUp(size, align);
     address = pAddress;
     allocated = true;
@@ -86,7 +86,7 @@ void NvMap::UnmapHandle(Handle& handle_description) {
     }
 
     // Free and unmap the handle from Host1x GMMU
-    if (handle_description.pin_virt_address) {
+    if (handle_description.pin_virt_address && handle_description.pin_virt_address >= 4096) {
         host1x.GMMU().Unmap(static_cast<GPUVAddr>(handle_description.pin_virt_address),
                             handle_description.aligned_size);
         host1x.Allocator().Free(handle_description.pin_virt_address,
@@ -99,14 +99,18 @@ void NvMap::UnmapHandle(Handle& handle_description) {
     if (!handle_description.in_heap) {
         auto& smmu = host1x.MemoryManager();
         size_t aligned_up = Common::AlignUp(map_size, BIG_PAGE_SIZE);
-        smmu.Unmap(handle_description.d_address, map_size);
-        smmu.Free(handle_description.d_address, static_cast<size_t>(aligned_up));
+        if (handle_description.d_address >= 0x1000) {
+            smmu.Unmap(handle_description.d_address, map_size);
+            smmu.Free(handle_description.d_address, static_cast<size_t>(aligned_up));
+        }
         handle_description.d_address = 0;
         return;
     }
     const VAddr vaddress = handle_description.address;
     auto* session = core.GetSession(handle_description.session_id);
-    session->mapper->Unmap(vaddress, map_size);
+    if (session && vaddress >= 0x1000) {
+        session->mapper->Unmap(vaddress, map_size);
+    }
     handle_description.d_address = 0;
     handle_description.in_heap = false;
 }

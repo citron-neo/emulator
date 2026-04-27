@@ -646,8 +646,8 @@ LevelArray CalculateMipLevelOffsets(const ImageInfo& info) noexcept {
         return {};
     }
     if (info.resources.levels > static_cast<s32>(MAX_MIP_LEVELS)) {
-        LOG_ERROR(HW_GPU, "Image has too many mip levels={}, maximum supported is={}", info.resources.levels, MAX_MIP_LEVELS);
-        return {};
+        LOG_ERROR(HW_GPU, "Image has too many mip levels={}, maximum supported is={}",
+                  info.resources.levels, MAX_MIP_LEVELS);
     }
     // Clamp to MAX_MIP_LEVELS to prevent out-of-bounds access
     const s32 clamped_levels = std::min(info.resources.levels, static_cast<s32>(MAX_MIP_LEVELS));

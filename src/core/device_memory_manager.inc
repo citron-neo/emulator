@@ -245,6 +245,9 @@ void DeviceMemoryManager<Traits>::Map(DAddr address, VAddr virtual_address, size
 
 template <typename Traits>
 void DeviceMemoryManager<Traits>::Unmap(DAddr address, size_t size) {
+    if (address < 4096 || size == 0 || !device_inter) {
+        return;
+    }
     size_t start_page_d = address >> Memory::CITRON_PAGEBITS;
     size_t num_pages = Common::AlignUp(size, Memory::CITRON_PAGESIZE) >> Memory::CITRON_PAGEBITS;
     device_inter->InvalidateRegion(address, size);
@@ -407,6 +410,9 @@ void DeviceMemoryManager<Traits>::WalkBlock(DAddr addr, std::size_t size, auto o
 
 template <typename Traits>
 void DeviceMemoryManager<Traits>::ReadBlock(DAddr address, void* dest_pointer, size_t size) {
+    if (!device_inter) {
+        return;
+    }
     device_inter->FlushRegion(address, size);
     static std::atomic<u64> unmapped_read_count{0};
     WalkBlock(
@@ -445,7 +451,9 @@ void DeviceMemoryManager<Traits>::WriteBlock(DAddr address, const void* src_poin
         [&](const std::size_t copy_amount) {
             src_pointer = static_cast<const u8*>(src_pointer) + copy_amount;
         });
-    device_inter->InvalidateRegion(address, size);
+    if (device_inter) {
+        device_inter->InvalidateRegion(address, size);
+    }
 }
 
 template <typename Traits>
@@ -511,7 +519,10 @@ void DeviceMemoryManager<Traits>::UnregisterProcess(Asid asid) {
 }
 
 template <typename Traits>
-void DeviceMemoryManager<Traits>::UpdatePagesCachedCount(DAddr addr, size_t size, s32 delta) {
+void DeviceMemoryManager<Traits>::UpdatePagesCachedCount(DAddr addr, size_t size, int delta) {
+    if (addr < Memory::CITRON_PAGESIZE || size == 0) {
+        return;
+    }
     Common::ScopedRangeLock lk(counter_guard, addr, size);
     u64 uncache_begin = 0;
     u64 cache_begin = 0;
@@ -524,6 +535,10 @@ void DeviceMemoryManager<Traits>::UpdatePagesCachedCount(DAddr addr, size_t size
     size_t page = addr >> Memory::CITRON_PAGEBITS;
     auto [asid, base_vaddress] = ExtractCPUBacking(page);
     auto* memory_device_inter = registered_processes[asid.id];
+    if (memory_device_inter == nullptr) {
+        return;
+    }
+
     const auto release_pending = [&] {
         if (uncache_bytes > 0) {
             if (memory_device_inter != nullptr) {

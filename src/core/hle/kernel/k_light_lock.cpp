@@ -79,6 +79,21 @@ bool KLightLock::LockSlowPath(uintptr_t _owner, uintptr_t _cur_thread) {
         }
     }
 
+    // Safety: explicitly clear our wait queue reference before the stack-local
+    // wait_queue object goes out of scope. During concurrent process termination,
+    // two threads can race to finalize handles under the same KLightLock; if the
+    // waiting thread was already woken via CancelWait (termination path),
+    // m_wait_queue is already null here (ClearWaitQueue was called). If it is
+    // still set, clearing it now prevents a dangling vtable dispatch in
+    // KThread::EndWait if UnlockSlowPath arrives after the local queue is destroyed.
+    {
+        KScopedSchedulerLock sl2{m_kernel};
+        if (cur_thread->GetState() != ThreadState::Waiting) {
+            // Thread was already woken; ensure the queue pointer is gone.
+            cur_thread->ClearWaitQueue();
+        }
+    }
+
     return true;
 }
 

@@ -6,7 +6,14 @@
 #include <memory>
 #include <mutex>
 #include <optional>
+#include "common/common_types.h"
+#include "core/hle/result.h"
 
+namespace Core {
+class System;
+}
+
+#include "core/hle/service/vi/vi_types.h"
 #include "core/hle/service/vi/conductor.h"
 #include "core/hle/service/vi/display_list.h"
 #include "core/hle/service/vi/layer_list.h"
@@ -74,6 +81,7 @@ private:
     Result DestroyLayerLocked(u64 layer_id);
     Result OpenLayerLocked(s32* out_producer_binder_id, u64 layer_id, u64 aruid);
     Result CloseLayerLocked(u64 layer_id);
+    void EnsureInitialized();
 
 public:
     bool ComposeOnDisplay(s32* out_swap_interval, f32* out_compose_speed_scale, u64 display_id);
@@ -86,6 +94,8 @@ private:
     std::shared_ptr<Nvnflinger::SurfaceFlinger> m_surface_flinger{};
     std::optional<SharedBufferManager> m_shared_buffer_manager{};
     std::optional<Conductor> m_conductor{};
+    Core::System& m_system;
+    bool m_is_initialized{};
     bool m_is_shut_down{};
 };
 

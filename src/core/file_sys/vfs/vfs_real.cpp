@@ -300,7 +300,8 @@ std::size_t RealVfsFile::GetSize() const {
         return *size;
     }
     auto lk = base.RefreshReference(path, perms, *reference);
-    return reference->file ? reference->file->GetSize() : 0;
+    auto file = reference->file; // Safety copy to prevent eviction during accessor
+    return file ? file->GetSize() : 0;
 }
 
 bool RealVfsFile::Resize(std::size_t new_size) {
@@ -323,19 +324,21 @@ bool RealVfsFile::IsReadable() const {
 
 std::size_t RealVfsFile::Read(u8* data, std::size_t length, std::size_t offset) const {
     auto lk = base.RefreshReference(path, perms, *reference);
-    if (!reference->file || !reference->file->Seek(static_cast<s64>(offset))) {
+    auto file = reference->file; // Safety copy to prevent eviction during Read
+    if (!file || !file->Seek(static_cast<s64>(offset))) {
         return 0;
     }
-    return reference->file->ReadSpan(std::span{data, length});
+    return file->ReadSpan(std::span{data, length});
 }
 
 std::size_t RealVfsFile::Write(const u8* data, std::size_t length, std::size_t offset) {
     size.reset();
     auto lk = base.RefreshReference(path, perms, *reference);
-    if (!reference->file || !reference->file->Seek(static_cast<s64>(offset))) {
+    auto file = reference->file; // Safety copy to prevent eviction during Write
+    if (!file || !file->Seek(static_cast<s64>(offset))) {
         return 0;
     }
-    return reference->file->WriteSpan(std::span{data, length});
+    return file->WriteSpan(std::span{data, length});
 }
 
 bool RealVfsFile::Rename(std::string_view name) {

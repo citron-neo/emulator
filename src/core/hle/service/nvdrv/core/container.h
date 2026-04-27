@@ -56,7 +56,7 @@ public:
     ~Container();
 
     SessionId OpenSession(Kernel::KProcess* process);
-    void CloseSession(SessionId id);
+    void CloseSession(SessionId id, bool is_shutdown = false);
 
     Session* GetSession(SessionId id);
 

@@ -24,6 +24,10 @@ public:
         return true;
     }
 
+    [[nodiscard]] u32 Limit() const noexcept {
+        return current_limit;
+    }
+
     void Invalidate() noexcept {
         std::ranges::fill(read_descriptors, 0);
     }
@@ -43,10 +47,6 @@ public:
             descriptors[index] = result.first;
         }
         return result;
-    }
-
-    [[nodiscard]] u32 Limit() const noexcept {
-        return current_limit;
     }
 
     void Refresh(GPUVAddr gpu_addr, u32 limit) noexcept {

@@ -70,6 +70,13 @@ void StandardVmCallbacks::MemoryWriteUnsafe(VAddr address, const void* data, u64
 }
 
 u64 StandardVmCallbacks::HidKeysDown() {
+    // Guard against shutdown: the CoreTiming thread may fire this callback after the service
+    // manager has been torn down, which would cause a null-pointer dereference inside
+    // std::unordered_map::find (seen as this=0x40 in the crash at hashtable.h:662).
+    if (system.IsShuttingDown()) {
+        return 0;
+    }
+
     const auto hid = system.ServiceManager().GetService<Service::HID::IHidServer>("hid");
     if (hid == nullptr) {
         LOG_WARNING(CheatEngine, "Attempted to read input state, but hid is not initialized!");

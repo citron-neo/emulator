@@ -410,7 +410,8 @@ struct Memory::Impl {
     }
 
     void MarkRegionDebug(u64 vaddr, u64 size, bool debug) {
-        if (vaddr == 0 || !AddressSpaceContains(*current_page_table, vaddr, size)) {
+        if (vaddr == 0 || !current_page_table ||
+            !AddressSpaceContains(*current_page_table, vaddr, size)) {
             return;
         }
 
@@ -464,8 +465,19 @@ struct Memory::Impl {
         }
     }
 
-    void RasterizerMarkRegionCached(u64 vaddr, u64 size, bool cached) {
-        if (vaddr == 0 || !AddressSpaceContains(*current_page_table, vaddr, size)) {
+    void RasterizerMarkRegionCached(VAddr vaddr, u64 size, bool cached) {
+        if (vaddr < 0x1000) {
+            return;
+        }
+        if (vaddr + size <= vaddr) {
+            return;
+        }
+        // Guard against null or stale page table pointer (can happen during
+        // GPU garbage collection when no process page table is active).
+        if (!current_page_table) {
+            return;
+        }
+        if (!AddressSpaceContains(*current_page_table, vaddr, size)) {
             return;
         }
 

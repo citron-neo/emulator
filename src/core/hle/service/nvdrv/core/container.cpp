@@ -146,12 +146,18 @@ SessionId Container::OpenSession(Kernel::KProcess* process) {
     return SessionId{new_id};
 }
 
-void Container::CloseSession(SessionId session_id) {
+void Container::CloseSession(SessionId session_id, bool is_shutdown) {
     std::scoped_lock lk(impl->session_guard);
     auto& session = impl->sessions[session_id.id];
     if (--session.ref_count > 0) {
         return;
     }
+
+    if (is_shutdown) {
+        session.is_active = false;
+        return;
+    }
+
     impl->file.UnmapAllHandles(session_id);
     auto& smmu = impl->host1x.MemoryManager();
     if (session.has_preallocated_area) {

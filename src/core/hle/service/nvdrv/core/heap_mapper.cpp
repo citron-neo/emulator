@@ -31,7 +31,10 @@ HeapMapper::~HeapMapper() {
     m_internal->m_mapped_ranges.ForEach([this](VAddr start_addr, VAddr end_addr, s32 count) {
         const size_t sub_size = end_addr - start_addr;
         const size_t offset = start_addr - m_vaddress;
-        m_internal->m_device_memory.Unmap(m_daddress + offset, sub_size);
+        const DAddr target_addr = m_daddress + offset;
+        if (target_addr >= 0x1000) {
+            m_internal->m_device_memory.Unmap(target_addr, sub_size);
+        }
     });
 }
 
