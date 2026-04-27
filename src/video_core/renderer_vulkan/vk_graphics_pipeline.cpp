@@ -368,7 +368,7 @@ void GraphicsPipeline::ConfigureImpl(bool is_indexed) {
                 const auto handle{read_handle(desc, index)};
                 views[view_index++] = {handle.first};
                 samplers[sampler_index++] = handle.first == 0
-                    ? VideoCommon::SamplerId{}
+                    ? VideoCommon::NULL_SAMPLER_ID
                     : texture_cache.GetGraphicsSamplerId(handle.second);
             }
         }
