@@ -162,7 +162,7 @@ void ComputePipeline::Configure(Tegra::Engines::KeplerCompute& kepler_compute,
             const auto handle{read_handle(desc, index)};
             views.push_back({handle.first});
             samplers.push_back(handle.first == 0
-                                   ? VideoCommon::SamplerId{}
+                                   ? VideoCommon::NULL_SAMPLER_ID
                                    : texture_cache.GetComputeSamplerId(handle.second));
         }
     }
