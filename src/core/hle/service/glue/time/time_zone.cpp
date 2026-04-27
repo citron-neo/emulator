@@ -210,8 +210,9 @@ Result TimeZoneService::ToPosixTime(Out<u32> out_count,
                                     InRule rule) {
     SCOPE_EXIT {
         LOG_DEBUG(Service_Time,
-                  "called. calendar_time={} out_count={} out_times[0]={} out_times[1]={}",
-                  calendar_time, *out_count, out_times[0], out_times[1]);
+            "called. calendar_time={} out_count={} out_times[0]={} out_times[1]={}",
+            calendar_time, *out_count, out_times.size() > 0 ? out_times[0] : u64{0},
+            out_times.size() > 1 ? out_times[1] : u64{0});
     };
 
     R_RETURN(m_wrapped_service->ToPosixTime(out_count, out_times, calendar_time, rule));
@@ -222,8 +223,9 @@ Result TimeZoneService::ToPosixTimeWithMyRule(
     const Service::PSC::Time::CalendarTime& calendar_time) {
     SCOPE_EXIT {
         LOG_DEBUG(Service_Time,
-                  "called. calendar_time={} out_count={} out_times[0]={} out_times[1]={}",
-                  calendar_time, *out_count, out_times[0], out_times[1]);
+            "called. calendar_time={} out_count={} out_times[0]={} out_times[1]={}",
+            calendar_time, *out_count, out_times.size() > 0 ? out_times[0] : u64{0},
+            out_times.size() > 1 ? out_times[1] : u64{0});
     };
 
     R_RETURN(m_wrapped_service->ToPosixTimeWithMyRule(out_count, out_times, calendar_time));

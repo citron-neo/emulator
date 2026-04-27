@@ -27,7 +27,7 @@ using namespace Common::Literals;
 // Maximum potential alignment of a Vulkan buffer
 constexpr VkDeviceSize MAX_ALIGNMENT = 256;
 // Stream buffer size in bytes
-constexpr VkDeviceSize MAX_STREAM_BUFFER_SIZE = 256_MiB;
+constexpr VkDeviceSize MAX_STREAM_BUFFER_SIZE = 128_MiB;
 
 size_t GetStreamBufferSize(const Device& device) {
     VkDeviceSize size{0};
