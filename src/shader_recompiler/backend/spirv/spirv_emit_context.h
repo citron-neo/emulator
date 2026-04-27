@@ -250,6 +250,7 @@ public:
 
     Id output_f32{};
     Id output_u32{};
+    Id output_s32{};
 
     Id image_buffer_type{};
     Id image_u32{};
