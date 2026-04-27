@@ -484,62 +484,30 @@ GMainWindow::GMainWindow(std::unique_ptr<QtConfig> config_, bool has_broken_vulk
     // Process events to ensure main window is fully rendered
     QApplication::processEvents();
 
-    /*
-    // Defer the first-time setup check until after the main window is fully constructed.
+    // Check for first-time setup
     if (UISettings::values.first_start.GetValue()) {
-        LOG_INFO(Frontend, "Scheduling first-time setup check.");
-        QTimer::singleShot(0, this, [this]() {
-            LOG_INFO(Frontend, "Executing deferred first-time setup check.");
-
-            // Create a non-modal QMessageBox instance with a nullptr parent to make it a top-level
-            // window. This prevents it from blocking the main application window.
-            auto* confirmation_dialog = new QMessageBox(nullptr);
-            const bool is_gamescope = !qgetenv("GAMESCOPE_WIDTH").isEmpty() ||
-                                      qgetenv("XDG_CURRENT_DESKTOP") == "gamescope";
-            if (is_gamescope) {
-                confirmation_dialog->setWindowFlags(Qt::Window | Qt::CustomizeWindowHint |
-                                                    Qt::WindowTitleHint | Qt::WindowStaysOnTopHint);
-                confirmation_dialog->resize(650, 300);
-                confirmation_dialog->setStyleSheet(QStringLiteral("font-size: 11pt;"));
+        QTimer::singleShot(500, this, [this]() {
+            if (this->findChild<SetupWizard*>()) {
+                return;
             }
-            confirmation_dialog->setAttribute(
-                Qt::WA_DeleteOnClose); // This ensures it is deleted automatically on close.
-            confirmation_dialog->setWindowModality(Qt::NonModal); // Explicitly set modality.
-            confirmation_dialog->setWindowTitle(tr("First-Time Setup"));
-            confirmation_dialog->setText(tr("Would you like to run the first-time setup wizard?"));
-            confirmation_dialog->setStandardButtons(QMessageBox::Yes | QMessageBox::No);
-            confirmation_dialog->setDefaultButton(QMessageBox::Yes);
 
-            // Connect the finished signal to handle the user's choice.
-            connect(confirmation_dialog, &QMessageBox::finished, this, [this](int result) {
-                if (result == QMessageBox::Yes) {
-                    LOG_INFO(Frontend, "User chose to run the setup wizard.");
+            auto result = QMessageBox::question(
+                this, tr("Setup Wizard"),
+                tr("A Setup Wizard is available to help you configure your keys, firmware, and "
+                   "game library. Would you like to use it now?"),
+                QMessageBox::Yes | QMessageBox::No);
 
-                    // Check if a wizard is already open to prevent duplicates.
-                    if (this->findChild<SetupWizard*>()) {
-                        this->findChild<SetupWizard*>()->activateWindow();
-                        return;
-                    }
-
-                    // Create and show the setup wizard.
-                    auto* setup_wizard = new SetupWizard(*system, this, this);
-                    setup_wizard->setAttribute(Qt::WA_DeleteOnClose);
-                    setup_wizard->show();
-                    LOG_INFO(Frontend, "Setup wizard opened.");
-
-                } else {
-                    LOG_INFO(Frontend, "User chose to skip the setup wizard.");
-                    UISettings::values.first_start = false;
-                    OnSaveConfig();
-                }
-            });
-
-            confirmation_dialog->open();
+            if (result == QMessageBox::Yes) {
+                auto* setup_wizard = new SetupWizard(*system, this, this);
+                setup_wizard->setAttribute(Qt::WA_DeleteOnClose);
+                setup_wizard->show();
+            } else {
+                UISettings::values.first_start.SetValue(false);
+                OnSaveConfig(); // Persist the refusal
+            }
         });
-    } else {
-        LOG_INFO(Frontend, "Skipping setup wizard - first_start is false");
     }
-    */
+
 
     if (has_broken_vulkan) {
         UISettings::values.has_broken_vulkan = true;
@@ -1982,6 +1950,7 @@ void GMainWindow::ConnectMenuEvents() {
     connect_menu(ui->action_Verify_installed_contents, &GMainWindow::OnVerifyInstalledContents);
     connect_menu(ui->action_Install_Firmware, &GMainWindow::OnInstallFirmware);
     connect_menu(ui->action_Install_Keys, &GMainWindow::OnInstallDecryptionKeys);
+    connect_menu(ui->action_Open_Setup_Wizard, &GMainWindow::OnMenuOpenSetupWizard);
     connect_menu(ui->action_Check_For_Updates, &GMainWindow::OnCheckForUpdates);
     connect_menu(ui->action_About, &GMainWindow::OnAbout);
 
@@ -5332,6 +5301,17 @@ void GMainWindow::OnInstallFirmware() {
 
     progress.close();
     OnCheckFirmwareDecryption();
+}
+
+void GMainWindow::OnMenuOpenSetupWizard() {
+    if (this->findChild<SetupWizard*>()) {
+        this->findChild<SetupWizard*>()->activateWindow();
+        return;
+    }
+
+    auto* setup_wizard = new SetupWizard(*system, this, this);
+    setup_wizard->setAttribute(Qt::WA_DeleteOnClose);
+    setup_wizard->show();
 }
 
 void GMainWindow::OnInstallDecryptionKeys() {

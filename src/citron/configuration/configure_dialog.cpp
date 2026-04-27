@@ -329,8 +329,21 @@ void ConfigureDialog::UpdateTheme() {
                 if (current_index == input_tab_index)
                     return;
 
+                // Tab Content Area
+                if (current_index == input_tab_index)
+                    return;
+
                 QWidget* currentContainer = ui->stackedWidget->currentWidget();
                 if (currentContainer) {
+                    // PERFORMANCE: Do not re-parse the full stylesheet 30 times a second.
+                    // Instead, update a single dynamic property or use a simpler update.
+                    // For now, we'll only update if the hue has changed significantly
+                    // or just use a more efficient way to apply colors.
+                    
+                    static QString last_applied_hue;
+                    if (last_applied_hue == hue_hex) return;
+                    last_applied_hue = hue_hex;
+
                     QString tab_css =
                         QStringLiteral(
                             "QCheckBox::indicator:checked, QRadioButton::indicator:checked { "
@@ -350,7 +363,7 @@ void ConfigureDialog::UpdateTheme() {
                 }
             });
         }
-        rainbow_timer->start(33);
+        rainbow_timer->start(100); // 10 FPS is plenty for smooth color transitions
     }
 
     if (UISettings::values.enable_rainbow_mode.GetValue() == false && rainbow_timer) {

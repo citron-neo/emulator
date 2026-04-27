@@ -183,6 +183,10 @@ LightningStrikeOverlay::LightningStrikeOverlay(QWidget* parent) : QWidget(parent
     m_anim->setEasingCurve(QEasingCurve::OutQuad);
     connect(m_anim, &QVariantAnimation::valueChanged, this, [this](const QVariant& val) {
         m_progress = val.toFloat();
+        if (m_progress >= 1.0f) {
+            m_active = false;
+            hide();
+        }
         update();
     });
 }
@@ -320,13 +324,15 @@ ElectricSparkOverlay::ElectricSparkOverlay(QWidget* parent) : QWidget(parent) {
     });
 
     m_frame_timer = new QTimer(this);
-    m_frame_timer->setInterval(16);
+    m_frame_timer->setInterval(32); // 30 FPS is plenty for aesthetic jitters
     connect(m_frame_timer, &QTimer::timeout, this, [this]() {
+        if (!isVisible() || (!m_target_button && !m_active))
+            return;
+            
         m_border_runner_pos += 0.015f;
         if (m_border_runner_pos > 1.0f)
             m_border_runner_pos -= 1.0f;
-        if (m_target_button || m_active)
-            update();
+        update();
     });
     m_frame_timer->start();
 }
@@ -346,37 +352,36 @@ void ElectricSparkOverlay::startArc(const QPoint& from, const QPoint& to, QPushB
 void ElectricSparkOverlay::drawElectricLine(QPainter& painter, const QPoint& p1, const QPoint& p2,
                                             const QColor& color, float thickness,
                                             float alpha_mult) {
-    if (p1 == p2 || (p1 - p2).manhattanLength() < 2)
+    if (p1 == p2 || (p1 - p2).manhattanLength() < 4)
         return;
+
+    // PERFORMANCE: Use a simplified squiggle to reduce CPU overhead in 2K
     QPainterPath path;
     path.moveTo(p1);
 
-    int segments = 16;
+    const int segments = 8; // Halved segments
     for (int i = 1; i <= segments; ++i) {
         float p = (float)i / segments;
         QPoint target = p1 + (p2 - p1) * p;
 
-        int jitter = 5;
-        int ox = (i == segments) ? 0 : QRandomGenerator::global()->bounded(-jitter, jitter + 1);
-        int oy = (i == segments) ? 0 : QRandomGenerator::global()->bounded(-jitter, jitter + 1);
-
-        if (segments > 8) {
-            float wave = sin(p * M_PI) * 8.0f;
-            ox += wave;
+        if (i < segments) {
+            int jitter = 4;
+            int ox = QRandomGenerator::global()->bounded(-jitter, jitter + 1);
+            int oy = QRandomGenerator::global()->bounded(-jitter, jitter + 1);
+            path.lineTo(target.x() + ox, target.y() + oy);
+        } else {
+            path.lineTo(p2);
         }
-
-        path.lineTo(target.x() + ox, target.y() + oy);
     }
-    path.lineTo(p2);
 
     QColor c = color;
     c.setAlphaF(0.25f * alpha_mult);
-    painter.setPen(QPen(c, thickness * 2.8f)); // Soft glow
+    painter.setPen(QPen(c, thickness * 2.8f));
     painter.drawPath(path);
 
     c = color.lighter(150);
     c.setAlphaF(0.8f * alpha_mult);
-    painter.setPen(QPen(c, thickness * 0.8f)); // Subtle core
+    painter.setPen(QPen(c, thickness * 0.8f));
     painter.drawPath(path);
 }
 

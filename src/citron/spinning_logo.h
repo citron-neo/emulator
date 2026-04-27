@@ -51,7 +51,7 @@ private:
     double m_prevMouseAngle = 0.0;
     qint64 m_prevDragTime = 0;
 
-    static constexpr double kConstantSpeed = 2.0;  // degrees per tick (Spinning mode)
-    static constexpr double kFriction = 0.97;       // velocity decay per tick
-    static constexpr int kTickMs = 16;              // ~60fps
+    static constexpr double kConstantSpeed = 4.0;  // Adjusted for 32ms tick
+    static constexpr double kFriction = 0.94;       // Adjusted for 32ms tick
+    static constexpr int kTickMs = 32;              // ~30fps for stability at 2K
 };

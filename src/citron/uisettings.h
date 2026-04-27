@@ -105,7 +105,7 @@ namespace UISettings {
             Setting<bool> show_performance_overlay{linkage, false, "showPerformanceOverlay", Category::Ui};
             Setting<bool> show_vram_overlay{linkage, false, "showVramOverlay", Category::Ui};
 
-            SwitchableSetting<ConfirmStop> confirm_before_stopping{linkage,
+            Setting<ConfirmStop> confirm_before_stopping{linkage,
                 ConfirmStop::Ask_Always,
                 "confirmStop",
                 Category::UiGeneral,
@@ -113,7 +113,8 @@ namespace UISettings {
                 true,
                 true};
 
-                Setting<bool> first_start{linkage, false, "firstStart", Category::Ui};
+                Setting<bool> first_start{linkage, true, "firstStart", Category::Ui};
+                Setting<bool> setup_resume{linkage, false, "setupResume", Category::Ui};
                 Setting<bool> pause_when_in_background{linkage,
                     false,
                     "pauseWhenInBackground",

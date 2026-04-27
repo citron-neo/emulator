@@ -53,7 +53,8 @@ add_executable(citron
     controller_overlay.cpp
     controller_overlay.h
     compatdb.ui
-    setup_wizard.ui
+    compatdb.ui
+
     compatibility_list.cpp
     compatibility_list.h
     configuration/configuration_shared.cpp
@@ -292,6 +293,8 @@ add_executable(citron
     compatdb.h
     setup_wizard.cpp
     setup_wizard.h
+    setup_wizard_page.cpp
+    setup_wizard_page.h
     ui/game_view_base.cpp
     ui/game_view_base.h
     ui/game_grid_view.cpp
