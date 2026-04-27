@@ -111,6 +111,8 @@ public:
 
     u32 ReadCbufValue(u32 cbuf_index, u32 cbuf_offset) override;
 
+    u32 ReadCbufSize(u32 cbuf_index) override;
+
     Shader::TextureType ReadTextureType(u32 handle) override;
 
     Shader::TexturePixelFormat ReadTexturePixelFormat(u32 handle) override;
@@ -136,6 +138,8 @@ public:
     ~ComputeEnvironment() override = default;
 
     u32 ReadCbufValue(u32 cbuf_index, u32 cbuf_offset) override;
+
+    u32 ReadCbufSize(u32 cbuf_index) override;
 
     Shader::TextureType ReadTextureType(u32 handle) override;
 

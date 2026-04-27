@@ -377,6 +377,11 @@ u32 GraphicsEnvironment::ReadCbufValue(u32 cbuf_index, u32 cbuf_offset) {
     return value;
 }
 
+u32 GraphicsEnvironment::ReadCbufSize(u32 cbuf_index) {
+    const auto& cbuf{maxwell3d->state.shader_stages[stage_index].const_buffers[cbuf_index]};
+    return cbuf.enabled ? static_cast<u32>(cbuf.size) : 0;
+}
+
 std::optional<Shader::ReplaceConstant> GraphicsEnvironment::GetReplaceConstBuffer(u32 bank,
                                                                                   u32 offset) {
     if (!has_hle_engine_state) {
@@ -458,6 +463,14 @@ u32 ComputeEnvironment::ReadCbufValue(u32 cbuf_index, u32 cbuf_offset) {
     }
     cbuf_values.emplace(MakeCbufKey(cbuf_index, cbuf_offset), value);
     return value;
+}
+
+u32 ComputeEnvironment::ReadCbufSize(u32 cbuf_index) {
+    const auto& qmd{kepler_compute->launch_description};
+    if (((qmd.const_buffer_enable_mask.Value() >> cbuf_index) & 1) == 0) {
+        return 0;
+    }
+    return static_cast<u32>(qmd.const_buffer_config[cbuf_index].size);
 }
 
 Shader::TextureType ComputeEnvironment::ReadTextureType(u32 handle) {
