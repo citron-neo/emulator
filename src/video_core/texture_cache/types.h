@@ -10,7 +10,7 @@
 namespace VideoCommon {
 
 constexpr size_t NUM_RT = 8;
-constexpr size_t MAX_MIP_LEVELS = 14;
+constexpr size_t MAX_MIP_LEVELS = 15;
 
 constexpr Common::SlotId CORRUPT_ID{0xfffffffe};
 
