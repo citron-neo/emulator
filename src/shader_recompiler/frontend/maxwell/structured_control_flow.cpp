@@ -977,7 +977,7 @@ private:
     Environment& env;
     IR::AbstractSyntaxList& syntax_list;
     bool uses_demote_to_helper{};
-    const Flow::Block dummy_flow_block;
+    const Flow::Block dummy_flow_block{};
 };
 } // Anonymous namespace
 
