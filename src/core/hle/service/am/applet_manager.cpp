@@ -380,7 +380,6 @@ void AppletManager::SetWindowSystem(WindowSystem* window_system) {
     }
 
     // Applet was started by frontend, so it is foreground.
-    applet->lifecycle_manager.PushUnorderedMessage(AppletMessage::ChangeIntoForeground);
     applet->lifecycle_manager.SetFocusState(FocusState::InFocus);
 
     if (applet->applet_id == AppletId::QLaunch) {
