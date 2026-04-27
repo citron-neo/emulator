@@ -9,6 +9,7 @@
 
 #include <fmt/format.h>
 
+#include "common/settings.h"
 #include "common/socket_types.h"
 #include "core/core.h"
 #include "core/hle/kernel/k_thread.h"
@@ -520,6 +521,12 @@ void BSD::ExecuteWork(HLERequestContext& ctx, Work work) {
 }
 
 std::pair<s32, Errno> BSD::SocketImpl(Domain domain, Type type, Protocol protocol) {
+    if (Settings::values.airplane_mode.GetValue()) {
+        LOG_INFO(Service, "Airplane mode: rejecting socket creation domain={} type={} protocol={}",
+                 domain, type, protocol);
+        return {-1, Errno::CONNREFUSED};
+    }
+
     if (type == Type::SEQPACKET) {
         UNIMPLEMENTED_MSG("SOCK_SEQPACKET errno management");
     } else if (type == Type::RAW && (domain != Domain::INET || protocol != Protocol::ICMP)) {
@@ -692,6 +699,9 @@ Errno BSD::ConnectImpl(s32 fd, std::span<const u8> addr) {
     }
     if (!file_descriptors[fd]->socket)
         return Errno::BADF;
+    if (Settings::values.airplane_mode.GetValue()) {
+        return Errno::CONNREFUSED;
+    }
 
     UNIMPLEMENTED_IF(addr.size() != sizeof(SockAddrIn));
     auto addr_in = GetValue<SockAddrIn>(addr);
@@ -904,6 +914,9 @@ std::pair<s32, Errno> BSD::RecvImpl(s32 fd, u32 flags, std::vector<u8>& message)
     }
 
     FileDescriptor& descriptor = *file_descriptors[fd];
+    if (Settings::values.airplane_mode.GetValue()) {
+        return {-1, Errno::AGAIN};
+    }
 
     // Apply flags
     using Network::FLAG_MSG_DONTWAIT;
@@ -932,6 +945,10 @@ std::pair<s32, Errno> BSD::RecvFromImpl(s32 fd, u32 flags, std::vector<u8>& mess
     }
 
     FileDescriptor& descriptor = *file_descriptors[fd];
+    if (Settings::values.airplane_mode.GetValue()) {
+        addr.clear();
+        return {-1, Errno::AGAIN};
+    }
 
     Network::SockAddrIn addr_in{};
     Network::SockAddrIn* p_addr_in = nullptr;
@@ -978,6 +995,9 @@ std::pair<s32, Errno> BSD::SendImpl(s32 fd, u32 flags, std::span<const u8> messa
     }
     if (!file_descriptors[fd]->socket)
         return {-1, Errno::BADF};
+    if (Settings::values.airplane_mode.GetValue()) {
+        return {static_cast<s32>(message.size()), Errno::SUCCESS};
+    }
     return Translate(file_descriptors[fd]->socket->Send(message, flags));
 }
 
@@ -988,6 +1008,9 @@ std::pair<s32, Errno> BSD::SendToImpl(s32 fd, u32 flags, std::span<const u8> mes
     }
     if (!file_descriptors[fd]->socket)
         return {-1, Errno::BADF};
+    if (Settings::values.airplane_mode.GetValue()) {
+        return {static_cast<s32>(message.size()), Errno::SUCCESS};
+    }
 
     FileDescriptor& descriptor = *file_descriptors[fd];
 
