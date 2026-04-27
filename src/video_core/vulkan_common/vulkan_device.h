@@ -29,6 +29,7 @@ VK_DEFINE_HANDLE(VmaAllocator)
     FEATURE(KHR, VariablePointer, VARIABLE_POINTERS, variable_pointer)
 
 #define FOR_EACH_VK_FEATURE_1_2(FEATURE)                                                           \
+    FEATURE(EXT, DescriptorIndexing, DESCRIPTOR_INDEXING, descriptor_indexing)                     \
     FEATURE(EXT, HostQueryReset, HOST_QUERY_RESET, host_query_reset)                               \
     FEATURE(KHR, 8BitStorage, 8BIT_STORAGE, bit8_storage)                                          \
     FEATURE(KHR, TimelineSemaphore, TIMELINE_SEMAPHORE, timeline_semaphore)
@@ -429,6 +430,14 @@ public:
     /// Returns true if the device supports VK_KHR_push_descriptor.
     bool IsKhrPushDescriptorSupported() const {
         return extensions.push_descriptor;
+    }
+
+    /// Returns true if descriptor-indexing partial-bind + update-after-bind is usable for
+    /// sampled images and storage images on this device.
+    bool IsDescriptorIndexingSupported() const {
+        return features.descriptor_indexing.descriptorBindingPartiallyBound &&
+               features.descriptor_indexing.descriptorBindingSampledImageUpdateAfterBind &&
+               features.descriptor_indexing.descriptorBindingStorageImageUpdateAfterBind;
     }
 
     /// Returns true if VK_KHR_pipeline_executable_properties is enabled.
