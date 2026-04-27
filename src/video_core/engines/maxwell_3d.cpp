@@ -459,7 +459,9 @@ void Maxwell3D::ProcessMacroUpload(u32 data) {
 }
 
 void Maxwell3D::ProcessMacroBind(u32 data) {
-    macro_positions[regs.load_mme.start_address_ptr++] = data;
+    if (regs.load_mme.start_address_ptr < macro_positions.size()) [[likely]] {
+        macro_positions[regs.load_mme.start_address_ptr++] = data;
+    }
 }
 
 void Maxwell3D::ProcessFirmwareCall4() {

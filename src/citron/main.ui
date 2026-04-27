@@ -153,6 +153,8 @@
     <property name="title">
      <string>&amp;Tools</string>
     </property>
+    <addaction name="action_Open_Setup_Wizard"/>
+    <addaction name="separator"/>
     <widget class="QMenu" name="menu_cabinet_applet">
      <property name="title">
       <string>&amp;Amiibo</string>
@@ -556,6 +558,11 @@
   <action name="action_Install_Keys">
    <property name="text">
     <string>Install Decryption Keys</string>
+   </property>
+  </action>
+  <action name="action_Open_Setup_Wizard">
+   <property name="text">
+    <string>Open &amp;Setup Wizard...</string>
    </property>
   </action>
  </widget>

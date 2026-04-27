@@ -201,6 +201,10 @@ f32 System::GetVolume() const {
 }
 
 void System::SetVolume(const f32 volume_) {
+    // Clamp to [0, 1] — same guard applied to IAudioDevice::SetDeviceVolumes.
+    // Scene/cutscene audio comes through IAudioOut (not IAudioDevice), so without
+    // this cap a game that requests volume > 1.0f will play back too loudly even
+    // though device volume is correctly bounded.
     volume = std::clamp(volume_, 0.0f, 1.0f);
     session->SetVolume(volume);
 }

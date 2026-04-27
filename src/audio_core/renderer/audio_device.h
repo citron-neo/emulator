@@ -130,6 +130,8 @@ private:
     const u64 applet_resource_user_id;
     /// User audio renderer revision
     const u32 user_revision;
+    /// Last volume value requested by the game (before clamping).
+    /// Returned by GetDeviceVolume so the game's own state stays consistent.
     mutable f32 last_requested_device_volume{1.0f};
 };
 

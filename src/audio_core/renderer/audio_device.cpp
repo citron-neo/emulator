@@ -9,8 +9,9 @@
 #include "audio_core/renderer/audio_device.h"
 #include "audio_core/sink/sink.h"
 #include "core/core.h"
-#include "core/hle/service/audio/errors.h"
 #include "core/hle/result.h"
+#include "core/hle/service/audio/errors.h"
+
 
 namespace AudioCore::Renderer {
 
@@ -64,7 +65,9 @@ u32 AudioDevice::ListAudioOutputDeviceName(std::span<AudioDeviceName> out_buffer
 }
 
 void AudioDevice::SetDeviceVolumes(const f32 volume) {
+    // Always track what the game requested so GetDeviceVolume reflects it accurately.
     last_requested_device_volume = volume;
+
     if (volume <= 0.0f) {
         return;
     }
@@ -72,6 +75,8 @@ void AudioDevice::SetDeviceVolumes(const f32 volume) {
 }
 
 f32 AudioDevice::GetDeviceVolume([[maybe_unused]] std::string_view name) const {
+    // Return the game's own requested value (not the clamped sink value) so the
+    // game's internal state stays consistent with what it believes it set.
     return last_requested_device_volume;
 }
 

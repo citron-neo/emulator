@@ -340,6 +340,7 @@ private slots:
     bool ExtractZipToDirectory(const std::filesystem::path& zip_path,
                                const std::filesystem::path& extract_path);
     void OnInstallDecryptionKeys();
+    void OnMenuOpenSetupWizard();
     void OnAbout();
     void OnCheckForUpdates();
     void CheckForUpdatesAutomatically();
