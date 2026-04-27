@@ -298,8 +298,8 @@ void GraphicsPipeline::AddTransition(GraphicsPipeline* transition) {
 
 template <typename Spec>
 void GraphicsPipeline::ConfigureImpl(bool is_indexed) {
-    std::array<VideoCommon::ImageViewInOut, MAX_IMAGE_ELEMENTS> views;
-    std::array<VideoCommon::SamplerId, MAX_IMAGE_ELEMENTS> samplers;
+    thread_local std::array<VideoCommon::ImageViewInOut, MAX_IMAGE_ELEMENTS> views;
+    thread_local std::array<VideoCommon::SamplerId, MAX_IMAGE_ELEMENTS> samplers;
     size_t sampler_index{};
     size_t view_index{};
 
