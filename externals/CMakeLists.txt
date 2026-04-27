@@ -69,14 +69,6 @@ set(SPIRV-Headers_DIR "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 list(APPEND CMAKE_PREFIX_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 add_subdirectory(sirit)
 
-# SPIRV-Tools
-# Point to our new SPIRV-Headers
-set(SPIRV-Headers_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/SPIRV-Headers")
-set(SPIRV_HEADER_DIR "${SPIRV-Headers_SOURCE_DIR}")
-set(SPIRV_SKIP_TESTS ON)
-set(SPIRV_SKIP_EXECUTABLES ON)
-add_subdirectory(spirv-tools)
-
 # libusb
 if (ENABLE_LIBUSB AND NOT TARGET libusb::usb)
     add_subdirectory(libusb)
