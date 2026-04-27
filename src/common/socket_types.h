@@ -14,6 +14,7 @@ namespace Network {
 enum class Domain : u8 {
     Unspecified, ///< Represents 0, used in getaddrinfo hints
     INET,        ///< Address family for IPv4
+    INET6,       ///< Address family for IPv6
 };
 
 /// Socket types

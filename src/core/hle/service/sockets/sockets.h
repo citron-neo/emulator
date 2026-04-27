@@ -25,6 +25,7 @@ enum class Errno : u32 {
     NOTCONN = 107,
     TIMEDOUT = 110,
     CONNREFUSED = 111,
+    DESTADDRREQ = 89,
     INPROGRESS = 115,
 };
 
@@ -50,6 +51,7 @@ enum class GetAddrInfoError : s32 {
 enum class Domain : u32 {
     Unspecified = 0,
     INET = 2,
+    INET6 = 28,
 };
 
 enum class Type : u32 {

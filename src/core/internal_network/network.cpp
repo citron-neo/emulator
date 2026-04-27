@@ -154,6 +154,10 @@ Errno TranslateNativeError(int e, CallType call_type = CallType::Other) {
         return Errno::NETUNREACH;
     case WSAEMSGSIZE:
         return Errno::MSGSIZE;
+#ifdef WSAEDESTADDRREQ
+    case WSAEDESTADDRREQ:
+        return Errno::DESTADDRREQ;
+#endif
     case WSAETIMEDOUT:
         return Errno::TIMEDOUT;
     case WSAEINPROGRESS:
@@ -295,6 +299,10 @@ Errno TranslateNativeError(int e, CallType call_type = CallType::Other) {
         return Errno::NETUNREACH;
     case EMSGSIZE:
         return Errno::MSGSIZE;
+#ifdef EDESTADDRREQ
+    case EDESTADDRREQ:
+        return Errno::DESTADDRREQ;
+#endif
     case ETIMEDOUT:
         return Errno::TIMEDOUT;
     case EINPROGRESS:
@@ -384,6 +392,10 @@ Domain TranslateDomainFromNative(int domain) {
         return Domain::Unspecified;
     case AF_INET:
         return Domain::INET;
+#ifdef AF_INET6
+    case AF_INET6:
+        return Domain::INET6;
+#endif
     default:
         UNIMPLEMENTED_MSG("Unhandled domain={}", domain);
         return Domain::INET;
@@ -396,6 +408,8 @@ int TranslateDomainToNative(Domain domain) {
         return 0;
     case Domain::INET:
         return AF_INET;
+    case Domain::INET6:
+        return AF_INET6;
     default:
         UNIMPLEMENTED_MSG("Unimplemented domain={}", domain);
         return 0;

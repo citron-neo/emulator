@@ -44,6 +44,7 @@ enum class Errno {
     NETUNREACH,
     TIMEDOUT,
     MSGSIZE,
+    DESTADDRREQ,
     INPROGRESS,
     OTHER,
 };
