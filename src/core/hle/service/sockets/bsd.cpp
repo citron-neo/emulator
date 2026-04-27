@@ -1028,6 +1028,9 @@ std::pair<s32, Errno> BSD::RecvImpl(s32 fd, u32 flags, std::vector<u8>& message)
     if (Settings::values.airplane_mode.GetValue()) {
         return {-1, Errno::AGAIN};
     }
+    if (!descriptor.is_connection_based) {
+        return {-1, Errno::AGAIN};
+    }
 
     // Apply flags
     using Network::FLAG_MSG_DONTWAIT;
@@ -1057,6 +1060,10 @@ std::pair<s32, Errno> BSD::RecvFromImpl(s32 fd, u32 flags, std::vector<u8>& mess
 
     FileDescriptor& descriptor = *file_descriptors[fd];
     if (Settings::values.airplane_mode.GetValue()) {
+        addr.clear();
+        return {-1, Errno::AGAIN};
+    }
+    if (!descriptor.is_connection_based) {
         addr.clear();
         return {-1, Errno::AGAIN};
     }
@@ -1109,7 +1116,12 @@ std::pair<s32, Errno> BSD::SendImpl(s32 fd, u32 flags, std::span<const u8> messa
     if (Settings::values.airplane_mode.GetValue()) {
         return {static_cast<s32>(message.size()), Errno::SUCCESS};
     }
-    return Translate(file_descriptors[fd]->socket->Send(message, flags));
+    FileDescriptor& descriptor = *file_descriptors[fd];
+    if (!descriptor.is_connection_based) {
+        LOG_DEBUG(Service, "Dropping datagram send without destination fd={}", fd);
+        return {static_cast<s32>(message.size()), Errno::SUCCESS};
+    }
+    return Translate(descriptor.socket->Send(message, flags));
 }
 
 std::pair<s32, Errno> BSD::SendToImpl(s32 fd, u32 flags, std::span<const u8> message,
@@ -1127,8 +1139,8 @@ std::pair<s32, Errno> BSD::SendToImpl(s32 fd, u32 flags, std::span<const u8> mes
 
     // For datagram sockets (UDP), a destination address is required
     if (!descriptor.is_connection_based && addr.empty()) {
-        LOG_ERROR(Service, "SendTo called on datagram socket without destination address");
-        return {-1, Errno::INVAL};
+        LOG_DEBUG(Service, "Dropping datagram sendto without destination fd={}", fd);
+        return {static_cast<s32>(message.size()), Errno::SUCCESS};
     }
 
     Network::SockAddrIn addr_in;
