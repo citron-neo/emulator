@@ -32,11 +32,34 @@ public:
         if (bindings.empty()) {
             return nullptr;
         }
-        const VkDescriptorSetLayoutCreateFlags flags =
-            use_push_descriptor ? VK_DESCRIPTOR_SET_LAYOUT_CREATE_PUSH_DESCRIPTOR_BIT_KHR : 0;
+        const bool use_uab = !use_push_descriptor && device->IsDescriptorIndexingSupported();
+        boost::container::small_vector<VkDescriptorBindingFlags, 32> binding_flags;
+        VkDescriptorSetLayoutBindingFlagsCreateInfo binding_flags_ci{};
+        if (use_uab) {
+            binding_flags.resize(bindings.size());
+            for (size_t i = 0; i < bindings.size(); ++i) {
+                binding_flags[i] = bindings[i].descriptorCount > 1
+                                       ? (VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT |
+                                          VK_DESCRIPTOR_BINDING_UPDATE_AFTER_BIND_BIT)
+                                       : 0;
+            }
+            binding_flags_ci = {
+                .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO,
+                .pNext = nullptr,
+                .bindingCount = static_cast<u32>(binding_flags.size()),
+                .pBindingFlags = binding_flags.data(),
+            };
+        }
+        VkDescriptorSetLayoutCreateFlags flags = 0;
+        if (use_push_descriptor) {
+            flags |= VK_DESCRIPTOR_SET_LAYOUT_CREATE_PUSH_DESCRIPTOR_BIT_KHR;
+        }
+        if (use_uab) {
+            flags |= VK_DESCRIPTOR_SET_LAYOUT_CREATE_UPDATE_AFTER_BIND_POOL_BIT;
+        }
         return device->GetLogical().CreateDescriptorSetLayout({
             .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
-            .pNext = nullptr,
+            .pNext = use_uab ? &binding_flags_ci : nullptr,
             .flags = flags,
             .bindingCount = static_cast<u32>(bindings.size()),
             .pBindings = bindings.data(),
