@@ -52,6 +52,119 @@ void PutValue(std::span<u8> buffer, const T& t) {
     std::memcpy(buffer.data(), &t, std::min(sizeof(T), buffer.size()));
 }
 
+class OfflineSocket final : public Network::SocketBase {
+public:
+    Network::Errno Initialize(Network::Domain domain_, Network::Type type_,
+                              Network::Protocol protocol_) override {
+        domain = domain_;
+        type = type_;
+        protocol = protocol_;
+        return Network::Errno::SUCCESS;
+    }
+
+    Network::Errno Close() override {
+        opened = false;
+        return Network::Errno::SUCCESS;
+    }
+
+    std::pair<AcceptResult, Network::Errno> Accept() override {
+        return {AcceptResult{}, Network::Errno::NETDOWN};
+    }
+
+    Network::Errno Connect(Network::SockAddrIn) override {
+        return Network::Errno::NETDOWN;
+    }
+
+    std::pair<Network::SockAddrIn, Network::Errno> GetPeerName() override {
+        return {{}, Network::Errno::NOTCONN};
+    }
+
+    std::pair<Network::SockAddrIn, Network::Errno> GetSockName() override {
+        return {{}, Network::Errno::SUCCESS};
+    }
+
+    Network::Errno Bind(Network::SockAddrIn) override {
+        return Network::Errno::SUCCESS;
+    }
+
+    Network::Errno Listen(s32) override {
+        return Network::Errno::SUCCESS;
+    }
+
+    Network::Errno Shutdown(Network::ShutdownHow) override {
+        return Network::Errno::SUCCESS;
+    }
+
+    std::pair<s32, Network::Errno> Recv(int, std::span<u8>) override {
+        return {-1, Network::Errno::AGAIN};
+    }
+
+    std::pair<s32, Network::Errno> RecvFrom(int, std::span<u8>, Network::SockAddrIn*) override {
+        return {-1, Network::Errno::AGAIN};
+    }
+
+    std::pair<s32, Network::Errno> Send(std::span<const u8> message, int) override {
+        return {static_cast<s32>(message.size()), Network::Errno::SUCCESS};
+    }
+
+    std::pair<s32, Network::Errno> SendTo(u32, std::span<const u8> message,
+                                          const Network::SockAddrIn*) override {
+        return {static_cast<s32>(message.size()), Network::Errno::SUCCESS};
+    }
+
+    Network::Errno SetLinger(bool, u32) override {
+        return Network::Errno::SUCCESS;
+    }
+
+    Network::Errno SetReuseAddr(bool) override {
+        return Network::Errno::SUCCESS;
+    }
+
+    Network::Errno SetKeepAlive(bool) override {
+        return Network::Errno::SUCCESS;
+    }
+
+    Network::Errno SetBroadcast(bool) override {
+        return Network::Errno::SUCCESS;
+    }
+
+    Network::Errno SetSndBuf(u32) override {
+        return Network::Errno::SUCCESS;
+    }
+
+    Network::Errno SetRcvBuf(u32) override {
+        return Network::Errno::SUCCESS;
+    }
+
+    Network::Errno SetSndTimeo(u32) override {
+        return Network::Errno::SUCCESS;
+    }
+
+    Network::Errno SetRcvTimeo(u32) override {
+        return Network::Errno::SUCCESS;
+    }
+
+    Network::Errno SetNonBlock(bool) override {
+        return Network::Errno::SUCCESS;
+    }
+
+    std::pair<Network::Errno, Network::Errno> GetPendingError() override {
+        return {Network::Errno::SUCCESS, Network::Errno::SUCCESS};
+    }
+
+    bool IsOpened() const override {
+        return opened;
+    }
+
+    void HandleProxyPacket(const Network::ProxyPacket&) override {}
+
+private:
+    Network::Domain domain = Network::Domain::INET;
+    Network::Type type = Network::Type::DGRAM;
+    Network::Protocol protocol = Network::Protocol::UDP;
+    bool opened = true;
+};
+
 } // Anonymous namespace
 
 void BSD::PollWork::Execute(BSD* bsd) {
@@ -521,12 +634,6 @@ void BSD::ExecuteWork(HLERequestContext& ctx, Work work) {
 }
 
 std::pair<s32, Errno> BSD::SocketImpl(Domain domain, Type type, Protocol protocol) {
-    if (Settings::values.airplane_mode.GetValue()) {
-        LOG_INFO(Service, "Airplane mode: rejecting socket creation domain={} type={} protocol={}",
-                 domain, type, protocol);
-        return {-1, Errno::CONNREFUSED};
-    }
-
     if (type == Type::SEQPACKET) {
         UNIMPLEMENTED_MSG("SOCK_SEQPACKET errno management");
     } else if (type == Type::RAW && (domain != Domain::INET || protocol != Protocol::ICMP)) {
@@ -559,7 +666,11 @@ std::pair<s32, Errno> BSD::SocketImpl(Domain domain, Type type, Protocol protoco
     descriptor.protocol = Translate(protocol);
     descriptor.is_connection_based = IsConnectionBased(type);
 
-    if (using_proxy) {
+    if (Settings::values.airplane_mode.GetValue()) {
+        descriptor.socket = std::make_shared<OfflineSocket>();
+        descriptor.socket->Initialize(descriptor.domain, descriptor.type, descriptor.protocol);
+        LOG_INFO(Service, "Airplane mode: created offline socket fd={}", fd);
+    } else if (using_proxy) {
         descriptor.socket = std::make_shared<Network::ProxySocket>(room_network);
         descriptor.socket->Initialize(descriptor.domain, descriptor.type, descriptor.protocol);
         LOG_DEBUG(Service, "Created new ProxySocket for fd={}", fd);
