@@ -426,6 +426,7 @@ PipelineCache::PipelineCache(Tegra::MaxwellDeviceMemoryManager& device_memory_,
         .has_extended_dynamic_state_3_enables =
             allow_eds3 && device.IsExtExtendedDynamicState3EnablesSupported(),
         .has_dynamic_vertex_input = allow_eds3 && device.IsExtVertexInputDynamicStateSupported(),
+        .has_transform_feedback = device.IsExtTransformFeedbackSupported(),
     };
 }
 
@@ -602,7 +603,8 @@ void PipelineCache::LoadDiskResources(u64 title_id, std::stop_token stop_loading
                 dynamic_features.has_extended_dynamic_state_3_blend ||
             (key.state.extended_dynamic_state_3_enables != 0) !=
                 dynamic_features.has_extended_dynamic_state_3_enables ||
-            (key.state.dynamic_vertex_input != 0) != dynamic_features.has_dynamic_vertex_input) {
+            (key.state.dynamic_vertex_input != 0) != dynamic_features.has_dynamic_vertex_input ||
+            (key.state.xfb_enabled != 0) != dynamic_features.has_transform_feedback) {
             return;
         }
         workers.QueueWork([this, key, envs_ = std::move(envs), &state, &callback]() mutable {
