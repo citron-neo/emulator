@@ -106,7 +106,7 @@ object NativeLibrary {
      */
     external fun installFileToNand(
         filename: String,
-        callback: (max: Long, progress: Long) -> Boolean
+        callback: (max: Double, progress: Double) -> Boolean
     ): Int
 
     external fun doesUpdateMatchProgram(programId: String, updatePath: String): Boolean
