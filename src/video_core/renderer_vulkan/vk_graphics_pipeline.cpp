@@ -367,9 +367,9 @@ void GraphicsPipeline::ConfigureImpl(bool is_indexed) {
             for (u32 index = 0; index < desc.count; ++index) {
                 const auto handle{read_handle(desc, index)};
                 views[view_index++] = {handle.first};
-
-                VideoCommon::SamplerId sampler{texture_cache.GetGraphicsSamplerId(handle.second)};
-                samplers[sampler_index++] = sampler;
+                samplers[sampler_index++] = handle.first == 0
+                    ? VideoCommon::SamplerId{}
+                    : texture_cache.GetGraphicsSamplerId(handle.second);
             }
         }
         if constexpr (Spec::has_images) {
