@@ -441,6 +441,14 @@ Device::Device(VkInstance instance_, vk::PhysicalDevice physical_, VkSurfaceKHR 
         nvidia_arch = GetNvidiaArchitecture(physical, supported_extensions);
     }
 
+    if (is_mvk) {
+        LOG_INFO(Render_Vulkan, "Disabling Vulkan buffer robustness on MoltenVK");
+        features.features.robustBufferAccess = false;
+        features2.features.robustBufferAccess = false;
+        RemoveExtensionFeature(extensions.robustness_2, features.robustness2,
+                               VK_EXT_ROBUSTNESS_2_EXTENSION_NAME);
+    }
+
     // FIXED: Android Adreno 740 native ASTC eviction
     // Detect Adreno GPUs and check for native ASTC support
     is_adreno = is_qualcomm || is_turnip;

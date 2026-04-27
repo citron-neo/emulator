@@ -1369,6 +1369,9 @@ void RasterizerVulkan::UpdatePrimitiveRestartEnable(Tegra::Engines::Maxwell3D::R
     if (!state_tracker.TouchPrimitiveRestartEnable()) {
         return;
     }
+    if (device.GetDriverID() == VK_DRIVER_ID_MOLTENVK) {
+        return;
+    }
     scheduler.Record([enable = regs.primitive_restart.enabled](vk::CommandBuffer cmdbuf) {
         cmdbuf.SetPrimitiveRestartEnableEXT(enable);
     });
