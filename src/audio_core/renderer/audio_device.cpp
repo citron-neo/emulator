@@ -64,11 +64,15 @@ u32 AudioDevice::ListAudioOutputDeviceName(std::span<AudioDeviceName> out_buffer
 }
 
 void AudioDevice::SetDeviceVolumes(const f32 volume) {
-    output_sink.SetDeviceVolume(volume);
+    last_requested_device_volume = volume;
+    if (volume <= 0.0f) {
+        return;
+    }
+    output_sink.SetDeviceVolume(std::min(volume, 1.0f));
 }
 
 f32 AudioDevice::GetDeviceVolume([[maybe_unused]] std::string_view name) const {
-    return output_sink.GetDeviceVolume();
+    return last_requested_device_volume;
 }
 
 Result AudioDevice::AcquireAudioOutputDeviceNotification(u32& event_handle, u64 device_id) const {

@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright 2022 yuzu Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
+#include <algorithm>
 #include <mutex>
 
 #include "audio_core/audio_event.h"
@@ -200,8 +201,8 @@ f32 System::GetVolume() const {
 }
 
 void System::SetVolume(const f32 volume_) {
-    volume = volume_;
-    session->SetVolume(volume_);
+    volume = std::clamp(volume_, 0.0f, 1.0f);
+    session->SetVolume(volume);
 }
 
 bool System::ContainsAudioBuffer(const u64 tag) const {
