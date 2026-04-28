@@ -3,7 +3,9 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <algorithm>
+#include <cstring>
 #include <span>
+#include <vector>
 
 #include <boost/container/small_vector.hpp>
 #include <boost/container/static_vector.hpp>
@@ -41,7 +43,43 @@ using VideoCore::Surface::PixelFormatFromDepthFormat;
 using VideoCore::Surface::PixelFormatFromRenderTargetFormat;
 
 constexpr size_t NUM_STAGES = Tegra::Engines::Maxwell3D::Regs::MaxShaderStage;
-constexpr size_t MAX_IMAGE_ELEMENTS = 128;
+constexpr size_t MAX_IMAGE_ELEMENTS = 16384;
+
+// Stale SamplerIds are possible if the sampler pool is rebuilt with a different
+// sampler at the same handle while the cbuf bytes don't change. Add a pool
+// sequence-number check here if that ever surfaces as a visible bug.
+struct BindlessCacheEntry {
+    GPUVAddr key_addr{0};
+    u32 key_count{0};
+    bool valid{false};
+    boost::container::small_vector<u8, 256> last_bytes;
+    boost::container::small_vector<VideoCommon::ImageViewInOut, 16> cached_views;
+    boost::container::small_vector<VideoCommon::SamplerId, 16> cached_samplers;
+};
+constexpr size_t BINDLESS_CACHE_SIZE = 64;
+using BindlessCache = std::array<BindlessCacheEntry, BINDLESS_CACHE_SIZE>;
+
+BindlessCacheEntry* FindBindlessEntry(BindlessCache& cache, GPUVAddr addr, u32 count) {
+    for (auto& entry : cache) {
+        if (entry.valid && entry.key_addr == addr && entry.key_count == count) {
+            return &entry;
+        }
+    }
+    return nullptr;
+}
+
+BindlessCacheEntry& AcquireBindlessEntry(BindlessCache& cache, size_t& round_robin,
+                                         GPUVAddr addr, u32 count) {
+    if (auto* found = FindBindlessEntry(cache, addr, count)) {
+        return *found;
+    }
+    auto& slot = cache[round_robin];
+    round_robin = (round_robin + 1) % BINDLESS_CACHE_SIZE;
+    slot.key_addr = addr;
+    slot.key_count = count;
+    slot.valid = false;
+    return slot;
+}
 
 DescriptorLayoutBuilder MakeBuilder(const Device& device, std::span<const Shader::Info> infos) {
     DescriptorLayoutBuilder builder{device};
@@ -300,6 +338,9 @@ template <typename Spec>
 void GraphicsPipeline::ConfigureImpl(bool is_indexed) {
     thread_local std::array<VideoCommon::ImageViewInOut, MAX_IMAGE_ELEMENTS> views;
     thread_local std::array<VideoCommon::SamplerId, MAX_IMAGE_ELEMENTS> samplers;
+    thread_local BindlessCache bindless_cache;
+    thread_local size_t bindless_cache_rr{0};
+    thread_local std::vector<u8> bindless_scratch;
     size_t sampler_index{};
     size_t view_index{};
 
@@ -364,6 +405,53 @@ void GraphicsPipeline::ConfigureImpl(bool is_indexed) {
             }
         }
         for (const auto& desc : info.texture_descriptors) {
+            if (desc.count > 1 && !desc.has_secondary) {
+                const GPUVAddr cbuf_addr =
+                    cbufs[desc.cbuf_index].address + desc.cbuf_offset;
+                const size_t byte_size =
+                    static_cast<size_t>(desc.count) << desc.size_shift;
+                bindless_scratch.resize(byte_size);
+                gpu_memory->ReadBlockUnsafe(cbuf_addr, bindless_scratch.data(),
+                                            byte_size);
+                BindlessCacheEntry& entry = AcquireBindlessEntry(
+                    bindless_cache, bindless_cache_rr, cbuf_addr, desc.count);
+                const bool hit = entry.valid &&
+                                 entry.last_bytes.size() == byte_size &&
+                                 std::memcmp(entry.last_bytes.data(),
+                                             bindless_scratch.data(),
+                                             byte_size) == 0;
+                if (hit) {
+                    for (const auto& v : entry.cached_views) {
+                        views[view_index++] = v;
+                    }
+                    for (const auto& s : entry.cached_samplers) {
+                        samplers[sampler_index++] = s;
+                    }
+                    continue;
+                }
+                const size_t views_start = view_index;
+                const size_t samplers_start = sampler_index;
+                for (u32 index = 0; index < desc.count; ++index) {
+                    const size_t slot_offset =
+                        static_cast<size_t>(index) << desc.size_shift;
+                    u32 raw;
+                    std::memcpy(&raw, bindless_scratch.data() + slot_offset,
+                                sizeof(u32));
+                    const auto handle = TexturePair(raw, via_header_index);
+                    views[view_index++] = {handle.first};
+                    samplers[sampler_index++] = handle.first == 0
+                        ? VideoCommon::NULL_SAMPLER_ID
+                        : texture_cache.GetGraphicsSamplerId(handle.second);
+                }
+                entry.last_bytes.assign(bindless_scratch.begin(),
+                                        bindless_scratch.end());
+                entry.cached_views.assign(views.data() + views_start,
+                                          views.data() + view_index);
+                entry.cached_samplers.assign(samplers.data() + samplers_start,
+                                             samplers.data() + sampler_index);
+                entry.valid = true;
+                continue;
+            }
             for (u32 index = 0; index < desc.count; ++index) {
                 const auto handle{read_handle(desc, index)};
                 views[view_index++] = {handle.first};

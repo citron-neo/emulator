@@ -2,9 +2,11 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <algorithm>
+#include <cstring>
 #include <vector>
 
 #include <boost/container/small_vector.hpp>
+#include <boost/container/static_vector.hpp>
 
 #include "video_core/renderer_vulkan/pipeline_helper.h"
 #include "video_core/renderer_vulkan/pipeline_statistics.h"
@@ -23,6 +25,41 @@ namespace Vulkan {
 using Shader::ImageBufferDescriptor;
 using Shader::Backend::SPIRV::RESCALING_LAYOUT_WORDS_OFFSET;
 using Tegra::Texture::TexturePair;
+
+namespace {
+struct BindlessCacheEntry {
+    GPUVAddr key_addr{0};
+    u32 key_count{0};
+    bool valid{false};
+    boost::container::small_vector<u8, 256> last_bytes;
+    boost::container::small_vector<VideoCommon::ImageViewInOut, 16> cached_views;
+    boost::container::small_vector<VideoCommon::SamplerId, 16> cached_samplers;
+};
+constexpr size_t BINDLESS_CACHE_SIZE = 64;
+using BindlessCache = std::array<BindlessCacheEntry, BINDLESS_CACHE_SIZE>;
+
+BindlessCacheEntry* FindBindlessEntry(BindlessCache& cache, GPUVAddr addr, u32 count) {
+    for (auto& entry : cache) {
+        if (entry.valid && entry.key_addr == addr && entry.key_count == count) {
+            return &entry;
+        }
+    }
+    return nullptr;
+}
+
+BindlessCacheEntry& AcquireBindlessEntry(BindlessCache& cache, size_t& round_robin,
+                                         GPUVAddr addr, u32 count) {
+    if (auto* found = FindBindlessEntry(cache, addr, count)) {
+        return *found;
+    }
+    auto& slot = cache[round_robin];
+    round_robin = (round_robin + 1) % BINDLESS_CACHE_SIZE;
+    slot.key_addr = addr;
+    slot.key_count = count;
+    slot.valid = false;
+    return slot;
+}
+} // namespace
 
 ComputePipeline::ComputePipeline(const Device& device_, vk::PipelineCache& pipeline_cache_,
                                  DescriptorPool& descriptor_pool,
@@ -113,9 +150,14 @@ void ComputePipeline::Configure(Tegra::Engines::KeplerCompute& kepler_compute,
 
     texture_cache.SynchronizeComputeDescriptors();
 
-    static constexpr size_t max_elements = 64;
-    boost::container::static_vector<VideoCommon::ImageViewInOut, max_elements> views;
-    boost::container::static_vector<VideoCommon::SamplerId, max_elements> samplers;
+    static constexpr size_t max_elements = 16384;
+    thread_local boost::container::static_vector<VideoCommon::ImageViewInOut, max_elements> views;
+    thread_local boost::container::static_vector<VideoCommon::SamplerId, max_elements> samplers;
+    views.clear();
+    samplers.clear();
+    thread_local BindlessCache bindless_cache;
+    thread_local size_t bindless_cache_rr{0};
+    thread_local std::vector<u8> bindless_scratch;
 
     const auto& qmd{kepler_compute.launch_description};
     const auto& cbufs{qmd.const_buffer_config};
@@ -156,6 +198,48 @@ void ComputePipeline::Configure(Tegra::Engines::KeplerCompute& kepler_compute,
         add_image(desc, false);
     }
     for (const auto& desc : info.texture_descriptors) {
+        if (desc.count > 1 && !desc.has_secondary) {
+            const GPUVAddr cbuf_addr =
+                cbufs[desc.cbuf_index].Address() + desc.cbuf_offset;
+            const size_t byte_size = static_cast<size_t>(desc.count) << desc.size_shift;
+            bindless_scratch.resize(byte_size);
+            gpu_memory.ReadBlockUnsafe(cbuf_addr, bindless_scratch.data(), byte_size);
+            BindlessCacheEntry& entry = AcquireBindlessEntry(
+                bindless_cache, bindless_cache_rr, cbuf_addr, desc.count);
+            const bool hit = entry.valid &&
+                             entry.last_bytes.size() == byte_size &&
+                             std::memcmp(entry.last_bytes.data(),
+                                         bindless_scratch.data(), byte_size) == 0;
+            if (hit) {
+                for (const auto& v : entry.cached_views) {
+                    views.push_back(v);
+                }
+                for (const auto& s : entry.cached_samplers) {
+                    samplers.push_back(s);
+                }
+                continue;
+            }
+            const size_t views_start = views.size();
+            const size_t samplers_start = samplers.size();
+            for (u32 index = 0; index < desc.count; ++index) {
+                const size_t slot_offset =
+                    static_cast<size_t>(index) << desc.size_shift;
+                u32 raw;
+                std::memcpy(&raw, bindless_scratch.data() + slot_offset, sizeof(u32));
+                const auto handle = TexturePair(raw, via_header_index);
+                views.push_back({handle.first});
+                samplers.push_back(handle.first == 0
+                                       ? VideoCommon::NULL_SAMPLER_ID
+                                       : texture_cache.GetComputeSamplerId(handle.second));
+            }
+            entry.last_bytes.assign(bindless_scratch.begin(), bindless_scratch.end());
+            entry.cached_views.assign(views.data() + views_start,
+                                      views.data() + views.size());
+            entry.cached_samplers.assign(samplers.data() + samplers_start,
+                                         samplers.data() + samplers.size());
+            entry.valid = true;
+            continue;
+        }
         for (u32 index = 0; index < desc.count; ++index) {
             const auto handle{read_handle(desc, index)};
             views.push_back({handle.first});
