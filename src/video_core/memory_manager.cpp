@@ -165,6 +165,9 @@ GPUVAddr MemoryManager::BigPageTableOp(GPUVAddr gpu_addr, [[maybe_unused]] DAddr
                 return true;
             })();
             SetBigPageContinuous(index, is_continuous);
+        } else {
+            const auto index = PageEntryIndex<true>(current_gpu_addr);
+            SetBigPageContinuous(index, false);
         }
         remaining_size -= big_page_size;
     }
