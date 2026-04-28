@@ -35,19 +35,7 @@ set(NX_TZDB_ARCHIVE "${CMAKE_CURRENT_BINARY_DIR}/${NX_TZDB_VERSION}.zip")
 
 set(NX_TZDB_ROMFS_DIR "${CMAKE_CURRENT_BINARY_DIR}/nx_tzdb")
 
-set(NX_TZDB_HAVE_SOURCE FALSE)
-if (DEFINED TZDB_TO_NX_SOURCE_DIR AND EXISTS "${TZDB_TO_NX_SOURCE_DIR}/CMakeLists.txt")
-    set(NX_TZDB_HAVE_SOURCE TRUE)
-endif()
-
-# Build from tzdb_to_nx source only when the tree is available (git submodule or CITRON_USE_CPM).
-# Otherwise use the same pre-built release archive as Windows and DOWNLOAD_TIME_ZONE_DATA builds.
-set(NX_TZDB_USE_LOCAL_BUILD FALSE)
-if (CAN_BUILD_NX_TZDB AND NOT CITRON_DOWNLOAD_TIME_ZONE_DATA AND NX_TZDB_HAVE_SOURCE)
-    set(NX_TZDB_USE_LOCAL_BUILD TRUE)
-endif()
-
-if (NOT NX_TZDB_USE_LOCAL_BUILD AND NOT EXISTS ${NX_TZDB_ROMFS_DIR})
+if ((NOT CAN_BUILD_NX_TZDB OR CITRON_DOWNLOAD_TIME_ZONE_DATA) AND NOT EXISTS ${NX_TZDB_ROMFS_DIR})
     set(NX_TZDB_DOWNLOAD_URL "https://github.com/lat9nq/tzdb_to_nx/releases/download/${NX_TZDB_VERSION}/${NX_TZDB_VERSION}.zip")
 
     message(STATUS "Downloading time zone data from ${NX_TZDB_DOWNLOAD_URL}...")
@@ -63,8 +51,12 @@ if (NOT NX_TZDB_USE_LOCAL_BUILD AND NOT EXISTS ${NX_TZDB_ROMFS_DIR})
             ${NX_TZDB_ARCHIVE}
         DESTINATION
             ${NX_TZDB_ROMFS_DIR})
-elseif (NX_TZDB_USE_LOCAL_BUILD)
-    add_subdirectory("${TZDB_TO_NX_SOURCE_DIR}" tzdb_to_nx)
+elseif (CAN_BUILD_NX_TZDB AND NOT CITRON_DOWNLOAD_TIME_ZONE_DATA)
+    if (DEFINED TZDB_TO_NX_SOURCE_DIR AND EXISTS "${TZDB_TO_NX_SOURCE_DIR}/CMakeLists.txt")
+        add_subdirectory("${TZDB_TO_NX_SOURCE_DIR}" tzdb_to_nx)
+    else()
+        message(FATAL_ERROR "tzdb_to_nx source not found. Enable CITRON_USE_CPM so the source can be fetched.")
+    endif()
     add_dependencies(nx_tzdb x80e)
 
     set(NX_TZDB_ROMFS_DIR "${NX_TZDB_DIR}")
