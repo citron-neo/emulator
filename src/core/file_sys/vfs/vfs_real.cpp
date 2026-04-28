@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: Copyright 2018 yuzu Emulator Project
+// SPDX-FileCopyrightText: Copyright 2026 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <algorithm>
@@ -269,6 +270,9 @@ void RealVfsFilesystem::InsertReferenceIntoListLocked(FileReference& reference) 
 }
 
 void RealVfsFilesystem::RemoveReferenceFromListLocked(FileReference& reference) {
+    if (!reference.IsLinked()) {
+        return;
+    }
     if (reference.file) {
         open_references.erase(open_references.iterator_to(reference));
     } else {
