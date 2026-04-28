@@ -79,13 +79,29 @@ ComputePipeline::ComputePipeline(const Device& device_, vk::PipelineCache& pipel
 
     auto func{[this, &descriptor_pool, shader_notify, pipeline_statistics] {
         DescriptorLayoutBuilder builder{device};
+        builder.SetSplit(device.IsKhrPushDescriptorSupported());
         builder.Add(info, VK_SHADER_STAGE_COMPUTE_BIT);
 
-        descriptor_set_layout = builder.CreateDescriptorSetLayout(false);
-        pipeline_layout = builder.CreatePipelineLayout(*descriptor_set_layout);
+        split_descriptor_sets = builder.IsSplit();
+        uses_push_descriptor = split_descriptor_sets;
+        descriptor_set_layout = builder.CreateDescriptorSetLayout(uses_push_descriptor);
+        if (split_descriptor_sets) {
+            resource_set_layout = builder.CreateResourceSetLayout();
+        }
+        const VkDescriptorSetLayout set_layout{*descriptor_set_layout};
+        const VkDescriptorSetLayout res_layout{
+            resource_set_layout ? *resource_set_layout : VK_NULL_HANDLE};
+        pipeline_layout = builder.CreatePipelineLayout(set_layout, res_layout);
         descriptor_update_template =
-            builder.CreateTemplate(*descriptor_set_layout, *pipeline_layout, false);
-        descriptor_allocator = descriptor_pool.Allocator(*descriptor_set_layout, info);
+            builder.CreateTemplate(set_layout, *pipeline_layout, uses_push_descriptor);
+        if (resource_set_layout) {
+            resource_update_template =
+                builder.CreateResourceTemplate(res_layout, *pipeline_layout);
+            resource_descriptor_allocator = descriptor_pool.Allocator(*resource_set_layout, info);
+        }
+        if (!uses_push_descriptor && descriptor_set_layout) {
+            descriptor_allocator = descriptor_pool.Allocator(*descriptor_set_layout, info);
+        }
         const VkPipelineShaderStageRequiredSubgroupSizeCreateInfoEXT subgroup_size_ci{
             .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_REQUIRED_SUBGROUP_SIZE_CREATE_INFO_EXT,
             .pNext = nullptr,
@@ -293,7 +309,7 @@ void ComputePipeline::Configure(Tegra::Engines::KeplerCompute& kepler_compute,
     scheduler.Record([this, descriptor_data, is_rescaling,
                       rescaling_data = rescaling.Data()](vk::CommandBuffer cmdbuf) {
         cmdbuf.BindPipeline(VK_PIPELINE_BIND_POINT_COMPUTE, *pipeline);
-        if (!descriptor_set_layout) {
+        if (!descriptor_set_layout && !resource_set_layout) {
             return;
         }
         if (is_rescaling) {
@@ -301,11 +317,25 @@ void ComputePipeline::Configure(Tegra::Engines::KeplerCompute& kepler_compute,
                                  RESCALING_LAYOUT_WORDS_OFFSET, sizeof(rescaling_data),
                                  rescaling_data.data());
         }
-        const VkDescriptorSet descriptor_set{descriptor_allocator.Commit()};
         const vk::Device& dev{device.GetLogical()};
-        dev.UpdateDescriptorSet(descriptor_set, *descriptor_update_template, descriptor_data);
-        cmdbuf.BindDescriptorSets(VK_PIPELINE_BIND_POINT_COMPUTE, *pipeline_layout, 0,
-                                  descriptor_set, nullptr);
+        if (descriptor_set_layout) {
+            if (uses_push_descriptor) {
+                cmdbuf.PushDescriptorSetWithTemplateKHR(*descriptor_update_template,
+                                                        *pipeline_layout, 0, descriptor_data);
+            } else {
+                const VkDescriptorSet descriptor_set{descriptor_allocator.Commit()};
+                dev.UpdateDescriptorSet(descriptor_set, *descriptor_update_template,
+                                        descriptor_data);
+                cmdbuf.BindDescriptorSets(VK_PIPELINE_BIND_POINT_COMPUTE, *pipeline_layout, 0,
+                                          descriptor_set, nullptr);
+            }
+        }
+        if (resource_set_layout) {
+            const VkDescriptorSet resource_set{resource_descriptor_allocator.Commit()};
+            dev.UpdateDescriptorSet(resource_set, *resource_update_template, descriptor_data);
+            cmdbuf.BindDescriptorSets(VK_PIPELINE_BIND_POINT_COMPUTE, *pipeline_layout, 1,
+                                      resource_set, nullptr);
+        }
     });
 }
 

@@ -60,9 +60,16 @@ private:
     vk::DescriptorUpdateTemplate descriptor_update_template;
     vk::Pipeline pipeline;
 
+    // Split-mode set 1 (resources). Empty unless device supports push descriptor.
+    vk::DescriptorSetLayout resource_set_layout;
+    DescriptorAllocator resource_descriptor_allocator;
+    vk::DescriptorUpdateTemplate resource_update_template;
+
     std::condition_variable build_condvar;
     std::mutex build_mutex;
     std::atomic_bool is_built{false};
+    bool uses_push_descriptor{false};
+    bool split_descriptor_sets{false};
 };
 
 } // namespace Vulkan

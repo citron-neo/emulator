@@ -83,6 +83,7 @@ BindlessCacheEntry& AcquireBindlessEntry(BindlessCache& cache, size_t& round_rob
 
 DescriptorLayoutBuilder MakeBuilder(const Device& device, std::span<const Shader::Info> infos) {
     DescriptorLayoutBuilder builder{device};
+    builder.SetSplit(device.IsKhrPushDescriptorSupported());
     for (size_t index = 0; index < infos.size(); ++index) {
         static constexpr std::array stages{
             VK_SHADER_STAGE_VERTEX_BIT,
@@ -297,15 +298,31 @@ GraphicsPipeline::GraphicsPipeline(
     }
     auto func{[this, shader_notify, &render_pass_cache, &descriptor_pool, pipeline_statistics] {
         DescriptorLayoutBuilder builder{MakeBuilder(device, stage_infos)};
-        uses_push_descriptor = builder.CanUsePushDescriptor();
+        split_descriptor_sets = builder.IsSplit();
+        // In split mode set 0 (uniforms) is always pushed; in single-set mode we
+        // fall back to the original "push if everything fits" check.
+        uses_push_descriptor =
+            split_descriptor_sets ? device.IsKhrPushDescriptorSupported() : builder.CanUsePushDescriptor();
         descriptor_set_layout = builder.CreateDescriptorSetLayout(uses_push_descriptor);
-        if (!uses_push_descriptor) {
+        if (split_descriptor_sets) {
+            resource_set_layout = builder.CreateResourceSetLayout();
+        }
+        if (!uses_push_descriptor && descriptor_set_layout) {
             descriptor_allocator = descriptor_pool.Allocator(*descriptor_set_layout, stage_infos);
         }
+        if (resource_set_layout) {
+            resource_descriptor_allocator =
+                descriptor_pool.Allocator(*resource_set_layout, stage_infos);
+        }
         const VkDescriptorSetLayout set_layout{*descriptor_set_layout};
-        pipeline_layout = builder.CreatePipelineLayout(set_layout);
+        const VkDescriptorSetLayout res_layout{resource_set_layout ? *resource_set_layout : VK_NULL_HANDLE};
+        pipeline_layout = builder.CreatePipelineLayout(set_layout, res_layout);
         descriptor_update_template =
             builder.CreateTemplate(set_layout, *pipeline_layout, uses_push_descriptor);
+        if (resource_set_layout) {
+            resource_update_template =
+                builder.CreateResourceTemplate(res_layout, *pipeline_layout);
+        }
 
         const VkRenderPass render_pass{render_pass_cache.Get(MakeRenderPassKey(key.state))};
         Validate();
@@ -612,18 +629,27 @@ void GraphicsPipeline::ConfigureDraw(const RescalingPushConstant& rescaling,
                                  RENDERAREA_LAYOUT_OFFSET, sizeof(render_area_data),
                                  &render_area_data);
         }
-        if (!descriptor_set_layout) {
+        if (!descriptor_set_layout && !resource_set_layout) {
             return;
         }
-        if (uses_push_descriptor) {
-            cmdbuf.PushDescriptorSetWithTemplateKHR(*descriptor_update_template, *pipeline_layout,
-                                                    0, descriptor_data);
-        } else {
-            const VkDescriptorSet descriptor_set{descriptor_allocator.Commit()};
-            const vk::Device& dev{device.GetLogical()};
-            dev.UpdateDescriptorSet(descriptor_set, *descriptor_update_template, descriptor_data);
-            cmdbuf.BindDescriptorSets(VK_PIPELINE_BIND_POINT_GRAPHICS, *pipeline_layout, 0,
-                                      descriptor_set, nullptr);
+        const vk::Device& dev{device.GetLogical()};
+        if (descriptor_set_layout) {
+            if (uses_push_descriptor) {
+                cmdbuf.PushDescriptorSetWithTemplateKHR(*descriptor_update_template,
+                                                        *pipeline_layout, 0, descriptor_data);
+            } else {
+                const VkDescriptorSet descriptor_set{descriptor_allocator.Commit()};
+                dev.UpdateDescriptorSet(descriptor_set, *descriptor_update_template,
+                                        descriptor_data);
+                cmdbuf.BindDescriptorSets(VK_PIPELINE_BIND_POINT_GRAPHICS, *pipeline_layout, 0,
+                                          descriptor_set, nullptr);
+            }
+        }
+        if (resource_set_layout) {
+            const VkDescriptorSet resource_set{resource_descriptor_allocator.Commit()};
+            dev.UpdateDescriptorSet(resource_set, *resource_update_template, descriptor_data);
+            cmdbuf.BindDescriptorSets(VK_PIPELINE_BIND_POINT_GRAPHICS, *pipeline_layout, 1,
+                                      resource_set, nullptr);
         }
     });
 }
