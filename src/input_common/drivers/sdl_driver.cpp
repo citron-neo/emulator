@@ -39,25 +39,6 @@ std::string NormalizedGamepadName(SDL_GameController* controller) {
     return s;
 }
 
-bool IsSonyGamepad(SDL_GameController* controller) {
-    if (controller == nullptr) {
-        return false;
-    }
-    const auto ctype = SDL_GameControllerGetType(controller);
-    if (ctype == SDL_CONTROLLER_TYPE_PS3 || ctype == SDL_CONTROLLER_TYPE_PS4 ||
-        ctype == SDL_CONTROLLER_TYPE_PS5) {
-        return true;
-    }
-    if (SDL_Joystick* j = SDL_GameControllerGetJoystick(controller)) {
-        if (SDL_JoystickGetVendor(j) == 0x054c) {
-            return true;
-        }
-    }
-    const std::string s = NormalizedGamepadName(controller);
-    return s.find("dualsense") != std::string::npos || s.find("dualshock") != std::string::npos ||
-           s.find("playstation") != std::string::npos || s.find("ps5") != std::string::npos ||
-           s.find("ps4") != std::string::npos;
-}
 
 bool IsMicrosoftGamepad(SDL_GameController* controller) {
     if (controller == nullptr) {
@@ -901,26 +882,23 @@ ButtonBindings SDLDriver::GetDefaultButtonBinding(
         srr_button = SDL_CONTROLLER_BUTTON_PADDLE1;
     }
 
-    // Switch: B=south / A=east vs SDL A=south / B=east, and transposed X/Y. PlayStation and Xbox
-    // use SDL face buttons like their printed A/B; other pads use Switch-style positional A/B swap.
     SDL_GameController* controller = joystick->GetSDLGameController();
     const SDL_GameControllerType controller_type =
         controller ? SDL_GameControllerGetType(controller) : SDL_CONTROLLER_TYPE_UNKNOWN;
-    const bool nintendo_xy_swap =
+    const bool nintendo_layout =
         controller_type == SDL_CONTROLLER_TYPE_NINTENDO_SWITCH_PRO ||
         controller_type == SDL_CONTROLLER_TYPE_NINTENDO_SWITCH_JOYCON_LEFT ||
         controller_type == SDL_CONTROLLER_TYPE_NINTENDO_SWITCH_JOYCON_RIGHT ||
         controller_type == SDL_CONTROLLER_TYPE_NINTENDO_SWITCH_JOYCON_PAIR;
-    const bool use_printed_face_ab =
-        IsSonyGamepad(controller) || IsMicrosoftGamepad(controller);
+
     const SDL_GameControllerButton sdl_a =
-        use_printed_face_ab ? SDL_CONTROLLER_BUTTON_A : SDL_CONTROLLER_BUTTON_B;
+        nintendo_layout ? SDL_CONTROLLER_BUTTON_A : SDL_CONTROLLER_BUTTON_B;
     const SDL_GameControllerButton sdl_b =
-        use_printed_face_ab ? SDL_CONTROLLER_BUTTON_B : SDL_CONTROLLER_BUTTON_A;
+        nintendo_layout ? SDL_CONTROLLER_BUTTON_B : SDL_CONTROLLER_BUTTON_A;
     const SDL_GameControllerButton sdl_x =
-        nintendo_xy_swap ? SDL_CONTROLLER_BUTTON_Y : SDL_CONTROLLER_BUTTON_X;
+        nintendo_layout ? SDL_CONTROLLER_BUTTON_X : SDL_CONTROLLER_BUTTON_Y;
     const SDL_GameControllerButton sdl_y =
-        nintendo_xy_swap ? SDL_CONTROLLER_BUTTON_X : SDL_CONTROLLER_BUTTON_Y;
+        nintendo_layout ? SDL_CONTROLLER_BUTTON_Y : SDL_CONTROLLER_BUTTON_X;
 
     return {
         std::pair{Settings::NativeButton::A, sdl_a},
