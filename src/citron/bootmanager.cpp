@@ -85,6 +85,14 @@ void EmuThread::run() {
                 emit LoadProgress(stage, value, total);
             });
     }
+    if (stop_token.stop_requested()) {
+        // User stopped during shader preload: do not start the GPU / present threads or the CPU
+        // loop — that avoids Vulkan/Metal teardown racing with Qt on macOS.
+        gpu.ReleaseContext();
+        m_system.DetachDebugger();
+        m_system.ShutdownMainProcess();
+        return;
+    }
     emit LoadProgress(VideoCore::LoadCallbackStage::Complete, 0, 0);
 
     gpu.ReleaseContext();
@@ -897,8 +905,12 @@ bool GRenderWindow::InitRenderTarget() {
 void GRenderWindow::ReleaseRenderTarget() {
     if (child_widget) {
         layout()->removeWidget(child_widget);
-        child_widget->deleteLater();
+        QWidget* widget = child_widget;
         child_widget = nullptr;
+        // Synchronous teardown: deleteLater can run after QApplication::quit(), leaving the Vulkan
+        // QWindow alive while MoltenVK has already shut down (common when exiting mid-game, e.g.
+        // in-game loading screens).
+        delete widget;
     }
     main_context.reset();
 }
