@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include <array>
 #include <atomic>
 #include <condition_variable>
 #include <mutex>
@@ -64,6 +65,19 @@ private:
     vk::DescriptorSetLayout resource_set_layout;
     DescriptorAllocator resource_descriptor_allocator;
     vk::DescriptorUpdateTemplate resource_update_template;
+
+    // Per-pipeline descriptor set cache - same role as in GraphicsPipeline.
+    // Reuses a previously committed set when the descriptor data block is
+    // byte-identical to a still-in-flight commit, avoiding a redundant
+    // vkUpdateDescriptorSetWithTemplate.
+    struct CachedDescSet {
+        u64 hash{0};
+        u64 cb_tick{0};
+        VkDescriptorSet set{VK_NULL_HANDLE};
+    };
+    static constexpr size_t DESC_SET_CACHE_SIZE = 16;
+    std::array<CachedDescSet, DESC_SET_CACHE_SIZE> descriptor_set_cache{};
+    size_t descriptor_set_cache_rr{0};
 
     std::condition_variable build_condvar;
     std::mutex build_mutex;

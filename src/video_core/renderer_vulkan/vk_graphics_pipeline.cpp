@@ -45,6 +45,25 @@ using VideoCore::Surface::PixelFormatFromRenderTargetFormat;
 constexpr size_t NUM_STAGES = Tegra::Engines::Maxwell3D::Regs::MaxShaderStage;
 constexpr size_t MAX_IMAGE_ELEMENTS = 16384;
 
+constexpr u64 FNV1A_OFFSET = 0xcbf29ce484222325ULL;
+constexpr u64 FNV1A_PRIME = 0x100000001b3ULL;
+
+inline u64 HashDescriptorBlock(const DescriptorUpdateEntry* data, size_t entry_count) noexcept {
+    static_assert(sizeof(DescriptorUpdateEntry) % sizeof(u64) == 0,
+                  "DescriptorUpdateEntry must be 8-byte aligned");
+    if (entry_count == 0 || data == nullptr) {
+        return FNV1A_OFFSET;
+    }
+    const size_t word_count = entry_count * (sizeof(DescriptorUpdateEntry) / sizeof(u64));
+    const u64* words = reinterpret_cast<const u64*>(data);
+    u64 h = FNV1A_OFFSET;
+    for (size_t i = 0; i < word_count; ++i) {
+        h ^= words[i];
+        h *= FNV1A_PRIME;
+    }
+    return h;
+}
+
 // Stale SamplerIds are possible if the sampler pool is rebuilt with a different
 // sampler at the same handle while the cbuf bytes don't change. Add a pool
 // sequence-number check here if that ever surfaces as a visible bug.
@@ -606,9 +625,10 @@ void GraphicsPipeline::ConfigureDraw(const RescalingPushConstant& rescaling,
     const bool is_rescaling{texture_cache.IsRescaling()};
     const bool update_rescaling{scheduler.UpdateRescaling(is_rescaling)};
     const bool bind_pipeline{scheduler.UpdateGraphicsPipeline(this)};
-    const void* const descriptor_data{guest_descriptor_queue.UpdateData()};
-    scheduler.Record([this, descriptor_data, bind_pipeline, rescaling_data = rescaling.Data(),
-                      is_rescaling, update_rescaling,
+    const auto* const descriptor_data{guest_descriptor_queue.UpdateData()};
+    const size_t upload_entries{guest_descriptor_queue.GetUploadSize()};
+    scheduler.Record([this, descriptor_data, upload_entries, bind_pipeline,
+                      rescaling_data = rescaling.Data(), is_rescaling, update_rescaling,
                       uses_render_area = render_area.uses_render_area,
                       render_area_data = render_area.words](vk::CommandBuffer cmdbuf) {
         if (bind_pipeline) {
@@ -633,23 +653,58 @@ void GraphicsPipeline::ConfigureDraw(const RescalingPushConstant& rescaling,
             return;
         }
         const vk::Device& dev{device.GetLogical()};
+        // Hash once for both sets - they share the same data block. Identical
+        // bytes mean identical handle state, so cached sets remain valid.
+        const u64 data_hash = HashDescriptorBlock(descriptor_data, upload_entries);
+        auto& semaphore = scheduler.GetMasterSemaphore();
+        // Only reuse sets cached during the CURRENT command buffer. The
+        // descriptor allocator tracks per-set lifetime via Commit() but is
+        // unaware that we BindDescriptorSets() the cached handle in later
+        // draws; if we let the cache span multiple CBs, a later miss could
+        // re-Commit the same set and overwrite it while an earlier in-flight
+        // CB still references it. Strict equality keeps reuse confined to one
+        // CB submission window, which is enough for static-scene patterns
+        // (e.g. the bindless grass shader) where the same data repeats
+        // throughout one frame.
+        const u64 current_tick = semaphore.CurrentTick();
+        const auto get_or_alloc = [&](DescriptorAllocator& alloc,
+                                      const vk::DescriptorUpdateTemplate& tpl) -> VkDescriptorSet {
+            for (auto& e : descriptor_set_cache) {
+                if (e.set != VK_NULL_HANDLE && e.hash == data_hash &&
+                    e.cb_tick == current_tick) {
+                    return e.set;
+                }
+            }
+            const VkDescriptorSet fresh = alloc.Commit();
+            dev.UpdateDescriptorSet(fresh, *tpl, descriptor_data);
+            // Drop any stale slot pointing at the handle we just got back from
+            // the pool so we never produce two cache entries for the same set.
+            for (auto& e : descriptor_set_cache) {
+                if (e.set == fresh) {
+                    e.set = VK_NULL_HANDLE;
+                }
+            }
+            descriptor_set_cache[descriptor_set_cache_rr] = {data_hash, current_tick, fresh};
+            descriptor_set_cache_rr =
+                (descriptor_set_cache_rr + 1) % DESC_SET_CACHE_SIZE;
+            return fresh;
+        };
         if (descriptor_set_layout) {
             if (uses_push_descriptor) {
                 cmdbuf.PushDescriptorSetWithTemplateKHR(*descriptor_update_template,
                                                         *pipeline_layout, 0, descriptor_data);
             } else {
-                const VkDescriptorSet descriptor_set{descriptor_allocator.Commit()};
-                dev.UpdateDescriptorSet(descriptor_set, *descriptor_update_template,
-                                        descriptor_data);
+                const VkDescriptorSet ds = get_or_alloc(descriptor_allocator,
+                                                        descriptor_update_template);
                 cmdbuf.BindDescriptorSets(VK_PIPELINE_BIND_POINT_GRAPHICS, *pipeline_layout, 0,
-                                          descriptor_set, nullptr);
+                                          ds, nullptr);
             }
         }
         if (resource_set_layout) {
-            const VkDescriptorSet resource_set{resource_descriptor_allocator.Commit()};
-            dev.UpdateDescriptorSet(resource_set, *resource_update_template, descriptor_data);
+            const VkDescriptorSet rs = get_or_alloc(resource_descriptor_allocator,
+                                                    resource_update_template);
             cmdbuf.BindDescriptorSets(VK_PIPELINE_BIND_POINT_GRAPHICS, *pipeline_layout, 1,
-                                      resource_set, nullptr);
+                                      rs, nullptr);
         }
     });
 }
