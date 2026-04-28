@@ -700,8 +700,10 @@ GraphicsPipeline* PipelineCache::BuiltPipeline(GraphicsPipeline* pipeline) const
     if (!use_asynchronous_shaders) {
         return pipeline;
     }
-    // When asynchronous shaders are enabled, avoid blocking the main thread completely.
-    // Skip the draw until the pipeline is ready to prevent stutter.
+    const auto& state = maxwell3d->draw_manager->GetDrawState();
+    if (state.index_buffer.count <= 6 || state.vertex_buffer.count <= 6) {
+        return pipeline;
+    }
     return nullptr;
 }
 
