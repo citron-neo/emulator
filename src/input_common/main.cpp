@@ -107,6 +107,9 @@ struct InputSubsystem::Impl {
 
     template <typename Engine>
     void UnregisterEngine(std::shared_ptr<Engine>& engine) {
+        if (!engine) {
+            return;
+        }
         Common::Input::UnregisterInputFactory(engine->GetEngineName());
         Common::Input::UnregisterOutputFactory(engine->GetEngineName());
         engine.reset();
