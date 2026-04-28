@@ -37,8 +37,8 @@ struct TextureInst {
 
 using TextureInstVector = boost::container::small_vector<TextureInst, 24>;
 
-constexpr u32 DESCRIPTOR_SIZE = 8;
-constexpr u32 DESCRIPTOR_SIZE_SHIFT = static_cast<u32>(std::countr_zero(DESCRIPTOR_SIZE));
+constexpr u32 DESCRIPTOR_SIZE = 1024;
+constexpr u32 DESCRIPTOR_SIZE_SHIFT = u32(std::countr_zero(DESCRIPTOR_SIZE));
 
 IR::Opcode IndexedInstruction(const IR::Inst& inst) {
     switch (inst.GetOpcode()) {
