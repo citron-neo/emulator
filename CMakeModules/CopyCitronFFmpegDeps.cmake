@@ -2,6 +2,11 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 
 function(copy_citron_FFmpeg_deps target_dir)
+    # Static FFmpeg (Clangtron) — no DLLs to deploy
+    if (DEFINED CITRON_FFMPEG_STATIC_DIR)
+        return()
+    endif()
+
     include(WindowsCopyFiles)
     set(DLL_DEST "$<TARGET_FILE_DIR:${target_dir}>/")
 

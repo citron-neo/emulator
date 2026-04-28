@@ -117,7 +117,9 @@
 #
 # TOOLCHAIN:
 #   Cross-compilation uses llvm-mingw — a self-contained Clang/LLD/libc++/
-#   compiler-rt MinGW-w64 toolchain. The host LLVM install (clang-21,
+#   compiler-rt MinGW-w64 toolchain. Both the toolchain and project dependencies
+#   are cached globally in CPM_SOURCE_CACHE (default: ~/.cache/cpm) to speed up
+#   builds across repository clones. The host LLVM install (clang-21,
 #   llvm-profdata, llvm-bolt) is used for PGO merging, BOLT, and the Linux ELF.
 #
 # USAGE:
@@ -280,6 +282,9 @@ PGO_MODE="${PGO_MODE:-ir}"     # ir = LLVM IR PGO (-fprofile-generate/-fprofile-
                                # fe = Frontend PGO (-fprofile-instr-generate/-fprofile-instr-use)
 UNITY_BUILD="${UNITY_BUILD:-OFF}"   # ENABLE_UNITY_BUILD: batch TUs to speed up compilation
 BUILD_TYPE="${BUILD_TYPE:-Release}" # Release, RelWithDebInfo
+CPM_SOURCE_CACHE="${CPM_SOURCE_CACHE:-${HOME}/.cache/cpm}"
+# Expand ~ to $HOME if present
+CPM_SOURCE_CACHE="${CPM_SOURCE_CACHE/#\~/$HOME}"
 
 # =============================================================================
 # Host OS detection
@@ -317,7 +322,7 @@ PROPELLER_PROFILE_DIR="${BUILD_ROOT}/propeller-profiles"
 if [[ "${_HOST_OS}" == "windows" ]]; then
     LLVM_MINGW_DIR="${MSYS2_PREFIX}"
 else
-    LLVM_MINGW_DIR="${BUILD_ROOT}/llvm-mingw"
+    LLVM_MINGW_DIR="${CPM_SOURCE_CACHE}/llvm-mingw"
 fi
 
 CLANG="clang-${CLANG_VERSION}"
@@ -460,23 +465,26 @@ ensure_llvm_mingw() {
         return 0
     fi
 
-    mkdir -p "${BUILD_ROOT}"
+    mkdir -p "${CPM_SOURCE_CACHE}"
     info "Downloading llvm-mingw ${LLVM_MINGW_VERSION}..."
     info "  URL: ${url}"
-    wget --quiet --show-progress -O "${BUILD_ROOT}/${tarball}" "${url}" \
+    wget --quiet --show-progress -O "${CPM_SOURCE_CACHE}/${tarball}" "${url}" \
         || error "Failed to download llvm-mingw — check network or LLVM_MINGW_VERSION"
 
     info "Extracting llvm-mingw..."
-    tar -xf "${BUILD_ROOT}/${tarball}" -C "${BUILD_ROOT}"
-    rm -f "${BUILD_ROOT}/${tarball}"
+    tar -xf "${CPM_SOURCE_CACHE}/${tarball}" -C "${CPM_SOURCE_CACHE}"
+    rm -f "${CPM_SOURCE_CACHE}/${tarball}"
 
     # Find the extracted directory (name includes version and platform)
     local extract_dir
-    extract_dir="$(find "${BUILD_ROOT}" -maxdepth 1 -type d -name "llvm-mingw-${LLVM_MINGW_VERSION}*" | head -1)"
+    extract_dir="$(find "${CPM_SOURCE_CACHE}" -maxdepth 1 -type d -name "llvm-mingw-${LLVM_MINGW_VERSION}*" | head -1)"
     [[ -n "${extract_dir}" ]] || error "Could not find extracted llvm-mingw directory"
 
     # Move to a version-independent path for stable toolchain file references
-    mv "${extract_dir}" "${LLVM_MINGW_DIR}"
+    if [[ "${extract_dir}" != "${LLVM_MINGW_DIR}" ]]; then
+        rm -rf "${LLVM_MINGW_DIR}"
+        mv "${extract_dir}" "${LLVM_MINGW_DIR}"
+    fi
     [[ -x "${sentinel}" ]] || error "llvm-mingw extraction failed — ${sentinel} not found"
 
     MINGW_CLANG="${LLVM_MINGW_DIR}/bin/${MINGW_TRIPLE}-clang"
@@ -491,6 +499,10 @@ ensure_llvm_mingw() {
 # Prepend llvm-mingw/bin to PATH so cmake and tools find the wrappers.
 setup_llvm_mingw_path() {
     export PATH="${LLVM_MINGW_DIR}/bin:${PATH}"
+    # Ensure ~/.local/bin is in PATH for aqt
+    if [[ -d "${HOME}/.local/bin" && ":${PATH}:" != *":${HOME}/.local/bin:"* ]]; then
+        export PATH="${HOME}/.local/bin:${PATH}"
+    fi
     MINGW_CLANG="${LLVM_MINGW_DIR}/bin/${MINGW_TRIPLE}-clang"
     MINGW_CLANGPP="${LLVM_MINGW_DIR}/bin/${MINGW_TRIPLE}-clang++"
 }
@@ -649,7 +661,6 @@ stage_setup() {
 
         # ── Shared toolchain-dependent artifacts ─────────────────────────────
         mkdir -p "${BUILD_ROOT}"
-        create_vcpkg_llvm_triplet
         compile_comsupp_stubs
         setup_case_fixup_headers
 
@@ -687,6 +698,9 @@ stage_setup() {
         build-essential cmake ninja-build git pkg-config \
         python3 python3-pip curl wget xz-utils \
         lsb-release software-properties-common gnupg
+
+    # Ensure aqt is available
+    ensure_aqt
 
     # ── Host LLVM (for PGO merging, BOLT, native ELF build) ─────────────────
     # Cross-compilation uses llvm-mingw; these host tools are for profdata
@@ -727,17 +741,13 @@ stage_setup() {
     # ── Citron build dependencies ─────────────────────────────────────────────
     info "Installing citron build dependencies..."
     _sudo apt-get install -y \
-        libboost-all-dev libvulkan-dev libopenal-dev libssl-dev \
-        zlib1g-dev libzstd-dev liblz4-dev libfmt-dev \
-        nlohmann-json3-dev libsdl2-dev nasm yasm glslang-tools \
-        qt6-base-dev qt6-base-private-dev qt6-svg-dev qt6-multimedia-dev qt6-tools-dev qt6-tools-dev-tools
+        nasm yasm glslang-tools
 
     # ── Toolchain-dependent artifacts ────────────────────────────────────────
     # Idempotent (sentinel-guarded) — fast no-ops on re-run.
     # Running them here lets subsequent stages (csgenerate, use, bolt, propeller)
     # skip redundant calls on a properly set-up machine.
     mkdir -p "${BUILD_ROOT}"
-    create_vcpkg_llvm_triplet
     compile_comsupp_stubs
     setup_case_fixup_headers
 
@@ -1163,135 +1173,8 @@ STUBS_EOF
 }
 
 
-# =============================================================================
-# vcpkg triplet and chainload toolchain for llvm-mingw
-#
-# Writes a custom triplet (x64-mingw-llvm-static) so that vcpkg builds all
-# dependencies (opus, OpenAL, etc.) with Clang+libc++ instead of GCC.
-# Without this, vcpkg's built-in x64-mingw-static triplet uses GCC, producing
-# libraries linked against libstdc++ which mixes ABI with the libc++ main build.
-#
-# The triplet uses two flags together:
-#
-#   VCPKG_CMAKE_SYSTEM_NAME Windows  — selects Windows portfile variants so
-#     boost-thread uses Win32 threads, not POSIX pthreads (unavailable in
-#     llvm-mingw).  Using "MinGW" here would cause boost-thread to pull in
-#     pthreads and fail.
-#
-#   VCPKG_TARGET_IS_MINGW TRUE  — tells packages with MinGW-specific build
-#     logic (notably openssl, which has a dedicated "mingw64" configure
-#     target) to take that path rather than trying to invoke MSVC tooling and
-#     emitting "Unknown platform".
-# =============================================================================
-create_vcpkg_llvm_triplet() {
-    local triplet_dir="${BUILD_ROOT}/vcpkg-triplets"
-    local triplet_file="${triplet_dir}/x64-mingw-llvm-static.cmake"
-    local chainload_file="${BUILD_ROOT}/vcpkg-llvm-mingw-toolchain.cmake"
-    
-    local CMAKE_CHAINLOAD_FILE="${chainload_file}"
-    local rc_compiler="${LLVM_MINGW_DIR}/bin/${MINGW_TRIPLE}-windres"
-    if [[ "${_HOST_OS}" == "windows" ]]; then
-        CMAKE_CHAINLOAD_FILE="$(cygpath -m "${chainload_file}")"
-        rc_compiler="windres.exe"
-    fi
 
-    mkdir -p "${triplet_dir}"
 
-    info "Writing vcpkg triplet: x64-mingw-llvm-static"
-    cat > "${triplet_file}" << TRIPLET_EOF
-# vcpkg triplet: Windows x64 static libs built with llvm-mingw Clang+libc++.
-# Generated by build-clangtron-windows.sh — do not edit manually.
-set(VCPKG_TARGET_ARCHITECTURE x64)
-set(VCPKG_CRT_LINKAGE dynamic)
-set(VCPKG_LIBRARY_LINKAGE static)
-# Use "Windows" (not "MinGW") so vcpkg selects Windows portfile variants.
-# "MinGW" would tell vcpkg to use POSIX pthreads for boost-thread etc., but
-# llvm-mingw uses the Win32 threading model — pthreads are not available.
-# The actual compiler is still clang via VCPKG_CHAINLOAD_TOOLCHAIN_FILE.
-# VCPKG_CMAKE_SYSTEM_NAME Windows  — selects Windows portfile variants and
-#   tells Boost to use Win32 threads (not POSIX pthreads, which llvm-mingw
-#   does not ship).
-# VCPKG_TARGET_IS_MINGW TRUE  — required alongside Windows so that packages
-#   with MinGW-specific build paths (most importantly openssl, which uses a
-#   dedicated "mingw64" configure target) don't fall through to the MSVC path
-#   and emit "Unknown platform".
-set(VCPKG_CMAKE_SYSTEM_NAME Windows)
-set(VCPKG_TARGET_IS_MINGW TRUE)
-set(VCPKG_BUILD_TYPE release)
-# _WIN32_WINNT=0x0A00 (Windows 10): required so that boost::winapi exposes
-# WaitOnAddress / WakeByAddressSingle / WakeByAddressAll, which are Windows 8+
-# APIs (0x0602).  Without this boost-atomic's wait_ops_windows.hpp fails to
-# compile because those names are guarded by the version macro and the
-# llvm-mingw ucrt headers default to a version that predates them.
-# 0x0A00 matches the minimum target already set in citron's root CMakeLists.
-set(VCPKG_CXX_FLAGS "-D_WIN32_WINNT=0x0A00 -DWINVER=0x0A00")
-set(VCPKG_C_FLAGS   "-D_WIN32_WINNT=0x0A00 -DWINVER=0x0A00")
-set(VCPKG_CHAINLOAD_TOOLCHAIN_FILE "${CMAKE_CHAINLOAD_FILE}")
-TRIPLET_EOF
-
-    cat > "${chainload_file}" << CHAINLOAD_EOF
-# vcpkg chainload toolchain for llvm-mingw.
-# Generated by build-clangtron-windows.sh — do not edit manually.
-set(CMAKE_SYSTEM_NAME Windows)
-set(CMAKE_SYSTEM_PROCESSOR x86_64)
-set(MINGW TRUE)
-set(MINGW64 TRUE)
-set(CMAKE_C_COMPILER   "${MINGW_CLANG}")
-set(CMAKE_CXX_COMPILER "${MINGW_CLANGPP}")
-set(CMAKE_RC_COMPILER  "${rc_compiler}")
-set(CMAKE_FIND_ROOT_PATH "${LLVM_MINGW_DIR}/${MINGW_TRIPLE}")
-set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
-set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
-set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
-set(CMAKE_FIND_ROOT_PATH_MODE_PACKAGE BOTH)
-set(CMAKE_C_FLAGS_INIT   "-D_WIN32_WINNT=0x0A00 -DWINVER=0x0A00 -D__INTRINSIC_DEFINED___cpuidex -D__USE_MINGW_STAT64")
-# -include cstdlib: force-include <cstdlib> before every C++ TU.
-# libc++ is stricter than libstdc++ about header self-containment; several
-# vcpkg dependencies use malloc/free in headers without including <cstdlib>.
-# libstdc++ leaked these symbols via its own internal headers; libc++ does not.
-set(CMAKE_CXX_FLAGS_INIT "-D_WIN32_WINNT=0x0A00 -DWINVER=0x0A00 -D__INTRINSIC_DEFINED___cpuidex -D__USE_MINGW_STAT64 -include cstdlib")
-CHAINLOAD_EOF
-
-    success "vcpkg llvm-mingw triplet written"
-}
-
-# Clear stale CMake/vcpkg state when the recorded triplets change.
-refresh_vcpkg_build_cache() {
-    local build_dir="$1"
-    local target_triplet="${2:-x64-mingw-llvm-static}"
-    local host_triplet
-    host_triplet="$(current_vcpkg_host_triplet)"
-
-    local marker="${build_dir}/.citron-vcpkg-triplets"
-    local desired="HOST=${host_triplet}
-TARGET=${target_triplet}"
-    local cached=""
-
-    if [[ -f "${marker}" ]]; then
-        cached="$(cat "${marker}" 2>/dev/null || true)"
-    elif [[ -d "${build_dir}/vcpkg_installed" ]]; then
-        warn "vcpkg cache marker missing for ${build_dir} — clearing existing cached install tree"
-        rm -rf \
-            "${build_dir}/CMakeCache.txt" \
-            "${build_dir}/CMakeFiles" \
-            "${build_dir}/vcpkg_installed" \
-            "${build_dir}/vcpkg-manifest-install.log" \
-            2>/dev/null || true
-    fi
-
-    if [[ -n "${cached}" && "${cached}" != "${desired}" ]]; then
-        warn "vcpkg triplets changed for ${build_dir} — clearing cached CMake/vcpkg state"
-        rm -rf \
-            "${build_dir}/CMakeCache.txt" \
-            "${build_dir}/CMakeFiles" \
-            "${build_dir}/vcpkg_installed" \
-            "${build_dir}/vcpkg-manifest-install.log" \
-            2>/dev/null || true
-    fi
-
-    mkdir -p "${build_dir}"
-    printf '%s\n' "${desired}" > "${marker}"
-}
 
 # =============================================================================
 # comsupp stub
@@ -1524,50 +1407,14 @@ ensure_vulkan_import_lib() {
     mkdir -p "${out_dir}"
     info "Building vulkan-1 MinGW import library from vendored headers..."
 
-    local vulkan_include="${SOURCE_DIR}/externals/Vulkan-Headers/include/vulkan"
-    [[ -d "${vulkan_include}" ]] \
-        || error "Vulkan-Headers not found at ${vulkan_include} — check submodules"
-
-    # Parse every header under externals/Vulkan-Headers/include/vulkan/ for
-    # exported function declarations.  VKAPI_ATTR/VKAPI_CALL mark all public
-    # Vulkan entry points in both vulkan_core.h and the platform-specific
-    # extension headers.  Using glob over the entire directory tree ensures
-    # platform extension functions (Win32, Xlib, etc.) are included; citron
-    # and Qt link some of these directly rather than loading via vkGet*ProcAddr.
-    info "  Parsing vendored Vulkan headers for exported symbols..."
-    python3 - "${vulkan_include}" "${def_file}" <<'PYEOF_VULKAN'
-import sys, re, glob, os
-
-include_dir = sys.argv[1]
-def_path    = sys.argv[2]
-
-# Match any function declared with VKAPI_ATTR <ret> VKAPI_CALL <name>(
-pattern = re.compile(
-    r'VKAPI_ATTR\s+\S+\s+VKAPI_CALL\s+(vk\w+)\s*\('
-)
-
-functions = set()
-for hdr in sorted(glob.glob(
-        os.path.join(include_dir, '**', '*.h'), recursive=True)):
-    try:
-        text = open(hdr, encoding='utf-8', errors='replace').read()
-        functions.update(pattern.findall(text))
-    except OSError as e:
-        print(f"  Warning: could not read {hdr}: {e}", flush=True)
-
-if not functions:
-    print("ERROR: no vk* functions found in headers — check submodule init",
-          flush=True)
-    sys.exit(1)
-
-with open(def_path, 'w', newline='\n') as f:
-    f.write('LIBRARY vulkan-1.dll\n')
-    f.write('EXPORTS\n')
-    for fn in sorted(functions):
-        f.write(f'    {fn}\n')
-
-print(f"  Generated .def with {len(functions)} Vulkan entry points", flush=True)
-PYEOF_VULKAN
+    # Use the checked-in stub definition.
+    local stub_def="${SOURCE_DIR}/externals/vulkan-stub/vulkan-1.def"
+    if [[ -f "${stub_def}" ]]; then
+        info "  Using pre-generated Vulkan module definition from stub..."
+        cp -f "${stub_def}" "${def_file}"
+    else
+        error "vulkan-1.def stub not found at ${stub_def}"
+    fi
 
     # Use llvm-mingw's llvm-dlltool.  It is always present in the llvm-mingw
     # distribution and is the correct tool for the llvm-mingw toolchain.
@@ -1615,14 +1462,14 @@ PYEOF_VULKAN
 detect_ffmpeg_version() {
     local release_file="${SOURCE_DIR}/externals/ffmpeg/ffmpeg/RELEASE"
 
-    if [[ ! -f "${release_file}" ]]; then
-        error "[detect_ffmpeg_version] RELEASE file not found: ${release_file}
-  Ensure the ffmpeg submodule is initialised:
-    git submodule update --init externals/ffmpeg/ffmpeg"
+    if [[ -f "${release_file}" ]]; then
+        # Strip whitespace/newlines from the RELEASE file content
+        FFMPEG_VERSION="$(tr -d '[:space:]' < "${release_file}")"
+    else
+        # No submodule — use the version pinned in CMakeModules/dependencies.cmake (CPM tag n8.0)
+        FFMPEG_VERSION="8.0"
+        info "[detect_ffmpeg_version] RELEASE file not found — using pinned version ${FFMPEG_VERSION}"
     fi
-
-    # Strip whitespace/newlines from the RELEASE file content
-    FFMPEG_VERSION="$(tr -d '[:space:]' < "${release_file}")"
 
     if [[ -z "${FFMPEG_VERSION}" ]]; then
         error "[detect_ffmpeg_version] RELEASE file is empty: ${release_file}"
@@ -1710,16 +1557,29 @@ rebuild_ffmpeg_pthread_free() {
     [[ -n "${FFMPEG_VERSION:-}" ]] \
         || error "[ffmpeg-rebuild] FFMPEG_VERSION not set — call detect_ffmpeg_version() first"
 
-    local ffmpeg_ext_dir="${build_dir}/externals/ffmpeg-${FFMPEG_VERSION}"
-    local ffmpeg_dst="${ffmpeg_ext_dir}/bin"
+    local ffmpeg_ext_dir="${BUILD_ROOT}/externals/ffmpeg-${FFMPEG_VERSION}-static"
+    local ffmpeg_lib="${ffmpeg_ext_dir}/lib"
     local ffmpeg_hdr="${ffmpeg_ext_dir}/include"
-    local ffmpeg_bld="${build_dir}/externals/ffmpeg-${FFMPEG_VERSION}-llvm-bld"
-    local ffmpeg_src_dir="${BUILD_ROOT}/ffmpeg-${FFMPEG_VERSION}-src"  # shared across stages
-    local sentinel="${ffmpeg_dst}/.llvm_built"
+    local ffmpeg_bld="${BUILD_ROOT}/externals/ffmpeg-${FFMPEG_VERSION}-llvm-bld"
+    local ffmpeg_src_dir="${CPM_SOURCE_CACHE}/ffmpeg-src/${FFMPEG_VERSION}"
+    
+    # Define global cache location
+    local ffmpeg_global_cache="${CPM_SOURCE_CACHE}/citron-ffmpeg-static/${FFMPEG_VERSION}-llvm-mingw"
 
-    # Skip if already built for this build_dir
+    local sentinel="${ffmpeg_lib}/.llvm_static_built"
+
+    # 1. Check if it's already in the local build dir
     if [[ -f "${sentinel}" ]]; then
-        info "[ffmpeg-rebuild] pthread-free DLLs already in place — skipping"
+        info "[ffmpeg-rebuild] Static FFmpeg libs already in place locally — skipping"
+        return 0
+    fi
+
+    # 2. Check if it's in the global cache
+    if [[ -f "${ffmpeg_global_cache}/lib/.llvm_static_built" ]]; then
+        info "[ffmpeg-rebuild] Found pre-built FFmpeg in global cache: ${ffmpeg_global_cache}"
+        info "[ffmpeg-rebuild] Copying cached libs to ${ffmpeg_ext_dir}..."
+        mkdir -p "${ffmpeg_ext_dir}"
+        cp -r "${ffmpeg_global_cache}/." "${ffmpeg_ext_dir}/"
         return 0
     fi
 
@@ -1809,8 +1669,8 @@ rebuild_ffmpeg_pthread_free() {
         success "[ffmpeg-rebuild] FFmpeg ${FFMPEG_VERSION} source ready"
     fi
 
-    info "[ffmpeg-rebuild] Building pthread-free FFmpeg ${FFMPEG_VERSION} DLLs with llvm-mingw..."
-    mkdir -p "${ffmpeg_bld}" "${ffmpeg_dst}" "${ffmpeg_hdr}"
+    info "[ffmpeg-rebuild] Building static FFmpeg ${FFMPEG_VERSION} with llvm-mingw..."
+    mkdir -p "${ffmpeg_bld}" "${ffmpeg_lib}" "${ffmpeg_hdr}"
 
     local cross_prefix="${LLVM_MINGW_DIR}/bin/${MINGW_TRIPLE}-"
     local cc="${LLVM_MINGW_DIR}/bin/${MINGW_TRIPLE}-clang"
@@ -1819,33 +1679,23 @@ rebuild_ffmpeg_pthread_free() {
     local strip_tool="${LLVM_MINGW_DIR}/bin/llvm-strip"
     local ranlib="${LLVM_MINGW_DIR}/bin/llvm-ranlib"
     local windres="${LLVM_MINGW_DIR}/bin/${MINGW_TRIPLE}-windres"
-    local dlltool_bin="${LLVM_MINGW_DIR}/bin/llvm-dlltool"
-    [[ -x "${dlltool_bin}" ]] || dlltool_bin="$(command -v llvm-dlltool 2>/dev/null || true)"
 
     # On MSYS2/Windows the host and target are the same machine (both
     # x86_64-w64-mingw32), so --enable-cross-compile must NOT be used.
-    # With cross-compile enabled FFmpeg looks for a separate host compiler
-    # (defaults to bare `cc`) for build-time utilities; on MSYS2 that
-    # resolves to nothing or MSVC, producing "Host compiler lacks C11 support".
-    # On a real Linux→Windows cross, --enable-cross-compile is still required.
     local _ffmpeg_cross_flags=()
     if [[ "${_HOST_OS}" == "linux" || "${_HOST_OS}" == "macos" ]]; then
-        # True cross-compilation: Linux/macOS host → Windows target
         _ffmpeg_cross_flags=(
             --enable-cross-compile
             "--cross-prefix=${cross_prefix}"
         )
     else
-        # MSYS2/Windows native build: host == target, no cross-compile mode.
-        # Set --host-cc explicitly so FFmpeg's build-tool probes don't fall
-        # back to bare `cc` (which may be MSVC or absent on MSYS2).
         local _host_clang
         _host_clang="$(command -v clang 2>/dev/null \
                        || echo "${MSYS2_PREFIX}/bin/clang")"
         _ffmpeg_cross_flags=("--host-cc=${_host_clang}")
     fi
 
-    info "[ffmpeg-rebuild] Configuring FFmpeg..."
+    info "[ffmpeg-rebuild] Configuring FFmpeg (static, no pthreads, dxva2+d3d11va)..."
     (
         cd "${ffmpeg_bld}"
         bash "${ffmpeg_src}/configure" \
@@ -1860,13 +1710,15 @@ rebuild_ffmpeg_pthread_free() {
             "--windres=${windres}" \
             --disable-pthreads \
             --enable-w32threads \
-            --enable-shared \
-            --disable-static \
+            --enable-static \
+            --disable-shared \
             --disable-doc \
             --disable-programs \
             --disable-avdevice \
             --disable-network \
             --disable-everything \
+            --disable-vaapi \
+            --disable-vdpau \
             --enable-decoder=h264,vp8,vp9,aac,mp3,opus,flac \
             --enable-demuxer=mp4,matroska,ogg \
             --enable-filter=yadif,scale,aresample \
@@ -1885,62 +1737,24 @@ rebuild_ffmpeg_pthread_free() {
         return 0
     }
 
-    # ── Install DLLs and import libraries ────────────────────────────────────
+    # ── Install static libraries (.a) ──────────────────────────────────────────
     local installed=0
-    local bin_dir="${build_dir}/bin"
 
-    _ffmpeg_install_dll() {
-        local dst_dir="$1"
-        mkdir -p "${dst_dir}"
-        for lib in avutil avcodec avfilter swscale swresample avformat; do
-            # DLL (named with soname, e.g. avcodec-${FFMPEG_AVCODEC_VER}.dll)
-            local dll
-            dll="$(find "${ffmpeg_bld}" -maxdepth 2 -name "${lib}-*.dll" 2>/dev/null | head -1)"
-            [[ -z "${dll}" ]] && continue
-            local dll_name; dll_name="$(basename "${dll}")"
-            cp -f "${dll}" "${dst_dir}/${dll_name}"
-            info "  [ffmpeg-rebuild] ${dst_dir##*/}/: ${dll_name}"
-
-            if [[ "${dst_dir}" == "${ffmpeg_dst}" ]]; then
-                (( installed++ )) || true
-
-                # Import library for linking.  FFmpeg MinGW cross-compile generates
-                # GNU-format lib${lib}.dll.a files; lld accepts these directly.
-                # We also probe for MSVC-format .lib in case FFmpeg generated one.
-                local lib_file=""
-                lib_file="$(find "${ffmpeg_bld}" -maxdepth 2 -name "${lib}.lib" 2>/dev/null | head -1)"
-                if [[ -z "${lib_file}" ]]; then
-                    lib_file="$(find "${ffmpeg_bld}" -maxdepth 2 -name "lib${lib}.dll.a" 2>/dev/null | head -1)"
-                fi
-                if [[ -n "${lib_file}" ]]; then
-                    cp -f "${lib_file}" "${dst_dir}/${lib}.lib"
-                elif [[ -n "${dlltool_bin}" && -x "${dlltool_bin}" ]]; then
-                    # Generate .lib from .def via llvm-dlltool as last resort
-                    local deffile
-                    deffile="$(find "${ffmpeg_bld}" -maxdepth 2 -name "${lib}.def" 2>/dev/null | head -1)"
-                    if [[ -n "${deffile}" ]]; then
-                        "${dlltool_bin}" -m i386:x86-64 \
-                            --input-def "${deffile}" \
-                            --output-lib "${dst_dir}/${lib}.lib" 2>/dev/null \
-                            && info "  [ffmpeg-rebuild] ${lib}.lib (generated from ${lib}.def)"
-                    fi
-                fi
-            fi
-        done
-        # Remove any GCC runtime DLLs that may have landed here from a previous run
-        for gcc_dll in libwinpthread-1.dll libgcc_s_seh-1.dll libstdc++-6.dll; do
-            if [[ -f "${dst_dir}/${gcc_dll}" ]]; then
-                rm -f "${dst_dir}/${gcc_dll}"
-                info "  [ffmpeg-rebuild] removed: ${dst_dir##*/}/${gcc_dll}"
-            fi
-        done
-    }
-
-    info "[ffmpeg-rebuild] Installing to externals/ffmpeg-${FFMPEG_VERSION}/bin/..."
-    _ffmpeg_install_dll "${ffmpeg_dst}"
+    info "[ffmpeg-rebuild] Installing static libs to ${ffmpeg_lib}/..."
+    for lib in avutil avcodec avfilter swscale swresample avformat; do
+        local static_lib
+        static_lib="$(find "${ffmpeg_bld}" -maxdepth 2 -name "lib${lib}.a" 2>/dev/null | head -1)"
+        if [[ -n "${static_lib}" ]]; then
+            cp -f "${static_lib}" "${ffmpeg_lib}/lib${lib}.a"
+            info "  [ffmpeg-rebuild] lib${lib}.a"
+            (( installed++ )) || true
+        else
+            warn "  [ffmpeg-rebuild] lib${lib}.a NOT FOUND in build tree"
+        fi
+    done
 
     # ── Install public headers (needed by cmake at configure time) ────────────
-    info "[ffmpeg-rebuild] Installing headers to externals/ffmpeg-${FFMPEG_VERSION}/include/..."
+    info "[ffmpeg-rebuild] Installing headers to ${ffmpeg_hdr}/..."
     for lib in libavcodec libavfilter libavformat libavutil libswresample libswscale; do
         local inc_dst="${ffmpeg_hdr}/${lib}"
         mkdir -p "${inc_dst}"
@@ -1956,38 +1770,39 @@ rebuild_ffmpeg_pthread_free() {
         fi
     done
 
-    # ── Also seed build_dir/bin/ so the final output dir is populated ─────────
-    if [[ -d "${bin_dir}" ]]; then
-        info "[ffmpeg-rebuild] Seeding ${bin_dir}/..."
-        _ffmpeg_install_dll "${bin_dir}"
-    fi
-
     if [[ "${installed}" -eq 0 ]]; then
-        warn "[ffmpeg-rebuild] No DLLs were installed — FFmpeg configure/make may have failed"
+        warn "[ffmpeg-rebuild] No static libs installed — FFmpeg configure/make may have failed"
         return 0
     fi
 
-    # ── Hard verification: none of our FFmpeg DLLs may import libwinpthread ───
-    local readobj="${LLVM_MINGW_DIR}/bin/llvm-readobj"
-    [[ -x "${readobj}" ]] || \
-        readobj="$(command -v "llvm-readobj-${CLANG_VERSION}" 2>/dev/null \
-                   || command -v llvm-readobj 2>/dev/null || true)"
+    # ── Verify: static libs must NOT depend on libwinpthread ─────────────────
+    local nm_tool="${LLVM_MINGW_DIR}/bin/llvm-nm"
+    [[ -x "${nm_tool}" ]] || \
+        nm_tool="$(command -v llvm-nm 2>/dev/null || command -v nm 2>/dev/null || true)"
 
-    if [[ -n "${readobj}" ]]; then
-        while IFS= read -r -d '' dll; do
-            if "${readobj}" --coff-imports "${dll}" 2>/dev/null \
-                    | grep -qi 'libwinpthread'; then
-                error "[ffmpeg-rebuild] FATAL: ${dll##*/} still imports libwinpthread-1.dll " \
-                      "after rebuild. Check configure output for '--enable-pthreads'."
+    if [[ -n "${nm_tool}" ]]; then
+        local pthread_refs=0
+        for afile in "${ffmpeg_lib}"/lib*.a; do
+            if "${nm_tool}" "${afile}" 2>/dev/null | grep -qiE ' U .*pthread_'; then
+                warn "[ffmpeg-rebuild] ${afile##*/} imports external pthread symbols!"
+                pthread_refs=1
             fi
-        done < <(find "${ffmpeg_dst}" -maxdepth 1 -name "*.dll" -print0 2>/dev/null)
-        success "[ffmpeg-rebuild] Verified: all FFmpeg DLLs are pthread-free"
-    else
-        warn "[ffmpeg-rebuild] llvm-readobj not found — skipping pthread verification"
+        done
+        if [[ "${pthread_refs}" -eq 0 ]]; then
+            success "[ffmpeg-rebuild] Verified: all static libs are pthread-free"
+        else
+            warn "[ffmpeg-rebuild] Some static libs reference pthread — check configure output"
+        fi
     fi
 
     touch "${sentinel}"
-    success "[ffmpeg-rebuild] pthread-free FFmpeg ${FFMPEG_VERSION} DLLs installed (${installed} libs)"
+    if [[ -n "${ffmpeg_global_cache}" ]]; then
+        info "[ffmpeg-rebuild] Populating global cache: ${ffmpeg_global_cache}..."
+        mkdir -p "$(dirname "${ffmpeg_global_cache}")"
+        rm -rf "${ffmpeg_global_cache}"
+        cp -r "${ffmpeg_ext_dir}" "${ffmpeg_global_cache}"
+    fi
+    success "[ffmpeg-rebuild] Static FFmpeg ${FFMPEG_VERSION} installed (${installed} libs)"
 }
 
 
@@ -2141,22 +1956,13 @@ EOF
 # =============================================================================
 # Common CMake arguments for cross-compilation to Windows
 # =============================================================================
-current_vcpkg_host_triplet() {
-    if [[ "${_HOST_OS}" == "windows" ]]; then
-        echo "x64-mingw-llvm-static"
-    else
-        echo "x64-linux"
-    fi
-}
 
 common_cmake_args() {
     local lto_flag; lto_flag="$(lto_cmake_flag)"
     local toolchain_file="${BUILD_ROOT}/mingw-clang-toolchain.cmake"
     write_toolchain_file "$toolchain_file"
-
-    local host_triplet
-    host_triplet="$(current_vcpkg_host_triplet)"
     
+
     local CMAKE_BUILD_ROOT="${BUILD_ROOT}"
     local CMAKE_SOURCE_DIR="${SOURCE_DIR}"
     local CMAKE_SPIRV_HEADERS_INSTALL="${SPIRV_HEADERS_INSTALL}"
@@ -2171,18 +1977,29 @@ common_cmake_args() {
         CMAKE_TOOLCHAIN_FILE_PATH="$(cygpath -m "${toolchain_file}")"
     fi
 
+    local CMAKE_CPM_CACHE="${CPM_SOURCE_CACHE}"
+    if [[ "${_HOST_OS}" == "windows" ]]; then
+        CMAKE_CPM_CACHE="$(cygpath -m "${CMAKE_CPM_CACHE}")"
+    fi
+
+    # Set Vulkan include dir using the checked-in stub (avoiding submodule/CPM download)
+    local VULKAN_HEADERS_STUB_DIR=""
+    if [[ -d "${SOURCE_DIR}/externals/vulkan-stub/include" ]]; then
+        VULKAN_HEADERS_STUB_DIR="${CMAKE_SOURCE_DIR}/externals/vulkan-stub/include"
+    fi
+
     echo \
         "-G" "Ninja" \
         "-DCMAKE_BUILD_TYPE=${BUILD_TYPE}" \
         "-DCMAKE_TOOLCHAIN_FILE=${CMAKE_TOOLCHAIN_FILE_PATH}" \
         "-DCMAKE_DISABLE_FIND_PACKAGE_LLVM=ON" \
         "-DCITRON_ENABLE_LTO=${lto_flag}" \
+        "-DBUILD_TESTING=OFF" \
         "-DCITRON_TESTS=OFF" \
         "-DCITRON_USE_BUNDLED_FFMPEG=ON" \
         "-DCITRON_USE_EXTERNAL_SDL2=ON" \
         "-DCITRON_USE_EXTERNAL_VULKAN_HEADERS=ON" \
         "-DCITRON_USE_EXTERNAL_VULKAN_UTILITY_LIBRARIES=ON" \
-        "-DCITRON_USE_BUNDLED_VCPKG=ON" \
         "-DSPIRV-Headers_DIR=${CMAKE_SPIRV_HEADERS_INSTALL}/share/cmake/SPIRV-Headers" \
         "-DVulkanHeaders_DIR=${CMAKE_VULKAN_HEADERS_INSTALL}/share/cmake/VulkanHeaders" \
         "-DCMAKE_PREFIX_PATH=${CMAKE_VULKAN_HEADERS_INSTALL};${CMAKE_SPIRV_HEADERS_INSTALL}" \
@@ -2190,17 +2007,25 @@ common_cmake_args() {
         "-Ddynarmic_FOUND=TRUE" \
         "-Dxbyak_FOUND=TRUE" \
         "-Dcubeb_FOUND=TRUE" \
-        "-DVCPKG_TARGET_TRIPLET=x64-mingw-llvm-static" \
-        "-DVCPKG_HOST_TRIPLET=${host_triplet}" \
-        "-DVCPKG_OVERLAY_TRIPLETS=${CMAKE_BUILD_ROOT}/vcpkg-triplets" \
         "-DENABLE_LIBUSB=OFF" \
         "-DVulkan_LIBRARY=${CMAKE_BUILD_ROOT}/vulkan-stub/libvulkan-1.a" \
-        "-DVulkan_INCLUDE_DIR=${CMAKE_SOURCE_DIR}/externals/Vulkan-Headers/include" \
-        "-DVulkan_INCLUDE_DIRS=${CMAKE_SOURCE_DIR}/externals/Vulkan-Headers/include" \
+        ${VULKAN_HEADERS_STUB_DIR:+"-DVulkan_INCLUDE_DIR=${VULKAN_HEADERS_STUB_DIR}"} \
+        ${VULKAN_HEADERS_STUB_DIR:+"-DVulkan_INCLUDE_DIRS=${VULKAN_HEADERS_STUB_DIR}"} \
         ${GLSLC_PATH:+"-DVulkan_GLSLC_EXECUTABLE=${GLSLC_PATH}"} \
         ${GLSLC_PATH:+"-DVulkan_GLSLANG_VALIDATOR_EXECUTABLE=${GLSLC_PATH}"} \
         "-DCITRON_USE_PRECOMPILED_HEADERS=OFF" \
+        "-DCITRON_USE_CPM=ON" \
+        "-DCITRON_CHECK_SUBMODULES=OFF" \
+        "-DCPM_SOURCE_CACHE=${CMAKE_CPM_CACHE}" \
         "-Wno-dev"
+    # Static FFmpeg dir (set by rebuild_ffmpeg_pthread_free; may not exist yet during first cmake args call)
+    if [[ -n "${FFMPEG_VERSION:-}" ]]; then
+        local _ffmpeg_static="${CMAKE_BUILD_ROOT}/externals/ffmpeg-${FFMPEG_VERSION}-static"
+        if [[ "${_HOST_OS}" == "windows" ]]; then
+            _ffmpeg_static="$(cygpath -m "${BUILD_ROOT}/externals/ffmpeg-${FFMPEG_VERSION}-static")"
+        fi
+        echo "-DCITRON_FFMPEG_STATIC_DIR=${_ffmpeg_static}"
+    fi
     [[ -n "${CITRON_BUILD_TYPE:-}" ]] && echo "-DCITRON_BUILD_TYPE=${CITRON_BUILD_TYPE}"
     [[ "${UNITY_BUILD}" == "ON" ]] && echo "-DENABLE_UNITY_BUILD=ON"
 }
@@ -2266,31 +2091,14 @@ stage_generate() {
 #   initializes __llvm_profile_write_file_internal.
     local extra_link_flags="-Wl,-u,__llvm_profile_write_file,-u,__llvm_profile_runtime"
 
-    # Pre-install SPIRV-Headers
-    if [[ ! -f "${SPIRV_HEADERS_INSTALL}/share/cmake/SPIRV-Headers/SPIRV-HeadersConfig.cmake" ]]; then
-        info "Pre-installing SPIRV-Headers from submodule..."
-        cmake -S "${SOURCE_DIR}/externals/SPIRV-Headers" \
-              -B "${BUILD_ROOT}/spirv-headers-build" \
-              -DCMAKE_INSTALL_PREFIX="${SPIRV_HEADERS_INSTALL}" \
-              -DCMAKE_BUILD_TYPE=Release -Wno-dev
-        cmake --install "${BUILD_ROOT}/spirv-headers-build"
-        success "SPIRV-Headers installed"
-    fi
-
-    # Pre-install bundled Vulkan-Headers
-    if [[ ! -f "${VULKAN_HEADERS_INSTALL}/share/cmake/VulkanHeaders/VulkanHeadersConfig.cmake" ]]; then
-        info "Pre-installing Vulkan-Headers from submodule..."
-        cmake -S "${SOURCE_DIR}/externals/Vulkan-Headers" \
-              -B "${BUILD_ROOT}/vulkan-headers-build" \
-              -DCMAKE_INSTALL_PREFIX="${VULKAN_HEADERS_INSTALL}" \
-              -DCMAKE_BUILD_TYPE=Release -Wno-dev
-        cmake --install "${BUILD_ROOT}/vulkan-headers-build"
-        success "Vulkan-Headers installed"
-    fi
-
     # Qt via aqt
-    local qt_install_dir="${BUILD_GENERATE}/externals/qt/6.9.3/llvm-mingw_64"
+    # Qt via aqt - use global cache
+    local qt_base_dir="${CPM_SOURCE_CACHE}/qt-bin"
+    local qt_install_dir="${qt_base_dir}/6.9.3/llvm-mingw_64"
     local qt_host_dir="${BUILD_GENERATE}/externals/qt-host/6.9.3/gcc_64"
+    if [[ "${_HOST_OS}" != "windows" ]]; then
+        qt_host_dir="${CPM_SOURCE_CACHE}/qt-bin-host/6.9.3/gcc_64"
+    fi
     local qt6_cmake_dir="${qt_install_dir}/lib/cmake/Qt6"
 
     ensure_aqt
@@ -2298,29 +2106,12 @@ stage_generate() {
     aqt_bin="$(command -v aqt 2>/dev/null || echo "${HOME}/.local/bin/aqt")"
 
     if [[ ! -f "${qt_install_dir}/lib/cmake/Qt6/Qt6Config.cmake" ]]; then
-        info "Downloading Qt 6.9.3 Windows/MinGW target via aqt..."
-        mkdir -p "${BUILD_GENERATE}/externals/qt"
+        info "Downloading Qt 6.9.3 Windows/MinGW target (base + multimedia) via aqt..."
+        mkdir -p "${qt_base_dir}"
         "${aqt_bin}" install-qt windows desktop 6.9.3 win64_llvm_mingw \
-            --outputdir "${BUILD_GENERATE}/externals/qt"
-    fi
-
-    # Install optional modules: multimedia, image formats, TLS (tls is in qtbase but
-    # imageformats ships as a separate module and must be fetched explicitly).
-    local _qt_win_needs_modules=0
-    [[ ! -f "${qt_install_dir}/lib/cmake/Qt6Multimedia/Qt6MultimediaConfig.cmake" ]] && _qt_win_needs_modules=1
-    # qtimageformats is required for SVG/PNG/JPEG plugin deployment; it does not ship
-    # with the base llvm_mingw package and must be installed as a separate module.
-    [[ ! -d "${qt_install_dir}/plugins/imageformats" ]] && _qt_win_needs_modules=1
-    if [[ "${_qt_win_needs_modules}" -eq 1 ]]; then
-        info "Installing Qt6 modules (multimedia + imageformats)..."
-        local qt_mm_ok=0
-        for _attempt in 1 2 3; do
-            "${aqt_bin}" install-qt windows desktop 6.9.3 win64_llvm_mingw \
-                --outputdir "${BUILD_GENERATE}/externals/qt" \
-                --modules qtmultimedia qtimageformats && { qt_mm_ok=1; break; }
-            warn "Qt6 module install attempt ${_attempt} failed — retrying..."; sleep 5
-        done
-        [[ "$qt_mm_ok" -eq 0 ]] && warn "Qt6 modules install failed after 3 attempts"
+            --outputdir "${qt_base_dir}" \
+            --modules qtmultimedia qtimageformats \
+            || error "Qt download failed."
     fi
 
     # Qt host tools (Linux gcc_64) are only needed on Linux for cross-compilation.
@@ -2330,22 +2121,12 @@ stage_generate() {
     # Developer Mode enabled (OSError WinError 1314), so skip this entirely here.
     if [[ "${_HOST_OS}" != "windows" ]]; then
         if [[ ! -f "${qt_host_dir}/lib/cmake/Qt6/Qt6Config.cmake" ]]; then
-            info "Downloading Qt 6.9.3 Linux host tools via aqt..."
-            mkdir -p "${BUILD_GENERATE}/externals/qt-host"
+            local _host_outdir="${CPM_SOURCE_CACHE}/qt-bin-host"
+            mkdir -p "${_host_outdir}"
             "${aqt_bin}" install-qt linux desktop 6.9.3 linux_gcc_64 \
-                --outputdir "${BUILD_GENERATE}/externals/qt-host"
-        fi
-        # Ensure qtsvg + qtmultimedia are present in the host Qt — needed by the native ELF (BOLT) build
-        # aqt often cannot install multimedia for linux desktop; fall back to system Qt if needed.
-        local _qt_host_needs_modules=0
-        [[ ! -f "${qt_host_dir}/lib/cmake/Qt6Svg/Qt6SvgConfig.cmake" ]] && _qt_host_needs_modules=1
-        [[ ! -f "${qt_host_dir}/lib/cmake/Qt6Multimedia/Qt6MultimediaConfig.cmake" ]] && _qt_host_needs_modules=1
-        if [[ "${_qt_host_needs_modules}" -eq 1 ]]; then
-            info "Attempting aqt install of Qt6Svg + Qt6Multimedia for Linux host Qt..."
-            "${aqt_bin}" install-qt linux desktop 6.9.3 linux_gcc_64 \
-                --outputdir "${BUILD_GENERATE}/externals/qt-host" \
-                --modules qtsvg qtmultimedia 2>/dev/null \
-                || warn "aqt Qt6 module install failed — will try system Qt for ELF build"
+                --outputdir "${_host_outdir}" \
+                --modules qtsvg qtmultimedia \
+                || warn "aqt Qt 6.9.3 linux download failed"
         fi
     else
         info "Windows native build: skipping Linux host Qt download (not needed for native builds)."
@@ -2354,7 +2135,6 @@ stage_generate() {
 
     info "Qt6 cmake dir: ${qt6_cmake_dir}"
 
-    create_vcpkg_llvm_triplet
     ensure_profile_runtime_mingw
     compile_comsupp_stubs
     rm -f "${BUILD_ROOT}/vulkan-stub/libvulkan-1.a" 2>/dev/null || true
@@ -2379,7 +2159,6 @@ stage_generate() {
 
     info "Configuring CMake (instrumented build)..."
     cd "${BUILD_GENERATE}"
-    refresh_vcpkg_build_cache "${BUILD_GENERATE}"
     rm -f CMakeCache.txt; rm -rf CMakeFiles
     [[ -d "src/citron/citron_autogen" ]] && rm -rf src/citron/citron_autogen
 
@@ -2657,7 +2436,6 @@ stage_csgenerate() {
 
     info "Configuring CMake (CS-IRPGO instrumented build)..."
     cd "${BUILD_CSGENERATE}"
-    refresh_vcpkg_build_cache "${BUILD_CSGENERATE}"
     rm -f CMakeCache.txt; rm -rf CMakeFiles
     [[ -d "src/citron/citron_autogen" ]] && rm -rf src/citron/citron_autogen
 
@@ -2786,7 +2564,6 @@ stage_use() {
         mkdir -p "${nopgo_dir}"
 
             ensure_vulkan_import_lib
-        create_vcpkg_llvm_triplet
         compile_comsupp_stubs
         setup_case_fixup_headers
 
@@ -2796,20 +2573,31 @@ stage_use() {
         # Using find avoids hardcoding the Qt version and works after source upgrades.
         _nopgo_find_qt_target() {
             local root="$1"
-            # Prefer llvm-mingw_64 variant; fall back to any Qt6Config.cmake found
-            local hit
-            hit=$(find "${root}/externals/qt" -maxdepth 6 \
-                -name "Qt6Config.cmake" -path "*/llvm-mingw_64/*" 2>/dev/null | head -1)
-            [[ -z "${hit}" ]] && \
-                hit=$(find "${root}/externals/qt" -maxdepth 6 \
-                    -name "Qt6Config.cmake" 2>/dev/null | head -1)
+            # Search both root/externals/qt (local build) and root/ (global cache)
+            local search_paths=("${root}/externals/qt" "${root}")
+            local hit=""
+            for spath in "${search_paths[@]}"; do
+                [[ -d "${spath}" ]] || continue
+                # Prefer llvm-mingw_64 variant
+                hit=$(find "${spath}" -maxdepth 6 \
+                    -name "Qt6Config.cmake" -path "*/llvm-mingw_64/*" 2>/dev/null | head -1)
+                [[ -z "${hit}" ]] && \
+                    hit=$(find "${spath}" -maxdepth 6 \
+                        -name "Qt6Config.cmake" 2>/dev/null | head -1)
+                [[ -n "${hit}" ]] && break
+            done
             [[ -n "${hit}" ]] && dirname "${hit}" || true
         }
         _nopgo_find_qt_host() {
             local root="$1"
-            local hit
-            hit=$(find "${root}/externals/qt-host" -maxdepth 6 \
-                -name "Qt6Config.cmake" -path "*/gcc_64/*" 2>/dev/null | head -1)
+            local search_paths=("${root}/externals/qt-host" "${root}/externals/qt" "${root}")
+            local hit=""
+            for spath in "${search_paths[@]}"; do
+                [[ -d "${spath}" ]] || continue
+                hit=$(find "${spath}" -maxdepth 6 \
+                    -name "Qt6Config.cmake" -path "*/gcc_64/*" 2>/dev/null | head -1)
+                [[ -n "${hit}" ]] && break
+            done
             # QT_HOST_PATH must be the install root (.../gcc_64), not the cmake subdir.
             # Walk up 3 levels from .../gcc_64/lib/cmake/Qt6/Qt6Config.cmake → .../gcc_64
             [[ -n "${hit}" ]] && dirname "$(dirname "$(dirname "$(dirname "${hit}")")")" || true
@@ -2824,52 +2612,46 @@ stage_use() {
         [[ -z "${qt_host_dir}" ]] && \
             qt_host_dir="$(_nopgo_find_qt_host "${nopgo_dir}" 2>/dev/null || true)"
 
+        # Check global cache for host Qt
+        if [[ -z "${qt_host_dir}" ]]; then
+            local _global_host_base="${CPM_SOURCE_CACHE}/qt-bin-host"
+            if [[ -d "${_global_host_base}" ]]; then
+                qt_host_dir="$(_nopgo_find_qt_host "${_global_host_base}" 2>/dev/null || true)"
+            fi
+        fi
+
         # If neither cache has Qt, download via aqt directly (same logic as generate).
         # This avoids citron's CMakeLists.txt auto-downloading the wrong MinGW variant.
+        # Qt via aqt - use global cache if available
+        local _nopgo_qt_base="${CPM_SOURCE_CACHE}/qt-bin"
+
+        if [[ -z "${qt6_cmake_dir}" ]]; then
+            # Re-check global path if CMake dir wasn't found in build logs
+            local _global_target="${_nopgo_qt_base}/6.9.3/llvm-mingw_64/lib/cmake/Qt6"
+            if [[ -f "${_global_target}/Qt6Config.cmake" ]]; then
+                qt6_cmake_dir="${_global_target}"
+            fi
+        fi
+
         if [[ -z "${qt6_cmake_dir}" ]]; then
             warn "No cached Qt found in generate or prior nopgo build."
-            warn "Downloading Qt via aqt into ${nopgo_dir}/externals/qt ..."
+            warn "Downloading Qt (base + multimedia) via aqt into ${_nopgo_qt_base} ..."
             ensure_aqt
             local _aqt; _aqt="$(command -v aqt 2>/dev/null || echo "${HOME}/.local/bin/aqt")"
-            mkdir -p "${nopgo_dir}/externals/qt"
+            mkdir -p "${_nopgo_qt_base}"
             "${_aqt}" install-qt windows desktop 6.9.3 win64_llvm_mingw \
-                --outputdir "${nopgo_dir}/externals/qt" \
+                --outputdir "${_nopgo_qt_base}" \
+                --modules qtmultimedia qtimageformats \
                 || error "Qt download failed.\n" \
                          "       Run generate first to cache Qt, then re-run:\n" \
                          "         ./build-clangtron-windows.sh use --pgo none --lto ${LTO_MODE}"
             qt6_cmake_dir="$(_nopgo_find_qt_target "${nopgo_dir}")"
+            [[ -z "${qt6_cmake_dir}" ]] && qt6_cmake_dir="$(_nopgo_find_qt_target "${_nopgo_qt_base}")"
             [[ -z "${qt6_cmake_dir}" ]] && \
                 error "Qt downloaded but Qt6Config.cmake not found — check aqt output above."
         fi
 
-        # ── Qt6Multimedia module ──────────────────────────────────────────────
-        # The base aqt install omits optional modules. Mirror what stage_generate
-        # does: check for Qt6MultimediaConfig.cmake and imageformats, and install if absent.
-        if [[ -n "${qt6_cmake_dir}" ]]; then
-            local _qt_install_root
-            _qt_install_root="$(dirname "$(dirname "$(dirname "${qt6_cmake_dir}")")")"
-            local _nopgo_needs_modules=0
-            [[ ! -f "${_qt_install_root}/lib/cmake/Qt6Multimedia/Qt6MultimediaConfig.cmake" ]] && _nopgo_needs_modules=1
-            [[ ! -d "${_qt_install_root}/plugins/imageformats" ]] && _nopgo_needs_modules=1
-            if [[ "${_nopgo_needs_modules}" -eq 1 ]]; then
-                info "Qt6 modules (multimedia + imageformats) missing — installing via aqt..."
-                ensure_aqt
-                local _aqt_mm; _aqt_mm="$(command -v aqt 2>/dev/null || echo "${HOME}/.local/bin/aqt")"
-                local _mm_ver _mm_outdir
-                _mm_ver="$(basename "$(dirname "${_qt_install_root}")")"
-                _mm_outdir="$(dirname "$(dirname "${_qt_install_root}")")"
-                local _mm_ok=0
-                for _attempt in 1 2 3; do
-                    "${_aqt_mm}" install-qt windows desktop "${_mm_ver}" win64_llvm_mingw \
-                        --outputdir "${_mm_outdir}" \
-                        --modules qtmultimedia qtimageformats && { _mm_ok=1; break; }
-                    warn "Qt6Multimedia attempt ${_attempt} failed — retrying..."; sleep 5
-                done
-                [[ "${_mm_ok}" -eq 0 ]] && warn "Qt6Multimedia install failed after 3 attempts — build may fail"
-            else
-                info "Qt6Multimedia already present"
-            fi
-        fi
+
 
         if [[ -z "${qt_host_dir}" ]]; then
             if [[ "${_HOST_OS}" == "windows" ]]; then
@@ -2877,6 +2659,7 @@ stage_use() {
                 # Setting QT_HOST_PATH breaks native builds by triggering cross-compilation mode
                 qt_host_dir=""
             else
+                ensure_aqt
                 local _aqt; _aqt="$(command -v aqt 2>/dev/null || echo "${HOME}/.local/bin/aqt")"
                 # Derive the Qt version from the target Qt we just located or downloaded
                 # Walk up from .../qt/<ver>/<variant>/lib/cmake/Qt6 to extract the version:
@@ -2909,7 +2692,6 @@ stage_use() {
 
         info "Configuring CMake (no-PGO Windows PE, LTO=${LTO_MODE})..."
         cd "${nopgo_dir}"
-        refresh_vcpkg_build_cache "${nopgo_dir}"
         rm -f CMakeCache.txt; rm -rf CMakeFiles
 
         # shellcheck disable=SC2046
@@ -2952,7 +2734,6 @@ stage_use() {
     check_tool "ninja";    check_tool "cmake"
 
     require_llvm_mingw
-    create_vcpkg_llvm_triplet
     compile_comsupp_stubs
     setup_case_fixup_headers
     ensure_vulkan_import_lib
@@ -3069,7 +2850,6 @@ stage_use() {
 
     info "Configuring CMake (PGO+LTO Windows PE)..."
     mkdir -p "${BUILD_USE}"; cd "${BUILD_USE}"
-    refresh_vcpkg_build_cache "${BUILD_USE}"
     rm -f CMakeCache.txt; rm -rf CMakeFiles
 
     # Reuse generate's already-downloaded Qt — passing Qt6_DIR prevents citron's
@@ -3623,8 +3403,8 @@ XBYAK_PATCH_EOF
         "-DQt6_DIR=${elf_qt_cmake_dir}"
         "-DSPIRV-Headers_DIR=${SPIRV_HEADERS_INSTALL}/share/cmake/SPIRV-Headers"
         "-DVulkanHeaders_DIR=${VULKAN_HEADERS_INSTALL}/share/cmake/VulkanHeaders"
-        "-DVulkan_INCLUDE_DIR=${SOURCE_DIR}/externals/Vulkan-Headers/include"
-        "-DVulkan_INCLUDE_DIRS=${SOURCE_DIR}/externals/Vulkan-Headers/include"
+        "-DVulkan_INCLUDE_DIR=${SOURCE_DIR}/externals/vulkan-stub/include"
+        "-DVulkan_INCLUDE_DIRS=${SOURCE_DIR}/externals/vulkan-stub/include"
         "-DVulkanMemoryAllocator_FOUND=TRUE"
         -Wno-dev
         ${UNITY_BUILD:+"-DENABLE_UNITY_BUILD=${UNITY_BUILD}"}
@@ -3915,7 +3695,7 @@ BOLT_ORDER_EOF
     # from a previous failed run and cause the compiler test to fail.
     rm -rf "${BUILD_BOLT}"
     mkdir -p "${BUILD_BOLT}"; cd "${BUILD_BOLT}"
-    refresh_vcpkg_build_cache "${BUILD_BOLT}"
+
 
     # Use LTO_MODE (default: full) for the final PE re-link.
     # generate and use stages ran with ThinLTO, giving BOLT a consistent
@@ -4391,7 +4171,7 @@ stage_propeller() {
     info "Rebuilding Windows PE with Propeller profiles (PGO + LTO + Propeller)..."
     rm -rf "${BUILD_PROPELLER}"
     mkdir -p "${BUILD_PROPELLER}"; cd "${BUILD_PROPELLER}"
-    refresh_vcpkg_build_cache "${BUILD_PROPELLER}"
+
 
     local debug_flag=""
     [[ "${BUILD_TYPE}" == "RelWithDebInfo" ]] && debug_flag="-g"

@@ -10,8 +10,8 @@ This document covers building a Windows PE (`citron.exe`) using `build-clangtron
 # 1. First time only: install toolchain and dependencies
 ./build-clangtron-windows.sh setup
 
-# 2. Clone citron Neo and its submodules if you haven't already
-git clone --recursive https://github.com/citron-neo/emulator.git
+# 2. Clone citron Neo source
+git clone https://github.com/citron-neo/emulator.git
 cd emulator
 
 # 3. Build the PGO instrumentation binary
@@ -46,7 +46,8 @@ The `setup` stage installs all of these automatically:
 | `perf` | Linux branch-stack profiling (Propeller stage) |
 | `cmake` + `ninja` | Build system |
 | `llvm-mingw` | Downloaded automatically: Clang + libc++ + compiler-rt for Windows x86_64 |
-| `aqt` (Python) | Downloads Qt for the Windows target |
+| `aqt` (Python) | Downloads Qt for the Windows target (cached in `CPM_SOURCE_CACHE`) |
+| `CPM_SOURCE_CACHE` | Environment variable: Global cache for all dependencies (default: `~/.cache/cpm`) |
 
 ### Windows (MSYS2 CLANG64, generate/use stages only)
 
@@ -72,11 +73,11 @@ Citron Neo's Windows builds use Clang via [llvm-mingw](https://github.com/mstors
 
 ### Dependency handling
 
-**System dependencies** (Boost, zlib, zstd, fmt, etc.) are built from source by vcpkg using the same llvm-mingw toolchain, with a custom triplet (`x64-mingw-llvm-static`) that forces static linkage against libc++ instead of libstdc++.
+**System dependencies** (Boost, zlib, zstd, fmt, etc.) are managed by **CPM (CMake Package Manager)**. They are built from source using the llvm-mingw toolchain and cached globally in `CPM_SOURCE_CACHE` to speed up builds across different repository clones.
 
 **Qt** is downloaded via `aqt` directly into the build tree. The Windows target variant (`win64_llvm_mingw`) is a pre-built Qt that matches the llvm-mingw ABI. The build script fetches `qtmultimedia` and `qtimageformats` alongside the base package because the base aqt install omits them.
 
-**FFmpeg** is re-built from source with llvm-mingw after cmake downloads the GCC variant, to eliminate the `libwinpthread-1.dll` dependency that the upstream GCC FFmpeg DLLs carry.
+**FFmpeg** is built from source for static linkingwith llvm-mingw using a dedicated script-level rebuild stage. This eliminates the `libwinpthread-1.dll` dependency and ensures the binary is optimized for Citron. Both the source and pre-built binaries are cached in `CPM_SOURCE_CACHE`.
 
 **Precompiled headers** are disabled globally. IR PGO instruments the PCH itself, causing flag-set mismatches between stages that silently invalidate it. Unity builds already batch translation units more aggressively than PCH does, so there is no compile-time penalty.
 
@@ -241,8 +242,12 @@ build/
 │   ├── default.profdata           Merged stage 1 profile (auto-generated)
 │   ├── merged.profdata            Merged stage1 + CS profile (auto-generated)
 │   └── cs/                        Copy CS profraw files here
-├── llvm-mingw/                    Downloaded llvm-mingw toolchain (Linux)
-└── generate/externals/qt/         Downloaded Qt for Windows target
+├── ~/.cache/cpm/                  Global cache root (default CPM_SOURCE_CACHE)
+│   ├── llvm-mingw/                Downloaded toolchain (shared across repos)
+│   ├── qt-bin/                    Downloaded Qt target binaries
+│   ├── qt-bin-host/               Downloaded Qt host tools (Linux only)
+│   ├── ffmpeg-src/                Cached FFmpeg source code
+│   └── citron-ffmpeg-static/      Pre-built FFmpeg binaries
 ```
 
 ---
@@ -260,10 +265,6 @@ The `--lto` value must match between `generate` and `use` when using IR PGO. Re-
 **`default.profdata not found` for csgenerate**
 
 Run `use` first after collecting stage 1 profraw files. The `use` stage merges the profraw files and produces `default.profdata`, which `csgenerate` requires.
-
-**Qt deploy warning on Linux: "Qt plugin base not found"**
-
-This warning comes from `CopyMinGWDeps.cmake` during the cmake build step. The script already handles plugin deployment independently via `deploy_runtime_dlls` after the build completes. Qt plugins including TLS backends are copied from the aqt installation into `bin/` at that point. The warning is cosmetic on a Linux cross-compile host.
 
 **MSYS2: `pacman: command not found`**
 
