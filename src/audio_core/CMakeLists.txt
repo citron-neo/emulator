@@ -284,7 +284,9 @@ if (ENABLE_OPENAL)
         sink/openal_sink.h
     )
 
-    find_package(OpenAL CONFIG REQUIRED)
+    if (NOT TARGET OpenAL::OpenAL)
+        find_package(OpenAL CONFIG REQUIRED)
+    endif()
     target_link_libraries(audio_core PRIVATE OpenAL::OpenAL)
     target_compile_definitions(audio_core PRIVATE HAVE_OPENAL)
 endif()
