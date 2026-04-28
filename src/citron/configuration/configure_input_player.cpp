@@ -774,6 +774,8 @@ ConfigureInputPlayer::ConfigureInputPlayer(QWidget* parent, std::size_t player_i
         UpdateControllerEnabledButtons();
         UpdateControllerButtonNames();
         UpdateMotionButtons();
+        Settings::values.players.GetValue()[player_index].controller_type =
+            GetSettingsControllerTypeFromIndex(ui->comboControllerType->currentIndex());
         const Core::HID::NpadStyleIndex type =
             GetControllerTypeFromIndex(ui->comboControllerType->currentIndex());
 
@@ -896,8 +898,8 @@ void ConfigureInputPlayer::LoadConfiguration() {
         return;
     }
 
-    const int comboBoxIndex =
-        GetIndexFromControllerType(emulated_controller->GetNpadStyleIndex(true));
+    const int comboBoxIndex = GetIndexFromSettingsControllerType(
+        Settings::values.players.GetValue()[player_index].controller_type);
     ui->comboControllerType->setCurrentIndex(comboBoxIndex);
     ui->groupConnectedController->setChecked(emulated_controller->IsConnected(true));
 }
@@ -1095,37 +1097,51 @@ void ConfigureInputPlayer::UpdateUI() {
 
 void ConfigureInputPlayer::SetConnectableControllers() {
     const auto npad_style_set = hid_core.GetSupportedStyleTag();
-    index_controller_type_pairs.clear();
+    controller_combo_entries.clear();
     ui->comboControllerType->clear();
 
-    const auto add_item = [&](Core::HID::NpadStyleIndex controller_type,
-                              const QString& controller_name) {
-        index_controller_type_pairs.emplace_back(ui->comboControllerType->count(), controller_type);
+    const auto add_item = [&](Core::HID::NpadStyleIndex npad_style,
+                              Settings::ControllerType settings_type, const QString& controller_name) {
+        controller_combo_entries.push_back(ControllerComboEntry{
+            .combo_index = ui->comboControllerType->count(),
+            .npad_style = npad_style,
+            .settings_type = settings_type,
+        });
         ui->comboControllerType->addItem(controller_name);
     };
 
     if (npad_style_set.fullkey == 1) {
-        add_item(Core::HID::NpadStyleIndex::Fullkey, tr("Pro Controller"));
+        add_item(Core::HID::NpadStyleIndex::Fullkey, Settings::ControllerType::ProController,
+                 tr("Pro Controller"));
+        add_item(Core::HID::NpadStyleIndex::Fullkey, Settings::ControllerType::Xbox,
+                 tr("Xbox Controller"));
+        add_item(Core::HID::NpadStyleIndex::Fullkey, Settings::ControllerType::DualSense,
+                 tr("DualSense (PS5)"));
     }
 
     if (npad_style_set.joycon_dual == 1) {
-        add_item(Core::HID::NpadStyleIndex::JoyconDual, tr("Dual Joycons"));
+        add_item(Core::HID::NpadStyleIndex::JoyconDual, Settings::ControllerType::DualJoyconDetached,
+                 tr("Dual Joycons"));
     }
 
     if (npad_style_set.joycon_left == 1) {
-        add_item(Core::HID::NpadStyleIndex::JoyconLeft, tr("Left Joycon"));
+        add_item(Core::HID::NpadStyleIndex::JoyconLeft, Settings::ControllerType::LeftJoycon,
+                 tr("Left Joycon"));
     }
 
     if (npad_style_set.joycon_right == 1) {
-        add_item(Core::HID::NpadStyleIndex::JoyconRight, tr("Right Joycon"));
+        add_item(Core::HID::NpadStyleIndex::JoyconRight, Settings::ControllerType::RightJoycon,
+                 tr("Right Joycon"));
     }
 
     if (player_index == 0 && npad_style_set.handheld == 1) {
-        add_item(Core::HID::NpadStyleIndex::Handheld, tr("Handheld"));
+        add_item(Core::HID::NpadStyleIndex::Handheld, Settings::ControllerType::Handheld,
+                 tr("Handheld"));
     }
 
     if (npad_style_set.gamecube == 1) {
-        add_item(Core::HID::NpadStyleIndex::GameCube, tr("GameCube Controller"));
+        add_item(Core::HID::NpadStyleIndex::GameCube, Settings::ControllerType::GameCube,
+                 tr("GameCube Controller"));
     }
 
     // Disable all unsupported controllers
@@ -1134,48 +1150,74 @@ void ConfigureInputPlayer::SetConnectableControllers() {
     }
 
     if (npad_style_set.palma == 1) {
-        add_item(Core::HID::NpadStyleIndex::Pokeball, tr("Poke Ball Plus"));
+        add_item(Core::HID::NpadStyleIndex::Pokeball, Settings::ControllerType::Pokeball,
+                 tr("Poke Ball Plus"));
     }
 
     if (npad_style_set.lark == 1) {
-        add_item(Core::HID::NpadStyleIndex::NES, tr("NES Controller"));
+        add_item(Core::HID::NpadStyleIndex::NES, Settings::ControllerType::NES,
+                 tr("NES Controller"));
     }
 
     if (npad_style_set.lucia == 1) {
-        add_item(Core::HID::NpadStyleIndex::SNES, tr("SNES Controller"));
+        add_item(Core::HID::NpadStyleIndex::SNES, Settings::ControllerType::SNES,
+                 tr("SNES Controller"));
     }
 
     if (npad_style_set.lagoon == 1) {
-        add_item(Core::HID::NpadStyleIndex::N64, tr("N64 Controller"));
+        add_item(Core::HID::NpadStyleIndex::N64, Settings::ControllerType::N64,
+                 tr("N64 Controller"));
     }
 
     if (npad_style_set.lager == 1) {
-        add_item(Core::HID::NpadStyleIndex::SegaGenesis, tr("Sega Genesis"));
+        add_item(Core::HID::NpadStyleIndex::SegaGenesis, Settings::ControllerType::SegaGenesis,
+                 tr("Sega Genesis"));
     }
 }
 
 Core::HID::NpadStyleIndex ConfigureInputPlayer::GetControllerTypeFromIndex(int index) const {
     const auto it =
-        std::find_if(index_controller_type_pairs.begin(), index_controller_type_pairs.end(),
-                     [index](const auto& pair) { return pair.first == index; });
+        std::find_if(controller_combo_entries.begin(), controller_combo_entries.end(),
+                     [index](const ControllerComboEntry& e) { return e.combo_index == index; });
 
-    if (it == index_controller_type_pairs.end()) {
+    if (it == controller_combo_entries.end()) {
         return Core::HID::NpadStyleIndex::Fullkey;
     }
 
-    return it->second;
+    return it->npad_style;
 }
 
-int ConfigureInputPlayer::GetIndexFromControllerType(Core::HID::NpadStyleIndex type) const {
+Settings::ControllerType ConfigureInputPlayer::GetSettingsControllerTypeFromIndex(int index) const {
     const auto it =
-        std::find_if(index_controller_type_pairs.begin(), index_controller_type_pairs.end(),
-                     [type](const auto& pair) { return pair.second == type; });
+        std::find_if(controller_combo_entries.begin(), controller_combo_entries.end(),
+                     [index](const ControllerComboEntry& e) { return e.combo_index == index; });
 
-    if (it == index_controller_type_pairs.end()) {
-        return -1;
+    if (it == controller_combo_entries.end()) {
+        return Settings::ControllerType::ProController;
     }
 
-    return it->first;
+    return it->settings_type;
+}
+
+int ConfigureInputPlayer::GetIndexFromSettingsControllerType(Settings::ControllerType type) const {
+    const auto it =
+        std::find_if(controller_combo_entries.begin(), controller_combo_entries.end(),
+                     [type](const ControllerComboEntry& e) { return e.settings_type == type; });
+
+    if (it != controller_combo_entries.end()) {
+        return it->combo_index;
+    }
+
+    const auto it_pro =
+        std::find_if(controller_combo_entries.begin(), controller_combo_entries.end(),
+                     [](const ControllerComboEntry& e) {
+                         return e.settings_type == Settings::ControllerType::ProController;
+                     });
+    if (it_pro != controller_combo_entries.end()) {
+        return it_pro->combo_index;
+    }
+
+    return 0;
 }
 
 void ConfigureInputPlayer::UpdateInputDevices() {

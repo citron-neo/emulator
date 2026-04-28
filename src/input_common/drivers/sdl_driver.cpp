@@ -1,6 +1,9 @@
 // SPDX-FileCopyrightText: 2018 Citra Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
+#include <cctype>
+#include <string>
+
 #include "common/logging.h"
 #include "common/math_util.h"
 #include "common/param_package.h"
@@ -19,6 +22,58 @@ Common::UUID GetGUID(SDL_Joystick* joystick) {
     // Clear controller name crc
     std::memset(data.data() + 2, 0, sizeof(u16));
     return Common::UUID{data};
+}
+
+std::string NormalizedGamepadName(SDL_GameController* controller) {
+    if (controller == nullptr) {
+        return {};
+    }
+    const char* name = SDL_GameControllerName(controller);
+    if (name == nullptr) {
+        return {};
+    }
+    std::string s(name);
+    for (char& c : s) {
+        c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+    }
+    return s;
+}
+
+bool IsSonyGamepad(SDL_GameController* controller) {
+    if (controller == nullptr) {
+        return false;
+    }
+    const auto ctype = SDL_GameControllerGetType(controller);
+    if (ctype == SDL_CONTROLLER_TYPE_PS3 || ctype == SDL_CONTROLLER_TYPE_PS4 ||
+        ctype == SDL_CONTROLLER_TYPE_PS5) {
+        return true;
+    }
+    if (SDL_Joystick* j = SDL_GameControllerGetJoystick(controller)) {
+        if (SDL_JoystickGetVendor(j) == 0x054c) {
+            return true;
+        }
+    }
+    const std::string s = NormalizedGamepadName(controller);
+    return s.find("dualsense") != std::string::npos || s.find("dualshock") != std::string::npos ||
+           s.find("playstation") != std::string::npos || s.find("ps5") != std::string::npos ||
+           s.find("ps4") != std::string::npos;
+}
+
+bool IsMicrosoftGamepad(SDL_GameController* controller) {
+    if (controller == nullptr) {
+        return false;
+    }
+    const auto ctype = SDL_GameControllerGetType(controller);
+    if (ctype == SDL_CONTROLLER_TYPE_XBOX360 || ctype == SDL_CONTROLLER_TYPE_XBOXONE) {
+        return true;
+    }
+    if (SDL_Joystick* j = SDL_GameControllerGetJoystick(controller)) {
+        if (SDL_JoystickGetVendor(j) == 0x045e) {
+            return true;
+        }
+    }
+    const std::string s = NormalizedGamepadName(controller);
+    return s.find("xbox") != std::string::npos;
 }
 } // Anonymous namespace
 
@@ -775,7 +830,8 @@ Common::ParamPackage SDLDriver::BuildParamPackageForBinding(
 
 Common::ParamPackage SDLDriver::BuildParamPackageForAnalog(PadIdentifier identifier, int axis_x,
                                                            int axis_y, float offset_x,
-                                                           float offset_y) const {
+                                                           float offset_y, const char* invert_x,
+                                                           const char* invert_y) const {
     Common::ParamPackage params;
     params.Set("engine", GetEngineName());
     params.Set("port", static_cast<int>(identifier.port));
@@ -784,8 +840,8 @@ Common::ParamPackage SDLDriver::BuildParamPackageForAnalog(PadIdentifier identif
     params.Set("axis_y", axis_y);
     params.Set("offset_x", offset_x);
     params.Set("offset_y", offset_y);
-    params.Set("invert_x", "+");
-    params.Set("invert_y", "+");
+    params.Set("invert_x", invert_x);
+    params.Set("invert_y", invert_y);
     return params;
 }
 
@@ -842,11 +898,29 @@ ButtonBindings SDLDriver::GetDefaultButtonBinding(
         srr_button = SDL_CONTROLLER_BUTTON_PADDLE1;
     }
 
+    // Switch: B=south / A=east vs SDL A=south / B=east, and transposed X/Y. Sony uses SDL face
+    // order like Xbox; other pads use Switch-style A/B mapping.
+    SDL_GameController* controller = joystick->GetSDLGameController();
+    const SDL_GameControllerType controller_type =
+        controller ? SDL_GameControllerGetType(controller) : SDL_CONTROLLER_TYPE_UNKNOWN;
+    const bool nintendo_xy_swap =
+        controller_type == SDL_CONTROLLER_TYPE_NINTENDO_SWITCH_PRO ||
+        controller_type == SDL_CONTROLLER_TYPE_NINTENDO_SWITCH_JOYCON_LEFT ||
+        controller_type == SDL_CONTROLLER_TYPE_NINTENDO_SWITCH_JOYCON_RIGHT ||
+        controller_type == SDL_CONTROLLER_TYPE_NINTENDO_SWITCH_JOYCON_PAIR;
+    const bool sony = IsSonyGamepad(controller);
+    const SDL_GameControllerButton sdl_a = sony ? SDL_CONTROLLER_BUTTON_A : SDL_CONTROLLER_BUTTON_B;
+    const SDL_GameControllerButton sdl_b = sony ? SDL_CONTROLLER_BUTTON_B : SDL_CONTROLLER_BUTTON_A;
+    const SDL_GameControllerButton sdl_x =
+        nintendo_xy_swap ? SDL_CONTROLLER_BUTTON_Y : SDL_CONTROLLER_BUTTON_X;
+    const SDL_GameControllerButton sdl_y =
+        nintendo_xy_swap ? SDL_CONTROLLER_BUTTON_X : SDL_CONTROLLER_BUTTON_Y;
+
     return {
-        std::pair{Settings::NativeButton::A, SDL_CONTROLLER_BUTTON_B},
-        {Settings::NativeButton::B, SDL_CONTROLLER_BUTTON_A},
-        {Settings::NativeButton::X, SDL_CONTROLLER_BUTTON_Y},
-        {Settings::NativeButton::Y, SDL_CONTROLLER_BUTTON_X},
+        std::pair{Settings::NativeButton::A, sdl_a},
+        {Settings::NativeButton::B, sdl_b},
+        {Settings::NativeButton::X, sdl_x},
+        {Settings::NativeButton::Y, sdl_y},
         {Settings::NativeButton::LStick, SDL_CONTROLLER_BUTTON_LEFTSTICK},
         {Settings::NativeButton::RStick, SDL_CONTROLLER_BUTTON_RIGHTSTICK},
         {Settings::NativeButton::L, SDL_CONTROLLER_BUTTON_LEFTSHOULDER},
@@ -956,6 +1030,8 @@ AnalogMapping SDLDriver::GetAnalogMappingForDevice(const Common::ParamPackage& p
         return {};
     }
 
+    const char* const stick_invert_y = IsMicrosoftGamepad(controller) ? "-" : "+";
+
     AnalogMapping mapping = {};
     const auto& binding_left_x =
         SDL_GameControllerGetBindForAxis(controller, SDL_CONTROLLER_AXIS_LEFTX);
@@ -971,7 +1047,8 @@ AnalogMapping SDLDriver::GetAnalogMappingForDevice(const Common::ParamPackage& p
         mapping.insert_or_assign(Settings::NativeAnalog::LStick,
                                  BuildParamPackageForAnalog(identifier, binding_left_x.value.axis,
                                                             binding_left_y.value.axis,
-                                                            left_offset_x, left_offset_y));
+                                                            left_offset_x, left_offset_y, "+",
+                                                            stick_invert_y));
     } else {
         const auto identifier = joystick->GetPadIdentifier();
         PreSetController(identifier);
@@ -982,7 +1059,8 @@ AnalogMapping SDLDriver::GetAnalogMappingForDevice(const Common::ParamPackage& p
         mapping.insert_or_assign(Settings::NativeAnalog::LStick,
                                  BuildParamPackageForAnalog(identifier, binding_left_x.value.axis,
                                                             binding_left_y.value.axis,
-                                                            left_offset_x, left_offset_y));
+                                                            left_offset_x, left_offset_y, "+",
+                                                            stick_invert_y));
     }
     const auto& binding_right_x =
         SDL_GameControllerGetBindForAxis(controller, SDL_CONTROLLER_AXIS_RIGHTX);
@@ -997,7 +1075,7 @@ AnalogMapping SDLDriver::GetAnalogMappingForDevice(const Common::ParamPackage& p
     mapping.insert_or_assign(Settings::NativeAnalog::RStick,
                              BuildParamPackageForAnalog(identifier, binding_right_x.value.axis,
                                                         binding_right_y.value.axis, right_offset_x,
-                                                        right_offset_y));
+                                                        right_offset_y, "+", stick_invert_y));
     return mapping;
 }
 

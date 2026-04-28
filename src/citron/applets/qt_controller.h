@@ -5,7 +5,10 @@
 
 #include <array>
 #include <memory>
+#include <tuple>
+#include <vector>
 #include <QDialog>
+#include "common/settings_input.h"
 #include "core/frontend/applets/controller.h"
 
 class GMainWindow;
@@ -79,8 +82,12 @@ private:
     // Gets the Controller Type for a given controller combobox index per player.
     Core::HID::NpadStyleIndex GetControllerTypeFromIndex(int index, std::size_t player_index) const;
 
-    // Gets the controller combobox index for a given Controller Type per player.
-    int GetIndexFromControllerType(Core::HID::NpadStyleIndex type, std::size_t player_index) const;
+    Settings::ControllerType GetSettingsControllerTypeFromIndex(int index,
+                                                                std::size_t player_index) const;
+
+    // Gets combobox index for a persisted settings controller type per player.
+    int GetIndexFromSettingsControllerType(Settings::ControllerType type,
+                                         std::size_t player_index) const;
 
     // Updates the controller icons per player.
     void UpdateControllerIcon(std::size_t player_index);
@@ -147,8 +154,9 @@ private:
     // Comboboxes with a list of emulated controllers per player.
     std::array<QComboBox*, NUM_PLAYERS> emulated_controllers;
 
-    /// Pairs of emulated controller index and Controller Type enum per player.
-    std::array<std::vector<std::pair<int, Core::HID::NpadStyleIndex>>, NUM_PLAYERS>
+    /// Per player: combobox index, emulated Npad style, persisted settings controller type.
+    std::array<std::vector<std::tuple<int, Core::HID::NpadStyleIndex, Settings::ControllerType>>,
+               NUM_PLAYERS>
         index_controller_type_pairs;
 
     // Labels representing the number of connected controllers
