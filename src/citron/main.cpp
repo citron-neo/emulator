@@ -2500,6 +2500,7 @@ bool GMainWindow::OnShutdownBegin() {
         shutdown_time = 5000;
     }
 
+    disconnect(&shutdown_timer, nullptr, this, nullptr);
     shutdown_timer.setSingleShot(true);
     shutdown_timer.start(shutdown_time);
     connect(&shutdown_timer, &QTimer::timeout, this, &GMainWindow::OnEmulationStopTimeExpired);
@@ -6036,6 +6037,9 @@ void GMainWindow::UpdateUISettings() {
 }
 
 void GMainWindow::UpdateInputDrivers() {
+    if (main_window_is_closing) {
+        return;
+    }
     // Do not process any controller input while the loading screen is active
     if (loading_screen && loading_screen->isVisible()) {
         return;
@@ -6180,11 +6184,20 @@ void GMainWindow::closeEvent(QCloseEvent* event) {
         return;
     }
 
+    main_window_is_closing = true;
+
 #if defined(_MSC_VER) && defined(CITRON_ENABLE_PGO_GENERATE)
     // Explicitly flush PGO profile data when closing via X or File->Exit.
     // Without this, .pgc may not be written on some shutdown paths.
     PgoAutoSweep(L"close");
 #endif
+
+    // Stop periodic SDL event pumping and any pending emu shutdown timer so they cannot fire
+    // during controller unload, render close, or HID teardown (avoids exit crashes on macOS).
+    update_input_timer.stop();
+    disconnect(&update_input_timer, nullptr, this, nullptr);
+    shutdown_timer.stop();
+    disconnect(&shutdown_timer, nullptr, this, nullptr);
 
     // 1. STOP the emulation first
     if (emu_thread != nullptr) {
@@ -6223,12 +6236,16 @@ void GMainWindow::closeEvent(QCloseEvent* event) {
     UISettings::SaveWindowState();
     hotkey_registry.SaveHotkeys();
 
-    // 4. NOW it is safe to kill the hardware devices
+    // 4. Tear down HID input before the render window: ~GRenderWindow calls
+    // input_subsystem->Shutdown(), which must not run while emulated SDL devices still exist.
+    if (system) {
+        system->HIDCore().UnloadInputDevices();
+    }
+
     render_window->close();
     multiplayer_state->Close();
 
     if (system) {
-        system->HIDCore().UnloadInputDevices();
         system->GetRoomNetwork().Shutdown();
     }
 
