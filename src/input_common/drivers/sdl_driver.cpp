@@ -40,22 +40,6 @@ std::string NormalizedGamepadName(SDL_GameController* controller) {
 }
 
 
-bool IsMicrosoftGamepad(SDL_GameController* controller) {
-    if (controller == nullptr) {
-        return false;
-    }
-    const auto ctype = SDL_GameControllerGetType(controller);
-    if (ctype == SDL_CONTROLLER_TYPE_XBOX360 || ctype == SDL_CONTROLLER_TYPE_XBOXONE) {
-        return true;
-    }
-    if (SDL_Joystick* j = SDL_GameControllerGetJoystick(controller)) {
-        if (SDL_JoystickGetVendor(j) == 0x045e) {
-            return true;
-        }
-    }
-    const std::string s = NormalizedGamepadName(controller);
-    return s.find("xbox") != std::string::npos;
-}
 } // Anonymous namespace
 
 static int SDLEventWatcher(void* user_data, SDL_Event* event) {
