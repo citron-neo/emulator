@@ -13,6 +13,7 @@
 #include "video_core/renderer_vulkan/vk_buffer_cache.h"
 #include "video_core/renderer_vulkan/vk_compute_pipeline.h"
 #include "video_core/renderer_vulkan/vk_descriptor_pool.h"
+#include "video_core/renderer_vulkan/vk_master_semaphore.h"
 #include "video_core/renderer_vulkan/vk_pipeline_cache.h"
 #include "video_core/renderer_vulkan/vk_scheduler.h"
 #include "video_core/renderer_vulkan/vk_update_descriptor.h"
@@ -37,6 +38,25 @@ struct BindlessCacheEntry {
 };
 constexpr size_t BINDLESS_CACHE_SIZE = 64;
 using BindlessCache = std::array<BindlessCacheEntry, BINDLESS_CACHE_SIZE>;
+
+constexpr u64 FNV1A_OFFSET = 0xcbf29ce484222325ULL;
+constexpr u64 FNV1A_PRIME = 0x100000001b3ULL;
+
+inline u64 HashDescriptorBlock(const DescriptorUpdateEntry* data, size_t entry_count) noexcept {
+    static_assert(sizeof(DescriptorUpdateEntry) % sizeof(u64) == 0,
+                  "DescriptorUpdateEntry must be 8-byte aligned");
+    if (entry_count == 0 || data == nullptr) {
+        return FNV1A_OFFSET;
+    }
+    const size_t word_count = entry_count * (sizeof(DescriptorUpdateEntry) / sizeof(u64));
+    const u64* words = reinterpret_cast<const u64*>(data);
+    u64 h = FNV1A_OFFSET;
+    for (size_t i = 0; i < word_count; ++i) {
+        h ^= words[i];
+        h *= FNV1A_PRIME;
+    }
+    return h;
+}
 
 BindlessCacheEntry* FindBindlessEntry(BindlessCache& cache, GPUVAddr addr, u32 count) {
     for (auto& entry : cache) {
@@ -304,9 +324,10 @@ void ComputePipeline::Configure(Tegra::Engines::KeplerCompute& kepler_compute,
             build_condvar.wait(lock, [this] { return is_built.load(std::memory_order::relaxed); });
         });
     }
-    const void* const descriptor_data{guest_descriptor_queue.UpdateData()};
+    const auto* const descriptor_data{guest_descriptor_queue.UpdateData()};
+    const size_t upload_entries{guest_descriptor_queue.GetUploadSize()};
     const bool is_rescaling = !info.texture_descriptors.empty() || !info.image_descriptors.empty();
-    scheduler.Record([this, descriptor_data, is_rescaling,
+    scheduler.Record([this, &scheduler, descriptor_data, upload_entries, is_rescaling,
                       rescaling_data = rescaling.Data()](vk::CommandBuffer cmdbuf) {
         cmdbuf.BindPipeline(VK_PIPELINE_BIND_POINT_COMPUTE, *pipeline);
         if (!descriptor_set_layout && !resource_set_layout) {
@@ -318,23 +339,50 @@ void ComputePipeline::Configure(Tegra::Engines::KeplerCompute& kepler_compute,
                                  rescaling_data.data());
         }
         const vk::Device& dev{device.GetLogical()};
+        const u64 data_hash = HashDescriptorBlock(descriptor_data, upload_entries);
+        auto& semaphore = scheduler.GetMasterSemaphore();
+        // Strict per-CB cache: see the rationale in
+        // GraphicsPipeline::ConfigureDraw - we cannot safely reuse a cached
+        // set after the CB that committed it has submitted, because the
+        // allocator may hand it back to us with the same tick and we would
+        // overwrite it while an earlier in-flight CB still references it.
+        const u64 current_tick = semaphore.CurrentTick();
+        const auto get_or_alloc = [&](DescriptorAllocator& alloc,
+                                      const vk::DescriptorUpdateTemplate& tpl) -> VkDescriptorSet {
+            for (auto& e : descriptor_set_cache) {
+                if (e.set != VK_NULL_HANDLE && e.hash == data_hash &&
+                    e.cb_tick == current_tick) {
+                    return e.set;
+                }
+            }
+            const VkDescriptorSet fresh = alloc.Commit();
+            dev.UpdateDescriptorSet(fresh, *tpl, descriptor_data);
+            for (auto& e : descriptor_set_cache) {
+                if (e.set == fresh) {
+                    e.set = VK_NULL_HANDLE;
+                }
+            }
+            descriptor_set_cache[descriptor_set_cache_rr] = {data_hash, current_tick, fresh};
+            descriptor_set_cache_rr =
+                (descriptor_set_cache_rr + 1) % DESC_SET_CACHE_SIZE;
+            return fresh;
+        };
         if (descriptor_set_layout) {
             if (uses_push_descriptor) {
                 cmdbuf.PushDescriptorSetWithTemplateKHR(*descriptor_update_template,
                                                         *pipeline_layout, 0, descriptor_data);
             } else {
-                const VkDescriptorSet descriptor_set{descriptor_allocator.Commit()};
-                dev.UpdateDescriptorSet(descriptor_set, *descriptor_update_template,
-                                        descriptor_data);
+                const VkDescriptorSet ds = get_or_alloc(descriptor_allocator,
+                                                        descriptor_update_template);
                 cmdbuf.BindDescriptorSets(VK_PIPELINE_BIND_POINT_COMPUTE, *pipeline_layout, 0,
-                                          descriptor_set, nullptr);
+                                          ds, nullptr);
             }
         }
         if (resource_set_layout) {
-            const VkDescriptorSet resource_set{resource_descriptor_allocator.Commit()};
-            dev.UpdateDescriptorSet(resource_set, *resource_update_template, descriptor_data);
+            const VkDescriptorSet rs = get_or_alloc(resource_descriptor_allocator,
+                                                    resource_update_template);
             cmdbuf.BindDescriptorSets(VK_PIPELINE_BIND_POINT_COMPUTE, *pipeline_layout, 1,
-                                      resource_set, nullptr);
+                                      rs, nullptr);
         }
     });
 }
