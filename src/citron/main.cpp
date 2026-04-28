@@ -88,6 +88,7 @@ static FileSys::VirtualFile VfsDirectoryCreateFileWrapper(const FileSys::Virtual
 #include <QClipboard>
 #include <QCoreApplication>
 #include <QDesktopServices>
+#include <QEvent>
 #include <QDir>
 #include <QFile>
 #include <QFileDialog>
@@ -2529,8 +2530,17 @@ void GMainWindow::OnEmulationStopTimeExpired() {
 }
 
 void GMainWindow::OnEmulationStopped() {
+    if (emulation_stopped_cleanup_active) {
+        return;
+    }
+    if (!emulation_running && !emu_thread) {
+        return;
+    }
+    emulation_stopped_cleanup_active = true;
+
     shutdown_timer.stop();
     if (emu_thread) {
+        disconnect(emu_thread.get(), &QThread::finished, this, &GMainWindow::OnEmulationStopped);
         emu_thread->disconnect();
         emu_thread->wait();
         emu_thread.reset();
@@ -2620,6 +2630,7 @@ void GMainWindow::OnEmulationStopped() {
 
     // When closing the game, destroy the GLWindow to clear the context after the game is closed
     render_window->ReleaseRenderTarget();
+    QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
 
     // Enable game list
     game_list->setEnabled(true);
@@ -2628,6 +2639,8 @@ void GMainWindow::OnEmulationStopped() {
     system->HIDCore().ReloadInputDevices();
     UpdateStatusButtons();
     game_list->LoadController();
+
+    emulation_stopped_cleanup_active = false;
 }
 
 void GMainWindow::ShutdownGame() {

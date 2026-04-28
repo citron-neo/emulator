@@ -37,6 +37,8 @@ public:
     ~LoadingScreen();
 
     void Prepare(Loader::AppLoader& loader);
+    /// Stop progress/fade animations so teardown does not touch widgets from the event loop later.
+    void HaltTransitions();
     void Clear();
     void OnLoadProgress(VideoCore::LoadCallbackStage stage, std::size_t value, std::size_t total);
     void OnLoadComplete();
