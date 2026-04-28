@@ -6186,6 +6186,11 @@ void GMainWindow::closeEvent(QCloseEvent* event) {
     PgoAutoSweep(L"close");
 #endif
 
+    // Stop periodic SDL event pumping and any pending emu shutdown timer so they cannot fire
+    // during controller unload, render close, or HID teardown (avoids exit crashes on macOS).
+    update_input_timer.stop();
+    shutdown_timer.stop();
+
     // 1. STOP the emulation first
     if (emu_thread != nullptr) {
         // Request exit before shutdown so Qlaunch (and other applets) receive the request
