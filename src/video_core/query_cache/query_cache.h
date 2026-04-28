@@ -272,11 +272,11 @@ void QueryCacheBase<Traits>::CounterReport(GPUVAddr addr, QueryType counter_type
         streamer->SetAccumulationValue(query_base->value);
         if (True(query_base->flags & QueryFlagBits::HasTimestamp)) {
             u64 timestamp = impl->gpu.GetTicks();
-            std::memcpy(pointer_timestamp, &timestamp, sizeof(timestamp));
-            std::memcpy(pointer, &query_base->value, sizeof(query_base->value));
+            if (pointer_timestamp) std::memcpy(pointer_timestamp, &timestamp, sizeof(timestamp));
+            if (pointer) std::memcpy(pointer, &query_base->value, sizeof(query_base->value));
         } else {
             u32 value = static_cast<u32>(query_base->value);
-            std::memcpy(pointer, &value, sizeof(value));
+            if (pointer) std::memcpy(pointer, &value, sizeof(value));
         }
         if (!is_synced) [[likely]] {
             impl->pending_unregister.push_back(query_location);
@@ -290,10 +290,10 @@ void QueryCacheBase<Traits>::CounterReport(GPUVAddr addr, QueryType counter_type
             if (has_timestamp) {
                 u64 timestamp = impl->gpu.GetTicks();
                 u64 value = static_cast<u64>(payload);
-                std::memcpy(pointer_timestamp, &timestamp, sizeof(timestamp));
-                std::memcpy(pointer, &value, sizeof(value));
+                if (pointer_timestamp) std::memcpy(pointer_timestamp, &timestamp, sizeof(timestamp));
+                if (pointer) std::memcpy(pointer, &value, sizeof(value));
             } else {
-                std::memcpy(pointer, &payload, sizeof(payload));
+                if (pointer) std::memcpy(pointer, &payload, sizeof(payload));
             }
             streamer->Free(new_query_id);
             return;
