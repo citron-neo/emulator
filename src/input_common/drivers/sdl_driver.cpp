@@ -24,6 +24,7 @@ Common::UUID GetGUID(SDL_Joystick* joystick) {
     return Common::UUID{data};
 }
 
+#if !defined(__APPLE__)
 std::string NormalizedGamepadName(SDL_GameController* controller) {
     if (controller == nullptr) {
         return {};
@@ -52,6 +53,7 @@ bool IsMicrosoftGamepad(SDL_GameController* controller) {
     const std::string s = NormalizedGamepadName(controller);
     return s.find("xbox") != std::string::npos;
 }
+#endif
 
 } // Anonymous namespace
 
