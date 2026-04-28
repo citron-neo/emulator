@@ -8,6 +8,7 @@
 #include <cmath>
 #include <cstdlib>
 #include <fstream>
+#include <tuple>
 #include <iostream>
 #include <memory>
 #include <thread>
@@ -85,6 +86,7 @@ static FileSys::VirtualFile VfsDirectoryCreateFileWrapper(const FileSys::Virtual
 #define QT_NO_OPENGL
 #include <QCheckBox>
 #include <QClipboard>
+#include <QCoreApplication>
 #include <QDesktopServices>
 #include <QDir>
 #include <QFile>
@@ -6242,6 +6244,9 @@ void GMainWindow::closeEvent(QCloseEvent* event) {
         system->HIDCore().UnloadInputDevices();
     }
 
+    // Closing the render window emits Closed -> OnStopGame; never recurse into that while exiting
+    // the main window (would double-shutdown emulation and crash).
+    disconnect(render_window, &GRenderWindow::Closed, this, &GMainWindow::OnStopGame);
     render_window->close();
     multiplayer_state->Close();
 
@@ -6746,8 +6751,16 @@ int main(int argc, char* argv[]) {
 #endif
 
 #ifdef __APPLE__
-    const auto bin_path = Common::FS::GetBundleDirectory() / "..";
-    chdir(Common::FS::PathToUTF8String(bin_path).c_str());
+    // cwd must be the .app/Contents folder so Resources and Qt plug-ins resolve; skip if bundle
+    // path is unavailable (e.g. mis-invoked binary) to avoid undefined chdir paths.
+    if (const auto bundle_dir = Common::FS::GetBundleDirectory(); !bundle_dir.empty()) {
+        const auto contents_dir = bundle_dir / "..";
+        std::error_code ec;
+        if (std::filesystem::is_directory(contents_dir, ec) && !ec) {
+            std::ignore =
+                chdir(Common::FS::PathToUTF8String(contents_dir.lexically_normal()).c_str());
+        }
+    }
 #endif
 
 #ifdef __linux__
