@@ -6255,6 +6255,10 @@ void GMainWindow::closeEvent(QCloseEvent* event) {
     }
 
     QWidget::closeEvent(event);
+
+    // close() from the menu already ends the session; Quit from Cmd+Q was swallowed above until
+    // teardown finished — request quit so exec() returns.
+    QCoreApplication::quit();
 }
 
 static bool IsSingleFileDropEvent(const QMimeData* mime) {
@@ -6566,6 +6570,16 @@ void GMainWindow::changeEvent(QEvent* event) {
 }
 
 bool GMainWindow::eventFilter(QObject* obj, QEvent* event) {
+    // macOS Cmd+Q (and other platform quit shortcuts) post Quit to the application without closing
+    // the main window. If the render surface has focus, teardown can bypass closeEvent and tear
+    // down in the wrong order. Always route the first Quit through close() so HID / emu / render
+    // shutdown matches File → Exit.
+    if (obj == QCoreApplication::instance() && event->type() == QEvent::Quit) {
+        if (!main_window_is_closing) {
+            QTimer::singleShot(0, this, [this]() { close(); });
+            return true;
+        }
+    }
     if (event->type() == QEvent::MouseMove) {
         if (auto* popup = QApplication::activePopupWidget()) {
             if (popup->inherits("QMenu")) {
