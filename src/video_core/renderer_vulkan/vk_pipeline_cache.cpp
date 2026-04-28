@@ -701,7 +701,7 @@ GraphicsPipeline* PipelineCache::BuiltPipeline(GraphicsPipeline* pipeline) const
         return pipeline;
     }
     const auto& state = maxwell3d->draw_manager->GetDrawState();
-    if (state.index_buffer.count <= 6 || state.vertex_buffer.count <= 6) {
+    if (state.index_buffer.count <= 32 || state.vertex_buffer.count <= 32) {
         return pipeline;
     }
     return nullptr;
