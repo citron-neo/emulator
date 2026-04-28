@@ -821,10 +821,23 @@ jint Java_org_citron_citron_1emu_NativeLibrary_verifyGameContents(JNIEnv* env, j
     auto jlambdaClass = env->GetObjectClass(jcallback);
     auto jlambdaInvokeMethod = env->GetMethodID(
         jlambdaClass, "invoke", "(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;");
-    const auto callback = [env, jcallback, jlambdaInvokeMethod](size_t max, size_t progress) {
-        auto jwasCancelled = env->CallObjectMethod(jcallback, jlambdaInvokeMethod,
-                                                   Common::Android::ToJDouble(env, max),
-                                                   Common::Android::ToJDouble(env, progress));
+
+    jclass jLongClass = env->FindClass("java/lang/Long");
+    jmethodID jLongValueOf = env->GetStaticMethodID(jLongClass, "valueOf", "(J)Ljava/lang/Long;");
+
+    const auto callback = [env, jcallback, jlambdaInvokeMethod, jLongClass, jLongValueOf](size_t max, size_t progress) {
+        jobject jmax = env->CallStaticObjectMethod(jLongClass, jLongValueOf, static_cast<jlong>(max));
+        jobject jprogress = env->CallStaticObjectMethod(jLongClass, jLongValueOf, static_cast<jlong>(progress));
+
+        jobject jwasCancelled = env->CallObjectMethod(jcallback, jlambdaInvokeMethod, jmax, jprogress);
+        
+        env->DeleteLocalRef(jmax);
+        env->DeleteLocalRef(jprogress);
+
+        if (jwasCancelled == nullptr) {
+            return false;
+        }
+
         return Common::Android::GetJBoolean(env, jwasCancelled);
     };
     auto& session = EmulationSession::GetInstance();
