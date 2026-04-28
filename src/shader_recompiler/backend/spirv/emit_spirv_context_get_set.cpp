@@ -478,8 +478,23 @@ void EmitSetPatch(EmitContext& ctx, IR::Patch patch, Id value) {
 
 void EmitSetFragColor(EmitContext& ctx, u32 index, u32 component, Id value) {
     const Id component_id{ctx.Const(component)};
-    const Id pointer{ctx.OpAccessChain(ctx.output_f32, ctx.frag_color.at(index), component_id)};
-    ctx.OpStore(pointer, value);
+    switch (ctx.runtime_info.frag_color_types[index]) {
+    case FragmentOutputType::Float: {
+        const Id pointer{ctx.OpAccessChain(ctx.output_f32, ctx.frag_color.at(index), component_id)};
+        ctx.OpStore(pointer, value);
+        break;
+    }
+    case FragmentOutputType::SignedInt: {
+        const Id pointer{ctx.OpAccessChain(ctx.output_s32, ctx.frag_color.at(index), component_id)};
+        ctx.OpStore(pointer, ctx.OpBitcast(ctx.S32[1], value));
+        break;
+    }
+    case FragmentOutputType::UnsignedInt: {
+        const Id pointer{ctx.OpAccessChain(ctx.output_u32, ctx.frag_color.at(index), component_id)};
+        ctx.OpStore(pointer, ctx.OpBitcast(ctx.U32[1], value));
+        break;
+    }
+    }
 }
 
 void EmitSetSampleMask(EmitContext& ctx, Id value) {

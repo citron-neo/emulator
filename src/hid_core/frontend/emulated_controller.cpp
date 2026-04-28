@@ -58,6 +58,9 @@ NpadStyleIndex EmulatedController::MapSettingsTypeToNPad(Settings::ControllerTyp
         return NpadStyleIndex::N64;
     case Settings::ControllerType::SegaGenesis:
         return NpadStyleIndex::SegaGenesis;
+    case Settings::ControllerType::Xbox:
+    case Settings::ControllerType::DualSense:
+        return NpadStyleIndex::Fullkey;
     default:
         return NpadStyleIndex::Fullkey;
     }
@@ -648,7 +651,14 @@ void EmulatedController::SaveCurrentConfig() {
     const auto player_index = Service::HID::NpadIdTypeToIndex(npad_id_type);
     auto& player = Settings::values.players.GetValue()[player_index];
     player.connected = is_connected;
-    player.controller_type = MapNPadToSettingsType(npad_type);
+    const auto from_npad = MapNPadToSettingsType(npad_type);
+    if (from_npad != Settings::ControllerType::ProController) {
+        player.controller_type = from_npad;
+    } else if (player.controller_type != Settings::ControllerType::Xbox &&
+               player.controller_type != Settings::ControllerType::DualSense &&
+               player.controller_type != Settings::ControllerType::ProController) {
+        player.controller_type = Settings::ControllerType::ProController;
+    }
     player.body_color = controller.body_color;
     player.gyro_overlay_visible = controller.gyro_overlay_visible;
     for (std::size_t index = 0; index < player.buttons.size(); ++index) {

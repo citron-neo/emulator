@@ -22,6 +22,7 @@ struct DynamicFeatures {
     bool has_extended_dynamic_state_3_blend;
     bool has_extended_dynamic_state_3_enables;
     bool has_dynamic_vertex_input;
+    bool has_transform_feedback;
 };
 
 struct FixedPipelineState {

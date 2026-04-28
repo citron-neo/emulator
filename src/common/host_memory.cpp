@@ -603,10 +603,8 @@ private:
 
 class HostMemory::Impl {
 public:
-    explicit Impl(size_t /*backing_size */, size_t /* virtual_size */) {
-        // This is just a place holder.
-        // Please implement fastmem in a proper way on your platform.
-        throw std::bad_alloc{};
+    explicit Impl(size_t backing_size, size_t /*virtual_size*/) : backing_buffer{backing_size} {
+        backing_base = backing_buffer.data();
     }
 
     void Map(size_t virtual_offset, size_t host_offset, size_t length, MemoryPermission perm) {}
@@ -619,6 +617,9 @@ public:
 
     u8* backing_base{nullptr};
     u8* virtual_base{nullptr};
+
+private:
+    VirtualBuffer<u8> backing_buffer;
 };
 
 #endif // ^^^ Generic ^^^

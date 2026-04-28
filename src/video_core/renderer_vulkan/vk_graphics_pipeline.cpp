@@ -618,18 +618,23 @@ void GraphicsPipeline::MakePipeline(VkRenderPass render_pass) {
             input_assembly_topology = VK_PRIMITIVE_TOPOLOGY_PATCH_LIST;
         }
     }
+    const bool supports_primitive_restart =
+        (input_assembly_topology != VK_PRIMITIVE_TOPOLOGY_PATCH_LIST &&
+         device.IsTopologyListPrimitiveRestartSupported()) ||
+        SupportsPrimitiveRestart(input_assembly_topology) ||
+        (input_assembly_topology == VK_PRIMITIVE_TOPOLOGY_PATCH_LIST &&
+         device.IsPatchListPrimitiveRestartSupported());
+    const bool force_mvk_primitive_restart =
+        device.GetDriverID() == VK_DRIVER_ID_MOLTENVK &&
+        SupportsPrimitiveRestart(input_assembly_topology);
     const VkPipelineInputAssemblyStateCreateInfo input_assembly_ci{
         .sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO,
         .pNext = nullptr,
         .flags = 0,
         .topology = input_assembly_topology,
         .primitiveRestartEnable =
-            dynamic.primitive_restart_enable != 0 &&
-                    ((input_assembly_topology != VK_PRIMITIVE_TOPOLOGY_PATCH_LIST &&
-                      device.IsTopologyListPrimitiveRestartSupported()) ||
-                     SupportsPrimitiveRestart(input_assembly_topology) ||
-                     (input_assembly_topology == VK_PRIMITIVE_TOPOLOGY_PATCH_LIST &&
-                      device.IsPatchListPrimitiveRestartSupported()))
+            (force_mvk_primitive_restart ||
+             (dynamic.primitive_restart_enable != 0 && supports_primitive_restart))
                 ? VK_TRUE
                 : VK_FALSE,
     };
@@ -860,12 +865,11 @@ void GraphicsPipeline::MakePipeline(VkRenderPass render_pass) {
         }
         dynamic_states.insert(dynamic_states.end(), extended.begin(), extended.end());
         if (key.state.extended_dynamic_state_2) {
-            static constexpr std::array extended2{
-                VK_DYNAMIC_STATE_DEPTH_BIAS_ENABLE_EXT,
-                VK_DYNAMIC_STATE_PRIMITIVE_RESTART_ENABLE_EXT,
-                VK_DYNAMIC_STATE_RASTERIZER_DISCARD_ENABLE_EXT,
-            };
-            dynamic_states.insert(dynamic_states.end(), extended2.begin(), extended2.end());
+            dynamic_states.push_back(VK_DYNAMIC_STATE_DEPTH_BIAS_ENABLE_EXT);
+            if (device.GetDriverID() != VK_DRIVER_ID_MOLTENVK) {
+                dynamic_states.push_back(VK_DYNAMIC_STATE_PRIMITIVE_RESTART_ENABLE_EXT);
+            }
+            dynamic_states.push_back(VK_DYNAMIC_STATE_RASTERIZER_DISCARD_ENABLE_EXT);
         }
         if (key.state.extended_dynamic_state_2_extra) {
             dynamic_states.push_back(VK_DYNAMIC_STATE_LOGIC_OP_EXT);

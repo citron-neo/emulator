@@ -271,8 +271,8 @@ void QtControllerSelectorDialog::LoadConfiguration() {
             controller->IsConnected(true) || (index == 0 && handheld->IsConnected(true));
         player_groupboxes[index]->setChecked(connected);
         connected_controller_checkboxes[index]->setChecked(connected);
-        emulated_controllers[index]->setCurrentIndex(
-            GetIndexFromControllerType(controller->GetNpadStyleIndex(true), index));
+        emulated_controllers[index]->setCurrentIndex(GetIndexFromSettingsControllerType(
+            Settings::values.players.GetValue()[index].controller_type, index));
     }
 
     UpdateDockedState(handheld->IsConnected(true));
@@ -456,34 +456,44 @@ void QtControllerSelectorDialog::SetEmulatedControllers(std::size_t player_index
     pairs.clear();
     emulated_controllers[player_index]->clear();
 
-    const auto add_item = [&](Core::HID::NpadStyleIndex controller_type,
-                              const QString& controller_name) {
-        pairs.emplace_back(emulated_controllers[player_index]->count(), controller_type);
+    const auto add_item = [&](Core::HID::NpadStyleIndex npad_style,
+                              Settings::ControllerType settings_type, const QString& controller_name) {
+        pairs.emplace_back(emulated_controllers[player_index]->count(), npad_style, settings_type);
         emulated_controllers[player_index]->addItem(controller_name);
     };
 
     if (npad_style_set.fullkey == 1) {
-        add_item(Core::HID::NpadStyleIndex::Fullkey, tr("Pro Controller"));
+        add_item(Core::HID::NpadStyleIndex::Fullkey, Settings::ControllerType::ProController,
+                 tr("Pro Controller"));
+        add_item(Core::HID::NpadStyleIndex::Fullkey, Settings::ControllerType::Xbox,
+                 tr("Xbox Controller"));
+        add_item(Core::HID::NpadStyleIndex::Fullkey, Settings::ControllerType::DualSense,
+                 tr("DualSense (PS5)"));
     }
 
     if (npad_style_set.joycon_dual == 1) {
-        add_item(Core::HID::NpadStyleIndex::JoyconDual, tr("Dual Joycons"));
+        add_item(Core::HID::NpadStyleIndex::JoyconDual, Settings::ControllerType::DualJoyconDetached,
+                 tr("Dual Joycons"));
     }
 
     if (npad_style_set.joycon_left == 1) {
-        add_item(Core::HID::NpadStyleIndex::JoyconLeft, tr("Left Joycon"));
+        add_item(Core::HID::NpadStyleIndex::JoyconLeft, Settings::ControllerType::LeftJoycon,
+                 tr("Left Joycon"));
     }
 
     if (npad_style_set.joycon_right == 1) {
-        add_item(Core::HID::NpadStyleIndex::JoyconRight, tr("Right Joycon"));
+        add_item(Core::HID::NpadStyleIndex::JoyconRight, Settings::ControllerType::RightJoycon,
+                 tr("Right Joycon"));
     }
 
     if (player_index == 0 && npad_style_set.handheld == 1) {
-        add_item(Core::HID::NpadStyleIndex::Handheld, tr("Handheld"));
+        add_item(Core::HID::NpadStyleIndex::Handheld, Settings::ControllerType::Handheld,
+                 tr("Handheld"));
     }
 
     if (npad_style_set.gamecube == 1) {
-        add_item(Core::HID::NpadStyleIndex::GameCube, tr("GameCube Controller"));
+        add_item(Core::HID::NpadStyleIndex::GameCube, Settings::ControllerType::GameCube,
+                 tr("GameCube Controller"));
     }
 
     // Disable all unsupported controllers
@@ -492,23 +502,28 @@ void QtControllerSelectorDialog::SetEmulatedControllers(std::size_t player_index
     }
 
     if (npad_style_set.palma == 1) {
-        add_item(Core::HID::NpadStyleIndex::Pokeball, tr("Poke Ball Plus"));
+        add_item(Core::HID::NpadStyleIndex::Pokeball, Settings::ControllerType::Pokeball,
+                 tr("Poke Ball Plus"));
     }
 
     if (npad_style_set.lark == 1) {
-        add_item(Core::HID::NpadStyleIndex::NES, tr("NES Controller"));
+        add_item(Core::HID::NpadStyleIndex::NES, Settings::ControllerType::NES,
+                 tr("NES Controller"));
     }
 
     if (npad_style_set.lucia == 1) {
-        add_item(Core::HID::NpadStyleIndex::SNES, tr("SNES Controller"));
+        add_item(Core::HID::NpadStyleIndex::SNES, Settings::ControllerType::SNES,
+                 tr("SNES Controller"));
     }
 
     if (npad_style_set.lagoon == 1) {
-        add_item(Core::HID::NpadStyleIndex::N64, tr("N64 Controller"));
+        add_item(Core::HID::NpadStyleIndex::N64, Settings::ControllerType::N64,
+                 tr("N64 Controller"));
     }
 
     if (npad_style_set.lager == 1) {
-        add_item(Core::HID::NpadStyleIndex::SegaGenesis, tr("Sega Genesis"));
+        add_item(Core::HID::NpadStyleIndex::SegaGenesis, Settings::ControllerType::SegaGenesis,
+                 tr("Sega Genesis"));
     }
 }
 
@@ -517,27 +532,49 @@ Core::HID::NpadStyleIndex QtControllerSelectorDialog::GetControllerTypeFromIndex
     const auto& pairs = index_controller_type_pairs[player_index];
 
     const auto it = std::find_if(pairs.begin(), pairs.end(),
-                                 [index](const auto& pair) { return pair.first == index; });
+                                 [index](const auto& entry) { return std::get<0>(entry) == index; });
 
     if (it == pairs.end()) {
         return Core::HID::NpadStyleIndex::Fullkey;
     }
 
-    return it->second;
+    return std::get<1>(*it);
 }
 
-int QtControllerSelectorDialog::GetIndexFromControllerType(Core::HID::NpadStyleIndex type,
-                                                           std::size_t player_index) const {
+Settings::ControllerType QtControllerSelectorDialog::GetSettingsControllerTypeFromIndex(
+    int index, std::size_t player_index) const {
     const auto& pairs = index_controller_type_pairs[player_index];
 
     const auto it = std::find_if(pairs.begin(), pairs.end(),
-                                 [type](const auto& pair) { return pair.second == type; });
+                                 [index](const auto& entry) { return std::get<0>(entry) == index; });
 
     if (it == pairs.end()) {
-        return 0;
+        return Settings::ControllerType::ProController;
     }
 
-    return it->first;
+    return std::get<2>(*it);
+}
+
+int QtControllerSelectorDialog::GetIndexFromSettingsControllerType(Settings::ControllerType type,
+                                                                   std::size_t player_index) const {
+    const auto& pairs = index_controller_type_pairs[player_index];
+
+    const auto it = std::find_if(pairs.begin(), pairs.end(),
+                                 [type](const auto& entry) { return std::get<2>(entry) == type; });
+
+    if (it != pairs.end()) {
+        return std::get<0>(*it);
+    }
+
+    const auto it_pro =
+        std::find_if(pairs.begin(), pairs.end(), [](const auto& entry) {
+            return std::get<2>(entry) == Settings::ControllerType::ProController;
+        });
+    if (it_pro != pairs.end()) {
+        return std::get<0>(*it_pro);
+    }
+
+    return 0;
 }
 
 void QtControllerSelectorDialog::UpdateControllerIcon(std::size_t player_index) {
@@ -588,6 +625,10 @@ void QtControllerSelectorDialog::UpdateControllerIcon(std::size_t player_index) 
 
 void QtControllerSelectorDialog::UpdateControllerState(std::size_t player_index) {
     auto* controller = system.HIDCore().GetEmulatedControllerByIndex(player_index);
+
+    Settings::values.players.GetValue()[player_index].controller_type =
+        GetSettingsControllerTypeFromIndex(emulated_controllers[player_index]->currentIndex(),
+                                           player_index);
 
     const auto controller_type = GetControllerTypeFromIndex(
         emulated_controllers[player_index]->currentIndex(), player_index);

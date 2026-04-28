@@ -133,11 +133,13 @@ private:
     /// Sets the available controllers.
     void SetConnectableControllers();
 
-    /// Gets the Controller Type for a given controller combobox index.
+    /// Gets the emulated Npad style for a given controller combobox index.
     Core::HID::NpadStyleIndex GetControllerTypeFromIndex(int index) const;
 
-    /// Gets the controller combobox index for a given Controller Type.
-    int GetIndexFromControllerType(Core::HID::NpadStyleIndex type) const;
+    Settings::ControllerType GetSettingsControllerTypeFromIndex(int index) const;
+
+    /// Gets the combobox index for a persisted settings controller type.
+    int GetIndexFromSettingsControllerType(Settings::ControllerType type) const;
 
     /// Update the available input devices.
     void UpdateInputDevices();
@@ -188,8 +190,12 @@ private:
     std::unique_ptr<QTimer> timeout_timer;
     std::unique_ptr<QTimer> poll_timer;
 
-    /// Stores a pair of "Connected Controllers" combobox index and Controller Type enum.
-    std::vector<std::pair<int, Core::HID::NpadStyleIndex>> index_controller_type_pairs;
+    struct ControllerComboEntry {
+        int combo_index;
+        Core::HID::NpadStyleIndex npad_style;
+        Settings::ControllerType settings_type;
+    };
+    std::vector<ControllerComboEntry> controller_combo_entries;
 
     /// This will be the the setting function when an input is awaiting configuration.
     std::optional<std::function<void(const Common::ParamPackage&)>> input_setter;

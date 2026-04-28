@@ -37,6 +37,7 @@
 #include "video_core/shader_cache.h"
 #include "video_core/shader_environment.h"
 #include "video_core/shader_notify.h"
+#include "video_core/surface.h"
 #include "video_core/vulkan_common/vulkan_device.h"
 #include "video_core/vulkan_common/vulkan_wrapper.h"
 
@@ -141,6 +142,20 @@ Shader::AttributeType AttributeType(const FixedPipelineState& state, size_t inde
     return Shader::AttributeType::Disabled;
 }
 
+Shader::FragmentOutputType GetFragmentOutputType(u8 encoded_format) {
+    const auto format{static_cast<Tegra::RenderTargetFormat>(encoded_format)};
+    if (format == Tegra::RenderTargetFormat::NONE) {
+        return Shader::FragmentOutputType::Float;
+    }
+    const auto pixel_format{VideoCore::Surface::PixelFormatFromRenderTargetFormat(format)};
+    if (!VideoCore::Surface::IsPixelFormatInteger(pixel_format)) {
+        return Shader::FragmentOutputType::Float;
+    }
+    return VideoCore::Surface::IsPixelFormatSignedInteger(pixel_format)
+               ? Shader::FragmentOutputType::SignedInt
+               : Shader::FragmentOutputType::UnsignedInt;
+}
+
 Shader::RuntimeInfo MakeRuntimeInfo(std::span<const Shader::IR::Program> programs,
                                     const GraphicsPipelineCacheKey& key,
                                     const Shader::IR::Program& program,
@@ -224,6 +239,8 @@ Shader::RuntimeInfo MakeRuntimeInfo(std::span<const Shader::IR::Program> program
         info.convert_depth_mode = gl_ndc;
         break;
     case Shader::Stage::Fragment: {
+        std::ranges::transform(key.state.color_formats, info.frag_color_types.begin(),
+                               &GetFragmentOutputType);
         // OPTIMIZED FOR LOW GPU ACCURACY - skip alpha test to reduce shader complexity
         if (!Settings::IsGPULevelLow()) {
             info.alpha_test_func = MaxwellToCompareFunction(
@@ -426,6 +443,7 @@ PipelineCache::PipelineCache(Tegra::MaxwellDeviceMemoryManager& device_memory_,
         .has_extended_dynamic_state_3_enables =
             allow_eds3 && device.IsExtExtendedDynamicState3EnablesSupported(),
         .has_dynamic_vertex_input = allow_eds3 && device.IsExtVertexInputDynamicStateSupported(),
+        .has_transform_feedback = device.IsExtTransformFeedbackSupported(),
     };
 }
 
@@ -602,7 +620,8 @@ void PipelineCache::LoadDiskResources(u64 title_id, std::stop_token stop_loading
                 dynamic_features.has_extended_dynamic_state_3_blend ||
             (key.state.extended_dynamic_state_3_enables != 0) !=
                 dynamic_features.has_extended_dynamic_state_3_enables ||
-            (key.state.dynamic_vertex_input != 0) != dynamic_features.has_dynamic_vertex_input) {
+            (key.state.dynamic_vertex_input != 0) != dynamic_features.has_dynamic_vertex_input ||
+            (key.state.xfb_enabled != 0) != dynamic_features.has_transform_feedback) {
             return;
         }
         workers.QueueWork([this, key, envs_ = std::move(envs), &state, &callback]() mutable {

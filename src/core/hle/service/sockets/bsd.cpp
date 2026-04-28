@@ -9,6 +9,7 @@
 
 #include <fmt/format.h>
 
+#include "common/settings.h"
 #include "common/socket_types.h"
 #include "core/core.h"
 #include "core/hle/kernel/k_thread.h"
@@ -50,6 +51,119 @@ template <typename T>
 void PutValue(std::span<u8> buffer, const T& t) {
     std::memcpy(buffer.data(), &t, std::min(sizeof(T), buffer.size()));
 }
+
+class OfflineSocket final : public Network::SocketBase {
+public:
+    Network::Errno Initialize(Network::Domain domain_, Network::Type type_,
+                              Network::Protocol protocol_) override {
+        domain = domain_;
+        type = type_;
+        protocol = protocol_;
+        return Network::Errno::SUCCESS;
+    }
+
+    Network::Errno Close() override {
+        opened = false;
+        return Network::Errno::SUCCESS;
+    }
+
+    std::pair<AcceptResult, Network::Errno> Accept() override {
+        return {AcceptResult{}, Network::Errno::NETDOWN};
+    }
+
+    Network::Errno Connect(Network::SockAddrIn) override {
+        return Network::Errno::NETDOWN;
+    }
+
+    std::pair<Network::SockAddrIn, Network::Errno> GetPeerName() override {
+        return {{}, Network::Errno::NOTCONN};
+    }
+
+    std::pair<Network::SockAddrIn, Network::Errno> GetSockName() override {
+        return {{}, Network::Errno::SUCCESS};
+    }
+
+    Network::Errno Bind(Network::SockAddrIn) override {
+        return Network::Errno::SUCCESS;
+    }
+
+    Network::Errno Listen(s32) override {
+        return Network::Errno::SUCCESS;
+    }
+
+    Network::Errno Shutdown(Network::ShutdownHow) override {
+        return Network::Errno::SUCCESS;
+    }
+
+    std::pair<s32, Network::Errno> Recv(int, std::span<u8>) override {
+        return {-1, Network::Errno::AGAIN};
+    }
+
+    std::pair<s32, Network::Errno> RecvFrom(int, std::span<u8>, Network::SockAddrIn*) override {
+        return {-1, Network::Errno::AGAIN};
+    }
+
+    std::pair<s32, Network::Errno> Send(std::span<const u8> message, int) override {
+        return {static_cast<s32>(message.size()), Network::Errno::SUCCESS};
+    }
+
+    std::pair<s32, Network::Errno> SendTo(u32, std::span<const u8> message,
+                                          const Network::SockAddrIn*) override {
+        return {static_cast<s32>(message.size()), Network::Errno::SUCCESS};
+    }
+
+    Network::Errno SetLinger(bool, u32) override {
+        return Network::Errno::SUCCESS;
+    }
+
+    Network::Errno SetReuseAddr(bool) override {
+        return Network::Errno::SUCCESS;
+    }
+
+    Network::Errno SetKeepAlive(bool) override {
+        return Network::Errno::SUCCESS;
+    }
+
+    Network::Errno SetBroadcast(bool) override {
+        return Network::Errno::SUCCESS;
+    }
+
+    Network::Errno SetSndBuf(u32) override {
+        return Network::Errno::SUCCESS;
+    }
+
+    Network::Errno SetRcvBuf(u32) override {
+        return Network::Errno::SUCCESS;
+    }
+
+    Network::Errno SetSndTimeo(u32) override {
+        return Network::Errno::SUCCESS;
+    }
+
+    Network::Errno SetRcvTimeo(u32) override {
+        return Network::Errno::SUCCESS;
+    }
+
+    Network::Errno SetNonBlock(bool) override {
+        return Network::Errno::SUCCESS;
+    }
+
+    std::pair<Network::Errno, Network::Errno> GetPendingError() override {
+        return {Network::Errno::SUCCESS, Network::Errno::SUCCESS};
+    }
+
+    bool IsOpened() const override {
+        return opened;
+    }
+
+    void HandleProxyPacket(const Network::ProxyPacket&) override {}
+
+private:
+    Network::Domain domain = Network::Domain::INET;
+    Network::Type type = Network::Type::DGRAM;
+    Network::Protocol protocol = Network::Protocol::UDP;
+    bool opened = true;
+};
 
 } // Anonymous namespace
 
@@ -552,7 +666,11 @@ std::pair<s32, Errno> BSD::SocketImpl(Domain domain, Type type, Protocol protoco
     descriptor.protocol = Translate(protocol);
     descriptor.is_connection_based = IsConnectionBased(type);
 
-    if (using_proxy) {
+    if (Settings::values.airplane_mode.GetValue()) {
+        descriptor.socket = std::make_shared<OfflineSocket>();
+        descriptor.socket->Initialize(descriptor.domain, descriptor.type, descriptor.protocol);
+        LOG_INFO(Service, "Airplane mode: created offline socket fd={}", fd);
+    } else if (using_proxy) {
         descriptor.socket = std::make_shared<Network::ProxySocket>(room_network);
         descriptor.socket->Initialize(descriptor.domain, descriptor.type, descriptor.protocol);
         LOG_DEBUG(Service, "Created new ProxySocket for fd={}", fd);
@@ -692,6 +810,9 @@ Errno BSD::ConnectImpl(s32 fd, std::span<const u8> addr) {
     }
     if (!file_descriptors[fd]->socket)
         return Errno::BADF;
+    if (Settings::values.airplane_mode.GetValue()) {
+        return Errno::CONNREFUSED;
+    }
 
     UNIMPLEMENTED_IF(addr.size() != sizeof(SockAddrIn));
     auto addr_in = GetValue<SockAddrIn>(addr);
@@ -904,6 +1025,12 @@ std::pair<s32, Errno> BSD::RecvImpl(s32 fd, u32 flags, std::vector<u8>& message)
     }
 
     FileDescriptor& descriptor = *file_descriptors[fd];
+    if (Settings::values.airplane_mode.GetValue()) {
+        return {-1, Errno::AGAIN};
+    }
+    if (!descriptor.is_connection_based) {
+        return {-1, Errno::AGAIN};
+    }
 
     // Apply flags
     using Network::FLAG_MSG_DONTWAIT;
@@ -932,6 +1059,14 @@ std::pair<s32, Errno> BSD::RecvFromImpl(s32 fd, u32 flags, std::vector<u8>& mess
     }
 
     FileDescriptor& descriptor = *file_descriptors[fd];
+    if (Settings::values.airplane_mode.GetValue()) {
+        addr.clear();
+        return {-1, Errno::AGAIN};
+    }
+    if (!descriptor.is_connection_based) {
+        addr.clear();
+        return {-1, Errno::AGAIN};
+    }
 
     Network::SockAddrIn addr_in{};
     Network::SockAddrIn* p_addr_in = nullptr;
@@ -978,7 +1113,15 @@ std::pair<s32, Errno> BSD::SendImpl(s32 fd, u32 flags, std::span<const u8> messa
     }
     if (!file_descriptors[fd]->socket)
         return {-1, Errno::BADF};
-    return Translate(file_descriptors[fd]->socket->Send(message, flags));
+    if (Settings::values.airplane_mode.GetValue()) {
+        return {static_cast<s32>(message.size()), Errno::SUCCESS};
+    }
+    FileDescriptor& descriptor = *file_descriptors[fd];
+    if (!descriptor.is_connection_based) {
+        LOG_DEBUG(Service, "Dropping datagram send without destination fd={}", fd);
+        return {static_cast<s32>(message.size()), Errno::SUCCESS};
+    }
+    return Translate(descriptor.socket->Send(message, flags));
 }
 
 std::pair<s32, Errno> BSD::SendToImpl(s32 fd, u32 flags, std::span<const u8> message,
@@ -988,13 +1131,16 @@ std::pair<s32, Errno> BSD::SendToImpl(s32 fd, u32 flags, std::span<const u8> mes
     }
     if (!file_descriptors[fd]->socket)
         return {-1, Errno::BADF};
+    if (Settings::values.airplane_mode.GetValue()) {
+        return {static_cast<s32>(message.size()), Errno::SUCCESS};
+    }
 
     FileDescriptor& descriptor = *file_descriptors[fd];
 
     // For datagram sockets (UDP), a destination address is required
     if (!descriptor.is_connection_based && addr.empty()) {
-        LOG_ERROR(Service, "SendTo called on datagram socket without destination address");
-        return {-1, Errno::INVAL};
+        LOG_DEBUG(Service, "Dropping datagram sendto without destination fd={}", fd);
+        return {static_cast<s32>(message.size()), Errno::SUCCESS};
     }
 
     Network::SockAddrIn addr_in;

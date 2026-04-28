@@ -1034,6 +1034,7 @@ public:
             {3, &ISslServiceForSystem::VerifySignature, "VerifySignature"},
             {4, nullptr, "SetCertificateAndPrivateKeyInternal"},
             {5, &ISslServiceForSystem::FlushSessionCache, "FlushSessionCache"},
+            {100, &ISslServiceForSystem::SetInterfaceVersion, "SetInterfaceVersion"},
         };
         // clang-format on
 
@@ -1086,6 +1087,16 @@ private:
 
     void VerifySignature(HLERequestContext& ctx) {
         LOG_WARNING(Service_SSL, "(STUBBED) called");
+
+        IPC::ResponseBuilder rb{ctx, 2};
+        rb.Push(ResultSuccess);
+    }
+
+    void SetInterfaceVersion(HLERequestContext& ctx) {
+        IPC::RequestParser rp{ctx};
+        const u32 ssl_version = rp.Pop<u32>();
+
+        LOG_DEBUG(Service_SSL, "called, ssl_version={}", ssl_version);
 
         IPC::ResponseBuilder rb{ctx, 2};
         rb.Push(ResultSuccess);

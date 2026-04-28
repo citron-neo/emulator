@@ -397,12 +397,13 @@ static vk::Pipeline CreateWrappedPipelineImpl(
         .pVertexAttributeDescriptions = nullptr,
     };
 
-    constexpr VkPipelineInputAssemblyStateCreateInfo input_assembly_ci{
+    const VkPipelineInputAssemblyStateCreateInfo input_assembly_ci{
         .sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO,
         .pNext = nullptr,
         .flags = 0,
         .topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP,
-        .primitiveRestartEnable = VK_FALSE,
+        .primitiveRestartEnable =
+            device.GetDriverID() == VK_DRIVER_ID_MOLTENVK ? VK_TRUE : VK_FALSE,
     };
 
     constexpr VkPipelineViewportStateCreateInfo viewport_state_ci{

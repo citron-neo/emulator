@@ -380,6 +380,8 @@ enum class ControllerType {
     SNES,
     N64,
     SegaGenesis,
+    Xbox,
+    DualSense,
 };
 
 struct PlayerInput {

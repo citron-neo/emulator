@@ -4438,6 +4438,10 @@ void GMainWindow::OnConfigure() {
 #endif
 
     Settings::SetConfiguringGlobal(true);
+    SCOPE_EXIT {
+        system->HIDCore().DisableAllControllerConfiguration();
+        Settings::SetConfiguringGlobal(false);
+    };
     ConfigureDialog configure_dialog(this, hotkey_registry, input_subsystem.get(),
                                      vk_device_records, *system,
                                      !multiplayer_state->IsHostingPublicRoom());

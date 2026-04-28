@@ -156,6 +156,18 @@ Id DefineInput(EmitContext& ctx, Id type, bool per_invocation,
     return DefineVariable(ctx, type, builtin, spv::StorageClass::Input);
 }
 
+Id GetFragmentOutputTypeId(EmitContext& ctx, FragmentOutputType type) {
+    switch (type) {
+    case FragmentOutputType::Float:
+        return ctx.F32[4];
+    case FragmentOutputType::SignedInt:
+        return ctx.S32[4];
+    case FragmentOutputType::UnsignedInt:
+        return ctx.U32[4];
+    }
+    throw InvalidArgument("Invalid fragment output type");
+}
+
 Id DefineOutput(EmitContext& ctx, Id type, std::optional<u32> invocations,
                 std::optional<spv::BuiltIn> builtin = std::nullopt,
                 std::optional<Id> initializer = std::nullopt) {
@@ -556,6 +568,7 @@ void EmitContext::DefineCommonTypes(const Info& info) {
 
     output_f32 = Name(TypePointer(spv::StorageClass::Output, F32[1]), "output_f32");
     output_u32 = Name(TypePointer(spv::StorageClass::Output, U32[1]), "output_u32");
+    output_s32 = Name(TypePointer(spv::StorageClass::Output, S32[1]), "output_s32");
 
     if (info.uses_int8 && profile.support_int8) {
         AddCapability(spv::Capability::Int8);
@@ -1669,10 +1682,11 @@ void EmitContext::DefineOutputs(const IR::Program& program) {
                 !(index == 0 && runtime_info.alpha_to_coverage_enabled)) {
                 continue;
             }
-            frag_color[index] = DefineOutput(*this, F32[4], std::nullopt);
+            const FragmentOutputType type{runtime_info.frag_color_types[index]};
+            frag_color[index] = DefineOutput(*this, GetFragmentOutputTypeId(*this, type), std::nullopt);
             Decorate(frag_color[index], spv::Decoration::Location, index);
             // OPTIMIZED FOR LOW GPU ACCURACY - mediump for fragment outputs
-            if (profile.force_fragment_relaxed_precision) {
+            if (type == FragmentOutputType::Float && profile.force_fragment_relaxed_precision) {
                 Decorate(frag_color[index], spv::Decoration::RelaxedPrecision);
             }
             Name(frag_color[index], fmt::format("frag_color{}", index));

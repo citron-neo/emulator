@@ -92,8 +92,9 @@ private:
         int port, const Common::UUID& guid, const SDL_GameControllerButtonBind& binding) const;
 
     Common::ParamPackage BuildParamPackageForAnalog(PadIdentifier identifier, int axis_x,
-                                                    int axis_y, float offset_x,
-                                                    float offset_y) const;
+                                                    int axis_y, float offset_x, float offset_y,
+                                                    const char* invert_x = "+",
+                                                    const char* invert_y = "+") const;
 
     /// Returns the default button bindings list
     ButtonBindings GetDefaultButtonBinding(const std::shared_ptr<SDLJoystick>& joystick) const;

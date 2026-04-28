@@ -58,6 +58,12 @@ enum class CompareFunction {
     Always,
 };
 
+enum class FragmentOutputType : u8 {
+    Float,
+    SignedInt,
+    UnsignedInt,
+};
+
 enum class TessPrimitive {
     Isolines,
     Triangles,
@@ -95,6 +101,7 @@ struct RuntimeInfo {
     std::optional<CompareFunction> alpha_test_func;
     float alpha_test_reference{};
     bool alpha_to_coverage_enabled{};
+    std::array<FragmentOutputType, 8> frag_color_types{};
 
     /// Static Y negate value
     bool y_negate{};

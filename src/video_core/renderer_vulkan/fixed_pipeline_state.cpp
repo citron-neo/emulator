@@ -39,7 +39,7 @@ void FixedPipelineState::Refresh(Tegra::Engines::Maxwell3D& maxwell3d, DynamicFe
     extended_dynamic_state_3_blend.Assign(features.has_extended_dynamic_state_3_blend ? 1 : 0);
     extended_dynamic_state_3_enables.Assign(features.has_extended_dynamic_state_3_enables ? 1 : 0);
     dynamic_vertex_input.Assign(features.has_dynamic_vertex_input ? 1 : 0);
-    xfb_enabled.Assign(regs.transform_feedback_enabled != 0);
+    xfb_enabled.Assign(features.has_transform_feedback && regs.transform_feedback_enabled != 0);
     ndc_minus_one_to_one.Assign(regs.depth_mode == Tegra::Engines::Maxwell3D::Regs::DepthMode::MinusOneToOne ? 1 : 0);
     polygon_mode.Assign(PackPolygonMode(regs.polygon_mode_front));
     tessellation_primitive.Assign(static_cast<u32>(regs.tessellation.params.domain_type.Value()));

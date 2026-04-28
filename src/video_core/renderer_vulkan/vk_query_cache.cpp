@@ -1478,6 +1478,11 @@ VideoCommon::StreamerInterface* QueryCacheRuntime::GetStreamerInterface(QueryTyp
     case QueryType::Payload:
         return &impl->guest_streamer;
     case QueryType::ZPassPixelCount64:
+        if (impl->device.GetDriverID() == VK_DRIVER_ID_MOLTENVK) {
+            // MoltenVK maps occlusion queries to Metal visibility results. On Apple GPUs this can
+            // fault inside the driver for some titles, so prefer the guest fallback over crashing.
+            return &impl->guest_streamer;
+        }
         return &impl->sample_streamer;
     case QueryType::StreamingByteCount:
         return &impl->tfb_streamer;

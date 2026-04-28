@@ -108,8 +108,6 @@ ConfigureDialog::ConfigureDialog(QWidget* parent, HotkeyRegistry& registry_,
                 &GMainWindow::RefreshGameList);
     }
 
-    Settings::SetConfiguringGlobal(true);
-
     const bool is_gamescope = UISettings::IsGamescope();
     if (is_gamescope) {
         // GameScope: Use Window flags instead of Dialog to ensure mouse focus
