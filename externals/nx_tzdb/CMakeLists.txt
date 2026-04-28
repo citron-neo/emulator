@@ -52,13 +52,20 @@ if ((NOT CAN_BUILD_NX_TZDB OR CITRON_DOWNLOAD_TIME_ZONE_DATA) AND NOT EXISTS ${N
         DESTINATION
             ${NX_TZDB_ROMFS_DIR})
 elseif (CAN_BUILD_NX_TZDB AND NOT CITRON_DOWNLOAD_TIME_ZONE_DATA)
-    if (DEFINED TZDB_TO_NX_SOURCE_DIR AND EXISTS "${TZDB_TO_NX_SOURCE_DIR}/CMakeLists.txt")
+    if (NOT DEFINED TZDB_TO_NX_SOURCE_DIR)
+        set(TZDB_TO_NX_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/tzdb_to_nx")
+    endif()
+
+    if (EXISTS "${TZDB_TO_NX_SOURCE_DIR}/CMakeLists.txt")
         add_subdirectory("${TZDB_TO_NX_SOURCE_DIR}" tzdb_to_nx)
     else()
         message(FATAL_ERROR "tzdb_to_nx source not found. Enable CITRON_USE_CPM so the source can be fetched.")
     endif()
     add_dependencies(nx_tzdb x80e)
 
+    if (NOT NX_TZDB_DIR)
+        set(NX_TZDB_DIR "${CMAKE_CURRENT_BINARY_DIR}/tzdb_to_nx/src/tzdb/nx")
+    endif()
     set(NX_TZDB_ROMFS_DIR "${NX_TZDB_DIR}")
 endif()
 
