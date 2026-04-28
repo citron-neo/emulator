@@ -516,14 +516,14 @@ class MainActivity : AppCompatActivity(), ThemeProvider {
             var error = 0
             documents.forEach {
                 messageCallback.invoke(FileUtil.getFilename(it))
-                when (
-                    InstallResult.from(
-                        NativeLibrary.installFileToNand(
-                            it.toString(),
-                            progressCallback
-                        )
-                    )
-                ) {
+             
+                val installCode = NativeLibrary.installFileToNand(
+                    it.toString()
+                ) { max: Double, progress: Double ->
+                    progressCallback(max.toLong(), progress.toLong())
+                }
+
+                when (InstallResult.from(installCode))  {
                     InstallResult.Success -> {
                         installSuccess += 1
                     }
