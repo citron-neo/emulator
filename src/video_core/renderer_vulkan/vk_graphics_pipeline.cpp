@@ -624,6 +624,9 @@ void GraphicsPipeline::MakePipeline(VkRenderPass render_pass) {
         SupportsPrimitiveRestart(input_assembly_topology) ||
         (input_assembly_topology == VK_PRIMITIVE_TOPOLOGY_PATCH_LIST &&
          device.IsPatchListPrimitiveRestartSupported());
+    // Metal always applies primitive restart for strip/fan topologies; MoltenVK cannot implement
+    // vkCmdSetPrimitiveRestartEnableEXT(VK_FALSE) (VK_ERROR_FEATURE_NOT_PRESENT). Force restart in
+    // the pipeline for those topologies and omit dynamic toggle (see vk_rasterizer.cpp).
     const bool force_mvk_primitive_restart =
         device.GetDriverID() == VK_DRIVER_ID_MOLTENVK &&
         SupportsPrimitiveRestart(input_assembly_topology);
