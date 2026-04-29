@@ -29,8 +29,15 @@ vk::SurfaceKHR CreateSurface(
     }
 #elif defined(__APPLE__)
     if (window_info.type == Core::Frontend::WindowSystemType::Cocoa) {
-        const VkMetalSurfaceCreateInfoEXT macos_ci = {
-            .pLayer = static_cast<const CAMetalLayer*>(window_info.render_surface),
+        if (!window_info.render_surface) {
+            LOG_ERROR(Render_Vulkan, "CAMetalLayer pointer is null; cannot create Vulkan surface");
+            throw vk::Exception(VK_ERROR_INITIALIZATION_FAILED);
+        }
+        const VkMetalSurfaceCreateInfoEXT macos_ci{
+            VK_STRUCTURE_TYPE_METAL_SURFACE_CREATE_INFO_EXT,
+            nullptr,
+            0u,
+            static_cast<const CAMetalLayer*>(window_info.render_surface),
         };
         const auto vkCreateMetalSurfaceEXT = reinterpret_cast<PFN_vkCreateMetalSurfaceEXT>(
             dld.vkGetInstanceProcAddr(*instance, "vkCreateMetalSurfaceEXT"));
