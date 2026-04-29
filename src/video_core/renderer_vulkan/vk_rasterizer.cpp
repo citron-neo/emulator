@@ -1369,6 +1369,8 @@ void RasterizerVulkan::UpdatePrimitiveRestartEnable(Tegra::Engines::Maxwell3D::R
     if (!state_tracker.TouchPrimitiveRestartEnable()) {
         return;
     }
+    // MoltenVK: Metal does not support disabling primitive restart; dynamic VK_FALSE returns
+    // VK_ERROR_FEATURE_NOT_PRESENT. Restart is forced on in the pipeline for strip/fan topologies.
     if (device.GetDriverID() == VK_DRIVER_ID_MOLTENVK) {
         return;
     }
