@@ -372,13 +372,15 @@ void GraphicsPipeline::AddTransition(GraphicsPipeline* transition) {
 
 template <typename Spec>
 void GraphicsPipeline::ConfigureImpl(bool is_indexed) {
-    thread_local std::array<VideoCommon::ImageViewInOut, MAX_IMAGE_ELEMENTS> views;
-    thread_local std::array<VideoCommon::SamplerId, MAX_IMAGE_ELEMENTS> samplers;
+    // std::array<T, 16384> made CheckFeedbackLoop iterate the full capacity
+    // per draw; small_vector lets the span size match the actual write count.
+    thread_local boost::container::small_vector<VideoCommon::ImageViewInOut, 64> views;
+    thread_local boost::container::small_vector<VideoCommon::SamplerId, 64> samplers;
     thread_local BindlessCache bindless_cache;
     thread_local size_t bindless_cache_rr{0};
     thread_local std::vector<u8> bindless_scratch;
-    size_t sampler_index{};
-    size_t view_index{};
+    views.clear();
+    samplers.clear();
 
     texture_cache.SynchronizeGraphicsDescriptors();
 
@@ -423,11 +425,11 @@ void GraphicsPipeline::ConfigureImpl(bool is_indexed) {
         const auto add_image{[&](const auto& desc, bool blacklist) LAMBDA_FORCEINLINE {
             for (u32 index = 0; index < desc.count; ++index) {
                 const auto handle{read_handle(desc, index)};
-                views[view_index++] = {
+                views.push_back({
                     .index = handle.first,
                     .blacklist = blacklist,
                     .id = {},
-                };
+                });
             }
         }};
         if constexpr (Spec::has_texture_buffers) {
@@ -457,16 +459,14 @@ void GraphicsPipeline::ConfigureImpl(bool is_indexed) {
                                              bindless_scratch.data(),
                                              byte_size) == 0;
                 if (hit) {
-                    for (const auto& v : entry.cached_views) {
-                        views[view_index++] = v;
-                    }
-                    for (const auto& s : entry.cached_samplers) {
-                        samplers[sampler_index++] = s;
-                    }
+                    views.insert(views.end(), entry.cached_views.begin(),
+                                 entry.cached_views.end());
+                    samplers.insert(samplers.end(), entry.cached_samplers.begin(),
+                                    entry.cached_samplers.end());
                     continue;
                 }
-                const size_t views_start = view_index;
-                const size_t samplers_start = sampler_index;
+                const size_t views_start = views.size();
+                const size_t samplers_start = samplers.size();
                 for (u32 index = 0; index < desc.count; ++index) {
                     const size_t slot_offset =
                         static_cast<size_t>(index) << desc.size_shift;
@@ -474,26 +474,26 @@ void GraphicsPipeline::ConfigureImpl(bool is_indexed) {
                     std::memcpy(&raw, bindless_scratch.data() + slot_offset,
                                 sizeof(u32));
                     const auto handle = TexturePair(raw, via_header_index);
-                    views[view_index++] = {handle.first};
-                    samplers[sampler_index++] = handle.first == 0
-                        ? VideoCommon::NULL_SAMPLER_ID
-                        : texture_cache.GetGraphicsSamplerId(handle.second);
+                    views.push_back({handle.first});
+                    samplers.push_back(handle.first == 0
+                                           ? VideoCommon::NULL_SAMPLER_ID
+                                           : texture_cache.GetGraphicsSamplerId(handle.second));
                 }
                 entry.last_bytes.assign(bindless_scratch.begin(),
                                         bindless_scratch.end());
                 entry.cached_views.assign(views.data() + views_start,
-                                          views.data() + view_index);
+                                          views.data() + views.size());
                 entry.cached_samplers.assign(samplers.data() + samplers_start,
-                                             samplers.data() + sampler_index);
+                                             samplers.data() + samplers.size());
                 entry.valid = true;
                 continue;
             }
             for (u32 index = 0; index < desc.count; ++index) {
                 const auto handle{read_handle(desc, index)};
-                views[view_index++] = {handle.first};
-                samplers[sampler_index++] = handle.first == 0
-                    ? VideoCommon::NULL_SAMPLER_ID
-                    : texture_cache.GetGraphicsSamplerId(handle.second);
+                views.push_back({handle.first});
+                samplers.push_back(handle.first == 0
+                                       ? VideoCommon::NULL_SAMPLER_ID
+                                       : texture_cache.GetGraphicsSamplerId(handle.second));
             }
         }
         if constexpr (Spec::has_images) {
@@ -517,7 +517,7 @@ void GraphicsPipeline::ConfigureImpl(bool is_indexed) {
     if constexpr (Spec::enabled_stages[4]) {
         config_stage(4);
     }
-    texture_cache.FillGraphicsImageViews<Spec::has_images>(std::span(views.data(), view_index));
+    texture_cache.FillGraphicsImageViews<Spec::has_images>(std::span(views.data(), views.size()));
 
     VideoCommon::ImageViewInOut* texture_buffer_it{views.data()};
     const auto bind_stage_info{[&](size_t stage) LAMBDA_FORCEINLINE {
@@ -653,19 +653,12 @@ void GraphicsPipeline::ConfigureDraw(const RescalingPushConstant& rescaling,
             return;
         }
         const vk::Device& dev{device.GetLogical()};
-        // Hash once for both sets - they share the same data block. Identical
-        // bytes mean identical handle state, so cached sets remain valid.
         const u64 data_hash = HashDescriptorBlock(descriptor_data, upload_entries);
         auto& semaphore = scheduler.GetMasterSemaphore();
-        // Only reuse sets cached during the CURRENT command buffer. The
-        // descriptor allocator tracks per-set lifetime via Commit() but is
-        // unaware that we BindDescriptorSets() the cached handle in later
-        // draws; if we let the cache span multiple CBs, a later miss could
-        // re-Commit the same set and overwrite it while an earlier in-flight
-        // CB still references it. Strict equality keeps reuse confined to one
-        // CB submission window, which is enough for static-scene patterns
-        // (e.g. the bindless grass shader) where the same data repeats
-        // throughout one frame.
+        // Strict per-CB cache: DescriptorAllocator tracks lifetime via
+        // Commit() but not BindDescriptorSets(), so reusing a cached handle
+        // across CB boundaries risks the allocator handing it back on a later
+        // miss and overwriting contents an earlier in-flight CB references.
         const u64 current_tick = semaphore.CurrentTick();
         const auto get_or_alloc = [&](DescriptorAllocator& alloc,
                                       const vk::DescriptorUpdateTemplate& tpl) -> VkDescriptorSet {
@@ -677,8 +670,6 @@ void GraphicsPipeline::ConfigureDraw(const RescalingPushConstant& rescaling,
             }
             const VkDescriptorSet fresh = alloc.Commit();
             dev.UpdateDescriptorSet(fresh, *tpl, descriptor_data);
-            // Drop any stale slot pointing at the handle we just got back from
-            // the pool so we never produce two cache entries for the same set.
             for (auto& e : descriptor_set_cache) {
                 if (e.set == fresh) {
                     e.set = VK_NULL_HANDLE;

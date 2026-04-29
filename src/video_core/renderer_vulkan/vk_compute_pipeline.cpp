@@ -186,9 +186,10 @@ void ComputePipeline::Configure(Tegra::Engines::KeplerCompute& kepler_compute,
 
     texture_cache.SynchronizeComputeDescriptors();
 
-    static constexpr size_t max_elements = 16384;
-    thread_local boost::container::static_vector<VideoCommon::ImageViewInOut, max_elements> views;
-    thread_local boost::container::static_vector<VideoCommon::SamplerId, max_elements> samplers;
+    // See vk_graphics_pipeline.cpp: small_vector keeps the span sized to the
+    // actual write count.
+    thread_local boost::container::small_vector<VideoCommon::ImageViewInOut, 64> views;
+    thread_local boost::container::small_vector<VideoCommon::SamplerId, 64> samplers;
     views.clear();
     samplers.clear();
     thread_local BindlessCache bindless_cache;
@@ -341,11 +342,7 @@ void ComputePipeline::Configure(Tegra::Engines::KeplerCompute& kepler_compute,
         const vk::Device& dev{device.GetLogical()};
         const u64 data_hash = HashDescriptorBlock(descriptor_data, upload_entries);
         auto& semaphore = scheduler.GetMasterSemaphore();
-        // Strict per-CB cache: see the rationale in
-        // GraphicsPipeline::ConfigureDraw - we cannot safely reuse a cached
-        // set after the CB that committed it has submitted, because the
-        // allocator may hand it back to us with the same tick and we would
-        // overwrite it while an earlier in-flight CB still references it.
+        // Strict per-CB cache - see GraphicsPipeline::ConfigureDraw.
         const u64 current_tick = semaphore.CurrentTick();
         const auto get_or_alloc = [&](DescriptorAllocator& alloc,
                                       const vk::DescriptorUpdateTemplate& tpl) -> VkDescriptorSet {
