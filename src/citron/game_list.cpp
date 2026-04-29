@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
+#include <functional>
 #include <random>
 
 #include <vector>
@@ -960,6 +961,15 @@ void GameList::FilterTreeView(const QString& filter_text) {
 }
 
 void GameList::OnUpdateThemedIcons() {
+    auto set_icon = [&](QStandardItem* item, const QString& icon_name, int size) {
+        QPixmap pixmap = QIcon::fromTheme(icon_name).pixmap(size);
+        if (!pixmap.isNull()) {
+            item->setData(
+                pixmap.scaled(size, size, Qt::IgnoreAspectRatio, Qt::SmoothTransformation),
+                Qt::DecorationRole);
+        }
+    };
+
     for (int i = 0; i < item_model->invisibleRootItem()->rowCount(); i++) {
         QStandardItem* child = item_model->invisibleRootItem()->child(i);
         if (!child) {
@@ -968,51 +978,32 @@ void GameList::OnUpdateThemedIcons() {
         const int icon_size = UISettings::values.folder_icon_size.GetValue();
         switch (child->data(GameListItem::TypeRole).value<GameListItemType>()) {
         case GameListItemType::SdmcDir:
-            child->setData(
-                QIcon::fromTheme(QStringLiteral("sd_card"))
-                    .pixmap(icon_size)
-                    .scaled(icon_size, icon_size, Qt::IgnoreAspectRatio, Qt::SmoothTransformation),
-                Qt::DecorationRole);
+            set_icon(child, QStringLiteral("sd_card"), icon_size);
             break;
         case GameListItemType::UserNandDir:
-            child->setData(
-                QIcon::fromTheme(QStringLiteral("chip"))
-                    .pixmap(icon_size)
-                    .scaled(icon_size, icon_size, Qt::IgnoreAspectRatio, Qt::SmoothTransformation),
-                Qt::DecorationRole);
+            set_icon(child, QStringLiteral("chip"), icon_size);
             break;
         case GameListItemType::SysNandDir:
-            child->setData(
-                QIcon::fromTheme(QStringLiteral("chip"))
-                    .pixmap(icon_size)
-                    .scaled(icon_size, icon_size, Qt::IgnoreAspectRatio, Qt::SmoothTransformation),
-                Qt::DecorationRole);
+            set_icon(child, QStringLiteral("chip"), icon_size);
             break;
         case GameListItemType::CustomDir: {
-            const UISettings::GameDir& game_dir =
-                UISettings::values.game_dirs[child->data(GameListDir::GameDirRole).toInt()];
-            const QString icon_name = QFileInfo::exists(QString::fromStdString(game_dir.path))
-                                          ? QStringLiteral("folder")
-                                          : QStringLiteral("bad_folder");
-            child->setData(
-                QIcon::fromTheme(icon_name).pixmap(icon_size).scaled(
-                    icon_size, icon_size, Qt::IgnoreAspectRatio, Qt::SmoothTransformation),
-                Qt::DecorationRole);
+            int dir_idx = child->data(GameListDir::GameDirRole).toInt();
+            QString path;
+            if (dir_idx >= 0 && dir_idx < static_cast<int>(UISettings::values.game_dirs.size())) {
+                path = QString::fromStdString(UISettings::values.game_dirs[dir_idx].path);
+            } else {
+                path = child->data(GameListDir::FullPathRole).toString();
+            }
+            const QString icon_name =
+                QFileInfo::exists(path) ? QStringLiteral("folder") : QStringLiteral("bad_folder");
+            set_icon(child, icon_name, icon_size);
             break;
         }
         case GameListItemType::AddDir:
-            child->setData(
-                QIcon::fromTheme(QStringLiteral("list-add"))
-                    .pixmap(icon_size)
-                    .scaled(icon_size, icon_size, Qt::IgnoreAspectRatio, Qt::SmoothTransformation),
-                Qt::DecorationRole);
+            set_icon(child, QStringLiteral("list-add"), icon_size);
             break;
         case GameListItemType::Favorites:
-            child->setData(
-                QIcon::fromTheme(QStringLiteral("star"))
-                    .pixmap(icon_size)
-                    .scaled(icon_size, icon_size, Qt::IgnoreAspectRatio, Qt::SmoothTransformation),
-                Qt::DecorationRole);
+            set_icon(child, QStringLiteral("star"), icon_size);
             break;
         case GameListItemType::Game:
             break;
@@ -1170,20 +1161,22 @@ GameList::GameList(std::shared_ptr<FileSys::VfsFilesystem> vfs_,
 
     // Setup Kinetic Scrolling (Drag-to-Scroll) for a premium console experience
     auto setupScroller = [](QWidget* target) {
-        if (!target) return;
-        
+        if (!target)
+            return;
+
         // Force Pixel-based scrolling; without this, QScroller behaves hypersensitively
         if (auto* view = qobject_cast<QAbstractItemView*>(target->parent())) {
             view->setVerticalScrollMode(QAbstractItemView::ScrollPerPixel);
             view->setHorizontalScrollMode(QAbstractItemView::ScrollPerPixel);
         }
-        
-        // IMPORTANT: For scroll areas, we must grab on the viewport to avoid coordinate feedback loops
+
+        // IMPORTANT: For scroll areas, we must grab on the viewport to avoid coordinate feedback
+        // loops
         QScroller::grabGesture(target, QScroller::LeftMouseButtonGesture);
-        
+
         QScroller* scroller = QScroller::scroller(target);
         QScrollerProperties props = scroller->scrollerProperties();
-        
+
         // Use standard Touch profile as baseline to handle DPI scaling correctly across devices
         props.setScrollMetric(QScrollerProperties::DragStartDistance, 0.015);
         props.setScrollMetric(QScrollerProperties::DragVelocitySmoothingFactor, 0.5);
@@ -1191,16 +1184,17 @@ GameList::GameList(std::shared_ptr<FileSys::VfsFilesystem> vfs_,
         props.setScrollMetric(QScrollerProperties::MaximumVelocity, 0.6);
         props.setScrollMetric(QScrollerProperties::AcceleratingFlickMaximumTime, 0.3);
         props.setScrollMetric(QScrollerProperties::DecelerationFactor, 0.1);
-        
+
         // Input Filtering: Delay press event to help distinguish tap from drag
         props.setScrollMetric(QScrollerProperties::MousePressEventDelay, 0.15); // 150ms
-        
+
         props.setScrollMetric(QScrollerProperties::OvershootDragResistanceFactor, 0.4);
         props.setScrollMetric(QScrollerProperties::OvershootDragDistanceFactor, 0.1);
         props.setScrollMetric(QScrollerProperties::OvershootScrollDistanceFactor, 0.1);
         props.setScrollMetric(QScrollerProperties::OvershootScrollTime, 0.4);
-        props.setScrollMetric(QScrollerProperties::VerticalOvershootPolicy, QScrollerProperties::OvershootAlwaysOn);
-        
+        props.setScrollMetric(QScrollerProperties::VerticalOvershootPolicy,
+                              QScrollerProperties::OvershootAlwaysOn);
+
         scroller->setScrollerProperties(props);
     };
 
@@ -1354,20 +1348,20 @@ GameList::GameList(std::shared_ptr<FileSys::VfsFilesystem> vfs_,
         btn->setCheckable(true);
         btn->setAutoRaise(true);
         btn->setFixedSize(26, 26);
-        btn->setStyleSheet(QStringLiteral(
-            "QToolButton {"
-            "  border: 1px solid #3e3e42;"
-            "  border-radius: 4px;"
-            "  background: #2b2b2f;"
-            "  color: #aaaaaa;"
-            "  font-size: 9px; font-weight: bold;"
-            "}"
-            "QToolButton:hover { background: #3e3e42; color: #ffffff; }"
-            "QToolButton:checked {"
-            "  background: #1a3a5c;"
-            "  border-color: #0078d4;"
-            "  color: #7ec8ff;"
-            "}"));
+        btn->setStyleSheet(
+            QStringLiteral("QToolButton {"
+                           "  border: 1px solid #3e3e42;"
+                           "  border-radius: 4px;"
+                           "  background: #2b2b2f;"
+                           "  color: #aaaaaa;"
+                           "  font-size: 9px; font-weight: bold;"
+                           "}"
+                           "QToolButton:hover { background: #3e3e42; color: #ffffff; }"
+                           "QToolButton:checked {"
+                           "  background: #1a3a5c;"
+                           "  border-color: #0078d4;"
+                           "  color: #7ec8ff;"
+                           "}"));
         return btn;
     };
 
@@ -1384,34 +1378,31 @@ GameList::GameList(std::shared_ptr<FileSys::VfsFilesystem> vfs_,
     btn_slider_icon_mode->setIcon(img_icon);
     btn_slider_icon_mode->setIconSize(QSize(16, 16));
 
-    // Title/Icon size slider — range and initial value depend on active mode
     slider_title_size = new QSlider(Qt::Horizontal, toolbar);
-    slider_title_size->setMinimum(8);   // font points (font mode)
-    slider_title_size->setMaximum(24);
-    // Initialise to current font size
-    slider_title_size->setValue(tree_view->font().pointSize());
-    slider_title_size->setToolTip(tr("Font Size"));
+    slider_title_size->setFixedWidth(100);
     slider_title_size->setMaximumWidth(110);
     slider_title_size->setMinimumWidth(110);
-    slider_title_size->setStyleSheet(QStringLiteral(
-        "QSlider::groove:horizontal {"
-        "  border: 1px solid palette(mid);"
-        "  height: 4px;"
-        "  background: palette(base);"
-        "  border-radius: 2px;"
-        "}"
-        "QSlider::handle:horizontal {"
-        "  background: palette(button);"
-        "  border: 1px solid palette(mid);"
-        "  width: 12px; height: 12px;"
-        "  margin: -4px 0;"
-        "  border-radius: 6px;"
-        "}"
-        "QSlider::handle:horizontal:hover { background: palette(light); }"));
+    slider_title_size->setStyleSheet(
+        QStringLiteral("QSlider::groove:horizontal {"
+                       "  border: 1px solid palette(mid);"
+                       "  height: 4px;"
+                       "  background: palette(base);"
+                       "  border-radius: 2px;"
+                       "}"
+                       "QSlider::handle:horizontal {"
+                       "  background: palette(button);"
+                       "  border: 1px solid palette(mid);"
+                       "  width: 12px; height: 12px;"
+                       "  margin: -4px 0;"
+                       "  border-radius: 6px;"
+                       "}"
+                       "QSlider::handle:horizontal:hover { background: palette(light); }"));
 
     // Switch to font-size mode
     connect(btn_slider_font_mode, &QToolButton::clicked, [this]() {
+        if (!slider_icon_mode) return;
         slider_icon_mode = false;
+        UISettings::values.game_list_slider_mode.SetValue(0);
         btn_slider_font_mode->setChecked(true);
         btn_slider_icon_mode->setChecked(false);
         slider_title_size->blockSignals(true);
@@ -1423,16 +1414,33 @@ GameList::GameList(std::shared_ptr<FileSys::VfsFilesystem> vfs_,
 
     // Switch to icon-size mode
     connect(btn_slider_icon_mode, &QToolButton::clicked, [this]() {
+        if (slider_icon_mode) return;
         slider_icon_mode = true;
+        UISettings::values.game_list_slider_mode.SetValue(1);
         btn_slider_icon_mode->setChecked(true);
         btn_slider_font_mode->setChecked(false);
         slider_title_size->blockSignals(true);
         slider_title_size->setRange(32, 256);
-        slider_title_size->setValue(
-            static_cast<int>(UISettings::values.game_icon_size.GetValue()));
+        slider_title_size->setValue(static_cast<int>(UISettings::values.game_icon_size.GetValue()));
         slider_title_size->setToolTip(tr("Game Icon Size"));
         slider_title_size->blockSignals(false);
     });
+
+    // Load persisted slider mode and initial state
+    slider_icon_mode = UISettings::values.game_list_slider_mode.GetValue() == 1;
+    if (slider_icon_mode) {
+        slider_title_size->setRange(32, 256);
+        slider_title_size->setValue(UISettings::values.game_icon_size.GetValue());
+        slider_title_size->setToolTip(tr("Game Icon Size"));
+        btn_slider_icon_mode->setChecked(true);
+        btn_slider_font_mode->setChecked(false);
+    } else {
+        slider_title_size->setRange(8, 24);
+        slider_title_size->setValue(tree_view->font().pointSize());
+        slider_title_size->setToolTip(tr("Font Size"));
+        btn_slider_icon_mode->setChecked(false);
+        btn_slider_font_mode->setChecked(true);
+    }
 
     connect(slider_title_size, &QSlider::valueChanged, [this](int value) {
         if (!slider_icon_mode) {
@@ -1444,7 +1452,7 @@ GameList::GameList(std::shared_ptr<FileSys::VfsFilesystem> vfs_,
         } else {
             // ── Icon-size mode ──────────────────────────────────────────────
             UISettings::values.game_icon_size.SetValue(static_cast<u32>(value));
-            
+
             // Immediately force the tree view to recalculate row heights and repaint
             // so the game cards ("pills") scale dynamically without clipping.
             tree_view->doItemsLayout();
@@ -1464,8 +1472,7 @@ GameList::GameList(std::shared_ptr<FileSys::VfsFilesystem> vfs_,
                         qobject_cast<QStandardItemModel*>(current_model);
                     if (flat_model) {
                         const u32 icon_size = static_cast<u32>(value);
-                        int scroll_position =
-                            grid_view->view()->verticalScrollBar()->value();
+                        int scroll_position = grid_view->view()->verticalScrollBar()->value();
                         QModelIndex current_index = grid_view->currentIndex();
 
                         for (int i = 0; i < flat_model->rowCount(); ++i) {
@@ -1492,37 +1499,42 @@ GameList::GameList(std::shared_ptr<FileSys::VfsFilesystem> vfs_,
                                         break;
                                 }
 
-                                if (original_item) {
+                                if (original_item && icon_size > 0) {
                                     QVariant orig_icon_data =
                                         original_item->data(Qt::DecorationRole);
                                     if (orig_icon_data.isValid() &&
                                         orig_icon_data.type() == QVariant::Pixmap) {
-                                        QPixmap orig_pixmap =
-                                            orig_icon_data.value<QPixmap>();
-                                        QPixmap rounded(icon_size, icon_size);
-                                        rounded.fill(Qt::transparent);
-                                        QPainter painter(&rounded);
-                                        painter.setRenderHint(QPainter::Antialiasing);
-                                        const int radius = icon_size / 8;
-                                        QPainterPath path;
-                                        path.addRoundedRect(0, 0, icon_size, icon_size, radius,
-                                                            radius);
-                                        painter.setClipPath(path);
-                                        QPixmap scaled = orig_pixmap.scaled(
-                                            icon_size, icon_size, Qt::IgnoreAspectRatio,
-                                            Qt::SmoothTransformation);
-                                        painter.drawPixmap(0, 0, scaled);
-                                        item->setData(rounded, Qt::DecorationRole);
+                                        QPixmap orig_pixmap = orig_icon_data.value<QPixmap>();
+                                        if (!orig_pixmap.isNull()) {
+                                            QPixmap rounded(icon_size, icon_size);
+                                            rounded.fill(Qt::transparent);
+                                            if (!rounded.isNull()) {
+                                                QPainter painter(&rounded);
+                                                if (painter.isActive()) {
+                                                    painter.setRenderHint(QPainter::Antialiasing);
+                                                    const int radius = icon_size / 8;
+                                                    QPainterPath path;
+                                                    path.addRoundedRect(0, 0, icon_size, icon_size,
+                                                                        radius, radius);
+                                                    painter.setClipPath(path);
+                                                    QPixmap scaled = orig_pixmap.scaled(
+                                                        icon_size, icon_size, Qt::IgnoreAspectRatio,
+                                                        Qt::SmoothTransformation);
+                                                    if (!scaled.isNull()) {
+                                                        painter.drawPixmap(0, 0, scaled);
+                                                    }
+                                                }
+                                                item->setData(rounded, Qt::DecorationRole);
+                                            }
+                                        }
                                     }
                                 }
                             }
                         }
                         if (scroll_position >= 0)
                             grid_view->view()->verticalScrollBar()->setValue(scroll_position);
-                        if (current_index.isValid() &&
-                            current_index.row() < flat_model->rowCount())
-                            grid_view->setCurrentIndex(
-                                flat_model->index(current_index.row(), 0));
+                        if (current_index.isValid() && current_index.row() < flat_model->rowCount())
+                            grid_view->setCurrentIndex(flat_model->index(current_index.row(), 0));
                     }
                 } else {
                     PopulateGridView();
@@ -1586,6 +1598,7 @@ GameList::GameList(std::shared_ptr<FileSys::VfsFilesystem> vfs_,
     progress_bar->setTextVisible(false);
     progress_bar->setStyleSheet(QStringLiteral("QProgressBar::chunk { background-color: %1; }")
                                     .arg(Theme::GetAccentColor()));
+
 
     // Add widgets to toolbar
     toolbar->setStyleSheet(QStringLiteral("background: transparent; border: none;"));
@@ -1799,14 +1812,129 @@ GameList::GameList(std::shared_ptr<FileSys::VfsFilesystem> vfs_,
                 controller_navigation->setFocus(ControllerNavigation::FocusTarget::MainView);
         });
     }
+
+    RefreshTheme();
 }
 
 void GameList::OnConfigurationChanged() {
-    // This function debounces the update requests. Instead of starting a network
-    // request immediately, it starts a 500ms timer. If another config change happens,
-    // the timer is simply reset. The network request will only happen once, 500ms
-    // after the *last* change was made.
     config_update_timer.start(500);
+    RefreshTheme();
+}
+
+void GameList::RefreshTheme() {
+    OnUpdateThemedIcons();
+    if (tree_view) tree_view->ApplyTheme();
+    if (grid_view) grid_view->ApplyTheme();
+
+    // Re-scale game icons if size changed
+    const int icon_size = UISettings::values.game_icon_size.GetValue();
+    auto scale_func = [&](QStandardItem* item) {
+        if (!item)
+            return;
+
+        // Always try to get the highest resolution source first
+        QPixmap pixmap;
+        QVariant high_res = item->data(GameListItemPath::HighResIconRole);
+        if (high_res.isValid() && high_res.canConvert<QPixmap>()) {
+            pixmap = high_res.value<QPixmap>();
+        }
+
+        // Fallback to DecorationRole if HighRes is missing
+        if (pixmap.isNull()) {
+            QVariant icon_data = item->data(Qt::DecorationRole);
+            if (icon_data.isValid()) {
+                if (icon_data.canConvert<QPixmap>()) {
+                    pixmap = icon_data.value<QPixmap>();
+                } else if (icon_data.canConvert<QIcon>()) {
+                    pixmap = icon_data.value<QIcon>().pixmap(icon_size, icon_size);
+                }
+            }
+        }
+
+        if (!pixmap.isNull() && icon_size > 0) {
+            QPixmap rounded(icon_size, icon_size);
+            rounded.fill(Qt::transparent);
+            QPainter painter(&rounded);
+            if (painter.isActive()) {
+                painter.setRenderHint(QPainter::Antialiasing);
+                painter.setRenderHint(QPainter::SmoothPixmapTransform);
+                const int radius = icon_size / 8;
+                QPainterPath path;
+                path.addRoundedRect(0, 0, icon_size, icon_size, radius, radius);
+                painter.setClipPath(path);
+                QPixmap scaled = pixmap.scaled(icon_size, icon_size, Qt::IgnoreAspectRatio,
+                                               Qt::SmoothTransformation);
+                if (!scaled.isNull()) {
+                    painter.drawPixmap(0, 0, scaled);
+                    painter.end();
+                    item->setData(rounded, Qt::DecorationRole);
+                }
+            } else {
+                item->setData(pixmap.scaled(icon_size, icon_size, Qt::IgnoreAspectRatio,
+                                            Qt::SmoothTransformation),
+                              Qt::DecorationRole);
+            }
+        }
+    };
+
+    auto scaleIcons = [&](QStandardItemModel* model) {
+        if (!model)
+            return;
+        for (int i = 0; i < model->rowCount(); i++) {
+            scale_func(model->item(i));
+        }
+    };
+
+    if (grid_view) {
+        scaleIcons(qobject_cast<QStandardItemModel*>(grid_view->mainModel()));
+        scaleIcons(qobject_cast<QStandardItemModel*>(grid_view->favModel()));
+    }
+    if (carousel_view) {
+        scaleIcons(qobject_cast<QStandardItemModel*>(carousel_view->model()));
+    }
+
+    // Also recursively scale icons in the hierarchical tree model
+    std::function<void(QStandardItem*)> scaleRecursive = [&](QStandardItem* parent) {
+        for (int i = 0; i < parent->rowCount(); ++i) {
+            QStandardItem* child = parent->child(i);
+            if (!child)
+                continue;
+            if (child->data(GameListItem::TypeRole).value<GameListItemType>() ==
+                GameListItemType::Game) {
+                scale_func(child);
+            }
+            scaleRecursive(child);
+        }
+    };
+    if (item_model) {
+        scaleRecursive(item_model->invisibleRootItem());
+    }
+
+    if (tree_view) {
+        tree_view->ApplyTheme();
+        tree_view->doItemsLayout();
+        if (tree_view->viewport()) {
+            tree_view->viewport()->update();
+        }
+    }
+    if (grid_view) {
+        grid_view->ApplyTheme();
+        if (grid_view->view()) {
+            grid_view->view()->doItemsLayout();
+            if (grid_view->view()->viewport()) {
+                grid_view->view()->viewport()->update();
+            }
+        }
+        if (grid_view->favView()) {
+            grid_view->favView()->doItemsLayout();
+            if (grid_view->favView()->viewport()) {
+                grid_view->favView()->viewport()->update();
+            }
+        }
+    }
+    if (carousel_view) {
+        carousel_view->update();
+    }
 }
 
 void GameList::SwitchToControllerMode() {
@@ -2019,7 +2147,7 @@ void GameList::AddEntry(const QList<QStandardItem*>& entry_items, const QString&
         // Dynamically populate grid and carousel views so games appear instantly when parsing
         QStandardItem* src = entry_items.first();
         QString path = src->data(GameListItemPath::FullPathRole).toString();
-        
+
         if (!UISettings::values.hidden_paths.contains(path)) {
             QString title = src->data(GameListItemPath::TitleRole).toString();
             if (title.isEmpty()) {
@@ -2027,46 +2155,59 @@ void GameList::AddEntry(const QList<QStandardItem*>& entry_items, const QString&
                 Common::SplitPath(path.toStdString(), nullptr, &fn, nullptr);
                 title = QString::fromStdString(fn);
             }
-            
+
             QString filter_text = search_field->filterText().toLower();
             if (filter_text.isEmpty() || ContainsAllWords(title.toLower(), filter_text)) {
                 u64 pid = src->data(GameListItemPath::ProgramIdRole).toULongLong();
                 bool is_fav = UISettings::values.favorited_ids.contains(pid);
 
                 auto cloneToFlatModel = [&](QStandardItemModel* target, bool force_fav) {
-                    if (!target) return;
+                    if (!target)
+                        return;
                     QStandardItem* item = src->clone();
                     item->setText(title);
                     item->setData(title, GameListItemPath::SortRole);
-                    item->setData(static_cast<int>(force_fav ? GameListItemType::Favorites : GameListItemType::Game), GameListItem::TypeRole);
-                    
+                    item->setData(static_cast<int>(force_fav ? GameListItemType::Favorites
+                                                             : GameListItemType::Game),
+                                  GameListItem::TypeRole);
+
                     // Scale icon for flat layout
                     const u32 icon_size = UISettings::values.game_icon_size.GetValue();
                     QVariant icon_data = item->data(Qt::DecorationRole);
                     if (icon_data.isValid() && icon_data.canConvert<QPixmap>()) {
                         QPixmap pixmap = icon_data.value<QPixmap>();
                         if (!pixmap.isNull()) {
-                            item->setData(pixmap.scaled(icon_size, icon_size, Qt::IgnoreAspectRatio, Qt::SmoothTransformation), Qt::DecorationRole);
+                            item->setData(pixmap.scaled(icon_size, icon_size, Qt::IgnoreAspectRatio,
+                                                        Qt::SmoothTransformation),
+                                          Qt::DecorationRole);
                         }
                     }
 
                     target->appendRow(item);
-                    
-                    // We typically want to sort grid models, but NOT the carousel (it uses its own segments)
-                    if (target != static_cast<QStandardItemModel*>(carousel_view->view()->model())) {
+
+                    // We typically want to sort grid models, but NOT the carousel (it uses its own
+                    // segments)
+                    if (target !=
+                        static_cast<QStandardItemModel*>(carousel_view->view()->model())) {
                         target->sort(0, current_sort_order);
                     }
 
                     // Trigger "Pop-in" Animations for discovery
-                    // Use !isHidden() instead of isVisible() to ensure it triggers during boot-time startup
+                    // Use !isHidden() instead of isVisible() to ensure it triggers during boot-time
+                    // startup
                     if (grid_view && !grid_view->isHidden()) {
-                        QListView* active_grid = force_fav ? grid_view->favView() : grid_view->view();
+                        QListView* active_grid =
+                            force_fav ? grid_view->favView() : grid_view->view();
                         if (active_grid) {
-                            auto* grid_delegate = qobject_cast<GameGridDelegate*>(active_grid->itemDelegate());
+                            auto* grid_delegate =
+                                qobject_cast<GameGridDelegate*>(active_grid->itemDelegate());
                             if (grid_delegate) {
-                                // Find the new index in the target model after sorting to ensure animation triggers on the correct item
+                                // Find the new index in the target model after sorting to ensure
+                                // animation triggers on the correct item
                                 QModelIndex new_idx;
-                                auto matches = target->match(target->index(0, 0), GameListItemPath::FullPathRole, path, 1, Qt::MatchExactly);
+                                auto matches = target->match(target->index(0, 0),
+                                                             GameListItemPath::FullPathRole, path,
+                                                             1, Qt::MatchExactly);
                                 if (!matches.isEmpty()) {
                                     new_idx = matches.first();
                                     grid_delegate->RegisterEntryAnimation(new_idx);
@@ -2074,23 +2215,27 @@ void GameList::AddEntry(const QList<QStandardItem*>& entry_items, const QString&
                             }
                         }
                     }
-                    if (carousel_view && !carousel_view->isHidden() && target == static_cast<QStandardItemModel*>(carousel_view->view()->model())) {
-                        carousel_view->view()->RegisterEntryAnimation(target->index(target->rowCount() - 1, 0));
+                    if (carousel_view && !carousel_view->isHidden() &&
+                        target ==
+                            static_cast<QStandardItemModel*>(carousel_view->view()->model())) {
+                        carousel_view->view()->RegisterEntryAnimation(
+                            target->index(target->rowCount() - 1, 0));
                     }
                 };
 
                 if (grid_view && grid_view->mainModel()) {
-                    QStandardItemModel* target_model = static_cast<QStandardItemModel*>(is_fav ? grid_view->favModel() : grid_view->mainModel());
+                    QStandardItemModel* target_model = static_cast<QStandardItemModel*>(
+                        is_fav ? grid_view->favModel() : grid_view->mainModel());
                     cloneToFlatModel(target_model, is_fav);
                     grid_view->UpdateGridSize();
                 }
                 if (carousel_view && carousel_view->view()->model()) {
-                    QStandardItemModel* target_model = static_cast<QStandardItemModel*>(carousel_view->view()->model());
+                    QStandardItemModel* target_model =
+                        static_cast<QStandardItemModel*>(carousel_view->view()->model());
                     cloneToFlatModel(target_model, is_fav);
                 }
             }
         }
-
     }
 
     // Auto-scroll to show new games as they appear (only on first-time or full rebuild)
@@ -2591,17 +2736,27 @@ void GameList::ValidateEntry(const QModelIndex& item) {
 }
 
 bool GameList::IsEmpty() const {
+    bool has_real_content = false;
     for (int i = 0; i < item_model->rowCount(); i++) {
         const QStandardItem* child = item_model->invisibleRootItem()->child(i);
         const auto type = static_cast<GameListItemType>(child->type());
+        
+        // Skip the "Add Directory" item itself for emptiness check
+        if (type == GameListItemType::AddDir) {
+            continue;
+        }
+
         if (!child->hasChildren() &&
             (type == GameListItemType::SdmcDir || type == GameListItemType::UserNandDir ||
              type == GameListItemType::SysNandDir)) {
             item_model->invisibleRootItem()->removeRow(child->row());
             i--;
+            continue;
         }
+        
+        has_real_content = true;
     }
-    return !item_model->invisibleRootItem()->hasChildren();
+    return !has_real_content;
 }
 
 void GameList::DonePopulating(const QStringList& watch_list) {
@@ -2673,6 +2828,24 @@ void GameList::DonePopulating(const QStringList& watch_list) {
     tree_view->setExpanded(fav_folder->index(), UISettings::values.favorites_expanded.GetValue());
     for (const auto id : UISettings::values.favorited_ids)
         AddFavorite(id);
+
+    // [CITRON NEO] Add "Add New Game Directory" as a list item at the bottom
+    QStandardItem* add_dir_item = nullptr;
+    for (int i = 0; i < item_model->rowCount(); ++i) {
+        if (item_model->item(i)->data(GameListItem::TypeRole).value<GameListItemType>() ==
+            GameListItemType::AddDir) {
+            add_dir_item = item_model->item(i);
+            break;
+        }
+    }
+    if (!add_dir_item) {
+        add_dir_item = new GameListAddDir();
+        item_model->invisibleRootItem()->appendRow(add_dir_item);
+    } else {
+        // Move to bottom if it exists
+        item_model->invisibleRootItem()->appendRow(item_model->invisibleRootItem()->takeRow(add_dir_item->row()));
+    }
+
     auto watch_dirs = watcher->directories();
     if (!watch_dirs.isEmpty()) {
         watcher->removePaths(watch_dirs);
@@ -3433,8 +3606,8 @@ void GameList::PopulateAsync(QVector<UISettings::GameDir>& game_dirs, bool is_sm
         item_model->clear();
         item_model->insertColumns(0, COLUMN_COUNT);
         RetranslateUI();
-        
-        // Ensure flat models for Grid/Carousel are instantiated empty BEFORE async parsing starts 
+
+        // Ensure flat models for Grid/Carousel are instantiated empty BEFORE async parsing starts
         // so that games can be visually streamed straight into them during boot.
         FilterGridView(search_field->filterText());
     } else {
@@ -3847,126 +4020,23 @@ void GameList::onSurpriseMeClicked() {
 }
 
 void GameList::UpdateAccentColorStyles() {
-    QColor accent_color(QString::fromStdString(UISettings::values.accent_color.GetValue()));
-    if (!accent_color.isValid()) {
-        accent_color = palette().color(QPalette::Highlight);
-    }
+    const QColor accent_color = Theme::GetAccentColor();
     const QString color_name = accent_color.name();
+    const bool is_dark = Theme::IsDarkMode();
 
-    // Create a semi-transparent version of the accent color for the SELECTION background
-    QColor selection_background_color = accent_color;
-    selection_background_color.setAlphaF(0.25f); // 25% opacity for a clear selection
-    const QString selection_background_color_name = QStringLiteral("rgba(%1, %2, %3, %4)")
-                                                        .arg(selection_background_color.red())
-                                                        .arg(selection_background_color.green())
-                                                        .arg(selection_background_color.blue())
-                                                        .arg(selection_background_color.alpha());
+    if (tree_view) tree_view->ApplyTheme();
+    if (grid_view) grid_view->ApplyTheme();
+    if (carousel_view) carousel_view->ApplyTheme();
+    if (details_panel) details_panel->ApplyTheme();
 
-    // Create a MORE subtle semi-transparent version for the HOVER effect
-    QColor hover_background_color = accent_color;
-    hover_background_color.setAlphaF(0.15f); // 15% opacity for a subtle hover
-    const QString hover_background_color_name = QStringLiteral("rgba(%1, %2, %3, %4)")
-                                                    .arg(hover_background_color.red())
-                                                    .arg(hover_background_color.green())
-                                                    .arg(hover_background_color.blue())
-                                                    .arg(hover_background_color.alpha());
+    // Toolbar & Search Colors
+    const QString header_bg = is_dark ? QStringLiteral("#1c1c1e") : QStringLiteral("#ececf0");
+    const QString header_fg = is_dark ? QStringLiteral("#d0d0e0") : QStringLiteral("#1a1a1e");
+    const QString header_border = is_dark ? QStringLiteral("#2e2e34") : QStringLiteral("#d0d0d5");
+    const QString header_bg_hov = is_dark ? QStringLiteral("#2e2e34") : QStringLiteral("#e0e0e5");
+    const QString search_bg = is_dark ? QStringLiteral("rgba(255,255,255,0.05)") : QStringLiteral("rgba(0,0,0,0.05)");
+    const QString search_fg = header_fg;
 
-    const bool dark = UISettings::IsDarkTheme();
-
-    // Header & Search Colors: Onyx (Dark) vs Silver (Light)
-    const QString header_bg = dark ? QStringLiteral("#1c1c1e") : QStringLiteral("#ececf0");
-    const QString header_fg = dark ? QStringLiteral("#d0d0e0") : QStringLiteral("#1a1a1e");
-    const QString header_border = dark ? QStringLiteral("#2e2e34") : QStringLiteral("#d0d0d5");
-    const QString header_bg_hov = dark ? QStringLiteral("#2e2e34") : QStringLiteral("#e0e0e5");
-    const QString header_fg_hov = dark ? QStringLiteral("#ffffff") : QStringLiteral("#000000");
-    const QString search_bg = dark ? QStringLiteral("#1c1c1e") : QStringLiteral("#fdfdfd");
-    const QString search_fg = dark ? QStringLiteral("#f0f0f5") : QStringLiteral("#1a1a1e");
-
-    QString accent_style = QStringLiteral(
-                               /* Tree View (List View) Selection & Hover Style */
-                               "QTreeView {"
-                               "    background-color: transparent;"
-                               "    background: transparent;"
-                               "    show-decoration-selected: 0;"
-                               "    outline: 0;"
-                               "    selection-background-color: transparent;"
-                               "    selection-color: inherit;"
-                               "}"
-                               "QTreeView::viewport {"
-                               "    background: transparent;"
-                               "    background-color: transparent;"
-                               "}"
-                               "QTreeView::item {"
-                               "    padding: 0px;"
-                               "    border: none;"
-                               "    background: transparent;"
-                               "}"
-                               "QTreeView::item:hover {"
-                               "    background-color: transparent;"
-                               "}"
-                               "QTreeView::item:selected {"
-                               "    background-color: transparent;"
-                               "    outline: 0;"
-                               "}"
-                               "QTreeView::item:selected:!active {"
-                               "    background-color: transparent;"
-                               "    outline: 0;"
-                               "}"
-
-                               /* Modern Header Style */
-                               "QHeaderView::section, QHeaderView::section:pressed {"
-                               "    background-color: %2;"
-                               "    color: %3;"
-                               "    border: none;"
-                               "    border-bottom: 1px solid %4;"
-                               "    border-right: 1px solid %4;"
-                               "    padding: 6px 10px;"
-                               "    font-weight: bold;"
-                               "    font-size: 9pt;"
-                               "}"
-                               "QHeaderView::section:hover {"
-                               "    background-color: %5;"
-                               "    color: %6;"
-                               "}"
-
-                               /* List View (Grid View) Selection Style */
-                               "QListView::item:selected {"
-                               "    background-color: palette(light);"
-                               "    border: 3px solid %1;"
-                               "    border-radius: 12px;"
-                               "}"
-                               "QListView::item:selected:!active {"
-                               "    background-color: transparent;"
-                               "    border: 3px solid palette(mid);"
-                               "}"
-
-                               /* ScrollBar Styling */
-                               "QScrollBar:vertical {"
-                               "    border: 1px solid black;"
-                               "    background: palette(base);"
-                               "    width: 12px;"
-                               "    margin: 0px;"
-                               "}"
-                               "QScrollBar::handle:vertical {"
-                               "    background: %1;"
-                               "    min-height: 20px;"
-                               "    border-radius: 5px;"
-                               "    border: 1px solid black;"
-                               "}")
-                               .arg(color_name)     // %1
-                               .arg(header_bg)      // %2
-                               .arg(header_fg)      // %3
-                               .arg(header_border)  // %4
-                               .arg(header_bg_hov)  // %5
-                               .arg(header_fg_hov); // %6
-
-    // Apply the combined base styles and new accent styles to each view
-    tree_view->setStyleSheet(accent_style);
-    grid_view->setStyleSheet(accent_style);
-    carousel_view->ApplyTheme();
-    if (details_panel) {
-        details_panel->ApplyTheme();
-    }
     if (slider_title_size) {
         slider_title_size->setStyleSheet(
             QStringLiteral("QSlider::groove:horizontal {"
@@ -3988,46 +4058,30 @@ void GameList::UpdateAccentColorStyles() {
 
     RefreshTooltips();
 
-    // Explicitly style the header with a clean, high-fidelity theme
-    tree_view->header()->setStyleSheet(
-        QString::fromLatin1("QHeaderView::section { background-color: %1; color: %2; border: none; "
-                            "border-bottom: 1px solid %3; padding: 6px 10px; font-weight: bold; }"
-                            "QHeaderView::section:hover { background-color: %4; }")
-            .arg(header_bg, header_fg, header_border, header_bg_hov));
 
-    // Restore theme-aware button styling
-    const QString button_bg = dark ? QStringLiteral("#2b2b2f") : QStringLiteral("#fdfdfd");
-    const QString button_border = dark ? QStringLiteral("#3e3e42") : QStringLiteral("#d0d0d5");
-    const QString button_hover = dark ? QStringLiteral("#3e3e42") : QStringLiteral("#eeeeef");
-    const QString button_fg = dark ? QStringLiteral("#ffffff") : QStringLiteral("#1a1a1e");
+    if (toolbar) {
+        toolbar->setStyleSheet(QStringLiteral("background: transparent; border: none;"));
+    }
 
-    // Locked Dark Style for top-right buttons: consistently dark grey (#2b2b2f)
-    const QString icon_btn_bg = QStringLiteral("#2b2b2f");
-    const QString icon_btn_border = QStringLiteral("#3e3e42");
-    const QString icon_btn_hover = QStringLiteral("#3e3e42");
-    const QString icon_btn_fg = QStringLiteral("#ffffff");
-
-    QString button_base_style = QString::fromLatin1("QToolButton {"
-                                                    "  border: 1px solid %1;"
-                                                    "  border-radius: 4px;"
-                                                    "  background: %2;"
-                                                    "  color: %3;"
-                                                    "}"
-                                                    "QToolButton:hover {"
-                                                    "  background: %4;"
-                                                    "}")
-                                    .arg(button_border, button_bg, button_fg, button_hover);
+    const QString icon_btn_bg = is_dark ? QStringLiteral("rgba(255, 255, 255, 15)")
+                                        : QStringLiteral("rgba(0, 0, 0, 10)");
+    const QString icon_btn_border = is_dark ? QStringLiteral("rgba(255, 255, 255, 25)")
+                                            : QStringLiteral("rgba(0, 0, 0, 20)");
+    const QString icon_btn_hover = is_dark ? QStringLiteral("rgba(255, 255, 255, 30)")
+                                           : QStringLiteral("rgba(0, 0, 0, 15)");
+    const QString icon_btn_fg = is_dark ? QStringLiteral("#ffffff") : QStringLiteral("#1a1a1e");
 
     QString icon_button_style = QString::fromLatin1("QToolButton {"
                                                     "  border: 1px solid %1;"
                                                     "  border-radius: 4px;"
                                                     "  background: %2;"
                                                     "  color: %3;"
+                                                    "  padding: 4px;"
                                                     "}"
                                                     "QToolButton:hover {"
                                                     "  background: %4;"
                                                     "}")
-                                    .arg(icon_btn_border, icon_btn_bg, icon_btn_fg, icon_btn_hover);
+                                     .arg(icon_btn_border, icon_btn_bg, icon_btn_fg, icon_btn_hover);
 
     QString button_checked_style = QString::fromLatin1("QToolButton:checked {"
                                                        "  background: %1;"
@@ -4036,67 +4090,55 @@ void GameList::UpdateAccentColorStyles() {
                                                        "}")
                                        .arg(color_name);
 
-    btn_list_view->setStyleSheet(icon_button_style + button_checked_style);
-    btn_grid_view->setStyleSheet(icon_button_style + button_checked_style);
-    if (btn_carousel_view)
-        btn_carousel_view->setStyleSheet(icon_button_style + button_checked_style);
+    auto apply_style = [&](QToolButton* btn) {
+        if (btn) btn->setStyleSheet(icon_button_style + button_checked_style);
+    };
+    apply_style(btn_list_view);
+    apply_style(btn_grid_view);
+    apply_style(btn_carousel_view);
+    apply_style(btn_slider_font_mode);
+    apply_style(btn_slider_icon_mode);
 
-    // Apply accent style to our new slider toggles so they match the other tool buttons
-    if (btn_slider_font_mode) {
-        btn_slider_font_mode->setStyleSheet(icon_button_style + button_checked_style);
+    if (btn_sort_az) btn_sort_az->setStyleSheet(icon_button_style);
+    if (btn_surprise_me) btn_surprise_me->setStyleSheet(icon_button_style);
+    if (btn_controller_settings) btn_controller_settings->setStyleSheet(icon_button_style);
+
+    setStyleSheet(QStringLiteral("background: transparent; border: none;"));
+
+    if (search_field) {
+        search_field->setStyleSheet(QStringLiteral("QLineEdit {"
+                                                   "  border: 1px solid %1;"
+                                                   "  border-radius: 6px;"
+                                                   "  padding: 4px 8px;"
+                                                   "  background: %2;"
+                                                   "  color: %3;"
+                                                   "}"
+                                                   "QLineEdit:focus {"
+                                                   "  border: 1px solid %4;"
+                                                   "}")
+                                        .arg(header_border, search_bg, search_fg, color_name));
     }
-    if (btn_slider_icon_mode) {
-        btn_slider_icon_mode->setStyleSheet(icon_button_style + button_checked_style);
-    }
 
-    // Also update Sort, Surprise Me and Controller buttons with the locked dark style
-    btn_sort_az->setStyleSheet(icon_button_style);
-    btn_surprise_me->setStyleSheet(icon_button_style);
-    btn_controller_settings->setStyleSheet(icon_button_style);
-
-    // Update toolbar background: Onyx Grey in Dark Mode, Pure White in Light Mode
-    toolbar->setStyleSheet(dark ? QStringLiteral("background: #24242a; border: none;")
-                                : QStringLiteral("background: #ffffff; border: none;"));
-
-    // Update main GameList background
-    setStyleSheet(dark ? QStringLiteral("background: #161618;")
-                       : QStringLiteral("background: #ffffff;"));
-
-    search_field->setStyleSheet(QStringLiteral("QLineEdit {"
-                                               "  border: 1px solid palette(mid);"
-                                               "  border-radius: 6px;"
-                                               "  padding: 4px 8px;"
-                                               "  background: %2;"
-                                               "  color: %3;"
-                                               "}"
-                                               "QLineEdit:focus {"
-                                               "  border: 1px solid %1;"
-                                               "  background: %2;"
-                                               "}")
-                                    .arg(color_name, search_bg, search_fg));
-
-    // Force light icons for the locked-dark buttons even in Light Mode
     const bool force_light = true;
-    btn_list_view->setIcon(GetThemedIcon(QStringLiteral(":/dist/list.svg"), force_light));
-    btn_grid_view->setIcon(GetThemedIcon(QStringLiteral(":/dist/grid.svg"), force_light));
-    if (btn_carousel_view)
-        btn_carousel_view->setIcon(
-            GetThemedIcon(QStringLiteral(":/dist/carousel.svg"), force_light));
-
-    UpdateSortButtonIcon();
-    btn_surprise_me->setIcon(GetThemedIcon(QStringLiteral(":/dist/dice.svg"), force_light));
-    btn_controller_settings->setIcon(
-        GetThemedIcon(QStringLiteral(":/dist/controller_navigation.svg"), force_light));
-
-    // Standarize icon size for consistent aesthetic accountability
     const QSize icon_size(20, 20);
-    btn_list_view->setIconSize(icon_size);
-    btn_grid_view->setIconSize(icon_size);
-    if (btn_carousel_view)
-        btn_carousel_view->setIconSize(icon_size);
-    btn_sort_az->setIconSize(icon_size);
-    btn_surprise_me->setIconSize(icon_size);
-    btn_controller_settings->setIconSize(icon_size);
+
+    auto update_icon = [&](QToolButton* btn, const QString& path) {
+        if (btn) {
+            btn->setIcon(GetThemedIcon(path, force_light));
+            btn->setIconSize(icon_size);
+        }
+    };
+
+    update_icon(btn_list_view, QStringLiteral(":/dist/list.svg"));
+    update_icon(btn_grid_view, QStringLiteral(":/dist/grid.svg"));
+    update_icon(btn_carousel_view, QStringLiteral(":/dist/carousel.svg"));
+    update_icon(btn_surprise_me, QStringLiteral(":/dist/dice.svg"));
+    update_icon(btn_controller_settings, QStringLiteral(":/dist/controller_navigation.svg"));
+
+    if (btn_sort_az) {
+        UpdateSortButtonIcon();
+        btn_sort_az->setIconSize(icon_size);
+    }
 }
 
 QIcon GameList::GetThemedIcon(const QString& path, bool force_light) {
@@ -4244,6 +4286,10 @@ void GameList::LoadGameListIndex() {
     if (auto* cm = qobject_cast<QStandardItemModel*>(carousel_view->view()->model())) {
         cm->clear();
     }
+
+    // [CITRON NEO] Add "Add New Game Directory" button at the bottom for instant UI availability
+    item_model->invisibleRootItem()->appendRow(new GameListAddDir());
+
     // (Actual synchronization logic would follow the Worker's pattern,
     // but clearing ensures no stale state while background scan runs).
 }

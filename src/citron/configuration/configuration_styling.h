@@ -178,22 +178,42 @@ static const char* MASTER_STYLE_TEMPLATE = R"(
     /* ScrollBars */
     QScrollBar:vertical {
         background: transparent;
-        width: 8px;
+        width: 10px;
         margin: 0px;
     }
 
     QScrollBar::handle:vertical {
-        background: %%INPUT_BORDER%%;
-        min-height: 20px;
-        border-radius: 4px;
+        background: %%ACCENT_COLOR%%;
+        min-height: 25px;
+        border-radius: 5px;
+        margin-right: 2px;
     }
 
     QScrollBar::handle:vertical:hover {
-        background: %%ACCENT_COLOR%%;
+        background: %%ACCENT_COLOR_HOVER%%;
     }
 
-    QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
+    QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical,
+    QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {
         height: 0px;
+        width: 0px;
+    }
+
+    QScrollBar:horizontal {
+        background: transparent;
+        height: 10px;
+        margin: 0px;
+    }
+
+    QScrollBar::handle:horizontal {
+        background: %%ACCENT_COLOR%%;
+        min-width: 25px;
+        border-radius: 5px;
+        margin-bottom: 2px;
+    }
+
+    QScrollBar::handle:horizontal:hover {
+        background: %%ACCENT_COLOR_HOVER%%;
     }
 
     /* Tooltips and Popups */

@@ -119,6 +119,7 @@ public:
     void PopulateAsync(QVector<UISettings::GameDir>& game_dirs, bool is_smart_update = false);
     void CancelPopulation();
     void RefreshGame(u64 program_id, u64 play_time);
+    void RefreshTheme();
 
     void SaveInterfaceLayout();
     void LoadInterfaceLayout();
@@ -291,7 +292,6 @@ private:
     bool m_is_launching = false;
     
     QWidget* footer_widget = nullptr;
-    QToolButton* btn_add_dir = nullptr;
 };
 
 class GameListPlaceholder : public QWidget {

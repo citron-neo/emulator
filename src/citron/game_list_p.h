@@ -69,10 +69,14 @@ static QPixmap CreateRoundIcon(const QPixmap& pixmap, u32 size) {
     painter.setClipPath(path);
 
     // Draw the scaled pixmap
-    QPixmap scaled = pixmap.scaled(size, size, Qt::KeepAspectRatio, Qt::SmoothTransformation);
-    int x = (size - scaled.width()) / 2;
-    int y = (size - scaled.height()) / 2;
-    painter.drawPixmap(x, y, scaled);
+    if (!pixmap.isNull()) {
+        QPixmap scaled = pixmap.scaled(size, size, Qt::KeepAspectRatio, Qt::SmoothTransformation);
+        if (!scaled.isNull()) {
+            int x = (size - scaled.width()) / 2;
+            int y = (size - scaled.height()) / 2;
+            painter.drawPixmap(x, y, scaled);
+        }
+    }
 
     return rounded;
 }
@@ -328,31 +332,28 @@ public:
         setData(QVariant(UISettings::values.game_dirs.indexOf(directory)), GameDirRole);
 
         const int icon_size = UISettings::values.folder_icon_size.GetValue();
+        auto set_icon = [&](const QString& icon_name) {
+            QPixmap pixmap = QIcon::fromTheme(icon_name).pixmap(icon_size);
+            if (!pixmap.isNull()) {
+                setData(pixmap.scaled(icon_size, icon_size, Qt::IgnoreAspectRatio,
+                                      Qt::SmoothTransformation),
+                        Qt::DecorationRole);
+            }
+        };
+
         switch (dir_type) {
         case GameListItemType::SdmcDir:
-            setData(
-                QIcon::fromTheme(QStringLiteral("sd_card"))
-                    .pixmap(icon_size)
-                    .scaled(icon_size, icon_size, Qt::IgnoreAspectRatio, Qt::SmoothTransformation),
-                Qt::DecorationRole);
+            set_icon(QStringLiteral("sd_card"));
             setData(QObject::tr("Installed SD Titles"), Qt::DisplayRole);
             setData(QObject::tr("Installed SD Titles"), FullPathRole);
             break;
         case GameListItemType::UserNandDir:
-            setData(
-                QIcon::fromTheme(QStringLiteral("chip"))
-                    .pixmap(icon_size)
-                    .scaled(icon_size, icon_size, Qt::IgnoreAspectRatio, Qt::SmoothTransformation),
-                Qt::DecorationRole);
+            set_icon(QStringLiteral("chip"));
             setData(QObject::tr("Installed NAND Titles"), Qt::DisplayRole);
             setData(QObject::tr("Installed NAND Titles"), FullPathRole);
             break;
         case GameListItemType::SysNandDir:
-            setData(
-                QIcon::fromTheme(QStringLiteral("chip"))
-                    .pixmap(icon_size)
-                    .scaled(icon_size, icon_size, Qt::IgnoreAspectRatio, Qt::SmoothTransformation),
-                Qt::DecorationRole);
+            set_icon(QStringLiteral("chip"));
             setData(QObject::tr("System Titles"), Qt::DisplayRole);
             setData(QObject::tr("System Titles"), FullPathRole);
             break;
@@ -360,9 +361,7 @@ public:
             const QString path = QString::fromStdString(game_dir->path);
             const QString icon_name =
                 QFileInfo::exists(path) ? QStringLiteral("folder") : QStringLiteral("bad_folder");
-            setData(QIcon::fromTheme(icon_name).pixmap(icon_size).scaled(
-                        icon_size, icon_size, Qt::IgnoreAspectRatio, Qt::SmoothTransformation),
-                    Qt::DecorationRole);
+            set_icon(icon_name);
             setData(path, Qt::DisplayRole);
             setData(path, FullPathRole);
             break;
@@ -393,11 +392,12 @@ public:
         setData(type(), TypeRole);
 
         const int icon_size = UISettings::values.folder_icon_size.GetValue();
-
-        setData(QIcon::fromTheme(QStringLiteral("list-add"))
-                    .pixmap(icon_size)
-                    .scaled(icon_size, icon_size, Qt::IgnoreAspectRatio, Qt::SmoothTransformation),
-                Qt::DecorationRole);
+        QPixmap pixmap = QIcon::fromTheme(QStringLiteral("list-add")).pixmap(icon_size);
+        if (!pixmap.isNull()) {
+            setData(pixmap.scaled(icon_size, icon_size, Qt::IgnoreAspectRatio,
+                                  Qt::SmoothTransformation),
+                    Qt::DecorationRole);
+        }
         setData(QObject::tr("Add New Game Directory"), Qt::DisplayRole);
     }
 
@@ -416,11 +416,12 @@ public:
         setData(type(), TypeRole);
 
         const int icon_size = UISettings::values.folder_icon_size.GetValue();
-
-        setData(QIcon::fromTheme(QStringLiteral("star"))
-                    .pixmap(icon_size)
-                    .scaled(icon_size, icon_size, Qt::IgnoreAspectRatio, Qt::SmoothTransformation),
-                Qt::DecorationRole);
+        QPixmap pixmap = QIcon::fromTheme(QStringLiteral("star")).pixmap(icon_size);
+        if (!pixmap.isNull()) {
+            setData(pixmap.scaled(icon_size, icon_size, Qt::IgnoreAspectRatio,
+                                  Qt::SmoothTransformation),
+                    Qt::DecorationRole);
+        }
         setData(QObject::tr("Favorites"), Qt::DisplayRole);
     }
 

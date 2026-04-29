@@ -74,6 +74,7 @@ private:
     QColor TextColor() const;
     QColor DimColor() const;
     QColor SelectionColor() const;
+    QColor HeaderTextColor() const;
     QColor AccentColor() const;
 
     // Animation and caching state

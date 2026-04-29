@@ -4459,9 +4459,7 @@ void GMainWindow::OnConfigure() {
     } else if (result == QDialog::Accepted) {
         configure_dialog.ApplyConfiguration();
         // Defer theme update to allow dialog to close first (prevents Wayland focus hangs)
-        if (UISettings::values.theme != old_theme) {
-            QTimer::singleShot(0, this, &GMainWindow::UpdateUITheme);
-        }
+        QTimer::singleShot(0, this, &GMainWindow::UpdateUITheme);
     } else if (UISettings::values.reset_to_defaults) {
         LOG_INFO(Frontend, "Resetting all settings to defaults");
         if (!Common::FS::RemoveFile(config->GetConfigFilePath())) {
@@ -6401,25 +6399,60 @@ void GMainWindow::UpdateUITheme() {
     // Refresh status bar style to follow the theme (Silver for Light, Onyx for Dark)
     // We STRICTLY follow the text-only aesthetic from Screenshot 1 (No boxes/borders)
     const bool is_dark = UISettings::IsDarkTheme();
-    const QString status_bg = is_dark ? QStringLiteral("#24242a") : QStringLiteral("#f0f0f5");
-    const QString status_fg = is_dark ? QStringLiteral("#aaa") : QStringLiteral("#1a1a1e");
-    const QString status_border = is_dark ? QStringLiteral("#32323a") : QStringLiteral("#d0d0d5");
-
-    // Unified Top Bar styling (Reverting hardcoded dark segments)
-    const QString toolbar_bg = is_dark ? QStringLiteral("#24242a") : QStringLiteral("#ffffff");
-    const QString toolbar_border = is_dark ? QStringLiteral("#32323a") : QStringLiteral("#d0d0d5");
-    const QString toolbar_fg = is_dark ? QStringLiteral("#e0e0e4") : QStringLiteral("#1a1a1e");
-
+    
     // Retrieve dynamic accent color for UI elements
     const QString accent_hex = QString::fromStdString(UISettings::values.accent_color.GetValue());
     const QColor accent_color =
         QColor(accent_hex).isValid() ? QColor(accent_hex) : QColor(60, 120, 216);
     const QString accent_str = accent_color.name();
 
+    // 0. Refresh Game List theme and icons
+    if (game_list) {
+        game_list->RefreshTheme();
+    }
+
+    // 0. Global Background Image
+    const QString bg_path = QString::fromStdString(UISettings::values.custom_game_list_bg_path.GetValue());
+    if (!bg_path.isEmpty() && QFile::exists(bg_path)) {
+        setStyleSheet(QStringLiteral("GMainWindow { background-image: url(%1); "
+                                     "background-attachment: fixed; background-position: center; "
+                                     "background-repeat: no-repeat; "
+                                     "background-color: transparent; }")
+                          .arg(bg_path));
+    } else {
+        setStyleSheet(QStringLiteral("GMainWindow { background-image: none; }"));
+    }
+
+    // 1. Status Bar customization
+    const QString status_fg_hex = QString::fromStdString(UISettings::values.custom_status_bar_text_color.GetValue());
+    const QString status_fg = QColor(status_fg_hex).isValid() ? status_fg_hex : (is_dark ? QStringLiteral("#aaa") : QStringLiteral("#1a1a1e"));
+    const QString status_accent_hex = QString::fromStdString(UISettings::values.custom_status_bar_accent_color.GetValue());
+    const QString status_accent = QColor(status_accent_hex).isValid() ? status_accent_hex : accent_str;
+    
+    const u8 status_opacity = 255;
+    const QString status_bg_hex = QString::fromStdString(UISettings::values.custom_status_bar_bg_color.GetValue());
+    QColor status_bg_color = QColor(status_bg_hex).isValid() ? QColor(status_bg_hex) : (is_dark ? QColor(36, 36, 42) : QColor(240, 240, 245));
+    status_bg_color.setAlpha(status_opacity);
+    const QString status_bg = QStringLiteral("rgba(%1,%2,%3,%4)").arg(status_bg_color.red()).arg(status_bg_color.green()).arg(status_bg_color.blue()).arg(status_bg_color.alpha());
+    const QString status_border = is_dark ? QStringLiteral("rgba(255,255,255,0.1)") : QStringLiteral("rgba(0,0,0,0.1)");
+
+    // 2. Unified Top Bar customization
+    const QString toolbar_fg_hex = QString::fromStdString(UISettings::values.custom_toolbar_text_color.GetValue());
+    const QString toolbar_fg = QColor(toolbar_fg_hex).isValid() ? toolbar_fg_hex : (is_dark ? QStringLiteral("#e0e0e4") : QStringLiteral("#1a1a1e"));
+    
+    // Citron Neo Design: Top toolbar is always fully opaque to provide a solid aesthetic anchor.
+    const u8 toolbar_opacity = 255;
+    const QString toolbar_bg_hex = QString::fromStdString(UISettings::values.custom_toolbar_bg_color.GetValue());
+    QColor toolbar_bg_color = QColor(toolbar_bg_hex).isValid() ? QColor(toolbar_bg_hex) : (is_dark ? QColor(36, 36, 42) : QColor(255, 255, 255));
+    toolbar_bg_color.setAlpha(toolbar_opacity);
+    const QString toolbar_bg = QStringLiteral("rgba(%1,%2,%3,%4)").arg(toolbar_bg_color.red()).arg(toolbar_bg_color.green()).arg(toolbar_bg_color.blue()).arg(toolbar_bg_color.alpha());
+    const QString toolbar_border = is_dark ? QStringLiteral("rgba(255,255,255,0.1)") : QStringLiteral("rgba(0,0,0,0.1)");
+
     if (unified_top_bar) {
         unified_top_bar->setStyleSheet(
             QStringLiteral(
-                "QWidget#UnifiedTopBar { background-color: %1; border-bottom: 1px solid %2; }")
+                "QWidget#UnifiedTopBar { background-color: %1 !important; border-bottom: 1px solid %2; }"
+                "QWidget#UnifiedTopBar QWidget, QWidget#UnifiedTopBar QToolBar, QWidget#UnifiedTopBar QToolButton { background: transparent !important; border: none !important; }")
                 .arg(toolbar_bg, toolbar_border));
 
         // Update top bar buttons to adapt text color
@@ -6441,24 +6474,29 @@ void GMainWindow::UpdateUITheme() {
     }
 
     // Force aggressive transparency for status bar children to kill redundant 'boxes'
-    statusBar()->setStyleSheet(
+    const QString status_qss =
         QStringLiteral(
-            "QStatusBar { background-color: %1; border-top: 1px solid %2; color: %3; }"
-            "QStatusBar QLabel { color: %3 !important; background: transparent !important; border: "
-            "none !important; }"
-            "QStatusBar QPushButton, QStatusBar QToolButton, "
-            "QStatusBar QPushButton:checked, QStatusBar QToolButton:checked, "
-            "QStatusBar QPushButton:hover, QStatusBar QToolButton:hover { "
-            "background: transparent !important; background-color: transparent !important; "
-            "border: none !important; color: %3 !important; padding: 0px 6px !important; outline: "
-            "none !important; }"
-            "QStatusBar QPushButton#RendererStatusBarButton { color: #ff8c00 !important; "
-            "font-weight: bold !important; background: transparent !important; border: none "
-            "!important; }"
-            "QStatusBar QPushButton#GPUStatusBarButton { color: #32cd32 !important; font-weight: "
-            "bold !important; background: transparent !important; border: none !important; }"
+            "QStatusBar { background-color: %1 !important; color: %2 !important; border-top: 1px solid rgba(255,255,255,0.1); }"
+            "QStatusBar QLabel, QStatusBar .QLabel, QStatusBar QWidget { color: %2 !important; "
+            "background-color: transparent !important; border: none !important; }"
+            "QStatusBar QPushButton { color: %2 !important; background-color: transparent !important; "
+            "border: none !important; padding: 2px 5px !important; font-size: 8pt !important; }"
+            "QStatusBar QPushButton:hover { background-color: rgba(255,255,255,0.2) !important; }"
+            "QStatusBar QPushButton#DockStatusBarButton, "
+            "QStatusBar QPushButton#FilterStatusBarButton, "
+            "QStatusBar QPushButton#AaStatusBarButton, "
+            "QStatusBar QPushButton#VolumeStatusBarButton { "
+            "color: %3 !important; font-weight: bold !important; }"
+            "QStatusBar QPushButton#RendererStatusBarButton, "
+            "QStatusBar QPushButton#GPUStatusBarButton, "
+            "QStatusBar .QPushButton#RendererStatusBarButton, "
+            "QStatusBar .QPushButton#GPUStatusBarButton, "
+            "QPushButton#RendererStatusBarButton, "
+            "QPushButton#GPUStatusBarButton { "
+            "color: #ff8c00 !important; font-weight: bold !important; }"
             "QStatusBar::item { border: none !important; }")
-            .arg(status_bg, status_border, status_fg));
+            .arg(status_bg, status_fg, accent_str);
+    statusBar()->setStyleSheet(status_qss);
 
     // Dynamic Menu & ToolTip Styling (Unified adaptive styling)
     const QString global_style =
@@ -6485,6 +6523,10 @@ void GMainWindow::UpdateUITheme() {
 
     emit UpdateThemedIcons();
 
+    if (game_list) {
+        game_list->RefreshTheme();
+    }
+ 
     m_is_updating_theme = false;
 }
 

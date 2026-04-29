@@ -128,6 +128,8 @@ add_executable(citron
     configuration/configure_motion_touch.cpp
     configuration/configure_motion_touch.h
     configuration/configure_motion_touch.ui
+    configuration/configure_neo_themes.cpp
+    configuration/configure_neo_themes.h
     configuration/configure_per_game.cpp
     configuration/configure_per_game.h
     configuration/configure_per_game.ui

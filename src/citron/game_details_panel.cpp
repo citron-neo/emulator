@@ -8,6 +8,7 @@
 #include <QPropertyAnimation>
 #include <QPushButton>
 #include <QScrollArea>
+#include <QScrollBar>
 #include <QHBoxLayout>
 #include <QVBoxLayout>
 #include <QGraphicsDropShadowEffect>
@@ -243,6 +244,31 @@ void GameDetailsPanel::ApplyTheme() {
 
     for (auto* btn : m_action_buttons) {
         btn->setStyleSheet(btn_style);
+    }
+
+    // Style the ScrollArea's scrollbar specifically
+    const QString scroll_style = QStringLiteral(
+        "QScrollBar:vertical {"
+        "    background: transparent;"
+        "    width: 12px;"
+        "    margin: 0px;"
+        "}"
+        "QScrollBar::handle:vertical {"
+        "    background: %1;"
+        "    min-height: 20px;"
+        "    border-radius: 6px;"
+        "    margin: 2px;"
+        "}"
+        "QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {"
+        "    height: 0px;"
+        "    background: none;"
+        "}"
+        "QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {"
+        "    background: none;"
+        "}").arg(accent_hex);
+    
+    if (m_scroll_area && m_scroll_area->verticalScrollBar()) {
+        m_scroll_area->verticalScrollBar()->setStyleSheet(scroll_style);
     }
 
     update(); 
