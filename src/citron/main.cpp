@@ -651,6 +651,22 @@ GMainWindow::~GMainWindow() {
         game_list = nullptr;
     }
 
+    // `vfs` is destroyed before `system` (member order). Tear down FS state that owns
+    // RealVfsFile/VirtualFile handles into `vfs` while both are still valid.
+    if (system && vfs) {
+        system->GetFileSystemController().ReleaseVfsBackedCaches();
+    }
+    if (system) {
+        system->ClearContentProvider(FileSys::ContentProviderUnionSlot::FrontendManual);
+        system->ClearContentProvider(FileSys::ContentProviderUnionSlot::Autoloader);
+    }
+    if (provider) {
+        provider->ClearAllEntries();
+    }
+    if (autoloader_provider) {
+        autoloader_provider->ClearAllEntries();
+    }
+
     // will get automatically deleted otherwise
     if (render_window && render_window->parent() == nullptr) {
         delete render_window;

@@ -134,6 +134,11 @@ public:
     // above is called.
     void CreateFactories(FileSys::VfsFilesystem& vfs, bool overwrite = true);
 
+    /// Drop factories and union slots that hold VirtualFile / RealVfsFile handles into `vfs`.
+    /// Host UI must call this while `vfs` is still alive so teardown order does not destroy
+    /// RealVfsFilesystem before ~RealVfsFile (mutex use-after-free on exit).
+    void ReleaseVfsBackedCaches();
+
     // getter for main.cpp to trigger the sync between custom game paths for separate emulators
     FileSys::SaveDataFactory& GetSaveDataFactory() {
         return *global_save_data_factory;

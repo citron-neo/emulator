@@ -803,6 +803,24 @@ FileSys::VirtualDir FileSystemController::GetBCATDirectory(u64 title_id) const {
     return bis_factory->GetBCATDirectory(title_id);
 }
 
+void FileSystemController::ReleaseVfsBackedCaches() {
+    Reset();
+
+    system.ClearContentProvider(FileSys::ContentProviderUnionSlot::External);
+    external_provider.reset();
+
+    system.ClearContentProvider(FileSys::ContentProviderUnionSlot::SDMC);
+    sdmc_factory.reset();
+
+    system.ClearContentProvider(FileSys::ContentProviderUnionSlot::SysNAND);
+    system.ClearContentProvider(FileSys::ContentProviderUnionSlot::UserNAND);
+    bis_factory.reset();
+
+    gamecard_placeholder.reset();
+    gamecard_registered.reset();
+    gamecard.reset();
+}
+
 void FileSystemController::CreateFactories(FileSys::VfsFilesystem& vfs, bool overwrite) {
     if (overwrite) {
         bis_factory = nullptr;
