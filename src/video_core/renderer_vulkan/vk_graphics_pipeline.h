@@ -159,12 +159,9 @@ private:
     DescriptorAllocator resource_descriptor_allocator;
     vk::DescriptorUpdateTemplate resource_update_template;
 
-    // Per-pipeline descriptor set cache. Lets repeated draws with identical
-    // descriptor data (e.g. the bindless grass shader) skip the
-    // 1024-entry vkUpdateDescriptorSetWithTemplate by reusing the previously
-    // committed VkDescriptorSet. Entries are valid only while their cb_tick
-    // is still in flight (cb_tick > known_gpu_tick); past that the underlying
-    // set may be recycled to another committer with different contents.
+    // Per-CB cache of committed descriptor sets keyed on data-block hash.
+    // Entries are only reused while cb_tick equals the master semaphore's
+    // current tick - see ConfigureDraw for why crossing CBs is unsafe.
     struct CachedDescSet {
         u64 hash{0};
         u64 cb_tick{0};

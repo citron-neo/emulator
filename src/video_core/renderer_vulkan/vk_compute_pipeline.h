@@ -66,10 +66,8 @@ private:
     DescriptorAllocator resource_descriptor_allocator;
     vk::DescriptorUpdateTemplate resource_update_template;
 
-    // Per-pipeline descriptor set cache - same role as in GraphicsPipeline.
-    // Reuses a previously committed set when the descriptor data block is
-    // byte-identical to a still-in-flight commit, avoiding a redundant
-    // vkUpdateDescriptorSetWithTemplate.
+    // Per-CB cache of committed descriptor sets - see GraphicsPipeline for
+    // the safety constraint that limits reuse to a single CB submission.
     struct CachedDescSet {
         u64 hash{0};
         u64 cb_tick{0};
