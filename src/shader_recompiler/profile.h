@@ -10,6 +10,12 @@ namespace Shader {
 struct Profile {
     u32 supported_spirv{0x00010000};
     bool unified_descriptor_binding{};
+    /// When true, SPIR-V decorates uniform constant buffers as DescriptorSet=0
+    /// and storage buffers / texel buffers / image buffers / textures / images as
+    /// DescriptorSet=1, so the runtime can use VK_KHR_push_descriptor for set 0
+    /// even when set 1 is large (bindless texture array). Requires the runtime
+    /// to build a split pipeline layout.
+    bool has_split_descriptor_sets{};
     bool support_descriptor_aliasing{};
     bool support_int8{};
     bool support_int16{};
