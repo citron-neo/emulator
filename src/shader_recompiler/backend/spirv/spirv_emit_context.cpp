@@ -287,6 +287,12 @@ void Name(EmitContext& ctx, Id object, std::string_view format_str, Args&&... ar
                          .c_str());
 }
 
+constexpr u32 kSet0 = 0U;
+
+inline u32 ResourceSet(const Profile& profile) {
+    return profile.has_split_descriptor_sets ? 1U : 0U;
+}
+
 void DefineConstBuffers(EmitContext& ctx, const Info& info, Id UniformDefinitions::*member_type,
                         u32 binding, Id type, char type_char, u32 element_size) {
     const Id array_type{ctx.TypeArray(type, ctx.Const(65536U / element_size))};
@@ -305,7 +311,7 @@ void DefineConstBuffers(EmitContext& ctx, const Info& info, Id UniformDefinition
     for (const ConstantBufferDescriptor& desc : info.constant_buffer_descriptors) {
         const Id id{ctx.AddGlobalVariable(struct_pointer_type, spv::StorageClass::Uniform)};
         ctx.Decorate(id, spv::Decoration::Binding, binding);
-        ctx.Decorate(id, spv::Decoration::DescriptorSet, 0U);
+        ctx.Decorate(id, spv::Decoration::DescriptorSet, kSet0);
         ctx.Name(id, fmt::format("c{}", desc.index));
         for (size_t i = 0; i < desc.count; ++i) {
             ctx.cbufs[desc.index + i].*member_type = id;
@@ -335,7 +341,7 @@ void DefineSsbos(EmitContext& ctx, StorageTypeDefinition& type_def,
     for (const StorageBufferDescriptor& desc : info.storage_buffers_descriptors) {
         const Id id{ctx.AddGlobalVariable(struct_pointer, spv::StorageClass::StorageBuffer)};
         ctx.Decorate(id, spv::Decoration::Binding, binding);
-        ctx.Decorate(id, spv::Decoration::DescriptorSet, 0U);
+        ctx.Decorate(id, spv::Decoration::DescriptorSet, ResourceSet(ctx.profile));
         ctx.Name(id, fmt::format("ssbo{}", index));
         if (ctx.profile.supported_spirv >= 0x00010400) {
             ctx.interfaces.push_back(id);
@@ -486,10 +492,17 @@ EmitContext::EmitContext(const Profile& profile_, const RuntimeInfo& runtime_inf
       stage{program.stage}, texture_rescaling_index{bindings.texture_scaling_index},
       image_rescaling_index{bindings.image_scaling_index} {
     const bool is_unified{profile.unified_descriptor_binding};
-    u32& uniform_binding{is_unified ? bindings.unified : bindings.uniform_buffer};
-    u32& storage_binding{is_unified ? bindings.unified : bindings.storage_buffer};
-    u32& texture_binding{is_unified ? bindings.unified : bindings.texture};
-    u32& image_binding{is_unified ? bindings.unified : bindings.image};
+    const bool is_split{profile.has_split_descriptor_sets};
+    // Split mode: uniforms get their own binding counter (set 0), everything
+    // else shares the unified counter (set 1).
+    u32& uniform_binding{is_split ? bindings.uniform_buffer
+                                  : (is_unified ? bindings.unified : bindings.uniform_buffer)};
+    u32& storage_binding{is_split ? bindings.unified
+                                  : (is_unified ? bindings.unified : bindings.storage_buffer)};
+    u32& texture_binding{is_split ? bindings.unified
+                                  : (is_unified ? bindings.unified : bindings.texture)};
+    u32& image_binding{is_split ? bindings.unified
+                                : (is_unified ? bindings.unified : bindings.image)};
     AddCapability(spv::Capability::Shader);
     DefineCommonTypes(program.info);
     DefineCommonConstants();
@@ -1337,7 +1350,7 @@ void EmitContext::DefineTextureBuffers(const Info& info, u32& binding) {
             DescType(*this, image_buffer_type, pointer_type, desc.count),
             spv::StorageClass::UniformConstant)};
         Decorate(id, spv::Decoration::Binding, binding);
-        Decorate(id, spv::Decoration::DescriptorSet, 0U);
+        Decorate(id, spv::Decoration::DescriptorSet, ResourceSet(profile));
         Name(id, NameOf(stage, desc, "texbuf"));
         texture_buffers.push_back({
             .id = id,
@@ -1363,7 +1376,7 @@ void EmitContext::DefineImageBuffers(const Info& info, u32& binding) {
             DescType(*this, image_type, pointer_type, desc.count),
             spv::StorageClass::UniformConstant)};
         Decorate(id, spv::Decoration::Binding, binding);
-        Decorate(id, spv::Decoration::DescriptorSet, 0U);
+        Decorate(id, spv::Decoration::DescriptorSet, ResourceSet(profile));
         Name(id, NameOf(stage, desc, "imgbuf"));
         image_buffers.push_back({
             .id = id,
@@ -1388,7 +1401,7 @@ void EmitContext::DefineTextures(const Info& info, u32& binding, u32& scaling_in
         const Id desc_type{DescType(*this, sampled_type, pointer_type, desc.count)};
         const Id id{AddGlobalVariable(desc_type, spv::StorageClass::UniformConstant)};
         Decorate(id, spv::Decoration::Binding, binding);
-        Decorate(id, spv::Decoration::DescriptorSet, 0U);
+        Decorate(id, spv::Decoration::DescriptorSet, ResourceSet(profile));
         Name(id, NameOf(stage, desc, "tex"));
         textures.push_back({
             .id = id,
@@ -1419,7 +1432,7 @@ void EmitContext::DefineImages(const Info& info, u32& binding, u32& scaling_inde
             DescType(*this, image_type, pointer_type, desc.count),
             spv::StorageClass::UniformConstant)};
         Decorate(id, spv::Decoration::Binding, binding);
-        Decorate(id, spv::Decoration::DescriptorSet, 0U);
+        Decorate(id, spv::Decoration::DescriptorSet, ResourceSet(profile));
         Name(id, NameOf(stage, desc, "img"));
         images.push_back({
             .id = id,
