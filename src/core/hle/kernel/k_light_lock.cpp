@@ -77,6 +77,10 @@ bool KLightLock::LockSlowPath(uintptr_t _owner, uintptr_t _cur_thread) {
         if (owner_thread->IsSuspended()) {
             owner_thread->ContinueIfHasKernelWaiters();
         }
+
+        if (cur_thread->IsDummyThread()) {
+            cur_thread->RequestDummyThreadWait();
+        }
     }
 
     // Safety: explicitly clear our wait queue reference before the stack-local
