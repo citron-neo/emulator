@@ -107,6 +107,7 @@ static FileSys::VirtualFile VfsDirectoryCreateFileWrapper(const FileSys::Virtual
 #include <QSysInfo>
 #include <QToolTip>
 #include <QUrl>
+#include <QThreadPool>
 #include <QtConcurrent/QtConcurrent>
 
 #ifdef HAVE_SDL2
@@ -640,8 +641,18 @@ GMainWindow::GMainWindow(std::unique_ptr<QtConfig> config_, bool has_broken_vulk
 }
 
 GMainWindow::~GMainWindow() {
+    // GameList is a QObject child, so the QWidget subtree is destroyed only after this class's
+    // members — including `system`. GameListWorker holds Core::System& and runs on the global
+    // thread pool, so we must stop it and delete the widget tree while `system` is still valid.
+    if (game_list) {
+        game_list->CancelPopulation();
+        QThreadPool::globalInstance()->waitForDone();
+        delete game_list;
+        game_list = nullptr;
+    }
+
     // will get automatically deleted otherwise
-    if (render_window->parent() == nullptr) {
+    if (render_window && render_window->parent() == nullptr) {
         delete render_window;
     }
 
@@ -2321,6 +2332,9 @@ void GMainWindow::BootGame(const QString& filename, Service::AM::FrontendAppletP
     if (loader == nullptr || loader->ReadProgramId(title_id) != Loader::ResultStatus::Success) {
         // If we can't get a loader or read the title ID, we cannot proceed.
         LOG_CRITICAL(Frontend, "Failed to load game: Could not determine title ID.");
+        if (game_list) {
+            game_list->LoadController();
+        }
         return;
     }
 
@@ -2360,6 +2374,9 @@ void GMainWindow::BootGame(const QString& filename, Service::AM::FrontendAppletP
         };
 
         if (SelectAndSetCurrentUser(parameters) == false) {
+            if (game_list) {
+                game_list->LoadController();
+            }
             return; // User cancelled profile selection
         }
     }
@@ -2368,6 +2385,9 @@ void GMainWindow::BootGame(const QString& filename, Service::AM::FrontendAppletP
 
     // The core ROM loading logic. If this fails, we must not proceed.
     if (!LoadROM(filename, params)) {
+        if (game_list) {
+            game_list->LoadController();
+        }
         return;
     }
 
