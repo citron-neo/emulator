@@ -12,6 +12,7 @@
 #include <QList>
 #include <QListView>
 #include <QPaintEvent>
+#include <QScrollBar>
 #include <QPainter>
 #include <QPen>
 #include <QRect>
@@ -20,7 +21,8 @@
 #include <QWidget>
 #include "citron/game_grid_delegate.h"
 #include "citron/game_list_p.h"
-#include "citron/ui/game_grid_view.h"
+#include "game_grid_view.h"
+#include "citron/theme.h"
 #include "citron/uisettings.h"
 
 
@@ -267,6 +269,9 @@ GameGridView::GameGridView(QWidget* parent) : QWidget(parent) {
 }
 
 void GameGridView::ApplyTheme() {
+    const QString accent_color = Theme::GetAccentColor();
+    [[maybe_unused]] const bool dark = UISettings::IsDarkTheme();
+
     m_container->setAutoFillBackground(false);
     m_scroll_area->setAutoFillBackground(false);
     if (m_scroll_area->viewport()) {
@@ -276,9 +281,33 @@ void GameGridView::ApplyTheme() {
         vpal.setColor(QPalette::Window, Qt::transparent);
         m_scroll_area->viewport()->setPalette(vpal);
     }
+
     m_scroll_area->setStyleSheet(
-        QStringLiteral("QScrollArea { background: transparent; border: none; } QScrollArea > "
-                       "QWidget > QWidget { background: transparent; }"));
+        QStringLiteral("QScrollArea { background: transparent; border: none; } "
+                       "QScrollArea > QWidget > QWidget { background: transparent; }"));
+
+    // Style the ScrollArea's scrollbar specifically
+    QString scroll_style = QStringLiteral(
+        "QScrollBar:vertical {"
+        "    background: transparent;"
+        "    width: 12px;"
+        "    margin: 0px;"
+        "}"
+        "QScrollBar::handle:vertical {"
+        "    background: %1;"
+        "    min-height: 20px;"
+        "    border-radius: 6px;"
+        "    margin: 2px;"
+        "}"
+        "QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {"
+        "    height: 0px;"
+        "    background: none;"
+        "}"
+        "QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {"
+        "    background: none;"
+        "}").arg(accent_color);
+    
+    m_scroll_area->verticalScrollBar()->setStyleSheet(scroll_style);
 
     QString list_style = QStringLiteral(
         "QListView { background: transparent; border: none; outline: 0; padding: 0px; }"
@@ -287,6 +316,15 @@ void GameGridView::ApplyTheme() {
         "QListView::item:selected { background: transparent; }");
     m_fav_view->setStyleSheet(list_style);
     m_main_view->setStyleSheet(list_style);
+
+    // Update labels with slightly better contrast if needed
+    QString label_style = QStringLiteral(
+        "QLabel { color: #f5f5f5; font-weight: bold; font-size: 16px; "
+        "padding: 8px 0px 6px 28px; "
+        "border-bottom: 2px solid %1; background: transparent; }").arg(accent_color);
+    
+    if (m_fav_label) m_fav_label->setStyleSheet(label_style);
+    if (m_main_label) m_main_label->setStyleSheet(label_style + QStringLiteral("margin-top: 18px;"));
 }
 
 void GameGridView::setModels(QAbstractItemModel* fav_model, QAbstractItemModel* main_model) {

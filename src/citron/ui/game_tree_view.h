@@ -28,8 +28,11 @@ signals:
     void itemSelectionChanged(const QModelIndex& index);
 
 protected:
+    void paintEvent(QPaintEvent* event) override;
     void mouseDoubleClickEvent(QMouseEvent* event) override;
     void selectionChanged(const QItemSelection& selected, const QItemSelection& deselected) override;
 
     bool m_has_focus = false;
+    QPixmap m_bg_pixmap;
+    QString m_bg_path;
 };

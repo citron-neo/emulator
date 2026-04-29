@@ -28,16 +28,74 @@
 #include <QWidget>
 #include <QWindow>
 
-
 #include <QEvent>
 #include <QObject>
 #include <QWidget>
-
 
 #include "citron/game_list.h"
 #include "citron/game_list_delegate.h"
 #include "citron/game_list_p.h"
 #include "citron/uisettings.h"
+
+namespace {
+void DrawShadowedText(QPainter* painter, const QRect& rect, int flags, const QString& text,
+                      const QColor& color) {
+    // Determine outline color: use custom if valid, otherwise auto-calculate.
+    QString custom_outline_hex = QString::fromStdString(UISettings::values.custom_card_outline_color.GetValue());
+    QColor outline;
+    if (QColor(custom_outline_hex).isValid()) {
+        outline = QColor(custom_outline_hex);
+    } else {
+        outline = (color.lightness() > 110) ? QColor(0, 0, 0, 200) : QColor(255, 255, 255, 200);
+    }
+
+    int o = UISettings::values.custom_card_outline_size.GetValue();
+
+    painter->save();
+    painter->setPen(outline);
+    // 8-way outline with custom size
+    if (o > 0) {
+        painter->drawText(rect.translated(-o, 0), flags, text);
+        painter->drawText(rect.translated(o, 0), flags, text);
+        painter->drawText(rect.translated(0, -o), flags, text);
+        painter->drawText(rect.translated(0, o), flags, text);
+        painter->drawText(rect.translated(-o, -o), flags, text);
+        painter->drawText(rect.translated(o, -o), flags, text);
+        painter->drawText(rect.translated(-o, o), flags, text);
+        painter->drawText(rect.translated(o, o), flags, text);
+    }
+    painter->restore();
+
+    painter->setPen(color);
+    painter->drawText(rect, flags, text);
+}
+
+void DrawShadowedText(QPainter* painter, int x, int y, const QString& text, const QColor& color) {
+    QString custom_outline_hex = QString::fromStdString(UISettings::values.custom_card_outline_color.GetValue());
+    QColor outline;
+    if (QColor(custom_outline_hex).isValid()) {
+        outline = QColor(custom_outline_hex);
+    } else {
+        outline = (color.lightness() > 110) ? QColor(0, 0, 0, 200) : QColor(255, 255, 255, 200);
+    }
+    int o = UISettings::values.custom_card_outline_size.GetValue();
+    painter->save();
+    painter->setPen(outline);
+    if (o > 0) {
+        painter->drawText(x - o, y, text);
+        painter->drawText(x + o, y, text);
+        painter->drawText(x, y - o, text);
+        painter->drawText(x, y + o, text);
+        painter->drawText(x - o, y - o, text);
+        painter->drawText(x + o, y - o, text);
+        painter->drawText(x - o, y + o, text);
+        painter->drawText(x + o, y + o, text);
+    }
+    painter->restore();
+    painter->setPen(color);
+    painter->drawText(x, y, text);
+}
+} // namespace
 
 /**
  * OnyxTooltip is a custom tooltip widget designed for the "Grey Onyx" aesthetic.
@@ -171,7 +229,7 @@ QSize GameListDelegate::sizeHint(const QStyleOptionViewItem& option,
 
     if (is_game_row) {
         int base_height = GetCardHeight();
-        
+
         // Calculate the height needed for the text based on current font metrics
         QFontMetrics title_metrics(option.font);
         const int title_h = title_metrics.ascent() + title_metrics.descent();
@@ -186,7 +244,12 @@ QSize GameListDelegate::sizeHint(const QStyleOptionViewItem& option,
 
         size.setHeight(std::max(base_height, text_required_height));
     } else {
-        size.setHeight(36); // Clean height for folder headers
+        const int type = index.data(GameListItem::TypeRole).toInt();
+        if (type == static_cast<int>(GameListItemType::AddDir)) {
+            size.setHeight(52); // Taller for the action button aesthetic
+        } else {
+            size.setHeight(36); // Clean height for folder headers
+        }
     }
 
     return size;
@@ -251,8 +314,9 @@ void GameListDelegate::paint(QPainter* painter, const QStyleOptionViewItem& opti
         painter->restore();
     } else {
         // --- Category/Folder Header Rendering ---
-        const bool is_dark = UISettings::IsDarkTheme();
         const bool is_selected = option.state & QStyle::State_Selected;
+        const int type = index.data(GameListItem::TypeRole).toInt();
+        const bool is_add_dir = (type == static_cast<int>(GameListItemType::AddDir));
 
         // Background for header (span full width if in first column)
         if (index.column() == 0 && tree_view) {
@@ -260,13 +324,21 @@ void GameListDelegate::paint(QPainter* painter, const QStyleOptionViewItem& opti
             header_rect.setLeft(0);
             header_rect.setRight(tree_view->viewport()->width());
 
-            QColor header_bg = is_dark ? QColor(42, 42, 48) : QColor(235, 235, 240);
-            if (is_selected)
-                header_bg = AccentColor().darker(120);
+            if (is_add_dir) {
+                // Special styling for "Add Directory" action item
+                QColor bg = is_selected ? SelectionColor() : QColor(255, 255, 255, 5);
+                painter->setPen(Qt::NoPen);
+                painter->setBrush(bg);
+                painter->drawRoundedRect(header_rect.adjusted(8, 6, -8, -6), 8, 8);
+            } else {
+                QColor header_bg = CardBg();
+                const u8 header_opacity = UISettings::values.custom_header_opacity.GetValue();
+                header_bg.setAlpha(header_opacity);
 
-            painter->setPen(Qt::NoPen);
-            painter->setBrush(header_bg);
-            painter->drawRect(header_rect);
+                painter->setPen(Qt::NoPen);
+                painter->setBrush(header_bg);
+                painter->drawRect(header_rect);
+            }
         }
 
         // Content for first column only
@@ -282,20 +354,34 @@ void GameListDelegate::paint(QPainter* painter, const QStyleOptionViewItem& opti
                 }
 
                 if (!icon_pixmap.isNull()) {
-                    QRect icon_rect(rect.left() + 8, rect.top() + (rect.height() - 20) / 2, 20, 20);
-                    painter->drawPixmap(icon_rect, icon_pixmap.scaled(20, 20, Qt::KeepAspectRatio,
-                                                                      Qt::SmoothTransformation));
-                    text_offset = 36;
+                    int icon_sz = is_add_dir ? 22 : 20;
+                    QRect icon_rect(rect.left() + (is_add_dir ? 16 : 8),
+                                    rect.top() + (rect.height() - icon_sz) / 2, icon_sz, icon_sz);
+                    QPixmap scaled =
+                        icon_pixmap.scaled(icon_sz, icon_sz, Qt::KeepAspectRatio, Qt::SmoothTransformation);
+                    
+                    if (is_add_dir) {
+                        // Tint the "Add" icon with accent color to make it pop
+                        QPainter p(&scaled);
+                        p.setCompositionMode(QPainter::CompositionMode_SourceIn);
+                        p.fillRect(scaled.rect(), AccentColor());
+                        p.end();
+                    }
+
+                    painter->drawPixmap(icon_rect, scaled);
+                    text_offset = is_add_dir ? 52 : 36;
                 }
             }
 
             painter->setFont(option.font);
-            painter->setPen(TextColor());
+            painter->setPen(is_add_dir ? AccentColor() : HeaderTextColor());
             QFont f = painter->font();
             f.setBold(true);
+            if (is_add_dir) f.setPointSize(f.pointSize() + 1);
             painter->setFont(f);
-            painter->drawText(rect.adjusted(text_offset, 0, 0, 0), Qt::AlignVCenter | Qt::AlignLeft,
-                              index.data(Qt::DisplayRole).toString());
+            
+            QString text = index.data(Qt::DisplayRole).toString();
+            painter->drawText(rect.adjusted(text_offset, 0, 0, 0), Qt::AlignVCenter | Qt::AlignLeft, text);
         }
     }
 
@@ -506,7 +592,18 @@ void GameListDelegate::PaintBackground(QPainter* painter, const QStyleOptionView
         pulse = pulse_states[key];
     }
 
-    QColor bg = is_selected ? SelectionColor() : CardBg();
+    QColor bg = CardBg();
+    const u8 card_opacity = UISettings::values.custom_card_opacity.GetValue();
+    if (card_opacity < 255) {
+        bg.setAlpha(card_opacity);
+    }
+
+    const bool is_hovered = option.state & QStyle::State_MouseOver;
+    if (is_selected || is_hovered) {
+        // Selection/Hover is indicated by outline and stripe; card fill remains transparent.
+        bg = SelectionColor();
+    }
+
     QPainterPath path;
     path.addRoundedRect(card_rect, kCardRadius, kCardRadius);
 
@@ -516,9 +613,15 @@ void GameListDelegate::PaintBackground(QPainter* painter, const QStyleOptionView
     painter->drawPath(path);
 
     // 2. Draw accent outline slice
-    QColor border_color = is_selected ? AccentColor() : QColor(255, 255, 255, 20);
-    if (!UISettings::IsDarkTheme() && !is_selected)
-        border_color = QColor(0, 0, 0, 20);
+    QColor border_color;
+    const QString sel_hex = QString::fromStdString(UISettings::values.custom_selection_color.GetValue());
+    if (is_selected && QColor(sel_hex).isValid()) {
+        border_color = QColor(sel_hex);
+    } else {
+        border_color = is_selected ? AccentColor() : QColor(255, 255, 255, 20);
+        if (!UISettings::IsDarkTheme() && !is_selected)
+            border_color = QColor(0, 0, 0, 20);
+    }
 
     float pulse_width_extra = is_selected ? (0.2f + (float)pulse * 0.8f) : 0.0f;
     if (is_selected) {
@@ -577,10 +680,15 @@ void GameListDelegate::PaintGameInfo(QPainter* painter, const QRect& rect,
         icon_path.addRoundedRect(icon_rect, 6, 6);
         painter->save();
         painter->setClipPath(icon_path);
-        
-        const int final_icon_size = std::max(1, icon_size);
-        painter->drawPixmap(icon_rect, pixmap.scaled(final_icon_size, final_icon_size, Qt::KeepAspectRatio,
-                                                     Qt::SmoothTransformation));
+
+        if (!pixmap.isNull()) {
+            const int final_icon_size = std::max(1, icon_size);
+            QPixmap scaled = pixmap.scaled(final_icon_size, final_icon_size, Qt::KeepAspectRatio,
+                                           Qt::SmoothTransformation);
+            if (!scaled.isNull()) {
+                painter->drawPixmap(icon_rect, scaled);
+            }
+        }
         painter->restore();
 
         painter->setPen(QPen(QColor(255, 255, 255, 30), 1.0));
@@ -636,16 +744,15 @@ void GameListDelegate::PaintGameInfo(QPainter* painter, const QRect& rect,
     // Explicitly draw at the title baseline
     const int title_baseline = start_y + title_ascent;
     QString elided_title = metrics.elidedText(title, Qt::ElideRight, rect.right() - text_x - 12);
-    painter->drawText(text_x, title_baseline, elided_title);
+    DrawShadowedText(painter, text_x, title_baseline, elided_title, TextColor());
 
     // Draw Subtext (Program ID)
     if (!id.isEmpty()) {
-        painter->setPen(DimColor());
         painter->setFont(f_id);
 
         // Explicitly draw at the ID baseline
         const int id_baseline = title_baseline + title_descent + spacing + id_metrics.ascent();
-        painter->drawText(text_x, id_baseline, id);
+        DrawShadowedText(painter, text_x, id_baseline, id, DimColor());
     }
     painter->restore();
 }
@@ -710,13 +817,12 @@ void GameListDelegate::PaintCompatibility(QPainter* painter, const QRect& rect,
     else
         status_text = tr("Not Tested");
 
-    painter->setPen(color);
     QFont f = painter->font();
     f.setBold(true);
     f.setPixelSize(11); // Fixed size to prevent clipping with scaling
     painter->setFont(f);
 
-    painter->drawText(badge, Qt::AlignCenter, status_text);
+    DrawShadowedText(painter, badge, Qt::AlignCenter, status_text, color);
 }
 
 void GameListDelegate::PaintDefault(QPainter* painter, const QRect& rect,
@@ -776,11 +882,12 @@ void GameListDelegate::PaintDefault(QPainter* painter, const QRect& rect,
             painter->setClipRect(content_rect);
             painter->translate(0, -offset);
             for (int i = 0; i < lines.size(); ++i) {
-                painter->drawText(QRect(content_rect.left(), content_rect.top() + (i * line_h),
-                                        content_rect.width(), line_h),
-                                  Qt::AlignVCenter | Qt::AlignLeft,
-                                  painter->fontMetrics().elidedText(lines[i], Qt::ElideRight,
-                                                                    content_rect.width()));
+                QString elided = painter->fontMetrics().elidedText(lines[i], Qt::ElideRight,
+                                                                   content_rect.width());
+                DrawShadowedText(painter,
+                                 QRect(content_rect.left(), content_rect.top() + (i * line_h),
+                                       content_rect.width(), line_h),
+                                 Qt::AlignVCenter | Qt::AlignLeft, elided, TextColor());
             }
             painter->restore();
             return;
@@ -792,11 +899,12 @@ void GameListDelegate::PaintDefault(QPainter* painter, const QRect& rect,
             const int block_top =
                 content_rect.top() + std::max(0, (content_rect.height() - block_h) / 2);
             for (int i = 0; i < lines.size() && (i * line_h) < content_rect.height(); ++i) {
-                painter->drawText(QRect(content_rect.left(), block_top + (i * line_h),
-                                        content_rect.width(), line_h),
-                                  Qt::AlignVCenter | Qt::AlignLeft,
-                                  painter->fontMetrics().elidedText(lines[i], Qt::ElideRight,
-                                                                    content_rect.width()));
+                QString elided = painter->fontMetrics().elidedText(lines[i], Qt::ElideRight,
+                                                                   content_rect.width());
+                DrawShadowedText(painter,
+                                 QRect(content_rect.left(), block_top + (i * line_h),
+                                       content_rect.width(), line_h),
+                                 Qt::AlignVCenter | Qt::AlignLeft, elided, TextColor());
             }
             painter->restore();
             return;
@@ -804,31 +912,52 @@ void GameListDelegate::PaintDefault(QPainter* painter, const QRect& rect,
     }
 
     // Default static rendering for other columns
-    painter->drawText(
-        content_rect, Qt::AlignVCenter | Qt::AlignLeft,
-        painter->fontMetrics().elidedText(text, Qt::ElideRight, content_rect.width()));
+    DrawShadowedText(
+        painter, content_rect, Qt::AlignVCenter | Qt::AlignLeft,
+        painter->fontMetrics().elidedText(text, Qt::ElideRight, content_rect.width()), TextColor());
 }
 
 QColor GameListDelegate::CardBg() const {
+    const QString hex = QString::fromStdString(UISettings::values.custom_card_bg_color.GetValue());
+    if (QColor(hex).isValid()) {
+        return QColor(hex);
+    }
     return UISettings::IsDarkTheme() ? QColor(36, 36, 42) : QColor(245, 245, 250);
 }
 
 QColor GameListDelegate::TextColor() const {
+    const QString hex =
+        QString::fromStdString(UISettings::values.custom_card_text_color.GetValue());
+    if (QColor(hex).isValid()) {
+        return QColor(hex);
+    }
     return UISettings::IsDarkTheme() ? QColor(240, 240, 245) : QColor(30, 30, 35);
 }
 
-QColor GameListDelegate::DimColor() const {
-    return UISettings::IsDarkTheme() ? QColor(150, 150, 160) : QColor(105, 105, 118);
+QColor GameListDelegate::HeaderTextColor() const {
+    const QString hex =
+        QString::fromStdString(UISettings::values.custom_header_text_color.GetValue());
+    if (QColor(hex).isValid()) {
+        return QColor(hex);
+    }
+    return TextColor();
 }
 
 QColor GameListDelegate::SelectionColor() const {
-    // Subtle highlight ONLY (5-10% shift from card background)
-    QColor base = CardBg();
-    if (UISettings::IsDarkTheme()) {
-        return base.lighter(108);
-    } else {
-        return base.darker(105);
+    const QString hex = QString::fromStdString(UISettings::values.custom_selection_color.GetValue());
+    if (QColor(hex).isValid()) {
+        return QColor(hex);
     }
+    return Qt::transparent;
+}
+
+QColor GameListDelegate::DimColor() const {
+    const QString hex =
+        QString::fromStdString(UISettings::values.custom_card_dim_text_color.GetValue());
+    if (QColor(hex).isValid()) {
+        return QColor(hex);
+    }
+    return UISettings::IsDarkTheme() ? QColor(150, 150, 160) : QColor(105, 105, 118);
 }
 
 QColor GameListDelegate::AccentColor() const {

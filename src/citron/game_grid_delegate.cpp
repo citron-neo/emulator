@@ -158,8 +158,12 @@ void GameGridDelegate::PaintGridItem(QPainter* painter, const QStyleOptionViewIt
                                  radius + 2, radius + 2);
     }
 
-    QColor onyx(22, 22, 26);
-    painter->setBrush(onyx);
+    QColor card_bg = CardBg();
+    const u8 card_opacity = UISettings::values.custom_card_opacity.GetValue();
+    if (card_opacity < 255) {
+        card_bg.setAlpha(card_opacity);
+    }
+    painter->setBrush(card_bg);
     painter->setPen(Qt::NoPen);
     painter->drawRoundedRect(card_rect, radius, radius);
 
@@ -247,7 +251,7 @@ void GameGridDelegate::PaintGridItem(QPainter* painter, const QStyleOptionViewIt
     }
 
     QString title = index.data(Qt::DisplayRole).toString().split(QLatin1Char('\n')).first();
-    painter->setPen(Qt::white);
+    painter->setPen(TextColor());
     QFont tf = option.font;
     tf.setBold(true);
     tf.setPointSizeF(std::max(1.0f, 8.5f * scale));
@@ -263,16 +267,30 @@ void GameGridDelegate::PaintGridItem(QPainter* painter, const QStyleOptionViewIt
 }
 
 QColor GameGridDelegate::CardBg() const {
+    const QString hex = QString::fromStdString(UISettings::values.custom_card_bg_color.GetValue());
+    if (QColor(hex).isValid()) {
+        return QColor(hex);
+    }
     return QColor(22, 22, 26);
 }
 QColor GameGridDelegate::TextColor() const {
+    const QString hex = QString::fromStdString(UISettings::values.custom_card_text_color.GetValue());
+    if (QColor(hex).isValid()) {
+        return QColor(hex);
+    }
     return QColor(255, 255, 255);
 }
 QColor GameGridDelegate::DimColor() const {
+    const QString hex =
+        QString::fromStdString(UISettings::values.custom_card_dim_text_color.GetValue());
+    if (QColor(hex).isValid()) {
+        return QColor(hex);
+    }
     return QColor(120, 120, 130);
 }
 QColor GameGridDelegate::SelectionColor() const {
-    return QColor(35, 35, 40);
+    // Return transparent to remove the "weird fill-in" as requested by the user.
+    return Qt::transparent;
 }
 QColor GameGridDelegate::AccentColor() const {
     const QString hex = QString::fromStdString(UISettings::values.accent_color.GetValue());

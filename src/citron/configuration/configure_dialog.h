@@ -35,6 +35,7 @@ class ConfigureProfileManager;
 class ConfigureSystem;
 class ConfigureUi;
 class ConfigureWeb;
+class ConfigureNeoThemes;
 class GameList;
 class StyleAnimationEventFilter;
 
@@ -90,6 +91,7 @@ private:
     std::unique_ptr<ConfigureProfileManager> profile_tab;
     std::unique_ptr<ConfigureSystem> system_tab;
     std::unique_ptr<ConfigureWeb> web_tab;
+    std::unique_ptr<ConfigureNeoThemes> neo_themes_tab;
     std::unique_ptr<QButtonGroup> tab_button_group;
     std::vector<QPushButton*> tab_buttons;
     StyleAnimationEventFilter* animation_filter{nullptr};

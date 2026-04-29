@@ -37,6 +37,7 @@
 #include "citron/configuration/configure_system.h"
 #include "citron/configuration/configure_ui.h"
 #include "citron/configuration/configure_web.h"
+#include "citron/configuration/configure_neo_themes.h"
 #include "citron/configuration/configuration_styling.h"
 #include "citron/configuration/style_animation_event_filter.h"
 #include "citron/game_list.h"
@@ -101,7 +102,8 @@ ConfigureDialog::ConfigureDialog(QWidget* parent, HotkeyRegistry& registry_,
       network_tab{std::make_unique<ConfigureNetwork>(system_, this)},
       profile_tab{std::make_unique<ConfigureProfileManager>(system_, this)},
       system_tab{std::make_unique<ConfigureSystem>(system_, nullptr, *builder, this)},
-      web_tab{std::make_unique<ConfigureWeb>(this)} {
+      web_tab{std::make_unique<ConfigureWeb>(this)},
+      neo_themes_tab{std::make_unique<ConfigureNeoThemes>(this)} {
 
     if (auto* main_window = qobject_cast<GMainWindow*>(parent)) {
         connect(filesystem_tab.get(), &ConfigureFilesystem::RequestGameListRefresh, main_window,
@@ -125,11 +127,12 @@ ConfigureDialog::ConfigureDialog(QWidget* parent, HotkeyRegistry& registry_,
     
     // Explicitly list buttons to ensure correct order in the layout
     const std::vector<QPushButton*> ordered_buttons = {
-        ui->generalTabButton, ui->uiTabButton,      ui->systemTabButton,
-        ui->cpuTabButton,     ui->graphicsTabButton, ui->graphicsAdvancedTabButton,
-        ui->audioTabButton,   ui->inputTabButton,    ui->hotkeysTabButton,
-        ui->networkTabButton, ui->webTabButton,      ui->filesystemTabButton,
-        ui->profilesTabButton, ui->appletsTabButton,  ui->loggingTabButton,
+        ui->generalTabButton, ui->uiTabButton,      ui->neoThemesTabButton,
+        ui->systemTabButton,  ui->cpuTabButton,     ui->graphicsTabButton,
+        ui->graphicsAdvancedTabButton, ui->audioTabButton,   ui->inputTabButton,
+        ui->hotkeysTabButton, ui->networkTabButton, ui->webTabButton,
+        ui->filesystemTabButton, ui->profilesTabButton, ui->appletsTabButton,
+        ui->loggingTabButton,
     };
     tab_buttons = ordered_buttons;
 
@@ -169,22 +172,24 @@ ConfigureDialog::ConfigureDialog(QWidget* parent, HotkeyRegistry& registry_,
     tab_button_group->setExclusive(true);
     tab_button_group->addButton(ui->generalTabButton, 0);
     tab_button_group->addButton(ui->uiTabButton, 1);
-    tab_button_group->addButton(ui->systemTabButton, 2);
-    tab_button_group->addButton(ui->cpuTabButton, 3);
-    tab_button_group->addButton(ui->graphicsTabButton, 4);
-    tab_button_group->addButton(ui->graphicsAdvancedTabButton, 5);
-    tab_button_group->addButton(ui->audioTabButton, 6);
-    tab_button_group->addButton(ui->inputTabButton, 7);
-    tab_button_group->addButton(ui->hotkeysTabButton, 8);
-    tab_button_group->addButton(ui->networkTabButton, 9);
-    tab_button_group->addButton(ui->webTabButton, 10);
-    tab_button_group->addButton(ui->filesystemTabButton, 11);
-    tab_button_group->addButton(ui->profilesTabButton, 12);
-    tab_button_group->addButton(ui->appletsTabButton, 13);
-    tab_button_group->addButton(ui->loggingTabButton, 14);
+    tab_button_group->addButton(ui->neoThemesTabButton, 2);
+    tab_button_group->addButton(ui->systemTabButton, 3);
+    tab_button_group->addButton(ui->cpuTabButton, 4);
+    tab_button_group->addButton(ui->graphicsTabButton, 5);
+    tab_button_group->addButton(ui->graphicsAdvancedTabButton, 6);
+    tab_button_group->addButton(ui->audioTabButton, 7);
+    tab_button_group->addButton(ui->inputTabButton, 8);
+    tab_button_group->addButton(ui->hotkeysTabButton, 9);
+    tab_button_group->addButton(ui->networkTabButton, 10);
+    tab_button_group->addButton(ui->webTabButton, 11);
+    tab_button_group->addButton(ui->filesystemTabButton, 12);
+    tab_button_group->addButton(ui->profilesTabButton, 13);
+    tab_button_group->addButton(ui->appletsTabButton, 14);
+    tab_button_group->addButton(ui->loggingTabButton, 15);
 
     ui->stackedWidget->addWidget(CreateScrollArea(general_tab.get()));
     ui->stackedWidget->addWidget(CreateScrollArea(ui_tab.get()));
+    ui->stackedWidget->addWidget(CreateScrollArea(neo_themes_tab.get()));
     ui->stackedWidget->addWidget(CreateScrollArea(system_tab.get()));
     ui->stackedWidget->addWidget(CreateScrollArea(cpu_tab.get()));
     ui->stackedWidget->addWidget(CreateScrollArea(graphics_tab.get()));
@@ -473,6 +478,7 @@ void ConfigureDialog::ApplyConfiguration() {
     web_tab->ApplyConfiguration();
     network_tab->ApplyConfiguration();
     applets_tab->ApplyConfiguration();
+    neo_themes_tab->ApplyConfiguration();
     system.ApplySettings();
     Settings::LogSettings();
 }

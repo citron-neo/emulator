@@ -183,6 +183,25 @@ namespace UISettings {
                                         Setting<std::string> accent_color{linkage, "#4a9eff", "accent_color", Category::Ui};
                                         Setting<bool> enable_rainbow_mode{linkage, false, "enable_rainbow_mode", Category::Ui};
                                         Setting<std::string> neo_ui_theme{linkage, "none", "neo_ui_theme", Category::Ui};
+                                        Setting<std::string> custom_game_list_bg_path{linkage, "", "custom_game_list_bg_path", Category::Ui};
+                                        Setting<u8> custom_game_list_bg_opacity{linkage, 128, "custom_game_list_bg_opacity", Category::Ui};
+                                        Setting<std::string> custom_card_bg_color{linkage, "", "custom_card_bg_color", Category::Ui};
+                                        Setting<std::string> custom_card_text_color{linkage, "", "custom_card_text_color", Category::Ui};
+                                        Setting<std::string> custom_card_dim_text_color{linkage, "", "custom_card_dim_text_color", Category::Ui};
+                                        Setting<u8> custom_card_opacity{linkage, 255, "custom_card_opacity", Category::Ui};
+                                        Setting<std::string> custom_header_text_color{linkage, "", "custom_header_text_color", Category::Ui};
+                                        Setting<std::string> custom_header_bg_color{linkage, "", "custom_header_bg_color", Category::Ui};
+                                        Setting<u8> custom_header_opacity{linkage, 255, "custom_header_opacity", Category::Ui};
+                                        Setting<std::string> custom_status_bar_text_color{linkage, "", "custom_status_bar_text_color", Category::Ui};
+                                        Setting<std::string> custom_status_bar_bg_color{linkage, "", "custom_status_bar_bg_color", Category::Ui};
+                                        Setting<std::string> custom_status_bar_accent_color{linkage, "", "custom_status_bar_accent_color", Category::Ui};
+                                        Setting<std::string> custom_toolbar_text_color{linkage, "", "custom_toolbar_text_color", Category::Ui};
+                                        Setting<std::string> custom_toolbar_bg_color{linkage, "", "custom_toolbar_bg_color", Category::Ui};
+                                        Setting<std::string> custom_card_outline_color{linkage, "", "custom_card_outline_color", Category::Ui};
+                                        Setting<u8> custom_card_outline_size{linkage, 1, "custom_card_outline_size", Category::Ui};
+                                        Setting<std::string> custom_selection_color{linkage, "", "custom_selection_color", Category::Ui};
+                                        Setting<std::string> custom_list_bg_color{linkage, "", "custom_list_bg_color", Category::Ui};
+                                        Setting<u8> game_list_slider_mode{linkage, 0, "game_list_slider_mode", Category::Ui};
 
                                         // Shortcut name <Shortcut, context>
                                         std::vector<Shortcut> shortcuts;

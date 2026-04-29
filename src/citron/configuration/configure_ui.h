@@ -41,7 +41,6 @@ protected:
 
 private slots:
     void OnLanguageChanged(int index);
-    void OnAccentColorButtonPressed();
 
 private:
     void RequestGameListUpdate();

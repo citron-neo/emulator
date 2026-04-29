@@ -129,28 +129,16 @@ resolution_setting{Settings::values.resolution_setup.GetValue()}, system{system_
         emit UIPositioningChanged(text);
     });
 
-    auto* update_channel_combo = new QComboBox(this);
-    update_channel_combo->setObjectName(QStringLiteral("update_channel_combo"));
-    update_channel_combo->addItem(tr("Stable"), QStringLiteral("Stable"));
-    update_channel_combo->addItem(tr("Nightly"), QStringLiteral("Nightly"));
-    update_channel_combo->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
-    ui->generalFormLayout->insertRow(2, tr("Update Channel"), update_channel_combo);
 
 
     InitializeIconSizeComboBox();
     InitializeRowComboBoxes();
 
-    ui->neo_ui_theme_combobox->addItem(tr("None"), QStringLiteral("none"));
-    ui->neo_ui_theme_combobox->addItem(tr("Electrifying"), QStringLiteral("lightning"));
 
     PopulateResolutionComboBox(ui->screenshot_height, this);
 
     SetConfiguration();
 
-    connect(ui->accentColorButton, &QPushButton::clicked, this, &ConfigureUi::OnAccentColorButtonPressed);
-    connect(ui->rainbowModeCheckBox, &QCheckBox::checkStateChanged, this, [this](int state) {
-        emit themeChanged();
-    });
 
     // Force game list reload if any of the relevant settings are changed.
     connect(ui->show_add_ons, &QCheckBox::checkStateChanged, this, &ConfigureUi::RequestGameListUpdate);
@@ -202,15 +190,6 @@ void ConfigureUi::ApplyConfiguration() {
     UISettings::values.theme =
     ui->theme_combobox->itemData(ui->theme_combobox->currentIndex()).toString().toStdString();
     UISettings::values.ui_positioning = ui->ui_positioning_combo->currentData().toString().toStdString();
-    UISettings::values.neo_ui_theme = ui->neo_ui_theme_combobox->currentData().toString().toStdString();
-
-    auto* update_channel_combo = findChild<QComboBox*>("update_channel_combo");
-    if (update_channel_combo) {
-        QSettings settings;
-        settings.setValue("updater/channel", update_channel_combo->currentData().toString());
-    }
-
-    UISettings::values.enable_rainbow_mode = ui->rainbowModeCheckBox->isChecked();
     UISettings::values.show_add_ons = ui->show_add_ons->isChecked();
     UISettings::values.show_compat = ui->show_compat->isChecked();
     UISettings::values.show_size = ui->show_size->isChecked();
@@ -272,17 +251,6 @@ void ConfigureUi::SetConfiguration() {
         QString::fromStdString(UISettings::values.language.GetValue())));
     ui->ui_positioning_combo->setCurrentIndex(ui->ui_positioning_combo->findData(
         QString::fromStdString(UISettings::values.ui_positioning.GetValue())));
-    ui->neo_ui_theme_combobox->setCurrentIndex(ui->neo_ui_theme_combobox->findData(
-        QString::fromStdString(UISettings::values.neo_ui_theme.GetValue())));
-
-    auto* update_channel_combo = findChild<QComboBox*>("update_channel_combo");
-    if (update_channel_combo) {
-        QSettings settings;
-        QString channel = settings.value("updater/channel", QStringLiteral("Nightly")).toString();
-        update_channel_combo->setCurrentIndex(update_channel_combo->findData(channel));
-    }
-
-    ui->rainbowModeCheckBox->setChecked(UISettings::values.enable_rainbow_mode.GetValue());
     ui->show_add_ons->setChecked(UISettings::values.show_add_ons.GetValue());
     ui->show_compat->setChecked(UISettings::values.show_compat.GetValue());
     ui->show_size->setChecked(UISettings::values.show_size.GetValue());
@@ -307,17 +275,6 @@ void ConfigureUi::SetConfiguration() {
     }
 }
 
-void ConfigureUi::OnAccentColorButtonPressed() {
-    const QColor current_color(QString::fromStdString(UISettings::values.accent_color.GetValue()));
-    QColorDialog dialog(current_color, this);
-    if (dialog.exec() == QDialog::Accepted) {
-        const QColor color = dialog.selectedColor();
-        if (color.isValid()) {
-            UISettings::values.accent_color.SetValue(color.name().toStdString());
-            emit themeChanged();
-        }
-    }
-}
 
 void ConfigureUi::changeEvent(QEvent* event) {
     if (event->type() == QEvent::LanguageChange) {
@@ -335,17 +292,6 @@ void ConfigureUi::RetranslateUI() {
     ui->ui_positioning_combo->setItemText(1, tr("Horizontal"));
     ui->ui_positioning_combo->setCurrentIndex(pos_index);
 
-    auto* update_channel_combo = findChild<QComboBox*>("update_channel_combo");
-    if (update_channel_combo) {
-        const int channel_index = update_channel_combo->currentIndex();
-        update_channel_combo->setItemText(0, tr("Stable"));
-        update_channel_combo->setItemText(1, tr("Nightly"));
-        update_channel_combo->setCurrentIndex(channel_index);
-
-        if (auto* label = qobject_cast<QLabel*>(ui->generalFormLayout->labelForField(update_channel_combo))) {
-            label->setText(tr("Update Channel"));
-        }
-    }
 
     for (int i = 0; i < ui->game_icon_size_combobox->count(); i++) {
         ui->game_icon_size_combobox->setItemText(i,

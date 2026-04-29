@@ -40,13 +40,53 @@
            <property name="bottomMargin">
             <number>0</number>
            </property>
-           <item>
-            <widget class="QCheckBox" name="check_for_updates_checkbox">
-             <property name="text">
-              <string>Check for updates on startup</string>
-             </property>
-            </widget>
-           </item>
+            <item>
+             <widget class="QCheckBox" name="check_for_updates_checkbox">
+              <property name="text">
+               <string>Check for updates on startup</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <layout class="QHBoxLayout" name="update_channel_layout">
+              <item>
+               <widget class="QLabel" name="update_channel_label">
+                <property name="text">
+                 <string>Update Channel:</string>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <widget class="QComboBox" name="update_channel_combo">
+                <property name="maximumSize">
+                 <size>
+                  <width>200</width>
+                  <height>16777215</height>
+                 </size>
+                </property>
+                <property name="sizePolicy">
+                 <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+                  <horstretch>0</horstretch>
+                  <verstretch>0</verstretch>
+                 </sizepolicy>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <spacer name="update_channel_spacer">
+                <property name="orientation">
+                 <enum>Qt::Horizontal</enum>
+                </property>
+                <property name="sizeHint" stdset="0">
+                 <size>
+                  <width>40</width>
+                  <height>20</height>
+                 </size>
+                </property>
+               </spacer>
+              </item>
+             </layout>
+            </item>
           </layout>
          </widget>
         </item>
