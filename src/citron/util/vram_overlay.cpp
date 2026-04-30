@@ -256,8 +256,9 @@ void VramOverlay::mouseReleaseEvent(QMouseEvent* event) {
 }
 
 void VramOverlay::UpdateVramStats() {
-    // Stop the timer and hide if the app is closing
-    if (QCoreApplication::closingDown() || !main_window || main_window->isHidden()) {
+    // Stop the timer and hide if the app is closing or shutting down
+    if (QCoreApplication::closingDown() || !main_window || main_window->isHidden() || 
+        !main_window->system || main_window->system->IsShuttingDown()) {
         update_timer.stop();
         if (!this->isHidden()) this->hide();
         return;
