@@ -134,6 +134,7 @@ void BufferCache<P>::TickFrame() {
 
 template <class P>
 void BufferCache<P>::WriteMemory(DAddr device_addr, u64 size) {
+    std::scoped_lock lock{gpu_modified_mutex};
     if (memory_tracker.IsRegionGpuModified(device_addr, size)) {
         ClearDownload(device_addr, size);
         gpu_modified_ranges.Subtract(device_addr, size);
@@ -668,6 +669,7 @@ void BufferCache<P>::PopAsyncBuffers() {
 
 template <class P>
 bool BufferCache<P>::IsRegionGpuModified(DAddr addr, size_t size) {
+    std::scoped_lock lock{gpu_modified_mutex};
     bool is_dirty = false;
     gpu_modified_ranges.ForEachInRange(addr, size, [&](DAddr, DAddr) { is_dirty = true; });
     return is_dirty;
@@ -675,6 +677,7 @@ bool BufferCache<P>::IsRegionGpuModified(DAddr addr, size_t size) {
 
 template <class P>
 bool BufferCache<P>::IsRegionRegistered(DAddr addr, size_t size) {
+    std::scoped_lock lock{page_table_mutex};
     const DAddr end_addr = addr + size;
     const u64 page_end = Common::DivCeil(end_addr, CACHING_PAGESIZE);
     for (u64 page = addr >> CACHING_PAGEBITS; page < page_end;) {
@@ -1282,6 +1285,7 @@ void BufferCache<P>::UpdateComputeTextureBuffers() {
 
 template <class P>
 void BufferCache<P>::MarkWrittenBuffer(BufferId buffer_id, DAddr device_addr, u32 size) {
+    std::scoped_lock lock{gpu_modified_mutex};
     memory_tracker.MarkRegionAsGpuModified(device_addr, size);
     gpu_modified_ranges.Add(device_addr, size);
     uncommitted_gpu_modified_ranges.Add(device_addr, size);
@@ -1289,6 +1293,7 @@ void BufferCache<P>::MarkWrittenBuffer(BufferId buffer_id, DAddr device_addr, u3
 
 template <class P>
 BufferId BufferCache<P>::FindBuffer(DAddr device_addr, u32 size) {
+    std::scoped_lock lock{page_table_mutex};
     if (device_addr == 0) {
         return NULL_BUFFER_ID;
     }
@@ -1404,6 +1409,7 @@ void BufferCache<P>::JoinOverlap(BufferId new_buffer_id, BufferId overlap_id,
 
 template <class P>
 BufferId BufferCache<P>::CreateBuffer(DAddr device_addr, u32 wanted_size) {
+    std::scoped_lock lock{page_table_mutex};
     DAddr device_addr_end = Common::AlignUp(device_addr + wanted_size, CACHING_PAGESIZE);
     device_addr = Common::AlignDown(device_addr, CACHING_PAGESIZE);
     wanted_size = static_cast<u32>(device_addr_end - device_addr);
@@ -1424,11 +1430,13 @@ BufferId BufferCache<P>::CreateBuffer(DAddr device_addr, u32 wanted_size) {
 
 template <class P>
 void BufferCache<P>::Register(BufferId buffer_id) {
+    std::scoped_lock lock{page_table_mutex};
     ChangeRegister<true>(buffer_id);
 }
 
 template <class P>
 void BufferCache<P>::Unregister(BufferId buffer_id) {
+    std::scoped_lock lock{page_table_mutex};
     ChangeRegister<false>(buffer_id);
 }
 
@@ -1682,6 +1690,7 @@ void BufferCache<P>::DownloadBufferMemory(Buffer& buffer, DAddr device_addr, u64
 
 template <class P>
 void BufferCache<P>::DeleteBuffer(BufferId buffer_id, bool do_not_mark) {
+    std::scoped_lock lock{page_table_mutex};
     bool dirty_index{false};
     boost::container::small_vector<u64, NUM_VERTEX_BUFFERS> dirty_vertex_buffers;
     const auto scalar_replace = [buffer_id](Binding& binding) {

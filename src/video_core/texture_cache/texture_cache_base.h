@@ -260,6 +260,8 @@ public:
     void PrepareImage(ImageId image_id, bool is_modification, bool invalidate);
 
     std::recursive_mutex mutex;
+    mutable std::recursive_mutex image_state_mutex;
+    mutable std::recursive_mutex image_map_mutex;
 
 private:
     /// Iterate over all page indices in a range

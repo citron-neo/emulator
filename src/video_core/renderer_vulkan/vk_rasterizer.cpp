@@ -582,7 +582,6 @@ void RasterizerVulkan::FlushRegion(DAddr addr, u64 size, VideoCommon::CacheType 
 
 bool RasterizerVulkan::MustFlushRegion(DAddr addr, u64 size, VideoCommon::CacheType which) {
     if ((True(which & VideoCommon::CacheType::BufferCache))) {
-        std::scoped_lock lock{buffer_cache.mutex};
         if (buffer_cache.IsRegionGpuModified(addr, size)) {
             return true;
         }
@@ -592,20 +591,16 @@ bool RasterizerVulkan::MustFlushRegion(DAddr addr, u64 size, VideoCommon::CacheT
         return false;
     }
     if (True(which & VideoCommon::CacheType::TextureCache)) {
-        std::scoped_lock lock{texture_cache.mutex};
         return texture_cache.IsRegionGpuModified(addr, size);
     }
     return false;
 }
 
 VideoCore::RasterizerDownloadArea RasterizerVulkan::GetFlushArea(DAddr addr, u64 size) {
-    {
-        std::scoped_lock lock{texture_cache.mutex};
         auto area = texture_cache.GetFlushArea(addr, size);
         if (area) {
             return *area;
         }
-    }
     VideoCore::RasterizerDownloadArea new_area{
         .start_address = Common::AlignDown(addr, Core::DEVICE_PAGESIZE),
         .end_address = Common::AlignUp(addr + size, Core::DEVICE_PAGESIZE),
@@ -660,18 +655,11 @@ bool RasterizerVulkan::OnCPUWrite(DAddr addr, u64 size) {
         return false;
     }
 
-    {
-        std::scoped_lock lock{buffer_cache.mutex};
-        if (buffer_cache.OnCPUWrite(addr, size)) {
-            return true;
-        }
+    if (buffer_cache.OnCPUWrite(addr, size)) {
+        return true;
     }
 
-    {
-        std::scoped_lock lock{texture_cache.mutex};
-        texture_cache.WriteMemory(addr, size);
-    }
-
+    texture_cache.WriteMemory(addr, size);
     pipeline_cache.InvalidateRegion(addr, size);
     return false;
 }

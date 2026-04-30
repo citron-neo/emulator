@@ -2072,50 +2072,28 @@ template <typename Func>
 void TextureCache<P>::ForEachImageInRegion(DAddr cpu_addr, size_t size, Func&& func) {
     using FuncReturn = typename std::invoke_result<Func, ImageId, Image&>::type;
     static constexpr bool BOOL_BREAK = std::is_same_v<FuncReturn, bool>;
-    boost::container::small_vector<ImageId, 32> images;
-    boost::container::small_vector<ImageMapId, 32> maps;
-    ForEachCPUPage(cpu_addr, size, [this, &images, &maps, cpu_addr, size, func](u64 page) {
-        const auto it = page_table.find(page);
-        if (it == page_table.end()) {
-            if constexpr (BOOL_BREAK) {
-                return false;
-            } else {
-                return;
-            }
-        }
-        for (const ImageMapId map_id : it->second) {
-            ImageMapView& map = slot_map_views[map_id];
-            if (map.picked) {
-                continue;
-            }
-            if (!map.Overlaps(cpu_addr, size)) {
-                continue;
-            }
-            map.picked = true;
-            maps.push_back(map_id);
-            Image& image = slot_images[map.image_id];
-            if (True(image.flags & ImageFlagBits::Picked)) {
-                continue;
-            }
-            image.flags |= ImageFlagBits::Picked;
-            images.push_back(map.image_id);
-            if constexpr (BOOL_BREAK) {
-                if (func(map.image_id, image)) {
-                    return true;
+    boost::container::small_vector<ImageId, 32> unique_images;
+    {
+        std::scoped_lock lock{image_map_mutex};
+        ForEachCPUPage(cpu_addr, size, [this, cpu_addr, size, &unique_images](u64 page) {
+            const auto it = page_table.find(page);
+            if (it == page_table.end()) return;
+            for (const ImageMapId map_id : it->second) {
+                ImageMapView& map = slot_map_views[map_id];
+                if (map.Overlaps(cpu_addr, size)) {
+                    unique_images.push_back(map.image_id);
                 }
-            } else {
-                func(map.image_id, image);
             }
-        }
-        if constexpr (BOOL_BREAK) {
-            return false;
-        }
-    });
-    for (const ImageId image_id : images) {
-        slot_images[image_id].flags &= ~ImageFlagBits::Picked;
+        });
+        std::sort(unique_images.begin(), unique_images.end());
+        unique_images.erase(std::unique(unique_images.begin(), unique_images.end()), unique_images.end());
     }
-    for (const ImageMapId map_id : maps) {
-        slot_map_views[map_id].picked = false;
+    for (const ImageId image_id : unique_images) {
+        if constexpr (BOOL_BREAK) {
+            if (func(image_id, slot_images[image_id])) return;
+        } else {
+            func(image_id, slot_images[image_id]);
+        }
     }
 }
 
@@ -2238,6 +2216,7 @@ void TextureCache<P>::ForEachSparseSegment(ImageBase& image, Func&& func) {
 
 template <class P>
 ImageViewId TextureCache<P>::FindOrEmplaceImageView(ImageId image_id, const ImageViewInfo& info) {
+    std::scoped_lock lock{image_map_mutex};
     Image& image = slot_images[image_id];
     if (const ImageViewId image_view_id = image.FindView(info); image_view_id) {
         return image_view_id;
@@ -2250,6 +2229,7 @@ ImageViewId TextureCache<P>::FindOrEmplaceImageView(ImageId image_id, const Imag
 
 template <class P>
 void TextureCache<P>::RegisterImage(ImageId image_id) {
+    std::scoped_lock lock{image_map_mutex};
     ImageBase& image = slot_images[image_id];
     ASSERT_MSG(False(image.flags & ImageFlagBits::Registered),
                "Trying to register an already registered image");
@@ -2309,6 +2289,7 @@ void TextureCache<P>::RegisterImage(ImageId image_id) {
 
 template <class P>
 void TextureCache<P>::UnregisterImage(ImageId image_id) {
+    std::scoped_lock lock{image_map_mutex};
     Image& image = slot_images[image_id];
     ASSERT_MSG(True(image.flags & ImageFlagBits::Registered),
                "Trying to unregister an already registered image");
@@ -2452,6 +2433,7 @@ void TextureCache<P>::UntrackImage(ImageBase& image, ImageId image_id) {
 
 template <class P>
 void TextureCache<P>::DeleteImage(ImageId image_id, bool immediate_delete) {
+    std::scoped_lock lock{image_map_mutex};
     ImageBase& image = slot_images[image_id];
     if (image.HasScaled()) {
         total_used_memory -= GetScaledImageSizeBytes(image);
