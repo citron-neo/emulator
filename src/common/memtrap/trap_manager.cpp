@@ -89,12 +89,6 @@ void TrapManager::TrapRegions(TrapHandle& handle, bool write_only) {
     }
     std::scoped_lock lock{trap_mutex};
     const auto protection = write_only ? TrapProtection::WriteOnly : TrapProtection::ReadWrite;
-    // VirtualProtect/mprotect is a kernel transition — skip when the OS pages already hold the
-    // requested protection. The state machine in HandleFault flips entry.protection back to
-    // None when a trap fires; only those re-arms actually need the syscall.
-    if (handle.group->value.protection == protection) {
-        return;
-    }
     handle.group->value.protection = protection;
     ReprotectIntervals(handle.group->intervals, protection);
     stat_arms.fetch_add(1, std::memory_order_relaxed);
