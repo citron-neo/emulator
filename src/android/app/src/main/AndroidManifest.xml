@@ -54,8 +54,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
             android:theme="@style/Theme.Citron.Splash.Main"
             android:hardwareAccelerated="true"
             android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|uiMode|keyboardHidden"
-            android:launchMode="singleTask"
-            android:screenOrientation="sensorLandscape">
+            android:launchMode="singleTask">
 
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
