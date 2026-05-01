@@ -256,6 +256,13 @@ abstract class SettingsItem(
                 )
             )
             put(
+                SwitchSetting(
+                    BooleanSetting.RESCALE_HACK,
+                    titleId = R.string.rescale_hack,
+                    descriptionId = R.string.rescale_hack_description
+                )
+            )
+            put(
                 SingleChoiceSetting(
                     IntSetting.RENDERER_ANTI_ALIASING,
                     titleId = R.string.renderer_anti_aliasing,
