@@ -281,24 +281,6 @@ struct Values {
                                                   Category::Renderer};
     SwitchableSetting<bool> use_asynchronous_gpu_emulation{
         linkage, true, "use_asynchronous_gpu_emulation", Category::Renderer};
-
-    // Skyline-style page-protection memtraps for GPU buffer dirty tracking. When enabled, CPU
-    // writes to GPU-tracked memory are detected via OS page faults instead of the legacy
-    // RasterizerCachedMemory + UpdatePagesCachedCount path. Currently Windows-only; falls back
-    // to the legacy path on other platforms regardless of this flag.
-    SwitchableSetting<bool> use_gpu_memtraps{linkage, true, "use_gpu_memtraps",
-                                             Category::Renderer};
-    // When the guest hot-spins on a read trap (e.g. busy-waiting for a GPU readback), this hack
-    // serves stale CPU-side data instead of stalling on the GPU fence.
-    SwitchableSetting<bool> memtrap_fast_readback_hack{linkage, true, "memtrap_fast_readback_hack",
-                                                       Category::Renderer};
-
-    // Requests an R16G16B16A16_SFLOAT (RGBA16F) Vulkan swapchain instead of the default
-    // 8-bit format. Falls back to the legacy RGBA8 path automatically if the surface does
-    // not advertise a float format.
-    SwitchableSetting<bool> vulkan_rgba16_swapchain{linkage, false, "vulkan_rgba16_swapchain",
-                                                    Category::Renderer};
-
     SwitchableSetting<AstcDecodeMode, true> accelerate_astc{linkage,
 #ifdef ANDROID
                                                             AstcDecodeMode::Cpu,
