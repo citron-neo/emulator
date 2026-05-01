@@ -180,6 +180,18 @@ std::unique_ptr<TranslationMap> InitializeTranslations(QWidget* parent) {
     INSERT(
         Settings, use_asynchronous_gpu_emulation, tr("Use asynchronous GPU emulation"),
         tr("Uses an extra CPU thread for rendering.\nThis option should always remain enabled."));
+    INSERT(Settings, use_gpu_memtraps, tr("Use GPU memory traps (experimental)"),
+           tr("Skyline-style page-protection traps for GPU buffer dirty tracking. Replaces the "
+              "legacy reference-counted dirty tracker with OS-level page faults, which can lower "
+              "CPU overhead in GPU-heavy scenes.\nWindows-only for now. Disable if a game shows "
+              "rendering corruption."));
+    INSERT(Settings, memtrap_fast_readback_hack, tr("Fast GPU readback hack (memtraps)"),
+           tr("When the guest hot-spins on a GPU readback, serve stale CPU-side data instead of "
+              "stalling on the GPU fence. Only takes effect when GPU memtraps are enabled."));
+    INSERT(Settings, vulkan_rgba16_swapchain, tr("Use RGBA16F Vulkan swapchain"),
+           tr("Requests an R16G16B16A16_SFLOAT swapchain for presentation instead of the default "
+              "8-bit format. May reduce banding on wide-gamut/HDR displays. Falls back to the "
+              "default RGBA8 path automatically if the surface does not support a float format."));
     INSERT(Settings, nvdec_emulation, tr("NVDEC emulation:"),
            tr("Specifies how videos should be decoded.\nIt can either use the CPU or the GPU for "
               "decoding, or perform no decoding at all (black screen on videos).\n"
