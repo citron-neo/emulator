@@ -18,7 +18,6 @@
 #include "common/div_ceil.h"
 #include "common/literals.h"
 #include "common/lru_cache.h"
-#include "common/memtrap/trap_manager.h"
 #include "common/range_sets.h"
 #include "common/scope_exit.h"
 #include "common/settings.h"
@@ -536,8 +535,6 @@ public:
 
     std::array<BufferId, ((1ULL << 34) >> CACHING_PAGEBITS)> page_table;
     Common::ScratchBuffer<u8> tmp_buffer;
-
-    std::unordered_map<BufferId, Common::MemTrap::TrapHandle> trap_handles;
 };
 
 } // namespace VideoCommon

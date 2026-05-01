@@ -1425,36 +1425,6 @@ BufferId BufferCache<P>::CreateBuffer(DAddr device_addr, u32 wanted_size) {
     }
     Register(new_buffer_id);
     TouchBuffer(new_buffer, new_buffer_id);
-
-    auto& trap_manager = Common::MemTrap::GetGlobalTrapManager();
-    if (Settings::values.use_gpu_memtraps.GetValue() && trap_manager.IsActive()) {
-        const auto trap_addr = overlap.begin;
-        const auto trap_size = static_cast<u64>(size);
-        u8* const host_base = device_memory.template GetPointer<u8>(trap_addr);
-        if (host_base) {
-            const size_t page_size = Common::MemTrap::TrapManager::PageSize();
-            auto* const aligned_start = reinterpret_cast<u8*>(Common::AlignUp(
-                reinterpret_cast<uintptr_t>(host_base), page_size));
-            auto* const aligned_end = reinterpret_cast<u8*>(Common::AlignDown(
-                reinterpret_cast<uintptr_t>(host_base + trap_size), page_size));
-            if (aligned_start < aligned_end) {
-                std::array regions_array{std::span<u8>{aligned_start,
-                    static_cast<size_t>(aligned_end - aligned_start)}};
-                std::span<std::span<u8>> regions{regions_array};
-                auto handle = trap_manager.CreateTrap(
-                    regions,
-                    /*lock=*/[] {},
-                    /*read=*/[] { return true; },
-                    /*write=*/
-                    [this, trap_addr, trap_size] {
-                        memory_tracker.MarkRegionAsCpuModified(trap_addr, trap_size);
-                        return true;
-                    });
-                trap_manager.TrapRegions(handle, /*write_only=*/true);
-                trap_handles.emplace(new_buffer_id, std::move(handle));
-            }
-        }
-    }
     return new_buffer_id;
 }
 
@@ -1527,7 +1497,6 @@ bool BufferCache<P>::SynchronizeBuffer(Buffer& buffer, DAddr device_addr, u32 si
     u64 total_size_bytes = 0;
     u64 largest_copy = 0;
     DAddr buffer_start = buffer.CpuAddr();
-    BufferId synced_buffer_id{};
     memory_tracker.ForEachUploadRange(device_addr, size, [&](u64 device_addr_out, u64 range_size) {
         copies.push_back(BufferCopy{
             .src_offset = total_size_bytes,
@@ -1542,17 +1511,6 @@ bool BufferCache<P>::SynchronizeBuffer(Buffer& buffer, DAddr device_addr, u32 si
     }
     const std::span<BufferCopy> copies_span(copies.data(), copies.size());
     UploadMemory(buffer, total_size_bytes, largest_copy, copies_span);
-
-    if (Settings::values.use_gpu_memtraps.GetValue()) {
-        const u64 page = buffer.CpuAddr() >> CACHING_PAGEBITS;
-        const BufferId buffer_id = page < page_table.size() ? page_table[page] : BufferId{};
-        if (buffer_id) {
-            if (auto it = trap_handles.find(buffer_id); it != trap_handles.end()) {
-                Common::MemTrap::GetGlobalTrapManager().TrapRegions(it->second,
-                                                                    /*write_only=*/true);
-            }
-        }
-    }
     return false;
 }
 
@@ -1766,13 +1724,6 @@ void BufferCache<P>::DeleteBuffer(BufferId buffer_id, bool do_not_mark) {
     if (!do_not_mark) {
         Buffer& buffer = slot_buffers[buffer_id];
         memory_tracker.MarkRegionAsCpuModified(buffer.CpuAddr(), buffer.SizeBytes());
-    }
-
-    // Tear down before the host range can be reused; stale callbacks in the trap map would
-    // capture freed memory.
-    if (auto it = trap_handles.find(buffer_id); it != trap_handles.end()) {
-        Common::MemTrap::GetGlobalTrapManager().DeleteTrap(it->second);
-        trap_handles.erase(it);
     }
 
     Unregister(buffer_id);
