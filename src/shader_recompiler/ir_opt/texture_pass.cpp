@@ -40,17 +40,6 @@ using TextureInstVector = boost::container::small_vector<TextureInst, 24>;
 constexpr u32 DESCRIPTOR_SIZE = 8;
 constexpr u32 DESCRIPTOR_SIZE_SHIFT = static_cast<u32>(std::countr_zero(DESCRIPTOR_SIZE));
 
-constexpr u32 BINDLESS_ARRAY_LENGTH = 1024;
-constexpr u32 BINDLESS_FALLBACK_LENGTH = 8;
-
-u32 BindlessCountForCbuf(Environment& env, u32 cbuf_index) {
-    const u32 cbuf_size = env.ReadCbufSize(cbuf_index);
-    if (cbuf_size == 0) {
-        return BINDLESS_FALLBACK_LENGTH;
-    }
-    return std::min(std::max(cbuf_size / DESCRIPTOR_SIZE, 1u), BINDLESS_ARRAY_LENGTH);
-}
-
 IR::Opcode IndexedInstruction(const IR::Inst& inst) {
     switch (inst.GetOpcode()) {
     case IR::Opcode::BindlessImageSampleImplicitLod:
@@ -333,7 +322,7 @@ std::optional<ConstBufferAddr> TryGetConstBuffer(const IR::Inst* inst, Environme
         .secondary_offset = 0,
         .secondary_shift_left = 0,
         .dynamic_offset = dynamic_offset,
-        .count = BindlessCountForCbuf(env, index.U32()),
+        .count = 8,
         .has_secondary = false,
     };
 }
@@ -700,7 +689,7 @@ void TexturePass(Environment& env, IR::Program& program, const HostTranslateInfo
             IR::IREmitter ir{*texture_inst.block, insert_point};
             const IR::U32 shift{ir.Imm32(std::countr_zero(DESCRIPTOR_SIZE))};
             inst->SetArg(0, ir.UMin(ir.ShiftRightArithmetic(cbuf.dynamic_offset, shift),
-                                    ir.Imm32(cbuf.count - 1)));
+                                    ir.Imm32(DESCRIPTOR_SIZE - 1)));
         } else {
             inst->SetArg(0, IR::Value{});
         }

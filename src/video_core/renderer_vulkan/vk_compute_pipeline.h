@@ -3,7 +3,6 @@
 
 #pragma once
 
-#include <array>
 #include <atomic>
 #include <condition_variable>
 #include <mutex>
@@ -61,27 +60,9 @@ private:
     vk::DescriptorUpdateTemplate descriptor_update_template;
     vk::Pipeline pipeline;
 
-    // Split-mode set 1 (resources). Empty unless device supports push descriptor.
-    vk::DescriptorSetLayout resource_set_layout;
-    DescriptorAllocator resource_descriptor_allocator;
-    vk::DescriptorUpdateTemplate resource_update_template;
-
-    // Per-CB cache of committed descriptor sets - see GraphicsPipeline for
-    // the safety constraint that limits reuse to a single CB submission.
-    struct CachedDescSet {
-        u64 hash{0};
-        u64 cb_tick{0};
-        VkDescriptorSet set{VK_NULL_HANDLE};
-    };
-    static constexpr size_t DESC_SET_CACHE_SIZE = 16;
-    std::array<CachedDescSet, DESC_SET_CACHE_SIZE> descriptor_set_cache{};
-    size_t descriptor_set_cache_rr{0};
-
     std::condition_variable build_condvar;
     std::mutex build_mutex;
     std::atomic_bool is_built{false};
-    bool uses_push_descriptor{false};
-    bool split_descriptor_sets{false};
 };
 
 } // namespace Vulkan

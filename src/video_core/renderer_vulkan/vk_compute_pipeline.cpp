@@ -2,18 +2,15 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <algorithm>
-#include <cstring>
 #include <vector>
 
 #include <boost/container/small_vector.hpp>
-#include <boost/container/static_vector.hpp>
 
 #include "video_core/renderer_vulkan/pipeline_helper.h"
 #include "video_core/renderer_vulkan/pipeline_statistics.h"
 #include "video_core/renderer_vulkan/vk_buffer_cache.h"
 #include "video_core/renderer_vulkan/vk_compute_pipeline.h"
 #include "video_core/renderer_vulkan/vk_descriptor_pool.h"
-#include "video_core/renderer_vulkan/vk_master_semaphore.h"
 #include "video_core/renderer_vulkan/vk_pipeline_cache.h"
 #include "video_core/renderer_vulkan/vk_scheduler.h"
 #include "video_core/renderer_vulkan/vk_update_descriptor.h"
@@ -26,60 +23,6 @@ namespace Vulkan {
 using Shader::ImageBufferDescriptor;
 using Shader::Backend::SPIRV::RESCALING_LAYOUT_WORDS_OFFSET;
 using Tegra::Texture::TexturePair;
-
-namespace {
-struct BindlessCacheEntry {
-    GPUVAddr key_addr{0};
-    u32 key_count{0};
-    bool valid{false};
-    boost::container::small_vector<u8, 256> last_bytes;
-    boost::container::small_vector<VideoCommon::ImageViewInOut, 16> cached_views;
-    boost::container::small_vector<VideoCommon::SamplerId, 16> cached_samplers;
-};
-constexpr size_t BINDLESS_CACHE_SIZE = 64;
-using BindlessCache = std::array<BindlessCacheEntry, BINDLESS_CACHE_SIZE>;
-
-constexpr u64 FNV1A_OFFSET = 0xcbf29ce484222325ULL;
-constexpr u64 FNV1A_PRIME = 0x100000001b3ULL;
-
-inline u64 HashDescriptorBlock(const DescriptorUpdateEntry* data, size_t entry_count) noexcept {
-    static_assert(sizeof(DescriptorUpdateEntry) % sizeof(u64) == 0,
-                  "DescriptorUpdateEntry must be 8-byte aligned");
-    if (entry_count == 0 || data == nullptr) {
-        return FNV1A_OFFSET;
-    }
-    const size_t word_count = entry_count * (sizeof(DescriptorUpdateEntry) / sizeof(u64));
-    const u64* words = reinterpret_cast<const u64*>(data);
-    u64 h = FNV1A_OFFSET;
-    for (size_t i = 0; i < word_count; ++i) {
-        h ^= words[i];
-        h *= FNV1A_PRIME;
-    }
-    return h;
-}
-
-BindlessCacheEntry* FindBindlessEntry(BindlessCache& cache, GPUVAddr addr, u32 count) {
-    for (auto& entry : cache) {
-        if (entry.valid && entry.key_addr == addr && entry.key_count == count) {
-            return &entry;
-        }
-    }
-    return nullptr;
-}
-
-BindlessCacheEntry& AcquireBindlessEntry(BindlessCache& cache, size_t& round_robin,
-                                         GPUVAddr addr, u32 count) {
-    if (auto* found = FindBindlessEntry(cache, addr, count)) {
-        return *found;
-    }
-    auto& slot = cache[round_robin];
-    round_robin = (round_robin + 1) % BINDLESS_CACHE_SIZE;
-    slot.key_addr = addr;
-    slot.key_count = count;
-    slot.valid = false;
-    return slot;
-}
-} // namespace
 
 ComputePipeline::ComputePipeline(const Device& device_, vk::PipelineCache& pipeline_cache_,
                                  DescriptorPool& descriptor_pool,
@@ -99,29 +42,13 @@ ComputePipeline::ComputePipeline(const Device& device_, vk::PipelineCache& pipel
 
     auto func{[this, &descriptor_pool, shader_notify, pipeline_statistics] {
         DescriptorLayoutBuilder builder{device};
-        builder.SetSplit(device.IsKhrPushDescriptorSupported());
         builder.Add(info, VK_SHADER_STAGE_COMPUTE_BIT);
 
-        split_descriptor_sets = builder.IsSplit();
-        uses_push_descriptor = split_descriptor_sets;
-        descriptor_set_layout = builder.CreateDescriptorSetLayout(uses_push_descriptor);
-        if (split_descriptor_sets) {
-            resource_set_layout = builder.CreateResourceSetLayout();
-        }
-        const VkDescriptorSetLayout set_layout{*descriptor_set_layout};
-        const VkDescriptorSetLayout res_layout{
-            resource_set_layout ? *resource_set_layout : VK_NULL_HANDLE};
-        pipeline_layout = builder.CreatePipelineLayout(set_layout, res_layout);
+        descriptor_set_layout = builder.CreateDescriptorSetLayout(false);
+        pipeline_layout = builder.CreatePipelineLayout(*descriptor_set_layout);
         descriptor_update_template =
-            builder.CreateTemplate(set_layout, *pipeline_layout, uses_push_descriptor);
-        if (resource_set_layout) {
-            resource_update_template =
-                builder.CreateResourceTemplate(res_layout, *pipeline_layout);
-            resource_descriptor_allocator = descriptor_pool.Allocator(*resource_set_layout, info);
-        }
-        if (!uses_push_descriptor && descriptor_set_layout) {
-            descriptor_allocator = descriptor_pool.Allocator(*descriptor_set_layout, info);
-        }
+            builder.CreateTemplate(*descriptor_set_layout, *pipeline_layout, false);
+        descriptor_allocator = descriptor_pool.Allocator(*descriptor_set_layout, info);
         const VkPipelineShaderStageRequiredSubgroupSizeCreateInfoEXT subgroup_size_ci{
             .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_REQUIRED_SUBGROUP_SIZE_CREATE_INFO_EXT,
             .pNext = nullptr,
@@ -186,15 +113,9 @@ void ComputePipeline::Configure(Tegra::Engines::KeplerCompute& kepler_compute,
 
     texture_cache.SynchronizeComputeDescriptors();
 
-    // See vk_graphics_pipeline.cpp: small_vector keeps the span sized to the
-    // actual write count.
-    thread_local boost::container::small_vector<VideoCommon::ImageViewInOut, 64> views;
-    thread_local boost::container::small_vector<VideoCommon::SamplerId, 64> samplers;
-    views.clear();
-    samplers.clear();
-    thread_local BindlessCache bindless_cache;
-    thread_local size_t bindless_cache_rr{0};
-    thread_local std::vector<u8> bindless_scratch;
+    static constexpr size_t max_elements = 64;
+    boost::container::static_vector<VideoCommon::ImageViewInOut, max_elements> views;
+    boost::container::static_vector<VideoCommon::SamplerId, max_elements> samplers;
 
     const auto& qmd{kepler_compute.launch_description};
     const auto& cbufs{qmd.const_buffer_config};
@@ -235,48 +156,6 @@ void ComputePipeline::Configure(Tegra::Engines::KeplerCompute& kepler_compute,
         add_image(desc, false);
     }
     for (const auto& desc : info.texture_descriptors) {
-        if (desc.count > 1 && !desc.has_secondary) {
-            const GPUVAddr cbuf_addr =
-                cbufs[desc.cbuf_index].Address() + desc.cbuf_offset;
-            const size_t byte_size = static_cast<size_t>(desc.count) << desc.size_shift;
-            bindless_scratch.resize(byte_size);
-            gpu_memory.ReadBlockUnsafe(cbuf_addr, bindless_scratch.data(), byte_size);
-            BindlessCacheEntry& entry = AcquireBindlessEntry(
-                bindless_cache, bindless_cache_rr, cbuf_addr, desc.count);
-            const bool hit = entry.valid &&
-                             entry.last_bytes.size() == byte_size &&
-                             std::memcmp(entry.last_bytes.data(),
-                                         bindless_scratch.data(), byte_size) == 0;
-            if (hit) {
-                for (const auto& v : entry.cached_views) {
-                    views.push_back(v);
-                }
-                for (const auto& s : entry.cached_samplers) {
-                    samplers.push_back(s);
-                }
-                continue;
-            }
-            const size_t views_start = views.size();
-            const size_t samplers_start = samplers.size();
-            for (u32 index = 0; index < desc.count; ++index) {
-                const size_t slot_offset =
-                    static_cast<size_t>(index) << desc.size_shift;
-                u32 raw;
-                std::memcpy(&raw, bindless_scratch.data() + slot_offset, sizeof(u32));
-                const auto handle = TexturePair(raw, via_header_index);
-                views.push_back({handle.first});
-                samplers.push_back(handle.first == 0
-                                       ? VideoCommon::NULL_SAMPLER_ID
-                                       : texture_cache.GetComputeSamplerId(handle.second));
-            }
-            entry.last_bytes.assign(bindless_scratch.begin(), bindless_scratch.end());
-            entry.cached_views.assign(views.data() + views_start,
-                                      views.data() + views.size());
-            entry.cached_samplers.assign(samplers.data() + samplers_start,
-                                         samplers.data() + samplers.size());
-            entry.valid = true;
-            continue;
-        }
         for (u32 index = 0; index < desc.count; ++index) {
             const auto handle{read_handle(desc, index)};
             views.push_back({handle.first});
@@ -325,13 +204,12 @@ void ComputePipeline::Configure(Tegra::Engines::KeplerCompute& kepler_compute,
             build_condvar.wait(lock, [this] { return is_built.load(std::memory_order::relaxed); });
         });
     }
-    const auto* const descriptor_data{guest_descriptor_queue.UpdateData()};
-    const size_t upload_entries{guest_descriptor_queue.GetUploadSize()};
+    const void* const descriptor_data{guest_descriptor_queue.UpdateData()};
     const bool is_rescaling = !info.texture_descriptors.empty() || !info.image_descriptors.empty();
-    scheduler.Record([this, &scheduler, descriptor_data, upload_entries, is_rescaling,
+    scheduler.Record([this, descriptor_data, is_rescaling,
                       rescaling_data = rescaling.Data()](vk::CommandBuffer cmdbuf) {
         cmdbuf.BindPipeline(VK_PIPELINE_BIND_POINT_COMPUTE, *pipeline);
-        if (!descriptor_set_layout && !resource_set_layout) {
+        if (!descriptor_set_layout) {
             return;
         }
         if (is_rescaling) {
@@ -339,48 +217,11 @@ void ComputePipeline::Configure(Tegra::Engines::KeplerCompute& kepler_compute,
                                  RESCALING_LAYOUT_WORDS_OFFSET, sizeof(rescaling_data),
                                  rescaling_data.data());
         }
+        const VkDescriptorSet descriptor_set{descriptor_allocator.Commit()};
         const vk::Device& dev{device.GetLogical()};
-        const u64 data_hash = HashDescriptorBlock(descriptor_data, upload_entries);
-        auto& semaphore = scheduler.GetMasterSemaphore();
-        // Strict per-CB cache - see GraphicsPipeline::ConfigureDraw.
-        const u64 current_tick = semaphore.CurrentTick();
-        const auto get_or_alloc = [&](DescriptorAllocator& alloc,
-                                      const vk::DescriptorUpdateTemplate& tpl) -> VkDescriptorSet {
-            for (auto& e : descriptor_set_cache) {
-                if (e.set != VK_NULL_HANDLE && e.hash == data_hash &&
-                    e.cb_tick == current_tick) {
-                    return e.set;
-                }
-            }
-            const VkDescriptorSet fresh = alloc.Commit();
-            dev.UpdateDescriptorSet(fresh, *tpl, descriptor_data);
-            for (auto& e : descriptor_set_cache) {
-                if (e.set == fresh) {
-                    e.set = VK_NULL_HANDLE;
-                }
-            }
-            descriptor_set_cache[descriptor_set_cache_rr] = {data_hash, current_tick, fresh};
-            descriptor_set_cache_rr =
-                (descriptor_set_cache_rr + 1) % DESC_SET_CACHE_SIZE;
-            return fresh;
-        };
-        if (descriptor_set_layout) {
-            if (uses_push_descriptor) {
-                cmdbuf.PushDescriptorSetWithTemplateKHR(*descriptor_update_template,
-                                                        *pipeline_layout, 0, descriptor_data);
-            } else {
-                const VkDescriptorSet ds = get_or_alloc(descriptor_allocator,
-                                                        descriptor_update_template);
-                cmdbuf.BindDescriptorSets(VK_PIPELINE_BIND_POINT_COMPUTE, *pipeline_layout, 0,
-                                          ds, nullptr);
-            }
-        }
-        if (resource_set_layout) {
-            const VkDescriptorSet rs = get_or_alloc(resource_descriptor_allocator,
-                                                    resource_update_template);
-            cmdbuf.BindDescriptorSets(VK_PIPELINE_BIND_POINT_COMPUTE, *pipeline_layout, 1,
-                                      rs, nullptr);
-        }
+        dev.UpdateDescriptorSet(descriptor_set, *descriptor_update_template, descriptor_data);
+        cmdbuf.BindDescriptorSets(VK_PIPELINE_BIND_POINT_COMPUTE, *pipeline_layout, 0,
+                                  descriptor_set, nullptr);
     });
 }
 

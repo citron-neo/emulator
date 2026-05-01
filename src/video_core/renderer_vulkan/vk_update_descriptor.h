@@ -110,13 +110,6 @@ public:
         return std::distance(payload_start, payload_cursor);
     }
 
-    size_t GetUploadSize() const noexcept {
-        if (!upload_start) {
-            return 0;
-        }
-        return static_cast<size_t>(payload_cursor - upload_start);
-    }
-
     bool CanAdd(size_t count) const noexcept {
         return std::distance(payload_start, payload_cursor) + count < FRAME_PAYLOAD_SIZE;
     }

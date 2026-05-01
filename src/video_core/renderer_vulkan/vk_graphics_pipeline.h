@@ -152,30 +152,10 @@ private:
     vk::DescriptorUpdateTemplate descriptor_update_template;
     vk::Pipeline pipeline;
 
-    // Split-mode set 1 (resources: ssbos / texel buffers / textures / images).
-    // Empty in single-set mode; the original descriptor_set_layout above holds
-    // everything in that case.
-    vk::DescriptorSetLayout resource_set_layout;
-    DescriptorAllocator resource_descriptor_allocator;
-    vk::DescriptorUpdateTemplate resource_update_template;
-
-    // Per-CB cache of committed descriptor sets keyed on data-block hash.
-    // Entries are only reused while cb_tick equals the master semaphore's
-    // current tick - see ConfigureDraw for why crossing CBs is unsafe.
-    struct CachedDescSet {
-        u64 hash{0};
-        u64 cb_tick{0};
-        VkDescriptorSet set{VK_NULL_HANDLE};
-    };
-    static constexpr size_t DESC_SET_CACHE_SIZE = 16;
-    std::array<CachedDescSet, DESC_SET_CACHE_SIZE> descriptor_set_cache{};
-    size_t descriptor_set_cache_rr{0};
-
     std::condition_variable build_condvar;
     std::mutex build_mutex;
     std::atomic_bool is_built{false};
     bool uses_push_descriptor{false};
-    bool split_descriptor_sets{false};
 };
 
 } // namespace Vulkan

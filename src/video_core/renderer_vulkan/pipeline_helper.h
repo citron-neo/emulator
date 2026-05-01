@@ -23,150 +23,22 @@ class DescriptorLayoutBuilder {
 public:
     DescriptorLayoutBuilder(const Device& device_) : device{&device_} {}
 
-    // When true, the builder partitions cbufs into "uniform" (set 0) and
-    // everything else into "resource" (set 1). Caller is responsible for
-    // creating both layouts and chaining them in CreatePipelineLayout.
-    void SetSplit(bool value) noexcept {
-        split_mode = value;
-    }
-
-    bool IsSplit() const noexcept {
-        return split_mode;
-    }
-
     bool CanUsePushDescriptor() const noexcept {
-        // In split mode, set 0 (uniforms only) always fits push descriptors;
-        // set 1 takes the allocated path regardless of size.
-        const u32 push_check =
-            split_mode ? uniform_set.num_descriptors : (uniform_set.num_descriptors + resource_set.num_descriptors);
-        return device->IsKhrPushDescriptorSupported() && push_check <= device->MaxPushDescriptors();
+        return device->IsKhrPushDescriptorSupported() &&
+               num_descriptors <= device->MaxPushDescriptors();
     }
 
-    // Set 0 layout. In single-set mode this contains everything (cbufs + rest);
-    // in split mode it contains only cbufs.
     vk::DescriptorSetLayout CreateDescriptorSetLayout(bool use_push_descriptor) const {
-        return CreateLayoutFor(uniform_set, use_push_descriptor);
-    }
-
-    // Set 1 layout, only meaningful in split mode. Null otherwise.
-    vk::DescriptorSetLayout CreateResourceSetLayout() const {
-        if (!split_mode) {
-            return nullptr;
-        }
-        // Set 1 always uses the allocated path (use_push_descriptor=false).
-        return CreateLayoutFor(resource_set, false);
-    }
-
-    vk::DescriptorUpdateTemplate CreateTemplate(VkDescriptorSetLayout descriptor_set_layout,
-                                                VkPipelineLayout pipeline_layout,
-                                                bool use_push_descriptor) const {
-        return CreateTemplateFor(uniform_set, descriptor_set_layout, pipeline_layout,
-                                 use_push_descriptor, /*set_index=*/0);
-    }
-
-    vk::DescriptorUpdateTemplate CreateResourceTemplate(VkDescriptorSetLayout descriptor_set_layout,
-                                                        VkPipelineLayout pipeline_layout) const {
-        if (!split_mode) {
-            return nullptr;
-        }
-        return CreateTemplateFor(resource_set, descriptor_set_layout, pipeline_layout,
-                                 /*use_push_descriptor=*/false, /*set_index=*/1);
-    }
-
-    vk::PipelineLayout CreatePipelineLayout(VkDescriptorSetLayout descriptor_set_layout,
-                                            VkDescriptorSetLayout resource_set_layout = nullptr) const {
-        using Shader::Backend::SPIRV::RenderAreaLayout;
-        using Shader::Backend::SPIRV::RescalingLayout;
-        const u32 size_offset = is_compute ? sizeof(RescalingLayout::down_factor) : 0u;
-        const VkPushConstantRange range{
-            .stageFlags = static_cast<VkShaderStageFlags>(
-                is_compute ? VK_SHADER_STAGE_COMPUTE_BIT : VK_SHADER_STAGE_ALL_GRAPHICS),
-            .offset = 0,
-            .size = static_cast<u32>(sizeof(RescalingLayout)) - size_offset +
-                    static_cast<u32>(sizeof(RenderAreaLayout)),
-        };
-        std::array<VkDescriptorSetLayout, 2> set_layouts{descriptor_set_layout, resource_set_layout};
-        u32 set_count = 0;
-        if (descriptor_set_layout) {
-            set_count = 1;
-        }
-        if (resource_set_layout) {
-            set_count = 2;
-        }
-        return device->GetLogical().CreatePipelineLayout({
-            .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
-            .pNext = nullptr,
-            .flags = 0,
-            .setLayoutCount = set_count,
-            .pSetLayouts = set_count == 0 ? nullptr : set_layouts.data(),
-            .pushConstantRangeCount = 1,
-            .pPushConstantRanges = &range,
-        });
-    }
-
-    void Add(const Shader::Info& info, VkShaderStageFlags stage) {
-        is_compute |= (stage & VK_SHADER_STAGE_COMPUTE_BIT) != 0;
-
-        // cbufs always go to set 0 (the "uniform" set).
-        Add(uniform_set, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, stage, info.constant_buffer_descriptors);
-
-        // In split mode, the rest go to set 1; otherwise they continue in set 0.
-        SetData& other = split_mode ? resource_set : uniform_set;
-        Add(other, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, stage, info.storage_buffers_descriptors);
-        Add(other, VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER, stage, info.texture_buffer_descriptors);
-        Add(other, VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER, stage, info.image_buffer_descriptors);
-        Add(other, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, stage, info.texture_descriptors);
-        Add(other, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, stage, info.image_descriptors);
-    }
-
-private:
-    struct SetData {
-        boost::container::small_vector<VkDescriptorSetLayoutBinding, 32> bindings;
-        boost::container::small_vector<VkDescriptorUpdateTemplateEntry, 32> entries;
-        u32 binding{};
-        u32 num_descriptors{};
-    };
-
-    template <typename Descriptors>
-    void Add(SetData& set, VkDescriptorType type, VkShaderStageFlags stage,
-             const Descriptors& descriptors) {
-        // shared_offset is shared between the uniform and resource sets so both
-        // descriptor update templates reference the same single data block from
-        // guest_descriptor_queue.
-        const size_t num{descriptors.size()};
-        for (size_t i = 0; i < num; ++i) {
-            set.bindings.push_back({
-                .binding = set.binding,
-                .descriptorType = type,
-                .descriptorCount = descriptors[i].count,
-                .stageFlags = stage,
-                .pImmutableSamplers = nullptr,
-            });
-            set.entries.push_back({
-                .dstBinding = set.binding,
-                .dstArrayElement = 0,
-                .descriptorCount = descriptors[i].count,
-                .descriptorType = type,
-                .offset = shared_offset,
-                .stride = sizeof(DescriptorUpdateEntry),
-            });
-            ++set.binding;
-            set.num_descriptors += descriptors[i].count;
-            shared_offset += sizeof(DescriptorUpdateEntry);
-        }
-    }
-
-    vk::DescriptorSetLayout CreateLayoutFor(const SetData& set, bool use_push_descriptor) const {
-        if (set.bindings.empty()) {
+        if (bindings.empty()) {
             return nullptr;
         }
         const bool use_uab = !use_push_descriptor && device->IsDescriptorIndexingSupported();
         boost::container::small_vector<VkDescriptorBindingFlags, 32> binding_flags;
         VkDescriptorSetLayoutBindingFlagsCreateInfo binding_flags_ci{};
         if (use_uab) {
-            binding_flags.resize(set.bindings.size());
-            for (size_t i = 0; i < set.bindings.size(); ++i) {
-                binding_flags[i] = set.bindings[i].descriptorCount > 1
+            binding_flags.resize(bindings.size());
+            for (size_t i = 0; i < bindings.size(); ++i) {
+                binding_flags[i] = bindings[i].descriptorCount > 1
                                        ? (VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT |
                                           VK_DESCRIPTOR_BINDING_UPDATE_AFTER_BIND_BIT)
                                        : 0;
@@ -189,17 +61,15 @@ private:
             .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
             .pNext = use_uab ? &binding_flags_ci : nullptr,
             .flags = flags,
-            .bindingCount = static_cast<u32>(set.bindings.size()),
-            .pBindings = set.bindings.data(),
+            .bindingCount = static_cast<u32>(bindings.size()),
+            .pBindings = bindings.data(),
         });
     }
 
-    vk::DescriptorUpdateTemplate CreateTemplateFor(const SetData& set,
-                                                   VkDescriptorSetLayout descriptor_set_layout,
-                                                   VkPipelineLayout pipeline_layout,
-                                                   bool use_push_descriptor,
-                                                   u32 set_index) const {
-        if (set.entries.empty()) {
+    vk::DescriptorUpdateTemplate CreateTemplate(VkDescriptorSetLayout descriptor_set_layout,
+                                                VkPipelineLayout pipeline_layout,
+                                                bool use_push_descriptor) const {
+        if (entries.empty()) {
             return nullptr;
         }
         const VkDescriptorUpdateTemplateType type =
@@ -209,23 +79,82 @@ private:
             .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_UPDATE_TEMPLATE_CREATE_INFO,
             .pNext = nullptr,
             .flags = 0,
-            .descriptorUpdateEntryCount = static_cast<u32>(set.entries.size()),
-            .pDescriptorUpdateEntries = set.entries.data(),
+            .descriptorUpdateEntryCount = static_cast<u32>(entries.size()),
+            .pDescriptorUpdateEntries = entries.data(),
             .templateType = type,
             .descriptorSetLayout = descriptor_set_layout,
-            .pipelineBindPoint = is_compute ? VK_PIPELINE_BIND_POINT_COMPUTE
-                                            : VK_PIPELINE_BIND_POINT_GRAPHICS,
+            .pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS,
             .pipelineLayout = pipeline_layout,
-            .set = set_index,
+            .set = 0,
         });
+    }
+
+    vk::PipelineLayout CreatePipelineLayout(VkDescriptorSetLayout descriptor_set_layout) const {
+        using Shader::Backend::SPIRV::RenderAreaLayout;
+        using Shader::Backend::SPIRV::RescalingLayout;
+        const u32 size_offset = is_compute ? sizeof(RescalingLayout::down_factor) : 0u;
+        const VkPushConstantRange range{
+            .stageFlags = static_cast<VkShaderStageFlags>(
+                is_compute ? VK_SHADER_STAGE_COMPUTE_BIT : VK_SHADER_STAGE_ALL_GRAPHICS),
+            .offset = 0,
+            .size = static_cast<u32>(sizeof(RescalingLayout)) - size_offset +
+                    static_cast<u32>(sizeof(RenderAreaLayout)),
+        };
+        return device->GetLogical().CreatePipelineLayout({
+            .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
+            .pNext = nullptr,
+            .flags = 0,
+            .setLayoutCount = descriptor_set_layout ? 1U : 0U,
+            .pSetLayouts = bindings.empty() ? nullptr : &descriptor_set_layout,
+            .pushConstantRangeCount = 1,
+            .pPushConstantRanges = &range,
+        });
+    }
+
+    void Add(const Shader::Info& info, VkShaderStageFlags stage) {
+        is_compute |= (stage & VK_SHADER_STAGE_COMPUTE_BIT) != 0;
+
+        Add(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, stage, info.constant_buffer_descriptors);
+        Add(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, stage, info.storage_buffers_descriptors);
+        Add(VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER, stage, info.texture_buffer_descriptors);
+        Add(VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER, stage, info.image_buffer_descriptors);
+        Add(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, stage, info.texture_descriptors);
+        Add(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, stage, info.image_descriptors);
+    }
+
+private:
+    template <typename Descriptors>
+    void Add(VkDescriptorType type, VkShaderStageFlags stage, const Descriptors& descriptors) {
+        const size_t num{descriptors.size()};
+        for (size_t i = 0; i < num; ++i) {
+            bindings.push_back({
+                .binding = binding,
+                .descriptorType = type,
+                .descriptorCount = descriptors[i].count,
+                .stageFlags = stage,
+                .pImmutableSamplers = nullptr,
+            });
+            entries.push_back({
+                .dstBinding = binding,
+                .dstArrayElement = 0,
+                .descriptorCount = descriptors[i].count,
+                .descriptorType = type,
+                .offset = offset,
+                .stride = sizeof(DescriptorUpdateEntry),
+            });
+            ++binding;
+            num_descriptors += descriptors[i].count;
+            offset += sizeof(DescriptorUpdateEntry);
+        }
     }
 
     const Device* device{};
     bool is_compute{};
-    bool split_mode{};
-    SetData uniform_set;
-    SetData resource_set;
-    size_t shared_offset{};
+    boost::container::small_vector<VkDescriptorSetLayoutBinding, 32> bindings;
+    boost::container::small_vector<VkDescriptorUpdateTemplateEntry, 32> entries;
+    u32 binding{};
+    u32 num_descriptors{};
+    size_t offset{};
 };
 
 class RescalingPushConstant {

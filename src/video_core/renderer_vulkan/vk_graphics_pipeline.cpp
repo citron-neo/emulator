@@ -3,9 +3,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <algorithm>
-#include <cstring>
 #include <span>
-#include <vector>
 
 #include <boost/container/small_vector.hpp>
 #include <boost/container/static_vector.hpp>
@@ -43,66 +41,10 @@ using VideoCore::Surface::PixelFormatFromDepthFormat;
 using VideoCore::Surface::PixelFormatFromRenderTargetFormat;
 
 constexpr size_t NUM_STAGES = Tegra::Engines::Maxwell3D::Regs::MaxShaderStage;
-constexpr size_t MAX_IMAGE_ELEMENTS = 16384;
-
-constexpr u64 FNV1A_OFFSET = 0xcbf29ce484222325ULL;
-constexpr u64 FNV1A_PRIME = 0x100000001b3ULL;
-
-inline u64 HashDescriptorBlock(const DescriptorUpdateEntry* data, size_t entry_count) noexcept {
-    static_assert(sizeof(DescriptorUpdateEntry) % sizeof(u64) == 0,
-                  "DescriptorUpdateEntry must be 8-byte aligned");
-    if (entry_count == 0 || data == nullptr) {
-        return FNV1A_OFFSET;
-    }
-    const size_t word_count = entry_count * (sizeof(DescriptorUpdateEntry) / sizeof(u64));
-    const u64* words = reinterpret_cast<const u64*>(data);
-    u64 h = FNV1A_OFFSET;
-    for (size_t i = 0; i < word_count; ++i) {
-        h ^= words[i];
-        h *= FNV1A_PRIME;
-    }
-    return h;
-}
-
-// Stale SamplerIds are possible if the sampler pool is rebuilt with a different
-// sampler at the same handle while the cbuf bytes don't change. Add a pool
-// sequence-number check here if that ever surfaces as a visible bug.
-struct BindlessCacheEntry {
-    GPUVAddr key_addr{0};
-    u32 key_count{0};
-    bool valid{false};
-    boost::container::small_vector<u8, 256> last_bytes;
-    boost::container::small_vector<VideoCommon::ImageViewInOut, 16> cached_views;
-    boost::container::small_vector<VideoCommon::SamplerId, 16> cached_samplers;
-};
-constexpr size_t BINDLESS_CACHE_SIZE = 64;
-using BindlessCache = std::array<BindlessCacheEntry, BINDLESS_CACHE_SIZE>;
-
-BindlessCacheEntry* FindBindlessEntry(BindlessCache& cache, GPUVAddr addr, u32 count) {
-    for (auto& entry : cache) {
-        if (entry.valid && entry.key_addr == addr && entry.key_count == count) {
-            return &entry;
-        }
-    }
-    return nullptr;
-}
-
-BindlessCacheEntry& AcquireBindlessEntry(BindlessCache& cache, size_t& round_robin,
-                                         GPUVAddr addr, u32 count) {
-    if (auto* found = FindBindlessEntry(cache, addr, count)) {
-        return *found;
-    }
-    auto& slot = cache[round_robin];
-    round_robin = (round_robin + 1) % BINDLESS_CACHE_SIZE;
-    slot.key_addr = addr;
-    slot.key_count = count;
-    slot.valid = false;
-    return slot;
-}
+constexpr size_t MAX_IMAGE_ELEMENTS = 128;
 
 DescriptorLayoutBuilder MakeBuilder(const Device& device, std::span<const Shader::Info> infos) {
     DescriptorLayoutBuilder builder{device};
-    builder.SetSplit(device.IsKhrPushDescriptorSupported());
     for (size_t index = 0; index < infos.size(); ++index) {
         static constexpr std::array stages{
             VK_SHADER_STAGE_VERTEX_BIT,
@@ -317,31 +259,15 @@ GraphicsPipeline::GraphicsPipeline(
     }
     auto func{[this, shader_notify, &render_pass_cache, &descriptor_pool, pipeline_statistics] {
         DescriptorLayoutBuilder builder{MakeBuilder(device, stage_infos)};
-        split_descriptor_sets = builder.IsSplit();
-        // In split mode set 0 (uniforms) is always pushed; in single-set mode we
-        // fall back to the original "push if everything fits" check.
-        uses_push_descriptor =
-            split_descriptor_sets ? device.IsKhrPushDescriptorSupported() : builder.CanUsePushDescriptor();
+        uses_push_descriptor = builder.CanUsePushDescriptor();
         descriptor_set_layout = builder.CreateDescriptorSetLayout(uses_push_descriptor);
-        if (split_descriptor_sets) {
-            resource_set_layout = builder.CreateResourceSetLayout();
-        }
-        if (!uses_push_descriptor && descriptor_set_layout) {
+        if (!uses_push_descriptor) {
             descriptor_allocator = descriptor_pool.Allocator(*descriptor_set_layout, stage_infos);
         }
-        if (resource_set_layout) {
-            resource_descriptor_allocator =
-                descriptor_pool.Allocator(*resource_set_layout, stage_infos);
-        }
         const VkDescriptorSetLayout set_layout{*descriptor_set_layout};
-        const VkDescriptorSetLayout res_layout{resource_set_layout ? *resource_set_layout : VK_NULL_HANDLE};
-        pipeline_layout = builder.CreatePipelineLayout(set_layout, res_layout);
+        pipeline_layout = builder.CreatePipelineLayout(set_layout);
         descriptor_update_template =
             builder.CreateTemplate(set_layout, *pipeline_layout, uses_push_descriptor);
-        if (resource_set_layout) {
-            resource_update_template =
-                builder.CreateResourceTemplate(res_layout, *pipeline_layout);
-        }
 
         const VkRenderPass render_pass{render_pass_cache.Get(MakeRenderPassKey(key.state))};
         Validate();
@@ -372,15 +298,10 @@ void GraphicsPipeline::AddTransition(GraphicsPipeline* transition) {
 
 template <typename Spec>
 void GraphicsPipeline::ConfigureImpl(bool is_indexed) {
-    // std::array<T, 16384> made CheckFeedbackLoop iterate the full capacity
-    // per draw; small_vector lets the span size match the actual write count.
-    thread_local boost::container::small_vector<VideoCommon::ImageViewInOut, 64> views;
-    thread_local boost::container::small_vector<VideoCommon::SamplerId, 64> samplers;
-    thread_local BindlessCache bindless_cache;
-    thread_local size_t bindless_cache_rr{0};
-    thread_local std::vector<u8> bindless_scratch;
-    views.clear();
-    samplers.clear();
+    thread_local std::array<VideoCommon::ImageViewInOut, MAX_IMAGE_ELEMENTS> views;
+    thread_local std::array<VideoCommon::SamplerId, MAX_IMAGE_ELEMENTS> samplers;
+    size_t sampler_index{};
+    size_t view_index{};
 
     texture_cache.SynchronizeGraphicsDescriptors();
 
@@ -425,11 +346,11 @@ void GraphicsPipeline::ConfigureImpl(bool is_indexed) {
         const auto add_image{[&](const auto& desc, bool blacklist) LAMBDA_FORCEINLINE {
             for (u32 index = 0; index < desc.count; ++index) {
                 const auto handle{read_handle(desc, index)};
-                views.push_back({
+                views[view_index++] = {
                     .index = handle.first,
                     .blacklist = blacklist,
                     .id = {},
-                });
+                };
             }
         }};
         if constexpr (Spec::has_texture_buffers) {
@@ -443,57 +364,12 @@ void GraphicsPipeline::ConfigureImpl(bool is_indexed) {
             }
         }
         for (const auto& desc : info.texture_descriptors) {
-            if (desc.count > 1 && !desc.has_secondary) {
-                const GPUVAddr cbuf_addr =
-                    cbufs[desc.cbuf_index].address + desc.cbuf_offset;
-                const size_t byte_size =
-                    static_cast<size_t>(desc.count) << desc.size_shift;
-                bindless_scratch.resize(byte_size);
-                gpu_memory->ReadBlockUnsafe(cbuf_addr, bindless_scratch.data(),
-                                            byte_size);
-                BindlessCacheEntry& entry = AcquireBindlessEntry(
-                    bindless_cache, bindless_cache_rr, cbuf_addr, desc.count);
-                const bool hit = entry.valid &&
-                                 entry.last_bytes.size() == byte_size &&
-                                 std::memcmp(entry.last_bytes.data(),
-                                             bindless_scratch.data(),
-                                             byte_size) == 0;
-                if (hit) {
-                    views.insert(views.end(), entry.cached_views.begin(),
-                                 entry.cached_views.end());
-                    samplers.insert(samplers.end(), entry.cached_samplers.begin(),
-                                    entry.cached_samplers.end());
-                    continue;
-                }
-                const size_t views_start = views.size();
-                const size_t samplers_start = samplers.size();
-                for (u32 index = 0; index < desc.count; ++index) {
-                    const size_t slot_offset =
-                        static_cast<size_t>(index) << desc.size_shift;
-                    u32 raw;
-                    std::memcpy(&raw, bindless_scratch.data() + slot_offset,
-                                sizeof(u32));
-                    const auto handle = TexturePair(raw, via_header_index);
-                    views.push_back({handle.first});
-                    samplers.push_back(handle.first == 0
-                                           ? VideoCommon::NULL_SAMPLER_ID
-                                           : texture_cache.GetGraphicsSamplerId(handle.second));
-                }
-                entry.last_bytes.assign(bindless_scratch.begin(),
-                                        bindless_scratch.end());
-                entry.cached_views.assign(views.data() + views_start,
-                                          views.data() + views.size());
-                entry.cached_samplers.assign(samplers.data() + samplers_start,
-                                             samplers.data() + samplers.size());
-                entry.valid = true;
-                continue;
-            }
             for (u32 index = 0; index < desc.count; ++index) {
                 const auto handle{read_handle(desc, index)};
-                views.push_back({handle.first});
-                samplers.push_back(handle.first == 0
-                                       ? VideoCommon::NULL_SAMPLER_ID
-                                       : texture_cache.GetGraphicsSamplerId(handle.second));
+                views[view_index++] = {handle.first};
+                samplers[sampler_index++] = handle.first == 0
+                    ? VideoCommon::NULL_SAMPLER_ID
+                    : texture_cache.GetGraphicsSamplerId(handle.second);
             }
         }
         if constexpr (Spec::has_images) {
@@ -517,7 +393,7 @@ void GraphicsPipeline::ConfigureImpl(bool is_indexed) {
     if constexpr (Spec::enabled_stages[4]) {
         config_stage(4);
     }
-    texture_cache.FillGraphicsImageViews<Spec::has_images>(std::span(views.data(), views.size()));
+    texture_cache.FillGraphicsImageViews<Spec::has_images>(std::span(views.data(), view_index));
 
     VideoCommon::ImageViewInOut* texture_buffer_it{views.data()};
     const auto bind_stage_info{[&](size_t stage) LAMBDA_FORCEINLINE {
@@ -625,10 +501,9 @@ void GraphicsPipeline::ConfigureDraw(const RescalingPushConstant& rescaling,
     const bool is_rescaling{texture_cache.IsRescaling()};
     const bool update_rescaling{scheduler.UpdateRescaling(is_rescaling)};
     const bool bind_pipeline{scheduler.UpdateGraphicsPipeline(this)};
-    const auto* const descriptor_data{guest_descriptor_queue.UpdateData()};
-    const size_t upload_entries{guest_descriptor_queue.GetUploadSize()};
-    scheduler.Record([this, descriptor_data, upload_entries, bind_pipeline,
-                      rescaling_data = rescaling.Data(), is_rescaling, update_rescaling,
+    const void* const descriptor_data{guest_descriptor_queue.UpdateData()};
+    scheduler.Record([this, descriptor_data, bind_pipeline, rescaling_data = rescaling.Data(),
+                      is_rescaling, update_rescaling,
                       uses_render_area = render_area.uses_render_area,
                       render_area_data = render_area.words](vk::CommandBuffer cmdbuf) {
         if (bind_pipeline) {
@@ -649,53 +524,18 @@ void GraphicsPipeline::ConfigureDraw(const RescalingPushConstant& rescaling,
                                  RENDERAREA_LAYOUT_OFFSET, sizeof(render_area_data),
                                  &render_area_data);
         }
-        if (!descriptor_set_layout && !resource_set_layout) {
+        if (!descriptor_set_layout) {
             return;
         }
-        const vk::Device& dev{device.GetLogical()};
-        const u64 data_hash = HashDescriptorBlock(descriptor_data, upload_entries);
-        auto& semaphore = scheduler.GetMasterSemaphore();
-        // Strict per-CB cache: DescriptorAllocator tracks lifetime via
-        // Commit() but not BindDescriptorSets(), so reusing a cached handle
-        // across CB boundaries risks the allocator handing it back on a later
-        // miss and overwriting contents an earlier in-flight CB references.
-        const u64 current_tick = semaphore.CurrentTick();
-        const auto get_or_alloc = [&](DescriptorAllocator& alloc,
-                                      const vk::DescriptorUpdateTemplate& tpl) -> VkDescriptorSet {
-            for (auto& e : descriptor_set_cache) {
-                if (e.set != VK_NULL_HANDLE && e.hash == data_hash &&
-                    e.cb_tick == current_tick) {
-                    return e.set;
-                }
-            }
-            const VkDescriptorSet fresh = alloc.Commit();
-            dev.UpdateDescriptorSet(fresh, *tpl, descriptor_data);
-            for (auto& e : descriptor_set_cache) {
-                if (e.set == fresh) {
-                    e.set = VK_NULL_HANDLE;
-                }
-            }
-            descriptor_set_cache[descriptor_set_cache_rr] = {data_hash, current_tick, fresh};
-            descriptor_set_cache_rr =
-                (descriptor_set_cache_rr + 1) % DESC_SET_CACHE_SIZE;
-            return fresh;
-        };
-        if (descriptor_set_layout) {
-            if (uses_push_descriptor) {
-                cmdbuf.PushDescriptorSetWithTemplateKHR(*descriptor_update_template,
-                                                        *pipeline_layout, 0, descriptor_data);
-            } else {
-                const VkDescriptorSet ds = get_or_alloc(descriptor_allocator,
-                                                        descriptor_update_template);
-                cmdbuf.BindDescriptorSets(VK_PIPELINE_BIND_POINT_GRAPHICS, *pipeline_layout, 0,
-                                          ds, nullptr);
-            }
-        }
-        if (resource_set_layout) {
-            const VkDescriptorSet rs = get_or_alloc(resource_descriptor_allocator,
-                                                    resource_update_template);
-            cmdbuf.BindDescriptorSets(VK_PIPELINE_BIND_POINT_GRAPHICS, *pipeline_layout, 1,
-                                      rs, nullptr);
+        if (uses_push_descriptor) {
+            cmdbuf.PushDescriptorSetWithTemplateKHR(*descriptor_update_template, *pipeline_layout,
+                                                    0, descriptor_data);
+        } else {
+            const VkDescriptorSet descriptor_set{descriptor_allocator.Commit()};
+            const vk::Device& dev{device.GetLogical()};
+            dev.UpdateDescriptorSet(descriptor_set, *descriptor_update_template, descriptor_data);
+            cmdbuf.BindDescriptorSets(VK_PIPELINE_BIND_POINT_GRAPHICS, *pipeline_layout, 0,
+                                      descriptor_set, nullptr);
         }
     });
 }
