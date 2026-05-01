@@ -20,8 +20,6 @@
 #include "common/hash.h"
 #include "common/literals.h"
 #include "common/lru_cache.h"
-#include "common/memtrap/trap_manager.h"
-#include "common/settings.h"
 #include <ranges>
 #include "common/scratch_buffer.h"
 #include "common/slot_vector.h"
@@ -494,8 +492,6 @@ public:
 
     std::unordered_map<u64, std::vector<ImageMapId>, Common::IdentityHash<u64>> page_table;
     std::unordered_map<ImageId, boost::container::small_vector<ImageViewId, 16>> sparse_views;
-
-    std::unordered_map<ImageId, Common::MemTrap::TrapHandle> trap_handles;
 
     DAddr virtual_invalid_space{};
 

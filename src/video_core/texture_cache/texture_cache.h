@@ -1304,12 +1304,6 @@ void TextureCache<P>::RefreshContents(Image& image, ImageId image_id) {
     auto staging = runtime.UploadStagingBuffer(MapSizeBytes(image));
     UploadImageContents(image, staging);
     runtime.InsertUploadMemoryBarrier();
-
-    if (Settings::values.use_gpu_memtraps.GetValue()) {
-        if (auto it = trap_handles.find(image_id); it != trap_handles.end()) {
-            Common::MemTrap::GetGlobalTrapManager().TrapRegions(it->second, /*write_only=*/true);
-        }
-    }
 }
 
 template <class P>
@@ -2291,35 +2285,6 @@ void TextureCache<P>::RegisterImage(ImageId image_id) {
     ForEachGPUPage(image.gpu_addr, image.guest_size_bytes, [this, image_id](u64 page) {
         (*channel_state->sparse_page_table)[page].push_back(image_id);
     });
-
-    auto& trap_manager = Common::MemTrap::GetGlobalTrapManager();
-    if (Settings::values.use_gpu_memtraps.GetValue() && trap_manager.IsActive() &&
-        image.guest_size_bytes > 0) {
-        const DAddr trap_addr = image.cpu_addr;
-        const u64 trap_size = image.guest_size_bytes;
-        u8* const host_base = device_memory.template GetPointer<u8>(trap_addr);
-        if (host_base) {
-            const size_t page_size = Common::MemTrap::TrapManager::PageSize();
-            auto* const aligned_start = reinterpret_cast<u8*>(Common::AlignUp(
-                reinterpret_cast<uintptr_t>(host_base), page_size));
-            auto* const aligned_end = reinterpret_cast<u8*>(Common::AlignDown(
-                reinterpret_cast<uintptr_t>(host_base + trap_size), page_size));
-            if (aligned_start < aligned_end) {
-                std::array regions_array{std::span<u8>{aligned_start,
-                    static_cast<size_t>(aligned_end - aligned_start)}};
-                std::span<std::span<u8>> regions{regions_array};
-                auto handle = trap_manager.CreateTrap(
-                    regions, /*lock=*/[] {}, /*read=*/[] { return true; },
-                    /*write=*/
-                    [this, trap_addr, trap_size] {
-                        WriteMemory(trap_addr, trap_size);
-                        return true;
-                    });
-                trap_manager.TrapRegions(handle, /*write_only=*/true);
-                trap_handles.emplace(image_id, std::move(handle));
-            }
-        }
-    }
 }
 
 template <class P>
@@ -2469,10 +2434,6 @@ void TextureCache<P>::UntrackImage(ImageBase& image, ImageId image_id) {
 template <class P>
 void TextureCache<P>::DeleteImage(ImageId image_id, bool immediate_delete) {
     std::scoped_lock lock{image_map_mutex};
-    if (auto it = trap_handles.find(image_id); it != trap_handles.end()) {
-        Common::MemTrap::GetGlobalTrapManager().DeleteTrap(it->second);
-        trap_handles.erase(it);
-    }
     ImageBase& image = slot_images[image_id];
     if (image.HasScaled()) {
         total_used_memory -= GetScaledImageSizeBytes(image);
