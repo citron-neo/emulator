@@ -291,6 +291,8 @@ struct Values {
                                                             AstcDecodeMode::CpuAsynchronous,
                                                             "accelerate_astc",
                                                             Category::Renderer};
+
+    SwitchableSetting<bool> rescale_hack{linkage, false, "rescale_hack", Category::Renderer};
     SwitchableSetting<VSyncMode, true> vsync_mode{
         linkage,     VSyncMode::Fifo,    VSyncMode::Immediate,        VSyncMode::FifoRelaxed,
         "use_vsync", Category::Renderer, Specialization::RuntimeList, true,
