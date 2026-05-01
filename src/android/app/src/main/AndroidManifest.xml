@@ -7,11 +7,14 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
+
+    <!-- Required features for the emulator -->
     <uses-feature android:name="android.hardware.touchscreen" android:required="false" />
     <uses-feature android:name="android.hardware.gamepad" android:required="false" />
     <uses-feature android:name="android.software.leanback" android:required="false" />
     <uses-feature android:name="android.hardware.vulkan.version" android:version="0x401000" android:required="true" />
 
+    <!-- Permissions -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.NFC" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
@@ -25,6 +28,8 @@ SPDX-License-Identifier: GPL-3.0-or-later
         android:name="org.citron.citron_emu.CitronApplication"
         android:label="@string/app_name_suffixed"
         android:icon="@drawable/ic_launcher"
+        android:hardwareAccelerated="true"          
+        android:largeHeap="true"                    
         android:allowBackup="true"
         android:hasFragileUserData="false"
         android:supportsRtl="true"
@@ -33,21 +38,27 @@ SPDX-License-Identifier: GPL-3.0-or-later
         android:banner="@drawable/tv_banner"
         android:fullBackupContent="@xml/data_extraction_rules"
         android:dataExtractionRules="@xml/data_extraction_rules_api_31"
-        android:enableOnBackInvokedCallback="true">
+        android:enableOnBackInvokedCallback="true"
         android:requestLegacyExternalStorage="true"
+        android:persistent="false"                   
+        android:resizeableActivity="true">           
 
-        <meta-data android:name="android.game_mode_config"
+        <!-- Game Mode Configuration for better performance -->
+        <meta-data
+            android:name="android.game_mode_config"
             android:resource="@xml/game_mode_config" />
 
         <activity
             android:name="org.citron.citron_emu.ui.main.MainActivity"
             android:exported="true"
-            android:theme="@style/Theme.Citron.Splash.Main">
+            android:theme="@style/Theme.Citron.Splash.Main"
+            android:hardwareAccelerated="true"
+            android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|uiMode|keyboardHidden"
+            android:launchMode="singleTask"
+            android:screenOrientation="sensorLandscape">
 
-            <!-- This intentfilter marks this Activity as the one that gets launched from Home screen. -->
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
-
                 <category android:name="android.intent.category.LAUNCHER" />
                 <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
             </intent-filter>
@@ -64,8 +75,10 @@ SPDX-License-Identifier: GPL-3.0-or-later
             android:launchMode="singleTop"
             android:supportsPictureInPicture="true"
             android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|uiMode"
-            android:exported="true">
+            android:exported="true"
+            android:hardwareAccelerated="true">
 
+            <!-- NFC and file intent filters -->
             <intent-filter>
                 <action android:name="android.nfc.action.TECH_DISCOVERED" />
                 <category android:name="android.intent.category.DEFAULT" />
@@ -75,9 +88,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
-                <data
-                    android:mimeType="application/octet-stream"
-                    android:scheme="content"/>
+                <data android:mimeType="application/octet-stream" android:scheme="content"/>
             </intent-filter>
 
             <meta-data
