@@ -68,6 +68,10 @@ add_library(common STATIC
     hex_util.h
     host_memory.cpp
     host_memory.h
+    memtrap/interval_map.h
+    memtrap/trap_manager.cpp
+    memtrap/trap_manager.h
+    memtrap_platform.h
     input.h
     intrusive_red_black_tree.h
     literals.h
@@ -149,10 +153,14 @@ add_library(common STATIC
 
 if (WIN32)
   target_sources(common PRIVATE
+    memtrap_platform_win32.cpp
     windows/timer_resolution.cpp
     windows/timer_resolution.h
   )
   target_link_libraries(common PRIVATE ntdll)
+else()
+  # Compiles to empty TU on non-Windows until Linux/Android sigaction path is added.
+  target_sources(common PRIVATE memtrap_platform_win32.cpp)
 endif()
 
 if (NOT WIN32)
