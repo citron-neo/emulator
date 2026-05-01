@@ -6,7 +6,6 @@
 #include <algorithm>
 #include <bit>
 #include <limits>
-#include <mutex>
 #include <span>
 #include <utility>
 
@@ -251,7 +250,6 @@ public:
      */
     template <Type type, bool enable>
     void ChangeRegionState(u64 dirty_addr, u64 size) noexcept(type == Type::GPU) {
-        std::scoped_lock lock{bitmask_mutex};
         std::span<u64> state_words = words.template Span<type>();
         [[maybe_unused]] std::span<u64> untracked_words = words.template Span<Type::Untracked>();
         [[maybe_unused]] std::span<u64> cached_words = words.template Span<Type::CachedCPU>();
@@ -352,8 +350,8 @@ public:
      */
     template <Type type>
     [[nodiscard]] bool IsRegionModified(u64 offset, u64 size) const noexcept {
-        std::scoped_lock lock{bitmask_mutex};
         static_assert(type != Type::Untracked);
+
         const std::span<const u64> state_words = words.template Span<type>();
         [[maybe_unused]] const std::span<const u64> untracked_words =
             words.template Span<Type::Untracked>();
@@ -380,7 +378,6 @@ public:
      */
     template <Type type>
     [[nodiscard]] std::pair<u64, u64> ModifiedRegion(u64 offset, u64 size) const noexcept {
-        std::scoped_lock lock{bitmask_mutex};
         static_assert(type != Type::Untracked);
         const std::span<const u64> state_words = words.template Span<type>();
         [[maybe_unused]] const std::span<const u64> untracked_words =
@@ -421,7 +418,6 @@ public:
     }
 
     void FlushCachedWrites() noexcept {
-        std::scoped_lock lock{bitmask_mutex};
         const u64 num_words = NumWords();
         u64* const cached_words = Array<Type::CachedCPU>();
         u64* const untracked_words = Array<Type::Untracked>();
@@ -484,7 +480,6 @@ private:
     VAddr cpu_addr = 0;
     DeviceTracker* tracker = nullptr;
     Words<stack_words> words;
-    mutable std::recursive_mutex bitmask_mutex;
 };
 
 } // namespace VideoCommon

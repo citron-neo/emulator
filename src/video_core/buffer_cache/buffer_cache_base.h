@@ -308,8 +308,6 @@ public:
     }
 
     std::recursive_mutex mutex;
-    mutable std::recursive_mutex page_table_mutex;
-    mutable std::recursive_mutex gpu_modified_mutex;
     Runtime& runtime;
 
 private:

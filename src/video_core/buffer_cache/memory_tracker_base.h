@@ -8,7 +8,6 @@
 #include <deque>
 #include <limits>
 #include <type_traits>
-#include <mutex>
 #include <unordered_set>
 #include <utility>
 
@@ -36,7 +35,6 @@ public:
     /// Returns the inclusive CPU modified range in a begin end pair
     [[nodiscard]] std::pair<u64, u64> ModifiedCpuRegion(VAddr query_cpu_addr,
                                                         u64 query_size) noexcept {
-        std::scoped_lock lock{tracker_mutex};
         return IteratePairs<true>(
             query_cpu_addr, query_size, [](Manager* manager, u64 offset, size_t size) {
                 return manager->template ModifiedRegion<Type::CPU>(offset, size);
@@ -46,7 +44,6 @@ public:
     /// Returns the inclusive GPU modified range in a begin end pair
     [[nodiscard]] std::pair<u64, u64> ModifiedGpuRegion(VAddr query_cpu_addr,
                                                         u64 query_size) noexcept {
-        std::scoped_lock lock{tracker_mutex};
         return IteratePairs<false>(
             query_cpu_addr, query_size, [](Manager* manager, u64 offset, size_t size) {
                 return manager->template ModifiedRegion<Type::GPU>(offset, size);
@@ -55,7 +52,6 @@ public:
 
     /// Returns true if a region has been modified from the CPU
     [[nodiscard]] bool IsRegionCpuModified(VAddr query_cpu_addr, u64 query_size) noexcept {
-        std::scoped_lock lock{tracker_mutex};
         return IteratePages<true>(
             query_cpu_addr, query_size, [](Manager* manager, u64 offset, size_t size) {
                 return manager->template IsRegionModified<Type::CPU>(offset, size);
@@ -64,7 +60,6 @@ public:
 
     /// Returns true if a region has been modified from the GPU
     [[nodiscard]] bool IsRegionGpuModified(VAddr query_cpu_addr, u64 query_size) noexcept {
-        std::scoped_lock lock{tracker_mutex};
         return IteratePages<false>(
             query_cpu_addr, query_size, [](Manager* manager, u64 offset, size_t size) {
                 return manager->template IsRegionModified<Type::GPU>(offset, size);
@@ -73,7 +68,6 @@ public:
 
     /// Returns true if a region has been marked as Preflushable
     [[nodiscard]] bool IsRegionPreflushable(VAddr query_cpu_addr, u64 query_size) noexcept {
-        std::scoped_lock lock{tracker_mutex};
         return IteratePages<false>(
             query_cpu_addr, query_size, [](Manager* manager, u64 offset, size_t size) {
                 return manager->template IsRegionModified<Type::Preflushable>(offset, size);
@@ -82,7 +76,6 @@ public:
 
     /// Mark region as CPU modified, notifying the device_tracker about this change
     void MarkRegionAsCpuModified(VAddr dirty_cpu_addr, u64 query_size) {
-        std::scoped_lock lock{tracker_mutex};
         IteratePages<true>(dirty_cpu_addr, query_size,
                            [](Manager* manager, u64 offset, size_t size) {
                                manager->template ChangeRegionState<Type::CPU, true>(
@@ -92,7 +85,6 @@ public:
 
     /// Unmark region as CPU modified, notifying the device_tracker about this change
     void UnmarkRegionAsCpuModified(VAddr dirty_cpu_addr, u64 query_size) {
-        std::scoped_lock lock{tracker_mutex};
         IteratePages<true>(dirty_cpu_addr, query_size,
                            [](Manager* manager, u64 offset, size_t size) {
                                manager->template ChangeRegionState<Type::CPU, false>(
@@ -102,7 +94,6 @@ public:
 
     /// Mark region as modified from the host GPU
     void MarkRegionAsGpuModified(VAddr dirty_cpu_addr, u64 query_size) noexcept {
-        std::scoped_lock lock{tracker_mutex};
         IteratePages<true>(dirty_cpu_addr, query_size,
                            [](Manager* manager, u64 offset, size_t size) {
                                manager->template ChangeRegionState<Type::GPU, true>(
@@ -121,7 +112,6 @@ public:
 
     /// Unmark region as modified from the host GPU
     void UnmarkRegionAsGpuModified(VAddr dirty_cpu_addr, u64 query_size) noexcept {
-        std::scoped_lock lock{tracker_mutex};
         IteratePages<true>(dirty_cpu_addr, query_size,
                            [](Manager* manager, u64 offset, size_t size) {
                                manager->template ChangeRegionState<Type::GPU, false>(
@@ -157,7 +147,6 @@ public:
     }
 
     void FlushCachedWrites() noexcept {
-        std::scoped_lock lock{tracker_mutex};
         for (auto id : cached_pages) {
             top_tier[id]->FlushCachedWrites();
         }
@@ -201,7 +190,6 @@ public:
 private:
     template <bool create_region_on_fail, typename Func>
     bool IteratePages(VAddr cpu_address, size_t size, Func&& func) {
-        std::scoped_lock lock{tracker_mutex};
         using FuncReturn = typename std::invoke_result<Func, Manager*, u64, size_t>::type;
         static constexpr bool BOOL_BREAK = std::is_same_v<FuncReturn, bool>;
         std::size_t remaining_size{size};
@@ -239,7 +227,6 @@ private:
 
     template <bool create_region_on_fail, typename Func>
     std::pair<u64, u64> IteratePairs(VAddr cpu_address, size_t size, Func&& func) {
-        std::scoped_lock lock{tracker_mutex};
         std::size_t remaining_size{size};
         std::size_t page_index{cpu_address >> HIGHER_PAGE_BITS};
         u64 page_offset{cpu_address & HIGHER_PAGE_MASK};
@@ -307,7 +294,6 @@ private:
     std::unordered_set<u32> cached_pages;
 
     DeviceTracker* device_tracker = nullptr;
-    mutable std::recursive_mutex tracker_mutex;
 };
 
 } // namespace VideoCommon
