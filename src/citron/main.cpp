@@ -2486,10 +2486,6 @@ bool GMainWindow::OnShutdownBegin() {
     system->SetShuttingDown(true);
     discord_rpc->Pause();
 
-    if (vram_overlay) {
-        vram_overlay->SetVisible(false);
-    }
-
     RequestGameExit();
     emu_thread->disconnect();
     emu_thread->SetRunning(true);
@@ -5478,7 +5474,7 @@ u32 GMainWindow::GetShadersBuilding() const {
 }
 
 u64 GMainWindow::GetTotalVram() const {
-    if (!system || !system->IsPoweredOn() || system->IsShuttingDown() || !emulation_running) {
+    if (!system || !system->IsPoweredOn()) {
         return 0;
     }
     try {
@@ -5501,7 +5497,7 @@ u64 GMainWindow::GetTotalVram() const {
 }
 
 u64 GMainWindow::GetUsedVram() const {
-    if (!system || !system->IsPoweredOn() || system->IsShuttingDown() || !emulation_running) {
+    if (!system || !system->IsPoweredOn()) {
         return 0;
     }
     try {
@@ -5523,7 +5519,7 @@ u64 GMainWindow::GetUsedVram() const {
 }
 
 u64 GMainWindow::GetBufferMemoryUsage() const {
-    if (!system || !system->IsPoweredOn() || system->IsShuttingDown() || !emulation_running) {
+    if (!system || !system->IsPoweredOn()) {
         return 0;
     }
     try {
@@ -5545,7 +5541,7 @@ u64 GMainWindow::GetBufferMemoryUsage() const {
 }
 
 u64 GMainWindow::GetTextureMemoryUsage() const {
-    if (!system || !system->IsPoweredOn() || system->IsShuttingDown() || !emulation_running) {
+    if (!system || !system->IsPoweredOn()) {
         return 0;
     }
     try {
@@ -5567,7 +5563,7 @@ u64 GMainWindow::GetTextureMemoryUsage() const {
 }
 
 u64 GMainWindow::GetStagingMemoryUsage() const {
-    if (!system || !system->IsPoweredOn() || system->IsShuttingDown() || !emulation_running) {
+    if (!system || !system->IsPoweredOn()) {
         return 0;
     }
     try {
