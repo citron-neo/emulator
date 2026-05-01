@@ -29,7 +29,7 @@ namespace {
     return false;
 }
 
-void VisitMark(IR::Block& block, IR::Inst& inst) {
+void VisitMark(IR::Block& block, IR::Inst& inst, bool needs_hack) {
     switch (inst.GetOpcode()) {
     case IR::Opcode::ShuffleIndex:
     case IR::Opcode::ShuffleUp:
@@ -48,26 +48,31 @@ void VisitMark(IR::Block& block, IR::Inst& inst) {
             break;
         }
         IR::Inst* const bitcast_inst{bitcast_arg.InstRecursive()};
-        bool must_patch_outside = false;
+        [[maybe_unused]] bool must_patch_outside = false;
         if (bitcast_inst->GetOpcode() == IR::Opcode::GetAttribute) {
             const IR::Attribute attr{bitcast_inst->Arg(0).Attribute()};
-            switch (attr) {
-            case IR::Attribute::PositionX:
-            case IR::Attribute::PositionY:
+          if (attr >= IR::Attribute::PositionX && attr <= IR::Attribute::PositionW) {
                 bitcast_inst->SetFlags<u32>(0xDEADBEEF);
                 must_patch_outside = true;
-                break;
-            default:
-                break;
             }
         }
-        if (must_patch_outside) {
+           if (must_patch_outside) {
             const auto it{IR::Block::InstructionList::s_iterator_to(inst)};
-            IR::IREmitter ir{block, IR::Block::InstructionList::s_iterator_to(inst)};
-            const IR::F32 new_inst{&*block.PrependNewInst(it, inst)};
-            const IR::F32 up_factor{ir.FPRecip(ir.ResolutionDownFactor())};
-            const IR::Value converted{ir.FPMul(new_inst, up_factor)};
-            inst.ReplaceUsesWith(converted);
+            IR::IREmitter ir{block, it};
+           
+
+            if (needs_hack) {
+                const IR::F32 new_inst{&*block.PrependNewInst(it, inst)};
+                const IR::F32 up_factor{ir.FPRecip(ir.ResolutionDownFactor())};
+                const IR::Value converted{ir.FPMul(new_inst, up_factor)};
+                inst.ReplaceUsesWith(converted);
+            } else {
+                IR::Inst* const new_inst{&*block.PrependNewInst(it, inst)};
+                const IR::F32 new_bitcast{ir.ConvertUToF(32, 32, IR::Value{new_inst})};
+                const IR::F32 up_factor{ir.FPRecip(ir.ResolutionDownFactor())};
+                const IR::Value converted{ir.FPMul(new_bitcast, up_factor)};
+                inst.ReplaceUsesWith(converted);
+            }
         }
         break;
     }
@@ -336,20 +341,50 @@ void Visit(const IR::Program& program, IR::Block& block, IR::Inst& inst) {
 }
 } // Anonymous namespace
 
-void RescalingPass(IR::Program& program) {
-    const bool is_fragment_shader{program.stage == Stage::Fragment};
-    if (is_fragment_shader) {
-        for (IR::Block* const block : program.post_order_blocks) {
-            for (IR::Inst& inst : block->Instructions()) {
-                VisitMark(*block, inst);
+bool FragmentShaderNeedsRescalingPass(const IR::Program& program) {
+    if (program.stage != Stage::Fragment) return false;
+
+    for (const IR::Block* block : program.post_order_blocks) {
+         for (const IR::Inst& inst : block->Instructions()) {
+            const auto op = inst.GetOpcode();
+            if (op != IR::Opcode::ShuffleIndex && op != IR::Opcode::ShuffleUp &&
+                op != IR::Opcode::ShuffleDown && op != IR::Opcode::ShuffleButterfly) {
+                continue;
+            }
+
+            if (inst.Arg(0).IsImmediate()) continue;
+            const IR::Inst* arg_inst = inst.Arg(0).InstRecursive();
+
+            if (arg_inst->GetOpcode() != IR::Opcode::BitCastU32F32 || arg_inst->Arg(0).IsImmediate()) continue;
+            const IR::Inst* bitcast_inst = arg_inst->Arg(0).InstRecursive();
+
+            if (bitcast_inst->GetOpcode() == IR::Opcode::GetAttribute) {
+                const auto attr = bitcast_inst->Arg(0).Attribute();
+                if (attr >= IR::Attribute::PositionX && attr <= IR::Attribute::PositionW) {
+                    return true;
+                }
             }
         }
     }
+    return false;
+}
+void RescalingPass(IR::Program& program) {
+    [[maybe_unused]] const bool is_fragment_shader{program.stage == Stage::Fragment};
+    
+    // Combine the automatic detection with the manual user toggle
+    const bool auto_hack{FragmentShaderNeedsRescalingPass(program)};
+    const bool manual_hack{Settings::values.rescale_hack.GetValue()};
+    const bool needs_hack = auto_hack || manual_hack;
+
+    if (needs_hack) {
+        LOG_WARNING(Shader, "Rescaling workaround active (Auto: {}, Manual: {})", auto_hack, manual_hack);
+    }
+
     for (IR::Block* const block : program.post_order_blocks) {
         for (IR::Inst& inst : block->Instructions()) {
-            Visit(program, *block, inst);
+            VisitMark(*block, inst, needs_hack);
+            Visit(program, *block, inst); 
         }
     }
 }
-
 } // namespace Shader::Optimization
