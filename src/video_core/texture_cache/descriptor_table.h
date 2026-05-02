@@ -28,8 +28,13 @@ public:
         return current_limit;
     }
 
+    [[nodiscard]] u64 Generation() const noexcept {
+        return generation;
+    }
+
     void Invalidate() noexcept {
         std::ranges::fill(read_descriptors, 0);
+        ++generation;
     }
 
     [[nodiscard]] std::pair<Descriptor, bool> Read(u32 index) {
@@ -52,6 +57,7 @@ public:
     void Refresh(GPUVAddr gpu_addr, u32 limit) noexcept {
         current_gpu_addr = gpu_addr;
         current_limit = limit;
+        ++generation;
 
         const size_t num_descriptors = static_cast<size_t>(limit) + 1;
         read_descriptors.clear();
@@ -70,6 +76,7 @@ public:
     Tegra::MemoryManager& gpu_memory;
     GPUVAddr current_gpu_addr{};
     u32 current_limit{};
+    u64 generation{};
     std::vector<u64> read_descriptors;
     std::vector<Descriptor> descriptors;
 };

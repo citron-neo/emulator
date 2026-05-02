@@ -54,6 +54,7 @@ struct ImageViewInOut {
     u32 index{};
     bool blacklist{};
     ImageViewId id{};
+    bool id_cached{};
 };
 
 struct AsyncDecodeContext {
@@ -161,6 +162,12 @@ public:
 
     /// Fill image_view_ids with the compute images in indices
     void FillComputeImageViews(std::span<ImageViewInOut> views);
+
+    /// Current generation of the graphics image descriptor table
+    [[nodiscard]] u64 GraphicsImageTableGeneration() const noexcept;
+
+    /// Current generation of the compute image descriptor table
+    [[nodiscard]] u64 ComputeImageTableGeneration() const noexcept;
 
     /// Handle feedback loops during draws.
     void CheckFeedbackLoop(std::span<const ImageViewInOut> views);

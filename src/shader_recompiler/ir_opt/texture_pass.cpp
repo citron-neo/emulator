@@ -41,7 +41,7 @@ constexpr u32 DESCRIPTOR_SIZE = 8;
 constexpr u32 DESCRIPTOR_SIZE_SHIFT = static_cast<u32>(std::countr_zero(DESCRIPTOR_SIZE));
 
 constexpr u32 BINDLESS_ARRAY_LENGTH = 1024;
-constexpr u32 BINDLESS_FALLBACK_LENGTH = 8;
+constexpr u32 BINDLESS_FALLBACK_LENGTH = BINDLESS_ARRAY_LENGTH;
 
 u32 BindlessCountForCbuf(Environment& env, u32 cbuf_index) {
     const u32 cbuf_size = env.ReadCbufSize(cbuf_index);
