@@ -22,7 +22,6 @@ void LowerFp64ToFp32(IR::Program& program);
 void LowerFp16ToFp32(IR::Program& program);
 void LowerInt64ToInt32(IR::Program& program);
 void RescalingPass(IR::Program& program);
-bool FragmentShaderNeedsRescalingPass(const IR::Program& program);
 void SsaRewritePass(IR::Program& program);
 void PositionPass(Environment& env, IR::Program& program);
 void TexturePass(Environment& env, IR::Program& program, const HostTranslateInfo& host_info);
