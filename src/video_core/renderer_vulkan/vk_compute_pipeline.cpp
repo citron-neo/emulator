@@ -243,10 +243,25 @@ void ComputePipeline::Configure(Tegra::Engines::KeplerCompute& kepler_compute,
         if (desc.count > 1 && !desc.has_secondary) {
             const GPUVAddr cbuf_addr =
                 cbufs[desc.cbuf_index].Address() + desc.cbuf_offset;
+            const u64 image_table_generation = texture_cache.ComputeImageTableGeneration();
+
+            // Fast path: if we have a valid cache entry whose generation matches,
+            // the TIC table hasn't been invalidated. Skip ReadBlockUnsafe + memcmp.
+            if (auto* fast = FindBindlessEntry(bindless_cache, cbuf_addr,
+                                               desc.count, image_table_generation);
+                fast != nullptr) {
+                for (const auto& v : fast->cached_views) {
+                    views.push_back(v);
+                }
+                for (const auto& s : fast->cached_samplers) {
+                    samplers.push_back(s);
+                }
+                continue;
+            }
+
             const size_t byte_size = static_cast<size_t>(desc.count) << desc.size_shift;
             bindless_scratch.resize(byte_size);
             gpu_memory.ReadBlockUnsafe(cbuf_addr, bindless_scratch.data(), byte_size);
-            const u64 image_table_generation = texture_cache.ComputeImageTableGeneration();
             BindlessCacheEntry& entry = AcquireBindlessEntry(
                 bindless_cache, bindless_cache_rr, cbuf_addr, desc.count,
                 image_table_generation);
