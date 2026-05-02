@@ -43,7 +43,7 @@ using VideoCore::Surface::PixelFormatFromDepthFormat;
 using VideoCore::Surface::PixelFormatFromRenderTargetFormat;
 
 constexpr size_t NUM_STAGES = Tegra::Engines::Maxwell3D::Regs::MaxShaderStage;
-constexpr size_t MAX_IMAGE_ELEMENTS = 16384;
+constexpr size_t MAX_IMAGE_ELEMENTS = 1024;
 
 constexpr u64 FNV1A_OFFSET = 0xcbf29ce484222325ULL;
 constexpr u64 FNV1A_PRIME = 0x100000001b3ULL;
@@ -70,6 +70,7 @@ inline u64 HashDescriptorBlock(const DescriptorUpdateEntry* data, size_t entry_c
 struct BindlessCacheEntry {
     GPUVAddr key_addr{0};
     u32 key_count{0};
+    u64 key_image_table_generation{};
     bool valid{false};
     boost::container::small_vector<u8, 256> last_bytes;
     boost::container::small_vector<VideoCommon::ImageViewInOut, 16> cached_views;
@@ -78,9 +79,11 @@ struct BindlessCacheEntry {
 constexpr size_t BINDLESS_CACHE_SIZE = 64;
 using BindlessCache = std::array<BindlessCacheEntry, BINDLESS_CACHE_SIZE>;
 
-BindlessCacheEntry* FindBindlessEntry(BindlessCache& cache, GPUVAddr addr, u32 count) {
+BindlessCacheEntry* FindBindlessEntry(BindlessCache& cache, GPUVAddr addr, u32 count,
+                                      u64 image_table_generation) {
     for (auto& entry : cache) {
-        if (entry.valid && entry.key_addr == addr && entry.key_count == count) {
+        if (entry.valid && entry.key_addr == addr && entry.key_count == count &&
+            entry.key_image_table_generation == image_table_generation) {
             return &entry;
         }
     }
@@ -88,14 +91,16 @@ BindlessCacheEntry* FindBindlessEntry(BindlessCache& cache, GPUVAddr addr, u32 c
 }
 
 BindlessCacheEntry& AcquireBindlessEntry(BindlessCache& cache, size_t& round_robin,
-                                         GPUVAddr addr, u32 count) {
-    if (auto* found = FindBindlessEntry(cache, addr, count)) {
+                                         GPUVAddr addr, u32 count,
+                                         u64 image_table_generation) {
+    if (auto* found = FindBindlessEntry(cache, addr, count, image_table_generation)) {
         return *found;
     }
     auto& slot = cache[round_robin];
     round_robin = (round_robin + 1) % BINDLESS_CACHE_SIZE;
     slot.key_addr = addr;
     slot.key_count = count;
+    slot.key_image_table_generation = image_table_generation;
     slot.valid = false;
     return slot;
 }
@@ -451,8 +456,11 @@ void GraphicsPipeline::ConfigureImpl(bool is_indexed) {
                 bindless_scratch.resize(byte_size);
                 gpu_memory->ReadBlockUnsafe(cbuf_addr, bindless_scratch.data(),
                                             byte_size);
+                const u64 image_table_generation =
+                    texture_cache.GraphicsImageTableGeneration();
                 BindlessCacheEntry& entry = AcquireBindlessEntry(
-                    bindless_cache, bindless_cache_rr, cbuf_addr, desc.count);
+                    bindless_cache, bindless_cache_rr, cbuf_addr, desc.count,
+                    image_table_generation);
                 const bool hit = entry.valid &&
                                  entry.last_bytes.size() == byte_size &&
                                  std::memcmp(entry.last_bytes.data(),
@@ -481,6 +489,12 @@ void GraphicsPipeline::ConfigureImpl(bool is_indexed) {
                 }
                 entry.last_bytes.assign(bindless_scratch.begin(),
                                         bindless_scratch.end());
+                auto resolved_views =
+                    std::span(views.data() + views_start, views.size() - views_start);
+                texture_cache.FillGraphicsImageViews<false>(resolved_views);
+                for (auto& view : resolved_views) {
+                    view.id_cached = true;
+                }
                 entry.cached_views.assign(views.data() + views_start,
                                           views.data() + views.size());
                 entry.cached_samplers.assign(samplers.data() + samplers_start,
