@@ -37,12 +37,15 @@ public:
     enum class FocusTarget {
         MainView,    // Grid or Carousel
         DetailsView, // Action buttons side panel
+        Dialog,      // Modal dialogs
     };
 
     /// Switches focus between main list and details
     void toggleFocus();
     void setFocus(FocusTarget target);
-    FocusTarget currentFocus() const { return m_current_focus; }
+    FocusTarget currentFocus() const {
+        return m_current_focus;
+    }
 
 signals:
     void TriggerKeyboardEvent(Qt::Key key); // Kept for legacy compatibility if needed
@@ -51,7 +54,7 @@ signals:
     void cancelled(); // Controller 'B'
     void focusChanged(FocusTarget new_focus);
     void auxiliaryAction(int action_id); // For mapping X, Y, etc.
-    void activityDetected(); // Emitted on any controller input
+    void activityDetected();             // Emitted on any controller input
 
 private slots:
     void navigationRepeat();

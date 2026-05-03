@@ -302,7 +302,7 @@ void GameListDelegate::paint(QPainter* painter, const QStyleOptionViewItem& opti
             PaintGameInfo(painter, rect, option, index);
             break;
         case GameList::COLUMN_COMPATIBILITY:
-            PaintCompatibility(painter, rect, index);
+            PaintCompatibility(painter, rect, option, index);
             break;
         case GameList::COLUMN_PLAY_TIME:
             PaintPlayTime(painter, rect, option, index);
@@ -690,10 +690,6 @@ void GameListDelegate::PaintGameInfo(QPainter* painter, const QRect& rect,
             }
         }
         painter->restore();
-
-        painter->setPen(QPen(QColor(255, 255, 255, 30), 1.0));
-        painter->setBrush(Qt::NoBrush);
-        painter->drawRoundedRect(icon_rect, 6, 6);
     }
 
     // 2. Metadata Extraction (Title & Program ID)
@@ -720,30 +716,32 @@ void GameListDelegate::PaintGameInfo(QPainter* painter, const QRect& rect,
 
     // 3. Text Rendering (Safe Baseline-based Drawing)
     const int text_x = icon_rect.right() + 18;
-    const QFontMetrics metrics = painter->fontMetrics();
-    const int title_ascent = metrics.ascent();
-    const int title_descent = metrics.descent();
-    const int title_h = title_ascent + title_descent;
-
+    
     // Subtext (ID) metrics
     QFont f_id = option.font;
     f_id.setPointSize(std::max(6, f_id.pointSize() - 2));
     const QFontMetrics id_metrics(f_id);
     const int id_h = id_metrics.ascent() + id_metrics.descent();
 
-    const int spacing = 6; // More generous spacing for large fonts
-    const int total_h = title_h + (id.isEmpty() ? 0 : id_h + spacing);
-    const int start_y = rect.top() + (rect.height() - total_h) / 2;
-
+    const int spacing = 6;
+    
     // Draw Title (Bold)
     painter->setPen(TextColor());
     QFont f_title = option.font;
     f_title.setBold(true);
     painter->setFont(f_title);
+    
+    const QFontMetrics metrics = painter->fontMetrics(); 
+    const int title_ascent = metrics.ascent();
+    const int title_descent = metrics.descent();
+    const int title_h = title_ascent + title_descent;
+    
+    const int total_h = title_h + (id.isEmpty() ? 0 : id_h + spacing);
+    const int start_y = rect.top() + (rect.height() - total_h) / 2;
 
     // Explicitly draw at the title baseline
     const int title_baseline = start_y + title_ascent;
-    QString elided_title = metrics.elidedText(title, Qt::ElideRight, rect.right() - text_x - 12);
+    QString elided_title = metrics.elidedText(title, Qt::ElideRight, rect.right() - text_x - 15);
     DrawShadowedText(painter, text_x, title_baseline, elided_title, TextColor());
 
     // Draw Subtext (Program ID)
@@ -758,6 +756,7 @@ void GameListDelegate::PaintGameInfo(QPainter* painter, const QRect& rect,
 }
 
 void GameListDelegate::PaintCompatibility(QPainter* painter, const QRect& rect,
+                                          const QStyleOptionViewItem& option,
                                           const QModelIndex& index) const {
     const QString text = index.data(Qt::DisplayRole).toString();
     const QString status_str = index.data(GameListItemCompat::CompatNumberRole).toString();
@@ -819,7 +818,7 @@ void GameListDelegate::PaintCompatibility(QPainter* painter, const QRect& rect,
 
     QFont f = painter->font();
     f.setBold(true);
-    f.setPixelSize(11); // Fixed size to prevent clipping with scaling
+    f.setPixelSize(11); // Lock to fixed size for compatibility badges as requested
     painter->setFont(f);
 
     DrawShadowedText(painter, badge, Qt::AlignCenter, status_text, color);
@@ -842,6 +841,8 @@ void GameListDelegate::PaintDefault(QPainter* painter, const QRect& rect,
     } else {
         painter->setPen(TextColor());
     }
+    
+    painter->setFont(option.font); // Explicitly use the scaled font
 
     const int margin = 10;
     QRect content_rect = rect.adjusted(margin, 4, -margin, -4);
