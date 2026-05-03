@@ -80,7 +80,7 @@ void GameDetailsPanel::setupUI() {
     title_font.setWeight(QFont::Bold);
     title_font.setLetterSpacing(QFont::AbsoluteSpacing, 0.8);
     m_title_label->setFont(title_font);
-    m_title_label->setStyleSheet(QStringLiteral("color: white; margin-bottom: 5px;"));
+    m_title_label->setStyleSheet(QStringLiteral("color: white; margin-bottom: 10px;"));
     m_header_layout->addWidget(m_title_label, 0, Qt::AlignCenter);
 
 
@@ -175,7 +175,7 @@ void GameDetailsPanel::updateStyles() {
                                         : QStringLiteral("rgba(0, 0, 0, 0.08)");
 
     m_title_label->setStyleSheet(
-        QStringLiteral("color: %1; background: transparent; font-weight: bold;").arg(title_color));
+        QStringLiteral("color: %1; background: transparent; font-weight: bold; margin-bottom: 8px;").arg(title_color));
 
     m_meta_card->setStyleSheet(
         QStringLiteral("QFrame#metaCard {"
@@ -368,19 +368,22 @@ void GameDetailsPanel::applyDetails(const QModelIndex& index) {
         title = title.split(QLatin1Char('\n')).first();
     m_title_label->setText(title);
     
-    // Iterative Font Shrinking: Force title into exactly 2 lines to save vertical space
+    // Iterative Font Shrinking: Force title into strictly 2 lines to save vertical space
     QFont title_font = m_title_label->font();
     qreal point_size = 18.0;
-    const int target_width = std::max(200, m_title_label->width());
     
-    while (point_size > 11.0) {
+    // Accurate width calculation (panel width - total horizontal margins)
+    const int margin = qBound(15, width() / 10, 35);
+    const int target_width = std::max(180, width() - (margin * 2) - 20);
+    
+    while (point_size > 10.0) {
         title_font.setPointSizeF(point_size);
         QFontMetrics fm(title_font);
         QRect boundingRect = fm.boundingRect(0, 0, target_width, 1000, 
                                              Qt::AlignHCenter | Qt::AlignTop | Qt::TextWordWrap, title);
         
-        // If it fits in roughly 2 lines of height (with some margin)
-        if (boundingRect.height() <= fm.lineSpacing() * 2.2) {
+        // Strict 2-line limit: height must be <= 2.0 line spacings
+        if (boundingRect.height() <= fm.lineSpacing() * 2.05) {
             break;
         }
         point_size -= 0.5;
@@ -388,6 +391,7 @@ void GameDetailsPanel::applyDetails(const QModelIndex& index) {
     
     title_font.setPointSizeF(point_size);
     m_title_label->setFont(title_font);
+    m_title_label->setMinimumHeight(QFontMetrics(title_font).lineSpacing() * (title.contains(QLatin1Char(' ')) ? 2 : 1));
 
     m_id_label->setText(
         QStringLiteral("0x%1").arg(m_current_program_id, 16, 16, QLatin1Char('0')).toUpper());
