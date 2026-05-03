@@ -255,7 +255,7 @@ void GameDetailsPanel::ApplyTheme() {
         QStringLiteral("QPushButton {"
                        "  background: %5; color: %7; border: 1px solid %6;"
                        "  border-radius: 12px; font-weight: bold; padding-left: 20px; text-align: "
-                       "left; font-size: 13pt;"
+                       "left; font-size: 11.5pt;"
                        "}"
                        "QPushButton:hover { background: %8; border-color: %4; color: %9; }"
                        "QPushButton:focus { background: rgba(%1, %2, %3, 0.2); border: 2px solid "
@@ -394,29 +394,22 @@ void GameDetailsPanel::applyDetails(const QModelIndex& index) {
 
     clearActions();
     
-    m_actions_layout->addStretch(1);
     addAction(tr("Launch Game"), QStringLiteral("start"));
-    m_actions_layout->addSpacing(8);
-    m_actions_layout->addStretch(1);
+    m_actions_layout->addSpacing(10);
     addAction(tr("Favorite"), QStringLiteral("favorite"));
-    m_actions_layout->addSpacing(8);
-    m_actions_layout->addStretch(1);
+    m_actions_layout->addSpacing(10);
     addAction(tr("Properties"), QStringLiteral("properties"));
-    m_actions_layout->addSpacing(8);
-    m_actions_layout->addStretch(1);
+    m_actions_layout->addSpacing(10);
     addAction(tr("Open Save Data"), QStringLiteral("save_data"));
-    m_actions_layout->addSpacing(8);
-    m_actions_layout->addStretch(1);
+    m_actions_layout->addSpacing(10);
     addAction(tr("Open Mod Location"), QStringLiteral("mod_data"));
-    m_actions_layout->addSpacing(8);
-    m_actions_layout->addStretch(1);
+    m_actions_layout->addSpacing(10);
     addAction(tr("Download Icon..."), QStringLiteral("download_icon"));
 
     // Poster selection is a Grid View specific feature
     auto* game_list = qobject_cast<GameList*>(parent());
     if (game_list && game_list->GetViewMode() == GameList::ViewMode::Grid) {
-        m_actions_layout->addSpacing(8);
-        m_actions_layout->addStretch(1);
+        m_actions_layout->addSpacing(10);
         addAction(tr("Download Poster..."), QStringLiteral("download_poster"));
     }
 
@@ -436,7 +429,7 @@ void GameDetailsPanel::clearActions() {
 
 void GameDetailsPanel::addAction(const QString& label, const QString& action_id) {
     auto* btn = new QPushButton(label, this);
-    btn->setFixedHeight(42);
+    btn->setFixedHeight(34);
     btn->setCursor(Qt::PointingHandCursor);
 
     const bool is_dark = IsDarkMode();
@@ -458,7 +451,7 @@ void GameDetailsPanel::addAction(const QString& label, const QString& action_id)
         QStringLiteral(
             "QPushButton {"
             "  background: %5; color: %7; border: 1px solid %6;"
-            "  border-radius: 12px; font-weight: bold; text-align: center; font-size: 13pt;"
+            "  border-radius: 12px; font-weight: bold; text-align: center; font-size: 11.5pt;"
             "}"
             "QPushButton:hover { background: %8; border-color: %4; color: %9; }"
             "QPushButton:focus { background: rgba(%1, %2, %3, 0.4); border: 2px solid %4; color: "
