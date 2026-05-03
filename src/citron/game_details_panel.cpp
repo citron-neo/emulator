@@ -63,8 +63,9 @@ void GameDetailsPanel::setupUI() {
     auto* header_container = new QWidget(this);
     header_container->setStyleSheet(QStringLiteral("background: transparent; border: none;"));
     m_header_layout = new QVBoxLayout(header_container);
-    m_header_layout->setContentsMargins(35, 60, 35, 20);
-    m_header_layout->setSpacing(35);
+    m_header_layout->addStretch(1);
+    m_header_layout->setContentsMargins(35, 30, 35, 10);
+    m_header_layout->setSpacing(15);
 
     m_icon_label = new QLabel(header_container);
     m_icon_label->setFixedSize(160, 160);
@@ -85,7 +86,7 @@ void GameDetailsPanel::setupUI() {
 
     m_meta_card = new QFrame(header_container);
     m_meta_card->setObjectName(QStringLiteral("metaCard"));
-    m_meta_card->setFixedHeight(32);
+    m_meta_card->setFixedHeight(30);
     // Dynamic width handled in resizeEvent
     
     auto* meta_inner_layout = new QHBoxLayout(m_meta_card);
@@ -114,8 +115,9 @@ void GameDetailsPanel::setupUI() {
     m_actions_container = new QWidget(m_scroll_area);
     m_actions_container->setStyleSheet(QStringLiteral("background: transparent;"));
     m_actions_layout = new QVBoxLayout(m_actions_container);
-    m_actions_layout->setContentsMargins(25, 30, 25, 30);
-    m_actions_layout->setSpacing(0); // Spacing handled by stretches
+    m_actions_layout->addStretch(1);
+    m_actions_layout->setContentsMargins(25, 10, 25, 10);
+    m_actions_layout->setSpacing(0);
     m_scroll_area->setWidget(m_actions_container);
     content_layout->addWidget(m_scroll_area);
 
@@ -179,8 +181,8 @@ void GameDetailsPanel::updateStyles() {
         QStringLiteral("QFrame#metaCard {"
                        "  background: %1;"
                        "  border: 1px solid %2;"
-                       "  border-radius: 16px;"
-                       "  margin-top: 8px;"
+                       "  border-radius: 15px;"
+                       "  margin-top: 6px;"
                        "}")
             .arg(meta_bg, meta_border));
 
@@ -203,9 +205,10 @@ void GameDetailsPanel::resizeEvent(QResizeEvent* event) {
 
     // Update meta card width and margins to ensure centering on small displays
     const int margin = qBound(15, w / 10, 35);
-    m_header_layout->setContentsMargins(margin, 60, margin, 20);
-    
-    const int meta_w = qBound(160, w - (margin * 4), 210);
+    int top_margin = height() < 800 ? 30 : 40;
+    m_header_layout->setContentsMargins(margin, top_margin, margin, 10);
+
+    const int meta_w = qBound(160, w - (margin * 4), 240);
     if (m_meta_card->width() != meta_w) {
         m_meta_card->setFixedWidth(meta_w);
     }
@@ -364,28 +367,55 @@ void GameDetailsPanel::applyDetails(const QModelIndex& index) {
     if (title.contains(QLatin1Char('\n')))
         title = title.split(QLatin1Char('\n')).first();
     m_title_label->setText(title);
+    
+    // Iterative Font Shrinking: Force title into exactly 2 lines to save vertical space
+    QFont title_font = m_title_label->font();
+    qreal point_size = 18.0;
+    const int target_width = std::max(200, m_title_label->width());
+    
+    while (point_size > 11.0) {
+        title_font.setPointSizeF(point_size);
+        QFontMetrics fm(title_font);
+        QRect boundingRect = fm.boundingRect(0, 0, target_width, 1000, 
+                                             Qt::AlignHCenter | Qt::AlignTop | Qt::TextWordWrap, title);
+        
+        // If it fits in roughly 2 lines of height (with some margin)
+        if (boundingRect.height() <= fm.lineSpacing() * 2.2) {
+            break;
+        }
+        point_size -= 0.5;
+    }
+    
+    title_font.setPointSizeF(point_size);
+    m_title_label->setFont(title_font);
+
     m_id_label->setText(
         QStringLiteral("0x%1").arg(m_current_program_id, 16, 16, QLatin1Char('0')).toUpper());
 
     clearActions();
-
-    // Balanced stretches to perfectly center and spread the action buttons
+    
     m_actions_layout->addStretch(1);
     addAction(tr("Launch Game"), QStringLiteral("start"));
+    m_actions_layout->addSpacing(8);
     m_actions_layout->addStretch(1);
     addAction(tr("Favorite"), QStringLiteral("favorite"));
+    m_actions_layout->addSpacing(8);
     m_actions_layout->addStretch(1);
     addAction(tr("Properties"), QStringLiteral("properties"));
+    m_actions_layout->addSpacing(8);
     m_actions_layout->addStretch(1);
     addAction(tr("Open Save Data"), QStringLiteral("save_data"));
+    m_actions_layout->addSpacing(8);
     m_actions_layout->addStretch(1);
     addAction(tr("Open Mod Location"), QStringLiteral("mod_data"));
+    m_actions_layout->addSpacing(8);
     m_actions_layout->addStretch(1);
     addAction(tr("Download Icon..."), QStringLiteral("download_icon"));
 
     // Poster selection is a Grid View specific feature
     auto* game_list = qobject_cast<GameList*>(parent());
     if (game_list && game_list->GetViewMode() == GameList::ViewMode::Grid) {
+        m_actions_layout->addSpacing(8);
         m_actions_layout->addStretch(1);
         addAction(tr("Download Poster..."), QStringLiteral("download_poster"));
     }
@@ -406,7 +436,7 @@ void GameDetailsPanel::clearActions() {
 
 void GameDetailsPanel::addAction(const QString& label, const QString& action_id) {
     auto* btn = new QPushButton(label, this);
-    btn->setFixedHeight(60);
+    btn->setFixedHeight(42);
     btn->setCursor(Qt::PointingHandCursor);
 
     const bool is_dark = IsDarkMode();
