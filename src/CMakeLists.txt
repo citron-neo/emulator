@@ -216,6 +216,11 @@ if (CITRON_TESTS)
     add_subdirectory(tests)
 endif()
 
+option(CITRON_SHADER_TOOL "Build the standalone shader_tool CLI" ON)
+if (CITRON_SHADER_TOOL)
+    add_subdirectory(shader_tool)
+endif()
+
 if (ENABLE_SDL2)
     add_subdirectory(citron_cmd)
 endif()
