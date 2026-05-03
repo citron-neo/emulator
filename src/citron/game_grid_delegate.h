@@ -5,6 +5,7 @@
 #include <QColor>
 #include <QPersistentModelIndex>
 #include <QStyledItemDelegate>
+#include "common/common_types.h"
 
 class QListView;
 class QTimer;
