@@ -11,6 +11,7 @@
 #include <QResizeEvent>
 #include <QScrollArea>
 #include <QScrollBar>
+#include <QTextDocument>
 #include <QTimer>
 #include <QVBoxLayout>
 
@@ -65,12 +66,11 @@ void GameDetailsPanel::setupUI() {
     m_header_layout = new QVBoxLayout(header_container);
     m_header_layout->addStretch(1);
     m_header_layout->setContentsMargins(35, 30, 35, 10);
-    m_header_layout->setSpacing(15);
+    m_header_layout->setSpacing(0);
 
     m_icon_label = new QLabel(header_container);
     m_icon_label->setFixedSize(160, 160);
     m_icon_label->setAlignment(Qt::AlignCenter);
-    m_header_layout->addWidget(m_icon_label, 0, Qt::AlignCenter);
 
     m_title_label = new QLabel(header_container);
     m_title_label->setWordWrap(true);
@@ -80,8 +80,7 @@ void GameDetailsPanel::setupUI() {
     title_font.setWeight(QFont::Bold);
     title_font.setLetterSpacing(QFont::AbsoluteSpacing, 0.8);
     m_title_label->setFont(title_font);
-    m_title_label->setStyleSheet(QStringLiteral("color: white; margin-bottom: 10px;"));
-    m_header_layout->addWidget(m_title_label, 0, Qt::AlignCenter);
+    m_title_label->setStyleSheet(QStringLiteral("color: white;"));
 
 
     m_meta_card = new QFrame(header_container);
@@ -99,9 +98,15 @@ void GameDetailsPanel::setupUI() {
     id_font.setBold(true);
     id_font.setLetterSpacing(QFont::AbsoluteSpacing, 0.6);
     m_id_label->setFont(id_font);
+    m_id_label->setFont(id_font);
     meta_inner_layout->addWidget(m_id_label);
     
+    m_header_layout->addWidget(m_icon_label, 0, Qt::AlignCenter);
+    m_header_layout->addSpacing(15);
+    m_header_layout->addWidget(m_title_label, 0, Qt::AlignCenter);
+    m_header_layout->addSpacing(15);
     m_header_layout->addWidget(m_meta_card, 0, Qt::AlignCenter);
+    m_header_layout->addStretch(1);
 
     content_layout->addWidget(header_container);
 
@@ -175,7 +180,7 @@ void GameDetailsPanel::updateStyles() {
                                         : QStringLiteral("rgba(0, 0, 0, 0.08)");
 
     m_title_label->setStyleSheet(
-        QStringLiteral("color: %1; background: transparent; font-weight: bold; margin-bottom: 8px;").arg(title_color));
+        QStringLiteral("color: %1; background: transparent; font-weight: bold; line-height: 120%;").arg(title_color));
 
     m_meta_card->setStyleSheet(
         QStringLiteral("QFrame#metaCard {"
@@ -368,22 +373,25 @@ void GameDetailsPanel::applyDetails(const QModelIndex& index) {
         title = title.split(QLatin1Char('\n')).first();
     m_title_label->setText(title);
     
-    // Iterative Font Shrinking: Force title into strictly 2 lines to save vertical space
+    // Decisive Two-Line Limit: Uses QTextDocument for perfect line-count simulation
     QFont title_font = m_title_label->font();
     qreal point_size = 18.0;
     
-    // Accurate width calculation (panel width - total horizontal margins)
+    // Conservative width calculation
     const int margin = qBound(15, width() / 10, 35);
-    const int target_width = std::max(180, width() - (margin * 2) - 20);
+    const int target_width = std::max(160, width() - (margin * 2) - 40);
+    
+    QTextDocument doc;
+    doc.setUndoRedoEnabled(false);
     
     while (point_size > 10.0) {
         title_font.setPointSizeF(point_size);
-        QFontMetrics fm(title_font);
-        QRect boundingRect = fm.boundingRect(0, 0, target_width, 1000, 
-                                             Qt::AlignHCenter | Qt::AlignTop | Qt::TextWordWrap, title);
+        doc.setDefaultFont(title_font);
+        doc.setPlainText(title);
+        doc.setTextWidth(target_width);
         
-        // Strict 2-line limit: height must be <= 2.0 line spacings
-        if (boundingRect.height() <= fm.lineSpacing() * 2.05) {
+        // Strictly break only if it fits in 2 lines or fewer
+        if (doc.lineCount() <= 2) {
             break;
         }
         point_size -= 0.5;
@@ -391,7 +399,6 @@ void GameDetailsPanel::applyDetails(const QModelIndex& index) {
     
     title_font.setPointSizeF(point_size);
     m_title_label->setFont(title_font);
-    m_title_label->setMinimumHeight(QFontMetrics(title_font).lineSpacing() * (title.contains(QLatin1Char(' ')) ? 2 : 1));
 
     m_id_label->setText(
         QStringLiteral("0x%1").arg(m_current_program_id, 16, 16, QLatin1Char('0')).toUpper());
