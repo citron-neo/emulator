@@ -15,6 +15,7 @@
 #include "citron/game_list_p.h"
 #include "citron/uisettings.h"
 #include "citron/theme.h"
+#include "citron/custom_metadata.h"
 
 CinematicCarousel::CinematicCarousel(QWidget* parent) : QWidget(parent) {
     m_snap_animation = new QPropertyAnimation(this, "focalIndex");
@@ -240,8 +241,22 @@ void CinematicCarousel::paintEvent(QPaintEvent* event) {
         }
         if (!focal) { p.setPen(Qt::NoPen); p.setBrush(CardBg()); p.setOpacity(0.85); p.drawPath(path); }
         QModelIndex idx = m_model->index(i, 0);
-        QPixmap pix = idx.data(GameListItemPath::HighResIconRole).value<QPixmap>();
-        if (pix.isNull()) pix = idx.data(Qt::DecorationRole).value<QPixmap>();
+        u64 program_id = idx.data(GameListItemPath::ProgramIdRole).toULongLong();
+        
+        // Priority 1: Direct High-Res from disk
+        QPixmap pix;
+        auto custom_icon_path = Citron::CustomMetadata::GetInstance().GetCustomIconPath(program_id);
+        if (custom_icon_path) {
+            pix.load(QString::fromStdString(*custom_icon_path));
+        }
+
+        // Priority 2: Model fallback
+        if (pix.isNull()) {
+            pix = idx.data(GameListItemPath::HighResIconRole).value<QPixmap>();
+        }
+        if (pix.isNull()) {
+            pix = idx.data(Qt::DecorationRole).value<QPixmap>();
+        }
         if (!pix.isNull()) {
             p.setOpacity(focal ? 1.0 : 0.85);
             const int pad = 10; QRectF ir(-is / 2.0 + pad / 2.0, -is / 2.0 + pad / 2.0, is - pad, is - pad);

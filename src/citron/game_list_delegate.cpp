@@ -36,6 +36,7 @@
 #include "citron/game_list_delegate.h"
 #include "citron/game_list_p.h"
 #include "citron/uisettings.h"
+#include "citron/custom_metadata.h"
 
 namespace {
 void DrawShadowedText(QPainter* painter, const QRect& rect, int flags, const QString& text,
@@ -654,8 +655,20 @@ void GameListDelegate::PaintGameInfo(QPainter* painter, const QRect& rect,
     const int v_pad = (rect.height() - icon_size) / 2;
     QRect icon_rect(rect.left() + margin_h, rect.top() + v_pad, icon_size, icon_size);
 
-    // 1. Icon Rendering (HighRes -> Decoration fallback)
-    QPixmap pixmap = master_index.data(GameListItemPath::HighResIconRole).value<QPixmap>();
+    // 2. Metadata Extraction (Title & Program ID)
+    QString title = master_index.data(GameListItemPath::TitleRole).toString();
+    u64 program_id = master_index.data(GameListItemPath::ProgramIdRole).toULongLong();
+
+    // 1. Icon Rendering (Direct Disk -> HighRes -> Decoration fallback)
+    QPixmap pixmap;
+    auto custom_icon_path = Citron::CustomMetadata::GetInstance().GetCustomIconPath(program_id);
+    if (custom_icon_path) {
+        pixmap.load(QString::fromStdString(*custom_icon_path));
+    }
+
+    if (pixmap.isNull()) {
+        pixmap = master_index.data(GameListItemPath::HighResIconRole).value<QPixmap>();
+    }
     if (pixmap.isNull()) {
         QVariant decoration = master_index.data(Qt::DecorationRole);
         if (decoration.canConvert<QPixmap>()) {
@@ -691,10 +704,6 @@ void GameListDelegate::PaintGameInfo(QPainter* painter, const QRect& rect,
         }
         painter->restore();
     }
-
-    // 2. Metadata Extraction (Title & Program ID)
-    QString title = master_index.data(GameListItemPath::TitleRole).toString();
-    u64 program_id = master_index.data(GameListItemPath::ProgramIdRole).toULongLong();
 
     // Absolute fallback: If TitleRole is empty, parse DisplayRole
     if (title.isEmpty()) {

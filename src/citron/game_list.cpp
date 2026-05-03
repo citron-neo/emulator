@@ -4724,21 +4724,39 @@ void GameList::UpdateIconForGame(u64 program_id) {
     const u32 size = UISettings::values.game_icon_size.GetValue();
     QPixmap round_pix = CreateRoundIcon(pix, size);
 
-    // Search for the item in the model (including sub-folders)
-    auto search_model = [program_id, &pix, &round_pix](auto&& self, QStandardItem* parent) -> void {
-        for (int i = 0; i < parent->rowCount(); ++i) {
-            QStandardItem* item = parent->child(i);
-            if (item->data(GameListItemPath::ProgramIdRole).toULongLong() == program_id) {
+    // Lambda to update a specific model
+    auto update_model = [program_id, &pix, &round_pix](QAbstractItemModel* model) {
+        if (!model) return;
+        auto matches = model->match(model->index(0, 0), GameListItemPath::ProgramIdRole,
+                                   qulonglong(program_id), 1, Qt::MatchExactly | Qt::MatchRecursive);
+        for (const auto& index : matches) {
+            auto* item = qobject_cast<QStandardItemModel*>(model)->itemFromIndex(index);
+            if (item) {
                 item->setData(pix, GameListItemPath::HighResIconRole);
                 item->setData(round_pix, Qt::DecorationRole);
-            }
-            if (item->hasChildren()) {
-                self(self, item);
             }
         }
     };
 
-    search_model(search_model, item_model->invisibleRootItem());
+    // 1. Update Main Model
+    update_model(item_model);
+
+    // 2. Update Grid Models
+    if (grid_view) {
+        update_model(grid_view->favModel());
+        update_model(grid_view->mainModel());
+        grid_view->ClearCaches(); // Bust delegate cache
+        grid_view->viewport()->update();
+    }
+
+    // 3. Update Carousel Model
+    if (carousel_view) {
+        update_model(carousel_view->view()->model());
+        carousel_view->view()->viewport()->update();
+    }
+    
+    // 4. Update List View
+    tree_view->viewport()->update();
 }
 
 void GameList::ShowIconSelectionDialog(u64 program_id, const QString& game_name) {

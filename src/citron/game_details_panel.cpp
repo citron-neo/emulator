@@ -20,7 +20,7 @@
 #include "citron/game_list_p.h"
 #include "citron/theme.h"
 #include "citron/uisettings.h"
-
+#include "citron/custom_metadata.h"
 
 GameDetailsPanel::GameDetailsPanel(QWidget* parent) : QWidget(parent) {
     setObjectName(QStringLiteral("GameDetailsPanel"));
@@ -82,12 +82,11 @@ void GameDetailsPanel::setupUI() {
     m_title_label->setFont(title_font);
     m_title_label->setStyleSheet(QStringLiteral("color: white;"));
 
-
     m_meta_card = new QFrame(header_container);
     m_meta_card->setObjectName(QStringLiteral("metaCard"));
     m_meta_card->setFixedHeight(30);
     // Dynamic width handled in resizeEvent
-    
+
     auto* meta_inner_layout = new QHBoxLayout(m_meta_card);
     meta_inner_layout->setContentsMargins(0, 0, 0, 0);
 
@@ -100,7 +99,7 @@ void GameDetailsPanel::setupUI() {
     m_id_label->setFont(id_font);
     m_id_label->setFont(id_font);
     meta_inner_layout->addWidget(m_id_label);
-    
+
     m_header_layout->addWidget(m_icon_label, 0, Qt::AlignCenter);
     m_header_layout->addSpacing(15);
     m_header_layout->addWidget(m_title_label, 0, Qt::AlignCenter);
@@ -166,12 +165,7 @@ void GameDetailsPanel::updateStyles() {
                        "QWidget#contentContainer { background: %2; border-left: 2px solid %3; }")
             .arg(panel_bg, overlay_bg, panel_border));
 
-    const QString icon_bg = is_dark ? QStringLiteral("rgba(0,0,0,0.4)") : QStringLiteral("#f0f0f0");
-    const QString icon_border =
-        is_dark ? QStringLiteral("rgba(255,255,255,0.18)") : QStringLiteral("rgba(0,0,0,0.1)");
-    m_icon_label->setStyleSheet(
-        QStringLiteral("border: 2px solid %1; border-radius: 30px; background: %2;")
-            .arg(icon_border, icon_bg));
+    m_icon_label->setStyleSheet(QStringLiteral("border: none; background: transparent;"));
 
     const QString title_color = is_dark ? QStringLiteral("#fff") : QStringLiteral("#111");
     const QString meta_bg = is_dark ? QStringLiteral("rgba(255, 255, 255, 0.08)")
@@ -180,18 +174,20 @@ void GameDetailsPanel::updateStyles() {
                                         : QStringLiteral("rgba(0, 0, 0, 0.08)");
 
     m_title_label->setStyleSheet(
-        QStringLiteral("color: %1; background: transparent; font-weight: bold; line-height: 120%;").arg(title_color));
+        QStringLiteral("color: %1; background: transparent; font-weight: bold; line-height: 120%;")
+            .arg(title_color));
 
-    m_meta_card->setStyleSheet(
-        QStringLiteral("QFrame#metaCard {"
-                       "  background: %1;"
-                       "  border: 1px solid %2;"
-                       "  border-radius: 15px;"
-                       "  margin-top: 6px;"
-                       "}")
-            .arg(meta_bg, meta_border));
+    m_meta_card->setStyleSheet(QStringLiteral("QFrame#metaCard {"
+                                              "  background: %1;"
+                                              "  border: 1px solid %2;"
+                                              "  border-radius: 15px;"
+                                              "  margin-top: 6px;"
+                                              "}")
+                                   .arg(meta_bg, meta_border));
 
-    m_id_label->setStyleSheet(QStringLiteral("color: %1; font-weight: bold; background: transparent; border: none;").arg(title_color));
+    m_id_label->setStyleSheet(
+        QStringLiteral("color: %1; font-weight: bold; background: transparent; border: none;")
+            .arg(title_color));
 }
 
 void GameDetailsPanel::resizeEvent(QResizeEvent* event) {
@@ -217,10 +213,6 @@ void GameDetailsPanel::resizeEvent(QResizeEvent* event) {
     if (m_meta_card->width() != meta_w) {
         m_meta_card->setFixedWidth(meta_w);
     }
-
-    // (Removed dynamic font size overriding to respect settings/defaults)
-
-    // (Removed dynamic font size overriding to respect settings/defaults)
 }
 
 void GameDetailsPanel::updateDetails(const QModelIndex& index) {
@@ -230,12 +222,6 @@ void GameDetailsPanel::updateDetails(const QModelIndex& index) {
         hide();
         return;
     }
-    u64 program_id = index.data(GameListItemPath::ProgramIdRole).toULongLong();
-    if (program_id == m_current_program_id && isVisible()) {
-        m_debounce_timer->stop();
-        return;
-    }
-
     m_pending_index = index;
     m_debounce_timer->start();
     show();
@@ -343,88 +329,103 @@ void GameDetailsPanel::applyDetails(const QModelIndex& index) {
     m_current_program_id = index.data(GameListItemPath::ProgramIdRole).toULongLong();
     m_current_path = index.data(GameListItemPath::FullPathRole).toString();
 
-    QPixmap pixmap = index.data(GameListItemPath::HighResIconRole).value<QPixmap>();
-    if (pixmap.isNull())
-        pixmap = index.data(Qt::DecorationRole).value<QPixmap>();
+    // Priority 1: Load directly from disk (High-Res) if a custom icon exists
+    QPixmap pixmap;
+    auto custom_icon_path =
+        Citron::CustomMetadata::GetInstance().GetCustomIconPath(m_current_program_id);
+if (custom_icon_path) {
+    pixmap.load(QString::fromStdString(*custom_icon_path));
+}
 
-    if (!pixmap.isNull()) {
-        const int is = m_icon_label->width();
+// Priority 2: Fallback to model data
+if (pixmap.isNull()) {
+    pixmap = index.data(GameListItemPath::HighResIconRole).value<QPixmap>();
+}
+if (pixmap.isNull()) {
+    pixmap = index.data(Qt::DecorationRole).value<QPixmap>();
+}
 
-        QPixmap rounded(is, is);
-        rounded.fill(Qt::transparent);
-        {
-            QPainter painter(&rounded);
-            painter.setRenderHint(QPainter::Antialiasing);
-            painter.setRenderHint(QPainter::SmoothPixmapTransform);
-            QPainterPath path;
-            path.addRoundedRect(0, 0, is, is, 28, 28);
-            painter.setClipPath(path);
-            painter.drawPixmap(
-                0, 0,
-                pixmap.scaled(is, is, Qt::KeepAspectRatioByExpanding, Qt::SmoothTransformation));
-        }
-        m_icon_label->setPixmap(rounded);
-        m_bg_pixmap = pixmap;
-        m_bg_label->setPixmap(m_bg_pixmap);
+if (!pixmap.isNull()) {
+    const int is = m_icon_label->width();
+
+    QPixmap rounded(is, is);
+    rounded.fill(Qt::transparent);
+    {
+        QPainter painter(&rounded);
+        painter.setRenderHint(QPainter::Antialiasing);
+        painter.setRenderHint(QPainter::SmoothPixmapTransform);
+        QPainterPath path;
+        path.addRoundedRect(0, 0, is, is, 32, 32);
+        painter.setClipPath(path);
+
+        painter.drawPixmap(
+            0, 0, is, is,
+            pixmap.scaled(is, is, Qt::KeepAspectRatioByExpanding, Qt::SmoothTransformation));
     }
+    m_icon_label->setPixmap(rounded);
+    m_bg_pixmap = pixmap;
+    m_bg_label->setPixmap(m_bg_pixmap);
+}
 
-    QString title = index.data(Qt::DisplayRole).toString();
-    if (title.contains(QLatin1Char('\n')))
-        title = title.split(QLatin1Char('\n')).first();
-    m_title_label->setText(title);
-    
-    // Decisive Two-Line Limit: Uses QTextDocument for perfect line-count simulation
-    QFont title_font = m_title_label->font();
-    qreal point_size = 18.0;
-    
-    // Conservative width calculation
-    const int margin = qBound(15, width() / 10, 35);
-    const int target_width = std::max(160, width() - (margin * 2) - 40);
-    
-    QTextDocument doc;
-    doc.setUndoRedoEnabled(false);
-    
-    while (point_size > 10.0) {
-        title_font.setPointSizeF(point_size);
-        doc.setDefaultFont(title_font);
-        doc.setPlainText(title);
-        doc.setTextWidth(target_width);
-        
-        // Strictly break only if it fits in 2 lines or fewer
-        if (doc.lineCount() <= 2) {
-            break;
-        }
-        point_size -= 0.5;
-    }
-    
+QString title = index.data(Qt::DisplayRole).toString();
+if (title.contains(QLatin1Char('\n')))
+    title = title.split(QLatin1Char('\n')).first();
+m_title_label->setText(title);
+
+// Decisive Two-Line Limit: Uses QTextDocument for perfect line-count simulation
+QFont title_font = m_title_label->font();
+qreal point_size = 18.0;
+
+// Conservative width calculation
+const int margin = qBound(15, width() / 10, 35);
+const int target_width = std::max(160, width() - (margin * 2) - 40);
+
+QTextDocument doc;
+doc.setUndoRedoEnabled(false);
+
+while (point_size > 10.0) {
     title_font.setPointSizeF(point_size);
-    m_title_label->setFont(title_font);
+    doc.setDefaultFont(title_font);
+    doc.setPlainText(title);
+    doc.setTextWidth(target_width);
 
-    m_id_label->setText(
-        QStringLiteral("0x%1").arg(m_current_program_id, 16, 16, QLatin1Char('0')).toUpper());
-
-    clearActions();
-    
-    addAction(tr("Launch Game"), QStringLiteral("start"));
-    m_actions_layout->addSpacing(10);
-    addAction(tr("Favorite"), QStringLiteral("favorite"));
-    m_actions_layout->addSpacing(10);
-    addAction(tr("Properties"), QStringLiteral("properties"));
-    m_actions_layout->addSpacing(10);
-    addAction(tr("Open Save Data"), QStringLiteral("save_data"));
-    m_actions_layout->addSpacing(10);
-    addAction(tr("Open Mod Location"), QStringLiteral("mod_data"));
-    m_actions_layout->addSpacing(10);
-    addAction(tr("Download Icon..."), QStringLiteral("download_icon"));
-
-    // Poster selection is a Grid View specific feature
-    auto* game_list = qobject_cast<GameList*>(parent());
-    if (game_list && game_list->GetViewMode() == GameList::ViewMode::Grid) {
-        m_actions_layout->addSpacing(10);
-        addAction(tr("Download Poster..."), QStringLiteral("download_poster"));
+    // Strictly break only if it fits in 2 lines or fewer
+    if (doc.lineCount() <= 2) {
+        break;
     }
+    point_size -= 0.5;
+}
 
-    m_actions_layout->addStretch(1);
+title_font.setPointSizeF(point_size);
+m_title_label->setFont(title_font);
+
+// Set a hard floor for the label height to prevent layout squishing
+m_title_label->setMinimumHeight(static_cast<int>(doc.size().height()) + 4);
+
+m_id_label->setText(
+    QStringLiteral("0x%1").arg(m_current_program_id, 16, 16, QLatin1Char('0')).toUpper());
+
+clearActions();
+
+addAction(tr("Launch Game"), QStringLiteral("start"));
+m_actions_layout->addSpacing(10);
+addAction(tr("Favorite"), QStringLiteral("favorite"));
+m_actions_layout->addSpacing(10);
+addAction(tr("Properties"), QStringLiteral("properties"));
+m_actions_layout->addSpacing(10);
+addAction(tr("Open Save Data"), QStringLiteral("save_data"));
+m_actions_layout->addSpacing(10);
+addAction(tr("Open Mod Location"), QStringLiteral("mod_data"));
+m_actions_layout->addSpacing(10);
+addAction(tr("Download Icon..."), QStringLiteral("download_icon"));
+
+auto* game_list = qobject_cast<GameList*>(parent());
+if (game_list && game_list->GetViewMode() == GameList::ViewMode::Grid) {
+    m_actions_layout->addSpacing(10);
+    addAction(tr("Download Poster..."), QStringLiteral("download_poster"));
+}
+
+m_actions_layout->addStretch(1);
 }
 
 void GameDetailsPanel::clearActions() {
