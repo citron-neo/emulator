@@ -55,6 +55,8 @@ static QPixmap GetDefaultIcon(u32 size) {
  * @return QPixmap rounded corner icon
  */
 static QPixmap CreateRoundIcon(const QPixmap& pixmap, u32 size) {
+    if (size == 0) return pixmap;
+    
     QPixmap rounded(size, size);
     rounded.fill(Qt::transparent);
 

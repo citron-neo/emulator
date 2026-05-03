@@ -38,6 +38,16 @@ std::optional<std::string> CustomMetadata::GetCustomIconPath(u64 program_id) con
     return std::nullopt;
 }
 
+std::optional<std::string> CustomMetadata::GetCustomPosterPath(u64 program_id) const {
+    auto it = metadata.find(program_id);
+    if (it != metadata.end() && !it->second.poster_path.empty()) {
+        if (Common::FS::Exists(it->second.poster_path)) {
+            return it->second.poster_path;
+        }
+    }
+    return std::nullopt;
+}
+
 void CustomMetadata::SetCustomTitle(u64 program_id, const std::string& title) {
     metadata[program_id].title = title;
     Save();
@@ -45,6 +55,11 @@ void CustomMetadata::SetCustomTitle(u64 program_id, const std::string& title) {
 
 void CustomMetadata::SetCustomIcon(u64 program_id, const std::string& icon_path) {
     metadata[program_id].icon_path = icon_path;
+    Save();
+}
+
+void CustomMetadata::SetCustomPoster(u64 program_id, const std::string& poster_path) {
+    metadata[program_id].poster_path = poster_path;
     Save();
 }
 
@@ -68,6 +83,7 @@ void CustomMetadata::Save() {
         entry[QStringLiteral("program_id")] = QString::number(program_id, 16);
         entry[QStringLiteral("title")] = QString::fromStdString(data.title);
         entry[QStringLiteral("icon_path")] = QString::fromStdString(data.icon_path);
+        entry[QStringLiteral("poster_path")] = QString::fromStdString(data.poster_path);
         entries.append(entry);
     }
 
@@ -114,6 +130,7 @@ void CustomMetadata::Load() {
         CustomGameMetadata data;
         data.title = entry[QStringLiteral("title")].toString().toStdString();
         data.icon_path = entry[QStringLiteral("icon_path")].toString().toStdString();
+        data.poster_path = entry[QStringLiteral("poster_path")].toString().toStdString();
 
         metadata[program_id] = std::move(data);
     }

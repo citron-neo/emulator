@@ -128,6 +128,43 @@
     </layout>
    </item>
    <item>
+    <widget class="QGroupBox" name="steam_grid_db_group">
+     <property name="title">
+      <string>SteamGridDB</string>
+     </property>
+     <layout class="QVBoxLayout" name="verticalLayout_sgdb">
+      <item>
+       <widget class="QLabel" name="label_sgdb_info">
+        <property name="text">
+         <string>Enter your SteamGridDB API key to enable high-quality poster fetching. You can get one at steamgriddb.com</string>
+        </property>
+        <property name="wordWrap">
+         <bool>true</bool>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <layout class="QHBoxLayout" name="horizontalLayout_sgdb">
+        <item>
+         <widget class="QLabel" name="label_sgdb_api_key">
+          <property name="text">
+           <string>API Key:</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QLineEdit" name="edit_steam_grid_db_api_key">
+          <property name="echoMode">
+           <enum>QLineEdit::PasswordEchoOnEdit</enum>
+          </property>
+         </widget>
+        </item>
+       </layout>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item>
     <widget class="QGroupBox" name="discord_group">
      <property name="title">
       <string>Discord Presence</string>
