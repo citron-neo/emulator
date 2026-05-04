@@ -1,38 +1,47 @@
 # SPDX-FileCopyrightText: 2026 citron Emulator Project
 # SPDX-License-Identifier: GPL-2.0-or-later
 #
-# CPM-managed dependencies for Clangtron (Clang cross-compile) builds.
-# This file is included ONLY when CITRON_USE_CPM=ON.
-# It replaces git submodules with CPMAddPackage() calls, fetching sources
-# at CMake configure time into CPM_SOURCE_CACHE.
+# CMakeModules/dependencies.cmake
+#
+# CPM-managed dependencies.  Included when CITRON_USE_CPM=ON, for any platform
+# (Linux native, Windows native via MSYS2, Linux→Windows cross-compile).
+#
+# All packages are fetched from source and built statically.  No system
+# packages are assumed or required.  CPM_USE_LOCAL_PACKAGES is intentionally
+# left OFF so behaviour is identical regardless of what the host has installed.
 #
 # Packages NOT managed here:
-#   - vcpkg  (submodule; used by MSVC/Linux/macOS/Android builds via CITRON_USE_BUNDLED_VCPKG.
-#             Disabled in Clangtron builds: CITRON_USE_CPM=ON sets VCPKG_MANIFEST_MODE=OFF.)
-#
-# Special handling:
-#   - ffmpeg (source downloaded by build script from ffmpeg.org, built static
-#             with autotools before cmake runs; CPM entry for reference only)
-#   - Qt 6.9.3 (pre-built binaries via aqt, managed in CMakeModules/qt_download.cmake)
+#   - vcpkg  (submodule; only used by MSVC/Android paths with CITRON_USE_BUNDLED_VCPKG=ON)
+#   - Qt     (pre-built binaries via aqt — see CMakeModules/qt_download.cmake)
 #
 # Static linking: BUILD_SHARED_LIBS is forced OFF in externals/CMakeLists.txt;
-# CPM packages inherit this. All dependencies link statically.
+# all CPM packages inherit this setting.
 
-# Ensure CPM is available
-include(TzdbWindowsFix)
 if (NOT COMMAND CPMAddPackage)
     message(FATAL_ERROR "CPM.cmake not loaded — include CMakeModules/CPM.cmake before this file")
 endif()
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# Phase 0 — vcpkg replacement packages
-# ═══════════════════════════════════════════════════════════════════════════════
-# These packages replace what vcpkg used to provide.  When CITRON_USE_CPM is ON,
-# VCPKG_MANIFEST_MODE is set to OFF so vcpkg doesn't auto-install from vcpkg.json.
+# ── tzdb host capability check ────────────────────────────────────────────────
+# tzdb_to_nx builds 'zic' from C source using the host compiler.
+# On WIN32 hosts, Windows headers lack POSIX APIs (link, symlink, readlink,
+# 2-arg mkdir) so the source build always fails.  Force the pre-built
+# release artifact download path instead.
+# On POSIX hosts (Linux, macOS) zic builds correctly; use CPMAddPackage.
+if (WIN32)
+    set(CITRON_DOWNLOAD_TIME_ZONE_DATA ON CACHE BOOL
+        "Use pre-built timezone data (forced ON: host lacks POSIX build tools)"
+        FORCE)
+    set(CITRON_TZDB_USE_CPM FALSE)
+    message(STATUS "[tzdb] WIN32 host: using pre-built timezone data")
+else()
+    set(CITRON_TZDB_USE_CPM TRUE)
+endif()
 
-# ── Boost (CMake variant, header-only + context lib) ──────────────────────────
-# Boost 1.86+ has native CMake support.  BOOST_INCLUDE_LIBRARIES restricts which
-# sub-libraries are built, keeping compile time short.
+# ═══════════════════════════════════════════════════════════════════════════════
+# Core dependencies
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# ── Boost ─────────────────────────────────────────────────────────────────────
 if (NOT TARGET Boost::headers)
     set(BOOST_INCLUDE_LIBRARIES "algorithm;asio;container;context;crc;heap;icl;intrusive;process;range;spirit;test;timer;variant" CACHE STRING "Boost components to build")
     set(BOOST_ENABLE_CMAKE ON CACHE BOOL "Enable Boost CMake")
@@ -67,7 +76,7 @@ if (NOT TARGET fmt::fmt)
     )
 endif()
 
-# ── lz4 ──────────────────────────────────────────────────────────────────────
+# ── lz4 ───────────────────────────────────────────────────────────────────────
 if (NOT TARGET lz4::lz4)
     CPMAddPackage(
         NAME lz4
@@ -80,7 +89,6 @@ if (NOT TARGET lz4::lz4)
             "BUILD_SHARED_LIBS OFF"
             "BUILD_STATIC_LIBS ON"
     )
-    # lz4 cmake creates lz4_static target; alias to lz4::lz4 for find_package compat
     if (TARGET lz4_static AND NOT TARGET lz4::lz4)
         add_library(lz4::lz4 ALIAS lz4_static)
     endif()
@@ -105,7 +113,6 @@ if (NOT TARGET ZLIB::ZLIB)
         OPTIONS "ZLIB_BUILD_EXAMPLES OFF"
     )
     if (TARGET zlibstatic AND NOT TARGET ZLIB::ZLIB)
-        # zlib cmake creates zlibstatic; alias for find_package(ZLIB) compat
         add_library(ZLIB::ZLIB ALIAS zlibstatic)
         set(ZLIB_FOUND TRUE CACHE BOOL "" FORCE)
         set(ZLIB_INCLUDE_DIRS "${ZLIB_SOURCE_DIR};${ZLIB_BINARY_DIR}" CACHE PATH "" FORCE)
@@ -149,7 +156,7 @@ if (NOT TARGET OpenAL::OpenAL)
     if (TARGET OpenAL AND NOT TARGET OpenAL::OpenAL)
         add_library(OpenAL::OpenAL ALIAS OpenAL)
     endif()
-    # Patch OpenAL's vendored fmt to fix undeclared 'malloc' on some toolchains
+    # Patch OpenAL's vendored fmt header to fix undeclared 'malloc' on some toolchains
     if (OpenAL_ADDED AND EXISTS "${OpenAL_SOURCE_DIR}/fmt-11.1.1/include/fmt/format.h")
         file(READ "${OpenAL_SOURCE_DIR}/fmt-11.1.1/include/fmt/format.h" _fmt_content)
         if (NOT _fmt_content MATCHES "#include <stdlib.h>")
@@ -160,14 +167,22 @@ if (NOT TARGET OpenAL::OpenAL)
 endif()
 
 # ── OpenSSL ───────────────────────────────────────────────────────────────────
-# OpenSSL doesn't use CMake natively. We build it from source using a cmake
-# wrapper module for cross-compilation with llvm-mingw.
 if (ENABLE_OPENSSL OR ENABLE_WEB_SERVICE)
     include(${CMAKE_SOURCE_DIR}/CMakeModules/openssl_build.cmake)
 endif()
 
+# ── Catch2 (test framework) ───────────────────────────────────────────────────
+if (CITRON_TESTS AND NOT TARGET Catch2::Catch2)
+    CPMAddPackage(
+        NAME Catch2
+        GITHUB_REPOSITORY catchorg/Catch2
+        GIT_TAG v3.7.1
+        OPTIONS "CATCH_INSTALL_DOCS OFF"
+    )
+endif()
 
-# Phase 1 — Header-only / trivial packages
+# ═══════════════════════════════════════════════════════════════════════════════
+# Header-only / trivial packages
 # ═══════════════════════════════════════════════════════════════════════════════
 
 # ── unordered_dense ───────────────────────────────────────────────────────────
@@ -189,9 +204,6 @@ endif()
 
 # ── cpp-jwt ───────────────────────────────────────────────────────────────────
 if (ENABLE_WEB_SERVICE AND NOT TARGET cpp-jwt::cpp-jwt)
-    # Use CPM to fetch cpp-jwt to ensure it goes into CPM_SOURCE_CACHE.
-    # We use DOWNLOAD_ONLY because the library has an install() rule that
-    # conflicts with yuzu's own project structure if added as a subdirectory.
     CPMAddPackage(
         NAME cpp-jwt
         GITHUB_REPOSITORY arun11299/cpp-jwt
@@ -238,20 +250,17 @@ if ((ARCHITECTURE_x86 OR ARCHITECTURE_x86_64) AND NOT TARGET xbyak::xbyak)
 endif()
 
 # ── Vulkan-Headers ────────────────────────────────────────────────────────────
-# We prefer the pre-generated stub for Clangtron builds to avoid submodule dependencies.
-option(CITRON_USE_VULKAN_STUB "Use pre-generated Vulkan stub instead of submodule" ON)
+option(CITRON_USE_VULKAN_STUB "Use pre-generated Vulkan stub instead of fetching Vulkan-Headers" ON)
 
 if (CITRON_USE_EXTERNAL_VULKAN_HEADERS AND NOT TARGET Vulkan::Headers)
     if (CITRON_USE_VULKAN_STUB AND
         NOT CITRON_USE_EXTERNAL_VULKAN_UTILITY_LIBRARIES AND
         EXISTS "${CMAKE_SOURCE_DIR}/externals/vulkan-stub/include")
         add_library(Vulkan-Headers INTERFACE)
-        target_include_directories(Vulkan-Headers SYSTEM INTERFACE "${CMAKE_SOURCE_DIR}/externals/vulkan-stub/include")
-        # Enable beta extensions to support latest Khronos/vendor features (required by v341+)
+        target_include_directories(Vulkan-Headers SYSTEM INTERFACE
+            "${CMAKE_SOURCE_DIR}/externals/vulkan-stub/include")
         target_compile_definitions(Vulkan-Headers INTERFACE VK_ENABLE_BETA_EXTENSIONS)
-        if (NOT TARGET Vulkan::Headers)
-            add_library(Vulkan::Headers ALIAS Vulkan-Headers)
-        endif()
+        add_library(Vulkan::Headers ALIAS Vulkan-Headers)
     else()
         CPMAddPackage(
             NAME Vulkan-Headers
@@ -261,7 +270,7 @@ if (CITRON_USE_EXTERNAL_VULKAN_HEADERS AND NOT TARGET Vulkan::Headers)
     endif()
 endif()
 
-# ── Vulkan-Utility-Libraries ─────────────────────────────────────────────────
+# ── Vulkan-Utility-Libraries ──────────────────────────────────────────────────
 if (CITRON_USE_EXTERNAL_VULKAN_UTILITY_LIBRARIES AND NOT TARGET Vulkan::LayerSettings)
     CPMAddPackage(
         NAME Vulkan-Utility-Libraries
@@ -283,11 +292,11 @@ if (NOT TARGET GPUOpen::VulkanMemoryAllocator)
 endif()
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# Phase 2 — Compiled libraries, upstream repos
+# Compiled libraries — upstream repos
 # ═══════════════════════════════════════════════════════════════════════════════
 
 # ── SPIRV-Headers ─────────────────────────────────────────────────────────────
-# Must come before sirit.
+# Must be declared before sirit.
 if (NOT TARGET SPIRV-Headers)
     CPMAddPackage(
         NAME SPIRV-Headers
@@ -365,25 +374,24 @@ if (CITRON_USE_EXTERNAL_SDL2 AND NOT TARGET SDL2::SDL2)
 endif()
 
 # ── tzdb_to_nx ────────────────────────────────────────────────────────────────
-# nx_tzdb/CMakeLists.txt conditionally calls add_subdirectory(tzdb_to_nx).
-# For Windows cross-compile, CAN_BUILD_NX_TZDB is false (host != posix),
-# so tzdb_to_nx is never built — it downloads pre-built archives instead.
-# We still fetch it via CPM so the submodule isn't required, but the directory
-# will only be used if someone does a native Linux/macOS build with CPM.
+# On POSIX hosts: fetch source via CPM; nx_tzdb/CMakeLists.txt builds zic and
+# generates the timezone headers at build time.
+# On WIN32 hosts: CITRON_TZDB_USE_CPM=FALSE (set above); nx_tzdb downloads the
+# pre-built 221202.zip archive instead.
 if (CITRON_TZDB_USE_CPM)
-  CPMAddPackage(
-      NAME tzdb_to_nx
-      GITHUB_REPOSITORY lat9nq/tzdb_to_nx
-      GIT_TAG 97929690234f2b4add36b33657fe3fe09bd57dfd
-      DOWNLOAD_ONLY YES
-  )
+    CPMAddPackage(
+        NAME tzdb_to_nx
+        GITHUB_REPOSITORY lat9nq/tzdb_to_nx
+        GIT_TAG 97929690234f2b4add36b33657fe3fe09bd57dfd
+        DOWNLOAD_ONLY YES
+    )
 endif()
 if (tzdb_to_nx_SOURCE_DIR)
     set(TZDB_TO_NX_SOURCE_DIR "${tzdb_to_nx_SOURCE_DIR}")
 endif()
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# Phase 3 — Forked repos (pinned to exact SHAs)
+# Forked repos — pinned to exact SHAs
 # ═══════════════════════════════════════════════════════════════════════════════
 
 # ── mbedtls (yuzu-mirror fork) ────────────────────────────────────────────────
@@ -407,7 +415,7 @@ if (NOT TARGET mbedtls)
     endif()
 endif()
 
-# ── oaknut (yuzu-mirror fork) ─────────────────────────────────────────────────
+# ── oaknut (yuzu-mirror fork) — AArch64 only ──────────────────────────────────
 if (ARCHITECTURE_arm64 AND NOT TARGET merry::oaknut)
     CPMAddPackage(
         NAME oaknut
@@ -427,7 +435,7 @@ if (NOT TARGET sirit)
     )
 endif()
 
-# ── dynarmic (xinitrcn1 fork, GPLv3) ─────────────────────────────────────────
+# ── dynarmic (xinitrcn1 fork) ─────────────────────────────────────────────────
 if ((ARCHITECTURE_x86_64 OR ARCHITECTURE_arm64) AND NOT (MSVC AND ARCHITECTURE_arm64))
     if (NOT TARGET dynarmic::dynarmic)
         CPMAddPackage(
@@ -443,7 +451,6 @@ if ((ARCHITECTURE_x86_64 OR ARCHITECTURE_arm64) AND NOT (MSVC AND ARCHITECTURE_a
             add_library(dynarmic::dynarmic ALIAS dynarmic)
         endif()
 
-        # Apply the mcl Clang patch post-populate
         if (CMAKE_CXX_COMPILER_ID MATCHES "Clang" AND dynarmic_ADDED)
             execute_process(
                 COMMAND git apply --ignore-whitespace
@@ -465,7 +472,6 @@ if (USE_DISCORD_PRESENCE AND NOT TARGET DiscordRPC::discord-rpc)
         OPTIONS "BUILD_EXAMPLES OFF"
     )
     if (discord-rpc_ADDED)
-        # Apply patches post-populate
         execute_process(
             COMMAND git apply --ignore-whitespace
                     "${CMAKE_SOURCE_DIR}/patches/rapidjson-compiler-fix.patch"
@@ -487,11 +493,9 @@ if (USE_DISCORD_PRESENCE AND NOT TARGET DiscordRPC::discord-rpc)
 endif()
 
 # ── breakpad (yuzu-mirror fork) ───────────────────────────────────────────────
-# breakpad is built manually in externals/CMakeLists.txt — it has no usable
-# CMakeLists of its own. We fetch via CPM with DOWNLOAD_ONLY so the source is
-# available but we don't try to add_subdirectory it. The existing breakpad
-# build logic in externals/CMakeLists.txt will use ${breakpad_SOURCE_DIR}
-# instead of the submodule path when CPM is active.
+# Has no usable CMakeLists of its own.  Fetched with DOWNLOAD_ONLY so the
+# source is available; externals/CMakeLists.txt contains the build rules and
+# uses ${breakpad_SOURCE_DIR} when CPM is active.
 if (CITRON_CRASH_DUMPS AND NOT TARGET libbreakpad_client)
     CPMAddPackage(
         NAME breakpad
@@ -501,7 +505,7 @@ if (CITRON_CRASH_DUMPS AND NOT TARGET libbreakpad_client)
     )
 endif()
 
-# ── libadrenotools ────────────────────────────────────────────────────────────
+# ── libadrenotools — Android only ─────────────────────────────────────────────
 if (ANDROID AND ARCHITECTURE_arm64)
     CPMAddPackage(
         NAME libadrenotools
@@ -511,13 +515,10 @@ if (ANDROID AND ARCHITECTURE_arm64)
 endif()
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# Phase 4 — libusb wrapper
+# libusb wrapper
 # ═══════════════════════════════════════════════════════════════════════════════
-
-# libusb lives at externals/libusb/libusb (nested). The wrapper CMakeLists
-# at externals/libusb/ builds it manually. We fetch with DOWNLOAD_ONLY
-# so the wrapper can use libusb_src_SOURCE_DIR as its source root.
-# NOTE: For Clangtron Windows builds, ENABLE_LIBUSB is OFF, so this is a no-op.
+# libusb lives at externals/libusb/libusb (nested).  The wrapper CMakeLists at
+# externals/libusb/ builds it manually using LIBUSB_CPM_SOURCE_DIR as the root.
 if (ENABLE_LIBUSB AND NOT TARGET libusb::usb)
     CPMAddPackage(
         NAME libusb_src
@@ -531,33 +532,27 @@ if (ENABLE_LIBUSB AND NOT TARGET libusb::usb)
 endif()
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# Phase 5 — FFmpeg (source download for static autotools build)
+# FFmpeg
 # ═══════════════════════════════════════════════════════════════════════════════
-#
 # FFmpeg uses autotools, not CMake, so CPM can only download the source.
-# The actual build is performed by build-clangtron-windows.sh's
-# rebuild_ffmpeg_pthread_free() BEFORE cmake configure runs.  The build script
-# populates CITRON_FFMPEG_STATIC_DIR with pre-built static .a files + headers.
+# The actual build is handled by externals/ffmpeg/CMakeLists.txt at build time
+# using autoconf+make.  FFMPEG_CPM_SOURCE_DIR tells it where the source landed.
 #
-# For Clangtron builds: the build script downloads FFmpeg from ffmpeg.org
-# directly (since it runs before cmake), builds static libs with
-# --enable-static --disable-shared --disable-pthreads --enable-w32threads
-# --enable-dxva2 --enable-d3d11va, and passes CITRON_FFMPEG_STATIC_DIR
-# to cmake.  The CPM entry below ensures the source is also available in
-# the CPM cache for reference and is skipped if the static dir is already set.
+# On Windows: the build script pre-builds static FFmpeg before cmake runs and
+# passes CITRON_FFMPEG_STATIC_DIR.  The CPM download is then informational only.
+
 if (DEFINED CITRON_FFMPEG_STATIC_DIR)
+    # Pre-built static libs supplied externally (Windows build script path).
     set(FFmpeg_PATH "${CITRON_FFMPEG_STATIC_DIR}")
     set(FFmpeg_INCLUDE_DIR "${FFmpeg_PATH}/include")
     set(FFmpeg_LIBRARIES
-        "${FFmpeg_PATH}/lib/libavformat.a"
         "${FFmpeg_PATH}/lib/libavfilter.a"
-        "${FFmpeg_PATH}/lib/libavcodec.a"
-        "${FFmpeg_PATH}/lib/libswresample.a"
         "${FFmpeg_PATH}/lib/libswscale.a"
+        "${FFmpeg_PATH}/lib/libswresample.a"
+        "${FFmpeg_PATH}/lib/libavcodec.a"
         "${FFmpeg_PATH}/lib/libavutil.a"
     )
     if (WIN32)
-        # MinGW toolchains may provide libiconv, but some cross toolchains do not.
         find_library(FFmpeg_ICONV_LIBRARY NAMES iconv libiconv)
         if (FFmpeg_ICONV_LIBRARY)
             list(APPEND FFmpeg_LIBRARIES "${FFmpeg_ICONV_LIBRARY}")
@@ -565,9 +560,8 @@ if (DEFINED CITRON_FFMPEG_STATIC_DIR)
         list(APPEND FFmpeg_LIBRARIES bcrypt m)
     endif()
     set(FFmpeg_FOUND TRUE)
-endif()
-
-if (CITRON_USE_BUNDLED_FFMPEG AND NOT DEFINED CITRON_FFMPEG_STATIC_DIR)
+elseif (CITRON_USE_BUNDLED_FFMPEG)
+    # Download source for the autotools build in externals/ffmpeg/CMakeLists.txt.
     CPMAddPackage(
         NAME ffmpeg_src
         GITHUB_REPOSITORY FFmpeg/FFmpeg
@@ -575,21 +569,17 @@ if (CITRON_USE_BUNDLED_FFMPEG AND NOT DEFINED CITRON_FFMPEG_STATIC_DIR)
         DOWNLOAD_ONLY YES
     )
     if (ffmpeg_src_ADDED)
-        set(FFMPEG_CPM_SOURCE_DIR ${ffmpeg_src_SOURCE_DIR} CACHE INTERNAL
-            "FFmpeg source from CPM (for reference; build handled by build script)")
+        set(FFMPEG_CPM_SOURCE_DIR "${ffmpeg_src_SOURCE_DIR}" CACHE INTERNAL
+            "FFmpeg source location for the autotools bundled build")
     endif()
 endif()
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# Phase 6 — Qt 6.9.3 (pre-built binaries via aqt)
+# Qt
 # ═══════════════════════════════════════════════════════════════════════════════
-#
-# Qt uses a proprietary distribution model incompatible with CPM's git-based
-# fetching.  We use aqt (pip install aqtinstall) to download pre-built binaries
-# at configure time.  The win64_llvm_mingw Qt variant is built with llvm-mingw
-# (libc++ based)
-#
-# Prerequisites: Python3 + aqt must be available (build script installs them).
+# Qt uses a proprietary distribution model incompatible with CPM source fetches.
+# Pre-built binaries are downloaded via aqt (pip install aqtinstall).
+# See CMakeModules/qt_download.cmake for details.
 if (ENABLE_QT AND NOT USE_SYSTEM_QT)
     include(${CMAKE_SOURCE_DIR}/CMakeModules/qt_download.cmake)
 endif()
