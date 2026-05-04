@@ -92,8 +92,9 @@ bool KLightLock::LockSlowPath(uintptr_t _owner, uintptr_t _cur_thread) {
     // KThread::EndWait if UnlockSlowPath arrives after the local queue is destroyed.
     {
         KScopedSchedulerLock sl2{m_kernel};
-        if (cur_thread->GetState() != ThreadState::Waiting) {
-            // Thread was already woken; ensure the queue pointer is gone.
+        if (cur_thread->GetState() != ThreadState::Waiting || cur_thread->IsDummyThread()) {
+            // Thread was already woken or is a dummy thread; ensure the queue pointer is gone.
+            // For dummy threads, the stack-local wait_queue is about to be destroyed as we return.
             cur_thread->ClearWaitQueue();
         }
     }
