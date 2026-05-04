@@ -5,7 +5,6 @@
 #include "common/assert.h"
 #include "common/logging.h"
 #include "video_core/engines/fermi_2d.h"
-#include "video_core/engines/sw_blitter/blitter.h"
 #include "video_core/memory_manager.h"
 #include "video_core/rasterizer_interface.h"
 #include "video_core/surface.h"
@@ -19,7 +18,6 @@ namespace Tegra::Engines {
 using namespace Texture;
 
 Fermi2D::Fermi2D(MemoryManager& memory_manager_) : memory_manager{memory_manager_} {
-    sw_blitter = std::make_unique<Blitter::SoftwareBlitEngine>(memory_manager);
     // Nvidia's OpenGL driver seems to assume these values
     regs.src.depth = 1;
     regs.dst.depth = 1;
@@ -79,11 +77,8 @@ void Fermi2D::Blit() {
     }
 
     const auto& args = regs.pixels_from_memory;
-    constexpr s64 null_derivative = 1ULL << 32;
     Surface src = regs.src;
     const auto bytes_per_pixel = BytesPerBlock(PixelFormatFromRenderTargetFormat(src.format));
-    const bool delegate_to_gpu = src.width > 512 && src.height > 512 && bytes_per_pixel <= 8 &&
-                                 src.format != regs.dst.format;
 
     auto srcX = args.src_x0;
     auto srcY = args.src_y0;
@@ -95,8 +90,7 @@ void Fermi2D::Blit() {
     Config config{
         .operation = regs.operation,
         .filter = args.sample_mode.filter,
-        .must_accelerate =
-            args.du_dx != null_derivative || args.dv_dy != null_derivative || delegate_to_gpu,
+        .must_accelerate = true,
         .dst_x0 = args.dst_x0,
         .dst_y0 = args.dst_y0,
         .dst_x1 = args.dst_x0 + args.dst_width,
@@ -122,7 +116,7 @@ void Fermi2D::Blit() {
 
     memory_manager.FlushCaching();
     if (!rasterizer->AccelerateSurfaceCopy(src, regs.dst, config)) {
-        sw_blitter->Blit(src, regs.dst, config);
+        LOG_DEBUG(HW_GPU, "Unable to accelerate surface copy {}", regs.dst);
     }
 }
 
