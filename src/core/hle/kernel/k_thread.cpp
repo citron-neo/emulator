@@ -1359,13 +1359,13 @@ void KThread::EndWait(Result wait_result) {
 
     // If we're waiting, notify our queue that we're available.
     if (this->GetState() == ThreadState::Waiting) {
-        if (m_wait_queue == nullptr) {
-            // This should never happen, but avoid a hard crash below to get this logged.
-            ASSERT_MSG(false, "wait_queue is nullptr!");
-            return;
+        if (m_wait_queue != nullptr) {
+            m_wait_queue->EndWait(this, wait_result);
+        } else {
+            // Handle the case where the wait queue is gone (e.g. dummy threads on KLightLock).
+            this->SetWaitResult(wait_result);
+            this->SetState(ThreadState::Runnable);
         }
-
-        m_wait_queue->EndWait(this, wait_result);
     }
 }
 
