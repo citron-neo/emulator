@@ -215,14 +215,21 @@
                                         </property>
                                     </widget>
                                 </item>
-                                <item row="6" column="0">
+                                <item row="6" column="0" colspan="2">
+                                    <widget class="QCheckBox" name="game_list_poster_view">
+                                        <property name="text">
+                                            <string>Use Poster View (Grid Mode Only)</string>
+                                        </property>
+                                    </widget>
+                                </item>
+                                <item row="7" column="0">
                                     <widget class="QLabel" name="game_icon_size_label">
                                         <property name="text">
                                             <string>Game Icon Size:</string>
                                         </property>
                                     </widget>
                                 </item>
-                                <item row="6" column="1">
+                                <item row="7" column="1">
                                     <widget class="QComboBox" name="game_icon_size_combobox">
                                         <property name="sizePolicy">
                                             <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
@@ -232,14 +239,14 @@
                                         </property>
                                     </widget>
                                 </item>
-                                <item row="7" column="0">
+                                <item row="8" column="0">
                                     <widget class="QLabel" name="folder_icon_size_label">
                                         <property name="text">
                                             <string>Folder Icon Size:</string>
                                         </property>
                                     </widget>
                                 </item>
-                                <item row="7" column="1">
+                                <item row="8" column="1">
                                     <widget class="QComboBox" name="folder_icon_size_combobox">
                                         <property name="sizePolicy">
                                             <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
@@ -249,14 +256,14 @@
                                         </property>
                                     </widget>
                                 </item>
-                                <item row="8" column="0">
+                                <item row="9" column="0">
                                     <widget class="QLabel" name="row_1_label">
                                         <property name="text">
                                             <string>Row 1 Text:</string>
                                         </property>
                                     </widget>
                                 </item>
-                                <item row="8" column="1">
+                                <item row="9" column="1">
                                     <widget class="QComboBox" name="row_1_text_combobox">
                                         <property name="sizePolicy">
                                             <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
@@ -266,14 +273,14 @@
                                         </property>
                                     </widget>
                                 </item>
-                                <item row="9" column="0">
+                                <item row="10" column="0">
                                     <widget class="QLabel" name="row_2_label">
                                         <property name="text">
                                             <string>Row 2 Text:</string>
                                         </property>
                                     </widget>
                                 </item>
-                                <item row="9" column="1">
+                                <item row="10" column="1">
                                     <widget class="QComboBox" name="row_2_text_combobox">
                                         <property name="sizePolicy">
                                             <sizepolicy hsizetype="Expanding" vsizetype="Fixed">

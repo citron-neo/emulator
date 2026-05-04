@@ -219,6 +219,10 @@ add_executable(citron
     custom_metadata_dialog.cpp
     custom_metadata_dialog.h
     custom_metadata_dialog.ui
+    poster_selection_dialog.cpp
+    poster_selection_dialog.h
+    icon_selection_dialog.cpp
+    icon_selection_dialog.h
     install_dialog.cpp
     install_dialog.h
     loading_screen.cpp
@@ -289,6 +293,8 @@ add_executable(citron
     util/url_request_interceptor.h
     util/util.cpp
     util/util.h
+    util/steam_grid_db.cpp
+    util/steam_grid_db.h
     vk_device_info.cpp
     vk_device_info.h
     compatdb.cpp

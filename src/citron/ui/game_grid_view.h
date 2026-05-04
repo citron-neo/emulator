@@ -44,6 +44,7 @@ public:
     bool hasControllerFocus() const { return m_has_focus; }
 
     void UpdateGridSize();
+    void ClearCaches();
 
 public slots:
     void onNavigated(int dx, int dy);
@@ -79,5 +80,6 @@ private:
     QLabel* m_top_help = nullptr;
     QLabel* m_bottom_hint = nullptr;
     bool m_has_focus = false;
+    bool m_last_is_poster = false;
 };
 

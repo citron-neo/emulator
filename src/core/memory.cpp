@@ -410,7 +410,7 @@ struct Memory::Impl {
     }
 
     void MarkRegionDebug(u64 vaddr, u64 size, bool debug) {
-        if (vaddr == 0 || !current_page_table ||
+        if (vaddr == 0 || !current_page_table || system.IsShuttingDown() ||
             !AddressSpaceContains(*current_page_table, vaddr, size)) {
             return;
         }
@@ -474,7 +474,7 @@ struct Memory::Impl {
         }
         // Guard against null or stale page table pointer (can happen during
         // GPU garbage collection when no process page table is active).
-        if (!current_page_table) {
+        if (!current_page_table || system.IsShuttingDown()) {
             return;
         }
         if (!AddressSpaceContains(*current_page_table, vaddr, size)) {

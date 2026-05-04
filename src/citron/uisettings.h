@@ -179,6 +179,7 @@ namespace UISettings {
 
                                         std::string theme;
                                         Setting<std::string> ui_positioning{linkage, "Vertical", "ui_positioning", Category::Ui};
+                                        Setting<std::string> steam_grid_db_api_key{linkage, "", "steam_grid_db_api_key", Category::Ui};
 
                                         Setting<std::string> accent_color{linkage, "#4a9eff", "accent_color", Category::Ui};
                                         Setting<bool> enable_rainbow_mode{linkage, false, "enable_rainbow_mode", Category::Ui};
@@ -235,10 +236,13 @@ namespace UISettings {
                                                                     // Game List
                                                                     Setting<bool> show_add_ons{linkage, true, "show_add_ons", Category::UiGameList};
                                                                     Setting<u32> game_icon_size{linkage, 64, "game_icon_size", Category::UiGameList};
+                                                                    Setting<u32> game_font_size{linkage, 11, "game_font_size", Category::UiGameList};
                                                                     Setting<u32> folder_icon_size{linkage, 48, "folder_icon_size", Category::UiGameList};
                                                                     Setting<u8> row_1_text_id{linkage, 3, "row_1_text_id", Category::UiGameList};
                                                                     Setting<u8> row_2_text_id{linkage, 2, "row_2_text_id", Category::UiGameList};
                                                                     Setting<bool> game_list_grid_view{linkage, false, "game_list_grid_view", Category::UiGameList};
+                                                                    Setting<bool> game_list_poster_view{linkage, false, "game_list_poster_view", Category::UiGameList};
+                                                                    Setting<bool> auto_download_posters{linkage, true, "auto_download_posters", Category::UiGameList};
                                                                     Setting<int> game_list_view_mode{linkage, 0, "game_list_view_mode", Category::UiGameList};
                                                                     std::atomic_bool is_game_list_reload_pending{false};
                                                                     Setting<bool> cache_game_list{linkage, true, "cache_game_list", Category::UiGameList};

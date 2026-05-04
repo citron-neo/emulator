@@ -149,6 +149,8 @@ resolution_setting{Settings::values.resolution_setup.GetValue()}, system{system_
             &ConfigureUi::RequestGameListUpdate);
     connect(ui->show_online_column, &QCheckBox::checkStateChanged, this,
             &ConfigureUi::RequestGameListUpdate);
+    connect(ui->game_list_poster_view, &QCheckBox::checkStateChanged, this,
+            &ConfigureUi::RequestGameListUpdate);
     connect(ui->game_icon_size_combobox, &QComboBox::currentIndexChanged, this,
             &ConfigureUi::RequestGameListUpdate);
     connect(ui->folder_icon_size_combobox, &QComboBox::currentIndexChanged,
@@ -196,6 +198,7 @@ void ConfigureUi::ApplyConfiguration() {
     UISettings::values.show_types = ui->show_types->isChecked();
     UISettings::values.show_play_time = ui->show_play_time->isChecked();
     UISettings::values.show_online_column = ui->show_online_column->isChecked();
+    UISettings::values.game_list_poster_view = ui->game_list_poster_view->isChecked();
     UISettings::values.game_icon_size = ui->game_icon_size_combobox->currentData().toUInt();
     UISettings::values.folder_icon_size = ui->folder_icon_size_combobox->currentData().toUInt();
     UISettings::values.row_1_text_id = ui->row_1_text_combobox->currentData().toUInt();
@@ -257,6 +260,7 @@ void ConfigureUi::SetConfiguration() {
     ui->show_types->setChecked(UISettings::values.show_types.GetValue());
     ui->show_play_time->setChecked(UISettings::values.show_play_time.GetValue());
     ui->show_online_column->setChecked(UISettings::values.show_online_column.GetValue());
+    ui->game_list_poster_view->setChecked(UISettings::values.game_list_poster_view.GetValue());
     ui->game_icon_size_combobox->setCurrentIndex(
         ui->game_icon_size_combobox->findData(UISettings::values.game_icon_size.GetValue()));
     ui->folder_icon_size_combobox->setCurrentIndex(
