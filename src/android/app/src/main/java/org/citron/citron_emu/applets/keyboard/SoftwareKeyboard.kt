@@ -1,5 +1,7 @@
 // SPDX-FileCopyrightText: Copyright 2023 yuzu Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
+// SPDX-FileCopyrightText: Copyright 2026 Citron Emulator Project
+// SPDX-License-Identifier: GPL-3.0-or-later
 
 package org.citron.citron_emu.applets.keyboard
 
@@ -19,48 +21,62 @@ import org.citron.citron_emu.applets.keyboard.ui.KeyboardDialogFragment
 
 @Keep
 object SoftwareKeyboard {
+
     lateinit var data: KeyboardData
     val dataLock = Object()
 
     private fun executeNormalImpl(config: KeyboardConfig) {
-        val emulationActivity = NativeLibrary.sEmulationActivity.get()
+        val activity = NativeLibrary.sEmulationActivity.get() ?: return
+
         data = KeyboardData(SwkbdResult.Cancel.ordinal, "")
+
         val fragment = KeyboardDialogFragment.newInstance(config)
-        fragment.show(emulationActivity!!.supportFragmentManager, KeyboardDialogFragment.TAG)
+        fragment.show(activity.supportFragmentManager, KeyboardDialogFragment.TAG)
     }
 
     private fun executeInlineImpl(config: KeyboardConfig) {
-        val emulationActivity = NativeLibrary.sEmulationActivity.get()
+        val activity = NativeLibrary.sEmulationActivity.get() ?: return
+        val overlayView = activity.findViewById<View>(R.id.surface_input_overlay) ?: return
 
-        val overlayView = emulationActivity!!.findViewById<View>(R.id.surface_input_overlay)
-        val im =
-            overlayView.context.getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
-        im.showSoftInput(overlayView, InputMethodManager.SHOW_FORCED)
+        // Make sure the overlay can receive input
+        overlayView.requestFocus()
 
-        // There isn't a good way to know that the IMM is dismissed, so poll every 500ms to submit inline keyboard result.
+        val imm = overlayView.context.getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
+
+        // Restart input to ensure clean state
+        imm.restartInput(overlayView)
+        imm.showSoftInput(overlayView, InputMethodManager.SHOW_FORCED)
+
+        // Poll every 500ms to detect when the keyboard is closed
+        startKeyboardDismissPolling(overlayView)
+    }
+
+    private fun startKeyboardDismissPolling(overlayView: View) {
         val handler = Handler(Looper.myLooper()!!)
-        val delayMs = 500
-        handler.postDelayed(
-            object : Runnable {
-                override fun run() {
-                    val insets = ViewCompat.getRootWindowInsets(overlayView)
-                    val isKeyboardVisible = insets!!.isVisible(WindowInsets.Type.ime())
-                    if (isKeyboardVisible) {
-                        handler.postDelayed(this, delayMs.toLong())
-                        return
-                    }
+        val delayMs = 500L
 
-                    // No longer visible, submit the result.
-                    NativeLibrary.submitInlineKeyboardInput(KeyEvent.KEYCODE_ENTER)
+        handler.postDelayed(object : Runnable {
+            override fun run() {
+                val insets = ViewCompat.getRootWindowInsets(overlayView)
+                val isKeyboardVisible = insets?.isVisible(WindowInsets.Type.ime()) == true
+
+                if (isKeyboardVisible) {
+                    handler.postDelayed(this, delayMs)
+                    return
                 }
-            },
-            delayMs.toLong()
-        )
+
+                // Keyboard was dismissed → submit result
+                NativeLibrary.submitInlineKeyboardInput(KeyEvent.KEYCODE_ENTER)
+            }
+        }, delayMs)
     }
 
     @JvmStatic
     fun executeNormal(config: KeyboardConfig): KeyboardData {
-        NativeLibrary.sEmulationActivity.get()!!.runOnUiThread { executeNormalImpl(config) }
+        NativeLibrary.sEmulationActivity.get()!!.runOnUiThread {
+            executeNormalImpl(config)
+        }
+
         synchronized(dataLock) {
             dataLock.wait()
         }
@@ -69,7 +85,9 @@ object SoftwareKeyboard {
 
     @JvmStatic
     fun executeInline(config: KeyboardConfig) {
-        NativeLibrary.sEmulationActivity.get()!!.runOnUiThread { executeInlineImpl(config) }
+        NativeLibrary.sEmulationActivity.get()!!.runOnUiThread {
+            executeInlineImpl(config)
+        }
     }
 
     // Corresponds to Service::AM::Applets::SwkbdType
@@ -118,7 +136,6 @@ object SoftwareKeyboard {
         var disable_cancel_button: Boolean = false
     ) : Serializable
 
-    // Corresponds to Frontend::KeyboardData
     @Keep
     data class KeyboardData(var result: Int, var text: String)
 }
