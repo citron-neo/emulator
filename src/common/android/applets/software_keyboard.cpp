@@ -240,7 +240,9 @@ void AndroidKeyboard::SubmitInlineKeyboardInput(int key_code) {
                                static_cast<s32>(m_current_text.size()));
         break;
     case KEYCODE_DEL:
-        m_current_text.pop_back();
+        if (m_current_text.empty()) {
+            return;
+        }
         submit_inline_callback(Service::AM::Frontend::SwkbdReplyType::ChangedString, m_current_text,
                                static_cast<int>(m_current_text.size()));
         break;
