@@ -113,9 +113,8 @@ void ComputePipeline::Configure(Tegra::Engines::KeplerCompute& kepler_compute,
 
     texture_cache.SynchronizeComputeDescriptors();
 
-    static constexpr size_t max_elements = 64;
-    boost::container::static_vector<VideoCommon::ImageViewInOut, max_elements> views;
-    boost::container::static_vector<VideoCommon::SamplerId, max_elements> samplers;
+    boost::container::small_vector<VideoCommon::ImageViewInOut, 64> views;
+    boost::container::small_vector<VideoCommon::SamplerId, 64> samplers;
 
     const auto& qmd{kepler_compute.launch_description};
     const auto& cbufs{qmd.const_buffer_config};
