@@ -499,8 +499,8 @@ struct System::Impl {
             madvise(device_memory->buffer.BackingBasePointer(), device_memory->buffer.backing_size,
                     MADV_DONTNEED);
 
-// Only call malloc_trim on non-Android Linux (glibc)
-#ifndef __ANDROID__
+// Only call malloc_trim when building with glibc
+#ifdef __GLIBC__
             malloc_trim(0);
 #endif
 
