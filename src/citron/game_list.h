@@ -8,17 +8,17 @@
 #include <map>
 #include <utility>
 #include <QEvent>
-#include <QKeyEvent>
-#include <QMouseEvent>
-#include <QObject>
 #include <QFileSystemWatcher>
 #include <QHBoxLayout>
+#include <QKeyEvent>
 #include <QLabel>
 #include <QLineEdit>
 #include <QList>
 #include <QListView>
+#include <QMouseEvent>
 #include <QNetworkAccessManager>
 #include <QNetworkReply>
+#include <QObject>
 #include <QProgressBar>
 #include <QPushButton>
 #include <QResizeEvent>
@@ -32,6 +32,7 @@
 #include <QVBoxLayout>
 #include <QVector>
 #include <QWidget>
+
 
 #include "citron/compatibility_list.h"
 #include "citron/multiplayer/state.h"
@@ -49,8 +50,11 @@ class GameListDelegate;
 class GameGridDelegate;
 class GameDetailsPanel;
 class GameTreeView;
-class GameGridView;
 class GameCarouselView;
+class GameGridView;
+namespace Citron {
+class SteamGridDB;
+}
 class GMainWindow;
 enum class AmLaunchType;
 enum class StartGameType;
@@ -127,19 +131,24 @@ public:
 
     enum class ViewMode { List, Grid, Carousel };
     void SetViewMode(ViewMode mode);
+    ViewMode GetViewMode() const;
     void ToggleViewMode();
     void SortAlphabetically();
     void ToggleSortOrder();
 
     QStandardItemModel* GetModel() const;
-    QWidget* GetToolbarWidget() const { return toolbar; }
-    void SetToolbarInMain(bool state) { toolbar_in_main = state; }
+    QWidget* GetToolbarWidget() const {
+        return toolbar;
+    }
+    void SetToolbarInMain(bool state) {
+        toolbar_in_main = state;
+    }
 
     /// Disables events from the emulated controller
     void UnloadController();
     void LoadController();
     void JumpToNextLetter();
-    
+
     static QString GenerateAddonsTooltip(const QString& patch_versions);
 
     static const QStringList supported_file_extensions;
@@ -225,9 +234,12 @@ private:
 
     void ShowTechnicalInformation(const QModelIndex& index);
 
+    void UpdateIconForGame(u64 program_id);
+    void ShowIconSelectionDialog(u64 program_id, const QString& game_name);
+    void ShowPosterSelectionDialog(u64 program_id, const QString& game_name);
     void PopulateGridView();
-
     void FilterGridView(const QString& filter_text);
+    void AutoPopulatePosters();
     void FilterTreeView(const QString& filter_text);
 
     void PopupContextMenu(const QPoint& menu_location);
@@ -264,7 +276,7 @@ private:
     Qt::SortOrder current_sort_order = Qt::AscendingOrder;
     QStandardItemModel* item_model = nullptr;
     GameDetailsPanel* details_panel = nullptr;
-    
+
     QStackedWidget* main_stack = nullptr;
     GameTreeView* tree_view = nullptr;
     GameGridView* grid_view = nullptr;
@@ -278,8 +290,10 @@ private:
     CompatibilityList compatibility_list;
     QTimer* online_status_timer;
     QTimer config_update_timer;
+    QTimer* m_resize_timer = nullptr;
 
     QNetworkAccessManager* network_manager = nullptr;
+    Citron::SteamGridDB* m_steam_grid_db = nullptr;
     void RefreshCompatibilityList();
 
     friend class GameListSearchField;
@@ -290,7 +304,7 @@ private:
     class NavigationSettingsOverlay* m_nav_overlay = nullptr;
     bool m_is_controller_mode = false;
     bool m_is_launching = false;
-    
+
     QWidget* footer_widget = nullptr;
 };
 

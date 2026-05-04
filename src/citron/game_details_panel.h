@@ -50,8 +50,9 @@ private:
     QLabel* m_icon_label;
     QLabel* m_title_label;
     QLabel* m_id_label;
-    QFrame* m_title_card;
+    QLabel* m_bg_label;
     QFrame* m_meta_card;
+    QVBoxLayout* m_header_layout;
     QWidget* m_actions_container;
     QVBoxLayout* m_actions_layout;
     QScrollArea* m_scroll_area;
@@ -59,6 +60,7 @@ private:
 
     u64 m_current_program_id = 0;
     QString m_current_path;
+    QPixmap m_bg_pixmap;
 
     QList<QPushButton*> m_action_buttons;
     int m_focused_button_index = -1;
