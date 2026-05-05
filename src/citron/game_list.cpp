@@ -1914,7 +1914,14 @@ void GameList::ClearFilter() {
 }
 
 void GameList::WorkerEvent() {
+    if (!current_worker) {
+        return;
+    }
     current_worker->ProcessEvents(this);
+    if (m_release_worker_after_process_events) {
+        m_release_worker_after_process_events = false;
+        current_worker.reset();
+    }
 }
 
 void GameList::AddDirEntry(GameListDir* entry_items) {
@@ -2640,7 +2647,9 @@ void GameList::DonePopulating(const QStringList& watch_list) {
         auto* delegate = qobject_cast<GameListDelegate*>(tree_view->itemDelegate());
         if (delegate)
             delegate->SetPopulating(false);
-        QTimer::singleShot(0, this, [this]() { current_worker.reset(); });
+        // Defer reset until WorkerEvent returns: DonePopulating calls processEvents(), which would
+        // otherwise run a zero-delay timer and destroy GameListWorker during ProcessEvents (UAF).
+        m_release_worker_after_process_events = true;
     }
 
     for (const auto& watch_dir : watch_list) {
