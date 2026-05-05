@@ -610,11 +610,12 @@ private:
 
         const auto unknown{rp.Pop<u64>()};
 
-        LOG_INFO(Service_NIM, "(STUBBED) called, unknown={}", unknown);
+        // Stub previously returned false; some apps exit then fault if "large resource" is unavailable.
+        LOG_DEBUG(Service_NIM, "called, unknown={}, out_available=true", unknown);
 
         IPC::ResponseBuilder rb{ctx, 3};
         rb.Push(ResultSuccess);
-        rb.Push(false);
+        rb.Push(true);
     }
 };
 

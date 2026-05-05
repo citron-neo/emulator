@@ -284,9 +284,12 @@ void HLE_MultiDrawIndexedIndirectCount::Fallback(Engines::Maxwell3D& maxwell3d, 
     }
 }
 void HLE_DrawIndirectByteCount::Execute(Engines::Maxwell3D& maxwell3d, std::span<const u32> parameters, [[maybe_unused]] u32 method) {
-    const bool force = maxwell3d.Rasterizer().HasDrawTransformFeedback();
+    if (!maxwell3d.Rasterizer().HasDrawTransformFeedback()) {
+        Fallback(maxwell3d, parameters);
+        return;
+    }
     auto topology = Maxwell3D::Regs::PrimitiveTopology(parameters[0] & 0xFFFFU);
-    if (!force && (!maxwell3d.AnyParametersDirty() || !IsTopologySafe(topology))) {
+    if (!maxwell3d.AnyParametersDirty() || !IsTopologySafe(topology)) {
         Fallback(maxwell3d, parameters);
         return;
     }
