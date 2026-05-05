@@ -1917,8 +1917,22 @@ void GameList::WorkerEvent() {
     if (!current_worker) {
         return;
     }
-    current_worker->ProcessEvents(this);
-    if (m_release_worker_after_process_events) {
+    {
+        struct DepthRaii {
+            int& d;
+            explicit DepthRaii(int& depth) : d(depth) {
+                ++d;
+            }
+            ~DepthRaii() {
+                --d;
+            }
+        } depth{m_worker_event_depth};
+        current_worker->ProcessEvents(this);
+    }
+    // Safe now: RAII decremented depth, so no nested WorkerEvent is active; ProcessEvents has
+    // fully returned. Do not use QTimer::singleShot(0) here — it can fire during a *later*
+    // WorkerEvent::ProcessEvents (nested processEvents) and destroy the worker mid-lock.
+    if (m_release_worker_after_process_events && m_worker_event_depth == 0) {
         m_release_worker_after_process_events = false;
         current_worker.reset();
     }
@@ -2640,8 +2654,12 @@ void GameList::DonePopulating(const QStringList& watch_list) {
             // Save the newly populated index for instant loading next time.
             SaveGameListIndex();
 
-            // Clean up worker safely outside of its execution context
-            QTimer::singleShot(0, this, [this]() { current_worker.reset(); });
+            // Tear down worker when no GameListWorker::ProcessEvents stack is active (same-thread).
+            if (m_worker_event_depth == 0) {
+                current_worker.reset();
+            } else {
+                m_release_worker_after_process_events = true;
+            }
         });
     } else {
         auto* delegate = qobject_cast<GameListDelegate*>(tree_view->itemDelegate());
@@ -3552,6 +3570,14 @@ void GameList::RefreshGameDirectory() {
 void GameList::CancelPopulation() {
     if (current_worker) {
         current_worker->Cancel();
+    }
+    // DonePopulating pumps QCoreApplication::processEvents() (watch path batching). A zero-delay
+    // BootGame() slot can run inside that pump and call us here. Immediate reset() destroys
+    // GameListWorker while WorkerEvent::ProcessEvents() is still on the stack — next mutex lock
+    // aborts (EINVAL). Defer tear-down to outer WorkerEvent like other release paths.
+    if (m_worker_event_depth > 0) {
+        m_release_worker_after_process_events = true;
+        return;
     }
     current_worker.reset();
 }
