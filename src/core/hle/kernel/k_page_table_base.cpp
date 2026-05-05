@@ -3662,19 +3662,34 @@ Result KPageTableBase::UnlockForIpcUserBuffer(KProcessAddress address, size_t si
                                 KMemoryAttribute::Locked, nullptr));
 }
 
+namespace {
+
+// LockForTransferMemory / UnlockForTransferMemory attribute checks normally require no user
+// attributes (besides what we add during lock). GPU mappings tag heap via ShareToDevice
+// (DeviceShared); if nvmap / device-address-space teardown does not clear the bit before the guest
+// reallocates for CPU transfer memory, we would spuriously return InvalidCurrentMemory. Mask
+// DeviceShared to match "no IPC/device lock state" while ignoring stale emulator bookkeeping.
+constexpr KMemoryAttribute TransferMemoryAttributeCheckMask() {
+    return static_cast<KMemoryAttribute>(static_cast<u8>(KMemoryAttribute::All) &
+                                         ~static_cast<u8>(KMemoryAttribute::DeviceShared));
+}
+
+} // namespace
+
 Result KPageTableBase::LockForTransferMemory(KPageGroup* out, KProcessAddress address, size_t size,
                                              KMemoryPermission perm) {
     R_RETURN(this->LockMemoryAndOpen(out, nullptr, address, size, KMemoryState::FlagCanTransfer,
                                      KMemoryState::FlagCanTransfer, KMemoryPermission::All,
-                                     KMemoryPermission::UserReadWrite, KMemoryAttribute::All,
-                                     KMemoryAttribute::None, perm, KMemoryAttribute::Locked));
+                                     KMemoryPermission::UserReadWrite,
+                                     TransferMemoryAttributeCheckMask(), KMemoryAttribute::None,
+                                     perm, KMemoryAttribute::Locked));
 }
 
 Result KPageTableBase::UnlockForTransferMemory(KProcessAddress address, size_t size,
                                                const KPageGroup& pg) {
     R_RETURN(this->UnlockMemory(address, size, KMemoryState::FlagCanTransfer,
                                 KMemoryState::FlagCanTransfer, KMemoryPermission::None,
-                                KMemoryPermission::None, KMemoryAttribute::All,
+                                KMemoryPermission::None, TransferMemoryAttributeCheckMask(),
                                 KMemoryAttribute::Locked, KMemoryPermission::UserReadWrite,
                                 KMemoryAttribute::Locked, std::addressof(pg)));
 }

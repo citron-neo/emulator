@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright 2021 yuzu Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
+#include "common/logging.h"
 #include "common/scope_exit.h"
 #include "core/hle/kernel/k_process.h"
 #include "core/hle/kernel/k_resource_limit.h"
@@ -29,8 +30,37 @@ Result KTransferMemory::Initialize(KProcessAddress addr, std::size_t size,
     };
 
     // Lock the memory.
-    R_TRY(page_table.LockForTransferMemory(std::addressof(*m_page_group), addr, size,
-                                           ConvertToKMemoryPermission(own_perm)));
+    const Result lock_result = page_table.LockForTransferMemory(
+        std::addressof(*m_page_group), addr, size, ConvertToKMemoryPermission(own_perm));
+    if (lock_result.IsError()) {
+        KMemoryInfo info_start{};
+        Svc::PageInfo page_start{};
+        page_table.QueryInfo(&info_start, &page_start, addr);
+
+        const KProcessAddress end_addr =
+            static_cast<KProcessAddress>(GetInteger(addr) + size - 1);
+        KMemoryInfo info_end{};
+        Svc::PageInfo page_end{};
+        page_table.QueryInfo(&info_end, &page_end, end_addr);
+
+        const bool homogeneous = info_start.m_state == info_end.m_state &&
+                                 info_start.m_permission == info_end.m_permission &&
+                                 (info_start.m_attribute == info_end.m_attribute);
+        LOG_ERROR(Kernel_SVC,
+                  "LockForTransferMemory failed -> InvalidCurrentMemory (0xd401): "
+                  "addr={:#x} size={:#x} owner_svc_perm={} raw={:#010x} (mod {} desc {}) | "
+                  "start: state={:#x} perm={:#x} attr={:#x} block=[{:#x}, +{:#x}) | "
+                  "end:   state={:#x} perm={:#x} attr={:#x} block=[{:#x}, +{:#x}) | "
+                  "homogeneous={}",
+                  GetInteger(addr), size, static_cast<int>(own_perm), lock_result.GetInnerValue(),
+                  static_cast<u32>(lock_result.GetModule()), lock_result.GetDescription(),
+                  static_cast<u32>(info_start.m_state), static_cast<u32>(info_start.m_permission),
+                  static_cast<u32>(info_start.m_attribute), info_start.m_address, info_start.m_size,
+                  static_cast<u32>(info_end.m_state), static_cast<u32>(info_end.m_permission),
+                  static_cast<u32>(info_end.m_attribute), info_end.m_address, info_end.m_size,
+                  homogeneous);
+        R_RETURN(lock_result);
+    }
 
     // Set remaining tracking members.
     m_owner->Open();
