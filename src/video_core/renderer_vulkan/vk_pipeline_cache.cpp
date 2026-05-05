@@ -446,7 +446,7 @@ PipelineCache::PipelineCache(Tegra::MaxwellDeviceMemoryManager& device_memory_,
             allow_eds3 && device.IsExtExtendedDynamicState3EnablesSupported(),
         .has_dynamic_vertex_input = allow_eds3 && device.IsExtVertexInputDynamicStateSupported(),
         .has_transform_feedback = device.IsExtTransformFeedbackSupported(),
-        .emulate_transform_feedback = !device.IsExtTransformFeedbackSupported(),
+        .emulate_transform_feedback = false,
     };
 }
 
