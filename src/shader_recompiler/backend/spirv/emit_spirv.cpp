@@ -17,6 +17,7 @@
 #include "shader_recompiler/backend/spirv/spirv_emit_context.h"
 #include "shader_recompiler/frontend/ir/basic_block.h"
 #include "shader_recompiler/frontend/ir/program.h"
+#include "shader_recompiler/frontend/ir/type.h"
 
 namespace Shader::Backend::SPIRV {
 namespace {
@@ -395,7 +396,7 @@ void SetupSignedNanCapabilities(const Profile& profile, const IR::Program& progr
 }
 
 void SetupTransformFeedbackCapabilities(EmitContext& ctx, Id main_func) {
-    if (ctx.runtime_info.xfb_count == 0) {
+    if (ctx.runtime_info.xfb_count == 0 || ctx.runtime_info.emulate_transform_feedback) {
         return;
     }
     ctx.AddCapability(spv::Capability::TransformFeedback);
@@ -487,7 +488,31 @@ void PatchPhiNodes(IR::Program& program, EmitContext& ctx) {
 } // Anonymous namespace
 
 std::vector<u32> EmitSPIRV(const Profile& profile, const RuntimeInfo& runtime_info, IR::Program& program, Bindings& bindings) {
-    EmitContext ctx{profile, runtime_info, program, bindings};
+    RuntimeInfo runtime_info_work = runtime_info;
+    if (runtime_info_work.emulate_transform_feedback && runtime_info_work.xfb_count > 0 &&
+        program.stage == Stage::VertexB) {
+        static constexpr u32 kXfbEmuBuffers = 5;
+        static constexpr u32 kMaxwellMaxConstBuffers = 18;
+        if (program.info.storage_buffers_descriptors.size() + kXfbEmuBuffers >
+            Shader::Info::MAX_SSBOS) {
+            LOG_ERROR(Shader_SPIRV,
+                      "Transform-feedback emulation: cannot add SSBOs (guest already at max)");
+        } else {
+        program.info.used_storage_buffer_types |= IR::Type::F32 | IR::Type::U32;
+        runtime_info_work.xfb_emulation_ssbo_base =
+                static_cast<u32>(program.info.storage_buffers_descriptors.size());
+            for (u32 b = 0; b < kXfbEmuBuffers; ++b) {
+                program.info.storage_buffers_descriptors.push_back({
+                    .cbuf_index = kMaxwellMaxConstBuffers + b,
+                    .cbuf_offset = 0,
+                    .count = 1,
+                    .is_written = true,
+                });
+            }
+        }
+    }
+
+    EmitContext ctx{profile, runtime_info_work, program, bindings};
     const Id main{DefineMain(ctx, program)};
     DefineEntryPoint(program, ctx, main);
     if (profile.support_float_controls) {

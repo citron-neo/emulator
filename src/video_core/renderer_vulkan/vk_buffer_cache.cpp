@@ -86,6 +86,24 @@ vk::Buffer CreateBuffer(const Device& device, const MemoryAllocator& memory_allo
 
 } // Anonymous namespace
 
+vk::Buffer CreateXfbStreamCounterBuffer(const Device& device, MemoryAllocator& memory_allocator) {
+    const VkBufferCreateInfo buffer_ci = {
+        .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+        .pNext = nullptr,
+        .flags = 0,
+        .size = VideoCommon::XFB_EMULATION_COUNTER_BUFFER_BYTES,
+        .usage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+        .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
+        .queueFamilyIndexCount = 0,
+        .pQueueFamilyIndices = nullptr,
+    };
+    vk::Buffer ret = memory_allocator.CreateBuffer(buffer_ci, MemoryUsage::DeviceLocal);
+    if (device.HasDebuggingToolAttached()) {
+        ret.SetObjectNameEXT("XFB stream counter");
+    }
+    return ret;
+}
+
 void BufferCacheRuntime::CleanupUnusedBuffers() {
     // Cleanup is now handled by the VRAM management system (gc_aggressiveness setting)
     // This function is kept for compatibility but no longer performs mode-specific cleanup
@@ -100,6 +118,13 @@ Buffer::Buffer(BufferCacheRuntime& runtime, VideoCommon::NullBufferParams null_p
     buffer = runtime.CreateNullBuffer();
     is_null = true;
 }
+
+Buffer::Buffer(BufferCacheRuntime& runtime, VideoCommon::XfbStreamCounterBufferParams)
+    : VideoCommon::BufferBase(VideoCommon::XFB_EMULATION_COUNTER_DEVICE_ADDR,
+                              VideoCommon::XFB_EMULATION_COUNTER_BUFFER_BYTES),
+      device{&runtime.device},
+      buffer{CreateXfbStreamCounterBuffer(*device, runtime.memory_allocator)},
+      tracker{VideoCommon::XFB_EMULATION_COUNTER_BUFFER_BYTES} {}
 
 Buffer::Buffer(BufferCacheRuntime& runtime, DAddr cpu_addr_, u64 size_bytes_)
     : VideoCommon::BufferBase(cpu_addr_, size_bytes_), device{&runtime.device},

@@ -196,7 +196,7 @@ void DefineGenericOutput(EmitContext& ctx, size_t index, std::optional<u32> invo
         if (element > 0) {
             ctx.Decorate(id, spv::Decoration::Component, element);
         }
-        if (xfb_varying) {
+        if (xfb_varying && !ctx.runtime_info.emulate_transform_feedback) {
             ctx.Decorate(id, spv::Decoration::XfbBuffer, xfb_varying->buffer);
             ctx.Decorate(id, spv::Decoration::XfbStride, xfb_varying->stride);
             ctx.Decorate(id, spv::Decoration::Offset, xfb_varying->offset);
