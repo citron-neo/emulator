@@ -217,7 +217,8 @@ void DeviceMemoryManager<Traits>::Map(DAddr address, VAddr virtual_address, size
     std::scoped_lock lk(mapping_guard);
     for (size_t i = 0; i < num_pages; i++) {
         const VAddr new_vaddress = virtual_address + i * Memory::CITRON_PAGESIZE;
-        auto* ptr = process_memory->GetPointerSilent(Common::ProcessAddress(new_vaddress));
+        auto* ptr = process_memory->GetHostPointerForSmmuMapping(
+            Common::ProcessAddress(new_vaddress));
         if (ptr == nullptr) [[unlikely]] {
             entries[start_page_d + i].compressed_physical_ptr = 0;
             continue;
@@ -285,7 +286,7 @@ void DeviceMemoryManager<Traits>::TrackContinuityImpl(DAddr address, VAddr virtu
         size_t index = i - 1;
         const VAddr new_vaddress = virtual_address + index * Memory::CITRON_PAGESIZE;
         const uintptr_t new_ptr = reinterpret_cast<uintptr_t>(
-            process_memory->GetPointerSilent(Common::ProcessAddress(new_vaddress)));
+            process_memory->GetHostPointerForSmmuMapping(Common::ProcessAddress(new_vaddress)));
         if (new_ptr + page_size == last_ptr) {
             page_count++;
         } else {
@@ -458,6 +459,9 @@ void DeviceMemoryManager<Traits>::WriteBlock(DAddr address, const void* src_poin
 
 template <typename Traits>
 void DeviceMemoryManager<Traits>::ReadBlockUnsafe(DAddr address, void* dest_pointer, size_t size) {
+    if (device_inter) {
+        device_inter->FlushRegion(address, size);
+    }
     static std::atomic<u64> unmapped_read_unsafe_count{0};
     WalkBlock(
         address, size,

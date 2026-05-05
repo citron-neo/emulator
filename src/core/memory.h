@@ -149,6 +149,12 @@ public:
     u8* GetPointer(Common::ProcessAddress vaddr);
     u8* GetPointerSilent(Common::ProcessAddress vaddr);
 
+    /**
+     * Resolves a host pointer for establishing the device (SMMU) mapping for a guest page.
+     * Uses page-table backing_addr when GetPointerSilent cannot produce a pointer (some layouts).
+     */
+    [[nodiscard]] u8* GetHostPointerForSmmuMapping(Common::ProcessAddress vaddr);
+
     template <typename T>
     T* GetPointer(Common::ProcessAddress vaddr) {
         return reinterpret_cast<T*>(GetPointer(vaddr));
