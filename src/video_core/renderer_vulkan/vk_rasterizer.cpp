@@ -269,7 +269,18 @@ void RasterizerVulkan::Draw(bool is_indexed, u32 instance_count) {
 }
 
 void RasterizerVulkan::DrawIndirect() {
-    const auto& params = maxwell3d->draw_manager->GetIndirectParams();
+    auto& params = maxwell3d->draw_manager->GetIndirectParams();
+
+    // VK_EXT_transform_feedback is unavailable on MoltenVK. Byte-count draws still reach here if
+    // macro JIT/LLE bypasses HLE_DrawIndirectByteCount — mirror that HLE Fallback with DrawArray.
+    if (params.is_byte_count && !device.IsExtTransformFeedbackSupported()) {
+        const auto& regs = maxwell3d->regs;
+        const u32 stride = static_cast<u32>(std::max<size_t>(params.stride, 1));
+        const u32 vertex_count = regs.draw_auto_byte_count / stride;
+        maxwell3d->draw_manager->DrawArray(regs.draw.topology, 0, vertex_count, 0, 1);
+        return;
+    }
+
     buffer_cache.SetDrawIndirect(&params);
     PrepareDraw(params.is_indexed, [this, &params] {
         const auto indirect_buffer = buffer_cache.GetDrawIndirectBuffer();
@@ -1052,7 +1063,9 @@ void RasterizerVulkan::HandleTransformFeedback() {
     const auto& regs = maxwell3d->regs;
     if (!device.IsExtTransformFeedbackSupported()) {
         std::call_once(warn_unsupported, [&] {
-            LOG_ERROR(Render_Vulkan, "Transform feedbacks used but not supported");
+            LOG_WARNING(Render_Vulkan,
+                        "Transform feedback is enabled in GPU state but VK_EXT_transform_feedback "
+                        "is unavailable (e.g. MoltenVK); using fallbacks where implemented");
         });
         return;
     }
@@ -1678,6 +1691,10 @@ void RasterizerVulkan::ReleaseChannel(s32 channel_id) {
     }
     pipeline_cache.EraseChannel(channel_id);
     query_cache.EraseChannel(channel_id);
+}
+
+bool RasterizerVulkan::HasDrawTransformFeedback() {
+    return device.IsExtTransformFeedbackSupported();
 }
 
 } // namespace Vulkan
