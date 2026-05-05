@@ -157,6 +157,7 @@ public:
 
     // EmuWindow implementation.
     void OnFrameDisplayed() override;
+    void RunPresentationWork(const std::function<void()>& work) override;
     bool IsShown() const override;
     std::unique_ptr<Core::Frontend::GraphicsContext> CreateSharedContext() const override;
 
@@ -236,6 +237,8 @@ signals:
 
 private slots:
     void HideMouseCursor();
+    /// Body of OnFrameDisplayed; always runs on the Qt GUI thread (see OnFrameDisplayed).
+    void OnFrameDisplayedGuiThread();
 
 private:
     void TouchBeginEvent(const QTouchEvent* event);
