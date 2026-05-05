@@ -217,6 +217,7 @@ void DeviceMemoryManager<Traits>::Map(DAddr address, VAddr virtual_address, size
     std::scoped_lock lk(mapping_guard);
     for (size_t i = 0; i < num_pages; i++) {
         const VAddr new_vaddress = virtual_address + i * Memory::CITRON_PAGESIZE;
+        InsertCPUBacking(start_page_d + i, new_vaddress, asid);
         auto* ptr = process_memory->GetHostPointerForSmmuMapping(
             Common::ProcessAddress(new_vaddress));
         if (ptr == nullptr) [[unlikely]] {
@@ -225,7 +226,6 @@ void DeviceMemoryManager<Traits>::Map(DAddr address, VAddr virtual_address, size
         }
         auto phys_addr = static_cast<u32>(GetRawPhysicalAddr(ptr) >> Memory::CITRON_PAGEBITS) + 1U;
         entries[start_page_d + i].compressed_physical_ptr = phys_addr;
-        InsertCPUBacking(start_page_d + i, new_vaddress, asid);
         const u32 base_dev = compressed_device_addr[phys_addr - 1U];
         const u32 new_dev = static_cast<u32>(start_page_d + i);
         if (base_dev == 0) [[likely]] {
@@ -400,6 +400,32 @@ void DeviceMemoryManager<Traits>::WalkBlock(DAddr addr, std::size_t size, auto o
 
         auto phys_addr = entries[page_index].compressed_physical_ptr;
         if (phys_addr == 0) {
+            const auto [asid, cpu_backing] = ExtractCPUBacking(page_index);
+            if (cpu_backing != 0 && asid.id < registered_processes.size()) {
+                if (auto* process_memory = registered_processes[asid.id]; process_memory != nullptr) {
+                    auto* mem_ptr = process_memory->GetHostPointerForSmmuMapping(
+                        Common::ProcessAddress(cpu_backing + page_offset));
+                    if (mem_ptr != nullptr) {
+                        on_memory(copy_amount, mem_ptr);
+                        continue;
+                    }
+                }
+            }
+            // Some nvmap-backed regions can still be physically contiguous by device address even if
+            // page-by-page host pointer resolution failed during map setup. In that case, treat
+            // device address as a direct physical offset as a last-resort fallback to avoid
+            // zero-filling large GPU reads (black screen).
+            const auto physical_bits = Settings::values.memory_layout_mode.GetValue() ==
+                                               Settings::MemoryLayout::Memory_4Gb
+                                           ? physical_min_bits
+                                           : physical_max_bits;
+            const PAddr fallback_phys_addr = static_cast<PAddr>(current_vaddr);
+            const u64 fallback_phys_end = static_cast<u64>(fallback_phys_addr) + copy_amount;
+            if (fallback_phys_end <= (1ULL << physical_bits)) [[likely]] {
+                auto* mem_ptr = GetPointerFromRaw<u8>(fallback_phys_addr);
+                on_memory(copy_amount, mem_ptr);
+                continue;
+            }
             on_unmapped(copy_amount, current_vaddr);
             continue;
         }
