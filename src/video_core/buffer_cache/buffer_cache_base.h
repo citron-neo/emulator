@@ -52,8 +52,21 @@ constexpr u32 NUM_STORAGE_BUFFERS = 16;
 constexpr u32 NUM_TEXTURE_BUFFERS = 32;
 constexpr u32 NUM_STAGES = 5;
 
+/// Device-address placeholder for TF stream-index counter binding (not guest memory).
+inline constexpr DAddr XFB_EMULATION_COUNTER_DEVICE_ADDR = 0x3F0000000ULL;
+inline constexpr u32 XFB_EMULATION_COUNTER_BUFFER_BYTES = 64;
+
 using UniformBufferSizes = std::array<std::array<u32, NUM_GRAPHICS_UNIFORM_BUFFERS>, NUM_STAGES>;
 using ComputeUniformBufferSizes = std::array<u32, NUM_COMPUTE_UNIFORM_BUFFERS>;
+
+template <typename P>
+constexpr bool BufferCacheHasXfbStreamCounterHostBuffer() {
+    if constexpr (requires { P::HAS_XFB_STREAM_COUNTER_HOST_BUFFER; }) {
+        return P::HAS_XFB_STREAM_COUNTER_HOST_BUFFER;
+    } else {
+        return false;
+    }
+}
 
 enum class ObtainBufferSynchronize : u32 {
     NoSynchronize = 0,
@@ -276,6 +289,8 @@ public:
     /// Pop asynchronous downloads
     void PopAsyncFlushes();
     void PopAsyncBuffers();
+
+    void ClearXfbStreamCounterForDraw();
 
     bool DMACopy(GPUVAddr src_address, GPUVAddr dest_address, u64 amount);
 
@@ -530,6 +545,8 @@ public:
     u64 last_emergency_gc_log_frame = 0;
     u64 last_emergency_gc_log_usage = 0;
     u32 emergency_gc_logs_suppressed = 0;
+
+    BufferId xfb_stream_counter_buffer_id{NULL_BUFFER_ID};
 
     std::array<BufferId, ((1ULL << 34) >> CACHING_PAGEBITS)> page_table;
     Common::ScratchBuffer<u8> tmp_buffer;

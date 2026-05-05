@@ -448,6 +448,9 @@ void GraphicsPipeline::ConfigureImpl(bool is_indexed) {
     }
 
     buffer_cache.UpdateGraphicsBuffers(is_indexed);
+    if (key.state.xfb_emulated != 0 && !device.IsExtTransformFeedbackSupported()) {
+        buffer_cache.ClearXfbStreamCounterForDraw();
+    }
     buffer_cache.BindHostGeometryBuffers(is_indexed);
 
     guest_descriptor_queue.Acquire();

@@ -144,6 +144,7 @@ void EmitEpilogue(EmitContext& ctx) {
         !ctx.profile.support_native_ndc) {
         ConvertDepthMode(ctx);
     }
+    EmitTransformFeedbackEmulationStores(ctx);
     if (ctx.stage == Stage::Fragment) {
         InitializeAlphaToCoverage(ctx);
         AlphaTest(ctx);
