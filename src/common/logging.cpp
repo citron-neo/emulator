@@ -347,30 +347,6 @@ struct LogcatBackend : public Backend {
 struct Impl {
     // Well, I mean it's the default constructor!
     explicit Impl() noexcept : filter(Level::Trace) {}
-    void StartBackendThread() noexcept {
-        backend_thread = std::jthread([this](std::stop_token stop_token) {
-            Common::SetCurrentThreadName("Logger");
-            Entry entry;
-            const auto write_logs = [this, &entry]() {
-                ForEachBackend([&entry](Backend& backend) { backend.Write(entry); });
-            };
-            do {
-                message_queue.PopWait(entry, stop_token);
-                write_logs();
-            } while (!stop_token.stop_requested());
-            // Drain the logging queue. Only writes out up to MAX_LOGS_TO_WRITE to prevent a
-            // case where a system is repeatedly spamming logs even on close.
-            int max_logs_to_write = filter.IsDebug() ? INT_MAX : 100;
-            while (max_logs_to_write-- && message_queue.TryPop(entry))
-                write_logs();
-        });
-    }
-    void StopBackendThread() noexcept {
-        backend_thread.request_stop();
-        if (backend_thread.joinable())
-            backend_thread.join();
-        ForEachBackend([](Backend& backend) { backend.Flush(); });
-    }
     void ForEachBackend(auto lambda) noexcept {
         lambda(static_cast<Backend&>(color_console_backend));
 #ifndef __OPENORBIS__
@@ -395,9 +371,7 @@ struct Impl {
 #ifdef ANDROID
     LogcatBackend lc_backend{};
 #endif
-    MPSCQueue<Entry> message_queue{};
     std::chrono::steady_clock::time_point time_origin{std::chrono::steady_clock::now()};
-    std::jthread backend_thread;
 };
 } // namespace
 // @brief Constructor shall NOT depend upon Settings() or whatever
@@ -418,12 +392,12 @@ void Initialize() noexcept {
 /// @brief Initializes the logging system. This should be the first thing called in main.
 void Start() noexcept {
     if (logging_instance)
-        logging_instance->StartBackendThread();
+        //logging_instance->StartBackendThread();
 }
 /// @brief Explicitly stops the logger thread and flushes the buffers
 void Stop() noexcept {
     if (logging_instance)
-        logging_instance->StopBackendThread();
+        logging_instance->ForEachBackend([](Backend& backend) { backend.Flush(); });
 }
 /// @brief The global filter will prevent any messages from even being processed if they are
 /// filtered.
@@ -438,19 +412,18 @@ void SetColorConsoleBackendEnabled(bool enabled) noexcept {
 #ifdef __clang__
 [[clang::no_profile_instrument_function]]
 #endif
-void FmtLogMessageImpl(Class log_class, Level log_level, const char* filename,
-                       unsigned int line_num, const char* function, fmt::string_view format,
-                       const fmt::format_args& args) {
+void FmtLogMessageImpl(Class log_class, Level log_level, const char* filename, unsigned int line_num, const char* function, fmt::string_view format, const fmt::format_args& args) {
     if (logging_instance && logging_instance->filter.CheckMessage(log_class, log_level)) {
-        logging_instance->message_queue.EmplaceWait(Entry{
-            .message = fmt::vformat(format, args),
-            .filename = TrimSourcePath(filename),
-            .function = function,
-            .timestamp = std::chrono::duration_cast<std::chrono::microseconds>(
-                std::chrono::steady_clock::now() - logging_instance->time_origin),
-            .log_class = log_class,
-            .log_level = log_level,
-            .line_num = line_num,
+        logging_instance->ForEachBackend([=](Backend& backend) {
+            backend.Write(Entry{
+                .message = fmt::vformat(format, args),
+                .filename = TrimSourcePath(filename),
+                .function = function,
+                .timestamp = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now() - logging_instance->time_origin),
+                .log_class = log_class,
+                .log_level = log_level,
+                .line_num = line_num,
+            });
         });
     }
 }
