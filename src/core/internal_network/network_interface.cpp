@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <fstream>
+#include <limits>
 #include <sstream>
 #include <vector>
 
@@ -118,60 +119,57 @@ std::vector<NetworkInterface> GetAvailableNetworkInterfaces() {
             continue;
         }
 
-        u32 gateway{};
+        u32 gateway = 0;
 
+#if defined(__linux__)
         std::ifstream file{"/proc/net/route"};
         if (!file.is_open()) {
             LOG_ERROR(Network, "Failed to open \"/proc/net/route\"");
+        } else {
+            // ignore header
+            file.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
 
-            result.emplace_back(NetworkInterface{
-                .name{ifa->ifa_name},
-                .ip_address{Common::BitCast<struct sockaddr_in>(*ifa->ifa_addr).sin_addr},
-                .subnet_mask{Common::BitCast<struct sockaddr_in>(*ifa->ifa_netmask).sin_addr},
-                .gateway{in_addr{.s_addr = gateway}}});
-            continue;
-        }
+            bool gateway_found = false;
 
-        // ignore header
-        file.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+            for (std::string line; std::getline(file, line);) {
+                std::istringstream iss{line};
 
-        bool gateway_found = false;
+                std::string iface_name;
+                iss >> iface_name;
+                if (iface_name != ifa->ifa_name) {
+                    continue;
+                }
 
-        for (std::string line; std::getline(file, line);) {
-            std::istringstream iss{line};
+                iss >> std::hex;
 
-            std::string iface_name;
-            iss >> iface_name;
-            if (iface_name != ifa->ifa_name) {
-                continue;
+                u32 dest{};
+                iss >> dest;
+                if (dest != 0) {
+                    // not the default route
+                    continue;
+                }
+
+                iss >> gateway;
+
+                u16 flags{};
+                iss >> flags;
+
+                // flag RTF_GATEWAY (defined in <linux/route.h>)
+                if ((flags & 0x2) == 0) {
+                    continue;
+                }
+
+                gateway_found = true;
+                break;
             }
 
-            iss >> std::hex;
-
-            u32 dest{};
-            iss >> dest;
-            if (dest != 0) {
-                // not the default route
-                continue;
+            if (!gateway_found) {
+                gateway = 0;
             }
-
-            iss >> gateway;
-
-            u16 flags{};
-            iss >> flags;
-
-            // flag RTF_GATEWAY (defined in <linux/route.h>)
-            if ((flags & 0x2) == 0) {
-                continue;
-            }
-
-            gateway_found = true;
-            break;
         }
-
-        if (!gateway_found) {
-            gateway = 0;
-        }
+#else
+        // macOS, *BSD: no /proc/net/route; default route is unused for guest IP reporting today.
+#endif
 
         result.emplace_back(NetworkInterface{
             .name{ifa->ifa_name},
@@ -200,21 +198,31 @@ std::optional<NetworkInterface> GetSelectedNetworkInterface() {
         return std::nullopt;
     }
 
+    const auto use_auto = [&]() {
+        if (selected_network_interface.empty()) {
+            return true;
+        }
+        return Common::ToLower(selected_network_interface) == "none";
+    }();
+
+    if (use_auto) {
+        return network_interfaces[0];
+    }
+
     const auto res =
         std::ranges::find_if(network_interfaces, [&selected_network_interface](const auto& iface) {
             return iface.name == selected_network_interface;
         });
 
     if (res == network_interfaces.end()) {
-        // Only print the error once to avoid log spam
         static bool print_error = true;
         if (print_error) {
-            LOG_ERROR(Network, "Couldn't find selected interface \"{}\"",
-                      selected_network_interface);
+            LOG_WARNING(Network,
+                        "Couldn't find selected interface \"{}\"; using first available \"{}\"",
+                        selected_network_interface, network_interfaces[0].name);
             print_error = false;
         }
-
-        return std::nullopt;
+        return network_interfaces[0];
     }
 
     return *res;
