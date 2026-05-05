@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include <functional>
 #include <memory>
 #include <utility>
 
@@ -71,6 +72,14 @@ public:
 
     /// Called from GPU thread when a frame is displayed.
     virtual void OnFrameDisplayed() {}
+
+    /**
+     * Host presentation hook: Vulkan/GL present may need to run on the GUI thread (e.g. Qt on
+     * macOS). Default runs synchronously on the caller's thread.
+     */
+    virtual void RunPresentationWork(const std::function<void()>& work) {
+        work();
+    }
 
     /**
      * Returns a GraphicsContext that the frontend provides to be used for rendering.

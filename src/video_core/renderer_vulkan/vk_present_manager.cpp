@@ -154,7 +154,7 @@ Frame* PresentManager::GetRenderFrame() {
 void PresentManager::Present(Frame* frame) {
     if (!use_present_thread) {
         scheduler.WaitWorker();
-        CopyToSwapchain(frame);
+        render_window.RunPresentationWork([this, frame] { CopyToSwapchain(frame); });
         free_queue.push(frame);
         return;
     }
@@ -272,7 +272,7 @@ void PresentManager::PresentThread(std::stop_token token) {
         // lock in WaitPresent is guaranteed to occur after here.
         std::exchange(lock, std::unique_lock{swapchain_mutex});
 
-        CopyToSwapchain(frame);
+        render_window.RunPresentationWork([this, frame] { CopyToSwapchain(frame); });
 
         // Free the frame for reuse
         std::scoped_lock fl{free_mutex};
