@@ -12,7 +12,9 @@
 #include <fmt/format.h>
 
 #if defined(__unix__) || defined(__APPLE__)
+#include <cerrno>
 #include <fcntl.h>
+#include <sys/socket.h>
 #include <unistd.h>
 #endif
 
@@ -46,6 +48,23 @@ bool IsConnectionBased(Type type) {
         return false;
     }
 }
+
+#if defined(__unix__) || defined(__APPLE__)
+Errno ErrnoFromUnixPassthrough(int e) {
+    switch (e) {
+    case 0:
+        return Errno::SUCCESS;
+    case EBADF:
+        return Errno::BADF;
+    case EINVAL:
+    case ENOPROTOOPT:
+        return Errno::INVAL;
+    default:
+        LOG_DEBUG(Service, "setsockopt/getsockopt passthrough errno={}", e);
+        return Errno::INVAL;
+    }
+}
+#endif
 
 template <typename T>
 T GetValue(std::span<const u8> buffer) {
@@ -938,7 +957,12 @@ std::pair<s32, Errno> BSD::SocketImpl(Domain domain, Type type, Protocol protoco
         LOG_DEBUG(Service, "Created new ProxySocket for fd={}", fd);
     } else {
         descriptor.socket = std::make_shared<Network::Socket>();
-        descriptor.socket->Initialize(descriptor.domain, descriptor.type, descriptor.protocol);
+        const auto init_err = descriptor.socket->Initialize(descriptor.domain, descriptor.type,
+                                                              descriptor.protocol);
+        if (init_err != Network::Errno::SUCCESS) {
+            file_descriptors[fd].reset();
+            return {-1, Translate(init_err)};
+        }
     }
 
     return {fd, Errno::SUCCESS};
@@ -1174,8 +1198,28 @@ Errno BSD::GetSockOptImpl(s32 fd, u32 level, OptName optname, std::vector<u8>& o
         return Errno::BADF;
 
     if (level != static_cast<u32>(SocketLevel::SOCKET)) {
+#if defined(__unix__) || defined(__APPLE__)
+        Network::SocketBase* const socket = file_descriptors[fd]->socket.get();
+        const Network::SOCKET host_fd = socket->GetFD();
+        if (host_fd == Network::INVALID_SOCKET) {
+            return Errno::BADF;
+        }
+        if (optval.empty()) {
+            return Errno::INVAL;
+        }
+        socklen_t len = static_cast<socklen_t>(optval.size());
+        const int native_level = static_cast<int>(level);
+        const int native_opt = static_cast<int>(optname);
+        if (getsockopt(host_fd, native_level, native_opt, reinterpret_cast<char*>(optval.data()),
+                       &len) != 0) {
+            return ErrnoFromUnixPassthrough(errno);
+        }
+        optval.resize(len);
+        return Errno::SUCCESS;
+#else
         LOG_WARNING(Service, "(STUBBED) Unknown getsockopt level={}, returning INVAL", level);
         return Errno::INVAL;
+#endif
     }
 
     Network::SocketBase* const socket = file_descriptors[fd]->socket.get();
@@ -1207,8 +1251,26 @@ Errno BSD::SetSockOptImpl(s32 fd, u32 level, OptName optname, std::span<const u8
         return Errno::BADF;
 
     if (level != static_cast<u32>(SocketLevel::SOCKET)) {
+#if defined(__unix__) || defined(__APPLE__)
+        Network::SocketBase* const socket = file_descriptors[fd]->socket.get();
+        const Network::SOCKET host_fd = socket->GetFD();
+        if (host_fd == Network::INVALID_SOCKET) {
+            return Errno::BADF;
+        }
+        if (optval.empty()) {
+            return Errno::INVAL;
+        }
+        const int native_level = static_cast<int>(level);
+        const int native_opt = static_cast<int>(optname);
+        if (setsockopt(host_fd, native_level, native_opt, optval.data(),
+                       static_cast<socklen_t>(optval.size())) != 0) {
+            return ErrnoFromUnixPassthrough(errno);
+        }
+        return Errno::SUCCESS;
+#else
         LOG_WARNING(Service, "(STUBBED) Unknown setsockopt level={}, returning INVAL", level);
         return Errno::INVAL;
+#endif
     }
 
     Network::SocketBase* const socket = file_descriptors[fd]->socket.get();
@@ -1322,10 +1384,6 @@ std::pair<s32, Errno> BSD::RecvFromImpl(s32 fd, u32 flags, std::vector<u8>& mess
 
     FileDescriptor& descriptor = *file_descriptors[fd];
     if (Settings::values.airplane_mode.GetValue()) {
-        addr.clear();
-        return {-1, Errno::AGAIN};
-    }
-    if (!descriptor.is_connection_based) {
         addr.clear();
         return {-1, Errno::AGAIN};
     }
