@@ -770,6 +770,9 @@ struct Values {
                                     Category::DebuggingGraphics};
     Setting<bool> extended_logging{
         linkage, false, "extended_logging", Category::Debugging, Specialization::Default, false};
+    /// One-shot log: first unmapped access to guest page 0 with PC/LR/SP (see citron log / wiki).
+    Setting<bool> log_guest_null_page_access{linkage, false, "log_guest_null_page_access",
+                                              Category::Debugging};
     Setting<bool> use_debug_asserts{linkage, false, "use_debug_asserts", Category::Debugging};
     Setting<bool> use_auto_stub{
         linkage, false, "use_auto_stub", Category::Debugging, Specialization::Default, false};

@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "common/demangle.h"
+#include <fmt/format.h>
+
 #include "core/arm/debug.h"
 #include "core/arm/symbols.h"
 #include "core/hle/kernel/k_process.h"
@@ -266,7 +268,10 @@ Loader::AppLoader::Modules FindModules(Kernel::KProcess* process) {
         if (svc_mem_info.permission == Kernel::Svc::MemoryPermission::ReadExecute &&
             (svc_mem_info.state == Kernel::Svc::MemoryState::Code ||
              svc_mem_info.state == Kernel::Svc::MemoryState::AliasCode)) {
-            // Try to read the module name from its path.
+            // Try to read the module name from its path (footer after the R-X mapping). Games that
+            // omit or relocate this metadata were previously dropped entirely, leaving backtraces as
+            // "unknown" with no symbolication. Always record the executable blob; fall back to a
+            // synthetic label when the path cannot be read.
             constexpr s32 PathLengthMax = 0x200;
             struct {
                 u32 zero;
@@ -274,30 +279,32 @@ Loader::AppLoader::Modules FindModules(Kernel::KProcess* process) {
                 std::array<char, PathLengthMax> path;
             } module_path;
 
+            std::string module_name;
             if (memory.ReadBlock(svc_mem_info.base_address + svc_mem_info.size, &module_path,
-                                 sizeof(module_path))) {
-                if (module_path.zero == 0 && module_path.path_length > 0) {
-                    // Truncate module name.
-                    module_path.path[PathLengthMax - 1] = '\0';
+                                 sizeof(module_path)) &&
+                module_path.zero == 0 && module_path.path_length > 0) {
+                module_path.path[PathLengthMax - 1] = '\0';
 
-                    // Ignore leading directories.
-                    char* path_pointer = module_path.path.data();
-                    char* path_end =
-                        path_pointer + std::min(PathLengthMax, module_path.path_length);
+                char* path_pointer = module_path.path.data();
+                char* path_end =
+                    path_pointer + std::min<s32>(PathLengthMax, module_path.path_length);
 
-                    for (s32 i = 0; i < std::min(PathLengthMax, module_path.path_length) &&
-                                    module_path.path[i] != '\0';
-                         i++) {
-                        if (module_path.path[i] == '/' || module_path.path[i] == '\\') {
-                            path_pointer = module_path.path.data() + i + 1;
-                        }
+                for (s32 i = 0;
+                     i < std::min(PathLengthMax, module_path.path_length) &&
+                     module_path.path[i] != '\0';
+                     i++) {
+                    if (module_path.path[i] == '/' || module_path.path[i] == '\\') {
+                        path_pointer = module_path.path.data() + i + 1;
                     }
-
-                    // Insert output.
-                    modules.emplace(svc_mem_info.base_address,
-                                    std::string_view(path_pointer, path_end));
                 }
+
+                module_name.assign(path_pointer, path_end);
             }
+            if (module_name.empty()) {
+                module_name = fmt::format("code@{:#x}", svc_mem_info.base_address);
+            }
+
+            modules.emplace(svc_mem_info.base_address, std::move(module_name));
         }
 
         // Check if we're done.

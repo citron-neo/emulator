@@ -133,6 +133,12 @@ public:
     [[nodiscard]] bool IsValidVirtualAddressRange(Common::ProcessAddress base, u64 size) const;
 
     /**
+     * When Debugging.log_guest_null_page_access is set: one-shot diagnostic for invalid accesses in
+     * guest page 0 (used from slow memory paths and Dynarmic callbacks).
+     */
+    void NotifyGuestNullPageDiagnostic(u64 guest_vaddr);
+
+    /**
      * Gets a pointer to the given address.
      *
      * @param vaddr Virtual address to retrieve a pointer to.

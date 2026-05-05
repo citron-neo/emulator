@@ -585,6 +585,13 @@ void GraphicsPipeline::MakePipeline(VkRenderPass render_pass) {
             });
         }
     }
+    const u32 max_vertex_attrs = device.GetMaxVertexInputAttributes();
+    if (vertex_attributes.size() > max_vertex_attrs) {
+        LOG_ERROR(Render_Vulkan,
+                  "Graphics pipeline uses {} vertex attributes but the Vulkan device reports a "
+                  "maximum of {}; draws may fault (common on MoltenVK).",
+                  vertex_attributes.size(), max_vertex_attrs);
+    }
     ASSERT(vertex_attributes.size() <= device.GetMaxVertexInputAttributes());
 
     VkPipelineVertexInputStateCreateInfo vertex_input_ci{
