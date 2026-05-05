@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+#include <algorithm>
 #include <cstddef>
 #include <limits>
 #include <map>
@@ -873,6 +874,13 @@ private:
             return;
         }
         has_flushed_end_pending = true;
+        if (!device.IsExtTransformFeedbackSupported()) {
+            // MoltenVK and some targets omit VK_EXT_transform_feedback. CounterEnable() for byte
+            // counts is skipped there, but ProduceCounterBuffer() can still run via primitive
+            // queries — never emit transform-feedback commands or pipeline stages without the ext.
+            UpdateBuffers();
+            return;
+        }
         if (!has_started || buffers_count == 0) {
             scheduler.Record([](vk::CommandBuffer cmdbuf) {
                 cmdbuf.BeginTransformFeedbackEXT(0, 0, nullptr, nullptr);
@@ -891,6 +899,10 @@ private:
             return;
         }
         has_flushed_end_pending = false;
+
+        if (!device.IsExtTransformFeedbackSupported()) {
+            return;
+        }
 
         // Enhanced query ending with better error handling
         try {
@@ -943,6 +955,19 @@ private:
         auto [dont_care, other] = current_bank->Reserve();
         const size_t slot = other; // workaround to compile bug.
         current_bank->AddReference();
+
+        if (!device.IsExtTransformFeedbackSupported()) {
+            // No GPU transform-feedback counters; avoid TF pipeline stages and counter buffers.
+            // Games may still resolve primitive/stream queries — publish zero until emulated TF
+            // exposes real byte counts here.
+            scheduler.RequestOutsideRenderPassOperationContext();
+            scheduler.Record([dst_buffer = current_bank->GetBuffer(),
+                              slot](vk::CommandBuffer cmdbuf) {
+                cmdbuf.FillBuffer(dst_buffer, slot * TFBQueryBank::QUERY_SIZE,
+                                  TFBQueryBank::QUERY_SIZE, 0);
+            });
+            return {current_bank_id, slot};
+        }
 
         static constexpr VkMemoryBarrier READ_BARRIER{
             .sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER,
@@ -1125,16 +1150,17 @@ public:
 
             query->flags |= VideoCommon::QueryFlagBits::IsFinalValueSynced;
             u64 num_vertices = 0;
+            const u64 stride = std::max<u64>(query->stride, 1);
             if (query->dependant_manage) {
                 auto* dependant_query = tfb_streamer.GetQuery(query->dependant_index);
-                num_vertices = dependant_query->value / query->stride;
+                num_vertices = dependant_query->value / stride;
                 tfb_streamer.Free(query->dependant_index);
             } else {
                 u8* pointer = device_memory.GetPointer<u8>(query->dependant_address);
                 if (pointer != nullptr) {
                     u32 result;
                     std::memcpy(&result, pointer, sizeof(u32));
-                    num_vertices = static_cast<u64>(result) / query->stride;
+                    num_vertices = static_cast<u64>(result) / stride;
                 }
             }
             query->value = [&]() -> u64 {

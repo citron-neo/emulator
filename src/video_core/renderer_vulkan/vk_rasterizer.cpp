@@ -6,6 +6,7 @@
 #include <array>
 #include <memory>
 #include <mutex>
+#include <optional>
 
 #include "video_core/renderer_vulkan/renderer_vulkan.h"
 
@@ -1609,27 +1610,30 @@ void RasterizerVulkan::UpdateVertexInput(Tegra::Engines::Maxwell3D::Regs& regs) 
 
     // There seems to be a bug on Nvidia's driver where updating only higher attributes ends up
     // generating dirty state. Track the highest dirty attribute and update all attributes until
-    // that one.
-    size_t highest_dirty_attr{};
+    // that one (inclusive).
+    std::optional<size_t> highest_dirty_attr;
     for (size_t index = 0; index < Tegra::Engines::Maxwell3D::Regs::NumVertexAttributes; ++index) {
         if (dirty[Dirty::VertexAttribute0 + index]) {
             highest_dirty_attr = index;
         }
     }
-    for (size_t index = 0; index < highest_dirty_attr; ++index) {
-        const Tegra::Engines::Maxwell3D::Regs::VertexAttribute attribute{regs.vertex_attrib_format[index]};
-        const u32 binding{attribute.buffer};
-        dirty[Dirty::VertexAttribute0 + index] = false;
-        dirty[Dirty::VertexBinding0 + static_cast<size_t>(binding)] = true;
-        if (!attribute.constant) {
-            attributes.push_back({
-                .sType = VK_STRUCTURE_TYPE_VERTEX_INPUT_ATTRIBUTE_DESCRIPTION_2_EXT,
-                .pNext = nullptr,
-                .location = static_cast<u32>(index),
-                .binding = binding,
-                .format = MaxwellToVK::VertexFormat(device, attribute.type, attribute.size),
-                .offset = attribute.offset,
-            });
+    if (highest_dirty_attr) {
+        for (size_t index = 0; index <= *highest_dirty_attr; ++index) {
+            const Tegra::Engines::Maxwell3D::Regs::VertexAttribute attribute{
+                regs.vertex_attrib_format[index]};
+            const u32 binding{attribute.buffer};
+            dirty[Dirty::VertexAttribute0 + index] = false;
+            dirty[Dirty::VertexBinding0 + static_cast<size_t>(binding)] = true;
+            if (!attribute.constant) {
+                attributes.push_back({
+                    .sType = VK_STRUCTURE_TYPE_VERTEX_INPUT_ATTRIBUTE_DESCRIPTION_2_EXT,
+                    .pNext = nullptr,
+                    .location = static_cast<u32>(index),
+                    .binding = binding,
+                    .format = MaxwellToVK::VertexFormat(device, attribute.type, attribute.size),
+                    .offset = attribute.offset,
+                });
+            }
         }
     }
     for (size_t index = 0; index < Tegra::Engines::Maxwell3D::Regs::NumVertexAttributes; ++index) {

@@ -7,6 +7,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <algorithm>
+#include <atomic>
 #include <bit>
 #include <cstring>
 #include <mutex>
@@ -29,6 +30,7 @@
 #include "core/hardware_properties.h"
 #include "core/hle/kernel/k_page_table.h"
 #include "core/hle/kernel/k_process.h"
+#include "core/hle/kernel/k_thread.h"
 #include "core/memory.h"
 #include "video_core/gpu.h"
 #include "video_core/host1x/gpu_device_memory_manager.h"
@@ -36,6 +38,10 @@
 #include "video_core/rasterizer_download_area.h"
 
 namespace Core::Memory {
+
+namespace {
+std::atomic<bool> g_arm_null_page_guest_instrumentation{true};
+}
 
 static inline bool AddressSpaceContains(const Common::PageTable& table, const Common::ProcessAddress addr, const std::size_t size) {
     const Common::ProcessAddress max_addr = 1ULL << table.GetAddressSpaceBits();
@@ -592,6 +598,39 @@ struct Memory::Impl {
         }
     }
 
+    /**
+     * When Debugging.log_guest_null_page_access is enabled, logs once per process run: the first
+     * unmapped guest access whose virtual address falls in page 0, with PC/LR/SP for correlation
+     * with NRO/load bugs (e.g. Minecraft on MoltenVK runs).
+     */
+    void NotifyUnmappedGuestFirstPage(u64 vaddr) const {
+        if (!Settings::values.log_guest_null_page_access.GetValue()) {
+            return;
+        }
+        if (vaddr >= CITRON_PAGESIZE) {
+            return;
+        }
+        bool expected = true;
+        if (!g_arm_null_page_guest_instrumentation.compare_exchange_strong(expected, false)) {
+            return;
+        }
+        auto* thread = Kernel::GetCurrentThreadPointer(system.Kernel());
+        if (thread == nullptr) {
+            LOG_CRITICAL(Debug_Emulated,
+                         "[null-page] First unmapped access in guest page0 @ 0x{:016X} (no current "
+                         "emu thread — may be host/HLE accessing guest VAddr)",
+                         vaddr);
+            return;
+        }
+        const auto& ctx = thread->GetContext();
+        auto* proc = thread->GetOwnerProcess();
+        const u64 program_id = proc != nullptr ? proc->GetProgramId() : 0;
+        LOG_CRITICAL(Debug_Emulated,
+                     "[null-page] First unmapped access in guest page0 @ 0x{:016X}; "
+                     "PC=0x{:016X} LR=0x{:016X} SP=0x{:016X} tid={:#x} program_id={:#x}",
+                     vaddr, ctx.pc, ctx.lr, ctx.sp, thread->GetId(), program_id);
+    }
+
     template<typename F, typename G>
     [[nodiscard]] inline u8* GetPointerImpl(u64 vaddr, F&& on_unmapped, G&& on_rasterizer) const {
         // AARCH64 masks the upper 16 bit of all memory accesses
@@ -615,6 +654,7 @@ struct Memory::Impl {
                 }
                 case Common::PageType::Unmapped: [[unlikely]] {
                     on_unmapped();
+                    NotifyUnmappedGuestFirstPage(vaddr);
                     return nullptr;
                 }
                 default:
@@ -624,6 +664,7 @@ struct Memory::Impl {
             }
         } else {
             on_unmapped();
+            NotifyUnmappedGuestFirstPage(vaddr);
             return nullptr;
         }
     }
@@ -886,6 +927,7 @@ Memory::Memory(Core::System& system_) : system{system_} {
 Memory::~Memory() = default;
 
 void Memory::Reset() {
+    g_arm_null_page_guest_instrumentation.store(true);
     impl = std::make_unique<Impl>(system);
 }
 
@@ -927,6 +969,10 @@ bool Memory::IsValidVirtualAddressRange(Common::ProcessAddress base, u64 size) c
         if (!IsValidVirtualAddress(page))
             return false;
     return true;
+}
+
+void Memory::NotifyGuestNullPageDiagnostic(u64 guest_vaddr) {
+    impl->NotifyUnmappedGuestFirstPage(guest_vaddr);
 }
 
 u8* Memory::GetPointer(Common::ProcessAddress vaddr) {

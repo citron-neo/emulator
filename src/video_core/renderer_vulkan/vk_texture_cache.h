@@ -83,8 +83,9 @@ public:
     }
 
     bool CanUploadMSAA() const noexcept {
-        // TODO: Implement buffer to MSAA uploads
-        return false;
+        // Multisampled VkImages use reduced extent (see MakeImageCreateInfo) and standard
+        // buffer-image copies; guest unswizzle already accounts for sample layout.
+        return true;
     }
 
     void AccelerateImageUpload(Image&, const StagingBufferRef&,

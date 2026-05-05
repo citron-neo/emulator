@@ -3,6 +3,10 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <dynarmic/interface/code_page.h>
+#if defined(__APPLE__)
+#include <TargetConditionals.h>
+#endif
+
 #include "common/settings.h"
 #include "core/arm/dynarmic/arm_dynarmic.h"
 #include "core/arm/dynarmic/arm_dynarmic_64.h"
@@ -24,23 +28,41 @@ public:
           m_check_memory_access{m_debugger_enabled ||
                                 !Settings::values.cpuopt_ignore_memory_aborts.GetValue()} {}
 
+    void GuestNullPageInvalidAccessMaybeDiag(u64 vaddr, u64 size) {
+        if (!Settings::values.log_guest_null_page_access.GetValue()) {
+            return;
+        }
+        const u64 av = vaddr & 0xffffffffffffULL;
+        if (av >= Core::Memory::CITRON_PAGESIZE) {
+            return;
+        }
+        if (!m_memory.IsValidVirtualAddressRange(Common::ProcessAddress{av}, size)) {
+            m_memory.NotifyGuestNullPageDiagnostic(av);
+        }
+    }
+
     u8 MemoryRead8(u64 vaddr) override {
+        GuestNullPageInvalidAccessMaybeDiag(vaddr, 1);
         CheckMemoryAccess(vaddr, 1, Kernel::DebugWatchpointType::Read);
         return m_memory.Read8(vaddr);
     }
     u16 MemoryRead16(u64 vaddr) override {
+        GuestNullPageInvalidAccessMaybeDiag(vaddr, 2);
         CheckMemoryAccess(vaddr, 2, Kernel::DebugWatchpointType::Read);
         return m_memory.Read16(vaddr);
     }
     u32 MemoryRead32(u64 vaddr) override {
+        GuestNullPageInvalidAccessMaybeDiag(vaddr, 4);
         CheckMemoryAccess(vaddr, 4, Kernel::DebugWatchpointType::Read);
         return m_memory.Read32(vaddr);
     }
     u64 MemoryRead64(u64 vaddr) override {
+        GuestNullPageInvalidAccessMaybeDiag(vaddr, 8);
         CheckMemoryAccess(vaddr, 8, Kernel::DebugWatchpointType::Read);
         return m_memory.Read64(vaddr);
     }
     Vector MemoryRead128(u64 vaddr) override {
+        GuestNullPageInvalidAccessMaybeDiag(vaddr, 16);
         CheckMemoryAccess(vaddr, 16, Kernel::DebugWatchpointType::Read);
         return {m_memory.Read64(vaddr), m_memory.Read64(vaddr + 8)};
     }
@@ -56,26 +78,31 @@ public:
     }
 
     void MemoryWrite8(u64 vaddr, u8 value) override {
+        GuestNullPageInvalidAccessMaybeDiag(vaddr, 1);
         if (CheckMemoryAccess(vaddr, 1, Kernel::DebugWatchpointType::Write)) {
             m_memory.Write8(vaddr, value);
         }
     }
     void MemoryWrite16(u64 vaddr, u16 value) override {
+        GuestNullPageInvalidAccessMaybeDiag(vaddr, 2);
         if (CheckMemoryAccess(vaddr, 2, Kernel::DebugWatchpointType::Write)) {
             m_memory.Write16(vaddr, value);
         }
     }
     void MemoryWrite32(u64 vaddr, u32 value) override {
+        GuestNullPageInvalidAccessMaybeDiag(vaddr, 4);
         if (CheckMemoryAccess(vaddr, 4, Kernel::DebugWatchpointType::Write)) {
             m_memory.Write32(vaddr, value);
         }
     }
     void MemoryWrite64(u64 vaddr, u64 value) override {
+        GuestNullPageInvalidAccessMaybeDiag(vaddr, 8);
         if (CheckMemoryAccess(vaddr, 8, Kernel::DebugWatchpointType::Write)) {
             m_memory.Write64(vaddr, value);
         }
     }
     void MemoryWrite128(u64 vaddr, Vector value) override {
+        GuestNullPageInvalidAccessMaybeDiag(vaddr, 16);
         if (CheckMemoryAccess(vaddr, 16, Kernel::DebugWatchpointType::Write)) {
             m_memory.Write64(vaddr, value[0]);
             m_memory.Write64(vaddr + 8, value[1]);
@@ -83,22 +110,27 @@ public:
     }
 
     bool MemoryWriteExclusive8(u64 vaddr, std::uint8_t value, std::uint8_t expected) override {
+        GuestNullPageInvalidAccessMaybeDiag(vaddr, 1);
         return CheckMemoryAccess(vaddr, 1, Kernel::DebugWatchpointType::Write) &&
                m_memory.WriteExclusive8(vaddr, value, expected);
     }
     bool MemoryWriteExclusive16(u64 vaddr, std::uint16_t value, std::uint16_t expected) override {
+        GuestNullPageInvalidAccessMaybeDiag(vaddr, 2);
         return CheckMemoryAccess(vaddr, 2, Kernel::DebugWatchpointType::Write) &&
                m_memory.WriteExclusive16(vaddr, value, expected);
     }
     bool MemoryWriteExclusive32(u64 vaddr, std::uint32_t value, std::uint32_t expected) override {
+        GuestNullPageInvalidAccessMaybeDiag(vaddr, 4);
         return CheckMemoryAccess(vaddr, 4, Kernel::DebugWatchpointType::Write) &&
                m_memory.WriteExclusive32(vaddr, value, expected);
     }
     bool MemoryWriteExclusive64(u64 vaddr, std::uint64_t value, std::uint64_t expected) override {
+        GuestNullPageInvalidAccessMaybeDiag(vaddr, 8);
         return CheckMemoryAccess(vaddr, 8, Kernel::DebugWatchpointType::Write) &&
                m_memory.WriteExclusive64(vaddr, value, expected);
     }
     bool MemoryWriteExclusive128(u64 vaddr, Vector value, Vector expected) override {
+        GuestNullPageInvalidAccessMaybeDiag(vaddr, 16);
         return CheckMemoryAccess(vaddr, 16, Kernel::DebugWatchpointType::Write) &&
                m_memory.WriteExclusive128(vaddr, value, expected);
     }
@@ -281,7 +313,9 @@ std::shared_ptr<Dynarmic::A64::Jit> ArmDynarmic64::MakeJit(Common::PageTable* pa
     config.enable_cycle_counting = !m_uses_wall_clock;
 
     // Code cache size
-#ifdef ARCHITECTURE_arm64
+#if defined(__APPLE__) && TARGET_OS_IPHONE
+    config.code_cache_size = u32(16_MiB);
+#elif defined(ARCHITECTURE_arm64)
     config.code_cache_size = u32(128_MiB);
 #else
     config.code_cache_size = u32(512_MiB);
