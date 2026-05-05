@@ -6,6 +6,7 @@
 #include <cstring>
 #include <memory>
 #include <mutex>
+#include <string>
 #include <utility>
 #include <vector>
 
@@ -915,6 +916,18 @@ void BSD::ExecuteWork(HLERequestContext& ctx, Work work) {
 }
 
 std::pair<s32, Errno> BSD::SocketImpl(Domain domain, Type type, Protocol protocol) {
+    // Retail user stack: applications normally only get working IPv4 BSD sockets; INET6 on bsd:u is
+    // unregistered per switchbrew. Titles still probe AF_INET6 on bsd:u/bsd:s — if we create a
+    // real IPv6 socket they take paths that then hit UE4 panics under our HLE. Match "no IPv6" so
+    // they fall back to AF_INET (same as rejecting on bsd:u alone, but Minecraft uses bsd:s here).
+    const std::string bsd_name = GetServiceName();
+    const bool reject_inet6 =
+        (bsd_name == "bsd:u" || bsd_name == "bsd:s" || bsd_name == "bsd:a");
+    if (domain == Domain::INET6 && reject_inet6) {
+        LOG_INFO(Service, "Socket: rejecting AF_INET6 on {} (EAFNOSUPPORT)", bsd_name);
+        return {-1, Errno::AFNOSUPPORT};
+    }
+
     if (type == Type::SEQPACKET) {
         UNIMPLEMENTED_MSG("SOCK_SEQPACKET errno management");
     } else if (type == Type::RAW && (domain != Domain::INET || protocol != Protocol::ICMP)) {
