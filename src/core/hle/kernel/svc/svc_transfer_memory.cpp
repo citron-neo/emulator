@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright 2023 yuzu Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
+#include "common/logging.h"
 #include "common/scope_exit.h"
 #include "core/core.h"
 #include "core/hle/kernel/k_process.h"
@@ -57,7 +58,12 @@ Result CreateTransferMemory(Core::System& system, Handle* out, u64 address, u64 
     };
 
     // Ensure that the region is in range.
-    R_UNLESS(process.GetPageTable().Contains(address, size), ResultInvalidCurrentMemory);
+    if (!process.GetPageTable().Contains(address, size)) {
+        LOG_ERROR(Kernel_SVC,
+                  "CreateTransferMemory: range outside address space (Contains) addr={:#x} size={:#x}",
+                  address, size);
+        R_THROW(ResultInvalidCurrentMemory);
+    }
 
     // Initialize the transfer memory.
     R_TRY(trmem->Initialize(address, size, map_perm));
