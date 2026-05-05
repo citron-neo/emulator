@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <algorithm>
+#include <cstring>
 #include <memory>
 #include <optional>
 #include <utility>
@@ -424,7 +425,18 @@ VkResult Free(VkDevice device, VkCommandPool handle, Span<VkCommandBuffer> buffe
 Instance Instance::Create(u32 version, Span<const char*> layers, Span<const char*> extensions,
                           InstanceDispatch& dispatch) {
 #ifdef __APPLE__
-    constexpr VkFlags ci_flags{VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR};
+    // Vulkan 1.3: ENUMERATE_PORTABILITY may only be set if VK_KHR_portability_enumeration
+    // is enabled. MoltenVK may not advertise the extension via incomplete enumeration lists.
+    bool enable_portability_enumeration = false;
+    for (const char* name : extensions) {
+        if (std::strcmp(name, VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME) == 0) {
+            enable_portability_enumeration = true;
+            break;
+        }
+    }
+    const VkFlags ci_flags = enable_portability_enumeration
+                                 ? VkFlags{VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR}
+                                 : VkFlags{};
 #else
     constexpr VkFlags ci_flags{};
 #endif
@@ -976,15 +988,20 @@ u32 AvailableVersion(const InstanceDispatch& dld) noexcept {
 
 std::optional<std::vector<VkExtensionProperties>> EnumerateInstanceExtensionProperties(
     const InstanceDispatch& dld) {
-    u32 num;
-    if (dld.vkEnumerateInstanceExtensionProperties(nullptr, &num, nullptr) != VK_SUCCESS) {
+    u32 count = 0;
+    if (dld.vkEnumerateInstanceExtensionProperties(nullptr, &count, nullptr) != VK_SUCCESS) {
         return std::nullopt;
     }
-    std::vector<VkExtensionProperties> properties(num);
-    if (dld.vkEnumerateInstanceExtensionProperties(nullptr, &num, properties.data()) !=
-        VK_SUCCESS) {
-        return std::nullopt;
-    }
+    std::vector<VkExtensionProperties> properties;
+    VkResult result;
+    do {
+        properties.resize(count);
+        result = dld.vkEnumerateInstanceExtensionProperties(nullptr, &count, properties.data());
+        if (result != VK_SUCCESS && result != VK_INCOMPLETE) {
+            return std::nullopt;
+        }
+    } while (result == VK_INCOMPLETE);
+    properties.resize(count);
     return properties;
 }
 
