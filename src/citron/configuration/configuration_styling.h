@@ -93,9 +93,9 @@ static const char* MASTER_STYLE_TEMPLATE = R"(
     }
 
     QPushButton[class="tabButton"]:checked {
-        background-color: %%ACCENT_COLOR_LOW_ALPHA%%;
+        background-color: %%ACCENT_COLOR%%;
         border-color: %%ACCENT_COLOR%%;
-        color: %%ACCENT_COLOR%%;
+        color: %%ACCENT_TEXT_COLOR%%;
     }
 
     /* Input Fields */
@@ -145,8 +145,9 @@ static const char* MASTER_STYLE_TEMPLATE = R"(
 
     QCheckBox::indicator:checked {
         background-color: %%ACCENT_COLOR%%;
-        border-color: %%ACCENT_COLOR%%;
-        image: url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAwAAAAMCAYAAABWdVznAAAAmklEQVQoU2NkgID/DAxMDKQAxoMIsSg6CkhBfEBAAn0EwASQB9AHkAIIDyLIAYwB5AEMAeQTkAQIDyTIDoQBFAGkAUIPIMgBpAH0ByQBAoMJYgB9ACmA8EACXFCAKIB+gCRAMEAMIAygH0ARIDCYIAYQBpAHEAWIDCaIAQwB5AFEASLDCGIA/QFJAFGAyGCCCmIAfQApgPDAslEALz4fF+uU904AAAAASUVORK5CYII=");
+        border: 2px solid %%INDICATOR_BORDER_CHECKED%%;
+        border-radius: 5px;
+        image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%%CHECKMARK_COLOR_SVG%%' stroke-width='4' stroke-linecap='round' stroke-linejoin='round'><polyline points='20 6 9 17 4 12'></polyline></svg>");
     }
 
     QCheckBox::indicator:hover {
@@ -242,7 +243,7 @@ static const char* MASTER_STYLE_TEMPLATE = R"(
     }
 
     QMenu::item:selected {
-        background-color: %%ACCENT_COLOR%%;
+        background-color: %%SELECTION_BG%%;
         color: %%ACCENT_TEXT_COLOR%%;
     }
 
@@ -275,7 +276,7 @@ static const char* MASTER_STYLE_TEMPLATE = R"(
         background-color: %%PANEL_COLOR%%;
         border: 1px solid %%INPUT_BORDER%%;
         border-radius: 8px;
-        selection-background-color: %%ACCENT_COLOR%%;
+        selection-background-color: %%SELECTION_BG%%;
         selection-color: %%ACCENT_TEXT_COLOR%%;
         color: %%TEXT_COLOR%%;
         outline: none;
@@ -289,6 +290,7 @@ static const char* MASTER_STYLE_TEMPLATE = R"(
 
     QListView::item:hover {
         background-color: %%INPUT_BG_HOVER%%;
+        color: %%TEXT_COLOR%%;
     }
 )";
 
@@ -320,11 +322,26 @@ inline QString GetMasterStyleSheet() {
     const double luminance = (0.299 * accent_color.red() + 0.587 * accent_color.green() + 0.114 * accent_color.blue()) / 255.0;
     const QColor accent_text = luminance > 0.5 ? QColor(0, 0, 0) : QColor(255, 255, 255);
 
+    QColor selection_bg = accent_color;
+    if (!is_dark && selection_bg.lightness() > 240) {
+        selection_bg = selection_bg.darker(110);
+    }
+
+    QColor indicator_border_checked = accent_color;
+    // If accent is too light, use a darker border to ensure the checkbox remains visible on white backgrounds
+    if (luminance > 0.75) {
+        indicator_border_checked = input_border;
+    }
+
     QString sheet = QString::fromLatin1(MASTER_STYLE_TEMPLATE);
     sheet.replace(QStringLiteral("%%ACCENT_COLOR%%"), accent_color.name(QColor::HexRgb));
+    sheet.replace(QStringLiteral("%%SELECTION_BG%%"), selection_bg.name(QColor::HexRgb));
     sheet.replace(QStringLiteral("%%ACCENT_COLOR_HOVER%%"), accent_hover.name(QColor::HexRgb));
     sheet.replace(QStringLiteral("%%ACCENT_COLOR_LOW_ALPHA%%"), accent_rgba_low);
     sheet.replace(QStringLiteral("%%ACCENT_TEXT_COLOR%%"), accent_text.name(QColor::HexRgb));
+    sheet.replace(QStringLiteral("%%CHECKMARK_COLOR%%"), luminance > 0.5 ? QStringLiteral("black") : QStringLiteral("white"));
+    sheet.replace(QStringLiteral("%%CHECKMARK_COLOR_SVG%%"), (luminance > 0.5 ? QStringLiteral("black") : QStringLiteral("white")));
+    sheet.replace(QStringLiteral("%%INDICATOR_BORDER_CHECKED%%"), indicator_border_checked.name(QColor::HexRgb));
     sheet.replace(QStringLiteral("%%TEXT_COLOR%%"), text_color.name(QColor::HexRgb));
     sheet.replace(QStringLiteral("%%TEXT_COLOR_DIM%%"), text_dim.name(QColor::HexRgb));
     sheet.replace(QStringLiteral("%%PANEL_COLOR%%"), onyx_panel.name(QColor::HexRgb));

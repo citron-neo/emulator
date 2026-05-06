@@ -165,9 +165,13 @@ void ConfigurePerGameAddons::UpdateTheme(const QString& custom_accent) {
     const QString bg_alt  = is_dark ? QStringLiteral("#2a2a32") : QStringLiteral("#f5f5fa");
     const QString txt     = is_dark ? QStringLiteral("#e0e0e4") : QStringLiteral("#1a1a1e");
     const QString border  = is_dark ? QStringLiteral("#32323a") : QStringLiteral("#d0d0d5");
-    const QString sel_bg  = accent;
+    QColor sel_bg_color{accent};
+    if (!is_dark && sel_bg_color.lightness() > 240) {
+        sel_bg_color = sel_bg_color.darker(110);
+    }
+    const QString sel_bg = sel_bg_color.name();
     const double luminance = (0.299 * accent_qcolor.red() + 0.587 * accent_qcolor.green() + 0.114 * accent_qcolor.blue()) / 255.0;
-    const QString sel_txt = luminance > 0.5 ? QStringLiteral("#000000") : QStringLiteral("#ffffff");
+    const QString sel_txt = luminance > 0.5 ? QStringLiteral("black") : QStringLiteral("white");
 
     // Style the tree view: background, text, selection, and alternating row colors
     if (tree_view) {
@@ -176,15 +180,15 @@ void ConfigurePerGameAddons::UpdateTheme(const QString& custom_accent) {
             "border: 1px solid %3; border-radius: 4px; outline: none; "
             "alternate-background-color: %4; }"
             "QTreeView::item { padding: 2px 4px; color: %2; background-color: transparent; }"
+            "QTreeView::item:hover { background-color: rgba(128,128,128,0.12); color: %2; }"
             "QTreeView::item:selected { background-color: %5; color: %6; }"
-            "QTreeView::item:hover { background-color: rgba(128,128,128,0.12); }"
             "QTreeView::branch { background: %1; }"
             "QHeaderView::section { background-color: %4; color: %2; "
             "padding: 4px 6px; border: none; border-bottom: 1px solid %3; font-weight: bold; }"
             "QTreeView::indicator { width: 18px; height: 18px; border-radius: 4px; "
             "border: 1px solid %3; background: %1; }"
             "QTreeView::indicator:checked { background: %5; border-color: %5; "
-            "image: url(\"data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSJ3aGl0ZSIgc3Ryb2tlLXdpZHRoPSIzIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiPjxwb2x5bGluZSBwb2ludHM9IjIwIDYgOSAxNyA0IDEyIj48L3BvbHlsaW5lPjwvc3ZnPg==\"); }"
+            "image: url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%6' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'><polyline points='20 6 9 17 4 12'></polyline></svg>\"); }"
             "QScrollBar:vertical { background: transparent; width: 8px; }"
             "QScrollBar::handle:vertical { background: %3; border-radius: 4px; min-height: 20px; }"
             "QScrollBar:horizontal { background: transparent; height: 8px; }"
@@ -195,6 +199,9 @@ void ConfigurePerGameAddons::UpdateTheme(const QString& custom_accent) {
 
     // Style the download button with accent colors
     const QString text_color = is_dark ? QStringLiteral("#ffffff") : QStringLiteral("#1a1a1e");
+    const double accent_lum = (0.299 * accent_qcolor.red() + 0.587 * accent_qcolor.green() + 0.114 * accent_qcolor.blue()) / 255.0;
+    const QString accent_txt_color = accent_lum > 0.5 ? QStringLiteral("#000000") : QStringLiteral("#ffffff");
+
     ui->button_download_mods->setStyleSheet(
         QStringLiteral(
             "QPushButton { "
@@ -207,13 +214,13 @@ void ConfigurePerGameAddons::UpdateTheme(const QString& custom_accent) {
             "  margin-top: 15px; "
             "} "
             "QPushButton:hover { "
-            "  border-color: %6; "
+            "  background-color: %5; "
             "  color: %6; "
-            "  background-color: rgba(%1, %2, %3, 40); "
+            "  border-color: %5; "
             "} "
             "QPushButton:pressed { "
             "  background-color: %5; "
-            "  color: #ffffff; "
+            "  color: %6; "
             "  border-color: %5; "
             "}")
             .arg(QString::number(accent_qcolor.red()))
@@ -221,7 +228,7 @@ void ConfigurePerGameAddons::UpdateTheme(const QString& custom_accent) {
             .arg(QString::number(accent_qcolor.blue()))
             .arg(text_color)
             .arg(accent)
-            .arg(hue_light));
+            .arg(accent_txt_color));
 
     ui->button_download_mods->setToolTip(
         tr("Citron uses the v11 API of Gamebanana for mod installation. Some mods may not be "

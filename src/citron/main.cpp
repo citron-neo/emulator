@@ -6437,14 +6437,15 @@ void GMainWindow::UpdateUITheme() {
     const QString status_border = is_dark ? QStringLiteral("rgba(255,255,255,0.1)") : QStringLiteral("rgba(0,0,0,0.1)");
 
     // 2. Unified Top Bar customization
-    const QString toolbar_fg_hex = QString::fromStdString(UISettings::values.custom_toolbar_text_color.GetValue());
-    const QString toolbar_fg = QColor(toolbar_fg_hex).isValid() ? toolbar_fg_hex : (is_dark ? QStringLiteral("#e0e0e4") : QStringLiteral("#1a1a1e"));
-    
-    // Citron Neo Design: Top toolbar is always fully opaque to provide a solid aesthetic anchor.
     const u8 toolbar_opacity = 255;
     const QString toolbar_bg_hex = QString::fromStdString(UISettings::values.custom_toolbar_bg_color.GetValue());
     QColor toolbar_bg_color = QColor(toolbar_bg_hex).isValid() ? QColor(toolbar_bg_hex) : (is_dark ? QColor(36, 36, 42) : QColor(255, 255, 255));
     toolbar_bg_color.setAlpha(toolbar_opacity);
+    
+    const double toolbar_lum = (0.299 * toolbar_bg_color.red() + 0.587 * toolbar_bg_color.green() + 0.114 * toolbar_bg_color.blue()) / 255.0;
+    const QString toolbar_fg_hex = QString::fromStdString(UISettings::values.custom_toolbar_text_color.GetValue());
+    const QString toolbar_fg = QColor(toolbar_fg_hex).isValid() ? toolbar_fg_hex : (toolbar_lum > 0.5 ? QStringLiteral("#1a1a1e") : QStringLiteral("#ffffff"));
+
     const QString toolbar_bg = QStringLiteral("rgba(%1,%2,%3,%4)").arg(toolbar_bg_color.red()).arg(toolbar_bg_color.green()).arg(toolbar_bg_color.blue()).arg(toolbar_bg_color.alpha());
     const QString toolbar_border = is_dark ? QStringLiteral("rgba(255,255,255,0.1)") : QStringLiteral("rgba(0,0,0,0.1)");
 
@@ -6464,9 +6465,9 @@ void GMainWindow::UpdateUITheme() {
                 "QPushButton:hover { background: %2; color: %3; border-bottom: 1.5px solid %4; }"
                 "QPushButton:pressed { background: %5; }"
                 "QPushButton::menu-indicator { image: none; width: 0; }")
-                .arg(toolbar_fg, (is_dark ? "rgba(255, 255, 255, 0.05)" : "rgba(0, 0, 0, 0.05)"),
-                     (is_dark ? "#ffffff" : "#000000"), accent_str,
-                     (is_dark ? "rgba(255, 255, 255, 0.10)" : "rgba(0, 0, 0, 0.10)"));
+                .arg(toolbar_fg, (toolbar_lum > 0.5 ? "rgba(0, 0, 0, 0.05)" : "rgba(255, 255, 255, 0.05)"),
+                     (toolbar_lum > 0.5 ? "#000000" : "#ffffff"), accent_str,
+                     (toolbar_lum > 0.5 ? "rgba(0, 0, 0, 0.10)" : "rgba(255, 255, 255, 0.10)"));
 
         for (auto* btn : unified_top_bar->findChildren<QPushButton*>()) {
             btn->setStyleSheet(top_btn_style);
@@ -6498,6 +6499,26 @@ void GMainWindow::UpdateUITheme() {
             .arg(status_bg, status_fg, accent_str);
     statusBar()->setStyleSheet(status_qss);
 
+    const QColor accent_qcolor(accent_str);
+    const double accent_luminance =
+        (0.299 * accent_qcolor.red() + 0.587 * accent_qcolor.green() + 0.114 * accent_qcolor.blue()) /
+        255.0;
+    const QString accent_fg =
+        accent_luminance > 0.5 ? QStringLiteral("#000000") : QStringLiteral("#ffffff");
+
+    QString toolbar_qss =
+        QStringLiteral("QToolBar { background-color: %1; border-bottom: 1px solid %2; padding: 5px; "
+                       "spacing: 8px; } "
+                       "QToolButton { background-color: transparent; border-radius: 6px; padding: "
+                       "4px; color: %3; } "
+                       "QToolButton:hover { background-color: %4; } "
+                       "QMenuBar { background-color: %1; color: %3; padding: 2px; } "
+                       "QMenuBar::item { background-color: transparent; padding: 6px 12px; "
+                       "border-radius: 4px; color: %3; } "
+                       "QMenuBar::item:selected { background-color: %4; }")
+            .arg(toolbar_bg, toolbar_border, toolbar_fg, (is_dark ? "#2d2d35" : "#e8e8ed"));
+    menuBar()->setStyleSheet(toolbar_qss);
+
     // Dynamic Menu & ToolTip Styling (Unified adaptive styling)
     const QString global_style =
         QString::fromLatin1(
@@ -6506,16 +6527,15 @@ void GMainWindow::UpdateUITheme() {
             "QMenu { background: %1; border: 1px solid %2; border-radius: 8px; padding: 6px; color: "
             "%3; }"
             "QMenu::item { padding: 4px 28px 4px 32px; border-radius: 4px; margin: 1px; "
-            "font-size: 8.5pt; min-width: 140px; color: %4; }"
-            "QMenu::item:selected { background-color: %5; color: #ffffff; }"
+            "font-size: 8.5pt; min-width: 140px; color: %3; }"
+            "QMenu::item:selected { background-color: %4; color: %5; }"
             "QMenu::item:disabled { color: %6; }"
             "QMenu::separator { height: 1px; background: %7; margin: 4px 10px; }"
             "QMenu::indicator { width: 14px; height: 14px; left: 10px; border-radius: 3px; border: "
             "1px solid %2; background: %1; }"
-            "QMenu::indicator:checked { background: %5; border: 1px solid %5; }")
-            .arg(toolbar_bg, toolbar_border, (is_dark ? "#ffffff" : "#1a1a1e"),
-                 (is_dark ? "#e0e0e4" : "#1a1a1e"), accent_str, (is_dark ? "#555558" : "#aab0b4"),
-                 (is_dark ? "#303035" : "#d0d0d5"));
+            "QMenu::indicator:checked { background: %4; border: 1px solid %4; }")
+            .arg(toolbar_bg, toolbar_border, toolbar_fg, accent_str, accent_fg,
+                 (is_dark ? "#555558" : "#aab0b4"), (is_dark ? "#303035" : "#d0d0d5"));
 
     // Apply to qApp to ensure context menus and tooltips are captured globally
     // This fixes the hardcoded dark look on desktop's light mode

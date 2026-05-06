@@ -32,17 +32,18 @@
 #include <QObject>
 #include <QWidget>
 
+#include "citron/custom_metadata.h"
 #include "citron/game_list.h"
 #include "citron/game_list_delegate.h"
 #include "citron/game_list_p.h"
 #include "citron/uisettings.h"
-#include "citron/custom_metadata.h"
 
 namespace {
 void DrawShadowedText(QPainter* painter, const QRect& rect, int flags, const QString& text,
                       const QColor& color) {
     // Determine outline color: use custom if valid, otherwise auto-calculate.
-    QString custom_outline_hex = QString::fromStdString(UISettings::values.custom_card_outline_color.GetValue());
+    QString custom_outline_hex =
+        QString::fromStdString(UISettings::values.custom_card_outline_color.GetValue());
     QColor outline;
     if (QColor(custom_outline_hex).isValid()) {
         outline = QColor(custom_outline_hex);
@@ -72,7 +73,8 @@ void DrawShadowedText(QPainter* painter, const QRect& rect, int flags, const QSt
 }
 
 void DrawShadowedText(QPainter* painter, int x, int y, const QString& text, const QColor& color) {
-    QString custom_outline_hex = QString::fromStdString(UISettings::values.custom_card_outline_color.GetValue());
+    QString custom_outline_hex =
+        QString::fromStdString(UISettings::values.custom_card_outline_color.GetValue());
     QColor outline;
     if (QColor(custom_outline_hex).isValid()) {
         outline = QColor(custom_outline_hex);
@@ -358,9 +360,9 @@ void GameListDelegate::paint(QPainter* painter, const QStyleOptionViewItem& opti
                     int icon_sz = is_add_dir ? 22 : 20;
                     QRect icon_rect(rect.left() + (is_add_dir ? 16 : 8),
                                     rect.top() + (rect.height() - icon_sz) / 2, icon_sz, icon_sz);
-                    QPixmap scaled =
-                        icon_pixmap.scaled(icon_sz, icon_sz, Qt::KeepAspectRatio, Qt::SmoothTransformation);
-                    
+                    QPixmap scaled = icon_pixmap.scaled(icon_sz, icon_sz, Qt::KeepAspectRatio,
+                                                        Qt::SmoothTransformation);
+
                     if (is_add_dir) {
                         // Tint the "Add" icon with accent color to make it pop
                         QPainter p(&scaled);
@@ -378,11 +380,13 @@ void GameListDelegate::paint(QPainter* painter, const QStyleOptionViewItem& opti
             painter->setPen(is_add_dir ? AccentColor() : HeaderTextColor());
             QFont f = painter->font();
             f.setBold(true);
-            if (is_add_dir) f.setPointSize(f.pointSize() + 1);
+            if (is_add_dir)
+                f.setPointSize(f.pointSize() + 1);
             painter->setFont(f);
-            
+
             QString text = index.data(Qt::DisplayRole).toString();
-            painter->drawText(rect.adjusted(text_offset, 0, 0, 0), Qt::AlignVCenter | Qt::AlignLeft, text);
+            painter->drawText(rect.adjusted(text_offset, 0, 0, 0), Qt::AlignVCenter | Qt::AlignLeft,
+                              text);
         }
     }
 
@@ -395,19 +399,33 @@ void GameListDelegate::AdvanceAnimations() {
         return;
 
     QList<QModelIndex> indices_to_update;
+    QPoint mouse_pos = tree_view->viewport()->mapFromGlobal(QCursor::pos());
+    QModelIndex hovered_idx = tree_view->indexAt(mouse_pos);
+    QPersistentModelIndex hovered_key = hovered_idx.isValid()
+                                            ? QPersistentModelIndex(hovered_idx.siblingAtColumn(0))
+                                            : QPersistentModelIndex();
 
     // 1. Hover animations (row-spanning glows)
+    if (hovered_key.isValid() && !hover_states.contains(hovered_key)) {
+        hover_states[hovered_key] = 0.0;
+    }
+
     auto it_hov = hover_states.begin();
     while (it_hov != hover_states.end()) {
         const QPersistentModelIndex& key = it_hov.key();
-        if (!key.isValid() || key.column() != 0) {
+        if (!key.isValid()) {
             it_hov = hover_states.erase(it_hov);
             continue;
         }
 
         // We track selection per row (column 0)
-        const bool is_selected =
-            tree_view->selectionModel()->isRowSelected(key.row(), key.parent());
+        const bool is_selected = tree_view->selectionModel()->isRowSelected(key.row(), key.parent());
+        const bool active = (key == hovered_key) || is_selected;
+        qreal& val = it_hov.value();
+        
+        // Instant state change (No fade animation)
+        val = active ? 1.0 : 0.0;
+
         if (is_selected) {
             if (!pulse_states.contains(key)) {
                 pulse_states[key] = 0.0;
@@ -601,8 +619,9 @@ void GameListDelegate::PaintBackground(QPainter* painter, const QStyleOptionView
 
     const bool is_hovered = option.state & QStyle::State_MouseOver;
     if (is_selected || is_hovered) {
-        // Selection/Hover is indicated by outline and stripe; card fill remains transparent.
+        // Selection/Hover highlight using the user's custom opacity setting
         bg = SelectionColor();
+        bg.setAlpha(UISettings::values.custom_selection_opacity.GetValue());
     }
 
     QPainterPath path;
@@ -615,7 +634,8 @@ void GameListDelegate::PaintBackground(QPainter* painter, const QStyleOptionView
 
     // 2. Draw accent outline slice
     QColor border_color;
-    const QString sel_hex = QString::fromStdString(UISettings::values.custom_selection_color.GetValue());
+    const QString sel_hex =
+        QString::fromStdString(UISettings::values.custom_selection_color.GetValue());
     if (is_selected && QColor(sel_hex).isValid()) {
         border_color = QColor(sel_hex);
     } else {
@@ -725,7 +745,7 @@ void GameListDelegate::PaintGameInfo(QPainter* painter, const QRect& rect,
 
     // 3. Text Rendering (Safe Baseline-based Drawing)
     const int text_x = icon_rect.right() + 18;
-    
+
     // Subtext (ID) metrics
     QFont f_id = option.font;
     f_id.setPointSize(std::max(6, f_id.pointSize() - 2));
@@ -733,18 +753,18 @@ void GameListDelegate::PaintGameInfo(QPainter* painter, const QRect& rect,
     const int id_h = id_metrics.ascent() + id_metrics.descent();
 
     const int spacing = 6;
-    
+
     // Draw Title (Bold)
     painter->setPen(TextColor());
     QFont f_title = option.font;
     f_title.setBold(true);
     painter->setFont(f_title);
-    
-    const QFontMetrics metrics = painter->fontMetrics(); 
+
+    const QFontMetrics metrics = painter->fontMetrics();
     const int title_ascent = metrics.ascent();
     const int title_descent = metrics.descent();
     const int title_h = title_ascent + title_descent;
-    
+
     const int total_h = title_h + (id.isEmpty() ? 0 : id_h + spacing);
     const int start_y = rect.top() + (rect.height() - total_h) / 2;
 
@@ -850,7 +870,7 @@ void GameListDelegate::PaintDefault(QPainter* painter, const QRect& rect,
     } else {
         painter->setPen(TextColor());
     }
-    
+
     painter->setFont(option.font); // Explicitly use the scaled font
 
     const int margin = 10;
@@ -922,9 +942,9 @@ void GameListDelegate::PaintDefault(QPainter* painter, const QRect& rect,
     }
 
     // Default static rendering for other columns
-    DrawShadowedText(
-        painter, content_rect, Qt::AlignVCenter | Qt::AlignLeft,
-        painter->fontMetrics().elidedText(text, Qt::ElideRight, content_rect.width()), TextColor());
+    DrawShadowedText(painter, content_rect, Qt::AlignVCenter | Qt::AlignLeft,
+                     painter->fontMetrics().elidedText(text, Qt::ElideRight, content_rect.width()),
+                     TextColor());
 }
 
 QColor GameListDelegate::CardBg() const {
@@ -954,7 +974,8 @@ QColor GameListDelegate::HeaderTextColor() const {
 }
 
 QColor GameListDelegate::SelectionColor() const {
-    const QString hex = QString::fromStdString(UISettings::values.custom_selection_color.GetValue());
+    const QString hex =
+        QString::fromStdString(UISettings::values.custom_selection_color.GetValue());
     if (QColor(hex).isValid()) {
         return QColor(hex);
     }
