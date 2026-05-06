@@ -391,8 +391,6 @@ void Initialize() noexcept {
 }
 /// @brief Initializes the logging system. This should be the first thing called in main.
 void Start() noexcept {
-    if (logging_instance)
-        //logging_instance->StartBackendThread();
 }
 /// @brief Explicitly stops the logger thread and flushes the buffers
 void Stop() noexcept {
