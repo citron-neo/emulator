@@ -36,6 +36,13 @@ import org.citron.citron_emu.overlay.model.OverlayControlData
 import org.citron.citron_emu.overlay.model.OverlayLayout
 import org.citron.citron_emu.utils.NativeConfig
 
+import android.view.inputmethod.BaseInputConnection
+import android.view.inputmethod.EditorInfo
+import android.view.inputmethod.InputConnection
+import org.citron.citron_emu.NativeLibrary
+import android.view.KeyEvent
+import android.text.Editable
+import android.text.InputType
 /**
  * Draws the interactive input overlay on top of the
  * [SurfaceView] that is rendering emulation.
@@ -46,6 +53,7 @@ class InputOverlay(context: Context, attrs: AttributeSet?) :
     private val overlayButtons: MutableSet<InputOverlayDrawableButton> = HashSet()
     private val overlayDpads: MutableSet<InputOverlayDrawableDpad> = HashSet()
     private val overlayJoysticks: MutableSet<InputOverlayDrawableJoystick> = HashSet()
+    private val keyboardEditable = Editable.Factory.getInstance().newEditable("")
 
     private var inEditMode = false
     private var buttonBeingConfigured: InputOverlayDrawableButton? = null
@@ -79,6 +87,80 @@ class InputOverlay(context: Context, attrs: AttributeSet?) :
 
         // Request focus for the overlay so it has priority on presses.
         requestFocus()
+
+    }
+       // Support for Android virtual keyboard (Software Keyboard)
+    override fun onCheckIsTextEditor(): Boolean = true
+
+    override fun onCreateInputConnection(outAttrs: EditorInfo): InputConnection {
+        keyboardEditable.clear()
+
+        outAttrs.inputType = InputType.TYPE_CLASS_TEXT or
+            InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS or
+            InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD
+
+        outAttrs.imeOptions = EditorInfo.IME_FLAG_NO_EXTRACT_UI or EditorInfo.IME_ACTION_DONE
+        outAttrs.initialSelStart = 0
+        outAttrs.initialSelEnd = 0
+
+        return object : BaseInputConnection(this, true) {
+            override fun getEditable(): Editable = keyboardEditable
+
+            override fun commitText(text: CharSequence?, newCursorPosition: Int): Boolean {
+                if (!text.isNullOrEmpty()) {
+                    forwardTextToNative(text)
+                }
+                return super.commitText(text, newCursorPosition)
+            }
+
+            override fun deleteSurroundingText(beforeLength: Int, afterLength: Int): Boolean {
+                repeat(beforeLength.coerceAtLeast(0)) {
+                    NativeLibrary.submitInlineKeyboardInput(KeyEvent.KEYCODE_DEL)
+                }
+                return super.deleteSurroundingText(beforeLength, afterLength)
+            }
+
+            override fun sendKeyEvent(event: KeyEvent): Boolean {
+                if (event.action != KeyEvent.ACTION_DOWN) return true
+
+                when (event.keyCode) {
+                    KeyEvent.KEYCODE_BACK,
+                    KeyEvent.KEYCODE_DEL,
+                    KeyEvent.KEYCODE_ENTER -> NativeLibrary.submitInlineKeyboardInput(event.keyCode)
+                    else -> {
+                        val unicode = event.unicodeChar
+                        if (unicode != 0) {
+                            NativeLibrary.submitInlineKeyboardText(unicode.toChar().toString())
+                        }
+                    }
+                }
+                return true
+            }
+
+            override fun performEditorAction(actionCode: Int): Boolean {
+                NativeLibrary.submitInlineKeyboardInput(KeyEvent.KEYCODE_ENTER)
+                return true
+            }
+        }
+    }
+
+    private fun forwardTextToNative(text: CharSequence) {
+        val buffer = StringBuilder()
+        text.forEach { char ->
+            when (char) {
+                '\n' -> {
+                    if (buffer.isNotEmpty()) {
+                        NativeLibrary.submitInlineKeyboardText(buffer.toString())
+                        buffer.clear()
+                    }
+                    NativeLibrary.submitInlineKeyboardInput(KeyEvent.KEYCODE_ENTER)
+                }
+                else -> buffer.append(char)
+            }
+        }
+        if (buffer.isNotEmpty()) {
+            NativeLibrary.submitInlineKeyboardText(buffer.toString())
+        }
     }
 
     override fun draw(canvas: Canvas) {
