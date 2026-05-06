@@ -167,9 +167,13 @@ void ConfigurePerGameCheats::UpdateTheme(const QString& custom_accent) {
     const QString bg_alt  = is_dark ? QStringLiteral("#2a2a32") : QStringLiteral("#f5f5fa");
     const QString txt     = is_dark ? QStringLiteral("#e0e0e4") : QStringLiteral("#1a1a1e");
     const QString border  = is_dark ? QStringLiteral("#32323a") : QStringLiteral("#d0d0d5");
-    const QString sel_bg  = accent;
+    QColor sel_bg_color{accent};
+    if (!is_dark && sel_bg_color.lightness() > 240) {
+        sel_bg_color = sel_bg_color.darker(110);
+    }
+    const QString sel_bg = sel_bg_color.name();
     const double luminance = (0.299 * accent_qcolor.red() + 0.587 * accent_qcolor.green() + 0.114 * accent_qcolor.blue()) / 255.0;
-    const QString sel_txt = luminance > 0.5 ? QStringLiteral("#000000") : QStringLiteral("#ffffff");
+    const QString sel_txt = luminance > 0.5 ? QStringLiteral("black") : QStringLiteral("white");
 
     if (tree_view) {
         tree_view->setStyleSheet(QStringLiteral(
@@ -177,14 +181,15 @@ void ConfigurePerGameCheats::UpdateTheme(const QString& custom_accent) {
             "border: 1px solid %3; border-radius: 4px; outline: none; "
             "alternate-background-color: %4; }"
             "QTreeView::item { padding: 2px 4px; color: %2; background-color: transparent; }"
+            "QTreeView::item:hover { background-color: rgba(128,128,128,0.12); color: %2; }"
             "QTreeView::item:selected { background-color: %5; color: %6; }"
-            "QTreeView::item:hover { background-color: rgba(128,128,128,0.12); }"
             "QTreeView::branch { background: %1; }"
             "QHeaderView::section { background-color: %4; color: %2; "
             "padding: 4px 6px; border: none; border-bottom: 1px solid %3; font-weight: bold; }"
             "QCheckBox::indicator { width: 14px; height: 14px; border-radius: 3px; "
             "border: 1px solid %3; background: %1; }"
-            "QCheckBox::indicator:checked { background: %5; border-color: %5; }"
+            "QCheckBox::indicator:checked { background: %5; border-color: %5; "
+            "image: url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%6' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'><polyline points='20 6 9 17 4 12'></polyline></svg>\"); }"
             "QScrollBar:vertical { background: transparent; width: 8px; }"
             "QScrollBar::handle:vertical { background: %3; border-radius: 4px; min-height: 20px; }"
             "QScrollBar:horizontal { background: transparent; height: 8px; }"

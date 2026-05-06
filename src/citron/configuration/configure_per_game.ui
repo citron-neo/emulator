@@ -65,7 +65,13 @@ QDialog {
 }
 
 #info_panel QPushButton:hover {
-    background-color: rgba(%%ACCENT_COLOR_R%%, %%ACCENT_COLOR_G%%, %%ACCENT_COLOR_B%%, 30);
+    background-color: %%ACCENT_COLOR%%;
+    color: %%ACCENT_TEXT_COLOR%%;
+}
+
+#info_panel QPushButton:pressed {
+    background-color: rgba(%%ACCENT_COLOR_R%%, %%ACCENT_COLOR_G%%, %%ACCENT_COLOR_B%%, 180);
+    color: %%ACCENT_TEXT_COLOR%%;
 }
 
 /* Vertical Tab Buttons */

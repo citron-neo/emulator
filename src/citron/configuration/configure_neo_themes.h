@@ -37,6 +37,7 @@ private:
     QPushButton* button_card_outline_color{nullptr};
     QSlider* slider_card_outline_size{nullptr};
     QPushButton* button_selection_color{nullptr};
+    QSlider* slider_selection_opacity{nullptr};
     QPushButton* button_list_bg_color{nullptr};
     QSlider* slider_card_opacity{nullptr};
 

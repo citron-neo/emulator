@@ -97,21 +97,7 @@
 
 // Helper function to detect if the application is using a dark theme
 static bool GameIsDarkMode() {
-    const std::string& theme_name = UISettings::values.theme;
-
-    if (theme_name == "qdarkstyle" || theme_name == "colorful_dark" ||
-        theme_name == "qdarkstyle_midnight_blue" || theme_name == "colorful_midnight_blue") {
-        return true;
-    }
-
-    if (theme_name == "default" || theme_name == "colorful") {
-        const QPalette palette = qApp->palette();
-        const QColor text_color = palette.color(QPalette::WindowText);
-        const QColor base_color = palette.color(QPalette::Window);
-        return text_color.value() > base_color.value();
-    }
-
-    return false;
+    return Theme::IsDarkMode();
 }
 
 ConfigurePerGame::ConfigurePerGame(QWidget* parent, u64 title_id_, const std::string& file_name_,
@@ -342,11 +328,16 @@ void ConfigurePerGame::UpdateTheme() {
         is_rainbow ? QStringLiteral("palette(highlight)") : Theme::GetAccentColor();
 
     // Onyx Palette
+    // Use actual palette luminance for base text colors to ensure visibility even if theme detection falls through
+    const QPalette pal = qApp->palette();
+    const QColor win_bg = pal.color(QPalette::Window);
+    const double win_lum = (0.299 * win_bg.red() + 0.587 * win_bg.green() + 0.114 * win_bg.blue()) / 255.0;
+
     const QString bg = is_dark ? QStringLiteral("#24242a") : QStringLiteral("#f5f5fa");
-    const QString txt = is_dark ? QStringLiteral("#ffffff") : QStringLiteral("#1a1a1e");
+    const QString txt = win_lum > 0.5 ? QStringLiteral("#1a1a1e") : QStringLiteral("#ffffff");
     const QString sec = is_dark ? QStringLiteral("#2a2a32") : QStringLiteral("#ffffff");
     const QString ter = is_dark ? QStringLiteral("#32323a") : QStringLiteral("#dcdce2");
-    const QString d_txt = is_dark ? QStringLiteral("#aaaab4") : QStringLiteral("#666670");
+    const QString d_txt = win_lum > 0.5 ? QStringLiteral("#666670") : QStringLiteral("#aaaab4");
 
     QString style_sheet = ConfigurationStyling::GetMasterStyleSheet();
     setStyleSheet(QStringLiteral("QDialog#ConfigurePerGame { background-color: %1; color: %2; }").arg(bg, txt));
@@ -367,7 +358,11 @@ void ConfigurePerGame::UpdateTheme() {
     final_style +=
         QStringLiteral("QDialog#ConfigurePerGame { background-color: %1; color: %2; }").arg(bg, txt);
 
-    // Premium Sidebar Tabs (Console-grade sliding bar look)
+    // Ensure accent text is black if the accent is even remotely light to prevent visibility issues in Light Mode
+    const double accent_lum = (0.299 * accent_qcolor.red() + 0.587 * accent_qcolor.green() + 0.114 * accent_qcolor.blue()) / 255.0;
+    const QString accent_txt_color = (accent_lum > 0.5 || !is_dark) ? QStringLiteral("#000000") : QStringLiteral("#ffffff");
+
+    // Premium Sidebar Tabs
     const QString tab_css =
         QStringLiteral(
             "QPushButton.tabButton { "
@@ -376,20 +371,22 @@ void ConfigurePerGame::UpdateTheme() {
             "border-left: 4px solid transparent; outline: none; "
             "} "
             "QPushButton.tabButton:hover { "
-            "background: rgba(255, 255, 255, 12); color: %2; "
-            "border-left: 4px solid rgba(%3, %4, %5, 80); "
+            "background: rgba(128, 128, 128, 20); color: %2; "
+            "border-left: 4px solid rgba(%3, %4, %5, 120); "
             "} "
             "QPushButton.tabButton:checked { "
-            "background: rgba(%3, %4, %5, 25); color: %2; "
-            "border-left: 4px solid %2; "
+            "background: rgba(%3, %4, %5, 180); color: %6; "
+            "border-left: 4px solid %6; "
             "} ")
-            .arg(d_txt)
-            .arg(accent)
+            .arg(txt) // Use main text color instead of d_txt for better visibility
+            .arg(is_dark ? accent : QStringLiteral("#1a1a1e"))
             .arg(accent_qcolor.red())
             .arg(accent_qcolor.green())
-            .arg(accent_qcolor.blue());
+            .arg(accent_qcolor.blue())
+            .arg(accent_txt_color);
 
     final_style += tab_css;
+    
     final_style +=
         QStringLiteral(
             "#icon_view { border-radius: 20px; border: 1px solid transparent; background: "
@@ -397,8 +394,49 @@ void ConfigurePerGame::UpdateTheme() {
             "#label_console_hints { color: #888888; font-size: 11px; margin-top: 10px; }"
             "QToolButton#full_info_button { background: #0d0d12; color: #ffffff; border: none; "
             "font-weight: bold; font-family: 'Times New Roman', serif; font-size: 14px; }"
-            "QToolButton#full_info_button:hover { background: %1; }")
-            .arg(accent);
+            "QToolButton#full_info_button:hover { background: %1; color: %2; }"
+            "#info_panel QPushButton { background-color: transparent; border: 1px solid %3; color: %4; font-weight: bold; border-radius: 6px; height: 34px; }"
+            "#info_panel QPushButton:hover { background-color: %1; color: %2; }"
+            "#info_panel QPushButton:pressed { background-color: rgba(%5, %6, %7, 180); color: %2; }"
+            "#info_panel QPushButton:disabled { color: %8 !important; border-color: %8 !important; }")
+            .arg(accent, accent_txt_color)
+            .arg(is_dark ? accent : QStringLiteral("#1a1a1e")) // Border color for action buttons
+            .arg(txt) // Text color for action buttons (default state)
+            .arg(accent_qcolor.red())
+            .arg(accent_qcolor.green())
+            .arg(accent_qcolor.blue())
+            .arg(d_txt);
+
+    // Explicit styling for the three action buttons to ensure they never go white-on-white
+    final_style +=
+        QStringLiteral(
+            "QPushButton#trim_xci_button, QPushButton#share_settings_button, "
+            "QPushButton#import_settings_button { "
+            "  background-color: transparent; color: %1; border: 2px solid %2; border-radius: 4px; "
+            "  font-weight: bold; padding: 4px 12px; "
+            "} "
+            "QPushButton#trim_xci_button:hover, QPushButton#share_settings_button:hover, "
+            "QPushButton#import_settings_button:hover { "
+            "  border-color: %4; color: %10 !important; background-color: rgba(%5, %6, %7, 40); "
+            "} "
+            "QPushButton#trim_xci_button:pressed, QPushButton#share_settings_button:pressed, "
+            "QPushButton#import_settings_button:pressed { "
+            "  background-color: %8; color: %9; border-color: %8; "
+            "} "
+            "QPushButton#trim_xci_button:disabled, QPushButton#share_settings_button:disabled, "
+            "QPushButton#import_settings_button:disabled { "
+            "  color: %3 !important; border-color: %3 !important; background-color: transparent !important; "
+            "} ")
+            .arg(txt)                 // %1
+            .arg(is_dark ? accent : QStringLiteral("#dcdce2")) // %2 (Softer border color)
+            .arg(d_txt)               // %3
+            .arg(Theme::GetAccentColorHover()) // %4
+            .arg(accent_qcolor.red())   // %5
+            .arg(accent_qcolor.green()) // %6
+            .arg(accent_qcolor.blue())  // %7
+            .arg(Theme::GetAccentColorPressed()) // %8
+            .arg(accent_txt_color)    // %9
+            .arg(win_lum > 0.5 ? QStringLiteral("#1a1a1e") : QStringLiteral("#ffffff")); // %10 (Hover text)
     addons_tab->UpdateTheme();
 
     setStyleSheet(final_style);
@@ -406,7 +444,7 @@ void ConfigurePerGame::UpdateTheme() {
     if (is_rainbow) {
         if (!rainbow_timer) {
             rainbow_timer = new QTimer(this);
-            connect(rainbow_timer, &QTimer::timeout, this, [this, txt, bg, ter, sec] {
+            connect(rainbow_timer, &QTimer::timeout, this, [this, txt, d_txt, bg, ter, sec] {
                 if (m_is_tab_animating || !this->isVisible() || !this->isActiveWindow())
                     return;
 
@@ -457,25 +495,26 @@ void ConfigurePerGame::UpdateTheme() {
                         "QScrollBar:horizontal { height: 0px; background: transparent; }"));
                 }
 
-                // 3. Action Buttons
+                // 3. Action Buttons (Rainbow)
                 const QString button_css =
                     QStringLiteral(
                         "QPushButton { background-color: transparent; color: %4; border: 2px solid "
                         "%1; border-radius: 4px; font-weight: bold; padding: 4px 12px; }"
-                        "QPushButton:hover { border-color: %2; color: %2; background-color: "
+                        "QPushButton:hover { border-color: %2; color: %4 !important; background-color: "
                         "rgba(%5, %6, %7, 40); }"
                         "QPushButton:pressed { background-color: %3; color: %8; border-color: "
-                        "%3; }")
+                        "%3; }"
+                        "QPushButton:disabled { color: %9 !important; border-color: %9 !important; }")
                         .arg(hue_hex, hue_light, hue_dark, txt)
                         .arg(current_color.red())
                         .arg(current_color.green())
                         .arg(current_color.blue())
-                        .arg(current_accent_text);
+                        .arg(current_accent_text)
+                        .arg(d_txt);
 
                 if (ui->buttonBox) {
                     for (auto* button : ui->buttonBox->findChildren<QPushButton*>()) {
-                        if (!button->isDown())
-                            button->setStyleSheet(button_css);
+                        button->setStyleSheet(button_css);
                     }
                 }
                 addons_tab->UpdateTheme(hue_hex);
@@ -512,11 +551,11 @@ void ConfigurePerGame::UpdateTheme() {
                                 "QComboBox { background-color: %4; border: 1px solid %5; color: "
                                 "%2; padding: 2px 5px; border-radius: 4px; }"
                                 "QAbstractItemView { background-color: %4; border: 1px solid %5; "
-                                "selection-background-color: %3; color: %2; }"
+                                "selection-background-color: %3; selection-color: %6; color: %2; }"
                                 "QScrollBar { background: transparent; width: 8px; height: 8px; }"
                                 "QScrollBar::handle { background-color: %3; border-radius: 4px; "
                                 "min-height: 20px; }")
-                                .arg(bg, txt, hue_hex, ter, sec);
+                                .arg(bg, txt, hue_hex, ter, sec, current_accent_text);
 
                         currentContainer->setStyleSheet(current_content_css);
                         actualTab->setStyleSheet(current_content_css);
@@ -527,35 +566,9 @@ void ConfigurePerGame::UpdateTheme() {
         rainbow_timer->start(33);
     }
 
-    const double static_luminance = (0.299 * accent_qcolor.red() + 0.587 * accent_qcolor.green() + 0.114 * accent_qcolor.blue()) / 255.0;
-    const QString static_accent_text = static_luminance > 0.5 ? QStringLiteral("#000000") : QStringLiteral("#ffffff");
-
-    const QString action_button_css =
-        QStringLiteral(
-            "QPushButton { background-color: transparent; color: %4; border: 2px solid %1; "
-            "border-radius: 4px; font-weight: bold; padding: 4px 12px; }"
-            "QPushButton:hover { border-color: %2; color: %2; background-color: rgba(%5, %6, %7, "
-            "40); }"
-            "QPushButton:pressed { background-color: %3; color: %8; border-color: %3; }")
-            .arg(accent, Theme::GetAccentColorHover(), Theme::GetAccentColorPressed(), txt)
-            .arg(accent_qcolor.red())
-            .arg(accent_qcolor.green())
-            .arg(accent_qcolor.blue())
-            .arg(static_accent_text);
-
     if (ui->buttonBox) {
-        ui->buttonBox->setStyleSheet(action_button_css);
+        ui->buttonBox->setStyleSheet(QStringLiteral("QPushButton:disabled { color: %1 !important; border-color: %1 !important; }").arg(d_txt));
     }
-    if (ui->trim_xci_button) {
-        ui->trim_xci_button->setStyleSheet(action_button_css);
-    }
-    if (ui->share_settings_button) {
-        ui->share_settings_button->setStyleSheet(action_button_css);
-    }
-    if (ui->import_settings_button) {
-        ui->import_settings_button->setStyleSheet(action_button_css);
-    }
-
     if (UISettings::values.enable_rainbow_mode.GetValue() == false && rainbow_timer) {
         rainbow_timer->stop();
         if (ui->tabButtonsContainer)

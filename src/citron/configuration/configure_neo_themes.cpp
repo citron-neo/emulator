@@ -93,6 +93,9 @@ ConfigureNeoThemes::ConfigureNeoThemes(QWidget* parent) : QWidget(parent) {
         OnSelectColor(button_selection_color, tr("Select Highlight/Selection Color"),
                       m_selection_color);
     });
+    slider_selection_opacity = new QSlider(Qt::Horizontal, appearance_group);
+    slider_selection_opacity->setRange(0, 255);
+    appearance_layout->addRow(tr("Highlight Opacity:"), slider_selection_opacity);
 
     // List Background Color
     button_list_bg_color = new QPushButton(appearance_group);
@@ -309,6 +312,7 @@ void ConfigureNeoThemes::SetConfiguration() {
 
     slider_card_opacity->setValue(UISettings::values.custom_card_opacity.GetValue());
     slider_card_outline_size->setValue(UISettings::values.custom_card_outline_size.GetValue());
+    slider_selection_opacity->setValue(UISettings::values.custom_selection_opacity.GetValue());
     slider_header_opacity->setValue(UISettings::values.custom_header_opacity.GetValue());
 
     QString bg_path =
@@ -353,6 +357,8 @@ void ConfigureNeoThemes::ApplyConfiguration() {
     UISettings::values.custom_card_text_color.SetValue(m_card_text_color);
     UISettings::values.custom_card_dim_text_color.SetValue(m_card_dim_text_color);
     UISettings::values.custom_card_opacity.SetValue(static_cast<u8>(slider_card_opacity->value()));
+    UISettings::values.custom_selection_opacity.SetValue(
+        static_cast<u8>(slider_selection_opacity->value()));
     UISettings::values.custom_header_text_color.SetValue(m_header_text_color);
     UISettings::values.custom_status_bar_text_color.SetValue(m_status_bar_text_color);
     UISettings::values.custom_status_bar_bg_color.SetValue(m_status_bar_bg_color);

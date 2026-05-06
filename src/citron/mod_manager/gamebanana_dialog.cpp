@@ -250,10 +250,17 @@ void GameBananaDialog::UpdateModDetails(const GameBananaMod& mod) {
     }
 
     const QString accent = Theme::GetAccentColor();
+    const QColor accent_qcolor(accent);
+    const double accent_lum = (0.299 * accent_qcolor.red() + 0.587 * accent_qcolor.green() + 0.114 * accent_qcolor.blue()) / 255.0;
+    
+    // If accent is too light, use a standard high-contrast color for the link
+    const bool is_dark = Theme::IsDarkMode();
+    const QString link_color = accent_lum > 0.75 ? (is_dark ? QStringLiteral("#ffffff") : QStringLiteral("#1a1a1e")) : accent;
+
     ui->statusLinkLabel->setText(
         tr("<a href=\"%1\" style=\"color: %2; text-decoration: none;\">Website Link For "
            "Mod</a>")
-            .arg(mod_url, accent));
+            .arg(mod_url, link_color));
 
     if (!mod.description.isEmpty()) {
         ui->modDescriptionBrowser->setHtml(mod.description);
@@ -447,11 +454,19 @@ void GameBananaDialog::UpdateTheme() {
         "QCheckBox { color: %2; font-weight: 600; }"
         "QCheckBox::indicator { width: 18px; height: 18px; border: 2px solid %5; border-radius: "
         "5px; background: %4; }"
-        "QCheckBox::indicator:checked { background: %3; border-color: %3; }")
+        "QCheckBox::indicator:checked { background: %3; border: 2px solid %11; "
+        "image: url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%12' stroke-width='4' stroke-linecap='round' stroke-linejoin='round'><polyline points='20 6 9 17 4 12'></polyline></svg>\"); }")
         .arg(bg, txt, accent, panel, border, bg, sub_txt, 
              is_gs ? "12" : "24", 
              is_gs ? "10" : "18")
         .arg(btn_font);
+
+    const QColor accent_qcolor(accent);
+    const double accent_lum = (0.299 * accent_qcolor.red() + 0.587 * accent_qcolor.green() + 0.114 * accent_qcolor.blue()) / 255.0;
+    const QString indicator_border = accent_lum > 0.75 ? border : accent;
+    const QString checkmark_color = accent_lum > 0.5 ? QStringLiteral("black") : QStringLiteral("white");
+
+    style = style.arg(indicator_border, checkmark_color);
 
     setStyleSheet(style);
 

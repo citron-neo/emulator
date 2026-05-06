@@ -201,6 +201,7 @@ namespace UISettings {
                                         Setting<std::string> custom_card_outline_color{linkage, "", "custom_card_outline_color", Category::Ui};
                                         Setting<u8> custom_card_outline_size{linkage, 1, "custom_card_outline_size", Category::Ui};
                                         Setting<std::string> custom_selection_color{linkage, "", "custom_selection_color", Category::Ui};
+                                        Setting<u8> custom_selection_opacity{linkage, 153, "custom_selection_opacity", Category::Ui};
                                         Setting<std::string> custom_list_bg_color{linkage, "", "custom_list_bg_color", Category::Ui};
                                         Setting<u8> game_list_slider_mode{linkage, 0, "game_list_slider_mode", Category::Ui};
 

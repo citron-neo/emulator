@@ -261,6 +261,10 @@ void ConfigureDialog::UpdateTheme() {
     setStyleSheet(full_style);
     ui->stackedWidget->setStyleSheet(style_sheet);
 
+    const QColor accent_qcolor(accent);
+    const double accent_lum = (0.299 * accent_qcolor.red() + 0.587 * accent_qcolor.green() + 0.114 * accent_qcolor.blue()) / 255.0;
+    const QString accent_txt_color = accent_lum > 0.5 ? QStringLiteral("#000000") : QStringLiteral("#ffffff");
+
     QString sidebar_css =
         QStringLiteral(
             "QPushButton.tabButton { "
@@ -275,12 +279,13 @@ void ConfigureDialog::UpdateTheme() {
             "QPushButton.tabButton:checked { "
             "color: %4; "
             "border: 2px solid %3; "
-            "background-color: rgba(255, 255, 255, 10); "
+            "background-color: %3; "
             "}"
             "QPushButton.tabButton:hover { "
             "border: 2px solid %3; "
+            "background-color: rgba(255, 255, 255, 15); "
             "}")
-            .arg(b_bg, d_txt, accent, txt);
+            .arg(b_bg, d_txt, accent, accent_txt_color);
 
     if (ui->topButtonWidget)
         ui->topButtonWidget->setStyleSheet(sidebar_css);

@@ -4195,13 +4195,15 @@ void GameList::UpdateAccentColorStyles() {
         details_panel->ApplyTheme();
 
     // Toolbar & Search Colors
+    const QColor window_bg = palette().color(QPalette::Window);
+    const double window_lum = (0.299 * window_bg.red() + 0.587 * window_bg.green() + 0.114 * window_bg.blue()) / 255.0;
+
     const QString header_bg = is_dark ? QStringLiteral("#1c1c1e") : QStringLiteral("#ececf0");
-    const QString header_fg = is_dark ? QStringLiteral("#d0d0e0") : QStringLiteral("#1a1a1e");
+    const QString header_fg = window_lum > 0.5 ? QStringLiteral("#1a1a1e") : QStringLiteral("#ffffff");
     const QString header_border = is_dark ? QStringLiteral("#2e2e34") : QStringLiteral("#d0d0d5");
-    const QString header_bg_hov = is_dark ? QStringLiteral("#2e2e34") : QStringLiteral("#e0e0e5");
-    const QString search_bg =
-        is_dark ? QStringLiteral("rgba(255,255,255,0.05)") : QStringLiteral("rgba(0,0,0,0.05)");
+    const QString search_bg = window_lum < 0.5 ? QStringLiteral("rgba(255,255,255,0.08)") : QStringLiteral("rgba(0,0,0,0.05)");
     const QString search_fg = header_fg;
+    const QString placeholder_fg = window_lum > 0.5 ? QStringLiteral("rgba(0,0,0,0.6)") : QStringLiteral("rgba(255,255,255,0.6)");
 
     if (slider_title_size) {
         slider_title_size->setStyleSheet(
@@ -4275,17 +4277,19 @@ void GameList::UpdateAccentColorStyles() {
     setStyleSheet(QStringLiteral("background: transparent; border: none;"));
 
     if (search_field) {
-        search_field->setStyleSheet(QStringLiteral("QLineEdit {"
+        search_field->setStyleSheet(QStringLiteral("QLabel { color: %3; }"
+                                                   "QLineEdit {"
                                                    "  border: 1px solid %1;"
                                                    "  border-radius: 6px;"
                                                    "  padding: 4px 8px;"
                                                    "  background: %2;"
                                                    "  color: %3;"
                                                    "}"
+                                                   "QLineEdit::placeholder { color: %5; }"
                                                    "QLineEdit:focus {"
                                                    "  border: 1px solid %4;"
                                                    "}")
-                                        .arg(header_border, search_bg, search_fg, color_name));
+                                        .arg(header_border, search_bg, search_fg, color_name, placeholder_fg));
     }
 
     const bool force_light = true;
@@ -4707,7 +4711,7 @@ void GameListPlaceholder::resizeEvent(QResizeEvent* event) {
 }
 
 void GameListSearchField::setStyleSheet(const QString& sheet) {
-    edit_filter->setStyleSheet(sheet);
+    QWidget::setStyleSheet(sheet);
 }
 
 void GameList::UpdateIconForGame(u64 program_id) {

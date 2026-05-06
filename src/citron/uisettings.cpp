@@ -89,14 +89,13 @@ namespace UISettings {
                 return windows_settings.value(QStringLiteral("AppsUseLightTheme")).toInt() == 0;
             }
 #endif
-            const QPalette palette = qApp->palette();
-            const QColor text_color = palette.color(QPalette::WindowText);
-            const QColor base_color = palette.color(QPalette::Window);
-            return text_color.value() > base_color.value();
         }
 
-        // Fallback for any other unknown themes is to assume they are light.
-        return false;
+        // Universal fallback for any other unknown themes: Check if window text is lighter than window background
+        const QPalette palette = qApp->palette();
+        const QColor text_color = palette.color(QPalette::WindowText);
+        const QColor base_color = palette.color(QPalette::Window);
+        return text_color.value() > base_color.value();
     }
 
     Values values = {};
