@@ -583,7 +583,7 @@ struct Values {
         true,
         true
     };
-
+    SwitchableSetting<bool> rescale_hack{linkage, false, "rescale_hack", Category::RendererAdvanced};
     SwitchableSetting<bool> wider_reciprocals{linkage, false, "wider_reciprocals", Category::RendererAdvanced};
     SwitchableSetting<ExtendedDynamicState, true> extended_dynamic_state{
         linkage,
