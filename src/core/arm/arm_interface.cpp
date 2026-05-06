@@ -25,28 +25,31 @@ void ArmInterface::LogBacktrace(Kernel::KProcess* process) const {
     }
 
     LOG_ERROR(Core_ARM, "Backtrace, sp={:016X}, pc={:016X}", ctx.sp, ctx.pc);
-    LOG_ERROR(Core_ARM, "{:20}{:20}{:20}{:20}{}", "Module Name", "Address", "Original Address",
+    LOG_ERROR(Core_ARM, "{:<32}{:<20}{:<20}{:<20}{}", "Module Name", "Address", "Original Address",
               "Offset", "Symbol");
     LOG_ERROR(Core_ARM, "");
     const auto backtrace = GetBacktraceFromContext(process, ctx);
 
-    // Enhanced Nintendo SDK crash detection and recovery
+    // Nintendo SDK / guest abort hints (this function only logs; it does not resume execution)
     bool is_nintendo_sdk_crash = false;
+    bool is_guest_diag_abort = false;
     bool is_initialization_crash = false;
 
     for (const auto& entry : backtrace) {
-        LOG_ERROR(Core_ARM, "{:20}{:016X}    {:016X}    {:016X}    {}", entry.module, entry.address,
+        LOG_ERROR(Core_ARM, "{:<32}{:#018x}  {:#018x}  {:#018x}  {}", entry.module, entry.address,
                   entry.original_address, entry.offset, entry.name);
 
-        // Check for Nintendo SDK related crashes
-        if (entry.module.find("nnSdk") != std::string::npos ||
-            entry.name.find("nn::diag::detail::Abort") != std::string::npos ||
-            entry.name.find("nn::init::Start") != std::string::npos) {
+        if (entry.name.find("nn::diag::detail::Abort") != std::string::npos ||
+            entry.name.find("nn::diag::Abort") != std::string::npos) {
+            is_guest_diag_abort = true;
+            is_nintendo_sdk_crash = true;
+            LOG_WARNING(Core_ARM, "Guest diag abort in backtrace (module {})", entry.module);
+        } else if (entry.module.find("nnSdk") != std::string::npos ||
+                   entry.name.find("nn::init::Start") != std::string::npos) {
             is_nintendo_sdk_crash = true;
             LOG_WARNING(Core_ARM, "Nintendo SDK crash detected in module: {}", entry.module);
         }
 
-        // Check for initialization-time crashes
         if (entry.name.find("nn::init::Start") != std::string::npos ||
             entry.offset < 0x10000) {
             is_initialization_crash = true;
@@ -54,20 +57,17 @@ void ArmInterface::LogBacktrace(Kernel::KProcess* process) const {
         }
     }
 
-    // Log recovery suggestions for Nintendo SDK crashes
-    if (is_nintendo_sdk_crash) {
-        LOG_WARNING(Core_ARM, "Nintendo SDK crash detected - this may be recoverable");
-        LOG_INFO(Core_ARM, "Many Nintendo SDK crashes during initialization can be safely ignored");
-        LOG_INFO(Core_ARM, "The game may continue to function normally despite this crash");
-
+    if (is_guest_diag_abort) {
+        LOG_ERROR(Core_ARM,
+                  "The game called nn::diag abort (fatal assertion). This thread will not run on; "
+                  "fix the underlying HLE/kernel result or guest condition, not 'recovery' logging.");
+    } else if (is_nintendo_sdk_crash) {
+        LOG_WARNING(Core_ARM,
+                    "Nintendo SDK fault in backtrace - may be a title bug, missing HLE, or bad state.");
         if (is_initialization_crash) {
-            LOG_INFO(Core_ARM, "This appears to be an initialization-time crash");
-            LOG_INFO(Core_ARM, "Attempting to continue execution...");
+            LOG_INFO(Core_ARM,
+                     "Stack looks early-boot; if the process halts here, treat it as a startup failure.");
         }
-
-        // Additional recovery information
-        LOG_INFO(Core_ARM, "Recovery strategy: Continue execution and monitor for further issues");
-        LOG_INFO(Core_ARM, "If the game continues to crash, consider restarting the emulator");
     }
 }
 

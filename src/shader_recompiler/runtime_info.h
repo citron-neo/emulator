@@ -5,6 +5,7 @@
 #pragma once
 
 #include <array>
+#include <limits>
 #include <map>
 #include <optional>
 #include <vector>
@@ -111,6 +112,10 @@ struct RuntimeInfo {
     /// Transform feedback state for each varying
     std::array<TransformFeedbackVarying, 256> xfb_varyings{};
     u32 xfb_count{0};
+    /// Stream-out is implemented with storage-buffer writes (MoltenVK / no VK_EXT_transform_feedback).
+    bool emulate_transform_feedback{};
+    /// First SSBO index of the four transform-feedback buffers; UINT_MAX if unused.
+    u32 xfb_emulation_ssbo_base{std::numeric_limits<u32>::max()};
 };
 
 } // namespace Shader

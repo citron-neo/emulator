@@ -319,17 +319,26 @@ fs::path GetDataDirectory(const std::string& env_name) {
 #ifdef __APPLE__
 
 fs::path GetBundleDirectory() {
-    char app_bundle_path[MAXPATHLEN];
-
-    // Get the main bundle for the app
-    CFURLRef bundle_ref = CFBundleCopyBundleURL(CFBundleGetMainBundle());
+    CFBundleRef main_bundle = CFBundleGetMainBundle();
+    if (!main_bundle) {
+        return {};
+    }
+    CFURLRef bundle_ref = CFBundleCopyBundleURL(main_bundle);
+    if (!bundle_ref) {
+        return {};
+    }
     CFStringRef bundle_path = CFURLCopyFileSystemPath(bundle_ref, kCFURLPOSIXPathStyle);
-
-    CFStringGetFileSystemRepresentation(bundle_path, app_bundle_path, sizeof(app_bundle_path));
-
     CFRelease(bundle_ref);
+    if (!bundle_path) {
+        return {};
+    }
+    char app_bundle_path[MAXPATHLEN]{};
+    if (!CFStringGetFileSystemRepresentation(bundle_path, app_bundle_path,
+                                              sizeof(app_bundle_path))) {
+        CFRelease(bundle_path);
+        return {};
+    }
     CFRelease(bundle_path);
-
     return fs::path{app_bundle_path};
 }
 

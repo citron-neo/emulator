@@ -6,6 +6,7 @@
 #include <array>
 #include <memory>
 #include <mutex>
+#include <optional>
 
 #include "video_core/renderer_vulkan/renderer_vulkan.h"
 
@@ -269,7 +270,18 @@ void RasterizerVulkan::Draw(bool is_indexed, u32 instance_count) {
 }
 
 void RasterizerVulkan::DrawIndirect() {
-    const auto& params = maxwell3d->draw_manager->GetIndirectParams();
+    auto& params = maxwell3d->draw_manager->GetIndirectParams();
+
+    // VK_EXT_transform_feedback is unavailable on MoltenVK. Byte-count draws still reach here if
+    // macro JIT/LLE bypasses HLE_DrawIndirectByteCount — mirror that HLE Fallback with DrawArray.
+    if (params.is_byte_count && !device.IsExtTransformFeedbackSupported()) {
+        const auto& regs = maxwell3d->regs;
+        const u32 stride = static_cast<u32>(std::max<size_t>(params.stride, 1));
+        const u32 vertex_count = regs.draw_auto_byte_count / stride;
+        maxwell3d->draw_manager->DrawArray(regs.draw.topology, 0, vertex_count, 0, 1);
+        return;
+    }
+
     buffer_cache.SetDrawIndirect(&params);
     PrepareDraw(params.is_indexed, [this, &params] {
         const auto indirect_buffer = buffer_cache.GetDrawIndirectBuffer();
@@ -1052,7 +1064,9 @@ void RasterizerVulkan::HandleTransformFeedback() {
     const auto& regs = maxwell3d->regs;
     if (!device.IsExtTransformFeedbackSupported()) {
         std::call_once(warn_unsupported, [&] {
-            LOG_ERROR(Render_Vulkan, "Transform feedbacks used but not supported");
+            LOG_WARNING(Render_Vulkan,
+                        "Transform feedback is enabled in GPU state but VK_EXT_transform_feedback "
+                        "is unavailable (e.g. MoltenVK); using fallbacks where implemented");
         });
         return;
     }
@@ -1369,6 +1383,8 @@ void RasterizerVulkan::UpdatePrimitiveRestartEnable(Tegra::Engines::Maxwell3D::R
     if (!state_tracker.TouchPrimitiveRestartEnable()) {
         return;
     }
+    // MoltenVK: Metal does not support disabling primitive restart; dynamic VK_FALSE returns
+    // VK_ERROR_FEATURE_NOT_PRESENT. Restart is forced on in the pipeline for strip/fan topologies.
     if (device.GetDriverID() == VK_DRIVER_ID_MOLTENVK) {
         return;
     }
@@ -1594,27 +1610,30 @@ void RasterizerVulkan::UpdateVertexInput(Tegra::Engines::Maxwell3D::Regs& regs) 
 
     // There seems to be a bug on Nvidia's driver where updating only higher attributes ends up
     // generating dirty state. Track the highest dirty attribute and update all attributes until
-    // that one.
-    size_t highest_dirty_attr{};
+    // that one (inclusive).
+    std::optional<size_t> highest_dirty_attr;
     for (size_t index = 0; index < Tegra::Engines::Maxwell3D::Regs::NumVertexAttributes; ++index) {
         if (dirty[Dirty::VertexAttribute0 + index]) {
             highest_dirty_attr = index;
         }
     }
-    for (size_t index = 0; index < highest_dirty_attr; ++index) {
-        const Tegra::Engines::Maxwell3D::Regs::VertexAttribute attribute{regs.vertex_attrib_format[index]};
-        const u32 binding{attribute.buffer};
-        dirty[Dirty::VertexAttribute0 + index] = false;
-        dirty[Dirty::VertexBinding0 + static_cast<size_t>(binding)] = true;
-        if (!attribute.constant) {
-            attributes.push_back({
-                .sType = VK_STRUCTURE_TYPE_VERTEX_INPUT_ATTRIBUTE_DESCRIPTION_2_EXT,
-                .pNext = nullptr,
-                .location = static_cast<u32>(index),
-                .binding = binding,
-                .format = MaxwellToVK::VertexFormat(device, attribute.type, attribute.size),
-                .offset = attribute.offset,
-            });
+    if (highest_dirty_attr) {
+        for (size_t index = 0; index <= *highest_dirty_attr; ++index) {
+            const Tegra::Engines::Maxwell3D::Regs::VertexAttribute attribute{
+                regs.vertex_attrib_format[index]};
+            const u32 binding{attribute.buffer};
+            dirty[Dirty::VertexAttribute0 + index] = false;
+            dirty[Dirty::VertexBinding0 + static_cast<size_t>(binding)] = true;
+            if (!attribute.constant) {
+                attributes.push_back({
+                    .sType = VK_STRUCTURE_TYPE_VERTEX_INPUT_ATTRIBUTE_DESCRIPTION_2_EXT,
+                    .pNext = nullptr,
+                    .location = static_cast<u32>(index),
+                    .binding = binding,
+                    .format = MaxwellToVK::VertexFormat(device, attribute.type, attribute.size),
+                    .offset = attribute.offset,
+                });
+            }
         }
     }
     for (size_t index = 0; index < Tegra::Engines::Maxwell3D::Regs::NumVertexAttributes; ++index) {
@@ -1676,6 +1695,10 @@ void RasterizerVulkan::ReleaseChannel(s32 channel_id) {
     }
     pipeline_cache.EraseChannel(channel_id);
     query_cache.EraseChannel(channel_id);
+}
+
+bool RasterizerVulkan::HasDrawTransformFeedback() {
+    return device.IsExtTransformFeedbackSupported();
 }
 
 } // namespace Vulkan

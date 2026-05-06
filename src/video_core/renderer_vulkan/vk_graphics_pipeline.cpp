@@ -448,6 +448,9 @@ void GraphicsPipeline::ConfigureImpl(bool is_indexed) {
     }
 
     buffer_cache.UpdateGraphicsBuffers(is_indexed);
+    if (key.state.xfb_emulated != 0 && !device.IsExtTransformFeedbackSupported()) {
+        buffer_cache.ClearXfbStreamCounterForDraw();
+    }
     buffer_cache.BindHostGeometryBuffers(is_indexed);
 
     guest_descriptor_queue.Acquire();
@@ -582,6 +585,13 @@ void GraphicsPipeline::MakePipeline(VkRenderPass render_pass) {
             });
         }
     }
+    const u32 max_vertex_attrs = device.GetMaxVertexInputAttributes();
+    if (vertex_attributes.size() > max_vertex_attrs) {
+        LOG_ERROR(Render_Vulkan,
+                  "Graphics pipeline uses {} vertex attributes but the Vulkan device reports a "
+                  "maximum of {}; draws may fault (common on MoltenVK).",
+                  vertex_attributes.size(), max_vertex_attrs);
+    }
     ASSERT(vertex_attributes.size() <= device.GetMaxVertexInputAttributes());
 
     VkPipelineVertexInputStateCreateInfo vertex_input_ci{
@@ -624,6 +634,9 @@ void GraphicsPipeline::MakePipeline(VkRenderPass render_pass) {
         SupportsPrimitiveRestart(input_assembly_topology) ||
         (input_assembly_topology == VK_PRIMITIVE_TOPOLOGY_PATCH_LIST &&
          device.IsPatchListPrimitiveRestartSupported());
+    // Metal always applies primitive restart for strip/fan topologies; MoltenVK cannot implement
+    // vkCmdSetPrimitiveRestartEnableEXT(VK_FALSE) (VK_ERROR_FEATURE_NOT_PRESENT). Force restart in
+    // the pipeline for those topologies and omit dynamic toggle (see vk_rasterizer.cpp).
     const bool force_mvk_primitive_restart =
         device.GetDriverID() == VK_DRIVER_ID_MOLTENVK &&
         SupportsPrimitiveRestart(input_assembly_topology);

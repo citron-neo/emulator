@@ -189,6 +189,8 @@ std::unordered_map<VkFormat, VkFormatProperties> GetFormatProperties(vk::Physica
         VK_FORMAT_B8G8R8A8_UNORM,
         VK_FORMAT_BC1_RGBA_SRGB_BLOCK,
         VK_FORMAT_BC1_RGBA_UNORM_BLOCK,
+        VK_FORMAT_BC1_RGB_SRGB_BLOCK,
+        VK_FORMAT_BC1_RGB_UNORM_BLOCK,
         VK_FORMAT_BC2_SRGB_BLOCK,
         VK_FORMAT_BC2_UNORM_BLOCK,
         VK_FORMAT_BC3_SRGB_BLOCK,
@@ -208,6 +210,17 @@ std::unordered_map<VkFormat, VkFormatProperties> GetFormatProperties(vk::Physica
         VK_FORMAT_D32_SFLOAT,
         VK_FORMAT_D32_SFLOAT_S8_UINT,
         VK_FORMAT_E5B9G9R9_UFLOAT_PACK32,
+        VK_FORMAT_ETC2_R8G8B8_UNORM_BLOCK,
+        VK_FORMAT_ETC2_R8G8B8_SRGB_BLOCK,
+        VK_FORMAT_ETC2_R8G8B8A1_UNORM_BLOCK,
+        VK_FORMAT_ETC2_R8G8B8A1_SRGB_BLOCK,
+        VK_FORMAT_ETC2_R8G8B8A8_UNORM_BLOCK,
+        VK_FORMAT_ETC2_R8G8B8A8_SRGB_BLOCK,
+        // EAC (often used with ETC2; queried by texture / format checks on Metal/MoltenVK)
+        VK_FORMAT_EAC_R11_UNORM_BLOCK,
+        VK_FORMAT_EAC_R11_SNORM_BLOCK,
+        VK_FORMAT_EAC_R11G11_UNORM_BLOCK,
+        VK_FORMAT_EAC_R11G11_SNORM_BLOCK,
         VK_FORMAT_R16G16B16A16_SFLOAT,
         VK_FORMAT_R16G16B16A16_SINT,
         VK_FORMAT_R16G16B16A16_SNORM,
@@ -934,11 +947,9 @@ bool Device::TestDepthStencilBlits(VkFormat format) const {
 bool Device::IsFormatSupported(VkFormat wanted_format, VkFormatFeatureFlags wanted_usage,
                                FormatType format_type) const {
     const auto it = format_properties.find(wanted_format);
-    if (it == format_properties.end()) {
-        UNIMPLEMENTED_MSG("Unimplemented format query={}", wanted_format);
-        return true;
-    }
-    const auto supported_usage = GetFormatFeatures(it->second, format_type);
+    const VkFormatProperties& props =
+        it != format_properties.end() ? it->second : physical.GetFormatProperties(wanted_format);
+    const auto supported_usage = GetFormatFeatures(props, format_type);
     return (supported_usage & wanted_usage) == wanted_usage;
 }
 
@@ -1071,6 +1082,12 @@ bool Device::GetSuitability(bool requires_swapchain) {
 
     FOR_EACH_VK_FEATURE_EXT(FEATURE_EXTENSION);
     FOR_EACH_VK_EXTENSION(EXTENSION);
+
+#ifdef __APPLE__
+    if (supported_extensions.contains("VK_KHR_portability_subset")) {
+        loaded_extensions.insert("VK_KHR_portability_subset");
+    }
+#endif
 
 #undef FEATURE_EXTENSION
 #undef EXTENSION

@@ -8,6 +8,7 @@
 #include <cmath>
 #include <cstdlib>
 #include <fstream>
+#include <tuple>
 #include <iostream>
 #include <memory>
 #include <thread>
@@ -85,7 +86,9 @@ static FileSys::VirtualFile VfsDirectoryCreateFileWrapper(const FileSys::Virtual
 #define QT_NO_OPENGL
 #include <QCheckBox>
 #include <QClipboard>
+#include <QCoreApplication>
 #include <QDesktopServices>
+#include <QEvent>
 #include <QDir>
 #include <QFile>
 #include <QFileDialog>
@@ -104,6 +107,7 @@ static FileSys::VirtualFile VfsDirectoryCreateFileWrapper(const FileSys::Virtual
 #include <QSysInfo>
 #include <QToolTip>
 #include <QUrl>
+#include <QThreadPool>
 #include <QtConcurrent/QtConcurrent>
 
 #ifdef HAVE_SDL2
@@ -637,8 +641,34 @@ GMainWindow::GMainWindow(std::unique_ptr<QtConfig> config_, bool has_broken_vulk
 }
 
 GMainWindow::~GMainWindow() {
+    // GameList is a QObject child, so the QWidget subtree is destroyed only after this class's
+    // members — including `system`. GameListWorker holds Core::System& and runs on the global
+    // thread pool, so we must stop it and delete the widget tree while `system` is still valid.
+    if (game_list) {
+        game_list->CancelPopulation();
+        QThreadPool::globalInstance()->waitForDone();
+        delete game_list;
+        game_list = nullptr;
+    }
+
+    // `vfs` is destroyed before `system` (member order). Tear down FS state that owns
+    // RealVfsFile/VirtualFile handles into `vfs` while both are still valid.
+    if (system && vfs) {
+        system->GetFileSystemController().ReleaseVfsBackedCaches();
+    }
+    if (system) {
+        system->ClearContentProvider(FileSys::ContentProviderUnionSlot::FrontendManual);
+        system->ClearContentProvider(FileSys::ContentProviderUnionSlot::Autoloader);
+    }
+    if (provider) {
+        provider->ClearAllEntries();
+    }
+    if (autoloader_provider) {
+        autoloader_provider->ClearAllEntries();
+    }
+
     // will get automatically deleted otherwise
-    if (render_window->parent() == nullptr) {
+    if (render_window && render_window->parent() == nullptr) {
         delete render_window;
     }
 
@@ -2318,6 +2348,9 @@ void GMainWindow::BootGame(const QString& filename, Service::AM::FrontendAppletP
     if (loader == nullptr || loader->ReadProgramId(title_id) != Loader::ResultStatus::Success) {
         // If we can't get a loader or read the title ID, we cannot proceed.
         LOG_CRITICAL(Frontend, "Failed to load game: Could not determine title ID.");
+        if (game_list) {
+            game_list->LoadController();
+        }
         return;
     }
 
@@ -2357,6 +2390,9 @@ void GMainWindow::BootGame(const QString& filename, Service::AM::FrontendAppletP
         };
 
         if (SelectAndSetCurrentUser(parameters) == false) {
+            if (game_list) {
+                game_list->LoadController();
+            }
             return; // User cancelled profile selection
         }
     }
@@ -2365,6 +2401,9 @@ void GMainWindow::BootGame(const QString& filename, Service::AM::FrontendAppletP
 
     // The core ROM loading logic. If this fails, we must not proceed.
     if (!LoadROM(filename, params)) {
+        if (game_list) {
+            game_list->LoadController();
+        }
         return;
     }
 
@@ -2527,8 +2566,17 @@ void GMainWindow::OnEmulationStopTimeExpired() {
 }
 
 void GMainWindow::OnEmulationStopped() {
+    if (emulation_stopped_cleanup_active) {
+        return;
+    }
+    if (!emulation_running && !emu_thread) {
+        return;
+    }
+    emulation_stopped_cleanup_active = true;
+
     shutdown_timer.stop();
     if (emu_thread) {
+        disconnect(emu_thread.get(), &QThread::finished, this, &GMainWindow::OnEmulationStopped);
         emu_thread->disconnect();
         emu_thread->wait();
         emu_thread.reset();
@@ -2618,6 +2666,7 @@ void GMainWindow::OnEmulationStopped() {
 
     // When closing the game, destroy the GLWindow to clear the context after the game is closed
     render_window->ReleaseRenderTarget();
+    QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
 
     // Enable game list
     game_list->setEnabled(true);
@@ -2626,6 +2675,8 @@ void GMainWindow::OnEmulationStopped() {
     system->HIDCore().ReloadInputDevices();
     UpdateStatusButtons();
     game_list->LoadController();
+
+    emulation_stopped_cleanup_active = false;
 }
 
 void GMainWindow::ShutdownGame() {
@@ -6240,6 +6291,9 @@ void GMainWindow::closeEvent(QCloseEvent* event) {
         system->HIDCore().UnloadInputDevices();
     }
 
+    // Closing the render window emits Closed -> OnStopGame; never recurse into that while exiting
+    // the main window (would double-shutdown emulation and crash).
+    disconnect(render_window, &GRenderWindow::Closed, this, &GMainWindow::OnStopGame);
     render_window->close();
     multiplayer_state->Close();
 
@@ -6248,6 +6302,10 @@ void GMainWindow::closeEvent(QCloseEvent* event) {
     }
 
     QWidget::closeEvent(event);
+
+    // close() from the menu already ends the session; Quit from Cmd+Q was swallowed above until
+    // teardown finished — request quit so exec() returns.
+    QCoreApplication::quit();
 }
 
 static bool IsSingleFileDropEvent(const QMimeData* mime) {
@@ -6623,6 +6681,16 @@ void GMainWindow::changeEvent(QEvent* event) {
 }
 
 bool GMainWindow::eventFilter(QObject* obj, QEvent* event) {
+    // macOS Cmd+Q (and other platform quit shortcuts) post Quit to the application without closing
+    // the main window. If the render surface has focus, teardown can bypass closeEvent and tear
+    // down in the wrong order. Always route the first Quit through close() so HID / emu / render
+    // shutdown matches File → Exit.
+    if (obj == QCoreApplication::instance() && event->type() == QEvent::Quit) {
+        if (!main_window_is_closing) {
+            QTimer::singleShot(0, this, [this]() { close(); });
+            return true;
+        }
+    }
     if (event->type() == QEvent::MouseMove) {
         if (auto* popup = QApplication::activePopupWidget()) {
             if (popup->inherits("QMenu")) {
@@ -6808,8 +6876,16 @@ int main(int argc, char* argv[]) {
 #endif
 
 #ifdef __APPLE__
-    const auto bin_path = Common::FS::GetBundleDirectory() / "..";
-    chdir(Common::FS::PathToUTF8String(bin_path).c_str());
+    // cwd must be the .app/Contents folder so Resources and Qt plug-ins resolve; skip if bundle
+    // path is unavailable (e.g. mis-invoked binary) to avoid undefined chdir paths.
+    if (const auto bundle_dir = Common::FS::GetBundleDirectory(); !bundle_dir.empty()) {
+        const auto contents_dir = bundle_dir / "..";
+        std::error_code ec;
+        if (std::filesystem::is_directory(contents_dir, ec) && !ec) {
+            std::ignore =
+                chdir(Common::FS::PathToUTF8String(contents_dir.lexically_normal()).c_str());
+        }
+    }
 #endif
 
 #ifdef __linux__

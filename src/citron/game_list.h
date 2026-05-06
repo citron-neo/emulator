@@ -284,6 +284,12 @@ private:
 
     GameListLoadingOverlay* loading_overlay = nullptr;
     std::unique_ptr<GameListWorker> current_worker;
+    /// Set when DonePopulating would reset the worker; applied only after ProcessEvents returns so
+    /// nested processEvents() cannot destroy GameListWorker while ProcessEvents is still running.
+    bool m_release_worker_after_process_events = false;
+    /// Queued WorkerEvent can run nested (DonePopulating calls processEvents). Only reset the worker
+    /// when the outermost WorkerEvent unwinds.
+    int m_worker_event_depth = 0;
     QProgressBar* progress_bar = nullptr;
     QFileSystemWatcher* watcher = nullptr;
     ControllerNavigation* controller_navigation = nullptr;

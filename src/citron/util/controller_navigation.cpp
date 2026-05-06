@@ -10,6 +10,13 @@
 #include <QCoreApplication>
 #include <QWidget>
 
+namespace {
+
+const Core::HID::ButtonValues kZeroButtons{};
+const Core::HID::SticksValues kZeroSticks{};
+
+} // namespace
+
 ControllerNavigation::ControllerNavigation(Core::HID::HIDCore& hid_core, QWidget* parent) : QObject(parent) {
     m_repeat_timer = new QTimer(this);
     connect(m_repeat_timer, &QTimer::timeout, this, &ControllerNavigation::navigationRepeat);
@@ -22,12 +29,17 @@ ControllerNavigation::~ControllerNavigation() {
 
 void ControllerNavigation::LoadController(Core::HID::HIDCore& hid_core) {
     std::scoped_lock lock{mutex};
-    if (is_controller_set) {
-        return;
+    // Idempotent: clear any previous registration so repeated LoadController (e.g. after a
+    // failed boot that UnloadController'd, or an explicit HID reload) always re-attaches.
+    if (player1_controller && player1_callback_key >= 0) {
+        player1_controller->DeleteCallback(player1_callback_key);
+        player1_callback_key = -1;
     }
-
-    player1_callback_key = -1;
-    handheld_callback_key = -1;
+    if (handheld_controller && handheld_callback_key >= 0) {
+        handheld_controller->DeleteCallback(handheld_callback_key);
+        handheld_callback_key = -1;
+    }
+    is_controller_set = false;
 
     player1_controller = hid_core.GetEmulatedController(Core::HID::NpadIdType::Player1);
     handheld_controller = hid_core.GetEmulatedController(Core::HID::NpadIdType::Handheld);
@@ -44,7 +56,9 @@ void ControllerNavigation::LoadController(Core::HID::HIDCore& hid_core) {
         handheld_callback_key = handheld_controller->SetCallback(engine_callback);
     }
 
-    is_controller_set = true;
+    is_controller_set =
+        (player1_controller && player1_callback_key >= 0) ||
+        (handheld_controller && handheld_callback_key >= 0);
 }
 
 void ControllerNavigation::UnloadController() {
@@ -120,13 +134,19 @@ void ControllerNavigation::ControllerUpdateEvent(Core::HID::ControllerTriggerTyp
 }
 
 void ControllerNavigation::ControllerUpdateButton() {
-    if (!player1_controller || !handheld_controller) return;
+    if (!player1_controller && !handheld_controller) {
+        return;
+    }
 
-    const auto& p1_btns = player1_controller->GetButtonsValues();
-    const auto& hh_btns = handheld_controller->GetButtonsValues();
+    const auto& p1_btns =
+        player1_controller ? player1_controller->GetButtonsValues() : kZeroButtons;
+    const auto& hh_btns =
+        handheld_controller ? handheld_controller->GetButtonsValues() : kZeroButtons;
 
     for (std::size_t i = 0; i < p1_btns.size(); ++i) {
-        const bool button = p1_btns[i].value || hh_btns[i].value;
+        const bool p1 = player1_controller && p1_btns[i].value;
+        const bool hh = handheld_controller && hh_btns[i].value;
+        const bool button = p1 || hh;
         const bool pressed = button && !button_values[i].value;
         const bool released = !button && button_values[i].value;
 
@@ -183,15 +203,19 @@ void ControllerNavigation::ControllerUpdateButton() {
 }
 
 void ControllerNavigation::ControllerUpdateStick() {
-    if (!player1_controller || !handheld_controller) return;
+    if (!player1_controller && !handheld_controller) {
+        return;
+    }
 
-    const auto& p1_sticks = player1_controller->GetSticksValues();
-    const auto& hh_sticks = handheld_controller->GetSticksValues();
+    const auto& p1_sticks =
+        player1_controller ? player1_controller->GetSticksValues() : kZeroSticks;
+    const auto& hh_sticks =
+        handheld_controller ? handheld_controller->GetSticksValues() : kZeroSticks;
 
     for (std::size_t i = 0; i < p1_sticks.size(); ++i) {
         // Use the deadzone setting for navigation triggers
         const float deadzone = Settings::values.navigation_deadzone.GetValue();
-        
+
         bool down = (p1_sticks[i].y.value < -deadzone) || (hh_sticks[i].y.value < -deadzone);
         bool up = (p1_sticks[i].y.value > deadzone) || (hh_sticks[i].y.value > deadzone);
         bool left = (p1_sticks[i].x.value < -deadzone) || (hh_sticks[i].x.value < -deadzone);

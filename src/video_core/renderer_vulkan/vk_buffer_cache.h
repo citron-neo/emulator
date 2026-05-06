@@ -26,6 +26,7 @@ class BufferCacheRuntime;
 class Buffer : public VideoCommon::BufferBase {
 public:
     explicit Buffer(BufferCacheRuntime&, VideoCommon::NullBufferParams null_params);
+    explicit Buffer(BufferCacheRuntime& runtime, VideoCommon::XfbStreamCounterBufferParams);
     explicit Buffer(BufferCacheRuntime& runtime, VAddr cpu_addr_, u64 size_bytes_);
 
     [[nodiscard]] VkBufferView View(u32 offset, u32 size, VideoCore::Surface::PixelFormat format);
@@ -184,6 +185,7 @@ struct BufferCacheParams {
     static constexpr bool USE_MEMORY_MAPS = true;
     static constexpr bool SEPARATE_IMAGE_BUFFER_BINDINGS = false;
     static constexpr bool USE_MEMORY_MAPS_FOR_UPLOADS = true;
+    static constexpr bool HAS_XFB_STREAM_COUNTER_HOST_BUFFER = true;
 };
 
 using BufferCache = VideoCommon::BufferCache<BufferCacheParams>;

@@ -55,6 +55,15 @@ void Break(Core::System& system, BreakReason reason, u64 info1, u64 info2) {
     case BreakReason::Panic:
         LOG_CRITICAL(Debug_Emulated, "Userspace PANIC! info1=0x{:016X}, info2=0x{:016X}", info1,
                      info2);
+        if (auto* thread = GetCurrentThreadPointer(system.Kernel())) {
+            const auto& ctx = thread->GetContext();
+            auto* proc = thread->GetOwnerProcess();
+            const u64 program_id = proc != nullptr ? proc->GetProgramId() : 0;
+            LOG_CRITICAL(Debug_Emulated,
+                         "[panic-ctx] PC=0x{:016X} LR=0x{:016X} SP=0x{:016X} tid={:#x} "
+                         "program_id={:#x}",
+                         ctx.pc, ctx.lr, ctx.sp, thread->GetId(), program_id);
+        }
         handle_debug_buffer();
         try_recover();
         break;

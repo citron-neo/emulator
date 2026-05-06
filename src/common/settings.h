@@ -20,6 +20,10 @@
 #include "common/settings_input.h"
 #include "common/settings_setting.h"
 
+#ifdef __APPLE__
+#include <TargetConditionals.h>
+#endif
+
 namespace Settings {
 
 const char* TranslateCategory(Settings::Category category);
@@ -280,7 +284,15 @@ struct Values {
     SwitchableSetting<bool> use_disk_shader_cache{linkage, true, "use_disk_shader_cache",
                                                   Category::Renderer};
     SwitchableSetting<bool> use_asynchronous_gpu_emulation{
-        linkage, true, "use_asynchronous_gpu_emulation", Category::Renderer};
+        linkage,
+#if defined(__APPLE__) && !TARGET_OS_IPHONE
+        // MoltenVK: async GPU emulation is a common source of device-memory read races and black
+        // screen; iOS builds already force this off at runtime in ConfigureIOSRuntimeSettings().
+        false,
+#else
+        true,
+#endif
+        "use_asynchronous_gpu_emulation", Category::Renderer};
     SwitchableSetting<AstcDecodeMode, true> accelerate_astc{linkage,
 #ifdef ANDROID
                                                             AstcDecodeMode::Cpu,
@@ -770,6 +782,9 @@ struct Values {
                                     Category::DebuggingGraphics};
     Setting<bool> extended_logging{
         linkage, false, "extended_logging", Category::Debugging, Specialization::Default, false};
+    /// One-shot log: first unmapped access to guest page 0 with PC/LR/SP (see citron log / wiki).
+    Setting<bool> log_guest_null_page_access{linkage, false, "log_guest_null_page_access",
+                                              Category::Debugging};
     Setting<bool> use_debug_asserts{linkage, false, "use_debug_asserts", Category::Debugging};
     Setting<bool> use_auto_stub{
         linkage, false, "use_auto_stub", Category::Debugging, Specialization::Default, false};

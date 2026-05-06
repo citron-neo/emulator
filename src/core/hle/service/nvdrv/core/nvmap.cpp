@@ -180,6 +180,13 @@ DAddr NvMap::PinHandle(NvMap::Handle::Id handle, bool low_area_pin) {
             handle_description->pin_virt_address = address;
         }
     };
+    // Defensive recovery: if pin accounting drifted negative, treat it as unpinned.
+    if (handle_description->pins < 0) [[unlikely]] {
+        LOG_WARNING(Service_NVDRV,
+                    "Pin count underflow detected (pins={}), clamping to zero before remap",
+                    handle_description->pins);
+        handle_description->pins = 0;
+    }
     if (!handle_description->pins) {
         // If we're in the unmap queue we can just remove ourselves and return since we're already
         // mapped
@@ -269,9 +276,12 @@ void NvMap::UnpinHandle(Handle::Id handle) {
     }
 
     std::scoped_lock lock(handle_description->mutex);
-    if (--handle_description->pins < 0) {
+    if (handle_description->pins <= 0) {
         LOG_WARNING(Service_NVDRV, "Pin count imbalance detected!");
-    } else if (!handle_description->pins) {
+        handle_description->pins = 0;
+        return;
+    }
+    if (--handle_description->pins == 0) {
         std::scoped_lock queueLock(unmap_queue_lock);
 
         // Add to the unmap queue allowing this handle's memory to be freed if needed

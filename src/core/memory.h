@@ -133,6 +133,12 @@ public:
     [[nodiscard]] bool IsValidVirtualAddressRange(Common::ProcessAddress base, u64 size) const;
 
     /**
+     * When Debugging.log_guest_null_page_access is set: one-shot diagnostic for invalid accesses in
+     * guest page 0 (used from slow memory paths and Dynarmic callbacks).
+     */
+    void NotifyGuestNullPageDiagnostic(u64 guest_vaddr);
+
+    /**
      * Gets a pointer to the given address.
      *
      * @param vaddr Virtual address to retrieve a pointer to.
@@ -142,6 +148,12 @@ public:
      */
     u8* GetPointer(Common::ProcessAddress vaddr);
     u8* GetPointerSilent(Common::ProcessAddress vaddr);
+
+    /**
+     * Resolves a host pointer for establishing the device (SMMU) mapping for a guest page.
+     * Uses page-table backing_addr when GetPointerSilent cannot produce a pointer (some layouts).
+     */
+    [[nodiscard]] u8* GetHostPointerForSmmuMapping(Common::ProcessAddress vaddr);
 
     template <typename T>
     T* GetPointer(Common::ProcessAddress vaddr) {

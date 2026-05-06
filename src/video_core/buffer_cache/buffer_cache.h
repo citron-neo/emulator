@@ -23,6 +23,12 @@ BufferCache<P>::BufferCache(Tegra::MaxwellDeviceMemoryManager& device_memory_, R
     : runtime{runtime_}, device_memory{device_memory_}, memory_tracker{device_memory} {
     // Ensure the first slot is used for the null buffer
     void(slot_buffers.insert(runtime, NullBufferParams{}));
+    if constexpr (BufferCacheHasXfbStreamCounterHostBuffer<P>()) {
+        xfb_stream_counter_buffer_id =
+            slot_buffers.insert(runtime, XfbStreamCounterBufferParams{});
+        Register(xfb_stream_counter_buffer_id);
+        slot_buffers[xfb_stream_counter_buffer_id].Pick();
+    }
     gpu_modified_ranges.Clear();
     inline_buffer_id = NULL_BUFFER_ID;
 
@@ -439,8 +445,59 @@ void BufferCache<P>::BindGraphicsStorageBuffer(size_t stage, size_t ssbo_index, 
     channel_state->enabled_storage_buffers[stage] |= 1U << ssbo_index;
     channel_state->written_storage_buffers[stage] |= (is_written ? 1U : 0U) << ssbo_index;
 
+    GPUVAddr ssbo_addr{};
+    if (cbuf_index >= Tegra::Engines::Maxwell3D::Regs::MaxConstBuffers) {
+        const u32 slot = cbuf_index - Tegra::Engines::Maxwell3D::Regs::MaxConstBuffers;
+        if (slot == Tegra::Engines::Maxwell3D::Regs::NumTransformFeedbackBuffers) {
+            if constexpr (BufferCacheHasXfbStreamCounterHostBuffer<P>()) {
+                if (xfb_stream_counter_buffer_id == NULL_BUFFER_ID) {
+                    return;
+                }
+                channel_state->storage_buffers[stage][ssbo_index] = Binding{
+                    .device_addr = XFB_EMULATION_COUNTER_DEVICE_ADDR,
+                    .size = XFB_EMULATION_COUNTER_BUFFER_BYTES,
+                    .buffer_id = xfb_stream_counter_buffer_id,
+                };
+            }
+            return;
+        }
+        if (slot > Tegra::Engines::Maxwell3D::Regs::NumTransformFeedbackBuffers) [[unlikely]] {
+            LOG_ERROR(HW_GPU, "Invalid transform-feedback emulation storage cbuf slot {}", slot);
+            return;
+        }
+        const auto& tf = maxwell3d->regs.transform_feedback.buffers[slot];
+        const GPUVAddr gpu_addr = tf.Address() + static_cast<GPUVAddr>(tf.start_offset);
+        const s32 tf_size = tf.size;
+        u32 size = 0;
+        if (tf_size > 0) {
+            size = static_cast<u32>(tf_size);
+        } else {
+            size = static_cast<u32>(gpu_memory->GetMemoryLayoutSize(gpu_addr));
+        }
+        if (size == 0) [[unlikely]] {
+            LOG_WARNING(HW_GPU, "Transform-feedback emulation buffer has zero size (slot {})", slot);
+            return;
+        }
+        const u32 alignment = runtime.GetStorageBufferAlignment();
+        const GPUVAddr aligned_gpu_addr = Common::AlignDown(gpu_addr, alignment);
+        const u32 aligned_size = static_cast<u32>(gpu_addr - aligned_gpu_addr) + size;
+        const std::optional<DAddr> aligned_device_addr = gpu_memory->GpuToCpuAddress(aligned_gpu_addr);
+        const std::optional<DAddr> device_addr = gpu_memory->GpuToCpuAddress(gpu_addr);
+        if (!aligned_device_addr || !device_addr) [[unlikely]] {
+            LOG_WARNING(HW_GPU, "Transform-feedback emulation buffer not mapped (slot {})", slot);
+            return;
+        }
+        const DAddr cpu_end = Common::AlignUp(*device_addr + size, Core::DEVICE_PAGESIZE);
+        channel_state->storage_buffers[stage][ssbo_index] = Binding{
+            .device_addr = *aligned_device_addr,
+            .size = is_written ? aligned_size : static_cast<u32>(cpu_end - *aligned_device_addr),
+            .buffer_id = BufferId{},
+        };
+        return;
+    }
+
     const auto& cbufs = maxwell3d->state.shader_stages[stage];
-    const GPUVAddr ssbo_addr = cbufs.const_buffers[cbuf_index].address + cbuf_offset;
+    ssbo_addr = cbufs.const_buffers[cbuf_index].address + cbuf_offset;
     channel_state->storage_buffers[stage][ssbo_index] =
         StorageBufferBinding(ssbo_addr, cbuf_index, is_written);
 }
@@ -664,6 +721,18 @@ void BufferCache<P>::PopAsyncBuffers() {
     async_buffers_death_ring.emplace_back(*async_buffer);
     async_buffers.pop_front();
     pending_downloads.pop_front();
+}
+
+template <class P>
+void BufferCache<P>::ClearXfbStreamCounterForDraw() {
+    if constexpr (!BufferCacheHasXfbStreamCounterHostBuffer<P>()) {
+        return;
+    }
+    if (xfb_stream_counter_buffer_id == NULL_BUFFER_ID) [[unlikely]] {
+        return;
+    }
+    Buffer& buf = slot_buffers[xfb_stream_counter_buffer_id];
+    runtime.ClearBuffer(buf.Handle(), 0, XFB_EMULATION_COUNTER_BUFFER_BYTES, 0);
 }
 
 template <class P>
@@ -891,7 +960,13 @@ void BufferCache<P>::BindHostGraphicsStorageBuffers(size_t stage) {
         const bool is_written = ((channel_state->written_storage_buffers[stage] >> index) & 1) != 0;
 
         if (is_written) {
-            MarkWrittenBuffer(binding.buffer_id, binding.device_addr, size);
+            if constexpr (BufferCacheHasXfbStreamCounterHostBuffer<P>()) {
+                if (binding.device_addr != XFB_EMULATION_COUNTER_DEVICE_ADDR) {
+                    MarkWrittenBuffer(binding.buffer_id, binding.device_addr, size);
+                }
+            } else {
+                MarkWrittenBuffer(binding.buffer_id, binding.device_addr, size);
+            }
         }
 
         if constexpr (NEEDS_BIND_STORAGE_INDEX) {
@@ -1204,6 +1279,12 @@ void BufferCache<P>::UpdateStorageBuffers(size_t stage) {
     ForEachEnabledBit(channel_state->enabled_storage_buffers[stage], [&](u32 index) {
         // Resolve buffer
         Binding& binding = channel_state->storage_buffers[stage][index];
+        if constexpr (BufferCacheHasXfbStreamCounterHostBuffer<P>()) {
+            if (binding.device_addr == XFB_EMULATION_COUNTER_DEVICE_ADDR) {
+                binding.buffer_id = xfb_stream_counter_buffer_id;
+                return;
+            }
+        }
         const BufferId buffer_id = FindBuffer(binding.device_addr, binding.size);
         binding.buffer_id = buffer_id;
     });
