@@ -41,7 +41,11 @@ struct GPU::Impl {
           shader_notify{std::make_unique<VideoCore::ShaderNotify>()}, is_async{is_async_},
           gpu_thread{system_, is_async_}, scheduler{std::make_unique<Control::Scheduler>(gpu)} {}
 
-    ~Impl() = default;
+    ~Impl() {
+        if (rasterizer) {
+            rasterizer->Shutdown();
+        }
+    }
 
     std::shared_ptr<Control::ChannelState> CreateChannel(s32 channel_id) {
         auto channel_state = std::make_shared<Tegra::Control::ChannelState>(channel_id);

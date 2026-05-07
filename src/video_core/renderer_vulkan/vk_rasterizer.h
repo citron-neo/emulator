@@ -4,6 +4,8 @@
 #pragma once
 
 #include <array>
+#include <atomic>
+#include <shared_mutex>
 
 #include <boost/container/static_vector.hpp>
 
@@ -81,6 +83,8 @@ public:
                               const Device& device_, MemoryAllocator& memory_allocator_,
                               StateTracker& state_tracker_, Scheduler& scheduler_);
     ~RasterizerVulkan() override;
+
+    void Shutdown() override;
 
     void Draw(bool is_indexed, u32 instance_count) override;
     void DrawIndirect() override;
@@ -223,6 +227,9 @@ private:
     boost::container::static_vector<VkSampler, MAX_TEXTURES> sampler_handles;
 
     u32 draw_counter = 0;
+
+    std::shared_mutex shutdown_mutex;
+    std::atomic_bool is_shutting_down{false};
 };
 
 } // namespace Vulkan

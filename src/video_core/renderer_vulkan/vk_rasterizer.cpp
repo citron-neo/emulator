@@ -205,7 +205,12 @@ RasterizerVulkan::RasterizerVulkan(Core::Frontend::EmuWindow& emu_window_, Tegra
     });
 }
 
-RasterizerVulkan::~RasterizerVulkan() {
+void RasterizerVulkan::Shutdown() {
+    if (is_shutting_down.exchange(true)) {
+        return;
+    }
+    std::unique_lock exclusive_guard{shutdown_mutex};
+
     // 1. Tell the GPU to finish current work
     scheduler.Finish();
 
@@ -213,6 +218,10 @@ RasterizerVulkan::~RasterizerVulkan() {
     // This ensures VkBuffer/VkImage handles are gone before the memory they sit on is freed
     buffer_cache_runtime.Finish();
     texture_cache_runtime.Finish();
+}
+
+RasterizerVulkan::~RasterizerVulkan() {
+    Shutdown();
 
     // 3. Clear the Staging Pool slabs
     staging_pool.TriggerCacheRelease(MemoryUsage::Upload);
@@ -225,6 +234,11 @@ RasterizerVulkan::~RasterizerVulkan() {
 
 template <typename Func>
 void RasterizerVulkan::PrepareDraw(bool is_indexed, Func&& draw_func) {
+    std::shared_lock shared_guard{shutdown_mutex};
+    if (is_shutting_down) {
+        return;
+    }
+
     SCOPE_EXIT {
         gpu.TickWork();
     };
@@ -500,6 +514,9 @@ void RasterizerVulkan::Clear(u32 layer_count) {
 }
 
 void RasterizerVulkan::DispatchCompute() {
+    std::shared_lock shared_guard{shutdown_mutex};
+    if (is_shutting_down) return;
+
     // Skip first 2 dispatches for Marvel Cosmic Invasion to fix boot issues
     if (program_id == UICommon::TitleID::MarvelCosmicInvasion) {
         static u32 dispatch_count = 0;
@@ -564,6 +581,9 @@ void Vulkan::RasterizerVulkan::DisableGraphicsUniformBuffer(size_t stage, u32 in
 void RasterizerVulkan::FlushAll() {}
 
 void RasterizerVulkan::FlushRegion(DAddr addr, u64 size, VideoCommon::CacheType which) {
+    std::shared_lock shared_guard{shutdown_mutex};
+    if (is_shutting_down) return;
+
     if (addr == 0 || size == 0) {
         return;
     }
@@ -581,6 +601,9 @@ void RasterizerVulkan::FlushRegion(DAddr addr, u64 size, VideoCommon::CacheType 
 }
 
 bool RasterizerVulkan::MustFlushRegion(DAddr addr, u64 size, VideoCommon::CacheType which) {
+    std::shared_lock shared_guard{shutdown_mutex};
+    if (is_shutting_down) return false;
+
     if ((True(which & VideoCommon::CacheType::BufferCache))) {
         std::scoped_lock lock{buffer_cache.mutex};
         if (buffer_cache.IsRegionGpuModified(addr, size)) {
@@ -599,6 +622,15 @@ bool RasterizerVulkan::MustFlushRegion(DAddr addr, u64 size, VideoCommon::CacheT
 }
 
 VideoCore::RasterizerDownloadArea RasterizerVulkan::GetFlushArea(DAddr addr, u64 size) {
+    std::shared_lock shared_guard{shutdown_mutex};
+    if (is_shutting_down) {
+        return {
+            .start_address = Common::AlignDown(addr, Core::DEVICE_PAGESIZE),
+            .end_address = Common::AlignUp(addr + size, Core::DEVICE_PAGESIZE),
+            .preemtive = true,
+        };
+    }
+
     {
         std::scoped_lock lock{texture_cache.mutex};
         auto area = texture_cache.GetFlushArea(addr, size);
@@ -615,6 +647,9 @@ VideoCore::RasterizerDownloadArea RasterizerVulkan::GetFlushArea(DAddr addr, u64
 }
 
 void RasterizerVulkan::InvalidateRegion(DAddr addr, u64 size, VideoCommon::CacheType which) {
+    std::shared_lock shared_guard{shutdown_mutex};
+    if (is_shutting_down) return;
+
     if (addr == 0 || size == 0) {
         return;
     }
@@ -849,6 +884,9 @@ u64 RasterizerVulkan::GetStagingMemoryUsage() const {
 }
 
 void RasterizerVulkan::TriggerMemoryGC() {
+    std::shared_lock shared_guard{shutdown_mutex};
+    if (is_shutting_down) return;
+
     std::scoped_lock lock{texture_cache.mutex, buffer_cache.mutex};
     texture_cache.TriggerGarbageCollection();
     buffer_cache.TriggerGarbageCollection();
@@ -862,6 +900,9 @@ bool RasterizerVulkan::AccelerateConditionalRendering() {
 bool RasterizerVulkan::AccelerateSurfaceCopy(const Tegra::Engines::Fermi2D::Surface& src,
                                              const Tegra::Engines::Fermi2D::Surface& dst,
                                              const Tegra::Engines::Fermi2D::Config& copy_config) {
+    std::shared_lock shared_guard{shutdown_mutex};
+    if (is_shutting_down) return false;
+
     std::scoped_lock lock{texture_cache.mutex};
     return texture_cache.BlitImage(dst, src, copy_config);
 }
@@ -872,6 +913,9 @@ Tegra::Engines::AccelerateDMAInterface& RasterizerVulkan::AccessAccelerateDMA() 
 
 void RasterizerVulkan::AccelerateInlineToMemory(GPUVAddr address, size_t copy_size,
                                                 std::span<const u8> memory) {
+    std::shared_lock shared_guard{shutdown_mutex};
+    if (is_shutting_down) return;
+
     auto cpu_addr = gpu_memory->GpuToCpuAddress(address);
     if (!cpu_addr) [[unlikely]] {
         gpu_memory->WriteBlock(address, memory.data(), copy_size);
