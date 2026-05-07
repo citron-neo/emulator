@@ -440,6 +440,16 @@ void TextureCache<P>::FillComputeImageViews(std::span<ImageViewInOut> views) {
 }
 
 template <class P>
+u64 TextureCache<P>::GraphicsImageTableGeneration() const noexcept {
+    return channel_state->graphics_image_table.Generation();
+}
+
+template <class P>
+u64 TextureCache<P>::ComputeImageTableGeneration() const noexcept {
+    return channel_state->compute_image_table.Generation();
+}
+
+template <class P>
 void TextureCache<P>::CheckFeedbackLoop(std::span<const ImageViewInOut> views) {
     if (!Settings::values.barrier_feedback_loops.GetValue()) {
         return;
@@ -718,7 +728,12 @@ void TextureCache<P>::FillImageViews(DescriptorTable<TICEntry>& table,
             has_blacklisted = false;
         }
         for (ImageViewInOut& view : views) {
-            view.id = VisitImageView(table, cached_image_view_ids, view.index);
+            if (view.id_cached) {
+                // Already resolved and prepared during cache population.
+                // Batch-prepare unique images below instead of per-entry PrepareImageView.
+            } else {
+                view.id = VisitImageView(table, cached_image_view_ids, view.index);
+            }
             if constexpr (has_blacklists) {
                 if (view.blacklist && view.id != NULL_IMAGE_VIEW_ID) {
                     const ImageViewBase& image_view{slot_image_views[view.id]};
@@ -729,6 +744,27 @@ void TextureCache<P>::FillImageViews(DescriptorTable<TICEntry>& table,
             }
         }
     } while (has_deleted_images || (has_blacklists && has_blacklisted));
+
+    // Batch-prepare unique images from id_cached views.  The cache-miss path
+    // already called VisitImageView (which does PrepareImageView) for each
+    // entry; here we only need to touch/refresh each *unique* underlying
+    // image once, rather than 1024 individual PrepareImageView calls.
+    boost::container::small_vector<ImageId, 64> cached_image_ids;
+    for (const ImageViewInOut& view : views) {
+        if (view.id_cached && view.id != NULL_IMAGE_VIEW_ID) {
+            const ImageViewBase& iv = slot_image_views[view.id];
+            if (!iv.IsBuffer()) {
+                cached_image_ids.push_back(iv.image_id);
+            }
+        }
+    }
+    std::sort(cached_image_ids.begin(), cached_image_ids.end());
+    cached_image_ids.erase(
+        std::unique(cached_image_ids.begin(), cached_image_ids.end()),
+        cached_image_ids.end());
+    for (const ImageId id : cached_image_ids) {
+        PrepareImage(id, false, false);
+    }
 }
 
 template <class P>

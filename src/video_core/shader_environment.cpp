@@ -199,6 +199,7 @@ void GenericEnvironment::Serialize(std::ofstream& file) const {
     const u64 num_texture_pixel_formats{static_cast<u64>(texture_pixel_formats.size())};
     const u64 num_cbuf_values{static_cast<u64>(cbuf_values.size())};
     const u64 num_cbuf_replacement_values{static_cast<u64>(cbuf_replacements.size())};
+    const u64 num_cbuf_sizes{static_cast<u64>(cbuf_sizes.size())};
 
     file.write(reinterpret_cast<const char*>(&code_size), sizeof(code_size))
         .write(reinterpret_cast<const char*>(&num_texture_types), sizeof(num_texture_types))
@@ -207,6 +208,7 @@ void GenericEnvironment::Serialize(std::ofstream& file) const {
         .write(reinterpret_cast<const char*>(&num_cbuf_values), sizeof(num_cbuf_values))
         .write(reinterpret_cast<const char*>(&num_cbuf_replacement_values),
                sizeof(num_cbuf_replacement_values))
+        .write(reinterpret_cast<const char*>(&num_cbuf_sizes), sizeof(num_cbuf_sizes))
         .write(reinterpret_cast<const char*>(&local_memory_size), sizeof(local_memory_size))
         .write(reinterpret_cast<const char*>(&texture_bound), sizeof(texture_bound))
         .write(reinterpret_cast<const char*>(&start_address), sizeof(start_address))
@@ -231,6 +233,10 @@ void GenericEnvironment::Serialize(std::ofstream& file) const {
     for (const auto& [key, type] : cbuf_replacements) {
         file.write(reinterpret_cast<const char*>(&key), sizeof(key))
             .write(reinterpret_cast<const char*>(&type), sizeof(type));
+    }
+    for (const auto& [key, size] : cbuf_sizes) {
+        file.write(reinterpret_cast<const char*>(&key), sizeof(key))
+            .write(reinterpret_cast<const char*>(&size), sizeof(size));
     }
     if (stage == Shader::Stage::Compute) {
         file.write(reinterpret_cast<const char*>(&workgroup_size), sizeof(workgroup_size))
@@ -364,6 +370,16 @@ GraphicsEnvironment::GraphicsEnvironment(Tegra::Engines::Maxwell3D& maxwell3d_,
     is_proprietary_driver = texture_bound == 2;
     has_hle_engine_state =
         maxwell3d->engine_state == Tegra::Engines::Maxwell3D::EngineHint::OnHLEMacro;
+    // Pre-capture cbuf sizes on the main thread while Maxwell3D state is live.
+    // ReadCbufSize() is called later on async shader compiler worker threads by which
+    // point state.shader_stages may have changed and cbuf.enabled may be false,
+    // causing a spurious 0 that would inflate descriptor array sizes via the fallback.
+    const auto& stage_cbufs{maxwell3d->state.shader_stages[stage_index].const_buffers};
+    for (u32 i = 0; i < static_cast<u32>(stage_cbufs.size()); ++i) {
+        if (stage_cbufs[i].enabled) {
+            cbuf_sizes.emplace(i, static_cast<u32>(stage_cbufs[i].size));
+        }
+    }
 }
 
 u32 GraphicsEnvironment::ReadCbufValue(u32 cbuf_index, u32 cbuf_offset) {
@@ -378,8 +394,9 @@ u32 GraphicsEnvironment::ReadCbufValue(u32 cbuf_index, u32 cbuf_offset) {
 }
 
 u32 GraphicsEnvironment::ReadCbufSize(u32 cbuf_index) {
-    const auto& cbuf{maxwell3d->state.shader_stages[stage_index].const_buffers[cbuf_index]};
-    return cbuf.enabled ? static_cast<u32>(cbuf.size) : 0;
+    // Sizes were pre-captured in the constructor on the main thread.
+    const auto it{cbuf_sizes.find(cbuf_index)};
+    return it != cbuf_sizes.end() ? it->second : 0;
 }
 
 std::optional<Shader::ReplaceConstant> GraphicsEnvironment::GetReplaceConstBuffer(u32 bank,
@@ -451,6 +468,12 @@ ComputeEnvironment::ComputeEnvironment(Tegra::Engines::KeplerCompute& kepler_com
     is_proprietary_driver = texture_bound == 2;
     shared_memory_size = qmd.shared_alloc;
     workgroup_size = {qmd.block_dim_x, qmd.block_dim_y, qmd.block_dim_z};
+    // Pre-capture cbuf sizes on the main thread while launch_description is live.
+    for (u32 i = 0; i < static_cast<u32>(qmd.const_buffer_config.size()); ++i) {
+        if ((qmd.const_buffer_enable_mask.Value() >> i) & 1) {
+            cbuf_sizes.emplace(i, static_cast<u32>(qmd.const_buffer_config[i].size));
+        }
+    }
 }
 
 u32 ComputeEnvironment::ReadCbufValue(u32 cbuf_index, u32 cbuf_offset) {
@@ -466,11 +489,9 @@ u32 ComputeEnvironment::ReadCbufValue(u32 cbuf_index, u32 cbuf_offset) {
 }
 
 u32 ComputeEnvironment::ReadCbufSize(u32 cbuf_index) {
-    const auto& qmd{kepler_compute->launch_description};
-    if (((qmd.const_buffer_enable_mask.Value() >> cbuf_index) & 1) == 0) {
-        return 0;
-    }
-    return static_cast<u32>(qmd.const_buffer_config[cbuf_index].size);
+    // Sizes were pre-captured in the constructor on the main thread.
+    const auto it{cbuf_sizes.find(cbuf_index)};
+    return it != cbuf_sizes.end() ? it->second : 0;
 }
 
 Shader::TextureType ComputeEnvironment::ReadTextureType(u32 handle) {
@@ -506,6 +527,7 @@ void FileEnvironment::Deserialize(std::ifstream& file) {
     u64 num_texture_pixel_formats{};
     u64 num_cbuf_values{};
     u64 num_cbuf_replacement_values{};
+    u64 num_cbuf_sizes{};
     file.read(reinterpret_cast<char*>(&code_size), sizeof(code_size))
         .read(reinterpret_cast<char*>(&num_texture_types), sizeof(num_texture_types))
         .read(reinterpret_cast<char*>(&num_texture_pixel_formats),
@@ -513,6 +535,7 @@ void FileEnvironment::Deserialize(std::ifstream& file) {
         .read(reinterpret_cast<char*>(&num_cbuf_values), sizeof(num_cbuf_values))
         .read(reinterpret_cast<char*>(&num_cbuf_replacement_values),
               sizeof(num_cbuf_replacement_values))
+        .read(reinterpret_cast<char*>(&num_cbuf_sizes), sizeof(num_cbuf_sizes))
         .read(reinterpret_cast<char*>(&local_memory_size), sizeof(local_memory_size))
         .read(reinterpret_cast<char*>(&texture_bound), sizeof(texture_bound))
         .read(reinterpret_cast<char*>(&start_address), sizeof(start_address))
@@ -550,6 +573,13 @@ void FileEnvironment::Deserialize(std::ifstream& file) {
             .read(reinterpret_cast<char*>(&value), sizeof(value));
         cbuf_replacements.emplace(key, value);
     }
+    for (size_t i = 0; i < num_cbuf_sizes; ++i) {
+        u32 key;
+        u32 size;
+        file.read(reinterpret_cast<char*>(&key), sizeof(key))
+            .read(reinterpret_cast<char*>(&size), sizeof(size));
+        cbuf_sizes.emplace(key, size);
+    }
     if (stage == Shader::Stage::Compute) {
         file.read(reinterpret_cast<char*>(&workgroup_size), sizeof(workgroup_size))
             .read(reinterpret_cast<char*>(&shared_memory_size), sizeof(shared_memory_size));
@@ -581,6 +611,11 @@ u32 FileEnvironment::ReadCbufValue(u32 cbuf_index, u32 cbuf_offset) {
         throw Shader::LogicError("Uncached read texture type");
     }
     return it->second;
+}
+
+u32 FileEnvironment::ReadCbufSize(u32 cbuf_index) {
+    const auto it{cbuf_sizes.find(cbuf_index)};
+    return it != cbuf_sizes.end() ? it->second : 0;
 }
 
 Shader::TextureType FileEnvironment::ReadTextureType(u32 handle) {
