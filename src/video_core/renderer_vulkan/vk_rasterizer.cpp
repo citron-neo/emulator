@@ -262,7 +262,24 @@ void RasterizerVulkan::Draw(bool is_indexed, u32 instance_count) {
     PrepareDraw(is_indexed, [this, is_indexed, instance_count] {
         const auto& draw_state = maxwell3d->draw_manager->GetDrawState();
         const u32 num_instances{instance_count};
-        const DrawParams draw_params{MakeDrawParams(draw_state, num_instances, is_indexed)};
+        DrawParams draw_params{MakeDrawParams(draw_state, num_instances, is_indexed)};
+        if (draw_params.is_indexed) {
+            const auto& ib = draw_state.index_buffer;
+            const u64 start = ib.StartAddress();
+            const u64 end = ib.EndAddress();
+            const u64 index_size = std::max<u64>(ib.FormatSizeInBytes(), 1ULL);
+            const u64 index_span = end > start ? (end - start) : 0ULL;
+            const u64 max_indices = index_span / index_size;
+            if (draw_params.first_index >= max_indices) {
+                return;
+            }
+            const u64 remaining_indices = max_indices - draw_params.first_index;
+            draw_params.num_vertices =
+                static_cast<u32>(std::min<u64>(draw_params.num_vertices, remaining_indices));
+            if (draw_params.num_vertices == 0) {
+                return;
+            }
+        }
         scheduler.Record([draw_params](vk::CommandBuffer cmdbuf) {
             if (draw_params.is_indexed) {
                 cmdbuf.DrawIndexed(draw_params.num_vertices, draw_params.num_instances,
