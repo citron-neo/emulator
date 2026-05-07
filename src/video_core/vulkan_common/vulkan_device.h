@@ -127,7 +127,6 @@ VK_DEFINE_HANDLE(VmaAllocator)
     FEATURE_NAME(features, dualSrcBlend)                                                           \
     FEATURE_NAME(features, fillModeNonSolid)                                                       \
     FEATURE_NAME(features, fragmentStoresAndAtomics)                                               \
-    FEATURE_NAME(features, geometryShader)                                                         \
     FEATURE_NAME(features, imageCubeArray)                                                         \
     FEATURE_NAME(features, independentBlend)                                                       \
     FEATURE_NAME(features, largePoints)                                                            \
@@ -139,7 +138,6 @@ VK_DEFINE_HANDLE(VmaAllocator)
     FEATURE_NAME(features, samplerAnisotropy)                                                      \
     FEATURE_NAME(features, sampleRateShading)                                                      \
     FEATURE_NAME(features, shaderClipDistance)                                                     \
-    FEATURE_NAME(features, shaderCullDistance)                                                     \
     FEATURE_NAME(features, shaderImageGatherExtended)                                              \
     FEATURE_NAME(features, shaderStorageImageWriteWithoutFormat)                                   \
     FEATURE_NAME(features, tessellationShader)                                                     \
@@ -157,6 +155,7 @@ VK_DEFINE_HANDLE(VmaAllocator)
     FEATURE_NAME(depth_bias_control, depthBiasControl)                                             \
     FEATURE_NAME(depth_bias_control, leastRepresentableValueForceUnormRepresentation)              \
     FEATURE_NAME(depth_bias_control, depthBiasExact)                                               \
+    FEATURE_NAME(features, geometryShader)                                                         \
     FEATURE_NAME(extended_dynamic_state, extendedDynamicState)                                     \
     FEATURE_NAME(format_a4b4g4r4, formatA4B4G4R4)                                                  \
     FEATURE_NAME(index_type_uint8, indexTypeUint8)                                                 \
@@ -167,6 +166,7 @@ VK_DEFINE_HANDLE(VmaAllocator)
     FEATURE_NAME(robustness2, robustImageAccess2)                                                  \
     FEATURE_NAME(shader_float16_int8, shaderFloat16)                                               \
     FEATURE_NAME(shader_float16_int8, shaderInt8)                                                  \
+    FEATURE_NAME(features, shaderCullDistance)                                                     \
     FEATURE_NAME(timeline_semaphore, timelineSemaphore)                                            \
     FEATURE_NAME(transform_feedback, transformFeedback)                                            \
     FEATURE_NAME(uniform_buffer_standard_layout, uniformBufferStandardLayout)                      \
@@ -416,6 +416,11 @@ public:
     /// Returns true if the device supports VK_NV_geometry_shader_passthrough.
     bool IsNvGeometryShaderPassthroughSupported() const {
         return extensions.geometry_shader_passthrough;
+    }
+
+    /// Returns true if core Vulkan geometry shaders are supported.
+    bool IsGeometryShaderSupported() const {
+        return features.features.geometryShader;
     }
 
     /// Returns true if the device supports VK_NV_low_latency2.

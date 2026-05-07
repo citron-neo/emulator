@@ -572,7 +572,11 @@ void GraphicsPipeline::MakePipeline(VkRenderPass render_pass) {
                 });
             }
         }
+        const u32 max_vertex_attrs = device.GetMaxVertexInputAttributes();
         for (size_t index = 0; index < key.state.attributes.size(); ++index) {
+            if (index >= max_vertex_attrs) {
+                break;
+            }
             const auto& attribute = key.state.attributes[index];
             if (!attribute.enabled || !stage_infos[0].loads.Generic(index)) {
                 continue;

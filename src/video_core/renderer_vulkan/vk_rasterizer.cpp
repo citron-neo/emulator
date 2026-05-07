@@ -1607,6 +1607,8 @@ void RasterizerVulkan::UpdateVertexInput(Tegra::Engines::Maxwell3D::Regs& regs) 
 
     boost::container::static_vector<VkVertexInputBindingDescription2EXT, 32> bindings;
     boost::container::static_vector<VkVertexInputAttributeDescription2EXT, 32> attributes;
+    const size_t max_vertex_attrs = static_cast<size_t>(device.GetMaxVertexInputAttributes());
+    const size_t max_vertex_bindings = static_cast<size_t>(device.GetMaxVertexInputBindings());
 
     // There seems to be a bug on Nvidia's driver where updating only higher attributes ends up
     // generating dirty state. Track the highest dirty attribute and update all attributes until
@@ -1619,6 +1621,9 @@ void RasterizerVulkan::UpdateVertexInput(Tegra::Engines::Maxwell3D::Regs& regs) 
     }
     if (highest_dirty_attr) {
         for (size_t index = 0; index <= *highest_dirty_attr; ++index) {
+            if (index >= max_vertex_attrs) {
+                break;
+            }
             const Tegra::Engines::Maxwell3D::Regs::VertexAttribute attribute{
                 regs.vertex_attrib_format[index]};
             const u32 binding{attribute.buffer};
@@ -1637,6 +1642,9 @@ void RasterizerVulkan::UpdateVertexInput(Tegra::Engines::Maxwell3D::Regs& regs) 
         }
     }
     for (size_t index = 0; index < Tegra::Engines::Maxwell3D::Regs::NumVertexAttributes; ++index) {
+        if (index >= max_vertex_bindings) {
+            break;
+        }
         if (!dirty[Dirty::VertexBinding0 + index]) {
             continue;
         }

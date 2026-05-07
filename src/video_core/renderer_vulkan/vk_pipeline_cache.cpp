@@ -159,7 +159,8 @@ Shader::FragmentOutputType GetFragmentOutputType(u8 encoded_format) {
 Shader::RuntimeInfo MakeRuntimeInfo(std::span<const Shader::IR::Program> programs,
                                     const GraphicsPipelineCacheKey& key,
                                     const Shader::IR::Program& program,
-                                    const Shader::IR::Program* previous_program) {
+                                    const Shader::IR::Program* previous_program,
+                                    bool has_geometry_stage) {
     Shader::RuntimeInfo info;
     if (previous_program) {
         info.previous_stage_stores = previous_program->info.stores;
@@ -171,7 +172,7 @@ Shader::RuntimeInfo MakeRuntimeInfo(std::span<const Shader::IR::Program> program
         info.previous_stage_stores.mask.set();
     }
     const Shader::Stage stage{program.stage};
-    const bool has_geometry{key.unique_hashes[4] != 0 && !programs[4].is_geometry_passthrough};
+    const bool has_geometry{has_geometry_stage};
     const bool gl_ndc{key.state.ndc_minus_one_to_one != 0};
     const float point_size{Common::BitCast<float>(key.state.point_size)};
     switch (stage) {
@@ -735,6 +736,9 @@ std::unique_ptr<GraphicsPipeline> PipelineCache::CreateGraphicsPipeline(
     std::array<Shader::IR::Program, Tegra::Engines::Maxwell3D::Regs::MaxShaderProgram> programs;
     const bool uses_vertex_a{key.unique_hashes[0] != 0};
     const bool uses_vertex_b{key.unique_hashes[1] != 0};
+    const size_t geometry_stage_index = static_cast<size_t>(
+        Tegra::Engines::Maxwell3D::Regs::ShaderType::Geometry);
+    const bool geometry_supported = device.IsGeometryShaderSupported();
 
     // Layer passthrough generation for devices without VK_EXT_shader_viewport_index_layer
     Shader::IR::Program* layer_source_program{};
@@ -746,6 +750,9 @@ std::unique_ptr<GraphicsPipeline> PipelineCache::CreateGraphicsPipeline(
             auto topology = MaxwellToOutputTopology(key.state.topology);
             programs[index] = GenerateGeometryPassthrough(pools.inst, pools.block, host_info,
                                                           *layer_source_program, topology);
+            continue;
+        }
+        if (index == geometry_stage_index && !geometry_supported) {
             continue;
         }
         if (key.unique_hashes[index] == 0) {
@@ -779,8 +786,14 @@ std::unique_ptr<GraphicsPipeline> PipelineCache::CreateGraphicsPipeline(
 
     const Shader::IR::Program* previous_stage{};
     Shader::Backend::Bindings binding;
+    const bool has_geometry_stage =
+        geometry_supported && key.unique_hashes[geometry_stage_index] != 0 &&
+        !programs[geometry_stage_index].is_geometry_passthrough;
     for (size_t index = uses_vertex_a && uses_vertex_b ? 1 : 0; index < Tegra::Engines::Maxwell3D::Regs::MaxShaderProgram;
          ++index) {
+        if (index == geometry_stage_index && !geometry_supported) {
+            continue;
+        }
         const bool is_emulated_stage = layer_source_program != nullptr &&
                                        index == static_cast<u32>(Tegra::Engines::Maxwell3D::Regs::ShaderType::Geometry);
         if (key.unique_hashes[index] == 0 && !is_emulated_stage) {
@@ -792,7 +805,8 @@ std::unique_ptr<GraphicsPipeline> PipelineCache::CreateGraphicsPipeline(
         const size_t stage_index{index - 1};
         infos[stage_index] = &program.info;
 
-        const auto runtime_info{MakeRuntimeInfo(programs, key, program, previous_stage)};
+        const auto runtime_info{
+            MakeRuntimeInfo(programs, key, program, previous_stage, has_geometry_stage)};
         ConvertLegacyToGeneric(program, runtime_info);
         std::vector<u32> code = EmitSPIRV(profile, runtime_info, program, binding);
         // Reserve space to reduce allocations during shader compilation
