@@ -40,6 +40,9 @@ if (NOT WIN32 AND NOT ANDROID)
         set(FFmpeg_FOUND YES)
     endif()
 
+    if (NOT DEFINED FFmpeg_COMPONENTS)
+        set(FFmpeg_COMPONENTS avcodec avfilter avutil swscale)
+    endif()
     unset(FFmpeg_LIBRARIES CACHE)
     foreach(COMPONENT ${FFmpeg_COMPONENTS})
         set(FFmpeg_${COMPONENT}_PREFIX "${FFmpeg_BUILD_DIR}/lib${COMPONENT}")
@@ -168,7 +171,6 @@ if (NOT WIN32 AND NOT ANDROID)
                 --disable-ffmpeg
                 --disable-ffprobe
                 --disable-network
-                --disable-postproc
                 --disable-swresample
                 --enable-decoder=h264
                 --enable-decoder=vp8

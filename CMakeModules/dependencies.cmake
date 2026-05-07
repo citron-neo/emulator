@@ -17,6 +17,14 @@
 # Static linking: BUILD_SHARED_LIBS is forced OFF in externals/CMakeLists.txt;
 # all CPM packages inherit this setting.
 
+
+# ── Submodule & vcpkg Policy ──────────────────────────────────────────────────
+# Force-disable reliance on git submodules and vcpkg. All external dependencies
+# must be fetched and managed via CPM to ensure portability and build-time
+# environment isolation.
+set(CITRON_CHECK_SUBMODULES OFF CACHE BOOL "Force disable submodule presence checks" FORCE)
+set(CITRON_USE_BUNDLED_VCPKG OFF CACHE BOOL "Force disable vcpkg usage" FORCE)
+
 if (NOT COMMAND CPMAddPackage)
     message(FATAL_ERROR "CPM.cmake not loaded — include CMakeModules/CPM.cmake before this file")
 endif()
@@ -574,6 +582,23 @@ elseif (CITRON_USE_BUNDLED_FFMPEG)
     endif()
 endif()
 
+# ── Dependency Versions (Qt, ICU, XCB) ─────────────────────────────────────────
+set(CITRON_QT_VERSION "6.9.3" CACHE STRING "Qt version to download via aqt")
+
+set(CITRON_ICU_REPO "unicode-org/icu" CACHE STRING "ICU GitHub repository")
+set(CITRON_ICU_TAG "release-73-2" CACHE STRING "ICU git tag/version")
+
+set(CITRON_XCB_MACROS_VER "1.20.2" CACHE STRING "XCB util-macros version")
+set(CITRON_XCB_PROTO_VER "1.17.0" CACHE STRING "XCB proto version")
+set(CITRON_XCB_XAU_VER "1.0.11" CACHE STRING "XCB libXau version")
+set(CITRON_XCB_LIBXCB_VER "1.16" CACHE STRING "XCB libxcb version")
+set(CITRON_XCB_UTIL_VER "0.4.1" CACHE STRING "XCB util version")
+set(CITRON_XCB_CURSOR_VER "0.1.6" CACHE STRING "XCB cursor version")
+set(CITRON_XCB_IMAGE_VER "0.4.1" CACHE STRING "XCB image version")
+set(CITRON_XCB_KEYSYMS_VER "0.4.1" CACHE STRING "XCB keysyms version")
+set(CITRON_XCB_RENDERUTIL_VER "0.3.10" CACHE STRING "XCB renderutil version")
+set(CITRON_XCB_WM_VER "0.4.2" CACHE STRING "XCB wm version")
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # Qt
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -582,6 +607,10 @@ endif()
 # See CMakeModules/qt_download.cmake for details.
 if (ENABLE_QT AND NOT USE_SYSTEM_QT)
     include(${CMAKE_SOURCE_DIR}/CMakeModules/qt_download.cmake)
+    if (CMAKE_SYSTEM_NAME STREQUAL "Linux")
+        include(${CMAKE_SOURCE_DIR}/CMakeModules/icu_build.cmake)
+        include(${CMAKE_SOURCE_DIR}/CMakeModules/xcb_build.cmake)
+    endif()
 endif()
 
 message(STATUS "[CPM] All dependency packages configured")

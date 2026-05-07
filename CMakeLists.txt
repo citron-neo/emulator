@@ -89,11 +89,21 @@ CMAKE_DEPENDENT_OPTION(CITRON_ROOM "Compile LDN room server" ON "NOT ANDROID" OF
 
 CMAKE_DEPENDENT_OPTION(CITRON_CRASH_DUMPS "Compile crash dump (Minidump) support" OFF "WIN32 OR LINUX" OFF)
 
+# CITRON_USE_CPM is the primary way to fetch dependencies on Linux and for Clangtron.
+# vcpkg is supported primarily for native MSVC and Android builds.
 option(CITRON_USE_BUNDLED_VCPKG "Use vcpkg for citron dependencies" "${MSVC}")
+option(CITRON_USE_CPM "Use CPM.cmake to fetch dependencies" OFF)
 
-option(CITRON_CHECK_SUBMODULES "Check if submodules are present" ON)
+# Auto-enable CPM for Linux/MinGW if not using vcpkg
+if (NOT CITRON_USE_BUNDLED_VCPKG AND (UNIX OR MINGW))
+    set(CITRON_USE_CPM ON CACHE BOOL "" FORCE)
+endif()
 
-option(CITRON_USE_CPM "Use CPM.cmake to fetch dependencies instead of git submodules (Clangtron builds)" OFF)
+if (CITRON_USE_CPM)
+    set(CITRON_CHECK_SUBMODULES OFF CACHE BOOL "" FORCE)
+else()
+    option(CITRON_CHECK_SUBMODULES "Check if submodules are present" ON)
+endif()
 
 option(CITRON_ENABLE_LTO "Enable link-time optimization" OFF)
 
@@ -113,52 +123,6 @@ if (ANDROID OR WIN32 OR APPLE)
 endif()
 option(ENABLE_OPENSSL "Enable OpenSSL backend for ISslConnection" ${DEFAULT_ENABLE_OPENSSL})
 
-if (ANDROID AND CITRON_DOWNLOAD_ANDROID_VVL)
-    set(vvl_version "vulkan-sdk-1.4.328.1")
-    set(vvl_version_plain "1.4.328.1")
-    set(vvl_zip_file "${CMAKE_BINARY_DIR}/externals/vvl-android.zip")
-    set(vvl_extract_dir "${CMAKE_BINARY_DIR}/externals")
-
-    if (NOT EXISTS "${vvl_zip_file}")
-        # Download and extract validation layer release to externals directory
-        set(vvl_base_url "https://github.com/KhronosGroup/Vulkan-ValidationLayers/releases/download")
-        file(DOWNLOAD "${vvl_base_url}/${vvl_version}/android-binaries-${vvl_version_plain}.zip"
-            "${vvl_zip_file}" SHOW_PROGRESS)
-        execute_process(COMMAND ${CMAKE_COMMAND} -E tar xf "${vvl_zip_file}"
-            WORKING_DIRECTORY "${vvl_extract_dir}")
-    endif()
-
-    # Copy the arm64 binary to src/android/app/main/jniLibs
-    # New structure: android-binaries-X.X.X.X/android-binaries-X.X.X.X/arm64-v8a/libVkLayer_khronos_validation.so
-    set(vvl_lib_path "${CMAKE_CURRENT_SOURCE_DIR}/src/android/app/src/main/jniLibs/arm64-v8a/")
-    set(vvl_source_file "${vvl_extract_dir}/android-binaries-${vvl_version_plain}/android-binaries-${vvl_version_plain}/arm64-v8a/libVkLayer_khronos_validation.so")
-
-    if (EXISTS "${vvl_source_file}")
-        file(COPY "${vvl_source_file}" DESTINATION "${vvl_lib_path}")
-        message(STATUS "Successfully copied VVL ${vvl_version_plain} to ${vvl_lib_path}")
-    else()
-        message(WARNING "Could not find Vulkan Validation Layer at: ${vvl_source_file}")
-        message(STATUS "Please manually download from: ${vvl_base_url}/${vvl_version}/android-binaries-${vvl_version_plain}.zip")
-    endif()
-endif()
-
-# EXPERIMENTAL LIBC++
-if ((ANDROID OR APPLE OR UNIX) AND (NOT (${CMAKE_SYSTEM_NAME} STREQUAL "Linux") OR ANDROID) AND NOT WIN32)
-    if(CXX_APPLE OR CXX_CLANG)
-        # libc++ has stop_token and jthread as experimental
-        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fexperimental-library")
-        set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fexperimental-library")
-    else()
-        # Uses glibc, mostly?
-        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D_LIBCPP_ENABLE_EXPERIMENTAL=1")
-        set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -D_LIBCPP_ENABLE_EXPERIMENTAL=1")
-    endif()
-endif()
-
-if (ANDROID)
-    set(CMAKE_SKIP_INSTALL_RULES ON)
-endif()
-
 if (CITRON_USE_BUNDLED_VCPKG)
     if (ANDROID)
         set(ENV{ANDROID_NDK_HOME} "${ANDROID_NDK}")
@@ -166,8 +130,6 @@ if (CITRON_USE_BUNDLED_VCPKG)
 
         if (CMAKE_ANDROID_ARCH_ABI STREQUAL "arm64-v8a")
             set(VCPKG_TARGET_TRIPLET "arm64-android")
-            # this is to avoid CMake using the host pkg-config to find the host
-            # libraries when building for Android targets
             set(PKG_CONFIG_EXECUTABLE "aarch64-none-linux-android-pkg-config" CACHE FILEPATH "" FORCE)
         elseif (CMAKE_ANDROID_ARCH_ABI STREQUAL "x86_64")
             set(VCPKG_TARGET_TRIPLET "x64-android")
@@ -185,9 +147,7 @@ if (CITRON_USE_BUNDLED_VCPKG)
 
         if (NOT EXISTS ${NASM_DESTINATION_PATH})
             file(DOWNLOAD ${NASM_DOWNLOAD_URL} ${NASM_DESTINATION_PATH} SHOW_PROGRESS STATUS NASM_STATUS)
-
             if (NOT NASM_STATUS EQUAL 0)
-                # Warn and not fail since vcpkg is supposed to download this package for us in the first place
                 message(WARNING "External nasm vcpkg package download from ${NASM_DOWNLOAD_URL} failed with status ${NASM_STATUS}")
             endif()
         endif()
@@ -199,16 +159,14 @@ if (CITRON_USE_BUNDLED_VCPKG)
     if (ENABLE_WEB_SERVICE)
         list(APPEND VCPKG_MANIFEST_FEATURES "web-service")
     endif()
-    if (ANDROID)
-        list(APPEND VCPKG_MANIFEST_FEATURES "android")
-    endif()
 
     include(${CMAKE_SOURCE_DIR}/externals/vcpkg/scripts/buildsystems/vcpkg.cmake)
 elseif(NOT "$ENV{VCPKG_TOOLCHAIN_FILE}" STREQUAL "")
-    # Disable manifest mode (use vcpkg classic mode) when using a custom vcpkg installation
     option(VCPKG_MANIFEST_MODE "")
     include("$ENV{VCPKG_TOOLCHAIN_FILE}")
 endif()
+
+option(CITRON_USE_PRECOMPILED_HEADERS "Use Precompiled Headers" ON)
 
 if (CITRON_USE_PRECOMPILED_HEADERS)
     if (MSVC AND CCACHE)
@@ -344,6 +302,16 @@ endif()
 
 # Output binaries to bin/
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/bin)
+
+if (CITRON_USE_CPM AND CITRON_USE_BUNDLED_QT AND CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    # Build-tree binaries are the portable deliverable for local Linux CPM builds.
+    # Keep their loader search path relative to bin/ instead of embedding Qt or
+    # dependency cache directories from the build host.
+    set(CMAKE_BUILD_RPATH "$ORIGIN/lib")
+    set(CMAKE_INSTALL_RPATH "$ORIGIN/lib")
+    set(CMAKE_BUILD_WITH_INSTALL_RPATH TRUE)
+    add_link_options("-Wl,--disable-new-dtags")
+endif()
 
 # System imported libraries
 # =======================================================================

@@ -67,44 +67,166 @@ function(copy_citron_Qt6_deps target_dir)
             qschannelbackend$<$<CONFIG:Debug>:d>.*
             qopensslbackend$<$<CONFIG:Debug>:d>.*
         )
-    elseif(MINGW)
-        # For MinGW builds with CITRON_USE_BUNDLED_QT=ON the bundled Qt tree is
-        # at build/externals/qt/<ver>/mingw_64/.  CopyMinGWDeps.cmake handles the
-        # runtime DLLs; this function handles the plugin subdirectories that
-        # windeployqt would normally deploy but which are not on the DLL search path.
+    elseif(MINGW OR CMAKE_SYSTEM_NAME STREQUAL "Linux")
+        # For MinGW and Native Linux builds with CITRON_USE_BUNDLED_QT=ON,
+        # copy the plugins and libraries to subdirectories to keep bin/ clean.
+        if (CMAKE_SYSTEM_NAME STREQUAL "Linux")
+            set(LIB_DEST "${DLL_DEST}lib/")
+            set(PLUGINS_DEST "${DLL_DEST}plugins/")
+            set(USE_LIB_FOLDER ON)
+        else()
+            # Windows/MinGW: DLLs must be next to the EXE
+            set(LIB_DEST "${DLL_DEST}")
+            set(PLUGINS_DEST "${DLL_DEST}")
+            set(USE_LIB_FOLDER OFF)
+        endif()
 
-        # Resolve the plugin root from Qt6_DIR (which points to lib/cmake/Qt6).
         set(Qt6_BUNDLED_PLUGINS "${Qt6_DIR}/../../../plugins")
 
-        foreach(plugin_dir platforms styles imageformats iconengines)
+        foreach(plugin_dir platforms styles imageformats iconengines tls wayland-graphics-integration wayland-shell-integration)
             if (EXISTS "${Qt6_BUNDLED_PLUGINS}/${plugin_dir}")
                 add_custom_command(TARGET ${target_dir} POST_BUILD
-                    COMMAND ${CMAKE_COMMAND} -E make_directory "${DLL_DEST}${plugin_dir}"
+                    COMMAND ${CMAKE_COMMAND} -E make_directory "${PLUGINS_DEST}${plugin_dir}"
                     COMMAND ${CMAKE_COMMAND} -E copy_directory
                         "${Qt6_BUNDLED_PLUGINS}/${plugin_dir}"
-                        "${DLL_DEST}${plugin_dir}"
-                    COMMENT "Copying Qt6 ${plugin_dir} plugins (MinGW bundled)"
+                        "${PLUGINS_DEST}${plugin_dir}"
+                    COMMENT "Bundling Qt6 ${plugin_dir} plugins"
                 )
             endif()
         endforeach()
 
-        # TLS plugins — critical for HTTPS/SSL.
-        if (EXISTS "${Qt6_BUNDLED_PLUGINS}/tls")
-            add_custom_command(TARGET ${target_dir} POST_BUILD
-                COMMAND ${CMAKE_COMMAND} -E make_directory "${TLS}"
-                COMMAND ${CMAKE_COMMAND} -E copy_directory
-                    "${Qt6_BUNDLED_PLUGINS}/tls"
-                    "${TLS}"
-                COMMENT "Copying Qt6 TLS plugins (MinGW bundled)"
+        if (CMAKE_SYSTEM_NAME STREQUAL "Linux")
+            # For Linux, also copy the shared libraries.
+            set(_qt_libs Core Gui Widgets Network Svg OpenGL DBus WaylandClient WaylandEglClient WaylandEglClientHwIntegration XcbQpa)
+            if (CITRON_USE_QT_MULTIMEDIA)
+                list(APPEND _qt_libs Multimedia MultimediaWidgets)
+            endif()
+
+            foreach(_lib ${_qt_libs})
+                if (EXISTS "${Qt6_DLL_DIR}libQt6${_lib}.so.6")
+                    add_custom_command(TARGET ${target_dir} POST_BUILD
+                        COMMAND ${CMAKE_COMMAND} -E make_directory "${LIB_DEST}"
+                        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                            "${Qt6_DLL_DIR}libQt6${_lib}.so.6"
+                            "${LIB_DEST}"
+                        COMMENT "Bundling libQt6${_lib}.so.6"
+                    )
+                endif()
+            endforeach()
+
+            find_program(PATCHELF_EXE patchelf)
+            if (NOT PATCHELF_EXE)
+                message(FATAL_ERROR
+                    "patchelf is required for portable Linux CPM bundles. "
+                    "Run ./build-citron-linux.sh setup or install patchelf with your package manager.")
+            endif()
+
+            # Bundle ICU libraries (required by QtCore)
+            if (DEFINED ICU_BINARY_DIR)
+                # If we built it ourselves, we know what we expect.
+                # Note: We can't use GLOB at configuration time if it's a fresh build.
+                set(_icu_libs data i18n io test tu uc)
+                foreach(_icu_comp ${_icu_libs})
+                    set(_icu_lib "${ICU_BINARY_DIR}/libicu${_icu_comp}.so.73")
+                    add_custom_command(TARGET ${target_dir} POST_BUILD
+                        COMMAND ${CMAKE_COMMAND} -E make_directory "${LIB_DEST}"
+                        COMMAND ${CMAKE_COMMAND} -E copy_if_different "${_icu_lib}" "${LIB_DEST}"
+                        COMMENT "Bundling ICU library: ${_icu_lib}"
+                    )
+                endforeach()
+            else()
+                file(GLOB _icu_libs "${Qt6_DLL_DIR}libicu*.so.[0-9]*")
+                foreach(_icu_lib ${_icu_libs})
+                    add_custom_command(TARGET ${target_dir} POST_BUILD
+                        COMMAND ${CMAKE_COMMAND} -E make_directory "${LIB_DEST}"
+                        COMMAND ${CMAKE_COMMAND} -E copy_if_different "${_icu_lib}" "${LIB_DEST}"
+                        COMMENT "Bundling ICU library: ${_icu_lib}"
+                    )
+                endforeach()
+            endif()
+
+            # Bundle additional XCB support libraries
+            set(_xcb_deps 
+                xcb.so.1 Xau.so.6 xcb-xkb.so.1
+                xcb-cursor.so.0 xcb-icccm.so.4 xcb-image.so.0 xcb-keysyms.so.1
+                xcb-util.so.1
+                xcb-render-util.so.0 xcb-xinerama.so.0 xcb-xinput.so.0
+                xcb-shm.so.0 xcb-render.so.0 xcb-randr.so.0 xcb-shape.so.0
+                xcb-xfixes.so.0 xcb-sync.so.1 xcb-dri3.so.0
+                # Additional system libs needed by Qt XCB plugin
+                xkbcommon.so.0 xkbcommon-x11.so.0 X11-xcb.so.1 Xdmcp.so.6
             )
-        else()
-            message(WARNING "Qt6 TLS plugin directory not found at ${Qt6_BUNDLED_PLUGINS}/tls")
-            message(WARNING "SSL/HTTPS will not work in this build.")
+            
+            if (DEFINED XCB_BINARY_DIR)
+                set(_xcb_search_dir "${XCB_BINARY_DIR}/")
+            else()
+                set(_xcb_search_dir "SYSTEM")
+            endif()
+
+            foreach(_xcb_lib ${_xcb_deps})
+                if (_xcb_search_dir STREQUAL "SYSTEM" OR _xcb_lib MATCHES "xkbcommon|X11-xcb")
+                    execute_process(COMMAND ${CMAKE_C_COMPILER} -print-file-name=lib${_xcb_lib} OUTPUT_VARIABLE _LIB_PATH OUTPUT_STRIP_TRAILING_WHITESPACE)
+                    if (NOT EXISTS "${_LIB_PATH}")
+                        # Fallback for some systems where print-file-name doesn't work well
+                        set(_LIB_PATH "/usr/lib/x86_64-linux-gnu/lib${_xcb_lib}")
+                    endif()
+                else()
+                    set(_LIB_PATH "${_xcb_search_dir}lib${_xcb_lib}")
+                endif()
+
+                # Always add the bundling command for built libs, or if system lib exists
+                add_custom_command(TARGET ${target_dir} POST_BUILD
+                    COMMAND ${CMAKE_COMMAND} -E make_directory "${LIB_DEST}"
+                    COMMAND ${CMAKE_COMMAND} -E copy_if_different "${_LIB_PATH}" "${LIB_DEST}"
+                    COMMENT "Bundling XCB support library: ${_xcb_lib}"
+                )
+            endforeach()
+
+            # Bundle libstdc++ and libgcc_s
+            execute_process(COMMAND ${CMAKE_C_COMPILER} -print-file-name=libstdc++.so.6 OUTPUT_VARIABLE _STDCXX_PATH OUTPUT_STRIP_TRAILING_WHITESPACE)
+            execute_process(COMMAND ${CMAKE_C_COMPILER} -print-file-name=libgcc_s.so.1 OUTPUT_VARIABLE _GCC_S_PATH OUTPUT_STRIP_TRAILING_WHITESPACE)
+            
+            if (EXISTS "${_STDCXX_PATH}")
+                add_custom_command(TARGET ${target_dir} POST_BUILD
+                    COMMAND ${CMAKE_COMMAND} -E make_directory "${LIB_DEST}"
+                    COMMAND ${CMAKE_COMMAND} -E copy_if_different "${_STDCXX_PATH}" "${LIB_DEST}"
+                    COMMENT "Bundling libstdc++.so.6"
+                )
+            endif()
+            if (EXISTS "${_GCC_S_PATH}")
+                add_custom_command(TARGET ${target_dir} POST_BUILD
+                    COMMAND ${CMAKE_COMMAND} -E make_directory "${LIB_DEST}"
+                    COMMAND ${CMAKE_COMMAND} -E copy_if_different "${_GCC_S_PATH}" "${LIB_DEST}"
+                    COMMENT "Bundling libgcc_s.so.1"
+                )
+            endif()
+
+            set(_runtime_dependency_dirs "${LIB_DEST}" "${Qt6_DLL_DIR}")
+            if (DEFINED ICU_BINARY_DIR)
+                list(APPEND _runtime_dependency_dirs "${ICU_BINARY_DIR}")
+            endif()
+            if (DEFINED XCB_BINARY_DIR)
+                list(APPEND _runtime_dependency_dirs "${XCB_BINARY_DIR}")
+            endif()
+            list(REMOVE_DUPLICATES _runtime_dependency_dirs)
+            string(REPLACE ";" "|" _runtime_dependency_dirs_arg "${_runtime_dependency_dirs}")
+
+            add_custom_command(TARGET ${target_dir} POST_BUILD
+                COMMAND ${CMAKE_COMMAND}
+                    -DBUNDLE_BIN_DIR="${DLL_DEST}"
+                    -DPATCHELF_EXE="${PATCHELF_EXE}"
+                    -DRUNTIME_DEPENDENCY_DIRS="${_runtime_dependency_dirs_arg}"
+                    -P "${CMAKE_SOURCE_DIR}/CMakeModules/FixLinuxBundleRpaths.cmake"
+                COMMENT "Copying Linux runtime dependencies and normalizing RPATHs"
+            )
         endif()
     endif()
 
-    # Create an empty qt.conf so Qt locates its plugins relative to the executable.
-    add_custom_command(TARGET citron POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E touch ${DLL_DEST}qt.conf
-    )
+    # Create a qt.conf next to the executable.
+    file(MAKE_DIRECTORY "${DLL_DEST}")
+    if (USE_LIB_FOLDER)
+        file(WRITE "${DLL_DEST}qt.conf" "[Paths]\nPlugins = plugins\n")
+    else()
+        file(WRITE "${DLL_DEST}qt.conf" "")
+    endif()
 endfunction(copy_citron_Qt6_deps)

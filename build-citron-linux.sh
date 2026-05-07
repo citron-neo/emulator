@@ -129,6 +129,7 @@
 #   python3 + aqtinstall                    Qt binary download (invoked by cmake)
 #   autoconf + automake + make              FFmpeg autotools build
 #   glslang (glslc)                         Vulkan shader compilation
+#   patchelf                                bundle RPATH normalization
 #   perf                                    propeller stage only
 # =============================================================================
 
@@ -350,7 +351,7 @@ stage_setup() {
         *)
             warn "Unrecognised package manager. Install manually:"
             warn "  clang (${CLANG_VERSION}+), lld, llvm-profdata, cmake, ninja, git,"
-            warn "  nasm, perl, python3, python3-pip, autoconf, automake, make, glslang-tools"
+            warn "  nasm, perl, python3, python3-pip, autoconf, automake, make, glslang-tools, patchelf"
             ;;
     esac
 
@@ -370,6 +371,7 @@ _setup_apt() {
         nasm yasm perl \
         autoconf automake make \
         glslang-tools \
+        patchelf \
         lsb-release software-properties-common gnupg \
         libelf-dev libssl-dev libzstd-dev \
         linux-tools-common linux-tools-generic 2>/dev/null || true
@@ -384,7 +386,7 @@ _setup_pacman() {
         nasm yasm perl \
         autoconf automake make \
         glslang clang lld llvm \
-        perf 2>/dev/null || true
+        patchelf perf 2>/dev/null || true
     # Arch ships unversioned tools — symlink to versioned names
     for tool in clang clang++ lld llvm-profdata llvm-bolt merge-fdata; do
         local versioned="/usr/local/bin/${tool}-${CLANG_VERSION}"
@@ -402,7 +404,7 @@ _setup_dnf() {
         python3 python3-pip curl wget xz \
         nasm yasm perl \
         autoconf automake make \
-        glslang clang lld \
+        glslang clang lld patchelf \
         elfutils-libelf-devel openssl-devel \
         perf 2>/dev/null || true
     sudo dnf install -y "clang${CLANG_VERSION}" "llvm${CLANG_VERSION}" 2>/dev/null \
@@ -417,7 +419,7 @@ _setup_yum() {
         python3 python3-pip curl wget xz \
         nasm yasm perl \
         autoconf automake make \
-        clang lld \
+        clang lld patchelf \
         elfutils-libelf-devel openssl-devel \
         perf 2>/dev/null || true
     warn "yum/CentOS: LLVM ${CLANG_VERSION} may not be in repos. Check SCL or llvm.org."
@@ -430,7 +432,7 @@ _setup_zypper() {
         python3 python3-pip curl wget xz \
         nasm yasm perl \
         autoconf automake make \
-        glslang clang lld llvm \
+        glslang clang lld llvm patchelf \
         libelf-devel libopenssl-devel \
         perf 2>/dev/null || true
 }
@@ -444,6 +446,7 @@ _setup_emerge() {
         sys-devel/clang sys-devel/lld \
         dev-build/autoconf dev-build/automake \
         media-libs/glslang \
+        dev-util/patchelf \
         dev-libs/elfutils dev-libs/openssl 2>/dev/null || true
 }
 
@@ -503,7 +506,7 @@ _verify_tools() {
     info "Verifying installation..."
     local ok=1
     for tool in "${CLANG}" "${CLANGPP}" "${LLD}" "${LLVM_PROFDATA}" \
-                cmake ninja git nasm perl python3; do
+                cmake ninja git nasm perl python3 patchelf; do
         if command -v "${tool}" &>/dev/null; then
             success "  ${tool} -> $(command -v "${tool}")"
         else
@@ -663,7 +666,9 @@ common_cmake_args() {
         "-DUSE_SYSTEM_QT=OFF" \
         "-DENABLE_QT6=ON" \
         "-DCITRON_USE_BUNDLED_FFMPEG=ON" \
+        "-DBUILD_TESTING=OFF" \
         "-DCITRON_TESTS=OFF" \
+        "-DCITRON_DOWNLOAD_TIME_ZONE_DATA=ON" \
         "-DCITRON_CHECK_SUBMODULES=OFF" \
         "-DCITRON_USE_LLVM_DEMANGLE=OFF" \
         "-DCITRON_USE_QT_MULTIMEDIA=ON" \
@@ -822,6 +827,7 @@ stage_generate() {
         "-DCMAKE_EXE_LINKER_FLAGS_${bt_upper}=${linker_flags}"
 
     write_gen_sentinel
+    mkdir -p "${BUILD_GENERATE}/bin/user"
     success "Instrumented build: ${BUILD_GENERATE}/bin/citron"
     print_profiling_instructions "${BUILD_GENERATE}/bin/citron"
 }
@@ -894,6 +900,7 @@ stage_csgenerate() {
         "-DCMAKE_CXX_FLAGS_${bt_upper}=${compile_flags}" \
         "-DCMAKE_EXE_LINKER_FLAGS_${bt_upper}=${linker_flags}"
 
+    mkdir -p "${BUILD_CSGENERATE}/bin/user"
     success "CS-IRPGO instrumented build: ${BUILD_CSGENERATE}/bin/citron"
     echo ""
     echo -e "${YELLOW}════════════════════════════════════════════════════════════════${RESET}"
@@ -963,6 +970,7 @@ stage_use() {
         header "Build: Baseline Release (no PGO, LTO=${LTO_MODE})"
         apply_source_patches
         _build_with_flags "${BUILD_ROOT}/use-nopgo" nopgo
+        mkdir -p "${BUILD_ROOT}/use-nopgo/bin/user"
         success "Baseline build: ${BUILD_ROOT}/use-nopgo/bin/citron"
         return 0
     fi
@@ -1004,6 +1012,7 @@ stage_use() {
     echo ""
     success "════════════════════════════════════════════════════════════════"
     success "  Stage use complete"
+    mkdir -p "${BUILD_USE}/bin/user"
     success "  Binary:  ${BUILD_USE}/bin/citron"
     success "  PGO:     ${pgo_label}"
     success "  LTO:     ${LTO_MODE}${LTO_MODE:+ ($(lto_clang_flag))}"
@@ -1123,8 +1132,8 @@ stage_bolt() {
     fi
 
     local elf_binary="${relocs_dir}/bin/citron"
-    mkdir -p "${BOLT_PROFILE_DIR}" "${BUILD_BOLT}"
-    local instrumented="${BUILD_BOLT}/citron-bolt-instrumented"
+    mkdir -p "${BOLT_PROFILE_DIR}" "${BUILD_BOLT}/bin"
+    local instrumented="${BUILD_BOLT}/bin/citron-bolt-instrumented"
     local fdata_pattern="${BOLT_PROFILE_DIR}/citron-%p.fdata"
     local merged_fdata="${BOLT_PROFILE_DIR}/citron-merged.fdata"
 
@@ -1167,15 +1176,17 @@ stage_bolt() {
         --split-all-cold \
         --split-eh \
         --dyno-stats \
-        -o "${BUILD_BOLT}/citron" \
+        -o "${BUILD_BOLT}/bin/citron" \
         || error "BOLT optimization failed."
 
     echo ""
     success "════════════════════════════════════════════════════════════════"
     success "  Stage bolt complete"
-    success "  Binary: ${BUILD_BOLT}/citron"
+    mkdir -p "${BUILD_BOLT}/user"
+    success "  Binary: ${BUILD_BOLT}/bin/citron"
     success "  Optimizations: PGO + LTO + BOLT basic-block reordering"
     success "════════════════════════════════════════════════════════════════"
+    echo ""
 }
 
 # =============================================================================
@@ -1341,9 +1352,11 @@ stage_propeller() {
     echo ""
     success "════════════════════════════════════════════════════════════════"
     success "  Stage propeller complete"
+    mkdir -p "${BUILD_PROPELLER}/bin/user"
     success "  Binary: ${BUILD_PROPELLER}/bin/citron"
     success "  Optimizations: PGO + LTO + Propeller BB+function layout"
     success "════════════════════════════════════════════════════════════════"
+    echo ""
 }
 
 # =============================================================================

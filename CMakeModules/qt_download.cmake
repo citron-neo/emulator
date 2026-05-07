@@ -17,8 +17,20 @@
 #
 # Prerequisites: Python3 + aqt must be installed (build script's ensure_aqt() handles this).
 
-set(CITRON_QT_VERSION  "6.9.3" CACHE STRING "Qt version to download via aqt")
-set(CITRON_QT_BASE_DIR "${CMAKE_BINARY_DIR}/externals/qt-cpm" CACHE PATH
+# The version is defined in dependencies.cmake as a CACHE variable.
+if (NOT DEFINED CITRON_QT_VERSION)
+    set(CITRON_QT_VERSION "6.9.3")
+endif()
+
+if (DEFINED ENV{CPM_SOURCE_CACHE})
+    set(_DEFAULT_QT_BASE_DIR "$ENV{CPM_SOURCE_CACHE}/qt-bin")
+elseif (DEFINED CPM_SOURCE_CACHE)
+    set(_DEFAULT_QT_BASE_DIR "${CPM_SOURCE_CACHE}/qt-bin")
+else()
+    set(_DEFAULT_QT_BASE_DIR "${CMAKE_BINARY_DIR}/externals/qt-cpm")
+endif()
+
+set(CITRON_QT_BASE_DIR "${_DEFAULT_QT_BASE_DIR}" CACHE PATH
     "Base directory for aqt-managed Qt downloads")
 
 # ── Find aqt ──────────────────────────────────────────────────────────────────
@@ -44,12 +56,14 @@ if (WIN32)
     set(_QT_OS        "windows")
     set(_QT_TARGET    "desktop")
     set(_QT_ARCH      "win64_llvm_mingw")
+    set(_QT_DIR_NAME  "llvm-mingw_64")
     set(_QT_CMAKE_SUB "lib/cmake/Qt6")
 else()
     # Native Linux (or macOS — extend here if needed)
     set(_QT_OS        "linux")
     set(_QT_TARGET    "desktop")
     set(_QT_ARCH      "linux_gcc_64")
+    set(_QT_DIR_NAME  "gcc_64")
     set(_QT_CMAKE_SUB "lib/cmake/Qt6")
 endif()
 
@@ -57,7 +71,7 @@ endif()
 if (Qt6_DIR AND EXISTS "${Qt6_DIR}/Qt6Config.cmake")
     message(STATUS "[Qt] Using target Qt from Qt6_DIR: ${Qt6_DIR}")
 else()
-    set(_QT_TARGET_DIR   "${CITRON_QT_BASE_DIR}/${CITRON_QT_VERSION}/${_QT_ARCH}")
+    set(_QT_TARGET_DIR   "${CITRON_QT_BASE_DIR}/${CITRON_QT_VERSION}/${_QT_DIR_NAME}")
     set(_QT_TARGET_CMAKE "${_QT_TARGET_DIR}/${_QT_CMAKE_SUB}/Qt6Config.cmake")
 
     if (NOT EXISTS "${_QT_TARGET_CMAKE}")
@@ -92,7 +106,7 @@ else()
                     ${_QT_OS} ${_QT_TARGET}
                     ${CITRON_QT_VERSION} ${_QT_ARCH}
                     --outputdir "${CITRON_QT_BASE_DIR}"
-                    --modules qtmultimedia qtimageformats qtsvg
+                    --modules qtmultimedia qtimageformats
             RESULT_VARIABLE _qt_mm_result
             OUTPUT_QUIET ERROR_QUIET
         )

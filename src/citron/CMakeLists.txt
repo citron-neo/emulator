@@ -14,7 +14,13 @@ set(CMAKE_JOB_POOL_LINK link_pool)
 # Set the RPATH for Qt Libraries
 # This must be done before the `citron` target is created
 if (CITRON_USE_BUNDLED_QT AND (${CMAKE_SYSTEM_NAME} STREQUAL "Linux"))
-    set(CMAKE_BUILD_RPATH "${CMAKE_BINARY_DIR}/bin/lib/")
+    # Use relative RPATH so the binary finds libraries in the 'lib' subfolder.
+    # $ORIGIN refers to the directory containing the executable.
+    # We use --disable-new-dtags to force RPATH instead of RUNPATH,
+    # ensuring recursive dependency resolution for bundled libraries.
+    set(CMAKE_BUILD_RPATH "$ORIGIN/lib/")
+    set(CMAKE_INSTALL_RPATH "$ORIGIN/lib/")
+    add_link_options("-Wl,--disable-new-dtags")
 endif()
 
 add_executable(citron
@@ -652,6 +658,12 @@ endif()
 
 if (CITRON_USE_BUNDLED_QT)
     include(CopyCitronQt6Deps)
+    if (TARGET icu-build)
+        add_dependencies(citron icu-build)
+    endif()
+    if (CITRON_XCB_TARGETS)
+        add_dependencies(citron ${CITRON_XCB_TARGETS})
+    endif()
     copy_citron_Qt6_deps(citron)
 endif()
 
