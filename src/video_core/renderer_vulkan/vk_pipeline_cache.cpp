@@ -54,7 +54,7 @@ using VideoCommon::FileEnvironment;
 using VideoCommon::GenericEnvironment;
 using VideoCommon::GraphicsEnvironment;
 
-constexpr u32 CACHE_VERSION = 14;
+constexpr u32 CACHE_VERSION = 15;
 constexpr std::array<char, 8> VULKAN_CACHE_MAGIC_NUMBER{'y', 'u', 'z', 'u', 'v', 'k', 'c', 'h'};
 
 template <typename Container>
@@ -160,7 +160,7 @@ Shader::RuntimeInfo MakeRuntimeInfo(std::span<const Shader::IR::Program> program
                                     const GraphicsPipelineCacheKey& key,
                                     const Shader::IR::Program& program,
                                     const Shader::IR::Program* previous_program,
-                                    bool has_geometry_stage) {
+                                    bool has_geometry_stage, u32 max_vertex_attributes) {
     Shader::RuntimeInfo info;
     if (previous_program) {
         info.previous_stage_stores = previous_program->info.stores;
@@ -176,7 +176,10 @@ Shader::RuntimeInfo MakeRuntimeInfo(std::span<const Shader::IR::Program> program
     const bool gl_ndc{key.state.ndc_minus_one_to_one != 0};
     const float point_size{Common::BitCast<float>(key.state.point_size)};
     switch (stage) {
-    case Shader::Stage::VertexB:
+    case Shader::Stage::VertexB: {
+        std::ranges::fill(info.generic_input_types, Shader::AttributeType::Disabled);
+        const size_t capped_vertex_attributes =
+            std::min<size_t>(info.generic_input_types.size(), max_vertex_attributes);
         if (!has_geometry) {
             if (key.state.topology == Tegra::Engines::Maxwell3D::Regs::PrimitiveTopology::Points) {
                 info.fixed_state_point_size = point_size;
@@ -190,14 +193,16 @@ Shader::RuntimeInfo MakeRuntimeInfo(std::span<const Shader::IR::Program> program
             info.convert_depth_mode = gl_ndc;
         }
         if (key.state.dynamic_vertex_input) {
-            for (size_t index = 0; index < Tegra::Engines::Maxwell3D::Regs::NumVertexAttributes; ++index) {
+            for (size_t index = 0; index < capped_vertex_attributes; ++index) {
                 info.generic_input_types[index] = AttributeType(key.state, index);
             }
         } else {
-            std::ranges::transform(key.state.attributes, info.generic_input_types.begin(),
-                                   &CastAttributeType);
+            for (size_t index = 0; index < capped_vertex_attributes; ++index) {
+                info.generic_input_types[index] = CastAttributeType(key.state.attributes[index]);
+            }
         }
         break;
+    }
     case Shader::Stage::TessellationEval:
         info.tess_clockwise = key.state.tessellation_clockwise != 0;
         info.tess_primitive = [&key] {
@@ -338,6 +343,12 @@ PipelineCache::PipelineCache(Tegra::MaxwellDeviceMemoryManager& device_memory_,
       serialization_thread(1, "VkPipelineSerialization") {
     const auto& float_control{device.FloatControlProperties()};
     const VkDriverId driver_id{device.GetDriverID()};
+    if (driver_id == VK_DRIVER_ID_MOLTENVK && use_asynchronous_shaders) {
+        LOG_INFO(Render_Vulkan,
+                 "Disabling asynchronous shaders on MoltenVK to avoid prolonged black frames "
+                 "while graphics pipelines compile");
+        use_asynchronous_shaders = false;
+    }
     // OPTIMIZED FOR LOW GPU ACCURACY - enable mediump in fragment shaders for better perf
     const bool low_gpu_accuracy = Settings::IsGPULevelLow();
 
@@ -789,6 +800,7 @@ std::unique_ptr<GraphicsPipeline> PipelineCache::CreateGraphicsPipeline(
     const bool has_geometry_stage =
         geometry_supported && key.unique_hashes[geometry_stage_index] != 0 &&
         !programs[geometry_stage_index].is_geometry_passthrough;
+    const u32 max_vertex_attributes = device.GetMaxVertexInputAttributes();
     for (size_t index = uses_vertex_a && uses_vertex_b ? 1 : 0; index < Tegra::Engines::Maxwell3D::Regs::MaxShaderProgram;
          ++index) {
         if (index == geometry_stage_index && !geometry_supported) {
@@ -806,7 +818,8 @@ std::unique_ptr<GraphicsPipeline> PipelineCache::CreateGraphicsPipeline(
         infos[stage_index] = &program.info;
 
         const auto runtime_info{
-            MakeRuntimeInfo(programs, key, program, previous_stage, has_geometry_stage)};
+            MakeRuntimeInfo(programs, key, program, previous_stage, has_geometry_stage,
+                            max_vertex_attributes)};
         ConvertLegacyToGeneric(program, runtime_info);
         std::vector<u32> code = EmitSPIRV(profile, runtime_info, program, binding);
         // Reserve space to reduce allocations during shader compilation

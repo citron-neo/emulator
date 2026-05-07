@@ -282,11 +282,10 @@ void NvMap::UnpinHandle(Handle::Id handle) {
         return;
     }
     if (--handle_description->pins == 0) {
-        std::scoped_lock queueLock(unmap_queue_lock);
-
-        // Add to the unmap queue allowing this handle's memory to be freed if needed
-        unmap_queue.push_back(handle_description);
-        handle_description->unmap_queue_entry = std::prev(unmap_queue.end());
+        // Temporary safety fallback: keep nvmap allocations resident instead of queuing unmap.
+        // On some workloads pin accounting can drift, and aggressively recycling mappings can
+        // evict still-referenced GPU memory, resulting in persistent black output.
+        return;
     }
 }
 

@@ -234,6 +234,13 @@ void RasterizerVulkan::PrepareDraw(bool is_indexed, Func&& draw_func) {
 
     query_cache.NotifySegment(true);
 
+    // MoltenVK path: clear unsupported TF state before pipeline-key generation.
+    // If this happens after CurrentGraphicsPipeline(), the cache key can still encode
+    // transform-feedback enabled and select an incompatible pipeline variant.
+    if (!device.IsExtTransformFeedbackSupported()) {
+        maxwell3d->regs.transform_feedback_enabled = 0;
+    }
+
     GraphicsPipeline* const pipeline{pipeline_cache.CurrentGraphicsPipeline()};
     if (!pipeline) {
         return;
@@ -1061,13 +1068,17 @@ void RasterizerVulkan::UpdateDynamicStates() {
 void RasterizerVulkan::HandleTransformFeedback() {
     static std::once_flag warn_unsupported;
 
-    const auto& regs = maxwell3d->regs;
+    auto& regs = maxwell3d->regs;
     if (!device.IsExtTransformFeedbackSupported()) {
         std::call_once(warn_unsupported, [&] {
             LOG_WARNING(Render_Vulkan,
                         "Transform feedback is enabled in GPU state but VK_EXT_transform_feedback "
                         "is unavailable (e.g. MoltenVK); using fallbacks where implemented");
         });
+        // Force-disable guest TF state on unsupported backends so later draw/state paths
+        // don't observe a stale enabled bit and accidentally take stream-out dependent branches.
+        regs.transform_feedback_enabled = 0;
+        query_cache.CounterEnable(VideoCommon::QueryType::StreamingByteCount, 0);
         return;
     }
     query_cache.CounterEnable(VideoCommon::QueryType::StreamingByteCount,
