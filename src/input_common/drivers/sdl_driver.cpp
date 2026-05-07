@@ -40,6 +40,20 @@ std::string NormalizedGamepadName(SDL_GameController* controller) {
     return s;
 }
 
+bool IsSonyGamepad(SDL_GameController* controller) {
+    if (controller == nullptr) {
+        return false;
+    }
+    const auto ctype = SDL_GameControllerGetType(controller);
+    if (ctype == SDL_CONTROLLER_TYPE_PS3 || ctype == SDL_CONTROLLER_TYPE_PS4 ||
+        ctype == SDL_CONTROLLER_TYPE_PS5) {
+        return true;
+    }
+    const std::string s = NormalizedGamepadName(controller);
+    return s.find("dualshock") != std::string::npos || s.find("dualsense") != std::string::npos ||
+           s.find("ps3") != std::string::npos || s.find("ps4") != std::string::npos ||
+           s.find("ps5") != std::string::npos;
+}
 
 bool IsMicrosoftGamepad(SDL_GameController* controller) {
     if (controller == nullptr) {
@@ -561,12 +575,9 @@ SDLDriver::SDLDriver(std::string input_engine_) : InputEngine(std::move(input_en
     // Share the same button mapping with non-Nintendo controllers
     SDL_SetHint(SDL_HINT_GAMECONTROLLER_USE_BUTTON_LABELS, "0");
 
-    // On Linux, HIDAPI Xbox competes with the evdev/kernel Xbox driver; force it off. On macOS (and
-    // other non-Linux), leave the default so Xbox controllers can use HIDAPI and expose a proper
-    // GameController mapping (otherwise SDL may only see a generic joystick and bindings are empty).
-#if defined(__linux__)
+    // Disable hidapi driver for xbox. Already default on Windows, this causes conflict with native
+    // driver on Linux.
     SDL_SetHint(SDL_HINT_JOYSTICK_HIDAPI_XBOX, "0");
-#endif
 
     // If the frontend is going to manage the event loop, then we don't start one here
     start_thread = SDL_WasInit(SDL_INIT_JOYSTICK | SDL_INIT_GAMECONTROLLER) == 0;
@@ -881,6 +892,8 @@ ButtonBindings SDLDriver::GetDefaultButtonBinding(
         srr_button = SDL_CONTROLLER_BUTTON_PADDLE1;
     }
 
+    // Switch: B=south / A=east vs SDL A=south / B=east, and transposed X/Y. Sony uses SDL face
+    // order like Xbox; other pads use Switch-style A/B mapping.
     SDL_GameController* controller = joystick->GetSDLGameController();
     const SDL_GameControllerType controller_type =
         controller ? SDL_GameControllerGetType(controller) : SDL_CONTROLLER_TYPE_UNKNOWN;
@@ -890,10 +903,9 @@ ButtonBindings SDLDriver::GetDefaultButtonBinding(
         controller_type == SDL_CONTROLLER_TYPE_NINTENDO_SWITCH_JOYCON_RIGHT ||
         controller_type == SDL_CONTROLLER_TYPE_NINTENDO_SWITCH_JOYCON_PAIR;
 
-    const SDL_GameControllerButton sdl_a =
-        nintendo_layout ? SDL_CONTROLLER_BUTTON_A : SDL_CONTROLLER_BUTTON_B;
-    const SDL_GameControllerButton sdl_b =
-        nintendo_layout ? SDL_CONTROLLER_BUTTON_B : SDL_CONTROLLER_BUTTON_A;
+    const bool sony = IsSonyGamepad(controller);
+    const SDL_GameControllerButton sdl_a = sony ? SDL_CONTROLLER_BUTTON_A : SDL_CONTROLLER_BUTTON_B;
+    const SDL_GameControllerButton sdl_b = sony ? SDL_CONTROLLER_BUTTON_B : SDL_CONTROLLER_BUTTON_A;
     const SDL_GameControllerButton sdl_x =
         nintendo_layout ? SDL_CONTROLLER_BUTTON_X : SDL_CONTROLLER_BUTTON_Y;
     const SDL_GameControllerButton sdl_y =
@@ -1013,13 +1025,7 @@ AnalogMapping SDLDriver::GetAnalogMappingForDevice(const Common::ParamPackage& p
         return {};
     }
 
-    // Linux/Windows: Xbox kernel/SDL stack often needs stick Y flipped vs Switch; PS5 and others use
-    // "+". macOS: all pads (including Xbox HIDAPI and DualSense) use the same "+" polarity here.
-#if defined(__APPLE__)
-    const char* const stick_invert_y = "+";
-#else
     const char* const stick_invert_y = IsMicrosoftGamepad(controller) ? "-" : "+";
-#endif
 
     AnalogMapping mapping = {};
     const auto& binding_left_x =
