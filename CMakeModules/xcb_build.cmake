@@ -10,7 +10,7 @@ endif()
 
 # We need a list of components to fetch and build. 
 # 'macros' and 'proto' must come first as others depend on them.
-set(_xcb_components macros proto xau libxcb util image keysyms renderutil wm cursor)
+set(_xcb_components macros proto xau xdmcp libxcb util image keysyms renderutil wm cursor)
 
 set(XCB_BUILD_ROOT "${CMAKE_BINARY_DIR}/externals/xcb-build")
 file(MAKE_DIRECTORY "${XCB_BUILD_ROOT}")
@@ -21,6 +21,7 @@ set(XCB_BINARY_DIR "${XCB_BUILD_ROOT}/lib" CACHE INTERNAL "Location of CPM-built
 set(_xcb_macros_ver "${CITRON_XCB_MACROS_VER}")
 set(_xcb_proto_ver  "${CITRON_XCB_PROTO_VER}")
 set(_xcb_xau_ver    "${CITRON_XCB_XAU_VER}")
+set(_xcb_xdmcp_ver  "${CITRON_XCB_XDMCP_VER}")
 set(_xcb_libxcb_ver "${CITRON_XCB_LIBXCB_VER}")
 set(_xcb_cursor_ver "${CITRON_XCB_CURSOR_VER}")
 set(_xcb_util_ver "${CITRON_XCB_UTIL_VER}")
@@ -38,6 +39,9 @@ foreach(_comp ${_xcb_components})
     elseif(_comp STREQUAL "xau")
         set(_url "https://xorg.freedesktop.org/archive/individual/lib/libXau-${_xcb_xau_ver}.tar.xz")
         set(_name "libXau")
+    elseif(_comp STREQUAL "xdmcp")
+        set(_url "https://xorg.freedesktop.org/archive/individual/lib/libXdmcp-${_xcb_xdmcp_ver}.tar.xz")
+        set(_name "libXdmcp")
     elseif(_comp STREQUAL "libxcb")
         set(_url "https://xcb.freedesktop.org/dist/libxcb-${_xcb_libxcb_ver}.tar.xz")
         set(_name "libxcb")

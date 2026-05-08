@@ -1,0 +1,6 @@
+# Build configuration for AppImageBuilder
+export CITRON_QT_PATH="@QT_TARGET_PATH@"
+export CITRON_ICU_PATH="@ICU_BINARY_DIR@"
+export CITRON_XCB_PATH="@XCB_BUILD_ROOT@"
+export CITRON_BINARY_DIR="@CMAKE_BINARY_DIR@/bin"
+export ARCH="@CMAKE_SYSTEM_PROCESSOR@"
