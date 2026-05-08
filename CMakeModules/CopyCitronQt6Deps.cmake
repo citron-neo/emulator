@@ -222,11 +222,20 @@ function(copy_citron_Qt6_deps target_dir)
         endif()
     endif()
 
-    # Create a qt.conf next to the executable.
-    file(MAKE_DIRECTORY "${DLL_DEST}")
+    # Create a qt.conf next to the executable at build time.
+    # This handles generator expressions in DLL_DEST (e.g. on MSVC).
     if (USE_LIB_FOLDER)
-        file(WRITE "${DLL_DEST}qt.conf" "[Paths]\nPlugins = plugins\n")
+        set(_QT_CONF_CONTENTS "[Paths]\nPlugins = plugins\n")
     else()
-        file(WRITE "${DLL_DEST}qt.conf" "")
+        set(_QT_CONF_CONTENTS "")
     endif()
+
+    set(_QT_CONF_TEMP "${CMAKE_CURRENT_BINARY_DIR}/qt.conf.${target_dir}.temp")
+    file(WRITE "${_QT_CONF_TEMP}" "${_QT_CONF_CONTENTS}")
+
+    add_custom_command(TARGET ${target_dir} POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E make_directory "${DLL_DEST}"
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different "${_QT_CONF_TEMP}" "${DLL_DEST}qt.conf"
+        COMMENT "Creating qt.conf for ${target_dir}"
+    )
 endfunction(copy_citron_Qt6_deps)

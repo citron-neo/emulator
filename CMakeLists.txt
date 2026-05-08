@@ -94,16 +94,7 @@ CMAKE_DEPENDENT_OPTION(CITRON_CRASH_DUMPS "Compile crash dump (Minidump) support
 option(CITRON_USE_BUNDLED_VCPKG "Use vcpkg for citron dependencies" "${MSVC}")
 option(CITRON_USE_CPM "Use CPM.cmake to fetch dependencies" OFF)
 
-# Auto-enable CPM for Linux/MinGW if not using vcpkg
-if (NOT CITRON_USE_BUNDLED_VCPKG AND (UNIX OR MINGW))
-    set(CITRON_USE_CPM ON CACHE BOOL "" FORCE)
-endif()
-
-if (CITRON_USE_CPM)
-    set(CITRON_CHECK_SUBMODULES OFF CACHE BOOL "" FORCE)
-else()
-    option(CITRON_CHECK_SUBMODULES "Check if submodules are present" ON)
-endif()
+option(CITRON_CHECK_SUBMODULES "Check if submodules are present" ON)
 
 option(CITRON_ENABLE_LTO "Enable link-time optimization" OFF)
 
