@@ -113,16 +113,17 @@ else()
     endif()
 
     # Download additional modules (multimedia, imageformats, svg)
-    set(_QT_MM_CMAKE  "${_QT_TARGET_DIR}/lib/cmake/Qt6Multimedia/Qt6MultimediaConfig.cmake")
-    set(_QT_SVG_CMAKE "${_QT_TARGET_DIR}/lib/cmake/Qt6Svg/Qt6SvgConfig.cmake")
-    if (NOT EXISTS "${_QT_MM_CMAKE}" OR NOT EXISTS "${_QT_SVG_CMAKE}")
+    set(_QT_MM_CMAKE   "${_QT_TARGET_DIR}/lib/cmake/Qt6Multimedia/Qt6MultimediaConfig.cmake")
+    set(_QT_SVG_CMAKE  "${_QT_TARGET_DIR}/lib/cmake/Qt6Svg/Qt6SvgConfig.cmake")
+    set(_QT_TOOL_CMAKE "${_QT_TARGET_DIR}/lib/cmake/Qt6CoreTools/Qt6CoreToolsConfig.cmake")
+    if (NOT EXISTS "${_QT_MM_CMAKE}" OR NOT EXISTS "${_QT_SVG_CMAKE}" OR NOT EXISTS "${_QT_TOOL_CMAKE}")
         message(STATUS "[Qt] Downloading Qt ${CITRON_QT_VERSION} additional modules...")
         execute_process(
             COMMAND ${_AQT_EXECUTABLE} install-qt
                     ${_QT_OS} ${_QT_TARGET}
                     ${CITRON_QT_VERSION} ${_QT_ARCH}
                     --outputdir "${CITRON_QT_BASE_DIR}"
-                    --modules qtmultimedia qtimageformats
+                    --modules qttools qtmultimedia qtimageformats
             RESULT_VARIABLE _qt_mm_result
             OUTPUT_QUIET ERROR_QUIET
         )
@@ -135,9 +136,16 @@ else()
         get_filename_component(_qt6_dir "${_QT_TARGET_CMAKE}" DIRECTORY)
         set(Qt6_DIR "${_qt6_dir}" CACHE PATH "Path to Qt6Config.cmake (from aqt)" FORCE)
         set(QT_TARGET_PATH "${_QT_TARGET_DIR}" CACHE PATH "Path to Qt6 target root" FORCE)
+
         message(STATUS "[Qt] Qt6_DIR = ${Qt6_DIR}")
         message(STATUS "[Qt] QT_TARGET_PATH = ${QT_TARGET_PATH}")
     endif()
+endif()
+
+# Prepend target path so internal dependencies (like Qt6CoreTools) are found here first
+if (QT_TARGET_PATH)
+    list(PREPEND CMAKE_PREFIX_PATH "${QT_TARGET_PATH}")
+    set(CMAKE_PREFIX_PATH "${CMAKE_PREFIX_PATH}" CACHE PATH "Search path for Qt and other dependencies" FORCE)
 endif()
 
 # ── Host Qt for cross-compilation (Linux host → Windows target) ───────────────
@@ -179,4 +187,10 @@ if (CMAKE_HOST_UNIX AND WIN32)
             message(STATUS "[Qt] QT_HOST_PATH = ${QT_HOST_PATH}")
         endif()
     endif()
+endif()
+
+# Prepend host path for cross-compile tool discovery
+if (QT_HOST_PATH)
+    list(PREPEND CMAKE_PREFIX_PATH "${QT_HOST_PATH}")
+    set(CMAKE_PREFIX_PATH "${CMAKE_PREFIX_PATH}" CACHE PATH "Search path for Qt and other dependencies" FORCE)
 endif()
