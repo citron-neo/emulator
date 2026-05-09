@@ -289,7 +289,7 @@ build_linker_flags() {
     local stage="$1"; local extra="${2:-}"
     local debug_flag=""; [[ "${BUILD_TYPE}" == "RelWithDebInfo" ]] && debug_flag="-g"
     local lto_flag; lto_flag="$(lto_clang_flag)"
-    local base="-fuse-ld=${LLD} -Wl,-z,pack-relative-relocs=none"
+    local base="-fuse-ld=${LLD} -Wl,-z,nopack-relative-relocs"
 
     case "${stage}" in
         generate|csgenerate)
