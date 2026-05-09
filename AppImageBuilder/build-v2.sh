@@ -3,7 +3,8 @@ set -e
 
 # Get script directory
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
-BUILD_DIR="${1:-$SCRIPT_DIR/../build/generate}"
+BUILD_DIR_RAW="${1:-$SCRIPT_DIR/../build/generate}"
+BUILD_DIR="$(readlink -f "${BUILD_DIR_RAW}")"
 
 # Save environment overrides
 ENV_QT_PATH="${CITRON_QT_PATH:-}"
@@ -53,6 +54,7 @@ mkdir -p "$APPDIR"
 # We need to tell linuxdeploy where our custom libraries are
 export LD_LIBRARY_PATH="$CITRON_ICU_PATH:$CITRON_XCB_PATH/lib:$LD_LIBRARY_PATH"
 export EXTRA_QT_PLUGINS="wayland" # Add any extra plugins needed
+export NO_STRIP=1 # Avoid strip failures on modern binaries (SHT_RELR)
 
 # Run linuxdeploy
 # --plugin qt handles Qt dependencies
