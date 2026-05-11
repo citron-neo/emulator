@@ -159,10 +159,15 @@ protected:
         painter.drawLine(widget_center_x, 5, widget_center_x, 25);
         painter.drawLine(widget_center_x, height() - 25, widget_center_x, height() - 5);
 
-        for (int i = 0; i < m_games.size(); ++i) {
+        const int total_items = m_games.size();
+        const int visible_count = (width() / total_slot_width) + 2;
+        const int start_idx = qMax(0, static_cast<int>((m_scroll_offset - widget_center_x) / total_slot_width) - 1);
+        const int end_idx = qMin(total_items - 1, start_idx + visible_count + 2);
+
+        for (int i = start_idx; i <= end_idx; ++i) {
             const qreal icon_x_position = (static_cast<qreal>(widget_center_x) - icon_size / 2.0) +
-                                          (i * static_cast<qreal>(total_slot_width)) -
-                                          m_scroll_offset;
+                                           (i * static_cast<qreal>(total_slot_width)) -
+                                           m_scroll_offset;
             const int draw_x = static_cast<int>(icon_x_position);
             const int draw_y = widget_center_y - (icon_size / 2);
 
@@ -4161,9 +4166,11 @@ void GameList::onSurpriseMeClicked() {
         return;
     }
 
-    // Create and show animated dialog
+    // Create and show animated dialog - suspend background updates for performance
+    SuspendAnimations(true);
     SurpriseMeDialog dialog(all_games, this);
     const int result = dialog.exec();
+    SuspendAnimations(false);
 
     // If the user clicked "Launch Game"...
     if (result == QDialog::Accepted) {
@@ -4174,6 +4181,22 @@ void GameList::onSurpriseMeClicked() {
         }
     }
     // If the user just closes the window (or clicks the 'X'), nothing happens.
+}
+
+void GameList::SuspendAnimations(bool suspend) {
+    if (suspend) {
+        if (tree_view) tree_view->viewport()->setUpdatesEnabled(false);
+        if (grid_view) grid_view->viewport()->setUpdatesEnabled(false);
+        if (carousel_view && carousel_view->view()) carousel_view->view()->setUpdatesEnabled(false);
+    } else {
+        if (tree_view) tree_view->viewport()->setUpdatesEnabled(true);
+        if (grid_view) grid_view->viewport()->setUpdatesEnabled(true);
+        if (carousel_view && carousel_view->view()) carousel_view->view()->setUpdatesEnabled(true);
+        
+        if (tree_view) tree_view->viewport()->update();
+        if (grid_view) grid_view->viewport()->update();
+        if (carousel_view && carousel_view->view()) carousel_view->view()->update();
+    }
 }
 
 void GameList::UpdateAccentColorStyles() {

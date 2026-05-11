@@ -37,6 +37,7 @@
 #include "citron/game_list_delegate.h"
 #include "citron/game_list_p.h"
 #include "citron/uisettings.h"
+#include "citron/util/image_cache.h"
 
 namespace {
 void DrawShadowedText(QPainter* painter, const QRect& rect, int flags, const QString& text,
@@ -55,15 +56,8 @@ void DrawShadowedText(QPainter* painter, const QRect& rect, int flags, const QSt
 
     painter->save();
     painter->setPen(outline);
-    // 8-way outline with custom size
+    // Simplified shadow for performance at high resolutions
     if (o > 0) {
-        painter->drawText(rect.translated(-o, 0), flags, text);
-        painter->drawText(rect.translated(o, 0), flags, text);
-        painter->drawText(rect.translated(0, -o), flags, text);
-        painter->drawText(rect.translated(0, o), flags, text);
-        painter->drawText(rect.translated(-o, -o), flags, text);
-        painter->drawText(rect.translated(o, -o), flags, text);
-        painter->drawText(rect.translated(-o, o), flags, text);
         painter->drawText(rect.translated(o, o), flags, text);
     }
     painter->restore();
@@ -85,13 +79,6 @@ void DrawShadowedText(QPainter* painter, int x, int y, const QString& text, cons
     painter->save();
     painter->setPen(outline);
     if (o > 0) {
-        painter->drawText(x - o, y, text);
-        painter->drawText(x + o, y, text);
-        painter->drawText(x, y - o, text);
-        painter->drawText(x, y + o, text);
-        painter->drawText(x - o, y - o, text);
-        painter->drawText(x + o, y - o, text);
-        painter->drawText(x - o, y + o, text);
         painter->drawText(x + o, y + o, text);
     }
     painter->restore();
@@ -680,11 +667,7 @@ void GameListDelegate::PaintGameInfo(QPainter* painter, const QRect& rect,
     u64 program_id = master_index.data(GameListItemPath::ProgramIdRole).toULongLong();
 
     // 1. Icon Rendering (Direct Disk -> HighRes -> Decoration fallback)
-    QPixmap pixmap;
-    auto custom_icon_path = Citron::CustomMetadata::GetInstance().GetCustomIconPath(program_id);
-    if (custom_icon_path) {
-        pixmap.load(QString::fromStdString(*custom_icon_path));
-    }
+    QPixmap pixmap = Citron::ImageCache::GetCustomIcon(program_id);
 
     if (pixmap.isNull()) {
         pixmap = master_index.data(GameListItemPath::HighResIconRole).value<QPixmap>();

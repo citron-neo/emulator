@@ -230,6 +230,7 @@ private:
     void RefreshTooltips();
     void ToggleHidden(const QString& path);
     void UpdateCarouselSelection();
+    void SuspendAnimations(bool suspend);
     void AnimateDetailsPanel(bool show);
 
     void ShowTechnicalInformation(const QModelIndex& index);

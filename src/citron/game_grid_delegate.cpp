@@ -17,6 +17,8 @@
 #include "citron/game_list_p.h"
 #include "citron/uisettings.h"
 #include "citron/custom_metadata.h"
+#include "citron/util/image_cache.h"
+#include "citron/theme.h"
 
 GameGridDelegate::GameGridDelegate(QListView* view, QObject* parent)
     : QStyledItemDelegate(parent), m_view(view) {
@@ -64,8 +66,13 @@ void GameGridDelegate::paint(QPainter* painter, const QStyleOptionViewItem& opti
 }
 
 void GameGridDelegate::AdvanceAnimations() {
+    bool needs_update = false;
     if (!m_view || !m_view->isVisible())
         return;
+    
+    if (!m_pulse_states.isEmpty() || !m_entry_animations.isEmpty() || !m_hover_states.isEmpty()) {
+        needs_update = true;
+    }
 
     auto it_pulse = m_pulse_states.begin();
     while (it_pulse != m_pulse_states.end()) {
@@ -109,14 +116,18 @@ void GameGridDelegate::AdvanceAnimations() {
 
     if (m_is_populating && m_population_fade_global > 0.6) {
         m_population_fade_global -= 0.02;
+        needs_update = true;
     } else if (!m_is_populating && m_population_fade_global < 1.0) {
         m_population_fade_global += 0.03;
         if (m_population_fade_global > 1.0)
             m_population_fade_global = 1.0;
+        needs_update = true;
     }
 
     m_pulse_tick++;
-    m_view->viewport()->update();
+    if (needs_update) {
+        m_view->viewport()->update();
+    }
 }
 
 void GameGridDelegate::PaintPosterItem(QPainter* painter, const QStyleOptionViewItem& option,
@@ -191,10 +202,7 @@ void GameGridDelegate::PaintPosterItem(QPainter* painter, const QStyleOptionView
     if (cached_pixmap) {
         pixmap = *cached_pixmap;
     } else {
-        auto poster_path = Citron::CustomMetadata::GetInstance().GetCustomPosterPath(program_id);
-        if (poster_path && !poster_path->empty()) {
-            pixmap = QPixmap(QString::fromStdString(*poster_path));
-        }
+        pixmap = Citron::ImageCache::GetCustomPoster(program_id);
 
         if (pixmap.isNull()) {
             // Fallback to high-res icon if poster is missing
@@ -364,19 +372,15 @@ void GameGridDelegate::PaintGridItem(QPainter* painter, const QStyleOptionViewIt
             QRectF pr(start_x + (i * spacing) - (pin_w / 2.0), card_rect.bottom() - (18 * scale),
                       pin_w, 14 * scale);
 
+            // Use solid colors with a simpler gradient for gold pins to save GPU/CPU cycles
             QLinearGradient pg(pr.topLeft(), pr.bottomLeft());
             pg.setColorAt(0, QColor(10, 10, 12));
-            pg.setColorAt(0.35, QColor(220, 200, 120)); // Bright Metallic Gold
-            pg.setColorAt(0.65, QColor(160, 140, 70));
+            pg.setColorAt(0.5, QColor(220, 200, 120)); 
             pg.setColorAt(1, QColor(25, 25, 30));
 
             painter->setBrush(pg);
-            painter->setPen(QPen(QColor(0, 0, 0, 180), 0.3 * scale));
-            painter->drawRoundedRect(pr, 1 * scale, 1 * scale);
-
-            painter->setPen(QPen(QColor(255, 255, 255, 50), 0.5 * scale));
-            painter->drawLine(pr.left() + pr.width() * 0.2, pr.top() + pr.height() * 0.2,
-                              pr.left() + pr.width() * 0.2, pr.top() + pr.height() * 0.5);
+            painter->setPen(Qt::NoPen);
+            painter->drawRect(pr);
         }
         painter->restore();
     }
@@ -424,7 +428,10 @@ void GameGridDelegate::PaintGridItem(QPainter* painter, const QStyleOptionViewIt
     QRectF bottom_bar(label_rect.left(), label_rect.bottom() - bar_h, label_rect.width(), bar_h);
     painter->fillRect(bottom_bar, QColor(10, 10, 12));
 
-    QPixmap pixmap = index.data(GameListItemPath::HighResIconRole).value<QPixmap>();
+    u64 program_id = index.data(GameListItemPath::ProgramIdRole).toULongLong();
+    QPixmap pixmap = Citron::ImageCache::GetCustomIcon(program_id);
+    if (pixmap.isNull())
+        pixmap = index.data(GameListItemPath::HighResIconRole).value<QPixmap>();
     if (pixmap.isNull())
         pixmap = index.data(Qt::DecorationRole).value<QPixmap>();
     if (!pixmap.isNull()) {

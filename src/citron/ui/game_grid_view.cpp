@@ -49,9 +49,10 @@ protected:
         wood_grad.setColorAt(1, QColor(15, 8, 3));
         painter.fillRect(e->rect(), wood_grad);
 
-        // Add subtle wood grain lines
+        // Add subtle wood grain lines - reduce density for performance at high res
         painter.setPen(QPen(QColor(255, 255, 255, 3), 1));
-        for (int i = 0; i < e->rect().height(); i += 4) {
+        const int step = e->rect().height() > 1080 ? 8 : 4;
+        for (int i = 0; i < e->rect().height(); i += step) {
             painter.drawLine(0, i, e->rect().width(), i);
         }
     }
@@ -81,11 +82,23 @@ protected:
             int card_h = icon_size + static_cast<int>(64 * scale);
 
             QList<int> row_tops;
-            for (int i = 0; i < this->model()->rowCount(); ++i) {
+            const int total_items = this->model()->rowCount();
+            const int viewport_h = viewport()->height();
+            
+            // Fast-forward to the first potentially visible row
+            int start_item = 0;
+            const QSize gs = gridSize();
+            if (gs.height() > 0 && gs.width() > 0) {
+                int cols = qMax(1, viewport()->width() / gs.width());
+                int scroll_y = -this->visualRect(this->model()->index(0, 0)).y();
+                start_item = qMax(0, (scroll_y / gs.height()) * cols);
+            }
+
+            for (int i = start_item; i < total_items; ++i) {
                 QRect r = this->visualRect(this->model()->index(i, 0));
-                // If any part of the row's indicator item is visible or near visible, collect its
-                // row Y
-                if (r.isValid() && r.bottom() >= -200 && r.top() <= viewport()->height() + 200) {
+                if (!r.isValid()) continue;
+                if (r.top() > viewport_h + 200) break; // Finished visible range
+                if (r.bottom() >= -200) {
                     if (!row_tops.contains(r.y())) {
                         row_tops.append(r.y());
                     }

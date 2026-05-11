@@ -16,6 +16,7 @@
 #include "citron/uisettings.h"
 #include "citron/theme.h"
 #include "citron/custom_metadata.h"
+#include "citron/util/image_cache.h"
 
 CinematicCarousel::CinematicCarousel(QWidget* parent) : QWidget(parent) {
     m_snap_animation = new QPropertyAnimation(this, "focalIndex");
@@ -24,7 +25,9 @@ CinematicCarousel::CinematicCarousel(QWidget* parent) : QWidget(parent) {
     
     m_pulse_timer = new QTimer(this);
     connect(m_pulse_timer, &QTimer::timeout, this, [this]{ 
+        bool needs_update = false;
         m_pulse_tick++; 
+        if (m_has_focus) needs_update = true; // Pulse effect for focused item
 
         // Advance entry animations
         auto it = m_entry_animations.begin();
@@ -36,12 +39,13 @@ CinematicCarousel::CinematicCarousel(QWidget* parent) : QWidget(parent) {
             if (it.value() < 1.0) {
                 it.value() += 0.06;
                 if (it.value() >= 1.0) it.value() = 1.0;
+                needs_update = true;
                 ++it;
             } else {
                 it = m_entry_animations.erase(it);
             }
         }
-        update(); 
+        if (needs_update) update(); 
     });
     m_pulse_timer->start(32);
     
@@ -160,12 +164,18 @@ void CinematicCarousel::paintEvent(QPaintEvent* event) {
     const qreal bs = is + (35.0f * scale);
     const qreal arrow_ay = std::max(80.0 * scale, vcy - (1.4 * ((is + static_cast<int>(25 * scale)) / 2.0)) - (28.0f * scale));
 
+    // Only sort and render items near the focal index to save CPU cycles
+    const int focal_idx = std::round(m_focal_index);
+    const int range = std::max(5, static_cast<int>((width() / bs) + 2));
+    const int start_idx = std::max(0, focal_idx - range);
+    const int end_idx = std::min(count - 1, focal_idx + range);
+
     QVector<int> order;
-    for (int i = 0; i < count; ++i) order << i;
+    for (int i = start_idx; i <= end_idx; ++i) order << i;
     std::sort(order.begin(), order.end(), [this](int a, int b) { return std::abs(a - m_focal_index) > std::abs(b - m_focal_index); });
     for (int i : order) {
         const qreal d = i - m_focal_index; const qreal dist = std::abs(d * bs);
-        if (dist > width()) continue;
+        if (dist > width() / 2.0 + bs) continue;
         qreal s = 1.0; qreal dx = 0.0;
         const qreal x = vcx + (d * bs) + dx; const qreal y = vcy;
         p.save(); p.translate(x, y);
@@ -243,12 +253,8 @@ void CinematicCarousel::paintEvent(QPaintEvent* event) {
         QModelIndex idx = m_model->index(i, 0);
         u64 program_id = idx.data(GameListItemPath::ProgramIdRole).toULongLong();
         
-        // Priority 1: Direct High-Res from disk
-        QPixmap pix;
-        auto custom_icon_path = Citron::CustomMetadata::GetInstance().GetCustomIconPath(program_id);
-        if (custom_icon_path) {
-            pix.load(QString::fromStdString(*custom_icon_path));
-        }
+        // Priority 1: Direct High-Res from Disk (Cached)
+        QPixmap pix = Citron::ImageCache::GetCustomIcon(program_id);
 
         // Priority 2: Model fallback
         if (pix.isNull()) {
