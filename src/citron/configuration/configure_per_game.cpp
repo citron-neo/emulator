@@ -127,7 +127,9 @@ ConfigurePerGame::ConfigurePerGame(QWidget* parent, u64 title_id_, const std::st
         system_, vk_device_records, [&]() { graphics_advanced_tab->ExposeComputeOption(); },
         [](Settings::AspectRatio, Settings::ResolutionSetup) {}, tab_group, *builder, this);
     input_tab = std::make_unique<ConfigureInputPerGame>(system_, game_config.get(), this);
+#ifdef __unix__
     linux_tab = std::make_unique<ConfigureLinuxTab>(system_, tab_group, *builder, this);
+#endif
     system_tab = std::make_unique<ConfigureSystem>(system_, tab_group, *builder, this);
 
     const bool is_gamescope = UISettings::IsGamescope();
@@ -216,7 +218,9 @@ ConfigurePerGame::ConfigurePerGame(QWidget* parent, u64 title_id_, const std::st
     add_tab(audio_tab.get(), tr("Audio"), tab_id++);
     add_tab(input_tab.get(), tr("Input Profiles"), tab_id++);
 #ifdef __unix__
-    add_tab(linux_tab.get(), tr("Linux"), tab_id++);
+    if (linux_tab) {
+        add_tab(linux_tab.get(), tr("Linux"), tab_id++);
+    }
 #endif
 
     ui->tabButtonsLayout->addStretch(5);

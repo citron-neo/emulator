@@ -1756,29 +1756,25 @@ GameList::GameList(std::shared_ptr<FileSys::VfsFilesystem> vfs_,
     connect(details_panel, &GameDetailsPanel::actionTriggered, this,
             [this](const QString& action, u64 program_id, const QString& pathName) {
                 if (action == QStringLiteral("start")) {
-                    QModelIndex current;
-                    int idx = main_stack->currentIndex();
-                    if (idx == 0)
-                        current = tree_view->currentIndex();
-                    else if (idx == 1)
-                        current = grid_view->currentIndex();
-                    else
-                        current = carousel_view->view()->currentIndex();
-
-                    if (!current.isValid() && !pathName.isEmpty()) {
-                        // Attempt to find the index if the view lost focus
-                        auto matches = item_model->match(item_model->index(0, 0),
+                    if (!pathName.isEmpty()) {
+                        // Prioritize the explicit path from the details panel
+                        QModelIndexList matches;
+                        for (int i = 0; i < item_model->rowCount(); ++i) {
+                            auto m = item_model->match(item_model->index(i, 0),
                                                          GameListItemPath::FullPathRole, pathName,
                                                          1, Qt::MatchExactly | Qt::MatchRecursive);
-                        if (!matches.isEmpty()) {
-                            current = matches.first();
+                            if (!m.isEmpty()) {
+                                matches = m;
+                                break;
+                            }
                         }
-                    }
-
-                    if (current.isValid()) {
-                        StartLaunchAnimation(current);
-                    } else if (!pathName.isEmpty()) {
-                        emit BootGame(pathName, StartGameType::Normal);
+                        
+                        if (!matches.isEmpty()) {
+                            StartLaunchAnimation(matches.first());
+                        } else {
+                            // Fallback if model matching fails for some reason
+                            emit BootGame(pathName, StartGameType::Normal);
+                        }
                     }
                 } else if (action == QStringLiteral("favorite")) {
                     ToggleFavorite(program_id);
