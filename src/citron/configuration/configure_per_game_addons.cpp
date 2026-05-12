@@ -6,20 +6,22 @@
 #include <memory>
 #include <utility>
 
+#include <QDir>
 #include <QHeaderView>
 #include <QMenu>
+#include <QMessageBox>
 #include <QProcess>
-#include <QDir>
-#include "common/logging.h"
-#include <QProcess>
-#include <QDir>
 #include <QStandardItemModel>
 #include <QString>
 #include <QTimer>
 #include <QTreeView>
 #include <QVBoxLayout>
-#include <QMessageBox>
+#include "common/logging.h"
 
+
+#include "citron/configuration/configure_input.h"
+#include "citron/configuration/configure_per_game_addons.h"
+#include "citron/uisettings.h"
 #include "common/fs/fs.h"
 #include "common/fs/path_util.h"
 #include "core/core.h"
@@ -27,14 +29,12 @@
 #include "core/file_sys/xts_archive.h"
 #include "core/loader/loader.h"
 #include "ui_configure_per_game_addons.h"
-#include "citron/configuration/configure_input.h"
-#include "citron/configuration/configure_per_game_addons.h"
-#include "citron/uisettings.h"
+
 
 #include "citron/mod_manager/gamebanana_dialog.h"
 
 ConfigurePerGameAddons::ConfigurePerGameAddons(Core::System& system_, QWidget* parent)
-: QWidget(parent), ui{std::make_unique<Ui::ConfigurePerGameAddons>()}, system{system_} {
+    : QWidget(parent), ui{std::make_unique<Ui::ConfigurePerGameAddons>()}, system{system_} {
     ui->setupUi(this);
     UpdateTheme();
 
@@ -53,7 +53,8 @@ ConfigurePerGameAddons::ConfigurePerGameAddons(Core::System& system_, QWidget* p
     tree_view->setEditTriggers(QHeaderView::NoEditTriggers);
     tree_view->setUniformRowHeights(true);
     tree_view->setContextMenuPolicy(Qt::CustomContextMenu);
-    connect(tree_view, &QTreeView::customContextMenuRequested, this, &ConfigurePerGameAddons::OnContextMenu);
+    connect(tree_view, &QTreeView::customContextMenuRequested, this,
+            &ConfigurePerGameAddons::OnContextMenu);
 
     item_model->insertColumns(0, 2);
     item_model->setHeaderData(0, Qt::Horizontal, tr("Patch Name"));
@@ -80,19 +81,19 @@ ConfigurePerGameAddons::ConfigurePerGameAddons(Core::System& system_, QWidget* p
 
     // BUTTON CLICK: Open GameBanana Dialog
     connect(ui->button_download_mods, &QPushButton::clicked, this, [this] {
-        if (file == nullptr) return;
+        if (file == nullptr)
+            return;
         const auto loader = Loader::GetLoader(system, file);
         std::string title;
         loader->ReadTitle(title);
         QString game_name = QString::fromStdString(title);
 
-        const QString tid_str = QStringLiteral("%1").arg(title_id, 16, 16, QLatin1Char('0')).toUpper();
+        const QString tid_str =
+            QStringLiteral("%1").arg(title_id, 16, 16, QLatin1Char('0')).toUpper();
         auto* dialog = new ModManager::GameBananaDialog(tid_str, game_name, this);
         dialog->setAttribute(Qt::WA_DeleteOnClose);
 
-        connect(dialog, &QDialog::accepted, this, [this] {
-            this->LoadConfiguration();
-        });
+        connect(dialog, &QDialog::accepted, this, [this] { this->LoadConfiguration(); });
 
         dialog->show();
     });
@@ -157,72 +158,86 @@ void ConfigurePerGameAddons::UpdateTheme(const QString& custom_accent) {
 
     const QColor accent_qcolor{accent};
     const QString hue_light = accent_qcolor.lighter(125).name();
-    const QString hue_dark  = accent_qcolor.darker(150).name();
+    const QString hue_dark = accent_qcolor.darker(150).name();
 
     const bool is_dark = UISettings::IsDarkTheme();
 
-    const QString bg      = is_dark ? QStringLiteral("#24242a") : QStringLiteral("#ffffff");
-    const QString bg_alt  = is_dark ? QStringLiteral("#2a2a32") : QStringLiteral("#f5f5fa");
-    const QString txt     = is_dark ? QStringLiteral("#e0e0e4") : QStringLiteral("#1a1a1e");
-    const QString border  = is_dark ? QStringLiteral("#32323a") : QStringLiteral("#d0d0d5");
+    const QString bg = is_dark ? QStringLiteral("#24242a") : QStringLiteral("#ffffff");
+    const QString bg_alt = is_dark ? QStringLiteral("#2a2a32") : QStringLiteral("#f5f5fa");
+    const QString txt = is_dark ? QStringLiteral("#e0e0e4") : QStringLiteral("#1a1a1e");
+    const QString border = is_dark ? QStringLiteral("#32323a") : QStringLiteral("#d0d0d5");
     QColor sel_bg_color{accent};
     if (!is_dark && sel_bg_color.lightness() > 240) {
         sel_bg_color = sel_bg_color.darker(110);
     }
     const QString sel_bg = sel_bg_color.name();
-    const double luminance = (0.299 * accent_qcolor.red() + 0.587 * accent_qcolor.green() + 0.114 * accent_qcolor.blue()) / 255.0;
+    const double luminance = (0.299 * accent_qcolor.red() + 0.587 * accent_qcolor.green() +
+                              0.114 * accent_qcolor.blue()) /
+                             255.0;
     const QString sel_txt = luminance > 0.5 ? QStringLiteral("black") : QStringLiteral("white");
 
     // Style the tree view: background, text, selection, and alternating row colors
     if (tree_view) {
-        tree_view->setStyleSheet(QStringLiteral(
-            "QTreeView { background-color: %1; color: %2; "
-            "border: 1px solid %3; border-radius: 4px; outline: none; "
-            "alternate-background-color: %4; }"
-            "QTreeView::item { padding: 2px 4px; color: %2; background-color: transparent; }"
-            "QTreeView::item:hover { background-color: rgba(128,128,128,0.12); color: %2; }"
-            "QTreeView::item:selected { background-color: %5; color: %6; }"
-            "QTreeView::branch { background: %1; }"
-            "QHeaderView::section { background-color: %4; color: %2; "
-            "padding: 4px 6px; border: none; border-bottom: 1px solid %3; font-weight: bold; }"
-            "QTreeView::indicator { width: 18px; height: 18px; border-radius: 4px; "
-            "border: 1px solid %3; background: %1; }"
-            "QTreeView::indicator:checked { background: %5; border-color: %5; "
-            "image: url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%6' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'><polyline points='20 6 9 17 4 12'></polyline></svg>\"); }"
-            "QScrollBar:vertical { background: transparent; width: 8px; }"
-            "QScrollBar::handle:vertical { background: %3; border-radius: 4px; min-height: 20px; }"
-            "QScrollBar:horizontal { background: transparent; height: 8px; }"
-            "QScrollBar::handle:horizontal { background: %3; border-radius: 4px; min-width: 20px; }"
-            "QScrollBar::add-line, QScrollBar::sub-line { background: none; height: 0; width: 0; }")
-            .arg(bg, txt, border, bg_alt, sel_bg, sel_txt));
+        tree_view->setStyleSheet(
+            QStringLiteral(
+                "QTreeView { background-color: %1; color: %2; "
+                "border: 1px solid %3; border-radius: 4px; outline: none; "
+                "alternate-background-color: %4; }"
+                "QTreeView::item { padding: 2px 4px; color: %2; background-color: transparent; }"
+                "QTreeView::item:hover { background-color: rgba(128,128,128,0.12); color: %2; }"
+                "QTreeView::item:selected { background-color: %5; color: %6; }"
+                "QTreeView::branch { background: %1; }"
+                "QHeaderView::section { background-color: %4; color: %2; "
+                "padding: 4px 6px; border: none; border-bottom: 1px solid %3; font-weight: bold; }"
+                "QTreeView::indicator { width: 18px; height: 18px; border-radius: 4px; "
+                "border: 1px solid %3; background: %1; }"
+                "QTreeView::indicator:checked { background: %5; border-color: %5; "
+                "image: url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' "
+                "viewBox='0 0 24 24' fill='none' stroke='%6' stroke-width='3' "
+                "stroke-linecap='round' stroke-linejoin='round'><polyline points='20 6 9 17 4 "
+                "12'></polyline></svg>\"); }"
+                "QScrollBar:vertical { background: transparent; width: 8px; }"
+                "QScrollBar::handle:vertical { background: %3; border-radius: 4px; min-height: "
+                "20px; }"
+                "QScrollBar:horizontal { background: transparent; height: 8px; }"
+                "QScrollBar::handle:horizontal { background: %3; border-radius: 4px; min-width: "
+                "20px; }"
+                "QScrollBar::add-line, QScrollBar::sub-line { background: none; height: 0; width: "
+                "0; }")
+                .arg(bg, txt, border, bg_alt, sel_bg, sel_txt));
     }
 
     // Style the download button with accent colors
     const QString text_color = is_dark ? QStringLiteral("#ffffff") : QStringLiteral("#1a1a1e");
-    const double accent_lum = (0.299 * accent_qcolor.red() + 0.587 * accent_qcolor.green() + 0.114 * accent_qcolor.blue()) / 255.0;
-    const QString accent_txt_color = accent_lum > 0.5 ? QStringLiteral("#000000") : QStringLiteral("#ffffff");
+    const double accent_lum = (0.299 * accent_qcolor.red() + 0.587 * accent_qcolor.green() +
+                               0.114 * accent_qcolor.blue()) /
+                              255.0;
+    const QString accent_txt_color =
+        accent_lum > 0.5 ? QStringLiteral("#000000") : QStringLiteral("#ffffff");
 
     ui->button_download_mods->setStyleSheet(
-        QStringLiteral(
-            "QPushButton { "
-            "  background-color: rgba(%1, %2, %3, 15); "
-            "  color: %4; "
-            "  border: 2px solid %5; "
-            "  border-radius: 6px; "
-            "  font-weight: bold; "
-            "  padding: 6px 16px; "
-            "  margin-top: 15px; "
-            "} "
-            "QPushButton:hover { "
-            "  background-color: %5; "
-            "  color: %6; "
-            "  border-color: %5; "
-            "} "
-            "QPushButton:pressed { "
-            "  background-color: %5; "
-            "  color: %6; "
-            "  border-color: %5; "
-            "}")
+        QStringLiteral("QPushButton { "
+                       "  background-color: rgba(%1, %2, %3, 20); "
+                       "  color: %4; "
+                       "  border: 1px solid %5; "
+                       "  border-radius: 8px; "
+                       "  font-weight: bold; "
+                       "  padding: 4px 64px; "
+                       "  margin-top: 16px; "
+                       "  margin-bottom: 30px; "
+                       "  max-height: 30px; "
+                       "  min-height: 30px; "
+                       "} "
+                       "QPushButton:hover { "
+                       "  background-color: %5; "
+                       "  color: %6; "
+                       "  border-color: %5; "
+                       "} "
+                       "QPushButton:pressed { "
+                       "  background-color: %5; "
+                       "  color: %6; "
+                       "  border-color: %5; "
+                       "}")
             .arg(QString::number(accent_qcolor.red()))
             .arg(QString::number(accent_qcolor.green()))
             .arg(QString::number(accent_qcolor.blue()))
@@ -230,20 +245,23 @@ void ConfigurePerGameAddons::UpdateTheme(const QString& custom_accent) {
             .arg(accent)
             .arg(accent_txt_color));
 
+    ui->gridLayout->setAlignment(ui->button_download_mods, Qt::AlignCenter);
+
     ui->button_download_mods->setToolTip(
         tr("Citron uses the v11 API of Gamebanana for mod installation. Some mods may not be "
            "compatible or available for download. Use the \"Website Link For Mod\" option if you "
            "run into any issues."));
 }
 
-
 void ConfigurePerGameAddons::LoadConfiguration() {
-    if (file == nullptr) return;
+    if (file == nullptr)
+        return;
 
     item_model->removeRows(0, item_model->rowCount());
     list_items.clear();
 
-    const FileSys::PatchManager pm{title_id, system.GetFileSystemController(), system.GetContentProvider()};
+    const FileSys::PatchManager pm{title_id, system.GetFileSystemController(),
+                                   system.GetContentProvider()};
     const auto loader = Loader::GetLoader(system, file);
     FileSys::VirtualFile update_raw;
     loader->ReadUpdateRaw(update_raw);
@@ -255,7 +273,8 @@ void ConfigurePerGameAddons::LoadConfiguration() {
     // We add these directly to the top of the list
     for (const auto& patch : all_patches) {
         // Skip folder-based mods for this pass
-        if (patch.type == FileSys::PatchType::Mod) continue;
+        if (patch.type == FileSys::PatchType::Mod)
+            continue;
 
         auto* const first_item = new QStandardItem;
         first_item->setText(QString::fromStdString(patch.name));
@@ -263,7 +282,8 @@ void ConfigurePerGameAddons::LoadConfiguration() {
 
         first_item->setData(QString::fromStdString(patch.name), Qt::UserRole);
 
-        const auto patch_disabled = std::find(disabled.begin(), disabled.end(), patch.name) != disabled.end();
+        const auto patch_disabled =
+            std::find(disabled.begin(), disabled.end(), patch.name) != disabled.end();
         first_item->setCheckState(patch_disabled ? Qt::Unchecked : Qt::Checked);
 
         QList<QStandardItem*> row;
@@ -276,7 +296,8 @@ void ConfigurePerGameAddons::LoadConfiguration() {
     std::map<QString, QStandardItem*> groups;
     for (const auto& patch : all_patches) {
         // ONLY process mods in this pass
-        if (patch.type != FileSys::PatchType::Mod) continue;
+        if (patch.type != FileSys::PatchType::Mod)
+            continue;
 
         QString full_name = QString::fromStdString(patch.name);
         QStandardItem* parent_to_add_to = nullptr;
@@ -290,7 +311,8 @@ void ConfigurePerGameAddons::LoadConfiguration() {
                 auto* group_item = new QStandardItem(group_name);
                 group_item->setCheckable(false);
                 group_item->setEditable(false);
-                item_model->appendRow(group_item); // Group folder goes at the bottom of the current list
+                item_model->appendRow(
+                    group_item); // Group folder goes at the bottom of the current list
                 groups[group_name] = group_item;
             }
             parent_to_add_to = groups[group_name];
@@ -304,10 +326,12 @@ void ConfigurePerGameAddons::LoadConfiguration() {
             mod_item->setCheckable(false);
             // Explicitly strip the checkable flag to prevent the UI from drawing a box
             mod_item->setFlags(mod_item->flags() & ~Qt::ItemIsUserCheckable);
-            mod_item->setForeground(QBrush(QColor(0, 120, 215))); // Keep it blue to show it's special
+            mod_item->setForeground(
+                QBrush(QColor(0, 120, 215))); // Keep it blue to show it's special
         } else {
             mod_item->setCheckable(true);
-            const auto patch_disabled = std::find(disabled.begin(), disabled.end(), patch.name) != disabled.end();
+            const auto patch_disabled =
+                std::find(disabled.begin(), disabled.end(), patch.name) != disabled.end();
             mod_item->setCheckState(patch_disabled ? Qt::Unchecked : Qt::Checked);
         }
 
@@ -330,7 +354,8 @@ void ConfigurePerGameAddons::LoadConfiguration() {
 
 void ConfigurePerGameAddons::OnContextMenu(const QPoint& pos) {
     QModelIndex index = tree_view->indexAt(pos);
-    if (!index.isValid()) return;
+    if (!index.isValid())
+        return;
 
     QStandardItem* item = item_model->itemFromIndex(index);
     QMenu context_menu;
@@ -340,13 +365,15 @@ void ConfigurePerGameAddons::OnContextMenu(const QPoint& pos) {
         QAction* check_all = context_menu.addAction(tr("Check All Mods in Folder"));
         connect(check_all, &QAction::triggered, this, [item] {
             for (int i = 0; i < item->rowCount(); ++i) {
-                if (auto* child = item->child(i, 0)) child->setCheckState(Qt::Checked);
+                if (auto* child = item->child(i, 0))
+                    child->setCheckState(Qt::Checked);
             }
         });
         QAction* uncheck_all = context_menu.addAction(tr("Uncheck All Mods in Folder"));
         connect(uncheck_all, &QAction::triggered, this, [item] {
             for (int i = 0; i < item->rowCount(); ++i) {
-                if (auto* child = item->child(i, 0)) child->setCheckState(Qt::Unchecked);
+                if (auto* child = item->child(i, 0))
+                    child->setCheckState(Qt::Unchecked);
             }
         });
     } else {
@@ -359,12 +386,14 @@ void ConfigurePerGameAddons::OnContextMenu(const QPoint& pos) {
             connect(launch, &QAction::triggered, this, [this, file_name] {
                 // 1. Check Global Safe Zone (ConfigDir)
                 std::filesystem::path tool_path =
-                    Common::FS::GetCitronPath(Common::FS::CitronPath::ConfigDir) / "tools" / file_name.toStdString();
+                    Common::FS::GetCitronPath(Common::FS::CitronPath::ConfigDir) / "tools" /
+                    file_name.toStdString();
 
                 // 2. Fallback to Legacy/Game-specific folder
                 if (!std::filesystem::exists(tool_path)) {
                     tool_path = Common::FS::GetCitronPath(Common::FS::CitronPath::LoadDir) /
-                                fmt::format("{:016X}", title_id) / "tools" / file_name.toStdString();
+                                fmt::format("{:016X}", title_id) / "tools" /
+                                file_name.toStdString();
                 }
 
                 if (std::filesystem::exists(tool_path)) {
@@ -378,7 +407,8 @@ void ConfigurePerGameAddons::OnContextMenu(const QPoint& pos) {
                     // This prevents the emulator from "cleaning up" the tool's temporary files.
                     QProcess::startDetached(program, {}, working_dir);
                 } else {
-                    QMessageBox::critical(this, tr("Launch Error"),
+                    QMessageBox::critical(
+                        this, tr("Launch Error"),
                         tr("The tool executable could not be found. Please redownload it."));
                 }
             });

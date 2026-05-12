@@ -3,6 +3,7 @@
 #include <QImage>
 #include <QLabel>
 #include <QPushButton>
+#include <QTimer>
 #include <QVBoxLayout>
 #include <QWidget>
 #include <vector>
@@ -25,16 +26,17 @@ protected:
 private slots:
     void onHit();
     void onStand();
+    void dealerStep();
 
 private:
     struct Card {
         int value;
         QString suit;
         bool hidden = false;
+        float anim_progress = 1.0f;
     };
 
     int calculateHandValue(const std::vector<Card>& hand) const;
-    void dealerTurn();
     void endHand(const QString& message, bool playerWon);
     Card drawCard();
 
@@ -46,5 +48,7 @@ private:
     QLabel* m_status_label;
     QPushButton* m_hit_button;
     QPushButton* m_stand_button;
+    QTimer* m_animation_timer;
+    QTimer* m_dealer_timer;
     bool m_is_game_over = false;
 };

@@ -69,7 +69,20 @@ void GameGridDelegate::AdvanceAnimations() {
     bool needs_update = false;
     if (!m_view || !m_view->isVisible())
         return;
-    
+
+    // Drive active pulse states for selected items
+    if (m_view->selectionModel()) {
+        const auto selected = m_view->selectionModel()->selectedIndexes();
+        for (const auto& idx : selected) {
+            QPersistentModelIndex pidx(idx);
+            if (!m_pulse_states.contains(pidx)) {
+                m_pulse_states[pidx] = 0.0;
+                m_pulse_direction[pidx] = true;
+            }
+            needs_update = true; // Drive 3D rotation and pulsing border
+        }
+    }
+
     if (!m_pulse_states.isEmpty() || !m_entry_animations.isEmpty() || !m_hover_states.isEmpty()) {
         needs_update = true;
     }
@@ -111,6 +124,23 @@ void GameGridDelegate::AdvanceAnimations() {
             ++it_entry;
         } else {
             it_entry = m_entry_animations.erase(it_entry);
+        }
+    }
+
+    // Drive hover state decay/growth
+    auto it_hover = m_hover_states.begin();
+    while (it_hover != m_hover_states.end()) {
+        if (!it_hover.key().isValid()) {
+            it_hover = m_hover_states.erase(it_hover);
+            continue;
+        }
+        // If an item is neither hovered nor selected, and it has finished decaying, remove it
+        if (it_hover.value() <= 0.0) {
+            // Check if it's currently being hovered (this is tricky in the timer)
+            // We'll let the paint() call re-add it if needed.
+            it_hover = m_hover_states.erase(it_hover);
+        } else {
+            ++it_hover;
         }
     }
 
@@ -299,6 +329,27 @@ void GameGridDelegate::PaintPosterItem(QPainter* painter, const QStyleOptionView
         painter->drawRoundedRect(card_rect, radius, radius);
     }
 
+    const u64 poster_program_id = index.data(GameListItemPath::ProgramIdRole).toULongLong();
+    bool is_poster_fav = UISettings::values.favorited_ids.contains(poster_program_id);
+    if (is_poster_fav) {
+        painter->save();
+        QColor fav_gold(255, 215, 0, 240); // Vibrant Gold
+        painter->setPen(QPen(fav_gold, 1.2f * scale));
+        painter->setBrush(QColor(40, 40, 45, 200));
+        qreal star_size = 24.0f * scale;
+        QRectF star_rect(card_rect.right() - (8.0f * scale) - star_size,
+                         card_rect.top() + (8.0f * scale), star_size, star_size);
+        painter->drawRoundedRect(star_rect, 6 * scale, 6 * scale);
+        painter->setPen(fav_gold);
+        QFont sf = painter->font();
+        sf.setBold(true);
+        sf.setPointSizeF(std::max(1.0f, 12.0f * scale));
+        painter->setFont(sf);
+        painter->drawText(star_rect.adjusted(0, -1 * scale, 0, 0), Qt::AlignCenter,
+                          QStringLiteral("★"));
+        painter->restore();
+    }
+
     painter->restore();
 }
 
@@ -326,16 +377,35 @@ void GameGridDelegate::PaintGridItem(QPainter* painter, const QStyleOptionViewIt
     const int radius = static_cast<int>(14 * scale);
 
     painter->save();
-    if (is_selected) {
+    
+    // Hover animation state
+    const bool is_hovered = option.state & QStyle::State_MouseOver;
+    qreal hover_progress = m_hover_states.value(key, 0.0);
+    const qreal hover_step = 0.08;
+    if (is_hovered && hover_progress < 1.0) {
+        hover_progress = std::min(1.0, hover_progress + hover_step);
+        m_hover_states[key] = hover_progress;
+    } else if (!is_hovered && hover_progress > 0.0) {
+        hover_progress = std::max(0.0, hover_progress - hover_step);
+        m_hover_states[key] = hover_progress;
+    }
+
+    if (is_selected || hover_progress > 0.0) {
         double pulse_t = m_pulse_tick * 0.032;
-        double hover_y = std::sin(pulse_t* 3.0) * (4.0 * scale);
-        double yaw_angle = std::sin(pulse_t* 2.5) * 20.0;
-        double pitch_angle = std::cos(pulse_t* 1.5) * 10.0;
+        // Selection gets full rotation, hover gets a slight stationary tilt
+        double yaw_angle = is_selected ? std::sin(pulse_t * 2.5) * 20.0 : std::sin(pulse_t * 1.5) * (5.0 * hover_progress);
+        double pitch_angle = is_selected ? std::cos(pulse_t * 1.5) * 10.0 : std::cos(pulse_t * 1.2) * (3.0 * hover_progress);
+        double hover_y = is_selected ? std::sin(pulse_t * 3.0) * (4.0 * scale) : 0;
 
         painter->translate(rect.center());
 
         QTransform transform;
-        transform.scale(1.04, 1.04);
+        // Scale up on either selection or hover
+        qreal scale_val = 1.0;
+        if (is_selected) scale_val = 1.04;
+        else if (hover_progress > 0.0) scale_val = 1.0 + (0.03 * hover_progress);
+
+        transform.scale(scale_val, scale_val);
         transform.translate(0, hover_y);
 
         QTransform rot;
@@ -345,9 +415,9 @@ void GameGridDelegate::PaintGridItem(QPainter* painter, const QStyleOptionViewIt
         painter->setTransform(rot * transform, true);
         painter->translate(-rect.center());
 
-        // --- 1. Selection Glow ---
+        // --- 1. Selection/Hover Glow ---
         QColor glow = AccentColor();
-        glow.setAlphaF(0.12f);
+        glow.setAlphaF(0.12f * (is_selected ? 1.0f : hover_progress));
         painter->setBrush(glow);
         painter->setPen(Qt::NoPen);
         painter->drawRoundedRect(card_rect.adjusted(-4 * scale, -4 * scale, 4 * scale, 4 * scale),
@@ -397,28 +467,6 @@ void GameGridDelegate::PaintGridItem(QPainter* painter, const QStyleOptionViewIt
     QPainterPath label_path;
     label_path.addRoundedRect(label_rect, radius - 6, radius - 6);
 
-    // --- Favorites Indicator ---
-    bool is_fav = (index.data(GameListItem::TypeRole).toInt() ==
-                   static_cast<int>(GameListItemType::Favorites));
-    if (is_fav) {
-        painter->save();
-        QColor fav_gold(255, 215, 0, 220); // Vibrant Gold
-        painter->setPen(QPen(fav_gold, 1.2f * scale));
-        painter->setBrush(QColor(40, 40, 45, 180));
-        qreal star_size = 22.0f * scale;
-        QRectF star_rect(card_rect.right() - (10.0f * scale) - star_size,
-                         card_rect.top() + (10.0f * scale), star_size, star_size);
-        painter->drawRoundedRect(star_rect, 6 * scale, 6 * scale);
-        painter->setPen(fav_gold);
-        QFont sf = painter->font();
-        sf.setBold(true);
-        sf.setPointSizeF(std::max(1.0f, 11.0f * scale));
-        painter->setFont(sf);
-        painter->drawText(star_rect.adjusted(0, -1 * scale, 0, 0), Qt::AlignCenter,
-                          QStringLiteral("★"));
-        painter->restore();
-    }
-
     // Removed old vertical divider logic in favor of section headers
 
     painter->save();
@@ -453,7 +501,27 @@ void GameGridDelegate::PaintGridItem(QPainter* painter, const QStyleOptionViewIt
     QString elided = painter->fontMetrics().elidedText(title, Qt::ElideRight, text_rect.width());
     painter->drawText(text_rect, Qt::AlignCenter, elided);
 
-    painter->restore();
+    // --- Favorites Indicator (Grid Mode) ---
+    const u64 grid_program_id = index.data(GameListItemPath::ProgramIdRole).toULongLong();
+    bool is_grid_fav = UISettings::values.favorited_ids.contains(grid_program_id);
+    if (is_grid_fav) {
+        painter->save();
+        QColor fav_gold(255, 215, 0, 240); // Vibrant Gold
+        painter->setPen(QPen(fav_gold, 1.2f * scale));
+        painter->setBrush(QColor(40, 40, 45, 200));
+        qreal star_size = 22.0f * scale;
+        QRectF star_rect(card_rect.right() - (10.0f * scale) - star_size,
+                         card_rect.top() + (10.0f * scale), star_size, star_size);
+        painter->drawRoundedRect(star_rect, 6 * scale, 6 * scale);
+        painter->setPen(fav_gold);
+        QFont sf = painter->font();
+        sf.setBold(true);
+        sf.setPointSizeF(std::max(1.0f, 11.0f * scale));
+        painter->setFont(sf);
+        painter->drawText(star_rect.adjusted(0, -1 * scale, 0, 0), Qt::AlignCenter,
+                          QStringLiteral("★"));
+        painter->restore();
+    }
 
     painter->restore();
 }

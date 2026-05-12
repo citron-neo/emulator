@@ -54,6 +54,7 @@
 #include <QStackedWidget>
 #include <QStandardPaths>
 #include <QStyle>
+#include <QStyleOption>
 #include <QThreadPool>
 #include <QTimer>
 #include <QToolButton>
@@ -84,6 +85,8 @@
 #include "citron/util/card_flip.h"
 #include "citron/util/confetti.h"
 #include "citron/util/controller_navigation.h"
+#include "citron/util/cup_shuffle_widget.h"
+#include "citron/util/dice_widget.h"
 #include "citron/util/plinko_widget.h"
 #include "citron/util/steam_grid_db.h"
 #include "common/common_types.h"
@@ -145,19 +148,7 @@ protected:
         const int widget_center_x = width() / 2;
         const int widget_center_y = height() / 2;
 
-        // Subtle horizontal track line behind icons
-        const bool dark = Theme::IsDarkMode();
-        painter.setPen(
-            QPen(dark ? QColor(255, 255, 255, 40) : QColor(0, 0, 0, 20), 1, Qt::DashLine));
-        painter.drawLine(0, widget_center_y, width(), widget_center_y);
-
-        // Sleek small centering markers at top and bottom
-        QColor accent(Theme::GetAccentColor());
-        if (!accent.isValid())
-            accent = QColor(0, 150, 255);
-        painter.setPen(QPen(accent, 3));
-        painter.drawLine(widget_center_x, 5, widget_center_x, 25);
-        painter.drawLine(widget_center_x, height() - 25, widget_center_x, height() - 5);
+        // Zentered layout for items, no extra decorative lines behind icons.
 
         const int total_items = m_games.size();
         const int visible_count = (width() / total_slot_width) + 2;
@@ -253,7 +244,7 @@ class SurpriseMeDialog : public QDialog {
     Q_OBJECT
 
 public:
-    enum class Mode { Reel, Cards, Plinko, Blackjack };
+    enum class Mode { Reel, Cards, Plinko, Blackjack, Dice, Shuffle };
 
     explicit SurpriseMeDialog(QVector<SurpriseGame> games, QWidget* parent = nullptr)
         : QDialog(parent), m_available_games(games),
@@ -280,6 +271,8 @@ public:
         auto* cards_btn = new QPushButton(tr("Cards"), this);
         auto* plinko_btn = new QPushButton(tr("Plinko"), this);
         auto* blackjack_btn = new QPushButton(tr("Blackjack"), this);
+        auto* dice_btn = new QPushButton(tr("Dice"), this);
+        auto* shuffle_btn = new QPushButton(tr("Cups"), this);
 
         QString accent = Theme::GetAccentColor();
         if (accent.isEmpty())
@@ -300,7 +293,7 @@ public:
                        "font-weight: bold; }")
                        .arg(accent);
 
-        for (auto* btn : {reel_btn, cards_btn, plinko_btn, blackjack_btn}) {
+        for (auto* btn : {reel_btn, cards_btn, plinko_btn, blackjack_btn, dice_btn, shuffle_btn}) {
             btn->setCheckable(true);
             btn->setStyleSheet(nav_style);
             nav_layout->addWidget(btn);
@@ -311,6 +304,8 @@ public:
         m_card_widget = new CardFlipWidget(this);
         m_plinko_widget = new PlinkoWidget(this);
         m_blackjack_widget = new BlackjackWidget(this);
+        m_dice_widget = new DiceWidget(this);
+        m_shuffle_widget = new CupShuffleWidget(this);
         m_confetti_widget = new ConfettiWidget(this);
 
         m_stack = new QStackedWidget(this);
@@ -318,6 +313,8 @@ public:
         m_stack->addWidget(m_card_widget);
         m_stack->addWidget(m_plinko_widget);
         m_stack->addWidget(m_blackjack_widget);
+        m_stack->addWidget(m_dice_widget);
+        m_stack->addWidget(m_shuffle_widget);
 
         m_game_title_label = new QLabel(tr("Ready?"), this);
         m_launch_button = new QPushButton(tr("Launch Game"), this);
@@ -374,6 +371,8 @@ public:
         connect(cards_btn, &QPushButton::clicked, this, [this] { setMode(Mode::Cards); });
         connect(plinko_btn, &QPushButton::clicked, this, [this] { setMode(Mode::Plinko); });
         connect(blackjack_btn, &QPushButton::clicked, this, [this] { setMode(Mode::Blackjack); });
+        connect(dice_btn, &QPushButton::clicked, this, [this] { setMode(Mode::Dice); });
+        connect(shuffle_btn, &QPushButton::clicked, this, [this] { setMode(Mode::Shuffle); });
 
         connect(m_launch_button, &QPushButton::clicked, this, &SurpriseMeDialog::onLaunch);
         connect(m_reroll_button, &QPushButton::clicked, this, &SurpriseMeDialog::startRoll);
@@ -383,6 +382,10 @@ public:
         connect(m_plinko_widget, &PlinkoWidget::gameSelected, this,
                 &SurpriseMeDialog::onGameSelected);
         connect(m_blackjack_widget, &BlackjackWidget::gameSelected, this,
+                &SurpriseMeDialog::onGameSelected);
+        connect(m_dice_widget, &DiceWidget::gameSelected, this,
+                &SurpriseMeDialog::onGameSelected);
+        connect(m_shuffle_widget, &CupShuffleWidget::gameSelected, this,
                 &SurpriseMeDialog::onGameSelected);
 
         QTimer::singleShot(100, this, &SurpriseMeDialog::startRoll);
@@ -404,7 +407,7 @@ private slots:
         updateTitleFont();
 
         // Update check state of nav buttons
-        for (int i = 0; i < 4; ++i) {
+        for (int i = 0; i < 6; ++i) {
             auto* btn =
                 qobject_cast<QPushButton*>(layout()->itemAt(0)->layout()->itemAt(i)->widget());
             if (btn)
@@ -440,7 +443,8 @@ private slots:
         }
 
         if (m_current_mode == Mode::Cards || m_current_mode == Mode::Plinko ||
-            m_current_mode == Mode::Blackjack) {
+            m_current_mode == Mode::Blackjack || m_current_mode == Mode::Dice ||
+            m_current_mode == Mode::Shuffle) {
             if (index >= 0 && index < m_card_pool.size()) {
                 m_last_choice = m_card_pool[index];
             }
@@ -509,11 +513,23 @@ private slots:
             m_plinko_widget->setGames(icons);
             m_plinko_widget->reset();
             return;
+        } else if (m_current_mode == Mode::Dice) {
+            m_game_title_label->setText(tr("Roll the Dice!"));
+            pickGames(m_available_games.size());
+            m_dice_widget->setGames(icons);
+            m_dice_widget->reset();
+            return;
         } else if (m_current_mode == Mode::Blackjack) {
-            m_game_title_label->setText(tr("Blackjack!"));
+            m_game_title_label->setText(tr("Beat the Dealer!"));
             pickGames(m_available_games.size());
             m_blackjack_widget->setGames(icons);
             m_blackjack_widget->reset();
+            return;
+        } else if (m_current_mode == Mode::Shuffle) {
+            m_game_title_label->setText(tr("Shuffle Cups!"));
+            pickGames(m_available_games.size());
+            m_shuffle_widget->setGames(icons);
+            m_shuffle_widget->reset();
             return;
         }
 
@@ -585,6 +601,8 @@ private:
     CardFlipWidget* m_card_widget;
     PlinkoWidget* m_plinko_widget;
     BlackjackWidget* m_blackjack_widget;
+    DiceWidget* m_dice_widget;
+    CupShuffleWidget* m_shuffle_widget;
     ConfettiWidget* m_confetti_widget;
 
     QLabel* m_game_title_label;
@@ -1139,6 +1157,7 @@ GameList::GameList(std::shared_ptr<FileSys::VfsFilesystem> vfs_,
     });
 
     this->main_window = parent;
+    setObjectName(QStringLiteral("GameList"));
     layout = new QVBoxLayout;
     controller_navigation = new ControllerNavigation(system.HIDCore(), this);
     search_field = new GameListSearchField(this);
@@ -1798,7 +1817,7 @@ GameList::GameList(std::shared_ptr<FileSys::VfsFilesystem> vfs_,
                         details_panel->updateDetails(current);
                     }
                 } else if (action == QStringLiteral("properties")) {
-                    emit OpenPerGameGeneralRequested(pathName.toStdString());
+                    emit OpenPerGameGeneralRequested(pathName.toStdString(), program_id);
                 } else if (action == QStringLiteral("save_data")) {
                     emit OpenFolderRequested(program_id, GameListOpenTarget::SaveData,
                                              pathName.toStdString());
@@ -3552,7 +3571,8 @@ void GameList::AddGamePopup(QMenu& context_menu, const QModelIndex& index, u64 p
 #endif
     connect(
         properties, &QAction::triggered, this,
-        [this, path_str]() { emit OpenPerGameGeneralRequested(path_str); }, Qt::QueuedConnection);
+        [this, path_str, program_id]() { emit OpenPerGameGeneralRequested(path_str, program_id); },
+        Qt::QueuedConnection);
 }
 
 void GameList::AddCustomDirPopup(QMenu& context_menu, QModelIndex selected,
@@ -4167,10 +4187,14 @@ void GameList::onSurpriseMeClicked() {
     }
 
     // Create and show animated dialog - suspend background updates for performance
+    m_is_surprise_active = true;
+    RefreshTheme();
     SuspendAnimations(true);
     SurpriseMeDialog dialog(all_games, this);
     const int result = dialog.exec();
     SuspendAnimations(false);
+    m_is_surprise_active = false;
+    RefreshTheme();
 
     // If the user clicked "Launch Game"...
     if (result == QDialog::Accepted) {
@@ -4286,6 +4310,23 @@ void GameList::UpdateAccentColorStyles() {
     apply_style(btn_slider_font_mode);
     apply_style(btn_slider_icon_mode);
 
+    // Dynamic icon color for slider toggles to ensure visibility against the accent color
+    const QString icon_color = (accent_color.lightness() > 180) ? QStringLiteral("black") : QStringLiteral("white");
+    auto get_colored_icon = [&](const QString& path) -> QIcon {
+        QFile file(path);
+        if (!file.open(QIODevice::ReadOnly)) return QIcon(path);
+        QString content = QString::fromUtf8(file.readAll());
+        file.close();
+        content.replace(QStringLiteral("fill=\"black\""), QStringLiteral("fill=\"%1\"").arg(icon_color), Qt::CaseInsensitive);
+        content.replace(QStringLiteral("fill=\"#000000\""), QStringLiteral("fill=\"%1\"").arg(icon_color), Qt::CaseInsensitive);
+        QPixmap pix;
+        pix.loadFromData(content.toUtf8());
+        return QIcon(pix);
+    };
+
+    if (btn_slider_font_mode) btn_slider_font_mode->setIcon(get_colored_icon(QStringLiteral(":/dist/font_size.svg")));
+    if (btn_slider_icon_mode) btn_slider_icon_mode->setIcon(get_colored_icon(QStringLiteral(":/dist/game_icon.svg")));
+
     if (btn_sort_az)
         btn_sort_az->setStyleSheet(icon_button_style);
     if (btn_surprise_me)
@@ -4293,7 +4334,19 @@ void GameList::UpdateAccentColorStyles() {
     if (btn_controller_settings)
         btn_controller_settings->setStyleSheet(icon_button_style);
 
-    setStyleSheet(QStringLiteral("background: transparent; border: none;"));
+    // Enforce a solid, premium background for Carousel mode OR when Surprise Me! is active.
+    // This prevents desktop/main window bleeding and provides a focused environment for minigames.
+    const bool is_carousel = (UISettings::values.game_list_view_mode.GetValue() == 2);
+    const bool should_be_solid = is_carousel || m_is_surprise_active;
+    if (should_be_solid) {
+        const QString solid_bg = is_dark ? QStringLiteral("#0e0e11") : QStringLiteral("#f8f8fa");
+        setAutoFillBackground(true);
+        // Ensure background-image is suppressed and color is forced to prevent main window bleeding
+        setStyleSheet(QString::fromLatin1("#GameList { background: %1 !important; background-color: %1 !important; background-image: none !important; border: none; }").arg(solid_bg));
+    } else {
+        setAutoFillBackground(false);
+        setStyleSheet(QStringLiteral("#GameList { background: transparent !important; border: none; }"));
+    }
 
     if (search_field) {
         search_field->setStyleSheet(QStringLiteral("QLabel { color: %3; }"
@@ -4324,6 +4377,8 @@ void GameList::UpdateAccentColorStyles() {
     update_icon(btn_list_view, QStringLiteral(":/dist/list.svg"));
     update_icon(btn_grid_view, QStringLiteral(":/dist/grid.svg"));
     update_icon(btn_carousel_view, QStringLiteral(":/dist/carousel.svg"));
+    update_icon(btn_slider_font_mode, QStringLiteral(":/dist/font_size.svg"));
+    update_icon(btn_slider_icon_mode, QStringLiteral(":/dist/game_icon.svg"));
     update_icon(btn_surprise_me, QStringLiteral(":/dist/dice.svg"));
     update_icon(btn_controller_settings, QStringLiteral(":/dist/controller_navigation.svg"));
 
@@ -4334,29 +4389,42 @@ void GameList::UpdateAccentColorStyles() {
 }
 
 QIcon GameList::GetThemedIcon(const QString& path, bool force_light) {
-    const bool dark = UISettings::IsDarkTheme();
-    const QColor icon_color = (dark || force_light) ? QColor(224, 224, 228) : QColor(32, 32, 36);
+    const bool dark = Theme::IsDarkMode();
+    const QColor base_color = (dark || force_light) ? QColor(224, 224, 228) : QColor(32, 32, 36);
 
-    // Load at 2x resolution for high-fidelity rendering on all displays
-    const QSize base_size(24, 24);
-    QPixmap pixmap = QIcon(path).pixmap(base_size * 2);
-    if (pixmap.isNull())
-        return QIcon(path);
+    // Calculate contrast color for when the button is checked (using accent color)
+    const QColor accent_color(Theme::GetAccentColor());
+    const double accent_lum = (0.299 * accent_color.red() + 0.587 * accent_color.green() + 0.114 * accent_color.blue()) / 255.0;
+    // If accent is bright, use black icon for contrast. Otherwise use white.
+    const QColor checked_color = accent_lum > 0.65 ? QColor(0, 0, 0) : QColor(255, 255, 255);
 
-    QPainter painter(&pixmap);
+    auto createPixmap = [&](const QColor& color) {
+        const QSize base_size(24, 24);
+        QPixmap pixmap = QIcon(path).pixmap(base_size * 2);
+        if (pixmap.isNull())
+            return pixmap;
 
-    // Special handling for Surprise Me (Dice) to preserve internal details (dots)
-    if (path.contains(QStringLiteral("dice.svg"))) {
-        // Use Multiply mode to tint the body while keeping black dots sharp
-        painter.setCompositionMode(QPainter::CompositionMode_Multiply);
-    } else {
-        // Standard tinting for flat icons
-        painter.setCompositionMode(QPainter::CompositionMode_SourceIn);
-    }
+        QPainter painter(&pixmap);
+        if (path.contains(QStringLiteral("dice.svg"))) {
+            painter.setCompositionMode(QPainter::CompositionMode_Multiply);
+        } else {
+            painter.setCompositionMode(QPainter::CompositionMode_SourceIn);
+        }
+        painter.fillRect(pixmap.rect(), color);
+        painter.end();
+        return pixmap;
+    };
 
-    painter.fillRect(pixmap.rect(), icon_color);
-    painter.end();
-    return QIcon(pixmap);
+    QIcon icon;
+    // Normal State (Off)
+    icon.addPixmap(createPixmap(base_color), QIcon::Normal, QIcon::Off);
+    // Checked State (On) - Draws over the accent color background
+    icon.addPixmap(createPixmap(checked_color), QIcon::Normal, QIcon::On);
+    // Active/Hover States
+    icon.addPixmap(createPixmap(base_color), QIcon::Active, QIcon::Off);
+    icon.addPixmap(createPixmap(checked_color), QIcon::Active, QIcon::On);
+
+    return icon;
 }
 
 void GameList::SaveGameListIndex() {
@@ -4580,6 +4648,7 @@ void GameList::SetViewMode(ViewMode view) {
     }
 
     emit SaveConfig();
+    RefreshTheme();
 }
 
 void GameList::ToggleViewMode() {
@@ -4602,6 +4671,13 @@ void GameList::ToggleHidden(const QString& path) {
     // Refresh the current view to reflect the change
     OnTextChanged(search_field->filterText());
     emit SaveConfig();
+}
+
+void GameList::paintEvent(QPaintEvent* event) {
+    QStyleOption opt;
+    opt.initFrom(this);
+    QPainter p(this);
+    style()->drawPrimitive(QStyle::PE_Widget, &opt, &p, this);
 }
 
 void GameList::resizeEvent(QResizeEvent* event) {

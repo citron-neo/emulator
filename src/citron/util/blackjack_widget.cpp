@@ -1,7 +1,9 @@
 #include "blackjack_widget.h"
 #include <QHBoxLayout>
 #include <QPainter>
+#include <QTimer>
 #include <random>
+#include "citron/theme.h"
 
 BlackjackWidget::BlackjackWidget(QWidget* parent) : QWidget(parent) {
     auto* layout = new QVBoxLayout(this);
@@ -16,8 +18,43 @@ BlackjackWidget::BlackjackWidget(QWidget* parent) : QWidget(parent) {
     auto* btn_layout = new QHBoxLayout();
     m_hit_button = new QPushButton(tr("Hit"), this);
     m_stand_button = new QPushButton(tr("Stand"), this);
+
+    const QString accent = Theme::GetAccentColor();
+    const QString btn_style = QStringLiteral(
+        "QPushButton { background-color: #32323a; color: white; border: 1px solid #42424a; "
+        "border-radius: 12px; padding: 12px 32px; font-weight: bold; font-size: 15px; } "
+        "QPushButton:hover { background-color: #3d3d45; border-color: %1; } "
+        "QPushButton:pressed { background-color: %1; color: black; } "
+        "QPushButton:disabled { background-color: #1a1a1e; color: #555555; border: 1px solid #24242a; }"
+    ).arg(accent);
+    m_hit_button->setStyleSheet(btn_style);
+    m_stand_button->setStyleSheet(btn_style);
+
     btn_layout->addWidget(m_hit_button);
     btn_layout->addWidget(m_stand_button);
+
+    m_animation_timer = new QTimer(this);
+    connect(m_animation_timer, &QTimer::timeout, this, [this] {
+        bool any = false;
+        auto step = [&](std::vector<Card>& hand) {
+            for (auto& c : hand) {
+                if (c.anim_progress < 1.0f) {
+                    c.anim_progress = std::min(1.0f, c.anim_progress + 0.12f);
+                    any = true;
+                }
+            }
+        };
+        step(m_player_hand);
+        step(m_dealer_hand);
+        if (any) {
+            update();
+        } else {
+            m_animation_timer->stop();
+        }
+    });
+
+    m_dealer_timer = new QTimer(this);
+    connect(m_dealer_timer, &QTimer::timeout, this, &BlackjackWidget::dealerStep);
 
     layout->addStretch();
     layout->addWidget(m_hand_value_label);
@@ -39,14 +76,22 @@ void BlackjackWidget::reset() {
     m_hit_button->setEnabled(true);
     m_stand_button->setEnabled(true);
     m_status_label->setText(tr("Your turn. Hit or Stand?"));
+    m_dealer_timer->stop();
 
     m_player_hand.push_back(drawCard());
+    m_player_hand.back().anim_progress = 0.0f;
     m_player_hand.push_back(drawCard());
+    m_player_hand.back().anim_progress = 0.0f;
+    
     m_dealer_hand.push_back(drawCard());
+    m_dealer_hand.back().anim_progress = 0.0f;
+    
     Card hidden = drawCard();
     hidden.hidden = true;
+    hidden.anim_progress = 0.0f;
     m_dealer_hand.push_back(hidden);
 
+    m_animation_timer->start(16);
     m_hand_value_label->setText(tr("Your Hand: %1").arg(calculateHandValue(m_player_hand)));
     update();
 }
@@ -80,76 +125,110 @@ int BlackjackWidget::calculateHandValue(const std::vector<Card>& hand) const {
 
 void BlackjackWidget::onHit() {
     m_player_hand.push_back(drawCard());
-    if (calculateHandValue(m_player_hand) > 21)
-        endHand(tr("Bust! Dealer wins."), false);
+    m_player_hand.back().anim_progress = 0.0f;
     
-    m_hand_value_label->setText(tr("Your Hand: %1").arg(calculateHandValue(m_player_hand)));
+    int val = calculateHandValue(m_player_hand);
+    m_hand_value_label->setText(tr("Your Hand: %1").arg(val));
+
+    if (val > 21) {
+        endHand(tr("Bust! Dealer wins."), false);
+    }
+    
+    m_animation_timer->start(16);
     update();
 }
 
 void BlackjackWidget::onStand() {
     m_hit_button->setEnabled(false);
     m_stand_button->setEnabled(false);
-    for (auto& c : m_dealer_hand)
-        c.hidden = false;
-    dealerTurn();
+    
+    // Reveal dealer's hidden card with animation
+    for (auto& c : m_dealer_hand) {
+        if (c.hidden) {
+            c.hidden = false;
+            c.anim_progress = 0.0f; 
+        }
+    }
+    m_animation_timer->start(16);
+    
+    m_dealer_timer->start(800);
 }
 
-void BlackjackWidget::dealerTurn() {
-    while (calculateHandValue(m_dealer_hand) < 17)
+void BlackjackWidget::dealerStep() {
+    int val = calculateHandValue(m_dealer_hand);
+    if (val < 17) {
         m_dealer_hand.push_back(drawCard());
-    int p = calculateHandValue(m_player_hand);
-    int d = calculateHandValue(m_dealer_hand);
-    if (d > 21 || p > d)
-        endHand(tr("You win! Selecting game..."), true);
-    else if (p < d)
-        endHand(tr("Dealer wins."), false);
-    else
-        endHand(tr("Push! Try again."), false);
-    update();
+        m_dealer_hand.back().anim_progress = 0.0f;
+        m_animation_timer->start(16);
+        update();
+    } else {
+        m_dealer_timer->stop();
+        
+        int p = calculateHandValue(m_player_hand);
+        int d = calculateHandValue(m_dealer_hand);
+        
+        if (d > 21)
+            endHand(tr("Dealer Busts! You win!"), true);
+        else if (p > d)
+            endHand(tr("You win! Selecting game..."), true);
+        else if (p < d)
+            endHand(tr("Dealer wins."), false);
+        else
+            endHand(tr("Push! Try again."), false);
+    }
 }
 
 void BlackjackWidget::endHand(const QString& msg, bool win) {
     m_status_label->setText(msg);
-    m_hand_value_label->setText(tr("Your Hand: %1").arg(calculateHandValue(m_player_hand)));
     m_is_game_over = true;
     m_hit_button->setEnabled(false);
     m_stand_button->setEnabled(false);
+    m_dealer_timer->stop();
+
     if (win && !m_games.empty()) {
         std::random_device rd;
         std::mt19937 gen(rd());
         std::uniform_int_distribution<> d(0, static_cast<int>(m_games.size() - 1));
         emit gameSelected(d(gen));
     }
+    update();
 }
 
 void BlackjackWidget::paintEvent(QPaintEvent*) {
     QPainter p(this);
     p.setRenderHint(QPainter::Antialiasing);
-    auto drawHand = [&](const std::vector<Card>& hand, int y, const QString& label) {
-        p.setPen(Qt::white);
-        p.setFont(QFont(QStringLiteral("sans-serif"), 10, QFont::Bold));
-        
-        qreal total_hand_width = hand.size() * 70 - 10;
-        qreal start_x = std::max(20.0, (width() - total_hand_width) / 2.0);
-        
-        p.drawText(start_x, y - 10, label);
-        
-        for (size_t i = 0; i < hand.size(); ++i) {
-            QRectF r(start_x + i * 70, y, 60, 90);
-            
-            // Card shadow - deeper and softer
-            p.setBrush(QColor(0, 0, 0, 80));
-            p.setPen(Qt::NoPen);
-            p.drawRoundedRect(r.translated(3, 3), 10, 10);
 
-            // Card body with subtle depth
-            if (hand[i].hidden) {
+    auto drawHand = [&](std::vector<Card>& hand, int y_base, const QString& label) {
+        p.setPen(Qt::white);
+        p.setFont(QFont(QStringLiteral("sans-serif"), 12, QFont::Bold));
+
+        qreal total_hand_width = hand.size() * 85 - 15;
+        qreal start_x = (width() - total_hand_width) / 2.0;
+
+        p.setOpacity(1.0);
+        p.drawText(start_x, y_base - 20, label);
+
+        for (size_t i = 0; i < hand.size(); ++i) {
+            auto& card = hand[i];
+            
+            float slide_offset = (1.0f - card.anim_progress) * 45.0f;
+            float opacity = card.anim_progress;
+            
+            p.setOpacity(opacity);
+            QRectF r(start_x + i * 85, y_base + slide_offset, 70, 100);
+
+            // Card shadow
+            p.setBrush(QColor(0, 0, 0, 75));
+            p.setPen(Qt::NoPen);
+            p.drawRoundedRect(r.translated(4, 4), 12, 12);
+
+            // Card body
+            if (card.hidden) {
                 QLinearGradient back_grad(r.topLeft(), r.bottomRight());
-                back_grad.setColorAt(0, QColor(60, 60, 90));
-                back_grad.setColorAt(1, QColor(40, 40, 60));
+                back_grad.setColorAt(0, QColor(50, 50, 90));
+                back_grad.setColorAt(1, QColor(30, 30, 60));
                 p.setBrush(back_grad);
-                p.setPen(QPen(QColor(100, 100, 180), 2));
+                p.setPen(QPen(QColor(90, 90, 190), 2));
             } else {
                 QLinearGradient face_grad(r.topLeft(), r.bottomRight());
                 face_grad.setColorAt(0, Qt::white);
@@ -157,47 +236,48 @@ void BlackjackWidget::paintEvent(QPaintEvent*) {
                 p.setBrush(face_grad);
                 p.setPen(QPen(QColor(180, 180, 180), 1));
             }
-            p.drawRoundedRect(r, 10, 10);
+            p.drawRoundedRect(r, 12, 12);
 
-            if (!hand[i].hidden) {
-                bool is_red = hand[i].suit == QStringLiteral("H") || hand[i].suit == QStringLiteral("D");
-                p.setPen(is_red ? QColor(200, 40, 40) : QColor(30, 30, 30));
-                
+            if (!card.hidden) {
+                bool is_red = card.suit == QStringLiteral("H") || card.suit == QStringLiteral("D");
+                p.setPen(is_red ? QColor(255, 50, 50) : QColor(20, 20, 20));
+
                 QString val_str;
-                switch (hand[i].value) {
+                switch (card.value) {
                 case 1: val_str = QStringLiteral("A"); break;
                 case 11: val_str = QStringLiteral("J"); break;
                 case 12: val_str = QStringLiteral("Q"); break;
                 case 13: val_str = QStringLiteral("K"); break;
-                default: val_str = QString::number(hand[i].value); break;
+                default: val_str = QString::number(card.value); break;
                 }
 
                 QString suit_sym;
-                if (hand[i].suit == QStringLiteral("H")) suit_sym = QStringLiteral("♥");
-                else if (hand[i].suit == QStringLiteral("D")) suit_sym = QStringLiteral("♦");
-                else if (hand[i].suit == QStringLiteral("C")) suit_sym = QStringLiteral("♣");
-                else if (hand[i].suit == QStringLiteral("S")) suit_sym = QStringLiteral("♠");
+                if (card.suit == QStringLiteral("H")) suit_sym = QStringLiteral("♥");
+                else if (card.suit == QStringLiteral("D")) suit_sym = QStringLiteral("♦");
+                else if (card.suit == QStringLiteral("C")) suit_sym = QStringLiteral("♣");
+                else if (card.suit == QStringLiteral("S")) suit_sym = QStringLiteral("♠");
 
-                // Layout corners
-                p.setFont(QFont(QStringLiteral("sans-serif"), 12, QFont::Bold));
-                p.drawText(r.adjusted(6, 4, -6, -4), Qt::AlignTop | Qt::AlignLeft, val_str);
-                
-                // Center suit - slightly larger and centered
-                p.setFont(QFont(QStringLiteral("sans-serif"), 22));
-                p.drawText(r.translated(1, 1), Qt::AlignCenter, suit_sym); 
-                
-                p.setFont(QFont(QStringLiteral("sans-serif"), 12, QFont::Bold));
-                p.drawText(r.adjusted(6, 4, -6, -4), Qt::AlignBottom | Qt::AlignRight, val_str);
+                p.setFont(QFont(QStringLiteral("sans-serif"), 15, QFont::Bold));
+                p.drawText(r.adjusted(8, 6, -8, -6), Qt::AlignTop | Qt::AlignLeft, val_str);
+
+                p.setFont(QFont(QStringLiteral("sans-serif"), 28));
+                p.drawText(r.translated(1, 2), Qt::AlignCenter, suit_sym);
+
+                p.setFont(QFont(QStringLiteral("sans-serif"), 15, QFont::Bold));
+                p.drawText(r.adjusted(8, 6, -8, -6), Qt::AlignBottom | Qt::AlignRight, val_str);
             } else {
-                // Rich pattern on the back
                 p.setPen(QPen(QColor(255, 255, 255, 25), 1));
-                for (int j = 0; j < 60; j += 8) {
+                for (int j = 0; j < 70; j += 10) {
                     p.drawLine(r.left() + j, r.top(), r.left(), r.top() + j);
                     p.drawLine(r.right() - j, r.bottom(), r.right(), r.bottom() - j);
                 }
             }
         }
     };
+
+    p.setOpacity(1.0);
+    // Use fixed vertical offsets to ensure both hands are always visible and well-spaced
+    // This prevents the dealer's hand from clipping off the top on smaller dialogs
     drawHand(m_dealer_hand, 40, tr("Dealer:"));
-    drawHand(m_player_hand, 160, tr("You:"));
+    drawHand(m_player_hand, 180, tr("You:"));
 }

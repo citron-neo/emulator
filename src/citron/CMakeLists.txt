@@ -23,10 +23,15 @@ add_executable(citron
     util/confetti.h
     util/card_flip.cpp
     util/card_flip.h
+    util/image_cache.h
     util/plinko_widget.cpp
     util/plinko_widget.h
     util/blackjack_widget.cpp
     util/blackjack_widget.h
+    util/cup_shuffle_widget.cpp
+    util/cup_shuffle_widget.h
+    util/dice_widget.cpp
+    util/dice_widget.h
     applets/qt_amiibo_settings.cpp
     applets/qt_amiibo_settings.h
     applets/qt_amiibo_settings.ui

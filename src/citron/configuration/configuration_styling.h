@@ -12,7 +12,6 @@ namespace ConfigurationStyling {
 
 static const char* MASTER_STYLE_TEMPLATE = R"(
     QWidget {
-        background-color: transparent;
         color: %%TEXT_COLOR%%;
         outline: none;
         font-family: "Segoe UI", "Roboto", "Inter", "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif;
@@ -43,9 +42,11 @@ static const char* MASTER_STYLE_TEMPLATE = R"(
     /* Premium Buttons */
     QPushButton {
         background-color: %%INPUT_BG%%;
-        border: 1px solid %%INPUT_BORDER%%;
+        border: 2px solid %%INPUT_BORDER%%;
         border-radius: 8px;
-        padding: 6px 16px;
+        padding: 4px 12px;
+        min-width: 80px;
+        min-height: 28px;
         color: %%TEXT_COLOR%%;
         font-weight: bold;
     }
@@ -62,7 +63,8 @@ static const char* MASTER_STYLE_TEMPLATE = R"(
 
     QPushButton:disabled {
         color: %%TEXT_COLOR_DIM%%;
-        background-color: transparent;
+        background-color: %%INPUT_BG%%;
+        border-color: %%BORDER_COLOR%%;
     }
 
     /* Window Control Buttons (Circles) - Fallback characters if SVG fails */
@@ -319,7 +321,9 @@ inline QString GetMasterStyleSheet() {
                                         .arg(accent_color.green())
                                         .arg(accent_color.blue());
 
-    const double luminance = (0.299 * accent_color.red() + 0.587 * accent_color.green() + 0.114 * accent_color.blue()) / 255.0;
+    const double luminance =
+        (0.299 * accent_color.red() + 0.587 * accent_color.green() + 0.114 * accent_color.blue()) /
+        255.0;
     const QColor accent_text = luminance > 0.5 ? QColor(0, 0, 0) : QColor(255, 255, 255);
 
     QColor selection_bg = accent_color;
@@ -328,7 +332,8 @@ inline QString GetMasterStyleSheet() {
     }
 
     QColor indicator_border_checked = accent_color;
-    // If accent is too light, use a darker border to ensure the checkbox remains visible on white backgrounds
+    // If accent is too light, use a darker border to ensure the checkbox remains visible on white
+    // backgrounds
     if (luminance > 0.75) {
         indicator_border_checked = input_border;
     }
@@ -339,9 +344,12 @@ inline QString GetMasterStyleSheet() {
     sheet.replace(QStringLiteral("%%ACCENT_COLOR_HOVER%%"), accent_hover.name(QColor::HexRgb));
     sheet.replace(QStringLiteral("%%ACCENT_COLOR_LOW_ALPHA%%"), accent_rgba_low);
     sheet.replace(QStringLiteral("%%ACCENT_TEXT_COLOR%%"), accent_text.name(QColor::HexRgb));
-    sheet.replace(QStringLiteral("%%CHECKMARK_COLOR%%"), luminance > 0.5 ? QStringLiteral("black") : QStringLiteral("white"));
-    sheet.replace(QStringLiteral("%%CHECKMARK_COLOR_SVG%%"), (luminance > 0.5 ? QStringLiteral("black") : QStringLiteral("white")));
-    sheet.replace(QStringLiteral("%%INDICATOR_BORDER_CHECKED%%"), indicator_border_checked.name(QColor::HexRgb));
+    sheet.replace(QStringLiteral("%%CHECKMARK_COLOR%%"),
+                  luminance > 0.5 ? QStringLiteral("black") : QStringLiteral("white"));
+    sheet.replace(QStringLiteral("%%CHECKMARK_COLOR_SVG%%"),
+                  (luminance > 0.5 ? QStringLiteral("black") : QStringLiteral("white")));
+    sheet.replace(QStringLiteral("%%INDICATOR_BORDER_CHECKED%%"),
+                  indicator_border_checked.name(QColor::HexRgb));
     sheet.replace(QStringLiteral("%%TEXT_COLOR%%"), text_color.name(QColor::HexRgb));
     sheet.replace(QStringLiteral("%%TEXT_COLOR_DIM%%"), text_dim.name(QColor::HexRgb));
     sheet.replace(QStringLiteral("%%PANEL_COLOR%%"), onyx_panel.name(QColor::HexRgb));

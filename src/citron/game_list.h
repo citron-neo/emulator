@@ -170,7 +170,7 @@ signals:
                         GameListShortcutTarget target);
     void NavigateToGamedbEntryRequested(u64 program_id,
                                         const CompatibilityList& compatibility_list);
-    void OpenPerGameGeneralRequested(const std::string& file);
+    void OpenPerGameGeneralRequested(const std::string& file, u64 program_id = 0);
     void OpenDirectory(const QString& directory);
     void AddDirectory();
     void ShowList(bool show);
@@ -186,6 +186,7 @@ public slots:
 protected:
     void resizeEvent(QResizeEvent* event) override;
     void showEvent(QShowEvent* event) override;
+    void paintEvent(QPaintEvent* event) override;
     void keyPressEvent(QKeyEvent* event) override;
     bool eventFilter(QObject* obj, QEvent* event) override;
 
@@ -305,6 +306,7 @@ private:
     class NavigationSettingsOverlay* m_nav_overlay = nullptr;
     bool m_is_controller_mode = false;
     bool m_is_launching = false;
+    bool m_is_surprise_active = false;
 
     QWidget* footer_widget = nullptr;
 };

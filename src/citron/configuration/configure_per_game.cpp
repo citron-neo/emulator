@@ -18,7 +18,6 @@
 #include "common/common_types.h"
 #include "common/settings.h"
 
-
 #include <QAbstractButton>
 #include <QButtonGroup>
 #include <QCheckBox>
@@ -58,6 +57,7 @@
 #include <fstream>
 #include <nlohmann/json.hpp>
 #include "citron/configuration/configuration_shared.h"
+#include "citron/configuration/configuration_styling.h"
 #include "citron/configuration/configure_audio.h"
 #include "citron/configuration/configure_cpu.h"
 #include "citron/configuration/configure_graphics.h"
@@ -70,10 +70,10 @@
 #include "citron/main.h"
 #include "citron/theme.h"
 #include "citron/uisettings.h"
-#include "citron/configuration/configuration_styling.h"
+#include "citron/util/image_cache.h"
+#include "citron/util/overlay_dialog.h"
 #include "citron/util/rainbow_style.h"
 #include "citron/util/util.h"
-#include "citron/util/overlay_dialog.h"
 #include "citron/vk_device_info.h"
 #include "common/fs/fs_util.h"
 #include "common/fs/path_util.h"
@@ -104,7 +104,7 @@ ConfigurePerGame::ConfigurePerGame(QWidget* parent, u64 title_id_, const std::st
                                    std::vector<VkDeviceInfo::Record>& vk_device_records,
                                    Core::System& system_)
     : QDialog(parent), ui(std::make_unique<Ui::ConfigurePerGame>()), title_id{title_id_},
-      file_name{file_name_}, system{system_},
+      file_name{file_name_}, scene{nullptr}, system{system_},
       builder{std::make_unique<ConfigurationShared::Builder>(this, !system_.IsPoweredOn())},
       tab_group{std::make_shared<std::vector<ConfigurationShared::Tab*>>()} {
 
@@ -147,7 +147,6 @@ ConfigurePerGame::ConfigurePerGame(QWidget* parent, u64 title_id_, const std::st
         }
     }
 
-    UpdateTheme();
 
     ui->share_settings_button->setToolTip(
         tr("Please choose your CPU/Graphics/Advanced settings manually. "
@@ -238,8 +237,10 @@ ConfigurePerGame::ConfigurePerGame(QWidget* parent, u64 title_id_, const std::st
     addons_tab->SetTitleId(title_id);
     cheats_tab->SetTitleId(title_id);
 
-    scene = new QGraphicsScene;
+    scene = new QGraphicsScene(this);
     ui->icon_view->setScene(scene);
+
+    UpdateTheme();
 
     // Initialize premium accent halo effect
     auto* halo = new QGraphicsDropShadowEffect(ui->icon_view);
@@ -316,9 +317,7 @@ void ConfigurePerGame::LoadFromFile(FileSys::VirtualFile file_) {
     }
 
     if (isVisible()) {
-        QTimer::singleShot(0, this, [this] {
-            LoadConfiguration();
-        });
+        QTimer::singleShot(0, this, [this] { LoadConfiguration(); });
     } else {
         pending_initial_load = true;
     }
@@ -332,10 +331,12 @@ void ConfigurePerGame::UpdateTheme() {
         is_rainbow ? QStringLiteral("palette(highlight)") : Theme::GetAccentColor();
 
     // Onyx Palette
-    // Use actual palette luminance for base text colors to ensure visibility even if theme detection falls through
+    // Use actual palette luminance for base text colors to ensure visibility even if theme
+    // detection falls through
     const QPalette pal = qApp->palette();
     const QColor win_bg = pal.color(QPalette::Window);
-    const double win_lum = (0.299 * win_bg.red() + 0.587 * win_bg.green() + 0.114 * win_bg.blue()) / 255.0;
+    const double win_lum =
+        (0.299 * win_bg.red() + 0.587 * win_bg.green() + 0.114 * win_bg.blue()) / 255.0;
 
     const QString bg = is_dark ? QStringLiteral("#24242a") : QStringLiteral("#f5f5fa");
     const QString txt = win_lum > 0.5 ? QStringLiteral("#1a1a1e") : QStringLiteral("#ffffff");
@@ -344,27 +345,32 @@ void ConfigurePerGame::UpdateTheme() {
     const QString d_txt = win_lum > 0.5 ? QStringLiteral("#666670") : QStringLiteral("#aaaab4");
 
     QString style_sheet = ConfigurationStyling::GetMasterStyleSheet();
-    setStyleSheet(QStringLiteral("QDialog#ConfigurePerGame { background-color: %1; color: %2; }").arg(bg, txt));
+    setStyleSheet(QStringLiteral("QDialog#ConfigurePerGame { background-color: %1; color: %2; }")
+                      .arg(bg, txt));
     ui->stackedWidget->setStyleSheet(style_sheet);
 
-    // RGB replacements for alpha-based hover effects
-    const QColor accent_qcolor =
-        is_rainbow ? RainbowStyle::GetCurrentHighlightColor() : QColor(accent);
-
-    // Update icon glow color (Ambient Halo) based on accent color
-    if (auto* shadow = qobject_cast<QGraphicsDropShadowEffect*>(ui->icon_view->graphicsEffect())) {
-        shadow->setColor(accent_qcolor);
-        shadow->setBlurRadius(is_dark ? 60 : 40);
-        shadow->setOffset(0);
+    // Ambient Halo Update
+    const QColor accent_qcolor = is_rainbow ? RainbowStyle::GetCurrentHighlightColor() : QColor(accent);
+    if (scene) {
+        for (auto* item : scene->items()) {
+            if (auto* effect = qobject_cast<QGraphicsDropShadowEffect*>(item->graphicsEffect())) {
+                effect->setColor(accent_qcolor);
+                effect->setBlurRadius(is_dark ? 60 : 40);
+            }
+        }
     }
 
     QString final_style = style_sheet;
-    final_style +=
-        QStringLiteral("QDialog#ConfigurePerGame { background-color: %1; color: %2; }").arg(bg, txt);
+    final_style += QStringLiteral("QDialog#ConfigurePerGame { background-color: %1; color: %2; }")
+                       .arg(bg, txt);
 
-    // Ensure accent text is black if the accent is even remotely light to prevent visibility issues in Light Mode
-    const double accent_lum = (0.299 * accent_qcolor.red() + 0.587 * accent_qcolor.green() + 0.114 * accent_qcolor.blue()) / 255.0;
-    const QString accent_txt_color = (accent_lum > 0.5 || !is_dark) ? QStringLiteral("#000000") : QStringLiteral("#ffffff");
+    // Ensure accent text is black if the accent is even remotely light to prevent visibility issues
+    // in Light Mode
+    const double accent_lum = (0.299 * accent_qcolor.red() + 0.587 * accent_qcolor.green() +
+                               0.114 * accent_qcolor.blue()) /
+                              255.0;
+    const QString accent_txt_color =
+        (accent_lum > 0.5 || !is_dark) ? QStringLiteral("#000000") : QStringLiteral("#ffffff");
 
     // Premium Sidebar Tabs
     const QString tab_css =
@@ -390,7 +396,7 @@ void ConfigurePerGame::UpdateTheme() {
             .arg(accent_txt_color);
 
     final_style += tab_css;
-    
+
     final_style +=
         QStringLiteral(
             "#icon_view { border-radius: 20px; border: 1px solid transparent; background: "
@@ -399,25 +405,29 @@ void ConfigurePerGame::UpdateTheme() {
             "QToolButton#full_info_button { background: #0d0d12; color: #ffffff; border: none; "
             "font-weight: bold; font-family: 'Times New Roman', serif; font-size: 14px; }"
             "QToolButton#full_info_button:hover { background: %1; color: %2; }"
-            "#info_panel QPushButton { background-color: transparent; border: 1px solid %3; color: %4; font-weight: bold; border-radius: 6px; height: 34px; }"
+            "#info_panel QPushButton { background-color: %9; border: 2px solid %3; color: %4; "
+            "font-weight: bold; border-radius: 6px; min-height: 28px; padding: 4px 12px; }"
             "#info_panel QPushButton:hover { background-color: %1; color: %2; }"
-            "#info_panel QPushButton:pressed { background-color: rgba(%5, %6, %7, 180); color: %2; }"
-            "#info_panel QPushButton:disabled { color: %8 !important; border-color: %8 !important; }")
+            "#info_panel QPushButton:pressed { background-color: rgba(%5, %6, %7, 180); color: %2; "
+            "}"
+            "#info_panel QPushButton:disabled { color: %8 !important; border-color: %8 !important; "
+            "background-color: %9 !important; }")
             .arg(accent, accent_txt_color)
             .arg(is_dark ? accent : QStringLiteral("#1a1a1e")) // Border color for action buttons
             .arg(txt) // Text color for action buttons (default state)
             .arg(accent_qcolor.red())
             .arg(accent_qcolor.green())
             .arg(accent_qcolor.blue())
-            .arg(d_txt);
+            .arg(d_txt)
+            .arg(bg);
 
     // Explicit styling for the three action buttons to ensure they never go white-on-white
     final_style +=
         QStringLiteral(
             "QPushButton#trim_xci_button, QPushButton#share_settings_button, "
             "QPushButton#import_settings_button { "
-            "  background-color: transparent; color: %1; border: 2px solid %2; border-radius: 4px; "
-            "  font-weight: bold; padding: 4px 12px; "
+            "  background-color: %11; color: %1; border: 2px solid %2; border-radius: 6px; "
+            "  font-weight: bold; padding: 4px 12px; min-height: 28px; "
             "} "
             "QPushButton#trim_xci_button:hover, QPushButton#share_settings_button:hover, "
             "QPushButton#import_settings_button:hover { "
@@ -429,18 +439,21 @@ void ConfigurePerGame::UpdateTheme() {
             "} "
             "QPushButton#trim_xci_button:disabled, QPushButton#share_settings_button:disabled, "
             "QPushButton#import_settings_button:disabled { "
-            "  color: %3 !important; border-color: %3 !important; background-color: transparent !important; "
+            "  color: %3 !important; border-color: %3 !important; background-color: %11 "
+            "!important; "
             "} ")
-            .arg(txt)                 // %1
+            .arg(txt)                                          // %1
             .arg(is_dark ? accent : QStringLiteral("#dcdce2")) // %2 (Softer border color)
-            .arg(d_txt)               // %3
-            .arg(Theme::GetAccentColorHover()) // %4
-            .arg(accent_qcolor.red())   // %5
-            .arg(accent_qcolor.green()) // %6
-            .arg(accent_qcolor.blue())  // %7
-            .arg(Theme::GetAccentColorPressed()) // %8
-            .arg(accent_txt_color)    // %9
-            .arg(win_lum > 0.5 ? QStringLiteral("#1a1a1e") : QStringLiteral("#ffffff")); // %10 (Hover text)
+            .arg(d_txt)                                        // %3
+            .arg(Theme::GetAccentColorHover())                 // %4
+            .arg(accent_qcolor.red())                          // %5
+            .arg(accent_qcolor.green())                        // %6
+            .arg(accent_qcolor.blue())                         // %7
+            .arg(Theme::GetAccentColorPressed())               // %8
+            .arg(accent_txt_color)                             // %9
+            .arg(win_lum > 0.5 ? QStringLiteral("#1a1a1e")
+                               : QStringLiteral("#ffffff")) // %10 (Hover text)
+            .arg(bg);                                       // %11 (Solid background)
     addons_tab->UpdateTheme();
 
     setStyleSheet(final_style);
@@ -463,9 +476,13 @@ void ConfigurePerGame::UpdateTheme() {
                 const int tab_padding_h = static_cast<int>(20 * factor);
 
                 // Update Icon Glow and Laser in real-time for Rainbow Mode
-                if (auto* shadow =
-                        qobject_cast<QGraphicsDropShadowEffect*>(ui->icon_view->graphicsEffect())) {
-                    shadow->setColor(current_color);
+                if (scene) {
+                    for (auto* item : scene->items()) {
+                        if (auto* effect =
+                                qobject_cast<QGraphicsDropShadowEffect*>(item->graphicsEffect())) {
+                            effect->setColor(current_color);
+                        }
+                    }
                 }
                 if (m_laser_path) {
                     QPen p = m_laser_path->pen();
@@ -475,8 +492,12 @@ void ConfigurePerGame::UpdateTheme() {
 
                 // 1. Top Tab Buttons
                 const QColor actual_current_color(hue_hex);
-                const double current_luminance = (0.299 * actual_current_color.red() + 0.587 * actual_current_color.green() + 0.114 * actual_current_color.blue()) / 255.0;
-                const QString current_accent_text = current_luminance > 0.5 ? QStringLiteral("#000000") : QStringLiteral("#ffffff");
+                const double current_luminance =
+                    (0.299 * actual_current_color.red() + 0.587 * actual_current_color.green() +
+                     0.114 * actual_current_color.blue()) /
+                    255.0;
+                const QString current_accent_text =
+                    current_luminance > 0.5 ? QStringLiteral("#000000") : QStringLiteral("#ffffff");
 
                 QString tab_buttons_css =
                     QStringLiteral(
@@ -502,19 +523,23 @@ void ConfigurePerGame::UpdateTheme() {
                 // 3. Action Buttons (Rainbow)
                 const QString button_css =
                     QStringLiteral(
-                        "QPushButton { background-color: transparent; color: %4; border: 2px solid "
-                        "%1; border-radius: 4px; font-weight: bold; padding: 4px 12px; }"
-                        "QPushButton:hover { border-color: %2; color: %4 !important; background-color: "
+                        "QPushButton { background-color: %10; color: %4; border: 2px solid "
+                        "%1; border-radius: 6px; font-weight: bold; padding: 4px 12px; min-height: "
+                        "28px; }"
+                        "QPushButton:hover { border-color: %2; color: %4 !important; "
+                        "background-color: "
                         "rgba(%5, %6, %7, 40); }"
                         "QPushButton:pressed { background-color: %3; color: %8; border-color: "
                         "%3; }"
-                        "QPushButton:disabled { color: %9 !important; border-color: %9 !important; }")
+                        "QPushButton:disabled { color: %9 !important; border-color: %9 !important; "
+                        "background-color: %10 !important; }")
                         .arg(hue_hex, hue_light, hue_dark, txt)
                         .arg(current_color.red())
                         .arg(current_color.green())
                         .arg(current_color.blue())
                         .arg(current_accent_text)
-                        .arg(d_txt);
+                        .arg(d_txt)
+                        .arg(bg);
 
                 if (ui->buttonBox) {
                     for (auto* button : ui->buttonBox->findChildren<QPushButton*>()) {
@@ -571,7 +596,30 @@ void ConfigurePerGame::UpdateTheme() {
     }
 
     if (ui->buttonBox) {
-        ui->buttonBox->setStyleSheet(QStringLiteral("QPushButton:disabled { color: %1 !important; border-color: %1 !important; }").arg(d_txt));
+        ui->buttonBox->setStyleSheet(QStringLiteral("QDialogButtonBox QPushButton { "
+                                                    "  background-color: %1; "
+                                                    "  border: 1px solid %2; "
+                                                    "  border-radius: 8px; "
+                                                    "  padding: 0px 16px; "
+                                                    "  min-height: 30px; "
+                                                    "  max-height: 30px; "
+                                                    "  min-width: 100px; "
+                                                    "  color: %6; "
+                                                    "  font-weight: bold; "
+                                                    "  font-size: 13px; "
+                                                    "} "
+                                                    "QDialogButtonBox QPushButton:hover { "
+                                                    "  background-color: %3; "
+                                                    "  color: %4; "
+                                                    "  border-color: %3; "
+                                                    "} "
+                                                    "QDialogButtonBox QPushButton:disabled { "
+                                                    "  color: %5 !important; "
+                                                    "  border-color: %5 !important; "
+                                                    "  background-color: %1 !important; "
+                                                    "}")
+                                         .arg(bg, is_dark ? accent : QStringLiteral("#dcdce2"),
+                                              accent, accent_txt_color, d_txt, txt));
     }
     if (UISettings::values.enable_rainbow_mode.GetValue() == false && rainbow_timer) {
         rainbow_timer->stop();
@@ -623,7 +671,11 @@ void ConfigurePerGame::LoadConfiguration() {
     }
 
     bool has_icon = false;
-    if (control.second != nullptr) {
+    QPixmap cached_icon = Citron::ImageCache::GetCustomIcon(title_id);
+    if (!cached_icon.isNull()) {
+        map = cached_icon;
+        has_icon = true;
+    } else if (control.second != nullptr) {
         const auto bytes = control.second->ReadAllBytes();
         if (map.loadFromData(bytes.data(), static_cast<u32>(bytes.size()))) {
             has_icon = true;
@@ -641,37 +693,53 @@ void ConfigurePerGame::LoadConfiguration() {
         scene->clear();
         m_laser_path = nullptr; // scene->clear() deletes it
 
-        const bool is_dark = GameIsDarkMode();
+
         const QColor accent_qcolor = UISettings::values.enable_rainbow_mode.GetValue()
                                          ? RainbowStyle::GetCurrentHighlightColor()
                                          : QColor(Theme::GetAccentColor());
 
-        // Round the icon corners to match premium console aesthetic (20px radius)
-        QPixmap rounded_pixmap(map.size());
-        rounded_pixmap.fill(Qt::transparent);
+        // Find the actual opaque bounding box to avoid a giant "empty" box around the icon
+        QPixmap cropped_icon = map;
+        if (!map.mask().isNull()) {
+            const QRegion region(map.mask());
+            const QRect opaque_rect = region.boundingRect();
+            if (!opaque_rect.isNull() && opaque_rect != map.rect()) {
+                cropped_icon = map.copy(opaque_rect);
+            }
+        }
 
-        QPainter painter(&rounded_pixmap);
-        painter.setRenderHint(QPainter::Antialiasing);
-        painter.setRenderHint(QPainter::SmoothPixmapTransform);
+        // Normalize the icon into a 160x160 canvas for consistent display
+        QPixmap scaled_icon =
+            cropped_icon.scaled(160, 160, Qt::KeepAspectRatio, Qt::SmoothTransformation);
 
-        QPainterPath path;
-        path.addRoundedRect(QRectF(0, 0, map.width(), map.height()), 20, 20);
-        painter.setClipPath(path);
-        painter.drawPixmap(0, 0, map);
-        painter.end();
+        // Apply rounded corners to the scaled icon directly (tight bounding box)
+        QPixmap rounded_icon(scaled_icon.size());
+        rounded_icon.fill(Qt::transparent);
+        {
+            QPainter painter(&rounded_icon);
+            painter.setRenderHint(QPainter::Antialiasing);
+            painter.setRenderHint(QPainter::SmoothPixmapTransform);
+            QPainterPath path;
+            path.addRoundedRect(QRectF(0, 0, scaled_icon.width(), scaled_icon.height()), 20, 20);
+            painter.setClipPath(path);
+            painter.drawPixmap(0, 0, scaled_icon);
+        }
 
-        scene->addPixmap(rounded_pixmap);
-        ui->icon_view->fitInView(scene->itemsBoundingRect(), Qt::KeepAspectRatio);
+        auto* pixmap_item = scene->addPixmap(rounded_icon);
+        // Center the tight item in the 160x160 area
+        const qreal x_off = (160 - rounded_icon.width()) / 2.0;
+        const qreal y_off = (160 - rounded_icon.height()) / 2.0;
+        pixmap_item->setPos(x_off, y_off);
 
-        // Add premium glow effect matched to accent color
-        auto* shadow = new QGraphicsDropShadowEffect(this);
-        shadow->setBlurRadius(is_dark ? 60 : 40);
-        shadow->setColor(accent_qcolor);
-        shadow->setOffset(0, 0);
-        ui->icon_view->setGraphicsEffect(shadow);
+        // Add premium glow effect directly to the icon item (follows the silhouette)
+        auto* icon_shadow = new QGraphicsDropShadowEffect(this);
+        icon_shadow->setBlurRadius(20);
+        icon_shadow->setColor(accent_qcolor);
+        icon_shadow->setOffset(0, 0);
+        pixmap_item->setGraphicsEffect(icon_shadow);
 
-        // Initialize Laser Border Animation
-        const QRectF rect = scene->itemsBoundingRect();
+        // Initialize Laser Border Animation around the central 160x160 area
+        const QRectF rect(0, 0, 160, 160);
         QPainterPath laser_border_path;
         laser_border_path.addRoundedRect(rect, 20, 20);
 
@@ -681,7 +749,31 @@ void ConfigurePerGame::LoadConfiguration() {
         QPen laser_pen(accent_qcolor, 3.0);
         laser_pen.setCapStyle(Qt::RoundCap);
         m_laser_path->setPen(laser_pen);
+
+        // Add a subtle glow to the laser line
+        auto* laser_shadow = new QGraphicsDropShadowEffect(this);
+        laser_shadow->setBlurRadius(10);
+        laser_shadow->setColor(accent_qcolor);
+        laser_shadow->setOffset(0, 0);
+        m_laser_path->setGraphicsEffect(laser_shadow);
+
         scene->addItem(m_laser_path);
+
+        // Ensure the view is completely transparent and frameless
+        ui->icon_view->setGraphicsEffect(nullptr);
+        ui->icon_view->setBackgroundBrush(Qt::NoBrush);
+        ui->icon_view->setFrameStyle(QFrame::NoFrame);
+        ui->icon_view->setRenderHint(QPainter::Antialiasing);
+        ui->icon_view->setRenderHint(QPainter::SmoothPixmapTransform);
+        ui->icon_view->viewport()->setAutoFillBackground(false);
+
+        // Fit in view with a consistent margin. 
+        // We use a singleShot to ensure the widget has its final size before fitting.
+        QTimer::singleShot(0, this, [this]() {
+            if (ui && ui->icon_view) {
+                ui->icon_view->fitInView(QRectF(-10, -10, 180, 180), Qt::KeepAspectRatio);
+            }
+        });
 
         // Laser Beam Animation
         if (m_laser_anim)
@@ -692,20 +784,21 @@ void ConfigurePerGame::LoadConfiguration() {
         m_laser_anim->setEndValue(1.0);
         m_laser_anim->setLoopCount(-1);
 
+        const double path_length = laser_border_path.length();
         connect(m_laser_anim, &QVariantAnimation::valueChanged, this,
-                [this, laser_border_path](const QVariant& value) {
+                [this, path_length](const QVariant& value) {
                     if (!this->isVisible() || !m_laser_path)
                         return;
 
-                    float progress = value.toFloat();
-                    float length = laser_border_path.length();
-                    float dash_len = length * 0.2f;
+                    const double progress = value.toDouble();
+                    const double dash_len = path_length * 0.2;
 
                     QPen p = m_laser_path->pen();
+                    const double pw = p.widthF();
                     QVector<qreal> pattern;
-                    pattern << dash_len / p.width() << (length - dash_len) / p.width();
+                    pattern << dash_len / pw << (path_length - dash_len) / pw;
                     p.setDashPattern(pattern);
-                    p.setDashOffset((length * progress) / p.width());
+                    p.setDashOffset((path_length * (1.0 - progress)) / pw);
                     m_laser_path->setPen(p);
                 });
         m_laser_anim->start();
@@ -953,7 +1046,7 @@ void ConfigurePerGame::UpdateLayoutScaling() {
     int icon_size = std::min(256, static_cast<int>(160 * factor));
     ui->icon_view->setFixedSize(icon_size, icon_size);
     if (scene && !scene->items().isEmpty()) {
-        ui->icon_view->fitInView(scene->itemsBoundingRect(), Qt::KeepAspectRatio);
+        ui->icon_view->fitInView(QRectF(-10, -10, 180, 180), Qt::KeepAspectRatio);
     }
 
     int margin_side = static_cast<int>(20 * factor);
@@ -1077,7 +1170,6 @@ void ConfigurePerGame::UpdateLayoutScaling() {
 
 void ConfigurePerGame::resizeEvent(QResizeEvent* event) {
     QDialog::resizeEvent(event);
-    // De-bounce the layout update to avoid recursive layout loops
     QTimer::singleShot(0, this, &ConfigurePerGame::UpdateLayoutScaling);
 }
 
@@ -1086,15 +1178,11 @@ void ConfigurePerGame::showEvent(QShowEvent* event) {
 
     if (pending_initial_load) {
         pending_initial_load = false;
-        QTimer::singleShot(0, this, [this]() {
-            LoadConfiguration();
-        });
+        QTimer::singleShot(0, this, [this]() { LoadConfiguration(); });
     }
 
     // Force a layout re-calculation after the widget is mapped to coordinates
-    QTimer::singleShot(50, this, [this]() {
-        UpdateLayoutScaling();
-    });
+    QTimer::singleShot(50, this, [this]() { UpdateLayoutScaling(); });
 }
 
 void ConfigurePerGame::OnTrimXCI() {
@@ -1248,11 +1336,11 @@ void ConfigurePerGame::AnimateTabSwitch(int id) {
         return;
     }
 
-    const bool lightning_enabled =
-        UISettings::values.neo_ui_theme.GetValue() == "lightning";
+    const bool lightning_enabled = UISettings::values.neo_ui_theme.GetValue() == "lightning";
 
     if (animation_filter && button_group && lightning_enabled) {
-        QPushButton* from_button = qobject_cast<QPushButton*>(button_group->button(ui->stackedWidget->currentIndex()));
+        QPushButton* from_button =
+            qobject_cast<QPushButton*>(button_group->button(ui->stackedWidget->currentIndex()));
         QPushButton* to_button = qobject_cast<QPushButton*>(button_group->button(id));
 
         if (to_button) {
@@ -1547,14 +1635,14 @@ void ConfigurePerGame::OnFullInfo() {
     info += tr("<b>Update Build ID:</b> %1<br>").arg(ui->display_update_build_id->text());
 
     if (UISettings::IsGamescope()) {
-        auto* dialog = new OverlayDialog(this, system, tr("Game Information"), info,
-                                        QString{}, tr("Close"), Qt::AlignCenter);
+        auto* dialog = new OverlayDialog(this, system, tr("Game Information"), info, QString{},
+                                         tr("Close"), Qt::AlignCenter);
         dialog->setWindowFlags(Qt::Window | Qt::CustomizeWindowHint | Qt::WindowTitleHint |
-                              Qt::WindowStaysOnTopHint);
+                               Qt::WindowStaysOnTopHint);
         dialog->open();
     } else {
         const bool is_dark = GameIsDarkMode();
-        const QString bg  = is_dark ? QStringLiteral("#24242a") : QStringLiteral("#ffffff");
+        const QString bg = is_dark ? QStringLiteral("#24242a") : QStringLiteral("#ffffff");
         const QString txt = is_dark ? QStringLiteral("#e0e0e4") : QStringLiteral("#1a1a1e");
         const QString bdr = is_dark ? QStringLiteral("#32323a") : QStringLiteral("#d0d0d5");
         const QString accent = QString::fromStdString(UISettings::values.accent_color.GetValue());
@@ -1564,18 +1652,20 @@ void ConfigurePerGame::OnFullInfo() {
         msg.setText(info);
         msg.setIcon(QMessageBox::Information);
         msg.setStandardButtons(QMessageBox::Ok);
-        msg.setStyleSheet(QStringLiteral(
-            "QMessageBox { background-color: %1; color: %2; }"
-            "QMessageBox QLabel { background-color: transparent; color: %2; font-size: 9pt; }"
-            "QMessageBox QPushButton { "
-            "  background-color: transparent; color: %2; "
-            "  border: 1px solid %3; border-radius: 4px; padding: 4px 16px; min-width: 60px; "
-            "}"
-            "QMessageBox QPushButton:hover { background-color: %4; color: #ffffff; border-color: %4; }"
-            "QScrollBar:vertical { background: transparent; width: 8px; }"
-            "QScrollBar::handle:vertical { background: %3; border-radius: 4px; min-height: 20px; }")
-            .arg(bg, txt, bdr, accent));
+        msg.setStyleSheet(
+            QStringLiteral(
+                "QMessageBox { background-color: %1; color: %2; }"
+                "QMessageBox QLabel { background-color: transparent; color: %2; font-size: 9pt; }"
+                "QMessageBox QPushButton { "
+                "  background-color: transparent; color: %2; "
+                "  border: 1px solid %3; border-radius: 4px; padding: 4px 16px; min-width: 60px; "
+                "}"
+                "QMessageBox QPushButton:hover { background-color: %4; color: #ffffff; "
+                "border-color: %4; }"
+                "QScrollBar:vertical { background: transparent; width: 8px; }"
+                "QScrollBar::handle:vertical { background: %3; border-radius: 4px; min-height: "
+                "20px; }")
+                .arg(bg, txt, bdr, accent));
         msg.exec();
     }
 }
-

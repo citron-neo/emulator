@@ -440,7 +440,7 @@ void GameBananaDialog::UpdateTheme() {
         "padding: 12px; color: %2; }"
         "QListWidget::item:selected { background-color: %5; border: 2px solid %3; }"
         "QPushButton { background-color: %4; border: 1px solid %5; border-radius: 10px; padding: "
-        "8px 16px; color: %2; font-weight: bold; %10 }"
+        "6px 16px; color: %2; font-weight: bold; %10 }"
         "QPushButton:hover { background-color: %5; }"
         "QPushButton#buttonDownload { background-color: %3; color: #000000; }"
         "QPushButton#buttonDownload:disabled { background-color: %5; color: %7; }"
@@ -462,11 +462,22 @@ void GameBananaDialog::UpdateTheme() {
         .arg(btn_font);
 
     const QColor accent_qcolor(accent);
-    const double accent_lum = (0.299 * accent_qcolor.red() + 0.587 * accent_qcolor.green() + 0.114 * accent_qcolor.blue()) / 255.0;
+    const double accent_lum =
+        (0.299 * accent_qcolor.red() + 0.587 * accent_qcolor.green() + 0.114 * accent_qcolor.blue()) /
+        255.0;
+    const QString accent_txt_color = accent_lum > 0.5 ? QStringLiteral("black") : QStringLiteral("white");
     const QString indicator_border = accent_lum > 0.75 ? border : accent;
     const QString checkmark_color = accent_lum > 0.5 ? QStringLiteral("black") : QStringLiteral("white");
 
     style = style.arg(indicator_border, checkmark_color);
+
+    // Apply specific fixes for the download button size and contrast
+    style += QStringLiteral(
+        "QPushButton { min-height: 30px; min-width: 100px; } "
+        "QPushButton#buttonDownload { background-color: %1; color: %2; max-width: 400px; } "
+        "QPushButton#buttonDownload:hover { background-color: %1; border: 1px solid %3; } "
+        "QPushButton#buttonCancel { min-width: 120px; }")
+        .arg(accent, accent_txt_color, txt);
 
     setStyleSheet(style);
 

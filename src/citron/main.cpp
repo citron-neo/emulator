@@ -5,6 +5,8 @@
 
 #include <cinttypes>
 #include <clocale>
+#include <random>
+#include "citron/theme.h"
 #include <cmath>
 #include <cstdlib>
 #include <fstream>
@@ -153,6 +155,7 @@ static FileSys::VirtualFile VfsDirectoryCreateFileWrapper(const FileSys::Virtual
 #include "citron/play_time_manager.h"
 #include "citron/startup_checks.h"
 #include "citron/uisettings.h"
+#include "citron/theme.h"
 #include "citron/util/rainbow_style.h"
 #include "common/settings.h"
 #include "common/string_util.h"
@@ -3608,15 +3611,18 @@ void GMainWindow::OnGameListShowList(bool show) {
     game_list_placeholder->setVisible(!show);
 };
 
-void GMainWindow::OnGameListOpenPerGameProperties(const std::string& file) {
-    u64 title_id{};
-    const auto v_file = Core::GetGameFileFromPath(vfs, file);
-    const auto loader = Loader::GetLoader(*system, v_file);
+void GMainWindow::OnGameListOpenPerGameProperties(const std::string& file, u64 program_id) {
+    u64 title_id = program_id;
 
-    if (loader == nullptr || loader->ReadProgramId(title_id) != Loader::ResultStatus::Success) {
-        QMessageBox::information(this, tr("Properties"),
-                                 tr("The game properties could not be loaded."));
-        return;
+    if (title_id == 0) {
+        const auto v_file = Core::GetGameFileFromPath(vfs, file);
+        const auto loader = Loader::GetLoader(*system, v_file);
+
+        if (loader == nullptr || loader->ReadProgramId(title_id) != Loader::ResultStatus::Success) {
+            QMessageBox::information(this, tr("Properties"),
+                                     tr("The game properties could not be loaded."));
+            return;
+        }
     }
 
     OpenPerGameConfiguration(title_id, file);
@@ -6446,6 +6452,18 @@ void GMainWindow::UpdateUITheme() {
     const QString toolbar_fg_hex = QString::fromStdString(UISettings::values.custom_toolbar_text_color.GetValue());
     const QString toolbar_fg = QColor(toolbar_fg_hex).isValid() ? toolbar_fg_hex : (toolbar_lum > 0.5 ? QStringLiteral("#1a1a1e") : QStringLiteral("#ffffff"));
 
+    // Reset qApp stylesheet to the base theme before applying dynamic overrides
+    // This prevents the stylesheet from growing indefinitely on every theme update
+    if (current_theme != default_theme_name) {
+        QString theme_uri{QStringLiteral(":%1/style.qss").arg(current_theme)};
+        QFile f(theme_uri);
+        if (f.open(QFile::ReadOnly | QFile::Text)) {
+            qApp->setStyleSheet(QString::fromUtf8(f.readAll()));
+        }
+    } else {
+        qApp->setStyleSheet(QStringLiteral(""));
+    }
+
     const QString toolbar_bg = QStringLiteral("rgba(%1,%2,%3,%4)").arg(toolbar_bg_color.red()).arg(toolbar_bg_color.green()).arg(toolbar_bg_color.blue()).arg(toolbar_bg_color.alpha());
     const QString toolbar_border = is_dark ? QStringLiteral("rgba(255,255,255,0.1)") : QStringLiteral("rgba(0,0,0,0.1)");
 
@@ -6465,9 +6483,9 @@ void GMainWindow::UpdateUITheme() {
                 "QPushButton:hover { background: %2; color: %3; border-bottom: 1.5px solid %4; }"
                 "QPushButton:pressed { background: %5; }"
                 "QPushButton::menu-indicator { image: none; width: 0; }")
-                .arg(toolbar_fg, (toolbar_lum > 0.5 ? "rgba(0, 0, 0, 0.05)" : "rgba(255, 255, 255, 0.05)"),
-                     (toolbar_lum > 0.5 ? "#000000" : "#ffffff"), accent_str,
-                     (toolbar_lum > 0.5 ? "rgba(0, 0, 0, 0.10)" : "rgba(255, 255, 255, 0.10)"));
+                .arg(toolbar_fg, (toolbar_lum > 0.5 ? QStringLiteral("#e0e0e5") : QStringLiteral("#2d2d35")),
+                     (toolbar_lum > 0.5 ? QStringLiteral("#000000") : QStringLiteral("#ffffff")), accent_str,
+                     (toolbar_lum > 0.5 ? QStringLiteral("#d0d0d5") : QStringLiteral("#3d3d45")));
 
         for (auto* btn : unified_top_bar->findChildren<QPushButton*>()) {
             btn->setStyleSheet(top_btn_style);
@@ -6519,27 +6537,36 @@ void GMainWindow::UpdateUITheme() {
             .arg(toolbar_bg, toolbar_border, toolbar_fg, (is_dark ? "#2d2d35" : "#e8e8ed"));
     menuBar()->setStyleSheet(toolbar_qss);
 
+    const QString tooltip_bg = is_dark ? QStringLiteral("#24242a") : QStringLiteral("#f5f5fa");
+    const QString tooltip_border = is_dark ? QStringLiteral("#3d3d45") : QStringLiteral("#dcdce2");
+
     // Dynamic Menu & ToolTip Styling (Unified adaptive styling)
     const QString global_style =
         QString::fromLatin1(
-            "QToolTip { background: %1; color: %3; border: 1px solid %2; border-radius: 4px; "
-            "padding: 5px; font-size: 9pt; }"
+            "QToolTip { background: %7; color: %3; border: 1px solid %8; border-radius: 6px; "
+            "padding: 6px; font-size: 9pt; }"
             "QMenu { background: %1; border: 1px solid %2; border-radius: 8px; padding: 6px; color: "
             "%3; }"
             "QMenu::item { padding: 4px 28px 4px 32px; border-radius: 4px; margin: 1px; "
             "font-size: 8.5pt; min-width: 140px; color: %3; }"
             "QMenu::item:selected { background-color: %4; color: %5; }"
             "QMenu::item:disabled { color: %6; }"
-            "QMenu::separator { height: 1px; background: %7; margin: 4px 10px; }"
+            "QMenu::separator { height: 1px; background: %8; margin: 4px 10px; }"
             "QMenu::indicator { width: 14px; height: 14px; left: 10px; border-radius: 3px; border: "
             "1px solid %2; background: %1; }"
             "QMenu::indicator:checked { background: %4; border: 1px solid %4; }")
             .arg(toolbar_bg, toolbar_border, toolbar_fg, accent_str, accent_fg,
-                 (is_dark ? "#555558" : "#aab0b4"), (is_dark ? "#303035" : "#d0d0d5"));
+                 (toolbar_lum > 0.5 ? "rgba(0,0,0,0.3)" : "rgba(255,255,255,0.3)"), tooltip_bg,
+                 tooltip_border);
 
     // Apply to qApp to ensure context menus and tooltips are captured globally
-    // This fixes the hardcoded dark look on desktop's light mode
-    qApp->setStyleSheet(qApp->styleSheet() + global_style);
+    // We use !important and both 'background' and 'background-color' to force opacity
+    const QString final_global_style =
+        global_style + QStringLiteral("QToolTip, QTipLabel { background: %1 !important; background-color: %1 !important; border: 1px solid %2 !important; }")
+            .arg(tooltip_bg, tooltip_border);
+    
+    // Completely reset the app stylesheet to prevent bloat and ensure our overrides win
+    qApp->setStyleSheet(final_global_style);
 
     emit UpdateThemedIcons();
 
@@ -6623,6 +6650,27 @@ void GMainWindow::changeEvent(QEvent* event) {
 }
 
 bool GMainWindow::eventFilter(QObject* obj, QEvent* event) {
+    if (!obj) return QMainWindow::eventFilter(obj, event);
+    
+    // [ONYX TOOLTIP] Force total opacity on every QToolTip instance
+    if ((event->type() == QEvent::Show || event->type() == QEvent::Paint) && obj->inherits("QTipLabel")) {
+        if (auto* widget = qobject_cast<QWidget*>(obj)) {
+            widget->setAttribute(Qt::WA_TranslucentBackground, false);
+            widget->setAutoFillBackground(true);
+            
+            const bool is_dark = ::Theme::IsDarkMode();
+            const QString bg = is_dark ? QStringLiteral("#24242a") : QStringLiteral("#f5f5fa");
+            const QString fg = is_dark ? QStringLiteral("#e0e0e4") : QStringLiteral("#1a1a1e");
+            const QString border = is_dark ? QStringLiteral("#3d3d45") : QStringLiteral("#dcdce2");
+            
+            // Setting the style directly on the widget is the only way to beat platform themes
+            widget->setStyleSheet(QStringLiteral(
+                "background-color: %1; color: %2; border: 1px solid %3; border-radius: 4px; padding: 4px; "
+                "font-family: 'Outfit', 'Inter', sans-serif; font-size: 9pt; opacity: 255;"
+            ).arg(bg, fg, border));
+        }
+    }
+
     if (event->type() == QEvent::MouseMove) {
         if (auto* popup = QApplication::activePopupWidget()) {
             if (popup->inherits("QMenu")) {
