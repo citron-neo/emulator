@@ -283,7 +283,11 @@ endif()
 ")
 
     add_custom_command(TARGET ${target} POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -DTARGET_DIR="$<TARGET_FILE_DIR:${target}>" -DTARGET_FILE="$<TARGET_FILE_NAME:${target}>" -P "${DEPLOY_SCRIPT}"
+        COMMAND ${CMAKE_COMMAND}
+            "-DTARGET_DIR=$<TARGET_FILE_DIR:${target}>"
+            "-DTARGET_FILE=$<TARGET_FILE_NAME:${target}>"
+            -P "${DEPLOY_SCRIPT}"
         COMMENT "Deploying MinGW runtime DLLs and Qt plugins for ${target}"
+        VERBATIM
     )
 endfunction()
