@@ -19,7 +19,16 @@ if (NOT WIN32 AND NOT ANDROID)
         message(FATAL_ERROR "Required program `autoconf` not found.")
     endif()
 
-    set(FFmpeg_PREFIX ${PROJECT_SOURCE_DIR}/externals/ffmpeg/ffmpeg)
+    # ── CPM source override ────────────────────────────────────────────────────
+    # When CITRON_USE_CPM=ON, dependencies.cmake downloads FFmpeg source via
+    # CPMAddPackage and sets FFMPEG_CPM_SOURCE_DIR to the extracted source root.
+    # Use that instead of the submodule path so no submodule init is required.
+    if (DEFINED FFMPEG_CPM_SOURCE_DIR AND IS_DIRECTORY "${FFMPEG_CPM_SOURCE_DIR}")
+        set(FFmpeg_PREFIX "${FFMPEG_CPM_SOURCE_DIR}")
+        message(STATUS "[FFmpeg] Using CPM-downloaded source: ${FFmpeg_PREFIX}")
+    else()
+        set(FFmpeg_PREFIX ${PROJECT_SOURCE_DIR}/externals/ffmpeg/ffmpeg)
+    endif()
     set(FFmpeg_BUILD_DIR ${PROJECT_BINARY_DIR}/externals/ffmpeg-build)
     set(FFmpeg_MAKEFILE ${FFmpeg_BUILD_DIR}/Makefile)
     make_directory(${FFmpeg_BUILD_DIR})
@@ -31,6 +40,9 @@ if (NOT WIN32 AND NOT ANDROID)
         set(FFmpeg_FOUND YES)
     endif()
 
+    if (NOT DEFINED FFmpeg_COMPONENTS)
+        set(FFmpeg_COMPONENTS avcodec avfilter avutil swscale)
+    endif()
     unset(FFmpeg_LIBRARIES CACHE)
     foreach(COMPONENT ${FFmpeg_COMPONENTS})
         set(FFmpeg_${COMPONENT}_PREFIX "${FFmpeg_BUILD_DIR}/lib${COMPONENT}")
@@ -159,7 +171,6 @@ if (NOT WIN32 AND NOT ANDROID)
                 --disable-ffmpeg
                 --disable-ffprobe
                 --disable-network
-                --disable-postproc
                 --disable-swresample
                 --enable-decoder=h264
                 --enable-decoder=vp8

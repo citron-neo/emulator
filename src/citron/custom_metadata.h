@@ -12,6 +12,7 @@ namespace Citron {
 struct CustomGameMetadata {
     std::string title;
     std::string icon_path;
+    std::string poster_path;
 };
 
 class CustomMetadata {
@@ -25,9 +26,11 @@ public:
 
     [[nodiscard]] std::optional<std::string> GetCustomTitle(u64 program_id) const;
     [[nodiscard]] std::optional<std::string> GetCustomIconPath(u64 program_id) const;
+    [[nodiscard]] std::optional<std::string> GetCustomPosterPath(u64 program_id) const;
 
     void SetCustomTitle(u64 program_id, const std::string& title);
     void SetCustomIcon(u64 program_id, const std::string& icon_path);
+    void SetCustomPoster(u64 program_id, const std::string& poster_path);
     void RemoveCustomMetadata(u64 program_id);
 
     void Save();

@@ -16,6 +16,9 @@
 #include "citron/game_grid_delegate.h"
 #include "citron/game_list_p.h"
 #include "citron/uisettings.h"
+#include "citron/custom_metadata.h"
+#include "citron/util/image_cache.h"
+#include "citron/theme.h"
 
 GameGridDelegate::GameGridDelegate(QListView* view, QObject* parent)
     : QStyledItemDelegate(parent), m_view(view) {
@@ -23,6 +26,7 @@ GameGridDelegate::GameGridDelegate(QListView* view, QObject* parent)
     connect(m_animation_timer, &QTimer::timeout, this, &GameGridDelegate::AdvanceAnimations);
     m_animation_timer->start(32);
     m_greyscale_icon_cache.setMaxCost(500);
+    m_poster_cache.setMaxCost(100);
 }
 
 GameGridDelegate::~GameGridDelegate() = default;
@@ -33,8 +37,15 @@ void GameGridDelegate::setGridMode(GridMode mode) {
 
 QSize GameGridDelegate::sizeHint(const QStyleOptionViewItem& option,
                                  const QModelIndex& index) const {
-    const int icon_size = UISettings::values.game_icon_size.GetValue();
+    const int icon_size = std::max(32, static_cast<int>(UISettings::values.game_icon_size.GetValue()));
     const float scale = static_cast<float>(icon_size) / 128.0f;
+
+    if (m_grid_mode == GridMode::Poster) {
+        // Vertical aspect ratio (~2:3)
+        return QSize(icon_size + static_cast<int>(20 * scale),
+                     static_cast<int>(icon_size * 1.5) + static_cast<int>(60 * scale));
+    }
+
     return QSize(icon_size + static_cast<int>(40 * scale),
                  icon_size + static_cast<int>(104 * scale));
 }
@@ -46,13 +57,35 @@ void GameGridDelegate::paint(QPainter* painter, const QStyleOptionViewItem& opti
     painter->save();
     painter->setRenderHints(QPainter::Antialiasing | QPainter::TextAntialiasing |
                             QPainter::SmoothPixmapTransform);
-    PaintGridItem(painter, option, index);
+    if (m_grid_mode == GridMode::Poster) {
+        PaintPosterItem(painter, option, index);
+    } else {
+        PaintGridItem(painter, option, index);
+    }
     painter->restore();
 }
 
 void GameGridDelegate::AdvanceAnimations() {
+    bool needs_update = false;
     if (!m_view || !m_view->isVisible())
         return;
+
+    // Drive active pulse states for selected items
+    if (m_view->selectionModel()) {
+        const auto selected = m_view->selectionModel()->selectedIndexes();
+        for (const auto& idx : selected) {
+            QPersistentModelIndex pidx(idx);
+            if (!m_pulse_states.contains(pidx)) {
+                m_pulse_states[pidx] = 0.0;
+                m_pulse_direction[pidx] = true;
+            }
+            needs_update = true; // Drive 3D rotation and pulsing border
+        }
+    }
+
+    if (!m_pulse_states.isEmpty() || !m_entry_animations.isEmpty() || !m_hover_states.isEmpty()) {
+        needs_update = true;
+    }
 
     auto it_pulse = m_pulse_states.begin();
     while (it_pulse != m_pulse_states.end()) {
@@ -94,23 +127,237 @@ void GameGridDelegate::AdvanceAnimations() {
         }
     }
 
+    // Drive hover state decay/growth
+    auto it_hover = m_hover_states.begin();
+    while (it_hover != m_hover_states.end()) {
+        if (!it_hover.key().isValid()) {
+            it_hover = m_hover_states.erase(it_hover);
+            continue;
+        }
+        // If an item is neither hovered nor selected, and it has finished decaying, remove it
+        if (it_hover.value() <= 0.0) {
+            // Check if it's currently being hovered (this is tricky in the timer)
+            // We'll let the paint() call re-add it if needed.
+            it_hover = m_hover_states.erase(it_hover);
+        } else {
+            ++it_hover;
+        }
+    }
+
     if (m_is_populating && m_population_fade_global > 0.6) {
         m_population_fade_global -= 0.02;
+        needs_update = true;
     } else if (!m_is_populating && m_population_fade_global < 1.0) {
         m_population_fade_global += 0.03;
         if (m_population_fade_global > 1.0)
             m_population_fade_global = 1.0;
+        needs_update = true;
     }
 
     m_pulse_tick++;
-    m_view->viewport()->update();
+    if (needs_update) {
+        m_view->viewport()->update();
+    }
+}
+
+void GameGridDelegate::PaintPosterItem(QPainter* painter, const QStyleOptionViewItem& option,
+                                       const QModelIndex& index) const {
+    const bool is_selected = option.state & QStyle::State_Selected;
+    const bool is_hovered = option.state & QStyle::State_MouseOver;
+    QRect rect = option.rect;
+    const int icon_size = std::max(32, static_cast<int>(UISettings::values.game_icon_size.GetValue()));
+    const float raw_scale = static_cast<float>(icon_size) / 128.0f;
+    const float scale = std::max(0.1f, raw_scale);
+
+    const QPersistentModelIndex key(index);
+    qreal entry_val = 1.0;
+    if (m_entry_animations.contains(key))
+        entry_val = m_entry_animations[key];
+
+    qreal final_opacity = entry_val * m_population_fade_global;
+    painter->setOpacity(final_opacity);
+
+    // Poster dimensions (2:3 aspect ratio)
+    const int card_w = icon_size + static_cast<int>(12 * scale);
+    const int card_h = static_cast<int>(icon_size * 1.5) + static_cast<int>(40 * scale);
+    const int cx = rect.x() + (rect.width() - card_w) / 2;
+    QRect card_rect(cx, rect.y() + static_cast<int>(10 * scale), card_w, card_h);
+
+    const int radius = static_cast<int>(12 * scale);
+
+    painter->save();
+
+    // Hover/Selection animation state
+    qreal hover_progress = m_hover_states.value(key, 0.0);
+    const qreal step = 0.08; // Slightly slower, smoother transition
+    if (is_hovered && hover_progress < 1.0) {
+        hover_progress = std::min(1.0, hover_progress + step);
+        m_hover_states[key] = hover_progress;
+    } else if (!is_hovered && hover_progress > 0.0) {
+        hover_progress = std::max(0.0, hover_progress - step);
+        m_hover_states[key] = hover_progress;
+    }
+
+    if (is_selected || is_hovered) {
+        painter->translate(card_rect.center());
+        // Use a slight bounce effect for scale if hovered
+        qreal scale_factor = 1.0 + (0.04 * hover_progress);
+        if (is_selected) scale_factor = std::max(scale_factor, 1.05);
+        painter->scale(scale_factor, scale_factor);
+        painter->translate(-card_rect.center());
+ 
+        // Outer Glow / Selection Ring
+        QColor glow = AccentColor();
+        glow.setAlphaF(0.3f * (is_selected ? 1.0f : hover_progress));
+        painter->setBrush(Qt::NoBrush);
+        painter->setPen(QPen(glow, 2.0 * scale, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
+        painter->drawRoundedRect(card_rect.adjusted(-1, -1, 1, 1), radius + 1, radius + 1);
+    }
+
+    // Main Card Background
+    painter->setBrush(CardBg());
+    painter->setPen(Qt::NoPen);
+    painter->drawRoundedRect(card_rect, radius, radius);
+
+    // Image Clipping Path
+    QPainterPath card_path;
+    card_path.addRoundedRect(card_rect, radius, radius);
+    painter->setClipPath(card_path);
+
+    // Draw Poster / Icon
+    u64 program_id = index.data(GameListItemPath::ProgramIdRole).toULongLong();
+    QPixmap* cached_pixmap = m_poster_cache.object(program_id);
+    QPixmap pixmap;
+
+    if (cached_pixmap) {
+        pixmap = *cached_pixmap;
+    } else {
+        pixmap = Citron::ImageCache::GetCustomPoster(program_id);
+
+        if (pixmap.isNull()) {
+            // Fallback to high-res icon if poster is missing
+            pixmap = index.data(Qt::DecorationRole).value<QIcon>().pixmap(512, 512);
+        }
+
+        if (!pixmap.isNull()) {
+            // Pre-scale the pixmap for the cache to save future CPU cycles
+            pixmap = pixmap.scaled(card_rect.size(), Qt::KeepAspectRatioByExpanding,
+                                   Qt::SmoothTransformation);
+            m_poster_cache.insert(program_id, new QPixmap(pixmap));
+        }
+    }
+
+    if (!pixmap.isNull()) {
+        painter->drawPixmap(card_rect, pixmap);
+    }
+
+    // Gradient overlay for text readability
+    QLinearGradient grad(card_rect.bottomLeft(), card_rect.center());
+    grad.setColorAt(0, QColor(0, 0, 0, 180));
+    grad.setColorAt(0.5, QColor(0, 0, 0, 0));
+    painter->fillRect(card_rect, grad);
+
+    // Metadata UI (Title, Glass Bar) - Only visible on hover/selection
+    qreal metadata_opacity = std::max(is_selected ? 1.0 : 0.0, hover_progress);
+    if (metadata_opacity > 0.0) {
+        painter->save();
+        painter->setOpacity(metadata_opacity * final_opacity);
+
+        // Glassmorphism Bottom Bar
+        qreal bar_h = 42.0f * scale;
+        // Extend slightly at the bottom to prevent subpixel gaps
+        QRectF bottom_bar(card_rect.left(), card_rect.bottom() - bar_h, card_rect.width(), bar_h + 2.0);
+        
+        QLinearGradient bar_grad(bottom_bar.topLeft(), bottom_bar.bottomLeft());
+        bar_grad.setColorAt(0, QColor(25, 25, 30, 220));
+        bar_grad.setColorAt(1, QColor(15, 15, 20, 240));
+        
+        painter->setBrush(bar_grad);
+        painter->setPen(Qt::NoPen);
+        painter->drawRect(bottom_bar);
+
+        // Highlight line at the top of the glass bar
+        painter->setPen(QPen(QColor(255, 255, 255, 40), 1.0));
+        painter->drawLine(bottom_bar.topLeft(), bottom_bar.topRight());
+
+        // Title Marquee
+        QString title = index.data(Qt::DisplayRole).toString();
+        painter->setPen(TextColor());
+        QFont font = painter->font();
+        font.setPointSizeF(std::max(8.0f, 10.5f * scale));
+        font.setBold(true);
+        painter->setFont(font);
+
+        QRectF text_rect = bottom_bar.adjusted(10 * scale, 0, -10 * scale, 0);
+        int text_width = painter->fontMetrics().horizontalAdvance(title);
+        int available_w = static_cast<int>(text_rect.width());
+
+        if (text_width > available_w) {
+            // Marquee Animation Logic
+            int scroll_range = text_width - available_w + static_cast<int>(20 * scale);
+            int speed = 1; // 1 pixel per frame (~30fps)
+            int pause_ticks = 45; // Pause at ends for ~1.5s
+            int total_cycle = (scroll_range / speed) * 2 + pause_ticks * 2;
+            int cycle_pos = m_pulse_tick % total_cycle;
+
+            int offset = 0;
+            if (cycle_pos < pause_ticks) {
+                offset = 0;
+            } else if (cycle_pos < pause_ticks + (scroll_range / speed)) {
+                offset = (cycle_pos - pause_ticks) * speed;
+            } else if (cycle_pos < pause_ticks * 2 + (scroll_range / speed)) {
+                offset = scroll_range;
+            } else {
+                offset = scroll_range - (cycle_pos - (pause_ticks * 2 + (scroll_range / speed))) * speed;
+            }
+
+            painter->save();
+            painter->setClipRect(text_rect);
+            painter->drawText(text_rect.adjusted(-offset, 0, text_width, 0), 
+                              Qt::AlignLeft | Qt::AlignVCenter | Qt::TextSingleLine, title);
+            painter->restore();
+        } else {
+            painter->drawText(text_rect, Qt::AlignLeft | Qt::AlignVCenter | Qt::TextSingleLine, title);
+        }
+
+        painter->restore();
+    }
+
+    if (is_selected) {
+        painter->setBrush(Qt::NoBrush);
+        painter->setPen(QPen(AccentColor(), 3.0f * scale));
+        painter->drawRoundedRect(card_rect, radius, radius);
+    }
+
+    const u64 poster_program_id = index.data(GameListItemPath::ProgramIdRole).toULongLong();
+    bool is_poster_fav = UISettings::values.favorited_ids.contains(poster_program_id);
+    if (is_poster_fav) {
+        painter->save();
+        QColor fav_gold(255, 215, 0, 240); // Vibrant Gold
+        painter->setPen(QPen(fav_gold, 1.2f * scale));
+        painter->setBrush(QColor(40, 40, 45, 200));
+        qreal star_size = 24.0f * scale;
+        QRectF star_rect(card_rect.right() - (8.0f * scale) - star_size,
+                         card_rect.top() + (8.0f * scale), star_size, star_size);
+        painter->drawRoundedRect(star_rect, 6 * scale, 6 * scale);
+        painter->setPen(fav_gold);
+        QFont sf = painter->font();
+        sf.setBold(true);
+        sf.setPointSizeF(std::max(1.0f, 12.0f * scale));
+        painter->setFont(sf);
+        painter->drawText(star_rect.adjusted(0, -1 * scale, 0, 0), Qt::AlignCenter,
+                          QStringLiteral("★"));
+        painter->restore();
+    }
+
+    painter->restore();
 }
 
 void GameGridDelegate::PaintGridItem(QPainter* painter, const QStyleOptionViewItem& option,
                                      const QModelIndex& index) const {
     const bool is_selected = option.state & QStyle::State_Selected;
     QRect rect = option.rect;
-    const int icon_size = UISettings::values.game_icon_size.GetValue();
+    const int icon_size = std::max(32, static_cast<int>(UISettings::values.game_icon_size.GetValue()));
     const float raw_scale = static_cast<float>(icon_size) / 128.0f;
     const float scale = std::max(0.1f, raw_scale);
 
@@ -130,16 +377,35 @@ void GameGridDelegate::PaintGridItem(QPainter* painter, const QStyleOptionViewIt
     const int radius = static_cast<int>(14 * scale);
 
     painter->save();
-    if (is_selected) {
+    
+    // Hover animation state
+    const bool is_hovered = option.state & QStyle::State_MouseOver;
+    qreal hover_progress = m_hover_states.value(key, 0.0);
+    const qreal hover_step = 0.08;
+    if (is_hovered && hover_progress < 1.0) {
+        hover_progress = std::min(1.0, hover_progress + hover_step);
+        m_hover_states[key] = hover_progress;
+    } else if (!is_hovered && hover_progress > 0.0) {
+        hover_progress = std::max(0.0, hover_progress - hover_step);
+        m_hover_states[key] = hover_progress;
+    }
+
+    if (is_selected || hover_progress > 0.0) {
         double pulse_t = m_pulse_tick * 0.032;
-        double hover_y = std::sin(pulse_t* 3.0) * (4.0 * scale);
-        double yaw_angle = std::sin(pulse_t* 2.5) * 20.0;
-        double pitch_angle = std::cos(pulse_t* 1.5) * 10.0;
+        // Selection gets full rotation, hover gets a slight stationary tilt
+        double yaw_angle = is_selected ? std::sin(pulse_t * 2.5) * 20.0 : std::sin(pulse_t * 1.5) * (5.0 * hover_progress);
+        double pitch_angle = is_selected ? std::cos(pulse_t * 1.5) * 10.0 : std::cos(pulse_t * 1.2) * (3.0 * hover_progress);
+        double hover_y = is_selected ? std::sin(pulse_t * 3.0) * (4.0 * scale) : 0;
 
         painter->translate(rect.center());
 
         QTransform transform;
-        transform.scale(1.04, 1.04);
+        // Scale up on either selection or hover
+        qreal scale_val = 1.0;
+        if (is_selected) scale_val = 1.04;
+        else if (hover_progress > 0.0) scale_val = 1.0 + (0.03 * hover_progress);
+
+        transform.scale(scale_val, scale_val);
         transform.translate(0, hover_y);
 
         QTransform rot;
@@ -149,17 +415,18 @@ void GameGridDelegate::PaintGridItem(QPainter* painter, const QStyleOptionViewIt
         painter->setTransform(rot * transform, true);
         painter->translate(-rect.center());
 
-        // --- 1. Selection Glow ---
+        // --- 1. Selection/Hover Glow ---
         QColor glow = AccentColor();
-        glow.setAlphaF(0.12f);
+        glow.setAlphaF(0.12f * (is_selected ? 1.0f : hover_progress));
         painter->setBrush(glow);
         painter->setPen(Qt::NoPen);
         painter->drawRoundedRect(card_rect.adjusted(-4 * scale, -4 * scale, 4 * scale, 4 * scale),
                                  radius + 2, radius + 2);
     }
 
-    QColor onyx(22, 22, 26);
-    painter->setBrush(onyx);
+    QColor card_bg = CardBg();
+    card_bg.setAlpha(255); // Force solid for cartridges
+    painter->setBrush(card_bg);
     painter->setPen(Qt::NoPen);
     painter->drawRoundedRect(card_rect, radius, radius);
 
@@ -175,19 +442,15 @@ void GameGridDelegate::PaintGridItem(QPainter* painter, const QStyleOptionViewIt
             QRectF pr(start_x + (i * spacing) - (pin_w / 2.0), card_rect.bottom() - (18 * scale),
                       pin_w, 14 * scale);
 
+            // Use solid colors with a simpler gradient for gold pins to save GPU/CPU cycles
             QLinearGradient pg(pr.topLeft(), pr.bottomLeft());
             pg.setColorAt(0, QColor(10, 10, 12));
-            pg.setColorAt(0.35, QColor(220, 200, 120)); // Bright Metallic Gold
-            pg.setColorAt(0.65, QColor(160, 140, 70));
+            pg.setColorAt(0.5, QColor(220, 200, 120)); 
             pg.setColorAt(1, QColor(25, 25, 30));
 
             painter->setBrush(pg);
-            painter->setPen(QPen(QColor(0, 0, 0, 180), 0.3 * scale));
-            painter->drawRoundedRect(pr, 1 * scale, 1 * scale);
-
-            painter->setPen(QPen(QColor(255, 255, 255, 50), 0.5 * scale));
-            painter->drawLine(pr.left() + pr.width() * 0.2, pr.top() + pr.height() * 0.2,
-                              pr.left() + pr.width() * 0.2, pr.top() + pr.height() * 0.5);
+            painter->setPen(Qt::NoPen);
+            painter->drawRect(pr);
         }
         painter->restore();
     }
@@ -204,14 +467,48 @@ void GameGridDelegate::PaintGridItem(QPainter* painter, const QStyleOptionViewIt
     QPainterPath label_path;
     label_path.addRoundedRect(label_rect, radius - 6, radius - 6);
 
-    // --- Favorites Indicator ---
-    bool is_fav = (index.data(GameListItem::TypeRole).toInt() ==
-                   static_cast<int>(GameListItemType::Favorites));
-    if (is_fav) {
+    // Removed old vertical divider logic in favor of section headers
+
+    painter->save();
+    painter->setClipPath(label_path);
+
+    qreal bar_h = 28.0f * scale;
+    QRectF bottom_bar(label_rect.left(), label_rect.bottom() - bar_h, label_rect.width(), bar_h);
+    painter->fillRect(bottom_bar, QColor(10, 10, 12));
+
+    u64 program_id = index.data(GameListItemPath::ProgramIdRole).toULongLong();
+    QPixmap pixmap = Citron::ImageCache::GetCustomIcon(program_id);
+    if (pixmap.isNull())
+        pixmap = index.data(GameListItemPath::HighResIconRole).value<QPixmap>();
+    if (pixmap.isNull())
+        pixmap = index.data(Qt::DecorationRole).value<QPixmap>();
+    if (!pixmap.isNull()) {
+        const qreal mid_h = bottom_bar.top() - label_rect.top();
+        if (mid_h > 0) {
+            QRectF mid_area(label_rect.left(), label_rect.top(), label_rect.width(), mid_h);
+            painter->drawPixmap(mid_area, pixmap, pixmap.rect());
+        }
+    }
+
+    QString title = index.data(Qt::DisplayRole).toString().split(QLatin1Char('\n')).first();
+    painter->setPen(TextColor());
+    QFont tf = option.font;
+    tf.setBold(true);
+    tf.setPointSizeF(std::max(1.0f, 8.5f * scale));
+    painter->setFont(tf);
+
+    QRectF text_rect = bottom_bar.adjusted(10 * scale, 0, -10 * scale, 0);
+    QString elided = painter->fontMetrics().elidedText(title, Qt::ElideRight, text_rect.width());
+    painter->drawText(text_rect, Qt::AlignCenter, elided);
+
+    // --- Favorites Indicator (Grid Mode) ---
+    const u64 grid_program_id = index.data(GameListItemPath::ProgramIdRole).toULongLong();
+    bool is_grid_fav = UISettings::values.favorited_ids.contains(grid_program_id);
+    if (is_grid_fav) {
         painter->save();
-        QColor fav_gold(255, 215, 0, 220); // Vibrant Gold
+        QColor fav_gold(255, 215, 0, 240); // Vibrant Gold
         painter->setPen(QPen(fav_gold, 1.2f * scale));
-        painter->setBrush(QColor(40, 40, 45, 180));
+        painter->setBrush(QColor(40, 40, 45, 200));
         qreal star_size = 22.0f * scale;
         QRectF star_rect(card_rect.right() - (10.0f * scale) - star_size,
                          card_rect.top() + (10.0f * scale), star_size, star_size);
@@ -226,53 +523,34 @@ void GameGridDelegate::PaintGridItem(QPainter* painter, const QStyleOptionViewIt
         painter->restore();
     }
 
-    // Removed old vertical divider logic in favor of section headers
-
-    painter->save();
-    painter->setClipPath(label_path);
-
-    qreal bar_h = 28.0f * scale;
-    QRectF bottom_bar(label_rect.left(), label_rect.bottom() - bar_h, label_rect.width(), bar_h);
-    painter->fillRect(bottom_bar, QColor(10, 10, 12));
-
-    QPixmap pixmap = index.data(GameListItemPath::HighResIconRole).value<QPixmap>();
-    if (pixmap.isNull())
-        pixmap = index.data(Qt::DecorationRole).value<QPixmap>();
-    if (!pixmap.isNull()) {
-        const qreal mid_h = bottom_bar.top() - label_rect.top();
-        if (mid_h > 0) {
-            QRectF mid_area(label_rect.left(), label_rect.top(), label_rect.width(), mid_h);
-            painter->drawPixmap(mid_area, pixmap, pixmap.rect());
-        }
-    }
-
-    QString title = index.data(Qt::DisplayRole).toString().split(QLatin1Char('\n')).first();
-    painter->setPen(Qt::white);
-    QFont tf = option.font;
-    tf.setBold(true);
-    tf.setPointSizeF(std::max(1.0f, 8.5f * scale));
-    painter->setFont(tf);
-
-    QRectF text_rect = bottom_bar.adjusted(10 * scale, 0, -10 * scale, 0);
-    QString elided = painter->fontMetrics().elidedText(title, Qt::ElideRight, text_rect.width());
-    painter->drawText(text_rect, Qt::AlignCenter, elided);
-
-    painter->restore();
-
     painter->restore();
 }
 
 QColor GameGridDelegate::CardBg() const {
+    const QString hex = QString::fromStdString(UISettings::values.custom_card_bg_color.GetValue());
+    if (QColor(hex).isValid()) {
+        return QColor(hex);
+    }
     return QColor(22, 22, 26);
 }
 QColor GameGridDelegate::TextColor() const {
+    const QString hex = QString::fromStdString(UISettings::values.custom_card_text_color.GetValue());
+    if (QColor(hex).isValid()) {
+        return QColor(hex);
+    }
     return QColor(255, 255, 255);
 }
 QColor GameGridDelegate::DimColor() const {
+    const QString hex =
+        QString::fromStdString(UISettings::values.custom_card_dim_text_color.GetValue());
+    if (QColor(hex).isValid()) {
+        return QColor(hex);
+    }
     return QColor(120, 120, 130);
 }
 QColor GameGridDelegate::SelectionColor() const {
-    return QColor(35, 35, 40);
+    // Return transparent to remove the "weird fill-in" as requested by the user.
+    return Qt::transparent;
 }
 QColor GameGridDelegate::AccentColor() const {
     const QString hex = QString::fromStdString(UISettings::values.accent_color.GetValue());
@@ -289,4 +567,7 @@ void GameGridDelegate::RegisterEntryAnimation(const QModelIndex& index) {
 void GameGridDelegate::ClearAnimations() {
     m_entry_animations.clear();
     m_pulse_states.clear();
+}
+void GameGridDelegate::ClearPosterCache() {
+    m_poster_cache.clear();
 }

@@ -15,6 +15,8 @@
 #include "citron/game_list_p.h"
 #include "citron/uisettings.h"
 #include "citron/theme.h"
+#include "citron/custom_metadata.h"
+#include "citron/util/image_cache.h"
 
 CinematicCarousel::CinematicCarousel(QWidget* parent) : QWidget(parent) {
     m_snap_animation = new QPropertyAnimation(this, "focalIndex");
@@ -23,7 +25,9 @@ CinematicCarousel::CinematicCarousel(QWidget* parent) : QWidget(parent) {
     
     m_pulse_timer = new QTimer(this);
     connect(m_pulse_timer, &QTimer::timeout, this, [this]{ 
+        bool needs_update = false;
         m_pulse_tick++; 
+        if (m_has_focus) needs_update = true; // Pulse effect for focused item
 
         // Advance entry animations
         auto it = m_entry_animations.begin();
@@ -35,12 +39,13 @@ CinematicCarousel::CinematicCarousel(QWidget* parent) : QWidget(parent) {
             if (it.value() < 1.0) {
                 it.value() += 0.06;
                 if (it.value() >= 1.0) it.value() = 1.0;
+                needs_update = true;
                 ++it;
             } else {
                 it = m_entry_animations.erase(it);
             }
         }
-        update(); 
+        if (needs_update) update(); 
     });
     m_pulse_timer->start(32);
     
@@ -157,14 +162,20 @@ void CinematicCarousel::paintEvent(QPaintEvent* event) {
     const float raw_scale = static_cast<float>(is) / 128.0f;
     const float scale = std::max(0.1f, raw_scale);
     const qreal bs = is + (35.0f * scale);
-    const qreal arrow_ay = std::max(35.0, vcy - (1.4 * ((is + static_cast<int>(25 * scale)) / 2.0)) - (28.0f * scale));
+    const qreal arrow_ay = std::max(80.0 * scale, vcy - (1.4 * ((is + static_cast<int>(25 * scale)) / 2.0)) - (28.0f * scale));
+
+    // Only sort and render items near the focal index to save CPU cycles
+    const int focal_idx = std::round(m_focal_index);
+    const int range = std::max(5, static_cast<int>((width() / bs) + 2));
+    const int start_idx = std::max(0, focal_idx - range);
+    const int end_idx = std::min(count - 1, focal_idx + range);
 
     QVector<int> order;
-    for (int i = 0; i < count; ++i) order << i;
+    for (int i = start_idx; i <= end_idx; ++i) order << i;
     std::sort(order.begin(), order.end(), [this](int a, int b) { return std::abs(a - m_focal_index) > std::abs(b - m_focal_index); });
     for (int i : order) {
         const qreal d = i - m_focal_index; const qreal dist = std::abs(d * bs);
-        if (dist > width()) continue;
+        if (dist > width() / 2.0 + bs) continue;
         qreal s = 1.0; qreal dx = 0.0;
         const qreal x = vcx + (d * bs) + dx; const qreal y = vcy;
         p.save(); p.translate(x, y);
@@ -215,16 +226,18 @@ void CinematicCarousel::paintEvent(QPaintEvent* event) {
                 qreal header_ay = arrow_ay - (15.0f * scale);
                 
                 if (is_fav) {
-                    QFont hf = font(); hf.setBold(true); hf.setPointSizeF(std::max(1.0f, 24.0f * scale)); p.setFont(hf);
-                    QRectF text_rect(x - 300 * scale, header_ay - 150 * scale, 600 * scale, 150 * scale);
-                    p.drawText(text_rect, Qt::AlignHCenter | Qt::AlignBottom | Qt::TextDontClip, tr("★ FAVORITES"));
+                    qreal fs = std::min(24.0f * scale, static_cast<float>(header_ay * 0.7f));
+                    QFont hf = font(); hf.setBold(true); hf.setPointSizeF(std::max(qreal(1.0), fs)); p.setFont(hf);
+                    QRectF text_rect(x - 300 * scale, 5 * scale, 600 * scale, header_ay - (10.0f * scale));
+                    p.drawText(text_rect, Qt::AlignHCenter | Qt::AlignBottom, tr("★ FAVORITES"));
                 } else {
                     QString title = m_model->index(i, 0).data(Qt::DisplayRole).toString();
                     QChar cl = title.isEmpty() ? QLatin1Char('#') : title[0].toUpper();
                     if (!cl.isLetter()) cl = QLatin1Char('#');
-                    QFont hf = font(); hf.setBold(true); hf.setPointSizeF(std::max(1.0f, 48.0f * scale)); p.setFont(hf);
-                    QRectF text_rect(x - 200 * scale, header_ay - 200 * scale, 400 * scale, 200 * scale);
-                    p.drawText(text_rect, Qt::AlignHCenter | Qt::AlignBottom | Qt::TextDontClip, cl);
+                    qreal fs = std::min(48.0f * scale, static_cast<float>(header_ay * 0.7f));
+                    QFont hf = font(); hf.setBold(true); hf.setPointSizeF(std::max(qreal(1.0), fs)); p.setFont(hf);
+                    QRectF text_rect(x - 200 * scale, 5 * scale, 400 * scale, header_ay - (10.0f * scale));
+                    p.drawText(text_rect, Qt::AlignHCenter | Qt::AlignBottom, cl);
                 }
                 p.restore();
             }
@@ -238,8 +251,18 @@ void CinematicCarousel::paintEvent(QPaintEvent* event) {
         }
         if (!focal) { p.setPen(Qt::NoPen); p.setBrush(CardBg()); p.setOpacity(0.85); p.drawPath(path); }
         QModelIndex idx = m_model->index(i, 0);
-        QPixmap pix = idx.data(GameListItemPath::HighResIconRole).value<QPixmap>();
-        if (pix.isNull()) pix = idx.data(Qt::DecorationRole).value<QPixmap>();
+        u64 program_id = idx.data(GameListItemPath::ProgramIdRole).toULongLong();
+        
+        // Priority 1: Direct High-Res from Disk (Cached)
+        QPixmap pix = Citron::ImageCache::GetCustomIcon(program_id);
+
+        // Priority 2: Model fallback
+        if (pix.isNull()) {
+            pix = idx.data(GameListItemPath::HighResIconRole).value<QPixmap>();
+        }
+        if (pix.isNull()) {
+            pix = idx.data(Qt::DecorationRole).value<QPixmap>();
+        }
         if (!pix.isNull()) {
             p.setOpacity(focal ? 1.0 : 0.85);
             const int pad = 10; QRectF ir(-is / 2.0 + pad / 2.0, -is / 2.0 + pad / 2.0, is - pad, is - pad);
@@ -403,9 +426,9 @@ GameCarouselView::GameCarouselView(QWidget* parent) : QWidget(parent) {
     m_top_hint->setText(tr("if using controller* Press X for Next Alphabetical Letter | Press -/R/ZR for Details Tab | Press B for Back to List"));
     m_top_hint->setAlignment(Qt::AlignCenter);
     m_top_hint->setWordWrap(true);
-    m_layout->addSpacing(10);
+    m_layout->addSpacing(20);
     m_layout->addWidget(m_top_hint);
-    m_layout->addSpacing(30);
+    m_layout->addSpacing(40);
     m_carousel = new CinematicCarousel(this);
     m_layout->addSpacerItem(new QSpacerItem(20, 20, QSizePolicy::Minimum, QSizePolicy::Expanding));
     m_layout->addWidget(m_carousel);
@@ -435,4 +458,9 @@ void GameCarouselView::ApplyTheme() {
     }
 }
 void GameCarouselView::setModel(QAbstractItemModel* model) { m_carousel->setModel(model); }
-void GameCarouselView::resizeEvent(QResizeEvent* event) { QWidget::resizeEvent(event); m_carousel->setMinimumHeight((UISettings::values.game_icon_size.GetValue() * 2.0) + 450); }
+void GameCarouselView::resizeEvent(QResizeEvent* event) { 
+    QWidget::resizeEvent(event); 
+    int is = UISettings::values.game_icon_size.GetValue();
+    int min_h = std::min(static_cast<int>(is * 2.0 + 300), height() - 50);
+    m_carousel->setMinimumHeight(std::max(400, min_h)); 
+}

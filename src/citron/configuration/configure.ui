@@ -334,6 +334,19 @@
            </widget>
           </item>
           <item>
+           <widget class="QPushButton" name="neoThemesTabButton">
+            <property name="text">
+             <string>Citron Neo Themes</string>
+            </property>
+            <property name="checkable">
+             <bool>true</bool>
+            </property>
+            <property name="class" stdset="0">
+             <string>tabButton</string>
+            </property>
+           </widget>
+          </item>
+          <item>
            <widget class="QPushButton" name="systemTabButton">
             <property name="text">
              <string>System</string>

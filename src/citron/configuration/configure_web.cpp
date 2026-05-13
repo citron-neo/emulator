@@ -48,6 +48,7 @@ void ConfigureWeb::SetConfiguration() {
 
     ui->edit_token->setText(QString::fromStdString(Settings::values.citron_token.GetValue()));
     ui->toggle_discordrpc->setChecked(UISettings::values.enable_discord_presence.GetValue());
+    ui->edit_steam_grid_db_api_key->setText(QString::fromStdString(UISettings::values.steam_grid_db_api_key.GetValue()));
 }
 
 void ConfigureWeb::ApplyConfiguration() {
@@ -65,6 +66,8 @@ void ConfigureWeb::ApplyConfiguration() {
     } else {
         Settings::values.citron_token = ui->edit_token->text().toStdString();
     }
+
+    UISettings::values.steam_grid_db_api_key = ui->edit_steam_grid_db_api_key->text().toStdString();
 }
 
 void ConfigureWeb::ResetToken() {

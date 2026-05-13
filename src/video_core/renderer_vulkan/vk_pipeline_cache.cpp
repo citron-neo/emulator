@@ -11,9 +11,9 @@
 
 #include "common/bit_cast.h"
 #include "common/cityhash.h"
-#include "common/settings.h"
 #include "common/fs/fs.h"
 #include "common/fs/path_util.h"
+#include "common/settings.h"
 #include "common/thread_worker.h"
 #include "core/core.h"
 #include "shader_recompiler/backend/spirv/emit_spirv.h"
@@ -62,7 +62,8 @@ auto MakeSpan(Container& container) {
     return std::span(container.data(), container.size());
 }
 
-Shader::OutputTopology MaxwellToOutputTopology(Tegra::Engines::Maxwell3D::Regs::PrimitiveTopology topology) {
+Shader::OutputTopology MaxwellToOutputTopology(
+    Tegra::Engines::Maxwell3D::Regs::PrimitiveTopology topology) {
     switch (topology) {
     case Tegra::Engines::Maxwell3D::Regs::PrimitiveTopology::Points:
         return Shader::OutputTopology::PointList;
@@ -73,7 +74,8 @@ Shader::OutputTopology MaxwellToOutputTopology(Tegra::Engines::Maxwell3D::Regs::
     }
 }
 
-Shader::CompareFunction MaxwellToCompareFunction(Tegra::Engines::Maxwell3D::Regs::ComparisonOp comparison) {
+Shader::CompareFunction MaxwellToCompareFunction(
+    Tegra::Engines::Maxwell3D::Regs::ComparisonOp comparison) {
     switch (comparison) {
     case Tegra::Engines::Maxwell3D::Regs::ComparisonOp::Never_D3D:
     case Tegra::Engines::Maxwell3D::Regs::ComparisonOp::Never_GL:
@@ -109,7 +111,8 @@ Shader::AttributeType CastAttributeType(const FixedPipelineState::VertexAttribut
         return Shader::AttributeType::Disabled;
     }
     switch (attr.Type()) {
-    case Tegra::Engines::Maxwell3D::Regs::VertexAttribute::Type::UnusedEnumDoNotUseBecauseItWillGoAway:
+    case Tegra::Engines::Maxwell3D::Regs::VertexAttribute::Type::
+        UnusedEnumDoNotUseBecauseItWillGoAway:
         ASSERT_MSG(false, "Invalid vertex attribute type!");
         return Shader::AttributeType::Disabled;
     case Tegra::Engines::Maxwell3D::Regs::VertexAttribute::Type::SNorm:
@@ -193,7 +196,8 @@ Shader::RuntimeInfo MakeRuntimeInfo(std::span<const Shader::IR::Program> program
             info.convert_depth_mode = gl_ndc;
         }
         if (key.state.dynamic_vertex_input) {
-            for (size_t index = 0; index < capped_vertex_attributes; ++index) {
+            for (size_t index = 0; index < Tegra::Engines::Maxwell3D::Regs::NumVertexAttributes;
+                 ++index) {
                 info.generic_input_types[index] = AttributeType(key.state, index);
             }
         } else {
@@ -355,6 +359,7 @@ PipelineCache::PipelineCache(Tegra::MaxwellDeviceMemoryManager& device_memory_,
     profile = Shader::Profile{
         .supported_spirv = device.SupportedSpirvVersion(),
         .unified_descriptor_binding = true,
+        .has_split_descriptor_sets = device.IsKhrPushDescriptorSupported(),
         .support_descriptor_aliasing = device.IsDescriptorAliasingSupported(),
         .support_int8 = device.IsInt8Supported(),
         .support_int16 = device.IsShaderInt16Supported(),
@@ -432,13 +437,16 @@ PipelineCache::PipelineCache(Tegra::MaxwellDeviceMemoryManager& device_memory_,
         .support_conditional_barrier = device.SupportsConditionalBarriers(),
     };
 
-    if (device.GetMaxVertexInputAttributes() < Tegra::Engines::Maxwell3D::Regs::NumVertexAttributes) {
+    if (device.GetMaxVertexInputAttributes() <
+        Tegra::Engines::Maxwell3D::Regs::NumVertexAttributes) {
         LOG_WARNING(Render_Vulkan, "maxVertexInputAttributes is too low: {} < {}",
-                    device.GetMaxVertexInputAttributes(), Tegra::Engines::Maxwell3D::Regs::NumVertexAttributes);
+                    device.GetMaxVertexInputAttributes(),
+                    Tegra::Engines::Maxwell3D::Regs::NumVertexAttributes);
     }
     if (device.GetMaxVertexInputBindings() < Tegra::Engines::Maxwell3D::Regs::NumVertexArrays) {
         LOG_WARNING(Render_Vulkan, "maxVertexInputBindings is too low: {} < {}",
-                    device.GetMaxVertexInputBindings(), Tegra::Engines::Maxwell3D::Regs::NumVertexArrays);
+                    device.GetMaxVertexInputBindings(),
+                    Tegra::Engines::Maxwell3D::Regs::NumVertexArrays);
     }
 
     // Apply user's Extended Dynamic State setting
@@ -463,6 +471,10 @@ PipelineCache::PipelineCache(Tegra::MaxwellDeviceMemoryManager& device_memory_,
 }
 
 PipelineCache::~PipelineCache() {
+    // Drain all pending SerializePipeline tasks before the serialization_thread
+    // member is destroyed.
+    serialization_thread.WaitForRequests();
+
     if (use_vulkan_pipeline_cache && !vulkan_pipeline_cache_filename.empty()) {
         SerializeVulkanPipelineCache(vulkan_pipeline_cache_filename, vulkan_pipeline_cache,
                                      CACHE_VERSION);
@@ -611,6 +623,7 @@ void PipelineCache::LoadDiskResources(u64 title_id, std::stop_token stop_loading
             auto pipeline{CreateComputePipeline(pools, key, env_, state.statistics.get(), false)};
             std::scoped_lock lock{state.mutex};
             if (pipeline) {
+                compute_pipeline_last_use[pipeline.get()] = scheduler.CurrentTick();
                 compute_cache.emplace(key, std::move(pipeline));
             }
             ++state.built;
@@ -635,7 +648,13 @@ void PipelineCache::LoadDiskResources(u64 title_id, std::stop_token stop_loading
                 dynamic_features.has_extended_dynamic_state_3_blend ||
             (key.state.extended_dynamic_state_3_enables != 0) !=
                 dynamic_features.has_extended_dynamic_state_3_enables ||
-            (key.state.dynamic_vertex_input != 0) != dynamic_features.has_dynamic_vertex_input) {
+            (key.state.dynamic_vertex_input != 0) != dynamic_features.has_dynamic_vertex_input ||
+            (key.state.xfb_enabled != 0 && !dynamic_features.has_transform_feedback)) {
+            // NOTE: xfb_enabled uses a unidirectional check. It encodes both a
+            // device capability AND per-pipeline runtime state. We only reject
+            // the pipeline if it actively requires XFB but the host device
+            // does not support it
+            LOG_WARNING(Render_Vulkan, "Skipping cached graphics pipeline: EDS feature mismatch");
             return;
         }
         {
@@ -665,6 +684,12 @@ void PipelineCache::LoadDiskResources(u64 title_id, std::stop_token stop_loading
 
             std::scoped_lock lock{state.mutex};
             if (pipeline) {
+                // Initialize last-use frame for disk-loaded pipelines so they
+                // survive EvictOldPipelines() calls before their first use.
+                // Without this, pipelines loaded from disk have no entry in
+                // graphics_pipeline_last_use and are immediately evicted on
+                // any memory pressure event.
+                graphics_pipeline_last_use[pipeline.get()] = scheduler.CurrentTick();
                 graphics_cache.emplace(key, std::move(pipeline));
             }
             ++state.built;
@@ -731,7 +756,7 @@ GraphicsPipeline* PipelineCache::BuiltPipeline(GraphicsPipeline* pipeline) const
         return pipeline;
     }
     const auto& state = maxwell3d->draw_manager->GetDrawState();
-    if (state.index_buffer.count <= 6 || state.vertex_buffer.count <= 6) {
+    if (state.index_buffer.count <= 32 || state.vertex_buffer.count <= 32) {
         return pipeline;
     }
     return nullptr;
@@ -755,8 +780,9 @@ std::unique_ptr<GraphicsPipeline> PipelineCache::CreateGraphicsPipeline(
     Shader::IR::Program* layer_source_program{};
 
     for (size_t index = 0; index < Tegra::Engines::Maxwell3D::Regs::MaxShaderProgram; ++index) {
-        const bool is_emulated_stage = layer_source_program != nullptr &&
-                                       index == static_cast<u32>(Tegra::Engines::Maxwell3D::Regs::ShaderType::Geometry);
+        const bool is_emulated_stage =
+            layer_source_program != nullptr &&
+            index == static_cast<u32>(Tegra::Engines::Maxwell3D::Regs::ShaderType::Geometry);
         if (key.unique_hashes[index] == 0 && is_emulated_stage) {
             auto topology = MaxwellToOutputTopology(key.state.topology);
             programs[index] = GenerateGeometryPassthrough(pools.inst, pools.block, host_info,
@@ -875,7 +901,8 @@ std::unique_ptr<GraphicsPipeline> PipelineCache::CreateGraphicsPipeline() {
         return pipeline;
     }
     serialization_thread.QueueWork([this, key = graphics_key, envs = std::move(environments.envs)] {
-        boost::container::static_vector<const GenericEnvironment*, Tegra::Engines::Maxwell3D::Regs::MaxShaderProgram>
+        boost::container::static_vector<const GenericEnvironment*,
+                                        Tegra::Engines::Maxwell3D::Regs::MaxShaderProgram>
             env_ptrs;
         for (size_t index = 0; index < Tegra::Engines::Maxwell3D::Regs::MaxShaderProgram; ++index) {
             if (key.unique_hashes[index] != 0) {

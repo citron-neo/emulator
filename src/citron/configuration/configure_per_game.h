@@ -46,7 +46,9 @@ class ConfigureCpu;
 class ConfigureGraphics;
 class ConfigureGraphicsAdvanced;
 class ConfigureInputPerGame;
+#ifdef __unix__
 class ConfigureLinuxTab;
+#endif
 class ConfigureSystem;
 
 namespace Ui {
@@ -109,7 +111,9 @@ private:
     std::unique_ptr<ConfigureGraphicsAdvanced> graphics_advanced_tab;
     std::unique_ptr<ConfigureGraphics> graphics_tab;
     std::unique_ptr<ConfigureInputPerGame> input_tab;
+#ifdef __unix__
     std::unique_ptr<ConfigureLinuxTab> linux_tab;
+#endif
     std::unique_ptr<ConfigureSystem> system_tab;
     void UpdateLayoutScaling();
     StyleAnimationEventFilter* animation_filter{nullptr};

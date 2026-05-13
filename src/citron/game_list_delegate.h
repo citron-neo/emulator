@@ -65,7 +65,7 @@ private:
     void PaintPlayTime(QPainter* painter, const QRect& rect, const QStyleOptionViewItem& option,
                        const QModelIndex& index) const;
     void PaintCompatibility(QPainter* painter, const QRect& rect,
-                             const QModelIndex& index) const;
+                            const QStyleOptionViewItem& option, const QModelIndex& index) const;
     void PaintDefault(QPainter* painter, const QRect& rect, const QStyleOptionViewItem& option,
                       const QModelIndex& index) const;
 
@@ -74,6 +74,7 @@ private:
     QColor TextColor() const;
     QColor DimColor() const;
     QColor SelectionColor() const;
+    QColor HeaderTextColor() const;
     QColor AccentColor() const;
 
     // Animation and caching state

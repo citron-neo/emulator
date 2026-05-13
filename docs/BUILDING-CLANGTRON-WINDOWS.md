@@ -7,12 +7,12 @@ This document covers building a Windows PE (`citron.exe`) using `build-clangtron
 ## Quick Start (Recommended: IR PGO + Full LTO)
 
 ```bash
-# 1. First time only: install toolchain and dependencies
-./build-clangtron-windows.sh setup
-
-# 2. Clone citron Neo source
+# 1. Clone citron Neo source
 git clone https://github.com/citron-neo/emulator.git
 cd emulator
+
+# 2. First time only: install toolchain and dependencies
+./build-clangtron-windows.sh setup
 
 # 3. Build the PGO instrumentation binary
 ./build-clangtron-windows.sh generate --pgo-type ir --lto full

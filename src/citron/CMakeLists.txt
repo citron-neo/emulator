@@ -11,12 +11,7 @@ set(CMAKE_INCLUDE_CURRENT_DIR ON)
 set_property(GLOBAL PROPERTY JOB_POOLS link_pool=1)
 set(CMAKE_JOB_POOL_LINK link_pool)
 
-# Set the RPATH for Qt Libraries
-# This must be done before the `citron` target is created
-if (CITRON_USE_BUNDLED_QT AND (${CMAKE_SYSTEM_NAME} STREQUAL "Linux"))
-    set(CMAKE_BUILD_RPATH "${CMAKE_BINARY_DIR}/bin/lib/")
-endif()
-
+# citron target creation
 add_executable(citron
     Info.plist
     about_dialog.cpp
@@ -28,10 +23,15 @@ add_executable(citron
     util/confetti.h
     util/card_flip.cpp
     util/card_flip.h
+    util/image_cache.h
     util/plinko_widget.cpp
     util/plinko_widget.h
     util/blackjack_widget.cpp
     util/blackjack_widget.h
+    util/cup_shuffle_widget.cpp
+    util/cup_shuffle_widget.h
+    util/dice_widget.cpp
+    util/dice_widget.h
     applets/qt_amiibo_settings.cpp
     applets/qt_amiibo_settings.h
     applets/qt_amiibo_settings.ui
@@ -128,6 +128,8 @@ add_executable(citron
     configuration/configure_motion_touch.cpp
     configuration/configure_motion_touch.h
     configuration/configure_motion_touch.ui
+    configuration/configure_neo_themes.cpp
+    configuration/configure_neo_themes.h
     configuration/configure_per_game.cpp
     configuration/configure_per_game.h
     configuration/configure_per_game.ui
@@ -217,6 +219,10 @@ add_executable(citron
     custom_metadata_dialog.cpp
     custom_metadata_dialog.h
     custom_metadata_dialog.ui
+    poster_selection_dialog.cpp
+    poster_selection_dialog.h
+    icon_selection_dialog.cpp
+    icon_selection_dialog.h
     install_dialog.cpp
     install_dialog.h
     loading_screen.cpp
@@ -287,6 +293,8 @@ add_executable(citron
     util/url_request_interceptor.h
     util/util.cpp
     util/util.h
+    util/steam_grid_db.cpp
+    util/steam_grid_db.h
     vk_device_info.cpp
     vk_device_info.h
     compatdb.cpp
@@ -642,7 +650,7 @@ if (WIN32 AND QT_VERSION VERSION_GREATER_EQUAL 6)
     )
 endif()
 
-if (CITRON_USE_BUNDLED_QT)
+if (WIN32 AND CITRON_USE_BUNDLED_QT)
     include(CopyCitronQt6Deps)
     copy_citron_Qt6_deps(citron)
 endif()

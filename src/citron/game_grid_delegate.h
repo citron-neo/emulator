@@ -5,6 +5,7 @@
 #include <QColor>
 #include <QPersistentModelIndex>
 #include <QStyledItemDelegate>
+#include "common/common_types.h"
 
 class QListView;
 class QTimer;
@@ -15,7 +16,8 @@ class GameGridDelegate : public QStyledItemDelegate {
 public:
     enum class GridMode {
         Grid,
-        Carousel
+        Carousel,
+        Poster
     };
 
     explicit GameGridDelegate(QListView* view, QObject* parent = nullptr);
@@ -31,6 +33,7 @@ public:
     void SetPopulating(bool populating);
     void RegisterEntryAnimation(const QModelIndex& index);
     void ClearAnimations();
+    void ClearPosterCache();
 
 private slots:
     void AdvanceAnimations();
@@ -38,8 +41,8 @@ private slots:
 private:
     void PaintGridItem(QPainter* painter, const QStyleOptionViewItem& option,
                        const QModelIndex& index) const;
-    void PaintCarouselItem(QPainter* painter, const QStyleOptionViewItem& option,
-                          const QModelIndex& index) const;
+    void PaintPosterItem(QPainter* painter, const QStyleOptionViewItem& option,
+                         const QModelIndex& index) const;
 
     QColor CardBg() const;
     QColor TextColor() const;
@@ -60,4 +63,5 @@ private:
     mutable QMap<QPersistentModelIndex, bool> m_pulse_direction;
     mutable QMap<QPersistentModelIndex, qreal> m_entry_animations;
     mutable QCache<QString, QIcon> m_greyscale_icon_cache;
+    mutable QCache<u64, QPixmap> m_poster_cache;
 };

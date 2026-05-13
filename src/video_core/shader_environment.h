@@ -80,6 +80,8 @@ protected:
     std::unordered_map<u32, Shader::TexturePixelFormat> texture_pixel_formats;
     std::unordered_map<u64, u32> cbuf_values;
     std::unordered_map<u64, Shader::ReplaceConstant> cbuf_replacements;
+    // Cbuf sizes captured on the main thread at construction time while GPU state is live.
+    std::unordered_map<u32, u32> cbuf_sizes;
 
     u32 local_memory_size{};
     u32 texture_bound{};
@@ -175,6 +177,8 @@ public:
 
     [[nodiscard]] u32 ReadCbufValue(u32 cbuf_index, u32 cbuf_offset) override;
 
+    [[nodiscard]] u32 ReadCbufSize(u32 cbuf_index) override;
+
     [[nodiscard]] Shader::TextureType ReadTextureType(u32 handle) override;
 
     [[nodiscard]] Shader::TexturePixelFormat ReadTexturePixelFormat(u32 handle) override;
@@ -206,6 +210,7 @@ private:
     std::unordered_map<u32, Shader::TexturePixelFormat> texture_pixel_formats;
     std::unordered_map<u64, u32> cbuf_values;
     std::unordered_map<u64, Shader::ReplaceConstant> cbuf_replacements;
+    std::unordered_map<u32, u32> cbuf_sizes;
     std::array<u32, 3> workgroup_size{};
     u32 local_memory_size{};
     u32 shared_memory_size{};

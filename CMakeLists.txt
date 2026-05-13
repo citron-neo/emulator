@@ -89,11 +89,12 @@ CMAKE_DEPENDENT_OPTION(CITRON_ROOM "Compile LDN room server" ON "NOT ANDROID" OF
 
 CMAKE_DEPENDENT_OPTION(CITRON_CRASH_DUMPS "Compile crash dump (Minidump) support" OFF "WIN32 OR LINUX" OFF)
 
+# CITRON_USE_CPM is the primary way to fetch dependencies on Linux and for Clangtron.
+# vcpkg is supported primarily for native MSVC and Android builds.
 option(CITRON_USE_BUNDLED_VCPKG "Use vcpkg for citron dependencies" "${MSVC}")
+option(CITRON_USE_CPM "Use CPM.cmake to fetch dependencies" OFF)
 
 option(CITRON_CHECK_SUBMODULES "Check if submodules are present" ON)
-
-option(CITRON_USE_CPM "Use CPM.cmake to fetch dependencies instead of git submodules (Clangtron builds)" OFF)
 
 option(CITRON_ENABLE_LTO "Enable link-time optimization" OFF)
 
@@ -113,52 +114,6 @@ if (ANDROID OR WIN32 OR APPLE)
 endif()
 option(ENABLE_OPENSSL "Enable OpenSSL backend for ISslConnection" ${DEFAULT_ENABLE_OPENSSL})
 
-if (ANDROID AND CITRON_DOWNLOAD_ANDROID_VVL)
-    set(vvl_version "vulkan-sdk-1.4.328.1")
-    set(vvl_version_plain "1.4.328.1")
-    set(vvl_zip_file "${CMAKE_BINARY_DIR}/externals/vvl-android.zip")
-    set(vvl_extract_dir "${CMAKE_BINARY_DIR}/externals")
-
-    if (NOT EXISTS "${vvl_zip_file}")
-        # Download and extract validation layer release to externals directory
-        set(vvl_base_url "https://github.com/KhronosGroup/Vulkan-ValidationLayers/releases/download")
-        file(DOWNLOAD "${vvl_base_url}/${vvl_version}/android-binaries-${vvl_version_plain}.zip"
-            "${vvl_zip_file}" SHOW_PROGRESS)
-        execute_process(COMMAND ${CMAKE_COMMAND} -E tar xf "${vvl_zip_file}"
-            WORKING_DIRECTORY "${vvl_extract_dir}")
-    endif()
-
-    # Copy the arm64 binary to src/android/app/main/jniLibs
-    # New structure: android-binaries-X.X.X.X/android-binaries-X.X.X.X/arm64-v8a/libVkLayer_khronos_validation.so
-    set(vvl_lib_path "${CMAKE_CURRENT_SOURCE_DIR}/src/android/app/src/main/jniLibs/arm64-v8a/")
-    set(vvl_source_file "${vvl_extract_dir}/android-binaries-${vvl_version_plain}/android-binaries-${vvl_version_plain}/arm64-v8a/libVkLayer_khronos_validation.so")
-
-    if (EXISTS "${vvl_source_file}")
-        file(COPY "${vvl_source_file}" DESTINATION "${vvl_lib_path}")
-        message(STATUS "Successfully copied VVL ${vvl_version_plain} to ${vvl_lib_path}")
-    else()
-        message(WARNING "Could not find Vulkan Validation Layer at: ${vvl_source_file}")
-        message(STATUS "Please manually download from: ${vvl_base_url}/${vvl_version}/android-binaries-${vvl_version_plain}.zip")
-    endif()
-endif()
-
-# EXPERIMENTAL LIBC++
-if ((ANDROID OR APPLE OR UNIX) AND (NOT (${CMAKE_SYSTEM_NAME} STREQUAL "Linux") OR ANDROID) AND NOT WIN32)
-    if(CXX_APPLE OR CXX_CLANG)
-        # libc++ has stop_token and jthread as experimental
-        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fexperimental-library")
-        set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fexperimental-library")
-    else()
-        # Uses glibc, mostly?
-        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D_LIBCPP_ENABLE_EXPERIMENTAL=1")
-        set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -D_LIBCPP_ENABLE_EXPERIMENTAL=1")
-    endif()
-endif()
-
-if (ANDROID)
-    set(CMAKE_SKIP_INSTALL_RULES ON)
-endif()
-
 if (CITRON_USE_BUNDLED_VCPKG)
     if (ANDROID)
         set(ENV{ANDROID_NDK_HOME} "${ANDROID_NDK}")
@@ -166,8 +121,6 @@ if (CITRON_USE_BUNDLED_VCPKG)
 
         if (CMAKE_ANDROID_ARCH_ABI STREQUAL "arm64-v8a")
             set(VCPKG_TARGET_TRIPLET "arm64-android")
-            # this is to avoid CMake using the host pkg-config to find the host
-            # libraries when building for Android targets
             set(PKG_CONFIG_EXECUTABLE "aarch64-none-linux-android-pkg-config" CACHE FILEPATH "" FORCE)
         elseif (CMAKE_ANDROID_ARCH_ABI STREQUAL "x86_64")
             set(VCPKG_TARGET_TRIPLET "x64-android")
@@ -185,9 +138,7 @@ if (CITRON_USE_BUNDLED_VCPKG)
 
         if (NOT EXISTS ${NASM_DESTINATION_PATH})
             file(DOWNLOAD ${NASM_DOWNLOAD_URL} ${NASM_DESTINATION_PATH} SHOW_PROGRESS STATUS NASM_STATUS)
-
             if (NOT NASM_STATUS EQUAL 0)
-                # Warn and not fail since vcpkg is supposed to download this package for us in the first place
                 message(WARNING "External nasm vcpkg package download from ${NASM_DOWNLOAD_URL} failed with status ${NASM_STATUS}")
             endif()
         endif()
@@ -199,16 +150,14 @@ if (CITRON_USE_BUNDLED_VCPKG)
     if (ENABLE_WEB_SERVICE)
         list(APPEND VCPKG_MANIFEST_FEATURES "web-service")
     endif()
-    if (ANDROID)
-        list(APPEND VCPKG_MANIFEST_FEATURES "android")
-    endif()
 
     include(${CMAKE_SOURCE_DIR}/externals/vcpkg/scripts/buildsystems/vcpkg.cmake)
 elseif(NOT "$ENV{VCPKG_TOOLCHAIN_FILE}" STREQUAL "")
-    # Disable manifest mode (use vcpkg classic mode) when using a custom vcpkg installation
     option(VCPKG_MANIFEST_MODE "")
     include("$ENV{VCPKG_TOOLCHAIN_FILE}")
 endif()
+
+option(CITRON_USE_PRECOMPILED_HEADERS "Use Precompiled Headers" ON)
 
 if (CITRON_USE_PRECOMPILED_HEADERS)
     if (MSVC AND CCACHE)
@@ -345,6 +294,16 @@ endif()
 # Output binaries to bin/
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/bin)
 
+if (CITRON_USE_CPM AND CITRON_USE_BUNDLED_QT AND CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    # Build-tree binaries are the portable deliverable for local Linux CPM builds.
+    # Keep their loader search path relative to bin/ instead of embedding Qt or
+    # dependency cache directories from the build host.
+    set(CMAKE_BUILD_RPATH "$ORIGIN/lib")
+    set(CMAKE_INSTALL_RPATH "$ORIGIN/lib")
+    set(CMAKE_BUILD_WITH_INSTALL_RPATH TRUE)
+    add_link_options("-Wl,--disable-new-dtags")
+endif()
+
 # System imported libraries
 # =======================================================================
 
@@ -395,7 +354,9 @@ endif()
 if (NOT TARGET fmt::fmt)
     find_package(fmt 9 REQUIRED)
 endif()
-find_package(LLVM 17.0.2 MODULE COMPONENTS Demangle)
+if (NOT TARGET LLVM::Demangle)
+    find_package(LLVM 17.0.2 MODULE COMPONENTS Demangle)
+endif()
 if (NOT TARGET lz4::lz4)
     find_package(lz4 REQUIRED)
 endif()
@@ -612,23 +573,23 @@ if (ENABLE_QT AND NOT CITRON_USE_CPM)
         # Try to find Qt6 installation path (aqtinstall layout: externals/qt/<version>/<arch>)
         # We prioritize llvm-mingw_64 for Clang builds to ensure libc++ compatibility.
         if (EXISTS "${CMAKE_BINARY_DIR}/externals/qt/6.9.3/llvm-mingw_64")
-            set(QT_TARGET_PATH "${CMAKE_BINARY_DIR}/externals/qt/6.9.3/llvm-mingw_64")
+            set(QT_TARGET_PATH "${CMAKE_BINARY_DIR}/externals/qt/6.9.3/llvm-mingw_64" CACHE PATH "Path to Qt6" FORCE)
         elseif (EXISTS "${CMAKE_BINARY_DIR}/externals/qt/6.9.3/mingw_64")
-            set(QT_TARGET_PATH "${CMAKE_BINARY_DIR}/externals/qt/6.9.3/mingw_64")
+            set(QT_TARGET_PATH "${CMAKE_BINARY_DIR}/externals/qt/6.9.3/mingw_64" CACHE PATH "Path to Qt6" FORCE)
         elseif (EXISTS "${CMAKE_BINARY_DIR}/externals/qt/6.9.3/msvc2022_64")
-            set(QT_TARGET_PATH "${CMAKE_BINARY_DIR}/externals/qt/6.9.3/msvc2022_64")
+            set(QT_TARGET_PATH "${CMAKE_BINARY_DIR}/externals/qt/6.9.3/msvc2022_64" CACHE PATH "Path to Qt6" FORCE)
         elseif (EXISTS "${CMAKE_BINARY_DIR}/externals/qt/6.9.3/msvc2022_arm64")
-            set(QT_TARGET_PATH "${CMAKE_BINARY_DIR}/externals/qt/6.9.3/msvc2022_arm64")
+            set(QT_TARGET_PATH "${CMAKE_BINARY_DIR}/externals/qt/6.9.3/msvc2022_arm64" CACHE PATH "Path to Qt6" FORCE)
         elseif (EXISTS "${CMAKE_BINARY_DIR}/externals/qt/6.9.3/msvc2019_64")
-            set(QT_TARGET_PATH "${CMAKE_BINARY_DIR}/externals/qt/6.9.3/msvc2019_64")
+            set(QT_TARGET_PATH "${CMAKE_BINARY_DIR}/externals/qt/6.9.3/msvc2019_64" CACHE PATH "Path to Qt6" FORCE)
         elseif (EXISTS "${CMAKE_BINARY_DIR}/externals/qt/6.8.3/llvm-mingw_64")
-            set(QT_TARGET_PATH "${CMAKE_BINARY_DIR}/externals/qt/6.8.3/llvm-mingw_64")
+            set(QT_TARGET_PATH "${CMAKE_BINARY_DIR}/externals/qt/6.8.3/llvm-mingw_64" CACHE PATH "Path to Qt6" FORCE)
         elseif (EXISTS "${CMAKE_BINARY_DIR}/externals/qt/6.8.3/msvc2022_64")
-            set(QT_TARGET_PATH "${CMAKE_BINARY_DIR}/externals/qt/6.8.3/msvc2022_64")
+            set(QT_TARGET_PATH "${CMAKE_BINARY_DIR}/externals/qt/6.8.3/msvc2022_64" CACHE PATH "Path to Qt6" FORCE)
         elseif (EXISTS "${CMAKE_BINARY_DIR}/externals/qt/6.8.3/msvc2019_64")
-            set(QT_TARGET_PATH "${CMAKE_BINARY_DIR}/externals/qt/6.8.3/msvc2019_64")
+            set(QT_TARGET_PATH "${CMAKE_BINARY_DIR}/externals/qt/6.8.3/msvc2019_64" CACHE PATH "Path to Qt6" FORCE)
         elseif (EXISTS "${CMAKE_BINARY_DIR}/externals/qt/6.7.3/msvc2019_64")
-            set(QT_TARGET_PATH "${CMAKE_BINARY_DIR}/externals/qt/6.7.3/msvc2019_64")
+            set(QT_TARGET_PATH "${CMAKE_BINARY_DIR}/externals/qt/6.7.3/msvc2019_64" CACHE PATH "Path to Qt6" FORCE)
         endif()
     endif()
 
@@ -656,18 +617,12 @@ if (ENABLE_QT AND NOT CITRON_USE_CPM)
     endif()
 
     # Fallback detection if QT_TARGET_PATH was not found in common bundled locations
-    if (NOT QT_TARGET_PATH)
-        get_target_property(qtcore_path Qt6::Core LOCATION_Release)
-        if (qtcore_path)
-            string(FIND "${qtcore_path}" "/bin/" qtcore_path_bin_pos REVERSE)
-            string(FIND "${qtcore_path}" "/lib/" qtcore_path_lib_pos REVERSE)
-            if (qtcore_path_bin_pos GREATER qtcore_path_lib_pos)
-                string(SUBSTRING "${qtcore_path}" 0 ${qtcore_path_bin_pos} QT_TARGET_PATH)
-            else()
-                string(SUBSTRING "${qtcore_path}" 0 ${qtcore_path_lib_pos} QT_TARGET_PATH)
-            endif()
-        endif()
+    if (NOT QT_TARGET_PATH AND Qt6_DIR)
+        get_filename_component(_tmp_path "${Qt6_DIR}/../../.." ABSOLUTE)
+        set(QT_TARGET_PATH "${_tmp_path}" CACHE PATH "Path to Qt6" FORCE)
+        message(STATUS "Resolved QT_TARGET_PATH from Qt6_DIR: ${QT_TARGET_PATH}")
     endif()
+    message(STATUS "Final QT_TARGET_PATH: ${QT_TARGET_PATH}")
 endif()
 
 function(set_citron_qt_components)
@@ -772,10 +727,10 @@ if (APPLE)
 elseif (WIN32)
     # Target Windows 10
     add_definitions(-D_WIN32_WINNT=0x0A00 -DWINVER=0x0A00)
-    set(PLATFORM_LIBRARIES winmm ws2_32 iphlpapi)
+    set(PLATFORM_LIBRARIES winmm ws2_32 iphlpapi ole32 shell32)
     if (MINGW)
         # PSAPI is the Process Status API
-        set(PLATFORM_LIBRARIES ${PLATFORM_LIBRARIES} psapi imm32 version)
+        set(PLATFORM_LIBRARIES ${PLATFORM_LIBRARIES} uuid psapi imm32 version)
     endif()
 elseif (CMAKE_SYSTEM_NAME MATCHES "^(Linux|kFreeBSD|GNU|SunOS)$")
     set(PLATFORM_LIBRARIES rt)
@@ -1003,4 +958,12 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "Clang" AND CITRON_ENABLE_LTO)
             endif()
         endif()
     endforeach()
+endif()
+# Generate AppImage build configuration
+if (UNIX AND NOT APPLE)
+    configure_file(
+        "${CMAKE_CURRENT_SOURCE_DIR}/AppImageBuilder/config.sh.in"
+        "${CMAKE_CURRENT_BINARY_DIR}/AppImageBuilder/config.sh"
+        @ONLY
+    )
 endif()

@@ -12,6 +12,7 @@
 #include <QList>
 #include <QListView>
 #include <QPaintEvent>
+#include <QScrollBar>
 #include <QPainter>
 #include <QPen>
 #include <QRect>
@@ -20,7 +21,8 @@
 #include <QWidget>
 #include "citron/game_grid_delegate.h"
 #include "citron/game_list_p.h"
-#include "citron/ui/game_grid_view.h"
+#include "game_grid_view.h"
+#include "citron/theme.h"
 #include "citron/uisettings.h"
 
 
@@ -33,32 +35,25 @@ protected:
         QPainter painter(this);
         painter.setRenderHint(QPainter::Antialiasing, false);
 
-        int w = width();
+        if (UISettings::values.game_list_poster_view.GetValue()) {
+            // Modern, dark background for Poster View
+            painter.fillRect(e->rect(), QColor(18, 18, 20));
+            return;
+        }
 
-        painter.fillRect(e->rect(), QColor(16, 8, 3));
 
-        int panel_w = 90;
-        for (int x = 0; x < w; x += panel_w) {
-            QRect panel_rect(x, e->rect().top(), panel_w, e->rect().height());
-            QLinearGradient panel_grad(x, 0, x + panel_w, 0);
+        // Rich Oak background for Grid View
+        QLinearGradient wood_grad(e->rect().topLeft(), e->rect().bottomLeft());
+        wood_grad.setColorAt(0, QColor(25, 15, 10));
+        wood_grad.setColorAt(0.5, QColor(20, 10, 5));
+        wood_grad.setColorAt(1, QColor(15, 8, 3));
+        painter.fillRect(e->rect(), wood_grad);
 
-            int var = (x / panel_w) % 3;
-            QColor base_color = (var == 0)   ? QColor(36, 18, 8)
-                                : (var == 1) ? QColor(30, 14, 6)
-                                             : QColor(40, 20, 9);
-
-            panel_grad.setColorAt(0.0, base_color);
-            panel_grad.setColorAt(0.2, base_color.lighter(105));
-            panel_grad.setColorAt(0.8, base_color.darker(110));
-            panel_grad.setColorAt(1.0, QColor(10, 4, 1, 150));
-
-            painter.fillRect(panel_rect, panel_grad);
-
-            painter.setPen(QPen(QColor(15, 6, 2, 60), 1));
-            for (int line = 1; line < 4; ++line) {
-                int lx = x + line * (panel_w / 4) + (var * 2);
-                painter.drawLine(lx, e->rect().top(), lx, e->rect().bottom());
-            }
+        // Add subtle wood grain lines - reduce density for performance at high res
+        painter.setPen(QPen(QColor(255, 255, 255, 3), 1));
+        const int step = e->rect().height() > 1080 ? 8 : 4;
+        for (int i = 0; i < e->rect().height(); i += step) {
+            painter.drawLine(0, i, e->rect().width(), i);
         }
     }
 };
@@ -72,6 +67,10 @@ protected:
         e->ignore();
     }
     void paintEvent(QPaintEvent* e) override {
+        if (UISettings::values.game_list_poster_view.GetValue()) {
+            QListView::paintEvent(e);
+            return;
+        }
         QPainter painter(this->viewport());
         painter.setRenderHint(QPainter::Antialiasing, false);
 
@@ -83,11 +82,23 @@ protected:
             int card_h = icon_size + static_cast<int>(64 * scale);
 
             QList<int> row_tops;
-            for (int i = 0; i < this->model()->rowCount(); ++i) {
+            const int total_items = this->model()->rowCount();
+            const int viewport_h = viewport()->height();
+            
+            // Fast-forward to the first potentially visible row
+            int start_item = 0;
+            const QSize gs = gridSize();
+            if (gs.height() > 0 && gs.width() > 0) {
+                int cols = qMax(1, viewport()->width() / gs.width());
+                int scroll_y = -this->visualRect(this->model()->index(0, 0)).y();
+                start_item = qMax(0, (scroll_y / gs.height()) * cols);
+            }
+
+            for (int i = start_item; i < total_items; ++i) {
                 QRect r = this->visualRect(this->model()->index(i, 0));
-                // If any part of the row's indicator item is visible or near visible, collect its
-                // row Y
-                if (r.isValid() && r.bottom() >= -200 && r.top() <= viewport()->height() + 200) {
+                if (!r.isValid()) continue;
+                if (r.top() > viewport_h + 200) break; // Finished visible range
+                if (r.bottom() >= -200) {
                     if (!row_tops.contains(r.y())) {
                         row_tops.append(r.y());
                     }
@@ -267,6 +278,9 @@ GameGridView::GameGridView(QWidget* parent) : QWidget(parent) {
 }
 
 void GameGridView::ApplyTheme() {
+    const QString accent_color = Theme::GetAccentColor();
+    [[maybe_unused]] const bool dark = UISettings::IsDarkTheme();
+
     m_container->setAutoFillBackground(false);
     m_scroll_area->setAutoFillBackground(false);
     if (m_scroll_area->viewport()) {
@@ -276,9 +290,32 @@ void GameGridView::ApplyTheme() {
         vpal.setColor(QPalette::Window, Qt::transparent);
         m_scroll_area->viewport()->setPalette(vpal);
     }
+
     m_scroll_area->setStyleSheet(
-        QStringLiteral("QScrollArea { background: transparent; border: none; } QScrollArea > "
-                       "QWidget > QWidget { background: transparent; }"));
+        QStringLiteral("QScrollArea { background: transparent; border: none; }"));
+
+    // Style the ScrollArea's scrollbar specifically
+    QString scroll_style = QStringLiteral(
+        "QScrollBar:vertical {"
+        "    background: transparent;"
+        "    width: 12px;"
+        "    margin: 0px;"
+        "}"
+        "QScrollBar::handle:vertical {"
+        "    background: %1;"
+        "    min-height: 20px;"
+        "    border-radius: 6px;"
+        "    margin: 2px;"
+        "}"
+        "QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {"
+        "    height: 0px;"
+        "    background: none;"
+        "}"
+        "QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {"
+        "    background: none;"
+        "}").arg(accent_color);
+    
+    m_scroll_area->verticalScrollBar()->setStyleSheet(scroll_style);
 
     QString list_style = QStringLiteral(
         "QListView { background: transparent; border: none; outline: 0; padding: 0px; }"
@@ -287,6 +324,15 @@ void GameGridView::ApplyTheme() {
         "QListView::item:selected { background: transparent; }");
     m_fav_view->setStyleSheet(list_style);
     m_main_view->setStyleSheet(list_style);
+
+    // Update labels with slightly better contrast if needed
+    QString label_style = QStringLiteral(
+        "QLabel { color: #f5f5f5; font-weight: bold; font-size: 16px; "
+        "padding: 8px 0px 6px 28px; "
+        "border-bottom: 2px solid %1; background: transparent; }").arg(accent_color);
+    
+    if (m_fav_label) m_fav_label->setStyleSheet(label_style);
+    if (m_main_label) m_main_label->setStyleSheet(label_style + QStringLiteral("margin-top: 18px;"));
 }
 
 void GameGridView::setModels(QAbstractItemModel* fav_model, QAbstractItemModel* main_model) {
@@ -479,7 +525,8 @@ void GameGridView::UpdateGridSize() {
         return;
     const int is = UISettings::values.game_icon_size.GetValue();
     const float s = static_cast<float>(is) / 128.0f;
-    const int bw = qMax(is + static_cast<int>(40 * s), is + 24);
+    const bool is_poster = UISettings::values.game_list_poster_view.GetValue();
+    const int bw = qMax(32, is_poster ? (is + static_cast<int>(20 * s)) : qMax(is + static_cast<int>(40 * s), is + 24));
     const int tw = m_scroll_area->viewport()->width();
 
     // If width is too small (widget hidden or layouting), retry shortly
@@ -491,13 +538,18 @@ void GameGridView::UpdateGridSize() {
     int fav_count = m_fav_view->model() ? m_fav_view->model()->rowCount() : 0;
     int main_count = m_main_view->model() ? m_main_view->model()->rowCount() : 0;
 
-    if (tw == m_last_tw && is == m_last_is && fav_count == m_last_fav_count && main_count == m_last_main_count) {
+    if (tw == m_last_tw && is == m_last_is && fav_count == m_last_fav_count && main_count == m_last_main_count && is_poster == m_last_is_poster) {
         return;
     }
     m_last_tw = tw;
     m_last_is = is;
     m_last_fav_count = fav_count;
     m_last_main_count = main_count;
+    m_last_is_poster = is_poster;
+
+    // Update delegate mode
+    m_fav_delegate->setGridMode(is_poster ? GameGridDelegate::GridMode::Poster : GameGridDelegate::GridMode::Grid);
+    m_main_delegate->setGridMode(is_poster ? GameGridDelegate::GridMode::Poster : GameGridDelegate::GridMode::Grid);
 
     // Ensure the entire Grid View widget never compresses horizontally below 1 column. 
     // + 30 for scrollbar allowance, minimizing grid squishing side-effects.
@@ -505,7 +557,7 @@ void GameGridView::UpdateGridSize() {
 
     int cols = qMax(1, tw / bw);
     int aw = tw / cols;
-    const int item_h = qMax(is + static_cast<int>(85 * s), is + 40);
+    const int item_h = qMax(48, is_poster ? (static_cast<int>(is * 1.5) + static_cast<int>(60 * s)) : qMax(is + static_cast<int>(85 * s), is + 40));
     QSize gs(aw, item_h);
 
     // Unhide Favorites section if we now have items during discovery
@@ -523,6 +575,13 @@ void GameGridView::UpdateGridSize() {
         m_fav_view->viewport()->update();
         m_main_view->viewport()->update();
     UpdateLayoutHeights();
+}
+
+void GameGridView::ClearCaches() {
+    if (m_fav_delegate)
+        m_fav_delegate->ClearPosterCache();
+    if (m_main_delegate)
+        m_main_delegate->ClearPosterCache();
 }
 
 void GameGridView::UpdateLayoutHeights() {

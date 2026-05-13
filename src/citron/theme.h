@@ -35,11 +35,12 @@ namespace Theme {
             theme_name == "qdarkstyle_midnight_blue" || theme_name == "colorful_midnight_blue") {
             return true;
         }
-        if (theme_name == "default" || theme_name == "colorful") {
-            return qApp->palette().color(QPalette::WindowText).value() >
-                   qApp->palette().color(QPalette::Window).value();
-        }
-        return false;
+
+        // Universal fallback: Check if window text is lighter than window background
+        const QPalette palette = qApp->palette();
+        const QColor text_color = palette.color(QPalette::WindowText);
+        const QColor base_color = palette.color(QPalette::Window);
+        return text_color.value() > base_color.value();
     }
 
 } // namespace Theme
