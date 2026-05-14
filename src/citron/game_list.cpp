@@ -1694,7 +1694,9 @@ GameList::GameList(std::shared_ptr<FileSys::VfsFilesystem> vfs_,
     progress_bar->setVisible(false);
     progress_bar->setFixedHeight(4);
     progress_bar->setTextVisible(false);
-    progress_bar->setStyleSheet(QStringLiteral("QProgressBar::chunk { background-color: %1; }")
+    progress_bar->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+    progress_bar->setStyleSheet(QStringLiteral("QProgressBar { border: none; background: transparent; } "
+                                               "QProgressBar::chunk { background-color: %1; }")
                                     .arg(Theme::GetAccentColor()));
 
     // Add widgets to toolbar
@@ -1760,6 +1762,7 @@ GameList::GameList(std::shared_ptr<FileSys::VfsFilesystem> vfs_,
     if (!toolbar_in_main) {
         layout->addWidget(toolbar);
     }
+    layout->addWidget(progress_bar);
 
     UpdateProgressBarColor();
     tree_view->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);

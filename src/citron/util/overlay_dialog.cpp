@@ -9,6 +9,8 @@
 #include "hid_core/frontend/input_interpreter.h"
 #include "hid_core/hid_types.h"
 #include "ui_overlay_dialog.h"
+#include "citron/uisettings.h"
+#include "citron/spinning_logo.h"
 #include "citron/util/overlay_dialog.h"
 
 namespace {
@@ -38,6 +40,74 @@ OverlayDialog::OverlayDialog(QWidget* parent, Core::System& system, const QStrin
     } else {
         InitializeRegularTextDialog(title_text, body_text, left_button_text, right_button_text,
                                     alignment);
+    }
+
+    // Apply premium styling
+    const QString accent = QString::fromStdString(UISettings::values.accent_color.GetValue());
+    const QString dialog_style =
+        QStringLiteral("QWidget#contentDialog, QWidget#contentRichDialog { "
+                       "  background: qlineargradient(x1:0, y1:0, x2:0, y2:1, "
+                       "    stop:0 rgba(28, 28, 33, 250), stop:1 rgba(18, 18, 23, 255)); "
+                       "  border: 1px solid rgba(255, 255, 255, 40); "
+                       "  border-radius: 24px; "
+                       "} "
+                       "QLabel#label_title, QLabel#label_title_rich { "
+                       "  color: #ffffff; "
+                       "  font-weight: bold; "
+                       "  margin-left: 20px; "
+                       "  margin-right: 20px; "
+                       "} "
+                       "QLabel#label_dialog, QTextBrowser#text_browser_dialog { "
+                       "  color: #ffffff; "
+                       "  background: transparent; "
+                       "  border: none; "
+                       "  padding: 5px 30px; "
+                       "  font-weight: 500; "
+                       "} "
+                       "QPushButton { "
+                       "  background: rgba(255, 255, 255, 10); "
+                       "  border: 1px solid rgba(255, 255, 255, 25); "
+                       "  border-radius: 14px; "
+                       "  color: #ffffff; "
+                       "  padding: 10px 24px; "
+                       "  margin: 12px; "
+                       "} "
+                       "QPushButton:hover { "
+                       "  background: rgba(255, 255, 255, 20); "
+                       "  border-color: rgba(255, 255, 255, 60); "
+                       "} "
+                       "QPushButton:focus { "
+                       "  background: %1; "
+                       "  border-color: %1; "
+                       "  color: #000000; "
+                       "  font-weight: bold; "
+                       "} ")
+            .arg(accent);
+
+    ui->contentDialog->setStyleSheet(dialog_style);
+    ui->contentRichDialog->setStyleSheet(dialog_style);
+
+    // Premium Card sizing
+    ui->contentDialog->setMaximumWidth(540);
+    ui->contentRichDialog->setMaximumWidth(840);
+
+    // Add spinner for "Processing" dialogs (like shutdown)
+    if (left_button_text.isEmpty() && right_button_text.isEmpty()) {
+        auto* spinner = new SpinningLogo(ui->contentDialog);
+        spinner->setPixmap(QPixmap(QStringLiteral(":/citron.svg")));
+        spinner->setSpinMode(SpinningLogo::SpinMode::Spinning);
+        spinner->setFixedSize(64, 64);
+        
+        // Find existing layout and insert spinner at the top
+        ui->verticalLayout_2->insertWidget(0, spinner, 0, Qt::AlignCenter);
+        ui->verticalLayout_2->setSpacing(8);
+        ui->verticalLayout_2->setContentsMargins(40, 24, 40, 24);
+        
+        // Make the body text larger for the single-message look
+        QFont font = ui->label_dialog->font();
+        font.setPointSize(font.pointSize() + 2);
+        font.setWeight(QFont::DemiBold);
+        ui->label_dialog->setFont(font);
     }
 
     MoveAndResizeWindow();
@@ -170,9 +240,11 @@ void OverlayDialog::MoveAndResizeWindow() {
         OVERLAY_BASE_FONT_SIZE * (((width / OVERLAY_BASE_WIDTH) + (height / OVERLAY_BASE_HEIGHT)) / 2.0f) / dpi_scale;
     const auto button_text_font_size = OVERLAY_BASE_FONT_SIZE * (height / OVERLAY_BASE_HEIGHT) / dpi_scale;
 
-    QFont title_text_font(QStringLiteral("MS Shell Dlg 2"), title_text_font_size, QFont::Normal);
-    QFont body_text_font(QStringLiteral("MS Shell Dlg 2"), body_text_font_size, QFont::Normal);
-    QFont button_text_font(QStringLiteral("MS Shell Dlg 2"), button_text_font_size, QFont::Normal);
+    // Use a modern font stack
+    QString font_family = QStringLiteral("Inter, Segoe UI, Roboto, sans-serif");
+    QFont title_text_font(font_family, title_text_font_size, QFont::Bold);
+    QFont body_text_font(font_family, body_text_font_size, QFont::Medium);
+    QFont button_text_font(font_family, button_text_font_size, QFont::DemiBold);
 
     if (use_rich_text) {
         ui->label_title_rich->setFont(title_text_font);
