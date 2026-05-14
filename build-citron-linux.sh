@@ -195,6 +195,16 @@ header()  {
 }
 
 # =============================================================================
+# Validate CPM_SOURCE_CACHE
+# =============================================================================
+if [[ "${CPM_SOURCE_CACHE}" == *" "* ]]; then
+    error "CPM_SOURCE_CACHE ('${CPM_SOURCE_CACHE}') contains spaces.\n" \
+          "       CPM and some build tools do not support paths with spaces.\n" \
+          "       Please set CPM_SOURCE_CACHE to a path without spaces, e.g.:\n" \
+          "       export CPM_SOURCE_CACHE=\"/tmp/cpm-cache\""
+fi
+
+# =============================================================================
 # Architecture flags
 # =============================================================================
 

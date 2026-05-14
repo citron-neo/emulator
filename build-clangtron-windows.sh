@@ -369,6 +369,16 @@ header()  { echo -e "\n${BOLD}${GREEN}==========================================
             echo -e "${BOLD}${GREEN}  $*${RESET}"; \
             echo -e "${BOLD}${GREEN}=================================================================${RESET}"; }
 
+# =============================================================================
+# Validate CPM_SOURCE_CACHE
+# =============================================================================
+if [[ "${CPM_SOURCE_CACHE}" == *" "* ]]; then
+    error "CPM_SOURCE_CACHE ('${CPM_SOURCE_CACHE}') contains spaces.\n" \
+          "       CPM and some build tools do not support paths with spaces.\n" \
+          "       Please set CPM_SOURCE_CACHE to a path without spaces, e.g.:\n" \
+          "       export CPM_SOURCE_CACHE=\"/tmp/cpm-cache\""
+fi
+
 # _sudo — portable sudo wrapper.
 # On Windows/MSYS2, sudo is unavailable; run privileged commands directly.
 # On Linux, delegate to the real sudo as usual.
