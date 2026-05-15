@@ -104,6 +104,7 @@ static FileSys::VirtualFile VfsDirectoryCreateFileWrapper(const FileSys::Virtual
 #include <QString>
 #include <QStyleFactory>
 #include <QSysInfo>
+#include <QSettings>
 #include <QToolTip>
 #include <QUrl>
 #include <QtConcurrent/QtConcurrent>
@@ -330,15 +331,17 @@ static void OverrideWindowsFont() {
 #endif
 
 bool GMainWindow::CheckDarkMode() {
-#ifdef __unix__
+#ifdef _WIN32
+    QSettings theme_settings(
+        QStringLiteral("HKEY_CURRENT_USER\\Software\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize"),
+        QSettings::NativeFormat);
+    return theme_settings.value(QStringLiteral("AppsUseLightTheme"), 1).toInt() == 0;
+#else
     const QPalette test_palette(qApp->palette());
     const QColor text_color = test_palette.color(QPalette::Active, QPalette::Text);
     const QColor window_color = test_palette.color(QPalette::Active, QPalette::Window);
     return (text_color.value() > window_color.value());
-#else
-    // TODO: Windows
-    return false;
-#endif // __unix__
+#endif
 }
 
 GMainWindow::GMainWindow(std::unique_ptr<QtConfig> config_, bool has_broken_vulkan)
@@ -6363,10 +6366,6 @@ void GMainWindow::UpdateUITheme() {
         current_theme = default_theme_name;
     }
 
-#ifdef _WIN32
-    QIcon::setThemeName(current_theme);
-    AdjustLinkColor();
-#else
     bool is_adaptive_theme =
         (current_theme == QStringLiteral("default") || current_theme == QStringLiteral("colorful"));
 
@@ -6386,15 +6385,14 @@ void GMainWindow::UpdateUITheme() {
         AdjustLinkColor();
     }
 
-#endif
-
-    // The rest of the function remains the same, loading the resolved theme name.
-    if (current_theme != default_theme_name) {
+    // Always load the stylesheet unless the theme is the true default (no explicit QSS)
+    if (current_theme != QStringLiteral("default")) {
         QString theme_uri{QStringLiteral(":%1/style.qss").arg(current_theme)};
         QFile f(theme_uri);
         if (!f.open(QFile::ReadOnly | QFile::Text)) {
-            LOG_ERROR(Frontend, "Unable to open style \"{}\", fallback to the default theme",
-                      UISettings::values.theme);
+            LOG_ERROR(Frontend, "Unable to open style \"{}\", fallback to empty stylesheet",
+                      current_theme.toStdString());
+            qApp->setStyleSheet(QStringLiteral(""));
         } else {
             qApp->setStyleSheet(QString::fromUtf8(f.readAll()));
         }

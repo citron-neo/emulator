@@ -3,26 +3,42 @@
 #include <QRandomGenerator>
 #include <QHBoxLayout>
 #include <QTimer>
+#include "citron/theme.h"
 
 DiceWidget::DiceWidget(QWidget* parent) : QWidget(parent) {
     auto* layout = new QVBoxLayout(this);
     layout->setContentsMargins(20, 20, 20, 20);
 
+    const bool is_dark = Theme::IsDarkMode();
+    const QString accent = Theme::GetAccentColor();
+    
     m_status_label = new QLabel(tr("Pick your bet and roll!"), this);
     m_status_label->setAlignment(Qt::AlignCenter);
-    m_status_label->setStyleSheet(QStringLiteral("font-size: 16px; font-weight: bold; color: white;"));
+    m_status_label->setStyleSheet(QStringLiteral("font-size: 16px; font-weight: bold; color: %1;")
+                                  .arg(is_dark ? QStringLiteral("white") : QStringLiteral("#1a1a1e")));
 
     auto* bet_layout = new QHBoxLayout();
     m_bet_small = new QPushButton(tr("Small (2-6)"), this);
     m_bet_mid = new QPushButton(tr("Seven (7)"), this);
     m_bet_big = new QPushButton(tr("Big (8-12)"), this);
 
+    const QString btn_bg = is_dark ? QStringLiteral("#32323a") : QStringLiteral("#f0f0f5");
+    const QString btn_fg = is_dark ? QStringLiteral("white") : QStringLiteral("#1a1a1e");
+    const QString btn_border = is_dark ? QStringLiteral("#42424a") : QStringLiteral("#d0d0d5");
+    const QString btn_hover_bg = is_dark ? QStringLiteral("#42424a") : QStringLiteral("#e0e0e5");
+    const QString btn_disabled_bg = is_dark ? QStringLiteral("#1a1a1e") : QStringLiteral("#e8e8ed");
+    const QString btn_disabled_fg = is_dark ? QStringLiteral("#555") : QStringLiteral("#aaa");
+    
+    const QColor accent_color(accent);
+    const double accent_lum = (0.299 * accent_color.red() + 0.587 * accent_color.green() + 0.114 * accent_color.blue()) / 255.0;
+    const QString btn_checked_fg = accent_lum > 0.65 ? QStringLiteral("black") : QStringLiteral("white");
+
     const QString btn_style = QStringLiteral(
-        "QPushButton { background-color: #32323a; color: white; border: 1px solid #42424a; border-radius: 8px; padding: 8px; font-weight: bold; } "
-        "QPushButton:hover { background-color: #42424a; } "
-        "QPushButton:checked { background-color: #0096ff; border-color: #0096ff; } "
-        "QPushButton:disabled { background-color: #1a1a1e; color: #555; }"
-    );
+        "QPushButton { background-color: %2; color: %3; border: 1px solid %4; border-radius: 8px; padding: 8px; font-weight: bold; } "
+        "QPushButton:hover { background-color: %5; } "
+        "QPushButton:checked { background-color: %1; border-color: %1; color: %6; } "
+        "QPushButton:disabled { background-color: %7; color: %8; border: 1px solid %9; }"
+    ).arg(accent, btn_bg, btn_fg, btn_border, btn_hover_bg, btn_checked_fg, btn_disabled_bg, btn_disabled_fg, btn_border);
 
     for (auto* btn : {m_bet_small, m_bet_mid, m_bet_big}) {
         btn->setCheckable(true);
@@ -32,10 +48,11 @@ DiceWidget::DiceWidget(QWidget* parent) : QWidget(parent) {
 
     m_roll_button = new QPushButton(tr("Roll Dice"), this);
     m_roll_button->setStyleSheet(QStringLiteral(
-        "QPushButton { background-color: #2e7d32; color: white; border-radius: 8px; padding: 12px; font-weight: bold; font-size: 16px; } "
+        "QPushButton { background-color: #2e7d32; color: white; border-radius: 8px; padding: 12px; font-weight: bold; font-size: 16px; border: none; } "
         "QPushButton:hover { background-color: #388e3c; } "
-        "QPushButton:disabled { background-color: #1b5e20; color: #aaa; }"
-    ));
+        "QPushButton:disabled { background-color: %1; color: %2; }"
+    ).arg(is_dark ? QStringLiteral("#1b5e20") : QStringLiteral("#a5d6a7"), 
+          is_dark ? QStringLiteral("#aaa") : QStringLiteral("#e8f5e9")));
     m_roll_button->setEnabled(false);
 
     layout->addStretch();

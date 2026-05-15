@@ -4,6 +4,7 @@
 #include <QMouseEvent>
 #include <QTimer>
 #include <cmath>
+#include "citron/theme.h"
 
 CupShuffleWidget::CupShuffleWidget(QWidget* parent) : QWidget(parent) {
     m_citron_logo.load(QStringLiteral(":/citron.svg"));
@@ -11,18 +12,29 @@ CupShuffleWidget::CupShuffleWidget(QWidget* parent) : QWidget(parent) {
     auto* layout = new QVBoxLayout(this);
     m_status_label = new QLabel(tr("Find the game icon!"), this);
     m_status_label->setAlignment(Qt::AlignCenter);
-    m_status_label->setStyleSheet(QStringLiteral("font-size: 16px; font-weight: bold; color: white;"));
+    const bool is_dark = Theme::IsDarkMode();
+    m_status_label->setStyleSheet(QStringLiteral("font-size: 16px; font-weight: bold; color: %1;")
+                                  .arg(is_dark ? QStringLiteral("white") : QStringLiteral("#1a1a1e")));
 
     m_start_button = new QPushButton(tr("Shuffle Cups"), this);
+    const QString accent = Theme::GetAccentColor();
+    const QColor accent_color(accent);
+    const double accent_lum = (0.299 * accent_color.red() + 0.587 * accent_color.green() + 0.114 * accent_color.blue()) / 255.0;
+    const QString btn_pressed_fg = accent_lum > 0.65 ? QStringLiteral("black") : QStringLiteral("white");
+
+    const QString btn_bg = is_dark ? QStringLiteral("#262626") : QStringLiteral("#f0f0f5");
+    const QString btn_fg = is_dark ? QStringLiteral("white") : QStringLiteral("#1a1a1e");
+    const QString btn_border = is_dark ? QStringLiteral("#404040") : QStringLiteral("#d0d0d5");
+    const QString btn_hover_bg = is_dark ? QStringLiteral("#333333") : QStringLiteral("#e0e0e5");
+    const QString btn_disabled_bg = is_dark ? QStringLiteral("#1a1a1a") : QStringLiteral("#e8e8ed");
+    const QString btn_disabled_fg = is_dark ? QStringLiteral("#666") : QStringLiteral("#aaa");
+
     m_start_button->setStyleSheet(QStringLiteral(
-        "QPushButton { background-color: #0096ff; color: white; border-radius: 8px; padding: 12px; font-weight: bold; font-size: 16px; } "
-        "QPushButton:hover { background-color: #0082df; } "
-        "QPushButton:disabled { background-color: #004d80; color: #aaa; }"
-        "QPushButton { background-color: #262626; color: #ffffff; border: 1px solid #404040; border-radius: 8px; padding: 12px; font-weight: bold; font-size: 16px; } "
-        "QPushButton:hover { background-color: #333333; } "
-        "QPushButton:pressed { background-color: #1a1a1a; } "
-        "QPushButton:disabled { background-color: #1a1a1a; color: #666; border: 1px solid #333; }"
-    ));
+        "QPushButton { background-color: %2; color: %3; border: 1px solid %4; border-radius: 8px; padding: 12px; font-weight: bold; font-size: 16px; } "
+        "QPushButton:hover { background-color: %5; } "
+        "QPushButton:pressed { background-color: %1; color: %6; border-color: %1; } "
+        "QPushButton:disabled { background-color: %7; color: %8; border: 1px solid %9; }"
+    ).arg(accent, btn_bg, btn_fg, btn_border, btn_hover_bg, btn_pressed_fg, btn_disabled_bg, btn_disabled_fg, btn_border));
 
     layout->addStretch();
     layout->addWidget(m_status_label);
@@ -171,17 +183,23 @@ void CupShuffleWidget::paintEvent(QPaintEvent*) {
         }
 
         QLinearGradient grad(r.topLeft(), r.bottomRight());
-        grad.setColorAt(0, QColor(70, 70, 85));
-        grad.setColorAt(1, QColor(35, 35, 50));
+        if (Theme::IsDarkMode()) {
+            grad.setColorAt(0, QColor(70, 70, 85));
+            grad.setColorAt(1, QColor(35, 35, 50));
+            p.setPen(QPen(QColor(110, 110, 130), 2));
+        } else {
+            grad.setColorAt(0, Qt::white);
+            grad.setColorAt(1, QColor(230, 230, 235));
+            p.setPen(QPen(QColor(200, 200, 205), 2));
+        }
         p.setBrush(grad);
-        p.setPen(QPen(QColor(110, 110, 130), 2));
         p.drawRoundedRect(r, 16, 16);
         
         if (cup.revealed) {
             if (cup.has_ball) {
                 p.drawPixmap(r.adjusted(15, 15, -15, -15).toRect(), QPixmap::fromImage(m_citron_logo));
             } else {
-                p.setPen(QColor(255, 255, 255, 50));
+                p.setPen(Theme::IsDarkMode() ? QColor(255, 255, 255, 50) : QColor(0, 0, 0, 50));
                 p.setFont(QFont(QStringLiteral("sans-serif"), 32, QFont::Bold));
                 p.drawText(r, Qt::AlignCenter, QStringLiteral("?"));
             }

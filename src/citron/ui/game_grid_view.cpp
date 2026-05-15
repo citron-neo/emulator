@@ -36,8 +36,8 @@ protected:
         painter.setRenderHint(QPainter::Antialiasing, false);
 
         if (UISettings::values.game_list_poster_view.GetValue()) {
-            // Modern, dark background for Poster View
-            painter.fillRect(e->rect(), QColor(18, 18, 20));
+            // Modern background for Poster View
+            painter.fillRect(e->rect(), Theme::IsDarkMode() ? QColor(18, 18, 20) : QColor(248, 248, 250));
             return;
         }
 
@@ -279,7 +279,7 @@ GameGridView::GameGridView(QWidget* parent) : QWidget(parent) {
 
 void GameGridView::ApplyTheme() {
     const QString accent_color = Theme::GetAccentColor();
-    [[maybe_unused]] const bool dark = UISettings::IsDarkTheme();
+    const bool dark = Theme::IsDarkMode();
 
     m_container->setAutoFillBackground(false);
     m_scroll_area->setAutoFillBackground(false);
@@ -325,14 +325,27 @@ void GameGridView::ApplyTheme() {
     m_fav_view->setStyleSheet(list_style);
     m_main_view->setStyleSheet(list_style);
 
-    // Update labels with slightly better contrast if needed
+    // Update labels with theme-aware text colors
+    const QString text_color = dark ? QStringLiteral("#f5f5f5") : QStringLiteral("#1a1a1e");
     QString label_style = QStringLiteral(
-        "QLabel { color: #f5f5f5; font-weight: bold; font-size: 16px; "
+        "QLabel { color: %2; font-weight: bold; font-size: 16px; "
         "padding: 8px 0px 6px 28px; "
-        "border-bottom: 2px solid %1; background: transparent; }").arg(accent_color);
+        "border-bottom: 2px solid %1; background: transparent; }").arg(accent_color, text_color);
     
     if (m_fav_label) m_fav_label->setStyleSheet(label_style);
     if (m_main_label) m_main_label->setStyleSheet(label_style + QStringLiteral("margin-top: 18px;"));
+
+    if (m_top_help) {
+        m_top_help->setStyleSheet(QStringLiteral(
+            "QLabel { color: %1; font-weight: bold; font-family: 'Outfit', 'Inter', sans-serif; font-size: 14px; }"
+        ).arg(dark ? QStringLiteral("rgba(255, 255, 255, 140)") : QStringLiteral("rgba(30, 30, 35, 180)")));
+    }
+    
+    if (m_bottom_hint) {
+        m_bottom_hint->setStyleSheet(QStringLiteral(
+            "QLabel { color: %1; font-style: italic; font-size: 13px; }"
+        ).arg(dark ? QStringLiteral("rgba(255, 255, 255, 100)") : QStringLiteral("rgba(30, 30, 35, 120)")));
+    }
 }
 
 void GameGridView::setModels(QAbstractItemModel* fav_model, QAbstractItemModel* main_model) {

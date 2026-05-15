@@ -177,6 +177,11 @@ protected:
 
             painter.restore();
         }
+
+        // Draw center indicator line
+        const bool is_dark = Theme::IsDarkMode();
+        painter.setPen(QPen(is_dark ? Qt::white : Qt::black, 4, Qt::SolidLine, Qt::RoundCap));
+        painter.drawLine(widget_center_x, 20, widget_center_x, height() - 20);
     }
 
 private:
@@ -277,6 +282,12 @@ public:
         QString accent = Theme::GetAccentColor();
         if (accent.isEmpty())
             accent = QStringLiteral("#0096ff");
+            
+        QColor acc_color(accent);
+        if (!dark && acc_color.lightnessF() > 0.6) {
+            acc_color.setHslF(acc_color.hslHueF(), acc_color.hslSaturationF(), 0.5);
+            accent = acc_color.name();
+        }
 
         QString nav_style =
             dark ? QStringLiteral(

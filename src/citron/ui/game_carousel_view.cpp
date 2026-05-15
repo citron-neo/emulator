@@ -416,7 +416,16 @@ QColor CinematicCarousel::CardBg() const {
 QColor CinematicCarousel::TextColor() const { 
     return Theme::IsDarkMode() ? QColor(255, 255, 255) : QColor(45, 45, 48); 
 }
-QColor CinematicCarousel::AccentColor() const { const QString h = QString::fromStdString(UISettings::values.accent_color.GetValue()); return QColor(h).isValid() ? QColor(h) : QColor(0, 150, 255); }
+QColor CinematicCarousel::AccentColor() const { 
+    const QString h = QString::fromStdString(UISettings::values.accent_color.GetValue()); 
+    QColor acc = QColor(h).isValid() ? QColor(h) : QColor(0, 150, 255); 
+    if (!Theme::IsDarkMode() && acc.lightnessF() > 0.6) {
+        acc.setHslF(acc.hslHueF(), acc.hslSaturationF(), 0.5);
+    } else if (Theme::IsDarkMode() && acc.lightnessF() < 0.4) {
+        acc.setHslF(acc.hslHueF(), acc.hslSaturationF(), 0.6);
+    }
+    return acc;
+}
 
 GameCarouselView::GameCarouselView(QWidget* parent) : QWidget(parent) {
     m_layout = new QVBoxLayout(this);
