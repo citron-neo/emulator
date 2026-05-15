@@ -62,7 +62,8 @@ bool SplitterContext::Initialize(const BehaviorInfo& behavior,
                                  std::span<VoiceState::BiquadFilterState> splitter_bqf_states_) {
     if (behavior.IsSplitterSupported() && params.splitter_infos > 0 &&
         params.splitter_destinations > 0) {
-        splitter_infos = allocator.Allocate<SplitterInfo>(params.splitter_infos, 0x10);
+        internal_splitter_infos = std::make_unique<u8[]>(params.splitter_infos * sizeof(SplitterInfo));
+        splitter_infos = {reinterpret_cast<SplitterInfo*>(internal_splitter_infos.get()), params.splitter_infos};
 
         for (u32 i = 0; i < params.splitter_infos; i++) {
             std::construct_at<SplitterInfo>(&splitter_infos[i], static_cast<s32>(i));
@@ -73,8 +74,8 @@ bool SplitterContext::Initialize(const BehaviorInfo& behavior,
             return false;
         }
 
-        splitter_destinations =
-            allocator.Allocate<SplitterDestinationData>(params.splitter_destinations, 0x10).data();
+        internal_splitter_destinations = std::make_unique<u8[]>(params.splitter_destinations * sizeof(SplitterDestinationData));
+        splitter_destinations = reinterpret_cast<SplitterDestinationData*>(internal_splitter_destinations.get());
 
         for (s32 i = 0; i < params.splitter_destinations; i++) {
             std::construct_at<SplitterDestinationData>(&splitter_destinations[i], i);
@@ -323,8 +324,8 @@ u64 SplitterContext::CalcWorkBufferSize(const BehaviorInfo& behavior,
         return size;
     }
 
-    size += params.splitter_destinations * sizeof(SplitterDestinationData) +
-            params.splitter_infos * sizeof(SplitterInfo);
+    size += params.splitter_destinations * 0xE0 + // Nintendo SDK expected sizes (0xE0 for DestinationData)
+            params.splitter_infos * 0x20;         // 0x20 for SplitterInfo
 
     if (behavior.IsSplitterBugFixed()) {
         size += Common::AlignUp(params.splitter_destinations * sizeof(u32), 0x10);
