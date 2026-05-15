@@ -155,6 +155,22 @@ protected:
         const int start_idx = qMax(0, static_cast<int>((m_scroll_offset - widget_center_x) / total_slot_width) - 1);
         const int end_idx = qMin(total_items - 1, start_idx + visible_count + 2);
 
+        // Draw center indicator lines behind the icons
+        const bool is_dark = Theme::IsDarkMode();
+        painter.setPen(QPen(is_dark ? Qt::white : Qt::black, 4, Qt::SolidLine, Qt::RoundCap));
+        
+        const int top_y1 = 20;
+        const int top_y2 = widget_center_y - (icon_size / 2) - 20;
+        if (top_y2 > top_y1) {
+            painter.drawLine(widget_center_x, top_y1, widget_center_x, top_y2);
+        }
+
+        const int bot_y1 = widget_center_y + (icon_size / 2) + 20;
+        const int bot_y2 = height() - 20;
+        if (bot_y2 > bot_y1) {
+            painter.drawLine(widget_center_x, bot_y1, widget_center_x, bot_y2);
+        }
+
         for (int i = start_idx; i <= end_idx; ++i) {
             const qreal icon_x_position = (static_cast<qreal>(widget_center_x) - icon_size / 2.0) +
                                            (i * static_cast<qreal>(total_slot_width)) -
@@ -177,11 +193,6 @@ protected:
 
             painter.restore();
         }
-
-        // Draw center indicator line
-        const bool is_dark = Theme::IsDarkMode();
-        painter.setPen(QPen(is_dark ? Qt::white : Qt::black, 4, Qt::SolidLine, Qt::RoundCap));
-        painter.drawLine(widget_center_x, 20, widget_center_x, height() - 20);
     }
 
 private:
