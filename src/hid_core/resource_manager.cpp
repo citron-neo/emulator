@@ -106,6 +106,14 @@ void ResourceManager::Initialize() {
     InitializeConsoleSixAxisSampler();
     InitializeAHidSampler();
 
+    system.CoreTiming().ScheduleLoopingEvent(npad_update_ns, npad_update_ns, npad_update_event);
+    system.CoreTiming().ScheduleLoopingEvent(default_update_ns, default_update_ns,
+                                             default_update_event);
+    system.CoreTiming().ScheduleLoopingEvent(mouse_keyboard_update_ns, mouse_keyboard_update_ns,
+                                             mouse_keyboard_update_event);
+    system.CoreTiming().ScheduleLoopingEvent(motion_update_ns, motion_update_ns,
+                                             motion_update_event);
+
     is_initialized = true;
 }
 
@@ -247,14 +255,6 @@ void ResourceManager::InitializeHidCommonSampler() {
     home_button->SetAppletResource(applet_resource, &shared_mutex);
     sleep_button->SetAppletResource(applet_resource, &shared_mutex);
     capture_button->SetAppletResource(applet_resource, &shared_mutex);
-
-    system.CoreTiming().ScheduleLoopingEvent(npad_update_ns, npad_update_ns, npad_update_event);
-    system.CoreTiming().ScheduleLoopingEvent(default_update_ns, default_update_ns,
-                                             default_update_event);
-    system.CoreTiming().ScheduleLoopingEvent(mouse_keyboard_update_ns, mouse_keyboard_update_ns,
-                                             mouse_keyboard_update_event);
-    system.CoreTiming().ScheduleLoopingEvent(motion_update_ns, motion_update_ns,
-                                             motion_update_event);
 }
 
 void ResourceManager::InitializeTouchScreenSampler() {
