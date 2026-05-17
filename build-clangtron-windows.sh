@@ -285,6 +285,9 @@ BUILD_TYPE="${BUILD_TYPE:-Release}" # Release, RelWithDebInfo
 CPM_SOURCE_CACHE="${CPM_SOURCE_CACHE:-${HOME}/.cache/cpm}"
 # Expand ~ to $HOME if present
 CPM_SOURCE_CACHE="${CPM_SOURCE_CACHE/#\~/$HOME}"
+# Uncomment to optimize for this machine's CPU — produces a non-portable binary
+# MARCH_NATIVE="-march=native"
+MARCH_NATIVE="${MARCH_NATIVE:-}"
 
 # =============================================================================
 # Host OS detection
@@ -365,6 +368,16 @@ error()   { echo -e "${RED}[ERROR]${RESET} $*" >&2; exit 1; }
 header()  { echo -e "\n${BOLD}${GREEN}=================================================================${RESET}"; \
             echo -e "${BOLD}${GREEN}  $*${RESET}"; \
             echo -e "${BOLD}${GREEN}=================================================================${RESET}"; }
+
+# =============================================================================
+# Validate CPM_SOURCE_CACHE
+# =============================================================================
+if [[ "${CPM_SOURCE_CACHE}" == *" "* ]]; then
+    error "CPM_SOURCE_CACHE ('${CPM_SOURCE_CACHE}') contains spaces.\n" \
+          "       CPM and some build tools do not support paths with spaces.\n" \
+          "       Please set CPM_SOURCE_CACHE to a path without spaces, e.g.:\n" \
+          "       export CPM_SOURCE_CACHE=\"/tmp/cpm-cache\""
+fi
 
 # _sudo — portable sudo wrapper.
 # On Windows/MSYS2, sudo is unavailable; run privileged commands directly.
@@ -1189,12 +1202,10 @@ compile_comsupp_stubs() {
 
     if [[ -f "${stub_obj}" ]]; then
         info "comsupp_stubs.o already compiled: ${stub_obj}"
-        return 0
-    fi
+    else
+        info "Compiling _com_util::ConvertStringToBSTR stub..."
 
-    info "Compiling _com_util::ConvertStringToBSTR stub..."
-
-    cat > "${stub_src}" << 'COMSUPP_CPP_EOF'
+        cat > "${stub_src}" << 'COMSUPP_CPP_EOF'
 // Stub for _com_util::ConvertStringToBSTR (MSVC comsuppw.lib).
 // performance_overlay.cpp uses it for WMI BSTR strings.
 // Uses LocalAlloc (no oleaut32 dep at compile time; SysFreeString uses
@@ -1219,11 +1230,38 @@ namespace _com_util {
 }
 COMSUPP_CPP_EOF
 
-    # llvm-mingw wrapper sets --target, --sysroot, -stdlib=libc++ automatically
-    "${MINGW_CLANGPP}" -O2 -c "${stub_src}" -o "${stub_obj}" \
-        || error "Failed to compile comsupp_stubs.o"
+        # llvm-mingw wrapper sets --target, --sysroot, -stdlib=libc++ automatically
+        "${MINGW_CLANGPP}" -O2 -c "${stub_src}" -o "${stub_obj}" \
+            || error "Failed to compile comsupp_stubs.o"
 
-    success "comsupp_stubs.o compiled: ${stub_obj}"
+        success "comsupp_stubs.o compiled: ${stub_obj}"
+    fi
+
+    # CMAKE_CXX_STANDARD_LIBRARIES embeds this path directly into the toolchain
+    # file as a raw linker flag string.  CMake splits that string on spaces when
+    # building the link command, so a path like "C:/Users/Gaming PC/.../comsupp_stubs.o"
+    # gets torn in two.  When BUILD_ROOT contains spaces (common on Windows when
+    # the username has a space), copy the object to MSYS2's /tmp which is always
+    # space-free (C:\msys64\tmp), and record the safe path for write_toolchain_file.
+    if [[ "${stub_obj}" == *' '* ]]; then
+        local _safe_obj="/tmp/citron-comsupp_stubs.o"
+        cp "${stub_obj}" "${_safe_obj}" \
+            || error "Failed to copy comsupp_stubs.o to space-free path ${_safe_obj}"
+        # Export as a Windows mixed-path so the toolchain file sees a native path
+        if [[ "${_HOST_OS}" == "windows" ]]; then
+            _COMSUPP_TC_PATH="$(cygpath -m "${_safe_obj}")"
+        else
+            _COMSUPP_TC_PATH="${_safe_obj}"
+        fi
+        info "comsupp_stubs.o staged to space-free path: ${_COMSUPP_TC_PATH}"
+    else
+        # Path is already space-free; convert to Windows mixed-path for the toolchain
+        if [[ "${_HOST_OS}" == "windows" ]]; then
+            _COMSUPP_TC_PATH="$(cygpath -m "${stub_obj}")"
+        else
+            _COMSUPP_TC_PATH="${stub_obj}"
+        fi
+    fi
 }
 
 # =============================================================================
@@ -1562,7 +1600,23 @@ rebuild_ffmpeg_pthread_free() {
     local ffmpeg_hdr="${ffmpeg_ext_dir}/include"
     local ffmpeg_bld="${BUILD_ROOT}/externals/ffmpeg-${FFMPEG_VERSION}-llvm-bld"
     local ffmpeg_src_dir="${CPM_SOURCE_CACHE}/ffmpeg-src/${FFMPEG_VERSION}"
-    
+
+    # FFmpeg's configure script does bare `cd` calls and cannot handle spaces in
+    # either the source or build directory paths.  On Windows the username may
+    # contain spaces (e.g. "Gaming PC"), which propagates into CPM_SOURCE_CACHE
+    # and BUILD_ROOT.  Detect this and redirect both dirs to MSYS2's /tmp
+    # (C:\msys64\tmp — guaranteed to be space-free) so configure succeeds.
+    # Only the temporary source/build dirs move; ffmpeg_ext_dir (the installed
+    # .a + headers consumed by CMake) stays under BUILD_ROOT as before.
+    if [[ "${ffmpeg_src_dir}" == *' '* || "${ffmpeg_bld}" == *' '* ]]; then
+        local _ffmpeg_safe_root="/tmp/citron-ffmpeg/${FFMPEG_VERSION}"
+        warn "[ffmpeg-rebuild] Path contains spaces — redirecting FFmpeg source/build to ${_ffmpeg_safe_root}"
+        ffmpeg_src_dir="${_ffmpeg_safe_root}/src"
+        ffmpeg_bld="${_ffmpeg_safe_root}/bld"
+        # Ensure clean directories in /tmp to avoid stale or recursive Makefiles
+        rm -rf "${ffmpeg_src_dir}" "${ffmpeg_bld}"
+    fi
+
     # Define global cache location
     local ffmpeg_global_cache="${CPM_SOURCE_CACHE}/citron-ffmpeg-static/${FFMPEG_VERSION}-llvm-mingw"
 
@@ -1669,6 +1723,19 @@ rebuild_ffmpeg_pthread_free() {
         success "[ffmpeg-rebuild] FFmpeg ${FFMPEG_VERSION} source ready"
     fi
 
+    # Final safety check: if the source path still has spaces, we MUST copy it
+    # to a safe path for FFmpeg's configure to work (even if it's the submodule).
+    if [[ "${ffmpeg_src}" == *' '* ]]; then
+        local safe_src="/tmp/citron-ffmpeg/${FFMPEG_VERSION}/src"
+        if [[ "${ffmpeg_src}" != "${safe_src}" ]]; then
+            info "[ffmpeg-rebuild] Copying source to space-free path: ${safe_src}..."
+            mkdir -p "$(dirname "${safe_src}")"
+            rm -rf "${safe_src}"
+            cp -r "${ffmpeg_src}" "${safe_src}"
+            ffmpeg_src="${safe_src}"
+        fi
+    fi
+
     info "[ffmpeg-rebuild] Building static FFmpeg ${FFMPEG_VERSION} with llvm-mingw..."
     mkdir -p "${ffmpeg_bld}" "${ffmpeg_lib}" "${ffmpeg_hdr}"
 
@@ -1698,7 +1765,13 @@ rebuild_ffmpeg_pthread_free() {
     info "[ffmpeg-rebuild] Configuring FFmpeg (static, no pthreads, dxva2+d3d11va)..."
     (
         cd "${ffmpeg_bld}"
-        bash "${ffmpeg_src}/configure" \
+        # Use relative path to configure to avoid absolute path inclusion bugs in Makefile
+        local _rel_cfg="../src/configure"
+        if [[ ! -f "${_rel_cfg}" ]]; then
+            _rel_cfg="${ffmpeg_src}/configure"
+        fi
+
+        bash "${_rel_cfg}" \
             --arch=x86_64 \
             --target-os=mingw32 \
             "${_ffmpeg_cross_flags[@]}" \
@@ -1724,17 +1797,16 @@ rebuild_ffmpeg_pthread_free() {
             --enable-filter=yadif,scale,aresample \
             --enable-protocol=file \
             --enable-dxva2 \
-            --enable-d3d11va \
-            2>&1 | tail -8
+            --enable-d3d11va
     ) || {
-        warn "[ffmpeg-rebuild] FFmpeg configure failed — cmake will fail at link time"
-        return 0
+        error "[ffmpeg-rebuild] FFmpeg configure failed"
     }
 
     info "[ffmpeg-rebuild] Compiling (this takes a few minutes)..."
-    make -C "${ffmpeg_bld}" -j"${JOBS}" 2>&1 | tail -5 || {
-        warn "[ffmpeg-rebuild] FFmpeg make failed"
-        return 0
+    # Ensure no stale config.h exists in source if doing out-of-tree build
+    rm -f "${ffmpeg_src}/config.h"
+    make -C "${ffmpeg_bld}" -j"${JOBS}" || {
+        error "[ffmpeg-rebuild] FFmpeg make failed"
     }
 
     # ── Install static libraries (.a) ──────────────────────────────────────────
@@ -1813,7 +1885,7 @@ deploy_runtime_dlls() {
     local bin_dir="$1"
     # This step is now redundant as CMake (CopyMinGWDeps.cmake) handles 
     # synchronized, recursive DLL and plugin deployment during the build.
-    success "All runtime DLLs deployed to \${bin_dir} (synchronized via CMake)"
+    success "All runtime DLLs deployed to ${bin_dir} (synchronized via CMake)"
 }
 
 print_profiling_instructions() {
@@ -1899,7 +1971,7 @@ set(CMAKE_CXX_FLAGS_INIT "-D_WIN32_WINNT=0x0A00 -DWINVER=0x0A00 -D__INTRINSIC_DE
 set(CMAKE_EXE_LINKER_FLAGS_INIT    "-fuse-ld=lld -Wl,--allow-multiple-definition")
 set(CMAKE_SHARED_LINKER_FLAGS_INIT "-fuse-ld=lld -Wl,--allow-multiple-definition")
 set(CMAKE_MODULE_LINKER_FLAGS_INIT "-fuse-ld=lld -Wl,--allow-multiple-definition")
-set(CMAKE_CXX_STANDARD_LIBRARIES "${CMAKE_BUILD_ROOT}/comsupp_stubs.o -loleaut32")
+set(CMAKE_CXX_STANDARD_LIBRARIES "${_COMSUPP_TC_PATH} -loleaut32")
 set(CMAKE_AUTORCC_OPTIONS "--compress-algo;zlib")
 MSYS2_TC_EOF
         return
@@ -1931,8 +2003,8 @@ set(CMAKE_FIND_ROOT_PATH_MODE_PACKAGE BOTH)
 # definition; the guard macro ensures it is the sole definer, eliminating
 # duplicate-symbol link errors from SDL2 and other libraries.
 # Applied to both C and C++ (SDL2 is compiled as C and triggers the duplicate).
-set(CMAKE_C_FLAGS_INIT   "-D__INTRINSIC_DEFINED___cpuidex -D__USE_MINGW_STAT64 -isystem ${CMAKE_BUILD_ROOT}/mingw-case-fixups -Wno-unknown-pragmas")
-set(CMAKE_CXX_FLAGS_INIT "-D_WIN32_WINNT=0x0A00 -DWINVER=0x0A00 -D__INTRINSIC_DEFINED___cpuidex -D__USE_MINGW_STAT64 -U__GLIBCXX__ -isystem ${CMAKE_BUILD_ROOT}/mingw-case-fixups -Wno-unknown-pragmas")
+set(CMAKE_C_FLAGS_INIT   "-D__INTRINSIC_DEFINED___cpuidex -D__USE_MINGW_STAT64 -isystem \"${CMAKE_BUILD_ROOT}/mingw-case-fixups\" -Wno-unknown-pragmas")
+set(CMAKE_CXX_FLAGS_INIT "-D_WIN32_WINNT=0x0A00 -DWINVER=0x0A00 -D__INTRINSIC_DEFINED___cpuidex -D__USE_MINGW_STAT64 -U__GLIBCXX__ -isystem \"${CMAKE_BUILD_ROOT}/mingw-case-fixups\" -Wno-unknown-pragmas")
 
 # --allow-multiple-definition: belt-and-suspenders for any residual __cpuidex
 # duplicates inside libSDL2.a (SDL_dynapi.c include-all mechanism).
@@ -1944,7 +2016,7 @@ set(CMAKE_MODULE_LINKER_FLAGS_INIT "-Wl,--allow-multiple-definition")
 #   comsupp_stubs.o: _com_util::ConvertStringToBSTR (MSVC-specific, no MinGW equivalent)
 #   -loleaut32: COM/OLE Automation symbols (SysAllocString etc.) for WMI code
 #   libc++ and libunwind are linked automatically by the llvm-mingw wrappers.
-set(CMAKE_CXX_STANDARD_LIBRARIES "${CMAKE_BUILD_ROOT}/comsupp_stubs.o -loleaut32")
+set(CMAKE_CXX_STANDARD_LIBRARIES "${_COMSUPP_TC_PATH} -loleaut32")
 
 # Force Qt rcc to use zlib resource compression instead of zstd.
 # aqt's llvm_mingw Qt6Core lacks zstd resource support; default zstd calls
@@ -1957,11 +2029,19 @@ EOF
 # Common CMake arguments for cross-compilation to Windows
 # =============================================================================
 
-common_cmake_args() {
+# build_common_cmake_args — populate the global _CMAKE_ARGS array with the
+# flags that every cmake configure invocation needs.  Callers append their
+# own stage-specific flags and then pass the whole array as:
+#
+#   cmake "${SOURCE_DIR}" "${_CMAKE_ARGS[@]}" [extra flags…]
+#
+# Using an array (rather than the old `echo`-based helper consumed via
+# $(common_cmake_args)) avoids bash word-splitting on paths that contain
+# spaces — e.g. when the Windows username or project folder has a space.
+build_common_cmake_args() {
     local lto_flag; lto_flag="$(lto_cmake_flag)"
     local toolchain_file="${BUILD_ROOT}/mingw-clang-toolchain.cmake"
     write_toolchain_file "$toolchain_file"
-    
 
     local CMAKE_BUILD_ROOT="${BUILD_ROOT}"
     local CMAKE_SOURCE_DIR="${SOURCE_DIR}"
@@ -1988,46 +2068,60 @@ common_cmake_args() {
         VULKAN_HEADERS_STUB_DIR="${CMAKE_SOURCE_DIR}/externals/vulkan-stub/include"
     fi
 
-    echo \
-        "-G" "Ninja" \
-        "-DCMAKE_BUILD_TYPE=${BUILD_TYPE}" \
-        "-DCMAKE_TOOLCHAIN_FILE=${CMAKE_TOOLCHAIN_FILE_PATH}" \
-        "-DCMAKE_DISABLE_FIND_PACKAGE_LLVM=ON" \
-        "-DCITRON_ENABLE_LTO=${lto_flag}" \
-        "-DBUILD_TESTING=OFF" \
-        "-DCITRON_TESTS=OFF" \
-        "-DCITRON_USE_BUNDLED_FFMPEG=ON" \
-        "-DCITRON_USE_EXTERNAL_SDL2=ON" \
-        "-DCITRON_USE_EXTERNAL_VULKAN_HEADERS=ON" \
-        "-DCITRON_USE_EXTERNAL_VULKAN_UTILITY_LIBRARIES=ON" \
-        "-DSPIRV-Headers_DIR=${CMAKE_SPIRV_HEADERS_INSTALL}/share/cmake/SPIRV-Headers" \
-        "-DVulkanHeaders_DIR=${CMAKE_VULKAN_HEADERS_INSTALL}/share/cmake/VulkanHeaders" \
-        "-DCMAKE_PREFIX_PATH=${CMAKE_VULKAN_HEADERS_INSTALL};${CMAKE_SPIRV_HEADERS_INSTALL}" \
-        "-DVulkanMemoryAllocator_FOUND=TRUE" \
-        "-Ddynarmic_FOUND=TRUE" \
-        "-Dxbyak_FOUND=TRUE" \
-        "-Dcubeb_FOUND=TRUE" \
-        "-DENABLE_LIBUSB=OFF" \
-        "-DVulkan_LIBRARY=${CMAKE_BUILD_ROOT}/vulkan-stub/libvulkan-1.a" \
-        ${VULKAN_HEADERS_STUB_DIR:+"-DVulkan_INCLUDE_DIR=${VULKAN_HEADERS_STUB_DIR}"} \
-        ${VULKAN_HEADERS_STUB_DIR:+"-DVulkan_INCLUDE_DIRS=${VULKAN_HEADERS_STUB_DIR}"} \
-        ${GLSLC_PATH:+"-DVulkan_GLSLC_EXECUTABLE=${GLSLC_PATH}"} \
-        ${GLSLC_PATH:+"-DVulkan_GLSLANG_VALIDATOR_EXECUTABLE=${GLSLC_PATH}"} \
-        "-DCITRON_USE_PRECOMPILED_HEADERS=OFF" \
-        "-DCITRON_USE_CPM=ON" \
-        "-DCITRON_CHECK_SUBMODULES=OFF" \
-        "-DCPM_SOURCE_CACHE=${CMAKE_CPM_CACHE}" \
+    # Populate the global array — each element is a single cmake argument,
+    # so paths containing spaces are passed correctly.
+    _CMAKE_ARGS=(
+        "-G" "Ninja"
+        "-DCMAKE_BUILD_TYPE=${BUILD_TYPE}"
+        "-DCMAKE_TOOLCHAIN_FILE=${CMAKE_TOOLCHAIN_FILE_PATH}"
+        "-DCMAKE_DISABLE_FIND_PACKAGE_LLVM=ON"
+        "-DCITRON_ENABLE_LTO=${lto_flag}"
+        "-DBUILD_TESTING=OFF"
+        "-DCITRON_TESTS=OFF"
+        "-DCITRON_USE_BUNDLED_FFMPEG=ON"
+        "-DCITRON_USE_EXTERNAL_SDL2=ON"
+        "-DCITRON_USE_EXTERNAL_VULKAN_HEADERS=ON"
+        "-DCITRON_USE_EXTERNAL_VULKAN_UTILITY_LIBRARIES=ON"
+        "-DSPIRV-Headers_DIR=${CMAKE_SPIRV_HEADERS_INSTALL}/share/cmake/SPIRV-Headers"
+        "-DVulkanHeaders_DIR=${CMAKE_VULKAN_HEADERS_INSTALL}/share/cmake/VulkanHeaders"
+        "-DCMAKE_PREFIX_PATH=${CMAKE_VULKAN_HEADERS_INSTALL};${CMAKE_SPIRV_HEADERS_INSTALL}"
+        "-DVulkanMemoryAllocator_FOUND=TRUE"
+        "-Ddynarmic_FOUND=TRUE"
+        "-Dxbyak_FOUND=TRUE"
+        "-Dcubeb_FOUND=TRUE"
+        "-DENABLE_LIBUSB=OFF"
+        "-DVulkan_LIBRARY=${CMAKE_BUILD_ROOT}/vulkan-stub/libvulkan-1.a"
+        "-DCITRON_USE_PRECOMPILED_HEADERS=OFF"
+        "-DCITRON_USE_CPM=ON"
+        "-DCITRON_CHECK_SUBMODULES=OFF"
+        "-DCPM_SOURCE_CACHE=${CMAKE_CPM_CACHE}"
         "-Wno-dev"
+    )
+    [[ -n "${VULKAN_HEADERS_STUB_DIR}" ]] && _CMAKE_ARGS+=(
+        "-DVulkan_INCLUDE_DIR=${VULKAN_HEADERS_STUB_DIR}"
+        "-DVulkan_INCLUDE_DIRS=${VULKAN_HEADERS_STUB_DIR}"
+    )
+    [[ -n "${GLSLC_PATH:-}" ]] && _CMAKE_ARGS+=(
+        "-DVulkan_GLSLC_EXECUTABLE=${GLSLC_PATH}"
+        "-DVulkan_GLSLANG_VALIDATOR_EXECUTABLE=${GLSLC_PATH}"
+    )
     # Static FFmpeg dir (set by rebuild_ffmpeg_pthread_free; may not exist yet during first cmake args call)
     if [[ -n "${FFMPEG_VERSION:-}" ]]; then
         local _ffmpeg_static="${CMAKE_BUILD_ROOT}/externals/ffmpeg-${FFMPEG_VERSION}-static"
         if [[ "${_HOST_OS}" == "windows" ]]; then
             _ffmpeg_static="$(cygpath -m "${BUILD_ROOT}/externals/ffmpeg-${FFMPEG_VERSION}-static")"
         fi
-        echo "-DCITRON_FFMPEG_STATIC_DIR=${_ffmpeg_static}"
+        _CMAKE_ARGS+=("-DCITRON_FFMPEG_STATIC_DIR=${_ffmpeg_static}")
     fi
-    [[ -n "${CITRON_BUILD_TYPE:-}" ]] && echo "-DCITRON_BUILD_TYPE=${CITRON_BUILD_TYPE}"
-    [[ "${UNITY_BUILD}" == "ON" ]] && echo "-DENABLE_UNITY_BUILD=ON"
+    [[ -n "${CITRON_BUILD_TYPE:-}" ]] && _CMAKE_ARGS+=("-DCITRON_BUILD_TYPE=${CITRON_BUILD_TYPE}")
+    [[ "${UNITY_BUILD}" == "ON" ]] && _CMAKE_ARGS+=("-DENABLE_UNITY_BUILD=ON")
+    [[ -n "${MARCH_NATIVE:-}" ]] && _CMAKE_ARGS+=(
+        "-DCMAKE_C_FLAGS=${MARCH_NATIVE}"
+        "-DCMAKE_CXX_FLAGS=${MARCH_NATIVE}"
+    )
+    # Ensure the function always returns 0: a trailing [[ ]] that evaluates false
+    # would otherwise return exit code 1, triggering set -e in the caller.
+    :
 }
 
 # =============================================================================
@@ -2163,20 +2257,20 @@ stage_generate() {
     [[ -d "src/citron/citron_autogen" ]] && rm -rf src/citron/citron_autogen
 
     local bt_upper; bt_upper=$(echo "${BUILD_TYPE}" | tr '[:lower:]' '[:upper:]')
-    # shellcheck disable=SC2046
-    cmake "${SOURCE_DIR}" \
-        $(common_cmake_args) \
-        ${qt6_cmake_dir:+"-DQt6_DIR=${qt6_cmake_dir}"} \
-        ${qt_host_dir:+"-DQT_HOST_PATH=${qt_host_dir}"} \
-        "-DCITRON_ENABLE_PGO_GENERATE=ON" \
-        "-DCITRON_PGO_FLAGS_MANAGED_BY_SCRIPT=ON" \
-        "-DCITRON_ENABLE_LTO=${generate_lto_cmake}" \
-        "-DCMAKE_C_FLAGS_${bt_upper}=${c_flags}" \
-        "-DCMAKE_CXX_FLAGS_${bt_upper}=${cxx_flags}" \
-        "-DCMAKE_EXE_LINKER_FLAGS_${bt_upper}=${c_flags} ${PROFILE_RUNTIME_LIB:+${PROFILE_RUNTIME_LIB}} ${extra_link_flags}" \
-        "-DCITRON_PGO_PROFILE_DIR=${PROFILE_DIR}" \
-        2>&1 | grep -v '^-- '; cmake_exit=${PIPESTATUS[0]}
-    [[ ${cmake_exit} -eq 0 ]] || error "CMake configure failed"
+    build_common_cmake_args
+    [[ -n "${qt6_cmake_dir}" ]] && _CMAKE_ARGS+=("-DQt6_DIR=${qt6_cmake_dir}")
+    [[ -n "${qt_host_dir}"   ]] && _CMAKE_ARGS+=("-DQT_HOST_PATH=${qt_host_dir}")
+    _CMAKE_ARGS+=(
+        "-DCITRON_ENABLE_PGO_GENERATE=ON"
+        "-DCITRON_PGO_FLAGS_MANAGED_BY_SCRIPT=ON"
+        "-DCITRON_ENABLE_LTO=${generate_lto_cmake}"
+        "-DCMAKE_C_FLAGS_${bt_upper}=${c_flags}"
+        "-DCMAKE_CXX_FLAGS_${bt_upper}=${cxx_flags}"
+        "-DCMAKE_EXE_LINKER_FLAGS_${bt_upper}=${c_flags} ${PROFILE_RUNTIME_LIB:+${PROFILE_RUNTIME_LIB}} ${extra_link_flags}"
+        "-DCITRON_PGO_PROFILE_DIR=${PROFILE_DIR}"
+    )
+    cmake "${SOURCE_DIR}" "${_CMAKE_ARGS[@]}" \
+        || error "CMake configure failed"
     info "Building instrumented citron (${BUILD_TYPE})..."
     cmake --build . --config "${BUILD_TYPE}" -j "${JOBS}"
 
@@ -2403,7 +2497,7 @@ stage_csgenerate() {
     local stage1_pd_compiler="${stage1_pd}"
     [[ "${_HOST_OS}" == "windows" ]] && stage1_pd_compiler="$(cygpath -m "${stage1_pd}")"
     local cs_gen_flag="-fcs-profile-generate=cs-default-%p.profraw"
-    local pgo_use_flag="-fprofile-use=${stage1_pd_compiler}"
+    local pgo_use_flag="-fprofile-use=\"${stage1_pd_compiler}\""
     local debug_flag=""
     [[ "${BUILD_TYPE}" == "RelWithDebInfo" ]] && debug_flag="-g"
     local c_flags="-O3 -DNDEBUG ${debug_flag} ${pgo_use_flag} ${cs_gen_flag}${lto_generate_flag:+ ${lto_generate_flag}}"
@@ -2439,20 +2533,21 @@ stage_csgenerate() {
     rm -f CMakeCache.txt; rm -rf CMakeFiles
     [[ -d "src/citron/citron_autogen" ]] && rm -rf src/citron/citron_autogen
 
-    # shellcheck disable=SC2046
-    cmake "${SOURCE_DIR}" \
-        $(common_cmake_args) \
-        ${qt6_cmake_dir:+"-DQt6_DIR=${qt6_cmake_dir}"} \
-        ${qt_host_dir:+"-DQT_HOST_PATH=${qt_host_dir}"} \
-        "-DCITRON_ENABLE_PGO_GENERATE=ON" \
-        "-DCITRON_PGO_FLAGS_MANAGED_BY_SCRIPT=ON" \
-        "-DCITRON_ENABLE_LTO=${generate_lto_cmake}" \
-        "-DCMAKE_C_FLAGS_RELEASE=${c_flags}" \
-        "-DCMAKE_CXX_FLAGS_RELEASE=${cxx_flags}" \
-        "-DCMAKE_EXE_LINKER_FLAGS_RELEASE=${c_flags} ${PROFILE_RUNTIME_LIB:+${PROFILE_RUNTIME_LIB}} ${extra_link_flags}" \
-        "-DCITRON_PGO_PROFILE_DIR=${PROFILE_DIR}" \
-        2>&1 | grep -v '^-- '; cmake_exit=${PIPESTATUS[0]}
-    [[ ${cmake_exit} -eq 0 ]] || error "CMake configure failed"
+    # shellcheck disable=SC2034  # _CMAKE_ARGS used via array expansion below
+    build_common_cmake_args
+    [[ -n "${qt6_cmake_dir}" ]] && _CMAKE_ARGS+=("-DQt6_DIR=${qt6_cmake_dir}")
+    [[ -n "${qt_host_dir}"   ]] && _CMAKE_ARGS+=("-DQT_HOST_PATH=${qt_host_dir}")
+    _CMAKE_ARGS+=(
+        "-DCITRON_ENABLE_PGO_GENERATE=ON"
+        "-DCITRON_PGO_FLAGS_MANAGED_BY_SCRIPT=ON"
+        "-DCITRON_ENABLE_LTO=${generate_lto_cmake}"
+        "-DCMAKE_C_FLAGS_RELEASE=${c_flags}"
+        "-DCMAKE_CXX_FLAGS_RELEASE=${cxx_flags}"
+        "-DCMAKE_EXE_LINKER_FLAGS_RELEASE=${c_flags} ${PROFILE_RUNTIME_LIB:+${PROFILE_RUNTIME_LIB}} ${extra_link_flags}"
+        "-DCITRON_PGO_PROFILE_DIR=${PROFILE_DIR}"
+    )
+    cmake "${SOURCE_DIR}" "${_CMAKE_ARGS[@]}" \
+        || error "CMake configure failed"
 
     info "Building CS-IRPGO instrumented citron..."
     cmake --build . --config Release -j "${JOBS}"
@@ -2694,17 +2789,21 @@ stage_use() {
         cd "${nopgo_dir}"
         rm -f CMakeCache.txt; rm -rf CMakeFiles
 
-        # shellcheck disable=SC2046
-        cmake "${SOURCE_DIR}" \
-            $(common_cmake_args) \
-            "-DCITRON_ENABLE_PGO_USE=OFF" \
-            "-DCITRON_PGO_FLAGS_MANAGED_BY_SCRIPT=ON" \
-            "-DCMAKE_C_FLAGS_${bt_upper}=-O3 -DNDEBUG ${debug_flag} ${lto_flag}" \
-            "-DCMAKE_CXX_FLAGS_${bt_upper}=-O3 -DNDEBUG ${debug_flag} ${lto_flag}" \
-            ${qt6_cmake_dir:+"-DQt6_DIR=${qt6_cmake_dir}"} \
-            ${qt_host_dir:+"-DQT_HOST_PATH=${qt_host_dir}"}
+        # shellcheck disable=SC2034  # _CMAKE_ARGS used via array expansion below
+        build_common_cmake_args
+        _CMAKE_ARGS+=(
+            "-DCITRON_ENABLE_PGO_USE=OFF"
+            "-DCITRON_PGO_FLAGS_MANAGED_BY_SCRIPT=ON"
+            "-DCMAKE_C_FLAGS_${bt_upper}=-O3 -DNDEBUG ${debug_flag} ${lto_flag}"
+            "-DCMAKE_CXX_FLAGS_${bt_upper}=-O3 -DNDEBUG ${debug_flag} ${lto_flag}"
+        )
+        [[ -n "${qt6_cmake_dir}" ]] && _CMAKE_ARGS+=("-DQt6_DIR=${qt6_cmake_dir}")
+        [[ -n "${qt_host_dir}"   ]] && _CMAKE_ARGS+=("-DQT_HOST_PATH=${qt_host_dir}")
+        cmake "${SOURCE_DIR}" "${_CMAKE_ARGS[@]}" \
+            || error "CMake configure failed"
         info "Building citron.exe (no PGO, ${BUILD_TYPE})..."
-        cmake --build . --config "${BUILD_TYPE}" -j "${JOBS}"
+        cmake --build . --config "${BUILD_TYPE}" -j "${JOBS}" \
+            || error "cmake --build failed"
 
         success "No-PGO Windows PE: ${nopgo_dir}/bin/citron.exe"
 
@@ -2835,9 +2934,9 @@ stage_use() {
     [[ "${_HOST_OS}" == "windows" ]] && profdata_compiler="$(cygpath -m "${profdata}")"
     local pgo_flag
     if [[ "${PGO_MODE}" == "ir" ]]; then
-        pgo_flag="-fprofile-use=${profdata_compiler}"
+        pgo_flag="-fprofile-use=\"${profdata_compiler}\""
     else
-        pgo_flag="-fprofile-instr-use=${profdata_compiler} -Wno-profile-instr-unprofiled -Wno-profile-instr-out-of-date"
+        pgo_flag="-fprofile-instr-use=\"${profdata_compiler}\" -Wno-profile-instr-unprofiled -Wno-profile-instr-out-of-date"
     fi
     local lto_pgo_flag="${lto_flag:+${lto_flag} }${pgo_flag}"
 
@@ -2872,17 +2971,19 @@ stage_use() {
     local debug_flag=""
     [[ "${BUILD_TYPE}" == "RelWithDebInfo" ]] && debug_flag="-g"
     local bt_upper; bt_upper=$(echo "${BUILD_TYPE}" | tr '[:lower:]' '[:upper:]')
-    # shellcheck disable=SC2046
-    cmake "${SOURCE_DIR}" \
-        $(common_cmake_args) \
-        "-DCITRON_ENABLE_PGO_USE=ON" \
-        "-DCITRON_PGO_FLAGS_MANAGED_BY_SCRIPT=ON" \
-        "-DCMAKE_C_FLAGS_${bt_upper}=-O3 -DNDEBUG ${debug_flag} ${lto_pgo_flag}" \
-        "-DCMAKE_CXX_FLAGS_${bt_upper}=-O3 -DNDEBUG ${debug_flag} ${lto_pgo_flag}" \
-        "-DCMAKE_EXE_LINKER_FLAGS_${bt_upper}=-O3 -DNDEBUG ${debug_flag} ${lto_pgo_flag}" \
-        "-DCITRON_PGO_PROFILE_DIR=${PROFILE_DIR}" \
-        ${qt6_cmake_dir:+"-DQt6_DIR=${qt6_cmake_dir}"} \
-        ${qt_host_dir:+"-DQT_HOST_PATH=${qt_host_dir}"}
+    build_common_cmake_args
+    _CMAKE_ARGS+=(
+        "-DCITRON_ENABLE_PGO_USE=ON"
+        "-DCITRON_PGO_FLAGS_MANAGED_BY_SCRIPT=ON"
+        "-DCMAKE_C_FLAGS_${bt_upper}=-O3 -DNDEBUG ${debug_flag} ${lto_pgo_flag}"
+        "-DCMAKE_CXX_FLAGS_${bt_upper}=-O3 -DNDEBUG ${debug_flag} ${lto_pgo_flag}"
+        "-DCMAKE_EXE_LINKER_FLAGS_${bt_upper}=-O3 -DNDEBUG ${debug_flag} ${lto_pgo_flag}"
+        "-DCITRON_PGO_PROFILE_DIR=${PROFILE_DIR}"
+    )
+    [[ -n "${qt6_cmake_dir}" ]] && _CMAKE_ARGS+=("-DQt6_DIR=${qt6_cmake_dir}")
+    [[ -n "${qt_host_dir}"   ]] && _CMAKE_ARGS+=("-DQT_HOST_PATH=${qt_host_dir}")
+    cmake "${SOURCE_DIR}" "${_CMAKE_ARGS[@]}" \
+        || error "CMake configure failed"
     info "Building PGO+LTO citron.exe (${BUILD_TYPE})..."
     cmake --build . --config "${BUILD_TYPE}" -j "${JOBS}"
 
@@ -3178,9 +3279,9 @@ QTGPEOF
     if [[ "${_elf_nopgo}" -eq 1 ]]; then
         elf_pgo_flag=""
     elif [[ "${PGO_MODE}" == "ir" ]]; then
-        elf_pgo_flag="-fprofile-use=${profdata}"
+        elf_pgo_flag="-fprofile-use=\"${profdata}\""
     else
-        elf_pgo_flag="-fprofile-instr-use=${profdata} -Wno-profile-instr-unprofiled -Wno-profile-instr-out-of-date"
+        elf_pgo_flag="-fprofile-instr-use=\"${profdata}\" -Wno-profile-instr-unprofiled -Wno-profile-instr-out-of-date"
     fi
     # -fbasic-block-address-map: emit the .llvm_bb_addr_map section that
     # create_llvm_prof reads to generate a Propeller BB+function layout profile.
@@ -3711,9 +3812,9 @@ BOLT_ORDER_EOF
     [[ -f "${_bolt_merged}" ]] && profdata="${_bolt_merged}" || profdata="${PROFILE_DIR}/default.profdata"
     local pgo_flag
     if [[ "${PGO_MODE}" == "ir" ]]; then
-        pgo_flag="-fprofile-use=${profdata}"
+        pgo_flag="-fprofile-use=\"${profdata}\""
     else
-        pgo_flag="-fprofile-instr-use=${profdata} -Wno-profile-instr-unprofiled -Wno-profile-instr-out-of-date"
+        pgo_flag="-fprofile-instr-use=\"${profdata}\" -Wno-profile-instr-unprofiled -Wno-profile-instr-out-of-date"
     fi
     local lto_pgo_flag="${lto_flag:+${lto_flag} }${pgo_flag}"
 
@@ -3743,18 +3844,20 @@ BOLT_ORDER_EOF
     detect_ffmpeg_version
     rebuild_ffmpeg_pthread_free "${BUILD_BOLT}"
 
-    # shellcheck disable=SC2046
-    cmake "${SOURCE_DIR}" \
-        $(common_cmake_args) \
-        "-DCITRON_ENABLE_PGO_USE=ON" \
-        "-DCITRON_PGO_FLAGS_MANAGED_BY_SCRIPT=ON" \
-        "-DCMAKE_C_FLAGS_${bt_upper}=-O3 -DNDEBUG ${debug_flag} ${lto_pgo_flag}" \
-        "-DCMAKE_CXX_FLAGS_${bt_upper}=-O3 -DNDEBUG ${debug_flag} ${lto_pgo_flag}" \
-        "-DCMAKE_EXE_LINKER_FLAGS_${bt_upper}=-O3 -DNDEBUG ${debug_flag} ${lto_pgo_flag}${order_linker_flag:+ ${order_linker_flag}}" \
-        "-DCITRON_PGO_PROFILE_DIR=${PROFILE_DIR}" \
-        ${qt6_cmake_dir:+"-DQt6_DIR=${qt6_cmake_dir}"} \
-        ${qt_host_dir:+"-DQT_HOST_PATH=${qt_host_dir}"} \
-        -Wno-dev
+    # shellcheck disable=SC2034  # _CMAKE_ARGS used via array expansion below
+    build_common_cmake_args
+    _CMAKE_ARGS+=(
+        "-DCITRON_ENABLE_PGO_USE=ON"
+        "-DCITRON_PGO_FLAGS_MANAGED_BY_SCRIPT=ON"
+        "-DCMAKE_C_FLAGS_${bt_upper}=-O3 -DNDEBUG ${debug_flag} ${lto_pgo_flag}"
+        "-DCMAKE_CXX_FLAGS_${bt_upper}=-O3 -DNDEBUG ${debug_flag} ${lto_pgo_flag}"
+        "-DCMAKE_EXE_LINKER_FLAGS_${bt_upper}=-O3 -DNDEBUG ${debug_flag} ${lto_pgo_flag}${order_linker_flag:+ ${order_linker_flag}}"
+        "-DCITRON_PGO_PROFILE_DIR=${PROFILE_DIR}"
+    )
+    [[ -n "${qt6_cmake_dir}" ]] && _CMAKE_ARGS+=("-DQt6_DIR=${qt6_cmake_dir}")
+    [[ -n "${qt_host_dir}"   ]] && _CMAKE_ARGS+=("-DQT_HOST_PATH=${qt_host_dir}")
+    cmake "${SOURCE_DIR}" "${_CMAKE_ARGS[@]}" \
+        || error "CMake configure failed"
 
     info "Building final optimized Windows PE (PGO + LTO + BOLT function order, ${BUILD_TYPE})..."
     cmake --build . --config "${BUILD_TYPE}" -j "${JOBS}"
@@ -4182,9 +4285,9 @@ stage_propeller() {
     [[ -f "${_prop_merged}" ]] && profdata="${_prop_merged}" || profdata="${PROFILE_DIR}/default.profdata"
     local pgo_flag
     if [[ "${PGO_MODE}" == "ir" ]]; then
-        pgo_flag="-fprofile-use=${profdata}"
+        pgo_flag="-fprofile-use=\"${profdata}\""
     else
-        pgo_flag="-fprofile-instr-use=${profdata} -Wno-profile-instr-unprofiled -Wno-profile-instr-out-of-date"
+        pgo_flag="-fprofile-instr-use=\"${profdata}\" -Wno-profile-instr-unprofiled -Wno-profile-instr-out-of-date"
     fi
     local lto_pgo_flag="${lto_flag:+${lto_flag} }${pgo_flag}"
 
@@ -4211,18 +4314,20 @@ stage_propeller() {
     detect_ffmpeg_version
     rebuild_ffmpeg_pthread_free "${BUILD_PROPELLER}"
 
-    # shellcheck disable=SC2046
-    cmake "${SOURCE_DIR}" \
-        $(common_cmake_args) \
-        "-DCITRON_ENABLE_PGO_USE=ON" \
-        "-DCITRON_PGO_FLAGS_MANAGED_BY_SCRIPT=ON" \
-        "-DCMAKE_C_FLAGS_${bt_upper}=-O3 -DNDEBUG ${debug_flag} ${lto_pgo_flag}" \
-        "-DCMAKE_CXX_FLAGS_${bt_upper}=-O3 -DNDEBUG ${debug_flag} ${lto_pgo_flag}" \
-        "-DCMAKE_EXE_LINKER_FLAGS_${bt_upper}=-O3 -DNDEBUG ${debug_flag} ${lto_pgo_flag}${propeller_linker_flag:+ ${propeller_linker_flag}}" \
-        "-DCITRON_PGO_PROFILE_DIR=${PROFILE_DIR}" \
-        ${qt6_cmake_dir:+"-DQt6_DIR=${qt6_cmake_dir}"} \
-        ${qt_host_dir:+"-DQT_HOST_PATH=${qt_host_dir}"} \
-        -Wno-dev
+    # shellcheck disable=SC2034  # _CMAKE_ARGS used via array expansion below
+    build_common_cmake_args
+    _CMAKE_ARGS+=(
+        "-DCITRON_ENABLE_PGO_USE=ON"
+        "-DCITRON_PGO_FLAGS_MANAGED_BY_SCRIPT=ON"
+        "-DCMAKE_C_FLAGS_${bt_upper}=-O3 -DNDEBUG ${debug_flag} ${lto_pgo_flag}"
+        "-DCMAKE_CXX_FLAGS_${bt_upper}=-O3 -DNDEBUG ${debug_flag} ${lto_pgo_flag}"
+        "-DCMAKE_EXE_LINKER_FLAGS_${bt_upper}=-O3 -DNDEBUG ${debug_flag} ${lto_pgo_flag}${propeller_linker_flag:+ ${propeller_linker_flag}}"
+        "-DCITRON_PGO_PROFILE_DIR=${PROFILE_DIR}"
+    )
+    [[ -n "${qt6_cmake_dir}" ]] && _CMAKE_ARGS+=("-DQt6_DIR=${qt6_cmake_dir}")
+    [[ -n "${qt_host_dir}"   ]] && _CMAKE_ARGS+=("-DQT_HOST_PATH=${qt_host_dir}")
+    cmake "${SOURCE_DIR}" "${_CMAKE_ARGS[@]}" \
+        || error "CMake configure failed"
     info "Building Propeller-optimized Windows PE (${BUILD_TYPE})..."
     cmake --build . --config "${BUILD_TYPE}" -j "${JOBS}"
 

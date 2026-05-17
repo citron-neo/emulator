@@ -148,6 +148,9 @@ UNITY_BUILD="${UNITY_BUILD:-OFF}"
 BUILD_TYPE="${BUILD_TYPE:-Release}"
 CPM_SOURCE_CACHE="${CPM_SOURCE_CACHE:-${HOME}/.cache/cpm}"
 CPM_SOURCE_CACHE="${CPM_SOURCE_CACHE/#\~/$HOME}"
+# Uncomment to optimize for this machine's CPU — produces a non-portable binary
+#MARCH_NATIVE="-march=native"
+MARCH_NATIVE="${MARCH_NATIVE:-}"
 _ARCH_ARG="${_ARCH_ARG:-auto}"
 
 # =============================================================================
@@ -192,25 +195,39 @@ header()  {
 }
 
 # =============================================================================
+# Validate CPM_SOURCE_CACHE
+# =============================================================================
+if [[ "${CPM_SOURCE_CACHE}" == *" "* ]]; then
+    error "CPM_SOURCE_CACHE ('${CPM_SOURCE_CACHE}') contains spaces.\n" \
+          "       CPM and some build tools do not support paths with spaces.\n" \
+          "       Please set CPM_SOURCE_CACHE to a path without spaces, e.g.:\n" \
+          "       export CPM_SOURCE_CACHE=\"/tmp/cpm-cache\""
+fi
+
+# =============================================================================
 # Architecture flags
 # =============================================================================
 
 resolve_arch_flags() {
-    local host_arch; host_arch="$(uname -m)"
-    case "${_ARCH_ARG}" in
-        v3)
-            [[ "${host_arch}" == "x86_64" ]] \
-                || error "--arch v3 requires an x86_64 host (this machine is ${host_arch})"
-            ARCH_FLAGS="-march=x86-64-v3 -mtune=generic" ;;
-        x86_64)  ARCH_FLAGS="-march=x86-64 -mtune=generic" ;;
-        aarch64) ARCH_FLAGS="-march=armv8-a -mtune=generic" ;;
-        auto|*)
-            case "${host_arch}" in
-                x86_64)  ARCH_FLAGS="-march=x86-64 -mtune=generic" ;;
-                aarch64) ARCH_FLAGS="-march=armv8-a -mtune=generic" ;;
-                *)       ARCH_FLAGS="" ;;
-            esac ;;
-    esac
+    if [[ -n "${MARCH_NATIVE:-}" ]]; then
+        ARCH_FLAGS="${MARCH_NATIVE}"
+    else
+        local host_arch; host_arch="$(uname -m)"
+        case "${_ARCH_ARG}" in
+            v3)
+                [[ "${host_arch}" == "x86_64" ]] \
+                    || error "--arch v3 requires an x86_64 host (this machine is ${host_arch})"
+                ARCH_FLAGS="-march=x86-64-v3 -mtune=generic" ;;
+            x86_64)  ARCH_FLAGS="-march=x86-64 -mtune=generic" ;;
+            aarch64) ARCH_FLAGS="-march=armv8-a -mtune=generic" ;;
+            auto|*)
+                case "${host_arch}" in
+                    x86_64)  ARCH_FLAGS="-march=x86-64 -mtune=generic" ;;
+                    aarch64) ARCH_FLAGS="-march=armv8-a -mtune=generic" ;;
+                    *)       ARCH_FLAGS="" ;;
+                esac ;;
+        esac
+    fi
     info "Architecture flags: ${ARCH_FLAGS:-(none)}"
 }
 
@@ -229,16 +246,16 @@ pgo_gen_compile_flag() {
     # $1 = output directory for profraw files
     local output_dir="$1"
     [[ "${PGO_MODE}" == "ir" ]] \
-        && echo "-fprofile-generate=${output_dir}/default-%p.profraw" \
-        || echo "-fprofile-instr-generate=${output_dir}/default-%p.profraw"
+        && echo "-fprofile-generate=\"${output_dir}/default-%p.profraw\"" \
+        || echo "-fprofile-instr-generate=\"${output_dir}/default-%p.profraw\""
 }
 
 pgo_use_compile_flag() {
     # $1 = path to .profdata file
     local profdata="$1"
     [[ "${PGO_MODE}" == "ir" ]] \
-        && echo "-fprofile-use=${profdata}" \
-        || echo "-fprofile-instr-use=${profdata} -Wno-profile-instr-unprofiled -Wno-profile-instr-out-of-date"
+        && echo "-fprofile-use=\"${profdata}\"" \
+        || echo "-fprofile-instr-use=\"${profdata}\" -Wno-profile-instr-unprofiled -Wno-profile-instr-out-of-date"
 }
 
 # build_compile_flags: assemble CMAKE_C/CXX_FLAGS_<BT> for a stage.
@@ -260,7 +277,7 @@ build_compile_flags() {
         csgenerate)
             # Use stage1 profile to guide inlining; layer CS counters on top.
             local pd="${extra%%:*}"; local cs_dir="${extra##*:}"
-            echo "${base} $(pgo_use_compile_flag "${pd}") -fcs-profile-generate=${cs_dir}/cs-default-%p.profraw${lto_flag:+ ${lto_flag}}"
+            echo "${base} $(pgo_use_compile_flag "${pd}") -fcs-profile-generate=\"${cs_dir}/cs-default-%p.profraw\"${lto_flag:+ ${lto_flag}}"
             ;;
         use)
             # LTO flag before pgo_use so profile flag reaches the LTO backend.
@@ -669,40 +686,48 @@ resolve_use_profdata() {
 # Common cmake arguments (compile/linker flags are per-stage, not here)
 # =============================================================================
 
-common_cmake_args() {
-    echo \
-        "-G" "Ninja" \
-        "-DCMAKE_BUILD_TYPE=${BUILD_TYPE}" \
-        "-DCMAKE_C_COMPILER=${CLANG}" \
-        "-DCMAKE_CXX_COMPILER=${CLANGPP}" \
-        "-DCITRON_USE_CPM=ON" \
-        "-DCPM_SOURCE_CACHE=${CPM_SOURCE_CACHE}" \
-        "-DCITRON_USE_BUNDLED_VCPKG=OFF" \
-        "-DCITRON_USE_BUNDLED_QT=ON" \
-        "-DUSE_SYSTEM_QT=OFF" \
-        "-DENABLE_QT6=ON" \
-        "-DCITRON_USE_BUNDLED_FFMPEG=ON" \
-        "-DBUILD_TESTING=OFF" \
-        "-DCITRON_TESTS=OFF" \
-        "-DCITRON_DOWNLOAD_TIME_ZONE_DATA=ON" \
-        "-DCITRON_CHECK_SUBMODULES=OFF" \
-        "-DCITRON_USE_LLVM_DEMANGLE=OFF" \
-        "-DCITRON_USE_QT_MULTIMEDIA=ON" \
-        "-DCITRON_USE_QT_WEB_ENGINE=OFF" \
-        "-DENABLE_QT_TRANSLATION=ON" \
-        "-DUSE_DISCORD_PRESENCE=ON" \
-        "-DENABLE_WEB_SERVICE=ON" \
-        "-DENABLE_OPENSSL=ON" \
-        "-DBUNDLE_SPEEX=ON" \
-        "-DCITRON_USE_FASTER_LD=OFF" \
-        "-DCITRON_USE_EXTERNAL_Vulkan_HEADERS=ON" \
-        "-DCITRON_USE_EXTERNAL_VULKAN_UTILITY_LIBRARIES=ON" \
-        "-DCITRON_USE_AUTO_UPDATER=ON" \
-        "-DCITRON_BUILD_TYPE=Release" \
-        "-DCMAKE_POLICY_VERSION_MINIMUM=3.5" \
+build_common_cmake_args() {
+    # Populates the global _CMAKE_ARGS array.  Using an array rather than echo +
+    # $() command substitution avoids bash word-splitting on paths that contain
+    # spaces (e.g. a username or project folder with a space in it).
+    _CMAKE_ARGS=(
+        "-G" "Ninja"
+        "-DCMAKE_BUILD_TYPE=${BUILD_TYPE}"
+        "-DCMAKE_C_COMPILER=${CLANG}"
+        "-DCMAKE_CXX_COMPILER=${CLANGPP}"
+        "-DCITRON_USE_CPM=ON"
+        "-DCPM_SOURCE_CACHE=${CPM_SOURCE_CACHE}"
+        "-DCITRON_USE_BUNDLED_VCPKG=OFF"
+        "-DCITRON_USE_BUNDLED_QT=ON"
+        "-DUSE_SYSTEM_QT=OFF"
+        "-DENABLE_QT6=ON"
+        "-DCITRON_USE_BUNDLED_FFMPEG=ON"
+        "-DBUILD_TESTING=OFF"
+        "-DCITRON_TESTS=OFF"
+        "-DCITRON_DOWNLOAD_TIME_ZONE_DATA=ON"
+        "-DCITRON_CHECK_SUBMODULES=OFF"
+        "-DCITRON_USE_LLVM_DEMANGLE=OFF"
+        "-DCITRON_USE_QT_MULTIMEDIA=ON"
+        "-DCITRON_USE_QT_WEB_ENGINE=OFF"
+        "-DENABLE_QT_TRANSLATION=ON"
+        "-DUSE_DISCORD_PRESENCE=ON"
+        "-DENABLE_WEB_SERVICE=ON"
+        "-DENABLE_OPENSSL=ON"
+        "-DBUNDLE_SPEEX=ON"
+        "-DCITRON_USE_FASTER_LD=OFF"
+        "-DCITRON_USE_EXTERNAL_Vulkan_HEADERS=ON"
+        "-DCITRON_USE_EXTERNAL_VULKAN_UTILITY_LIBRARIES=ON"
+        "-DCITRON_USE_AUTO_UPDATER=ON"
+        "-DCITRON_BUILD_TYPE=Release"
+        "-DCMAKE_POLICY_VERSION_MINIMUM=3.5"
+        "-DCMAKE_C_FLAGS=-mtls-dialect=gnu2"
+        "-DCMAKE_CXX_FLAGS=-mtls-dialect=gnu2"
         "-Wno-dev"
-
-    [[ "${UNITY_BUILD}" == "ON" ]] && echo "-DENABLE_UNITY_BUILD=ON"
+    )
+    [[ "${UNITY_BUILD}" == "ON" ]] && _CMAKE_ARGS+=("-DENABLE_UNITY_BUILD=ON")
+    # Ensure the function always returns 0: a trailing [[ ]] that evaluates false
+    # would otherwise return exit code 1, triggering set -e in the caller.
+    :
 }
 
 print_profiling_instructions() {
@@ -765,6 +790,48 @@ check_stage_compatibility() {
     fi
 }
 
+# Internal: fix RPATH of binaries to find custom libs (Qt, ICU, XCB)
+# =============================================================================
+_patch_binary_rpaths() {
+    local bin_dir="$1"
+    local build_dir; build_dir="$(dirname "${bin_dir}")"
+    local config_file="${build_dir}/AppImageBuilder/config.sh"
+    
+    if [[ ! -f "${config_file}" ]]; then
+        warn "config.sh not found in ${build_dir}, skipping RPATH patching."
+        return
+    fi
+
+    # Extract paths from the generated config.sh
+    local qt_path;  qt_path="$(grep -oP '(?<=export CITRON_QT_PATH=")[^"]+' "${config_file}" || true)"
+    local icu_path; icu_path="$(grep -oP '(?<=export CITRON_ICU_PATH=")[^"]+' "${config_file}" || true)"
+    local xcb_path; xcb_path="$(grep -oP '(?<=export CITRON_XCB_PATH=")[^"]+' "${config_file}" || true)"
+    
+    # Construct RPATH (Qt lib, ICU lib, XCB lib)
+    local rpath=""
+    [[ -n "${qt_path}" ]]  && rpath="${qt_path}/lib"
+    [[ -n "${icu_path}" ]] && rpath="${rpath}${rpath:+:}${icu_path}/lib"
+    [[ -n "${xcb_path}" ]] && rpath="${rpath}${rpath:+:}${xcb_path}/lib"
+    
+    if [[ -z "${rpath}" ]]; then
+        warn "No custom library paths found in config.sh, skipping RPATH patching."
+        return
+    fi
+    
+    info "Patching RPATH for binaries in ${bin_dir}..."
+    for bin in "citron" "citron-cmd" "citron-room"; do
+        if [[ -f "${bin_dir}/${bin}" ]]; then
+            # We prepend the custom RPATH to any existing one
+            local existing_rpath; existing_rpath="$(patchelf --print-rpath "${bin_dir}/${bin}" 2>/dev/null || echo "")"
+            if [[ -z "${existing_rpath}" ]]; then
+                patchelf --set-rpath "${rpath}" "${bin_dir}/${bin}"
+            elif [[ "${existing_rpath}" != *"${rpath}"* ]]; then
+                patchelf --set-rpath "${rpath}:${existing_rpath}" "${bin_dir}/${bin}"
+            fi
+        fi
+    done
+}
+
 # =============================================================================
 # Internal: configure + build in a given directory
 # =============================================================================
@@ -790,13 +857,18 @@ _build_with_flags() {
     mkdir -p "${build_dir}"; cd "${build_dir}"
     rm -f CMakeCache.txt; rm -rf CMakeFiles
 
-    # shellcheck disable=SC2046
+    build_common_cmake_args
     cmake "${SCRIPT_DIR}" \
-        $(common_cmake_args) \
-        "${extra_args[@]}"
+        "${_CMAKE_ARGS[@]}" \
+        "${extra_args[@]}" \
+        || error "CMake configure failed"
 
     info "Building citron (${BUILD_TYPE}, ${JOBS} jobs)..."
-    cmake --build . --config "${BUILD_TYPE}" -j "${JOBS}"
+    cmake --build . --config "${BUILD_TYPE}" -j "${JOBS}" \
+        || error "cmake --build failed"
+
+    # Patch binaries to find our custom libs (Qt via aqt, ICU/XCB via /tmp)
+    _patch_binary_rpaths "${PWD}/bin"
 }
 
 # =============================================================================
@@ -1246,6 +1318,10 @@ stage_bolt() {
     success "  Binary: ${BUILD_BOLT}/bin/citron"
     success "  Optimizations: PGO + LTO + BOLT basic-block reordering"
     success "════════════════════════════════════════════════════════════════"
+    
+    # Patch the final BOLT binary too
+    _patch_binary_rpaths "${BUILD_BOLT}/bin"
+
     build_appimage_stage "${relocs_dir}" "bolt" "${BUILD_BOLT}/bin/citron"
     echo ""
 }

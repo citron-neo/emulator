@@ -24,7 +24,13 @@ CPMAddPackage(
 
 if (icu_src_ADDED)
     set(ICU_PREFIX "${icu_src_SOURCE_DIR}/icu4c")
-    set(ICU_BUILD_DIR "${CMAKE_BINARY_DIR}/externals/icu-build")
+    string(FIND "${CMAKE_BINARY_DIR}" " " _space_pos)
+    if(_space_pos GREATER -1)
+        message(STATUS "[ICU] Binary dir has spaces — redirecting build/install to /tmp/citron-icu-${CMAKE_SYSTEM_NAME}")
+        set(ICU_BUILD_DIR "/tmp/citron-icu-${CMAKE_SYSTEM_NAME}")
+    else()
+        set(ICU_BUILD_DIR "${CMAKE_BINARY_DIR}/externals/icu-build")
+    endif()
     file(MAKE_DIRECTORY "${ICU_BUILD_DIR}")
 
     # Identify the shared libraries we expect to produce

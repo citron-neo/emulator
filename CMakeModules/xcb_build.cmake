@@ -12,7 +12,13 @@ endif()
 # 'macros' and 'proto' must come first as others depend on them.
 set(_xcb_components macros proto xau xdmcp libxcb util image keysyms renderutil wm cursor)
 
-set(XCB_BUILD_ROOT "${CMAKE_BINARY_DIR}/externals/xcb-build")
+string(FIND "${CMAKE_BINARY_DIR}" " " _space_pos)
+if(_space_pos GREATER -1)
+    message(STATUS "[XCB] Binary dir has spaces — redirecting build/install to /tmp/citron-xcb-${CMAKE_SYSTEM_NAME}")
+    set(XCB_BUILD_ROOT "/tmp/citron-xcb-${CMAKE_SYSTEM_NAME}")
+else()
+    set(XCB_BUILD_ROOT "${CMAKE_BINARY_DIR}/externals/xcb-build")
+endif()
 file(MAKE_DIRECTORY "${XCB_BUILD_ROOT}")
 set(XCB_BINARY_DIR "${XCB_BUILD_ROOT}/lib" CACHE INTERNAL "Location of CPM-built XCB libs")
 
