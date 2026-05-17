@@ -1157,6 +1157,8 @@ void GMainWindow::InitializeWidgets() {
     unified_top_bar = new QWidget(this);
     unified_top_bar->setObjectName(QStringLiteral("UnifiedTopBar"));
     unified_top_bar->setAutoFillBackground(true);
+    unified_top_bar->setFixedHeight(36);
+    unified_top_bar->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
     // Style applied in UpdateUITheme()
 
     // Retrieve dynamic accent color
@@ -4419,7 +4421,10 @@ void GMainWindow::ResetWindowSize(u32 width, u32 height) {
     } else {
         const bool show_status_bar = ui->action_Show_Status_Bar->isChecked();
         const auto status_bar_height = show_status_bar ? statusBar()->height() : 0;
-        resize(height / aspect_ratio, height + menuBar()->height() + status_bar_height);
+        const auto top_bar_height = (unified_top_bar && unified_top_bar->isVisible())
+                                        ? std::max(unified_top_bar->height(), unified_top_bar->sizeHint().height())
+                                        : menuBar()->height();
+        resize(height / aspect_ratio, height + top_bar_height + status_bar_height);
     }
 }
 
