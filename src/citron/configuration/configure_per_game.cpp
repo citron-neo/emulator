@@ -339,10 +339,10 @@ void ConfigurePerGame::UpdateTheme() {
         (0.299 * win_bg.red() + 0.587 * win_bg.green() + 0.114 * win_bg.blue()) / 255.0;
 
     const QString bg = is_dark ? QStringLiteral("#24242a") : QStringLiteral("#f5f5fa");
-    const QString txt = win_lum > 0.5 ? QStringLiteral("#1a1a1e") : QStringLiteral("#ffffff");
+    const QString txt = is_dark ? QStringLiteral("#ffffff") : QStringLiteral("#1a1a1e");
     const QString sec = is_dark ? QStringLiteral("#2a2a32") : QStringLiteral("#ffffff");
     const QString ter = is_dark ? QStringLiteral("#32323a") : QStringLiteral("#dcdce2");
-    const QString d_txt = win_lum > 0.5 ? QStringLiteral("#666670") : QStringLiteral("#aaaab4");
+    const QString d_txt = is_dark ? QStringLiteral("#aaaab4") : QStringLiteral("#666670");
 
     QString style_sheet = ConfigurationStyling::GetMasterStyleSheet();
     setStyleSheet(QStringLiteral("QDialog#ConfigurePerGame { background-color: %1; color: %2; }")
