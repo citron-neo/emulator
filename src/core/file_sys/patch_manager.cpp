@@ -233,7 +233,7 @@ VirtualDir PatchManager::PatchExeFS(VirtualDir exefs) const {
             if (external_provider) {
                 const auto updates = external_provider->ListUpdateVersions(title_id);
                 for (const auto& update : updates) {
-                    const auto name = fmt::format("Update {}", update.version_string);
+                    const auto name = fmt::format("External Files/Update {}", update.version_string);
                     const auto patch_disabled =
                         std::find(disabled.cbegin(), disabled.cend(), name) != disabled.cend();
                     if (!patch_disabled) {
@@ -254,10 +254,23 @@ VirtualDir PatchManager::PatchExeFS(VirtualDir exefs) const {
         const auto metadata = update_mgr.GetControlMetadata();
         const auto& nacp = metadata.first;
 
-        if (nacp) {
+        bool is_nand_control = true;
+        bool is_nand_program = true;
+        if (content_provider_union) {
+            auto slot_control = content_provider_union->GetSlotForEntry(update_tid, ContentRecordType::Control);
+            if (slot_control && *slot_control == ContentProviderUnionSlot::External) {
+                is_nand_control = false;
+            }
+            auto slot_program = content_provider_union->GetSlotForEntry(update_tid, ContentRecordType::Program);
+            if (slot_program && *slot_program == ContentProviderUnionSlot::External) {
+                is_nand_program = false;
+            }
+        }
+
+        if (nacp && is_nand_control) {
             const auto version_str = nacp->GetVersionString();
             const auto name =
-                fmt::format("Update v{}", version_str); // Matches GetPatches NACP branch
+                fmt::format("NAND Files/Update v{}", version_str); // Matches GetPatches NACP branch
             const auto patch_disabled =
                 std::find(disabled.cbegin(), disabled.cend(), name) != disabled.cend();
             if (!patch_disabled) {
@@ -269,12 +282,12 @@ VirtualDir PatchManager::PatchExeFS(VirtualDir exefs) const {
                     found_best = true;
                 }
             }
-        } else if (content_provider.HasEntry(update_tid, ContentRecordType::Program)) {
+        } else if (content_provider.HasEntry(update_tid, ContentRecordType::Program) && is_nand_program) {
             const auto meta_ver = content_provider.GetEntryVersion(update_tid);
             if (meta_ver.value_or(0) != 0) {
                 const auto version_str = FormatTitleVersion(*meta_ver);
                 const auto name =
-                    fmt::format("Update {}", version_str); // Matches GetPatches fallback
+                    fmt::format("NAND Files/Update {}", version_str); // Matches GetPatches fallback
                 const auto patch_disabled =
                     std::find(disabled.cbegin(), disabled.cend(), name) != disabled.cend();
                 if (!patch_disabled) {
@@ -640,7 +653,7 @@ VirtualFile PatchManager::PatchRomFS(const NCA* base_nca, VirtualFile base_romfs
                         version_str = FormatTitleVersion(update.version);
                     }
 
-                    const auto name = fmt::format("Update v{}", version_str);
+                    const auto name = fmt::format("External Files/Update v{}", version_str);
                     const auto patch_disabled =
                         std::find(disabled.cbegin(), disabled.cend(), name) != disabled.cend();
                     if (!patch_disabled) {
@@ -662,9 +675,22 @@ VirtualFile PatchManager::PatchRomFS(const NCA* base_nca, VirtualFile base_romfs
             const auto metadata = update_mgr.GetControlMetadata();
             const auto& nacp = metadata.first;
 
-            if (nacp) {
+            bool is_nand_control = true;
+            bool is_nand_program = true;
+            if (content_provider_union) {
+                auto slot_control = content_provider_union->GetSlotForEntry(update_tid, ContentRecordType::Control);
+                if (slot_control && *slot_control == ContentProviderUnionSlot::External) {
+                    is_nand_control = false;
+                }
+                auto slot_program = content_provider_union->GetSlotForEntry(update_tid, ContentRecordType::Program);
+                if (slot_program && *slot_program == ContentProviderUnionSlot::External) {
+                    is_nand_program = false;
+                }
+            }
+
+            if (nacp && is_nand_control) {
                 const auto version_str = nacp->GetVersionString();
-                const auto name = fmt::format("Update v{}", version_str);
+                const auto name = fmt::format("NAND Files/Update v{}", version_str);
                 const auto patch_disabled =
                     std::find(disabled.cbegin(), disabled.cend(), name) != disabled.cend();
                 if (!patch_disabled) {
@@ -675,11 +701,11 @@ VirtualFile PatchManager::PatchRomFS(const NCA* base_nca, VirtualFile base_romfs
                         found_best = true;
                     }
                 }
-            } else if (content_provider.HasEntry(update_tid, ContentRecordType::Program)) {
+            } else if (content_provider.HasEntry(update_tid, ContentRecordType::Program) && is_nand_program) {
                 const auto meta_ver = content_provider.GetEntryVersion(update_tid);
                 if (meta_ver.value_or(0) != 0) {
                     const auto version_str = FormatTitleVersion(*meta_ver);
-                    const auto name = fmt::format("Update {}", version_str);
+                    const auto name = fmt::format("NAND Files/Update {}", version_str);
                     const auto patch_disabled =
                         std::find(disabled.cbegin(), disabled.cend(), name) != disabled.cend();
                     if (!patch_disabled) {
@@ -817,10 +843,25 @@ std::vector<Patch> PatchManager::GetPatches(VirtualFile update_raw) const {
     const auto update_disabled =
         std::find(disabled.cbegin(), disabled.cend(), "Update") != disabled.cend();
 
-    if (nacp != nullptr) {
+    const auto* content_provider_union =
+        static_cast<const ContentProviderUnion*>(&content_provider);
+    bool is_nand_control = true;
+    bool is_nand_program = true;
+    if (content_provider_union) {
+        auto slot_control = content_provider_union->GetSlotForEntry(update_tid, ContentRecordType::Control);
+        if (slot_control && *slot_control == ContentProviderUnionSlot::External) {
+            is_nand_control = false;
+        }
+        auto slot_program = content_provider_union->GetSlotForEntry(update_tid, ContentRecordType::Program);
+        if (slot_program && *slot_program == ContentProviderUnionSlot::External) {
+            is_nand_program = false;
+        }
+    }
+
+    if (nacp != nullptr && is_nand_control) {
         // System update found
         const auto version_str = nacp->GetVersionString();
-        const auto name = fmt::format("Update v{}", version_str);
+        const auto name = fmt::format("NAND Files/Update v{}", version_str);
         const auto patch_disabled =
             std::find(disabled.cbegin(), disabled.cend(), name) != disabled.cend();
 
@@ -831,12 +872,12 @@ std::vector<Patch> PatchManager::GetPatches(VirtualFile update_raw) const {
                               .program_id = title_id,
                               .title_id = title_id};
         out.push_back(update_patch);
-    } else if (content_provider.HasEntry(update_tid, ContentRecordType::Program)) {
+    } else if (content_provider.HasEntry(update_tid, ContentRecordType::Program) && is_nand_program) {
         // Fallback for system update without control NCA (rare)
         const auto meta_ver = content_provider.GetEntryVersion(update_tid);
         if (meta_ver.value_or(0) != 0) {
             const auto version_str = FormatTitleVersion(*meta_ver);
-            const auto name = fmt::format("Update {}", version_str);
+            const auto name = fmt::format("NAND Files/Update {}", version_str);
             const auto patch_disabled =
                 std::find(disabled.cbegin(), disabled.cend(), name) != disabled.cend();
 
@@ -851,8 +892,6 @@ std::vector<Patch> PatchManager::GetPatches(VirtualFile update_raw) const {
     }
 
     // Next, check for external updates
-    const auto* content_provider_union =
-        static_cast<const ContentProviderUnion*>(&content_provider);
     if (content_provider_union) {
         const auto* external_provider = content_provider_union->GetExternalProvider();
         if (external_provider) {
@@ -884,7 +923,7 @@ std::vector<Patch> PatchManager::GetPatches(VirtualFile update_raw) const {
                     version_str = FormatTitleVersion(update.version);
                 }
 
-                const auto name = fmt::format("Update v{}", version_str);
+                const auto name = fmt::format("External Files/Update v{}", version_str);
                 const auto patch_disabled =
                     std::find(disabled.cbegin(), disabled.cend(), name) != disabled.cend();
 
@@ -912,7 +951,7 @@ std::vector<Patch> PatchManager::GetPatches(VirtualFile update_raw) const {
 
     if (out.empty() && update_raw != nullptr) {
         Patch update_patch = {.enabled = !update_disabled,
-                              .name = "Update",
+                              .name = "NAND Files/Update",
                               .version = "PACKED",
                               .type = PatchType::Update,
                               .program_id = title_id,

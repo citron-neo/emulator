@@ -332,10 +332,7 @@ static void OverrideWindowsFont() {
 
 bool GMainWindow::CheckDarkMode() {
 #ifdef _WIN32
-    QSettings theme_settings(
-        QStringLiteral("HKEY_CURRENT_USER\\Software\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize"),
-        QSettings::NativeFormat);
-    return theme_settings.value(QStringLiteral("AppsUseLightTheme"), 1).toInt() == 0;
+    return true;
 #else
     const QPalette test_palette(qApp->palette());
     const QColor text_color = test_palette.color(QPalette::Active, QPalette::Text);

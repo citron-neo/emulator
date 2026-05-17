@@ -269,6 +269,8 @@ void ConfigurePerGameAddons::LoadConfiguration() {
     const auto& disabled = Settings::values.disabled_addons[title_id];
     const auto all_patches = pm.GetPatches(update_raw);
 
+    std::map<QString, QStandardItem*> groups;
+
     // --- PASS 1: SYSTEM ITEMS (Update, DLC, etc.) ---
     // We add these directly to the top of the list
     for (const auto& patch : all_patches) {
@@ -276,8 +278,26 @@ void ConfigurePerGameAddons::LoadConfiguration() {
         if (patch.type == FileSys::PatchType::Mod)
             continue;
 
-        auto* const first_item = new QStandardItem;
-        first_item->setText(QString::fromStdString(patch.name));
+        QString full_name = QString::fromStdString(patch.name);
+        QStandardItem* parent_to_add_to = nullptr;
+
+        if (full_name.contains(QStringLiteral("/"))) {
+            QStringList parts = full_name.split(QStringLiteral("/"));
+            QString group_name = parts[0];
+            QString display_name = parts[1];
+
+            if (groups.find(group_name) == groups.end()) {
+                auto* group_item = new QStandardItem(group_name);
+                group_item->setCheckable(false);
+                group_item->setEditable(false);
+                item_model->appendRow(group_item);
+                groups[group_name] = group_item;
+            }
+            parent_to_add_to = groups[group_name];
+            full_name = display_name;
+        }
+
+        auto* const first_item = new QStandardItem(full_name);
         first_item->setCheckable(true);
 
         first_item->setData(QString::fromStdString(patch.name), Qt::UserRole);
@@ -288,12 +308,16 @@ void ConfigurePerGameAddons::LoadConfiguration() {
 
         QList<QStandardItem*> row;
         row << first_item << new QStandardItem{QString::fromStdString(patch.version)};
-        item_model->appendRow(row);
+        
+        if (parent_to_add_to) {
+            parent_to_add_to->appendRow(row);
+        } else {
+            item_model->appendRow(row);
+        }
         list_items.push_back(row);
     }
 
     // --- PASS 2: FOLDER-BASED MODS (The Tree View) ---
-    std::map<QString, QStandardItem*> groups;
     for (const auto& patch : all_patches) {
         // ONLY process mods in this pass
         if (patch.type != FileSys::PatchType::Mod)
