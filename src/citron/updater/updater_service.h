@@ -15,6 +15,8 @@
 #include <QString>
 
 
+class QWidget;
+
 namespace Updater {
 
 // Declarations for helper functions
@@ -59,8 +61,11 @@ public:
     void CheckForUpdates();
     void DownloadAndInstallUpdate(const std::string& download_url);
     void CancelUpdate();
+    void AbortCheck();
     std::string GetCurrentVersion() const;
     bool IsUpdateInProgress() const;
+    bool IsPgoBuild() const;
+    static bool CheckPgoWarning(QWidget* parent);
 
     static bool HasStagedUpdate(const std::filesystem::path& app_directory);
     static bool ApplyStagedUpdate(const std::filesystem::path& app_directory);

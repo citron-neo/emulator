@@ -185,6 +185,9 @@ void UpdaterDialog::OnDownloadButtonClicked() {
     }
 
     if (!download_url.empty()) {
+        if (!UpdaterService::CheckPgoWarning(this)) {
+            return;
+        }
         ShowDownloadingState();
         updater_service->DownloadAndInstallUpdate(download_url);
     } else {

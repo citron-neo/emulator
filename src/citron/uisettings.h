@@ -147,6 +147,7 @@ namespace UISettings {
                                     Setting<bool> disable_web_applet{linkage, true, "disable_web_applet", Category::Ui};
 
                                     Setting<bool> check_for_updates_on_start{linkage, true, "check_for_updates_on_start", Category::Ui};
+                                    Setting<bool> auto_update_before_init{linkage, false, "auto_update_before_init", Category::Ui};
 
                                     // GameBanana Mod Manager
                                     Setting<bool> always_ask_manual_extraction{linkage, false, "always_ask_manual_extraction", Category::Ui};

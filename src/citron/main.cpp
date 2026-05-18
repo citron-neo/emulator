@@ -98,6 +98,12 @@ static FileSys::VirtualFile VfsDirectoryCreateFileWrapper(const FileSys::Virtual
 #include <QProgressDialog>
 #include <QPushButton>
 #include <QScreen>
+#include <QPlainTextEdit>
+#include <QVBoxLayout>
+#include <QLabel>
+#include <QTimer>
+#include <QDateTime>
+#include <QProcess>
 #include <QShortcut>
 #include <QStandardPaths>
 #include <QStatusBar>
@@ -6792,6 +6798,161 @@ static void SetHighDPIAttributes() {
 #ifdef main
 #undef main
 #endif
+
+#if defined(__linux__) && defined(CITRON_USE_AUTO_UPDATER)
+AutoUpdateBootDialog::AutoUpdateBootDialog(QWidget* parent) : QDialog(parent) {
+    setWindowTitle(tr("Citron Pre-Init Auto-Updater"));
+    setFixedSize(650, 450);
+    setWindowFlags(Qt::Dialog | Qt::CustomizeWindowHint | Qt::WindowTitleHint);
+    setModal(true);
+
+    auto* layout = new QVBoxLayout(this);
+    layout->setContentsMargins(15, 15, 15, 15);
+    layout->setSpacing(10);
+
+    auto* title_label = new QLabel(tr("Checking for Citron AppImage updates..."), this);
+    title_label->setStyleSheet(QStringLiteral("font-weight: bold; font-size: 14px; color: #ffffff;"));
+    layout->addWidget(title_label);
+
+    console_output = new QPlainTextEdit(this);
+    console_output->setReadOnly(true);
+    console_output->setStyleSheet(QStringLiteral(
+        "QPlainTextEdit { "
+        "background-color: #1a1b1e; "
+        "color: #00ff66; "
+        "font-family: 'monospace', 'Courier New', monospace; "
+        "font-size: 12px; "
+        "border: 1px solid #333333; "
+        "border-radius: 6px; "
+        "padding: 8px; "
+        "}"
+    ));
+    layout->addWidget(console_output);
+
+    progress_bar = new QProgressBar(this);
+    progress_bar->setRange(0, 100);
+    progress_bar->setValue(0);
+    progress_bar->setStyleSheet(QStringLiteral(
+        "QProgressBar { border: 1px solid #333333; border-radius: 4px; background: #242528; text-align: center; color: #ffffff; font-weight: bold; }"
+        "QProgressBar::chunk { background-color: #059669; border-radius: 3px; }"
+    ));
+    layout->addWidget(progress_bar);
+
+    setStyleSheet(QStringLiteral("QDialog { background-color: #242528; }"));
+
+    Log(tr("Initializing UpdaterService..."));
+    updater_service = new Updater::UpdaterService(this);
+
+    connect(updater_service, &Updater::UpdaterService::UpdateCheckCompleted, this, &AutoUpdateBootDialog::OnUpdateCheckCompleted);
+    connect(updater_service, &Updater::UpdaterService::UpdateDownloadProgress, this, &AutoUpdateBootDialog::OnUpdateDownloadProgress);
+    connect(updater_service, &Updater::UpdaterService::UpdateInstallProgress, this, &AutoUpdateBootDialog::OnUpdateInstallProgress);
+    connect(updater_service, &Updater::UpdaterService::UpdateCompleted, this, &AutoUpdateBootDialog::OnUpdateCompleted);
+    connect(updater_service, &Updater::UpdaterService::UpdateError, this, &AutoUpdateBootDialog::OnUpdateError);
+
+    watchdog_timer.setSingleShot(true);
+    connect(&watchdog_timer, &QTimer::timeout, this, &AutoUpdateBootDialog::OnWatchdogTimeout);
+}
+
+AutoUpdateBootDialog::~AutoUpdateBootDialog() = default;
+
+void AutoUpdateBootDialog::Start() {
+    Log(tr("Checking for updates..."));
+    watchdog_timer.start(2500); // 2.5 seconds max for update check! E.g. aggressive fail-fast!
+    updater_service->CheckForUpdates();
+}
+
+bool AutoUpdateBootDialog::WasUpdated() const {
+    return was_updated;
+}
+
+void AutoUpdateBootDialog::OnUpdateCheckCompleted(bool has_update, const Updater::UpdateInfo& update_info) {
+    watchdog_timer.stop();
+    if (is_aborting) return;
+
+    if (!has_update) {
+        Log(tr("AppImage is already up to date. E.g. no update required."));
+        accept();
+        return;
+    }
+
+    Log(tr("New version available: %1").arg(QString::fromStdString(update_info.version)));
+    if (!updater_service->CheckPgoWarning(this)) {
+        Log(tr("Update cancelled by user at PGO warning."));
+        accept();
+        return;
+    }
+
+    show(); // Only show the window if there is an update to download!
+
+    if (update_info.download_options.empty()) {
+        Log(tr("Error: No download options found."));
+        QTimer::singleShot(1000, this, &QDialog::accept);
+        return;
+    }
+
+    std::string download_url = update_info.download_options[0].url;
+    Log(tr("Downloading update from: %1").arg(QString::fromStdString(download_url)));
+    updater_service->DownloadAndInstallUpdate(download_url);
+}
+
+void AutoUpdateBootDialog::OnUpdateDownloadProgress(int percentage, qint64 bytes_received, qint64 bytes_total) {
+    progress_bar->setValue(percentage);
+    QString progress_text = tr("Downloading: %1% (%2 / %3)")
+        .arg(percentage)
+        .arg(FormatBytes(bytes_received))
+        .arg(FormatBytes(bytes_total));
+    progress_bar->setFormat(progress_text);
+}
+
+void AutoUpdateBootDialog::OnUpdateInstallProgress(int percentage, const QString& current_file) {
+    progress_bar->setValue(percentage);
+    progress_bar->setFormat(tr("Installing: %1%").arg(percentage));
+    Log(current_file);
+}
+
+void AutoUpdateBootDialog::OnUpdateCompleted(Updater::UpdaterService::UpdateResult result, const QString& message) {
+    if (result == Updater::UpdaterService::UpdateResult::Success) {
+        Log(tr("Update successful! Relaunching Citron AppImage..."));
+        was_updated = true;
+        QTimer::singleShot(3000, this, &QDialog::accept);
+    } else {
+        Log(message);
+        Log(tr("Update finished with status: %1").arg(static_cast<int>(result)));
+        QTimer::singleShot(2000, this, &QDialog::accept);
+    }
+}
+
+void AutoUpdateBootDialog::OnUpdateError(const QString& error_message) {
+    watchdog_timer.stop();
+    if (is_aborting) return;
+    Log(tr("Update error: %1").arg(error_message));
+    QTimer::singleShot(2000, this, &QDialog::accept);
+}
+
+void AutoUpdateBootDialog::OnWatchdogTimeout() {
+    is_aborting = true;
+    Log(tr("Update check timed out. Proceeding to boot Citron..."));
+    updater_service->AbortCheck();
+    accept();
+}
+
+void AutoUpdateBootDialog::Log(const QString& text) {
+    console_output->appendPlainText(QStringLiteral("[%1] %2")
+        .arg(QDateTime::currentDateTime().toString(QStringLiteral("hh:mm:ss")), text));
+}
+
+QString AutoUpdateBootDialog::FormatBytes(qint64 bytes) const {
+    const QStringList units = {QStringLiteral("B"), QStringLiteral("KB"), QStringLiteral("MB"), QStringLiteral("GB")};
+    double size = bytes;
+    int unit = 0;
+    while (size >= 1024.0 && unit < units.size() - 1) {
+        size /= 1024.0;
+        unit++;
+    }
+    return QStringLiteral("%1 %2").arg(QString::number(size, 'f', unit == 0 ? 0 : 1), units[unit]);
+}
+#endif
+
 int main(int argc, char* argv[]) {
     // 1. Detect Gamescope/Steam Deck hardware
     const bool is_gamescope = UISettings::IsGamescope();
@@ -6915,6 +7076,26 @@ int main(int argc, char* argv[]) {
         if (Updater::UpdaterService::ApplyStagedUpdate(app_dir)) {
             QMessageBox::information(nullptr, QObject::tr("Update Applied"),
                                      QObject::tr("Citron has been updated successfully!"));
+        }
+    }
+#endif
+
+#if defined(__linux__)
+    if (is_appimage && UISettings::values.auto_update_before_init.GetValue()) {
+        AutoUpdateBootDialog boot_dialog;
+        boot_dialog.Start();
+
+        QEventLoop loop;
+        QObject::connect(&boot_dialog, &QDialog::finished, &loop, &QEventLoop::quit);
+        loop.exec();
+
+        if (boot_dialog.WasUpdated()) {
+            // Relaunch the AppImage and exit immediately!
+            QString program = QString::fromUtf8(qgetenv("APPIMAGE"));
+            QStringList arguments = QApplication::arguments();
+            arguments.removeFirst();
+            QProcess::startDetached(program, arguments);
+            return 0;
         }
     }
 #endif

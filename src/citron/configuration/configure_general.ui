@@ -114,6 +114,13 @@
            <property name="bottomMargin">
             <number>0</number>
            </property>
+           <item>
+            <widget class="QCheckBox" name="auto_update_before_init_checkbox">
+             <property name="text">
+              <string>Auto-update AppImage before initialization</string>
+             </property>
+            </widget>
+           </item>
           </layout>
          </widget>
         </item>
