@@ -6856,6 +6856,11 @@ AutoUpdateBootDialog::AutoUpdateBootDialog(QWidget* parent) : QDialog(parent) {
 AutoUpdateBootDialog::~AutoUpdateBootDialog() = default;
 
 void AutoUpdateBootDialog::Start() {
+    if (updater_service->IsPgoBuild()) {
+        Log(tr("PGO build detected. Auto updater is disabled at boot."));
+        accept();
+        return;
+    }
     Log(tr("Checking for updates..."));
     watchdog_timer.start(2500); // 2.5 seconds max for update check! E.g. aggressive fail-fast!
     updater_service->CheckForUpdates();
