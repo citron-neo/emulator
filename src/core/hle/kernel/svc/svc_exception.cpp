@@ -115,7 +115,7 @@ void Break(Core::System& system, BreakReason reason, u64 info1, u64 info2) {
 
     const bool should_break = is_hbl || !notification_only;
 
-    if (should_break) {
+    if (should_break && !is_hbl) {
         auto* thread = system.Kernel().GetCurrentEmuThread();
         if (system.DebuggerEnabled()) {
             system.GetDebugger().NotifyThreadStopped(thread);
