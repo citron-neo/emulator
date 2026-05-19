@@ -6,6 +6,7 @@
 #include <random>
 
 #include <vector>
+#include <QPointer>
 #include <QApplication>
 #include <QCheckBox>
 #include <QDesktopServices>
@@ -82,6 +83,7 @@
 #include "citron/ui/nav_settings_overlay.h"
 #include "citron/uisettings.h"
 #include "citron/util/blackjack_widget.h"
+#include "citron/util/image_cache.h"
 #include "citron/util/card_flip.h"
 #include "citron/util/confetti.h"
 #include "citron/util/controller_navigation.h"
@@ -976,10 +978,11 @@ void GameList::AutoPopulatePosters() {
                                             .GetCustomPosterPath(program_id)
                                             .has_value()) {
                     QString name = child->data(GameListItemPath::TitleRole).toString();
+                    QPointer<GameList> game_list_self(this);
                     m_steam_grid_db->FetchPoster(
-                        program_id, name.toStdString(), [this](bool success, std::string) {
-                            if (success && UISettings::values.game_list_grid_view.GetValue()) {
-                                FilterGridView(search_field->filterText());
+                        program_id, name.toStdString(), [game_list_self](bool success, std::string) {
+                            if (game_list_self && success && UISettings::values.game_list_grid_view.GetValue()) {
+                                game_list_self->FilterGridView(game_list_self->search_field->filterText());
                             }
                         });
                 }
@@ -3277,10 +3280,11 @@ void GameList::AddGamePopup(QMenu& context_menu, const QModelIndex& index, u64 p
             return;
         }
 
+        QPointer<GameList> game_list_self(this);
         m_steam_grid_db->FetchPoster(
-            program_id, game_name.toStdString(), [this](bool success, std::string) {
-                if (success && UISettings::values.game_list_grid_view.GetValue()) {
-                    FilterGridView(search_field->filterText());
+            program_id, game_name.toStdString(), [game_list_self](bool success, std::string) {
+                if (game_list_self && success && UISettings::values.game_list_grid_view.GetValue()) {
+                    game_list_self->FilterGridView(game_list_self->search_field->filterText());
                 }
             });
     });
@@ -4836,6 +4840,8 @@ void GameListSearchField::setStyleSheet(const QString& sheet) {
 }
 
 void GameList::UpdateIconForGame(u64 program_id) {
+    Citron::ImageCache::InvalidateIcon(program_id);
+
     auto custom_icon_path = Citron::CustomMetadata::GetInstance().GetCustomIconPath(program_id);
     if (!custom_icon_path) {
         return;
@@ -4849,18 +4855,33 @@ void GameList::UpdateIconForGame(u64 program_id) {
     const u32 size = UISettings::values.game_icon_size.GetValue();
     QPixmap round_pix = CreateRoundIcon(pix, size);
 
-    // Lambda to update a specific model
+    // Lambda to update a specific model recursively, ensuring all instances are updated
     auto update_model = [program_id, &pix, &round_pix](QAbstractItemModel* model) {
         if (!model) return;
-        auto matches = model->match(model->index(0, 0), GameListItemPath::ProgramIdRole,
-                                   qulonglong(program_id), 1, Qt::MatchExactly | Qt::MatchRecursive);
-        for (const auto& index : matches) {
-            auto* item = qobject_cast<QStandardItemModel*>(model)->itemFromIndex(index);
-            if (item) {
-                item->setData(pix, GameListItemPath::HighResIconRole);
-                item->setData(round_pix, Qt::DecorationRole);
+        auto* standard_model = qobject_cast<QStandardItemModel*>(model);
+        if (!standard_model) return;
+
+        std::function<void(const QModelIndex&)> search_and_update = [&](const QModelIndex& parent) {
+            int rows = model->rowCount(parent);
+            for (int r = 0; r < rows; ++r) {
+                QModelIndex idx = model->index(r, 0, parent);
+                if (!idx.isValid()) continue;
+
+                if (idx.data(GameListItemPath::ProgramIdRole).toULongLong() == program_id) {
+                    auto* item = standard_model->itemFromIndex(idx);
+                    if (item) {
+                        item->setData(pix, GameListItemPath::HighResIconRole);
+                        item->setData(round_pix, Qt::DecorationRole);
+                    }
+                }
+
+                if (model->hasChildren(idx)) {
+                    search_and_update(idx);
+                }
             }
-        }
+        };
+
+        search_and_update(QModelIndex());
     };
 
     // 1. Update Main Model
@@ -4964,6 +4985,7 @@ void GameList::ShowPosterSelectionDialog(u64 program_id, const QString& game_nam
                       });
 
     if (dialog.exec() == QDialog::Accepted) {
+        Citron::ImageCache::InvalidatePoster(program_id);
         if (grid_view) {
             grid_view->ClearCaches();
             grid_view->UpdateGridSize();

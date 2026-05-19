@@ -1,3 +1,4 @@
+#include <QPointer>
 #include <QGridLayout>
 #include <QLabel>
 #include <QNetworkReply>
@@ -67,11 +68,17 @@ IconSelectionDialog::IconSelectionDialog(QWidget* parent, u64 program_id, const 
 IconSelectionDialog::~IconSelectionDialog() = default;
 
 void IconSelectionDialog::FetchOptions() {
+    QPointer<IconSelectionDialog> self(this);
     m_sgdb->FetchIconOptions(
         m_program_id, m_game_name.toStdString(),
-        [this](bool success, std::vector<Citron::SteamGridDBPoster> options) {
+        [self](bool success, std::vector<Citron::SteamGridDBPoster> options) {
+            if (!self) return;
             QMetaObject::invokeMethod(
-                this, [this, success, options]() { OnOptionsFetched(success, options); },
+                self.data(), [self, success, options]() {
+                    if (self) {
+                        self->OnOptionsFetched(success, options);
+                    }
+                },
                 Qt::QueuedConnection);
         });
 }
@@ -171,12 +178,14 @@ void IconSelectionDialog::DownloadThumbnail(const QString& url, QLabel* target_l
 }
 
 void IconSelectionDialog::OnIconSelected(const std::string& url) {
-    m_sgdb->DownloadSpecificIcon(m_program_id, url, [this](bool success, std::string path) {
+    QPointer<IconSelectionDialog> self(this);
+    m_sgdb->DownloadSpecificIcon(m_program_id, url, [self](bool success, std::string path) {
+        if (!self) return;
         QMetaObject::invokeMethod(
-            this,
-            [this, success]() {
-                if (success) {
-                    accept();
+            self.data(),
+            [self, success]() {
+                if (self && success) {
+                    self->accept();
                 }
             },
             Qt::QueuedConnection);

@@ -49,6 +49,14 @@ public:
         GetPosterCache().clear();
     }
 
+    static void InvalidateIcon(u64 program_id) {
+        GetIconCache().remove(program_id);
+    }
+
+    static void InvalidatePoster(u64 program_id) {
+        GetPosterCache().remove(program_id);
+    }
+
 private:
     static QCache<u64, QPixmap>& GetIconCache() {
         static QCache<u64, QPixmap> cache(200); // Cache up to 200 icons
