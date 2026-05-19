@@ -148,7 +148,9 @@ public:
         const bool is_initialized = this->IsInitialized();
         uintptr_t arg = 0;
         if (is_initialized) {
-            Base::m_kernel.ObjectListContainer().Unregister(this);
+            if (Base::m_kernel.IsObjectListContainerValid()) {
+                Base::m_kernel.ObjectListContainer().Unregister(this);
+            }
             arg = this->GetPostDestroyArgument();
             this->Finalize();
         }

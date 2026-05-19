@@ -39,7 +39,6 @@
 #include "video_core/vulkan_common/vulkan_device.h"
 #include "video_core/vulkan_common/vulkan_wrapper.h"
 
-
 namespace Vulkan {
 
 using MaxwellDrawState = Tegra::Engines::DrawManager::State;
@@ -56,7 +55,8 @@ struct DrawParams {
     bool is_indexed;
 };
 
-VkViewport GetViewportState(const Device& device, const Tegra::Engines::Maxwell3D::Regs& regs, size_t index, float scale) {
+VkViewport GetViewportState(const Device& device, const Tegra::Engines::Maxwell3D::Regs& regs,
+                            size_t index, float scale) {
     const auto& src = regs.viewport_transform[index];
     const auto conv = [scale](float value) {
         const double new_value = static_cast<double>(value) * static_cast<double>(scale);
@@ -72,9 +72,11 @@ VkViewport GetViewportState(const Device& device, const Tegra::Engines::Maxwell3
     float y = conv(src.translate_y - src.scale_y);
     float height = conv(src.scale_y * 2.0f);
 
-    const bool lower_left = regs.window_origin.mode != Tegra::Engines::Maxwell3D::Regs::WindowOrigin::Mode::UpperLeft;
-    const bool y_negate = !device.IsNvViewportSwizzleSupported() &&
-                          src.swizzle.y == Tegra::Engines::Maxwell3D::Regs::ViewportSwizzle::NegativeY;
+    const bool lower_left =
+        regs.window_origin.mode != Tegra::Engines::Maxwell3D::Regs::WindowOrigin::Mode::UpperLeft;
+    const bool y_negate =
+        !device.IsNvViewportSwizzleSupported() &&
+        src.swizzle.y == Tegra::Engines::Maxwell3D::Regs::ViewportSwizzle::NegativeY;
 
     if (lower_left) {
         // Flip by surface clip height
@@ -88,7 +90,8 @@ VkViewport GetViewportState(const Device& device, const Tegra::Engines::Maxwell3
         height = -height;
     }
 
-    const float reduce_z = regs.depth_mode == Tegra::Engines::Maxwell3D::Regs::DepthMode::MinusOneToOne ? 1.0f : 0.0f;
+    const float reduce_z =
+        regs.depth_mode == Tegra::Engines::Maxwell3D::Regs::DepthMode::MinusOneToOne ? 1.0f : 0.0f;
     VkViewport viewport{
         .x = x,
         .y = y,
@@ -104,7 +107,8 @@ VkViewport GetViewportState(const Device& device, const Tegra::Engines::Maxwell3
     return viewport;
 }
 
-VkRect2D GetScissorState(const Tegra::Engines::Maxwell3D::Regs& regs, size_t index, u32 up_scale = 1, u32 down_shift = 0) {
+VkRect2D GetScissorState(const Tegra::Engines::Maxwell3D::Regs& regs, size_t index,
+                         u32 up_scale = 1, u32 down_shift = 0) {
     const auto& src = regs.scissor_test[index];
     VkRect2D scissor;
     const auto scale_up = [&](s32 value) -> s32 {
@@ -121,7 +125,8 @@ VkRect2D GetScissorState(const Tegra::Engines::Maxwell3D::Regs& regs, size_t ind
                          : std::max<s32>(converted_value + acumm, 1);
     };
 
-    const bool lower_left = regs.window_origin.mode != Tegra::Engines::Maxwell3D::Regs::WindowOrigin::Mode::UpperLeft;
+    const bool lower_left =
+        regs.window_origin.mode != Tegra::Engines::Maxwell3D::Regs::WindowOrigin::Mode::UpperLeft;
     const s32 clip_height = regs.surface_clip.height;
 
     // Flip coordinates if lower left
@@ -161,7 +166,8 @@ DrawParams MakeDrawParams(const MaxwellDrawState& draw_state, u32 num_instances,
         params.num_vertices = (params.num_vertices / 4) * 6;
         params.base_vertex = 0;
         params.is_indexed = true;
-    } else if (draw_state.topology == Tegra::Engines::Maxwell3D::Regs::PrimitiveTopology::QuadStrip) {
+    } else if (draw_state.topology ==
+               Tegra::Engines::Maxwell3D::Regs::PrimitiveTopology::QuadStrip) {
         params.num_vertices = (params.num_vertices - 2) / 2 * 6;
         params.base_vertex = 0;
         params.is_indexed = true;
@@ -515,7 +521,8 @@ void RasterizerVulkan::Clear(u32 layer_count) {
 
 void RasterizerVulkan::DispatchCompute() {
     std::shared_lock shared_guard{shutdown_mutex};
-    if (is_shutting_down) return;
+    if (is_shutting_down)
+        return;
 
     // Skip first 2 dispatches for Marvel Cosmic Invasion to fix boot issues
     if (program_id == UICommon::TitleID::MarvelCosmicInvasion) {
@@ -582,7 +589,8 @@ void RasterizerVulkan::FlushAll() {}
 
 void RasterizerVulkan::FlushRegion(DAddr addr, u64 size, VideoCommon::CacheType which) {
     std::shared_lock shared_guard{shutdown_mutex};
-    if (is_shutting_down) return;
+    if (is_shutting_down)
+        return;
 
     if (addr == 0 || size == 0) {
         return;
@@ -602,7 +610,8 @@ void RasterizerVulkan::FlushRegion(DAddr addr, u64 size, VideoCommon::CacheType 
 
 bool RasterizerVulkan::MustFlushRegion(DAddr addr, u64 size, VideoCommon::CacheType which) {
     std::shared_lock shared_guard{shutdown_mutex};
-    if (is_shutting_down) return false;
+    if (is_shutting_down)
+        return false;
 
     if ((True(which & VideoCommon::CacheType::BufferCache))) {
         std::scoped_lock lock{buffer_cache.mutex};
@@ -648,7 +657,8 @@ VideoCore::RasterizerDownloadArea RasterizerVulkan::GetFlushArea(DAddr addr, u64
 
 void RasterizerVulkan::InvalidateRegion(DAddr addr, u64 size, VideoCommon::CacheType which) {
     std::shared_lock shared_guard{shutdown_mutex};
-    if (is_shutting_down) return;
+    if (is_shutting_down)
+        return;
 
     if (addr == 0 || size == 0) {
         return;
@@ -885,7 +895,8 @@ u64 RasterizerVulkan::GetStagingMemoryUsage() const {
 
 void RasterizerVulkan::TriggerMemoryGC() {
     std::shared_lock shared_guard{shutdown_mutex};
-    if (is_shutting_down) return;
+    if (is_shutting_down)
+        return;
 
     std::scoped_lock lock{texture_cache.mutex, buffer_cache.mutex};
     texture_cache.TriggerGarbageCollection();
@@ -901,7 +912,8 @@ bool RasterizerVulkan::AccelerateSurfaceCopy(const Tegra::Engines::Fermi2D::Surf
                                              const Tegra::Engines::Fermi2D::Surface& dst,
                                              const Tegra::Engines::Fermi2D::Config& copy_config) {
     std::shared_lock shared_guard{shutdown_mutex};
-    if (is_shutting_down) return false;
+    if (is_shutting_down)
+        return false;
 
     std::scoped_lock lock{texture_cache.mutex};
     return texture_cache.BlitImage(dst, src, copy_config);
@@ -914,7 +926,8 @@ Tegra::Engines::AccelerateDMAInterface& RasterizerVulkan::AccessAccelerateDMA() 
 void RasterizerVulkan::AccelerateInlineToMemory(GPUVAddr address, size_t copy_size,
                                                 std::span<const u8> memory) {
     std::shared_lock shared_guard{shutdown_mutex};
-    if (is_shutting_down) return;
+    if (is_shutting_down)
+        return;
 
     auto cpu_addr = gpu_memory->GpuToCpuAddress(address);
     if (!cpu_addr) [[unlikely]] {
@@ -1103,8 +1116,10 @@ void RasterizerVulkan::HandleTransformFeedback() {
     query_cache.CounterEnable(VideoCommon::QueryType::StreamingByteCount,
                               regs.transform_feedback_enabled);
     if (regs.transform_feedback_enabled != 0) {
-        UNIMPLEMENTED_IF(regs.IsShaderConfigEnabled(Tegra::Engines::Maxwell3D::Regs::ShaderType::TessellationInit) ||
-                         regs.IsShaderConfigEnabled(Tegra::Engines::Maxwell3D::Regs::ShaderType::Tessellation));
+        UNIMPLEMENTED_IF(
+            regs.IsShaderConfigEnabled(
+                Tegra::Engines::Maxwell3D::Regs::ShaderType::TessellationInit) ||
+            regs.IsShaderConfigEnabled(Tegra::Engines::Maxwell3D::Regs::ShaderType::Tessellation));
     }
 }
 
@@ -1133,8 +1148,8 @@ void RasterizerVulkan::UpdateViewportsState(Tegra::Engines::Maxwell3D::Regs& reg
             };
         }
         scheduler.Record([this, viewport_list](vk::CommandBuffer cmdbuf) {
-            const u32 num_viewports =
-                std::min<u32>(device.GetMaxViewports(), Tegra::Engines::Maxwell3D::Regs::NumViewports);
+            const u32 num_viewports = std::min<u32>(device.GetMaxViewports(),
+                                                    Tegra::Engines::Maxwell3D::Regs::NumViewports);
             const vk::Span<VkViewport> viewports(viewport_list.data(), num_viewports);
             cmdbuf.SetViewport(0, viewports);
         });
@@ -1153,7 +1168,8 @@ void RasterizerVulkan::UpdateViewportsState(Tegra::Engines::Maxwell3D::Regs& reg
         GetViewportState(device, regs, 14, scale), GetViewportState(device, regs, 15, scale),
     };
     scheduler.Record([this, viewport_list](vk::CommandBuffer cmdbuf) {
-        const u32 num_viewports = std::min<u32>(device.GetMaxViewports(), Tegra::Engines::Maxwell3D::Regs::NumViewports);
+        const u32 num_viewports =
+            std::min<u32>(device.GetMaxViewports(), Tegra::Engines::Maxwell3D::Regs::NumViewports);
         const vk::Span<VkViewport> viewports(viewport_list.data(), num_viewports);
         cmdbuf.SetViewport(0, viewports);
     });
@@ -1201,7 +1217,8 @@ void RasterizerVulkan::UpdateScissorsState(Tegra::Engines::Maxwell3D::Regs& regs
         GetScissorState(regs, 15, up_scale, down_shift),
     };
     scheduler.Record([this, scissor_list](vk::CommandBuffer cmdbuf) {
-        const u32 num_scissors = std::min<u32>(device.GetMaxViewports(), Tegra::Engines::Maxwell3D::Regs::NumViewports);
+        const u32 num_scissors =
+            std::min<u32>(device.GetMaxViewports(), Tegra::Engines::Maxwell3D::Regs::NumViewports);
         const vk::Span<VkRect2D> scissors(scissor_list.data(), num_scissors);
         cmdbuf.SetScissor(0, scissors);
     });
@@ -1237,10 +1254,11 @@ void RasterizerVulkan::UpdateDepthBias(Tegra::Engines::Maxwell3D::Regs& regs) {
                 VK_DEPTH_BIAS_REPRESENTATION_LEAST_REPRESENTABLE_VALUE_FORCE_UNORM_EXT,
             .depthBiasExact = device.HasExactDepthBiasControl() ? VK_TRUE : VK_FALSE,
         };
-        scheduler.Record([constant = units, clamp, factor, representation](vk::CommandBuffer cmdbuf) {
-            VkDepthBiasRepresentationInfoEXT rep = representation;
-            cmdbuf.SetDepthBias(constant, clamp, factor, &rep);
-        });
+        scheduler.Record(
+            [constant = units, clamp, factor, representation](vk::CommandBuffer cmdbuf) {
+                VkDepthBiasRepresentationInfoEXT rep = representation;
+                cmdbuf.SetDepthBias(constant, clamp, factor, &rep);
+            });
     } else {
         scheduler.Record([constant = units, clamp, factor](vk::CommandBuffer cmdbuf) {
             cmdbuf.SetDepthBias(constant, clamp, factor);
@@ -1478,12 +1496,13 @@ void RasterizerVulkan::UpdateDepthClampEnable(Tegra::Engines::Maxwell3D::Regs& r
     if (!state_tracker.TouchDepthClampEnable()) {
         return;
     }
-    bool is_enabled = !(regs.viewport_clip_control.geometry_clip ==
-                            Tegra::Engines::Maxwell3D::Regs::ViewportClipControl::GeometryClip::Passthrough ||
-                        regs.viewport_clip_control.geometry_clip ==
-                            Tegra::Engines::Maxwell3D::Regs::ViewportClipControl::GeometryClip::FrustumXYZ ||
-                        regs.viewport_clip_control.geometry_clip ==
-                            Tegra::Engines::Maxwell3D::Regs::ViewportClipControl::GeometryClip::FrustumZ);
+    bool is_enabled =
+        !(regs.viewport_clip_control.geometry_clip ==
+              Tegra::Engines::Maxwell3D::Regs::ViewportClipControl::GeometryClip::Passthrough ||
+          regs.viewport_clip_control.geometry_clip ==
+              Tegra::Engines::Maxwell3D::Regs::ViewportClipControl::GeometryClip::FrustumXYZ ||
+          regs.viewport_clip_control.geometry_clip ==
+              Tegra::Engines::Maxwell3D::Regs::ViewportClipControl::GeometryClip::FrustumZ);
     scheduler.Record(
         [is_enabled](vk::CommandBuffer cmdbuf) { cmdbuf.SetDepthClampEnableEXT(is_enabled); });
 }
@@ -1522,9 +1541,12 @@ void RasterizerVulkan::UpdateStencilOp(Tegra::Engines::Maxwell3D::Regs& regs) {
     if (regs.stencil_two_side_enable) {
         // Separate stencil op per face
         const Tegra::Engines::Maxwell3D::Regs::StencilOp::Op back_fail = regs.stencil_back_op.fail;
-        const Tegra::Engines::Maxwell3D::Regs::StencilOp::Op back_zfail = regs.stencil_back_op.zfail;
-        const Tegra::Engines::Maxwell3D::Regs::StencilOp::Op back_zpass = regs.stencil_back_op.zpass;
-        const Tegra::Engines::Maxwell3D::Regs::ComparisonOp back_compare = regs.stencil_back_op.func;
+        const Tegra::Engines::Maxwell3D::Regs::StencilOp::Op back_zfail =
+            regs.stencil_back_op.zfail;
+        const Tegra::Engines::Maxwell3D::Regs::StencilOp::Op back_zpass =
+            regs.stencil_back_op.zpass;
+        const Tegra::Engines::Maxwell3D::Regs::ComparisonOp back_compare =
+            regs.stencil_back_op.func;
         scheduler.Record([fail, zfail, zpass, compare, back_fail, back_zfail, back_zpass,
                           back_compare](vk::CommandBuffer cmdbuf) {
             cmdbuf.SetStencilOpEXT(VK_STENCIL_FACE_FRONT_BIT, MaxwellToVK::StencilOp(fail),
@@ -1561,7 +1583,8 @@ void RasterizerVulkan::UpdateBlending(Tegra::Engines::Maxwell3D::Regs& regs) {
     }
 
     if (state_tracker.TouchColorMask()) {
-        std::array<VkColorComponentFlags, Tegra::Engines::Maxwell3D::Regs::NumRenderTargets> setup_masks{};
+        std::array<VkColorComponentFlags, Tegra::Engines::Maxwell3D::Regs::NumRenderTargets>
+            setup_masks{};
         for (size_t index = 0; index < Tegra::Engines::Maxwell3D::Regs::NumRenderTargets; index++) {
             const auto& mask = regs.color_mask[regs.color_mask_common ? 0 : index];
             auto& current = setup_masks[index];
@@ -1594,7 +1617,8 @@ void RasterizerVulkan::UpdateBlending(Tegra::Engines::Maxwell3D::Regs& regs) {
     }
 
     if (state_tracker.TouchBlendEquations()) {
-        std::array<VkColorBlendEquationEXT, Tegra::Engines::Maxwell3D::Regs::NumRenderTargets> setup_blends{};
+        std::array<VkColorBlendEquationEXT, Tegra::Engines::Maxwell3D::Regs::NumRenderTargets>
+            setup_blends{};
         for (size_t index = 0; index < Tegra::Engines::Maxwell3D::Regs::NumRenderTargets; index++) {
             const auto blend_setup = [&]<typename T>(const T& guest_blend) {
                 auto& host_blend = setup_blends[index];
@@ -1646,7 +1670,8 @@ void RasterizerVulkan::UpdateVertexInput(Tegra::Engines::Maxwell3D::Regs& regs) 
         }
     }
     for (size_t index = 0; index < highest_dirty_attr; ++index) {
-        const Tegra::Engines::Maxwell3D::Regs::VertexAttribute attribute{regs.vertex_attrib_format[index]};
+        const Tegra::Engines::Maxwell3D::Regs::VertexAttribute attribute{
+            regs.vertex_attrib_format[index]};
         const u32 binding{attribute.buffer};
         dirty[Dirty::VertexAttribute0 + index] = false;
         dirty[Dirty::VertexBinding0 + static_cast<size_t>(binding)] = true;

@@ -231,16 +231,43 @@ VirtualDir PatchManager::PatchExeFS(VirtualDir exefs) const {
         if (content_provider_union) {
             const auto* external_provider = content_provider_union->GetExternalProvider();
             if (external_provider) {
-                const auto updates = external_provider->ListUpdateVersions(title_id);
+                const auto update_tid = GetUpdateTitleID(title_id);
+                const auto updates = external_provider->ListUpdateVersions(update_tid);
                 for (const auto& update : updates) {
-                    const auto name = fmt::format("External Files/Update {}", update.version_string);
+                    std::string version_str;
+                    const auto control_file = external_provider->GetEntryForVersion(
+                        update_tid, ContentRecordType::Control, update.version);
+
+                    if (control_file) {
+                        NCA control_nca(control_file);
+                        if (control_nca.GetStatus() == Loader::ResultStatus::Success) {
+                            if (auto control_romfs = control_nca.GetRomFS()) {
+                                if (auto extracted = ExtractRomFS(control_romfs)) {
+                                    auto nacp_file = extracted->GetFile("control.nacp");
+                                    if (!nacp_file) {
+                                        nacp_file = extracted->GetFile("Control.nacp");
+                                    }
+                                    if (nacp_file) {
+                                        NACP nacp(nacp_file);
+                                        version_str = nacp.GetVersionString();
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    if (version_str.empty()) {
+                        version_str = FormatTitleVersion(update.version);
+                    }
+
+                    const auto name = fmt::format("External Files/Update v{}", version_str);
                     const auto patch_disabled =
                         std::find(disabled.cbegin(), disabled.cend(), name) != disabled.cend();
                     if (!patch_disabled) {
                         if (!found_best || update.version > best_version) {
                             best_version = update.version;
                             best_update_raw = external_provider->GetEntryForVersion(
-                                title_id, ContentRecordType::Program, update.version);
+                                update_tid, ContentRecordType::Program, update.version);
                             found_best = true;
                         }
                     }
@@ -302,14 +329,18 @@ VirtualDir PatchManager::PatchExeFS(VirtualDir exefs) const {
             }
         }
 
+        LOG_INFO(Loader, "PatchExeFS: found_best={}, best_version={}, best_update_raw is {}", found_best, best_version, best_update_raw != nullptr ? "VALID" : "NULL");
+
         // Apply the best update found
         if (found_best && best_update_raw != nullptr) {
             // We need base_program_nca for patching
             const auto base_program_nca =
                 content_provider.GetEntry(title_id, ContentRecordType::Program);
+            LOG_INFO(Loader, "PatchExeFS: base_program_nca is {}", base_program_nca != nullptr ? "VALID" : "NULL");
 
             if (base_program_nca) {
                 const auto new_nca = std::make_shared<NCA>(best_update_raw, base_program_nca.get());
+                LOG_INFO(Loader, "PatchExeFS: new_nca status={}, has ExeFS={}", static_cast<int>(new_nca->GetStatus()), new_nca->GetExeFS() != nullptr);
                 if (new_nca->GetStatus() == Loader::ResultStatus::Success &&
                     new_nca->GetExeFS() != nullptr) {
                     LOG_INFO(Loader, "    ExeFS: Update ({}) applied successfully",
@@ -320,6 +351,7 @@ VirtualDir PatchManager::PatchExeFS(VirtualDir exefs) const {
                 // Fallback if no base program (unlikely for patching ExeFS)
                 // Or if it's a type that doesn't strictly need base?
                 const auto new_nca = std::make_shared<NCA>(best_update_raw, nullptr);
+                LOG_INFO(Loader, "PatchExeFS (No Base): new_nca status={}, has ExeFS={}", static_cast<int>(new_nca->GetStatus()), new_nca->GetExeFS() != nullptr);
                 if (new_nca->GetStatus() == Loader::ResultStatus::Success &&
                     new_nca->GetExeFS() != nullptr) {
                     LOG_INFO(Loader, "    ExeFS: Update ({}) applied successfully (No Base)",
