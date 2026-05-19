@@ -1166,6 +1166,9 @@ GameList::GameList(std::shared_ptr<FileSys::VfsFilesystem> vfs_,
                    GMainWindow* parent)
     : QWidget{parent}, vfs{std::move(vfs_)}, provider{provider_},
       play_time_manager{play_time_manager_}, system{system_} {
+    qRegisterMetaType<GameListDir*>("GameListDir*");
+    qRegisterMetaType<QList<QStandardItem*>>("QList<QStandardItem*>");
+
     watcher = new QFileSystemWatcher(this);
     connect(watcher, &QFileSystemWatcher::directoryChanged, this, &GameList::RefreshGameDirectory);
 
@@ -2192,9 +2195,6 @@ void GameList::ClearFilter() {
     search_field->clear();
 }
 
-void GameList::WorkerEvent() {
-    current_worker->ProcessEvents(this);
-}
 
 void GameList::AddDirEntry(GameListDir* entry_items) {
     if (!entry_items)
@@ -2950,9 +2950,7 @@ void GameList::DonePopulating(const QStringList& watch_list) {
         QTimer::singleShot(0, this, [this]() { current_worker.reset(); });
     }
 
-    for (const auto& watch_dir : watch_list) {
-        watcher->addPath(watch_dir);
-    }
+
     emit PopulatingCompleted();
 
     if (progress_bar) {
@@ -3004,15 +3002,13 @@ void GameList::DonePopulating(const QStringList& watch_list) {
         watcher->removePaths(watch_dirs);
     }
     constexpr int LIMIT_WATCH_DIRECTORIES = 5000;
-    constexpr int SLICE_SIZE = 25;
     int len = std::min(static_cast<int>(watch_list.size()), LIMIT_WATCH_DIRECTORIES);
     tree_view->setEnabled(true);
     tree_view->setFocus();
 
-    for (int i = 0; i < len; i += SLICE_SIZE) {
-        watcher->addPaths(watch_list.mid(i, i + SLICE_SIZE));
-        QCoreApplication::processEvents();
-    }
+    const bool old_signals_blocked = watcher->blockSignals(true);
+    watcher->addPaths(watch_list.mid(0, len));
+    watcher->blockSignals(old_signals_blocked);
     int children_total = 0;
     for (int i = 1; i < item_model->rowCount() - 1; ++i) {
         children_total += item_model->item(i, 0)->rowCount();
@@ -3869,7 +3865,11 @@ void GameList::PopulateAsync(QVector<UISettings::GameDir>& game_dirs, bool is_sm
     current_worker = std::make_unique<GameListWorker>(
         vfs, provider, game_dirs, compatibility_list, play_time_manager, system,
         main_window->GetMultiplayerState()->GetSession());
-    connect(current_worker.get(), &GameListWorker::DataAvailable, this, &GameList::WorkerEvent,
+    connect(current_worker.get(), &GameListWorker::DirEntryReady, this, &GameList::AddDirEntry,
+            Qt::QueuedConnection);
+    connect(current_worker.get(), &GameListWorker::EntryReady, this, &GameList::AddEntry,
+            Qt::QueuedConnection);
+    connect(current_worker.get(), &GameListWorker::Finished, this, &GameList::DonePopulating,
             Qt::QueuedConnection);
 
     if (progress_bar) {
@@ -3923,6 +3923,7 @@ void GameList::RefreshGameDirectory() {
 
 void GameList::CancelPopulation() {
     if (current_worker) {
+        current_worker->disconnect();
         current_worker->Cancel();
     }
     current_worker.reset();

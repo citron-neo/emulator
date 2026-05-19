@@ -11,7 +11,6 @@
 #include <string>
 #include <utility> // Required for std::pair
 
-
 #include <QList>
 #include <QObject>
 #include <QRunnable>
@@ -22,7 +21,6 @@
 #include "citron/play_time_manager.h"
 #include "common/thread.h"
 #include "network/announce_multiplayer_session.h"
-
 
 namespace Core {
 class System;
@@ -67,23 +65,11 @@ public:
     /// Request the worker to stop.
     void Cancel();
 
-public:
-    /**
-     * Synchronously processes any events queued by the worker.
-     *
-     * AddDirEntry is called on the game list for every discovered directory.
-     * AddEntry is called on the game list for every discovered program.
-     * DonePopulating is called on the game list when processing completes.
-     */
-    void ProcessEvents(GameList* game_list);
-
 signals:
-    void DataAvailable();
+    void DirEntryReady(GameListDir* entry_items);
+    void EntryReady(const QList<QStandardItem*>& entry_items, const QString& parent_path);
+    void Finished(const QStringList& watch_list);
     void ProgressUpdated(int percent);
-
-private:
-    template <typename F>
-    void RecordEvent(F&& func);
 
 private:
     void AddTitlesToGameList(const QString& parent_path,
@@ -102,9 +88,6 @@ private:
 
     QStringList watch_list;
 
-    std::mutex lock;
-    std::condition_variable cv;
-    std::deque<std::function<void(GameList*)>> queued_events;
     std::atomic_bool stop_requested = false;
     Common::Event processing_completed;
 
