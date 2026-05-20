@@ -94,7 +94,7 @@ QGroupBox#groupPlayer5Connected:checked,
 QGroupBox#groupPlayer6Connected:checked,
 QGroupBox#groupPlayer7Connected:checked,
 QGroupBox#groupPlayer8Connected:checked {
-    background-color: #f5f5f5;
+    background-color: #24242a;
 }
 
 QWidget#topControllerApplet {
@@ -108,7 +108,7 @@ QWidget#bottomControllerApplet {
 
 QWidget#topPerGameInput,
 QWidget#middleControllerApplet {
-    background-color: #fff;
+    background-color: #1e1e24;
 }
 
 QWidget#topPerGameInput QComboBox,

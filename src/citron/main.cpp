@@ -6339,15 +6339,33 @@ void GMainWindow::filterBarSetChecked(bool state) {
 }
 
 static void AdjustLinkColor() {
-    QPalette new_pal(qApp->palette());
-    if (UISettings::IsDarkTheme()) {
-        new_pal.setColor(QPalette::Link, QColor(0, 190, 255, 255));
-    } else {
-        new_pal.setColor(QPalette::Link, QColor(0, 140, 200, 255));
-    }
-    if (qApp->palette().color(QPalette::Link) != new_pal.color(QPalette::Link)) {
-        qApp->setPalette(new_pal);
-    }
+    QPalette darkPalette;
+    
+    QColor darkColor(36, 36, 42); // #24242a - Onyx bg
+    QColor grayColor(30, 30, 35); // #1e1e23 - darker bg
+    QColor baseColor(25, 25, 28); // #19191c - even darker base
+    
+    darkPalette.setColor(QPalette::Window, darkColor);
+    darkPalette.setColor(QPalette::WindowText, Qt::white);
+    darkPalette.setColor(QPalette::Base, baseColor);
+    darkPalette.setColor(QPalette::AlternateBase, grayColor);
+    darkPalette.setColor(QPalette::ToolTipBase, darkColor);
+    darkPalette.setColor(QPalette::ToolTipText, Qt::white);
+    darkPalette.setColor(QPalette::Text, Qt::white);
+    darkPalette.setColor(QPalette::Button, darkColor);
+    darkPalette.setColor(QPalette::ButtonText, Qt::white);
+    darkPalette.setColor(QPalette::BrightText, Qt::red);
+    darkPalette.setColor(QPalette::Link, QColor(0, 190, 255));
+    darkPalette.setColor(QPalette::Highlight, QColor(60, 120, 216));
+    darkPalette.setColor(QPalette::HighlightedText, Qt::white);
+    
+    // Disabled states
+    darkPalette.setColor(QPalette::Disabled, QPalette::WindowText, QColor(128, 128, 128));
+    darkPalette.setColor(QPalette::Disabled, QPalette::Text, QColor(128, 128, 128));
+    darkPalette.setColor(QPalette::Disabled, QPalette::ButtonText, QColor(128, 128, 128));
+    darkPalette.setColor(QPalette::Disabled, QPalette::Highlight, QColor(80, 80, 80));
+    
+    qApp->setPalette(darkPalette);
 }
 
 void GMainWindow::UpdateUITheme() {
@@ -6383,8 +6401,8 @@ void GMainWindow::UpdateUITheme() {
         // For explicit themes, use the dedicated icon sets.
         QIcon::setThemeName(current_theme);
         QIcon::setThemeSearchPaths(QStringList(QStringLiteral(":/icons")));
-        AdjustLinkColor();
     }
+    AdjustLinkColor();
 
     // Always load the stylesheet unless the theme is the true default (no explicit QSS)
     if (current_theme != QStringLiteral("default")) {
