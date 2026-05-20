@@ -30,21 +30,7 @@ namespace Theme {
     
     // Checks if the current theme is Dark Mode.
     inline bool IsDarkMode() {
-#ifdef _WIN32
         return true;
-#else
-        const std::string& theme_name = UISettings::values.theme;
-        if (theme_name == "qdarkstyle" || theme_name == "colorful_dark" ||
-            theme_name == "qdarkstyle_midnight_blue" || theme_name == "colorful_midnight_blue") {
-            return true;
-        }
-
-        // Universal fallback: Check if window text is lighter than window background
-        const QPalette palette = qApp->palette();
-        const QColor text_color = palette.color(QPalette::WindowText);
-        const QColor base_color = palette.color(QPalette::Window);
-        return text_color.value() > base_color.value();
-#endif
     }
 
 } // namespace Theme

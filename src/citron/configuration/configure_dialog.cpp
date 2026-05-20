@@ -63,20 +63,7 @@ static QScrollArea* CreateScrollArea(QWidget* widget) {
 }
 
 static bool DialogIsDarkMode() {
-#ifdef _WIN32
     return true;
-#else
-    const std::string& theme_name = UISettings::values.theme;
-    if (theme_name == "qdarkstyle" || theme_name == "colorful_dark" ||
-        theme_name == "qdarkstyle_midnight_blue" || theme_name == "colorful_midnight_blue") {
-        return true;
-    }
-    if (theme_name == "default" || theme_name == "colorful") {
-        return qApp->palette().color(QPalette::WindowText).value() >
-               qApp->palette().color(QPalette::Window).value();
-    }
-    return false;
-#endif
 }
 
 ConfigureDialog::ConfigureDialog(QWidget* parent, HotkeyRegistry& registry_,

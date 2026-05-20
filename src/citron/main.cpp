@@ -337,14 +337,7 @@ static void OverrideWindowsFont() {
 #endif
 
 bool GMainWindow::CheckDarkMode() {
-#ifdef _WIN32
     return true;
-#else
-    const QPalette test_palette(qApp->palette());
-    const QColor text_color = test_palette.color(QPalette::Active, QPalette::Text);
-    const QColor window_color = test_palette.color(QPalette::Active, QPalette::Window);
-    return (text_color.value() > window_color.value());
-#endif
 }
 
 GMainWindow::GMainWindow(std::unique_ptr<QtConfig> config_, bool has_broken_vulkan)
