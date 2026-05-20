@@ -174,6 +174,7 @@ struct KernelCore::Impl {
 
         // Ensure that the object list container is finalized and properly shutdown.
         global_object_list_container->Finalize();
+        global_object_list_container.reset();
 
 
         hardware_timer->Finalize();
@@ -969,7 +970,7 @@ const KAutoObjectWithListContainer& KernelCore::ObjectListContainer() const {
 }
 
 bool KernelCore::IsObjectListContainerValid() const {
-    return impl->global_object_list_container != nullptr;
+    return impl && impl->global_object_list_container != nullptr;
 }
 
 

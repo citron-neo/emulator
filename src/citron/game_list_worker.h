@@ -64,6 +64,7 @@ public:
 
     /// Request the worker to stop.
     void Cancel();
+    void MarkAsCanceledBeforeStart();
 
 signals:
     void DirEntryReady(GameListDir* entry_items);

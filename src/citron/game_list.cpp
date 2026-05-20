@@ -2173,6 +2173,7 @@ void GameList::LoadController() {
 }
 
 GameList::~GameList() {
+    CancelPopulation();
     UnloadController();
     // Grid and Carousel share the same flat model
     if (grid_view) {
@@ -3929,6 +3930,9 @@ void GameList::CancelPopulation() {
     if (current_worker) {
         current_worker->disconnect();
         current_worker->Cancel();
+        if (QThreadPool::globalInstance()->tryTake(current_worker.get())) {
+            current_worker->MarkAsCanceledBeforeStart();
+        }
     }
     current_worker.reset();
 }

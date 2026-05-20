@@ -540,6 +540,11 @@ void GameListWorker::Cancel() {
     stop_requested.store(true);
 }
 
+void GameListWorker::MarkAsCanceledBeforeStart() {
+    stop_requested.store(true);
+    processing_completed.Set();
+}
+
 
 void GameListWorker::AddTitlesToGameList(const QString& parent_path,
                                          const std::map<u64, std::pair<int, int>>& online_stats) {
@@ -646,10 +651,14 @@ void GameListWorker::ScanFileSystem(ScanTarget target, const std::string& dir_pa
                         const auto nsp = cached->file_type == Loader::FileType::NSP
                                              ? std::make_shared<FileSys::NSP>(file)
                                              : FileSys::XCI{file}.GetSecurePartitionNSP();
-                        for (const auto& title : nsp->GetNCAs()) {
-                            for (const auto& entry : title.second) {
-                                provider->AddEntry(entry.first.first, entry.first.second,
-                                                   title.first, entry.second->GetBaseFile());
+                        if (nsp) {
+                            for (const auto& title : nsp->GetNCAs()) {
+                                for (const auto& entry : title.second) {
+                                    if (entry.second) {
+                                        provider->AddEntry(entry.first.first, entry.first.second,
+                                                           title.first, entry.second->GetBaseFile());
+                                    }
+                                }
                             }
                         }
                     }
@@ -725,10 +734,14 @@ void GameListWorker::ScanFileSystem(ScanTarget target, const std::string& dir_pa
                     const auto nsp = file_type == Loader::FileType::NSP
                                          ? std::make_shared<FileSys::NSP>(file)
                                          : FileSys::XCI{file}.GetSecurePartitionNSP();
-                    for (const auto& title : nsp->GetNCAs()) {
-                        for (const auto& entry : title.second) {
-                            provider->AddEntry(entry.first.first, entry.first.second, title.first,
-                                               entry.second->GetBaseFile());
+                    if (nsp) {
+                        for (const auto& title : nsp->GetNCAs()) {
+                            for (const auto& entry : title.second) {
+                                if (entry.second) {
+                                    provider->AddEntry(entry.first.first, entry.first.second, title.first,
+                                                       entry.second->GetBaseFile());
+                                }
+                            }
                         }
                     }
                 }
@@ -786,6 +799,10 @@ void GameListWorker::ScanFileSystem(ScanTarget target, const std::string& dir_pa
 }
 
 void GameListWorker::run() {
+    if (stop_requested) {
+        processing_completed.Set();
+        return;
+    }
     LoadGameMetadataCache();
 
     std::map<u64, std::pair<int, int>> online_stats;

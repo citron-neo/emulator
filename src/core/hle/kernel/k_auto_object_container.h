@@ -24,7 +24,7 @@ public:
     KAutoObjectWithListContainer(KernelCore& kernel) : m_lock(), m_object_list() {}
 
     void Initialize() {}
-    void Finalize() {}
+    void Finalize();
 
     void Register(KAutoObjectWithList* obj);
     void Unregister(KAutoObjectWithList* obj);
