@@ -93,6 +93,13 @@ public:
     [[nodiscard]] Metadata ParseControlNCA(const NCA& nca) const;
 
 private:
+    struct ActiveUpdate {
+        u32 version = 0;
+        bool found = false;
+        bool is_external = false;
+    };
+    [[nodiscard]] ActiveUpdate GetActiveUpdate() const;
+
     [[nodiscard]] VirtualFile FindAutoloaderNCA(ContentRecordType type) const;
     [[nodiscard]] std::vector<VirtualFile> CollectPatches(const std::vector<VirtualDir>& patch_dirs,
                                                           const std::string& build_id) const;

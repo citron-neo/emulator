@@ -117,11 +117,13 @@ void BufferCache<P>::TickFrame() {
     const bool skip_preferred = hits * 256 < shots * 251;
     channel_state->uniform_buffer_skip_cache_size = skip_preferred ? DEFAULT_SKIP_CACHE_SIZE : 0;
 
-    if (runtime.CanReportMemoryUsage()) {
-        total_used_memory = runtime.GetDeviceMemoryUsage();
-    }
-    if (total_used_memory >= minimum_memory) {
-        RunGarbageCollector();
+    if (Settings::values.gc_aggressiveness.GetValue() != Settings::GCAggressiveness::Off) {
+        if (runtime.CanReportMemoryUsage()) {
+            total_used_memory = runtime.GetDeviceMemoryUsage();
+        }
+        if (total_used_memory >= minimum_memory) {
+            RunGarbageCollector();
+        }
     }
     ++frame_tick;
     delayed_destruction_ring.Tick();

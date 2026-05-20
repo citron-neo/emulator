@@ -297,6 +297,10 @@ void ConfigurePerGameAddons::LoadConfiguration() {
             full_name = display_name;
         }
 
+        if (patch.type == FileSys::PatchType::Update) {
+            full_name = QStringLiteral("Update v%1").arg(QString::fromStdString(patch.version));
+        }
+
         auto* const first_item = new QStandardItem(full_name);
         first_item->setCheckable(true);
 
