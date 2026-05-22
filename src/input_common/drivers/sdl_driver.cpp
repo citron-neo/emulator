@@ -495,12 +495,24 @@ void SDLDriver::HandleGameControllerEvent(const SDL_Event& event) {
         break;
     }
     case SDL_JOYAXISMOTION: {
-        if (const auto joystick = GetSDLJoystickBySDLID(event.jaxis.which)) {
-            const PadIdentifier identifier = joystick->GetPadIdentifier();
-            SetAxis(identifier, event.jaxis.axis, event.jaxis.value / 32767.0f);
+            if (const auto joystick = GetSDLJoystickBySDLID(event.jaxis.which)) {
+                const PadIdentifier identifier = joystick->GetPadIdentifier();
+
+
+                float axis_value = event.jaxis.value / 32767.0f;
+
+                auto* controller = joystick->GetSDLGameController();
+                if (controller != nullptr && IsMicrosoftGamepad(controller)) {
+                    if (event.jaxis.axis == 1 || event.jaxis.axis == 4) {
+                        axis_value = -axis_value;
+                    }
+                }
+                // ----------------------------------------------------
+
+                SetAxis(identifier, event.jaxis.axis, axis_value);
+            }
+            break;
         }
-        break;
-    }
     case SDL_CONTROLLERSENSORUPDATE: {
         if (auto joystick = GetSDLJoystickBySDLID(event.csensor.which)) {
             if (joystick->UpdateMotion(event.csensor)) {
