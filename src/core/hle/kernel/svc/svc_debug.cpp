@@ -12,8 +12,8 @@ Result DebugActiveProcess(Core::System& system, Handle* out_handle, uint64_t pro
 }
 
 Result BreakDebugProcess(Core::System& system, Handle debug_handle) {
-    UNIMPLEMENTED();
-    R_THROW(ResultNotImplemented);
+    LOG_WARNING(Kernel_SVC, "(stubbed)");
+    R_SUCCEED();
 }
 
 Result TerminateDebugProcess(Core::System& system, Handle debug_handle) {
