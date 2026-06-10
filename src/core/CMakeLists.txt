@@ -1256,7 +1256,7 @@ target_link_libraries(core
         tz
         fmt::fmt
         nlohmann_json::nlohmann_json
-        mbedtls
+        OpenSSL::Crypto
         RenderDoc::API
         stb::headers
         ZLIB::ZLIB

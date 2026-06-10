@@ -6,7 +6,6 @@
 #include "common/assert.h"
 #include "core/file_sys/vfs.h"
 #include "key_manager.h"
-#include "mbedtls/cipher.h"
 
 namespace Crypto {
 typedef std::array<u8, 0x20> SHA256Hash;

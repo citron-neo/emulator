@@ -210,21 +210,13 @@ if (NOT TARGET SimpleIni::SimpleIni)
     )
 endif()
 
-# ── cpp-jwt ───────────────────────────────────────────────────────────────────
-if (ENABLE_WEB_SERVICE AND NOT TARGET cpp-jwt::cpp-jwt)
-    CPMAddPackage(
-        NAME cpp-jwt
-        GITHUB_REPOSITORY arun11299/cpp-jwt
-        GIT_TAG v1.4
-        DOWNLOAD_ONLY TRUE
-    )
-    if (cpp-jwt_ADDED)
-        add_library(cpp-jwt::cpp-jwt INTERFACE IMPORTED GLOBAL)
-        target_include_directories(cpp-jwt::cpp-jwt INTERFACE "${cpp-jwt_SOURCE_DIR}/include")
-    endif()
-endif()
+# cpp-jwt removed: JWT RS256 verification is now done directly with OpenSSL EVP
+# in web_service/verify_user_jwt.cpp. No external JWT library needed.
 
 # ── cpp-httplib ───────────────────────────────────────────────────────────────
+# OpenSSL TLS support via CPPHTTPLIB_OPENSSL_SUPPORT.
+# web_backend.cpp instantiates httplib::Client with an https:// host which
+# auto-upgrades to TLS through this path.
 if (ENABLE_WEB_SERVICE AND NOT TARGET httplib::httplib)
     CPMAddPackage(
         NAME httplib
@@ -238,12 +230,10 @@ if (ENABLE_WEB_SERVICE AND NOT TARGET httplib::httplib)
         target_include_directories(httplib::httplib SYSTEM INTERFACE "${httplib_SOURCE_DIR}")
         target_compile_definitions(httplib::httplib INTERFACE CPPHTTPLIB_OPENSSL_SUPPORT)
         target_link_libraries(httplib::httplib INTERFACE
-            $<$<TARGET_EXISTS:Threads::Threads>:Threads::Threads>
             OpenSSL::SSL
             OpenSSL::Crypto
+            $<$<TARGET_EXISTS:Threads::Threads>:Threads::Threads>
             $<$<PLATFORM_ID:Windows>:ws2_32>
-            $<$<PLATFORM_ID:Windows>:crypt32>
-            $<$<PLATFORM_ID:Windows>:cryptui>
         )
     endif()
 endif()
@@ -402,26 +392,8 @@ endif()
 # Forked repos — pinned to exact SHAs
 # ═══════════════════════════════════════════════════════════════════════════════
 
-# ── mbedtls (yuzu-mirror fork) ────────────────────────────────────────────────
-if (NOT TARGET mbedtls)
-    CPMAddPackage(
-        NAME mbedtls
-        GITHUB_REPOSITORY yuzu-mirror/mbedtls
-        GIT_TAG 8c88150ca139e06aa2aae8349df8292a88148ea1
-        OPTIONS
-            "ENABLE_TESTING OFF"
-            "ENABLE_PROGRAMS OFF"
-            "MBEDTLS_FATAL_WARNINGS OFF"
-    )
-    if (TARGET mbedtls)
-        target_include_directories(mbedtls PUBLIC ${mbedtls_SOURCE_DIR}/include)
-    endif()
-    if (TARGET mbedtls AND NOT MSVC)
-        target_compile_options(mbedcrypto PRIVATE
-            -Wno-unused-but-set-variable
-            -Wno-string-concatenation)
-    endif()
-endif()
+# mbedtls removed: all mbedtls usage replaced with OpenSSL EVP and AES-NI
+# intrinsics. OpenSSL is built via openssl_build.cmake (CPM).
 
 # ── oaknut (yuzu-mirror fork) — AArch64 only ──────────────────────────────────
 if (ARCHITECTURE_arm64 AND NOT TARGET merry::oaknut)

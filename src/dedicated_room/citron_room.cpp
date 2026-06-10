@@ -16,7 +16,7 @@
 #include <shellapi.h>
 #endif
 
-#include <mbedtls/base64.h>
+#include <openssl/evp.h>
 #include "common/common_types.h"
 #include "common/detached_tasks.h"
 #include "common/fs/file.h"
@@ -76,17 +76,36 @@ static constexpr char BanListMagic[] = "CitronRoom-BanList-1";
 
 static constexpr char token_delimiter{':'};
 
-static void PadToken(std::string& token) {
-    std::size_t outlen = 0;
+// Decode standard base64 (with padding). Returns number of decoded bytes or -1 on error.
+// EVP_DecodeBlock strips whitespace and handles trailing '=' padding.
+static int Base64Decode(unsigned char* out, int out_max,
+                        const unsigned char* in, int in_len) {
+    if (in_len == 0) return 0;
+    // EVP_DecodeBlock requires length to be a multiple of 4; pad if needed with a copy.
+    std::string padded(reinterpret_cast<const char*>(in), static_cast<size_t>(in_len));
+    while (padded.size() % 4 != 0) padded += '=';
+    int n = EVP_DecodeBlock(out, reinterpret_cast<const unsigned char*>(padded.data()),
+                            static_cast<int>(padded.size()));
+    if (n < 0) return -1;
+    // Subtract padding bytes
+    if (!padded.empty() && padded[padded.size()-1] == '=') n--;
+    if (padded.size() >= 2 && padded[padded.size()-2] == '=') n--;
+    return n;
+}
 
+static void PadToken(std::string& token) {
     std::array<unsigned char, 512> output{};
     std::array<unsigned char, 2048> roundtrip{};
     for (size_t i = 0; i < 3; i++) {
-        mbedtls_base64_decode(output.data(), output.size(), &outlen,
-                              reinterpret_cast<const unsigned char*>(token.c_str()),
-                              token.length());
-        mbedtls_base64_encode(roundtrip.data(), roundtrip.size(), &outlen, output.data(), outlen);
-        if (memcmp(roundtrip.data(), token.data(), token.size()) == 0) {
+        int outlen = Base64Decode(output.data(), static_cast<int>(output.size()),
+                                  reinterpret_cast<const unsigned char*>(token.c_str()),
+                                  static_cast<int>(token.length()));
+        if (outlen < 0) break;
+        // EVP_EncodeBlock: produces standard base64 with '=' padding, no newlines
+        int encoded_len = EVP_EncodeBlock(roundtrip.data(), output.data(), outlen);
+        if (std::string_view(reinterpret_cast<char*>(roundtrip.data()),
+                             static_cast<size_t>(encoded_len)) ==
+            std::string_view(token.data(), token.size())) {
             break;
         }
         token.push_back('=');
@@ -94,25 +113,25 @@ static void PadToken(std::string& token) {
 }
 
 static std::string UsernameFromDisplayToken(const std::string& display_token) {
-    std::size_t outlen;
-
     std::array<unsigned char, 512> output{};
-    mbedtls_base64_decode(output.data(), output.size(), &outlen,
-                          reinterpret_cast<const unsigned char*>(display_token.c_str()),
-                          display_token.length());
-    std::string decoded_display_token(reinterpret_cast<char*>(&output), outlen);
-    return decoded_display_token.substr(0, decoded_display_token.find(token_delimiter));
+    int outlen = Base64Decode(output.data(), static_cast<int>(output.size()),
+                              reinterpret_cast<const unsigned char*>(display_token.c_str()),
+                              static_cast<int>(display_token.length()));
+    if (outlen < 0) return {};
+    std::string decoded(reinterpret_cast<char*>(output.data()), static_cast<size_t>(outlen));
+    return decoded.substr(0, decoded.find(token_delimiter));
 }
 
 static std::string TokenFromDisplayToken(const std::string& display_token) {
-    std::size_t outlen;
-
     std::array<unsigned char, 512> output{};
-    mbedtls_base64_decode(output.data(), output.size(), &outlen,
-                          reinterpret_cast<const unsigned char*>(display_token.c_str()),
-                          display_token.length());
-    std::string decoded_display_token(reinterpret_cast<char*>(&output), outlen);
-    return decoded_display_token.substr(decoded_display_token.find(token_delimiter) + 1);
+    int outlen = Base64Decode(output.data(), static_cast<int>(output.size()),
+                              reinterpret_cast<const unsigned char*>(display_token.c_str()),
+                              static_cast<int>(display_token.length()));
+    if (outlen < 0) return {};
+    std::string decoded(reinterpret_cast<char*>(output.data()), static_cast<size_t>(outlen));
+    const auto pos = decoded.find(token_delimiter);
+    if (pos == std::string::npos) return {};
+    return decoded.substr(pos + 1);
 }
 
 static Network::Room::BanList LoadBanList(const std::string& path) {

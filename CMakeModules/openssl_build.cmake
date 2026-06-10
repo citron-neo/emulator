@@ -226,6 +226,28 @@ message(STATUS "[OpenSSL] Building OpenSSL ${_OPENSSL_VERSION} from source (stat
 
 file(MAKE_DIRECTORY "${_OPENSSL_BUILD_DIR}")
 
+# AES-NI / assembly: OpenSSL's x86_64 assembly (aesni-x86_64.pl, sha256-x86_64.pl, etc.)
+# requires NASM as a host tool.  Both build scripts already install nasm, so we
+# enable assembly unconditionally here.  If NASM is not found we emit a clear
+# fatal error rather than silently falling back to the slow pure-C AES path.
+#
+# Note: for the Linux→Windows cross-compile (Case 2), OpenSSL's mingw64 target
+# generates x86_64 NASM object files using the *host* nasm binary — not a
+# prefixed cross-tool — so the same nasm package used for FFmpeg works here too.
+find_program(_OPENSSL_NASM nasm)
+if (NOT _OPENSSL_NASM)
+    message(FATAL_ERROR
+        "[OpenSSL] NASM not found in PATH.  OpenSSL's AES-NI / SHA-NI assembly "
+        "optimisations require NASM.\n"
+        "  Ubuntu/Debian : sudo apt-get install nasm\n"
+        "  Fedora/RHEL   : sudo dnf install nasm\n"
+        "  openSUSE      : sudo zypper install nasm\n"
+        "  MSYS2         : pacman -S mingw-w64-clang-x86_64-nasm\n"
+        "Both build scripts (build-citron-linux.sh, build-clangtron-windows.sh) "
+        "already install nasm as part of their dependency setup.")
+endif()
+message(STATUS "[OpenSSL] NASM found: ${_OPENSSL_NASM}")
+
 # Build Configure argument list
 set(_OPENSSL_CONFIGURE_ARGS
     ${_OPENSSL_TARGET}
@@ -235,7 +257,6 @@ set(_OPENSSL_CONFIGURE_ARGS
     no-tests
     no-docs
     no-apps
-    no-asm
     no-capieng
     no-winstore
 )
