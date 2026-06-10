@@ -37,7 +37,7 @@ else()
     endif()
 endif()
 
-target_link_libraries(citron-room PRIVATE mbedtls mbedcrypto)
+target_link_libraries(citron-room PRIVATE OpenSSL::Crypto)
 if (MSVC)
     target_link_libraries(citron-room PRIVATE getopt)
 endif()
