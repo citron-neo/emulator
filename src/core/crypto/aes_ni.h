@@ -38,9 +38,9 @@
 
 #pragma once
 
-#if !defined(__x86_64__) && !defined(_M_X64)
-#error "aes_ni.h requires an x86-64 target"
-#endif
+// aes_ni.h is x86-64 only. On other architectures the entire file is a no-op;
+// callers guard usage with #ifdef ARCHITECTURE_x86_64.
+#if defined(__x86_64__) || defined(_M_X64)
 
 #include <cstddef>
 #include <cstdint>
@@ -633,3 +633,5 @@ inline void Cmac128(const __m128i* ks, const uint8_t* msg, std::size_t len,
 }
 
 } // namespace Core::Crypto::AesNi
+
+#endif // defined(__x86_64__) || defined(_M_X64)

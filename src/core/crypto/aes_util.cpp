@@ -4,11 +4,15 @@
 #include <array>
 #include <cstring>
 #include <openssl/evp.h>
+#include <openssl/params.h>
 #include "common/assert.h"
 #include "common/logging.h"
-#include "core/crypto/aes_ni.h"
 #include "core/crypto/aes_util.h"
 #include "core/crypto/key_manager.h"
+
+#ifdef ARCHITECTURE_x86_64
+#include "core/crypto/aes_ni.h"
+#endif
 
 namespace Core::Crypto {
 namespace {
@@ -26,26 +30,28 @@ NintendoTweak CalculateNintendoTweak(std::size_t sector_id) {
 
 } // Anonymous namespace
 
-// CipherContext holds precomputed round key schedules, the current IV/counter,
-// and a copy of the raw 16-byte key. The raw key is only used by the OpenSSL
-// EVP fallback path in Ctr128 (fires on CPUs with no AES-NI hardware — in
-// practice never on any x86-64 built after 2011, but kept for correctness).
+// ── CipherContext ─────────────────────────────────────────────────────────────
+// On x86-64: precomputed AES-NI round key schedules + raw key for fallback.
+// On other architectures: raw key bytes only; all operations use OpenSSL EVP.
+
 struct CipherContext {
+#ifdef ARCHITECTURE_x86_64
     // Encrypt schedule: 15 slots covers AES-128 (11 used) and AES-256 (15 used)
     __m128i ks_enc[AesNi::kRoundKeys256];
     // Decrypt schedule: same layout
     __m128i ks_dec[AesNi::kRoundKeys256];
     // XTS only: separate 128-bit encrypt schedule for the tweak key
     __m128i ks_tweak[AesNi::kRoundKeys128];
-    // Current IV as a 16-byte big-endian value (CTR counter or XTS tweak).
-    uint8_t iv[AesNi::kBlockSize];
-    // Raw key bytes — used by two fallback paths:
-    //   raw_key[0..15] : Ctr128's OpenSSL EVP fallback (AES-128-CTR)
-    //   raw_key[0..31] : XTS OpenSSL path for sectors above kXtsOsslThreshold
-    // Storing 32 bytes covers both AES-128 and AES-256 key material.
-    uint8_t raw_key[AesNi::kKeySize256];
     // Number of active round keys: 11 for AES-128, 15 for AES-256
     int rounds;
+#endif
+    // Raw key bytes used by OpenSSL fallback paths (CTR, XTS large sectors,
+    // and all operations on non-x86 platforms).
+    // 32 bytes covers both AES-128 and AES-256 key material.
+    uint8_t raw_key[32];
+    std::size_t key_size; // bytes: 16 or 32
+    // Current IV as a 16-byte big-endian value (CTR counter or XTS tweak).
+    uint8_t iv[16];
     Mode mode;
 };
 
@@ -54,15 +60,16 @@ AESCipher<Key, KeySize>::AESCipher(Key key, Mode mode)
     : ctx(std::make_unique<CipherContext>()) {
 
     ctx->mode = mode;
+    ctx->key_size = KeySize;
+    std::memset(ctx->iv, 0, 16);
+    std::memcpy(ctx->raw_key, key.data(), KeySize);
 
+#ifdef ARCHITECTURE_x86_64
     if constexpr (KeySize == AesNi::kKeySize128) {
         ctx->rounds = static_cast<int>(AesNi::kRoundKeys128);
         AesNi::KeyExpand128Enc(key.data(), ctx->ks_enc);
         AesNi::KeyExpand128Dec(ctx->ks_enc, ctx->ks_dec);
-        // Store raw key. For CTR: only first 16 bytes used by OpenSSL fallback.
-        // For XTS: raw_key[0..15] is the data key; raw_key[16..31] is set to
-        // the same value (Key128+XTS uses one key for both halves).
-        std::memcpy(ctx->raw_key,      key.data(), AesNi::kKeySize128);
+        // For XTS: raw_key[16..31] mirrors [0..15] (same key for data and tweak).
         std::memcpy(ctx->raw_key + 16, key.data(), AesNi::kKeySize128);
 
         if (mode == Mode::XTS) {
@@ -72,7 +79,7 @@ AESCipher<Key, KeySize>::AESCipher(Key key, Mode mode)
             // use Key256).
             AesNi::KeyExpand128Enc(key.data(), ctx->ks_tweak);
         }
-} else {
+    } else {
         // AES-256 key material — but XTS-AES-128 uses two independent 128-bit
         // keys: key[0..15] for data, key[16..31] for tweak. Expand both as
         // AES-128 (11 round keys each). The full 256-bit AES-256 key schedule
@@ -88,12 +95,8 @@ AESCipher<Key, KeySize>::AESCipher(Key key, Mode mode)
             AesNi::KeyExpand256Enc(key.data(), ctx->ks_enc);
             AesNi::KeyExpand256Dec(ctx->ks_enc, ctx->ks_dec);
         }
-        // Store full 32-byte key. For CTR: first 16 bytes used by OpenSSL fallback.
-        // For XTS: full 32 bytes needed — data key[0..15], tweak key[16..31].
-        std::memcpy(ctx->raw_key, key.data(), AesNi::kKeySize256);
     }
-
-    std::memset(ctx->iv, 0, AesNi::kBlockSize);
+#endif // ARCHITECTURE_x86_64
 }
 
 template <typename Key, std::size_t KeySize>
@@ -101,8 +104,8 @@ AESCipher<Key, KeySize>::~AESCipher() = default;
 
 template <typename Key, std::size_t KeySize>
 void AESCipher<Key, KeySize>::SetIV(std::span<const u8> data) {
-    ASSERT_MSG(data.size() == AesNi::kBlockSize, "IV must be exactly 16 bytes");
-    std::memcpy(ctx->iv, data.data(), AesNi::kBlockSize);
+    ASSERT_MSG(data.size() == 16, "IV must be exactly 16 bytes");
+    std::memcpy(ctx->iv, data.data(), 16);
 }
 
 template <typename Key, std::size_t KeySize>
@@ -110,6 +113,7 @@ void AESCipher<Key, KeySize>::Transcode(const u8* src, std::size_t size, u8* des
                                         Op op) const {
     switch (ctx->mode) {
     case Mode::ECB: {
+#ifdef ARCHITECTURE_x86_64
         if (size < AesNi::kBlockSize) {
             u8 block[AesNi::kBlockSize] = {};
             std::memcpy(block, src, size);
@@ -137,20 +141,59 @@ void AESCipher<Key, KeySize>::Transcode(const u8* src, std::size_t size, u8* des
                     AesNi::EcbDecBlock(ctx->ks_dec, ctx->rounds, src + off, dest + off);
             }
         }
+#else
+        // Non-x86: OpenSSL EVP ECB
+        {
+            const EVP_CIPHER* cipher = (ctx->key_size == 16)
+                ? (op == Op::Encrypt ? EVP_aes_128_ecb() : EVP_aes_128_ecb())
+                : (op == Op::Encrypt ? EVP_aes_256_ecb() : EVP_aes_256_ecb());
+            EVP_CIPHER_CTX* evp = EVP_CIPHER_CTX_new();
+            if (op == Op::Encrypt) {
+                EVP_EncryptInit_ex(evp, cipher, nullptr, ctx->raw_key, nullptr);
+                EVP_CIPHER_CTX_set_padding(evp, 0);
+                int outl = 0;
+                for (std::size_t off = 0; off < size; off += 16) {
+                    const int chunk = static_cast<int>(std::min<std::size_t>(16, size - off));
+                    u8 block[16] = {};
+                    std::memcpy(block, src + off, chunk);
+                    EVP_EncryptUpdate(evp, dest + off, &outl, block, 16);
+                }
+            } else {
+                EVP_DecryptInit_ex(evp, cipher, nullptr, ctx->raw_key, nullptr);
+                EVP_CIPHER_CTX_set_padding(evp, 0);
+                int outl = 0;
+                for (std::size_t off = 0; off < size; off += 16) {
+                    const int chunk = static_cast<int>(std::min<std::size_t>(16, size - off));
+                    u8 block[16] = {};
+                    std::memcpy(block, src + off, chunk);
+                    EVP_DecryptUpdate(evp, dest + off, &outl, block, 16);
+                }
+            }
+            EVP_CIPHER_CTX_free(evp);
+        }
+#endif
         break;
     }
     case Mode::CTR: {
+#ifdef ARCHITECTURE_x86_64
         ASSERT_MSG(ctx->rounds == static_cast<int>(AesNi::kRoundKeys128),
                    "CTR mode requires AES-128 key schedule");
-        // Pass a mutable copy of the IV — SetIV is called before each Transcode
-        // so the counter is always reset to the correct position by the caller.
         uint8_t ctr_copy[AesNi::kBlockSize];
         std::memcpy(ctr_copy, ctx->iv, AesNi::kBlockSize);
-        // raw_key passed for the OpenSSL fallback; ignored on AES-NI / VAES paths.
         AesNi::Ctr128(ctx->ks_enc, src, dest, size, ctr_copy, ctx->raw_key);
+#else
+        {
+            EVP_CIPHER_CTX* evp = EVP_CIPHER_CTX_new();
+            EVP_EncryptInit_ex(evp, EVP_aes_128_ctr(), nullptr, ctx->raw_key, ctx->iv);
+            int outl = 0;
+            EVP_EncryptUpdate(evp, dest, &outl, src, static_cast<int>(size));
+            EVP_CIPHER_CTX_free(evp);
+        }
+#endif
         break;
     }
     case Mode::XTS: {
+#ifdef ARCHITECTURE_x86_64
         // Below kXtsOsslThreshold: intrinsic loop wins (zero EVP overhead).
         // Above it: OpenSSL's 6-block-interleaved asm is faster.
         if (size <= AesNi::kXtsOsslThreshold) {
@@ -175,6 +218,26 @@ void AESCipher<Key, KeySize>::Transcode(const u8* src, std::size_t size, u8* des
             }
             EVP_CIPHER_CTX_free(evp);
         }
+#else
+        // Non-x86: always use OpenSSL EVP XTS
+        {
+            EVP_CIPHER_CTX* evp = EVP_CIPHER_CTX_new();
+            if (op == Op::Encrypt) {
+                EVP_EncryptInit_ex(evp, EVP_aes_128_xts(), nullptr, ctx->raw_key, ctx->iv);
+                EVP_CIPHER_CTX_set_padding(evp, 0);
+                int outl = 0, outl2 = 0;
+                EVP_EncryptUpdate(evp, dest, &outl, src, static_cast<int>(size));
+                EVP_EncryptFinal_ex(evp, dest + outl, &outl2);
+            } else {
+                EVP_DecryptInit_ex(evp, EVP_aes_128_xts(), nullptr, ctx->raw_key, ctx->iv);
+                EVP_CIPHER_CTX_set_padding(evp, 0);
+                int outl = 0, outl2 = 0;
+                EVP_DecryptUpdate(evp, dest, &outl, src, static_cast<int>(size));
+                EVP_DecryptFinal_ex(evp, dest + outl, &outl2);
+            }
+            EVP_CIPHER_CTX_free(evp);
+        }
+#endif
         break;
     }
     default:
