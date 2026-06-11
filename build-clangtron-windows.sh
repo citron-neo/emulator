@@ -379,6 +379,33 @@ if [[ "${CPM_SOURCE_CACHE}" == *" "* ]]; then
           "       export CPM_SOURCE_CACHE=\"/tmp/cpm-cache\""
 fi
 
+# download_with_retry URL OUTPUT_FILE [MAX_RETRIES]
+# Downloads URL to OUTPUT_FILE using wget, retrying on failure with
+# exponential back-off (5 s → 10 s → 20 s …).
+# Returns 0 on success, 1 after all attempts are exhausted.
+download_with_retry() {
+    local url="$1"
+    local output="$2"
+    local max_retries="${3:-3}"
+    local attempt=1
+    local delay=5
+
+    while [[ "${attempt}" -le "${max_retries}" ]]; do
+        if [[ "${attempt}" -gt 1 ]]; then
+            warn "Download retry ${attempt}/${max_retries} (waiting ${delay}s): $(basename "${output}")"
+            sleep "${delay}"
+            delay=$(( delay * 2 ))
+        fi
+        if wget -q --show-progress --timeout=60 --tries=1 \
+                -O "${output}" "${url}" 2>&1; then
+            return 0
+        fi
+        rm -f "${output}"
+        attempt=$(( attempt + 1 ))
+    done
+    return 1
+}
+
 # _sudo — portable sudo wrapper.
 # On Windows/MSYS2, sudo is unavailable; run privileged commands directly.
 # On Linux, delegate to the real sudo as usual.
@@ -555,30 +582,16 @@ build_bolt_from_source() {
     local bolt_tag=""
     local install_dir="/usr/local/bin"
 
-    # Probe candidate tags in order: X.0.0 → X.1.0 → X.1.1 → … → X.1.9
-    # LLVM releases often skip X.0.0 and go straight to X.1.0 for final releases.
-    # Point releases are frequent — LLVM 21 reached 21.1.7. We probe the full
-    # range and take the latest confirmed tag so this stays correct automatically.
+    # Probe for the latest point-release tag with a single ls-remote call.
+    # Fetches all refs/tags/llvmorg-<VER>.* in one round-trip, then picks
+    # the highest version with sort -V.
     local found_tag=""
-    for _candidate in \
-            "llvmorg-${CLANG_VERSION}.0.0" \
-            "llvmorg-${CLANG_VERSION}.1.0" \
-            "llvmorg-${CLANG_VERSION}.1.1" \
-            "llvmorg-${CLANG_VERSION}.1.2" \
-            "llvmorg-${CLANG_VERSION}.1.3" \
-            "llvmorg-${CLANG_VERSION}.1.4" \
-            "llvmorg-${CLANG_VERSION}.1.5" \
-            "llvmorg-${CLANG_VERSION}.1.6" \
-            "llvmorg-${CLANG_VERSION}.1.7" \
-            "llvmorg-${CLANG_VERSION}.1.8" \
-            "llvmorg-${CLANG_VERSION}.1.9"; do
-        info "Checking for LLVM tag ${_candidate}..."
-        if git ls-remote --tags https://github.com/llvm/llvm-project.git "${_candidate}" \
-                2>/dev/null | grep -q "${_candidate}"; then
-            found_tag="${_candidate}"
-            # Keep probing — we want the latest point-release tag
-        fi
-    done
+    local _all_tags
+    _all_tags="$(git ls-remote --tags https://github.com/llvm/llvm-project.git \
+        "refs/tags/llvmorg-${CLANG_VERSION}.*" 2>/dev/null || true)"
+    found_tag="$(printf '%s\n' "${_all_tags}" \
+        | grep -o "llvmorg-${CLANG_VERSION}\.[0-9][0-9.]*" \
+        | sort -V | tail -1 || true)"
 
     if [[ -z "${found_tag}" ]]; then
         error "Could not find any LLVM ${CLANG_VERSION} release tag on GitHub.\n" \
@@ -1671,14 +1684,20 @@ rebuild_ffmpeg_pthread_free() {
 
     local ffmpeg_src=""
 
-    # Priority 1: previously downloaded/extracted source tree
-    if [[ -f "${ffmpeg_src_dir}/configure" ]]; then
+    # Priority 1: previously downloaded/extracted source tree.
+    # Requires the .ffmpeg_src_ready sentinel written after a clean extraction —
+    # a directory with configure but no sentinel means a partial/interrupted
+    # extraction from a prior run and must not be reused.
+    if [[ -f "${ffmpeg_src_dir}/.ffmpeg_src_ready" && -f "${ffmpeg_src_dir}/configure" ]]; then
         if _ffmpeg_abi_matches "${ffmpeg_src_dir}"; then
             ffmpeg_src="${ffmpeg_src_dir}"
             info "[ffmpeg-rebuild] Using cached FFmpeg ${FFMPEG_VERSION} source"
         else
             warn "[ffmpeg-rebuild] Cached source ABI does not match FFmpeg ${FFMPEG_VERSION} — ignoring"
         fi
+    elif [[ -d "${ffmpeg_src_dir}" ]]; then
+        warn "[ffmpeg-rebuild] Cached source dir exists but lacks .ffmpeg_src_ready sentinel — likely a partial extraction. Wiping and re-downloading."
+        rm -rf "${ffmpeg_src_dir}"
     fi
 
     # Priority 2: vendored submodule (only if sonames match)
@@ -1709,16 +1728,19 @@ rebuild_ffmpeg_pthread_free() {
         local ffmpeg_url="https://ffmpeg.org/releases/ffmpeg-${FFMPEG_VERSION}.tar.bz2"
         info "[ffmpeg-rebuild] Downloading FFmpeg ${FFMPEG_VERSION} source from ffmpeg.org..."
         mkdir -p "${BUILD_ROOT}"
-        if ! wget -q --show-progress -O "${tarball}" "${ffmpeg_url}"; then
-            warn "[ffmpeg-rebuild] Download failed — FFmpeg DLLs will NOT be built (cmake will fail)"
-            return 0
-        fi
+        download_with_retry "${ffmpeg_url}" "${tarball}" 3 \
+            || error "[ffmpeg-rebuild] Failed to download FFmpeg ${FFMPEG_VERSION} after 3 attempts.
+  URL: ${ffmpeg_url}
+  Check network connectivity or set CPM_SOURCE_CACHE to a pre-populated directory."
         info "[ffmpeg-rebuild] Extracting FFmpeg ${FFMPEG_VERSION}..."
         mkdir -p "${ffmpeg_src_dir}"
-        tar -xjf "${tarball}" -C "${ffmpeg_src_dir}" --strip-components=1 || {
-            warn "[ffmpeg-rebuild] Extraction failed"
-            return 0
-        }
+        info "[ffmpeg-rebuild] Verifying tarball integrity..."
+        tar -tjf "${tarball}" > /dev/null 2>&1 \
+            || error "[ffmpeg-rebuild] Tarball integrity check failed — download is corrupt.
+  Delete ${tarball} and retry."
+        tar -xjf "${tarball}" -C "${ffmpeg_src_dir}" --strip-components=1 \
+            || error "[ffmpeg-rebuild] Extraction failed — tarball may be corrupt. Delete ${tarball} and retry."
+        touch "${ffmpeg_src_dir}/.ffmpeg_src_ready"
         ffmpeg_src="${ffmpeg_src_dir}"
         success "[ffmpeg-rebuild] FFmpeg ${FFMPEG_VERSION} source ready"
     fi
@@ -1843,8 +1865,9 @@ rebuild_ffmpeg_pthread_free() {
     done
 
     if [[ "${installed}" -eq 0 ]]; then
-        warn "[ffmpeg-rebuild] No static libs installed — FFmpeg configure/make may have failed"
-        return 0
+        error "[ffmpeg-rebuild] No static libs were installed after make — FFmpeg build silently produced nothing.
+  Check make output above for configuration errors.
+  Try removing ${ffmpeg_bld} and re-running."
     fi
 
     # ── Verify: static libs must NOT depend on libwinpthread ─────────────────
@@ -2105,13 +2128,23 @@ build_common_cmake_args() {
         "-DVulkan_GLSLC_EXECUTABLE=${GLSLC_PATH}"
         "-DVulkan_GLSLANG_VALIDATOR_EXECUTABLE=${GLSLC_PATH}"
     )
-    # Static FFmpeg dir (set by rebuild_ffmpeg_pthread_free; may not exist yet during first cmake args call)
+    # Static FFmpeg dir — only passed when the sentinel confirms rebuild_ffmpeg_pthread_free
+    # completed successfully.  Passing a nonexistent dir causes CMake to fall through to
+    # the legacy RELEASE-file path and then immediately fail with a fatal error.
     if [[ -n "${FFMPEG_VERSION:-}" ]]; then
-        local _ffmpeg_static="${CMAKE_BUILD_ROOT}/externals/ffmpeg-${FFMPEG_VERSION}-static"
-        if [[ "${_HOST_OS}" == "windows" ]]; then
-            _ffmpeg_static="$(cygpath -m "${BUILD_ROOT}/externals/ffmpeg-${FFMPEG_VERSION}-static")"
+        local _ffmpeg_ext_dir="${BUILD_ROOT}/externals/ffmpeg-${FFMPEG_VERSION}-static"
+        local _ffmpeg_sentinel="${_ffmpeg_ext_dir}/lib/.llvm_static_built"
+        if [[ -f "${_ffmpeg_sentinel}" ]]; then
+            local _ffmpeg_static="${_ffmpeg_ext_dir}"
+            if [[ "${_HOST_OS}" == "windows" ]]; then
+                _ffmpeg_static="$(cygpath -m "${_ffmpeg_ext_dir}")"
+            fi
+            _CMAKE_ARGS+=("-DCITRON_FFMPEG_STATIC_DIR=${_ffmpeg_static}")
+        else
+            error "FFmpeg static libs not ready — sentinel missing: ${_ffmpeg_sentinel}
+  rebuild_ffmpeg_pthread_free() must complete successfully before cmake is invoked.
+  If this is unexpected, delete ${_ffmpeg_ext_dir} and re-run."
         fi
-        _CMAKE_ARGS+=("-DCITRON_FFMPEG_STATIC_DIR=${_ffmpeg_static}")
     fi
     [[ -n "${CITRON_BUILD_TYPE:-}" ]] && _CMAKE_ARGS+=("-DCITRON_BUILD_TYPE=${CITRON_BUILD_TYPE}")
     [[ "${UNITY_BUILD}" == "ON" ]] && _CMAKE_ARGS+=("-DENABLE_UNITY_BUILD=ON")
@@ -2395,8 +2428,8 @@ stage_csgenerate() {
     local _gen_cfg="${BUILD_ROOT}/.citron-gen-config"
     if [[ -f "${_gen_cfg}" ]]; then
         local _gen_lto _gen_pgo
-        _gen_lto=$(grep -oP "(?<=LTO=)\S+" "${_gen_cfg}" || true)
-        _gen_pgo=$(grep -oP "(?<=PGO=)\S+" "${_gen_cfg}" || true)
+        _gen_lto=$(awk -F= '/^LTO=/{print $2; exit}' "${_gen_cfg}" 2>/dev/null || true)
+        _gen_pgo=$(awk -F= '/^PGO=/{print $2; exit}' "${_gen_cfg}" 2>/dev/null || true)
         if [[ -n "${_gen_lto}" && "${_gen_lto}" != "${LTO_MODE}" ]]; then
             error "LTO mismatch: generate used LTO=${_gen_lto}, csgenerate has LTO=${LTO_MODE}.\n"\
                   "       IR PGO profiles are tied to the IR produced at generate time.\n"\
@@ -2841,8 +2874,8 @@ stage_use() {
     local _gen_cfg="${BUILD_ROOT}/.citron-gen-config"
     if [[ -f "${_gen_cfg}" ]]; then
         local _gen_lto _gen_pgo
-        _gen_lto=$(grep -oP "(?<=LTO=)\S+" "${_gen_cfg}" || true)
-        _gen_pgo=$(grep -oP "(?<=PGO=)\S+" "${_gen_cfg}" || true)
+        _gen_lto=$(awk -F= '/^LTO=/{print $2; exit}' "${_gen_cfg}" 2>/dev/null || true)
+        _gen_pgo=$(awk -F= '/^PGO=/{print $2; exit}' "${_gen_cfg}" 2>/dev/null || true)
         if [[ -n "${_gen_lto}" && "${_gen_lto}" != "${LTO_MODE}" ]]; then
             error "LTO mismatch: generate used LTO=${_gen_lto}, use has LTO=${LTO_MODE}.\n"\
                   "       IR PGO profiles are tied to the IR produced at generate time.\n"\

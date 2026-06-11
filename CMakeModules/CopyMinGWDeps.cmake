@@ -171,7 +171,10 @@ function(resolve_deps file visited_var deps_var)
         set(dll_path \"\${dll_name}-NOTFOUND\")
         foreach(search_path \${SEARCH_PATHS})
             # Skip host MSYS2 DLLs except the allowed leaves and toolchain runtimes.
-            if (\"\${search_path}\" MATCHES \"([/\\\\])msys64([/\\\\])\")
+            # Match only known MSYS2 system subdirectories, not user home paths such as
+            # msys64/home/<user>/.cache/cpm which would incorrectly filter Qt DLLs
+            # when CPM_SOURCE_CACHE lives under the default MSYS2 home directory.
+            if (\"\${search_path}\" MATCHES \"([/\\\\])msys64([/\\\\])(usr|clang64|ucrt64|mingw64|mingw32)([/\\\\])\")
                 list(FIND TOOLCHAIN_RUNTIME_DLLS \"\${dll_name_lower}\" toolchain_runtime_idx)
                 if (NOT toolchain_runtime_idx EQUAL -1)
                     # Keep Clang runtimes from the active toolchain.
