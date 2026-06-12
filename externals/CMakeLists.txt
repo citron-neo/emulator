@@ -56,16 +56,8 @@ endif()
 # Glad
 add_subdirectory(glad)
 
-# mbedtls
-if (NOT TARGET mbedtls)
-    add_subdirectory(mbedtls)
-    target_include_directories(mbedtls PUBLIC ./mbedtls/include)
-    if (NOT MSVC)
-        target_compile_options(mbedcrypto PRIVATE
-            -Wno-unused-but-set-variable
-            -Wno-string-concatenation)
-    endif()
-endif()
+# mbedtls removed: replaced by OpenSSL. Submodule kept on disk for
+# history but no longer built. CMake no longer adds it.
 
 # SPIRV-Headers
 if (NOT TARGET SPIRV-Headers)
@@ -166,15 +158,9 @@ if (ENABLE_WEB_SERVICE AND NOT TARGET httplib::httplib)
     endif()
 endif()
 
-# cpp-jwt
-if (ENABLE_WEB_SERVICE AND NOT TARGET cpp-jwt::cpp-jwt)
-    set(CPP_JWT_BUILD_EXAMPLES OFF)
-    set(CPP_JWT_BUILD_TESTS OFF)
-    set(CPP_JWT_USE_VENDORED_NLOHMANN_JSON OFF)
-    if (EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/cpp-jwt/CMakeLists.txt")
-        add_subdirectory(cpp-jwt)
-    endif()
-endif()
+# cpp-jwt removed: JWT verification rewritten to use OpenSSL EVP_DigestVerify*
+# directly in verify_user_jwt.cpp. Submodule kept on disk for history but no
+# longer built.
 
 # Opus
 if (NOT TARGET Opus::opus)

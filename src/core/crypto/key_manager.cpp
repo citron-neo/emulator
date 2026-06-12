@@ -11,10 +11,12 @@
 #include <sstream>
 #include <tuple>
 #include <vector>
-#include <mbedtls/bignum.h>
-#include <mbedtls/cipher.h>
-#include <mbedtls/cmac.h>
-#include <mbedtls/sha256.h>
+#include <openssl/bn.h>
+#include <openssl/evp.h>
+#include <openssl/params.h>
+#ifdef ARCHITECTURE_x86_64
+#include "core/crypto/aes_ni.h"
+#endif
 #include "common/fs/file.h"
 #include "common/fs/fs.h"
 #include "common/fs/path_util.h"
@@ -525,7 +527,9 @@ static std::array<u8, target_size> MGF1(const std::array<u8, in_size>& seed) {
     while (out.size() < target_size) {
         out.resize(out.size() + 0x20);
         seed_exp[in_size + 3] = static_cast<u8>(i);
-        mbedtls_sha256_ret(seed_exp.data(), seed_exp.size(), out.data() + out.size() - 0x20, 0);
+        unsigned int sha_len = 0x20;
+        EVP_Digest(seed_exp.data(), seed_exp.size(),
+                   out.data() + out.size() - 0x20, &sha_len, EVP_sha256(), nullptr);
         ++i;
     }
 
@@ -581,27 +585,25 @@ std::optional<Key128> KeyManager::ParseTicketTitleKey(const Ticket& ticket) {
         return std::nullopt;
     }
 
-    mbedtls_mpi D; // RSA Private Exponent
-    mbedtls_mpi N; // RSA Modulus
-    mbedtls_mpi S; // Input
-    mbedtls_mpi M; // Output
-
-    mbedtls_mpi_init(&D);
-    mbedtls_mpi_init(&N);
-    mbedtls_mpi_init(&S);
-    mbedtls_mpi_init(&M);
-
+    // RSA-2048 raw modular exponentiation: M = S^D mod N
+    // Used to decrypt personalized eticket title keys (RSAES-OAEP-like).
     const auto& title_key_block = ticket.GetData().title_key_block;
-    mbedtls_mpi_read_binary(&D, eticket_rsa_keypair.decryption_key.data(),
-                            eticket_rsa_keypair.decryption_key.size());
-    mbedtls_mpi_read_binary(&N, eticket_rsa_keypair.modulus.data(),
-                            eticket_rsa_keypair.modulus.size());
-    mbedtls_mpi_read_binary(&S, title_key_block.data(), title_key_block.size());
+    BIGNUM* D = BN_bin2bn(eticket_rsa_keypair.decryption_key.data(),
+                          static_cast<int>(eticket_rsa_keypair.decryption_key.size()), nullptr);
+    BIGNUM* N = BN_bin2bn(eticket_rsa_keypair.modulus.data(),
+                          static_cast<int>(eticket_rsa_keypair.modulus.size()), nullptr);
+    BIGNUM* S = BN_bin2bn(title_key_block.data(),
+                          static_cast<int>(title_key_block.size()), nullptr);
+    BIGNUM* M = BN_new();
+    BN_CTX* bn_ctx = BN_CTX_new();
 
-    mbedtls_mpi_exp_mod(&M, &S, &D, &N, nullptr);
+    BN_mod_exp(M, S, D, N, bn_ctx);
 
-    std::array<u8, 0x100> rsa_step;
-    mbedtls_mpi_write_binary(&M, rsa_step.data(), rsa_step.size());
+    std::array<u8, 0x100> rsa_step{};
+    BN_bn2binpad(M, rsa_step.data(), static_cast<int>(rsa_step.size()));
+
+    BN_free(D); BN_free(N); BN_free(S); BN_free(M);
+    BN_CTX_free(bn_ctx);
 
     u8 m_0 = rsa_step[0];
     std::array<u8, 0x20> m_1;
@@ -963,9 +965,26 @@ void KeyManager::DeriveSDSeedLazy() {
 
 static Key128 CalculateCMAC(const u8* source, size_t size, const Key128& key) {
     Key128 out{};
-
-    mbedtls_cipher_cmac(mbedtls_cipher_info_from_type(MBEDTLS_CIPHER_AES_128_ECB), key.data(),
-                        key.size() * 8, source, size, out.data());
+#ifdef ARCHITECTURE_x86_64
+    __m128i ks[AesNi::kRoundKeys128];
+    AesNi::KeyExpand128Enc(key.data(), ks);
+    AesNi::Cmac128(ks, source, size, out.data());
+#else
+    EVP_MAC* mac = EVP_MAC_fetch(nullptr, "CMAC", nullptr);
+    EVP_MAC_CTX* ctx = EVP_MAC_CTX_new(mac);
+    EVP_MAC_free(mac);
+    OSSL_PARAM params[] = {
+        OSSL_PARAM_construct_utf8_string("cipher",
+            const_cast<char*>("AES-128-CBC"), 0),
+        OSSL_PARAM_construct_end()
+    };
+    EVP_MAC_init(ctx, key.data(), 16, params);
+    if (source && size > 0)
+        EVP_MAC_update(ctx, source, size);
+    size_t outlen = 16;
+    EVP_MAC_final(ctx, out.data(), &outlen, 16);
+    EVP_MAC_CTX_free(ctx);
+#endif
     return out;
 }
 

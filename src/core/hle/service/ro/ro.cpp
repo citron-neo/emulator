@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: Copyright 2023 yuzu Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
-#include <mbedtls/sha256.h>
+#include <openssl/evp.h>
 
 #include "common/scope_exit.h"
 #include "core/hle/kernel/k_process.h"
@@ -178,7 +178,7 @@ struct ProcessContext {
             std::vector<u8> nro_data(size);
             m_process->GetMemory().ReadBlock(base_address, nro_data.data(), size);
 
-            mbedtls_sha256_ret(nro_data.data(), size, hash.data(), 0);
+            { unsigned int _sl = 32; EVP_Digest(nro_data.data(), size, hash.data(), &_sl, EVP_sha256(), nullptr); }
         }
 
         for (size_t i = 0; i < MaxNrrInfos; i++) {
