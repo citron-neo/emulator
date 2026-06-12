@@ -18,7 +18,9 @@
 #include "common/logging.h"
 #include "core/hle/service/nfc/common/amiibo_crypto.h"
 
+#ifdef ARCHITECTURE_x86_64
 using namespace Core::Crypto;
+#endif
 
 namespace Service::NFP::AmiiboCrypto {
 
