@@ -1,0 +1,157 @@
+{"duration_ms":"148823","share_with_app_devs":1,"roots_installed":0,"bug_type":"202","os_version":"iPhone OS 26.4.2 (23E261)","slice_uuid":"0724D1B6-2A56-3C07-B10F-F33833661CF3","is_first_party":0,"incident_id":"6AA4CE47-9AB9-4269-88EE-CEC557874F24","timestamp":"2026-05-02 00:56:24.00 -0700","app_name":"fseventsd","name":"fseventsd"}
+Date/Time:        2026-05-02 00:52:45.812 -0700
+End time:         2026-05-02 00:55:14.635 -0700
+OS Version:       iPhone OS 26.4.2 (Build 23E261)
+Architecture:     arm64e
+Report Version:   72
+Incident Identifier: 6AA4CE47-9AB9-4269-88EE-CEC557874F24
+Share With Devs:  Yes
+
+Data Source:      Microstackshots
+Shared Cache:     CAF2D35B-8B66-3EAF-843A-564C13480D87 slid base address 0x18d24c000, slide 0xd24c000
+Shared Cache:     89F3FEEC-F8EB-34EA-956B-523132747725 slid base address 0x18066c000, slide 0x66c000
+
+Command:          fseventsd
+Path:             /usr/libexec/fseventsd
+Resource Coalition: "com.apple.fseventsd"(153)
+Architecture:     arm64e
+Parent:           launchd [1]
+PID:              108
+
+Event:            cpu usage
+Action taken:     none
+CPU:              90 seconds cpu time over 149 seconds (60% cpu average), exceeding limit of 50% cpu over 180 seconds
+CPU limit:        90s
+Limit duration:   180s
+CPU used:         90s
+CPU duration:     149s
+Duration:         148.82s
+Duration Sampled: 148.07s (event starts 0.48s before samples, event ends 0.28s after samples)
+Steps:            120 (10 gigacycles/step)
+
+Hardware model:   iPhone17,5
+Active cpus:      6
+Memory size:      7.54 GB
+HW page size:     16384
+VM page size:     16384
+Shared cache residency: 19.09% (1136.20 MB / 5951.91 MB)
+
+Time Since Boot:  235s
+Time Awake Since Boot: 235s
+Time Since Wake:  n/a (machine hasn't slept)
+
+Total CPU Time:   185.869s
+Advisory levels:  Battery -> 3, User -> 3, ThermalPressure -> 20, Combined -> 2
+Free disk space:  19.90 GB/113.80 GB, low space threshold 150 MB
+Vnodes Available: 69.22% (19383/28000, 14000 allocated, 14000 soft limit)
+Models:           none
+
+Preferred User Language: en-US, ru-US
+Country Code:     US
+Keyboards:        en_US QWERTY, ru_RU Russian
+OS Cryptex File Extents: 17348
+
+Heaviest stack for the target process:
+  16  ??? (libsystem_pthread.dylib + 2252) [0x1ef5738cc]
+  16  ??? (libsystem_pthread.dylib + 17464) [0x1ef577438]
+  16  ??? (fseventsd + 14192) [0x10294b770]
+  16  ??? (fseventsd + 21456) [0x10294d3d0]
+  16  ??? (fseventsd + 42852) [0x102952764]
+  16  ??? (fseventsd + 41504) [0x102952220]
+  9   ??? (fseventsd + 39788) [0x102951b6c]
+  7   ??? (fseventsd + 33424) [0x102950290]
+
+
+Powerstats for:   fseventsd [108]
+UUID:             0724D1B6-2A56-3C07-B10F-F33833661CF3
+Path:             /usr/libexec/fseventsd
+Shared Cache:     CAF2D35B-8B66-3EAF-843A-564C13480D87 slid base address 0x18d24c000, slide 0xd24c000
+Resource Coalition: 16 samples "com.apple.fseventsd"(153)
+Architecture:     arm64e
+Parent:           launchd [1]
+UID:              0
+Footprint:        4720 KB -> 4816 KB (+96 KB) (max 5840 KB )
+Start time:       2026-05-02 00:52:53.123 -0700
+End time:         2026-05-02 00:55:09.584 -0700
+Num samples:      16 (13%)
+Energy:           3028.22 uWh
+Num threads:      1
+Primary state:    13 samples Non-Frontmost App, Non-Suppressed, User mode, Effective Thread QoS Default, Requested Thread QoS Default, Override Thread QoS Unspecified, e-core
+User Activity:    16 samples Idle, 0 samples Active
+Power Source:     0 samples on Battery, 16 samples on AC
+  16  ??? (libsystem_pthread.dylib + 2252) [0x1ef5738cc]
+    16  ??? (libsystem_pthread.dylib + 17464) [0x1ef577438]
+      16  ??? (fseventsd + 14192) [0x10294b770]
+        16  ??? (fseventsd + 21456) [0x10294d3d0]
+          16  ??? (fseventsd + 42852) [0x102952764]
+            16  ??? (fseventsd + 41504) [0x102952220]
+              9   ??? (fseventsd + 39788) [0x102951b6c]
+                7   ??? (fseventsd + 33424) [0x102950290]
+                1   ??? (fseventsd + 35796) [0x102950bd4]
+                1   ??? (fseventsd + 35788) [0x102950bcc]
+              6   ??? (fseventsd + 39704) [0x102951b18]
+                6   ??? (libz.1.dylib + 23824) [0x2b06dad10]
+                  4   ??? (libz.1.dylib + 24200) [0x2b06dae88]
+                    4   ??? (libz.1.dylib + 23520) [0x2b06dabe0]
+                      1   ??? (libz.1.dylib + 21504) [0x2b06da400]
+                      1   ??? (libz.1.dylib + 21228) [0x2b06da2ec]
+                      1   ??? (libz.1.dylib + 20632) [0x2b06da098]
+                      1   ??? (libz.1.dylib + 11800) [0x2b06d7e18]
+                  2   ??? (libz.1.dylib + 24124) [0x2b06dae3c]
+                    2   ??? (libz.1.dylib + 31164) [0x2b06dc9bc]
+                      2   ??? (libz.1.dylib + 31316) [0x2b06dca54]
+                        2   ??? (libz.1.dylib + 22028) [0x2b06da60c]
+                          2   ??? (libsystem_kernel.dylib + 24280) [0x23f44ded8]
+                            2   <Kernel mode>
+              1   ??? (fseventsd + 39308) [0x10295198c]
+                1   ??? (libsystem_kernel.dylib + 26500) [0x23f44e784]
+                  1   <Kernel mode>
+
+  Binary Images:
+           0x102948000 -                ???  fseventsd               <0724D1B6-2A56-3C07-B10F-F33833661CF3>  /usr/libexec/fseventsd
+           0x1ef573000 -        0x1ef57f4ef  libsystem_pthread.dylib <6C9BCDE9-819D-345D-9D71-B60AD47E5159>  /usr/lib/system/libsystem_pthread.dylib
+           0x23f448000 -        0x23f483ac7  libsystem_kernel.dylib  <5F4E68E1-021C-3A8F-A6F6-2C4C077D0676>  /usr/lib/system/libsystem_kernel.dylib
+           0x2b06d5000 -        0x2b06e3d37  libz.1.dylib            <871F48EE-9F01-375B-957C-2DD89F1CA935>  /usr/lib/libz.1.dylib
+
+
+Powerstats for:   kernel_task
+UUID:             6FA91251-369C-37ED-A7B9-77556308FE4E
+Version:          Darwin Kernel Version 25.4.0: Fri Mar  6 00:02:11 PST 2026; root:xnu-12377.102.10~3/RELEASE_ARM64_T8140
+Resource Coalition: 9 samples 1
+Architecture:     arm64
+Start time:       2026-05-02 00:53:18.527 -0700
+End time:         2026-05-02 00:54:57.264 -0700
+Num samples:      9 (8%)
+Primary state:    9 samples Non-Frontmost App, Non-Suppressed, Kernel mode, Effective Thread QoS Unspecified, Requested Thread QoS Unspecified, Override Thread QoS Unspecified, e-core
+User Activity:    9 samples Idle, 0 samples Active
+Power Source:     0 samples on Battery, 9 samples on AC
+ *2  ??? (<6FA91251-369C-37ED-A7B9-77556308FE4E> + 696664) [0xfffffff00a702158]
+   *2  ??? (<6FA91251-369C-37ED-A7B9-77556308FE4E> + 695944) [0xfffffff00a701e88]
+     *2  ??? (<6FA91251-369C-37ED-A7B9-77556308FE4E> + 1946300) [0xfffffff00a8332bc]
+        2  <p-core>
+ *1  ??? (<6FA91251-369C-37ED-A7B9-77556308FE4E> + 7077156) [0xfffffff00ad17d24]
+ *1  ??? (<6FA91251-369C-37ED-A7B9-77556308FE4E> + 1980880) [0xfffffff00a83b9d0]
+ *1  ??? (<6FA91251-369C-37ED-A7B9-77556308FE4E> + 695712) [0xfffffff00a701da0]
+    1  <p-core>
+ *1  ??? (<6FA91251-369C-37ED-A7B9-77556308FE4E> + 672588) [0xfffffff00a6fc34c]
+    1  <p-core>
+ *1  ??? (<6FA91251-369C-37ED-A7B9-77556308FE4E> + 7869652) [0xfffffff00add94d4]
+   *1  ??? (<6FA91251-369C-37ED-A7B9-77556308FE4E> + 672576) [0xfffffff00a6fc340]
+     *1  ??? (<6FA91251-369C-37ED-A7B9-77556308FE4E> + 1980880) [0xfffffff00a83b9d0]
+ *1  ??? (<6FA91251-369C-37ED-A7B9-77556308FE4E> + 7869432) [0xfffffff00add93f8]
+   *1  ??? (<6FA91251-369C-37ED-A7B9-77556308FE4E> + 7867160) [0xfffffff00add8b18]
+     *1  ??? (<6FA91251-369C-37ED-A7B9-77556308FE4E> + 7906980) [0xfffffff00ade26a4]
+       *1  ??? (AppleT8140CLPC + 300824) [0xfffffff0093bdd08]
+         *1  ??? (AppleT8140CLPC + 280176) [0xfffffff0093b8c60]
+           *1  ??? (AppleT8140CLPC + 282168) [0xfffffff0093b9428]
+             *1  ??? (AppleT8140CLPC + 312344) [0xfffffff0093c0a08]
+               *1  ??? (<6FA91251-369C-37ED-A7B9-77556308FE4E> + 1980880) [0xfffffff00a83b9d0]
+ *1  ??? (<6FA91251-369C-37ED-A7B9-77556308FE4E> + 1491920) [0xfffffff00a7c43d0]
+   *1  ??? (<6FA91251-369C-37ED-A7B9-77556308FE4E> + 1481956) [0xfffffff00a7c1ce4]
+     *1  ??? (<6FA91251-369C-37ED-A7B9-77556308FE4E> + 1584556) [0xfffffff00a7dadac]
+       *1  ??? (<6FA91251-369C-37ED-A7B9-77556308FE4E> + 1577624) [0xfffffff00a7d9298]
+         *1  ??? (<6FA91251-369C-37ED-A7B9-77556308FE4E> + 8825748) [0xfffffff00aec2b94]
+
+  Binary Images:
+   *0xfffffff0093745f0 - 0xfffffff0093d03af  com.apple.driver.AppleT8140CLPC (1) <45B35D9D-3BE0-34EF-9C89-D09C7629DBCF>__TEXT_EXEC  /System/Library/Extensions/AppleT8140CLPC.kext/AppleT8140CLPC
+   *0xfffffff00a658000 - 0xfffffff00aee3fff  ??? (25.4.0)                        <6FA91251-369C-37ED-A7B9-77556308FE4E>__TEXT_EXEC

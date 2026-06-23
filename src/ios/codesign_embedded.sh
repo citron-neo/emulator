@@ -1,0 +1,21 @@
+#!/bin/sh
+set -eu
+
+if [ "$#" -ne 1 ]; then
+    echo "usage: $0 <bundle-item>" >&2
+    exit 2
+fi
+
+item="$1"
+identity="${EXPANDED_CODE_SIGN_IDENTITY:-}"
+
+if [ -z "$identity" ] || [ "$identity" = "-" ]; then
+    identity="${CODE_SIGN_IDENTITY:-}"
+fi
+
+if [ -z "$identity" ] || [ "$identity" = "-" ]; then
+    echo "No valid code signing identity was provided by Xcode." >&2
+    exit 1
+fi
+
+/usr/bin/codesign --force --sign "$identity" --timestamp=none "$item"

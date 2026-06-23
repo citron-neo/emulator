@@ -1,0 +1,600 @@
+{"restore_payload_version":"Unknown","restore_type":"OTAUpdate","os_version":"23D8133","itunes_version":"23D8133","bug_type":"183","restore_error":"39","name":"iPhoneRestore"}
+16d76b000 : Client AssetMetricsExtension[54239] does not have the 'com.apple.private.softwareupdated-helpers' entitlement
+16d7f7000 : Client AssetMetricsExtension[54258] does not have the 'com.apple.private.softwareupdated-helpers' entitlement
+16d76b000 : Client AssetMetricsExtension[54304] does not have the 'com.apple.private.softwareupdated-helpers' entitlement
+16d7f7000 : Client softwareupdateservicesd[49280] does not have the 'com.apple.private.softwareupdated-helpers' entitlement
+16d76b000 : The secure object length value is: 1071
+16d76b000 : Caller has pased in downloadOptions: MADownloadOptions allowsCellular: 0 resourceTimeout: -1 canUseCacheServer: 0 discretionary: 0 disableUI: 0 sessionId: (null) additionalServerParams:(null) allowsExpensiveAccess:1 requiresPowerPluggedIn: 0 prefersInfraWiFi: 1 liveServerOnly: -1 DownloadAuthorizationHeader: not present analyticsData: not present allowDaemonConnectionRetries: 0  + MAMsuDownloadOptions reqProdVersion: (null) reqBuildVersion: (null) delayPeriod: 0 managedDevice: 0 allowSameVersion: 0 prereqBuild: (null) prereqVersion: (null) prereqReleaseType: (default) liveAssetAudienceUUID: (null) purpose: (null)
+16d76b000 : The attributes are: {
+    ActualMinimumSystemPartition = 7568;
+    ArchiveDecryptionKey = "0JhwweWqpdH9vTebPjQnfzzHmICPT6gJLYIMmpMYREc=";
+    ArchiveID = "LN0aXDheylkXrnZhuVMYsbL/Y85hJ/SXvrCRJMEW/Fc=";
+    AssetFormat = AppleEncryptedArchive;
+    AssetType = "com.apple.MobileAsset.SoftwareUpdate";
+    AutoUpdate = 1;
+    Build = 23E261;
+    CryptexSizeInfo =     (
+                {
+            CryptexSize = 14;
+            CryptexSizeDelta = 33;
+            CryptexTag = "cryptex-app";
+        },
+                {
+            CryptexSize = 4980;
+            CryptexSizeDelta = 82;
+            CryptexTag = "cryptex-system-arm64e";
+        }
+    );
+    EAPFSEnabled = 1;
+    GranularRampingLogic =     (
+                {
+            BgPct = 90;
+            FgPct = 0;
+            Hour = 0;
+        },
+                {
+            BgPct = 80;
+            FgPct = 0;
+            Hour = 24;
+        },
+                {
+            BgPct = 70;
+            FgPct = 0;
+            Hour = 48;
+        },
+                {
+            BgPct = 60;
+            FgPct = 0;
+            Hour = 72;
+        },
+                {
+            BgPct = 45;
+            FgPct = 0;
+            Hour = 96;
+        },
+                {
+            BgPct = 30;
+            FgPct = 0;
+            Hour = 120;
+        },
+                {
+            BgPct = 15;
+            FgPct = 0;
+            Hour = 144;
+        },
+                {
+            BgPct = 0;
+            FgPct = 0;
+            Hour = 168;
+        }
+    );
+    GranularlyRamped = 1;
+    InstallationSize = 233603072;
+    "InstallationSize-Snapshot" = 4191004648;
+    MinimumSystemPartition = 0;
+    OSVersion = "26.4.2";
+    PrerequisiteBuild = 23D8133;
+    PrerequisiteOSVersion = "26.3.1";
+    RSEPDigest = {length = 48, bytes = 0x3cc15a43 04fc663b def162ed a172949d ... 20fb05de 40713de2 };
+    RSEPTBMDigests = "+Cj18ko8e6TqcIGxcM79h64447wjL6v2ta1ddLAgak65XWhBT0VczMJlUeHGEmah\n2Spp233x9nNgZ6SE2CZnv6Tqiu39Iyl3VOtvHkoklN5sDcOL126gNyJDyT98dqxY\nFilBOEtstexpBdre6lutTYic3u56u8XdUzGMFWXbd3VCPXfMdO5L86U+91xmq5Hj\nlO7UQiPGAwQIcAqq85963svSgxWot+yK2N7mpJuxxq3hTRLh6FLWdPdR1sGp6Oa4\niGoMnszR6NkgJ5pXfbVSBm6TE39k7M8lEqII43WsjYAP9t8gMj8VV3no1TKrG14m";
+    Ramp = 0;
+    RescueMinimumSystemPartition = 7934;
+    RestoreVersion = "23.5.261.0.0,0";
+    RestoreVersionInfo =     {
+        RestoreBuildGroup = 0;
+        RestoreLongVersion = "23.5.261.0.0,0";
+        RestoreVersion = "23.5.261.0.0";
+    };
+    SEPDigest = {length = 48, bytes = 0x807f41e0 b1a705ce 2b29b328 1b8d4d9b ... 5e37ed91 dd34155e };
+    SEPTBMDigests = "gwBGU1ohy1WCgUYX+TZbWrGmdqeHC9RL5pMzhDtimXBVuT5nz8kN0f8UGklT2GnR\nPLHlXxtskrO81E6qRURAf5xmRLq1qf1NrigIqgVKf/lNjNOcJlstz6Bz7xqrlcw5\ni+7ClVg0+Ve7uh3n6C1VJ5Le2zS1UJ2Fnnk3kvMzoetjFCHfvD98njZNSS0livS4\nxUIWIbjk6eYKXJRy6hWtHzHc25BXD5lQH9jx8VKk8liovbPTi6uh0B5CmWGmzSeG\nan9gZHsc+vbKA+MG0+dWJe/i4Gvv1DPpKGAtJ49ul2prFHxgYDPO+0xf9rTuRcd2";
+    SUConvReqd = 1;
+    SUDocumentationID = iOS2642Long;
+    SUInstallTonightEnabled = 1;
+    SUMultiPassEnabled = 1;
+    SUProductSystemName = iOS;
+    SUPublisher = "Apple Inc.";
+    SupportedDeviceModels =     (
+        V59AP
+    );
+    SupportedDevices =     (
+        "iPhone17,5"
+    );
+    SystemPartitionPadding =     {
+        1024 = 1280;
+        128 = 1280;
+        16 = 160;
+        256 = 1280;
+        32 = 320;
+        512 = 1280;
+        64 = 640;
+        768 = 1280;
+        8 = 80;
+    };
+    SystemVolumeSealingOverhead = 227;
+    TrainName = LuckE;
+    "_CompressionAlgorithm" = aea;
+    "_DownloadSize" = 2617245696;
+    "_EventRecordingServiceURL" = "https://xp.apple.com/report";
+    "_IsEncrypted" = 1;
+    "_IsZipStreamable" = 1;
+    "_MasteredVersion" = 261;
+    "_Measurement" = {length = 20, bytes = 0x<<<<<<<<<<<<<<<<<<UDID>>>>>>>>>>>>>>>>>>};
+    "_Measurement-SHA256" = {length = 32, bytes = 0x536edfe8 c4a8cda1 659bbdab a3454201 ... a30fadcf a7450a79 };
+    "_MeasurementAlgorithm" = "SHA-1";
+    "_UnarchivedSize" = 2930937856;
+    "__AssetDefaultGarbageCollectionBehavior" = NeverCollected;
+    "__BaseURL" = "https://updates.cdn-apple.com/2026SpringFCS/mobileassets/122-62811/11A653A9-1ADD-4B66-A169XXXX>>>>>CE4C/";
+    "__CanUseLocalCacheServer" = 1;
+    "__FCSKeyURL" = "https://wkms-public.apple.com/fcs-keys/yDOP--8i5XAMUj8eeNZ-fc5a-tl4Mx-r_9eVzWTmqLc=";
+    "__FCSResponse" = "{\"enc-request\": \"BApgRYVI2D1ufg5yQarMh4l8YHhmzyJniZGWpJcqyg0GAPFSZ8/51fsLyNXL/glfJktcDT3jbyczYJC6Ks1tFhk=\", \"wrapped-key\": \"1+7SpC/0Gbtx27IgN5pA9OqwAtQ/YqqF72JIGn0Vl2Ny1rvwz5X8Wbi/329oWrkD\"}";
+    "__HideInstallAlert" = 0;
+    "__RelativePath" = "com_apple_MobileAsset_SoftwareUpdate/<<<<<<<<<<<<<<<<<<UDID>>>>>>>>>>>>>>>>>><<<<<<<<ICCID>>>>>>>fc57.aea";
+}
+16d76b000 : Setting targetBrainVersion to 23E261
+16d76b000 : Sending load complete without error
+16d7f7000 : Entering handle_brain_is_loadable
+16d7f7000 : Client AssetMetricsExtension[54428] does not have the 'com.apple.private.softwareupdated-helpers' entitlement
+16d76b000 : Client AssetMetricsExtension[54630] does not have the 'com.apple.private.softwareupdated-helpers' entitlement
+16d7f7000 : Client softwareupdateservicesd[49280] does not have the 'com.apple.private.softwareupdated-helpers' entitlement
+16d76b000 : The secure object length value is: 1471
+16d76b000 : Caller has pased in downloadOptions: MADownloadOptions allowsCellular: 1 resourceTimeout: -1 canUseCacheServer: 0 discretionary: 0 disableUI: 0 sessionId: (null) additionalServerParams:{ } allowsExpensiveAccess:1 requiresPowerPluggedIn: 0 prefersInfraWiFi: 1 liveServerOnly: 0 DownloadAuthorizationHeader: not present analyticsData: not present allowDaemonConnectionRetries: 0  + MAMsuDownloadOptions reqProdVersion: (null) reqBuildVersion: (null) delayPeriod: 0 managedDevice: 0 allowSameVersion: 0 prereqBuild: (null) prereqVersion: (null) prereqReleaseType: (default) liveAssetAudienceUUID: (null) purpose: (null)
+16d76b000 : The attributes are: {
+    ActualMinimumSystemPartition = 7568;
+    ArchiveDecryptionKey = "0JhwweWqpdH9vTebPjQnfzzHmICPT6gJLYIMmpMYREc=";
+    ArchiveID = "LN0aXDheylkXrnZhuVMYsbL/Y85hJ/SXvrCRJMEW/Fc=";
+    AssetFormat = AppleEncryptedArchive;
+    AssetType = "com.apple.MobileAsset.SoftwareUpdate";
+    AutoUpdate = 1;
+    Build = 23E261;
+    CryptexSizeInfo =     (
+                {
+            CryptexSize = 14;
+            CryptexSizeDelta = 33;
+            CryptexTag = "cryptex-app";
+        },
+                {
+            CryptexSize = 4980;
+            CryptexSizeDelta = 82;
+            CryptexTag = "cryptex-system-arm64e";
+        }
+    );
+    EAPFSEnabled = 1;
+    GranularRampingLogic =     (
+                {
+            BgPct = 90;
+            FgPct = 0;
+            Hour = 0;
+        },
+                {
+            BgPct = 80;
+            FgPct = 0;
+            Hour = 24;
+        },
+                {
+            BgPct = 70;
+            FgPct = 0;
+            Hour = 48;
+        },
+                {
+            BgPct = 60;
+            FgPct = 0;
+            Hour = 72;
+        },
+                {
+            BgPct = 45;
+            FgPct = 0;
+            Hour = 96;
+        },
+                {
+            BgPct = 30;
+            FgPct = 0;
+            Hour = 120;
+        },
+                {
+            BgPct = 15;
+            FgPct = 0;
+            Hour = 144;
+        },
+                {
+            BgPct = 0;
+            FgPct = 0;
+            Hour = 168;
+        }
+    );
+    GranularlyRamped = 1;
+    InstallationSize = 233603072;
+    "InstallationSize-Snapshot" = 4191004648;
+    MinimumSystemPartition = 0;
+    OSVersion = "26.4.2";
+    PrerequisiteBuild = 23D8133;
+    PrerequisiteOSVersion = "26.3.1";
+    RSEPDigest = {length = 48, bytes = 0x3cc15a43 04fc663b def162ed a172949d ... 20fb05de 40713de2 };
+    RSEPTBMDigests = "+Cj18ko8e6TqcIGxcM79h64447wjL6v2ta1ddLAgak65XWhBT0VczMJlUeHGEmah\n2Spp233x9nNgZ6SE2CZnv6Tqiu39Iyl3VOtvHkoklN5sDcOL126gNyJDyT98dqxY\nFilBOEtstexpBdre6lutTYic3u56u8XdUzGMFWXbd3VCPXfMdO5L86U+91xmq5Hj\nlO7UQiPGAwQIcAqq85963svSgxWot+yK2N7mpJuxxq3hTRLh6FLWdPdR1sGp6Oa4\niGoMnszR6NkgJ5pXfbVSBm6TE39k7M8lEqII43WsjYAP9t8gMj8VV3no1TKrG14m";
+    Ramp = 0;
+    RescueMinimumSystemPartition = 7934;
+    RestoreVersion = "23.5.261.0.0,0";
+    RestoreVersionInfo =     {
+        RestoreBuildGroup = 0;
+        RestoreLongVersion = "23.5.261.0.0,0";
+        RestoreVersion = "23.5.261.0.0";
+    };
+    SEPDigest = {length = 48, bytes = 0x807f41e0 b1a705ce 2b29b328 1b8d4d9b ... 5e37ed91 dd34155e };
+    SEPTBMDigests = "gwBGU1ohy1WCgUYX+TZbWrGmdqeHC9RL5pMzhDtimXBVuT5nz8kN0f8UGklT2GnR\nPLHlXxtskrO81E6qRURAf5xmRLq1qf1NrigIqgVKf/lNjNOcJlstz6Bz7xqrlcw5\ni+7ClVg0+Ve7uh3n6C1VJ5Le2zS1UJ2Fnnk3kvMzoetjFCHfvD98njZNSS0livS4\nxUIWIbjk6eYKXJRy6hWtHzHc25BXD5lQH9jx8VKk8liovbPTi6uh0B5CmWGmzSeG\nan9gZHsc+vbKA+MG0+dWJe/i4Gvv1DPpKGAtJ49ul2prFHxgYDPO+0xf9rTuRcd2";
+    SUConvReqd = 1;
+    SUDocumentationID = iOS2642Long;
+    SUInstallTonightEnabled = 1;
+    SUMultiPassEnabled = 1;
+    SUProductSystemName = iOS;
+    SUPublisher = "Apple Inc.";
+    SupportedDeviceModels =     (
+        V59AP
+    );
+    SupportedDevices =     (
+        "iPhone17,5"
+    );
+    SystemPartitionPadding =     {
+        1024 = 1280;
+        128 = 1280;
+        16 = 160;
+        256 = 1280;
+        32 = 320;
+        512 = 1280;
+        64 = 640;
+        768 = 1280;
+        8 = 80;
+    };
+    SystemVolumeSealingOverhead = 227;
+    TrainName = LuckE;
+    "_CompressionAlgorithm" = aea;
+    "_DownloadSize" = 2617245696;
+    "_EventRecordingServiceURL" = "https://xp.apple.com/report";
+    "_IsEncrypted" = 1;
+    "_IsZipStreamable" = 1;
+    "_MasteredVersion" = 261;
+    "_Measurement" = {length = 20, bytes = 0x<<<<<<<<<<<<<<<<<<UDID>>>>>>>>>>>>>>>>>>};
+    "_Measurement-SHA256" = {length = 32, bytes = 0x536edfe8 c4a8cda1 659bbdab a3454201 ... a30fadcf a7450a79 };
+    "_MeasurementAlgorithm" = "SHA-1";
+    "_UnarchivedSize" = 2930937856;
+    "__AssetDefaultGarbageCollectionBehavior" = NeverCollected;
+    "__BaseURL" = "https://updates.cdn-apple.com/2026SpringFCS/mobileassets/122-62811/11A653A9-1ADD-4B66-A169XXXX>>>>>CE4C/";
+    "__CanUseLocalCacheServer" = 1;
+    "__FCSKeyURL" = "https://wkms-public.apple.com/fcs-keys/yDOP--8i5XAMUj8eeNZ-fc5a-tl4Mx-r_9eVzWTmqLc=";
+    "__FCSResponse" = "{\"enc-request\": \"BApgRYVI2D1ufg5yQarMh4l8YHhmzyJniZGWpJcqyg0GAPFSZ8/51fsLyNXL/glfJktcDT3jbyczYJC6Ks1tFhk=\", \"wrapped-key\": \"1+7SpC/0Gbtx27IgN5pA9OqwAtQ/YqqF72JIGn0Vl2Ny1rvwz5X8Wbi/329oWrkD\"}";
+    "__HideInstallAlert" = 0;
+    "__RelativePath" = "com_apple_MobileAsset_SoftwareUpdate/<<<<<<<<<<<<<<<<<<UDID>>>>>>>>>>>>>>>>>><<<<<<<<ICCID>>>>>>>fc57.aea";
+}
+16d7f7000 : Setting targetBrainVersion to 23E261
+16d7f7000 : Sending load complete without error
+16d7f7000 : Entering handle_brain_is_loadable
+16d7f7000 : Permanent update volume present..supportDir will be placed there
+16d7f7000 : -[UMEventRecorder _supportDirectoryWithMountPoint:]: mountPoint is nil...Using /var/MobileSoftwareUpdate as the mountPoint
+16d7f7000 : setting uuid in startRecordingInstall to E2E3B04E-6DEA-55B6-956EXXXX>>>>>AB37
+16d7f7000 : Permanent update volume present..supportDir will be placed there
+16d7f7000 : -[UMEventRecorder _supportDirectoryWithMountPoint:]: mountPoint is nil...Using /var/MobileSoftwareUpdate as the mountPoint
+16d7f7000 : Permanent update volume present..supportDir will be placed there
+16d7f7000 : -[UMEventRecorder _supportDirectoryWithMountPoint:]: mountPoint is nil...Using /var/MobileSoftwareUpdate as the mountPoint
+16d7f7000 : Unable to determine asset audience from defaults. Assuming default audience for build in use
+16d7f7000 : [-[UMEventRecorder _recordEvent:getPowerLog:information:callback:]] (brainLoad) - {
+    MobileAssetAssetAudience = DefaultAssetAudienceForReleaseTypeuser;
+    UUID = "E2E3B04E-6DEA-55B6-956EXXXX>>>>>AB37";
+    batteryIsCharging = 1;
+    batteryLevel = 100;
+    cleanupLevel = 0;
+    context = "SUS-2.0";
+    controllerVersion = "SUS-2.0";
+    currentBaseOSVersion = 23D8133;
+    currentOSType = user;
+    currentOSVersion = 23D771330a;
+    currentProductVersionExtra = "(a)";
+    dataFsCapacity = 113828;
+    dataFsFree = 60200;
+    deviceClass = iPhone;
+    deviceModel = V59AP;
+    eapfsMode = YES;
+    event = brainLoad;
+    eventTime = 1777686279562;
+    installTonight = false;
+    rapidSecurityResponseInstalled = true;
+    reportVersion = 1;
+    result = success;
+    storageCapacity = 122070;
+    systemFsCapacity = 7512;
+    systemFsFree = 0;
+    targetBrainVersion = 23E261;
+    targetOSVersion = 23E261;
+    type = ota;
+    uptime = 3611948;
+}
+
+16d7f7000 : -[UMEventRecorder _supportDirectoryWithMountPoint:]: mountPoint is nil...Using /var/MobileSoftwareUpdate as the mountPoint
+16d7f7000 : Sending event to PowerLog: {
+    MobileAssetAssetAudience = DefaultAssetAudienceForReleaseTypeuser;
+    RequestUUID = "8B8EF337-9674-488D-B749XXXX>>>>>BD43";
+    UUID = "E2E3B04E-6DEA-55B6-956EXXXX>>>>>AB37";
+    batteryIsCharging = 1;
+    batteryLevel = 100;
+    cleanupLevel = 0;
+    context = "SUS-2.0";
+    controllerVersion = "SUS-2.0";
+    currentBaseOSVersion = 23D8133;
+    currentOSType = user;
+    currentOSVersion = 23D771330a;
+    currentProductVersionExtra = "(a)";
+    dataFsCapacity = 113828;
+    dataFsFree = 60200;
+    deviceClass = iPhone;
+    deviceModel = V59AP;
+    eapfsMode = YES;
+    event = 100;
+    eventTime = 1777686279562;
+    installTonight = false;
+    rapidSecurityResponseInstalled = true;
+    reportVersion = 1;
+    result = success;
+    storageCapacity = 122070;
+    systemFsCapacity = 7512;
+    systemFsFree = 0;
+    targetBrainVersion = 23E261;
+    targetOSVersion = 23E261;
+    type = ota;
+    uptime = 3611948;
+}
+16d883000 : submitEventsInBackground running
+16d883000 : -[UMEventRecorder _supportDirectoryWithMountPoint:]: mountPoint is nil...Using /var/MobileSoftwareUpdate as the mountPoint
+16d883000 : -[UMEventRecorder submitEventsInBackground:withOptions:]_block_invoke: Previously submitted events will NOT BE resubmitted
+
+16d883000 : Found 1 unsubmitted events in update volume
+16d883000 : posting to https://xp.apple.com/report/2/psr_ota length = 823
+16d883000 : data = {"clientId":"E2E3B04E-6DEA-55B6-956EXXXX>>>>>AB37","events":[{"installTonight":"false","deviceClass":"iPhone","context":"SUS-2.0","cleanupLevel":"0","storageCapacity":122070,"systemFsCapacity":7512,"targetBrainVersion":"23E261","currentOSVersion":"23D771330a","targetOSVersion":"23E261","eapfsMode":"YES","rapidSecurityResponseInstalled":"true","dataFsCapacity":113828,"currentOSType":"user","reportVersion":1,"type":"ota","event":"brainLoad","systemFsFree":0,"eventTime":"1777686279562","UUID":"E2E3B04E-6DEA-55B6-956EXXXX>>>>>AB37","uptime":3611948,"deviceModel":"V59AP","batteryLevel":100,"batteryIsCharging":true,"controllerVersion":"SUS-2.0","currentBaseOSVersion":"23D8133","result":"success","currentProductVersionExtra":"(a)","MobileAssetAssetAudience":"DefaultAssetAudienceForReleaseTypeuser","dataFsFree":60200}]}
+16d76b000 : session (null) didReceiveChallenge
+16d76b000 : 1 events successfully submitted
+16d99b000 : session (null) became invalid: (null)
+16d7f7000 : Using MSUBrain apply calculation
+16d7f7000 : Using MSUBrain apply calculation (snapshot)
+16d7f7000 : Client AssetMetricsExtension[54860] does not have the 'com.apple.private.softwareupdated-helpers' entitlement
+16d76b000 : Client AssetMetricsExtension[54884] does not have the 'com.apple.private.softwareupdated-helpers' entitlement
+16d7f7000 : Client AssetMetricsExtension[54944] does not have the 'com.apple.private.softwareupdated-helpers' entitlement
+2030ca200 : MSU running in normal env
+2030ca200 : initializing new event recorder with options: (null)
+2030ca200 : start
+2030ca200 : Using NVRAM dictionary from IODeviceTree since there is no key for ota-uuid in there
+
+2030ca200 : Permanent update volume present..supportDir will be placed there
+2030ca200 : -[UMEventRecorder _supportDirectoryWithMountPoint:]: mountPoint is nil...Using /var/MobileSoftwareUpdate as the mountPoint
+2030ca200 : <UMEventRecorder: 0x10276c0f0>: initializing event recorder with systemMountPoint: (null)
+2030ca200 : <UMEventRecorder: 0x10276c0f0>: initializing event recorder with dataMountPoint: (null)
+2030ca200 : <UMEventRecorder: 0x10276c0f0>: initializing event recorder with updateMountPoint: (null)
+2030ca200 : <UMEventRecorder: 0x10276c0f0>: initializing event recorder with nvramPath: (null)
+2030ca200 : <UMEventRecorder: 0x10276c0f0>: initializing event recorder with targetOSVersion: 23E261
+2030ca200 : <UMEventRecorder: 0x10276c0f0>: initializing event recorder with context: (null)
+2030ca200 : <UMEventRecorder: 0x10276c0f0>: initializing event recorder with baseServerURL: https://xp.apple.com/report
+2030ca200 : <UMEventRecorder: 0x10276c0f0>: initializing event recorder with uuidXXXX>>>>>>-6DEA-55B6-956EXXXX>>>>>AB37
+2030ca200 : MSU running in normal env
+2030ca200 : Attempting to gather analytics data for phase : UpdateFinished
+2030ca200 : add_persistent_target_volume_metrics: nothing to do.
+2030ca200 : Additional analytics data is {
+}
+2030ca200 : InstallInProgressAfterApply is false
+
+2030ca200 : ignoring call to recordPostUpdateEvent when no install is in progress or we haven't performed the apply operation
+2030ca200 : initializing new submission queue
+2030ca200 : MSU running in normal env
+2030ca200 : is_first_boot_after_update: is first boot: NO
+2030ca200 : retrieve_previous_update_state: found previous update state MSUPreviousUpdateState=1
+2030ca200 : is_first_boot_after_update: is first boot: NO
+16deaf000 : submitEventsInBackground running
+16deaf000 : -[UMEventRecorder _supportDirectoryWithMountPoint:]: mountPoint is nil...Using /var/MobileSoftwareUpdate as the mountPoint
+16deaf000 : -[UMEventRecorder submitEventsInBackground:withOptions:]_block_invoke: Previously submitted events will NOT BE resubmitted
+
+2030ca200 : hw.osenvironment = ''
+2030ca200 : Detected BootedOS environment (hw.osenvironment=<empty>)
+2030ca200 : Successfully saved booted os state
+16deaf000 : Client softwareupdateservicesd[315] does not have the 'com.apple.private.softwareupdated-helpers' entitlement
+16deaf000 : retrieve_previous_update_state: found previous update state MSUPreviousUpdateState=1
+16deaf000 : Client softwareupdateservicesd[315] does not have the 'com.apple.private.softwareupdated-helpers' entitlement
+16deaf000 : The secure object length value is: 1471
+16deaf000 : Caller has pased in downloadOptions: MADownloadOptions allowsCellular: 1 resourceTimeout: -1 canUseCacheServer: 0 discretionary: 0 disableUI: 0 sessionId: (null) additionalServerParams:{ } allowsExpensiveAccess:1 requiresPowerPluggedIn: 0 prefersInfraWiFi: 1 liveServerOnly: 0 DownloadAuthorizationHeader: not present analyticsData: not present allowDaemonConnectionRetries: 0  + MAMsuDownloadOptions reqProdVersion: (null) reqBuildVersion: (null) delayPeriod: 0 managedDevice: 0 allowSameVersion: 0 prereqBuild: (null) prereqVersion: (null) prereqReleaseType: (default) liveAssetAudienceUUID: (null) purpose: (null)
+16deaf000 : The attributes are: {
+    ActualMinimumSystemPartition = 7568;
+    ArchiveDecryptionKey = "0JhwweWqpdH9vTebPjQnfzzHmICPT6gJLYIMmpMYREc=";
+    ArchiveID = "LN0aXDheylkXrnZhuVMYsbL/Y85hJ/SXvrCRJMEW/Fc=";
+    AssetFormat = AppleEncryptedArchive;
+    AssetType = "com.apple.MobileAsset.SoftwareUpdate";
+    AutoUpdate = 1;
+    Build = 23E261;
+    CryptexSizeInfo =     (
+                {
+            CryptexSize = 14;
+            CryptexSizeDelta = 33;
+            CryptexTag = "cryptex-app";
+        },
+                {
+            CryptexSize = 4980;
+            CryptexSizeDelta = 82;
+            CryptexTag = "cryptex-system-arm64e";
+        }
+    );
+    EAPFSEnabled = 1;
+    GranularRampingLogic =     (
+                {
+            BgPct = 90;
+            FgPct = 0;
+            Hour = 0;
+        },
+                {
+            BgPct = 80;
+            FgPct = 0;
+            Hour = 24;
+        },
+                {
+            BgPct = 70;
+            FgPct = 0;
+            Hour = 48;
+        },
+                {
+            BgPct = 60;
+            FgPct = 0;
+            Hour = 72;
+        },
+                {
+            BgPct = 45;
+            FgPct = 0;
+            Hour = 96;
+        },
+                {
+            BgPct = 30;
+            FgPct = 0;
+            Hour = 120;
+        },
+                {
+            BgPct = 15;
+            FgPct = 0;
+            Hour = 144;
+        },
+                {
+            BgPct = 0;
+            FgPct = 0;
+            Hour = 168;
+        }
+    );
+    GranularlyRamped = 1;
+    InstallationSize = 233603072;
+    "InstallationSize-Snapshot" = 4191004648;
+    MinimumSystemPartition = 0;
+    OSVersion = "26.4.2";
+    PrerequisiteBuild = 23D8133;
+    PrerequisiteOSVersion = "26.3.1";
+    RSEPDigest = {length = 48, bytes = 0x3cc15a43 04fc663b def162ed a172949d ... 20fb05de 40713de2 };
+    RSEPTBMDigests = "+Cj18ko8e6TqcIGxcM79h64447wjL6v2ta1ddLAgak65XWhBT0VczMJlUeHGEmah\n2Spp233x9nNgZ6SE2CZnv6Tqiu39Iyl3VOtvHkoklN5sDcOL126gNyJDyT98dqxY\nFilBOEtstexpBdre6lutTYic3u56u8XdUzGMFWXbd3VCPXfMdO5L86U+91xmq5Hj\nlO7UQiPGAwQIcAqq85963svSgxWot+yK2N7mpJuxxq3hTRLh6FLWdPdR1sGp6Oa4\niGoMnszR6NkgJ5pXfbVSBm6TE39k7M8lEqII43WsjYAP9t8gMj8VV3no1TKrG14m";
+    Ramp = 0;
+    RescueMinimumSystemPartition = 7934;
+    RestoreVersion = "23.5.261.0.0,0";
+    RestoreVersionInfo =     {
+        RestoreBuildGroup = 0;
+        RestoreLongVersion = "23.5.261.0.0,0";
+        RestoreVersion = "23.5.261.0.0";
+    };
+    SEPDigest = {length = 48, bytes = 0x807f41e0 b1a705ce 2b29b328 1b8d4d9b ... 5e37ed91 dd34155e };
+    SEPTBMDigests = "gwBGU1ohy1WCgUYX+TZbWrGmdqeHC9RL5pMzhDtimXBVuT5nz8kN0f8UGklT2GnR\nPLHlXxtskrO81E6qRURAf5xmRLq1qf1NrigIqgVKf/lNjNOcJlstz6Bz7xqrlcw5\ni+7ClVg0+Ve7uh3n6C1VJ5Le2zS1UJ2Fnnk3kvMzoetjFCHfvD98njZNSS0livS4\nxUIWIbjk6eYKXJRy6hWtHzHc25BXD5lQH9jx8VKk8liovbPTi6uh0B5CmWGmzSeG\nan9gZHsc+vbKA+MG0+dWJe/i4Gvv1DPpKGAtJ49ul2prFHxgYDPO+0xf9rTuRcd2";
+    SUConvReqd = 1;
+    SUDocumentationID = iOS2642Long;
+    SUInstallTonightEnabled = 1;
+    SUMultiPassEnabled = 1;
+    SUProductSystemName = iOS;
+    SUPublisher = "Apple Inc.";
+    SupportedDeviceModels =     (
+        V59AP
+    );
+    SupportedDevices =     (
+        "iPhone17,5"
+    );
+    SystemPartitionPadding =     {
+        1024 = 1280;
+        128 = 1280;
+        16 = 160;
+        256 = 1280;
+        32 = 320;
+        512 = 1280;
+        64 = 640;
+        768 = 1280;
+        8 = 80;
+    };
+    SystemVolumeSealingOverhead = 227;
+    TrainName = LuckE;
+    "_CompressionAlgorithm" = aea;
+    "_DownloadSize" = 2617245696;
+    "_EventRecordingServiceURL" = "https://xp.apple.com/report";
+    "_IsEncrypted" = 1;
+    "_IsZipStreamable" = 1;
+    "_MasteredVersion" = 261;
+    "_Measurement" = {length = 20, bytes = 0x<<<<<<<<<<<<<<<<<<UDID>>>>>>>>>>>>>>>>>>};
+    "_Measurement-SHA256" = {length = 32, bytes = 0x536edfe8 c4a8cda1 659bbdab a3454201 ... a30fadcf a7450a79 };
+    "_MeasurementAlgorithm" = "SHA-1";
+    "_UnarchivedSize" = 2930937856;
+    "__AssetDefaultGarbageCollectionBehavior" = NeverCollected;
+    "__BaseURL" = "https://updates.cdn-apple.com/2026SpringFCS/mobileassets/122-62811/11A653A9-1ADD-4B66-A169XXXX>>>>>CE4C/";
+    "__CanUseLocalCacheServer" = 1;
+    "__FCSKeyURL" = "https://wkms-public.apple.com/fcs-keys/yDOP--8i5XAMUj8eeNZ-fc5a-tl4Mx-r_9eVzWTmqLc=";
+    "__FCSResponse" = "{\"enc-request\": \"BApgRYVI2D1ufg5yQarMh4l8YHhmzyJniZGWpJcqyg0GAPFSZ8/51fsLyNXL/glfJktcDT3jbyczYJC6Ks1tFhk=\", \"wrapped-key\": \"1+7SpC/0Gbtx27IgN5pA9OqwAtQ/YqqF72JIGn0Vl2Ny1rvwz5X8Wbi/329oWrkD\"}";
+    "__HideInstallAlert" = 0;
+    "__RelativePath" = "com_apple_MobileAsset_SoftwareUpdate/<<<<<<<<<<<<<<<<<<UDID>>>>>>>>>>>>>>>>>><<<<<<<<ICCID>>>>>>>fc57.aea";
+}
+16de23000 : Using OS prepare calculation because MSUBrain is not loaded
+16de23000 : Returning non-snapshot preparation size
+16de23000 : nonsnapshot preparation size XXXX>>>>>>2 (222 MB)
+16de23000 : 
+get_nonsnapshot_preparation_size():
++ 222 MB update_attributes["InstallationSize"] (string)
+-----
+  222 MB
+16de23000 : Also returning snapshot prepare size
+16de23000 : cryptex size requirementXXXX>>>>>>52 (5992 MB)
+16de23000 : 
+cryptex_size_requirement_for_update_type(msu_update_type_snapshot):
+    16 MB update_attributes["CryptexSizeInfo"][0(cryptex-app)]["CryptexSize"] * 1.2
++ 5976 MB update_attributes["CryptexSizeInfo"][1(cryptex-system-arm64e)]["CryptexSize"] * 1.2
+------
+  5992 MB
+16de23000 : snapshot preparation size (mastered) XXXX>>>>>>900 (9989 MB)
+16de23000 : 
+get_snapshot_preparation_size():
+  3996 MB update_attributes["InstallationSize-Snapshot"] (string)
++ 5992 MB cryptex_size_requirement_for_update_type(msu_update_type_snapshot)
+------
+  9988 MB
+16de23000 : Using OS apply calculation because MSUBrain is not loaded
+16de23000 : Returning snapshot apply size
+16de23000 : Sealing requires 227 MiB overhead
+16de23000 : Use of APFSIOC_GET_PREALLOCATE_MIN_SPACE is not expressly disallowed by asset attributes
+16de23000 : 227 MB reserve file will be needed (snapshot)
+16de23000 : preallocating a 227 MB reserve file will require an additional 157 MB of free space
+16de23000 : snapshot application size XXXX>>>>>>8 (784 MB)
+16de23000 : 
+get_snapshot_apply_and_reserve_sizes():
+  400 MB 2*UPDATE_PARTITION_SIZE + UPDATE_APFS_RESERVE
+  227 MB update_attributes["SystemVolumeSealingOverhead"]
++ 157 MB get_apfs_preallocate_min(227 MB)
+-----
+  784 MB
+16de23000 : Using OS prepare calculation because MSUBrain is not loaded
+16de23000 : Returning non-snapshot preparation size
+16de23000 : nonsnapshot preparation size : 0 (0 MB)
+16de23000 : 
+get_nonsnapshot_preparation_size():
++ 0 MB update_attributes["InstallationSize"] (string)
+---
+  0 MB
+16de23000 : Also returning snapshot prepare size
+16de23000 : cryptex size requirementXXXX>>>>>>52 (5992 MB)
+16de23000 : 
+cryptex_size_requirement_for_update_type(msu_update_type_snapshot):
+    16 MB update_attributes["CryptexSizeInfo"][0(cryptex-app)]["CryptexSize"] * 1.2
++ 5976 MB update_attributes["CryptexSizeInfo"][1(cryptex-system-arm64e)]["CryptexSize"] * 1.2
+------
+  5992 MB
+16de23000 : snapshot preparation size (mastered) XXXX>>>>>>67 (9469 MB)
+16de23000 : 
+get_snapshot_preparation_size():
+  3476 MB update_attributes["InstallationSize-Snapshot"] (string)
++ 5992 MB cryptex_size_requirement_for_update_type(msu_update_type_snapshot)
+------
+  9468 MB
+16de23000 : Using OS apply calculation because MSUBrain is not loaded
+16de23000 : Returning snapshot apply size
+16de23000 : Sealing requires 227 MiB overhead
+16de23000 : Use of APFSIOC_GET_PREALLOCATE_MIN_SPACE is not expressly disallowed by asset attributes
+16de23000 : 227 MB reserve file will be needed (snapshot)
+16de23000 : preallocating a 227 MB reserve file will require an additional 157 MB of free space
+16de23000 : snapshot application size XXXX>>>>>>8 (784 MB)
+16de23000 : 
+get_snapshot_apply_and_reserve_sizes():
+  400 MB 2*UPDATE_PARTITION_SIZE + UPDATE_APFS_RESERVE
+  227 MB update_attributes["SystemVolumeSealingOverhead"]
++ 157 MB get_apfs_preallocate_min(227 MB)
+-----
+  784 MB
+16deaf000 : Setting targetBrainVersion to 23E261
+16deaf000 : Sending load complete without error
+16de23000 : Entering handle_brain_is_loadable
+16de23000 : Unable to load trust cache: 0xe00002d8
+16de23000 : MobileSoftwareUpdateErrorDomain error 39 - Failed to load update brain trust cache
