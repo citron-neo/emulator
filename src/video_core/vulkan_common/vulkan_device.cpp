@@ -1092,8 +1092,9 @@ bool Device::GetSuitability(bool requires_swapchain) {
     FOR_EACH_VK_EXTENSION(EXTENSION);
 
 #ifdef __APPLE__
-    if (supported_extensions.contains("VK_KHR_portability_subset")) {
-        loaded_extensions.insert("VK_KHR_portability_subset");
+    if (supported_extensions.contains(VK_KHR_PORTABILITY_SUBSET_EXTENSION_NAME)) {
+        loaded_extensions.insert(VK_KHR_PORTABILITY_SUBSET_EXTENSION_NAME);
+        extensions.portability_subset = true;
     }
 #endif
 
@@ -1154,6 +1155,14 @@ bool Device::GetSuitability(bool requires_swapchain) {
     } else {
         FOR_EACH_VK_FEATURE_1_3(EXT_FEATURE);
     }
+
+#ifdef __APPLE__
+    if (extensions.portability_subset) {
+        features.portability_subset_features.sType =
+            VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PORTABILITY_SUBSET_FEATURES_KHR;
+        SetNext(next, features.portability_subset_features);
+    }
+#endif
 
 #undef EXT_FEATURE
 #undef FEATURE

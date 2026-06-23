@@ -740,7 +740,7 @@ void LoadPipelines(
         u32 num_envs{};
         file.read(reinterpret_cast<char*>(&num_envs), sizeof(num_envs));
 
-        if (num_envs == 0 || num_envs > 64) {
+        if (num_envs == 0 || num_envs > 5) {
             LOG_ERROR(Common_Filesystem, "Corrupted shader cache detected: num_envs={}", num_envs);
             throw std::ios_base::failure("Corrupted num_envs");
         }
