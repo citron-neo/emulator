@@ -1629,7 +1629,7 @@ GameList::GameList(std::shared_ptr<FileSys::VfsFilesystem> vfs_,
                                     QVariant orig_icon_data =
                                         original_item->data(Qt::DecorationRole);
                                     if (orig_icon_data.isValid() &&
-                                        orig_icon_data.type() == QVariant::Pixmap) {
+                                        orig_icon_data.typeId() == QMetaType::QPixmap) {
                                         QPixmap orig_pixmap = orig_icon_data.value<QPixmap>();
                                         if (!orig_pixmap.isNull()) {
                                             QPixmap rounded(icon_size, icon_size);
