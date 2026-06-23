@@ -104,6 +104,66 @@ vk::Buffer CreateXfbStreamCounterBuffer(const Device& device, MemoryAllocator& m
     return ret;
 }
 
+vk::Buffer CreateXfbStreamCounterSnapshotBuffer(const Device& device,
+                                                MemoryAllocator& memory_allocator) {
+    const VkBufferCreateInfo buffer_ci = {
+        .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+        .pNext = nullptr,
+        .flags = 0,
+        .size = VideoCommon::XFB_EMULATION_COUNTER_BUFFER_BYTES,
+        .usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+        .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
+        .queueFamilyIndexCount = 0,
+        .pQueueFamilyIndices = nullptr,
+    };
+    vk::Buffer ret = memory_allocator.CreateBuffer(buffer_ci, MemoryUsage::DeviceLocal);
+    if (device.HasDebuggingToolAttached()) {
+        ret.SetObjectNameEXT("XFB stream counter snapshot");
+    }
+    return ret;
+}
+
+void BufferCacheRuntime::RegisterXfbEmulationCounterBuffer(VkBuffer buffer) {
+    xfb_emulation_counter_buffer = buffer;
+    if (xfb_emulation_counter_snapshot_buffer == VK_NULL_HANDLE) {
+        xfb_emulation_counter_snapshot_buffer =
+            *CreateXfbStreamCounterSnapshotBuffer(device, memory_allocator);
+    }
+}
+
+void BufferCacheRuntime::SnapshotXfbEmulationCounter() {
+    if (xfb_emulation_counter_buffer == VK_NULL_HANDLE ||
+        xfb_emulation_counter_snapshot_buffer == VK_NULL_HANDLE) {
+        return;
+    }
+    static constexpr VkMemoryBarrier READ_BARRIER{
+        .sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER,
+        .pNext = nullptr,
+        .srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT,
+        .dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT,
+    };
+    static constexpr VkMemoryBarrier WRITE_BARRIER{
+        .sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER,
+        .pNext = nullptr,
+        .srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT,
+        .dstAccessMask = VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT,
+    };
+    scheduler.RequestOutsideRenderPassOperationContext();
+    scheduler.Record([src_buffer = xfb_emulation_counter_buffer,
+                      dst_buffer = xfb_emulation_counter_snapshot_buffer](vk::CommandBuffer cmdbuf) {
+        cmdbuf.PipelineBarrier(VK_PIPELINE_STAGE_VERTEX_SHADER_BIT,
+                               VK_PIPELINE_STAGE_TRANSFER_BIT, 0, READ_BARRIER);
+        std::array<VkBufferCopy, 1> copy{VkBufferCopy{
+            .srcOffset = 0,
+            .dstOffset = 0,
+            .size = VideoCommon::XFB_EMULATION_COUNTER_BUFFER_BYTES,
+        }};
+        cmdbuf.CopyBuffer(src_buffer, dst_buffer, copy);
+        cmdbuf.PipelineBarrier(VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, 0,
+                               WRITE_BARRIER);
+    });
+}
+
 void BufferCacheRuntime::CleanupUnusedBuffers() {
     // Cleanup is now handled by the VRAM management system (gc_aggressiveness setting)
     // This function is kept for compatibility but no longer performs mode-specific cleanup

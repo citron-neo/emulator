@@ -971,7 +971,11 @@ private:
         current_bank->AddReference();
 
         if (!device.IsExtTransformFeedbackSupported()) {
-            const VkBuffer src_buffer = buffer_cache.runtime.GetXfbEmulationCounterBuffer();
+            const VkBuffer snapshot_buffer =
+                buffer_cache.runtime.GetXfbEmulationCounterSnapshotBuffer();
+            const VkBuffer live_buffer = buffer_cache.runtime.GetXfbEmulationCounterBuffer();
+            const VkBuffer src_buffer =
+                snapshot_buffer != VK_NULL_HANDLE ? snapshot_buffer : live_buffer;
             if (src_buffer == VK_NULL_HANDLE) {
                 scheduler.RequestOutsideRenderPassOperationContext();
                 scheduler.Record([dst_buffer = current_bank->GetBuffer(),
