@@ -55,7 +55,7 @@ using VideoCommon::FileEnvironment;
 using VideoCommon::GenericEnvironment;
 using VideoCommon::GraphicsEnvironment;
 
-constexpr u32 CACHE_VERSION = 16;
+constexpr u32 CACHE_VERSION = 17;
 constexpr std::array<char, 8> VULKAN_CACHE_MAGIC_NUMBER{'y', 'u', 'z', 'u', 'v', 'k', 'c', 'h'};
 
 template <typename Container>
@@ -207,6 +207,11 @@ Shader::RuntimeInfo MakeRuntimeInfo(std::span<const Shader::IR::Program> program
         }
         if (max_vertex_attributes < Tegra::Engines::Maxwell3D::Regs::NumVertexAttributes) {
             PopulateVertexLocationRemap(info, max_vertex_attributes, key.state, program.info);
+            for (size_t index = 0; index < info.vertex_locations.size(); ++index) {
+                if (info.vertex_locations[index] == Shader::VERTEX_INPUT_DROPPED) {
+                    info.generic_input_types[index] = Shader::AttributeType::Disabled;
+                }
+            }
         }
         break;
     case Shader::Stage::TessellationEval:

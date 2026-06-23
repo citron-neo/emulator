@@ -14,6 +14,9 @@
 
 namespace Shader {
 
+/// Guest vertex input slot that could not be mapped into the host limit (see PopulateVertexLocationRemap).
+constexpr u8 VERTEX_INPUT_DROPPED = 0xFF;
+
 enum class AttributeType : u8 {
     Float,
     SignedInt,

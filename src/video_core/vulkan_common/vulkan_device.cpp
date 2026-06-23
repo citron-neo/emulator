@@ -730,12 +730,20 @@ Device::Device(VkInstance instance_, vk::PhysicalDevice physical_, VkSurfaceKHR 
     }
 
     if (is_mvk) {
-        LOG_WARNING(Render_Vulkan,
-                    "MVK driver breaks when using more than 16 vertex attributes/bindings");
+        // Older MoltenVK builds fault above 16; Metal supports 31. Use the reported limit capped at
+        // 31 instead of forcing 16 so titles like Minecraft can use >16 streams when supported.
+        constexpr u32 MVK_VERTEX_INPUT_LIMIT = 31;
+        const u32 reported_attrs = properties.properties.limits.maxVertexInputAttributes;
+        const u32 reported_bindings = properties.properties.limits.maxVertexInputBindings;
         properties.properties.limits.maxVertexInputAttributes =
-            std::min(properties.properties.limits.maxVertexInputAttributes, 16U);
+            std::min(reported_attrs, MVK_VERTEX_INPUT_LIMIT);
         properties.properties.limits.maxVertexInputBindings =
-            std::min(properties.properties.limits.maxVertexInputBindings, 16U);
+            std::min(reported_bindings, MVK_VERTEX_INPUT_LIMIT);
+        LOG_INFO(Render_Vulkan,
+                 "MoltenVK vertex input limits: attributes={} bindings={} (reported {}/{})",
+                 properties.properties.limits.maxVertexInputAttributes,
+                 properties.properties.limits.maxVertexInputBindings, reported_attrs,
+                 reported_bindings);
     }
 
     if (is_turnip) {
