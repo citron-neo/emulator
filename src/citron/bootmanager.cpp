@@ -810,7 +810,7 @@ void GRenderWindow::OnCameraCapture(int requestId, const QImage& img) {
         img.scaled(static_cast<int>(camera_width), static_cast<int>(camera_height),
                    Qt::AspectRatioMode::IgnoreAspectRatio,
                    Qt::TransformationMode::SmoothTransformation)
-            .flipped(Qt::Vertical);
+            .mirrored(false, true);
     if (camera_data.size() != camera_width * camera_height) {
         camera_data.resize(camera_width * camera_height);
     }
