@@ -55,7 +55,10 @@ void LoadingScreen::HaltTransitions() {
         loading_text_animation_timer->stop();
     }
     if (fadeout_animation) {
+        // stop() can emit finished(); block so teardown does not run the hide/Hidden callback.
+        fadeout_animation->blockSignals(true);
         fadeout_animation->stop();
+        fadeout_animation->blockSignals(false);
     }
     if (movie) {
         movie->stop();
@@ -184,7 +187,7 @@ void LoadingScreen::UpdateLoadingText() {
 }
 
 void LoadingScreen::OnLoadComplete() {
-    loading_text_animation_timer->stop();
+    HaltTransitions();
     fadeout_animation->start();
 }
 
