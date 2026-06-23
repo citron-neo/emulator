@@ -14,9 +14,9 @@ namespace Core::Crypto {
 struct CipherContext;
 
 enum class Mode {
-    CTR = 11,
-    ECB = 2,
-    XTS = 70,
+    CTR,
+    ECB,
+    XTS,
 };
 
 enum class Op {

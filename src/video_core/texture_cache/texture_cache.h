@@ -219,11 +219,13 @@ void TextureCache<P>::RunGarbageCollector() {
 
 template <class P>
 void TextureCache<P>::TickFrame() {
-    if (runtime.CanReportMemoryUsage()) {
-        total_used_memory = runtime.GetDeviceMemoryUsage();
-    }
-    if (total_used_memory > minimum_memory) {
-        RunGarbageCollector();
+    if (Settings::values.gc_aggressiveness.GetValue() != Settings::GCAggressiveness::Off) {
+        if (runtime.CanReportMemoryUsage()) {
+            total_used_memory = runtime.GetDeviceMemoryUsage();
+        }
+        if (total_used_memory > minimum_memory) {
+            RunGarbageCollector();
+        }
     }
     sentenced_images.Tick();
     sentenced_framebuffers.Tick();

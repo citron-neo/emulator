@@ -7,8 +7,8 @@
 #include <regex>
 #include <string>
 
-#include <mbedtls/md.h>
-#include <mbedtls/sha256.h>
+#include <openssl/evp.h>
+#include <openssl/hmac.h>
 
 #include "common/fs/path_util.h"
 #include "common/hex_util.h"
@@ -28,19 +28,11 @@ constexpr u64 NAX_HEADER_PADDING_SIZE = 0x4000;
 template <typename SourceData, typename SourceKey, typename Destination>
 static bool CalculateHMAC256(Destination* out, const SourceKey* key, std::size_t key_length,
                              const SourceData* data, std::size_t data_length) {
-    mbedtls_md_context_t context;
-    mbedtls_md_init(&context);
-
-    if (mbedtls_md_setup(&context, mbedtls_md_info_from_type(MBEDTLS_MD_SHA256), 1) ||
-        mbedtls_md_hmac_starts(&context, reinterpret_cast<const u8*>(key), key_length) ||
-        mbedtls_md_hmac_update(&context, reinterpret_cast<const u8*>(data), data_length) ||
-        mbedtls_md_hmac_finish(&context, reinterpret_cast<u8*>(out))) {
-        mbedtls_md_free(&context);
-        return false;
-    }
-
-    mbedtls_md_free(&context);
-    return true;
+    unsigned int out_len = sizeof(Destination);
+    return HMAC(EVP_sha256(),
+                reinterpret_cast<const unsigned char*>(key), static_cast<int>(key_length),
+                reinterpret_cast<const unsigned char*>(data), data_length,
+                reinterpret_cast<unsigned char*>(out), &out_len) != nullptr;
 }
 
 NAX::NAX(VirtualFile file_)
@@ -65,7 +57,8 @@ NAX::NAX(VirtualFile file_, std::array<u8, 0x10> nca_id)
     : header(std::make_unique<NAXHeader>()),
       file(std::move(file_)), keys{Core::Crypto::KeyManager::Instance()} {
     Core::Crypto::SHA256Hash hash{};
-    mbedtls_sha256_ret(nca_id.data(), nca_id.size(), hash.data(), 0);
+    unsigned int sha_len = static_cast<unsigned int>(hash.size());
+    EVP_Digest(nca_id.data(), nca_id.size(), hash.data(), &sha_len, EVP_sha256(), nullptr);
     status = Parse(fmt::format("/registered/000000{:02X}/{}.nca", hash[0],
                                Common::HexToString(nca_id, false)));
 }

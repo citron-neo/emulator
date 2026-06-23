@@ -16,6 +16,7 @@
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QMessageBox>
 #include <QNetworkAccessManager>
 #include <QNetworkRequest>
 #include <QProcess>
@@ -35,8 +36,9 @@
 #include <regex>
 
 #ifdef _WIN32
-#include <windows.h>
 #include <shellapi.h>
+#include <windows.h>
+
 
 #endif
 
@@ -158,18 +160,18 @@ void UpdaterService::CheckForUpdates() {
     request.setRawHeader("Accept", QByteArrayLiteral("application/json"));
     request.setAttribute(QNetworkRequest::RedirectPolicyAttribute,
                          QNetworkRequest::NoLessSafeRedirectPolicy);
-    current_reply = network_manager->get(request);
-    connect(current_reply, &QNetworkReply::finished, this, [this, channel]() {
-        if (!current_reply)
-            return;
-        if (current_reply->error() == QNetworkReply::NoError) {
-            ParseUpdateResponse(current_reply->readAll(), channel);
-        } else {
-            emit UpdateError(
-                QStringLiteral("Update check failed: %1").arg(current_reply->errorString()));
+    QNetworkReply* reply = network_manager->get(request);
+    current_reply = reply;
+    connect(reply, &QNetworkReply::finished, this, [this, reply, channel]() {
+        if (current_reply == reply) {
+            current_reply = nullptr;
         }
-        current_reply->deleteLater();
-        current_reply = nullptr;
+        if (reply->error() == QNetworkReply::NoError) {
+            ParseUpdateResponse(reply->readAll(), channel);
+        } else {
+            emit UpdateError(QStringLiteral("Update check failed: %1").arg(reply->errorString()));
+        }
+        reply->deleteLater();
     });
 }
 
@@ -208,8 +210,10 @@ void UpdaterService::DownloadAndInstallUpdate(const std::string& download_url) {
 
     QUrl url(QString::fromStdString(download_url));
     QNetworkRequest request(url);
+    request.setRawHeader("User-Agent", QByteArrayLiteral("Citron-Updater/1.0"));
     request.setAttribute(QNetworkRequest::RedirectPolicyAttribute,
                          QNetworkRequest::NoLessSafeRedirectPolicy);
+    ConfigureSSLForRequest(request);
     current_reply = network_manager->get(request);
     connect(current_reply, &QNetworkReply::downloadProgress, this,
             &UpdaterService::OnDownloadProgress);
@@ -227,6 +231,13 @@ void UpdaterService::CancelUpdate() {
     LOG_INFO(Frontend, "Update cancelled by user");
     emit UpdateCompleted(UpdateResult::Cancelled, QStringLiteral("Update cancelled by user"));
     update_in_progress.store(false);
+}
+
+void UpdaterService::AbortCheck() {
+    if (current_reply) {
+        current_reply->abort();
+        current_reply = nullptr;
+    }
 }
 
 std::string UpdaterService::GetCurrentVersion() const {
@@ -291,6 +302,29 @@ std::string UpdaterService::GetCurrentVersion() const {
 
 bool UpdaterService::IsUpdateInProgress() const {
     return update_in_progress.load();
+}
+
+bool UpdaterService::IsPgoBuild() const {
+#ifdef CITRON_ENABLE_PGO_USE
+    return true;
+#else
+    return false;
+#endif
+}
+
+bool UpdaterService::CheckPgoWarning(QWidget* parent) {
+    if (!UpdaterService().IsPgoBuild()) {
+        return true;
+    }
+    QMessageBox::StandardButton answer =
+        QMessageBox::warning(parent, tr("PGO Build Detected"),
+                             tr("You are currently running a highly optimized PGO (Profile-Guided "
+                                "Optimization) build of Citron. "
+                                "Updating will replace your current binary with a standard "
+                                "release, and you will lose your PGO optimizations.\n\n"
+                                "Do you wish to proceed with the update?"),
+                             QMessageBox::Yes | QMessageBox::No, QMessageBox::No);
+    return answer == QMessageBox::Yes;
 }
 
 void UpdaterService::OnDownloadFinished() {
@@ -397,6 +431,9 @@ void UpdaterService::OnDownloadFinished() {
             } else {
                 LOG_INFO(Frontend, "Created backup of old AppImage at: {}",
                          backup_filepath.string());
+                emit UpdateInstallProgress(
+                    50, QStringLiteral("Created backup of old AppImage at: %1")
+                            .arg(QString::fromStdString(backup_filepath.string())));
             }
         }
     }
@@ -423,10 +460,32 @@ void UpdaterService::OnDownloadFinished() {
 
     std::filesystem::rename(new_appimage_path, original_appimage_path, ec);
     if (ec) {
-        LOG_ERROR(Frontend, "Failed to replace old AppImage: {}", ec.message());
-        emit UpdateError(QStringLiteral("Failed to replace old AppImage."));
-        update_in_progress.store(false);
-        return;
+        LOG_WARNING(Frontend,
+                    "std::filesystem::rename failed: {}. Attempting stage 1 fallback (copy)...",
+                    ec.message());
+        std::filesystem::copy_file(new_appimage_path, original_appimage_path,
+                                   std::filesystem::copy_options::overwrite_existing, ec);
+        if (ec) {
+            LOG_WARNING(
+                Frontend,
+                "copy_file failed: {}. Attempting stage 2 fallback (move running binary)...",
+                ec.message());
+            std::filesystem::path old_appimage_path = original_appimage_path.string() + ".old";
+            std::filesystem::rename(original_appimage_path, old_appimage_path, ec);
+            if (!ec) {
+                std::filesystem::rename(new_appimage_path, original_appimage_path, ec);
+            }
+        } else {
+            std::filesystem::remove(new_appimage_path, ec);
+            ec.clear(); // Copy succeeded!
+        }
+
+        if (ec) {
+            LOG_ERROR(Frontend, "All AppImage replacement fallbacks failed: {}", ec.message());
+            emit UpdateError(QStringLiteral("Failed to replace old AppImage."));
+            update_in_progress.store(false);
+            return;
+        }
     }
 
     std::filesystem::path version_file_path = appimage_dir / CITRON_VERSION_FILE;
@@ -454,6 +513,8 @@ void UpdaterService::OnDownloadProgress(qint64 bytes_received, qint64 bytes_tota
     if (bytes_total > 0) {
         emit UpdateDownloadProgress(static_cast<int>((bytes_received * 100) / bytes_total),
                                     bytes_received, bytes_total);
+    } else if (bytes_received > 0) {
+        emit UpdateDownloadProgress(0, bytes_received, bytes_received);
     }
 }
 
@@ -471,6 +532,19 @@ void UpdaterService::ParseUpdateResponse(const QByteArray& response, const QStri
         emit UpdateError(QStringLiteral("Failed to parse update response."));
         return;
     }
+
+#if defined(__linux__)
+    QString current_appimage = QString::fromUtf8(qgetenv("APPIMAGE"));
+    QString current_variant;
+    if (current_appimage.contains(QStringLiteral("x86_64_v3"), Qt::CaseInsensitive)) {
+        current_variant = QStringLiteral("x86_64_v3");
+    } else if (current_appimage.contains(QStringLiteral("aarch64"), Qt::CaseInsensitive) ||
+               current_appimage.contains(QStringLiteral("arm64"), Qt::CaseInsensitive)) {
+        current_variant = QStringLiteral("aarch64");
+    } else {
+        current_variant = QStringLiteral("x86_64");
+    }
+#endif
 
     for (const QJsonValue& release_value : doc.array()) {
         QJsonObject release_obj = release_value.toObject();
@@ -497,18 +571,41 @@ void UpdaterService::ParseUpdateResponse(const QByteArray& response, const QStri
             QString asset_name = asset_obj.value(QStringLiteral("name")).toString();
 
 #if defined(__linux__)
-            if (asset_name.endsWith(QStringLiteral(".AppImage"))) {
-                DownloadOption option;
-                option.name = asset_name.toStdString();
-                option.url = asset_obj.value(QStringLiteral("browser_download_url"))
-                                 .toString()
-                                 .toStdString();
-                update_info.download_options.push_back(option);
+            if (asset_name.endsWith(QStringLiteral(".AppImage"), Qt::CaseInsensitive)) {
+                bool match_variant = false;
+                if (current_variant == QStringLiteral("x86_64_v3")) {
+                    match_variant =
+                        asset_name.contains(QStringLiteral("x86_64_v3"), Qt::CaseInsensitive);
+                } else if (current_variant == QStringLiteral("aarch64")) {
+                    match_variant =
+                        asset_name.contains(QStringLiteral("aarch64"), Qt::CaseInsensitive) ||
+                        asset_name.contains(QStringLiteral("arm64"), Qt::CaseInsensitive);
+                } else {
+                    match_variant =
+                        asset_name.contains(QStringLiteral("x86_64"), Qt::CaseInsensitive) &&
+                        !asset_name.contains(QStringLiteral("x86_64_v3"), Qt::CaseInsensitive);
+                }
+                if (match_variant) {
+                    std::string asset_hash = ExtractCommitHash(asset_name.toStdString());
+                    if (!asset_hash.empty()) {
+                        update_info.version = asset_hash;
+                    }
+                    DownloadOption option;
+                    option.name = asset_name.toStdString();
+                    option.url = asset_obj.value(QStringLiteral("browser_download_url"))
+                                     .toString()
+                                     .toStdString();
+                    update_info.download_options.push_back(option);
+                }
             }
 #elif defined(_WIN32)
             // For Windows, find the .zip file but explicitly skip PGO builds.
             if (asset_name.endsWith(QStringLiteral(".zip")) &&
                 !asset_name.contains(QStringLiteral("PGO"), Qt::CaseInsensitive)) {
+                std::string asset_hash = ExtractCommitHash(asset_name.toStdString());
+                if (!asset_hash.empty()) {
+                    update_info.version = asset_hash;
+                }
                 DownloadOption option;
                 option.name = asset_name.toStdString();
                 option.url = asset_obj.value(QStringLiteral("browser_download_url"))

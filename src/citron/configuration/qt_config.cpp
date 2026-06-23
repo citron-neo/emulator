@@ -248,6 +248,10 @@ void QtConfig::ReadPathValues() {
         QString::fromStdString(ReadStringSetting(std::string("recentFiles")))
             .split(QStringLiteral(", "), Qt::SkipEmptyParts, Qt::CaseSensitive);
 
+    UISettings::values.recent_backgrounds =
+        QString::fromStdString(ReadStringSetting(std::string("recentBackgrounds")))
+            .split(QStringLiteral(", "), Qt::SkipEmptyParts, Qt::CaseSensitive);
+
     ReadCategory(Settings::Category::Paths);
 
     EndGroup();
@@ -478,6 +482,9 @@ void QtConfig::SavePathValues() {
 
     WriteStringSetting(std::string("recentFiles"),
                        UISettings::values.recent_files.join(QStringLiteral(", ")).toStdString());
+
+    WriteStringSetting(std::string("recentBackgrounds"),
+                       UISettings::values.recent_backgrounds.join(QStringLiteral(", ")).toStdString());
 
     EndGroup();
 }

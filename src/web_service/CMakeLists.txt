@@ -15,7 +15,7 @@ add_library(web_service STATIC
 )
 
 create_target_directory_groups(web_service)
-target_link_libraries(web_service PRIVATE common network nlohmann_json::nlohmann_json httplib::httplib cpp-jwt::cpp-jwt)
+target_link_libraries(web_service PRIVATE common network nlohmann_json::nlohmann_json httplib::httplib OpenSSL::Crypto)
 
 if (CITRON_USE_PRECOMPILED_HEADERS)
     target_precompile_headers(web_service PRIVATE precompiled_headers.h)

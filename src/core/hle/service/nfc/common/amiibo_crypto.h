@@ -6,8 +6,8 @@
 #include <array>
 
 #include "core/hle/service/nfp/nfp_types.h"
-
-struct mbedtls_md_context_t;
+// Forward declare OpenSSL EVP_MAC_CTX to avoid pulling in openssl/evp.h in the header.
+struct evp_mac_ctx_st;
 
 namespace Service::NFP::AmiiboCrypto {
 // Byte locations in Service::NFP::NTAG215File
@@ -73,12 +73,12 @@ HashSeed GetSeed(const NTAG215File& data);
 // Middle step on the generation of derived keys
 std::vector<u8> GenerateInternalKey(const InternalKey& key, const HashSeed& seed);
 
-// Initializes mbedtls context
-void CryptoInit(CryptoCtx& ctx, mbedtls_md_context_t& hmac_ctx, const HmacKey& hmac_key,
+// Initializes OpenSSL HMAC-SHA256 context for key derivation
+void CryptoInit(CryptoCtx& ctx, evp_mac_ctx_st*& hmac_ctx, const HmacKey& hmac_key,
                 std::span<const u8> seed);
 
-// Feeds data to mbedtls context to generate the derived key
-void CryptoStep(CryptoCtx& ctx, mbedtls_md_context_t& hmac_ctx, DrgbOutput& output);
+// Feeds data into the HMAC context to generate the next derived key block
+void CryptoStep(CryptoCtx& ctx, evp_mac_ctx_st* hmac_ctx, DrgbOutput& output);
 
 // Generates the derived key from amiibo data
 DerivedKeys GenerateKey(const InternalKey& key, const NTAG215File& data);

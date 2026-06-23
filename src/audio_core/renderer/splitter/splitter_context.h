@@ -208,6 +208,10 @@ private:
     bool splitter_biquad_filter_enabled{};
     /// Splitter biquad filtering states (REV12+)
     std::span<VoiceState::BiquadFilterState> splitter_bqf_states{};
+    
+    /// Heap allocations for internal structures to avoid overflowing game's workbuffer
+    std::unique_ptr<u8[]> internal_splitter_infos{};
+    std::unique_ptr<u8[]> internal_splitter_destinations{};
 };
 
 } // namespace Renderer

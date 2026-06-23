@@ -38,6 +38,8 @@ ConfigureGeneral::ConfigureGeneral(Core::System& system_,
 
     ui->check_for_updates_checkbox->setChecked(
         UISettings::values.check_for_updates_on_start.GetValue());
+    ui->auto_update_before_init_checkbox->setChecked(
+        UISettings::values.auto_update_before_init.GetValue());
 
     ui->update_channel_combo->addItem(tr("Stable"), QStringLiteral("Stable"));
     ui->update_channel_combo->addItem(tr("Nightly"), QStringLiteral("Nightly"));
@@ -164,6 +166,8 @@ void ConfigureGeneral::ApplyConfiguration() {
 
     UISettings::values.check_for_updates_on_start.SetValue(
         ui->check_for_updates_checkbox->isChecked());
+    UISettings::values.auto_update_before_init.SetValue(
+        ui->auto_update_before_init_checkbox->isChecked());
 
     QSettings settings;
     settings.beginGroup(QStringLiteral("updater"));

@@ -64,7 +64,7 @@ export LD_LIBRARY_PATH="$CITRON_QT_PATH/lib:$CITRON_ICU_PATH:$CITRON_XCB_PATH/li
 
 pushd "$BUILD_DIR" > /dev/null
 # Run linuxdeploy to populate AppDir
-$LINUXDEPLOY --appdir "$APPDIR" \
+"$LINUXDEPLOY" --appdir "$APPDIR" \
     --executable "$CITRON_BINARY_DIR/citron" \
     --desktop-file "$SCRIPT_DIR/assets/citron.desktop" \
     --icon-file "$SCRIPT_DIR/assets/citron.svg" \
@@ -97,7 +97,7 @@ if [ -f "$APPDIR/usr/bin/citron" ]; then
 fi
 
 # Build the final AppImage
-$LINUXDEPLOY --appdir "$APPDIR" --output appimage
+"$LINUXDEPLOY" --appdir "$APPDIR" --output appimage
 
 popd > /dev/null
 

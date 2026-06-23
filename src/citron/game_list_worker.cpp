@@ -540,41 +540,11 @@ void GameListWorker::Cancel() {
     stop_requested.store(true);
 }
 
-void GameListWorker::ProcessEvents(GameList* game_list) {
-    while (true) {
-        std::function<void(GameList*)> func;
-        {
-            // Lock queue to protect concurrent modification.
-            std::scoped_lock lk(lock);
-
-            // If we can't pop a function, return.
-            if (queued_events.empty()) {
-                return;
-            }
-
-            // Pop a function.
-            func = std::move(queued_events.back());
-            queued_events.pop_back();
-        }
-
-        // Run the function.
-        func(game_list);
-    }
+void GameListWorker::MarkAsCanceledBeforeStart() {
+    stop_requested.store(true);
+    processing_completed.Set();
 }
 
-template <typename F>
-void GameListWorker::RecordEvent(F&& func) {
-    {
-        // Lock queue to protect concurrent modification.
-        std::scoped_lock lk(lock);
-
-        // Add the function into the front of the queue.
-        queued_events.emplace_front(std::move(func));
-    }
-
-    // Data now available.
-    emit DataAvailable();
-}
 
 void GameListWorker::AddTitlesToGameList(const QString& parent_path,
                                          const std::map<u64, std::pair<int, int>>& online_stats) {
@@ -631,7 +601,7 @@ void GameListWorker::AddTitlesToGameList(const QString& parent_path,
         auto entry = MakeGameListEntry(file->GetFullPath(), name, original_name, file->GetSize(),
                                        icon, *loader, program_id, compatibility_list,
                                        play_time_manager, patch, online_stats);
-        RecordEvent([=](GameList* game_list) { game_list->AddEntry(entry, parent_path); });
+        emit EntryReady(entry, parent_path);
     }
 }
 
@@ -681,10 +651,14 @@ void GameListWorker::ScanFileSystem(ScanTarget target, const std::string& dir_pa
                         const auto nsp = cached->file_type == Loader::FileType::NSP
                                              ? std::make_shared<FileSys::NSP>(file)
                                              : FileSys::XCI{file}.GetSecurePartitionNSP();
-                        for (const auto& title : nsp->GetNCAs()) {
-                            for (const auto& entry : title.second) {
-                                provider->AddEntry(entry.first.first, entry.first.second,
-                                                   title.first, entry.second->GetBaseFile());
+                        if (nsp) {
+                            for (const auto& title : nsp->GetNCAs()) {
+                                for (const auto& entry : title.second) {
+                                    if (entry.second) {
+                                        provider->AddEntry(entry.first.first, entry.first.second,
+                                                           title.first, entry.second->GetBaseFile());
+                                    }
+                                }
                             }
                         }
                     }
@@ -721,8 +695,7 @@ void GameListWorker::ScanFileSystem(ScanTarget target, const std::string& dir_pa
                             MakeGameListEntry(physical_name, name, original_name, cached->file_size,
                                               icon, *loader, cached->program_id, compatibility_list,
                                               play_time_manager, patch, online_stats);
-                        RecordEvent(
-                            [=](GameList* game_list) { game_list->AddEntry(entry, parent_path); });
+                        emit EntryReady(entry, parent_path);
                     }
                 }
             }
@@ -761,10 +734,14 @@ void GameListWorker::ScanFileSystem(ScanTarget target, const std::string& dir_pa
                     const auto nsp = file_type == Loader::FileType::NSP
                                          ? std::make_shared<FileSys::NSP>(file)
                                          : FileSys::XCI{file}.GetSecurePartitionNSP();
-                    for (const auto& title : nsp->GetNCAs()) {
-                        for (const auto& entry : title.second) {
-                            provider->AddEntry(entry.first.first, entry.first.second, title.first,
-                                               entry.second->GetBaseFile());
+                    if (nsp) {
+                        for (const auto& title : nsp->GetNCAs()) {
+                            for (const auto& entry : title.second) {
+                                if (entry.second) {
+                                    provider->AddEntry(entry.first.first, entry.first.second, title.first,
+                                                       entry.second->GetBaseFile());
+                                }
+                            }
                         }
                     }
                 }
@@ -803,8 +780,7 @@ void GameListWorker::ScanFileSystem(ScanTarget target, const std::string& dir_pa
                     auto entry = MakeGameListEntry(physical_name, name, original_name, file_size,
                                                    icon, *loader, program_id, compatibility_list,
                                                    play_time_manager, patch, online_stats);
-                    RecordEvent(
-                        [=](GameList* game_list) { game_list->AddEntry(entry, parent_path); });
+                    emit EntryReady(entry, parent_path);
                 }
             }
         }
@@ -823,6 +799,10 @@ void GameListWorker::ScanFileSystem(ScanTarget target, const std::string& dir_pa
 }
 
 void GameListWorker::run() {
+    if (stop_requested) {
+        processing_completed.Set();
+        return;
+    }
     LoadGameMetadataCache();
 
     std::map<u64, std::pair<int, int>> online_stats;
@@ -876,8 +856,8 @@ void GameListWorker::run() {
     if (total_files <= 0)
         total_files = 1;
 
-    const auto DirEntryReady = [&](GameListDir* game_list_dir) {
-        RecordEvent([=](GameList* game_list) { game_list->AddDirEntry(game_list_dir); });
+    const auto TriggerDirEntryReady = [&](GameListDir* game_list_dir) {
+        emit DirEntryReady(game_list_dir);
     };
 
     for (UISettings::GameDir& game_dir : game_dirs) {
@@ -890,13 +870,13 @@ void GameListWorker::run() {
         watch_list.append(QString::fromStdString(game_dir.path));
         auto* const game_list_dir = new GameListDir(game_dir);
         const QString dir_path_q = game_list_dir->data(GameListDir::FullPathRole).toString();
-        DirEntryReady(game_list_dir);
+        TriggerDirEntryReady(game_list_dir);
 
         ScanFileSystem(ScanTarget::Both, game_dir.path, game_dir.deep_scan, dir_path_q,
                        online_stats, processed_files, total_files);
     }
 
-    RecordEvent([this](GameList* game_list) { game_list->DonePopulating(watch_list); });
+    emit Finished(watch_list);
     SaveGameMetadataCache();
     processing_completed.Set();
 }

@@ -11,6 +11,7 @@
 #include <QGroupBox>
 #include <QHBoxLayout>
 #include <QLabel>
+#include <QMenu>
 #include <QPushButton>
 #include <QSlider>
 #include <QVBoxLayout>
@@ -119,13 +120,23 @@ ConfigureNeoThemes::ConfigureNeoThemes(QWidget* parent) : QWidget(parent) {
     bg_layout->setSpacing(10);
 
     button_bg_path = new QPushButton(tr("Select Image..."), bg_group);
+    auto* button_bg_reset = new QPushButton(tr("Reset"), bg_group);
+    
+    auto* bg_btn_layout = new QHBoxLayout();
+    bg_btn_layout->addWidget(button_bg_path);
+    bg_btn_layout->addWidget(button_bg_reset);
+
     label_bg_path = new QLabel(bg_group);
     label_bg_path->setWordWrap(true);
     label_bg_path->setStyleSheet(QStringLiteral("font-size: 10px; color: gray;"));
 
-    bg_layout->addRow(tr("Background Image:"), button_bg_path);
+    bg_layout->addRow(tr("Background Image:"), bg_btn_layout);
     bg_layout->addRow(label_bg_path);
-    connect(button_bg_path, &QPushButton::clicked, this, &ConfigureNeoThemes::OnSelectBG);
+    UpdateBGButtonMenu();
+
+    connect(button_bg_reset, &QPushButton::clicked, this, [this] {
+        label_bg_path->setText(tr("No background image selected."));
+    });
 
     slider_bg_opacity = new QSlider(Qt::Horizontal, bg_group);
     slider_bg_opacity->setRange(0, 255);
@@ -322,6 +333,7 @@ void ConfigureNeoThemes::SetConfiguration() {
 
     m_rainbow_mode = UISettings::values.enable_rainbow_mode.GetValue();
     checkbox_rainbow_mode->setChecked(m_rainbow_mode);
+    UpdateBGButtonMenu();
 }
 
 void ConfigureNeoThemes::OnSelectBG() {
@@ -372,8 +384,47 @@ void ConfigureNeoThemes::ApplyConfiguration() {
     UISettings::values.custom_selection_color.SetValue(m_selection_color);
     UISettings::values.custom_list_bg_color.SetValue(m_list_bg_color);
     UISettings::values.custom_header_opacity.SetValue(static_cast<u8>(slider_header_opacity->value()));
-    UISettings::values.custom_game_list_bg_path.SetValue(label_bg_path->text().toStdString());
+    std::string new_bg_path = label_bg_path->text().toStdString();
+    if (new_bg_path == tr("No background image selected.").toStdString()) {
+        new_bg_path = "";
+    }
+    if (!new_bg_path.empty()) {
+        QString q_path = QString::fromStdString(new_bg_path);
+        UISettings::values.recent_backgrounds.removeAll(q_path);
+        UISettings::values.recent_backgrounds.prepend(q_path);
+        while (UISettings::values.recent_backgrounds.size() > 5) {
+            UISettings::values.recent_backgrounds.removeLast();
+        }
+    }
+    UISettings::values.custom_game_list_bg_path.SetValue(new_bg_path);
     UISettings::values.custom_game_list_bg_opacity.SetValue(
         static_cast<u8>(slider_bg_opacity->value()));
     UISettings::values.enable_rainbow_mode.SetValue(checkbox_rainbow_mode->isChecked());
+    UpdateBGButtonMenu();
+}
+
+void ConfigureNeoThemes::UpdateBGButtonMenu() {
+    auto* menu = button_bg_path->menu();
+    if (!menu) {
+        menu = new QMenu(button_bg_path);
+        button_bg_path->setMenu(menu);
+    }
+    menu->clear();
+
+    auto* select_action = menu->addAction(tr("Select New Image..."));
+    connect(select_action, &QAction::triggered, this, &ConfigureNeoThemes::OnSelectBG);
+
+    auto* previous_menu = menu->addMenu(tr("Previous"));
+    const auto& recents = UISettings::values.recent_backgrounds;
+    if (recents.isEmpty()) {
+        auto* empty_action = previous_menu->addAction(tr("No previous images"));
+        empty_action->setEnabled(false);
+    } else {
+        for (const auto& path : recents) {
+            auto* path_action = previous_menu->addAction(path);
+            connect(path_action, &QAction::triggered, this, [this, path] {
+                label_bg_path->setText(path);
+            });
+        }
+    }
 }

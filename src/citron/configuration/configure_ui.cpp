@@ -261,10 +261,21 @@ void ConfigureUi::SetConfiguration() {
     ui->show_play_time->setChecked(UISettings::values.show_play_time.GetValue());
     ui->show_online_column->setChecked(UISettings::values.show_online_column.GetValue());
     ui->game_list_poster_view->setChecked(UISettings::values.game_list_poster_view.GetValue());
-    ui->game_icon_size_combobox->setCurrentIndex(
-        ui->game_icon_size_combobox->findData(UISettings::values.game_icon_size.GetValue()));
-    ui->folder_icon_size_combobox->setCurrentIndex(
-        ui->folder_icon_size_combobox->findData(UISettings::values.folder_icon_size.GetValue()));
+    int game_icon_index = ui->game_icon_size_combobox->findData(UISettings::values.game_icon_size.GetValue());
+    if (game_icon_index == -1) {
+        u32 custom_size = UISettings::values.game_icon_size.GetValue();
+        ui->game_icon_size_combobox->addItem(tr("Custom (%1x%1)").arg(custom_size), custom_size);
+        game_icon_index = ui->game_icon_size_combobox->findData(custom_size);
+    }
+    ui->game_icon_size_combobox->setCurrentIndex(game_icon_index);
+
+    int folder_icon_index = ui->folder_icon_size_combobox->findData(UISettings::values.folder_icon_size.GetValue());
+    if (folder_icon_index == -1) {
+        u32 custom_size = UISettings::values.folder_icon_size.GetValue();
+        ui->folder_icon_size_combobox->addItem(tr("Custom (%1x%1)").arg(custom_size), custom_size);
+        folder_icon_index = ui->folder_icon_size_combobox->findData(custom_size);
+    }
+    ui->folder_icon_size_combobox->setCurrentIndex(folder_icon_index);
 
     ui->enable_screenshot_save_as->setChecked(
         UISettings::values.enable_screenshot_save_as.GetValue());
@@ -298,13 +309,23 @@ void ConfigureUi::RetranslateUI() {
 
 
     for (int i = 0; i < ui->game_icon_size_combobox->count(); i++) {
-        ui->game_icon_size_combobox->setItemText(i,
-                                                 GetTranslatedGameIconSize(static_cast<size_t>(i)));
+        if (static_cast<size_t>(i) < default_game_icon_sizes.size()) {
+            ui->game_icon_size_combobox->setItemText(i,
+                                                     GetTranslatedGameIconSize(static_cast<size_t>(i)));
+        } else {
+            u32 custom_size = ui->game_icon_size_combobox->itemData(i).toUInt();
+            ui->game_icon_size_combobox->setItemText(i, tr("Custom (%1x%1)").arg(custom_size));
+        }
     }
 
     for (int i = 0; i < ui->folder_icon_size_combobox->count(); i++) {
-        ui->folder_icon_size_combobox->setItemText(
-            i, GetTranslatedFolderIconSize(static_cast<size_t>(i)));
+        if (static_cast<size_t>(i) < default_folder_icon_sizes.size()) {
+            ui->folder_icon_size_combobox->setItemText(
+                i, GetTranslatedFolderIconSize(static_cast<size_t>(i)));
+        } else {
+            u32 custom_size = ui->folder_icon_size_combobox->itemData(i).toUInt();
+            ui->folder_icon_size_combobox->setItemText(i, tr("Custom (%1x%1)").arg(custom_size));
+        }
     }
 
     for (int i = 0; i < ui->row_1_text_combobox->count(); i++) {

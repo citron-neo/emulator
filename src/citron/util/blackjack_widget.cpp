@@ -13,20 +13,38 @@ BlackjackWidget::BlackjackWidget(QWidget* parent) : QWidget(parent) {
 
     m_status_label = new QLabel(tr("Blackjack! Beat the dealer to win a surprise."), this);
     m_status_label->setAlignment(Qt::AlignCenter);
-    m_status_label->setStyleSheet(QStringLiteral("font-size: 14px; font-weight: bold; color: white;"));
-
+    
     auto* btn_layout = new QHBoxLayout();
     m_hit_button = new QPushButton(tr("Hit"), this);
     m_stand_button = new QPushButton(tr("Stand"), this);
-
+    
+    const bool is_dark = Theme::IsDarkMode();
     const QString accent = Theme::GetAccentColor();
+    
+    m_status_label->setStyleSheet(QStringLiteral("font-size: 14px; font-weight: bold; color: %1;")
+                                  .arg(is_dark ? QStringLiteral("white") : QStringLiteral("#1a1a1e")));
+
+    const QString btn_bg = is_dark ? QStringLiteral("#32323a") : QStringLiteral("#f0f0f5");
+    const QString btn_fg = is_dark ? QStringLiteral("white") : QStringLiteral("#1a1a1e");
+    const QString btn_border = is_dark ? QStringLiteral("#42424a") : QStringLiteral("#d0d0d5");
+    const QString btn_hover_bg = is_dark ? QStringLiteral("#3d3d45") : QStringLiteral("#e0e0e5");
+    const QString btn_disabled_bg = is_dark ? QStringLiteral("#1a1a1e") : QStringLiteral("#e8e8ed");
+    const QString btn_disabled_fg = is_dark ? QStringLiteral("#555555") : QStringLiteral("#aaaaaa");
+    const QString btn_disabled_border = is_dark ? QStringLiteral("#24242a") : QStringLiteral("#dcdce0");
+    
+    // Calculate contrast color for when the button is pressed (using accent color)
+    const QColor accent_color(accent);
+    const double accent_lum = (0.299 * accent_color.red() + 0.587 * accent_color.green() + 0.114 * accent_color.blue()) / 255.0;
+    const QString btn_pressed_fg = accent_lum > 0.65 ? QStringLiteral("black") : QStringLiteral("white");
+
     const QString btn_style = QStringLiteral(
-        "QPushButton { background-color: #32323a; color: white; border: 1px solid #42424a; "
+        "QPushButton { background-color: %2; color: %3; border: 1px solid %4; "
         "border-radius: 12px; padding: 12px 32px; font-weight: bold; font-size: 15px; } "
-        "QPushButton:hover { background-color: #3d3d45; border-color: %1; } "
-        "QPushButton:pressed { background-color: %1; color: black; } "
-        "QPushButton:disabled { background-color: #1a1a1e; color: #555555; border: 1px solid #24242a; }"
-    ).arg(accent);
+        "QPushButton:hover { background-color: %5; border-color: %1; } "
+        "QPushButton:pressed { background-color: %1; color: %6; } "
+        "QPushButton:disabled { background-color: %7; color: %8; border: 1px solid %9; }"
+    ).arg(accent, btn_bg, btn_fg, btn_border, btn_hover_bg, btn_pressed_fg, btn_disabled_bg, btn_disabled_fg, btn_disabled_border);
+    
     m_hit_button->setStyleSheet(btn_style);
     m_stand_button->setStyleSheet(btn_style);
 
@@ -199,7 +217,7 @@ void BlackjackWidget::paintEvent(QPaintEvent*) {
     p.setRenderHint(QPainter::Antialiasing);
 
     auto drawHand = [&](std::vector<Card>& hand, int y_base, const QString& label) {
-        p.setPen(Qt::white);
+        p.setPen(Theme::IsDarkMode() ? Qt::white : QColor(26, 26, 30));
         p.setFont(QFont(QStringLiteral("sans-serif"), 12, QFont::Bold));
 
         qreal total_hand_width = hand.size() * 85 - 15;

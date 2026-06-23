@@ -7,6 +7,7 @@
 #include "core/hle/service/bcat/bcat_util.h"
 #include "core/hle/service/bcat/delivery_cache_directory_service.h"
 #include "core/hle/service/cmif_serialization.h"
+#include <openssl/evp.h>
 
 namespace Service::BCAT {
 
@@ -15,7 +16,8 @@ namespace Service::BCAT {
 static BcatDigest DigestFile(const FileSys::VirtualFile& file) {
     BcatDigest out{};
     const auto bytes = file->ReadAllBytes();
-    mbedtls_md5_ret(bytes.data(), bytes.size(), out.data());
+    unsigned int out_len = static_cast<unsigned int>(out.size());
+    EVP_Digest(bytes.data(), bytes.size(), out.data(), &out_len, EVP_md5(), nullptr);
     return out;
 }
 

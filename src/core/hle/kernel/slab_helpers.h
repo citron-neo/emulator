@@ -148,7 +148,9 @@ public:
         const bool is_initialized = this->IsInitialized();
         uintptr_t arg = 0;
         if (is_initialized) {
-            Base::m_kernel.ObjectListContainer().Unregister(this);
+            if (Base::m_kernel.IsObjectListContainerValid()) {
+                Base::m_kernel.ObjectListContainer().Unregister(this);
+            }
             arg = this->GetPostDestroyArgument();
             this->Finalize();
         }
@@ -172,7 +174,9 @@ public:
 public:
     static void InitializeSlabHeap(KernelCore& kernel, void* memory, size_t memory_size) {
         kernel.SlabHeap<Derived>().Initialize(memory, memory_size);
-        kernel.ObjectListContainer().Initialize();
+        if (kernel.IsObjectListContainerValid()) {
+            kernel.ObjectListContainer().Initialize();
+        }
     }
 
     static Derived* Create(KernelCore& kernel) {
@@ -184,7 +188,9 @@ public:
     }
 
     static void Register(KernelCore& kernel, Derived* obj) {
-        return kernel.ObjectListContainer().Register(obj);
+        if (kernel.IsObjectListContainerValid()) {
+            kernel.ObjectListContainer().Register(obj);
+        }
     }
 
     static size_t GetObjectSize(KernelCore& kernel) {

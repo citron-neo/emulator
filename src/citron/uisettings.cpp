@@ -68,34 +68,7 @@ namespace UISettings {
     }};
 
     bool IsDarkTheme() {
-        const auto& theme_name = UISettings::values.theme;
-
-        // Priority 1: Check for explicitly chosen dark themes.
-        if (theme_name == "qdarkstyle" || theme_name == "colorful_dark" ||
-            theme_name == "qdarkstyle_midnight_blue" || theme_name == "colorful_midnight_blue") {
-            return true;
-        }
-
-        // Priority 2: Check for adaptive themes ("default" and "colorful").
-        if (theme_name == "default" || theme_name == "colorful") {
-#ifdef _WIN32
-            // Robust Windows Registry check for OS-level theme switching
-            QSettings windows_settings(
-                QStringLiteral(
-                    "HKEY_CURRENT_USER\\Software\\Microsoft\\Windows\\CurrentVersion\\Themes\\"
-                    "Personalize"),
-                QSettings::NativeFormat);
-            if (windows_settings.contains(QStringLiteral("AppsUseLightTheme"))) {
-                return windows_settings.value(QStringLiteral("AppsUseLightTheme")).toInt() == 0;
-            }
-#endif
-        }
-
-        // Universal fallback for any other unknown themes: Check if window text is lighter than window background
-        const QPalette palette = qApp->palette();
-        const QColor text_color = palette.color(QPalette::WindowText);
-        const QColor base_color = palette.color(QPalette::Window);
-        return text_color.value() > base_color.value();
+        return true;
     }
 
     Values values = {};

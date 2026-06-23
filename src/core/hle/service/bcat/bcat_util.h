@@ -5,7 +5,6 @@
 
 #include <array>
 #include <cctype>
-#include <mbedtls/md5.h>
 
 #include "core/hle/service/bcat/bcat_result.h"
 #include "core/hle/service/bcat/bcat_types.h"

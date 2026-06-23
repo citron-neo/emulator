@@ -209,7 +209,6 @@ protected:
 
 private:
     friend class GameListWorker;
-    void WorkerEvent();
 
     void AddDirEntry(GameListDir* entry_items);
     void AddEntry(const QList<QStandardItem*>& entry_items, const QString& parent_path);

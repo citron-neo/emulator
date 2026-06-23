@@ -6,6 +6,7 @@
 #include <random>
 
 #include <vector>
+#include <QPointer>
 #include <QApplication>
 #include <QCheckBox>
 #include <QDesktopServices>
@@ -82,6 +83,7 @@
 #include "citron/ui/nav_settings_overlay.h"
 #include "citron/uisettings.h"
 #include "citron/util/blackjack_widget.h"
+#include "citron/util/image_cache.h"
 #include "citron/util/card_flip.h"
 #include "citron/util/confetti.h"
 #include "citron/util/controller_navigation.h"
@@ -154,6 +156,22 @@ protected:
         const int visible_count = (width() / total_slot_width) + 2;
         const int start_idx = qMax(0, static_cast<int>((m_scroll_offset - widget_center_x) / total_slot_width) - 1);
         const int end_idx = qMin(total_items - 1, start_idx + visible_count + 2);
+
+        // Draw center indicator lines behind the icons
+        const bool is_dark = Theme::IsDarkMode();
+        painter.setPen(QPen(is_dark ? Qt::white : Qt::black, 4, Qt::SolidLine, Qt::RoundCap));
+        
+        const int top_y1 = 20;
+        const int top_y2 = widget_center_y - (icon_size / 2) - 20;
+        if (top_y2 > top_y1) {
+            painter.drawLine(widget_center_x, top_y1, widget_center_x, top_y2);
+        }
+
+        const int bot_y1 = widget_center_y + (icon_size / 2) + 20;
+        const int bot_y2 = height() - 20;
+        if (bot_y2 > bot_y1) {
+            painter.drawLine(widget_center_x, bot_y1, widget_center_x, bot_y2);
+        }
 
         for (int i = start_idx; i <= end_idx; ++i) {
             const qreal icon_x_position = (static_cast<qreal>(widget_center_x) - icon_size / 2.0) +
@@ -277,6 +295,12 @@ public:
         QString accent = Theme::GetAccentColor();
         if (accent.isEmpty())
             accent = QStringLiteral("#0096ff");
+            
+        QColor acc_color(accent);
+        if (!dark && acc_color.lightnessF() > 0.6) {
+            acc_color.setHslF(acc_color.hslHueF(), acc_color.hslSaturationF(), 0.5);
+            accent = acc_color.name();
+        }
 
         QString nav_style =
             dark ? QStringLiteral(
@@ -954,10 +978,11 @@ void GameList::AutoPopulatePosters() {
                                             .GetCustomPosterPath(program_id)
                                             .has_value()) {
                     QString name = child->data(GameListItemPath::TitleRole).toString();
+                    QPointer<GameList> game_list_self(this);
                     m_steam_grid_db->FetchPoster(
-                        program_id, name.toStdString(), [this](bool success, std::string) {
-                            if (success && UISettings::values.game_list_grid_view.GetValue()) {
-                                FilterGridView(search_field->filterText());
+                        program_id, name.toStdString(), [game_list_self](bool success, std::string) {
+                            if (game_list_self && success && UISettings::values.game_list_grid_view.GetValue()) {
+                                game_list_self->FilterGridView(game_list_self->search_field->filterText());
                             }
                         });
                 }
@@ -1144,6 +1169,9 @@ GameList::GameList(std::shared_ptr<FileSys::VfsFilesystem> vfs_,
                    GMainWindow* parent)
     : QWidget{parent}, vfs{std::move(vfs_)}, provider{provider_},
       play_time_manager{play_time_manager_}, system{system_} {
+    qRegisterMetaType<GameListDir*>("GameListDir*");
+    qRegisterMetaType<QList<QStandardItem*>>("QList<QStandardItem*>");
+
     watcher = new QFileSystemWatcher(this);
     connect(watcher, &QFileSystemWatcher::directoryChanged, this, &GameList::RefreshGameDirectory);
 
@@ -1694,7 +1722,9 @@ GameList::GameList(std::shared_ptr<FileSys::VfsFilesystem> vfs_,
     progress_bar->setVisible(false);
     progress_bar->setFixedHeight(4);
     progress_bar->setTextVisible(false);
-    progress_bar->setStyleSheet(QStringLiteral("QProgressBar::chunk { background-color: %1; }")
+    progress_bar->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+    progress_bar->setStyleSheet(QStringLiteral("QProgressBar { border: none; background: transparent; } "
+                                               "QProgressBar::chunk { background-color: %1; }")
                                     .arg(Theme::GetAccentColor()));
 
     // Add widgets to toolbar
@@ -1760,6 +1790,7 @@ GameList::GameList(std::shared_ptr<FileSys::VfsFilesystem> vfs_,
     if (!toolbar_in_main) {
         layout->addWidget(toolbar);
     }
+    layout->addWidget(progress_bar);
 
     UpdateProgressBarColor();
     tree_view->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
@@ -2142,6 +2173,7 @@ void GameList::LoadController() {
 }
 
 GameList::~GameList() {
+    CancelPopulation();
     UnloadController();
     // Grid and Carousel share the same flat model
     if (grid_view) {
@@ -2952,9 +2984,7 @@ void GameList::DonePopulating(const QStringList& watch_list) {
         m_release_worker_after_process_events = true;
     }
 
-    for (const auto& watch_dir : watch_list) {
-        watcher->addPath(watch_dir);
-    }
+
     emit PopulatingCompleted();
 
     if (progress_bar) {
@@ -3006,15 +3036,13 @@ void GameList::DonePopulating(const QStringList& watch_list) {
         watcher->removePaths(watch_dirs);
     }
     constexpr int LIMIT_WATCH_DIRECTORIES = 5000;
-    constexpr int SLICE_SIZE = 25;
     int len = std::min(static_cast<int>(watch_list.size()), LIMIT_WATCH_DIRECTORIES);
     tree_view->setEnabled(true);
     tree_view->setFocus();
 
-    for (int i = 0; i < len; i += SLICE_SIZE) {
-        watcher->addPaths(watch_list.mid(i, i + SLICE_SIZE));
-        QCoreApplication::processEvents();
-    }
+    const bool old_signals_blocked = watcher->blockSignals(true);
+    watcher->addPaths(watch_list.mid(0, len));
+    watcher->blockSignals(old_signals_blocked);
     int children_total = 0;
     for (int i = 1; i < item_model->rowCount() - 1; ++i) {
         children_total += item_model->item(i, 0)->rowCount();
@@ -3283,10 +3311,11 @@ void GameList::AddGamePopup(QMenu& context_menu, const QModelIndex& index, u64 p
             return;
         }
 
+        QPointer<GameList> game_list_self(this);
         m_steam_grid_db->FetchPoster(
-            program_id, game_name.toStdString(), [this](bool success, std::string) {
-                if (success && UISettings::values.game_list_grid_view.GetValue()) {
-                    FilterGridView(search_field->filterText());
+            program_id, game_name.toStdString(), [game_list_self](bool success, std::string) {
+                if (game_list_self && success && UISettings::values.game_list_grid_view.GetValue()) {
+                    game_list_self->FilterGridView(game_list_self->search_field->filterText());
                 }
             });
     });
@@ -3871,7 +3900,11 @@ void GameList::PopulateAsync(QVector<UISettings::GameDir>& game_dirs, bool is_sm
     current_worker = std::make_unique<GameListWorker>(
         vfs, provider, game_dirs, compatibility_list, play_time_manager, system,
         main_window->GetMultiplayerState()->GetSession());
-    connect(current_worker.get(), &GameListWorker::DataAvailable, this, &GameList::WorkerEvent,
+    connect(current_worker.get(), &GameListWorker::DirEntryReady, this, &GameList::AddDirEntry,
+            Qt::QueuedConnection);
+    connect(current_worker.get(), &GameListWorker::EntryReady, this, &GameList::AddEntry,
+            Qt::QueuedConnection);
+    connect(current_worker.get(), &GameListWorker::Finished, this, &GameList::DonePopulating,
             Qt::QueuedConnection);
 
     if (progress_bar) {
@@ -3925,7 +3958,11 @@ void GameList::RefreshGameDirectory() {
 
 void GameList::CancelPopulation() {
     if (current_worker) {
+        current_worker->disconnect();
         current_worker->Cancel();
+        if (QThreadPool::globalInstance()->tryTake(current_worker.get())) {
+            current_worker->MarkAsCanceledBeforeStart();
+        }
     }
     // DonePopulating pumps QCoreApplication::processEvents() (watch path batching). A zero-delay
     // BootGame() slot can run inside that pump and call us here. Immediate reset() destroys
@@ -4845,6 +4882,8 @@ void GameListSearchField::setStyleSheet(const QString& sheet) {
 }
 
 void GameList::UpdateIconForGame(u64 program_id) {
+    Citron::ImageCache::InvalidateIcon(program_id);
+
     auto custom_icon_path = Citron::CustomMetadata::GetInstance().GetCustomIconPath(program_id);
     if (!custom_icon_path) {
         return;
@@ -4858,18 +4897,33 @@ void GameList::UpdateIconForGame(u64 program_id) {
     const u32 size = UISettings::values.game_icon_size.GetValue();
     QPixmap round_pix = CreateRoundIcon(pix, size);
 
-    // Lambda to update a specific model
+    // Lambda to update a specific model recursively, ensuring all instances are updated
     auto update_model = [program_id, &pix, &round_pix](QAbstractItemModel* model) {
         if (!model) return;
-        auto matches = model->match(model->index(0, 0), GameListItemPath::ProgramIdRole,
-                                   qulonglong(program_id), 1, Qt::MatchExactly | Qt::MatchRecursive);
-        for (const auto& index : matches) {
-            auto* item = qobject_cast<QStandardItemModel*>(model)->itemFromIndex(index);
-            if (item) {
-                item->setData(pix, GameListItemPath::HighResIconRole);
-                item->setData(round_pix, Qt::DecorationRole);
+        auto* standard_model = qobject_cast<QStandardItemModel*>(model);
+        if (!standard_model) return;
+
+        std::function<void(const QModelIndex&)> search_and_update = [&](const QModelIndex& parent) {
+            int rows = model->rowCount(parent);
+            for (int r = 0; r < rows; ++r) {
+                QModelIndex idx = model->index(r, 0, parent);
+                if (!idx.isValid()) continue;
+
+                if (idx.data(GameListItemPath::ProgramIdRole).toULongLong() == program_id) {
+                    auto* item = standard_model->itemFromIndex(idx);
+                    if (item) {
+                        item->setData(pix, GameListItemPath::HighResIconRole);
+                        item->setData(round_pix, Qt::DecorationRole);
+                    }
+                }
+
+                if (model->hasChildren(idx)) {
+                    search_and_update(idx);
+                }
             }
-        }
+        };
+
+        search_and_update(QModelIndex());
     };
 
     // 1. Update Main Model
@@ -4973,6 +5027,7 @@ void GameList::ShowPosterSelectionDialog(u64 program_id, const QString& game_nam
                       });
 
     if (dialog.exec() == QDialog::Accepted) {
+        Citron::ImageCache::InvalidatePoster(program_id);
         if (grid_view) {
             grid_view->ClearCaches();
             grid_view->UpdateGridSize();

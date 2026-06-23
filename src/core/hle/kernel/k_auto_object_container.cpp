@@ -21,6 +21,11 @@ void KAutoObjectWithListContainer::Unregister(KAutoObjectWithList* obj) {
     m_object_list.erase(*obj);
 }
 
+void KAutoObjectWithListContainer::Finalize() {
+    KScopedSpinLock lk(m_lock);
+    m_object_list.clear();
+}
+
 size_t KAutoObjectWithListContainer::GetOwnedCount(KProcess* owner) {
     // KScopedInterruptDisable di;
     KScopedSpinLock lk(m_lock);

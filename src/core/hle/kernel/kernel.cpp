@@ -176,6 +176,7 @@ struct KernelCore::Impl {
         global_object_list_container->Finalize();
         global_object_list_container.reset();
 
+
         hardware_timer->Finalize();
         hardware_timer.reset();
     }
@@ -967,6 +968,11 @@ KAutoObjectWithListContainer& KernelCore::ObjectListContainer() {
 const KAutoObjectWithListContainer& KernelCore::ObjectListContainer() const {
     return *impl->global_object_list_container;
 }
+
+bool KernelCore::IsObjectListContainerValid() const {
+    return impl && impl->global_object_list_container != nullptr;
+}
+
 
 void KernelCore::PrepareReschedule(std::size_t id) {
     // TODO: Reimplement, this

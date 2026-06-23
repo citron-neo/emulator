@@ -24,6 +24,7 @@ private:
     void SetConfiguration();
     void OnSelectBG();
     void OnSelectColor(QPushButton* button, const QString& title, std::string& setting);
+    void UpdateBGButtonMenu();
 
     QComboBox* ui_theme_combo{nullptr};
 

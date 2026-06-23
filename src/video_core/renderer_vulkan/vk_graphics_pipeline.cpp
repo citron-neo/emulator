@@ -45,65 +45,10 @@ using VideoCore::Surface::PixelFormatFromRenderTargetFormat;
 constexpr size_t NUM_STAGES = Tegra::Engines::Maxwell3D::Regs::MaxShaderStage;
 constexpr size_t MAX_IMAGE_ELEMENTS = 1024;
 
-constexpr u64 FNV1A_OFFSET = 0xcbf29ce484222325ULL;
-constexpr u64 FNV1A_PRIME = 0x100000001b3ULL;
-
-inline u64 HashDescriptorBlock(const DescriptorUpdateEntry* data, size_t entry_count) noexcept {
-    static_assert(sizeof(DescriptorUpdateEntry) % sizeof(u64) == 0,
-                  "DescriptorUpdateEntry must be 8-byte aligned");
-    if (entry_count == 0 || data == nullptr) {
-        return FNV1A_OFFSET;
-    }
-    const size_t word_count = entry_count * (sizeof(DescriptorUpdateEntry) / sizeof(u64));
-    const u64* words = reinterpret_cast<const u64*>(data);
-    u64 h = FNV1A_OFFSET;
-    for (size_t i = 0; i < word_count; ++i) {
-        h ^= words[i];
-        h *= FNV1A_PRIME;
-    }
-    return h;
-}
-
 // Stale SamplerIds are possible if the sampler pool is rebuilt with a different
 // sampler at the same handle while the cbuf bytes don't change. Add a pool
 // sequence-number check here if that ever surfaces as a visible bug.
-struct BindlessCacheEntry {
-    GPUVAddr key_addr{0};
-    u32 key_count{0};
-    u64 key_image_table_generation{};
-    bool valid{false};
-    boost::container::small_vector<u8, 256> last_bytes;
-    boost::container::small_vector<VideoCommon::ImageViewInOut, 16> cached_views;
-    boost::container::small_vector<VideoCommon::SamplerId, 16> cached_samplers;
-};
-constexpr size_t BINDLESS_CACHE_SIZE = 64;
-using BindlessCache = std::array<BindlessCacheEntry, BINDLESS_CACHE_SIZE>;
 
-BindlessCacheEntry* FindBindlessEntry(BindlessCache& cache, GPUVAddr addr, u32 count,
-                                      u64 image_table_generation) {
-    for (auto& entry : cache) {
-        if (entry.valid && entry.key_addr == addr && entry.key_count == count &&
-            entry.key_image_table_generation == image_table_generation) {
-            return &entry;
-        }
-    }
-    return nullptr;
-}
-
-BindlessCacheEntry& AcquireBindlessEntry(BindlessCache& cache, size_t& round_robin,
-                                         GPUVAddr addr, u32 count,
-                                         u64 image_table_generation) {
-    if (auto* found = FindBindlessEntry(cache, addr, count, image_table_generation)) {
-        return *found;
-    }
-    auto& slot = cache[round_robin];
-    round_robin = (round_robin + 1) % BINDLESS_CACHE_SIZE;
-    slot.key_addr = addr;
-    slot.key_count = count;
-    slot.key_image_table_generation = image_table_generation;
-    slot.valid = false;
-    return slot;
-}
 
 DescriptorLayoutBuilder MakeBuilder(const Device& device, std::span<const Shader::Info> infos) {
     DescriptorLayoutBuilder builder{device};

@@ -8,6 +8,7 @@
 
 #include <fmt/format.h>
 
+#include "citron/util/title_ids.h"
 #include "common/alignment.h"
 #include "common/assert.h"
 #include "common/bit_util.h"
@@ -17,7 +18,6 @@
 #include "video_core/renderer_vulkan/vk_staging_buffer_pool.h"
 #include "video_core/vulkan_common/vulkan_device.h"
 #include "video_core/vulkan_common/vulkan_wrapper.h"
-#include "citron/util/title_ids.h"
 
 namespace Vulkan {
 namespace {
@@ -26,33 +26,21 @@ using namespace Common::Literals;
 
 // Maximum potential alignment of a Vulkan buffer
 constexpr VkDeviceSize MAX_ALIGNMENT = 256;
-// Stream buffer size in bytes
-constexpr VkDeviceSize MAX_STREAM_BUFFER_SIZE = 128_MiB;
 
 size_t GetStreamBufferSize(const Device& device) {
     VkDeviceSize size{0};
-    if (device.HasDebuggingToolAttached()) {
-        ForEachDeviceLocalHostVisibleHeap(device, [&size](size_t index, VkMemoryHeap& heap) {
-            size = std::max(size, heap.size);
-        });
-        // If rebar is not supported, cut the max heap size to 40%. This will allow 2 captures to be
-        // loaded at the same time in RenderDoc. If rebar is supported, this shouldn't be an issue
-        // as the heap will be much larger.
-        if (size <= 256_MiB) {
-            size = size * 40 / 100;
-        }
-    } else {
-        size = MAX_STREAM_BUFFER_SIZE;
-    }
-    return std::min(Common::AlignUp(size, MAX_ALIGNMENT), MAX_STREAM_BUFFER_SIZE);
+    ForEachDeviceLocalHostVisibleHeap(device, [&size](size_t index, VkMemoryHeap& heap) {
+        size = (std::max)(size, heap.size);
+    });
+    return (std::min)(Common::AlignUp(size / 16, 256), 128_MiB);
 }
 } // Anonymous namespace
 
 StagingBufferPool::StagingBufferPool(const Device& device_, MemoryAllocator& memory_allocator_,
                                      Scheduler& scheduler_)
     : device{device_}, memory_allocator{memory_allocator_}, scheduler{scheduler_},
-      stream_buffer_size{GetStreamBufferSize(device)}, region_size{stream_buffer_size /
-                                                                   StagingBufferPool::NUM_SYNCS} {
+      stream_buffer_size{GetStreamBufferSize(device)},
+      region_size{stream_buffer_size / StagingBufferPool::NUM_SYNCS} {
     VkBufferCreateInfo stream_ci = {
         .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
         .pNext = nullptr,

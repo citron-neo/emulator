@@ -173,6 +173,8 @@ public:
 
     const KAutoObjectWithListContainer& ObjectListContainer() const;
 
+    bool IsObjectListContainerValid() const;
+
     /// Registers all kernel objects with the global emulation state, this is purely for tracking
     /// leaks after emulation has been shutdown.
     void RegisterKernelObject(KAutoObject* object);

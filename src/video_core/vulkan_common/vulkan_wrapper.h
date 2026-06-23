@@ -127,7 +127,9 @@ private:
 
 /// Throws a Vulkan exception if result is not success.
 inline void Check(VkResult result) {
-    if (result != VK_SUCCESS) {
+    // VK_INCOMPLETE is a success code (positive value) that can be returned
+    // when the driver is under pressure or in a race condition on Wayland.
+    if (result != VK_SUCCESS && result != VK_INCOMPLETE) {
         throw Exception(result);
     }
 }
