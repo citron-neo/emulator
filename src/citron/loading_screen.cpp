@@ -288,6 +288,6 @@ void LoadingScreen::paintEvent(QPaintEvent* event) {
 }
 
 void LoadingScreen::Clear() {
+    HaltTransitions();
     ui->game_icon->clear();
-    loading_text_animation_timer->stop();
 }
