@@ -705,6 +705,9 @@ void GraphicsPipeline::MakePipeline(VkRenderPass render_pass) {
             if (!IsVertexBindingUsed(static_cast<u32>(guest), key.state, stage_infos[0])) {
                 continue;
             }
+            if (!IsVertexBindingMapped(vertex_input_remap, static_cast<u32>(guest))) {
+                continue;
+            }
             const u32 vk_binding = VulkanVertexBinding(vertex_input_remap, static_cast<u32>(guest));
             if (vk_binding >= max_vertex_attrs) {
                 continue;
@@ -727,6 +730,12 @@ void GraphicsPipeline::MakePipeline(VkRenderPass render_pass) {
         for (size_t index = 0; index < key.state.attributes.size(); ++index) {
             const auto& attribute = key.state.attributes[index];
             if (!attribute.enabled || !stage_infos[0].loads.Generic(index)) {
+                continue;
+            }
+            if (!IsVertexAttributeMapped(vertex_input_remap, index)) {
+                continue;
+            }
+            if (!IsVertexBindingMapped(vertex_input_remap, attribute.buffer)) {
                 continue;
             }
             if (index >= max_vertex_attrs && !vertex_input_remap.remapped_vertex_locations) {

@@ -56,8 +56,12 @@ inline void PopulateVertexLocationRemap(Shader::RuntimeInfo& runtime_info, u32 m
         if (!IsVertexAttributeActive(state, guest, vertex_info)) {
             continue;
         }
-        const u8 vulkan_location =
-            static_cast<u8>(location_slot < max_locations ? location_slot : max_locations - 1);
+        if (location_slot >= max_locations) {
+            runtime_info.vertex_locations[guest] = Shader::VERTEX_INPUT_DROPPED;
+            runtime_info.remapped_vertex_locations = true;
+            continue;
+        }
+        const u8 vulkan_location = static_cast<u8>(location_slot);
         runtime_info.vertex_locations[guest] = vulkan_location;
         if (vulkan_location != guest) {
             runtime_info.remapped_vertex_locations = true;
@@ -70,8 +74,12 @@ inline void PopulateVertexLocationRemap(Shader::RuntimeInfo& runtime_info, u32 m
         if (!IsVertexBindingUsed(static_cast<u32>(guest), state, vertex_info)) {
             continue;
         }
-        const u8 vulkan_binding =
-            static_cast<u8>(binding_slot < max_locations ? binding_slot : max_locations - 1);
+        if (binding_slot >= max_locations) {
+            runtime_info.vertex_bindings[guest] = Shader::VERTEX_INPUT_DROPPED;
+            runtime_info.remapped_vertex_bindings = true;
+            continue;
+        }
+        const u8 vulkan_binding = static_cast<u8>(binding_slot);
         runtime_info.vertex_bindings[guest] = vulkan_binding;
         if (vulkan_binding != guest) {
             runtime_info.remapped_vertex_bindings = true;
@@ -94,6 +102,18 @@ inline void PopulateVertexLocationRemap(Shader::RuntimeInfo& runtime_info, u32 m
         return runtime_info.vertex_bindings[guest_binding];
     }
     return guest_binding;
+}
+
+[[nodiscard]] inline bool IsVertexAttributeMapped(const Shader::RuntimeInfo& runtime_info,
+                                                  size_t guest_index) {
+    return !runtime_info.remapped_vertex_locations ||
+           runtime_info.vertex_locations[guest_index] != Shader::VERTEX_INPUT_DROPPED;
+}
+
+[[nodiscard]] inline bool IsVertexBindingMapped(const Shader::RuntimeInfo& runtime_info,
+                                               u32 guest_binding) {
+    return !runtime_info.remapped_vertex_bindings ||
+           runtime_info.vertex_bindings[guest_binding] != Shader::VERTEX_INPUT_DROPPED;
 }
 
 } // namespace Vulkan
