@@ -38,7 +38,7 @@ namespace Vulkan {
 }
 
 inline void PopulateVertexLocationRemap(Shader::RuntimeInfo& runtime_info, u32 max_locations,
-                                        const FixedPipelineState& state,
+                                        u32 max_bindings, const FixedPipelineState& state,
                                         const Shader::Info& vertex_info) {
     for (size_t i = 0; i < runtime_info.vertex_locations.size(); ++i) {
         runtime_info.vertex_locations[i] = static_cast<u8>(i);
@@ -47,44 +47,50 @@ inline void PopulateVertexLocationRemap(Shader::RuntimeInfo& runtime_info, u32 m
     runtime_info.remapped_vertex_locations = false;
     runtime_info.remapped_vertex_bindings = false;
 
-    if (max_locations >= runtime_info.vertex_locations.size()) {
+    const bool needs_location_remap = max_locations < runtime_info.vertex_locations.size();
+    const bool needs_binding_remap = max_bindings < runtime_info.vertex_bindings.size();
+    if (!needs_location_remap && !needs_binding_remap) {
         return;
     }
 
-    u32 location_slot = 0;
-    for (size_t guest = 0; guest < runtime_info.vertex_locations.size(); ++guest) {
-        if (!IsVertexAttributeActive(state, guest, vertex_info)) {
-            continue;
+    if (needs_location_remap) {
+        u32 location_slot = 0;
+        for (size_t guest = 0; guest < runtime_info.vertex_locations.size(); ++guest) {
+            if (!IsVertexAttributeActive(state, guest, vertex_info)) {
+                continue;
+            }
+            if (location_slot >= max_locations) {
+                runtime_info.vertex_locations[guest] = Shader::VERTEX_INPUT_DROPPED;
+                runtime_info.remapped_vertex_locations = true;
+                continue;
+            }
+            const u8 vulkan_location = static_cast<u8>(location_slot);
+            runtime_info.vertex_locations[guest] = vulkan_location;
+            if (vulkan_location != guest) {
+                runtime_info.remapped_vertex_locations = true;
+            }
+            ++location_slot;
         }
-        if (location_slot >= max_locations) {
-            runtime_info.vertex_locations[guest] = Shader::VERTEX_INPUT_DROPPED;
-            runtime_info.remapped_vertex_locations = true;
-            continue;
-        }
-        const u8 vulkan_location = static_cast<u8>(location_slot);
-        runtime_info.vertex_locations[guest] = vulkan_location;
-        if (vulkan_location != guest) {
-            runtime_info.remapped_vertex_locations = true;
-        }
-        ++location_slot;
     }
 
-    u32 binding_slot = 0;
-    for (size_t guest = 0; guest < runtime_info.vertex_bindings.size(); ++guest) {
-        if (!IsVertexBindingUsed(static_cast<u32>(guest), state, vertex_info)) {
-            continue;
+    if (needs_binding_remap) {
+        u32 binding_slot = 0;
+        for (size_t guest = 0; guest < runtime_info.vertex_bindings.size(); ++guest) {
+            if (!IsVertexBindingUsed(static_cast<u32>(guest), state, vertex_info)) {
+                continue;
+            }
+            if (binding_slot >= max_bindings) {
+                runtime_info.vertex_bindings[guest] = Shader::VERTEX_INPUT_DROPPED;
+                runtime_info.remapped_vertex_bindings = true;
+                continue;
+            }
+            const u8 vulkan_binding = static_cast<u8>(binding_slot);
+            runtime_info.vertex_bindings[guest] = vulkan_binding;
+            if (vulkan_binding != guest) {
+                runtime_info.remapped_vertex_bindings = true;
+            }
+            ++binding_slot;
         }
-        if (binding_slot >= max_locations) {
-            runtime_info.vertex_bindings[guest] = Shader::VERTEX_INPUT_DROPPED;
-            runtime_info.remapped_vertex_bindings = true;
-            continue;
-        }
-        const u8 vulkan_binding = static_cast<u8>(binding_slot);
-        runtime_info.vertex_bindings[guest] = vulkan_binding;
-        if (vulkan_binding != guest) {
-            runtime_info.remapped_vertex_bindings = true;
-        }
-        ++binding_slot;
     }
 }
 

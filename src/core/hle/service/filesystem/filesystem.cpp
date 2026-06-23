@@ -805,6 +805,7 @@ FileSys::VirtualDir FileSystemController::GetBCATDirectory(u64 title_id) const {
 
 void FileSystemController::ReleaseVfsBackedCaches() {
     Reset();
+    global_save_data_factory.reset();
 
     system.ClearContentProvider(FileSys::ContentProviderUnionSlot::External);
     external_provider.reset();

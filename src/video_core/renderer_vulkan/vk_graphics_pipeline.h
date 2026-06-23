@@ -114,6 +114,10 @@ public:
         gpu_memory = gpu_memory_;
     }
 
+    [[nodiscard]] const Shader::RuntimeInfo& VertexInputRemap() const noexcept {
+        return vertex_input_remap;
+    }
+
 private:
     template <typename Spec>
     void ConfigureImpl(bool is_indexed);

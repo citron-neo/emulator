@@ -132,6 +132,14 @@ public:
         vertex_binding_remap = nullptr;
     }
 
+    void RegisterXfbEmulationCounterBuffer(VkBuffer buffer) {
+        xfb_emulation_counter_buffer = buffer;
+    }
+
+    [[nodiscard]] VkBuffer GetXfbEmulationCounterBuffer() const {
+        return xfb_emulation_counter_buffer;
+    }
+
     void BindTransformFeedbackBuffer(u32 index, VkBuffer buffer, u32 offset, u32 size);
 
     void BindTransformFeedbackBuffers(VideoCommon::HostBindings<Buffer>& bindings);
@@ -180,6 +188,8 @@ private:
     QuadIndexedPass quad_index_pass;
 
     const Shader::RuntimeInfo* vertex_binding_remap{};
+
+    VkBuffer xfb_emulation_counter_buffer{VK_NULL_HANDLE};
 };
 
 struct BufferCacheParams {

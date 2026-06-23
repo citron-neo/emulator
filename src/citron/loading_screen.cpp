@@ -56,7 +56,6 @@ void LoadingScreen::HaltTransitions() {
     }
     if (fadeout_animation) {
         fadeout_animation->stop();
-        fadeout_animation->disconnect();
     }
     if (movie) {
         movie->stop();

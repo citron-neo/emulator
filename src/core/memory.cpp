@@ -984,13 +984,13 @@ u8* Memory::GetPointerSilent(Common::ProcessAddress vaddr) {
 }
 
 u8* Memory::GetHostPointerForSmmuMapping(Common::ProcessAddress vaddr) {
-    if (u8* const direct = impl->GetPointerSilent(vaddr)) {
-        return direct;
-    }
     const u64 addr = GetInteger(vaddr) & 0xffffffffffffULL;
     Common::PageTable* table = impl->current_page_table;
     if (!table || !AddressSpaceContains(*table, addr, 1)) {
         return nullptr;
+    }
+    if (u8* const direct = impl->GetPointerSilent(Common::ProcessAddress(addr))) {
+        return direct;
     }
     const auto& entry = table->entries[addr >> CITRON_PAGEBITS];
     if (entry.pointer.Type() == Common::PageType::Unmapped) {
