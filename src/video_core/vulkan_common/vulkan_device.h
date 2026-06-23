@@ -418,6 +418,11 @@ public:
         return extensions.geometry_shader_passthrough;
     }
 
+    /// Returns true if core Vulkan geometry shaders are supported.
+    bool IsGeometryShaderSupported() const {
+        return features.features.geometryShader;
+    }
+
     /// Returns true if the device supports VK_NV_low_latency2.
     bool IsNvLowLatency2Supported() const {
         return extensions.low_latency2;

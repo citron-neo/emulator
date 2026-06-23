@@ -27,6 +27,7 @@ class BufferCacheRuntime;
 class Buffer : public VideoCommon::BufferBase {
 public:
     explicit Buffer(BufferCacheRuntime&, VideoCommon::NullBufferParams null_params);
+    explicit Buffer(BufferCacheRuntime& runtime, VideoCommon::XfbStreamCounterBufferParams);
     explicit Buffer(BufferCacheRuntime& runtime, VAddr cpu_addr_, u64 size_bytes_);
 
     [[nodiscard]] VkBufferView View(u32 offset, u32 size, VideoCore::Surface::PixelFormat format);
@@ -131,6 +132,19 @@ public:
         vertex_binding_remap = nullptr;
     }
 
+    void RegisterXfbEmulationCounterBuffer(VkBuffer buffer);
+
+    [[nodiscard]] VkBuffer GetXfbEmulationCounterBuffer() const {
+        return xfb_emulation_counter_buffer;
+    }
+
+    [[nodiscard]] VkBuffer GetXfbEmulationCounterSnapshotBuffer() const {
+        return xfb_emulation_counter_snapshot_buffer;
+    }
+
+    /// Copy the live TF emulation counter after a draw so later query reads are not cleared away.
+    void SnapshotXfbEmulationCounter();
+
     void BindTransformFeedbackBuffer(u32 index, VkBuffer buffer, u32 offset, u32 size);
 
     void BindTransformFeedbackBuffers(VideoCommon::HostBindings<Buffer>& bindings);
@@ -179,6 +193,9 @@ private:
     QuadIndexedPass quad_index_pass;
 
     const Shader::RuntimeInfo* vertex_binding_remap{};
+
+    VkBuffer xfb_emulation_counter_buffer{VK_NULL_HANDLE};
+    VkBuffer xfb_emulation_counter_snapshot_buffer{VK_NULL_HANDLE};
 };
 
 struct BufferCacheParams {
@@ -195,6 +212,7 @@ struct BufferCacheParams {
     static constexpr bool USE_MEMORY_MAPS = true;
     static constexpr bool SEPARATE_IMAGE_BUFFER_BINDINGS = false;
     static constexpr bool USE_MEMORY_MAPS_FOR_UPLOADS = true;
+    static constexpr bool HAS_XFB_STREAM_COUNTER_HOST_BUFFER = true;
 };
 
 using BufferCache = VideoCommon::BufferCache<BufferCacheParams>;

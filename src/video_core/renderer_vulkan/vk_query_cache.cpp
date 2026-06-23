@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+#include <algorithm>
 #include <cstddef>
 #include <limits>
 #include <map>
@@ -661,17 +662,22 @@ class PrimitivesSucceededStreamer;
 
 class TFBCounterStreamer : public BaseStreamer {
 public:
-    explicit TFBCounterStreamer(size_t id_, QueryCacheRuntime& runtime_, const Device& device_,
-                                Scheduler& scheduler_, const MemoryAllocator& memory_allocator_,
+    explicit TFBCounterStreamer(size_t id_, QueryCacheRuntime& runtime_, BufferCache& buffer_cache_,
+                                const Device& device_, Scheduler& scheduler_,
+                                const MemoryAllocator& memory_allocator_,
                                 StagingBufferPool& staging_pool_)
-        : BaseStreamer(id_), runtime{runtime_}, device{device_}, scheduler{scheduler_},
-          memory_allocator{memory_allocator_}, staging_pool{staging_pool_} {
+        : BaseStreamer(id_), runtime{runtime_}, buffer_cache{buffer_cache_}, device{device_},
+          scheduler{scheduler_}, memory_allocator{memory_allocator_},
+          staging_pool{staging_pool_} {
         buffers_count = 0;
         current_bank = nullptr;
         counter_buffers.fill(VK_NULL_HANDLE);
         offsets.fill(0);
         last_queries.fill(0);
         last_queries_stride.fill(1);
+        if (!device.IsExtTransformFeedbackSupported()) {
+            return;
+        }
         const VkBufferCreateInfo buffer_ci = {
             .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
             .pNext = nullptr,
@@ -786,6 +792,10 @@ public:
         new_query->size_banks = 1;
         new_query->start_slot = static_cast<u32>(data_slot);
         new_query->size_slots = 1;
+        if (!device.IsExtTransformFeedbackSupported()) {
+            emulated_query_strides[index] =
+                static_cast<u32>(std::max<size_t>(last_queries_stride[subreport], 1));
+        }
         pending_sync.push_back(index);
         pending_flush_queries.push_back(index);
         return index;
@@ -856,7 +866,15 @@ public:
             auto* query = GetQuery(q);
             u32 result = 0;
             std::memcpy(&result, staging_ref.mapped_span.data() + offset_base, sizeof(u32));
-            query->value = static_cast<u64>(result);
+            u64 value = result;
+            if (!device.IsExtTransformFeedbackSupported()) {
+                if (const auto it = emulated_query_strides.find(q);
+                    it != emulated_query_strides.end()) {
+                    value *= it->second;
+                    emulated_query_strides.erase(it);
+                }
+            }
+            query->value = value;
             query->flags |= VideoCommon::QueryFlagBits::IsFinalValueSynced;
             offset_base += TFBQueryBank::QUERY_SIZE;
         }
@@ -873,6 +891,10 @@ private:
             return;
         }
         has_flushed_end_pending = true;
+        if (!device.IsExtTransformFeedbackSupported()) {
+            UpdateBuffers();
+            return;
+        }
         if (!has_started || buffers_count == 0) {
             scheduler.Record([](vk::CommandBuffer cmdbuf) {
                 cmdbuf.BeginTransformFeedbackEXT(0, 0, nullptr, nullptr);
@@ -891,6 +913,10 @@ private:
             return;
         }
         has_flushed_end_pending = false;
+
+        if (!device.IsExtTransformFeedbackSupported()) {
+            return;
+        }
 
         // Enhanced query ending with better error handling
         try {
@@ -944,6 +970,42 @@ private:
         const size_t slot = other; // workaround to compile bug.
         current_bank->AddReference();
 
+        if (!device.IsExtTransformFeedbackSupported()) {
+            const VkBuffer snapshot_buffer =
+                buffer_cache.runtime.GetXfbEmulationCounterSnapshotBuffer();
+            const VkBuffer live_buffer = buffer_cache.runtime.GetXfbEmulationCounterBuffer();
+            const VkBuffer src_buffer =
+                snapshot_buffer != VK_NULL_HANDLE ? snapshot_buffer : live_buffer;
+            if (src_buffer == VK_NULL_HANDLE) {
+                scheduler.RequestOutsideRenderPassOperationContext();
+                scheduler.Record([dst_buffer = current_bank->GetBuffer(),
+                                  slot](vk::CommandBuffer cmdbuf) {
+                    cmdbuf.FillBuffer(dst_buffer, slot * TFBQueryBank::QUERY_SIZE,
+                                      TFBQueryBank::QUERY_SIZE, 0);
+                });
+                return {current_bank_id, slot};
+            }
+            static constexpr VkMemoryBarrier READ_BARRIER{
+                .sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER,
+                .pNext = nullptr,
+                .srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT,
+                .dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT,
+            };
+            scheduler.RequestOutsideRenderPassOperationContext();
+            scheduler.Record([dst_buffer = current_bank->GetBuffer(), src_buffer,
+                              slot](vk::CommandBuffer cmdbuf) {
+                cmdbuf.PipelineBarrier(VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+                                       VK_PIPELINE_STAGE_TRANSFER_BIT, 0, READ_BARRIER);
+                std::array<VkBufferCopy, 1> copy{VkBufferCopy{
+                    .srcOffset = 0,
+                    .dstOffset = slot * TFBQueryBank::QUERY_SIZE,
+                    .size = TFBQueryBank::QUERY_SIZE,
+                }};
+                cmdbuf.CopyBuffer(src_buffer, dst_buffer, copy);
+            });
+            return {current_bank_id, slot};
+        }
+
         static constexpr VkMemoryBarrier READ_BARRIER{
             .sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER,
             .pNext = nullptr,
@@ -979,10 +1041,12 @@ private:
     static constexpr size_t NUM_STREAMS = 4;
 
     QueryCacheRuntime& runtime;
+    BufferCache& buffer_cache;
     const Device& device;
     Scheduler& scheduler;
     const MemoryAllocator& memory_allocator;
     StagingBufferPool& staging_pool;
+    std::unordered_map<size_t, u32> emulated_query_strides;
     VideoCommon::BankPool<TFBQueryBank> bank_pool;
     size_t current_bank_id;
     TFBQueryBank* current_bank;
@@ -1125,16 +1189,17 @@ public:
 
             query->flags |= VideoCommon::QueryFlagBits::IsFinalValueSynced;
             u64 num_vertices = 0;
+            const u64 stride = std::max<u64>(query->stride, 1);
             if (query->dependant_manage) {
                 auto* dependant_query = tfb_streamer.GetQuery(query->dependant_index);
-                num_vertices = dependant_query->value / query->stride;
+                num_vertices = dependant_query->value / stride;
                 tfb_streamer.Free(query->dependant_index);
             } else {
                 u8* pointer = device_memory.GetPointer<u8>(query->dependant_address);
                 if (pointer != nullptr) {
                     u32 result;
                     std::memcpy(&result, pointer, sizeof(u32));
-                    num_vertices = static_cast<u64>(result) / query->stride;
+                    num_vertices = static_cast<u64>(result) / stride;
                 }
             }
             query->value = [&]() -> u64 {
@@ -1144,9 +1209,9 @@ public:
                 case Maxwell3D::Regs::PrimitiveTopology::Lines:
                     return num_vertices / 2;
                 case Maxwell3D::Regs::PrimitiveTopology::LineLoop:
-                    return (num_vertices / 2) + 1;
+                    return num_vertices >= 2 ? num_vertices : 0;
                 case Maxwell3D::Regs::PrimitiveTopology::LineStrip:
-                    return num_vertices - 1;
+                    return num_vertices >= 2 ? num_vertices - 1 : 0;
                 case Maxwell3D::Regs::PrimitiveTopology::Patches:
                 case Maxwell3D::Regs::PrimitiveTopology::Triangles:
                 case Maxwell3D::Regs::PrimitiveTopology::TrianglesAdjacency:
@@ -1154,11 +1219,11 @@ public:
                 case Maxwell3D::Regs::PrimitiveTopology::TriangleFan:
                 case Maxwell3D::Regs::PrimitiveTopology::TriangleStrip:
                 case Maxwell3D::Regs::PrimitiveTopology::TriangleStripAdjacency:
-                    return num_vertices - 2;
+                    return num_vertices >= 3 ? num_vertices - 2 : 0;
                 case Maxwell3D::Regs::PrimitiveTopology::Quads:
                     return num_vertices / 4;
                 case Maxwell3D::Regs::PrimitiveTopology::Polygon:
-                    return 1U;
+                    return num_vertices >= 3 ? 1U : 0U;
                 default:
                     return num_vertices;
                 }
@@ -1196,8 +1261,8 @@ struct QueryCacheRuntimeImpl {
           sample_streamer(static_cast<size_t>(QueryType::ZPassPixelCount64), runtime, rasterizer,
                           device, scheduler, memory_allocator, compute_pass_descriptor_queue,
                           descriptor_pool),
-          tfb_streamer(static_cast<size_t>(QueryType::StreamingByteCount), runtime, device,
-                       scheduler, memory_allocator, staging_pool),
+          tfb_streamer(static_cast<size_t>(QueryType::StreamingByteCount), runtime, buffer_cache_,
+                       device, scheduler, memory_allocator, staging_pool),
           primitives_succeeded_streamer(
               static_cast<size_t>(QueryType::StreamingPrimitivesSucceeded), runtime, tfb_streamer,
               device_memory_),

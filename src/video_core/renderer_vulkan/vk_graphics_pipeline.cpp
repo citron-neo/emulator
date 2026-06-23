@@ -269,7 +269,7 @@ GraphicsPipeline::GraphicsPipeline(
     if (device.GetMaxVertexInputAttributes() <
         Tegra::Engines::Maxwell3D::Regs::NumVertexAttributes) {
         PopulateVertexLocationRemap(vertex_input_remap, device.GetMaxVertexInputAttributes(),
-                                    key.state, stage_infos[0]);
+                                    device.GetMaxVertexInputBindings(), key.state, stage_infos[0]);
     }
     auto func{[this, shader_notify, &render_pass_cache, &descriptor_pool, pipeline_statistics] {
         DescriptorLayoutBuilder builder{MakeBuilder(device, stage_infos)};
@@ -701,6 +701,7 @@ void GraphicsPipeline::MakePipeline(VkRenderPass render_pass) {
     boost::container::static_vector<VkVertexInputAttributeDescription, 32> vertex_attributes;
     if (!key.state.dynamic_vertex_input) {
         const u32 max_vertex_attrs = device.GetMaxVertexInputAttributes();
+        const u32 max_vertex_bindings = device.GetMaxVertexInputBindings();
         for (size_t guest = 0; guest < Tegra::Engines::Maxwell3D::Regs::NumVertexArrays; ++guest) {
             if (!IsVertexBindingUsed(static_cast<u32>(guest), key.state, stage_infos[0])) {
                 continue;
@@ -709,7 +710,7 @@ void GraphicsPipeline::MakePipeline(VkRenderPass render_pass) {
                 continue;
             }
             const u32 vk_binding = VulkanVertexBinding(vertex_input_remap, static_cast<u32>(guest));
-            if (vk_binding >= max_vertex_attrs) {
+            if (vk_binding >= max_vertex_bindings) {
                 continue;
             }
             const bool instanced = key.state.binding_divisors[guest] != 0;
@@ -743,8 +744,14 @@ void GraphicsPipeline::MakePipeline(VkRenderPass render_pass) {
             }
             const u32 location = VulkanVertexLocation(vertex_input_remap, index);
             const u32 binding = VulkanVertexBinding(vertex_input_remap, attribute.buffer);
-            if (location >= max_vertex_attrs || binding >= max_vertex_attrs) {
+            if (location >= max_vertex_attrs || binding >= max_vertex_bindings) {
                 continue;
+            }
+            if (attribute.buffer >= Tegra::Engines::Maxwell3D::Regs::NumVertexArrays) {
+                continue;
+            }
+            if (vertex_attributes.size() >= max_vertex_attrs) {
+                break;
             }
             vertex_attributes.push_back({
                 .location = location,
@@ -753,6 +760,13 @@ void GraphicsPipeline::MakePipeline(VkRenderPass render_pass) {
                 .offset = attribute.offset,
             });
         }
+    }
+    const u32 max_vertex_attrs = device.GetMaxVertexInputAttributes();
+    if (vertex_attributes.size() > max_vertex_attrs) {
+        LOG_ERROR(Render_Vulkan,
+                  "Graphics pipeline uses {} vertex attributes but the Vulkan device reports a "
+                  "maximum of {}; draws may fault (common on MoltenVK).",
+                  vertex_attributes.size(), max_vertex_attrs);
     }
     ASSERT(vertex_attributes.size() <= device.GetMaxVertexInputAttributes());
 
@@ -796,6 +810,9 @@ void GraphicsPipeline::MakePipeline(VkRenderPass render_pass) {
         SupportsPrimitiveRestart(input_assembly_topology) ||
         (input_assembly_topology == VK_PRIMITIVE_TOPOLOGY_PATCH_LIST &&
          device.IsPatchListPrimitiveRestartSupported());
+    // Metal always applies primitive restart for strip/fan topologies; MoltenVK cannot implement
+    // vkCmdSetPrimitiveRestartEnableEXT(VK_FALSE) (VK_ERROR_FEATURE_NOT_PRESENT). Force restart in
+    // the pipeline for those topologies and omit dynamic toggle (see vk_rasterizer.cpp).
     const bool force_mvk_primitive_restart =
         device.GetDriverID() == VK_DRIVER_ID_MOLTENVK &&
         SupportsPrimitiveRestart(input_assembly_topology);
