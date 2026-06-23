@@ -1578,7 +1578,10 @@ void EmitContext::DefineInputs(const IR::Program& program) {
         }
         const Id type{GetAttributeType(*this, input_type)};
         const Id id{DefineInput(*this, type, true)};
-        Decorate(id, spv::Decoration::Location, static_cast<u32>(index));
+        const u32 location = runtime_info.remapped_vertex_locations
+                                 ? runtime_info.vertex_locations[index]
+                                 : static_cast<u32>(index);
+        Decorate(id, spv::Decoration::Location, location);
         Name(id, fmt::format("in_attr{}", index));
         input_generics[index] = GetAttributeInfo(*this, input_type, id);
 

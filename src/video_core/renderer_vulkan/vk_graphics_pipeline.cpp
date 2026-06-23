@@ -21,6 +21,7 @@
 #include "video_core/renderer_vulkan/vk_scheduler.h"
 #include "video_core/renderer_vulkan/vk_texture_cache.h"
 #include "video_core/renderer_vulkan/vk_update_descriptor.h"
+#include "video_core/renderer_vulkan/vertex_location_remap.h"
 #include "video_core/shader_notify.h"
 #include "video_core/texture_cache/texture_cache.h"
 #include "video_core/vulkan_common/vulkan_device.h"
@@ -707,16 +708,26 @@ void GraphicsPipeline::MakePipeline(VkRenderPass render_pass) {
             }
         }
         const u32 max_vertex_attrs = device.GetMaxVertexInputAttributes();
+        Shader::RuntimeInfo vertex_remap_info{};
+        const Shader::Info& vertex_info = stage_infos[0];
+        if (max_vertex_attrs < Tegra::Engines::Maxwell3D::Regs::NumVertexAttributes) {
+            PopulateVertexLocationRemap(vertex_remap_info, max_vertex_attrs, key.state,
+                                        vertex_info);
+        }
         for (size_t index = 0; index < key.state.attributes.size(); ++index) {
-            if (index >= max_vertex_attrs) {
+            const auto& attribute = key.state.attributes[index];
+            if (!attribute.enabled || !vertex_info.loads.Generic(index)) {
+                continue;
+            }
+            if (index >= max_vertex_attrs && !vertex_remap_info.remapped_vertex_locations) {
                 break;
             }
-            const auto& attribute = key.state.attributes[index];
-            if (!attribute.enabled || !stage_infos[0].loads.Generic(index)) {
+            const u32 location = VulkanVertexLocation(vertex_remap_info, index);
+            if (location >= max_vertex_attrs) {
                 continue;
             }
             vertex_attributes.push_back({
-                .location = static_cast<u32>(index),
+                .location = location,
                 .binding = attribute.buffer,
                 .format = MaxwellToVK::VertexFormat(device, attribute.Type(), attribute.Size()),
                 .offset = attribute.offset,
