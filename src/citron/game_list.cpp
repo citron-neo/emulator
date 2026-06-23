@@ -2199,7 +2199,6 @@ void GameList::ClearFilter() {
     search_field->clear();
 }
 
-
 void GameList::AddDirEntry(GameListDir* entry_items) {
     if (!entry_items)
         return;
