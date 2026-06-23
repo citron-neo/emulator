@@ -12,6 +12,7 @@
 
 #include "common/thread_worker.h"
 #include "shader_recompiler/shader_info.h"
+#include "shader_recompiler/runtime_info.h"
 #include "video_core/engines/maxwell_3d.h"
 #include "video_core/renderer_vulkan/fixed_pipeline_state.h"
 #include "video_core/renderer_vulkan/vk_buffer_cache.h"
@@ -142,6 +143,7 @@ private:
     std::array<vk::ShaderModule, NUM_STAGES> spv_modules;
 
     std::array<Shader::Info, NUM_STAGES> stage_infos;
+    Shader::RuntimeInfo vertex_input_remap{};
     std::array<u32, 5> enabled_uniform_buffer_masks{};
     VideoCommon::UniformBufferSizes uniform_buffer_sizes{};
     u32 num_textures{};

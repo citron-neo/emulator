@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include "shader_recompiler/runtime_info.h"
 #include "video_core/buffer_cache/buffer_cache_base.h"
 #include "video_core/buffer_cache/memory_tracker_base.h"
 #include "video_core/buffer_cache/usage_tracker.h"
@@ -122,6 +123,14 @@ public:
 
     void BindVertexBuffers(VideoCommon::HostBindings<Buffer>& bindings);
 
+    void SetVertexBindingRemap(const Shader::RuntimeInfo* remap) {
+        vertex_binding_remap = remap;
+    }
+
+    void ClearVertexBindingRemap() {
+        vertex_binding_remap = nullptr;
+    }
+
     void BindTransformFeedbackBuffer(u32 index, VkBuffer buffer, u32 offset, u32 size);
 
     void BindTransformFeedbackBuffers(VideoCommon::HostBindings<Buffer>& bindings);
@@ -168,6 +177,8 @@ private:
 
     std::unique_ptr<Uint8Pass> uint8_pass;
     QuadIndexedPass quad_index_pass;
+
+    const Shader::RuntimeInfo* vertex_binding_remap{};
 };
 
 struct BufferCacheParams {

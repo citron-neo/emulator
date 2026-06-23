@@ -24,30 +24,59 @@ namespace Vulkan {
     return state.attributes[index].enabled != 0;
 }
 
+[[nodiscard]] inline bool IsVertexBindingUsed(u32 binding, const FixedPipelineState& state,
+                                              const Shader::Info& info) {
+    for (size_t index = 0; index < state.attributes.size(); ++index) {
+        if (!IsVertexAttributeActive(state, index, info)) {
+            continue;
+        }
+        if (state.attributes[index].buffer == binding) {
+            return true;
+        }
+    }
+    return false;
+}
+
 inline void PopulateVertexLocationRemap(Shader::RuntimeInfo& runtime_info, u32 max_locations,
                                         const FixedPipelineState& state,
                                         const Shader::Info& vertex_info) {
     for (size_t i = 0; i < runtime_info.vertex_locations.size(); ++i) {
         runtime_info.vertex_locations[i] = static_cast<u8>(i);
+        runtime_info.vertex_bindings[i] = static_cast<u8>(i);
     }
     runtime_info.remapped_vertex_locations = false;
+    runtime_info.remapped_vertex_bindings = false;
 
     if (max_locations >= runtime_info.vertex_locations.size()) {
         return;
     }
 
-    u32 slot = 0;
+    u32 location_slot = 0;
     for (size_t guest = 0; guest < runtime_info.vertex_locations.size(); ++guest) {
         if (!IsVertexAttributeActive(state, guest, vertex_info)) {
             continue;
         }
         const u8 vulkan_location =
-            static_cast<u8>(slot < max_locations ? slot : max_locations - 1);
+            static_cast<u8>(location_slot < max_locations ? location_slot : max_locations - 1);
         runtime_info.vertex_locations[guest] = vulkan_location;
         if (vulkan_location != guest) {
             runtime_info.remapped_vertex_locations = true;
         }
-        ++slot;
+        ++location_slot;
+    }
+
+    u32 binding_slot = 0;
+    for (size_t guest = 0; guest < runtime_info.vertex_bindings.size(); ++guest) {
+        if (!IsVertexBindingUsed(static_cast<u32>(guest), state, vertex_info)) {
+            continue;
+        }
+        const u8 vulkan_binding =
+            static_cast<u8>(binding_slot < max_locations ? binding_slot : max_locations - 1);
+        runtime_info.vertex_bindings[guest] = vulkan_binding;
+        if (vulkan_binding != guest) {
+            runtime_info.remapped_vertex_bindings = true;
+        }
+        ++binding_slot;
     }
 }
 
@@ -57,6 +86,14 @@ inline void PopulateVertexLocationRemap(Shader::RuntimeInfo& runtime_info, u32 m
         return runtime_info.vertex_locations[guest_index];
     }
     return static_cast<u32>(guest_index);
+}
+
+[[nodiscard]] inline u32 VulkanVertexBinding(const Shader::RuntimeInfo& runtime_info,
+                                             u32 guest_binding) {
+    if (runtime_info.remapped_vertex_bindings) {
+        return runtime_info.vertex_bindings[guest_binding];
+    }
+    return guest_binding;
 }
 
 } // namespace Vulkan
