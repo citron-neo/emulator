@@ -574,11 +574,16 @@ void BufferCacheRuntime::BindQuadIndexBuffer(PrimitiveTopology topology, u32 fir
 
 void BufferCacheRuntime::BindVertexBuffer(u32 index, VkBuffer buffer, u32 offset, u32 size,
                                           u32 stride) {
-    if (index >= device.GetMaxVertexInputBindings()) {
+    u32 vk_index = index;
+    if (vertex_binding_remap != nullptr && vertex_binding_remap->remapped_vertex_bindings &&
+        index < vertex_binding_remap->vertex_bindings.size()) {
+        vk_index = vertex_binding_remap->vertex_bindings[index];
+    }
+    if (vk_index >= device.GetMaxVertexInputBindings()) {
         return;
     }
     if (device.IsExtExtendedDynamicStateSupported()) {
-        scheduler.Record([index, buffer, offset, size, stride](vk::CommandBuffer cmdbuf) {
+        scheduler.Record([index = vk_index, buffer, offset, size, stride](vk::CommandBuffer cmdbuf) {
             const VkDeviceSize vk_offset = buffer != VK_NULL_HANDLE ? offset : 0;
             const VkDeviceSize vk_size = buffer != VK_NULL_HANDLE ? size : VK_WHOLE_SIZE;
             const VkDeviceSize vk_stride = stride;
@@ -590,13 +595,55 @@ void BufferCacheRuntime::BindVertexBuffer(u32 index, VkBuffer buffer, u32 offset
             buffer = *null_buffer;
             offset = 0;
         }
-        scheduler.Record([index, buffer, offset](vk::CommandBuffer cmdbuf) {
+        scheduler.Record([index = vk_index, buffer, offset](vk::CommandBuffer cmdbuf) {
             cmdbuf.BindVertexBuffer(index, buffer, offset);
         });
     }
 }
 
 void BufferCacheRuntime::BindVertexBuffers(VideoCommon::HostBindings<Buffer>& bindings) {
+    const u32 device_max = device.GetMaxVertexInputBindings();
+    const bool remapped = vertex_binding_remap != nullptr &&
+                          vertex_binding_remap->remapped_vertex_bindings;
+
+    if (remapped) {
+        for (u32 index = 0; index < bindings.buffers.size(); ++index) {
+            const u32 guest_index = bindings.min_index + index;
+            u32 vk_index = guest_index;
+            if (guest_index < vertex_binding_remap->vertex_bindings.size()) {
+                vk_index = vertex_binding_remap->vertex_bindings[guest_index];
+            }
+            if (vk_index >= device_max) {
+                continue;
+            }
+            auto handle = bindings.buffers[index]->Handle();
+            u64 offset = bindings.offsets[index];
+            if (handle == VK_NULL_HANDLE) {
+                offset = 0;
+                if (!device.HasNullDescriptor()) {
+                    ReserveNullBuffer();
+                    handle = *null_buffer;
+                }
+            }
+            if (device.IsExtExtendedDynamicStateSupported()) {
+                const u64 size = bindings.sizes[index];
+                const u64 stride = bindings.strides[index];
+                scheduler.Record([vk_index, handle, offset, size, stride](vk::CommandBuffer cmdbuf) {
+                    const VkDeviceSize vk_offset = handle != VK_NULL_HANDLE ? offset : 0;
+                    const VkDeviceSize vk_size = handle != VK_NULL_HANDLE ? size : VK_WHOLE_SIZE;
+                    const VkDeviceSize vk_stride = stride;
+                    cmdbuf.BindVertexBuffers2EXT(vk_index, 1, &handle, &vk_offset, &vk_size,
+                                                 &vk_stride);
+                });
+            } else {
+                scheduler.Record([vk_index, handle, offset](vk::CommandBuffer cmdbuf) {
+                    cmdbuf.BindVertexBuffer(vk_index, handle, offset);
+                });
+            }
+        }
+        return;
+    }
+
     boost::container::small_vector<VkBuffer, 32> buffer_handles;
     for (u32 index = 0; index < bindings.buffers.size(); ++index) {
         auto handle = bindings.buffers[index]->Handle();
@@ -610,7 +657,6 @@ void BufferCacheRuntime::BindVertexBuffers(VideoCommon::HostBindings<Buffer>& bi
         }
         buffer_handles.push_back(handle);
     }
-    const u32 device_max = device.GetMaxVertexInputBindings();
     const u32 min_binding = std::min(bindings.min_index, device_max);
     const u32 max_binding = std::min(bindings.max_index, device_max);
     const u32 binding_count = max_binding - min_binding;

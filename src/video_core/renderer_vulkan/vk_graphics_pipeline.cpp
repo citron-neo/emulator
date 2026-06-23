@@ -266,6 +266,11 @@ GraphicsPipeline::GraphicsPipeline(
         std::ranges::copy(info->constant_buffer_used_sizes, uniform_buffer_sizes[stage].begin());
         num_textures += Shader::NumDescriptors(info->texture_descriptors);
     }
+    if (device.GetMaxVertexInputAttributes() <
+        Tegra::Engines::Maxwell3D::Regs::NumVertexAttributes) {
+        PopulateVertexLocationRemap(vertex_input_remap, device.GetMaxVertexInputAttributes(),
+                                    key.state, stage_infos[0]);
+    }
     auto func{[this, shader_notify, &render_pass_cache, &descriptor_pool, pipeline_statistics] {
         DescriptorLayoutBuilder builder{MakeBuilder(device, stage_infos)};
         split_descriptor_sets = builder.IsSplit();
@@ -547,10 +552,16 @@ void GraphicsPipeline::ConfigureImpl(bool is_indexed) {
     }
 
     buffer_cache.UpdateGraphicsBuffers(is_indexed);
+    if (vertex_input_remap.remapped_vertex_bindings) {
+        buffer_cache.runtime.SetVertexBindingRemap(&vertex_input_remap);
+    }
     if (key.state.xfb_emulated != 0 && !device.IsExtTransformFeedbackSupported()) {
         buffer_cache.ClearXfbStreamCounterForDraw();
     }
     buffer_cache.BindHostGeometryBuffers(is_indexed);
+    if (vertex_input_remap.remapped_vertex_bindings) {
+        buffer_cache.runtime.ClearVertexBindingRemap();
+    }
 
     guest_descriptor_queue.Acquire();
 
@@ -689,46 +700,46 @@ void GraphicsPipeline::MakePipeline(VkRenderPass render_pass) {
     boost::container::static_vector<VkVertexInputBindingDivisorDescriptionEXT, 32> vertex_binding_divisors;
     boost::container::static_vector<VkVertexInputAttributeDescription, 32> vertex_attributes;
     if (!key.state.dynamic_vertex_input) {
-        const size_t num_vertex_arrays = std::min(
-            Tegra::Engines::Maxwell3D::Regs::NumVertexArrays, static_cast<size_t>(device.GetMaxVertexInputBindings()));
-        for (size_t index = 0; index < num_vertex_arrays; ++index) {
-            const bool instanced = key.state.binding_divisors[index] != 0;
+        const u32 max_vertex_attrs = device.GetMaxVertexInputAttributes();
+        for (size_t guest = 0; guest < Tegra::Engines::Maxwell3D::Regs::NumVertexArrays; ++guest) {
+            if (!IsVertexBindingUsed(static_cast<u32>(guest), key.state, stage_infos[0])) {
+                continue;
+            }
+            const u32 vk_binding = VulkanVertexBinding(vertex_input_remap, static_cast<u32>(guest));
+            if (vk_binding >= max_vertex_attrs) {
+                continue;
+            }
+            const bool instanced = key.state.binding_divisors[guest] != 0;
             const auto rate =
                 instanced ? VK_VERTEX_INPUT_RATE_INSTANCE : VK_VERTEX_INPUT_RATE_VERTEX;
             vertex_bindings.push_back({
-                .binding = static_cast<u32>(index),
-                .stride = key.state.vertex_strides[index],
+                .binding = vk_binding,
+                .stride = key.state.vertex_strides[guest],
                 .inputRate = rate,
             });
             if (instanced) {
                 vertex_binding_divisors.push_back({
-                    .binding = static_cast<u32>(index),
-                    .divisor = key.state.binding_divisors[index],
+                    .binding = vk_binding,
+                    .divisor = key.state.binding_divisors[guest],
                 });
             }
         }
-        const u32 max_vertex_attrs = device.GetMaxVertexInputAttributes();
-        Shader::RuntimeInfo vertex_remap_info{};
-        const Shader::Info& vertex_info = stage_infos[0];
-        if (max_vertex_attrs < Tegra::Engines::Maxwell3D::Regs::NumVertexAttributes) {
-            PopulateVertexLocationRemap(vertex_remap_info, max_vertex_attrs, key.state,
-                                        vertex_info);
-        }
         for (size_t index = 0; index < key.state.attributes.size(); ++index) {
             const auto& attribute = key.state.attributes[index];
-            if (!attribute.enabled || !vertex_info.loads.Generic(index)) {
+            if (!attribute.enabled || !stage_infos[0].loads.Generic(index)) {
                 continue;
             }
-            if (index >= max_vertex_attrs && !vertex_remap_info.remapped_vertex_locations) {
+            if (index >= max_vertex_attrs && !vertex_input_remap.remapped_vertex_locations) {
                 break;
             }
-            const u32 location = VulkanVertexLocation(vertex_remap_info, index);
-            if (location >= max_vertex_attrs) {
+            const u32 location = VulkanVertexLocation(vertex_input_remap, index);
+            const u32 binding = VulkanVertexBinding(vertex_input_remap, attribute.buffer);
+            if (location >= max_vertex_attrs || binding >= max_vertex_attrs) {
                 continue;
             }
             vertex_attributes.push_back({
                 .location = location,
-                .binding = attribute.buffer,
+                .binding = binding,
                 .format = MaxwellToVK::VertexFormat(device, attribute.Type(), attribute.Size()),
                 .offset = attribute.offset,
             });

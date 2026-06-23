@@ -40,11 +40,7 @@ using BufferId = Common::SlotId;
 using VideoCore::Surface::PixelFormat;
 using namespace Common::Literals;
 
-#ifdef __APPLE__
-constexpr u32 NUM_VERTEX_BUFFERS = 16;
-#else
 constexpr u32 NUM_VERTEX_BUFFERS = 32;
-#endif
 constexpr u32 NUM_TRANSFORM_FEEDBACK_BUFFERS = 4;
 constexpr u32 NUM_GRAPHICS_UNIFORM_BUFFERS = 18;
 constexpr u32 NUM_COMPUTE_UNIFORM_BUFFERS = 8;

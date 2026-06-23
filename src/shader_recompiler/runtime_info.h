@@ -89,6 +89,9 @@ struct RuntimeInfo {
     /// Maps guest attribute index to SPIR-V/VkVertexInput location when MoltenVK caps at 16.
     bool remapped_vertex_locations{};
     std::array<u8, 32> vertex_locations{};
+    /// Maps guest vertex stream/binding index to Vulkan binding when MoltenVK caps at 16.
+    bool remapped_vertex_bindings{};
+    std::array<u8, 32> vertex_bindings{};
     VaryingState previous_stage_stores;
     std::map<IR::Attribute, IR::Attribute> previous_stage_legacy_stores_mapping;
 
