@@ -85,6 +85,9 @@ struct TransformFeedbackVarying {
 
 struct RuntimeInfo {
     std::array<AttributeType, 32> generic_input_types{};
+    /// Maps guest attribute index to SPIR-V/VkVertexInput location when MoltenVK caps at 16.
+    bool remapped_vertex_locations{};
+    std::array<u8, 32> vertex_locations{};
     VaryingState previous_stage_stores;
     std::map<IR::Attribute, IR::Attribute> previous_stage_legacy_stores_mapping;
 

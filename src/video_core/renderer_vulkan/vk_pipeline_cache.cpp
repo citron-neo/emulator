@@ -34,6 +34,7 @@
 #include "video_core/renderer_vulkan/vk_scheduler.h"
 #include "video_core/renderer_vulkan/vk_shader_util.h"
 #include "video_core/renderer_vulkan/vk_update_descriptor.h"
+#include "video_core/renderer_vulkan/vertex_location_remap.h"
 #include "video_core/shader_cache.h"
 #include "video_core/shader_environment.h"
 #include "video_core/shader_notify.h"
@@ -178,7 +179,8 @@ Shader::RuntimeInfo MakeRuntimeInfo(std::span<const Shader::IR::Program> program
     const bool gl_ndc{key.state.ndc_minus_one_to_one != 0};
     const float point_size{Common::BitCast<float>(key.state.point_size)};
     switch (stage) {
-    case Shader::Stage::VertexB:
+    case Shader::Stage::VertexB: {
+        std::ranges::fill(info.generic_input_types, Shader::AttributeType::Disabled);
         if (!has_geometry) {
             if (key.state.topology == Tegra::Engines::Maxwell3D::Regs::PrimitiveTopology::Points) {
                 info.fixed_state_point_size = point_size;
@@ -197,8 +199,14 @@ Shader::RuntimeInfo MakeRuntimeInfo(std::span<const Shader::IR::Program> program
                 info.generic_input_types[index] = AttributeType(key.state, index);
             }
         } else {
-            std::ranges::transform(key.state.attributes, info.generic_input_types.begin(),
-                                   &CastAttributeType);
+            for (size_t index = 0; index < Tegra::Engines::Maxwell3D::Regs::NumVertexAttributes;
+                 ++index) {
+                info.generic_input_types[index] =
+                    CastAttributeType(key.state.attributes[index]);
+            }
+        }
+        if (max_vertex_attributes < Tegra::Engines::Maxwell3D::Regs::NumVertexAttributes) {
+            PopulateVertexLocationRemap(info, max_vertex_attributes, key.state, program.info);
         }
         break;
     case Shader::Stage::TessellationEval:
@@ -452,6 +460,7 @@ PipelineCache::PipelineCache(Tegra::MaxwellDeviceMemoryManager& device_memory_,
             allow_eds3 && device.IsExtExtendedDynamicState3EnablesSupported(),
         .has_dynamic_vertex_input = allow_eds3 && device.IsExtVertexInputDynamicStateSupported(),
         .has_transform_feedback = device.IsExtTransformFeedbackSupported(),
+        .emulate_transform_feedback = !device.IsExtTransformFeedbackSupported(),
     };
 }
 

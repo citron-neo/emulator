@@ -1109,8 +1109,12 @@ void RasterizerVulkan::HandleTransformFeedback() {
     const auto& regs = maxwell3d->regs;
     if (!device.IsExtTransformFeedbackSupported()) {
         std::call_once(warn_unsupported, [&] {
-            LOG_ERROR(Render_Vulkan, "Transform feedbacks used but not supported");
+            LOG_WARNING(Render_Vulkan,
+                        "Transform feedback is enabled in GPU state but VK_EXT_transform_feedback "
+                        "is unavailable (e.g. MoltenVK); using software emulation");
         });
+        query_cache.CounterEnable(VideoCommon::QueryType::StreamingByteCount,
+                                  regs.transform_feedback_enabled);
         return;
     }
     query_cache.CounterEnable(VideoCommon::QueryType::StreamingByteCount,
