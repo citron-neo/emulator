@@ -12,8 +12,9 @@
 
 #include <fmt/format.h>
 
-#if defined(__unix__) || defined(__APPLE__)
 #include <cerrno>
+
+#if defined(__unix__) || defined(__APPLE__)
 #include <fcntl.h>
 #include <sys/socket.h>
 #include <unistd.h>
@@ -214,18 +215,13 @@ public:
         pipe_wr = fds[1];
         fd = static_cast<Network::SOCKET>(pipe_rd);
 
-        const bool non_block = (efd_flags & 0x800U) != 0;
         for (int p : {pipe_rd, pipe_wr}) {
             const int fl = fcntl(p, F_GETFL);
             if (fl < 0) {
                 ClosePipe();
                 return Network::Errno::MFILE;
             }
-            int newfl = fl;
-            if (non_block) {
-                newfl |= O_NONBLOCK;
-            }
-            if (fcntl(p, F_SETFL, newfl) < 0) {
+            if (fcntl(p, F_SETFL, fl | O_NONBLOCK) < 0) {
                 ClosePipe();
                 return Network::Errno::MFILE;
             }
@@ -313,12 +309,13 @@ public:
         std::memcpy(&add, message.data(), sizeof(add));
         {
             std::lock_guard lock{mutex};
+            const u64 old_counter = counter;
             const u64 new_val = counter + add;
             if (new_val < counter) {
                 return {-1, Network::Errno::INVAL};
             }
             counter = new_val;
-            if (add > 0) {
+            if (add > 0 && old_counter == 0) {
                 SignalPipeLocked();
             }
         }

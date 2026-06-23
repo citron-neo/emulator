@@ -47,7 +47,20 @@ LoadingScreen::LoadingScreen(QWidget* parent)
 }
 
 LoadingScreen::~LoadingScreen() {
-    loading_text_animation_timer->stop();
+    HaltTransitions();
+}
+
+void LoadingScreen::HaltTransitions() {
+    if (loading_text_animation_timer) {
+        loading_text_animation_timer->stop();
+    }
+    if (fadeout_animation) {
+        fadeout_animation->stop();
+        fadeout_animation->disconnect();
+    }
+    if (movie) {
+        movie->stop();
+    }
 }
 
 void LoadingScreen::Prepare(Loader::AppLoader& loader) {
@@ -274,6 +287,6 @@ void LoadingScreen::paintEvent(QPaintEvent* event) {
 }
 
 void LoadingScreen::Clear() {
+    HaltTransitions();
     ui->game_icon->clear();
-    loading_text_animation_timer->stop();
 }

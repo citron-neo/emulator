@@ -673,6 +673,9 @@ public:
         offsets.fill(0);
         last_queries.fill(0);
         last_queries_stride.fill(1);
+        if (!device.IsExtTransformFeedbackSupported()) {
+            return;
+        }
         const VkBufferCreateInfo buffer_ci = {
             .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
             .pNext = nullptr,
