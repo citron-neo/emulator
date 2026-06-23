@@ -1715,21 +1715,25 @@ void RasterizerVulkan::UpdateVertexInput(Tegra::Engines::Maxwell3D::Regs& regs) 
             highest_dirty_attr = index;
         }
     }
-    for (size_t index = 0; index < highest_dirty_attr; ++index) {
-        const Tegra::Engines::Maxwell3D::Regs::VertexAttribute attribute{
-            regs.vertex_attrib_format[index]};
-        const u32 binding{attribute.buffer};
-        dirty[Dirty::VertexAttribute0 + index] = false;
-        dirty[Dirty::VertexBinding0 + static_cast<size_t>(binding)] = true;
-        if (!attribute.constant) {
-            attributes.push_back({
-                .sType = VK_STRUCTURE_TYPE_VERTEX_INPUT_ATTRIBUTE_DESCRIPTION_2_EXT,
-                .pNext = nullptr,
-                .location = static_cast<u32>(index),
-                .binding = binding,
-                .format = MaxwellToVK::VertexFormat(device, attribute.type, attribute.size),
-                .offset = attribute.offset,
-            });
+    if (highest_dirty_attr && max_vertex_attrs > 0) {
+        const size_t last_dirty_attr =
+            std::min(*highest_dirty_attr, max_vertex_attrs - 1);
+        for (size_t index = 0; index <= last_dirty_attr; ++index) {
+            const Tegra::Engines::Maxwell3D::Regs::VertexAttribute attribute{
+                regs.vertex_attrib_format[index]};
+            const u32 binding{attribute.buffer};
+            dirty[Dirty::VertexAttribute0 + index] = false;
+            dirty[Dirty::VertexBinding0 + static_cast<size_t>(binding)] = true;
+            if (!attribute.constant) {
+                attributes.push_back({
+                    .sType = VK_STRUCTURE_TYPE_VERTEX_INPUT_ATTRIBUTE_DESCRIPTION_2_EXT,
+                    .pNext = nullptr,
+                    .location = static_cast<u32>(index),
+                    .binding = binding,
+                    .format = MaxwellToVK::VertexFormat(device, attribute.type, attribute.size),
+                    .offset = attribute.offset,
+                });
+            }
         }
     }
     for (size_t index = 0; index < Tegra::Engines::Maxwell3D::Regs::NumVertexAttributes; ++index) {

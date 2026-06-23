@@ -953,7 +953,11 @@ void GRenderWindow::ReleaseRenderTarget() {
         child_widget = nullptr;
         // Synchronous teardown: deleteLater can run after QApplication::quit(), leaving the Vulkan
         // QWindow alive while MoltenVK has already shut down (common when exiting mid-game, e.g.
-        // in-game loading screens).
+        // in-game loading screens). Flush this widget's posted events first — deleteLater implicitly
+        // did that via the event loop; without it, queued slots can UAF on Windows/Linux.
+        widget->disconnect();
+        QCoreApplication::sendPostedEvents(widget, QEvent::DeferredDelete);
+        QCoreApplication::sendPostedEvents(widget);
         delete widget;
     }
     main_context.reset();
