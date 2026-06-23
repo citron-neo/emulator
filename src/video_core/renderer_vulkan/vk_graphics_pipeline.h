@@ -118,6 +118,10 @@ public:
         return vertex_input_remap;
     }
 
+    [[nodiscard]] bool UsesEmulatedTransformFeedback() const noexcept {
+        return key.state.xfb_emulated != 0;
+    }
+
 private:
     template <typename Spec>
     void ConfigureImpl(bool is_indexed);

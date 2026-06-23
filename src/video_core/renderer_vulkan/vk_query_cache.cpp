@@ -786,6 +786,10 @@ public:
             new_query->flags |= VideoCommon::QueryFlagBits::IsFinalValueSynced;
             return index;
         }
+        if (!device.IsExtTransformFeedbackSupported()) {
+            // Ensure the emulated TF draw has finished writing the counter SSBO before we copy it.
+            scheduler.Flush();
+        }
         CloseCounter();
         auto [bank_slot, data_slot] = ProduceCounterBuffer(subreport);
         new_query->start_bank_id = static_cast<u32>(bank_slot);
@@ -819,6 +823,9 @@ public:
 
     void PushUnsyncedQueries() override {
         CloseCounter();
+        if (!device.IsExtTransformFeedbackSupported() && !pending_flush_queries.empty()) {
+            scheduler.Flush();
+        }
         auto staging_ref = staging_pool.Request(
             pending_flush_queries.size() * TFBQueryBank::QUERY_SIZE, MemoryUsage::Download, true);
         size_t offset_base = staging_ref.offset;
@@ -990,7 +997,7 @@ private:
             scheduler.RequestOutsideRenderPassOperationContext();
             scheduler.Record([dst_buffer = current_bank->GetBuffer(), src_buffer,
                               slot](vk::CommandBuffer cmdbuf) {
-                cmdbuf.PipelineBarrier(VK_PIPELINE_STAGE_VERTEX_SHADER_BIT,
+                cmdbuf.PipelineBarrier(VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
                                        VK_PIPELINE_STAGE_TRANSFER_BIT, 0, READ_BARRIER);
                 std::array<VkBufferCopy, 1> copy{VkBufferCopy{
                     .srcOffset = 0,
