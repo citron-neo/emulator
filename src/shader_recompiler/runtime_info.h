@@ -121,6 +121,8 @@ struct RuntimeInfo {
     /// Transform feedback state for each varying
     std::array<TransformFeedbackVarying, 256> xfb_varyings{};
     u32 xfb_count{0};
+    /// Guest transform-feedback buffer sizes captured in pipeline state (bytes).
+    std::array<u32, 4> xfb_buffer_bytes{};
     /// Stream-out is implemented with storage-buffer writes (MoltenVK / no VK_EXT_transform_feedback).
     bool emulate_transform_feedback{};
     /// First SSBO index of the four transform-feedback buffers; UINT_MAX if unused.

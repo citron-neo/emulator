@@ -24,6 +24,8 @@ void RefreshXfbState(VideoCommon::TransformFeedbackState& state, const Tegra::En
                                    .stride = layout.stride,
                                };
                            });
+    std::ranges::transform(regs.transform_feedback.buffers, state.buffer_sizes.begin(),
+                           [](const auto& buffer) { return buffer.size; });
     state.varyings = regs.stream_out_layout;
 }
 } // Anonymous namespace

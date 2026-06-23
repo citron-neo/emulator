@@ -744,6 +744,8 @@ public:
     void SyncWrites() override {
         CloseCounter();
         std::unordered_map<size_t, std::vector<HostSyncValues>> sync_values_stash;
+        std::vector<size_t> emulated_pending;
+        std::vector<VideoCommon::SyncValuesStruct> emulated_sync_values;
         for (auto q : pending_sync) {
             auto* query = GetQuery(q);
             if (True(query->flags & VideoCommon::QueryFlagBits::IsRewritten)) {
@@ -752,9 +754,11 @@ public:
             if (True(query->flags & VideoCommon::QueryFlagBits::IsInvalidated)) {
                 continue;
             }
-            if (!device.IsExtTransformFeedbackSupported() &&
-                emulated_query_strides.contains(q)) {
-                continue;
+            if (!device.IsExtTransformFeedbackSupported()) {
+                if (emulated_query_strides.contains(q)) {
+                    emulated_pending.push_back(q);
+                    continue;
+                }
             }
             query->flags |= VideoCommon::QueryFlagBits::IsHostSynced;
             sync_values_stash.try_emplace(query->start_bank_id);
@@ -763,6 +767,51 @@ public:
                 .size = TFBQueryBank::QUERY_SIZE,
                 .offset = query->start_slot * TFBQueryBank::QUERY_SIZE,
             });
+        }
+        if (!emulated_pending.empty()) {
+            auto staging_ref = staging_pool.Request(
+                emulated_pending.size() * TFBQueryBank::QUERY_SIZE, MemoryUsage::Download, true);
+            size_t offset_base = staging_ref.offset;
+            for (const size_t q : emulated_pending) {
+                auto* query = GetQuery(q);
+                auto& bank = bank_pool.GetBank(query->start_bank_id);
+                bank.Sync(staging_ref, offset_base, query->start_slot, 1);
+                offset_base += TFBQueryBank::QUERY_SIZE;
+            }
+            static constexpr VkMemoryBarrier WRITE_BARRIER{
+                .sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER,
+                .pNext = nullptr,
+                .srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT,
+                .dstAccessMask = VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_MEMORY_WRITE_BIT,
+            };
+            scheduler.RequestOutsideRenderPassOperationContext();
+            scheduler.Record([](vk::CommandBuffer cmdbuf) {
+                cmdbuf.PipelineBarrier(VK_PIPELINE_STAGE_TRANSFER_BIT,
+                                       VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, 0, WRITE_BARRIER);
+            });
+            scheduler.Finish();
+            offset_base = staging_ref.offset;
+            emulated_sync_values.reserve(emulated_pending.size());
+            for (const size_t q : emulated_pending) {
+                auto* query = GetQuery(q);
+                u32 records = 0;
+                std::memcpy(&records, staging_ref.mapped_span.data() + offset_base, sizeof(u32));
+                offset_base += TFBQueryBank::QUERY_SIZE;
+                const u32 stride = emulated_query_strides.at(q);
+                emulated_query_strides.erase(q);
+                const u64 byte_value = static_cast<u64>(records) * stride;
+                query->value = byte_value;
+                query->flags |= VideoCommon::QueryFlagBits::IsHostSynced |
+                                VideoCommon::QueryFlagBits::IsFinalValueSynced;
+                emulated_sync_values.push_back(VideoCommon::SyncValuesStruct{
+                    .address = query->guest_address,
+                    .value = byte_value,
+                    .size = TFBQueryBank::QUERY_SIZE,
+                });
+                bank_pool.GetBank(query->start_bank_id).CloseReference();
+            }
+            staging_pool.FreeDeferred(staging_ref);
+            runtime.template SyncValues<VideoCommon::SyncValuesStruct>(emulated_sync_values);
         }
         for (auto& p : sync_values_stash) {
             auto& bank = bank_pool.GetBank(p.first);

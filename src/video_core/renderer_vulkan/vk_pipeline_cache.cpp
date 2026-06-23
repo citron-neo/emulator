@@ -192,6 +192,10 @@ Shader::RuntimeInfo MakeRuntimeInfo(std::span<const Shader::IR::Program> program
                     VideoCommon::MakeTransformFeedbackVaryings(key.state.xfb_state);
                 info.xfb_varyings = varyings;
                 info.xfb_count = count;
+                for (size_t i = 0; i < info.xfb_buffer_bytes.size(); ++i) {
+                    const s32 size = key.state.xfb_state.buffer_sizes[i];
+                    info.xfb_buffer_bytes[i] = size > 0 ? static_cast<u32>(size) : 0U;
+                }
             }
             info.convert_depth_mode = gl_ndc;
         }
@@ -257,6 +261,10 @@ Shader::RuntimeInfo MakeRuntimeInfo(std::span<const Shader::IR::Program> program
                 VideoCommon::MakeTransformFeedbackVaryings(key.state.xfb_state);
             info.xfb_varyings = varyings;
             info.xfb_count = count;
+            for (size_t i = 0; i < info.xfb_buffer_bytes.size(); ++i) {
+                const s32 size = key.state.xfb_state.buffer_sizes[i];
+                info.xfb_buffer_bytes[i] = size > 0 ? static_cast<u32>(size) : 0U;
+            }
         }
         info.convert_depth_mode = gl_ndc;
         break;

@@ -172,6 +172,20 @@ Id GetCbufElement(EmitContext& ctx, Id vector, const IR::Value& offset, u32 inde
     return ctx.OpVectorExtractDynamic(ctx.U32[1], vector, element);
 }
 
+void ConditionalStore(EmitContext& ctx, Id condition, Id pointer, Id value) {
+    const Id merge_label = ctx.OpLabel();
+    const Id store_label = ctx.OpLabel();
+    const Id skip_label = ctx.OpLabel();
+    ctx.OpSelectionMerge(merge_label, spv::SelectionControlMask::MaskNone);
+    ctx.OpBranchConditional(condition, store_label, skip_label);
+    ctx.AddLabel(store_label);
+    ctx.OpStore(pointer, value);
+    ctx.OpBranch(merge_label);
+    ctx.AddLabel(skip_label);
+    ctx.OpBranch(merge_label);
+    ctx.AddLabel(merge_label);
+}
+
 void EmitTransformFeedbackEmulationStoresImpl(EmitContext& ctx) {
     if (!ctx.runtime_info.emulate_transform_feedback || ctx.runtime_info.xfb_count == 0) {
         return;
@@ -243,7 +257,15 @@ void EmitTransformFeedbackEmulationStoresImpl(EmitContext& ctx) {
             const Id word_idx{ctx.OpShiftRightLogical(ctx.U32[1], abs_byte, ctx.Const(2u))};
             const Id dst_ptr{
                 ctx.OpAccessChain(element_ptr, ssbo_array_id, ctx.u32_zero_value, word_idx)};
-            ctx.OpStore(dst_ptr, value);
+            const u32 buffer_bytes = ctx.runtime_info.xfb_buffer_bytes[xv.buffer];
+            if (buffer_bytes == 0) {
+                ctx.OpStore(dst_ptr, value);
+                continue;
+            }
+            const Id size_bytes{ctx.Const(buffer_bytes)};
+            const Id end_byte{ctx.OpIAdd(ctx.U32[1], abs_byte, ctx.Const(4u))};
+            const Id in_bounds{ctx.OpULessThanEqual(ctx.U1, end_byte, size_bytes)};
+            ConditionalStore(ctx, in_bounds, dst_ptr, value);
         }
     }
 }
