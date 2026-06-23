@@ -207,7 +207,8 @@ Shader::RuntimeInfo MakeRuntimeInfo(std::span<const Shader::IR::Program> program
                     CastAttributeType(key.state.attributes[index]);
             }
         }
-        if (max_vertex_attributes < Tegra::Engines::Maxwell3D::Regs::NumVertexAttributes) {
+        if (max_vertex_attributes < Tegra::Engines::Maxwell3D::Regs::NumVertexAttributes ||
+            max_vertex_bindings < Tegra::Engines::Maxwell3D::Regs::NumVertexArrays) {
             PopulateVertexLocationRemap(info, max_vertex_attributes, max_vertex_bindings, key.state,
                                         program.info);
             for (size_t index = 0; index < info.vertex_locations.size(); ++index) {
@@ -807,6 +808,9 @@ std::unique_ptr<GraphicsPipeline> PipelineCache::CreateGraphicsPipeline(
             continue;
         }
         if (index == geometry_stage_index && !geometry_supported) {
+            if (key.unique_hashes[index] != 0) {
+                ++env_index;
+            }
             continue;
         }
         if (key.unique_hashes[index] == 0) {

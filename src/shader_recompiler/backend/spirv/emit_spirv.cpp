@@ -495,20 +495,19 @@ std::vector<u32> EmitSPIRV(const Profile& profile, const RuntimeInfo& runtime_in
         static constexpr u32 kMaxwellMaxConstBuffers = 18;
         if (program.info.storage_buffers_descriptors.size() + kXfbEmuBuffers >
             Shader::Info::MAX_SSBOS) {
-            LOG_ERROR(Shader_SPIRV,
-                      "Transform-feedback emulation: cannot add SSBOs (guest already at max)");
-        } else {
+            throw NotImplementedException(
+                "Transform-feedback emulation requires {} free SSBO slots", kXfbEmuBuffers);
+        }
         program.info.used_storage_buffer_types |= IR::Type::F32 | IR::Type::U32;
         runtime_info_work.xfb_emulation_ssbo_base =
-                static_cast<u32>(program.info.storage_buffers_descriptors.size());
-            for (u32 b = 0; b < kXfbEmuBuffers; ++b) {
-                program.info.storage_buffers_descriptors.push_back({
-                    .cbuf_index = kMaxwellMaxConstBuffers + b,
-                    .cbuf_offset = 0,
-                    .count = 1,
-                    .is_written = true,
-                });
-            }
+            static_cast<u32>(program.info.storage_buffers_descriptors.size());
+        for (u32 b = 0; b < kXfbEmuBuffers; ++b) {
+            program.info.storage_buffers_descriptors.push_back({
+                .cbuf_index = kMaxwellMaxConstBuffers + b,
+                .cbuf_offset = 0,
+                .count = 1,
+                .is_written = true,
+            });
         }
     }
 

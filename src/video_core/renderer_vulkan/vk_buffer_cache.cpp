@@ -92,7 +92,8 @@ vk::Buffer CreateXfbStreamCounterBuffer(const Device& device, MemoryAllocator& m
         .pNext = nullptr,
         .flags = 0,
         .size = VideoCommon::XFB_EMULATION_COUNTER_BUFFER_BYTES,
-        .usage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+        .usage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT |
+                 VK_BUFFER_USAGE_TRANSFER_DST_BIT,
         .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
         .queueFamilyIndexCount = 0,
         .pQueueFamilyIndices = nullptr,
@@ -125,15 +126,15 @@ vk::Buffer CreateXfbStreamCounterSnapshotBuffer(const Device& device,
 
 void BufferCacheRuntime::RegisterXfbEmulationCounterBuffer(VkBuffer buffer) {
     xfb_emulation_counter_buffer = buffer;
-    if (xfb_emulation_counter_snapshot_buffer == VK_NULL_HANDLE) {
+    if (!xfb_emulation_counter_snapshot_buffer) {
         xfb_emulation_counter_snapshot_buffer =
-            *CreateXfbStreamCounterSnapshotBuffer(device, memory_allocator);
+            CreateXfbStreamCounterSnapshotBuffer(device, memory_allocator);
     }
 }
 
 void BufferCacheRuntime::SnapshotXfbEmulationCounter() {
     if (xfb_emulation_counter_buffer == VK_NULL_HANDLE ||
-        xfb_emulation_counter_snapshot_buffer == VK_NULL_HANDLE) {
+        !xfb_emulation_counter_snapshot_buffer) {
         return;
     }
     static constexpr VkMemoryBarrier READ_BARRIER{
@@ -150,7 +151,7 @@ void BufferCacheRuntime::SnapshotXfbEmulationCounter() {
     };
     scheduler.RequestOutsideRenderPassOperationContext();
     scheduler.Record([src_buffer = xfb_emulation_counter_buffer,
-                      dst_buffer = xfb_emulation_counter_snapshot_buffer](vk::CommandBuffer cmdbuf) {
+                      dst_buffer = *xfb_emulation_counter_snapshot_buffer](vk::CommandBuffer cmdbuf) {
         cmdbuf.PipelineBarrier(VK_PIPELINE_STAGE_VERTEX_SHADER_BIT,
                                VK_PIPELINE_STAGE_TRANSFER_BIT, 0, READ_BARRIER);
         std::array<VkBufferCopy, 1> copy{VkBufferCopy{

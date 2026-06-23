@@ -318,6 +318,7 @@ void RasterizerVulkan::Draw(bool is_indexed, u32 instance_count) {
                 .dstAccessMask = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT |
                                  VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT,
             };
+            scheduler.RequestOutsideRenderPassOperationContext();
             scheduler.Record([](vk::CommandBuffer cmdbuf) {
                 cmdbuf.PipelineBarrier(VK_PIPELINE_STAGE_VERTEX_SHADER_BIT,
                                        VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, 0,
@@ -1731,9 +1732,8 @@ void RasterizerVulkan::UpdateVertexInput(Tegra::Engines::Maxwell3D::Regs& regs) 
             highest_dirty_attr = index;
         }
     }
-    if (highest_dirty_attr && max_vertex_attrs > 0) {
-        const size_t last_dirty_attr =
-            std::min(*highest_dirty_attr, max_vertex_attrs - 1);
+    if (highest_dirty_attr) {
+        const size_t last_dirty_attr = *highest_dirty_attr;
         for (size_t index = 0; index <= last_dirty_attr; ++index) {
             const Tegra::Engines::Maxwell3D::Regs::VertexAttribute attribute{
                 regs.vertex_attrib_format[index]};
@@ -1742,9 +1742,6 @@ void RasterizerVulkan::UpdateVertexInput(Tegra::Engines::Maxwell3D::Regs& regs) 
             dirty[Dirty::VertexBinding0 + static_cast<size_t>(guest_binding)] = true;
             if (!attribute.constant) {
                 if (vertex_remap && !IsVertexAttributeMapped(*vertex_remap, index)) {
-                    continue;
-                }
-                if (guest_binding >= max_vertex_bindings) {
                     continue;
                 }
                 u32 location = static_cast<u32>(index);
@@ -1764,6 +1761,9 @@ void RasterizerVulkan::UpdateVertexInput(Tegra::Engines::Maxwell3D::Regs& regs) 
                 } else if (location >= max_vertex_attrs) {
                     continue;
                 }
+                if (binding >= max_vertex_bindings) {
+                    continue;
+                }
                 attributes.push_back({
                     .sType = VK_STRUCTURE_TYPE_VERTEX_INPUT_ATTRIBUTE_DESCRIPTION_2_EXT,
                     .pNext = nullptr,
@@ -1776,9 +1776,6 @@ void RasterizerVulkan::UpdateVertexInput(Tegra::Engines::Maxwell3D::Regs& regs) 
         }
     }
     for (size_t guest = 0; guest < Tegra::Engines::Maxwell3D::Regs::NumVertexArrays; ++guest) {
-        if (guest >= max_vertex_bindings) {
-            break;
-        }
         if (!dirty[Dirty::VertexBinding0 + guest]) {
             continue;
         }
@@ -1793,6 +1790,8 @@ void RasterizerVulkan::UpdateVertexInput(Tegra::Engines::Maxwell3D::Regs& regs) 
             if (vk_binding >= max_vertex_bindings) {
                 continue;
             }
+        } else if (vk_binding >= max_vertex_bindings) {
+            continue;
         }
         const auto& input_binding{regs.vertex_streams[guest]};
         const bool is_instanced{regs.vertex_stream_instances.IsInstancingEnabled(

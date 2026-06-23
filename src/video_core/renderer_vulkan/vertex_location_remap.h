@@ -24,10 +24,15 @@ namespace Vulkan {
     return state.attributes[index].enabled != 0;
 }
 
-[[nodiscard]] inline bool IsVertexBindingUsed(u32 binding, const FixedPipelineState& state,
-                                              const Shader::Info& info) {
+[[nodiscard]] inline bool IsVertexBindingUsedByMappedAttributes(
+    u32 binding, const FixedPipelineState& state, const Shader::Info& info,
+    const Shader::RuntimeInfo& runtime_info) {
     for (size_t index = 0; index < state.attributes.size(); ++index) {
         if (!IsVertexAttributeActive(state, index, info)) {
+            continue;
+        }
+        if (runtime_info.remapped_vertex_locations &&
+            runtime_info.vertex_locations[index] == Shader::VERTEX_INPUT_DROPPED) {
             continue;
         }
         if (state.attributes[index].buffer == binding) {
@@ -76,7 +81,8 @@ inline void PopulateVertexLocationRemap(Shader::RuntimeInfo& runtime_info, u32 m
     if (needs_binding_remap) {
         u32 binding_slot = 0;
         for (size_t guest = 0; guest < runtime_info.vertex_bindings.size(); ++guest) {
-            if (!IsVertexBindingUsed(static_cast<u32>(guest), state, vertex_info)) {
+            if (!IsVertexBindingUsedByMappedAttributes(static_cast<u32>(guest), state, vertex_info,
+                                                       runtime_info)) {
                 continue;
             }
             if (binding_slot >= max_bindings) {

@@ -675,6 +675,7 @@ public:
         offsets.fill(0);
         last_queries.fill(0);
         last_queries_stride.fill(1);
+        streams_mask = 0;
         if (!device.IsExtTransformFeedbackSupported()) {
             return;
         }
@@ -749,6 +750,10 @@ public:
                 continue;
             }
             if (True(query->flags & VideoCommon::QueryFlagBits::IsInvalidated)) {
+                continue;
+            }
+            if (!device.IsExtTransformFeedbackSupported() &&
+                emulated_query_strides.contains(q)) {
                 continue;
             }
             query->flags |= VideoCommon::QueryFlagBits::IsHostSynced;
@@ -942,6 +947,7 @@ private:
     void UpdateBuffers() {
         last_queries.fill(0);
         last_queries_stride.fill(1);
+        streams_mask = 0;
         runtime.View3DRegs([this](Maxwell3D& maxwell3d) {
             buffers_count = 0;
             out_topology = maxwell3d.draw_manager->GetDrawState().topology;
@@ -976,19 +982,27 @@ private:
             const VkBuffer live_buffer = buffer_cache.runtime.GetXfbEmulationCounterBuffer();
             const VkBuffer src_buffer =
                 snapshot_buffer != VK_NULL_HANDLE ? snapshot_buffer : live_buffer;
+            static constexpr VkMemoryBarrier WRITE_BARRIER{
+                .sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER,
+                .pNext = nullptr,
+                .srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT,
+                .dstAccessMask = VK_ACCESS_MEMORY_READ_BIT,
+            };
             if (src_buffer == VK_NULL_HANDLE) {
                 scheduler.RequestOutsideRenderPassOperationContext();
                 scheduler.Record([dst_buffer = current_bank->GetBuffer(),
                                   slot](vk::CommandBuffer cmdbuf) {
                     cmdbuf.FillBuffer(dst_buffer, slot * TFBQueryBank::QUERY_SIZE,
                                       TFBQueryBank::QUERY_SIZE, 0);
+                    cmdbuf.PipelineBarrier(VK_PIPELINE_STAGE_TRANSFER_BIT,
+                                           VK_PIPELINE_STAGE_TRANSFER_BIT, 0, WRITE_BARRIER);
                 });
                 return {current_bank_id, slot};
             }
             static constexpr VkMemoryBarrier READ_BARRIER{
                 .sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER,
                 .pNext = nullptr,
-                .srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT,
+                .srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT | VK_ACCESS_TRANSFER_WRITE_BIT,
                 .dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT,
             };
             scheduler.RequestOutsideRenderPassOperationContext();
@@ -1002,6 +1016,8 @@ private:
                     .size = TFBQueryBank::QUERY_SIZE,
                 }};
                 cmdbuf.CopyBuffer(src_buffer, dst_buffer, copy);
+                cmdbuf.PipelineBarrier(VK_PIPELINE_STAGE_TRANSFER_BIT,
+                                       VK_PIPELINE_STAGE_TRANSFER_BIT, 0, WRITE_BARRIER);
             });
             return {current_bank_id, slot};
         }

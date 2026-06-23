@@ -266,8 +266,13 @@ GraphicsPipeline::GraphicsPipeline(
         std::ranges::copy(info->constant_buffer_used_sizes, uniform_buffer_sizes[stage].begin());
         num_textures += Shader::NumDescriptors(info->texture_descriptors);
     }
-    if (device.GetMaxVertexInputAttributes() <
-        Tegra::Engines::Maxwell3D::Regs::NumVertexAttributes) {
+    const bool needs_vertex_location_remap =
+        device.GetMaxVertexInputAttributes() <
+        Tegra::Engines::Maxwell3D::Regs::NumVertexAttributes;
+    const bool needs_vertex_binding_remap =
+        device.GetMaxVertexInputBindings() <
+        Tegra::Engines::Maxwell3D::Regs::NumVertexArrays;
+    if (needs_vertex_location_remap || needs_vertex_binding_remap) {
         PopulateVertexLocationRemap(vertex_input_remap, device.GetMaxVertexInputAttributes(),
                                     device.GetMaxVertexInputBindings(), key.state, stage_infos[0]);
     }
@@ -703,7 +708,8 @@ void GraphicsPipeline::MakePipeline(VkRenderPass render_pass) {
         const u32 max_vertex_attrs = device.GetMaxVertexInputAttributes();
         const u32 max_vertex_bindings = device.GetMaxVertexInputBindings();
         for (size_t guest = 0; guest < Tegra::Engines::Maxwell3D::Regs::NumVertexArrays; ++guest) {
-            if (!IsVertexBindingUsed(static_cast<u32>(guest), key.state, stage_infos[0])) {
+            if (!IsVertexBindingUsedByMappedAttributes(static_cast<u32>(guest), key.state,
+                                                       stage_infos[0], vertex_input_remap)) {
                 continue;
             }
             if (!IsVertexBindingMapped(vertex_input_remap, static_cast<u32>(guest))) {

@@ -139,7 +139,8 @@ public:
     }
 
     [[nodiscard]] VkBuffer GetXfbEmulationCounterSnapshotBuffer() const {
-        return xfb_emulation_counter_snapshot_buffer;
+        return xfb_emulation_counter_snapshot_buffer ? *xfb_emulation_counter_snapshot_buffer
+                                                     : VK_NULL_HANDLE;
     }
 
     /// Copy the live TF emulation counter after a draw so later query reads are not cleared away.
@@ -195,7 +196,7 @@ private:
     const Shader::RuntimeInfo* vertex_binding_remap{};
 
     VkBuffer xfb_emulation_counter_buffer{VK_NULL_HANDLE};
-    VkBuffer xfb_emulation_counter_snapshot_buffer{VK_NULL_HANDLE};
+    vk::Buffer xfb_emulation_counter_snapshot_buffer;
 };
 
 struct BufferCacheParams {
