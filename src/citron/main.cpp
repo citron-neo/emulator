@@ -639,14 +639,14 @@ GMainWindow::GMainWindow(std::unique_ptr<QtConfig> config_, bool has_broken_vulk
 }
 
 GMainWindow::~GMainWindow() {
+    delete game_list;
+    game_list = nullptr;
     if (provider) {
         provider->ClearAllEntries();
     }
     if (autoloader_provider) {
         autoloader_provider->ClearAllEntries();
     }
-    delete game_list;
-    game_list = nullptr;
     // will get automatically deleted otherwise
     if (render_window->parent() == nullptr) {
         delete render_window;
