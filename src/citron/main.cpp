@@ -639,6 +639,12 @@ GMainWindow::GMainWindow(std::unique_ptr<QtConfig> config_, bool has_broken_vulk
 }
 
 GMainWindow::~GMainWindow() {
+    if (provider) {
+        provider->ClearAllEntries();
+    }
+    if (autoloader_provider) {
+        autoloader_provider->ClearAllEntries();
+    }
     delete game_list;
     game_list = nullptr;
     // will get automatically deleted otherwise
@@ -6232,7 +6238,18 @@ void GMainWindow::closeEvent(QCloseEvent* event) {
     }
 
     if (game_list) {
+        game_list->CancelPopulation();
         game_list->UnloadController();
+    }
+
+    // Release RealVfsFile handles before any VfsFilesystem shared_ptrs are dropped.
+    // RealVfsFile holds a bare RealVfsFilesystem&; destroying it after the filesystem
+    // is gone aborts with "mutex lock failed: Invalid argument" on exit.
+    if (provider) {
+        provider->ClearAllEntries();
+    }
+    if (autoloader_provider) {
+        autoloader_provider->ClearAllEntries();
     }
 
     if (controller_dialog) {
