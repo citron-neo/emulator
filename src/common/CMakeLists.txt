@@ -236,7 +236,8 @@ if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
   )
 endif()
 
-target_link_libraries(common PUBLIC Boost::context Boost::headers fmt::fmt stb::headers Threads::Threads)
+target_link_libraries(common PUBLIC Boost::context Boost::headers fmt::fmt stb::headers Threads::Threads unordered_dense::unordered_dense)
+target_include_directories(common INTERFACE ${CMAKE_SOURCE_DIR}/src)
 target_link_libraries(common PRIVATE lz4::lz4 zstd::zstd LLVM::Demangle)
 
 if (ANDROID)

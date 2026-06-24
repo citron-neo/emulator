@@ -44,7 +44,7 @@ enum class Class : u8 {
 /// @brief Logs a message to the global logger, using fmt
 void FmtLogMessageImpl(Class log_class, Level log_level, const char* filename, unsigned int line_num, const char* function, fmt::string_view format, const fmt::format_args& args);
 template <typename... Args> inline void FmtLogMessage(Class log_class, Level log_level, const char* filename, unsigned int line_num, const char* function, fmt::format_string<Args...> format, const Args&... args) {
-    FmtLogMessageImpl(log_class, log_level, filename, line_num, function, format, fmt::make_format_args(args...));
+    FmtLogMessageImpl(log_class, log_level, filename, line_num, function, format.get(), fmt::make_format_args(args...));
 }
 /// @brief Implements a log message filter which allows different log classes to have different minimum
 /// severity levels. The filter can be changed at runtime and can be parsed from a string to allow

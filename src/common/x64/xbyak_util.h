@@ -4,7 +4,9 @@
 #pragma once
 
 #include <type_traits>
-#include <xbyak/xbyak.h>
+// Don't include <xbyak/xbyak.h> directly -- xbyak_abi.h must win the include-guard
+// race so the XBYAK_STD_UNORDERED_* macros are set before xbyak bakes its class
+// layouts. Including xbyak.h here first previously caused ODR mismatches in some TUs.
 #include "common/x64/xbyak_abi.h"
 
 namespace Common::X64 {

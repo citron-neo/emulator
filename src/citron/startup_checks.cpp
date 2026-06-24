@@ -16,7 +16,7 @@
 #include <unistd.h>
 #endif
 
-#include <fmt/core.h>
+#include <fmt/format.h>
 #include "video_core/vulkan_common/vulkan_instance.h"
 #include "video_core/vulkan_common/vulkan_library.h"
 #include "citron/startup_checks.h"

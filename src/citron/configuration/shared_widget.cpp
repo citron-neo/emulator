@@ -40,7 +40,7 @@
 #include <QVariant>
 #include <QtCore/qglobal.h>
 #include <QtCore/qobjectdefs.h>
-#include <fmt/core.h>
+#include <fmt/format.h>
 #include <qglobal.h>
 #include <qnamespace.h>
 

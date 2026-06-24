@@ -335,11 +335,11 @@ template <typename Spec>
 void GraphicsPipeline::ConfigureImpl(bool is_indexed) {
     // std::array<T, 16384> made CheckFeedbackLoop iterate the full capacity
     // per draw; small_vector lets the span size match the actual write count.
-    thread_local boost::container::small_vector<VideoCommon::ImageViewInOut, 64> views;
-    thread_local boost::container::small_vector<VideoCommon::SamplerId, 64> samplers;
-    thread_local BindlessCache bindless_cache;
-    thread_local size_t bindless_cache_rr{0};
-    thread_local std::vector<u8> bindless_scratch;
+    boost::container::small_vector<VideoCommon::ImageViewInOut, 64> views;
+    boost::container::small_vector<VideoCommon::SamplerId, 64> samplers;
+    BindlessCache bindless_cache;
+    size_t bindless_cache_rr{0};
+    std::vector<u8> bindless_scratch;
     views.clear();
     samplers.clear();
 

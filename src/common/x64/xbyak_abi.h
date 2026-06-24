@@ -5,7 +5,35 @@
 
 #include <bitset>
 #include <initializer_list>
+
+// XBYAK_STD_UNORDERED_* macros must be defined before the first <xbyak/xbyak.h>
+// parse in any TU -- the include guard makes later parses (even with different
+// macros) a no-op, and these types are baked into Xbyak class layouts. A mismatch
+// across TUs is an ODR violation; the symptom is std::length_error on first insert.
+//
+// dynarmic/backend/x64/xbyak.h defines the same values; src/dynarmic/common/x64/xbyak.h
+// forwards here instead of to dynarmic's copy so there's one source of truth.
+//
+// Note: dynarmic's common/xbyak.h also defines CMP_*, IsWithin2G, CallFarFunction --
+// don't add them here, equivalents already exist in xbyak_util.h.
+#include <ankerl/unordered_dense.h>
+#include <boost/unordered_map.hpp>
+#define XBYAK_STD_UNORDERED_SET ankerl::unordered_dense::set
+#define XBYAK_STD_UNORDERED_MAP ankerl::unordered_dense::map
+#define XBYAK_STD_UNORDERED_MULTIMAP boost::unordered_multimap
+
+#ifdef __GNUC__
+#pragma GCC diagnostic ignored "-Wconversion"
+#pragma GCC diagnostic ignored "-Wshadow"
+#endif
+#ifdef __clang__
+#pragma clang diagnostic ignored "-Wconversion"
+#pragma clang diagnostic ignored "-Wshadow"
+#endif
+
 #include <xbyak/xbyak.h>
+#include <xbyak/xbyak_util.h>
+
 #include "common/assert.h"
 
 namespace Common::X64 {
@@ -156,7 +184,7 @@ struct ABIFrameInfo {
 };
 
 inline ABIFrameInfo ABI_CalculateFrameSize(std::bitset<32> regs, size_t rsp_alignment,
-                                           size_t needed_frame_size) {
+                                            size_t needed_frame_size) {
     const auto count = (regs & ABI_ALL_GPRS).count();
     rsp_alignment -= count * 8;
     size_t subtraction = 0;
@@ -174,11 +202,12 @@ inline ABIFrameInfo ABI_CalculateFrameSize(std::bitset<32> regs, size_t rsp_alig
     subtraction += rsp_alignment & 0xF;
 
     return ABIFrameInfo{static_cast<s32>(subtraction),
-                        static_cast<s32>(subtraction - xmm_base_subtraction)};
+                         static_cast<s32>(subtraction - xmm_base_subtraction)};
 }
 
 inline size_t ABI_PushRegistersAndAdjustStack(Xbyak::CodeGenerator& code, std::bitset<32> regs,
-                                              size_t rsp_alignment, size_t needed_frame_size = 0) {
+                                               size_t rsp_alignment,
+                                               size_t needed_frame_size = 0) {
     auto frame_info = ABI_CalculateFrameSize(regs, rsp_alignment, needed_frame_size);
 
     for (size_t i = 0; i < regs.size(); ++i) {
@@ -202,7 +231,8 @@ inline size_t ABI_PushRegistersAndAdjustStack(Xbyak::CodeGenerator& code, std::b
 }
 
 inline void ABI_PopRegistersAndAdjustStack(Xbyak::CodeGenerator& code, std::bitset<32> regs,
-                                           size_t rsp_alignment, size_t needed_frame_size = 0) {
+                                            size_t rsp_alignment,
+                                            size_t needed_frame_size = 0) {
     auto frame_info = ABI_CalculateFrameSize(regs, rsp_alignment, needed_frame_size);
 
     for (size_t i = 0; i < regs.size(); ++i) {

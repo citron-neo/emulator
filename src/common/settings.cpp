@@ -15,7 +15,7 @@
 #include <functional>
 #include <string_view>
 #include <type_traits>
-#include <fmt/core.h>
+#include <fmt/format.h>
 
 #include "common/assert.h"
 #include "common/fs/fs_util.h"

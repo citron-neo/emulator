@@ -79,7 +79,7 @@ if (NOT TARGET fmt::fmt)
     CPMAddPackage(
         NAME fmt
         GITHUB_REPOSITORY fmtlib/fmt
-        GIT_TAG 12.1.0
+        GIT_TAG e8244777ee1c32df8233c215ac9ff626b2dd2c38
         OPTIONS "FMT_INSTALL OFF"
     )
 endif()
@@ -184,7 +184,7 @@ if (CITRON_TESTS AND NOT TARGET Catch2::Catch2)
     CPMAddPackage(
         NAME Catch2
         GITHUB_REPOSITORY catchorg/Catch2
-        GIT_TAG v3.7.1
+        GIT_TAG 675f9eaeb191c51b9d2ffb2bb198009533895051
         OPTIONS "CATCH_INSTALL_DOCS OFF"
     )
 endif()
@@ -243,7 +243,7 @@ if ((ARCHITECTURE_x86 OR ARCHITECTURE_x86_64) AND NOT TARGET xbyak::xbyak)
     CPMAddPackage(
         NAME xbyak
         GITHUB_REPOSITORY herumi/xbyak
-        GIT_TAG 560ca671421e47e32d3c8270623aaa74454570f4
+        GIT_TAG c506ecd5134122115a981fdd45c2a756f9ce20ac
     )
 endif()
 
@@ -400,7 +400,7 @@ if (ARCHITECTURE_arm64 AND NOT TARGET merry::oaknut)
     CPMAddPackage(
         NAME oaknut
         GITHUB_REPOSITORY yuzu-mirror/oaknut
-        GIT_TAG 9d091109deb445bc6e9289c6195a282b7c993d49
+        GIT_TAG 94c726ce0338b054eb8cb5ea91de8fe6c19f4392
     )
 endif()
 
@@ -421,7 +421,7 @@ if ((ARCHITECTURE_x86_64 OR ARCHITECTURE_arm64) AND NOT (MSVC AND ARCHITECTURE_a
         CPMAddPackage(
             NAME dynarmic
             GITHUB_REPOSITORY xinitrcn1/dynarmic
-            GIT_TAG b280da7792d247a9910bc6d590af9454810fc64f
+            GIT_TAG c08207ddec63447d625a382b56b04f68c17526c4
             OPTIONS
                 "DYNARMIC_USE_PRECOMPILED_HEADERS ${CITRON_USE_PRECOMPILED_HEADERS}"
                 "DYNARMIC_IGNORE_ASSERTS ON"

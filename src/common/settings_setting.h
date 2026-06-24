@@ -11,7 +11,7 @@
 #include <type_traits>
 #include <typeindex>
 #include <typeinfo>
-#include <fmt/core.h>
+#include <fmt/format.h>
 #include "common/common_types.h"
 #include "common/settings_common.h"
 #include "common/settings_enums.h"

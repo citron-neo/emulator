@@ -21,7 +21,7 @@
 #pragma clang diagnostic ignored "-Wconversion"
 #pragma clang diagnostic ignored "-Wshadow"
 #endif
-#include <xbyak/xbyak.h>
+#include "common/x64/xbyak_abi.h"
 #endif
 
 #include "common/assert.h"
