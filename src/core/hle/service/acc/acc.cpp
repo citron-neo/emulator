@@ -41,6 +41,9 @@ namespace Service::Account {
 // Thumbnails are hard coded to be at least this size
 constexpr std::size_t THUMBNAIL_SIZE = 0x24000;
 
+// Forward declaration — full definition appears later in this file after the async interfaces.
+class EnsureTokenIdCacheAsyncInterface;
+
 static std::filesystem::path GetImagePath(const Common::UUID& uuid) {
     return Common::FS::GetCitronPath(Common::FS::CitronPath::NANDDir) /
            fmt::format("system/save/8000000000000010/su/avators/{}.jpg", uuid.FormattedString());
@@ -624,9 +627,7 @@ public:
 
 class EnsureTokenIdCacheAsyncInterface final : public IAsyncContext {
 public:
-    explicit EnsureTokenIdCacheAsyncInterface(Core::System& system_) : IAsyncContext{system_} {
-        MarkComplete();
-    }
+    explicit EnsureTokenIdCacheAsyncInterface(Core::System& system_) : IAsyncContext{system_} {}
     ~EnsureTokenIdCacheAsyncInterface() = default;
 
     void LoadIdTokenCache(HLERequestContext& ctx) {
@@ -744,6 +745,84 @@ protected:
     }
 };
 
+class IAsyncNetworkServiceLicenseKindContext final
+    : public ServiceFramework<IAsyncNetworkServiceLicenseKindContext> {
+public:
+    explicit IAsyncNetworkServiceLicenseKindContext(Core::System& system_)
+        : ServiceFramework{system_, "IAsyncNetworkServiceLicenseKindContext"},
+          service_context{system_, "IAsyncNetworkServiceLicenseKindContext"} {
+        static const FunctionInfo functions[] = {
+            {0, &IAsyncNetworkServiceLicenseKindContext::GetSystemEvent, "GetSystemEvent"},
+            {1, &IAsyncNetworkServiceLicenseKindContext::Cancel, "Cancel"},
+            {2, &IAsyncNetworkServiceLicenseKindContext::HasDone, "HasDone"},
+            {3, &IAsyncNetworkServiceLicenseKindContext::GetResult, "GetResult"},
+            {100, &IAsyncNetworkServiceLicenseKindContext::GetNetworkServiceLicenseKind,
+             "GetNetworkServiceLicenseKind"},
+        };
+        RegisterHandlers(functions);
+
+        completion_event =
+            service_context.CreateEvent("IAsyncNetworkServiceLicenseKindContext:CompletionEvent");
+    }
+
+    ~IAsyncNetworkServiceLicenseKindContext() override {
+        service_context.CloseEvent(completion_event);
+    }
+
+    void SignalCompletion() {
+        is_complete = true;
+        completion_event->Signal();
+    }
+
+private:
+    void GetSystemEvent(HLERequestContext& ctx) {
+        LOG_INFO(Service_ACC, "IAsyncNetworkServiceLicenseKindContext::GetSystemEvent called");
+
+        if (is_complete) {
+            completion_event->Signal();
+        }
+
+        IPC::ResponseBuilder rb{ctx, 2, 1};
+        rb.Push(ResultSuccess);
+        rb.PushCopyObjects(completion_event->GetReadableEvent());
+    }
+
+    void Cancel(HLERequestContext& ctx) {
+        is_complete = true;
+        completion_event->Signal();
+
+        IPC::ResponseBuilder rb{ctx, 2};
+        rb.Push(ResultSuccess);
+    }
+
+    void HasDone(HLERequestContext& ctx) {
+        LOG_INFO(Service_ACC, "IAsyncNetworkServiceLicenseKindContext::HasDone called, done={}",
+                 is_complete);
+
+        IPC::ResponseBuilder rb{ctx, 3};
+        rb.Push(ResultSuccess);
+        rb.Push(is_complete);
+    }
+
+    void GetResult(HLERequestContext& ctx) {
+        LOG_INFO(Service_ACC, "IAsyncNetworkServiceLicenseKindContext::GetResult called");
+
+        IPC::ResponseBuilder rb{ctx, 2};
+        rb.Push(ResultSuccess);
+    }
+
+    void GetNetworkServiceLicenseKind(HLERequestContext& ctx) {
+        LOG_INFO(Service_ACC, "called");
+        IPC::ResponseBuilder rb{ctx, 3};
+        rb.Push(ResultSuccess);
+        rb.Push<u32>(0);
+    }
+
+    KernelHelpers::ServiceContext service_context;
+    Kernel::KEvent* completion_event{};
+    bool is_complete{};
+};
+
 class IManagerForApplication final : public ServiceFramework<IManagerForApplication> {
 public:
     explicit IManagerForApplication(Core::System& system_,
@@ -762,7 +841,8 @@ public:
             {136, &IManagerForApplication::GetNintendoAccountUserResourceCacheForApplication, "GetNintendoAccountUserResourceCache"}, // 19.0.0+
             {150, nullptr, "CreateAuthorizationRequest"},
             {160, &IManagerForApplication::StoreOpenContext, "StoreOpenContext"},
-            {170, nullptr, "LoadNetworkServiceLicenseKindAsync"},
+            {170, &IManagerForApplication::LoadNetworkServiceLicenseKindAsync,
+             "LoadNetworkServiceLicenseKindAsync"},
         };
         // clang-format on
 
@@ -792,6 +872,7 @@ private:
         IPC::ResponseBuilder rb{ctx, 2, 0, 1};
         rb.Push(ResultSuccess);
         rb.PushIpcInterface(ensure_token_id);
+        ensure_token_id->SignalCompletion();
     }
 
     void LoadIdTokenCacheDeprecated(HLERequestContext& ctx) {
@@ -830,28 +911,18 @@ private:
         rb.Push(ResultSuccess);
     }
 
+    void LoadNetworkServiceLicenseKindAsync(HLERequestContext& ctx) {
+        LOG_INFO(Service_ACC, "called");
+        auto async = std::make_shared<IAsyncNetworkServiceLicenseKindContext>(system);
+
+        IPC::ResponseBuilder rb{ctx, 2, 0, 1};
+        rb.Push(ResultSuccess);
+        rb.PushIpcInterface(async);
+        async->SignalCompletion();
+    }
+
     std::shared_ptr<EnsureTokenIdCacheAsyncInterface> ensure_token_id{};
     std::shared_ptr<ProfileManager> profile_manager;
-};
-
-// 6.0.0+
-class IAsyncNetworkServiceLicenseKindContext final
-    : public ServiceFramework<IAsyncNetworkServiceLicenseKindContext> {
-public:
-    explicit IAsyncNetworkServiceLicenseKindContext(Core::System& system_, Common::UUID)
-        : ServiceFramework{system_, "IAsyncNetworkServiceLicenseKindContext"} {
-        // clang-format off
-        static const FunctionInfo functions[] = {
-            {0, nullptr, "GetSystemEvent"},
-            {1, nullptr, "Cancel"},
-            {2, nullptr, "HasDone"},
-            {3, nullptr, "GetResult"},
-            {4, nullptr, "GetNetworkServiceLicenseKind"},
-        };
-        // clang-format on
-
-        RegisterHandlers(functions);
-    }
 };
 
 // 8.0.0+

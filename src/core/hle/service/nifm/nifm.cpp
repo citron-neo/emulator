@@ -525,12 +525,34 @@ public:
 };
 
 void IGeneralService::GetClientId(HLERequestContext& ctx) {
-    static constexpr u32 client_id = 1;
-    LOG_WARNING(Service_NIFM, "(STUBBED) called");
+    static u32 next_client_id = 1;
+    const u32 client_id = next_client_id++;
 
-    IPC::ResponseBuilder rb{ctx, 4};
+    LOG_INFO(Service_NIFM, "called, client_id={}", client_id);
+
+    if (ctx.CanWriteBuffer(0)) {
+        ctx.WriteBuffer(std::span{reinterpret_cast<const u8*>(&client_id), sizeof(client_id)}, 0);
+    }
+
+    IPC::ResponseBuilder rb{ctx, 2};
     rb.Push(ResultSuccess);
-    rb.Push<u64>(client_id); // Client ID needs to be non zero otherwise it's considered invalid
+}
+
+void IGeneralService::IsAnyInternetRequestAccepted(HLERequestContext& ctx) {
+    u32 client_id{};
+    if (ctx.CanReadBuffer(0)) {
+        const auto buffer = ctx.ReadBuffer(0);
+        if (buffer.size() >= sizeof(client_id)) {
+            std::memcpy(&client_id, buffer.data(), sizeof(client_id));
+        }
+    }
+
+    const bool accepted = client_id != 0 && Network::GetHostIPv4Address().has_value();
+    LOG_INFO(Service_NIFM, "called, client_id={}, accepted={}", client_id, accepted);
+
+    IPC::ResponseBuilder rb{ctx, 3};
+    rb.Push(ResultSuccess);
+    rb.Push<u8>(accepted ? 1 : 0);
 }
 
 void IGeneralService::CreateScanRequest(HLERequestContext& ctx) {
@@ -785,18 +807,6 @@ void IGeneralService::GetInternetConnectionStatus(HLERequestContext& ctx) {
 
 void IGeneralService::IsEthernetCommunicationEnabled(HLERequestContext& ctx) {
     LOG_WARNING(Service_NIFM, "(STUBBED) called");
-
-    IPC::ResponseBuilder rb{ctx, 3};
-    rb.Push(ResultSuccess);
-    if (Network::GetHostIPv4Address().has_value()) {
-        rb.Push<u8>(1);
-    } else {
-        rb.Push<u8>(0);
-    }
-}
-
-void IGeneralService::IsAnyInternetRequestAccepted(HLERequestContext& ctx) {
-    LOG_ERROR(Service_NIFM, "(STUBBED) called");
 
     IPC::ResponseBuilder rb{ctx, 3};
     rb.Push(ResultSuccess);
