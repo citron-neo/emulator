@@ -36,10 +36,7 @@ public:
 
     explicit ImageOperands(EmitContext& ctx, const IR::Value& offset, const IR::Value& offset2) {
         if (offset2.IsEmpty()) {
-            if (offset.IsEmpty()) {
-                return;
-            }
-            Add(spv::ImageOperandsMask::Offset, ctx.Def(offset));
+            AddOffset(ctx, offset, ImageGatherOffsetAllowed);
             return;
         }
         const std::array values{offset.InstRecursive(), offset2.InstRecursive()};
@@ -53,10 +50,18 @@ public:
         }
         auto read{[&](unsigned int a, unsigned int b) { return values[a]->Arg(b).U32(); }};
 
+        const auto make_offset_pair = [&](u32 x, u32 y) {
+            if (ctx.profile.has_broken_unsigned_image_offsets) {
+                return ctx.SConst(static_cast<s32>(x), static_cast<s32>(y));
+            }
+            return ctx.Const(x, y);
+        };
+
         const Id offsets{ctx.ConstantComposite(
-            ctx.TypeArray(ctx.U32[2], ctx.Const(4U)), ctx.Const(read(0, 0), read(0, 1)),
-            ctx.Const(read(0, 2), read(0, 3)), ctx.Const(read(1, 0), read(1, 1)),
-            ctx.Const(read(1, 2), read(1, 3)))};
+            ctx.TypeArray(ctx.profile.has_broken_unsigned_image_offsets ? ctx.S32[2] : ctx.U32[2],
+                          ctx.Const(4U)),
+            make_offset_pair(read(0, 0), read(0, 1)), make_offset_pair(read(0, 2), read(0, 3)),
+            make_offset_pair(read(1, 0), read(1, 1)), make_offset_pair(read(1, 2), read(1, 3)))};
         Add(spv::ImageOperandsMask::ConstOffsets, offsets);
     }
 
