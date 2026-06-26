@@ -162,6 +162,19 @@ void PushLoadIdTokenCacheResponse(HLERequestContext& ctx) {
     rb.Push(token_size);
 }
 
+void WriteNetworkServiceLicenseCacheBuffer(HLERequestContext& ctx) {
+    if (!ctx.CanWriteBuffer(0)) {
+        return;
+    }
+
+    std::vector<u8> cache(ctx.GetWriteBufferSize(0));
+    if (cache.size() >= sizeof(u32)) {
+        const u32 license_kind = NETWORK_SERVICE_LICENSE_KIND_PERSONAL;
+        std::memcpy(cache.data(), &license_kind, sizeof(license_kind));
+    }
+    ctx.WriteBuffer(cache, 0);
+}
+
 constexpr std::size_t NAS_USER_BASE_SIZE = 0x68;
 constexpr u64 STUB_NINTENDO_ACCOUNT_ID = 0x0123456789ABCDEFULL;
 
@@ -305,16 +318,8 @@ private:
     }
 
     void GetNetworkServiceLicenseCache(HLERequestContext& ctx) {
-        LOG_INFO(Service_ACC, "called");
-
-        if (ctx.CanWriteBuffer(0)) {
-            std::vector<u8> cache(ctx.GetWriteBufferSize(0));
-            if (cache.size() >= sizeof(u32)) {
-                const u32 license_kind = NETWORK_SERVICE_LICENSE_KIND_PERSONAL;
-                std::memcpy(cache.data(), &license_kind, sizeof(license_kind));
-            }
-            ctx.WriteBuffer(cache, 0);
-        }
+        LOG_INFO(Service_ACC, "IManagerForSystemService::GetNetworkServiceLicenseCache called");
+        WriteNetworkServiceLicenseCacheBuffer(ctx);
 
         IPC::ResponseBuilder rb{ctx, 2};
         rb.Push(ResultSuccess);
@@ -1105,19 +1110,8 @@ private:
     bool is_complete{};
 };
 
-// On HOS 19+ Bedrock expects IAsyncContextForLoginForOnlinePlay from EnsureIdTokenCacheAsync so
-// it can query license info (cmd 100) on the returned async object.
+// EnsureIdTokenCacheAsync (cmd 2) returns IAsyncContext; online-play license queries use cmd 170.
 void PushEnsureIdTokenCacheAsyncResponse(Core::System& system, HLERequestContext& ctx) {
-    if (HLE::ApiVersion::HOS_VERSION_MAJOR >= 19) {
-        auto async = std::make_shared<IAsyncContextForLoginForOnlinePlay>(system);
-
-        IPC::ResponseBuilder rb{ctx, 2, 0, 1};
-        rb.Push(ResultSuccess);
-        rb.PushIpcInterface(async);
-        async->SignalCompletion();
-        return;
-    }
-
     auto async = std::make_shared<EnsureTokenIdCacheAsyncInterface>(system);
 
     IPC::ResponseBuilder rb{ctx, 2, 0, 1};
@@ -1149,6 +1143,12 @@ public:
             {4, &IManagerForApplication::LoadIdTokenCache, "LoadIdTokenCache"},
             {130, &IManagerForApplication::GetNintendoAccountUserResourceCacheForApplication, "GetNintendoAccountUserResourceCacheForApplication"},
             {136, &IManagerForApplication::GetNintendoAccountUserResourceCacheForApplication, "GetNintendoAccountUserResourceCache"}, // 19.0.0+
+            {140, &IManagerForApplication::GetNetworkServiceLicenseCache, "GetNetworkServiceLicenseCache"}, // 5.0.0+
+            {141, &IManagerForApplication::RefreshNetworkServiceLicenseCacheAsync,
+             "RefreshNetworkServiceLicenseCacheAsync"}, // 5.0.0+
+            {142, &IManagerForApplication::RefreshNetworkServiceLicenseCacheAsyncIfSecondsElapsed,
+             "RefreshNetworkServiceLicenseCacheAsyncIfSecondsElapsed"}, // 5.0.0+
+            {143, D<&IManagerForApplication::GetNetworkServiceLicenseCacheEx>, "GetNetworkServiceLicenseCacheEx"}, // 15.0.0+
             {150, nullptr, "CreateAuthorizationRequest"},
             {160, &IManagerForApplication::StoreOpenContext, "StoreOpenContext"},
             {170, &IManagerForApplication::EnsureIdTokenCacheForOnlinePlayOrLicenseKindAsync,
@@ -1176,7 +1176,7 @@ private:
     }
 
     void EnsureIdTokenCacheAsync(HLERequestContext& ctx) {
-        LOG_INFO(Service_ACC, "called");
+        LOG_INFO(Service_ACC, "IManagerForApplication::EnsureIdTokenCacheAsync called");
 
         const auto user_id = profile_manager->GetLastOpenedUser();
         PopulateBaasStubSessionCache(user_id);
@@ -1185,12 +1185,12 @@ private:
     }
 
     void LoadIdTokenCacheDeprecated(HLERequestContext& ctx) {
-        LOG_INFO(Service_ACC, "LoadIdTokenCacheDeprecated called");
+        LOG_INFO(Service_ACC, "IManagerForApplication::LoadIdTokenCacheDeprecated called");
         PushLoadIdTokenCacheResponse(ctx);
     }
 
     void LoadIdTokenCache(HLERequestContext& ctx) {
-        LOG_INFO(Service_ACC, "called");
+        LOG_INFO(Service_ACC, "IManagerForApplication::LoadIdTokenCache called");
         PushLoadIdTokenCacheResponse(ctx);
     }
 
@@ -1215,6 +1215,50 @@ private:
         rb.Push(ResultSuccess);
     }
 
+    void GetNetworkServiceLicenseCache(HLERequestContext& ctx) {
+        LOG_INFO(Service_ACC, "IManagerForApplication::GetNetworkServiceLicenseCache called");
+        WriteNetworkServiceLicenseCacheBuffer(ctx);
+
+        IPC::ResponseBuilder rb{ctx, 2};
+        rb.Push(ResultSuccess);
+    }
+
+    void RefreshNetworkServiceLicenseCacheAsync(HLERequestContext& ctx) {
+        LOG_INFO(Service_ACC, "IManagerForApplication::RefreshNetworkServiceLicenseCacheAsync called");
+
+        const auto user_id = profile_manager->GetLastOpenedUser();
+        PopulateBaasStubSessionCache(user_id);
+        PushCompletedIAsyncContextResponse(system, ctx);
+    }
+
+    void RefreshNetworkServiceLicenseCacheAsyncIfSecondsElapsed(HLERequestContext& ctx) {
+        LOG_INFO(Service_ACC,
+                 "IManagerForApplication::RefreshNetworkServiceLicenseCacheAsyncIfSecondsElapsed "
+                 "called");
+
+        IPC::RequestParser rp{ctx};
+        [[maybe_unused]] const auto seconds = rp.Pop<u32>();
+
+        const auto user_id = profile_manager->GetLastOpenedUser();
+        PopulateBaasStubSessionCache(user_id);
+
+        auto async = std::make_shared<CompletedIAsyncContextInterface>(system);
+
+        IPC::ResponseBuilder rb{ctx, 3, 0, 1};
+        rb.Push(ResultSuccess);
+        rb.Push<u8>(1);
+        rb.PushIpcInterface(async);
+    }
+
+    Result GetNetworkServiceLicenseCacheEx(Out<u32> out_license, Out<s64> out_expiration) {
+        LOG_INFO(Service_ACC, "IManagerForApplication::GetNetworkServiceLicenseCacheEx called");
+
+        *out_license = NETWORK_SERVICE_LICENSE_KIND_PERSONAL;
+        *out_expiration = NETWORK_SERVICE_LICENSE_FAR_FUTURE_EXPIRATION;
+
+        R_SUCCEED();
+    }
+
     void LoadNetworkServiceLicenseKindAsync(HLERequestContext& ctx) {
         LOG_INFO(Service_ACC, "LoadNetworkServiceLicenseKindAsync called");
 
@@ -1230,7 +1274,7 @@ private:
     }
 
     void EnsureIdTokenCacheForOnlinePlayAsync(HLERequestContext& ctx) {
-        LOG_INFO(Service_ACC, "EnsureIdTokenCacheForOnlinePlayAsync called");
+        LOG_INFO(Service_ACC, "IManagerForApplication::EnsureIdTokenCacheForOnlinePlayAsync (cmd 170) called");
 
         const auto user_id = profile_manager->GetLastOpenedUser();
         PopulateBaasStubSessionCache(user_id);

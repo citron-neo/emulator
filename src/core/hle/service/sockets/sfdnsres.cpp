@@ -136,11 +136,6 @@ std::set<std::string> blocked_domains{
     "phoenix-api.wbagora.com",
     // prevents various battle net games from crashing
     "battle.net",
-    // minecraft from crashing
-    "microsoft.com",
-    "mojang.com",
-    "xboxlive.com",
-    "minecraftservices.com",
 };
 
 static std::pair<u32, GetAddrInfoError> GetHostByNameRequestImpl(HLERequestContext& ctx) {
