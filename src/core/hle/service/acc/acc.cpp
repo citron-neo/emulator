@@ -93,11 +93,11 @@ constexpr u32 NETWORK_SERVICE_LICENSE_KIND_PERSONAL = 1;
 constexpr s64 NETWORK_SERVICE_LICENSE_FAR_FUTURE_EXPIRATION = 0x7FFFFFFFFFFFFFFFLL;
 
 std::vector<u8> GenerateStubIdToken() {
-    // Bedrock parses the id token as a JWT; all three segments must be base64url.
+    // Bedrock parses the id token as a JWT; payload needs iss/exp for offline validation.
     constexpr std::string_view token{
-        "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9."
-        "eyJzdWIiOiJvZmZsaW5lLWNpdHJvbiJ9."
-        "Y2l0cm9uX3N0dWJfc2ln"};
+        "eyJhbGciOiJub25lIiwidHlwIjoiSldUIn0."
+        "eyJzdWIiOiJvZmZsaW5lLWNpdHJvbiIsImlzcyI6Imh0dHBzOi8vYWNjb3VudC5uaW50ZW5kby5jb20iLCJleHAiOjIwMDAwMDAwMDB9."
+        ""};
     return std::vector<u8>(token.begin(), token.end());
 }
 
@@ -850,21 +850,6 @@ protected:
     }
 };
 
-// Out-of-class definition — needs EnsureTokenIdCacheAsyncInterface to be fully defined first.
-void IManagerForSystemService::EnsureIdTokenCacheAsync(HLERequestContext& ctx) {
-    LOG_INFO(Service_ACC, "called");
-
-    PopulateBaasStubSessionCache(account_id);
-    EnsureDefaultAvatarExists(account_id);
-
-    auto async = std::make_shared<EnsureTokenIdCacheAsyncInterface>(system);
-
-    IPC::ResponseBuilder rb{ctx, 2, 0, 1};
-    rb.Push(ResultSuccess);
-    rb.PushIpcInterface(async);
-    async->SignalCompletion();
-}
-
 class AuthenticateApplicationAsyncInterface final : public IAsyncContext {
 public:
     explicit AuthenticateApplicationAsyncInterface(Core::System& system_) : IAsyncContext{system_} {
@@ -1120,6 +1105,36 @@ private:
     bool is_complete{};
 };
 
+// On HOS 19+ Bedrock expects IAsyncContextForLoginForOnlinePlay from EnsureIdTokenCacheAsync so
+// it can query license info (cmd 100) on the returned async object.
+void PushEnsureIdTokenCacheAsyncResponse(Core::System& system, HLERequestContext& ctx) {
+    if (HLE::ApiVersion::HOS_VERSION_MAJOR >= 19) {
+        auto async = std::make_shared<IAsyncContextForLoginForOnlinePlay>(system);
+
+        IPC::ResponseBuilder rb{ctx, 2, 0, 1};
+        rb.Push(ResultSuccess);
+        rb.PushIpcInterface(async);
+        async->SignalCompletion();
+        return;
+    }
+
+    auto async = std::make_shared<EnsureTokenIdCacheAsyncInterface>(system);
+
+    IPC::ResponseBuilder rb{ctx, 2, 0, 1};
+    rb.Push(ResultSuccess);
+    rb.PushIpcInterface(async);
+    async->SignalCompletion();
+}
+
+// Out-of-class definition — needs IAsyncContextForLoginForOnlinePlay to be fully defined first.
+void IManagerForSystemService::EnsureIdTokenCacheAsync(HLERequestContext& ctx) {
+    LOG_INFO(Service_ACC, "called");
+
+    PopulateBaasStubSessionCache(account_id);
+    EnsureDefaultAvatarExists(account_id);
+    PushEnsureIdTokenCacheAsyncResponse(system, ctx);
+}
+
 class IManagerForApplication final : public ServiceFramework<IManagerForApplication> {
 public:
     explicit IManagerForApplication(Core::System& system_,
@@ -1166,18 +1181,11 @@ private:
         const auto user_id = profile_manager->GetLastOpenedUser();
         PopulateBaasStubSessionCache(user_id);
         EnsureDefaultAvatarExists(user_id);
-
-        auto async = std::make_shared<EnsureTokenIdCacheAsyncInterface>(system);
-
-        IPC::ResponseBuilder rb{ctx, 2, 0, 1};
-        rb.Push(ResultSuccess);
-        rb.PushIpcInterface(async);
-        async->SignalCompletion();
+        PushEnsureIdTokenCacheAsyncResponse(system, ctx);
     }
 
     void LoadIdTokenCacheDeprecated(HLERequestContext& ctx) {
-        LOG_WARNING(Service_ACC, "(STUBBED) called");
-
+        LOG_INFO(Service_ACC, "LoadIdTokenCacheDeprecated called");
         PushLoadIdTokenCacheResponse(ctx);
     }
 
