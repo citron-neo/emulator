@@ -5,8 +5,7 @@
 
 #include <array>
 #include <atomic>
-#include <algorithm>
-#include <cstring>
+#include <cctype>
 #include <mutex>
 #include <optional>
 #include <string>
@@ -129,18 +128,81 @@ std::string ComputeWebSocketAccept(const std::string& client_key) {
     return result;
 }
 
-std::string ExtractWebSocketKey(const std::string& request) {
-    static constexpr std::string_view prefix = "Sec-WebSocket-Key: ";
-    const auto pos = request.find(prefix);
+std::size_t FindHttpHeadersEnd(const std::string& request) {
+    const auto crlf = request.find("\r\n\r\n");
+    if (crlf != std::string::npos) {
+        return crlf + 4;
+    }
+    const auto lf = request.find("\n\n");
+    if (lf != std::string::npos) {
+        return lf + 2;
+    }
+    return std::string::npos;
+}
+
+std::string ToLowerAscii(std::string value) {
+    std::transform(value.begin(), value.end(), value.begin(),
+                   [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+    return value;
+}
+
+std::string TrimAscii(std::string value) {
+    const auto is_space = [](unsigned char c) { return std::isspace(c) != 0; };
+    while (!value.empty() && is_space(static_cast<unsigned char>(value.front()))) {
+        value.erase(value.begin());
+    }
+    while (!value.empty() && is_space(static_cast<unsigned char>(value.back()))) {
+        value.pop_back();
+    }
+    return value;
+}
+
+std::string ExtractHeaderValue(const std::string& request, std::string_view header_name) {
+    const std::string lower_request = ToLowerAscii(request);
+    const std::string lower_name = ToLowerAscii(std::string(header_name));
+    const std::string needle = lower_name + ":";
+    const auto pos = lower_request.find(needle);
     if (pos == std::string::npos) {
         return {};
     }
-    const auto start = pos + prefix.size();
-    const auto end = request.find("\r\n", start);
+    const auto start = pos + needle.size();
+    const auto crlf_end = lower_request.find("\r\n", start);
+    const auto lf_end = lower_request.find('\n', start);
+    const auto end = [&] {
+        if (crlf_end == std::string::npos) {
+            return lf_end;
+        }
+        if (lf_end == std::string::npos) {
+            return crlf_end;
+        }
+        return std::min(crlf_end, lf_end);
+    }();
     if (end == std::string::npos) {
         return {};
     }
-    return request.substr(start, end - start);
+    return TrimAscii(request.substr(start, end - start));
+}
+
+std::string ExtractWebSocketKey(const std::string& request) {
+    return ExtractHeaderValue(request, "Sec-WebSocket-Key");
+}
+
+std::string ExtractWebSocketProtocol(const std::string& request) {
+    return ExtractHeaderValue(request, "Sec-WebSocket-Protocol");
+}
+
+bool RequestWantsWebSocketUpgrade(const std::string& request) {
+    const std::string connection = ToLowerAscii(ExtractHeaderValue(request, "Connection"));
+    const std::string upgrade = ToLowerAscii(ExtractHeaderValue(request, "Upgrade"));
+    return connection.find("upgrade") != std::string::npos && upgrade == "websocket";
+}
+
+std::string BuildHttpJsonResponse(int status_code, std::string_view status_text,
+                                  std::string_view body) {
+    return "HTTP/1.1 " + std::to_string(status_code) + " " + std::string(status_text) +
+           "\r\nContent-Type: application/json\r\nContent-Length: " +
+           std::to_string(body.size()) + "\r\nConnection: keep-alive\r\n\r\n" +
+           std::string(body);
 }
 
 void SendWebSocketFrame(SSL* ssl, u8 opcode, std::span<const u8> payload) {
@@ -236,6 +298,74 @@ void HandleParsedFrame(SSL* ssl, const ParsedWebSocketFrame& frame) {
     }
 }
 
+bool SendPlainHttpResponse(SSL* ssl, int status_code, std::string_view status_text,
+                           std::string_view body) {
+    const std::string response = BuildHttpJsonResponse(status_code, status_text, body);
+    return SSL_write(ssl, response.data(), static_cast<int>(response.size())) > 0;
+}
+
+bool TryUpgradeWebSocket(SSL* ssl, const std::string& request) {
+    const std::string client_key = ExtractWebSocketKey(request);
+    if (client_key.empty()) {
+        return false;
+    }
+
+    const std::string accept = ComputeWebSocketAccept(client_key);
+    std::string response =
+        "HTTP/1.1 101 Switching Protocols\r\n"
+        "Upgrade: websocket\r\n"
+        "Connection: Upgrade\r\n"
+        "Sec-WebSocket-Accept: " +
+        accept + "\r\n";
+    const std::string protocol = ExtractWebSocketProtocol(request);
+    if (!protocol.empty()) {
+        response += "Sec-WebSocket-Protocol: " + protocol + "\r\n";
+    }
+    response += "\r\n";
+    if (SSL_write(ssl, response.data(), static_cast<int>(response.size())) <= 0) {
+        return false;
+    }
+    LOG_INFO(Network, "DNA gateway stub: websocket upgraded");
+    return true;
+}
+
+bool HandlePlainHttpRequest(SSL* ssl, const std::string& request) {
+    const auto first_line_end = request.find('\n');
+    const std::string first_line =
+        first_line_end == std::string::npos ? request : request.substr(0, first_line_end);
+    LOG_INFO(Network, "DNA gateway stub: plain HTTP request: {}",
+             TrimAscii(first_line));
+
+    if (!SendPlainHttpResponse(ssl, 200, "OK", MinimalDnaResponse)) {
+        return false;
+    }
+    LOG_INFO(Network, "DNA gateway stub: sent plain HTTP JSON response");
+    return true;
+}
+
+void ServiceWebSocketFrames(SSL* ssl) {
+    std::vector<u8> pending;
+    char buffer[4096];
+    while (true) {
+        const int received = SSL_read(ssl, buffer, sizeof(buffer));
+        if (received <= 0) {
+            break;
+        }
+        pending.insert(pending.end(), buffer, buffer + received);
+
+        while (true) {
+            auto frame = TryParseClientFrame(pending);
+            if (!frame) {
+                break;
+            }
+            HandleParsedFrame(ssl, *frame);
+            if (frame->opcode == 0x8) {
+                return;
+            }
+        }
+    }
+}
+
 void HandleDnaGatewaySession(NativeSocket client_fd) {
     LOG_INFO(Network, "DNA gateway stub: session started");
 
@@ -255,56 +385,75 @@ void HandleDnaGatewaySession(NativeSocket client_fd) {
 
     LOG_INFO(Network, "DNA gateway stub: TLS handshake complete");
 
-    std::string request;
-    char buffer[4096];
-    while (request.find("\r\n\r\n") == std::string::npos) {
-        const int received = SSL_read(ssl, buffer, sizeof(buffer));
-        if (received <= 0) {
-            SSL_free(ssl);
-            CloseNativeSocket(client_fd);
-            return;
-        }
-        request.append(buffer, received);
-    }
+    std::string buffer;
+    char read_buffer[4096];
+    bool websocket_upgraded = false;
 
-    const std::string client_key = ExtractWebSocketKey(request);
-    if (client_key.empty()) {
-        LOG_WARNING(Network, "DNA gateway stub: missing Sec-WebSocket-Key");
-        SSL_free(ssl);
-        CloseNativeSocket(client_fd);
-        return;
-    }
-
-    const std::string accept = ComputeWebSocketAccept(client_key);
-    const std::string response =
-        "HTTP/1.1 101 Switching Protocols\r\n"
-        "Upgrade: websocket\r\n"
-        "Connection: Upgrade\r\n"
-        "Sec-WebSocket-Accept: " +
-        accept + "\r\n\r\n";
-    SSL_write(ssl, response.data(), static_cast<int>(response.size()));
-    LOG_INFO(Network, "DNA gateway stub: websocket upgraded");
-
-    std::vector<u8> pending;
     while (true) {
-        const int received = SSL_read(ssl, buffer, sizeof(buffer));
-        if (received <= 0) {
-            break;
-        }
-        pending.insert(pending.end(), buffer, buffer + received);
-
-        while (true) {
-            auto frame = TryParseClientFrame(pending);
-            if (!frame) {
-                break;
-            }
-            HandleParsedFrame(ssl, *frame);
-            if (frame->opcode == 0x8) {
-                SSL_shutdown(ssl);
+        while (FindHttpHeadersEnd(buffer) == std::string::npos) {
+            const int received = SSL_read(ssl, read_buffer, sizeof(read_buffer));
+            if (received <= 0) {
                 SSL_free(ssl);
                 CloseNativeSocket(client_fd);
                 return;
             }
+            buffer.append(read_buffer, received);
+        }
+
+        const std::size_t headers_end = FindHttpHeadersEnd(buffer);
+        const std::string request = buffer.substr(0, headers_end);
+        buffer.erase(0, headers_end);
+
+        if (RequestWantsWebSocketUpgrade(request)) {
+            if (TryUpgradeWebSocket(ssl, request)) {
+                websocket_upgraded = true;
+                break;
+            }
+            LOG_WARNING(Network, "DNA gateway stub: websocket upgrade requested but key missing");
+            LOG_WARNING(Network, "DNA gateway stub: request headers:\n{}",
+                        request.substr(0, std::min(request.size(), std::size_t{1024})));
+            if (!HandlePlainHttpRequest(ssl, request)) {
+                SSL_free(ssl);
+                CloseNativeSocket(client_fd);
+                return;
+            }
+            continue;
+        }
+
+        if (!HandlePlainHttpRequest(ssl, request)) {
+            SSL_free(ssl);
+            CloseNativeSocket(client_fd);
+            return;
+        }
+    }
+
+    if (websocket_upgraded) {
+        if (!buffer.empty()) {
+            std::vector<u8> pending(buffer.begin(), buffer.end());
+            char ws_buffer[4096];
+            while (true) {
+                while (true) {
+                    auto frame = TryParseClientFrame(pending);
+                    if (!frame) {
+                        break;
+                    }
+                    HandleParsedFrame(ssl, *frame);
+                    if (frame->opcode == 0x8) {
+                        SSL_shutdown(ssl);
+                        SSL_free(ssl);
+                        CloseNativeSocket(client_fd);
+                        return;
+                    }
+                }
+
+                const int received = SSL_read(ssl, ws_buffer, sizeof(ws_buffer));
+                if (received <= 0) {
+                    break;
+                }
+                pending.insert(pending.end(), ws_buffer, ws_buffer + received);
+            }
+        } else {
+            ServiceWebSocketFrames(ssl);
         }
     }
 
