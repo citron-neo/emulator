@@ -17,6 +17,8 @@ enum class Errno : u32 {
     BADF = 9,
     AGAIN = 11,
     INVAL = 22,
+    /// EAFNOSUPPORT (Linux errno used on Horizon per switchbrew)
+    AFNOSUPPORT = 97,
     MFILE = 24,
     PIPE = 32,
     MSGSIZE = 90,

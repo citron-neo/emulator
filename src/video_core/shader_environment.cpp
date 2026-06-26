@@ -583,7 +583,8 @@ bool FileEnvironment::TryDeserialize(std::ifstream& file) {
     if (code_size == 0 || code_size > MAX_SHADER_CODE_BYTES ||
         num_texture_types > MAX_MAP_ENTRIES || num_texture_pixel_formats > MAX_MAP_ENTRIES ||
         num_cbuf_values > MAX_MAP_ENTRIES || num_cbuf_replacement_values > MAX_MAP_ENTRIES ||
-        num_cbuf_sizes > MAX_MAP_ENTRIES) {
+        num_cbuf_sizes > MAX_MAP_ENTRIES || read_highest < read_lowest ||
+        static_cast<u64>(read_highest) - read_lowest + INST_SIZE > code_size) {
         restore();
         return false;
     }
