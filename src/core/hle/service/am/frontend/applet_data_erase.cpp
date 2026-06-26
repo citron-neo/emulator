@@ -26,13 +26,12 @@ namespace Service::AM::Frontend {
 
 namespace {
 
-u64 GetRequiredSaveDataSize(Core::System& system, u64 program_id, u128 user_id) {
-    auto* const save_controller = system.GetFileSystemController().OpenSaveDataController().get();
-
+u64 GetRequiredSaveDataSize(FileSystem::SaveDataController& save_controller, Core::System& system,
+                            u64 program_id, u128 user_id) {
     u64 normal_size{};
     u64 journal_size{};
     const auto size =
-        save_controller->ReadSaveDataSize(FileSys::SaveDataType::Account, program_id, user_id);
+        save_controller.ReadSaveDataSize(FileSys::SaveDataType::Account, program_id, user_id);
     normal_size = size.normal;
     journal_size = size.journal;
 
@@ -151,7 +150,8 @@ void DataErase::Execute() {
         }
     }
 
-    const u64 required_size = GetRequiredSaveDataSize(system, program_id, user_id.AsU128());
+    const u64 required_size =
+        GetRequiredSaveDataSize(*save_controller, system, program_id, user_id.AsU128());
     const u64 free_space_size = fsc.GetFreeSpaceSize(FileSys::StorageId::NandUser);
 
     LOG_INFO(Service_AM,
