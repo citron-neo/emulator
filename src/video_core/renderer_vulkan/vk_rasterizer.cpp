@@ -1333,9 +1333,18 @@ std::optional<FramebufferTextureInfo> RasterizerVulkan::AccelerateDisplay(
             present_bytes = rt_bytes;
             return true;
         };
-        // When VI already has GPU UI overlays, present it directly (game RT was composited on
-        // the first VI-targeted draw). Fall back to remapping only when VI is still empty.
-        if (!vi_gpu_modified) {
+        // When VI already has GPU UI overlays, present it directly. Fall back to remapping when
+        // VI is still empty, or when VI is marked modified but still black while the game RT has
+        // substantial geometry.
+        bool vi_effectively_empty = !vi_gpu_modified;
+        if (!vi_effectively_empty && g_game_rt0_peak_verts >= 64) {
+            if (const u8* const host_ptr = device_memory.GetPointer<u8>(framebuffer_addr)) {
+                u32 guest_px{};
+                std::memcpy(&guest_px, host_ptr, sizeof(guest_px));
+                vi_effectively_empty = guest_px == 0;
+            }
+        }
+        if (vi_effectively_empty) {
             try_remap_to_offscreen(g_game_rt0_cpu_addr, g_game_rt0_gpu_addr, g_game_rt0_info);
         }
     }

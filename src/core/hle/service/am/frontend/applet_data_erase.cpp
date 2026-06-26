@@ -179,7 +179,7 @@ void DataErase::Complete(Result result, u64 free_space_size, u64 required_size) 
         .required_size = required_size,
     };
 
-    std::vector<u8> out(sizeof(DataEraseAppletOutput));
+    std::vector<u8> out(0x1000);
     std::memcpy(out.data(), &output, sizeof(output));
 
     LOG_INFO(Service_AM, "DataErase applet output: result={} free_space={:#x} required={:#x}",

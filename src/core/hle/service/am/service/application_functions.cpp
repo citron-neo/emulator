@@ -24,6 +24,51 @@
 
 namespace Service::AM {
 
+namespace {
+
+void EnsureCacheStorage(FileSystem::SaveDataController& save_controller, Core::System& system,
+                        u64 program_id) {
+    FileSys::SaveDataAttribute cache_attribute{};
+    cache_attribute.program_id = program_id;
+    cache_attribute.type = FileSys::SaveDataType::Cache;
+    cache_attribute.index = 0;
+
+    FileSys::VirtualDir cache_save{};
+    if (R_FAILED(save_controller.CreateSaveData(&cache_save, FileSys::SaveDataSpaceId::User,
+                                              cache_attribute))) {
+        LOG_WARNING(Service_AM, "EnsureCacheStorage: failed to create cache save for {:016X}",
+                    program_id);
+        return;
+    }
+
+    const FileSys::PatchManager pm{program_id, system.GetFileSystemController(),
+                                   system.GetContentProvider()};
+    const auto metadata = pm.GetControlMetadata();
+    if (metadata.first == nullptr) {
+        return;
+    }
+
+    const FileSys::SaveDataSize cache_size{
+        metadata.first->GetCacheStorageSize(),
+        metadata.first->GetCacheStorageJournalSize(),
+    };
+    if (cache_size.normal == 0 && cache_size.journal == 0) {
+        return;
+    }
+
+    save_controller.WriteSaveDataSize(FileSys::SaveDataType::Cache, program_id, {}, cache_size);
+    LOG_INFO(Service_AM, "EnsureCacheStorage: wrote cache sizes data={:#x} journal={:#x}",
+             cache_size.normal, cache_size.journal);
+}
+
+u64 CalculateSaveDataTotalSize(u64 normal_size, u64 journal_size) {
+    constexpr u64 block_size = 0x4000;
+    return Common::AlignUp(normal_size, block_size) + Common::AlignUp(journal_size, block_size) +
+           block_size;
+}
+
+} // Anonymous namespace
+
 IApplicationFunctions::IApplicationFunctions(Core::System& system_, std::shared_ptr<Applet> applet)
     : ServiceFramework{system_, "IApplicationFunctions"}, m_applet{std::move(applet)} {
     // clang-format off
@@ -154,19 +199,22 @@ Result IApplicationFunctions::PopLaunchParameter(Out<SharedPointer<IStorage>> ou
 Result IApplicationFunctions::EnsureSaveData(Out<u64> out_size, Common::UUID user_id) {
     LOG_INFO(Service_AM, "called, uid={}", user_id.FormattedString());
 
+    auto save_controller = system.GetFileSystemController().OpenSaveDataController();
+
     FileSys::SaveDataAttribute attribute{};
     attribute.program_id = m_applet->program_id;
     attribute.user_id = user_id.AsU128();
     attribute.type = FileSys::SaveDataType::Account;
 
     FileSys::VirtualDir save_data{};
-    R_TRY(system.GetFileSystemController().OpenSaveDataController()->CreateSaveData(
-        &save_data, FileSys::SaveDataSpaceId::User, attribute));
+    R_TRY(save_controller->CreateSaveData(&save_data, FileSys::SaveDataSpaceId::User, attribute));
+
+    EnsureCacheStorage(*save_controller, system, m_applet->program_id);
 
     u64 normal_size{};
     u64 journal_size{};
-    const auto size = system.GetFileSystemController().OpenSaveDataController()->ReadSaveDataSize(
-        FileSys::SaveDataType::Account, m_applet->program_id, user_id.AsU128());
+    const auto size = save_controller->ReadSaveDataSize(FileSys::SaveDataType::Account,
+                                                          m_applet->program_id, user_id.AsU128());
     normal_size = size.normal;
     journal_size = size.journal;
 
@@ -177,14 +225,14 @@ Result IApplicationFunctions::EnsureSaveData(Out<u64> out_size, Common::UUID use
         if (metadata.first != nullptr) {
             normal_size = metadata.first->GetDefaultNormalSaveSize();
             journal_size = metadata.first->GetDefaultJournalSaveSize();
+            save_controller->WriteSaveDataSize(FileSys::SaveDataType::Account, m_applet->program_id,
+                                               user_id.AsU128(), {normal_size, journal_size});
         }
     }
 
-    constexpr u64 block_size = 0x4000;
-    *out_size = Common::AlignUp(normal_size, block_size) + Common::AlignUp(journal_size, block_size) +
-                block_size;
+    *out_size = CalculateSaveDataTotalSize(normal_size, journal_size);
 
-    LOG_DEBUG(Service_AM, "returning save total size={:#x}", *out_size);
+    LOG_INFO(Service_AM, "returning save total size={:#x}", *out_size);
     R_SUCCEED();
 }
 
