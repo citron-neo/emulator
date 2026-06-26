@@ -139,7 +139,7 @@ RendererVulkan::~RendererVulkan() {
 }
 
 void RendererVulkan::Composite(std::span<const Tegra::FramebufferConfig> framebuffers) {
-    if (framebuffers.empty()) {
+    if (framebuffers.empty() || gpu.IsShuttingDown()) {
         return;
     }
 
