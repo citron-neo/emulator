@@ -318,6 +318,39 @@ void PushLoadIdTokenCacheResponse(HLERequestContext& ctx, const Common::UUID& us
     rb.Push(token_size);
 }
 
+void PushAuthorizationCodeResponse(HLERequestContext& ctx) {
+    constexpr std::string_view stub_code{"citron_stub_authorization_code"};
+    const u32 code_size = static_cast<u32>(stub_code.size());
+
+    if (ctx.CanWriteBuffer(0)) {
+        std::vector<u8> buffer(ctx.GetWriteBufferSize(0), 0);
+        if (code_size <= buffer.size()) {
+            std::memcpy(buffer.data(), stub_code.data(), stub_code.size());
+        }
+        ctx.WriteBuffer(buffer, 0);
+    }
+
+    IPC::ResponseBuilder rb{ctx, 3};
+    rb.Push(ResultSuccess);
+    rb.Push(code_size);
+}
+
+void PushNasAuthorizationStateResponse(HLERequestContext& ctx, bool authorized) {
+    if (ctx.CanWriteBuffer(0)) {
+        std::vector<u8> state(ctx.GetWriteBufferSize(0), 0);
+        if (state.size() >= sizeof(u32)) {
+            const u32 value = authorized ? 1U : 0U;
+            std::memcpy(state.data(), &value, sizeof(value));
+        } else if (!state.empty()) {
+            state[0] = authorized ? 1 : 0;
+        }
+        ctx.WriteBuffer(state, 0);
+    }
+
+    IPC::ResponseBuilder rb{ctx, 2};
+    rb.Push(ResultSuccess);
+}
+
 void WriteNetworkServiceLicenseCacheBuffer(HLERequestContext& ctx) {
     if (!ctx.CanWriteBuffer(0)) {
         return;
@@ -635,7 +668,7 @@ public:
 
 private:
     void GetSessionId(HLERequestContext& ctx) {
-        LOG_DEBUG(Service_ACC, "IAuthorizationRequest::GetSessionId called");
+        LOG_INFO(Service_ACC, "IAuthorizationRequest::GetSessionId called");
 
         IPC::ResponseBuilder rb{ctx, 6};
         rb.Push(ResultSuccess);
@@ -649,7 +682,8 @@ private:
     }
 
     void IsAuthorized(HLERequestContext& ctx) {
-        LOG_DEBUG(Service_ACC, "IAuthorizationRequest::IsAuthorized called");
+        LOG_INFO(Service_ACC, "IAuthorizationRequest::IsAuthorized called, authorized={}",
+                 authorized);
 
         IPC::ResponseBuilder rb{ctx, 3};
         rb.Push(ResultSuccess);
@@ -657,40 +691,19 @@ private:
     }
 
     void GetAuthorizationCode(HLERequestContext& ctx) {
-        LOG_DEBUG(Service_ACC, "IAuthorizationRequest::GetAuthorizationCode called");
-
-        constexpr std::string_view stub_code{"citron_stub_authorization_code"};
-        const std::vector<u8> code(stub_code.begin(), stub_code.end());
-        ctx.WriteBuffer(code);
-
-        IPC::ResponseBuilder rb{ctx, 3};
-        rb.Push(ResultSuccess);
-        rb.Push(static_cast<u32>(code.size()));
+        LOG_INFO(Service_ACC, "IAuthorizationRequest::GetAuthorizationCode called");
+        PushAuthorizationCodeResponse(ctx);
     }
 
     void GetIdToken(HLERequestContext& ctx) {
-        LOG_DEBUG(Service_ACC, "IAuthorizationRequest::GetIdToken called");
-
-        const auto token = GenerateStubIdToken(user_id);
-        ctx.WriteBuffer(token);
-
-        IPC::ResponseBuilder rb{ctx, 3};
-        rb.Push(ResultSuccess);
-        rb.Push(static_cast<u32>(token.size()));
+        LOG_INFO(Service_ACC, "IAuthorizationRequest::GetIdToken called");
+        PopulateBaasStubSessionCache(system, user_id);
+        PushLoadIdTokenCacheResponse(ctx, user_id);
     }
 
     void GetState(HLERequestContext& ctx) {
-        LOG_DEBUG(Service_ACC, "IAuthorizationRequest::GetState called");
-
-        // nn::account::nas::State: 1 = Authorized
-        std::vector<u8> state(ctx.GetWriteBufferSize(0), 0);
-        if (!state.empty()) {
-            state[0] = authorized ? 1 : 0;
-        }
-        ctx.WriteBuffer(state, 0);
-
-        IPC::ResponseBuilder rb{ctx, 2};
-        rb.Push(ResultSuccess);
+        LOG_INFO(Service_ACC, "IAuthorizationRequest::GetState called, authorized={}", authorized);
+        PushNasAuthorizationStateResponse(ctx, authorized);
     }
 
     Common::UUID user_id;
@@ -1354,7 +1367,7 @@ private:
         LOG_INFO(Service_ACC,
                  "IAsyncContextForLoginForOnlinePlay::GetNetworkServiceLicenseInfoForOnlinePlay "
                  "called");
-        IPC::ResponseBuilder rb{ctx, 4};
+        IPC::ResponseBuilder rb{ctx, 5};
         rb.Push(ResultSuccess);
         rb.Push<u32>(NETWORK_SERVICE_LICENSE_KIND_BEDROCK);
         rb.PushRaw<s64>(NETWORK_SERVICE_LICENSE_FAR_FUTURE_EXPIRATION);

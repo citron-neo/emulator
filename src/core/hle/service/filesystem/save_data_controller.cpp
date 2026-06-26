@@ -61,10 +61,13 @@ Result SaveDataController::OpenSaveData(FileSys::VirtualDir* out_save_data,
                                         const FileSys::SaveDataAttribute& attribute) {
     auto save_data = factory->Open(space, attribute);
     if (save_data == nullptr) {
-        LOG_INFO(Service_FS, "OpenSaveData failed for {}", attribute.DebugInfo());
+        LOG_INFO(Service_FS, "OpenSaveData failed for space_id={:02X}, {}", static_cast<u8>(space),
+                 attribute.DebugInfo());
         return FileSys::ResultTargetNotFound;
     }
 
+    LOG_INFO(Service_FS, "OpenSaveData succeeded for space_id={:02X}, {}", static_cast<u8>(space),
+             attribute.DebugInfo());
     *out_save_data = save_data;
     return ResultSuccess;
 }
