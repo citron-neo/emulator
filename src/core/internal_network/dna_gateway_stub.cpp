@@ -5,7 +5,9 @@
 
 #include <array>
 #include <atomic>
+#include <algorithm>
 #include <cctype>
+#include <cstring>
 #include <mutex>
 #include <optional>
 #include <string>
@@ -195,6 +197,10 @@ bool RequestWantsWebSocketUpgrade(const std::string& request) {
     const std::string connection = ToLowerAscii(ExtractHeaderValue(request, "Connection"));
     const std::string upgrade = ToLowerAscii(ExtractHeaderValue(request, "Upgrade"));
     return connection.find("upgrade") != std::string::npos && upgrade == "websocket";
+}
+
+bool IsHttp2ConnectionPreface(std::string_view request) {
+    return request.starts_with("PRI * HTTP/2.0");
 }
 
 std::string BuildHttpJsonResponse(int status_code, std::string_view status_text,
@@ -403,6 +409,11 @@ void HandleDnaGatewaySession(NativeSocket client_fd) {
         const std::size_t headers_end = FindHttpHeadersEnd(buffer);
         const std::string request = buffer.substr(0, headers_end);
         buffer.erase(0, headers_end);
+
+        if (IsHttp2ConnectionPreface(request)) {
+            LOG_INFO(Network, "DNA gateway stub: skipping HTTP/2 connection preface");
+            continue;
+        }
 
         if (RequestWantsWebSocketUpgrade(request)) {
             if (TryUpgradeWebSocket(ssl, request)) {
