@@ -18,8 +18,10 @@
 #include <QCameraImageCapture>
 #include <QCameraInfo>
 #endif
+#include <QCoreApplication>
 #include <QCursor>
 #include <QEvent>
+#include <QEventLoop>
 #include <QGuiApplication>
 #include <QHBoxLayout>
 #include <QKeyEvent>
@@ -878,15 +880,30 @@ bool GRenderWindow::InitRenderTarget() {
         break;
     }
 
+    child_widget->resize(Layout::ScreenUndocked::Width, Layout::ScreenUndocked::Height);
+#if defined(__APPLE__)
+    // MoltenVK reports a fixed currentExtent from the CAMetalLayer-backed QWindow. If we query /
+    // create the Vulkan swapchain before Cocoa applies the QWidget resize, extent can stay at a
+    // tiny default (e.g. 200x60) and presentation looks black or corrupt until a later resize.
+    if (QWindow* child_window = child_widget->windowHandle()) {
+        child_window->resize(Layout::ScreenUndocked::Width, Layout::ScreenUndocked::Height);
+    }
+#endif
+
     // Update the Window System information with the new render target
     window_info = QtCommon::GetWindowSystemInfo(child_widget->windowHandle());
 
-    child_widget->resize(Layout::ScreenUndocked::Width, Layout::ScreenUndocked::Height);
     layout()->addWidget(child_widget);
     // Reset minimum required size to avoid resizing issues on the main window after restarting.
     setMinimumSize(1, 1);
 
     resize(Layout::ScreenUndocked::Width, Layout::ScreenUndocked::Height);
+
+#if defined(__APPLE__)
+    // Deliver pending resize/layout so the native surface size matches before System::Load builds
+    // RendererVulkan (still on the GUI thread).
+    QCoreApplication::processEvents(QEventLoop::ExcludeUserInputEvents);
+#endif
 
     OnMinimalClientAreaChangeRequest(GetActiveConfig().min_client_area_size);
     OnFramebufferSizeChanged();
