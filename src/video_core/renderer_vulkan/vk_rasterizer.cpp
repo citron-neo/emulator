@@ -76,6 +76,7 @@ VideoCommon::ImageInfo g_last_rt0_info{};
 DAddr g_game_rt0_cpu_addr = 0;
 GPUVAddr g_game_rt0_gpu_addr = 0;
 VideoCommon::ImageInfo g_game_rt0_info{};
+Tegra::Engines::Maxwell3D::Regs::RenderTargetConfig g_game_rt0_config{};
 u32 g_game_rt0_peak_verts = 0;
 
 constexpr u32 GAME_RT_MIN_VERTICES = 64;
@@ -85,8 +86,35 @@ bool IsViScanoutCpuAddr(DAddr addr) {
     return region == 0xABB0000 || region == 0xB420000 || region == 0xBC90000;
 }
 
-void TrackGameRenderTarget(DAddr cpu_addr, GPUVAddr gpu_addr, const VideoCommon::ImageInfo& info,
-                           u32 num_vertices) {
+Tegra::Engines::Fermi2D::Surface MakeBlitSurface(
+    const Tegra::Engines::Maxwell3D::Regs::RenderTargetConfig& rt, u32 width, u32 height) {
+    using VideoCore::Surface::BytesPerBlock;
+    using VideoCore::Surface::PixelFormatFromRenderTargetFormat;
+
+    Tegra::Engines::Fermi2D::Surface surface{};
+    surface.format = rt.format;
+    surface.width = width;
+    surface.height = height;
+    surface.depth = 1;
+    surface.layer = 0;
+    const GPUVAddr addr = rt.Address();
+    surface.addr_upper = static_cast<u32>(addr >> 32);
+    surface.addr_lower = static_cast<u32>(addr);
+    surface.block_width = rt.tile_mode.block_width;
+    surface.block_height = rt.tile_mode.block_height;
+    surface.block_depth = rt.tile_mode.block_depth;
+    if (rt.tile_mode.is_pitch_linear) {
+        surface.linear = Tegra::Engines::Fermi2D::MemoryLayout::Pitch;
+        surface.pitch = rt.width * BytesPerBlock(PixelFormatFromRenderTargetFormat(rt.format));
+    } else {
+        surface.linear = Tegra::Engines::Fermi2D::MemoryLayout::BlockLinear;
+    }
+    return surface;
+}
+
+void TrackGameRenderTarget(DAddr cpu_addr, GPUVAddr gpu_addr,
+                           const Tegra::Engines::Maxwell3D::Regs::RenderTargetConfig& rt_config,
+                           Tegra::Texture::MsaaMode msaa_mode, u32 num_vertices) {
     if (cpu_addr == 0 || gpu_addr == 0 || IsViScanoutCpuAddr(cpu_addr) ||
         num_vertices < GAME_RT_MIN_VERTICES) {
         return;
@@ -96,7 +124,8 @@ void TrackGameRenderTarget(DAddr cpu_addr, GPUVAddr gpu_addr, const VideoCommon:
     }
     g_game_rt0_cpu_addr = cpu_addr;
     g_game_rt0_gpu_addr = gpu_addr;
-    g_game_rt0_info = info;
+    g_game_rt0_config = rt_config;
+    g_game_rt0_info = VideoCommon::ImageInfo{rt_config, msaa_mode};
     g_game_rt0_peak_verts = num_vertices;
     static u32 game_rt_track_budget = 30;
     if (game_rt_track_budget > 0) {
@@ -388,10 +417,9 @@ void RasterizerVulkan::Draw(bool is_indexed, u32 instance_count) {
                 g_last_rt0_info = VideoCommon::ImageInfo{maxwell3d->regs.rt[0],
                                                           maxwell3d->regs.anti_alias_samples_mode};
                 if (!IsViScanoutCpuAddr(*rt_cpu)) {
-                    TrackGameRenderTarget(*rt_cpu, rt_gpu, g_last_rt0_info,
+                    TrackGameRenderTarget(*rt_cpu, rt_gpu, maxwell3d->regs.rt[0],
+                                          maxwell3d->regs.anti_alias_samples_mode,
                                           draw_params.num_vertices);
-                } else {
-                    MaybeCompositeGameRtToVi(*rt_cpu);
                 }
             }
         }
@@ -486,12 +514,8 @@ void RasterizerVulkan::DrawIndirect() {
     PrepareDraw(params.is_indexed, [this, &params] {
         if (const GPUVAddr rt_gpu = maxwell3d->regs.rt[0].Address(); rt_gpu != 0) {
             if (const auto rt_cpu = gpu_memory->GpuToCpuAddress(rt_gpu)) {
-                const auto rt_info = VideoCommon::ImageInfo{maxwell3d->regs.rt[0],
-                                                            maxwell3d->regs.anti_alias_samples_mode};
-                TrackGameRenderTarget(*rt_cpu, rt_gpu, rt_info, 512);
-                if (IsViScanoutCpuAddr(*rt_cpu)) {
-                    MaybeCompositeGameRtToVi(*rt_cpu);
-                }
+                TrackGameRenderTarget(*rt_cpu, rt_gpu, maxwell3d->regs.rt[0],
+                                      maxwell3d->regs.anti_alias_samples_mode, 512);
             }
         }
         const auto indirect_buffer = buffer_cache.GetDrawIndirectBuffer();
@@ -1147,7 +1171,8 @@ Tegra::Engines::AccelerateDMAInterface& RasterizerVulkan::AccessAccelerateDMA() 
     return accelerate_dma;
 }
 
-void RasterizerVulkan::MaybeCompositeGameRtToVi(DAddr vi_cpu) {
+void RasterizerVulkan::CompositeGameRtToViAtPresent(const Tegra::FramebufferConfig& config,
+                                                    DAddr vi_cpu) {
     if (!IsViScanoutCpuAddr(vi_cpu) || g_game_rt0_cpu_addr == 0 ||
         g_game_rt0_cpu_addr == vi_cpu || g_game_rt0_peak_verts < GAME_RT_MIN_VERTICES) {
         return;
@@ -1156,39 +1181,49 @@ void RasterizerVulkan::MaybeCompositeGameRtToVi(DAddr vi_cpu) {
     if (src_bytes == 0 || !texture_cache.IsRegionGpuModified(g_game_rt0_cpu_addr, src_bytes)) {
         return;
     }
-    auto [src_view, src_scaled] =
-        texture_cache.TryFindRenderTargetImageView(g_game_rt0_info, g_game_rt0_gpu_addr);
-    if (!src_view) {
+    auto [vi_view, ignored] = texture_cache.TryFindFramebufferImageView(config, vi_cpu);
+    if (!vi_view || vi_view->gpu_addr == 0) {
         return;
     }
-    texture_cache.UpdateRenderTargets(false);
-    const Framebuffer* const dst_framebuffer = texture_cache.GetFramebuffer();
-    if (!dst_framebuffer) {
+    const GPUVAddr vi_gpu = vi_view->gpu_addr;
+    const u32 blit_width = std::min(config.width, g_game_rt0_config.width);
+    const u32 blit_height = std::min(config.height, g_game_rt0_config.height);
+    if (blit_width == 0 || blit_height == 0) {
         return;
     }
-    static u64 last_composite_tick = 0;
-    const u64 tick = scheduler.CurrentTick();
-    if (tick == last_composite_tick) {
-        return;
-    }
-    last_composite_tick = tick;
-    const s32 w = static_cast<s32>(g_game_rt0_info.size.width);
-    const s32 h = static_cast<s32>(g_game_rt0_info.size.height);
-    if (w <= 0 || h <= 0) {
-        return;
-    }
-    const Region2D dst_region{{0, 0}, {w, h}};
-    const Region2D src_region{{0, 0}, {w, h}};
+
+    auto src_rt = g_game_rt0_config;
+    src_rt.width = blit_width;
+    src_rt.height = blit_height;
+    auto dst_rt = g_game_rt0_config;
+    dst_rt.width = blit_width;
+    dst_rt.height = blit_height;
+    dst_rt.address_high = static_cast<u32>(vi_gpu >> 32);
+    dst_rt.address_low = static_cast<u32>(vi_gpu);
+
+    const Tegra::Engines::Fermi2D::Surface src = MakeBlitSurface(src_rt, blit_width, blit_height);
+    const Tegra::Engines::Fermi2D::Surface dst = MakeBlitSurface(dst_rt, blit_width, blit_height);
+    const Tegra::Engines::Fermi2D::Config copy_config{
+        .operation = Tegra::Engines::Fermi2D::Operation::SrcCopy,
+        .filter = Tegra::Engines::Fermi2D::Filter::Bilinear,
+        .must_accelerate = true,
+        .dst_x0 = 0,
+        .dst_y0 = 0,
+        .dst_x1 = static_cast<s32>(blit_width),
+        .dst_y1 = static_cast<s32>(blit_height),
+        .src_x0 = 0,
+        .src_y0 = 0,
+        .src_x1 = static_cast<s32>(blit_width),
+        .src_y1 = static_cast<s32>(blit_height),
+    };
     static u32 composite_log_budget = 30;
     if (composite_log_budget > 0) {
         --composite_log_budget;
         LOG_INFO(Render_Vulkan,
-                 "Composite game RT 0x{:x} -> VI 0x{:x} (peak_verts={} size={}x{})",
-                 g_game_rt0_cpu_addr, vi_cpu, g_game_rt0_peak_verts, w, h);
+                 "Composite at present: game RT 0x{:x} -> VI 0x{:x} (peak_verts={} size={}x{})",
+                 g_game_rt0_cpu_addr, vi_cpu, g_game_rt0_peak_verts, blit_width, blit_height);
     }
-    blit_image.BlitColor(dst_framebuffer, src_view->Handle(Shader::TextureType::Color2D),
-                         dst_region, src_region, Tegra::Engines::Fermi2D::Filter::Bilinear,
-                         Tegra::Engines::Fermi2D::Operation::SrcCopy);
+    texture_cache.BlitImage(dst, src, copy_config);
 }
 
 void RasterizerVulkan::AccelerateInlineToMemory(GPUVAddr address, size_t copy_size,

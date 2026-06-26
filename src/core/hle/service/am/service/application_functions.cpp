@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: Copyright 2026 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
+#include "common/alignment.h"
 #include "common/settings.h"
 #include "common/uuid.h"
 #include "core/file_sys/control_metadata.h"
@@ -162,7 +163,28 @@ Result IApplicationFunctions::EnsureSaveData(Out<u64> out_size, Common::UUID use
     R_TRY(system.GetFileSystemController().OpenSaveDataController()->CreateSaveData(
         &save_data, FileSys::SaveDataSpaceId::User, attribute));
 
-    *out_size = 0;
+    u64 normal_size{};
+    u64 journal_size{};
+    const auto size = system.GetFileSystemController().OpenSaveDataController()->ReadSaveDataSize(
+        FileSys::SaveDataType::Account, m_applet->program_id, user_id.AsU128());
+    normal_size = size.normal;
+    journal_size = size.journal;
+
+    if (normal_size == 0 && journal_size == 0) {
+        const FileSys::PatchManager pm{m_applet->program_id, system.GetFileSystemController(),
+                                       system.GetContentProvider()};
+        const auto metadata = pm.GetControlMetadata();
+        if (metadata.first != nullptr) {
+            normal_size = metadata.first->GetDefaultNormalSaveSize();
+            journal_size = metadata.first->GetDefaultJournalSaveSize();
+        }
+    }
+
+    constexpr u64 block_size = 0x4000;
+    *out_size = Common::AlignUp(normal_size, block_size) + Common::AlignUp(journal_size, block_size) +
+                block_size;
+
+    LOG_DEBUG(Service_AM, "returning save total size={:#x}", *out_size);
     R_SUCCEED();
 }
 
@@ -284,10 +306,22 @@ Result IApplicationFunctions::GetSaveDataSize(Out<u64> out_normal_size, Out<u64>
 Result IApplicationFunctions::CreateCacheStorage(Out<u32> out_target_media,
                                                  Out<u64> out_required_size, u16 index,
                                                  u64 normal_size, u64 journal_size) {
-    LOG_WARNING(Service_AM, "(STUBBED) called with index={} size={:#x} journal_size={:#x}", index,
-                normal_size, journal_size);
+    LOG_INFO(Service_AM, "called with index={} size={:#x} journal_size={:#x}", index, normal_size,
+             journal_size);
 
-    *out_target_media = 1; // Nand
+    FileSys::SaveDataAttribute attribute{};
+    attribute.program_id = m_applet->program_id;
+    attribute.type = FileSys::SaveDataType::Cache;
+    attribute.index = static_cast<u8>(index);
+
+    FileSys::VirtualDir save_data{};
+    R_TRY(system.GetFileSystemController().OpenSaveDataController()->CreateSaveData(
+        &save_data, FileSys::SaveDataSpaceId::User, attribute));
+
+    system.GetFileSystemController().OpenSaveDataController()->WriteSaveDataSize(
+        FileSys::SaveDataType::Cache, m_applet->program_id, {}, {normal_size, journal_size});
+
+    *out_target_media = 1;
     *out_required_size = 0;
 
     R_SUCCEED();

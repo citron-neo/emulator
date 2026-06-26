@@ -125,6 +125,9 @@ private:
     Result OpenGameCardFileSystem(OutInterface<IFileSystem> out_interface, u32 handle,
                                   u32 partition_id);
     Result IsExFatSupported(Out<bool> out_is_supported);
+    Result QuerySaveDataTotalSize(Out<u64> out_total_size, u64 save_data_size, u64 journal_size);
+    Result GetFreeSpaceSizeForSaveData(Out<u64> out_free_space,
+                                       FileSys::SaveDataSpaceId space_id);
 
     FileSystemController& fsc;
     const FileSys::ContentProvider& content_provider;

@@ -339,6 +339,21 @@ Shader::RuntimeInfo MakeRuntimeInfo(std::span<const Shader::IR::Program> program
     return info;
 }
 
+void PropagateSkippedGeometryStores(Shader::IR::Program& program,
+                                    const Shader::IR::Program* skipped_geometry_program) {
+    if (skipped_geometry_program == nullptr) {
+        return;
+    }
+    if (program.stage != Shader::Stage::VertexA && program.stage != Shader::Stage::VertexB) {
+        return;
+    }
+    if (skipped_geometry_program->is_geometry_passthrough) {
+        program.info.stores.mask |= skipped_geometry_program->info.passthrough.mask;
+    } else {
+        program.info.stores.mask |= skipped_geometry_program->info.stores.mask;
+    }
+}
+
 size_t GetTotalPipelineWorkers() {
     const size_t max_core_threads =
         std::max<size_t>(static_cast<size_t>(std::thread::hardware_concurrency()), 2ULL);
@@ -931,6 +946,10 @@ std::unique_ptr<GraphicsPipeline> PipelineCache::CreateGraphicsPipeline(
         const size_t stage_index{index - 1};
         infos[stage_index] = &program.info;
 
+        if (!geometry_supported && skipped_geometry_program != nullptr) {
+            PropagateSkippedGeometryStores(program, skipped_geometry_program);
+        }
+
         const auto runtime_info{MakeRuntimeInfo(
             programs, key, program, previous_stage, skipped_geometry_program, has_geometry_stage,
             guest_has_geometry_shader, geometry_supported, uses_tessellation, max_vertex_attributes,
@@ -964,6 +983,13 @@ std::unique_ptr<GraphicsPipeline> PipelineCache::CreateGraphicsPipeline(
         LOG_ERROR(Render_Vulkan,
                   "Out of device memory during graphics pipeline creation, attempting recovery");
         EvictOldPipelines();
+        return nullptr;
+    }
+    if (exception.GetResult() == VK_ERROR_INITIALIZATION_FAILED) {
+        LOG_ERROR(Render_Vulkan,
+                  "Graphics pipeline creation failed (0x{:x}): incompatible shader interface, "
+                  "skipping pipeline",
+                  key.Hash());
         return nullptr;
     }
     throw;

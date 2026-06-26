@@ -9,6 +9,7 @@
 #include <utility>
 #include <vector>
 
+#include "common/alignment.h"
 #include "common/assert.h"
 #include "common/common_types.h"
 #include "common/hex_util.h"
@@ -127,7 +128,7 @@ FSP_SRV::FSP_SRV(Core::System& system_)
         {511, nullptr, "NotifySystemDataUpdateEvent"},
         {520, nullptr, "SimulateGameCardDetectionEvent"},
         {600, nullptr, "SetCurrentPosixTime"},
-        {601, nullptr, "QuerySaveDataTotalSize"},
+        {601, D<&FSP_SRV::QuerySaveDataTotalSize>, "QuerySaveDataTotalSize"},
         {602, nullptr, "VerifySaveDataFileSystem"},
         {603, nullptr, "CorruptSaveDataFileSystem"},
         {604, nullptr, "CreatePaddingFile"},
@@ -138,7 +139,7 @@ FSP_SRV::FSP_SRV(Core::System& system_)
         {609, nullptr, "GetRightsIdByPath"},
         {610, nullptr, "GetRightsIdAndKeyGenerationByPath"},
         {611, nullptr, "SetCurrentPosixTimeWithTimeDifference"},
-        {612, nullptr, "GetFreeSpaceSizeForSaveData"},
+        {612, D<&FSP_SRV::GetFreeSpaceSizeForSaveData>, "GetFreeSpaceSizeForSaveData"},
         {613, nullptr, "VerifySaveDataFileSystemBySaveDataSpaceId"},
         {614, nullptr, "CorruptSaveDataFileSystemBySaveDataSpaceId"},
         {615, nullptr, "QuerySaveDataInternalStorageTotalSize"},
@@ -612,11 +613,30 @@ Result FSP_SRV::DeleteCacheStorage(u16 index) {
 }
 
 Result FSP_SRV::GetCacheStorageSize(s32 index, Out<s64> out_data_size, Out<s64> out_journal_size) {
-    LOG_WARNING(Service_FS, "(STUBBED) called with index={}", index);
+    LOG_INFO(Service_FS, "called with index={}", index);
 
-    *out_data_size = 0;
-    *out_journal_size = 0;
+    const auto size = save_data_controller->ReadSaveDataSize(FileSys::SaveDataType::Cache,
+                                                             program_id, {});
+    if (size.normal != 0 || size.journal != 0) {
+        *out_data_size = static_cast<s64>(size.normal);
+        *out_journal_size = static_cast<s64>(size.journal);
+        LOG_INFO(Service_FS, "returning data_size={:#x}, journal_size={:#x}", *out_data_size,
+                 *out_journal_size);
+        R_SUCCEED();
+    }
 
+    const FileSys::PatchManager pm{program_id, fsc, content_provider};
+    const auto metadata = pm.GetControlMetadata();
+    if (metadata.first != nullptr) {
+        *out_data_size = static_cast<s64>(metadata.first->GetCacheStorageSize());
+        *out_journal_size = static_cast<s64>(metadata.first->GetCacheStorageJournalSize());
+    } else {
+        *out_data_size = 0;
+        *out_journal_size = 0;
+    }
+
+    LOG_INFO(Service_FS, "returning default data_size={:#x}, journal_size={:#x}", *out_data_size,
+             *out_journal_size);
     R_SUCCEED();
 }
 
@@ -712,6 +732,52 @@ Result FSP_SRV::IsExFatSupported(Out<bool> out_is_supported) {
 
     *out_is_supported = true;
 
+    R_SUCCEED();
+}
+
+Result FSP_SRV::QuerySaveDataTotalSize(Out<u64> out_total_size, u64 save_data_size,
+                                       u64 journal_size) {
+    LOG_DEBUG(Service_FS, "called, save_data_size={:#x}, journal_size={:#x}", save_data_size,
+              journal_size);
+
+    constexpr u64 block_size = 0x4000;
+    const u64 aligned_data = Common::AlignUp(save_data_size, block_size);
+    const u64 aligned_journal = Common::AlignUp(journal_size, block_size);
+
+    *out_total_size = aligned_data + aligned_journal + block_size;
+
+    LOG_DEBUG(Service_FS, "returning total_size={:#x}", *out_total_size);
+    R_SUCCEED();
+}
+
+Result FSP_SRV::GetFreeSpaceSizeForSaveData(Out<u64> out_free_space,
+                                              FileSys::SaveDataSpaceId space_id) {
+    LOG_INFO(Service_FS, "called, space_id={}", space_id);
+
+    FileSys::StorageId storage_id{};
+    switch (space_id) {
+    case FileSys::SaveDataSpaceId::System:
+    case FileSys::SaveDataSpaceId::ProperSystem:
+    case FileSys::SaveDataSpaceId::SafeMode:
+        storage_id = FileSys::StorageId::NandSystem;
+        break;
+    case FileSys::SaveDataSpaceId::User:
+    case FileSys::SaveDataSpaceId::Temporary:
+        storage_id = FileSys::StorageId::NandUser;
+        break;
+    case FileSys::SaveDataSpaceId::SdSystem:
+    case FileSys::SaveDataSpaceId::SdUser:
+        storage_id = FileSys::StorageId::SdCard;
+        break;
+    default:
+        LOG_WARNING(Service_FS, "Unknown SaveDataSpaceId={}, defaulting to NandUser", space_id);
+        storage_id = FileSys::StorageId::NandUser;
+        break;
+    }
+
+    *out_free_space = fsc.GetFreeSpaceSize(storage_id);
+
+    LOG_INFO(Service_FS, "returning free_space={:#x}", *out_free_space);
     R_SUCCEED();
 }
 
