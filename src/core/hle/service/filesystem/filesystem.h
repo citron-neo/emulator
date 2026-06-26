@@ -134,6 +134,8 @@ public:
     // above is called.
     void CreateFactories(FileSys::VfsFilesystem& vfs, bool overwrite = true);
 
+    void ReleaseVfsBackedCaches();
+
     // getter for main.cpp to trigger the sync between custom game paths for separate emulators
     FileSys::SaveDataFactory& GetSaveDataFactory() {
         return *global_save_data_factory;
