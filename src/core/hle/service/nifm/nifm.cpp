@@ -23,6 +23,7 @@ namespace {
 
 #include "core/internal_network/network.h"
 #include "core/internal_network/network_interface.h"
+#include "common/settings.h"
 
 // [UNITY-FIX] undef Win32 macros shadowing ServiceContext methods.
 #undef CreateEvent
@@ -781,15 +782,28 @@ void IGeneralService::SetBackgroundRequestEnabled(HLERequestContext& ctx) {
 }
 
 void IGeneralService::IsWirelessCommunicationEnabled(HLERequestContext& ctx) {
-    LOG_WARNING(Service_NIFM, "(STUBBED) called");
+    const bool enabled = !Settings::values.airplane_mode.GetValue() &&
+                         Network::GetHostIPv4Address().has_value();
+
+    LOG_DEBUG(Service_NIFM, "called, enabled={}", enabled);
 
     IPC::ResponseBuilder rb{ctx, 3};
     rb.Push(ResultSuccess);
-    rb.Push<u8>(1);
+    rb.Push<u8>(enabled ? 1 : 0);
 }
 
 void IGeneralService::GetInternetConnectionStatus(HLERequestContext& ctx) {
-    LOG_WARNING(Service_NIFM, "(STUBBED) called");
+    const bool has_internet = !Settings::values.airplane_mode.GetValue() &&
+                              Network::GetHostIPv4Address().has_value();
+
+    if (!has_internet) {
+        LOG_INFO(Service_NIFM, "called, internet unavailable (airplane_mode={}, has_ip={})",
+                 Settings::values.airplane_mode.GetValue(),
+                 Network::GetHostIPv4Address().has_value());
+        IPC::ResponseBuilder rb{ctx, 2};
+        rb.Push(ResultNetworkCommunicationDisabled);
+        return;
+    }
 
     struct Output {
         u8 type{static_cast<u8>(NetworkInterfaceType::WiFi_Ieee80211)};
@@ -799,6 +813,8 @@ void IGeneralService::GetInternetConnectionStatus(HLERequestContext& ctx) {
     static_assert(sizeof(Output) == 0x3, "Output has incorrect size.");
 
     constexpr Output out{};
+
+    LOG_DEBUG(Service_NIFM, "called, internet connected");
 
     IPC::ResponseBuilder rb{ctx, 3};
     rb.Push(ResultSuccess);
