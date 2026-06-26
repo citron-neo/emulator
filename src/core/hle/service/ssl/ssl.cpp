@@ -41,6 +41,15 @@ enum class IoMode : u32 {
     NonBlocking = 2,
 };
 
+// This is nn::ssl::sf::AlpnProtoState
+enum class AlpnProtoState : u32 {
+    NoSupport = 0,
+    Negotiated = 1,
+    NoOverlap = 2,
+    Selected = 3,
+    EarlyValue = 4,
+};
+
 // This is nn::ssl::sf::OptionType
 enum class OptionType : u32 {
     DoNotCloseSocket = 0,
@@ -147,6 +156,18 @@ private:
     std::shared_ptr<Network::SocketBase> socket;
     bool did_handshake = false;
     u32 verify_option = 0;
+    std::vector<u8> next_alpn_proto;
+
+    std::vector<u8> GetFirstAlpnProto() const {
+        if (next_alpn_proto.size() < 2) {
+            return {};
+        }
+        const u8 len = next_alpn_proto[0];
+        if (len == 0 || next_alpn_proto.size() < static_cast<size_t>(1 + len)) {
+            return {};
+        }
+        return {next_alpn_proto.begin() + 1, next_alpn_proto.begin() + 1 + len};
+    }
 
     Result SetSocketDescriptorImpl(s32* out_fd, s32 fd) {
         LOG_DEBUG(Service_SSL, "called, fd={}", fd);
@@ -323,9 +344,12 @@ private:
             res = backend->GetServerCerts(&certs);
             if (res == ResultSuccess) {
                 const std::vector<u8> certs_buf = SerializeServerCerts(certs);
-                ctx.WriteBuffer(certs_buf);
                 out.certs_count = static_cast<u32>(certs.size());
                 out.certs_size = static_cast<u32>(certs_buf.size());
+                if (!certs_buf.empty() && ctx.CanWriteBuffer(0) &&
+                    ctx.GetWriteBufferSize(0) >= certs_buf.size()) {
+                    ctx.WriteBuffer(certs_buf);
+                }
             }
         }
         IPC::ResponseBuilder rb{ctx, 4};
@@ -334,13 +358,19 @@ private:
     }
 
     void Read(HLERequestContext& ctx) {
-        std::vector<u8> output_bytes(ctx.GetWriteBufferSize());
+        std::vector<u8> output_bytes;
+        if (ctx.CanWriteBuffer(0)) {
+            output_bytes.resize(ctx.GetWriteBufferSize(0));
+        }
         const Result res = ReadImpl(&output_bytes);
         IPC::ResponseBuilder rb{ctx, 3};
         rb.Push(res);
         if (res == ResultSuccess) {
             rb.Push(static_cast<u32>(output_bytes.size()));
-            ctx.WriteBuffer(output_bytes);
+            if (!output_bytes.empty() && ctx.CanWriteBuffer(0) &&
+                ctx.GetWriteBufferSize(0) >= output_bytes.size()) {
+                ctx.WriteBuffer(output_bytes);
+            }
         } else {
             rb.Push(static_cast<u32>(0));
         }
@@ -541,27 +571,32 @@ private:
 
     void SetNextAlpnProto(HLERequestContext& ctx) {
         const auto alpn_data = ctx.ReadBuffer();
+        next_alpn_proto.assign(alpn_data.begin(), alpn_data.end());
 
-        LOG_WARNING(Service_SSL, "(STUBBED) called, alpn_data_size={}", alpn_data.size());
+        LOG_DEBUG(Service_SSL, "called, alpn_data_size={}", next_alpn_proto.size());
 
         IPC::ResponseBuilder rb{ctx, 2};
         rb.Push(ResultSuccess);
     }
 
     void GetNextAlpnProto(HLERequestContext& ctx) {
-        LOG_WARNING(Service_SSL, "(STUBBED) called");
-
         struct AlpnProtoInfo {
-            u32 state;         // AlpnProtoState
+            u32 state;
             u32 proto_size;
         };
 
         AlpnProtoInfo info{};
-        info.state = 0; // NoSupport
-        info.proto_size = 0;
-
-        // Write empty protocol string to buffer
-        ctx.WriteBuffer(std::span<const u8>{});
+        const std::vector<u8> proto = did_handshake ? GetFirstAlpnProto() : std::vector<u8>{};
+        if (proto.empty()) {
+            info.state = static_cast<u32>(AlpnProtoState::NoSupport);
+            info.proto_size = 0;
+        } else {
+            info.state = static_cast<u32>(AlpnProtoState::Selected);
+            info.proto_size = static_cast<u32>(proto.size());
+            if (ctx.CanWriteBuffer(0) && ctx.GetWriteBufferSize(0) >= proto.size()) {
+                ctx.WriteBuffer(proto);
+            }
+        }
 
         IPC::ResponseBuilder rb{ctx, 4};
         rb.Push(ResultSuccess);
