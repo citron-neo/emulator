@@ -93,12 +93,48 @@ constexpr u32 NETWORK_SERVICE_LICENSE_KIND_PERSONAL = 1;
 constexpr s64 NETWORK_SERVICE_LICENSE_FAR_FUTURE_EXPIRATION = 0x7FFFFFFFFFFFFFFFLL;
 
 std::vector<u8> GenerateStubIdToken() {
-    // Bedrock parses the id token as a JWT; payload needs iss/exp for offline validation.
+    // Bedrock validates Nintendo id_token JWT fields (iss/exp/aud/sub). Match Ryujinx-style claims.
     constexpr std::string_view token{
         "eyJhbGciOiJub25lIiwidHlwIjoiSldUIn0."
-        "eyJzdWIiOiJvZmZsaW5lLWNpdHJvbiIsImlzcyI6Imh0dHBzOi8vYWNjb3VudC5uaW50ZW5kby5jb20iLCJleHAiOjIwMDAwMDAwMDB9."
+        "eyJzdWIiOiIwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAxIiwiYXVkIjoiZWQ5ZTJm"
+        "MDVkMjg2ZjdiOCIsImlzcyI6Imh0dHBzOi8vZTBkNjdjNTA5ZmIyMDM4NThlYmNiMmZlM2Y4OGMy"
+        "YWEuYmFhcy5uaW50ZW5kby5jb20iLCJ0eXAiOiJpZF90b2tlbiIsImV4cCI6MjAwMDAwMDAwMCwiaWF0"
+        "IjoxNzAwMDAwMDAwfQ."
         ""};
     return std::vector<u8>(token.begin(), token.end());
+}
+
+std::filesystem::path GetBaasIdTokenCachePath(const Common::UUID& uuid) {
+    return Common::FS::GetCitronPath(Common::FS::CitronPath::NANDDir) /
+           fmt::format("system/save/8000000000000010/su/baas/{}.dat", uuid.FormattedString());
+}
+
+void WriteBaasIdTokenCacheOnDisk(const Common::UUID& user_id) {
+    const auto cache_path = GetBaasIdTokenCachePath(user_id);
+    std::error_code ec;
+    std::filesystem::create_directories(cache_path.parent_path(), ec);
+    if (ec) {
+        LOG_WARNING(Service_ACC, "Failed to create baas cache directory {}: {}",
+                    cache_path.parent_path().string(), ec.message());
+        return;
+    }
+
+    const auto token = GenerateStubIdToken();
+    Common::FS::IOFile cache_file(cache_path, Common::FS::FileAccessMode::Write,
+                                  Common::FS::FileType::BinaryFile);
+    if (!cache_file.IsOpen()) {
+        LOG_WARNING(Service_ACC, "Failed to open baas id token cache at {}",
+                    cache_path.string());
+        return;
+    }
+
+    if (cache_file.Write(token) != token.size()) {
+        LOG_WARNING(Service_ACC, "Failed to write baas id token cache at {}",
+                    cache_path.string());
+        return;
+    }
+
+    LOG_INFO(Service_ACC, "Wrote baas id token cache to {}", cache_path.string());
 }
 
 struct BaasStubSessionState {
@@ -118,6 +154,7 @@ void PopulateBaasStubSessionCache(const Common::UUID& user_id) {
     auto& state = GetOrCreateBaasStubSessionState(user_id);
     state.id_token_cache_ready = true;
     state.network_service_license_kind = NETWORK_SERVICE_LICENSE_KIND_PERSONAL;
+    WriteBaasIdTokenCacheOnDisk(user_id);
 }
 
 void EnsureDefaultAvatarExists(const Common::UUID& uuid) {
@@ -815,22 +852,63 @@ public:
 
 class IGuestLoginRequest final : public ServiceFramework<IGuestLoginRequest> {
 public:
-    explicit IGuestLoginRequest(Core::System& system_, Common::UUID)
-        : ServiceFramework{system_, "IGuestLoginRequest"} {
+    explicit IGuestLoginRequest(Core::System& system_, Common::UUID user_id_)
+        : ServiceFramework{system_, "IGuestLoginRequest"}, user_id{user_id_} {
         // clang-format off
         static const FunctionInfo functions[] = {
-            {0, nullptr, "GetSessionId"},
+            {0, &IGuestLoginRequest::GetSessionId, "GetSessionId"},
             {11, nullptr, "Unknown"}, // 1.0.0 - 2.3.0 (the name is blank on Switchbrew)
-            {12, nullptr, "GetAccountId"},
-            {13, nullptr, "GetLinkedNintendoAccountId"},
-            {14, nullptr, "GetNickname"},
-            {15, nullptr, "GetProfileImage"},
-            {21, nullptr, "LoadIdTokenCache"}, // 3.0.0+
+            {12, &IGuestLoginRequest::GetAccountId, "GetAccountId"},
+            {13, &IGuestLoginRequest::GetLinkedNintendoAccountId, "GetLinkedNintendoAccountId"},
+            {14, &IGuestLoginRequest::GetNickname, "GetNickname"},
+            {15, &IGuestLoginRequest::GetProfileImage, "GetProfileImage"},
+            {21, &IGuestLoginRequest::LoadIdTokenCache, "LoadIdTokenCache"}, // 3.0.0+
         };
         // clang-format on
 
         RegisterHandlers(functions);
     }
+
+private:
+    void GetSessionId(HLERequestContext& ctx) {
+        LOG_INFO(Service_ACC, "IGuestLoginRequest::GetSessionId called");
+        IPC::ResponseBuilder rb{ctx, 2};
+        rb.Push(ResultSuccess);
+    }
+
+    void GetAccountId(HLERequestContext& ctx) {
+        LOG_INFO(Service_ACC, "IGuestLoginRequest::GetAccountId called");
+        IPC::ResponseBuilder rb{ctx, 4};
+        rb.Push(ResultSuccess);
+        rb.PushRaw<u64>(user_id.Hash());
+    }
+
+    void GetLinkedNintendoAccountId(HLERequestContext& ctx) {
+        LOG_INFO(Service_ACC, "IGuestLoginRequest::GetLinkedNintendoAccountId called");
+        IPC::ResponseBuilder rb{ctx, 4};
+        rb.Push(ResultSuccess);
+        rb.PushRaw<u64>(GetStubNintendoAccountId(user_id));
+    }
+
+    void GetNickname(HLERequestContext& ctx) {
+        LOG_INFO(Service_ACC, "IGuestLoginRequest::GetNickname called");
+        IPC::ResponseBuilder rb{ctx, 2};
+        rb.Push(ResultSuccess);
+    }
+
+    void GetProfileImage(HLERequestContext& ctx) {
+        LOG_INFO(Service_ACC, "IGuestLoginRequest::GetProfileImage called");
+        IPC::ResponseBuilder rb{ctx, 2};
+        rb.Push(ResultSuccess);
+    }
+
+    void LoadIdTokenCache(HLERequestContext& ctx) {
+        LOG_INFO(Service_ACC, "IGuestLoginRequest::LoadIdTokenCache called");
+        PopulateBaasStubSessionCache(user_id);
+        PushLoadIdTokenCacheResponse(ctx);
+    }
+
+    Common::UUID user_id;
 };
 
 class EnsureTokenIdCacheAsyncInterface final : public IAsyncContext {
@@ -1042,6 +1120,7 @@ public:
             {1, &IAsyncContextForLoginForOnlinePlay::Cancel, "Cancel"},
             {2, &IAsyncContextForLoginForOnlinePlay::HasDone, "HasDone"},
             {3, &IAsyncContextForLoginForOnlinePlay::GetResult, "GetResult"},
+            {21, &IAsyncContextForLoginForOnlinePlay::LoadIdTokenCache, "LoadIdTokenCache"},
             {100, &IAsyncContextForLoginForOnlinePlay::GetNetworkServiceLicenseInfoForOnlinePlay,
              "GetNetworkServiceLicenseInfoForOnlinePlay"},
         };
@@ -1097,8 +1176,15 @@ private:
         rb.Push(ResultSuccess);
     }
 
+    void LoadIdTokenCache(HLERequestContext& ctx) {
+        LOG_INFO(Service_ACC, "IAsyncContextForLoginForOnlinePlay::LoadIdTokenCache called");
+        PushLoadIdTokenCacheResponse(ctx);
+    }
+
     void GetNetworkServiceLicenseInfoForOnlinePlay(HLERequestContext& ctx) {
-        LOG_INFO(Service_ACC, "called");
+        LOG_INFO(Service_ACC,
+                 "IAsyncContextForLoginForOnlinePlay::GetNetworkServiceLicenseInfoForOnlinePlay "
+                 "called");
         IPC::ResponseBuilder rb{ctx, 4};
         rb.Push(ResultSuccess);
         rb.Push<u32>(NETWORK_SERVICE_LICENSE_KIND_PERSONAL);
@@ -1110,8 +1196,18 @@ private:
     bool is_complete{};
 };
 
-// EnsureIdTokenCacheAsync (cmd 2) returns IAsyncContext; online-play license queries use cmd 170.
+// On HOS 19+ Bedrock queries license info (cmd 100) on the async returned from cmd 2/170.
 void PushEnsureIdTokenCacheAsyncResponse(Core::System& system, HLERequestContext& ctx) {
+    if (HLE::ApiVersion::HOS_VERSION_MAJOR >= 19) {
+        auto async = std::make_shared<IAsyncContextForLoginForOnlinePlay>(system);
+
+        IPC::ResponseBuilder rb{ctx, 2, 0, 1};
+        rb.Push(ResultSuccess);
+        rb.PushIpcInterface(async);
+        async->SignalCompletion();
+        return;
+    }
+
     auto async = std::make_shared<EnsureTokenIdCacheAsyncInterface>(system);
 
     IPC::ResponseBuilder rb{ctx, 2, 0, 1};
@@ -1627,14 +1723,14 @@ void Module::Interface::ClearSaveDataThumbnail(HLERequestContext& ctx) {
 }
 
 void Module::Interface::CreateGuestLoginRequest(HLERequestContext& ctx) {
-    LOG_WARNING(Service_ACC, "(STUBBED) called");
+    LOG_INFO(Service_ACC, "CreateGuestLoginRequest called");
 
-    // Create a dummy UUID for the guest login request
-    const Common::UUID dummy_uuid{};
+    const auto user_id = profile_manager->GetLastOpenedUser();
+    PopulateBaasStubSessionCache(user_id);
 
     IPC::ResponseBuilder rb{ctx, 2, 0, 1};
     rb.Push(ResultSuccess);
-    rb.PushIpcInterface<IGuestLoginRequest>(system, dummy_uuid);
+    rb.PushIpcInterface<IGuestLoginRequest>(system, user_id);
 }
 
 void Module::Interface::LoadOpenContext(HLERequestContext& ctx) {
@@ -2125,8 +2221,7 @@ void LoopProcess(Core::System& system) {
     auto profile_manager = std::make_shared<ProfileManager>();
     auto server_manager = std::make_unique<ServerManager>(system);
 
-    server_manager->RegisterNamedService("acc:aa",
-                                         std::make_shared<ACC_AA>(module, profile_manager, system));
+    server_manager->RegisterNamedService("acc:aa", std::make_shared<ACC_AA>(system));
     server_manager->RegisterNamedService("acc:e",
                                          std::make_shared<ACC_E>(module, profile_manager, system));
     server_manager->RegisterNamedService(
