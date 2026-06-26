@@ -38,6 +38,10 @@ namespace {
 constexpr std::array<u8, 4> LoopbackIp{127, 0, 0, 1};
 constexpr std::string_view MinimalDnaResponse = R"({"status":"ok"})";
 
+// Captured from 508223012e5a5ff19f30a391b2bdadc0.my.2k.com/discovery/v1/services.
+constexpr std::string_view DiscoveryServicesResponse =
+    R"([{"serviceId":"47e3073624bf47668f96f88f8d307b17","name":"sso","baseUrl":"https://sso.api.2kcoretech.online/sso/v2.0","tags":["public"],"scheme":"https","host":"sso.api.2kcoretech.online","contextPath":"/sso/v2.0"},{"serviceId":"03311b6047f74b218b2c3271c12ad242","name":"promotions","baseUrl":"https://promotions.api.2kcoretech.online/promotions/api/v1/","tags":["public"],"scheme":"https","host":"promotions.api.2kcoretech.online","contextPath":"/promotions/api/v1/"},{"serviceId":"f118276174e14165bfc87eb75f93d30e","name":"telemetry","baseUrl":"https://telemetryk.api.2kcoretech.online/telemetry/v2","tags":["public"],"scheme":"https","host":"telemetryk.api.2kcoretech.online","contextPath":"/telemetry/v2"},{"serviceId":"97d6892ea7e448ed9aeec8e4a0cd99c8","name":"entitlements","baseUrl":"https://entitlements.api.2kcoretech.online/entitlements/v2.0","tags":["public"],"scheme":"https","host":"entitlements.api.2kcoretech.online","contextPath":"/entitlements/v2.0"},{"serviceId":"a3fc6770f34241188674e232b3fa7323","name":"discovery","baseUrl":"https://discovery.api.2kcoretech.online/discovery/v1","tags":["public"],"scheme":"https","host":"discovery.api.2kcoretech.online","contextPath":"/discovery/v1"}])";
+
 std::mutex g_stub_mutex;
 std::atomic<bool> g_stub_started{false};
 SSL_CTX* g_server_ctx = nullptr;
@@ -223,12 +227,37 @@ bool TryConsumeHttp2Preface(std::string& buffer) {
     return false;
 }
 
-std::string BuildHttpJsonResponse(int status_code, std::string_view status_text,
-                                  std::string_view body) {
-    return "HTTP/1.1 " + std::to_string(status_code) + " " + std::string(status_text) +
-           "\r\nContent-Type: application/json\r\nContent-Length: " +
-           std::to_string(body.size()) + "\r\nConnection: keep-alive\r\n\r\n" +
-           std::string(body);
+std::string ExtractRequestPath(std::string_view request_line) {
+    const auto method_end = request_line.find(' ');
+    if (method_end == std::string_view::npos) {
+        return {};
+    }
+    const auto path_start = method_end + 1;
+    const auto path_end = request_line.find(' ', path_start);
+    if (path_end == std::string_view::npos) {
+        return {};
+    }
+    std::string path(request_line.substr(path_start, path_end - path_start));
+    if (const auto query = path.find('?'); query != std::string::npos) {
+        path.erase(query);
+    }
+    return path;
+}
+
+std::string BuildHttpResponse(int status_code, std::string_view status_text, std::string_view body,
+                              std::string_view extra_headers = {}) {
+    std::string response = "HTTP/1.1 " + std::to_string(status_code) + " " + std::string(status_text) +
+                           "\r\nContent-Type: application/json\r\nContent-Length: " +
+                           std::to_string(body.size()) + "\r\nConnection: keep-alive\r\n";
+    if (!extra_headers.empty()) {
+        response += std::string(extra_headers);
+        if (extra_headers.back() != '\n') {
+            response += "\r\n";
+        }
+    }
+    response += "\r\n";
+    response += std::string(body);
+    return response;
 }
 
 void SendWebSocketFrame(SSL* ssl, u8 opcode, std::span<const u8> payload) {
@@ -325,8 +354,8 @@ void HandleParsedFrame(SSL* ssl, const ParsedWebSocketFrame& frame) {
 }
 
 bool SendPlainHttpResponse(SSL* ssl, int status_code, std::string_view status_text,
-                           std::string_view body) {
-    const std::string response = BuildHttpJsonResponse(status_code, status_text, body);
+                           std::string_view body, std::string_view extra_headers = {}) {
+    const std::string response = BuildHttpResponse(status_code, status_text, body, extra_headers);
     return SSL_write(ssl, response.data(), static_cast<int>(response.size())) > 0;
 }
 
@@ -359,8 +388,21 @@ bool HandlePlainHttpRequest(SSL* ssl, const std::string& request) {
     const auto first_line_end = request.find('\n');
     const std::string first_line =
         first_line_end == std::string::npos ? request : request.substr(0, first_line_end);
+    const std::string path = ExtractRequestPath(TrimAscii(first_line));
     LOG_INFO(Network, "DNA gateway stub: plain HTTP request: {}",
              TrimAscii(first_line));
+
+    if (path == "/discovery/v1/services") {
+        constexpr std::string_view discovery_headers =
+            "X-2k-Result-Total: 5\r\n"
+            "X-2k-Result-Count: 5\r\n"
+            "X-2k-Result-More: false\r\n";
+        if (!SendPlainHttpResponse(ssl, 200, "OK", DiscoveryServicesResponse, discovery_headers)) {
+            return false;
+        }
+        LOG_INFO(Network, "DNA gateway stub: sent discovery services response");
+        return true;
+    }
 
     if (!SendPlainHttpResponse(ssl, 200, "OK", MinimalDnaResponse)) {
         return false;
