@@ -105,6 +105,10 @@ bool InitializeServerContext() {
 
     SSL_CTX_set_min_proto_version(g_server_ctx, TLS1_2_VERSION);
     SSL_CTX_set_options(g_server_ctx, SSL_OP_NO_COMPRESSION);
+
+    static const unsigned char alpn_http11[] = {8, 'h', 't', 't', 'p', '/', '1', '.', '1'};
+    SSL_CTX_set_alpn_protos(g_server_ctx, alpn_http11, sizeof(alpn_http11));
+
     return GenerateSelfSignedCertificate(g_server_ctx);
 }
 
@@ -201,6 +205,22 @@ bool RequestWantsWebSocketUpgrade(const std::string& request) {
 
 bool IsHttp2ConnectionPreface(std::string_view request) {
     return request.starts_with("PRI * HTTP/2.0");
+}
+
+constexpr std::string_view Http2ConnectionPreface = "PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n";
+
+bool BufferStartsWithHttp2Preface(std::string_view buffer) {
+    return buffer.starts_with("PRI * HTTP/2.0");
+}
+
+bool TryConsumeHttp2Preface(std::string& buffer) {
+    if (buffer.size() >= Http2ConnectionPreface.size() &&
+        buffer.compare(0, Http2ConnectionPreface.size(), Http2ConnectionPreface) == 0) {
+        buffer.erase(0, Http2ConnectionPreface.size());
+        LOG_INFO(Network, "DNA gateway stub: consumed HTTP/2 connection preface");
+        return true;
+    }
+    return false;
 }
 
 std::string BuildHttpJsonResponse(int status_code, std::string_view status_text,
@@ -396,6 +416,22 @@ void HandleDnaGatewaySession(NativeSocket client_fd) {
     bool websocket_upgraded = false;
 
     while (true) {
+        if (BufferStartsWithHttp2Preface(buffer)) {
+            if (buffer.size() < Http2ConnectionPreface.size()) {
+                const int received = SSL_read(ssl, read_buffer, sizeof(read_buffer));
+                if (received <= 0) {
+                    SSL_free(ssl);
+                    CloseNativeSocket(client_fd);
+                    return;
+                }
+                buffer.append(read_buffer, received);
+                continue;
+            }
+            if (TryConsumeHttp2Preface(buffer)) {
+                continue;
+            }
+        }
+
         while (FindHttpHeadersEnd(buffer) == std::string::npos) {
             const int received = SSL_read(ssl, read_buffer, sizeof(read_buffer));
             if (received <= 0) {
@@ -410,8 +446,8 @@ void HandleDnaGatewaySession(NativeSocket client_fd) {
         const std::string request = buffer.substr(0, headers_end);
         buffer.erase(0, headers_end);
 
-        if (IsHttp2ConnectionPreface(request)) {
-            LOG_INFO(Network, "DNA gateway stub: skipping HTTP/2 connection preface");
+        if (IsHttp2ConnectionPreface(request) || TrimAscii(request) == "SM") {
+            LOG_INFO(Network, "DNA gateway stub: skipping HTTP/2 preface fragment");
             continue;
         }
 

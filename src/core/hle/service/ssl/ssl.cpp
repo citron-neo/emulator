@@ -202,6 +202,12 @@ private:
     }
 
     std::vector<u8> GetFirstAlpnProto() const {
+        // nn::ssl reports the first offered ALPN proto as "selected" without negotiating it
+        // through OpenSSL. LEGO 2K's libwebsockets treats h2 as selected on :443 and sends the
+        // HTTP/2 connection preface, which our local DNA gateway stub does not implement.
+        if (IsDnaGatewayHostname(connection_hostname)) {
+            return {'h', 't', 't', 'p', '/', '1', '.', '1'};
+        }
         if (next_alpn_proto.size() < 2) {
             return {};
         }
@@ -256,6 +262,9 @@ private:
         connection_hostname = hostname;
         R_TRY(backend->SetHostName(hostname));
         ApplyDnaGatewayVerifyBypass();
+        if (IsDnaGatewayHostname(connection_hostname)) {
+            next_alpn_proto = {8, 'h', 't', 't', 'p', '/', '1', '.', '1'};
+        }
         R_SUCCEED();
     }
 
@@ -683,7 +692,13 @@ private:
         const auto alpn_data = ctx.ReadBuffer();
         next_alpn_proto.assign(alpn_data.begin(), alpn_data.end());
 
-        LOG_DEBUG(Service_SSL, "called, alpn_data_size={}", next_alpn_proto.size());
+        if (IsDnaGatewayHostname(connection_hostname)) {
+            next_alpn_proto = {8, 'h', 't', 't', 'p', '/', '1', '.', '1'};
+            LOG_INFO(Service_SSL, "Forced ALPN offer to http/1.1 for DNA gateway host {}",
+                     connection_hostname);
+        } else {
+            LOG_DEBUG(Service_SSL, "called, alpn_data_size={}", next_alpn_proto.size());
+        }
 
         IPC::ResponseBuilder rb{ctx, 2};
         rb.Push(ResultSuccess);
