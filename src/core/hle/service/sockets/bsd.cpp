@@ -932,9 +932,9 @@ std::pair<s32, Errno> BSD::SocketImpl(Domain domain, Type type, Protocol protoco
         UNIMPLEMENTED_MSG("SOCK_RAW errno management");
     }
 
-    [[maybe_unused]] const bool unk_flag = (static_cast<u32>(type) & 0x20000000) != 0;
-    UNIMPLEMENTED_IF_MSG(unk_flag, "Unknown flag in type");
-    type = static_cast<Type>(static_cast<u32>(type) & ~0x20000000);
+    [[maybe_unused]] const bool sock_nonblock = (static_cast<u32>(type) & 0x20000000) != 0;
+    [[maybe_unused]] const bool sock_cloexec = (static_cast<u32>(type) & 0x10000000) != 0;
+    type = static_cast<Type>(static_cast<u32>(type) & ~0x30000000);
 
     const s32 fd = FindFreeFileDescriptorHandle();
     if (fd < 0) {
@@ -973,6 +973,14 @@ std::pair<s32, Errno> BSD::SocketImpl(Domain domain, Type type, Protocol protoco
         if (init_err != Network::Errno::SUCCESS) {
             file_descriptors[fd].reset();
             return {-1, Translate(init_err)};
+        }
+        if (sock_nonblock) {
+            const auto nb_err = descriptor.socket->SetNonBlock(true);
+            if (nb_err != Network::Errno::SUCCESS) {
+                file_descriptors[fd].reset();
+                return {-1, Translate(nb_err)};
+            }
+            descriptor.flags |= Network::FLAG_O_NONBLOCK;
         }
     }
 
@@ -1118,7 +1126,9 @@ Errno BSD::ConnectImpl(s32 fd, std::span<const u8> addr) {
              addr_in.portno);
 
     const auto result = Translate(file_descriptors[fd]->socket->Connect(Translate(addr_in)));
-    if (result != Errno::SUCCESS) {
+    if (result == Errno::INPROGRESS) {
+        LOG_DEBUG(Service, "Connect fd={} in progress", fd);
+    } else if (result != Errno::SUCCESS) {
         LOG_ERROR(Service, "Connect fd={} failed with errno={}", fd, static_cast<int>(result));
     } else {
         LOG_INFO(Service, "Connect fd={} succeeded", fd);

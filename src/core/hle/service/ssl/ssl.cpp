@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <cstring>
+#include <limits>
 
 #include "common/string_util.h"
 
@@ -24,6 +25,10 @@
 namespace Service::SSL {
 
 namespace {
+
+constexpr u32 SslPollEventRead = 1U << 0;
+constexpr u32 SslPollEventWrite = 1U << 1;
+constexpr u32 SslPollEventExcept = 1U << 2;
 
 std::shared_ptr<Sockets::BSD> FindBsdServiceWithSocket(Core::System& system, s32 fd) {
     for (const char* service_name : {"bsd:u", "bsd:s"}) {
@@ -172,6 +177,7 @@ private:
     std::shared_ptr<Sockets::BSD> bsd_service;
     bool did_handshake = false;
     u32 verify_option = 0;
+    u32 io_timeout_ms = 30000;
     std::vector<u8> next_alpn_proto;
 
     std::vector<u8> GetFirstAlpnProto() const {
@@ -306,8 +312,57 @@ private:
     }
 
     Result PendingImpl(s32* out_pending) {
-        LOG_WARNING(Service_SSL, "(STUBBED) called.");
-        *out_pending = 0;
+        ASSERT_OR_EXECUTE(socket, { return ResultNoSocket; });
+        const size_t pending = backend->GetPendingBytes();
+        *out_pending = static_cast<s32>(std::min(pending, static_cast<size_t>(std::numeric_limits<s32>::max())));
+        return ResultSuccess;
+    }
+
+    Result PollImpl(u32 in_poll_event, u32 timeout_ms, u32* out_poll_event) {
+        ASSERT_OR_EXECUTE(socket, { return ResultNoSocket; });
+
+        Network::PollFD pollfd{};
+        pollfd.socket = socket.get();
+        if ((in_poll_event & SslPollEventRead) != 0) {
+            pollfd.events |= Network::PollEvents::In;
+        }
+        if ((in_poll_event & SslPollEventWrite) != 0) {
+            pollfd.events |= Network::PollEvents::Out;
+        }
+        if ((in_poll_event & SslPollEventExcept) != 0) {
+            pollfd.events |= Network::PollEvents::Err;
+        }
+
+        if (pollfd.events == Network::PollEvents{}) {
+            *out_poll_event = 0;
+            return ResultSuccess;
+        }
+
+        std::vector<Network::PollFD> pollfds{pollfd};
+        const s32 timeout =
+            timeout_ms > static_cast<u32>(std::numeric_limits<s32>::max()) ? -1
+                                                                          : static_cast<s32>(timeout_ms);
+        const auto [ret, err] = Network::Poll(pollfds, timeout);
+        if (err != Network::Errno::SUCCESS) {
+            LOG_ERROR(Service_SSL, "Poll failed with Network::Errno {}", err);
+            return ResultInternalError;
+        }
+        if (ret < 0) {
+            return ResultInternalError;
+        }
+
+        u32 out_events = 0;
+        const auto revents = pollfds[0].revents;
+        if (True(revents & Network::PollEvents::In)) {
+            out_events |= SslPollEventRead;
+        }
+        if (True(revents & Network::PollEvents::Out)) {
+            out_events |= SslPollEventWrite;
+        }
+        if (True(revents & (Network::PollEvents::Err | Network::PollEvents::Hup))) {
+            out_events |= SslPollEventExcept;
+        }
+        *out_poll_event = out_events;
         return ResultSuccess;
     }
 
@@ -490,13 +545,15 @@ private:
 
     void Poll(HLERequestContext& ctx) {
         IPC::RequestParser rp{ctx};
-        const u32 poll_event = rp.Pop<u32>();
-
-        LOG_WARNING(Service_SSL, "(STUBBED) called, poll_event={}", poll_event);
-
+        const u32 in_poll_event = rp.Pop<u32>();
+        const u32 timeout_ms = rp.Pop<u32>();
+        u32 out_poll_event = 0;
+        const Result res = PollImpl(in_poll_event, timeout_ms, &out_poll_event);
+        LOG_DEBUG(Service_SSL, "called, in_poll_event={:#x}, timeout_ms={}, out_poll_event={:#x}",
+                  in_poll_event, timeout_ms, out_poll_event);
         IPC::ResponseBuilder rb{ctx, 3};
-        rb.Push(ResultSuccess);
-        rb.Push<s32>(0); // Stub: no events ready
+        rb.Push(res);
+        rb.Push(out_poll_event);
     }
 
     void GetVerifyCertError(HLERequestContext& ctx) {
@@ -686,20 +743,16 @@ private:
 
     void SetIoTimeout(HLERequestContext& ctx) {
         IPC::RequestParser rp{ctx};
-        const u32 timeout_ms = rp.Pop<u32>();
-
-        LOG_WARNING(Service_SSL, "(STUBBED) called, timeout_ms={}", timeout_ms);
-
+        io_timeout_ms = rp.Pop<u32>();
+        LOG_DEBUG(Service_SSL, "called, timeout_ms={}", io_timeout_ms);
         IPC::ResponseBuilder rb{ctx, 2};
         rb.Push(ResultSuccess);
     }
 
     void GetIoTimeout(HLERequestContext& ctx) {
-        LOG_WARNING(Service_SSL, "(STUBBED) called");
-
         IPC::ResponseBuilder rb{ctx, 3};
         rb.Push(ResultSuccess);
-        rb.Push<u32>(30000); // Stub: 30 second timeout in milliseconds
+        rb.Push(io_timeout_ms);
     }
 };
 

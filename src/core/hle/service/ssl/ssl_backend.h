@@ -40,6 +40,9 @@ public:
     virtual Result Read(size_t* out_size, std::span<u8> data) = 0;
     virtual Result Write(size_t* out_size, std::span<const u8> data) = 0;
     virtual Result GetServerCerts(std::vector<std::vector<u8>>* out_certs) = 0;
+    virtual size_t GetPendingBytes() const {
+        return 0;
+    }
 };
 
 Result CreateSSLConnectionBackend(std::unique_ptr<SSLConnectionBackend>* out_backend);

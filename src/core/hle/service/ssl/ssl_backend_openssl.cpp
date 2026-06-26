@@ -175,6 +175,10 @@ public:
         }
     }
 
+    size_t GetPendingBytes() const override {
+        return ssl ? static_cast<size_t>(SSL_pending(ssl)) : 0;
+    }
+
     Result GetServerCerts(std::vector<std::vector<u8>>* out_certs) override {
         STACK_OF(X509)* chain = SSL_get_peer_cert_chain(ssl);
         if (!chain) {
