@@ -19,6 +19,7 @@
 #include "core/hle/service/ssl/ssl.h"
 #include "core/hle/service/ssl/ssl_backend.h"
 #include "core/hle/service/ssl/ssl_types.h"
+#include "core/internal_network/dna_gateway_stub.h"
 #include "core/internal_network/network.h"
 #include "core/internal_network/sockets.h"
 
@@ -176,6 +177,29 @@ private:
     IoMode io_mode = IoMode::Blocking;
     u32 io_timeout_ms = 300000;
     std::vector<u8> next_alpn_proto;
+    std::string connection_hostname;
+
+    static bool IsDnaGatewayHostname(const std::string& hostname) {
+        return hostname.find("my.2k.com") != std::string::npos;
+    }
+
+    void ApplyDnaGatewayVerifyBypass() {
+        bool bypass = IsDnaGatewayHostname(connection_hostname);
+        if (!bypass && socket) {
+            const auto [peer, err] = socket->GetPeerName();
+            if (err == Network::Errno::SUCCESS && peer.ip == std::array<u8, 4>{127, 0, 0, 1} &&
+                peer.portno == Network::DnaGatewayPort) {
+                bypass = true;
+            }
+        }
+        if (!bypass) {
+            return;
+        }
+        verify_option = 0;
+        backend->SetVerifyOption(0);
+        LOG_INFO(Service_SSL, "Disabled TLS verification for DNA gateway host {}",
+                 connection_hostname.empty() ? "127.0.0.1:47873" : connection_hostname);
+    }
 
     std::vector<u8> GetFirstAlpnProto() const {
         if (next_alpn_proto.size() < 2) {
@@ -229,11 +253,17 @@ private:
     Result SetHostNameImpl(const std::string& hostname) {
         LOG_DEBUG(Service_SSL, "called. hostname={}", hostname);
         ASSERT(!did_handshake);
-        return backend->SetHostName(hostname);
+        connection_hostname = hostname;
+        R_TRY(backend->SetHostName(hostname));
+        ApplyDnaGatewayVerifyBypass();
+        R_SUCCEED();
     }
 
     Result SetVerifyOptionImpl(u32 option) {
         ASSERT(!did_handshake);
+        if (IsDnaGatewayHostname(connection_hostname)) {
+            option = 0;
+        }
         LOG_DEBUG(Service_SSL, "called. option={}", option);
         verify_option = option;
         return backend->SetVerifyOption(option);
@@ -258,6 +288,7 @@ private:
 
     Result DoHandshakeImpl() {
         ASSERT_OR_EXECUTE(!did_handshake && socket, { return ResultNoSocket; });
+        ApplyDnaGatewayVerifyBypass();
         Result res = backend->DoHandshake();
         did_handshake = res.IsSuccess();
         return res;
