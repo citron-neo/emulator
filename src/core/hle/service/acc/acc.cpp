@@ -616,21 +616,86 @@ public:
 
 class IAuthorizationRequest final : public ServiceFramework<IAuthorizationRequest> {
 public:
-    explicit IAuthorizationRequest(Core::System& system_, Common::UUID)
-        : ServiceFramework{system_, "IAuthorizationRequest"} {
+    explicit IAuthorizationRequest(Core::System& system_, Common::UUID user_id_)
+        : ServiceFramework{system_, "IAuthorizationRequest"}, user_id{user_id_},
+          session_id{Common::UUID::MakeRandom()} {
         // clang-format off
         static const FunctionInfo functions[] = {
-            {0, nullptr, "GetSessionId"},
-            {10, nullptr, "InvokeWithoutInteractionAsync"},
-            {19, nullptr, "IsAuthorized"},
-            {20, nullptr, "GetAuthorizationCode"},
-            {21, nullptr, "GetIdToken"},
-            {22, nullptr, "GetState"},
+            {0, &IAuthorizationRequest::GetSessionId, "GetSessionId"},
+            {10, &IAuthorizationRequest::InvokeWithoutInteractionAsync, "InvokeWithoutInteractionAsync"},
+            {19, &IAuthorizationRequest::IsAuthorized, "IsAuthorized"},
+            {20, &IAuthorizationRequest::GetAuthorizationCode, "GetAuthorizationCode"},
+            {21, &IAuthorizationRequest::GetIdToken, "GetIdToken"},
+            {22, &IAuthorizationRequest::GetState, "GetState"},
         };
         // clang-format on
 
         RegisterHandlers(functions);
     }
+
+private:
+    void GetSessionId(HLERequestContext& ctx) {
+        LOG_DEBUG(Service_ACC, "IAuthorizationRequest::GetSessionId called");
+
+        IPC::ResponseBuilder rb{ctx, 6};
+        rb.Push(ResultSuccess);
+        rb.PushRaw(session_id);
+    }
+
+    void InvokeWithoutInteractionAsync(HLERequestContext& ctx) {
+        LOG_INFO(Service_ACC, "IAuthorizationRequest::InvokeWithoutInteractionAsync called");
+        authorized = true;
+        PushCompletedIAsyncContextResponse(system, ctx);
+    }
+
+    void IsAuthorized(HLERequestContext& ctx) {
+        LOG_DEBUG(Service_ACC, "IAuthorizationRequest::IsAuthorized called");
+
+        IPC::ResponseBuilder rb{ctx, 3};
+        rb.Push(ResultSuccess);
+        rb.Push<u8>(authorized ? 1 : 0);
+    }
+
+    void GetAuthorizationCode(HLERequestContext& ctx) {
+        LOG_DEBUG(Service_ACC, "IAuthorizationRequest::GetAuthorizationCode called");
+
+        constexpr std::string_view stub_code{"citron_stub_authorization_code"};
+        const std::vector<u8> code(stub_code.begin(), stub_code.end());
+        ctx.WriteBuffer(code);
+
+        IPC::ResponseBuilder rb{ctx, 3};
+        rb.Push(ResultSuccess);
+        rb.Push(static_cast<u32>(code.size()));
+    }
+
+    void GetIdToken(HLERequestContext& ctx) {
+        LOG_DEBUG(Service_ACC, "IAuthorizationRequest::GetIdToken called");
+
+        const auto token = GenerateStubIdToken(user_id);
+        ctx.WriteBuffer(token);
+
+        IPC::ResponseBuilder rb{ctx, 3};
+        rb.Push(ResultSuccess);
+        rb.Push(static_cast<u32>(token.size()));
+    }
+
+    void GetState(HLERequestContext& ctx) {
+        LOG_DEBUG(Service_ACC, "IAuthorizationRequest::GetState called");
+
+        // nn::account::nas::State: 1 = Authorized
+        std::vector<u8> state(ctx.GetWriteBufferSize(0), 0);
+        if (!state.empty()) {
+            state[0] = authorized ? 1 : 0;
+        }
+        ctx.WriteBuffer(state, 0);
+
+        IPC::ResponseBuilder rb{ctx, 2};
+        rb.Push(ResultSuccess);
+    }
+
+    Common::UUID user_id;
+    Common::UUID session_id;
+    bool authorized{};
 };
 
 class IOAuthProcedure final : public ServiceFramework<IOAuthProcedure> {
@@ -1351,7 +1416,7 @@ public:
             {142, &IManagerForApplication::RefreshNetworkServiceLicenseCacheAsyncIfSecondsElapsed,
              "RefreshNetworkServiceLicenseCacheAsyncIfSecondsElapsed"}, // 5.0.0+
             {143, D<&IManagerForApplication::GetNetworkServiceLicenseCacheEx>, "GetNetworkServiceLicenseCacheEx"}, // 15.0.0+
-            {150, nullptr, "CreateAuthorizationRequest"},
+            {150, &IManagerForApplication::CreateAuthorizationRequest, "CreateAuthorizationRequest"},
             {160, &IManagerForApplication::StoreOpenContext, "StoreOpenContext"},
             {170, &IManagerForApplication::EnsureIdTokenCacheForOnlinePlayOrLicenseKindAsync,
              "EnsureIdTokenCacheForOnlinePlayOrLicenseKindAsync"},
@@ -1410,6 +1475,19 @@ private:
         IPC::ResponseBuilder rb{ctx, 4};
         rb.Push(ResultSuccess);
         rb.PushRaw<u64>(nintendo_account_id);
+    }
+
+    void CreateAuthorizationRequest(HLERequestContext& ctx) {
+        LOG_INFO(Service_ACC, "IManagerForApplication::CreateAuthorizationRequest called");
+
+        const auto user_id = profile_manager->GetLastOpenedUser();
+        PopulateBaasStubSessionCache(system, user_id);
+
+        auto request = std::make_shared<IAuthorizationRequest>(system, user_id);
+
+        IPC::ResponseBuilder rb{ctx, 2, 0, 1};
+        rb.Push(ResultSuccess);
+        rb.PushIpcInterface(request);
     }
 
     void StoreOpenContext(HLERequestContext& ctx) {

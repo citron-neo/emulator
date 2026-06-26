@@ -65,6 +65,7 @@ public:
 private:
     SaveDataAttribute NormalizeAttribute(const SaveDataAttribute& meta) const;
     SaveDataSize GetResolvedSaveDataSize(SaveDataType type, u64 title_id, u128 user_id) const;
+    Result InitializeSaveDataLayout(VirtualDir save_dir) const;
 
     Core::System& system;
     ProgramId program_id;
