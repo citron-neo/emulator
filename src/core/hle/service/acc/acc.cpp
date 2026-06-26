@@ -104,6 +104,10 @@ void PushLoadIdTokenCacheResponse(HLERequestContext& ctx) {
     rb.Push(token_size);
 }
 
+// Bedrock treats license kind 0 as "no license" and shows "Something went wrong".
+constexpr u32 NETWORK_SERVICE_LICENSE_KIND_PERSONAL = 1;
+constexpr s64 NETWORK_SERVICE_LICENSE_FAR_FUTURE_EXPIRATION = 0x7FFFFFFFFFFFFFFFLL;
+
 } // Anonymous namespace
 
 class IManagerForSystemService final : public ServiceFramework<IManagerForSystemService> {
@@ -122,7 +126,8 @@ public:
             {110, nullptr, "GetServiceEntryRequirementCache"}, // 4.0.0+
             {111, nullptr, "InvalidateServiceEntryRequirementCache"}, // 4.0.0+
             {112, nullptr, "InvalidateTokenCache"}, // 4.0.0 - 6.2.0
-            {113, nullptr, "GetServiceEntryRequirementCacheForOnlinePlay"}, // 6.1.0+
+            {113, D<&IManagerForSystemService::GetServiceEntryRequirementCacheForOnlinePlay>,
+             "GetServiceEntryRequirementCacheForOnlinePlay"}, // 6.1.0+
             {120, nullptr, "GetNintendoAccountId"},
             {121, nullptr, "CalculateNintendoAccountAuthenticationFingerprint"}, // 9.0.0+
             {130, nullptr, "GetNintendoAccountUserResourceCache"},
@@ -131,7 +136,8 @@ public:
             {133, nullptr, "GetNintendoAccountVerificationUrlCache"}, // 9.0.0+
             {134, nullptr, "RefreshNintendoAccountVerificationUrlCache"}, // 9.0.0+
             {135, nullptr, "RefreshNintendoAccountVerificationUrlCacheAsyncIfSecondsElapsed"}, // 9.0.0+
-            {140, nullptr, "GetNetworkServiceLicenseCache"}, // 5.0.0+
+            {140, &IManagerForSystemService::GetNetworkServiceLicenseCache,
+             "GetNetworkServiceLicenseCache"}, // 5.0.0+
             {141, nullptr, "RefreshNetworkServiceLicenseCacheAsync"}, // 5.0.0+
             {142, nullptr, "RefreshNetworkServiceLicenseCacheAsyncIfSecondsElapsed"}, // 5.0.0+
             {150, nullptr, "CreateAuthorizationRequest"},
@@ -174,10 +180,32 @@ private:
     Result GetNetworkServiceLicenseCacheEx(Out<u32> out_license, Out<s64> out_expiration) {
         LOG_INFO(Service_ACC, "called");
 
-        *out_license = 0;
-        *out_expiration = 0;
+        *out_license = NETWORK_SERVICE_LICENSE_KIND_PERSONAL;
+        *out_expiration = NETWORK_SERVICE_LICENSE_FAR_FUTURE_EXPIRATION;
 
         R_SUCCEED();
+    }
+
+    Result GetServiceEntryRequirementCacheForOnlinePlay(Out<u32> out_requirement) {
+        LOG_INFO(Service_ACC, "called");
+        *out_requirement = 0;
+        R_SUCCEED();
+    }
+
+    void GetNetworkServiceLicenseCache(HLERequestContext& ctx) {
+        LOG_INFO(Service_ACC, "called");
+
+        if (ctx.CanWriteBuffer(0)) {
+            std::vector<u8> cache(ctx.GetWriteBufferSize(0));
+            if (cache.size() >= sizeof(u32)) {
+                const u32 license_kind = NETWORK_SERVICE_LICENSE_KIND_PERSONAL;
+                std::memcpy(cache.data(), &license_kind, sizeof(license_kind));
+            }
+            ctx.WriteBuffer(cache, 0);
+        }
+
+        IPC::ResponseBuilder rb{ctx, 2};
+        rb.Push(ResultSuccess);
     }
 
     Result RequiresUpdateNetworkServiceAccountIdTokenCache(Out<u8> out_requires_update) {
@@ -838,7 +866,86 @@ private:
         LOG_INFO(Service_ACC, "called");
         IPC::ResponseBuilder rb{ctx, 3};
         rb.Push(ResultSuccess);
-        rb.Push<u32>(0);
+        rb.Push<u32>(NETWORK_SERVICE_LICENSE_KIND_PERSONAL);
+    }
+
+    KernelHelpers::ServiceContext service_context;
+    Kernel::KEvent* completion_event{};
+    bool is_complete{};
+};
+
+class IAsyncContextForLoginForOnlinePlay final
+    : public ServiceFramework<IAsyncContextForLoginForOnlinePlay> {
+public:
+    explicit IAsyncContextForLoginForOnlinePlay(Core::System& system_)
+        : ServiceFramework{system_, "IAsyncContextForLoginForOnlinePlay"},
+          service_context{system_, "IAsyncContextForLoginForOnlinePlay"} {
+        static const FunctionInfo functions[] = {
+            {0, &IAsyncContextForLoginForOnlinePlay::GetSystemEvent, "GetSystemEvent"},
+            {1, &IAsyncContextForLoginForOnlinePlay::Cancel, "Cancel"},
+            {2, &IAsyncContextForLoginForOnlinePlay::HasDone, "HasDone"},
+            {3, &IAsyncContextForLoginForOnlinePlay::GetResult, "GetResult"},
+            {100, &IAsyncContextForLoginForOnlinePlay::GetNetworkServiceLicenseInfoForOnlinePlay,
+             "GetNetworkServiceLicenseInfoForOnlinePlay"},
+        };
+        RegisterHandlers(functions);
+
+        completion_event =
+            service_context.CreateEvent("IAsyncContextForLoginForOnlinePlay:CompletionEvent");
+    }
+
+    ~IAsyncContextForLoginForOnlinePlay() override {
+        service_context.CloseEvent(completion_event);
+    }
+
+    void SignalCompletion() {
+        is_complete = true;
+        completion_event->Signal();
+    }
+
+private:
+    void GetSystemEvent(HLERequestContext& ctx) {
+        LOG_INFO(Service_ACC, "IAsyncContextForLoginForOnlinePlay::GetSystemEvent called");
+
+        if (is_complete) {
+            completion_event->Signal();
+        }
+
+        IPC::ResponseBuilder rb{ctx, 2, 1};
+        rb.Push(ResultSuccess);
+        rb.PushCopyObjects(completion_event->GetReadableEvent());
+    }
+
+    void Cancel(HLERequestContext& ctx) {
+        is_complete = true;
+        completion_event->Signal();
+
+        IPC::ResponseBuilder rb{ctx, 2};
+        rb.Push(ResultSuccess);
+    }
+
+    void HasDone(HLERequestContext& ctx) {
+        LOG_INFO(Service_ACC, "IAsyncContextForLoginForOnlinePlay::HasDone called, done={}",
+                 is_complete);
+
+        IPC::ResponseBuilder rb{ctx, 3};
+        rb.Push(ResultSuccess);
+        rb.Push(is_complete);
+    }
+
+    void GetResult(HLERequestContext& ctx) {
+        LOG_INFO(Service_ACC, "IAsyncContextForLoginForOnlinePlay::GetResult called");
+
+        IPC::ResponseBuilder rb{ctx, 2};
+        rb.Push(ResultSuccess);
+    }
+
+    void GetNetworkServiceLicenseInfoForOnlinePlay(HLERequestContext& ctx) {
+        LOG_INFO(Service_ACC, "called");
+        IPC::ResponseBuilder rb{ctx, 4};
+        rb.Push(ResultSuccess);
+        rb.Push<u32>(NETWORK_SERVICE_LICENSE_KIND_PERSONAL);
+        rb.PushRaw<s64>(NETWORK_SERVICE_LICENSE_FAR_FUTURE_EXPIRATION);
     }
 
     KernelHelpers::ServiceContext service_context;
@@ -934,8 +1041,8 @@ private:
     }
 
     void LoadNetworkServiceLicenseKindAsync(HLERequestContext& ctx) {
-        LOG_INFO(Service_ACC, "called");
-        auto async = std::make_shared<IAsyncNetworkServiceLicenseKindContext>(system);
+        LOG_INFO(Service_ACC, "called (EnsureIdTokenCacheForOnlinePlayAsync)");
+        auto async = std::make_shared<IAsyncContextForLoginForOnlinePlay>(system);
 
         IPC::ResponseBuilder rb{ctx, 2, 0, 1};
         rb.Push(ResultSuccess);
