@@ -81,6 +81,9 @@ u32 g_game_rt0_peak_verts = 0;
 u32 g_vi_overlay_active_frames = 0;
 
 constexpr u32 GAME_RT_MIN_VERTICES = 64;
+// Bedrock sign-in overlays issue fullscreen passes (e.g. 1944 verts) to a transient RT.
+// Do not let those steal the tracked menu/world RT used for VI remap/composite.
+constexpr u32 GAME_RT_OVERLAY_VERT_THRESHOLD = 1500;
 constexpr u32 VI_OVERLAY_MAX_VERTICES = 32;
 constexpr u32 VI_OVERLAY_ACTIVE_FRAME_HOLD = 8;
 
@@ -122,7 +125,11 @@ void TrackGameRenderTarget(DAddr cpu_addr, GPUVAddr gpu_addr,
         num_vertices < GAME_RT_MIN_VERTICES) {
         return;
     }
-    if (num_vertices < g_game_rt0_peak_verts) {
+    if (cpu_addr != g_game_rt0_cpu_addr && num_vertices >= GAME_RT_OVERLAY_VERT_THRESHOLD) {
+        return;
+    }
+    if (cpu_addr == g_game_rt0_cpu_addr) {
+        g_game_rt0_peak_verts = std::max(g_game_rt0_peak_verts, num_vertices);
         return;
     }
     g_game_rt0_cpu_addr = cpu_addr;
