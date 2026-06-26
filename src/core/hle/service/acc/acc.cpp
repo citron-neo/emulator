@@ -16,6 +16,7 @@
 #include "core/constants.h"
 #include "core/core.h"
 #include "core/core_timing.h"
+#include "core/hle/kernel/k_event.h"
 #include "core/file_sys/control_metadata.h"
 #include "core/file_sys/patch_manager.h"
 #include "core/hle/service/acc/acc.h"
@@ -113,9 +114,9 @@ public:
         static const FunctionInfo functions[] = {
             {0, D<&IManagerForSystemService::CheckAvailability>, "CheckAvailability"},
             {1, D<&IManagerForSystemService::GetAccountId>, "GetAccountId"},
-            {2, nullptr, "EnsureIdTokenCacheAsync"},
-            {3, D<&IManagerForSystemService::LoadIdTokenCacheDeprecated>, "LoadIdTokenCacheDeprecated"}, // 19.0.0+
-            {4, D<&IManagerForSystemService::LoadIdTokenCache>, "LoadIdTokenCache"}, // 19.0.0+
+            {2, &IManagerForSystemService::EnsureIdTokenCacheAsync, "EnsureIdTokenCacheAsync"},
+            {3, &IManagerForSystemService::LoadIdTokenCacheDeprecated, "LoadIdTokenCacheDeprecated"},
+            {4, &IManagerForSystemService::LoadIdTokenCache, "LoadIdTokenCache"},
             {100, nullptr, "SetSystemProgramIdentification"},
             {101, nullptr, "RefreshNotificationTokenAsync"}, // 7.0.0+
             {110, nullptr, "GetServiceEntryRequirementCache"}, // 4.0.0+
@@ -156,14 +157,17 @@ private:
         R_SUCCEED();
     }
 
-    Result LoadIdTokenCacheDeprecated() {
-        LOG_WARNING(Service_ACC, "(STUBBED) called");
-        R_SUCCEED();
+    // Defined out-of-class below, after EnsureTokenIdCacheAsyncInterface is fully defined.
+    void EnsureIdTokenCacheAsync(HLERequestContext& ctx);
+
+    void LoadIdTokenCacheDeprecated(HLERequestContext& ctx) {
+        LOG_INFO(Service_ACC, "called");
+        PushLoadIdTokenCacheResponse(ctx);
     }
 
-    Result LoadIdTokenCache() {
-        LOG_WARNING(Service_ACC, "(STUBBED) called");
-        R_SUCCEED();
+    void LoadIdTokenCache(HLERequestContext& ctx) {
+        LOG_INFO(Service_ACC, "called");
+        PushLoadIdTokenCacheResponse(ctx);
     }
 
     Result GetNetworkServiceLicenseCacheEx(Out<u32> out_license, Out<s64> out_expiration) {
@@ -647,6 +651,18 @@ protected:
     }
 };
 
+// Out-of-class definition — needs EnsureTokenIdCacheAsyncInterface to be fully defined first.
+void IManagerForSystemService::EnsureIdTokenCacheAsync(HLERequestContext& ctx) {
+    LOG_INFO(Service_ACC, "called");
+
+    auto async = std::make_shared<EnsureTokenIdCacheAsyncInterface>(system);
+
+    IPC::ResponseBuilder rb{ctx, 2, 0, 1};
+    rb.Push(ResultSuccess);
+    rb.PushIpcInterface(async);
+    async->SignalCompletion();
+}
+
 class AuthenticateApplicationAsyncInterface final : public IAsyncContext {
 public:
     explicit AuthenticateApplicationAsyncInterface(Core::System& system_) : IAsyncContext{system_} {
@@ -867,7 +883,6 @@ private:
 
     void EnsureIdTokenCacheAsync(HLERequestContext& ctx) {
         LOG_INFO(Service_ACC, "called");
-        ensure_token_id = std::make_shared<EnsureTokenIdCacheAsyncInterface>(system);
 
         IPC::ResponseBuilder rb{ctx, 2, 0, 1};
         rb.Push(ResultSuccess);
