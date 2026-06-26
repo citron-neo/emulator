@@ -38,9 +38,9 @@ namespace {
 constexpr std::array<u8, 4> LoopbackIp{127, 0, 0, 1};
 constexpr std::string_view MinimalDnaResponse = R"({"status":"ok"})";
 
-// Captured from 508223012e5a5ff19f30a391b2bdadc0.my.2k.com/discovery/v1/services.
+// Offline discovery: route every Artemis backend through the local DNA gateway stub.
 constexpr std::string_view DiscoveryServicesResponse =
-    R"([{"serviceId":"47e3073624bf47668f96f88f8d307b17","name":"sso","baseUrl":"https://sso.api.2kcoretech.online/sso/v2.0","tags":["public"],"scheme":"https","host":"sso.api.2kcoretech.online","contextPath":"/sso/v2.0"},{"serviceId":"03311b6047f74b218b2c3271c12ad242","name":"promotions","baseUrl":"https://promotions.api.2kcoretech.online/promotions/api/v1/","tags":["public"],"scheme":"https","host":"promotions.api.2kcoretech.online","contextPath":"/promotions/api/v1/"},{"serviceId":"f118276174e14165bfc87eb75f93d30e","name":"telemetry","baseUrl":"https://telemetryk.api.2kcoretech.online/telemetry/v2","tags":["public"],"scheme":"https","host":"telemetryk.api.2kcoretech.online","contextPath":"/telemetry/v2"},{"serviceId":"97d6892ea7e448ed9aeec8e4a0cd99c8","name":"entitlements","baseUrl":"https://entitlements.api.2kcoretech.online/entitlements/v2.0","tags":["public"],"scheme":"https","host":"entitlements.api.2kcoretech.online","contextPath":"/entitlements/v2.0"},{"serviceId":"a3fc6770f34241188674e232b3fa7323","name":"discovery","baseUrl":"https://discovery.api.2kcoretech.online/discovery/v1","tags":["public"],"scheme":"https","host":"discovery.api.2kcoretech.online","contextPath":"/discovery/v1"}])";
+    R"([{"serviceId":"47e3073624bf47668f96f88f8d307b17","name":"sso","baseUrl":"https://508223012e5a5ff19f30a391b2bdadc0.my.2k.com/sso/v2.0","tags":["public"],"scheme":"https","host":"508223012e5a5ff19f30a391b2bdadc0.my.2k.com","contextPath":"/sso/v2.0"},{"serviceId":"03311b6047f74b218b2c3271c12ad242","name":"promotions","baseUrl":"https://508223012e5a5ff19f30a391b2bdadc0.my.2k.com/promotions/api/v1/","tags":["public"],"scheme":"https","host":"508223012e5a5ff19f30a391b2bdadc0.my.2k.com","contextPath":"/promotions/api/v1/"},{"serviceId":"f118276174e14165bfc87eb75f93d30e","name":"telemetry","baseUrl":"https://508223012e5a5ff19f30a391b2bdadc0.my.2k.com/telemetry/v2","tags":["public"],"scheme":"https","host":"508223012e5a5ff19f30a391b2bdadc0.my.2k.com","contextPath":"/telemetry/v2"},{"serviceId":"97d6892ea7e448ed9aeec8e4a0cd99c8","name":"entitlements","baseUrl":"https://508223012e5a5ff19f30a391b2bdadc0.my.2k.com/entitlements/v2.0","tags":["public"],"scheme":"https","host":"508223012e5a5ff19f30a391b2bdadc0.my.2k.com","contextPath":"/entitlements/v2.0"},{"serviceId":"a3fc6770f34241188674e232b3fa7323","name":"discovery","baseUrl":"https://508223012e5a5ff19f30a391b2bdadc0.my.2k.com/discovery/v1","tags":["public"],"scheme":"https","host":"508223012e5a5ff19f30a391b2bdadc0.my.2k.com","contextPath":"/discovery/v1"}])";
 
 std::mutex g_stub_mutex;
 std::atomic<bool> g_stub_started{false};
@@ -392,7 +392,7 @@ bool HandlePlainHttpRequest(SSL* ssl, const std::string& request) {
     LOG_INFO(Network, "DNA gateway stub: plain HTTP request: {}",
              TrimAscii(first_line));
 
-    if (path == "/discovery/v1/services") {
+    if (path.starts_with("/discovery/v1/services")) {
         constexpr std::string_view discovery_headers =
             "X-2k-Result-Total: 5\r\n"
             "X-2k-Result-Count: 5\r\n"
@@ -401,6 +401,15 @@ bool HandlePlainHttpRequest(SSL* ssl, const std::string& request) {
             return false;
         }
         LOG_INFO(Network, "DNA gateway stub: sent discovery services response");
+        return true;
+    }
+
+    if (path.starts_with("/telemetry/") || path.starts_with("/sso/") ||
+        path.starts_with("/entitlements/") || path.starts_with("/promotions/")) {
+        if (!SendPlainHttpResponse(ssl, 200, "OK", MinimalDnaResponse)) {
+            return false;
+        }
+        LOG_INFO(Network, "DNA gateway stub: sent offline API response for {}", path);
         return true;
     }
 
@@ -601,7 +610,8 @@ bool ShouldRedirectToDnaGatewayStub(const SockAddrIn& addr) {
     if (addr.portno == DnaGatewayPort) {
         return true;
     }
-    return addr.portno == DnaGatewayHttpsPort && IsLikelyMy2kGatewayHost(addr.ip);
+    return addr.portno == DnaGatewayHttpsPort &&
+           (IsLikelyMy2kGatewayHost(addr.ip) || addr.ip == LoopbackIp);
 }
 
 bool IsDnaGatewayPort(const u16 port) {

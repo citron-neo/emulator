@@ -81,6 +81,11 @@ void PutValue(std::span<u8> buffer, const T& t) {
     std::memcpy(buffer.data(), &t, std::min(sizeof(T), buffer.size()));
 }
 
+bool IsLocalDnaGatewayEndpoint(const Network::SockAddrIn& addr) {
+    static constexpr std::array<u8, 4> Loopback{127, 0, 0, 1};
+    return addr.ip == Loopback && addr.portno == Network::DnaGatewayPort;
+}
+
 class OfflineSocket final : public Network::SocketBase {
 public:
     Network::Errno Initialize(Network::Domain domain_, Network::Type type_,
@@ -960,9 +965,23 @@ std::pair<s32, Errno> BSD::SocketImpl(Domain domain, Type type, Protocol protoco
     descriptor.is_connection_based = IsConnectionBased(type);
 
     if (Settings::values.airplane_mode.GetValue()) {
-        descriptor.socket = std::make_shared<OfflineSocket>();
-        descriptor.socket->Initialize(descriptor.domain, descriptor.type, descriptor.protocol);
-        LOG_INFO(Service, "Airplane mode: created offline socket fd={}", fd);
+        // Real sockets are required for local-loopback services (e.g. LEGO 2K DNA stub).
+        descriptor.socket = std::make_shared<Network::Socket>();
+        const auto init_err = descriptor.socket->Initialize(descriptor.domain, descriptor.type,
+                                                          descriptor.protocol);
+        if (init_err != Network::Errno::SUCCESS) {
+            file_descriptors[fd].reset();
+            return {-1, Translate(init_err)};
+        }
+        if (sock_nonblock) {
+            const auto nb_err = descriptor.socket->SetNonBlock(true);
+            if (nb_err != Network::Errno::SUCCESS) {
+                file_descriptors[fd].reset();
+                return {-1, Translate(nb_err)};
+            }
+            descriptor.flags |= Network::FLAG_O_NONBLOCK;
+        }
+        LOG_INFO(Service, "Airplane mode: created loopback-capable socket fd={}", fd);
     } else if (using_proxy) {
         descriptor.socket = std::make_shared<Network::ProxySocket>(room_network);
         descriptor.socket->Initialize(descriptor.domain, descriptor.type, descriptor.protocol);
@@ -1116,14 +1135,15 @@ Errno BSD::ConnectImpl(s32 fd, std::span<const u8> addr) {
     }
     if (!file_descriptors[fd]->socket)
         return Errno::BADF;
-    if (Settings::values.airplane_mode.GetValue()) {
-        return Errno::CONNREFUSED;
-    }
 
     UNIMPLEMENTED_IF(addr.size() != sizeof(SockAddrIn));
     auto addr_in = GetValue<SockAddrIn>(addr);
     Network::SockAddrIn network_addr = Translate(addr_in);
     network_addr = Network::RedirectDnaGatewayAddress(network_addr);
+
+    if (Settings::values.airplane_mode.GetValue() && !IsLocalDnaGatewayEndpoint(network_addr)) {
+        return Errno::CONNREFUSED;
+    }
 
     LOG_INFO(Service, "Connect fd={} to {}:{}", fd, Network::IPv4AddressToString(network_addr.ip),
              network_addr.portno);
@@ -1373,9 +1393,6 @@ std::pair<s32, Errno> BSD::RecvImpl(s32 fd, u32 flags, std::vector<u8>& message)
     }
 
     FileDescriptor& descriptor = *file_descriptors[fd];
-    if (Settings::values.airplane_mode.GetValue()) {
-        return {-1, Errno::AGAIN};
-    }
     if (!descriptor.is_connection_based) {
         return {-1, Errno::AGAIN};
     }
@@ -1407,10 +1424,6 @@ std::pair<s32, Errno> BSD::RecvFromImpl(s32 fd, u32 flags, std::vector<u8>& mess
     }
 
     FileDescriptor& descriptor = *file_descriptors[fd];
-    if (Settings::values.airplane_mode.GetValue()) {
-        addr.clear();
-        return {-1, Errno::AGAIN};
-    }
 
     Network::SockAddrIn addr_in{};
     Network::SockAddrIn* p_addr_in = nullptr;
@@ -1457,9 +1470,6 @@ std::pair<s32, Errno> BSD::SendImpl(s32 fd, u32 flags, std::span<const u8> messa
     }
     if (!file_descriptors[fd]->socket)
         return {-1, Errno::BADF};
-    if (Settings::values.airplane_mode.GetValue()) {
-        return {static_cast<s32>(message.size()), Errno::SUCCESS};
-    }
     FileDescriptor& descriptor = *file_descriptors[fd];
     if (!descriptor.is_connection_based) {
         LOG_DEBUG(Service, "Dropping datagram send without destination fd={}", fd);
@@ -1475,9 +1485,6 @@ std::pair<s32, Errno> BSD::SendToImpl(s32 fd, u32 flags, std::span<const u8> mes
     }
     if (!file_descriptors[fd]->socket)
         return {-1, Errno::BADF};
-    if (Settings::values.airplane_mode.GetValue()) {
-        return {static_cast<s32>(message.size()), Errno::SUCCESS};
-    }
 
     FileDescriptor& descriptor = *file_descriptors[fd];
 

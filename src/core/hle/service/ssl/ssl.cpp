@@ -180,7 +180,8 @@ private:
     std::string connection_hostname;
 
     static bool IsDnaGatewayHostname(const std::string& hostname) {
-        return hostname.find("my.2k.com") != std::string::npos;
+        return hostname.find("my.2k.com") != std::string::npos ||
+               hostname.find("2kcoretech.online") != std::string::npos;
     }
 
     void ApplyDnaGatewayVerifyBypass() {

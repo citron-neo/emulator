@@ -25,6 +25,17 @@ namespace {
 #include "core/internal_network/network_interface.h"
 #include "common/settings.h"
 
+namespace {
+
+constexpr u64 Lego2KDriveProgramId = 0x0100739018020000ULL;
+
+bool IsLego2KDriveOfflineLocalMode(const Core::System& system_) {
+    return Settings::values.airplane_mode.GetValue() &&
+           system_.GetApplicationProcessProgramID() == Lego2KDriveProgramId;
+}
+
+} // Anonymous namespace
+
 // [UNITY-FIX] undef Win32 macros shadowing ServiceContext methods.
 #undef CreateEvent
 #undef CreateMutex
@@ -319,6 +330,13 @@ private:
         LOG_DEBUG(Service_NIFM, "(STUBBED) called");
 
         const auto result = [this] {
+            if (IsLego2KDriveOfflineLocalMode(system)) {
+                if (state == RequestState::OnHold) {
+                    UpdateState(RequestState::Accepted);
+                }
+                return ResultSuccess;
+            }
+
             const auto has_connection = Network::GetHostIPv4Address().has_value();
             switch (state) {
             case RequestState::Free:
@@ -793,8 +811,10 @@ void IGeneralService::IsWirelessCommunicationEnabled(HLERequestContext& ctx) {
 }
 
 void IGeneralService::GetInternetConnectionStatus(HLERequestContext& ctx) {
-    const bool has_internet = !Settings::values.airplane_mode.GetValue() &&
-                              Network::GetHostIPv4Address().has_value();
+    const bool lego2k_offline_local = IsLego2KDriveOfflineLocalMode(system);
+    const bool has_internet = lego2k_offline_local ||
+                              (!Settings::values.airplane_mode.GetValue() &&
+                               Network::GetHostIPv4Address().has_value());
 
     if (!has_internet) {
         LOG_INFO(Service_NIFM, "called, internet unavailable (airplane_mode={}, has_ip={})",

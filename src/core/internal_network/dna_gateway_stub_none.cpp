@@ -27,7 +27,9 @@ bool ShouldRedirectToDnaGatewayStub(const SockAddrIn& addr) {
     if (addr.portno == DnaGatewayPort) {
         return true;
     }
-    return addr.portno == DnaGatewayHttpsPort && IsLikelyMy2kGatewayHost(addr.ip);
+    static constexpr std::array<u8, 4> Loopback{127, 0, 0, 1};
+    return addr.portno == DnaGatewayHttpsPort &&
+           (IsLikelyMy2kGatewayHost(addr.ip) || addr.ip == Loopback);
 }
 
 bool IsDnaGatewayPort(const u16 port) {

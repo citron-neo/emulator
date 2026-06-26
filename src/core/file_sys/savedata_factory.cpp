@@ -158,6 +158,50 @@ void BufferedVfsCopy(VirtualFile source, VirtualFile dest) {
     }
 }
 
+constexpr const char* Lego2KDriveDonorSavePath =
+    "user/save/0000000000000000/102681DE8729EB5AF9A5BEE463D78659/0100739018020000";
+
+void PromoteLego2KDriveOfflineSave(const VirtualDir& save_dir, const VirtualDir& nand_dir,
+                                   u64 resolved_program_id, SaveDataType type) {
+    if (resolved_program_id != Lego2KDriveProgramId || type != SaveDataType::Account) {
+        return;
+    }
+
+    if (save_dir->GetFile("ArtemisVehicle") != nullptr) {
+        return;
+    }
+
+    VirtualDir donor_dir = nand_dir->GetDirectoryRelative(Lego2KDriveDonorSavePath);
+    if (donor_dir == nullptr) {
+        LOG_WARNING(Service_FS, "LEGO 2K Drive offline save donor not found at {}",
+                    Lego2KDriveDonorSavePath);
+        return;
+    }
+
+    std::size_t promoted_files = 0;
+    for (const auto& donor_file : donor_dir->GetFiles()) {
+        if (!donor_file) {
+            continue;
+        }
+
+        VirtualFile dest = save_dir->CreateFile(donor_file->GetName());
+        if (dest == nullptr) {
+            LOG_WARNING(Service_FS, "Failed to promote LEGO 2K Drive save file {}",
+                        donor_file->GetName());
+            continue;
+        }
+
+        BufferedVfsCopy(donor_file, dest);
+        ++promoted_files;
+    }
+
+    if (promoted_files > 0) {
+        LOG_INFO(Service_FS,
+                 "Promoted LEGO 2K Drive offline save from donor profile ({} root file(s))",
+                 promoted_files);
+    }
+}
+
 } // Anonymous namespace
 
 SaveDataFactory::SaveDataFactory(Core::System& system_, ProgramId program_id_,
@@ -273,7 +317,10 @@ VirtualDir SaveDataFactory::Create(SaveDataSpaceId space, const SaveDataAttribut
     }
 
     InitializeSaveDataLayout(save_dir);
-    SeedLego2KDriveTemplate(save_dir, attr.program_id, attr.type);
+    PromoteLego2KDriveOfflineSave(save_dir, dir, attr.program_id, attr.type);
+    if (!Settings::values.airplane_mode.GetValue()) {
+        SeedLego2KDriveTemplate(save_dir, attr.program_id, attr.type);
+    }
 
     return save_dir;
 }
@@ -298,7 +345,10 @@ VirtualDir SaveDataFactory::Open(SaveDataSpaceId space, const SaveDataAttribute&
                 SyncExtraDataSizes(out, attr);
             }
         }
-        SeedLego2KDriveTemplate(out, attr.program_id, attr.type);
+        PromoteLego2KDriveOfflineSave(out, dir, attr.program_id, attr.type);
+        if (!Settings::values.airplane_mode.GetValue()) {
+            SeedLego2KDriveTemplate(out, attr.program_id, attr.type);
+        }
     }
 
     return out;
