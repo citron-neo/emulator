@@ -95,15 +95,45 @@ constexpr u32 NETWORK_SERVICE_LICENSE_KIND_BEDROCK = NETWORK_SERVICE_LICENSE_KIN
 constexpr u64 STUB_NETWORK_SERVICE_ACCOUNT_ID = 0x000000000000CAFEULL;
 constexpr s64 NETWORK_SERVICE_LICENSE_FAR_FUTURE_EXPIRATION = 0x7FFFFFFFFFFFFFFFLL;
 
-std::vector<u8> GenerateStubIdToken() {
-    // Bedrock validates Nintendo id_token JWT fields (iss/exp/aud/sub). Match Ryujinx-style claims.
-    constexpr std::string_view token{
-        "eyJhbGciOiJub25lIiwidHlwIjoiSldUIn0."
-        "eyJzdWIiOiIwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAxIiwiYXVkIjoiZWQ5ZTJm"
-        "MDVkMjg2ZjdiOCIsImlzcyI6Imh0dHBzOi8vZTBkNjdjNTA5ZmIyMDM4NThlYmNiMmZlM2Y4OGMy"
-        "YWEuYmFhcy5uaW50ZW5kby5jb20iLCJ0eXAiOiJpZF90b2tlbiIsImV4cCI6MjAwMDAwMDAwMCwiaWF0"
-        "IjoxNzAwMDAwMDAwfQ."
-        ""};
+std::string Base64UrlEncode(std::string_view input) {
+    static constexpr char table[] =
+        "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    std::string out;
+    out.reserve(((input.size() + 2) / 3) * 4);
+
+    for (std::size_t i = 0; i < input.size(); i += 3) {
+        const u32 block = (static_cast<u8>(input[i]) << 16) |
+                          ((i + 1 < input.size() ? static_cast<u8>(input[i + 1]) : 0) << 8) |
+                          (i + 2 < input.size() ? static_cast<u8>(input[i + 2]) : 0);
+        out.push_back(table[(block >> 18) & 0x3F]);
+        out.push_back(table[(block >> 12) & 0x3F]);
+        out.push_back(i + 1 < input.size() ? table[(block >> 6) & 0x3F] : '=');
+        out.push_back(i + 2 < input.size() ? table[block & 0x3F] : '=');
+    }
+
+    for (char& c : out) {
+        if (c == '+') {
+            c = '-';
+        } else if (c == '/') {
+            c = '_';
+        }
+    }
+    while (!out.empty() && out.back() == '=') {
+        out.pop_back();
+    }
+    return out;
+}
+
+std::vector<u8> GenerateStubIdToken(const Common::UUID& user_id = {}) {
+    // Bedrock validates Nintendo id_token JWT fields (iss/exp/aud/sub). sub must match the user.
+    constexpr std::string_view header{R"({"alg":"none","typ":"JWT"})"};
+    const std::string subject =
+        user_id.IsInvalid() ? "00000000000000000000000000000001" : user_id.RawString();
+    const std::string payload = fmt::format(
+        R"({{"sub":"{}","aud":"ed9e2f05d286f7b8","iss":"https://e0d67c509fb203858ebcbcf2fe3f88c2aa.baas.nintendo.com","typ":"id_token","exp":2000000000,"iat":1700000000}})",
+        subject);
+    const std::string token =
+        fmt::format("{}.{}.", Base64UrlEncode(header), Base64UrlEncode(payload));
     return std::vector<u8>(token.begin(), token.end());
 }
 
@@ -118,6 +148,15 @@ std::filesystem::path GetBaasAccountCachePath(const Common::UUID& uuid) {
 
 std::filesystem::path GetSuIdTokenCachePath(const Common::UUID& uuid) {
     return GetAccountSaveBasePath() / "su/cache" / fmt::format("{}.dat", uuid.FormattedString());
+}
+
+std::filesystem::path GetNasUserResourceCachePath(const Common::UUID& uuid) {
+    return GetAccountSaveBasePath() / "su/nas" / fmt::format("{}.dat", uuid.FormattedString());
+}
+
+std::filesystem::path GetNetworkServiceLicenseCachePath(const Common::UUID& uuid) {
+    return GetAccountSaveBasePath() / "su/license" /
+           fmt::format("{}.dat", uuid.FormattedString());
 }
 
 bool WriteBinaryFile(const std::filesystem::path& path, std::span<const u8> data) {
@@ -143,12 +182,34 @@ bool WriteBinaryFile(const std::filesystem::path& path, std::span<const u8> data
     return true;
 }
 
-void WriteAccountServiceCachesOnDisk(const Common::UUID& user_id) {
+constexpr std::size_t NAS_USER_BASE_SIZE = 0x68;
+constexpr u64 STUB_NINTENDO_ACCOUNT_ID = 0x0123456789ABCDEFULL;
+
+u64 GetStubNintendoAccountId(const Common::UUID& account_id) {
+    const u64 derived = account_id.Hash();
+    return derived != 0 ? derived : STUB_NINTENDO_ACCOUNT_ID;
+}
+
+void PopulateNasUserBaseForApplication(std::vector<u8>& out, u64 nintendo_account_id) {
+    out.assign(NAS_USER_BASE_SIZE, 0);
+    std::memcpy(out.data(), &nintendo_account_id, sizeof(nintendo_account_id));
+    out[0x08] = 1; // is_nintendo_account_linked
+    out[0x09] = 1; // is_network_service_account_registered
+    if (out.size() >= 0x0C + sizeof(u32)) {
+        const u32 license_kind = NETWORK_SERVICE_LICENSE_KIND_BEDROCK;
+        std::memcpy(out.data() + 0x0C, &license_kind, sizeof(license_kind));
+    }
+}
+
+void WriteAccountServiceCachesOnDisk(const Common::UUID& user_id, u64 title_id) {
     // su/baas: CheckAvailability / GetAccountId read NetworkServiceAccountId from here.
     std::vector<u8> baas_data(0x40, 0);
     const u64 network_service_account_id = STUB_NETWORK_SERVICE_ACCOUNT_ID;
     std::memcpy(baas_data.data(), &network_service_account_id, sizeof(network_service_account_id));
-    baas_data[0x08] = 1; // online services available
+    baas_data[0x08] = 1; // is_nintendo_account_linked
+    baas_data[0x09] = 1; // is_network_service_account_registered
+    const u32 license_kind = NETWORK_SERVICE_LICENSE_KIND_BEDROCK;
+    std::memcpy(baas_data.data() + 0x0C, &license_kind, sizeof(license_kind));
 
     const auto baas_path = GetBaasAccountCachePath(user_id);
     if (WriteBinaryFile(baas_path, baas_data)) {
@@ -156,10 +217,31 @@ void WriteAccountServiceCachesOnDisk(const Common::UUID& user_id) {
     }
 
     // su/cache: LoadIdTokenCache reads the JWT id token from here (not su/baas).
-    const auto token = GenerateStubIdToken();
+    const auto token = GenerateStubIdToken(user_id);
     const auto cache_path = GetSuIdTokenCachePath(user_id);
     if (WriteBinaryFile(cache_path, token)) {
         LOG_INFO(Service_ACC, "Wrote id token cache to {}", cache_path.string());
+    }
+
+    const u64 nintendo_account_id = GetStubNintendoAccountId(user_id);
+    std::vector<u8> nas_user_base;
+    PopulateNasUserBaseForApplication(nas_user_base, nintendo_account_id);
+    const auto nas_path = GetNasUserResourceCachePath(user_id);
+    if (WriteBinaryFile(nas_path, nas_user_base)) {
+        LOG_INFO(Service_ACC, "Wrote NAS user resource cache to {}", nas_path.string());
+    }
+
+    std::vector<u8> license_cache(sizeof(u32) + sizeof(s64), 0);
+    std::memcpy(license_cache.data(), &license_kind, sizeof(license_kind));
+    const s64 expiration = NETWORK_SERVICE_LICENSE_FAR_FUTURE_EXPIRATION;
+    std::memcpy(license_cache.data() + sizeof(u32), &expiration, sizeof(expiration));
+    const auto license_path = GetNetworkServiceLicenseCachePath(user_id);
+    if (WriteBinaryFile(license_path, license_cache)) {
+        LOG_INFO(Service_ACC, "Wrote network service license cache to {}", license_path.string());
+    }
+
+    if (title_id != 0) {
+        WriteDauthApplicationAuthCacheOnDisk(title_id);
     }
 }
 
@@ -175,12 +257,12 @@ BaasStubSessionState& GetOrCreateBaasStubSessionState(const Common::UUID& user_i
     return baas_stub_session_cache[user_id];
 }
 
-void PopulateBaasStubSessionCache(const Common::UUID& user_id) {
+void PopulateBaasStubSessionCache(Core::System& system, const Common::UUID& user_id) {
     std::scoped_lock lock{baas_stub_session_mutex};
     auto& state = GetOrCreateBaasStubSessionState(user_id);
     state.id_token_cache_ready = true;
     state.network_service_license_kind = NETWORK_SERVICE_LICENSE_KIND_BEDROCK;
-    WriteAccountServiceCachesOnDisk(user_id);
+    WriteAccountServiceCachesOnDisk(user_id, system.GetApplicationProcessProgramID());
 }
 
 void EnsureDefaultAvatarExists(const Common::UUID& uuid) {
@@ -214,7 +296,7 @@ void EnsureDefaultAvatarExists(const Common::UUID& uuid) {
 }
 
 void PushLoadIdTokenCacheResponse(HLERequestContext& ctx, const Common::UUID& user_id = {}) {
-    std::vector<u8> token = GenerateStubIdToken();
+    std::vector<u8> token = GenerateStubIdToken(user_id);
     if (!user_id.IsInvalid()) {
         const auto cache_path = GetSuIdTokenCachePath(user_id);
         Common::FS::IOFile cache_file(cache_path, Common::FS::FileAccessMode::Read,
@@ -222,7 +304,7 @@ void PushLoadIdTokenCacheResponse(HLERequestContext& ctx, const Common::UUID& us
         if (cache_file.IsOpen()) {
             token.resize(static_cast<std::size_t>(cache_file.GetSize()));
             if (cache_file.Read(token) != token.size()) {
-                token = GenerateStubIdToken();
+                token = GenerateStubIdToken(user_id);
             }
         }
     }
@@ -247,25 +329,6 @@ void WriteNetworkServiceLicenseCacheBuffer(HLERequestContext& ctx) {
         std::memcpy(cache.data(), &license_kind, sizeof(license_kind));
     }
     ctx.WriteBuffer(cache, 0);
-}
-
-constexpr std::size_t NAS_USER_BASE_SIZE = 0x68;
-constexpr u64 STUB_NINTENDO_ACCOUNT_ID = 0x0123456789ABCDEFULL;
-
-u64 GetStubNintendoAccountId(const Common::UUID& account_id) {
-    const u64 derived = account_id.Hash();
-    return derived != 0 ? derived : STUB_NINTENDO_ACCOUNT_ID;
-}
-
-void PopulateNasUserBaseForApplication(std::vector<u8>& out, u64 nintendo_account_id) {
-    out.assign(NAS_USER_BASE_SIZE, 0);
-    std::memcpy(out.data(), &nintendo_account_id, sizeof(nintendo_account_id));
-    out[0x08] = 1; // is_nintendo_account_linked
-    out[0x09] = 1; // is_network_service_account_registered
-    if (out.size() >= 0x0C + sizeof(u32)) {
-        const u32 license_kind = NETWORK_SERVICE_LICENSE_KIND_BEDROCK;
-        std::memcpy(out.data() + 0x0C, &license_kind, sizeof(license_kind));
-    }
 }
 
 void WriteNasUserResourceCacheBuffers(HLERequestContext& ctx, u64 nintendo_account_id) {
@@ -435,7 +498,7 @@ private:
 
     void RefreshNetworkServiceLicenseCacheAsync(HLERequestContext& ctx) {
         LOG_INFO(Service_ACC, "called");
-        PopulateBaasStubSessionCache(account_id);
+        PopulateBaasStubSessionCache(system,account_id);
         PushCompletedIAsyncContextResponse(system, ctx);
     }
 
@@ -445,7 +508,7 @@ private:
         IPC::RequestParser rp{ctx};
         [[maybe_unused]] const auto seconds = rp.Pop<u32>();
 
-        PopulateBaasStubSessionCache(account_id);
+        PopulateBaasStubSessionCache(system,account_id);
 
         auto async = std::make_shared<CompletedIAsyncContextInterface>(system);
 
@@ -945,7 +1008,7 @@ private:
 
     void LoadIdTokenCache(HLERequestContext& ctx) {
         LOG_INFO(Service_ACC, "IGuestLoginRequest::LoadIdTokenCache called");
-        PopulateBaasStubSessionCache(user_id);
+        PopulateBaasStubSessionCache(system,user_id);
         PushLoadIdTokenCacheResponse(ctx, user_id);
     }
 
@@ -1218,7 +1281,7 @@ private:
 
     void LoadIdTokenCache(HLERequestContext& ctx) {
         LOG_INFO(Service_ACC, "IAsyncContextForLoginForOnlinePlay::LoadIdTokenCache called");
-        PopulateBaasStubSessionCache(user_id);
+        PopulateBaasStubSessionCache(system,user_id);
         PushLoadIdTokenCacheResponse(ctx, user_id);
     }
 
@@ -1263,7 +1326,7 @@ void PushEnsureIdTokenCacheAsyncResponse(Core::System& system, HLERequestContext
 void IManagerForSystemService::EnsureIdTokenCacheAsync(HLERequestContext& ctx) {
     LOG_INFO(Service_ACC, "called");
 
-    PopulateBaasStubSessionCache(account_id);
+    PopulateBaasStubSessionCache(system,account_id);
     EnsureDefaultAvatarExists(account_id);
     PushEnsureIdTokenCacheAsyncResponse(system, ctx, account_id);
 }
@@ -1318,7 +1381,7 @@ private:
         LOG_INFO(Service_ACC, "IManagerForApplication::EnsureIdTokenCacheAsync called");
 
         const auto user_id = profile_manager->GetLastOpenedUser();
-        PopulateBaasStubSessionCache(user_id);
+        PopulateBaasStubSessionCache(system,user_id);
         EnsureDefaultAvatarExists(user_id);
         PushEnsureIdTokenCacheAsyncResponse(system, ctx, user_id);
     }
@@ -1326,14 +1389,14 @@ private:
     void LoadIdTokenCacheDeprecated(HLERequestContext& ctx) {
         LOG_INFO(Service_ACC, "IManagerForApplication::LoadIdTokenCacheDeprecated called");
         const auto user_id = profile_manager->GetLastOpenedUser();
-        PopulateBaasStubSessionCache(user_id);
+        PopulateBaasStubSessionCache(system,user_id);
         PushLoadIdTokenCacheResponse(ctx, user_id);
     }
 
     void LoadIdTokenCache(HLERequestContext& ctx) {
         LOG_INFO(Service_ACC, "IManagerForApplication::LoadIdTokenCache called");
         const auto user_id = profile_manager->GetLastOpenedUser();
-        PopulateBaasStubSessionCache(user_id);
+        PopulateBaasStubSessionCache(system,user_id);
         PushLoadIdTokenCacheResponse(ctx, user_id);
     }
 
@@ -1370,7 +1433,7 @@ private:
         LOG_INFO(Service_ACC, "IManagerForApplication::RefreshNetworkServiceLicenseCacheAsync called");
 
         const auto user_id = profile_manager->GetLastOpenedUser();
-        PopulateBaasStubSessionCache(user_id);
+        PopulateBaasStubSessionCache(system,user_id);
         PushCompletedIAsyncContextResponse(system, ctx);
     }
 
@@ -1383,7 +1446,7 @@ private:
         [[maybe_unused]] const auto seconds = rp.Pop<u32>();
 
         const auto user_id = profile_manager->GetLastOpenedUser();
-        PopulateBaasStubSessionCache(user_id);
+        PopulateBaasStubSessionCache(system,user_id);
 
         auto async = std::make_shared<CompletedIAsyncContextInterface>(system);
 
@@ -1406,7 +1469,7 @@ private:
         LOG_INFO(Service_ACC, "LoadNetworkServiceLicenseKindAsync called");
 
         const auto user_id = profile_manager->GetLastOpenedUser();
-        PopulateBaasStubSessionCache(user_id);
+        PopulateBaasStubSessionCache(system,user_id);
 
         auto async = std::make_shared<IAsyncNetworkServiceLicenseKindContext>(system);
 
@@ -1420,7 +1483,7 @@ private:
         LOG_INFO(Service_ACC, "IManagerForApplication::EnsureIdTokenCacheForOnlinePlayAsync (cmd 170) called");
 
         const auto user_id = profile_manager->GetLastOpenedUser();
-        PopulateBaasStubSessionCache(user_id);
+        PopulateBaasStubSessionCache(system,user_id);
         EnsureDefaultAvatarExists(user_id);
 
         auto async = std::make_shared<IAsyncContextForLoginForOnlinePlay>(system, user_id);
@@ -1773,7 +1836,7 @@ void Module::Interface::CreateGuestLoginRequest(HLERequestContext& ctx) {
     LOG_INFO(Service_ACC, "CreateGuestLoginRequest called");
 
     const auto user_id = profile_manager->GetLastOpenedUser();
-    PopulateBaasStubSessionCache(user_id);
+    PopulateBaasStubSessionCache(system,user_id);
 
     IPC::ResponseBuilder rb{ctx, 2, 0, 1};
     rb.Push(ResultSuccess);
