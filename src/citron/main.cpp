@@ -7,6 +7,7 @@
 #include <clocale>
 #include <random>
 #include "citron/theme.h"
+#include <chrono>
 #include <cmath>
 #include <cstdlib>
 #include <fstream>
@@ -2546,10 +2547,27 @@ void GMainWindow::OnEmulationStopTimeExpired() {
 
 void GMainWindow::OnEmulationStopped() {
     shutdown_timer.stop();
+    std::unique_ptr<EmuThread> thread;
     if (emu_thread) {
-        emu_thread->disconnect();
-        emu_thread->wait();
-        emu_thread.reset();
+        thread = std::move(emu_thread);
+        thread->disconnect();
+        disconnect(thread.get(), &QThread::finished, this, &GMainWindow::OnEmulationStopped);
+#if defined(__APPLE__)
+        // Present work is marshalled to the GUI thread via BlockingQueuedConnection; pump events
+        // while waiting so the emulation thread can finish tearing down Vulkan on macOS.
+        constexpr unsigned long kWaitSliceMs = 50;
+        const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(30);
+        while (!thread->wait(kWaitSliceMs)) {
+            QCoreApplication::processEvents(QEventLoop::ExcludeUserInputEvents);
+            if (std::chrono::steady_clock::now() >= deadline) {
+                LOG_ERROR(Frontend,
+                          "Timed out waiting for emulation thread to stop during shutdown");
+                break;
+            }
+        }
+#else
+        thread->wait();
+#endif
     }
 
     if (shutdown_dialog) {
