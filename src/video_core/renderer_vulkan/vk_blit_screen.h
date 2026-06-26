@@ -43,6 +43,8 @@ struct FramebufferTextureInfo {
     u32 height{};
     u32 scaled_width{};
     u32 scaled_height{};
+    DAddr guest_addr{};
+    u64 guest_bytes{};
 };
 
 class BlitScreen {

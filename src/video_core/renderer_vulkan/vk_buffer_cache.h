@@ -146,6 +146,9 @@ public:
     /// Copy the live TF emulation counter after a draw so later query reads are not cleared away.
     void SnapshotXfbEmulationCounter();
 
+    /// Read the latest emulated stream-out record count from the counter snapshot.
+    [[nodiscard]] u32 ReadXfbEmulationCounterSnapshotRecords();
+
     /// Emulate VK_EXT_transform_feedback DrawIndirectByteCount using the emulated counter snapshot.
     void EmulateDrawIndirectByteCount(VkBuffer guest_counter_buffer, u32 guest_counter_offset,
                                       u32 stride, u32 register_byte_fallback);

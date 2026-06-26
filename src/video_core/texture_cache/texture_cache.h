@@ -1000,6 +1000,7 @@ bool TextureCache<P>::BlitImage(const Tegra::Engines::Fermi2D::Surface& dst,
         runtime.BlitImage(dst_framebuffer, dst_view, src_view, dst_region, src_region, copy.filter,
                           copy.operation);
     }
+    MarkModification(dst_id);
     return true;
 }
 
@@ -1060,6 +1061,21 @@ std::pair<typename P::ImageView*, bool> TextureCache<P>::TryFindFramebufferImage
     }
 
     return {};
+}
+
+template <class P>
+std::pair<typename P::ImageView*, bool> TextureCache<P>::TryFindRenderTargetImageView(
+    const ImageInfo& info, GPUVAddr gpu_addr) {
+    if (gpu_addr == 0 || info.format == PixelFormat::Invalid) {
+        return {};
+    }
+    const ImageViewId view_id = FindRenderTargetView(info, gpu_addr);
+    if (view_id == NULL_IMAGE_VIEW_ID) {
+        return {};
+    }
+    ImageView& image_view = slot_image_views[view_id];
+    Image& image = slot_images[image_view.image_id];
+    return {&image_view, image.IsRescaled()};
 }
 
 template <class P>

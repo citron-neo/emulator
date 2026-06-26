@@ -55,7 +55,7 @@ using VideoCommon::FileEnvironment;
 using VideoCommon::GenericEnvironment;
 using VideoCommon::GraphicsEnvironment;
 
-constexpr u32 CACHE_VERSION = 23;
+constexpr u32 CACHE_VERSION = 24;
 constexpr std::array<char, 8> VULKAN_CACHE_MAGIC_NUMBER{'y', 'u', 'z', 'u', 'v', 'k', 'c', 'h'};
 
 template <typename Container>
@@ -221,10 +221,7 @@ Shader::RuntimeInfo MakeRuntimeInfo(std::span<const Shader::IR::Program> program
             // When the guest binds a geometry shader but the host cannot run one, stream-out
             // emulation must run on the last stage before the skipped geometry stage.
             const bool guest_gs_skipped = guest_has_geometry_shader && !geometry_supported;
-            const bool gs_is_passthrough = skipped_geometry_program == nullptr ||
-                                           skipped_geometry_program->is_geometry_passthrough;
-            if (!guest_has_geometry_shader ||
-                (guest_gs_skipped && !uses_tessellation && gs_is_passthrough)) {
+            if (!guest_has_geometry_shader || (guest_gs_skipped && !uses_tessellation)) {
                 PopulateXfbRuntimeInfo(info, key);
             }
             info.convert_depth_mode = gl_ndc;
@@ -723,6 +720,11 @@ void PipelineCache::LoadDiskResources(u64 title_id, std::stop_token stop_loading
                 return (key.state.xfb_emulated != 0) != dynamic_features.emulate_transform_feedback;
             }();
             if (skip_xfb_pipeline) {
+                LOG_WARNING(Render_Vulkan,
+                            "Skipping cached XFB pipeline 0x{:016x}: cached xfb_emulated={} host "
+                            "emulate={}",
+                            key.Hash(), key.state.xfb_emulated != 0,
+                            dynamic_features.emulate_transform_feedback);
                 return;
             }
         }
@@ -933,6 +935,12 @@ std::unique_ptr<GraphicsPipeline> PipelineCache::CreateGraphicsPipeline(
             programs, key, program, previous_stage, skipped_geometry_program, has_geometry_stage,
             guest_has_geometry_shader, geometry_supported, uses_tessellation, max_vertex_attributes,
             max_vertex_bindings)};
+        if (key.state.xfb_enabled != 0 && runtime_info.xfb_count > 0) {
+            LOG_INFO(Render_Vulkan,
+                     "Pipeline 0x{:016x} stage={} xfb_count={} xfb_emulated={} gs={} tess={}",
+                     hash, static_cast<u32>(program.stage), runtime_info.xfb_count,
+                     key.state.xfb_emulated != 0, guest_has_geometry_shader, uses_tessellation);
+        }
         ConvertLegacyToGeneric(program, runtime_info);
         std::vector<u32> code = EmitSPIRV(profile, runtime_info, program, binding);
         // Reserve space to reduce allocations during shader compilation

@@ -171,6 +171,8 @@ private:
 
     void HandleTransformFeedback();
 
+    void MaybeCompositeGameRtToVi(DAddr vi_cpu);
+
     void UpdateViewportsState(Tegra::Engines::Maxwell3D::Regs& regs);
     void UpdateScissorsState(Tegra::Engines::Maxwell3D::Regs& regs);
     void UpdateDepthBias(Tegra::Engines::Maxwell3D::Regs& regs);

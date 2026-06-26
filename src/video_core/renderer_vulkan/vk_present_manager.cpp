@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright 2023 yuzu Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
+#include "common/logging.h"
 #include "common/settings.h"
 #include "common/thread.h"
 #include "core/frontend/emu_window.h"
@@ -317,6 +318,12 @@ void PresentManager::CopyToSwapchain(Frame* frame) {
 }
 
 void PresentManager::CopyToSwapchainImpl(Frame* frame) {
+    static u32 present_diag_budget = 120;
+    if (present_diag_budget > 0) {
+        --present_diag_budget;
+        LOG_INFO(Render_Vulkan, "Present: frame={}x{} swapchain={}x{}", frame->width, frame->height,
+                 swapchain.GetWidth(), swapchain.GetHeight());
+    }
 
     // If the size of the incoming frames has changed, recreate the swapchain
     // to account for that.

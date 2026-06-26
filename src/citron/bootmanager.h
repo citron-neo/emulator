@@ -218,6 +218,10 @@ public:
     /// Instructs the window to exit the application.
     void Exit();
 
+    /// Forward mouse events from the embedded Vulkan surface widget/window.
+    void ForwardChildMouseEvent(QMouseEvent* event);
+    void ForwardChildWheelEvent(QWheelEvent* event);
+
 public slots:
     void OnEmulationStarting(EmuThread* emu_thread_);
     void OnEmulationStopping();

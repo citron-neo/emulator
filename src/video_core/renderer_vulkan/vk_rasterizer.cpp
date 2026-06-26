@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <array>
+#include <cstring>
 #include <memory>
 #include <mutex>
 #include <optional>
@@ -38,7 +39,11 @@
 #include "video_core/renderer_vulkan/vertex_location_remap.h"
 #include "video_core/renderer_vulkan/vk_update_descriptor.h"
 #include "video_core/shader_cache.h"
+#include "video_core/surface.h"
+#include "video_core/texture_cache/image_info.h"
 #include "video_core/texture_cache/texture_cache_base.h"
+#include "video_core/texture_cache/types.h"
+#include "video_core/textures/decoders.h"
 #include "video_core/vulkan_common/vulkan_device.h"
 #include "video_core/vulkan_common/vulkan_wrapper.h"
 
@@ -58,6 +63,61 @@ struct DrawParams {
     bool is_indexed;
 };
 
+// Updated after each emulated XFB capture draw; consume draws read this when vertex count is 0.
+u32 g_last_xfb_snapshot_records = 0;
+u32 g_xfb_draw_diag_budget = 0;
+u32 g_draw_any_budget = 0;
+u32 g_null_pipeline_budget = 20;
+u32 g_draw_texture_budget = 40;
+u32 g_fb_sample_budget = 60;
+DAddr g_last_rt0_cpu_addr = 0;
+GPUVAddr g_last_rt0_gpu_addr = 0;
+VideoCommon::ImageInfo g_last_rt0_info{};
+DAddr g_game_rt0_cpu_addr = 0;
+GPUVAddr g_game_rt0_gpu_addr = 0;
+VideoCommon::ImageInfo g_game_rt0_info{};
+u32 g_game_rt0_peak_verts = 0;
+
+constexpr u32 GAME_RT_MIN_VERTICES = 64;
+
+bool IsViScanoutCpuAddr(DAddr addr) {
+    const u32 region = static_cast<u32>(addr & 0xFFF0000);
+    return region == 0xABB0000 || region == 0xB420000 || region == 0xBC90000;
+}
+
+void TrackGameRenderTarget(DAddr cpu_addr, GPUVAddr gpu_addr, const VideoCommon::ImageInfo& info,
+                           u32 num_vertices) {
+    if (cpu_addr == 0 || gpu_addr == 0 || IsViScanoutCpuAddr(cpu_addr) ||
+        num_vertices < GAME_RT_MIN_VERTICES) {
+        return;
+    }
+    if (num_vertices < g_game_rt0_peak_verts) {
+        return;
+    }
+    g_game_rt0_cpu_addr = cpu_addr;
+    g_game_rt0_gpu_addr = gpu_addr;
+    g_game_rt0_info = info;
+    g_game_rt0_peak_verts = num_vertices;
+    static u32 game_rt_track_budget = 30;
+    if (game_rt_track_budget > 0) {
+        --game_rt_track_budget;
+        LOG_INFO(Render_Vulkan, "game RT track: cpu=0x{:x} gpu=0x{:x} verts={}", cpu_addr, gpu_addr,
+                 num_vertices);
+    }
+}
+
+size_t ImageInfoGuestBytes(const VideoCommon::ImageInfo& info) {
+    if (info.format == VideoCore::Surface::PixelFormat::Invalid) {
+        return 0;
+    }
+    if (info.type == VideoCommon::ImageType::Linear) {
+        return static_cast<size_t>(info.pitch) * info.size.height;
+    }
+    const u32 bpp = VideoCore::Surface::BytesPerBlock(info.format);
+    return Tegra::Texture::CalculateSize(true, bpp, info.size.width, info.size.height,
+                                         info.size.depth, info.block.width, info.block.height);
+}
+
 constexpr VkPipelineStageFlags XfbEmulationWriteStages() {
     return VK_PIPELINE_STAGE_VERTEX_SHADER_BIT |
            VK_PIPELINE_STAGE_TESSELLATION_EVALUATION_SHADER_BIT |
@@ -70,6 +130,7 @@ void FinishEmulatedTransformFeedbackDraw(Scheduler& scheduler, BufferCache& buff
         device.IsExtTransformFeedbackSupported()) {
         return;
     }
+    LOG_DEBUG(Render_Vulkan, "XFB capture draw finished; snapshotting stream counter");
     static constexpr VkMemoryBarrier xfb_emulated_barrier{
         .sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER,
         .pNext = nullptr,
@@ -83,6 +144,9 @@ void FinishEmulatedTransformFeedbackDraw(Scheduler& scheduler, BufferCache& buff
                                xfb_emulated_barrier);
     });
     buffer_cache.runtime.SnapshotXfbEmulationCounter();
+    scheduler.Finish();
+    g_last_xfb_snapshot_records = buffer_cache.runtime.ReadXfbEmulationCounterSnapshotRecords();
+    LOG_INFO(Render_Vulkan, "XFB capture: snapshot_records={}", g_last_xfb_snapshot_records);
 }
 
 VkViewport GetViewportState(const Device& device, const Tegra::Engines::Maxwell3D::Regs& regs,
@@ -231,6 +295,10 @@ RasterizerVulkan::RasterizerVulkan(Core::Frontend::EmuWindow& emu_window_, Tegra
       fence_manager(*this, gpu, texture_cache, buffer_cache, query_cache, device, scheduler),
       wfi_event(device.GetLogical().CreateEvent()) {
     scheduler.SetQueryCache(query_cache);
+    if (!device.IsExtTransformFeedbackSupported()) {
+        g_xfb_draw_diag_budget = 40;
+        g_draw_any_budget = 60;
+    }
 
     memory_allocator.SetMemoryPressureCallback([this]() {
         pipeline_cache.TriggerPipelineEviction();
@@ -285,6 +353,12 @@ void RasterizerVulkan::PrepareDraw(bool is_indexed, Func&& draw_func) {
 
     GraphicsPipeline* const pipeline{pipeline_cache.CurrentGraphicsPipeline()};
     if (!pipeline) {
+        if (g_null_pipeline_budget > 0) {
+            --g_null_pipeline_budget;
+            LOG_WARNING(Render_Vulkan,
+                        "PrepareDraw: no graphics pipeline (indexed={} tf_enabled={})",
+                        is_indexed, maxwell3d->regs.transform_feedback_enabled);
+        }
         return;
     }
     std::scoped_lock lock{buffer_cache.mutex, texture_cache.mutex};
@@ -305,6 +379,64 @@ void RasterizerVulkan::Draw(bool is_indexed, u32 instance_count) {
         const auto& draw_state = maxwell3d->draw_manager->GetDrawState();
         const u32 num_instances{instance_count};
         DrawParams draw_params{MakeDrawParams(draw_state, num_instances, is_indexed)};
+        const GraphicsPipeline* const pipeline = pipeline_cache.CurrentGraphicsPipeline();
+        const bool capture_draw = pipeline && pipeline->UsesEmulatedTransformFeedback();
+        if (const GPUVAddr rt_gpu = maxwell3d->regs.rt[0].Address(); rt_gpu != 0) {
+            if (const auto rt_cpu = gpu_memory->GpuToCpuAddress(rt_gpu)) {
+                g_last_rt0_cpu_addr = *rt_cpu;
+                g_last_rt0_gpu_addr = rt_gpu;
+                g_last_rt0_info = VideoCommon::ImageInfo{maxwell3d->regs.rt[0],
+                                                          maxwell3d->regs.anti_alias_samples_mode};
+                if (!IsViScanoutCpuAddr(*rt_cpu)) {
+                    TrackGameRenderTarget(*rt_cpu, rt_gpu, g_last_rt0_info,
+                                          draw_params.num_vertices);
+                } else {
+                    MaybeCompositeGameRtToVi(*rt_cpu);
+                }
+            }
+        }
+        if (!device.IsExtTransformFeedbackSupported()) {
+            if (!capture_draw && g_last_xfb_snapshot_records > 0 &&
+                draw_params.num_vertices == 0) {
+                LOG_INFO(Render_Vulkan,
+                         "XFB consume Draw: vertex_count 0 -> {} (tf={}, stride={})",
+                         g_last_xfb_snapshot_records,
+                         maxwell3d->regs.transform_feedback_enabled,
+                         maxwell3d->regs.draw_auto_stride);
+                draw_params.num_vertices = g_last_xfb_snapshot_records;
+            }
+            const bool interesting = capture_draw ||
+                                     maxwell3d->regs.transform_feedback_enabled != 0 ||
+                                     draw_params.num_vertices >= 256;
+            if (interesting) {
+                const auto& rt = maxwell3d->regs.rt[0];
+                const GPUVAddr rt_gpu = rt.Address();
+                const auto rt_cpu = gpu_memory->GpuToCpuAddress(rt_gpu);
+                LOG_INFO(Render_Vulkan,
+                         "Draw: verts={} indexed={} capture={} tf={} stride={} snapshot={} "
+                         "rt0_gpu=0x{:x} rt0_cpu=0x{:x} rt_fmt={}",
+                         draw_params.num_vertices, is_indexed, capture_draw,
+                         maxwell3d->regs.transform_feedback_enabled,
+                         maxwell3d->regs.draw_auto_stride, g_last_xfb_snapshot_records, rt_gpu,
+                         rt_cpu.value_or(0), static_cast<u32>(rt.format));
+            } else if (g_xfb_draw_diag_budget > 0) {
+                --g_xfb_draw_diag_budget;
+                LOG_INFO(Render_Vulkan,
+                         "Draw diag: verts={} indexed={} capture={} tf={} stride={} "
+                         "byte_count={} snapshot={}",
+                         draw_params.num_vertices, is_indexed, capture_draw,
+                         maxwell3d->regs.transform_feedback_enabled,
+                         maxwell3d->regs.draw_auto_stride,
+                         maxwell3d->regs.draw_auto_byte_count, g_last_xfb_snapshot_records);
+            } else if (g_draw_any_budget > 0) {
+                --g_draw_any_budget;
+                LOG_INFO(Render_Vulkan,
+                         "Draw any: verts={} indexed={} capture={} tf={} stride={}",
+                         draw_params.num_vertices, is_indexed, capture_draw,
+                         maxwell3d->regs.transform_feedback_enabled,
+                         maxwell3d->regs.draw_auto_stride);
+            }
+        }
         const bool uses_generated_quad_indices =
             draw_state.topology == Tegra::Engines::Maxwell3D::Regs::PrimitiveTopology::Quads ||
             draw_state.topology == Tegra::Engines::Maxwell3D::Regs::PrimitiveTopology::QuadStrip;
@@ -343,16 +475,34 @@ void RasterizerVulkan::Draw(bool is_indexed, u32 instance_count) {
 void RasterizerVulkan::DrawIndirect() {
     auto& params = maxwell3d->draw_manager->GetIndirectParams();
 
+    if (params.is_byte_count) {
+        LOG_INFO(Render_Vulkan,
+                 "DrawIndirect byte-count: stride={} register_byte_count={} xfb_ext={}",
+                 params.stride, maxwell3d->regs.draw_auto_byte_count,
+                 device.IsExtTransformFeedbackSupported());
+    }
+
     buffer_cache.SetDrawIndirect(&params);
     PrepareDraw(params.is_indexed, [this, &params] {
+        if (const GPUVAddr rt_gpu = maxwell3d->regs.rt[0].Address(); rt_gpu != 0) {
+            if (const auto rt_cpu = gpu_memory->GpuToCpuAddress(rt_gpu)) {
+                const auto rt_info = VideoCommon::ImageInfo{maxwell3d->regs.rt[0],
+                                                            maxwell3d->regs.anti_alias_samples_mode};
+                TrackGameRenderTarget(*rt_cpu, rt_gpu, rt_info, 512);
+                if (IsViScanoutCpuAddr(*rt_cpu)) {
+                    MaybeCompositeGameRtToVi(*rt_cpu);
+                }
+            }
+        }
         const auto indirect_buffer = buffer_cache.GetDrawIndirectBuffer();
         const auto& buffer = indirect_buffer.first;
         const auto& offset = indirect_buffer.second;
         if (params.is_byte_count) {
             if (!device.IsExtTransformFeedbackSupported()) {
+                LOG_INFO(Render_Vulkan, "DrawIndirect byte-count: using emulated path");
                 buffer_cache.runtime.EmulateDrawIndirectByteCount(
-                    buffer->Handle(), offset, static_cast<u32>(params.stride),
-                    maxwell3d->regs.draw_auto_byte_count);
+                    buffer ? buffer->Handle() : VK_NULL_HANDLE, offset,
+                    static_cast<u32>(params.stride), maxwell3d->regs.draw_auto_byte_count);
                 return;
             }
             scheduler.Record([buffer_obj = buffer->Handle(), offset,
@@ -445,6 +595,15 @@ void RasterizerVulkan::DrawTexture() {
                                     .y = ScaleSrc(draw_texture_state.src_y1)}};
     Extent3D src_size = {static_cast<u32>(ScaleSrc(texture.size.width)),
                          static_cast<u32>(ScaleSrc(texture.size.height)), texture.size.depth};
+    if (g_draw_texture_budget > 0) {
+        --g_draw_texture_budget;
+        LOG_INFO(Render_Vulkan,
+                 "DrawTexture: dst=({},{})-({},{}) src=({},{})-({},{}) src_size={}x{}",
+                 draw_texture_state.dst_x0, draw_texture_state.dst_y0, draw_texture_state.dst_x1,
+                 draw_texture_state.dst_y1, draw_texture_state.src_x0, draw_texture_state.src_y0,
+                 draw_texture_state.src_x1, draw_texture_state.src_y1, src_size.width,
+                 src_size.height);
+    }
     blit_image.BlitColor(framebuffer, texture.RenderTarget(), texture.ImageHandle(),
                          sampler->Handle(), dst_region, src_region, src_size);
 }
@@ -988,6 +1147,50 @@ Tegra::Engines::AccelerateDMAInterface& RasterizerVulkan::AccessAccelerateDMA() 
     return accelerate_dma;
 }
 
+void RasterizerVulkan::MaybeCompositeGameRtToVi(DAddr vi_cpu) {
+    if (!IsViScanoutCpuAddr(vi_cpu) || g_game_rt0_cpu_addr == 0 ||
+        g_game_rt0_cpu_addr == vi_cpu || g_game_rt0_peak_verts < GAME_RT_MIN_VERTICES) {
+        return;
+    }
+    const size_t src_bytes = ImageInfoGuestBytes(g_game_rt0_info);
+    if (src_bytes == 0 || !texture_cache.IsRegionGpuModified(g_game_rt0_cpu_addr, src_bytes)) {
+        return;
+    }
+    auto [src_view, src_scaled] =
+        texture_cache.TryFindRenderTargetImageView(g_game_rt0_info, g_game_rt0_gpu_addr);
+    if (!src_view) {
+        return;
+    }
+    texture_cache.UpdateRenderTargets(false);
+    const Framebuffer* const dst_framebuffer = texture_cache.GetFramebuffer();
+    if (!dst_framebuffer) {
+        return;
+    }
+    static u64 last_composite_tick = 0;
+    const u64 tick = scheduler.CurrentTick();
+    if (tick == last_composite_tick) {
+        return;
+    }
+    last_composite_tick = tick;
+    const s32 w = static_cast<s32>(g_game_rt0_info.size.width);
+    const s32 h = static_cast<s32>(g_game_rt0_info.size.height);
+    if (w <= 0 || h <= 0) {
+        return;
+    }
+    const Region2D dst_region{{0, 0}, {w, h}};
+    const Region2D src_region{{0, 0}, {w, h}};
+    static u32 composite_log_budget = 30;
+    if (composite_log_budget > 0) {
+        --composite_log_budget;
+        LOG_INFO(Render_Vulkan,
+                 "Composite game RT 0x{:x} -> VI 0x{:x} (peak_verts={} size={}x{})",
+                 g_game_rt0_cpu_addr, vi_cpu, g_game_rt0_peak_verts, w, h);
+    }
+    blit_image.BlitColor(dst_framebuffer, src_view->Handle(Shader::TextureType::Color2D),
+                         dst_region, src_region, Tegra::Engines::Fermi2D::Filter::Bilinear,
+                         Tegra::Engines::Fermi2D::Operation::SrcCopy);
+}
+
 void RasterizerVulkan::AccelerateInlineToMemory(GPUVAddr address, size_t copy_size,
                                                 std::span<const u8> memory) {
     std::shared_lock shared_guard{shutdown_mutex};
@@ -1017,11 +1220,108 @@ void RasterizerVulkan::AccelerateInlineToMemory(GPUVAddr address, size_t copy_si
 std::optional<FramebufferTextureInfo> RasterizerVulkan::AccelerateDisplay(
     const Tegra::FramebufferConfig& config, DAddr framebuffer_addr, u32 pixel_stride) {
     if (!framebuffer_addr) {
+        static std::once_flag null_addr_once;
+        std::call_once(null_addr_once, [] {
+            LOG_WARNING(Render_Vulkan, "AccelerateDisplay: null framebuffer address");
+        });
         return {};
     }
+    scheduler.Finish();
     std::scoped_lock lock{texture_cache.mutex};
-    const auto [image_view, scaled] =
-        texture_cache.TryFindFramebufferImageView(config, framebuffer_addr);
+    const auto find_view = [&]() {
+        return texture_cache.TryFindFramebufferImageView(config, framebuffer_addr);
+    };
+    auto [image_view, scaled] = find_view();
+    const u32 bytes_per_pixel = [&] {
+        switch (config.pixel_format) {
+        case Service::android::PixelFormat::Rgb565:
+            return 2U;
+        default:
+            return 4U;
+        }
+    }();
+    const u64 fb_bytes = static_cast<u64>(pixel_stride) * config.height * bytes_per_pixel;
+    if (!image_view && fb_bytes > 0) {
+        texture_cache.DownloadMemory(framebuffer_addr, static_cast<size_t>(fb_bytes));
+        std::tie(image_view, scaled) = find_view();
+    }
+    DAddr present_addr = framebuffer_addr;
+    size_t present_bytes = static_cast<size_t>(fb_bytes);
+    if (IsViScanoutCpuAddr(framebuffer_addr)) {
+        const size_t vi_bytes = static_cast<size_t>(fb_bytes);
+        const bool vi_gpu_modified =
+            vi_bytes > 0 && texture_cache.IsRegionGpuModified(framebuffer_addr, vi_bytes);
+        const auto try_remap_to_offscreen = [&](DAddr rt_cpu, GPUVAddr rt_gpu,
+                                                const VideoCommon::ImageInfo& rt_info) {
+            if (rt_gpu == 0 || rt_cpu == 0 || IsViScanoutCpuAddr(rt_cpu) ||
+                rt_info.format == VideoCore::Surface::PixelFormat::Invalid) {
+                return false;
+            }
+            const size_t rt_bytes = ImageInfoGuestBytes(rt_info);
+            const bool offscreen_modified =
+                rt_bytes > 0 && texture_cache.IsRegionGpuModified(rt_cpu, rt_bytes);
+            auto [offscreen_view, offscreen_scaled] =
+                texture_cache.TryFindRenderTargetImageView(rt_info, rt_gpu);
+            static u32 remap_diag_budget = 60;
+            if (remap_diag_budget > 0) {
+                --remap_diag_budget;
+                if (!offscreen_modified) {
+                    LOG_INFO(Render_Vulkan,
+                             "AccelerateDisplay: skip remap VI 0x{:x} -> game RT 0x{:x} "
+                             "(rt0_gpu=0x{:x}): rt_not_modified",
+                             framebuffer_addr, rt_cpu, rt_gpu);
+                } else if (!offscreen_view) {
+                    LOG_INFO(Render_Vulkan,
+                             "AccelerateDisplay: skip remap VI 0x{:x} -> game RT 0x{:x} "
+                             "(rt0_gpu=0x{:x} fmt={}): rt_view_not_found",
+                             framebuffer_addr, rt_cpu, rt_gpu,
+                             static_cast<u32>(rt_info.format));
+                } else {
+                    LOG_INFO(Render_Vulkan,
+                             "AccelerateDisplay: remap VI 0x{:x} -> game RT 0x{:x} "
+                             "(rt0_gpu=0x{:x} peak_verts={})",
+                             framebuffer_addr, rt_cpu, rt_gpu, g_game_rt0_peak_verts);
+                }
+            }
+            if (!offscreen_modified || !offscreen_view) {
+                return false;
+            }
+            if (auto [display_view, display_scaled] =
+                    texture_cache.TryFindFramebufferImageView(config, rt_cpu);
+                display_view) {
+                offscreen_view = display_view;
+                offscreen_scaled = display_scaled;
+            }
+            image_view = offscreen_view;
+            scaled = offscreen_scaled;
+            present_addr = rt_cpu;
+            present_bytes = rt_bytes;
+            return true;
+        };
+        // When VI already has GPU UI overlays, present it directly (game RT was composited on
+        // the first VI-targeted draw). Fall back to remapping only when VI is still empty.
+        if (!vi_gpu_modified) {
+            try_remap_to_offscreen(g_game_rt0_cpu_addr, g_game_rt0_gpu_addr, g_game_rt0_info);
+        }
+    }
+    const bool gpu_modified =
+        present_bytes > 0 && texture_cache.IsRegionGpuModified(present_addr, present_bytes);
+    static u32 accelerate_diag_budget = 120;
+    if (accelerate_diag_budget > 0) {
+        --accelerate_diag_budget;
+        u32 guest_px_raw = 0;
+        if (g_fb_sample_budget > 0) {
+            --g_fb_sample_budget;
+            if (const u8* const host_ptr = device_memory.GetPointer<u8>(framebuffer_addr)) {
+                std::memcpy(&guest_px_raw, host_ptr, sizeof(guest_px_raw));
+            }
+        }
+        LOG_INFO(Render_Vulkan,
+                 "AccelerateDisplay: addr=0x{:x} {}x{} stride={} accelerated={} "
+                 "gpu_modified={} guest_px_raw={:08x}",
+                 framebuffer_addr, config.width, config.height, pixel_stride, image_view != nullptr,
+                 gpu_modified, guest_px_raw);
+    }
     if (!image_view) {
         return {};
     }
@@ -1036,6 +1336,8 @@ std::optional<FramebufferTextureInfo> RasterizerVulkan::AccelerateDisplay(
     info.height = image_view->size.height;
     info.scaled_width = scaled ? resolution.ScaleUp(info.width) : info.width;
     info.scaled_height = scaled ? resolution.ScaleUp(info.height) : info.height;
+    info.guest_addr = present_addr;
+    info.guest_bytes = present_bytes;
     return info;
 }
 
@@ -1173,11 +1475,15 @@ void RasterizerVulkan::HandleTransformFeedback() {
 
     auto& regs = maxwell3d->regs;
     if (!device.IsExtTransformFeedbackSupported()) {
-        std::call_once(warn_unsupported, [&] {
-            LOG_WARNING(Render_Vulkan,
-                        "Transform feedback is enabled in GPU state but VK_EXT_transform_feedback "
-                        "is unavailable (e.g. MoltenVK); using software emulation");
-        });
+        if (regs.transform_feedback_enabled != 0) {
+            std::call_once(warn_unsupported, [&] {
+                LOG_WARNING(Render_Vulkan,
+                            "Transform feedback is enabled in GPU state but "
+                            "VK_EXT_transform_feedback is unavailable (e.g. MoltenVK); using "
+                            "software emulation");
+                g_xfb_draw_diag_budget = 40;
+            });
+        }
         query_cache.CounterEnable(VideoCommon::QueryType::StreamingByteCount,
                                   regs.transform_feedback_enabled);
         return;

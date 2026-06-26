@@ -34,6 +34,8 @@
 #include <QStringLiteral>
 #include <QSurfaceFormat>
 #include <QThread>
+#include <QMouseEvent>
+#include <QWheelEvent>
 #include <QWindow>
 #include <QtCore/qobjectdefs.h>
 
@@ -153,6 +155,20 @@ public:
 
     QPaintEngine* paintEngine() const override {
         return nullptr;
+    }
+
+protected:
+    void mousePressEvent(QMouseEvent* event) override {
+        render_window->ForwardChildMouseEvent(event);
+    }
+    void mouseMoveEvent(QMouseEvent* event) override {
+        render_window->ForwardChildMouseEvent(event);
+    }
+    void mouseReleaseEvent(QMouseEvent* event) override {
+        render_window->ForwardChildMouseEvent(event);
+    }
+    void wheelEvent(QWheelEvent* event) override {
+        render_window->ForwardChildWheelEvent(event);
     }
 
 private:
@@ -605,17 +621,13 @@ void GRenderWindow::mousePressEvent(QMouseEvent* event) {
         mouse_hide_timer.start();
     }
 
-    // Touch input is handled in TouchBeginEvent
-    if (event->source() == Qt::MouseEventSynthesizedBySystem) {
-        return;
-    }
-    // Qt sometimes returns the parent coordinates. To avoid this we read the global mouse
-    // coordinates and map them to the current render area
     const auto pos = mapFromGlobal(QCursor::pos());
     const auto [x, y] = ScaleTouch(pos);
     const auto [touch_x, touch_y] = MapToTouchScreen(x, y);
     const auto button = QtButtonToMouseButton(event->button());
 
+    input_subsystem->GetMouse()->MouseMove(touch_x, touch_y);
+    input_subsystem->GetMouse()->TouchMove(touch_x, touch_y);
     input_subsystem->GetMouse()->PressMouseButton(button);
     input_subsystem->GetMouse()->PressButton(pos.x(), pos.y(), button);
     input_subsystem->GetMouse()->PressTouchButton(touch_x, touch_y, button);
@@ -672,13 +684,28 @@ void GRenderWindow::mouseMoveEvent(QMouseEvent* event) {
 }
 
 void GRenderWindow::mouseReleaseEvent(QMouseEvent* event) {
-    // Touch input is handled in TouchEndEvent
-    if (event->source() == Qt::MouseEventSynthesizedBySystem) {
-        return;
-    }
-
     const auto button = QtButtonToMouseButton(event->button());
     input_subsystem->GetMouse()->ReleaseButton(button);
+}
+
+void GRenderWindow::ForwardChildMouseEvent(QMouseEvent* event) {
+    switch (event->type()) {
+    case QEvent::MouseButtonPress:
+        mousePressEvent(event);
+        break;
+    case QEvent::MouseMove:
+        mouseMoveEvent(event);
+        break;
+    case QEvent::MouseButtonRelease:
+        mouseReleaseEvent(event);
+        break;
+    default:
+        break;
+    }
+}
+
+void GRenderWindow::ForwardChildWheelEvent(QWheelEvent* event) {
+    wheelEvent(event);
 }
 
 void GRenderWindow::ConstrainMouse() {
@@ -921,6 +948,10 @@ bool GRenderWindow::InitRenderTarget() {
     window_info = QtCommon::GetWindowSystemInfo(child_widget->windowHandle());
 
     layout()->addWidget(child_widget);
+    child_widget->installEventFilter(this);
+    if (QWindow* child_window = child_widget->windowHandle()) {
+        child_window->installEventFilter(this);
+    }
     // Reset minimum required size to avoid resizing issues on the main window after restarting.
     setMinimumSize(1, 1);
 
@@ -940,6 +971,10 @@ bool GRenderWindow::InitRenderTarget() {
 
 void GRenderWindow::ReleaseRenderTarget() {
     if (child_widget) {
+        if (QWindow* child_window = child_widget->windowHandle()) {
+            child_window->removeEventFilter(this);
+        }
+        child_widget->removeEventFilter(this);
         layout()->removeWidget(child_widget);
         child_widget->deleteLater();
         child_widget = nullptr;
@@ -1025,6 +1060,21 @@ void GRenderWindow::showEvent(QShowEvent* event) {
 }
 
 bool GRenderWindow::eventFilter(QObject* object, QEvent* event) {
+    if (child_widget && (object == child_widget || object == child_widget->windowHandle())) {
+        switch (event->type()) {
+        case QEvent::MouseButtonPress:
+        case QEvent::MouseButtonRelease:
+        case QEvent::MouseMove:
+            ForwardChildMouseEvent(static_cast<QMouseEvent*>(event));
+            return true;
+        case QEvent::Wheel:
+            ForwardChildWheelEvent(static_cast<QWheelEvent*>(event));
+            return true;
+        default:
+            break;
+        }
+    }
+
     // Only handle HoverMove for panning.
     if (event->type() == QEvent::HoverMove) {
         if (Settings::values.mouse_panning.GetValue() || Settings::values.mouse_enabled.GetValue()) {

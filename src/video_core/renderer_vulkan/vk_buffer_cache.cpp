@@ -177,6 +177,10 @@ void BufferCacheRuntime::RegisterXfbEmulationCounterBuffer(VkBuffer buffer) {
 void BufferCacheRuntime::SnapshotXfbEmulationCounter() {
     if (xfb_emulation_counter_buffer == VK_NULL_HANDLE ||
         !xfb_emulation_counter_snapshot_buffer) {
+        LOG_WARNING(Render_Vulkan,
+                    "XFB counter snapshot skipped: counter={} snapshot={}",
+                    xfb_emulation_counter_buffer != VK_NULL_HANDLE,
+                    static_cast<bool>(xfb_emulation_counter_snapshot_buffer));
         return;
     }
     static constexpr VkMemoryBarrier READ_BARRIER{
@@ -207,22 +211,57 @@ void BufferCacheRuntime::SnapshotXfbEmulationCounter() {
     });
 }
 
+u32 BufferCacheRuntime::ReadXfbEmulationCounterSnapshotRecords() {
+    const VkBuffer snapshot_buffer = GetXfbEmulationCounterSnapshotBuffer();
+    if (snapshot_buffer == VK_NULL_HANDLE) {
+        return 0;
+    }
+    const StagingBufferRef counter_staging =
+        staging_pool.Request(sizeof(u32), MemoryUsage::Download, true);
+    scheduler.Finish();
+    scheduler.Record([snapshot_buffer, counter_staging](vk::CommandBuffer cmdbuf) {
+        std::array<VkBufferCopy, 1> copy{VkBufferCopy{
+            .srcOffset = 0,
+            .dstOffset = counter_staging.offset,
+            .size = sizeof(u32),
+        }};
+        cmdbuf.CopyBuffer(snapshot_buffer, counter_staging.buffer, copy);
+    });
+    scheduler.Finish();
+    u32 records = 0;
+    std::memcpy(&records, counter_staging.mapped_span.data() + counter_staging.offset, sizeof(u32));
+    StagingBufferRef counter_staging_ref = counter_staging;
+    staging_pool.FreeDeferred(counter_staging_ref);
+    return records;
+}
+
 void BufferCacheRuntime::EmulateDrawIndirectByteCount(VkBuffer guest_counter_buffer,
                                                       u32 guest_counter_offset, u32 stride,
                                                       u32 register_byte_fallback) {
     const VkBuffer snapshot_buffer = GetXfbEmulationCounterSnapshotBuffer();
     const VkBuffer counter_buffer =
         snapshot_buffer != VK_NULL_HANDLE ? snapshot_buffer : xfb_emulation_counter_buffer;
+    const u32 safe_stride = std::max(stride, 1u);
+    const u32 register_vertex_count = register_byte_fallback / safe_stride;
+
+    LOG_INFO(Render_Vulkan,
+             "XFB DrawIndirectByteCount: stride={} register_byte_count={} "
+             "register_vertex_count={} has_snapshot={} has_counter={}",
+             stride, register_byte_fallback, register_vertex_count,
+             snapshot_buffer != VK_NULL_HANDLE, counter_buffer != VK_NULL_HANDLE);
+
     if (counter_buffer == VK_NULL_HANDLE) {
+        LOG_WARNING(Render_Vulkan,
+                    "XFB DrawIndirectByteCount: no counter buffer; skipping draw");
         return;
     }
     if (!xfb_byte_count_draw_buffer) {
         xfb_byte_count_draw_buffer =
             CreateXfbByteCountDrawBuffer(device, memory_allocator, staging_pool, scheduler);
     }
-    const u32 safe_stride = std::max(stride, 1u);
-    u32 vertex_count = register_byte_fallback / safe_stride;
-    if (vertex_count == 0 && snapshot_buffer != VK_NULL_HANDLE) {
+
+    u32 snapshot_records = 0;
+    if (snapshot_buffer != VK_NULL_HANDLE) {
         const StagingBufferRef counter_staging =
             staging_pool.Request(sizeof(u32), MemoryUsage::Download, true);
         scheduler.Finish();
@@ -235,18 +274,23 @@ void BufferCacheRuntime::EmulateDrawIndirectByteCount(VkBuffer guest_counter_buf
             cmdbuf.CopyBuffer(snapshot_buffer, counter_staging.buffer, copy);
         });
         scheduler.Finish();
-        u32 records = 0;
-        std::memcpy(&records, counter_staging.mapped_span.data() + counter_staging.offset,
-                    sizeof(u32));
+        std::memcpy(&snapshot_records,
+                    counter_staging.mapped_span.data() + counter_staging.offset, sizeof(u32));
         StagingBufferRef counter_staging_ref = counter_staging;
         staging_pool.FreeDeferred(counter_staging_ref);
-        if (records > 0) {
-            vertex_count = records;
-        }
-        LOG_INFO(Render_Vulkan,
-                 "XFB DrawIndirectByteCount: register_byte_count=0, snapshot_records={}, "
-                 "vertex_count={}",
-                 records, vertex_count);
+    }
+
+    // Counter snapshot stores emitted records (vertices). Prefer it over the register fallback,
+    // which may still be zero when the game expects the counter buffer to be authoritative.
+    u32 vertex_count = snapshot_records > 0 ? snapshot_records : register_vertex_count;
+    LOG_INFO(Render_Vulkan,
+             "XFB DrawIndirectByteCount: snapshot_records={} vertex_count={} "
+             "(source={})",
+             snapshot_records, vertex_count,
+             snapshot_records > 0 ? "snapshot" : "register");
+    if (vertex_count == 0) {
+        LOG_WARNING(Render_Vulkan,
+                    "XFB DrawIndirectByteCount: vertex_count=0; consume draw will be empty");
     }
     const StagingBufferRef draw_staging =
         staging_pool.Request(sizeof(VkDrawIndirectCommand), MemoryUsage::Upload, true);
