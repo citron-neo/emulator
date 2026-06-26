@@ -2,8 +2,8 @@
 // SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
-#include <algorithm>
-#include <array>
+#include <string_view>
+#include <vector>
 
 #include "common/common_types.h"
 #include "common/fs/file.h"
@@ -78,6 +78,30 @@ static void SanitizeJPEGImageSize(std::vector<u8>& image) {
     image.resize(std::min(image.size(), max_jpeg_image_size));
 }
 
+namespace {
+
+std::vector<u8> GenerateStubIdToken() {
+    constexpr std::string_view token{
+        "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9."
+        "eyJzdWIiOiJvZmZsaW5lLWNpdHJvbiJ9."
+        "citron_stub_offline_id_token_v1"};
+    return std::vector<u8>(token.begin(), token.end());
+}
+
+void PushLoadIdTokenCacheResponse(HLERequestContext& ctx) {
+    const auto token = GenerateStubIdToken();
+    const u32 token_size = static_cast<u32>(token.size());
+    if (ctx.CanWriteBuffer(0)) {
+        ctx.WriteBuffer(token, 0);
+    }
+    IPC::ResponseBuilder rb{ctx, 4};
+    rb.Push(ResultSuccess);
+    rb.Push(token_size);
+    rb.Push(token_size);
+}
+
+} // Anonymous namespace
+
 class IManagerForSystemService final : public ServiceFramework<IManagerForSystemService> {
 public:
     explicit IManagerForSystemService(Core::System& system_, Common::UUID uuid)
@@ -117,8 +141,9 @@ public:
     }
 
 private:
-    Result CheckAvailability() {
-        LOG_WARNING(Service_ACC, "(STUBBED) called");
+    Result CheckAvailability(Out<bool> out_available) {
+        LOG_DEBUG(Service_ACC, "called");
+        *out_available = true;
         R_SUCCEED();
     }
 
@@ -605,11 +630,8 @@ public:
     ~EnsureTokenIdCacheAsyncInterface() = default;
 
     void LoadIdTokenCache(HLERequestContext& ctx) {
-        LOG_WARNING(Service_ACC, "(STUBBED) called");
-
-        IPC::ResponseBuilder rb{ctx, 3};
-        rb.Push(ResultSuccess);
-        rb.Push(0);
+        LOG_INFO(Service_ACC, "called");
+        PushLoadIdTokenCacheResponse(ctx);
     }
 
 protected:
@@ -749,9 +771,10 @@ public:
 
 private:
     void CheckAvailability(HLERequestContext& ctx) {
-        LOG_DEBUG(Service_ACC, "(STUBBED) called");
-        IPC::ResponseBuilder rb{ctx, 2};
+        LOG_DEBUG(Service_ACC, "called");
+        IPC::ResponseBuilder rb{ctx, 3};
         rb.Push(ResultSuccess);
+        rb.Push<u8>(1);
     }
 
     void GetAccountId(HLERequestContext& ctx) {
@@ -763,7 +786,8 @@ private:
     }
 
     void EnsureIdTokenCacheAsync(HLERequestContext& ctx) {
-        LOG_WARNING(Service_ACC, "(STUBBED) called");
+        LOG_INFO(Service_ACC, "called");
+        ensure_token_id = std::make_shared<EnsureTokenIdCacheAsyncInterface>(system);
 
         IPC::ResponseBuilder rb{ctx, 2, 0, 1};
         rb.Push(ResultSuccess);
@@ -777,12 +801,8 @@ private:
     }
 
     void LoadIdTokenCache(HLERequestContext& ctx) {
-        LOG_WARNING(Service_ACC, "(STUBBED) called");
-
-        IPC::ResponseBuilder rb{ctx, 4};
-        rb.Push(ResultSuccess);
-        rb.Push(0); // token size
-        rb.Push(0); // unknown
+        LOG_INFO(Service_ACC, "called");
+        PushLoadIdTokenCacheResponse(ctx);
     }
 
     void GetNintendoAccountUserResourceCacheForApplication(HLERequestContext& ctx) {
