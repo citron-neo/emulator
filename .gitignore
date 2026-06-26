@@ -56,6 +56,10 @@ pgo-profiles-backup/
 *.tar.gz
 *.tar
 
+# Local device crash reports and debug logs (not part of the project)
+device-crashes/
+citron_ios_device_log.txt
+
 # misc
 *.index
 *.keys

@@ -1,4 +1,0 @@
-{"restore_payload_version":"Unknown","restore_type":"OTAUpdate","os_version":"23D8133","itunes_version":"23D8133","bug_type":"183","restore_error":"39","name":"iPhoneRestore"}
-16de23000 : Entering handle_brain_is_loadable
-16de23000 : Unable to load trust cache: 0xe00002d8
-16de23000 : MobileSoftwareUpdateErrorDomain error 39 - Failed to load update brain trust cache
