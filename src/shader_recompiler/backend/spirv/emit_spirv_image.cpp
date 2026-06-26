@@ -164,7 +164,23 @@ private:
             }
         }
         if (runtime_offset_allowed) {
-            Add(spv::ImageOperandsMask::Offset, ctx.Def(offset));
+            Id offset_id{ctx.Def(offset)};
+            if (ctx.profile.has_broken_unsigned_image_offsets) {
+                const u32 num_components = [&] {
+                    switch (inst->GetOpcode()) {
+                    case IR::Opcode::CompositeConstructU32x2:
+                        return 2U;
+                    case IR::Opcode::CompositeConstructU32x3:
+                        return 3U;
+                    case IR::Opcode::CompositeConstructU32x4:
+                        return 4U;
+                    default:
+                        return 1U;
+                    }
+                }();
+                offset_id = ctx.OpBitcast(ctx.S32[num_components], offset_id);
+            }
+            Add(spv::ImageOperandsMask::Offset, offset_id);
         }
     }
 
