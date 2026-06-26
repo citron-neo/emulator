@@ -58,6 +58,12 @@ struct DrawParams {
     bool is_indexed;
 };
 
+constexpr VkPipelineStageFlags XfbEmulationWriteStages() {
+    return VK_PIPELINE_STAGE_VERTEX_SHADER_BIT |
+           VK_PIPELINE_STAGE_TESSELLATION_EVALUATION_SHADER_BIT |
+           VK_PIPELINE_STAGE_GEOMETRY_SHADER_BIT;
+}
+
 void FinishEmulatedTransformFeedbackDraw(Scheduler& scheduler, BufferCache& buffer_cache,
                                          const GraphicsPipeline* pipeline, const Device& device) {
     if (!pipeline || !pipeline->UsesEmulatedTransformFeedback() ||
@@ -73,8 +79,8 @@ void FinishEmulatedTransformFeedbackDraw(Scheduler& scheduler, BufferCache& buff
     };
     scheduler.RequestOutsideRenderPassOperationContext();
     scheduler.Record([](vk::CommandBuffer cmdbuf) {
-        cmdbuf.PipelineBarrier(VK_PIPELINE_STAGE_VERTEX_SHADER_BIT,
-                               VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, 0, xfb_emulated_barrier);
+        cmdbuf.PipelineBarrier(XfbEmulationWriteStages(), VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, 0,
+                               xfb_emulated_barrier);
     });
     buffer_cache.runtime.SnapshotXfbEmulationCounter();
 }
@@ -337,22 +343,18 @@ void RasterizerVulkan::Draw(bool is_indexed, u32 instance_count) {
 void RasterizerVulkan::DrawIndirect() {
     auto& params = maxwell3d->draw_manager->GetIndirectParams();
 
-    // VK_EXT_transform_feedback is unavailable on MoltenVK. Byte-count draws still reach here if
-    // macro JIT/LLE bypasses HLE_DrawIndirectByteCount — mirror that HLE Fallback with DrawArray.
-    if (params.is_byte_count && !device.IsExtTransformFeedbackSupported()) {
-        const auto& regs = maxwell3d->regs;
-        const u32 stride = static_cast<u32>(std::max<size_t>(params.stride, 1));
-        const u32 vertex_count = regs.draw_auto_byte_count / stride;
-        maxwell3d->draw_manager->DrawArray(regs.draw.topology, 0, vertex_count, 0, 1);
-        return;
-    }
-
     buffer_cache.SetDrawIndirect(&params);
     PrepareDraw(params.is_indexed, [this, &params] {
         const auto indirect_buffer = buffer_cache.GetDrawIndirectBuffer();
         const auto& buffer = indirect_buffer.first;
         const auto& offset = indirect_buffer.second;
         if (params.is_byte_count) {
+            if (!device.IsExtTransformFeedbackSupported()) {
+                buffer_cache.runtime.EmulateDrawIndirectByteCount(
+                    buffer->Handle(), offset, static_cast<u32>(params.stride),
+                    maxwell3d->regs.draw_auto_byte_count);
+                return;
+            }
             scheduler.Record([buffer_obj = buffer->Handle(), offset,
                               stride = params.stride](vk::CommandBuffer cmdbuf) {
                 cmdbuf.DrawIndirectByteCountEXT(1, 0, buffer_obj, offset, 0,

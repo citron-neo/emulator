@@ -146,6 +146,10 @@ public:
     /// Copy the live TF emulation counter after a draw so later query reads are not cleared away.
     void SnapshotXfbEmulationCounter();
 
+    /// Emulate VK_EXT_transform_feedback DrawIndirectByteCount using the emulated counter snapshot.
+    void EmulateDrawIndirectByteCount(VkBuffer guest_counter_buffer, u32 guest_counter_offset,
+                                      u32 stride, u32 register_byte_fallback);
+
     void BindTransformFeedbackBuffer(u32 index, VkBuffer buffer, u32 offset, u32 size);
 
     void BindTransformFeedbackBuffers(VideoCommon::HostBindings<Buffer>& bindings);
@@ -197,6 +201,7 @@ private:
 
     VkBuffer xfb_emulation_counter_buffer{VK_NULL_HANDLE};
     vk::Buffer xfb_emulation_counter_snapshot_buffer;
+    vk::Buffer xfb_byte_count_draw_buffer;
 };
 
 struct BufferCacheParams {

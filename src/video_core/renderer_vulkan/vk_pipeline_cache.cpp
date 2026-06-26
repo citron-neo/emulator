@@ -55,7 +55,7 @@ using VideoCommon::FileEnvironment;
 using VideoCommon::GenericEnvironment;
 using VideoCommon::GraphicsEnvironment;
 
-constexpr u32 CACHE_VERSION = 22;
+constexpr u32 CACHE_VERSION = 23;
 constexpr std::array<char, 8> VULKAN_CACHE_MAGIC_NUMBER{'y', 'u', 'z', 'u', 'v', 'k', 'c', 'h'};
 
 template <typename Container>
@@ -220,8 +220,11 @@ Shader::RuntimeInfo MakeRuntimeInfo(std::span<const Shader::IR::Program> program
             }
             // When the guest binds a geometry shader but the host cannot run one, stream-out
             // emulation must run on the last stage before the skipped geometry stage.
+            const bool guest_gs_skipped = guest_has_geometry_shader && !geometry_supported;
+            const bool gs_is_passthrough = skipped_geometry_program == nullptr ||
+                                           skipped_geometry_program->is_geometry_passthrough;
             if (!guest_has_geometry_shader ||
-                (!geometry_supported && !uses_tessellation)) {
+                (guest_gs_skipped && !uses_tessellation && gs_is_passthrough)) {
                 PopulateXfbRuntimeInfo(info, key);
             }
             info.convert_depth_mode = gl_ndc;
