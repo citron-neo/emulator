@@ -32,6 +32,7 @@ public:
 
     VirtualDir Create(SaveDataSpaceId space, const SaveDataAttribute& meta) const;
     VirtualDir Open(SaveDataSpaceId space, const SaveDataAttribute& meta) const;
+    Result DeleteCacheStorage(u16 index) const;
 
     VirtualDir GetSaveDataSpaceDirectory(SaveDataSpaceId space) const;
 

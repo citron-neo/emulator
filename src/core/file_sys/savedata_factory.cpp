@@ -139,6 +139,21 @@ VirtualDir SaveDataFactory::Open(SaveDataSpaceId space, const SaveDataAttribute&
     return out;
 }
 
+Result SaveDataFactory::DeleteCacheStorage(u16 index) const {
+    const auto save_directory = GetFullPath(program_id, dir, SaveDataSpaceId::User,
+                                            SaveDataType::Cache, 0, {}, 0);
+
+    if (dir->GetDirectoryRelative(save_directory) == nullptr) {
+        return ResultSuccess;
+    }
+
+    if (!dir->DeleteSubdirectoryRecursive(save_directory)) {
+        return ResultPermissionDenied;
+    }
+
+    return ResultSuccess;
+}
+
 VirtualDir SaveDataFactory::GetSaveDataSpaceDirectory(SaveDataSpaceId space) const {
     return dir->GetDirectoryRelative(GetSaveDataSpaceIdPath(space));
 }
@@ -164,7 +179,8 @@ std::string SaveDataFactory::GetSaveDataSpaceIdPath(SaveDataSpaceId space) {
 std::string SaveDataFactory::GetFullPath(ProgramId program_id, VirtualDir dir,
                                          SaveDataSpaceId space, SaveDataType type, u64 title_id,
                                          u128 user_id, u64 save_id) {
-    if ((type == SaveDataType::Account || type == SaveDataType::Device) && title_id == 0) {
+    if ((type == SaveDataType::Account || type == SaveDataType::Device || type == SaveDataType::Cache) &&
+        title_id == 0) {
         title_id = program_id;
     }
 

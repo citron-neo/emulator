@@ -255,8 +255,8 @@ Result FSP_SRV::CreateSaveDataFileSystemBySystemSaveDataId(
 Result FSP_SRV::OpenSaveDataFileSystem(OutInterface<IFileSystem> out_interface,
                                        FileSys::SaveDataSpaceId space_id,
                                        FileSys::SaveDataAttribute attribute) {
-    LOG_INFO(Service_FS, "called, space_id={:02X}, program_id={:016X}", static_cast<u8>(space_id),
-             attribute.program_id);
+    LOG_INFO(Service_FS, "called, space_id={:02X}, {}", static_cast<u8>(space_id),
+             attribute.DebugInfo());
 
     FileSys::VirtualDir save_root{};
     // This triggers the 'Smart Pull' (Ryujinx -> Citron) in savedata_factory.cpp
@@ -619,9 +619,8 @@ Result FSP_SRV::ExtendSaveDataFileSystem(FileSys::SaveDataSpaceId space_id, u64 
 }
 
 Result FSP_SRV::DeleteCacheStorage(u16 index) {
-    LOG_WARNING(Service_FS, "(STUBBED) called, index={}", index);
-    // Cache storage deletion is not implemented, but we return success to prevent crashes
-    R_SUCCEED();
+    LOG_INFO(Service_FS, "called, index={}", index);
+    R_RETURN(save_data_controller->GetFactory()->DeleteCacheStorage(index));
 }
 
 Result FSP_SRV::GetCacheStorageSize(s32 index, Out<s64> out_data_size, Out<s64> out_journal_size) {
