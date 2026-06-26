@@ -54,6 +54,7 @@ public:
                                           const SaveDataAttribute& attribute) const;
 
     void SetAutoCreate(bool state);
+    Result SyncExtraDataSizes(VirtualDir save_dir, const SaveDataAttribute& meta) const;
     void DoNandBackup(SaveDataSpaceId space, const SaveDataAttribute& meta, VirtualDir custom_dir) const;
 
     // --- MIRRORING TOOLS ---
@@ -62,6 +63,10 @@ public:
     void PerformStartupMirrorSync() const;
 
 private:
+    SaveDataAttribute NormalizeAttribute(const SaveDataAttribute& meta) const;
+    SaveDataSize GetResolvedSaveDataSize(SaveDataType type, u64 title_id, u128 user_id) const;
+    Result InitializeSaveDataLayout(VirtualDir save_dir) const;
+
     Core::System& system;
     ProgramId program_id;
     VirtualDir dir;

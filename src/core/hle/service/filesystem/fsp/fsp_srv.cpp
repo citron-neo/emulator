@@ -4,6 +4,7 @@
 
 #include <cinttypes>
 #include <cstring>
+#include <functional>
 #include <iterator>
 #include <string>
 #include <utility>
@@ -272,27 +273,37 @@ Result FSP_SRV::OpenSaveDataFileSystem(OutInterface<IFileSystem> out_interface,
 
     FileSys::VirtualDir working_dir = journal_fs->GetWorkingDirectory();
 
-    FileSys::StorageId id{};
-    switch (space_id) {
-    case FileSys::SaveDataSpaceId::User:
-        id = FileSys::StorageId::NandUser;
-        break;
-    case FileSys::SaveDataSpaceId::SdSystem:
-    case FileSys::SaveDataSpaceId::SdUser:
-        id = FileSys::StorageId::SdCard;
-        break;
-    case FileSys::SaveDataSpaceId::System:
-    case FileSys::SaveDataSpaceId::Temporary:
-    case FileSys::SaveDataSpaceId::ProperSystem:
-    case FileSys::SaveDataSpaceId::SafeMode:
-        id = FileSys::StorageId::NandSystem;
-        break;
-    }
+    const FileSys::SaveDataSize save_sizes =
+        save_data_controller->ReadSaveDataSize(attribute.type, title_id, attribute.user_id);
+    const auto working_dir_for_size = working_dir;
+    SizeGetter size_getter{
+        [working_dir_for_size, save_sizes]() {
+            u64 used = 0;
+            std::function<void(const FileSys::VirtualDir&)> accumulate;
+            accumulate = [&](const FileSys::VirtualDir& dir) {
+                if (dir == nullptr) {
+                    return;
+                }
+                for (const auto& file : dir->GetFiles()) {
+                    used += static_cast<u64>(file->GetSize());
+                }
+                for (const auto& subdir : dir->GetSubdirectories()) {
+                    accumulate(subdir);
+                }
+            };
+            accumulate(working_dir_for_size);
+            if (used >= save_sizes.normal) {
+                return UINT64_C(0);
+            }
+            return save_sizes.normal - used;
+        },
+        [save_sizes]() { return save_sizes.normal + save_sizes.journal; },
+    };
 
     // Wrap the directory in the IFileSystem interface.
     // We pass 'save_data_controller->GetFactory()' so the Commit function can find the Mirror.
     *out_interface = std::make_shared<IFileSystem>(
-        system, std::move(working_dir), SizeGetter::FromStorageId(fsc, id),
+        system, std::move(working_dir), std::move(size_getter),
         save_data_controller->GetFactory(), space_id, attribute, std::move(save_root),
         std::move(journal_fs));
 
@@ -336,8 +347,36 @@ Result FSP_SRV::FindSaveDataWithFilter(Out<s64> out_count,
                                        OutBuffer<BufferAttr_HipcMapAlias> out_buffer,
                                        FileSys::SaveDataSpaceId space_id,
                                        FileSys::SaveDataFilter filter) {
-    LOG_WARNING(Service_FS, "(STUBBED) called");
-    R_THROW(FileSys::ResultTargetNotFound);
+    LOG_INFO(Service_FS, "called, space_id={}", space_id);
+
+    FileSys::SaveDataAttribute query = filter.attribute;
+    if (!filter.use_program_id || query.program_id == 0) {
+        query.program_id = program_id;
+    }
+    if (filter.use_save_data_type) {
+        query.type = filter.attribute.type;
+    }
+    if (filter.use_user_id) {
+        query.user_id = filter.attribute.user_id;
+    }
+    if (filter.use_save_data_id) {
+        query.system_save_data_id = filter.attribute.system_save_data_id;
+    }
+    if (filter.use_index) {
+        query.index = filter.attribute.index;
+    }
+    query.rank = filter.rank;
+
+    FileSys::VirtualDir save_dir{};
+    R_TRY(save_data_controller->OpenSaveData(&save_dir, space_id, query));
+
+    if (out_buffer.size() < sizeof(FileSys::SaveDataAttribute)) {
+        R_THROW(FileSys::ResultInvalidSize);
+    }
+
+    std::memcpy(out_buffer.data(), &query, sizeof(FileSys::SaveDataAttribute));
+    *out_count = 1;
+    R_SUCCEED();
 }
 
 Result FSP_SRV::WriteSaveDataFileSystemExtraData(InBuffer<BufferAttr_HipcMapAlias> buffer,

@@ -14,6 +14,8 @@
 #include "core/core.h"
 #include "core/file_sys/directory_save_data_filesystem.h"
 #include "core/file_sys/errors.h"
+#include "core/file_sys/control_metadata.h"
+#include "core/file_sys/patch_manager.h"
 #include "core/file_sys/savedata_extra_data_accessor.h"
 #include "core/file_sys/savedata_factory.h"
 #include "core/file_sys/vfs/vfs.h"
@@ -99,41 +101,128 @@ SaveDataFactory::SaveDataFactory(Core::System& system_, ProgramId program_id_,
 
 SaveDataFactory::~SaveDataFactory() = default;
 
+SaveDataAttribute SaveDataFactory::NormalizeAttribute(const SaveDataAttribute& meta) const {
+    SaveDataAttribute attr = meta;
+    if (attr.program_id == 0 && (attr.type == SaveDataType::Account || attr.type == SaveDataType::Device ||
+                                 attr.type == SaveDataType::Cache)) {
+        attr.program_id = program_id;
+    }
+    return attr;
+}
+
+SaveDataSize SaveDataFactory::GetResolvedSaveDataSize(SaveDataType type, u64 title_id,
+                                                      u128 user_id) const {
+    const u64 resolved_title_id = title_id != 0 ? title_id : program_id;
+    auto size = ReadSaveDataSize(type, resolved_title_id, user_id);
+    if (size.normal != 0 || size.journal != 0) {
+        return size;
+    }
+
+    const PatchManager pm{resolved_title_id, system.GetFileSystemController(),
+                          system.GetContentProvider()};
+    const auto metadata = pm.GetControlMetadata();
+    if (metadata.first == nullptr) {
+        return size;
+    }
+
+    switch (type) {
+    case SaveDataType::Cache:
+        return {metadata.first->GetCacheStorageSize(), metadata.first->GetCacheStorageJournalSize()};
+    case SaveDataType::Account:
+        return {metadata.first->GetDefaultNormalSaveSize(),
+                metadata.first->GetDefaultJournalSaveSize()};
+    case SaveDataType::Device:
+        return {metadata.first->GetDeviceSaveDataSize(),
+                metadata.first->GetDefaultJournalSaveSize()};
+    default:
+        return size;
+    }
+}
+
+Result SaveDataFactory::InitializeSaveDataLayout(VirtualDir save_dir) const {
+    DirectorySaveDataFileSystem journal_fs(save_dir);
+    return journal_fs.Initialize(true);
+}
+
+Result SaveDataFactory::SyncExtraDataSizes(VirtualDir save_dir,
+                                           const SaveDataAttribute& meta) const {
+    if (save_dir == nullptr) {
+        return ResultPathNotFound;
+    }
+
+    const auto attr = NormalizeAttribute(meta);
+    const auto sizes = GetResolvedSaveDataSize(attr.type, attr.program_id, attr.user_id);
+    if (sizes.normal == 0 && sizes.journal == 0) {
+        return ResultSuccess;
+    }
+
+    SaveDataExtraDataAccessor accessor(save_dir);
+    R_TRY(accessor.Initialize(true));
+
+    SaveDataExtraData extra_data{};
+    R_TRY(accessor.ReadExtraData(&extra_data));
+
+    extra_data.attr = attr;
+    if (extra_data.owner_id == 0) {
+        extra_data.owner_id = attr.program_id;
+    }
+    extra_data.available_size = static_cast<s64>(sizes.normal);
+    extra_data.journal_size = static_cast<s64>(sizes.journal);
+
+    R_TRY(accessor.WriteExtraData(extra_data));
+    return accessor.CommitExtraData();
+}
+
 VirtualDir SaveDataFactory::Create(SaveDataSpaceId space, const SaveDataAttribute& meta) const {
-    const auto save_directory = GetFullPath(program_id, dir, space, meta.type, meta.program_id,
-                                            meta.user_id, meta.system_save_data_id);
+    const auto attr = NormalizeAttribute(meta);
+    const auto save_directory = GetFullPath(program_id, dir, space, attr.type, attr.program_id,
+                                            attr.user_id, attr.system_save_data_id);
 
     auto save_dir = dir->CreateDirectoryRelative(save_directory);
     if (save_dir == nullptr) {
         return nullptr;
     }
 
+    const auto sizes = GetResolvedSaveDataSize(attr.type, attr.program_id, attr.user_id);
+
     SaveDataExtraDataAccessor accessor(save_dir);
     if (accessor.Initialize(true) == ResultSuccess) {
         SaveDataExtraData initial_data{};
-        initial_data.attr = meta;
-        initial_data.owner_id = meta.program_id;
+        initial_data.attr = attr;
+        initial_data.owner_id = attr.program_id;
         initial_data.timestamp = std::chrono::system_clock::now().time_since_epoch().count();
         initial_data.flags = static_cast<u32>(SaveDataFlags::None);
-        initial_data.available_size = 0;
-        initial_data.journal_size = 0;
+        initial_data.available_size = static_cast<s64>(sizes.normal);
+        initial_data.journal_size = static_cast<s64>(sizes.journal);
         initial_data.commit_id = 1;
 
         accessor.WriteExtraData(initial_data);
         accessor.CommitExtraData();
     }
 
+    if (sizes.normal != 0 || sizes.journal != 0) {
+        WriteSaveDataSize(attr.type, attr.program_id, attr.user_id, sizes);
+    }
+
+    InitializeSaveDataLayout(save_dir);
+
     return save_dir;
 }
 
 VirtualDir SaveDataFactory::Open(SaveDataSpaceId space, const SaveDataAttribute& meta) const {
-    const auto save_directory = GetFullPath(program_id, dir, space, meta.type, meta.program_id,
-                                            meta.user_id, meta.system_save_data_id);
+    const auto attr = NormalizeAttribute(meta);
+    const auto save_directory = GetFullPath(program_id, dir, space, attr.type, attr.program_id,
+                                            attr.user_id, attr.system_save_data_id);
 
     auto out = dir->GetDirectoryRelative(save_directory);
 
-    if (out == nullptr && (ShouldSaveDataBeAutomaticallyCreated(space, meta) && auto_create)) {
-        return Create(space, meta);
+    if (out == nullptr && (ShouldSaveDataBeAutomaticallyCreated(space, attr) && auto_create)) {
+        return Create(space, attr);
+    }
+
+    if (out != nullptr) {
+        SyncExtraDataSizes(out, attr);
+        InitializeSaveDataLayout(out);
     }
 
     return out;
@@ -226,13 +315,22 @@ SaveDataSize SaveDataFactory::ReadSaveDataSize(SaveDataType type, u64 title_id, 
     return out;
 }
 
-void SaveDataFactory::WriteSaveDataSize(SaveDataType type, u64 title_id, u128 user_id, SaveDataSize new_value) const {
+void SaveDataFactory::WriteSaveDataSize(SaveDataType type, u64 title_id, u128 user_id,
+                                        SaveDataSize new_value) const {
     const auto path = GetFullPath(program_id, dir, SaveDataSpaceId::User, type, title_id, user_id, 0);
     const auto relative_dir = GetOrCreateDirectoryRelative(dir, path);
     const auto size_file = relative_dir->CreateFile(GetSaveDataSizeFileName());
-    if (size_file == nullptr) return;
+    if (size_file == nullptr) {
+        return;
+    }
     size_file->Resize(sizeof(SaveDataSize));
     size_file->WriteObject(new_value);
+
+    SaveDataAttribute attr{};
+    attr.program_id = title_id != 0 ? title_id : program_id;
+    attr.user_id = user_id;
+    attr.type = type;
+    SyncExtraDataSizes(relative_dir, attr);
 }
 
 void SaveDataFactory::SetAutoCreate(bool state) {
