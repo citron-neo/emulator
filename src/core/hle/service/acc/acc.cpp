@@ -1007,6 +1007,8 @@ Result Module::Interface::InitializeApplicationInfoBase() {
         return Account::ResultInvalidApplication;
     }
 
+    application_info.launch_property = launch_property;
+    application_info.application_type = ApplicationType::Digital;
     switch (launch_property.base_game_storage_id) {
     case FileSys::StorageId::GameCard:
         application_info.application_type = ApplicationType::GameCard;
@@ -1023,8 +1025,8 @@ Result Module::Interface::InitializeApplicationInfoBase() {
         return Account::ResultInvalidApplication;
     }
 
-    LOG_WARNING(Service_ACC, "ApplicationInfo init required");
-    // TODO(ogniK): Actual initialization here
+    LOG_INFO(Service_ACC, "ApplicationInfo initialized for title_id={:016X}",
+             application_info.launch_property.title_id);
 
     return ResultSuccess;
 }
@@ -1080,10 +1082,9 @@ void Module::Interface::IsUserAccountSwitchLocked(HLERequestContext& ctx) {
 }
 
 void Module::Interface::InitializeApplicationInfoV2(HLERequestContext& ctx) {
-    LOG_WARNING(Service_ACC, "(STUBBED) called");
-
+    LOG_INFO(Service_ACC, "called");
     IPC::ResponseBuilder rb{ctx, 2};
-    rb.Push(ResultSuccess);
+    rb.Push(InitializeApplicationInfoBase());
 }
 
 void Module::Interface::BeginUserRegistration(HLERequestContext& ctx) {

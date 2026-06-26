@@ -124,6 +124,24 @@ void DataErase::Execute() {
         return;
     }
 
+    u64 normal_size{};
+    u64 journal_size{};
+    const auto account_size =
+        save_controller->ReadSaveDataSize(FileSys::SaveDataType::Account, program_id,
+                                          user_id.AsU128());
+    normal_size = account_size.normal;
+    journal_size = account_size.journal;
+    if (normal_size == 0 && journal_size == 0) {
+        const FileSys::PatchManager pm{program_id, fsc, system.GetContentProvider()};
+        const auto metadata = pm.GetControlMetadata();
+        if (metadata.first != nullptr) {
+            normal_size = metadata.first->GetDefaultNormalSaveSize();
+            journal_size = metadata.first->GetDefaultJournalSaveSize();
+            save_controller->WriteSaveDataSize(FileSys::SaveDataType::Account, program_id,
+                                               user_id.AsU128(), {normal_size, journal_size});
+        }
+    }
+
     FileSys::SaveDataAttribute cache_attribute{};
     cache_attribute.program_id = program_id;
     cache_attribute.type = FileSys::SaveDataType::Cache;

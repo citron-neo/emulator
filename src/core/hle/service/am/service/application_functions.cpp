@@ -26,41 +26,6 @@ namespace Service::AM {
 
 namespace {
 
-void EnsureCacheStorage(FileSystem::SaveDataController& save_controller, Core::System& system,
-                        u64 program_id) {
-    FileSys::SaveDataAttribute cache_attribute{};
-    cache_attribute.program_id = program_id;
-    cache_attribute.type = FileSys::SaveDataType::Cache;
-    cache_attribute.index = 0;
-
-    FileSys::VirtualDir cache_save{};
-    if (R_FAILED(save_controller.CreateSaveData(&cache_save, FileSys::SaveDataSpaceId::User,
-                                              cache_attribute))) {
-        LOG_WARNING(Service_AM, "EnsureCacheStorage: failed to create cache save for {:016X}",
-                    program_id);
-        return;
-    }
-
-    const FileSys::PatchManager pm{program_id, system.GetFileSystemController(),
-                                   system.GetContentProvider()};
-    const auto metadata = pm.GetControlMetadata();
-    if (metadata.first == nullptr) {
-        return;
-    }
-
-    const FileSys::SaveDataSize cache_size{
-        metadata.first->GetCacheStorageSize(),
-        metadata.first->GetCacheStorageJournalSize(),
-    };
-    if (cache_size.normal == 0 && cache_size.journal == 0) {
-        return;
-    }
-
-    save_controller.WriteSaveDataSize(FileSys::SaveDataType::Cache, program_id, {}, cache_size);
-    LOG_INFO(Service_AM, "EnsureCacheStorage: wrote cache sizes data={:#x} journal={:#x}",
-             cache_size.normal, cache_size.journal);
-}
-
 u64 CalculateSaveDataTotalSize(u64 normal_size, u64 journal_size) {
     constexpr u64 block_size = 0x4000;
     return Common::AlignUp(normal_size, block_size) + Common::AlignUp(journal_size, block_size) +
@@ -208,8 +173,6 @@ Result IApplicationFunctions::EnsureSaveData(Out<u64> out_size, Common::UUID use
 
     FileSys::VirtualDir save_data{};
     R_TRY(save_controller->CreateSaveData(&save_data, FileSys::SaveDataSpaceId::User, attribute));
-
-    EnsureCacheStorage(*save_controller, system, m_applet->program_id);
 
     u64 normal_size{};
     u64 journal_size{};
