@@ -18,6 +18,7 @@
 #include "common/string_util.h"
 #include "core/core.h"
 #include "core/file_sys/content_archive.h"
+#include "core/file_sys/directory_save_data_filesystem.h"
 #include "core/file_sys/errors.h"
 #include "core/file_sys/fs_directory.h"
 #include "core/file_sys/fs_filesystem.h"
@@ -257,9 +258,19 @@ Result FSP_SRV::OpenSaveDataFileSystem(OutInterface<IFileSystem> out_interface,
     LOG_INFO(Service_FS, "called, space_id={:02X}, program_id={:016X}", static_cast<u8>(space_id),
              attribute.program_id);
 
-    FileSys::VirtualDir dir{};
+    FileSys::VirtualDir save_root{};
     // This triggers the 'Smart Pull' (Ryujinx -> Citron) in savedata_factory.cpp
-    R_TRY(save_data_controller->OpenSaveData(&dir, space_id, attribute));
+    R_TRY(save_data_controller->OpenSaveData(&save_root, space_id, attribute));
+
+    const u64 title_id = attribute.program_id != 0 ? attribute.program_id
+                                                   : system.GetApplicationProcessProgramID();
+    const auto mirror_dir = save_data_controller->GetFactory()->GetMirrorDirectory(title_id);
+
+    auto journal_fs =
+        std::make_unique<FileSys::DirectorySaveDataFileSystem>(save_root, nullptr, mirror_dir);
+    R_TRY(journal_fs->Initialize(true));
+
+    FileSys::VirtualDir working_dir = journal_fs->GetWorkingDirectory();
 
     FileSys::StorageId id{};
     switch (space_id) {
@@ -280,9 +291,10 @@ Result FSP_SRV::OpenSaveDataFileSystem(OutInterface<IFileSystem> out_interface,
 
     // Wrap the directory in the IFileSystem interface.
     // We pass 'save_data_controller->GetFactory()' so the Commit function can find the Mirror.
-    *out_interface =
-        std::make_shared<IFileSystem>(system, std::move(dir), SizeGetter::FromStorageId(fsc, id),
-                                      save_data_controller->GetFactory(), space_id, attribute);
+    *out_interface = std::make_shared<IFileSystem>(
+        system, std::move(working_dir), SizeGetter::FromStorageId(fsc, id),
+        save_data_controller->GetFactory(), space_id, attribute, std::move(save_root),
+        std::move(journal_fs));
 
     R_SUCCEED();
 }
@@ -312,10 +324,10 @@ Result FSP_SRV::OpenSaveDataInfoReaderBySaveDataSpaceId(
 
 Result FSP_SRV::OpenSaveDataInfoReaderOnlyCacheStorage(
     OutInterface<ISaveDataInfoReader> out_interface) {
-    LOG_WARNING(Service_FS, "(STUBBED) called");
+    LOG_INFO(Service_FS, "called");
 
     *out_interface = std::make_shared<ISaveDataInfoReader>(system, save_data_controller,
-                                                           FileSys::SaveDataSpaceId::Temporary);
+                                                           FileSys::SaveDataSpaceId::User, true);
 
     R_SUCCEED();
 }
