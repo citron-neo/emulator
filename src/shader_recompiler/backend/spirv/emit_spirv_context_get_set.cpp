@@ -190,9 +190,6 @@ void EmitTransformFeedbackEmulationStoresImpl(EmitContext& ctx) {
     if (!ctx.runtime_info.emulate_transform_feedback || ctx.runtime_info.xfb_count == 0) {
         return;
     }
-    if (ctx.stage != Stage::VertexB) {
-        return;
-    }
     const u32 base = ctx.runtime_info.xfb_emulation_ssbo_base;
     if (base == std::numeric_limits<u32>::max()) {
         return;

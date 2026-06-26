@@ -55,7 +55,7 @@ using VideoCommon::FileEnvironment;
 using VideoCommon::GenericEnvironment;
 using VideoCommon::GraphicsEnvironment;
 
-constexpr u32 CACHE_VERSION = 19;
+constexpr u32 CACHE_VERSION = 22;
 constexpr std::array<char, 8> VULKAN_CACHE_MAGIC_NUMBER{'y', 'u', 'z', 'u', 'v', 'k', 'c', 'h'};
 
 template <typename Container>
@@ -177,15 +177,32 @@ Shader::RuntimeInfo MakeRuntimeInfo(std::span<const Shader::IR::Program> program
                                     const GraphicsPipelineCacheKey& key,
                                     const Shader::IR::Program& program,
                                     const Shader::IR::Program* previous_program,
+                                    const Shader::IR::Program* skipped_geometry_program,
                                     bool has_geometry_stage, bool guest_has_geometry_shader,
                                     bool geometry_supported, bool uses_tessellation,
                                     u32 max_vertex_attributes, u32 max_vertex_bindings) {
     Shader::RuntimeInfo info;
     if (previous_program) {
-        info.previous_stage_stores = previous_program->info.stores;
-        info.previous_stage_legacy_stores_mapping = previous_program->info.legacy_stores_mapping;
-        if (previous_program->is_geometry_passthrough) {
-            info.previous_stage_stores.mask |= previous_program->info.passthrough.mask;
+        const bool link_through_skipped_geometry = skipped_geometry_program != nullptr &&
+                                                   !geometry_supported &&
+                                                   program.stage == Shader::Stage::Fragment;
+        if (link_through_skipped_geometry) {
+            if (skipped_geometry_program->is_geometry_passthrough) {
+                info.previous_stage_stores = previous_program->info.stores;
+                info.previous_stage_legacy_stores_mapping =
+                    previous_program->info.legacy_stores_mapping;
+                info.previous_stage_stores.mask |= skipped_geometry_program->info.passthrough.mask;
+            } else {
+                info.previous_stage_stores = skipped_geometry_program->info.stores;
+                info.previous_stage_legacy_stores_mapping =
+                    skipped_geometry_program->info.legacy_stores_mapping;
+            }
+        } else {
+            info.previous_stage_stores = previous_program->info.stores;
+            info.previous_stage_legacy_stores_mapping = previous_program->info.legacy_stores_mapping;
+            if (previous_program->is_geometry_passthrough) {
+                info.previous_stage_stores.mask |= previous_program->info.passthrough.mask;
+            }
         }
     } else {
         info.previous_stage_stores.mask.set();
@@ -818,6 +835,7 @@ std::unique_ptr<GraphicsPipeline> PipelineCache::CreateGraphicsPipeline(
 
     // Layer passthrough generation for devices without VK_EXT_shader_viewport_index_layer
     Shader::IR::Program* layer_source_program{};
+    const Shader::IR::Program* skipped_geometry_program{};
 
     for (size_t index = 0; index < Tegra::Engines::Maxwell3D::Regs::MaxShaderProgram; ++index) {
         const bool is_emulated_stage =
@@ -831,10 +849,23 @@ std::unique_ptr<GraphicsPipeline> PipelineCache::CreateGraphicsPipeline(
         }
         if (index == geometry_stage_index && !geometry_supported) {
             if (key.unique_hashes[index] != 0) {
+                Shader::Environment& env{*envs[env_index]};
                 ++env_index;
-                LOG_DEBUG(Render_Vulkan,
-                          "Skipping guest geometry shader {:016x} (host geometry unsupported)",
-                          key.unique_hashes[index]);
+
+                const u32 cfg_offset{
+                    static_cast<u32>(env.StartAddress() + sizeof(Shader::ProgramHeader))};
+                Shader::Maxwell::Flow::CFG cfg(env, pools.flow_block, cfg_offset, index == 0);
+                programs[index] =
+                    TranslateProgram(pools.inst, pools.block, env, cfg, host_info);
+                skipped_geometry_program = &programs[index];
+
+                if (Settings::values.dump_shaders) {
+                    env.Dump(hash, key.unique_hashes[index]);
+                }
+
+                LOG_INFO(Render_Vulkan,
+                         "Translated skipped guest geometry shader {:016x} (passthrough={})",
+                         key.unique_hashes[index], programs[index].is_geometry_passthrough);
             }
             continue;
         }
@@ -896,8 +927,9 @@ std::unique_ptr<GraphicsPipeline> PipelineCache::CreateGraphicsPipeline(
         infos[stage_index] = &program.info;
 
         const auto runtime_info{MakeRuntimeInfo(
-            programs, key, program, previous_stage, has_geometry_stage, guest_has_geometry_shader,
-            geometry_supported, uses_tessellation, max_vertex_attributes, max_vertex_bindings)};
+            programs, key, program, previous_stage, skipped_geometry_program, has_geometry_stage,
+            guest_has_geometry_shader, geometry_supported, uses_tessellation, max_vertex_attributes,
+            max_vertex_bindings)};
         ConvertLegacyToGeneric(program, runtime_info);
         std::vector<u32> code = EmitSPIRV(profile, runtime_info, program, binding);
         // Reserve space to reduce allocations during shader compilation

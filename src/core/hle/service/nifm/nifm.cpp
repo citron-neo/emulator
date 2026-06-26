@@ -653,8 +653,6 @@ void IGeneralService::RemoveNetworkProfile(HLERequestContext& ctx) {
 }
 
 void IGeneralService::GetCurrentIpAddress(HLERequestContext& ctx) {
-    LOG_WARNING(Service_NIFM, "(STUBBED) called");
-
     auto ipv4 = Network::GetHostIPv4Address();
     if (!ipv4) {
         LOG_ERROR(Service_NIFM, "Couldn't get host IPv4 address, defaulting to 0.0.0.0");
@@ -667,6 +665,9 @@ void IGeneralService::GetCurrentIpAddress(HLERequestContext& ctx) {
             ipv4 = room_member->GetFakeIpAddress();
         }
     }
+
+    LOG_INFO(Service_NIFM, "GetCurrentIpAddress returning {}",
+             Network::IPv4AddressToString(*ipv4));
 
     IPC::ResponseBuilder rb{ctx, 3};
     rb.Push(ResultSuccess);

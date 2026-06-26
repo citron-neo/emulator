@@ -58,6 +58,27 @@ struct DrawParams {
     bool is_indexed;
 };
 
+void FinishEmulatedTransformFeedbackDraw(Scheduler& scheduler, BufferCache& buffer_cache,
+                                         const GraphicsPipeline* pipeline, const Device& device) {
+    if (!pipeline || !pipeline->UsesEmulatedTransformFeedback() ||
+        device.IsExtTransformFeedbackSupported()) {
+        return;
+    }
+    static constexpr VkMemoryBarrier xfb_emulated_barrier{
+        .sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER,
+        .pNext = nullptr,
+        .srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT,
+        .dstAccessMask = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT |
+                         VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT,
+    };
+    scheduler.RequestOutsideRenderPassOperationContext();
+    scheduler.Record([](vk::CommandBuffer cmdbuf) {
+        cmdbuf.PipelineBarrier(VK_PIPELINE_STAGE_VERTEX_SHADER_BIT,
+                               VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, 0, xfb_emulated_barrier);
+    });
+    buffer_cache.runtime.SnapshotXfbEmulationCounter();
+}
+
 VkViewport GetViewportState(const Device& device, const Tegra::Engines::Maxwell3D::Regs& regs,
                             size_t index, float scale) {
     const auto& src = regs.viewport_transform[index];
@@ -308,24 +329,8 @@ void RasterizerVulkan::Draw(bool is_indexed, u32 instance_count) {
                             draw_params.base_vertex, draw_params.base_instance);
             }
         });
-        const GraphicsPipeline* const pipeline = pipeline_cache.CurrentGraphicsPipeline();
-        if (pipeline && pipeline->UsesEmulatedTransformFeedback() &&
-            !device.IsExtTransformFeedbackSupported()) {
-            static constexpr VkMemoryBarrier xfb_emulated_barrier{
-                .sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER,
-                .pNext = nullptr,
-                .srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT,
-                .dstAccessMask = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT |
-                                 VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT,
-            };
-            scheduler.RequestOutsideRenderPassOperationContext();
-            scheduler.Record([](vk::CommandBuffer cmdbuf) {
-                cmdbuf.PipelineBarrier(VK_PIPELINE_STAGE_VERTEX_SHADER_BIT,
-                                       VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, 0,
-                                       xfb_emulated_barrier);
-            });
-            buffer_cache.runtime.SnapshotXfbEmulationCounter();
-        }
+        FinishEmulatedTransformFeedbackDraw(scheduler, buffer_cache,
+                                           pipeline_cache.CurrentGraphicsPipeline(), device);
     });
 }
 
@@ -353,6 +358,8 @@ void RasterizerVulkan::DrawIndirect() {
                 cmdbuf.DrawIndirectByteCountEXT(1, 0, buffer_obj, offset, 0,
                                                 static_cast<u32>(stride));
             });
+            FinishEmulatedTransformFeedbackDraw(scheduler, buffer_cache,
+                                               pipeline_cache.CurrentGraphicsPipeline(), device);
             return;
         }
         if (params.include_count) {
@@ -372,6 +379,8 @@ void RasterizerVulkan::DrawIndirect() {
                                              static_cast<u32>(params.stride));
                 }
             });
+            FinishEmulatedTransformFeedbackDraw(scheduler, buffer_cache,
+                                               pipeline_cache.CurrentGraphicsPipeline(), device);
             return;
         }
         scheduler.Record([buffer_obj = buffer->Handle(), offset, params](vk::CommandBuffer cmdbuf) {
@@ -384,6 +393,8 @@ void RasterizerVulkan::DrawIndirect() {
                                     static_cast<u32>(params.stride));
             }
         });
+        FinishEmulatedTransformFeedbackDraw(scheduler, buffer_cache,
+                                           pipeline_cache.CurrentGraphicsPipeline(), device);
     });
     buffer_cache.SetDrawIndirect(nullptr);
 }
@@ -1851,7 +1862,9 @@ void RasterizerVulkan::ReleaseChannel(s32 channel_id) {
 }
 
 bool RasterizerVulkan::HasDrawTransformFeedback() {
-    return device.IsExtTransformFeedbackSupported();
+    // Force the HLE DrawIndirectByteCount path on MoltenVK; software XFB emulation replaces
+    // VK_EXT_transform_feedback but still relies on the same macro/query flow.
+    return true;
 }
 
 } // namespace Vulkan

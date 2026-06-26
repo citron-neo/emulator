@@ -14,6 +14,7 @@
 #include <memory>
 #include <thread>
 #include "core/hle/service/am/applet_manager.h"
+#include "core/internal_network/network_interface.h"
 #include "core/loader/nca.h"
 #include "core/tools/renderdoc.h"
 
@@ -2301,6 +2302,11 @@ void GMainWindow::BootGame(const QString& filename, Service::AM::FrontendAppletP
     }
 
     LOG_INFO(Frontend, "citron starting...");
+
+    if (Settings::values.network_interface.GetValue().empty() ||
+        Common::ToLower(Settings::values.network_interface.GetValue()) == "none") {
+        Network::SelectFirstNetworkInterface();
+    }
 
     game_list->CancelPopulation();
     game_list->ClearLaunchOverlays();

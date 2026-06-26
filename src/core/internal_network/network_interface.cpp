@@ -3,9 +3,11 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <algorithm>
+#include <array>
 #include <fstream>
 #include <limits>
 #include <sstream>
+#include <string_view>
 #include <vector>
 
 #include "common/bit_cast.h"
@@ -14,6 +16,7 @@
 #include <ranges>
 #include "common/settings.h"
 #include "common/string_util.h"
+#include "core/internal_network/network.h"
 #include "core/internal_network/network_interface.h"
 
 #ifdef _WIN32
@@ -25,6 +28,45 @@
 #endif
 
 namespace Network {
+
+namespace {
+
+bool IsTunnelOrVirtualInterface(std::string_view name) {
+    static constexpr std::array<std::string_view, 9> k_virtual_prefixes{
+        "utun", "awdl", "llw", "gif", "bridge", "anpi", "ap", "ipsec", "stf",
+    };
+    return std::ranges::any_of(k_virtual_prefixes, [name](std::string_view prefix) {
+        return name.starts_with(prefix);
+    });
+}
+
+const NetworkInterface* PickAutoInterface(const std::vector<NetworkInterface>& interfaces) {
+    if (interfaces.empty()) {
+        return nullptr;
+    }
+    const auto try_name = [&](std::string_view name) -> const NetworkInterface* {
+        const auto it = std::ranges::find_if(interfaces, [name](const NetworkInterface& iface) {
+            return iface.name == name;
+        });
+        return it != interfaces.end() ? &*it : nullptr;
+    };
+    if (const NetworkInterface* en0 = try_name("en0")) {
+        return en0;
+    }
+    for (const NetworkInterface& iface : interfaces) {
+        if (iface.name.starts_with("en") && !IsTunnelOrVirtualInterface(iface.name)) {
+            return &iface;
+        }
+    }
+    for (const NetworkInterface& iface : interfaces) {
+        if (!IsTunnelOrVirtualInterface(iface.name)) {
+            return &iface;
+        }
+    }
+    return &interfaces.front();
+}
+
+} // namespace
 
 #ifdef _WIN32
 
@@ -206,7 +248,11 @@ std::optional<NetworkInterface> GetSelectedNetworkInterface() {
     }();
 
     if (use_auto) {
-        return network_interfaces[0];
+        if (const NetworkInterface* iface = PickAutoInterface(network_interfaces)) {
+            LOG_INFO(Network, "Auto-selected network interface \"{}\" ({})",
+                     iface->name, IPv4AddressToString(TranslateIPv4(iface->ip_address)));
+            return *iface;
+        }
     }
 
     const auto res =
@@ -231,11 +277,9 @@ std::optional<NetworkInterface> GetSelectedNetworkInterface() {
 void SelectFirstNetworkInterface() {
     const auto network_interfaces = Network::GetAvailableNetworkInterfaces();
 
-    if (network_interfaces.empty()) {
-        return;
+    if (const NetworkInterface* iface = PickAutoInterface(network_interfaces)) {
+        Settings::values.network_interface.SetValue(iface->name);
     }
-
-    Settings::values.network_interface.SetValue(network_interfaces[0].name);
 }
 
 } // namespace Network
