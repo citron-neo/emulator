@@ -60,6 +60,10 @@ pgo-profiles-backup/
 device-crashes/
 citron_ios_device_log.txt
 
+# Local MoltenVK SDK drops for debugging / iOS builds (downloaded by CMake for desktop)
+externals/moltenvk-all/
+externals/moltenvk-ios/
+
 # misc
 *.index
 *.keys
