@@ -1732,8 +1732,9 @@ void RasterizerVulkan::UpdateVertexInput(Tegra::Engines::Maxwell3D::Regs& regs) 
             highest_dirty_attr = index;
         }
     }
-    if (highest_dirty_attr) {
-        const size_t last_dirty_attr = *highest_dirty_attr;
+    if (highest_dirty_attr && max_vertex_attrs > 0) {
+        const size_t last_dirty_attr =
+            std::min(*highest_dirty_attr, max_vertex_attrs - 1);
         for (size_t index = 0; index <= last_dirty_attr; ++index) {
             const Tegra::Engines::Maxwell3D::Regs::VertexAttribute attribute{
                 regs.vertex_attrib_format[index]};

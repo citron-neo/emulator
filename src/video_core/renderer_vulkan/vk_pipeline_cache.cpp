@@ -55,7 +55,7 @@ using VideoCommon::FileEnvironment;
 using VideoCommon::GenericEnvironment;
 using VideoCommon::GraphicsEnvironment;
 
-constexpr u32 CACHE_VERSION = 18;
+constexpr u32 CACHE_VERSION = 19;
 constexpr std::array<char, 8> VULKAN_CACHE_MAGIC_NUMBER{'y', 'u', 'z', 'u', 'v', 'k', 'c', 'h'};
 
 template <typename Container>
@@ -160,12 +160,26 @@ Shader::FragmentOutputType GetFragmentOutputType(u8 encoded_format) {
                : Shader::FragmentOutputType::UnsignedInt;
 }
 
+void PopulateXfbRuntimeInfo(Shader::RuntimeInfo& info, const GraphicsPipelineCacheKey& key) {
+    if (key.state.xfb_enabled == 0) {
+        return;
+    }
+    auto [varyings, count] = VideoCommon::MakeTransformFeedbackVaryings(key.state.xfb_state);
+    info.xfb_varyings = varyings;
+    info.xfb_count = count;
+    for (size_t i = 0; i < info.xfb_buffer_bytes.size(); ++i) {
+        const s32 size = key.state.xfb_state.buffer_sizes[i];
+        info.xfb_buffer_bytes[i] = size > 0 ? static_cast<u32>(size) : 0U;
+    }
+}
+
 Shader::RuntimeInfo MakeRuntimeInfo(std::span<const Shader::IR::Program> programs,
                                     const GraphicsPipelineCacheKey& key,
                                     const Shader::IR::Program& program,
                                     const Shader::IR::Program* previous_program,
-                                    bool has_geometry_stage, u32 max_vertex_attributes,
-                                    u32 max_vertex_bindings) {
+                                    bool has_geometry_stage, bool guest_has_geometry_shader,
+                                    bool geometry_supported, bool uses_tessellation,
+                                    u32 max_vertex_attributes, u32 max_vertex_bindings) {
     Shader::RuntimeInfo info;
     if (previous_program) {
         info.previous_stage_stores = previous_program->info.stores;
@@ -187,15 +201,11 @@ Shader::RuntimeInfo MakeRuntimeInfo(std::span<const Shader::IR::Program> program
             if (key.state.topology == Tegra::Engines::Maxwell3D::Regs::PrimitiveTopology::Points) {
                 info.fixed_state_point_size = point_size;
             }
-            if (key.state.xfb_enabled) {
-                auto [varyings, count] =
-                    VideoCommon::MakeTransformFeedbackVaryings(key.state.xfb_state);
-                info.xfb_varyings = varyings;
-                info.xfb_count = count;
-                for (size_t i = 0; i < info.xfb_buffer_bytes.size(); ++i) {
-                    const s32 size = key.state.xfb_state.buffer_sizes[i];
-                    info.xfb_buffer_bytes[i] = size > 0 ? static_cast<u32>(size) : 0U;
-                }
+            // When the guest binds a geometry shader but the host cannot run one, stream-out
+            // emulation must run on the last stage before the skipped geometry stage.
+            if (!guest_has_geometry_shader ||
+                (!geometry_supported && !uses_tessellation)) {
+                PopulateXfbRuntimeInfo(info, key);
             }
             info.convert_depth_mode = gl_ndc;
         }
@@ -251,20 +261,17 @@ Shader::RuntimeInfo MakeRuntimeInfo(std::span<const Shader::IR::Program> program
             ASSERT(false);
             return Shader::TessSpacing::Equal;
         }();
+        if (guest_has_geometry_shader && !geometry_supported) {
+            PopulateXfbRuntimeInfo(info, key);
+            info.convert_depth_mode = gl_ndc;
+        }
         break;
     case Shader::Stage::Geometry:
         if (program.output_topology == Shader::OutputTopology::PointList) {
             info.fixed_state_point_size = point_size;
         }
-        if (key.state.xfb_enabled != 0) {
-            auto [varyings, count] =
-                VideoCommon::MakeTransformFeedbackVaryings(key.state.xfb_state);
-            info.xfb_varyings = varyings;
-            info.xfb_count = count;
-            for (size_t i = 0; i < info.xfb_buffer_bytes.size(); ++i) {
-                const s32 size = key.state.xfb_state.buffer_sizes[i];
-                info.xfb_buffer_bytes[i] = size > 0 ? static_cast<u32>(size) : 0U;
-            }
+        if (geometry_supported) {
+            PopulateXfbRuntimeInfo(info, key);
         }
         info.convert_depth_mode = gl_ndc;
         break;
@@ -800,7 +807,14 @@ std::unique_ptr<GraphicsPipeline> PipelineCache::CreateGraphicsPipeline(
     const bool uses_vertex_b{key.unique_hashes[1] != 0};
     const size_t geometry_stage_index = static_cast<size_t>(
         Tegra::Engines::Maxwell3D::Regs::ShaderType::Geometry);
+    const size_t tess_init_stage_index = static_cast<size_t>(
+        Tegra::Engines::Maxwell3D::Regs::ShaderType::TessellationInit);
+    const size_t tess_stage_index = static_cast<size_t>(
+        Tegra::Engines::Maxwell3D::Regs::ShaderType::Tessellation);
     const bool geometry_supported = device.IsGeometryShaderSupported();
+    const bool guest_has_geometry_shader = key.unique_hashes[geometry_stage_index] != 0;
+    const bool uses_tessellation = key.unique_hashes[tess_init_stage_index] != 0 ||
+                                   key.unique_hashes[tess_stage_index] != 0;
 
     // Layer passthrough generation for devices without VK_EXT_shader_viewport_index_layer
     Shader::IR::Program* layer_source_program{};
@@ -818,6 +832,9 @@ std::unique_ptr<GraphicsPipeline> PipelineCache::CreateGraphicsPipeline(
         if (index == geometry_stage_index && !geometry_supported) {
             if (key.unique_hashes[index] != 0) {
                 ++env_index;
+                LOG_DEBUG(Render_Vulkan,
+                          "Skipping guest geometry shader {:016x} (host geometry unsupported)",
+                          key.unique_hashes[index]);
             }
             continue;
         }
@@ -853,14 +870,19 @@ std::unique_ptr<GraphicsPipeline> PipelineCache::CreateGraphicsPipeline(
     const Shader::IR::Program* previous_stage{};
     Shader::Backend::Bindings binding;
     const bool has_geometry_stage =
-        geometry_supported && key.unique_hashes[geometry_stage_index] != 0 &&
+        geometry_supported && guest_has_geometry_shader &&
         !programs[geometry_stage_index].is_geometry_passthrough;
     const u32 max_vertex_attributes = device.GetMaxVertexInputAttributes();
     const u32 max_vertex_bindings = device.GetMaxVertexInputBindings();
     for (size_t index = uses_vertex_a && uses_vertex_b ? 1 : 0; index < Tegra::Engines::Maxwell3D::Regs::MaxShaderProgram;
          ++index) {
         if (index == geometry_stage_index && !geometry_supported) {
-            continue;
+            const bool is_emulated_stage = layer_source_program != nullptr &&
+                                           index == static_cast<u32>(
+                                               Tegra::Engines::Maxwell3D::Regs::ShaderType::Geometry);
+            if (!is_emulated_stage) {
+                continue;
+            }
         }
         const bool is_emulated_stage = layer_source_program != nullptr &&
                                        index == static_cast<u32>(Tegra::Engines::Maxwell3D::Regs::ShaderType::Geometry);
@@ -873,9 +895,9 @@ std::unique_ptr<GraphicsPipeline> PipelineCache::CreateGraphicsPipeline(
         const size_t stage_index{index - 1};
         infos[stage_index] = &program.info;
 
-        const auto runtime_info{
-            MakeRuntimeInfo(programs, key, program, previous_stage, has_geometry_stage,
-                            max_vertex_attributes, max_vertex_bindings)};
+        const auto runtime_info{MakeRuntimeInfo(
+            programs, key, program, previous_stage, has_geometry_stage, guest_has_geometry_shader,
+            geometry_supported, uses_tessellation, max_vertex_attributes, max_vertex_bindings)};
         ConvertLegacyToGeneric(program, runtime_info);
         std::vector<u32> code = EmitSPIRV(profile, runtime_info, program, binding);
         // Reserve space to reduce allocations during shader compilation
