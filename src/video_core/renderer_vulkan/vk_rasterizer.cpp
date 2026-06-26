@@ -78,11 +78,11 @@ GPUVAddr g_game_rt0_gpu_addr = 0;
 VideoCommon::ImageInfo g_game_rt0_info{};
 Tegra::Engines::Maxwell3D::Regs::RenderTargetConfig g_game_rt0_config{};
 u32 g_game_rt0_peak_verts = 0;
+u32 g_vi_overlay_active_frames = 0;
 
 constexpr u32 GAME_RT_MIN_VERTICES = 64;
-// Bedrock draws sign-in overlays to VI (few verts) but renders the world/menu to an offscreen RT
-// with hundreds of verts. Only remap when the heavy 3D path is active.
-constexpr u32 GAME_RT_REMAP_VERT_THRESHOLD = 256;
+constexpr u32 VI_OVERLAY_MAX_VERTICES = 32;
+constexpr u32 VI_OVERLAY_ACTIVE_FRAME_HOLD = 8;
 
 bool IsViScanoutCpuAddr(DAddr addr) {
     const u32 region = static_cast<u32>(addr & 0xFFF0000);
@@ -419,7 +419,12 @@ void RasterizerVulkan::Draw(bool is_indexed, u32 instance_count) {
                 g_last_rt0_gpu_addr = rt_gpu;
                 g_last_rt0_info = VideoCommon::ImageInfo{maxwell3d->regs.rt[0],
                                                           maxwell3d->regs.anti_alias_samples_mode};
-                if (!IsViScanoutCpuAddr(*rt_cpu)) {
+                if (IsViScanoutCpuAddr(*rt_cpu)) {
+                    if (draw_params.num_vertices > 0 &&
+                        draw_params.num_vertices <= VI_OVERLAY_MAX_VERTICES) {
+                        g_vi_overlay_active_frames = VI_OVERLAY_ACTIVE_FRAME_HOLD;
+                    }
+                } else {
                     TrackGameRenderTarget(*rt_cpu, rt_gpu, maxwell3d->regs.rt[0],
                                           maxwell3d->regs.anti_alias_samples_mode,
                                           draw_params.num_vertices);
@@ -1336,14 +1341,20 @@ std::optional<FramebufferTextureInfo> RasterizerVulkan::AccelerateDisplay(
             present_bytes = rt_bytes;
             return true;
         };
+        if (g_vi_overlay_active_frames > 0) {
+            --g_vi_overlay_active_frames;
+        }
         // Present VI overlays directly when they carry UI. When VI is GPU-touched but CPU-empty
-        // and the game is doing heavy offscreen 3D (menu/world), scan out from the game RT instead.
+        // and the game is rendering to an offscreen RT, scan out from the game RT instead.
         bool vi_effectively_empty = !vi_gpu_modified;
-        if (!vi_effectively_empty && g_game_rt0_peak_verts >= GAME_RT_REMAP_VERT_THRESHOLD) {
+        if (!vi_effectively_empty) {
             if (const u8* const host_ptr = device_memory.GetPointer<u8>(framebuffer_addr)) {
                 u32 guest_px{};
                 std::memcpy(&guest_px, host_ptr, sizeof(guest_px));
-                vi_effectively_empty = guest_px == 0;
+                if (guest_px == 0 && g_vi_overlay_active_frames == 0 &&
+                    g_game_rt0_peak_verts >= GAME_RT_MIN_VERTICES) {
+                    vi_effectively_empty = true;
+                }
             }
         }
         if (vi_effectively_empty) {

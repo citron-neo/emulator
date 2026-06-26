@@ -155,6 +155,8 @@ public:
                                                             VAddr framebuffer_addr,
                                                             u32 pixel_stride);
 
+    void CompositeGameRtToViAtPresent(const Tegra::FramebufferConfig& config, DAddr vi_cpu);
+
 private:
     static constexpr size_t MAX_TEXTURES = 192;
     static constexpr size_t MAX_IMAGES = 48;
@@ -170,8 +172,6 @@ private:
     void UpdateDynamicStates();
 
     void HandleTransformFeedback();
-
-    void CompositeGameRtToViAtPresent(const Tegra::FramebufferConfig& config, DAddr vi_cpu);
 
     void UpdateViewportsState(Tegra::Engines::Maxwell3D::Regs& regs);
     void UpdateScissorsState(Tegra::Engines::Maxwell3D::Regs& regs);

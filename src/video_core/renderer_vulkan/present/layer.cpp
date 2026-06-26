@@ -76,13 +76,14 @@ void Layer::ConfigureDraw(PresentPushConstants* out_push_constants,
                           VkSampler sampler, size_t image_index,
                           const Tegra::FramebufferConfig& framebuffer,
                           const Layout::FramebufferLayout& layout) {
-    const auto texture_info = rasterizer.AccelerateDisplay(
-        framebuffer, framebuffer.address + framebuffer.offset, framebuffer.stride);
+    const DAddr framebuffer_addr = framebuffer.address + framebuffer.offset;
+    rasterizer.CompositeGameRtToViAtPresent(framebuffer, framebuffer_addr);
+    const auto texture_info = rasterizer.AccelerateDisplay(framebuffer, framebuffer_addr,
+                                                           framebuffer.stride);
     const u32 texture_width = texture_info ? texture_info->width : framebuffer.width;
     const u32 texture_height = texture_info ? texture_info->height : framebuffer.height;
     const u32 scaled_width = texture_info ? texture_info->scaled_width : texture_width;
     const u32 scaled_height = texture_info ? texture_info->scaled_height : texture_height;
-    const DAddr framebuffer_addr = framebuffer.address + framebuffer.offset;
     const u64 fb_bytes = GetSizeInBytes(framebuffer);
     bool use_accelerated = texture_info.has_value();
     // A registered GPU image with no GPU writes is stale (e.g. software Fermi2D blit wrote guest

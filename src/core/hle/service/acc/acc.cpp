@@ -135,7 +135,8 @@ public:
             {141, nullptr, "RefreshNetworkServiceLicenseCacheAsync"}, // 5.0.0+
             {142, nullptr, "RefreshNetworkServiceLicenseCacheAsyncIfSecondsElapsed"}, // 5.0.0+
             {150, nullptr, "CreateAuthorizationRequest"},
-            {160, nullptr, "RequiresUpdateNetworkServiceAccountIdTokenCache"},
+            {160, D<&IManagerForSystemService::RequiresUpdateNetworkServiceAccountIdTokenCache>,
+             "RequiresUpdateNetworkServiceAccountIdTokenCache"},
             {161, nullptr, "RequireReauthenticationOfNetworkServiceAccount"},
             {143, D<&IManagerForSystemService::GetNetworkServiceLicenseCacheEx>, "GetNetworkServiceLicenseCacheEx"}, // 15.0.0+
         };
@@ -176,6 +177,12 @@ private:
         *out_license = 0;
         *out_expiration = 0;
 
+        R_SUCCEED();
+    }
+
+    Result RequiresUpdateNetworkServiceAccountIdTokenCache(Out<u8> out_requires_update) {
+        LOG_INFO(Service_ACC, "called");
+        *out_requires_update = 0;
         R_SUCCEED();
     }
 
@@ -641,7 +648,7 @@ public:
 
 protected:
     bool IsComplete() const override {
-        return true;
+        return is_complete.load();
     }
 
     void Cancel() override {}
@@ -843,9 +850,7 @@ class IManagerForApplication final : public ServiceFramework<IManagerForApplicat
 public:
     explicit IManagerForApplication(Core::System& system_,
                                     const std::shared_ptr<ProfileManager>& profile_manager_)
-        : ServiceFramework{system_, "IManagerForApplication"},
-          ensure_token_id{std::make_shared<EnsureTokenIdCacheAsyncInterface>(system)},
-          profile_manager{profile_manager_} {
+        : ServiceFramework{system_, "IManagerForApplication"}, profile_manager{profile_manager_} {
         // clang-format off
         static const FunctionInfo functions[] = {
             {0, &IManagerForApplication::CheckAvailability, "CheckAvailability"},
@@ -884,16 +889,18 @@ private:
     void EnsureIdTokenCacheAsync(HLERequestContext& ctx) {
         LOG_INFO(Service_ACC, "called");
 
+        auto async = std::make_shared<EnsureTokenIdCacheAsyncInterface>(system);
+
         IPC::ResponseBuilder rb{ctx, 2, 0, 1};
         rb.Push(ResultSuccess);
-        rb.PushIpcInterface(ensure_token_id);
-        ensure_token_id->SignalCompletion();
+        rb.PushIpcInterface(async);
+        async->SignalCompletion();
     }
 
     void LoadIdTokenCacheDeprecated(HLERequestContext& ctx) {
         LOG_WARNING(Service_ACC, "(STUBBED) called");
 
-        ensure_token_id->LoadIdTokenCache(ctx);
+        PushLoadIdTokenCacheResponse(ctx);
     }
 
     void LoadIdTokenCache(HLERequestContext& ctx) {
@@ -936,7 +943,6 @@ private:
         async->SignalCompletion();
     }
 
-    std::shared_ptr<EnsureTokenIdCacheAsyncInterface> ensure_token_id{};
     std::shared_ptr<ProfileManager> profile_manager;
 };
 
