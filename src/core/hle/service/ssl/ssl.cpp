@@ -26,10 +26,6 @@ namespace Service::SSL {
 
 namespace {
 
-constexpr u32 SslPollEventRead = 1U << 0;
-constexpr u32 SslPollEventWrite = 1U << 1;
-constexpr u32 SslPollEventExcept = 1U << 2;
-
 std::shared_ptr<Sockets::BSD> FindBsdServiceWithSocket(Core::System& system, s32 fd) {
     for (const char* service_name : {"bsd:u", "bsd:s"}) {
         auto bsd = system.ServiceManager().GetService<Sockets::BSD>(service_name);
@@ -177,7 +173,8 @@ private:
     std::shared_ptr<Sockets::BSD> bsd_service;
     bool did_handshake = false;
     u32 verify_option = 0;
-    u32 io_timeout_ms = 30000;
+    IoMode io_mode = IoMode::Blocking;
+    u32 io_timeout_ms = 300000;
     std::vector<u8> next_alpn_proto;
 
     std::vector<u8> GetFirstAlpnProto() const {
@@ -220,6 +217,11 @@ private:
             return ResultInvalidSocket;
         }
         socket = std::move(*sock);
+        const Network::Errno nb_err = socket->SetNonBlock(true);
+        if (nb_err != Network::Errno::SUCCESS) {
+            LOG_ERROR(Service_SSL, "Failed to set socket fd={} non-blocking", fd);
+            return ResultInvalidSocket;
+        }
         backend->SetSocket(socket);
         return ResultSuccess;
     }
@@ -242,11 +244,9 @@ private:
         ASSERT(mode == IoMode::Blocking || mode == IoMode::NonBlocking);
         ASSERT_OR_EXECUTE(socket, { return ResultNoSocket; });
 
-        const bool non_block = mode == IoMode::NonBlocking;
-        const Network::Errno error = socket->SetNonBlock(non_block);
-        if (error != Network::Errno::SUCCESS) {
-            LOG_ERROR(Service_SSL, "Failed to set native socket non-block flag to {}", non_block);
-        }
+        // IoMode only selects the NSS timeout; the socket stays non-blocking.
+        io_mode = mode;
+        io_timeout_ms = mode == IoMode::Blocking ? 300000U : 0U;
         return ResultSuccess;
     }
 
@@ -321,6 +321,12 @@ private:
     Result PollImpl(u32 in_poll_event, u32 timeout_ms, u32* out_poll_event) {
         ASSERT_OR_EXECUTE(socket, { return ResultNoSocket; });
 
+        const u32 ssl_events = backend->GetPollEvents() & in_poll_event;
+        if (ssl_events != 0) {
+            *out_poll_event = ssl_events;
+            return ResultSuccess;
+        }
+
         Network::PollFD pollfd{};
         pollfd.socket = socket.get();
         if ((in_poll_event & SslPollEventRead) != 0) {
@@ -362,6 +368,7 @@ private:
         if (True(revents & (Network::PollEvents::Err | Network::PollEvents::Hup))) {
             out_events |= SslPollEventExcept;
         }
+        out_events |= backend->GetPollEvents() & in_poll_event;
         *out_poll_event = out_events;
         return ResultSuccess;
     }
@@ -502,11 +509,9 @@ private:
     }
 
     void GetIoMode(HLERequestContext& ctx) {
-        LOG_WARNING(Service_SSL, "(STUBBED) called");
-
         IPC::ResponseBuilder rb{ctx, 3};
         rb.Push(ResultSuccess);
-        rb.Push<u32>(static_cast<u32>(IoMode::Blocking)); // Default to blocking
+        rb.Push(static_cast<u32>(io_mode));
     }
 
     void SetOption(HLERequestContext& ctx) {
@@ -557,11 +562,8 @@ private:
     }
 
     void GetVerifyCertError(HLERequestContext& ctx) {
-        LOG_WARNING(Service_SSL, "(STUBBED) called");
-
-        IPC::ResponseBuilder rb{ctx, 3};
+        IPC::ResponseBuilder rb{ctx, 2};
         rb.Push(ResultSuccess);
-        rb.Push<u32>(0); // Stub: no certificate errors
     }
 
     void GetNeededServerCertBufferSize(HLERequestContext& ctx) {
