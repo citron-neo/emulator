@@ -2,12 +2,14 @@
 // SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
+#include <array>
 #include <chrono>
 #include <filesystem>
 #include <memory>
 #include <vector>
 #include "common/assert.h"
 #include "common/common_types.h"
+#include "common/fs/file.h"
 #include "common/logging.h"
 #include "common/settings.h"
 #include "common/uuid.h"
@@ -34,6 +36,72 @@
 namespace FileSys {
 
 namespace {
+
+constexpr u64 Lego2KDriveProgramId = 0x0100739018020000ULL;
+
+constexpr std::array<const char*, 5> Lego2KDriveSeedFiles = {
+    "ArtemisDnaInfo",
+    "ArtemisDnaLocalCache",
+    "ArtemisUserSettings",
+    "ArtemisPlayerInfo",
+    "DynamicPlayerInfo",
+};
+
+void SeedLego2KDriveTemplate(const VirtualDir& save_dir, u64 resolved_program_id,
+                             SaveDataType type) {
+    if (resolved_program_id != Lego2KDriveProgramId || type != SaveDataType::Account) {
+        return;
+    }
+
+    VirtualDir working = save_dir->GetSubdirectory("1");
+    if (working == nullptr || !working->GetFiles().empty()) {
+        return;
+    }
+
+#ifdef CITRON_SAVE_SEED_ROOT
+    const std::filesystem::path seed_dir =
+        std::filesystem::path(CITRON_SAVE_SEED_ROOT) / "0100739018020000";
+    if (!std::filesystem::is_directory(seed_dir)) {
+        LOG_WARNING(Service_FS, "LEGO 2K Drive save seed directory missing: {}", seed_dir.string());
+        return;
+    }
+
+    LOG_INFO(Service_FS, "Seeding LEGO 2K Drive account save in journal working dir");
+
+    std::size_t seeded_files = 0;
+    for (const char* filename : Lego2KDriveSeedFiles) {
+        const auto source_path = seed_dir / filename;
+        if (!std::filesystem::is_regular_file(source_path)) {
+            LOG_WARNING(Service_FS, "LEGO 2K Drive save seed missing: {}", source_path.string());
+            continue;
+        }
+
+        Common::FS::IOFile seed_file(source_path, Common::FS::FileAccessMode::Read,
+                                     Common::FS::FileType::BinaryFile);
+        if (!seed_file.IsOpen()) {
+            LOG_WARNING(Service_FS, "LEGO 2K Drive save seed unreadable: {}", source_path.string());
+            continue;
+        }
+
+        std::vector<u8> data(static_cast<std::size_t>(seed_file.GetSize()));
+        if (seed_file.Read(data) != data.size()) {
+            continue;
+        }
+
+        VirtualFile out_file = working->CreateFile(filename);
+        if (out_file == nullptr || out_file->WriteBytes(data) != data.size()) {
+            LOG_WARNING(Service_FS, "Failed to seed LEGO 2K Drive save file {}", filename);
+            continue;
+        }
+        ++seeded_files;
+    }
+
+    if (seeded_files > 0) {
+        LOG_INFO(Service_FS, "Seeded LEGO 2K Drive account save with {} template file(s)",
+                 seeded_files);
+    }
+#endif
+}
 
 // Using a leaked raw pointer for the RealVfsFilesystem singleton.
 // This prevents SIGSEGV during shutdown by ensuring the VFS bridge
@@ -205,6 +273,7 @@ VirtualDir SaveDataFactory::Create(SaveDataSpaceId space, const SaveDataAttribut
     }
 
     InitializeSaveDataLayout(save_dir);
+    SeedLego2KDriveTemplate(save_dir, attr.program_id, attr.type);
 
     return save_dir;
 }
@@ -229,6 +298,7 @@ VirtualDir SaveDataFactory::Open(SaveDataSpaceId space, const SaveDataAttribute&
                 SyncExtraDataSizes(out, attr);
             }
         }
+        SeedLego2KDriveTemplate(out, attr.program_id, attr.type);
     }
 
     return out;

@@ -27,6 +27,7 @@
 #include "core/hle/service/ipc_helpers.h"
 #include "core/hle/service/sockets/bsd.h"
 #include "core/hle/service/sockets/sockets_translate.h"
+#include "core/internal_network/dna_gateway_stub.h"
 #include "core/internal_network/network.h"
 #include "core/internal_network/socket_proxy.h"
 #include "core/internal_network/sockets.h"
@@ -1121,11 +1122,13 @@ Errno BSD::ConnectImpl(s32 fd, std::span<const u8> addr) {
 
     UNIMPLEMENTED_IF(addr.size() != sizeof(SockAddrIn));
     auto addr_in = GetValue<SockAddrIn>(addr);
+    Network::SockAddrIn network_addr = Translate(addr_in);
+    network_addr = Network::RedirectDnaGatewayAddress(network_addr);
 
-    LOG_INFO(Service, "Connect fd={} to {}:{}", fd, Network::IPv4AddressToString(addr_in.ip),
-             addr_in.portno);
+    LOG_INFO(Service, "Connect fd={} to {}:{}", fd, Network::IPv4AddressToString(network_addr.ip),
+             network_addr.portno);
 
-    const auto result = Translate(file_descriptors[fd]->socket->Connect(Translate(addr_in)));
+    const auto result = Translate(file_descriptors[fd]->socket->Connect(network_addr));
     if (result == Errno::INPROGRESS) {
         LOG_DEBUG(Service, "Connect fd={} in progress", fd);
     } else if (result != Errno::SUCCESS) {

@@ -1183,6 +1183,7 @@ add_library(core STATIC
     hle/service/vi/vsync_manager.h
     internal_network/network.cpp
     internal_network/network.h
+    internal_network/dna_gateway_stub.h
     internal_network/network_interface.cpp
     internal_network/network_interface.h
     internal_network/socket_proxy.cpp
@@ -1244,6 +1245,9 @@ else()
 endif()
 
 # Link against all the libraries that are always required.
+target_compile_definitions(core PRIVATE
+    CITRON_SAVE_SEED_ROOT="${CMAKE_CURRENT_SOURCE_DIR}/file_sys/save_seeds")
+
 target_link_libraries(core
     PUBLIC
         common
@@ -1322,19 +1326,23 @@ endif()
 
 if(ENABLE_OPENSSL)
     target_sources(core PRIVATE
-        hle/service/ssl/ssl_backend_openssl.cpp)
+        hle/service/ssl/ssl_backend_openssl.cpp
+        internal_network/dna_gateway_stub.cpp)
     target_link_libraries(core PRIVATE OpenSSL::SSL)
 elseif (APPLE)
     target_sources(core PRIVATE
-        hle/service/ssl/ssl_backend_securetransport.cpp)
+        hle/service/ssl/ssl_backend_securetransport.cpp
+        internal_network/dna_gateway_stub_none.cpp)
     target_link_libraries(core PRIVATE "-framework Security")
 elseif (WIN32)
     target_sources(core PRIVATE
-        hle/service/ssl/ssl_backend_schannel.cpp)
+        hle/service/ssl/ssl_backend_schannel.cpp
+        internal_network/dna_gateway_stub_none.cpp)
     target_link_libraries(core PRIVATE crypt32 secur32)
 else()
     target_sources(core PRIVATE
-        hle/service/ssl/ssl_backend_none.cpp)
+        hle/service/ssl/ssl_backend_none.cpp
+        internal_network/dna_gateway_stub_none.cpp)
 endif()
 
 if (CITRON_USE_PRECOMPILED_HEADERS)
