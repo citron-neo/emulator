@@ -23,6 +23,24 @@
 
 namespace Service::SSL {
 
+namespace {
+
+std::shared_ptr<Sockets::BSD> FindBsdServiceWithSocket(Core::System& system, s32 fd) {
+    for (const char* service_name : {"bsd:u", "bsd:s"}) {
+        auto bsd = system.ServiceManager().GetService<Sockets::BSD>(service_name);
+        if (!bsd) {
+            continue;
+        }
+        if (bsd->GetSocket(fd).has_value()) {
+            LOG_DEBUG(Service_SSL, "Resolved socket fd={} on {}", fd, service_name);
+            return bsd;
+        }
+    }
+    return nullptr;
+}
+
+} // namespace
+
 // This is nn::ssl::sf::CertificateFormat
 enum class CertificateFormat : u32 {
     Pem = 1,
@@ -134,13 +152,10 @@ public:
             if (!do_not_close_socket) {
                 LOG_ERROR(Service_SSL,
                           "do_not_close_socket was changed after setting socket; is this right?");
-            } else {
-                auto bsd = system.ServiceManager().GetService<Service::Sockets::BSD>("bsd:u");
-                if (bsd) {
-                    auto err = bsd->CloseImpl(fd);
-                    if (err != Service::Sockets::Errno::SUCCESS) {
-                        LOG_ERROR(Service_SSL, "Failed to close duplicated socket: {}", err);
-                    }
+            } else if (bsd_service) {
+                const auto err = bsd_service->CloseImpl(fd);
+                if (err != Sockets::Errno::SUCCESS) {
+                    LOG_ERROR(Service_SSL, "Failed to close duplicated socket: {}", err);
                 }
             }
         }
@@ -154,6 +169,7 @@ private:
     bool do_not_close_socket = false;
     bool get_server_cert_chain = false;
     std::shared_ptr<Network::SocketBase> socket;
+    std::shared_ptr<Sockets::BSD> bsd_service;
     bool did_handshake = false;
     u32 verify_option = 0;
     std::vector<u8> next_alpn_proto;
@@ -172,8 +188,12 @@ private:
     Result SetSocketDescriptorImpl(s32* out_fd, s32 fd) {
         LOG_DEBUG(Service_SSL, "called, fd={}", fd);
         ASSERT(!did_handshake);
-        auto bsd = system.ServiceManager().GetService<Service::Sockets::BSD>("bsd:u");
-        ASSERT_OR_EXECUTE(bsd, { return ResultInternalError; });
+        auto bsd = FindBsdServiceWithSocket(system, fd);
+        if (!bsd) {
+            LOG_ERROR(Service_SSL, "invalid socket fd {}", fd);
+            return ResultInvalidSocket;
+        }
+        bsd_service = bsd;
 
         // Based on https://switchbrew.org/wiki/SSL_services#SetSocketDescriptor
         if (do_not_close_socket) {
