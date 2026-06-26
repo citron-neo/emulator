@@ -170,8 +170,11 @@ void DataErase::Complete(Result result, u64 free_space_size, u64 required_size) 
     complete = true;
     status = result;
 
+    if (const auto applet_locked = applet.lock()) {
+        applet_locked->terminate_result = result;
+    }
+
     DataEraseAppletOutput output{
-        .result = result,
         .free_space_size = free_space_size,
         .required_size = required_size,
     };

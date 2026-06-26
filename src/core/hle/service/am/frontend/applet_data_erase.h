@@ -20,14 +20,12 @@ struct DataEraseAppletInput {
 };
 static_assert(sizeof(DataEraseAppletInput) == 0x18, "DataEraseAppletInput has incorrect size.");
 
-// Output returned via PopOutData. Games compare free vs required space.
+// Output returned via PopOutData. Games read free/required space as u64 pair at offset 0.
 struct DataEraseAppletOutput {
-    Result result;
-    INSERT_PADDING_BYTES(4);
     u64 free_space_size;
     u64 required_size;
 };
-static_assert(sizeof(DataEraseAppletOutput) == 0x18, "DataEraseAppletOutput has incorrect size.");
+static_assert(sizeof(DataEraseAppletOutput) == 0x10, "DataEraseAppletOutput has incorrect size.");
 
 class DataErase final : public FrontendApplet {
 public:
