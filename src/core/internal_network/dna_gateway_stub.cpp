@@ -5,6 +5,7 @@
 
 #include <array>
 #include <atomic>
+#include <algorithm>
 #include <cstring>
 #include <mutex>
 #include <optional>
@@ -348,17 +349,39 @@ void AcceptLoop() {
 
 } // namespace
 
+bool IsLikelyMy2kGatewayHost(const std::array<u8, 4>& ip) {
+    // Observed *.my.2k.com A records in LEGO 2K Drive sessions.
+    static constexpr std::array<std::array<u8, 4>, 2> KnownHosts{{
+        {3, 149, 117, 250},
+        {3, 151, 148, 249},
+    }};
+    return std::any_of(KnownHosts.begin(), KnownHosts.end(),
+                       [&ip](const auto& known) { return ip == known; });
+}
+
+bool ShouldRedirectToDnaGatewayStub(const SockAddrIn& addr) {
+    if (addr.portno == DnaGatewayPort) {
+        return true;
+    }
+    return addr.portno == DnaGatewayHttpsPort && IsLikelyMy2kGatewayHost(addr.ip);
+}
+
 bool IsDnaGatewayPort(const u16 port) {
-    return port == DnaGatewayPort;
+    return port == DnaGatewayPort || port == DnaGatewayHttpsPort;
 }
 
 SockAddrIn RedirectDnaGatewayAddress(SockAddrIn addr) {
-    if (!IsDnaGatewayPort(addr.portno)) {
+    if (!ShouldRedirectToDnaGatewayStub(addr)) {
         return addr;
     }
     EnsureDnaGatewayStubRunning();
+    const u16 original_port = addr.portno;
+    const std::string original_ip = IPv4AddressToString(addr.ip);
     addr.ip = LoopbackIp;
-    LOG_INFO(Network, "DNA gateway stub: redirected connect to 127.0.0.1:{}", DnaGatewayPort);
+    addr.portno = DnaGatewayPort;
+    LOG_INFO(Network,
+             "DNA gateway stub: redirected connect from {}:{} to 127.0.0.1:{}",
+             original_ip, original_port, DnaGatewayPort);
     return addr;
 }
 

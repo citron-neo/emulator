@@ -8,6 +8,10 @@
 namespace Network {
 
 constexpr u16 DnaGatewayPort = 47873;
+constexpr u16 DnaGatewayHttpsPort = 443;
+
+/// Returns true when the destination should use the local DNA gateway stub.
+bool ShouldRedirectToDnaGatewayStub(const SockAddrIn& addr);
 
 /// Returns true when the destination uses the LEGO 2K DNA gateway port.
 bool IsDnaGatewayPort(u16 port);
