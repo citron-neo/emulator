@@ -2,7 +2,10 @@
 // SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
+#include <filesystem>
+#include <mutex>
 #include <string_view>
+#include <unordered_map>
 #include <vector>
 
 #include "common/common_types.h"
@@ -15,6 +18,7 @@
 #include "common/swap.h"
 #include "core/constants.h"
 #include "core/core.h"
+#include "core/hle/api_version.h"
 #include "core/core_timing.h"
 #include "core/hle/kernel/k_event.h"
 #include "core/file_sys/control_metadata.h"
@@ -84,12 +88,66 @@ static void SanitizeJPEGImageSize(std::vector<u8>& image) {
 
 namespace {
 
+// Bedrock treats license kind 0 as "no license" and shows "Something went wrong".
+constexpr u32 NETWORK_SERVICE_LICENSE_KIND_PERSONAL = 1;
+constexpr s64 NETWORK_SERVICE_LICENSE_FAR_FUTURE_EXPIRATION = 0x7FFFFFFFFFFFFFFFLL;
+
 std::vector<u8> GenerateStubIdToken() {
+    // Bedrock parses the id token as a JWT; all three segments must be base64url.
     constexpr std::string_view token{
         "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9."
         "eyJzdWIiOiJvZmZsaW5lLWNpdHJvbiJ9."
-        "citron_stub_offline_id_token_v1"};
+        "Y2l0cm9uX3N0dWJfc2ln"};
     return std::vector<u8>(token.begin(), token.end());
+}
+
+struct BaasStubSessionState {
+    bool id_token_cache_ready{};
+    u32 network_service_license_kind{};
+};
+
+std::mutex baas_stub_session_mutex;
+std::unordered_map<Common::UUID, BaasStubSessionState> baas_stub_session_cache;
+
+BaasStubSessionState& GetOrCreateBaasStubSessionState(const Common::UUID& user_id) {
+    return baas_stub_session_cache[user_id];
+}
+
+void PopulateBaasStubSessionCache(const Common::UUID& user_id) {
+    std::scoped_lock lock{baas_stub_session_mutex};
+    auto& state = GetOrCreateBaasStubSessionState(user_id);
+    state.id_token_cache_ready = true;
+    state.network_service_license_kind = NETWORK_SERVICE_LICENSE_KIND_PERSONAL;
+}
+
+void EnsureDefaultAvatarExists(const Common::UUID& uuid) {
+    const auto image_path = GetImagePath(uuid);
+    if (std::filesystem::exists(image_path)) {
+        return;
+    }
+
+    std::error_code ec;
+    std::filesystem::create_directories(image_path.parent_path(), ec);
+    if (ec) {
+        LOG_WARNING(Service_ACC, "Failed to create avatar directory for {}: {}", image_path.string(),
+                    ec.message());
+        return;
+    }
+
+    Common::FS::IOFile image(image_path, Common::FS::FileAccessMode::Write,
+                             Common::FS::FileType::BinaryFile);
+    if (!image.IsOpen()) {
+        LOG_WARNING(Service_ACC, "Failed to create default avatar at {}", image_path.string());
+        return;
+    }
+
+    if (image.Write(Core::Constants::ACCOUNT_BACKUP_JPEG) !=
+        Core::Constants::ACCOUNT_BACKUP_JPEG.size()) {
+        LOG_WARNING(Service_ACC, "Failed to write default avatar at {}", image_path.string());
+        return;
+    }
+
+    LOG_INFO(Service_ACC, "Created default avatar at {}", image_path.string());
 }
 
 void PushLoadIdTokenCacheResponse(HLERequestContext& ctx) {
@@ -103,10 +161,6 @@ void PushLoadIdTokenCacheResponse(HLERequestContext& ctx) {
     rb.Push(token_size);
     rb.Push(token_size);
 }
-
-// Bedrock treats license kind 0 as "no license" and shows "Something went wrong".
-constexpr u32 NETWORK_SERVICE_LICENSE_KIND_PERSONAL = 1;
-constexpr s64 NETWORK_SERVICE_LICENSE_FAR_FUTURE_EXPIRATION = 0x7FFFFFFFFFFFFFFFLL;
 
 constexpr std::size_t NAS_USER_BASE_SIZE = 0x68;
 constexpr u64 STUB_NINTENDO_ACCOUNT_ID = 0x0123456789ABCDEFULL;
@@ -245,7 +299,8 @@ private:
 
     Result GetServiceEntryRequirementCacheForOnlinePlay(Out<u32> out_requirement) {
         LOG_INFO(Service_ACC, "called");
-        *out_requirement = 0;
+        // Non-zero indicates the title may proceed with online/local play gating.
+        *out_requirement = 1;
         R_SUCCEED();
     }
 
@@ -297,6 +352,7 @@ private:
 
     void RefreshNetworkServiceLicenseCacheAsync(HLERequestContext& ctx) {
         LOG_INFO(Service_ACC, "called");
+        PopulateBaasStubSessionCache(account_id);
         PushCompletedIAsyncContextResponse(system, ctx);
     }
 
@@ -305,6 +361,8 @@ private:
 
         IPC::RequestParser rp{ctx};
         [[maybe_unused]] const auto seconds = rp.Pop<u32>();
+
+        PopulateBaasStubSessionCache(account_id);
 
         auto async = std::make_shared<CompletedIAsyncContextInterface>(system);
 
@@ -796,6 +854,9 @@ protected:
 void IManagerForSystemService::EnsureIdTokenCacheAsync(HLERequestContext& ctx) {
     LOG_INFO(Service_ACC, "called");
 
+    PopulateBaasStubSessionCache(account_id);
+    EnsureDefaultAvatarExists(account_id);
+
     auto async = std::make_shared<EnsureTokenIdCacheAsyncInterface>(system);
 
     IPC::ResponseBuilder rb{ctx, 2, 0, 1};
@@ -1075,8 +1136,8 @@ public:
             {136, &IManagerForApplication::GetNintendoAccountUserResourceCacheForApplication, "GetNintendoAccountUserResourceCache"}, // 19.0.0+
             {150, nullptr, "CreateAuthorizationRequest"},
             {160, &IManagerForApplication::StoreOpenContext, "StoreOpenContext"},
-            {170, &IManagerForApplication::LoadNetworkServiceLicenseKindAsync,
-             "LoadNetworkServiceLicenseKindAsync"},
+            {170, &IManagerForApplication::EnsureIdTokenCacheForOnlinePlayOrLicenseKindAsync,
+             "EnsureIdTokenCacheForOnlinePlayOrLicenseKindAsync"},
         };
         // clang-format on
 
@@ -1101,6 +1162,10 @@ private:
 
     void EnsureIdTokenCacheAsync(HLERequestContext& ctx) {
         LOG_INFO(Service_ACC, "called");
+
+        const auto user_id = profile_manager->GetLastOpenedUser();
+        PopulateBaasStubSessionCache(user_id);
+        EnsureDefaultAvatarExists(user_id);
 
         auto async = std::make_shared<EnsureTokenIdCacheAsyncInterface>(system);
 
@@ -1143,13 +1208,41 @@ private:
     }
 
     void LoadNetworkServiceLicenseKindAsync(HLERequestContext& ctx) {
-        LOG_INFO(Service_ACC, "called");
+        LOG_INFO(Service_ACC, "LoadNetworkServiceLicenseKindAsync called");
+
+        const auto user_id = profile_manager->GetLastOpenedUser();
+        PopulateBaasStubSessionCache(user_id);
+
         auto async = std::make_shared<IAsyncNetworkServiceLicenseKindContext>(system);
 
         IPC::ResponseBuilder rb{ctx, 2, 0, 1};
         rb.Push(ResultSuccess);
         rb.PushIpcInterface(async);
         async->SignalCompletion();
+    }
+
+    void EnsureIdTokenCacheForOnlinePlayAsync(HLERequestContext& ctx) {
+        LOG_INFO(Service_ACC, "EnsureIdTokenCacheForOnlinePlayAsync called");
+
+        const auto user_id = profile_manager->GetLastOpenedUser();
+        PopulateBaasStubSessionCache(user_id);
+        EnsureDefaultAvatarExists(user_id);
+
+        auto async = std::make_shared<IAsyncContextForLoginForOnlinePlay>(system);
+
+        IPC::ResponseBuilder rb{ctx, 2, 0, 1};
+        rb.Push(ResultSuccess);
+        rb.PushIpcInterface(async);
+        async->SignalCompletion();
+    }
+
+    void EnsureIdTokenCacheForOnlinePlayOrLicenseKindAsync(HLERequestContext& ctx) {
+        if (HLE::ApiVersion::HOS_VERSION_MAJOR >= 19) {
+            EnsureIdTokenCacheForOnlinePlayAsync(ctx);
+            return;
+        }
+
+        LoadNetworkServiceLicenseKindAsync(ctx);
     }
 
     std::shared_ptr<ProfileManager> profile_manager;
@@ -1353,14 +1446,14 @@ Result Module::Interface::InitializeApplicationInfoBase() {
 }
 
 void Module::Interface::GetBaasAccountManagerForApplication(HLERequestContext& ctx) {
-    LOG_DEBUG(Service_ACC, "called");
+    LOG_INFO(Service_ACC, "called");
     IPC::ResponseBuilder rb{ctx, 2, 0, 1};
     rb.Push(ResultSuccess);
     rb.PushIpcInterface<IManagerForApplication>(system, profile_manager);
 }
 
 void Module::Interface::AuthenticateApplicationAsync(HLERequestContext& ctx) {
-    LOG_WARNING(Service_ACC, "(STUBBED) called");
+    LOG_INFO(Service_ACC, "called");
 
     IPC::ResponseBuilder rb{ctx, 2, 0, 1};
     rb.Push(ResultSuccess);
@@ -1368,7 +1461,7 @@ void Module::Interface::AuthenticateApplicationAsync(HLERequestContext& ctx) {
 }
 
 void Module::Interface::CheckNetworkServiceAvailabilityAsync(HLERequestContext& ctx) {
-    LOG_WARNING(Service_ACC, "(STUBBED) called");
+    LOG_INFO(Service_ACC, "called");
 
     IPC::ResponseBuilder rb{ctx, 2, 0, 1};
     rb.Push(ResultSuccess);
