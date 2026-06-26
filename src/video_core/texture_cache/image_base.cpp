@@ -136,8 +136,9 @@ bool ImageBase::IsSafeDownload() const noexcept {
         return false;
     }
     if (info.num_samples > 1) {
-        LOG_WARNING(HW_GPU, "MSAA image downloads are not implemented");
-        return false;
+        // On MoltenVK, rejecting MSAA downloads can leave stale CPU-visible image state and lead
+        // to black output in some titles. Prefer a best-effort download path here.
+        return true;
     }
     return true;
 }

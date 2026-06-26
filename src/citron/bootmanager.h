@@ -157,6 +157,7 @@ public:
 
     // EmuWindow implementation.
     void OnFrameDisplayed() override;
+    void RunPresentationWork(const std::function<void()>& work) override;
     bool IsShown() const override;
     std::unique_ptr<Core::Frontend::GraphicsContext> CreateSharedContext() const override;
 
@@ -235,6 +236,7 @@ signals:
     void UnlockFramerateHotkeyPressed();
 
 private slots:
+    void OnFrameDisplayedGuiThread();
     void HideMouseCursor();
 
 private:

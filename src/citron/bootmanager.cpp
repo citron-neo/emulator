@@ -28,10 +28,12 @@
 #include <QLayout>
 #include <QList>
 #include <QMessageBox>
+#include <QMetaObject>
 #include <QScreen>
 #include <QSize>
 #include <QStringLiteral>
 #include <QSurfaceFormat>
+#include <QThread>
 #include <QWindow>
 #include <QtCore/qobjectdefs.h>
 
@@ -218,6 +220,16 @@ GRenderWindow::~GRenderWindow() {
 }
 
 void GRenderWindow::OnFrameDisplayed() {
+    QCoreApplication* app = QCoreApplication::instance();
+    if (app && QThread::currentThread() != app->thread()) {
+        QMetaObject::invokeMethod(this, &GRenderWindow::OnFrameDisplayedGuiThread,
+                                  Qt::QueuedConnection);
+        return;
+    }
+    OnFrameDisplayedGuiThread();
+}
+
+void GRenderWindow::OnFrameDisplayedGuiThread() {
     input_subsystem->GetTas()->UpdateThread();
     const InputCommon::TasInput::TasState new_tas_state =
         std::get<0>(input_subsystem->GetTas()->GetStatus());
@@ -232,6 +244,21 @@ void GRenderWindow::OnFrameDisplayed() {
         last_tas_state = new_tas_state;
         emit TasPlaybackStateChanged();
     }
+}
+
+void GRenderWindow::RunPresentationWork(const std::function<void()>& work) {
+    if (QtCommon::GetWindowSystemType() != Core::Frontend::WindowSystemType::Cocoa) {
+        work();
+        return;
+    }
+    QCoreApplication* app = QCoreApplication::instance();
+    if (!app || QThread::currentThread() == app->thread()) {
+        work();
+        return;
+    }
+    const std::function<void()> copy = work;
+    QMetaObject::invokeMethod(
+        this, [copy]() { copy(); }, Qt::BlockingQueuedConnection);
 }
 
 std::unique_ptr<Core::Frontend::GraphicsContext> GRenderWindow::CreateSharedContext() const {
