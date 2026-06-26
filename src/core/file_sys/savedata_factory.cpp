@@ -12,7 +12,6 @@
 #include "common/settings.h"
 #include "common/uuid.h"
 #include "core/core.h"
-#include "core/file_sys/directory_save_data_filesystem.h"
 #include "core/file_sys/errors.h"
 #include "core/file_sys/control_metadata.h"
 #include "core/file_sys/patch_manager.h"
@@ -139,11 +138,6 @@ SaveDataSize SaveDataFactory::GetResolvedSaveDataSize(SaveDataType type, u64 tit
     }
 }
 
-Result SaveDataFactory::InitializeSaveDataLayout(VirtualDir save_dir) const {
-    DirectorySaveDataFileSystem journal_fs(save_dir);
-    return journal_fs.Initialize(true);
-}
-
 Result SaveDataFactory::SyncExtraDataSizes(VirtualDir save_dir,
                                            const SaveDataAttribute& meta) const {
     if (save_dir == nullptr) {
@@ -204,8 +198,6 @@ VirtualDir SaveDataFactory::Create(SaveDataSpaceId space, const SaveDataAttribut
         WriteSaveDataSize(attr.type, attr.program_id, attr.user_id, sizes);
     }
 
-    InitializeSaveDataLayout(save_dir);
-
     return save_dir;
 }
 
@@ -221,8 +213,14 @@ VirtualDir SaveDataFactory::Open(SaveDataSpaceId space, const SaveDataAttribute&
     }
 
     if (out != nullptr) {
-        SyncExtraDataSizes(out, attr);
-        InitializeSaveDataLayout(out);
+        SaveDataExtraDataAccessor accessor(out);
+        if (accessor.Initialize(false) == ResultSuccess) {
+            SaveDataExtraData extra_data{};
+            if (accessor.ReadExtraData(&extra_data) == ResultSuccess &&
+                extra_data.journal_size == 0) {
+                SyncExtraDataSizes(out, attr);
+            }
+        }
     }
 
     return out;

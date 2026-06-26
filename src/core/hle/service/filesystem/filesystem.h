@@ -85,6 +85,7 @@ public:
     void SetPackedUpdate(ProcessId process_id, FileSys::VirtualFile update_raw);
 
     std::shared_ptr<SaveDataController> OpenSaveDataController();
+    std::shared_ptr<SaveDataController> OpenSaveDataControllerForProgram(ProgramId program_id);
 
     Result OpenSDMC(FileSys::VirtualDir* out_sdmc) const;
     Result OpenBISPartition(FileSys::VirtualDir* out_bis_partition,

@@ -20,6 +20,7 @@
 #include "core/hle/service/am/frontend/applet_data_erase.h"
 #include "core/hle/service/am/service/storage.h"
 #include "core/hle/service/filesystem/filesystem.h"
+#include "core/hle/service/filesystem/romfs_controller.h"
 #include "core/hle/service/filesystem/save_data_controller.h"
 
 namespace Service::AM::Frontend {
@@ -60,6 +61,24 @@ void ParseInput(const std::vector<u8>& data, Common::UUID& out_user_id, u32& out
     std::memcpy(&input, data.data() + payload_offset, sizeof(DataEraseAppletInput));
     out_user_id = input.user_id;
     out_mode = input.mode;
+}
+
+std::shared_ptr<FileSystem::SaveDataController> GetCallerSaveDataController(
+    Core::System& system, const std::shared_ptr<Applet>& caller) {
+    auto& fsc = system.GetFileSystemController();
+    if (caller != nullptr && caller->process != nullptr) {
+        ProgramId program_id{};
+        std::shared_ptr<FileSystem::SaveDataController> save_controller;
+        std::shared_ptr<FileSystem::RomFsController> romfs_controller;
+        if (fsc.OpenProcess(&program_id, &save_controller, &romfs_controller,
+                            caller->process->GetProcessId()) == ResultSuccess) {
+            return save_controller;
+        }
+        if (caller->program_id != 0) {
+            return fsc.OpenSaveDataControllerForProgram(caller->program_id);
+        }
+    }
+    return fsc.OpenSaveDataController();
 }
 
 } // Anonymous namespace
@@ -107,7 +126,8 @@ void DataErase::Execute() {
     }
 
     auto& fsc = system.GetFileSystemController();
-    auto save_controller = fsc.OpenSaveDataController();
+    const auto caller = applet.lock()->caller_applet.lock();
+    auto save_controller = GetCallerSaveDataController(system, caller);
 
     FileSys::SaveDataAttribute account_attribute{};
     account_attribute.program_id = program_id;

@@ -42,6 +42,11 @@ Result SaveDataController::CreateSaveData(FileSys::VirtualDir* out_save_data,
     LOG_TRACE(Service_FS, "Creating Save Data for space_id={:01X}, save_struct={}", space,
               attribute.DebugInfo());
 
+    if (auto save_data = factory->Open(space, attribute)) {
+        *out_save_data = save_data;
+        return ResultSuccess;
+    }
+
     auto save_data = factory->Create(space, attribute);
     if (save_data == nullptr) {
         return FileSys::ResultTargetNotFound;
@@ -56,6 +61,7 @@ Result SaveDataController::OpenSaveData(FileSys::VirtualDir* out_save_data,
                                         const FileSys::SaveDataAttribute& attribute) {
     auto save_data = factory->Open(space, attribute);
     if (save_data == nullptr) {
+        LOG_INFO(Service_FS, "OpenSaveData failed for {}", attribute.DebugInfo());
         return FileSys::ResultTargetNotFound;
     }
 

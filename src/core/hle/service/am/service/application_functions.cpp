@@ -16,6 +16,7 @@
 #include "core/hle/service/am/service/storage.h"
 #include "core/hle/service/cmif_serialization.h"
 #include "core/hle/service/filesystem/filesystem.h"
+#include "core/hle/service/filesystem/romfs_controller.h"
 #include "core/hle/service/filesystem/save_data_controller.h"
 #include "core/hle/service/glue/glue_manager.h"
 #include "core/hle/service/ns/application_manager_interface.h"
@@ -30,6 +31,23 @@ u64 CalculateSaveDataTotalSize(u64 normal_size, u64 journal_size) {
     constexpr u64 block_size = 0x4000;
     return Common::AlignUp(normal_size, block_size) + Common::AlignUp(journal_size, block_size) +
            block_size;
+}
+
+std::shared_ptr<FileSystem::SaveDataController> GetApplicationSaveDataController(
+    Core::System& system, const Applet& applet) {
+    auto& fsc = system.GetFileSystemController();
+    ProgramId program_id{};
+    std::shared_ptr<FileSystem::SaveDataController> save_controller;
+    std::shared_ptr<FileSystem::RomFsController> romfs_controller;
+    if (applet.process != nullptr &&
+        fsc.OpenProcess(&program_id, &save_controller, &romfs_controller,
+                        applet.process->GetProcessId()) == ResultSuccess) {
+        return save_controller;
+    }
+    if (applet.program_id != 0) {
+        return fsc.OpenSaveDataControllerForProgram(applet.program_id);
+    }
+    return fsc.OpenSaveDataController();
 }
 
 } // Anonymous namespace
@@ -164,7 +182,7 @@ Result IApplicationFunctions::PopLaunchParameter(Out<SharedPointer<IStorage>> ou
 Result IApplicationFunctions::EnsureSaveData(Out<u64> out_size, Common::UUID user_id) {
     LOG_INFO(Service_AM, "called, uid={}", user_id.FormattedString());
 
-    auto save_controller = system.GetFileSystemController().OpenSaveDataController();
+    auto save_controller = GetApplicationSaveDataController(system, *m_applet);
 
     FileSys::SaveDataAttribute attribute{};
     attribute.program_id = m_applet->program_id;
@@ -292,7 +310,7 @@ Result IApplicationFunctions::ExtendSaveData(Out<u64> out_required_size, FileSys
     LOG_DEBUG(Service_AM, "called with type={} user_id={} normal={:#x} journal={:#x}",
               static_cast<u8>(type), user_id.FormattedString(), normal_size, journal_size);
 
-    system.GetFileSystemController().OpenSaveDataController()->WriteSaveDataSize(
+    GetApplicationSaveDataController(system, *m_applet)->WriteSaveDataSize(
         type, m_applet->program_id, user_id.AsU128(), {normal_size, journal_size});
 
     // The following value is used to indicate the amount of space remaining on failure
@@ -306,7 +324,7 @@ Result IApplicationFunctions::GetSaveDataSize(Out<u64> out_normal_size, Out<u64>
                                               FileSys::SaveDataType type, Common::UUID user_id) {
     LOG_DEBUG(Service_AM, "called with type={} user_id={}", type, user_id.FormattedString());
 
-    const auto size = system.GetFileSystemController().OpenSaveDataController()->ReadSaveDataSize(
+    const auto size = GetApplicationSaveDataController(system, *m_applet)->ReadSaveDataSize(
         type, m_applet->program_id, user_id.AsU128());
 
     *out_normal_size = size.normal;
@@ -326,10 +344,10 @@ Result IApplicationFunctions::CreateCacheStorage(Out<u32> out_target_media,
     attribute.index = static_cast<u8>(index);
 
     FileSys::VirtualDir save_data{};
-    R_TRY(system.GetFileSystemController().OpenSaveDataController()->CreateSaveData(
+    R_TRY(GetApplicationSaveDataController(system, *m_applet)->CreateSaveData(
         &save_data, FileSys::SaveDataSpaceId::User, attribute));
 
-    system.GetFileSystemController().OpenSaveDataController()->WriteSaveDataSize(
+    GetApplicationSaveDataController(system, *m_applet)->WriteSaveDataSize(
         FileSys::SaveDataType::Cache, m_applet->program_id, {}, {normal_size, journal_size});
 
     *out_target_media = 1;
