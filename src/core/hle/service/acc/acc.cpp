@@ -108,6 +108,58 @@ void PushLoadIdTokenCacheResponse(HLERequestContext& ctx) {
 constexpr u32 NETWORK_SERVICE_LICENSE_KIND_PERSONAL = 1;
 constexpr s64 NETWORK_SERVICE_LICENSE_FAR_FUTURE_EXPIRATION = 0x7FFFFFFFFFFFFFFFLL;
 
+constexpr std::size_t NAS_USER_BASE_SIZE = 0x68;
+constexpr u64 STUB_NINTENDO_ACCOUNT_ID = 0x0123456789ABCDEFULL;
+
+u64 GetStubNintendoAccountId(const Common::UUID& account_id) {
+    const u64 derived = account_id.Hash();
+    return derived != 0 ? derived : STUB_NINTENDO_ACCOUNT_ID;
+}
+
+void PopulateNasUserBaseForApplication(std::vector<u8>& out, u64 nintendo_account_id) {
+    out.assign(NAS_USER_BASE_SIZE, 0);
+    std::memcpy(out.data(), &nintendo_account_id, sizeof(nintendo_account_id));
+    out[0x08] = 1; // is_nintendo_account_linked
+    out[0x09] = 1; // is_network_service_account_registered
+}
+
+void WriteNasUserResourceCacheBuffers(HLERequestContext& ctx, u64 nintendo_account_id) {
+    std::vector<u8> nas_user_base;
+    PopulateNasUserBaseForApplication(nas_user_base, nintendo_account_id);
+    ctx.WriteBuffer(nas_user_base, 0);
+
+    if (ctx.CanWriteBuffer(1)) {
+        std::vector<u8> unknown_out_buffer(ctx.GetWriteBufferSize(1));
+        ctx.WriteBuffer(unknown_out_buffer, 1);
+    }
+}
+
+class CompletedIAsyncContextInterface final : public IAsyncContext {
+public:
+    explicit CompletedIAsyncContextInterface(Core::System& system_) : IAsyncContext{system_} {
+        MarkComplete();
+    }
+
+protected:
+    bool IsComplete() const override {
+        return true;
+    }
+
+    void Cancel() override {}
+
+    Result GetResult() const override {
+        return ResultSuccess;
+    }
+};
+
+void PushCompletedIAsyncContextResponse(Core::System& system, HLERequestContext& ctx) {
+    auto async = std::make_shared<CompletedIAsyncContextInterface>(system);
+
+    IPC::ResponseBuilder rb{ctx, 2, 0, 1};
+    rb.Push(ResultSuccess);
+    rb.PushIpcInterface(async);
+}
+
 } // Anonymous namespace
 
 class IManagerForSystemService final : public ServiceFramework<IManagerForSystemService> {
@@ -130,16 +182,21 @@ public:
              "GetServiceEntryRequirementCacheForOnlinePlay"}, // 6.1.0+
             {120, nullptr, "GetNintendoAccountId"},
             {121, nullptr, "CalculateNintendoAccountAuthenticationFingerprint"}, // 9.0.0+
-            {130, nullptr, "GetNintendoAccountUserResourceCache"},
-            {131, nullptr, "RefreshNintendoAccountUserResourceCacheAsync"},
-            {132, nullptr, "RefreshNintendoAccountUserResourceCacheAsyncIfSecondsElapsed"},
+            {130, &IManagerForSystemService::GetNintendoAccountUserResourceCache,
+             "GetNintendoAccountUserResourceCache"},
+            {131, &IManagerForSystemService::RefreshNintendoAccountUserResourceCacheAsync,
+             "RefreshNintendoAccountUserResourceCacheAsync"},
+            {132, &IManagerForSystemService::RefreshNintendoAccountUserResourceCacheAsyncIfSecondsElapsed,
+             "RefreshNintendoAccountUserResourceCacheAsyncIfSecondsElapsed"},
             {133, nullptr, "GetNintendoAccountVerificationUrlCache"}, // 9.0.0+
             {134, nullptr, "RefreshNintendoAccountVerificationUrlCache"}, // 9.0.0+
             {135, nullptr, "RefreshNintendoAccountVerificationUrlCacheAsyncIfSecondsElapsed"}, // 9.0.0+
             {140, &IManagerForSystemService::GetNetworkServiceLicenseCache,
              "GetNetworkServiceLicenseCache"}, // 5.0.0+
-            {141, nullptr, "RefreshNetworkServiceLicenseCacheAsync"}, // 5.0.0+
-            {142, nullptr, "RefreshNetworkServiceLicenseCacheAsyncIfSecondsElapsed"}, // 5.0.0+
+            {141, &IManagerForSystemService::RefreshNetworkServiceLicenseCacheAsync,
+             "RefreshNetworkServiceLicenseCacheAsync"}, // 5.0.0+
+            {142, &IManagerForSystemService::RefreshNetworkServiceLicenseCacheAsyncIfSecondsElapsed,
+             "RefreshNetworkServiceLicenseCacheAsyncIfSecondsElapsed"}, // 5.0.0+
             {150, nullptr, "CreateAuthorizationRequest"},
             {160, D<&IManagerForSystemService::RequiresUpdateNetworkServiceAccountIdTokenCache>,
              "RequiresUpdateNetworkServiceAccountIdTokenCache"},
@@ -206,6 +263,55 @@ private:
 
         IPC::ResponseBuilder rb{ctx, 2};
         rb.Push(ResultSuccess);
+    }
+
+    void GetNintendoAccountUserResourceCache(HLERequestContext& ctx) {
+        LOG_INFO(Service_ACC, "called");
+
+        const u64 nintendo_account_id = GetStubNintendoAccountId(account_id);
+        WriteNasUserResourceCacheBuffers(ctx, nintendo_account_id);
+
+        IPC::ResponseBuilder rb{ctx, 4};
+        rb.Push(ResultSuccess);
+        rb.PushRaw<u64>(nintendo_account_id);
+    }
+
+    void RefreshNintendoAccountUserResourceCacheAsync(HLERequestContext& ctx) {
+        LOG_INFO(Service_ACC, "called");
+        PushCompletedIAsyncContextResponse(system, ctx);
+    }
+
+    void RefreshNintendoAccountUserResourceCacheAsyncIfSecondsElapsed(HLERequestContext& ctx) {
+        LOG_INFO(Service_ACC, "called");
+
+        IPC::RequestParser rp{ctx};
+        [[maybe_unused]] const auto seconds = rp.Pop<u32>();
+
+        auto async = std::make_shared<CompletedIAsyncContextInterface>(system);
+
+        IPC::ResponseBuilder rb{ctx, 3, 0, 1};
+        rb.Push(ResultSuccess);
+        rb.Push<u8>(1);
+        rb.PushIpcInterface(async);
+    }
+
+    void RefreshNetworkServiceLicenseCacheAsync(HLERequestContext& ctx) {
+        LOG_INFO(Service_ACC, "called");
+        PushCompletedIAsyncContextResponse(system, ctx);
+    }
+
+    void RefreshNetworkServiceLicenseCacheAsyncIfSecondsElapsed(HLERequestContext& ctx) {
+        LOG_INFO(Service_ACC, "called");
+
+        IPC::RequestParser rp{ctx};
+        [[maybe_unused]] const auto seconds = rp.Pop<u32>();
+
+        auto async = std::make_shared<CompletedIAsyncContextInterface>(system);
+
+        IPC::ResponseBuilder rb{ctx, 3, 0, 1};
+        rb.Push(ResultSuccess);
+        rb.Push<u8>(1);
+        rb.PushIpcInterface(async);
     }
 
     Result RequiresUpdateNetworkServiceAccountIdTokenCache(Out<u8> out_requires_update) {
@@ -1016,19 +1122,15 @@ private:
     }
 
     void GetNintendoAccountUserResourceCacheForApplication(HLERequestContext& ctx) {
-        LOG_WARNING(Service_ACC, "(STUBBED) called");
+        LOG_INFO(Service_ACC, "called");
 
-        std::vector<u8> nas_user_base_for_application(0x68);
-        ctx.WriteBuffer(nas_user_base_for_application, 0);
-
-        if (ctx.CanWriteBuffer(1)) {
-            std::vector<u8> unknown_out_buffer(ctx.GetWriteBufferSize(1));
-            ctx.WriteBuffer(unknown_out_buffer, 1);
-        }
+        const auto user_id = profile_manager->GetLastOpenedUser();
+        const u64 nintendo_account_id = GetStubNintendoAccountId(user_id);
+        WriteNasUserResourceCacheBuffers(ctx, nintendo_account_id);
 
         IPC::ResponseBuilder rb{ctx, 4};
         rb.Push(ResultSuccess);
-        rb.PushRaw<u64>(profile_manager->GetLastOpenedUser().Hash());
+        rb.PushRaw<u64>(nintendo_account_id);
     }
 
     void StoreOpenContext(HLERequestContext& ctx) {
@@ -1041,8 +1143,8 @@ private:
     }
 
     void LoadNetworkServiceLicenseKindAsync(HLERequestContext& ctx) {
-        LOG_INFO(Service_ACC, "called (EnsureIdTokenCacheForOnlinePlayAsync)");
-        auto async = std::make_shared<IAsyncContextForLoginForOnlinePlay>(system);
+        LOG_INFO(Service_ACC, "called");
+        auto async = std::make_shared<IAsyncNetworkServiceLicenseKindContext>(system);
 
         IPC::ResponseBuilder rb{ctx, 2, 0, 1};
         rb.Push(ResultSuccess);
