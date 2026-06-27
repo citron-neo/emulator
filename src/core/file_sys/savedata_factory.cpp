@@ -228,9 +228,9 @@ SaveDataAttribute SaveDataFactory::NormalizeAttribute(const SaveDataAttribute& m
 }
 
 SaveDataSize SaveDataFactory::GetResolvedSaveDataSize(SaveDataType type, u64 title_id,
-                                                      u128 user_id) const {
+                                                      u128 user_id, u16 index) const {
     const u64 resolved_title_id = title_id != 0 ? title_id : program_id;
-    auto size = ReadSaveDataSize(type, resolved_title_id, user_id);
+    auto size = ReadSaveDataSize(type, resolved_title_id, user_id, index);
     if (size.normal != 0 || size.journal != 0) {
         return size;
     }
@@ -268,7 +268,7 @@ Result SaveDataFactory::SyncExtraDataSizes(VirtualDir save_dir,
     }
 
     const auto attr = NormalizeAttribute(meta);
-    const auto sizes = GetResolvedSaveDataSize(attr.type, attr.program_id, attr.user_id);
+    const auto sizes = GetResolvedSaveDataSize(attr.type, attr.program_id, attr.user_id, attr.index);
     if (sizes.normal == 0 && sizes.journal == 0) {
         return ResultSuccess;
     }
@@ -293,14 +293,14 @@ Result SaveDataFactory::SyncExtraDataSizes(VirtualDir save_dir,
 VirtualDir SaveDataFactory::Create(SaveDataSpaceId space, const SaveDataAttribute& meta) const {
     const auto attr = NormalizeAttribute(meta);
     const auto save_directory = GetFullPath(program_id, dir, space, attr.type, attr.program_id,
-                                            attr.user_id, attr.system_save_data_id);
+                                            attr.user_id, attr.system_save_data_id, attr.index);
 
     auto save_dir = dir->CreateDirectoryRelative(save_directory);
     if (save_dir == nullptr) {
         return nullptr;
     }
 
-    const auto sizes = GetResolvedSaveDataSize(attr.type, attr.program_id, attr.user_id);
+    const auto sizes = GetResolvedSaveDataSize(attr.type, attr.program_id, attr.user_id, attr.index);
 
     SaveDataExtraDataAccessor accessor(save_dir);
     if (accessor.Initialize(true) == ResultSuccess) {
@@ -318,7 +318,7 @@ VirtualDir SaveDataFactory::Create(SaveDataSpaceId space, const SaveDataAttribut
     }
 
     if (sizes.normal != 0 || sizes.journal != 0) {
-        WriteSaveDataSize(attr.type, attr.program_id, attr.user_id, sizes);
+        WriteSaveDataSize(attr.type, attr.program_id, attr.user_id, sizes, attr.index);
     }
 
     InitializeSaveDataLayout(save_dir);
@@ -333,7 +333,7 @@ VirtualDir SaveDataFactory::Create(SaveDataSpaceId space, const SaveDataAttribut
 VirtualDir SaveDataFactory::Open(SaveDataSpaceId space, const SaveDataAttribute& meta) const {
     const auto attr = NormalizeAttribute(meta);
     const auto save_directory = GetFullPath(program_id, dir, space, attr.type, attr.program_id,
-                                            attr.user_id, attr.system_save_data_id);
+                                            attr.user_id, attr.system_save_data_id, attr.index);
 
     auto out = dir->GetDirectoryRelative(save_directory);
 
@@ -365,7 +365,7 @@ VirtualDir SaveDataFactory::Open(SaveDataSpaceId space, const SaveDataAttribute&
 
 Result SaveDataFactory::DeleteCacheStorage(u16 index) const {
     const auto save_directory = GetFullPath(program_id, dir, SaveDataSpaceId::User,
-                                            SaveDataType::Cache, 0, {}, 0);
+                                            SaveDataType::Cache, 0, {}, 0, index);
 
     if (dir->GetDirectoryRelative(save_directory) == nullptr) {
         return ResultSuccess;
@@ -402,7 +402,7 @@ std::string SaveDataFactory::GetSaveDataSpaceIdPath(SaveDataSpaceId space) {
 
 std::string SaveDataFactory::GetFullPath(ProgramId program_id, VirtualDir dir,
                                          SaveDataSpaceId space, SaveDataType type, u64 title_id,
-                                         u128 user_id, u64 save_id) {
+                                         u128 user_id, u64 save_id, u16 index) {
     if ((type == SaveDataType::Account || type == SaveDataType::Device || type == SaveDataType::Cache) &&
         title_id == 0) {
         title_id = program_id;
@@ -425,6 +425,9 @@ std::string SaveDataFactory::GetFullPath(ProgramId program_id, VirtualDir dir,
     case SaveDataType::Temporary:
         return fmt::format("{}{:016X}/{:016X}{:016X}/{:016X}", out, 0, user_id[1], user_id[0], title_id);
     case SaveDataType::Cache:
+        if (index != 0) {
+            return fmt::format("{}save/cache/{:016X}/{:04X}", out, title_id, index);
+        }
         return fmt::format("{}save/cache/{:016X}", out, title_id);
     default:
         return fmt::format("{}save/unknown_{:X}/{:016X}", out, static_cast<u8>(type), title_id);
@@ -440,8 +443,10 @@ std::string SaveDataFactory::GetUserGameSaveDataRoot(u128 user_id, bool future) 
     return fmt::format("/user/save/{:016X}/{:016X}{:016X}", 0, user_id[1], user_id[0]);
 }
 
-SaveDataSize SaveDataFactory::ReadSaveDataSize(SaveDataType type, u64 title_id, u128 user_id) const {
-    const auto path = GetFullPath(program_id, dir, SaveDataSpaceId::User, type, title_id, user_id, 0);
+SaveDataSize SaveDataFactory::ReadSaveDataSize(SaveDataType type, u64 title_id, u128 user_id,
+                                               u16 index) const {
+    const auto path =
+        GetFullPath(program_id, dir, SaveDataSpaceId::User, type, title_id, user_id, 0, index);
     const auto relative_dir = GetOrCreateDirectoryRelative(dir, path);
     const auto size_file = relative_dir->GetFile(GetSaveDataSizeFileName());
     if (size_file == nullptr || size_file->GetSize() < sizeof(SaveDataSize)) return {0, 0};
@@ -451,8 +456,9 @@ SaveDataSize SaveDataFactory::ReadSaveDataSize(SaveDataType type, u64 title_id, 
 }
 
 void SaveDataFactory::WriteSaveDataSize(SaveDataType type, u64 title_id, u128 user_id,
-                                        SaveDataSize new_value) const {
-    const auto path = GetFullPath(program_id, dir, SaveDataSpaceId::User, type, title_id, user_id, 0);
+                                        SaveDataSize new_value, u16 index) const {
+    const auto path =
+        GetFullPath(program_id, dir, SaveDataSpaceId::User, type, title_id, user_id, 0, index);
     const auto relative_dir = GetOrCreateDirectoryRelative(dir, path);
     const auto size_file = relative_dir->CreateFile(GetSaveDataSizeFileName());
     if (size_file == nullptr) {
@@ -465,6 +471,7 @@ void SaveDataFactory::WriteSaveDataSize(SaveDataType type, u64 title_id, u128 us
     attr.program_id = title_id != 0 ? title_id : program_id;
     attr.user_id = user_id;
     attr.type = type;
+    attr.index = index;
     SyncExtraDataSizes(relative_dir, attr);
 }
 
@@ -473,7 +480,7 @@ void SaveDataFactory::SetAutoCreate(bool state) {
 }
 
 Result SaveDataFactory::ReadSaveDataExtraData(SaveDataExtraData* out_extra_data, SaveDataSpaceId space, const SaveDataAttribute& attribute) const {
-    const auto save_directory = GetFullPath(program_id, dir, space, attribute.type, attribute.program_id, attribute.user_id, attribute.system_save_data_id);
+    const auto save_directory = GetFullPath(program_id, dir, space, attribute.type, attribute.program_id, attribute.user_id, attribute.system_save_data_id, attribute.index);
     auto save_dir = dir->GetDirectoryRelative(save_directory);
     if (save_dir == nullptr) return ResultPathNotFound;
     SaveDataExtraDataAccessor accessor(save_dir);
@@ -486,7 +493,7 @@ Result SaveDataFactory::ReadSaveDataExtraData(SaveDataExtraData* out_extra_data,
 }
 
 Result SaveDataFactory::WriteSaveDataExtraData(const SaveDataExtraData& extra_data, SaveDataSpaceId space, const SaveDataAttribute& attribute) const {
-    const auto save_directory = GetFullPath(program_id, dir, space, attribute.type, attribute.program_id, attribute.user_id, attribute.system_save_data_id);
+    const auto save_directory = GetFullPath(program_id, dir, space, attribute.type, attribute.program_id, attribute.user_id, attribute.system_save_data_id, attribute.index);
     auto save_dir = dir->GetDirectoryRelative(save_directory);
     if (save_dir == nullptr) return ResultPathNotFound;
     SaveDataExtraDataAccessor accessor(save_dir);
@@ -496,7 +503,7 @@ Result SaveDataFactory::WriteSaveDataExtraData(const SaveDataExtraData& extra_da
 }
 
 Result SaveDataFactory::WriteSaveDataExtraDataWithMask(const SaveDataExtraData& extra_data, const SaveDataExtraData& mask, SaveDataSpaceId space, const SaveDataAttribute& attribute) const {
-    const auto save_directory = GetFullPath(program_id, dir, space, attribute.type, attribute.program_id, attribute.user_id, attribute.system_save_data_id);
+    const auto save_directory = GetFullPath(program_id, dir, space, attribute.type, attribute.program_id, attribute.user_id, attribute.system_save_data_id, attribute.index);
     auto save_dir = dir->GetDirectoryRelative(save_directory);
     if (save_dir == nullptr) return ResultPathNotFound;
     SaveDataExtraDataAccessor accessor(save_dir);
@@ -634,7 +641,7 @@ void SaveDataFactory::DoNandBackup(SaveDataSpaceId space, const SaveDataAttribut
 
     if (!Settings::values.backup_saves_to_nand.GetValue() || backup_dir == nullptr || custom_dir == nullptr) return;
 
-    const auto nand_path = GetFullPath(program_id, backup_dir, space, meta.type, meta.program_id, meta.user_id, meta.system_save_data_id);
+    const auto nand_path = GetFullPath(program_id, backup_dir, space, meta.type, meta.program_id, meta.user_id, meta.system_save_data_id, meta.index);
     auto nand_out = backup_dir->CreateDirectoryRelative(nand_path);
 
     if (nand_out) {

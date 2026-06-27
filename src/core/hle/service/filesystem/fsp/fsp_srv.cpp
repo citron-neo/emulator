@@ -274,7 +274,8 @@ Result FSP_SRV::OpenSaveDataFileSystem(OutInterface<IFileSystem> out_interface,
     FileSys::VirtualDir working_dir = journal_fs->GetWorkingDirectory();
 
     const FileSys::SaveDataSize save_sizes =
-        save_data_controller->ReadSaveDataSize(attribute.type, title_id, attribute.user_id);
+        save_data_controller->ReadSaveDataSize(attribute.type, title_id, attribute.user_id,
+                                               attribute.index);
     const auto working_dir_for_size = working_dir;
     SizeGetter size_getter{
         [working_dir_for_size, save_sizes]() {
@@ -665,8 +666,8 @@ Result FSP_SRV::DeleteCacheStorage(u16 index) {
 Result FSP_SRV::GetCacheStorageSize(s32 index, Out<s64> out_data_size, Out<s64> out_journal_size) {
     LOG_INFO(Service_FS, "called with index={}", index);
 
-    const auto size = save_data_controller->ReadSaveDataSize(FileSys::SaveDataType::Cache,
-                                                             program_id, {});
+    const auto size = save_data_controller->ReadSaveDataSize(
+        FileSys::SaveDataType::Cache, program_id, {}, static_cast<u16>(index));
     if (size.normal != 0 || size.journal != 0) {
         *out_data_size = static_cast<s64>(size.normal);
         *out_journal_size = static_cast<s64>(size.journal);

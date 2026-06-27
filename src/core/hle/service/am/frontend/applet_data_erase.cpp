@@ -191,7 +191,7 @@ void DataErase::Execute() {
             };
             if (cache_size.normal != 0 || cache_size.journal != 0) {
                 save_controller->WriteSaveDataSize(FileSys::SaveDataType::Cache, program_id, {},
-                                                   cache_size);
+                                                   cache_size, cache_attribute.index);
             }
         }
     }

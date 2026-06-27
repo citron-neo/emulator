@@ -348,7 +348,7 @@ Result IApplicationFunctions::CreateCacheStorage(Out<u32> out_target_media,
         &save_data, FileSys::SaveDataSpaceId::User, attribute));
 
     GetApplicationSaveDataController(system, *m_applet)->WriteSaveDataSize(
-        FileSys::SaveDataType::Cache, m_applet->program_id, {}, {normal_size, journal_size});
+        FileSys::SaveDataType::Cache, m_applet->program_id, {}, {normal_size, journal_size}, index);
 
     *out_target_media = 1;
     *out_required_size = 0;

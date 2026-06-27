@@ -84,12 +84,12 @@ Result SaveDataController::OpenSaveDataSpace(FileSys::VirtualDir* out_save_data_
 }
 
 FileSys::SaveDataSize SaveDataController::ReadSaveDataSize(FileSys::SaveDataType type, u64 title_id,
-                                                           u128 user_id) {
-    const auto value = factory->ReadSaveDataSize(type, title_id, user_id);
+                                                           u128 user_id, u16 index) {
+    const auto value = factory->ReadSaveDataSize(type, title_id, user_id, index);
 
     if (value.normal == 0 && value.journal == 0) {
         const auto size = GetDefaultSaveDataSize(system, title_id);
-        factory->WriteSaveDataSize(type, title_id, user_id, size);
+        factory->WriteSaveDataSize(type, title_id, user_id, size, index);
         return size;
     }
 
@@ -97,8 +97,8 @@ FileSys::SaveDataSize SaveDataController::ReadSaveDataSize(FileSys::SaveDataType
 }
 
 void SaveDataController::WriteSaveDataSize(FileSys::SaveDataType type, u64 title_id, u128 user_id,
-                                           FileSys::SaveDataSize new_value) {
-    factory->WriteSaveDataSize(type, title_id, user_id, new_value);
+                                           FileSys::SaveDataSize new_value, u16 index) {
+    factory->WriteSaveDataSize(type, title_id, user_id, new_value, index);
 }
 
 void SaveDataController::SetAutoCreate(bool state) {
