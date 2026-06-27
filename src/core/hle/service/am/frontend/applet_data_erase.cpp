@@ -51,28 +51,36 @@ u64 GetRequiredSaveDataSize(FileSystem::SaveDataController& save_controller, Cor
            block_size;
 }
 
-void ParseInput(const std::vector<u8>& data, Common::UUID& out_user_id, u32& out_mode) {
-    ASSERT(data.size() >= sizeof(DataEraseAppletInput));
+bool ParseInput(const std::vector<u8>& data, Common::UUID& out_user_id, u32& out_mode) {
+    if (data.size() < sizeof(DataEraseAppletInput)) {
+        return false;
+    }
 
     // Some titles embed CommonArguments again before the applet-specific fields.
     const size_t payload_offset = data.size() >= 0x38 ? 0x20 : 0x0;
+    if (data.size() < payload_offset + sizeof(DataEraseAppletInput)) {
+        return false;
+    }
 
     DataEraseAppletInput input{};
     std::memcpy(&input, data.data() + payload_offset, sizeof(DataEraseAppletInput));
     out_user_id = input.user_id;
     out_mode = input.mode;
+    return true;
 }
 
 std::shared_ptr<FileSystem::SaveDataController> GetCallerSaveDataController(
     Core::System& system, const std::shared_ptr<Applet>& caller) {
     auto& fsc = system.GetFileSystemController();
-    if (caller != nullptr && caller->process != nullptr) {
-        ProgramId program_id{};
-        std::shared_ptr<FileSystem::SaveDataController> save_controller;
-        std::shared_ptr<FileSystem::RomFsController> romfs_controller;
-        if (fsc.OpenProcess(&program_id, &save_controller, &romfs_controller,
-                            caller->process->GetProcessId()) == ResultSuccess) {
-            return save_controller;
+    if (caller != nullptr) {
+        if (caller->process != nullptr) {
+            ProgramId program_id{};
+            std::shared_ptr<FileSystem::SaveDataController> save_controller;
+            std::shared_ptr<FileSystem::RomFsController> romfs_controller;
+            if (fsc.OpenProcess(&program_id, &save_controller, &romfs_controller,
+                                caller->process->GetProcessId()) == ResultSuccess) {
+                return save_controller;
+            }
         }
         if (caller->program_id != 0) {
             return fsc.OpenSaveDataControllerForProgram(caller->program_id);
@@ -98,18 +106,20 @@ void DataErase::Initialize() {
     ASSERT(storage != nullptr);
     const auto data = storage->GetData();
 
-    LOG_INFO(Service_AM, "DataErase applet input size={:08X}, data={}", data.size(),
-             Common::HexToString(data));
+    LOG_DEBUG(Service_AM, "DataErase applet input size={:08X}", data.size());
 
-    ParseInput(data, user_id, mode);
+    if (!ParseInput(data, user_id, mode)) {
+        status = FileSys::ResultInvalidSize;
+        complete = true;
+        return;
+    }
 
     program_id = system.GetApplicationProcessProgramID();
     if (const auto caller = applet.lock()->caller_applet.lock()) {
         program_id = caller->program_id;
     }
 
-    LOG_INFO(Service_AM, "DataErase applet parsed user_id={} mode={} program_id={:016X}",
-             user_id.FormattedString(), mode, program_id);
+    LOG_DEBUG(Service_AM, "DataErase applet parsed mode={} program_id={:016X}", mode, program_id);
 }
 
 Result DataErase::GetStatus() const {
@@ -128,6 +138,19 @@ void DataErase::Execute() {
     auto& fsc = system.GetFileSystemController();
     const auto caller = applet.lock()->caller_applet.lock();
     auto save_controller = GetCallerSaveDataController(system, caller);
+
+    const u64 required_size =
+        GetRequiredSaveDataSize(*save_controller, system, program_id, user_id.AsU128());
+    const u64 free_space_size = fsc.GetFreeSpaceSize(FileSys::StorageId::NandUser);
+
+    LOG_INFO(Service_AM,
+             "DataErase applet result: free_space={:#x}, required_size={:#x}, sufficient={}",
+             free_space_size, required_size, free_space_size >= required_size);
+
+    if (free_space_size < required_size) {
+        Complete(FileSys::ResultUsableSpaceNotEnough, free_space_size, required_size);
+        return;
+    }
 
     FileSys::SaveDataAttribute account_attribute{};
     account_attribute.program_id = program_id;
@@ -188,20 +211,11 @@ void DataErase::Execute() {
         }
     }
 
-    const u64 required_size =
+    const u64 required_size_after =
         GetRequiredSaveDataSize(*save_controller, system, program_id, user_id.AsU128());
-    const u64 free_space_size = fsc.GetFreeSpaceSize(FileSys::StorageId::NandUser);
+    const u64 free_space_after = fsc.GetFreeSpaceSize(FileSys::StorageId::NandUser);
 
-    LOG_INFO(Service_AM,
-             "DataErase applet result: free_space={:#x}, required_size={:#x}, sufficient={}",
-             free_space_size, required_size, free_space_size >= required_size);
-
-    if (free_space_size < required_size) {
-        Complete(FileSys::ResultUsableSpaceNotEnough, free_space_size, required_size);
-        return;
-    }
-
-    Complete(ResultSuccess, free_space_size, required_size);
+    Complete(ResultSuccess, free_space_after, required_size_after);
 }
 
 void DataErase::Complete(Result result, u64 free_space_size, u64 required_size) {

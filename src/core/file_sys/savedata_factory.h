@@ -38,7 +38,8 @@ public:
 
     static std::string GetSaveDataSpaceIdPath(SaveDataSpaceId space);
     static std::string GetFullPath(ProgramId program_id, VirtualDir dir, SaveDataSpaceId space,
-                                   SaveDataType type, u64 title_id, u128 user_id, u64 save_id);
+                                   SaveDataType type, u64 title_id, u128 user_id, u64 save_id,
+                                   u16 index = 0);
     static std::string GetUserGameSaveDataRoot(u128 user_id, bool future);
 
     SaveDataSize ReadSaveDataSize(SaveDataType type, u64 title_id, u128 user_id) const;

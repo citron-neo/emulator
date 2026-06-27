@@ -6,6 +6,7 @@
 #include <cstring>
 #include <functional>
 #include <iterator>
+#include <limits>
 #include <string>
 #include <utility>
 #include <vector>
@@ -349,9 +350,10 @@ Result FSP_SRV::FindSaveDataWithFilter(Out<s64> out_count,
                                        FileSys::SaveDataFilter filter) {
     LOG_INFO(Service_FS, "called, space_id={}", space_id);
 
-    FileSys::SaveDataAttribute query = filter.attribute;
-    if (!filter.use_program_id || query.program_id == 0) {
-        query.program_id = program_id;
+    FileSys::SaveDataAttribute query{};
+    query.program_id = program_id;
+    if (filter.use_program_id && filter.attribute.program_id != 0) {
+        query.program_id = filter.attribute.program_id;
     }
     if (filter.use_save_data_type) {
         query.type = filter.attribute.type;
@@ -793,6 +795,10 @@ Result FSP_SRV::QuerySaveDataTotalSize(Out<u64> out_total_size, u64 save_data_si
     constexpr u64 block_size = 0x4000;
     const u64 aligned_data = Common::AlignUp(save_data_size, block_size);
     const u64 aligned_journal = Common::AlignUp(journal_size, block_size);
+
+    if (aligned_data > std::numeric_limits<u64>::max() - aligned_journal - block_size) {
+        R_THROW(FileSys::ResultInvalidSize);
+    }
 
     *out_total_size = aligned_data + aligned_journal + block_size;
 

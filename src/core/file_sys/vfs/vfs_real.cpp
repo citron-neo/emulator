@@ -193,6 +193,18 @@ VirtualDir RealVfsFilesystem::MoveDirectory(std::string_view old_path_,
     const auto old_path = FS::SanitizePath(old_path_, FS::DirectorySeparator::PlatformDefault);
     const auto new_path = FS::SanitizePath(new_path_, FS::DirectorySeparator::PlatformDefault);
 
+    {
+        std::scoped_lock lk{list_lock};
+        const std::string old_prefix = old_path + '/';
+        for (auto it = cache.begin(); it != cache.end();) {
+            if (it->first == old_path || it->first.starts_with(old_prefix)) {
+                it = cache.erase(it);
+            } else {
+                ++it;
+            }
+        }
+    }
+
     if (!FS::RenameDir(old_path, new_path)) {
         return nullptr;
     }
