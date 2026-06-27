@@ -31,24 +31,29 @@ u64 GetRequiredSaveDataSize(FileSystem::SaveDataController& save_controller, Cor
                             u64 program_id, u128 user_id) {
     u64 normal_size{};
     u64 journal_size{};
+    u64 cache_size{};
+    u64 cache_journal_size{};
     const auto size =
         save_controller.ReadSaveDataSize(FileSys::SaveDataType::Account, program_id, user_id);
     normal_size = size.normal;
     journal_size = size.journal;
 
-    if (normal_size == 0 && journal_size == 0) {
-        const FileSys::PatchManager pm{program_id, system.GetFileSystemController(),
-                                       system.GetContentProvider()};
-        const auto metadata = pm.GetControlMetadata();
-        if (metadata.first != nullptr) {
+    const FileSys::PatchManager pm{program_id, system.GetFileSystemController(),
+                                   system.GetContentProvider()};
+    const auto metadata = pm.GetControlMetadata();
+    if (metadata.first != nullptr) {
+        if (normal_size == 0 && journal_size == 0) {
             normal_size = metadata.first->GetDefaultNormalSaveSize();
             journal_size = metadata.first->GetDefaultJournalSaveSize();
         }
+        cache_size = metadata.first->GetCacheStorageSize();
+        cache_journal_size = metadata.first->GetCacheStorageJournalSize();
     }
 
     constexpr u64 block_size = 0x4000;
     return Common::AlignUp(normal_size, block_size) + Common::AlignUp(journal_size, block_size) +
-           block_size;
+           Common::AlignUp(cache_size, block_size) +
+           Common::AlignUp(cache_journal_size, block_size) + block_size;
 }
 
 bool ParseInput(const std::vector<u8>& data, Common::UUID& out_user_id, u32& out_mode) {

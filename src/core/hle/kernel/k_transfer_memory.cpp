@@ -48,7 +48,7 @@ Result KTransferMemory::Initialize(KProcessAddress addr, std::size_t size,
                                  (info_start.m_attribute == info_end.m_attribute);
         LOG_ERROR(Kernel_SVC,
                   "LockForTransferMemory failed: addr={:#x} size={:#x} owner_svc_perm={} "
-                  "result={:#010x} (mod {} desc {}) | "
+                  "result={:#010x} (module={} desc={}) | "
                   "start: state={:#x} perm={:#x} attr={:#x} block=[{:#x}, +{:#x}) | "
                   "end:   state={:#x} perm={:#x} attr={:#x} block=[{:#x}, +{:#x}) | "
                   "homogeneous={}",

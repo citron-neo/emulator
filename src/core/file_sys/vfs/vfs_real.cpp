@@ -195,7 +195,12 @@ VirtualDir RealVfsFilesystem::MoveDirectory(std::string_view old_path_,
 
     {
         std::scoped_lock lk{list_lock};
-        const std::string old_prefix = old_path + '/';
+#if defined(_WIN32)
+        constexpr char dir_sep = '\\';
+#else
+        constexpr char dir_sep = '/';
+#endif
+        const std::string old_prefix = old_path + dir_sep;
         for (auto it = cache.begin(); it != cache.end();) {
             if (it->first == old_path || it->first.starts_with(old_prefix)) {
                 it = cache.erase(it);
