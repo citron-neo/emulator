@@ -3,7 +3,6 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <cstring>
-#include <mutex>
 #include <unordered_set>
 #include "core/core.h"
 #include "core/hle/kernel/k_event.h"
@@ -20,11 +19,6 @@ namespace {
                                            std::string&& name) {
     return service_context.CreateEvent(std::move(name));
 }
-
-std::mutex g_nifm_client_id_mutex;
-std::unordered_set<u32> g_nifm_issued_client_ids;
-std::unordered_set<u32> g_nifm_accepted_client_ids;
-u32 g_nifm_current_client_id = 0;
 
 } // Anonymous namespace
 
@@ -262,9 +256,10 @@ private:
 
 class IRequest final : public ServiceFramework<IRequest> {
 public:
-    explicit IRequest(Core::System& system_, u32 client_id_)
+    explicit IRequest(Core::System& system_, std::shared_ptr<ClientIdState> client_id_state_,
+                      u32 client_id_)
         : ServiceFramework{system_, "IRequest"}, service_context{system_, "IRequest"},
-          client_id{client_id_} {
+          client_id_state{std::move(client_id_state_)}, client_id{client_id_} {
         static const FunctionInfo functions[] = {
             {0, &IRequest::GetRequestState, "GetRequestState"},
             {1, &IRequest::GetResult, "GetResult"},
@@ -407,9 +402,9 @@ private:
 
     void UpdateState(RequestState new_state) {
         state = new_state;
-        if (new_state == RequestState::Accepted && client_id != 0) {
-            std::scoped_lock lock{g_nifm_client_id_mutex};
-            g_nifm_accepted_client_ids.insert(client_id);
+        if (new_state == RequestState::Accepted && client_id != 0 && client_id_state != nullptr &&
+            client_id_state->issued_client_ids.contains(client_id)) {
+            client_id_state->accepted_client_ids.insert(client_id);
         }
         event1->Signal();
     }
@@ -538,6 +533,7 @@ private:
     KernelHelpers::ServiceContext service_context;
 
     RequestState state;
+    std::shared_ptr<ClientIdState> client_id_state;
     u32 client_id = 0;
 
     Kernel::KEvent* event1;
@@ -557,14 +553,9 @@ public:
 };
 
 void IGeneralService::GetClientId(HLERequestContext& ctx) {
-    static u32 next_client_id = 1;
-    const u32 client_id = next_client_id++;
-
-    {
-        std::scoped_lock lock{g_nifm_client_id_mutex};
-        g_nifm_issued_client_ids.insert(client_id);
-        g_nifm_current_client_id = client_id;
-    }
+    const u32 client_id = client_id_state->next_client_id++;
+    client_id_state->issued_client_ids.insert(client_id);
+    client_id_state->current_client_id = client_id;
 
     LOG_INFO(Service_NIFM, "called, client_id={}", client_id);
 
@@ -587,9 +578,8 @@ void IGeneralService::IsAnyInternetRequestAccepted(HLERequestContext& ctx) {
 
     bool accepted = false;
     if (client_id != 0) {
-        std::scoped_lock lock{g_nifm_client_id_mutex};
-        accepted = g_nifm_issued_client_ids.contains(client_id) &&
-                   g_nifm_accepted_client_ids.contains(client_id);
+        accepted = client_id_state->issued_client_ids.contains(client_id) &&
+                   client_id_state->accepted_client_ids.contains(client_id);
     }
     const bool connectivity_ok = IsLego2KDriveOfflineLocalMode(system) ||
                                  Network::GetHostIPv4Address().has_value();
@@ -613,16 +603,10 @@ void IGeneralService::CreateScanRequest(HLERequestContext& ctx) {
 void IGeneralService::CreateRequest(HLERequestContext& ctx) {
     LOG_DEBUG(Service_NIFM, "called");
 
-    u32 client_id = 0;
-    {
-        std::scoped_lock lock{g_nifm_client_id_mutex};
-        client_id = g_nifm_current_client_id;
-    }
-
     IPC::ResponseBuilder rb{ctx, 2, 0, 1};
 
     rb.Push(ResultSuccess);
-    rb.PushIpcInterface<IRequest>(system, client_id);
+    rb.PushIpcInterface<IRequest>(system, client_id_state, client_id_state->current_client_id);
 }
 
 void IGeneralService::GetCurrentNetworkProfile(HLERequestContext& ctx) {
@@ -1085,7 +1069,8 @@ void IGeneralService::GetNetworkEmulationProfile(HLERequestContext& ctx) {
 }
 
 IGeneralService::IGeneralService(Core::System& system_)
-    : ServiceFramework{system_, "IGeneralService"}, network{system_.GetRoomNetwork()} {
+    : ServiceFramework{system_, "IGeneralService"}, network{system_.GetRoomNetwork()},
+      client_id_state{std::make_shared<ClientIdState>()} {
     // clang-format off
     static const FunctionInfo functions[] = {
         {1, &IGeneralService::GetClientId, "GetClientId"},
@@ -1150,12 +1135,7 @@ IGeneralService::IGeneralService(Core::System& system_)
     RegisterHandlers(functions);
 }
 
-IGeneralService::~IGeneralService() {
-    std::scoped_lock lock{g_nifm_client_id_mutex};
-    g_nifm_issued_client_ids.clear();
-    g_nifm_accepted_client_ids.clear();
-    g_nifm_current_client_id = 0;
-}
+IGeneralService::~IGeneralService() = default;
 
 class NetworkInterface final : public ServiceFramework<NetworkInterface> {
 public:
