@@ -262,17 +262,17 @@ void PresentManager::PresentThread(std::stop_token token) {
             return;
         }
 
-        // Take the frame and notify anyone waiting
+        // Take the frame and mark presentation in-flight before the queue appears empty.
         Frame* frame = present_queue.front();
         present_queue.pop();
-        frame_cv.notify_one();
-
-        lock.unlock();
-
         {
             std::lock_guard present_lock{present_state_mutex};
             presenting = true;
         }
+        frame_cv.notify_one();
+
+        lock.unlock();
+
         render_window.RunPresentationWork([this, frame] { CopyToSwapchain(frame); });
         {
             std::lock_guard present_lock{present_state_mutex};

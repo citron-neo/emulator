@@ -269,7 +269,12 @@ void EmitTransformFeedbackEmulationStoresImpl(EmitContext& ctx) {
                 ctx.OpStore(dst_ptr, value);
                 continue;
             }
-            const u32 max_records = xv.stride > 0 ? buffer_bytes / xv.stride : 0;
+            const u64 component_end =
+                static_cast<u64>(xv.offset) + static_cast<u64>(c) * sizeof(f32) + sizeof(f32);
+            const u32 max_records =
+                xv.stride > 0 && component_end <= buffer_bytes
+                    ? static_cast<u32>((buffer_bytes - component_end) / xv.stride + 1)
+                    : 0;
             if (max_records == 0) {
                 continue;
             }
