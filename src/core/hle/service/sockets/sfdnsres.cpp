@@ -6,6 +6,7 @@
 #include <utility>
 #include <vector>
 
+#include "common/settings.h"
 #include "common/string_util.h"
 #include "common/swap.h"
 #include "core/core.h"
@@ -136,12 +137,23 @@ std::set<std::string> blocked_domains{
     "phoenix-api.wbagora.com",
     // prevents various battle net games from crashing
     "battle.net",
-    // minecraft from crashing
-    "microsoft.com",
-    "mojang.com",
-    "xboxlive.com",
-    "minecraftservices.com",
 };
+
+bool ShouldResolve2kHostToLocalStub(const std::string& host) {
+    if (!Settings::values.airplane_mode.GetValue()) {
+        return false;
+    }
+    return host.find("my.2k.com") != std::string::npos ||
+           host.find("2kcoretech.online") != std::string::npos;
+}
+
+static std::optional<std::vector<Network::AddrInfo>> ResolveLocalStubAddress() {
+    auto res = Network::GetAddressInfo("127.0.0.1", std::nullopt);
+    if (!res.has_value()) {
+        return std::nullopt;
+    }
+    return res.value();
+}
 
 static std::pair<u32, GetAddrInfoError> GetHostByNameRequestImpl(HLERequestContext& ctx) {
     struct InputParameters {
@@ -167,6 +179,18 @@ static std::pair<u32, GetAddrInfoError> GetHostByNameRequestImpl(HLERequestConte
     if (blocked_domains.find(host) != blocked_domains.end()) {
         LOG_WARNING(Network, "Resolution of hostname {} requested, returning EAI_AGAIN", host);
         return {0, GetAddrInfoError::AGAIN};
+    }
+
+    if (ShouldResolve2kHostToLocalStub(host)) {
+        auto res = ResolveLocalStubAddress();
+        if (!res.has_value()) {
+            return {0, GetAddrInfoError::AGAIN};
+        }
+        LOG_INFO(Network, "Resolved {} to 127.0.0.1 for local DNA stub (airplane mode)", host);
+        const std::vector<u8> data = SerializeAddrInfoAsHostEnt(res.value(), host);
+        const u32 data_size = static_cast<u32>(data.size());
+        ctx.WriteBuffer(data, 0);
+        return {data_size, GetAddrInfoError::SUCCESS};
     }
 
     auto res = Network::GetAddressInfo(host, /*service*/ std::nullopt);
@@ -284,6 +308,18 @@ static std::pair<u32, GetAddrInfoError> GetAddrInfoRequestImpl(HLERequestContext
     if (blocked_domains.find(host) != blocked_domains.end()) {
         LOG_WARNING(Network, "Resolution of hostname {} requested, returning EAI_AGAIN", host);
         return {0, GetAddrInfoError::AGAIN};
+    }
+
+    if (ShouldResolve2kHostToLocalStub(host)) {
+        auto res = ResolveLocalStubAddress();
+        if (!res.has_value()) {
+            return {0, GetAddrInfoError::AGAIN};
+        }
+        LOG_INFO(Network, "Resolved {} to 127.0.0.1 for local DNA stub (airplane mode)", host);
+        const std::vector<u8> data = SerializeAddrInfo(res.value(), host);
+        const u32 data_size = static_cast<u32>(data.size());
+        ctx.WriteBuffer(data, 0);
+        return {data_size, GetAddrInfoError::SUCCESS};
     }
 
     std::optional<std::string> service = std::nullopt;

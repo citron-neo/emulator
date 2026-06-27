@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <cstring>
+#include <limits>
 
 #include "common/string_util.h"
 
@@ -18,10 +19,29 @@
 #include "core/hle/service/ssl/ssl.h"
 #include "core/hle/service/ssl/ssl_backend.h"
 #include "core/hle/service/ssl/ssl_types.h"
+#include "core/internal_network/dna_gateway_stub.h"
 #include "core/internal_network/network.h"
 #include "core/internal_network/sockets.h"
 
 namespace Service::SSL {
+
+namespace {
+
+std::shared_ptr<Sockets::BSD> FindBsdServiceWithSocket(Core::System& system, s32 fd) {
+    for (const char* service_name : {"bsd:u", "bsd:s"}) {
+        auto bsd = system.ServiceManager().GetService<Sockets::BSD>(service_name);
+        if (!bsd) {
+            continue;
+        }
+        if (bsd->GetSocket(fd).has_value()) {
+            LOG_DEBUG(Service_SSL, "Resolved socket fd={} on {}", fd, service_name);
+            return bsd;
+        }
+    }
+    return nullptr;
+}
+
+} // namespace
 
 // This is nn::ssl::sf::CertificateFormat
 enum class CertificateFormat : u32 {
@@ -39,6 +59,15 @@ enum class ContextOption : u32 {
 enum class IoMode : u32 {
     Blocking = 1,
     NonBlocking = 2,
+};
+
+// This is nn::ssl::sf::AlpnProtoState
+enum class AlpnProtoState : u32 {
+    NoSupport = 0,
+    Negotiated = 1,
+    NoOverlap = 2,
+    Selected = 3,
+    EarlyValue = 4,
 };
 
 // This is nn::ssl::sf::OptionType
@@ -125,13 +154,10 @@ public:
             if (!do_not_close_socket) {
                 LOG_ERROR(Service_SSL,
                           "do_not_close_socket was changed after setting socket; is this right?");
-            } else {
-                auto bsd = system.ServiceManager().GetService<Service::Sockets::BSD>("bsd:u");
-                if (bsd) {
-                    auto err = bsd->CloseImpl(fd);
-                    if (err != Service::Sockets::Errno::SUCCESS) {
-                        LOG_ERROR(Service_SSL, "Failed to close duplicated socket: {}", err);
-                    }
+            } else if (bsd_service) {
+                const auto err = bsd_service->CloseImpl(fd);
+                if (err != Sockets::Errno::SUCCESS) {
+                    LOG_ERROR(Service_SSL, "Failed to close duplicated socket: {}", err);
                 }
             }
         }
@@ -145,14 +171,63 @@ private:
     bool do_not_close_socket = false;
     bool get_server_cert_chain = false;
     std::shared_ptr<Network::SocketBase> socket;
+    std::shared_ptr<Sockets::BSD> bsd_service;
     bool did_handshake = false;
     u32 verify_option = 0;
+    IoMode io_mode = IoMode::Blocking;
+    u32 io_timeout_ms = 300000;
+    std::vector<u8> next_alpn_proto;
+    std::string connection_hostname;
+
+    static bool IsDnaGatewayHostname(const std::string& hostname) {
+        return hostname.find("my.2k.com") != std::string::npos ||
+               hostname.find("2kcoretech.online") != std::string::npos;
+    }
+
+    void ApplyDnaGatewayVerifyBypass() {
+        bool bypass = IsDnaGatewayHostname(connection_hostname);
+        if (!bypass && socket) {
+            const auto [peer, err] = socket->GetPeerName();
+            if (err == Network::Errno::SUCCESS && peer.ip == std::array<u8, 4>{127, 0, 0, 1} &&
+                peer.portno == Network::DnaGatewayPort) {
+                bypass = true;
+            }
+        }
+        if (!bypass) {
+            return;
+        }
+        verify_option = 0;
+        backend->SetVerifyOption(0);
+        LOG_INFO(Service_SSL, "Disabled TLS verification for DNA gateway host {}",
+                 connection_hostname.empty() ? "127.0.0.1:47873" : connection_hostname);
+    }
+
+    std::vector<u8> GetFirstAlpnProto() const {
+        // nn::ssl reports the first offered ALPN proto as "selected" without negotiating it
+        // through OpenSSL. LEGO 2K's libwebsockets treats h2 as selected on :443 and sends the
+        // HTTP/2 connection preface, which our local DNA gateway stub does not implement.
+        if (IsDnaGatewayHostname(connection_hostname)) {
+            return {'h', 't', 't', 'p', '/', '1', '.', '1'};
+        }
+        if (next_alpn_proto.size() < 2) {
+            return {};
+        }
+        const u8 len = next_alpn_proto[0];
+        if (len == 0 || next_alpn_proto.size() < static_cast<size_t>(1 + len)) {
+            return {};
+        }
+        return {next_alpn_proto.begin() + 1, next_alpn_proto.begin() + 1 + len};
+    }
 
     Result SetSocketDescriptorImpl(s32* out_fd, s32 fd) {
         LOG_DEBUG(Service_SSL, "called, fd={}", fd);
         ASSERT(!did_handshake);
-        auto bsd = system.ServiceManager().GetService<Service::Sockets::BSD>("bsd:u");
-        ASSERT_OR_EXECUTE(bsd, { return ResultInternalError; });
+        auto bsd = FindBsdServiceWithSocket(system, fd);
+        if (!bsd) {
+            LOG_ERROR(Service_SSL, "invalid socket fd {}", fd);
+            return ResultInvalidSocket;
+        }
+        bsd_service = bsd;
 
         // Based on https://switchbrew.org/wiki/SSL_services#SetSocketDescriptor
         if (do_not_close_socket) {
@@ -173,6 +248,11 @@ private:
             return ResultInvalidSocket;
         }
         socket = std::move(*sock);
+        const Network::Errno nb_err = socket->SetNonBlock(true);
+        if (nb_err != Network::Errno::SUCCESS) {
+            LOG_ERROR(Service_SSL, "Failed to set socket fd={} non-blocking", fd);
+            return ResultInvalidSocket;
+        }
         backend->SetSocket(socket);
         return ResultSuccess;
     }
@@ -180,11 +260,20 @@ private:
     Result SetHostNameImpl(const std::string& hostname) {
         LOG_DEBUG(Service_SSL, "called. hostname={}", hostname);
         ASSERT(!did_handshake);
-        return backend->SetHostName(hostname);
+        connection_hostname = hostname;
+        R_TRY(backend->SetHostName(hostname));
+        ApplyDnaGatewayVerifyBypass();
+        if (IsDnaGatewayHostname(connection_hostname)) {
+            next_alpn_proto = {8, 'h', 't', 't', 'p', '/', '1', '.', '1'};
+        }
+        R_SUCCEED();
     }
 
     Result SetVerifyOptionImpl(u32 option) {
         ASSERT(!did_handshake);
+        if (IsDnaGatewayHostname(connection_hostname)) {
+            option = 0;
+        }
         LOG_DEBUG(Service_SSL, "called. option={}", option);
         verify_option = option;
         return backend->SetVerifyOption(option);
@@ -195,11 +284,9 @@ private:
         ASSERT(mode == IoMode::Blocking || mode == IoMode::NonBlocking);
         ASSERT_OR_EXECUTE(socket, { return ResultNoSocket; });
 
-        const bool non_block = mode == IoMode::NonBlocking;
-        const Network::Errno error = socket->SetNonBlock(non_block);
-        if (error != Network::Errno::SUCCESS) {
-            LOG_ERROR(Service_SSL, "Failed to set native socket non-block flag to {}", non_block);
-        }
+        // IoMode only selects the NSS timeout; the socket stays non-blocking.
+        io_mode = mode;
+        io_timeout_ms = mode == IoMode::Blocking ? 300000U : 0U;
         return ResultSuccess;
     }
 
@@ -211,6 +298,7 @@ private:
 
     Result DoHandshakeImpl() {
         ASSERT_OR_EXECUTE(!did_handshake && socket, { return ResultNoSocket; });
+        ApplyDnaGatewayVerifyBypass();
         Result res = backend->DoHandshake();
         did_handshake = res.IsSuccess();
         return res;
@@ -265,8 +353,64 @@ private:
     }
 
     Result PendingImpl(s32* out_pending) {
-        LOG_WARNING(Service_SSL, "(STUBBED) called.");
-        *out_pending = 0;
+        ASSERT_OR_EXECUTE(socket, { return ResultNoSocket; });
+        const size_t pending = backend->GetPendingBytes();
+        *out_pending = static_cast<s32>(std::min(pending, static_cast<size_t>(std::numeric_limits<s32>::max())));
+        return ResultSuccess;
+    }
+
+    Result PollImpl(u32 in_poll_event, u32 timeout_ms, u32* out_poll_event) {
+        ASSERT_OR_EXECUTE(socket, { return ResultNoSocket; });
+
+        const u32 ssl_events = backend->GetPollEvents() & in_poll_event;
+        if (ssl_events != 0) {
+            *out_poll_event = ssl_events;
+            return ResultSuccess;
+        }
+
+        Network::PollFD pollfd{};
+        pollfd.socket = socket.get();
+        if ((in_poll_event & SslPollEventRead) != 0) {
+            pollfd.events |= Network::PollEvents::In;
+        }
+        if ((in_poll_event & SslPollEventWrite) != 0) {
+            pollfd.events |= Network::PollEvents::Out;
+        }
+        if ((in_poll_event & SslPollEventExcept) != 0) {
+            pollfd.events |= Network::PollEvents::Err;
+        }
+
+        if (pollfd.events == Network::PollEvents{}) {
+            *out_poll_event = 0;
+            return ResultSuccess;
+        }
+
+        std::vector<Network::PollFD> pollfds{pollfd};
+        const s32 timeout =
+            timeout_ms > static_cast<u32>(std::numeric_limits<s32>::max()) ? -1
+                                                                          : static_cast<s32>(timeout_ms);
+        const auto [ret, err] = Network::Poll(pollfds, timeout);
+        if (err != Network::Errno::SUCCESS) {
+            LOG_ERROR(Service_SSL, "Poll failed with Network::Errno {}", err);
+            return ResultInternalError;
+        }
+        if (ret < 0) {
+            return ResultInternalError;
+        }
+
+        u32 out_events = 0;
+        const auto revents = pollfds[0].revents;
+        if (True(revents & Network::PollEvents::In)) {
+            out_events |= SslPollEventRead;
+        }
+        if (True(revents & Network::PollEvents::Out)) {
+            out_events |= SslPollEventWrite;
+        }
+        if (True(revents & (Network::PollEvents::Err | Network::PollEvents::Hup))) {
+            out_events |= SslPollEventExcept;
+        }
+        out_events |= backend->GetPollEvents() & in_poll_event;
+        *out_poll_event = out_events;
         return ResultSuccess;
     }
 
@@ -323,9 +467,12 @@ private:
             res = backend->GetServerCerts(&certs);
             if (res == ResultSuccess) {
                 const std::vector<u8> certs_buf = SerializeServerCerts(certs);
-                ctx.WriteBuffer(certs_buf);
                 out.certs_count = static_cast<u32>(certs.size());
                 out.certs_size = static_cast<u32>(certs_buf.size());
+                if (!certs_buf.empty() && ctx.CanWriteBuffer(0) &&
+                    ctx.GetWriteBufferSize(0) >= certs_buf.size()) {
+                    ctx.WriteBuffer(certs_buf);
+                }
             }
         }
         IPC::ResponseBuilder rb{ctx, 4};
@@ -334,13 +481,19 @@ private:
     }
 
     void Read(HLERequestContext& ctx) {
-        std::vector<u8> output_bytes(ctx.GetWriteBufferSize());
+        std::vector<u8> output_bytes;
+        if (ctx.CanWriteBuffer(0)) {
+            output_bytes.resize(ctx.GetWriteBufferSize(0));
+        }
         const Result res = ReadImpl(&output_bytes);
         IPC::ResponseBuilder rb{ctx, 3};
         rb.Push(res);
         if (res == ResultSuccess) {
             rb.Push(static_cast<u32>(output_bytes.size()));
-            ctx.WriteBuffer(output_bytes);
+            if (!output_bytes.empty() && ctx.CanWriteBuffer(0) &&
+                ctx.GetWriteBufferSize(0) >= output_bytes.size()) {
+                ctx.WriteBuffer(output_bytes);
+            }
         } else {
             rb.Push(static_cast<u32>(0));
         }
@@ -397,11 +550,9 @@ private:
     }
 
     void GetIoMode(HLERequestContext& ctx) {
-        LOG_WARNING(Service_SSL, "(STUBBED) called");
-
         IPC::ResponseBuilder rb{ctx, 3};
         rb.Push(ResultSuccess);
-        rb.Push<u32>(static_cast<u32>(IoMode::Blocking)); // Default to blocking
+        rb.Push(static_cast<u32>(io_mode));
     }
 
     void SetOption(HLERequestContext& ctx) {
@@ -440,21 +591,20 @@ private:
 
     void Poll(HLERequestContext& ctx) {
         IPC::RequestParser rp{ctx};
-        const u32 poll_event = rp.Pop<u32>();
-
-        LOG_WARNING(Service_SSL, "(STUBBED) called, poll_event={}", poll_event);
-
+        const u32 in_poll_event = rp.Pop<u32>();
+        const u32 timeout_ms = rp.Pop<u32>();
+        u32 out_poll_event = 0;
+        const Result res = PollImpl(in_poll_event, timeout_ms, &out_poll_event);
+        LOG_DEBUG(Service_SSL, "called, in_poll_event={:#x}, timeout_ms={}, out_poll_event={:#x}",
+                  in_poll_event, timeout_ms, out_poll_event);
         IPC::ResponseBuilder rb{ctx, 3};
-        rb.Push(ResultSuccess);
-        rb.Push<s32>(0); // Stub: no events ready
+        rb.Push(res);
+        rb.Push(out_poll_event);
     }
 
     void GetVerifyCertError(HLERequestContext& ctx) {
-        LOG_WARNING(Service_SSL, "(STUBBED) called");
-
-        IPC::ResponseBuilder rb{ctx, 3};
+        IPC::ResponseBuilder rb{ctx, 2};
         rb.Push(ResultSuccess);
-        rb.Push<u32>(0); // Stub: no certificate errors
     }
 
     void GetNeededServerCertBufferSize(HLERequestContext& ctx) {
@@ -541,27 +691,38 @@ private:
 
     void SetNextAlpnProto(HLERequestContext& ctx) {
         const auto alpn_data = ctx.ReadBuffer();
+        next_alpn_proto.assign(alpn_data.begin(), alpn_data.end());
 
-        LOG_WARNING(Service_SSL, "(STUBBED) called, alpn_data_size={}", alpn_data.size());
+        if (IsDnaGatewayHostname(connection_hostname)) {
+            next_alpn_proto = {8, 'h', 't', 't', 'p', '/', '1', '.', '1'};
+            LOG_INFO(Service_SSL, "Forced ALPN offer to http/1.1 for DNA gateway host {}",
+                     connection_hostname);
+        } else {
+            LOG_DEBUG(Service_SSL, "called, alpn_data_size={}", next_alpn_proto.size());
+        }
 
         IPC::ResponseBuilder rb{ctx, 2};
         rb.Push(ResultSuccess);
     }
 
     void GetNextAlpnProto(HLERequestContext& ctx) {
-        LOG_WARNING(Service_SSL, "(STUBBED) called");
-
         struct AlpnProtoInfo {
-            u32 state;         // AlpnProtoState
+            u32 state;
             u32 proto_size;
         };
 
         AlpnProtoInfo info{};
-        info.state = 0; // NoSupport
-        info.proto_size = 0;
-
-        // Write empty protocol string to buffer
-        ctx.WriteBuffer(std::span<const u8>{});
+        const std::vector<u8> proto = did_handshake ? GetFirstAlpnProto() : std::vector<u8>{};
+        if (proto.empty()) {
+            info.state = static_cast<u32>(AlpnProtoState::NoSupport);
+            info.proto_size = 0;
+        } else {
+            info.state = static_cast<u32>(AlpnProtoState::Selected);
+            info.proto_size = static_cast<u32>(proto.size());
+            if (ctx.CanWriteBuffer(0) && ctx.GetWriteBufferSize(0) >= proto.size()) {
+                ctx.WriteBuffer(proto);
+            }
+        }
 
         IPC::ResponseBuilder rb{ctx, 4};
         rb.Push(ResultSuccess);
@@ -631,20 +792,16 @@ private:
 
     void SetIoTimeout(HLERequestContext& ctx) {
         IPC::RequestParser rp{ctx};
-        const u32 timeout_ms = rp.Pop<u32>();
-
-        LOG_WARNING(Service_SSL, "(STUBBED) called, timeout_ms={}", timeout_ms);
-
+        io_timeout_ms = rp.Pop<u32>();
+        LOG_DEBUG(Service_SSL, "called, timeout_ms={}", io_timeout_ms);
         IPC::ResponseBuilder rb{ctx, 2};
         rb.Push(ResultSuccess);
     }
 
     void GetIoTimeout(HLERequestContext& ctx) {
-        LOG_WARNING(Service_SSL, "(STUBBED) called");
-
         IPC::ResponseBuilder rb{ctx, 3};
         rb.Push(ResultSuccess);
-        rb.Push<u32>(30000); // Stub: 30 second timeout in milliseconds
+        rb.Push(io_timeout_ms);
     }
 };
 
