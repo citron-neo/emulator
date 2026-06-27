@@ -140,10 +140,11 @@ void EmitPrologue(EmitContext& ctx) {
 }
 
 void EmitEpilogue(EmitContext& ctx) {
-    if (ctx.stage == Stage::VertexB && ctx.runtime_info.convert_depth_mode &&
-        !ctx.profile.support_native_ndc) {
+    if ((ctx.stage == Stage::VertexB || ctx.stage == Stage::TessellationEval) &&
+        ctx.runtime_info.convert_depth_mode && !ctx.profile.support_native_ndc) {
         ConvertDepthMode(ctx);
     }
+    EmitTransformFeedbackEmulationStores(ctx);
     if (ctx.stage == Stage::Fragment) {
         InitializeAlphaToCoverage(ctx);
         AlphaTest(ctx);

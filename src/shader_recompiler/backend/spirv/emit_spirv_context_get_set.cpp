@@ -2,11 +2,13 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <bit>
+#include <limits>
 #include <tuple>
 #include <utility>
 
 #include "shader_recompiler/backend/spirv/emit_spirv_instructions.h"
 #include "shader_recompiler/backend/spirv/spirv_emit_context.h"
+#include "shader_recompiler/exception.h"
 
 namespace Shader::Backend::SPIRV {
 namespace {
@@ -168,6 +170,101 @@ Id GetCbufElement(EmitContext& ctx, Id vector, const IR::Value& offset, u32 inde
         element = ctx.OpIAdd(ctx.U32[1], element, ctx.Const(index_offset));
     }
     return ctx.OpVectorExtractDynamic(ctx.U32[1], vector, element);
+}
+
+void ConditionalStore(EmitContext& ctx, Id condition, Id pointer, Id value) {
+    const Id merge_label = ctx.OpLabel();
+    const Id store_label = ctx.OpLabel();
+    const Id skip_label = ctx.OpLabel();
+    ctx.OpSelectionMerge(merge_label, spv::SelectionControlMask::MaskNone);
+    ctx.OpBranchConditional(condition, store_label, skip_label);
+    ctx.AddLabel(store_label);
+    ctx.OpStore(pointer, value);
+    ctx.OpBranch(merge_label);
+    ctx.AddLabel(skip_label);
+    ctx.OpBranch(merge_label);
+    ctx.AddLabel(merge_label);
+}
+
+void EmitTransformFeedbackEmulationStoresImpl(EmitContext& ctx) {
+    if (!ctx.runtime_info.emulate_transform_feedback || ctx.runtime_info.xfb_count == 0) {
+        return;
+    }
+    const u32 base = ctx.runtime_info.xfb_emulation_ssbo_base;
+    if (base == std::numeric_limits<u32>::max()) {
+        return;
+    }
+    const u32 counter_ssbo = base + 4;
+    Id record_index{};
+    if (counter_ssbo < ctx.ssbos.size() && Sirit::ValidId(ctx.ssbos[counter_ssbo].U32)) {
+        ctx.AddCapability(spv::Capability::AtomicStorage);
+        const Id counter_ptr{ctx.OpAccessChain(ctx.storage_types.U32.element,
+                                               ctx.ssbos[counter_ssbo].U32, ctx.u32_zero_value,
+                                               ctx.u32_zero_value)};
+        record_index = ctx.OpAtomicIAdd(ctx.U32[1], counter_ptr,
+                                        ctx.Const(static_cast<u32>(spv::Scope::Device)),
+                                        ctx.u32_zero_value, ctx.Const(1U));
+    } else {
+        record_index = ctx.OpLoad(ctx.U32[1], ctx.vertex_index);
+    }
+    const Id element_ptr{ctx.storage_types.F32.element};
+
+    for (u32 attr_u32 = static_cast<u32>(IR::Attribute::PositionX); attr_u32 < 256; ++attr_u32) {
+        const auto& xv = ctx.runtime_info.xfb_varyings[attr_u32];
+        if (xv.components == 0) {
+            continue;
+        }
+        if (xv.buffer >= 4) {
+            continue;
+        }
+        const u32 ssbo_idx = base + xv.buffer;
+        if (ssbo_idx >= ctx.ssbos.size()) {
+            continue;
+        }
+        const Id ssbo_array_id = ctx.ssbos[ssbo_idx].F32;
+        if (!Sirit::ValidId(ssbo_array_id)) {
+            continue;
+        }
+        const Id stride_bytes{ctx.Const(xv.stride)};
+        const Id base_byte{ctx.OpIMul(ctx.U32[1], record_index, stride_bytes)};
+        for (u32 c = 0; c < xv.components; ++c) {
+            const u32 comp_attr = attr_u32 + c;
+            if (comp_attr >= 256) {
+                break;
+            }
+            const IR::Attribute attr = static_cast<IR::Attribute>(comp_attr);
+            std::optional<OutAttr> output;
+            try {
+                output = OutputAttrPointer(ctx, attr);
+            } catch (const NotImplementedException&) {
+                continue;
+            }
+            if (!output) {
+                continue;
+            }
+            Id value{};
+            if (Sirit::ValidId(output->type)) {
+                const Id raw{ctx.OpLoad(output->type, output->pointer)};
+                value = ctx.OpBitcast(ctx.F32[1], raw);
+            } else {
+                value = ctx.OpLoad(ctx.F32[1], output->pointer);
+            }
+            const Id byte_off{ctx.Const(xv.offset + c * 4)};
+            const Id abs_byte{ctx.OpIAdd(ctx.U32[1], base_byte, byte_off)};
+            const Id word_idx{ctx.OpShiftRightLogical(ctx.U32[1], abs_byte, ctx.Const(2u))};
+            const Id dst_ptr{
+                ctx.OpAccessChain(element_ptr, ssbo_array_id, ctx.u32_zero_value, word_idx)};
+            const u32 buffer_bytes = ctx.runtime_info.xfb_buffer_bytes[xv.buffer];
+            if (buffer_bytes == 0) {
+                ctx.OpStore(dst_ptr, value);
+                continue;
+            }
+            const Id size_bytes{ctx.Const(buffer_bytes)};
+            const Id end_byte{ctx.OpIAdd(ctx.U32[1], abs_byte, ctx.Const(4u))};
+            const Id in_bounds{ctx.OpULessThanEqual(ctx.U1, end_byte, size_bytes)};
+            ConditionalStore(ctx, in_bounds, dst_ptr, value);
+        }
+    }
 }
 } // Anonymous namespace
 
@@ -616,6 +713,10 @@ Id EmitLoadLocal(EmitContext& ctx, Id word_offset) {
 void EmitWriteLocal(EmitContext& ctx, Id word_offset, Id value) {
     const Id pointer{ctx.OpAccessChain(ctx.private_u32, ctx.local_memory, word_offset)};
     ctx.OpStore(pointer, value);
+}
+
+void EmitTransformFeedbackEmulationStores(EmitContext& ctx) {
+    EmitTransformFeedbackEmulationStoresImpl(ctx);
 }
 
 } // namespace Shader::Backend::SPIRV
