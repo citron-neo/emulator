@@ -1297,8 +1297,6 @@ public:
                     return num_vertices / 3;
                 case Maxwell3D::Regs::PrimitiveTopology::TrianglesAdjacency:
                     return num_vertices / 6;
-                case Maxwell3D::Regs::PrimitiveTopology::TriangleStripAdjacency:
-                    return num_vertices >= 6 ? (num_vertices - 4) / 2 : 0;
                 case Maxwell3D::Regs::PrimitiveTopology::TriangleFan:
                 case Maxwell3D::Regs::PrimitiveTopology::TriangleStrip:
                     return num_vertices >= 3 ? num_vertices - 2 : 0;
