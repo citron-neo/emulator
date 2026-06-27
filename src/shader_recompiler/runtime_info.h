@@ -5,6 +5,7 @@
 #pragma once
 
 #include <array>
+#include <limits>
 #include <map>
 #include <optional>
 #include <vector>
@@ -13,6 +14,9 @@
 #include "shader_recompiler/varying_state.h"
 
 namespace Shader {
+
+/// Guest vertex input slot that could not be mapped into the host limit (see PopulateVertexLocationRemap).
+constexpr u8 VERTEX_INPUT_DROPPED = 0xFF;
 
 enum class AttributeType : u8 {
     Float,
@@ -85,6 +89,12 @@ struct TransformFeedbackVarying {
 
 struct RuntimeInfo {
     std::array<AttributeType, 32> generic_input_types{};
+    /// Maps guest attribute index to SPIR-V/VkVertexInput location when MoltenVK caps at 16.
+    bool remapped_vertex_locations{};
+    std::array<u8, 32> vertex_locations{};
+    /// Maps guest vertex stream/binding index to Vulkan binding when MoltenVK caps at 16.
+    bool remapped_vertex_bindings{};
+    std::array<u8, 32> vertex_bindings{};
     VaryingState previous_stage_stores;
     std::map<IR::Attribute, IR::Attribute> previous_stage_legacy_stores_mapping;
 
@@ -111,6 +121,12 @@ struct RuntimeInfo {
     /// Transform feedback state for each varying
     std::array<TransformFeedbackVarying, 256> xfb_varyings{};
     u32 xfb_count{0};
+    /// Guest transform-feedback buffer sizes captured in pipeline state (bytes).
+    std::array<u32, 4> xfb_buffer_bytes{};
+    /// Stream-out is implemented with storage-buffer writes (MoltenVK / no VK_EXT_transform_feedback).
+    bool emulate_transform_feedback{};
+    /// First SSBO index of the four transform-feedback buffers; UINT_MAX if unused.
+    u32 xfb_emulation_ssbo_base{std::numeric_limits<u32>::max()};
 };
 
 } // namespace Shader
