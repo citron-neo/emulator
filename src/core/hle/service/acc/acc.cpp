@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <filesystem>
+#include <atomic>
 #include <mutex>
 #include <string_view>
 #include <unordered_map>
@@ -1048,7 +1049,7 @@ public:
     explicit IGuestLoginRequest(Core::System& system_, Common::UUID user_id_,
                                 ProfileManager& profile_manager_)
         : ServiceFramework{system_, "IGuestLoginRequest"}, user_id{user_id_},
-          profile_manager{profile_manager_} {
+          profile_manager{profile_manager_}, session_id{Common::UUID::MakeRandom()} {
         // clang-format off
         static const FunctionInfo functions[] = {
             {0, &IGuestLoginRequest::GetSessionId, "GetSessionId"},
@@ -1067,8 +1068,9 @@ public:
 private:
     void GetSessionId(HLERequestContext& ctx) {
         LOG_INFO(Service_ACC, "IGuestLoginRequest::GetSessionId called");
-        IPC::ResponseBuilder rb{ctx, 2};
+        IPC::ResponseBuilder rb{ctx, 6};
         rb.Push(ResultSuccess);
+        rb.PushRaw(session_id);
     }
 
     void GetAccountId(HLERequestContext& ctx) {
@@ -1132,6 +1134,7 @@ private:
 
     Common::UUID user_id;
     ProfileManager& profile_manager;
+    Common::UUID session_id;
 };
 
 class EnsureTokenIdCacheAsyncInterface final : public IAsyncContext {
@@ -1281,7 +1284,7 @@ public:
     }
 
     void SignalCompletion() {
-        is_complete = true;
+        is_complete.store(true);
         completion_event->Signal();
     }
 
@@ -1289,7 +1292,7 @@ private:
     void GetSystemEvent(HLERequestContext& ctx) {
         LOG_INFO(Service_ACC, "IAsyncNetworkServiceLicenseKindContext::GetSystemEvent called");
 
-        if (is_complete) {
+        if (is_complete.load()) {
             completion_event->Signal();
         }
 
@@ -1299,7 +1302,7 @@ private:
     }
 
     void Cancel(HLERequestContext& ctx) {
-        is_complete = true;
+        is_complete.store(true);
         completion_event->Signal();
 
         IPC::ResponseBuilder rb{ctx, 2};
@@ -1308,11 +1311,11 @@ private:
 
     void HasDone(HLERequestContext& ctx) {
         LOG_INFO(Service_ACC, "IAsyncNetworkServiceLicenseKindContext::HasDone called, done={}",
-                 is_complete);
+                 is_complete.load());
 
         IPC::ResponseBuilder rb{ctx, 3};
         rb.Push(ResultSuccess);
-        rb.Push(is_complete);
+        rb.Push(is_complete.load());
     }
 
     void GetResult(HLERequestContext& ctx) {
@@ -1331,7 +1334,7 @@ private:
 
     KernelHelpers::ServiceContext service_context;
     Kernel::KEvent* completion_event{};
-    bool is_complete{};
+    std::atomic<bool> is_complete{false};
 };
 
 class IAsyncContextForLoginForOnlinePlay final
@@ -1361,7 +1364,7 @@ public:
     }
 
     void SignalCompletion() {
-        is_complete = true;
+        is_complete.store(true);
         completion_event->Signal();
     }
 
@@ -1369,7 +1372,7 @@ private:
     void GetSystemEvent(HLERequestContext& ctx) {
         LOG_INFO(Service_ACC, "IAsyncContextForLoginForOnlinePlay::GetSystemEvent called");
 
-        if (is_complete) {
+        if (is_complete.load()) {
             completion_event->Signal();
         }
 
@@ -1379,7 +1382,7 @@ private:
     }
 
     void Cancel(HLERequestContext& ctx) {
-        is_complete = true;
+        is_complete.store(true);
         completion_event->Signal();
 
         IPC::ResponseBuilder rb{ctx, 2};
@@ -1388,11 +1391,11 @@ private:
 
     void HasDone(HLERequestContext& ctx) {
         LOG_INFO(Service_ACC, "IAsyncContextForLoginForOnlinePlay::HasDone called, done={}",
-                 is_complete);
+                 is_complete.load());
 
         IPC::ResponseBuilder rb{ctx, 3};
         rb.Push(ResultSuccess);
-        rb.Push(is_complete);
+        rb.Push(is_complete.load());
     }
 
     void GetResult(HLERequestContext& ctx) {
@@ -1420,7 +1423,7 @@ private:
 
     KernelHelpers::ServiceContext service_context;
     Kernel::KEvent* completion_event{};
-    bool is_complete{};
+    std::atomic<bool> is_complete{false};
     Common::UUID user_id;
 };
 
