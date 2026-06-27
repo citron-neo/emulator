@@ -149,9 +149,13 @@ public:
 
     void ReleaseChannel(s32 channel_id) override;
 
+    bool HasDrawTransformFeedback() override;
+
     std::optional<FramebufferTextureInfo> AccelerateDisplay(const Tegra::FramebufferConfig& config,
                                                             VAddr framebuffer_addr,
                                                             u32 pixel_stride);
+
+    void CompositeGameRtToViAtPresent(const Tegra::FramebufferConfig& config, DAddr vi_cpu);
 
 private:
     static constexpr size_t MAX_TEXTURES = 192;

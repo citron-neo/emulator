@@ -7,6 +7,7 @@
 
 #include "common/settings.h"
 #include "video_core/framebuffer_config.h"
+#include "video_core/rasterizer_interface.h"
 #include "video_core/renderer_vulkan/present/fsr.h"
 #include "video_core/renderer_vulkan/present/fsr2.h"
 #include "video_core/renderer_vulkan/present/fxaa.h"
@@ -75,13 +76,28 @@ void Layer::ConfigureDraw(PresentPushConstants* out_push_constants,
                           VkSampler sampler, size_t image_index,
                           const Tegra::FramebufferConfig& framebuffer,
                           const Layout::FramebufferLayout& layout) {
-    const auto texture_info = rasterizer.AccelerateDisplay(
-        framebuffer, framebuffer.address + framebuffer.offset, framebuffer.stride);
+    const DAddr framebuffer_addr = framebuffer.address + framebuffer.offset;
+    rasterizer.CompositeGameRtToViAtPresent(framebuffer, framebuffer_addr);
+    const auto texture_info = rasterizer.AccelerateDisplay(framebuffer, framebuffer_addr,
+                                                           framebuffer.stride);
     const u32 texture_width = texture_info ? texture_info->width : framebuffer.width;
     const u32 texture_height = texture_info ? texture_info->height : framebuffer.height;
     const u32 scaled_width = texture_info ? texture_info->scaled_width : texture_width;
     const u32 scaled_height = texture_info ? texture_info->scaled_height : texture_height;
-    const bool use_accelerated = texture_info.has_value();
+    const u64 fb_bytes = GetSizeInBytes(framebuffer);
+    bool use_accelerated = texture_info.has_value();
+    // A registered GPU image with no GPU writes is stale (e.g. software Fermi2D blit wrote guest
+    // memory only). Fall back to the slow path that reads guest RAM. Use guest_addr when
+    // AccelerateDisplay remapped to an offscreen render target (VI addr != draw RT addr).
+    const DAddr texture_guest_addr =
+        texture_info && texture_info->guest_addr != 0 ? texture_info->guest_addr : framebuffer_addr;
+    const u64 texture_guest_bytes =
+        texture_info && texture_info->guest_bytes != 0 ? texture_info->guest_bytes : fb_bytes;
+    if (use_accelerated && texture_guest_addr != 0 && texture_guest_bytes > 0 &&
+        !rasterizer.MustFlushRegion(texture_guest_addr, texture_guest_bytes,
+                                    VideoCommon::CacheType::TextureCache)) {
+        use_accelerated = false;
+    }
 
     RefreshResources(framebuffer);
     SetAntiAliasPass();
@@ -94,12 +110,15 @@ void Layer::ConfigureDraw(PresentPushConstants* out_push_constants,
     };
 
     if (!use_accelerated) {
+        if (framebuffer_addr != 0 && fb_bytes > 0) {
+            rasterizer.FlushRegion(framebuffer_addr, fb_bytes);
+        }
         UpdateRawImage(framebuffer, image_index);
     }
 
-    VkImage source_image = texture_info ? texture_info->image : *raw_images[image_index];
+    VkImage source_image = use_accelerated ? texture_info->image : *raw_images[image_index];
     VkImageView source_image_view =
-        texture_info ? texture_info->image_view : *raw_image_views[image_index];
+        use_accelerated ? texture_info->image_view : *raw_image_views[image_index];
 
     anti_alias->Draw(scheduler, image_index, &source_image, &source_image_view);
 

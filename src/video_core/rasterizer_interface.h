@@ -175,5 +175,10 @@ public:
     virtual bool HasDrawTransformFeedback() {
         return false;
     }
+
+    /// Resolve byte count for DrawIndirectByteCount from the counter buffer.
+    virtual u32 ReadDrawIndirectByteCount(GPUVAddr counter_gpu_addr, u32 register_fallback) {
+        return register_fallback;
+    }
 };
 } // namespace VideoCore
