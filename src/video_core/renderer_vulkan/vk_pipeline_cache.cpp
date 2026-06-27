@@ -221,7 +221,8 @@ Shader::RuntimeInfo MakeRuntimeInfo(std::span<const Shader::IR::Program> program
             // When the guest binds a geometry shader but the host cannot run one, stream-out
             // emulation must run on the last stage before the skipped geometry stage.
             const bool guest_gs_skipped = guest_has_geometry_shader && !geometry_supported;
-            if (!guest_has_geometry_shader || (guest_gs_skipped && !uses_tessellation)) {
+            if ((!guest_has_geometry_shader && !uses_tessellation) ||
+                (guest_gs_skipped && !uses_tessellation)) {
                 PopulateXfbRuntimeInfo(info, key);
             }
             info.convert_depth_mode = gl_ndc;
@@ -279,7 +280,8 @@ Shader::RuntimeInfo MakeRuntimeInfo(std::span<const Shader::IR::Program> program
             return Shader::TessSpacing::Equal;
         }();
         if (!has_geometry) {
-            if (guest_has_geometry_shader && !geometry_supported) {
+            const bool guest_gs_skipped = guest_has_geometry_shader && !geometry_supported;
+            if (uses_tessellation && (!guest_has_geometry_shader || guest_gs_skipped)) {
                 PopulateXfbRuntimeInfo(info, key);
             }
             info.convert_depth_mode = gl_ndc;
@@ -862,7 +864,7 @@ std::unique_ptr<GraphicsPipeline> PipelineCache::CreateGraphicsPipeline(
 
     for (size_t index = 0; index < Tegra::Engines::Maxwell3D::Regs::MaxShaderProgram; ++index) {
         const bool is_emulated_stage =
-            layer_source_program != nullptr &&
+            geometry_supported && layer_source_program != nullptr &&
             index == static_cast<u32>(Tegra::Engines::Maxwell3D::Regs::ShaderType::Geometry);
         if (key.unique_hashes[index] == 0 && is_emulated_stage) {
             auto topology = MaxwellToOutputTopology(key.state.topology);
@@ -931,14 +933,9 @@ std::unique_ptr<GraphicsPipeline> PipelineCache::CreateGraphicsPipeline(
     for (size_t index = uses_vertex_a && uses_vertex_b ? 1 : 0; index < Tegra::Engines::Maxwell3D::Regs::MaxShaderProgram;
          ++index) {
         if (index == geometry_stage_index && !geometry_supported) {
-            const bool is_emulated_stage = layer_source_program != nullptr &&
-                                           index == static_cast<u32>(
-                                               Tegra::Engines::Maxwell3D::Regs::ShaderType::Geometry);
-            if (!is_emulated_stage) {
-                continue;
-            }
+            continue;
         }
-        const bool is_emulated_stage = layer_source_program != nullptr &&
+        const bool is_emulated_stage = geometry_supported && layer_source_program != nullptr &&
                                        index == static_cast<u32>(Tegra::Engines::Maxwell3D::Regs::ShaderType::Geometry);
         if (key.unique_hashes[index] == 0 && !is_emulated_stage) {
             continue;
