@@ -24,6 +24,13 @@ final class GameControllerManager {
             object: nil
         )
 
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(controllerDidDisconnect(_:)),
+            name: .GCControllerDidDisconnect,
+            object: nil
+        )
+
         for controller in GCController.controllers() {
             configure(controller)
         }
@@ -36,6 +43,18 @@ final class GameControllerManager {
             return
         }
         configure(controller)
+    }
+
+    @objc private func controllerDidDisconnect(_ notification: Notification) {
+        Self.resetBridgedInputState()
+    }
+
+    private static func resetBridgedInputState() {
+        for buttonId in 0...15 {
+            CitronBridge.setButton(buttonId: buttonId, pressed: false)
+        }
+        CitronBridge.setStick(stickId: 0, x: 0, y: 0)
+        CitronBridge.setStick(stickId: 1, x: 0, y: 0)
     }
 
     private func configure(_ controller: GCController) {

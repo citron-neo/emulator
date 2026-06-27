@@ -21,13 +21,17 @@ void EmuWindow_IOS::OnSurfaceChanged(void* metal_layer, int width, int height, f
 }
 
 void EmuWindow_IOS::OnTouchPressed(int id, float x, float y) {
-    const auto [touch_x, touch_y] = MapToTouchScreen(static_cast<u32>(x), static_cast<u32>(y));
+    const u32 clamped_x = static_cast<u32>(std::clamp(x, 0.0f, static_cast<float>(Layout().ScreenWidth)));
+    const u32 clamped_y = static_cast<u32>(std::clamp(y, 0.0f, static_cast<float>(Layout().ScreenHeight)));
+    const auto [touch_x, touch_y] = MapToTouchScreen(clamped_x, clamped_y);
     IOS::EmulationSession::GetInstance().GetInputSubsystem().GetTouchScreen()->TouchPressed(
         touch_x, touch_y, id);
 }
 
 void EmuWindow_IOS::OnTouchMoved(int id, float x, float y) {
-    const auto [touch_x, touch_y] = MapToTouchScreen(static_cast<u32>(x), static_cast<u32>(y));
+    const u32 clamped_x = static_cast<u32>(std::clamp(x, 0.0f, static_cast<float>(Layout().ScreenWidth)));
+    const u32 clamped_y = static_cast<u32>(std::clamp(y, 0.0f, static_cast<float>(Layout().ScreenHeight)));
+    const auto [touch_x, touch_y] = MapToTouchScreen(clamped_x, clamped_y);
     IOS::EmulationSession::GetInstance().GetInputSubsystem().GetTouchScreen()->TouchMoved(touch_x,
                                                                                          touch_y,
                                                                                          id);

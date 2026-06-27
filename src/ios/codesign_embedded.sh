@@ -9,13 +9,13 @@ fi
 item="$1"
 identity="${EXPANDED_CODE_SIGN_IDENTITY:-}"
 
-if [ -z "$identity" ] || [ "$identity" = "-" ]; then
+if [ -z "$identity" ]; then
     identity="${CODE_SIGN_IDENTITY:-}"
 fi
 
-if [ -z "$identity" ] || [ "$identity" = "-" ]; then
-    echo "No valid code signing identity was provided by Xcode." >&2
-    exit 1
+if [ -z "$identity" ]; then
+    echo "No code signing identity was provided by Xcode; skipping embed signing for $item." >&2
+    exit 0
 fi
 
 /usr/bin/codesign --force --sign "$identity" --timestamp=none "$item"

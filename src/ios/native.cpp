@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <cstdlib>
 #include <filesystem>
+#include <mutex>
 #include <sys/mman.h>
 #include <thread>
 #include <chrono>
@@ -76,6 +77,8 @@ namespace {
  * on device; raw mprotect(PROT_EXEC) on MAP_JIT / RW pages then fails with EACCES (W^X).
  */
 void CitronIosResolveJitWriteProtectPointer() {
+    static std::once_flag resolve_once;
+    std::call_once(resolve_once, [] {
     static const char* const kSystemLibs[] = {
         "/usr/lib/system/libsystem_pthread.dylib",
         "/usr/lib/libSystem.B.dylib",
@@ -205,6 +208,7 @@ void CitronIosResolveJitWriteProtectPointer() {
             }
         }
     }
+    });
 }
 } // namespace
 
@@ -514,12 +518,6 @@ void EmulationSession::Shutdown() {
 }
 
 void EmulationSession::RunEmulation() {
-    {
-        std::scoped_lock lock{mutex};
-        is_running = true;
-        is_paused = false;
-    }
-
     if (Settings::values.use_disk_shader_cache.GetValue()) {
         LoadDiskCacheProgress(VideoCore::LoadCallbackStage::Prepare, 0, 0);
         system.Renderer().ReadRasterizer()->LoadDiskResources(

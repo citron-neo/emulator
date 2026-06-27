@@ -6,6 +6,9 @@ import SwiftUI
 import UIKit
 
 final class CitronMetalView: UIView {
+    private var touchIds: [ObjectIdentifier: Int] = [:]
+    private var nextTouchId = 0
+
     override class var layerClass: AnyClass {
         CAMetalLayer.self
     }
@@ -30,19 +33,19 @@ final class CitronMetalView: UIView {
     }
 
     override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
-        sendTouches(touches, event: event, phase: .began)
+        sendTouches(touches, with: event, phase: .began)
     }
 
     override func touchesMoved(_ touches: Set<UITouch>, with event: UIEvent?) {
-        sendTouches(touches, event: event, phase: .moved)
+        sendTouches(touches, with: event, phase: .moved)
     }
 
     override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent?) {
-        sendTouches(touches, event: event, phase: .ended)
+        sendTouches(touches, with: event, phase: .ended)
     }
 
     override func touchesCancelled(_ touches: Set<UITouch>, with event: UIEvent?) {
-        sendTouches(touches, event: event, phase: .ended)
+        sendTouches(touches, with: event, phase: .ended)
     }
 
     private func configureLayer() {
@@ -75,13 +78,8 @@ final class CitronMetalView: UIView {
         )
     }
 
-    private func sendTouches(_ touches: Set<UITouch>, event: UIEvent?, phase: UITouch.Phase) {
-        let allTouches = Array(event?.allTouches ?? touches)
+    private func sendTouches(_ touches: Set<UITouch>, with event: UIEvent?, phase: UITouch.Phase) {
         for touch in touches {
-            guard let index = allTouches.firstIndex(of: touch) else {
-                continue
-            }
-
             let scale = window?.screen.scale ?? UIScreen.main.scale
             let location = touch.location(in: self)
             let x = location.x * scale
@@ -89,13 +87,31 @@ final class CitronMetalView: UIView {
 
             switch phase {
             case .began:
-                CitronBridge.touchBegan(id: index, x: x, y: y)
+                let id = touchId(for: touch)
+                CitronBridge.touchBegan(id: id, x: x, y: y)
             case .moved:
-                CitronBridge.touchMoved(id: index, x: x, y: y)
+                guard let id = touchIds[ObjectIdentifier(touch)] else {
+                    continue
+                }
+                CitronBridge.touchMoved(id: id, x: x, y: y)
             default:
-                CitronBridge.touchEnded(id: index)
+                guard let id = touchIds.removeValue(forKey: ObjectIdentifier(touch)) else {
+                    continue
+                }
+                CitronBridge.touchEnded(id: id)
             }
         }
+    }
+
+    private func touchId(for touch: UITouch) -> Int {
+        let key = ObjectIdentifier(touch)
+        if let existing = touchIds[key] {
+            return existing
+        }
+        let id = nextTouchId
+        nextTouchId += 1
+        touchIds[key] = id
+        return id
     }
 }
 

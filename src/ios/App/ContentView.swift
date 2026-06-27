@@ -34,6 +34,7 @@ final class CitronAppState: ObservableObject {
         ) { [weak self] notification in
             self?.isRunning = false
             self?.isPaused = false
+            self?.stopAccessingGame()
             self?.statusText = "Emulation stopped (\(notification.object ?? 0))."
         }
     }
@@ -89,11 +90,11 @@ final class CitronAppState: ObservableObject {
             return
         }
 
-        if selectedGameURL.startAccessingSecurityScopedResource() {
-            securityScopedURL = selectedGameURL
-        }
-
+        let didStartAccess = selectedGameURL.startAccessingSecurityScopedResource()
         let result = CitronBridge.launchGame(path: selectedGameURL.path)
+        if didStartAccess {
+            selectedGameURL.stopAccessingSecurityScopedResource()
+        }
         statusText = launchStatusMessage(result)
         isRunning = result == 0
     }
@@ -230,7 +231,11 @@ struct GameDocumentPicker: UIViewControllerRepresentable {
     }
 
     func makeUIViewController(context: Context) -> UIDocumentPickerViewController {
-        let picker = UIDocumentPickerViewController(forOpeningContentTypes: [.item], asCopy: true)
+        let contentTypes = ["xci", "nsp", "nca", "nro", "nso"].compactMap { UTType(filenameExtension: $0) }
+        let picker = UIDocumentPickerViewController(
+            forOpeningContentTypes: contentTypes.isEmpty ? [.data] : contentTypes,
+            asCopy: true
+        )
         picker.allowsMultipleSelection = false
         picker.delegate = context.coordinator
         return picker
