@@ -3,11 +3,22 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <array>
+#include <cstring>
 #include <memory>
+#include <mutex>
+#include <string>
 #include <utility>
 #include <vector>
 
 #include <fmt/format.h>
+
+#include <cerrno>
+
+#if defined(__unix__) || defined(__APPLE__)
+#include <fcntl.h>
+#include <sys/socket.h>
+#include <unistd.h>
+#endif
 
 #include "common/settings.h"
 #include "common/socket_types.h"
@@ -16,6 +27,7 @@
 #include "core/hle/service/ipc_helpers.h"
 #include "core/hle/service/sockets/bsd.h"
 #include "core/hle/service/sockets/sockets_translate.h"
+#include "core/internal_network/dna_gateway_stub.h"
 #include "core/internal_network/network.h"
 #include "core/internal_network/socket_proxy.h"
 #include "core/internal_network/sockets.h"
@@ -40,6 +52,23 @@ bool IsConnectionBased(Type type) {
     }
 }
 
+#if defined(__unix__) || defined(__APPLE__)
+Errno ErrnoFromUnixPassthrough(int e) {
+    switch (e) {
+    case 0:
+        return Errno::SUCCESS;
+    case EBADF:
+        return Errno::BADF;
+    case EINVAL:
+    case ENOPROTOOPT:
+        return Errno::INVAL;
+    default:
+        LOG_DEBUG(Service, "setsockopt/getsockopt passthrough errno={}", e);
+        return Errno::INVAL;
+    }
+}
+#endif
+
 template <typename T>
 T GetValue(std::span<const u8> buffer) {
     T t{};
@@ -50,6 +79,11 @@ T GetValue(std::span<const u8> buffer) {
 template <typename T>
 void PutValue(std::span<u8> buffer, const T& t) {
     std::memcpy(buffer.data(), &t, std::min(sizeof(T), buffer.size()));
+}
+
+bool IsLocalDnaGatewayEndpoint(const Network::SockAddrIn& addr) {
+    static constexpr std::array<u8, 4> Loopback{127, 0, 0, 1};
+    return addr.ip == Loopback && addr.portno == Network::DnaGatewayPort;
 }
 
 class OfflineSocket final : public Network::SocketBase {
@@ -164,6 +198,222 @@ private:
     Network::Protocol protocol = Network::Protocol::UDP;
     bool opened = true;
 };
+
+#if defined(__unix__) || defined(__APPLE__)
+/// Linux-compatible eventfd emulation using a pipe so Poll() sees readability when the counter is
+/// non-zero. The prior stub returned "success" with ret=0; guests treat ret as an fd and collide
+/// with the real socket on fd 0 (UE4 panic).
+class EventFdSocket final : public Network::SocketBase {
+public:
+    EventFdSocket(u64 init_counter_, u32 efd_flags_)
+        : counter(init_counter_), efd_flags(efd_flags_) {}
+
+    Network::Errno Initialize(Network::Domain /*domain*/, Network::Type /*type*/,
+                              Network::Protocol /*protocol*/) override {
+        if (pipe_rd >= 0) {
+            return Network::Errno::SUCCESS;
+        }
+        int fds[2];
+        if (pipe(fds) != 0) {
+            return Network::Errno::MFILE;
+        }
+        pipe_rd = fds[0];
+        pipe_wr = fds[1];
+        fd = static_cast<Network::SOCKET>(pipe_rd);
+
+        for (int p : {pipe_rd, pipe_wr}) {
+            const int fl = fcntl(p, F_GETFL);
+            if (fl < 0) {
+                ClosePipe();
+                return Network::Errno::MFILE;
+            }
+            if (fcntl(p, F_SETFL, fl | O_NONBLOCK) < 0) {
+                ClosePipe();
+                return Network::Errno::MFILE;
+            }
+        }
+
+        semaphore_mode = (efd_flags & 1U) != 0;
+        if (counter > 0) {
+            std::lock_guard lock{mutex};
+            SignalPipeLocked();
+        }
+        return Network::Errno::SUCCESS;
+    }
+
+    Network::Errno Close() override {
+        ClosePipe();
+        opened = false;
+        return Network::Errno::SUCCESS;
+    }
+
+    std::pair<AcceptResult, Network::Errno> Accept() override {
+        return {AcceptResult{}, Network::Errno::INVAL};
+    }
+
+    Network::Errno Connect(Network::SockAddrIn) override {
+        return Network::Errno::INVAL;
+    }
+
+    std::pair<Network::SockAddrIn, Network::Errno> GetPeerName() override {
+        return {{}, Network::Errno::NOTCONN};
+    }
+
+    std::pair<Network::SockAddrIn, Network::Errno> GetSockName() override {
+        return {{}, Network::Errno::SUCCESS};
+    }
+
+    Network::Errno Bind(Network::SockAddrIn) override {
+        return Network::Errno::INVAL;
+    }
+
+    Network::Errno Listen(s32) override {
+        return Network::Errno::INVAL;
+    }
+
+    Network::Errno Shutdown(Network::ShutdownHow) override {
+        return Network::Errno::SUCCESS;
+    }
+
+    std::pair<s32, Network::Errno> Recv(int /*flags*/, std::span<u8> message) override {
+        if (message.size() < sizeof(u64)) {
+            return {-1, Network::Errno::INVAL};
+        }
+        u64 value = 0;
+        {
+            std::lock_guard lock{mutex};
+            if (counter == 0) {
+                return {-1, Network::Errno::AGAIN};
+            }
+            if (semaphore_mode) {
+                counter--;
+                value = 1;
+                DrainPipeLocked();
+                if (counter > 0) {
+                    SignalPipeLocked();
+                }
+            } else {
+                value = counter;
+                counter = 0;
+                DrainPipeLocked();
+            }
+        }
+        std::memcpy(message.data(), &value, sizeof(value));
+        return {static_cast<s32>(sizeof(value)), Network::Errno::SUCCESS};
+    }
+
+    std::pair<s32, Network::Errno> RecvFrom(int flags, std::span<u8> message,
+                                            Network::SockAddrIn*) override {
+        return Recv(flags, message);
+    }
+
+    std::pair<s32, Network::Errno> Send(std::span<const u8> message, int /*flags*/) override {
+        if (message.size() < sizeof(u64)) {
+            return {-1, Network::Errno::INVAL};
+        }
+        u64 add = 0;
+        std::memcpy(&add, message.data(), sizeof(add));
+        {
+            std::lock_guard lock{mutex};
+            const u64 old_counter = counter;
+            const u64 new_val = counter + add;
+            if (new_val < counter) {
+                return {-1, Network::Errno::INVAL};
+            }
+            counter = new_val;
+            if (add > 0 && old_counter == 0) {
+                SignalPipeLocked();
+            }
+        }
+        return {static_cast<s32>(message.size()), Network::Errno::SUCCESS};
+    }
+
+    std::pair<s32, Network::Errno> SendTo(u32 flags, std::span<const u8> message,
+                                          const Network::SockAddrIn*) override {
+        return Send(message, static_cast<int>(flags));
+    }
+
+    Network::Errno SetLinger(bool, u32) override {
+        return Network::Errno::SUCCESS;
+    }
+    Network::Errno SetReuseAddr(bool) override {
+        return Network::Errno::SUCCESS;
+    }
+    Network::Errno SetKeepAlive(bool) override {
+        return Network::Errno::SUCCESS;
+    }
+    Network::Errno SetBroadcast(bool) override {
+        return Network::Errno::SUCCESS;
+    }
+    Network::Errno SetSndBuf(u32) override {
+        return Network::Errno::SUCCESS;
+    }
+    Network::Errno SetRcvBuf(u32) override {
+        return Network::Errno::SUCCESS;
+    }
+    Network::Errno SetSndTimeo(u32) override {
+        return Network::Errno::SUCCESS;
+    }
+    Network::Errno SetRcvTimeo(u32) override {
+        return Network::Errno::SUCCESS;
+    }
+    Network::Errno SetNonBlock(bool /*enable*/) override {
+        return Network::Errno::SUCCESS;
+    }
+
+    std::pair<Network::Errno, Network::Errno> GetPendingError() override {
+        return {Network::Errno::SUCCESS, Network::Errno::SUCCESS};
+    }
+
+    bool IsOpened() const override {
+        return opened;
+    }
+
+    void HandleProxyPacket(const Network::ProxyPacket&) override {}
+
+private:
+    void ClosePipe() {
+        if (pipe_rd >= 0) {
+            close(pipe_rd);
+            pipe_rd = -1;
+        }
+        if (pipe_wr >= 0) {
+            close(pipe_wr);
+            pipe_wr = -1;
+        }
+        fd = Network::INVALID_SOCKET;
+    }
+
+    void DrainPipeLocked() {
+        if (pipe_rd < 0) {
+            return;
+        }
+        u8 buf[64];
+        while (true) {
+            const ssize_t r = read(pipe_rd, buf, sizeof(buf));
+            if (r <= 0) {
+                break;
+            }
+        }
+    }
+
+    void SignalPipeLocked() {
+        if (pipe_wr < 0) {
+            return;
+        }
+        u8 b = 1;
+        (void)write(pipe_wr, &b, 1);
+    }
+
+    std::mutex mutex;
+    u64 counter{};
+    u32 efd_flags{};
+    int pipe_rd = -1;
+    int pipe_wr = -1;
+    bool semaphore_mode = false;
+    bool opened = true;
+};
+#endif // defined(__unix__) || defined(__APPLE__)
 
 } // Anonymous namespace
 
@@ -567,12 +817,13 @@ void BSD::Read(HLERequestContext& ctx) {
     IPC::RequestParser rp{ctx};
     const s32 fd = rp.Pop<s32>();
 
-    LOG_WARNING(Service, "(STUBBED) called. fd={} len={}", fd, ctx.GetWriteBufferSize());
+    LOG_DEBUG(Service, "called. fd={} len={}", fd, ctx.GetWriteBufferSize());
 
-    IPC::ResponseBuilder rb{ctx, 4};
-    rb.Push(ResultSuccess);
-    rb.Push<u32>(0); // ret
-    rb.Push<u32>(0); // bsd errno
+    ExecuteWork(ctx, RecvWork{
+                         .fd = fd,
+                         .flags = 0,
+                         .message = std::vector<u8>(ctx.GetWriteBufferSize()),
+                     });
 }
 
 void BSD::Close(HLERequestContext& ctx) {
@@ -614,9 +865,44 @@ void BSD::EventFd(HLERequestContext& ctx) {
     const u64 initval = rp.Pop<u64>();
     const u32 flags = rp.Pop<u32>();
 
-    LOG_WARNING(Service, "(STUBBED) called. initval={}, flags={}", initval, flags);
+    const s32 fd = FindFreeFileDescriptorHandle();
+    if (fd < 0) {
+        LOG_ERROR(Service, "EventFd: no free fd (initval={}, flags={:#x})", initval, flags);
+        IPC::ResponseBuilder rb{ctx, 4};
+        rb.Push(ResultSuccess);
+        rb.Push<s32>(-1);
+        rb.PushEnum(Errno::MFILE);
+        return;
+    }
 
-    BuildErrnoResponse(ctx, Errno::SUCCESS);
+    file_descriptors[fd] = FileDescriptor{};
+    FileDescriptor& descriptor = *file_descriptors[fd];
+#if defined(__unix__) || defined(__APPLE__)
+    descriptor.socket = std::make_shared<EventFdSocket>(initval, flags);
+#else
+    descriptor.socket = std::make_shared<OfflineSocket>();
+#endif
+    descriptor.is_connection_based = true;
+
+    const auto net_err = descriptor.socket->Initialize(Network::Domain::INET, Network::Type::STREAM,
+                                                         Network::Protocol::TCP);
+    if (net_err != Network::Errno::SUCCESS) {
+        file_descriptors[fd].reset();
+        LOG_ERROR(Service, "EventFd: init failed (initval={}, flags={:#x}) net_err={}", initval,
+                  flags, static_cast<int>(net_err));
+        IPC::ResponseBuilder rb{ctx, 4};
+        rb.Push(ResultSuccess);
+        rb.Push<s32>(-1);
+        rb.PushEnum(Translate(net_err));
+        return;
+    }
+
+    LOG_DEBUG(Service, "EventFd fd={} initval={} flags={:#x}", fd, initval, flags);
+
+    IPC::ResponseBuilder rb{ctx, 4};
+    rb.Push(ResultSuccess);
+    rb.Push<s32>(fd);
+    rb.PushEnum(Errno::SUCCESS);
 }
 
 void BSD::RegisterClientShared(HLERequestContext& ctx) {
@@ -634,15 +920,27 @@ void BSD::ExecuteWork(HLERequestContext& ctx, Work work) {
 }
 
 std::pair<s32, Errno> BSD::SocketImpl(Domain domain, Type type, Protocol protocol) {
+    // Retail user stack: applications normally only get working IPv4 BSD sockets; INET6 on bsd:u is
+    // unregistered per switchbrew. Titles still probe AF_INET6 on bsd:u/bsd:s — if we create a
+    // real IPv6 socket they take paths that then hit UE4 panics under our HLE. Match "no IPv6" so
+    // they fall back to AF_INET (same as rejecting on bsd:u alone, but Minecraft uses bsd:s here).
+    const std::string bsd_name = GetServiceName();
+    const bool reject_inet6 =
+        (bsd_name == "bsd:u" || bsd_name == "bsd:s" || bsd_name == "bsd:a");
+    if (domain == Domain::INET6 && reject_inet6) {
+        LOG_INFO(Service, "Socket: rejecting AF_INET6 on {} (EAFNOSUPPORT)", bsd_name);
+        return {-1, Errno::AFNOSUPPORT};
+    }
+
     if (type == Type::SEQPACKET) {
         UNIMPLEMENTED_MSG("SOCK_SEQPACKET errno management");
     } else if (type == Type::RAW && (domain != Domain::INET || protocol != Protocol::ICMP)) {
         UNIMPLEMENTED_MSG("SOCK_RAW errno management");
     }
 
-    [[maybe_unused]] const bool unk_flag = (static_cast<u32>(type) & 0x20000000) != 0;
-    UNIMPLEMENTED_IF_MSG(unk_flag, "Unknown flag in type");
-    type = static_cast<Type>(static_cast<u32>(type) & ~0x20000000);
+    [[maybe_unused]] const bool sock_nonblock = (static_cast<u32>(type) & 0x20000000) != 0;
+    [[maybe_unused]] const bool sock_cloexec = (static_cast<u32>(type) & 0x10000000) != 0;
+    type = static_cast<Type>(static_cast<u32>(type) & ~0x30000000);
 
     const s32 fd = FindFreeFileDescriptorHandle();
     if (fd < 0) {
@@ -667,16 +965,43 @@ std::pair<s32, Errno> BSD::SocketImpl(Domain domain, Type type, Protocol protoco
     descriptor.is_connection_based = IsConnectionBased(type);
 
     if (Settings::values.airplane_mode.GetValue()) {
-        descriptor.socket = std::make_shared<OfflineSocket>();
-        descriptor.socket->Initialize(descriptor.domain, descriptor.type, descriptor.protocol);
-        LOG_INFO(Service, "Airplane mode: created offline socket fd={}", fd);
+        // Real sockets are required for local-loopback services (e.g. LEGO 2K DNA stub).
+        descriptor.socket = std::make_shared<Network::Socket>();
+        const auto init_err = descriptor.socket->Initialize(descriptor.domain, descriptor.type,
+                                                          descriptor.protocol);
+        if (init_err != Network::Errno::SUCCESS) {
+            file_descriptors[fd].reset();
+            return {-1, Translate(init_err)};
+        }
+        if (sock_nonblock) {
+            const auto nb_err = descriptor.socket->SetNonBlock(true);
+            if (nb_err != Network::Errno::SUCCESS) {
+                file_descriptors[fd].reset();
+                return {-1, Translate(nb_err)};
+            }
+            descriptor.flags |= Network::FLAG_O_NONBLOCK;
+        }
+        LOG_INFO(Service, "Airplane mode: created loopback-capable socket fd={}", fd);
     } else if (using_proxy) {
         descriptor.socket = std::make_shared<Network::ProxySocket>(room_network);
         descriptor.socket->Initialize(descriptor.domain, descriptor.type, descriptor.protocol);
         LOG_DEBUG(Service, "Created new ProxySocket for fd={}", fd);
     } else {
         descriptor.socket = std::make_shared<Network::Socket>();
-        descriptor.socket->Initialize(descriptor.domain, descriptor.type, descriptor.protocol);
+        const auto init_err = descriptor.socket->Initialize(descriptor.domain, descriptor.type,
+                                                              descriptor.protocol);
+        if (init_err != Network::Errno::SUCCESS) {
+            file_descriptors[fd].reset();
+            return {-1, Translate(init_err)};
+        }
+        if (sock_nonblock) {
+            const auto nb_err = descriptor.socket->SetNonBlock(true);
+            if (nb_err != Network::Errno::SUCCESS) {
+                file_descriptors[fd].reset();
+                return {-1, Translate(nb_err)};
+            }
+            descriptor.flags |= Network::FLAG_O_NONBLOCK;
+        }
     }
 
     return {fd, Errno::SUCCESS};
@@ -810,18 +1135,23 @@ Errno BSD::ConnectImpl(s32 fd, std::span<const u8> addr) {
     }
     if (!file_descriptors[fd]->socket)
         return Errno::BADF;
-    if (Settings::values.airplane_mode.GetValue()) {
-        return Errno::CONNREFUSED;
-    }
 
     UNIMPLEMENTED_IF(addr.size() != sizeof(SockAddrIn));
     auto addr_in = GetValue<SockAddrIn>(addr);
+    Network::SockAddrIn network_addr = Translate(addr_in);
+    network_addr = Network::RedirectDnaGatewayAddress(network_addr);
 
-    LOG_INFO(Service, "Connect fd={} to {}:{}", fd, Network::IPv4AddressToString(addr_in.ip),
-             addr_in.portno);
+    if (Settings::values.airplane_mode.GetValue() && !IsLocalDnaGatewayEndpoint(network_addr)) {
+        return Errno::CONNREFUSED;
+    }
 
-    const auto result = Translate(file_descriptors[fd]->socket->Connect(Translate(addr_in)));
-    if (result != Errno::SUCCESS) {
+    LOG_INFO(Service, "Connect fd={} to {}:{}", fd, Network::IPv4AddressToString(network_addr.ip),
+             network_addr.portno);
+
+    const auto result = Translate(file_descriptors[fd]->socket->Connect(network_addr));
+    if (result == Errno::INPROGRESS) {
+        LOG_DEBUG(Service, "Connect fd={} in progress", fd);
+    } else if (result != Errno::SUCCESS) {
         LOG_ERROR(Service, "Connect fd={} failed with errno={}", fd, static_cast<int>(result));
     } else {
         LOG_INFO(Service, "Connect fd={} succeeded", fd);
@@ -912,8 +1242,28 @@ Errno BSD::GetSockOptImpl(s32 fd, u32 level, OptName optname, std::vector<u8>& o
         return Errno::BADF;
 
     if (level != static_cast<u32>(SocketLevel::SOCKET)) {
+#if defined(__unix__) || defined(__APPLE__)
+        Network::SocketBase* const socket = file_descriptors[fd]->socket.get();
+        const Network::SOCKET host_fd = socket->GetFD();
+        if (host_fd == Network::INVALID_SOCKET) {
+            return Errno::BADF;
+        }
+        if (optval.empty()) {
+            return Errno::INVAL;
+        }
+        socklen_t len = static_cast<socklen_t>(optval.size());
+        const int native_level = static_cast<int>(level);
+        const int native_opt = static_cast<int>(optname);
+        if (getsockopt(host_fd, native_level, native_opt, reinterpret_cast<char*>(optval.data()),
+                       &len) != 0) {
+            return ErrnoFromUnixPassthrough(errno);
+        }
+        optval.resize(len);
+        return Errno::SUCCESS;
+#else
         LOG_WARNING(Service, "(STUBBED) Unknown getsockopt level={}, returning INVAL", level);
         return Errno::INVAL;
+#endif
     }
 
     Network::SocketBase* const socket = file_descriptors[fd]->socket.get();
@@ -945,8 +1295,26 @@ Errno BSD::SetSockOptImpl(s32 fd, u32 level, OptName optname, std::span<const u8
         return Errno::BADF;
 
     if (level != static_cast<u32>(SocketLevel::SOCKET)) {
+#if defined(__unix__) || defined(__APPLE__)
+        Network::SocketBase* const socket = file_descriptors[fd]->socket.get();
+        const Network::SOCKET host_fd = socket->GetFD();
+        if (host_fd == Network::INVALID_SOCKET) {
+            return Errno::BADF;
+        }
+        if (optval.empty()) {
+            return Errno::INVAL;
+        }
+        const int native_level = static_cast<int>(level);
+        const int native_opt = static_cast<int>(optname);
+        if (setsockopt(host_fd, native_level, native_opt, optval.data(),
+                       static_cast<socklen_t>(optval.size())) != 0) {
+            return ErrnoFromUnixPassthrough(errno);
+        }
+        return Errno::SUCCESS;
+#else
         LOG_WARNING(Service, "(STUBBED) Unknown setsockopt level={}, returning INVAL", level);
         return Errno::INVAL;
+#endif
     }
 
     Network::SocketBase* const socket = file_descriptors[fd]->socket.get();
@@ -1025,9 +1393,6 @@ std::pair<s32, Errno> BSD::RecvImpl(s32 fd, u32 flags, std::vector<u8>& message)
     }
 
     FileDescriptor& descriptor = *file_descriptors[fd];
-    if (Settings::values.airplane_mode.GetValue()) {
-        return {-1, Errno::AGAIN};
-    }
     if (!descriptor.is_connection_based) {
         return {-1, Errno::AGAIN};
     }
@@ -1059,14 +1424,6 @@ std::pair<s32, Errno> BSD::RecvFromImpl(s32 fd, u32 flags, std::vector<u8>& mess
     }
 
     FileDescriptor& descriptor = *file_descriptors[fd];
-    if (Settings::values.airplane_mode.GetValue()) {
-        addr.clear();
-        return {-1, Errno::AGAIN};
-    }
-    if (!descriptor.is_connection_based) {
-        addr.clear();
-        return {-1, Errno::AGAIN};
-    }
 
     Network::SockAddrIn addr_in{};
     Network::SockAddrIn* p_addr_in = nullptr;
@@ -1113,9 +1470,6 @@ std::pair<s32, Errno> BSD::SendImpl(s32 fd, u32 flags, std::span<const u8> messa
     }
     if (!file_descriptors[fd]->socket)
         return {-1, Errno::BADF};
-    if (Settings::values.airplane_mode.GetValue()) {
-        return {static_cast<s32>(message.size()), Errno::SUCCESS};
-    }
     FileDescriptor& descriptor = *file_descriptors[fd];
     if (!descriptor.is_connection_based) {
         LOG_DEBUG(Service, "Dropping datagram send without destination fd={}", fd);
@@ -1131,9 +1485,6 @@ std::pair<s32, Errno> BSD::SendToImpl(s32 fd, u32 flags, std::span<const u8> mes
     }
     if (!file_descriptors[fd]->socket)
         return {-1, Errno::BADF};
-    if (Settings::values.airplane_mode.GetValue()) {
-        return {static_cast<s32>(message.size()), Errno::SUCCESS};
-    }
 
     FileDescriptor& descriptor = *file_descriptors[fd];
 

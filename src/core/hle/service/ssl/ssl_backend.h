@@ -30,6 +30,10 @@ constexpr Result ResultInternalError{ErrorModule::SSLSrv, 999}; // made up
 // polling for read (with a timeout).
 constexpr Result ResultWouldBlock{ErrorModule::SSLSrv, 204};
 
+constexpr u32 SslPollEventRead = 1U << 0;
+constexpr u32 SslPollEventWrite = 1U << 1;
+constexpr u32 SslPollEventExcept = 1U << 2;
+
 class SSLConnectionBackend {
 public:
     virtual ~SSLConnectionBackend() {}
@@ -40,6 +44,12 @@ public:
     virtual Result Read(size_t* out_size, std::span<u8> data) = 0;
     virtual Result Write(size_t* out_size, std::span<const u8> data) = 0;
     virtual Result GetServerCerts(std::vector<std::vector<u8>>* out_certs) = 0;
+    virtual size_t GetPendingBytes() const {
+        return 0;
+    }
+    virtual u32 GetPollEvents() const {
+        return 0;
+    }
 };
 
 Result CreateSSLConnectionBackend(std::unique_ptr<SSLConnectionBackend>* out_backend);

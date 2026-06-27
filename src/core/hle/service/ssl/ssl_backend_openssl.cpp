@@ -175,6 +175,33 @@ public:
         }
     }
 
+    size_t GetPendingBytes() const override {
+        return ssl ? static_cast<size_t>(SSL_pending(ssl)) : 0;
+    }
+
+    u32 GetPollEvents() const override {
+        if (!ssl) {
+            return 0;
+        }
+
+        u32 events = 0;
+        if (SSL_pending(ssl) > 0) {
+            events |= SslPollEventRead;
+        }
+        switch (SSL_want(ssl)) {
+        case SSL_WRITING:
+            events |= SslPollEventWrite;
+            break;
+        case SSL_READING:
+        case SSL_X509_LOOKUP:
+            events |= SslPollEventRead;
+            break;
+        default:
+            break;
+        }
+        return events;
+    }
+
     Result GetServerCerts(std::vector<std::vector<u8>>* out_certs) override {
         STACK_OF(X509)* chain = SSL_get_peer_cert_chain(ssl);
         if (!chain) {
