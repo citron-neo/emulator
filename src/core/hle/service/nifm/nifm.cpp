@@ -3,6 +3,8 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <cstring>
+#include <mutex>
+#include <unordered_set>
 #include "core/core.h"
 #include "core/hle/kernel/k_event.h"
 #include "core/hle/service/ipc_helpers.h"
@@ -18,6 +20,9 @@ namespace {
                                            std::string&& name) {
     return service_context.CreateEvent(std::move(name));
 }
+
+std::mutex g_nifm_client_id_mutex;
+std::unordered_set<u32> g_nifm_issued_client_ids;
 
 } // Anonymous namespace
 
@@ -547,6 +552,11 @@ void IGeneralService::GetClientId(HLERequestContext& ctx) {
     static u32 next_client_id = 1;
     const u32 client_id = next_client_id++;
 
+    {
+        std::scoped_lock lock{g_nifm_client_id_mutex};
+        g_nifm_issued_client_ids.insert(client_id);
+    }
+
     LOG_INFO(Service_NIFM, "called, client_id={}", client_id);
 
     if (ctx.CanWriteBuffer(0)) {
@@ -566,7 +576,12 @@ void IGeneralService::IsAnyInternetRequestAccepted(HLERequestContext& ctx) {
         }
     }
 
-    const bool accepted = client_id != 0 && Network::GetHostIPv4Address().has_value();
+    bool accepted = false;
+    if (client_id != 0) {
+        std::scoped_lock lock{g_nifm_client_id_mutex};
+        accepted = g_nifm_issued_client_ids.contains(client_id);
+    }
+    accepted = accepted && Network::GetHostIPv4Address().has_value();
     LOG_INFO(Service_NIFM, "called, client_id={}, accepted={}", client_id, accepted);
 
     IPC::ResponseBuilder rb{ctx, 3};
@@ -800,8 +815,7 @@ void IGeneralService::SetBackgroundRequestEnabled(HLERequestContext& ctx) {
 }
 
 void IGeneralService::IsWirelessCommunicationEnabled(HLERequestContext& ctx) {
-    const bool enabled = !Settings::values.airplane_mode.GetValue() &&
-                         Network::GetHostIPv4Address().has_value();
+    const bool enabled = !Settings::values.airplane_mode.GetValue();
 
     LOG_DEBUG(Service_NIFM, "called, enabled={}", enabled);
 
