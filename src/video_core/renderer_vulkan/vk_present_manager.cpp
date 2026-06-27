@@ -246,10 +246,9 @@ void PresentManager::WaitPresent() {
         frame_cv.wait(queue_lock, [this] { return present_queue.empty(); });
     }
 
-    // The above condition will be satisfied when the last frame is taken from the queue.
-    // To ensure that frame has been presented as well take hold of the swapchain
-    // mutex.
-    std::scoped_lock swapchain_lock{swapchain_mutex};
+    // The queue can empty before CopyToSwapchain() finishes on the GUI thread.
+    std::unique_lock present_lock{present_state_mutex};
+    present_state_cv.wait(present_lock, [this] { return !presenting; });
 }
 
 void PresentManager::PresentThread(std::stop_token token) {
@@ -270,11 +269,16 @@ void PresentManager::PresentThread(std::stop_token token) {
 
         lock.unlock();
 
-        render_window.RunPresentationWork([this, frame] { CopyToSwapchain(frame); });
-
         {
-            std::scoped_lock swapchain_lock{swapchain_mutex};
+            std::lock_guard present_lock{present_state_mutex};
+            presenting = true;
         }
+        render_window.RunPresentationWork([this, frame] { CopyToSwapchain(frame); });
+        {
+            std::lock_guard present_lock{present_state_mutex};
+            presenting = false;
+        }
+        present_state_cv.notify_all();
 
         // Free the frame for reuse
         std::scoped_lock fl{free_mutex};

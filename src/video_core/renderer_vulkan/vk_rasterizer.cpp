@@ -63,22 +63,12 @@ struct DrawParams {
     bool is_indexed;
 };
 
-// Updated after each emulated XFB capture draw; consume draws read this when vertex count is 0.
-u32 g_last_xfb_snapshot_records = 0;
+// Diagnostic log budgets for MoltenVK bring-up; not shared across rasterizer instances.
 u32 g_xfb_draw_diag_budget = 0;
 u32 g_draw_any_budget = 0;
 u32 g_null_pipeline_budget = 20;
 u32 g_draw_texture_budget = 40;
 u32 g_fb_sample_budget = 60;
-DAddr g_last_rt0_cpu_addr = 0;
-GPUVAddr g_last_rt0_gpu_addr = 0;
-VideoCommon::ImageInfo g_last_rt0_info{};
-DAddr g_game_rt0_cpu_addr = 0;
-GPUVAddr g_game_rt0_gpu_addr = 0;
-VideoCommon::ImageInfo g_game_rt0_info{};
-Tegra::Engines::Maxwell3D::Regs::RenderTargetConfig g_game_rt0_config{};
-u32 g_game_rt0_peak_verts = 0;
-u32 g_vi_overlay_active_frames = 0;
 
 constexpr u32 GAME_RT_MIN_VERTICES = 64;
 // Bedrock sign-in overlays issue fullscreen passes (e.g. 1944 verts) to a transient RT.
@@ -132,33 +122,6 @@ Tegra::RenderTargetFormat ViPixelFormatToRenderTargetFormat(
     }
 }
 
-void TrackGameRenderTarget(DAddr cpu_addr, GPUVAddr gpu_addr,
-                           const Tegra::Engines::Maxwell3D::Regs::RenderTargetConfig& rt_config,
-                           Tegra::Texture::MsaaMode msaa_mode, u32 num_vertices) {
-    if (cpu_addr == 0 || gpu_addr == 0 || IsViScanoutCpuAddr(cpu_addr) ||
-        num_vertices < GAME_RT_MIN_VERTICES) {
-        return;
-    }
-    if (cpu_addr != g_game_rt0_cpu_addr && num_vertices >= GAME_RT_OVERLAY_VERT_THRESHOLD) {
-        return;
-    }
-    if (cpu_addr == g_game_rt0_cpu_addr) {
-        g_game_rt0_peak_verts = std::max(g_game_rt0_peak_verts, num_vertices);
-        return;
-    }
-    g_game_rt0_cpu_addr = cpu_addr;
-    g_game_rt0_gpu_addr = gpu_addr;
-    g_game_rt0_config = rt_config;
-    g_game_rt0_info = VideoCommon::ImageInfo{rt_config, msaa_mode};
-    g_game_rt0_peak_verts = num_vertices;
-    static u32 game_rt_track_budget = 30;
-    if (game_rt_track_budget > 0) {
-        --game_rt_track_budget;
-        LOG_INFO(Render_Vulkan, "game RT track: cpu=0x{:x} gpu=0x{:x} verts={}", cpu_addr, gpu_addr,
-                 num_vertices);
-    }
-}
-
 size_t ImageInfoGuestBytes(const VideoCommon::ImageInfo& info) {
     if (info.format == VideoCore::Surface::PixelFormat::Invalid) {
         return 0;
@@ -178,7 +141,8 @@ constexpr VkPipelineStageFlags XfbEmulationWriteStages() {
 }
 
 void FinishEmulatedTransformFeedbackDraw(Scheduler& scheduler, BufferCache& buffer_cache,
-                                         const GraphicsPipeline* pipeline, const Device& device) {
+                                         const GraphicsPipeline* pipeline, const Device& device,
+                                         PresentTrackingState& tracking) {
     if (!pipeline || !pipeline->UsesEmulatedTransformFeedback() ||
         device.IsExtTransformFeedbackSupported()) {
         return;
@@ -198,8 +162,12 @@ void FinishEmulatedTransformFeedbackDraw(Scheduler& scheduler, BufferCache& buff
     });
     buffer_cache.runtime.SnapshotXfbEmulationCounter();
     scheduler.Finish();
-    g_last_xfb_snapshot_records = buffer_cache.runtime.ReadXfbEmulationCounterSnapshotRecords();
-    LOG_INFO(Render_Vulkan, "XFB capture: snapshot_records={}", g_last_xfb_snapshot_records);
+    const u32 snapshot_records = buffer_cache.runtime.ReadXfbEmulationCounterSnapshotRecords();
+    {
+        std::scoped_lock lock{tracking.mutex};
+        tracking.last_xfb_snapshot_records = snapshot_records;
+    }
+    LOG_INFO(Render_Vulkan, "XFB capture: snapshot_records={}", snapshot_records);
 }
 
 VkViewport GetViewportState(const Device& device, const Tegra::Engines::Maxwell3D::Regs& regs,
@@ -323,6 +291,37 @@ DrawParams MakeDrawParams(const MaxwellDrawState& draw_state, u32 num_instances,
 }
 } // Anonymous namespace
 
+void RasterizerVulkan::TrackGameRenderTarget(
+    DAddr cpu_addr, GPUVAddr gpu_addr,
+    const Tegra::Engines::Maxwell3D::Regs::RenderTargetConfig& rt_config,
+    Tegra::Texture::MsaaMode msaa_mode, u32 num_vertices) {
+    if (cpu_addr == 0 || gpu_addr == 0 || IsViScanoutCpuAddr(cpu_addr) ||
+        num_vertices < GAME_RT_MIN_VERTICES) {
+        return;
+    }
+    std::scoped_lock lock{present_tracking.mutex};
+    if (cpu_addr != present_tracking.game_rt0_cpu_addr &&
+        num_vertices >= GAME_RT_OVERLAY_VERT_THRESHOLD) {
+        return;
+    }
+    if (cpu_addr == present_tracking.game_rt0_cpu_addr) {
+        present_tracking.game_rt0_peak_verts =
+            std::max(present_tracking.game_rt0_peak_verts, num_vertices);
+        return;
+    }
+    present_tracking.game_rt0_cpu_addr = cpu_addr;
+    present_tracking.game_rt0_gpu_addr = gpu_addr;
+    present_tracking.game_rt0_config = rt_config;
+    present_tracking.game_rt0_info = VideoCommon::ImageInfo{rt_config, msaa_mode};
+    present_tracking.game_rt0_peak_verts = num_vertices;
+    static u32 game_rt_track_budget = 30;
+    if (game_rt_track_budget > 0) {
+        --game_rt_track_budget;
+        LOG_INFO(Render_Vulkan, "game RT track: cpu=0x{:x} gpu=0x{:x} verts={}", cpu_addr, gpu_addr,
+                 num_vertices);
+    }
+}
+
 RasterizerVulkan::RasterizerVulkan(Core::Frontend::EmuWindow& emu_window_, Tegra::GPU& gpu_,
                                    Tegra::MaxwellDeviceMemoryManager& device_memory_,
                                    const Device& device_, MemoryAllocator& memory_allocator_,
@@ -436,16 +435,21 @@ void RasterizerVulkan::Draw(bool is_indexed, u32 instance_count) {
         const bool capture_draw = pipeline && pipeline->UsesEmulatedTransformFeedback();
         if (const GPUVAddr rt_gpu = maxwell3d->regs.rt[0].Address(); rt_gpu != 0) {
             if (const auto rt_cpu = gpu_memory->GpuToCpuAddress(rt_gpu)) {
-                g_last_rt0_cpu_addr = *rt_cpu;
-                g_last_rt0_gpu_addr = rt_gpu;
-                g_last_rt0_info = VideoCommon::ImageInfo{maxwell3d->regs.rt[0],
-                                                          maxwell3d->regs.anti_alias_samples_mode};
-                if (IsViScanoutCpuAddr(*rt_cpu)) {
-                    if (draw_params.num_vertices > 0 &&
-                        draw_params.num_vertices <= VI_OVERLAY_MAX_VERTICES) {
-                        g_vi_overlay_active_frames = VI_OVERLAY_ACTIVE_FRAME_HOLD;
+                {
+                    std::scoped_lock lock{present_tracking.mutex};
+                    present_tracking.last_rt0_cpu_addr = *rt_cpu;
+                    present_tracking.last_rt0_gpu_addr = rt_gpu;
+                    present_tracking.last_rt0_info =
+                        VideoCommon::ImageInfo{maxwell3d->regs.rt[0],
+                                               maxwell3d->regs.anti_alias_samples_mode};
+                    if (IsViScanoutCpuAddr(*rt_cpu)) {
+                        if (draw_params.num_vertices > 0 &&
+                            draw_params.num_vertices <= VI_OVERLAY_MAX_VERTICES) {
+                            present_tracking.vi_overlay_active_frames = VI_OVERLAY_ACTIVE_FRAME_HOLD;
+                        }
                     }
-                } else {
+                }
+                if (!IsViScanoutCpuAddr(*rt_cpu)) {
                     TrackGameRenderTarget(*rt_cpu, rt_gpu, maxwell3d->regs.rt[0],
                                           maxwell3d->regs.anti_alias_samples_mode,
                                           draw_params.num_vertices);
@@ -453,14 +457,19 @@ void RasterizerVulkan::Draw(bool is_indexed, u32 instance_count) {
             }
         }
         if (!device.IsExtTransformFeedbackSupported()) {
-            if (!capture_draw && g_last_xfb_snapshot_records > 0 &&
+            u32 last_xfb_snapshot_records = 0;
+            {
+                std::scoped_lock lock{present_tracking.mutex};
+                last_xfb_snapshot_records = present_tracking.last_xfb_snapshot_records;
+            }
+            if (!capture_draw && last_xfb_snapshot_records > 0 &&
                 draw_params.num_vertices == 0) {
                 LOG_INFO(Render_Vulkan,
                          "XFB consume Draw: vertex_count 0 -> {} (tf={}, stride={})",
-                         g_last_xfb_snapshot_records,
+                         last_xfb_snapshot_records,
                          maxwell3d->regs.transform_feedback_enabled,
                          maxwell3d->regs.draw_auto_stride);
-                draw_params.num_vertices = g_last_xfb_snapshot_records;
+                draw_params.num_vertices = last_xfb_snapshot_records;
             }
             const bool interesting = capture_draw ||
                                      maxwell3d->regs.transform_feedback_enabled != 0 ||
@@ -474,7 +483,7 @@ void RasterizerVulkan::Draw(bool is_indexed, u32 instance_count) {
                          "rt0_gpu=0x{:x} rt0_cpu=0x{:x} rt_fmt={}",
                          draw_params.num_vertices, is_indexed, capture_draw,
                          maxwell3d->regs.transform_feedback_enabled,
-                         maxwell3d->regs.draw_auto_stride, g_last_xfb_snapshot_records, rt_gpu,
+                         maxwell3d->regs.draw_auto_stride, last_xfb_snapshot_records, rt_gpu,
                          rt_cpu.value_or(0), static_cast<u32>(rt.format));
             } else if (g_xfb_draw_diag_budget > 0) {
                 --g_xfb_draw_diag_budget;
@@ -484,7 +493,7 @@ void RasterizerVulkan::Draw(bool is_indexed, u32 instance_count) {
                          draw_params.num_vertices, is_indexed, capture_draw,
                          maxwell3d->regs.transform_feedback_enabled,
                          maxwell3d->regs.draw_auto_stride,
-                         maxwell3d->regs.draw_auto_byte_count, g_last_xfb_snapshot_records);
+                         maxwell3d->regs.draw_auto_byte_count, last_xfb_snapshot_records);
             } else if (g_draw_any_budget > 0) {
                 --g_draw_any_budget;
                 LOG_INFO(Render_Vulkan,
@@ -525,7 +534,8 @@ void RasterizerVulkan::Draw(bool is_indexed, u32 instance_count) {
             }
         });
         FinishEmulatedTransformFeedbackDraw(scheduler, buffer_cache,
-                                           pipeline_cache.CurrentGraphicsPipeline(), device);
+                                           pipeline_cache.CurrentGraphicsPipeline(), device,
+                                           present_tracking);
     });
 }
 
@@ -557,8 +567,8 @@ void RasterizerVulkan::DrawIndirect() {
                     buffer ? buffer->Handle() : VK_NULL_HANDLE, offset,
                     static_cast<u32>(params.stride), maxwell3d->regs.draw_auto_byte_count);
                 FinishEmulatedTransformFeedbackDraw(scheduler, buffer_cache,
-                                                    pipeline_cache.CurrentGraphicsPipeline(),
-                                                    device);
+                                                    pipeline_cache.CurrentGraphicsPipeline(), device,
+                                                    present_tracking);
                 return;
             }
             scheduler.Record([buffer_obj = buffer->Handle(), offset,
@@ -567,7 +577,8 @@ void RasterizerVulkan::DrawIndirect() {
                                                 static_cast<u32>(stride));
             });
             FinishEmulatedTransformFeedbackDraw(scheduler, buffer_cache,
-                                               pipeline_cache.CurrentGraphicsPipeline(), device);
+                                               pipeline_cache.CurrentGraphicsPipeline(), device,
+                                               present_tracking);
             return;
         }
         if (params.include_count) {
@@ -588,7 +599,8 @@ void RasterizerVulkan::DrawIndirect() {
                 }
             });
             FinishEmulatedTransformFeedbackDraw(scheduler, buffer_cache,
-                                               pipeline_cache.CurrentGraphicsPipeline(), device);
+                                               pipeline_cache.CurrentGraphicsPipeline(), device,
+                                               present_tracking);
             return;
         }
         scheduler.Record([buffer_obj = buffer->Handle(), offset, params](vk::CommandBuffer cmdbuf) {
@@ -602,7 +614,8 @@ void RasterizerVulkan::DrawIndirect() {
             }
         });
         FinishEmulatedTransformFeedbackDraw(scheduler, buffer_cache,
-                                           pipeline_cache.CurrentGraphicsPipeline(), device);
+                                           pipeline_cache.CurrentGraphicsPipeline(), device,
+                                           present_tracking);
     });
     buffer_cache.SetDrawIndirect(nullptr);
 }
@@ -1205,16 +1218,27 @@ Tegra::Engines::AccelerateDMAInterface& RasterizerVulkan::AccessAccelerateDMA() 
 
 void RasterizerVulkan::CompositeGameRtToViAtPresent(const Tegra::FramebufferConfig& config,
                                                     DAddr vi_cpu) {
-    if (!IsViScanoutCpuAddr(vi_cpu) || g_game_rt0_cpu_addr == 0 ||
-        g_game_rt0_cpu_addr == vi_cpu || g_game_rt0_peak_verts < GAME_RT_MIN_VERTICES) {
+    DAddr game_rt0_cpu_addr = 0;
+    VideoCommon::ImageInfo game_rt0_info{};
+    Tegra::Engines::Maxwell3D::Regs::RenderTargetConfig game_rt0_config{};
+    u32 game_rt0_peak_verts = 0;
+    {
+        std::scoped_lock lock{present_tracking.mutex};
+        game_rt0_cpu_addr = present_tracking.game_rt0_cpu_addr;
+        game_rt0_info = present_tracking.game_rt0_info;
+        game_rt0_config = present_tracking.game_rt0_config;
+        game_rt0_peak_verts = present_tracking.game_rt0_peak_verts;
+    }
+    if (!IsViScanoutCpuAddr(vi_cpu) || game_rt0_cpu_addr == 0 || game_rt0_cpu_addr == vi_cpu ||
+        game_rt0_peak_verts < GAME_RT_MIN_VERTICES) {
         return;
     }
-    const size_t src_bytes = ImageInfoGuestBytes(g_game_rt0_info);
+    const size_t src_bytes = ImageInfoGuestBytes(game_rt0_info);
     if (src_bytes == 0) {
         return;
     }
     std::scoped_lock lock{texture_cache.mutex};
-    if (!texture_cache.IsRegionGpuModified(g_game_rt0_cpu_addr, src_bytes)) {
+    if (!texture_cache.IsRegionGpuModified(game_rt0_cpu_addr, src_bytes)) {
         return;
     }
     auto [vi_view, ignored] = texture_cache.TryFindFramebufferImageView(config, vi_cpu);
@@ -1222,13 +1246,13 @@ void RasterizerVulkan::CompositeGameRtToViAtPresent(const Tegra::FramebufferConf
         return;
     }
     const GPUVAddr vi_gpu = vi_view->gpu_addr;
-    const u32 blit_width = std::min(config.width, g_game_rt0_config.width);
-    const u32 blit_height = std::min(config.height, g_game_rt0_config.height);
+    const u32 blit_width = std::min(config.width, game_rt0_config.width);
+    const u32 blit_height = std::min(config.height, game_rt0_config.height);
     if (blit_width == 0 || blit_height == 0) {
         return;
     }
 
-    auto src_rt = g_game_rt0_config;
+    auto src_rt = game_rt0_config;
     src_rt.width = blit_width;
     src_rt.height = blit_height;
     Tegra::Engines::Maxwell3D::Regs::RenderTargetConfig dst_rt{};
@@ -1259,7 +1283,7 @@ void RasterizerVulkan::CompositeGameRtToViAtPresent(const Tegra::FramebufferConf
         --composite_log_budget;
         LOG_INFO(Render_Vulkan,
                  "Composite at present: game RT 0x{:x} -> VI 0x{:x} (peak_verts={} size={}x{})",
-                 g_game_rt0_cpu_addr, vi_cpu, g_game_rt0_peak_verts, blit_width, blit_height);
+                 game_rt0_cpu_addr, vi_cpu, game_rt0_peak_verts, blit_width, blit_height);
     }
     texture_cache.BlitImage(dst, src, copy_config);
 }
@@ -1321,6 +1345,22 @@ std::optional<FramebufferTextureInfo> RasterizerVulkan::AccelerateDisplay(
     DAddr present_addr = framebuffer_addr;
     size_t present_bytes = static_cast<size_t>(fb_bytes);
     if (IsViScanoutCpuAddr(framebuffer_addr)) {
+        DAddr game_rt0_cpu_addr = 0;
+        GPUVAddr game_rt0_gpu_addr = 0;
+        VideoCommon::ImageInfo game_rt0_info{};
+        u32 game_rt0_peak_verts = 0;
+        u32 vi_overlay_active_frames = 0;
+        {
+            std::scoped_lock tracking_lock{present_tracking.mutex};
+            game_rt0_cpu_addr = present_tracking.game_rt0_cpu_addr;
+            game_rt0_gpu_addr = present_tracking.game_rt0_gpu_addr;
+            game_rt0_info = present_tracking.game_rt0_info;
+            game_rt0_peak_verts = present_tracking.game_rt0_peak_verts;
+            if (present_tracking.vi_overlay_active_frames > 0) {
+                --present_tracking.vi_overlay_active_frames;
+            }
+            vi_overlay_active_frames = present_tracking.vi_overlay_active_frames;
+        }
         const size_t vi_bytes = static_cast<size_t>(fb_bytes);
         const bool vi_gpu_modified =
             vi_bytes > 0 && texture_cache.IsRegionGpuModified(framebuffer_addr, vi_bytes);
@@ -1353,7 +1393,7 @@ std::optional<FramebufferTextureInfo> RasterizerVulkan::AccelerateDisplay(
                     LOG_INFO(Render_Vulkan,
                              "AccelerateDisplay: remap VI 0x{:x} -> game RT 0x{:x} "
                              "(rt0_gpu=0x{:x} peak_verts={})",
-                             framebuffer_addr, rt_cpu, rt_gpu, g_game_rt0_peak_verts);
+                             framebuffer_addr, rt_cpu, rt_gpu, game_rt0_peak_verts);
                 }
             }
             if (!offscreen_modified || !offscreen_view) {
@@ -1371,9 +1411,6 @@ std::optional<FramebufferTextureInfo> RasterizerVulkan::AccelerateDisplay(
             present_bytes = rt_bytes;
             return true;
         };
-        if (g_vi_overlay_active_frames > 0) {
-            --g_vi_overlay_active_frames;
-        }
         // Present VI overlays directly when they carry UI. When VI is GPU-touched but CPU-empty
         // and the game is rendering to an offscreen RT, scan out from the game RT instead.
         bool vi_effectively_empty = !vi_gpu_modified;
@@ -1381,14 +1418,14 @@ std::optional<FramebufferTextureInfo> RasterizerVulkan::AccelerateDisplay(
             if (const u8* const host_ptr = device_memory.GetPointer<u8>(framebuffer_addr)) {
                 u32 guest_px{};
                 std::memcpy(&guest_px, host_ptr, sizeof(guest_px));
-                if (guest_px == 0 && g_vi_overlay_active_frames == 0 &&
-                    g_game_rt0_peak_verts >= GAME_RT_MIN_VERTICES) {
+                if (guest_px == 0 && vi_overlay_active_frames == 0 &&
+                    game_rt0_peak_verts >= GAME_RT_MIN_VERTICES) {
                     vi_effectively_empty = true;
                 }
             }
         }
         if (vi_effectively_empty) {
-            try_remap_to_offscreen(g_game_rt0_cpu_addr, g_game_rt0_gpu_addr, g_game_rt0_info);
+            try_remap_to_offscreen(game_rt0_cpu_addr, game_rt0_gpu_addr, game_rt0_info);
         }
     }
     const bool gpu_modified =
