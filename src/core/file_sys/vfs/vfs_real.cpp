@@ -521,7 +521,7 @@ bool RealVfsDirectory::DeleteFile(std::string_view name) {
 
 bool RealVfsDirectory::Rename(std::string_view name) {
     const std::string new_name = (parent_path + '/').append(name);
-    return base.MoveFile(path, new_name) != nullptr;
+    return base.MoveDirectory(path, new_name) != nullptr;
 }
 
 std::string RealVfsDirectory::GetFullPath() const {

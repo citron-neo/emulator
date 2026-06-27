@@ -2,18 +2,22 @@
 // SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
+#include <array>
 #include <chrono>
 #include <filesystem>
 #include <memory>
 #include <vector>
 #include "common/assert.h"
 #include "common/common_types.h"
+#include "common/fs/file.h"
 #include "common/logging.h"
 #include "common/settings.h"
 #include "common/uuid.h"
 #include "core/core.h"
 #include "core/file_sys/directory_save_data_filesystem.h"
 #include "core/file_sys/errors.h"
+#include "core/file_sys/control_metadata.h"
+#include "core/file_sys/patch_manager.h"
 #include "core/file_sys/savedata_extra_data_accessor.h"
 #include "core/file_sys/savedata_factory.h"
 #include "core/file_sys/vfs/vfs.h"
@@ -32,6 +36,72 @@
 namespace FileSys {
 
 namespace {
+
+constexpr u64 Lego2KDriveProgramId = 0x0100739018020000ULL;
+
+constexpr std::array<const char*, 5> Lego2KDriveSeedFiles = {
+    "ArtemisDnaInfo",
+    "ArtemisDnaLocalCache",
+    "ArtemisUserSettings",
+    "ArtemisPlayerInfo",
+    "DynamicPlayerInfo",
+};
+
+void SeedLego2KDriveTemplate(const VirtualDir& save_dir, u64 resolved_program_id,
+                             SaveDataType type) {
+    if (resolved_program_id != Lego2KDriveProgramId || type != SaveDataType::Account) {
+        return;
+    }
+
+    VirtualDir working = save_dir->GetSubdirectory("1");
+    if (working == nullptr || !working->GetFiles().empty()) {
+        return;
+    }
+
+#ifdef CITRON_SAVE_SEED_ROOT
+    const std::filesystem::path seed_dir =
+        std::filesystem::path(CITRON_SAVE_SEED_ROOT) / "0100739018020000";
+    if (!std::filesystem::is_directory(seed_dir)) {
+        LOG_WARNING(Service_FS, "LEGO 2K Drive save seed directory missing: {}", seed_dir.string());
+        return;
+    }
+
+    LOG_INFO(Service_FS, "Seeding LEGO 2K Drive account save in journal working dir");
+
+    std::size_t seeded_files = 0;
+    for (const char* filename : Lego2KDriveSeedFiles) {
+        const auto source_path = seed_dir / filename;
+        if (!std::filesystem::is_regular_file(source_path)) {
+            LOG_WARNING(Service_FS, "LEGO 2K Drive save seed missing: {}", source_path.string());
+            continue;
+        }
+
+        Common::FS::IOFile seed_file(source_path, Common::FS::FileAccessMode::Read,
+                                     Common::FS::FileType::BinaryFile);
+        if (!seed_file.IsOpen()) {
+            LOG_WARNING(Service_FS, "LEGO 2K Drive save seed unreadable: {}", source_path.string());
+            continue;
+        }
+
+        std::vector<u8> data(static_cast<std::size_t>(seed_file.GetSize()));
+        if (seed_file.Read(data) != data.size()) {
+            continue;
+        }
+
+        VirtualFile out_file = working->CreateFile(filename);
+        if (out_file == nullptr || out_file->WriteBytes(data) != data.size()) {
+            LOG_WARNING(Service_FS, "Failed to seed LEGO 2K Drive save file {}", filename);
+            continue;
+        }
+        ++seeded_files;
+    }
+
+    if (seeded_files > 0) {
+        LOG_INFO(Service_FS, "Seeded LEGO 2K Drive account save with {} template file(s)",
+                 seeded_files);
+    }
+#endif
+}
 
 // Using a leaked raw pointer for the RealVfsFilesystem singleton.
 // This prevents SIGSEGV during shutdown by ensuring the VFS bridge
@@ -88,6 +158,50 @@ void BufferedVfsCopy(VirtualFile source, VirtualFile dest) {
     }
 }
 
+constexpr const char* Lego2KDriveDonorSavePath =
+    "user/save/0000000000000000/102681DE8729EB5AF9A5BEE463D78659/0100739018020000";
+
+void PromoteLego2KDriveOfflineSave(const VirtualDir& save_dir, const VirtualDir& nand_dir,
+                                   u64 resolved_program_id, SaveDataType type) {
+    if (resolved_program_id != Lego2KDriveProgramId || type != SaveDataType::Account) {
+        return;
+    }
+
+    if (save_dir->GetFile("ArtemisVehicle") != nullptr) {
+        return;
+    }
+
+    VirtualDir donor_dir = nand_dir->GetDirectoryRelative(Lego2KDriveDonorSavePath);
+    if (donor_dir == nullptr) {
+        LOG_WARNING(Service_FS, "LEGO 2K Drive offline save donor not found at {}",
+                    Lego2KDriveDonorSavePath);
+        return;
+    }
+
+    std::size_t promoted_files = 0;
+    for (const auto& donor_file : donor_dir->GetFiles()) {
+        if (!donor_file) {
+            continue;
+        }
+
+        VirtualFile dest = save_dir->CreateFile(donor_file->GetName());
+        if (dest == nullptr) {
+            LOG_WARNING(Service_FS, "Failed to promote LEGO 2K Drive save file {}",
+                        donor_file->GetName());
+            continue;
+        }
+
+        BufferedVfsCopy(donor_file, dest);
+        ++promoted_files;
+    }
+
+    if (promoted_files > 0) {
+        LOG_INFO(Service_FS,
+                 "Promoted LEGO 2K Drive offline save from donor profile ({} root file(s))",
+                 promoted_files);
+    }
+}
+
 } // Anonymous namespace
 
 SaveDataFactory::SaveDataFactory(Core::System& system_, ProgramId program_id_,
@@ -99,44 +213,164 @@ SaveDataFactory::SaveDataFactory(Core::System& system_, ProgramId program_id_,
 
 SaveDataFactory::~SaveDataFactory() = default;
 
+SaveDataAttribute SaveDataFactory::NormalizeAttribute(const SaveDataAttribute& meta) const {
+    SaveDataAttribute attr = meta;
+    if (attr.program_id == 0 && (attr.type == SaveDataType::Account || attr.type == SaveDataType::Device ||
+                                 attr.type == SaveDataType::Cache)) {
+        attr.program_id = program_id;
+    }
+    return attr;
+}
+
+SaveDataSize SaveDataFactory::GetResolvedSaveDataSize(SaveDataType type, u64 title_id,
+                                                      u128 user_id) const {
+    const u64 resolved_title_id = title_id != 0 ? title_id : program_id;
+    auto size = ReadSaveDataSize(type, resolved_title_id, user_id);
+    if (size.normal != 0 || size.journal != 0) {
+        return size;
+    }
+
+    const PatchManager pm{resolved_title_id, system.GetFileSystemController(),
+                          system.GetContentProvider()};
+    const auto metadata = pm.GetControlMetadata();
+    if (metadata.first == nullptr) {
+        return size;
+    }
+
+    switch (type) {
+    case SaveDataType::Cache:
+        return {metadata.first->GetCacheStorageSize(), metadata.first->GetCacheStorageJournalSize()};
+    case SaveDataType::Account:
+        return {metadata.first->GetDefaultNormalSaveSize(),
+                metadata.first->GetDefaultJournalSaveSize()};
+    case SaveDataType::Device:
+        return {metadata.first->GetDeviceSaveDataSize(),
+                metadata.first->GetDefaultJournalSaveSize()};
+    default:
+        return size;
+    }
+}
+
+Result SaveDataFactory::InitializeSaveDataLayout(VirtualDir save_dir) const {
+    DirectorySaveDataFileSystem journal_fs(save_dir);
+    return journal_fs.Initialize(true);
+}
+
+Result SaveDataFactory::SyncExtraDataSizes(VirtualDir save_dir,
+                                           const SaveDataAttribute& meta) const {
+    if (save_dir == nullptr) {
+        return ResultPathNotFound;
+    }
+
+    const auto attr = NormalizeAttribute(meta);
+    const auto sizes = GetResolvedSaveDataSize(attr.type, attr.program_id, attr.user_id);
+    if (sizes.normal == 0 && sizes.journal == 0) {
+        return ResultSuccess;
+    }
+
+    SaveDataExtraDataAccessor accessor(save_dir);
+    R_TRY(accessor.Initialize(true));
+
+    SaveDataExtraData extra_data{};
+    R_TRY(accessor.ReadExtraData(&extra_data));
+
+    extra_data.attr = attr;
+    if (extra_data.owner_id == 0) {
+        extra_data.owner_id = attr.program_id;
+    }
+    extra_data.available_size = static_cast<s64>(sizes.normal);
+    extra_data.journal_size = static_cast<s64>(sizes.journal);
+
+    R_TRY(accessor.WriteExtraData(extra_data));
+    return accessor.CommitExtraData();
+}
+
 VirtualDir SaveDataFactory::Create(SaveDataSpaceId space, const SaveDataAttribute& meta) const {
-    const auto save_directory = GetFullPath(program_id, dir, space, meta.type, meta.program_id,
-                                            meta.user_id, meta.system_save_data_id);
+    const auto attr = NormalizeAttribute(meta);
+    const auto save_directory = GetFullPath(program_id, dir, space, attr.type, attr.program_id,
+                                            attr.user_id, attr.system_save_data_id);
 
     auto save_dir = dir->CreateDirectoryRelative(save_directory);
     if (save_dir == nullptr) {
         return nullptr;
     }
 
+    const auto sizes = GetResolvedSaveDataSize(attr.type, attr.program_id, attr.user_id);
+
     SaveDataExtraDataAccessor accessor(save_dir);
     if (accessor.Initialize(true) == ResultSuccess) {
         SaveDataExtraData initial_data{};
-        initial_data.attr = meta;
-        initial_data.owner_id = meta.program_id;
+        initial_data.attr = attr;
+        initial_data.owner_id = attr.program_id;
         initial_data.timestamp = std::chrono::system_clock::now().time_since_epoch().count();
         initial_data.flags = static_cast<u32>(SaveDataFlags::None);
-        initial_data.available_size = 0;
-        initial_data.journal_size = 0;
+        initial_data.available_size = static_cast<s64>(sizes.normal);
+        initial_data.journal_size = static_cast<s64>(sizes.journal);
         initial_data.commit_id = 1;
 
         accessor.WriteExtraData(initial_data);
         accessor.CommitExtraData();
     }
 
+    if (sizes.normal != 0 || sizes.journal != 0) {
+        WriteSaveDataSize(attr.type, attr.program_id, attr.user_id, sizes);
+    }
+
+    InitializeSaveDataLayout(save_dir);
+    PromoteLego2KDriveOfflineSave(save_dir, dir, attr.program_id, attr.type);
+    if (!Settings::values.airplane_mode.GetValue()) {
+        SeedLego2KDriveTemplate(save_dir, attr.program_id, attr.type);
+    }
+
     return save_dir;
 }
 
 VirtualDir SaveDataFactory::Open(SaveDataSpaceId space, const SaveDataAttribute& meta) const {
-    const auto save_directory = GetFullPath(program_id, dir, space, meta.type, meta.program_id,
-                                            meta.user_id, meta.system_save_data_id);
+    const auto attr = NormalizeAttribute(meta);
+    const auto save_directory = GetFullPath(program_id, dir, space, attr.type, attr.program_id,
+                                            attr.user_id, attr.system_save_data_id);
 
     auto out = dir->GetDirectoryRelative(save_directory);
 
-    if (out == nullptr && (ShouldSaveDataBeAutomaticallyCreated(space, meta) && auto_create)) {
-        return Create(space, meta);
+    if (out == nullptr && (ShouldSaveDataBeAutomaticallyCreated(space, attr) && auto_create)) {
+        return Create(space, attr);
+    }
+
+    if (out != nullptr) {
+        SaveDataExtraDataAccessor accessor(out);
+        if (accessor.Initialize(false) == ResultSuccess) {
+            SaveDataExtraData extra_data{};
+            if (accessor.ReadExtraData(&extra_data) == ResultSuccess &&
+                extra_data.journal_size == 0) {
+                SyncExtraDataSizes(out, attr);
+            }
+        }
+        // Repair saves that exist but are missing journal working/committed dirs.
+        if (out->GetSubdirectory("0") == nullptr || out->GetSubdirectory("1") == nullptr) {
+            InitializeSaveDataLayout(out);
+        }
+        PromoteLego2KDriveOfflineSave(out, dir, attr.program_id, attr.type);
+        if (!Settings::values.airplane_mode.GetValue()) {
+            SeedLego2KDriveTemplate(out, attr.program_id, attr.type);
+        }
     }
 
     return out;
+}
+
+Result SaveDataFactory::DeleteCacheStorage(u16 index) const {
+    const auto save_directory = GetFullPath(program_id, dir, SaveDataSpaceId::User,
+                                            SaveDataType::Cache, 0, {}, 0);
+
+    if (dir->GetDirectoryRelative(save_directory) == nullptr) {
+        return ResultSuccess;
+    }
+
+    if (!dir->DeleteSubdirectoryRecursive(save_directory)) {
+        return ResultPermissionDenied;
+    }
+
+    return ResultSuccess;
 }
 
 VirtualDir SaveDataFactory::GetSaveDataSpaceDirectory(SaveDataSpaceId space) const {
@@ -164,7 +398,8 @@ std::string SaveDataFactory::GetSaveDataSpaceIdPath(SaveDataSpaceId space) {
 std::string SaveDataFactory::GetFullPath(ProgramId program_id, VirtualDir dir,
                                          SaveDataSpaceId space, SaveDataType type, u64 title_id,
                                          u128 user_id, u64 save_id) {
-    if ((type == SaveDataType::Account || type == SaveDataType::Device) && title_id == 0) {
+    if ((type == SaveDataType::Account || type == SaveDataType::Device || type == SaveDataType::Cache) &&
+        title_id == 0) {
         title_id = program_id;
     }
 
@@ -210,13 +445,22 @@ SaveDataSize SaveDataFactory::ReadSaveDataSize(SaveDataType type, u64 title_id, 
     return out;
 }
 
-void SaveDataFactory::WriteSaveDataSize(SaveDataType type, u64 title_id, u128 user_id, SaveDataSize new_value) const {
+void SaveDataFactory::WriteSaveDataSize(SaveDataType type, u64 title_id, u128 user_id,
+                                        SaveDataSize new_value) const {
     const auto path = GetFullPath(program_id, dir, SaveDataSpaceId::User, type, title_id, user_id, 0);
     const auto relative_dir = GetOrCreateDirectoryRelative(dir, path);
     const auto size_file = relative_dir->CreateFile(GetSaveDataSizeFileName());
-    if (size_file == nullptr) return;
+    if (size_file == nullptr) {
+        return;
+    }
     size_file->Resize(sizeof(SaveDataSize));
     size_file->WriteObject(new_value);
+
+    SaveDataAttribute attr{};
+    attr.program_id = title_id != 0 ? title_id : program_id;
+    attr.user_id = user_id;
+    attr.type = type;
+    SyncExtraDataSizes(relative_dir, attr);
 }
 
 void SaveDataFactory::SetAutoCreate(bool state) {

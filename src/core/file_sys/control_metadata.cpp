@@ -160,6 +160,14 @@ u64 NACP::GetDefaultJournalSaveSize() const {
     return raw.user_account_save_data_journal_size;
 }
 
+u64 NACP::GetCacheStorageSize() const {
+    return raw.cache_storage_size;
+}
+
+u64 NACP::GetCacheStorageJournalSize() const {
+    return raw.cache_storage_journal_size;
+}
+
 bool NACP::GetUserAccountSwitchLock() const {
     return raw.user_account_switch_lock != 0;
 }
