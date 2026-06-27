@@ -403,28 +403,27 @@ void DeviceMemoryManager<Traits>::WalkBlock(DAddr addr, std::size_t size, auto o
             const auto [asid, cpu_backing] = ExtractCPUBacking(page_index);
             if (cpu_backing != 0 && asid.id < registered_processes.size()) {
                 if (auto* process_memory = registered_processes[asid.id]; process_memory != nullptr) {
-                    auto* mem_ptr = process_memory->GetHostPointerForSmmuMapping(
-                        Common::ProcessAddress(cpu_backing + page_offset));
-                    if (mem_ptr != nullptr) {
+                    if (auto* mem_ptr = process_memory->GetHostPointerForSmmuMapping(
+                            Common::ProcessAddress(cpu_backing + page_offset));
+                        mem_ptr != nullptr) {
                         on_memory(copy_amount, mem_ptr);
                         continue;
                     }
                 }
-            }
-            // Some nvmap-backed regions can still be physically contiguous by device address even if
-            // page-by-page host pointer resolution failed during map setup. In that case, treat
-            // device address as a direct physical offset as a last-resort fallback to avoid
-            // zero-filling large GPU reads (black screen).
-            const auto physical_bits = Settings::values.memory_layout_mode.GetValue() ==
-                                               Settings::MemoryLayout::Memory_4Gb
-                                           ? physical_min_bits
-                                           : physical_max_bits;
-            const PAddr fallback_phys_addr = static_cast<PAddr>(current_vaddr);
-            const u64 fallback_phys_end = static_cast<u64>(fallback_phys_addr) + copy_amount;
-            if (fallback_phys_end <= (1ULL << physical_bits)) [[likely]] {
-                auto* mem_ptr = GetPointerFromRaw<u8>(fallback_phys_addr);
-                on_memory(copy_amount, mem_ptr);
-                continue;
+                // Some nvmap-backed regions can still be physically contiguous by device address
+                // even if page-by-page host pointer resolution failed during map setup. Only apply
+                // this fallback when CPU backing was recorded; unmapped pages leave cpu_backing at 0.
+                const auto physical_bits = Settings::values.memory_layout_mode.GetValue() ==
+                                                   Settings::MemoryLayout::Memory_4Gb
+                                               ? physical_min_bits
+                                               : physical_max_bits;
+                const PAddr fallback_phys_addr = static_cast<PAddr>(current_vaddr);
+                const u64 fallback_phys_end = static_cast<u64>(fallback_phys_addr) + copy_amount;
+                if (fallback_phys_end <= (1ULL << physical_bits)) [[likely]] {
+                    auto* mem_ptr = GetPointerFromRaw<u8>(fallback_phys_addr);
+                    on_memory(copy_amount, mem_ptr);
+                    continue;
+                }
             }
             on_unmapped(copy_amount, current_vaddr);
             continue;

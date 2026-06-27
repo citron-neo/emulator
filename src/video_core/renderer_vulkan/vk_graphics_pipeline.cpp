@@ -742,6 +742,9 @@ void GraphicsPipeline::MakePipeline(VkRenderPass render_pass) {
             if (!IsVertexAttributeMapped(vertex_input_remap, index)) {
                 continue;
             }
+            if (attribute.buffer >= Tegra::Engines::Maxwell3D::Regs::NumVertexArrays) {
+                continue;
+            }
             if (!IsVertexBindingMapped(vertex_input_remap, attribute.buffer)) {
                 continue;
             }
@@ -751,9 +754,6 @@ void GraphicsPipeline::MakePipeline(VkRenderPass render_pass) {
             const u32 location = VulkanVertexLocation(vertex_input_remap, index);
             const u32 binding = VulkanVertexBinding(vertex_input_remap, attribute.buffer);
             if (location >= max_vertex_attrs || binding >= max_vertex_bindings) {
-                continue;
-            }
-            if (attribute.buffer >= Tegra::Engines::Maxwell3D::Regs::NumVertexArrays) {
                 continue;
             }
             if (vertex_attributes.size() >= max_vertex_attrs) {

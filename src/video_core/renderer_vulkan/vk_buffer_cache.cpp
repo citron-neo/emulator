@@ -313,7 +313,7 @@ void BufferCacheRuntime::EmulateDrawIndirectByteCount(VkBuffer guest_counter_buf
         .srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT,
         .dstAccessMask = VK_ACCESS_INDIRECT_COMMAND_READ_BIT | VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT,
     };
-    // Stay inside the active render pass: ending it before DrawIndirect discards output.
+    scheduler.RequestOutsideRenderPassOperationContext();
     scheduler.Record([counter_buffer, draw_buffer = *xfb_byte_count_draw_buffer, draw_staging,
                       guest_counter_buffer, guest_counter_offset](vk::CommandBuffer cmdbuf) {
         cmdbuf.PipelineBarrier(XfbEmulationWriteStages() | VK_PIPELINE_STAGE_TRANSFER_BIT,
@@ -336,6 +336,9 @@ void BufferCacheRuntime::EmulateDrawIndirectByteCount(VkBuffer guest_counter_buf
                                VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT |
                                    VK_PIPELINE_STAGE_VERTEX_INPUT_BIT,
                                0, DRAW_BARRIER);
+    });
+    // Stay inside the active render pass: ending it before DrawIndirect discards output.
+    scheduler.Record([draw_buffer = *xfb_byte_count_draw_buffer](vk::CommandBuffer cmdbuf) {
         cmdbuf.DrawIndirect(draw_buffer, 0, 1, sizeof(VkDrawIndirectCommand));
     });
     StagingBufferRef draw_staging_ref = draw_staging;

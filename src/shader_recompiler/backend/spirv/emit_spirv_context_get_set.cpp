@@ -47,6 +47,9 @@ std::optional<OutAttr> OutputAttrPointer(EmitContext& ctx, IR::Attribute attr) {
         const u32 index{IR::GenericAttributeIndex(attr)};
         const u32 element{IR::GenericAttributeElement(attr)};
         const GenericElementInfo& info{ctx.output_generics.at(index).at(element)};
+        if (info.num_components == 0) {
+            return std::nullopt;
+        }
         if (info.num_components == 1) {
             return info.id;
         } else {

@@ -490,6 +490,10 @@ void PatchPhiNodes(IR::Program& program, EmitContext& ctx) {
 std::vector<u32> EmitSPIRV(const Profile& profile, const RuntimeInfo& runtime_info, IR::Program& program, Bindings& bindings) {
     RuntimeInfo runtime_info_work = runtime_info;
     if (runtime_info_work.emulate_transform_feedback && runtime_info_work.xfb_count > 0) {
+        if (!profile.support_descriptor_aliasing) {
+            throw NotImplementedException(
+                "Transform-feedback emulation requires descriptor aliasing support");
+        }
         static constexpr u32 kXfbEmuBuffers = 5;
         static constexpr u32 kMaxwellMaxConstBuffers = 18;
         if (program.info.storage_buffers_descriptors.size() + kXfbEmuBuffers >
