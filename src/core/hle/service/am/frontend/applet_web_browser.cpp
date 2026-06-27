@@ -457,8 +457,17 @@ void WebBrowser::ExecuteShop() {
 }
 
 void WebBrowser::ExecuteLogin() {
-    LOG_WARNING(Service_AM, "(STUBBED) called, Login Applet is not implemented");
-    WebBrowserExit(WebExitReason::EndButtonPressed);
+    LOG_INFO(Service_AM, "called (HLE auto-success for offline/guest login)");
+
+    std::string callback_url;
+    if (const auto data = GetInputTLVData(WebArgInputTLVType::CallbackURL)) {
+        callback_url = ParseStringValue(*data);
+    }
+    if (callback_url.empty()) {
+        callback_url = "https://localhost/auth/callback?success=1";
+    }
+
+    WebBrowserExit(WebExitReason::CallbackURL, callback_url);
 }
 
 void WebBrowser::ExecuteOffline() {

@@ -23,6 +23,18 @@ namespace {
 
 #include "core/internal_network/network.h"
 #include "core/internal_network/network_interface.h"
+#include "common/settings.h"
+
+namespace {
+
+constexpr u64 Lego2KDriveProgramId = 0x0100739018020000ULL;
+
+bool IsLego2KDriveOfflineLocalMode(const Core::System& system_) {
+    return Settings::values.airplane_mode.GetValue() &&
+           system_.GetApplicationProcessProgramID() == Lego2KDriveProgramId;
+}
+
+} // Anonymous namespace
 
 // [UNITY-FIX] undef Win32 macros shadowing ServiceContext methods.
 #undef CreateEvent
@@ -318,6 +330,13 @@ private:
         LOG_DEBUG(Service_NIFM, "(STUBBED) called");
 
         const auto result = [this] {
+            if (IsLego2KDriveOfflineLocalMode(system)) {
+                if (state == RequestState::OnHold) {
+                    UpdateState(RequestState::Accepted);
+                }
+                return ResultSuccess;
+            }
+
             const auto has_connection = Network::GetHostIPv4Address().has_value();
             switch (state) {
             case RequestState::Free:
@@ -525,12 +544,34 @@ public:
 };
 
 void IGeneralService::GetClientId(HLERequestContext& ctx) {
-    static constexpr u32 client_id = 1;
-    LOG_WARNING(Service_NIFM, "(STUBBED) called");
+    static u32 next_client_id = 1;
+    const u32 client_id = next_client_id++;
 
-    IPC::ResponseBuilder rb{ctx, 4};
+    LOG_INFO(Service_NIFM, "called, client_id={}", client_id);
+
+    if (ctx.CanWriteBuffer(0)) {
+        ctx.WriteBuffer(std::span{reinterpret_cast<const u8*>(&client_id), sizeof(client_id)}, 0);
+    }
+
+    IPC::ResponseBuilder rb{ctx, 2};
     rb.Push(ResultSuccess);
-    rb.Push<u64>(client_id); // Client ID needs to be non zero otherwise it's considered invalid
+}
+
+void IGeneralService::IsAnyInternetRequestAccepted(HLERequestContext& ctx) {
+    u32 client_id{};
+    if (ctx.CanReadBuffer(0)) {
+        const auto buffer = ctx.ReadBuffer(0);
+        if (buffer.size() >= sizeof(client_id)) {
+            std::memcpy(&client_id, buffer.data(), sizeof(client_id));
+        }
+    }
+
+    const bool accepted = client_id != 0 && Network::GetHostIPv4Address().has_value();
+    LOG_INFO(Service_NIFM, "called, client_id={}, accepted={}", client_id, accepted);
+
+    IPC::ResponseBuilder rb{ctx, 3};
+    rb.Push(ResultSuccess);
+    rb.Push<u8>(accepted ? 1 : 0);
 }
 
 void IGeneralService::CreateScanRequest(HLERequestContext& ctx) {
@@ -653,8 +694,6 @@ void IGeneralService::RemoveNetworkProfile(HLERequestContext& ctx) {
 }
 
 void IGeneralService::GetCurrentIpAddress(HLERequestContext& ctx) {
-    LOG_WARNING(Service_NIFM, "(STUBBED) called");
-
     auto ipv4 = Network::GetHostIPv4Address();
     if (!ipv4) {
         LOG_ERROR(Service_NIFM, "Couldn't get host IPv4 address, defaulting to 0.0.0.0");
@@ -667,6 +706,9 @@ void IGeneralService::GetCurrentIpAddress(HLERequestContext& ctx) {
             ipv4 = room_member->GetFakeIpAddress();
         }
     }
+
+    LOG_INFO(Service_NIFM, "GetCurrentIpAddress returning {}",
+             Network::IPv4AddressToString(*ipv4));
 
     IPC::ResponseBuilder rb{ctx, 3};
     rb.Push(ResultSuccess);
@@ -758,15 +800,30 @@ void IGeneralService::SetBackgroundRequestEnabled(HLERequestContext& ctx) {
 }
 
 void IGeneralService::IsWirelessCommunicationEnabled(HLERequestContext& ctx) {
-    LOG_WARNING(Service_NIFM, "(STUBBED) called");
+    const bool enabled = !Settings::values.airplane_mode.GetValue() &&
+                         Network::GetHostIPv4Address().has_value();
+
+    LOG_DEBUG(Service_NIFM, "called, enabled={}", enabled);
 
     IPC::ResponseBuilder rb{ctx, 3};
     rb.Push(ResultSuccess);
-    rb.Push<u8>(1);
+    rb.Push<u8>(enabled ? 1 : 0);
 }
 
 void IGeneralService::GetInternetConnectionStatus(HLERequestContext& ctx) {
-    LOG_WARNING(Service_NIFM, "(STUBBED) called");
+    const bool lego2k_offline_local = IsLego2KDriveOfflineLocalMode(system);
+    const bool has_internet = lego2k_offline_local ||
+                              (!Settings::values.airplane_mode.GetValue() &&
+                               Network::GetHostIPv4Address().has_value());
+
+    if (!has_internet) {
+        LOG_INFO(Service_NIFM, "called, internet unavailable (airplane_mode={}, has_ip={})",
+                 Settings::values.airplane_mode.GetValue(),
+                 Network::GetHostIPv4Address().has_value());
+        IPC::ResponseBuilder rb{ctx, 2};
+        rb.Push(ResultNetworkCommunicationDisabled);
+        return;
+    }
 
     struct Output {
         u8 type{static_cast<u8>(NetworkInterfaceType::WiFi_Ieee80211)};
@@ -777,6 +834,8 @@ void IGeneralService::GetInternetConnectionStatus(HLERequestContext& ctx) {
 
     constexpr Output out{};
 
+    LOG_DEBUG(Service_NIFM, "called, internet connected");
+
     IPC::ResponseBuilder rb{ctx, 3};
     rb.Push(ResultSuccess);
     rb.PushRaw(out);
@@ -784,18 +843,6 @@ void IGeneralService::GetInternetConnectionStatus(HLERequestContext& ctx) {
 
 void IGeneralService::IsEthernetCommunicationEnabled(HLERequestContext& ctx) {
     LOG_WARNING(Service_NIFM, "(STUBBED) called");
-
-    IPC::ResponseBuilder rb{ctx, 3};
-    rb.Push(ResultSuccess);
-    if (Network::GetHostIPv4Address().has_value()) {
-        rb.Push<u8>(1);
-    } else {
-        rb.Push<u8>(0);
-    }
-}
-
-void IGeneralService::IsAnyInternetRequestAccepted(HLERequestContext& ctx) {
-    LOG_ERROR(Service_NIFM, "(STUBBED) called");
 
     IPC::ResponseBuilder rb{ctx, 3};
     rb.Push(ResultSuccess);
