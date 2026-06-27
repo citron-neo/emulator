@@ -198,17 +198,27 @@ void EmitTransformFeedbackEmulationStoresImpl(EmitContext& ctx) {
         return;
     }
     const u32 counter_ssbo = base + 4;
-    Id record_index{};
     if (counter_ssbo < ctx.ssbos.size() && Sirit::ValidId(ctx.ssbos[counter_ssbo].U32)) {
         ctx.AddCapability(spv::Capability::AtomicStorage);
         const Id counter_ptr{ctx.OpAccessChain(ctx.storage_types.U32.element,
                                                ctx.ssbos[counter_ssbo].U32, ctx.u32_zero_value,
                                                ctx.u32_zero_value)};
-        record_index = ctx.OpAtomicIAdd(ctx.U32[1], counter_ptr,
-                                        ctx.Const(static_cast<u32>(spv::Scope::Device)),
-                                        ctx.u32_zero_value, ctx.Const(1U));
-    } else {
+        // Atomic increment is for query byte-count emulation only; record placement uses a
+        // deterministic per-invocation index so captured stream data stays in draw order.
+        ctx.OpAtomicIAdd(ctx.U32[1], counter_ptr, ctx.Const(static_cast<u32>(spv::Scope::Device)),
+                         ctx.u32_zero_value, ctx.Const(1U));
+    }
+    Id record_index{};
+    if (Sirit::ValidId(ctx.vertex_index)) {
         record_index = ctx.OpLoad(ctx.U32[1], ctx.vertex_index);
+    } else if (Sirit::ValidId(ctx.vertex_id)) {
+        record_index = ctx.OpLoad(ctx.U32[1], ctx.vertex_id);
+    } else if (Sirit::ValidId(ctx.invocation_id)) {
+        record_index = ctx.OpLoad(ctx.U32[1], ctx.invocation_id);
+    } else if (Sirit::ValidId(ctx.primitive_id)) {
+        record_index = ctx.OpLoad(ctx.U32[1], ctx.primitive_id);
+    } else {
+        record_index = ctx.u32_zero_value;
     }
     const Id element_ptr{ctx.storage_types.F32.element};
 

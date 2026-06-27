@@ -249,7 +249,8 @@ GraphicsPipeline::GraphicsPipeline(
     GuestDescriptorQueue& guest_descriptor_queue_, Common::ThreadWorker* worker_thread,
     PipelineStatistics* pipeline_statistics, RenderPassCache& render_pass_cache,
     const GraphicsPipelineCacheKey& key_, std::array<vk::ShaderModule, NUM_STAGES> stages,
-    const std::array<const Shader::Info*, NUM_STAGES>& infos)
+    const std::array<const Shader::Info*, NUM_STAGES>& infos,
+    std::optional<Shader::RuntimeInfo> compiled_vertex_remap)
     : key{key_}, device{device_}, texture_cache{texture_cache_}, buffer_cache{buffer_cache_},
       pipeline_cache(pipeline_cache_), scheduler{scheduler_},
       guest_descriptor_queue{guest_descriptor_queue_}, spv_modules{std::move(stages)} {
@@ -272,7 +273,14 @@ GraphicsPipeline::GraphicsPipeline(
     const bool needs_vertex_binding_remap =
         device.GetMaxVertexInputBindings() <
         Tegra::Engines::Maxwell3D::Regs::NumVertexArrays;
-    if (needs_vertex_location_remap || needs_vertex_binding_remap) {
+    if (compiled_vertex_remap) {
+        vertex_input_remap.vertex_locations = compiled_vertex_remap->vertex_locations;
+        vertex_input_remap.vertex_bindings = compiled_vertex_remap->vertex_bindings;
+        vertex_input_remap.remapped_vertex_locations =
+            compiled_vertex_remap->remapped_vertex_locations;
+        vertex_input_remap.remapped_vertex_bindings =
+            compiled_vertex_remap->remapped_vertex_bindings;
+    } else if (needs_vertex_location_remap || needs_vertex_binding_remap) {
         PopulateVertexLocationRemap(vertex_input_remap, device.GetMaxVertexInputAttributes(),
                                     device.GetMaxVertexInputBindings(), key.state, stage_infos[0]);
     }

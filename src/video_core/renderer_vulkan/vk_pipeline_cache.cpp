@@ -924,6 +924,7 @@ std::unique_ptr<GraphicsPipeline> PipelineCache::CreateGraphicsPipeline(
     std::array<vk::ShaderModule, Tegra::Engines::Maxwell3D::Regs::MaxShaderStage> modules;
 
     const Shader::IR::Program* previous_stage{};
+    std::optional<Shader::RuntimeInfo> compiled_vertex_remap;
     Shader::Backend::Bindings binding;
     const bool has_geometry_stage =
         geometry_supported && guest_has_geometry_shader &&
@@ -954,6 +955,9 @@ std::unique_ptr<GraphicsPipeline> PipelineCache::CreateGraphicsPipeline(
             programs, key, program, previous_stage, skipped_geometry_program, has_geometry_stage,
             guest_has_geometry_shader, geometry_supported, uses_tessellation, max_vertex_attributes,
             max_vertex_bindings)};
+        if (program.stage == Shader::Stage::VertexB) {
+            compiled_vertex_remap = runtime_info;
+        }
         if (key.state.xfb_enabled != 0 && runtime_info.xfb_count > 0) {
             LOG_INFO(Render_Vulkan,
                      "Pipeline 0x{:016x} stage={} xfb_count={} xfb_emulated={} gs={} tess={}",
@@ -976,7 +980,7 @@ std::unique_ptr<GraphicsPipeline> PipelineCache::CreateGraphicsPipeline(
     return std::make_unique<GraphicsPipeline>(
         scheduler, buffer_cache, texture_cache, vulkan_pipeline_cache, &shader_notify, device,
         descriptor_pool, guest_descriptor_queue, thread_worker, statistics, render_pass_cache, key,
-        std::move(modules), infos);
+        std::move(modules), infos, std::move(compiled_vertex_remap));
 
 } catch (const vk::Exception& exception) {
     if (exception.GetResult() == VK_ERROR_OUT_OF_DEVICE_MEMORY) {
