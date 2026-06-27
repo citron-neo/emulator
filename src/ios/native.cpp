@@ -461,6 +461,11 @@ Core::SystemResultStatus EmulationSession::Launch(const std::string& filepath,
         return result;
     }
 
+    {
+        std::scoped_lock lock{mutex};
+        is_running = true;
+        is_paused = false;
+    }
     emulation_thread = std::thread{[this] { RunEmulation(); }};
     return result;
 }
@@ -712,35 +717,30 @@ static bool CanMakeExecutableMemoryOnWorkerThread(int extra_mmap_flags) {
 }
 
 bool citron_ios_jit_available() {
-#if defined(MAP_JIT)
-    const bool map_jit_ok = CanMakeExecutableMemoryOnWorkerThread(MAP_JIT);
-#else
-    const bool map_jit_ok = false;
-#endif
-
 #if defined(__APPLE__) && TARGET_OS_IPHONE
-    // StikDebug / attach can race the first process snapshots; retry resolution briefly.
     for (int attempt = 0; attempt < 5; ++attempt) {
         CitronIosResolveJitWriteProtectPointer();
-        if (citron_ios_pthread_jit_write_protect_np != nullptr) {
+        if (citron_ios_pthread_jit_write_protect_np != nullptr ||
+            citron_ios_pthread_jit_write_with_callback_np != nullptr) {
             break;
         }
         if (attempt + 1 < 5) {
             std::this_thread::sleep_for(std::chrono::milliseconds(15));
         }
     }
-#endif
-
-    // Physical device: allow launch when worker-thread MAP_JIT+mprotect probe passes even if this TU
-    // still could not dlsym pthread_jit_write_protect_np (Oaknut keeps retrying from codegen threads).
-#if defined(__APPLE__) && TARGET_OS_IPHONE && (!defined(TARGET_OS_SIMULATOR) || !TARGET_OS_SIMULATOR)
-    const bool ptr_ok = citron_ios_pthread_jit_write_protect_np != nullptr;
-    const bool anon_ok = CanMakeExecutableMemoryOnWorkerThread(0);
-    return ptr_ok || map_jit_ok || anon_ok;
+#    if !defined(HAS_NCE)
+    if (citron_ios_pthread_jit_write_protect_np == nullptr &&
+        citron_ios_pthread_jit_write_with_callback_np == nullptr) {
+        return false;
+    }
+#    endif
+    return true;
 #else
-    if (map_jit_ok) {
+#if defined(MAP_JIT)
+    if (CanMakeExecutableMemoryOnWorkerThread(MAP_JIT)) {
         return true;
     }
+#endif
     return CanMakeExecutableMemoryOnWorkerThread(0);
 #endif
 }
