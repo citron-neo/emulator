@@ -118,6 +118,20 @@ Tegra::Engines::Fermi2D::Surface MakeBlitSurface(
     return surface;
 }
 
+Tegra::RenderTargetFormat ViPixelFormatToRenderTargetFormat(
+    Service::android::PixelFormat pixel_format) {
+    switch (pixel_format) {
+    case Service::android::PixelFormat::Bgra8888:
+        return Tegra::RenderTargetFormat::B8G8R8A8_UNORM;
+    case Service::android::PixelFormat::Rgb565:
+        return Tegra::RenderTargetFormat::R5G6B5_UNORM;
+    case Service::android::PixelFormat::Rgba8888:
+    case Service::android::PixelFormat::Rgbx8888:
+    default:
+        return Tegra::RenderTargetFormat::A8B8G8R8_UNORM;
+    }
+}
+
 void TrackGameRenderTarget(DAddr cpu_addr, GPUVAddr gpu_addr,
                            const Tegra::Engines::Maxwell3D::Regs::RenderTargetConfig& rt_config,
                            Tegra::Texture::MsaaMode msaa_mode, u32 num_vertices) {
@@ -542,6 +556,9 @@ void RasterizerVulkan::DrawIndirect() {
                 buffer_cache.runtime.EmulateDrawIndirectByteCount(
                     buffer ? buffer->Handle() : VK_NULL_HANDLE, offset,
                     static_cast<u32>(params.stride), maxwell3d->regs.draw_auto_byte_count);
+                FinishEmulatedTransformFeedbackDraw(scheduler, buffer_cache,
+                                                    pipeline_cache.CurrentGraphicsPipeline(),
+                                                    device);
                 return;
             }
             scheduler.Record([buffer_obj = buffer->Handle(), offset,
@@ -1211,8 +1228,10 @@ void RasterizerVulkan::CompositeGameRtToViAtPresent(const Tegra::FramebufferConf
     src_rt.width = blit_width;
     src_rt.height = blit_height;
     auto dst_rt = g_game_rt0_config;
+    dst_rt.format = ViPixelFormatToRenderTargetFormat(config.pixel_format);
     dst_rt.width = blit_width;
     dst_rt.height = blit_height;
+    dst_rt.tile_mode.is_pitch_linear = true;
     dst_rt.address_high = static_cast<u32>(vi_gpu >> 32);
     dst_rt.address_low = static_cast<u32>(vi_gpu);
 
@@ -1238,7 +1257,10 @@ void RasterizerVulkan::CompositeGameRtToViAtPresent(const Tegra::FramebufferConf
                  "Composite at present: game RT 0x{:x} -> VI 0x{:x} (peak_verts={} size={}x{})",
                  g_game_rt0_cpu_addr, vi_cpu, g_game_rt0_peak_verts, blit_width, blit_height);
     }
-    texture_cache.BlitImage(dst, src, copy_config);
+    {
+        std::scoped_lock lock{texture_cache.mutex};
+        texture_cache.BlitImage(dst, src, copy_config);
+    }
 }
 
 void RasterizerVulkan::AccelerateInlineToMemory(GPUVAddr address, size_t copy_size,

@@ -791,13 +791,13 @@ public:
                                        VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, 0, WRITE_BARRIER);
             });
             scheduler.Finish();
-            offset_base = staging_ref.offset;
+            size_t download_offset = 0;
             emulated_sync_values.reserve(emulated_pending.size());
             for (const size_t q : emulated_pending) {
                 auto* query = GetQuery(q);
                 u32 records = 0;
-                std::memcpy(&records, staging_ref.mapped_span.data() + offset_base, sizeof(u32));
-                offset_base += TFBQueryBank::QUERY_SIZE;
+                std::memcpy(&records, staging_ref.mapped_span.data() + download_offset, sizeof(u32));
+                download_offset += TFBQueryBank::QUERY_SIZE;
                 const u32 stride = emulated_query_strides.at(q);
                 emulated_query_strides.erase(q);
                 const u64 byte_value = static_cast<u64>(records) * stride;
@@ -930,11 +930,11 @@ public:
             scheduler.Finish();
         }
 
-        size_t offset_base = staging_ref.offset;
+        size_t download_offset = 0;
         for (auto q : flushed_queries) {
             auto* query = GetQuery(q);
             u32 result = 0;
-            std::memcpy(&result, staging_ref.mapped_span.data() + offset_base, sizeof(u32));
+            std::memcpy(&result, staging_ref.mapped_span.data() + download_offset, sizeof(u32));
             u64 value = result;
             if (!device.IsExtTransformFeedbackSupported()) {
                 if (const auto it = emulated_query_strides.find(q);
@@ -945,7 +945,7 @@ public:
             }
             query->value = value;
             query->flags |= VideoCommon::QueryFlagBits::IsFinalValueSynced;
-            offset_base += TFBQueryBank::QUERY_SIZE;
+            download_offset += TFBQueryBank::QUERY_SIZE;
         }
 
         {
