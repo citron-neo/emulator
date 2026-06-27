@@ -197,28 +197,25 @@ void EmitTransformFeedbackEmulationStoresImpl(EmitContext& ctx) {
     if (base == std::numeric_limits<u32>::max()) {
         return;
     }
+    static constexpr u32 kXfbQueryCounterWord = 0;
+    static constexpr u32 kXfbRecordOrdinalWord = 4;
     const u32 counter_ssbo = base + 4;
+    Id record_index{ctx.u32_zero_value};
     if (counter_ssbo < ctx.ssbos.size() && Sirit::ValidId(ctx.ssbos[counter_ssbo].U32)) {
         ctx.AddCapability(spv::Capability::AtomicStorage);
-        const Id counter_ptr{ctx.OpAccessChain(ctx.storage_types.U32.element,
-                                               ctx.ssbos[counter_ssbo].U32, ctx.u32_zero_value,
-                                               ctx.u32_zero_value)};
-        // Atomic increment is for query byte-count emulation only; record placement uses a
-        // deterministic per-invocation index so captured stream data stays in draw order.
-        ctx.OpAtomicIAdd(ctx.U32[1], counter_ptr, ctx.Const(static_cast<u32>(spv::Scope::Device)),
-                         ctx.u32_zero_value, ctx.Const(1U));
-    }
-    Id record_index{};
-    if (Sirit::ValidId(ctx.vertex_index)) {
-        record_index = ctx.OpLoad(ctx.U32[1], ctx.vertex_index);
-    } else if (Sirit::ValidId(ctx.vertex_id)) {
-        record_index = ctx.OpLoad(ctx.U32[1], ctx.vertex_id);
-    } else if (Sirit::ValidId(ctx.invocation_id)) {
-        record_index = ctx.OpLoad(ctx.U32[1], ctx.invocation_id);
-    } else if (Sirit::ValidId(ctx.primitive_id)) {
-        record_index = ctx.OpLoad(ctx.U32[1], ctx.primitive_id);
-    } else {
-        record_index = ctx.u32_zero_value;
+        const Id query_counter_ptr{ctx.OpAccessChain(ctx.storage_types.U32.element,
+                                                     ctx.ssbos[counter_ssbo].U32, ctx.u32_zero_value,
+                                                     ctx.Const(kXfbQueryCounterWord))};
+        ctx.OpAtomicIAdd(ctx.U32[1], query_counter_ptr,
+                         ctx.Const(static_cast<u32>(spv::Scope::Device)), ctx.u32_zero_value,
+                         ctx.Const(1U));
+        const Id record_counter_ptr{ctx.OpAccessChain(ctx.storage_types.U32.element,
+                                                      ctx.ssbos[counter_ssbo].U32,
+                                                      ctx.u32_zero_value,
+                                                      ctx.Const(kXfbRecordOrdinalWord))};
+        record_index = ctx.OpAtomicIAdd(ctx.U32[1], record_counter_ptr,
+                                        ctx.Const(static_cast<u32>(spv::Scope::Device)),
+                                        ctx.u32_zero_value, ctx.Const(1U));
     }
     const Id element_ptr{ctx.storage_types.F32.element};
 
@@ -272,9 +269,11 @@ void EmitTransformFeedbackEmulationStoresImpl(EmitContext& ctx) {
                 ctx.OpStore(dst_ptr, value);
                 continue;
             }
-            const Id size_bytes{ctx.Const(buffer_bytes)};
-            const Id end_byte{ctx.OpIAdd(ctx.U32[1], abs_byte, ctx.Const(4u))};
-            const Id in_bounds{ctx.OpULessThanEqual(ctx.U1, end_byte, size_bytes)};
+            const u32 max_records = xv.stride > 0 ? buffer_bytes / xv.stride : 0;
+            if (max_records == 0) {
+                continue;
+            }
+            const Id in_bounds{ctx.OpULessThan(ctx.U1, record_index, ctx.Const(max_records))};
             ConditionalStore(ctx, in_bounds, dst_ptr, value);
         }
     }
