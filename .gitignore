@@ -56,6 +56,14 @@ pgo-profiles-backup/
 *.tar.gz
 *.tar
 
+# Local device crash reports and debug logs (not part of the project)
+device-crashes/
+citron_ios_device_log.txt
+
+# Local MoltenVK SDK drops for debugging / iOS builds (downloaded by CMake for desktop)
+externals/moltenvk-all/
+externals/moltenvk-ios/
+
 # misc
 *.index
 *.keys
