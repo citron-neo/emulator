@@ -1,9 +1,9 @@
 // SPDX-FileCopyrightText: Copyright 2020 yuzu Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
+#include <cstring>
 #include <future>
 #include <optional>
-#include <span>
 #include <vector>
 
 #include "common/common_types.h"
@@ -17,28 +17,23 @@
 namespace Vulkan {
 namespace {
 
-[[nodiscard]] bool AreExtensionsSupported(const vk::InstanceDispatch& dld,
-                                          std::span<const char* const> extensions) {
-    const std::optional properties = vk::EnumerateInstanceExtensionProperties(dld);
-    if (!properties) {
-        LOG_ERROR(Render_Vulkan, "Failed to query extension properties");
-        return false;
-    }
-    for (const char* extension : extensions) {
-        const auto it = std::ranges::find_if(*properties, [extension](const auto& prop) {
-            return std::strcmp(extension, prop.extensionName) == 0;
-        });
-        if (it == properties->end()) {
-            LOG_ERROR(Render_Vulkan, "Required instance extension {} is not available", extension);
-            return false;
-        }
-    }
-    return true;
+[[nodiscard]] bool HasInstanceExtension(const std::vector<VkExtensionProperties>& properties,
+                                        const char* extension) {
+    return std::ranges::any_of(properties, [extension](const VkExtensionProperties& prop) {
+        return std::strcmp(extension, prop.extensionName) == 0;
+    });
 }
 
-[[nodiscard]] std::vector<const char*> RequiredExtensions(
-    const vk::InstanceDispatch& dld, Core::Frontend::WindowSystemType window_type,
-    bool enable_validation) {
+[[nodiscard]] std::vector<const char*> BuildRequiredExtensions(
+    const std::vector<VkExtensionProperties>& available,
+    Core::Frontend::WindowSystemType window_type, bool enable_validation) {
+    const auto require_ext = [&](const char* name) {
+        if (!HasInstanceExtension(available, name)) {
+            LOG_ERROR(Render_Vulkan, "Required instance extension {} is not available", name);
+            throw vk::Exception(VK_ERROR_EXTENSION_NOT_PRESENT);
+        }
+    };
+
     std::vector<const char*> extensions;
     extensions.reserve(6);
     switch (window_type) {
@@ -46,40 +41,53 @@ namespace {
         break;
 #ifdef _WIN32
     case Core::Frontend::WindowSystemType::Windows:
+        require_ext(VK_KHR_SURFACE_EXTENSION_NAME);
+        require_ext(VK_KHR_WIN32_SURFACE_EXTENSION_NAME);
         extensions.push_back(VK_KHR_WIN32_SURFACE_EXTENSION_NAME);
+        extensions.push_back(VK_KHR_SURFACE_EXTENSION_NAME);
         break;
 #elif defined(__APPLE__)
     case Core::Frontend::WindowSystemType::Cocoa:
+        require_ext(VK_KHR_SURFACE_EXTENSION_NAME);
+        require_ext(VK_EXT_METAL_SURFACE_EXTENSION_NAME);
         extensions.push_back(VK_EXT_METAL_SURFACE_EXTENSION_NAME);
+        extensions.push_back(VK_KHR_SURFACE_EXTENSION_NAME);
         break;
 #elif defined(__ANDROID__)
     case Core::Frontend::WindowSystemType::Android:
+        require_ext(VK_KHR_SURFACE_EXTENSION_NAME);
+        require_ext(VK_KHR_ANDROID_SURFACE_EXTENSION_NAME);
         extensions.push_back(VK_KHR_ANDROID_SURFACE_EXTENSION_NAME);
+        extensions.push_back(VK_KHR_SURFACE_EXTENSION_NAME);
         break;
 #else
     case Core::Frontend::WindowSystemType::X11:
+        require_ext(VK_KHR_SURFACE_EXTENSION_NAME);
+        require_ext(VK_KHR_XLIB_SURFACE_EXTENSION_NAME);
         extensions.push_back(VK_KHR_XLIB_SURFACE_EXTENSION_NAME);
+        extensions.push_back(VK_KHR_SURFACE_EXTENSION_NAME);
         break;
     case Core::Frontend::WindowSystemType::Wayland:
+        require_ext(VK_KHR_SURFACE_EXTENSION_NAME);
+        require_ext(VK_KHR_WAYLAND_SURFACE_EXTENSION_NAME);
         extensions.push_back(VK_KHR_WAYLAND_SURFACE_EXTENSION_NAME);
+        extensions.push_back(VK_KHR_SURFACE_EXTENSION_NAME);
         break;
 #endif
     default:
         LOG_ERROR(Render_Vulkan, "Presentation not supported on this platform");
-        break;
-    }
-    if (window_type != Core::Frontend::WindowSystemType::Headless) {
-        extensions.push_back(VK_KHR_SURFACE_EXTENSION_NAME);
+        throw vk::Exception(VK_ERROR_INITIALIZATION_FAILED);
     }
 #ifdef __APPLE__
-    if (AreExtensionsSupported(dld, std::array{VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME})) {
+    if (HasInstanceExtension(available, VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME)) {
         extensions.push_back(VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME);
     }
 #endif
     if (enable_validation &&
-        AreExtensionsSupported(dld, std::array{VK_EXT_DEBUG_UTILS_EXTENSION_NAME})) {
+        HasInstanceExtension(available, VK_EXT_DEBUG_UTILS_EXTENSION_NAME)) {
         extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
     }
+
     return extensions;
 }
 
@@ -126,11 +134,14 @@ vk::Instance CreateInstance(const Common::DynamicLibrary& library, vk::InstanceD
         LOG_ERROR(Render_Vulkan, "Failed to load Vulkan function pointers");
         throw vk::Exception(VK_ERROR_INITIALIZATION_FAILED);
     }
-    const std::vector<const char*> extensions =
-        RequiredExtensions(dld, window_type, enable_validation);
-    if (!AreExtensionsSupported(dld, extensions)) {
-        throw vk::Exception(VK_ERROR_EXTENSION_NOT_PRESENT);
+    const std::optional<std::vector<VkExtensionProperties>> available =
+        vk::EnumerateInstanceExtensionProperties(dld);
+    if (!available) {
+        LOG_ERROR(Render_Vulkan, "Failed to query instance extension properties");
+        throw vk::Exception(VK_ERROR_INITIALIZATION_FAILED);
     }
+    std::vector<const char*> extensions =
+        BuildRequiredExtensions(*available, window_type, enable_validation);
     std::vector<const char*> layers = Layers(enable_validation);
     RemoveUnavailableLayers(dld, layers);
 

@@ -225,6 +225,8 @@ public:
     /// Performs any additional necessary steps to shutdown GPU emulation.
     void NotifyShutdown();
 
+    [[nodiscard]] bool IsShuttingDown() const;
+
     /// Obtain the CPU Context
     void ObtainContext();
 

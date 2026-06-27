@@ -2,6 +2,8 @@
 // SPDX-FileCopyrightText: Copyright 2026 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
+#include <vector>
+
 #include "core/core.h"
 #include "core/hle/service/am/am_results.h"
 #include "core/hle/service/am/am_types.h"
@@ -62,38 +64,42 @@ void WindowSystem::ApplyDisplayParams(Applet& applet, const DisplayParams& param
 }
 
 void WindowSystem::Update() {
-    std::scoped_lock lk{m_lock};
+    bool should_system_exit = false;
+    {
+        std::scoped_lock lk{m_lock};
 
-    this->PruneTerminatedAppletsLocked();
+        should_system_exit = this->PruneTerminatedAppletsLocked();
+        if (!should_system_exit && !this->LockHomeMenuIntoForegroundLocked()) {
+            // Determine whether the overlay is capturing input focus.
+            bool overlay_captures_input = false;
+            if (m_overlay) {
+                std::scoped_lock lk_ov{m_overlay->lock};
+                overlay_captures_input = m_overlay->overlay_in_foreground;
 
-    if (this->LockHomeMenuIntoForegroundLocked()) {
-        return;
-    }
+                auto dp = ComputeOverlayDisplayParams(*m_overlay);
+                ApplyDisplayParams(*m_overlay, dp);
 
-    // Determine whether the overlay is capturing input focus.
-    bool overlay_captures_input = false;
-    if (m_overlay) {
-        std::scoped_lock lk_ov{m_overlay->lock};
-        overlay_captures_input = m_overlay->overlay_in_foreground;
+                // Overlay lifecycle: always treat as foreground-visible when window is shown.
+                const auto desired = m_overlay->window_visible ? ActivityState::ForegroundVisible
+                                                               : ActivityState::BackgroundVisible;
+                if (m_overlay->lifecycle_manager.GetActivityState() != desired) {
+                    m_overlay->lifecycle_manager.SetActivityState(desired);
+                    m_overlay->UpdateSuspensionStateLocked(true);
+                }
+            }
 
-        auto dp = ComputeOverlayDisplayParams(*m_overlay);
-        ApplyDisplayParams(*m_overlay, dp);
-
-        // Overlay lifecycle: always treat as foreground-visible when window is shown.
-        const auto desired = m_overlay->window_visible ? ActivityState::ForegroundVisible
-                                                       : ActivityState::BackgroundVisible;
-        if (m_overlay->lifecycle_manager.GetActivityState() != desired) {
-            m_overlay->lifecycle_manager.SetActivityState(desired);
-            m_overlay->UpdateSuspensionStateLocked(true);
+            this->ReconcileAppletTreeLocked(m_home_menu,
+                                            m_foreground_requested_applet == m_home_menu,
+                                            overlay_captures_input);
+            this->ReconcileAppletTreeLocked(m_application,
+                                            m_foreground_requested_applet == m_application,
+                                            overlay_captures_input);
         }
     }
 
-    this->ReconcileAppletTreeLocked(m_home_menu,
-                                    m_foreground_requested_applet == m_home_menu,
-                                    overlay_captures_input);
-    this->ReconcileAppletTreeLocked(m_application,
-                                    m_foreground_requested_applet == m_application,
-                                    overlay_captures_input);
+    if (should_system_exit) {
+        m_system.Exit();
+    }
 }
 
 void WindowSystem::TrackApplet(std::shared_ptr<Applet> applet, bool is_application) {
@@ -189,10 +195,17 @@ void WindowSystem::OnOperationModeChanged() {
 }
 
 void WindowSystem::OnExitRequested() {
-    std::scoped_lock lk{m_lock};
+    std::vector<std::shared_ptr<Applet>> applets;
+    {
+        std::scoped_lock lk{m_lock};
+        applets.reserve(m_applets.size());
+        for (const auto& [aruid, applet] : m_applets) {
+            applets.push_back(applet);
+        }
+    }
 
-    for (const auto& [aruid, applet] : m_applets) {
-        std::scoped_lock lk2{applet->lock};
+    for (const auto& applet : applets) {
+        std::scoped_lock lk{applet->lock};
         applet->lifecycle_manager.RequestExit();
     }
 }
@@ -252,7 +265,7 @@ void WindowSystem::OnCaptureButtonPressed(ButtonPressDuration type) {
     }
 }
 
-void WindowSystem::PruneTerminatedAppletsLocked() {
+bool WindowSystem::PruneTerminatedAppletsLocked() {
     for (auto it = m_applets.begin(); it != m_applets.end(); /* ... */) {
         const auto& [aruid, applet] = *it;
 
@@ -305,9 +318,7 @@ void WindowSystem::PruneTerminatedAppletsLocked() {
         it = m_applets.erase(it);
     }
 
-    if (m_applets.empty()) {
-        m_system.Exit();
-    }
+    return m_applets.empty();
 }
 
 bool WindowSystem::LockHomeMenuIntoForegroundLocked() {

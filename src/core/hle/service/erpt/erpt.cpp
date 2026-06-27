@@ -22,7 +22,7 @@ public:
             {2, nullptr, "SetInitialLaunchSettingsCompletionTime"},
             {3, nullptr, "ClearInitialLaunchSettingsCompletionTime"},
             {4, nullptr, "UpdatePowerOnTime"},
-            {5, nullptr, "UpdateAwakeTime"},
+            {5, D<&ErrorReportContext::UpdateAwakeTime>, "UpdateAwakeTime"},
             {6, nullptr, "SubmitMultipleCategoryContext"},
             {7, nullptr, "UpdateApplicationLaunchTime"},
             {8, nullptr, "ClearApplicationLaunchTime"},
@@ -72,6 +72,11 @@ private:
             Service_SET,
             "(STUBBED) called, report_type={:#x}, unknown={:#x}, create_report_option_flag={:#x}",
             report_type, unknown, create_report_option_flag);
+        R_SUCCEED();
+    }
+
+    Result UpdateAwakeTime() {
+        LOG_DEBUG(Service_SET, "(STUBBED) called");
         R_SUCCEED();
     }
 };

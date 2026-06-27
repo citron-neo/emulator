@@ -74,7 +74,7 @@ private:
     DisplayParams ComputeStandardDisplayParams(Applet& applet, bool is_foreground,
                                                bool input_intercepted) const;
 
-    void PruneTerminatedAppletsLocked();
+    bool PruneTerminatedAppletsLocked();
     bool LockHomeMenuIntoForegroundLocked();
     void TerminateChildAppletsLocked(Applet* applet);
     void ReconcileAppletTreeLocked(Applet* applet, bool is_foreground, bool input_intercepted);

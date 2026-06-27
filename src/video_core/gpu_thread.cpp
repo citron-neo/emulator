@@ -88,6 +88,14 @@ void ThreadManager::TickGPU() {
     PushCommand(GPUTickCommand());
 }
 
+void ThreadManager::Stop() {
+    if (!thread.joinable()) {
+        return;
+    }
+    thread.request_stop();
+    thread.join();
+}
+
 void ThreadManager::InvalidateRegion(DAddr addr, u64 size) {
     rasterizer->OnCacheInvalidation(addr, size);
 }

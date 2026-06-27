@@ -83,8 +83,10 @@ public:
     }
 
     bool CanUploadMSAA() const noexcept {
-        // TODO: Implement buffer to MSAA uploads
-        return false;
+        // Multisampled VkImages use reduced extent (see MakeImageCreateInfo) and standard
+        // buffer-image copies; guest unswizzle already accounts for sample layout.
+        // MoltenVK accepts this path; returning false breaks MSAA texture uploads (e.g. Minecraft).
+        return true;
     }
 
     void AccelerateImageUpload(Image&, const StagingBufferRef&,
