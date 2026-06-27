@@ -3664,20 +3664,68 @@ Result KPageTableBase::UnlockForIpcUserBuffer(KProcessAddress address, size_t si
 
 namespace {
 
-// LockForTransferMemory / UnlockForTransferMemory attribute checks normally require no user
-// attributes (besides what we add during lock). GPU mappings tag heap via ShareToDevice
-// (DeviceShared); if nvmap / device-address-space teardown does not clear the bit before the guest
-// reallocates for CPU transfer memory, we would spuriously return InvalidCurrentMemory. Mask
-// DeviceShared to match "no IPC/device lock state" while ignoring stale emulator bookkeeping.
 constexpr KMemoryAttribute TransferMemoryAttributeCheckMask() {
-    return static_cast<KMemoryAttribute>(static_cast<u8>(KMemoryAttribute::All) &
-                                         ~static_cast<u8>(KMemoryAttribute::DeviceShared));
+    return KMemoryAttribute::All;
 }
 
 } // namespace
 
+Result KPageTableBase::RepairStaleDeviceSharedResidueForTransferMemory(KProcessAddress address,
+                                                                       size_t size) {
+    const size_t num_pages = size / PageSize;
+    R_UNLESS(this->Contains(address, size), ResultInvalidCurrentMemory);
+
+    KScopedLightLock lk(m_general_lock);
+
+    const KProcessAddress last_addr = address + size - 1;
+    auto it = m_memory_block_manager.FindIterator(address);
+    bool has_stale_device_shared = false;
+
+    while (true) {
+        const KMemoryInfo info = it->GetMemoryInfo();
+        if ((info.m_attribute & KMemoryAttribute::DeviceShared) != KMemoryAttribute::None) {
+            if (info.m_device_use_count > 0) {
+                R_THROW(ResultInvalidCurrentMemory);
+            }
+            has_stale_device_shared = true;
+        }
+        if (last_addr <= info.GetLastAddress()) {
+            break;
+        }
+        ++it;
+        ASSERT(it != m_memory_block_manager.cend());
+    }
+
+    if (!has_stale_device_shared) {
+        R_SUCCEED();
+    }
+
+    // Sizing only: stale residue still carries DeviceShared until cleared below.
+    constexpr KMemoryAttribute repair_attr_mask = static_cast<KMemoryAttribute>(
+        static_cast<u8>(KMemoryAttribute::All) & ~static_cast<u8>(KMemoryAttribute::DeviceShared));
+
+    size_t num_allocator_blocks = 0;
+    R_TRY(this->CheckMemoryStateContiguous(
+        std::addressof(num_allocator_blocks), address, size,
+        KMemoryState::FlagCanTransfer | KMemoryState::FlagReferenceCounted,
+        KMemoryState::FlagCanTransfer | KMemoryState::FlagReferenceCounted,
+        KMemoryPermission::All, KMemoryPermission::UserReadWrite, repair_attr_mask,
+        KMemoryAttribute::None));
+
+    Result allocator_result;
+    KMemoryBlockManagerUpdateAllocator allocator(std::addressof(allocator_result),
+                                                 m_memory_block_slab_manager, num_allocator_blocks);
+    R_TRY(allocator_result);
+
+    m_memory_block_manager.UpdateLock(std::addressof(allocator), address, num_pages,
+                                      &KMemoryBlock::ClearStaleDeviceSharedResidue,
+                                      KMemoryPermission::None);
+    R_SUCCEED();
+}
+
 Result KPageTableBase::LockForTransferMemory(KPageGroup* out, KProcessAddress address, size_t size,
                                              KMemoryPermission perm) {
+    R_TRY(this->RepairStaleDeviceSharedResidueForTransferMemory(address, size));
     R_RETURN(this->LockMemoryAndOpen(out, nullptr, address, size, KMemoryState::FlagCanTransfer,
                                      KMemoryState::FlagCanTransfer, KMemoryPermission::All,
                                      KMemoryPermission::UserReadWrite,
