@@ -6,6 +6,7 @@
 #include "core/hle/service/acc/async_context.h"
 #include "core/hle/service/ipc_helpers.h"
 #include "common/logging.h"
+#include <cstring>
 
 namespace Service::Account {
 
@@ -58,6 +59,19 @@ void ACC_AA::EnsureCacheAsync(HLERequestContext& ctx) {
 
 void ACC_AA::LoadCache(HLERequestContext& ctx) {
     LOG_INFO(Service_ACC, "acc:aa LoadCache called");
+
+    // Baas device-account cache: network service account id + linked/registered flags.
+    std::vector<u8> cache(0x40, 0);
+    const u64 network_service_account_id = 0x000000000000CAFEULL;
+    std::memcpy(cache.data(), &network_service_account_id, sizeof(network_service_account_id));
+    cache[0x08] = 1;
+    cache[0x09] = 1;
+    const u32 license_kind = 2;
+    std::memcpy(cache.data() + 0x0C, &license_kind, sizeof(license_kind));
+
+    if (ctx.CanWriteBuffer(0)) {
+        ctx.WriteBuffer(cache, 0);
+    }
 
     IPC::ResponseBuilder rb{ctx, 2};
     rb.Push(ResultSuccess);

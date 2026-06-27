@@ -345,6 +345,10 @@ VirtualDir SaveDataFactory::Open(SaveDataSpaceId space, const SaveDataAttribute&
                 SyncExtraDataSizes(out, attr);
             }
         }
+        // Repair saves that exist but are missing journal working/committed dirs.
+        if (out->GetSubdirectory("0") == nullptr || out->GetSubdirectory("1") == nullptr) {
+            InitializeSaveDataLayout(out);
+        }
         PromoteLego2KDriveOfflineSave(out, dir, attr.program_id, attr.type);
         if (!Settings::values.airplane_mode.GetValue()) {
             SeedLego2KDriveTemplate(out, attr.program_id, attr.type);

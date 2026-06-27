@@ -124,19 +124,6 @@ std::string Base64UrlEncode(std::string_view input) {
     return out;
 }
 
-std::vector<u8> GenerateStubIdToken(const Common::UUID& user_id = {}) {
-    // Bedrock validates Nintendo id_token JWT fields (iss/exp/aud/sub). sub must match the user.
-    constexpr std::string_view header{R"({"alg":"none","typ":"JWT"})"};
-    const std::string subject =
-        user_id.IsInvalid() ? "00000000000000000000000000000001" : user_id.RawString();
-    const std::string payload = fmt::format(
-        R"({{"sub":"{}","aud":"ed9e2f05d286f7b8","iss":"https://e0d67c509fb203858ebcbcf2fe3f88c2aa.baas.nintendo.com","typ":"id_token","exp":2000000000,"iat":1700000000}})",
-        subject);
-    const std::string token =
-        fmt::format("{}.{}.", Base64UrlEncode(header), Base64UrlEncode(payload));
-    return std::vector<u8>(token.begin(), token.end());
-}
-
 std::filesystem::path GetAccountSaveBasePath() {
     return Common::FS::GetCitronPath(Common::FS::CitronPath::NANDDir) /
            "system/save/8000000000000010";
@@ -188,6 +175,26 @@ constexpr u64 STUB_NINTENDO_ACCOUNT_ID = 0x0123456789ABCDEFULL;
 u64 GetStubNintendoAccountId(const Common::UUID& account_id) {
     const u64 derived = account_id.Hash();
     return derived != 0 ? derived : STUB_NINTENDO_ACCOUNT_ID;
+}
+
+std::string GetStubDeviceIdHex(const Common::UUID& user_id) {
+    const u64 derived = user_id.IsInvalid() ? 0x0123456789ABCDEFULL : user_id.Hash();
+    const u64 device_account = GetStubNintendoAccountId(user_id);
+    return fmt::format("{:016x}{:016x}", derived, device_account);
+}
+
+std::vector<u8> GenerateStubIdToken(const Common::UUID& user_id) {
+    // Bedrock validates Nintendo id_token JWT fields (iss/exp/aud/sub/di/bs:did). sub must match user.
+    constexpr std::string_view header{R"({"alg":"none","typ":"JWT"})"};
+    const std::string subject =
+        user_id.IsInvalid() ? "00000000000000000000000000000001" : user_id.RawString();
+    const std::string device_id = GetStubDeviceIdHex(user_id);
+    const std::string payload = fmt::format(
+        R"({{"sub":"{}","aud":"ed9e2f05d286f7b8","di":"{}","sn":"XAW10000000000","bs:did":"{}","iss":"https://e0d67c509fb203858ebcbcf2fe3f88c2aa.baas.nintendo.com","typ":"id_token","exp":2000000000,"iat":1700000000}})",
+        subject, device_id, device_id);
+    const std::string token =
+        fmt::format("{}.{}.", Base64UrlEncode(header), Base64UrlEncode(payload));
+    return std::vector<u8>(token.begin(), token.end());
 }
 
 void PopulateNasUserBaseForApplication(std::vector<u8>& out, u64 nintendo_account_id) {
@@ -356,10 +363,14 @@ void WriteNetworkServiceLicenseCacheBuffer(HLERequestContext& ctx) {
         return;
     }
 
-    std::vector<u8> cache(ctx.GetWriteBufferSize(0));
+    std::vector<u8> cache(ctx.GetWriteBufferSize(0), 0);
     if (cache.size() >= sizeof(u32)) {
         const u32 license_kind = NETWORK_SERVICE_LICENSE_KIND_BEDROCK;
         std::memcpy(cache.data(), &license_kind, sizeof(license_kind));
+    }
+    if (cache.size() >= sizeof(u32) + sizeof(s64)) {
+        const s64 expiration = NETWORK_SERVICE_LICENSE_FAR_FUTURE_EXPIRATION;
+        std::memcpy(cache.data() + sizeof(u32), &expiration, sizeof(expiration));
     }
     ctx.WriteBuffer(cache, 0);
 }
@@ -1034,8 +1045,10 @@ public:
 
 class IGuestLoginRequest final : public ServiceFramework<IGuestLoginRequest> {
 public:
-    explicit IGuestLoginRequest(Core::System& system_, Common::UUID user_id_)
-        : ServiceFramework{system_, "IGuestLoginRequest"}, user_id{user_id_} {
+    explicit IGuestLoginRequest(Core::System& system_, Common::UUID user_id_,
+                                ProfileManager& profile_manager_)
+        : ServiceFramework{system_, "IGuestLoginRequest"}, user_id{user_id_},
+          profile_manager{profile_manager_} {
         // clang-format off
         static const FunctionInfo functions[] = {
             {0, &IGuestLoginRequest::GetSessionId, "GetSessionId"},
@@ -1074,14 +1087,41 @@ private:
 
     void GetNickname(HLERequestContext& ctx) {
         LOG_INFO(Service_ACC, "IGuestLoginRequest::GetNickname called");
+
+        ProfileBase profile_base{};
+        if (profile_manager.GetProfileBase(user_id, profile_base)) {
+            ctx.WriteBuffer(profile_base.username);
+        }
+
         IPC::ResponseBuilder rb{ctx, 2};
         rb.Push(ResultSuccess);
     }
 
     void GetProfileImage(HLERequestContext& ctx) {
         LOG_INFO(Service_ACC, "IGuestLoginRequest::GetProfileImage called");
-        IPC::ResponseBuilder rb{ctx, 2};
+
+        IPC::ResponseBuilder rb{ctx, 3};
         rb.Push(ResultSuccess);
+
+        EnsureDefaultAvatarExists(user_id);
+        const Common::FS::IOFile image(GetImagePath(user_id), Common::FS::FileAccessMode::Read,
+                                       Common::FS::FileType::BinaryFile);
+        if (!image.IsOpen()) {
+            ctx.WriteBuffer(Core::Constants::ACCOUNT_BACKUP_JPEG);
+            rb.Push(static_cast<u32>(Core::Constants::ACCOUNT_BACKUP_JPEG.size()));
+            return;
+        }
+
+        std::vector<u8> buffer(static_cast<std::size_t>(image.GetSize()));
+        if (image.Read(buffer) != buffer.size()) {
+            buffer = std::vector<u8>(Core::Constants::ACCOUNT_BACKUP_JPEG.begin(),
+                                     Core::Constants::ACCOUNT_BACKUP_JPEG.end());
+        } else {
+            SanitizeJPEGImageSize(buffer);
+        }
+
+        ctx.WriteBuffer(buffer);
+        rb.Push(static_cast<u32>(buffer.size()));
     }
 
     void LoadIdTokenCache(HLERequestContext& ctx) {
@@ -1091,16 +1131,19 @@ private:
     }
 
     Common::UUID user_id;
+    ProfileManager& profile_manager;
 };
 
 class EnsureTokenIdCacheAsyncInterface final : public IAsyncContext {
 public:
-    explicit EnsureTokenIdCacheAsyncInterface(Core::System& system_) : IAsyncContext{system_} {}
+    explicit EnsureTokenIdCacheAsyncInterface(Core::System& system_, const Common::UUID& user_id_)
+        : IAsyncContext{system_}, user_id{user_id_} {}
     ~EnsureTokenIdCacheAsyncInterface() = default;
 
     void LoadIdTokenCache(HLERequestContext& ctx) {
-        LOG_INFO(Service_ACC, "called");
-        PushLoadIdTokenCacheResponse(ctx);
+        LOG_INFO(Service_ACC, "EnsureTokenIdCacheAsyncInterface::LoadIdTokenCache called");
+        PopulateBaasStubSessionCache(system, user_id);
+        PushLoadIdTokenCacheResponse(ctx, user_id);
     }
     bool IsComplete() const override {
         return is_complete.load();
@@ -1111,6 +1154,8 @@ public:
     Result GetResult() const override {
         return ResultSuccess;
     }
+
+    Common::UUID user_id;
 };
 
 class AuthenticateApplicationAsyncInterface final : public IAsyncContext {
@@ -1379,20 +1424,11 @@ private:
     Common::UUID user_id;
 };
 
-// On HOS 19+ Bedrock queries license info (cmd 100) on the async returned from cmd 2/170.
+// cmd 2 EnsureIdTokenCacheAsync returns IAsyncContext; cmd 170 returns
+// IAsyncContextForLoginForOnlinePlay (Switchbrew).
 void PushEnsureIdTokenCacheAsyncResponse(Core::System& system, HLERequestContext& ctx,
                                          const Common::UUID& user_id) {
-    if (HLE::ApiVersion::HOS_VERSION_MAJOR >= 19) {
-        auto async = std::make_shared<IAsyncContextForLoginForOnlinePlay>(system, user_id);
-
-        IPC::ResponseBuilder rb{ctx, 2, 0, 1};
-        rb.Push(ResultSuccess);
-        rb.PushIpcInterface(async);
-        async->SignalCompletion();
-        return;
-    }
-
-    auto async = std::make_shared<EnsureTokenIdCacheAsyncInterface>(system);
+    auto async = std::make_shared<EnsureTokenIdCacheAsyncInterface>(system, user_id);
 
     IPC::ResponseBuilder rb{ctx, 2, 0, 1};
     rb.Push(ResultSuccess);
@@ -1459,6 +1495,10 @@ private:
         LOG_INFO(Service_ACC, "IManagerForApplication::EnsureIdTokenCacheAsync called");
 
         const auto user_id = profile_manager->GetLastOpenedUser();
+        if (!user_id.IsInvalid()) {
+            profile_manager->OpenUser(user_id);
+            profile_manager->StoreOpenedUsers();
+        }
         PopulateBaasStubSessionCache(system,user_id);
         EnsureDefaultAvatarExists(user_id);
         PushEnsureIdTokenCacheAsyncResponse(system, ctx, user_id);
@@ -1927,15 +1967,25 @@ void Module::Interface::CreateGuestLoginRequest(HLERequestContext& ctx) {
     LOG_INFO(Service_ACC, "CreateGuestLoginRequest called");
 
     const auto user_id = profile_manager->GetLastOpenedUser();
+    if (!user_id.IsInvalid()) {
+        profile_manager->OpenUser(user_id);
+        profile_manager->StoreOpenedUsers();
+    }
     PopulateBaasStubSessionCache(system,user_id);
 
     IPC::ResponseBuilder rb{ctx, 2, 0, 1};
     rb.Push(ResultSuccess);
-    rb.PushIpcInterface<IGuestLoginRequest>(system, user_id);
+    rb.PushIpcInterface<IGuestLoginRequest>(system, user_id, *profile_manager);
 }
 
 void Module::Interface::LoadOpenContext(HLERequestContext& ctx) {
-    LOG_WARNING(Service_ACC, "(STUBBED) called");
+    LOG_INFO(Service_ACC, "LoadOpenContext called");
+
+    for (const auto& uuid : profile_manager->GetStoredOpenedUsers()) {
+        if (!uuid.IsInvalid()) {
+            profile_manager->OpenUser(uuid);
+        }
+    }
 
     IPC::ResponseBuilder rb{ctx, 2};
     rb.Push(ResultSuccess);
