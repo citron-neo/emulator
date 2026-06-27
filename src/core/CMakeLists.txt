@@ -430,6 +430,8 @@ add_library(core STATIC
     hle/service/am/frontend/applet_cabinet.h
     hle/service/am/frontend/applet_controller.cpp
     hle/service/am/frontend/applet_controller.h
+    hle/service/am/frontend/applet_data_erase.cpp
+    hle/service/am/frontend/applet_data_erase.h
     hle/service/am/frontend/applet_error.cpp
     hle/service/am/frontend/applet_error.h
     hle/service/am/frontend/applet_general.cpp
@@ -1242,6 +1244,9 @@ else()
 endif()
 
 # Link against all the libraries that are always required.
+target_compile_definitions(core PRIVATE
+    CITRON_SAVE_SEED_ROOT="${CMAKE_CURRENT_SOURCE_DIR}/file_sys/save_seeds")
+
 target_link_libraries(core
     PUBLIC
         common

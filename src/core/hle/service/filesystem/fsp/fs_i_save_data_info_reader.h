@@ -16,7 +16,7 @@ class ISaveDataInfoReader final : public ServiceFramework<ISaveDataInfoReader> {
 public:
     explicit ISaveDataInfoReader(Core::System& system_,
                                  std::shared_ptr<SaveDataController> save_data_controller_,
-                                 FileSys::SaveDataSpaceId space);
+                                 FileSys::SaveDataSpaceId space, bool cache_only = false);
     ~ISaveDataInfoReader() override;
 
     struct SaveDataInfo {
@@ -38,6 +38,7 @@ public:
                             OutArray<SaveDataInfo, BufferAttr_HipcMapAlias> out_entries);
 
 private:
+    void FindCacheSaves();
     void FindAllSaves(FileSys::SaveDataSpaceId space);
     void FindNormalSaves(FileSys::SaveDataSpaceId space, const FileSys::VirtualDir& type);
     void FindTemporaryStorageSaves(FileSys::SaveDataSpaceId space, const FileSys::VirtualDir& type);

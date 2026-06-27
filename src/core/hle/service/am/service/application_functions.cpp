@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: Copyright 2026 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
+#include "common/alignment.h"
 #include "common/settings.h"
 #include "common/uuid.h"
 #include "core/file_sys/control_metadata.h"
@@ -15,6 +16,7 @@
 #include "core/hle/service/am/service/storage.h"
 #include "core/hle/service/cmif_serialization.h"
 #include "core/hle/service/filesystem/filesystem.h"
+#include "core/hle/service/filesystem/romfs_controller.h"
 #include "core/hle/service/filesystem/save_data_controller.h"
 #include "core/hle/service/glue/glue_manager.h"
 #include "core/hle/service/ns/application_manager_interface.h"
@@ -22,6 +24,33 @@
 #include "core/hle/service/sm/sm.h"
 
 namespace Service::AM {
+
+namespace {
+
+u64 CalculateSaveDataTotalSize(u64 normal_size, u64 journal_size) {
+    constexpr u64 block_size = 0x4000;
+    return Common::AlignUp(normal_size, block_size) + Common::AlignUp(journal_size, block_size) +
+           block_size;
+}
+
+std::shared_ptr<FileSystem::SaveDataController> GetApplicationSaveDataController(
+    Core::System& system, const Applet& applet) {
+    auto& fsc = system.GetFileSystemController();
+    ProgramId program_id{};
+    std::shared_ptr<FileSystem::SaveDataController> save_controller;
+    std::shared_ptr<FileSystem::RomFsController> romfs_controller;
+    if (applet.process != nullptr &&
+        fsc.OpenProcess(&program_id, &save_controller, &romfs_controller,
+                        applet.process->GetProcessId()) == ResultSuccess) {
+        return save_controller;
+    }
+    if (applet.program_id != 0) {
+        return fsc.OpenSaveDataControllerForProgram(applet.program_id);
+    }
+    return fsc.OpenSaveDataController();
+}
+
+} // Anonymous namespace
 
 IApplicationFunctions::IApplicationFunctions(Core::System& system_, std::shared_ptr<Applet> applet)
     : ServiceFramework{system_, "IApplicationFunctions"}, m_applet{std::move(applet)} {
@@ -153,16 +182,38 @@ Result IApplicationFunctions::PopLaunchParameter(Out<SharedPointer<IStorage>> ou
 Result IApplicationFunctions::EnsureSaveData(Out<u64> out_size, Common::UUID user_id) {
     LOG_INFO(Service_AM, "called, uid={}", user_id.FormattedString());
 
+    auto save_controller = GetApplicationSaveDataController(system, *m_applet);
+
     FileSys::SaveDataAttribute attribute{};
     attribute.program_id = m_applet->program_id;
     attribute.user_id = user_id.AsU128();
     attribute.type = FileSys::SaveDataType::Account;
 
     FileSys::VirtualDir save_data{};
-    R_TRY(system.GetFileSystemController().OpenSaveDataController()->CreateSaveData(
-        &save_data, FileSys::SaveDataSpaceId::User, attribute));
+    R_TRY(save_controller->CreateSaveData(&save_data, FileSys::SaveDataSpaceId::User, attribute));
 
-    *out_size = 0;
+    u64 normal_size{};
+    u64 journal_size{};
+    const auto size = save_controller->ReadSaveDataSize(FileSys::SaveDataType::Account,
+                                                          m_applet->program_id, user_id.AsU128());
+    normal_size = size.normal;
+    journal_size = size.journal;
+
+    if (normal_size == 0 && journal_size == 0) {
+        const FileSys::PatchManager pm{m_applet->program_id, system.GetFileSystemController(),
+                                       system.GetContentProvider()};
+        const auto metadata = pm.GetControlMetadata();
+        if (metadata.first != nullptr) {
+            normal_size = metadata.first->GetDefaultNormalSaveSize();
+            journal_size = metadata.first->GetDefaultJournalSaveSize();
+            save_controller->WriteSaveDataSize(FileSys::SaveDataType::Account, m_applet->program_id,
+                                               user_id.AsU128(), {normal_size, journal_size});
+        }
+    }
+
+    *out_size = CalculateSaveDataTotalSize(normal_size, journal_size);
+
+    LOG_INFO(Service_AM, "returning save total size={:#x}", *out_size);
     R_SUCCEED();
 }
 
@@ -259,7 +310,7 @@ Result IApplicationFunctions::ExtendSaveData(Out<u64> out_required_size, FileSys
     LOG_DEBUG(Service_AM, "called with type={} user_id={} normal={:#x} journal={:#x}",
               static_cast<u8>(type), user_id.FormattedString(), normal_size, journal_size);
 
-    system.GetFileSystemController().OpenSaveDataController()->WriteSaveDataSize(
+    GetApplicationSaveDataController(system, *m_applet)->WriteSaveDataSize(
         type, m_applet->program_id, user_id.AsU128(), {normal_size, journal_size});
 
     // The following value is used to indicate the amount of space remaining on failure
@@ -273,7 +324,7 @@ Result IApplicationFunctions::GetSaveDataSize(Out<u64> out_normal_size, Out<u64>
                                               FileSys::SaveDataType type, Common::UUID user_id) {
     LOG_DEBUG(Service_AM, "called with type={} user_id={}", type, user_id.FormattedString());
 
-    const auto size = system.GetFileSystemController().OpenSaveDataController()->ReadSaveDataSize(
+    const auto size = GetApplicationSaveDataController(system, *m_applet)->ReadSaveDataSize(
         type, m_applet->program_id, user_id.AsU128());
 
     *out_normal_size = size.normal;
@@ -284,10 +335,22 @@ Result IApplicationFunctions::GetSaveDataSize(Out<u64> out_normal_size, Out<u64>
 Result IApplicationFunctions::CreateCacheStorage(Out<u32> out_target_media,
                                                  Out<u64> out_required_size, u16 index,
                                                  u64 normal_size, u64 journal_size) {
-    LOG_WARNING(Service_AM, "(STUBBED) called with index={} size={:#x} journal_size={:#x}", index,
-                normal_size, journal_size);
+    LOG_INFO(Service_AM, "called with index={} size={:#x} journal_size={:#x}", index, normal_size,
+             journal_size);
 
-    *out_target_media = 1; // Nand
+    FileSys::SaveDataAttribute attribute{};
+    attribute.program_id = m_applet->program_id;
+    attribute.type = FileSys::SaveDataType::Cache;
+    attribute.index = static_cast<u8>(index);
+
+    FileSys::VirtualDir save_data{};
+    R_TRY(GetApplicationSaveDataController(system, *m_applet)->CreateSaveData(
+        &save_data, FileSys::SaveDataSpaceId::User, attribute));
+
+    GetApplicationSaveDataController(system, *m_applet)->WriteSaveDataSize(
+        FileSys::SaveDataType::Cache, m_applet->program_id, {}, {normal_size, journal_size});
+
+    *out_target_media = 1;
     *out_required_size = 0;
 
     R_SUCCEED();

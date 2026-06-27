@@ -422,7 +422,12 @@ void FileSystemController::SetPackedUpdate(ProcessId process_id, FileSys::Virtua
 }
 
 std::shared_ptr<SaveDataController> FileSystemController::OpenSaveDataController() {
-    return std::make_shared<SaveDataController>(system, CreateSaveDataFactory(ProgramId{}));
+    return OpenSaveDataControllerForProgram(ProgramId{});
+}
+
+std::shared_ptr<SaveDataController> FileSystemController::OpenSaveDataControllerForProgram(
+    ProgramId program_id) {
+    return std::make_shared<SaveDataController>(system, CreateSaveDataFactory(program_id));
 }
 
 std::shared_ptr<FileSys::SaveDataFactory> FileSystemController::CreateSaveDataFactory(
@@ -801,6 +806,25 @@ FileSys::VirtualDir FileSystemController::GetBCATDirectory(u64 title_id) const {
         return nullptr;
 
     return bis_factory->GetBCATDirectory(title_id);
+}
+
+void FileSystemController::ReleaseVfsBackedCaches() {
+    Reset();
+    global_save_data_factory.reset();
+
+    system.ClearContentProvider(FileSys::ContentProviderUnionSlot::External);
+    external_provider.reset();
+
+    system.ClearContentProvider(FileSys::ContentProviderUnionSlot::SDMC);
+    sdmc_factory.reset();
+
+    system.ClearContentProvider(FileSys::ContentProviderUnionSlot::SysNAND);
+    system.ClearContentProvider(FileSys::ContentProviderUnionSlot::UserNAND);
+    bis_factory.reset();
+
+    gamecard_placeholder.reset();
+    gamecard_registered.reset();
+    gamecard.reset();
 }
 
 void FileSystemController::CreateFactories(FileSys::VfsFilesystem& vfs, bool overwrite) {

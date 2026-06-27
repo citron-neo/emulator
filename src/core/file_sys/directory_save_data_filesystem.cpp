@@ -81,8 +81,15 @@ Result DirectorySaveDataFileSystem::Initialize(bool enable_journaling) {
             R_TRY(SynchronizeDirectory(CommittedDirectoryName, ModifiedDirectoryName));
         }
     } else {
-        // Committed exists - restore working from it (previous run may have crashed)
-        R_TRY(SynchronizeDirectory(ModifiedDirectoryName, CommittedDirectoryName));
+        committed_dir = base_fs->GetSubdirectory(CommittedDirectoryName);
+        const bool working_has_data = !working_dir->GetFiles().empty() ||
+                                      !working_dir->GetSubdirectories().empty();
+        const bool committed_has_data = committed_dir != nullptr &&
+                                        (!committed_dir->GetFiles().empty() ||
+                                         !committed_dir->GetSubdirectories().empty());
+        if (!working_has_data && committed_has_data) {
+            R_TRY(SynchronizeDirectory(ModifiedDirectoryName, CommittedDirectoryName));
+        }
     }
 
     return ResultSuccess;
