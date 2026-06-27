@@ -112,6 +112,9 @@ struct GPU::Impl {
     template <typename Func>
     [[nodiscard]] u64 RequestSyncOperation(Func&& action) {
         std::unique_lock lck{sync_request_mutex};
+        if (shutting_down.load(std::memory_order_acquire)) {
+            return current_sync_fence.load(std::memory_order_acquire);
+        }
         const u64 fence = ++last_sync_fence;
         sync_requests.emplace_back(action);
         return fence;
@@ -229,6 +232,7 @@ struct GPU::Impl {
     /// This can be used to launch any necessary threads and register any necessary
     /// core timing events.
     void Start() {
+        shutting_down.store(false, std::memory_order_release);
         Settings::UpdateGPUAccuracy();
         gpu_thread.StartThread(*renderer, renderer->Context(), *scheduler);
     }

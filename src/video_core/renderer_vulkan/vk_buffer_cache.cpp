@@ -229,7 +229,7 @@ u32 BufferCacheRuntime::ReadXfbEmulationCounterSnapshotRecords() {
     });
     scheduler.Finish();
     u32 records = 0;
-    std::memcpy(&records, counter_staging.mapped_span.data() + counter_staging.offset, sizeof(u32));
+    std::memcpy(&records, counter_staging.mapped_span.data(), sizeof(u32));
     StagingBufferRef counter_staging_ref = counter_staging;
     staging_pool.FreeDeferred(counter_staging_ref);
     return records;
@@ -274,8 +274,7 @@ void BufferCacheRuntime::EmulateDrawIndirectByteCount(VkBuffer guest_counter_buf
             cmdbuf.CopyBuffer(snapshot_buffer, counter_staging.buffer, copy);
         });
         scheduler.Finish();
-        std::memcpy(&snapshot_records,
-                    counter_staging.mapped_span.data() + counter_staging.offset, sizeof(u32));
+        std::memcpy(&snapshot_records, counter_staging.mapped_span.data(), sizeof(u32));
         StagingBufferRef counter_staging_ref = counter_staging;
         staging_pool.FreeDeferred(counter_staging_ref);
     }
@@ -313,6 +312,7 @@ void BufferCacheRuntime::EmulateDrawIndirectByteCount(VkBuffer guest_counter_buf
         .srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT,
         .dstAccessMask = VK_ACCESS_INDIRECT_COMMAND_READ_BIT | VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT,
     };
+    // CopyBuffer is only valid outside an active render pass.
     scheduler.RequestOutsideRenderPassOperationContext();
     scheduler.Record([counter_buffer, draw_buffer = *xfb_byte_count_draw_buffer, draw_staging,
                       guest_counter_buffer, guest_counter_offset](vk::CommandBuffer cmdbuf) {
@@ -823,6 +823,11 @@ void BufferCacheRuntime::BindVertexBuffer(u32 index, VkBuffer buffer, u32 offset
     if (vk_index >= device.GetMaxVertexInputBindings()) {
         return;
     }
+    if (!device.HasNullDescriptor() && buffer == VK_NULL_HANDLE) {
+        ReserveNullBuffer();
+        buffer = *null_buffer;
+        offset = 0;
+    }
     if (device.IsExtExtendedDynamicStateSupported()) {
         scheduler.Record([binding = vk_index, buffer, offset, size, stride](vk::CommandBuffer cmdbuf) {
             const VkDeviceSize vk_offset = buffer != VK_NULL_HANDLE ? offset : 0;
@@ -831,11 +836,6 @@ void BufferCacheRuntime::BindVertexBuffer(u32 index, VkBuffer buffer, u32 offset
             cmdbuf.BindVertexBuffers2EXT(binding, 1, &buffer, &vk_offset, &vk_size, &vk_stride);
         });
     } else {
-        if (!device.HasNullDescriptor() && buffer == VK_NULL_HANDLE) {
-            ReserveNullBuffer();
-            buffer = *null_buffer;
-            offset = 0;
-        }
         scheduler.Record([binding = vk_index, buffer, offset](vk::CommandBuffer cmdbuf) {
             cmdbuf.BindVertexBuffer(binding, buffer, offset);
         });

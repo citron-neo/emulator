@@ -380,7 +380,8 @@ T DeviceMemoryManager<Traits>::Read(DAddr address) const {
 
 template <typename Traits>
 void DeviceMemoryManager<Traits>::WalkBlock(DAddr addr, std::size_t size, auto on_unmapped,
-                                            auto on_memory, auto increment) {
+                                            auto on_memory, auto increment,
+                                            bool allow_direct_physical_read_fallback) {
     std::size_t remaining_size = size;
     std::size_t page_index = addr >> Memory::CITRON_PAGEBITS;
     std::size_t page_offset = addr & Memory::CITRON_PAGEMASK;
@@ -413,16 +414,19 @@ void DeviceMemoryManager<Traits>::WalkBlock(DAddr addr, std::size_t size, auto o
                 // Some nvmap-backed regions can still be physically contiguous by device address
                 // even if page-by-page host pointer resolution failed during map setup. Only apply
                 // this fallback when CPU backing was recorded; unmapped pages leave cpu_backing at 0.
-                const auto physical_bits = Settings::values.memory_layout_mode.GetValue() ==
-                                                   Settings::MemoryLayout::Memory_4Gb
-                                               ? physical_min_bits
-                                               : physical_max_bits;
-                const PAddr fallback_phys_addr = static_cast<PAddr>(current_vaddr);
-                const u64 fallback_phys_end = static_cast<u64>(fallback_phys_addr) + copy_amount;
-                if (fallback_phys_end <= (1ULL << physical_bits)) [[likely]] {
-                    auto* mem_ptr = GetPointerFromRaw<u8>(fallback_phys_addr);
-                    on_memory(copy_amount, mem_ptr);
-                    continue;
+                if (allow_direct_physical_read_fallback) {
+                    const auto physical_bits = Settings::values.memory_layout_mode.GetValue() ==
+                                                       Settings::MemoryLayout::Memory_4Gb
+                                                   ? physical_min_bits
+                                                   : physical_max_bits;
+                    const PAddr fallback_phys_addr = static_cast<PAddr>(current_vaddr);
+                    const u64 fallback_phys_end =
+                        static_cast<u64>(fallback_phys_addr) + copy_amount;
+                    if (fallback_phys_end <= (1ULL << physical_bits)) [[likely]] {
+                        auto* mem_ptr = GetPointerFromRaw<u8>(fallback_phys_addr);
+                        on_memory(copy_amount, mem_ptr);
+                        continue;
+                    }
                 }
             }
             on_unmapped(copy_amount, current_vaddr);
@@ -458,7 +462,8 @@ void DeviceMemoryManager<Traits>::ReadBlock(DAddr address, void* dest_pointer, s
         },
         [&](const std::size_t copy_amount) {
             dest_pointer = static_cast<u8*>(dest_pointer) + copy_amount;
-        });
+        },
+        true);
 }
 
 template <typename Traits>
@@ -505,7 +510,8 @@ void DeviceMemoryManager<Traits>::ReadBlockUnsafe(DAddr address, void* dest_poin
         },
         [&](const std::size_t copy_amount) {
             dest_pointer = static_cast<u8*>(dest_pointer) + copy_amount;
-        });
+        },
+        true);
 }
 
 template <typename Traits>

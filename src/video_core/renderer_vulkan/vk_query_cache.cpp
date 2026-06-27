@@ -813,8 +813,8 @@ public:
             }
             staging_pool.FreeDeferred(staging_ref);
             runtime.template SyncValues<VideoCommon::SyncValuesStruct>(emulated_sync_values);
-            std::erase_if(pending_flush_queries, [&emulated_pending](size_t q) {
-                return std::ranges::find(emulated_pending, q) != emulated_pending.end();
+            std::erase_if(pending_flush_queries, [&emulated_pending](size_t query_id) {
+                return std::ranges::find(emulated_pending, query_id) != emulated_pending.end();
             });
         }
         for (auto& p : sync_values_stash) {
@@ -1297,6 +1297,8 @@ public:
                     return num_vertices / 3;
                 case Maxwell3D::Regs::PrimitiveTopology::TrianglesAdjacency:
                     return num_vertices / 6;
+                case Maxwell3D::Regs::PrimitiveTopology::TriangleStripAdjacency:
+                    return num_vertices >= 6 ? (num_vertices - 4) / 2 : 0;
                 case Maxwell3D::Regs::PrimitiveTopology::TriangleFan:
                 case Maxwell3D::Regs::PrimitiveTopology::TriangleStrip:
                     return num_vertices >= 3 ? num_vertices - 2 : 0;

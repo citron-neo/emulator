@@ -122,7 +122,7 @@ Tegra::RenderTargetFormat ViPixelFormatToRenderTargetFormat(
     Service::android::PixelFormat pixel_format) {
     switch (pixel_format) {
     case Service::android::PixelFormat::Bgra8888:
-        return Tegra::RenderTargetFormat::B8G8R8A8_UNORM;
+        return Tegra::RenderTargetFormat::X8B8G8R8_UNORM;
     case Service::android::PixelFormat::Rgb565:
         return Tegra::RenderTargetFormat::R5G6B5_UNORM;
     case Service::android::PixelFormat::Rgba8888:
@@ -1210,7 +1210,11 @@ void RasterizerVulkan::CompositeGameRtToViAtPresent(const Tegra::FramebufferConf
         return;
     }
     const size_t src_bytes = ImageInfoGuestBytes(g_game_rt0_info);
-    if (src_bytes == 0 || !texture_cache.IsRegionGpuModified(g_game_rt0_cpu_addr, src_bytes)) {
+    if (src_bytes == 0) {
+        return;
+    }
+    std::scoped_lock lock{texture_cache.mutex};
+    if (!texture_cache.IsRegionGpuModified(g_game_rt0_cpu_addr, src_bytes)) {
         return;
     }
     auto [vi_view, ignored] = texture_cache.TryFindFramebufferImageView(config, vi_cpu);
@@ -1227,11 +1231,11 @@ void RasterizerVulkan::CompositeGameRtToViAtPresent(const Tegra::FramebufferConf
     auto src_rt = g_game_rt0_config;
     src_rt.width = blit_width;
     src_rt.height = blit_height;
-    auto dst_rt = g_game_rt0_config;
+    Tegra::Engines::Maxwell3D::Regs::RenderTargetConfig dst_rt{};
     dst_rt.format = ViPixelFormatToRenderTargetFormat(config.pixel_format);
     dst_rt.width = blit_width;
     dst_rt.height = blit_height;
-    dst_rt.tile_mode.is_pitch_linear = true;
+    dst_rt.tile_mode.is_pitch_linear.Assign(1);
     dst_rt.address_high = static_cast<u32>(vi_gpu >> 32);
     dst_rt.address_low = static_cast<u32>(vi_gpu);
 
@@ -1257,10 +1261,7 @@ void RasterizerVulkan::CompositeGameRtToViAtPresent(const Tegra::FramebufferConf
                  "Composite at present: game RT 0x{:x} -> VI 0x{:x} (peak_verts={} size={}x{})",
                  g_game_rt0_cpu_addr, vi_cpu, g_game_rt0_peak_verts, blit_width, blit_height);
     }
-    {
-        std::scoped_lock lock{texture_cache.mutex};
-        texture_cache.BlitImage(dst, src, copy_config);
-    }
+    texture_cache.BlitImage(dst, src, copy_config);
 }
 
 void RasterizerVulkan::AccelerateInlineToMemory(GPUVAddr address, size_t copy_size,

@@ -588,6 +588,19 @@ bool FileEnvironment::TryDeserialize(std::ifstream& file) {
         restore();
         return false;
     }
+    switch (stage) {
+    case Shader::Stage::VertexB:
+    case Shader::Stage::TessellationControl:
+    case Shader::Stage::TessellationEval:
+    case Shader::Stage::Geometry:
+    case Shader::Stage::Fragment:
+    case Shader::Stage::Compute:
+    case Shader::Stage::VertexA:
+        break;
+    default:
+        restore();
+        return false;
+    }
     code.resize(Common::DivCeil(code_size, sizeof(u64)));
     if (!ReadBytes(file, code.data(), code_size)) {
         restore();
@@ -779,11 +792,15 @@ void LoadPipelines(
     }
     const auto end{file.tellg()};
     file.seekg(0, std::ios::beg);
+    const auto delete_cache = [&](std::string_view reason) {
+        file.close();
+        DeletePipelineCacheFile(filename, reason);
+    };
 
     std::array<char, 8> magic_number;
     u32 cache_version;
     if (!ReadPod(file, magic_number) || !ReadPod(file, cache_version)) {
-        DeletePipelineCacheFile(filename, "truncated header");
+        delete_cache("truncated header");
         return;
     }
     if (magic_number != MAGIC_NUMBER || cache_version != expected_cache_version) {
@@ -808,20 +825,20 @@ void LoadPipelines(
         }
         u32 num_envs{};
         if (!ReadPod(file, num_envs)) {
-            DeletePipelineCacheFile(filename, "truncated pipeline entry header");
+            delete_cache("truncated pipeline entry header");
             return;
         }
 
         if (num_envs == 0 || num_envs > 5) {
             LOG_ERROR(Common_Filesystem, "Corrupted shader cache detected: num_envs={}", num_envs);
-            DeletePipelineCacheFile(filename, "invalid num_envs");
+            delete_cache("invalid num_envs");
             return;
         }
 
         std::vector<FileEnvironment> envs(num_envs);
         for (FileEnvironment& env : envs) {
             if (!env.TryDeserialize(file)) {
-                DeletePipelineCacheFile(filename, "corrupt shader environment");
+                delete_cache("corrupt shader environment");
                 return;
             }
         }

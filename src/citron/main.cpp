@@ -2557,11 +2557,14 @@ void GMainWindow::OnEmulationStopped() {
         // while waiting so the emulation thread can finish tearing down Vulkan on macOS.
         constexpr unsigned long kWaitSliceMs = 50;
         const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(30);
+        EmuThread* raw_thread = thread.get();
         while (!thread->wait(kWaitSliceMs)) {
             QCoreApplication::processEvents(QEventLoop::ExcludeUserInputEvents);
             if (std::chrono::steady_clock::now() >= deadline) {
                 LOG_ERROR(Frontend,
                           "Timed out waiting for emulation thread to stop during shutdown");
+                QObject::connect(raw_thread, &QThread::finished, raw_thread, &QObject::deleteLater);
+                (void)thread.release();
                 break;
             }
         }

@@ -288,13 +288,13 @@ void HLE_DrawIndirectByteCount::Execute(Engines::Maxwell3D& maxwell3d, std::span
     const bool force = maxwell3d.Rasterizer().HasDrawTransformFeedback();
     auto topology = Maxwell3D::Regs::PrimitiveTopology(parameters[0] & 0xFFFFU);
     if (!force && (!maxwell3d.AnyParametersDirty() || !IsTopologySafe(topology))) {
-        LOG_INFO(HW_GPU,
+        LOG_DEBUG(HW_GPU,
                  "HLE DrawIndirectByteCount fallback: force={} topology={} byte_count={} stride={}",
                  force, static_cast<u32>(topology), parameters[2], parameters[1]);
         Fallback(maxwell3d, parameters);
         return;
     }
-    LOG_INFO(HW_GPU,
+    LOG_DEBUG(HW_GPU,
              "HLE DrawIndirectByteCount execute: force={} topology={} byte_count={} stride={}",
              force, static_cast<u32>(topology), parameters[2], parameters[1]);
     auto& params = maxwell3d.draw_manager->GetIndirectParams();
@@ -320,7 +320,7 @@ void HLE_DrawIndirectByteCount::Fallback(Engines::Maxwell3D& maxwell3d, std::spa
 
     const u32 stride = std::max(maxwell3d.regs.draw_auto_stride, 1u);
     const u32 vertex_count = maxwell3d.regs.draw_auto_byte_count / stride;
-    LOG_INFO(HW_GPU,
+    LOG_DEBUG(HW_GPU,
              "HLE DrawIndirectByteCount DrawArray: byte_count={} stride={} vertex_count={}",
              maxwell3d.regs.draw_auto_byte_count, stride, vertex_count);
     maxwell3d.draw_manager->DrawArray(maxwell3d.regs.draw.topology, 0, vertex_count, 0, 1);

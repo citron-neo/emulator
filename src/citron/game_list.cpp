@@ -2937,6 +2937,9 @@ void GameList::DonePopulating(const QStringList& watch_list) {
         // window doesn't get torn down when the timer fires.
         auto* finished_worker = current_worker.get();
         QTimer::singleShot(1500, this, [this, finished_worker]() {
+            if (current_worker.get() != finished_worker) {
+                return;
+            }
             if (loading_overlay)
                 loading_overlay->FadeOut();
             auto* delegate = qobject_cast<GameListDelegate*>(tree_view->itemDelegate());
@@ -2946,9 +2949,7 @@ void GameList::DonePopulating(const QStringList& watch_list) {
             // Save the newly populated index for instant loading next time.
             SaveGameListIndex();
 
-            if (current_worker.get() == finished_worker) {
-                current_worker.reset();
-            }
+            current_worker.reset();
         });
     } else {
         auto* delegate = qobject_cast<GameListDelegate*>(tree_view->itemDelegate());

@@ -96,6 +96,17 @@ void FixedPipelineState::Refresh(Tegra::Engines::Maxwell3D& maxwell3d, DynamicFe
                 const u32 type = LUT[static_cast<size_t>(attrs[i].type.Value())];
                 attribute_types |= static_cast<u64>(type & mask) << (i * 2);
             }
+            for (size_t index = 0; index < Tegra::Engines::Maxwell3D::Regs::NumVertexAttributes;
+                 ++index) {
+                const auto& input = regs.vertex_attrib_format[index];
+                auto& attribute = attributes[index];
+                attribute.raw = 0;
+                attribute.enabled.Assign(input.constant ? 0 : 1);
+                attribute.buffer.Assign(input.buffer);
+                attribute.offset.Assign(input.offset);
+                attribute.type.Assign(static_cast<u32>(input.type.Value()));
+                attribute.size.Assign(static_cast<u32>(input.size.Value()));
+            }
         } else {
             maxwell3d.dirty.flags[Dirty::VertexInput] = false;
             enabled_divisors = 0;

@@ -268,12 +268,13 @@ void PresentManager::PresentThread(std::stop_token token) {
         present_queue.pop();
         frame_cv.notify_one();
 
-        // By exchanging the lock ownership we take the swapchain lock
-        // before the queue lock goes out of scope. This way the swapchain
-        // lock in WaitPresent is guaranteed to occur after here.
-        std::exchange(lock, std::unique_lock{swapchain_mutex});
+        lock.unlock();
 
         render_window.RunPresentationWork([this, frame] { CopyToSwapchain(frame); });
+
+        {
+            std::scoped_lock swapchain_lock{swapchain_mutex};
+        }
 
         // Free the frame for reuse
         std::scoped_lock fl{free_mutex};

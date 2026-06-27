@@ -127,10 +127,8 @@ void Fermi2D::Blit() {
     const bool vi_scanout_dst =
         dst_cpu && ((*dst_cpu & 0xFFF0000) == 0xABB0000 || (*dst_cpu & 0xFFF0000) == 0xB420000 ||
                     (*dst_cpu & 0xFFF0000) == 0xBC90000);
-    if (vi_scanout_dst || fermi2d_diag_budget > 0) {
-        if (fermi2d_diag_budget > 0) {
-            --fermi2d_diag_budget;
-        }
+    if (fermi2d_diag_budget > 0) {
+        --fermi2d_diag_budget;
         LOG_INFO(HW_GPU,
                  "Fermi2D blit: src=0x{:x} dst=0x{:x} dst_cpu=0x{:x} size={}x{} accelerated={} "
                  "vi_scanout={}",

@@ -1576,6 +1576,10 @@ void EmitContext::DefineInputs(const IR::Program& program) {
         if (input_type == AttributeType::Disabled) {
             continue;
         }
+        if (runtime_info.remapped_vertex_locations &&
+            runtime_info.vertex_locations[index] == Shader::VERTEX_INPUT_DROPPED) {
+            continue;
+        }
         const Id type{GetAttributeType(*this, input_type)};
         const Id id{DefineInput(*this, type, true)};
         const u32 location = runtime_info.remapped_vertex_locations

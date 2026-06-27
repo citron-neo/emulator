@@ -6,6 +6,7 @@
 #include <array>
 #include <cmath>
 #include <cstring>
+#include <exception>
 #include <string>
 #include <tuple>
 #include <type_traits>
@@ -273,8 +274,20 @@ void GRenderWindow::RunPresentationWork(const std::function<void()>& work) {
         return;
     }
     const std::function<void()> copy = work;
+    std::exception_ptr error;
     QMetaObject::invokeMethod(
-        this, [copy]() { copy(); }, Qt::BlockingQueuedConnection);
+        this,
+        [copy, &error]() {
+            try {
+                copy();
+            } catch (...) {
+                error = std::current_exception();
+            }
+        },
+        Qt::BlockingQueuedConnection);
+    if (error) {
+        std::rethrow_exception(error);
+    }
 }
 
 std::unique_ptr<Core::Frontend::GraphicsContext> GRenderWindow::CreateSharedContext() const {
