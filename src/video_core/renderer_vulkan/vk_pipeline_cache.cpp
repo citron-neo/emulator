@@ -278,8 +278,10 @@ Shader::RuntimeInfo MakeRuntimeInfo(std::span<const Shader::IR::Program> program
             ASSERT(false);
             return Shader::TessSpacing::Equal;
         }();
-        if (guest_has_geometry_shader && !geometry_supported) {
-            PopulateXfbRuntimeInfo(info, key);
+        if (!has_geometry) {
+            if (guest_has_geometry_shader && !geometry_supported) {
+                PopulateXfbRuntimeInfo(info, key);
+            }
             info.convert_depth_mode = gl_ndc;
         }
         break;
@@ -344,7 +346,8 @@ void PropagateSkippedGeometryStores(Shader::IR::Program& program,
     if (skipped_geometry_program == nullptr) {
         return;
     }
-    if (program.stage != Shader::Stage::VertexA && program.stage != Shader::Stage::VertexB) {
+    if (program.stage != Shader::Stage::VertexA && program.stage != Shader::Stage::VertexB &&
+        program.stage != Shader::Stage::TessellationEval) {
         return;
     }
     if (skipped_geometry_program->is_geometry_passthrough) {

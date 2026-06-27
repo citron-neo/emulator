@@ -369,6 +369,7 @@ public:
         {
             std::scoped_lock lk(flush_guard);
             pending_flush_sets.emplace_back(std::move(pending_flush_queries));
+            pending_flush_queries.clear();
         }
     }
 
@@ -909,6 +910,7 @@ public:
         free_queue.clear();
         download_buffers.emplace_back(staging_ref);
         pending_flush_sets.emplace_back(std::move(pending_flush_queries));
+        pending_flush_queries.clear();
     }
 
     void PopUnsyncedQueries() override {
@@ -1065,12 +1067,12 @@ private:
                 .dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT,
             };
             scheduler.RequestOutsideRenderPassOperationContext();
-            scheduler.Record([dst_buffer = current_bank->GetBuffer(), src_buffer,
-                              slot](vk::CommandBuffer cmdbuf) {
+            scheduler.Record([dst_buffer = current_bank->GetBuffer(), src_buffer, slot,
+                              stream](vk::CommandBuffer cmdbuf) {
                 cmdbuf.PipelineBarrier(VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
                                        VK_PIPELINE_STAGE_TRANSFER_BIT, 0, READ_BARRIER);
                 std::array<VkBufferCopy, 1> copy{VkBufferCopy{
-                    .srcOffset = 0,
+                    .srcOffset = stream * TFBQueryBank::QUERY_SIZE,
                     .dstOffset = slot * TFBQueryBank::QUERY_SIZE,
                     .size = TFBQueryBank::QUERY_SIZE,
                 }};
@@ -1289,8 +1291,9 @@ public:
                     return num_vertices >= 2 ? num_vertices - 1 : 0;
                 case Maxwell3D::Regs::PrimitiveTopology::Patches:
                 case Maxwell3D::Regs::PrimitiveTopology::Triangles:
-                case Maxwell3D::Regs::PrimitiveTopology::TrianglesAdjacency:
                     return num_vertices / 3;
+                case Maxwell3D::Regs::PrimitiveTopology::TrianglesAdjacency:
+                    return num_vertices / 6;
                 case Maxwell3D::Regs::PrimitiveTopology::TriangleFan:
                 case Maxwell3D::Regs::PrimitiveTopology::TriangleStrip:
                 case Maxwell3D::Regs::PrimitiveTopology::TriangleStripAdjacency:
