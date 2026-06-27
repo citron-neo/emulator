@@ -7,7 +7,9 @@
 #include <atomic>
 #include <algorithm>
 #include <cctype>
+#include <condition_variable>
 #include <cstring>
+#include <limits>
 #include <mutex>
 #include <optional>
 #include <string>
@@ -44,6 +46,8 @@ constexpr std::string_view DiscoveryServicesResponse =
 
 std::mutex g_stub_mutex;
 std::atomic<bool> g_stub_started{false};
+std::atomic<bool> g_listener_ready{false};
+std::condition_variable g_listener_cv;
 SSL_CTX* g_server_ctx = nullptr;
 
 #if defined(_WIN32)
@@ -113,7 +117,12 @@ bool InitializeServerContext() {
     static const unsigned char alpn_http11[] = {8, 'h', 't', 't', 'p', '/', '1', '.', '1'};
     SSL_CTX_set_alpn_protos(g_server_ctx, alpn_http11, sizeof(alpn_http11));
 
-    return GenerateSelfSignedCertificate(g_server_ctx);
+    if (!GenerateSelfSignedCertificate(g_server_ctx)) {
+        SSL_CTX_free(g_server_ctx);
+        g_server_ctx = nullptr;
+        return false;
+    }
+    return true;
 }
 
 std::string ComputeWebSocketAccept(const std::string& client_key) {
@@ -191,6 +200,41 @@ std::string ExtractHeaderValue(const std::string& request, std::string_view head
         return {};
     }
     return TrimAscii(request.substr(start, end - start));
+}
+
+std::optional<std::size_t> ParseContentLength(const std::string& request) {
+    const std::string value = ExtractHeaderValue(request, "Content-Length");
+    if (value.empty()) {
+        return 0;
+    }
+    try {
+        const unsigned long long length = std::stoull(value);
+        if (length > std::numeric_limits<std::size_t>::max()) {
+            return std::nullopt;
+        }
+        return static_cast<std::size_t>(length);
+    } catch (...) {
+        return std::nullopt;
+    }
+}
+
+bool ConsumeHttpRequestBody(SSL* ssl, std::string& buffer, const std::string& request,
+                            char* read_buffer, std::size_t read_buffer_size) {
+    const auto content_length = ParseContentLength(request);
+    if (!content_length) {
+        return false;
+    }
+    while (buffer.size() < *content_length) {
+        const int received = SSL_read(ssl, read_buffer, static_cast<int>(read_buffer_size));
+        if (received <= 0) {
+            return false;
+        }
+        buffer.append(read_buffer, received);
+    }
+    if (*content_length > 0) {
+        buffer.erase(0, *content_length);
+    }
+    return true;
 }
 
 std::string ExtractWebSocketKey(const std::string& request) {
@@ -309,6 +353,11 @@ std::optional<ParsedWebSocketFrame> TryParseClientFrame(std::vector<u8>& buffer)
             payload_len = (payload_len << 8) | buffer[2 + i];
         }
         pos = 10;
+    }
+
+    static constexpr u64 kMaxWebSocketPayload = 1 << 20;
+    if (payload_len > kMaxWebSocketPayload) {
+        return std::nullopt;
     }
 
     std::array<u8, 4> mask{};
@@ -515,10 +564,20 @@ void HandleDnaGatewaySession(NativeSocket client_fd) {
                 CloseNativeSocket(client_fd);
                 return;
             }
+            if (!ConsumeHttpRequestBody(ssl, buffer, request, read_buffer, sizeof(read_buffer))) {
+                SSL_free(ssl);
+                CloseNativeSocket(client_fd);
+                return;
+            }
             continue;
         }
 
         if (!HandlePlainHttpRequest(ssl, request)) {
+            SSL_free(ssl);
+            CloseNativeSocket(client_fd);
+            return;
+        }
+        if (!ConsumeHttpRequestBody(ssl, buffer, request, read_buffer, sizeof(read_buffer))) {
             SSL_free(ssl);
             CloseNativeSocket(client_fd);
             return;
@@ -580,9 +639,13 @@ void AcceptLoop() {
         listen(listen_fd, 8) != 0) {
         LOG_ERROR(Network, "DNA gateway stub: failed to bind 127.0.0.1:{}", DnaGatewayPort);
         CloseNativeSocket(listen_fd);
+        g_stub_started.store(false);
+        g_listener_ready.store(false);
         return;
     }
 
+    g_listener_ready.store(true, std::memory_order_release);
+    g_listener_cv.notify_all();
     LOG_INFO(Network, "DNA gateway stub: listening on 127.0.0.1:{}", DnaGatewayPort);
 
     while (true) {
@@ -634,18 +697,27 @@ SockAddrIn RedirectDnaGatewayAddress(SockAddrIn addr) {
 }
 
 void EnsureDnaGatewayStubRunning() {
-    std::lock_guard lock(g_stub_mutex);
-    if (g_stub_started.exchange(true)) {
+    {
+        std::lock_guard lock(g_stub_mutex);
+        if (g_stub_started.exchange(true)) {
+            // Another thread is already starting or has started the stub.
+        } else if (!InitializeServerContext()) {
+            LOG_ERROR(Network, "DNA gateway stub: failed to initialize OpenSSL server context");
+            g_stub_started = false;
+            return;
+        } else {
+            std::thread(AcceptLoop).detach();
+        }
+    }
+
+    if (g_listener_ready.load(std::memory_order_acquire)) {
         return;
     }
 
-    if (!InitializeServerContext()) {
-        LOG_ERROR(Network, "DNA gateway stub: failed to initialize OpenSSL server context");
-        g_stub_started = false;
-        return;
-    }
-
-    std::thread(AcceptLoop).detach();
+    std::unique_lock lock(g_stub_mutex);
+    g_listener_cv.wait_for(lock, std::chrono::seconds(2), [] {
+        return g_listener_ready.load(std::memory_order_acquire);
+    });
 }
 
 } // namespace Network
