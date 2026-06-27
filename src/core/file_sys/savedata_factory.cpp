@@ -167,7 +167,12 @@ void PromoteLego2KDriveOfflineSave(const VirtualDir& save_dir, const VirtualDir&
         return;
     }
 
-    if (save_dir->GetFile("ArtemisVehicle") != nullptr) {
+    VirtualDir working = save_dir->GetSubdirectory("1");
+    if (working == nullptr) {
+        return;
+    }
+
+    if (working->GetFile("ArtemisVehicle") != nullptr) {
         return;
     }
 
@@ -184,7 +189,7 @@ void PromoteLego2KDriveOfflineSave(const VirtualDir& save_dir, const VirtualDir&
             continue;
         }
 
-        VirtualFile dest = save_dir->CreateFile(donor_file->GetName());
+        VirtualFile dest = working->CreateFile(donor_file->GetName());
         if (dest == nullptr) {
             LOG_WARNING(Service_FS, "Failed to promote LEGO 2K Drive save file {}",
                         donor_file->GetName());
@@ -197,7 +202,7 @@ void PromoteLego2KDriveOfflineSave(const VirtualDir& save_dir, const VirtualDir&
 
     if (promoted_files > 0) {
         LOG_INFO(Service_FS,
-                 "Promoted LEGO 2K Drive offline save from donor profile ({} root file(s))",
+                 "Promoted LEGO 2K Drive offline save from donor profile ({} working-dir file(s))",
                  promoted_files);
     }
 }

@@ -43,6 +43,7 @@ public:
         FileSys::SaveDataSpaceId space_id_ = {}, FileSys::SaveDataAttribute attribute_ = {},
         FileSys::VirtualDir save_content_dir_ = nullptr,
         std::unique_ptr<FileSys::DirectorySaveDataFileSystem> journal_fs_ = nullptr);
+    ~IFileSystem();
 
     Result CreateFile(const InLargeData<FileSys::Sf::Path, BufferAttr_HipcPointer> path, s32 option,
                       s64 size);

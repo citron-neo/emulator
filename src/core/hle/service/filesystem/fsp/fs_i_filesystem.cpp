@@ -57,6 +57,8 @@ IFileSystem::IFileSystem(Core::System& system_, FileSys::VirtualDir dir_, SizeGe
     RegisterHandlers(functions);
 }
 
+IFileSystem::~IFileSystem() = default;
+
 Result IFileSystem::CreateFile(const InLargeData<FileSys::Sf::Path, BufferAttr_HipcPointer> path,
                                s32 option, s64 size) {
     LOG_DEBUG(Service_FS, "called. file={}, option=0x{:X}, size=0x{:08X}", path->str, option, size);
@@ -155,8 +157,13 @@ Result IFileSystem::Commit() {
         if (save_factory) {
             const u64 title_id = save_attr.program_id != 0 ? save_attr.program_id
                                                            : system.GetApplicationProcessProgramID();
-            if (save_factory->GetMirrorDirectory(title_id) == nullptr &&
-                Settings::values.backup_saves_to_nand.GetValue()) {
+            const auto mirror_dir = save_factory->GetMirrorDirectory(title_id);
+            if (mirror_dir != nullptr) {
+                LOG_INFO(Service_FS,
+                         "Mirroring: Pushing journaled NAND data back to external source...");
+                save_factory->SmartSyncFromSource(content_dir, mirror_dir);
+                LOG_INFO(Service_FS, "Mirroring: Push complete.");
+            } else if (Settings::values.backup_saves_to_nand.GetValue()) {
                 save_factory->DoNandBackup(save_space, save_attr, content_dir);
             }
         }

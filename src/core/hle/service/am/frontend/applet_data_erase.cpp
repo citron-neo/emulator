@@ -52,10 +52,16 @@ u64 GetRequiredSaveDataSize(FileSystem::SaveDataController& save_controller, Cor
 }
 
 void ParseInput(const std::vector<u8>& data, Common::UUID& out_user_id, u32& out_mode) {
-    ASSERT(data.size() >= sizeof(DataEraseAppletInput));
-
     // Some titles embed CommonArguments again before the applet-specific fields.
     const size_t payload_offset = data.size() >= 0x38 ? 0x20 : 0x0;
+    const size_t required_size = payload_offset + sizeof(DataEraseAppletInput);
+    if (data.size() < required_size) {
+        LOG_ERROR(Service_AM, "DataErase applet input too small: size={:08X}, required={:08X}",
+                  data.size(), required_size);
+        out_user_id = {};
+        out_mode = 0;
+        return;
+    }
 
     DataEraseAppletInput input{};
     std::memcpy(&input, data.data() + payload_offset, sizeof(DataEraseAppletInput));
@@ -66,13 +72,15 @@ void ParseInput(const std::vector<u8>& data, Common::UUID& out_user_id, u32& out
 std::shared_ptr<FileSystem::SaveDataController> GetCallerSaveDataController(
     Core::System& system, const std::shared_ptr<Applet>& caller) {
     auto& fsc = system.GetFileSystemController();
-    if (caller != nullptr && caller->process != nullptr) {
-        ProgramId program_id{};
-        std::shared_ptr<FileSystem::SaveDataController> save_controller;
-        std::shared_ptr<FileSystem::RomFsController> romfs_controller;
-        if (fsc.OpenProcess(&program_id, &save_controller, &romfs_controller,
-                            caller->process->GetProcessId()) == ResultSuccess) {
-            return save_controller;
+    if (caller != nullptr) {
+        if (caller->process != nullptr) {
+            ProgramId program_id{};
+            std::shared_ptr<FileSystem::SaveDataController> save_controller;
+            std::shared_ptr<FileSystem::RomFsController> romfs_controller;
+            if (fsc.OpenProcess(&program_id, &save_controller, &romfs_controller,
+                                caller->process->GetProcessId()) == ResultSuccess) {
+                return save_controller;
+            }
         }
         if (caller->program_id != 0) {
             return fsc.OpenSaveDataControllerForProgram(caller->program_id);

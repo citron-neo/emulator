@@ -341,7 +341,7 @@ Result IApplicationFunctions::CreateCacheStorage(Out<u32> out_target_media,
     FileSys::SaveDataAttribute attribute{};
     attribute.program_id = m_applet->program_id;
     attribute.type = FileSys::SaveDataType::Cache;
-    attribute.index = static_cast<u8>(index);
+    attribute.index = index;
 
     FileSys::VirtualDir save_data{};
     R_TRY(GetApplicationSaveDataController(system, *m_applet)->CreateSaveData(

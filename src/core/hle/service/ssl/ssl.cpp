@@ -7,6 +7,7 @@
 
 #include "common/string_util.h"
 
+#include "common/settings.h"
 #include "core/core.h"
 #include "core/hle/result.h"
 #include "core/hle/service/cmif_serialization.h"
@@ -185,7 +186,8 @@ private:
     }
 
     void ApplyDnaGatewayVerifyBypass() {
-        bool bypass = IsDnaGatewayHostname(connection_hostname);
+        bool bypass = Settings::values.airplane_mode.GetValue() &&
+                      IsDnaGatewayHostname(connection_hostname);
         if (!bypass && socket) {
             const auto [peer, err] = socket->GetPeerName();
             if (err == Network::Errno::SUCCESS && peer.ip == std::array<u8, 4>{127, 0, 0, 1} &&
@@ -206,7 +208,8 @@ private:
         // nn::ssl reports the first offered ALPN proto as "selected" without negotiating it
         // through OpenSSL. LEGO 2K's libwebsockets treats h2 as selected on :443 and sends the
         // HTTP/2 connection preface, which our local DNA gateway stub does not implement.
-        if (IsDnaGatewayHostname(connection_hostname)) {
+        if (Settings::values.airplane_mode.GetValue() &&
+            IsDnaGatewayHostname(connection_hostname)) {
             return {'h', 't', 't', 'p', '/', '1', '.', '1'};
         }
         if (next_alpn_proto.size() < 2) {
@@ -263,7 +266,8 @@ private:
         connection_hostname = hostname;
         R_TRY(backend->SetHostName(hostname));
         ApplyDnaGatewayVerifyBypass();
-        if (IsDnaGatewayHostname(connection_hostname)) {
+        if (Settings::values.airplane_mode.GetValue() &&
+            IsDnaGatewayHostname(connection_hostname)) {
             next_alpn_proto = {8, 'h', 't', 't', 'p', '/', '1', '.', '1'};
         }
         R_SUCCEED();
@@ -271,7 +275,8 @@ private:
 
     Result SetVerifyOptionImpl(u32 option) {
         ASSERT(!did_handshake);
-        if (IsDnaGatewayHostname(connection_hostname)) {
+        if (Settings::values.airplane_mode.GetValue() &&
+            IsDnaGatewayHostname(connection_hostname)) {
             option = 0;
         }
         LOG_DEBUG(Service_SSL, "called. option={}", option);
@@ -693,7 +698,8 @@ private:
         const auto alpn_data = ctx.ReadBuffer();
         next_alpn_proto.assign(alpn_data.begin(), alpn_data.end());
 
-        if (IsDnaGatewayHostname(connection_hostname)) {
+        if (Settings::values.airplane_mode.GetValue() &&
+            IsDnaGatewayHostname(connection_hostname)) {
             next_alpn_proto = {8, 'h', 't', 't', 'p', '/', '1', '.', '1'};
             LOG_INFO(Service_SSL, "Forced ALPN offer to http/1.1 for DNA gateway host {}",
                      connection_hostname);
