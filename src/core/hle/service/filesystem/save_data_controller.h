@@ -23,9 +23,10 @@ public:
     Result OpenSaveDataSpace(FileSys::VirtualDir* out_save_data_space,
                              FileSys::SaveDataSpaceId space);
 
-    FileSys::SaveDataSize ReadSaveDataSize(FileSys::SaveDataType type, u64 title_id, u128 user_id);
+    FileSys::SaveDataSize ReadSaveDataSize(FileSys::SaveDataType type, u64 title_id, u128 user_id,
+                                           u16 index = 0);
     void WriteSaveDataSize(FileSys::SaveDataType type, u64 title_id, u128 user_id,
-                           FileSys::SaveDataSize new_value);
+                           FileSys::SaveDataSize new_value, u16 index = 0);
 
     // ExtraData operations
     Result ReadSaveDataExtraData(FileSys::SaveDataExtraData* out_extra_data,

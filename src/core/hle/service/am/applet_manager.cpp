@@ -244,9 +244,13 @@ void AppletManager::CreateAndInsertByFrontendAppletParameters(
 }
 
 void AppletManager::RequestExit() {
-    std::scoped_lock lk{m_lock};
-    if (m_window_system) {
-        m_window_system->OnExitRequested();
+    WindowSystem* window_system = nullptr;
+    {
+        std::scoped_lock lk{m_lock};
+        window_system = m_window_system;
+    }
+    if (window_system) {
+        window_system->OnExitRequested();
     }
 }
 

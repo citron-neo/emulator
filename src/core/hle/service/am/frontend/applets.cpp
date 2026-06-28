@@ -19,6 +19,7 @@
 #include "core/hle/service/am/applet_manager.h"
 #include "core/hle/service/am/frontend/applet_cabinet.h"
 #include "core/hle/service/am/frontend/applet_controller.h"
+#include "core/hle/service/am/frontend/applet_data_erase.h"
 #include "core/hle/service/am/frontend/applet_error.h"
 #include "core/hle/service/am/frontend/applet_general.h"
 #include "core/hle/service/am/frontend/applet_mii_edit.h"
@@ -213,6 +214,8 @@ std::shared_ptr<FrontendApplet> FrontendAppletHolder::GetApplet(std::shared_ptr<
         return std::make_shared<Cabinet>(system, applet, mode, *frontend.cabinet);
     case AppletId::Controller:
         return std::make_shared<Controller>(system, applet, mode, *frontend.controller);
+    case AppletId::DataErase:
+        return std::make_shared<DataErase>(system, applet, mode);
     case AppletId::Error:
         return std::make_shared<Error>(system, applet, mode, *frontend.error);
     case AppletId::ProfileSelect:
