@@ -385,6 +385,8 @@ private:
                                  size_t num_pages, size_t alignment, size_t offset,
                                  size_t guard_pages) const;
 
+    Result RepairStaleDeviceSharedResidueForTransferMemory(KProcessAddress address, size_t size);
+
     Result CheckMemoryStateContiguous(size_t* out_blocks_needed, KProcessAddress addr, size_t size,
                                       KMemoryState state_mask, KMemoryState state,
                                       KMemoryPermission perm_mask, KMemoryPermission perm,

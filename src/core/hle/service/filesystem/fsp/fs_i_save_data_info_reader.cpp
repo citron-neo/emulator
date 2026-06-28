@@ -11,7 +11,7 @@ namespace Service::FileSystem {
 
 ISaveDataInfoReader::ISaveDataInfoReader(Core::System& system_,
                                          std::shared_ptr<SaveDataController> save_data_controller_,
-                                         FileSys::SaveDataSpaceId space)
+                                         FileSys::SaveDataSpaceId space, bool cache_only)
     : ServiceFramework{system_, "ISaveDataInfoReader"}, save_data_controller{
                                                             save_data_controller_} {
     static const FunctionInfo functions[] = {
@@ -19,7 +19,11 @@ ISaveDataInfoReader::ISaveDataInfoReader(Core::System& system_,
     };
     RegisterHandlers(functions);
 
-    FindAllSaves(space);
+    if (cache_only) {
+        FindCacheSaves();
+    } else {
+        FindAllSaves(space);
+    }
 }
 
 ISaveDataInfoReader::~ISaveDataInfoReader() = default;
@@ -58,6 +62,46 @@ Result ISaveDataInfoReader::ReadSaveDataInfo(
     *out_count = actual_entries;
 
     R_SUCCEED();
+}
+
+void ISaveDataInfoReader::FindCacheSaves() {
+    FileSys::VirtualDir save_root{};
+    const auto result =
+        save_data_controller->OpenSaveDataSpace(&save_root, FileSys::SaveDataSpaceId::User);
+
+    if (result != ResultSuccess || save_root == nullptr) {
+        LOG_ERROR(Service_FS, "The save root for cache storage was invalid!");
+        return;
+    }
+
+    const auto save_dir = save_root->GetSubdirectory("save");
+    if (save_dir == nullptr) {
+        return;
+    }
+
+    const auto cache_dir = save_dir->GetSubdirectory("cache");
+    if (cache_dir == nullptr) {
+        return;
+    }
+
+    for (const auto& title_id_dir : cache_dir->GetSubdirectories()) {
+        if (title_id_dir->GetName().size() != 16) {
+            continue;
+        }
+
+        info.emplace_back(SaveDataInfo{
+            0,
+            FileSys::SaveDataSpaceId::User,
+            FileSys::SaveDataType::Cache,
+            {},
+            {},
+            0,
+            stoull_be(title_id_dir->GetName()),
+            title_id_dir->GetSize(),
+            {},
+            {},
+        });
+    }
 }
 
 void ISaveDataInfoReader::FindAllSaves(FileSys::SaveDataSpaceId space) {

@@ -18,8 +18,11 @@ namespace FileSys::Sf {
 struct Path;
 }
 
-namespace Service::FileSystem {
+namespace FileSys {
+class DirectorySaveDataFileSystem;
+}
 
+namespace Service::FileSystem {
 
 // [UNITY-FIX] winbase.h A/W macros shadow C++ method names.
 #undef DeleteFile
@@ -34,10 +37,12 @@ class IDirectory;
 
 class IFileSystem final : public ServiceFramework<IFileSystem> {
 public:
-    explicit IFileSystem(Core::System& system_, FileSys::VirtualDir dir_, SizeGetter size_getter_,
-                         std::shared_ptr<FileSys::SaveDataFactory> factory_ = nullptr,
-                         FileSys::SaveDataSpaceId space_id_ = {},
-                         FileSys::SaveDataAttribute attribute_ = {});
+    explicit IFileSystem(
+        Core::System& system_, FileSys::VirtualDir dir_, SizeGetter size_getter_,
+        std::shared_ptr<FileSys::SaveDataFactory> factory_ = nullptr,
+        FileSys::SaveDataSpaceId space_id_ = {}, FileSys::SaveDataAttribute attribute_ = {},
+        FileSys::VirtualDir save_content_dir_ = nullptr,
+        std::unique_ptr<FileSys::DirectorySaveDataFileSystem> journal_fs_ = nullptr);
 
     Result CreateFile(const InLargeData<FileSys::Sf::Path, BufferAttr_HipcPointer> path, s32 option,
                       s64 size);
@@ -68,6 +73,7 @@ public:
 
 private:
     std::unique_ptr<FileSys::Fsa::IFileSystem> backend;
+    std::unique_ptr<FileSys::DirectorySaveDataFileSystem> journal_fs;
     SizeGetter size_getter;
     FileSys::VirtualDir content_dir;
     std::shared_ptr<FileSys::SaveDataFactory> save_factory;

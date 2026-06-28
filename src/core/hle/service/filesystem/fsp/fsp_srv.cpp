@@ -4,11 +4,14 @@
 
 #include <cinttypes>
 #include <cstring>
+#include <functional>
 #include <iterator>
+#include <limits>
 #include <string>
 #include <utility>
 #include <vector>
 
+#include "common/alignment.h"
 #include "common/assert.h"
 #include "common/common_types.h"
 #include "common/hex_util.h"
@@ -17,6 +20,7 @@
 #include "common/string_util.h"
 #include "core/core.h"
 #include "core/file_sys/content_archive.h"
+#include "core/file_sys/directory_save_data_filesystem.h"
 #include "core/file_sys/errors.h"
 #include "core/file_sys/fs_directory.h"
 #include "core/file_sys/fs_filesystem.h"
@@ -127,7 +131,7 @@ FSP_SRV::FSP_SRV(Core::System& system_)
         {511, nullptr, "NotifySystemDataUpdateEvent"},
         {520, nullptr, "SimulateGameCardDetectionEvent"},
         {600, nullptr, "SetCurrentPosixTime"},
-        {601, nullptr, "QuerySaveDataTotalSize"},
+        {601, D<&FSP_SRV::QuerySaveDataTotalSize>, "QuerySaveDataTotalSize"},
         {602, nullptr, "VerifySaveDataFileSystem"},
         {603, nullptr, "CorruptSaveDataFileSystem"},
         {604, nullptr, "CreatePaddingFile"},
@@ -138,7 +142,7 @@ FSP_SRV::FSP_SRV(Core::System& system_)
         {609, nullptr, "GetRightsIdByPath"},
         {610, nullptr, "GetRightsIdAndKeyGenerationByPath"},
         {611, nullptr, "SetCurrentPosixTimeWithTimeDifference"},
-        {612, nullptr, "GetFreeSpaceSizeForSaveData"},
+        {612, D<&FSP_SRV::GetFreeSpaceSizeForSaveData>, "GetFreeSpaceSizeForSaveData"},
         {613, nullptr, "VerifySaveDataFileSystemBySaveDataSpaceId"},
         {614, nullptr, "CorruptSaveDataFileSystemBySaveDataSpaceId"},
         {615, nullptr, "QuerySaveDataInternalStorageTotalSize"},
@@ -253,35 +257,56 @@ Result FSP_SRV::CreateSaveDataFileSystemBySystemSaveDataId(
 Result FSP_SRV::OpenSaveDataFileSystem(OutInterface<IFileSystem> out_interface,
                                        FileSys::SaveDataSpaceId space_id,
                                        FileSys::SaveDataAttribute attribute) {
-    LOG_INFO(Service_FS, "called, space_id={:02X}, program_id={:016X}", static_cast<u8>(space_id),
-             attribute.program_id);
+    LOG_INFO(Service_FS, "called, space_id={:02X}, {}", static_cast<u8>(space_id),
+             attribute.DebugInfo());
 
-    FileSys::VirtualDir dir{};
+    FileSys::VirtualDir save_root{};
     // This triggers the 'Smart Pull' (Ryujinx -> Citron) in savedata_factory.cpp
-    R_TRY(save_data_controller->OpenSaveData(&dir, space_id, attribute));
+    R_TRY(save_data_controller->OpenSaveData(&save_root, space_id, attribute));
 
-    FileSys::StorageId id{};
-    switch (space_id) {
-    case FileSys::SaveDataSpaceId::User:
-        id = FileSys::StorageId::NandUser;
-        break;
-    case FileSys::SaveDataSpaceId::SdSystem:
-    case FileSys::SaveDataSpaceId::SdUser:
-        id = FileSys::StorageId::SdCard;
-        break;
-    case FileSys::SaveDataSpaceId::System:
-    case FileSys::SaveDataSpaceId::Temporary:
-    case FileSys::SaveDataSpaceId::ProperSystem:
-    case FileSys::SaveDataSpaceId::SafeMode:
-        id = FileSys::StorageId::NandSystem;
-        break;
-    }
+    const u64 title_id = attribute.program_id != 0 ? attribute.program_id
+                                                   : system.GetApplicationProcessProgramID();
+    const auto mirror_dir = save_data_controller->GetFactory()->GetMirrorDirectory(title_id);
+
+    auto journal_fs =
+        std::make_unique<FileSys::DirectorySaveDataFileSystem>(save_root, nullptr, mirror_dir);
+    R_TRY(journal_fs->Initialize(true));
+
+    FileSys::VirtualDir working_dir = journal_fs->GetWorkingDirectory();
+
+    const FileSys::SaveDataSize save_sizes =
+        save_data_controller->ReadSaveDataSize(attribute.type, title_id, attribute.user_id);
+    const auto working_dir_for_size = working_dir;
+    SizeGetter size_getter{
+        [working_dir_for_size, save_sizes]() {
+            u64 used = 0;
+            std::function<void(const FileSys::VirtualDir&)> accumulate;
+            accumulate = [&](const FileSys::VirtualDir& dir) {
+                if (dir == nullptr) {
+                    return;
+                }
+                for (const auto& file : dir->GetFiles()) {
+                    used += static_cast<u64>(file->GetSize());
+                }
+                for (const auto& subdir : dir->GetSubdirectories()) {
+                    accumulate(subdir);
+                }
+            };
+            accumulate(working_dir_for_size);
+            if (used >= save_sizes.normal) {
+                return UINT64_C(0);
+            }
+            return save_sizes.normal - used;
+        },
+        [save_sizes]() { return save_sizes.normal + save_sizes.journal; },
+    };
 
     // Wrap the directory in the IFileSystem interface.
     // We pass 'save_data_controller->GetFactory()' so the Commit function can find the Mirror.
-    *out_interface =
-        std::make_shared<IFileSystem>(system, std::move(dir), SizeGetter::FromStorageId(fsc, id),
-                                      save_data_controller->GetFactory(), space_id, attribute);
+    *out_interface = std::make_shared<IFileSystem>(
+        system, std::move(working_dir), std::move(size_getter),
+        save_data_controller->GetFactory(), space_id, attribute, std::move(save_root),
+        std::move(journal_fs));
 
     R_SUCCEED();
 }
@@ -311,10 +336,10 @@ Result FSP_SRV::OpenSaveDataInfoReaderBySaveDataSpaceId(
 
 Result FSP_SRV::OpenSaveDataInfoReaderOnlyCacheStorage(
     OutInterface<ISaveDataInfoReader> out_interface) {
-    LOG_WARNING(Service_FS, "(STUBBED) called");
+    LOG_INFO(Service_FS, "called");
 
     *out_interface = std::make_shared<ISaveDataInfoReader>(system, save_data_controller,
-                                                           FileSys::SaveDataSpaceId::Temporary);
+                                                           FileSys::SaveDataSpaceId::User, true);
 
     R_SUCCEED();
 }
@@ -323,8 +348,37 @@ Result FSP_SRV::FindSaveDataWithFilter(Out<s64> out_count,
                                        OutBuffer<BufferAttr_HipcMapAlias> out_buffer,
                                        FileSys::SaveDataSpaceId space_id,
                                        FileSys::SaveDataFilter filter) {
-    LOG_WARNING(Service_FS, "(STUBBED) called");
-    R_THROW(FileSys::ResultTargetNotFound);
+    LOG_INFO(Service_FS, "called, space_id={}", space_id);
+
+    FileSys::SaveDataAttribute query{};
+    query.program_id = program_id;
+    if (filter.use_program_id && filter.attribute.program_id != 0) {
+        query.program_id = filter.attribute.program_id;
+    }
+    if (filter.use_save_data_type) {
+        query.type = filter.attribute.type;
+    }
+    if (filter.use_user_id) {
+        query.user_id = filter.attribute.user_id;
+    }
+    if (filter.use_save_data_id) {
+        query.system_save_data_id = filter.attribute.system_save_data_id;
+    }
+    if (filter.use_index) {
+        query.index = filter.attribute.index;
+    }
+    query.rank = filter.rank;
+
+    FileSys::VirtualDir save_dir{};
+    R_TRY(save_data_controller->OpenSaveData(&save_dir, space_id, query));
+
+    if (out_buffer.size() < sizeof(FileSys::SaveDataAttribute)) {
+        R_THROW(FileSys::ResultInvalidSize);
+    }
+
+    std::memcpy(out_buffer.data(), &query, sizeof(FileSys::SaveDataAttribute));
+    *out_count = 1;
+    R_SUCCEED();
 }
 
 Result FSP_SRV::WriteSaveDataFileSystemExtraData(InBuffer<BufferAttr_HipcMapAlias> buffer,
@@ -606,17 +660,35 @@ Result FSP_SRV::ExtendSaveDataFileSystem(FileSys::SaveDataSpaceId space_id, u64 
 }
 
 Result FSP_SRV::DeleteCacheStorage(u16 index) {
-    LOG_WARNING(Service_FS, "(STUBBED) called, index={}", index);
-    // Cache storage deletion is not implemented, but we return success to prevent crashes
-    R_SUCCEED();
+    LOG_INFO(Service_FS, "called, index={}", index);
+    R_RETURN(save_data_controller->GetFactory()->DeleteCacheStorage(index));
 }
 
 Result FSP_SRV::GetCacheStorageSize(s32 index, Out<s64> out_data_size, Out<s64> out_journal_size) {
-    LOG_WARNING(Service_FS, "(STUBBED) called with index={}", index);
+    LOG_INFO(Service_FS, "called with index={}", index);
 
-    *out_data_size = 0;
-    *out_journal_size = 0;
+    const auto size = save_data_controller->ReadSaveDataSize(FileSys::SaveDataType::Cache,
+                                                             program_id, {});
+    if (size.normal != 0 || size.journal != 0) {
+        *out_data_size = static_cast<s64>(size.normal);
+        *out_journal_size = static_cast<s64>(size.journal);
+        LOG_INFO(Service_FS, "returning data_size={:#x}, journal_size={:#x}", *out_data_size,
+                 *out_journal_size);
+        R_SUCCEED();
+    }
 
+    const FileSys::PatchManager pm{program_id, fsc, content_provider};
+    const auto metadata = pm.GetControlMetadata();
+    if (metadata.first != nullptr) {
+        *out_data_size = static_cast<s64>(metadata.first->GetCacheStorageSize());
+        *out_journal_size = static_cast<s64>(metadata.first->GetCacheStorageJournalSize());
+    } else {
+        *out_data_size = 0;
+        *out_journal_size = 0;
+    }
+
+    LOG_INFO(Service_FS, "returning default data_size={:#x}, journal_size={:#x}", *out_data_size,
+             *out_journal_size);
     R_SUCCEED();
 }
 
@@ -712,6 +784,56 @@ Result FSP_SRV::IsExFatSupported(Out<bool> out_is_supported) {
 
     *out_is_supported = true;
 
+    R_SUCCEED();
+}
+
+Result FSP_SRV::QuerySaveDataTotalSize(Out<u64> out_total_size, u64 save_data_size,
+                                       u64 journal_size) {
+    LOG_DEBUG(Service_FS, "called, save_data_size={:#x}, journal_size={:#x}", save_data_size,
+              journal_size);
+
+    constexpr u64 block_size = 0x4000;
+    const u64 aligned_data = Common::AlignUp(save_data_size, block_size);
+    const u64 aligned_journal = Common::AlignUp(journal_size, block_size);
+
+    if (aligned_data > std::numeric_limits<u64>::max() - aligned_journal - block_size) {
+        R_THROW(FileSys::ResultInvalidSize);
+    }
+
+    *out_total_size = aligned_data + aligned_journal + block_size;
+
+    LOG_DEBUG(Service_FS, "returning total_size={:#x}", *out_total_size);
+    R_SUCCEED();
+}
+
+Result FSP_SRV::GetFreeSpaceSizeForSaveData(Out<u64> out_free_space,
+                                              FileSys::SaveDataSpaceId space_id) {
+    LOG_INFO(Service_FS, "called, space_id={}", space_id);
+
+    FileSys::StorageId storage_id{};
+    switch (space_id) {
+    case FileSys::SaveDataSpaceId::System:
+    case FileSys::SaveDataSpaceId::ProperSystem:
+    case FileSys::SaveDataSpaceId::SafeMode:
+        storage_id = FileSys::StorageId::NandSystem;
+        break;
+    case FileSys::SaveDataSpaceId::User:
+    case FileSys::SaveDataSpaceId::Temporary:
+        storage_id = FileSys::StorageId::NandUser;
+        break;
+    case FileSys::SaveDataSpaceId::SdSystem:
+    case FileSys::SaveDataSpaceId::SdUser:
+        storage_id = FileSys::StorageId::SdCard;
+        break;
+    default:
+        LOG_WARNING(Service_FS, "Unknown SaveDataSpaceId={}, defaulting to NandUser", space_id);
+        storage_id = FileSys::StorageId::NandUser;
+        break;
+    }
+
+    *out_free_space = fsc.GetFreeSpaceSize(storage_id);
+
+    LOG_INFO(Service_FS, "returning free_space={:#x}", *out_free_space);
     R_SUCCEED();
 }
 

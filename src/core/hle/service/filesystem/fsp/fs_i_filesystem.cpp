@@ -4,6 +4,7 @@
 
 #include "common/string_util.h"
 #include "common/settings.h"
+#include "core/file_sys/directory_save_data_filesystem.h"
 #include "core/file_sys/fssrv/fssrv_sf_path.h"
 #include "core/hle/service/cmif_serialization.h"
 #include "core/hle/service/filesystem/fsp/fs_i_directory.h"
@@ -23,11 +24,14 @@ namespace Service::FileSystem {
 
 IFileSystem::IFileSystem(Core::System& system_, FileSys::VirtualDir dir_, SizeGetter size_getter_,
                          std::shared_ptr<FileSys::SaveDataFactory> factory_,
-                         FileSys::SaveDataSpaceId space_id_, FileSys::SaveDataAttribute attribute_)
+                         FileSys::SaveDataSpaceId space_id_, FileSys::SaveDataAttribute attribute_,
+                         FileSys::VirtualDir save_content_dir_,
+                         std::unique_ptr<FileSys::DirectorySaveDataFileSystem> journal_fs_)
     : ServiceFramework{system_, "IFileSystem"},
       backend{std::make_unique<FileSys::Fsa::IFileSystem>(dir_)},
+      journal_fs{std::move(journal_fs_)},
       size_getter{std::move(size_getter_)},
-      content_dir{std::move(dir_)},
+      content_dir{save_content_dir_ != nullptr ? std::move(save_content_dir_) : dir_},
       save_factory{std::move(factory_)},
       save_space{space_id_},
       save_attr{attribute_} {
@@ -141,6 +145,25 @@ Result IFileSystem::GetEntryType(
 }
 
 Result IFileSystem::Commit() {
+    if (journal_fs) {
+        if (system.IsShuttingDown()) {
+            R_SUCCEED();
+        }
+
+        R_TRY(journal_fs->Commit());
+
+        if (save_factory) {
+            const u64 title_id = save_attr.program_id != 0 ? save_attr.program_id
+                                                           : system.GetApplicationProcessProgramID();
+            if (save_factory->GetMirrorDirectory(title_id) == nullptr &&
+                Settings::values.backup_saves_to_nand.GetValue()) {
+                save_factory->DoNandBackup(save_space, save_attr, content_dir);
+            }
+        }
+
+        R_SUCCEED();
+    }
+
     // 1. Standard Commit
     Result res = backend->Commit();
     if (res != ResultSuccess) return res;

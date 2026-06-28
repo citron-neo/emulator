@@ -615,6 +615,14 @@ public:
         this->UpdateDeviceDisableMergeStateForUnshareRight(new_perm, left, right);
     }
 
+    constexpr void ClearStaleDeviceSharedResidue(KMemoryPermission /*new_perm*/, bool /*left*/,
+                                                 bool /*right*/) {
+        if (m_device_use_count == 0) {
+            m_attribute =
+                static_cast<KMemoryAttribute>(m_attribute & ~KMemoryAttribute::DeviceShared);
+        }
+    }
+
     constexpr void LockForIpc(KMemoryPermission new_perm, bool left, bool right) {
         // We must either be locked or have a zero lock count.
         ASSERT((m_attribute & KMemoryAttribute::IpcLocked) == KMemoryAttribute::IpcLocked ||
