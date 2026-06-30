@@ -147,33 +147,6 @@ if (NOT TARGET zstd::libzstd_static)
     endif()
 endif()
 
-# ── OpenAL Soft ───────────────────────────────────────────────────────────────
-if (NOT TARGET OpenAL::OpenAL)
-    CPMAddPackage(
-        NAME OpenAL
-        GITHUB_REPOSITORY kcat/openal-soft
-        GIT_TAG 1.24.3
-        OPTIONS
-            "ALSOFT_UTILS OFF"
-            "ALSOFT_EXAMPLES OFF"
-            "ALSOFT_TESTS OFF"
-            "ALSOFT_INSTALL OFF"
-            "ALSOFT_INSTALL_CONFIG OFF"
-            "LIBTYPE STATIC"
-    )
-    if (TARGET OpenAL AND NOT TARGET OpenAL::OpenAL)
-        add_library(OpenAL::OpenAL ALIAS OpenAL)
-    endif()
-    # Patch OpenAL's vendored fmt header to fix undeclared 'malloc' on some toolchains
-    if (OpenAL_ADDED AND EXISTS "${OpenAL_SOURCE_DIR}/fmt-11.1.1/include/fmt/format.h")
-        file(READ "${OpenAL_SOURCE_DIR}/fmt-11.1.1/include/fmt/format.h" _fmt_content)
-        if (NOT _fmt_content MATCHES "#include <stdlib.h>")
-            string(REPLACE "#include \"base.h\"" "#include \"base.h\"\n#include <stdlib.h>" _fmt_content "${_fmt_content}")
-            file(WRITE "${OpenAL_SOURCE_DIR}/fmt-11.1.1/include/fmt/format.h" "${_fmt_content}")
-        endif()
-    endif()
-endif()
-
 # ── OpenSSL ───────────────────────────────────────────────────────────────────
 if (ENABLE_OPENSSL OR ENABLE_WEB_SERVICE)
     include(${CMAKE_SOURCE_DIR}/CMakeModules/openssl_build.cmake)

@@ -75,8 +75,6 @@ option(ENABLE_UNITY_BUILD "Enables the unity build" OFF)
 
 option(ENABLE_CUBEB "Enables the cubeb audio backend" ON)
 
-option(ENABLE_OPENAL "Enables the OpenAL audio backend" ON)
-
 option(USE_DISCORD_PRESENCE "Enables Discord Rich Presence" OFF)
 
 option(CITRON_TESTS "Compile tests" "${BUILD_TESTING}")

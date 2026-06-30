@@ -34,7 +34,6 @@
     "fmt",
     "lz4",
     "nlohmann-json",
-    "openal-soft",
     {
       "name": "openssl",
       "platform": "!linux & !osx"
@@ -78,11 +77,6 @@
     {
       "name": "fmt",
       "version": "12.1.0"
-    },
-    {
-      "name": "openal-soft",
-      "version": "1.24.3",
-      "port-version": 1
     }
   ]
 }

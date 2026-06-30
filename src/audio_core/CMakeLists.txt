@@ -278,19 +278,6 @@ if (ENABLE_SDL2)
     target_compile_definitions(audio_core PRIVATE HAVE_SDL2)
 endif()
 
-if (ENABLE_OPENAL)
-    target_sources(audio_core PRIVATE
-        sink/openal_sink.cpp
-        sink/openal_sink.h
-    )
-
-    if (NOT TARGET OpenAL::OpenAL)
-        find_package(OpenAL CONFIG REQUIRED)
-    endif()
-    target_link_libraries(audio_core PRIVATE OpenAL::OpenAL)
-    target_compile_definitions(audio_core PRIVATE HAVE_OPENAL)
-endif()
-
 if (ANDROID)
     target_sources(audio_core PRIVATE
         sink/oboe_sink.cpp
