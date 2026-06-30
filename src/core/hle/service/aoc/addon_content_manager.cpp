@@ -116,18 +116,26 @@ IAddOnContentManager::~IAddOnContentManager() {
 Result IAddOnContentManager::CountAddOnContent(Out<u32> out_count, ClientProcessId process_id) {
     // LOG_DEBUG(Service_AOC, "called. process_id={}", process_id.pid);
     LOG_WARNING(Service_AOC, "CountAddOnContent called. process_id={}", process_id.pid);
-    const auto current = system.GetApplicationProcessProgramID();
+    const auto raw_program_id = system.GetApplicationProcessProgramID();
+    const auto current = FileSys::GetBaseTitleID(raw_program_id);
 
     const auto& disabled = Settings::values.disabled_addons[current];
-    if (std::find(disabled.begin(), disabled.end(), "DLC") != disabled.end()) {
+    const auto dlc_disabled = std::find(disabled.begin(), disabled.end(), "DLC") != disabled.end();
+    const auto matching_aocs = GetAOCTitleIDsForBase(add_on_content, current);
+    if (dlc_disabled) {
         *out_count = 0;
+        LOG_WARNING(Service_AOC,
+                    "CountAddOnContent: raw_program_id={:016X}, base_id={:016X}, "
+                    "accumulated={}, matched={}, dlc_disabled=true",
+                    raw_program_id, current, add_on_content.size(), matching_aocs.size());
         R_SUCCEED();
     }
 
-    *out_count = static_cast<u32>(GetAOCTitleIDsForBase(add_on_content, current).size());
+    *out_count = static_cast<u32>(matching_aocs.size());
     LOG_WARNING(Service_AOC,
-                "CountAddOnContent: program_id={:016X}, count={}",
-                current, *out_count);
+                "CountAddOnContent: raw_program_id={:016X}, base_id={:016X}, accumulated={}, "
+                "matched={}, dlc_disabled=false",
+                raw_program_id, current, add_on_content.size(), matching_aocs.size());
     R_SUCCEED();
 }
 
@@ -186,15 +194,25 @@ Result IAddOnContentManager::CountAddOnContentByApplicationId(Out<u32> out_count
                                                               u64 application_id) {
     LOG_WARNING(Service_AOC, "called. application_id={:016X}", application_id);
 
-    const auto current = application_id;
+    const auto current = FileSys::GetBaseTitleID(application_id);
 
     const auto& disabled = Settings::values.disabled_addons[current];
-    if (std::find(disabled.begin(), disabled.end(), "DLC") != disabled.end()) {
+    const auto dlc_disabled = std::find(disabled.begin(), disabled.end(), "DLC") != disabled.end();
+    const auto matching_aocs = GetAOCTitleIDsForBase(add_on_content, current);
+    if (dlc_disabled) {
         *out_count = 0;
+        LOG_WARNING(Service_AOC,
+                    "CountAddOnContentByApplicationId: application_id={:016X}, base_id={:016X}, "
+                    "accumulated={}, matched={}, dlc_disabled=true",
+                    application_id, current, add_on_content.size(), matching_aocs.size());
         R_SUCCEED();
     }
 
-    *out_count = static_cast<u32>(GetAOCTitleIDsForBase(add_on_content, current).size());
+    *out_count = static_cast<u32>(matching_aocs.size());
+    LOG_WARNING(Service_AOC,
+                "CountAddOnContentByApplicationId: application_id={:016X}, base_id={:016X}, "
+                "accumulated={}, matched={}, dlc_disabled=false",
+                application_id, current, add_on_content.size(), matching_aocs.size());
 
     R_SUCCEED();
 }
@@ -277,7 +295,8 @@ Result IAddOnContentManager::GetAddOnContentBaseId(Out<u64> out_title_id,
 }
 
 Result IAddOnContentManager::PrepareAddOnContent(s32 addon_index, ClientProcessId process_id) {
-    const auto program_id = system.GetApplicationProcessProgramID();
+    const auto raw_program_id = system.GetApplicationProcessProgramID();
+    const auto program_id = FileSys::GetBaseTitleID(raw_program_id);
     const auto aoc_base_id = FileSys::GetAOCBaseTitleID(program_id);
     const auto matching_aocs = GetAOCTitleIDsForBase(add_on_content, program_id);
     u64 physical_title_id = 0;
@@ -286,10 +305,11 @@ Result IAddOnContentManager::PrepareAddOnContent(s32 addon_index, ClientProcessI
     }
 
     LOG_WARNING(Service_AOC,
-                "PrepareAddOnContent: program_id={:016X}, aoc_base={:016X}, "
-                "addon_index={}, physical_title_id={:016X}, process_id={}",
-                program_id, aoc_base_id, addon_index, physical_title_id,
-                process_id.pid);
+                "PrepareAddOnContent: raw_program_id={:016X}, base_id={:016X}, "
+                "aoc_base={:016X}, accumulated={}, matched={}, addon_index={}, "
+                "physical_title_id={:016X}, process_id={}",
+                raw_program_id, program_id, aoc_base_id, add_on_content.size(),
+                matching_aocs.size(), addon_index, physical_title_id, process_id.pid);
 
     R_SUCCEED();
 }
