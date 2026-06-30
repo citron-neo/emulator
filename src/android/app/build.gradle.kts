@@ -1,15 +1,12 @@
 // SPDX-FileCopyrightText: 2023 citron Emulator Project
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-import kotlin.collections.setOf
-import org.jlleitschuh.gradle.ktlint.reporter.ReporterType
-
 plugins {
     id("com.android.application")
     id("kotlin-parcelize")
     kotlin("plugin.serialization") version "1.9.20"
     id("androidx.navigation.safeargs.kotlin")
-    id("org.jlleitschuh.gradle.ktlint") version "11.4.0"
+    id("org.jlleitschuh.gradle.ktlint") version "14.2.0"
 }
 
 /**
@@ -23,7 +20,7 @@ val autoVersion = (((System.currentTimeMillis() / 1000) - 1451606400) / 10).toIn
 android {
     namespace = "org.citron.citron_emu"
 
-    compileSdk = 36
+    compileSdk = 37
     ndkVersion = "26.1.10909125"
 
     buildFeatures {
@@ -50,6 +47,7 @@ android {
         // TODO If this is ever modified, change application_id in strings.xml
         applicationId = "org.citron.citron_emu"
         minSdk = 30
+        //noinspection OldTargetApi
         targetSdk = 36
         versionName = getGitVersion()
 
@@ -98,7 +96,6 @@ android {
             }
 
             resValue("string", "app_name_suffixed", "citron-neo: The switch fell off")
-            isMinifyEnabled = true
             isDebuggable = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
@@ -109,18 +106,10 @@ android {
         // builds a release build that doesn't need signing
         // Attaches 'debug' suffix to version and package name, allowing installation alongside the release build.
         register("relWithDebInfo") {
-            isDefault = true
-            resValue("string", "app_name_suffixed", "citron-neo: The switch fell off Debug Release")
-            signingConfig = signingConfigs.getByName("default")
-            isMinifyEnabled = true
+            initWith(getByName("release"))
+            matchingFallbacks += listOf("release")
             isDebuggable = true
-            proguardFiles(
-                getDefaultProguardFile("proguard-android-optimize.txt"),
-                "proguard-rules.pro"
-            )
-            versionNameSuffix = "-relWithDebInfo"
-            applicationIdSuffix = ".relWithDebInfo"
-            isJniDebuggable = true
+            isMinifyEnabled = false
         }
 
         // Signed by debug key disallowing distribution on Play Store.
@@ -182,46 +171,34 @@ android {
 }
 
 tasks.register<Delete>("ktlintReset") {
+    description = "Clean ktlint generated intermediate files"
     delete(layout.buildDirectory.dir("intermediates/ktLint"))
 }
 
 
 ktlint {
-    version.set("0.47.1")
-    android.set(true)
-    ignoreFailures.set(false)
-    disabledRules.set(
-        setOf(
-            "no-wildcard-imports",
-            "package-name",
-            "import-ordering"
-        )
-    )
-    reporters {
-        reporter(ReporterType.CHECKSTYLE)
-    }
+    version.set("1.0.1")
 }
 
 
 dependencies {
-    implementation("androidx.core:core-ktx:1.18.0")
+    implementation("androidx.core:core-ktx:1.19.0")
     implementation("androidx.appcompat:appcompat:1.7.1")
     implementation("androidx.recyclerview:recyclerview:1.4.0")
     implementation("androidx.constraintlayout:constraintlayout:2.2.1")
     implementation("androidx.fragment:fragment-ktx:1.8.9")
     implementation("androidx.documentfile:documentfile:1.1.0")
-    implementation("com.google.android.material:material:1.13.0")
+    implementation("com.google.android.material:material:1.14.0")
     implementation("androidx.preference:preference-ktx:1.2.1")
-    implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:2.10.0")
+    implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:2.11.0")
     implementation("io.coil-kt:coil:2.7.0")
     implementation("androidx.core:core-splashscreen:1.2.0")
     implementation("androidx.window:window:1.5.1")
-    implementation("androidx.constraintlayout:constraintlayout:2.2.1")
     implementation("androidx.swiperefreshlayout:swiperefreshlayout:1.2.0")
-    implementation("androidx.navigation:navigation-fragment-ktx:2.9.7")
-    implementation("androidx.navigation:navigation-ui-ktx:2.9.7")
+    implementation("androidx.navigation:navigation-fragment-ktx:2.9.8")
+    implementation("androidx.navigation:navigation-ui-ktx:2.9.8")
     implementation("info.debatty:java-string-similarity:2.0.0")
-    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.10.0")
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.11.0")
 }
 
 fun runGitCommand(command: List<String>): String {
@@ -232,7 +209,7 @@ fun runGitCommand(command: List<String>): String {
             .redirectError(ProcessBuilder.Redirect.PIPE)
             .start().inputStream.bufferedReader().use { it.readText() }
             .trim()
-    } catch (e: Exception) {
+    } catch (_: Exception) {
         logger.error("Cannot find git")
         ""
     }
