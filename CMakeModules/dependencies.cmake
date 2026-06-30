@@ -236,7 +236,7 @@ if (CITRON_USE_EXTERNAL_VULKAN_HEADERS AND NOT TARGET Vulkan::Headers)
         CPMAddPackage(
             NAME Vulkan-Headers
             GITHUB_REPOSITORY KhronosGroup/Vulkan-Headers
-            GIT_TAG v1.4.337
+            GIT_TAG 6433e5c70bb9ec995f72d767934acaff8ef11ae3
         )
     endif()
 endif()
