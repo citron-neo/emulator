@@ -181,8 +181,8 @@ android {
     }
 }
 
-tasks.create<Delete>("ktlintReset") {
-    delete(File(buildDir.path + File.separator + "intermediates/ktLint"))
+tasks.register<Delete>("ktlintReset") {
+    delete(layout.buildDirectory.dir("intermediates/ktLint"))
 }
 
 
