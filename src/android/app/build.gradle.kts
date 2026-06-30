@@ -4,7 +4,7 @@
 plugins {
     id("com.android.application")
     id("kotlin-parcelize")
-    kotlin("plugin.serialization") version "1.9.20"
+    kotlin("plugin.serialization") version "2.4.0"
     id("androidx.navigation.safeargs.kotlin")
     id("org.jlleitschuh.gradle.ktlint") version "14.2.0"
 }
@@ -110,6 +110,9 @@ android {
             matchingFallbacks += listOf("release")
             isDebuggable = true
             isMinifyEnabled = false
+
+            applicationIdSuffix = ".relWithDebInfo"
+            versionNameSuffix = "-relWithDebInfo"
         }
 
         // Signed by debug key disallowing distribution on Play Store.
