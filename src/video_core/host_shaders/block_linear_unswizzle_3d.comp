@@ -64,6 +64,13 @@ const uint GOB_SIZE_SHIFT = GOB_SIZE_X_SHIFT + GOB_SIZE_Y_SHIFT + GOB_SIZE_Z_SHI
 
 const uvec2 SWIZZLE_MASK = uvec2(GOB_SIZE_X - 1, GOB_SIZE_Y - 1);
 
+uint SwizzleTable(uint pos) {
+    uint n = pos >> 4;
+    uint c0 = (n << 3) & 0x10;
+    uint c1 = (uint(uint64_t(0x7575646431312020ull) >> uint64_t((n & 0xf) << 2)) + ((n & 0x10) >> 1)) & 0xf;
+    return ((c0 | c1) << 4) | (pos & 0xf);
+}
+
 uint SwizzleOffset(uvec2 pos) {
     pos = pos & SWIZZLE_MASK;
     return SwizzleTable(pos.y * 64 + pos.x);
