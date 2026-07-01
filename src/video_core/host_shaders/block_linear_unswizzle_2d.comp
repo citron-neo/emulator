@@ -3,20 +3,17 @@
 
 #version 430
 
+#extension GL_ARB_gpu_shader_int64 : enable
 #ifdef VULKAN
-
 #extension GL_EXT_shader_16bit_storage : require
 #extension GL_EXT_shader_8bit_storage : require
 #define HAS_EXTENDED_TYPES 1
 #define BEGIN_PUSH_CONSTANTS layout(push_constant) uniform PushConstants {
 #define END_PUSH_CONSTANTS };
 #define UNIFORM(n)
-#define BINDING_SWIZZLE_BUFFER 0
-#define BINDING_INPUT_BUFFER 1
-#define BINDING_OUTPUT_IMAGE 2
-
+#define BINDING_INPUT_BUFFER 0
+#define BINDING_OUTPUT_IMAGE 1
 #else // ^^^ Vulkan ^^^ // vvv OpenGL vvv
-
 #extension GL_NV_gpu_shader5 : enable
 #ifdef GL_NV_gpu_shader5
 #define HAS_EXTENDED_TYPES 1
@@ -26,10 +23,8 @@
 #define BEGIN_PUSH_CONSTANTS
 #define END_PUSH_CONSTANTS
 #define UNIFORM(n) layout (location = n) uniform
-#define BINDING_SWIZZLE_BUFFER 0
-#define BINDING_INPUT_BUFFER 1
+#define BINDING_INPUT_BUFFER 0
 #define BINDING_OUTPUT_IMAGE 0
-
 #endif
 
 BEGIN_PUSH_CONSTANTS
@@ -42,10 +37,6 @@ UNIFORM(5) uint x_shift;
 UNIFORM(6) uint block_height;
 UNIFORM(7) uint block_height_mask;
 END_PUSH_CONSTANTS
-
-layout(binding = BINDING_SWIZZLE_BUFFER, std430) readonly buffer SwizzleTable {
-    uint swizzle_table[];
-};
 
 #if HAS_EXTENDED_TYPES
 layout(binding = BINDING_INPUT_BUFFER, std430) buffer InputBufferU8 { uint8_t u8data[]; };
@@ -71,9 +62,16 @@ const uint GOB_SIZE_SHIFT = GOB_SIZE_X_SHIFT + GOB_SIZE_Y_SHIFT + GOB_SIZE_Z_SHI
 
 const uvec2 SWIZZLE_MASK = uvec2(GOB_SIZE_X - 1, GOB_SIZE_Y - 1);
 
+uint SwizzleTable(uint pos) {
+    uint n = pos >> 4;
+    uint c0 = (n << 3) & 0x10;
+    uint c1 = (uint(uint64_t(0x7575646431312020ull) >> uint64_t((n & 0xf) << 2)) + ((n & 0x10) >> 1)) & 0xf;
+    return ((c0 | c1) << 4) | (pos & 0xf);
+}
+
 uint SwizzleOffset(uvec2 pos) {
     pos = pos & SWIZZLE_MASK;
-    return swizzle_table[pos.y * 64 + pos.x];
+    return SwizzleTable(pos.y * 64 + pos.x);
 }
 
 uvec4 ReadTexel(uint offset) {
