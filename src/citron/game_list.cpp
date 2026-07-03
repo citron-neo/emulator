@@ -2198,7 +2198,6 @@ void GameList::ClearFilter() {
     search_field->clear();
 }
 
-
 void GameList::AddDirEntry(GameListDir* entry_items) {
     if (!entry_items)
         return;
@@ -2908,8 +2907,14 @@ void GameList::DonePopulating(const QStringList& watch_list) {
             scroll_anim->start(QAbstractAnimation::DeleteWhenStopped);
         }
 
-        // Give it a moment to show the success message before fading
-        QTimer::singleShot(1500, this, [this]() {
+        // Give it a moment to show the success message before fading.
+        // Capture the worker we just finished so a repopulation started within this
+        // window doesn't get torn down when the timer fires.
+        auto* finished_worker = current_worker.get();
+        QTimer::singleShot(1500, this, [this, finished_worker]() {
+            if (current_worker.get() != finished_worker) {
+                return;
+            }
             if (loading_overlay)
                 loading_overlay->FadeOut();
             auto* delegate = qobject_cast<GameListDelegate*>(tree_view->itemDelegate());
@@ -2919,8 +2924,7 @@ void GameList::DonePopulating(const QStringList& watch_list) {
             // Save the newly populated index for instant loading next time.
             SaveGameListIndex();
 
-            // Clean up worker safely outside of its execution context
-            QTimer::singleShot(0, this, [this]() { current_worker.reset(); });
+            current_worker.reset();
         });
     } else {
         auto* delegate = qobject_cast<GameListDelegate*>(tree_view->itemDelegate());

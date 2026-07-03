@@ -7,6 +7,7 @@
 #include <fstream>
 #include <memory>
 #include <optional>
+#include <string_view>
 #include <unordered_set>
 #include <utility>
 
@@ -28,6 +29,36 @@
 namespace VideoCommon {
 
 constexpr std::array<char, 8> MAGIC_NUMBER{'y', 'u', 'z', 'u', 'c', 'a', 'c', 'h'};
+
+namespace {
+
+constexpr u64 MAX_SHADER_CODE_BYTES = 16 * 1024 * 1024;
+constexpr u64 MAX_MAP_ENTRIES = 4096;
+
+void DeletePipelineCacheFile(const std::filesystem::path& filename, std::string_view reason) {
+    LOG_ERROR(Common_Filesystem, "Invalid pipeline cache ({}): deleting \"{}\"", reason,
+              Common::FS::PathToUTF8String(filename));
+    if (!Common::FS::RemoveFile(filename)) {
+        LOG_ERROR(Common_Filesystem, "Failed to delete pipeline cache file \"{}\"",
+                  Common::FS::PathToUTF8String(filename));
+    }
+}
+
+template<typename T>
+bool ReadPod(std::ifstream& file, T& value) {
+    file.read(reinterpret_cast<char*>(&value), sizeof(T));
+    return file.gcount() == static_cast<std::streamsize>(sizeof(T));
+}
+
+bool ReadBytes(std::ifstream& file, void* dst, std::size_t size) {
+    if (size == 0) {
+        return true;
+    }
+    file.read(static_cast<char*>(dst), static_cast<std::streamsize>(size));
+    return file.gcount() == static_cast<std::streamsize>(size);
+}
+
+} // namespace
 
 constexpr size_t INST_SIZE = sizeof(u64);
 
@@ -522,76 +553,126 @@ u32 ComputeEnvironment::ReadViewportTransformState() {
 }
 
 void FileEnvironment::Deserialize(std::ifstream& file) {
+    if (!TryDeserialize(file)) {
+        throw std::ios_base::failure("Failed to deserialize shader environment");
+    }
+}
+
+bool FileEnvironment::TryDeserialize(std::ifstream& file) {
+    const auto prev_exceptions = file.exceptions();
+    file.exceptions(std::ifstream::goodbit);
+
+    const auto restore = [&] { file.exceptions(prev_exceptions); };
+
     u64 code_size{};
     u64 num_texture_types{};
     u64 num_texture_pixel_formats{};
     u64 num_cbuf_values{};
     u64 num_cbuf_replacement_values{};
     u64 num_cbuf_sizes{};
-    file.read(reinterpret_cast<char*>(&code_size), sizeof(code_size))
-        .read(reinterpret_cast<char*>(&num_texture_types), sizeof(num_texture_types))
-        .read(reinterpret_cast<char*>(&num_texture_pixel_formats),
-              sizeof(num_texture_pixel_formats))
-        .read(reinterpret_cast<char*>(&num_cbuf_values), sizeof(num_cbuf_values))
-        .read(reinterpret_cast<char*>(&num_cbuf_replacement_values),
-              sizeof(num_cbuf_replacement_values))
-        .read(reinterpret_cast<char*>(&num_cbuf_sizes), sizeof(num_cbuf_sizes))
-        .read(reinterpret_cast<char*>(&local_memory_size), sizeof(local_memory_size))
-        .read(reinterpret_cast<char*>(&texture_bound), sizeof(texture_bound))
-        .read(reinterpret_cast<char*>(&start_address), sizeof(start_address))
-        .read(reinterpret_cast<char*>(&read_lowest), sizeof(read_lowest))
-        .read(reinterpret_cast<char*>(&read_highest), sizeof(read_highest))
-        .read(reinterpret_cast<char*>(&viewport_transform_state), sizeof(viewport_transform_state))
-        .read(reinterpret_cast<char*>(&stage), sizeof(stage));
+    if (!ReadPod(file, code_size) || !ReadPod(file, num_texture_types) ||
+        !ReadPod(file, num_texture_pixel_formats) || !ReadPod(file, num_cbuf_values) ||
+        !ReadPod(file, num_cbuf_replacement_values) || !ReadPod(file, num_cbuf_sizes) ||
+        !ReadPod(file, local_memory_size) || !ReadPod(file, texture_bound) ||
+        !ReadPod(file, start_address) || !ReadPod(file, read_lowest) ||
+        !ReadPod(file, read_highest) || !ReadPod(file, viewport_transform_state) ||
+        !ReadPod(file, stage)) {
+        restore();
+        return false;
+    }
+    if (code_size == 0 || code_size > MAX_SHADER_CODE_BYTES ||
+        num_texture_types > MAX_MAP_ENTRIES || num_texture_pixel_formats > MAX_MAP_ENTRIES ||
+        num_cbuf_values > MAX_MAP_ENTRIES || num_cbuf_replacement_values > MAX_MAP_ENTRIES ||
+        num_cbuf_sizes > MAX_MAP_ENTRIES || read_highest < read_lowest ||
+        static_cast<u64>(read_highest) - read_lowest + INST_SIZE > code_size) {
+        restore();
+        return false;
+    }
+    switch (stage) {
+    case Shader::Stage::VertexB:
+    case Shader::Stage::TessellationControl:
+    case Shader::Stage::TessellationEval:
+    case Shader::Stage::Geometry:
+    case Shader::Stage::Fragment:
+    case Shader::Stage::Compute:
+    case Shader::Stage::VertexA:
+        break;
+    default:
+        restore();
+        return false;
+    }
     code.resize(Common::DivCeil(code_size, sizeof(u64)));
-    file.read(reinterpret_cast<char*>(code.data()), code_size);
+    if (!ReadBytes(file, code.data(), code_size)) {
+        restore();
+        return false;
+    }
     for (size_t i = 0; i < num_texture_types; ++i) {
         u32 key;
         Shader::TextureType type;
-        file.read(reinterpret_cast<char*>(&key), sizeof(key))
-            .read(reinterpret_cast<char*>(&type), sizeof(type));
+        if (!ReadPod(file, key) || !ReadPod(file, type)) {
+            restore();
+            return false;
+        }
         texture_types.emplace(key, type);
     }
     for (size_t i = 0; i < num_texture_pixel_formats; ++i) {
         u32 key;
         Shader::TexturePixelFormat format;
-        file.read(reinterpret_cast<char*>(&key), sizeof(key))
-            .read(reinterpret_cast<char*>(&format), sizeof(format));
+        if (!ReadPod(file, key) || !ReadPod(file, format)) {
+            restore();
+            return false;
+        }
         texture_pixel_formats.emplace(key, format);
     }
     for (size_t i = 0; i < num_cbuf_values; ++i) {
         u64 key;
         u32 value;
-        file.read(reinterpret_cast<char*>(&key), sizeof(key))
-            .read(reinterpret_cast<char*>(&value), sizeof(value));
+        if (!ReadPod(file, key) || !ReadPod(file, value)) {
+            restore();
+            return false;
+        }
         cbuf_values.emplace(key, value);
     }
     for (size_t i = 0; i < num_cbuf_replacement_values; ++i) {
         u64 key;
         Shader::ReplaceConstant value;
-        file.read(reinterpret_cast<char*>(&key), sizeof(key))
-            .read(reinterpret_cast<char*>(&value), sizeof(value));
+        if (!ReadPod(file, key) || !ReadPod(file, value)) {
+            restore();
+            return false;
+        }
         cbuf_replacements.emplace(key, value);
     }
     for (size_t i = 0; i < num_cbuf_sizes; ++i) {
         u32 key;
         u32 size;
-        file.read(reinterpret_cast<char*>(&key), sizeof(key))
-            .read(reinterpret_cast<char*>(&size), sizeof(size));
+        if (!ReadPod(file, key) || !ReadPod(file, size)) {
+            restore();
+            return false;
+        }
         cbuf_sizes.emplace(key, size);
     }
     if (stage == Shader::Stage::Compute) {
-        file.read(reinterpret_cast<char*>(&workgroup_size), sizeof(workgroup_size))
-            .read(reinterpret_cast<char*>(&shared_memory_size), sizeof(shared_memory_size));
+        if (!ReadPod(file, workgroup_size) || !ReadPod(file, shared_memory_size)) {
+            restore();
+            return false;
+        }
         initial_offset = 0;
     } else {
-        file.read(reinterpret_cast<char*>(&sph), sizeof(sph));
+        if (!ReadPod(file, sph)) {
+            restore();
+            return false;
+        }
         initial_offset = sizeof(sph);
         if (stage == Shader::Stage::Geometry) {
-            file.read(reinterpret_cast<char*>(&gp_passthrough_mask), sizeof(gp_passthrough_mask));
+            if (!ReadPod(file, gp_passthrough_mask)) {
+                restore();
+                return false;
+            }
         }
     }
     is_proprietary_driver = texture_bound == 2;
+    restore();
+    return true;
 }
 
 void FileEnvironment::Dump(u64 pipeline_hash, u64 shader_hash) {
@@ -709,14 +790,19 @@ void LoadPipelines(
     if (!file.is_open()) {
         return;
     }
-    file.exceptions(std::ifstream::failbit);
     const auto end{file.tellg()};
     file.seekg(0, std::ios::beg);
+    const auto delete_cache = [&](std::string_view reason) {
+        file.close();
+        DeletePipelineCacheFile(filename, reason);
+    };
 
     std::array<char, 8> magic_number;
     u32 cache_version;
-    file.read(magic_number.data(), magic_number.size())
-        .read(reinterpret_cast<char*>(&cache_version), sizeof(cache_version));
+    if (!ReadPod(file, magic_number) || !ReadPod(file, cache_version)) {
+        delete_cache("truncated header");
+        return;
+    }
     if (magic_number != MAGIC_NUMBER || cache_version != expected_cache_version) {
         file.close();
         if (Common::FS::RemoveFile(filename)) {
@@ -738,16 +824,23 @@ void LoadPipelines(
             return;
         }
         u32 num_envs{};
-        file.read(reinterpret_cast<char*>(&num_envs), sizeof(num_envs));
+        if (!ReadPod(file, num_envs)) {
+            delete_cache("truncated pipeline entry header");
+            return;
+        }
 
-        if (num_envs == 0 || num_envs > 64) {
+        if (num_envs == 0 || num_envs > 5) {
             LOG_ERROR(Common_Filesystem, "Corrupted shader cache detected: num_envs={}", num_envs);
-            throw std::ios_base::failure("Corrupted num_envs");
+            delete_cache("invalid num_envs");
+            return;
         }
 
         std::vector<FileEnvironment> envs(num_envs);
         for (FileEnvironment& env : envs) {
-            env.Deserialize(file);
+            if (!env.TryDeserialize(file)) {
+                delete_cache("corrupt shader environment");
+                return;
+            }
         }
 
         if (envs.front().ShaderStage() == Shader::Stage::Compute) {
@@ -757,12 +850,12 @@ void LoadPipelines(
         }
     }
 
-} catch (const std::ios_base::failure& e) {
+} catch (const std::exception& e) {
     LOG_ERROR(Common_Filesystem, "{}", e.what());
-    if (!Common::FS::RemoveFile(filename)) {
-        LOG_ERROR(Common_Filesystem, "Failed to delete pipeline cache file {}",
-                  Common::FS::PathToUTF8String(filename));
-    }
+    DeletePipelineCacheFile(filename, "unexpected read failure");
+} catch (...) {
+    LOG_ERROR(Common_Filesystem, "Unknown error while loading pipeline cache");
+    DeletePipelineCacheFile(filename, "unknown read failure");
 }
 
 } // namespace VideoCommon

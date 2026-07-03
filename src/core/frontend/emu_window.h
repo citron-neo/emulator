@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include <functional>
 #include <memory>
 #include <utility>
 
@@ -71,6 +72,13 @@ public:
 
     /// Called from GPU thread when a frame is displayed.
     virtual void OnFrameDisplayed() {}
+
+    /// Run presentation work on the GUI thread when required (e.g. Cocoa/MoltenVK).
+    /// The callback must complete before this method returns; overrides must execute
+    /// work inline and must not post it asynchronously.
+    virtual void RunPresentationWork(const std::function<void()>& work) {
+        work();
+    }
 
     /**
      * Returns a GraphicsContext that the frontend provides to be used for rendering.

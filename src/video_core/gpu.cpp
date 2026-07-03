@@ -42,9 +42,7 @@ struct GPU::Impl {
           gpu_thread{system_, is_async_}, scheduler{std::make_unique<Control::Scheduler>(gpu)} {}
 
     ~Impl() {
-        if (rasterizer) {
-            rasterizer->Shutdown();
-        }
+        NotifyShutdown();
     }
 
     std::shared_ptr<Control::ChannelState> CreateChannel(s32 channel_id) {
@@ -114,6 +112,9 @@ struct GPU::Impl {
     template <typename Func>
     [[nodiscard]] u64 RequestSyncOperation(Func&& action) {
         std::unique_lock lck{sync_request_mutex};
+        if (shutting_down.load(std::memory_order_acquire)) {
+            return current_sync_fence.load(std::memory_order_acquire);
+        }
         const u64 fence = ++last_sync_fence;
         sync_requests.emplace_back(action);
         return fence;
@@ -131,6 +132,9 @@ struct GPU::Impl {
 
     /// Tick pending requests within the GPU.
     void TickWork() {
+        if (shutting_down.load(std::memory_order_acquire)) {
+            return;
+        }
         std::unique_lock lck{sync_request_mutex};
         while (!sync_requests.empty()) {
             auto request = std::move(sync_requests.front());
@@ -218,6 +222,9 @@ struct GPU::Impl {
     }
 
     void RendererFrameEndNotify() {
+        if (shutting_down.load(std::memory_order_acquire)) {
+            return;
+        }
         system.GetPerfStats().EndGameFrame();
     }
 
@@ -225,14 +232,33 @@ struct GPU::Impl {
     /// This can be used to launch any necessary threads and register any necessary
     /// core timing events.
     void Start() {
+        shutting_down.store(false, std::memory_order_release);
         Settings::UpdateGPUAccuracy();
         gpu_thread.StartThread(*renderer, renderer->Context(), *scheduler);
     }
 
     void NotifyShutdown() {
-        std::unique_lock lk{sync_mutex};
-        shutting_down.store(true, std::memory_order::relaxed);
-        sync_cv.notify_all();
+        if (shutting_down.exchange(true, std::memory_order_acq_rel)) {
+            return;
+        }
+        {
+            std::scoped_lock lk{sync_mutex};
+            sync_cv.notify_all();
+        }
+        {
+            std::unique_lock lck{sync_request_mutex};
+            sync_requests.clear();
+            current_sync_fence.store(last_sync_fence, std::memory_order_release);
+            sync_request_cv.notify_all();
+        }
+        gpu_thread.Stop();
+        if (rasterizer) {
+            rasterizer->Shutdown();
+        }
+    }
+
+    [[nodiscard]] bool IsShuttingDown() const {
+        return shutting_down.load(std::memory_order_acquire);
     }
 
     /// Obtain the CPU Context
@@ -545,6 +571,10 @@ void GPU::Start() {
 
 void GPU::NotifyShutdown() {
     impl->NotifyShutdown();
+}
+
+bool GPU::IsShuttingDown() const {
+    return impl->IsShuttingDown();
 }
 
 void GPU::ObtainContext() {

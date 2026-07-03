@@ -8,6 +8,7 @@
 #include <fstream>
 #include <optional>
 #include <span>
+#include <unordered_set>
 
 #include <fstream>
 #include <variant>
@@ -287,9 +288,15 @@ void HLE_DrawIndirectByteCount::Execute(Engines::Maxwell3D& maxwell3d, std::span
     const bool force = maxwell3d.Rasterizer().HasDrawTransformFeedback();
     auto topology = Maxwell3D::Regs::PrimitiveTopology(parameters[0] & 0xFFFFU);
     if (!force && (!maxwell3d.AnyParametersDirty() || !IsTopologySafe(topology))) {
+        LOG_DEBUG(HW_GPU,
+                 "HLE DrawIndirectByteCount fallback: force={} topology={} byte_count={} stride={}",
+                 force, static_cast<u32>(topology), parameters[2], parameters[1]);
         Fallback(maxwell3d, parameters);
         return;
     }
+    LOG_DEBUG(HW_GPU,
+             "HLE DrawIndirectByteCount execute: force={} topology={} byte_count={} stride={}",
+             force, static_cast<u32>(topology), parameters[2], parameters[1]);
     auto& params = maxwell3d.draw_manager->GetIndirectParams();
     params.is_byte_count = true;
     params.is_indexed = false;
@@ -311,9 +318,12 @@ void HLE_DrawIndirectByteCount::Fallback(Engines::Maxwell3D& maxwell3d, std::spa
     maxwell3d.regs.draw_auto_stride = parameters[1];
     maxwell3d.regs.draw_auto_byte_count = parameters[2];
 
-    maxwell3d.draw_manager->DrawArray(
-        maxwell3d.regs.draw.topology, 0,
-        maxwell3d.regs.draw_auto_byte_count / maxwell3d.regs.draw_auto_stride, 0, 1);
+    const u32 stride = std::max(maxwell3d.regs.draw_auto_stride, 1u);
+    const u32 vertex_count = maxwell3d.regs.draw_auto_byte_count / stride;
+    LOG_DEBUG(HW_GPU,
+             "HLE DrawIndirectByteCount DrawArray: byte_count={} stride={} vertex_count={}",
+             maxwell3d.regs.draw_auto_byte_count, stride, vertex_count);
+    maxwell3d.draw_manager->DrawArray(maxwell3d.regs.draw.topology, 0, vertex_count, 0, 1);
 }
 void HLE_C713C83D8F63CCF3::Execute(Engines::Maxwell3D& maxwell3d, std::span<const u32> parameters, [[maybe_unused]] u32 method) {
     maxwell3d.RefreshParameters();
@@ -1371,6 +1381,15 @@ static void Dump(u64 hash, std::span<const u32> code, bool decompiled = false) {
 }
 
 void MacroEngine::Execute(Engines::Maxwell3D& maxwell3d, u32 method, std::span<const u32> parameters) {
+    auto const log_macro_once = [method](u64 hash) {
+        static std::unordered_set<u64> seen_hashes;
+        if (!seen_hashes.insert(hash).second) {
+            return;
+        }
+        const bool uses_hle = CanBeHLEProgram(hash) && !Settings::values.disable_macro_hle;
+        LOG_INFO(Render_Vulkan, "GPU macro hash=0x{:016x} method=0x{:x} hle={}", hash, method,
+                 uses_hle);
+    };
     auto const execute_variant = [&maxwell3d, &parameters, method](AnyCachedMacro& acm) {
         if (auto a = std::get_if<HLE_DrawArraysIndirect>(&acm))
             a->Execute(maxwell3d, parameters, method);
@@ -1403,6 +1422,7 @@ void MacroEngine::Execute(Engines::Maxwell3D& maxwell3d, u32 method, std::span<c
     };
     if (auto const it = macro_cache.find(method); it != macro_cache.end()) {
         auto& ci = it->second;
+        log_macro_once(ci.hash);
         if (!CanBeHLEProgram(ci.hash) || Settings::values.disable_macro_hle)
             maxwell3d.RefreshParameters(); //LLE must reload parameters
         execute_variant(ci.program);
@@ -1440,6 +1460,7 @@ void MacroEngine::Execute(Engines::Maxwell3D& maxwell3d, u32 method, std::span<c
         } else {
             maxwell3d.RefreshParameters();
         }
+        log_macro_once(ci.hash);
         execute_variant(ci.program);
         if (Settings::values.dump_macros) {
             Dump(ci.hash, macro_code->second, !std::holds_alternative<std::monostate>(ci.program));

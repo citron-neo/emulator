@@ -231,6 +231,10 @@ public:
     [[nodiscard]] std::pair<ImageView*, bool> TryFindFramebufferImageView(
         const Tegra::FramebufferConfig& config, DAddr cpu_addr);
 
+    /// Find or create a render target image view from guest RT register state
+    [[nodiscard]] std::pair<ImageView*, bool> TryFindRenderTargetImageView(
+        const ImageInfo& info, GPUVAddr gpu_addr);
+
     /// Return true when there are uncommitted images to be downloaded
     [[nodiscard]] bool HasUncommittedFlushes() const noexcept;
 

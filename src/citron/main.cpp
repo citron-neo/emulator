@@ -7,6 +7,7 @@
 #include <clocale>
 #include <random>
 #include "citron/theme.h"
+#include <chrono>
 #include <cmath>
 #include <cstdlib>
 #include <fstream>
@@ -14,6 +15,7 @@
 #include <memory>
 #include <thread>
 #include "core/hle/service/am/applet_manager.h"
+#include "core/internal_network/network_interface.h"
 #include "core/loader/nca.h"
 #include "core/tools/renderdoc.h"
 
@@ -637,6 +639,12 @@ GMainWindow::GMainWindow(std::unique_ptr<QtConfig> config_, bool has_broken_vulk
 GMainWindow::~GMainWindow() {
     delete game_list;
     game_list = nullptr;
+    if (provider) {
+        provider->ClearAllEntries();
+    }
+    if (autoloader_provider) {
+        autoloader_provider->ClearAllEntries();
+    }
     // will get automatically deleted otherwise
     if (render_window->parent() == nullptr) {
         delete render_window;
@@ -2288,6 +2296,11 @@ void GMainWindow::BootGame(const QString& filename, Service::AM::FrontendAppletP
 
     LOG_INFO(Frontend, "citron starting...");
 
+    if (Settings::values.network_interface.GetValue().empty() ||
+        Common::ToLower(Settings::values.network_interface.GetValue()) == "none") {
+        Network::SelectFirstNetworkInterface();
+    }
+
     game_list->CancelPopulation();
     game_list->ClearLaunchOverlays();
 
@@ -2524,10 +2537,30 @@ void GMainWindow::OnEmulationStopTimeExpired() {
 
 void GMainWindow::OnEmulationStopped() {
     shutdown_timer.stop();
+    std::unique_ptr<EmuThread> thread;
     if (emu_thread) {
-        emu_thread->disconnect();
-        emu_thread->wait();
-        emu_thread.reset();
+        thread = std::move(emu_thread);
+        thread->disconnect();
+        disconnect(thread.get(), &QThread::finished, this, &GMainWindow::OnEmulationStopped);
+#if defined(__APPLE__)
+        // Present work is marshalled to the GUI thread via BlockingQueuedConnection; pump events
+        // while waiting so the emulation thread can finish tearing down Vulkan on macOS.
+        constexpr unsigned long kWaitSliceMs = 50;
+        const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(30);
+        EmuThread* raw_thread = thread.get();
+        while (!thread->wait(kWaitSliceMs)) {
+            QCoreApplication::processEvents(QEventLoop::ExcludeUserInputEvents);
+            if (std::chrono::steady_clock::now() >= deadline) {
+                LOG_ERROR(Frontend,
+                          "Timed out waiting for emulation thread to stop during shutdown");
+                QObject::connect(raw_thread, &QThread::finished, raw_thread, &QObject::deleteLater);
+                (void)thread.release();
+                break;
+            }
+        }
+#else
+        thread->wait();
+#endif
     }
 
     if (shutdown_dialog) {
@@ -6201,15 +6234,6 @@ void GMainWindow::closeEvent(QCloseEvent* event) {
 
     // 1. STOP the emulation first
     if (emu_thread != nullptr) {
-        // Request exit before shutdown so Qlaunch (and other applets) receive the request
-        // and can shut down gracefully. Process events briefly to let it propagate.
-        if (system->IsPoweredOn()) {
-            RequestGameExit();
-            for (int i = 0; i < 5; ++i) {
-                QApplication::processEvents(QEventLoop::ExcludeUserInputEvents);
-                std::this_thread::sleep_for(std::chrono::milliseconds(50));
-            }
-        }
         ShutdownGame();
     }
 
@@ -6222,7 +6246,18 @@ void GMainWindow::closeEvent(QCloseEvent* event) {
     }
 
     if (game_list) {
+        game_list->CancelPopulation();
         game_list->UnloadController();
+    }
+
+    // Release RealVfsFile handles before any VfsFilesystem shared_ptrs are dropped.
+    // RealVfsFile holds a bare RealVfsFilesystem&; destroying it after the filesystem
+    // is gone aborts with "mutex lock failed: Invalid argument" on exit.
+    if (provider) {
+        provider->ClearAllEntries();
+    }
+    if (autoloader_provider) {
+        autoloader_provider->ClearAllEntries();
     }
 
     if (controller_dialog) {

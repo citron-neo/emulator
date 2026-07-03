@@ -6,6 +6,7 @@
 #include <array>
 #include <cmath>
 #include <cstring>
+#include <exception>
 #include <string>
 #include <tuple>
 #include <type_traits>
@@ -18,18 +19,24 @@
 #include <QCameraImageCapture>
 #include <QCameraInfo>
 #endif
+#include <QCoreApplication>
 #include <QCursor>
 #include <QEvent>
+#include <QEventLoop>
 #include <QGuiApplication>
 #include <QHBoxLayout>
 #include <QKeyEvent>
 #include <QLayout>
 #include <QList>
 #include <QMessageBox>
+#include <QMetaObject>
 #include <QScreen>
 #include <QSize>
 #include <QStringLiteral>
 #include <QSurfaceFormat>
+#include <QThread>
+#include <QMouseEvent>
+#include <QWheelEvent>
 #include <QWindow>
 #include <QtCore/qobjectdefs.h>
 
@@ -151,6 +158,20 @@ public:
         return nullptr;
     }
 
+protected:
+    void mousePressEvent(QMouseEvent* event) override {
+        render_window->ForwardChildMouseEvent(event);
+    }
+    void mouseMoveEvent(QMouseEvent* event) override {
+        render_window->ForwardChildMouseEvent(event);
+    }
+    void mouseReleaseEvent(QMouseEvent* event) override {
+        render_window->ForwardChildMouseEvent(event);
+    }
+    void wheelEvent(QWheelEvent* event) override {
+        render_window->ForwardChildWheelEvent(event);
+    }
+
 private:
     GRenderWindow* render_window;
 };
@@ -216,6 +237,16 @@ GRenderWindow::~GRenderWindow() {
 }
 
 void GRenderWindow::OnFrameDisplayed() {
+    QCoreApplication* app = QCoreApplication::instance();
+    if (app && QThread::currentThread() != app->thread()) {
+        QMetaObject::invokeMethod(this, &GRenderWindow::OnFrameDisplayedGuiThread,
+                                  Qt::QueuedConnection);
+        return;
+    }
+    OnFrameDisplayedGuiThread();
+}
+
+void GRenderWindow::OnFrameDisplayedGuiThread() {
     input_subsystem->GetTas()->UpdateThread();
     const InputCommon::TasInput::TasState new_tas_state =
         std::get<0>(input_subsystem->GetTas()->GetStatus());
@@ -229,6 +260,33 @@ void GRenderWindow::OnFrameDisplayed() {
     if (new_tas_state != last_tas_state) {
         last_tas_state = new_tas_state;
         emit TasPlaybackStateChanged();
+    }
+}
+
+void GRenderWindow::RunPresentationWork(const std::function<void()>& work) {
+    if (QtCommon::GetWindowSystemType() != Core::Frontend::WindowSystemType::Cocoa) {
+        work();
+        return;
+    }
+    QCoreApplication* app = QCoreApplication::instance();
+    if (!app || QThread::currentThread() == app->thread()) {
+        work();
+        return;
+    }
+    const std::function<void()> copy = work;
+    std::exception_ptr error;
+    QMetaObject::invokeMethod(
+        this,
+        [copy, &error]() {
+            try {
+                copy();
+            } catch (...) {
+                error = std::current_exception();
+            }
+        },
+        Qt::BlockingQueuedConnection);
+    if (error) {
+        std::rethrow_exception(error);
     }
 }
 
@@ -576,17 +634,13 @@ void GRenderWindow::mousePressEvent(QMouseEvent* event) {
         mouse_hide_timer.start();
     }
 
-    // Touch input is handled in TouchBeginEvent
-    if (event->source() == Qt::MouseEventSynthesizedBySystem) {
-        return;
-    }
-    // Qt sometimes returns the parent coordinates. To avoid this we read the global mouse
-    // coordinates and map them to the current render area
     const auto pos = mapFromGlobal(QCursor::pos());
     const auto [x, y] = ScaleTouch(pos);
     const auto [touch_x, touch_y] = MapToTouchScreen(x, y);
     const auto button = QtButtonToMouseButton(event->button());
 
+    input_subsystem->GetMouse()->MouseMove(touch_x, touch_y);
+    input_subsystem->GetMouse()->TouchMove(touch_x, touch_y);
     input_subsystem->GetMouse()->PressMouseButton(button);
     input_subsystem->GetMouse()->PressButton(pos.x(), pos.y(), button);
     input_subsystem->GetMouse()->PressTouchButton(touch_x, touch_y, button);
@@ -643,13 +697,28 @@ void GRenderWindow::mouseMoveEvent(QMouseEvent* event) {
 }
 
 void GRenderWindow::mouseReleaseEvent(QMouseEvent* event) {
-    // Touch input is handled in TouchEndEvent
-    if (event->source() == Qt::MouseEventSynthesizedBySystem) {
-        return;
-    }
-
     const auto button = QtButtonToMouseButton(event->button());
     input_subsystem->GetMouse()->ReleaseButton(button);
+}
+
+void GRenderWindow::ForwardChildMouseEvent(QMouseEvent* event) {
+    switch (event->type()) {
+    case QEvent::MouseButtonPress:
+        mousePressEvent(event);
+        break;
+    case QEvent::MouseMove:
+        mouseMoveEvent(event);
+        break;
+    case QEvent::MouseButtonRelease:
+        mouseReleaseEvent(event);
+        break;
+    default:
+        break;
+    }
+}
+
+void GRenderWindow::ForwardChildWheelEvent(QWheelEvent* event) {
+    wheelEvent(event);
 }
 
 void GRenderWindow::ConstrainMouse() {
@@ -878,15 +947,34 @@ bool GRenderWindow::InitRenderTarget() {
         break;
     }
 
+    child_widget->resize(Layout::ScreenUndocked::Width, Layout::ScreenUndocked::Height);
+#if defined(__APPLE__)
+    // MoltenVK reports a fixed currentExtent from the CAMetalLayer-backed QWindow. If we query /
+    // create the Vulkan swapchain before Cocoa applies the QWidget resize, extent can stay at a
+    // tiny default (e.g. 200x60) and presentation looks black or corrupt until a later resize.
+    if (QWindow* child_window = child_widget->windowHandle()) {
+        child_window->resize(Layout::ScreenUndocked::Width, Layout::ScreenUndocked::Height);
+    }
+#endif
+
     // Update the Window System information with the new render target
     window_info = QtCommon::GetWindowSystemInfo(child_widget->windowHandle());
 
-    child_widget->resize(Layout::ScreenUndocked::Width, Layout::ScreenUndocked::Height);
     layout()->addWidget(child_widget);
+    child_widget->installEventFilter(this);
+    if (QWindow* child_window = child_widget->windowHandle()) {
+        child_window->installEventFilter(this);
+    }
     // Reset minimum required size to avoid resizing issues on the main window after restarting.
     setMinimumSize(1, 1);
 
     resize(Layout::ScreenUndocked::Width, Layout::ScreenUndocked::Height);
+
+#if defined(__APPLE__)
+    // Deliver pending resize/layout so the native surface size matches before System::Load builds
+    // RendererVulkan (still on the GUI thread).
+    QCoreApplication::processEvents(QEventLoop::ExcludeUserInputEvents);
+#endif
 
     OnMinimalClientAreaChangeRequest(GetActiveConfig().min_client_area_size);
     OnFramebufferSizeChanged();
@@ -896,6 +984,10 @@ bool GRenderWindow::InitRenderTarget() {
 
 void GRenderWindow::ReleaseRenderTarget() {
     if (child_widget) {
+        if (QWindow* child_window = child_widget->windowHandle()) {
+            child_window->removeEventFilter(this);
+        }
+        child_widget->removeEventFilter(this);
         layout()->removeWidget(child_widget);
         child_widget->deleteLater();
         child_widget = nullptr;
@@ -981,6 +1073,21 @@ void GRenderWindow::showEvent(QShowEvent* event) {
 }
 
 bool GRenderWindow::eventFilter(QObject* object, QEvent* event) {
+    if (child_widget && (object == child_widget || object == child_widget->windowHandle())) {
+        switch (event->type()) {
+        case QEvent::MouseButtonPress:
+        case QEvent::MouseButtonRelease:
+        case QEvent::MouseMove:
+            ForwardChildMouseEvent(static_cast<QMouseEvent*>(event));
+            return true;
+        case QEvent::Wheel:
+            ForwardChildWheelEvent(static_cast<QWheelEvent*>(event));
+            return true;
+        default:
+            break;
+        }
+    }
+
     // Only handle HoverMove for panning.
     if (event->type() == QEvent::HoverMove) {
         if (Settings::values.mouse_panning.GetValue() || Settings::values.mouse_enabled.GetValue()) {

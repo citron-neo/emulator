@@ -157,6 +157,7 @@ public:
 
     // EmuWindow implementation.
     void OnFrameDisplayed() override;
+    void RunPresentationWork(const std::function<void()>& work) override;
     bool IsShown() const override;
     std::unique_ptr<Core::Frontend::GraphicsContext> CreateSharedContext() const override;
 
@@ -217,6 +218,10 @@ public:
     /// Instructs the window to exit the application.
     void Exit();
 
+    /// Forward mouse events from the embedded Vulkan surface widget/window.
+    void ForwardChildMouseEvent(QMouseEvent* event);
+    void ForwardChildWheelEvent(QWheelEvent* event);
+
 public slots:
     void OnEmulationStarting(EmuThread* emu_thread_);
     void OnEmulationStopping();
@@ -235,6 +240,7 @@ signals:
     void UnlockFramerateHotkeyPressed();
 
 private slots:
+    void OnFrameDisplayedGuiThread();
     void HideMouseCursor();
 
 private:

@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+#include <algorithm>
 #include <cstddef>
 #include <limits>
 #include <map>
@@ -368,6 +369,7 @@ public:
         {
             std::scoped_lock lk(flush_guard);
             pending_flush_sets.emplace_back(std::move(pending_flush_queries));
+            pending_flush_queries.clear();
         }
     }
 
@@ -661,17 +663,23 @@ class PrimitivesSucceededStreamer;
 
 class TFBCounterStreamer : public BaseStreamer {
 public:
-    explicit TFBCounterStreamer(size_t id_, QueryCacheRuntime& runtime_, const Device& device_,
-                                Scheduler& scheduler_, const MemoryAllocator& memory_allocator_,
+    explicit TFBCounterStreamer(size_t id_, QueryCacheRuntime& runtime_, BufferCache& buffer_cache_,
+                                const Device& device_, Scheduler& scheduler_,
+                                const MemoryAllocator& memory_allocator_,
                                 StagingBufferPool& staging_pool_)
-        : BaseStreamer(id_), runtime{runtime_}, device{device_}, scheduler{scheduler_},
-          memory_allocator{memory_allocator_}, staging_pool{staging_pool_} {
+        : BaseStreamer(id_), runtime{runtime_}, buffer_cache{buffer_cache_}, device{device_},
+          scheduler{scheduler_}, memory_allocator{memory_allocator_},
+          staging_pool{staging_pool_} {
         buffers_count = 0;
         current_bank = nullptr;
         counter_buffers.fill(VK_NULL_HANDLE);
         offsets.fill(0);
         last_queries.fill(0);
         last_queries_stride.fill(1);
+        streams_mask = 0;
+        if (!device.IsExtTransformFeedbackSupported()) {
+            return;
+        }
         const VkBufferCreateInfo buffer_ci = {
             .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
             .pNext = nullptr,
@@ -737,6 +745,8 @@ public:
     void SyncWrites() override {
         CloseCounter();
         std::unordered_map<size_t, std::vector<HostSyncValues>> sync_values_stash;
+        std::vector<size_t> emulated_pending;
+        std::vector<VideoCommon::SyncValuesStruct> emulated_sync_values;
         for (auto q : pending_sync) {
             auto* query = GetQuery(q);
             if (True(query->flags & VideoCommon::QueryFlagBits::IsRewritten)) {
@@ -745,12 +755,66 @@ public:
             if (True(query->flags & VideoCommon::QueryFlagBits::IsInvalidated)) {
                 continue;
             }
+            if (!device.IsExtTransformFeedbackSupported()) {
+                if (emulated_query_strides.contains(q)) {
+                    emulated_pending.push_back(q);
+                    continue;
+                }
+            }
             query->flags |= VideoCommon::QueryFlagBits::IsHostSynced;
             sync_values_stash.try_emplace(query->start_bank_id);
             sync_values_stash[query->start_bank_id].emplace_back(HostSyncValues{
                 .address = query->guest_address,
                 .size = TFBQueryBank::QUERY_SIZE,
                 .offset = query->start_slot * TFBQueryBank::QUERY_SIZE,
+            });
+        }
+        if (!emulated_pending.empty()) {
+            auto staging_ref = staging_pool.Request(
+                emulated_pending.size() * TFBQueryBank::QUERY_SIZE, MemoryUsage::Download, true);
+            size_t offset_base = staging_ref.offset;
+            for (const size_t q : emulated_pending) {
+                auto* query = GetQuery(q);
+                auto& bank = bank_pool.GetBank(query->start_bank_id);
+                bank.Sync(staging_ref, offset_base, query->start_slot, 1);
+                offset_base += TFBQueryBank::QUERY_SIZE;
+            }
+            static constexpr VkMemoryBarrier WRITE_BARRIER{
+                .sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER,
+                .pNext = nullptr,
+                .srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT,
+                .dstAccessMask = VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_MEMORY_WRITE_BIT,
+            };
+            scheduler.RequestOutsideRenderPassOperationContext();
+            scheduler.Record([](vk::CommandBuffer cmdbuf) {
+                cmdbuf.PipelineBarrier(VK_PIPELINE_STAGE_TRANSFER_BIT,
+                                       VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, 0, WRITE_BARRIER);
+            });
+            scheduler.Finish();
+            size_t download_offset = 0;
+            emulated_sync_values.reserve(emulated_pending.size());
+            for (const size_t q : emulated_pending) {
+                auto* query = GetQuery(q);
+                u32 records = 0;
+                std::memcpy(&records, staging_ref.mapped_span.data() + download_offset, sizeof(u32));
+                download_offset += TFBQueryBank::QUERY_SIZE;
+                const u32 stride = emulated_query_strides.at(q);
+                emulated_query_strides.erase(q);
+                const u64 byte_value = static_cast<u64>(records) * stride;
+                query->value = byte_value;
+                query->flags |= VideoCommon::QueryFlagBits::IsHostSynced |
+                                VideoCommon::QueryFlagBits::IsFinalValueSynced;
+                emulated_sync_values.push_back(VideoCommon::SyncValuesStruct{
+                    .address = query->guest_address,
+                    .value = byte_value,
+                    .size = TFBQueryBank::QUERY_SIZE,
+                });
+                bank_pool.GetBank(query->start_bank_id).CloseReference();
+            }
+            staging_pool.FreeDeferred(staging_ref);
+            runtime.template SyncValues<VideoCommon::SyncValuesStruct>(emulated_sync_values);
+            std::erase_if(pending_flush_queries, [&emulated_pending](size_t query_id) {
+                return std::ranges::find(emulated_pending, query_id) != emulated_pending.end();
             });
         }
         for (auto& p : sync_values_stash) {
@@ -780,12 +844,20 @@ public:
             new_query->flags |= VideoCommon::QueryFlagBits::IsFinalValueSynced;
             return index;
         }
+        if (!device.IsExtTransformFeedbackSupported()) {
+            // Ensure the emulated TF draw has finished writing the counter SSBO before we copy it.
+            scheduler.Flush();
+        }
         CloseCounter();
         auto [bank_slot, data_slot] = ProduceCounterBuffer(subreport);
         new_query->start_bank_id = static_cast<u32>(bank_slot);
         new_query->size_banks = 1;
         new_query->start_slot = static_cast<u32>(data_slot);
         new_query->size_slots = 1;
+        if (!device.IsExtTransformFeedbackSupported()) {
+            emulated_query_strides[index] =
+                static_cast<u32>(std::max<size_t>(last_queries_stride[subreport], 1));
+        }
         pending_sync.push_back(index);
         pending_flush_queries.push_back(index);
         return index;
@@ -809,6 +881,9 @@ public:
 
     void PushUnsyncedQueries() override {
         CloseCounter();
+        if (!device.IsExtTransformFeedbackSupported() && !pending_flush_queries.empty()) {
+            scheduler.Flush();
+        }
         auto staging_ref = staging_pool.Request(
             pending_flush_queries.size() * TFBQueryBank::QUERY_SIZE, MemoryUsage::Download, true);
         size_t offset_base = staging_ref.offset;
@@ -838,6 +913,7 @@ public:
         free_queue.clear();
         download_buffers.emplace_back(staging_ref);
         pending_flush_sets.emplace_back(std::move(pending_flush_queries));
+        pending_flush_queries.clear();
     }
 
     void PopUnsyncedQueries() override {
@@ -850,15 +926,26 @@ public:
             download_buffers.pop_front();
             pending_flush_sets.pop_front();
         }
+        if (!device.IsExtTransformFeedbackSupported()) {
+            scheduler.Finish();
+        }
 
-        size_t offset_base = staging_ref.offset;
+        size_t download_offset = 0;
         for (auto q : flushed_queries) {
             auto* query = GetQuery(q);
             u32 result = 0;
-            std::memcpy(&result, staging_ref.mapped_span.data() + offset_base, sizeof(u32));
-            query->value = static_cast<u64>(result);
+            std::memcpy(&result, staging_ref.mapped_span.data() + download_offset, sizeof(u32));
+            u64 value = result;
+            if (!device.IsExtTransformFeedbackSupported()) {
+                if (const auto it = emulated_query_strides.find(q);
+                    it != emulated_query_strides.end()) {
+                    value *= it->second;
+                    emulated_query_strides.erase(it);
+                }
+            }
+            query->value = value;
             query->flags |= VideoCommon::QueryFlagBits::IsFinalValueSynced;
-            offset_base += TFBQueryBank::QUERY_SIZE;
+            download_offset += TFBQueryBank::QUERY_SIZE;
         }
 
         {
@@ -873,6 +960,10 @@ private:
             return;
         }
         has_flushed_end_pending = true;
+        if (!device.IsExtTransformFeedbackSupported()) {
+            UpdateBuffers();
+            return;
+        }
         if (!has_started || buffers_count == 0) {
             scheduler.Record([](vk::CommandBuffer cmdbuf) {
                 cmdbuf.BeginTransformFeedbackEXT(0, 0, nullptr, nullptr);
@@ -891,6 +982,10 @@ private:
             return;
         }
         has_flushed_end_pending = false;
+
+        if (!device.IsExtTransformFeedbackSupported()) {
+            return;
+        }
 
         // Enhanced query ending with better error handling
         try {
@@ -916,6 +1011,7 @@ private:
     void UpdateBuffers() {
         last_queries.fill(0);
         last_queries_stride.fill(1);
+        streams_mask = 0;
         runtime.View3DRegs([this](Maxwell3D& maxwell3d) {
             buffers_count = 0;
             out_topology = maxwell3d.draw_manager->GetDrawState().topology;
@@ -943,6 +1039,52 @@ private:
         auto [dont_care, other] = current_bank->Reserve();
         const size_t slot = other; // workaround to compile bug.
         current_bank->AddReference();
+
+        if (!device.IsExtTransformFeedbackSupported()) {
+            const VkBuffer snapshot_buffer =
+                buffer_cache.runtime.GetXfbEmulationCounterSnapshotBuffer();
+            const VkBuffer live_buffer = buffer_cache.runtime.GetXfbEmulationCounterBuffer();
+            const VkBuffer src_buffer =
+                snapshot_buffer != VK_NULL_HANDLE ? snapshot_buffer : live_buffer;
+            static constexpr VkMemoryBarrier WRITE_BARRIER{
+                .sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER,
+                .pNext = nullptr,
+                .srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT,
+                .dstAccessMask = VK_ACCESS_MEMORY_READ_BIT,
+            };
+            if (src_buffer == VK_NULL_HANDLE) {
+                scheduler.RequestOutsideRenderPassOperationContext();
+                scheduler.Record([dst_buffer = current_bank->GetBuffer(),
+                                  slot](vk::CommandBuffer cmdbuf) {
+                    cmdbuf.FillBuffer(dst_buffer, slot * TFBQueryBank::QUERY_SIZE,
+                                      TFBQueryBank::QUERY_SIZE, 0);
+                    cmdbuf.PipelineBarrier(VK_PIPELINE_STAGE_TRANSFER_BIT,
+                                           VK_PIPELINE_STAGE_TRANSFER_BIT, 0, WRITE_BARRIER);
+                });
+                return {current_bank_id, slot};
+            }
+            static constexpr VkMemoryBarrier READ_BARRIER{
+                .sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER,
+                .pNext = nullptr,
+                .srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT | VK_ACCESS_TRANSFER_WRITE_BIT,
+                .dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT,
+            };
+            scheduler.RequestOutsideRenderPassOperationContext();
+            scheduler.Record([dst_buffer = current_bank->GetBuffer(), src_buffer, slot,
+                              stream](vk::CommandBuffer cmdbuf) {
+                cmdbuf.PipelineBarrier(VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+                                       VK_PIPELINE_STAGE_TRANSFER_BIT, 0, READ_BARRIER);
+                std::array<VkBufferCopy, 1> copy{VkBufferCopy{
+                    .srcOffset = stream * TFBQueryBank::QUERY_SIZE,
+                    .dstOffset = slot * TFBQueryBank::QUERY_SIZE,
+                    .size = TFBQueryBank::QUERY_SIZE,
+                }};
+                cmdbuf.CopyBuffer(src_buffer, dst_buffer, copy);
+                cmdbuf.PipelineBarrier(VK_PIPELINE_STAGE_TRANSFER_BIT,
+                                       VK_PIPELINE_STAGE_TRANSFER_BIT, 0, WRITE_BARRIER);
+            });
+            return {current_bank_id, slot};
+        }
 
         static constexpr VkMemoryBarrier READ_BARRIER{
             .sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER,
@@ -979,10 +1121,12 @@ private:
     static constexpr size_t NUM_STREAMS = 4;
 
     QueryCacheRuntime& runtime;
+    BufferCache& buffer_cache;
     const Device& device;
     Scheduler& scheduler;
     const MemoryAllocator& memory_allocator;
     StagingBufferPool& staging_pool;
+    std::unordered_map<size_t, u32> emulated_query_strides;
     VideoCommon::BankPool<TFBQueryBank> bank_pool;
     size_t current_bank_id;
     TFBQueryBank* current_bank;
@@ -1125,16 +1269,17 @@ public:
 
             query->flags |= VideoCommon::QueryFlagBits::IsFinalValueSynced;
             u64 num_vertices = 0;
+            const u64 stride = std::max<u64>(query->stride, 1);
             if (query->dependant_manage) {
                 auto* dependant_query = tfb_streamer.GetQuery(query->dependant_index);
-                num_vertices = dependant_query->value / query->stride;
+                num_vertices = dependant_query->value / stride;
                 tfb_streamer.Free(query->dependant_index);
             } else {
                 u8* pointer = device_memory.GetPointer<u8>(query->dependant_address);
                 if (pointer != nullptr) {
                     u32 result;
                     std::memcpy(&result, pointer, sizeof(u32));
-                    num_vertices = static_cast<u64>(result) / query->stride;
+                    num_vertices = static_cast<u64>(result) / stride;
                 }
             }
             query->value = [&]() -> u64 {
@@ -1144,21 +1289,23 @@ public:
                 case Maxwell3D::Regs::PrimitiveTopology::Lines:
                     return num_vertices / 2;
                 case Maxwell3D::Regs::PrimitiveTopology::LineLoop:
-                    return (num_vertices / 2) + 1;
+                    return num_vertices >= 2 ? num_vertices : 0;
                 case Maxwell3D::Regs::PrimitiveTopology::LineStrip:
-                    return num_vertices - 1;
+                    return num_vertices >= 2 ? num_vertices - 1 : 0;
                 case Maxwell3D::Regs::PrimitiveTopology::Patches:
                 case Maxwell3D::Regs::PrimitiveTopology::Triangles:
-                case Maxwell3D::Regs::PrimitiveTopology::TrianglesAdjacency:
                     return num_vertices / 3;
+                case Maxwell3D::Regs::PrimitiveTopology::TrianglesAdjacency:
+                    return num_vertices / 6;
                 case Maxwell3D::Regs::PrimitiveTopology::TriangleFan:
                 case Maxwell3D::Regs::PrimitiveTopology::TriangleStrip:
+                    return num_vertices >= 3 ? num_vertices - 2 : 0;
                 case Maxwell3D::Regs::PrimitiveTopology::TriangleStripAdjacency:
-                    return num_vertices - 2;
+                    return num_vertices >= 6 ? (num_vertices - 6) / 2 + 1 : 0;
                 case Maxwell3D::Regs::PrimitiveTopology::Quads:
                     return num_vertices / 4;
                 case Maxwell3D::Regs::PrimitiveTopology::Polygon:
-                    return 1U;
+                    return num_vertices >= 3 ? 1U : 0U;
                 default:
                     return num_vertices;
                 }
@@ -1196,8 +1343,8 @@ struct QueryCacheRuntimeImpl {
           sample_streamer(static_cast<size_t>(QueryType::ZPassPixelCount64), runtime, rasterizer,
                           device, scheduler, memory_allocator, compute_pass_descriptor_queue,
                           descriptor_pool),
-          tfb_streamer(static_cast<size_t>(QueryType::StreamingByteCount), runtime, device,
-                       scheduler, memory_allocator, staging_pool),
+          tfb_streamer(static_cast<size_t>(QueryType::StreamingByteCount), runtime, buffer_cache_,
+                       device, scheduler, memory_allocator, staging_pool),
           primitives_succeeded_streamer(
               static_cast<size_t>(QueryType::StreamingPrimitivesSucceeded), runtime, tfb_streamer,
               device_memory_),

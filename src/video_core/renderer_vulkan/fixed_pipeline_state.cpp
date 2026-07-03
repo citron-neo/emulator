@@ -24,6 +24,8 @@ void RefreshXfbState(VideoCommon::TransformFeedbackState& state, const Tegra::En
                                    .stride = layout.stride,
                                };
                            });
+    std::ranges::transform(regs.transform_feedback.buffers, state.buffer_sizes.begin(),
+                           [](const auto& buffer) { return buffer.size; });
     state.varyings = regs.stream_out_layout;
 }
 } // Anonymous namespace
@@ -39,7 +41,9 @@ void FixedPipelineState::Refresh(Tegra::Engines::Maxwell3D& maxwell3d, DynamicFe
     extended_dynamic_state_3_blend.Assign(features.has_extended_dynamic_state_3_blend ? 1 : 0);
     extended_dynamic_state_3_enables.Assign(features.has_extended_dynamic_state_3_enables ? 1 : 0);
     dynamic_vertex_input.Assign(features.has_dynamic_vertex_input ? 1 : 0);
-    xfb_enabled.Assign(features.has_transform_feedback && regs.transform_feedback_enabled != 0);
+    xfb_enabled.Assign((features.has_transform_feedback || features.emulate_transform_feedback) &&
+                       regs.transform_feedback_enabled != 0);
+    xfb_emulated.Assign(features.emulate_transform_feedback && regs.transform_feedback_enabled != 0);
     ndc_minus_one_to_one.Assign(regs.depth_mode == Tegra::Engines::Maxwell3D::Regs::DepthMode::MinusOneToOne ? 1 : 0);
     polygon_mode.Assign(PackPolygonMode(regs.polygon_mode_front));
     tessellation_primitive.Assign(static_cast<u32>(regs.tessellation.params.domain_type.Value()));
@@ -91,6 +95,17 @@ void FixedPipelineState::Refresh(Tegra::Engines::Maxwell3D& maxwell3d, DynamicFe
                 const u32 mask = attrs[i].constant != 0 ? 0 : 3;
                 const u32 type = LUT[static_cast<size_t>(attrs[i].type.Value())];
                 attribute_types |= static_cast<u64>(type & mask) << (i * 2);
+            }
+            for (size_t index = 0; index < Tegra::Engines::Maxwell3D::Regs::NumVertexAttributes;
+                 ++index) {
+                const auto& input = regs.vertex_attrib_format[index];
+                auto& attribute = attributes[index];
+                attribute.raw = 0;
+                attribute.enabled.Assign(input.constant ? 0 : 1);
+                attribute.buffer.Assign(input.buffer);
+                attribute.offset.Assign(input.offset);
+                attribute.type.Assign(static_cast<u32>(input.type.Value()));
+                attribute.size.Assign(static_cast<u32>(input.size.Value()));
             }
         } else {
             maxwell3d.dirty.flags[Dirty::VertexInput] = false;

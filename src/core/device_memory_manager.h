@@ -147,7 +147,7 @@ private:
     }
 
     void WalkBlock(const DAddr addr, const std::size_t size, auto on_unmapped, auto on_memory,
-                   auto increment);
+                   auto increment, bool allow_direct_physical_read_fallback = false);
 
     void InnerGatherDeviceAddresses(Common::ScratchBuffer<u32>& buffer, PAddr address);
 

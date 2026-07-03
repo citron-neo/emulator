@@ -121,8 +121,33 @@ void Fermi2D::Blit() {
     }
 
     memory_manager.FlushCaching();
-    if (!rasterizer->AccelerateSurfaceCopy(src, regs.dst, config)) {
+    static u32 fermi2d_diag_budget = 60;
+    const bool accelerated = rasterizer->AccelerateSurfaceCopy(src, regs.dst, config);
+    const auto dst_cpu = memory_manager.GpuToCpuAddress(regs.dst.Address());
+    const bool vi_scanout_dst =
+        dst_cpu && ((*dst_cpu & 0xFFF0000) == 0xABB0000 || (*dst_cpu & 0xFFF0000) == 0xB420000 ||
+                    (*dst_cpu & 0xFFF0000) == 0xBC90000);
+    if (fermi2d_diag_budget > 0) {
+        --fermi2d_diag_budget;
+        LOG_INFO(HW_GPU,
+                 "Fermi2D blit: src=0x{:x} dst=0x{:x} dst_cpu=0x{:x} size={}x{} accelerated={} "
+                 "vi_scanout={}",
+                 src.Address(), regs.dst.Address(), dst_cpu.value_or(0),
+                 config.dst_x1 - config.dst_x0, config.dst_y1 - config.dst_y0, accelerated,
+                 vi_scanout_dst);
+    }
+    if (!accelerated) {
         sw_blitter->Blit(src, regs.dst, config);
+        const u32 dst_bpp =
+            BytesPerBlock(PixelFormatFromRenderTargetFormat(regs.dst.format));
+        const u64 dst_bytes = regs.dst.linear == MemoryLayout::BlockLinear
+                                  ? CalculateSize(true, dst_bpp, regs.dst.width, regs.dst.height,
+                                                  regs.dst.depth, regs.dst.block_height,
+                                                  regs.dst.block_depth)
+                                  : static_cast<u64>(regs.dst.pitch) * regs.dst.height;
+        if (const auto cpu_addr = memory_manager.GpuToCpuAddress(regs.dst.Address())) {
+            rasterizer->OnCPUWrite(*cpu_addr, dst_bytes);
+        }
     }
 }
 

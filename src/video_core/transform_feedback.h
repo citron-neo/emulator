@@ -19,6 +19,7 @@ struct TransformFeedbackState {
         u32 stride;
     };
     std::array<Layout, Tegra::Engines::Maxwell3D::Regs::NumTransformFeedbackBuffers> layouts;
+    std::array<s32, Tegra::Engines::Maxwell3D::Regs::NumTransformFeedbackBuffers> buffer_sizes;
     std::array<std::array<Tegra::Engines::Maxwell3D::Regs::StreamOutLayout, 32>,
                Tegra::Engines::Maxwell3D::Regs::NumTransformFeedbackBuffers>
         varyings;

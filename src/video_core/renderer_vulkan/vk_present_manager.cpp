@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright 2023 yuzu Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
+#include "common/logging.h"
 #include "common/settings.h"
 #include "common/thread.h"
 #include "core/frontend/emu_window.h"
@@ -154,7 +155,7 @@ Frame* PresentManager::GetRenderFrame() {
 void PresentManager::Present(Frame* frame) {
     if (!use_present_thread) {
         scheduler.WaitWorker();
-        CopyToSwapchain(frame);
+        render_window.RunPresentationWork([this, frame] { CopyToSwapchain(frame); });
         free_queue.push(frame);
         return;
     }
@@ -245,10 +246,9 @@ void PresentManager::WaitPresent() {
         frame_cv.wait(queue_lock, [this] { return present_queue.empty(); });
     }
 
-    // The above condition will be satisfied when the last frame is taken from the queue.
-    // To ensure that frame has been presented as well take hold of the swapchain
-    // mutex.
-    std::scoped_lock swapchain_lock{swapchain_mutex};
+    // The queue can empty before CopyToSwapchain() finishes on the GUI thread.
+    std::unique_lock present_lock{present_state_mutex};
+    present_state_cv.wait(present_lock, [this] { return !presenting; });
 }
 
 void PresentManager::PresentThread(std::stop_token token) {
@@ -262,17 +262,23 @@ void PresentManager::PresentThread(std::stop_token token) {
             return;
         }
 
-        // Take the frame and notify anyone waiting
+        // Take the frame and mark presentation in-flight before the queue appears empty.
         Frame* frame = present_queue.front();
         present_queue.pop();
+        {
+            std::lock_guard present_lock{present_state_mutex};
+            presenting = true;
+        }
         frame_cv.notify_one();
 
-        // By exchanging the lock ownership we take the swapchain lock
-        // before the queue lock goes out of scope. This way the swapchain
-        // lock in WaitPresent is guaranteed to occur after here.
-        std::exchange(lock, std::unique_lock{swapchain_mutex});
+        lock.unlock();
 
-        CopyToSwapchain(frame);
+        render_window.RunPresentationWork([this, frame] { CopyToSwapchain(frame); });
+        {
+            std::lock_guard present_lock{present_state_mutex};
+            presenting = false;
+        }
+        present_state_cv.notify_all();
 
         // Free the frame for reuse
         std::scoped_lock fl{free_mutex};
@@ -317,6 +323,12 @@ void PresentManager::CopyToSwapchain(Frame* frame) {
 }
 
 void PresentManager::CopyToSwapchainImpl(Frame* frame) {
+    static u32 present_diag_budget = 120;
+    if (present_diag_budget > 0) {
+        --present_diag_budget;
+        LOG_INFO(Render_Vulkan, "Present: frame={}x{} swapchain={}x{}", frame->width, frame->height,
+                 swapchain.GetWidth(), swapchain.GetHeight());
+    }
 
     // If the size of the incoming frames has changed, recreate the swapchain
     // to account for that.

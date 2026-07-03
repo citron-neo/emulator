@@ -5,6 +5,7 @@
 #include <array>
 #include <cstring>
 #include <memory>
+#include <mutex>
 #include <optional>
 #include <string>
 #include <vector>
@@ -138,7 +139,7 @@ RendererVulkan::~RendererVulkan() {
 }
 
 void RendererVulkan::Composite(std::span<const Tegra::FramebufferConfig> framebuffers) {
-    if (framebuffers.empty()) {
+    if (framebuffers.empty() || gpu.IsShuttingDown()) {
         return;
     }
 
@@ -146,6 +147,10 @@ void RendererVulkan::Composite(std::span<const Tegra::FramebufferConfig> framebu
 
     // Check if frame should be skipped
     if (frame_skipping.ShouldSkipFrame(frame_start_time)) {
+        static std::once_flag skip_once;
+        std::call_once(skip_once, [] {
+            LOG_INFO(Render_Vulkan, "Composite: skipped by frame skipping");
+        });
         // Skip rendering but still notify the GPU
         gpu.RendererFrameEndNotify();
         rasterizer.TickFrame();
@@ -159,7 +164,21 @@ void RendererVulkan::Composite(std::span<const Tegra::FramebufferConfig> framebu
     RenderAppletCaptureLayer(framebuffers);
 
     if (!render_window.IsShown()) {
+        static std::once_flag hidden_once;
+        std::call_once(hidden_once, [] {
+            LOG_INFO(Render_Vulkan, "Composite: window not shown (minimized?)");
+        });
         return;
+    }
+
+    static u32 composite_diag_budget = 120;
+    if (composite_diag_budget > 0) {
+        --composite_diag_budget;
+        const auto& fb = framebuffers.front();
+        LOG_INFO(Render_Vulkan,
+                 "Composite: layers={} primary={}x{} addr=0x{:x} stride={} format={}",
+                 framebuffers.size(), fb.width, fb.height, fb.address + fb.offset, fb.stride,
+                 static_cast<u32>(fb.pixel_format));
     }
 
     RenderScreenshot(framebuffers);

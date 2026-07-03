@@ -21,6 +21,7 @@
 #include "video_core/renderer_vulkan/vk_scheduler.h"
 #include "video_core/renderer_vulkan/vk_texture_cache.h"
 #include "video_core/renderer_vulkan/vk_update_descriptor.h"
+#include "video_core/renderer_vulkan/vertex_location_remap.h"
 #include "video_core/shader_notify.h"
 #include "video_core/texture_cache/texture_cache.h"
 #include "video_core/vulkan_common/vulkan_device.h"
@@ -248,7 +249,8 @@ GraphicsPipeline::GraphicsPipeline(
     GuestDescriptorQueue& guest_descriptor_queue_, Common::ThreadWorker* worker_thread,
     PipelineStatistics* pipeline_statistics, RenderPassCache& render_pass_cache,
     const GraphicsPipelineCacheKey& key_, std::array<vk::ShaderModule, NUM_STAGES> stages,
-    const std::array<const Shader::Info*, NUM_STAGES>& infos)
+    const std::array<const Shader::Info*, NUM_STAGES>& infos,
+    std::optional<Shader::RuntimeInfo> compiled_vertex_remap)
     : key{key_}, device{device_}, texture_cache{texture_cache_}, buffer_cache{buffer_cache_},
       pipeline_cache(pipeline_cache_), scheduler{scheduler_},
       guest_descriptor_queue{guest_descriptor_queue_}, spv_modules{std::move(stages)} {
@@ -264,6 +266,23 @@ GraphicsPipeline::GraphicsPipeline(
         enabled_uniform_buffer_masks[stage] = info->constant_buffer_mask;
         std::ranges::copy(info->constant_buffer_used_sizes, uniform_buffer_sizes[stage].begin());
         num_textures += Shader::NumDescriptors(info->texture_descriptors);
+    }
+    const bool needs_vertex_location_remap =
+        device.GetMaxVertexInputAttributes() <
+        Tegra::Engines::Maxwell3D::Regs::NumVertexAttributes;
+    const bool needs_vertex_binding_remap =
+        device.GetMaxVertexInputBindings() <
+        Tegra::Engines::Maxwell3D::Regs::NumVertexArrays;
+    if (compiled_vertex_remap) {
+        vertex_input_remap.vertex_locations = compiled_vertex_remap->vertex_locations;
+        vertex_input_remap.vertex_bindings = compiled_vertex_remap->vertex_bindings;
+        vertex_input_remap.remapped_vertex_locations =
+            compiled_vertex_remap->remapped_vertex_locations;
+        vertex_input_remap.remapped_vertex_bindings =
+            compiled_vertex_remap->remapped_vertex_bindings;
+    } else if (needs_vertex_location_remap || needs_vertex_binding_remap) {
+        PopulateVertexLocationRemap(vertex_input_remap, device.GetMaxVertexInputAttributes(),
+                                    device.GetMaxVertexInputBindings(), key.state, stage_infos[0]);
     }
     auto func{[this, shader_notify, &render_pass_cache, &descriptor_pool, pipeline_statistics] {
         DescriptorLayoutBuilder builder{MakeBuilder(device, stage_infos)};
@@ -324,11 +343,11 @@ template <typename Spec>
 void GraphicsPipeline::ConfigureImpl(bool is_indexed) {
     // std::array<T, 16384> made CheckFeedbackLoop iterate the full capacity
     // per draw; small_vector lets the span size match the actual write count.
-    thread_local boost::container::small_vector<VideoCommon::ImageViewInOut, 64> views;
-    thread_local boost::container::small_vector<VideoCommon::SamplerId, 64> samplers;
-    thread_local BindlessCache bindless_cache;
-    thread_local size_t bindless_cache_rr{0};
-    thread_local std::vector<u8> bindless_scratch;
+    boost::container::small_vector<VideoCommon::ImageViewInOut, 64> views;
+    boost::container::small_vector<VideoCommon::SamplerId, 64> samplers;
+    BindlessCache bindless_cache;
+    size_t bindless_cache_rr{0};
+    std::vector<u8> bindless_scratch;
     views.clear();
     samplers.clear();
 
@@ -546,7 +565,16 @@ void GraphicsPipeline::ConfigureImpl(bool is_indexed) {
     }
 
     buffer_cache.UpdateGraphicsBuffers(is_indexed);
+    if (vertex_input_remap.remapped_vertex_bindings) {
+        buffer_cache.runtime.SetVertexBindingRemap(&vertex_input_remap);
+    }
+    if (key.state.xfb_emulated != 0 && !device.IsExtTransformFeedbackSupported()) {
+        buffer_cache.ClearXfbStreamCounterForDraw();
+    }
     buffer_cache.BindHostGeometryBuffers(is_indexed);
+    if (vertex_input_remap.remapped_vertex_bindings) {
+        buffer_cache.runtime.ClearVertexBindingRemap();
+    }
 
     guest_descriptor_queue.Acquire();
 
@@ -685,21 +713,32 @@ void GraphicsPipeline::MakePipeline(VkRenderPass render_pass) {
     boost::container::static_vector<VkVertexInputBindingDivisorDescriptionEXT, 32> vertex_binding_divisors;
     boost::container::static_vector<VkVertexInputAttributeDescription, 32> vertex_attributes;
     if (!key.state.dynamic_vertex_input) {
-        const size_t num_vertex_arrays = std::min(
-            Tegra::Engines::Maxwell3D::Regs::NumVertexArrays, static_cast<size_t>(device.GetMaxVertexInputBindings()));
-        for (size_t index = 0; index < num_vertex_arrays; ++index) {
-            const bool instanced = key.state.binding_divisors[index] != 0;
+        const u32 max_vertex_attrs = device.GetMaxVertexInputAttributes();
+        const u32 max_vertex_bindings = device.GetMaxVertexInputBindings();
+        for (size_t guest = 0; guest < Tegra::Engines::Maxwell3D::Regs::NumVertexArrays; ++guest) {
+            if (!IsVertexBindingUsedByMappedAttributes(static_cast<u32>(guest), key.state,
+                                                       stage_infos[0], vertex_input_remap)) {
+                continue;
+            }
+            if (!IsVertexBindingMapped(vertex_input_remap, static_cast<u32>(guest))) {
+                continue;
+            }
+            const u32 vk_binding = VulkanVertexBinding(vertex_input_remap, static_cast<u32>(guest));
+            if (vk_binding >= max_vertex_bindings) {
+                continue;
+            }
+            const bool instanced = key.state.binding_divisors[guest] != 0;
             const auto rate =
                 instanced ? VK_VERTEX_INPUT_RATE_INSTANCE : VK_VERTEX_INPUT_RATE_VERTEX;
             vertex_bindings.push_back({
-                .binding = static_cast<u32>(index),
-                .stride = key.state.vertex_strides[index],
+                .binding = vk_binding,
+                .stride = key.state.vertex_strides[guest],
                 .inputRate = rate,
             });
             if (instanced) {
                 vertex_binding_divisors.push_back({
-                    .binding = static_cast<u32>(index),
-                    .divisor = key.state.binding_divisors[index],
+                    .binding = vk_binding,
+                    .divisor = key.state.binding_divisors[guest],
                 });
             }
         }
@@ -708,13 +747,40 @@ void GraphicsPipeline::MakePipeline(VkRenderPass render_pass) {
             if (!attribute.enabled || !stage_infos[0].loads.Generic(index)) {
                 continue;
             }
+            if (!IsVertexAttributeMapped(vertex_input_remap, index)) {
+                continue;
+            }
+            if (attribute.buffer >= Tegra::Engines::Maxwell3D::Regs::NumVertexArrays) {
+                continue;
+            }
+            if (!IsVertexBindingMapped(vertex_input_remap, attribute.buffer)) {
+                continue;
+            }
+            if (index >= max_vertex_attrs && !vertex_input_remap.remapped_vertex_locations) {
+                break;
+            }
+            const u32 location = VulkanVertexLocation(vertex_input_remap, index);
+            const u32 binding = VulkanVertexBinding(vertex_input_remap, attribute.buffer);
+            if (location >= max_vertex_attrs || binding >= max_vertex_bindings) {
+                continue;
+            }
+            if (vertex_attributes.size() >= max_vertex_attrs) {
+                break;
+            }
             vertex_attributes.push_back({
-                .location = static_cast<u32>(index),
-                .binding = attribute.buffer,
+                .location = location,
+                .binding = binding,
                 .format = MaxwellToVK::VertexFormat(device, attribute.Type(), attribute.Size()),
                 .offset = attribute.offset,
             });
         }
+    }
+    const u32 max_vertex_attrs = device.GetMaxVertexInputAttributes();
+    if (vertex_attributes.size() > max_vertex_attrs) {
+        LOG_ERROR(Render_Vulkan,
+                  "Graphics pipeline uses {} vertex attributes but the Vulkan device reports a "
+                  "maximum of {}; draws may fault (common on MoltenVK).",
+                  vertex_attributes.size(), max_vertex_attrs);
     }
     ASSERT(vertex_attributes.size() <= device.GetMaxVertexInputAttributes());
 
@@ -758,6 +824,9 @@ void GraphicsPipeline::MakePipeline(VkRenderPass render_pass) {
         SupportsPrimitiveRestart(input_assembly_topology) ||
         (input_assembly_topology == VK_PRIMITIVE_TOPOLOGY_PATCH_LIST &&
          device.IsPatchListPrimitiveRestartSupported());
+    // Metal always applies primitive restart for strip/fan topologies; MoltenVK cannot implement
+    // vkCmdSetPrimitiveRestartEnableEXT(VK_FALSE) (VK_ERROR_FEATURE_NOT_PRESENT). Force restart in
+    // the pipeline for those topologies and omit dynamic toggle (see vk_rasterizer.cpp).
     const bool force_mvk_primitive_restart =
         device.GetDriverID() == VK_DRIVER_ID_MOLTENVK &&
         SupportsPrimitiveRestart(input_assembly_topology);

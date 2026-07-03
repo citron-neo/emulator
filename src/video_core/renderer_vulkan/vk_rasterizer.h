@@ -5,15 +5,17 @@
 
 #include <array>
 #include <atomic>
+#include <mutex>
 #include <shared_mutex>
 
 #include <boost/container/static_vector.hpp>
 
 #include "common/common_types.h"
 #include "video_core/control/channel_state_cache.h"
-#include "video_core/engines/maxwell_dma.h"
+#include "video_core/engines/maxwell_3d.h"
 #include "video_core/host1x/gpu_device_memory_manager.h"
 #include "video_core/rasterizer_interface.h"
+#include "video_core/texture_cache/image_info.h"
 #include "video_core/renderer_vulkan/blit_image.h"
 #include "video_core/renderer_vulkan/vk_buffer_cache.h"
 #include "video_core/renderer_vulkan/vk_descriptor_pool.h"
@@ -46,6 +48,20 @@ class Maxwell3D;
 namespace Vulkan {
 
 struct FramebufferTextureInfo;
+
+struct PresentTrackingState {
+    std::mutex mutex;
+    u32 last_xfb_snapshot_records = 0;
+    DAddr last_rt0_cpu_addr = 0;
+    GPUVAddr last_rt0_gpu_addr = 0;
+    VideoCommon::ImageInfo last_rt0_info{};
+    DAddr game_rt0_cpu_addr = 0;
+    GPUVAddr game_rt0_gpu_addr = 0;
+    VideoCommon::ImageInfo game_rt0_info{};
+    Tegra::Engines::Maxwell3D::Regs::RenderTargetConfig game_rt0_config{};
+    u32 game_rt0_peak_verts = 0;
+    u32 vi_overlay_active_frames = 0;
+};
 
 class StateTracker;
 
@@ -149,9 +165,13 @@ public:
 
     void ReleaseChannel(s32 channel_id) override;
 
+    bool HasDrawTransformFeedback() override;
+
     std::optional<FramebufferTextureInfo> AccelerateDisplay(const Tegra::FramebufferConfig& config,
                                                             VAddr framebuffer_addr,
                                                             u32 pixel_stride);
+
+    void CompositeGameRtToViAtPresent(const Tegra::FramebufferConfig& config, DAddr vi_cpu);
 
 private:
     static constexpr size_t MAX_TEXTURES = 192;
@@ -195,6 +215,10 @@ private:
 
     void UpdateVertexInput(Tegra::Engines::Maxwell3D::Regs& regs);
 
+    void TrackGameRenderTarget(DAddr cpu_addr, GPUVAddr gpu_addr,
+                               const Tegra::Engines::Maxwell3D::Regs::RenderTargetConfig& rt_config,
+                               Tegra::Texture::MsaaMode msaa_mode, u32 num_vertices);
+
     Tegra::GPU& gpu;
     Tegra::MaxwellDeviceMemoryManager& device_memory;
 
@@ -227,6 +251,8 @@ private:
     boost::container::static_vector<VkSampler, MAX_TEXTURES> sampler_handles;
 
     u32 draw_counter = 0;
+
+    PresentTrackingState present_tracking;
 
     std::shared_mutex shutdown_mutex;
     std::atomic_bool is_shutting_down{false};

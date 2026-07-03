@@ -23,6 +23,8 @@ struct DynamicFeatures {
     bool has_extended_dynamic_state_3_enables;
     bool has_dynamic_vertex_input;
     bool has_transform_feedback;
+    /// Software stream-out when the host lacks VK_EXT_transform_feedback (e.g. MoltenVK).
+    bool emulate_transform_feedback;
 };
 
 struct FixedPipelineState {
@@ -201,6 +203,7 @@ struct FixedPipelineState {
     };
     union {
         u32 raw2;
+        BitField<0, 1, u32> xfb_emulated;
         BitField<1, 3, u32> alpha_test_func;
         BitField<4, 1, u32> early_z;
         BitField<5, 1, u32> depth_enabled;

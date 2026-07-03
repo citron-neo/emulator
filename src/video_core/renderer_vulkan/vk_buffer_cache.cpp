@@ -10,6 +10,7 @@
 #include "common/alignment.h"
 #include "common/common_types.h"
 #include "common/literals.h"
+#include "common/logging.h"
 #include "video_core/renderer_vulkan/vk_buffer_cache.h"
 
 
@@ -84,7 +85,265 @@ vk::Buffer CreateBuffer(const Device& device, const MemoryAllocator& memory_allo
     return memory_allocator.CreateBuffer(buffer_ci, MemoryUsage::DeviceLocal);
 }
 
+constexpr VkPipelineStageFlags XfbEmulationWriteStages() {
+    return VK_PIPELINE_STAGE_VERTEX_SHADER_BIT |
+           VK_PIPELINE_STAGE_TESSELLATION_EVALUATION_SHADER_BIT |
+           VK_PIPELINE_STAGE_GEOMETRY_SHADER_BIT;
+}
+
+vk::Buffer CreateXfbByteCountDrawBuffer(const Device& device, MemoryAllocator& memory_allocator,
+                                        StagingBufferPool& staging_pool, Scheduler& scheduler) {
+    static constexpr std::array<u32, 4> kDrawTemplate{0U, 1U, 0U, 0U};
+    const VkBufferCreateInfo buffer_ci{
+        .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+        .pNext = nullptr,
+        .flags = 0,
+        .size = sizeof(kDrawTemplate),
+        .usage = VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+        .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
+        .queueFamilyIndexCount = 0,
+        .pQueueFamilyIndices = nullptr,
+    };
+    vk::Buffer draw_buffer = memory_allocator.CreateBuffer(buffer_ci, MemoryUsage::DeviceLocal);
+    if (device.HasDebuggingToolAttached()) {
+        draw_buffer.SetObjectNameEXT("XFB byte-count draw indirect");
+    }
+    const StagingBufferRef staging =
+        staging_pool.Request(sizeof(kDrawTemplate), MemoryUsage::Upload, true);
+    std::memcpy(staging.mapped_span.data(), kDrawTemplate.data(), sizeof(kDrawTemplate));
+    const VkBuffer draw_buffer_handle = *draw_buffer;
+    scheduler.RequestOutsideRenderPassOperationContext();
+    scheduler.Record([draw_buffer_handle, staging](vk::CommandBuffer cmdbuf) {
+        std::array<VkBufferCopy, 1> copy{VkBufferCopy{
+            .srcOffset = staging.offset,
+            .dstOffset = 0,
+            .size = sizeof(kDrawTemplate),
+        }};
+        cmdbuf.CopyBuffer(staging.buffer, draw_buffer_handle, copy);
+    });
+    StagingBufferRef staging_ref = staging;
+    staging_pool.FreeDeferred(staging_ref);
+    return draw_buffer;
+}
+
 } // Anonymous namespace
+
+vk::Buffer CreateXfbStreamCounterBuffer(const Device& device, MemoryAllocator& memory_allocator) {
+    const VkBufferCreateInfo buffer_ci = {
+        .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+        .pNext = nullptr,
+        .flags = 0,
+        .size = VideoCommon::XFB_EMULATION_COUNTER_BUFFER_BYTES,
+        .usage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT |
+                 VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+        .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
+        .queueFamilyIndexCount = 0,
+        .pQueueFamilyIndices = nullptr,
+    };
+    vk::Buffer ret = memory_allocator.CreateBuffer(buffer_ci, MemoryUsage::DeviceLocal);
+    if (device.HasDebuggingToolAttached()) {
+        ret.SetObjectNameEXT("XFB stream counter");
+    }
+    return ret;
+}
+
+vk::Buffer CreateXfbStreamCounterSnapshotBuffer(const Device& device,
+                                                MemoryAllocator& memory_allocator) {
+    const VkBufferCreateInfo buffer_ci = {
+        .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+        .pNext = nullptr,
+        .flags = 0,
+        .size = VideoCommon::XFB_EMULATION_COUNTER_BUFFER_BYTES,
+        .usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+        .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
+        .queueFamilyIndexCount = 0,
+        .pQueueFamilyIndices = nullptr,
+    };
+    vk::Buffer ret = memory_allocator.CreateBuffer(buffer_ci, MemoryUsage::DeviceLocal);
+    if (device.HasDebuggingToolAttached()) {
+        ret.SetObjectNameEXT("XFB stream counter snapshot");
+    }
+    return ret;
+}
+
+void BufferCacheRuntime::RegisterXfbEmulationCounterBuffer(VkBuffer buffer) {
+    xfb_emulation_counter_buffer = buffer;
+    if (!xfb_emulation_counter_snapshot_buffer) {
+        xfb_emulation_counter_snapshot_buffer =
+            CreateXfbStreamCounterSnapshotBuffer(device, memory_allocator);
+    }
+}
+
+void BufferCacheRuntime::SnapshotXfbEmulationCounter() {
+    if (xfb_emulation_counter_buffer == VK_NULL_HANDLE ||
+        !xfb_emulation_counter_snapshot_buffer) {
+        LOG_WARNING(Render_Vulkan,
+                    "XFB counter snapshot skipped: counter={} snapshot={}",
+                    xfb_emulation_counter_buffer != VK_NULL_HANDLE,
+                    static_cast<bool>(xfb_emulation_counter_snapshot_buffer));
+        return;
+    }
+    static constexpr VkMemoryBarrier READ_BARRIER{
+        .sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER,
+        .pNext = nullptr,
+        .srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT,
+        .dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT,
+    };
+    static constexpr VkMemoryBarrier WRITE_BARRIER{
+        .sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER,
+        .pNext = nullptr,
+        .srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT,
+        .dstAccessMask = VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT,
+    };
+    scheduler.RequestOutsideRenderPassOperationContext();
+    scheduler.Record([src_buffer = xfb_emulation_counter_buffer,
+                      dst_buffer = *xfb_emulation_counter_snapshot_buffer](vk::CommandBuffer cmdbuf) {
+        cmdbuf.PipelineBarrier(XfbEmulationWriteStages(), VK_PIPELINE_STAGE_TRANSFER_BIT, 0,
+                               READ_BARRIER);
+        std::array<VkBufferCopy, 1> copy{VkBufferCopy{
+            .srcOffset = 0,
+            .dstOffset = 0,
+            .size = VideoCommon::XFB_EMULATION_COUNTER_BUFFER_BYTES,
+        }};
+        cmdbuf.CopyBuffer(src_buffer, dst_buffer, copy);
+        cmdbuf.PipelineBarrier(VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, 0,
+                               WRITE_BARRIER);
+    });
+}
+
+u32 BufferCacheRuntime::ReadXfbEmulationCounterSnapshotRecords() {
+    const VkBuffer snapshot_buffer = GetXfbEmulationCounterSnapshotBuffer();
+    if (snapshot_buffer == VK_NULL_HANDLE) {
+        return 0;
+    }
+    const StagingBufferRef counter_staging =
+        staging_pool.Request(sizeof(u32), MemoryUsage::Download, true);
+    scheduler.Finish();
+    scheduler.Record([snapshot_buffer, counter_staging](vk::CommandBuffer cmdbuf) {
+        std::array<VkBufferCopy, 1> copy{VkBufferCopy{
+            .srcOffset = 0,
+            .dstOffset = counter_staging.offset,
+            .size = sizeof(u32),
+        }};
+        cmdbuf.CopyBuffer(snapshot_buffer, counter_staging.buffer, copy);
+    });
+    scheduler.Finish();
+    u32 records = 0;
+    std::memcpy(&records, counter_staging.mapped_span.data(), sizeof(u32));
+    StagingBufferRef counter_staging_ref = counter_staging;
+    staging_pool.FreeDeferred(counter_staging_ref);
+    return records;
+}
+
+void BufferCacheRuntime::EmulateDrawIndirectByteCount(VkBuffer guest_counter_buffer,
+                                                      u32 guest_counter_offset, u32 stride,
+                                                      u32 register_byte_fallback) {
+    const VkBuffer snapshot_buffer = GetXfbEmulationCounterSnapshotBuffer();
+    const VkBuffer counter_buffer =
+        snapshot_buffer != VK_NULL_HANDLE ? snapshot_buffer : xfb_emulation_counter_buffer;
+    const u32 safe_stride = std::max(stride, 1u);
+    const u32 register_vertex_count = register_byte_fallback / safe_stride;
+
+    LOG_INFO(Render_Vulkan,
+             "XFB DrawIndirectByteCount: stride={} register_byte_count={} "
+             "register_vertex_count={} has_snapshot={} has_counter={}",
+             stride, register_byte_fallback, register_vertex_count,
+             snapshot_buffer != VK_NULL_HANDLE, counter_buffer != VK_NULL_HANDLE);
+
+    if (counter_buffer == VK_NULL_HANDLE) {
+        LOG_WARNING(Render_Vulkan,
+                    "XFB DrawIndirectByteCount: no counter buffer; skipping draw");
+        return;
+    }
+    if (!xfb_byte_count_draw_buffer) {
+        xfb_byte_count_draw_buffer =
+            CreateXfbByteCountDrawBuffer(device, memory_allocator, staging_pool, scheduler);
+    }
+
+    u32 snapshot_records = 0;
+    if (snapshot_buffer != VK_NULL_HANDLE) {
+        const StagingBufferRef counter_staging =
+            staging_pool.Request(sizeof(u32), MemoryUsage::Download, true);
+        scheduler.Finish();
+        scheduler.Record([snapshot_buffer, counter_staging](vk::CommandBuffer cmdbuf) {
+            std::array<VkBufferCopy, 1> copy{VkBufferCopy{
+                .srcOffset = 0,
+                .dstOffset = counter_staging.offset,
+                .size = sizeof(u32),
+            }};
+            cmdbuf.CopyBuffer(snapshot_buffer, counter_staging.buffer, copy);
+        });
+        scheduler.Finish();
+        std::memcpy(&snapshot_records, counter_staging.mapped_span.data(), sizeof(u32));
+        StagingBufferRef counter_staging_ref = counter_staging;
+        staging_pool.FreeDeferred(counter_staging_ref);
+    }
+
+    // Counter snapshot stores emitted records (vertices). Prefer it over the register fallback,
+    // which may still be zero when the game expects the counter buffer to be authoritative.
+    u32 vertex_count = snapshot_records > 0 ? snapshot_records : register_vertex_count;
+    LOG_INFO(Render_Vulkan,
+             "XFB DrawIndirectByteCount: snapshot_records={} vertex_count={} "
+             "(source={})",
+             snapshot_records, vertex_count,
+             snapshot_records > 0 ? "snapshot" : "register");
+    if (vertex_count == 0) {
+        LOG_WARNING(Render_Vulkan,
+                    "XFB DrawIndirectByteCount: vertex_count=0; consume draw will be empty");
+    }
+    const StagingBufferRef draw_staging =
+        staging_pool.Request(sizeof(VkDrawIndirectCommand), MemoryUsage::Upload, true);
+    const VkDrawIndirectCommand draw_cmd{
+        .vertexCount = vertex_count,
+        .instanceCount = 1,
+        .firstVertex = 0,
+        .firstInstance = 0,
+    };
+    std::memcpy(draw_staging.mapped_span.data(), &draw_cmd, sizeof(draw_cmd));
+    static constexpr VkMemoryBarrier READ_BARRIER{
+        .sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER,
+        .pNext = nullptr,
+        .srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT | VK_ACCESS_TRANSFER_WRITE_BIT,
+        .dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT,
+    };
+    static constexpr VkMemoryBarrier DRAW_BARRIER{
+        .sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER,
+        .pNext = nullptr,
+        .srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT,
+        .dstAccessMask = VK_ACCESS_INDIRECT_COMMAND_READ_BIT | VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT,
+    };
+    // CopyBuffer is only valid outside an active render pass.
+    scheduler.RequestOutsideRenderPassOperationContext();
+    scheduler.Record([counter_buffer, draw_buffer = *xfb_byte_count_draw_buffer, draw_staging,
+                      guest_counter_buffer, guest_counter_offset](vk::CommandBuffer cmdbuf) {
+        cmdbuf.PipelineBarrier(XfbEmulationWriteStages() | VK_PIPELINE_STAGE_TRANSFER_BIT,
+                               VK_PIPELINE_STAGE_TRANSFER_BIT, 0, READ_BARRIER);
+        std::array<VkBufferCopy, 1> draw_copy{VkBufferCopy{
+            .srcOffset = draw_staging.offset,
+            .dstOffset = 0,
+            .size = sizeof(VkDrawIndirectCommand),
+        }};
+        cmdbuf.CopyBuffer(draw_staging.buffer, draw_buffer, draw_copy);
+        if (guest_counter_buffer != VK_NULL_HANDLE) {
+            std::array<VkBufferCopy, 1> guest_records_copy{VkBufferCopy{
+                .srcOffset = 0,
+                .dstOffset = guest_counter_offset,
+                .size = sizeof(u32),
+            }};
+            cmdbuf.CopyBuffer(counter_buffer, guest_counter_buffer, guest_records_copy);
+        }
+        cmdbuf.PipelineBarrier(VK_PIPELINE_STAGE_TRANSFER_BIT,
+                               VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT |
+                                   VK_PIPELINE_STAGE_VERTEX_INPUT_BIT,
+                               0, DRAW_BARRIER);
+    });
+    // Stay inside the active render pass: ending it before DrawIndirect discards output.
+    scheduler.Record([draw_buffer = *xfb_byte_count_draw_buffer](vk::CommandBuffer cmdbuf) {
+        cmdbuf.DrawIndirect(draw_buffer, 0, 1, sizeof(VkDrawIndirectCommand));
+    });
+    StagingBufferRef draw_staging_ref = draw_staging;
+    staging_pool.FreeDeferred(draw_staging_ref);
+}
 
 void BufferCacheRuntime::CleanupUnusedBuffers() {
     // Cleanup is now handled by the VRAM management system (gc_aggressiveness setting)
@@ -100,6 +359,13 @@ Buffer::Buffer(BufferCacheRuntime& runtime, VideoCommon::NullBufferParams null_p
     buffer = runtime.CreateNullBuffer();
     is_null = true;
 }
+
+Buffer::Buffer(BufferCacheRuntime& runtime, VideoCommon::XfbStreamCounterBufferParams)
+    : VideoCommon::BufferBase(VideoCommon::XFB_EMULATION_COUNTER_DEVICE_ADDR,
+                              VideoCommon::XFB_EMULATION_COUNTER_BUFFER_BYTES),
+      device{&runtime.device},
+      buffer{CreateXfbStreamCounterBuffer(*device, runtime.memory_allocator)},
+      tracker{VideoCommon::XFB_EMULATION_COUNTER_BUFFER_BYTES} {}
 
 Buffer::Buffer(BufferCacheRuntime& runtime, DAddr cpu_addr_, u64 size_bytes_)
     : VideoCommon::BufferBase(cpu_addr_, size_bytes_), device{&runtime.device},
@@ -549,29 +815,76 @@ void BufferCacheRuntime::BindQuadIndexBuffer(PrimitiveTopology topology, u32 fir
 
 void BufferCacheRuntime::BindVertexBuffer(u32 index, VkBuffer buffer, u32 offset, u32 size,
                                           u32 stride) {
-    if (index >= device.GetMaxVertexInputBindings()) {
+    u32 vk_index = index;
+    if (vertex_binding_remap != nullptr && vertex_binding_remap->remapped_vertex_bindings &&
+        index < vertex_binding_remap->vertex_bindings.size()) {
+        vk_index = vertex_binding_remap->vertex_bindings[index];
+    }
+    if (vk_index >= device.GetMaxVertexInputBindings()) {
         return;
     }
+    if (!device.HasNullDescriptor() && buffer == VK_NULL_HANDLE) {
+        ReserveNullBuffer();
+        buffer = *null_buffer;
+        offset = 0;
+    }
     if (device.IsExtExtendedDynamicStateSupported()) {
-        scheduler.Record([index, buffer, offset, size, stride](vk::CommandBuffer cmdbuf) {
+        scheduler.Record([binding = vk_index, buffer, offset, size, stride](vk::CommandBuffer cmdbuf) {
             const VkDeviceSize vk_offset = buffer != VK_NULL_HANDLE ? offset : 0;
             const VkDeviceSize vk_size = buffer != VK_NULL_HANDLE ? size : VK_WHOLE_SIZE;
             const VkDeviceSize vk_stride = stride;
-            cmdbuf.BindVertexBuffers2EXT(index, 1, &buffer, &vk_offset, &vk_size, &vk_stride);
+            cmdbuf.BindVertexBuffers2EXT(binding, 1, &buffer, &vk_offset, &vk_size, &vk_stride);
         });
     } else {
-        if (!device.HasNullDescriptor() && buffer == VK_NULL_HANDLE) {
-            ReserveNullBuffer();
-            buffer = *null_buffer;
-            offset = 0;
-        }
-        scheduler.Record([index, buffer, offset](vk::CommandBuffer cmdbuf) {
-            cmdbuf.BindVertexBuffer(index, buffer, offset);
+        scheduler.Record([binding = vk_index, buffer, offset](vk::CommandBuffer cmdbuf) {
+            cmdbuf.BindVertexBuffer(binding, buffer, offset);
         });
     }
 }
 
 void BufferCacheRuntime::BindVertexBuffers(VideoCommon::HostBindings<Buffer>& bindings) {
+    const u32 device_max = device.GetMaxVertexInputBindings();
+    const bool remapped = vertex_binding_remap != nullptr &&
+                          vertex_binding_remap->remapped_vertex_bindings;
+
+    if (remapped) {
+        for (u32 index = 0; index < bindings.buffers.size(); ++index) {
+            const u32 guest_index = bindings.min_index + index;
+            u32 vk_index = guest_index;
+            if (guest_index < vertex_binding_remap->vertex_bindings.size()) {
+                vk_index = vertex_binding_remap->vertex_bindings[guest_index];
+            }
+            if (vk_index >= device_max) {
+                continue;
+            }
+            auto handle = bindings.buffers[index]->Handle();
+            u64 offset = bindings.offsets[index];
+            if (handle == VK_NULL_HANDLE) {
+                offset = 0;
+                if (!device.HasNullDescriptor()) {
+                    ReserveNullBuffer();
+                    handle = *null_buffer;
+                }
+            }
+            if (device.IsExtExtendedDynamicStateSupported()) {
+                const u64 size = bindings.sizes[index];
+                const u64 stride = bindings.strides[index];
+                scheduler.Record([vk_index, handle, offset, size, stride](vk::CommandBuffer cmdbuf) {
+                    const VkDeviceSize vk_offset = handle != VK_NULL_HANDLE ? offset : 0;
+                    const VkDeviceSize vk_size = handle != VK_NULL_HANDLE ? size : VK_WHOLE_SIZE;
+                    const VkDeviceSize vk_stride = stride;
+                    cmdbuf.BindVertexBuffers2EXT(vk_index, 1, &handle, &vk_offset, &vk_size,
+                                                 &vk_stride);
+                });
+            } else {
+                scheduler.Record([vk_index, handle, offset](vk::CommandBuffer cmdbuf) {
+                    cmdbuf.BindVertexBuffer(vk_index, handle, offset);
+                });
+            }
+        }
+        return;
+    }
+
     boost::container::small_vector<VkBuffer, 32> buffer_handles;
     for (u32 index = 0; index < bindings.buffers.size(); ++index) {
         auto handle = bindings.buffers[index]->Handle();
@@ -585,7 +898,6 @@ void BufferCacheRuntime::BindVertexBuffers(VideoCommon::HostBindings<Buffer>& bi
         }
         buffer_handles.push_back(handle);
     }
-    const u32 device_max = device.GetMaxVertexInputBindings();
     const u32 min_binding = std::min(bindings.min_index, device_max);
     const u32 max_binding = std::min(bindings.max_index, device_max);
     const u32 binding_count = max_binding - min_binding;

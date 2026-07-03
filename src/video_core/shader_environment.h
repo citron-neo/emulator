@@ -173,6 +173,9 @@ public:
 
     void Deserialize(std::ifstream& file);
 
+    /// @returns false if the stream ends early or contains invalid sizes.
+    [[nodiscard]] bool TryDeserialize(std::ifstream& file);
+
     [[nodiscard]] u64 ReadInstruction(u32 address) override;
 
     [[nodiscard]] u32 ReadCbufValue(u32 cbuf_index, u32 cbuf_offset) override;
