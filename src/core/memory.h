@@ -143,6 +143,8 @@ public:
     u8* GetPointer(Common::ProcessAddress vaddr);
     u8* GetPointerSilent(Common::ProcessAddress vaddr);
 
+    [[nodiscard]] u8* GetHostPointerForSmmuMapping(Common::ProcessAddress vaddr);
+
     template <typename T>
     T* GetPointer(Common::ProcessAddress vaddr) {
         return reinterpret_cast<T*>(GetPointer(vaddr));

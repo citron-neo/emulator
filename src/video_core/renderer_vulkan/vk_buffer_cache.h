@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include "shader_recompiler/runtime_info.h"
 #include "video_core/buffer_cache/buffer_cache_base.h"
 #include "video_core/buffer_cache/memory_tracker_base.h"
 #include "video_core/buffer_cache/usage_tracker.h"
@@ -26,6 +27,7 @@ class BufferCacheRuntime;
 class Buffer : public VideoCommon::BufferBase {
 public:
     explicit Buffer(BufferCacheRuntime&, VideoCommon::NullBufferParams null_params);
+    explicit Buffer(BufferCacheRuntime& runtime, VideoCommon::XfbStreamCounterBufferParams);
     explicit Buffer(BufferCacheRuntime& runtime, VAddr cpu_addr_, u64 size_bytes_);
 
     [[nodiscard]] VkBufferView View(u32 offset, u32 size, VideoCore::Surface::PixelFormat format);
@@ -122,6 +124,35 @@ public:
 
     void BindVertexBuffers(VideoCommon::HostBindings<Buffer>& bindings);
 
+    void SetVertexBindingRemap(const Shader::RuntimeInfo* remap) {
+        vertex_binding_remap = remap;
+    }
+
+    void ClearVertexBindingRemap() {
+        vertex_binding_remap = nullptr;
+    }
+
+    void RegisterXfbEmulationCounterBuffer(VkBuffer buffer);
+
+    [[nodiscard]] VkBuffer GetXfbEmulationCounterBuffer() const {
+        return xfb_emulation_counter_buffer;
+    }
+
+    [[nodiscard]] VkBuffer GetXfbEmulationCounterSnapshotBuffer() const {
+        return xfb_emulation_counter_snapshot_buffer ? *xfb_emulation_counter_snapshot_buffer
+                                                     : VK_NULL_HANDLE;
+    }
+
+    /// Copy the live TF emulation counter after a draw so later query reads are not cleared away.
+    void SnapshotXfbEmulationCounter();
+
+    /// Read the latest emulated stream-out record count from the counter snapshot.
+    [[nodiscard]] u32 ReadXfbEmulationCounterSnapshotRecords();
+
+    /// Emulate VK_EXT_transform_feedback DrawIndirectByteCount using the emulated counter snapshot.
+    void EmulateDrawIndirectByteCount(VkBuffer guest_counter_buffer, u32 guest_counter_offset,
+                                      u32 stride, u32 register_byte_fallback);
+
     void BindTransformFeedbackBuffer(u32 index, VkBuffer buffer, u32 offset, u32 size);
 
     void BindTransformFeedbackBuffers(VideoCommon::HostBindings<Buffer>& bindings);
@@ -168,6 +199,12 @@ private:
 
     std::unique_ptr<Uint8Pass> uint8_pass;
     QuadIndexedPass quad_index_pass;
+
+    const Shader::RuntimeInfo* vertex_binding_remap{};
+
+    VkBuffer xfb_emulation_counter_buffer{VK_NULL_HANDLE};
+    vk::Buffer xfb_emulation_counter_snapshot_buffer;
+    vk::Buffer xfb_byte_count_draw_buffer;
 };
 
 struct BufferCacheParams {
@@ -184,6 +221,7 @@ struct BufferCacheParams {
     static constexpr bool USE_MEMORY_MAPS = true;
     static constexpr bool SEPARATE_IMAGE_BUFFER_BINDINGS = false;
     static constexpr bool USE_MEMORY_MAPS_FOR_UPLOADS = true;
+    static constexpr bool HAS_XFB_STREAM_COUNTER_HOST_BUFFER = true;
 };
 
 using BufferCache = VideoCommon::BufferCache<BufferCacheParams>;

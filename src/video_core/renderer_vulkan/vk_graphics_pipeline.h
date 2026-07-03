@@ -8,10 +8,12 @@
 #include <atomic>
 #include <condition_variable>
 #include <mutex>
+#include <optional>
 #include <type_traits>
 
 #include "common/thread_worker.h"
 #include "shader_recompiler/shader_info.h"
+#include "shader_recompiler/runtime_info.h"
 #include "video_core/engines/maxwell_3d.h"
 #include "video_core/renderer_vulkan/fixed_pipeline_state.h"
 #include "video_core/renderer_vulkan/vk_buffer_cache.h"
@@ -76,7 +78,8 @@ public:
         GuestDescriptorQueue& guest_descriptor_queue, Common::ThreadWorker* worker_thread,
         PipelineStatistics* pipeline_statistics, RenderPassCache& render_pass_cache,
         const GraphicsPipelineCacheKey& key, std::array<vk::ShaderModule, NUM_STAGES> stages,
-        const std::array<const Shader::Info*, NUM_STAGES>& infos);
+        const std::array<const Shader::Info*, NUM_STAGES>& infos,
+        std::optional<Shader::RuntimeInfo> compiled_vertex_remap = std::nullopt);
 
     GraphicsPipeline& operator=(GraphicsPipeline&&) noexcept = delete;
     GraphicsPipeline(GraphicsPipeline&&) noexcept = delete;
@@ -113,6 +116,14 @@ public:
         gpu_memory = gpu_memory_;
     }
 
+    [[nodiscard]] const Shader::RuntimeInfo& VertexInputRemap() const noexcept {
+        return vertex_input_remap;
+    }
+
+    [[nodiscard]] bool UsesEmulatedTransformFeedback() const noexcept {
+        return key.state.xfb_emulated != 0;
+    }
+
 private:
     template <typename Spec>
     void ConfigureImpl(bool is_indexed);
@@ -142,6 +153,7 @@ private:
     std::array<vk::ShaderModule, NUM_STAGES> spv_modules;
 
     std::array<Shader::Info, NUM_STAGES> stage_infos;
+    Shader::RuntimeInfo vertex_input_remap{};
     std::array<u32, 5> enabled_uniform_buffer_masks{};
     VideoCommon::UniformBufferSizes uniform_buffer_sizes{};
     u32 num_textures{};

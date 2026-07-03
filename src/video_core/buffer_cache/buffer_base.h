@@ -25,6 +25,9 @@ DECLARE_ENUM_FLAG_OPERATORS(BufferFlagBits)
 /// Tag for creating null buffers with no storage or size
 struct NullBufferParams {};
 
+/// Tag for the Vulkan transform-feedback emulation atomic stream-index buffer (host-only)
+struct XfbStreamCounterBufferParams {};
+
 /**
  * Range tracking buffer container.
  *

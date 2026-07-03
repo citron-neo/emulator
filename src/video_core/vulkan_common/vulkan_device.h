@@ -418,6 +418,11 @@ public:
         return extensions.geometry_shader_passthrough;
     }
 
+    /// Returns true if core Vulkan geometry shaders are supported.
+    bool IsGeometryShaderSupported() const {
+        return features.features.geometryShader;
+    }
+
     /// Returns true if the device supports VK_NV_low_latency2.
     bool IsNvLowLatency2Supported() const {
         return extensions.low_latency2;
@@ -812,6 +817,10 @@ private:
         FOR_EACH_VK_FEATURE_EXT(FEATURE);
         FOR_EACH_VK_EXTENSION(EXTENSION);
 
+#ifdef __APPLE__
+        bool portability_subset{};
+#endif
+
 #undef EXTENSION
 #undef FEATURE
     };
@@ -826,6 +835,10 @@ private:
         FOR_EACH_VK_FEATURE_1_2(FEATURE_CORE);
         FOR_EACH_VK_FEATURE_1_3(FEATURE_CORE);
         FOR_EACH_VK_FEATURE_EXT(FEATURE_EXT);
+
+#ifdef __APPLE__
+        VkPhysicalDevicePortabilitySubsetFeaturesKHR portability_subset_features{};
+#endif
 
 #undef FEATURE_CORE
 #undef FEATURE_EXT
