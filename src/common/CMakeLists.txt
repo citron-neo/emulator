@@ -38,8 +38,6 @@ add_library(common STATIC
     common_types.h
     concepts.h
     container_hash.h
-    demangle.cpp
-    demangle.h
     detached_tasks.cpp
     detached_tasks.h
     div_ceil.h
@@ -238,7 +236,7 @@ endif()
 
 target_link_libraries(common PUBLIC Boost::context Boost::headers fmt::fmt stb::headers Threads::Threads unordered_dense::unordered_dense)
 target_include_directories(common INTERFACE ${CMAKE_SOURCE_DIR}/src)
-target_link_libraries(common PRIVATE lz4::lz4 zstd::zstd LLVM::Demangle)
+target_link_libraries(common PRIVATE lz4::lz4 zstd::zstd)
 
 if (ANDROID)
     # For ASharedMemory_create
