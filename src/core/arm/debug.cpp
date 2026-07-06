@@ -1,7 +1,6 @@
 // SPDX-FileCopyrightText: Copyright 2023 yuzu Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
-#include "common/demangle.h"
 #include "core/arm/debug.h"
 #include "core/arm/symbols.h"
 #include "core/hle/kernel/k_process.h"
@@ -111,9 +110,7 @@ void SymbolicateBacktrace(Kernel::KProcess* process, std::vector<BacktraceEntry>
         const auto symbol_set = symbols.find(entry.module);
         if (symbol_set != symbols.end()) {
             const auto symbol = Symbols::GetSymbolName(symbol_set->second, entry.offset);
-            if (symbol) {
-                entry.name = Common::DemangleSymbol(*symbol);
-            }
+            entry.name = *symbol;
         }
     }
 }
