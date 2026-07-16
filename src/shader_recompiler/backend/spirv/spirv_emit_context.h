@@ -5,6 +5,7 @@
 
 #include <array>
 
+#include <ankerl/unordered_dense.h>
 #include <sirit/sirit.h>
 
 #include "shader_recompiler/backend/bindings.h"
@@ -213,6 +214,9 @@ public:
     const Profile& profile;
     const RuntimeInfo& runtime_info;
     Stage stage{};
+
+    // Ids already decorated NonUniform, to avoid decorating twice.
+    ankerl::unordered_dense::set<u32> non_uniform_ids;
 
     Id void_id{};
     Id U1{};

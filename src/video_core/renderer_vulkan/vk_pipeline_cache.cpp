@@ -350,6 +350,14 @@ PipelineCache::PipelineCache(Tegra::MaxwellDeviceMemoryManager& device_memory_,
         .unified_descriptor_binding = true,
         .has_split_descriptor_sets = device.IsKhrPushDescriptorSupported(),
         .support_descriptor_aliasing = device.IsDescriptorAliasingSupported(),
+        .support_sampled_image_array_non_uniform_indexing =
+            device.IsSampledImageArrayNonUniformIndexingSupported(),
+        .support_storage_image_array_non_uniform_indexing =
+            device.IsStorageImageArrayNonUniformIndexingSupported(),
+        .support_uniform_texel_buffer_array_non_uniform_indexing =
+            device.IsUniformTexelBufferArrayNonUniformIndexingSupported(),
+        .support_storage_texel_buffer_array_non_uniform_indexing =
+            device.IsStorageTexelBufferArrayNonUniformIndexingSupported(),
         .support_int8 = device.IsInt8Supported(),
         .support_int16 = device.IsShaderInt16Supported(),
         .support_int64 = device.IsShaderInt64Supported(),

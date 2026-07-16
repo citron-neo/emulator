@@ -442,6 +442,26 @@ public:
                features.descriptor_indexing.descriptorBindingStorageImageUpdateAfterBind;
     }
 
+    /// True if the device supports non-uniform indexing for sampled image arrays.
+    bool IsSampledImageArrayNonUniformIndexingSupported() const {
+        return features.descriptor_indexing.shaderSampledImageArrayNonUniformIndexing;
+    }
+
+    /// True if the device supports non-uniform indexing for storage image arrays.
+    bool IsStorageImageArrayNonUniformIndexingSupported() const {
+        return features.descriptor_indexing.shaderStorageImageArrayNonUniformIndexing;
+    }
+
+    /// True if the device supports non-uniform indexing for uniform texel buffer arrays.
+    bool IsUniformTexelBufferArrayNonUniformIndexingSupported() const {
+        return features.descriptor_indexing.shaderUniformTexelBufferArrayNonUniformIndexing;
+    }
+
+    /// True if the device supports non-uniform indexing for storage texel buffer arrays.
+    bool IsStorageTexelBufferArrayNonUniformIndexingSupported() const {
+        return features.descriptor_indexing.shaderStorageTexelBufferArrayNonUniformIndexing;
+    }
+
     /// Returns true if VK_KHR_pipeline_executable_properties is enabled.
     bool IsKhrPipelineExecutablePropertiesEnabled() const {
         return extensions.pipeline_executable_properties;

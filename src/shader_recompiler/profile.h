@@ -17,6 +17,11 @@ struct Profile {
     /// to build a split pipeline layout.
     bool has_split_descriptor_sets{};
     bool support_descriptor_aliasing{};
+    /// NonUniform decoration for bindless array indices, per descriptor class.
+    bool support_sampled_image_array_non_uniform_indexing{};
+    bool support_storage_image_array_non_uniform_indexing{};
+    bool support_uniform_texel_buffer_array_non_uniform_indexing{};
+    bool support_storage_texel_buffer_array_non_uniform_indexing{};
     bool support_int8{};
     bool support_int16{};
     bool support_int64{};
