@@ -215,8 +215,9 @@ public:
     const RuntimeInfo& runtime_info;
     Stage stage{};
 
-    // Ids already decorated NonUniform, to avoid decorating twice.
-    ankerl::unordered_dense::set<u32> non_uniform_ids;
+    // Maps an id to its NonUniform-decorated copy, so decoration never
+    // mutates the original id.
+    ankerl::unordered_dense::map<u32, Id> non_uniform_ids;
 
     Id void_id{};
     Id U1{};

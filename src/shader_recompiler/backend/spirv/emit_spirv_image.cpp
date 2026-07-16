@@ -233,25 +233,21 @@ Id TextureImage(EmitContext& ctx, IR::TextureInstInfo info, const IR::Value& ind
     }
 }
 
-// Decorates divergent bindless indices NonUniform, per descriptor class
-// (`supported`). non_uniform_ids dedups repeated use of the same index.
+// Decorates a copy of divergent bindless indices NonUniform, per descriptor
+// class (`supported`). Never decorates the original id - it may be used
+// elsewhere in the shader. non_uniform_ids caches id -> decorated copy.
 Id BindlessArrayIndex(EmitContext& ctx, const IR::Value& index, bool supported) {
     const Id idx{ctx.Def(index)};
-    const bool already_decorated{ctx.non_uniform_ids.contains(idx.value)};
-    if (supported) {
-        if (!already_decorated) {
-            ctx.Decorate(idx, spv::Decoration::NonUniformEXT);
-            ctx.non_uniform_ids.insert(idx.value);
-        }
+    if (!supported) {
         return idx;
     }
-    if (already_decorated) {
-        // Already decorated for a different, unsupported class here - reuse
-        // would apply it to an access chain with no matching capability.
-        // OpIAdd 0 as a cheap copy; OpCopyObject isn't confirmed in Sirit.
-        return ctx.OpIAdd(ctx.U32[1], idx, ctx.Const(0u));
+    if (const auto it{ctx.non_uniform_ids.find(idx.value)}; it != ctx.non_uniform_ids.end()) {
+        return it->second;
     }
-    return idx;
+    const Id copy{ctx.OpIAdd(ctx.U32[1], idx, ctx.Const(0u))};
+    ctx.Decorate(copy, spv::Decoration::NonUniformEXT);
+    ctx.non_uniform_ids.emplace(idx.value, copy);
+    return copy;
 }
 
 std::pair<Id, bool> Image(EmitContext& ctx, const IR::Value& index, IR::TextureInstInfo info) {
