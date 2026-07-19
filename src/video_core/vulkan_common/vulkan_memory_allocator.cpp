@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <bit>
 #include <optional>
+#include <utility>
 #include <vector>
 
 #include "common/alignment.h"
@@ -219,6 +220,37 @@ void MemoryCommit::Release() {
     }
 }
 
+MemoryPressureCallbackRegistration::MemoryPressureCallbackRegistration(
+    MemoryAllocator& allocator_, u64 registration_id_) noexcept
+    : allocator{&allocator_}, registration_id{registration_id_} {}
+
+MemoryPressureCallbackRegistration::~MemoryPressureCallbackRegistration() {
+    Reset();
+}
+
+MemoryPressureCallbackRegistration::MemoryPressureCallbackRegistration(
+    MemoryPressureCallbackRegistration&& other) noexcept
+    : allocator{std::exchange(other.allocator, nullptr)},
+      registration_id{std::exchange(other.registration_id, 0)} {}
+
+MemoryPressureCallbackRegistration& MemoryPressureCallbackRegistration::operator=(
+    MemoryPressureCallbackRegistration&& other) noexcept {
+    if (this != &other) {
+        Reset();
+        allocator = std::exchange(other.allocator, nullptr);
+        registration_id = std::exchange(other.registration_id, 0);
+    }
+    return *this;
+}
+
+void MemoryPressureCallbackRegistration::Reset() noexcept {
+    if (allocator) {
+        allocator->ClearMemoryPressureCallback(registration_id);
+        allocator = nullptr;
+        registration_id = 0;
+    }
+}
+
 MemoryAllocator::MemoryAllocator(const Device& device_)
     : device{device_}, allocator{device.GetAllocator()},
       properties{device_.GetPhysical().GetMemoryProperties().memoryProperties},
@@ -240,9 +272,23 @@ MemoryAllocator::MemoryAllocator(const Device& device_)
 
 MemoryAllocator::~MemoryAllocator() = default;
 
+MemoryPressureCallbackRegistration MemoryAllocator::SetMemoryPressureCallback(
+    std::function<void()> callback) {
+    std::scoped_lock lock{memory_pressure_mutex};
+    memory_pressure_callback = std::move(callback);
+    const u64 registration_id = ++memory_pressure_callback_registration_id;
+    return MemoryPressureCallbackRegistration{*this, registration_id};
+}
+
+void MemoryAllocator::ClearMemoryPressureCallback(u64 registration_id) noexcept {
+    std::scoped_lock lock{memory_pressure_mutex};
+    if (registration_id == memory_pressure_callback_registration_id) {
+        memory_pressure_callback = {};
+    }
+}
+
 bool MemoryAllocator::TryRecoverFromOutOfMemory(VkResult result) const {
-    if ((result != VK_ERROR_OUT_OF_DEVICE_MEMORY && result != VK_ERROR_OUT_OF_HOST_MEMORY) ||
-        !memory_pressure_callback) {
+    if (result != VK_ERROR_OUT_OF_DEVICE_MEMORY && result != VK_ERROR_OUT_OF_HOST_MEMORY) {
         return false;
     }
     static thread_local bool is_handling_memory_pressure = false;
@@ -252,6 +298,9 @@ bool MemoryAllocator::TryRecoverFromOutOfMemory(VkResult result) const {
         return false;
     }
     std::scoped_lock recovery_lock{memory_pressure_mutex};
+    if (!memory_pressure_callback) {
+        return false;
+    }
     is_handling_memory_pressure = true;
     SCOPE_EXIT {
         is_handling_memory_pressure = false;

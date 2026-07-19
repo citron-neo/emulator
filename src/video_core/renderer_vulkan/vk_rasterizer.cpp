@@ -202,7 +202,7 @@ RasterizerVulkan::RasterizerVulkan(Core::Frontend::EmuWindow& emu_window_, Tegra
       wfi_event(device.GetLogical().CreateEvent()) {
     scheduler.SetQueryCache(query_cache);
 
-    memory_allocator.SetMemoryPressureCallback([this]() {
+    memory_pressure_callback_registration = memory_allocator.SetMemoryPressureCallback([this]() {
         std::scoped_lock lock{texture_cache.mutex, buffer_cache.mutex};
 
         // Pipelines and cache resources may still be referenced by queued command buffers.
@@ -240,6 +240,7 @@ void RasterizerVulkan::Shutdown() {
     if (is_shutting_down.exchange(true)) {
         return;
     }
+    memory_pressure_callback_registration.Reset();
     std::unique_lock exclusive_guard{shutdown_mutex};
 
     // 1. Tell the GPU to finish current work
