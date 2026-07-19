@@ -230,6 +230,7 @@ private:
 
     std::shared_mutex shutdown_mutex;
     std::atomic_bool is_shutting_down{false};
+    MemoryPressureCallbackRegistration memory_pressure_callback_registration;
 };
 
 } // namespace Vulkan
