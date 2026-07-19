@@ -580,6 +580,16 @@
     <string name="emulation_input_overlay">Overlay options</string>
     <string name="emulation_cheats">Cheats</string>
     <string name="emulation_cheats_empty">No cheats are available for this game.</string>
+    <string name="emulation_amiibo">Amiibo</string>
+    <string name="emulation_amiibo_load">Load</string>
+    <string name="emulation_amiibo_remove">Remove</string>
+    <string name="emulation_amiibo_invalid">The selected file is not a valid Amiibo.</string>
+    <string name="emulation_amiibo_not_scanning">The current game is not looking for Amiibo.</string>
+    <string name="emulation_amiibo_read_failed">The selected Amiibo file could not be read.</string>
+    <string name="emulation_amiibo_write_failed">Changes could not be saved to the selected Amiibo file. The Amiibo remains loaded so you can retry.</string>
+    <string name="emulation_amiibo_load_failed">The selected Amiibo file could not be loaded.</string>
+    <string name="emulation_amiibo_loaded">Amiibo loaded.</string>
+    <string name="emulation_amiibo_removed">Amiibo removed.</string>
     <string name="touchscreen">Touchscreen</string>
     <string name="lock_drawer">Lock drawer</string>
     <string name="unlock_drawer">Unlock drawer</string>

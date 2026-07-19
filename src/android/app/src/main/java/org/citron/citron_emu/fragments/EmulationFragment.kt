@@ -25,6 +25,7 @@ import android.widget.FrameLayout
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.widget.PopupMenu
 import androidx.core.content.res.ResourcesCompat
 import androidx.core.graphics.Insets
@@ -95,6 +96,26 @@ class EmulationFragment : Fragment(), SurfaceHolder.Callback {
     private var isInFoldableLayout = false
 
     private lateinit var powerManager: PowerManager
+
+    private val openAmiiboFileLauncher =
+        registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+            if (uri == null) {
+                return@registerForActivityResult
+            }
+            if (FileUtil.getExtension(uri) != "bin") {
+                Toast.makeText(
+                    requireContext(),
+                    R.string.emulation_amiibo_invalid,
+                    Toast.LENGTH_LONG
+                ).show()
+                return@registerForActivityResult
+            }
+
+            lifecycleScope.launch {
+                val result = AmiiboFileSession.load(requireContext(), uri)
+                showAmiiboResult(result, loaded = true)
+            }
+        }
 
     override fun onAttach(context: Context) {
         super.onAttach(context)
@@ -298,6 +319,11 @@ class EmulationFragment : Fragment(), SurfaceHolder.Callback {
                     true
                 }
 
+                R.id.menu_amiibo -> {
+                    showAmiiboMenu()
+                    true
+                }
+
                 R.id.menu_lock_drawer -> {
                     when (IntSetting.LOCK_DRAWER.getInt()) {
                         DrawerLayout.LOCK_MODE_UNLOCKED -> {
@@ -326,11 +352,9 @@ class EmulationFragment : Fragment(), SurfaceHolder.Callback {
                 }
 
                 R.id.menu_exit -> {
-                    emulationState.stop()
-                    NativeConfig.reloadGlobalConfig()
-                    emulationViewModel.setIsEmulationStopping(true)
                     binding.drawerLayout.close()
                     binding.inGameMenu.requestFocus()
+                    stopEmulation()
                     true
                 }
 
@@ -784,6 +808,63 @@ class EmulationFragment : Fragment(), SurfaceHolder.Callback {
 
     override fun surfaceDestroyed(holder: SurfaceHolder) {
         emulationState.clearSurface()
+    }
+
+    private fun showAmiiboMenu() {
+        val anchor = binding.inGameMenu.findViewById<View>(R.id.menu_amiibo)
+        val popup = PopupMenu(requireContext(), anchor)
+        popup.menuInflater.inflate(R.menu.menu_amiibo_options, popup.menu)
+        popup.setOnMenuItemClickListener {
+            when (it.itemId) {
+                R.id.menu_amiibo_load -> {
+                    openAmiiboFileLauncher.launch(arrayOf("application/octet-stream", "*/*"))
+                    true
+                }
+
+                R.id.menu_amiibo_remove -> {
+                    lifecycleScope.launch {
+                        val result = AmiiboFileSession.remove(requireContext())
+                        showAmiiboResult(result, loaded = false)
+                    }
+                    true
+                }
+
+                else -> false
+            }
+        }
+        popup.show()
+    }
+
+    private fun showAmiiboResult(result: AmiiboFileSession.Result, loaded: Boolean) {
+        val message = when (result) {
+            AmiiboFileSession.Result.Success -> {
+                if (loaded) R.string.emulation_amiibo_loaded else R.string.emulation_amiibo_removed
+            }
+            AmiiboFileSession.Result.UnableToRead -> R.string.emulation_amiibo_read_failed
+            AmiiboFileSession.Result.UnableToWrite -> R.string.emulation_amiibo_write_failed
+            AmiiboFileSession.Result.NotAnAmiibo -> R.string.emulation_amiibo_invalid
+            AmiiboFileSession.Result.WrongDeviceState ->
+                R.string.emulation_amiibo_not_scanning
+            AmiiboFileSession.Result.UnableToLoad,
+            AmiiboFileSession.Result.Unknown -> R.string.emulation_amiibo_load_failed
+        }
+        Toast.makeText(requireContext(), message, Toast.LENGTH_LONG).show()
+    }
+
+    private fun stopEmulation() {
+        lifecycleScope.launch {
+            val result = AmiiboFileSession.remove(requireContext())
+            if (result == AmiiboFileSession.Result.UnableToWrite) {
+                Toast.makeText(
+                    requireContext(),
+                    R.string.emulation_amiibo_write_failed,
+                    Toast.LENGTH_LONG
+                ).show()
+            }
+            emulationState.stop()
+            NativeConfig.reloadGlobalConfig()
+            emulationViewModel.setIsEmulationStopping(true)
+        }
     }
 
     private fun showCheats() {

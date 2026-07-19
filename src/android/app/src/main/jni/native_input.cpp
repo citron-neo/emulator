@@ -346,15 +346,36 @@ void Java_org_citron_citron_1emu_features_input_NativeInput_onGamePadMotionEvent
 void Java_org_citron_citron_1emu_features_input_NativeInput_onReadNfcTag(JNIEnv* env, jobject j_obj,
                                                                      jbyteArray j_data) {
     jboolean isCopy{false};
-    std::span<u8> data(reinterpret_cast<u8*>(env->GetByteArrayElements(j_data, &isCopy)),
+    auto* const elements = env->GetByteArrayElements(j_data, &isCopy);
+    std::span<u8> data(reinterpret_cast<u8*>(elements),
                        static_cast<size_t>(env->GetArrayLength(j_data)));
 
     if (EmulationSession::GetInstance().IsRunning()) {
         EmulationSession::GetInstance().GetInputSubsystem().GetVirtualAmiibo()->LoadAmiibo(data);
     }
+    env->ReleaseByteArrayElements(j_data, elements, JNI_ABORT);
 }
 
 void Java_org_citron_citron_1emu_features_input_NativeInput_onRemoveNfcTag(JNIEnv* env, jobject j_obj) {
+    if (EmulationSession::GetInstance().IsRunning()) {
+        EmulationSession::GetInstance().GetInputSubsystem().GetVirtualAmiibo()->CloseAmiibo();
+    }
+}
+
+jint Java_org_citron_citron_1emu_features_input_NativeInput_loadAmiiboFile(
+    JNIEnv* env, jobject j_obj, jstring j_path) {
+    if (!EmulationSession::GetInstance().IsRunning()) {
+        return static_cast<jint>(InputCommon::VirtualAmiibo::Info::WrongDeviceState);
+    }
+
+    const auto path = Common::Android::GetJString(env, j_path);
+    const auto result =
+        EmulationSession::GetInstance().GetInputSubsystem().GetVirtualAmiibo()->LoadAmiibo(path);
+    return static_cast<jint>(result);
+}
+
+void Java_org_citron_citron_1emu_features_input_NativeInput_removeAmiiboFile(
+    JNIEnv* env, jobject j_obj) {
     if (EmulationSession::GetInstance().IsRunning()) {
         EmulationSession::GetInstance().GetInputSubsystem().GetVirtualAmiibo()->CloseAmiibo();
     }

@@ -32,6 +32,11 @@
         android:title="@string/emulation_cheats" />
 
     <item
+        android:id="@+id/menu_amiibo"
+        android:icon="@drawable/ic_nfc"
+        android:title="@string/emulation_amiibo" />
+
+    <item
         android:id="@+id/menu_lock_drawer"
         android:icon="@drawable/ic_unlock"
         android:title="@string/emulation_input_overlay" />
