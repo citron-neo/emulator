@@ -44,7 +44,9 @@ object AmiiboKeyManager {
                 Log.error("[AmiiboKeyManager] Failed to read $source: ${e.message}")
                 return@withContext Result.UnableToRead
             } catch (e: SecurityException) {
-                Log.error("[AmiiboKeyManager] Permission denied while reading $source")
+                Log.error(
+                    "[AmiiboKeyManager] Permission denied while reading $source: ${e.message}"
+                )
                 return@withContext Result.UnableToRead
             }
 
@@ -57,32 +59,40 @@ object AmiiboKeyManager {
                 return@withContext Result.UnableToWrite
             }
 
-            val temporary = try {
-                File.createTempFile("key_retail_", ".tmp", keysDirectory).apply {
-                    writeBytes(keyData)
-                }
+            var temporary: File? = null
+            try {
+                val created = File.createTempFile("key_retail_", ".tmp", keysDirectory)
+                temporary = created
+                created.writeBytes(keyData)
             } catch (e: IOException) {
                 Log.error("[AmiiboKeyManager] Failed to stage key file: ${e.message}")
+                temporary?.delete()
                 return@withContext Result.UnableToWrite
             } catch (e: SecurityException) {
-                Log.error("[AmiiboKeyManager] Permission denied while staging key file")
+                Log.error(
+                    "[AmiiboKeyManager] Permission denied while staging key file: ${e.message}"
+                )
+                temporary?.delete()
                 return@withContext Result.UnableToWrite
             }
+            val stagedFile = temporary ?: return@withContext Result.UnableToWrite
 
             try {
                 Files.move(
-                    temporary.toPath(),
+                    stagedFile.toPath(),
                     File(keysDirectory, "key_retail.bin").toPath(),
                     StandardCopyOption.REPLACE_EXISTING
                 )
                 Result.Success
             } catch (e: IOException) {
                 Log.error("[AmiiboKeyManager] Failed to install key file: ${e.message}")
-                temporary.delete()
+                stagedFile.delete()
                 Result.UnableToWrite
             } catch (e: SecurityException) {
-                Log.error("[AmiiboKeyManager] Permission denied while installing key file")
-                temporary.delete()
+                Log.error(
+                    "[AmiiboKeyManager] Permission denied while installing key file: ${e.message}"
+                )
+                stagedFile.delete()
                 Result.UnableToWrite
             }
         }

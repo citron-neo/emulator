@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <array>
 #include <cstring>
+#include <filesystem>
 #include <string_view>
 
 #include <openssl/evp.h>
@@ -32,6 +33,10 @@ namespace {
 
 constexpr std::size_t KeyFileSize = sizeof(InternalKey) * 2;
 
+std::filesystem::path GetKeyFilePath() {
+    return Common::FS::GetCitronPath(Common::FS::CitronPath::KeysDir) / "key_retail.bin";
+}
+
 bool HasTypeString(const InternalKey& key, std::string_view expected) {
     const auto terminator = std::find(key.type_string.begin(), key.type_string.end(), '\0');
     const std::string_view actual{key.type_string.data(),
@@ -40,9 +45,7 @@ bool HasTypeString(const InternalKey& key, std::string_view expected) {
 }
 
 bool ReadKeys(InternalKey& locked_secret, InternalKey& unfixed_info) {
-    const auto citron_keys_dir = Common::FS::GetCitronPath(Common::FS::CitronPath::KeysDir);
-    const Common::FS::IOFile keys_file{citron_keys_dir / "key_retail.bin",
-                                       Common::FS::FileAccessMode::Read,
+    const Common::FS::IOFile keys_file{GetKeyFilePath(), Common::FS::FileAccessMode::Read,
                                        Common::FS::FileType::BinaryFile};
 
     if (!keys_file.IsOpen() || keys_file.GetSize() != KeyFileSize) {
@@ -358,9 +361,7 @@ bool AreKeysValid(std::span<const u8> key_data) {
 }
 
 KeyStatus GetKeyStatus() {
-    const auto key_path =
-        Common::FS::GetCitronPath(Common::FS::CitronPath::KeysDir) / "key_retail.bin";
-    if (!Common::FS::Exists(key_path)) {
+    if (!Common::FS::Exists(GetKeyFilePath())) {
         return KeyStatus::Missing;
     }
 
@@ -370,9 +371,7 @@ KeyStatus GetKeyStatus() {
 }
 
 bool IsKeyAvailable() {
-    const auto key_path =
-        Common::FS::GetCitronPath(Common::FS::CitronPath::KeysDir) / "key_retail.bin";
-    return Common::FS::Exists(key_path);
+    return Common::FS::Exists(GetKeyFilePath());
 }
 
 DumpStatus GetDumpStatus(std::span<const u8> data) {
