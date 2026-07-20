@@ -190,17 +190,15 @@ class GamePropertiesFragment : Fragment() {
                         binding.root.findNavController().navigate(action)
                     }
                 )
-                if ((args.game.programId.toULongOrNull(16) ?: 0uL) != 0uL) {
-                    add(
-                        SubmenuProperty(
-                            R.string.remove_installed_content,
-                            R.string.remove_installed_content_description,
-                            R.drawable.ic_delete
-                        ) {
-                            showInstalledContentRemovalDialog()
-                        }
-                    )
-                }
+                add(
+                    SubmenuProperty(
+                        R.string.remove_installed_content,
+                        R.string.remove_installed_content_description,
+                        R.drawable.ic_delete
+                    ) {
+                        showInstalledContentRemovalDialog()
+                    }
+                )
                 add(
                     InstallableProperty(
                         R.string.save_data,
@@ -373,6 +371,9 @@ class GamePropertiesFragment : Fragment() {
 
     private fun removeInstalledContent(target: InstalledContentTarget) {
         val context = requireContext()
+        val parsedProgramId = args.game.programId.toULongOrNull()
+            ?: args.game.programId.toULongOrNull(16)
+        val programId = parsedProgramId?.takeIf { it != 0uL }?.toString()
         viewLifecycleOwner.lifecycleScope.launch {
             val result = withContext(Dispatchers.IO) {
                 when (target) {
@@ -384,18 +385,20 @@ class GamePropertiesFragment : Fragment() {
                         if (!gameFileRemoved) {
                             RemovalResult(removed = false)
                         } else {
-                            NativeLibrary.removeBaseContent(args.game.programId)
-                            NativeLibrary.removeUpdate(args.game.programId)
-                            NativeLibrary.removeAllDLC(args.game.programId)
+                            if (programId != null) {
+                                NativeLibrary.removeBaseContent(programId)
+                                NativeLibrary.removeUpdate(programId)
+                                NativeLibrary.removeAllDLC(programId)
+                            }
                             RemovalResult(removed = true, gameFileRemoved = true)
                         }
                     }
 
                     InstalledContentTarget.Update ->
-                        RemovalResult(NativeLibrary.removeUpdate(args.game.programId))
+                        RemovalResult(programId?.let(NativeLibrary::removeUpdate) == true)
 
                     InstalledContentTarget.DLC -> {
-                        val count = NativeLibrary.removeAllDLC(args.game.programId)
+                        val count = programId?.let(NativeLibrary::removeAllDLC) ?: 0
                         RemovalResult(count > 0, count)
                     }
                 }
