@@ -21,6 +21,7 @@ import androidx.lifecycle.lifecycleScope
 import androidx.navigation.findNavController
 import androidx.navigation.fragment.navArgs
 import androidx.recyclerview.widget.GridLayoutManager
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.transition.MaterialSharedAxis
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -45,7 +46,6 @@ import org.citron.citron_emu.utils.FileUtil
 import org.citron.citron_emu.utils.GameIconUtils
 import org.citron.citron_emu.utils.GpuDriverHelper
 import org.citron.citron_emu.utils.MemoryUtil
-import org.citron.citron_emu.utils.ViewUtils.marquee
 import org.citron.citron_emu.utils.ViewUtils.updateMargins
 import org.citron.citron_emu.utils.collect
 import androidx.documentfile.provider.DocumentFile
@@ -107,7 +107,6 @@ class GamePropertiesFragment : Fragment() {
 
         GameIconUtils.loadGameIcon(args.game, binding.imageGameScreen)
         binding.title.text = args.game.title
-        binding.title.marquee()
 
         binding.buttonStart.setOnClickListener {
             LaunchGameDialogFragment.newInstance(args.game)
@@ -190,6 +189,17 @@ class GamePropertiesFragment : Fragment() {
                         binding.root.findNavController().navigate(action)
                     }
                 )
+                if (args.game.programId.toLongOrNull() != 0L) {
+                    add(
+                        SubmenuProperty(
+                            R.string.remove_installed_content,
+                            R.string.remove_installed_content_description,
+                            R.drawable.ic_delete
+                        ) {
+                            showInstalledContentRemovalDialog()
+                        }
+                    )
+                }
                 add(
                     InstallableProperty(
                         R.string.save_data,
@@ -339,6 +349,79 @@ class GamePropertiesFragment : Fragment() {
         }
     }
 
+    private fun showInstalledContentRemovalDialog() {
+        val targets = InstalledContentTarget.entries.toTypedArray()
+        MaterialAlertDialogBuilder(requireContext())
+            .setTitle(R.string.remove_installed_content)
+            .setItems(targets.map { getString(it.titleId) }.toTypedArray()) { _, position ->
+                confirmInstalledContentRemoval(targets[position])
+            }
+            .setNegativeButton(android.R.string.cancel, null)
+            .show()
+    }
+
+    private fun confirmInstalledContentRemoval(target: InstalledContentTarget) {
+        MessageDialogFragment.newInstance(
+            requireActivity(),
+            titleId = target.titleId,
+            descriptionId = target.confirmationId,
+            positiveAction = { removeInstalledContent(target) },
+            showNegativeButton = true
+        ).show(parentFragmentManager, MessageDialogFragment.TAG)
+    }
+
+    private fun removeInstalledContent(target: InstalledContentTarget) {
+        viewLifecycleOwner.lifecycleScope.launch {
+            val result = withContext(Dispatchers.IO) {
+                when (target) {
+                    InstalledContentTarget.Game -> {
+                        val baseRemoved = NativeLibrary.removeBaseContent(args.game.programId)
+                        val updateRemoved = NativeLibrary.removeUpdate(args.game.programId)
+                        val dlcRemoved = NativeLibrary.removeAllDLC(args.game.programId)
+                        RemovalResult(baseRemoved || updateRemoved || dlcRemoved > 0)
+                    }
+
+                    InstalledContentTarget.Update ->
+                        RemovalResult(NativeLibrary.removeUpdate(args.game.programId))
+
+                    InstalledContentTarget.DLC -> {
+                        val count = NativeLibrary.removeAllDLC(args.game.programId)
+                        RemovalResult(count > 0, count)
+                    }
+                }
+            }
+
+            val message = when {
+                result.removed && target == InstalledContentTarget.Game ->
+                    getString(R.string.installed_game_content_removed)
+
+                result.removed && target == InstalledContentTarget.Update ->
+                    getString(R.string.installed_update_removed)
+
+                result.removed ->
+                    getString(R.string.installed_dlc_removed, result.dlcCount)
+
+                target == InstalledContentTarget.Game ->
+                    getString(R.string.installed_base_game_not_found)
+
+                target == InstalledContentTarget.Update ->
+                    getString(R.string.installed_update_not_found)
+
+                else -> getString(R.string.installed_dlc_not_found)
+            }
+
+            MessageDialogFragment.newInstance(
+                titleId = if (result.removed) {
+                    R.string.installed_content_removed
+                } else {
+                    target.titleId
+                },
+                descriptionString = message
+            ).show(parentFragmentManager, MessageDialogFragment.TAG)
+            gamesViewModel.reloadGames(directoriesChanged = false)
+        }
+    }
+
     override fun onResume() {
         super.onResume()
         driverViewModel.updateDriverNameForGame(args.game)
@@ -386,6 +469,26 @@ class GamePropertiesFragment : Fragment() {
         }
 
     private var pendingDumpType: String? = null // "romfs" or "exefs"
+
+    private data class RemovalResult(val removed: Boolean, val dlcCount: Int = 0)
+
+    private enum class InstalledContentTarget(
+        val titleId: Int,
+        val confirmationId: Int
+    ) {
+        Game(
+            R.string.remove_installed_game,
+            R.string.remove_installed_game_confirmation
+        ),
+        Update(
+            R.string.remove_installed_update,
+            R.string.remove_installed_update_confirmation
+        ),
+        DLC(
+            R.string.remove_all_installed_dlc,
+            R.string.remove_all_installed_dlc_confirmation
+        )
+    }
 
     private val selectDumpDirectory =
         registerForActivityResult(ActivityResultContracts.OpenDocumentTree()) { result ->

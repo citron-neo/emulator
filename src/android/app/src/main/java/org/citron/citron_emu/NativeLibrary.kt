@@ -469,16 +469,28 @@ object NativeLibrary {
     external fun addCheat(programId: String, title: String, code: String): Int
 
     /**
-     * Removes an update for a given [programId]
-     * @param programId String representation of a game's program ID
+     * Removes an installed base game for a given [programId].
+     * @return Whether an installed base game was removed.
      */
-    external fun removeUpdate(programId: String)
+    external fun removeBaseContent(programId: String): Boolean
+
+    /**
+     * Removes an update for a given [programId].
+     * @return Whether an installed update was removed.
+     */
+    external fun removeUpdate(programId: String): Boolean
 
     /**
      * Removes a single installed DLC with the given [titleId]
      * @param titleId String representation of the DLC title ID
      */
     external fun removeDLC(titleId: String)
+
+    /**
+     * Removes all installed DLC for a given [programId].
+     * @return The number of installed DLC entries removed.
+     */
+    external fun removeAllDLC(programId: String): Int
 
     /**
      * Removes a mod installed for a given [programId]
