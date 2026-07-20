@@ -306,7 +306,8 @@ class MainActivity : AppCompatActivity(), ThemeProvider {
     fun processGamesDir(result: Uri) {
         contentResolver.takePersistableUriPermission(
             result,
-            Intent.FLAG_GRANT_READ_URI_PERMISSION
+            Intent.FLAG_GRANT_READ_URI_PERMISSION or
+                Intent.FLAG_GRANT_WRITE_URI_PERMISSION
         )
 
         val uriString = result.toString()
