@@ -6,6 +6,7 @@ package org.citron.citron_emu.fragments
 
 import android.content.pm.ShortcutInfo
 import android.content.pm.ShortcutManager
+import android.net.Uri
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
@@ -371,14 +372,23 @@ class GamePropertiesFragment : Fragment() {
     }
 
     private fun removeInstalledContent(target: InstalledContentTarget) {
+        val context = requireContext()
         viewLifecycleOwner.lifecycleScope.launch {
             val result = withContext(Dispatchers.IO) {
                 when (target) {
                     InstalledContentTarget.Game -> {
-                        val baseRemoved = NativeLibrary.removeBaseContent(args.game.programId)
-                        val updateRemoved = NativeLibrary.removeUpdate(args.game.programId)
-                        val dlcRemoved = NativeLibrary.removeAllDLC(args.game.programId)
-                        RemovalResult(baseRemoved || updateRemoved || dlcRemoved > 0)
+                        val gameFileRemoved = DocumentFile.fromSingleUri(
+                            context,
+                            Uri.parse(args.game.path)
+                        )?.delete() == true
+                        if (!gameFileRemoved) {
+                            RemovalResult(removed = false)
+                        } else {
+                            NativeLibrary.removeBaseContent(args.game.programId)
+                            NativeLibrary.removeUpdate(args.game.programId)
+                            NativeLibrary.removeAllDLC(args.game.programId)
+                            RemovalResult(removed = true, gameFileRemoved = true)
+                        }
                     }
 
                     InstalledContentTarget.Update ->
@@ -402,7 +412,7 @@ class GamePropertiesFragment : Fragment() {
                     getString(R.string.installed_dlc_removed, result.dlcCount)
 
                 target == InstalledContentTarget.Game ->
-                    getString(R.string.installed_base_game_not_found)
+                    getString(R.string.game_file_delete_failed)
 
                 target == InstalledContentTarget.Update ->
                     getString(R.string.installed_update_not_found)
@@ -411,12 +421,18 @@ class GamePropertiesFragment : Fragment() {
             }
 
             MessageDialogFragment.newInstance(
+                requireActivity(),
                 titleId = if (result.removed) {
                     R.string.installed_content_removed
                 } else {
                     target.titleId
                 },
-                descriptionString = message
+                descriptionString = message,
+                positiveAction = if (result.gameFileRemoved) {
+                    { binding.root.findNavController().popBackStack() }
+                } else {
+                    null
+                }
             ).show(parentFragmentManager, MessageDialogFragment.TAG)
             gamesViewModel.reloadGames(directoriesChanged = false)
         }
@@ -470,7 +486,11 @@ class GamePropertiesFragment : Fragment() {
 
     private var pendingDumpType: String? = null // "romfs" or "exefs"
 
-    private data class RemovalResult(val removed: Boolean, val dlcCount: Int = 0)
+    private data class RemovalResult(
+        val removed: Boolean,
+        val dlcCount: Int = 0,
+        val gameFileRemoved: Boolean = false
+    )
 
     private enum class InstalledContentTarget(
         val titleId: Int,
