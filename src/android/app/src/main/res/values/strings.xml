@@ -581,6 +581,15 @@
     <string name="emulation_input_overlay">Overlay options</string>
     <string name="emulation_cheats">Cheats</string>
     <string name="emulation_cheats_empty">No cheats are available for this game.</string>
+    <string name="emulation_cheats_add">Add cheat</string>
+    <string name="emulation_cheats_title">Title</string>
+    <string name="emulation_cheats_code">Code</string>
+    <string name="emulation_cheats_invalid_title">Enter a title without brackets or line breaks.</string>
+    <string name="emulation_cheats_invalid_code">Enter valid Atmosphère cheat code.</string>
+    <string name="emulation_cheats_duplicate_title">A hot-loaded cheat with this title already exists.</string>
+    <string name="emulation_cheats_engine_unavailable">The cheat engine is not available for this game.</string>
+    <string name="emulation_cheats_add_failed">The cheat file could not be saved.</string>
+    <string name="emulation_cheats_added">Cheat added and enabled.</string>
     <string name="emulation_amiibo">Amiibo</string>
     <string name="emulation_amiibo_load">Load</string>
     <string name="emulation_amiibo_remove">Remove</string>

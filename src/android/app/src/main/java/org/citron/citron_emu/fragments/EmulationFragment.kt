@@ -56,6 +56,7 @@ import org.citron.citron_emu.NativeLibrary
 import org.citron.citron_emu.R
 import org.citron.citron_emu.activities.EmulationActivity
 import org.citron.citron_emu.databinding.DialogOverlayAdjustBinding
+import org.citron.citron_emu.databinding.DialogAddCheatBinding
 import org.citron.citron_emu.databinding.FragmentEmulationBinding
 import org.citron.citron_emu.features.settings.model.BooleanSetting
 import org.citron.citron_emu.features.settings.model.IntSetting
@@ -951,6 +952,9 @@ class EmulationFragment : Fragment(), SurfaceHolder.Callback {
                 MaterialAlertDialogBuilder(requireContext())
                     .setTitle(R.string.emulation_cheats)
                     .setMessage(R.string.emulation_cheats_empty)
+                    .setNeutralButton(R.string.emulation_cheats_add) { _, _ ->
+                        showAddCheatDialog()
+                    }
                     .setPositiveButton(R.string.close, null)
                     .show()
                 return@launch
@@ -964,8 +968,100 @@ class EmulationFragment : Fragment(), SurfaceHolder.Callback {
                 ) { _, which, isChecked ->
                     setCheatEnabled(cheats[which], isChecked)
                 }
+                .setNeutralButton(R.string.emulation_cheats_add) { _, _ ->
+                    showAddCheatDialog()
+                }
                 .setPositiveButton(R.string.close, null)
                 .show()
+        }
+    }
+
+    private fun showAddCheatDialog() {
+        val dialogBinding = DialogAddCheatBinding.inflate(layoutInflater)
+        val dialog = MaterialAlertDialogBuilder(requireContext())
+            .setTitle(R.string.emulation_cheats_add)
+            .setView(dialogBinding.root)
+            .setNegativeButton(android.R.string.cancel, null)
+            .setPositiveButton(R.string.emulation_cheats_add, null)
+            .create()
+
+        dialog.setOnShowListener {
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+                val title = dialogBinding.cheatTitle.text?.toString()?.trim().orEmpty()
+                val code = dialogBinding.cheatCode.text?.toString()?.trim().orEmpty()
+                dialogBinding.cheatTitleLayout.error = null
+                dialogBinding.cheatCodeLayout.error = null
+                if (title.isEmpty()) {
+                    dialogBinding.cheatTitleLayout.error =
+                        getString(R.string.emulation_cheats_invalid_title)
+                    return@setOnClickListener
+                }
+                if (code.isEmpty()) {
+                    dialogBinding.cheatCodeLayout.error =
+                        getString(R.string.emulation_cheats_invalid_code)
+                    return@setOnClickListener
+                }
+
+                dialog.getButton(AlertDialog.BUTTON_POSITIVE).isEnabled = false
+                addCheat(title, code) { result ->
+                    dialog.getButton(AlertDialog.BUTTON_POSITIVE).isEnabled = true
+                    when (result) {
+                        NativeLibrary.AddCheatResult.SUCCESS -> {
+                            dialog.dismiss()
+                            Toast.makeText(
+                                requireContext(),
+                                R.string.emulation_cheats_added,
+                                Toast.LENGTH_SHORT
+                            ).show()
+                            showCheats()
+                        }
+                        NativeLibrary.AddCheatResult.INVALID_TITLE ->
+                            dialogBinding.cheatTitleLayout.error =
+                                getString(R.string.emulation_cheats_invalid_title)
+                        NativeLibrary.AddCheatResult.INVALID_CODE ->
+                            dialogBinding.cheatCodeLayout.error =
+                                getString(R.string.emulation_cheats_invalid_code)
+                        NativeLibrary.AddCheatResult.DUPLICATE_TITLE ->
+                            dialogBinding.cheatTitleLayout.error =
+                                getString(R.string.emulation_cheats_duplicate_title)
+                        NativeLibrary.AddCheatResult.NO_CHEAT_ENGINE ->
+                            dialogBinding.cheatCodeLayout.error =
+                                getString(R.string.emulation_cheats_engine_unavailable)
+                        else ->
+                            dialogBinding.cheatCodeLayout.error =
+                                getString(R.string.emulation_cheats_add_failed)
+                    }
+                }
+            }
+        }
+        dialog.show()
+    }
+
+    private fun addCheat(title: String, code: String, onResult: (Int) -> Unit) {
+        viewLifecycleOwner.lifecycleScope.launch {
+            val result = cheatToggleMutex.withLock {
+                var shouldResume = false
+                try {
+                    shouldResume = emulationState.isRunning && !NativeLibrary.isPaused()
+                    if (shouldResume) {
+                        emulationState.pause()
+                    }
+                    withContext(Dispatchers.IO) {
+                        NativeLibrary.addCheat(game.programId, title, code).also {
+                            if (it == NativeLibrary.AddCheatResult.SUCCESS) {
+                                NativeConfig.saveGlobalConfig()
+                            }
+                        }
+                    }
+                } finally {
+                    withContext(NonCancellable) {
+                        if (shouldResume && emulationState.isPaused) {
+                            emulationState.run(false)
+                        }
+                    }
+                }
+            }
+            onResult(result)
         }
     }
 

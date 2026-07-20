@@ -18,6 +18,7 @@
 
 #include <android/api-level.h>
 #include <android/native_window_jni.h>
+#include <common/fs/file.h>
 #include <common/fs/fs.h>
 #include <core/file_sys/patch_manager.h>
 #include <core/file_sys/savedata_factory.h>
@@ -1108,6 +1109,106 @@ jboolean Java_org_citron_citron_1emu_NativeLibrary_reloadCheats(JNIEnv* env, job
                                    system.GetContentProvider()};
     cheat_engine->Reload(pm.CreateCheatList(cheat_engine->GetBuildId()));
     return true;
+}
+
+jint Java_org_citron_citron_1emu_NativeLibrary_addCheat(JNIEnv* env, jobject jobj,
+                                                     jstring jprogramId, jstring jtitle,
+                                                     jstring jcode) {
+    enum class Result : jint {
+        Success = 0,
+        InvalidTitle = 1,
+        InvalidCode = 2,
+        NoCheatEngine = 3,
+        UnableToWrite = 4,
+        DuplicateTitle = 5,
+    };
+
+    constexpr std::size_t MaxCheatFileSize = 1024 * 1024;
+    constexpr std::string_view HotCheatsDirectory = "Hot Cheats";
+
+    auto& system = EmulationSession::GetInstance().System();
+    auto* cheat_engine = system.GetCheatEngine();
+    if (cheat_engine == nullptr) {
+        return static_cast<jint>(Result::NoCheatEngine);
+    }
+
+    const auto program_id = EmulationSession::GetProgramId(env, jprogramId);
+    const auto title = Common::StripSpaces(Common::Android::GetJString(env, jtitle));
+    const auto code = Common::StripSpaces(Common::Android::GetJString(env, jcode));
+    if (program_id == 0 || title.empty() ||
+        title.size() >= Core::Memory::CheatDefinition{}.readable_name.size() ||
+        title.find_first_of("[]{}\r\n") != std::string::npos) {
+        return static_cast<jint>(Result::InvalidTitle);
+    }
+
+    const auto entry_text = fmt::format("[{}]\n{}\n", title, code);
+    const Core::Memory::TextCheatParser parser;
+    const auto new_entries = parser.Parse(entry_text);
+    if (new_entries.size() != 2 || new_entries[1].definition.num_opcodes == 0) {
+        return static_cast<jint>(Result::InvalidCode);
+    }
+
+    const auto build_id = FileSys::GetCheatBuildId(cheat_engine->GetBuildId());
+    const auto cheat_file =
+        Common::FS::GetCitronPath(Common::FS::CitronPath::LoadDir) /
+        fmt::format("{:016X}", program_id) / HotCheatsDirectory / "cheats" /
+        fmt::format("{}.txt", build_id);
+    if (!Common::FS::CreateParentDirs(cheat_file)) {
+        return static_cast<jint>(Result::UnableToWrite);
+    }
+
+    std::string contents;
+    if (Common::FS::Exists(cheat_file)) {
+        const auto file_size = Common::FS::GetSize(cheat_file);
+        if (file_size > MaxCheatFileSize) {
+            return static_cast<jint>(Result::UnableToWrite);
+        }
+        contents =
+            Common::FS::ReadStringFromFile(cheat_file, Common::FS::FileType::TextFile);
+        if (contents.size() != file_size) {
+            return static_cast<jint>(Result::UnableToWrite);
+        }
+
+        const auto current_entries = parser.Parse(contents);
+        if (current_entries.empty()) {
+            return static_cast<jint>(Result::UnableToWrite);
+        }
+        const auto has_duplicate = std::any_of(
+            current_entries.cbegin(), current_entries.cend(), [&title](const auto& entry) {
+                const auto& name = entry.definition.readable_name;
+                const auto end = std::find(name.cbegin(), name.cend(), '\0');
+                return std::string_view{name.data(),
+                                        static_cast<std::size_t>(end - name.cbegin())} == title;
+            });
+        if (has_duplicate) {
+            return static_cast<jint>(Result::DuplicateTitle);
+        }
+    }
+
+    if (!contents.empty() && contents.back() != '\n') {
+        contents.push_back('\n');
+    }
+    contents += entry_text;
+    if (contents.size() > MaxCheatFileSize || parser.Parse(contents).empty() ||
+        Common::FS::WriteStringToFile(cheat_file, Common::FS::FileType::TextFile, contents) !=
+            contents.size()) {
+        return static_cast<jint>(Result::UnableToWrite);
+    }
+
+    auto& disabled_addons = Settings::values.disabled_addons[program_id];
+    std::erase(disabled_addons, HotCheatsDirectory);
+    auto& disabled_cheats = Settings::values.disabled_cheats[build_id];
+    const auto source = fmt::format("{}/{}.txt", HotCheatsDirectory, build_id);
+    disabled_cheats.erase(FileSys::GetCheatConfigKey(source, title));
+    disabled_cheats.erase(title);
+    if (disabled_cheats.empty()) {
+        Settings::values.disabled_cheats.erase(build_id);
+    }
+
+    const FileSys::PatchManager pm{program_id, system.GetFileSystemController(),
+                                   system.GetContentProvider()};
+    cheat_engine->Reload(pm.CreateCheatList(cheat_engine->GetBuildId()));
+    return static_cast<jint>(Result::Success);
 }
 
 void Java_org_citron_citron_1emu_NativeLibrary_removeUpdate(JNIEnv* env, jobject jobj,

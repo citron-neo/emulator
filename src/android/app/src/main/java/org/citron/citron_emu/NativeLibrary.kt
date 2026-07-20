@@ -452,6 +452,22 @@ object NativeLibrary {
      */
     external fun reloadCheats(programId: String): Boolean
 
+    object AddCheatResult {
+        const val SUCCESS = 0
+        const val INVALID_TITLE = 1
+        const val INVALID_CODE = 2
+        const val NO_CHEAT_ENGINE = 3
+        const val UNABLE_TO_WRITE = 4
+        const val DUPLICATE_TITLE = 5
+    }
+
+    /**
+     * Validates, saves, enables, and hot reloads a cheat for the currently running game.
+     *
+     * @return A value from [AddCheatResult].
+     */
+    external fun addCheat(programId: String, title: String, code: String): Int
+
     /**
      * Removes an update for a given [programId]
      * @param programId String representation of a game's program ID
