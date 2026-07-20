@@ -6,8 +6,10 @@ package org.citron.citron_emu.utils
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.IOException
+import java.io.InputStream
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -33,9 +35,19 @@ object AmiiboFileSession {
         Unknown,
     }
 
-    private data class ActiveFile(val source: Uri, val cache: File)
+    private sealed interface SourceFormat {
+        data object Binary : SourceFormat
+        data class Flipper(val template: String) : SourceFormat
+    }
+
+    private data class ActiveFile(
+        val source: Uri,
+        val cache: File,
+        val format: SourceFormat,
+    )
 
     private val validFileSizes = setOf(0x214L, 0x21CL, 0x23CL, 0x400L)
+    private const val MAX_FLIPPER_FILE_SIZE = 1024 * 1024
     private val mutex = Mutex()
     private var activeFile: ActiveFile? = null
 
@@ -58,6 +70,14 @@ object AmiiboFileSession {
                     return@withLock Result.UnableToWrite
                 }
 
+                // Re-reading the same URI before syncing would mount a stale snapshot and later
+                // overwrite changes made by the game.
+                activeFile?.takeIf { it.source == source }?.let { current ->
+                    if (!closeAndSync(context, current)) {
+                        return@withLock Result.UnableToWrite
+                    }
+                }
+
                 val cacheDirectory = File(context.filesDir, "amiibo_runtime")
                 if (!cacheDirectory.exists() && !cacheDirectory.mkdirs()) {
                     return@withLock Result.UnableToRead
@@ -69,14 +89,34 @@ object AmiiboFileSession {
                     Log.error("[AmiiboFileSession] Failed to create writable copy: ${e.message}")
                     return@withLock Result.UnableToRead
                 }
+                val format: SourceFormat
                 try {
                     val inputStream = context.contentResolver.openInputStream(source)
-                    if (inputStream == null) {
-                        cache.delete()
-                        return@withLock Result.UnableToRead
-                    }
-                    inputStream.use { input ->
-                        cache.outputStream().use(input::copyTo)
+                        ?: run {
+                            cache.delete()
+                            return@withLock Result.UnableToRead
+                        }
+                    if (FileUtil.getExtension(source) == "nfc") {
+                        val sourceBytes = inputStream.use {
+                            readAtMost(it, MAX_FLIPPER_FILE_SIZE + 1)
+                        }
+                        if (sourceBytes.size > MAX_FLIPPER_FILE_SIZE) {
+                            cache.delete()
+                            return@withLock Result.NotAnAmiibo
+                        }
+                        val text = sourceBytes.toString(Charsets.UTF_8)
+                        val parsed = FlipperAmiiboFile.parse(text)
+                            ?: run {
+                                cache.delete()
+                                return@withLock Result.NotAnAmiibo
+                            }
+                        cache.writeBytes(parsed.data)
+                        format = SourceFormat.Flipper(parsed.originalText)
+                    } else {
+                        inputStream.use { input ->
+                            cache.outputStream().use(input::copyTo)
+                        }
+                        format = SourceFormat.Binary
                     }
                 } catch (e: IOException) {
                     Log.error("[AmiiboFileSession] Failed to read $source: ${e.message}")
@@ -94,18 +134,15 @@ object AmiiboFileSession {
                 }
 
                 activeFile?.let { current ->
-                    if (!copyBack(context, current)) {
+                    if (!closeAndSync(context, current)) {
                         cache.delete()
                         return@withLock Result.UnableToWrite
                     }
-                    NativeInput.removeAmiiboFile()
-                    current.cache.delete()
-                    activeFile = null
                 }
 
                 val result = nativeResult(NativeInput.loadAmiiboFile(cache.absolutePath))
                 if (result == Result.Success) {
-                    activeFile = ActiveFile(source, cache)
+                    activeFile = ActiveFile(source, cache, format)
                 } else {
                     cache.delete()
                 }
@@ -117,23 +154,46 @@ object AmiiboFileSession {
         withContext(Dispatchers.IO) {
             mutex.withLock {
                 val current = activeFile
-                if (current != null && !copyBack(context, current)) {
-                    return@withLock Result.UnableToWrite
+                if (current != null) {
+                    if (!closeAndSync(context, current)) {
+                        return@withLock Result.UnableToWrite
+                    }
+                } else {
+                    NativeInput.removeAmiiboFile()
                 }
 
-                NativeInput.removeAmiiboFile()
-                current?.cache?.delete()
                 activeFile = null
                 Result.Success
             }
         }
 
+    private fun closeAndSync(context: Context, file: ActiveFile): Boolean {
+        NativeInput.removeAmiiboFile()
+        if (!copyBack(context, file)) {
+            restoreAfterFailedWrite(file)
+            return false
+        }
+        file.cache.delete()
+        activeFile = null
+        return true
+    }
+
     private fun copyBack(context: Context, file: ActiveFile): Boolean =
         try {
-            val outputStream = context.contentResolver.openOutputStream(file.source, "rwt")
-                ?: context.contentResolver.openOutputStream(file.source, "wt")
+            // Build the complete output before opening the source with a truncating mode.
+            val contents = when (val format = file.format) {
+                SourceFormat.Binary -> file.cache.readBytes()
+                is SourceFormat.Flipper -> {
+                    val rendered = FlipperAmiiboFile.render(
+                        format.template,
+                        file.cache.readBytes()
+                    ) ?: return false
+                    rendered.toByteArray(Charsets.UTF_8)
+                }
+            }
+            val outputStream = openOutputStream(context, file.source)
             outputStream?.use { output ->
-                file.cache.inputStream().use { input -> input.copyTo(output) }
+                output.write(contents)
             } != null
         } catch (e: IOException) {
             Log.error("[AmiiboFileSession] Failed to write ${file.source}: ${e.message}")
@@ -141,7 +201,29 @@ object AmiiboFileSession {
         } catch (e: SecurityException) {
             Log.error("[AmiiboFileSession] Permission denied while writing ${file.source}")
             false
+        } catch (e: IllegalArgumentException) {
+            Log.error("[AmiiboFileSession] Provider rejected write mode for ${file.source}")
+            false
         }
+
+    private fun openOutputStream(context: Context, source: Uri) = (
+        try {
+            context.contentResolver.openOutputStream(source, "rwt")
+        } catch (_: IOException) {
+            null
+        } catch (_: IllegalArgumentException) {
+            null
+        }
+    ) ?: context.contentResolver.openOutputStream(source, "wt")
+
+    private fun restoreAfterFailedWrite(file: ActiveFile) {
+        val result = nativeResult(NativeInput.loadAmiiboFile(file.cache.absolutePath))
+        if (result != Result.Success) {
+            Log.warning(
+                "[AmiiboFileSession] Amiibo cache was retained but could not be remounted: $result"
+            )
+        }
+    }
 
     private fun persistDocumentPermission(context: Context, source: Uri) {
         try {
@@ -152,6 +234,21 @@ object AmiiboFileSession {
         } catch (_: SecurityException) {
             // Some providers grant access for the current task but do not support persisted grants.
         }
+    }
+
+    private fun readAtMost(input: InputStream, maximumBytes: Int): ByteArray {
+        val output = ByteArrayOutputStream(minOf(maximumBytes, 8192))
+        val buffer = ByteArray(8192)
+        var remaining = maximumBytes
+        while (remaining > 0) {
+            val count = input.read(buffer, 0, minOf(buffer.size, remaining))
+            if (count < 0) {
+                break
+            }
+            output.write(buffer, 0, count)
+            remaining -= count
+        }
+        return output.toByteArray()
     }
 
     private fun nativeResult(result: Int): Result =

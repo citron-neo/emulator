@@ -102,7 +102,7 @@ class EmulationFragment : Fragment(), SurfaceHolder.Callback {
             if (uri == null) {
                 return@registerForActivityResult
             }
-            if (FileUtil.getExtension(uri) != "bin") {
+            if (FileUtil.getExtension(uri) !in setOf("bin", "nfc")) {
                 Toast.makeText(
                     requireContext(),
                     R.string.emulation_amiibo_invalid,
@@ -817,7 +817,9 @@ class EmulationFragment : Fragment(), SurfaceHolder.Callback {
         popup.setOnMenuItemClickListener {
             when (it.itemId) {
                 R.id.menu_amiibo_load -> {
-                    openAmiiboFileLauncher.launch(arrayOf("application/octet-stream", "*/*"))
+                    openAmiiboFileLauncher.launch(
+                        arrayOf("application/octet-stream", "text/plain", "*/*")
+                    )
                     true
                 }
 
