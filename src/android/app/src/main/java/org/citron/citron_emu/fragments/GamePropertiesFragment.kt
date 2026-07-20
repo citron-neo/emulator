@@ -437,6 +437,11 @@ class GamePropertiesFragment : Fragment() {
                     null
                 }
             ).show(parentFragmentManager, MessageDialogFragment.TAG)
+            if (result.gameFileRemoved) {
+                gamesViewModel.setGames(
+                    gamesViewModel.games.value.filterNot { it.path == args.game.path }
+                )
+            }
             gamesViewModel.reloadGames(directoriesChanged = false)
         }
     }
