@@ -32,6 +32,8 @@ object AmiiboFileSession {
         UnableToLoad,
         NotAnAmiibo,
         WrongDeviceState,
+        EncryptedKeysRequired,
+        InvalidAmiiboKeys,
         Unknown,
     }
 
@@ -140,7 +142,11 @@ object AmiiboFileSession {
                     }
                 }
 
-                val result = nativeResult(NativeInput.loadAmiiboFile(cache.absolutePath))
+                val nativeLoadResult = when (format) {
+                    SourceFormat.Binary -> NativeInput.loadAmiiboBinFile(cache.absolutePath)
+                    is SourceFormat.Flipper -> NativeInput.loadAmiiboFile(cache.absolutePath)
+                }
+                val result = nativeResult(nativeLoadResult)
                 if (result == Result.Success) {
                     activeFile = ActiveFile(source, cache, format)
                 } else {
@@ -257,6 +263,9 @@ object AmiiboFileSession {
             NativeInput.AmiiboResult.UNABLE_TO_LOAD -> Result.UnableToLoad
             NativeInput.AmiiboResult.NOT_AN_AMIIBO -> Result.NotAnAmiibo
             NativeInput.AmiiboResult.WRONG_DEVICE_STATE -> Result.WrongDeviceState
+            NativeInput.AmiiboResult.UNKNOWN -> Result.Unknown
+            NativeInput.AmiiboResult.ENCRYPTED_KEYS_REQUIRED -> Result.EncryptedKeysRequired
+            NativeInput.AmiiboResult.INVALID_AMIIBO_KEYS -> Result.InvalidAmiiboKeys
             else -> Result.Unknown
         }
 }

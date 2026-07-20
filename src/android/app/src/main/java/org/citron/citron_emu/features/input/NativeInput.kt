@@ -39,6 +39,9 @@ object NativeInput {
         const val UNABLE_TO_LOAD = 1
         const val NOT_AN_AMIIBO = 2
         const val WRONG_DEVICE_STATE = 3
+        const val UNKNOWN = 4
+        const val ENCRYPTED_KEYS_REQUIRED = 5
+        const val INVALID_AMIIBO_KEYS = 6
     }
 
     /**
@@ -148,6 +151,17 @@ object NativeInput {
      * @return A value from [AmiiboResult].
      */
     external fun loadAmiiboFile(path: String): Int
+
+    /**
+     * Validates and loads a raw Amiibo BIN dump. Flipper NFC files intentionally use
+     * [loadAmiiboFile] after conversion to preserve their existing behavior.
+     */
+    external fun loadAmiiboBinFile(path: String): Int
+
+    /**
+     * Validates a combined 160-byte unfixed-info + locked-secret Amiibo key file.
+     */
+    external fun validateAmiiboKey(data: ByteArray): Boolean
 
     /**
      * Removes the currently loaded file-backed Amiibo.

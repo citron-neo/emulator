@@ -63,12 +63,13 @@
     <string name="warning_skip">Skip</string>
     <string name="warning_cancel">Cancel</string>
     <string name="install_amiibo_keys">Install Amiibo keys</string>
-    <string name="install_amiibo_keys_description">Required to use Amiibo in game</string>
+    <string name="install_amiibo_keys_description">Required to decrypt encrypted Amiibo BIN dumps</string>
     <string name="invalid_keys_file">Invalid keys file selected</string>
     <string name="install_keys_success">Keys successfully installed</string>
     <string name="reading_keys_failure">Error reading encryption keys</string>
     <string name="install_prod_keys_failure_extension_description">Verify your keys file has a .keys extension and try again.</string>
     <string name="install_amiibo_keys_failure_extension_description">Verify your keys file has a .bin extension and try again.</string>
+    <string name="install_amiibo_keys_invalid_description">Select a valid 160-byte key_retail.bin containing the Amiibo unfixed-info and locked-secret keys.</string>
     <string name="invalid_keys_error">Invalid encryption keys</string>
     <string name="dumping_keys_quickstart_link">https://discord.gg/axqZFEyzPQ</string>
     <string name="install_keys_failure_description">The selected file is incorrect or corrupt. Please redump your keys.</string>
@@ -590,6 +591,9 @@
     <string name="emulation_amiibo_load_failed">The selected Amiibo file could not be loaded.</string>
     <string name="emulation_amiibo_loaded">Amiibo loaded.</string>
     <string name="emulation_amiibo_removed">Amiibo removed.</string>
+    <string name="emulation_amiibo_keys_required">Amiibo keys required</string>
+    <string name="emulation_amiibo_keys_required_description">This encrypted Amiibo BIN requires key_retail.bin. Import the Amiibo keys and the dump will be loaded again.</string>
+    <string name="emulation_amiibo_invalid_keys">The installed Amiibo keys could not decrypt this BIN. Reinstall a valid key_retail.bin or check the dump.</string>
     <string name="touchscreen">Touchscreen</string>
     <string name="lock_drawer">Lock drawer</string>
     <string name="unlock_drawer">Unlock drawer</string>

@@ -19,6 +19,7 @@ import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
+import androidx.lifecycle.lifecycleScope
 import androidx.navigation.NavController
 import androidx.navigation.fragment.NavHostFragment
 import androidx.navigation.ui.setupWithNavController
@@ -27,6 +28,7 @@ import com.google.android.material.color.MaterialColors
 import com.google.android.material.navigation.NavigationBarView
 import java.io.File
 import java.io.FilenameFilter
+import kotlinx.coroutines.launch
 import org.citron.citron_emu.HomeNavigationDirections
 import org.citron.citron_emu.NativeLibrary
 import org.citron.citron_emu.R
@@ -431,40 +433,38 @@ class MainActivity : AppCompatActivity(), ThemeProvider {
                 return@registerForActivityResult
             }
 
-            if (FileUtil.getExtension(result) != "bin") {
-                MessageDialogFragment.newInstance(
-                    this,
-                    titleId = R.string.reading_keys_failure,
-                    descriptionId = R.string.install_amiibo_keys_failure_extension_description
-                ).show(supportFragmentManager, MessageDialogFragment.TAG)
-                return@registerForActivityResult
-            }
-
-            contentResolver.takePersistableUriPermission(
-                result,
-                Intent.FLAG_GRANT_READ_URI_PERMISSION
-            )
-
-            val dstPath = DirectoryInitialization.userDirectory + "/keys/"
-            if (FileUtil.copyUriToInternalStorage(
-                    result,
-                    dstPath,
-                    "key_retail.bin"
-                ) != null
-            ) {
-                if (NativeLibrary.reloadKeys()) {
-                    Toast.makeText(
-                        applicationContext,
-                        R.string.install_keys_success,
-                        Toast.LENGTH_SHORT
-                    ).show()
-                } else {
-                    MessageDialogFragment.newInstance(
-                        this,
-                        titleId = R.string.invalid_keys_error,
-                        descriptionId = R.string.install_keys_failure_description,
-                        helpLinkId = R.string.dumping_keys_quickstart_link
-                    ).show(supportFragmentManager, MessageDialogFragment.TAG)
+            lifecycleScope.launch {
+                when (AmiiboKeyManager.install(this@MainActivity, result)) {
+                    AmiiboKeyManager.Result.Success -> {
+                        Toast.makeText(
+                            applicationContext,
+                            R.string.install_keys_success,
+                            Toast.LENGTH_SHORT
+                        ).show()
+                    }
+                    AmiiboKeyManager.Result.InvalidExtension -> {
+                        MessageDialogFragment.newInstance(
+                            this@MainActivity,
+                            titleId = R.string.reading_keys_failure,
+                            descriptionId =
+                                R.string.install_amiibo_keys_failure_extension_description
+                        ).show(supportFragmentManager, MessageDialogFragment.TAG)
+                    }
+                    AmiiboKeyManager.Result.InvalidKey -> {
+                        MessageDialogFragment.newInstance(
+                            this@MainActivity,
+                            titleId = R.string.invalid_keys_error,
+                            descriptionId = R.string.install_amiibo_keys_invalid_description
+                        ).show(supportFragmentManager, MessageDialogFragment.TAG)
+                    }
+                    AmiiboKeyManager.Result.UnableToRead,
+                    AmiiboKeyManager.Result.UnableToWrite -> {
+                        MessageDialogFragment.newInstance(
+                            this@MainActivity,
+                            titleId = R.string.reading_keys_failure,
+                            descriptionId = R.string.install_keys_failure_description
+                        ).show(supportFragmentManager, MessageDialogFragment.TAG)
+                    }
                 }
             }
         }

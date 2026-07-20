@@ -32,6 +32,8 @@ public:
         NotAnAmiibo,
         WrongDeviceState,
         Unknown,
+        EncryptedKeysRequired,
+        InvalidAmiiboKeys,
     };
 
     explicit VirtualAmiibo(std::string input_engine_);
