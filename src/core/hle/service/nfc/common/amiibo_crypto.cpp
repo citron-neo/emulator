@@ -33,7 +33,7 @@ namespace {
 
 constexpr std::size_t KeyFileSize = sizeof(InternalKey) * 2;
 
-std::filesystem::path GetKeyFilePath() {
+std::filesystem::path GetAmiiboKeyFilePath() {
     return Common::FS::GetCitronPath(Common::FS::CitronPath::KeysDir) / "key_retail.bin";
 }
 
@@ -45,7 +45,7 @@ bool HasTypeString(const InternalKey& key, std::string_view expected) {
 }
 
 bool ReadKeys(InternalKey& locked_secret, InternalKey& unfixed_info) {
-    const Common::FS::IOFile keys_file{GetKeyFilePath(), Common::FS::FileAccessMode::Read,
+    const Common::FS::IOFile keys_file{GetAmiiboKeyFilePath(), Common::FS::FileAccessMode::Read,
                                        Common::FS::FileType::BinaryFile};
 
     if (!keys_file.IsOpen() || keys_file.GetSize() != KeyFileSize) {
@@ -361,7 +361,7 @@ bool AreKeysValid(std::span<const u8> key_data) {
 }
 
 KeyStatus GetKeyStatus() {
-    if (!Common::FS::Exists(GetKeyFilePath())) {
+    if (!Common::FS::Exists(GetAmiiboKeyFilePath())) {
         return KeyStatus::Missing;
     }
 
@@ -371,7 +371,7 @@ KeyStatus GetKeyStatus() {
 }
 
 bool IsKeyAvailable() {
-    return Common::FS::Exists(GetKeyFilePath());
+    return Common::FS::Exists(GetAmiiboKeyFilePath());
 }
 
 DumpStatus GetDumpStatus(std::span<const u8> data) {
