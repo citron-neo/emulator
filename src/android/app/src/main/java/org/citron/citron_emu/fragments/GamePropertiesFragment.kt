@@ -189,7 +189,7 @@ class GamePropertiesFragment : Fragment() {
                         binding.root.findNavController().navigate(action)
                     }
                 )
-                if (args.game.programId.toLongOrNull() != 0L) {
+                if ((args.game.programId.toULongOrNull(16) ?: 0uL) != 0uL) {
                     add(
                         SubmenuProperty(
                             R.string.remove_installed_content,
