@@ -11,6 +11,7 @@
 #include <functional>
 #include <iterator>
 #include <limits>
+#include <mutex>
 
 #ifdef ARCHITECTURE_arm64
 #include <adrenotools/driver.h>
@@ -1153,6 +1154,8 @@ jint Java_org_citron_citron_1emu_NativeLibrary_addCheat(JNIEnv* env, jobject job
         Common::FS::GetCitronPath(Common::FS::CitronPath::LoadDir) /
         fmt::format("{:016X}", program_id) / HotCheatsDirectory / "cheats" /
         fmt::format("{}.txt", build_id);
+    static std::mutex add_cheat_mutex;
+    const std::scoped_lock add_cheat_lock{add_cheat_mutex};
     if (!Common::FS::CreateParentDirs(cheat_file)) {
         return static_cast<jint>(Result::UnableToWrite);
     }
