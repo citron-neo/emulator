@@ -39,6 +39,13 @@ namespace UISettings {
     bool IsDarkTheme();
     bool IsGamescope();
 
+    // The resolved dark-mode state of the currently applied theme, including adaptive
+    // ("default"/"colorful") themes resolved against the live OS dark-mode state. Set once by
+    // GMainWindow::UpdateUITheme() after it determines the effective theme; IsDarkTheme() reads
+    // this so every consumer sees a single, consistent answer instead of re-deriving it from the
+    // raw (pre-resolution) theme setting.
+    extern std::atomic_bool g_is_dark_theme;
+
     struct ContextualShortcut {
         std::string keyseq;
         std::string controller_keyseq;

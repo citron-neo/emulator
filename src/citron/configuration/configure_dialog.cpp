@@ -63,7 +63,10 @@ static QScrollArea* CreateScrollArea(QWidget* widget) {
 }
 
 static bool DialogIsDarkMode() {
-    return true;
+    // Delegate to Theme::IsDarkMode(), which reflects the live application
+    // palette set by GMainWindow::UpdateUITheme() (explicit dark theme, or
+    // an adaptive theme while the OS is in dark mode).
+    return Theme::IsDarkMode();
 }
 
 ConfigureDialog::ConfigureDialog(QWidget* parent, HotkeyRegistry& registry_,

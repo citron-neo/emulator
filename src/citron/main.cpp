@@ -95,6 +95,7 @@ static FileSys::VirtualFile VfsDirectoryCreateFileWrapper(const FileSys::Virtual
 #include <QProgressDialog>
 #include <QPushButton>
 #include <QScreen>
+#include <QStyleHints>
 #include <QVBoxLayout>
 #include <QLabel>
 #include <QTimer>
@@ -323,7 +324,34 @@ static void OverrideWindowsFont() {
 #endif
 
 bool GMainWindow::CheckDarkMode() {
-    return true;
+#if QT_VERSION >= QT_VERSION_CHECK(6, 5, 0)
+    // Use Qt 6.5+ native color scheme detection when it gives a conclusive answer.
+    const Qt::ColorScheme scheme = QGuiApplication::styleHints()->colorScheme();
+    if (scheme == Qt::ColorScheme::Dark) {
+        return true;
+    }
+    if (scheme == Qt::ColorScheme::Light) {
+        return false;
+    }
+    // scheme == Qt::ColorScheme::Unknown: fall through to the platform-specific heuristic below.
+#endif
+
+#if defined(_WIN32)
+    // Fall back to the Windows registry (pre-Qt-6.5, or when colorScheme() is Unknown).
+    QSettings reg(
+        QStringLiteral("HKEY_CURRENT_USER\\Software\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize"),
+        QSettings::NativeFormat);
+    // AppsUseLightTheme = 0 means dark mode is active.
+    return reg.value(QStringLiteral("AppsUseLightTheme"), 1).toInt() == 0;
+#else
+    // Pre-Qt-6.5 fallback for Linux/macOS (or when colorScheme() is Unknown): ask the platform
+    // style for its standard palette.  On dark desktops (KDE Breeze Dark, GNOME Adwaita Dark,
+    // etc.) the Window role will be a dark colour; on light desktops it will be light.  Same
+    // heuristic as Theme::IsDarkMode() but queried before we have touched the app palette.
+    const QColor win =
+        QApplication::style()->standardPalette().color(QPalette::Active, QPalette::Window);
+    return win.lightness() < 128;
+#endif
 }
 
 GMainWindow::GMainWindow(std::unique_ptr<QtConfig> config_, bool has_broken_vulkan)
@@ -6327,7 +6355,40 @@ void GMainWindow::UpdateUITheme() {
         QIcon::setThemeName(current_theme);
         QIcon::setThemeSearchPaths(QStringList(QStringLiteral(":/icons")));
     }
-    AdjustLinkColor();
+    // Determine if the resolved theme (after potential "_dark" suffix for adaptive themes) is dark.
+    const bool theme_is_dark =
+        current_theme.contains(QStringLiteral("dark"), Qt::CaseInsensitive) ||
+        current_theme.contains(QStringLiteral("midnight"), Qt::CaseInsensitive);
+
+    // Publish the resolved state so UISettings::IsDarkTheme() (used throughout the UI) agrees
+    // with this function's notion of dark mode, including for adaptive themes on a dark OS.
+    UISettings::g_is_dark_theme.store(theme_is_dark, std::memory_order_relaxed);
+
+    if (theme_is_dark) {
+        // On Windows the native widget style renders with a light background regardless of the app
+        // palette, which causes white text to become invisible on white backgrounds (e.g. in
+        // QMessageBox). Switch to Fusion so Qt is fully responsible for widget rendering and
+        // respects our dark palette everywhere. This must happen BEFORE AdjustLinkColor(), since
+        // QApplication::setStyle() resets the application palette to the new style's standard
+        // palette; calling it after AdjustLinkColor() would discard the dark palette we just set.
+#ifdef _WIN32
+        if (qApp->style()->objectName().compare(QStringLiteral("fusion"), Qt::CaseInsensitive) != 0) {
+            qApp->setStyle(QStyleFactory::create(QStringLiteral("Fusion")));
+        }
+#endif
+        AdjustLinkColor();
+    } else {
+        // Restore the platform default palette so native dialogs (QMessageBox etc.) use the
+        // system-appropriate colours rather than the dark palette that may have been applied
+        // by a previous theme switch.
+        qApp->setPalette(QApplication::style()->standardPalette());
+#ifdef _WIN32
+        // Restore the native Windows style for light themes.
+        if (qApp->style()->objectName().compare(QStringLiteral("fusion"), Qt::CaseInsensitive) == 0) {
+            qApp->setStyle(QStyleFactory::create(QStringLiteral("windowsvista")));
+        }
+#endif
+    }
 
     // Always load the stylesheet unless the theme is the true default (no explicit QSS)
     if (current_theme != QStringLiteral("default")) {
@@ -6346,7 +6407,8 @@ void GMainWindow::UpdateUITheme() {
 
     // Refresh status bar style to follow the theme (Silver for Light, Onyx for Dark)
     // We STRICTLY follow the text-only aesthetic from Screenshot 1 (No boxes/borders)
-    const bool is_dark = UISettings::IsDarkTheme();
+    // theme_is_dark is the resolved value just published to UISettings::g_is_dark_theme above.
+    const bool is_dark = theme_is_dark;
     
     // Retrieve dynamic accent color for UI elements
     const QString accent_hex = QString::fromStdString(UISettings::values.accent_color.GetValue());

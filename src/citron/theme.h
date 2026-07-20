@@ -29,8 +29,13 @@ namespace Theme {
 	}
     
     // Checks if the current theme is Dark Mode.
+    // Uses the active application palette window-color as a reliable proxy: after
+    // UpdateUITheme() runs, the window background is dark if and only if a dark
+    // palette is in effect (either explicit dark theme or adaptive theme in OS dark mode).
     inline bool IsDarkMode() {
-        return true;
+        const QColor windowColor =
+            QGuiApplication::palette().color(QPalette::Active, QPalette::Window);
+        return windowColor.lightness() < 128;
     }
 
 } // namespace Theme

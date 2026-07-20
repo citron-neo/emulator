@@ -67,8 +67,16 @@ namespace UISettings {
         {"Midnight Blue Colorful", "colorful_midnight_blue"},
     }};
 
+    // Definition of the centralized resolved dark-mode flag declared in uisettings.h.
+    // Defaults to false; GMainWindow::UpdateUITheme() sets the real, fully-resolved value
+    // (adaptive themes included) during startup before any theme-dependent UI is shown.
+    std::atomic_bool g_is_dark_theme{false};
+
     bool IsDarkTheme() {
-        return true;
+        // Reflects the fully-resolved theme, including adaptive ("default"/"colorful") themes
+        // resolved against the live OS dark-mode state, as computed by
+        // GMainWindow::UpdateUITheme(). Kept in a single place so every consumer agrees.
+        return g_is_dark_theme.load(std::memory_order_relaxed);
     }
 
     Values values = {};
