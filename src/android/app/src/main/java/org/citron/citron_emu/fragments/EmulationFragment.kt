@@ -1003,8 +1003,13 @@ class EmulationFragment : Fragment(), SurfaceHolder.Callback {
                 }
 
                 dialog.getButton(AlertDialog.BUTTON_POSITIVE).isEnabled = false
+                dialog.getButton(AlertDialog.BUTTON_NEGATIVE).isEnabled = false
                 addCheat(title, code) { result ->
+                    if (!dialog.isShowing) {
+                        return@addCheat
+                    }
                     dialog.getButton(AlertDialog.BUTTON_POSITIVE).isEnabled = true
+                    dialog.getButton(AlertDialog.BUTTON_NEGATIVE).isEnabled = true
                     when (result) {
                         NativeLibrary.AddCheatResult.SUCCESS -> {
                             dialog.dismiss()

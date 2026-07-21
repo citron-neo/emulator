@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <codecvt>
+#include <filesystem>
 #include <locale>
 #include <string>
 #include <string_view>
@@ -245,6 +246,10 @@ bool EmulationSession::IsShuttingDown() const {
 
 bool EmulationSession::IsNetworkInitialized() const {
     return m_network_initialized;
+}
+
+std::unique_lock<std::mutex> EmulationSession::AcquireSessionLock() {
+    return std::unique_lock{m_mutex};
 }
 
 const Core::PerfStatsResults& EmulationSession::PerfStats() {
@@ -1127,7 +1132,9 @@ jint Java_org_citron_citron_1emu_NativeLibrary_addCheat(JNIEnv* env, jobject job
     constexpr std::size_t MaxCheatFileSize = 1024 * 1024;
     constexpr std::string_view HotCheatsDirectory = "Hot Cheats";
 
-    auto& system = EmulationSession::GetInstance().System();
+    auto& session = EmulationSession::GetInstance();
+    const auto session_lock = session.AcquireSessionLock();
+    auto& system = session.System();
     auto* cheat_engine = system.GetCheatEngine();
     if (cheat_engine == nullptr) {
         return static_cast<jint>(Result::NoCheatEngine);
@@ -1192,9 +1199,26 @@ jint Java_org_citron_citron_1emu_NativeLibrary_addCheat(JNIEnv* env, jobject job
         contents.push_back('\n');
     }
     contents += entry_text;
-    if (contents.size() > MaxCheatFileSize || parser.Parse(contents).empty() ||
-        Common::FS::WriteStringToFile(cheat_file, Common::FS::FileType::TextFile, contents) !=
-            contents.size()) {
+    if (contents.size() > MaxCheatFileSize || parser.Parse(contents).empty()) {
+        return static_cast<jint>(Result::UnableToWrite);
+    }
+
+    auto temporary_file = cheat_file;
+    temporary_file += ".tmp";
+    if (!Common::FS::RemoveFile(temporary_file)) {
+        return static_cast<jint>(Result::UnableToWrite);
+    }
+    SCOPE_EXIT {
+        void(Common::FS::RemoveFile(temporary_file));
+    };
+    if (Common::FS::WriteStringToFile(temporary_file, Common::FS::FileType::TextFile, contents) !=
+        contents.size()) {
+        return static_cast<jint>(Result::UnableToWrite);
+    }
+
+    std::error_code rename_error;
+    std::filesystem::rename(temporary_file, cheat_file, rename_error);
+    if (rename_error) {
         return static_cast<jint>(Result::UnableToWrite);
     }
 
