@@ -447,6 +447,9 @@
     <string name="confirm_uninstall_description">您确定要卸载此附加项吗？</string>
     <string name="remove_installed_content">移除已安装内容</string>
     <string name="remove_installed_content_description">删除游戏文件，或移除其已安装的更新与 DLC</string>
+    <string name="delete_game_file">删除游戏文件</string>
+    <string name="delete_game_file_description">从存储位置永久删除此游戏文件</string>
+    <string name="delete_game_file_confirmation">永久删除此游戏文件？此操作无法撤销。</string>
     <string name="remove_installed_game">游戏文件及已安装内容</string>
     <string name="remove_installed_update">已安装更新</string>
     <string name="remove_all_installed_dlc">全部已安装 DLC</string>

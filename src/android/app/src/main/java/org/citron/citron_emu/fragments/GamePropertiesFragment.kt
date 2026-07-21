@@ -178,6 +178,25 @@ class GamePropertiesFragment : Fragment() {
                 )
             }
 
+            val canManageInstalledContent = canManageInstalledContent()
+            add(
+                SubmenuProperty(
+                    if (canManageInstalledContent) {
+                        R.string.remove_installed_content
+                    } else {
+                        R.string.delete_game_file
+                    },
+                    if (canManageInstalledContent) {
+                        R.string.remove_installed_content_description
+                    } else {
+                        R.string.delete_game_file_description
+                    },
+                    R.drawable.ic_delete
+                ) {
+                    showInstalledContentRemovalDialog()
+                }
+            )
+
             if (!args.game.isHomebrew) {
                 add(
                     SubmenuProperty(
@@ -188,15 +207,6 @@ class GamePropertiesFragment : Fragment() {
                         val action = GamePropertiesFragmentDirections
                             .actionPerGamePropertiesFragmentToAddonsFragment(args.game)
                         binding.root.findNavController().navigate(action)
-                    }
-                )
-                add(
-                    SubmenuProperty(
-                        R.string.remove_installed_content,
-                        R.string.remove_installed_content_description,
-                        R.drawable.ic_delete
-                    ) {
-                        showInstalledContentRemovalDialog()
                     }
                 )
                 add(
@@ -349,6 +359,11 @@ class GamePropertiesFragment : Fragment() {
     }
 
     private fun showInstalledContentRemovalDialog() {
+        if (!canManageInstalledContent()) {
+            confirmInstalledContentRemoval(InstalledContentTarget.Game)
+            return
+        }
+
         val targets = InstalledContentTarget.entries.toTypedArray()
         MaterialAlertDialogBuilder(requireContext())
             .setTitle(R.string.remove_installed_content)
@@ -360,10 +375,16 @@ class GamePropertiesFragment : Fragment() {
     }
 
     private fun confirmInstalledContentRemoval(target: InstalledContentTarget) {
+        val deletesOnlyGameFile =
+            target == InstalledContentTarget.Game && !canManageInstalledContent()
         MessageDialogFragment.newInstance(
             requireActivity(),
-            titleId = target.titleId,
-            descriptionId = target.confirmationId,
+            titleId = if (deletesOnlyGameFile) R.string.delete_game_file else target.titleId,
+            descriptionId = if (deletesOnlyGameFile) {
+                R.string.delete_game_file_confirmation
+            } else {
+                target.confirmationId
+            },
             positiveAction = { removeInstalledContent(target) },
             showNegativeButton = true
         ).show(parentFragmentManager, MessageDialogFragment.TAG)
@@ -373,7 +394,9 @@ class GamePropertiesFragment : Fragment() {
         val context = requireContext()
         val parsedProgramId = args.game.programId.toULongOrNull()
             ?: args.game.programId.toULongOrNull(16)
-        val programId = parsedProgramId?.takeIf { it != 0uL }?.toString()
+        val programId = parsedProgramId
+            ?.takeIf { it != 0uL && !args.game.isHomebrew }
+            ?.toString()
         viewLifecycleOwner.lifecycleScope.launch {
             val result = withContext(Dispatchers.IO) {
                 when (target) {
@@ -444,6 +467,12 @@ class GamePropertiesFragment : Fragment() {
             }
             gamesViewModel.reloadGames(directoriesChanged = false)
         }
+    }
+
+    private fun canManageInstalledContent(): Boolean {
+        val parsedProgramId = args.game.programId.toULongOrNull()
+            ?: args.game.programId.toULongOrNull(16)
+        return !args.game.isHomebrew && parsedProgramId != null && parsedProgramId != 0uL
     }
 
     override fun onResume() {
