@@ -348,8 +348,16 @@ void Java_org_citron_citron_1emu_features_input_NativeInput_onGamePadMotionEvent
 
 void Java_org_citron_citron_1emu_features_input_NativeInput_onReadNfcTag(JNIEnv* env, jobject j_obj,
                                                                      jbyteArray j_data) {
+    if (j_data == nullptr) {
+        return;
+    }
+
     jboolean isCopy{false};
     auto* const elements = env->GetByteArrayElements(j_data, &isCopy);
+    if (elements == nullptr) {
+        return;
+    }
+
     std::span<u8> data(reinterpret_cast<u8*>(elements),
                        static_cast<size_t>(env->GetArrayLength(j_data)));
 

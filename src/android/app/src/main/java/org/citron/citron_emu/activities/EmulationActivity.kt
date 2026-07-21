@@ -38,7 +38,9 @@ import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.NavHostFragment
 import androidx.preference.PreferenceManager
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.citron.citron_emu.NativeLibrary
 import org.citron.citron_emu.R
 import org.citron.citron_emu.CitronApplication
@@ -520,18 +522,23 @@ class EmulationActivity : AppCompatActivity(), SensorEventListener {
 
     fun onEmulationStopped(status: Int) {
         lifecycleScope.launch {
-            val amiiboResult = AmiiboFileSession.remove(this@EmulationActivity)
-            if (amiiboResult == AmiiboFileSession.Result.UnableToWrite) {
-                Toast.makeText(
-                    this@EmulationActivity,
-                    R.string.emulation_amiibo_write_failed,
-                    Toast.LENGTH_LONG
-                ).show()
+            try {
+                val amiiboResult = AmiiboFileSession.remove(this@EmulationActivity)
+                if (amiiboResult == AmiiboFileSession.Result.UnableToWrite) {
+                    Toast.makeText(
+                        this@EmulationActivity,
+                        R.string.emulation_amiibo_write_failed,
+                        Toast.LENGTH_LONG
+                    ).show()
+                }
+            } finally {
+                withContext(NonCancellable) {
+                    if (status == 0 && emulationViewModel.programChanged.value == -1) {
+                        finish()
+                    }
+                    emulationViewModel.setEmulationStopped(true)
+                }
             }
-            if (status == 0 && emulationViewModel.programChanged.value == -1) {
-                finish()
-            }
-            emulationViewModel.setEmulationStopped(true)
         }
     }
 

@@ -41,25 +41,56 @@ bool HasTypeString(const InternalKey& key, std::string_view expected) {
     const auto terminator = std::find(key.type_string.begin(), key.type_string.end(), '\0');
     const std::string_view actual{key.type_string.data(),
                                   static_cast<std::size_t>(terminator - key.type_string.begin())};
-    return actual == expected && key.magic_length <= key.magic_bytes.size();
+    return actual == expected;
 }
 
-bool ReadKeys(InternalKey& locked_secret, InternalKey& unfixed_info) {
+KeyStatus GetKeyDataStatus(std::span<const u8> key_data) {
+    if (key_data.size() != KeyFileSize) {
+        return KeyStatus::InvalidSize;
+    }
+
+    InternalKey unfixed_info{};
+    InternalKey locked_secret{};
+    std::memcpy(&unfixed_info, key_data.data(), sizeof(InternalKey));
+    std::memcpy(&locked_secret, key_data.data() + sizeof(InternalKey), sizeof(InternalKey));
+    if (!HasTypeString(unfixed_info, "unfixed infos") ||
+        !HasTypeString(locked_secret, "locked secret")) {
+        return KeyStatus::InvalidType;
+    }
+    if (unfixed_info.magic_length > unfixed_info.magic_bytes.size() ||
+        locked_secret.magic_length > locked_secret.magic_bytes.size()) {
+        return KeyStatus::Invalid;
+    }
+    return KeyStatus::Valid;
+}
+
+KeyStatus ReadKeys(InternalKey& locked_secret, InternalKey& unfixed_info) {
+    if (!Common::FS::Exists(GetAmiiboKeyFilePath())) {
+        return KeyStatus::Missing;
+    }
+
     const Common::FS::IOFile keys_file{GetAmiiboKeyFilePath(), Common::FS::FileAccessMode::Read,
                                        Common::FS::FileType::BinaryFile};
 
-    if (!keys_file.IsOpen() || keys_file.GetSize() != KeyFileSize) {
-        return false;
+    if (!keys_file.IsOpen()) {
+        return KeyStatus::Invalid;
+    }
+    if (keys_file.GetSize() != KeyFileSize) {
+        return KeyStatus::InvalidSize;
     }
 
     std::array<u8, KeyFileSize> key_data{};
-    if (keys_file.Read(key_data) != key_data.size() || !AreKeysValid(key_data)) {
-        return false;
+    if (keys_file.Read(key_data) != key_data.size()) {
+        return KeyStatus::Invalid;
+    }
+    const auto status = GetKeyDataStatus(key_data);
+    if (status != KeyStatus::Valid) {
+        return status;
     }
 
     std::memcpy(&unfixed_info, key_data.data(), sizeof(InternalKey));
     std::memcpy(&locked_secret, key_data.data() + sizeof(InternalKey), sizeof(InternalKey));
-    return true;
+    return KeyStatus::Valid;
 }
 
 } // namespace
@@ -340,34 +371,33 @@ void Cipher(const DerivedKeys& keys, const NTAG215File& in_data, NTAG215File& ou
 }
 
 bool LoadKeys(InternalKey& locked_secret, InternalKey& unfixed_info) {
-    if (!ReadKeys(locked_secret, unfixed_info)) {
-        LOG_ERROR(Service_NFP, "Failed to load a valid key_retail.bin");
+    switch (ReadKeys(locked_secret, unfixed_info)) {
+    case KeyStatus::Missing:
+        LOG_ERROR(Service_NFP, "Failed to load key_retail.bin: file is missing");
         return false;
+    case KeyStatus::InvalidSize:
+        LOG_ERROR(Service_NFP, "Failed to load key_retail.bin: incorrect file size");
+        return false;
+    case KeyStatus::InvalidType:
+        LOG_ERROR(Service_NFP, "Failed to load key_retail.bin: invalid key type strings");
+        return false;
+    case KeyStatus::Invalid:
+        LOG_ERROR(Service_NFP, "Failed to load key_retail.bin: key validation failed");
+        return false;
+    case KeyStatus::Valid:
+        return true;
     }
-    return true;
+    return false;
 }
 
 bool AreKeysValid(std::span<const u8> key_data) {
-    if (key_data.size() != KeyFileSize) {
-        return false;
-    }
-
-    InternalKey unfixed_info{};
-    InternalKey locked_secret{};
-    std::memcpy(&unfixed_info, key_data.data(), sizeof(InternalKey));
-    std::memcpy(&locked_secret, key_data.data() + sizeof(InternalKey), sizeof(InternalKey));
-    return HasTypeString(unfixed_info, "unfixed infos") &&
-           HasTypeString(locked_secret, "locked secret");
+    return GetKeyDataStatus(key_data) == KeyStatus::Valid;
 }
 
 KeyStatus GetKeyStatus() {
-    if (!Common::FS::Exists(GetAmiiboKeyFilePath())) {
-        return KeyStatus::Missing;
-    }
-
     InternalKey locked_secret{};
     InternalKey unfixed_info{};
-    return ReadKeys(locked_secret, unfixed_info) ? KeyStatus::Valid : KeyStatus::Invalid;
+    return ReadKeys(locked_secret, unfixed_info);
 }
 
 bool IsKeyAvailable() {
@@ -375,6 +405,9 @@ bool IsKeyAvailable() {
 }
 
 DumpStatus GetDumpStatus(std::span<const u8> data) {
+    static_assert(sizeof(NTAG215File) == sizeof(EncryptedNTAG215File),
+                  "Amiibo dump layouts must have matching sizes");
+
     if (data.size() != sizeof(NTAG215File)) {
         return DumpStatus::Invalid;
     }
@@ -394,6 +427,8 @@ DumpStatus GetDumpStatus(std::span<const u8> data) {
     switch (GetKeyStatus()) {
     case KeyStatus::Missing:
         return DumpStatus::EncryptedKeysRequired;
+    case KeyStatus::InvalidSize:
+    case KeyStatus::InvalidType:
     case KeyStatus::Invalid:
         return DumpStatus::InvalidKeys;
     case KeyStatus::Valid:

@@ -44,6 +44,8 @@ static_assert(std::is_trivially_copyable_v<InternalKey>, "InternalKey must be tr
 
 enum class KeyStatus {
     Missing,
+    InvalidSize,
+    InvalidType,
     Invalid,
     Valid,
 };
