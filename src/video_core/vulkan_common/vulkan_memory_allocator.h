@@ -4,6 +4,7 @@
 
 #pragma once
 
+#include <condition_variable>
 #include <functional>
 #include <memory>
 #include <mutex>
@@ -185,10 +186,12 @@ private:
     VkDeviceSize buffer_image_granularity; // The granularity for adjacent offsets between buffers
                                            // and optimal images
     u32 valid_memory_types{~0u};
-    std::function<void()>
+    std::shared_ptr<const std::function<void()>>
         memory_pressure_callback; ///< Callback to free resources under memory pressure
     u64 memory_pressure_callback_registration_id{};
+    mutable bool memory_pressure_callback_running{};
     mutable std::mutex memory_pressure_mutex;
+    mutable std::condition_variable memory_pressure_callback_finished;
 };
 
 } // namespace Vulkan

@@ -274,17 +274,27 @@ MemoryAllocator::~MemoryAllocator() = default;
 
 MemoryPressureCallbackRegistration MemoryAllocator::SetMemoryPressureCallback(
     std::function<void()> callback) {
-    std::scoped_lock lock{memory_pressure_mutex};
-    memory_pressure_callback = std::move(callback);
+    std::shared_ptr<const std::function<void()>> registered_callback;
+    if (callback) {
+        registered_callback = std::make_shared<const std::function<void()>>(std::move(callback));
+    }
+    std::unique_lock lock{memory_pressure_mutex};
+    memory_pressure_callback.reset();
+    memory_pressure_callback_finished.wait(lock,
+                                           [this] { return !memory_pressure_callback_running; });
+    memory_pressure_callback = std::move(registered_callback);
     const u64 registration_id = ++memory_pressure_callback_registration_id;
     return MemoryPressureCallbackRegistration{*this, registration_id};
 }
 
 void MemoryAllocator::ClearMemoryPressureCallback(u64 registration_id) noexcept {
-    std::scoped_lock lock{memory_pressure_mutex};
-    if (registration_id == memory_pressure_callback_registration_id) {
-        memory_pressure_callback = {};
+    std::unique_lock lock{memory_pressure_mutex};
+    if (registration_id != memory_pressure_callback_registration_id) {
+        return;
     }
+    memory_pressure_callback.reset();
+    memory_pressure_callback_finished.wait(lock,
+                                           [this] { return !memory_pressure_callback_running; });
 }
 
 bool MemoryAllocator::TryRecoverFromOutOfMemory(VkResult result) const {
@@ -297,19 +307,39 @@ bool MemoryAllocator::TryRecoverFromOutOfMemory(VkResult result) const {
                     static_cast<s32>(result));
         return false;
     }
-    std::scoped_lock recovery_lock{memory_pressure_mutex};
-    if (!memory_pressure_callback) {
-        return false;
+
+    std::shared_ptr<const std::function<void()>> callback;
+    {
+        std::scoped_lock lock{memory_pressure_mutex};
+        if (!memory_pressure_callback) {
+            return false;
+        }
+        // Never wait for another recovery here. Allocation callers can hold cache locks that the
+        // active callback needs, so waiting would invert the allocator/cache lock order.
+        if (memory_pressure_callback_running) {
+            LOG_WARNING(Render_Vulkan,
+                        "Skipping concurrent Vulkan memory-pressure recovery (result={})",
+                        static_cast<s32>(result));
+            return false;
+        }
+        callback = memory_pressure_callback;
+        memory_pressure_callback_running = true;
     }
+
     is_handling_memory_pressure = true;
     SCOPE_EXIT {
         is_handling_memory_pressure = false;
+        {
+            std::scoped_lock lock{memory_pressure_mutex};
+            memory_pressure_callback_running = false;
+        }
+        memory_pressure_callback_finished.notify_all();
     };
 
     LOG_WARNING(Render_Vulkan,
                 "Vulkan allocation failed with result {}; freeing cached resources and retrying",
                 static_cast<s32>(result));
-    memory_pressure_callback();
+    (*callback)();
     return true;
 }
 
