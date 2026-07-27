@@ -661,10 +661,15 @@ public:
         return extensions.memory_budget;
     }
 
+    /// Returns reported heap usage. When CanReportMemoryUsage() is false, 0 indicates unsupported
+    /// reporting rather than actual zero usage.
     u64 GetDeviceMemoryUsage() const;
 
+    /// Refreshes reported heap usage and budget; no-ops when CanReportMemoryUsage() is false.
     void RefreshDeviceMemoryUsage(VmaAllocator vma_allocator) const;
 
+    /// Returns the reported heap budget. When CanReportMemoryUsage() is false, returns the
+    /// device_access_memory fallback rather than a reported budget.
     u64 GetDeviceMemoryBudget() const;
 
     u32 GetSetsPerPool() const {
