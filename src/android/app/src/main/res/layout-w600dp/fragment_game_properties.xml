@@ -29,7 +29,8 @@
             <androidx.recyclerview.widget.RecyclerView
                 android:id="@+id/list_properties"
                 android:layout_width="match_parent"
-                android:layout_height="match_parent"
+                android:layout_height="wrap_content"
+                android:nestedScrollingEnabled="false"
                 tools:listitem="@layout/card_simple_outlined" />
 
         </LinearLayout>
@@ -80,28 +81,28 @@
             android:layout_height="wrap_content"
             android:layout_marginHorizontal="16dp"
             android:layout_marginTop="8dp"
-            app:cardCornerRadius="4dp"
-            app:cardElevation="4dp">
+            app:cardCornerRadius="16dp"
+            app:cardElevation="2dp">
 
             <ImageView
                 android:id="@+id/image_game_screen"
                 android:layout_width="175dp"
                 android:layout_height="175dp"
+                android:contentDescription="@null"
+                android:scaleType="centerCrop"
                 tools:src="@drawable/default_icon" />
 
         </com.google.android.material.card.MaterialCardView>
 
         <com.google.android.material.textview.MaterialTextView
             android:id="@+id/title"
-            style="@style/TextAppearance.Material3.TitleMedium"
+            style="@style/TextAppearance.Material3.TitleLarge"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginHorizontal="16dp"
             android:layout_marginTop="12dp"
-            android:ellipsize="none"
-            android:marqueeRepeatLimit="marquee_forever"
-            android:requiresFadingEdge="horizontal"
-            android:singleLine="true"
+            android:ellipsize="end"
+            android:maxLines="2"
             android:textAlignment="center"
             tools:text="deko_basic" />
 

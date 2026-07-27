@@ -34,6 +34,16 @@ object NativeInput {
         const val PRESSED = 1
     }
 
+    object AmiiboResult {
+        const val SUCCESS = 0
+        const val UNABLE_TO_LOAD = 1
+        const val NOT_AN_AMIIBO = 2
+        const val WRONG_DEVICE_STATE = 3
+        const val UNKNOWN = 4
+        const val ENCRYPTED_KEYS_REQUIRED = 5
+        const val INVALID_AMIIBO_KEYS = 6
+    }
+
     /**
      * Returns true if pro controller isn't available and handheld is.
      * Intended to check where the input overlay should direct its inputs.
@@ -129,12 +139,34 @@ object NativeInput {
      * Signals and load a nfc tag
      * @param data Byte array containing all the data from a nfc tag.
      */
-    external fun onReadNfcTag(data: ByteArray?)
+    external fun onReadNfcTag(data: ByteArray)
 
     /**
      * Removes current loaded nfc tag.
      */
     external fun onRemoveNfcTag()
+
+    /**
+     * Loads an Amiibo from a regular, writable filesystem path.
+     * @return A value from [AmiiboResult].
+     */
+    external fun loadAmiiboFile(path: String): Int
+
+    /**
+     * Validates and loads a raw Amiibo BIN dump. Flipper NFC files intentionally use
+     * [loadAmiiboFile] after conversion to preserve their existing behavior.
+     */
+    external fun loadAmiiboBinFile(path: String): Int
+
+    /**
+     * Validates a combined 160-byte unfixed-info + locked-secret Amiibo key file.
+     */
+    external fun validateAmiiboKey(data: ByteArray): Boolean
+
+    /**
+     * Removes the currently loaded file-backed Amiibo.
+     */
+    external fun removeAmiiboFile()
 
     /**
      * Handles touch press events.

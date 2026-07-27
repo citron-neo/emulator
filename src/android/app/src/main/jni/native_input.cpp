@@ -2,11 +2,13 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <algorithm>
+#include <array>
 #include <limits>
 #include <mutex>
 #include <span>
 #include <time.h>
 
+#include <common/fs/file.h>
 #include <common/fs/fs.h>
 #include <common/fs/path_util.h>
 #include <common/settings.h>
@@ -16,6 +18,7 @@
 #include "android_config.h"
 #include "common/android/android_common.h"
 #include "common/android/id_cache.h"
+#include "core/hle/service/nfc/common/amiibo_crypto.h"
 #include "hid_core/frontend/emulated_controller.h"
 #include "hid_core/hid_core.h"
 #include "input_common/drivers/android.h"
@@ -345,16 +348,157 @@ void Java_org_citron_citron_1emu_features_input_NativeInput_onGamePadMotionEvent
 
 void Java_org_citron_citron_1emu_features_input_NativeInput_onReadNfcTag(JNIEnv* env, jobject j_obj,
                                                                      jbyteArray j_data) {
+    if (j_data == nullptr) {
+        return;
+    }
+
     jboolean isCopy{false};
-    std::span<u8> data(reinterpret_cast<u8*>(env->GetByteArrayElements(j_data, &isCopy)),
+    auto* const elements = env->GetByteArrayElements(j_data, &isCopy);
+    if (elements == nullptr) {
+        return;
+    }
+
+    std::span<u8> data(reinterpret_cast<u8*>(elements),
                        static_cast<size_t>(env->GetArrayLength(j_data)));
 
     if (EmulationSession::GetInstance().IsRunning()) {
         EmulationSession::GetInstance().GetInputSubsystem().GetVirtualAmiibo()->LoadAmiibo(data);
     }
+    env->ReleaseByteArrayElements(j_data, elements, JNI_ABORT);
 }
 
 void Java_org_citron_citron_1emu_features_input_NativeInput_onRemoveNfcTag(JNIEnv* env, jobject j_obj) {
+    if (EmulationSession::GetInstance().IsRunning()) {
+        EmulationSession::GetInstance().GetInputSubsystem().GetVirtualAmiibo()->CloseAmiibo();
+    }
+}
+
+namespace {
+
+enum class AndroidAmiiboResult : jint {
+    Success = 0,
+    UnableToLoad = 1,
+    NotAnAmiibo = 2,
+    WrongDeviceState = 3,
+    Unknown = 4,
+    EncryptedKeysRequired = 5,
+    InvalidAmiiboKeys = 6,
+};
+
+jint ToAndroidAmiiboResult(InputCommon::VirtualAmiibo::Info result) {
+    using Info = InputCommon::VirtualAmiibo::Info;
+    switch (result) {
+    case Info::Success:
+        return static_cast<jint>(AndroidAmiiboResult::Success);
+    case Info::UnableToLoad:
+        return static_cast<jint>(AndroidAmiiboResult::UnableToLoad);
+    case Info::NotAnAmiibo:
+        return static_cast<jint>(AndroidAmiiboResult::NotAnAmiibo);
+    case Info::WrongDeviceState:
+        return static_cast<jint>(AndroidAmiiboResult::WrongDeviceState);
+    case Info::EncryptedKeysRequired:
+        return static_cast<jint>(AndroidAmiiboResult::EncryptedKeysRequired);
+    case Info::InvalidAmiiboKeys:
+        return static_cast<jint>(AndroidAmiiboResult::InvalidAmiiboKeys);
+    case Info::Unknown:
+        return static_cast<jint>(AndroidAmiiboResult::Unknown);
+    }
+    return static_cast<jint>(AndroidAmiiboResult::Unknown);
+}
+
+InputCommon::VirtualAmiibo::Info ValidateBinaryAmiibo(const std::string& path) {
+    constexpr std::size_t AmiiboSize = sizeof(Service::NFP::NTAG215File);
+    constexpr std::size_t AmiiboSizeWithoutPassword = AmiiboSize - 0x8;
+    constexpr std::size_t AmiiboSizeWithSignature = AmiiboSize + 0x20;
+    constexpr std::size_t MifareSize = 0x400;
+
+    const Common::FS::IOFile file{path, Common::FS::FileAccessMode::Read,
+                                  Common::FS::FileType::BinaryFile};
+    if (!file.IsOpen()) {
+        return InputCommon::VirtualAmiibo::Info::UnableToLoad;
+    }
+
+    const auto size = file.GetSize();
+    if (size == MifareSize) {
+        return InputCommon::VirtualAmiibo::Info::Success;
+    }
+    if (size != AmiiboSize && size != AmiiboSizeWithoutPassword &&
+        size != AmiiboSizeWithSignature) {
+        return InputCommon::VirtualAmiibo::Info::NotAnAmiibo;
+    }
+
+    std::array<u8, AmiiboSize> data{};
+    if (file.Read(data) < AmiiboSizeWithoutPassword) {
+        return InputCommon::VirtualAmiibo::Info::NotAnAmiibo;
+    }
+
+    using Service::NFP::AmiiboCrypto::DumpStatus;
+    switch (Service::NFP::AmiiboCrypto::GetDumpStatus(data)) {
+    case DumpStatus::Plain:
+    case DumpStatus::Encrypted:
+        return InputCommon::VirtualAmiibo::Info::Success;
+    case DumpStatus::EncryptedKeysRequired:
+        return InputCommon::VirtualAmiibo::Info::EncryptedKeysRequired;
+    case DumpStatus::InvalidKeys:
+        return InputCommon::VirtualAmiibo::Info::InvalidAmiiboKeys;
+    case DumpStatus::Invalid:
+        return InputCommon::VirtualAmiibo::Info::NotAnAmiibo;
+    }
+    return InputCommon::VirtualAmiibo::Info::Unknown;
+}
+
+} // namespace
+
+jint Java_org_citron_citron_1emu_features_input_NativeInput_loadAmiiboFile(
+    JNIEnv* env, jobject j_obj, jstring j_path) {
+    if (!EmulationSession::GetInstance().IsRunning()) {
+        return ToAndroidAmiiboResult(InputCommon::VirtualAmiibo::Info::WrongDeviceState);
+    }
+
+    const auto path = Common::Android::GetJString(env, j_path);
+    const auto result =
+        EmulationSession::GetInstance().GetInputSubsystem().GetVirtualAmiibo()->LoadAmiibo(path);
+    return ToAndroidAmiiboResult(result);
+}
+
+jint Java_org_citron_citron_1emu_features_input_NativeInput_loadAmiiboBinFile(
+    JNIEnv* env, jobject j_obj, jstring j_path) {
+    if (!EmulationSession::GetInstance().IsRunning()) {
+        return ToAndroidAmiiboResult(InputCommon::VirtualAmiibo::Info::WrongDeviceState);
+    }
+
+    const auto path = Common::Android::GetJString(env, j_path);
+    const auto validation = ValidateBinaryAmiibo(path);
+    if (validation != InputCommon::VirtualAmiibo::Info::Success) {
+        return ToAndroidAmiiboResult(validation);
+    }
+
+    const auto result =
+        EmulationSession::GetInstance().GetInputSubsystem().GetVirtualAmiibo()->LoadAmiibo(path);
+    return ToAndroidAmiiboResult(result);
+}
+
+jboolean Java_org_citron_citron_1emu_features_input_NativeInput_validateAmiiboKey(
+    JNIEnv* env, jobject j_obj, jbyteArray j_data) {
+    if (j_data == nullptr) {
+        return JNI_FALSE;
+    }
+
+    const auto size = static_cast<std::size_t>(env->GetArrayLength(j_data));
+    jboolean is_copy{false};
+    auto* const elements = env->GetByteArrayElements(j_data, &is_copy);
+    if (elements == nullptr) {
+        return JNI_FALSE;
+    }
+
+    const std::span<const u8> data{reinterpret_cast<const u8*>(elements), size};
+    const bool valid = Service::NFP::AmiiboCrypto::AreKeysValid(data);
+    env->ReleaseByteArrayElements(j_data, elements, JNI_ABORT);
+    return static_cast<jboolean>(valid);
+}
+
+void Java_org_citron_citron_1emu_features_input_NativeInput_removeAmiiboFile(
+    JNIEnv* env, jobject j_obj) {
     if (EmulationSession::GetInstance().IsRunning()) {
         EmulationSession::GetInstance().GetInputSubsystem().GetVirtualAmiibo()->CloseAmiibo();
     }

@@ -26,6 +26,7 @@ import org.citron.citron_emu.adapters.AddonAdapter
 import org.citron.citron_emu.databinding.FragmentAddonsBinding
 import org.citron.citron_emu.model.AddonViewModel
 import org.citron.citron_emu.model.HomeViewModel
+import org.citron.citron_emu.model.PatchType
 import org.citron.citron_emu.utils.AddonUtil
 import org.citron.citron_emu.utils.FileUtil.copyFilesTo
 import org.citron.citron_emu.utils.NativeConfig
@@ -103,10 +104,15 @@ class AddonsFragment : Fragment() {
             resetState = { addonViewModel.setAddonToDelete(null) }
         ) {
             if (it != null) {
+                val descriptionId = when (PatchType.from(it.type)) {
+                    PatchType.Update -> R.string.remove_installed_update_confirmation
+                    PatchType.DLC -> R.string.remove_all_installed_dlc_confirmation
+                    else -> R.string.confirm_uninstall_description
+                }
                 MessageDialogFragment.newInstance(
                     requireActivity(),
                     titleId = R.string.confirm_uninstall,
-                    descriptionId = R.string.confirm_uninstall_description,
+                    descriptionId = descriptionId,
                     positiveAction = { addonViewModel.onDeleteAddon(it) },
                     negativeAction = {}
                 ).show(parentFragmentManager, MessageDialogFragment.TAG)

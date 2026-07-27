@@ -4,6 +4,7 @@
 #pragma once
 
 #include <array>
+#include <span>
 
 #include "core/hle/service/nfp/nfp_types.h"
 // Forward declare OpenSSL EVP_MAC_CTX to avoid pulling in openssl/evp.h in the header.
@@ -40,6 +41,22 @@ struct InternalKey {
 };
 static_assert(sizeof(InternalKey) == 0x50, "InternalKey is an invalid size");
 static_assert(std::is_trivially_copyable_v<InternalKey>, "InternalKey must be trivially copyable.");
+
+enum class KeyStatus {
+    Missing,
+    InvalidSize,
+    InvalidType,
+    Invalid,
+    Valid,
+};
+
+enum class DumpStatus {
+    Invalid,
+    Plain,
+    Encrypted,
+    EncryptedKeysRequired,
+    InvalidKeys,
+};
 
 struct CryptoCtx {
     std::array<char, 480> buffer;
@@ -89,8 +106,17 @@ void Cipher(const DerivedKeys& keys, const NTAG215File& in_data, NTAG215File& ou
 /// Loads both amiibo keys from key_retail.bin
 bool LoadKeys(InternalKey& locked_secret, InternalKey& unfixed_info);
 
-/// Returns true if key_retail.bin exist
+/// Validates the contents of a combined unfixed-info + locked-secret key file.
+bool AreKeysValid(std::span<const u8> key_data);
+
+/// Returns the current key_retail.bin status.
+KeyStatus GetKeyStatus();
+
+/// Returns true if key_retail.bin exists. Kept as an existence check for NFC compatibility.
 bool IsKeyAvailable();
+
+/// Identifies a normalized 540-byte Amiibo dump and its key requirements.
+DumpStatus GetDumpStatus(std::span<const u8> data);
 
 /// Decodes encrypted amiibo data returns true if output is valid
 bool DecodeAmiibo(const EncryptedNTAG215File& encrypted_tag_data, NTAG215File& tag_data);

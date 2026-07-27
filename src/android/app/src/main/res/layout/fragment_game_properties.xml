@@ -57,33 +57,37 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="8dp"
-                app:cardCornerRadius="4dp"
-                app:cardElevation="4dp">
+                app:cardCornerRadius="16dp"
+                app:cardElevation="2dp">
 
                 <ImageView
                     android:id="@+id/image_game_screen"
                     android:layout_width="175dp"
                     android:layout_height="175dp"
+                    android:contentDescription="@null"
+                    android:scaleType="centerCrop"
                     tools:src="@drawable/default_icon" />
 
             </com.google.android.material.card.MaterialCardView>
 
             <com.google.android.material.textview.MaterialTextView
                 android:id="@+id/title"
-                style="@style/TextAppearance.Material3.TitleMedium"
-                android:layout_width="wrap_content"
+                style="@style/TextAppearance.Material3.TitleLarge"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="12dp"
                 android:layout_marginBottom="12dp"
                 android:layout_marginHorizontal="16dp"
-                android:requiresFadingEdge="horizontal"
+                android:ellipsize="end"
+                android:maxLines="2"
                 android:textAlignment="center"
                 tools:text="deko_basic" />
 
             <androidx.recyclerview.widget.RecyclerView
                 android:id="@+id/list_properties"
                 android:layout_width="match_parent"
-                android:layout_height="match_parent"
+                android:layout_height="wrap_content"
+                android:nestedScrollingEnabled="false"
                 android:defaultFocusHighlightEnabled="false" />
 
         </LinearLayout>

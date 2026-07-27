@@ -4,7 +4,12 @@
 // SPDX-FileCopyrightText: Copyright 2017 socram8888/amiitool
 // SPDX-License-Identifier: MIT
 
+#include <algorithm>
 #include <array>
+#include <cstring>
+#include <filesystem>
+#include <string_view>
+
 #include <openssl/evp.h>
 #include <openssl/hmac.h>
 #include <openssl/params.h>
@@ -23,6 +28,72 @@ using namespace Core::Crypto;
 #endif
 
 namespace Service::NFP::AmiiboCrypto {
+
+namespace {
+
+constexpr std::size_t KeyFileSize = sizeof(InternalKey) * 2;
+
+std::filesystem::path GetAmiiboKeyFilePath() {
+    return Common::FS::GetCitronPath(Common::FS::CitronPath::KeysDir) / "key_retail.bin";
+}
+
+bool HasTypeString(const InternalKey& key, std::string_view expected) {
+    const auto terminator = std::find(key.type_string.begin(), key.type_string.end(), '\0');
+    const std::string_view actual{key.type_string.data(),
+                                  static_cast<std::size_t>(terminator - key.type_string.begin())};
+    return actual == expected;
+}
+
+KeyStatus GetKeyDataStatus(std::span<const u8> key_data) {
+    if (key_data.size() != KeyFileSize) {
+        return KeyStatus::InvalidSize;
+    }
+
+    InternalKey unfixed_info{};
+    InternalKey locked_secret{};
+    std::memcpy(&unfixed_info, key_data.data(), sizeof(InternalKey));
+    std::memcpy(&locked_secret, key_data.data() + sizeof(InternalKey), sizeof(InternalKey));
+    if (!HasTypeString(unfixed_info, "unfixed infos") ||
+        !HasTypeString(locked_secret, "locked secret")) {
+        return KeyStatus::InvalidType;
+    }
+    if (unfixed_info.magic_length > unfixed_info.magic_bytes.size() ||
+        locked_secret.magic_length > locked_secret.magic_bytes.size()) {
+        return KeyStatus::Invalid;
+    }
+    return KeyStatus::Valid;
+}
+
+KeyStatus ReadKeys(InternalKey& locked_secret, InternalKey& unfixed_info) {
+    if (!Common::FS::Exists(GetAmiiboKeyFilePath())) {
+        return KeyStatus::Missing;
+    }
+
+    const Common::FS::IOFile keys_file{GetAmiiboKeyFilePath(), Common::FS::FileAccessMode::Read,
+                                       Common::FS::FileType::BinaryFile};
+
+    if (!keys_file.IsOpen()) {
+        return KeyStatus::Invalid;
+    }
+    if (keys_file.GetSize() != KeyFileSize) {
+        return KeyStatus::InvalidSize;
+    }
+
+    std::array<u8, KeyFileSize> key_data{};
+    if (keys_file.Read(key_data) != key_data.size()) {
+        return KeyStatus::Invalid;
+    }
+    const auto status = GetKeyDataStatus(key_data);
+    if (status != KeyStatus::Valid) {
+        return status;
+    }
+
+    std::memcpy(&unfixed_info, key_data.data(), sizeof(InternalKey));
+    std::memcpy(&locked_secret, key_data.data() + sizeof(InternalKey), sizeof(InternalKey));
+    return KeyStatus::Valid;
+}
+
+} // namespace
 
 bool IsAmiiboValid(const EncryptedNTAG215File& ntag_file) {
     const auto& amiibo_data = ntag_file.user_memory;
@@ -300,32 +371,74 @@ void Cipher(const DerivedKeys& keys, const NTAG215File& in_data, NTAG215File& ou
 }
 
 bool LoadKeys(InternalKey& locked_secret, InternalKey& unfixed_info) {
-    const auto citron_keys_dir = Common::FS::GetCitronPath(Common::FS::CitronPath::KeysDir);
-
-    const Common::FS::IOFile keys_file{citron_keys_dir / "key_retail.bin",
-                                       Common::FS::FileAccessMode::Read,
-                                       Common::FS::FileType::BinaryFile};
-
-    if (!keys_file.IsOpen()) {
-        LOG_ERROR(Service_NFP, "Failed to open key file");
+    switch (ReadKeys(locked_secret, unfixed_info)) {
+    case KeyStatus::Missing:
+        LOG_ERROR(Service_NFP, "Failed to load key_retail.bin: file is missing");
         return false;
-    }
-
-    if (keys_file.Read(unfixed_info) != 1) {
-        LOG_ERROR(Service_NFP, "Failed to read unfixed_info");
+    case KeyStatus::InvalidSize:
+        LOG_ERROR(Service_NFP, "Failed to load key_retail.bin: incorrect file size");
         return false;
-    }
-    if (keys_file.Read(locked_secret) != 1) {
-        LOG_ERROR(Service_NFP, "Failed to read locked-secret");
+    case KeyStatus::InvalidType:
+        LOG_ERROR(Service_NFP, "Failed to load key_retail.bin: invalid key type strings");
         return false;
+    case KeyStatus::Invalid:
+        LOG_ERROR(Service_NFP, "Failed to load key_retail.bin: key validation failed");
+        return false;
+    case KeyStatus::Valid:
+        return true;
     }
+    return false;
+}
 
-    return true;
+bool AreKeysValid(std::span<const u8> key_data) {
+    return GetKeyDataStatus(key_data) == KeyStatus::Valid;
+}
+
+KeyStatus GetKeyStatus() {
+    InternalKey locked_secret{};
+    InternalKey unfixed_info{};
+    return ReadKeys(locked_secret, unfixed_info);
 }
 
 bool IsKeyAvailable() {
-    const auto citron_keys_dir = Common::FS::GetCitronPath(Common::FS::CitronPath::KeysDir);
-    return Common::FS::Exists(citron_keys_dir / "key_retail.bin");
+    return Common::FS::Exists(GetAmiiboKeyFilePath());
+}
+
+DumpStatus GetDumpStatus(std::span<const u8> data) {
+    static_assert(sizeof(NTAG215File) == sizeof(EncryptedNTAG215File),
+                  "Amiibo dump layouts must have matching sizes");
+
+    if (data.size() != sizeof(NTAG215File)) {
+        return DumpStatus::Invalid;
+    }
+
+    NTAG215File plain_data{};
+    std::memcpy(&plain_data, data.data(), sizeof(plain_data));
+    if (IsAmiiboValid(plain_data)) {
+        return DumpStatus::Plain;
+    }
+
+    EncryptedNTAG215File encrypted_data{};
+    std::memcpy(&encrypted_data, data.data(), sizeof(encrypted_data));
+    if (!IsAmiiboValid(encrypted_data)) {
+        return DumpStatus::Invalid;
+    }
+
+    switch (GetKeyStatus()) {
+    case KeyStatus::Missing:
+        return DumpStatus::EncryptedKeysRequired;
+    case KeyStatus::InvalidSize:
+    case KeyStatus::InvalidType:
+    case KeyStatus::Invalid:
+        return DumpStatus::InvalidKeys;
+    case KeyStatus::Valid:
+        break;
+    }
+
+    NTAG215File decoded_data{};
+    return DecodeAmiibo(encrypted_data, decoded_data) && IsAmiiboValid(decoded_data)
+               ? DumpStatus::Encrypted
+               : DumpStatus::InvalidKeys;
 }
 
 bool DecodeAmiibo(const EncryptedNTAG215File& encrypted_tag_data, NTAG215File& tag_data) {

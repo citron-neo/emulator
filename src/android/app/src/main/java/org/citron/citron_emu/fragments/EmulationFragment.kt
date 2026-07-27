@@ -25,6 +25,7 @@ import android.widget.FrameLayout
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.widget.PopupMenu
 import androidx.core.content.res.ResourcesCompat
 import androidx.core.graphics.Insets
@@ -55,6 +56,7 @@ import org.citron.citron_emu.NativeLibrary
 import org.citron.citron_emu.R
 import org.citron.citron_emu.activities.EmulationActivity
 import org.citron.citron_emu.databinding.DialogOverlayAdjustBinding
+import org.citron.citron_emu.databinding.DialogAddCheatBinding
 import org.citron.citron_emu.databinding.FragmentEmulationBinding
 import org.citron.citron_emu.features.settings.model.BooleanSetting
 import org.citron.citron_emu.features.settings.model.IntSetting
@@ -95,6 +97,55 @@ class EmulationFragment : Fragment(), SurfaceHolder.Callback {
     private var isInFoldableLayout = false
 
     private lateinit var powerManager: PowerManager
+    private var pendingAmiiboUri: Uri? = null
+
+    private val openAmiiboFileLauncher =
+        registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+            if (uri == null) {
+                return@registerForActivityResult
+            }
+            if (FileUtil.getExtension(uri) !in setOf("bin", "nfc")) {
+                Toast.makeText(
+                    requireContext(),
+                    R.string.emulation_amiibo_invalid,
+                    Toast.LENGTH_LONG
+                ).show()
+                return@registerForActivityResult
+            }
+
+            loadSelectedAmiibo(uri)
+        }
+
+    private val openAmiiboKeyLauncher =
+        registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+            if (uri == null) {
+                return@registerForActivityResult
+            }
+
+            lifecycleScope.launch {
+                when (AmiiboKeyManager.install(requireContext(), uri)) {
+                    AmiiboKeyManager.Result.Success -> {
+                        Toast.makeText(
+                            requireContext(),
+                            R.string.install_keys_success,
+                            Toast.LENGTH_SHORT
+                        ).show()
+                        val retryUri = pendingAmiiboUri
+                        pendingAmiiboUri = null
+                        retryUri?.let(::loadSelectedAmiibo)
+                    }
+                    AmiiboKeyManager.Result.InvalidExtension ->
+                        showAmiiboKeyError(
+                            R.string.install_amiibo_keys_failure_extension_description
+                        )
+                    AmiiboKeyManager.Result.InvalidKey ->
+                        showAmiiboKeyError(R.string.install_amiibo_keys_invalid_description)
+                    AmiiboKeyManager.Result.UnableToRead,
+                    AmiiboKeyManager.Result.UnableToWrite ->
+                        showAmiiboKeyError(R.string.install_keys_failure_description)
+                }
+            }
+        }
 
     override fun onAttach(context: Context) {
         super.onAttach(context)
@@ -298,6 +349,11 @@ class EmulationFragment : Fragment(), SurfaceHolder.Callback {
                     true
                 }
 
+                R.id.menu_amiibo -> {
+                    showAmiiboMenu()
+                    true
+                }
+
                 R.id.menu_lock_drawer -> {
                     when (IntSetting.LOCK_DRAWER.getInt()) {
                         DrawerLayout.LOCK_MODE_UNLOCKED -> {
@@ -326,11 +382,9 @@ class EmulationFragment : Fragment(), SurfaceHolder.Callback {
                 }
 
                 R.id.menu_exit -> {
-                    emulationState.stop()
-                    NativeConfig.reloadGlobalConfig()
-                    emulationViewModel.setIsEmulationStopping(true)
                     binding.drawerLayout.close()
                     binding.inGameMenu.requestFocus()
+                    stopEmulation()
                     true
                 }
 
@@ -786,6 +840,104 @@ class EmulationFragment : Fragment(), SurfaceHolder.Callback {
         emulationState.clearSurface()
     }
 
+    private fun showAmiiboMenu() {
+        val anchor = binding.inGameMenu.findViewById<View>(R.id.menu_amiibo)
+        val popup = PopupMenu(requireContext(), anchor)
+        popup.menuInflater.inflate(R.menu.menu_amiibo_options, popup.menu)
+        popup.setOnMenuItemClickListener {
+            when (it.itemId) {
+                R.id.menu_amiibo_load -> {
+                    openAmiiboFileLauncher.launch(
+                        arrayOf("application/octet-stream", "text/plain", "*/*")
+                    )
+                    true
+                }
+
+                R.id.menu_amiibo_remove -> {
+                    lifecycleScope.launch {
+                        val result = AmiiboFileSession.remove(requireContext())
+                        showAmiiboResult(result, loaded = false)
+                    }
+                    true
+                }
+
+                else -> false
+            }
+        }
+        popup.show()
+    }
+
+    private fun showAmiiboResult(result: AmiiboFileSession.Result, loaded: Boolean) {
+        val message = when (result) {
+            AmiiboFileSession.Result.Success -> {
+                if (loaded) R.string.emulation_amiibo_loaded else R.string.emulation_amiibo_removed
+            }
+            AmiiboFileSession.Result.UnableToRead -> R.string.emulation_amiibo_read_failed
+            AmiiboFileSession.Result.UnableToWrite -> R.string.emulation_amiibo_write_failed
+            AmiiboFileSession.Result.NotAnAmiibo -> R.string.emulation_amiibo_invalid
+            AmiiboFileSession.Result.WrongDeviceState ->
+                R.string.emulation_amiibo_not_scanning
+            AmiiboFileSession.Result.EncryptedKeysRequired ->
+                R.string.emulation_amiibo_keys_required_description
+            AmiiboFileSession.Result.InvalidAmiiboKeys ->
+                R.string.emulation_amiibo_invalid_keys
+            AmiiboFileSession.Result.UnableToLoad,
+            AmiiboFileSession.Result.Unknown -> R.string.emulation_amiibo_load_failed
+        }
+        Toast.makeText(requireContext(), message, Toast.LENGTH_LONG).show()
+    }
+
+    private fun loadSelectedAmiibo(uri: Uri) {
+        lifecycleScope.launch {
+            val result = AmiiboFileSession.load(requireContext(), uri)
+            when (result) {
+                AmiiboFileSession.Result.EncryptedKeysRequired ->
+                    showAmiiboKeyImport(uri, R.string.emulation_amiibo_keys_required_description)
+                AmiiboFileSession.Result.InvalidAmiiboKeys ->
+                    showAmiiboKeyImport(uri, R.string.emulation_amiibo_invalid_keys)
+                else -> showAmiiboResult(result, loaded = true)
+            }
+        }
+    }
+
+    private fun showAmiiboKeyImport(uri: Uri, descriptionId: Int) {
+        pendingAmiiboUri = uri
+        MessageDialogFragment.newInstance(
+            requireActivity(),
+            titleId = R.string.emulation_amiibo_keys_required,
+            descriptionId = descriptionId,
+            positiveButtonTitleId = R.string.install_amiibo_keys,
+            positiveAction = {
+                openAmiiboKeyLauncher.launch(arrayOf("application/octet-stream", "*/*"))
+            },
+            showNegativeButton = true
+        ).show(parentFragmentManager, MessageDialogFragment.TAG)
+    }
+
+    private fun showAmiiboKeyError(descriptionId: Int) {
+        MessageDialogFragment.newInstance(
+            requireActivity(),
+            titleId = R.string.invalid_keys_error,
+            descriptionId = descriptionId
+        ).show(parentFragmentManager, MessageDialogFragment.TAG)
+    }
+
+    private fun stopEmulation() {
+        lifecycleScope.launch {
+            val result = AmiiboFileSession.remove(requireContext())
+            if (result == AmiiboFileSession.Result.UnableToWrite) {
+                Toast.makeText(
+                    requireContext(),
+                    R.string.emulation_amiibo_write_failed,
+                    Toast.LENGTH_LONG
+                ).show()
+            }
+            emulationState.stop()
+            NativeConfig.reloadGlobalConfig()
+            emulationViewModel.setIsEmulationStopping(true)
+        }
+    }
+
     private fun showCheats() {
         viewLifecycleOwner.lifecycleScope.launch {
             val cheats = withContext(Dispatchers.IO) {
@@ -800,6 +952,9 @@ class EmulationFragment : Fragment(), SurfaceHolder.Callback {
                 MaterialAlertDialogBuilder(requireContext())
                     .setTitle(R.string.emulation_cheats)
                     .setMessage(R.string.emulation_cheats_empty)
+                    .setNeutralButton(R.string.emulation_cheats_add) { _, _ ->
+                        showAddCheatDialog()
+                    }
                     .setPositiveButton(R.string.close, null)
                     .show()
                 return@launch
@@ -813,8 +968,105 @@ class EmulationFragment : Fragment(), SurfaceHolder.Callback {
                 ) { _, which, isChecked ->
                     setCheatEnabled(cheats[which], isChecked)
                 }
+                .setNeutralButton(R.string.emulation_cheats_add) { _, _ ->
+                    showAddCheatDialog()
+                }
                 .setPositiveButton(R.string.close, null)
                 .show()
+        }
+    }
+
+    private fun showAddCheatDialog() {
+        val dialogBinding = DialogAddCheatBinding.inflate(layoutInflater)
+        val dialog = MaterialAlertDialogBuilder(requireContext())
+            .setTitle(R.string.emulation_cheats_add)
+            .setView(dialogBinding.root)
+            .setNegativeButton(android.R.string.cancel, null)
+            .setPositiveButton(R.string.emulation_cheats_add, null)
+            .create()
+
+        dialog.setOnShowListener {
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+                val title = dialogBinding.cheatTitle.text?.toString()?.trim().orEmpty()
+                val code = dialogBinding.cheatCode.text?.toString()?.trim().orEmpty()
+                dialogBinding.cheatTitleLayout.error = null
+                dialogBinding.cheatCodeLayout.error = null
+                if (title.isEmpty()) {
+                    dialogBinding.cheatTitleLayout.error =
+                        getString(R.string.emulation_cheats_invalid_title)
+                    return@setOnClickListener
+                }
+                if (code.isEmpty()) {
+                    dialogBinding.cheatCodeLayout.error =
+                        getString(R.string.emulation_cheats_invalid_code)
+                    return@setOnClickListener
+                }
+
+                dialog.getButton(AlertDialog.BUTTON_POSITIVE).isEnabled = false
+                dialog.getButton(AlertDialog.BUTTON_NEGATIVE).isEnabled = false
+                addCheat(title, code) { result ->
+                    if (!dialog.isShowing) {
+                        return@addCheat
+                    }
+                    dialog.getButton(AlertDialog.BUTTON_POSITIVE).isEnabled = true
+                    dialog.getButton(AlertDialog.BUTTON_NEGATIVE).isEnabled = true
+                    when (result) {
+                        NativeLibrary.AddCheatResult.SUCCESS -> {
+                            dialog.dismiss()
+                            Toast.makeText(
+                                requireContext(),
+                                R.string.emulation_cheats_added,
+                                Toast.LENGTH_SHORT
+                            ).show()
+                            showCheats()
+                        }
+                        NativeLibrary.AddCheatResult.INVALID_TITLE ->
+                            dialogBinding.cheatTitleLayout.error =
+                                getString(R.string.emulation_cheats_invalid_title)
+                        NativeLibrary.AddCheatResult.INVALID_CODE ->
+                            dialogBinding.cheatCodeLayout.error =
+                                getString(R.string.emulation_cheats_invalid_code)
+                        NativeLibrary.AddCheatResult.DUPLICATE_TITLE ->
+                            dialogBinding.cheatTitleLayout.error =
+                                getString(R.string.emulation_cheats_duplicate_title)
+                        NativeLibrary.AddCheatResult.NO_CHEAT_ENGINE ->
+                            dialogBinding.cheatCodeLayout.error =
+                                getString(R.string.emulation_cheats_engine_unavailable)
+                        else ->
+                            dialogBinding.cheatCodeLayout.error =
+                                getString(R.string.emulation_cheats_add_failed)
+                    }
+                }
+            }
+        }
+        dialog.show()
+    }
+
+    private fun addCheat(title: String, code: String, onResult: (Int) -> Unit) {
+        viewLifecycleOwner.lifecycleScope.launch {
+            val result = cheatToggleMutex.withLock {
+                var shouldResume = false
+                try {
+                    shouldResume = emulationState.isRunning && !NativeLibrary.isPaused()
+                    if (shouldResume) {
+                        emulationState.pause()
+                    }
+                    withContext(Dispatchers.IO) {
+                        NativeLibrary.addCheat(game.programId, title, code).also {
+                            if (it == NativeLibrary.AddCheatResult.SUCCESS) {
+                                NativeConfig.saveGlobalConfig()
+                            }
+                        }
+                    }
+                } finally {
+                    withContext(NonCancellable) {
+                        if (shouldResume && emulationState.isPaused) {
+                            emulationState.run(false)
+                        }
+                    }
+                }
+            }
+            onResult(result)
         }
     }
 

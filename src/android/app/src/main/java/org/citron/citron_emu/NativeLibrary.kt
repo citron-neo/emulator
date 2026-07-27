@@ -452,17 +452,45 @@ object NativeLibrary {
      */
     external fun reloadCheats(programId: String): Boolean
 
+    object AddCheatResult {
+        const val SUCCESS = 0
+        const val INVALID_TITLE = 1
+        const val INVALID_CODE = 2
+        const val NO_CHEAT_ENGINE = 3
+        const val UNABLE_TO_WRITE = 4
+        const val DUPLICATE_TITLE = 5
+    }
+
     /**
-     * Removes an update for a given [programId]
-     * @param programId String representation of a game's program ID
+     * Validates, saves, enables, and hot reloads a cheat for the currently running game.
+     *
+     * @return A value from [AddCheatResult].
      */
-    external fun removeUpdate(programId: String)
+    external fun addCheat(programId: String, title: String, code: String): Int
+
+    /**
+     * Removes an installed base game for a given [programId].
+     * @return Whether an installed base game was removed.
+     */
+    external fun removeBaseContent(programId: String): Boolean
+
+    /**
+     * Removes an update for a given [programId].
+     * @return Whether an installed update was removed.
+     */
+    external fun removeUpdate(programId: String): Boolean
 
     /**
      * Removes a single installed DLC with the given [titleId]
      * @param titleId String representation of the DLC title ID
      */
     external fun removeDLC(titleId: String)
+
+    /**
+     * Removes all installed DLC for a given [programId].
+     * @return The number of installed DLC entries removed.
+     */
+    external fun removeAllDLC(programId: String): Int
 
     /**
      * Removes a mod installed for a given [programId]

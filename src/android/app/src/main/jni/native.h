@@ -39,6 +39,7 @@ public:
     bool IsPaused() const;
     bool IsShuttingDown() const;
     bool IsNetworkInitialized() const;
+    [[nodiscard]] std::unique_lock<std::mutex> AcquireSessionLock();
     void PauseEmulation();
     void UnPauseEmulation();
     void HaltEmulation();
