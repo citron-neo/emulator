@@ -726,27 +726,31 @@ std::vector<Patch> PatchManager::GetPatches(VirtualFile update_raw) const {
     // --- 1. Update (NAND/External) ---
     // First, check for system updates (NAND/SDMC)
     const auto update_tid = GetUpdateTitleID(title_id);
-    PatchManager update_mgr{update_tid, fs_controller, content_provider};
-    const auto metadata = update_mgr.GetControlMetadata();
-    const auto& nacp = metadata.first;
     const auto update_disabled =
         std::find(disabled.cbegin(), disabled.cend(), "Update") != disabled.cend();
 
     const auto* content_provider_union = GetUnionProvider(content_provider);
-    bool is_nand_control = true;
-    bool is_nand_program = true;
+    const auto is_removable_origin = [](std::optional<ContentProviderUnionSlot> origin) {
+        return origin && (*origin == ContentProviderUnionSlot::UserNAND ||
+                          *origin == ContentProviderUnionSlot::SDMC);
+    };
+    bool is_installed_control = true;
+    bool is_installed_program = true;
     if (content_provider_union) {
-        auto slot_control = content_provider_union->GetSlotForEntry(update_tid, ContentRecordType::Control);
-        if (slot_control && *slot_control == ContentProviderUnionSlot::External) {
-            is_nand_control = false;
-        }
-        auto slot_program = content_provider_union->GetSlotForEntry(update_tid, ContentRecordType::Program);
-        if (slot_program && *slot_program == ContentProviderUnionSlot::External) {
-            is_nand_program = false;
-        }
+        is_installed_control = is_removable_origin(
+            content_provider_union->GetSlotForEntry(update_tid, ContentRecordType::Control));
+        is_installed_program = is_removable_origin(
+            content_provider_union->GetSlotForEntry(update_tid, ContentRecordType::Program));
     }
 
-    if (nacp != nullptr && is_nand_control) {
+    Metadata metadata{};
+    if (is_installed_control) {
+        PatchManager update_mgr{update_tid, fs_controller, content_provider};
+        metadata = update_mgr.GetControlMetadata();
+    }
+    const auto& nacp = metadata.first;
+
+    if (nacp != nullptr && is_installed_control) {
         // System update found
         const auto version_str = CleanNacpVersion(nacp->GetVersionString());
         const auto name = fmt::format("NAND Files/Update v{}", version_str);
@@ -758,9 +762,11 @@ std::vector<Patch> PatchManager::GetPatches(VirtualFile update_raw) const {
                               .version = version_str,
                               .type = PatchType::Update,
                               .program_id = title_id,
-                              .title_id = title_id};
+                              .title_id = title_id,
+                              .removable = true};
         out.push_back(update_patch);
-    } else if (content_provider.HasEntry(update_tid, ContentRecordType::Program) && is_nand_program) {
+    } else if (content_provider.HasEntry(update_tid, ContentRecordType::Program) &&
+               is_installed_program) {
         // Fallback for system update without control NCA (rare)
         const auto meta_ver = content_provider.GetEntryVersion(update_tid);
         if (meta_ver.value_or(0) != 0) {
@@ -774,7 +780,8 @@ std::vector<Patch> PatchManager::GetPatches(VirtualFile update_raw) const {
                                   .version = version_str,
                                   .type = PatchType::Update,
                                   .program_id = title_id,
-                                  .title_id = title_id};
+                                  .title_id = title_id,
+                                  .removable = true};
             out.push_back(update_patch);
         }
     }
@@ -786,15 +793,15 @@ std::vector<Patch> PatchManager::GetPatches(VirtualFile update_raw) const {
         // resolves across the WHOLE union including External) so an external-only update
         // can never be misread as a NAND version and wrongly deduped against itself.
         std::optional<u32> nand_numeric_version;
-        if (is_nand_control || is_nand_program) {
-            if (const auto* sys = content_provider_union->GetSlotProvider(
-                    ContentProviderUnionSlot::SysNAND)) {
-                nand_numeric_version = sys->GetEntryVersion(update_tid);
+        if (is_installed_control || is_installed_program) {
+            if (const auto* user = content_provider_union->GetSlotProvider(
+                    ContentProviderUnionSlot::UserNAND)) {
+                nand_numeric_version = user->GetEntryVersion(update_tid);
             }
             if (!nand_numeric_version) {
-                if (const auto* user = content_provider_union->GetSlotProvider(
-                        ContentProviderUnionSlot::UserNAND)) {
-                    nand_numeric_version = user->GetEntryVersion(update_tid);
+                if (const auto* sdmc = content_provider_union->GetSlotProvider(
+                        ContentProviderUnionSlot::SDMC)) {
+                    nand_numeric_version = sdmc->GetEntryVersion(update_tid);
                 }
             }
         }
