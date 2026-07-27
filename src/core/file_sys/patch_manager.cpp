@@ -736,11 +736,16 @@ std::vector<Patch> PatchManager::GetPatches(VirtualFile update_raw) const {
     };
     bool is_installed_control = true;
     bool is_installed_program = true;
+    bool has_packaged_update = false;
     if (content_provider_union) {
         is_installed_control = is_removable_origin(
             content_provider_union->GetSlotForEntry(update_tid, ContentRecordType::Control));
         is_installed_program = is_removable_origin(
             content_provider_union->GetSlotForEntry(update_tid, ContentRecordType::Program));
+        const auto* frontend_manual = content_provider_union->GetSlotProvider(
+            ContentProviderUnionSlot::FrontendManual);
+        has_packaged_update =
+            frontend_manual && frontend_manual->HasEntry(update_tid, ContentRecordType::Program);
     }
 
     Metadata metadata{};
@@ -890,7 +895,7 @@ std::vector<Patch> PatchManager::GetPatches(VirtualFile update_raw) const {
         }
     }
 
-    if (out.empty() && update_raw != nullptr) {
+    if (has_packaged_update || (out.empty() && update_raw != nullptr)) {
         Patch update_patch = {.enabled = !update_disabled,
                               .name = "NAND Files/Update",
                               .version = "PACKED",
