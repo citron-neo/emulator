@@ -22,6 +22,8 @@
 
 namespace Vulkan {
 namespace {
+thread_local const MemoryAllocator* current_memory_pressure_allocator{};
+
 struct Range {
     u64 begin;
     u64 end;
@@ -280,8 +282,10 @@ MemoryPressureCallbackRegistration MemoryAllocator::SetMemoryPressureCallback(
     }
     std::unique_lock lock{memory_pressure_mutex};
     memory_pressure_callback.reset();
-    memory_pressure_callback_finished.wait(lock,
-                                           [this] { return !memory_pressure_callback_running; });
+    if (current_memory_pressure_allocator != this) {
+        memory_pressure_callback_finished.wait(
+            lock, [this] { return !memory_pressure_callback_running; });
+    }
     memory_pressure_callback = std::move(registered_callback);
     const u64 registration_id = ++memory_pressure_callback_registration_id;
     return MemoryPressureCallbackRegistration{*this, registration_id};
@@ -293,16 +297,17 @@ void MemoryAllocator::ClearMemoryPressureCallback(u64 registration_id) noexcept 
         return;
     }
     memory_pressure_callback.reset();
-    memory_pressure_callback_finished.wait(lock,
-                                           [this] { return !memory_pressure_callback_running; });
+    if (current_memory_pressure_allocator != this) {
+        memory_pressure_callback_finished.wait(
+            lock, [this] { return !memory_pressure_callback_running; });
+    }
 }
 
 bool MemoryAllocator::TryRecoverFromOutOfMemory(VkResult result) const {
     if (result != VK_ERROR_OUT_OF_DEVICE_MEMORY && result != VK_ERROR_OUT_OF_HOST_MEMORY) {
         return false;
     }
-    static thread_local bool is_handling_memory_pressure = false;
-    if (is_handling_memory_pressure) {
+    if (current_memory_pressure_allocator) {
         LOG_WARNING(Render_Vulkan, "Skipping recursive Vulkan memory-pressure recovery (result={})",
                     static_cast<s32>(result));
         return false;
@@ -326,9 +331,9 @@ bool MemoryAllocator::TryRecoverFromOutOfMemory(VkResult result) const {
         memory_pressure_callback_running = true;
     }
 
-    is_handling_memory_pressure = true;
+    current_memory_pressure_allocator = this;
     SCOPE_EXIT {
-        is_handling_memory_pressure = false;
+        current_memory_pressure_allocator = nullptr;
         {
             std::scoped_lock lock{memory_pressure_mutex};
             memory_pressure_callback_running = false;
