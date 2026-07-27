@@ -663,7 +663,7 @@ public:
 
     u64 GetDeviceMemoryUsage() const;
 
-    void RefreshDeviceMemoryUsage(VmaAllocator allocator) const;
+    void RefreshDeviceMemoryUsage(VmaAllocator vma_allocator) const;
 
     u64 GetDeviceMemoryBudget() const;
 
