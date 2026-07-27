@@ -480,6 +480,10 @@ object NativeLibrary {
      */
     external fun removeUpdate(programId: String): Boolean
 
+    external fun hasInstalledUpdate(programId: String): Boolean
+
+    external fun hasInstalledDLC(programId: String): Boolean
+
     /**
      * Removes a single installed DLC with the given [titleId]
      * @param titleId String representation of the DLC title ID

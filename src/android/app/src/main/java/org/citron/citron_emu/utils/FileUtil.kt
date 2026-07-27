@@ -423,6 +423,53 @@ object FileUtil {
         }
     }
 
+    fun File.copyFilesTo(documentDirectory: DocumentFile): Boolean {
+        if (!isDirectory || !documentDirectory.isDirectory) {
+            Log.error("[FileUtil] Source and destination must both be directories")
+            return false
+        }
+
+        return try {
+            listFiles()?.all { source ->
+                if (source.isDirectory) {
+                    val existing = documentDirectory.findFile(source.name)
+                    val destination = when {
+                        existing == null -> documentDirectory.createDirectory(source.name)
+                        existing.isDirectory -> existing
+                        else -> null
+                    }
+                    destination != null && source.copyFilesTo(destination)
+                } else {
+                    val existing = documentDirectory.findFile(source.name)
+                    if (existing?.isDirectory == true) {
+                        return@all false
+                    }
+                    val destination = existing ?: documentDirectory.createFile(
+                        APPLICATION_OCTET_STREAM,
+                        source.name
+                    )
+                    if (destination == null) {
+                        return@all false
+                    }
+
+                    val outputStream = context.contentResolver.openOutputStream(
+                        destination.uri,
+                        "rwt"
+                    ) ?: return@all false
+                    source.inputStream().buffered().use { input ->
+                        outputStream.use { output ->
+                            input.copyTo(output)
+                        }
+                    }
+                    true
+                }
+            } ?: false
+        } catch (e: Exception) {
+            Log.error("[FileUtil] Failed copying directory to SAF destination: ${e.message}")
+            false
+        }
+    }
+
     fun isRootTreeUri(uri: Uri): Boolean {
         val paths = uri.pathSegments
         return paths.size == 2 && PATH_TREE == paths[0]

@@ -101,6 +101,7 @@
 #include "core/file_sys/registered_cache.h"
 #include "core/file_sys/savedata_factory.h"
 #include "core/hle/service/acc/profile_manager.h"
+#include "frontend_common/content_manager.h"
 
 // A helper struct to cleanly pass game data
 struct SurpriseGame {
@@ -3322,8 +3323,11 @@ void GameList::AddGamePopup(QMenu& context_menu, const QModelIndex& index, u64 p
     open_mod_location->setVisible(program_id != 0);
     open_sdmc_mod_menu->menuAction()->setVisible(program_id != 0);
     open_transferable_shader_cache->setVisible(program_id != 0);
-    remove_update->setVisible(program_id != 0);
-    remove_dlc->setVisible(program_id != 0);
+    remove_update->setVisible(
+        program_id != 0 &&
+        ContentManager::HasUpdate(system.GetFileSystemController(), program_id));
+    remove_dlc->setVisible(
+        program_id != 0 && ContentManager::HasDLC(system.GetFileSystemController(), program_id));
     remove_vk_shader_cache->setVisible(program_id != 0);
     remove_shader_cache->setVisible(program_id != 0);
     remove_all_content->setVisible(program_id != 0);

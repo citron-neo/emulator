@@ -588,8 +588,15 @@ void EmulationSession::ChangeProgram(std::size_t program_index) {
 u64 EmulationSession::GetProgramId(JNIEnv* env, jstring jprogramId) {
     auto program_id_string = Common::Android::GetJString(env, jprogramId);
     try {
-        return std::stoull(program_id_string);
+        std::size_t parsed_length = 0;
+        const auto program_id = std::stoull(program_id_string, &parsed_length, 10);
+        if (parsed_length != program_id_string.size()) {
+            LOG_ERROR(Frontend, "Invalid decimal program ID '{}'", program_id_string);
+            return 0;
+        }
+        return program_id;
     } catch (...) {
+        LOG_ERROR(Frontend, "Failed to parse program ID '{}'", program_id_string);
         return 0;
     }
 }
@@ -1252,6 +1259,20 @@ jboolean Java_org_citron_citron_1emu_NativeLibrary_removeUpdate(JNIEnv* env, job
         EmulationSession::GetInstance().System().GetFileSystemController(), program_id);
 }
 
+jboolean Java_org_citron_citron_1emu_NativeLibrary_hasInstalledUpdate(JNIEnv* env, jobject jobj,
+                                                                      jstring jprogramId) {
+    const auto program_id = EmulationSession::GetProgramId(env, jprogramId);
+    return ContentManager::HasUpdate(
+        EmulationSession::GetInstance().System().GetFileSystemController(), program_id);
+}
+
+jboolean Java_org_citron_citron_1emu_NativeLibrary_hasInstalledDLC(JNIEnv* env, jobject jobj,
+                                                                   jstring jprogramId) {
+    const auto program_id = EmulationSession::GetProgramId(env, jprogramId);
+    return ContentManager::HasDLC(
+        EmulationSession::GetInstance().System().GetFileSystemController(), program_id);
+}
+
 void Java_org_citron_citron_1emu_NativeLibrary_removeDLC(JNIEnv* env, jobject jobj,
                                                      jstring jtitleId) {
     const auto title_id = EmulationSession::GetProgramId(env, jtitleId);
@@ -1374,6 +1395,7 @@ jboolean Java_org_citron_citron_1emu_NativeLibrary_areKeysPresent(JNIEnv* env, j
 jboolean Java_org_citron_citron_1emu_NativeLibrary_dumpRomFS(JNIEnv* env, jobject jobj,
                                                          jstring jgamePath, jstring jprogramId,
                                                          jstring jdumpPath, jobject jcallback) {
+    (void)jdumpPath;
     // Check if emulation is running - dumping while emulation is active can cause crashes
     if (EmulationSession::GetInstance().IsRunning()) {
         LOG_ERROR(Frontend, "Cannot dump RomFS while emulation is running. Please close the game first.");
@@ -1382,14 +1404,26 @@ jboolean Java_org_citron_citron_1emu_NativeLibrary_dumpRomFS(JNIEnv* env, jobjec
 
     const auto game_path = Common::Android::GetJString(env, jgamePath);
     const auto program_id = EmulationSession::GetProgramId(env, jprogramId);
+    if (program_id == 0) {
+        LOG_ERROR(Frontend, "Cannot dump RomFS: invalid program ID");
+        return false;
+    }
 
     auto& system = EmulationSession::GetInstance().System();
     auto& vfs = *system.GetFilesystem();
 
-    const auto loader = Loader::GetLoader(system, vfs.OpenFile(game_path, FileSys::OpenMode::Read));
-    if (loader == nullptr) {
+    const auto game_file = vfs.OpenFile(game_path, FileSys::OpenMode::Read);
+    if (game_file == nullptr) {
+        LOG_ERROR(Frontend, "Cannot dump RomFS: failed to open game file '{}'", game_path);
         return false;
     }
+    const auto loader = Loader::GetLoader(system, game_file);
+    if (loader == nullptr) {
+        LOG_ERROR(Frontend, "Cannot dump RomFS: no loader for '{}'", game_path);
+        return false;
+    }
+
+    EmulationSession::GetInstance().ConfigureFilesystemProvider(game_path);
 
     FileSys::VirtualFile packed_update_raw{};
     loader->ReadUpdateRaw(packed_update_raw);
@@ -1415,6 +1449,7 @@ jboolean Java_org_citron_citron_1emu_NativeLibrary_dumpRomFS(JNIEnv* env, jobjec
             }
         }
         if (!found || !base_nca) {
+            LOG_ERROR(Frontend, "Cannot dump RomFS: no base Program NCA for {:016X}", program_id);
             return false;
         }
     }
@@ -1428,28 +1463,11 @@ jboolean Java_org_citron_citron_1emu_NativeLibrary_dumpRomFS(JNIEnv* env, jobjec
 
     const auto base_romfs = base_nca->GetRomFS();
     if (!base_romfs) {
+        LOG_ERROR(Frontend, "Cannot dump RomFS: base NCA {:016X} has no RomFS", title_id);
         return false;
     }
 
-    // Use custom dump path if provided, otherwise use default
-    std::filesystem::path dump_dir;
-    if (jdumpPath != nullptr) {
-        const auto custom_path = Common::Android::GetJString(env, jdumpPath);
-        if (!custom_path.empty()) {
-            // Check if it's a native path (starts with /) or try to use it as-is
-            if (custom_path[0] == '/') {
-                dump_dir = std::filesystem::path(custom_path);
-            } else {
-                // Try to parse as URI and extract path
-                // For document tree URIs, we can't easily get a native path
-                // So fall back to default
-                dump_dir = Common::FS::GetCitronPath(Common::FS::CitronPath::DumpDir);
-            }
-        }
-    }
-    if (dump_dir.empty()) {
-        dump_dir = Common::FS::GetCitronPath(Common::FS::CitronPath::DumpDir);
-    }
+    const auto dump_dir = Common::FS::GetCitronPath(Common::FS::CitronPath::DumpDir);
     const auto romfs_dir = fmt::format("{:016X}/romfs", title_id);
     const auto path = dump_dir / romfs_dir;
 
@@ -1457,11 +1475,13 @@ jboolean Java_org_citron_citron_1emu_NativeLibrary_dumpRomFS(JNIEnv* env, jobjec
     auto romfs = pm.PatchRomFS(base_nca.get(), base_romfs, type, packed_update_raw, false);
 
     if (!romfs) {
+        LOG_ERROR(Frontend, "Cannot dump RomFS: failed to patch RomFS for {:016X}", title_id);
         return false;
     }
 
     const auto extracted = FileSys::ExtractRomFS(romfs);
     if (extracted == nullptr) {
+        LOG_ERROR(Frontend, "Cannot dump RomFS: failed to extract RomFS for {:016X}", title_id);
         return false;
     }
 
@@ -1469,6 +1489,7 @@ jboolean Java_org_citron_citron_1emu_NativeLibrary_dumpRomFS(JNIEnv* env, jobjec
     const auto path_str = Common::FS::PathToUTF8String(path);
     const auto out_dir = vfs.CreateDirectory(path_str, FileSys::OpenMode::ReadWrite);
     if (!out_dir || !out_dir->IsWritable()) {
+        LOG_ERROR(Frontend, "Cannot dump RomFS: output directory '{}' is not writable", path_str);
         return false;
     }
 
@@ -1509,6 +1530,8 @@ jboolean Java_org_citron_citron_1emu_NativeLibrary_dumpRomFS(JNIEnv* env, jobjec
                 }
                 const auto out_file = dest->CreateFile(file->GetName());
                 if (!FileSys::VfsRawCopy(file, out_file)) {
+                    LOG_ERROR(Frontend, "Cannot dump RomFS: failed to copy '{}'",
+                              file->GetFullPath());
                     return false;
                 }
                 if (callback(file->GetSize())) {
@@ -1536,6 +1559,8 @@ jboolean Java_org_citron_citron_1emu_NativeLibrary_dumpRomFS(JNIEnv* env, jobjec
 jboolean Java_org_citron_citron_1emu_NativeLibrary_dumpExeFS(JNIEnv* env, jobject jobj,
                                                           jstring jgamePath, jstring jprogramId,
                                                           jstring jdumpPath, jobject jcallback) {
+    (void)jdumpPath;
+    (void)jcallback;
     // Check if emulation is running - dumping while emulation is active can cause crashes
     if (EmulationSession::GetInstance().IsRunning()) {
         LOG_ERROR(Frontend, "Cannot dump ExeFS while emulation is running. Please close the game first.");
@@ -1544,14 +1569,26 @@ jboolean Java_org_citron_citron_1emu_NativeLibrary_dumpExeFS(JNIEnv* env, jobjec
 
     const auto game_path = Common::Android::GetJString(env, jgamePath);
     const auto program_id = EmulationSession::GetProgramId(env, jprogramId);
+    if (program_id == 0) {
+        LOG_ERROR(Frontend, "Cannot dump ExeFS: invalid program ID");
+        return false;
+    }
 
     auto& system = EmulationSession::GetInstance().System();
     auto& vfs = *system.GetFilesystem();
 
-    const auto loader = Loader::GetLoader(system, vfs.OpenFile(game_path, FileSys::OpenMode::Read));
-    if (loader == nullptr) {
+    const auto game_file = vfs.OpenFile(game_path, FileSys::OpenMode::Read);
+    if (game_file == nullptr) {
+        LOG_ERROR(Frontend, "Cannot dump ExeFS: failed to open game file '{}'", game_path);
         return false;
     }
+    const auto loader = Loader::GetLoader(system, game_file);
+    if (loader == nullptr) {
+        LOG_ERROR(Frontend, "Cannot dump ExeFS: no loader for '{}'", game_path);
+        return false;
+    }
+
+    EmulationSession::GetInstance().ConfigureFilesystemProvider(game_path);
 
     const auto& installed = system.GetContentProvider();
 
@@ -1559,7 +1596,7 @@ jboolean Java_org_citron_citron_1emu_NativeLibrary_dumpExeFS(JNIEnv* env, jobjec
     u64 title_id = program_id;
     const auto type = FileSys::ContentRecordType::Program;
     auto base_nca = installed.GetEntry(title_id, type);
-    if (!base_nca) {
+    if (!base_nca || base_nca->GetStatus() != Loader::ResultStatus::Success) {
         // Try to find any matching entry
         const auto entries = installed.ListEntriesFilter(FileSys::TitleType::Application, type);
         for (const auto& entry : entries) {
@@ -1572,6 +1609,7 @@ jboolean Java_org_citron_citron_1emu_NativeLibrary_dumpExeFS(JNIEnv* env, jobjec
             }
         }
         if (!base_nca || base_nca->GetStatus() != Loader::ResultStatus::Success) {
+            LOG_ERROR(Frontend, "Cannot dump ExeFS: no base Program NCA for {:016X}", program_id);
             return false;
         }
     }
@@ -1584,6 +1622,7 @@ jboolean Java_org_citron_citron_1emu_NativeLibrary_dumpExeFS(JNIEnv* env, jobjec
             exefs = update_nca->GetExeFS();
         }
         if (!exefs) {
+            LOG_ERROR(Frontend, "Cannot dump ExeFS: no ExeFS for {:016X}", title_id);
             return false;
         }
     }
@@ -1593,36 +1632,29 @@ jboolean Java_org_citron_citron_1emu_NativeLibrary_dumpExeFS(JNIEnv* env, jobjec
     exefs = pm.PatchExeFS(exefs);
 
     if (!exefs) {
+        LOG_ERROR(Frontend, "Cannot dump ExeFS: failed to patch ExeFS for {:016X}", title_id);
         return false;
     }
 
-    // Use custom dump path if provided, otherwise use default
-    FileSys::VirtualDir dump_dir;
-    if (jdumpPath != nullptr) {
-        const auto custom_path = Common::Android::GetJString(env, jdumpPath);
-        if (!custom_path.empty() && custom_path[0] == '/') {
-            // Create directory using VFS (native path only)
-            dump_dir = vfs.CreateDirectory(custom_path, FileSys::OpenMode::ReadWrite);
-            if (!dump_dir || !dump_dir->IsWritable()) {
-                dump_dir = nullptr;
-            }
-        }
-    }
+    const auto dump_dir = system.GetFileSystemController().GetModificationDumpRoot(title_id);
     if (!dump_dir) {
-        // Fall back to default dump directory
-        dump_dir = system.GetFileSystemController().GetModificationDumpRoot(title_id);
-        if (!dump_dir) {
-            return false;
-        }
+        LOG_ERROR(Frontend, "Cannot dump ExeFS: failed to open dump root for {:016X}", title_id);
+        return false;
     }
 
     const auto exefs_dir = FileSys::GetOrCreateDirectoryRelative(dump_dir, "/exefs");
     if (!exefs_dir) {
+        LOG_ERROR(Frontend, "Cannot dump ExeFS: failed to create output directory for {:016X}",
+                  title_id);
         return false;
     }
 
     // Copy ExeFS - callback is unused for ExeFS as it's typically small
-    return FileSys::VfsRawCopyD(exefs, exefs_dir);
+    if (!FileSys::VfsRawCopyD(exefs, exefs_dir)) {
+        LOG_ERROR(Frontend, "Cannot dump ExeFS: failed to copy files for {:016X}", title_id);
+        return false;
+    }
+    return true;
 }
 
 } // extern "C"

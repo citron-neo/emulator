@@ -93,7 +93,12 @@ const LanguageEntry& NACP::GetLanguageEntry() const {
 }
 
 void NACP::DecompressTitleBlock() {
-    if (raw.title_compression == 0) {
+    if (raw.title_compression != 1) {
+        if (raw.title_compression != 0) {
+            LOG_WARNING(Service_FS,
+                        "Unknown NACP title compression flag 0x{:02X}; using uncompressed titles",
+                        raw.title_compression);
+        }
         std::memcpy(language_entries_.data(), raw.language_entries.data(),
                      sizeof(LanguageEntry) * UncompressedLanguageCount);
         return;
