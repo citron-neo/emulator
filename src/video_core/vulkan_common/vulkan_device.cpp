@@ -1403,12 +1403,12 @@ u64 Device::GetDeviceMemoryUsage() const {
     return device_memory_usage.load(std::memory_order_relaxed);
 }
 
-void Device::RefreshDeviceMemoryUsage(VmaAllocator allocator) const {
+void Device::RefreshDeviceMemoryUsage(VmaAllocator vma_allocator) const {
     if (!extensions.memory_budget) {
         return;
     }
     std::array<VmaBudget, VK_MAX_MEMORY_HEAPS> budgets{};
-    vmaGetHeapBudgets(allocator, budgets.data());
+    vmaGetHeapBudgets(vma_allocator, budgets.data());
     u64 usage{};
     u64 budget{};
     for (const size_t heap : valid_heap_memory) {
