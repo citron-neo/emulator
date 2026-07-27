@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include <atomic>
 #include <set>
 #include <span>
 #include <string>
@@ -662,6 +663,10 @@ public:
 
     u64 GetDeviceMemoryUsage() const;
 
+    void RefreshDeviceMemoryUsage(VmaAllocator allocator) const;
+
+    u64 GetDeviceMemoryBudget() const;
+
     u32 GetSetsPerPool() const {
         return sets_per_pool;
     }
@@ -871,6 +876,8 @@ private:
     bool dynamic_state3_blending{};            ///< Has all blending features of dynamic_state3.
     bool dynamic_state3_enables{};             ///< Has all enables features of dynamic_state3.
     bool supports_conditional_barriers{};      ///< Allows barriers in conditional control flow.
+    mutable std::atomic<u64> device_memory_usage{};
+    mutable std::atomic<u64> device_memory_budget{};
     u64 device_access_memory{};                ///< Total size of device local memory in bytes.
     u32 sets_per_pool{};                       ///< Sets per Description Pool
     NvidiaArchitecture nvidia_arch{NvidiaArchitecture::Arch_AmpereOrNewer};

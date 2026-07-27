@@ -135,7 +135,7 @@ void VramOverlay::DrawVramInfo(QPainter& painter) {
 
     painter.setFont(title_font);
     painter.setPen(text_color);
-    painter.drawText(section_padding, y_offset, QString::fromUtf8("VRAM Monitor"));
+    painter.drawText(section_padding, y_offset, QString::fromUtf8("Vulkan Memory Budget"));
     y_offset += line_height + section_spacing;
 
     painter.setFont(value_font);
@@ -305,7 +305,10 @@ void VramOverlay::UpdateVramStats() {
 
         if (current_vram_data.total_vram > 0) {
             current_vram_data.vram_percentage = (static_cast<double>(current_vram_data.used_vram) / current_vram_data.total_vram) * 100.0;
-            current_vram_data.available_vram = current_vram_data.total_vram - current_vram_data.used_vram;
+            current_vram_data.available_vram =
+                current_vram_data.used_vram < current_vram_data.total_vram
+                    ? current_vram_data.total_vram - current_vram_data.used_vram
+                    : 0;
         } else {
             current_vram_data.vram_percentage = 0.0;
             current_vram_data.available_vram = 0;

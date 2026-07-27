@@ -266,7 +266,7 @@ public:
     /// Prepare an image to be used
     void PrepareImage(ImageId image_id, bool is_modification, bool invalidate);
 
-    std::recursive_mutex mutex;
+    mutable std::recursive_mutex mutex;
 
 private:
     /// Iterate over all page indices in a range
@@ -303,12 +303,12 @@ private:
     void OnGPUASRegister(size_t map_id) final override;
 
     /// Runs the Garbage Collector.
-    void RunGarbageCollector();
+    void RunGarbageCollector(bool force);
 
 public:
     /// Public interface to trigger garbage collection
     void TriggerGarbageCollection() {
-        RunGarbageCollector();
+        RunGarbageCollector(true);
     }
 
     // FIXED: VRAM leak prevention - Enhanced public interface for VRAM management
@@ -342,10 +342,10 @@ public:
     void SetVRAMLimit(u64 limit_bytes);
 
     /// Check if VRAM pressure is high
-    [[nodiscard]] bool IsVRAMPressureHigh() const noexcept;
+    [[nodiscard]] bool IsVRAMPressureHigh() const;
 
     /// Check if VRAM pressure is critical (emergency)
-    [[nodiscard]] bool IsVRAMPressureCritical() const noexcept;
+    [[nodiscard]] bool IsVRAMPressureCritical() const;
 
     /// Evict oldest textures to free target_bytes of VRAM
     u64 EvictToFreeMemory(u64 target_bytes);
@@ -502,7 +502,7 @@ public:
 
     bool has_deleted_images = false;
     bool is_rescaling = false;
-    u64 total_used_memory = 0;
+    u64 total_used_memory = 0; // Bytes owned by this cache.
     u64 minimum_memory;
     u64 expected_memory;
     u64 critical_memory;

@@ -22,6 +22,8 @@
 
 namespace Vulkan {
 namespace {
+thread_local const MemoryAllocator* current_memory_pressure_allocator{};
+
 struct Range {
     u64 begin;
     u64 end;
@@ -274,43 +276,85 @@ MemoryAllocator::~MemoryAllocator() = default;
 
 MemoryPressureCallbackRegistration MemoryAllocator::SetMemoryPressureCallback(
     std::function<void()> callback) {
-    std::scoped_lock lock{memory_pressure_mutex};
-    memory_pressure_callback = std::move(callback);
+    std::shared_ptr<const std::function<void()>> registered_callback;
+    if (callback) {
+        registered_callback = std::make_shared<const std::function<void()>>(std::move(callback));
+    }
+    std::unique_lock lock{memory_pressure_mutex};
+    memory_pressure_callback.reset();
+    if (current_memory_pressure_allocator != this) {
+        memory_pressure_callback_finished.wait(
+            lock, [this] { return !memory_pressure_callback_running; });
+    }
+    memory_pressure_callback = std::move(registered_callback);
     const u64 registration_id = ++memory_pressure_callback_registration_id;
     return MemoryPressureCallbackRegistration{*this, registration_id};
 }
 
 void MemoryAllocator::ClearMemoryPressureCallback(u64 registration_id) noexcept {
-    std::scoped_lock lock{memory_pressure_mutex};
-    if (registration_id == memory_pressure_callback_registration_id) {
-        memory_pressure_callback = {};
+    std::unique_lock lock{memory_pressure_mutex};
+    if (registration_id != memory_pressure_callback_registration_id) {
+        return;
+    }
+    memory_pressure_callback.reset();
+    if (current_memory_pressure_allocator != this) {
+        memory_pressure_callback_finished.wait(
+            lock, [this] { return !memory_pressure_callback_running; });
     }
 }
 
-bool MemoryAllocator::TryRecoverFromOutOfMemory(VkResult result) const {
+void MemoryAllocator::TickFrame() {
+    vmaSetCurrentFrameIndex(allocator, ++frame_index);
+    device.RefreshDeviceMemoryUsage(allocator);
+}
+
+MemoryAllocator::MemoryPressureRecoveryResult MemoryAllocator::TryRecoverFromOutOfMemory(
+    VkResult result) const {
     if (result != VK_ERROR_OUT_OF_DEVICE_MEMORY && result != VK_ERROR_OUT_OF_HOST_MEMORY) {
-        return false;
+        return MemoryPressureRecoveryResult::Unavailable;
     }
-    static thread_local bool is_handling_memory_pressure = false;
-    if (is_handling_memory_pressure) {
+    if (current_memory_pressure_allocator) {
         LOG_WARNING(Render_Vulkan, "Skipping recursive Vulkan memory-pressure recovery (result={})",
                     static_cast<s32>(result));
-        return false;
+        return MemoryPressureRecoveryResult::Unavailable;
     }
-    std::scoped_lock recovery_lock{memory_pressure_mutex};
-    if (!memory_pressure_callback) {
-        return false;
+
+    std::shared_ptr<const std::function<void()>> callback;
+    {
+        std::scoped_lock lock{memory_pressure_mutex};
+        if (!memory_pressure_callback) {
+            return MemoryPressureRecoveryResult::Unavailable;
+        }
+        // Never wait for another recovery here. Allocation callers can hold cache locks that the
+        // active callback needs, so waiting would invert the allocator/cache lock order. Let the
+        // caller make one opportunistic allocation retry before propagating the failure instead.
+        if (memory_pressure_callback_running) {
+            LOG_WARNING(Render_Vulkan,
+                        "Vulkan memory-pressure recovery is already running; retrying allocation "
+                        "once without waiting (result={})",
+                        static_cast<s32>(result));
+            return MemoryPressureRecoveryResult::ConcurrentRecovery;
+        }
+        callback = memory_pressure_callback;
+        memory_pressure_callback_running = true;
     }
-    is_handling_memory_pressure = true;
+
+    current_memory_pressure_allocator = this;
     SCOPE_EXIT {
-        is_handling_memory_pressure = false;
+        current_memory_pressure_allocator = nullptr;
+        {
+            std::scoped_lock lock{memory_pressure_mutex};
+            memory_pressure_callback_running = false;
+        }
+        memory_pressure_callback_finished.notify_all();
     };
 
     LOG_WARNING(Render_Vulkan,
                 "Vulkan allocation failed with result {}; freeing cached resources and retrying",
                 static_cast<s32>(result));
-    memory_pressure_callback();
-    return true;
+    (*callback)();
+    device.RefreshDeviceMemoryUsage(allocator);
+    return MemoryPressureRecoveryResult::Recovered;
 }
 
 vk::Image MemoryAllocator::CreateImage(const VkImageCreateInfo& ci) const {
@@ -329,22 +373,40 @@ vk::Image MemoryAllocator::CreateImage(const VkImageCreateInfo& ci) const {
     VmaAllocation allocation{};
 
     VkResult result = vmaCreateImage(allocator, &ci, &alloc_ci, &handle, &allocation, nullptr);
-    if (TryRecoverFromOutOfMemory(result)) {
+    const auto recovery = TryRecoverFromOutOfMemory(result);
+    if (recovery != MemoryPressureRecoveryResult::Unavailable) {
         handle = VK_NULL_HANDLE;
         allocation = VK_NULL_HANDLE;
         result = vmaCreateImage(allocator, &ci, &alloc_ci, &handle, &allocation, nullptr);
         if (result == VK_SUCCESS) {
-            LOG_INFO(Render_Vulkan,
-                     "Vulkan image allocation recovered after emergency cleanup ({}x{}x{}, "
-                     "mip_levels={}, array_layers={})",
-                     ci.extent.width, ci.extent.height, ci.extent.depth, ci.mipLevels,
-                     ci.arrayLayers);
+            if (recovery == MemoryPressureRecoveryResult::Recovered) {
+                LOG_INFO(Render_Vulkan,
+                         "Vulkan image allocation recovered after emergency cleanup ({}x{}x{}, "
+                         "mip_levels={}, array_layers={})",
+                         ci.extent.width, ci.extent.height, ci.extent.depth, ci.mipLevels,
+                         ci.arrayLayers);
+            } else {
+                LOG_INFO(Render_Vulkan,
+                         "Vulkan image allocation succeeded while another memory-pressure "
+                         "recovery was running ({}x{}x{}, mip_levels={}, array_layers={})",
+                         ci.extent.width, ci.extent.height, ci.extent.depth, ci.mipLevels,
+                         ci.arrayLayers);
+            }
         } else {
-            LOG_ERROR(Render_Vulkan,
-                      "Vulkan image allocation still failed after emergency cleanup (result={}, "
-                      "{}x{}x{}, mip_levels={}, array_layers={})",
-                      static_cast<s32>(result), ci.extent.width, ci.extent.height, ci.extent.depth,
-                      ci.mipLevels, ci.arrayLayers);
+            if (recovery == MemoryPressureRecoveryResult::Recovered) {
+                LOG_ERROR(Render_Vulkan,
+                          "Vulkan image allocation still failed after emergency cleanup "
+                          "(result={}, {}x{}x{}, mip_levels={}, array_layers={})",
+                          static_cast<s32>(result), ci.extent.width, ci.extent.height,
+                          ci.extent.depth, ci.mipLevels, ci.arrayLayers);
+            } else {
+                LOG_ERROR(Render_Vulkan,
+                          "Vulkan image allocation retry failed while another memory-pressure "
+                          "recovery was running (result={}, {}x{}x{}, mip_levels={}, "
+                          "array_layers={})",
+                          static_cast<s32>(result), ci.extent.width, ci.extent.height,
+                          ci.extent.depth, ci.mipLevels, ci.arrayLayers);
+            }
         }
     }
     vk::Check(result);
@@ -371,20 +433,36 @@ vk::Buffer MemoryAllocator::CreateBuffer(const VkBufferCreateInfo& ci, MemoryUsa
     VkMemoryPropertyFlags property_flags{};
 
     VkResult result = vmaCreateBuffer(allocator, &ci, &alloc_ci, &handle, &allocation, &alloc_info);
-    if (TryRecoverFromOutOfMemory(result)) {
+    const auto recovery = TryRecoverFromOutOfMemory(result);
+    if (recovery != MemoryPressureRecoveryResult::Unavailable) {
         handle = VK_NULL_HANDLE;
         allocation = VK_NULL_HANDLE;
         alloc_info = {};
         result = vmaCreateBuffer(allocator, &ci, &alloc_ci, &handle, &allocation, &alloc_info);
         if (result == VK_SUCCESS) {
-            LOG_INFO(Render_Vulkan,
-                     "Vulkan buffer allocation recovered after emergency cleanup (size={} bytes)",
-                     ci.size);
+            if (recovery == MemoryPressureRecoveryResult::Recovered) {
+                LOG_INFO(
+                    Render_Vulkan,
+                    "Vulkan buffer allocation recovered after emergency cleanup (size={} bytes)",
+                    ci.size);
+            } else {
+                LOG_INFO(Render_Vulkan,
+                         "Vulkan buffer allocation succeeded while another memory-pressure "
+                         "recovery was running (size={} bytes)",
+                         ci.size);
+            }
         } else {
-            LOG_ERROR(Render_Vulkan,
-                      "Vulkan buffer allocation still failed after emergency cleanup "
-                      "(result={}, size={} bytes)",
-                      static_cast<s32>(result), ci.size);
+            if (recovery == MemoryPressureRecoveryResult::Recovered) {
+                LOG_ERROR(Render_Vulkan,
+                          "Vulkan buffer allocation still failed after emergency cleanup "
+                          "(result={}, size={} bytes)",
+                          static_cast<s32>(result), ci.size);
+            } else {
+                LOG_ERROR(Render_Vulkan,
+                          "Vulkan buffer allocation retry failed while another memory-pressure "
+                          "recovery was running (result={}, size={} bytes)",
+                          static_cast<s32>(result), ci.size);
+            }
         }
     }
     vk::Check(result);
@@ -412,7 +490,8 @@ MemoryCommit MemoryAllocator::Commit(const VkMemoryRequirements& requirements, M
     // Commit has failed, allocate more memory.
     const u64 chunk_size = AllocationChunkSize(requirements.size);
     if (!TryAllocMemory(flags, type_mask, chunk_size)) {
-        if (TryRecoverFromOutOfMemory(VK_ERROR_OUT_OF_DEVICE_MEMORY)) {
+        const auto recovery = TryRecoverFromOutOfMemory(VK_ERROR_OUT_OF_DEVICE_MEMORY);
+        if (recovery != MemoryPressureRecoveryResult::Unavailable) {
             if (TryAllocMemory(flags, type_mask, chunk_size)) {
                 if (auto commit = TryCommit(requirements, flags)) {
                     return std::move(*commit);
