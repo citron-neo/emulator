@@ -344,12 +344,12 @@ private:
                ((device_addr + size) & ~Core::DEVICE_PAGEMASK);
     }
 
-    void RunGarbageCollector();
+    void RunGarbageCollector(bool force);
 
 public:
     /// Public interface to trigger garbage collection
     void TriggerGarbageCollection() {
-        RunGarbageCollector();
+        RunGarbageCollector(true);
     }
 
     void FlushDelayedDestructionRing() {
@@ -377,8 +377,10 @@ public:
     }
 
     /// Check if buffer VRAM pressure is high
-    [[nodiscard]] bool IsBufferVRAMPressureHigh() const noexcept {
-        return estimated_device_memory_usage >= minimum_memory;
+    [[nodiscard]] bool IsBufferVRAMPressureHigh() const {
+        const u64 device_usage =
+            runtime.CanReportMemoryUsage() ? runtime.GetDeviceMemoryUsage() : total_used_memory;
+        return device_usage >= minimum_memory;
     }
 
     void BindHostIndexBuffer();
@@ -514,8 +516,7 @@ public:
     };
     Common::LeastRecentlyUsedCache<LRUItemParams> lru_cache;
     u64 frame_tick = 0;
-    u64 total_used_memory = 0;             // Bytes owned by this cache.
-    u64 estimated_device_memory_usage = 0; // Global heap usage used for pressure decisions.
+    u64 total_used_memory = 0; // Bytes owned by this cache.
     u64 minimum_memory = 0;
     u64 critical_memory = 0;
     BufferId inline_buffer_id;

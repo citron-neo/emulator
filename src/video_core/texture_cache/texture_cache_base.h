@@ -303,12 +303,12 @@ private:
     void OnGPUASRegister(size_t map_id) final override;
 
     /// Runs the Garbage Collector.
-    void RunGarbageCollector();
+    void RunGarbageCollector(bool force);
 
 public:
     /// Public interface to trigger garbage collection
     void TriggerGarbageCollection() {
-        RunGarbageCollector();
+        RunGarbageCollector(true);
     }
 
     // FIXED: VRAM leak prevention - Enhanced public interface for VRAM management
@@ -342,10 +342,10 @@ public:
     void SetVRAMLimit(u64 limit_bytes);
 
     /// Check if VRAM pressure is high
-    [[nodiscard]] bool IsVRAMPressureHigh() const noexcept;
+    [[nodiscard]] bool IsVRAMPressureHigh() const;
 
     /// Check if VRAM pressure is critical (emergency)
-    [[nodiscard]] bool IsVRAMPressureCritical() const noexcept;
+    [[nodiscard]] bool IsVRAMPressureCritical() const;
 
     /// Evict oldest textures to free target_bytes of VRAM
     u64 EvictToFreeMemory(u64 target_bytes);
@@ -502,8 +502,7 @@ public:
 
     bool has_deleted_images = false;
     bool is_rescaling = false;
-    u64 total_used_memory = 0;             // Bytes owned by this cache.
-    u64 estimated_device_memory_usage = 0; // Global heap usage used for pressure decisions.
+    u64 total_used_memory = 0; // Bytes owned by this cache.
     u64 minimum_memory;
     u64 expected_memory;
     u64 critical_memory;

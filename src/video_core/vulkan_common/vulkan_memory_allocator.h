@@ -161,10 +161,16 @@ public:
     void NukeAllAllocations();
 
 private:
+    enum class MemoryPressureRecoveryResult {
+        Unavailable,
+        Recovered,
+        ConcurrentRecovery,
+    };
+
     void ClearMemoryPressureCallback(u64 registration_id) noexcept;
 
     /// Attempts to release cached GPU resources after a Vulkan allocation failure.
-    bool TryRecoverFromOutOfMemory(VkResult result) const;
+    MemoryPressureRecoveryResult TryRecoverFromOutOfMemory(VkResult result) const;
 
     /// Tries to allocate a chunk of memory.
     bool TryAllocMemory(VkMemoryPropertyFlags flags, u32 type_mask, u64 size);

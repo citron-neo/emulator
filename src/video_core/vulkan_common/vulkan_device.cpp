@@ -1400,33 +1400,28 @@ void Device::SetupFamilies(VkSurfaceKHR surface) {
 }
 
 u64 Device::GetDeviceMemoryUsage() const {
+    return device_memory_usage.load(std::memory_order_relaxed);
+}
+
+void Device::RefreshDeviceMemoryUsage(VmaAllocator allocator) const {
     if (!extensions.memory_budget) {
-        return 0;
+        return;
     }
-    VkPhysicalDeviceMemoryBudgetPropertiesEXT budget;
-    budget.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MEMORY_BUDGET_PROPERTIES_EXT;
-    budget.pNext = nullptr;
-    physical.GetMemoryProperties(&budget);
-    u64 result{};
+    std::array<VmaBudget, VK_MAX_MEMORY_HEAPS> budgets{};
+    vmaGetHeapBudgets(allocator, budgets.data());
+    u64 usage{};
+    u64 budget{};
     for (const size_t heap : valid_heap_memory) {
-        result += budget.heapUsage[heap];
+        usage += budgets[heap].usage;
+        budget += budgets[heap].budget;
     }
-    return result;
+    device_memory_usage.store(usage, std::memory_order_relaxed);
+    device_memory_budget.store(budget, std::memory_order_relaxed);
 }
 
 u64 Device::GetDeviceMemoryBudget() const {
-    if (!extensions.memory_budget) {
-        return device_access_memory;
-    }
-    VkPhysicalDeviceMemoryBudgetPropertiesEXT budget;
-    budget.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MEMORY_BUDGET_PROPERTIES_EXT;
-    budget.pNext = nullptr;
-    physical.GetMemoryProperties(&budget);
-    u64 result{};
-    for (const size_t heap : valid_heap_memory) {
-        result += budget.heapBudget[heap];
-    }
-    return result;
+    return extensions.memory_budget ? device_memory_budget.load(std::memory_order_relaxed)
+                                    : device_access_memory;
 }
 
 void Device::CollectPhysicalMemoryInfo() {
@@ -1457,6 +1452,8 @@ void Device::CollectPhysicalMemoryInfo() {
         }
         device_access_memory += mem_properties.memoryHeaps[element].size;
     }
+    device_memory_usage.store(device_initial_usage, std::memory_order_relaxed);
+    device_memory_budget.store(device_access_memory, std::memory_order_relaxed);
     if (!is_integrated) {
         const u64 reserve_memory = std::min<u64>(device_access_memory / 8, 1_GiB);
         device_access_memory -= reserve_memory;

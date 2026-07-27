@@ -75,8 +75,13 @@ template <class P>
 BufferCache<P>::~BufferCache() = default;
 
 template <class P>
-void BufferCache<P>::RunGarbageCollector() {
-    const bool aggressive_gc = estimated_device_memory_usage >= critical_memory;
+void BufferCache<P>::RunGarbageCollector(bool force) {
+    const u64 device_usage =
+        runtime.CanReportMemoryUsage() ? runtime.GetDeviceMemoryUsage() : total_used_memory;
+    // Escalate only when buffers own a meaningful share of the pressured heap.
+    const bool owns_significant_memory = device_usage == 0 || total_used_memory >= device_usage / 4;
+    const bool aggressive_gc =
+        force || (device_usage >= critical_memory && owns_significant_memory);
     const u64 ticks_to_destroy = aggressive_gc ? 60 : 120;
     int num_iterations = aggressive_gc ? 64 : 32;
     const auto clean_up = [this, &num_iterations](BufferId buffer_id) {
@@ -118,11 +123,13 @@ void BufferCache<P>::TickFrame() {
     channel_state->uniform_buffer_skip_cache_size = skip_preferred ? DEFAULT_SKIP_CACHE_SIZE : 0;
 
     if (Settings::values.gc_aggressiveness.GetValue() != Settings::GCAggressiveness::Off) {
-        if (runtime.CanReportMemoryUsage()) {
-            estimated_device_memory_usage = runtime.GetDeviceMemoryUsage();
-        }
-        if (estimated_device_memory_usage >= minimum_memory) {
-            RunGarbageCollector();
+        const u64 device_usage =
+            runtime.CanReportMemoryUsage() ? runtime.GetDeviceMemoryUsage() : total_used_memory;
+        // Do not churn a small cache to compensate for pressure caused by unrelated allocations.
+        const bool owns_reclaimable_memory =
+            device_usage == 0 || total_used_memory >= device_usage / 16;
+        if (device_usage >= minimum_memory && owns_reclaimable_memory) {
+            RunGarbageCollector(false);
         }
     }
     ++frame_tick;
@@ -1457,7 +1464,6 @@ void BufferCache<P>::ChangeRegister(BufferId buffer_id) {
 
     if (insert) {
         total_used_memory += aligned_size;
-        estimated_device_memory_usage += aligned_size;
         buffer.setLRUID(lru_cache.Insert(buffer_id, frame_tick));
 
         // FIXED: VRAM leak prevention - Track buffer statistics
@@ -1468,7 +1474,6 @@ void BufferCache<P>::ChangeRegister(BufferId buffer_id) {
         }
     } else {
         total_used_memory -= aligned_size;
-        estimated_device_memory_usage -= std::min(estimated_device_memory_usage, aligned_size);
         lru_cache.Free(buffer.getLRUID());
 
         // FIXED: VRAM leak prevention - Update buffer statistics on removal

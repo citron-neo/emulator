@@ -125,21 +125,33 @@ TextureCache<P>::TextureCache(Runtime& runtime_, Tegra::MaxwellDeviceMemoryManag
 }
 
 template <class P>
-void TextureCache<P>::RunGarbageCollector() {
+void TextureCache<P>::RunGarbageCollector(bool force) {
     bool high_priority_mode = false;
     bool aggressive_mode = false;
     u64 ticks_to_destroy = 0;
+    u64 target_cache_usage = 0;
     size_t num_iterations = 0;
+    const u64 device_usage =
+        runtime.CanReportMemoryUsage() ? runtime.GetDeviceMemoryUsage() : total_used_memory;
 
     const auto Configure = [&](bool allow_aggressive) {
-        high_priority_mode = estimated_device_memory_usage >= expected_memory;
-        aggressive_mode = allow_aggressive && estimated_device_memory_usage >= critical_memory;
+        // Global pressure selects the mode, while this cache's ownership share limits how strongly
+        // it participates. This prevents every cache from reacting aggressively to the same event.
+        const bool owns_high_priority_share =
+            device_usage == 0 || total_used_memory >= device_usage / 8;
+        const bool owns_aggressive_share =
+            device_usage == 0 || total_used_memory >= device_usage / 4;
+        high_priority_mode = force || (device_usage >= expected_memory && owns_high_priority_share);
+        aggressive_mode =
+            allow_aggressive && device_usage >= critical_memory && (force || owns_aggressive_share);
         ticks_to_destroy = aggressive_mode ? 10ULL : high_priority_mode ? 25ULL : 50ULL;
         num_iterations = aggressive_mode ? 40 : (high_priority_mode ? 20 : 10);
+        const u64 reclaim_divisor = aggressive_mode ? 5 : high_priority_mode ? 10 : 20;
+        target_cache_usage = total_used_memory - total_used_memory / reclaim_divisor;
     };
 
-    const auto Cleanup = [this, &num_iterations, &high_priority_mode,
-                          &aggressive_mode](ImageId image_id) {
+    const auto Cleanup = [this, &num_iterations, &high_priority_mode, &aggressive_mode,
+                          &target_cache_usage](ImageId image_id) {
         if (num_iterations == 0) {
             return true;
         }
@@ -175,22 +187,10 @@ void TextureCache<P>::RunGarbageCollector() {
         }
         UnregisterImage(image_id);
         DeleteImage(image_id, image.scale_tick > frame_tick + 5);
-
-        if (estimated_device_memory_usage < critical_memory) {
-            if (aggressive_mode) {
-                num_iterations >>= 2;
-                aggressive_mode = false;
-                return false;
-            }
-            if (high_priority_mode && estimated_device_memory_usage < expected_memory) {
-                num_iterations >>= 1;
-                high_priority_mode = false;
-            }
-        }
-        return false;
+        return total_used_memory <= target_cache_usage;
     };
 
-    if (estimated_device_memory_usage >= expected_memory) {
+    if (force || device_usage >= expected_memory) {
         lru_cache.ForEachItemBelow(frame_tick, [this](ImageId image_id) {
             auto& image = slot_images[image_id];
             if (True(image.flags & ImageFlagBits::Sparse) &&
@@ -211,7 +211,8 @@ void TextureCache<P>::RunGarbageCollector() {
     Configure(false);
     lru_cache.ForEachItemBelow(frame_tick - ticks_to_destroy, Cleanup);
 
-    if (estimated_device_memory_usage >= critical_memory) {
+    const bool owns_aggressive_share = device_usage == 0 || total_used_memory >= device_usage / 4;
+    if (device_usage >= critical_memory && (force || owns_aggressive_share)) {
         Configure(true);
         lru_cache.ForEachItemBelow(frame_tick - ticks_to_destroy, Cleanup);
     }
@@ -220,11 +221,13 @@ void TextureCache<P>::RunGarbageCollector() {
 template <class P>
 void TextureCache<P>::TickFrame() {
     if (Settings::values.gc_aggressiveness.GetValue() != Settings::GCAggressiveness::Off) {
-        if (runtime.CanReportMemoryUsage()) {
-            estimated_device_memory_usage = runtime.GetDeviceMemoryUsage();
-        }
-        if (estimated_device_memory_usage > minimum_memory) {
-            RunGarbageCollector();
+        const u64 device_usage =
+            runtime.CanReportMemoryUsage() ? runtime.GetDeviceMemoryUsage() : total_used_memory;
+        // Skip routine churn when textures are only a small part of global heap pressure.
+        const bool owns_reclaimable_memory =
+            device_usage == 0 || total_used_memory >= device_usage / 16;
+        if (device_usage > minimum_memory && owns_reclaimable_memory) {
+            RunGarbageCollector(false);
         }
     }
     sentenced_images.Tick();
@@ -247,10 +250,11 @@ void TextureCache<P>::TickFrame() {
 
 template <class P>
 void TextureCache<P>::ForceEmergencyGC() {
+    const u64 device_usage =
+        runtime.CanReportMemoryUsage() ? runtime.GetDeviceMemoryUsage() : total_used_memory;
     LOG_WARNING(Render_Vulkan,
                 "Force emergency GC triggered: device_usage={}MB, texture_usage={}MB, limit={}MB",
-                estimated_device_memory_usage / 1_MiB, total_used_memory / 1_MiB,
-                vram_limit_bytes / 1_MiB);
+                device_usage / 1_MiB, total_used_memory / 1_MiB, vram_limit_bytes / 1_MiB);
 
     emergency_gc_triggered = true;
     u64 bytes_freed = 0;
@@ -313,13 +317,17 @@ void TextureCache<P>::SetVRAMLimit(u64 limit_bytes) {
 }
 
 template <class P>
-bool TextureCache<P>::IsVRAMPressureHigh() const noexcept {
-    return estimated_device_memory_usage >= expected_memory;
+bool TextureCache<P>::IsVRAMPressureHigh() const {
+    const u64 device_usage =
+        runtime.CanReportMemoryUsage() ? runtime.GetDeviceMemoryUsage() : total_used_memory;
+    return device_usage >= expected_memory;
 }
 
 template <class P>
-bool TextureCache<P>::IsVRAMPressureCritical() const noexcept {
-    return estimated_device_memory_usage >=
+bool TextureCache<P>::IsVRAMPressureCritical() const {
+    const u64 device_usage =
+        runtime.CanReportMemoryUsage() ? runtime.GetDeviceMemoryUsage() : total_used_memory;
+    return device_usage >=
            static_cast<u64>(static_cast<f32>(vram_limit_bytes) * VRAM_USAGE_EMERGENCY_THRESHOLD);
 }
 
@@ -1628,7 +1636,6 @@ bool TextureCache<P>::ScaleUp(Image& image) {
     if (!has_copy) {
         const u64 scaled_size = GetScaledImageSizeBytes(image);
         total_used_memory += scaled_size;
-        estimated_device_memory_usage += scaled_size;
     }
     InvalidateScale(image);
     return true;
@@ -2307,7 +2314,6 @@ void TextureCache<P>::RegisterImage(ImageId image_id) {
     }
     const u64 aligned_size = Common::AlignUp(tentative_size, 1024);
     total_used_memory += aligned_size;
-    estimated_device_memory_usage += aligned_size;
 
     // FIXED: VRAM leak prevention - Track texture statistics
     ++texture_count;
@@ -2498,7 +2504,6 @@ void TextureCache<P>::DeleteImage(ImageId image_id, bool immediate_delete) {
     if (image.HasScaled()) {
         const u64 scaled_size = GetScaledImageSizeBytes(image);
         total_used_memory -= scaled_size;
-        estimated_device_memory_usage -= std::min(estimated_device_memory_usage, scaled_size);
     }
     u64 tentative_size = std::max(image.guest_size_bytes, image.unswizzled_size_bytes);
     if ((IsPixelFormatASTC(image.info.format) &&
@@ -2508,17 +2513,16 @@ void TextureCache<P>::DeleteImage(ImageId image_id, bool immediate_delete) {
     }
     const u64 aligned_size = Common::AlignUp(tentative_size, 1024);
     total_used_memory -= aligned_size;
-    estimated_device_memory_usage -= std::min(estimated_device_memory_usage, aligned_size);
 
     if (texture_count > 0) {
         --texture_count;
     }
     if (True(image.flags & ImageFlagBits::Sparse) && sparse_texture_count > 0) {
         --sparse_texture_count;
-        sparse_texture_memory -= aligned_size;
+        sparse_texture_memory -= std::min(sparse_texture_memory, aligned_size);
     }
     if (aligned_size >= LARGE_TEXTURE_THRESHOLD) {
-        large_texture_memory -= aligned_size;
+        large_texture_memory -= std::min(large_texture_memory, aligned_size);
     }
     const GPUVAddr gpu_addr = image.gpu_addr;
     const auto alloc_it = image_allocs_table.find(gpu_addr);
