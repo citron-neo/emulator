@@ -6,6 +6,7 @@
 #include <optional>
 #include <utility>
 
+#include "common/hex_util.h"
 #include "common/logging.h"
 #include <ranges>
 #include "core/crypto/aes_util.h"
@@ -70,6 +71,11 @@ NCA::NCA(VirtualFile file_, const NCA* base_nca)
             auto titlekey = keys.GetKey(Core::Crypto::S128KeyType::Titlekey, rights_id_u128[1],
                                         rights_id_u128[0]);
             if (titlekey == Core::Crypto::Key128{}) {
+                LOG_ERROR(Loader,
+                          "Missing title key for NCA '{}': title_id={:016X}, rights_id={}, "
+                          "key_generation={}",
+                          file->GetName(), reader->GetProgramId(),
+                          Common::HexToString(rights_id, false), reader->GetKeyGeneration());
                 status = Loader::ResultStatus::ErrorMissingTitlekey;
                 return;
             }

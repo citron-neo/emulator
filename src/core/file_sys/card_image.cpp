@@ -7,6 +7,7 @@
 #include <fmt/ostream.h>
 
 #include "common/logging.h"
+#include "common/string_util.h"
 #include "core/crypto/key_manager.h"
 #include "core/file_sys/card_image.h"
 #include "core/file_sys/content_archive.h"
@@ -54,6 +55,10 @@ XCI::XCI(VirtualFile file_, u64 program_id, size_t program_index)
 
         partitions_raw[static_cast<std::size_t>(partition)] = std::move(raw);
     }
+
+    // Converted or merged XCIs may carry tickets in any partition. Import them before
+    // constructing an NCA so rights-managed content can resolve its title key immediately.
+    ImportTicketKeys();
 
     secure_partition = std::make_shared<NSP>(
         main_hfs.GetFile(partition_names[static_cast<std::size_t>(XCIPartition::Secure)]),
@@ -277,6 +282,42 @@ std::array<u8, 0x200> XCI::GetCertificate() const {
     std::array<u8, 0x200> out;
     file->Read(out.data(), out.size(), GAMECARD_CERTIFICATE_OFFSET);
     return out;
+}
+
+void XCI::ImportTicketKeys() {
+    std::size_t tickets_found = 0;
+    std::size_t tickets_imported = 0;
+
+    for (const auto partition :
+         {XCIPartition::Update, XCIPartition::Normal, XCIPartition::Secure, XCIPartition::Logo}) {
+        const auto partition_index = static_cast<std::size_t>(partition);
+        const auto partition_dir = GetPartition(partition);
+        if (partition_dir == nullptr) {
+            continue;
+        }
+
+        for (const auto& partition_file : partition_dir->GetFiles()) {
+            if (Common::ToLower(partition_file->GetExtension()) != "tik") {
+                continue;
+            }
+
+            ++tickets_found;
+            const auto ticket = Core::Crypto::Ticket::Read(partition_file);
+            if (!keys.AddAndPersistTicket(ticket)) {
+                LOG_WARNING(Common_Filesystem,
+                            "Could not import or persist XCI ticket {}/{}",
+                            partition_names[partition_index], partition_file->GetName());
+                continue;
+            }
+
+            ++tickets_imported;
+        }
+    }
+
+    if (tickets_found != 0) {
+        LOG_INFO(Common_Filesystem, "Imported {} of {} ticket(s) found in XCI partitions",
+                 tickets_imported, tickets_found);
+    }
 }
 
 Loader::ResultStatus XCI::AddNCAFromPartition(XCIPartition part) {

@@ -135,6 +135,7 @@ public:
     std::array<u8, 0x200> GetCertificate() const;
 
 private:
+    void ImportTicketKeys();
     Loader::ResultStatus AddNCAFromPartition(XCIPartition part);
     Loader::ResultStatus TryReadHeader();
 
