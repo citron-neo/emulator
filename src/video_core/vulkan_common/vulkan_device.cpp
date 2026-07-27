@@ -1453,6 +1453,8 @@ void Device::CollectPhysicalMemoryInfo() {
         device_access_memory += mem_properties.memoryHeaps[element].size;
     }
     device_memory_usage.store(device_initial_usage, std::memory_order_relaxed);
+    // This snapshot intentionally retains the driver's full heap budget for reporting. The
+    // emulator-specific reserve below only reduces device_access_memory, which drives cache limits.
     device_memory_budget.store(device_access_memory, std::memory_order_relaxed);
     if (!is_integrated) {
         const u64 reserve_memory = std::min<u64>(device_access_memory / 8, 1_GiB);

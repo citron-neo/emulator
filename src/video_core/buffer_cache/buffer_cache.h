@@ -1473,7 +1473,8 @@ void BufferCache<P>::ChangeRegister(BufferId buffer_id) {
             ++large_buffer_count;
         }
     } else {
-        total_used_memory -= aligned_size;
+        ASSERT(total_used_memory >= aligned_size);
+        total_used_memory -= std::min(total_used_memory, aligned_size);
         lru_cache.Free(buffer.getLRUID());
 
         // FIXED: VRAM leak prevention - Update buffer statistics on removal
@@ -1481,7 +1482,8 @@ void BufferCache<P>::ChangeRegister(BufferId buffer_id) {
             --buffer_count;
         }
         if (is_large && large_buffer_count > 0) {
-            large_buffer_memory -= aligned_size;
+            ASSERT(large_buffer_memory >= aligned_size);
+            large_buffer_memory -= std::min(large_buffer_memory, aligned_size);
             --large_buffer_count;
         }
     }

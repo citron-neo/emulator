@@ -131,6 +131,7 @@ void TextureCache<P>::RunGarbageCollector(bool force) {
     u64 ticks_to_destroy = 0;
     u64 target_cache_usage = 0;
     size_t num_iterations = 0;
+    const u64 initial_cache_usage = total_used_memory;
     const u64 device_usage =
         runtime.CanReportMemoryUsage() ? runtime.GetDeviceMemoryUsage() : total_used_memory;
 
@@ -147,7 +148,7 @@ void TextureCache<P>::RunGarbageCollector(bool force) {
         ticks_to_destroy = aggressive_mode ? 10ULL : high_priority_mode ? 25ULL : 50ULL;
         num_iterations = aggressive_mode ? 40 : (high_priority_mode ? 20 : 10);
         const u64 reclaim_divisor = aggressive_mode ? 5 : high_priority_mode ? 10 : 20;
-        target_cache_usage = total_used_memory - total_used_memory / reclaim_divisor;
+        target_cache_usage = initial_cache_usage - initial_cache_usage / reclaim_divisor;
     };
 
     const auto Cleanup = [this, &num_iterations, &high_priority_mode, &aggressive_mode,
@@ -209,12 +210,16 @@ void TextureCache<P>::RunGarbageCollector(bool force) {
     }
 
     Configure(false);
-    lru_cache.ForEachItemBelow(frame_tick - ticks_to_destroy, Cleanup);
+    if (total_used_memory > target_cache_usage) {
+        lru_cache.ForEachItemBelow(frame_tick - ticks_to_destroy, Cleanup);
+    }
 
     const bool owns_aggressive_share = device_usage == 0 || total_used_memory >= device_usage / 4;
     if (device_usage >= critical_memory && (force || owns_aggressive_share)) {
         Configure(true);
-        lru_cache.ForEachItemBelow(frame_tick - ticks_to_destroy, Cleanup);
+        if (total_used_memory > target_cache_usage) {
+            lru_cache.ForEachItemBelow(frame_tick - ticks_to_destroy, Cleanup);
+        }
     }
 }
 
@@ -2503,7 +2508,8 @@ void TextureCache<P>::DeleteImage(ImageId image_id, bool immediate_delete) {
     ImageBase& image = slot_images[image_id];
     if (image.HasScaled()) {
         const u64 scaled_size = GetScaledImageSizeBytes(image);
-        total_used_memory -= scaled_size;
+        ASSERT(total_used_memory >= scaled_size);
+        total_used_memory -= std::min(total_used_memory, scaled_size);
     }
     u64 tentative_size = std::max(image.guest_size_bytes, image.unswizzled_size_bytes);
     if ((IsPixelFormatASTC(image.info.format) &&
@@ -2512,7 +2518,8 @@ void TextureCache<P>::DeleteImage(ImageId image_id, bool immediate_delete) {
         tentative_size = TranscodedAstcSize(tentative_size, image.info.format);
     }
     const u64 aligned_size = Common::AlignUp(tentative_size, 1024);
-    total_used_memory -= aligned_size;
+    ASSERT(total_used_memory >= aligned_size);
+    total_used_memory -= std::min(total_used_memory, aligned_size);
 
     if (texture_count > 0) {
         --texture_count;

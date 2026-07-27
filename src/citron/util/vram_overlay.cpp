@@ -135,7 +135,7 @@ void VramOverlay::DrawVramInfo(QPainter& painter) {
 
     painter.setFont(title_font);
     painter.setPen(text_color);
-    painter.drawText(section_padding, y_offset, QString::fromUtf8("VRAM Monitor"));
+    painter.drawText(section_padding, y_offset, QString::fromUtf8("Vulkan Memory Budget"));
     y_offset += line_height + section_spacing;
 
     painter.setFont(value_font);
