@@ -266,7 +266,7 @@ public:
     /// Prepare an image to be used
     void PrepareImage(ImageId image_id, bool is_modification, bool invalidate);
 
-    std::recursive_mutex mutex;
+    mutable std::recursive_mutex mutex;
 
 private:
     /// Iterate over all page indices in a range
@@ -502,7 +502,8 @@ public:
 
     bool has_deleted_images = false;
     bool is_rescaling = false;
-    u64 total_used_memory = 0;
+    u64 total_used_memory = 0;             // Bytes owned by this cache.
+    u64 estimated_device_memory_usage = 0; // Global heap usage used for pressure decisions.
     u64 minimum_memory;
     u64 expected_memory;
     u64 critical_memory;

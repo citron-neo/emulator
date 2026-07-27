@@ -303,6 +303,10 @@ void MemoryAllocator::ClearMemoryPressureCallback(u64 registration_id) noexcept 
     }
 }
 
+void MemoryAllocator::TickFrame() {
+    vmaSetCurrentFrameIndex(allocator, ++frame_index);
+}
+
 bool MemoryAllocator::TryRecoverFromOutOfMemory(VkResult result) const {
     if (result != VK_ERROR_OUT_OF_DEVICE_MEMORY && result != VK_ERROR_OUT_OF_HOST_MEMORY) {
         return false;

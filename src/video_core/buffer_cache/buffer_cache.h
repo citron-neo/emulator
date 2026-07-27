@@ -76,7 +76,7 @@ BufferCache<P>::~BufferCache() = default;
 
 template <class P>
 void BufferCache<P>::RunGarbageCollector() {
-    const bool aggressive_gc = total_used_memory >= critical_memory;
+    const bool aggressive_gc = estimated_device_memory_usage >= critical_memory;
     const u64 ticks_to_destroy = aggressive_gc ? 60 : 120;
     int num_iterations = aggressive_gc ? 64 : 32;
     const auto clean_up = [this, &num_iterations](BufferId buffer_id) {
@@ -119,9 +119,9 @@ void BufferCache<P>::TickFrame() {
 
     if (Settings::values.gc_aggressiveness.GetValue() != Settings::GCAggressiveness::Off) {
         if (runtime.CanReportMemoryUsage()) {
-            total_used_memory = runtime.GetDeviceMemoryUsage();
+            estimated_device_memory_usage = runtime.GetDeviceMemoryUsage();
         }
-        if (total_used_memory >= minimum_memory) {
+        if (estimated_device_memory_usage >= minimum_memory) {
             RunGarbageCollector();
         }
     }
@@ -1457,6 +1457,7 @@ void BufferCache<P>::ChangeRegister(BufferId buffer_id) {
 
     if (insert) {
         total_used_memory += aligned_size;
+        estimated_device_memory_usage += aligned_size;
         buffer.setLRUID(lru_cache.Insert(buffer_id, frame_tick));
 
         // FIXED: VRAM leak prevention - Track buffer statistics
@@ -1467,6 +1468,7 @@ void BufferCache<P>::ChangeRegister(BufferId buffer_id) {
         }
     } else {
         total_used_memory -= aligned_size;
+        estimated_device_memory_usage -= std::min(estimated_device_memory_usage, aligned_size);
         lru_cache.Free(buffer.getLRUID());
 
         // FIXED: VRAM leak prevention - Update buffer statistics on removal

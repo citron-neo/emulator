@@ -790,7 +790,7 @@ Device::Device(VkInstance instance_, vk::PhysicalDevice physical_, VkSurfaceKHR 
     functions.vkGetInstanceProcAddr = dld.vkGetInstanceProcAddr;
     functions.vkGetDeviceProcAddr = dld.vkGetDeviceProcAddr;
 
-    VmaAllocatorCreateFlags allocator_flags = VMA_ALLOCATOR_CREATE_EXTERNALLY_SYNCHRONIZED_BIT;
+    VmaAllocatorCreateFlags allocator_flags{};
     if (extensions.memory_budget) {
         allocator_flags |= VMA_ALLOCATOR_CREATE_EXT_MEMORY_BUDGET_BIT;
     }
@@ -1400,6 +1400,9 @@ void Device::SetupFamilies(VkSurfaceKHR surface) {
 }
 
 u64 Device::GetDeviceMemoryUsage() const {
+    if (!extensions.memory_budget) {
+        return 0;
+    }
     VkPhysicalDeviceMemoryBudgetPropertiesEXT budget;
     budget.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MEMORY_BUDGET_PROPERTIES_EXT;
     budget.pNext = nullptr;
@@ -1407,6 +1410,21 @@ u64 Device::GetDeviceMemoryUsage() const {
     u64 result{};
     for (const size_t heap : valid_heap_memory) {
         result += budget.heapUsage[heap];
+    }
+    return result;
+}
+
+u64 Device::GetDeviceMemoryBudget() const {
+    if (!extensions.memory_budget) {
+        return device_access_memory;
+    }
+    VkPhysicalDeviceMemoryBudgetPropertiesEXT budget;
+    budget.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MEMORY_BUDGET_PROPERTIES_EXT;
+    budget.pNext = nullptr;
+    physical.GetMemoryProperties(&budget);
+    u64 result{};
+    for (const size_t heap : valid_heap_memory) {
+        result += budget.heapBudget[heap];
     }
     return result;
 }

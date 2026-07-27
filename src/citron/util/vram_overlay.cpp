@@ -305,7 +305,10 @@ void VramOverlay::UpdateVramStats() {
 
         if (current_vram_data.total_vram > 0) {
             current_vram_data.vram_percentage = (static_cast<double>(current_vram_data.used_vram) / current_vram_data.total_vram) * 100.0;
-            current_vram_data.available_vram = current_vram_data.total_vram - current_vram_data.used_vram;
+            current_vram_data.available_vram =
+                current_vram_data.used_vram < current_vram_data.total_vram
+                    ? current_vram_data.total_vram - current_vram_data.used_vram
+                    : 0;
         } else {
             current_vram_data.vram_percentage = 0.0;
             current_vram_data.available_vram = 0;

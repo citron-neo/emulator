@@ -152,6 +152,9 @@ public:
     [[nodiscard]] MemoryPressureCallbackRegistration SetMemoryPressureCallback(
         std::function<void()> callback);
 
+    /// Advances VMA's frame index so cached heap budgets are refreshed.
+    void TickFrame();
+
     /// Commits memory required by the buffer and binds it.
     MemoryCommit Commit(const vk::Buffer& buffer, MemoryUsage usage);
 
@@ -192,6 +195,7 @@ private:
     mutable bool memory_pressure_callback_running{};
     mutable std::mutex memory_pressure_mutex;
     mutable std::condition_variable memory_pressure_callback_finished;
+    u32 frame_index{};
 };
 
 } // namespace Vulkan

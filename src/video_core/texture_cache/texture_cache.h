@@ -132,8 +132,8 @@ void TextureCache<P>::RunGarbageCollector() {
     size_t num_iterations = 0;
 
     const auto Configure = [&](bool allow_aggressive) {
-        high_priority_mode = total_used_memory >= expected_memory;
-        aggressive_mode = allow_aggressive && total_used_memory >= critical_memory;
+        high_priority_mode = estimated_device_memory_usage >= expected_memory;
+        aggressive_mode = allow_aggressive && estimated_device_memory_usage >= critical_memory;
         ticks_to_destroy = aggressive_mode ? 10ULL : high_priority_mode ? 25ULL : 50ULL;
         num_iterations = aggressive_mode ? 40 : (high_priority_mode ? 20 : 10);
     };
@@ -176,13 +176,13 @@ void TextureCache<P>::RunGarbageCollector() {
         UnregisterImage(image_id);
         DeleteImage(image_id, image.scale_tick > frame_tick + 5);
 
-        if (total_used_memory < critical_memory) {
+        if (estimated_device_memory_usage < critical_memory) {
             if (aggressive_mode) {
                 num_iterations >>= 2;
                 aggressive_mode = false;
                 return false;
             }
-            if (high_priority_mode && total_used_memory < expected_memory) {
+            if (high_priority_mode && estimated_device_memory_usage < expected_memory) {
                 num_iterations >>= 1;
                 high_priority_mode = false;
             }
@@ -190,7 +190,7 @@ void TextureCache<P>::RunGarbageCollector() {
         return false;
     };
 
-    if (total_used_memory >= expected_memory) {
+    if (estimated_device_memory_usage >= expected_memory) {
         lru_cache.ForEachItemBelow(frame_tick, [this](ImageId image_id) {
             auto& image = slot_images[image_id];
             if (True(image.flags & ImageFlagBits::Sparse) &&
@@ -211,7 +211,7 @@ void TextureCache<P>::RunGarbageCollector() {
     Configure(false);
     lru_cache.ForEachItemBelow(frame_tick - ticks_to_destroy, Cleanup);
 
-    if (total_used_memory >= critical_memory) {
+    if (estimated_device_memory_usage >= critical_memory) {
         Configure(true);
         lru_cache.ForEachItemBelow(frame_tick - ticks_to_destroy, Cleanup);
     }
@@ -221,9 +221,9 @@ template <class P>
 void TextureCache<P>::TickFrame() {
     if (Settings::values.gc_aggressiveness.GetValue() != Settings::GCAggressiveness::Off) {
         if (runtime.CanReportMemoryUsage()) {
-            total_used_memory = runtime.GetDeviceMemoryUsage();
+            estimated_device_memory_usage = runtime.GetDeviceMemoryUsage();
         }
-        if (total_used_memory > minimum_memory) {
+        if (estimated_device_memory_usage > minimum_memory) {
             RunGarbageCollector();
         }
     }
@@ -247,8 +247,10 @@ void TextureCache<P>::TickFrame() {
 
 template <class P>
 void TextureCache<P>::ForceEmergencyGC() {
-    LOG_WARNING(Render_Vulkan, "Force emergency GC triggered: usage={}MB, limit={}MB",
-                total_used_memory / 1_MiB, vram_limit_bytes / 1_MiB);
+    LOG_WARNING(Render_Vulkan,
+                "Force emergency GC triggered: device_usage={}MB, texture_usage={}MB, limit={}MB",
+                estimated_device_memory_usage / 1_MiB, total_used_memory / 1_MiB,
+                vram_limit_bytes / 1_MiB);
 
     emergency_gc_triggered = true;
     u64 bytes_freed = 0;
@@ -312,12 +314,13 @@ void TextureCache<P>::SetVRAMLimit(u64 limit_bytes) {
 
 template <class P>
 bool TextureCache<P>::IsVRAMPressureHigh() const noexcept {
-    return total_used_memory >= expected_memory;
+    return estimated_device_memory_usage >= expected_memory;
 }
 
 template <class P>
 bool TextureCache<P>::IsVRAMPressureCritical() const noexcept {
-    return total_used_memory >= static_cast<u64>(static_cast<f32>(vram_limit_bytes) * VRAM_USAGE_EMERGENCY_THRESHOLD);
+    return estimated_device_memory_usage >=
+           static_cast<u64>(static_cast<f32>(vram_limit_bytes) * VRAM_USAGE_EMERGENCY_THRESHOLD);
 }
 
 template <class P>
@@ -395,8 +398,6 @@ u64 TextureCache<P>::EvictSparseTexturesPriority(u64 target_bytes) {
         DeleteImage(image_id, false);
 
         bytes_freed += Common::AlignUp(size, 1024);
-        --sparse_texture_count;
-        sparse_texture_memory -= Common::AlignUp(size, 1024);
     }
 
     if (bytes_freed > 0) {
@@ -1625,7 +1626,9 @@ bool TextureCache<P>::ScaleUp(Image& image) {
         return false;
     }
     if (!has_copy) {
-        total_used_memory += GetScaledImageSizeBytes(image);
+        const u64 scaled_size = GetScaledImageSizeBytes(image);
+        total_used_memory += scaled_size;
+        estimated_device_memory_usage += scaled_size;
     }
     InvalidateScale(image);
     return true;
@@ -2304,6 +2307,7 @@ void TextureCache<P>::RegisterImage(ImageId image_id) {
     }
     const u64 aligned_size = Common::AlignUp(tentative_size, 1024);
     total_used_memory += aligned_size;
+    estimated_device_memory_usage += aligned_size;
 
     // FIXED: VRAM leak prevention - Track texture statistics
     ++texture_count;
@@ -2492,7 +2496,9 @@ template <class P>
 void TextureCache<P>::DeleteImage(ImageId image_id, bool immediate_delete) {
     ImageBase& image = slot_images[image_id];
     if (image.HasScaled()) {
-        total_used_memory -= GetScaledImageSizeBytes(image);
+        const u64 scaled_size = GetScaledImageSizeBytes(image);
+        total_used_memory -= scaled_size;
+        estimated_device_memory_usage -= std::min(estimated_device_memory_usage, scaled_size);
     }
     u64 tentative_size = std::max(image.guest_size_bytes, image.unswizzled_size_bytes);
     if ((IsPixelFormatASTC(image.info.format) &&
@@ -2500,7 +2506,20 @@ void TextureCache<P>::DeleteImage(ImageId image_id, bool immediate_delete) {
         True(image.flags & ImageFlagBits::Converted)) {
         tentative_size = TranscodedAstcSize(tentative_size, image.info.format);
     }
-    total_used_memory -= Common::AlignUp(tentative_size, 1024);
+    const u64 aligned_size = Common::AlignUp(tentative_size, 1024);
+    total_used_memory -= aligned_size;
+    estimated_device_memory_usage -= std::min(estimated_device_memory_usage, aligned_size);
+
+    if (texture_count > 0) {
+        --texture_count;
+    }
+    if (True(image.flags & ImageFlagBits::Sparse) && sparse_texture_count > 0) {
+        --sparse_texture_count;
+        sparse_texture_memory -= aligned_size;
+    }
+    if (aligned_size >= LARGE_TEXTURE_THRESHOLD) {
+        large_texture_memory -= aligned_size;
+    }
     const GPUVAddr gpu_addr = image.gpu_addr;
     const auto alloc_it = image_allocs_table.find(gpu_addr);
     if (alloc_it == image_allocs_table.end()) {
