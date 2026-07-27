@@ -562,7 +562,8 @@ object NativeLibrary {
      * Dumps the RomFS from a game to the dump directory
      * @param gamePath Path to the game file
      * @param programId String representation of the game's program ID
-     * @param dumpPath Optional custom dump path. If null or empty, uses default dump directory
+     * @param dumpPath Ignored. Native dumping always uses the default dump root; custom
+     * destinations are handled by copyDumpToSelectedDirectory
      * @param callback Progress callback. Return true to cancel. Parameters: (max: Long, progress: Long)
      * @return true if successful, false otherwise
      */
@@ -577,8 +578,9 @@ object NativeLibrary {
      * Dumps the ExeFS from a game to the dump directory
      * @param gamePath Path to the game file
      * @param programId String representation of the game's program ID
-     * @param dumpPath Optional custom dump path. If null or empty, uses default dump directory
-     * @param callback Progress callback. Return true to cancel. Parameters: (max: Long, progress: Long)
+     * @param dumpPath Ignored. Output always uses GetModificationDumpRoot; custom destinations
+     * are handled by copyDumpToSelectedDirectory
+     * @param callback Ignored. ExeFS dumping does not report progress or support cancellation
      * @return true if successful, false otherwise
      */
     external fun dumpExeFS(
