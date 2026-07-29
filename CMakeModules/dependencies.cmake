@@ -548,11 +548,8 @@ elseif (CITRON_USE_BUNDLED_FFMPEG)
     endif()
 endif()
 
-# ── Dependency Versions (Qt, ICU, XCB) ─────────────────────────────────────────
+# ── Dependency Versions (Qt, XCB) ─────────────────────────────────────────
 set(CITRON_QT_VERSION "6.9.3" CACHE STRING "Qt version to download via aqt")
-
-set(CITRON_ICU_REPO "unicode-org/icu" CACHE STRING "ICU GitHub repository")
-set(CITRON_ICU_TAG "release-73-2" CACHE STRING "ICU git tag/version")
 
 set(CITRON_XCB_MACROS_VER "1.20.2" CACHE STRING "XCB util-macros version")
 set(CITRON_XCB_PROTO_VER "1.17.0" CACHE STRING "XCB proto version")
@@ -566,6 +563,92 @@ set(CITRON_XCB_KEYSYMS_VER "0.4.1" CACHE STRING "XCB keysyms version")
 set(CITRON_XCB_RENDERUTIL_VER "0.3.10" CACHE STRING "XCB renderutil version")
 set(CITRON_XCB_WM_VER "0.4.2" CACHE STRING "XCB wm version")
 
+set(CITRON_VULKAN_LOADER_TAG "vulkan-sdk-1.4.350.0" CACHE STRING "Vulkan-Loader/Vulkan-Headers git tag (packaging use only, not a compile-time dependency)")
+# ── Tracy (optional profiler) ─────────────────────────────────────────────────
+# Fetched only when CITRON_ENABLE_TRACY=ON.  TRACY_ENABLE must be set before
+# CPMAddPackage so the client library and application agree on configuration.
+if (CITRON_ENABLE_TRACY AND NOT TARGET Tracy::TracyClient)
+    set(TRACY_ENABLE ON CACHE BOOL "Enable Tracy client" FORCE)
+    set(TRACY_ON_DEMAND ON CACHE BOOL "Collect Tracy data only while a profiler is connected" FORCE)
+    set(TRACY_NO_EXIT ON CACHE BOOL "Do not call exit() from the Tracy client" FORCE)
+    if (CITRON_ENABLE_LTO)
+        set(TRACY_NO_LTO ON CACHE BOOL "Disable LTO on TracyClient when the main project uses LTO" FORCE)
+    endif()
+    set(_tracy_cpm_options
+        "TRACY_ENABLE ON"
+        "TRACY_ON_DEMAND ON"
+        "TRACY_NO_EXIT ON"
+        "TRACY_NO_BROADCAST ON"
+        "TRACY_NO_VSYNC_CAPTURE ON"
+        "TRACY_NO_FRAME_IMAGE ON"
+        "TRACY_FIBERS ON"
+        "TRACY_ONLY_IPV4 ON"
+        # With /WHOLEARCHIVE forcing TracyClient's translation unit to link in on
+        # MSVC/clang-cl, its global static constructor (which spawns the profiler's
+        # background thread) now runs eagerly during CRT static init, before main()
+        # -- this has been observed to hang process startup on Windows with no log,
+        # no window, and no crash dump. TRACY_DELAYED_INIT moves that work out of the
+        # static constructor and into a lazy first-call path triggered by the first
+        # real zone/instrumentation macro, which by then runs safely after CRT/Qt
+        # startup has completed. Whole-archive linking still keeps the translation
+        # unit's *functions* reachable regardless, so the port still opens once the
+        # first zone fires.
+        "TRACY_DELAYED_INIT ON"
+        # NOTE: TRACY_CALLSTACK is deliberately NOT set anywhere for this project,
+        # globally or otherwise. See the comment further below (right after this
+        # OPTIONS list, near the TracyClient PGO/LTO opt-out block) for why: it
+        # would silently upgrade every plain ZoneScoped/CITRON_PROFILE_SCOPE zone
+        # in the whole codebase into a per-call stack walk.
+    )
+    if (CITRON_ENABLE_LTO)
+        list(APPEND _tracy_cpm_options "TRACY_NO_LTO ON")
+    endif()
+    CPMAddPackage(
+        NAME TracyClient
+        GITHUB_REPOSITORY wolfpld/tracy
+        GIT_TAG v0.13.1
+        OPTIONS
+            ${_tracy_cpm_options}
+    )
+    unset(_tracy_cpm_options)
+    if (TARGET TracyClient)
+        # Ensure LTO is completely disabled on the TracyClient library to avoid toolchain mismatches during PGO builds
+        set_target_properties(TracyClient PROPERTIES INTERPROCEDURAL_OPTIMIZATION FALSE)
+        if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang|AppleClang")
+            target_compile_options(TracyClient PRIVATE
+                "-fno-lto"
+                "-fno-profile-generate"
+                "-fno-profile-use"
+            )
+        endif()
+        if(CMAKE_CXX_COMPILER_ID MATCHES "Clang|AppleClang")
+            target_compile_options(TracyClient PRIVATE
+                "-fno-profile-instr-generate"
+                "-fno-profile-instr-use"
+                "-fno-cs-profile-generate"
+            )
+        endif()
+        # NOTE: We deliberately do NOT define a project-wide TRACY_CALLSTACK depth
+        # here. Tracy's ZoneScoped/ZoneScopedN macros (what CITRON_PROFILE_SCOPE
+        # expands to) pass TRACY_CALLSTACK straight through as the callstack-capture
+        # depth on every single call -- if TRACY_CALLSTACK is defined project-wide,
+        # every zone everywhere captures a full stack walk on every invocation
+        # instead of a cheap timestamp, regardless of whether that zone's call site
+        # ever asked for one. For hot zones (Kernel::Svc::Call, KScheduler::
+        # ScheduleImpl, GPU per-command dispatch) this is enormous, unnecessary
+        # overhead. Tracy's header already falls back to TRACY_CALLSTACK=0 (no
+        # capture) when it's undefined, which is what we want as the default.
+        # If callstack capture is genuinely needed for a specific zone, use
+        # ZoneScopedNS(name, depth) / CITRON_PROFILE_SCOPE_CS(name, depth) at that
+        # call site instead of turning it on globally.
+        if (NOT TARGET Tracy::TracyClient)
+            add_library(Tracy::TracyClient ALIAS TracyClient)
+        endif()
+    endif()
+    message(STATUS "[Tracy] Profiling enabled (TRACY_ON_DEMAND=ON, callstacks=15, fibers)")
+endif()
+
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # Qt
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -575,9 +658,18 @@ set(CITRON_XCB_WM_VER "0.4.2" CACHE STRING "XCB wm version")
 if (ENABLE_QT AND NOT USE_SYSTEM_QT)
     include(${CMAKE_SOURCE_DIR}/CMakeModules/qt_download.cmake)
     if (CMAKE_SYSTEM_NAME STREQUAL "Linux")
-        include(${CMAKE_SOURCE_DIR}/CMakeModules/icu_build.cmake)
         include(${CMAKE_SOURCE_DIR}/CMakeModules/xcb_build.cmake)
     endif()
+endif()
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Vulkan loader (packaging only — not a link-time dependency of anything)
+# ═══════════════════════════════════════════════════════════════════════════════
+# Deliberately not nested under the Qt block above: citron-cmd (SDL2, no Qt)
+# needs Vulkan too, and neither actually links the loader at compile time —
+# see vulkan_loader_build.cmake's own header comment for why this exists.
+if (CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    include(${CMAKE_SOURCE_DIR}/CMakeModules/vulkan_loader_build.cmake)
 endif()
 
 message(STATUS "[CPM] All dependency packages configured")

@@ -6,6 +6,7 @@
 
 #include <type_traits>
 
+#include "common/profiling.h"
 #include "core/arm/arm_interface.h"
 #include "core/core.h"
 #include "core/hle/kernel/k_process.h"
@@ -4439,6 +4440,7 @@ static void Call64(Core::System& system, u32 imm, std::span<uint64_t, 8> args) {
 // clang-format on
 
 void Call(Core::System& system, u32 imm) {
+    CITRON_PROFILE_SCOPE("Kernel::Svc::Call");
     auto& kernel = system.Kernel();
     auto& process = GetCurrentProcess(kernel);
 

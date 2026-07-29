@@ -262,6 +262,7 @@ Result KThread::InitializeThread(KThread* thread, KThreadFunction func, uintptr_
 
     // Initialize emulation parameters.
     thread->m_host_context = std::make_shared<Common::Fiber>(std::move(init_func));
+    thread->m_host_context->SetName("GuestThread_" + std::to_string(thread->GetId()));
 
     R_SUCCEED();
 }

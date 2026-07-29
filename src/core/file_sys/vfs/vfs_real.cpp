@@ -204,9 +204,9 @@ bool RealVfsFilesystem::DeleteDirectory(std::string_view path_) {
     return FS::RemoveDirRecursively(path);
 }
 
-std::unique_lock<std::mutex> RealVfsFilesystem::RefreshReference(const std::string& path,
-                                                                 OpenMode perms,
-                                                                 FileReference& reference) {
+RealVfsFilesystem::ListLockGuard RealVfsFilesystem::RefreshReference(const std::string& path,
+                                                                      OpenMode perms,
+                                                                      FileReference& reference) {
     std::unique_lock lk{list_lock};
 
     // Temporarily remove from list.

@@ -162,6 +162,8 @@
 #     --release                Release build (default)
 #     --relwithdebinfo         RelWithDebInfo (adds -g, keeps O3/LTO/PGO)
 #     --unity                  Unity builds (~30-90% faster compile, no runtime effect)
+#     --tracy                  Enable Tracy profiler instrumentation (default off)
+#     --tracy-alloc             Enable Tracy heap allocator tracking (default off, requires --tracy)
 #     --clang-version N        Host Clang version (default: 21)
 #     --llvm-mingw-version VER llvm-mingw release tag (default: 20260224)
 #
@@ -219,6 +221,8 @@ JOBS="${JOBS:-$(nproc)}"
 LTO_MODE="${LTO_MODE:-full}"
 PGO_MODE="${PGO_MODE:-ir}"          # ir|fe|none
 UNITY_BUILD="${UNITY_BUILD:-OFF}"   # ENABLE_UNITY_BUILD
+TRACY_BUILD="${TRACY_BUILD:-OFF}"   # CITRON_ENABLE_TRACY
+TRACY_ALLOC_BUILD="${TRACY_ALLOC_BUILD:-OFF}"   # CITRON_ENABLE_TRACY_ALLOC
 BUILD_TYPE="${BUILD_TYPE:-Release}" # Release|RelWithDebInfo
 CPM_SOURCE_CACHE="${CPM_SOURCE_CACHE:-${HOME}/.cache/cpm}"
 CPM_SOURCE_CACHE="${CPM_SOURCE_CACHE/#\~/$HOME}"
@@ -774,11 +778,15 @@ stage_setup() {
         "libclang-rt-${CLANG_VERSION}-dev" \
         || warn "Some LLVM packages failed to install."
 
-    # BOLT not in LLVM apt repo for noble — build from source if missing
+    # BOLT is not in the LLVM apt repo for noble. Building it from source
+    # takes ~15-20 min, and only the bolt stage actually needs it —
+    # generate/csgenerate/use/build-elf/propeller never touch BOLT. Don't
+    # force that cost on every setup run — stage_bolt() builds it on
+    # demand, the first time it's actually needed.
     if command -v "llvm-bolt-${CLANG_VERSION}" &>/dev/null; then
-        info "llvm-bolt-${CLANG_VERSION} already installed, skipping."
+        info "llvm-bolt-${CLANG_VERSION} already installed."
     else
-        build_bolt_from_source
+        info "llvm-bolt-${CLANG_VERSION} not found — will be built from source on first use of the bolt stage (~15-20 min, one-time)."
     fi
 
     info "Setting up llvm-mingw cross-compilation toolchain..."
@@ -1946,7 +1954,7 @@ build_common_cmake_args() {
         "-Ddynarmic_FOUND=TRUE"
         "-Dxbyak_FOUND=TRUE"
         "-Dcubeb_FOUND=TRUE"
-        "-DENABLE_LIBUSB=OFF"
+        "-DENABLE_LIBUSB=ON"
         "-DVulkan_LIBRARY=${CMAKE_BUILD_ROOT}/vulkan-stub/libvulkan-1.a"
         "-DCITRON_USE_PRECOMPILED_HEADERS=OFF"
         "-DCITRON_USE_CPM=ON"
@@ -1985,6 +1993,8 @@ build_common_cmake_args() {
         "-DCMAKE_C_FLAGS=${MARCH_NATIVE}"
         "-DCMAKE_CXX_FLAGS=${MARCH_NATIVE}"
     )
+    _CMAKE_ARGS+=("-DCITRON_ENABLE_TRACY=${TRACY_BUILD}")
+    _CMAKE_ARGS+=("-DCITRON_ENABLE_TRACY_ALLOC=${TRACY_ALLOC_BUILD}")
     # Always return 0 — a trailing [[ ]] that evaluates false would trigger set -e in caller.
     :
 }
@@ -2162,7 +2172,7 @@ stage_generate() {
             warn "  Likely causes:"
             warn "    1. Profile runtime not linked: PROFILE_RUNTIME_LIB=${PROFILE_RUNTIME_LIB:-<unset>}"
             warn "    2. PGO generate flag not passed to the linker (PGO_MODE=${PGO_MODE})"
-            warn "    3. citron cmake config overrode CMAKE_EXE_LINKER_FLAGS_RELEASE"
+            warn "    3. citron cmake config overrode CMAKE_EXE_LINKER_FLAGS_${bt_upper}"
             warn ""
             warn "  The binary will still run, but no .profraw will be written."
             warn "  Re-run the generate stage or check the cmake flags above."
@@ -2324,8 +2334,8 @@ stage_csgenerate() {
 
     ensure_profile_runtime_mingw
     ensure_vulkan_import_lib
-    local qt_install_dir="${BUILD_GENERATE}/externals/qt/6.9.3/llvm-mingw_64"
-    local qt_host_dir="${BUILD_GENERATE}/externals/qt-host/6.9.3/gcc_64"
+    local qt_install_dir="${CPM_SOURCE_CACHE}/qt-bin/6.9.3/llvm-mingw_64"
+    local qt_host_dir="${CPM_SOURCE_CACHE}/qt-bin-host/6.9.3/gcc_64"
     if [[ "${_HOST_OS}" == "windows" ]]; then
         qt_host_dir=""
     fi
@@ -2351,16 +2361,16 @@ stage_csgenerate() {
         "-DCITRON_ENABLE_PGO_GENERATE=ON"
         "-DCITRON_PGO_FLAGS_MANAGED_BY_SCRIPT=ON"
         "-DCITRON_ENABLE_LTO=${generate_lto_cmake}"
-        "-DCMAKE_C_FLAGS_RELEASE=${c_flags}"
-        "-DCMAKE_CXX_FLAGS_RELEASE=${cxx_flags}"
-        "-DCMAKE_EXE_LINKER_FLAGS_RELEASE=${c_flags} ${PROFILE_RUNTIME_LIB:+${PROFILE_RUNTIME_LIB}} ${extra_link_flags} ${linker_debug_flag}"
+        "-DCMAKE_C_FLAGS_${bt_upper}=${c_flags}"
+        "-DCMAKE_CXX_FLAGS_${bt_upper}=${cxx_flags}"
+        "-DCMAKE_EXE_LINKER_FLAGS_${bt_upper}=${c_flags} ${PROFILE_RUNTIME_LIB:+${PROFILE_RUNTIME_LIB}} ${extra_link_flags} ${linker_debug_flag}"
         "-DCITRON_PGO_PROFILE_DIR=${PROFILE_DIR}"
     )
     cmake "${SOURCE_DIR}" "${_CMAKE_ARGS[@]}" \
         || error "CMake configure failed"
 
-    info "Building CS-IRPGO instrumented citron..."
-    cmake --build . --config Release -j "${JOBS}"
+    info "Building CS-IRPGO instrumented citron (${BUILD_TYPE})..."
+    cmake --build . --config "${BUILD_TYPE}" -j "${JOBS}"
 
     success "CS-IRPGO instrumented build complete: ${BUILD_CSGENERATE}/bin/citron.exe"
 
@@ -2759,8 +2769,8 @@ stage_use() {
     rm -f CMakeCache.txt; rm -rf CMakeFiles
 
     # Reuse generate's Qt to avoid re-downloading the wrong variant.
-    local qt_install_dir="${BUILD_GENERATE}/externals/qt/6.9.3/llvm-mingw_64"
-    local qt_host_dir="${BUILD_GENERATE}/externals/qt-host/6.9.3/gcc_64"
+    local qt_install_dir="${CPM_SOURCE_CACHE}/qt-bin/6.9.3/llvm-mingw_64"
+    local qt_host_dir="${CPM_SOURCE_CACHE}/qt-bin-host/6.9.3/gcc_64"
     if [[ "${_HOST_OS}" == "windows" ]]; then
         qt_host_dir=""
     fi
@@ -3318,6 +3328,15 @@ stage_bolt() {
     resolve_bolt_binaries
     header "Stage 3: BOLT Binary Layout Optimization"
 
+    # BOLT is not in the LLVM apt repo for noble. It's only needed here, in
+    # the bolt stage itself, so build it from source on demand instead of
+    # forcing every `setup` run to pay the ~15-20 min cost.
+    if [[ -z "${LLVM_BOLT}" ]]; then
+        info "llvm-bolt-${CLANG_VERSION} not found — building from source (~15-20 min)..."
+        build_bolt_from_source
+        resolve_bolt_binaries
+    fi
+
     check_tool "${LLVM_BOLT}"; check_tool "${MERGE_FDATA}"
     require_llvm_mingw
 
@@ -3562,8 +3581,8 @@ BOLT_ORDER_EOF
         order_linker_flag="-Wl,-Xlink=/order:@${order_file} -Wl,-Xlink=/ignore:4037"
     fi
 
-    local qt_install_dir="${BUILD_GENERATE}/externals/qt/6.9.3/llvm-mingw_64"
-    local qt_host_dir="${BUILD_GENERATE}/externals/qt-host/6.9.3/gcc_64"
+    local qt_install_dir="${CPM_SOURCE_CACHE}/qt-bin/6.9.3/llvm-mingw_64"
+    local qt_host_dir="${CPM_SOURCE_CACHE}/qt-bin-host/6.9.3/gcc_64"
     if [[ "${_HOST_OS}" == "windows" ]]; then
         qt_host_dir=""
     fi
@@ -4400,65 +4419,137 @@ stage_clangcl() {
             pgo_flags_dash="-fprofile-generate=${default_profraw_name_generate}"
             ;;
         fe:use|ir:use)
-            # Profile priority: merged.profdata (stage1+CS) → default.profdata (stage1) → profraw merge.
+            # Profile priority: merged.profdata (stage1+CS, ir only) → clang-cl-<mode>.profdata (stage1) →
+            # default.profdata (ir-only fallback input) → profraw merge.
             # If merged.profdata is stale (new CS profraw arrived), remove it so it gets rebuilt.
-            local merged_pd="${PROFILE_DIR}/clang-cl-merged.profdata"
-            local stage1_pd="${PROFILE_DIR}/clang-cl-ir.profdata"
+            #
+            # BUG FIX: all derived filenames below are PGO_MODE-specific
+            # (clang-cl-${PGO_MODE}... rather than a hardcoded clang-cl-ir...).
+            # This case arm handles BOTH fe and ir (fe:use|ir:use combined) --
+            # a hardcoded name meant an fe-mode session's merge output and an
+            # ir-mode session's could collide on the exact same filename, so a
+            # stale file from one mode could get silently reused by a run in
+            # the other mode. The generate/use sentinel only catches a
+            # mismatch within one generate-then-use cycle; it does nothing
+            # about a leftover file from an earlier, different-mode session
+            # still sitting in PROFILE_DIR. csgenerate is unaffected --
+            # PGO_MODE is always "ir" there (enforced elsewhere), so its own
+            # "clang-cl-ir.profdata" reference already matches what this
+            # produces for ir mode.
+            local merged_pd="${PROFILE_DIR}/clang-cl-${PGO_MODE}-merged.profdata"
+            local stage1_pd="${PROFILE_DIR}/clang-cl-${PGO_MODE}.profdata"
             local stage1_pd_default="${PROFILE_DIR}/default.profdata"
             local profdata_use
 
-            # Fall back to default.profdata when clang-cl-ir.profdata is absent.
-            if [[ ! -f "${stage1_pd}" && -f "${stage1_pd_default}" ]]; then
-                stage1_pd="${stage1_pd_default}"
+            # BUG FIX: stage1_pd is the CANONICAL output path and must never be
+            # reassigned -- every merge below writes to it, and the freshness
+            # check below is only ever allowed to delete files this stage owns
+            # (stage1_pd, merged_pd). default.profdata is a foreign file (the
+            # llvm-mingw path's own merge output) that must only ever be READ
+            # here, never written or deleted. stage1_pd_input tracks which
+            # file to actually read as stage1 data -- it may point at the
+            # fallback; stage1_pd itself never does.
+            local stage1_pd_input="${stage1_pd}"
+            # Fall back to default.profdata (as INPUT only) when
+            # clang-cl-<mode>.profdata is absent. default.profdata is the
+            # llvm-mingw path's own merge output name and was never
+            # mode-specific there either -- only trust it as an ir-mode
+            # fallback (matching its only historical use), not for fe.
+            if [[ "${PGO_MODE}" == "ir" && ! -f "${stage1_pd}" && -f "${stage1_pd_default}" ]]; then
+                stage1_pd_input="${stage1_pd_default}"
             fi
 
-            if [[ -f "${merged_pd}" ]]; then
+            # BUG FIX: raw profraw files are named citron-generate-<mode>-<pid>.profraw
+            # (see default_profraw_name_generate above) specifically so a mode-aware
+            # glob can select only this mode's raw data -- a bare *.profraw glob would
+            # merge fe-mode and ir-mode raw profiles together into one (incompatible,
+            # meaningless) profdata if both ever existed in PROFILE_DIR at once.
+            local _raw_glob_pattern="citron-generate-${PGO_MODE}-*.profraw"
+
+            # BUG FIX: freshness check now covers stage1_pd_input AND merged_pd
+            # independently (previously gated entirely behind `-f stage1_pd`,
+            # so if only merged_pd still existed -- e.g. stage1_pd had already
+            # been consumed/removed by an earlier run -- newer raw data would
+            # never invalidate it). Only ever removes files this stage owns
+            # (stage1_pd, merged_pd); default.profdata is never deleted even
+            # if it's the stale one -- we just stop trusting it as input and
+            # fall through to rebuilding stage1_pd from raw data instead.
+            normalize_profraw_dirs "${PROFILE_DIR}" 2>/dev/null || true
+            local _derived_pd _newer_raw
+            for _derived_pd in "${stage1_pd_input}" "${merged_pd}"; do
+                [[ -f "${_derived_pd}" ]] || continue
+                _newer_raw=$(find "${PROFILE_DIR}" -maxdepth 1 -name "${_raw_glob_pattern}" -newer "${_derived_pd}" 2>/dev/null | head -1)
+                [[ -n "${_newer_raw}" ]] || continue
+                warn "Newer raw profile data found (e.g. ${_newer_raw}) than" \
+                     "${_derived_pd}."
+                if [[ "${_derived_pd}" == "${stage1_pd_default}" ]]; then
+                    warn "Not deleting ${stage1_pd_default} (owned by the llvm-mingw path)" \
+                         "-- rebuilding ${stage1_pd} from raw data instead."
+                    stage1_pd_input="${stage1_pd}"
+                else
+                    warn "Removing stale ${_derived_pd} and re-merging..."
+                    rm -f "${_derived_pd}"
+                fi
+            done
+
+            # BUG FIX: CS-IRPGO is exclusively an ir-mode concept (csgenerate
+            # always requires --pgo ir, enforced elsewhere) -- fe-mode sessions
+            # must never look at PROFILE_DIR/cs or attempt to build/consume a
+            # clang-cl-fe-merged.profdata. Without this guard, an fe-mode use
+            # run could pick up CS profraw left over from an earlier, unrelated
+            # ir-mode csgenerate session and merge incompatible profile data
+            # together.
+            if [[ "${PGO_MODE}" == "ir" && -f "${merged_pd}" ]]; then
                 local _cs_dir_check="${PROFILE_DIR}/cs"
                 normalize_profraw_dirs "${_cs_dir_check}" 2>/dev/null || true
                 local _cs_pending
                 _cs_pending=$(find "${_cs_dir_check}" -maxdepth 1 -name "*.profraw" \
                               2>/dev/null | wc -l)
                 if [[ "${_cs_pending}" -gt 0 ]]; then
-                    warn "clang-cl-merged.profdata exists but ${_cs_pending} unmerged CS" \
+                    warn "clang-cl-${PGO_MODE}-merged.profdata exists but ${_cs_pending} unmerged CS" \
                          "profraw file(s) found in ${_cs_dir_check}."
                     warn "Removing stale merged profdata and re-merging with CS data..."
                     rm -f "${merged_pd}"
                 fi
             fi
 
-            if [[ -f "${merged_pd}" ]]; then
+            if [[ "${PGO_MODE}" == "ir" && -f "${merged_pd}" ]]; then
                 profdata_use="${merged_pd}"
                 info "Using CS-IRPGO merged profile: ${profdata_use}"
-            elif [[ -f "${stage1_pd}" ]]; then
-                # Check whether CS profraw exists and needs merging
-                local cs_dir="${PROFILE_DIR}/cs"
-                normalize_profraw_dirs "${cs_dir}" 2>/dev/null || true
-                local cs_count
-                cs_count=$(find "${cs_dir}" -maxdepth 1 -name "*.profraw" \
-                           2>/dev/null | wc -l)
+            elif [[ -f "${stage1_pd_input}" ]]; then
+                # Check whether CS profraw exists and needs merging (ir only)
+                local cs_count=0
+                if [[ "${PGO_MODE}" == "ir" ]]; then
+                    local cs_dir="${PROFILE_DIR}/cs"
+                    normalize_profraw_dirs "${cs_dir}" 2>/dev/null || true
+                    cs_count=$(find "${cs_dir}" -maxdepth 1 -name "*.profraw" \
+                               2>/dev/null | wc -l)
+                fi
                 if [[ "${cs_count}" -gt 0 ]]; then
                     info "CS profraw detected (${cs_count} files) — merging with stage1..."
-                    local cs_tmp="${PROFILE_DIR}/clang-cl-cs-only.profdata"
+                    local cs_tmp="${PROFILE_DIR}/clang-cl-${PGO_MODE}-cs-only.profdata"
                     "${llvm_profdata}" merge -output="${cs_tmp}" "${cs_dir}"/*.profraw ||
                         error "llvm-profdata CS merge failed."
                     "${llvm_profdata}" merge -output="${merged_pd}" \
-                        "${stage1_pd}" "${cs_tmp}" ||
+                        "${stage1_pd_input}" "${cs_tmp}" ||
                         error "llvm-profdata stage1+CS merge failed."
                     rm -f "${cs_tmp}"
                     profdata_use="${merged_pd}"
                     info "CS-IRPGO merged profile written: ${profdata_use}"
                 else
-                    profdata_use="${stage1_pd}"
+                    profdata_use="${stage1_pd_input}"
                     info "Using stage1 profile (no CS data): ${profdata_use}"
                 fi
             else
-                # On-the-fly merge from raw files
+                # On-the-fly merge from raw files -- ALWAYS writes to the
+                # canonical stage1_pd, never to stage1_pd_default.
                 normalize_profraw_dirs "${PROFILE_DIR}" 2>/dev/null || true
-                local raw=("${PROFILE_DIR}"/*.profraw)
+                local raw=("${PROFILE_DIR}"/${_raw_glob_pattern})
                 [[ -e "${raw[0]}" ]] || error \
-                    "No .profraw files in ${PROFILE_DIR}; run instrumented workload first.\n" \
-                    "       Collect default-<pid>.profraw from Windows, copy to ${PROFILE_DIR}/,\n" \
-                    "       then re-run: ./build-clangtron-windows.sh use --compiler clang-cl --pgo ir"
+                    "No .profraw files matching ${_raw_glob_pattern} in ${PROFILE_DIR};" \
+                    "run instrumented workload first.\n" \
+                    "       Collect citron-generate-${PGO_MODE}-<pid>.profraw from Windows, copy to ${PROFILE_DIR}/,\n" \
+                    "       then re-run: ./build-clangtron-windows.sh use --compiler clang-cl --pgo ${PGO_MODE}"
                 "${llvm_profdata}" merge -output="${stage1_pd}" "${raw[@]}" ||
                     error "llvm-profdata merge failed."
                 profdata_use="${stage1_pd}"
@@ -4468,14 +4559,21 @@ stage_clangcl() {
             # /DCITRON_PGO_PROFDATA_HASH: forces sccache/ninja cache miss when profdata content changes.
             # pgo_link_flags empty — use stage activates no profiling runtime, nothing to force-keep.
             # -Wno-error=backend-plugin: hash-mismatch profile warnings promoted to errors by -Werror.
+            # BUG FIX: _profdata_use_win is quoted below. It's a full path derived
+            # from BUILD_ROOT (via cygpath), which CAN contain spaces (e.g. a
+            # Windows username with a space). Left unquoted, CMake's
+            # separate_arguments(UNIX_COMMAND ...) -- used both for citron's own
+            # PGO flags and for OpenSSL's -- treats an unescaped space as a token
+            # boundary, silently splitting "-fprofile-use=C:/Users/John Smith/..."
+            # into two broken tokens instead of preserving it as one flag.
             local _pd_hash; _pd_hash="$(_pgo_profdata_hash "${profdata_use}")"
             local _profdata_use_win; _profdata_use_win="$(cygpath -am "${profdata_use}")"
             if [[ "${PGO_MODE}" == "fe" ]]; then
-                pgo_flags="/clang:-fprofile-instr-use=${_profdata_use_win} /DCITRON_PGO_PROFDATA_HASH=${_pd_hash} /clang:-Wno-error=backend-plugin"
-                pgo_flags_dash="-fprofile-instr-use=${_profdata_use_win} -DCITRON_PGO_PROFDATA_HASH=${_pd_hash} -Wno-error=backend-plugin"
+                pgo_flags="/clang:-fprofile-instr-use=\\\"${_profdata_use_win}\\\" /DCITRON_PGO_PROFDATA_HASH=${_pd_hash} /clang:-Wno-error=backend-plugin"
+                pgo_flags_dash="-fprofile-instr-use=\\\"${_profdata_use_win}\\\" -DCITRON_PGO_PROFDATA_HASH=${_pd_hash} -Wno-error=backend-plugin"
             else
-                pgo_flags="/clang:-fprofile-use=${_profdata_use_win} /DCITRON_PGO_PROFDATA_HASH=${_pd_hash} /clang:-Wno-error=backend-plugin"
-                pgo_flags_dash="-fprofile-use=${_profdata_use_win} -DCITRON_PGO_PROFDATA_HASH=${_pd_hash} -Wno-error=backend-plugin"
+                pgo_flags="/clang:-fprofile-use=\\\"${_profdata_use_win}\\\" /DCITRON_PGO_PROFDATA_HASH=${_pd_hash} /clang:-Wno-error=backend-plugin"
+                pgo_flags_dash="-fprofile-use=\\\"${_profdata_use_win}\\\" -DCITRON_PGO_PROFDATA_HASH=${_pd_hash} -Wno-error=backend-plugin"
             fi
             ;;
         ir:csgenerate)
@@ -4530,14 +4628,19 @@ stage_clangcl() {
             # /INCLUDE: force-keep: -fcs-profile-generate doesn't auto-inject the runtime reference
             # that -fprofile-generate does. Without it, /OPT:REF strips the runtime silently.
             # /DCITRON_PGO_PROFDATA_HASH: busts cache if stage1 content changes between runs.
+            # BUG FIX: _stage1_win is quoted below -- same reason as
+            # fe:use|ir:use's _profdata_use_win quoting above (a full path
+            # derived from BUILD_ROOT can contain spaces, which would
+            # otherwise get split into two broken tokens by
+            # separate_arguments(UNIX_COMMAND ...)).
             local _pd_hash; _pd_hash="$(_pgo_profdata_hash "${stage1}")"
             local _stage1_win; _stage1_win="$(cygpath -am "${stage1}")"
             # pgo_link_flags is plain lld-link syntax (no /clang:) — lld-link is invoked directly.
             # -Wno-error=backend-plugin: csgenerate also uses -fprofile-use and hits hash-mismatch
             # warnings that citron's -Werror would otherwise promote to hard build failures.
-            pgo_flags="/clang:-fprofile-use=${_stage1_win} /DCITRON_PGO_PROFDATA_HASH=${_pd_hash} /clang:-fcs-profile-generate=${default_profraw_name_csgenerate} /clang:-Wno-error=backend-plugin"
+            pgo_flags="/clang:-fprofile-use=\"${_stage1_win}\" /DCITRON_PGO_PROFDATA_HASH=${_pd_hash} /clang:-fcs-profile-generate=${default_profraw_name_csgenerate} /clang:-Wno-error=backend-plugin"
             pgo_link_flags="/INCLUDE:__llvm_profile_runtime /INCLUDE:__llvm_profile_write_file"
-            pgo_flags_dash="-fprofile-use=${_stage1_win} -DCITRON_PGO_PROFDATA_HASH=${_pd_hash} -fcs-profile-generate=${default_profraw_name_csgenerate} -Wno-error=backend-plugin"
+            pgo_flags_dash="-fprofile-use=\"${_stage1_win}\" -DCITRON_PGO_PROFDATA_HASH=${_pd_hash} -fcs-profile-generate=${default_profraw_name_csgenerate} -Wno-error=backend-plugin"
             ;;
         *) error "Unsupported clang-cl PGO flow: ${PGO_MODE}:${STAGE}" ;;
     esac
@@ -4650,6 +4753,35 @@ stage_clangcl() {
     local pgo_link_flags_batch="${pgo_link_flags//%/%%}"
     local pgo_flags_dash_batch="${pgo_flags_dash//%/%%}"
 
+    # NOTE: CITRON_ENABLE_LTO and CITRON_ENABLE_PGO_GENERATE/USE are deliberately left
+    # OFF below, even though this build may genuinely be doing LTO/PGO via the raw
+    # /clang:-flto=... and /clang:-fprofile-instr-... flags already baked into
+    # CMAKE_C/CXX_FLAGS_${config} above. Do NOT "fix" these to reflect real state --
+    # turning them ON activates CMake-native, MSVC-flavored codepaths that fire
+    # whenever MSVC==TRUE (true for clang-cl) and stack incompatible flags on top of
+    # the script's own Clang-native ones:
+    #   - citron_configure_lto() (called from common/core/video_core/shader_recompiler/
+    #     network/audio_core/hid_core/input_common/frontend_common/web_service) sets
+    #     CMake's INTERPROCEDURAL_OPTIMIZATION property, which for an MSVC-ABI compiler
+    #     means CMake injects /GL at compile time and expects /LTCG at link time --
+    #     MSVC's own whole-program-optimization mechanism, not Clang's bitcode LTO.
+    #   - the top-level `if (MSVC) ... add_link_options(/LTCG)` block (CMakeLists.txt)
+    #     fires on the same OR condition.
+    #   - citron_configure_pgo()'s MSVC branch adds /FASTGENPROFILE, /PGD:, and
+    #     /USEPROFILE:PGD= link options -- MSVC's .pgd-based PGO, a completely
+    #     different, incompatible system from Clang's .profraw/.profdata instr-PGO
+    #     the script already sets up via -fprofile-instr-generate/-fprofile-instr-use.
+    #   - PGO.cmake's `if (MSVC) ... add_compile_options(/GL)` block fires too, and is
+    #     not gated by CITRON_PGO_FLAGS_MANAGED_BY_SCRIPT (that guard only wraps the
+    #     GNU/Clang branch, not the MSVC one).
+    # TracyClient's own LTO/PGO opt-out in dependencies.cmake does not depend on these
+    # vars being accurate -- it unconditionally forces INTERPROCEDURAL_OPTIMIZATION
+    # FALSE and appends -fno-lto/-fno-profile-* as target-level compile options on
+    # TracyClient regardless, so Tracy stays correctly isolated either way.
+    local _clangcl_lto_cmake="OFF"
+    local _clangcl_pgo_generate="OFF"
+    local _clangcl_pgo_use="OFF"
+
     cat > "${build_dir}/build-clang-cl.cmd" <<CLANGCL_CMD_EOF
 @echo off
 setlocal
@@ -4679,8 +4811,10 @@ ${sccache_cmake_args}
   -DCLANGCL_OPENSSL_EXTRA_CFLAGS="${pgo_flags_dash_batch}" ^
   -DCLANGCL_FFMPEG_EXTRA_CFLAGS="${pgo_flags_dash_batch}" ^
 ${qt_cmake_line}
-  -DCITRON_ENABLE_LTO=OFF ^
-  -DCITRON_ENABLE_PGO_GENERATE=OFF -DCITRON_ENABLE_PGO_USE=OFF ^
+  -DCITRON_ENABLE_LTO=${_clangcl_lto_cmake} ^
+  -DCITRON_ENABLE_TRACY=${TRACY_BUILD} ^
+  -DCITRON_ENABLE_TRACY_ALLOC=${TRACY_ALLOC_BUILD} ^
+  -DCITRON_ENABLE_PGO_GENERATE=${_clangcl_pgo_generate} -DCITRON_ENABLE_PGO_USE=${_clangcl_pgo_use} ^
   -DCMAKE_C_FLAGS_${config^^}="${config_compile_flags} ${flags_batch}" -DCMAKE_CXX_FLAGS_${config^^}="${config_compile_flags} ${flags_batch}" ^
   -DCMAKE_EXE_LINKER_FLAGS_${config^^}="${config_link_flags}" ^
   -DCITRON_CLANGCL_PGO_COMPILE_FLAGS="${pgo_flags_batch}" -DCITRON_CLANGCL_PGO_LINK_FLAGS="${pgo_link_flags_batch}" ^
@@ -4711,11 +4845,11 @@ if /I "${config}"=="RelWithDebInfo" (
 )
 if exist "${build_copy_win}\\bin\\${config}\\qt.conf" (
   copy /Y "${build_copy_win}\\bin\\${config}\\qt.conf" "${package_copy_win}\\qt.conf" >NUL
-  if errorlevel 1 exit /b %errorlevel%
+  if errorlevel 1 exit /b 1
 )
 for %%D in (iconengines imageformats platforms styles tls) do if exist "${build_copy_win}\\bin\\${config}\\%%D" (
   xcopy /E /I /Y "${build_copy_win}\\bin\\${config}\\%%D" "${package_copy_win}\\%%D" >NUL
-  if errorlevel 1 exit /b %errorlevel%
+  if errorlevel 1 exit /b 1
 )
 exit /b 0
 CLANGCL_CMD_EOF
@@ -4787,6 +4921,14 @@ while [[ $# -gt 0 ]]; do
             UNITY_BUILD="ON"; shift ;;
         --no-unity)
             UNITY_BUILD="OFF"; shift ;;
+        --tracy)
+            TRACY_BUILD="ON"; shift ;;
+        --no-tracy)
+            TRACY_BUILD="OFF"; shift ;;
+        --tracy-alloc)
+            TRACY_ALLOC_BUILD="ON"; shift ;;
+        --no-tracy-alloc)
+            TRACY_ALLOC_BUILD="OFF"; shift ;;
         --clang-version)
             CLANG_VERSION="$2"
             CLANG="clang-${CLANG_VERSION}"
@@ -4811,6 +4953,10 @@ while [[ $# -gt 0 ]]; do
 done
 
 [[ -n "$STAGE" ]] || error "No stage specified. Run with --help for usage."
+
+if [[ "${TRACY_ALLOC_BUILD}" == "ON" && "${TRACY_BUILD}" != "ON" ]]; then
+    error "--tracy-alloc requires --tracy (it adds heap tracking on top of the base Tracy instrumentation and does nothing without it)."
+fi
 
 if [[ "${COMPILER_MODE}" == "clang-cl" ]]; then
     if [[ "${STAGE}" == "setup" ]]; then

@@ -14,6 +14,7 @@
 
 #include "common/bit_field.h"
 #include "common/common_types.h"
+#include "common/profiling.h"
 #include "core/hle/service/nvdrv/core/container.h"
 #include "core/hle/service/nvdrv/nvdata.h"
 
@@ -156,11 +157,11 @@ public:
 
 private:
     std::list<std::shared_ptr<Handle>> unmap_queue{};
-    std::mutex unmap_queue_lock{}; //!< Protects access to `unmap_queue`
+    CITRON_PROFILE_LOCKABLE(std::mutex, unmap_queue_lock); //!< Protects access to `unmap_queue`
 
     std::unordered_map<Handle::Id, std::shared_ptr<Handle>>
         handles{};           //!< Main owning map of handles
-    std::mutex handles_lock; //!< Protects access to `handles`
+    CITRON_PROFILE_LOCKABLE(std::mutex, handles_lock); //!< Protects access to `handles`
 
     static constexpr u32 HandleIdIncrement{
         4}; //!< Each new handle ID is an increment of 4 from the previous

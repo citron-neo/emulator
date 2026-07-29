@@ -13,6 +13,7 @@
 #include <fmt/ranges.h>
 
 #include "common/logging.h"
+#include "common/profiling.h"
 #include <ranges>
 #include "common/scope_exit.h"
 #include "common/settings.h"
@@ -169,6 +170,7 @@ void RendererVulkan::Composite(std::span<const Tegra::FramebufferConfig> framebu
                                swapchain.GetImageViewFormat());
     scheduler.Flush(*frame->render_ready);
     present_manager.Present(frame);
+    CITRON_PROFILE_FRAME_MARK();
 
     // Update frame timing for frame skipping
     const auto frame_end_time = std::chrono::steady_clock::now();

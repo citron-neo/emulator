@@ -20,6 +20,7 @@
 #include "common/common_types.h"
 #include "common/logging.h"
 #include "common/page_table.h"
+#include "common/profiling.h"
 #include "common/scope_exit.h"
 #include "common/settings.h"
 #include "common/swap.h"
@@ -648,6 +649,7 @@ struct Memory::Impl {
     /// @returns The instance of T read from the specified virtual address.
     template <typename T>
     inline T Read(Common::ProcessAddress vaddr) noexcept requires(std::is_trivially_copyable_v<T>) {
+        CITRON_PROFILE_MEM_SCOPE("Memory::Read");
         auto const addr_c1 = GetInteger(vaddr);
         if constexpr (sizeof(T) <= 1) {
             if (auto const ptr_c1 = GetPointerImpl(addr_c1, [addr_c1] {
@@ -706,6 +708,7 @@ struct Memory::Impl {
     /// @tparam T The data type to write to memory.
     template <typename T>
     inline void Write(Common::ProcessAddress vaddr, const T data) noexcept requires(std::is_trivially_copyable_v<T>) {
+        CITRON_PROFILE_MEM_SCOPE("Memory::Write");
         auto const addr_c1 = GetInteger(vaddr);
         if constexpr (sizeof(T) <= 1) {
             if (auto const ptr_c1 = GetPointerImpl(addr_c1, [addr_c1] {

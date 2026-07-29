@@ -7,6 +7,7 @@
 #include "common/bit_util.h"
 #include "common/fiber.h"
 #include "common/logging.h"
+#include "common/profiling.h"
 #include "core/arm/arm_interface.h"
 #include "core/core.h"
 #include "core/core_timing.h"
@@ -148,6 +149,7 @@ void KScheduler::Initialize(KThread* main_thread, KThread* idle_thread, s32 core
     // Set core ID/idle thread/interrupt task manager.
     m_core_id = core_id;
     m_idle_thread = idle_thread;
+    m_switch_fiber->SetName("SwitchFiber_Core_" + std::to_string(core_id));
     // m_state.idle_thread_stack = m_idle_thread->GetStackTop();
     // m_state.interrupt_task_manager = std::addressof(kernel.GetInterruptTaskManager());
 
@@ -384,6 +386,7 @@ void KScheduler::SwitchThread(KThread* next_thread) {
 }
 
 void KScheduler::ScheduleImpl() {
+    CITRON_PROFILE_SCOPE("KScheduler::ScheduleImpl");
     // First, clear the needs scheduling bool.
     m_state.needs_scheduling.store(false, std::memory_order_relaxed);
     std::atomic_thread_fence(std::memory_order_seq_cst);

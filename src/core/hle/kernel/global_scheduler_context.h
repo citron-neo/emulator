@@ -8,6 +8,7 @@
 #include <vector>
 
 #include "common/common_types.h"
+#include "common/profiling.h"
 #include "core/hardware_properties.h"
 #include "core/hle/kernel/k_priority_queue.h"
 #include "core/hle/kernel/k_scheduler_lock.h"
@@ -83,7 +84,7 @@ private:
 
     /// Lists all thread ids that aren't deleted/etc.
     std::vector<KThread*> m_thread_list;
-    std::mutex m_global_list_guard;
+    CITRON_PROFILE_LOCKABLE(std::mutex, m_global_list_guard);
 };
 
 } // namespace Kernel

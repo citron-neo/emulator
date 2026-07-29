@@ -4,6 +4,7 @@
 #include <fmt/format.h>
 #include "common/assert.h"
 #include "common/logging.h"
+#include "common/profiling.h"
 #include "common/settings.h"
 #include "core/core.h"
 #include "core/hle/ipc.h"
@@ -110,6 +111,7 @@ void ServiceFrameworkBase::InvokeRequestTipc(HLERequestContext& ctx) {
 
 Result ServiceFrameworkBase::HandleSyncRequest(Kernel::KServerSession& session,
                                                HLERequestContext& ctx) {
+    CITRON_PROFILE_SCOPE("ServiceFrameworkBase::HandleSyncRequest");
     const auto guard = LockService();
 
     Result result = ResultSuccess;

@@ -5,6 +5,7 @@
 
 #include <functional>
 #include <memory>
+#include <string>
 
 namespace boost::context::detail {
 struct transfer_t;
@@ -49,6 +50,9 @@ public:
 
     /// Only call from main thread's fiber
     void Exit();
+
+    void SetName(std::string name);
+    const std::string& GetName() const;
 
 private:
     Fiber();

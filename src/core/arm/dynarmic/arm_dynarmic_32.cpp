@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <dynarmic/interface/code_page.h>
+#include "common/profiling.h"
 #include "common/settings.h"
 #include "core/arm/dynarmic/arm_dynarmic.h"
 #include "core/arm/dynarmic/arm_dynarmic_32.h"
@@ -345,11 +346,13 @@ bool ArmDynarmic32::IsInThumbMode() const {
 }
 
 HaltReason ArmDynarmic32::RunThread(Kernel::KThread* thread) {
+    CITRON_PROFILE_SCOPE("Dynarmic32::Run");
     m_jit->ClearExclusiveState();
     return TranslateHaltReason(m_jit->Run());
 }
 
 HaltReason ArmDynarmic32::StepThread(Kernel::KThread* thread) {
+    CITRON_PROFILE_SCOPE("Dynarmic32::Step");
     m_jit->ClearExclusiveState();
     return TranslateHaltReason(m_jit->Step());
 }
@@ -446,10 +449,12 @@ void ArmDynarmic32::SignalInterrupt(Kernel::KThread* thread) {
 }
 
 void ArmDynarmic32::ClearInstructionCache() {
+    CITRON_PROFILE_SCOPE("Dynarmic32::ClearCache");
     m_jit->ClearCache();
 }
 
 void ArmDynarmic32::InvalidateCacheRange(u64 addr, std::size_t size) {
+    CITRON_PROFILE_SCOPE("Dynarmic32::InvalidateCacheRange");
     m_jit->InvalidateCacheRange(static_cast<u32>(addr), size);
 }
 

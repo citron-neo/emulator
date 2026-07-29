@@ -35,20 +35,49 @@ if (NOT MSVC AND NOT APPLE)
     # Force-include critical static archives and resolve cycles
     if (ENABLE_WEB_SERVICE)
         target_compile_definitions(citron-cmd PRIVATE -DENABLE_WEB_SERVICE)
-        target_link_libraries(citron-cmd PRIVATE
-            "-Wl,--start-group"
-            "-Wl,--whole-archive" common core input_common frontend_common network web_service "-Wl,--no-whole-archive"
-            "-Wl,--end-group"
-        )
+        if (CITRON_ENABLE_TRACY AND TARGET TracyClient)
+            target_link_libraries(citron-cmd PRIVATE
+                "-Wl,--start-group"
+                "-Wl,--whole-archive" common core input_common frontend_common network web_service TracyClient "-Wl,--no-whole-archive"
+                "-Wl,--end-group"
+            )
+        else()
+            target_link_libraries(citron-cmd PRIVATE
+                "-Wl,--start-group"
+                "-Wl,--whole-archive" common core input_common frontend_common network web_service "-Wl,--no-whole-archive"
+                "-Wl,--end-group"
+            )
+        endif()
     else()
-        target_link_libraries(citron-cmd PRIVATE
-            "-Wl,--start-group"
-            "-Wl,--whole-archive" common core input_common frontend_common network "-Wl,--no-whole-archive"
-            "-Wl,--end-group"
-        )
+        if (CITRON_ENABLE_TRACY AND TARGET TracyClient)
+            target_link_libraries(citron-cmd PRIVATE
+                "-Wl,--start-group"
+                "-Wl,--whole-archive" common core input_common frontend_common network TracyClient "-Wl,--no-whole-archive"
+                "-Wl,--end-group"
+            )
+        else()
+            target_link_libraries(citron-cmd PRIVATE
+                "-Wl,--start-group"
+                "-Wl,--whole-archive" common core input_common frontend_common network "-Wl,--no-whole-archive"
+                "-Wl,--end-group"
+            )
+        endif()
     endif()
 else()
-    target_link_libraries(citron-cmd PRIVATE common core input_common frontend_common)
+    # MSVC-style linkers (real MSVC and clang-cl, both report MSVC=TRUE) and
+    # Apple's ld64 don't understand -Wl,--whole-archive. Without an explicit
+    # equivalent, TracyClient's static initializer (which spawns the profiler
+    # worker thread) gets stripped because nothing in citron-cmd.exe directly
+    # references a TracyClient symbol.
+    if (MSVC AND CITRON_ENABLE_TRACY AND TARGET TracyClient)
+        target_link_options(citron-cmd PRIVATE "/WHOLEARCHIVE:$<TARGET_FILE:TracyClient>")
+        target_link_libraries(citron-cmd PRIVATE common core input_common frontend_common TracyClient)
+    elseif (APPLE AND CITRON_ENABLE_TRACY AND TARGET TracyClient)
+        target_link_options(citron-cmd PRIVATE "-Wl,-force_load,$<TARGET_FILE:TracyClient>")
+        target_link_libraries(citron-cmd PRIVATE common core input_common frontend_common TracyClient)
+    else()
+        target_link_libraries(citron-cmd PRIVATE common core input_common frontend_common)
+    endif()
 endif()
 
 target_link_libraries(citron-cmd PRIVATE glad)

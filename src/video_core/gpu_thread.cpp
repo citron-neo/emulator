@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "common/assert.h"
+#include "common/profiling.h"
 #include "common/scope_exit.h"
 #include "common/settings.h"
 #include "common/thread.h"
@@ -31,6 +32,7 @@ static void RunThread(std::stop_token stop_token, Core::System& system, VideoCor
         if (stop_token.stop_requested()) {
             break;
         }
+        CITRON_PROFILE_SCOPE("GPUThread::ProcessCommand");
         if (auto* submit_list = std::get_if<SubmitListCommand>(&next.data)) {
             scheduler.Push(submit_list->channel, std::move(submit_list->entries));
         } else if (std::holds_alternative<GPUTickCommand>(next.data)) {

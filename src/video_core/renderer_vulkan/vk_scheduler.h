@@ -14,6 +14,7 @@
 #include "common/alignment.h"
 #include "common/common_types.h"
 #include "common/polyfill_thread.h"
+#include "common/profiling.h"
 #include "video_core/renderer_vulkan/vk_master_semaphore.h"
 #include "video_core/vulkan_common/vulkan_wrapper.h"
 
@@ -122,7 +123,7 @@ public:
         return *master_semaphore;
     }
 
-    std::mutex submit_mutex;
+    CITRON_PROFILE_LOCKABLE(std::mutex, submit_mutex);
 
 private:
     class Command {

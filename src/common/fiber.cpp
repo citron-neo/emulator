@@ -2,9 +2,11 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <mutex>
+#include <string>
 
 #include "common/assert.h"
 #include "common/fiber.h"
+#include "common/profiling.h"
 #include "common/virtual_buffer.h"
 
 #include <boost/context/detail/fcontext.hpp>
@@ -25,6 +27,7 @@ struct Fiber::FiberImpl {
     std::shared_ptr<Fiber> previous_fiber;
     bool is_thread_fiber{};
     bool released{};
+    std::string name;
 
     u8* stack_limit{};
     u8* rewind_stack_limit{};
@@ -94,6 +97,9 @@ void Fiber::Exit() {
     if (!impl->is_thread_fiber) {
         return;
     }
+#if defined(CITRON_ENABLE_TRACY) && CITRON_ENABLE_TRACY
+    TracyFiberLeave;
+#endif
     impl->guard.unlock();
     impl->released = true;
 }
@@ -111,6 +117,9 @@ void Fiber::YieldTo(std::weak_ptr<Fiber> weak_from, Fiber& to) {
     to.impl->guard.lock();
     to.impl->previous_fiber = weak_from.lock();
 
+#if defined(CITRON_ENABLE_TRACY) && CITRON_ENABLE_TRACY
+    TracyFiberEnter(to.GetName().c_str());
+#endif
     auto transfer = boost::context::detail::jump_fcontext(to.impl->context, &to);
 
     // "from" might no longer be valid if the thread was killed
@@ -130,6 +139,17 @@ std::shared_ptr<Fiber> Fiber::ThreadToFiber() {
     fiber->impl->guard.lock();
     fiber->impl->is_thread_fiber = true;
     return fiber;
+}
+
+void Fiber::SetName(std::string name) {
+    impl->name = std::move(name);
+}
+
+const std::string& Fiber::GetName() const {
+    if (impl->name.empty()) {
+        impl->name = "Fiber_" + std::to_string(reinterpret_cast<uintptr_t>(this));
+    }
+    return impl->name;
 }
 
 } // namespace Common
