@@ -183,9 +183,12 @@ struct MacroInterpreterImpl final {
     Macro::MethodAddress method_address = {};
     /// Current program counter
     u32 pc{};
+    /// Method identifying the macro currently being interpreted.
+    u32 current_method{};
     /// Index of the next parameter that will be fetched by the 'parm' instruction.
     u32 next_parameter_index = 0;
     bool carry_flag = false;
+    bool execution_faulted = false;
 };
 struct DynamicCachedMacro {
     virtual ~DynamicCachedMacro() = default;

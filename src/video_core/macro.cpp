@@ -447,6 +447,12 @@ void HLE_TransformFeedbackSetup::Execute(Engines::Maxwell3D& maxwell3d, std::spa
 
 void MacroInterpreterImpl::Execute(Engines::Maxwell3D& maxwell3d, std::span<const u32> params, u32 method) {
     Reset();
+    current_method = method;
+
+    if (params.empty()) {
+        LOG_WARNING(HW_GPU, "Macro 0x{:x} invoked without parameters; skipping execution", method);
+        return;
+    }
 
     registers[1] = params[0];
     parameters.resize(params.size());
@@ -459,7 +465,10 @@ void MacroInterpreterImpl::Execute(Engines::Maxwell3D& maxwell3d, std::span<cons
     }
 
     // Assert the the macro used all the input parameters
-    ASSERT(next_parameter_index == parameters.size());
+    if (!execution_faulted && next_parameter_index != parameters.size()) {
+        LOG_WARNING(HW_GPU, "Macro 0x{:x} consumed {} of {} parameters before exiting",
+                    current_method, next_parameter_index, parameters.size());
+    }
 }
 
 /// Resets the execution engine state, zeroing registers, etc.
@@ -473,12 +482,25 @@ void MacroInterpreterImpl::Reset() {
     // parameter.
     next_parameter_index = 1;
     carry_flag = false;
+    execution_faulted = false;
 }
 
 /// @brief Executes a single macro instruction located at the current program counter. Returns whether
 /// the interpreter should keep running.
 /// @param is_delay_slot Whether the current step is being executed due to a delay slot in a previous instruction.
 bool MacroInterpreterImpl::Step(Engines::Maxwell3D& maxwell3d, bool is_delay_slot) {
+    if (execution_faulted) {
+        return false;
+    }
+    if ((pc % sizeof(u32)) != 0 || pc / sizeof(u32) >= code.size()) {
+        LOG_WARNING(HW_GPU,
+                    "Macro 0x{:x} attempted to execute invalid PC 0x{:x} (code size 0x{:x}); "
+                    "stopping execution",
+                    current_method, pc, code.size_bytes());
+        execution_faulted = true;
+        return false;
+    }
+
     u32 base_address = pc;
 
     Macro::Opcode opcode = GetOpcode();
@@ -535,7 +557,14 @@ bool MacroInterpreterImpl::Step(Engines::Maxwell3D& maxwell3d, bool is_delay_slo
         break;
     }
     case Macro::Operation::Branch: {
-        ASSERT_MSG(!is_delay_slot, "Executing a branch in a delay slot is not valid");
+        if (is_delay_slot) {
+            LOG_WARNING(HW_GPU,
+                        "Macro 0x{:x} attempted a branch in delay slot at PC 0x{:x}; "
+                        "stopping execution",
+                        current_method, base_address);
+            execution_faulted = true;
+            return false;
+        }
         u32 value = GetRegister(opcode.src_a);
         bool taken = EvaluateBranchCondition(opcode.branch_condition, value);
         if (taken) {
@@ -689,6 +718,15 @@ void MacroInterpreterImpl::SetRegister(u32 register_id, u32 value) {
 
 /// Calls a GPU Engine method with the input parameter.
 void MacroInterpreterImpl::Send(Engines::Maxwell3D& maxwell3d, u32 value) {
+    if (execution_faulted) {
+        return;
+    }
+    if (method_address.address.Value() >= Engines::Maxwell3D::Regs::NUM_REGS) {
+        LOG_WARNING(HW_GPU,
+                    "Macro 0x{:x} is invoking nested macro method 0x{:x} at PC 0x{:x} "
+                    "with value 0x{:08x}",
+                    current_method, method_address.address.Value(), pc, value);
+    }
     maxwell3d.CallMethod(method_address.address, value, true);
     // Increment the method address by the method increment.
     method_address.address.Assign(method_address.address.Value() + method_address.increment.Value());
@@ -701,7 +739,14 @@ u32 MacroInterpreterImpl::Read(Engines::Maxwell3D& maxwell3d, u32 method) const 
 
 /// Returns the next parameter in the parameter queue.
 u32 MacroInterpreterImpl::FetchParameter() {
-    ASSERT(next_parameter_index < parameters.size());
+    if (next_parameter_index >= parameters.size()) {
+        LOG_WARNING(HW_GPU,
+                    "Macro 0x{:x} exhausted parameters at PC 0x{:x} "
+                    "(requested index {}, count {}); stopping execution",
+                    current_method, pc, next_parameter_index, parameters.size());
+        execution_faulted = true;
+        return 0;
+    }
     return parameters[next_parameter_index++];
 }
 
