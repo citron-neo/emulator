@@ -419,20 +419,6 @@ void GraphicsPipeline::ConfigureImpl(bool is_indexed) {
                 const u64 image_table_generation =
                     texture_cache.GraphicsImageTableGeneration();
 
-                // Fast path: if we have a valid cache entry whose generation
-                // matches, the TIC table hasn't been invalidated since the last
-                // check. Skip the ReadBlockUnsafe + memcmp entirely.
-                if (auto* fast = FindBindlessEntry(bindless_cache, cbuf_addr,
-                                                    desc.count,
-                                                    image_table_generation);
-                    fast != nullptr) {
-                    views.insert(views.end(), fast->cached_views.begin(),
-                                 fast->cached_views.end());
-                    samplers.insert(samplers.end(), fast->cached_samplers.begin(),
-                                    fast->cached_samplers.end());
-                    continue;
-                }
-
                 const size_t byte_size =
                     static_cast<size_t>(desc.count) << desc.size_shift;
                 bindless_scratch.resize(byte_size);
