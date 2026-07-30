@@ -78,7 +78,7 @@ bool IsTopologySafe(Maxwell3D::Regs::PrimitiveTopology topology) {
 extern "C" __attribute__((noinline, no_stack_protector, used)) void CitronMacroCallMethodThunk(
     Maxwell3D* maxwell3d, u32 method, u32 value);
 
-extern "C" __attribute__((naked, noinline)) void CitronMacroCallMethodPreservingRegisters(
+extern "C" __attribute__((naked, noinline)) u32 CitronMacroCallMethodPreservingRegisters(
     Maxwell3D* maxwell3d, u32 method, u32 value);
 
 extern "C" __attribute__((noinline, no_stack_protector, used)) void CitronMacroCallMethodThunk(
@@ -88,33 +88,91 @@ extern "C" __attribute__((noinline, no_stack_protector, used)) void CitronMacroC
 
 // Some Android Vulkan user drivers have been observed returning with AArch64 callee-saved
 // registers corrupted. Keep that corruption from escaping the macro CallMethod boundary.
-extern "C" __attribute__((naked, noinline)) void CitronMacroCallMethodPreservingRegisters(
+// x22 is saved redundantly because stack-protected callers commonly keep TPIDR_EL0 there.
+// Return a bitmask describing corruption of x22 copies and the lower/upper stack guards.
+// Bit 0: x22 copies differ. Bit 1: lower guard changed. Bit 2: upper guard changed.
+// Bit 3: no x22 majority was available, so TPIDR_EL0 was used as the fallback.
+extern "C" __attribute__((naked, noinline)) u32 CitronMacroCallMethodPreservingRegisters(
     Maxwell3D*, u32, u32) {
-    asm volatile("sub sp, sp, #240\n"
-                 "stp x18, x19, [sp, #0]\n"
-                 "stp x20, x21, [sp, #16]\n"
-                 "stp x22, x23, [sp, #32]\n"
-                 "stp x24, x25, [sp, #48]\n"
-                 "stp x26, x27, [sp, #64]\n"
-                 "stp x28, x29, [sp, #80]\n"
-                 "str x30, [sp, #96]\n"
-                 "stp q8, q9, [sp, #112]\n"
-                 "stp q10, q11, [sp, #144]\n"
-                 "stp q12, q13, [sp, #176]\n"
-                 "stp q14, q15, [sp, #208]\n"
+    asm volatile("sub sp, sp, #272\n"
+                 "movz x9, #0x4752\n"
+                 "movk x9, #0x4f4e, lsl #16\n"
+                 "movk x9, #0x5452, lsl #32\n"
+                 "movk x9, #0x4349, lsl #48\n"
+                 "str x9, [sp, #0]\n"
+                 "str x22, [sp, #8]\n"
+                 "stp x18, x19, [sp, #16]\n"
+                 "stp x20, x21, [sp, #32]\n"
+                 "stp x22, x23, [sp, #48]\n"
+                 "stp x24, x25, [sp, #64]\n"
+                 "stp x26, x27, [sp, #80]\n"
+                 "stp x28, x29, [sp, #96]\n"
+                 "str x30, [sp, #112]\n"
+                 "stp q8, q9, [sp, #128]\n"
+                 "stp q10, q11, [sp, #160]\n"
+                 "stp q12, q13, [sp, #192]\n"
+                 "stp q14, q15, [sp, #224]\n"
+                 "str x9, [sp, #256]\n"
+                 "str x22, [sp, #264]\n"
                  "bl CitronMacroCallMethodThunk\n"
-                 "ldp q14, q15, [sp, #208]\n"
-                 "ldp q12, q13, [sp, #176]\n"
-                 "ldp q10, q11, [sp, #144]\n"
-                 "ldp q8, q9, [sp, #112]\n"
-                 "ldr x30, [sp, #96]\n"
-                 "ldp x28, x29, [sp, #80]\n"
-                 "ldp x26, x27, [sp, #64]\n"
-                 "ldp x24, x25, [sp, #48]\n"
-                 "ldp x22, x23, [sp, #32]\n"
-                 "ldp x20, x21, [sp, #16]\n"
-                 "ldp x18, x19, [sp, #0]\n"
-                 "add sp, sp, #240\n"
+                 "mov w0, wzr\n"
+                 "movz x9, #0x4752\n"
+                 "movk x9, #0x4f4e, lsl #16\n"
+                 "movk x9, #0x5452, lsl #32\n"
+                 "movk x9, #0x4349, lsl #48\n"
+                 "ldr x10, [sp, #0]\n"
+                 "cmp x10, x9\n"
+                 "cset w11, ne\n"
+                 "orr w0, w0, w11, lsl #1\n"
+                 "ldr x10, [sp, #256]\n"
+                 "cmp x10, x9\n"
+                 "cset w11, ne\n"
+                 "orr w0, w0, w11, lsl #2\n"
+                 "ldr x9, [sp, #48]\n"
+                 "ldr x10, [sp, #8]\n"
+                 "ldr x11, [sp, #264]\n"
+                 "cmp x9, x10\n"
+                 "cset w12, ne\n"
+                 "cmp x9, x11\n"
+                 "cset w13, ne\n"
+                 "orr w12, w12, w13\n"
+                 "orr w0, w0, w12\n"
+                 "tbz w0, #1, 1f\n"
+                 "tbnz w0, #2, 3f\n"
+                 "mov x22, x11\n"
+                 "b 6f\n"
+                 "1:\n"
+                 "tbz w0, #2, 3f\n"
+                 "mov x22, x10\n"
+                 "b 6f\n"
+                 "3:\n"
+                 "cmp x9, x10\n"
+                 "b.eq 4f\n"
+                 "cmp x9, x11\n"
+                 "b.eq 4f\n"
+                 "cmp x10, x11\n"
+                 "b.eq 5f\n"
+                 "mrs x22, TPIDR_EL0\n"
+                 "orr w0, w0, #8\n"
+                 "b 6f\n"
+                 "4:\n"
+                 "mov x22, x9\n"
+                 "b 6f\n"
+                 "5:\n"
+                 "mov x22, x10\n"
+                 "6:\n"
+                 "ldp q14, q15, [sp, #224]\n"
+                 "ldp q12, q13, [sp, #192]\n"
+                 "ldp q10, q11, [sp, #160]\n"
+                 "ldp q8, q9, [sp, #128]\n"
+                 "ldr x30, [sp, #112]\n"
+                 "ldp x28, x29, [sp, #96]\n"
+                 "ldp x26, x27, [sp, #80]\n"
+                 "ldp x24, x25, [sp, #64]\n"
+                 "ldr x23, [sp, #56]\n"
+                 "ldp x20, x21, [sp, #32]\n"
+                 "ldp x18, x19, [sp, #16]\n"
+                 "add sp, sp, #272\n"
                  "ret\n");
 }
 #endif
@@ -773,7 +831,14 @@ void MacroInterpreterImpl::Send(Engines::Maxwell3D& maxwell3d, u32 value) {
                     current_method, method_address.address.Value(), pc, value);
     }
 #if defined(ANDROID) && defined(ARCHITECTURE_arm64) && defined(__clang__)
-    CitronMacroCallMethodPreservingRegisters(&maxwell3d, method_address.address.Value(), value);
+    const u32 guard_status = CitronMacroCallMethodPreservingRegisters(
+        &maxwell3d, method_address.address.Value(), value);
+    if (guard_status != 0) {
+        LOG_ERROR(HW_GPU,
+                  "ARM64 macro CallMethod thunk corruption flags=0x{:x}, macro=0x{:x}, "
+                  "PC=0x{:x}, method=0x{:x}, value=0x{:08x}",
+                  guard_status, current_method, pc, method_address.address.Value(), value);
+    }
 #else
     maxwell3d.CallMethod(method_address.address, value, true);
 #endif
