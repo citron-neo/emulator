@@ -344,12 +344,12 @@ private:
                ((device_addr + size) & ~Core::DEVICE_PAGEMASK);
     }
 
-    void RunGarbageCollector(bool force);
+    void RunGarbageCollector();
 
 public:
     /// Public interface to trigger garbage collection
     void TriggerGarbageCollection() {
-        RunGarbageCollector(true);
+        RunGarbageCollector();
     }
 
     void FlushDelayedDestructionRing() {

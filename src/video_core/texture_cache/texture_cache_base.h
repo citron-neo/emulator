@@ -303,12 +303,12 @@ private:
     void OnGPUASRegister(size_t map_id) final override;
 
     /// Runs the Garbage Collector.
-    void RunGarbageCollector(bool force);
+    void RunGarbageCollector();
 
 public:
     /// Public interface to trigger garbage collection
     void TriggerGarbageCollection() {
-        RunGarbageCollector(true);
+        RunGarbageCollector();
     }
 
     // FIXED: VRAM leak prevention - Enhanced public interface for VRAM management

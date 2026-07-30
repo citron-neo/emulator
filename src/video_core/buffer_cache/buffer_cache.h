@@ -26,7 +26,6 @@ BufferCache<P>::BufferCache(Tegra::MaxwellDeviceMemoryManager& device_memory_, R
     gpu_modified_ranges.Clear();
     inline_buffer_id = NULL_BUFFER_ID;
 
-    // FIXED: VRAM leak prevention - Initialize buffer VRAM management from settings
     const u32 configured_limit_mb = Settings::values.vram_limit_mb.GetValue();
 
     if (!runtime.CanReportMemoryUsage()) {
@@ -38,50 +37,30 @@ BufferCache<P>::BufferCache(Tegra::MaxwellDeviceMemoryManager& device_memory_, R
     }
 
     const s64 device_local_memory = static_cast<s64>(runtime.GetDeviceLocalMemory());
-
-    // FIXED: VRAM leak prevention - Use configured limit or auto-detect
     if (configured_limit_mb > 0) {
         vram_limit_bytes = static_cast<u64>(configured_limit_mb) * 1_MiB;
     } else {
         vram_limit_bytes = static_cast<u64>(static_cast<double>(device_local_memory) * 0.80);
     }
-
-    // Adjust thresholds based on GC aggressiveness setting
-    const auto gc_level = Settings::values.gc_aggressiveness.GetValue();
-    f32 expected_ratio = 0.5f;
-    f32 critical_ratio = 0.7f;
-
-    switch (gc_level) {
-    case Settings::GCAggressiveness::Off:
-        expected_ratio = 0.90f;
-        critical_ratio = 0.95f;
-        break;
-    case Settings::GCAggressiveness::Light:
-    default:
-        expected_ratio = 0.70f;
-        critical_ratio = 0.85f;
-        break;
-    }
-
-    minimum_memory = static_cast<u64>(static_cast<f32>(vram_limit_bytes) * expected_ratio);
-    critical_memory = static_cast<u64>(static_cast<f32>(vram_limit_bytes) * critical_ratio);
-
-    LOG_INFO(Render_Vulkan,
-             "Buffer cache VRAM initialized: limit={}MB, minimum={}MB, critical={}MB",
-             vram_limit_bytes / 1_MiB, minimum_memory / 1_MiB, critical_memory / 1_MiB);
+    const s64 min_spacing_expected = device_local_memory - 1_GiB;
+    const s64 min_spacing_critical = device_local_memory - 512_MiB;
+    const s64 mem_threshold = (std::min)(device_local_memory, TARGET_THRESHOLD);
+    const s64 min_vacancy_expected = (6 * mem_threshold) / 10;
+    const s64 min_vacancy_critical = (2 * mem_threshold) / 10;
+    minimum_memory = static_cast<u64>(
+        (std::max)((std::min)(device_local_memory - min_vacancy_expected, min_spacing_expected),
+                   DEFAULT_EXPECTED_MEMORY));
+    critical_memory = static_cast<u64>(
+        (std::max)((std::min)(device_local_memory - min_vacancy_critical, min_spacing_critical),
+                   DEFAULT_CRITICAL_MEMORY));
 }
 
 template <class P>
 BufferCache<P>::~BufferCache() = default;
 
 template <class P>
-void BufferCache<P>::RunGarbageCollector(bool force) {
-    const u64 device_usage =
-        runtime.CanReportMemoryUsage() ? runtime.GetDeviceMemoryUsage() : total_used_memory;
-    // Escalate only when buffers own a meaningful share of the pressured heap.
-    const bool owns_significant_memory = device_usage == 0 || total_used_memory >= device_usage / 4;
-    const bool aggressive_gc =
-        force || (device_usage >= critical_memory && owns_significant_memory);
+void BufferCache<P>::RunGarbageCollector() {
+    const bool aggressive_gc = total_used_memory >= critical_memory;
     const u64 ticks_to_destroy = aggressive_gc ? 60 : 120;
     int num_iterations = aggressive_gc ? 64 : 32;
     const auto clean_up = [this, &num_iterations](BufferId buffer_id) {
@@ -122,15 +101,11 @@ void BufferCache<P>::TickFrame() {
     const bool skip_preferred = hits * 256 < shots * 251;
     channel_state->uniform_buffer_skip_cache_size = skip_preferred ? DEFAULT_SKIP_CACHE_SIZE : 0;
 
-    if (Settings::values.gc_aggressiveness.GetValue() != Settings::GCAggressiveness::Off) {
-        const u64 device_usage =
-            runtime.CanReportMemoryUsage() ? runtime.GetDeviceMemoryUsage() : total_used_memory;
-        // Do not churn a small cache to compensate for pressure caused by unrelated allocations.
-        const bool owns_reclaimable_memory =
-            device_usage == 0 || total_used_memory >= device_usage / 16;
-        if (device_usage >= minimum_memory && owns_reclaimable_memory) {
-            RunGarbageCollector(false);
-        }
+    if (runtime.CanReportMemoryUsage()) {
+        total_used_memory = runtime.GetDeviceMemoryUsage();
+    }
+    if (total_used_memory >= minimum_memory) {
+        RunGarbageCollector();
     }
     ++frame_tick;
     delayed_destruction_ring.Tick();
