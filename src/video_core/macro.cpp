@@ -92,6 +92,7 @@ extern "C" __attribute__((noinline, no_stack_protector, used)) void CitronMacroC
 // Return a bitmask describing corruption of x22 copies and the lower/upper stack guards.
 // Bit 0: x22 copies differ. Bit 1: lower guard changed. Bit 2: upper guard changed.
 // Bit 3: no x22 majority was available, so TPIDR_EL0 was used as the fallback.
+// Bit 4: x29 differs from its saved value.
 extern "C" __attribute__((naked, noinline)) u32 CitronMacroCallMethodPreservingRegisters(
     Maxwell3D*, u32, u32) {
     asm volatile("sub sp, sp, #272\n"
@@ -128,6 +129,10 @@ extern "C" __attribute__((naked, noinline)) u32 CitronMacroCallMethodPreservingR
                  "cmp x10, x9\n"
                  "cset w11, ne\n"
                  "orr w0, w0, w11, lsl #2\n"
+                 "ldr x9, [sp, #104]\n"
+                 "cmp x29, x9\n"
+                 "cset w10, ne\n"
+                 "orr w0, w0, w10, lsl #4\n"
                  "ldr x9, [sp, #48]\n"
                  "ldr x10, [sp, #8]\n"
                  "ldr x11, [sp, #264]\n"

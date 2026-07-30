@@ -393,6 +393,11 @@ void Maxwell3D::CallMacroMethod(u32 method, const std::vector<u32>& parameters) 
     draw_manager->DrawDeferred();
 }
 
+#if defined(ANDROID) && defined(ARCHITECTURE_arm64) && defined(__clang__)
+// Macro-originated calls are enclosed by CitronMacroCallMethodPreservingRegisters. Avoid a
+// false stack-protector abort when a nested Vulkan call corrupts x29 before this epilogue.
+__attribute__((no_stack_protector))
+#endif
 void Maxwell3D::CallMethod(u32 method, u32 method_argument, bool is_last_call) {
     // It is an error to write to a register other than the current macro's ARG register before
     // it has finished execution.
