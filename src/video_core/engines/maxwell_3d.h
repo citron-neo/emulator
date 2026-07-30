@@ -3091,7 +3091,7 @@ public:
     }
 
     struct DirtyState {
-        using Flags = std::bitset<std::numeric_limits<u8>::max()>;
+        using Flags = std::bitset<(std::numeric_limits<u8>::max)() + 1>;
         using Table = std::array<u8, Regs::NUM_REGS>;
         using Tables = std::array<Table, 2>;
 
