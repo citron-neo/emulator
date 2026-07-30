@@ -149,6 +149,12 @@ void ComputePipeline::Configure(Tegra::Engines::KeplerCompute& kepler_compute,
     const bool via_header_index{qmd.linked_tsc != 0};
     boost::container::small_vector<std::pair<u32, VideoCommon::SamplerId>, 16>
         refreshed_samplers;
+    const auto append_cached_views = [&](std::span<const u32> handles) {
+        for (const u32 raw : handles) {
+            const u32 image_index = TexturePair(raw, via_header_index).first;
+            views.push_back({.index = image_index});
+        }
+    };
     const auto append_cached_samplers = [&](std::span<const u32> handles) {
         for (const u32 raw : handles) {
             const auto handle = TexturePair(raw, via_header_index);
@@ -210,16 +216,14 @@ void ComputePipeline::Configure(Tegra::Engines::KeplerCompute& kepler_compute,
                 cbufs[desc.cbuf_index].Address() + desc.cbuf_offset;
             const u64 image_table_generation = texture_cache.ComputeImageTableGeneration();
 
-            // Reuse the cached CBUF snapshot and image views when the TIC generation
-            // matches. Samplers are resolved again below so TSC contents at a stable
-            // handle cannot leave a stale SamplerId in the cache.
+            // Reuse the cached CBUF snapshot when the descriptor interpretation and
+            // TIC generation match. TIC and TSC entries are still resolved below so
+            // descriptor contents at stable handles cannot leave stale host objects.
             if (auto* fast = FindBindlessEntry(bindless_cache, cbuf_addr,
                                                desc.count, desc.size_shift,
                                                image_table_generation, via_header_index);
                 fast != nullptr) {
-                for (const auto& v : fast->cached_views) {
-                    views.push_back(v);
-                }
+                append_cached_views(fast->cached_handles);
                 append_cached_samplers(fast->cached_handles);
                 continue;
             }
@@ -236,13 +240,10 @@ void ComputePipeline::Configure(Tegra::Engines::KeplerCompute& kepler_compute,
                              std::memcmp(entry.last_bytes.data(),
                                          bindless_scratch.data(), byte_size) == 0;
             if (hit) {
-                for (const auto& v : entry.cached_views) {
-                    views.push_back(v);
-                }
+                append_cached_views(entry.cached_handles);
                 append_cached_samplers(entry.cached_handles);
                 continue;
             }
-            const size_t views_start = views.size();
             entry.cached_handles.clear();
             for (u32 index = 0; index < desc.count; ++index) {
                 const size_t slot_offset =
@@ -251,20 +252,12 @@ void ComputePipeline::Configure(Tegra::Engines::KeplerCompute& kepler_compute,
                 std::memcpy(&raw, bindless_scratch.data() + slot_offset, sizeof(u32));
                 const auto handle = TexturePair(raw, via_header_index);
                 entry.cached_handles.push_back(raw);
-                views.push_back({handle.first});
                 samplers.push_back(handle.first == 0
                                        ? VideoCommon::NULL_SAMPLER_ID
                                        : texture_cache.GetComputeSamplerId(handle.second));
             }
             entry.last_bytes.assign(bindless_scratch.begin(), bindless_scratch.end());
-            auto resolved_views =
-                std::span(views.data() + views_start, views.size() - views_start);
-            texture_cache.FillComputeImageViews(resolved_views);
-            for (auto& view : resolved_views) {
-                view.id_cached = true;
-            }
-            entry.cached_views.assign(views.data() + views_start,
-                                      views.data() + views.size());
+            append_cached_views(entry.cached_handles);
             entry.valid = true;
             continue;
         }

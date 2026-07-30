@@ -361,6 +361,12 @@ void GraphicsPipeline::ConfigureImpl(bool is_indexed) {
     const bool via_header_index{regs.sampler_binding == Tegra::Engines::Maxwell3D::Regs::SamplerBinding::ViaHeaderBinding};
     boost::container::small_vector<std::pair<u32, VideoCommon::SamplerId>, 16>
         refreshed_samplers;
+    const auto append_cached_views = [&](std::span<const u32> handles) {
+        for (const u32 raw : handles) {
+            const u32 image_index = TexturePair(raw, via_header_index).first;
+            views.push_back({.index = image_index});
+        }
+    };
     const auto append_cached_samplers = [&](std::span<const u32> handles) {
         for (const u32 raw : handles) {
             const auto handle = TexturePair(raw, via_header_index);
@@ -442,15 +448,14 @@ void GraphicsPipeline::ConfigureImpl(bool is_indexed) {
                 const u64 image_table_generation =
                     texture_cache.GraphicsImageTableGeneration();
 
-                // Reuse the cached CBUF snapshot and image views when the TIC generation
-                // matches. Samplers are resolved again below so TSC contents at a stable
-                // handle cannot leave a stale SamplerId in the cache.
+                // Reuse the cached CBUF snapshot when the descriptor interpretation and
+                // TIC generation match. TIC and TSC entries are still resolved below so
+                // descriptor contents at stable handles cannot leave stale host objects.
                 if (auto* fast = FindBindlessEntry(bindless_cache, cbuf_addr,
                                                     desc.count, desc.size_shift,
                                                     image_table_generation, via_header_index);
                     fast != nullptr) {
-                    views.insert(views.end(), fast->cached_views.begin(),
-                                 fast->cached_views.end());
+                    append_cached_views(fast->cached_handles);
                     append_cached_samplers(fast->cached_handles);
                     continue;
                 }
@@ -469,12 +474,10 @@ void GraphicsPipeline::ConfigureImpl(bool is_indexed) {
                                              bindless_scratch.data(),
                                              byte_size) == 0;
                 if (hit) {
-                    views.insert(views.end(), entry.cached_views.begin(),
-                                 entry.cached_views.end());
+                    append_cached_views(entry.cached_handles);
                     append_cached_samplers(entry.cached_handles);
                     continue;
                 }
-                const size_t views_start = views.size();
                 entry.cached_handles.clear();
                 for (u32 index = 0; index < desc.count; ++index) {
                     const size_t slot_offset =
@@ -484,21 +487,13 @@ void GraphicsPipeline::ConfigureImpl(bool is_indexed) {
                                 sizeof(u32));
                     const auto handle = TexturePair(raw, via_header_index);
                     entry.cached_handles.push_back(raw);
-                    views.push_back({handle.first});
                     samplers.push_back(handle.first == 0
                                            ? VideoCommon::NULL_SAMPLER_ID
                                            : texture_cache.GetGraphicsSamplerId(handle.second));
                 }
                 entry.last_bytes.assign(bindless_scratch.begin(),
                                         bindless_scratch.end());
-                auto resolved_views =
-                    std::span(views.data() + views_start, views.size() - views_start);
-                texture_cache.FillGraphicsImageViews<false>(resolved_views);
-                for (auto& view : resolved_views) {
-                    view.id_cached = true;
-                }
-                entry.cached_views.assign(views.data() + views_start,
-                                          views.data() + views.size());
+                append_cached_views(entry.cached_handles);
                 entry.valid = true;
                 continue;
             }

@@ -54,7 +54,6 @@ struct ImageViewInOut {
     u32 index{};
     bool blacklist{};
     ImageViewId id{};
-    bool id_cached{};
 };
 
 struct AsyncDecodeContext {

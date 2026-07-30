@@ -341,7 +341,6 @@ struct BindlessCacheEntry {
     bool key_via_header_index{false};
     bool valid{false};
     boost::container::small_vector<u8, 256> last_bytes;
-    boost::container::small_vector<VideoCommon::ImageViewInOut, 16> cached_views;
     boost::container::small_vector<u32, 16> cached_handles;
 };
 
