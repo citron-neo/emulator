@@ -26,7 +26,7 @@ CitronRasterizerDrawThunk(VideoCore::RasterizerInterface* rasterizer, bool draw_
 }
 
 // Contain AArch64 ABI violations at the complete rasterizer draw boundary. Bits 0-9 report
-// x19-x28 respectively; bits 10-11 report lower/upper guard damage.
+// x19-x28 respectively; bits 10-11 report lower/upper guard damage; bit 12 reports x29.
 extern "C" __attribute__((naked, noinline)) u32
 CitronRasterizerDrawPreservingRegisters(VideoCore::RasterizerInterface*, bool, u32) {
     asm volatile("sub sp, sp, #272\n"
@@ -89,6 +89,10 @@ CitronRasterizerDrawPreservingRegisters(VideoCore::RasterizerInterface*, bool, u
                  "cmp x28, x9\n"
                  "cset w10, ne\n"
                  "orr w0, w0, w10, lsl #9\n"
+                 "ldr x9, [sp, #96]\n"
+                 "cmp x29, x9\n"
+                 "cset w10, ne\n"
+                 "orr w0, w0, w10, lsl #12\n"
                  "movz x9, #0x4752\n"
                  "movk x9, #0x4f4e, lsl #16\n"
                  "movk x9, #0x5452, lsl #32\n"

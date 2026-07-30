@@ -70,7 +70,8 @@ CitronGraphicsPipelineConfigureThunk(GraphicsPipeline* pipeline, bool is_indexed
 // Some Android Vulkan user drivers violate the AArch64 ABI and return with callee-saved
 // registers modified. Isolate GraphicsPipeline::Configure so a damaged RasterizerVulkan
 // pointer cannot be consumed by UpdateDynamicStates before the outer macro guard returns.
-// Bits 0-9 report x19-x28 respectively; bits 10-11 report lower/upper guard damage.
+// Bits 0-9 report x19-x28 respectively; bits 10-11 report lower/upper guard damage; bit 12
+// reports x29.
 extern "C" __attribute__((naked, noinline)) u32
 CitronGraphicsPipelineConfigurePreservingRegisters(GraphicsPipeline*, bool) {
     asm volatile("sub sp, sp, #272\n"
@@ -133,6 +134,10 @@ CitronGraphicsPipelineConfigurePreservingRegisters(GraphicsPipeline*, bool) {
                  "cmp x28, x9\n"
                  "cset w10, ne\n"
                  "orr w0, w0, w10, lsl #9\n"
+                 "ldr x9, [sp, #96]\n"
+                 "cmp x29, x9\n"
+                 "cset w10, ne\n"
+                 "orr w0, w0, w10, lsl #12\n"
                  "movz x9, #0x4752\n"
                  "movk x9, #0x4f4e, lsl #16\n"
                  "movk x9, #0x5452, lsl #32\n"
@@ -378,6 +383,11 @@ void RasterizerVulkan::PrepareDraw(bool is_indexed, Func&& draw_func) {
     draw_func();
 }
 
+#if defined(ANDROID) && defined(ARCHITECTURE_arm64) && defined(__clang__)
+// The complete draw boundary restores x29. Avoid a false stack-protector abort when a driver
+// call corrupts x29 after the inner Configure guard but before this function's epilogue.
+__attribute__((no_stack_protector))
+#endif
 void RasterizerVulkan::Draw(bool is_indexed, u32 instance_count) {
     PrepareDraw(is_indexed, [this, is_indexed, instance_count] {
         const auto& draw_state = maxwell3d->draw_manager->GetDrawState();
