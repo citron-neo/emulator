@@ -74,6 +74,51 @@ bool IsTopologySafe(Maxwell3D::Regs::PrimitiveTopology topology) {
     }
 }
 
+#if defined(ANDROID) && defined(ARCHITECTURE_arm64) && defined(__clang__)
+extern "C" __attribute__((noinline, no_stack_protector, used)) void CitronMacroCallMethodThunk(
+    Maxwell3D* maxwell3d, u32 method, u32 value);
+
+extern "C" __attribute__((naked, noinline)) void CitronMacroCallMethodPreservingRegisters(
+    Maxwell3D* maxwell3d, u32 method, u32 value);
+
+extern "C" __attribute__((noinline, no_stack_protector, used)) void CitronMacroCallMethodThunk(
+    Maxwell3D* maxwell3d, u32 method, u32 value) {
+    maxwell3d->CallMethod(method, value, true);
+}
+
+// Some Android Vulkan user drivers have been observed returning with AArch64 callee-saved
+// registers corrupted. Keep that corruption from escaping the macro CallMethod boundary.
+extern "C" __attribute__((naked, noinline)) void CitronMacroCallMethodPreservingRegisters(
+    Maxwell3D*, u32, u32) {
+    asm volatile("sub sp, sp, #240\n"
+                 "stp x18, x19, [sp, #0]\n"
+                 "stp x20, x21, [sp, #16]\n"
+                 "stp x22, x23, [sp, #32]\n"
+                 "stp x24, x25, [sp, #48]\n"
+                 "stp x26, x27, [sp, #64]\n"
+                 "stp x28, x29, [sp, #80]\n"
+                 "str x30, [sp, #96]\n"
+                 "stp q8, q9, [sp, #112]\n"
+                 "stp q10, q11, [sp, #144]\n"
+                 "stp q12, q13, [sp, #176]\n"
+                 "stp q14, q15, [sp, #208]\n"
+                 "bl CitronMacroCallMethodThunk\n"
+                 "ldp q14, q15, [sp, #208]\n"
+                 "ldp q12, q13, [sp, #176]\n"
+                 "ldp q10, q11, [sp, #144]\n"
+                 "ldp q8, q9, [sp, #112]\n"
+                 "ldr x30, [sp, #96]\n"
+                 "ldp x28, x29, [sp, #80]\n"
+                 "ldp x26, x27, [sp, #64]\n"
+                 "ldp x24, x25, [sp, #48]\n"
+                 "ldp x22, x23, [sp, #32]\n"
+                 "ldp x20, x21, [sp, #16]\n"
+                 "ldp x18, x19, [sp, #0]\n"
+                 "add sp, sp, #240\n"
+                 "ret\n");
+}
+#endif
+
 } // Anonymous namespace
 
 void HLE_DrawArraysIndirect::Execute(Engines::Maxwell3D& maxwell3d, std::span<const u32> parameters, [[maybe_unused]] u32 method) {
@@ -727,7 +772,11 @@ void MacroInterpreterImpl::Send(Engines::Maxwell3D& maxwell3d, u32 value) {
                     "with value 0x{:08x}",
                     current_method, method_address.address.Value(), pc, value);
     }
+#if defined(ANDROID) && defined(ARCHITECTURE_arm64) && defined(__clang__)
+    CitronMacroCallMethodPreservingRegisters(&maxwell3d, method_address.address.Value(), value);
+#else
     maxwell3d.CallMethod(method_address.address, value, true);
+#endif
     // Increment the method address by the method increment.
     method_address.address.Assign(method_address.address.Value() + method_address.increment.Value());
 }
