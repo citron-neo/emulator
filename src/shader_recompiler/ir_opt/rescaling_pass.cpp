@@ -61,14 +61,30 @@ void VisitMark(IR::Block& block, IR::Inst& inst) {
                 break;
             }
         }
-        if (must_patch_outside) {
-            const auto it{IR::Block::InstructionList::s_iterator_to(inst)};
-            IR::IREmitter ir{block, IR::Block::InstructionList::s_iterator_to(inst)};
-            const IR::F32 new_inst{&*block.PrependNewInst(it, inst)};
-            const IR::F32 up_factor{ir.FPRecip(ir.ResolutionDownFactor())};
-            const IR::Value converted{ir.FPMul(new_inst, up_factor)};
-            inst.ReplaceUsesWith(converted);
-        }
+    if (must_patch_outside) {
+    const auto it{IR::Block::InstructionList::s_iterator_to(inst)};
+    IR::IREmitter ir{block, it};
+
+    if (Settings::values.rescale_hack.GetValue()) {
+        // Legacy path
+        const IR::F32 new_inst{&*block.PrependNewInst(it, inst)};
+        const IR::F32 up_factor{ir.FPRecip(ir.ResolutionDownFactor())};
+        const IR::Value converted{ir.FPMul(new_inst, up_factor)};
+        inst.ReplaceUsesWith(converted);
+    } else {
+        // Default Citron path
+        IR::Inst* const new_inst{&*block.PrependNewInst(it, inst)};
+        const IR::F32 new_bitcast{ir.ConvertUToF(32, 32, IR::Value{new_inst})};
+        const IR::F32 up_factor{ir.FPRecip(ir.ResolutionDownFactor())};
+        const IR::Value converted{ir.FPMul(new_bitcast, up_factor)};
+        inst.ReplaceUsesWith(converted);
+    }
+    if (Settings::values.rescale_hack.GetValue()) {
+    LOG_WARNING(Shader, "Using Legacy Rescale Pass (pure float path)");
+}
+}
+
+
         break;
     }
 
@@ -351,5 +367,4 @@ void RescalingPass(IR::Program& program) {
         }
     }
 }
-
 } // namespace Shader::Optimization

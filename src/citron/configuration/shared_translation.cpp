@@ -300,7 +300,11 @@ std::unique_ptr<TranslationMap> InitializeTranslations(QWidget* parent) {
         tr("Enables conditional rendering based on query results.\n"
            "Disabling this can fix flickering objects in some games but may impact performance.\n"
            "Try disabling if you see objects appearing and disappearing rapidly."));
-
+    INSERT(Settings,
+           rescale_hack,
+           tr("Enable Legacy Rescale Pass"),
+           tr("May fix rescale issues in some games by relying on behavior from the previous implementation.\n"
+              "Legacy behavior workaround that fixes AMD GPU line artifacts and Nvidia GPU grey texture flicker in Luigis Mansion 3."));
     // Renderer (Debug)
 
     // Renderer (Debug)
