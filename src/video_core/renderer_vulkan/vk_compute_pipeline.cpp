@@ -3,6 +3,8 @@
 
 #include <algorithm>
 #include <cstring>
+#include <span>
+#include <utility>
 #include <vector>
 
 #include <boost/container/small_vector.hpp>
@@ -145,6 +147,28 @@ void ComputePipeline::Configure(Tegra::Engines::KeplerCompute& kepler_compute,
     const auto& qmd{kepler_compute.launch_description};
     const auto& cbufs{qmd.const_buffer_config};
     const bool via_header_index{qmd.linked_tsc != 0};
+    boost::container::small_vector<std::pair<u32, VideoCommon::SamplerId>, 16>
+        refreshed_samplers;
+    const auto append_cached_samplers = [&](std::span<const u32> handles) {
+        for (const u32 raw : handles) {
+            const auto handle = TexturePair(raw, via_header_index);
+            if (handle.first == 0) {
+                samplers.push_back(VideoCommon::NULL_SAMPLER_ID);
+                continue;
+            }
+            const auto it = std::ranges::find(
+                refreshed_samplers, handle.second,
+                &std::pair<u32, VideoCommon::SamplerId>::first);
+            if (it != refreshed_samplers.end()) {
+                samplers.push_back(it->second);
+                continue;
+            }
+            const VideoCommon::SamplerId sampler_id =
+                texture_cache.GetComputeSamplerId(handle.second);
+            refreshed_samplers.emplace_back(handle.second, sampler_id);
+            samplers.push_back(sampler_id);
+        }
+    };
     const auto read_handle{[&](const auto& desc, u32 index) {
         ASSERT(((qmd.const_buffer_enable_mask >> desc.cbuf_index) & 1) != 0);
         const u32 index_offset{index << desc.size_shift};
@@ -186,17 +210,17 @@ void ComputePipeline::Configure(Tegra::Engines::KeplerCompute& kepler_compute,
                 cbufs[desc.cbuf_index].Address() + desc.cbuf_offset;
             const u64 image_table_generation = texture_cache.ComputeImageTableGeneration();
 
-            // Fast path: if we have a valid cache entry whose generation matches,
-            // the TIC table hasn't been invalidated. Skip ReadBlockUnsafe + memcmp.
+            // Reuse the cached CBUF snapshot and image views when the TIC generation
+            // matches. Samplers are resolved again below so TSC contents at a stable
+            // handle cannot leave a stale SamplerId in the cache.
             if (auto* fast = FindBindlessEntry(bindless_cache, cbuf_addr,
-                                               desc.count, image_table_generation);
+                                               desc.count, desc.size_shift,
+                                               image_table_generation, via_header_index);
                 fast != nullptr) {
                 for (const auto& v : fast->cached_views) {
                     views.push_back(v);
                 }
-                for (const auto& s : fast->cached_samplers) {
-                    samplers.push_back(s);
-                }
+                append_cached_samplers(fast->cached_handles);
                 continue;
             }
 
@@ -205,8 +229,8 @@ void ComputePipeline::Configure(Tegra::Engines::KeplerCompute& kepler_compute,
             gpu_memory.ReadBlockUnsafe(cbuf_addr, bindless_scratch.data(), byte_size,
                                        "Vulkan.ComputePipeline.bindless_cbuf");
             BindlessCacheEntry& entry = AcquireBindlessEntry(
-                bindless_cache, bindless_cache_rr, cbuf_addr, desc.count,
-                image_table_generation);
+                bindless_cache, bindless_cache_rr, cbuf_addr, desc.count, desc.size_shift,
+                image_table_generation, via_header_index);
             const bool hit = entry.valid &&
                              entry.last_bytes.size() == byte_size &&
                              std::memcmp(entry.last_bytes.data(),
@@ -215,19 +239,18 @@ void ComputePipeline::Configure(Tegra::Engines::KeplerCompute& kepler_compute,
                 for (const auto& v : entry.cached_views) {
                     views.push_back(v);
                 }
-                for (const auto& s : entry.cached_samplers) {
-                    samplers.push_back(s);
-                }
+                append_cached_samplers(entry.cached_handles);
                 continue;
             }
             const size_t views_start = views.size();
-            const size_t samplers_start = samplers.size();
+            entry.cached_handles.clear();
             for (u32 index = 0; index < desc.count; ++index) {
                 const size_t slot_offset =
                     static_cast<size_t>(index) << desc.size_shift;
                 u32 raw;
                 std::memcpy(&raw, bindless_scratch.data() + slot_offset, sizeof(u32));
                 const auto handle = TexturePair(raw, via_header_index);
+                entry.cached_handles.push_back(raw);
                 views.push_back({handle.first});
                 samplers.push_back(handle.first == 0
                                        ? VideoCommon::NULL_SAMPLER_ID
@@ -242,8 +265,6 @@ void ComputePipeline::Configure(Tegra::Engines::KeplerCompute& kepler_compute,
             }
             entry.cached_views.assign(views.data() + views_start,
                                       views.data() + views.size());
-            entry.cached_samplers.assign(samplers.data() + samplers_start,
-                                         samplers.data() + samplers.size());
             entry.valid = true;
             continue;
         }

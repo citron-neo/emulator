@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <cstring>
 #include <span>
+#include <utility>
 #include <vector>
 
 #include <boost/container/small_vector.hpp>
@@ -358,6 +359,28 @@ void GraphicsPipeline::ConfigureImpl(bool is_indexed) {
 
     const auto& regs{maxwell3d->regs};
     const bool via_header_index{regs.sampler_binding == Tegra::Engines::Maxwell3D::Regs::SamplerBinding::ViaHeaderBinding};
+    boost::container::small_vector<std::pair<u32, VideoCommon::SamplerId>, 16>
+        refreshed_samplers;
+    const auto append_cached_samplers = [&](std::span<const u32> handles) {
+        for (const u32 raw : handles) {
+            const auto handle = TexturePair(raw, via_header_index);
+            if (handle.first == 0) {
+                samplers.push_back(VideoCommon::NULL_SAMPLER_ID);
+                continue;
+            }
+            const auto it = std::ranges::find(
+                refreshed_samplers, handle.second,
+                &std::pair<u32, VideoCommon::SamplerId>::first);
+            if (it != refreshed_samplers.end()) {
+                samplers.push_back(it->second);
+                continue;
+            }
+            const VideoCommon::SamplerId sampler_id =
+                texture_cache.GetGraphicsSamplerId(handle.second);
+            refreshed_samplers.emplace_back(handle.second, sampler_id);
+            samplers.push_back(sampler_id);
+        }
+    };
     const auto config_stage{[&](size_t stage) LAMBDA_FORCEINLINE {
         const Shader::Info& info{stage_infos[stage]};
         buffer_cache.UnbindGraphicsStorageBuffers(stage);
@@ -419,17 +442,16 @@ void GraphicsPipeline::ConfigureImpl(bool is_indexed) {
                 const u64 image_table_generation =
                     texture_cache.GraphicsImageTableGeneration();
 
-                // Fast path: if we have a valid cache entry whose generation
-                // matches, the TIC table hasn't been invalidated since the last
-                // check. Skip the ReadBlockUnsafe + memcmp entirely.
+                // Reuse the cached CBUF snapshot and image views when the TIC generation
+                // matches. Samplers are resolved again below so TSC contents at a stable
+                // handle cannot leave a stale SamplerId in the cache.
                 if (auto* fast = FindBindlessEntry(bindless_cache, cbuf_addr,
-                                                    desc.count,
-                                                    image_table_generation);
+                                                    desc.count, desc.size_shift,
+                                                    image_table_generation, via_header_index);
                     fast != nullptr) {
                     views.insert(views.end(), fast->cached_views.begin(),
                                  fast->cached_views.end());
-                    samplers.insert(samplers.end(), fast->cached_samplers.begin(),
-                                    fast->cached_samplers.end());
+                    append_cached_samplers(fast->cached_handles);
                     continue;
                 }
 
@@ -439,8 +461,8 @@ void GraphicsPipeline::ConfigureImpl(bool is_indexed) {
                 gpu_memory->ReadBlockUnsafe(cbuf_addr, bindless_scratch.data(), byte_size,
                                             "Vulkan.GraphicsPipeline.bindless_cbuf");
                 BindlessCacheEntry& entry = AcquireBindlessEntry(
-                    bindless_cache, bindless_cache_rr, cbuf_addr, desc.count,
-                    image_table_generation);
+                    bindless_cache, bindless_cache_rr, cbuf_addr, desc.count, desc.size_shift,
+                    image_table_generation, via_header_index);
                 const bool hit = entry.valid &&
                                  entry.last_bytes.size() == byte_size &&
                                  std::memcmp(entry.last_bytes.data(),
@@ -449,12 +471,11 @@ void GraphicsPipeline::ConfigureImpl(bool is_indexed) {
                 if (hit) {
                     views.insert(views.end(), entry.cached_views.begin(),
                                  entry.cached_views.end());
-                    samplers.insert(samplers.end(), entry.cached_samplers.begin(),
-                                    entry.cached_samplers.end());
+                    append_cached_samplers(entry.cached_handles);
                     continue;
                 }
                 const size_t views_start = views.size();
-                const size_t samplers_start = samplers.size();
+                entry.cached_handles.clear();
                 for (u32 index = 0; index < desc.count; ++index) {
                     const size_t slot_offset =
                         static_cast<size_t>(index) << desc.size_shift;
@@ -462,6 +483,7 @@ void GraphicsPipeline::ConfigureImpl(bool is_indexed) {
                     std::memcpy(&raw, bindless_scratch.data() + slot_offset,
                                 sizeof(u32));
                     const auto handle = TexturePair(raw, via_header_index);
+                    entry.cached_handles.push_back(raw);
                     views.push_back({handle.first});
                     samplers.push_back(handle.first == 0
                                            ? VideoCommon::NULL_SAMPLER_ID
@@ -477,8 +499,6 @@ void GraphicsPipeline::ConfigureImpl(bool is_indexed) {
                 }
                 entry.cached_views.assign(views.data() + views_start,
                                           views.data() + views.size());
-                entry.cached_samplers.assign(samplers.data() + samplers_start,
-                                             samplers.data() + samplers.size());
                 entry.valid = true;
                 continue;
             }

@@ -336,21 +336,26 @@ inline u64 HashDescriptorBlock(const DescriptorUpdateEntry* data, size_t entry_c
 struct BindlessCacheEntry {
     GPUVAddr key_addr{0};
     u32 key_count{0};
+    u32 key_size_shift{0};
     u64 key_image_table_generation{};
+    bool key_via_header_index{false};
     bool valid{false};
     boost::container::small_vector<u8, 256> last_bytes;
     boost::container::small_vector<VideoCommon::ImageViewInOut, 16> cached_views;
-    boost::container::small_vector<VideoCommon::SamplerId, 16> cached_samplers;
+    boost::container::small_vector<u32, 16> cached_handles;
 };
 
 constexpr size_t BINDLESS_CACHE_SIZE = 64;
 using BindlessCache = std::array<BindlessCacheEntry, BINDLESS_CACHE_SIZE>;
 
 inline BindlessCacheEntry* FindBindlessEntry(BindlessCache& cache, GPUVAddr addr, u32 count,
-                                             u64 image_table_generation) {
+                                             u32 size_shift, u64 image_table_generation,
+                                             bool via_header_index) {
     for (auto& entry : cache) {
         if (entry.valid && entry.key_addr == addr && entry.key_count == count &&
-            entry.key_image_table_generation == image_table_generation) {
+            entry.key_size_shift == size_shift &&
+            entry.key_image_table_generation == image_table_generation &&
+            entry.key_via_header_index == via_header_index) {
             return &entry;
         }
     }
@@ -358,16 +363,20 @@ inline BindlessCacheEntry* FindBindlessEntry(BindlessCache& cache, GPUVAddr addr
 }
 
 inline BindlessCacheEntry& AcquireBindlessEntry(BindlessCache& cache, size_t& round_robin,
-                                                GPUVAddr addr, u32 count,
-                                                u64 image_table_generation) {
-    if (auto* found = FindBindlessEntry(cache, addr, count, image_table_generation)) {
+                                                GPUVAddr addr, u32 count, u32 size_shift,
+                                                u64 image_table_generation,
+                                                bool via_header_index) {
+    if (auto* found = FindBindlessEntry(cache, addr, count, size_shift, image_table_generation,
+                                        via_header_index)) {
         return *found;
     }
     auto& slot = cache[round_robin];
     round_robin = (round_robin + 1) % BINDLESS_CACHE_SIZE;
     slot.key_addr = addr;
     slot.key_count = count;
+    slot.key_size_shift = size_shift;
     slot.key_image_table_generation = image_table_generation;
+    slot.key_via_header_index = via_header_index;
     slot.valid = false;
     return slot;
 }
