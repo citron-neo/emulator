@@ -7,6 +7,118 @@
 #include "video_core/rasterizer_interface.h"
 
 namespace Tegra::Engines {
+
+namespace {
+
+#if defined(ANDROID) && defined(ARCHITECTURE_arm64) && defined(__clang__)
+extern "C" __attribute__((noinline, no_stack_protector, used)) void
+CitronRasterizerDrawThunk(VideoCore::RasterizerInterface* rasterizer, bool draw_indexed,
+                          u32 instance_count);
+
+extern "C" __attribute__((naked, noinline)) u32
+CitronRasterizerDrawPreservingRegisters(VideoCore::RasterizerInterface* rasterizer,
+                                        bool draw_indexed, u32 instance_count);
+
+extern "C" __attribute__((noinline, no_stack_protector, used)) void
+CitronRasterizerDrawThunk(VideoCore::RasterizerInterface* rasterizer, bool draw_indexed,
+                          u32 instance_count) {
+    rasterizer->Draw(draw_indexed, instance_count);
+}
+
+// Contain AArch64 ABI violations at the complete rasterizer draw boundary. Bits 0-9 report
+// x19-x28 respectively; bits 10-11 report lower/upper guard damage.
+extern "C" __attribute__((naked, noinline)) u32
+CitronRasterizerDrawPreservingRegisters(VideoCore::RasterizerInterface*, bool, u32) {
+    asm volatile("sub sp, sp, #272\n"
+                 "movz x9, #0x4752\n"
+                 "movk x9, #0x4f4e, lsl #16\n"
+                 "movk x9, #0x5452, lsl #32\n"
+                 "movk x9, #0x4349, lsl #48\n"
+                 "str x9, [sp, #0]\n"
+                 "str x18, [sp, #8]\n"
+                 "stp x19, x20, [sp, #16]\n"
+                 "stp x21, x22, [sp, #32]\n"
+                 "stp x23, x24, [sp, #48]\n"
+                 "stp x25, x26, [sp, #64]\n"
+                 "stp x27, x28, [sp, #80]\n"
+                 "stp x29, x30, [sp, #96]\n"
+                 "stp q8, q9, [sp, #128]\n"
+                 "stp q10, q11, [sp, #160]\n"
+                 "stp q12, q13, [sp, #192]\n"
+                 "stp q14, q15, [sp, #224]\n"
+                 "str x9, [sp, #256]\n"
+                 "bl CitronRasterizerDrawThunk\n"
+                 "mov w0, wzr\n"
+                 "ldr x9, [sp, #16]\n"
+                 "cmp x19, x9\n"
+                 "cset w10, ne\n"
+                 "orr w0, w0, w10\n"
+                 "ldr x9, [sp, #24]\n"
+                 "cmp x20, x9\n"
+                 "cset w10, ne\n"
+                 "orr w0, w0, w10, lsl #1\n"
+                 "ldr x9, [sp, #32]\n"
+                 "cmp x21, x9\n"
+                 "cset w10, ne\n"
+                 "orr w0, w0, w10, lsl #2\n"
+                 "ldr x9, [sp, #40]\n"
+                 "cmp x22, x9\n"
+                 "cset w10, ne\n"
+                 "orr w0, w0, w10, lsl #3\n"
+                 "ldr x9, [sp, #48]\n"
+                 "cmp x23, x9\n"
+                 "cset w10, ne\n"
+                 "orr w0, w0, w10, lsl #4\n"
+                 "ldr x9, [sp, #56]\n"
+                 "cmp x24, x9\n"
+                 "cset w10, ne\n"
+                 "orr w0, w0, w10, lsl #5\n"
+                 "ldr x9, [sp, #64]\n"
+                 "cmp x25, x9\n"
+                 "cset w10, ne\n"
+                 "orr w0, w0, w10, lsl #6\n"
+                 "ldr x9, [sp, #72]\n"
+                 "cmp x26, x9\n"
+                 "cset w10, ne\n"
+                 "orr w0, w0, w10, lsl #7\n"
+                 "ldr x9, [sp, #80]\n"
+                 "cmp x27, x9\n"
+                 "cset w10, ne\n"
+                 "orr w0, w0, w10, lsl #8\n"
+                 "ldr x9, [sp, #88]\n"
+                 "cmp x28, x9\n"
+                 "cset w10, ne\n"
+                 "orr w0, w0, w10, lsl #9\n"
+                 "movz x9, #0x4752\n"
+                 "movk x9, #0x4f4e, lsl #16\n"
+                 "movk x9, #0x5452, lsl #32\n"
+                 "movk x9, #0x4349, lsl #48\n"
+                 "ldr x10, [sp, #0]\n"
+                 "cmp x10, x9\n"
+                 "cset w10, ne\n"
+                 "orr w0, w0, w10, lsl #10\n"
+                 "ldr x10, [sp, #256]\n"
+                 "cmp x10, x9\n"
+                 "cset w10, ne\n"
+                 "orr w0, w0, w10, lsl #11\n"
+                 "ldp q14, q15, [sp, #224]\n"
+                 "ldp q12, q13, [sp, #192]\n"
+                 "ldp q10, q11, [sp, #160]\n"
+                 "ldp q8, q9, [sp, #128]\n"
+                 "ldp x29, x30, [sp, #96]\n"
+                 "ldp x27, x28, [sp, #80]\n"
+                 "ldp x25, x26, [sp, #64]\n"
+                 "ldp x23, x24, [sp, #48]\n"
+                 "ldp x21, x22, [sp, #32]\n"
+                 "ldp x19, x20, [sp, #16]\n"
+                 "ldr x18, [sp, #8]\n"
+                 "add sp, sp, #272\n"
+                 "ret\n");
+}
+#endif
+
+} // Anonymous namespace
+
 DrawManager::DrawManager(Maxwell3D* maxwell3d_) : maxwell3d(maxwell3d_) {}
 
 void DrawManager::ProcessMethodCall(u32 method, u32 argument) {
@@ -267,7 +379,17 @@ void DrawManager::ProcessDraw(bool draw_indexed, u32 instance_count) {
     UpdateTopology();
 
     if (maxwell3d->ShouldExecute()) {
+#if defined(ANDROID) && defined(ARCHITECTURE_arm64) && defined(__clang__)
+        const u32 draw_corruption = CitronRasterizerDrawPreservingRegisters(
+            maxwell3d->rasterizer, draw_indexed, instance_count);
+        if (draw_corruption != 0) {
+            LOG_ERROR(HW_GPU,
+                      "ARM64 RasterizerInterface::Draw corrupted callee-saved state mask={:#x}",
+                      draw_corruption);
+        }
+#else
         maxwell3d->rasterizer->Draw(draw_indexed, instance_count);
+#endif
     }
 }
 
