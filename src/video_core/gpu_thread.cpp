@@ -59,7 +59,9 @@ static void RunThread(std::stop_token stop_token, Core::System& system, VideoCor
 ThreadManager::ThreadManager(Core::System& system_, bool is_async_)
     : system{system_}, is_async{is_async_} {}
 
-ThreadManager::~ThreadManager() = default;
+ThreadManager::~ThreadManager() {
+    Shutdown();
+}
 
 void ThreadManager::StartThread(VideoCore::RendererBase& renderer,
                                 Core::Frontend::GraphicsContext& context,
@@ -67,6 +69,14 @@ void ThreadManager::StartThread(VideoCore::RendererBase& renderer,
     rasterizer = renderer.ReadRasterizer();
     thread = std::jthread(RunThread, std::ref(system), std::ref(renderer), std::ref(context),
                           std::ref(scheduler), std::ref(state));
+}
+
+void ThreadManager::Shutdown() {
+    if (!thread.joinable()) {
+        return;
+    }
+    thread.request_stop();
+    thread.join();
 }
 
 void ThreadManager::SubmitList(s32 channel, Tegra::CommandList&& entries) {

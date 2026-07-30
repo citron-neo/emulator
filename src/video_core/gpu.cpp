@@ -42,6 +42,10 @@ struct GPU::Impl {
           gpu_thread{system_, is_async_}, scheduler{std::make_unique<Control::Scheduler>(gpu)} {}
 
     ~Impl() {
+        // The GPU thread references the scheduler, renderer, and channel state. Stop it while all
+        // of those members are still alive instead of relying on the jthread member destructor,
+        // which runs after the scheduler and channels due to reverse member destruction order.
+        gpu_thread.Shutdown();
         if (rasterizer) {
             rasterizer->Shutdown();
         }
