@@ -983,7 +983,6 @@ VkBuffer TextureCacheRuntime::GetTemporaryBuffer(size_t needed_size) {
 }
 
 void TextureCacheRuntime::CleanupUnusedBuffers() {
-    // Cleanup is now handled by the VRAM management system (gc_aggressiveness setting)
     // This function is kept for compatibility but no longer performs mode-specific cleanup
 }
 

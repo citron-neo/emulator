@@ -180,49 +180,6 @@ inline u32 EnumMetadata<ExtendedDynamicState>::Index() {
     return 26;
 }
 
-// FIXED: VRAM leak prevention - GC aggressiveness levels
-enum class GCAggressiveness : u32 {
-    Off = 0,   // Disable automatic GC (not recommended)
-    Light = 1, // Light GC - gentle eviction of old textures/buffers
-};
-
-template <>
-inline std::vector<std::pair<std::string, GCAggressiveness>>
-EnumMetadata<GCAggressiveness>::Canonicalizations() {
-    return {
-        {"Off", GCAggressiveness::Off},
-        {"Light", GCAggressiveness::Light},
-    };
-}
-
-template <>
-inline u32 EnumMetadata<GCAggressiveness>::Index() {
-    return 27;
-}
-
-// FIXED: Android Adreno 740 native ASTC eviction
-// Controls texture cache eviction strategy on Android devices with native ASTC support
-enum class AndroidAstcMode : u32 {
-    Auto = 0,       // Auto-detect based on GPU capabilities (recommended)
-    Native = 1,     // Force native ASTC - use compressed size for eviction
-    Decompress = 2, // Force decompression - use decompressed size (PC-style eviction)
-};
-
-template <>
-inline std::vector<std::pair<std::string, AndroidAstcMode>>
-EnumMetadata<AndroidAstcMode>::Canonicalizations() {
-    return {
-        {"Auto", AndroidAstcMode::Auto},
-        {"Native", AndroidAstcMode::Native},
-        {"Decompress", AndroidAstcMode::Decompress},
-    };
-}
-
-template <>
-inline u32 EnumMetadata<AndroidAstcMode>::Index() {
-    return 28;
-}
-
 enum class SpirvShaderOptimization : u32 {
     Off,
     Auto,

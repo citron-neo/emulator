@@ -1045,7 +1045,6 @@ class SettingsFragmentPresenter(
             add(HeaderSetting(R.string.astc_settings_header))
             add(IntSetting.ASTC_DECODE_MODE.key)
             add(IntSetting.ASTC_RECOMPRESSION.key)
-            add(IntSetting.ANDROID_ASTC_MODE.key)
 
             add(HeaderSetting(R.string.advanced_graphics_header))
             add(IntSetting.VRAM_USAGE_MODE.key)
@@ -1056,19 +1055,8 @@ class SettingsFragmentPresenter(
             add(IntSetting.FRAME_SKIPPING.key)
             add(IntSetting.FRAME_SKIPPING_MODE.key)
 
-            // VRAM Management settings (FIXED: VRAM leak prevention)
             add(HeaderSetting(R.string.vram_management_header))
             add(IntSetting.VRAM_LIMIT_MB.key)
-            add(IntSetting.GC_AGGRESSIVENESS.key)
-
-            // Only show eviction tuning when GC is set to Light (1)
-            val gcLevel = IntSetting.GC_AGGRESSIVENESS.getInt(false)
-            if (gcLevel == 1) {
-                add(IntSetting.TEXTURE_EVICTION_FRAMES.key)
-                add(IntSetting.BUFFER_EVICTION_FRAMES.key)
-                add(BooleanSetting.SPARSE_TEXTURE_PRIORITY_EVICTION.key)
-            }
-            add(BooleanSetting.LOG_VRAM_USAGE.key)
 
             // CRT Shader Settings (only shown when CRT filter is enabled)
             // CRTEasyMode = 9, CRTRoyale = 10

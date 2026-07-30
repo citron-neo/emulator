@@ -209,26 +209,6 @@ std::unique_ptr<TranslationMap> InitializeTranslations(QWidget* parent) {
            tr("Sets the maximum VRAM usage limit in megabytes. Set to 0 for auto-detection "
               "(80% of available VRAM). Recommended: 6144 for 8GB GPUs, 4096 for 6GB GPUs."));
     INSERT(
-        Settings, gc_aggressiveness, tr("GC Aggressiveness:"),
-        tr("Controls how aggressively the emulator evicts unused textures and buffers from VRAM.\n"
-           "Off: Disable automatic cleanup (default).\n"
-           "Light: Gentle cleanup, keeps more textures cached."));
-    INSERT(Settings, texture_eviction_frames, tr("Texture Eviction Frames:"),
-           tr("Number of frames a texture must be unused before it can be evicted. "
-              "Set to 0 for auto-tuning based on VRAM pressure (recommended). "
-              "Lower values free VRAM faster but may cause more texture reloading."));
-    INSERT(Settings, buffer_eviction_frames, tr("Buffer Eviction Frames:"),
-           tr("Number of frames a buffer must be unused before it can be evicted. "
-              "Set to 0 for auto-tuning based on VRAM pressure (recommended). "
-              "Lower values free VRAM faster but may cause more buffer reloading."));
-    INSERT(Settings, sparse_texture_priority_eviction, tr("Sparse Texture Priority Eviction"),
-           tr("Prioritize evicting large sparse textures when VRAM pressure is high. "
-              "This helps prevent VRAM exhaustion in games with large texture atlases."));
-    INSERT(Settings, log_vram_usage, tr("Log VRAM Usage"),
-           tr("Enable logging of VRAM usage statistics for debugging purposes. "
-              "Check the log for 'VRAM GC' and 'VRAM Status' messages."));
-
-    INSERT(
         Settings, vsync_mode, tr("VSync Mode:"),
         tr("FIFO (VSync) does not drop frames or exhibit tearing but is limited by the screen "
            "refresh rate.\nFIFO Relaxed is similar to FIFO but allows tearing as it recovers from "
@@ -412,13 +392,6 @@ std::unique_ptr<ComboboxTranslationMap> ComboboxEnumeration(QWidget* parent) {
                               PAIR(ExtendedDynamicState, EDS1, tr("EDS1")),
                               PAIR(ExtendedDynamicState, EDS2, tr("EDS2")),
                               PAIR(ExtendedDynamicState, EDS3, tr("EDS3")),
-                          }});
-
-    // FIXED: VRAM leak prevention - GC Aggressiveness dropdown options
-    translations->insert({Settings::EnumMetadata<Settings::GCAggressiveness>::Index(),
-                          {
-                              PAIR(GCAggressiveness, Off, tr("Off (Not Recommended)")),
-                              PAIR(GCAggressiveness, Light, tr("Light (Recommended)")),
                           }});
 
     translations->insert({Settings::EnumMetadata<Settings::RendererBackend>::Index(),

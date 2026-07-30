@@ -87,7 +87,6 @@ vk::Buffer CreateBuffer(const Device& device, const MemoryAllocator& memory_allo
 } // Anonymous namespace
 
 void BufferCacheRuntime::CleanupUnusedBuffers() {
-    // Cleanup is now handled by the VRAM management system (gc_aggressiveness setting)
     // This function is kept for compatibility but no longer performs mode-specific cleanup
 }
 

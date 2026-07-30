@@ -416,18 +416,6 @@
         <item>2</item>
     </integer-array>
 
-    <string-array name="androidAstcModeNames">
-        <item>@string/android_astc_mode_auto</item>
-        <item>@string/android_astc_mode_native</item>
-        <item>@string/android_astc_mode_decompress</item>
-    </string-array>
-
-    <integer-array name="androidAstcModeValues">
-        <item>0</item>
-        <item>1</item>
-        <item>2</item>
-    </integer-array>
-
     <string-array name="shaderBackendNames">
         <item>GLSL</item>
         <item>GLASM</item>
@@ -460,17 +448,6 @@
     </string-array>
 
     <integer-array name="vramUsageModeValues">
-        <item>0</item>
-        <item>1</item>
-    </integer-array>
-
-    <!-- VRAM Management setting arrays (FIXED: VRAM leak prevention) -->
-    <string-array name="gcAggressivenessNames">
-        <item>@string/gc_aggressiveness_off</item>
-        <item>@string/gc_aggressiveness_light</item>
-    </string-array>
-
-    <integer-array name="gcAggressivenessValues">
         <item>0</item>
         <item>1</item>
     </integer-array>

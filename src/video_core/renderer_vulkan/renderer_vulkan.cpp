@@ -202,21 +202,12 @@ void RendererVulkan::Report() const {
 
     // FIXED: VRAM leak prevention - Report VRAM management settings
     const u32 vram_limit_mb = Settings::values.vram_limit_mb.GetValue();
-    const auto gc_level = Settings::values.gc_aggressiveness.GetValue();
-    const u32 texture_eviction = Settings::values.texture_eviction_frames.GetValue();
-    const u32 buffer_eviction = Settings::values.buffer_eviction_frames.GetValue();
-
     if (vram_limit_mb > 0) {
         LOG_INFO(Render_Vulkan, "VRAM Limit: {} MB (configured)", vram_limit_mb);
     } else {
         LOG_INFO(Render_Vulkan, "VRAM Limit: Auto ({:.0f} MB, 80% of available)",
                  available_vram * 0.8 * 1024.0);
     }
-    LOG_INFO(Render_Vulkan, "GC Aggressiveness: {}, Texture eviction: {}, Buffer eviction: {}",
-             static_cast<u32>(gc_level),
-             texture_eviction == 0 ? "Auto" : fmt::format("{} frames", texture_eviction),
-             buffer_eviction == 0 ? "Auto" : fmt::format("{} frames", buffer_eviction));
-
     // OPTIMIZED FOR LOW GPU ACCURACY - performance focused optimizations active
     if (Settings::IsGPULevelLow()) {
         LOG_INFO(Render_Vulkan, "Low GPU Accuracy mode: Performance optimizations active (simplified "
