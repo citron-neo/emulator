@@ -307,7 +307,6 @@ public:
         u64 evicted_total;
         u32 texture_count;
         u32 sparse_texture_count;
-        f32 usage_ratio;          // Current usage / limit
     };
     [[nodiscard]] VRAMStats GetVRAMStats() const noexcept;
 
@@ -465,8 +464,6 @@ public:
     u64 expected_memory;
     u64 critical_memory;
 
-    // FIXED: VRAM leak prevention - Enhanced memory tracking
-    u64 vram_limit_bytes = 0;           // Configured VRAM limit (0 = auto)
     u64 sparse_texture_memory = 0;      // Memory used by sparse textures
     u64 large_texture_memory = 0;       // Memory used by large textures (>16MB)
     u64 evicted_this_frame = 0;         // Bytes evicted in current frame

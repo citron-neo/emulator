@@ -50,15 +50,8 @@ TextureCache<P>::TextureCache(Runtime& runtime_, Tegra::MaxwellDeviceMemoryManag
     void(slot_image_views.insert(runtime, NullImageViewParams{}));
     void(slot_samplers.insert(runtime, sampler_descriptor));
 
-    const u32 configured_limit_mb = Settings::values.vram_limit_mb.GetValue();
-
     if constexpr (HAS_DEVICE_MEMORY_INFO) {
         const s64 device_local_memory = static_cast<s64>(runtime.GetDeviceLocalMemory());
-        if (configured_limit_mb > 0) {
-            vram_limit_bytes = static_cast<u64>(configured_limit_mb) * 1_MiB;
-        } else {
-            vram_limit_bytes = static_cast<u64>(static_cast<double>(device_local_memory) * 0.80);
-        }
         const s64 min_spacing_expected = device_local_memory - 1_GiB;
         const s64 min_spacing_critical = device_local_memory - 512_MiB;
         const s64 mem_threshold = (std::min)(device_local_memory, TARGET_THRESHOLD);
@@ -72,8 +65,6 @@ TextureCache<P>::TextureCache(Runtime& runtime_, Tegra::MaxwellDeviceMemoryManag
                        DEFAULT_CRITICAL_MEMORY));
         minimum_memory = static_cast<u64>((device_local_memory - mem_threshold) / 2);
     } else {
-        vram_limit_bytes = configured_limit_mb > 0 ? static_cast<u64>(configured_limit_mb) * 1_MiB
-                                                    : 6_GiB; // Default 6GB if no info
         expected_memory = DEFAULT_EXPECTED_MEMORY + 512_MiB;
         critical_memory = DEFAULT_CRITICAL_MEMORY + 1_GiB;
         minimum_memory = 0;
@@ -175,9 +166,6 @@ void TextureCache<P>::TickFrame() {
 
 template <class P>
 typename TextureCache<P>::VRAMStats TextureCache<P>::GetVRAMStats() const noexcept {
-    const f32 usage_ratio = vram_limit_bytes > 0
-                                ? static_cast<f32>(total_used_memory) / static_cast<f32>(vram_limit_bytes)
-                                : 0.0f;
     return VRAMStats{
         .total_used_bytes = total_used_memory,
         .texture_bytes = total_used_memory - sparse_texture_memory,
@@ -186,7 +174,6 @@ typename TextureCache<P>::VRAMStats TextureCache<P>::GetVRAMStats() const noexce
         .evicted_total = evicted_total,
         .texture_count = texture_count,
         .sparse_texture_count = sparse_texture_count,
-        .usage_ratio = usage_ratio,
     };
 }
 

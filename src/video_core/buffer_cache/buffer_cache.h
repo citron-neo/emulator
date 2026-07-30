@@ -26,22 +26,13 @@ BufferCache<P>::BufferCache(Tegra::MaxwellDeviceMemoryManager& device_memory_, R
     gpu_modified_ranges.Clear();
     inline_buffer_id = NULL_BUFFER_ID;
 
-    const u32 configured_limit_mb = Settings::values.vram_limit_mb.GetValue();
-
     if (!runtime.CanReportMemoryUsage()) {
         minimum_memory = DEFAULT_EXPECTED_MEMORY;
         critical_memory = DEFAULT_CRITICAL_MEMORY;
-        vram_limit_bytes = configured_limit_mb > 0 ? static_cast<u64>(configured_limit_mb) * 1_MiB
-                                                    : 6_GiB;
         return;
     }
 
     const s64 device_local_memory = static_cast<s64>(runtime.GetDeviceLocalMemory());
-    if (configured_limit_mb > 0) {
-        vram_limit_bytes = static_cast<u64>(configured_limit_mb) * 1_MiB;
-    } else {
-        vram_limit_bytes = static_cast<u64>(static_cast<double>(device_local_memory) * 0.80);
-    }
     const s64 min_spacing_expected = device_local_memory - 1_GiB;
     const s64 min_spacing_critical = device_local_memory - 512_MiB;
     const s64 mem_threshold = (std::min)(device_local_memory, TARGET_THRESHOLD);

@@ -42,8 +42,6 @@ enum class IntSetting(override val key: String) : AbstractIntSetting {
     // CRT Shader Settings
     CRT_MASK_TYPE("crt_mask_type"),
 
-    VRAM_LIMIT_MB("vram_limit_mb"),
-
     // Applet Mode settings
     CABINET_APPLET_MODE("cabinet_applet_mode"),
     CONTROLLER_APPLET_MODE("controller_applet_mode"),

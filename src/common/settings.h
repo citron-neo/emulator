@@ -483,18 +483,6 @@ struct Values {
                                                            "vram_usage_mode",
                                                            Category::RendererAdvanced};
 
-    // FIXED: VRAM leak prevention - New memory management settings
-    // VRAM limit in MB (0 = auto-detect based on GPU, default 6144 for 6GB limit)
-    SwitchableSetting<u32, true> vram_limit_mb{linkage,
-                                               0,     // 0 = auto-detect (80% of available VRAM)
-                                               0,     // min: 0 (auto)
-                                               32768, // max: 32GB
-                                               "vram_limit_mb",
-                                               Category::RendererAdvanced,
-                                               Specialization::Default,
-                                               true,
-                                               true};
-
     SwitchableSetting<bool> async_presentation{linkage,
 #ifdef ANDROID
                                                true,

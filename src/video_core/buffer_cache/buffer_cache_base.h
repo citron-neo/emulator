@@ -505,7 +505,6 @@ public:
     u64 critical_memory = 0;
     BufferId inline_buffer_id;
 
-    u64 vram_limit_bytes = 0;
     u64 large_buffer_memory = 0;
     u64 evicted_buffer_bytes = 0;
     u32 buffer_count = 0;

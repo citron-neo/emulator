@@ -1055,9 +1055,6 @@ class SettingsFragmentPresenter(
             add(IntSetting.FRAME_SKIPPING.key)
             add(IntSetting.FRAME_SKIPPING_MODE.key)
 
-            add(HeaderSetting(R.string.vram_management_header))
-            add(IntSetting.VRAM_LIMIT_MB.key)
-
             // CRT Shader Settings (only shown when CRT filter is enabled)
             // CRTEasyMode = 9, CRTRoyale = 10
             val scalingFilter = IntSetting.RENDERER_SCALING_FILTER.getInt(false)

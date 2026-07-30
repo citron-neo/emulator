@@ -204,10 +204,6 @@ std::unique_ptr<TranslationMap> InitializeTranslations(QWidget* parent) {
               "Aggressive mode may severely impact the performance of other applications such as "
               "recording software."));
 
-    // FIXED: VRAM leak prevention - New VRAM management settings
-    INSERT(Settings, vram_limit_mb, tr("VRAM Limit (MB):"),
-           tr("Sets the maximum VRAM usage limit in megabytes. Set to 0 for auto-detection "
-              "(80% of available VRAM). Recommended: 6144 for 8GB GPUs, 4096 for 6GB GPUs."));
     INSERT(
         Settings, vsync_mode, tr("VSync Mode:"),
         tr("FIFO (VSync) does not drop frames or exhibit tearing but is limited by the screen "

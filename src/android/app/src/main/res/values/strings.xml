@@ -465,7 +465,6 @@
     <string name="memory_layout_header">Memory Layout</string>
     <string name="astc_settings_header">ASTC Settings</string>
     <string name="advanced_graphics_header">Advanced Graphics</string>
-    <string name="vram_management_header">VRAM Management</string>
     <string name="applet_settings_header">Applet Settings</string>
 
     <!-- Applet Mode Settings -->
@@ -1339,8 +1338,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
     <string name="frame_skipping_mode_adaptive">Adaptive</string>
     <string name="frame_skipping_mode_fixed">Fixed</string>
 
-    <string name="vram_limit_mb">VRAM Limit (MB)</string>
-    <string name="vram_limit_mb_description">Maximum VRAM usage limit in megabytes. Set to 0 for auto-detection (80%% of available VRAM). Recommended: 6144 for 8GB GPUs, 4096 for 6GB GPUs.</string>
     <string name="frame_skipping_header">Frame Skipping</string>
 
     <!-- CRT Shader Settings -->

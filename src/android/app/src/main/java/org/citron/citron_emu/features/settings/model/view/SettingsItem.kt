@@ -473,17 +473,6 @@ abstract class SettingsItem(
                 )
             )
 
-            // VRAM Management Settings (FIXED: VRAM leak prevention)
-            put(
-                SliderSetting(
-                    IntSetting.VRAM_LIMIT_MB,
-                    titleId = R.string.vram_limit_mb,
-                    descriptionId = R.string.vram_limit_mb_description,
-                    min = 0,
-                    max = 16384,
-                    units = " MB"
-                )
-            )
             // CRT Shader Settings (shown conditionally in Zep Zone when CRT filter is selected)
             put(
                 SliderSetting(
