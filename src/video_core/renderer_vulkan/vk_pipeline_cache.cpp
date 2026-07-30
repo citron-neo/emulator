@@ -468,60 +468,6 @@ PipelineCache::~PipelineCache() {
     }
 }
 
-void PipelineCache::EvictOldPipelines() {
-    constexpr u64 FRAMES_TO_KEEP = 2000;
-
-    const u64 current_frame = scheduler.CurrentTick();
-
-    if (current_frame - last_memory_pressure_frame < MEMORY_PRESSURE_COOLDOWN) {
-        return;
-    }
-    last_memory_pressure_frame = current_frame;
-
-    const u64 evict_before_frame =
-        current_frame > FRAMES_TO_KEEP ? current_frame - FRAMES_TO_KEEP : 0;
-
-    size_t evicted_graphics = 0;
-    size_t evicted_compute = 0;
-
-    for (auto it = graphics_cache.begin(); it != graphics_cache.end();) {
-        const GraphicsPipeline* pipeline = it->second.get();
-        if (pipeline && pipeline != current_pipeline) {
-            auto use_it = graphics_pipeline_last_use.find(pipeline);
-            if (use_it == graphics_pipeline_last_use.end() || use_it->second < evict_before_frame) {
-                graphics_pipeline_last_use.erase(pipeline);
-                it = graphics_cache.erase(it);
-                evicted_graphics++;
-            } else {
-                ++it;
-            }
-        } else {
-            ++it;
-        }
-    }
-
-    for (auto it = compute_cache.begin(); it != compute_cache.end();) {
-        const ComputePipeline* pipeline = it->second.get();
-        if (pipeline) {
-            auto use_it = compute_pipeline_last_use.find(pipeline);
-            if (use_it == compute_pipeline_last_use.end() || use_it->second < evict_before_frame) {
-                compute_pipeline_last_use.erase(pipeline);
-                it = compute_cache.erase(it);
-                evicted_compute++;
-            } else {
-                ++it;
-            }
-        } else {
-            ++it;
-        }
-    }
-
-    if (evicted_graphics > 0 || evicted_compute > 0) {
-        LOG_INFO(Render_Vulkan, "Evicted {} graphics and {} compute pipelines to free memory",
-                 evicted_graphics, evicted_compute);
-    }
-}
-
 GraphicsPipeline* PipelineCache::CurrentGraphicsPipeline() {
     if (!RefreshStages(graphics_key.unique_hashes)) {
         current_pipeline = nullptr;
@@ -537,16 +483,10 @@ GraphicsPipeline* PipelineCache::CurrentGraphicsPipeline() {
                 return nullptr;
             }
             current_pipeline = next;
-            // Update last use frame
-            graphics_pipeline_last_use[current_pipeline] = scheduler.CurrentTick();
             return BuiltPipeline(current_pipeline);
         }
     }
-    GraphicsPipeline* result = CurrentGraphicsPipelineSlowPath();
-    if (result) {
-        graphics_pipeline_last_use[result] = scheduler.CurrentTick();
-    }
-    return result;
+    return CurrentGraphicsPipelineSlowPath();
 }
 
 ComputePipeline* PipelineCache::CurrentComputePipeline() {
@@ -563,13 +503,9 @@ ComputePipeline* PipelineCache::CurrentComputePipeline() {
     const auto [pair, is_new]{compute_cache.try_emplace(key)};
     auto& pipeline{pair->second};
     if (!is_new && pipeline) {
-        compute_pipeline_last_use[pipeline.get()] = scheduler.CurrentTick();
         return pipeline.get();
     }
     pipeline = CreateComputePipeline(key, shader);
-    if (pipeline) {
-        compute_pipeline_last_use[pipeline.get()] = scheduler.CurrentTick();
-    }
     return pipeline.get();
 }
 
@@ -622,7 +558,6 @@ void PipelineCache::LoadDiskResources(u64 title_id, std::stop_token stop_loading
             auto pipeline{CreateComputePipeline(pools, key, env_, state.statistics.get(), false)};
             std::scoped_lock lock{state.mutex};
             if (pipeline) {
-                compute_pipeline_last_use[pipeline.get()] = scheduler.CurrentTick();
                 compute_cache.emplace(key, std::move(pipeline));
             }
             ++state.built;
@@ -673,12 +608,6 @@ void PipelineCache::LoadDiskResources(u64 title_id, std::stop_token stop_loading
 
             std::scoped_lock lock{state.mutex};
             if (pipeline) {
-                // Initialize last-use frame for disk-loaded pipelines so they
-                // survive EvictOldPipelines() calls before their first use.
-                // Without this, pipelines loaded from disk have no entry in
-                // graphics_pipeline_last_use and are immediately evicted on
-                // any memory pressure event.
-                graphics_pipeline_last_use[pipeline.get()] = scheduler.CurrentTick();
                 graphics_cache.emplace(key, std::move(pipeline));
             }
             ++state.built;
@@ -854,14 +783,6 @@ std::unique_ptr<GraphicsPipeline> PipelineCache::CreateGraphicsPipeline(
         descriptor_pool, guest_descriptor_queue, thread_worker, statistics, render_pass_cache, key,
         std::move(modules), infos);
 
-} catch (const vk::Exception& exception) {
-    if (exception.GetResult() == VK_ERROR_OUT_OF_DEVICE_MEMORY) {
-        LOG_ERROR(Render_Vulkan,
-                  "Out of device memory during graphics pipeline creation, attempting recovery");
-        EvictOldPipelines();
-        return nullptr;
-    }
-    throw;
 } catch (const Shader::Exception& exception) {
     auto hash = key.Hash();
     size_t env_index{0};
@@ -958,14 +879,6 @@ std::unique_ptr<ComputePipeline> PipelineCache::CreateComputePipeline(
                                              guest_descriptor_queue, thread_worker, statistics,
                                              &shader_notify, program.info, std::move(spv_module));
 
-} catch (const vk::Exception& exception) {
-    if (exception.GetResult() == VK_ERROR_OUT_OF_DEVICE_MEMORY) {
-        LOG_ERROR(Render_Vulkan,
-                  "Out of device memory during compute pipeline creation, attempting recovery");
-        EvictOldPipelines();
-        return nullptr;
-    }
-    throw;
 } catch (const Shader::Exception& exception) {
     LOG_ERROR(Render_Vulkan, "{}", exception.what());
     return nullptr;

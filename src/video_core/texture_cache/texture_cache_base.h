@@ -112,15 +112,7 @@ class TextureCache : public VideoCommon::ChannelSetupCaches<TextureCacheChannelI
     static constexpr s64 TARGET_THRESHOLD = 4_GiB;
     static constexpr s64 DEFAULT_EXPECTED_MEMORY = 1_GiB + 125_MiB;
     static constexpr s64 DEFAULT_CRITICAL_MEMORY = 1_GiB + 625_MiB;
-    static constexpr size_t GC_EMERGENCY_COUNTS = 2;
-
-    // FIXED: VRAM leak prevention - Enhanced eviction constants
-    static constexpr size_t SPARSE_EVICTION_PRIORITY_THRESHOLD = 4_MiB; // Prioritize sparse textures > 4MB
-    static constexpr size_t LARGE_TEXTURE_THRESHOLD = 16_MiB;           // Large texture threshold
-    static constexpr u64 DEFAULT_EVICTION_FRAMES = 2;                   // Default frames before eviction
-    static constexpr f32 VRAM_USAGE_WARNING_THRESHOLD = 0.75f;          // 75% - start warning
-    static constexpr f32 VRAM_USAGE_CRITICAL_THRESHOLD = 0.85f;         // 85% - aggressive GC
-    static constexpr f32 VRAM_USAGE_EMERGENCY_THRESHOLD = 0.95f;        // 95% - emergency eviction
+    static constexpr size_t LARGE_TEXTURE_THRESHOLD = 16_MiB;
 
     using Runtime = typename P::Runtime;
     using Image = typename P::Image;
@@ -306,22 +298,6 @@ private:
     void RunGarbageCollector();
 
 public:
-    /// Public interface to trigger garbage collection
-    void TriggerGarbageCollection() {
-        RunGarbageCollector();
-    }
-
-    // FIXED: VRAM leak prevention - Enhanced public interface for VRAM management
-
-    /// Force emergency garbage collection when VRAM pressure is critical
-    void ForceEmergencyGC();
-
-    void FlushSentencedRings() {
-        sentenced_images.Flush();
-        sentenced_framebuffers.Flush();
-        sentenced_image_view.Flush();
-    }
-
     /// Get current VRAM usage statistics
     struct VRAMStats {
         u64 total_used_bytes;
@@ -334,24 +310,6 @@ public:
         f32 usage_ratio;          // Current usage / limit
     };
     [[nodiscard]] VRAMStats GetVRAMStats() const noexcept;
-
-    /// Get configured VRAM limit in bytes
-    [[nodiscard]] u64 GetVRAMLimit() const noexcept { return vram_limit_bytes; }
-
-    /// Set VRAM limit (0 = auto-detect)
-    void SetVRAMLimit(u64 limit_bytes);
-
-    /// Check if VRAM pressure is high
-    [[nodiscard]] bool IsVRAMPressureHigh() const;
-
-    /// Check if VRAM pressure is critical (emergency)
-    [[nodiscard]] bool IsVRAMPressureCritical() const;
-
-    /// Evict oldest textures to free target_bytes of VRAM
-    u64 EvictToFreeMemory(u64 target_bytes);
-
-    /// Evict sparse textures with priority (large unmapped pages first)
-    u64 EvictSparseTexturesPriority(u64 target_bytes);
 
     /// Fills image_view_ids in the image views in indices
     template <bool has_blacklists>
@@ -513,15 +471,8 @@ public:
     u64 large_texture_memory = 0;       // Memory used by large textures (>16MB)
     u64 evicted_this_frame = 0;         // Bytes evicted in current frame
     u64 evicted_total = 0;              // Total bytes evicted since start
-    u32 gc_runs_this_frame = 0;         // Number of GC runs this frame
     u32 texture_count = 0;              // Total texture count
     u32 sparse_texture_count = 0;       // Sparse texture count
-    u64 last_gc_frame = 0;              // Last frame GC was run
-    bool emergency_gc_triggered = false; // Emergency GC flag
-
-    // FIXED: Android Adreno 740 native ASTC eviction
-    // When true, use compressed_size_bytes for eviction calculations on Android + Adreno 7xx
-    bool use_compressed_eviction = false;
 
     struct BufferDownload {
         GPUVAddr address;

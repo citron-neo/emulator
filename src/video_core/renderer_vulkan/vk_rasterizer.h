@@ -130,9 +130,6 @@ public:
     u64 GetTextureMemoryUsage() const;
     u64 GetStagingMemoryUsage() const;
 
-    // FIXED: VRAM leak prevention - Trigger garbage collection on texture/buffer caches
-    void TriggerMemoryGC();
-
     bool AccelerateConditionalRendering() override;
     bool AccelerateSurfaceCopy(const Tegra::Engines::Fermi2D::Surface& src,
                                const Tegra::Engines::Fermi2D::Surface& dst,
@@ -230,7 +227,6 @@ private:
 
     std::shared_mutex shutdown_mutex;
     std::atomic_bool is_shutting_down{false};
-    MemoryPressureCallbackRegistration memory_pressure_callback_registration;
 };
 
 } // namespace Vulkan

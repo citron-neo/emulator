@@ -139,15 +139,7 @@ private:
     vk::PipelineCache LoadVulkanPipelineCache(const std::filesystem::path& filename,
                                               u32 expected_cache_version);
 
-    /// Evicts old unused pipelines to free memory when under pressure
-    void EvictOldPipelines();
-
 public:
-    /// Public interface to evict old pipelines (for memory pressure handling)
-    void TriggerPipelineEviction() {
-        EvictOldPipelines();
-    }
-
     const Device& device;
     Scheduler& scheduler;
     DescriptorPool& descriptor_pool;
@@ -164,12 +156,6 @@ public:
 
     std::unordered_map<ComputePipelineCacheKey, std::unique_ptr<ComputePipeline>> compute_cache;
     std::unordered_map<GraphicsPipelineCacheKey, std::unique_ptr<GraphicsPipeline>> graphics_cache;
-
-    std::unordered_map<const GraphicsPipeline*, u64> graphics_pipeline_last_use;
-    std::unordered_map<const ComputePipeline*, u64> compute_pipeline_last_use;
-
-    u64 last_memory_pressure_frame{0};
-    static constexpr u64 MEMORY_PRESSURE_COOLDOWN = 300;
 
     ShaderPools main_pools;
 
