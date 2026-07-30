@@ -42,7 +42,6 @@ import org.citron.citron_emu.model.InstallableProperty
 import org.citron.citron_emu.model.SubmenuProperty
 import org.citron.citron_emu.model.TaskState
 import org.citron.citron_emu.utils.DirectoryInitialization
-import org.citron.citron_emu.utils.DocumentsTree
 import org.citron.citron_emu.utils.FileUtil
 import org.citron.citron_emu.utils.GameIconUtils
 import org.citron.citron_emu.utils.GpuDriverHelper
@@ -364,7 +363,16 @@ class GamePropertiesFragment : Fragment() {
             return
         }
 
-        val targets = InstalledContentTarget.entries.toTypedArray()
+        val programId = args.game.programId
+        val targets = buildList {
+            add(InstalledContentTarget.Game)
+            if (NativeLibrary.hasInstalledUpdate(programId)) {
+                add(InstalledContentTarget.Update)
+            }
+            if (NativeLibrary.hasInstalledDLC(programId)) {
+                add(InstalledContentTarget.DLC)
+            }
+        }.toTypedArray()
         MaterialAlertDialogBuilder(requireContext())
             .setTitle(R.string.remove_installed_content)
             .setItems(targets.map { getString(it.titleId) }.toTypedArray()) { _, position ->
@@ -671,35 +679,16 @@ class GamePropertiesFragment : Fragment() {
             R.string.dump_romfs_extracting,
             false
         ) { _, _ ->
-            // Convert URI to file path if needed
-            val dumpPathString = dumpPathUri?.let { uriString ->
-                try {
-                    val uri = android.net.Uri.parse(uriString)
-                    // For document tree URIs, try to get the actual file path
-                    if (DocumentsTree.isNativePath(uriString)) {
-                        uriString
-                    } else {
-                        // Try to extract file path from document URI
-                        // For document tree URIs, we can't easily get a native path
-                        // So we'll pass the URI and let the native code handle it
-                        // or extract path using DocumentFile
-                        val docFile = DocumentFile.fromTreeUri(requireContext(), uri)
-                        docFile?.uri?.path ?: uriString
-                    }
-                } catch (e: Exception) {
-                    null
-                }
-            }
-
-            val success = NativeLibrary.dumpRomFS(
+            val dumped = NativeLibrary.dumpRomFS(
                 args.game.path,
-                args.game.programIdHex,
-                dumpPathString,
+                args.game.programId,
+                null,
                 { max, progress ->
                     // Progress callback - return true to cancel
                     false
                 }
             )
+            val success = dumped && copyDumpToSelectedDirectory(dumpPathUri, "romfs")
             if (success) {
                 getString(R.string.dump_success)
             } else {
@@ -724,37 +713,52 @@ class GamePropertiesFragment : Fragment() {
             R.string.dump_exefs_extracting,
             false
         ) { _, _ ->
-            // Convert URI to file path if needed
-            val dumpPathString = dumpPathUri?.let { uriString ->
-                try {
-                    val uri = android.net.Uri.parse(uriString)
-                    // For document tree URIs, try to get the actual file path
-                    if (DocumentsTree.isNativePath(uriString)) {
-                        uriString
-                    } else {
-                        // Try to extract file path from document URI
-                        val docFile = DocumentFile.fromTreeUri(requireContext(), uri)
-                        docFile?.uri?.path ?: uriString
-                    }
-                } catch (e: Exception) {
-                    null
-                }
-            }
-
-            val success = NativeLibrary.dumpExeFS(
+            val dumped = NativeLibrary.dumpExeFS(
                 args.game.path,
-                args.game.programIdHex,
-                dumpPathString,
+                args.game.programId,
+                null,
                 { max, progress ->
                     // Progress callback - return true to cancel
                     false
                 }
             )
+            val success = dumped && copyDumpToSelectedDirectory(dumpPathUri, "exefs")
             if (success) {
                 getString(R.string.dump_success)
             } else {
                 getString(R.string.dump_failed)
             }
         }.show(parentFragmentManager, ProgressDialogFragment.TAG)
+    }
+
+    private fun copyDumpToSelectedDirectory(treeUri: String?, contentType: String): Boolean {
+        if (treeUri == null) {
+            return true
+        }
+
+        val source = File(
+            "${DirectoryInitialization.userDirectory}/dump/" +
+                "${args.game.programIdHex}/$contentType"
+        )
+        val root = DocumentFile.fromTreeUri(requireContext(), Uri.parse(treeUri)) ?: return false
+        val titleDirectory = root.findFile(args.game.programIdHex)
+            ?: root.createDirectory(args.game.programIdHex)
+            ?: return false
+        if (!titleDirectory.isDirectory) {
+            return false
+        }
+        val destination = titleDirectory.findFile(contentType)
+            ?: titleDirectory.createDirectory(contentType)
+            ?: return false
+        if (!destination.isDirectory) {
+            return false
+        }
+
+        val copied = with(FileUtil) { source.copyFilesTo(destination) }
+        if (copied) {
+            source.deleteRecursively()
+            source.parentFile?.takeIf { it.listFiles()?.isEmpty() == true }?.delete()
+        }
+        return copied
     }
 }

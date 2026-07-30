@@ -4,10 +4,12 @@
 
 #include <algorithm>
 #include <array>
+#include <chrono>
 #include <limits>
 #include <vector>
 
 #include "common/logging.h"
+#include "common/profiling.h"
 #include <ranges>
 #include "common/settings.h"
 #include "core/core.h"
@@ -181,6 +183,17 @@ bool Swapchain::AcquireNextImage() {
 }
 
 void Swapchain::Present(VkSemaphore render_semaphore) {
+    CITRON_PROFILE_SCOPE("Vulkan::Present");
+#if defined(CITRON_ENABLE_TRACY) && CITRON_ENABLE_TRACY
+    {
+        static auto last_present = std::chrono::steady_clock::now();
+        const auto now = std::chrono::steady_clock::now();
+        const double frame_ms =
+            std::chrono::duration<double, std::milli>(now - last_present).count();
+        last_present = now;
+        CITRON_PROFILE_PLOT("Frame Time (ms)", frame_ms);
+    }
+#endif
     const auto present_queue{device.GetPresentQueue()};
     const VkPresentInfoKHR present_info{
         .sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,

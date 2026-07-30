@@ -63,6 +63,7 @@ foreach(_comp ${_xcb_components})
         set(_url "https://xcb.freedesktop.org/dist/${_name}-${_ver}.tar.xz")
     endif()
     
+    set(CMAKE_TLS_VERIFY OFF)
     CPMAddPackage(
         NAME xcb_${_comp}_src
         URL "${_url}"

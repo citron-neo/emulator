@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <dynarmic/interface/code_page.h>
+#include "common/profiling.h"
 #include "common/settings.h"
 #include "core/arm/dynarmic/arm_dynarmic.h"
 #include "core/arm/dynarmic/arm_dynarmic_64.h"
@@ -390,11 +391,13 @@ std::shared_ptr<Dynarmic::A64::Jit> ArmDynarmic64::MakeJit(Common::PageTable* pa
 }
 
 HaltReason ArmDynarmic64::RunThread(Kernel::KThread* thread) {
+    CITRON_PROFILE_SCOPE("Dynarmic64::Run");
     m_jit->ClearExclusiveState();
     return TranslateHaltReason(m_jit->Run());
 }
 
 HaltReason ArmDynarmic64::StepThread(Kernel::KThread* thread) {
+    CITRON_PROFILE_SCOPE("Dynarmic64::Step");
     m_jit->ClearExclusiveState();
     return TranslateHaltReason(m_jit->Step());
 }
@@ -490,10 +493,12 @@ void ArmDynarmic64::SignalInterrupt(Kernel::KThread* thread) {
 }
 
 void ArmDynarmic64::ClearInstructionCache() {
+    CITRON_PROFILE_SCOPE("Dynarmic64::ClearCache");
     m_jit->ClearCache();
 }
 
 void ArmDynarmic64::InvalidateCacheRange(u64 addr, std::size_t size) {
+    CITRON_PROFILE_SCOPE("Dynarmic64::InvalidateCacheRange");
     m_jit->InvalidateCacheRange(addr, size);
 }
 

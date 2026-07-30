@@ -3,6 +3,8 @@
 
 #pragma once
 
+#include <algorithm>
+
 #include <boost/algorithm/string.hpp>
 #include "common/common_types.h"
 #include "common/literals.h"
@@ -32,6 +34,33 @@ enum class GameVerificationResult {
     Failed,
     NotImplemented,
 };
+
+inline bool HasUpdate(const Service::FileSystem::FileSystemController& fs_controller,
+                      const u64 program_id) {
+    const auto update_id = FileSys::GetUpdateTitleID(program_id);
+    const auto has_update = [update_id](const FileSys::RegisteredCache* cache) {
+        return cache != nullptr &&
+               cache->HasEntry(update_id, FileSys::ContentRecordType::Program);
+    };
+    return has_update(fs_controller.GetUserNANDContents()) ||
+           has_update(fs_controller.GetSDMCContents());
+}
+
+inline bool HasDLC(const Service::FileSystem::FileSystemController& fs_controller,
+                   const u64 program_id) {
+    const auto has_dlc = [program_id](const FileSys::RegisteredCache* cache) {
+        if (cache == nullptr) {
+            return false;
+        }
+        const auto entries = cache->ListEntriesFilter(FileSys::TitleType::AOC,
+                                                      FileSys::ContentRecordType::Data);
+        return std::any_of(entries.cbegin(), entries.cend(), [program_id](const auto& entry) {
+            return FileSys::GetBaseTitleID(entry.title_id) == program_id;
+        });
+    };
+    return has_dlc(fs_controller.GetUserNANDContents()) ||
+           has_dlc(fs_controller.GetSDMCContents());
+}
 
 /**
  * \brief Removes a single installed DLC

@@ -8,6 +8,7 @@
 #include <optional>
 #include <string_view>
 #include "common/intrusive_list.h"
+#include "common/profiling.h"
 #include "core/file_sys/fs_filesystem.h"
 #include "core/file_sys/vfs/vfs.h"
 
@@ -68,13 +69,18 @@ private:
     std::map<std::string, std::weak_ptr<VfsFile>, std::less<>> cache;
     ReferenceListType open_references;
     ReferenceListType closed_references;
-    std::mutex list_lock;
+    CITRON_PROFILE_LOCKABLE(std::mutex, list_lock);
+    // list_lock's actual type depends on CITRON_PROFILE_LOCKABLE (plain std::mutex
+    // vs. tracy::Lockable<std::mutex> when Tracy is enabled) -- alias the matching
+    // unique_lock instead of spelling out std::unique_lock<std::mutex> so this can't
+    // silently mismatch if that macro's expansion ever changes.
+    using ListLockGuard = std::unique_lock<decltype(list_lock)>;
     size_t num_open_files{};
 
 private:
     friend class RealVfsFile;
-    std::unique_lock<std::mutex> RefreshReference(const std::string& path, OpenMode perms,
-                                                  FileReference& reference);
+    ListLockGuard RefreshReference(const std::string& path, OpenMode perms,
+                                    FileReference& reference);
     void DropReference(std::unique_ptr<FileReference>&& reference);
 
 private:

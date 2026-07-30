@@ -9,6 +9,7 @@
 #include "video_core/renderer_vulkan/vk_query_cache.h"
 
 #include "common/thread.h"
+#include "common/profiling.h"
 #include "video_core/renderer_vulkan/vk_command_pool.h"
 #include "video_core/renderer_vulkan/vk_master_semaphore.h"
 #include "video_core/renderer_vulkan/vk_scheduler.h"
@@ -177,7 +178,10 @@ void Scheduler::WorkerThread(std::stop_token stop_token) {
             // Perform the work, tracking whether the chunk was a submission
             // before executing.
             const bool has_submit = work->HasSubmit();
-            work->ExecuteAll(current_cmdbuf, current_upload_cmdbuf);
+            {
+                CITRON_PROFILE_SCOPE("Vulkan::WorkerExecute");
+                work->ExecuteAll(current_cmdbuf, current_upload_cmdbuf);
+            }
 
             // If the chunk was a submission, reallocate the command buffer.
             if (has_submit) {
@@ -212,6 +216,7 @@ void Scheduler::AllocateWorkerCommandBuffer() {
 }
 
 u64 Scheduler::SubmitExecution(VkSemaphore signal_semaphore, VkSemaphore wait_semaphore) {
+    CITRON_PROFILE_SCOPE("Vulkan::SubmitExecution");
     EndPendingOperations();
     InvalidateState();
 

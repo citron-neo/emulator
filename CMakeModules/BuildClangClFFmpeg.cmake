@@ -132,7 +132,7 @@ function(citron_build_clangcl_ffmpeg)
         COMMAND "${CMAKE_COMMAND}" -E env "MSYS2_ARG_CONV_EXCL=*"
             "${BASH_PROGRAM}" -lc "${_ffmpeg_configure_command}"
         COMMAND "${CMAKE_COMMAND}" -E env "MSYS2_ARG_CONV_EXCL=*"
-            "${BASH_PROGRAM}" -lc "perl -0pi -e 's{(?<![A-Za-z0-9_])/([A-Za-z])/}{uc($1).q{:/}}ge; s{^(AR|AR_CMD)=llvm-lib}{$1=llvm-ar}mg' '${_build_dir_win}/ffbuild/config.mak' '${_build_dir_win}/ffbuild/config.sh'"
+            "${BASH_PROGRAM}" -lc "perl -0pi -e 's{^SRC_PATH=.*$}{SRC_PATH=${_source_dir_win}}m; s{(?<![A-Za-z0-9_])/([A-Za-z])/}{uc($1).q{:/}}ge; s{^(AR|AR_CMD)=llvm-lib}{$1=llvm-ar}mg' '${_build_dir_win}/ffbuild/config.mak' '${_build_dir_win}/ffbuild/config.sh'"
         COMMAND "${CMAKE_COMMAND}" -E env "MSYS2_ARG_CONV_EXCL=*"
             "${BASH_PROGRAM}" -lc "export PATH='${_clangcl_tool_dir_msys}:${_linker_tool_dir_msys}:${_ar_tool_dir_msys}':$PATH && '${MAKE_PROGRAM}' -j${_ffmpeg_jobs}"
         COMMAND "${CMAKE_COMMAND}" -E env "MSYS2_ARG_CONV_EXCL=*"

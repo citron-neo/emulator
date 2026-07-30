@@ -2,38 +2,30 @@
 # SPDX-FileCopyrightText: 2026 citron Emulator Project
 # SPDX-License-Identifier: GPL-3.0-or-later
 #
-# package-citron-linux.sh — Build AppImage + tar.zst using pkgforge tooling.
+# package-citron-linux.sh — build a citron AppImage + portable tar.zst using
+# pkgforge's quick-sharun (fetched fresh below, not vendored — see the fetch
+# block for why).
 #
-# Called by build-citron-linux.sh's build_appimage_stage() after the install
-# tree has been staged under build_dir/install-root.
-# Can also be invoked directly if the install tree is already in place.
+# Called by build-citron-linux.sh's build_appimage_stage() once citron is
+# staged under build_dir/install-root. Can also run standalone if that
+# install tree already exists.
 #
-# Environment variables:
-#   APP_VERSION   Version string embedded in artifact filenames (required)
-#   ARCH          CPU architecture (default: uname -m)
-#   ARCH_SUFFIX   Extra suffix appended to filenames (e.g. _v3)
-#   DEVEL         Set to 'true' to rename app to "citron nightly" in AppImage
-#   OUTPATH       Output directory for finished artifacts (default: $PWD/dist)
-#   DESTDIR       Staging root prepended to /usr paths when locating the
-#                 citron binary, desktop file, icon, and Qt translations
-#                 (default: "" — real /usr, e.g. for an already-installed
-#                 system citron). Set by build-citron-linux.sh's
-#                 build_appimage_stage() to a build-tree staging directory so
-#                 no system files are read from /usr and nothing is written
-#                 there. Does NOT apply to libpulse/libgamemode — those are
-#                 genuine host runtime libraries, not part of citron's install.
-#   STRACE_MODE   Enable dlopen/LD_DEBUG scan when citron starts up (default: 0)
-#                 Set to 1 only if xvfb-run is installed; see comment below.
-#   DEPLOY_VULKAN Deploy Vulkan loader + dependency chain into AppImage
-#                 (default: 1). See the DEPLOY_VULKAN comment further below
-#                 for the libLLVM interaction this can pull in.
-#   DEPLOY_OPENGL Deploy OpenGL/EGL/GLX libs into AppImage (default: 0)
-#   DEPLOY_PIPEWIRE Deploy PipeWire SPA/ALSA plugin trees (default: 0)
-#   DEPLOY_GTK    Deploy GTK modules and gvfs into AppImage (default: 0)
-#   CITRON_QT_PATH Qt6 installation prefix (= QT_TARGET_PATH from CMake,
-#                 e.g. .../cpmcache/qt-bin/6.9.3/gcc_64). Set automatically
-#                 by build-citron-linux.sh. Used to derive QT_LOCATION so
-#                 quick-sharun bundles CPM Qt plugins, not system Qt plugins.
+# Env vars:
+#   APP_VERSION     Version string for artifact filenames (required)
+#   ARCH            CPU arch (default: uname -m)
+#   ARCH_SUFFIX     Extra filename suffix, e.g. "_v3"
+#   DEVEL           "true" renames the app to "citron nightly"
+#   OUTPATH         Output dir for finished artifacts (default: $PWD/dist)
+#   DESTDIR         Staging root under which citron was installed (/usr layout)
+#   STRACE_MODE     dlopen/LD_DEBUG scan on startup (default: 0)
+#   DEPLOY_VULKAN   Bundle Vulkan loader (default: 1)
+#   DEPLOY_OPENGL   Bundle Mesa OpenGL/EGL/GLX (default: 0)
+#   DEPLOY_PIPEWIRE Bundle PipeWire tree (default: 0)
+#   DEPLOY_GLIBC    Bundle glibc from Arch container (default: 1)
+#   DEPLOY_GTK      Bundle GTK modules (default: 0)
+#   CITRON_QT_PATH  CPM Qt6 prefix
+#   CITRON_XCB_PATH CPM XCB prefix
+#   CITRON_VULKAN_LOADER_PATH CPM Vulkan loader lib dir
 
 set -ex
 
@@ -50,16 +42,9 @@ OUTPATH="${OUTPATH:-$PWD/dist}"
 export OUTNAME="${OUTNAME_BASE}.AppImage"
 export DESKTOP="${DESTDIR}/usr/share/applications/org.citron_emu.citron.desktop"
 
-# Prefer a rasterised 256×256 PNG for .DirIcon — SVG fails silently as an
-# AppImage icon on most desktop environments (appimaged, KDE, GNOME all expect
-# a PNG for taskbar/launcher display).
-#
-# Priority:
-#   1. Pre-built PNG installed by cmake (dist/org.citron_emu.citron.png →
-#      share/icons/hicolor/256x256/apps/); commit this to the emulator repo
-#      to make it permanent without needing any conversion tool.
-#   2. Convert the installed SVG if a conversion tool is present.
-#   3. Fall back to the raw SVG (icon will be broken on most desktops).
+# Prefer a rasterised 256x256 PNG for .DirIcon — bare SVG fails silently as
+# an AppImage icon on most desktops (appimaged, KDE, GNOME all want a PNG).
+# Priority: repo-committed PNG > convert the installed SVG > raw SVG.
 _png_from_repo="${DESTDIR}/usr/share/icons/hicolor/256x256/apps/org.citron_emu.citron.png"
 _svg_icon="${DESTDIR}/usr/share/icons/hicolor/scalable/apps/org.citron_emu.citron.svg"
 _png_icon="/tmp/citron-diricon-$$.png"
@@ -88,149 +73,81 @@ else
 fi
 
 # ── quick-sharun deployment flags ───────────────────────────────────────────
-#
-# STRACE_MODE=0 — disable the dlopen / LD_DEBUG scan entirely.
-#
-#   In default mode (STRACE_MODE=1) quick-sharun spawns citron under
-#   LD_DEBUG=libs for STRACE_TIME (default 5 s), then kills it, to capture
-#   libs only dlopen'd at runtime.  When xvfb-run is NOT installed, citron
-#   opens a real display window and the user must close it manually for the
-#   build to continue.  Even with xvfb-run the scan is harmful for citron:
-#   everything it captures is stuff we explicitly do NOT want bundled —
-#   Vulkan ICD drivers (libvulkan_radeon.so, libvulkan_intel.so,
-#   libLLVM.so.20.1 at 137 MB, …) loaded by vkCreateInstance(), the full
-#   PipeWire SPA plugin tree loaded by PulseAudio's backend discovery, and
-#   GTK accessibility modules from the GNOME a11y bus.  All of citron's
-#   legitimate runtime deps are already covered by the static ldd scan
-#   (explicit Qt plugins + libpulse + libgamemode).
 export STRACE_MODE="${STRACE_MODE:-0}"
-#
-# DEPLOY_VULKAN=1 — stage libvulkan.so.1 (the loader) and its dependency
-#   chain via the static ldd scan. This does NOT bundle GPU-vendor ICD
-#   drivers (libvulkan_radeon.so, etc.) — those stay host-provided regardless
-#   of this flag; SHARUN_ALLOW_SYS_VKICD=1 (set in .env below) makes sharun
-#   prefer the host GPU ICD at runtime. On some Mesa/Vulkan builds, the
-#   loader's own dependency chain has a hard DT_NEEDED on libLLVM*.so — see
-#   the post-dep-scan cleanup guard below, which used to strip this
-#   unconditionally and broke citron's ability to even start once this flag
-#   was turned on.
-#
-# DEPLOY_OPENGL=0 — do not stage Mesa DRI or the OpenGL set.
-#   libgbm.so, libdrm.so, libxcb-dri3.so, libxcb-glx.so are all DT_NEEDED of
-#   citron / Qt plugins and are captured by ldd regardless of this flag.
 export DEPLOY_VULKAN="${DEPLOY_VULKAN:-1}"
 export DEPLOY_OPENGL="${DEPLOY_OPENGL:-0}"
-#
-# DEPLOY_PIPEWIRE=0 — suppress the PipeWire/SPA/ALSA plugin staging block.
-#   On Ubuntu 24.04 PulseAudio is a PipeWire shim: ldd libpulse.so.0 shows
-#   libpipewire-0.3.so.0.  quick-sharun's NEEDED_LIBS scan therefore sets
-#   DEPLOY_PIPEWIRE=1, staging pipewire-0.3/* + spa-0.2/**/* + alsa-lib/
-#   *pipewire* (~41 PipeWire plugins + 11 ALSA plugins + Bluetooth codecs).
-#   These are backend-resolution plugins resolved from the HOST at runtime;
-#   bundling them bloats the AppImage and causes host-version conflicts.
-#   We carry libpulse.so.0 itself (passed explicitly below) — that is enough.
 export DEPLOY_PIPEWIRE="${DEPLOY_PIPEWIRE:-0}"
-#
-# DEPLOY_GTK=0 — suppress GTK module / gvfs staging.
-#   quick-sharun includes libqgtk3.so in the Qt plugin glob and runs ldd on
-#   it; ldd sees libgtk-3.so.0, triggering DEPLOY_GTK=1 which stages
-#   gtk-3.0/immodules/*, gvfs/libgvfscommon.so, and gio/modules/* (the full
-#   GTK accessibility + filesystem integration stack).  quick-sharun already
-#   sets QUICK_SHARUN_SKIP_DEPS_FOR="libqgtk3.so" so lib4bin skips transitive
-#   deps of that plugin — but the DETECTION loop fires before SKIP applies and
-#   sets DEPLOY_GTK=1 anyway.  The GTK platform theme should dlopen the HOST
-#   GTK at runtime; bundling it causes version conflicts.
+# DEPLOY_GLIBC=1: Bundle glibc from Arch container (glibc 2.41+) for broad host compatibility.
+export DEPLOY_GLIBC="${DEPLOY_GLIBC:-1}"
+# DEPLOY_GTK=0: GTK3 is not bundled. libqgtk3.so is purged in cleanup below to force Qt
+# to use D-Bus libqxdgdesktopportal.so, avoiding host GTK module crashes on GTK distros.
 export DEPLOY_GTK="${DEPLOY_GTK:-0}"
 
-# Tell quick-sharun to use CPM's Qt installation for plugins, not the SYSTEM
-# Qt. Without this, quick-sharun defaults to $LIB_DIR/qt6/plugins (system Qt),
-# whose shared libraries depend on the SYSTEM libQt6Core.so.6. That system
-# version may be older than the CPM-built Qt 6.9.3 citron was compiled against,
-# causing at AppImage runtime:
-#   libQt6Core.so.6: version 'Qt_6.9' not found
-#
-# CITRON_QT_PATH = QT_TARGET_PATH from CMake = the Qt6 prefix directory (e.g.
-# .../cpmcache/qt-bin/6.9.3/gcc_64). quick-sharun uses QT_LOCATION as the
-# prefix and looks for plugins at $QT_LOCATION/plugins — that's exactly where
-# aqt installs them.
+# ── CPM over system: steer dependency scan ──────────────────────────────────
 if [ -n "${CITRON_QT_PATH:-}" ] && [ -z "${QT_LOCATION:-}" ]; then
     export QT_LOCATION="${CITRON_QT_PATH}"
 fi
-
-# Fix for "libQt6Core.so.6: version 'Qt_6.9' not found" at AppImage runtime.
-#
-# Root cause: quick-sharun COPIES each CPM Qt plugin into AppDir/shared/lib/
-# before running ldd on the copy.  The plugins carry a $ORIGIN-relative
-# DT_RUNPATH (e.g. "$ORIGIN/../../../lib") that is correct when the plugin is
-# in $QT_LOCATION/plugins/platforms/, but resolves to a nonsense path once
-# $ORIGIN becomes AppDir/shared/lib/.  ldd then falls through to the system
-# linker search path and resolves libQt6Core.so.6 to the SYSTEM Qt (e.g.
-# Qt 6.4.2 on Ubuntu 24.04).  That system copy is staged into the AppImage as
-# AppDir/shared/lib/libQt6Core.so.6.  At runtime the CPM Qt 6.9 plugins
-# require the Qt_6.9 version symbol — absent from the system 6.4 core — and
-# the AppImage aborts with the version error.
-#
-# Fix: prepend CPM Qt's lib dir to LD_LIBRARY_PATH before calling quick-sharun.
-# LD_LIBRARY_PATH has higher priority than DT_RUNPATH, so every ldd invocation
-# inside lib4bin now finds CPM libQt6Core.so.6 (and all other Qt libs)
-# regardless of broken $ORIGIN resolution.  The citron binary itself is
-# unaffected: it carries DT_RPATH (set by _patch_binary_rpaths via
-# patchelf --force-rpath), which has higher priority than LD_LIBRARY_PATH.
-if [ -n "${CITRON_QT_PATH:-}" ]; then
-    export LD_LIBRARY_PATH="${CITRON_QT_PATH}/lib${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}"
+_cpm_lib_path=""
+for _p in "${CITRON_QT_PATH:+${CITRON_QT_PATH}/lib}" \
+          "${CITRON_XCB_PATH:+${CITRON_XCB_PATH}/lib}"; do
+    [ -n "${_p}" ] || continue
+    _cpm_lib_path="${_cpm_lib_path}${_cpm_lib_path:+:}${_p}"
+done
+if [ -n "${_cpm_lib_path}" ]; then
+    export LD_LIBRARY_PATH="${_cpm_lib_path}${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}"
 fi
 
-
-# Use the vendored quick-sharun.sh committed alongside this script rather than
-# downloading from pkgforge HEAD.  The vendored copy has appimagetool pinned to
-# 0.3.2 and sharun pinned to 1.0.0 (both already in the file); all DEPLOY_*
-# overrides and cleanup rules in this script were calibrated against that
-# specific version.  Pulling HEAD risks silent regressions if pkgforge changes
-# DEPLOY_* defaults or the AppDir layout between releases.
-_qs_src="$(cd "$(dirname "$0")" && pwd)/quick-sharun.sh"
-if [ ! -f "${_qs_src}" ]; then
-    printf 'ERROR: vendored quick-sharun.sh not found at %s\n' "${_qs_src}" >&2
-    printf 'Commit quick-sharun.sh to the repo alongside this script.\n' >&2
-    exit 1
-fi
-cp "${_qs_src}" ./quick-sharun
-chmod +x ./quick-sharun
-
-# Bundle binary + optional runtime libs.
+# ── Fetch quick-sharun ──────────────────────────────────────────────────────
 #
-# gamemode and libpulse are dlopen'd by cubeb/citron at runtime rather than
-# linked at build time, so quick-sharun's automatic dependency scan won't
-# find them — they must be passed explicitly if present.
-#
-# Locate them via `ldconfig -p` rather than a hardcoded /usr/lib/*.so* glob:
-# on multiarch systems (Debian/Ubuntu) these libs live under
-# /usr/lib/<triplet>/, not /usr/lib/ directly. A glob that matches nothing is
-# passed to quick-sharun as a literal non-existent path by POSIX sh (no
-# nullglob), which quick-sharun then treats as a hard requirement and aborts.
-# Neither lib is guaranteed to be present (e.g. pure PipeWire setups have no
-# libpulse.so), so both are best-effort.
+# Pinned to a commit rather than tracking refs/heads/main
+# so a change upstream can't silently alter DEPLOY_*
+# defaults or the AppDir layout underneath us; bump QUICK_SHARUN_REF
+# deliberately when needed. HOOKSRC is pinned to the same commit so
+# ADD_HOOKS below resolves against a matching tree.
+QUICK_SHARUN_REF="e9414c02f713359b551bcfa3832576d2992b13da"
+QUICK_SHARUN_URL="https://raw.githubusercontent.com/pkgforge-dev/Anylinux-AppImages/${QUICK_SHARUN_REF}/useful-tools/quick-sharun.sh"
+export HOOKSRC="https://raw.githubusercontent.com/pkgforge-dev/Anylinux-AppImages/${QUICK_SHARUN_REF}/useful-tools/hooks"
+curl -fL --retry 30 "${QUICK_SHARUN_URL}" -o quick-sharun \
+    || { echo "Error: failed to fetch quick-sharun from ${QUICK_SHARUN_URL}" >&2; exit 1; }
+chmod +x quick-sharun
+
+
+# Bundle binary + runtime libs that are dlopen'd rather than linked, so
+# quick-sharun's static ldd scan can't find them on its own. Located via
+# `ldconfig -p` instead of a hardcoded /usr/lib*/*.so glob because multiarch
+# systems (Debian/Ubuntu) keep them under /usr/lib/<triplet>/. All are
+# best-effort: a glob matching nothing would otherwise pass quick-sharun a
+# literal nonexistent path (POSIX sh has no nullglob) and it would abort.
 EXTRA_LIBS=""
 
 GAMEMODE_LIB="$(ldconfig -p 2>/dev/null | awk '/libgamemode\.so/ {print $NF; exit}')"
-if [ -n "$GAMEMODE_LIB" ]; then
-    EXTRA_LIBS="$EXTRA_LIBS $GAMEMODE_LIB"
-fi
+[ -n "$GAMEMODE_LIB" ] && EXTRA_LIBS="$EXTRA_LIBS $GAMEMODE_LIB"
 
 PULSE_LIB="$(ldconfig -p 2>/dev/null | awk '/libpulse\.so/ {print $NF; exit}')"
 if [ -n "$PULSE_LIB" ]; then
     EXTRA_LIBS="$EXTRA_LIBS $PULSE_LIB"
+    _pulse_dir="$(dirname "$PULSE_LIB")"
+    PULSECOMMON_LIB="$(find "$_pulse_dir" "${_pulse_dir}/pulseaudio" -maxdepth 1 -name 'libpulsecommon-*.so' 2>/dev/null | head -1)"
+    [ -n "$PULSECOMMON_LIB" ] && EXTRA_LIBS="$EXTRA_LIBS $PULSECOMMON_LIB"
 fi
+
+# The bundled Vulkan loader has Wayland entry points compiled in (confirmed
+# via nm -D: vkCreateWaylandSurfaceKHR, vkGetPhysicalDeviceWaylandPresent-
+# ationSupportKHR) but dlopen()s libwayland-client.so.0 for them rather than
+# linking it directly — invisible to the static ldd scan. Without it,
+# VK_KHR_wayland_surface reports unavailable even though the loader supports
+# it.
+WAYLAND_CLIENT_LIB="$(ldconfig -p 2>/dev/null | awk '/libwayland-client\.so/ {print $NF; exit}')"
+[ -n "$WAYLAND_CLIENT_LIB" ] && EXTRA_LIBS="$EXTRA_LIBS $WAYLAND_CLIENT_LIB"
 
 # shellcheck disable=SC2086
 ./quick-sharun "${DESTDIR}/usr/bin/citron"* $EXTRA_LIBS
+_appdir="${PWD}/AppDir"
 
-# Qt translations: quick-sharun's own copy logic (in its */qt*/plugins/*.so
-# case) hardcodes the source as /usr/share/$QT_DIR/translations — a SYSTEM
-# path. citron's Qt comes from CPM, not a system package, so that directory
-# doesn't exist on the build machine and quick-sharun's copy silently never
-# fires: zero Qt framework translations (qtbase_*.qm etc — Qt's own dialog/
-# button text) end up anywhere in the AppImage. Copy explicitly from the
-# real CPM Qt SDK prefix instead.
+# Qt translations: quick-sharun's own copy logic hardcodes the source as
+# /usr/share/$QT_DIR/translations (a system path) — CPM Qt has no such
+# directory on the build machine, so that copy silently never fires. Copy
+# explicitly from the real CPM Qt SDK prefix instead.
 if [ -n "${CITRON_QT_PATH:-}" ] && [ -d "${CITRON_QT_PATH}/translations" ]; then
     mkdir -p ./AppDir/usr/share/qt6
     cp -r "${CITRON_QT_PATH}/translations" ./AppDir/usr/share/qt6/translations
@@ -239,36 +156,16 @@ if [ -n "${CITRON_QT_PATH:-}" ] && [ -d "${CITRON_QT_PATH}/translations" ]; then
           ./AppDir/usr/share/qt6/translations/linguist*.qm 2>/dev/null || true
 fi
 
-# ── Post-dep-scan cleanup ────────────────────────────────────────────────────
-# Belt-and-suspenders: remove any bloat that slipped past the DEPLOY_* flags
-# or the STRACE_MODE=0 suppression (e.g. from ldd transitive chains we don't
-# fully control, or from a future quick-sharun version that overrides our flags
-# differently).  This runs BEFORE --make-appimage so lib4bin never sees them.
-#
-# Pattern                   Why excluded
-# libvulkan_*.so            Mesa Vulkan ICD drivers: system-specific, huge.
-#                           SHARUN_ALLOW_SYS_VKICD=1 uses host GPU driver.
-# libLLVM*.so               Mesa LLVM backend (137 MB): only needed by Mesa ICDs.
-# vulkan/icd.d/*            ICD manifest JSONs: useless without the ICD .so files.
-# vulkan/implicit_layer.d/* Vulkan validation / overlay layers: dev tooling only.
-# pipewire-*/               PipeWire backend plugins: resolved from host at runtime.
-# spa-*/                    PipeWire SPA plugins: same.
-# alsa-lib/                 ALSA plugins: same.
-# gconv/                    glibc character-set converters: citron never calls iconv.
-_appdir="${PWD}/AppDir"
+# Vulkan loader: Replace quick-sharun's system glob with CPM-built loader if path is provided.
+if [ -n "${CITRON_VULKAN_LOADER_PATH:-}" ] && [ -d "${CITRON_VULKAN_LOADER_PATH}" ]; then
+    find ./AppDir/lib -maxdepth 1 -iname 'libvulkan.so*' -delete 2>/dev/null || true
+    cp -P "${CITRON_VULKAN_LOADER_PATH}"/libvulkan.so* ./AppDir/lib/
+fi
 
-# Explicitly stage ld-linux into AppDir/shared/lib/ — lib4bin's AppRun.lib
-# prints "Interpreter not found!" and aborts if this file is absent.
-#
-# sharun -g (called by quick-sharun) is supposed to copy it, but it reads the
-# interpreter path from AppDir/shared/bin/citron AFTER _patch_away_usr_lib_dir
-# has run sed -i on the binary.  GNU sed on an ELF can silently corrupt the
-# section that encodes PT_INTERP, causing sharun -g to find no interpreter and
-# skip the copy.  We do it here from the original install-root binary (never
-# touched by sed) so it is guaranteed present regardless of sharun -g's outcome.
+# ── Post-dep-scan cleanup ────────────────────────────────────────────────────
+# Stage ld-linux into AppDir/shared/lib/ for sharun AppRun.lib
 _interp=$(patchelf --print-interpreter "${DESTDIR}/usr/bin/citron" 2>/dev/null)
 if [ -z "${_interp}" ]; then
-    # patchelf fallback: parse readelf output
     _interp=$(readelf -l "${DESTDIR}/usr/bin/citron" 2>/dev/null \
         | awk '/\[Requesting program interpreter:/{gsub(/[][]/,""); print $NF}')
 fi
@@ -280,144 +177,42 @@ else
     printf 'WARNING: could not determine PT_INTERP of citron; AppImage may fail with "Interpreter not found!"\n' >&2
 fi
 
-# These four rules assume Vulkan bundling was never wanted in the first
-# place (true when DEPLOY_VULKAN=0: the only source of Vulkan-related files
-# in AppDir would then be an accidental leak from ldd's transitive chain or
-# the dlopen scan). That assumption breaks when DEPLOY_VULKAN=1: quick-sharun
-# then *deliberately* stages libvulkan.so.1 and its own dependency chain via
-# the static ldd scan (see the "legitimate runtime deps" note above) — and on
-# some Mesa/Vulkan builds that chain has a genuine, hard DT_NEEDED on
-# libLLVM*.so (not merely a lazy dlopen() from an ICD at vkCreateInstance()
-# time). Deleting it unconditionally here would produce a citron binary that
-# fails to even start with "error while loading shared libraries:
-# libLLVM-17.so.1: cannot open shared object file" — exactly undoing what
-# enabling DEPLOY_VULKAN was meant to accomplish. So: only run this cleanup
-# group when Vulkan bundling is actually disabled.
-if [ "${DEPLOY_VULKAN}" != "1" ]; then
-    find "${_appdir}" -name 'libvulkan_*.so'                    -delete 2>/dev/null || true
-    find "${_appdir}" -name 'libLLVM*.so*'                      -delete 2>/dev/null || true
-    find "${_appdir}" -path '*/vulkan/icd.d/*'                  -delete 2>/dev/null || true
-    find "${_appdir}" -path '*/vulkan/implicit_layer.d/*'       -delete 2>/dev/null || true
+# Remove unused OpenGL/Mesa bloat (citron uses Vulkan only). Keep libqxcb-egl-integration.so.
+find "${_appdir}" -name 'libqxcb-glx-integration.so' -delete 2>/dev/null || true
+find "${_appdir}" -name 'libgallium-*.so'            -delete 2>/dev/null || true
+find "${_appdir}" -name 'libLLVM.so.*'               -delete 2>/dev/null || true
+find "${_appdir}" -path '*/dri/*'                    -delete 2>/dev/null || true
+find "${_appdir}" -name 'libxcb-glx.so*'             -delete 2>/dev/null || true
+# libqgtk3.so: Qt GTK3 platform theme. Purged to force Qt to use D-Bus libqxdgdesktopportal.so,
+# preventing host GTK module crashes on GTK desktops (Linux Mint, Ubuntu GNOME, XFCE).
+find "${_appdir}" -name 'libqgtk3.so'                -delete 2>/dev/null || true
+
+# Sanity check: confirm citron and the bundled Vulkan loader don't have an
+# unresolved dependency, and confirm which loader actually shipped. Runs
+# after cleanup, not before — an earlier version of this ran before the
+# Vulkan loader override above and consequently always showed the
+# pre-override state, never catching that the override wasn't happening.
+# Grep the build log for "ldd:" to find this.
+if [ "${PACKAGE_DIAGNOSTICS:-1}" = "1" ]; then
+    echo "ldd: citron"
+    ldd "${_appdir}/shared/bin/citron" 2>&1 || true
+    _vk="$(find "${_appdir}" -iname 'libvulkan.so.1' 2>/dev/null | head -1)"
+    if [ -n "${_vk}" ]; then
+        echo "shipped Vulkan loader: ${_vk}"
+        ldd "${_vk}" 2>&1 || true
+    fi
 fi
 
-# Qt's xcb-egl-integration / xcb-glx-integration platform plugins — real
-# files shipped in Qt's official gcc_64 plugin distribution regardless of
-# whether an app ever uses OpenGL, since Qt ships both the Vulkan-capable and
-# OpenGL-capable window-system-integration paths as independently-loadable
-# plugins. citron has no OpenGL renderer at all (confirmed: no
-# renderer_opengl source tree, no OpenGL CMake target in video_core, Vulkan
-# only) — so these two plugins are the only thing in this AppImage that ever
-# has a reason to touch Mesa's OpenGL stack.
+# qt.conf next to the real citron binary in shared/bin/, not shared/lib/.
 #
-# Confirmed via the ldd-diag block's actual output (not a naming-convention
-# guess this time, after two of those went wrong):
-#   libvulkan.so.1 (the real Vulkan loader, what DEPLOY_VULKAN=1 exists for)
-#       → libm.so.6, libc.so.6 only. Zero LLVM dependency of its own.
-#   libgallium-*.so (Mesa's OpenGL driver backend)
-#       → libLLVM.so.20.1. Nothing else in this bundled set touches it.
-# So Gallium's presence, and libLLVM.so.20.1 with it, traces entirely back
-# to these two Qt plugins — not to Vulkan/RADV as the original comment above
-# assumed. Deleting the plugins is the actual root-cause fix; deleting
-# Gallium/libLLVM.so.20.1 here too is redundant follow-through now that nothing
-# else needs them, kept for the same "don't leave 100+ MB of dead weight
-# lying around" reasons as the rest of this section.
-#
-# Caveat: this removes the plugin *files*, which is safe because Qt is
-# designed to gracefully skip missing optional platform-integration plugins.
-# It does NOT touch libLLVM-17.so.1 (dot-vs-hyphen: unrelated library, see
-# above) or anything Vulkan/RADV actually uses. Still needs one more real
-# Steam Deck confirmation before this is fully trusted — "citron never
-# creates an OpenGL context" is inferred from the absence of renderer
-# source, not from a runtime trace of what Qt actually probes at startup.
-find "${_appdir}" -name 'libqxcb-egl-integration.so'        -delete 2>/dev/null || true
-find "${_appdir}" -name 'libqxcb-glx-integration.so'        -delete 2>/dev/null || true
-find "${_appdir}" -name 'libgallium-*.so'                   -delete 2>/dev/null || true
-find "${_appdir}" -name 'libLLVM.so.*'                      -delete 2>/dev/null || true
-
-# Diagnostic only, not a cut: log the real DT_NEEDED chain for citron and for
-# whatever Vulkan/LLVM libraries remain after the cut above, so the next
-# build confirms this actually held (nothing broke, and libLLVM.so.20.1 no
-# longer gets re-bundled). Grep this build's log for "=== ldd-diag ===".
-echo "=== ldd-diag: citron binary ==="
-ldd "${_appdir}/bin/citron"* 2>&1 || true
-for _lib in libLLVM-17.so* libLLVM.so.* libvulkan.so.*; do
-    for _f in "${_appdir}"/lib/${_lib}; do
-        [ -e "${_f}" ] || continue
-        echo "=== ldd-diag: ${_f##*/} ==="
-        ldd "${_f}" 2>&1 || true
-    done
-done
-
-find "${_appdir}" -path '*/pipewire-*/*'          -type f   -delete 2>/dev/null || true
-find "${_appdir}" -path '*/spa-*/*'               -type f   -delete 2>/dev/null || true
-find "${_appdir}" -path '*/alsa-lib/*'            -type f   -delete 2>/dev/null || true
-find "${_appdir}" -path '*/gconv/*'               -type f   -delete 2>/dev/null || true
-
-# Remove system XCB libs that duplicate the CPM xcb-build copies.
-#
-# citron's DT_RPATH (set by _patch_binary_rpaths) points to xcb-build before
-# any system path.  lib4bin strips those RPATHs, so at runtime all resolution
-# goes through lib.path.  The Qt XCB plugin (libqxcb.so from CPM Qt) pulls in
-# system libxcb.so.1, libXau.so.6, and libXdmcp.so.6 via its own ldd chain,
-# staging them flat in AppDir/lib/.  The xcb-build copies of the same three
-# libraries are already in AppDir at the absolute-mirrored path; keeping both
-# is dead weight and violates the "CPM over system" policy.
-#
-# -maxdepth 1 on AppDir/lib/ hits only the flat system copies; the xcb-build
-# copies are nested deep under home/thayne/…/xcb-build/lib/ and are untouched.
-find "${_appdir}/lib" -maxdepth 1 -name 'libxcb.so*'    -delete 2>/dev/null || true
-find "${_appdir}/lib" -maxdepth 1 -name 'libXau.so*'     -delete 2>/dev/null || true
-find "${_appdir}/lib" -maxdepth 1 -name 'libXdmcp.so*'   -delete 2>/dev/null || true
-
-# Qt Multimedia's FFmpeg backend — belt-and-suspenders removal.
-#
-# citron is built with -DCITRON_USE_BUNDLED_FFMPEG=ON (static FFmpeg for game
-# media decoding) and -DCITRON_USE_QT_MULTIMEDIA=OFF (set in build-citron-linux.sh).
-# With CITRON_USE_QT_MULTIMEDIA=OFF these files are never staged because Qt
-# Multimedia is not linked.  These find/delete lines remain as a safety net in
-# case the flag is ever changed or if a future Qt version starts staging the
-# shared FFmpeg unconditionally.
-#
-# Background: Qt Multimedia pulls in a SEPARATE shared FFmpeg
-# (libavcodec.so.61 ~80 MB, libavformat.so.61, libavutil.so.59, libswresample,
-# libswscale) via libffmpegmediaplugin.so.  This is distinct from citron's own
-# statically compiled FFmpeg and adds ~100 MB to the AppImage for no benefit
-# (all camera/video recording code is Qt5-only and permanently dead under Qt6).
-find "${_appdir}" -name 'libffmpegmediaplugin.so'   -delete 2>/dev/null || true
-find "${_appdir}" -name 'libQt6FFmpegStub-*.so*'    -delete 2>/dev/null || true
-find "${_appdir}" -name 'libavcodec.so*'             -delete 2>/dev/null || true
-find "${_appdir}" -name 'libavformat.so*'            -delete 2>/dev/null || true
-find "${_appdir}" -name 'libavutil.so*'              -delete 2>/dev/null || true
-find "${_appdir}" -name 'libswresample.so*'          -delete 2>/dev/null || true
-find "${_appdir}" -name 'libswscale.so*'             -delete 2>/dev/null || true
-
-
-
-# Write a portable qt.conf next to the real citron binary in shared/bin/.
-#
-# CPM Qt's libQt6Core.so.6 has a baked-in INSTALL_PREFIX of
-# /home/<user>/cpmcache/qt-bin/6.9.x/gcc_64.  Without an explicit qt.conf,
-# Qt uses that absolute prefix to locate its plugins and translations at
-# runtime — which works on the build machine (the CPM directory exists on
-# disk, outside the AppImage) but silently breaks on every other machine.
-#
-# Qt's qt.conf search is rooted at the running executable's own path, not at
-# any library's location. sharun relocates the real citron binary to
-# AppDir/shared/bin/citron (AppDir/bin/citron is a thin wrapper, not what
-# Qt sees as its own executable at runtime) — so qt.conf has to live next to
-# it there, not next to libQt6Core.so.6 in shared/lib/, or Qt never finds it.
-# shared/bin/ and shared/lib/ are sibling directories under shared/, so
-# Prefix = ".." resolves to the same AppDir/shared/ either way — only the
-# file's location changes here, not its contents.
-#
-#   qt.conf at:   AppDir/shared/bin/qt.conf
-#   Prefix = ..   →  AppDir/shared/
-#   Plugins = lib →  AppDir/shared/lib/      (flat dir where lib4bin stages all plugins)
-#   Translations  →  AppDir/usr/share/qt6/translations (populated above)
-#
-# This also clobbers any qt.conf from the CPM installation that lib4bin or
-# strace may have staged here, ensuring absolute build-machine paths cannot
-# escape into the AppImage.
+# CPM Qt's libQt6Core.so.6 has a baked-in INSTALL_PREFIX (the CPM cache path)
+# that works on the build machine but not anywhere else without an explicit
+# qt.conf overriding it. Qt looks for qt.conf next to the running
+# executable — sharun relocates the real citron binary to
+# AppDir/shared/bin/citron (AppDir/bin/citron is a thin exec wrapper, not
+# what Qt sees as its own executable path at runtime), so qt.conf has to live
+# there, not next to libQt6Core.so.6. Also clobbers any qt.conf that lib4bin
+# staged from the CPM install itself, so no build-machine path can leak in.
 mkdir -p ./AppDir/shared/bin
 cat > ./AppDir/shared/bin/qt.conf << 'QTCONF_EOF'
 [Paths]
@@ -428,31 +223,23 @@ Qml2Imports = lib/qt6/qml
 Translations = ../usr/share/qt6/translations
 QTCONF_EOF
 
-# Rename app in desktop file if building a devel/nightly AppImage
 if [ "${DEVEL:-false}" = 'true' ]; then
     sed -i 's|^Name=citron$|Name=citron nightly|' ./AppDir/*.desktop 2>/dev/null || true
 fi
 
-# Allow system Vulkan ICD to override the bundled one at runtime. This is a
-# plain literal value, safe for dotenv parsing. Replace-or-append rather than
-# truncate: quick-sharun's own deployment pass can write its own entries to
-# this same .env file (GTK/Qt renderer settings, ANYLINUX_DO_NOT_LOAD_LIBS,
-# etc. -- see the various ">> \"$APPENV\"" writes throughout quick-sharun.sh),
-# and a truncating write here would silently discard any of those.
+# Allow the host's Vulkan ICD to override the bundled loader at runtime.
+# Replace-or-append rather than truncate: quick-sharun's own deployment pass
+# writes its own entries to this same .env (GTK/Qt renderer settings,
+# ANYLINUX_DO_NOT_LOAD_LIBS, etc.) and a truncating write here would discard
+# them.
 sed -i '/^SHARUN_ALLOW_SYS_VKICD=/d' ./AppDir/.env 2>/dev/null || true
 printf 'SHARUN_ALLOW_SYS_VKICD=1\n' >> ./AppDir/.env
 
-# Write PGO profile data next to the running AppImage on exit (matches the
-# old linuxdeploy $APPIMAGE_DIR convention). $APPIMAGE is exported by
-# sharun's AppRun at runtime and points to the AppImage file's own path.
-#
-# This can't live in .env: sharun's .env is parsed by a dotenv library (see
-# _sort_env_file's own comment further down), which does plain key=value
-# reads and cannot execute $(dirname "$APPIMAGE") as a shell command
-# substitution — the value would end up literally containing the text
-# "$(dirname "$APPIMAGE")" instead of a real path. AppRun.lib's *.hook files
-# in AppDir/bin/ are sourced as real shell code, so command substitution
-# works there.
+# PGO profile data next to the running AppImage on exit ($APPIMAGE is
+# exported by sharun's AppRun at runtime). Can't live in .env: that file is
+# parsed by a plain key=value dotenv reader and can't execute
+# $(dirname "$APPIMAGE") as a command substitution — AppDir/bin/*.hook files
+# are sourced as real shell, so it works there instead.
 mkdir -p ./AppDir/bin
 cat <<-'HOOK_EOF' > ./AppDir/bin/01-llvm-profile.hook
 #!/bin/sh
@@ -462,48 +249,37 @@ HOOK_EOF
 # Build the AppImage
 ./quick-sharun --make-appimage
 
-# Defensive: appimagetool already produces an executable file (an AppImage
-# has to be +x to function as a self-mounting ELF binary at all), and mv
-# below preserves that bit since it's a same-filesystem rename. Nothing in
-# this script's own flow can strip it. This chmod costs nothing and changes
-# nothing today, but guards against some future release/mirror/CDN step
-# outside this script silently dropping the bit without anyone noticing
-# until a user hits "Permission denied".
+# Defensive: appimagetool already produces an executable AppImage (it has to
+# be +x to self-mount as an ELF), and mv below preserves that bit as a
+# same-filesystem rename. Costs nothing; guards against some future
+# release/mirror step dropping the bit silently.
 chmod +x ./*.AppImage 2>/dev/null || true
 
 mkdir -p "${OUTPATH}"
-# OUTPATH normally *is* the current directory (build-citron-linux.sh sets it
-# to the same dir it just cd'd into) -- in that case the files are already
-# where they need to be, and `mv x ./` would just fail with a real "same
-# file" error. Only move when OUTPATH genuinely resolves elsewhere, and let
-# a real failure there actually fail the build instead of being silently
-# swallowed by a blanket || true.
+# OUTPATH is normally the same directory this script is already running in
+# (build-citron-linux.sh sets it that way) — in that case the files are
+# already where they need to be and `mv x ./` would fail with a real "same
+# file" error. Only move when OUTPATH genuinely resolves elsewhere.
 if [ "$(cd . && pwd -P)" != "$(cd "${OUTPATH}" && pwd -P)" ]; then
     mv -v ./*.AppImage "${OUTPATH}/"
-    # .AppImage.* sidecars (.zsync etc.) are optional -- loop with an
-    # existence check rather than a bare glob, since POSIX sh has no
-    # nullglob and set -e would otherwise abort the build if none exist.
+    # .AppImage.* sidecars (.zsync etc.) are optional; loop with an existence
+    # check since POSIX sh has no nullglob and set -e would otherwise abort
+    # the build if none exist.
     for f in ./*.AppImage.*; do
         [ -e "$f" ] || continue
         mv -v "$f" "${OUTPATH}/"
     done
 fi
 
-# Pack the portable tar.zst alongside the AppImage — the "+ tar.zst" half
-# promised by this script's header comment, previously unimplemented.
+# Pack the portable tar.zst alongside the AppImage from the same fully
+# debloated AppDir tree that was just squashed into it (every DEPLOY_*
+# suppression and the cleanup block above already ran before
+# --make-appimage) — a complete, AppRun-runnable, install-free alternative
+# to the AppImage, not a partial copy.
 #
-# AppDir at this point is the exact same fully-debloated tree that was just
-# squashed into the AppImage above (every DEPLOY_*/STRACE_MODE suppression and
-# the post-dep-scan find/-delete block above already ran before
-# --make-appimage), so this is a complete, AppRun-runnable, install-free
-# alternative to the AppImage — not a partial copy. (AppDir/usr/ is not used
-# by this layout — translations land under AppDir/lib/qt6/, see comment above —
-# so packing only "usr", as the pre-quick-sharun pipeline did, would produce a
-# near-empty archive here.)
-#
-# AppDir is then removed. It has no further purpose once packed, and leaving
-# it sitting in OUTPATH means anything that uploads/copies OUTPATH wholesale
-# (e.g. a CI artifact upload step) drags along every loose unpacked library a
+# AppDir is removed afterward: it has no further purpose once packed, and
+# leaving it in OUTPATH means anything that uploads/copies OUTPATH wholesale
+# (a CI artifact step, say) drags along every loose unpacked library a
 # second time alongside the AppImage that already contains them compressed.
 if [ -d ./AppDir ]; then
     tar -c --zstd -f "${OUTPATH}/${OUTNAME_BASE}.tar.zst" -C ./AppDir .
@@ -511,18 +287,9 @@ if [ -d ./AppDir ]; then
 fi
 
 # Clean up build-tool byproducts that land in this same directory (OUTPATH),
-# not just AppDir. build-citron-linux.sh sets OUTPATH to the same working
-# directory this script cd's into and downloads tooling into, so anything
-# these tools write to cwd ends up sitting next to the final artifacts unless
-# removed explicitly:
-#
-#   quick-sharun — the tool itself, copied to ./quick-sharun near the top of
-#                   this script (see the vendoring comment above). It has no
-#                   purpose after packaging finishes.
-#   appinfo      — a debug/metadata text file written to cwd by the
-#                   underlying appimagetool binary during --make-appimage.
-#                   Not generated by quick-sharun.sh itself, not meant for
-#                   redistribution — internal build debug output only.
+# not just AppDir: quick-sharun itself (fetched near the top of this script)
+# and appinfo (a debug/metadata file appimagetool writes to cwd during
+# --make-appimage, not meant for redistribution).
 rm -f ./quick-sharun ./appinfo
 
 echo "Artifacts in: ${OUTPATH}"

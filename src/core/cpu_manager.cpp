@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "common/fiber.h"
+#include "common/profiling.h"
 #include "common/scope_exit.h"
 #include "common/settings.h"
 #include "common/thread.h"
@@ -82,6 +83,7 @@ void CpuManager::MultiCoreRunGuestThread() {
     while (true) {
         auto* physical_core = &kernel.CurrentPhysicalCore();
         while (!physical_core->IsInterrupted()) {
+            CITRON_PROFILE_SCOPE("CpuManager::CoreTick");
             physical_core->RunThread(thread);
             physical_core = &kernel.CurrentPhysicalCore();
         }
@@ -120,6 +122,7 @@ void CpuManager::SingleCoreRunGuestThread() {
     while (true) {
         auto* physical_core = &kernel.CurrentPhysicalCore();
         if (!physical_core->IsInterrupted()) {
+            CITRON_PROFILE_SCOPE("CpuManager::CoreTick");
             physical_core->RunThread(thread);
             physical_core = &kernel.CurrentPhysicalCore();
         }
@@ -211,6 +214,7 @@ void CpuManager::RunThread(std::stop_token token, std::size_t core) {
 
     auto& data = core_data[core];
     data.host_context = Common::Fiber::ThreadToFiber();
+    data.host_context->SetName("HostCore_" + std::to_string(core));
 
     // Cleanup
     SCOPE_EXIT {

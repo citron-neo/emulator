@@ -6,6 +6,7 @@
 
 #include "common/error.h"
 #include "common/logging.h"
+#include "common/profiling.h"
 #include "common/thread.h"
 #ifdef __APPLE__
 #include <mach/mach.h>
@@ -85,6 +86,9 @@ void SetCurrentThreadPriority(ThreadPriority new_priority) {
 // Sets the debugger-visible name of the current thread.
 void SetCurrentThreadName(const char* name) {
     SetThreadDescription(GetCurrentThread(), UTF8ToUTF16W(name).data());
+#if defined(CITRON_ENABLE_TRACY) && CITRON_ENABLE_TRACY
+    tracy::SetThreadName(name);
+#endif
 }
 
 bool SetCurrentThreadAffinityMask(u64 affinity_mask) {
@@ -117,12 +121,18 @@ void SetCurrentThreadName(const char* name) {
 #else
     pthread_setname_np(pthread_self(), name);
 #endif
+#if defined(CITRON_ENABLE_TRACY) && CITRON_ENABLE_TRACY
+    tracy::SetThreadName(name);
+#endif
 }
 #endif
 
 #if defined(_WIN32)
 void SetCurrentThreadName(const char* name) {
     // Do Nothing on MingW
+#if defined(CITRON_ENABLE_TRACY) && CITRON_ENABLE_TRACY
+    tracy::SetThreadName(name);
+#endif
 }
 #endif
 
