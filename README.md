@@ -225,7 +225,6 @@ Core Capabilities
 
 Summary
 Citron is a technical powerhouse for researchers who need more than just "standard" virtualization. It bridges the gap between the lightweight agility of Docker and the robust isolation of VMs, all while maintaining a rigorous, high-fidelity network layer managed through direct kernel-level operations.
-Would you like to draft a README file or a technical abstract for a research paper based on this?
 
 Citron functions as a
 high-fidelity hardware-software co-design platform that bridges the gap between high-level container orchestration and low-level embedded hardware constraints. By integrating specialized architectures like Xtensa cores, Citron allows researchers to simulate and manage complex system-on-chip (SoC) behaviors within a virtualized framework.
@@ -254,4 +253,3 @@ Processor Type	Supports 32-bit configurable RISC/Xtensa architectures.
 Virtualization Method	Hardware-assisted virtualization using extensions like Intel VT-x or AMD-V for direct execution.
 Networking Layer	High-fidelity emulation that avoids standard I/O bottlenecks by using custom processor interfaces.
 Management	Centralized synchronization controller for container scheduling and I/O compensation.
-Would you like to explore how Citron handles specific network protocols like CoAP or MQTT on these virtualized Xtensa cores?
