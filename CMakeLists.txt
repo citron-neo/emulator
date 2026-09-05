@@ -78,6 +78,36 @@ option(CITRON_USE_LLVM_DEMANGLE "Search for and link against a system LLVM for C
 option(CITRON_USE_QT_MULTIMEDIA "Use QtMultimedia for Camera" OFF)
 
 option(CITRON_USE_QT_WEB_ENGINE "Use QtWebEngine for web applet implementation" OFF)
+# Use the native web applet on the platform that supports it. QtWebEngine remains
+# opt-in because it substantially increases the packaged runtime size.
+set(CITRON_DEFAULT_WEBKITGTK_WEB_ENGINE OFF)
+set(CITRON_DEFAULT_WEBVIEW2_WEB_ENGINE OFF)
+if (UNIX AND NOT APPLE AND NOT ANDROID)
+    set(CITRON_DEFAULT_WEBKITGTK_WEB_ENGINE ON)
+elseif (WIN32)
+    set(CITRON_DEFAULT_WEBVIEW2_WEB_ENGINE ON)
+endif()
+option(CITRON_USE_WEBKITGTK_WEB_ENGINE "Use WebKitGTK for web applet implementation (Linux)"
+       ${CITRON_DEFAULT_WEBKITGTK_WEB_ENGINE})
+option(CITRON_USE_WEBVIEW2_WEB_ENGINE "Use WebView2 for web applet implementation (Windows)"
+       ${CITRON_DEFAULT_WEBVIEW2_WEB_ENGINE})
+
+# More than one backend ON at once would silently pick one in a fixed priority order;
+# fail loud at configure time instead.
+if ((CITRON_USE_QT_WEB_ENGINE AND CITRON_USE_WEBKITGTK_WEB_ENGINE) OR
+    (CITRON_USE_QT_WEB_ENGINE AND CITRON_USE_WEBVIEW2_WEB_ENGINE) OR
+    (CITRON_USE_WEBKITGTK_WEB_ENGINE AND CITRON_USE_WEBVIEW2_WEB_ENGINE))
+    message(FATAL_ERROR "CITRON_USE_QT_WEB_ENGINE, CITRON_USE_WEBKITGTK_WEB_ENGINE, and "
+                        "CITRON_USE_WEBVIEW2_WEB_ENGINE are mutually exclusive -- exactly "
+                        "one web-browser-applet backend can be compiled in per build.")
+endif()
+
+if (CITRON_USE_WEBKITGTK_WEB_ENGINE AND NOT (UNIX AND NOT APPLE AND NOT ANDROID))
+    message(FATAL_ERROR "CITRON_USE_WEBKITGTK_WEB_ENGINE is Linux-only.")
+endif()
+if (CITRON_USE_WEBVIEW2_WEB_ENGINE AND NOT WIN32)
+    message(FATAL_ERROR "CITRON_USE_WEBVIEW2_WEB_ENGINE is Windows-only.")
+endif()
 
 option(ENABLE_UNITY_BUILD "Enables the unity build" OFF)
 
@@ -374,6 +404,17 @@ if (CITRON_USE_CPM)
     option(CPM_USE_LOCAL_PACKAGES "Prefer system find_package over CPM fetch" OFF)
     include(${CMAKE_SOURCE_DIR}/CMakeModules/CPM.cmake)
     include(${CMAKE_SOURCE_DIR}/CMakeModules/dependencies.cmake)
+endif()
+
+# Not nested in the CITRON_USE_CPM block above: WebKitGTK's dependency is
+# pkg-config, a system-library lookup with no CPM involvement at all. Gating it
+# on CITRON_USE_CPM meant a plain native Linux build (no clangtron/CPM pipeline)
+# with CITRON_USE_WEBKITGTK_WEB_ENGINE=ON would never run the pkg_check_modules
+# call in this file, then fail later on an undefined PkgConfig::WEBKITGTK target.
+# WebView2 (the only section in this file that needs CPM) still checks
+# CITRON_USE_CPM themselves, individually, inside the file.
+if (CITRON_USE_WEBKITGTK_WEB_ENGINE OR CITRON_USE_WEBVIEW2_WEB_ENGINE)
+    include(${CMAKE_SOURCE_DIR}/CMakeModules/webview_native_deps.cmake)
 endif()
 
 # Enforce the search mode of non-required packages for better and shorter failure messages
@@ -915,9 +956,8 @@ if(CITRON_CLANGCL)
         "clang-cl PGO/LTO compiler flags, applied only to citron's own first-party targets")
     set(CITRON_CLANGCL_PGO_LINK_FLAGS "" CACHE STRING
         "clang-cl PGO/LTO linker flags, applied only to citron's own first-party targets")
-    # CITRON_CLANGCL_PGO_LINK_FLAGS must be native lld-link syntax only (e.g. /INCLUDE:).
-    # CMake's Ninja Multi-Config generator invokes lld-link.exe directly for the final link
-    # (not via clang-cl), so /clang:-prefixed tokens would be treated as input file paths.
+      # CITRON_CLANGCL_PGO_LINK_FLAGS must be native lld-link syntax (e.g. /INCLUDE:) --
+    # lld-link.exe is invoked directly by Ninja, not via clang-cl.
     if(CITRON_CLANGCL_PGO_COMPILE_FLAGS OR CITRON_CLANGCL_PGO_LINK_FLAGS)
         separate_arguments(_citron_pgo_compile_flags UNIX_COMMAND "${CITRON_CLANGCL_PGO_COMPILE_FLAGS}")
         separate_arguments(_citron_pgo_link_flags UNIX_COMMAND "${CITRON_CLANGCL_PGO_LINK_FLAGS}")

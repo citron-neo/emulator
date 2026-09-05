@@ -48,6 +48,12 @@ add_executable(citron
     applets/qt_web_browser.cpp
     applets/qt_web_browser.h
     applets/qt_web_browser_scripts.h
+    applets/webkitgtk_web_browser.cpp
+    applets/webkitgtk_web_browser.h
+    applets/webkitgtk_web_browser_scripts.h
+    applets/webview2_web_browser.cpp
+    applets/webview2_web_browser.h
+    applets/webview2_web_browser_scripts.h
     bootmanager.cpp
     bootmanager.h
     controller_overlay.cpp
@@ -593,6 +599,18 @@ if (CITRON_USE_QT_WEB_ENGINE)
     target_compile_definitions(citron PRIVATE -DCITRON_USE_QT_WEB_ENGINE)
 endif ()
 
+if (CITRON_USE_WEBKITGTK_WEB_ENGINE)
+    # PkgConfig::WEBKITGTK / PkgConfig::GTK3 from CMakeModules/webview_native_deps.cmake.
+    target_link_libraries(citron PRIVATE PkgConfig::WEBKITGTK PkgConfig::GTK3)
+    target_compile_definitions(citron PRIVATE -DCITRON_USE_WEBKITGTK_WEB_ENGINE)
+endif ()
+
+if (CITRON_USE_WEBVIEW2_WEB_ENGINE)
+    # WebView2::WebView2 from CMakeModules/webview_native_deps.cmake.
+    target_link_libraries(citron PRIVATE WebView2::WebView2)
+    target_compile_definitions(citron PRIVATE -DCITRON_USE_WEBVIEW2_WEB_ENGINE)
+endif ()
+
 if (CITRON_ENABLE_PGO_GENERATE AND MSVC)
     target_compile_definitions(citron PRIVATE -DCITRON_ENABLE_PGO_GENERATE)
     target_link_libraries(citron PRIVATE pgobootrun)
@@ -669,7 +687,13 @@ if (MSVC)
     copy_citron_FFmpeg_deps(citron)
 elseif(MINGW)
     include(CopyMinGWDeps)
-    copy_mingw_deps(citron SEARCH_PATHS "${FFmpeg_PATH}/bin" "${QT_TARGET_PATH}/bin")
+    set(_webview2_loader_dir "")
+    if (WEBVIEW2_LOADER_RUNTIME_DLL)
+        get_filename_component(_webview2_loader_dir
+            "${WEBVIEW2_LOADER_RUNTIME_DLL}" DIRECTORY)
+    endif()
+    copy_mingw_deps(citron SEARCH_PATHS "${FFmpeg_PATH}/bin" "${QT_TARGET_PATH}/bin"
+                    "${_webview2_loader_dir}")
 endif()
 
 if (ARCHITECTURE_x86_64 OR ARCHITECTURE_arm64)

@@ -21,8 +21,8 @@ public:
             {1, C<&ErrorReportContext::CreateReportV0>, "CreateReportV0"},
             {2, nullptr, "SetInitialLaunchSettingsCompletionTime"},
             {3, nullptr, "ClearInitialLaunchSettingsCompletionTime"},
-            {4, nullptr, "UpdatePowerOnTime"},
-            {5, nullptr, "UpdateAwakeTime"},
+            {4, C<&ErrorReportContext::UpdatePowerOnTime>, "UpdatePowerOnTime"},
+            {5, C<&ErrorReportContext::UpdateAwakeTime>, "UpdateAwakeTime"},
             {6, nullptr, "SubmitMultipleCategoryContext"},
             {7, nullptr, "UpdateApplicationLaunchTime"},
             {8, nullptr, "ClearApplicationLaunchTime"},
@@ -72,6 +72,21 @@ private:
             Service_SET,
             "(STUBBED) called, report_type={:#x}, unknown={:#x}, create_report_option_flag={:#x}",
             report_type, unknown, create_report_option_flag);
+        R_SUCCEED();
+    }
+
+    // No input, no output - a periodic "tick" system modules/applets use to accumulate power-on
+    // time for error-report context. Previously unregistered entirely, which meant any guest
+    // that called it (e.g. a real system applet booted via LLE) hit a fatal "unimplemented
+    // function" assertion instead of the graceful stub every other command here gets.
+    Result UpdatePowerOnTime() {
+        LOG_WARNING(Service_SET, "(STUBBED) called");
+        R_SUCCEED();
+    }
+
+    // Same shape as UpdatePowerOnTime above, tracking awake (not-asleep) time instead.
+    Result UpdateAwakeTime() {
+        LOG_WARNING(Service_SET, "(STUBBED) called");
         R_SUCCEED();
     }
 };

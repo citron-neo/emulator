@@ -93,6 +93,18 @@ function(citron_build_clangtron_ffmpeg)
         set(_install_dir_msys "${_install_dir}")
     endif()
 
+    # FFmpeg's configure script runs in MSYS Bash and gives the compiler
+    # POSIX temporary paths (for example /tmp/ffconf.../test.c).  A Windows
+    # C:/... compiler spelling bypasses MSYS path conversion, leaving clang
+    # unable to locate those files.  Use the matching MSYS spelling only for
+    # the compiler commands executed by that script.
+    if(CMAKE_HOST_WIN32)
+        get_filename_component(_c_compiler_name "${CMAKE_C_COMPILER}" NAME)
+        set(_c_compiler_ffmpeg "${_clangtron_tool_dir_msys}/${_c_compiler_name}")
+    else()
+        set(_c_compiler_ffmpeg "${_c_compiler_win}")
+    endif()
+
     set(_build_stamp "${_install_dir}/.built")
     file(MAKE_DIRECTORY "${_build_dir}" "${_install_dir}")
 
@@ -135,7 +147,7 @@ function(citron_build_clangtron_ffmpeg)
         "'${_source_dir_win}/configure'"
         "--arch=x86_64"
         "--target-os=mingw32"
-        "--cc='${_c_compiler_win}'"
+        "--cc='${_c_compiler_ffmpeg}'"
         "--ar=llvm-ar"
         "--nm=llvm-nm"
         "--strip=llvm-strip"
@@ -169,7 +181,11 @@ function(citron_build_clangtron_ffmpeg)
     if(NOT CMAKE_HOST_WIN32)
         list(APPEND _ffmpeg_configure_command "--enable-cross-compile" "--cross-prefix=${_clangtron_tool_dir_msys}/x86_64-w64-mingw32-")
     else()
-        list(APPEND _ffmpeg_configure_command "--host-cc='${_c_compiler_win}'")
+        # clangtron targets MinGW Windows even when CMake itself runs from
+        # MSYS2 on Windows. FFmpeg must not try to execute that target probe
+        # during configure; it has to use its cross-compilation path instead.
+        list(APPEND _ffmpeg_configure_command "--enable-cross-compile")
+        list(APPEND _ffmpeg_configure_command "--host-cc='${_c_compiler_ffmpeg}'")
     endif()
 
     if(NOT "${_ffmpeg_extra_cflags}" STREQUAL "")
@@ -202,12 +218,12 @@ function(citron_build_clangtron_ffmpeg)
             "${_install_dir}/lib/libavcodec.a"
             "${_install_dir}/lib/libavutil.a"
             "${_install_dir}/lib/libavformat.a"
-        COMMAND "${CMAKE_COMMAND}" -E env "MSYS2_ARG_CONV_EXCL=*"
-            "${BASH_PROGRAM}" -lc "${_ffmpeg_configure_command}"
-        COMMAND "${CMAKE_COMMAND}" -E env "MSYS2_ARG_CONV_EXCL=*"
-            "${BASH_PROGRAM}" -lc "export PATH='${_clangtron_tool_dir_msys}':$PATH && '${MAKE_PROGRAM}' -j${_ffmpeg_jobs}"
-        COMMAND "${CMAKE_COMMAND}" -E env "MSYS2_ARG_CONV_EXCL=*"
-            "${BASH_PROGRAM}" -lc "export PATH='${_clangtron_tool_dir_msys}':$PATH && '${MAKE_PROGRAM}' install"
+        # Do not set MSYS2_ARG_CONV_EXCL here. FFmpeg launches the native
+        # compiler with POSIX paths for its temporary probes, and MSYS must
+        # translate those paths when it starts clang.
+        COMMAND "${BASH_PROGRAM}" -lc "${_ffmpeg_configure_command}"
+        COMMAND "${BASH_PROGRAM}" -lc "export PATH='${_clangtron_tool_dir_msys}':$PATH && '${MAKE_PROGRAM}' -j${_ffmpeg_jobs}"
+        COMMAND "${BASH_PROGRAM}" -lc "export PATH='${_clangtron_tool_dir_msys}':$PATH && '${MAKE_PROGRAM}' install"
         COMMAND "${CMAKE_COMMAND}" -E copy_if_different
             "${_ffmpeg_flags_sentinel_staged}" "${_ffmpeg_flags_sentinel}"
         COMMAND "${CMAKE_COMMAND}" -E touch "${_build_stamp}"

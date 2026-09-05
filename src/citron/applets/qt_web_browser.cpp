@@ -6,6 +6,8 @@
 
 #include <QApplication>
 #include <QKeyEvent>
+#include <QPointer>
+#include <QTimer>
 
 #include <QWebEngineProfile>
 #include <QWebEngineScript>
@@ -18,6 +20,7 @@
 #endif
 
 #include "common/fs/path_util.h"
+#include "common/logging.h"
 #include "core/core.h"
 #include "input_common/drivers/keyboard.h"
 #include "citron/applets/qt_web_browser.h"
@@ -45,6 +48,17 @@ constexpr int HIDButtonToKey(Core::HID::NpadButton button) {
     default:
         return 0;
     }
+}
+
+void ReplaceProfileScript(QWebEngineProfile* profile, const QWebEngineScript& script) {
+    auto* scripts = profile->scripts();
+    // QWebEngineProfile::defaultProfile() survives every temporary web-applet view. Without
+    // removing named predecessors, each Arcropolis screen adds another bridge/font/focus script
+    // and progressively slows all later screens.
+    for (const QWebEngineScript& existing : scripts->find(script.name())) {
+        scripts->remove(existing);
+    }
+    scripts->insert(script);
 }
 
 } // Anonymous namespace
@@ -77,8 +91,8 @@ QtNXWebEngineView::QtNXWebEngineView(QWidget* parent, Core::System& system,
     gamepad.setRunsOnSubFrames(true);
     window_nx.setRunsOnSubFrames(true);
 
-    default_profile->scripts()->insert(gamepad);
-    default_profile->scripts()->insert(window_nx);
+    ReplaceProfileScript(default_profile, gamepad);
+    ReplaceProfileScript(default_profile, window_nx);
 
     default_profile->setUrlRequestInterceptor(url_interceptor.get());
 
@@ -190,6 +204,15 @@ QString QtNXWebEngineView::GetCurrentURL() const {
     return url_interceptor->GetRequestedURL().toString();
 }
 
+void QtNXWebEngineView::EvaluateJavaScript(const QString& script,
+                                           std::function<void(const QVariant&)> callback) {
+    if (callback) {
+        page()->runJavaScript(script, std::move(callback));
+    } else {
+        page()->runJavaScript(script);
+    }
+}
+
 void QtNXWebEngineView::hide() {
     SetFinished(true);
     StopInputThread();
@@ -214,33 +237,45 @@ void QtNXWebEngineView::HandleWindowFooterButtonPressedOnce() {
     const auto f = [this](Core::HID::NpadButton button) {
         if (input_interpreter->IsButtonPressedOnce(button)) {
             const auto button_index = std::countr_zero(static_cast<u64>(button));
-
-            page()->runJavaScript(
-                QStringLiteral("citron_key_callbacks[%1] == null;").arg(button_index),
-                [this, button](const QVariant& variant) {
-                    if (variant.toBool()) {
-                        switch (button) {
-                        case Core::HID::NpadButton::A:
-                            SendMultipleKeyPressEvents<Qt::Key_A, Qt::Key_Space, Qt::Key_Return>();
-                            break;
-                        case Core::HID::NpadButton::B:
-                            SendKeyPressEvent(Qt::Key_B);
-                            break;
-                        case Core::HID::NpadButton::X:
-                            SendKeyPressEvent(Qt::Key_X);
-                            break;
-                        case Core::HID::NpadButton::Y:
-                            SendKeyPressEvent(Qt::Key_Y);
-                            break;
-                        default:
-                            break;
-                        }
-                    }
-                });
-
-            page()->runJavaScript(
-                QStringLiteral("if (citron_key_callbacks[%1] != null) { citron_key_callbacks[%1](); }")
-                    .arg(button_index));
+            // QWebEngine must only be called from its GUI thread. Calling it directly from the
+            // input worker happened to work on the first menu but was unreliable after the page
+            // changed. Execute the callback and determine whether a footer handler exists in one
+            // script, then use the normal key fallback only when it does not.
+            QMetaObject::invokeMethod(
+                this,
+                [this, button, button_index] {
+                    page()->runJavaScript(
+                        QStringLiteral("(function() { var callback = citron_key_callbacks[%1]; "
+                                       "if (typeof callback === 'function') { callback(); return true; } "
+                                       "return false; })();")
+                            .arg(button_index),
+                        [view = QPointer<QtNXWebEngineView>{this}, button](const QVariant& handled) {
+                            if (!view) {
+                                return;
+                            }
+                            if (handled.toBool()) {
+                                return;
+                            }
+                            switch (button) {
+                            case Core::HID::NpadButton::A:
+                                view->SendMultipleKeyPressEvents<Qt::Key_A, Qt::Key_Space,
+                                                                 Qt::Key_Return>();
+                                break;
+                            case Core::HID::NpadButton::B:
+                                view->SendKeyPressEvent(Qt::Key_B);
+                                break;
+                            case Core::HID::NpadButton::X:
+                                view->SendKeyPressEvent(Qt::Key_X);
+                                break;
+                            case Core::HID::NpadButton::Y:
+                                view->SendKeyPressEvent(Qt::Key_Y);
+                                break;
+                            default:
+                                break;
+                            }
+                        });
+                },
+                Qt::QueuedConnection);
         }
     };
 
@@ -365,14 +400,17 @@ void QtNXWebEngineView::LoadExtractedFonts() {
     nx_font_css.setRunsOnSubFrames(true);
     load_nx_font.setRunsOnSubFrames(true);
 
-    default_profile->scripts()->insert(nx_font_css);
-    default_profile->scripts()->insert(load_nx_font);
+    ReplaceProfileScript(default_profile, nx_font_css);
+    ReplaceProfileScript(default_profile, load_nx_font);
 
     connect(
         url_interceptor.get(), &UrlRequestInterceptor::FrameChanged, url_interceptor.get(),
         [this] {
-            std::this_thread::sleep_for(std::chrono::milliseconds(50));
-            page()->runJavaScript(QString::fromStdString(LOAD_NX_FONT));
+            // Do not sleep on the GUI thread. A screen transition issues several XHRs; the old
+            // 50 ms blocking delay for every one made the modal applet appear to hang.
+            QTimer::singleShot(50, this, [this] {
+                page()->runJavaScript(QString::fromStdString(LOAD_NX_FONT));
+            });
         },
         Qt::QueuedConnection);
 }
@@ -385,7 +423,7 @@ void QtNXWebEngineView::FocusFirstLinkElement() {
     focus_link_element.setWorldId(QWebEngineScript::MainWorld);
     focus_link_element.setInjectionPoint(QWebEngineScript::Deferred);
     focus_link_element.setRunsOnSubFrames(true);
-    default_profile->scripts()->insert(focus_link_element);
+    ReplaceProfileScript(default_profile, focus_link_element);
 }
 
 #endif
@@ -395,55 +433,182 @@ QtWebBrowser::QtWebBrowser(GMainWindow& main_window) {
             &GMainWindow::WebBrowserOpenWebPage, Qt::QueuedConnection);
     connect(this, &QtWebBrowser::MainWindowRequestExit, &main_window,
             &GMainWindow::WebBrowserRequestExit, Qt::QueuedConnection);
+    connect(this, &QtWebBrowser::MainWindowSendInteractiveData, &main_window,
+            &GMainWindow::WebBrowserDeliverInteractiveData, Qt::QueuedConnection);
     connect(&main_window, &GMainWindow::WebBrowserExtractOfflineRomFS, this,
             &QtWebBrowser::MainWindowExtractOfflineRomFS, Qt::QueuedConnection);
     connect(&main_window, &GMainWindow::WebBrowserClosed, this,
             &QtWebBrowser::MainWindowWebBrowserClosed, Qt::QueuedConnection);
+    connect(&main_window, &GMainWindow::WebBrowserInteractiveDataReceived, this,
+            &QtWebBrowser::MainWindowInteractiveDataReceived, Qt::QueuedConnection);
 }
 
 QtWebBrowser::~QtWebBrowser() = default;
 
 void QtWebBrowser::Close() const {
-    callback = {};
-    emit MainWindowRequestExit();
+    // Do not clear the active request here. Its completion callback is needed to complete the
+    // guest applet before a queued foreground page is allowed to start.
+    bool request_visible_page_close = false;
+    {
+        std::scoped_lock lock{callback_mutex};
+        if (active_web_page && !close_requested) {
+            close_requested = true;
+            request_visible_page_close = true;
+        }
+    }
+    if (request_visible_page_close) {
+        emit MainWindowRequestExit();
+    }
 }
 
 void QtWebBrowser::OpenLocalWebPage(const std::string& local_url,
                                     ExtractROMFSCallback extract_romfs_callback_,
-                                    OpenWebPageCallback callback_) const {
-    extract_romfs_callback = std::move(extract_romfs_callback_);
-    callback = std::move(callback_);
-
+                                    OpenWebPageCallback callback_,
+                                    InteractiveDataCallback interactive_data_callback_) const {
     const auto index = local_url.find('?');
+    PendingWebPage request{
+        .main_url = index == std::string::npos ? local_url : local_url.substr(0, index),
+        .additional_args = index == std::string::npos ? "" : local_url.substr(index),
+        .is_local = true,
+        .extract_romfs_callback = std::move(extract_romfs_callback_),
+        .callback = std::move(callback_),
+        .interactive_data_callback = std::move(interactive_data_callback_),
+    };
 
-    if (index == std::string::npos) {
-        emit MainWindowOpenWebPage(local_url, "", true);
-    } else {
-        emit MainWindowOpenWebPage(local_url.substr(0, index), local_url.substr(index), true);
+    bool request_visible_page_close = false;
+    std::optional<PendingWebPage> page_to_start;
+    {
+        std::scoped_lock lock{callback_mutex};
+        if (active_web_page) {
+            pending_web_pages.emplace_back(std::move(request));
+            if (!close_requested) {
+                close_requested = true;
+                request_visible_page_close = true;
+            }
+        } else {
+            active_web_page.emplace(std::move(request));
+            page_to_start = *active_web_page;
+        }
+    }
+
+    if (request_visible_page_close) {
+        // A WebSession only has one foreground surface. Starting the next request during the
+        // current page's event processing used to overwrite GMainWindow::web_applet and leave
+        // the nested Loading Web Applet dialog at 66%. Close the visible page first; its close
+        // callback starts the queued request below.
+        emit MainWindowRequestExit();
+    } else if (page_to_start) {
+        StartWebPageRequest(*page_to_start);
     }
 }
 
 void QtWebBrowser::OpenExternalWebPage(const std::string& external_url,
-                                       OpenWebPageCallback callback_) const {
-    callback = std::move(callback_);
-
+                                       OpenWebPageCallback callback_,
+                                       InteractiveDataCallback interactive_data_callback_) const {
     const auto index = external_url.find('?');
+    PendingWebPage request{
+        .main_url = index == std::string::npos ? external_url : external_url.substr(0, index),
+        .additional_args = index == std::string::npos ? "" : external_url.substr(index),
+        .is_local = false,
+        .callback = std::move(callback_),
+        .interactive_data_callback = std::move(interactive_data_callback_),
+    };
 
-    if (index == std::string::npos) {
-        emit MainWindowOpenWebPage(external_url, "", false);
-    } else {
-        emit MainWindowOpenWebPage(external_url.substr(0, index), external_url.substr(index),
-                                   false);
+    bool request_visible_page_close = false;
+    std::optional<PendingWebPage> page_to_start;
+    {
+        std::scoped_lock lock{callback_mutex};
+        if (active_web_page) {
+            pending_web_pages.emplace_back(std::move(request));
+            if (!close_requested) {
+                close_requested = true;
+                request_visible_page_close = true;
+            }
+        } else {
+            active_web_page.emplace(std::move(request));
+            page_to_start = *active_web_page;
+        }
+    }
+
+    if (request_visible_page_close) {
+        emit MainWindowRequestExit();
+    } else if (page_to_start) {
+        StartWebPageRequest(*page_to_start);
     }
 }
 
+void QtWebBrowser::StartWebPageRequest(const PendingWebPage& request) const {
+    emit MainWindowOpenWebPage(request.main_url, request.additional_args, request.is_local);
+}
+
+void QtWebBrowser::SendInteractiveData(const std::string& data) const {
+    emit MainWindowSendInteractiveData(data);
+}
+
 void QtWebBrowser::MainWindowExtractOfflineRomFS() {
-    extract_romfs_callback();
+    ExtractROMFSCallback local_callback;
+    {
+        std::scoped_lock lock{callback_mutex};
+        if (active_web_page) {
+            local_callback = active_web_page->extract_romfs_callback;
+        }
+    }
+    if (local_callback) {
+        local_callback();
+    }
 }
 
 void QtWebBrowser::MainWindowWebBrowserClosed(Service::AM::Frontend::WebExitReason exit_reason,
                                               std::string last_url) {
-    if (callback) {
-        callback(exit_reason, last_url);
+    std::optional<PendingWebPage> completed_page;
+    std::optional<PendingWebPage> next_page;
+    {
+        std::scoped_lock lock{callback_mutex};
+        if (!active_web_page) {
+            LOG_WARNING(Frontend, "Web browser closed without an active request (pending={}, "
+                        "close_requested={})",
+                        pending_web_pages.size(), close_requested);
+            if (!pending_web_pages.empty() && !close_requested) {
+                active_web_page.emplace(std::move(pending_web_pages.front()));
+                pending_web_pages.pop_front();
+                next_page = *active_web_page;
+            }
+        } else {
+            completed_page.emplace(std::move(*active_web_page));
+            active_web_page.reset();
+
+            // This completion belongs to the one deferred close emitted while queueing the
+            // replacement. Clear that record before promoting the next page so it cannot close
+            // the newly opened view; any further request stays queued until that view completes.
+            close_requested = false;
+            if (!pending_web_pages.empty()) {
+                active_web_page.emplace(std::move(pending_web_pages.front()));
+                pending_web_pages.pop_front();
+                next_page = *active_web_page;
+            }
+        }
+    }
+    if (completed_page && completed_page->callback) {
+        completed_page->callback(exit_reason, std::move(last_url));
+    }
+    if (next_page) {
+        StartWebPageRequest(*next_page);
+    }
+}
+
+void QtWebBrowser::MainWindowInteractiveDataReceived(std::string data) {
+    InteractiveDataCallback local_callback;
+    {
+        std::scoped_lock lock{callback_mutex};
+        if (active_web_page) {
+            local_callback = active_web_page->interactive_data_callback;
+        }
+    }
+    LOG_DEBUG(Frontend,
+                "[WebSession diagnostic] Native page message reached frontend ({} bytes, "
+                "callback={})",
+                data.size(), static_cast<bool>(local_callback));
+    if (local_callback) {
+        local_callback(std::move(data));
     }
 }

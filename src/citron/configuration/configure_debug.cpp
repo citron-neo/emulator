@@ -75,12 +75,10 @@ void ConfigureDebug::SetConfiguration() {
     ui->extended_logging->setChecked(Settings::values.extended_logging.GetValue());
     ui->perform_vulkan_check->setChecked(Settings::values.perform_vulkan_check.GetValue());
 
-#ifdef CITRON_USE_QT_WEB_ENGINE
-    ui->disable_web_applet->setChecked(UISettings::values.disable_web_applet.GetValue());
-#else
-    ui->disable_web_applet->setEnabled(false);
-    ui->disable_web_applet->setText(tr("Web applet not compiled"));
-#endif
+    // Now backed by Settings::values (checked directly in WebBrowser::Execute(), frontend-
+    // agnostic) rather than being tied to whether Qt WebEngine happens to be compiled in, so this
+    // checkbox is meaningful and always available regardless of CITRON_USE_QT_WEB_ENGINE.
+    ui->disable_web_applet->setChecked(Settings::values.disable_web_applet.GetValue());
 }
 
 void ConfigureDebug::ApplyConfiguration() {
@@ -110,7 +108,7 @@ void ConfigureDebug::ApplyConfiguration() {
     Settings::values.disable_macro_hle = ui->disable_macro_hle->isChecked();
     Settings::values.extended_logging = ui->extended_logging->isChecked();
     Settings::values.perform_vulkan_check = ui->perform_vulkan_check->isChecked();
-    UISettings::values.disable_web_applet = ui->disable_web_applet->isChecked();
+    Settings::values.disable_web_applet = ui->disable_web_applet->isChecked();
     CitronDebugger::ToggleConsole();
     Common::Log::Filter filter;
     filter.ParseFilterString(Settings::values.log_filter.GetValue());

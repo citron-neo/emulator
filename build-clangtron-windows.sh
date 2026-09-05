@@ -1616,6 +1616,17 @@ build_common_cmake_args() {
         "-DCITRON_USE_CPM=ON"
         "-DCITRON_CHECK_SUBMODULES=OFF"
         "-DCPM_SOURCE_CACHE=${CMAKE_CPM_CACHE}"
+        # This function is shared by every stage that calls it (see its own
+        # header comment), including the default llvm-mingw path -- QtWebEngine
+        # cannot build there at all (qt_download.cmake's own comment: "does not
+        # compile with MinGW"). Corrected from a 2-rounds-ago mistake: assumed
+        # this specific line was clang-cl-only without tracing whether the
+        # *function* itself was shared too. It is -- 6 call sites, and
+        # COMPILER_MODE defaults to llvm-mingw. The real clang-cl-only ON
+        # setting lives entirely separately, in the generated .cmd heredoc
+        # further down this file, untouched by this.
+        "-DCITRON_USE_QT_WEB_ENGINE=OFF"
+        "-DCITRON_USE_WEBVIEW2_WEB_ENGINE=ON"
         "-Wno-dev"
     )
     [[ -n "${GLSLC_PATH:-}" ]] && _CMAKE_ARGS+=(
@@ -4372,35 +4383,20 @@ stage_clangcl() {
     local pgo_link_flags_batch="${pgo_link_flags//%/%%}"
     local pgo_flags_dash_batch="${pgo_flags_dash//%/%%}"
 
-    # NOTE: CITRON_ENABLE_LTO and CITRON_ENABLE_PGO_GENERATE/USE are deliberately left
-    # OFF below, even though this build may genuinely be doing LTO/PGO via the raw
-    # /clang:-flto=... and /clang:-fprofile-instr-... flags already baked into
-    # CMAKE_C/CXX_FLAGS_${config} above. Do NOT "fix" these to reflect real state --
-    # turning them ON activates CMake-native, MSVC-flavored codepaths that fire
-    # whenever MSVC==TRUE (true for clang-cl) and stack incompatible flags on top of
-    # the script's own Clang-native ones:
-    #   - citron_configure_lto() (called from common/core/video_core/shader_recompiler/
-    #     network/audio_core/hid_core/input_common/frontend_common/web_service) sets
-    #     CMake's INTERPROCEDURAL_OPTIMIZATION property, which for an MSVC-ABI compiler
-    #     means CMake injects /GL at compile time and expects /LTCG at link time --
-    #     MSVC's own whole-program-optimization mechanism, not Clang's bitcode LTO.
-    #   - the top-level `if (MSVC) ... add_link_options(/LTCG)` block (CMakeLists.txt)
-    #     fires on the same OR condition.
-    #   - citron_configure_pgo()'s MSVC branch adds /FASTGENPROFILE, /PGD:, and
-    #     /USEPROFILE:PGD= link options -- MSVC's .pgd-based PGO, a completely
-    #     different, incompatible system from Clang's .profraw/.profdata instr-PGO
-    #     the script already sets up via -fprofile-instr-generate/-fprofile-instr-use.
-    #   - PGO.cmake's `if (MSVC) ... add_compile_options(/GL)` block fires too, and is
-    #     not gated by CITRON_PGO_FLAGS_MANAGED_BY_SCRIPT (that guard only wraps the
-    #     GNU/Clang branch, not the MSVC one).
-    # TracyClient's own LTO/PGO opt-out in dependencies.cmake does not depend on these
-    # vars being accurate -- it unconditionally forces INTERPROCEDURAL_OPTIMIZATION
-    # FALSE and appends -fno-lto/-fno-profile-* as target-level compile options on
-    # TracyClient regardless, so Tracy stays correctly isolated either way.
+    # CITRON_ENABLE_LTO and CITRON_ENABLE_PGO_GENERATE/USE are deliberately left OFF.
+    # Turning them ON activates MSVC-flavored LTO/PGO codepaths (citron_configure_lto,
+    # citron_configure_pgo, PGO.cmake) that conflict with the Clang-native flags this
+    # script already sets via CMAKE_C/CXX_FLAGS and CITRON_CLANGCL_PGO_COMPILE_FLAGS.
+    # TracyClient's opt-out in dependencies.cmake is unaffected either way.
     local _clangcl_lto_cmake="OFF"
     local _clangcl_pgo_generate="OFF"
     local _clangcl_pgo_use="OFF"
 
+    # All three build paths (Linux, llvm-mingw, clang-cl here) default
+    # CITRON_USE_QT_WEB_ENGINE off now -- no backend forced on by default
+    # anywhere until one of the replacements (WebKitGTK/WebView2) is actually
+    # validated. To try QtWebEngine here specifically (still the one backend
+    # that's genuinely known-working on this target), flip this one flag back.
     cat > "${build_dir}/build-clang-cl.cmd" <<CLANGCL_CMD_EOF
 @echo off
 setlocal
@@ -4418,6 +4414,8 @@ ${sccache_cmake_args}
   -DCITRON_USE_CPM=ON -DCITRON_USE_BUNDLED_VCPKG=OFF -DCITRON_CHECK_SUBMODULES=OFF ^
   -DCPM_SOURCE_CACHE="${cpm_win}" ^
   -DCITRON_CLANGCL=ON -DCITRON_USE_BUNDLED_QT=ON -DCITRON_USE_BUNDLED_FFMPEG=ON ^
+  -DCITRON_USE_QT_WEB_ENGINE=OFF ^
+  -DCITRON_USE_WEBVIEW2_WEB_ENGINE=ON ^
   -DBUILD_TESTING=OFF -DCITRON_TESTS=OFF -DCITRON_SHADER_TOOL=OFF ^
   -DCITRON_CRASH_DUMPS=OFF ^
   -DENABLE_UNITY_BUILD=${UNITY_BUILD} ^
@@ -4464,6 +4462,26 @@ if /I "${config}"=="RelWithDebInfo" (
 )
 if exist "${build_copy_win}\\bin\\${config}\\qt.conf" (
   copy /Y "${build_copy_win}\\bin\\${config}\\qt.conf" "${package_copy_win}\\qt.conf" >NUL
+  if errorlevel 1 exit /b 1
+)
+if exist "${build_copy_win}\\bin\\${config}\\QtWebEngineProcess.exe" (
+  copy /Y "${build_copy_win}\\bin\\${config}\\QtWebEngineProcess.exe" "${package_copy_win}\\QtWebEngineProcess.exe" >NUL
+  if errorlevel 1 exit /b 1
+)
+if exist "${build_copy_win}\\bin\\${config}\\icudtl.dat" (
+  copy /Y "${build_copy_win}\\bin\\${config}\\icudtl.dat" "${package_copy_win}\\icudtl.dat" >NUL
+  if errorlevel 1 exit /b 1
+)
+if exist "${build_copy_win}\\bin\\${config}\\*.pak" (
+  copy /Y "${build_copy_win}\\bin\\${config}\\*.pak" "${package_copy_win}\\" >NUL
+  if errorlevel 1 exit /b 1
+)
+if exist "${build_copy_win}\\bin\\${config}\\v8_context_snapshot*.bin" (
+  copy /Y "${build_copy_win}\\bin\\${config}\\v8_context_snapshot*.bin" "${package_copy_win}\\" >NUL
+  if errorlevel 1 exit /b 1
+)
+if exist "${build_copy_win}\\bin\\${config}\\qtwebengine_locales" (
+  xcopy /E /I /Y "${build_copy_win}\\bin\\${config}\\qtwebengine_locales" "${package_copy_win}\\qtwebengine_locales" >NUL
   if errorlevel 1 exit /b 1
 )
 for %%D in (iconengines imageformats platforms styles tls) do if exist "${build_copy_win}\\bin\\${config}\\%%D" (

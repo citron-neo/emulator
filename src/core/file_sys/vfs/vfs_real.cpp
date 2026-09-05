@@ -4,7 +4,7 @@
 
 #include <algorithm>
 #include <cstddef>
-#include <iterator>
+#include <filesystem>
 #include <utility>
 #include "common/assert.h"
 #include "common/fs/file.h"
@@ -13,6 +13,7 @@
 #include "common/logging.h"
 #include "core/file_sys/vfs/vfs.h"
 #include "core/file_sys/vfs/vfs_real.h"
+#include "core/file_sys/vfs/vfs_vector.h"
 
 // For FileTimeStampRaw
 #include <sys/stat.h>
@@ -41,6 +42,21 @@ namespace FS = Common::FS;
 namespace {
 
 constexpr size_t MaxOpenFiles = 512;
+
+bool IsUltimateSWebMenuCapabilityFile(std::string_view path) {
+    const auto components = FS::SplitPathComponentsCopy(path);
+    const size_t count = components.size();
+    if (count < 3 || components[count - 1] != "web_menus.flag" ||
+        components[count - 2] != "ult-s" || components[count - 3] != "ultimate") {
+        return false;
+    }
+
+    // Expose the opt-in only while Citron is loading the installed Arcropolis plugin. This is a
+    // virtual VFS entry: it never writes into the user's shared SD card.
+    const auto ultimate_dir =
+        std::filesystem::path{std::string{path}}.parent_path().parent_path();
+    return FS::IsFile(ultimate_dir / "mods" / "Ultimate S Arcropolis" / "plugin.nro");
+}
 
 constexpr FS::FileAccessMode ModeFlagsToFileAccessMode(OpenMode mode) {
     switch (mode) {
@@ -75,6 +91,9 @@ bool RealVfsFilesystem::IsWritable() const {
 
 VfsEntryType RealVfsFilesystem::GetEntryType(std::string_view path_) const {
     const auto path = FS::SanitizePath(path_, FS::DirectorySeparator::PlatformDefault);
+    if (IsUltimateSWebMenuCapabilityFile(path)) {
+        return VfsEntryType::File;
+    }
     if (!FS::Exists(path)) {
         return VfsEntryType::None;
     }
@@ -88,6 +107,9 @@ VfsEntryType RealVfsFilesystem::GetEntryType(std::string_view path_) const {
 VirtualFile RealVfsFilesystem::OpenFileFromEntry(std::string_view path_, std::optional<u64> size,
                                                  OpenMode perms) {
     const auto path = FS::SanitizePath(path_, FS::DirectorySeparator::PlatformDefault);
+    if (IsUltimateSWebMenuCapabilityFile(path)) {
+        return std::make_shared<VectorVfsFile>(std::vector<u8>{}, "web_menus.flag");
+    }
     std::scoped_lock lk{list_lock};
 
     if (auto it = cache.find(path); it != cache.end()) {
@@ -216,8 +238,10 @@ RealVfsFilesystem::ListLockGuard RealVfsFilesystem::RefreshReference(const std::
     if (!reference.file) {
         this->EvictSingleReferenceLocked();
 
-        reference.file =
-            FS::FileOpen(path, ModeFlagsToFileAccessMode(perms), FS::FileType::BinaryFile);
+        // A guest may reopen an SD-card file with a broader access mode after it has already
+        // been read. Keep the host backing handle shareable so this does not fail on Windows.
+        reference.file = FS::FileOpen(path, ModeFlagsToFileAccessMode(perms),
+                                      FS::FileType::BinaryFile, FS::FileShareFlag::ShareReadWrite);
         if (reference.file) {
             num_open_files++;
         }
@@ -409,6 +433,9 @@ RealVfsDirectory::~RealVfsDirectory() = default;
 
 VirtualFile RealVfsDirectory::GetFileRelative(std::string_view relative_path) const {
     const auto full_path = FS::SanitizePath(path + '/' + std::string(relative_path));
+    if (IsUltimateSWebMenuCapabilityFile(full_path)) {
+        return base.OpenFile(full_path, perms);
+    }
     if (!FS::Exists(full_path) || FS::IsDir(full_path)) {
         return nullptr;
     }

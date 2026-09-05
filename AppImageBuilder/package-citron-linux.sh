@@ -22,7 +22,7 @@
 #   DEPLOY_OPENGL   Bundle Mesa OpenGL/EGL/GLX (default: 0)
 #   DEPLOY_PIPEWIRE Bundle PipeWire tree (default: 0)
 #   DEPLOY_GLIBC    Bundle glibc from Arch container (default: 1)
-#   DEPLOY_GTK      Bundle GTK modules (default: 0)
+#   DEPLOY_GTK      Bundle GTK/WebKitGTK libraries and modules (default: 1)
 #   CITRON_QT_PATH  CPM Qt6 prefix
 #   CITRON_XCB_PATH CPM XCB prefix
 
@@ -80,9 +80,10 @@ export DEPLOY_OPENGL="${DEPLOY_OPENGL:-0}"
 export DEPLOY_PIPEWIRE="${DEPLOY_PIPEWIRE:-0}"
 # DEPLOY_GLIBC=1: Bundle glibc from Arch container for broad host compatibility.
 export DEPLOY_GLIBC="${DEPLOY_GLIBC:-1}"
-# DEPLOY_GTK=0: GTK3 is not bundled. libqgtk3.so is purged in cleanup below to force Qt
-# to use D-Bus libqxdgdesktopportal.so, avoiding host GTK module crashes on GTK distros.
-export DEPLOY_GTK="${DEPLOY_GTK:-0}"
+# WebKitGTK is the default web applet backend, so bundle its GTK stack rather than
+# relying on host packages. libqgtk3.so is still purged below: Qt then uses the
+# D-Bus XDG-desktop-portal theme path without affecting WebKitGTK itself.
+export DEPLOY_GTK="${DEPLOY_GTK:-1}"
 
 # ── CPM over system: steer dependency scan ──────────────────────────────────
 if [ -n "${CITRON_QT_PATH:-}" ] && [ -z "${QT_LOCATION:-}" ]; then
@@ -319,22 +320,51 @@ chmod +x ./AppDir/bin/02-hwaccel.hook
 # GNOME 48 has a Mutter compositor bug where native Wayland Qt windows render
 # incorrectly (black/frozen, missing icons). XCB via Xwayland sidesteps this.
 # Only applied when GNOME is detected AND Xwayland is running ($DISPLAY set).
-# If X11 is unavailable (e.g. GNOME 50+ pure Wayland), falls back to native
-# Wayland. The user can override with QT_QPA_PLATFORM=wayland.
+# If X11 is unavailable (e.g. GNOME 50+ pure Wayland), explicitly select native
+# Wayland. The user can still override QT_QPA_PLATFORM.
 # See: https://codeberg.org/pkgforge-dev/Citron-AppImage/issues/50
 cat <<-'HOOK_EOF' > ./AppDir/bin/03-gnome-xcb.hook
 #!/bin/sh
 if [ -z "${QT_QPA_PLATFORM:-}" ]; then
-    case "${XDG_CURRENT_DESKTOP:-}" in
-        *GNOME*|*gnome*)
-            if [ -n "${DISPLAY:-}" ]; then
-                export QT_QPA_PLATFORM=xcb
-            fi
-            ;;
-    esac
+    if [ -n "${WAYLAND_DISPLAY:-}" ] && [ -z "${DISPLAY:-}" ]; then
+        export QT_QPA_PLATFORM=wayland
+    else
+        case "${XDG_CURRENT_DESKTOP:-}" in
+            *GNOME*|*gnome*)
+                if [ -n "${DISPLAY:-}" ]; then
+                    export QT_QPA_PLATFORM=xcb
+                fi
+                ;;
+        esac
+    fi
 fi
 HOOK_EOF
 chmod +x ./AppDir/bin/03-gnome-xcb.hook
+
+# WebKitGTK launches its network, GPU, and web-content helper processes from a
+# build-time libexec directory (normally /usr/lib/webkit2gtk-4.1).  The AppImage
+# bundles those helpers and the injected bundle under AppDir/lib/webkit2gtk-4.1.
+cat <<-'HOOK_EOF' > ./AppDir/bin/04-webkitgtk.hook
+#!/bin/sh
+if [ -n "${APPDIR:-}" ] && [ -d "${APPDIR}/lib/webkit2gtk-4.1" ]; then
+    export WEBKIT_EXEC_PATH="${APPDIR}/lib/webkit2gtk-4.1"
+    export WEBKIT_INJECTED_BUNDLE_PATH="${APPDIR}/lib/webkit2gtk-4.1/injected-bundle"
+fi
+HOOK_EOF
+chmod +x ./AppDir/bin/04-webkitgtk.hook
+
+# quick-sharun's WebKitGTK deployment creates the upstream Anylinux-sharun bwrap wrapper and
+# deploys xdg-dbus-proxy automatically. Verify that supported integration made it into the final
+# AppDir rather than duplicating its launcher construction here.
+if [ -d "${_appdir}/lib/webkit2gtk-4.1" ]; then
+    for _webkit_tool_path in bin/bwrap shared/bin/bwrap \
+                                bin/xdg-dbus-proxy shared/bin/xdg-dbus-proxy; do
+        if [ ! -x "${_appdir}/${_webkit_tool_path}" ]; then
+            echo "Error: quick-sharun did not deploy required WebKitGTK helper ${_webkit_tool_path}" >&2
+            exit 1
+        fi
+    done
+fi
 
 # Build the AppImage
 ./quick-sharun --make-appimage

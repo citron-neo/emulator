@@ -144,6 +144,29 @@ enum class WebSessionBootMode : u32 {
     AllForegroundInitiallyHidden,
 };
 
+// WebSession messages are carried over the applet's interactive storage channels. The headers
+// are part of the Horizon ABI (rather than the web page's JavaScript API), so keep them here with
+// the rest of the web-applet wire types.
+enum class WebSessionSendMessageKind : u32 {
+    BrowserEngineContent = 0,
+    SystemMessageAppear = 0x100,
+    Ack = 0x1000,
+};
+
+enum class WebSessionReceiveMessageKind : u32 {
+    BrowserEngineContent = 0,
+    AckBrowserEngine = 0x1000,
+    AckSystemMessage = 0x1001,
+};
+
+struct WebSessionMessageHeader {
+    u32 kind{};
+    u32 size{};
+    std::array<u8, 8> reserved{};
+};
+static_assert(sizeof(WebSessionMessageHeader) == 0x10,
+              "WebSessionMessageHeader has incorrect size.");
+
 struct WebArgHeader {
     u16 total_tlv_entries{};
     INSERT_PADDING_BYTES(2);

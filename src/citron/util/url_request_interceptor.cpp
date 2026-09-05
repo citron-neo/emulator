@@ -18,7 +18,6 @@ void UrlRequestInterceptor::interceptRequest(QWebEngineUrlRequestInfo& info) {
         emit FrameChanged();
         break;
     case QWebEngineUrlRequestInfo::ResourceTypeSubFrame:
-    case QWebEngineUrlRequestInfo::ResourceTypeXhr:
         emit FrameChanged();
         break;
     default:
