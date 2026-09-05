@@ -537,6 +537,34 @@ elseif (CITRON_USE_BUNDLED_FFMPEG)
         set(FFMPEG_CPM_SOURCE_DIR "${ffmpeg_src_SOURCE_DIR}" CACHE INTERNAL
             "FFmpeg source location for the autotools bundled build")
     endif()
+
+    CPMAddPackage(
+        NAME ffnvcodec
+        GITHUB_REPOSITORY FFmpeg/nv-codec-headers
+        GIT_TAG n12.2.72.0
+        DOWNLOAD_ONLY YES
+    )
+    # Run unconditionally after CPMAddPackage — ffnvcodec_ADDED is only true on the
+    # first download; on cached CI runs it is false but ffnvcodec_SOURCE_DIR is still set.
+    if (ffnvcodec_SOURCE_DIR)
+        set(FFNVCODEC_FOUND YES)
+        set(FFNVCODEC_VERSION "12.2.72.0")
+        set(FFNVCODEC_INCLUDE_DIRS "${ffnvcodec_SOURCE_DIR}/include" CACHE INTERNAL
+            "ffnvcodec headers location for FFmpeg NVDEC/CUDA build")
+        set(FFNVCODEC_PKGCONFIG_DIR "${ffnvcodec_SOURCE_DIR}" CACHE INTERNAL
+            "ffnvcodec pkg-config directory")
+        # Always (re-)write ffnvcodec.pc so FFmpeg configure check_pkg_config succeeds.
+        # The write is idempotent; it only touches the file if content differs.
+        file(WRITE "${ffnvcodec_SOURCE_DIR}/ffnvcodec.pc"
+"prefix=${ffnvcodec_SOURCE_DIR}
+includedir=\${prefix}/include
+
+Name: ffnvcodec
+Description: FFmpeg version of Nvidia Codec SDK headers
+Version: 12.2.72.0
+Cflags: -I\${includedir}
+")
+    endif()
 endif()
 
 # ── Dependency Versions (Qt, XCB) ─────────────────────────────────────────

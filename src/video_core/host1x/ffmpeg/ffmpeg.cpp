@@ -43,6 +43,44 @@ constexpr std::array PreferredGpuDecoders = {
 #endif
 };
 
+std::string AVError(int errnum) {
+    char errbuf[AV_ERROR_MAX_STRING_SIZE] = {};
+    av_make_error_string(errbuf, sizeof(errbuf) - 1, errnum);
+    return errbuf;
+}
+
+// Creates a hardware device context of the given type, applying all rejection
+// criteria (e.g. VDPAU-impersonated VAAPI). Returns nullptr on failure or
+// rejection; the caller owns the returned reference.
+AVBufferRef* TryCreateHWDeviceContext(AVHWDeviceType type) {
+    AVBufferRef* ctx = nullptr;
+    if (const int ret = av_hwdevice_ctx_create(&ctx, type, nullptr, nullptr, 0); ret < 0) {
+        LOG_DEBUG(HW_GPU, "av_hwdevice_ctx_create({}) failed: {}", av_hwdevice_get_type_name(type),
+                  AVError(ret));
+        return nullptr;
+    }
+
+#ifdef LIBVA_FOUND
+    if (type == AV_HWDEVICE_TYPE_VAAPI) {
+        // We need to determine if this is an impersonated VAAPI driver.
+        const auto* hwctx = reinterpret_cast<AVHWDeviceContext*>(ctx->data);
+        const auto* vactx = static_cast<AVVAAPIDeviceContext*>(hwctx->hwctx);
+        const char* vendor_name = vaQueryVendorString(vactx->display);
+        if (strstr(vendor_name, "VDPAU backend")) {
+            // VDPAU impersonated VAAPI impls are super buggy, we need to skip them.
+            LOG_DEBUG(HW_GPU, "Skipping VDPAU impersonated VAAPI driver");
+            av_buffer_unref(&ctx);
+            return nullptr;
+        }
+        // According to some user testing, certain VAAPI drivers (Intel?) could be buggy.
+        // Log the driver name just in case.
+        LOG_DEBUG(HW_GPU, "Using VAAPI driver: {}", vendor_name);
+    }
+#endif
+
+    return ctx;
+}
+
 AVPixelFormat GetGpuFormat(AVCodecContext* codec_context, const AVPixelFormat* pix_fmts) {
     // codec_context->pix_fmt is AV_PIX_FMT_NONE when get_format is called, so we
     // cannot rely on it to identify which hw type was selected. Instead, walk the
@@ -71,9 +109,55 @@ AVPixelFormat GetGpuFormat(AVCodecContext* codec_context, const AVPixelFormat* p
             }
         }
 
-        LOG_INFO(HW_GPU, "Could not find supported GPU pixel format for {}, falling back to CPU decoder",
+        LOG_INFO(HW_GPU,
+                 "Could not find supported GPU pixel format for {}, trying fallback backends",
                  av_hwdevice_get_type_name(active_type));
         av_buffer_unref(&codec_context->hw_device_ctx);
+
+        // Walk the remaining preferred backends in order. Some codecs (e.g. VP9) expose
+        // a backend (e.g. Vulkan) in their HW config table but the driver does not actually
+        // offer that pixel format at decode time. Instead of jumping straight to CPU we try
+        // each remaining backend in preference order so that VAAPI/VDPAU can still be used.
+        for (const auto fallback_type : PreferredGpuDecoders) {
+            if (fallback_type == active_type) {
+                continue;
+            }
+
+            // Check whether the codec offers this device type's pixel format right now.
+            AVPixelFormat fallback_fmt = AV_PIX_FMT_NONE;
+            for (int i = 0;; i++) {
+                const AVCodecHWConfig* config = avcodec_get_hw_config(codec_context->codec, i);
+                if (!config) {
+                    break;
+                }
+                if (config->methods & AV_CODEC_HW_CONFIG_METHOD_HW_DEVICE_CTX &&
+                    config->device_type == fallback_type) {
+                    for (const AVPixelFormat* p = pix_fmts; *p != AV_PIX_FMT_NONE; ++p) {
+                        if (*p == config->pix_fmt) {
+                            fallback_fmt = *p;
+                            break;
+                        }
+                    }
+                    break;
+                }
+            }
+
+            if (fallback_fmt == AV_PIX_FMT_NONE) {
+                continue;
+            }
+
+            AVBufferRef* fallback_ctx = TryCreateHWDeviceContext(fallback_type);
+            if (!fallback_ctx) {
+                continue;
+            }
+
+            codec_context->hw_device_ctx = fallback_ctx;
+            LOG_INFO(HW_GPU, "Falling back to {} GPU decoder",
+                     av_hwdevice_get_type_name(fallback_type));
+            return fallback_fmt;
+        }
+
+        LOG_INFO(HW_GPU, "All GPU backends exhausted, falling back to CPU decoder");
     }
 
     // CPU fallback: pick the first software format on offer.
@@ -85,12 +169,6 @@ AVPixelFormat GetGpuFormat(AVCodecContext* codec_context, const AVPixelFormat* p
     }
 
     return PreferredCpuFormat;
-}
-
-std::string AVError(int errnum) {
-    char errbuf[AV_ERROR_MAX_STRING_SIZE] = {};
-    av_make_error_string(errbuf, sizeof(errbuf) - 1, errnum);
-    return errbuf;
 }
 
 } // namespace
@@ -195,33 +273,8 @@ bool HardwareContext::InitializeForDecoder(DecoderContext& decoder_context,
 
 bool HardwareContext::InitializeWithType(AVHWDeviceType type) {
     av_buffer_unref(&m_gpu_decoder);
-
-    if (const int ret = av_hwdevice_ctx_create(&m_gpu_decoder, type, nullptr, nullptr, 0);
-        ret < 0) {
-        LOG_DEBUG(HW_GPU, "av_hwdevice_ctx_create({}) failed: {}", av_hwdevice_get_type_name(type),
-                  AVError(ret));
-        return false;
-    }
-
-#ifdef LIBVA_FOUND
-    if (type == AV_HWDEVICE_TYPE_VAAPI) {
-        // We need to determine if this is an impersonated VAAPI driver.
-        auto* hwctx = reinterpret_cast<AVHWDeviceContext*>(m_gpu_decoder->data);
-        auto* vactx = static_cast<AVVAAPIDeviceContext*>(hwctx->hwctx);
-        const char* vendor_name = vaQueryVendorString(vactx->display);
-        if (strstr(vendor_name, "VDPAU backend")) {
-            // VDPAU impersonated VAAPI impls are super buggy, we need to skip them.
-            LOG_DEBUG(HW_GPU, "Skipping VDPAU impersonated VAAPI driver");
-            return false;
-        } else {
-            // According to some user testing, certain VAAPI drivers (Intel?) could be buggy.
-            // Log the driver name just in case.
-            LOG_DEBUG(HW_GPU, "Using VAAPI driver: {}", vendor_name);
-        }
-    }
-#endif
-
-    return true;
+    m_gpu_decoder = TryCreateHWDeviceContext(type);
+    return m_gpu_decoder != nullptr;
 }
 
 DecoderContext::DecoderContext(const Decoder& decoder) {

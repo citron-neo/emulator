@@ -257,6 +257,24 @@ for _vendor in /sys/class/drm/card*/device/vendor; do
     esac
 done
 
+# Host CUDA / NVDEC driver discovery for Debian/Ubuntu/Mint multiarch.
+# When proprietary NVIDIA is present, host driver libraries (libcuda.so.1,
+# libnvcuvid.so.1) live in distro-specific directories not in standard /usr/lib.
+# Appending them to LD_LIBRARY_PATH allows FFmpeg's runtime dlopen to find the
+# driver while preserving bundled libraries earlier in the search path.
+if [ -n "${_citron_has_proprietary_nvidia}" ]; then
+    for _cuda_dir in \
+        /usr/lib/x86_64-linux-gnu \
+        /usr/lib/x86_64-linux-gnu/nvidia/current \
+        /usr/lib/nvidia-* \
+        /opt/cuda/lib64 \
+        /run/opengl-driver/lib; do
+        if [ -e "${_cuda_dir}/libcuda.so.1" ] || [ -e "${_cuda_dir}/libcuda.so" ]; then
+            export LD_LIBRARY_PATH="${LD_LIBRARY_PATH:+$LD_LIBRARY_PATH:}${_cuda_dir}"
+        fi
+    done
+fi
+
 # Use bundled VAAPI only when it has a driver for an installed open GPU.
 # Proprietary NVIDIA remains host-side because its video driver must match the
 # installed kernel module.  Otherwise let the host-directory fallback choose.

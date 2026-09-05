@@ -523,19 +523,35 @@ if (NOT MSVC AND NOT APPLE)
         endif()
     endif()
 else()
-    # MSVC-style linkers (real MSVC and clang-cl, both report MSVC=TRUE) and
-    # Apple's ld64 don't understand -Wl,--whole-archive. Without an explicit
-    # equivalent, TracyClient's static initializer (which spawns the profiler
-    # worker thread) gets stripped because nothing in citron.exe directly
-    # references a TracyClient symbol.
-    if (MSVC AND CITRON_ENABLE_TRACY AND TARGET TracyClient)
-        target_link_options(citron PRIVATE "/WHOLEARCHIVE:$<TARGET_FILE:TracyClient>")
-        target_link_libraries(citron PRIVATE common core input_common frontend_common network video_core TracyClient)
+    # lld-link and link.exe support /WHOLEARCHIVE.  In particular, all bitcode
+    # archive members must be presented before LTO code generation begins.
+    if (MSVC)
+        target_link_options(citron PRIVATE
+            "/WHOLEARCHIVE:$<TARGET_FILE:common>"
+            "/WHOLEARCHIVE:$<TARGET_FILE:core>"
+            "/WHOLEARCHIVE:$<TARGET_FILE:input_common>"
+            "/WHOLEARCHIVE:$<TARGET_FILE:frontend_common>"
+            "/WHOLEARCHIVE:$<TARGET_FILE:network>"
+            "/WHOLEARCHIVE:$<TARGET_FILE:video_core>"
+        )
+        if (ENABLE_WEB_SERVICE)
+            target_link_options(citron PRIVATE "/WHOLEARCHIVE:$<TARGET_FILE:web_service>")
+        endif()
+        if (CITRON_ENABLE_TRACY AND TARGET TracyClient)
+            target_link_options(citron PRIVATE "/WHOLEARCHIVE:$<TARGET_FILE:TracyClient>")
+            target_link_libraries(citron PRIVATE common core input_common frontend_common network video_core TracyClient)
+        else()
+            target_link_libraries(citron PRIVATE common core input_common frontend_common network video_core)
+        endif()
     elseif (APPLE AND CITRON_ENABLE_TRACY AND TARGET TracyClient)
         target_link_options(citron PRIVATE "-Wl,-force_load,$<TARGET_FILE:TracyClient>")
         target_link_libraries(citron PRIVATE common core input_common frontend_common network video_core TracyClient)
     else()
         target_link_libraries(citron PRIVATE common core input_common frontend_common network video_core)
+    endif()
+    if (ENABLE_WEB_SERVICE)
+        target_compile_definitions(citron PRIVATE -DENABLE_WEB_SERVICE)
+        target_link_libraries(citron PRIVATE web_service)
     endif()
 endif()
 

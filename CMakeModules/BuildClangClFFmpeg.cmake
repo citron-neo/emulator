@@ -113,9 +113,111 @@ function(citron_build_clangcl_ffmpeg)
         set(_ffmpeg_vulkan_flags "--disable-vulkan")
     endif()
 
+    # ── ffnvcodec (NVDEC / CUDA) detection ────────────────────────────────────
+    set(_ffnvcodec_inc_dir "")
+    set(_ffnvcodec_pc_dir "")
+    if (DEFINED ffnvcodec_SOURCE_DIR AND EXISTS "${ffnvcodec_SOURCE_DIR}/include/ffnvcodec/nvEncodeAPI.h")
+        set(_ffnvcodec_inc_dir "${ffnvcodec_SOURCE_DIR}/include")
+        set(_ffnvcodec_pc_dir "${ffnvcodec_SOURCE_DIR}")
+    elseif (DEFINED FFNVCODEC_INCLUDE_DIRS AND EXISTS "${FFNVCODEC_INCLUDE_DIRS}/ffnvcodec/nvEncodeAPI.h")
+        set(_ffnvcodec_inc_dir "${FFNVCODEC_INCLUDE_DIRS}")
+        if (DEFINED FFNVCODEC_PKGCONFIG_DIR)
+            set(_ffnvcodec_pc_dir "${FFNVCODEC_PKGCONFIG_DIR}")
+        endif()
+    elseif (EXISTS "$ENV{MSYSTEM_PREFIX}/include/ffnvcodec/nvEncodeAPI.h")
+        set(_ffnvcodec_inc_dir "$ENV{MSYSTEM_PREFIX}/include")
+    endif()
+
+    set(_ffnvcodec_nvdec_flags "")
+    set(_ffnvcodec_export_pkgconfig "")
+    set(_ffnvcodec_pkg_config_opt "")
+    if (_ffnvcodec_inc_dir)
+        message(STATUS "[FFmpeg/clang-cl] ffnvcodec headers found at: ${_ffnvcodec_inc_dir}")
+        execute_process(
+            COMMAND "${CMAKE_COMMAND}" -E env "MSYS2_ARG_CONV_EXCL=*"
+                "${BASH_PROGRAM}" -lc "cygpath -am '${_ffnvcodec_inc_dir}'"
+            OUTPUT_VARIABLE _ffnvcodec_inc_win
+            OUTPUT_STRIP_TRAILING_WHITESPACE
+        )
+        if (_ffnvcodec_pc_dir)
+            execute_process(
+                COMMAND "${CMAKE_COMMAND}" -E env "MSYS2_ARG_CONV_EXCL=*"
+                    "${BASH_PROGRAM}" -lc "cygpath -au '${_ffnvcodec_pc_dir}'"
+                OUTPUT_VARIABLE _ffnvcodec_pc_dir_msys
+                OUTPUT_STRIP_TRAILING_WHITESPACE
+            )
+            if (_ffnvcodec_pc_dir_msys)
+                set(_ffnvcodec_export_pkgconfig "export PKG_CONFIG_PATH='${_ffnvcodec_pc_dir_msys}':$PKG_CONFIG_PATH &&")
+            endif()
+        endif()
+
+        # Provide a pkg-config wrapper in build dir to guarantee configure check_pkg_config succeeds
+        # even if pkgconf is not installed in the MSYS2 environment.
+        file(WRITE "${_build_dir_win}/pkg-config"
+"#!/bin/sh
+case \" \$* \" in
+    *ffnvcodec*)
+        for arg in \"\$@\"; do
+            case \"\$arg\" in
+                --exists)
+                    exit 0
+                    ;;
+                --cflags*)
+                    echo \"-I${_ffnvcodec_inc_win}\"
+                    exit 0
+                    ;;
+                --libs*)
+                    echo \"\"
+                    exit 0
+                    ;;
+                --variable=includedir)
+                    echo \"${_ffnvcodec_inc_win}\"
+                    exit 0
+                    ;;
+                --modversion)
+                    echo \"12.2.72.0\"
+                    exit 0
+                    ;;
+            esac
+        done
+        exit 0
+        ;;
+esac
+_pkg_config_wrapper=\"\$(cd -P \"\$(dirname \"\$0\")\" && pwd -P)/\$(basename \"\$0\")\"
+for _pkg_config_candidate in pkgconf pkg-config /usr/bin/pkgconf /usr/bin/pkg-config /clang64/bin/pkg-config; do
+    case \"\$_pkg_config_candidate\" in
+        /*) _pkg_config_delegate=\"\$_pkg_config_candidate\" ;;
+        *) _pkg_config_delegate=\"\$(command -v \"\$_pkg_config_candidate\" 2>/dev/null)\" || continue ;;
+    esac
+    [ -n \"\$_pkg_config_delegate\" ] || continue
+    [ -x \"\$_pkg_config_delegate\" ] || continue
+    _pkg_config_delegate=\"\$(cd -P \"\$(dirname \"\$_pkg_config_delegate\")\" && pwd -P)/\$(basename \"\$_pkg_config_delegate\")\" || continue
+    [ \"\$_pkg_config_delegate\" = \"\$_pkg_config_wrapper\" ] && continue
+    exec \"\$_pkg_config_delegate\" \"\$@\"
+done
+exit 1
+")
+        execute_process(
+            COMMAND "${CMAKE_COMMAND}" -E env "MSYS2_ARG_CONV_EXCL=*"
+                "${BASH_PROGRAM}" -lc "chmod +x '${_build_dir_msys}/pkg-config'"
+        )
+        set(_ffnvcodec_pkg_config_opt "--pkg-config='${_build_dir_msys}/pkg-config'")
+
+        set(_ffnvcodec_nvdec_flags
+            "--enable-ffnvcodec"
+            "--enable-cuvid"
+            "--enable-nvdec"
+            "--enable-hwaccel=h264_nvdec"
+            "--enable-hwaccel=vp8_nvdec"
+            "--enable-hwaccel=vp9_nvdec"
+        )
+    endif()
+
     set(_ffmpeg_configure_command
-        "export PATH='${_clangcl_tool_dir_msys}:${_linker_tool_dir_msys}:${_ar_tool_dir_msys}':$PATH &&"
+        "export PATH='${_build_dir_msys}:${_clangcl_tool_dir_msys}:${_linker_tool_dir_msys}:${_ar_tool_dir_msys}':$PATH &&"
+        ${_ffnvcodec_export_pkgconfig}
         "'${_source_dir_win}/configure'"
+        ${_ffnvcodec_pkg_config_opt}
         "--toolchain=msvc"
         "--cc=clang-cl"
         "--cxx=clang-cl"
@@ -148,6 +250,7 @@ function(citron_build_clangcl_ffmpeg)
         "--enable-hwaccel=vp9_d3d11va"
         "--enable-hwaccel=vp9_d3d11va2"
         ${_ffmpeg_vulkan_flags}
+        ${_ffnvcodec_nvdec_flags}
         "--enable-filter=yadif,scale"
         "--enable-dxva2"
         "--enable-d3d11va"
