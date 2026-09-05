@@ -3,6 +3,7 @@
 
 #include "common/assert.h"
 #include "common/fs/file.h"
+#include <algorithm>
 #include "common/fs/fs.h"
 #include "common/fs/path_util.h"
 #include "common/logging.h"
@@ -362,8 +363,10 @@ void WebBrowser::WebBrowserExit(WebExitReason exit_reason, std::string last_url)
     WebCommonReturnValue web_common_return_value;
 
     web_common_return_value.exit_reason = exit_reason;
-    std::memcpy(&web_common_return_value.last_url, last_url.data(), last_url.size());
-    web_common_return_value.last_url_size = last_url.size();
+    const auto copy_size =
+        std::min(last_url.size(), sizeof(web_common_return_value.last_url));
+    std::memcpy(&web_common_return_value.last_url, last_url.data(), copy_size);
+    web_common_return_value.last_url_size = copy_size;
 
     LOG_DEBUG(Service_AM, "WebCommonReturnValue: exit_reason={}, last_url={}, last_url_size={}",
               exit_reason, last_url, last_url.size());
@@ -457,8 +460,17 @@ void WebBrowser::ExecuteShop() {
 }
 
 void WebBrowser::ExecuteLogin() {
-    LOG_WARNING(Service_AM, "(STUBBED) called, Login Applet is not implemented");
-    WebBrowserExit(WebExitReason::EndButtonPressed);
+    LOG_INFO(Service_AM, "called (HLE auto-success for offline/guest login)");
+
+    std::string callback_url;
+    if (const auto data = GetInputTLVData(WebArgInputTLVType::CallbackURL)) {
+        callback_url = ParseStringValue(*data);
+    }
+    if (callback_url.empty()) {
+        callback_url = "https://localhost/auth/callback?success=1";
+    }
+
+    WebBrowserExit(WebExitReason::CallbackURL, callback_url);
 }
 
 void WebBrowser::ExecuteOffline() {
