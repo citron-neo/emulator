@@ -566,11 +566,19 @@ _setup_apt() {
     # extension headers.  All are optional — their cmake checks produce soft
     # warnings, not hard errors.  --ignore-missing lets a single unavailable
     # package name (which can vary across distro versions) skip cleanly.
+    # SDL3 requires these as hard configure-time dependencies.
+    # List mirrors wiki.libsdl.org/SDL3/README-linux (Ubuntu/apt section).
     sudo apt-get install -y --ignore-missing \
         libxi-dev \
         libxkbcommon-x11-dev libxss-dev \
         libxcb1-dev libxcb-cursor-dev libxcb-image0-dev \
         libxcb-render-util0-dev libxinerama-dev \
+        libxcursor-dev \
+        libxtst-dev \
+        libxfixes-dev \
+        libxrandr-dev \
+        libxrender-dev \
+        libxext-dev \
         libgles-dev \
         || warn "Some optional X11/XCB extension packages unavailable — optional display features may be limited"
 
@@ -620,12 +628,21 @@ _setup_pacman() {
         || error "ALSA/PulseAudio packages failed to install — Linux builds would have no audio output"
 
     # ── X11 / XCB optional extras (SDL2 Xi/XSS/XCB, Qt XCB platform plugin) ─
+    # SDL3 requires the full set of X11 extension libraries as hard dependencies
+    # (it errors at configure time if any are missing).  List mirrors the
+    # official SDL3 Arch build-dependency list from wiki.libsdl.org/SDL3/README-linux
     info "Installing optional X11/XCB extension packages..."
     $SUDO pacman -S --needed --noconfirm \
         libxi \
         libxkbcommon-x11 libxss \
         libxcb xcb-util-cursor xcb-util-image \
         xcb-util-renderutil libxinerama \
+        libxcursor \
+        libxtst \
+        libxfixes \
+        libxrandr \
+        libxrender \
+        libxext \
         2>/dev/null || warn "Some optional X11/XCB extension packages unavailable — optional display features may be limited"
 
     # Optional: bundled into the AppImage by package-citron-linux.sh if present.
@@ -706,11 +723,19 @@ _setup_dnf() {
 
     # ── X11 / XCB optional extras (SDL2 Xi/XSS/XCB, Qt XCB platform plugin) ─
     info "Installing optional X11/XCB extension packages..."
+    # SDL3 requires these as hard configure-time dependencies.
+    # List mirrors wiki.libsdl.org/SDL3/README-linux (Fedora/dnf section).
     sudo dnf install -y \
         libXi-devel \
         libxkbcommon-x11-devel libXScrnSaver-devel \
         libxcb-devel xcb-util-cursor-devel xcb-util-image-devel \
         xcb-util-renderutil-devel libXinerama-devel \
+        libXcursor-devel \
+        libXtst-devel \
+        libXfixes-devel \
+        libXrandr-devel \
+        libXrender-devel \
+        libXext-devel \
         2>/dev/null || warn "Some optional X11/XCB extension packages unavailable — optional display features may be limited"
 
     # Optional: bundled into the AppImage by package-citron-linux.sh if present.
@@ -762,6 +787,12 @@ _setup_yum() {
         libxkbcommon-x11-devel libXScrnSaver-devel \
         libxcb-devel xcb-util-cursor-devel xcb-util-image-devel \
         xcb-util-renderutil-devel libXinerama-devel \
+        libXcursor-devel \
+        libXtst-devel \
+        libXfixes-devel \
+        libXrandr-devel \
+        libXrender-devel \
+        libXext-devel \
         2>/dev/null || warn "Some optional X11/XCB extension packages unavailable — optional display features may be limited"
 
     # Optional: bundled into the AppImage by package-citron-linux.sh if present.
@@ -812,6 +843,12 @@ _setup_zypper() {
         libxkbcommon-x11-devel libXss-devel \
         libxcb-devel xcb-util-cursor-devel xcb-util-image-devel \
         xcb-util-renderutil-devel libXinerama-devel Mesa-libGLESv2-devel \
+        libXcursor-devel \
+        libXtst-devel \
+        libXfixes-devel \
+        libXrandr-devel \
+        libXrender-devel \
+        libXext-devel \
         2>/dev/null || warn "Some optional X11/XCB extension packages unavailable — optional display features may be limited"
 
     # Optional: bundled into the AppImage by package-citron-linux.sh if present.
@@ -860,6 +897,12 @@ _setup_emerge() {
         x11-libs/libXScrnSaver \
         x11-libs/libxcb x11-libs/xcb-util-cursor x11-libs/xcb-util-image \
         x11-libs/xcb-util-renderutil x11-libs/libXinerama \
+        x11-libs/libXcursor \
+        x11-libs/libXtst \
+        x11-libs/libXfixes \
+        x11-libs/libXrandr \
+        x11-libs/libXrender \
+        x11-libs/libXext \
         2>/dev/null || warn "Some optional X11/XCB extension packages unavailable — optional display features may be limited"
 
     # Optional: bundled into the AppImage by package-citron-linux.sh if present.
@@ -1397,6 +1440,7 @@ build_appimage_stage() {
     local install_root="${build_dir}/install-root"
     rm -rf "${install_root}"
     mkdir -p "${install_root}/usr/bin" \
+             "${install_root}/usr/bin/lib" \
              "${install_root}/usr/share/applications" \
              "${install_root}/usr/share/icons/hicolor/scalable/apps" \
              "${install_root}/usr/share/icons/hicolor/256x256/apps" \
@@ -1409,6 +1453,24 @@ build_appimage_stage() {
     [[ -f "${build_dir}/bin/citron" ]] \
         || error "citron binary not found at ${build_dir}/bin/citron"
     cp "${build_dir}/bin/citron" "${install_root}/usr/bin/citron"
+
+    # sdl2-compat is a real link dep, resolved via citron's rpath from
+    # usr/bin/lib below. SDL3 is dlopen'd at runtime (invisible to ELF
+    # scanning), so package-citron-linux.sh bundles it explicitly.
+    local sdl_runtime_manifest sdl_runtime soname
+    sdl_runtime_manifest="$(find "${build_dir}" -maxdepth 1 -type f -name 'citron-sdl-runtime-libs-*.txt' -print -quit)"
+    [[ -n "${sdl_runtime_manifest}" ]] \
+        || error "sdl2-compat runtime manifest missing from ${build_dir}"
+    while IFS= read -r sdl_runtime; do
+        [[ -n "${sdl_runtime}" ]] || continue
+        [[ -f "${sdl_runtime}" ]] \
+            || error "sdl2-compat runtime library missing: ${sdl_runtime}"
+        cp -L "${sdl_runtime}" "${install_root}/usr/bin/lib/"
+        soname="$(patchelf --print-soname "${sdl_runtime}" 2>/dev/null || true)"
+        if [[ -n "${soname}" && "${soname}" != "$(basename "${sdl_runtime}")" ]]; then
+            ln -sf "$(basename "${sdl_runtime}")" "${install_root}/usr/bin/lib/${soname}"
+        fi
+    done < "${sdl_runtime_manifest}"
 
     cp "${SCRIPT_DIR}/dist/org.citron_emu.citron.desktop" \
         "${install_root}/usr/share/applications/"

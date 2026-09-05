@@ -49,10 +49,12 @@ elseif (TARGET SDL2::SDL2-shared)
     add_library(SDL2::SDL2 ALIAS SDL2::SDL2-shared)
 endif()
 
-# Set bundled sdl2/qt as dependent options.
+# SDL2 source compatibility is supplied by sdl2-compat, backed by SDL3.
 option(ENABLE_SDL2 "Enable the SDL2 frontend" ON)
-CMAKE_DEPENDENT_OPTION(CITRON_USE_BUNDLED_SDL2 "Download bundled SDL2 binaries" ON "ENABLE_SDL2;MSVC;NOT CITRON_CLANGCL" OFF)
-CMAKE_DEPENDENT_OPTION(CITRON_USE_EXTERNAL_SDL2 "Compile external SDL2" ON "ENABLE_SDL2;NOT MSVC OR CITRON_CLANGCL" OFF)
+# Must precede CITRON_USE_EXTERNAL_SDL2 so non-CPM builds retain the system
+# SDL2 find_package path.
+option(CITRON_USE_CPM "Use CPM.cmake to fetch dependencies" OFF)
+CMAKE_DEPENDENT_OPTION(CITRON_USE_EXTERNAL_SDL2 "Build sdl2-compat with SDL3" ON "ENABLE_SDL2;CITRON_USE_CPM" OFF)
 
 cmake_dependent_option(ENABLE_LIBUSB "Enable the use of LibUSB" ON "NOT ANDROID" OFF)
 
@@ -96,7 +98,6 @@ CMAKE_DEPENDENT_OPTION(CITRON_CRASH_DUMPS "Compile crash dump (Minidump) support
 # CITRON_USE_CPM is the primary way to fetch dependencies on Linux and for Clangtron.
 # vcpkg is supported primarily for native MSVC and Android builds.
 option(CITRON_USE_BUNDLED_VCPKG "Use vcpkg for citron dependencies" "${MSVC}")
-option(CITRON_USE_CPM "Use CPM.cmake to fetch dependencies" OFF)
 option(CITRON_CLANGCL "Build natively on Windows with clang-cl and the MSVC ABI" OFF)
 
 # Avoid per-project /MP oversubscription under MSBuild.
@@ -377,6 +378,15 @@ if (CITRON_USE_CPM)
 endif()
 
 # Enforce the search mode of non-required packages for better and shorter failure messages
+
+# copy_citron_sdl_runtime is defined in CMakeModules/dependencies.cmake for CPM
+# builds where the SDL2/SDL3 targets exist.  Define it here as a no-op so that
+# src/citron/CMakeLists.txt and src/citron_cmd/CMakeLists.txt can call it
+# unconditionally on all build configurations (macOS, native MSVC, etc.).
+if (NOT COMMAND copy_citron_sdl_runtime)
+    function(copy_citron_sdl_runtime target)
+    endfunction()
+endif()
 
 # Find Boost and its components.
 # 'process' is optional. The build will continue if it's not found.
@@ -672,32 +682,7 @@ list(APPEND CITRON_QT_COMPONENTS2 Multimedia)
 
 # find SDL2 exports a bunch of variables that are needed, so its easier to do this outside of the citron_find_package
 if (ENABLE_SDL2)
-    if (CITRON_USE_BUNDLED_SDL2)
-        # Detect toolchain and platform
-        if (MSVC_VERSION GREATER_EQUAL 1920 AND ARCHITECTURE_x86_64)
-            set(SDL2_VER "SDL2-2.28.2")
-            set(SDL2_ARCH_DIR "x64")
-        elseif (MSVC_VERSION GREATER_EQUAL 1920 AND ARCHITECTURE_arm64)
-            set(SDL2_VER "SDL2-2.28.2")
-            set(SDL2_ARCH_DIR "arm64")
-        else()
-            message(FATAL_ERROR "No bundled SDL2 binaries for your toolchain. Disable CITRON_USE_BUNDLED_SDL2 and provide your own.")
-        endif()
-
-        if (DEFINED SDL2_VER)
-            download_bundled_external("sdl2/" ${SDL2_VER} SDL2_PREFIX)
-        endif()
-
-        set(SDL2_FOUND YES)
-        set(SDL2_INCLUDE_DIR "${SDL2_PREFIX}/include" CACHE PATH "Path to SDL2 headers")
-        set(SDL2_LIBRARY "${SDL2_PREFIX}/lib/${SDL2_ARCH_DIR}/SDL2.lib" CACHE PATH "Path to SDL2 library")
-        set(SDL2MAIN_LIBRARY "${SDL2_PREFIX}/lib/${SDL2_ARCH_DIR}/SDL2main.lib" CACHE PATH "Path to SDL2main library")
-        set(SDL2_DLL_DIR "${SDL2_PREFIX}/lib/${SDL2_ARCH_DIR}/" CACHE PATH "Path to SDL2.dll")
-
-        add_library(SDL2::SDL2 INTERFACE IMPORTED)
-        target_link_libraries(SDL2::SDL2 INTERFACE "${SDL2_LIBRARY}" "${SDL2MAIN_LIBRARY}")
-        target_include_directories(SDL2::SDL2 INTERFACE "${SDL2_INCLUDE_DIR}")
-    elseif (CITRON_USE_EXTERNAL_SDL2)
+    if (CITRON_USE_EXTERNAL_SDL2)
         message(STATUS "Using SDL2 from externals.")
     else()
         find_package(SDL2 2.26.4 REQUIRED)

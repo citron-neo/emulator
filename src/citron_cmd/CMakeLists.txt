@@ -104,12 +104,14 @@ if(WIN32)
     endif()
 endif()
 
-if (MSVC AND CITRON_USE_BUNDLED_SDL2)
-    include(CopyCitronSDLDeps)
-    copy_citron_SDL_deps(citron-cmd)
-elseif(MINGW)
+if(MINGW)
     include(CopyMinGWDeps)
     copy_mingw_deps(citron-cmd SEARCH_PATHS "${FFmpeg_PATH}/bin" "${QT_TARGET_PATH}/bin")
+endif()
+
+if (ENABLE_SDL2)
+    # Keep SDL3 after CopyMinGWDeps' import-table-only stale-DLL cleanup.
+    copy_citron_sdl_runtime(citron-cmd)
 endif()
 
 if(WIN32)

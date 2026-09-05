@@ -661,15 +661,17 @@ if (ENABLE_SDL2)
 endif()
 
 if (MSVC)
-    if (CITRON_USE_BUNDLED_SDL2)
-        include(CopyCitronSDLDeps)
-        copy_citron_SDL_deps(citron)
-    endif()
     include(CopyCitronFFmpegDeps)
     copy_citron_FFmpeg_deps(citron)
 elseif(MINGW)
     include(CopyMinGWDeps)
     copy_mingw_deps(citron SEARCH_PATHS "${FFmpeg_PATH}/bin" "${QT_TARGET_PATH}/bin")
+endif()
+
+if (ENABLE_SDL2)
+    # Must run after CopyMinGWDeps: its stale-DLL cleanup cannot see SDL3,
+    # because sdl2-compat loads it dynamically rather than importing it.
+    copy_citron_sdl_runtime(citron)
 endif()
 
 if (ARCHITECTURE_x86_64 OR ARCHITECTURE_arm64)
