@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <array>
 #include <atomic>
+#include <cmath>
 #include <span>
 #include <vector>
 #include <boost/container/small_vector.hpp>
@@ -139,6 +140,12 @@ constexpr VkBorderColor ConvertBorderColor(const std::array<float, 4>& color) {
         flags |= VK_IMAGE_CREATE_2D_ARRAY_COMPATIBLE_BIT;
     }
     const auto [samples_x, samples_y] = VideoCommon::SamplesLog2(info.num_samples);
+    const u32 width = info.size.width >> samples_x;
+    const u32 height = info.size.height >> samples_y;
+    const u32 depth = info.size.depth;
+    const u32 max_dim = std::max({width, height, depth});
+    const u32 max_mips = max_dim > 0 ? static_cast<u32>(std::floor(std::log2(max_dim))) + 1 : 1;
+    const u32 mip_levels = std::min(static_cast<u32>(info.resources.levels), max_mips);
     return VkImageCreateInfo{
         .sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
         .pNext = nullptr,
@@ -146,11 +153,11 @@ constexpr VkBorderColor ConvertBorderColor(const std::array<float, 4>& color) {
         .imageType = ConvertImageType(info.type),
         .format = format_info.format,
         .extent{
-            .width = info.size.width >> samples_x,
-            .height = info.size.height >> samples_y,
-            .depth = info.size.depth,
+            .width = width,
+            .height = height,
+            .depth = depth,
         },
-        .mipLevels = static_cast<u32>(info.resources.levels),
+        .mipLevels = mip_levels,
         .arrayLayers = static_cast<u32>(info.resources.layers),
         .samples = ConvertSampleCount(info.num_samples),
         .tiling = VK_IMAGE_TILING_OPTIMAL,
@@ -175,7 +182,8 @@ constexpr VkBorderColor ConvertBorderColor(const std::array<float, 4>& color) {
         .pViewFormats = view_formats.data(),
     };
     if (view_formats.size() > 1) {
-        image_ci.flags |= VK_IMAGE_CREATE_MUTABLE_FORMAT_BIT;
+        image_ci.flags |= VK_IMAGE_CREATE_MUTABLE_FORMAT_BIT |
+                          VK_IMAGE_CREATE_EXTENDED_USAGE_BIT;
         if (device.IsKhrImageFormatListSupported()) {
             image_ci.pNext = &image_format_list;
         }
@@ -1802,6 +1810,23 @@ ImageView::ImageView(TextureCacheRuntime& runtime, const VideoCommon::ImageViewI
         }
     }
     const auto format_info = MaxwellToVK::SurfaceFormat(*device, FormatType::Optimal, true, format);
+    vk_format = format_info.format;
+    stored_components = VkComponentMapping{
+        .r = ComponentSwizzle(swizzle[0]),
+        .g = ComponentSwizzle(swizzle[1]),
+        .b = ComponentSwizzle(swizzle[2]),
+        .a = ComponentSwizzle(swizzle[3]),
+    };
+    view_aspect_mask = aspect_mask;
+    if (device->ApiVersion() >= VK_API_VERSION_1_3) {
+        const VkFormatProperties3 properties3 =
+            device->GetPhysical().GetFormatProperties3(format_info.format);
+        supports_depth_comparison =
+            (properties3.optimalTilingFeatures &
+             VK_FORMAT_FEATURE_2_SAMPLED_IMAGE_DEPTH_COMPARISON_BIT) != 0;
+    } else {
+        supports_depth_comparison = true;
+    }
     const auto image_format_info =
         MaxwellToVK::SurfaceFormat(*device, FormatType::Optimal, false, image.info.format);
     const VkImageViewUsageCreateInfo image_view_usage{
@@ -1816,12 +1841,7 @@ ImageView::ImageView(TextureCacheRuntime& runtime, const VideoCommon::ImageViewI
         .image = image.Handle(),
         .viewType = VkImageViewType{},
         .format = format_info.format,
-        .components{
-            .r = ComponentSwizzle(swizzle[0]),
-            .g = ComponentSwizzle(swizzle[1]),
-            .b = ComponentSwizzle(swizzle[2]),
-            .a = ComponentSwizzle(swizzle[3]),
-        },
+        .components = stored_components,
         .subresourceRange = MakeSubresourceRange(aspect_mask, info.range),
     };
     const auto create = [&](TextureType tex_type, std::optional<u32> num_layers) {
@@ -1965,36 +1985,79 @@ bool ImageView::IsRescaled() const noexcept {
     return src_image.IsRescaled();
 }
 
-vk::ImageView ImageView::MakeView(VkFormat vk_format, VkImageAspectFlags aspect_mask) {
-    // Enhanced swizzle handling for storage images and input attachments
-    VkComponentMapping components{
-        .r = VK_COMPONENT_SWIZZLE_IDENTITY,
-        .g = VK_COMPONENT_SWIZZLE_IDENTITY,
-        .b = VK_COMPONENT_SWIZZLE_IDENTITY,
-        .a = VK_COMPONENT_SWIZZLE_IDENTITY,
-    };
-
-    // For storage images and input attachments, we must use identity swizzles
-    // This is a Vulkan requirement to prevent validation errors
-    const bool is_storage_or_input = (aspect_mask & (VK_IMAGE_ASPECT_COLOR_BIT | VK_IMAGE_ASPECT_DEPTH_BIT)) != 0;
-
-    if (!is_storage_or_input) {
-        // For now, we'll keep identity swizzles for all cases to ensure compatibility
+[[nodiscard]] static VkFormat SrgbToUnormFormat(VkFormat srgb_fmt) {
+    switch (srgb_fmt) {
+    case VK_FORMAT_A8B8G8R8_SRGB_PACK32:
+        return VK_FORMAT_A8B8G8R8_UNORM_PACK32;
+    case VK_FORMAT_R8G8B8A8_SRGB:
+        return VK_FORMAT_R8G8B8A8_UNORM;
+    case VK_FORMAT_B8G8R8A8_SRGB:
+        return VK_FORMAT_B8G8R8A8_UNORM;
+    case VK_FORMAT_BC1_RGBA_SRGB_BLOCK:
+        return VK_FORMAT_BC1_RGBA_UNORM_BLOCK;
+    case VK_FORMAT_BC2_SRGB_BLOCK:
+        return VK_FORMAT_BC2_UNORM_BLOCK;
+    case VK_FORMAT_BC3_SRGB_BLOCK:
+        return VK_FORMAT_BC3_UNORM_BLOCK;
+    case VK_FORMAT_BC7_SRGB_BLOCK:
+        return VK_FORMAT_BC7_UNORM_BLOCK;
+    case VK_FORMAT_ETC2_R8G8B8_SRGB_BLOCK:
+        return VK_FORMAT_ETC2_R8G8B8_UNORM_BLOCK;
+    case VK_FORMAT_ETC2_R8G8B8A1_SRGB_BLOCK:
+        return VK_FORMAT_ETC2_R8G8B8A1_UNORM_BLOCK;
+    case VK_FORMAT_ETC2_R8G8B8A8_SRGB_BLOCK:
+        return VK_FORMAT_ETC2_R8G8B8A8_UNORM_BLOCK;
+    default:
+        return srgb_fmt;
     }
+}
 
+VkImageView ImageView::HandleNonSrgb(Shader::TextureType texture_type) {
+    if (!image_handle || !device || !device->IsKhrImageFormatListSupported() ||
+        !VideoCore::Surface::IsPixelFormatSRGB(format)) {
+        return Handle(texture_type);
+    }
+    auto& view = non_srgb_image_views[static_cast<size_t>(texture_type)];
+    if (view) {
+        return *view;
+    }
+    const VkFormat unorm_fmt = SrgbToUnormFormat(vk_format);
+    if (unorm_fmt == vk_format) {
+        return Handle(texture_type);
+    }
+    view = device->GetLogical().CreateImageView({
+        .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
+        .pNext = nullptr,
+        .flags = 0,
+        .image = image_handle,
+        .viewType = ToImageViewType(texture_type),
+        .format = unorm_fmt,
+        .components = stored_components,
+        .subresourceRange = MakeSubresourceRange(view_aspect_mask, range),
+    });
+    return *view;
+}
+
+vk::ImageView ImageView::MakeView(VkFormat view_format, VkImageAspectFlags aspect) {
     return device->GetLogical().CreateImageView({
         .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
         .pNext = nullptr,
         .flags = 0,
         .image = image_handle,
         .viewType = ToImageViewType(type),
-        .format = vk_format,
-        .components = components,
-        .subresourceRange = MakeSubresourceRange(aspect_mask, range),
+        .format = view_format,
+        .components{
+            .r = VK_COMPONENT_SWIZZLE_IDENTITY,
+            .g = VK_COMPONENT_SWIZZLE_IDENTITY,
+            .b = VK_COMPONENT_SWIZZLE_IDENTITY,
+            .a = VK_COMPONENT_SWIZZLE_IDENTITY,
+        },
+        .subresourceRange = MakeSubresourceRange(aspect, range),
     });
 }
 
-Sampler::Sampler(TextureCacheRuntime& runtime, const Tegra::Texture::TSCEntry& tsc) {
+Sampler::Sampler(TextureCacheRuntime& runtime, const Tegra::Texture::TSCEntry& tsc)
+    : srgb_conversion{tsc.srgb_conversion != 0} {
     const auto& device = runtime.device;
     const bool arbitrary_borders = runtime.device.IsExtCustomBorderColorSupported();
     const auto color = tsc.BorderColor();
@@ -2022,83 +2085,51 @@ Sampler::Sampler(TextureCacheRuntime& runtime, const Tegra::Texture::TSCEntry& t
     }
     // Some games have samplers with garbage. Sanitize them here.
     const f32 max_anisotropy = std::clamp(tsc.MaxAnisotropy(), 1.0f, 16.0f);
+    const VkFilter mag_filter{MaxwellToVK::Sampler::Filter(tsc.mag_filter)};
+    const VkFilter min_filter{MaxwellToVK::Sampler::Filter(tsc.min_filter)};
+    const VkSamplerMipmapMode mipmap_mode{MaxwellToVK::Sampler::MipmapMode(tsc.mipmap_filter)};
+    const bool has_linear_filtering{mag_filter == VK_FILTER_LINEAR ||
+                                    min_filter == VK_FILTER_LINEAR ||
+                                    mipmap_mode == VK_SAMPLER_MIPMAP_MODE_LINEAR};
 
-    // For shadow maps (depth compare enabled), ensure proper border color
-    // Shadow maps should use opaque white border (1.0) so out-of-range samples are not shadowed
-    // This is critical: in depth compare mode, white (1.0) = not shadowed, black (0.0) = shadowed
-    const bool is_shadow_map = tsc.depth_compare_enabled;
-    const std::array<float, 4> shadow_border_color_custom{1.0f, 1.0f, 1.0f, 1.0f};
-
-    // Determine wrap modes (shadow maps will use CLAMP_TO_BORDER for GL_CLAMP and ClampToEdge)
-    const auto wrap_u_mode = MaxwellToVK::Sampler::WrapMode(device, tsc.wrap_u, tsc.mag_filter, is_shadow_map);
-    const auto wrap_v_mode = MaxwellToVK::Sampler::WrapMode(device, tsc.wrap_v, tsc.mag_filter, is_shadow_map);
-    const auto wrap_p_mode = MaxwellToVK::Sampler::WrapMode(device, tsc.wrap_p, tsc.mag_filter, is_shadow_map);
-
-    // For shadow maps, ALWAYS use white border color regardless of wrap mode
-    // This ensures any edge cases or driver-specific behavior uses correct border
-    VkSamplerCustomBorderColorCreateInfoEXT shadow_border_ci{
-        .sType = VK_STRUCTURE_TYPE_SAMPLER_CUSTOM_BORDER_COLOR_CREATE_INFO_EXT,
-        .pNext = nullptr,
-        .customBorderColor = Common::BitCast<VkClearColorValue>(shadow_border_color_custom),
-        .format = VK_FORMAT_UNDEFINED,
-    };
-    const void* shadow_pnext = nullptr;
-    if (is_shadow_map && arbitrary_borders) {
-        shadow_pnext = &shadow_border_ci;
-        // Chain with reduction mode if needed
-        if (runtime.device.IsExtSamplerFilterMinmaxSupported() &&
-            MaxwellToVK::SamplerReduction(tsc.reduction_filter) != VK_SAMPLER_REDUCTION_MODE_WEIGHTED_AVERAGE_EXT) {
-            shadow_border_ci.pNext = pnext;
-        }
-    }
-
-    const auto create_sampler = [&](const f32 anisotropy) {
-        VkBorderColor final_border_color;
-        const void* final_pnext;
-
-        // For ALL shadow maps, force opaque white border to prevent black square artifacts
-        // This is safe because shadow maps should never be shadowed outside their bounds
-        if (is_shadow_map) {
-            if (arbitrary_borders) {
-                final_pnext = shadow_pnext;
-                final_border_color = VK_BORDER_COLOR_FLOAT_CUSTOM_EXT;
-            } else {
-                final_pnext = pnext;
-                // Use opaque white even if not using border clamp - some drivers may sample borders anyway
-                final_border_color = VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE;
-            }
-        } else {
-            final_pnext = pnext;
-            final_border_color = arbitrary_borders ? VK_BORDER_COLOR_FLOAT_CUSTOM_EXT : ConvertBorderColor(color);
-        }
-
+    const auto create_sampler = [&](const f32 anisotropy, const bool force_nearest,
+                                    const bool disable_compare = false) {
         return device.GetLogical().CreateSampler(VkSamplerCreateInfo{
             .sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO,
-            .pNext = final_pnext,
+            .pNext = pnext,
             .flags = 0,
-            .magFilter = MaxwellToVK::Sampler::Filter(tsc.mag_filter),
-            .minFilter = MaxwellToVK::Sampler::Filter(tsc.min_filter),
-            .mipmapMode = MaxwellToVK::Sampler::MipmapMode(tsc.mipmap_filter),
-            .addressModeU = wrap_u_mode,
-            .addressModeV = wrap_v_mode,
-            .addressModeW = wrap_p_mode,
+            .magFilter = force_nearest ? VK_FILTER_NEAREST : mag_filter,
+            .minFilter = force_nearest ? VK_FILTER_NEAREST : min_filter,
+            .mipmapMode = force_nearest ? VK_SAMPLER_MIPMAP_MODE_NEAREST : mipmap_mode,
+            .addressModeU = MaxwellToVK::Sampler::WrapMode(device, tsc.wrap_u, tsc.mag_filter),
+            .addressModeV = MaxwellToVK::Sampler::WrapMode(device, tsc.wrap_v, tsc.mag_filter),
+            .addressModeW = MaxwellToVK::Sampler::WrapMode(device, tsc.wrap_p, tsc.mag_filter),
             .mipLodBias = tsc.LodBias(),
-            .anisotropyEnable = static_cast<VkBool32>(anisotropy > 1.0f ? VK_TRUE : VK_FALSE),
-            .maxAnisotropy = anisotropy,
-            .compareEnable = tsc.depth_compare_enabled,
+            .anisotropyEnable =
+                static_cast<VkBool32>(!force_nearest && anisotropy > 1.0f ? VK_TRUE : VK_FALSE),
+            .maxAnisotropy = force_nearest ? 1.0f : anisotropy,
+            .compareEnable = disable_compare ? VK_FALSE
+                                             : static_cast<VkBool32>(tsc.depth_compare_enabled),
             .compareOp = MaxwellToVK::Sampler::DepthCompareFunction(tsc.depth_compare_func),
             .minLod = tsc.mipmap_filter == TextureMipmapFilter::None ? 0.0f : tsc.MinLod(),
             .maxLod = tsc.mipmap_filter == TextureMipmapFilter::None ? 0.25f : tsc.MaxLod(),
-            .borderColor = final_border_color,
+            .borderColor = arbitrary_borders ? VK_BORDER_COLOR_FLOAT_CUSTOM_EXT
+                                             : ConvertBorderColor(color),
             .unnormalizedCoordinates = VK_FALSE,
         });
     };
 
-    sampler = create_sampler(max_anisotropy);
+    sampler = create_sampler(max_anisotropy, false);
 
     const f32 max_anisotropy_default = static_cast<f32>(1U << tsc.max_anisotropy);
     if (max_anisotropy > max_anisotropy_default) {
-        sampler_default_anisotropy = create_sampler(max_anisotropy_default);
+        sampler_default_anisotropy = create_sampler(max_anisotropy_default, false);
+    }
+    if (has_linear_filtering) {
+        sampler_nearest = create_sampler(1.0f, true);
+    }
+    if (tsc.depth_compare_enabled) {
+        sampler_noncompare = create_sampler(max_anisotropy, false, true);
     }
 }
 

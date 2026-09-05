@@ -304,6 +304,18 @@ public:
         return properties.properties.limits.maxPushConstantsSize;
     }
 
+    u32 GetMaxPerStageDescriptorSampledImages() const {
+        return properties.properties.limits.maxPerStageDescriptorSampledImages;
+    }
+
+    u32 GetMaxPerStageResources() const {
+        return properties.properties.limits.maxPerStageResources;
+    }
+
+    u32 GetMaxDescriptorSetSampledImages() const {
+        return properties.properties.limits.maxDescriptorSetSampledImages;
+    }
+
     /// Returns the maximum size for shared memory.
     u32 GetMaxComputeSharedMemorySize() const {
         return properties.properties.limits.maxComputeSharedMemorySize;

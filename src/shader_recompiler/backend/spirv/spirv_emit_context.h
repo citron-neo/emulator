@@ -37,6 +37,7 @@ struct TextureDefinition {
     Id image_type;
     u32 count;
     bool is_multisample;
+    bool is_integer;
 };
 
 struct TextureBufferDefinition {
@@ -215,9 +216,7 @@ public:
     const RuntimeInfo& runtime_info;
     Stage stage{};
 
-    // Maps an id to its NonUniform-decorated copy, so decoration never
-    // mutates the original id.
-    ankerl::unordered_dense::map<u32, Id> non_uniform_ids;
+    ankerl::unordered_dense::set<u32> non_uniform_ids;
 
     Id void_id{};
     Id U1{};

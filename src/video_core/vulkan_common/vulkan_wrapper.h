@@ -13,6 +13,7 @@
 #include <vector>
 
 #include "common/common_types.h"
+#include "video_core/arm64_register_guard.h"
 #include "video_core/vulkan_common/vulkan.h"
 
 #ifdef _MSC_VER
@@ -23,6 +24,12 @@ VK_DEFINE_HANDLE(VmaAllocator)
 VK_DEFINE_HANDLE(VmaAllocation)
 
 namespace Vulkan::vk {
+
+#if CITRON_ARM64_REGISTER_GUARD_SUPPORTED
+extern "C" u32 CitronVkUpdateDescriptorSetWithTemplatePreservingRegisters(
+    PFN_vkUpdateDescriptorSetWithTemplate function, VkDevice device, VkDescriptorSet set,
+    VkDescriptorUpdateTemplate update_template, const void* data) noexcept;
+#endif
 
 /**
  * Span for Vulkan arrays.
@@ -164,6 +171,7 @@ struct InstanceDispatch {
     PFN_vkGetDeviceProcAddr vkGetDeviceProcAddr{};
     PFN_vkGetPhysicalDeviceFeatures2 vkGetPhysicalDeviceFeatures2{};
     PFN_vkGetPhysicalDeviceFormatProperties vkGetPhysicalDeviceFormatProperties{};
+    PFN_vkGetPhysicalDeviceFormatProperties2 vkGetPhysicalDeviceFormatProperties2{};
     PFN_vkGetPhysicalDeviceMemoryProperties vkGetPhysicalDeviceMemoryProperties{};
     PFN_vkGetPhysicalDeviceMemoryProperties2 vkGetPhysicalDeviceMemoryProperties2{};
     PFN_vkGetPhysicalDeviceProperties vkGetPhysicalDeviceProperties{};
@@ -1024,6 +1032,18 @@ public:
         dld->vkUpdateDescriptorSetWithTemplate(handle, set, update_template, data);
     }
 
+    [[nodiscard]] u32 UpdateDescriptorSetGuarded(
+        VkDescriptorSet set, VkDescriptorUpdateTemplate update_template,
+        const void* data) const noexcept {
+#if CITRON_ARM64_REGISTER_GUARD_SUPPORTED
+        return CitronVkUpdateDescriptorSetWithTemplatePreservingRegisters(
+            dld->vkUpdateDescriptorSetWithTemplate, handle, set, update_template, data);
+#else
+        UpdateDescriptorSet(set, update_template, data);
+        return 0;
+#endif
+    }
+
     VkResult AcquireNextImageKHR(VkSwapchainKHR swapchain, u64 timeout, VkSemaphore semaphore,
                                  VkFence fence, u32* image_index) const noexcept {
         return dld->vkAcquireNextImageKHR(handle, swapchain, timeout, semaphore, fence,
@@ -1067,6 +1087,8 @@ public:
     void GetFeatures2(VkPhysicalDeviceFeatures2&) const noexcept;
 
     VkFormatProperties GetFormatProperties(VkFormat) const noexcept;
+
+    VkFormatProperties3 GetFormatProperties3(VkFormat) const noexcept;
 
     std::vector<VkExtensionProperties> EnumerateDeviceExtensionProperties() const;
 

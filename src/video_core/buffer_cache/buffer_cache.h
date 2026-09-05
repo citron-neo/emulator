@@ -20,7 +20,9 @@ using Core::DEVICE_PAGESIZE;
 
 template <class P>
 BufferCache<P>::BufferCache(Tegra::MaxwellDeviceMemoryManager& device_memory_, Runtime& runtime_)
-    : runtime{runtime_}, device_memory{device_memory_}, memory_tracker{device_memory} {
+    : runtime{runtime_}, device_memory{device_memory_}, memory_tracker{device_memory},
+      page_table{Tegra::MaxwellDeviceMemoryManager::AS_BITS, PAGE_TABLE_FIRST_LEVEL_BITS,
+                 CACHING_PAGEBITS} {
     // Ensure the first slot is used for the null buffer
     void(slot_buffers.insert(runtime, NullBufferParams{}));
     gpu_modified_ranges.Clear();
@@ -653,10 +655,13 @@ bool BufferCache<P>::IsRegionGpuModified(DAddr addr, size_t size) {
 
 template <class P>
 bool BufferCache<P>::IsRegionRegistered(DAddr addr, size_t size) {
+    if (!IsRegionPageTableAddressable(addr, size)) {
+        return false;
+    }
     const DAddr end_addr = addr + size;
     const u64 page_end = Common::DivCeil(end_addr, CACHING_PAGESIZE);
     for (u64 page = addr >> CACHING_PAGEBITS; page < page_end;) {
-        const BufferId buffer_id = page_table[page];
+        const BufferId buffer_id = GetPageBufferId(page);
         if (!buffer_id) {
             ++page;
             continue;
@@ -1280,11 +1285,11 @@ void BufferCache<P>::MarkWrittenBuffer(BufferId buffer_id, DAddr device_addr, u3
 
 template <class P>
 BufferId BufferCache<P>::FindBuffer(DAddr device_addr, u32 size) {
-    if (device_addr == 0) {
+    if (device_addr == 0 || !IsRegionPageTableAddressable(device_addr, size)) {
         return NULL_BUFFER_ID;
     }
     const u64 page = device_addr >> CACHING_PAGEBITS;
-    const BufferId buffer_id = page_table[page];
+    const BufferId buffer_id = GetPageBufferId(page);
     if (!buffer_id) {
         return CreateBuffer(device_addr, size);
     }
@@ -1332,7 +1337,8 @@ typename BufferCache<P>::OverlapResult BufferCache<P>::ResolveOverlaps(DAddr dev
     }
     for (; device_addr >> CACHING_PAGEBITS < Common::DivCeil(end, CACHING_PAGESIZE);
          device_addr += CACHING_PAGESIZE) {
-        const BufferId overlap_id = page_table[device_addr >> CACHING_PAGEBITS];
+        const u64 page = device_addr >> CACHING_PAGEBITS;
+        const BufferId overlap_id = GetPageBufferId(page);
         if (!overlap_id) {
             continue;
         }
@@ -1395,6 +1401,9 @@ void BufferCache<P>::JoinOverlap(BufferId new_buffer_id, BufferId overlap_id,
 
 template <class P>
 BufferId BufferCache<P>::CreateBuffer(DAddr device_addr, u32 wanted_size) {
+    if (!IsRegionPageTableAddressable(device_addr, wanted_size)) {
+        return NULL_BUFFER_ID;
+    }
     DAddr device_addr_end = Common::AlignUp(device_addr + wanted_size, CACHING_PAGESIZE);
     device_addr = Common::AlignDown(device_addr, CACHING_PAGESIZE);
     wanted_size = static_cast<u32>(device_addr_end - device_addr);
@@ -1457,14 +1466,17 @@ void BufferCache<P>::ChangeRegister(BufferId buffer_id) {
         }
     }
     const DAddr device_addr_begin = buffer.CpuAddr();
+    if (!IsRegionPageTableAddressable(device_addr_begin, size)) {
+        return;
+    }
     const DAddr device_addr_end = device_addr_begin + size;
     const u64 page_begin = device_addr_begin / CACHING_PAGESIZE;
     const u64 page_end = Common::DivCeil(device_addr_end, CACHING_PAGESIZE);
     for (u64 page = page_begin; page != page_end; ++page) {
         if constexpr (insert) {
-            page_table[page] = buffer_id;
+            SetPageBufferId(page, buffer_id);
         } else {
-            page_table[page] = BufferId{};
+            SetPageBufferId(page, BufferId{});
         }
     }
 }

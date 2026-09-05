@@ -17,6 +17,9 @@ struct HostTranslateInfo {
     bool support_snorm_render_buffer{};  ///< True when the device supports SNORM render buffers
     bool support_viewport_index_layer{}; ///< True when the device supports gl_Layer in VS
     u32 min_ssbo_alignment{};            ///< Minimum alignment supported by the device for SSBOs
+    u32 max_per_stage_descriptor_sampled_images{1024}; ///< Maximum sampled descriptors per stage
+    u32 max_per_stage_resources{4096};                 ///< Maximum resources per stage
+    u32 max_descriptor_set_sampled_images{1024};       ///< Maximum sampled descriptors per set
     bool support_geometry_shader_passthrough{}; ///< True when the device supports geometry
                                                 ///< passthrough shaders
     bool support_conditional_barrier{}; ///< True when the device supports barriers in conditional

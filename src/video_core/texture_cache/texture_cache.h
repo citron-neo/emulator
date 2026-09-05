@@ -216,16 +216,6 @@ void TextureCache<P>::FillComputeImageViews(std::span<ImageViewInOut> views) {
 }
 
 template <class P>
-u64 TextureCache<P>::GraphicsImageTableGeneration() const noexcept {
-    return channel_state->graphics_image_table.Generation();
-}
-
-template <class P>
-u64 TextureCache<P>::ComputeImageTableGeneration() const noexcept {
-    return channel_state->compute_image_table.Generation();
-}
-
-template <class P>
 void TextureCache<P>::CheckFeedbackLoop(std::span<const ImageViewInOut> views) {
     if (!Settings::values.barrier_feedback_loops.GetValue()) {
         return;
@@ -504,12 +494,7 @@ void TextureCache<P>::FillImageViews(DescriptorTable<TICEntry>& table,
             has_blacklisted = false;
         }
         for (ImageViewInOut& view : views) {
-            if (view.id_cached) {
-                // Already resolved and prepared during cache population.
-                // Batch-prepare unique images below instead of per-entry PrepareImageView.
-            } else {
-                view.id = VisitImageView(table, cached_image_view_ids, view.index);
-            }
+            view.id = VisitImageView(table, cached_image_view_ids, view.index);
             if constexpr (has_blacklists) {
                 if (view.blacklist && view.id != NULL_IMAGE_VIEW_ID) {
                     const ImageViewBase& image_view{slot_image_views[view.id]};
@@ -520,27 +505,6 @@ void TextureCache<P>::FillImageViews(DescriptorTable<TICEntry>& table,
             }
         }
     } while (has_deleted_images || (has_blacklists && has_blacklisted));
-
-    // Batch-prepare unique images from id_cached views.  The cache-miss path
-    // already called VisitImageView (which does PrepareImageView) for each
-    // entry; here we only need to touch/refresh each *unique* underlying
-    // image once, rather than 1024 individual PrepareImageView calls.
-    boost::container::small_vector<ImageId, 64> cached_image_ids;
-    for (const ImageViewInOut& view : views) {
-        if (view.id_cached && view.id != NULL_IMAGE_VIEW_ID) {
-            const ImageViewBase& iv = slot_image_views[view.id];
-            if (!iv.IsBuffer()) {
-                cached_image_ids.push_back(iv.image_id);
-            }
-        }
-    }
-    std::sort(cached_image_ids.begin(), cached_image_ids.end());
-    cached_image_ids.erase(
-        std::unique(cached_image_ids.begin(), cached_image_ids.end()),
-        cached_image_ids.end());
-    for (const ImageId id : cached_image_ids) {
-        PrepareImage(id, false, false);
-    }
 }
 
 template <class P>
@@ -1176,6 +1140,51 @@ ImageViewId TextureCache<P>::CreateImageView(const TICEntry& config) {
     }
     const u32 layer_offset = config.BaseLayer() * info.layer_stride;
     const GPUVAddr image_gpu_addr = config.Address() - layer_offset;
+
+    using PixelFormat = VideoCore::Surface::PixelFormat;
+    if (info.format == PixelFormat::R32_FLOAT || info.format == PixelFormat::R16_UNORM) {
+        const PixelFormat depth_format = info.format == PixelFormat::R32_FLOAT
+                                             ? PixelFormat::D32_FLOAT
+                                             : PixelFormat::D16_UNORM;
+        std::optional<DAddr> cpu_addr = gpu_memory->GpuToCpuAddress(image_gpu_addr);
+        if (cpu_addr) {
+            ImageId depth_image_id;
+            ForEachImageInRegion(
+                *cpu_addr, CalculateGuestSizeInBytes(info),
+                [&](ImageId existing_id, ImageBase& existing) {
+                    if (existing.info.format == depth_format &&
+                        existing.gpu_addr == image_gpu_addr &&
+                        existing.info.size.width == info.size.width &&
+                        existing.info.size.height == info.size.height &&
+                        !True(existing.flags & ImageFlagBits::Remapped)) {
+                        depth_image_id = existing_id;
+                        return true;
+                    }
+                    return false;
+                });
+            if (depth_image_id) {
+                ImageBase& depth_image = slot_images[depth_image_id];
+                const auto base_opt = depth_image.TryFindBase(config.Address());
+                if (base_opt) {
+                    PrepareImage(depth_image_id, false, false);
+                    ImageViewInfo view_info(config, base_opt->layer);
+                    view_info.format = depth_format;
+                    const s32 max_levels =
+                        depth_image.info.resources.levels - view_info.range.base.level;
+                    if (max_levels > 0 && view_info.range.extent.levels > max_levels) {
+                        view_info.range.extent.levels = max_levels;
+                    }
+                    const ImageViewId view_id =
+                        FindOrEmplaceImageView(depth_image_id, view_info);
+                    ImageViewBase& image_view = slot_image_views[view_id];
+                    image_view.flags |= ImageViewFlagBits::Strong;
+                    depth_image.flags |= ImageFlagBits::Strong;
+                    return view_id;
+                }
+            }
+        }
+    }
+
     const ImageId image_id = FindOrInsertImage(info, image_gpu_addr);
     if (!image_id) {
         return NULL_IMAGE_VIEW_ID;
@@ -1183,7 +1192,11 @@ ImageViewId TextureCache<P>::CreateImageView(const TICEntry& config) {
     ImageBase& image = slot_images[image_id];
     const SubresourceBase base = image.TryFindBase(config.Address()).value();
     ASSERT(base.level == 0);
-    const ImageViewInfo view_info(config, base.layer);
+    ImageViewInfo view_info(config, base.layer);
+    const s32 max_levels = image.info.resources.levels - view_info.range.base.level;
+    if (max_levels > 0 && view_info.range.extent.levels > max_levels) {
+        view_info.range.extent.levels = max_levels;
+    }
     const ImageViewId image_view_id = FindOrEmplaceImageView(image_id, view_info);
     ImageViewBase& image_view = slot_image_views[image_view_id];
     image_view.flags |= ImageViewFlagBits::Strong;
