@@ -207,7 +207,9 @@ void MasterSemaphore::WaitThread(std::stop_token token) {
             free_queue.push_front(std::move(fence));
             gpu_tick.store(host_tick);
         }
-        free_cv.notify_one();
+        // Waiters can have different target ticks. Waking only one can leave another waiter
+        // asleep indefinitely even though gpu_tick already satisfies its predicate.
+        free_cv.notify_all();
     }
 }
 
