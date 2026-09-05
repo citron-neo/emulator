@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2026 citron Emulator Project
+﻿# SPDX-FileCopyrightText: 2026 citron Emulator Project
 # SPDX-License-Identifier: GPL-2.0-or-later
 #
 # CMakeModules/dependencies.cmake
@@ -348,20 +348,140 @@ if (ENABLE_CUBEB AND NOT TARGET cubeb::cubeb)
     endif()
 endif()
 
-# ── SDL2 ──────────────────────────────────────────────────────────────────────
-if (CITRON_USE_EXTERNAL_SDL2 AND NOT TARGET SDL2::SDL2)
+# ── SDL3 ──────────────────────────────────────────────────────────────────────
+if (CITRON_USE_EXTERNAL_SDL3 AND NOT TARGET SDL3::SDL3)
+    # Treat SDL headers as system headers and keep SDL's warnings non-fatal.
     CPMAddPackage(
-        NAME SDL2
+        NAME SDL3
         GITHUB_REPOSITORY libsdl-org/SDL
-        GIT_TAG release-2.32.10
+        GIT_TAG f87239e71e42da91ca317a12eefb82cfbf3393eb # release-3.4.12
+        SYSTEM YES
         OPTIONS
-            "SDL_SHARED OFF"
-            "SDL_STATIC ON"
-            "SDL_TEST OFF"
-            "SDL_FORCE_STATIC_VCRT OFF"
+            "SDL_SHARED ON"
+            "SDL_STATIC OFF"
+            "SDL_TEST_LIBRARY OFF"
+            "SDL_TESTS OFF"
+            "SDL_INSTALL OFF"
+            "SDL_HIDAPI ON"
             "SDL_HIDAPI_LIBUSB ON"
+            "SDL_WERROR OFF"
+            "SDL_LIBC ON"
+    )
+
+    # Keep the SDL runtime outside bin/ so deployment does not copy onto itself.
+    if (TARGET SDL3-shared)
+        set_target_properties(SDL3-shared PROPERTIES
+            RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/sdl-staging"
+        )
+    endif()
+
+    # SDL inherits Citron's strict warnings; disable them only for this target.
+    if (TARGET SDL3-shared)
+        if (MSVC)
+            # /clang: options are valid only under clang-cl.
+            target_compile_options(SDL3-shared PRIVATE /W0)
+            if (CMAKE_C_COMPILER_ID STREQUAL "Clang")
+                target_compile_options(SDL3-shared PRIVATE
+                    /clang:-Wno-unsafe-buffer-usage
+                    /clang:-Wno-unsafe-pointer-arithmetic
+                    /clang:-Wno-missing-prototypes
+                    /clang:-Wno-missing-variable-declarations
+                    /clang:-Wno-sign-conversion
+                    /clang:-Wno-cast-qual
+                    /clang:-Wno-cast-align
+                    /clang:-Wno-implicit-int-conversion
+                    /clang:-Wno-shorten-64-to-32
+                    /clang:-Wno-float-conversion
+                    /clang:-Wno-double-promotion
+                    /clang:-Wno-reserved-identifier
+                    /clang:-Wno-reserved-macro-identifier
+                    /clang:-Wno-extra-semi
+                    /clang:-Wno-extra-semi-stmt
+                    /clang:-Wno-switch-default
+                    /clang:-Wno-switch-enum
+                    /clang:-Wno-pre-c11-compat
+                    /clang:-Wno-bad-function-cast
+                    /clang:-Wno-strict-prototypes
+                    /clang:-Wno-unused-macros
+                    /clang:-Wno-nonportable-system-include-path
+                    /clang:-Wno-date-time
+                )
+            endif()
+        else()
+            # GCC/Clang on Linux/macOS.
+            target_compile_options(SDL3-shared PRIVATE
+                -Wno-error
+                -Wno-unsafe-buffer-usage
+                -Wno-unsafe-pointer-arithmetic
+                -Wno-missing-prototypes
+                -Wno-missing-variable-declarations
+                -Wno-sign-conversion
+                -Wno-cast-qual
+                -Wno-cast-align
+                -Wno-implicit-int-conversion
+                -Wno-shorten-64-to-32
+                -Wno-float-conversion
+                -Wno-double-promotion
+                -Wno-reserved-identifier
+                -Wno-reserved-macro-identifier
+                -Wno-extra-semi
+                -Wno-extra-semi-stmt
+                -Wno-switch-default
+                -Wno-switch-enum
+                -Wno-unused-macros
+                -Wno-date-time
+            )
+        endif()
+    endif()
+
+endif()
+
+# SDL3 may have been created above or supplied by an earlier dependency.
+set(CITRON_SDL_RUNTIME_TARGET "")
+if (TARGET SDL3-shared)
+    set(CITRON_SDL_RUNTIME_TARGET SDL3-shared)
+elseif (TARGET SDL3::SDL3)
+    get_target_property(_citron_sdl3_type SDL3::SDL3 TYPE)
+    if (_citron_sdl3_type STREQUAL "SHARED_LIBRARY")
+        set(CITRON_SDL_RUNTIME_TARGET SDL3::SDL3)
+    endif()
+endif()
+
+if (CITRON_SDL_RUNTIME_TARGET)
+    file(GENERATE
+        OUTPUT "${CMAKE_BINARY_DIR}/citron-sdl-runtime-libs-$<CONFIG>.txt"
+        CONTENT "$<TARGET_FILE:${CITRON_SDL_RUNTIME_TARGET}>\n"
     )
 endif()
+
+# copy_citron_sdl_runtime(<target>)
+# On Windows CPM builds: copies SDL3.dll next to <target> after build.
+# On Linux, place the shared library in the target's $ORIGIN/lib directory.
+function(copy_citron_sdl_runtime target)
+    if (WIN32 AND CITRON_USE_EXTERNAL_SDL3 AND CITRON_SDL_RUNTIME_TARGET)
+        if (TARGET SDL3-shared)
+            add_dependencies(${target} SDL3-shared)
+        endif()
+        add_custom_command(TARGET ${target} POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                "$<TARGET_FILE:${CITRON_SDL_RUNTIME_TARGET}>" "$<TARGET_FILE_DIR:${target}>"
+            COMMENT "Deploying SDL3 for ${target}"
+            VERBATIM
+        )
+    elseif (UNIX AND NOT APPLE AND CITRON_USE_EXTERNAL_SDL3 AND CITRON_SDL_RUNTIME_TARGET)
+        if (TARGET SDL3-shared)
+            add_dependencies(${target} SDL3-shared)
+        endif()
+        add_custom_command(TARGET ${target} POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E make_directory
+                "$<TARGET_FILE_DIR:${target}>/lib"
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                "$<TARGET_SONAME_FILE:${CITRON_SDL_RUNTIME_TARGET}>" "$<TARGET_FILE_DIR:${target}>/lib"
+            COMMENT "Deploying SDL3 for ${target} (\$ORIGIN/lib)"
+            VERBATIM
+        )
+    endif()
+endfunction()
 
 # ── tzdb_to_nx ────────────────────────────────────────────────────────────────
 # On POSIX hosts: fetch source via CPM; nx_tzdb/CMakeLists.txt builds zic and

@@ -111,8 +111,8 @@ static FileSys::VirtualFile VfsDirectoryCreateFileWrapper(const FileSys::Virtual
 #include <QUrl>
 #include <QtConcurrent/QtConcurrent>
 
-#ifdef HAVE_SDL2
-#include <SDL.h> // For SDL ScreenSaver functions
+#ifdef HAVE_SDL3
+#include <SDL3/SDL.h> // For SDL ScreenSaver functions
 #endif
 
 #include <fmt/format.h>
@@ -504,7 +504,7 @@ GMainWindow::GMainWindow(std::unique_ptr<QtConfig> config_, bool has_broken_vulk
         VkDeviceInfo::PopulateRecords(vk_device_records, this->window()->windowHandle());
     }
 
-#if defined(HAVE_SDL2) && !defined(_WIN32)
+#if defined(HAVE_SDL3) && !defined(_WIN32)
     SDL_InitSubSystem(SDL_INIT_VIDEO);
 
     // Set a screensaver inhibition reason string. Currently passed to DBus by SDL and visible to
@@ -2090,7 +2090,7 @@ void GMainWindow::OnSigInterruptNotifierActivated() {
 void GMainWindow::PreventOSSleep() {
 #ifdef _WIN32
     SetThreadExecutionState(ES_CONTINUOUS | ES_SYSTEM_REQUIRED | ES_DISPLAY_REQUIRED);
-#elif defined(HAVE_SDL2)
+#elif defined(HAVE_SDL3)
     SDL_DisableScreenSaver();
 #endif
 }
@@ -2098,7 +2098,7 @@ void GMainWindow::PreventOSSleep() {
 void GMainWindow::AllowOSSleep() {
 #ifdef _WIN32
     SetThreadExecutionState(ES_CONTINUOUS);
-#elif defined(HAVE_SDL2)
+#elif defined(HAVE_SDL3)
     SDL_EnableScreenSaver();
 #endif
 }

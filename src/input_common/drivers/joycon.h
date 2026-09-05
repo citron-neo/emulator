@@ -6,7 +6,7 @@
 #include <array>
 #include <span>
 #include <thread>
-#include <SDL_hidapi.h>
+#include <SDL3/SDL_hidapi.h>
 
 #include "input_common/input_engine.h"
 

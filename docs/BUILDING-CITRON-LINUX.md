@@ -74,7 +74,7 @@ No PGO round-trip at all:
 |`autoconf` \+ `automake` \+ `libtool` \+ `make`    |FFmpeg/libusb autotools builds                                                                                            |
 |`glslang` (`glslc`)                                |Vulkan shader compilation                                                                                                 |
 |`patchelf`                                         |AppImage bundle RPATH normalization                                                                                       |
-|ALSA + PulseAudio dev packages                     |Required for a functional Linux audio backend — without these, SDL2/cubeb compile with no audio output and no build error |
+|ALSA + PulseAudio dev packages                     |Required for a functional Linux audio backend — without these, SDL3/cubeb compile with no audio output and no build error |
 |VAAPI / VDPAU / X11 / XCB dev packages             |Hardware video decode + windowing                                                                                         |
 |`libgl-dev` / `libopengl-dev`                      |Required by Qt6's `WrapOpenGL` detection at configure time (citron's renderer is Vulkan-only, but Qt6 still probes for this)|
 |`gamemode` (optional)                              |Bundled into the AppImage automatically if present                                                                        |

@@ -253,7 +253,7 @@ if (CITRON_SHADER_TOOL)
     add_subdirectory(shader_tool)
 endif()
 
-if (ENABLE_SDL2)
+if (ENABLE_SDL3)
     add_subdirectory_without_clangcl_pgo(citron_cmd)
 endif()
 

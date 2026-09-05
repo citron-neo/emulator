@@ -10,7 +10,7 @@
 
 #include <array>
 #include <functional>
-#include <SDL_hidapi.h>
+#include <SDL3/SDL_hidapi.h>
 
 #include "common/bit_field.h"
 #include "common/common_funcs.h"

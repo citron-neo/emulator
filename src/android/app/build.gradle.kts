@@ -154,7 +154,7 @@ android {
             cmake {
                 arguments(
                     "-DENABLE_QT=0", // Don't use QT
-                    "-DENABLE_SDL2=0", // Don't use SDL
+                    "-DENABLE_SDL3=0", // Don't use SDL
                     "-DENABLE_WEB_SERVICE=0", // Don't use telemetry
                     "-DENABLE_OPENSSL=1",
                     "-DBUNDLE_SPEEX=ON",

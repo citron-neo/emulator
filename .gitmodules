@@ -29,9 +29,6 @@
 [submodule "opus"]
 	path = externals/opus
 	url = https://github.com/xiph/opus.git
-[submodule "SDL"]
-	path = externals/SDL
-	url = https://github.com/libsdl-org/SDL.git
 [submodule "cpp-httplib"]
 	path = externals/cpp-httplib
 	url = https://github.com/yhirose/cpp-httplib.git

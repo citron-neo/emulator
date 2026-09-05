@@ -51,8 +51,23 @@ void Config::Initialize(const std::string& config_name) {
 }
 
 void Config::Initialize(const std::optional<std::string> config_path) {
-    const std::filesystem::path default_sdl_config_path =
-        FS::GetCitronPath(FS::CitronPath::ConfigDir) / "sdl2-config.ini";
+    const std::filesystem::path config_dir = FS::GetCitronPath(FS::CitronPath::ConfigDir);
+    const std::filesystem::path default_sdl_config_path = config_dir / "sdl3-config.ini";
+
+    // Preserve the existing SDL frontend configuration after the rename.
+    const std::filesystem::path legacy_sdl_config_path = config_dir / "sdl2-config.ini";
+    if (!config_path.has_value() && !FS::Exists(default_sdl_config_path) &&
+        FS::Exists(legacy_sdl_config_path)) {
+        if (FS::RenameFile(legacy_sdl_config_path, default_sdl_config_path)) {
+            LOG_INFO(Config, "Migrated {} to {}", FS::PathToUTF8String(legacy_sdl_config_path),
+                     FS::PathToUTF8String(default_sdl_config_path));
+        } else {
+            LOG_WARNING(Config, "Failed to migrate {} to {}, settings may reset to defaults",
+                        FS::PathToUTF8String(legacy_sdl_config_path),
+                        FS::PathToUTF8String(default_sdl_config_path));
+        }
+    }
+
     config_loc = config_path.value_or(FS::PathToUTF8String(default_sdl_config_path));
     void(FS::CreateParentDir(config_loc));
     SetUpIni();

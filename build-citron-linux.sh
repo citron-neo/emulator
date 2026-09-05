@@ -497,21 +497,7 @@ _setup_apt() {
     #       pkg_check_modules(LIBVA-DRM libva-drm REQUIRED)
     #       pkg_check_modules(LIBVA-X11 libva-x11 REQUIRED)
     #
-    # Additionally, SDL2's cmake (also CPM-sourced) runs CheckX11() whenever
-    # libX11.so.6 is findable on the system.  Inside CheckX11(), SDL2 2.x
-    # unconditionally hard-fails if Xext.h is absent:
-    #
-    #   message_error("*** ERROR: Missing Xext.h, maybe you need to
-    #                  install the libxext-dev package?")
-    #
-    # This means libxext-dev MUST always be installed alongside libx11-dev.
-    # Installing libx11-dev without libxext-dev triggers the SDL2 hard-fail.
-    #
-    # These cascading REQUIRED constraints make libva-dev, libdrm-dev,
-    # libx11-dev, and libxext-dev an all-or-nothing group: if libva-dev
-    # installs but any of its sibling REQUIRED packages don't, cmake
-    # hard-fails the build.  APT's atomic install behaviour (the whole command
-    # either succeeds or is rolled back) is what keeps this safe.
+    # SDL3 silently disables X11 without Xext.h; install libxext-dev with libx11-dev.
     # DO NOT use --ignore-missing on this group, and DO NOT split it.
 
     # ── VAAPI + X11 core (all-or-nothing) ───────────────────────────────────
@@ -520,8 +506,7 @@ _setup_apt() {
     # libva-x11-2    → runtime libva-x11.so
     # libdrm-dev     → libdrm.pc (REQUIRED by FFmpeg cmake when LIBVA_FOUND)
     # libx11-dev     → X11 headers (REQUIRED by FFmpeg cmake when LIBVA_FOUND)
-    # libxext-dev    → Xext.h (REQUIRED by SDL2 cmake whenever libX11.so.6 is
-    #                  findable, regardless of VAAPI; must travel with libx11-dev)
+    # libxext-dev    → Xext.h (required for SDL3 X11 support)
     info "Installing VAAPI + X11 core packages (required together)..."
     sudo apt-get install -y \
         libva-dev libva-drm2 libva-x11-2 \
@@ -537,26 +522,7 @@ _setup_apt() {
         || warn "libvdpau-dev unavailable — FFmpeg will build with --disable-vdpau"
 
     # ── Linux audio output (ALSA + PulseAudio) — REQUIRED, not optional ─────
-    # SDL2's CheckALSA()/CheckPulseAudio() configure-time checks look for
-    # alsa/asoundlib.h and pulse/pulseaudio.h. If either header is missing,
-    # SDL2 silently disables that backend (SDL_ALSA / SDL_PULSEAUDIO → OFF)
-    # rather than hard-failing the build — the same "quiet fallback" pattern
-    # as the VAAPI/VDPAU checks above, except here the fallback is SDL2's
-    # SDL_DUMMYAUDIO/SDL_DISKAUDIO drivers, neither of which produces any
-    # actual sound. A machine missing both dev packages therefore still
-    # builds and packages successfully, but ships an AppImage with no
-    # functioning Linux audio output at all — a failure mode with no build
-    # warning to catch it, which is why this group is REQUIRED (unlike the
-    # --ignore-missing X11/XCB extras below).
-    #
-    # This also solves packaging determinism: package-citron-linux.sh finds
-    # libasound.so.2 and libpulse.so.0 to bundle into the AppImage via
-    # `ldconfig -p` against whatever happens to be installed on the machine
-    # running the packaging step (see comments there). Installing the -dev
-    # packages here pulls in their runtime libs (libasound2, libpulse0) as
-    # apt dependencies, so that probe now succeeds identically on every
-    # machine that runs this script — CI included — instead of depending on
-    # whether that machine happens to already have a desktop audio stack.
+    # SDL3 needs ALSA and PulseAudio headers for audio output.
     info "Installing ALSA + PulseAudio dev packages (required for audio output)..."
     sudo apt-get install -y libasound2-dev libpulse-dev \
         || error "ALSA/PulseAudio dev packages failed to install — Linux builds would have no audio output"
@@ -566,11 +532,18 @@ _setup_apt() {
     # extension headers.  All are optional — their cmake checks produce soft
     # warnings, not hard errors.  --ignore-missing lets a single unavailable
     # package name (which can vary across distro versions) skip cleanly.
+    # SDL3 X11/XCB build dependencies.
     sudo apt-get install -y --ignore-missing \
         libxi-dev \
         libxkbcommon-x11-dev libxss-dev \
         libxcb1-dev libxcb-cursor-dev libxcb-image0-dev \
         libxcb-render-util0-dev libxinerama-dev \
+        libxcursor-dev \
+        libxtst-dev \
+        libxfixes-dev \
+        libxrandr-dev \
+        libxrender-dev \
+        libxext-dev \
         libgles-dev \
         || warn "Some optional X11/XCB extension packages unavailable — optional display features may be limited"
 
@@ -620,12 +593,19 @@ _setup_pacman() {
         || error "ALSA/PulseAudio packages failed to install — Linux builds would have no audio output"
 
     # ── X11 / XCB optional extras (SDL2 Xi/XSS/XCB, Qt XCB platform plugin) ─
+    # SDL3 X11/XCB build dependencies.
     info "Installing optional X11/XCB extension packages..."
     $SUDO pacman -S --needed --noconfirm \
         libxi \
         libxkbcommon-x11 libxss \
         libxcb xcb-util-cursor xcb-util-image \
         xcb-util-renderutil libxinerama \
+        libxcursor \
+        libxtst \
+        libxfixes \
+        libxrandr \
+        libxrender \
+        libxext \
         2>/dev/null || warn "Some optional X11/XCB extension packages unavailable — optional display features may be limited"
 
     # Optional: bundled into the AppImage by package-citron-linux.sh if present.
@@ -706,11 +686,18 @@ _setup_dnf() {
 
     # ── X11 / XCB optional extras (SDL2 Xi/XSS/XCB, Qt XCB platform plugin) ─
     info "Installing optional X11/XCB extension packages..."
+    # SDL3 X11/XCB build dependencies.
     sudo dnf install -y \
         libXi-devel \
         libxkbcommon-x11-devel libXScrnSaver-devel \
         libxcb-devel xcb-util-cursor-devel xcb-util-image-devel \
         xcb-util-renderutil-devel libXinerama-devel \
+        libXcursor-devel \
+        libXtst-devel \
+        libXfixes-devel \
+        libXrandr-devel \
+        libXrender-devel \
+        libXext-devel \
         2>/dev/null || warn "Some optional X11/XCB extension packages unavailable — optional display features may be limited"
 
     # Optional: bundled into the AppImage by package-citron-linux.sh if present.
@@ -762,6 +749,12 @@ _setup_yum() {
         libxkbcommon-x11-devel libXScrnSaver-devel \
         libxcb-devel xcb-util-cursor-devel xcb-util-image-devel \
         xcb-util-renderutil-devel libXinerama-devel \
+        libXcursor-devel \
+        libXtst-devel \
+        libXfixes-devel \
+        libXrandr-devel \
+        libXrender-devel \
+        libXext-devel \
         2>/dev/null || warn "Some optional X11/XCB extension packages unavailable — optional display features may be limited"
 
     # Optional: bundled into the AppImage by package-citron-linux.sh if present.
@@ -812,6 +805,12 @@ _setup_zypper() {
         libxkbcommon-x11-devel libXss-devel \
         libxcb-devel xcb-util-cursor-devel xcb-util-image-devel \
         xcb-util-renderutil-devel libXinerama-devel Mesa-libGLESv2-devel \
+        libXcursor-devel \
+        libXtst-devel \
+        libXfixes-devel \
+        libXrandr-devel \
+        libXrender-devel \
+        libXext-devel \
         2>/dev/null || warn "Some optional X11/XCB extension packages unavailable — optional display features may be limited"
 
     # Optional: bundled into the AppImage by package-citron-linux.sh if present.
@@ -860,6 +859,12 @@ _setup_emerge() {
         x11-libs/libXScrnSaver \
         x11-libs/libxcb x11-libs/xcb-util-cursor x11-libs/xcb-util-image \
         x11-libs/xcb-util-renderutil x11-libs/libXinerama \
+        x11-libs/libXcursor \
+        x11-libs/libXtst \
+        x11-libs/libXfixes \
+        x11-libs/libXrandr \
+        x11-libs/libXrender \
+        x11-libs/libXext \
         2>/dev/null || warn "Some optional X11/XCB extension packages unavailable — optional display features may be limited"
 
     # Optional: bundled into the AppImage by package-citron-linux.sh if present.
@@ -1397,6 +1402,7 @@ build_appimage_stage() {
     local install_root="${build_dir}/install-root"
     rm -rf "${install_root}"
     mkdir -p "${install_root}/usr/bin" \
+             "${install_root}/usr/bin/lib" \
              "${install_root}/usr/share/applications" \
              "${install_root}/usr/share/icons/hicolor/scalable/apps" \
              "${install_root}/usr/share/icons/hicolor/256x256/apps" \
@@ -1409,6 +1415,22 @@ build_appimage_stage() {
     [[ -f "${build_dir}/bin/citron" ]] \
         || error "citron binary not found at ${build_dir}/bin/citron"
     cp "${build_dir}/bin/citron" "${install_root}/usr/bin/citron"
+
+    # Bundle the SDL3 runtime listed by dependencies.cmake.
+    local sdl_runtime_manifest sdl_runtime soname
+    sdl_runtime_manifest="$(find "${build_dir}" -maxdepth 1 -type f -name 'citron-sdl-runtime-libs-*.txt' -print -quit)"
+    [[ -n "${sdl_runtime_manifest}" ]] \
+        || error "SDL3 runtime manifest missing from ${build_dir}"
+    while IFS= read -r sdl_runtime; do
+        [[ -n "${sdl_runtime}" ]] || continue
+        [[ -f "${sdl_runtime}" ]] \
+            || error "SDL3 runtime library missing: ${sdl_runtime}"
+        cp -L "${sdl_runtime}" "${install_root}/usr/bin/lib/"
+        soname="$(patchelf --print-soname "${sdl_runtime}" 2>/dev/null || true)"
+        if [[ -n "${soname}" && "${soname}" != "$(basename "${sdl_runtime}")" ]]; then
+            ln -sf "$(basename "${sdl_runtime}")" "${install_root}/usr/bin/lib/${soname}"
+        fi
+    done < "${sdl_runtime_manifest}"
 
     cp "${SCRIPT_DIR}/dist/org.citron_emu.citron.desktop" \
         "${install_root}/usr/share/applications/"

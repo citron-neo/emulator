@@ -3,16 +3,47 @@
 
 #include <span>
 #include <vector>
-#include <SDL.h>
+#include <SDL3/SDL.h>
 
 #include "audio_core/common/common.h"
-#include "audio_core/sink/sdl2_sink.h"
+#include "audio_core/sink/sdl3_sink.h"
 #include "audio_core/sink/sink_stream.h"
 #include "common/logging.h"
 #include "common/scope_exit.h"
 #include "core/core.h"
 
 namespace AudioCore::Sink {
+
+namespace {
+// Resolve a selected device name to its SDL3 device ID.
+SDL_AudioDeviceID ResolveDeviceId(const std::string& device_name, bool capture) {
+    const SDL_AudioDeviceID default_id =
+        capture ? SDL_AUDIO_DEVICE_DEFAULT_RECORDING : SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK;
+    if (device_name.empty()) {
+        return default_id;
+    }
+
+    int num_devices = 0;
+    SDL_AudioDeviceID* const devices = capture ? SDL_GetAudioRecordingDevices(&num_devices)
+                                                : SDL_GetAudioPlaybackDevices(&num_devices);
+    if (devices == nullptr) {
+        return default_id;
+    }
+
+    SDL_AudioDeviceID result = default_id;
+    for (int i = 0; i < num_devices; ++i) {
+        if (const char* name = SDL_GetAudioDeviceName(devices[i])) {
+            if (device_name == name) {
+                result = devices[i];
+                break;
+            }
+        }
+    }
+    SDL_free(devices);
+    return result;
+}
+} // Anonymous namespace
+
 /**
  * SDL sink stream, responsible for sinking samples to hardware.
  */
@@ -37,11 +68,8 @@ public:
 
         SDL_AudioSpec spec;
         spec.freq = TargetSampleRate;
-        spec.channels = static_cast<u8>(device_channels);
-        spec.format = AUDIO_S16SYS;
-        spec.samples = TargetSampleCount * 2;
-        spec.callback = &SDLSinkStream::DataCallback;
-        spec.userdata = this;
+        spec.channels = static_cast<int>(device_channels);
+        spec.format = SDL_AUDIO_S16;
 
         std::string device_name{output_device};
         bool capture{false};
@@ -50,22 +78,22 @@ public:
             capture = true;
         }
 
-        SDL_AudioSpec obtained;
-        if (device_name.empty()) {
-            device = SDL_OpenAudioDevice(nullptr, capture, &spec, &obtained, false);
-        } else {
-            device = SDL_OpenAudioDevice(device_name.c_str(), capture, &spec, &obtained, false);
-        }
+        const SDL_AudioDeviceID device_id = ResolveDeviceId(device_name, capture);
+        // Request the format expected by the audio pipeline.
+        stream = SDL_OpenAudioDeviceStream(device_id, &spec, &SDLSinkStream::DataCallback, this);
 
-        if (device == 0) {
+        if (stream == nullptr) {
             LOG_CRITICAL(Audio_Sink, "Error opening SDL audio device: {}", SDL_GetError());
             return;
         }
 
+        SDL_AudioSpec src_spec{};
+        SDL_AudioSpec dst_spec{};
+        SDL_GetAudioStreamFormat(stream, &src_spec, &dst_spec);
         LOG_INFO(Service_Audio,
-                 "Opening SDL stream {} with: rate {} channels {} (system channels {}) "
-                 " samples {}",
-                 device, obtained.freq, obtained.channels, system_channels, obtained.samples);
+                 "Opening SDL stream {} with: rate {} channels {} (system channels {})",
+                 SDL_GetAudioStreamDevice(stream), dst_spec.freq, dst_spec.channels,
+                 system_channels);
     }
 
     /**
@@ -80,13 +108,15 @@ public:
      * Finalize the sink stream.
      */
     void Finalize() override {
-        if (device == 0) {
+        if (stream == nullptr) {
             return;
         }
 
         Stop();
-        SDL_ClearQueuedAudio(device);
-        SDL_CloseAudioDevice(device);
+        SDL_ClearAudioStream(stream);
+        // The stream owns the device opened by SDL_OpenAudioDeviceStream.
+        SDL_DestroyAudioStream(stream);
+        stream = nullptr;
     }
 
     /**
@@ -96,62 +126,77 @@ public:
      *                 Default false.
      */
     void Start(bool resume = false) override {
-        if (device == 0 || !paused) {
+        if (stream == nullptr || !paused) {
             return;
         }
 
         paused = false;
-        SDL_PauseAudioDevice(device, 0);
+        SDL_ResumeAudioStreamDevice(stream);
     }
 
     /**
      * Stop the sink stream.
      */
     void Stop() override {
-        if (device == 0 || paused) {
+        if (stream == nullptr || paused) {
             return;
         }
         SignalPause();
-        SDL_PauseAudioDevice(device, 1);
+        SDL_PauseAudioStreamDevice(stream);
     }
 
 private:
-    /**
-     * Main callback from SDL. Either expects samples from us (audio render/audio out), or will
-     * provide samples to be copied (audio in).
-     *
-     * @param userdata - Custom data pointer passed along, points to a SDLSinkStream.
-     * @param stream   - Buffer of samples to be filled or read.
-     * @param len      - Length of the stream in bytes.
-     */
-    static void DataCallback(void* userdata, Uint8* stream, int len) {
+    /// Supplies playback data or consumes captured data on demand.
+    static void DataCallback(void* userdata, SDL_AudioStream* audio_stream, int additional_amount,
+                             [[maybe_unused]] int total_amount) {
         auto* impl = static_cast<SDLSinkStream*>(userdata);
 
-        if (!impl) {
+        if (!impl || additional_amount <= 0) {
             return;
         }
 
         const std::size_t num_channels = impl->GetDeviceChannels();
-        const std::size_t frame_size = num_channels;
-        const std::size_t num_frames{len / num_channels / sizeof(s16)};
+        const std::size_t frame_size = num_channels * sizeof(s16);
 
         if (impl->type == StreamType::In) {
-            std::span<const s16> input_buffer{reinterpret_cast<const s16*>(stream),
-                                              num_frames * frame_size};
-            impl->ProcessAudioIn(input_buffer, num_frames);
+            // Query the converted data actually available; callback sizes can be estimates.
+            const int available = SDL_GetAudioStreamAvailable(audio_stream);
+            if (available <= 0) {
+                return;
+            }
+            const std::size_t available_frames = static_cast<std::size_t>(available) / frame_size;
+            if (available_frames == 0) {
+                return;
+            }
+
+            std::vector<s16> input_buffer(available_frames * num_channels);
+            const int received = SDL_GetAudioStreamData(
+                audio_stream, input_buffer.data(), static_cast<int>(available_frames * frame_size));
+            if (received <= 0) {
+                return;
+            }
+            const std::size_t received_frames = static_cast<std::size_t>(received) / frame_size;
+            impl->ProcessAudioIn({input_buffer.data(), received_frames * num_channels},
+                                 received_frames);
         } else {
-            std::span<s16> output_buffer{reinterpret_cast<s16*>(stream), num_frames * frame_size};
+            const std::size_t num_frames = static_cast<std::size_t>(additional_amount) / frame_size;
+            if (num_frames == 0) {
+                return;
+            }
+            std::vector<s16> output_buffer(num_frames * num_channels);
             impl->ProcessAudioOutAndRender(output_buffer, num_frames);
+            SDL_PutAudioStreamData(audio_stream, output_buffer.data(),
+                                   static_cast<int>(num_frames * frame_size));
         }
     }
 
-    /// SDL device id of the opened input/output device
-    SDL_AudioDeviceID device{};
+    /// Stream and its associated audio device.
+    SDL_AudioStream* stream{};
 };
 
 SDLSink::SDLSink(std::string_view target_device_name) {
     if (!SDL_WasInit(SDL_INIT_AUDIO)) {
-        if (SDL_InitSubSystem(SDL_INIT_AUDIO) < 0) {
+        if (!SDL_InitSubSystem(SDL_INIT_AUDIO)) {
             LOG_CRITICAL(Audio_Sink, "SDL_InitSubSystem audio failed: {}", SDL_GetError());
             return;
         }
@@ -214,29 +259,35 @@ std::vector<std::string> ListSDLSinkDevices(bool capture) {
     std::vector<std::string> device_list;
 
     if (!SDL_WasInit(SDL_INIT_AUDIO)) {
-        if (SDL_InitSubSystem(SDL_INIT_AUDIO) < 0) {
+        if (!SDL_InitSubSystem(SDL_INIT_AUDIO)) {
             LOG_CRITICAL(Audio_Sink, "SDL_InitSubSystem audio failed: {}", SDL_GetError());
             return {};
         }
     }
 
-    const int device_count = SDL_GetNumAudioDevices(capture);
-    for (int i = 0; i < device_count; ++i) {
-        if (const char* name = SDL_GetAudioDeviceName(i, capture)) {
+    int num_devices = 0;
+    SDL_AudioDeviceID* const devices = capture ? SDL_GetAudioRecordingDevices(&num_devices)
+                                                : SDL_GetAudioPlaybackDevices(&num_devices);
+    if (devices == nullptr) {
+        return device_list;
+    }
+    for (int i = 0; i < num_devices; ++i) {
+        if (const char* name = SDL_GetAudioDeviceName(devices[i])) {
             device_list.emplace_back(name);
         }
     }
+    SDL_free(devices);
 
     return device_list;
 }
 
 bool IsSDLSuitable() {
-#if !defined(HAVE_SDL2)
+#if !defined(HAVE_SDL3)
     return false;
 #else
     // Check SDL can init
     if (!SDL_WasInit(SDL_INIT_AUDIO)) {
-        if (SDL_InitSubSystem(SDL_INIT_AUDIO) < 0) {
+        if (!SDL_InitSubSystem(SDL_INIT_AUDIO)) {
             LOG_ERROR(Audio_Sink, "SDL failed to init, it is not suitable. Error: {}",
                       SDL_GetError());
             return false;
@@ -248,22 +299,19 @@ bool IsSDLSuitable() {
     // Check we can open a device with standard parameters
     SDL_AudioSpec spec;
     spec.freq = TargetSampleRate;
-    spec.channels = 2u;
-    spec.format = AUDIO_S16SYS;
-    spec.samples = TargetSampleCount * 2;
-    spec.callback = nullptr;
-    spec.userdata = nullptr;
+    spec.channels = 2;
+    spec.format = SDL_AUDIO_S16;
 
-    SDL_AudioSpec obtained;
-    auto device = SDL_OpenAudioDevice(nullptr, false, &spec, &obtained, false);
+    SDL_AudioStream* const stream =
+        SDL_OpenAudioDeviceStream(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, &spec, nullptr, nullptr);
 
-    if (device == 0) {
+    if (stream == nullptr) {
         LOG_ERROR(Audio_Sink, "SDL failed to open a device, it is not suitable. Error: {}",
                   SDL_GetError());
         return false;
     }
 
-    SDL_CloseAudioDevice(device);
+    SDL_DestroyAudioStream(stream);
     return true;
 #endif
 }

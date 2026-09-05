@@ -705,7 +705,6 @@ stage_setup() {
             mingw-w64-clang-x86_64-ninja \
             mingw-w64-clang-x86_64-python \
             mingw-w64-clang-x86_64-boost \
-            mingw-w64-clang-x86_64-SDL2 \
             mingw-w64-clang-x86_64-nasm \
             mingw-w64-clang-x86_64-yasm \
             mingw-w64-clang-x86_64-glslang \
@@ -1514,11 +1513,11 @@ set(CMAKE_SYSTEM_PROCESSOR x86_64)
 set(CMAKE_C_COMPILER   "${MINGW_CLANG}")
 set(CMAKE_CXX_COMPILER "${MINGW_CLANGPP}")
 set(CMAKE_RC_COMPILER  "windres.exe")
-set(CMAKE_C_FLAGS_INIT   "-D__INTRINSIC_DEFINED___cpuidex -D__USE_MINGW_STAT64 -Wno-unknown-pragmas")
-set(CMAKE_CXX_FLAGS_INIT "-D_WIN32_WINNT=0x0A00 -DWINVER=0x0A00 -D__INTRINSIC_DEFINED___cpuidex -D__USE_MINGW_STAT64 -U__GLIBCXX__ -Wno-unknown-pragmas")
-set(CMAKE_EXE_LINKER_FLAGS_INIT    "-fuse-ld=lld -Wl,--allow-multiple-definition")
-set(CMAKE_SHARED_LINKER_FLAGS_INIT "-fuse-ld=lld -Wl,--allow-multiple-definition")
-set(CMAKE_MODULE_LINKER_FLAGS_INIT "-fuse-ld=lld -Wl,--allow-multiple-definition")
+set(CMAKE_C_FLAGS_INIT   "-D__USE_MINGW_STAT64 -Wno-unknown-pragmas")
+set(CMAKE_CXX_FLAGS_INIT "-D_WIN32_WINNT=0x0A00 -DWINVER=0x0A00 -D__USE_MINGW_STAT64 -U__GLIBCXX__ -Wno-unknown-pragmas")
+set(CMAKE_EXE_LINKER_FLAGS_INIT    "-fuse-ld=lld")
+set(CMAKE_SHARED_LINKER_FLAGS_INIT "-fuse-ld=lld")
+set(CMAKE_MODULE_LINKER_FLAGS_INIT "-fuse-ld=lld")
 set(CMAKE_CXX_STANDARD_LIBRARIES "${_COMSUPP_TC_PATH} -loleaut32")
 set(CMAKE_AUTORCC_OPTIONS "--compress-algo;zlib")
 MSYS2_TC_EOF
@@ -1542,15 +1541,8 @@ set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
 set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
 set(CMAKE_FIND_ROOT_PATH_MODE_PACKAGE BOTH)
 
-# -D__INTRINSIC_DEFINED___cpuidex: prevents MinGW intrin-impl.h from defining __cpuidex
-# with external linkage, eliminating duplicate-symbol errors from SDL2 and others.
-set(CMAKE_C_FLAGS_INIT   "-D__INTRINSIC_DEFINED___cpuidex -D__USE_MINGW_STAT64 -isystem \"${CMAKE_BUILD_ROOT}/mingw-case-fixups\" -Wno-unknown-pragmas")
-set(CMAKE_CXX_FLAGS_INIT "-D_WIN32_WINNT=0x0A00 -DWINVER=0x0A00 -D__INTRINSIC_DEFINED___cpuidex -D__USE_MINGW_STAT64 -U__GLIBCXX__ -isystem \"${CMAKE_BUILD_ROOT}/mingw-case-fixups\" -Wno-unknown-pragmas")
-
-# --allow-multiple-definition: residual __cpuidex duplicates from libSDL2.a
-set(CMAKE_EXE_LINKER_FLAGS_INIT    "-Wl,--allow-multiple-definition")
-set(CMAKE_SHARED_LINKER_FLAGS_INIT "-Wl,--allow-multiple-definition")
-set(CMAKE_MODULE_LINKER_FLAGS_INIT "-Wl,--allow-multiple-definition")
+set(CMAKE_C_FLAGS_INIT   "-D__USE_MINGW_STAT64 -isystem \"${CMAKE_BUILD_ROOT}/mingw-case-fixups\" -Wno-unknown-pragmas")
+set(CMAKE_CXX_FLAGS_INIT "-D_WIN32_WINNT=0x0A00 -DWINVER=0x0A00 -D__USE_MINGW_STAT64 -U__GLIBCXX__ -isystem \"${CMAKE_BUILD_ROOT}/mingw-case-fixups\" -Wno-unknown-pragmas")
 
 # comsupp_stubs.o: _com_util::ConvertStringToBSTR stub (not in MinGW)
 # -loleaut32: COM/OLE Automation (SysAllocString etc.) for WMI code
@@ -1601,7 +1593,7 @@ build_common_cmake_args() {
         "-DCITRON_TESTS=OFF"
         "-DCITRON_USE_BUNDLED_FFMPEG=ON"
         "-DCITRON_CLANGTRON=ON"
-        "-DCITRON_USE_EXTERNAL_SDL2=ON"
+        "-DCITRON_USE_EXTERNAL_SDL3=ON"
         "-DCITRON_USE_EXTERNAL_VULKAN_HEADERS=ON"
         "-DCITRON_USE_EXTERNAL_VULKAN_UTILITY_LIBRARIES=ON"
         "-DSPIRV-Headers_DIR=${CMAKE_SPIRV_HEADERS_INSTALL}/share/cmake/SPIRV-Headers"
@@ -2874,7 +2866,8 @@ XBYAK_PATCH_EOF
         $([ "${_elf_nopgo}" -eq 0 ] && echo "-DCITRON_PGO_PROFILE_DIR=${PROFILE_DIR}")
         "-DCITRON_TESTS=OFF"
         "-DCITRON_USE_BUNDLED_FFMPEG=ON"
-        "-DCITRON_USE_EXTERNAL_SDL2=ON"
+        "-DCITRON_USE_CPM=ON"
+        "-DCITRON_USE_EXTERNAL_SDL3=ON"
         "-DCITRON_USE_EXTERNAL_VULKAN_HEADERS=ON"
         "-DCITRON_USE_EXTERNAL_VULKAN_UTILITY_LIBRARIES=ON"
         "-DCITRON_USE_QT_MULTIMEDIA=OFF"
@@ -3111,7 +3104,7 @@ if nm_result.returncode != 0:
 #   *.cold[.N]    -- cold halves of split functions (placed after __hot_end)
 #   __COLD_*      -- BOLT cold-region labels
 #   .llvm.<hash>  -- ThinLTO-internalized copies (hash differs per build)
-#   SDL_*_REAL    -- Linux SDL2 internal dispatch symbols absent in Windows SDL2.dll
+#   SDL_*_REAL    -- Linux SDL3 internal dispatch symbols absent in Windows SDL3.dll
 skip = re.compile(
     r'^__BOLT_'
     r'|\.cold(?:\.\d+)?$'

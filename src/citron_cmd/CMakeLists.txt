@@ -13,12 +13,12 @@ function(create_resource file output filename)
 endfunction()
 
 add_executable(citron-cmd
-    emu_window/emu_window_sdl2.cpp
-    emu_window/emu_window_sdl2.h
-    emu_window/emu_window_sdl2_null.cpp
-    emu_window/emu_window_sdl2_null.h
-    emu_window/emu_window_sdl2_vk.cpp
-    emu_window/emu_window_sdl2_vk.h
+    emu_window/emu_window_sdl3.cpp
+    emu_window/emu_window_sdl3.h
+    emu_window/emu_window_sdl3_null.cpp
+    emu_window/emu_window_sdl3_null.h
+    emu_window/emu_window_sdl3_vk.cpp
+    emu_window/emu_window_sdl3_vk.h
     precompiled_headers.h
     citron_sdl_config.cpp
     citron_sdl_config.h
@@ -89,7 +89,7 @@ target_link_libraries(citron-cmd PRIVATE ${PLATFORM_LIBRARIES} Threads::Threads)
 create_resource("../../dist/citron.bmp" "citron_cmd/citron_icon.h" "citron_icon")
 target_include_directories(citron-cmd PRIVATE ${RESOURCES_DIR})
 
-target_link_libraries(citron-cmd PRIVATE SDL2::SDL2 Vulkan::Headers)
+target_link_libraries(citron-cmd PRIVATE SDL3::SDL3 Vulkan::Headers)
 
 if(UNIX AND NOT APPLE)
     install(TARGETS citron-cmd)
@@ -104,12 +104,14 @@ if(WIN32)
     endif()
 endif()
 
-if (MSVC AND CITRON_USE_BUNDLED_SDL2)
-    include(CopyCitronSDLDeps)
-    copy_citron_SDL_deps(citron-cmd)
-elseif(MINGW)
+if(MINGW)
     include(CopyMinGWDeps)
     copy_mingw_deps(citron-cmd SEARCH_PATHS "${FFmpeg_PATH}/bin" "${QT_TARGET_PATH}/bin")
+endif()
+
+if (ENABLE_SDL3)
+    # Keep SDL3 after CopyMinGWDeps' import-table-only stale-DLL cleanup.
+    copy_citron_sdl_runtime(citron-cmd)
 endif()
 
 if(WIN32)
