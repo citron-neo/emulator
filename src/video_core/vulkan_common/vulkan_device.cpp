@@ -3,9 +3,11 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <algorithm>
+#include <array>
 #include <bitset>
 #include <chrono>
 #include <optional>
+#include <string_view>
 #include <thread>
 #include <unordered_set>
 #include <utility>
@@ -644,14 +646,45 @@ Device::Device(VkInstance instance_, vk::PhysicalDevice physical_, VkSurfaceKHR 
     if (extensions.vertex_input_dynamic_state && is_radv) {
         // TODO(ameerj): Blacklist only offending driver versions
         // TODO(ameerj): Confirm if RDNA1 is affected
+        //
+        // NOTE: VK_KHR_fragment_shading_rate is exposed by RDNA2 *and* every RADV
+        // architecture since (RDNA3, RDNA3.5, RDNA4), so it is not sufficient on its
+        // own to identify RDNA2 hardware. RADV reports the chip family codename inside
+        // VkPhysicalDeviceProperties::deviceName (e.g. "AMD Radeon 780M Graphics (RADV
+        // PHOENIX)"), so use that to exclude the newer families this workaround was
+        // never intended for.
+        static constexpr std::array<std::string_view, 19> non_rdna2_radv_codenames{{
+            // RDNA3 / RDNA3.5 discrete and APU families
+            "NAVI31", "NAVI32", "NAVI33",
+            "PHOENIX", "PHOENIX2", "HAWK_POINT", "HAWK POINT",
+            "STRIX", "STRIX_HALO", "STRIX HALO",
+            "KRACKAN1",
+            // GFX target aliases for RDNA3.5 (older Mesa naming)
+            "GFX1150", "GFX1151", "GFX1152",
+            // RDNA4
+            "NAVI4",
+            // GFX target aliases for RDNA4 and future variants (older Mesa naming)
+            "GFX1200", "GFX1201", "GFX1210",
+        }};
+        const std::string_view device_name{properties.properties.deviceName};
+        const bool is_known_non_rdna2 =
+            std::ranges::any_of(non_rdna2_radv_codenames, [&](std::string_view codename) {
+                return device_name.find(codename) != std::string_view::npos;
+            });
         const bool is_rdna2 =
-            supported_extensions.contains(VK_KHR_FRAGMENT_SHADING_RATE_EXTENSION_NAME);
+            supported_extensions.contains(VK_KHR_FRAGMENT_SHADING_RATE_EXTENSION_NAME) &&
+            !is_known_non_rdna2;
         if (is_rdna2) {
             LOG_WARNING(Render_Vulkan,
                         "RADV has broken VK_EXT_vertex_input_dynamic_state on RDNA2 hardware");
             RemoveExtensionFeature(extensions.vertex_input_dynamic_state,
                                    features.vertex_input_dynamic_state,
                                    VK_EXT_VERTEX_INPUT_DYNAMIC_STATE_EXTENSION_NAME);
+        } else if (is_known_non_rdna2) {
+            LOG_INFO(Render_Vulkan,
+                     "RADV device '{}' matched a non-RDNA2 codename, leaving "
+                     "VK_EXT_vertex_input_dynamic_state enabled",
+                     device_name);
         }
     }
     if (extensions.vertex_input_dynamic_state && is_qualcomm) {
