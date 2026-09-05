@@ -32,24 +32,19 @@ static const std::map<Settings::AntiAliasing, QString> anti_aliasing_texts_map =
 };
 
 static const std::map<Settings::ScalingFilter, QString> scaling_filter_texts_map = {
-    {Settings::ScalingFilter::NearestNeighbor,
-     QStringLiteral(QT_TRANSLATE_NOOP("GMainWindow", "Nearest"))},
-    {Settings::ScalingFilter::Bilinear,
-     QStringLiteral(QT_TRANSLATE_NOOP("GMainWindow", "Bilinear"))},
+    {Settings::ScalingFilter::NearestNeighbor, QStringLiteral(QT_TRANSLATE_NOOP("GMainWindow", "Nearest"))},
+    {Settings::ScalingFilter::Bilinear, QStringLiteral(QT_TRANSLATE_NOOP("GMainWindow", "Bilinear"))},
     {Settings::ScalingFilter::Bicubic, QStringLiteral(QT_TRANSLATE_NOOP("GMainWindow", "Bicubic"))},
-    {Settings::ScalingFilter::Gaussian,
-     QStringLiteral(QT_TRANSLATE_NOOP("GMainWindow", "Gaussian"))},
+    {Settings::ScalingFilter::Gaussian, QStringLiteral(QT_TRANSLATE_NOOP("GMainWindow", "Gaussian"))},
     {Settings::ScalingFilter::Lanczos, QStringLiteral(QT_TRANSLATE_NOOP("GMainWindow", "Lanczos"))},
-    {Settings::ScalingFilter::ScaleForce,
-     QStringLiteral(QT_TRANSLATE_NOOP("GMainWindow", "ScaleForce"))},
+    {Settings::ScalingFilter::ScaleForce, QStringLiteral(QT_TRANSLATE_NOOP("GMainWindow", "ScaleForce"))},
     {Settings::ScalingFilter::ScaleFx, QStringLiteral(QT_TRANSLATE_NOOP("GMainWindow", "ScaleFX"))},
     {Settings::ScalingFilter::Fsr, QStringLiteral(QT_TRANSLATE_NOOP("GMainWindow", "FSR"))},
     {Settings::ScalingFilter::Fsr2, QStringLiteral(QT_TRANSLATE_NOOP("GMainWindow", "FSR 2.0"))},
-    {Settings::ScalingFilter::CRTEasyMode,
-     QStringLiteral(QT_TRANSLATE_NOOP("GMainWindow", "CRT EasyMode"))},
-    {Settings::ScalingFilter::CRTRoyale,
-     QStringLiteral(QT_TRANSLATE_NOOP("GMainWindow", "CRT Royale"))},
+    {Settings::ScalingFilter::CRTEasyMode, QStringLiteral(QT_TRANSLATE_NOOP("GMainWindow", "CRT EasyMode"))},
+    {Settings::ScalingFilter::CRTRoyale, QStringLiteral(QT_TRANSLATE_NOOP("GMainWindow", "CRT Royale"))},
     {Settings::ScalingFilter::Cas, QStringLiteral(QT_TRANSLATE_NOOP("GMainWindow", "CAS"))},
+    {Settings::ScalingFilter::Area, QStringLiteral(QT_TRANSLATE_NOOP("GMainWindow", "Area"))},
 };
 
 static const std::map<Settings::ConsoleMode, QString> use_docked_mode_texts_map = {
