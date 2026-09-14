@@ -319,13 +319,13 @@ bool ZipExtractor::ExtractAndOrganize(const QString& zip_path, const QString& mo
         return false;
 
     ModStructure structure = DetectModStructure(zip_path);
-    std::filesystem::path src_root(temp_dir.path().toStdString());
-    std::filesystem::path dst_root(mod_folder.toStdString());
+    std::filesystem::path src_root(Common::FS::PathFromUTF8(temp_dir.path().toStdString()));
+    std::filesystem::path dst_root(Common::FS::PathFromUTF8(mod_folder.toStdString()));
 
     QDir temp(temp_dir.path());
     QStringList entries = temp.entryList(QDir::Dirs | QDir::Files | QDir::NoDotAndDotDot);
     if (entries.size() == 1 && QFileInfo(temp.absoluteFilePath(entries[0])).isDir()) {
-        src_root /= entries[0].toStdString();
+        src_root /= Common::FS::PathFromUTF8(entries[0].toStdString());
     }
 
     if (structure == ModStructure::Flat) {

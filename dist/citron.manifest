@@ -29,6 +29,12 @@ SPDX-License-Identifier: GPL-2.0-or-later
           xmlns:ws3="http://schemas.microsoft.com/SMI/2016/WindowsSettings">
         true
       </ws2:longPathAware>
+      <!--
+        Internal paths are already UTF-8. Without this, MSVC treats narrow
+        filesystem strings as the ANSI code page, so non-ASCII folders abort
+        the process instead of opening like ASCII folders.
+      -->
+      <activeCodePage xmlns="http://schemas.microsoft.com/SMI/2019/WindowsSettings">UTF-8</activeCodePage>
     </asmv3:windowsSettings>
   </asmv3:application>
   <compatibility

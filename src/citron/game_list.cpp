@@ -3355,12 +3355,12 @@ void GameList::AddGamePopup(QMenu& context_menu, const QModelIndex& index, u64 p
                 "user/save/{:016X}/{:016X}{:016X}/{:016X}", 0, static_cast<uint64_t>(user_id[1]),
                 static_cast<uint64_t>(user_id[0]), static_cast<uint64_t>(program_id));
             const auto full_save_path =
-                std::filesystem::path(mirror_base_path.toStdString()) / relative_save_path;
+                Common::FS::PathFromUTF8(mirror_base_path.toStdString()) / relative_save_path;
             if (!std::filesystem::exists(full_save_path.parent_path())) {
                 std::filesystem::create_directories(full_save_path.parent_path());
             }
-            QDesktopServices::openUrl(
-                QUrl::fromLocalFile(QString::fromStdString(full_save_path.string())));
+            QDesktopServices::openUrl(QUrl::fromLocalFile(
+                QString::fromStdString(Common::FS::PathToUTF8String(full_save_path))));
         });
     }
 

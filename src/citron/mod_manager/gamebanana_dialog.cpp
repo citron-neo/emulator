@@ -321,15 +321,17 @@ void GameBananaDialog::StartDownload(const GameBananaMod& mod) {
     namespace FS = Common::FS;
 
     if (ui->locationComboBox->currentIndex() == 0) {
-        mod_folder = FS::GetCitronPath(FS::CitronPath::LoadDir) / title_id.toStdString() /
-                     mod.name.toStdString();
+        mod_folder = FS::GetCitronPath(FS::CitronPath::LoadDir) /
+                     FS::PathFromUTF8(title_id.toStdString()) /
+                     FS::PathFromUTF8(mod.name.toStdString());
     } else {
         mod_folder = FS::GetCitronPath(FS::CitronPath::SDMCDir) / "atmosphere" / "contents" /
                      title_id.toStdString();
     }
 
     std::filesystem::create_directories(mod_folder);
-    QString dest_file = QString::fromStdString((mod_folder / mod.file_name.toStdString()).string());
+    QString dest_file = QString::fromStdString(FS::PathToUTF8String(
+        mod_folder / FS::PathFromUTF8(mod.file_name.toStdString())));
     service->DownloadMod(mod.download_url, dest_file);
 }
 

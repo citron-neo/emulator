@@ -62,18 +62,14 @@ static std::unordered_map<std::string, CachedGameMetadata> game_metadata_cache;
 
 // Generate a cache key from file path
 std::string GetCacheKey(const std::string& file_path) {
-    // Use a hash of the normalized path as the key
+    // Use a hash of the normalized path as the key.
+    // file_path is UTF-8. Constructing a path from std::string uses the ANSI
+    // code page and can throw before the error_code overload runs.
     std::error_code ec;
-    std::filesystem::path normalized_path;
-    try {
-        normalized_path = std::filesystem::canonical(std::filesystem::path(file_path), ec);
-        if (ec) {
-            // If canonical fails, use the original path
-            normalized_path = std::filesystem::path(file_path);
-        }
-    } catch (...) {
-        // If canonical throws, use the original path
-        normalized_path = std::filesystem::path(file_path);
+    const auto path = Common::FS::PathFromUTF8(file_path);
+    auto normalized_path = std::filesystem::canonical(path, ec);
+    if (ec) {
+        normalized_path = path;
     }
 
     const auto path_str = Common::FS::PathToUTF8String(normalized_path);
@@ -191,7 +187,8 @@ const CachedGameMetadata* GetCachedGameMetadata(const std::string& file_path) {
     }
 
     std::error_code ec;
-    const auto mod_time = std::filesystem::last_write_time(file_path, ec);
+    const auto mod_time =
+        std::filesystem::last_write_time(Common::FS::PathFromUTF8(file_path), ec);
     if (ec) {
         return nullptr;
     }
@@ -225,7 +222,8 @@ void CacheGameMetadata(const std::string& file_path, u64 program_id, Loader::Fil
     }
 
     std::error_code ec;
-    const auto mod_time = std::filesystem::last_write_time(file_path, ec);
+    const auto mod_time =
+        std::filesystem::last_write_time(Common::FS::PathFromUTF8(file_path), ec);
     if (ec) {
         return;
     }

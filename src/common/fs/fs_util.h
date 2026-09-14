@@ -7,6 +7,7 @@
 #include <filesystem>
 #include <span>
 #include <string>
+#include <string_view>
 
 #include "common/common_types.h"
 
@@ -81,5 +82,17 @@ concept IsChar = std::same_as<T, char>;
  * @returns UTF-8 encoded std::string.
  */
 [[nodiscard]] std::string PathToUTF8String(const std::filesystem::path& path);
+
+/**
+ * Builds a filesystem path from a UTF-8 string.
+ * On Windows, constructing a path from std::string uses the ANSI code page and
+ * throws on characters that code page cannot represent. This always treats the
+ * input as UTF-8, so non-ASCII folders behave like ASCII ones.
+ *
+ * @param utf8_path UTF-8 encoded filesystem path
+ *
+ * @returns Filesystem path.
+ */
+[[nodiscard]] std::filesystem::path PathFromUTF8(std::string_view utf8_path);
 
 } // namespace Common::FS

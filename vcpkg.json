@@ -32,6 +32,7 @@
       "features": ["avcodec", "avfilter", "swscale"]
     },
     "fmt",
+    "libarchive",
     "lz4",
     "nlohmann-json",
     {

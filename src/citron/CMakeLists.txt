@@ -542,7 +542,11 @@ endif()
 target_link_libraries(citron PRIVATE Boost::headers glad nlohmann_json::nlohmann_json Qt6::Widgets Qt6::Network Qt6::Svg)
 target_link_libraries(citron PRIVATE ${PLATFORM_LIBRARIES} Threads::Threads)
 
-# Add libarchive for updater functionality
+# In-process ZIP extract. Without this, firmware install shells out to
+# PowerShell and the UI pauses until that process starts and finishes.
+if (NOT TARGET LibArchive::LibArchive)
+    find_package(LibArchive QUIET)
+endif()
 if (TARGET LibArchive::LibArchive)
     target_link_libraries(citron PRIVATE LibArchive::LibArchive)
     target_compile_definitions(citron PRIVATE CITRON_ENABLE_LIBARCHIVE)
