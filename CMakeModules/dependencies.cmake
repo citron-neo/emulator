@@ -171,6 +171,10 @@ if (NOT TARGET LibArchive::LibArchive)
             "ENABLE_WERROR OFF"
     )
     if (TARGET archive_static AND NOT TARGET LibArchive::LibArchive)
+        # archive.h marks every function dllimport unless consumers define this.
+        # clang-cl links the static library, so without it the link fails with
+        # undefined __declspec(dllimport) archive_* symbols.
+        target_compile_definitions(archive_static PUBLIC LIBARCHIVE_STATIC)
         add_library(LibArchive::LibArchive ALIAS archive_static)
     elseif (TARGET archive AND NOT TARGET LibArchive::LibArchive)
         add_library(LibArchive::LibArchive ALIAS archive)
