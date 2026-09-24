@@ -23,6 +23,8 @@ public:
     void HasDone(HLERequestContext& ctx);
     void GetResult(HLERequestContext& ctx);
 
+    void SignalCompletion();
+
 protected:
     virtual bool IsComplete() const = 0;
     virtual void Cancel() = 0;

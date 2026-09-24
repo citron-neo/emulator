@@ -4,6 +4,9 @@
 
 #pragma once
 
+#include <memory>
+#include <unordered_set>
+
 #include "core/hle/service/service.h"
 
 namespace Core {
@@ -17,6 +20,13 @@ class RoomNetwork;
 namespace Service::NIFM {
 
 void LoopProcess(Core::System& system);
+
+struct ClientIdState {
+    std::unordered_set<u32> issued_client_ids;
+    std::unordered_set<u32> accepted_client_ids;
+    u32 current_client_id = 0;
+    u32 next_client_id = 1;
+};
 
 class IGeneralService final : public ServiceFramework<IGeneralService> {
 public:
@@ -68,6 +78,7 @@ private:
     void GetNetworkEmulationProfile(HLERequestContext& ctx);
 
     Network::RoomNetwork& network;
+    std::shared_ptr<ClientIdState> client_id_state;
 };
 
 } // namespace Service::NIFM
