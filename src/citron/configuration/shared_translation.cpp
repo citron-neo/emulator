@@ -452,6 +452,7 @@ std::unique_ptr<ComboboxTranslationMap> ComboboxEnumeration(QWidget* parent) {
                               PAIR(ScalingFilter, CRTEasyMode, tr("CRT EasyMode")),
                               PAIR(ScalingFilter, CRTRoyale, tr("CRT Royale")),
                               PAIR(ScalingFilter, Cas, tr("CAS (Contrast Adaptive Sharpening)")),
+                              PAIR(ScalingFilter, Area, tr("Area Downscaler")),
                           }});
     translations->insert({Settings::EnumMetadata<Settings::AntiAliasing>::Index(),
                           {

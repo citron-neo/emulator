@@ -32,6 +32,7 @@ set(SHADER_FILES
     fxaa.frag
     fxaa.vert
     pitch_unswizzle.comp
+    present_area.frag
     present_bicubic.frag
     present_lanczos.frag
     present_gaussian.frag
