@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2026 citron Emulator Project
+﻿# SPDX-FileCopyrightText: 2026 citron Emulator Project
 # SPDX-License-Identifier: GPL-2.0-or-later
 #
 # CMakeModules/dependencies.cmake
@@ -350,18 +350,197 @@ endif()
 
 # ── SDL2 ──────────────────────────────────────────────────────────────────────
 if (CITRON_USE_EXTERNAL_SDL2 AND NOT TARGET SDL2::SDL2)
+    # SDL3 — runtime backing for sdl2-compat.
+    # SYSTEM YES: marks SDL3's include dirs as system headers so Citron's
+    # own strict warning flags inherited from CMAKE_C_FLAGS do not apply to
+    # SDL3's headers when included transitively by Citron code.
+    # SDL_WERROR OFF: prevents SDL3's SDL_AddCommonCompilerFlags from adding /WX.
+    # SDL_LIBC ON: SDL3 defaults this ON (SDL_LIBC_DEFAULT ON), but explicit
+    # here to avoid the MASM stdlib reimplementation — SDL3 guards its MASM
+    # source with `if(MSVC AND NOT SDL_LIBC)`.
+    CPMAddPackage(
+        NAME SDL3
+        GITHUB_REPOSITORY libsdl-org/SDL
+        GIT_TAG f87239e71e42da91ca317a12eefb82cfbf3393eb # release-3.4.12
+        SYSTEM YES
+        OPTIONS
+            "SDL_SHARED ON"
+            "SDL_STATIC OFF"
+            "SDL_TEST_LIBRARY OFF"
+            "SDL_TESTS OFF"
+            "SDL_INSTALL OFF"
+            "SDL_HIDAPI ON"
+            "SDL_HIDAPI_LIBUSB ON"
+            "SDL_WERROR OFF"
+            "SDL_LIBC ON"
+    )
+
+    # sdl2-compat — SDL2 API compatibility layer on top of SDL3.
+    # SYSTEM YES: same rationale as SDL3 above.
+    # SDL2COMPAT_WERROR OFF: prevents SDL_AddCommonCompilerFlags from adding /WX.
+    # SDL_LIBC ON + patch: sdl2-compat's MASM guard is bare `if(MSVC)` with no
+    # SDL_LIBC check, unlike SDL3.  The patch adds `AND NOT SDL_LIBC` so that
+    # sdl2_mslibc_x64.masm is skipped when linking the system CRT (/MD).
+    # NOTE: if this pin is bumped, check whether sdl2-compat has adopted the
+    # SDL_LIBC guard upstream (matching SDL3's behaviour); if so, drop the patch.
+    # If not, refresh the patch against the new CMakeLists.txt line numbers.
     CPMAddPackage(
         NAME SDL2
-        GITHUB_REPOSITORY libsdl-org/SDL
-        GIT_TAG release-2.32.10
+        GITHUB_REPOSITORY libsdl-org/sdl2-compat
+        GIT_TAG 1321b6c2857022a016280ecc8ed890d1d64c5213 # release-2.32.56
+        SYSTEM YES
+        PATCHES
+            "${CMAKE_SOURCE_DIR}/patches/sdl2compat-no-masm-with-libc.patch"
         OPTIONS
-            "SDL_SHARED OFF"
-            "SDL_STATIC ON"
-            "SDL_TEST OFF"
-            "SDL_FORCE_STATIC_VCRT OFF"
-            "SDL_HIDAPI_LIBUSB ON"
+            "SDL2COMPAT_TESTS OFF"
+            "SDL2COMPAT_INSTALL OFF"
+            "SDL2COMPAT_STATIC OFF"
+            "SDL2COMPAT_WERROR OFF"
+            "SDL_LIBC ON"
+    )
+
+    # Redirect SDL runtime DLL output to a staging directory separate from
+    # bin/.  Both sdl2-compat and SDL3-shared inherit CMAKE_RUNTIME_OUTPUT_DIRECTORY
+    # (set to bin/) from the parent project, which means $<TARGET_FILE:SDL2>
+    # resolves to bin/SDL2.dll — the same location copy_citron_sdl_runtime
+    # would copy it to.  cmake -E copy_if_different from a file to its own
+    # directory prints an error and ninja stops.  A dedicated staging dir keeps
+    # $<TARGET_FILE:SDL2> distinct from $<TARGET_FILE_DIR:citron>.
+    foreach(_sdl_out_target IN ITEMS SDL3-shared SDL2)
+        if (TARGET ${_sdl_out_target})
+            set_target_properties(${_sdl_out_target} PROPERTIES
+                RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/sdl-staging"
+            )
+        endif()
+    endforeach()
+    unset(_sdl_out_target)
+
+    if (UNIX AND NOT APPLE AND TARGET SDL2)
+        # sdl2-compat's own BUILD_RPATH->SDL3-shared trick (its own
+        # CMakeLists.txt) is neutralized by CMAKE_BUILD_WITH_INSTALL_RPATH
+        # TRUE above: CMake uses INSTALL_RPATH instead for every target,
+        # build tree or not. copy_citron_sdl_runtime() places SDL2 and SDL3
+        # side by side, so plain $ORIGIN is enough for SDL2 to dlopen SDL3.
+        set_property(TARGET SDL2 PROPERTY INSTALL_RPATH "$ORIGIN")
+    endif()
+
+    # Post-configure: strip any inherited -Werror / /WX from SDL3 and SDL2
+    # targets.  Citron's clang-cl build passes these flags through
+    # CMAKE_C_FLAGS / CMAKE_CXX_FLAGS, and CPM sub-projects inherit them.
+    # sdl2_compat.c and SDL_dynapi.c emit hundreds of -Wunsafe-buffer-usage,
+    # -Wmissing-prototypes, and related diagnostics that are harmless in
+    # third-party code but cause clang-cl to exit non-zero when -Werror is
+    # active.  Suppressing on the targets is the correct scope: we want
+    # these checks to remain active for Citron's own first-party code.
+    foreach(_sdl_target IN ITEMS SDL3-shared SDL2)
+        if (TARGET ${_sdl_target})
+            if (MSVC)
+                # /W0 silences all MSVC-dialect warnings on these third-party targets.
+                # /clang:-Wno-* flags suppress Clang front-end diagnostics and are only
+                # valid under clang-cl (CMAKE_C_COMPILER_ID == "Clang").  Plain cl.exe
+                # does not understand the /clang: prefix and would error.
+                target_compile_options(${_sdl_target} PRIVATE /W0)
+                if (CMAKE_C_COMPILER_ID STREQUAL "Clang")
+                    target_compile_options(${_sdl_target} PRIVATE
+                        /clang:-Wno-unsafe-buffer-usage
+                        /clang:-Wno-unsafe-pointer-arithmetic
+                        /clang:-Wno-missing-prototypes
+                        /clang:-Wno-missing-variable-declarations
+                        /clang:-Wno-sign-conversion
+                        /clang:-Wno-cast-qual
+                        /clang:-Wno-cast-align
+                        /clang:-Wno-implicit-int-conversion
+                        /clang:-Wno-shorten-64-to-32
+                        /clang:-Wno-float-conversion
+                        /clang:-Wno-double-promotion
+                        /clang:-Wno-reserved-identifier
+                        /clang:-Wno-reserved-macro-identifier
+                        /clang:-Wno-extra-semi
+                        /clang:-Wno-extra-semi-stmt
+                        /clang:-Wno-switch-default
+                        /clang:-Wno-switch-enum
+                        /clang:-Wno-pre-c11-compat
+                        /clang:-Wno-bad-function-cast
+                        /clang:-Wno-strict-prototypes
+                        /clang:-Wno-unused-macros
+                        /clang:-Wno-nonportable-system-include-path
+                        /clang:-Wno-date-time
+                    )
+                endif()
+            else()
+                # GCC/Clang on Linux/macOS.
+                target_compile_options(${_sdl_target} PRIVATE
+                    -Wno-error
+                    -Wno-unsafe-buffer-usage
+                    -Wno-unsafe-pointer-arithmetic
+                    -Wno-missing-prototypes
+                    -Wno-missing-variable-declarations
+                    -Wno-sign-conversion
+                    -Wno-cast-qual
+                    -Wno-cast-align
+                    -Wno-implicit-int-conversion
+                    -Wno-shorten-64-to-32
+                    -Wno-float-conversion
+                    -Wno-double-promotion
+                    -Wno-reserved-identifier
+                    -Wno-reserved-macro-identifier
+                    -Wno-extra-semi
+                    -Wno-extra-semi-stmt
+                    -Wno-switch-default
+                    -Wno-switch-enum
+                    -Wno-unused-macros
+                    -Wno-date-time
+                )
+            endif()
+        endif()
+    endforeach()
+    unset(_sdl_target)
+
+    # sdl2-compat loads SDL3 itself rather than linking it. Make SDL3 an
+    # explicit build dependency and publish both shared objects for packagers.
+    add_dependencies(SDL2 SDL3-shared)
+    file(GENERATE
+        OUTPUT "${CMAKE_BINARY_DIR}/citron-sdl-runtime-libs-$<CONFIG>.txt"
+        CONTENT "$<TARGET_FILE:SDL2>\n$<TARGET_FILE:SDL3::SDL3-shared>\n"
     )
 endif()
+
+# copy_citron_sdl_runtime(<target>)
+# On Windows CPM builds: copies SDL2.dll and SDL3.dll next to <target> after
+# build.  sdl2-compat dlopens SDL3, so SDL3 is absent from the PE import table
+# and CopyMinGWDeps' import-table scan cannot find it.
+# On Linux CPM builds: unlike the old statically-linked SDL2, sdl2-compat is
+# shared and citron links SDL2::SDL2 directly, but nothing puts the .so
+# anywhere citron's rpath ($ORIGIN/lib) can find it. Stage SONAME-named
+# copies of both SDL2 and SDL3 into <target>/lib to match -- SDL2 needs
+# SDL3 right next to it too, see the INSTALL_RPATH fix above.
+# On all other configurations this is a no-op so it is safe to call
+# unconditionally from src/citron/CMakeLists.txt and src/citron_cmd/CMakeLists.txt.
+function(copy_citron_sdl_runtime target)
+    if (WIN32 AND CITRON_USE_EXTERNAL_SDL2 AND TARGET SDL2 AND TARGET SDL3-shared)
+        add_dependencies(${target} SDL2 SDL3-shared)
+        add_custom_command(TARGET ${target} POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                "$<TARGET_FILE:SDL2>" "$<TARGET_FILE_DIR:${target}>"
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                "$<TARGET_FILE:SDL3::SDL3-shared>" "$<TARGET_FILE_DIR:${target}>"
+            COMMENT "Deploying sdl2-compat and SDL3 for ${target}"
+            VERBATIM
+        )
+    elseif (UNIX AND NOT APPLE AND CITRON_USE_EXTERNAL_SDL2 AND TARGET SDL2 AND TARGET SDL3-shared)
+        add_dependencies(${target} SDL2 SDL3-shared)
+        add_custom_command(TARGET ${target} POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E make_directory
+                "$<TARGET_FILE_DIR:${target}>/lib"
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                "$<TARGET_SONAME_FILE:SDL2>" "$<TARGET_FILE_DIR:${target}>/lib"
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                "$<TARGET_SONAME_FILE:SDL3::SDL3-shared>" "$<TARGET_FILE_DIR:${target}>/lib"
+            COMMENT "Deploying sdl2-compat and SDL3 for ${target} (\$ORIGIN/lib)"
+            VERBATIM
+        )
+    endif()
+endfunction()
 
 # ── tzdb_to_nx ────────────────────────────────────────────────────────────────
 # On POSIX hosts: fetch source via CPM; nx_tzdb/CMakeLists.txt builds zic and

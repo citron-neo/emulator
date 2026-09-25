@@ -124,6 +124,14 @@ EXTRA_LIBS=""
 GAMEMODE_LIB="$(ldconfig -p 2>/dev/null | awk '/libgamemode\.so/ {print $NF; exit}')"
 [ -n "$GAMEMODE_LIB" ] && EXTRA_LIBS="$EXTRA_LIBS $GAMEMODE_LIB"
 
+# SDL3 is dlopen'd by sdl2-compat, invisible to ELF scanning -- bundle it
+# explicitly. libSDL2-2.0.so.0 resolves on its own via
+# citron's rpath (usr/bin/lib, staged below).
+for _sdl_runtime in "${DESTDIR}/usr/bin/lib"/libSDL3.so.*; do
+    [ -f "${_sdl_runtime}" ] || continue
+    EXTRA_LIBS="$EXTRA_LIBS ${_sdl_runtime}"
+done
+
 
 # shellcheck disable=SC2086
 ./quick-sharun "${DESTDIR}/usr/bin/citron"* $EXTRA_LIBS
