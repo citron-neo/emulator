@@ -429,6 +429,19 @@ Instance Instance::Create(u32 version, Span<const char*> layers, Span<const char
     constexpr VkFlags ci_flags{};
 #endif
 
+    // yuzu has fixes on amd, lets lie and say we are yuzu
+    // also qcom has fixes for UE, so lets lie and say we are UE game
+#ifdef __ANDROID__
+    const VkApplicationInfo application_info{
+        .sType = VK_STRUCTURE_TYPE_APPLICATION_INFO,
+        .pNext = nullptr,
+        .pApplicationName = "PUBGMobile",
+        .applicationVersion = VK_MAKE_VERSION(1, 0, 0),
+        .pEngineName = "UnrealEngine",
+        .engineVersion = VK_MAKE_VERSION(5, 1, 0),
+        .apiVersion = VK_API_VERSION_1_3,
+    };
+#else
     const VkApplicationInfo application_info{
         .sType = VK_STRUCTURE_TYPE_APPLICATION_INFO,
         .pNext = nullptr,
@@ -438,6 +451,7 @@ Instance Instance::Create(u32 version, Span<const char*> layers, Span<const char
         .engineVersion = VK_MAKE_VERSION(0, 1, 0),
         .apiVersion = VK_API_VERSION_1_3,
     };
+#endif
     const VkInstanceCreateInfo ci{
         .sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
         .pNext = nullptr,
