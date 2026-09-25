@@ -142,7 +142,8 @@ struct Values {
                                                Category::LibraryApplet};
     Setting<AppletMode> data_erase_applet_mode{linkage, AppletMode::HLE, "data_erase_applet_mode",
                                                Category::LibraryApplet};
-    Setting<AppletMode> error_applet_mode{linkage, AppletMode::LLE, "error_applet_mode",
+    // HLE avoids the unavailable system error-applet content while preserving guest error flow.
+    Setting<AppletMode> error_applet_mode{linkage, AppletMode::HLE, "error_applet_mode",
                                           Category::LibraryApplet};
     Setting<AppletMode> net_connect_applet_mode{linkage, AppletMode::HLE, "net_connect_applet_mode",
                                                 Category::LibraryApplet};
@@ -158,7 +159,16 @@ struct Values {
                                          Category::LibraryApplet};
     Setting<AppletMode> photo_viewer_applet_mode{
         linkage, AppletMode::LLE, "photo_viewer_applet_mode", Category::LibraryApplet};
-    Setting<AppletMode> offline_web_applet_mode{linkage, AppletMode::LLE, "offline_web_applet_mode",
+    // Defaults to HLE (not LLE like most other applets here): the offline web applet is used by
+    // SSBU mod frameworks such as ARCropolis for their mod-manager/workspace/config UI (see
+    // ExecuteOffline in applet_web_browser.cpp), and LLE requires booting a real dumped system
+    // applet title as a full guest process. That guest environment exercises Horizon OS surface
+    // (e.g. erpt:c's awake/power-on-time tracking) that most regular games never touch and that
+    // isn't fully implemented, which turns into a fatal "unimplemented function" crash rather
+    // than a graceful stub - see erpt.cpp. The custom (HLE) frontend now correctly implements the
+    // interactive session this mode needs, so there's no fidelity reason left to default to LLE
+    // here specifically.
+    Setting<AppletMode> offline_web_applet_mode{linkage, AppletMode::HLE, "offline_web_applet_mode",
                                                 Category::LibraryApplet};
     Setting<AppletMode> login_share_applet_mode{linkage, AppletMode::HLE, "login_share_applet_mode",
                                                 Category::LibraryApplet};
@@ -721,6 +731,16 @@ struct Values {
     Setting<bool> enable_all_controllers{linkage, false, "enable_all_controllers",
                                          Category::Debugging};
     Setting<bool> perform_vulkan_check{linkage, true, "perform_vulkan_check", Category::Debugging};
+    // Was UISettings::values.disable_web_applet (Category::Ui, Qt-only), gated by an #ifdef
+    // CITRON_USE_QT_WEB_ENGINE check inside GMainWindow::WebBrowserOpenWebPage. Moved here and
+    // read directly in WebBrowser::Execute() (applet_web_browser.cpp) so the behavior is
+    // consistent regardless of which frontend is active or whether Qt WebEngine is compiled in,
+    // rather than relying on the Qt-only code path to ever run at all. Also defaults to false
+    // (was true): unconditionally failing every web applet request closed - rather than being
+    // opt-in for the specific case (raw-input conflicts, e.g. Super Mario 3D All-Stars) it exists
+    // for - breaks any title that depends on a real response, such as Super Smash Bros.
+    // Ultimate's offline help page or SD mod frameworks like ARCropolis that hijack it for a UI.
+    Setting<bool> disable_web_applet{linkage, false, "disable_web_applet", Category::Debugging};
 
     // Miscellaneous
     Setting<std::string> log_filter{linkage, "*:Warning", "log_filter", Category::Debugging};

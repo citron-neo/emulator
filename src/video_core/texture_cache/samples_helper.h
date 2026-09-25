@@ -3,12 +3,21 @@
 
 #pragma once
 
+#include <atomic>
 #include <utility>
 
 #include "common/assert.h"
+#include "common/logging.h"
 #include "video_core/textures/texture.h"
 
 namespace VideoCommon {
+
+inline void ReportInvalidMsaaMode(Tegra::Texture::MsaaMode msaa_mode) {
+    static std::atomic_flag reported = ATOMIC_FLAG_INIT;
+    if (!reported.test_and_set(std::memory_order_relaxed)) {
+        LOG_WARNING(HW_GPU, "Unsupported MSAA mode={} treated as 1x1", static_cast<int>(msaa_mode));
+    }
+}
 
 [[nodiscard]] inline std::pair<int, int> SamplesLog2(int num_samples) {
     switch (num_samples) {
@@ -47,7 +56,7 @@ namespace VideoCommon {
     case MsaaMode::Msaa4x4:
         return 16;
     }
-    ASSERT_MSG(false, "Invalid MSAA mode={}", static_cast<int>(msaa_mode));
+    ReportInvalidMsaaMode(msaa_mode);
     return 1;
 }
 
@@ -69,7 +78,7 @@ namespace VideoCommon {
     case MsaaMode::Msaa4x4:
         return 4;
     }
-    ASSERT_MSG(false, "Invalid MSAA mode={}", static_cast<int>(msaa_mode));
+    ReportInvalidMsaaMode(msaa_mode);
     return 1;
 }
 
@@ -91,7 +100,7 @@ namespace VideoCommon {
     case MsaaMode::Msaa4x4:
         return 4;
     }
-    ASSERT_MSG(false, "Invalid MSAA mode={}", static_cast<int>(msaa_mode));
+    ReportInvalidMsaaMode(msaa_mode);
     return 1;
 }
 

@@ -14,7 +14,8 @@ void DefaultWebBrowserApplet::Close() const {}
 
 void DefaultWebBrowserApplet::OpenLocalWebPage(const std::string& local_url,
                                                ExtractROMFSCallback extract_romfs_callback,
-                                               OpenWebPageCallback callback) const {
+                                               OpenWebPageCallback callback,
+                                               InteractiveDataCallback interactive_data_callback) const {
     LOG_WARNING(Service_AM, "(STUBBED) called, backend requested to open local web page at {}",
                 local_url);
 
@@ -22,7 +23,8 @@ void DefaultWebBrowserApplet::OpenLocalWebPage(const std::string& local_url,
 }
 
 void DefaultWebBrowserApplet::OpenExternalWebPage(const std::string& external_url,
-                                                  OpenWebPageCallback callback) const {
+                                                  OpenWebPageCallback callback,
+                                                  InteractiveDataCallback interactive_data_callback) const {
     LOG_WARNING(Service_AM, "(STUBBED) called, backend requested to open external web page at {}",
                 external_url);
 

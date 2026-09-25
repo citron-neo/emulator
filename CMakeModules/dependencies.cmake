@@ -49,6 +49,18 @@ endif()
 # Core dependencies
 # ═══════════════════════════════════════════════════════════════════════════════
 
+# ── WebView2 SDK (Windows, binary SDK) ────────────────────────────────────────
+# The NuGet package is a plain zip archive. It supplies headers plus the native
+# loader import/static libraries; webview_native_deps.cmake creates the target
+# and selects the correct loader for the active Windows toolchain.
+if (WIN32 AND CITRON_USE_WEBVIEW2_WEB_ENGINE)
+    CPMAddPackage(
+        NAME WebView2
+        URL "https://api.nuget.org/v3-flatcontainer/microsoft.web.webview2/1.0.2957.106/microsoft.web.webview2.1.0.2957.106.nupkg"
+        DOWNLOAD_ONLY YES
+    )
+endif()
+
 # ── Boost ─────────────────────────────────────────────────────────────────────
 if(CITRON_CLANGCL)
     set(BOOST_CONTEXT_IMPLEMENTATION fcontext CACHE STRING "" FORCE)
