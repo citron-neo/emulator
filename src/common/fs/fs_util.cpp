@@ -36,4 +36,8 @@ std::string PathToUTF8String(const std::filesystem::path& path) {
     return ToUTF8String(path.u8string());
 }
 
+std::filesystem::path PathFromUTF8(std::string_view utf8_path) {
+    return std::filesystem::path{ToU8String(utf8_path)};
+}
+
 } // namespace Common::FS
