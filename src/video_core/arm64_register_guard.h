@@ -30,11 +30,13 @@
                  "stp x25, x26, [sp, #64]\n"                                                  \
                  "stp x27, x28, [sp, #80]\n"                                                  \
                  "stp x29, x30, [sp, #96]\n"                                                  \
+                 "str x30, [sp, #120]\n"                                                       \
                  "stp q8, q9, [sp, #128]\n"                                                   \
                  "stp q10, q11, [sp, #160]\n"                                                 \
                  "stp q12, q13, [sp, #192]\n"                                                 \
                  "stp q14, q15, [sp, #224]\n"                                                 \
                  "str x9, [sp, #256]\n"                                                       \
+                 "str x30, [sp, #264]\n"                                                       \
                  "bl " #call_target "\n"                                                      \
                  "mov w0, wzr\n"                                                              \
                  "ldr x9, [sp, #16]\n"                                                        \
@@ -93,6 +95,28 @@
                  "cmp x10, x9\n"                                                              \
                  "cset w10, ne\n"                                                             \
                  "orr w0, w0, w10, lsl #11\n"                                                \
+                 "ldr x9, [sp, #104]\n"                                                       \
+                 "ldr x10, [sp, #120]\n"                                                      \
+                 "ldr x11, [sp, #264]\n"                                                      \
+                 "cmp x9, x10\n"                                                             \
+                 "cset w12, ne\n"                                                            \
+                 "cmp x9, x11\n"                                                             \
+                 "cset w13, ne\n"                                                            \
+                 "orr w12, w12, w13\n"                                                       \
+                 "orr w0, w0, w12, lsl #13\n"                                                \
+                 "cmp x9, x10\n"                                                             \
+                 "b.eq 1f\n"                                                                 \
+                 "cmp x9, x11\n"                                                             \
+                 "b.eq 1f\n"                                                                 \
+                 "cmp x10, x11\n"                                                            \
+                 "b.eq 2f\n"                                                                 \
+                 "mov w12, #1\n"                                                             \
+                 "orr w0, w0, w12, lsl #14\n"                                                \
+                 "b 1f\n"                                                                    \
+                 "2:\n"                                                                      \
+                 "mov x9, x10\n"                                                             \
+                 "1:\n"                                                                      \
+                 "str x9, [sp, #104]\n"                                                       \
                  "ldp q14, q15, [sp, #224]\n"                                                 \
                  "ldp q12, q13, [sp, #192]\n"                                                 \
                  "ldp q10, q11, [sp, #160]\n"                                                 \

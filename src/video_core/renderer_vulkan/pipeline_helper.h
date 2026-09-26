@@ -12,6 +12,7 @@
 #include "shader_recompiler/shader_info.h"
 #include "video_core/renderer_vulkan/vk_texture_cache.h"
 #include "video_core/renderer_vulkan/vk_update_descriptor.h"
+#include "video_core/surface.h"
 #include "video_core/texture_cache/types.h"
 #include "video_core/vulkan_common/vulkan_device.h"
 
@@ -278,10 +279,12 @@ inline void PushImageDescriptors(TextureCache& texture_cache,
     views += num_texture_buffers;
     views += num_image_buffers;
     for (const auto& desc : info.texture_descriptors) {
+        bool is_rescaled{};
         for (u32 index = 0; index < desc.count; ++index) {
             const VideoCommon::ImageViewId image_view_id{(views++)->id};
             const VideoCommon::SamplerId sampler_id{*(samplers++)};
             ImageView& image_view{texture_cache.GetImageView(image_view_id)};
+            const Sampler& sampler{texture_cache.GetSampler(sampler_id)};
             VkImageView vk_image_view{image_view.Handle(desc.type)};
             if (vk_image_view == VK_NULL_HANDLE) {
                 const VkImageView null_image_view{
@@ -290,16 +293,26 @@ inline void PushImageDescriptors(TextureCache& texture_cache,
                     vk_image_view = null_image_view;
                 }
             }
-            const Sampler& sampler{texture_cache.GetSampler(sampler_id)};
             const bool use_fallback_sampler{sampler.HasAddedAnisotropy() &&
                                             !image_view.SupportsAnisotropy()};
-            const VkSampler vk_sampler{use_fallback_sampler ? sampler.HandleWithDefaultAnisotropy()
-                                                            : sampler.Handle()};
+            VkSampler vk_sampler{use_fallback_sampler ? sampler.HandleWithDefaultAnisotropy()
+                                                      : sampler.Handle()};
+            if (sampler.HasLinearFiltering() &&
+                VideoCore::Surface::IsPixelFormatInteger(image_view.format)) {
+                vk_sampler = sampler.HandleWithNearestFilter();
+            }
+            if (desc.is_depth && sampler.HasDepthComparison() &&
+                !image_view.SupportsDepthComparison()) {
+                vk_sampler = sampler.HandleWithoutDepthComparison();
+            }
             guest_descriptor_queue.AddSampledImage(vk_image_view, vk_sampler);
-            rescaling.PushTexture(texture_cache.IsRescaling(image_view));
+            const bool element_rescaled{texture_cache.IsRescaling(image_view)};
+            is_rescaled |= element_rescaled;
         }
+        rescaling.PushTexture(is_rescaled);
     }
     for (const auto& desc : info.image_descriptors) {
+        bool is_rescaled{};
         for (u32 index = 0; index < desc.count; ++index) {
             ImageView& image_view{texture_cache.GetImageView((views++)->id)};
             if (desc.is_written) {
@@ -307,8 +320,10 @@ inline void PushImageDescriptors(TextureCache& texture_cache,
             }
             const VkImageView vk_image_view{image_view.StorageView(desc.type, desc.format)};
             guest_descriptor_queue.AddImage(vk_image_view);
-            rescaling.PushImage(texture_cache.IsRescaling(image_view));
+            const bool element_rescaled{texture_cache.IsRescaling(image_view)};
+            is_rescaled |= element_rescaled;
         }
+        rescaling.PushImage(is_rescaled);
     }
 }
 
@@ -331,49 +346,6 @@ inline u64 HashDescriptorBlock(const DescriptorUpdateEntry* data, size_t entry_c
         h *= FNV1A_PRIME;
     }
     return h;
-}
-
-struct BindlessCacheEntry {
-    GPUVAddr key_addr{0};
-    u32 key_count{0};
-    u64 key_image_table_generation{};
-    bool valid{false};
-    boost::container::small_vector<VideoCommon::ImageViewInOut, 16> cached_views;
-    boost::container::small_vector<VideoCommon::SamplerId, 16> cached_samplers;
-};
-
-constexpr size_t BINDLESS_CACHE_SIZE = 16;
-using BindlessCache = std::array<BindlessCacheEntry, BINDLESS_CACHE_SIZE>;
-
-inline BindlessCacheEntry* FindBindlessEntry(BindlessCache& cache, GPUVAddr addr, u32 count,
-                                             u64 image_table_generation) {
-    for (auto& entry : cache) {
-        if (entry.valid && entry.key_addr == addr && entry.key_count == count &&
-            entry.key_image_table_generation == image_table_generation) {
-            return &entry;
-        }
-    }
-    return nullptr;
-}
-
-inline BindlessCacheEntry& AcquireBindlessEntry(BindlessCache& cache, size_t& round_robin,
-                                                GPUVAddr addr, u32 count,
-                                                u64 image_table_generation) {
-    if (auto* found = FindBindlessEntry(cache, addr, count, image_table_generation)) {
-        return *found;
-    }
-    auto& slot = cache[round_robin];
-    round_robin = (round_robin + 1) % BINDLESS_CACHE_SIZE;
-    slot.key_addr = addr;
-    slot.key_count = count;
-    slot.key_image_table_generation = image_table_generation;
-    slot.valid = false;
-    return slot;
-}
-inline BindlessCacheEntry& FindOrAcquireBindlessEntry(BindlessCache& cache, size_t& round_robin,
-                                                      GPUVAddr addr, u32 count,
-                                                      u64 image_table_generation) {
-    return AcquireBindlessEntry(cache, round_robin, addr, count, image_table_generation);
 }
 
 } // namespace Vulkan

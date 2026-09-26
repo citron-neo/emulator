@@ -54,11 +54,56 @@ MultiLevelPageTable<BaseAddr>::~MultiLevelPageTable() noexcept {
 
 template <typename BaseAddr>
 void MultiLevelPageTable<BaseAddr>::ReserveRange(u64 start, std::size_t size) {
+    if (size == 0) {
+        return;
+    }
+    const u64 address_space_size = 1ULL << address_space_bits;
+    ASSERT(start < address_space_size && size <= address_space_size - start);
     const u64 new_start = start >> first_level_shift;
-    const u64 new_end = (start + size) >> first_level_shift;
-    for (u64 i = new_start; i <= new_end; i++)
-        if (!first_level_map[i])
+    const u64 new_end = (start + size - 1) >> first_level_shift;
+    for (u64 i = new_start; i <= new_end; i++) {
+        if (!first_level_map[i]) {
             AllocateLevel(i);
+        }
+    }
+}
+
+template <typename BaseAddr>
+BaseAddr* MultiLevelPageTable<BaseAddr>::TryGet(std::size_t index) noexcept {
+    if (!base_ptr) {
+        return nullptr;
+    }
+    const std::size_t entry_count = 1ULL << (address_space_bits - page_bits);
+    if (index >= entry_count) {
+        return nullptr;
+    }
+    const std::size_t level = index >> (first_level_shift - page_bits);
+    return first_level_map[level] ? base_ptr + index : nullptr;
+}
+
+template <typename BaseAddr>
+const BaseAddr* MultiLevelPageTable<BaseAddr>::TryGet(std::size_t index) const noexcept {
+    if (!base_ptr) {
+        return nullptr;
+    }
+    const std::size_t entry_count = 1ULL << (address_space_bits - page_bits);
+    if (index >= entry_count) {
+        return nullptr;
+    }
+    const std::size_t level = index >> (first_level_shift - page_bits);
+    return first_level_map[level] ? base_ptr + index : nullptr;
+}
+
+template <typename BaseAddr>
+BaseAddr& MultiLevelPageTable<BaseAddr>::GetOrAllocate(std::size_t index) {
+    ASSERT(base_ptr);
+    const std::size_t entry_count = 1ULL << (address_space_bits - page_bits);
+    ASSERT(index < entry_count);
+    const std::size_t level = index >> (first_level_shift - page_bits);
+    if (!first_level_map[level]) {
+        AllocateLevel(level);
+    }
+    return base_ptr[index];
 }
 
 template <typename BaseAddr>
