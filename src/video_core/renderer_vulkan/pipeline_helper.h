@@ -57,6 +57,16 @@ public:
         return CreateLayoutFor(resource_set, false);
     }
 
+    vk::DescriptorSetLayout CreateEmptySetLayout() const {
+        return device->GetLogical().CreateDescriptorSetLayout({
+            .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
+            .pNext = nullptr,
+            .flags = 0,
+            .bindingCount = 0,
+            .pBindings = nullptr,
+        });
+    }
+
     vk::DescriptorUpdateTemplate CreateTemplate(VkDescriptorSetLayout descriptor_set_layout,
                                                 VkPipelineLayout pipeline_layout,
                                                 bool use_push_descriptor) const {

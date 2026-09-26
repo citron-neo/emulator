@@ -162,6 +162,7 @@ private:
     vk::DescriptorSetLayout resource_set_layout;
     DescriptorAllocator resource_descriptor_allocator;
     vk::DescriptorUpdateTemplate resource_update_template;
+    vk::DescriptorSetLayout empty_set_layout;
 
     // Per-CB cache of committed descriptor sets keyed on data-block hash.
     // Entries are only reused while cb_tick equals the master semaphore's

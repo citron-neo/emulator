@@ -289,7 +289,11 @@ GraphicsPipeline::GraphicsPipeline(
             const VkDescriptorSetLayout set_layout{*descriptor_set_layout};
             const VkDescriptorSetLayout res_layout{
                 resource_set_layout ? *resource_set_layout : VK_NULL_HANDLE};
-            pipeline_layout = builder.CreatePipelineLayout(set_layout, res_layout);
+            if (!descriptor_set_layout && resource_set_layout) {
+                empty_set_layout = builder.CreateEmptySetLayout();
+            }
+            pipeline_layout = builder.CreatePipelineLayout(
+                descriptor_set_layout ? set_layout : *empty_set_layout, res_layout);
             descriptor_update_template =
                 builder.CreateTemplate(set_layout, *pipeline_layout, uses_push_descriptor);
             if (resource_set_layout) {

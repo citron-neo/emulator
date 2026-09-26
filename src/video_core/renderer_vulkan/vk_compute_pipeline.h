@@ -65,6 +65,7 @@ private:
     vk::DescriptorSetLayout resource_set_layout;
     DescriptorAllocator resource_descriptor_allocator;
     vk::DescriptorUpdateTemplate resource_update_template;
+    vk::DescriptorSetLayout empty_set_layout;
 
     // Per-CB cache of committed descriptor sets - see GraphicsPipeline for
     // the safety constraint that limits reuse to a single CB submission.
