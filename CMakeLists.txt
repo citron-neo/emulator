@@ -519,10 +519,8 @@ if (MINGW)
     find_library(MSWSOCK_LIBRARY mswsock REQUIRED)
 endif()
 
-if(ENABLE_OPENSSL)
-    if (NOT (TARGET OpenSSL::SSL AND TARGET OpenSSL::Crypto))
-        find_package(OpenSSL 1.1.1 REQUIRED)
-    endif()
+if (NOT (TARGET OpenSSL::SSL AND TARGET OpenSSL::Crypto))
+    find_package(OpenSSL 1.1.1 REQUIRED)
 endif()
 
 if (UNIX AND NOT APPLE)
