@@ -412,12 +412,10 @@ template <typename InputDeviceType>
 using FactoryListType = std::unordered_map<std::string, std::shared_ptr<Factory<InputDeviceType>>>;
 
 template <typename InputDeviceType>
-struct FactoryList {
+FactoryListType<InputDeviceType>& GetFactoryList() {
     static FactoryListType<InputDeviceType> list;
-};
-
-template <typename InputDeviceType>
-FactoryListType<InputDeviceType> FactoryList<InputDeviceType>::list;
+    return list;
+}
 
 } // namespace Impl
 
@@ -431,7 +429,7 @@ FactoryListType<InputDeviceType> FactoryList<InputDeviceType>::list;
 template <typename InputDeviceType>
 void RegisterFactory(const std::string& name, std::shared_ptr<Factory<InputDeviceType>> factory) {
     auto pair = std::make_pair(name, std::move(factory));
-    if (!Impl::FactoryList<InputDeviceType>::list.insert(std::move(pair)).second) {
+    if (!Impl::GetFactoryList<InputDeviceType>().insert(std::move(pair)).second) {
         LOG_ERROR(Input, "Factory '{}' already registered", name);
     }
 }
@@ -453,7 +451,7 @@ inline void RegisterOutputFactory(const std::string& name,
  */
 template <typename InputDeviceType>
 void UnregisterFactory(const std::string& name) {
-    if (Impl::FactoryList<InputDeviceType>::list.erase(name) == 0) {
+    if (Impl::GetFactoryList<InputDeviceType>().erase(name) == 0) {
         LOG_ERROR(Input, "Factory '{}' not registered", name);
     }
 }
@@ -476,7 +474,7 @@ template <typename InputDeviceType>
 std::unique_ptr<InputDeviceType> CreateDeviceFromString(const std::string& params) {
     const Common::ParamPackage package(params);
     const std::string engine = package.Get("engine", "null");
-    const auto& factory_list = Impl::FactoryList<InputDeviceType>::list;
+    const auto& factory_list = Impl::GetFactoryList<InputDeviceType>();
     const auto pair = factory_list.find(engine);
     if (pair == factory_list.end()) {
         if (engine != "null") {
@@ -503,7 +501,7 @@ inline std::unique_ptr<OutputDevice> CreateOutputDeviceFromString(const std::str
 template <typename InputDeviceType>
 std::unique_ptr<InputDeviceType> CreateDevice(const ParamPackage& package) {
     const std::string engine = package.Get("engine", "null");
-    const auto& factory_list = Impl::FactoryList<InputDeviceType>::list;
+    const auto& factory_list = Impl::GetFactoryList<InputDeviceType>();
     const auto pair = factory_list.find(engine);
     if (pair == factory_list.end()) {
         if (engine != "null") {
