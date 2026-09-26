@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: Copyright 2026 Eden Emulator Project
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 // SPDX-FileCopyrightText: Copyright 2019 yuzu Emulator Project
 // SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
@@ -56,7 +59,7 @@ using VideoCommon::GenericEnvironment;
 using VideoCommon::GraphicsEnvironment;
 
 constexpr u32 TRANSFERABLE_CACHE_VERSION = 15;
-constexpr u32 VULKAN_PIPELINE_CACHE_VERSION = 14;
+constexpr u32 VULKAN_PIPELINE_CACHE_VERSION = 15;
 constexpr std::array<char, 8> VULKAN_CACHE_MAGIC_NUMBER{'y', 'u', 'z', 'u', 'v', 'k', 'c', 'h'};
 
 template <typename Container>
@@ -468,6 +471,7 @@ PipelineCache::PipelineCache(Tegra::MaxwellDeviceMemoryManager& device_memory_,
 }
 
 PipelineCache::~PipelineCache() {
+    workers.WaitForRequests();
     // Drain all pending SerializePipeline tasks before the serialization_thread
     // member is destroyed.
     serialization_thread.WaitForRequests();
