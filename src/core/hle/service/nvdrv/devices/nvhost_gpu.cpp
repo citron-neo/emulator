@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <cstring>
+#include <vector>
+
 #include "common/assert.h"
 #include "common/logging.h"
 #include "core/core.h"
@@ -270,8 +272,7 @@ NvResult nvhost_gpu::AllocateObjectContext(IoctlAllocObjCtx& params) {
 
 }
 
-static boost::container::small_vector<Tegra::CommandHeader, 512> BuildWaitCommandList(
-    NvFence fence) {
+static std::vector<Tegra::CommandHeader> BuildWaitCommandList(NvFence fence) {
     return {
         Tegra::BuildCommandHeader(Tegra::BufferMethods::SyncpointPayload, 1,
                                   Tegra::SubmissionMode::Increasing),
@@ -282,9 +283,8 @@ static boost::container::small_vector<Tegra::CommandHeader, 512> BuildWaitComman
     };
 }
 
-static boost::container::small_vector<Tegra::CommandHeader, 512> BuildIncrementCommandList(
-    NvFence fence) {
-    boost::container::small_vector<Tegra::CommandHeader, 512> result{
+static std::vector<Tegra::CommandHeader> BuildIncrementCommandList(NvFence fence) {
+    std::vector<Tegra::CommandHeader> result{
         Tegra::BuildCommandHeader(Tegra::BufferMethods::SyncpointPayload, 1,
                                   Tegra::SubmissionMode::Increasing),
         {}};
@@ -299,9 +299,8 @@ static boost::container::small_vector<Tegra::CommandHeader, 512> BuildIncrementC
     return result;
 }
 
-static boost::container::small_vector<Tegra::CommandHeader, 512> BuildIncrementWithWfiCommandList(
-    NvFence fence) {
-    boost::container::small_vector<Tegra::CommandHeader, 512> result{
+static std::vector<Tegra::CommandHeader> BuildIncrementWithWfiCommandList(NvFence fence) {
+    std::vector<Tegra::CommandHeader> result{
         Tegra::BuildCommandHeader(Tegra::BufferMethods::WaitForIdle, 1,
                                   Tegra::SubmissionMode::Increasing),
         {}};
