@@ -459,8 +459,12 @@ if (APPLE)
         set(MOLTENVK_PLATFORM "macOS")
         set(MOLTENVK_VERSION "v1.4.2")
         download_moltenvk_external(${MOLTENVK_PLATFORM} ${MOLTENVK_VERSION})
+        unset(MOLTENVK_LIBRARY CACHE)
+        find_library(MOLTENVK_LIBRARY MoltenVK REQUIRED NO_CACHE
+            PATHS ${MOLTENVK_LIBRARY_DIR} NO_DEFAULT_PATH)
+    else()
+        find_library(MOLTENVK_LIBRARY MoltenVK REQUIRED)
     endif()
-    find_library(MOLTENVK_LIBRARY MoltenVK REQUIRED)
     message(STATUS "Using MoltenVK at ${MOLTENVK_LIBRARY}.")
     set_source_files_properties(${MOLTENVK_LIBRARY} PROPERTIES MACOSX_PACKAGE_LOCATION Frameworks
                                     XCODE_FILE_ATTRIBUTES "CodeSignOnCopy")

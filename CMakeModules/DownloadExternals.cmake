@@ -65,22 +65,35 @@ set(${prefix_var} "${prefix}" PARENT_SCOPE)
 endfunction()
 
 function(download_moltenvk_external platform version)
-    set(MOLTENVK_DIR "${CMAKE_BINARY_DIR}/externals/MoltenVK")
-    set(MOLTENVK_TAR "${CMAKE_BINARY_DIR}/externals/MoltenVK.tar")
+    set(MOLTENVK_DIR "${CMAKE_BINARY_DIR}/externals/MoltenVK-${version}")
+    set(MOLTENVK_TAR "${CMAKE_BINARY_DIR}/externals/MoltenVK-${version}.tar")
     string(TOLOWER "${platform}" MOLTENVK_ASSET_PLATFORM)
     if (NOT EXISTS ${MOLTENVK_DIR})
         if (NOT EXISTS ${MOLTENVK_TAR})
             file(DOWNLOAD https://github.com/KhronosGroup/MoltenVK/releases/download/${version}/MoltenVK-${MOLTENVK_ASSET_PLATFORM}.tar
-                ${MOLTENVK_TAR} SHOW_PROGRESS)
+                ${MOLTENVK_TAR} SHOW_PROGRESS STATUS download_status)
+            list(GET download_status 0 download_code)
+            if (NOT download_code EQUAL 0)
+                file(REMOVE ${MOLTENVK_TAR})
+                message(FATAL_ERROR "Failed to download MoltenVK: ${download_status}")
+            endif()
         endif()
 
+        set(MOLTENVK_STAGING_DIR "${MOLTENVK_DIR}.tmp")
+        file(REMOVE_RECURSE ${MOLTENVK_STAGING_DIR})
+        file(MAKE_DIRECTORY ${MOLTENVK_STAGING_DIR})
         execute_process(COMMAND ${CMAKE_COMMAND} -E tar xf "${MOLTENVK_TAR}"
-            WORKING_DIRECTORY "${CMAKE_BINARY_DIR}/externals")
+            WORKING_DIRECTORY ${MOLTENVK_STAGING_DIR}
+            RESULT_VARIABLE extract_result)
+        if (NOT extract_result EQUAL 0)
+            file(REMOVE_RECURSE ${MOLTENVK_STAGING_DIR})
+            file(REMOVE ${MOLTENVK_TAR})
+            message(FATAL_ERROR "Failed to extract MoltenVK: ${extract_result}")
+        endif()
+        file(RENAME ${MOLTENVK_STAGING_DIR} ${MOLTENVK_DIR})
     endif()
 
-    # Add the MoltenVK library path to the prefix so find_library can locate it.
-    list(APPEND CMAKE_PREFIX_PATH "${MOLTENVK_DIR}/MoltenVK/dylib/${platform}")
-    set(CMAKE_PREFIX_PATH ${CMAKE_PREFIX_PATH} PARENT_SCOPE)
+    set(MOLTENVK_LIBRARY_DIR "${MOLTENVK_DIR}/MoltenVK/MoltenVK/dylib/${platform}" PARENT_SCOPE)
 endfunction()
 
 # Determine installation parameters for OS, architecture, and compiler
