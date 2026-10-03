@@ -18,6 +18,10 @@ TEST_CASE("Common::GetFixedPoint64Factor edge values", "[common][uint128]") {
         Case{0, 1, 0},
         Case{1, 1, 0}, // Low 64 bits of 2^64.
         Case{1, 2, u64{1} << 63},
+        Case{3, 2, u64{1} << 63},
+        Case{4, 2, 0},
+        Case{std::numeric_limits<u64>::max(), 1, 0},
+        Case{std::numeric_limits<u64>::max(), 2, u64{1} << 63},
         Case{1, 3, 6'148'914'691'236'517'205},
         Case{3, 7, 7'905'747'460'161'236'406},
     };

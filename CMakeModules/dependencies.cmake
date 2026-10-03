@@ -18,13 +18,6 @@
 # all CPM packages inherit this setting.
 
 
-# ── Submodule & vcpkg Policy ──────────────────────────────────────────────────
-# Force-disable reliance on git submodules and vcpkg. All external dependencies
-# must be fetched and managed via CPM to ensure portability and build-time
-# environment isolation.
-set(CITRON_CHECK_SUBMODULES OFF CACHE BOOL "Force disable submodule presence checks" FORCE)
-set(CITRON_USE_BUNDLED_VCPKG OFF CACHE BOOL "Force disable vcpkg usage" FORCE)
-
 if (NOT COMMAND CPMAddPackage)
     message(FATAL_ERROR "CPM.cmake not loaded — include CMakeModules/CPM.cmake before this file")
 endif()
@@ -61,6 +54,11 @@ endif()
 
 if (NOT TARGET Boost::headers)
     set(BOOST_INCLUDE_LIBRARIES "algorithm;asio;container;context;crc;heap;icl;intrusive;process;range;spirit;test;timer;variant" CACHE STRING "Boost components to build")
+    if (ANDROID)
+        # Android uses the socket-based debugger path and has no wordexp.h.
+        list(REMOVE_ITEM BOOST_INCLUDE_LIBRARIES process)
+        set(BOOST_INCLUDE_LIBRARIES "${BOOST_INCLUDE_LIBRARIES}" CACHE STRING "Boost components to build" FORCE)
+    endif()
     set(BOOST_ENABLE_CMAKE ON CACHE BOOL "Enable Boost CMake")
     set(BUILD_TESTING OFF CACHE BOOL "Disable testing")
     set(BUILD_SHARED_LIBS OFF CACHE BOOL "Disable shared libs")
@@ -75,7 +73,8 @@ if (NOT TARGET Boost::headers)
             set(_boost_headers_target "${_boost_headers_aliased}")
         endif()
         file(GLOB _boost_header_include_dirs LIST_DIRECTORIES true
-            "${Boost_SOURCE_DIR}/libs/*/include")
+            "${Boost_SOURCE_DIR}/libs/*/include"
+            "${Boost_SOURCE_DIR}/libs/*/*/include")
         list(REMOVE_DUPLICATES _boost_header_include_dirs)
         if (_boost_header_include_dirs)
             target_include_directories("${_boost_headers_target}" SYSTEM INTERFACE ${_boost_header_include_dirs})
@@ -312,7 +311,7 @@ endif()
 
 # ── SPIRV-Headers ─────────────────────────────────────────────────────────────
 # Must be declared before sirit.
-if (NOT CITRON_CLANGCL AND NOT TARGET SPIRV-Headers)
+if (NOT TARGET SPIRV-Headers AND NOT TARGET SPIRV-Headers::SPIRV-Headers)
     CPMAddPackage(
         NAME SPIRV-Headers
         GITHUB_REPOSITORY KhronosGroup/SPIRV-Headers
@@ -338,7 +337,7 @@ if (NOT TARGET enet::enet)
 endif()
 
 # ── opus ──────────────────────────────────────────────────────────────────────
-if (NOT TARGET Opus::opus)
+if (NOT TARGET Opus::opus AND NOT TARGET opus)
     set(_opus_cpm_patches "")
     if (CITRON_CLANGCL)
         # Opus only applies -msse4.1 under `if (NOT MSVC)`, but CMake's MSVC
@@ -386,6 +385,24 @@ if (ENABLE_CUBEB AND NOT TARGET cubeb::cubeb)
         if (TARGET cubeb)
             target_compile_options(cubeb PRIVATE -Wno-implicit-const-int-float-conversion)
         endif()
+    endif()
+endif()
+
+# ── Oboe (Android audio) ──────────────────────────────────────────────────────
+if (ANDROID AND NOT TARGET oboe::oboe)
+    if (NOT TARGET oboe)
+        CPMAddPackage(
+            NAME oboe
+            GITHUB_REPOSITORY google/oboe
+            GIT_TAG a81bb9f87d4105b84b682685d3bfbb5beca371d1
+            OPTIONS
+                "BUILD_SHARED_LIBS OFF"
+                "OBOE_DISABLE_CONVERSION OFF"
+                "OBOE_DO_NOT_DEFINE_OPENSL_ES_CONSTANTS OFF"
+        )
+    endif()
+    if (TARGET oboe AND NOT TARGET oboe::oboe)
+        add_library(oboe::oboe ALIAS oboe)
     endif()
 endif()
 
@@ -439,16 +456,19 @@ endif()
 
 # ── sirit (yuzu-mirror fork) ──────────────────────────────────────────────────
 # sirit needs SPIRV-Headers. CPM already populated it above.
-if (NOT TARGET sirit)
-    if(CITRON_CLANGCL)
-        set(SIRIT_USE_SYSTEM_SPIRV_HEADERS OFF)
-    else()
-        set(SIRIT_USE_SYSTEM_SPIRV_HEADERS ON)
+if (NOT TARGET sirit::sirit AND NOT TARGET sirit)
+    if (NOT TARGET SPIRV-Headers AND NOT TARGET SPIRV-Headers::SPIRV-Headers)
+        message(FATAL_ERROR "Sirit requires the project SPIRV-Headers target; no provider supplied it")
     endif()
+    set(SIRIT_USE_SYSTEM_SPIRV_HEADERS ON)
     CPMAddPackage(
         NAME sirit
         GITHUB_REPOSITORY yuzu-mirror/sirit
         GIT_TAG ab75463999f4f3291976b079d42d52ee91eebf3f
+        PATCH_COMMAND
+            "${CMAKE_COMMAND}"
+            "-DSIRIT_SOURCE_DIR=<SOURCE_DIR>"
+            -P "${CMAKE_SOURCE_DIR}/CMakeModules/PatchSirit.cmake"
     )
     if (CITRON_CLANGCL AND TARGET sirit)
         get_target_property(_sirit_compile_options sirit COMPILE_OPTIONS)
@@ -471,23 +491,18 @@ if ((ARCHITECTURE_x86_64 OR ARCHITECTURE_arm64) AND NOT (MSVC AND ARCHITECTURE_a
         CPMAddPackage(
             NAME dynarmic
             GITHUB_REPOSITORY xinitrcn1/dynarmic
-            GIT_TAG 7bec834bcadbb8b7def7c552a08ad4ac189d4397
+            GIT_TAG b1440b456b80f3dde0c01665932d114c4961ee93
             OPTIONS
                 "DYNARMIC_USE_PRECOMPILED_HEADERS ${CITRON_USE_PRECOMPILED_HEADERS}"
                 "DYNARMIC_IGNORE_ASSERTS ON"
                 "DYNARMIC_TESTS OFF"
+            PATCH_COMMAND
+                "${CMAKE_COMMAND}"
+                "-DDYNARMIC_SOURCE_DIR=<SOURCE_DIR>"
+                -P "${CMAKE_SOURCE_DIR}/CMakeModules/PatchDynarmic.cmake"
         )
         if (TARGET dynarmic AND NOT TARGET dynarmic::dynarmic)
             add_library(dynarmic::dynarmic ALIAS dynarmic)
-        endif()
-        if (CMAKE_CXX_COMPILER_ID MATCHES "Clang" AND dynarmic_ADDED)
-            execute_process(
-                COMMAND git apply --ignore-whitespace
-                        "${CMAKE_SOURCE_DIR}/patches/mcl_clang_template_fix.patch"
-                WORKING_DIRECTORY "${dynarmic_SOURCE_DIR}/externals/mcl"
-                RESULT_VARIABLE _mcl_patch
-                OUTPUT_QUIET ERROR_QUIET
-            )
         endif()
     endif()
 endif()
@@ -506,11 +521,15 @@ if (CITRON_CRASH_DUMPS AND NOT TARGET libbreakpad_client)
 endif()
 
 # ── libadrenotools — Android only ─────────────────────────────────────────────
-if (ANDROID AND ARCHITECTURE_arm64)
+if (ANDROID AND ARCHITECTURE_arm64 AND NOT TARGET adrenotools::adrenotools AND NOT TARGET adrenotools)
     CPMAddPackage(
         NAME libadrenotools
         GITHUB_REPOSITORY bylaws/libadrenotools
         GIT_TAG 5cd3f5c5ceea6d9e9d435ccdd922d9b99e55d10b
+        PATCH_COMMAND
+            "${CMAKE_COMMAND}"
+            "-DLIBADRENOTOOLS_SOURCE_DIR=<SOURCE_DIR>"
+            -P "${CMAKE_SOURCE_DIR}/CMakeModules/PatchLibadrenotools.cmake"
     )
 endif()
 

@@ -95,7 +95,7 @@ bool Exists(const std::string& filepath) {
 
 std::string GetParentDirectory(const std::string& filepath) {
     if (s_get_parent_directory == nullptr) {
-        return 0;
+        return {};
     }
     auto env = Common::Android::GetEnvForThread();
     jstring j_return = static_cast<jstring>(env->CallStaticObjectMethod(
@@ -108,7 +108,7 @@ std::string GetParentDirectory(const std::string& filepath) {
 
 std::string GetFilename(const std::string& filepath) {
     if (s_get_filename == nullptr) {
-        return 0;
+        return {};
     }
     auto env = Common::Android::GetEnvForThread();
     jstring j_return = static_cast<jstring>(env->CallStaticObjectMethod(

@@ -73,7 +73,9 @@ namespace Common {
     }
     return quotient;
 #else
-    std::array<u64, 2> r = {0, numerator};
+    // Reducing the high word preserves the low 64 bits of the quotient and
+    // prevents _udiv128 from trapping when the full quotient overflows u64.
+    std::array<u64, 2> r = {0, numerator % divisor};
     u64 remainder;
 #if defined(_MSC_VER) && !defined(__clang__) && _MSC_VER < 1923
     return udiv128(r[1], r[0], divisor, &remainder);

@@ -14,6 +14,7 @@ add_executable(tests
     common/scratch_buffer.cpp
     common/unique_function.cpp
     common/uint128.cpp
+    core/aes_util.cpp
     core/core_timing.cpp
     core/exit_callback.cpp
     core/internal_network/network.cpp

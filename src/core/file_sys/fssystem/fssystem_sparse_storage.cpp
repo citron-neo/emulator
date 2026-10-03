@@ -18,7 +18,7 @@ size_t SparseStorage::Read(u8* buffer, size_t size, size_t offset) const {
     SparseStorage* self = const_cast<SparseStorage*>(this);
 
     if (self->GetEntryTable().IsEmpty()) {
-        BucketTree::Offsets table_offsets;
+        BucketTree::Offsets table_offsets{};
         ASSERT(R_SUCCEEDED(self->GetEntryTable().GetOffsets(std::addressof(table_offsets))));
         ASSERT(table_offsets.IsInclude(offset, size));
 

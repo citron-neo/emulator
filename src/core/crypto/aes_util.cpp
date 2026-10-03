@@ -10,9 +10,7 @@
 #include "core/crypto/aes_util.h"
 #include "core/crypto/key_manager.h"
 
-#ifdef ARCHITECTURE_x86_64
 #include "core/crypto/aes_ni.h"
-#endif
 
 namespace Core::Crypto {
 namespace {
@@ -35,7 +33,7 @@ NintendoTweak CalculateNintendoTweak(std::size_t sector_id) {
 // On other architectures: raw key bytes only; all operations use OpenSSL EVP.
 
 struct CipherContext {
-#ifdef ARCHITECTURE_x86_64
+#if CITRON_HAS_AES_NI
     // Encrypt schedule: 15 slots covers AES-128 (11 used) and AES-256 (15 used)
     __m128i ks_enc[AesNi::kRoundKeys256];
     // Decrypt schedule: same layout
@@ -64,7 +62,7 @@ AESCipher<Key, KeySize>::AESCipher(Key key, Mode mode)
     std::memset(ctx->iv, 0, 16);
     std::memcpy(ctx->raw_key, key.data(), KeySize);
 
-#ifdef ARCHITECTURE_x86_64
+#if CITRON_HAS_AES_NI
     if constexpr (KeySize == AesNi::kKeySize128) {
         ctx->rounds = static_cast<int>(AesNi::kRoundKeys128);
         AesNi::KeyExpand128Enc(key.data(), ctx->ks_enc);
@@ -96,7 +94,7 @@ AESCipher<Key, KeySize>::AESCipher(Key key, Mode mode)
             AesNi::KeyExpand256Dec(ctx->ks_enc, ctx->ks_dec);
         }
     }
-#endif // ARCHITECTURE_x86_64
+#endif // CITRON_HAS_AES_NI
 }
 
 template <typename Key, std::size_t KeySize>
@@ -113,7 +111,7 @@ void AESCipher<Key, KeySize>::Transcode(const u8* src, std::size_t size, u8* des
                                         Op op) const {
     switch (ctx->mode) {
     case Mode::ECB: {
-#ifdef ARCHITECTURE_x86_64
+#if CITRON_HAS_AES_NI
         if (size < AesNi::kBlockSize) {
             u8 block[AesNi::kBlockSize] = {};
             std::memcpy(block, src, size);
@@ -142,7 +140,7 @@ void AESCipher<Key, KeySize>::Transcode(const u8* src, std::size_t size, u8* des
             }
         }
 #else
-        // Non-x86: OpenSSL EVP ECB
+        // OpenSSL EVP ECB fallback
         {
             const EVP_CIPHER* cipher = (ctx->key_size == 16)
                 ? (op == Op::Encrypt ? EVP_aes_128_ecb() : EVP_aes_128_ecb())
@@ -175,7 +173,7 @@ void AESCipher<Key, KeySize>::Transcode(const u8* src, std::size_t size, u8* des
         break;
     }
     case Mode::CTR: {
-#ifdef ARCHITECTURE_x86_64
+#if CITRON_HAS_AES_NI
         ASSERT_MSG(ctx->rounds == static_cast<int>(AesNi::kRoundKeys128),
                    "CTR mode requires AES-128 key schedule");
         uint8_t ctr_copy[AesNi::kBlockSize];
@@ -193,7 +191,7 @@ void AESCipher<Key, KeySize>::Transcode(const u8* src, std::size_t size, u8* des
         break;
     }
     case Mode::XTS: {
-#ifdef ARCHITECTURE_x86_64
+#if CITRON_HAS_AES_NI
         // Below kXtsOsslThreshold: intrinsic loop wins (zero EVP overhead).
         // Above it: OpenSSL's 6-block-interleaved asm is faster.
         if (size <= AesNi::kXtsOsslThreshold) {
@@ -219,7 +217,7 @@ void AESCipher<Key, KeySize>::Transcode(const u8* src, std::size_t size, u8* des
             EVP_CIPHER_CTX_free(evp);
         }
 #else
-        // Non-x86: always use OpenSSL EVP XTS
+        // OpenSSL EVP XTS fallback
         {
             EVP_CIPHER_CTX* evp = EVP_CIPHER_CTX_new();
             if (op == Op::Encrypt) {

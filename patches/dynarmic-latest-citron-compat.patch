@@ -1,0 +1,122 @@
+diff --git a/src/dynarmic/backend/arm64/address_space.cpp b/src/dynarmic/backend/arm64/address_space.cpp
+index e23f4d3..57311ef 100644
+--- a/src/dynarmic/backend/arm64/address_space.cpp
++++ b/src/dynarmic/backend/arm64/address_space.cpp
+@@ -7,6 +7,7 @@
+  */
+ 
+ #include <cstdio>
++#include <print>
+ 
+ #include <bit>
+ 
+diff --git a/src/dynarmic/backend/x64/a32_emit_x64.h b/src/dynarmic/backend/x64/a32_emit_x64.h
+index 8acf0be..4f8b456 100644
+--- a/src/dynarmic/backend/x64/a32_emit_x64.h
++++ b/src/dynarmic/backend/x64/a32_emit_x64.h
+@@ -13,6 +13,7 @@
+ #include <set>
+ #include <tuple>
+ 
++#include "dynarmic/common/tuple_hash.h"
+ #include "dynarmic/common/container/unordered_map.h"
+ #include "dynarmic/common/container/unordered_set.h"
+ 
+@@ -128,10 +129,10 @@ public:
+     BlockRangeInformation<u32> block_ranges;
+     std::array<FastDispatchEntry, fast_dispatch_table_size> fast_dispatch_table;
+     ::Common::unordered_map<u64, FastmemPatchInfo> fastmem_patch_info;
+-    ::Common::unordered_map<std::tuple<bool, size_t, int, int>, void (*)()> read_fallbacks;
+-    ::Common::unordered_map<std::tuple<bool, size_t, int, int>, void (*)()> write_fallbacks;
+-    ::Common::unordered_map<std::tuple<bool, size_t, int, int>, void (*)()> exclusive_write_fallbacks;
+-    ::Common::unordered_set<DoNotFastmemMarker> do_not_fastmem;
++    ::Common::unordered_map<std::tuple<bool, size_t, int, int>, void (*)(), TupleHash> read_fallbacks;
++    ::Common::unordered_map<std::tuple<bool, size_t, int, int>, void (*)(), TupleHash> write_fallbacks;
++    ::Common::unordered_map<std::tuple<bool, size_t, int, int>, void (*)(), TupleHash> exclusive_write_fallbacks;
++    ::Common::unordered_set<DoNotFastmemMarker, TupleHash> do_not_fastmem;
+     boost::container::stable_vector<Xbyak::Label> shared_labels;
+     void (*memory_read_128)() = nullptr;   // Dummy
+     void (*memory_write_128)() = nullptr;  // Dummy
+diff --git a/src/dynarmic/backend/x64/a64_emit_x64.h b/src/dynarmic/backend/x64/a64_emit_x64.h
+index 5ce6842..723daa0 100644
+--- a/src/dynarmic/backend/x64/a64_emit_x64.h
++++ b/src/dynarmic/backend/x64/a64_emit_x64.h
+@@ -12,6 +12,7 @@
+ #include <map>
+ #include <optional>
+ #include <tuple>
++#include "dynarmic/common/tuple_hash.h"
+ #include "dynarmic/common/container/unordered_map.h"
+ #include "dynarmic/common/container/unordered_set.h"
+ #include <boost/container/static_vector.hpp>
+@@ -124,10 +125,10 @@ public:
+     BlockRangeInformation<u64> block_ranges;
+     std::array<FastDispatchEntry, fast_dispatch_table_size> fast_dispatch_table;
+     ::Common::unordered_map<u64, FastmemPatchInfo> fastmem_patch_info;
+-    ::Common::unordered_map<std::tuple<bool, size_t, int, int>, void (*)()> read_fallbacks;
+-    ::Common::unordered_map<std::tuple<bool, size_t, int, int>, void (*)()> write_fallbacks;
+-    ::Common::unordered_map<std::tuple<bool, size_t, int, int>, void (*)()> exclusive_write_fallbacks;
+-    ::Common::unordered_set<DoNotFastmemMarker> do_not_fastmem;
++    ::Common::unordered_map<std::tuple<bool, size_t, int, int>, void (*)(), TupleHash> read_fallbacks;
++    ::Common::unordered_map<std::tuple<bool, size_t, int, int>, void (*)(), TupleHash> write_fallbacks;
++    ::Common::unordered_map<std::tuple<bool, size_t, int, int>, void (*)(), TupleHash> exclusive_write_fallbacks;
++    ::Common::unordered_set<DoNotFastmemMarker, TupleHash> do_not_fastmem;
+     boost::container::stable_vector<Xbyak::Label> shared_labels;
+     const void* terminal_handler_pop_rsb_hint = nullptr;
+     const void* terminal_handler_fast_dispatch_hint = nullptr;
+diff --git a/src/dynarmic/common/tuple_hash.h b/src/dynarmic/common/tuple_hash.h
+new file mode 100644
+index 0000000..fdb4484
+--- /dev/null
++++ b/src/dynarmic/common/tuple_hash.h
+@@ -0,0 +1,33 @@
++// SPDX-FileCopyrightText: Copyright 2026 citron Emulator Project
++// SPDX-License-Identifier: GPL-2.0-or-later
++
++#pragma once
++
++#include <cstddef>
++#include <functional>
++#include <tuple>
++#include <type_traits>
++#include <utility>
++
++namespace Dynarmic {
++
++// Explicit tuple hashing keeps the backend independent of host-project headers
++// and avoids specializing std::hash for standard-library-only tuple types.
++struct TupleHash {
++    template <typename First, typename Second>
++    std::size_t operator()(const std::pair<First, Second>& key) const {
++        return (*this)(std::tie(key.first, key.second));
++    }
++
++    template <typename... Ts>
++    std::size_t operator()(const std::tuple<Ts...>& key) const {
++        std::size_t seed = 0;
++        std::apply([&](const auto&... values) {
++            ((seed ^= std::hash<std::decay_t<decltype(values)>>{}(values) +
++                      0x9e3779b9 + (seed << 6) + (seed >> 2)), ...);
++        }, key);
++        return seed;
++    }
++};
++
++} // namespace Dynarmic
+diff --git a/src/dynarmic/frontend/A32/a32_types.h b/src/dynarmic/frontend/A32/a32_types.h
+index 1206ae5..6820414 100644
+--- a/src/dynarmic/frontend/A32/a32_types.h
++++ b/src/dynarmic/frontend/A32/a32_types.h
+@@ -163,10 +163,5 @@ struct std::formatter<Dynarmic::A32::CoprocReg> : std::formatter<const char*> {
+     }
+ };
+ 
+-template<>
+-struct std::formatter<Dynarmic::A32::RegList> : std::formatter<std::string> {
+-    template<typename FormatContext>
+-    auto format(Dynarmic::A32::RegList reg_list, FormatContext& ctx) const {
+-        return formatter<std::string>::format(Dynarmic::A32::RegListToString(reg_list), ctx);
+-    }
+-};
++// RegList aliases u16. Keep its standard integer formatter; callers needing
++// register names can use RegListToString explicitly.

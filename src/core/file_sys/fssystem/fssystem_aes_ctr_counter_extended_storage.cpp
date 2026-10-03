@@ -106,7 +106,7 @@ Result AesCtrCounterExtendedStorage::GetEntryList(Entry* out_entries, s32* out_e
     R_UNLESS(out_entries != nullptr || entry_count == 0, ResultNullptrArgument);
 
     // Check that our range is valid.
-    BucketTree::Offsets table_offsets;
+    BucketTree::Offsets table_offsets{};
     R_TRY(m_table.GetOffsets(std::addressof(table_offsets)));
 
     R_UNLESS(table_offsets.IsInclude(offset, size), ResultOutOfRange);
@@ -164,7 +164,7 @@ size_t AesCtrCounterExtendedStorage::Read(u8* buffer, size_t size, size_t offset
     ASSERT(Common::IsAligned(offset, BlockSize));
     ASSERT(Common::IsAligned(size, BlockSize));
 
-    BucketTree::Offsets table_offsets;
+    BucketTree::Offsets table_offsets{};
     ASSERT(R_SUCCEEDED(m_table.GetOffsets(std::addressof(table_offsets))));
 
     ASSERT(table_offsets.IsInclude(offset, size));

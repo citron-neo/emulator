@@ -36,13 +36,14 @@ tasks.configureEach {
  * next 680 years.
  */
 val autoVersion = (((System.currentTimeMillis() / 1000) - 1451606400) / 10).toInt()
+val citronAndroidUseCpm = providers.gradleProperty("citronAndroidUseCpm").orNull?.toBoolean() ?: false
 
 @Suppress("UnstableApiUsage")
 android {
     namespace = "org.citron.citron_emu"
 
     compileSdk = 37
-    ndkVersion = "26.1.10909125"
+    ndkVersion = "29.0.14206865"
 
     buildFeatures {
         viewBinding = true
@@ -180,14 +181,14 @@ android {
                     "-DENABLE_OPENSSL=1",
                     "-DBUNDLE_SPEEX=ON",
                     "-DANDROID_ARM_NEON=true", // cryptopp requires Neon to work
-                    "-DCITRON_USE_BUNDLED_VCPKG=ON",
+                    "-DCITRON_USE_BUNDLED_VCPKG=${if (citronAndroidUseCpm) "OFF" else "ON"}",
+                    "-DCITRON_USE_CPM=${if (citronAndroidUseCpm) "ON" else "OFF"}",
                     "-DCITRON_USE_BUNDLED_FFMPEG=ON",
                     "-DCITRON_ENABLE_LTO=ON",
                     "-DCMAKE_EXPORT_COMPILE_COMMANDS=ON",
                     "-DCMAKE_POLICY_VERSION_MINIMUM=3.5",
                     "-DANDROID_SUPPORT_FLEXIBLE_PAGE_SIZES=ON"
                 )
-
                 abiFilters("arm64-v8a", "x86_64")
             }
         }
