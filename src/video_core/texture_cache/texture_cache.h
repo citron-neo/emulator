@@ -582,6 +582,8 @@ FramebufferId TextureCache<P>::GetFramebufferId(const RenderTargets& key) {
 template <class P>
 void TextureCache<P>::WriteMemory(DAddr cpu_addr, size_t size) {
     ForEachImageInRegion(cpu_addr, size, [this](ImageId image_id, Image& image) {
+        // A CPU write can touch any part of the image, so it always needs a full refresh.
+        image.cpu_modified_by_remap_only = false;
         if (True(image.flags & ImageFlagBits::CpuModified)) {
             return;
         }
@@ -668,8 +670,20 @@ void TextureCache<P>::UnmapGPUMemory(size_t as_id, GPUVAddr gpu_addr, size_t siz
         Image& image = slot_images[id];
         if (False(image.flags & ImageFlagBits::CpuModified)) {
             image.flags |= ImageFlagBits::CpuModified;
+            // Sparse textures remap a few pages at a time; remember which ones so only the
+            // affected part of a large image has to be uploaded again.
+            image.cpu_modified_by_remap_only = CanUploadImageBlocks(image);
+            image.remapped_dirty_ranges.clear();
             if (True(image.flags & ImageFlagBits::Tracked)) {
                 UntrackImage(image, id);
+            }
+        }
+        if (image.cpu_modified_by_remap_only) {
+            const GPUVAddr begin = std::max<GPUVAddr>(gpu_addr, image.gpu_addr);
+            const GPUVAddr end =
+                std::min<GPUVAddr>(gpu_addr + size, image.gpu_addr + image.guest_size_bytes);
+            if (begin < end) {
+                image.remapped_dirty_ranges.emplace_back(begin - image.gpu_addr, end - begin);
             }
         }
 
@@ -1104,6 +1118,8 @@ void TextureCache<P>::RefreshContents(Image& image, ImageId image_id) {
     }
     image.flags &= ~ImageFlagBits::CpuModified;
     TrackImage(image, image_id);
+    const bool remap_only = std::exchange(image.cpu_modified_by_remap_only, false);
+    const auto remapped_ranges = std::exchange(image.remapped_dirty_ranges, {});
 
     if (image.info.num_samples > 1 && !runtime.CanUploadMSAA()) {
         LOG_WARNING(HW_GPU, "MSAA image uploads are not implemented");
@@ -1112,6 +1128,14 @@ void TextureCache<P>::RefreshContents(Image& image, ImageId image_id) {
     }
     if (True(image.flags & ImageFlagBits::AsynchronousDecode)) {
         QueueAsyncDecode(image, image_id);
+        return;
+    }
+    if (remap_only && !remapped_ranges.empty() && UploadImageBlocks(image, remapped_ranges)) {
+        runtime.InsertUploadMemoryBarrier();
+        return;
+    }
+    if (UploadImageBlocks(image, {})) {
+        runtime.InsertUploadMemoryBarrier();
         return;
     }
     auto staging = runtime.UploadStagingBuffer(MapSizeBytes(image));
@@ -1147,6 +1171,148 @@ void TextureCache<P>::UploadImageContents(Image& image, StagingBuffer& staging) 
             UnswizzleImage(*gpu_memory, gpu_addr, image.info, swizzle_data, mapped_span);
         image.UploadMemory(staging, copies);
     }
+}
+
+template <class P>
+bool TextureCache<P>::CanUploadImageBlocks(const Image& image) const {
+    // Large sparse 3D textures (e.g. lighting volumes) are mostly unmapped and get a few 64 KiB
+    // pages remapped at a time; uploading them block by block avoids unswizzling the whole
+    // image on every remap and skips unmapped regions entirely.
+    static constexpr u32 MinBlockUploadBytes = 16_MiB;
+    return image.guest_size_bytes >= MinBlockUploadBytes &&
+           False(image.flags & ImageFlagBits::Converted) &&
+           False(image.flags & ImageFlagBits::AcceleratedUpload) &&
+           False(image.flags & ImageFlagBits::AsynchronousDecode) &&
+           CalculateSlabLayout(image.info).has_value();
+}
+
+template <class P>
+bool TextureCache<P>::UploadImageBlocks(Image& image,
+                                        std::span<const std::pair<u64, u64>> ranges) {
+    if (!CanUploadImageBlocks(image)) {
+        return false;
+    }
+    const SlabLayout layout = *CalculateSlabLayout(image.info);
+    const u64 blocks_per_slab = static_cast<u64>(layout.gobs_in_x) * layout.rows_per_slab;
+    const u64 num_blocks = blocks_per_slab * layout.num_slabs;
+    const bool whole_image = ranges.empty();
+    std::vector<bool> dirty_blocks;
+    if (!whole_image) {
+        dirty_blocks.assign(num_blocks, false);
+        for (const auto& [offset, size] : ranges) {
+            const u64 last = std::min((offset + size - 1) / layout.unit_bytes, num_blocks - 1);
+            for (u64 block = offset / layout.unit_bytes; block <= last; ++block) {
+                dirty_blocks[block] = true;
+            }
+        }
+    }
+
+    // Unmapped guest memory reads back as zeros, so fully unmapped blocks are uploaded from a
+    // zero-filled buffer without reading or unswizzling anything.
+    static constexpr u64 PageSize = 64_KiB;
+    const u64 num_pages = Common::DivCeil<u64>(image.guest_size_bytes, PageSize);
+    std::vector<u8> page_state(num_pages, 0); // 0: unknown, 1: unmapped, 2: has mapped memory
+    const auto is_block_mapped = [&](u64 block) {
+        const u64 begin = block * layout.unit_bytes;
+        const u64 end = begin + layout.unit_bytes;
+        for (u64 page = begin / PageSize; page <= (end - 1) / PageSize; ++page) {
+            if (page_state[page] == 0) {
+                const u64 page_bytes =
+                    std::min<u64>(PageSize, image.guest_size_bytes - page * PageSize);
+                const bool unmapped =
+                    gpu_memory->GetSubmappedRange(image.gpu_addr + page * PageSize, page_bytes)
+                        .empty();
+                page_state[page] = unmapped ? 1 : 2;
+            }
+            if (page_state[page] == 2) {
+                return true;
+            }
+        }
+        return false;
+    };
+
+    struct Run {
+        BlockRun run;
+        bool mapped;
+    };
+    std::vector<Run> runs;
+    static constexpr u64 GobWidthBytes = 64;
+    const u32 used_blocks_x = std::min<u32>(
+        layout.gobs_in_x,
+        static_cast<u32>(Common::DivCeil<u64>(static_cast<u64>(layout.width_tiles)
+                                                  << layout.bpp_log2,
+                                              GobWidthBytes)));
+    for (u32 slab = 0; slab < layout.num_slabs; ++slab) {
+        for (u32 row = 0; row < layout.rows_per_slab; ++row) {
+            const u64 row_base =
+                slab * blocks_per_slab + static_cast<u64>(row) * layout.gobs_in_x;
+            const auto is_dirty = [&](u32 x) { return whole_image || dirty_blocks[row_base + x]; };
+            for (u32 x = 0; x < used_blocks_x;) {
+                if (!is_dirty(x)) {
+                    ++x;
+                    continue;
+                }
+                const bool mapped = is_block_mapped(row_base + x);
+                const u32 first = x++;
+                while (x < used_blocks_x && is_dirty(x) &&
+                       is_block_mapped(row_base + x) == mapped) {
+                    ++x;
+                }
+                runs.push_back({BlockRun{slab, row, first, x - first}, mapped});
+            }
+        }
+    }
+
+    u64 mapped_bytes = 0;
+    u64 zero_bytes = 0;
+    for (const Run& run : runs) {
+        const u64 bytes = BlockRunHostBytes(layout, run.run);
+        if (run.mapped) {
+            mapped_bytes += bytes;
+        } else {
+            zero_bytes = std::max(zero_bytes, bytes);
+        }
+    }
+    if (mapped_bytes > 0) {
+        auto staging = runtime.UploadStagingBuffer(mapped_bytes);
+        std::vector<BufferImageCopy> copies;
+        size_t buffer_offset = 0;
+        for (const Run& run : runs) {
+            if (!run.mapped) {
+                continue;
+            }
+            const u64 first_block = run.run.slab * blocks_per_slab +
+                                    static_cast<u64>(run.run.row) * layout.gobs_in_x +
+                                    run.run.first_block;
+            const GPUVAddr guest_addr = image.gpu_addr + first_block * layout.unit_bytes;
+            const size_t guest_bytes = run.run.num_blocks * layout.unit_bytes;
+            swizzle_data_buffer.resize_destructive(guest_bytes);
+            gpu_memory->ReadBlockUnsafe(guest_addr, swizzle_data_buffer.data(), guest_bytes,
+                                        "TextureCache.UploadImageBlocks");
+            UnswizzleBlockRun(layout, run.run,
+                              std::span<const u8>(swizzle_data_buffer.data(), guest_bytes),
+                              staging.mapped_span.subspan(buffer_offset));
+            copies.push_back(MakeBlockRunCopy(image.info, layout, run.run, buffer_offset));
+            buffer_offset += BlockRunHostBytes(layout, run.run);
+        }
+        image.UploadMemory(staging, copies);
+    }
+    if (zero_bytes > 0) {
+        std::vector<BufferImageCopy> copies;
+        for (const Run& run : runs) {
+            if (!run.mapped) {
+                copies.push_back(MakeBlockRunCopy(image.info, layout, run.run, 0));
+            }
+        }
+        // Prefer a device-local zero buffer: copying gigabytes of zeros from host memory over
+        // PCIe stalls the GPU, and anything that later waits on it, for a noticeable time.
+        if (!runtime.ClearImageRegions(image, copies, zero_bytes)) {
+            auto staging = runtime.UploadStagingBuffer(zero_bytes);
+            std::memset(staging.mapped_span.data(), 0, zero_bytes);
+            image.UploadMemory(staging, copies);
+        }
+    }
+    return true;
 }
 
 template <class P>
@@ -2489,6 +2655,8 @@ void TextureCache<P>::PrepareImage(ImageId image_id, bool is_modification, bool 
     Image& image = slot_images[image_id];
     if (invalidate) {
         image.flags &= ~(ImageFlagBits::CpuModified | ImageFlagBits::GpuModified);
+        image.cpu_modified_by_remap_only = false;
+        image.remapped_dirty_ranges.clear();
         if (False(image.flags & ImageFlagBits::Tracked)) {
             TrackImage(image, image_id);
         }

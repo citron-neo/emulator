@@ -107,6 +107,12 @@ public:
     [[nodiscard]] VkBuffer GetTemporaryBuffer(size_t needed_size);
     void CleanupUnusedBuffers();
 
+    /// Uploads zeros to the given regions of an image from a device-local zero buffer.
+    /// size is the largest number of bytes any region reads. Returns false if that is more than
+    /// the zero buffer holds, in which case the caller has to upload the zeros itself.
+    bool ClearImageRegions(Image& image, std::span<const VideoCommon::BufferImageCopy> copies,
+                           size_t size);
+
     std::span<const VkFormat> ViewFormats(PixelFormat format) {
         return view_formats[static_cast<std::size_t>(format)];
     }
@@ -126,6 +132,9 @@ public:
 
     static constexpr size_t indexing_slots = 8 * sizeof(size_t);
     std::array<vk::Buffer, indexing_slots> buffers{};
+
+    /// Device-local buffer filled with zeros, used to clear unmapped regions of sparse images
+    vk::Buffer zero_buffer;
 };
 
 class Image : public VideoCommon::ImageBase {

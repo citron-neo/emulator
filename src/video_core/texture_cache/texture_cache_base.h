@@ -330,6 +330,14 @@ public:
     template <typename StagingBuffer>
     void UploadImageContents(Image& image, StagingBuffer& staging_buffer);
 
+    /// Returns true if the image can be uploaded block by block (large single-level 3D images)
+    [[nodiscard]] bool CanUploadImageBlocks(const Image& image) const;
+
+    /// Upload the blocks of an image touched by the given guest byte ranges, or the whole image
+    /// when ranges is empty, skipping unswizzling for unmapped memory.
+    /// Returns false if the image needs the regular upload path instead.
+    bool UploadImageBlocks(Image& image, std::span<const std::pair<u64, u64>> ranges);
+
     /// Find or create an image view from a guest descriptor
     [[nodiscard]] ImageViewId FindImageView(const TICEntry& config);
 
