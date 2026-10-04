@@ -116,8 +116,17 @@ GPUVAddr MemoryManager::PageTableOp(GPUVAddr gpu_addr, [[maybe_unused]] DAddr de
     for (u64 offset{}; offset < size; offset += page_size) {
         const GPUVAddr current_gpu_addr = gpu_addr + offset;
         [[maybe_unused]] const auto current_entry_type = GetEntry<false>(current_gpu_addr);
+        bool backing_changed = false;
+        if constexpr (entry_type == EntryType::Mapped) {
+            // Remapping a mapped page to different memory changes its contents just like an
+            // unmap followed by a map does (e.g. sparse texture tile streaming).
+            if (current_entry_type == EntryType::Mapped) {
+                const u32 new_value = static_cast<u32>((dev_addr + offset) >> cpu_page_bits);
+                backing_changed = page_table[PageEntryIndex<false>(current_gpu_addr)] != new_value;
+            }
+        }
         SetEntry<false>(current_gpu_addr, entry_type);
-        if (current_entry_type != entry_type) {
+        if (current_entry_type != entry_type || backing_changed) {
             rasterizer->ModifyGPUMemory(unique_identifier, current_gpu_addr, page_size);
         }
         if constexpr (entry_type == EntryType::Mapped) {
@@ -139,8 +148,16 @@ GPUVAddr MemoryManager::BigPageTableOp(GPUVAddr gpu_addr, [[maybe_unused]] DAddr
     for (u64 offset{}; offset < size; offset += big_page_size) {
         const GPUVAddr current_gpu_addr = gpu_addr + offset;
         [[maybe_unused]] const auto current_entry_type = GetEntry<true>(current_gpu_addr);
+        bool backing_changed = false;
+        if constexpr (entry_type == EntryType::Mapped) {
+            if (current_entry_type == EntryType::Mapped) {
+                const u32 new_value = static_cast<u32>((dev_addr + offset) >> cpu_page_bits);
+                backing_changed =
+                    big_page_table_dev[PageEntryIndex<true>(current_gpu_addr)] != new_value;
+            }
+        }
         SetEntry<true>(current_gpu_addr, entry_type);
-        if (current_entry_type != entry_type) {
+        if (current_entry_type != entry_type || backing_changed) {
             rasterizer->ModifyGPUMemory(unique_identifier, current_gpu_addr, big_page_size);
         }
         if constexpr (entry_type == EntryType::Mapped) {
