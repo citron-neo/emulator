@@ -3,7 +3,11 @@
 
 #pragma once
 
+#include <atomic>
 #include <array>
+#include <memory>
+#include <string>
+#include <vector>
 
 #include "common/common_types.h"
 
@@ -13,6 +17,11 @@ class System;
 
 namespace Core::HID {
 enum class NpadButton : u64;
+class HIDCore;
+}
+
+namespace Common::Input {
+class InputDevice;
 }
 
 namespace Service::HID {
@@ -35,6 +44,10 @@ public:
 
     /// Resets all the button states to their defaults.
     void ResetButtonStates();
+
+    /// Builds the document-start assignment used to translate configured host keyboard mappings
+    /// into Nintendo button actions when a native browser child owns keyboard focus.
+    [[nodiscard]] std::string GetKeyboardMappingScript() const;
 
     /**
      * Checks whether the button is pressed.
@@ -101,7 +114,17 @@ public:
     }
 
 private:
+    void LoadMappedInputDevices();
+
+    Core::HID::HIDCore& hid_core;
     std::shared_ptr<Service::HID::NPad> npad;
+
+    // Library applets can temporarily stop the guest-facing NPad controller from publishing
+    // input. Keep an independent view of the active player's configured mappings so frontend
+    // applets continue to receive the same physical controller while the application is paused.
+    std::atomic<u64> mapped_button_state{};
+    std::atomic<u64> mapped_stick_state{};
+    std::vector<std::unique_ptr<Common::Input::InputDevice>> mapped_input_devices;
 
     /// Stores 9 consecutive button states polled from HID.
     std::array<Core::HID::NpadButton, 9> button_states{};

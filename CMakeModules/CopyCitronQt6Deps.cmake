@@ -42,6 +42,12 @@ function(copy_citron_Qt6_deps target_dir)
                 Qt6WebEngineCore$<$<CONFIG:Debug>:d>.*
                 Qt6WebEngineWidgets$<$<CONFIG:Debug>:d>.*
                 QtWebEngineProcess$<$<CONFIG:Debug>:d>.*
+                Qt6Quick$<$<CONFIG:Debug>:d>.*
+                Qt6QuickWidgets$<$<CONFIG:Debug>:d>.*
+                Qt6Qml$<$<CONFIG:Debug>:d>.*
+                Qt6QmlModels$<$<CONFIG:Debug>:d>.*
+                Qt6WebChannel$<$<CONFIG:Debug>:d>.*
+                Qt6Positioning$<$<CONFIG:Debug>:d>.*
             )
             windows_copy_files(${target_dir} ${Qt6_RESOURCES_DIR} ${DLL_DEST}
                 icudtl.dat
@@ -49,6 +55,10 @@ function(copy_citron_Qt6_deps target_dir)
                 qtwebengine_resources.pak
                 qtwebengine_resources_100p.pak
                 qtwebengine_resources_200p.pak
+                v8_context_snapshot$<$<CONFIG:Debug>:.debug>.bin
+            )
+            windows_copy_files(${target_dir} ${Qt6_RESOURCES_DIR}qtwebengine_locales
+                ${DLL_DEST}qtwebengine_locales/ *.pak
             )
         endif()
         windows_copy_files(citron ${Qt6_PLATFORMS_DIR} ${PLATFORMS} qwindows$<$<CONFIG:Debug>:d>.*)
@@ -101,6 +111,13 @@ function(copy_citron_Qt6_deps target_dir)
             if (CITRON_USE_QT_MULTIMEDIA)
                 list(APPEND _qt_libs Multimedia MultimediaWidgets)
             endif()
+            if (CITRON_USE_QT_WEB_ENGINE)
+                # Same module set as the MSVC branch above -- QtWebEngineWidgets
+                # pulls in the Quick/Qml machinery transitively even though citron
+                # only uses the Widgets embedding, not QtWebEngineQuick directly.
+                list(APPEND _qt_libs WebEngineCore WebEngineWidgets WebChannel
+                    Positioning Quick QuickWidgets Qml QmlModels)
+            endif()
 
             foreach(_lib ${_qt_libs})
                 if (EXISTS "${Qt6_DLL_DIR}libQt6${_lib}.so.6")
@@ -113,6 +130,48 @@ function(copy_citron_Qt6_deps target_dir)
                     )
                 endif()
             endforeach()
+
+            if (CITRON_USE_QT_WEB_ENGINE)
+                # QtWebEngineProcess: default LibraryExecutables path (no qt.conf
+                # override needed) is "libexec" relative to applicationDirPath(),
+                # i.e. DLL_DEST/libexec -- confirmed against Qt's own qt.conf
+                # defaults table, not assumed.
+                set(Qt6_LIBEXEC_DIR "${Qt6_DIR}/../../../libexec/")
+                if (EXISTS "${Qt6_LIBEXEC_DIR}QtWebEngineProcess")
+                    add_custom_command(TARGET ${target_dir} POST_BUILD
+                        COMMAND ${CMAKE_COMMAND} -E make_directory "${DLL_DEST}libexec"
+                        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                            "${Qt6_LIBEXEC_DIR}QtWebEngineProcess"
+                            "${DLL_DEST}libexec/"
+                        COMMENT "Bundling QtWebEngineProcess"
+                    )
+                endif()
+
+                # icudtl.dat/pak/v8-snapshot: Data path defaults to "." (the app's
+                # own directory, DLL_DEST) relative to applicationDirPath(), not a
+                # lib/ subdirectory -- same reasoning as libexec above, and matches
+                # where the MSVC branch above already places these.
+                add_custom_command(TARGET ${target_dir} POST_BUILD
+                    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                        "${Qt6_RESOURCES_DIR}icudtl.dat"
+                        "${Qt6_RESOURCES_DIR}qtwebengine_devtools_resources.pak"
+                        "${Qt6_RESOURCES_DIR}qtwebengine_resources.pak"
+                        "${Qt6_RESOURCES_DIR}qtwebengine_resources_100p.pak"
+                        "${Qt6_RESOURCES_DIR}qtwebengine_resources_200p.pak"
+                        "${Qt6_RESOURCES_DIR}v8_context_snapshot.bin"
+                        "${DLL_DEST}"
+                    COMMENT "Bundling QtWebEngine resources"
+                )
+                if (EXISTS "${Qt6_RESOURCES_DIR}qtwebengine_locales")
+                    add_custom_command(TARGET ${target_dir} POST_BUILD
+                        COMMAND ${CMAKE_COMMAND} -E make_directory "${DLL_DEST}qtwebengine_locales"
+                        COMMAND ${CMAKE_COMMAND} -E copy_directory
+                            "${Qt6_RESOURCES_DIR}qtwebengine_locales"
+                            "${DLL_DEST}qtwebengine_locales"
+                        COMMENT "Bundling QtWebEngine locales"
+                    )
+                endif()
+            endif()
 
             find_program(PATCHELF_EXE patchelf)
             if (NOT PATCHELF_EXE)

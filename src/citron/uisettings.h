@@ -151,7 +151,6 @@ namespace UISettings {
                                     Settings::Specialization::Default,
                                     true,
                                     true};
-                                    Setting<bool> disable_web_applet{linkage, true, "disable_web_applet", Category::Ui};
 
                                     // GameBanana Mod Manager
                                     Setting<bool> always_ask_manual_extraction{linkage, false, "always_ask_manual_extraction", Category::Ui};

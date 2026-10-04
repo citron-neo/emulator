@@ -87,6 +87,18 @@ function(citron_build_clangtron_ffmpeg)
         set(_build_dir_msys "${_build_dir}")
     endif()
 
+    # FFmpeg's configure script runs in MSYS Bash and gives the compiler
+    # POSIX temporary paths (for example /tmp/ffconf.../test.c).  A Windows
+    # C:/... compiler spelling bypasses MSYS path conversion, leaving clang
+    # unable to locate those files.  Use the matching MSYS spelling only for
+    # the compiler commands executed by that script.
+    if(CMAKE_HOST_WIN32)
+        get_filename_component(_c_compiler_name "${CMAKE_C_COMPILER}" NAME)
+        set(_c_compiler_ffmpeg "${_clangtron_tool_dir_msys}/${_c_compiler_name}")
+    else()
+        set(_c_compiler_ffmpeg "${_c_compiler_win}")
+    endif()
+
     set(_build_stamp "${_install_dir}/.built")
     file(MAKE_DIRECTORY "${_build_dir}" "${_install_dir}")
 
