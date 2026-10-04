@@ -90,16 +90,52 @@ public:
         : ServiceFramework{system_, "IShopServiceAsync"} {
         // clang-format off
         static const FunctionInfo functions[] = {
-            {0, nullptr, "Cancel"},
-            {1, nullptr, "GetSize"},
-            {2, nullptr, "Read"},
-            {3, nullptr, "GetErrorCode"},
-            {4, nullptr, "Request"},
-            {5, nullptr, "Prepare"},
+            {0, &IShopServiceAsync::Cancel, "Cancel"},
+            {1, &IShopServiceAsync::GetSize, "GetSize"},
+            {2, &IShopServiceAsync::Read, "Read"},
+            {3, &IShopServiceAsync::GetErrorCode, "GetErrorCode"},
+            {4, &IShopServiceAsync::Request, "Request"},
+            {5, &IShopServiceAsync::Prepare, "Prepare"},
         };
         // clang-format on
 
         RegisterHandlers(functions);
+    }
+
+private:
+    void Cancel(HLERequestContext& ctx) {
+        IPC::ResponseBuilder rb{ctx, 2};
+        rb.Push(ResultSuccess);
+    }
+
+    void GetSize(HLERequestContext& ctx) {
+        IPC::ResponseBuilder rb{ctx, 4};
+        rb.Push(ResultSuccess);
+        rb.Push<s64>(0);
+    }
+
+    void Read(HLERequestContext& ctx) {
+        IPC::ResponseBuilder rb{ctx, 3};
+        rb.Push(ResultSuccess);
+        rb.Push<s32>(0);
+    }
+
+    void GetErrorCode(HLERequestContext& ctx) {
+        IPC::ResponseBuilder rb{ctx, 3};
+        rb.Push(ResultSuccess);
+        rb.Push<u32>(0);
+    }
+
+    void Request(HLERequestContext& ctx) {
+        LOG_DEBUG(Service_NIM, "IShopServiceAsync::Request (stubbed)");
+        IPC::ResponseBuilder rb{ctx, 2};
+        rb.Push(ResultSuccess);
+    }
+
+    void Prepare(HLERequestContext& ctx) {
+        LOG_DEBUG(Service_NIM, "IShopServiceAsync::Prepare (stubbed)");
+        IPC::ResponseBuilder rb{ctx, 2};
+        rb.Push(ResultSuccess);
     }
 };
 
@@ -596,13 +632,13 @@ private:
 
     void CreateServerInterface2(HLERequestContext& ctx)
     {
-        // [17.0.0+] CreateServerInterface2
-        // Use the same logic as CreateServerInterface
-        LOG_WARNING(Service_NIM, "(STUBBED) called");
-        // Signal To IPC For A Response
+        // [17.0.0+] CreateServerInterface2 — still returns IShopServiceAccessServer; cmd 0 must be
+        // CreateAccessorInterface. Returning IShopServiceAccessor here made cmd 0 run
+        // CreateAsyncInterface instead, breaking the guest IPC contract.
+        LOG_WARNING(Service_NIM, "(STUBBED) CreateServerInterface2 called");
         IPC::ResponseBuilder rb{ctx, 2, 0, 1};
         rb.Push(ResultSuccess);
-        rb.PushIpcInterface<IShopServiceAccessor>(system);
+        rb.PushIpcInterface<IShopServiceAccessServer>(system);
     }
 
     void IsLargeResourceAvailable(HLERequestContext& ctx) {
@@ -610,11 +646,12 @@ private:
 
         const auto unknown{rp.Pop<u64>()};
 
-        LOG_INFO(Service_NIM, "(STUBBED) called, unknown={}", unknown);
+        // Stub previously returned false; some apps exit then fault if "large resource" is unavailable.
+        LOG_DEBUG(Service_NIM, "called, unknown={}, out_available=true", unknown);
 
         IPC::ResponseBuilder rb{ctx, 3};
         rb.Push(ResultSuccess);
-        rb.Push(false);
+        rb.Push(true);
     }
 };
 
