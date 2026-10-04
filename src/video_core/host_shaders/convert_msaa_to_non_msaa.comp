@@ -20,14 +20,9 @@ void main() {
     const ivec3 scale = out_size / msaa_size;
     for (int curr_sample = 0; curr_sample < num_samples; ++curr_sample) {
         const vec4 pixel = imageLoad(msaa_in, coords, curr_sample);
-
-        const int single_sample_x = scale.x * coords.x + (curr_sample & 1);
-        const int single_sample_y = scale.y * coords.y + ((curr_sample / 2) & 1);
-        const ivec3 dest_coords = ivec3(single_sample_x, single_sample_y, coords.z);
-
-        if (any(greaterThanEqual(dest_coords, imageSize(output_img)))) {
-            continue;
+        const ivec3 dest_coords = ivec3(scale.xy, 1) * coords + (ivec3(curr_sample, curr_sample / 2, 0) & 1);
+        if (!any(greaterThanEqual(dest_coords, imageSize(output_img)))) {
+            imageStore(output_img, dest_coords, pixel);
         }
-        imageStore(output_img, dest_coords, pixel);
     }
 }
