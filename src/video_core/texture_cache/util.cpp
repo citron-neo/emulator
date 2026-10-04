@@ -661,6 +661,16 @@ u32 CalculateConvertedSizeBytes(const ImageInfo& info) {
         ConvertedBytesPerBlock(info.format)));
 }
 
+u32 TryCalculateConvertedSizeBytes(const ImageInfo& info) {
+    try {
+        return CalculateConvertedSizeBytes(info);
+    } catch (const InvalidImageSize&) {
+        // e.g. a large BC6H volume would be 8 bytes per texel once decompressed, but it is
+        // stored natively when the host supports BCn, so the converted size is never used.
+        return 0;
+    }
+}
+
 u32 CalculateLayerStride(const ImageInfo& info) {
     ValidateImageSize(info);
     ASSERT(info.type != ImageType::Linear);
@@ -1376,6 +1386,9 @@ u32 MapSizeBytes(const ImageBase& image) {
     if (True(image.flags & ImageFlagBits::AcceleratedUpload)) {
         return image.guest_size_bytes;
     } else if (True(image.flags & ImageFlagBits::Converted)) {
+        if (image.converted_size_bytes == 0) {
+            throw InvalidImageSize{"Converted image size exceeds texture-cache 32-bit storage"};
+        }
         return image.converted_size_bytes;
     } else {
         return image.unswizzled_size_bytes;

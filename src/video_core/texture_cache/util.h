@@ -33,6 +33,10 @@ struct OverlapResult {
 
 [[nodiscard]] u32 CalculateConvertedSizeBytes(const ImageInfo& info);
 
+/// Like CalculateConvertedSizeBytes, but returns 0 when the converted size can't be represented.
+/// Images only use their converted size when they are actually converted on the host.
+[[nodiscard]] u32 TryCalculateConvertedSizeBytes(const ImageInfo& info);
+
 [[nodiscard]] u32 CalculateLayerStride(const ImageInfo& info);
 
 [[nodiscard]] u32 CalculateLayerSize(const ImageInfo& info);
