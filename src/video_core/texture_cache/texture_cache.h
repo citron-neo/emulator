@@ -1177,7 +1177,20 @@ ImageViewId TextureCache<P>::CreateImageView(const TICEntry& config) {
     }
     const u32 layer_offset = config.BaseLayer() * info.layer_stride;
     const GPUVAddr image_gpu_addr = config.Address() - layer_offset;
-    const ImageId image_id = FindOrInsertImage(info, image_gpu_addr);
+    ImageId image_id;
+    try {
+        image_id = FindOrInsertImage(info, image_gpu_addr);
+    } catch (const InvalidImageSize& exception) {
+        // A texture descriptor that cannot be represented must not abort the draw. Exceptions
+        // raised here may also have to cross macro JIT frames, which cannot be unwound on
+        // Windows, so contain the failure and bind a null view instead.
+        static std::unordered_set<GPUVAddr> reported_addresses;
+        if (reported_addresses.insert(image_gpu_addr).second) {
+            LOG_ERROR(HW_GPU, "Binding null view for unrepresentable texture at 0x{:X}: {}",
+                      image_gpu_addr, exception.what());
+        }
+        return NULL_IMAGE_VIEW_ID;
+    }
     if (!image_id) {
         return NULL_IMAGE_VIEW_ID;
     }
