@@ -15,6 +15,7 @@ namespace {
 
 #if CITRON_ARM64_REGISTER_GUARD_SUPPORTED
 struct DrawCorruptionTag;
+struct DrawIndirectCorruptionTag;
 
 thread_local std::exception_ptr rasterizer_draw_exception;
 
@@ -27,6 +28,12 @@ CitronRasterizerDrawPreservingRegisters(VideoCore::RasterizerInterface* rasteriz
                                         bool draw_indexed, u32 instance_count);
 
 extern "C" __attribute__((noinline, no_stack_protector, used)) void
+CitronRasterizerDrawIndirectThunk(VideoCore::RasterizerInterface* rasterizer) noexcept;
+
+extern "C" __attribute__((naked, noinline)) u32
+CitronRasterizerDrawIndirectPreservingRegisters(VideoCore::RasterizerInterface* rasterizer);
+
+extern "C" __attribute__((noinline, no_stack_protector, used)) void
 CitronRasterizerDrawThunk(VideoCore::RasterizerInterface* rasterizer, bool draw_indexed,
                           u32 instance_count) noexcept {
     try {
@@ -37,10 +44,26 @@ CitronRasterizerDrawThunk(VideoCore::RasterizerInterface* rasterizer, bool draw_
 }
 
 // Contain AArch64 ABI violations at the complete rasterizer draw boundary. Bits 0-9 report
-// x19-x28 respectively; bits 10-11 report lower/upper guard damage; bit 12 reports x29.
+// x19-x28 respectively; bits 10-11 report lower/upper guard damage; bit 12 reports x29;
+// bits 13-14 report saved-link-register damage/no majority.
 extern "C" __attribute__((naked, noinline)) u32
 CitronRasterizerDrawPreservingRegisters(VideoCore::RasterizerInterface*, bool, u32) {
     CITRON_ARM64_PRESERVE_REGISTERS(CitronRasterizerDrawThunk);
+}
+
+extern "C" __attribute__((noinline, no_stack_protector, used)) void
+CitronRasterizerDrawIndirectThunk(VideoCore::RasterizerInterface* rasterizer) noexcept {
+    try {
+        rasterizer->DrawIndirect();
+    } catch (...) {
+        rasterizer_draw_exception = std::current_exception();
+    }
+}
+
+// Indirect draws enter the same Vulkan PrepareDraw path and require the same complete boundary.
+extern "C" __attribute__((naked, noinline)) u32
+CitronRasterizerDrawIndirectPreservingRegisters(VideoCore::RasterizerInterface*) {
+    CITRON_ARM64_PRESERVE_REGISTERS(CitronRasterizerDrawIndirectThunk);
 }
 #endif
 
@@ -314,7 +337,7 @@ void DrawManager::ProcessDraw(bool draw_indexed, u32 instance_count) {
             const std::exception_ptr draw_exception = rasterizer_draw_exception;
             rasterizer_draw_exception = {};
             if (draw_corruption != 0 &&
-                VideoCore::IsFirstArm64RegisterCorruption<13, DrawCorruptionTag>(
+                VideoCore::IsFirstArm64RegisterCorruption<15, DrawCorruptionTag>(
                     draw_corruption)) {
                 LOG_ERROR(
                     HW_GPU,
@@ -343,7 +366,30 @@ void DrawManager::ProcessDrawIndirect() {
     UpdateTopology();
 
     if (maxwell3d->ShouldExecute()) {
+#if CITRON_ARM64_REGISTER_GUARD_SUPPORTED
+        if (Settings::values.android_arm64_register_guards.GetValue()) {
+            rasterizer_draw_exception = {};
+            const u32 draw_corruption =
+                CitronRasterizerDrawIndirectPreservingRegisters(maxwell3d->rasterizer);
+            const std::exception_ptr draw_exception = rasterizer_draw_exception;
+            rasterizer_draw_exception = {};
+            if (draw_corruption != 0 &&
+                VideoCore::IsFirstArm64RegisterCorruption<15, DrawIndirectCorruptionTag>(
+                    draw_corruption)) {
+                LOG_ERROR(HW_GPU,
+                          "ARM64 RasterizerInterface::DrawIndirect corrupted callee-saved state "
+                          "mask={:#x}",
+                          draw_corruption);
+            }
+            if (draw_exception) {
+                std::rethrow_exception(draw_exception);
+            }
+        } else {
+            maxwell3d->rasterizer->DrawIndirect();
+        }
+#else
         maxwell3d->rasterizer->DrawIndirect();
+#endif
     }
 }
 } // namespace Tegra::Engines

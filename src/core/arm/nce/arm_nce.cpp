@@ -246,6 +246,33 @@ bool ArmNce::HandleFailedGuestFault(GuestContext* guest_ctx, void* raw_info, voi
     // This is a prefetch abort.
     LOG_CRITICAL(Core_ARM, "Unhandled NCE prefetch abort: pc={:#x}, fault_addr={:#x}",
                  host_ctx.pc, reinterpret_cast<u64>(info->si_addr));
+    const auto* const running_thread = guest_ctx->parent->m_running_thread;
+    LOG_CRITICAL(Core_ARM,
+                 "NCE prefetch abort context: core={}, thread_id={:#x}, sp={:#x}, lr={:#x}, "
+                 "pstate={:#x}",
+                 guest_ctx->parent->m_core_index,
+                 running_thread != nullptr ? running_thread->GetThreadId() : 0, host_ctx.sp,
+                 host_ctx.regs[30], static_cast<u64>(host_ctx.pstate));
+    LOG_CRITICAL(Core_ARM,
+                 "NCE guest registers: x0={:#x}, x1={:#x}, x2={:#x}, x3={:#x}, x4={:#x}, "
+                 "x5={:#x}, x6={:#x}, x7={:#x}",
+                 host_ctx.regs[0], host_ctx.regs[1], host_ctx.regs[2], host_ctx.regs[3],
+                 host_ctx.regs[4], host_ctx.regs[5], host_ctx.regs[6], host_ctx.regs[7]);
+    LOG_CRITICAL(Core_ARM,
+                 "NCE guest registers: x8={:#x}, x9={:#x}, x10={:#x}, x11={:#x}, x12={:#x}, "
+                 "x13={:#x}, x14={:#x}, x15={:#x}",
+                 host_ctx.regs[8], host_ctx.regs[9], host_ctx.regs[10], host_ctx.regs[11],
+                 host_ctx.regs[12], host_ctx.regs[13], host_ctx.regs[14], host_ctx.regs[15]);
+    LOG_CRITICAL(Core_ARM,
+                 "NCE guest registers: x16={:#x}, x17={:#x}, x18={:#x}, x19={:#x}, x20={:#x}, "
+                 "x21={:#x}, x22={:#x}, x23={:#x}",
+                 host_ctx.regs[16], host_ctx.regs[17], host_ctx.regs[18], host_ctx.regs[19],
+                 host_ctx.regs[20], host_ctx.regs[21], host_ctx.regs[22], host_ctx.regs[23]);
+    LOG_CRITICAL(Core_ARM,
+                 "NCE guest registers: x24={:#x}, x25={:#x}, x26={:#x}, x27={:#x}, x28={:#x}, "
+                 "x29={:#x}, x30={:#x}",
+                 host_ctx.regs[24], host_ctx.regs[25], host_ctx.regs[26], host_ctx.regs[27],
+                 host_ctx.regs[28], host_ctx.regs[29], host_ctx.regs[30]);
     guest_ctx->esr_el1.fetch_or(static_cast<u64>(HaltReason::PrefetchAbort));
 
     // Forcibly mark the context as locked. We are still running.

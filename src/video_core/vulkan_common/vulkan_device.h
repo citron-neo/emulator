@@ -78,6 +78,7 @@ VK_DEFINE_HANDLE(VmaAllocator)
     EXTENSION(EXT, VERTEX_ATTRIBUTE_DIVISOR, vertex_attribute_divisor)                             \
     EXTENSION(KHR, DRAW_INDIRECT_COUNT, draw_indirect_count)                                       \
     EXTENSION(KHR, DRIVER_PROPERTIES, driver_properties)                                           \
+    EXTENSION(KHR, FORMAT_FEATURE_FLAGS_2, format_feature_flags2)                                  \
     EXTENSION(KHR, PUSH_DESCRIPTOR, push_descriptor)                                               \
     EXTENSION(KHR, SAMPLER_MIRROR_CLAMP_TO_EDGE, sampler_mirror_clamp_to_edge)                     \
     EXTENSION(KHR, SHADER_FLOAT_CONTROLS, shader_float_controls)                                   \
@@ -304,6 +305,34 @@ public:
         return properties.properties.limits.maxPushConstantsSize;
     }
 
+    u32 GetMaxPerStageDescriptorSampledImages() const {
+        return properties.properties.limits.maxPerStageDescriptorSampledImages;
+    }
+
+    u32 GetMaxPerStageDescriptorStorageImages() const {
+        return properties.properties.limits.maxPerStageDescriptorStorageImages;
+    }
+
+    u32 GetMaxPerStageDescriptorUpdateAfterBindStorageImages() const {
+        return properties.descriptor_indexing.maxPerStageDescriptorUpdateAfterBindStorageImages;
+    }
+
+    u32 GetMaxPerStageResources() const {
+        return properties.properties.limits.maxPerStageResources;
+    }
+
+    u32 GetMaxDescriptorSetSampledImages() const {
+        return properties.properties.limits.maxDescriptorSetSampledImages;
+    }
+
+    u32 GetMaxDescriptorSetStorageImages() const {
+        return properties.properties.limits.maxDescriptorSetStorageImages;
+    }
+
+    u32 GetMaxDescriptorSetUpdateAfterBindStorageImages() const {
+        return properties.descriptor_indexing.maxDescriptorSetUpdateAfterBindStorageImages;
+    }
+
     /// Returns the maximum size for shared memory.
     u32 GetMaxComputeSharedMemorySize() const {
         return properties.properties.limits.maxComputeSharedMemorySize;
@@ -434,12 +463,20 @@ public:
         return extensions.push_descriptor;
     }
 
-    /// Returns true if descriptor-indexing partial-bind + update-after-bind is usable for
-    /// sampled images and storage images on this device.
+    /// Returns true if descriptor-indexing partial-bind + update-after-bind is usable for every
+    /// descriptor class placed in an update-after-bind resource layout.
     bool IsDescriptorIndexingSupported() const {
         return features.descriptor_indexing.descriptorBindingPartiallyBound &&
+               features.descriptor_indexing.descriptorBindingUniformBufferUpdateAfterBind &&
+               features.descriptor_indexing.descriptorBindingStorageBufferUpdateAfterBind &&
                features.descriptor_indexing.descriptorBindingSampledImageUpdateAfterBind &&
-               features.descriptor_indexing.descriptorBindingStorageImageUpdateAfterBind;
+               features.descriptor_indexing.descriptorBindingStorageImageUpdateAfterBind &&
+               features.descriptor_indexing.descriptorBindingUniformTexelBufferUpdateAfterBind &&
+               features.descriptor_indexing.descriptorBindingStorageTexelBufferUpdateAfterBind;
+    }
+
+    bool IsKhrFormatFeatureFlags2Supported() const {
+        return ApiVersion() >= VK_API_VERSION_1_3 || extensions.format_feature_flags2;
     }
 
     /// True if the device supports non-uniform indexing for sampled image arrays.
@@ -849,6 +886,7 @@ private:
 
     struct Properties {
         VkPhysicalDeviceDriverProperties driver{};
+        VkPhysicalDeviceDescriptorIndexingProperties descriptor_indexing{};
         VkPhysicalDeviceSubgroupProperties subgroup_properties{};
         VkPhysicalDeviceFloatControlsProperties float_controls{};
         VkPhysicalDevicePushDescriptorPropertiesKHR push_descriptor{};

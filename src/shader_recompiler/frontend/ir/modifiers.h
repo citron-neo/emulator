@@ -43,6 +43,7 @@ union TextureInstInfo {
     BitField<25, 2, u32> num_derivatives;
     BitField<27, 3, ImageFormat> image_format;
     BitField<30, 1, u32> ndv_is_active;
+    BitField<31, 1, u32> is_integer;
 };
 static_assert(sizeof(TextureInstInfo) <= sizeof(u32));
 

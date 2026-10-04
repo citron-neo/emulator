@@ -15,6 +15,29 @@
 
 namespace Vulkan::vk {
 
+#if CITRON_ARM64_REGISTER_GUARD_SUPPORTED
+extern "C" __attribute__((naked, noinline, used)) void
+CitronVkUpdateDescriptorSetWithTemplateThunk(PFN_vkUpdateDescriptorSetWithTemplate, VkDevice,
+                                              VkDescriptorSet, VkDescriptorUpdateTemplate,
+                                              const void*) noexcept {
+    // Tail-call the driver so its return lands directly in the preserving assembly. No C++
+    // frame can consume corrupted callee-saved registers between the driver and the guard.
+    asm volatile("mov x16, x0\n"
+                 "mov x0, x1\n"
+                 "mov x1, x2\n"
+                 "mov x2, x3\n"
+                 "mov x3, x4\n"
+                 "br x16\n");
+}
+
+extern "C" __attribute__((naked, noinline)) u32
+CitronVkUpdateDescriptorSetWithTemplatePreservingRegisters(
+    PFN_vkUpdateDescriptorSetWithTemplate, VkDevice, VkDescriptorSet, VkDescriptorUpdateTemplate,
+    const void*) noexcept {
+    CITRON_ARM64_PRESERVE_REGISTERS(CitronVkUpdateDescriptorSetWithTemplateThunk);
+}
+#endif
+
 namespace {
 
 template <typename Func>
@@ -282,6 +305,7 @@ bool Load(VkInstance instance, InstanceDispatch& dld) noexcept {
     X(vkDestroyDebugReportCallbackEXT);
     X(vkDestroySurfaceKHR);
     X(vkGetPhysicalDeviceFeatures2);
+    X(vkGetPhysicalDeviceFormatProperties2);
     X(vkGetPhysicalDeviceProperties2);
     X(vkGetPhysicalDeviceSurfaceCapabilitiesKHR);
     X(vkGetPhysicalDeviceSurfaceFormatsKHR);
@@ -888,6 +912,23 @@ VkFormatProperties PhysicalDevice::GetFormatProperties(VkFormat format) const no
     VkFormatProperties properties;
     dld->vkGetPhysicalDeviceFormatProperties(physical_device, format, &properties);
     return properties;
+}
+
+VkFormatProperties3 PhysicalDevice::GetFormatProperties3(VkFormat format) const noexcept {
+    VkFormatProperties3 properties3{
+        .sType = VK_STRUCTURE_TYPE_FORMAT_PROPERTIES_3,
+        .pNext = nullptr,
+        .linearTilingFeatures = 0,
+        .optimalTilingFeatures = 0,
+        .bufferFeatures = 0,
+    };
+    VkFormatProperties2 properties2{
+        .sType = VK_STRUCTURE_TYPE_FORMAT_PROPERTIES_2,
+        .pNext = &properties3,
+        .formatProperties = {},
+    };
+    dld->vkGetPhysicalDeviceFormatProperties2(physical_device, format, &properties2);
+    return properties3;
 }
 
 std::vector<VkExtensionProperties> PhysicalDevice::EnumerateDeviceExtensionProperties() const {

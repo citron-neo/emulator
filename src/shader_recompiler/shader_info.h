@@ -181,6 +181,7 @@ struct StorageBufferDescriptor {
 };
 
 struct TextureBufferDescriptor {
+    bool is_integer;
     bool has_secondary;
     u32 cbuf_index;
     u32 cbuf_offset;
@@ -213,6 +214,7 @@ struct TextureDescriptor {
     TextureType type;
     bool is_depth;
     bool is_multisample;
+    bool is_integer;
     bool has_secondary;
     u32 cbuf_index;
     u32 cbuf_offset;
