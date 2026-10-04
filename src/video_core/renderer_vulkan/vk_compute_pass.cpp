@@ -630,7 +630,9 @@ void ASTCDecoderPass::Assemble(Image& image, const StagingBufferRef& map,
         cmdbuf.PipelineBarrier(VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
                                VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, 0, image_barrier);
     });
-    scheduler.Finish();
+    // No host-side wait here: the barrier above orders later GPU work after the decode, and the
+    // staging buffer is protected by the staging pool's tick tracking. Waiting for the GPU after
+    // every decoded image serialized texture streaming and caused long stalls on room loads.
 }
 
 MSAACopyPass::MSAACopyPass(const Device& device_, Scheduler& scheduler_,
