@@ -661,6 +661,16 @@ u32 CalculateConvertedSizeBytes(const ImageInfo& info) {
         ConvertedBytesPerBlock(info.format)));
 }
 
+u32 TryCalculateConvertedSizeBytes(const ImageInfo& info) {
+    try {
+        return CalculateConvertedSizeBytes(info);
+    } catch (const InvalidImageSize&) {
+        // e.g. a large BC6H volume would be 8 bytes per texel once decompressed, but it is
+        // stored natively when the host supports BCn, so the converted size is never used.
+        return 0;
+    }
+}
+
 u32 CalculateLayerStride(const ImageInfo& info) {
     ValidateImageSize(info);
     ASSERT(info.type != ImageType::Linear);
@@ -975,6 +985,155 @@ boost::container::small_vector<BufferImageCopy, 16> UnswizzleImage(Tegra::Memory
         guest_offset = ImageSize::Add(guest_offset, level_sizes[level]);
     }
     return copies;
+}
+
+namespace {
+struct SlabSwizzleParams {
+    Extent3D num_tiles;
+    Extent3D block;
+    u32 stride_alignment;
+    u32 bpp_log2;
+    Extent2D tile_size;
+};
+
+[[nodiscard]] SlabSwizzleParams MakeSlabSwizzleParams(const ImageInfo& info) {
+    // Mirrors the level 0 parameters UnswizzleImage computes for a single-level image.
+    const LevelInfo level_info = MakeLevelInfo(info);
+    const u32 bpp_log2 = BytesPerBlockLog2(info.format);
+    const Extent2D tile_size = DefaultBlockSize(info.format);
+    const Extent3D num_tiles = AdjustTileSize(info.size, tile_size);
+    const Extent3D block = AdjustMipBlockSize(num_tiles, level_info.block, 0, 1);
+    const Extent2D gob = GobSize(bpp_log2, info.block.height, info.tile_width_spacing);
+    return {
+        .num_tiles = num_tiles,
+        .block = block,
+        .stride_alignment = StrideAlignment(num_tiles, info.block, gob, bpp_log2),
+        .bpp_log2 = bpp_log2,
+        .tile_size = tile_size,
+    };
+}
+} // Anonymous namespace
+
+std::optional<SlabLayout> CalculateSlabLayout(const ImageInfo& info) {
+    if (info.type != ImageType::e3D || info.resources.levels != 1 ||
+        info.resources.layers != 1 || info.num_samples != 1) {
+        return std::nullopt;
+    }
+    const SlabSwizzleParams params = MakeSlabSwizzleParams(info);
+    if (params.bpp_log2 > 4) {
+        return std::nullopt;
+    }
+    // Same layout computation as Tegra::Texture::UnswizzleTexture/SwizzleImpl.
+    const u64 stride =
+        static_cast<u64>(Common::AlignUpLog2(params.num_tiles.width, params.stride_alignment))
+        << params.bpp_log2;
+    const u32 gobs_in_x = static_cast<u32>((stride + GOB_SIZE_X - 1) >> GOB_SIZE_X_SHIFT);
+    const u64 unit_bytes = 1ULL << (GOB_SIZE_SHIFT + params.block.height + params.block.depth);
+    const u32 rows_per_slab = static_cast<u32>(
+        (static_cast<u64>(params.num_tiles.height) +
+         (1ULL << (params.block.height + GOB_SIZE_Y_SHIFT)) - 1) >>
+        (params.block.height + GOB_SIZE_Y_SHIFT));
+    const u32 num_slabs = Common::DivCeil(params.num_tiles.depth, 1U << params.block.depth);
+    const SlabLayout layout{
+        .slab_bytes = unit_bytes * gobs_in_x * rows_per_slab,
+        .unit_bytes = unit_bytes,
+        .num_slabs = num_slabs,
+        .rows_per_slab = rows_per_slab,
+        .gobs_in_x = gobs_in_x,
+        .block_height = params.block.height,
+        .block_depth = params.block.depth,
+        .bpp_log2 = params.bpp_log2,
+        .width_tiles = params.num_tiles.width,
+        .height_tiles = params.num_tiles.height,
+        .depth_tiles = params.num_tiles.depth,
+        .tile_width = params.tile_size.width,
+        .tile_height = params.tile_size.height,
+    };
+    // Only use the block path when it describes the image's guest layout exactly.
+    const LevelArray level_sizes = CalculateLevelSizes(MakeLevelInfo(info), 1);
+    if (layout.slab_bytes == 0 || layout.slab_bytes * num_slabs != level_sizes[0]) {
+        return std::nullopt;
+    }
+    return layout;
+}
+
+namespace {
+struct BlockRunBox {
+    u32 x;
+    u32 y;
+    u32 z;
+    u32 width;
+    u32 height;
+    u32 depth;
+};
+
+[[nodiscard]] BlockRunBox MakeBlockRunBox(const SlabLayout& layout, const BlockRun& run) {
+    const u32 tiles_per_block_x = GOB_SIZE_X >> layout.bpp_log2;
+    const u32 x = run.first_block * tiles_per_block_x;
+    const u32 y = run.row << (layout.block_height + GOB_SIZE_Y_SHIFT);
+    const u32 z = run.slab << layout.block_depth;
+    return {
+        .x = x,
+        .y = y,
+        .z = z,
+        .width = std::min(run.num_blocks * tiles_per_block_x, layout.width_tiles - x),
+        .height = std::min(1U << (layout.block_height + GOB_SIZE_Y_SHIFT), layout.height_tiles - y),
+        .depth = std::min(1U << layout.block_depth, layout.depth_tiles - z),
+    };
+}
+} // Anonymous namespace
+
+u64 BlockRunHostBytes(const SlabLayout& layout, const BlockRun& run) {
+    const BlockRunBox box = MakeBlockRunBox(layout, run);
+    return (static_cast<u64>(box.width) * box.height * box.depth) << layout.bpp_log2;
+}
+
+BufferImageCopy MakeBlockRunCopy(const ImageInfo& info, const SlabLayout& layout,
+                                 const BlockRun& run, size_t buffer_offset) {
+    const BlockRunBox box = MakeBlockRunBox(layout, run);
+    const u32 texel_x = box.x * layout.tile_width;
+    const u32 texel_y = box.y * layout.tile_height;
+    return BufferImageCopy{
+        .buffer_offset = buffer_offset,
+        .buffer_size = static_cast<size_t>(BlockRunHostBytes(layout, run)),
+        .buffer_row_length = box.width * layout.tile_width,
+        .buffer_image_height = box.height * layout.tile_height,
+        .image_subresource =
+            {
+                .base_level = 0,
+                .base_layer = 0,
+                .num_layers = 1,
+            },
+        .image_offset = {static_cast<s32>(texel_x), static_cast<s32>(texel_y),
+                         static_cast<s32>(box.z)},
+        .image_extent = {std::min(box.width * layout.tile_width, info.size.width - texel_x),
+                         std::min(box.height * layout.tile_height, info.size.height - texel_y),
+                         box.depth},
+    };
+}
+
+void UnswizzleBlockRun(const SlabLayout& layout, const BlockRun& run, std::span<const u8> guest,
+                       std::span<u8> output) {
+    // GOB byte offsets of the four 16-byte chunks of a 64-byte GOB row. The low four bits of x
+    // are not swizzled, so each chunk is contiguous in both layouts.
+    static constexpr std::array<u32, 4> CHUNK_OFFSETS{0, 32, 256, 288};
+    const BlockRunBox box = MakeBlockRunBox(layout, run);
+    const u32 row_bytes = box.width << layout.bpp_log2;
+    u8* dst = output.data();
+    for (u32 z = 0; z < box.depth; ++z) {
+        const u64 z_offset = static_cast<u64>(z) << (GOB_SIZE_SHIFT + layout.block_height);
+        for (u32 y = 0; y < box.height; ++y, dst += row_bytes) {
+            // Row within the block: GOB index plus the swizzled position of the line in the GOB.
+            const u64 row_offset = z_offset +
+                                   (static_cast<u64>(y >> GOB_SIZE_Y_SHIFT) << GOB_SIZE_SHIFT) +
+                                   (((y & 1) << 4) | ((y & 6) << 5));
+            for (u32 x = 0; x < row_bytes; x += 16) {
+                const u64 src = static_cast<u64>(x >> GOB_SIZE_X_SHIFT) * layout.unit_bytes +
+                                row_offset + CHUNK_OFFSETS[(x >> 4) & 3];
+                std::memcpy(dst + x, guest.data() + src, std::min(16U, row_bytes - x));
+            }
+        }
+    }
 }
 
 void ConvertImage(std::span<const u8> input, const ImageInfo& info, std::span<u8> output,
@@ -1376,6 +1535,9 @@ u32 MapSizeBytes(const ImageBase& image) {
     if (True(image.flags & ImageFlagBits::AcceleratedUpload)) {
         return image.guest_size_bytes;
     } else if (True(image.flags & ImageFlagBits::Converted)) {
+        if (image.converted_size_bytes == 0) {
+            throw InvalidImageSize{"Converted image size exceeds texture-cache 32-bit storage"};
+        }
         return image.converted_size_bytes;
     } else {
         return image.unswizzled_size_bytes;

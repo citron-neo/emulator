@@ -116,6 +116,13 @@ struct ImageBase {
     std::vector<ImageId> overlapping_images;
     ImageMapId map_view_id{};
 
+    /// Byte ranges (offset from gpu_addr, size) whose GPU page mapping changed since the last
+    /// upload. Only meaningful while cpu_modified_by_remap_only is set.
+    std::vector<std::pair<u64, u64>> remapped_dirty_ranges;
+    /// True while CpuModified is caused solely by GPU page remaps listed in
+    /// remapped_dirty_ranges, which allows uploading only the affected part of the image.
+    bool cpu_modified_by_remap_only = false;
+
     /// Texture cache: storage_id of the page tables this image was registered in.
     /// Used when unregistering so we clear the correct table (channel may have changed).
     std::optional<size_t> registration_storage_id;

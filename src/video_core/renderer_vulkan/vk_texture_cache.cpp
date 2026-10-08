@@ -983,6 +983,44 @@ VkBuffer TextureCacheRuntime::GetTemporaryBuffer(size_t needed_size) {
     return *buffers[level];
 }
 
+bool TextureCacheRuntime::ClearImageRegions(Image& image,
+                                            std::span<const VideoCommon::BufferImageCopy> copies,
+                                            size_t size) {
+    // Fixed size so the buffer never has to be replaced while the GPU may still read it.
+    static constexpr VkDeviceSize ZeroBufferSize = 16_MiB;
+    if (size > ZeroBufferSize) {
+        return false;
+    }
+    if (!zero_buffer) {
+        zero_buffer = memory_allocator.CreateBuffer(
+            VkBufferCreateInfo{
+                .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+                .pNext = nullptr,
+                .flags = 0,
+                .size = ZeroBufferSize,
+                .usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+                .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
+                .queueFamilyIndexCount = 0,
+                .pQueueFamilyIndices = nullptr,
+            },
+            MemoryUsage::DeviceLocal);
+        scheduler.RequestOutsideRenderPassOperationContext();
+        scheduler.Record([buffer = *zero_buffer](vk::CommandBuffer cmdbuf) {
+            cmdbuf.FillBuffer(buffer, 0, VK_WHOLE_SIZE, 0);
+            const VkMemoryBarrier barrier{
+                .sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER,
+                .pNext = nullptr,
+                .srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT,
+                .dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT,
+            };
+            cmdbuf.PipelineBarrier(VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
+                                   0, barrier);
+        });
+    }
+    image.UploadMemory(*zero_buffer, 0, copies);
+    return true;
+}
+
 void TextureCacheRuntime::CleanupUnusedBuffers() {
     // This function is kept for compatibility but no longer performs mode-specific cleanup
 }
