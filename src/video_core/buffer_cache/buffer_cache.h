@@ -2337,9 +2337,25 @@ void BufferCache<P>::NotifyGatherWrite(DAddr device_addr, u64 size, u8 level, GP
             continue;
         }
         for (GatherChunk& chunk : entry.chunks) {
-            if (device_addr < chunk.device_addr + chunk.size && chunk.device_addr < end) {
-                chunk.dirty = std::max(chunk.dirty, level);
+            const DAddr chunk_end = chunk.device_addr + chunk.size;
+            if (device_addr >= chunk_end || chunk.device_addr >= end) {
+                continue;
             }
+            if (level > 1 || chunk.dirty > 0) {
+                // GPU writes of unknown extent (level 2) or already fully dirty
+                chunk.dirty = std::max(chunk.dirty, level);
+                chunk.dirty_ranges.clear();
+                continue;
+            }
+            if (chunk.dirty_ranges.size() >= MAX_GATHER_DIRTY_RANGES) {
+                chunk.dirty = 1;
+                chunk.dirty_ranges.clear();
+                continue;
+            }
+            const DAddr lo = std::max(device_addr, chunk.device_addr);
+            const DAddr hi = std::min(end, chunk_end);
+            chunk.dirty_ranges.emplace_back(static_cast<u32>(lo - chunk.device_addr),
+                                            static_cast<u32>(hi - lo));
         }
     }
 }
@@ -2405,19 +2421,37 @@ typename BufferCache<P>::Buffer& BufferCache<P>::GatherBuffer(GPUVAddr gpu_addr,
         TouchBuffer(src, src_id);
         SynchronizeBuffer(src, dev, chunk_size); // CPU uploads mark the chunk dirty
         GatherChunk& chunk = entry.chunks[i];
-        if (chunk.dirty == 0 || entry.scatter_pending) {
+        if (entry.scatter_pending || (chunk.dirty == 0 && chunk.dirty_ranges.empty())) {
             // Pending: the scratch is newer than the chunk, keep it
             chunk.dirty = 0;
+            chunk.dirty_ranges.clear();
             continue;
         }
-        --chunk.dirty;
-        const std::array copies{BufferCopy{
-            .src_offset = src.Offset(dev),
-            .dst_offset = chunk.offset,
-            .size = chunk_size,
-        }};
-        MarkGpuUse(src, copies[0].src_offset, chunk_size);
-        runtime.CopyBuffer(scratch, src, copies, true);
+        const u32 src_base = static_cast<u32>(src.Offset(dev));
+        if (chunk.dirty > 0) {
+            --chunk.dirty;
+            chunk.dirty_ranges.clear();
+            const std::array copies{BufferCopy{
+                .src_offset = src_base,
+                .dst_offset = chunk.offset,
+                .size = chunk_size,
+            }};
+            MarkGpuUse(src, src_base, chunk_size);
+            runtime.CopyBuffer(scratch, src, copies, true);
+            continue;
+        }
+        boost::container::small_vector<BufferCopy, MAX_GATHER_DIRTY_RANGES> copies;
+        for (const auto& [range_offset, range_size] : chunk.dirty_ranges) {
+            copies.push_back(BufferCopy{
+                .src_offset = src_base + range_offset,
+                .dst_offset = chunk.offset + range_offset,
+                .size = range_size,
+            });
+            MarkGpuUse(src, src_base + range_offset, range_size);
+        }
+        chunk.dirty_ranges.clear();
+        runtime.CopyBuffer(scratch, src, std::span<const BufferCopy>(copies.data(), copies.size()),
+                           true);
     }
     return scratch;
 }

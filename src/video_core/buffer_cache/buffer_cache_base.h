@@ -570,8 +570,12 @@ public:
         DAddr device_addr;
         u32 size;
         u32 offset; ///< offset inside the gathered range
-        u8 dirty;   ///< number of upcoming gathers that must re-copy this chunk
+        u8 dirty;   ///< number of upcoming gathers that must re-copy the whole chunk
+        /// Changed byte ranges (offset in the chunk, size) to copy on the next gather when the
+        /// whole chunk is not dirty; small CPU uploads only touch a few bytes of a large chunk.
+        boost::container::small_vector<std::pair<u32, u32>, 4> dirty_ranges{};
     };
+    static constexpr size_t MAX_GATHER_DIRTY_RANGES = 16;
     struct GatherEntry {
         std::unique_ptr<Buffer> buffer;
         std::vector<GatherChunk> chunks;
