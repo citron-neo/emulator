@@ -34,6 +34,8 @@ struct HostTranslateInfo {
     /// layer to, for the geometry shader lowered without VK_NV_geometry_shader_passthrough to
     /// pass the layer on (Vulkan has no Layer input in a geometry shader)
     std::optional<IR::Attribute> passthrough_layer_source{};
+    u32 max_bindless_array_length{1024}; ///< Maximum length of dynamically indexed bindless
+                                         ///< texture arrays
 };
 
 } // namespace Shader

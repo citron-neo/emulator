@@ -158,6 +158,26 @@ bool IsGPULevelLow() {
     return values.current_gpu_accuracy == GpuAccuracy::Low;
 }
 
+u32 BindlessTextureLimitValue() {
+    switch (values.bindless_texture_limit.GetValue()) {
+    case BindlessTextureLimit::Limit256:
+        return 256;
+    case BindlessTextureLimit::Limit128:
+        return 128;
+    case BindlessTextureLimit::Limit64:
+        return 64;
+    case BindlessTextureLimit::Limit32:
+        return 32;
+    case BindlessTextureLimit::Limit16:
+        return 16;
+    case BindlessTextureLimit::Limit8:
+        return 8;
+    case BindlessTextureLimit::Default:
+    default:
+        return 1024;
+    }
+}
+
 bool IsGPULevelHigh() {
     return values.current_gpu_accuracy == GpuAccuracy::Extreme ||
            values.current_gpu_accuracy == GpuAccuracy::High;
