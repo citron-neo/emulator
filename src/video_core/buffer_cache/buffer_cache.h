@@ -658,6 +658,9 @@ bool BufferCache<P>::ShouldWaitAsyncFlushes() const noexcept {
 
 template <class P>
 void BufferCache<P>::CommitAsyncFlushesHigh() {
+    // Without reactive flushing, CPU reads of GPU-written memory are not trapped, so everything
+    // has to be downloaded ahead of time.
+    const bool download_all = !Settings::values.use_reactive_flushing.GetValue();
     AccumulateFlushes();
 
     if (committed_gpu_modified_ranges.empty()) {
@@ -712,8 +715,45 @@ void BufferCache<P>::CommitAsyncFlushesHigh() {
                             largest_copy = std::max(largest_copy, new_size);
                         };
 
+                        if (download_all) {
+                            gpu_modified_ranges.ForEachInRange(device_addr_out, range_size,
+                                                               add_download);
+                            return;
+                        }
+                        // Only memory the CPU has read before (preflushable); the rest is
+                        // flushed synchronously on its first CPU read (GetFlushArea).
+                        const auto add_preflushable = [&](DAddr start, DAddr end) {
+                            // Small GPU-written ranges (e.g. exposure / luminance results) are
+                            // cheap: keep downloading them every time, so CPU reads that bypass
+                            // the first-read flush still see current data. Only large ranges are
+                            // limited to what the CPU has read before.
+                            constexpr u64 SMALL_DOWNLOAD_LIMIT = 256_KiB;
+                            if (end - start <= SMALL_DOWNLOAD_LIMIT) {
+                                add_download(start, end);
+                                return;
+                            }
+                            DAddr run_start = 0;
+                            for (DAddr page = Common::AlignDown(start, DEVICE_PAGESIZE);
+                                 page < end; page += DEVICE_PAGESIZE) {
+                                const DAddr lo = std::max(page, start);
+                                const DAddr hi = std::min<DAddr>(page + DEVICE_PAGESIZE, end);
+                                if (memory_tracker.IsRegionPreflushable(lo, hi - lo)) {
+                                    if (run_start == 0) {
+                                        run_start = lo;
+                                    }
+                                    continue;
+                                }
+                                if (run_start != 0) {
+                                    add_download(run_start, lo);
+                                    run_start = 0;
+                                }
+                            }
+                            if (run_start != 0) {
+                                add_download(run_start, end);
+                            }
+                        };
                         gpu_modified_ranges.ForEachInRange(device_addr_out, range_size,
-                                                           add_download);
+                                                           add_preflushable);
                     });
             });
         });
