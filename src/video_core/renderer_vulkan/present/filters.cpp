@@ -7,6 +7,7 @@
 #include "video_core/host_shaders/present_bicubic_frag_spv.h"
 #include "video_core/host_shaders/present_gaussian_frag_spv.h"
 #include "video_core/host_shaders/present_lanczos_frag_spv.h"
+#include "video_core/host_shaders/present_area_frag_spv.h"
 #include "video_core/host_shaders/vulkan_crt_easymode_frag_spv.h"
 #include "video_core/host_shaders/vulkan_fidelityfx_fsr_rcas_fp16_frag_spv.h"
 #include "video_core/host_shaders/vulkan_fidelityfx_fsr_rcas_fp32_frag_spv.h"
@@ -56,6 +57,11 @@ std::unique_ptr<WindowAdaptPass> MakeBilinear(const Device& device, VkFormat fra
 std::unique_ptr<WindowAdaptPass> MakeBicubic(const Device& device, VkFormat frame_format) {
     return std::make_unique<WindowAdaptPass>(device, frame_format, CreateBilinearSampler(device),
                                              BuildShader(device, PRESENT_BICUBIC_FRAG_SPV));
+}
+
+std::unique_ptr<WindowAdaptPass> MakeArea(const Device& device, VkFormat frame_format) {
+    return std::make_unique<WindowAdaptPass>(device, frame_format, CreateNearestNeighborSampler(device),
+                                             BuildShader(device, PRESENT_AREA_FRAG_SPV));
 }
 
 std::unique_ptr<WindowAdaptPass> MakeGaussian(const Device& device, VkFormat frame_format) {
