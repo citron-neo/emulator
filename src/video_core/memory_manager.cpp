@@ -111,6 +111,15 @@ inline void MemoryManager::SetBigPageContinuous(size_t big_page_index, bool valu
 template <MemoryManager::EntryType entry_type>
 GPUVAddr MemoryManager::PageTableOp(GPUVAddr gpu_addr, [[maybe_unused]] DAddr dev_addr, size_t size,
                                     PTEKind kind) {
+    // Bumped before and after the change, so a layout query that overlaps it is never cached
+    // as current.
+    map_generation.fetch_add(1, std::memory_order_acq_rel);
+    struct GenerationBump {
+        std::atomic<u64>& generation;
+        ~GenerationBump() {
+            generation.fetch_add(1, std::memory_order_acq_rel);
+        }
+    } generation_bump{map_generation};
     [[maybe_unused]] u64 remaining_size{size};
     if constexpr (entry_type == EntryType::Mapped) {
         if (size != 0 && (gpu_addr >= address_space_size || size > address_space_size - gpu_addr)) {
@@ -141,6 +150,15 @@ GPUVAddr MemoryManager::PageTableOp(GPUVAddr gpu_addr, [[maybe_unused]] DAddr de
 template <MemoryManager::EntryType entry_type>
 GPUVAddr MemoryManager::BigPageTableOp(GPUVAddr gpu_addr, [[maybe_unused]] DAddr dev_addr,
                                        size_t size, PTEKind kind) {
+    // Bumped before and after the change, so a layout query that overlaps it is never cached
+    // as current.
+    map_generation.fetch_add(1, std::memory_order_acq_rel);
+    struct GenerationBump {
+        std::atomic<u64>& generation;
+        ~GenerationBump() {
+            generation.fetch_add(1, std::memory_order_acq_rel);
+        }
+    } generation_bump{map_generation};
     [[maybe_unused]] u64 remaining_size{size};
     for (u64 offset{}; offset < size; offset += big_page_size) {
         const GPUVAddr current_gpu_addr = gpu_addr + offset;

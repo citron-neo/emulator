@@ -145,6 +145,11 @@ public:
 
     size_t MaxContinuousRange(GPUVAddr gpu_addr, size_t size) const;
 
+    /// Incremented on every page table change; lets callers cache layout queries.
+    u64 MapGeneration() const noexcept {
+        return map_generation.load(std::memory_order_acquire);
+    }
+
     bool IsWithinGPUAddressRange(GPUVAddr gpu_addr) const {
         return gpu_addr < address_space_size;
     }
@@ -251,6 +256,7 @@ private:
     static std::atomic<size_t> unique_identifier_generator;
 
     Common::ScratchBuffer<u8> tmp_buffer;
+    std::atomic<u64> map_generation{0};
 };
 
 } // namespace Tegra
