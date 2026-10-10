@@ -329,6 +329,12 @@ void BufferCache<P>::ClearDownload(DAddr device_addr, u64 size) {
 
 template <class P>
 bool BufferCache<P>::DMACopy(GPUVAddr src_address, GPUVAddr dest_address, u64 amount) {
+    // The copy below treats [src, +amount) and [dest, +amount) as single device ranges. When either
+    // side is split across non-contiguous device memory, copy it piece by piece instead.
+    if (gpu_memory->MaxContinuousRange(src_address, amount) < amount ||
+        gpu_memory->MaxContinuousRange(dest_address, amount) < amount) {
+        return DMACopySplit(src_address, dest_address, amount);
+    }
     const std::optional<DAddr> cpu_src_address = gpu_memory->GpuToCpuAddress(src_address);
     const std::optional<DAddr> cpu_dest_address = gpu_memory->GpuToCpuAddress(dest_address);
     if (!cpu_src_address || !cpu_dest_address) {
@@ -390,7 +396,65 @@ bool BufferCache<P>::DMACopy(GPUVAddr src_address, GPUVAddr dest_address, u64 am
 }
 
 template <class P>
+bool BufferCache<P>::DMACopySplit(GPUVAddr src_address, GPUVAddr dest_address, u64 amount) {
+    struct Piece {
+        GPUVAddr src;
+        GPUVAddr dst;
+        u64 size;
+    };
+    boost::container::small_vector<Piece, 8> pieces;
+    for (u64 offset = 0; offset < amount;) {
+        const u64 left = amount - offset;
+        const u64 size = std::min<u64>({gpu_memory->MaxContinuousRange(src_address + offset, left),
+                                        gpu_memory->MaxContinuousRange(dest_address + offset, left),
+                                        left});
+        const std::optional<DAddr> src = gpu_memory->GpuToCpuAddress(src_address + offset);
+        const std::optional<DAddr> dst = gpu_memory->GpuToCpuAddress(dest_address + offset);
+        if (size == 0 || !src || !dst) {
+            return false;
+        }
+        if (!IsRegionRegistered(*src, size) && !IsRegionRegistered(*dst, size)) {
+            // Not cached on either side: let the caller do the whole copy through guest memory,
+            // which translates every page
+            return false;
+        }
+        pieces.push_back({src_address + offset, dest_address + offset, size});
+        offset += size;
+    }
+    for (const Piece& piece : pieces) {
+        if (!DMACopy(piece.src, piece.dst, piece.size)) {
+            LOG_ERROR(HW_GPU, "DMA copy piece failed after the registration check");
+        }
+    }
+    return true;
+}
+
+template <class P>
+bool BufferCache<P>::DMAClearSplit(GPUVAddr dst_address, u64 amount, u32 value) {
+    const u64 bytes = amount * sizeof(u32);
+    boost::container::small_vector<std::pair<GPUVAddr, u64>, 8> pieces;
+    for (u64 offset = 0; offset < bytes;) {
+        const u64 size = std::min<u64>(gpu_memory->MaxContinuousRange(dst_address + offset,
+                                                                      bytes - offset),
+                                       bytes - offset);
+        const std::optional<DAddr> dst = gpu_memory->GpuToCpuAddress(dst_address + offset);
+        if (size == 0 || size % sizeof(u32) != 0 || !dst || !IsRegionRegistered(*dst, size)) {
+            return false;
+        }
+        pieces.emplace_back(dst_address + offset, size);
+        offset += size;
+    }
+    for (const auto& [addr, size] : pieces) {
+        DMAClear(addr, size / sizeof(u32), value);
+    }
+    return true;
+}
+
+template <class P>
 bool BufferCache<P>::DMAClear(GPUVAddr dst_address, u64 amount, u32 value) {
+    if (gpu_memory->MaxContinuousRange(dst_address, amount * sizeof(u32)) < amount * sizeof(u32)) {
+        return DMAClearSplit(dst_address, amount, value);
+    }
     const std::optional<DAddr> cpu_dst_address = gpu_memory->GpuToCpuAddress(dst_address);
     if (!cpu_dst_address) {
         return false;

@@ -302,6 +302,10 @@ public:
 
     bool DMAClear(GPUVAddr src_address, u64 amount, u32 value);
 
+    /// DMACopy/DMAClear for ranges that are not contiguous in device memory.
+    bool DMACopySplit(GPUVAddr src_address, GPUVAddr dest_address, u64 amount);
+    bool DMAClearSplit(GPUVAddr dst_address, u64 amount, u32 value);
+
     /// Return true when a CPU region is modified from the GPU
     [[nodiscard]] bool IsRegionGpuModified(DAddr addr, size_t size);
 
