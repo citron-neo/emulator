@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <atomic>
 #include <cstring>
+#include <limits>
 #include <memory>
 #include <numeric>
 #include <string_view>
@@ -331,8 +332,9 @@ template <class P>
 bool BufferCache<P>::DMACopy(GPUVAddr src_address, GPUVAddr dest_address, u64 amount) {
     // The copy below treats [src, +amount) and [dest, +amount) as single device ranges. When either
     // side is split across non-contiguous device memory, copy it piece by piece instead.
-    if (gpu_memory->MaxContinuousRange(src_address, amount) < amount ||
-        gpu_memory->MaxContinuousRange(dest_address, amount) < amount) {
+    if (amount > std::numeric_limits<u32>::max() ||
+        !IsGpuRangeContiguous(src_address, static_cast<u32>(amount)) ||
+        !IsGpuRangeContiguous(dest_address, static_cast<u32>(amount))) {
         return DMACopySplit(src_address, dest_address, amount);
     }
     const std::optional<DAddr> cpu_src_address = gpu_memory->GpuToCpuAddress(src_address);
@@ -452,7 +454,8 @@ bool BufferCache<P>::DMAClearSplit(GPUVAddr dst_address, u64 amount, u32 value) 
 
 template <class P>
 bool BufferCache<P>::DMAClear(GPUVAddr dst_address, u64 amount, u32 value) {
-    if (gpu_memory->MaxContinuousRange(dst_address, amount * sizeof(u32)) < amount * sizeof(u32)) {
+    if (amount * sizeof(u32) > std::numeric_limits<u32>::max() ||
+        !IsGpuRangeContiguous(dst_address, static_cast<u32>(amount * sizeof(u32)))) {
         return DMAClearSplit(dst_address, amount, value);
     }
     const std::optional<DAddr> cpu_dst_address = gpu_memory->GpuToCpuAddress(dst_address);
@@ -2302,6 +2305,14 @@ void BufferCache<P>::ResolveGatherChunks(GPUVAddr gpu_addr, u32 size) {
     SCOPE_EXIT {
         scatter_skip = 0;
     };
+    const auto it = gather_buffers.find(gpu_addr);
+    if (it != gather_buffers.end() && it->second.layout_size == size &&
+        it->second.layout_generation == gpu_memory->MapGeneration()) {
+        for (const GatherChunk& chunk : it->second.chunks) {
+            static_cast<void>(FindBuffer(chunk.device_addr, chunk.size));
+        }
+        return;
+    }
     u64 offset = 0;
     while (offset < size) {
         const size_t chunk = gpu_memory->MaxContinuousRange(gpu_addr + offset, size - offset);
@@ -2335,9 +2346,13 @@ void BufferCache<P>::NotifyGatherWrite(DAddr device_addr, u64 size, u8 level, GP
 
 template <class P>
 typename BufferCache<P>::Buffer& BufferCache<P>::GatherBuffer(GPUVAddr gpu_addr, u32 size) {
-    // Current device layout of the GPU range
+    GatherEntry& entry = gather_buffers[gpu_addr];
+    const u64 generation = gpu_memory->MapGeneration();
+    const bool layout_current = entry.buffer && entry.buffer->SizeBytes() >= size &&
+                                entry.layout_size == size && entry.layout_generation == generation;
+    // Current device layout of the GPU range (only walked when the page table changed)
     boost::container::small_vector<GatherChunk, 8> layout;
-    u64 offset = 0;
+    u64 offset = layout_current ? size : 0;
     while (offset < size) {
         const size_t chunk = gpu_memory->MaxContinuousRange(gpu_addr + offset, size - offset);
         const std::optional<DAddr> dev = gpu_memory->GpuToCpuAddress(gpu_addr + offset);
@@ -2349,7 +2364,6 @@ typename BufferCache<P>::Buffer& BufferCache<P>::GatherBuffer(GPUVAddr gpu_addr,
         offset += chunk;
     }
 
-    GatherEntry& entry = gather_buffers[gpu_addr];
     if (!entry.buffer || entry.buffer->SizeBytes() < size) {
         if (entry.buffer) {
             delayed_destruction_ring.Push(std::move(*entry.buffer));
@@ -2360,12 +2374,17 @@ typename BufferCache<P>::Buffer& BufferCache<P>::GatherBuffer(GPUVAddr gpu_addr,
                     gpu_addr, size, layout.size());
     }
     const bool same_layout =
-        entry.chunks.size() == layout.size() &&
-        std::equal(layout.begin(), layout.end(), entry.chunks.begin(), [](const auto& x, const auto& y) {
+        layout_current ||
+        (entry.chunks.size() == layout.size() &&
+         std::equal(layout.begin(), layout.end(), entry.chunks.begin(), [](const auto& x, const auto& y) {
             return x.device_addr == y.device_addr && x.size == y.size && x.offset == y.offset;
-        });
+        }));
     if (!same_layout) {
         entry.chunks.assign(layout.begin(), layout.end()); // all dirty
+    }
+    if (!layout_current && gpu_memory->MapGeneration() == generation) {
+        entry.layout_generation = generation;
+        entry.layout_size = size;
     }
 
     if (entry.scatter_pending && !same_layout) {
@@ -2485,24 +2504,25 @@ void BufferCache<P>::ResolveScatter(DAddr device_addr, u64 size) {
 
 template <class P>
 bool BufferCache<P>::IsGpuRangeContiguous(GPUVAddr gpu_addr, u32 size) const {
-    // Same answer as MaxContinuousRange(gpu_addr, size) == size, cached until the GPU page table
-    // changes: the full page walk ran for every storage buffer bind.
+    // Same answer as MaxContinuousRange(gpu_addr, size) >= size. A range inside one page is
+    // always contiguous; other answers are cached (direct mapped) until the page table changes,
+    // since the full page walk would otherwise run for every storage/uniform buffer bind.
+    if (size == 0 || (gpu_addr >> Core::DEVICE_PAGEBITS) ==
+                         ((gpu_addr + size - 1) >> Core::DEVICE_PAGEBITS)) {
+        return true;
+    }
     const u64 generation = gpu_memory->MapGeneration();
-    if (generation != contiguity_cache_generation || contiguity_cache.size() > 4096) {
-        contiguity_cache.clear();
-        contiguity_cache_generation = generation;
+    const u64 hash = (gpu_addr ^ (static_cast<u64>(size) << 32)) * 0x9E3779B97F4A7C15ULL;
+    ContiguityEntry& entry = contiguity_cache[hash >> 52 & (CONTIGUITY_CACHE_SIZE - 1)];
+    if (entry.generation == generation && entry.gpu_addr == gpu_addr && entry.size == size) {
+        return entry.contiguous;
     }
-    const auto [it, is_new] = contiguity_cache.try_emplace(ContiguityKey{gpu_addr, size}, false);
-    if (is_new) {
-        it->second = gpu_memory->MaxContinuousRange(gpu_addr, size) >= size;
-        if (gpu_memory->MapGeneration() != generation) {
-            // The page table changed during the walk; don't keep the answer
-            const bool result = it->second;
-            contiguity_cache.erase(it);
-            return result;
-        }
+    const bool contiguous = gpu_memory->MaxContinuousRange(gpu_addr, size) >= size;
+    // Only keep the answer if the page table did not change during the walk
+    if (gpu_memory->MapGeneration() == generation) {
+        entry = ContiguityEntry{gpu_addr, size, contiguous, generation};
     }
-    return it->second;
+    return contiguous;
 }
 
 template <class P>

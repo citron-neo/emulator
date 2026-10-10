@@ -537,18 +537,14 @@ public:
 
     /// Whether [gpu_addr, +size) maps to one contiguous device range (cached per page table generation).
     bool IsGpuRangeContiguous(GPUVAddr gpu_addr, u32 size) const;
-    struct ContiguityKey {
-        GPUVAddr gpu_addr;
-        u32 size;
-        bool operator==(const ContiguityKey&) const = default;
+    struct ContiguityEntry {
+        GPUVAddr gpu_addr{};
+        u32 size{};
+        bool contiguous{};
+        u64 generation{~0ULL}; ///< page table generation the answer was computed for
     };
-    struct ContiguityKeyHash {
-        size_t operator()(const ContiguityKey& key) const noexcept {
-            return std::hash<u64>{}(key.gpu_addr ^ (static_cast<u64>(key.size) << 40));
-        }
-    };
-    mutable std::unordered_map<ContiguityKey, bool, ContiguityKeyHash> contiguity_cache;
-    mutable u64 contiguity_cache_generation = ~0ULL;
+    static constexpr size_t CONTIGUITY_CACHE_SIZE = 4096; // direct mapped, power of two
+    mutable std::array<ContiguityEntry, CONTIGUITY_CACHE_SIZE> contiguity_cache{};
 
     /// Copies every contiguous chunk of a non-contiguous GPU range into a scratch buffer.
     Buffer& GatherBuffer(GPUVAddr gpu_addr, u32 size);
@@ -580,6 +576,8 @@ public:
         std::unique_ptr<Buffer> buffer;
         std::vector<GatherChunk> chunks;
         bool scatter_pending{}; ///< scratch holds GPU writes not yet copied back to the chunks
+        u64 layout_generation{~0ULL}; ///< page table generation `chunks` was computed for
+        u32 layout_size{};            ///< range size `chunks` was computed for
     };
     std::unordered_map<GPUVAddr, GatherEntry> gather_buffers;
 
