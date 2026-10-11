@@ -121,7 +121,7 @@ Shader::CompareFunction MaxwellToCompareFunction(
     case Tegra::Engines::Maxwell3D::Regs::ComparisonOp::Always_GL:
         return Shader::CompareFunction::Always;
     }
-    UNIMPLEMENTED_MSG("Unimplemented comparison op={}", comparison);
+    assert(false && "unimplemented"); //("Unimplemented comparison op={}", comparison);
     return {};
 }
 

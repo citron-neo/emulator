@@ -30,7 +30,7 @@ protected:
 
 public:
     virtual void Destroy() override {
-        UNREACHABLE_MSG("KSystemResource::Destroy() was called");
+        std::unreachable(); //("KSystemResource::Destroy() was called");
     }
 
     bool IsSecureResource() const {

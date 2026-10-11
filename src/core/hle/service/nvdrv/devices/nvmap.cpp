@@ -51,19 +51,19 @@ NvResult nvmap::Ioctl1(DeviceFD fd, Ioctl command, std::span<const u8> input,
         break;
     }
 
-    UNIMPLEMENTED_MSG("Unimplemented ioctl={:08X}", command.raw);
+    assert(false && "unimplemented"); //("Unimplemented ioctl={:08X}", command.raw);
     return NvResult::NotImplemented;
 }
 
 NvResult nvmap::Ioctl2(DeviceFD fd, Ioctl command, std::span<const u8> input,
                        std::span<const u8> inline_input, std::span<u8> output) {
-    UNIMPLEMENTED_MSG("Unimplemented ioctl={:08X}", command.raw);
+    assert(false && "unimplemented"); //("Unimplemented ioctl={:08X}", command.raw);
     return NvResult::NotImplemented;
 }
 
 NvResult nvmap::Ioctl3(DeviceFD fd, Ioctl command, std::span<const u8> input, std::span<u8> output,
                        std::span<u8> inline_output) {
-    UNIMPLEMENTED_MSG("Unimplemented ioctl={:08X}", command.raw);
+    assert(false && "unimplemented"); //("Unimplemented ioctl={:08X}", command.raw);
     return NvResult::NotImplemented;
 }
 

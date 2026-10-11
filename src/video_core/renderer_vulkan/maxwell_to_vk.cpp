@@ -74,14 +74,14 @@ VkSamplerAddressMode WrapMode(const Device& device, Tegra::Texture::WrapMode wra
     case Tegra::Texture::WrapMode::MirrorOnceClampToEdge:
         return VK_SAMPLER_ADDRESS_MODE_MIRROR_CLAMP_TO_EDGE;
     case Tegra::Texture::WrapMode::MirrorOnceBorder:
-        UNIMPLEMENTED();
+        assert(false && "unimplemented"); //();
         return VK_SAMPLER_ADDRESS_MODE_MIRROR_CLAMP_TO_EDGE;
     case Tegra::Texture::WrapMode::MirrorOnceClampOGL:
         // Vulkan doesn't have a direct equivalent to GL_MIRROR_CLAMP, so we use
         // MIRROR_CLAMP_TO_EDGE as a fallback (similar to OpenGL when extension isn't available)
         return VK_SAMPLER_ADDRESS_MODE_MIRROR_CLAMP_TO_EDGE;
     default:
-        UNIMPLEMENTED_MSG("Unimplemented wrap mode={}", wrap_mode);
+        assert(false && "unimplemented"); //("Unimplemented wrap mode={}", wrap_mode);
         return {};
     }
 }
@@ -105,7 +105,7 @@ VkCompareOp DepthCompareFunction(Tegra::Texture::DepthCompareFunc depth_compare_
     case Tegra::Texture::DepthCompareFunc::Always:
         return VK_COMPARE_OP_ALWAYS;
     }
-    UNIMPLEMENTED_MSG("Unimplemented sampler depth compare function={}", depth_compare_func);
+    assert(false && "unimplemented"); //("Unimplemented sampler depth compare function={}", depth_compare_func);
     return {};
 }
 
@@ -338,7 +338,7 @@ VkShaderStageFlagBits ShaderStage(Shader::Stage stage) {
     case Shader::Stage::Compute:
         return VK_SHADER_STAGE_COMPUTE_BIT;
     }
-    UNIMPLEMENTED_MSG("Unimplemented shader stage={}", stage);
+    assert(false && "unimplemented"); //("Unimplemented shader stage={}", stage);
     return {};
 }
 
@@ -379,7 +379,7 @@ VkPrimitiveTopology PrimitiveTopology([[maybe_unused]] const Device& device,
                                    "single body and not a bunch of triangles.");
         return VK_PRIMITIVE_TOPOLOGY_TRIANGLE_FAN;
     }
-    UNIMPLEMENTED_MSG("Unimplemented topology={}", topology);
+    assert(false && "unimplemented"); //("Unimplemented topology={}", topology);
     return {};
 }
 
@@ -605,7 +605,7 @@ VkFormat VertexFormat(const Device& device, Tegra::Engines::Maxwell3D::Regs::Ver
     })()};
 
     if (format == VK_FORMAT_UNDEFINED) {
-        UNIMPLEMENTED_MSG("Unimplemented vertex format of type={} and size={}", type, size);
+        assert(false && "unimplemented"); //("Unimplemented vertex format of type={} and size={}", type, size);
     }
 
     return device.GetSupportedFormat(format, VK_FORMAT_FEATURE_VERTEX_BUFFER_BIT,
@@ -639,7 +639,7 @@ VkCompareOp ComparisonOp(Tegra::Engines::Maxwell3D::Regs::ComparisonOp compariso
     case Tegra::Engines::Maxwell3D::Regs::ComparisonOp::Always_GL:
         return VK_COMPARE_OP_ALWAYS;
     }
-    UNIMPLEMENTED_MSG("Unimplemented comparison op={}", comparison);
+    assert(false && "unimplemented"); //("Unimplemented comparison op={}", comparison);
     return {};
 }
 
@@ -652,7 +652,7 @@ VkIndexType IndexFormat(Tegra::Engines::Maxwell3D::Regs::IndexFormat index_forma
     case Tegra::Engines::Maxwell3D::Regs::IndexFormat::UnsignedInt:
         return VK_INDEX_TYPE_UINT32;
     }
-    UNIMPLEMENTED_MSG("Unimplemented index_format={}", index_format);
+    assert(false && "unimplemented"); //("Unimplemented index_format={}", index_format);
     return {};
 }
 
@@ -683,7 +683,7 @@ VkStencilOp StencilOp(Tegra::Engines::Maxwell3D::Regs::StencilOp::Op stencil_op)
     case Tegra::Engines::Maxwell3D::Regs::StencilOp::Op::Decr_GL:
         return VK_STENCIL_OP_DECREMENT_AND_WRAP;
     }
-    UNIMPLEMENTED_MSG("Unimplemented stencil op={}", stencil_op);
+    assert(false && "unimplemented"); //("Unimplemented stencil op={}", stencil_op);
     return {};
 }
 
@@ -705,7 +705,7 @@ VkBlendOp BlendEquation(Tegra::Engines::Maxwell3D::Regs::Blend::Equation equatio
     case Tegra::Engines::Maxwell3D::Regs::Blend::Equation::Max_GL:
         return VK_BLEND_OP_MAX;
     }
-    UNIMPLEMENTED_MSG("Unimplemented blend equation={}", equation);
+    assert(false && "unimplemented"); //("Unimplemented blend equation={}", equation);
     return {};
 }
 
@@ -769,7 +769,7 @@ VkBlendFactor BlendFactor(Tegra::Engines::Maxwell3D::Regs::Blend::Factor factor)
     case Tegra::Engines::Maxwell3D::Regs::Blend::Factor::OneMinusConstantAlpha_GL:
         return VK_BLEND_FACTOR_ONE_MINUS_CONSTANT_ALPHA;
     }
-    UNIMPLEMENTED_MSG("Unimplemented blend factor={}", factor);
+    assert(false && "unimplemented"); //("Unimplemented blend factor={}", factor);
     return {};
 }
 
@@ -780,7 +780,7 @@ VkFrontFace FrontFace(Tegra::Engines::Maxwell3D::Regs::FrontFace front_face) {
     case Tegra::Engines::Maxwell3D::Regs::FrontFace::CounterClockWise:
         return VK_FRONT_FACE_COUNTER_CLOCKWISE;
     }
-    UNIMPLEMENTED_MSG("Unimplemented front face={}", front_face);
+    assert(false && "unimplemented"); //("Unimplemented front face={}", front_face);
     return {};
 }
 
@@ -793,7 +793,7 @@ VkCullModeFlagBits CullFace(Tegra::Engines::Maxwell3D::Regs::CullFace cull_face)
     case Tegra::Engines::Maxwell3D::Regs::CullFace::FrontAndBack:
         return VK_CULL_MODE_FRONT_AND_BACK;
     }
-    UNIMPLEMENTED_MSG("Unimplemented cull face={}", cull_face);
+    assert(false && "unimplemented"); //("Unimplemented cull face={}", cull_face);
     return {};
 }
 
@@ -806,7 +806,7 @@ VkPolygonMode PolygonMode(Tegra::Engines::Maxwell3D::Regs::PolygonMode polygon_m
     case Tegra::Engines::Maxwell3D::Regs::PolygonMode::Fill:
         return VK_POLYGON_MODE_FILL;
     }
-    UNIMPLEMENTED_MSG("Unimplemented polygon mode={}", polygon_mode);
+    assert(false && "unimplemented"); //("Unimplemented polygon mode={}", polygon_mode);
     return {};
 }
 
@@ -826,7 +826,7 @@ VkComponentSwizzle SwizzleSource(Tegra::Texture::SwizzleSource swizzle) {
     case Tegra::Texture::SwizzleSource::OneFloat:
         return VK_COMPONENT_SWIZZLE_ONE;
     }
-    UNIMPLEMENTED_MSG("Unimplemented swizzle source={}", swizzle);
+    assert(false && "unimplemented"); //("Unimplemented swizzle source={}", swizzle);
     return {};
 }
 

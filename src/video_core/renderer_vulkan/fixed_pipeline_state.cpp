@@ -450,7 +450,7 @@ u32 FixedPipelineState::PackBlendFactor(Tegra::Engines::Maxwell3D::Regs::Blend::
     case Tegra::Engines::Maxwell3D::Regs::Blend::Factor::OneMinusConstantAlpha_GL:
         return 18;
     }
-    UNIMPLEMENTED_MSG("Unknown blend factor {}", static_cast<u32>(factor));
+    assert(false && "unimplemented"); //("Unknown blend factor {}", static_cast<u32>(factor));
     return 0;
 }
 

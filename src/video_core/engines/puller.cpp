@@ -54,7 +54,7 @@ void Puller::ProcessBindMethod(const MethodCall& method_call) {
                                   EngineTypes::KeplerMemory);
         break;
     default:
-        UNIMPLEMENTED_MSG("Unimplemented engine {:04X}", engine_id);
+        assert(false && "unimplemented"); //("Unimplemented engine {:04X}", engine_id);
         break;
     }
 }
@@ -62,7 +62,7 @@ void Puller::ProcessBindMethod(const MethodCall& method_call) {
 void Puller::ProcessFenceActionMethod() {
     switch (regs.fence_action.op) {
     case Puller::FenceOperation::Acquire:
-        // UNIMPLEMENTED_MSG("Channel Scheduling pending.");
+        // assert(false && "unimplemented"); //("Channel Scheduling pending.");
         // WaitFence(regs.fence_action.syncpoint_id, regs.fence_value);
         rasterizer->ReleaseFences();
         break;
@@ -70,7 +70,7 @@ void Puller::ProcessFenceActionMethod() {
         rasterizer->SignalSyncPoint(regs.fence_action.syncpoint_id);
         break;
     default:
-        UNIMPLEMENTED_MSG("Unimplemented operation {}", regs.fence_action.op.Value());
+        assert(false && "unimplemented"); //("Unimplemented operation {}", regs.fence_action.op.Value());
         break;
     }
 }
@@ -229,7 +229,7 @@ void Puller::CallEngineMethod(const MethodCall& method_call) {
                                                 method_call.IsLastCall());
         break;
     default:
-        UNIMPLEMENTED_MSG("Unimplemented engine");
+        assert(false && "unimplemented"); //("Unimplemented engine");
         break;
     }
 }
@@ -256,7 +256,7 @@ void Puller::CallEngineMultiMethod(u32 method, u32 subchannel, const u32* base_s
         channel_state.kepler_memory->CallMultiMethod(method, base_start, amount, methods_pending);
         break;
     default:
-        UNIMPLEMENTED_MSG("Unimplemented engine");
+        assert(false && "unimplemented"); //("Unimplemented engine");
         break;
     }
 }

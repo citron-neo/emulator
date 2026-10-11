@@ -7,12 +7,12 @@
 namespace Kernel::Svc {
 
 Result MapInsecureMemory(Core::System& system, uint64_t address, uint64_t size) {
-    UNIMPLEMENTED();
+    assert(false && "unimplemented"); //();
     R_THROW(ResultNotImplemented);
 }
 
 Result UnmapInsecureMemory(Core::System& system, uint64_t address, uint64_t size) {
-    UNIMPLEMENTED();
+    assert(false && "unimplemented"); //();
     R_THROW(ResultNotImplemented);
 }
 

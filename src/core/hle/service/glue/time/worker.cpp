@@ -291,7 +291,7 @@ void TimeWorker::ThreadFunc(std::stop_token stop_token) {
         }
 
         default:
-            UNREACHABLE();
+            std::unreachable();
         }
     }
 }

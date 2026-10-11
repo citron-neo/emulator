@@ -940,7 +940,7 @@ bool Device::IsFormatSupported(VkFormat wanted_format, VkFormatFeatureFlags want
                                FormatType format_type) const {
     const auto it = format_properties.find(wanted_format);
     if (it == format_properties.end()) {
-        UNIMPLEMENTED_MSG("Unimplemented format query={}", wanted_format);
+        assert(false && "unimplemented"); //("Unimplemented format query={}", wanted_format);
         return true;
     }
     const auto supported_usage = GetFormatFeatures(it->second, format_type);

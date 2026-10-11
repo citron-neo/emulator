@@ -133,7 +133,7 @@ Result KThread::Initialize(KThreadFunction func, uintptr_t arg, KProcessAddress 
     case ThreadType::Dummy:
         break;
     case ThreadType::Kernel:
-        UNIMPLEMENTED();
+        assert(false && "unimplemented"); //();
         break;
     default:
         ASSERT_MSG(false, "KThread::Initialize: Unknown ThreadType {}", static_cast<u32>(type));
@@ -1205,7 +1205,7 @@ void KThread::Exit() {
         KWorkerTaskManager::AddTask(m_kernel, KWorkerTaskManager::WorkerType::Exit, this);
     }
 
-    UNREACHABLE_MSG("KThread::Exit() would return");
+    std::unreachable(); //("KThread::Exit() would return");
 }
 
 Result KThread::Terminate() {

@@ -53,13 +53,13 @@ NvResult nvhost_ctrl_gpu::Ioctl1(DeviceFD fd, Ioctl command, std::span<const u8>
         }
         break;
     }
-    UNIMPLEMENTED_MSG("Unimplemented ioctl={:08X}", command.raw);
+    assert(false && "unimplemented"); //("Unimplemented ioctl={:08X}", command.raw);
     return NvResult::NotImplemented;
 }
 
 NvResult nvhost_ctrl_gpu::Ioctl2(DeviceFD fd, Ioctl command, std::span<const u8> input,
                                  std::span<const u8> inline_input, std::span<u8> output) {
-    UNIMPLEMENTED_MSG("Unimplemented ioctl={:08X}", command.raw);
+    assert(false && "unimplemented"); //("Unimplemented ioctl={:08X}", command.raw);
     return NvResult::NotImplemented;
 }
 
@@ -83,7 +83,7 @@ NvResult nvhost_ctrl_gpu::Ioctl3(DeviceFD fd, Ioctl command, std::span<const u8>
     default:
         break;
     }
-    UNIMPLEMENTED_MSG("Unimplemented ioctl={:08X}", command.raw);
+    assert(false && "unimplemented"); //("Unimplemented ioctl={:08X}", command.raw);
     return NvResult::NotImplemented;
 }
 

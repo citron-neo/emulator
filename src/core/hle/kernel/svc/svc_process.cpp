@@ -38,7 +38,7 @@ Result GetProcessId(Core::System& system, u64* out_process_id, Handle handle) {
         process = reinterpret_cast<KThread*>(obj.GetPointerUnsafe())->GetOwnerProcess();
     } else {
         // TODO(bunnei): This should also handle debug objects before returning.
-        UNIMPLEMENTED_MSG("Debug objects not implemented");
+        assert(false && "unimplemented"); //("Debug objects not implemented");
     }
 
     // Make sure the target process exists.
@@ -114,18 +114,18 @@ Result GetProcessInfo(Core::System& system, s64* out, Handle process_handle,
 
 Result CreateProcess(Core::System& system, Handle* out_handle, uint64_t parameters, uint64_t caps,
                      int32_t num_caps) {
-    UNIMPLEMENTED();
+    assert(false && "unimplemented"); //();
     R_THROW(ResultNotImplemented);
 }
 
 Result StartProcess(Core::System& system, Handle process_handle, int32_t priority, int32_t core_id,
                     uint64_t main_thread_stack_size) {
-    UNIMPLEMENTED();
+    assert(false && "unimplemented"); //();
     R_THROW(ResultNotImplemented);
 }
 
 Result TerminateProcess(Core::System& system, Handle process_handle) {
-    UNIMPLEMENTED();
+    assert(false && "unimplemented"); //();
     R_THROW(ResultNotImplemented);
 }
 

@@ -626,7 +626,7 @@ void Widget::SetupComponent(const QString& label, std::function<void()>& load_fu
             data_component = CreateCombobox(serializer, restore_func, touch);
             break;
         default:
-            UNIMPLEMENTED();
+            assert(false && "unimplemented"); //();
         }
     } else if (setting.IsFloatingPoint()) {
         switch (request) {
@@ -640,7 +640,7 @@ void Widget::SetupComponent(const QString& label, std::function<void()>& load_fu
                                           serializer, restore_func, touch);
             break;
         default:
-            UNIMPLEMENTED();
+            assert(false && "unimplemented"); //();
         }
     } else if (type == "std::string") {
         switch (request) {
@@ -652,7 +652,7 @@ void Widget::SetupComponent(const QString& label, std::function<void()>& load_fu
             data_component = CreateCombobox(serializer, restore_func, touch);
             break;
         default:
-            UNIMPLEMENTED();
+            assert(false && "unimplemented"); //();
         }
     }
 

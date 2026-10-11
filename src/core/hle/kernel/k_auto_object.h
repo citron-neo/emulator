@@ -89,7 +89,7 @@ public:
 
     // Destroy is responsible for destroying the auto object's resources when ref_count hits zero.
     virtual void Destroy() {
-        UNIMPLEMENTED();
+        assert(false && "unimplemented"); //();
     }
 
     // Finalize is responsible for cleaning up resource, but does not destroy the object.

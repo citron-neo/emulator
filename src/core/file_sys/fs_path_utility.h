@@ -396,7 +396,7 @@ public:
                 state = Normal;
                 break;
             default:
-                UNREACHABLE();
+                std::unreachable();
                 break;
             }
         }
@@ -417,7 +417,7 @@ public:
             *out = false;
             break;
         default:
-            UNREACHABLE();
+            std::unreachable();
             break;
         }
 

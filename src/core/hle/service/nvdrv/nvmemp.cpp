@@ -18,11 +18,11 @@ NVMEMP::NVMEMP(Core::System& system_) : ServiceFramework{system_, "nvmemp"} {
 NVMEMP::~NVMEMP() = default;
 
 void NVMEMP::Open(HLERequestContext& ctx) {
-    UNIMPLEMENTED();
+    assert(false && "unimplemented"); //();
 }
 
 void NVMEMP::GetAruid(HLERequestContext& ctx) {
-    UNIMPLEMENTED();
+    assert(false && "unimplemented"); //();
 }
 
 } // namespace Service::Nvidia

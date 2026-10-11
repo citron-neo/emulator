@@ -490,7 +490,7 @@ private:
         }
 
         // Failure to find a free context is actually an abort condition.
-        UNREACHABLE();
+        std::unreachable();
     }
 
     void FreeContext(size_t context_id) {

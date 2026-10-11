@@ -299,7 +299,7 @@ Result ServerManager::Process(MultiWaitHolder* holder) {
     case UserDataTag::DeferEvent:
         R_RETURN(this->OnDeferralEvent());
     default:
-        UNREACHABLE();
+        std::unreachable();
     }
 }
 

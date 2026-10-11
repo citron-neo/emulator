@@ -81,7 +81,7 @@ struct GPU::Impl {
     }
 
     void ReleaseChannel(Control::ChannelState& to_release) {
-        UNIMPLEMENTED();
+        assert(false && "unimplemented"); //();
     }
 
     /// Binds a renderer to the GPU.

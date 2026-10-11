@@ -58,13 +58,13 @@ NvResult nvhost_as_gpu::Ioctl1(DeviceFD fd, Ioctl command, std::span<const u8> i
         break;
     }
 
-    UNIMPLEMENTED_MSG("Unimplemented ioctl={:08X}", command.raw);
+    assert(false && "unimplemented"); //("Unimplemented ioctl={:08X}", command.raw);
     return NvResult::NotImplemented;
 }
 
 NvResult nvhost_as_gpu::Ioctl2(DeviceFD fd, Ioctl command, std::span<const u8> input,
                                std::span<const u8> inline_input, std::span<u8> output) {
-    UNIMPLEMENTED_MSG("Unimplemented ioctl={:08X}", command.raw);
+    assert(false && "unimplemented"); //("Unimplemented ioctl={:08X}", command.raw);
     return NvResult::NotImplemented;
 }
 
@@ -83,7 +83,7 @@ NvResult nvhost_as_gpu::Ioctl3(DeviceFD fd, Ioctl command, std::span<const u8> i
     default:
         break;
     }
-    UNIMPLEMENTED_MSG("Unimplemented ioctl={:08X}", command.raw);
+    assert(false && "unimplemented"); //("Unimplemented ioctl={:08X}", command.raw);
     return NvResult::NotImplemented;
 }
 
@@ -159,7 +159,7 @@ NvResult nvhost_as_gpu::AllocateSpace(IoctlAllocSpace& params) {
 
     if (params.page_size != vm.big_page_size &&
         ((params.flags & MappingFlags::Sparse) != MappingFlags::None)) {
-        UNIMPLEMENTED_MSG("Sparse small pages are not implemented!");
+        assert(false && "unimplemented"); //("Sparse small pages are not implemented!");
         return NvResult::NotImplemented;
     }
 

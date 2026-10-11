@@ -39,7 +39,7 @@ Common::Rectangle<f32> NormalizeCrop(const FramebufferConfig& framebuffer, u32 t
     framebuffer_transform_flags &= ~Service::android::BufferTransformFlags::FlipH;
     framebuffer_transform_flags &= ~Service::android::BufferTransformFlags::FlipV;
     if (True(framebuffer_transform_flags)) {
-        UNIMPLEMENTED_MSG("Unsupported framebuffer_transform_flags={}",
+        assert(false && "unimplemented"); //("Unsupported framebuffer_transform_flags={}",
                           static_cast<u32>(framebuffer_transform_flags));
     }
 

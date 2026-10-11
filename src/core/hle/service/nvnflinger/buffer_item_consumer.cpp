@@ -31,7 +31,7 @@ Status BufferItemConsumer::AcquireBuffer(BufferItem* item, std::chrono::nanoseco
     }
 
     if (wait_for_fence) {
-        UNIMPLEMENTED();
+        assert(false && "unimplemented"); //();
     }
 
     item->graphic_buffer = slots[item->slot].graphic_buffer;

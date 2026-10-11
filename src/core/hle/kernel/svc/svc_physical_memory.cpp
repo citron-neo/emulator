@@ -128,17 +128,17 @@ Result UnmapPhysicalMemory(Core::System& system, u64 addr, u64 size) {
 }
 
 Result MapPhysicalMemoryUnsafe(Core::System& system, uint64_t address, uint64_t size) {
-    UNIMPLEMENTED();
+    assert(false && "unimplemented"); //();
     R_THROW(ResultNotImplemented);
 }
 
 Result UnmapPhysicalMemoryUnsafe(Core::System& system, uint64_t address, uint64_t size) {
-    UNIMPLEMENTED();
+    assert(false && "unimplemented"); //();
     R_THROW(ResultNotImplemented);
 }
 
 Result SetUnsafeLimit(Core::System& system, uint64_t limit) {
-    UNIMPLEMENTED();
+    assert(false && "unimplemented"); //();
     R_THROW(ResultNotImplemented);
 }
 

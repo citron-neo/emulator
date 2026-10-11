@@ -10,23 +10,23 @@
 namespace Kernel::Svc {
 
 void FlushEntireDataCache(Core::System& system) {
-    UNIMPLEMENTED();
+    assert(false && "unimplemented"); //();
 }
 
 Result FlushDataCache(Core::System& system, uint64_t address, uint64_t size) {
-    UNIMPLEMENTED();
+    assert(false && "unimplemented"); //();
     R_THROW(ResultNotImplemented);
 }
 
 Result InvalidateProcessDataCache(Core::System& system, Handle process_handle, uint64_t address,
                                   uint64_t size) {
-    UNIMPLEMENTED();
+    assert(false && "unimplemented"); //();
     R_THROW(ResultNotImplemented);
 }
 
 Result StoreProcessDataCache(Core::System& system, Handle process_handle, uint64_t address,
                              uint64_t size) {
-    UNIMPLEMENTED();
+    assert(false && "unimplemented"); //();
     R_THROW(ResultNotImplemented);
 }
 

@@ -45,7 +45,7 @@ void Fiber::Start(boost::context::detail::transfer_t& transfer) {
     impl->previous_fiber->impl->guard.unlock();
     impl->previous_fiber.reset();
     impl->entry_point();
-    UNREACHABLE();
+    std::unreachable();
 }
 
 void Fiber::OnRewind([[maybe_unused]] boost::context::detail::transfer_t& transfer) {
@@ -56,7 +56,7 @@ void Fiber::OnRewind([[maybe_unused]] boost::context::detail::transfer_t& transf
     impl->stack_limit = impl->rewind_stack_limit;
     impl->rewind_stack_limit = tmp;
     impl->rewind_point();
-    UNREACHABLE();
+    std::unreachable();
 }
 
 void Fiber::FiberStartFunc(boost::context::detail::transfer_t transfer) {

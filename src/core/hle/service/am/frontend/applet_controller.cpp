@@ -95,7 +95,7 @@ void Controller::Initialize() {
                 ControllerSupportMode::ShowControllerKeyRemappingForSystem;
             break;
         default:
-            UNIMPLEMENTED_MSG("Unknown ControllerPrivateArg mode={} with arg_size={}",
+            assert(false && "unimplemented"); //("Unknown ControllerPrivateArg mode={} with arg_size={}",
                               controller_private_arg.mode, controller_private_arg.arg_size);
             controller_private_arg.mode = ControllerSupportMode::ShowControllerSupport;
             break;
@@ -135,7 +135,7 @@ void Controller::Initialize() {
             std::memcpy(&controller_user_arg_new, user_arg.data(), user_arg.size());
             break;
         default:
-            UNIMPLEMENTED_MSG("Unknown ControllerSupportArg revision={} with size={}",
+            assert(false && "unimplemented"); //("Unknown ControllerSupportArg revision={} with size={}",
                               controller_applet_version, controller_private_arg.arg_size);
             ASSERT(user_arg.size() >= sizeof(ControllerSupportArgNew));
             std::memcpy(&controller_user_arg_new, user_arg.data(), sizeof(ControllerSupportArgNew));
@@ -164,7 +164,7 @@ void Controller::Initialize() {
         break;
     }
     default: {
-        UNIMPLEMENTED_MSG("Unimplemented ControllerSupportMode={}", controller_private_arg.mode);
+        assert(false && "unimplemented"); //("Unimplemented ControllerSupportMode={}", controller_private_arg.mode);
         break;
     }
     }
@@ -229,7 +229,7 @@ void Controller::Execute() {
     case ControllerSupportMode::ShowControllerStrapGuide:
     case ControllerSupportMode::ShowControllerFirmwareUpdate:
     case ControllerSupportMode::ShowControllerKeyRemappingForSystem:
-        UNIMPLEMENTED_MSG("ControllerSupportMode={} is not implemented",
+        assert(false && "unimplemented"); //("ControllerSupportMode={} is not implemented",
                           controller_private_arg.mode);
         ConfigurationComplete(true);
         break;

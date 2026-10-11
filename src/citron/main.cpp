@@ -2789,7 +2789,7 @@ void GMainWindow::OnGameListOpenFolder(u64 program_id, GameListOpenTarget target
         break;
     }
     default:
-        UNIMPLEMENTED();
+        assert(false && "unimplemented"); //();
         break;
     }
 

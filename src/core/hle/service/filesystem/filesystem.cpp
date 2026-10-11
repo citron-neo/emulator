@@ -663,7 +663,7 @@ FileSys::RegisteredCache* FileSystemController::GetRegisteredCacheForStorage(
     switch (id) {
     case FileSys::StorageId::None:
     case FileSys::StorageId::Host:
-        UNIMPLEMENTED();
+        assert(false && "unimplemented"); //();
         return nullptr;
     case FileSys::StorageId::GameCard:
         return GetGameCardContents();
@@ -683,7 +683,7 @@ FileSys::PlaceholderCache* FileSystemController::GetPlaceholderCacheForStorage(
     switch (id) {
     case FileSys::StorageId::None:
     case FileSys::StorageId::Host:
-        UNIMPLEMENTED();
+        assert(false && "unimplemented"); //();
         return nullptr;
     case FileSys::StorageId::GameCard:
         return GetGameCardPlaceholder();

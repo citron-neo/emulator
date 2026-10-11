@@ -32,7 +32,7 @@ static constexpr Result ResultCodeFromLibOpusErrorCode(u64 error_code) {
     case OPUS_OK:
         R_RETURN(ResultSuccess);
     }
-    UNREACHABLE();
+    std::unreachable();
 }
 
 } // namespace

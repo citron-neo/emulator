@@ -88,7 +88,7 @@ std::shared_ptr<NCA> RomFSFactory::GetEntry(u64 title_id, StorageId storage,
     case StorageId::Host:
     case StorageId::GameCard:
     default:
-        UNIMPLEMENTED_MSG("Unimplemented storage_id={:02X}", static_cast<u8>(storage));
+        assert(false && "unimplemented"); //("Unimplemented storage_id={:02X}", static_cast<u8>(storage));
         return nullptr;
     }
 }

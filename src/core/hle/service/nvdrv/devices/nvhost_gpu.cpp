@@ -100,7 +100,7 @@ NvResult nvhost_gpu::Ioctl1(DeviceFD fd, Ioctl command, std::span<const u8> inpu
         }
         break;
     }
-    UNIMPLEMENTED_MSG("Unimplemented ioctl={:08X}", command.raw);
+    assert(false && "unimplemented"); //("Unimplemented ioctl={:08X}", command.raw);
     return NvResult::NotImplemented;
 };
 
@@ -115,13 +115,13 @@ NvResult nvhost_gpu::Ioctl2(DeviceFD fd, Ioctl command, std::span<const u8> inpu
         }
         break;
     }
-    UNIMPLEMENTED_MSG("Unimplemented ioctl={:08X}", command.raw);
+    assert(false && "unimplemented"); //("Unimplemented ioctl={:08X}", command.raw);
     return NvResult::NotImplemented;
 }
 
 NvResult nvhost_gpu::Ioctl3(DeviceFD fd, Ioctl command, std::span<const u8> input,
                             std::span<u8> output, std::span<u8> inline_output) {
-    UNIMPLEMENTED_MSG("Unimplemented ioctl={:08X}", command.raw);
+    assert(false && "unimplemented"); //("Unimplemented ioctl={:08X}", command.raw);
     return NvResult::NotImplemented;
 }
 
@@ -362,7 +362,7 @@ NvResult nvhost_gpu::SubmitGPFIFOImpl(IoctlSubmitGpfifo& params, Tegra::CommandL
 NvResult nvhost_gpu::SubmitGPFIFOBase1(IoctlSubmitGpfifo& params,
                                        std::span<Tegra::CommandListHeader> commands, bool kickoff) {
     if (params.num_entries > commands.size()) {
-        UNIMPLEMENTED();
+        assert(false && "unimplemented"); //();
         return NvResult::InvalidSize;
     }
 
@@ -381,7 +381,7 @@ NvResult nvhost_gpu::SubmitGPFIFOBase1(IoctlSubmitGpfifo& params,
 NvResult nvhost_gpu::SubmitGPFIFOBase2(IoctlSubmitGpfifo& params,
                                        std::span<const Tegra::CommandListHeader> commands) {
     if (params.num_entries > commands.size()) {
-        UNIMPLEMENTED();
+        assert(false && "unimplemented"); //();
         return NvResult::InvalidSize;
     }
 

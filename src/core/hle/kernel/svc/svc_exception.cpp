@@ -128,7 +128,7 @@ void Break(Core::System& system, BreakReason reason, u64 info1, u64 info2) {
 }
 
 void ReturnFromException(Core::System& system, Result result) {
-    UNIMPLEMENTED();
+    assert(false && "unimplemented"); //();
 }
 
 void Break64(Core::System& system, BreakReason break_reason, uint64_t arg, uint64_t size) {

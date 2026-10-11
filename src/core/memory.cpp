@@ -207,7 +207,7 @@ struct Memory::Impl {
                 break;
             }
             default:
-                UNREACHABLE();
+                std::unreachable();
             }
 
             page_index++;
@@ -432,7 +432,7 @@ struct Memory::Impl {
                 // Switch page type to debug if now debug
                 switch (page_type) {
                 case Common::PageType::Unmapped:
-                    UNREACHABLE_MSG("Attempted to mark unmapped pages as debug");
+                    std::unreachable(); //("Attempted to mark unmapped pages as debug");
                     break;
                 case Common::PageType::RasterizerCachedMemory:
                 case Common::PageType::DebugMemory:
@@ -442,13 +442,13 @@ struct Memory::Impl {
                     current_page_table->entries[vaddr >> CITRON_PAGEBITS].pointer.Store(0, Common::PageType::DebugMemory);
                     break;
                 default:
-                    UNREACHABLE();
+                    std::unreachable();
                 }
             } else {
                 // Switch page type to non-debug if now non-debug
                 switch (page_type) {
                 case Common::PageType::Unmapped:
-                    UNREACHABLE_MSG("Attempted to mark unmapped pages as non-debug");
+                    std::unreachable(); //("Attempted to mark unmapped pages as non-debug");
                     break;
                 case Common::PageType::RasterizerCachedMemory:
                 case Common::PageType::Memory:
@@ -460,7 +460,7 @@ struct Memory::Impl {
                     break;
                 }
                 default:
-                    UNREACHABLE();
+                    std::unreachable();
                 }
             }
         }
@@ -517,7 +517,7 @@ struct Memory::Impl {
                     // that this area is already marked as cached.
                     break;
                 default:
-                    UNREACHABLE();
+                    std::unreachable();
                 }
             } else {
                 // Switch page type to uncached if now uncached
@@ -543,7 +543,7 @@ struct Memory::Impl {
                     break;
                 }
                 default:
-                    UNREACHABLE();
+                    std::unreachable();
                 }
             }
         }
@@ -619,7 +619,7 @@ struct Memory::Impl {
                     return nullptr;
                 }
                 default:
-                    UNREACHABLE();
+                    std::unreachable();
                 }
                 return nullptr;
             }

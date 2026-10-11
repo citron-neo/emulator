@@ -8,13 +8,13 @@ namespace Kernel::Svc {
 
 Result GetDebugFutureThreadInfo(Core::System& system, lp64::LastThreadContext* out_context,
                                 uint64_t* out_thread_id, Handle debug_handle, int64_t ns) {
-    UNIMPLEMENTED();
+    assert(false && "unimplemented"); //();
     R_THROW(ResultNotImplemented);
 }
 
 Result GetLastThreadInfo(Core::System& system, lp64::LastThreadContext* out_context,
                          uint64_t* out_tls_address, uint32_t* out_flags) {
-    UNIMPLEMENTED();
+    assert(false && "unimplemented"); //();
     R_THROW(ResultNotImplemented);
 }
 

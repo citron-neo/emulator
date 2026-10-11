@@ -237,7 +237,7 @@ Result KProcess::Initialize(const Svc::CreateProcessParameter& params, KResource
         m_max_process_memory = m_page_table.GetHeapRegionSize() + m_page_table.GetAliasRegionSize();
         break;
     default:
-        UNREACHABLE();
+        std::unreachable();
     }
 
     // Generate random entropy.

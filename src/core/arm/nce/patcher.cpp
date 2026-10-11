@@ -133,7 +133,7 @@ bool Patcher::PatchText(const Kernel::PhysicalMemory& program_image,
 
         // MRS Xn, CNTFRQ_EL0
         if (auto mrs = MRS{inst}; mrs.Verify() && mrs.GetSystemReg() == CntfrqEl0) {
-            UNREACHABLE();
+            std::unreachable();
         }
 
         // MSR TPIDR_EL0, Xn
@@ -192,7 +192,7 @@ bool Patcher::RelocateAndCopy(Common::ProcessAddress load_base,
             CalculateBranchToPatchOffset(mode, patch_size, total_program_size, rel);
         LogBranchRelocation("module_to_patch", branch_offset, rel);
         if (!IsValidBranchOffset(branch_offset)) {
-            UNREACHABLE_MSG("NCE branch relocation must be validated before RelocateAndCopy");
+            std::unreachable(); //("NCE branch relocation must be validated before RelocateAndCopy");
         }
         rc.B(branch_offset);
     };
@@ -203,7 +203,7 @@ bool Patcher::RelocateAndCopy(Common::ProcessAddress load_base,
             CalculateBranchToModuleOffset(mode, patch_size, total_program_size, rel);
         LogBranchRelocation("patch_to_module", branch_offset, rel);
         if (!IsValidBranchOffset(branch_offset)) {
-            UNREACHABLE_MSG("NCE branch relocation must be validated before RelocateAndCopy");
+            std::unreachable(); //("NCE branch relocation must be validated before RelocateAndCopy");
         }
         rc.B(branch_offset);
     };

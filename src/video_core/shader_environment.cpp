@@ -77,7 +77,7 @@ static Shader::TextureType ConvertTextureType(const Tegra::Texture::TICEntry& en
     case Tegra::Texture::TextureType::TextureCubeArray:
         return Shader::TextureType::ColorArrayCube;
     default:
-        UNIMPLEMENTED();
+        assert(false && "unimplemented"); //();
         return Shader::TextureType::Color2D;
     }
 }
@@ -441,7 +441,7 @@ std::optional<Shader::ReplaceConstant> GraphicsEnvironment::GetReplaceConstBuffe
         case Tegra::Engines::Maxwell3D::HLEReplacementAttributeType::DrawID:
             return Shader::ReplaceConstant::DrawID;
         default:
-            UNREACHABLE();
+            std::unreachable();
         }
     }(it->second);
     cbuf_replacements.emplace(key, converted_value);

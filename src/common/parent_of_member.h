@@ -103,7 +103,7 @@ struct OffsetOfCalculator {
             if constexpr (Offset < sizeof(MemberType) - 1) {
                 return OffsetOfImpl(member, cur_union.next_union);
             } else {
-                UNREACHABLE();
+                std::unreachable();
             }
         }
 

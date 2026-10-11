@@ -110,7 +110,7 @@ void Vic::Execute() {
         WriteYUVFrame(std::move(frame), config);
         break;
     default:
-        UNIMPLEMENTED_MSG("Unknown video pixel format {:X}", config.pixel_format.Value());
+        assert(false && "unimplemented"); //("Unknown video pixel format {:X}", config.pixel_format.Value());
         break;
     }
 }

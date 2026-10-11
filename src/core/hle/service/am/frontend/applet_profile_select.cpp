@@ -47,7 +47,7 @@ void ProfileSelect::Initialize() {
         std::memcpy(&config, user_config.data(), sizeof(UiSettings));
         break;
     default:
-        UNIMPLEMENTED_MSG("Unknown profile_select_version = {}", profile_select_version);
+        assert(false && "unimplemented"); //("Unknown profile_select_version = {}", profile_select_version);
         break;
     }
 }
@@ -88,7 +88,7 @@ void ProfileSelect::Execute() {
         };
         break;
     default:
-        UNIMPLEMENTED_MSG("Unknown profile_select_version = {}", profile_select_version);
+        assert(false && "unimplemented"); //("Unknown profile_select_version = {}", profile_select_version);
         break;
     }
 

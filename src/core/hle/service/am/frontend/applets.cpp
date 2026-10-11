@@ -231,7 +231,7 @@ std::shared_ptr<FrontendApplet> FrontendAppletHolder::GetApplet(std::shared_ptr<
     case AppletId::PhotoViewer:
         return std::make_shared<PhotoViewer>(system, applet, mode, *frontend.photo_viewer);
     default:
-        UNIMPLEMENTED_MSG(
+        assert(false && "unimplemented"); //(
             "No backend implementation exists for applet_id={:02X}! Falling back to stub applet.",
             static_cast<u8>(id));
         return std::make_shared<StubApplet>(system, applet, id, mode);

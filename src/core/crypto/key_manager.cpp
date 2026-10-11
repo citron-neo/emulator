@@ -133,7 +133,7 @@ u64 GetSignatureTypeDataSize(SignatureType type) {
     case SignatureType::ECDSA_SHA256:
         return 0x3C;
     }
-    UNREACHABLE();
+    std::unreachable();
 }
 
 u64 GetSignatureTypePaddingSize(SignatureType type) {
@@ -147,7 +147,7 @@ u64 GetSignatureTypePaddingSize(SignatureType type) {
     case SignatureType::ECDSA_SHA256:
         return 0x40;
     }
-    UNREACHABLE();
+    std::unreachable();
 }
 
 bool Ticket::IsValid() const {

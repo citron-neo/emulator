@@ -286,7 +286,7 @@ void BufferQueueConsumer::Transact(u32 code, std::span<const u8> parcel_data,
 
         // TODO: can't write this directly, needs a flattener for the sp<GraphicBuffer>
         // parcel_out.WriteFlattened(item);
-        UNREACHABLE();
+        std::unreachable();
     }
     case TransactionId::ReleaseBuffer: {
         const s32 slot = parcel_in.Read<s32>();

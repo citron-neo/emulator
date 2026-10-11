@@ -32,7 +32,7 @@ Result IApplicationProxyService::OpenApplicationProxy(
             system, applet, process_handle.Get(), m_window_system);
         R_SUCCEED();
     } else {
-        UNIMPLEMENTED();
+        assert(false && "unimplemented"); //();
         R_THROW(ResultUnknown);
     }
 }

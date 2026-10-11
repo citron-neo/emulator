@@ -73,7 +73,7 @@ StaticService::StaticService(Core::System& system_,
                m_setup_info.can_write_steady_clock && !m_setup_info.can_write_uninitialized_clock) {
         m_time_m->GetStaticServiceAsRepair(&m_wrapped_service);
     } else {
-        UNREACHABLE();
+        std::unreachable();
     }
 
     auto res = m_wrapped_service->GetTimeZoneService(&m_time_zone);

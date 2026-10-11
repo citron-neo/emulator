@@ -257,7 +257,7 @@ static PixelFormat ByteSizeToFormat(u32 bytes_per_pixel) {
     case 16:
         return PixelFormat::R32G32B32A32_UINT;
     default:
-        UNIMPLEMENTED();
+        assert(false && "unimplemented"); //();
         return PixelFormat::Invalid;
     }
 }

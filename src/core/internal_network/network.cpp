@@ -87,7 +87,7 @@ sockaddr TranslateFromSockAddrIn(SockAddrIn input) {
         result.sin_family = AF_INET;
         break;
     default:
-        UNIMPLEMENTED_MSG("Unhandled sockaddr family={}", input.family);
+        assert(false && "unimplemented"); //("Unhandled sockaddr family={}", input.family);
         result.sin_family = AF_INET;
         break;
     }
@@ -165,7 +165,7 @@ Errno TranslateNativeError(int e, CallType call_type = CallType::Other) {
     case WSAENOPROTOOPT:
         return Errno::INVAL;
     default:
-        UNIMPLEMENTED_MSG("Unimplemented errno={}", e);
+        assert(false && "unimplemented"); //("Unimplemented errno={}", e);
         return Errno::OTHER;
     }
 }
@@ -227,7 +227,7 @@ sockaddr TranslateFromSockAddrIn(SockAddrIn input) {
         result.sin_family = AF_INET;
         break;
     default:
-        UNIMPLEMENTED_MSG("Unhandled sockaddr family={}", input.family);
+        assert(false && "unimplemented"); //("Unhandled sockaddr family={}", input.family);
         result.sin_family = AF_INET;
         break;
     }
@@ -310,7 +310,7 @@ Errno TranslateNativeError(int e, CallType call_type = CallType::Other) {
     case ENOPROTOOPT:
         return Errno::INVAL;
     default:
-        UNIMPLEMENTED_MSG("Unimplemented errno={} ({})", e, strerror(e));
+        assert(false && "unimplemented"); //("Unimplemented errno={} ({})", e, strerror(e));
         return Errno::OTHER;
     }
 }
@@ -397,7 +397,7 @@ Domain TranslateDomainFromNative(int domain) {
         return Domain::INET6;
 #endif
     default:
-        UNIMPLEMENTED_MSG("Unhandled domain={}", domain);
+        assert(false && "unimplemented"); //("Unhandled domain={}", domain);
         return Domain::INET;
     }
 }
@@ -411,7 +411,7 @@ int TranslateDomainToNative(Domain domain) {
     case Domain::INET6:
         return AF_INET6;
     default:
-        UNIMPLEMENTED_MSG("Unimplemented domain={}", domain);
+        assert(false && "unimplemented"); //("Unimplemented domain={}", domain);
         return 0;
     }
 }
@@ -429,7 +429,7 @@ Type TranslateTypeFromNative(int type) {
     case SOCK_SEQPACKET:
         return Type::SEQPACKET;
     default:
-        UNIMPLEMENTED_MSG("Unimplemented type={}", type);
+        assert(false && "unimplemented"); //("Unimplemented type={}", type);
         return Type::STREAM;
     }
 }
@@ -445,7 +445,7 @@ int TranslateTypeToNative(Type type) {
     case Type::RAW:
         return SOCK_RAW;
     default:
-        UNIMPLEMENTED_MSG("Unimplemented type={}", type);
+        assert(false && "unimplemented"); //("Unimplemented type={}", type);
         return 0;
     }
 }
@@ -459,7 +459,7 @@ Protocol TranslateProtocolFromNative(int protocol) {
     case IPPROTO_UDP:
         return Protocol::UDP;
     default:
-        UNIMPLEMENTED_MSG("Unimplemented protocol={}", protocol);
+        assert(false && "unimplemented"); //("Unimplemented protocol={}", protocol);
         return Protocol::Unspecified;
     }
 }
@@ -473,7 +473,7 @@ int TranslateProtocolToNative(Protocol protocol) {
     case Protocol::UDP:
         return IPPROTO_UDP;
     default:
-        UNIMPLEMENTED_MSG("Unimplemented protocol={}", protocol);
+        assert(false && "unimplemented"); //("Unimplemented protocol={}", protocol);
         return 0;
     }
 }
@@ -806,7 +806,7 @@ Errno Socket::Shutdown(ShutdownHow how) {
         host_how = SD_BOTH;
         break;
     default:
-        UNIMPLEMENTED_MSG("Unimplemented flag how={}", how);
+        assert(false && "unimplemented"); //("Unimplemented flag how={}", how);
         return Errno::SUCCESS;
     }
     if (shutdown(fd, host_how) != SOCKET_ERROR) {

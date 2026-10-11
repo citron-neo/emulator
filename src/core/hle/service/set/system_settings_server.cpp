@@ -412,7 +412,7 @@ bool ISystemSettingsServer::LoadSettingsFile(std::filesystem::path& path, auto&&
     } else if constexpr (std::is_same_v<SettingsType, SystemSettings>) {
         file.read(reinterpret_cast<char*>(&m_system_settings), sizeof(SettingsType));
     } else {
-        UNREACHABLE();
+        std::unreachable();
     }
     file.close();
 
@@ -450,7 +450,7 @@ bool ISystemSettingsServer::StoreSettingsFile(std::filesystem::path& path, auto&
     } else if constexpr (std::is_same_v<settings_type, SystemSettings>) {
         file.write(reinterpret_cast<const char*>(&m_system_settings), sizeof(settings_type));
     } else {
-        UNREACHABLE();
+        std::unreachable();
     }
     file.close();
 

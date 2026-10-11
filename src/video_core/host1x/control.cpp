@@ -21,7 +21,7 @@ void Control::ProcessMethod(Method method, u32 argument) {
         Execute(argument);
         break;
     default:
-        UNIMPLEMENTED_MSG("Control method 0x{:X}", static_cast<u32>(method));
+        assert(false && "unimplemented"); //("Control method 0x{:X}", static_cast<u32>(method));
         break;
     }
 }

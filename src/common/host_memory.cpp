@@ -204,7 +204,7 @@ public:
         } else if (!read && !write) {
             new_flags = PAGE_NOACCESS;
         } else {
-            UNIMPLEMENTED_MSG("Protection flag combination read={} write={}", read, write);
+            assert(false && "unimplemented"); //("Protection flag combination read={} write={}", read, write);
         }
         const size_t virtual_end = virtual_offset + length;
 
@@ -223,7 +223,7 @@ public:
 
     void EnableDirectMappedAddress() {
         // TODO
-        UNREACHABLE();
+        std::unreachable();
     }
 
     const size_t backing_size; ///< Size of the backing memory in bytes

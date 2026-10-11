@@ -44,7 +44,7 @@ Errno Translate(Network::Errno value) {
         // Map OTHER to INVAL as a reasonable default for unknown errors
         return Errno::INVAL;
     default:
-        UNIMPLEMENTED_MSG("Unimplemented errno={}", value);
+        assert(false && "unimplemented"); //("Unimplemented errno={}", value);
         return Errno::INVAL;
     }
 }
@@ -88,7 +88,7 @@ GetAddrInfoError Translate(Network::GetAddrInfoError error) {
     case Network::GetAddrInfoError::OTHER:
         return GetAddrInfoError::OTHER;
     default:
-        UNIMPLEMENTED_MSG("Unimplemented GetAddrInfoError={}", error);
+        assert(false && "unimplemented"); //("Unimplemented GetAddrInfoError={}", error);
         return GetAddrInfoError::OTHER;
     }
 }
@@ -140,7 +140,7 @@ Network::Domain Translate(Domain domain) {
     case Domain::INET6:
         return Network::Domain::INET6;
     default:
-        UNIMPLEMENTED_MSG("Unimplemented domain={}", domain);
+        assert(false && "unimplemented"); //("Unimplemented domain={}", domain);
         return {};
     }
 }
@@ -154,7 +154,7 @@ Domain Translate(Network::Domain domain) {
     case Network::Domain::INET6:
         return Domain::INET6;
     default:
-        UNIMPLEMENTED_MSG("Unimplemented domain={}", domain);
+        assert(false && "unimplemented"); //("Unimplemented domain={}", domain);
         return {};
     }
 }
@@ -172,7 +172,7 @@ Network::Type Translate(Type type) {
     case Type::SEQPACKET:
         return Network::Type::SEQPACKET;
     default:
-        UNIMPLEMENTED_MSG("Unimplemented type={}", type);
+        assert(false && "unimplemented"); //("Unimplemented type={}", type);
         return Network::Type{};
     }
 }
@@ -190,7 +190,7 @@ Type Translate(Network::Type type) {
     case Network::Type::SEQPACKET:
         return Type::SEQPACKET;
     default:
-        UNIMPLEMENTED_MSG("Unimplemented type={}", type);
+        assert(false && "unimplemented"); //("Unimplemented type={}", type);
         return Type{};
     }
 }
@@ -204,7 +204,7 @@ Network::Protocol Translate(Protocol protocol) {
     case Protocol::UDP:
         return Network::Protocol::UDP;
     default:
-        UNIMPLEMENTED_MSG("Unimplemented protocol={}", protocol);
+        assert(false && "unimplemented"); //("Unimplemented protocol={}", protocol);
         return Network::Protocol::Unspecified;
     }
 }
@@ -218,7 +218,7 @@ Protocol Translate(Network::Protocol protocol) {
     case Network::Protocol::UDP:
         return Protocol::UDP;
     default:
-        UNIMPLEMENTED_MSG("Unimplemented protocol={}", protocol);
+        assert(false && "unimplemented"); //("Unimplemented protocol={}", protocol);
         return Protocol::Unspecified;
     }
 }
@@ -305,7 +305,7 @@ Network::ShutdownHow Translate(ShutdownHow how) {
     case ShutdownHow::RDWR:
         return Network::ShutdownHow::RDWR;
     default:
-        UNIMPLEMENTED_MSG("Unimplemented how={}", how);
+        assert(false && "unimplemented"); //("Unimplemented how={}", how);
         return {};
     }
 }

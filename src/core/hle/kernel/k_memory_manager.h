@@ -247,7 +247,7 @@ private:
         }
 
         void DumpFreeList() const {
-            UNIMPLEMENTED();
+            assert(false && "unimplemented"); //();
         }
 
         constexpr size_t GetPageOffset(KPhysicalAddress address) const {

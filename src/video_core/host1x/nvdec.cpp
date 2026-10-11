@@ -40,7 +40,7 @@ void Nvdec::Execute() {
         codec->Decode();
         break;
     default:
-        UNIMPLEMENTED_MSG("Codec {}", codec->GetCurrentCodecName());
+        assert(false && "unimplemented"); //("Codec {}", codec->GetCurrentCodecName());
         break;
     }
 }

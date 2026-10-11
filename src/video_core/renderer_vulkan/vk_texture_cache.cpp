@@ -1157,7 +1157,7 @@ void TextureCacheRuntime::BlitImage(Framebuffer* dst_framebuffer, ImageView& dst
     const bool is_dst_msaa = dst.Samples() != VK_SAMPLE_COUNT_1_BIT;
     const bool is_src_msaa = src.Samples() != VK_SAMPLE_COUNT_1_BIT;
     if (aspect_mask != ImageAspectMask(dst.format)) {
-        UNIMPLEMENTED_MSG("Incompatible blit from format {} to {}", src.format, dst.format);
+        assert(false && "unimplemented"); //("Incompatible blit from format {} to {}", src.format, dst.format);
         return;
     }
     if (aspect_mask == VK_IMAGE_ASPECT_COLOR_BIT && !is_src_msaa && !is_dst_msaa) {
@@ -1176,7 +1176,7 @@ void TextureCacheRuntime::BlitImage(Framebuffer* dst_framebuffer, ImageView& dst
             case VideoCore::Surface::PixelFormat::D32_FLOAT_S8_UINT:
                 return device.IsBlitDepth32Stencil8Supported();
             default:
-                UNREACHABLE();
+                std::unreachable();
             }
         }();
         if (!can_blit_depth_stencil) {
@@ -1325,7 +1325,7 @@ void TextureCacheRuntime::ConvertImage(Framebuffer* dst, ImageView& dst_view, Im
         if (src_view.format == PixelFormat::A8B8G8R8_UNORM ||
             src_view.format == PixelFormat::B8G8R8A8_UNORM) {
             if (!device.IsExtShaderStencilExportSupported()) {
-                UNIMPLEMENTED_MSG(
+                assert(false && "unimplemented"); //(
                     "ABGR8 to D24S8 conversion requires VK_EXT_shader_stencil_export, which is "
                     "unsupported on this device");
             }
@@ -1346,7 +1346,7 @@ void TextureCacheRuntime::ConvertImage(Framebuffer* dst, ImageView& dst_view, Im
     default:
         break;
     }
-    UNIMPLEMENTED_MSG("Unimplemented format copy from {} to {}", src_view.format, dst_view.format);
+    assert(false && "unimplemented"); //("Unimplemented format copy from {} to {}", src_view.format, dst_view.format);
 }
 
 void TextureCacheRuntime::CopyImage(Image& dst, Image& src,
@@ -1449,7 +1449,7 @@ void TextureCacheRuntime::CopyImageMSAA(Image& dst, Image& src,
     if (msaa_copy_pass) {
         return msaa_copy_pass->CopyImage(dst, src, copies, msaa_to_non_msaa);
     }
-    UNIMPLEMENTED_MSG("Copying images with different samples is not supported.");
+    assert(false && "unimplemented"); //("Copying images with different samples is not supported.");
 }
 
 u64 TextureCacheRuntime::GetDeviceLocalMemory() const {

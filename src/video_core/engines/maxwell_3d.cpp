@@ -591,16 +591,16 @@ void Maxwell3D::ProcessQueryGet() {
     case Regs::ReportSemaphore::Operation::Acquire:
         // TODO(Blinkhawk): Under this operation, the GPU waits for the CPU to write a value that
         // matches the current payload.
-        UNIMPLEMENTED_MSG("Unimplemented query operation ACQUIRE");
+        assert(false && "unimplemented"); //("Unimplemented query operation ACQUIRE");
         break;
     case Regs::ReportSemaphore::Operation::ReportOnly:
         rasterizer->Query(sequence_address, query_type, flags, payload, subreport);
         break;
     case Regs::ReportSemaphore::Operation::Trap:
-        UNIMPLEMENTED_MSG("Unimplemented query operation TRAP");
+        assert(false && "unimplemented"); //("Unimplemented query operation TRAP");
         break;
     default:
-        UNIMPLEMENTED_MSG("Unknown query operation");
+        assert(false && "unimplemented"); //("Unknown query operation");
         break;
     }
 }
@@ -649,7 +649,7 @@ void Maxwell3D::ProcessQueryCondition() {
             break;
         }
         default: {
-            UNIMPLEMENTED_MSG("Uninplemented Condition Mode!");
+            assert(false && "unimplemented"); //("Uninplemented Condition Mode!");
             execute_on = true;
             break;
         }

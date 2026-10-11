@@ -76,7 +76,7 @@ void ServiceFrameworkBase::ReportUnimplementedFunction(HLERequestContext& ctx,
 
     system.GetReporter().SaveUnimplementedFunctionReport(ctx, ctx.GetCommand(), function_name,
                                                          service_name);
-    UNIMPLEMENTED_MSG("Unknown / unimplemented {}", fmt::to_string(buf));
+    assert(false && "unimplemented"); //("Unknown / unimplemented {}", fmt::to_string(buf));
     if (Settings::values.use_auto_stub) {
         LOG_WARNING(Service, "Using auto stub fallback!");
         IPC::ResponseBuilder rb{ctx, 2};
@@ -140,7 +140,7 @@ Result ServiceFrameworkBase::HandleSyncRequest(Kernel::KServerSession& session,
             break;
         }
 
-        UNIMPLEMENTED_MSG("command_type={}", ctx.GetCommandType());
+        assert(false && "unimplemented"); //("command_type={}", ctx.GetCommandType());
         break;
     }
 

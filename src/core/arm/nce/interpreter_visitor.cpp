@@ -124,7 +124,7 @@ u64 InterpreterVisitor::ExtendReg(size_t bitsize, Reg reg, Imm<3> option, u8 shi
         break;
     }
     default:
-        UNREACHABLE();
+        std::unreachable();
     }
 
     if (len < bitsize && signed_extend) {
@@ -195,7 +195,7 @@ bool InterpreterVisitor::Ordered(size_t size, bool L, bool o0, Reg Rn, Reg Rt) {
         break;
     }
     default:
-        UNREACHABLE();
+        std::unreachable();
     }
 
     return true;
@@ -319,7 +319,7 @@ bool InterpreterVisitor::STP_LDP_gen(Imm<2> opc, bool not_postindex, bool wback,
         break;
     }
     default:
-        UNREACHABLE();
+        std::unreachable();
     }
 
     if (wback) {
@@ -384,7 +384,7 @@ bool InterpreterVisitor::STP_LDP_fpsimd(Imm<2> opc, bool not_postindex, bool wba
         break;
     }
     default:
-        UNREACHABLE();
+        std::unreachable();
     }
 
     if (wback) {
@@ -534,7 +534,7 @@ bool InterpreterVisitor::SIMDImmediate(bool wback, bool postindex, size_t scale,
         break;
     }
     default:
-        UNREACHABLE();
+        std::unreachable();
     }
 
     if (wback) {
@@ -755,7 +755,7 @@ bool InterpreterVisitor::SIMDOffset(size_t scale, u8 shift, Imm<1> opc_0, Reg Rm
         break;
     }
     default:
-        UNREACHABLE();
+        std::unreachable();
     }
 
     return true;

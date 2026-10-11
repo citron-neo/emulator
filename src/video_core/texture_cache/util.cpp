@@ -781,7 +781,7 @@ ImageViewType RenderTargetImageViewType(const ImageInfo& info) noexcept {
     case ImageType::Linear:
         return ImageViewType::e2D;
     default:
-        UNIMPLEMENTED_MSG("Unimplemented image type={}", static_cast<int>(info.type));
+        assert(false && "unimplemented"); //("Unimplemented image type={}", static_cast<int>(info.type));
         return ImageViewType{};
     }
 }

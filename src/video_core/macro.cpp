@@ -737,7 +737,7 @@ bool MacroInterpreterImpl::Step(Engines::Maxwell3D& maxwell3d, bool is_delay_slo
         break;
     }
     default:
-        UNIMPLEMENTED_MSG("Unimplemented macro operation {}", opcode.operation.Value());
+        assert(false && "unimplemented"); //("Unimplemented macro operation {}", opcode.operation.Value());
         break;
     }
 
@@ -786,7 +786,7 @@ u32 MacroInterpreterImpl::GetALUResult(Macro::ALUOperation operation, u32 src_a,
         return ~(src_a & src_b);
 
     default:
-        UNIMPLEMENTED_MSG("Unimplemented ALU operation {}", operation);
+        assert(false && "unimplemented"); //("Unimplemented ALU operation {}", operation);
         return 0;
     }
 }
@@ -835,7 +835,7 @@ void MacroInterpreterImpl::ProcessResult(Engines::Maxwell3D& maxwell3d, Macro::R
         Send(maxwell3d, (result >> 12) & 0b111111);
         break;
     default:
-        UNIMPLEMENTED_MSG("Unimplemented result operation {}", operation);
+        assert(false && "unimplemented"); //("Unimplemented result operation {}", operation);
         break;
     }
 }
@@ -848,7 +848,7 @@ bool MacroInterpreterImpl::EvaluateBranchCondition(Macro::BranchCondition cond, 
     case Macro::BranchCondition::NotZero:
         return value != 0;
     }
-    UNREACHABLE();
+    std::unreachable();
 }
 
 /// Reads an opcode at the current program counter location.
@@ -1134,7 +1134,7 @@ void MacroJITx64Impl::Compile_ALU(Macro::Opcode opcode) {
         }
         break;
     default:
-        UNIMPLEMENTED_MSG("Unimplemented ALU operation {}", opcode.alu_operation.Value());
+        assert(false && "unimplemented"); //("Unimplemented ALU operation {}", opcode.alu_operation.Value());
         break;
     }
     Compile_ProcessResult(opcode.result_operation, opcode.dst);
@@ -1442,7 +1442,7 @@ bool MacroJITx64Impl::Compile_NextInstruction() {
         Compile_Branch(opcode);
         break;
     default:
-        UNIMPLEMENTED_MSG("Unimplemented opcode {}", opcode.operation.Value());
+        assert(false && "unimplemented"); //("Unimplemented opcode {}", opcode.operation.Value());
         break;
     }
 
@@ -1560,7 +1560,7 @@ void MacroJITx64Impl::Compile_ProcessResult(Macro::ResultOperation operation, u3
         Compile_Send(RESULT);
         break;
     default:
-        UNIMPLEMENTED_MSG("Unimplemented macro operation {}", operation);
+        assert(false && "unimplemented"); //("Unimplemented macro operation {}", operation);
         break;
     }
 }

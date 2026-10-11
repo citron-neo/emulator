@@ -35,7 +35,7 @@ bool IsConnectionBased(Type type) {
     case Type::DGRAM:
         return false;
     default:
-        UNIMPLEMENTED_MSG("Unimplemented type={}", type);
+        assert(false && "unimplemented"); //("Unimplemented type={}", type);
         return false;
     }
 }
@@ -635,9 +635,9 @@ void BSD::ExecuteWork(HLERequestContext& ctx, Work work) {
 
 std::pair<s32, Errno> BSD::SocketImpl(Domain domain, Type type, Protocol protocol) {
     if (type == Type::SEQPACKET) {
-        UNIMPLEMENTED_MSG("SOCK_SEQPACKET errno management");
+        assert(false && "unimplemented"); //("SOCK_SEQPACKET errno management");
     } else if (type == Type::RAW && (domain != Domain::INET || protocol != Protocol::ICMP)) {
-        UNIMPLEMENTED_MSG("SOCK_RAW errno management");
+        assert(false && "unimplemented"); //("SOCK_RAW errno management");
     }
 
     [[maybe_unused]] const bool unk_flag = (static_cast<u32>(type) & 0x20000000) != 0;
@@ -899,7 +899,7 @@ std::pair<s32, Errno> BSD::FcntlImpl(s32 fd, FcntlCmd cmd, s32 arg) {
         return {0, Errno::SUCCESS};
     }
     default:
-        UNIMPLEMENTED_MSG("Unimplemented cmd={}", cmd);
+        assert(false && "unimplemented"); //("Unimplemented cmd={}", cmd);
         return {-1, Errno::SUCCESS};
     }
 }

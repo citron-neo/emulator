@@ -54,7 +54,7 @@ s32 OpenContentUri(const std::string& filepath, OpenMode openmode) {
         mode = "r";
         break;
     default:
-        UNIMPLEMENTED();
+        assert(false && "unimplemented"); //();
         return -1;
     }
     auto env = Common::Android::GetEnvForThread();

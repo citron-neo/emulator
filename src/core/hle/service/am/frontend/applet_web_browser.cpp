@@ -303,7 +303,7 @@ Result WebBrowser::GetStatus() const {
 }
 
 void WebBrowser::ExecuteInteractive() {
-    UNIMPLEMENTED_MSG("WebSession is not implemented");
+    assert(false && "unimplemented"); //("WebSession is not implemented");
 }
 
 void WebBrowser::Execute() {

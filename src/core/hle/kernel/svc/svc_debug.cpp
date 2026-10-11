@@ -7,7 +7,7 @@
 namespace Kernel::Svc {
 
 Result DebugActiveProcess(Core::System& system, Handle* out_handle, uint64_t process_id) {
-    UNIMPLEMENTED();
+    assert(false && "unimplemented"); //();
     R_THROW(ResultNotImplemented);
 }
 
@@ -17,60 +17,60 @@ Result BreakDebugProcess(Core::System& system, Handle debug_handle) {
 }
 
 Result TerminateDebugProcess(Core::System& system, Handle debug_handle) {
-    UNIMPLEMENTED();
+    assert(false && "unimplemented"); //();
     R_THROW(ResultNotImplemented);
 }
 
 Result GetDebugEvent(Core::System& system, uint64_t out_info, Handle debug_handle) {
-    UNIMPLEMENTED();
+    assert(false && "unimplemented"); //();
     R_THROW(ResultNotImplemented);
 }
 
 Result ContinueDebugEvent(Core::System& system, Handle debug_handle, uint32_t flags,
                           uint64_t user_thread_ids, int32_t num_thread_ids) {
-    UNIMPLEMENTED();
+    assert(false && "unimplemented"); //();
     R_THROW(ResultNotImplemented);
 }
 
 Result GetDebugThreadContext(Core::System& system, uint64_t out_context, Handle debug_handle,
                              uint64_t thread_id, uint32_t context_flags) {
-    UNIMPLEMENTED();
+    assert(false && "unimplemented"); //();
     R_THROW(ResultNotImplemented);
 }
 
 Result SetDebugThreadContext(Core::System& system, Handle debug_handle, uint64_t thread_id,
                              uint64_t user_context, uint32_t context_flags) {
-    UNIMPLEMENTED();
+    assert(false && "unimplemented"); //();
     R_THROW(ResultNotImplemented);
 }
 
 Result QueryDebugProcessMemory(Core::System& system, uint64_t out_memory_info,
                                PageInfo* out_page_info, Handle process_handle, uint64_t address) {
-    UNIMPLEMENTED();
+    assert(false && "unimplemented"); //();
     R_THROW(ResultNotImplemented);
 }
 
 Result ReadDebugProcessMemory(Core::System& system, uint64_t buffer, Handle debug_handle,
                               uint64_t address, uint64_t size) {
-    UNIMPLEMENTED();
+    assert(false && "unimplemented"); //();
     R_THROW(ResultNotImplemented);
 }
 
 Result WriteDebugProcessMemory(Core::System& system, Handle debug_handle, uint64_t buffer,
                                uint64_t address, uint64_t size) {
-    UNIMPLEMENTED();
+    assert(false && "unimplemented"); //();
     R_THROW(ResultNotImplemented);
 }
 
 Result SetHardwareBreakPoint(Core::System& system, HardwareBreakPointRegisterName name,
                              uint64_t flags, uint64_t value) {
-    UNIMPLEMENTED();
+    assert(false && "unimplemented"); //();
     R_THROW(ResultNotImplemented);
 }
 
 Result GetDebugThreadParam(Core::System& system, uint64_t* out_64, uint32_t* out_32,
                            Handle debug_handle, uint64_t thread_id, DebugThreadParam param) {
-    UNIMPLEMENTED();
+    assert(false && "unimplemented"); //();
     R_THROW(ResultNotImplemented);
 }
 

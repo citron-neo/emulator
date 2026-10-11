@@ -534,7 +534,7 @@ void KPageTableBase::Finalize() {
 
     // Free any unsafe mapped memory.
     if (m_mapped_unsafe_physical_memory) {
-        UNIMPLEMENTED();
+        assert(false && "unimplemented"); //();
     }
 
     // Release any insecure mapped memory.
@@ -589,7 +589,7 @@ KProcessAddress KPageTableBase::GetRegionAddress(Svc::MemoryState state) const {
     case Svc::MemoryState::CodeData:
         return m_code_region_start;
     default:
-        UNREACHABLE();
+        std::unreachable();
     }
 }
 
@@ -625,7 +625,7 @@ size_t KPageTableBase::GetRegionSize(Svc::MemoryState state) const {
     case Svc::MemoryState::CodeData:
         return m_code_region_end - m_code_region_start;
     default:
-        UNREACHABLE();
+        std::unreachable();
     }
 }
 
@@ -2065,7 +2065,7 @@ Result KPageTableBase::SetProcessMemoryPermission(KProcessAddress addr, size_t s
             new_state = KMemoryState::AliasCodeData;
             break;
         default:
-            UNREACHABLE();
+            std::unreachable();
         }
     }
 
@@ -5871,12 +5871,12 @@ Result KPageTableBase::UnmapPhysicalMemory(KProcessAddress address, size_t size)
 }
 
 Result KPageTableBase::MapPhysicalMemoryUnsafe(KProcessAddress address, size_t size) {
-    UNIMPLEMENTED();
+    assert(false && "unimplemented"); //();
     R_THROW(ResultNotImplemented);
 }
 
 Result KPageTableBase::UnmapPhysicalMemoryUnsafe(KProcessAddress address, size_t size) {
-    UNIMPLEMENTED();
+    assert(false && "unimplemented"); //();
     R_THROW(ResultNotImplemented);
 }
 
@@ -6061,7 +6061,7 @@ Result KPageTableBase::Operate(PageLinkedList* page_list, KProcessAddress virt_a
         R_SUCCEED();
     }
     default:
-        UNREACHABLE();
+        std::unreachable();
     }
 }
 
@@ -6102,7 +6102,7 @@ Result KPageTableBase::Operate(PageLinkedList* page_list, KProcessAddress virt_a
         R_SUCCEED();
     }
     default:
-        UNREACHABLE();
+        std::unreachable();
     }
 }
 

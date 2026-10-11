@@ -163,7 +163,7 @@ protected:
         case Svc::CreateProcessFlag::AddressSpace32BitWithoutAlias:
             return 32;
         default:
-            UNREACHABLE();
+            std::unreachable();
         }
     }
 

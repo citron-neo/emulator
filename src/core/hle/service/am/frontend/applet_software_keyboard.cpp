@@ -31,7 +31,7 @@ constexpr const char* GetTextCheckResultName(SwkbdTextCheckResult text_check_res
     case SwkbdTextCheckResult::Silent:
         return "Silent";
     default:
-        UNIMPLEMENTED_MSG("Unknown TextCheckResult={}", text_check_result);
+        assert(false && "unimplemented"); //("Unknown TextCheckResult={}", text_check_result);
         return "Unknown";
     }
 }
@@ -363,7 +363,7 @@ void SoftwareKeyboard::ProcessInlineKeyboardRequest() {
         RequestSetMovedCursorV2Flag(request_data);
         break;
     default:
-        UNIMPLEMENTED_MSG("Unknown SwkbdRequestCommand={}", request_command);
+        assert(false && "unimplemented"); //("Unknown SwkbdRequestCommand={}", request_command);
         break;
     }
 }
@@ -480,7 +480,7 @@ void SoftwareKeyboard::SendReply(SwkbdReplyType reply_type) {
         ReplyMovedCursorUtf8V2();
         break;
     default:
-        UNIMPLEMENTED_MSG("Unknown SwkbdReplyType={}", reply_type);
+        assert(false && "unimplemented"); //("Unknown SwkbdReplyType={}", reply_type);
         ReplyDefault();
         break;
     }
@@ -834,7 +834,7 @@ void SoftwareKeyboard::RequestCalc(const std::vector<u8>& request_data) {
         RequestCalcNew();
         break;
     default:
-        UNIMPLEMENTED_MSG("Unknown SwkbdCalcArg size={}", swkbd_calc_arg_common.calc_arg_size);
+        assert(false && "unimplemented"); //("Unknown SwkbdCalcArg size={}", swkbd_calc_arg_common.calc_arg_size);
         ASSERT(request_data.size() >=
                sizeof(SwkbdRequestCommand) + sizeof(SwkbdCalcArgCommon) + sizeof(SwkbdCalcArgNew));
         std::memcpy(&swkbd_calc_arg_new,

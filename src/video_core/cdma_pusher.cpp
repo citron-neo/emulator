@@ -61,7 +61,7 @@ void CDmaPusher::ProcessEntries(ChCommandHeaderList&& entries) {
             break;
         }
         default:
-            UNIMPLEMENTED_MSG("ChSubmission mode {} is not implemented!", static_cast<u32>(mode));
+            assert(false && "unimplemented"); //("ChSubmission mode {} is not implemented!", static_cast<u32>(mode));
             break;
         }
     }
@@ -124,7 +124,7 @@ void CDmaPusher::ExecuteCommand(u32 state_offset, u32 data) {
         host1x_processor->ProcessMethod(static_cast<Host1x::Control::Method>(offset), data);
         break;
     default:
-        UNIMPLEMENTED_MSG("Current class not implemented {:X}", static_cast<u32>(current_class));
+        assert(false && "unimplemented"); //("Current class not implemented {:X}", static_cast<u32>(current_class));
         break;
     }
 }
