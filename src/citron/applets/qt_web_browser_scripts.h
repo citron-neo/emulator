@@ -73,9 +73,43 @@ constexpr char LOAD_NX_FONT[] = R"(
 )";
 
 constexpr char FOCUS_LINK_ELEMENT_SCRIPT[] = R"(
-if (document.getElementsByTagName("a").length > 0) {
-    document.getElementsByTagName("a")[0].focus();
-}
+(function() {
+    // Arcropolis' header icons use the Nintendo WebApplet-only `ref` attribute
+    // instead of standard HTML `src`. Translate it for Qt WebEngine.
+    document.querySelectorAll('img[ref]').forEach(function(image) {
+        if (!image.getAttribute('src')) image.setAttribute('src', image.getAttribute('ref'));
+    });
+
+    // Browser zoom otherwise scales the Switch-calibrated stroke until it obscures the fill.
+    var title = document.querySelector('.breadcrumb-list [data-msgid="textbox_id-10002"]');
+    if (title) {
+        title.style.color = 'orangered';
+        title.style.webkitTextStrokeWidth = '1px';
+    }
+
+    // Arcropolis creates menu controls after the document is ready. Retry briefly so
+    // controller/keyboard fallback input has a focused target without a mouse click.
+    function focusFirst() {
+        var item = document.querySelector('.main button:not([disabled])') ||
+                   document.querySelector('button:not([disabled])') ||
+                   document.querySelector('input:not([disabled])') ||
+                   document.querySelector('a[href]:not([tabindex="-1"])');
+        if (item) {
+            // Arcropolis' arrow handlers navigate from `.is-focused`, but register their
+            // focus listener after document injection. Mark the initial item explicitly so
+            // an early focus still has the same state as a user/controller focus event.
+            if (!document.querySelector('.is-focused')) item.classList.add('is-focused');
+            item.focus();
+            return true;
+        }
+        return false;
+    }
+    if (focusFirst()) return;
+    var attempts = 0;
+    var retry = setInterval(function() {
+        if (focusFirst() || ++attempts >= 100) clearInterval(retry);
+    }, 50);
+})();
 )";
 
 constexpr char GAMEPAD_SCRIPT[] = R"(
@@ -92,11 +126,21 @@ window.addEventListener("gamepaddisconnected", function(e) {
 constexpr char WINDOW_NX_SCRIPT[] = R"(
 var end_applet = false;
 var citron_key_callbacks = [];
+// Outgoing window.nx.sendMessage() calls are queued here and drained by the emulator on the
+// GUI thread, which forwards each entry to the guest as interactive-out data. This is what
+// lets pages such as ARCropolis's mod manager actually signal state changes and closure.
+var citron_outgoing_messages = [];
 
 (function() {
     class WindowNX {
         constructor() {
-            citron_key_callbacks[1] = function() { window.history.back(); };
+            citron_key_callbacks[1] = function() {
+                if (window.history.length > 2) {
+                    window.history.back();
+                } else {
+                    window.nx.endApplet();
+                }
+            };
             citron_key_callbacks[2] = function() { window.nx.endApplet(); };
         }
 
@@ -117,7 +161,9 @@ var citron_key_callbacks = [];
         }
 
         sendMessage(message) {
-            console.log("nx.sendMessage is not implemented, message=%s", message);
+            console.log("nx.sendMessage called, message=%s", message);
+
+            citron_outgoing_messages.push(typeof message === "string" ? message : JSON.stringify(message));
         }
 
         setCursorScrollSpeed(scroll_speed) {
