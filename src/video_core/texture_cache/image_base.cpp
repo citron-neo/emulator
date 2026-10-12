@@ -159,7 +159,9 @@ void ImageBase::CheckAliasState() {
 }
 
 bool AddImageAlias(ImageBase& lhs, ImageBase& rhs, ImageId lhs_id, ImageId rhs_id) {
-    static constexpr auto OPTIONS = RelaxedOptions::Size | RelaxedOptions::Format;
+    // Samples relaxed for MSAA/non-MSAA views of the same memory (JoinImages only pairs those).
+    static constexpr auto OPTIONS =
+        RelaxedOptions::Size | RelaxedOptions::Format | RelaxedOptions::Samples;
     assert(lhs.info.type == rhs.info.type);
     std::optional<SubresourceBase> base;
     if (lhs.info.type == ImageType::Linear) {

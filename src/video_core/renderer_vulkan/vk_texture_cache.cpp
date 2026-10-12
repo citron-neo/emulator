@@ -7,6 +7,7 @@
 #include <atomic>
 #include <bit>
 #include <cmath>
+#include <cstring>
 #include <span>
 #include <vector>
 #include <boost/container/small_vector.hpp>
@@ -1446,6 +1447,51 @@ void TextureCacheRuntime::CopyImage(Image& dst, Image& src,
 void TextureCacheRuntime::CopyImageMSAA(Image& dst, Image& src,
                                         std::span<const VideoCommon::ImageCopy> copies) {
     const bool msaa_to_non_msaa = src.info.num_samples > 1 && dst.info.num_samples == 1;
+    // The compute pass is rgba8-only; draw for float/packed color and depth formats.
+    const bool single_layer = std::ranges::all_of(copies, [](const VideoCommon::ImageCopy& copy) {
+        return copy.src_subresource.base_layer == 0 && copy.src_subresource.num_layers == 1 &&
+               copy.dst_subresource.base_layer == 0 && copy.dst_subresource.num_layers == 1;
+    });
+    const auto type = VideoCore::Surface::GetFormatType(dst.info.format);
+    if (single_layer && !VideoCore::Surface::IsPixelFormatInteger(dst.info.format) &&
+        !VideoCore::Surface::IsPixelFormatInteger(src.info.format) &&
+        type != VideoCore::Surface::SurfaceType::Stencil &&
+        type == VideoCore::Surface::GetFormatType(src.info.format)) {
+        TransitionImageLayout(dst);
+        TransitionImageLayout(src);
+        const Image& msaa = msaa_to_non_msaa ? src : dst;
+        const u32 num_samples = static_cast<u32>(msaa.info.num_samples);
+        const auto [samples_x, samples_y] = VideoCommon::SamplesLog2(msaa.info.num_samples);
+        // Normalise extents to MSAA texels, clamped to both images so the draw stays in bounds.
+        const auto mip = [](const VideoCommon::Extent3D& size, s32 level) {
+            return std::pair<u32, u32>{std::max(size.width >> level, 1U),
+                                       std::max(size.height >> level, 1U)};
+        };
+        boost::container::small_vector<VideoCommon::ImageCopy, 16> msaa_copies;
+        for (VideoCommon::ImageCopy copy : copies) {
+            const auto [src_w, src_h] = mip(src.info.size, copy.src_subresource.base_level);
+            const auto [dst_w, dst_h] = mip(dst.info.size, copy.dst_subresource.base_level);
+            u32 width = copy.extent.width;
+            u32 height = copy.extent.height;
+            if (msaa_to_non_msaa) {
+                width >>= samples_x;
+                height >>= samples_y;
+            }
+            width = std::min({width, src_w >> samples_x, dst_w >> samples_x});
+            height = std::min({height, src_h >> samples_y, dst_h >> samples_y});
+            if (width == 0 || height == 0) {
+                continue;
+            }
+            copy.extent.width = width;
+            copy.extent.height = height;
+            copy.extent.depth = 1;
+            msaa_copies.push_back(copy);
+        }
+        blit_image_helper.CopyMSAA(render_pass_cache, dst.Handle(), dst.info.format,
+                                   src.Handle(), src.info.format, num_samples, msaa_copies,
+                                   msaa_to_non_msaa);
+        return;
+    }
     if (msaa_copy_pass) {
         return msaa_copy_pass->CopyImage(dst, src, copies, msaa_to_non_msaa);
     }
@@ -1468,7 +1514,11 @@ bool TextureCacheRuntime::CanReportMemoryUsage() const {
     return device.CanReportMemoryUsage();
 }
 
-void TextureCacheRuntime::TickFrame() {}
+void TextureCacheRuntime::TickFrame() {
+    while (!pending_msaa_images.empty() && scheduler.IsFree(pending_msaa_images.front().first)) {
+        pending_msaa_images.pop_front();
+    }
+}
 
 Image::Image(TextureCacheRuntime& runtime_, const ImageInfo& info_, GPUVAddr gpu_addr_,
              VAddr cpu_addr_)
@@ -1530,6 +1580,13 @@ void Image::UploadMemory(VkBuffer buffer, VkDeviceSize offset,
     if (is_rescaled) {
         ScaleDown(true);
     }
+    if (info.num_samples > 1) {
+        UploadMemoryMSAA(buffer, offset, copies, {});
+        if (is_rescaled) {
+            ScaleUp();
+        }
+        return;
+    }
     scheduler->RequestOutsideRenderPassOperationContext();
     auto vk_copies = TransformBufferImageCopies(copies, offset, aspect_mask);
     const VkBuffer src_buffer = buffer;
@@ -1545,8 +1602,175 @@ void Image::UploadMemory(VkBuffer buffer, VkDeviceSize offset,
     }
 }
 
-void Image::UploadMemory(const StagingBufferRef& map, std::span<const BufferImageCopy> copies) {
+void Image::UploadMemory(const StagingBufferRef& map, std::span<const BufferImageCopy> copies,
+                         std::span<const u8> cpu_data) {
+    if (info.num_samples > 1) {
+        const bool is_rescaled = True(flags & ImageFlagBits::Rescaled);
+        if (is_rescaled) {
+            ScaleDown(true);
+        }
+        UploadMemoryMSAA(map.buffer, map.offset, copies, cpu_data);
+        if (is_rescaled) {
+            ScaleUp();
+        }
+        return;
+    }
     UploadMemory(map.buffer, map.offset, copies);
+}
+
+std::optional<VkClearDepthStencilValue> Image::UniformDepthStencilValue(
+    std::span<const VideoCommon::BufferImageCopy> copies, std::span<const u8> mapped) const {
+    if (mapped.empty() || copies.empty()) {
+        return std::nullopt;
+    }
+    std::optional<u32> word;
+    for (const VideoCommon::BufferImageCopy& copy : copies) {
+        if (copy.buffer_offset + copy.buffer_size > mapped.size() || copy.buffer_size % 4 != 0) {
+            return std::nullopt;
+        }
+        const u8* const data = mapped.data() + copy.buffer_offset;
+        for (size_t i = 0; i < copy.buffer_size; i += 4) {
+            u32 value;
+            std::memcpy(&value, data + i, sizeof(value));
+            if (!word) {
+                word = value;
+            } else if (value != *word) {
+                return std::nullopt;
+            }
+        }
+    }
+    if (!word) {
+        return std::nullopt;
+    }
+    const u32 w = *word;
+    switch (info.format) {
+    case PixelFormat::S8_UINT_D24_UNORM:
+        return VkClearDepthStencilValue{static_cast<float>(w >> 8) / 16777215.0f, w & 0xFFU};
+    case PixelFormat::D24_UNORM_S8_UINT:
+        return VkClearDepthStencilValue{static_cast<float>(w & 0xFFFFFFU) / 16777215.0f, w >> 24};
+    case PixelFormat::X8_D24_UNORM:
+        return VkClearDepthStencilValue{static_cast<float>(w & 0xFFFFFFU) / 16777215.0f, 0};
+    case PixelFormat::D32_FLOAT:
+        return VkClearDepthStencilValue{std::bit_cast<float>(w), 0};
+    default:
+        return std::nullopt;
+    }
+}
+
+void Image::UploadMemoryMSAA(VkBuffer buffer, VkDeviceSize offset,
+                             std::span<const VideoCommon::BufferImageCopy> copies,
+                             std::span<const u8> mapped) {
+    if (aspect_mask != VK_IMAGE_ASPECT_COLOR_BIT) {
+        // Guest depth fills (clears) of MSAA depth buffers arrive as uniform data.
+        const std::optional<VkClearDepthStencilValue> clear = UniformDepthStencilValue(copies, mapped);
+        runtime->TransitionImageLayout(*this);
+        if (!clear) {
+            LOG_WARNING(Render_Vulkan, "Non-uniform MSAA depth upload is not supported");
+            return;
+        }
+        const VkImage vk_image = *original_image;
+        const VkImageAspectFlags vk_aspect_mask = aspect_mask;
+        const VkClearDepthStencilValue value = *clear;
+        scheduler->RequestOutsideRenderPassOperationContext();
+        scheduler->Record([vk_image, vk_aspect_mask, value](vk::CommandBuffer cmdbuf) {
+            const VkImageSubresourceRange range{
+                .aspectMask = vk_aspect_mask,
+                .baseMipLevel = 0,
+                .levelCount = VK_REMAINING_MIP_LEVELS,
+                .baseArrayLayer = 0,
+                .layerCount = VK_REMAINING_ARRAY_LAYERS,
+            };
+            const VkImageMemoryBarrier pre{
+                .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+                .pNext = nullptr,
+                .srcAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT |
+                                 VK_ACCESS_SHADER_WRITE_BIT | VK_ACCESS_TRANSFER_WRITE_BIT,
+                .dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT,
+                .oldLayout = VK_IMAGE_LAYOUT_GENERAL,
+                .newLayout = VK_IMAGE_LAYOUT_GENERAL,
+                .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+                .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+                .image = vk_image,
+                .subresourceRange = range,
+            };
+            cmdbuf.PipelineBarrier(VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+                                   VK_PIPELINE_STAGE_TRANSFER_BIT, 0, pre);
+            cmdbuf.ClearDepthStencilImage(vk_image, VK_IMAGE_LAYOUT_GENERAL, value, range);
+            const VkImageMemoryBarrier post{
+                .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+                .pNext = nullptr,
+                .srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT,
+                .dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT |
+                                 VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT |
+                                 VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT,
+                .oldLayout = VK_IMAGE_LAYOUT_GENERAL,
+                .newLayout = VK_IMAGE_LAYOUT_GENERAL,
+                .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+                .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+                .image = vk_image,
+                .subresourceRange = range,
+            };
+            cmdbuf.PipelineBarrier(VK_PIPELINE_STAGE_TRANSFER_BIT,
+                                   VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, 0, post);
+        });
+        return;
+    }
+    // Stage the sample-interleaved guest data in a 1x image, then expand it with a per-sample draw.
+    if (VideoCore::Surface::IsPixelFormatInteger(info.format)) {
+        LOG_WARNING(Render_Vulkan, "MSAA upload not supported for format {}",
+                    static_cast<u32>(info.format));
+        runtime->TransitionImageLayout(*this);
+        return;
+    }
+    ImageInfo staging_info = info;
+    staging_info.num_samples = 1;
+    VkImageCreateInfo image_ci = MakeImageCreateInfo(runtime->device, staging_info);
+    // Sampled with the same (possibly sRGB) view format as the render pass target.
+    image_ci.flags |= VK_IMAGE_CREATE_MUTABLE_FORMAT_BIT;
+    image_ci.pNext = nullptr;
+    image_ci.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+    vk::Image staging_image = runtime->memory_allocator.CreateImage(image_ci);
+    const VkImage staging_handle = *staging_image;
+
+    runtime->TransitionImageLayout(*this);
+    scheduler->RequestOutsideRenderPassOperationContext();
+    auto vk_copies = TransformBufferImageCopies(copies, offset, aspect_mask);
+    const VkImageAspectFlags vk_aspect_mask = aspect_mask;
+    scheduler->Record([buffer, staging_handle, vk_aspect_mask, vk_copies](vk::CommandBuffer cmdbuf) {
+        CopyBufferToImage(cmdbuf, buffer, staging_handle, vk_aspect_mask, false, vk_copies);
+    });
+
+    const auto [samples_x, samples_y] = VideoCommon::SamplesLog2(info.num_samples);
+    boost::container::small_vector<VideoCommon::ImageCopy, 16> image_copies;
+    for (const VideoCommon::BufferImageCopy& copy : copies) {
+        if (copy.image_subresource.base_layer != 0 || copy.image_subresource.num_layers != 1) {
+            LOG_WARNING(Render_Vulkan, "Layered MSAA upload is not supported");
+            continue;
+        }
+        image_copies.push_back(VideoCommon::ImageCopy{
+            .src_subresource = copy.image_subresource,
+            .dst_subresource = copy.image_subresource,
+            .src_offset{
+                .x = copy.image_offset.x >> samples_x,
+                .y = copy.image_offset.y >> samples_y,
+                .z = 0,
+            },
+            .dst_offset{
+                .x = copy.image_offset.x >> samples_x,
+                .y = copy.image_offset.y >> samples_y,
+                .z = 0,
+            },
+            .extent{
+                .width = copy.image_extent.width >> samples_x,
+                .height = copy.image_extent.height >> samples_y,
+                .depth = 1,
+            },
+        });
+    }
+    runtime->blit_image_helper.UploadMSAA(runtime->render_pass_cache, *original_image,
+                                          info.format, staging_handle,
+                                          static_cast<u32>(info.num_samples), image_copies);
+    runtime->pending_msaa_images.emplace_back(scheduler->CurrentTick(), std::move(staging_image));
 }
 
 void Image::DownloadMemory(VkBuffer buffer, size_t offset,
@@ -2207,6 +2431,7 @@ void Framebuffer::CreateFramebuffer(TextureCacheRuntime& runtime,
         ++num_images;
     }
     const size_t num_colors = attachments.size();
+    const VkSampleCountFlagBits color_samples = samples;
     if (depth_buffer) {
         width = std::min(width, is_rescaled ? resolution.ScaleUp(depth_buffer->size.width)
                                             : depth_buffer->size.width);
@@ -2226,6 +2451,12 @@ void Framebuffer::CreateFramebuffer(TextureCacheRuntime& runtime,
         renderpass_key.depth_format = PixelFormat::Invalid;
     }
     renderpass_key.samples = samples;
+    if (depth_buffer && num_colors > 0 && samples > color_samples &&
+        runtime.device.IsMixedAttachmentSamplesSupported()) {
+        // Mixed samples: depth carries the raster samples, color keeps its own.
+        renderpass_key.samples = color_samples;
+        renderpass_key.depth_samples = samples;
+    }
 
     renderpass = runtime.render_pass_cache.Get(renderpass_key);
     render_area.width = std::min(render_area.width, width);
@@ -2252,6 +2483,10 @@ void TextureCacheRuntime::AccelerateImageUpload(
         return astc_decoder_pass->Assemble(image, map, swizzles);
     }
     assert(false);
+}
+
+bool TextureCacheRuntime::CanMixAttachmentSamples() const noexcept {
+    return device.IsMixedAttachmentSamplesSupported();
 }
 
 void TextureCacheRuntime::TransitionImageLayout(Image& image) {

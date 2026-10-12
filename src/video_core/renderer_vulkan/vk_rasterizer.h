@@ -116,6 +116,7 @@ public:
     void SignalSyncPoint(u32 value) override;
     void SignalReference() override;
     void ReleaseFences(bool force = true) override;
+    std::optional<u32> PendingSemaphoreValue(GPUVAddr addr) override;
     void FlushAndInvalidateRegion(
         DAddr addr, u64 size, VideoCommon::CacheType which = VideoCommon::CacheType::All) override;
     void WaitForIdle() override;

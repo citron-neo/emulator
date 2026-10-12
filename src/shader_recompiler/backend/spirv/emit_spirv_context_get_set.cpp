@@ -577,6 +577,14 @@ Id EmitSampleId(EmitContext& ctx) {
     return ctx.OpLoad(ctx.U32[1], ctx.sample_id);
 }
 
+Id EmitSampleMaskIn(EmitContext& ctx) {
+    if (!Sirit::ValidId(ctx.sample_mask_in)) {
+        return ctx.Const(1U);
+    }
+    const Id pointer{ctx.OpAccessChain(ctx.input_u32, ctx.sample_mask_in, ctx.u32_zero_value)};
+    return ctx.OpLoad(ctx.U32[1], pointer);
+}
+
 Id EmitIsHelperInvocation(EmitContext& ctx) {
     return ctx.OpLoad(ctx.U1, ctx.is_helper_invocation);
 }

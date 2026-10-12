@@ -291,6 +291,7 @@ struct Info {
     bool uses_invocation_id{};
     bool uses_invocation_info{};
     bool uses_sample_id{};
+    bool uses_sample_mask_in{};
     bool uses_is_helper_invocation{};
     bool uses_subgroup_invocation_id{};
     bool uses_subgroup_shuffles{};

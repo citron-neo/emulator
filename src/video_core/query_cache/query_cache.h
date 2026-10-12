@@ -224,6 +224,20 @@ void QueryCacheBase<Traits>::BindToChannel(s32 id) {
 }
 
 template <typename Traits>
+std::optional<u32> QueryCacheBase<Traits>::PendingPayload(GPUVAddr addr) {
+    const auto cpu_addr = gpu_memory->GpuToCpuAddress(addr);
+    if (!cpu_addr) {
+        return std::nullopt;
+    }
+    std::scoped_lock lock{pending_payload_mutex};
+    const auto it = pending_payloads.find(*cpu_addr);
+    if (it == pending_payloads.end()) {
+        return std::nullopt;
+    }
+    return it->second.value;
+}
+
+template <typename Traits>
 void QueryCacheBase<Traits>::CounterReport(GPUVAddr addr, QueryType counter_type,
                                            QueryPropertiesFlags flags, u32 payload, u32 subreport) {
     const bool has_timestamp = True(flags & QueryPropertiesFlags::HasTimeout);
@@ -270,8 +284,22 @@ void QueryCacheBase<Traits>::CounterReport(GPUVAddr addr, QueryType counter_type
         return;
     }
     bool is_synced = !Settings::IsGPULevelNormal() && is_fence;
+    const bool track_payload = counter_type == QueryType::Payload;
+    u64 payload_sequence = 0;
+    if (track_payload) {
+        std::scoped_lock lock{pending_payload_mutex};
+        payload_sequence = ++pending_payload_sequence;
+    }
     std::function<void()> operation([this, is_synced, streamer, query_base = query, query_location,
-                                     pointer, pointer_timestamp] {
+                                     pointer, pointer_timestamp, track_payload, cpu_addr,
+                                     payload_sequence] {
+        if (track_payload) {
+            std::scoped_lock lock{pending_payload_mutex};
+            const auto it = pending_payloads.find(cpu_addr);
+            if (it != pending_payloads.end() && it->second.sequence == payload_sequence) {
+                pending_payloads.erase(it);
+            }
+        }
         if (True(query_base->flags & QueryFlagBits::IsInvalidated)) {
             if (!is_synced) [[likely]] {
                 impl->pending_unregister.push_back(query_location);
@@ -296,7 +324,16 @@ void QueryCacheBase<Traits>::CounterReport(GPUVAddr addr, QueryType counter_type
             impl->pending_unregister.push_back(query_location);
         }
     });
+    // GPU semaphore acquires read queued payloads here instead of draining every fence.
+    const auto register_payload = [&] {
+        if (track_payload) {
+            std::scoped_lock lock{pending_payload_mutex};
+            pending_payloads.insert_or_assign(cpu_addr,
+                                              PendingPayloadWrite{payload, payload_sequence});
+        }
+    };
     if (is_fence) {
+        register_payload();
         impl->rasterizer.SignalFence(std::move(operation));
     } else {
         if (!Settings::IsGPULevelNormal() && counter_type == QueryType::Payload) {
@@ -312,6 +349,7 @@ void QueryCacheBase<Traits>::CounterReport(GPUVAddr addr, QueryType counter_type
             streamer->Free(new_query_id);
             return;
         }
+        register_payload();
         impl->rasterizer.SyncOperation(std::move(operation));
     }
     if (is_synced) {

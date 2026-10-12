@@ -49,6 +49,14 @@ void SetupDirtyRenderTargets(Maxwell3D::DirtyState::Tables& tables) {
     tables[0][OFF(rt_control)] = RenderTargets;
     tables[1][OFF(rt_control)] = RenderTargetControl;
 
+    // Sample modes pick the attachment images, so a change must re-run the lookups.
+    tables[0][OFF(anti_alias_samples_mode)] = RenderTargets;
+    tables[1][OFF(anti_alias_samples_mode)] = RenderTargetControl;
+    for (const std::size_t offset : {OFF(tir_mode), OFF(anti_alias_raster)}) {
+        tables[0][offset] = RenderTargets;
+        tables[1][offset] = ZetaBuffer;
+    }
+
     static constexpr std::array zeta_flags{ZetaBuffer, RenderTargets};
     for (std::size_t i = 0; i < std::size(zeta_flags); ++i) {
         const u8 flag = zeta_flags[i];

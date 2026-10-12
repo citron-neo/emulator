@@ -13,7 +13,6 @@
 namespace Tegra {
 
 constexpr u32 MacroRegistersStart = 0xE00;
-constexpr u32 ComputeInline = 0x6D;
 
 DmaPusher::DmaPusher(Core::System& system_, GPU& gpu_, MemoryManager& memory_manager_,
                      Control::ChannelState& channel_state_)
@@ -105,22 +104,12 @@ bool DmaPusher::Step() {
                         &command_headers);
             ProcessCommands(headers);
         };
-        if (Settings::IsGPULevelNormal()) {
-            // Normal/High/Extreme: Use safe reads for most operations
+        // Only High/Extreme flush before reading command lists; it forces a download + Finish.
+        if (Settings::IsGPULevelHigh()) {
             if (dma_state.method >= MacroRegistersStart) {
                 unsafe_process();
                 return true;
             }
-            safe_process();
-            return true;
-        }
-        // Low accuracy: Use unsafe reads for maximum performance everywhere
-        unsafe_process();
-        return true;
-        // Note: The code below is unreachable for Low, but kept for reference
-        // Even in normal accuracy, use safe reads for KeplerCompute inline methods
-        if (subchannel_type[dma_state.subchannel] == Engines::EngineTypes::KeplerCompute &&
-            dma_state.method == ComputeInline) {
             safe_process();
             return true;
         }

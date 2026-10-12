@@ -71,11 +71,12 @@ public:
     }
 
     void SignalFence(std::function<void()>&& func) {
-        const bool delay_fence = Settings::IsGPULevelNormal();
         if constexpr (!can_async_check) {
             TryReleasePendingFences<false>();
         }
         const bool should_flush = ShouldFlush();
+        // Async downloads are committed at every level; the guest must not see the fence first.
+        const bool delay_fence = Settings::IsGPULevelNormal();
         CommitAsyncFlushes();
         TFence new_fence = CreateFence(!should_flush);
         if constexpr (can_async_check) {
@@ -237,10 +238,11 @@ private:
 
     void PopAsyncFlushes() {
         {
-            std::scoped_lock lock{buffer_cache.mutex, texture_cache.mutex};
+            std::scoped_lock lock{texture_cache.mutex};
             texture_cache.PopAsyncFlushes();
-            buffer_cache.PopAsyncFlushes();
         }
+        // Locks internally and copies to guest memory with the buffer cache unlocked.
+        buffer_cache.PopAsyncFlushes();
         query_cache.PopAsyncFlushes();
     }
 

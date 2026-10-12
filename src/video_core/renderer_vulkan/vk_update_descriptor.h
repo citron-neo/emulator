@@ -128,7 +128,7 @@ protected:
     static constexpr size_t PAYLOAD_SIZE = FRAME_PAYLOAD_SIZE * FRAMES_IN_FLIGHT;
 
     void EnsureCapacity(size_t required_entries);
-    void HandleOverflow();
+    void HandleOverflow(bool keep_current_upload);
 
     const Device& device;
     Scheduler& scheduler;

@@ -201,6 +201,7 @@ RangeSet<AddressType>::RangeSet(RangeSet&& other) {
 template <typename AddressType>
 RangeSet<AddressType>& RangeSet<AddressType>::operator=(RangeSet&& other) {
     m_impl->m_ranges_set = std::move(other.m_impl->m_ranges_set);
+    return *this;
 }
 
 template <typename AddressType>
@@ -253,6 +254,7 @@ OverlapRangeSet<AddressType>::OverlapRangeSet(OverlapRangeSet&& other) {
 template <typename AddressType>
 OverlapRangeSet<AddressType>& OverlapRangeSet<AddressType>::operator=(OverlapRangeSet&& other) {
     m_impl->m_split_ranges_set = std::move(other.m_impl->m_split_ranges_set);
+    return *this;
 }
 
 template <typename AddressType>

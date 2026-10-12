@@ -630,7 +630,7 @@ void ASTCDecoderPass::Assemble(Image& image, const StagingBufferRef& map,
         cmdbuf.PipelineBarrier(VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
                                VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, 0, image_barrier);
     });
-    scheduler.Finish();
+    // No Finish(): the barrier above orders later use and staging/descriptors are tick-tracked.
 }
 
 MSAACopyPass::MSAACopyPass(const Device& device_, Scheduler& scheduler_,

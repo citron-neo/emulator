@@ -479,6 +479,9 @@ void VisitUsages(Info& info, IR::Inst& inst) {
     case IR::Opcode::SampleId:
         info.uses_sample_id = true;
         break;
+    case IR::Opcode::SampleMaskIn:
+        info.uses_sample_mask_in = true;
+        break;
     case IR::Opcode::IsHelperInvocation:
         info.uses_is_helper_invocation = true;
         break;

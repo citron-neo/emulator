@@ -51,6 +51,14 @@ namespace VideoCommon {
     return 1;
 }
 
+/// Depth sample mode: the raster mode when it has more samples and the host can mix counts.
+[[nodiscard]] inline Tegra::Texture::MsaaMode DepthMsaaMode(Tegra::Texture::MsaaMode color_mode,
+                                                           Tegra::Texture::MsaaMode raster_mode,
+                                                           bool mixed_samples) {
+    return mixed_samples && NumSamples(raster_mode) > NumSamples(color_mode) ? raster_mode
+                                                                             : color_mode;
+}
+
 [[nodiscard]] inline int NumSamplesX(Tegra::Texture::MsaaMode msaa_mode) {
     using Tegra::Texture::MsaaMode;
     switch (msaa_mode) {

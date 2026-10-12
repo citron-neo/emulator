@@ -74,6 +74,7 @@ Id EmitLocalInvocationId(EmitContext& ctx);
 Id EmitInvocationId(EmitContext& ctx);
 Id EmitInvocationInfo(EmitContext& ctx);
 Id EmitSampleId(EmitContext& ctx);
+Id EmitSampleMaskIn(EmitContext& ctx);
 Id EmitIsHelperInvocation(EmitContext& ctx);
 Id EmitYDirection(EmitContext& ctx);
 Id EmitResolutionDownFactor(EmitContext& ctx);

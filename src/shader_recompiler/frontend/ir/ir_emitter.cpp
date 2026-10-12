@@ -382,6 +382,10 @@ U32 IREmitter::SampleId() {
     return Inst<U32>(Opcode::SampleId);
 }
 
+U32 IREmitter::SampleMaskIn() {
+    return Inst<U32>(Opcode::SampleMaskIn);
+}
+
 U1 IREmitter::IsHelperInvocation() {
     return Inst<U1>(Opcode::IsHelperInvocation);
 }

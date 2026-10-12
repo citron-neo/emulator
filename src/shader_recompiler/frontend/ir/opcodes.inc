@@ -61,6 +61,7 @@ OPCODE(LocalInvocationId,                                   U32x3,              
 OPCODE(InvocationId,                                        U32,                                                                                            )
 OPCODE(InvocationInfo,                                      U32,                                                                                            )
 OPCODE(SampleId,                                            U32,                                                                                            )
+OPCODE(SampleMaskIn,                                        U32,                                                                                            )
 OPCODE(IsHelperInvocation,                                  U1,                                                                                             )
 OPCODE(YDirection,                                          F32,                                                                                            )
 OPCODE(ResolutionDownFactor,                                F32,                                                                                            )

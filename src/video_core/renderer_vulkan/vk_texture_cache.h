@@ -3,7 +3,10 @@
 
 #pragma once
 
+#include <deque>
+#include <optional>
 #include <span>
+#include <utility>
 
 #include "video_core/texture_cache/texture_cache_base.h"
 
@@ -85,9 +88,10 @@ public:
     }
 
     bool CanUploadMSAA() const noexcept {
-        // TODO: Implement buffer to MSAA uploads
-        return false;
+        return true;
     }
+
+    bool CanMixAttachmentSamples() const noexcept;
 
     void AccelerateImageUpload(Image&, const StagingBufferRef&,
                                std::span<const VideoCommon::SwizzleParameters>);
@@ -123,6 +127,8 @@ public:
     RenderPassCache& render_pass_cache;
     std::optional<ASTCDecoderPass> astc_decoder_pass;
     std::unique_ptr<MSAACopyPass> msaa_copy_pass;
+    /// Single-sample staging images of MSAA uploads, kept until the GPU passes their tick.
+    std::deque<std::pair<u64, vk::Image>> pending_msaa_images;
     const Settings::ResolutionScalingInfo& resolution;
     std::array<std::vector<VkFormat>, VideoCore::Surface::MaxPixelFormat> view_formats;
 
@@ -148,7 +154,19 @@ public:
                       std::span<const VideoCommon::BufferImageCopy> copies);
 
     void UploadMemory(const StagingBufferRef& map,
-                      std::span<const VideoCommon::BufferImageCopy> copies);
+                      std::span<const VideoCommon::BufferImageCopy> copies,
+                      std::span<const u8> cpu_data = {});
+
+    bool NeedsCpuUploadInspection() const {
+        return info.num_samples > 1 && aspect_mask != VK_IMAGE_ASPECT_COLOR_BIT;
+    }
+
+    void UploadMemoryMSAA(VkBuffer buffer, VkDeviceSize offset,
+                          std::span<const VideoCommon::BufferImageCopy> copies,
+                          std::span<const u8> mapped);
+
+    [[nodiscard]] std::optional<VkClearDepthStencilValue> UniformDepthStencilValue(
+        std::span<const VideoCommon::BufferImageCopy> copies, std::span<const u8> mapped) const;
 
     void DownloadMemory(VkBuffer buffer, size_t offset,
                         std::span<const VideoCommon::BufferImageCopy> copies);

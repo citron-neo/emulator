@@ -3,8 +3,12 @@
 
 #pragma once
 
+#include <deque>
+#include <span>
+
 #include "video_core/engines/fermi_2d.h"
 #include "video_core/renderer_vulkan/vk_descriptor_pool.h"
+#include "video_core/surface.h"
 #include "video_core/texture_cache/types.h"
 #include "video_core/vulkan_common/vulkan_wrapper.h"
 
@@ -17,8 +21,19 @@ using VideoCommon::Region2D;
 class Device;
 class Framebuffer;
 class ImageView;
+class RenderPassCache;
 class StateTracker;
 class Scheduler;
+
+struct MSAACopyPipelineKey {
+    constexpr auto operator<=>(const MSAACopyPipelineKey&) const noexcept = default;
+
+    VkRenderPass renderpass;
+    VkSampleCountFlagBits samples;
+    bool msaa_to_non_msaa;
+    bool is_depth;
+    bool has_stencil;
+};
 
 struct BlitImagePipelineKey {
     constexpr auto operator<=>(const BlitImagePipelineKey&) const noexcept = default;
@@ -82,9 +97,24 @@ public:
                            u8 stencil_mask, u32 stencil_ref, u32 stencil_compare_mask,
                            const Region2D& dst_region);
 
+    /// Draw-based copy between an MSAA image and its sample-interleaved single-sample layout.
+    void CopyMSAA(RenderPassCache& render_pass_cache, VkImage dst_image,
+                  VideoCore::Surface::PixelFormat dst_format, VkImage src_image,
+                  VideoCore::Surface::PixelFormat src_format, u32 num_samples,
+                  std::span<const VideoCommon::ImageCopy> copies, bool msaa_to_non_msaa);
+
+    void UploadMSAA(RenderPassCache& render_pass_cache, VkImage dst_image,
+                    VideoCore::Surface::PixelFormat format, VkImage src_image, u32 num_samples,
+                    std::span<const VideoCommon::ImageCopy> copies) {
+        CopyMSAA(render_pass_cache, dst_image, format, src_image, format, num_samples, copies,
+                 false);
+    }
+
 private:
     void Convert(VkPipeline pipeline, const Framebuffer* dst_framebuffer,
                  const ImageView& src_image_view);
+
+    [[nodiscard]] VkPipeline FindOrEmplaceMSAACopyPipeline(const MSAACopyPipelineKey& key);
 
     void ConvertDepthStencil(VkPipeline pipeline, const Framebuffer* dst_framebuffer,
                              ImageView& src_image_view);
@@ -123,6 +153,8 @@ private:
     vk::PipelineLayout one_texture_pipeline_layout;
     vk::PipelineLayout two_textures_pipeline_layout;
     vk::PipelineLayout clear_color_pipeline_layout;
+    vk::PipelineLayout msaa_upload_pipeline_layout;
+    vk::PipelineLayout msaa_depth_stencil_pipeline_layout;
     vk::ShaderModule full_screen_vert;
     vk::ShaderModule blit_color_to_color_frag;
     vk::ShaderModule blit_depth_stencil_frag;
@@ -136,6 +168,12 @@ private:
     vk::ShaderModule convert_d32f_to_abgr8_frag;
     vk::ShaderModule convert_d24s8_to_abgr8_frag;
     vk::ShaderModule convert_s8d24_to_abgr8_frag;
+    vk::ShaderModule convert_non_msaa_to_msaa_frag;
+    vk::ShaderModule convert_msaa_to_non_msaa_frag;
+    vk::ShaderModule convert_non_msaa_to_msaa_depth_frag;
+    vk::ShaderModule convert_msaa_to_non_msaa_depth_frag;
+    vk::ShaderModule convert_non_msaa_to_msaa_depth_stencil_frag;
+    vk::ShaderModule convert_msaa_to_non_msaa_depth_stencil_frag;
     vk::Sampler linear_sampler;
     vk::Sampler nearest_sampler;
 
@@ -147,6 +185,16 @@ private:
     std::vector<vk::Pipeline> clear_color_pipelines;
     std::vector<BlitDepthStencilPipelineKey> clear_stencil_keys;
     std::vector<vk::Pipeline> clear_stencil_pipelines;
+    std::vector<MSAACopyPipelineKey> msaa_copy_keys;
+    std::vector<vk::Pipeline> msaa_copy_pipelines;
+    struct MSAACopyResources {
+        u64 tick;
+        vk::ImageView src_view;
+        vk::ImageView src_stencil_view;
+        vk::ImageView dst_view;
+        vk::Framebuffer framebuffer;
+    };
+    std::deque<MSAACopyResources> msaa_copy_resources;
     vk::Pipeline convert_d32_to_r32_pipeline;
     vk::Pipeline convert_r32_to_d32_pipeline;
     vk::Pipeline convert_d16_to_r16_pipeline;

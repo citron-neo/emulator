@@ -101,6 +101,7 @@ public:
     [[nodiscard]] U32 InvocationId();
     [[nodiscard]] U32 InvocationInfo();
     [[nodiscard]] U32 SampleId();
+    [[nodiscard]] U32 SampleMaskIn();
     [[nodiscard]] U1 IsHelperInvocation();
     [[nodiscard]] F32 YDirection();
 

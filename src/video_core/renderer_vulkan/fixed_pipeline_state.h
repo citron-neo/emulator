@@ -23,6 +23,7 @@ struct DynamicFeatures {
     bool has_extended_dynamic_state_3_enables;
     bool has_dynamic_vertex_input;
     bool has_transform_feedback;
+    bool has_mixed_attachment_samples;
 };
 
 struct FixedPipelineState {
@@ -212,6 +213,8 @@ struct FixedPipelineState {
         BitField<15, 1, u32> alpha_to_coverage_enabled;
         BitField<16, 1, u32> alpha_to_one_enabled;
         BitField<17, 3, Tegra::Engines::Maxwell3D::EngineHint> app_stage;
+        BitField<20, 1, u32> mixed_samples;
+        BitField<21, 4, Tegra::Texture::MsaaMode> depth_msaa_mode;
     };
     std::array<u8, Tegra::Engines::Maxwell3D::Regs::NumRenderTargets> color_formats;
 

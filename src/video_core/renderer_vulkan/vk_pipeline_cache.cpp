@@ -499,6 +499,7 @@ PipelineCache::PipelineCache(Tegra::MaxwellDeviceMemoryManager& device_memory_,
                                     Settings::values.vertex_input_dynamic_state.GetValue() &&
                                     device.IsExtVertexInputDynamicStateSupported(),
         .has_transform_feedback = device.IsExtTransformFeedbackSupported(),
+        .has_mixed_attachment_samples = device.IsMixedAttachmentSamplesSupported(),
     };
 }
 
@@ -636,7 +637,8 @@ void PipelineCache::LoadDiskResources(u64 title_id, std::stop_token stop_loading
             (key.state.extended_dynamic_state_3_enables != 0) !=
                 dynamic_features.has_extended_dynamic_state_3_enables ||
             (key.state.dynamic_vertex_input != 0) != dynamic_features.has_dynamic_vertex_input ||
-            (key.state.xfb_enabled != 0 && !dynamic_features.has_transform_feedback)) {
+            (key.state.xfb_enabled != 0 && !dynamic_features.has_transform_feedback) ||
+            (key.state.mixed_samples != 0 && !dynamic_features.has_mixed_attachment_samples)) {
             // NOTE: xfb_enabled uses a unidirectional check. It encodes both a
             // device capability AND per-pipeline runtime state. We only reject
             // the pipeline if it actively requires XFB but the host device

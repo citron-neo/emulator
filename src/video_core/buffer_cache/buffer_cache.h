@@ -309,7 +309,32 @@ std::optional<VideoCore::RasterizerDownloadArea> BufferCache<P>::GetFlushArea(DA
 }
 
 template <class P>
+bool BufferCache<P>::IsRegionLazyDownload(DAddr device_addr, u64 size) {
+    bool is_lazy = false;
+    lazy_download_ranges.ForEachInRange(device_addr, size, [&](DAddr start, DAddr end) {
+        gpu_modified_ranges.ForEachInRange(start, end - start, [&](DAddr, DAddr) {
+            is_lazy = true;
+        });
+    });
+    if (is_lazy) {
+        cpu_read_ranges.Add(device_addr, size);
+    }
+    return is_lazy;
+}
+
+template <class P>
+bool BufferCache<P>::IsLazyInterval(DAddr device_addr, u64 size) const {
+    if (size < LAZY_DOWNLOAD_THRESHOLD || !Settings::values.use_reactive_flushing.GetValue()) {
+        return false;
+    }
+    bool read_by_cpu = false;
+    cpu_read_ranges.ForEachInRange(device_addr, size, [&](DAddr, DAddr) { read_by_cpu = true; });
+    return !read_by_cpu;
+}
+
+template <class P>
 void BufferCache<P>::DownloadMemory(DAddr device_addr, u64 size) {
+    FlushScatteredStorageWrites();
     ForEachBufferInRange(device_addr, size, [&](BufferId, Buffer& buffer) {
         DownloadBufferMemory(buffer, device_addr, size);
     });
@@ -317,7 +342,10 @@ void BufferCache<P>::DownloadMemory(DAddr device_addr, u64 size) {
 
 template <class P>
 void BufferCache<P>::ClearDownload(DAddr device_addr, u64 size) {
+    // The caller writes newer data here next; let an in-flight write-back finish first.
+    std::scoped_lock writeback_lock{writeback_mutex};
     async_downloads.DeleteAll(device_addr, size);
+    lazy_download_ranges.Subtract(device_addr, size);
     uncommitted_gpu_modified_ranges.Subtract(device_addr, size);
     for (auto& interval_set : committed_gpu_modified_ranges) {
         interval_set.Subtract(device_addr, size);
@@ -326,6 +354,7 @@ void BufferCache<P>::ClearDownload(DAddr device_addr, u64 size) {
 
 template <class P>
 bool BufferCache<P>::DMACopy(GPUVAddr src_address, GPUVAddr dest_address, u64 amount) {
+    FlushScatteredStorageWrites();
     const std::optional<DAddr> cpu_src_address = gpu_memory->GpuToCpuAddress(src_address);
     const std::optional<DAddr> cpu_dest_address = gpu_memory->GpuToCpuAddress(dest_address);
     if (!cpu_src_address || !cpu_dest_address) {
@@ -375,6 +404,7 @@ bool BufferCache<P>::DMACopy(GPUVAddr src_address, GPUVAddr dest_address, u64 am
     MarkGpuUse(src_buffer, copy.src_offset, copy.size);
     MarkGpuUse(dest_buffer, copy.dst_offset, copy.size);
     runtime.CopyBuffer(dest_buffer, src_buffer, copies, true);
+    MarkScatteredStale(*cpu_dest_address, amount);
     if (has_new_downloads) {
         memory_tracker.MarkRegionAsGpuModified(*cpu_dest_address, amount);
     }
@@ -387,6 +417,7 @@ bool BufferCache<P>::DMACopy(GPUVAddr src_address, GPUVAddr dest_address, u64 am
 
 template <class P>
 bool BufferCache<P>::DMAClear(GPUVAddr dst_address, u64 amount, u32 value) {
+    FlushScatteredStorageWrites();
     const std::optional<DAddr> cpu_dst_address = gpu_memory->GpuToCpuAddress(dst_address);
     if (!cpu_dst_address) {
         return false;
@@ -405,6 +436,7 @@ bool BufferCache<P>::DMAClear(GPUVAddr dst_address, u64 amount, u32 value) {
     const u32 offset = dest_buffer.Offset(*cpu_dst_address);
     runtime.ClearBuffer(dest_buffer, offset, size, value);
     MarkGpuUse(dest_buffer, offset, size);
+    MarkScatteredStale(*cpu_dst_address, size);
     return true;
 }
 
@@ -444,6 +476,7 @@ std::pair<typename P::Buffer*, u32> BufferCache<P>::ObtainCPUBuffer(
         const size_t new_size = device_addr_end - device_addr_start;
         ClearDownload(device_addr_start, new_size);
         gpu_modified_ranges.Subtract(device_addr_start, new_size);
+        MarkScatteredStale(device_addr, size);
         break;
     }
     default:
@@ -474,6 +507,8 @@ void BufferCache<P>::DisableGraphicsUniformBuffer(size_t stage, u32 index) {
 
 template <class P>
 void BufferCache<P>::UpdateGraphicsBuffers(bool is_indexed) {
+    FlushScatteredStorageWrites();
+    ++scattered_use_tick;
     do {
         channel_state->has_deleted_buffers = false;
         DoUpdateGraphicsBuffers(is_indexed);
@@ -482,6 +517,8 @@ void BufferCache<P>::UpdateGraphicsBuffers(bool is_indexed) {
 
 template <class P>
 void BufferCache<P>::UpdateComputeBuffers() {
+    FlushScatteredStorageWrites();
+    ++scattered_use_tick;
     do {
         channel_state->has_deleted_buffers = false;
         DoUpdateComputeBuffers();
@@ -640,7 +677,16 @@ void BufferCache<P>::FlushCachedWrites() {
 
 template <class P>
 bool BufferCache<P>::HasUncommittedFlushes() const noexcept {
-    return !uncommitted_gpu_modified_ranges.Empty() || !committed_gpu_modified_ranges.empty();
+    // Deferred (lazy) intervals download nothing at the fence, so they need no host GPU wait.
+    bool needs_download = false;
+    const auto check = [&](DAddr start, DAddr end) {
+        needs_download = needs_download || !IsLazyInterval(start, end - start);
+    };
+    uncommitted_gpu_modified_ranges.ForEach(check);
+    for (const Common::RangeSet<DAddr>& range_set : committed_gpu_modified_ranges) {
+        range_set.ForEach(check);
+    }
+    return needs_download;
 }
 
 template <class P>
@@ -658,6 +704,7 @@ bool BufferCache<P>::ShouldWaitAsyncFlushes() const noexcept {
 
 template <class P>
 void BufferCache<P>::CommitAsyncFlushesHigh() {
+    FlushScatteredStorageWrites();
     AccumulateFlushes();
 
     if (committed_gpu_modified_ranges.empty()) {
@@ -681,10 +728,16 @@ void BufferCache<P>::CommitAsyncFlushesHigh() {
     boost::container::small_vector<std::pair<BufferCopy, BufferId>, 16> downloads;
     u64 total_size_bytes = 0;
     u64 largest_copy = 0;
+    // Large GPU working buffers are flushed on CPU access instead of copied back every fence.
     for (const Common::RangeSet<DAddr>& range_set : committed_gpu_modified_ranges) {
         range_set.ForEach([&](DAddr interval_lower, DAddr interval_upper) {
             const std::size_t size = interval_upper - interval_lower;
             const DAddr device_addr = interval_lower;
+            if (IsLazyInterval(device_addr, size)) {
+                lazy_download_ranges.Add(device_addr, size);
+                lazy_written.Mark(device_addr, size);
+                return;
+            }
             ForEachBufferInRange(device_addr, size, [&](BufferId buffer_id, Buffer& buffer) {
                 const DAddr buffer_start = buffer.CpuAddr();
                 const DAddr buffer_end = buffer_start + buffer.SizeBytes();
@@ -755,6 +808,7 @@ void BufferCache<P>::PopAsyncFlushes() {
 
 template <class P>
 void BufferCache<P>::PopAsyncBuffers() {
+    std::unique_lock lock{mutex};
     if (async_buffers.empty()) {
         return;
     }
@@ -762,23 +816,41 @@ void BufferCache<P>::PopAsyncBuffers() {
         async_buffers.pop_front();
         return;
     }
-    auto& downloads = pending_downloads.front();
-    auto& async_buffer = async_buffers.front();
-    u8* base = async_buffer->mapped_span.data();
-    const size_t base_offset = async_buffer->offset;
+    // Only the fence thread pops, so the front entries stay put while the lock is dropped.
+    const auto& downloads = pending_downloads.front();
+    const Async_Buffer& async_buffer = *async_buffers.front();
+    const u8* const base = async_buffer.mapped_span.data();
+    const size_t base_offset = async_buffer.offset;
+    struct WriteBack {
+        DAddr start;
+        u64 size;
+        const u8* data;
+    };
+    boost::container::small_vector<WriteBack, 32> write_backs;
     for (const auto& copy : downloads) {
         const DAddr device_addr = static_cast<DAddr>(copy.src_offset);
-        const u64 dst_offset = copy.dst_offset - base_offset;
-        const u8* read_mapped_memory = base + dst_offset;
+        const u8* const read_mapped_memory = base + (copy.dst_offset - base_offset);
         async_downloads.ForEachInRange(device_addr, copy.size, [&](DAddr start, DAddr end, s32) {
-            device_memory.WriteBlockUnsafe(start, &read_mapped_memory[start - device_addr],
-                                           end - start);
-        });
-        async_downloads.Subtract(device_addr, copy.size, [&](DAddr start, DAddr end) {
-            gpu_modified_ranges.Subtract(start, end - start);
+            write_backs.push_back({start, end - start, &read_mapped_memory[start - device_addr]});
         });
     }
-    async_buffers_death_ring.emplace_back(*async_buffer);
+    // Copy without the cache lock; ClearDownload waits on writeback_mutex so newer data lands after.
+    {
+        std::unique_lock writeback_lock{writeback_mutex};
+        lock.unlock();
+        for (const WriteBack& write_back : write_backs) {
+            device_memory.WriteBlockUnsafe(write_back.start, write_back.data, write_back.size);
+        }
+        writeback_lock.unlock();
+        lock.lock();
+    }
+    for (const auto& copy : pending_downloads.front()) {
+        async_downloads.Subtract(static_cast<DAddr>(copy.src_offset), copy.size,
+                                 [&](DAddr start, DAddr end) {
+                                     gpu_modified_ranges.Subtract(start, end - start);
+                                 });
+    }
+    async_buffers_death_ring.emplace_back(*async_buffers.front());
     async_buffers.pop_front();
     pending_downloads.pop_front();
 }
@@ -827,6 +899,7 @@ void BufferCache<P>::BindHostIndexBuffer() {
     const u32 size = channel_state->index_buffer.size;
     const auto& draw_state = maxwell3d->draw_manager->GetDrawState();
     if (!draw_state.inline_index_draw_indexes.empty()) [[unlikely]] {
+        MarkScatteredStale(buffer.CpuAddr(), size);
         if constexpr (USE_MEMORY_MAPS_FOR_UPLOADS) {
             auto upload_staging = runtime.UploadStagingBuffer(size);
             std::array<BufferCopy, 1> copies{
@@ -1059,6 +1132,19 @@ void BufferCache<P>::BindHostGraphicsStorageBuffers(size_t stage) {
     u32 binding_index = 0;
     ForEachEnabledBit(channel_state->enabled_storage_buffers[stage], [&](u32 index) {
         const Binding& binding = channel_state->storage_buffers[stage][index];
+        if (binding.scattered_gpu_addr != 0) {
+            const bool is_written =
+                ((channel_state->written_storage_buffers[stage] >> index) & 1) != 0;
+            Buffer& scratch = GatherScatteredStorage(binding, is_written);
+            if constexpr (NEEDS_BIND_STORAGE_INDEX) {
+                runtime.BindStorageBuffer(stage, binding_index, scratch, 0, binding.size,
+                                          is_written);
+                ++binding_index;
+            } else {
+                runtime.BindStorageBuffer(scratch, 0, binding.size, is_written);
+            }
+            return;
+        }
         Buffer& buffer = slot_buffers[binding.buffer_id];
         TouchBuffer(buffer, binding.buffer_id);
         const u32 size = binding.size;
@@ -1171,6 +1257,19 @@ void BufferCache<P>::BindHostComputeStorageBuffers() {
     u32 binding_index = 0;
     ForEachEnabledBit(channel_state->enabled_compute_storage_buffers, [&](u32 index) {
         const Binding& binding = channel_state->compute_storage_buffers[index];
+        if (binding.scattered_gpu_addr != 0) {
+            const bool is_written =
+                ((channel_state->written_compute_storage_buffers >> index) & 1) != 0;
+            Buffer& scratch = GatherScatteredStorage(binding, is_written);
+            if constexpr (NEEDS_BIND_STORAGE_INDEX) {
+                runtime.BindComputeStorageBuffer(binding_index, scratch, 0, binding.size,
+                                                 is_written);
+                ++binding_index;
+            } else {
+                runtime.BindStorageBuffer(scratch, 0, binding.size, is_written);
+            }
+            return;
+        }
         Buffer& buffer = slot_buffers[binding.buffer_id];
         TouchBuffer(buffer, binding.buffer_id);
         const u32 size = binding.size;
@@ -1388,6 +1487,11 @@ void BufferCache<P>::UpdateStorageBuffers(size_t stage) {
     ForEachEnabledBit(channel_state->enabled_storage_buffers[stage], [&](u32 index) {
         // Resolve buffer
         Binding& binding = channel_state->storage_buffers[stage][index];
+        if (binding.scattered_gpu_addr != 0) {
+            FindScatteredStorageBuffers(binding.scattered_gpu_addr, binding.size);
+            binding.buffer_id = NULL_BUFFER_ID;
+            return;
+        }
         const BufferId buffer_id = FindBuffer(binding.device_addr, binding.size);
         binding.buffer_id = buffer_id;
     });
@@ -1452,6 +1556,11 @@ void BufferCache<P>::UpdateComputeStorageBuffers() {
     ForEachEnabledBit(channel_state->enabled_compute_storage_buffers, [&](u32 index) {
         // Resolve buffer
         Binding& binding = channel_state->compute_storage_buffers[index];
+        if (binding.scattered_gpu_addr != 0) {
+            FindScatteredStorageBuffers(binding.scattered_gpu_addr, binding.size);
+            binding.buffer_id = NULL_BUFFER_ID;
+            return;
+        }
         binding.buffer_id = FindBuffer(binding.device_addr, binding.size);
     });
 }
@@ -1469,6 +1578,7 @@ void BufferCache<P>::MarkWrittenBuffer(BufferId buffer_id, DAddr device_addr, u3
     memory_tracker.MarkRegionAsGpuModified(device_addr, size);
     gpu_modified_ranges.Add(device_addr, size);
     uncommitted_gpu_modified_ranges.Add(device_addr, size);
+    MarkScatteredStale(device_addr, size);
 }
 
 template <class P>
@@ -1683,6 +1793,136 @@ void BufferCache<P>::MarkGpuUse(Buffer& buffer, u64 offset, u64 size) {
 }
 
 template <class P>
+void BufferCache<P>::FindScatteredStorageBuffers(GPUVAddr gpu_addr, u32 size) {
+    for (const auto& [piece_gpu_addr, piece_size] : gpu_memory->GetSubmappedRange(gpu_addr, size)) {
+        if (const std::optional<DAddr> piece_addr = gpu_memory->GpuToCpuAddress(piece_gpu_addr)) {
+            static_cast<void>(FindBuffer(*piece_addr, static_cast<u32>(piece_size)));
+        }
+    }
+}
+
+template <class P>
+typename P::Buffer& BufferCache<P>::GatherScatteredStorage(const Binding& binding,
+                                                           bool is_written) {
+    static constexpr size_t MAX_SCATTERED_STORAGE = 16;
+    const GPUVAddr gpu_addr = binding.scattered_gpu_addr;
+    const u32 size = binding.size;
+    auto it = std::ranges::find_if(scattered_storage, [&](const ScatteredStorage& entry) {
+        return entry.gpu_addr == gpu_addr && entry.size == size;
+    });
+    if (it == scattered_storage.end()) {
+        const auto lru = std::ranges::min_element(scattered_storage, {}, &ScatteredStorage::last_use);
+        // Entries used by this draw may have pending write-backs, so only older ones are reused.
+        if (scattered_storage.size() >= MAX_SCATTERED_STORAGE && lru->last_use != scattered_use_tick) {
+            delayed_destruction_ring.Push(std::move(*lru->buffer));
+            *lru = ScatteredStorage{};
+            it = lru;
+        } else {
+            it = scattered_storage.insert(scattered_storage.end(), ScatteredStorage{});
+        }
+        it->gpu_addr = gpu_addr;
+        it->size = size;
+        it->buffer = std::make_unique<Buffer>(runtime, 0, size);
+    }
+    ScatteredStorage& entry = *it;
+    entry.last_use = scattered_use_tick;
+
+    boost::container::small_vector<std::pair<GPUVAddr, DAddr>, 8> piece_addrs;
+    boost::container::small_vector<size_t, 8> piece_sizes;
+    for (const auto& [piece_gpu_addr, piece_size] : gpu_memory->GetSubmappedRange(gpu_addr, size)) {
+        if (const std::optional<DAddr> piece_addr = gpu_memory->GpuToCpuAddress(piece_gpu_addr)) {
+            piece_addrs.emplace_back(piece_gpu_addr, *piece_addr);
+            piece_sizes.push_back(piece_size);
+        }
+    }
+    if (piece_addrs != entry.piece_addrs || piece_sizes != entry.piece_sizes) {
+        entry.piece_addrs = piece_addrs;
+        entry.piece_sizes = piece_sizes;
+        entry.stale.Clear();
+        for (size_t i = 0; i < piece_addrs.size(); ++i) {
+            entry.stale.Add(piece_addrs[i].second, piece_sizes[i]);
+        }
+    }
+    // The update pass already created these buffers, so FindBuffer only looks them up here.
+    boost::container::small_vector<BufferId, 8> piece_buffers;
+    for (size_t i = 0; i < piece_addrs.size(); ++i) {
+        const DAddr piece_addr = piece_addrs[i].second;
+        const u32 piece_bytes = static_cast<u32>(piece_sizes[i]);
+        const BufferId buffer_id = FindBuffer(piece_addr, piece_bytes);
+        Buffer& buffer = slot_buffers[buffer_id];
+        TouchBuffer(buffer, buffer_id);
+        SynchronizeBuffer(buffer, piece_addr, piece_bytes);
+        MarkGpuUse(buffer, buffer.Offset(piece_addr), piece_bytes);
+        piece_buffers.push_back(buffer_id);
+    }
+    for (size_t i = 0; i < piece_addrs.size(); ++i) {
+        const auto [piece_gpu_addr, piece_addr] = piece_addrs[i];
+        Buffer& buffer = slot_buffers[piece_buffers[i]];
+        boost::container::small_vector<BufferCopy, 8> copies;
+        entry.stale.ForEachInRange(piece_addr, piece_sizes[i], [&](DAddr begin, DAddr end) {
+            copies.push_back(BufferCopy{
+                .src_offset = buffer.Offset(begin),
+                .dst_offset = (piece_gpu_addr - gpu_addr) + (begin - piece_addr),
+                .size = end - begin,
+            });
+        });
+        if (!copies.empty()) {
+            runtime.CopyBuffer(*entry.buffer, buffer, copies, true);
+        }
+    }
+    entry.stale.Clear();
+    if (is_written) {
+        scattered_writes.push_back(static_cast<size_t>(it - scattered_storage.begin()));
+    }
+    return *entry.buffer;
+}
+
+template <class P>
+void BufferCache<P>::FlushScatteredStorageWrites() {
+    if (scattered_writes.empty()) {
+        return;
+    }
+    const std::vector<size_t> writes = std::exchange(scattered_writes, {});
+    for (const size_t index : writes) {
+        ScatteredStorage& entry = scattered_storage[index];
+        for (size_t i = 0; i < entry.piece_addrs.size(); ++i) {
+            const auto [piece_gpu_addr, piece_addr] = entry.piece_addrs[i];
+            const size_t piece_size = entry.piece_sizes[i];
+            Buffer& buffer = slot_buffers[FindBuffer(piece_addr, static_cast<u32>(piece_size))];
+            const std::array copies{BufferCopy{
+                .src_offset = piece_gpu_addr - entry.gpu_addr,
+                .dst_offset = buffer.Offset(piece_addr),
+                .size = piece_size,
+            }};
+            runtime.CopyBuffer(buffer, *entry.buffer, copies, true);
+            memory_tracker.MarkRegionAsGpuModified(piece_addr, piece_size);
+            gpu_modified_ranges.Add(piece_addr, piece_size);
+            uncommitted_gpu_modified_ranges.Add(piece_addr, piece_size);
+            // This entry already holds the data it wrote back.
+            MarkScatteredStale(piece_addr, piece_size, &entry);
+        }
+    }
+}
+
+template <class P>
+void BufferCache<P>::MarkScatteredStale(DAddr device_addr, u64 size,
+                                        const ScatteredStorage* except) {
+    for (ScatteredStorage& entry : scattered_storage) {
+        if (&entry == except) {
+            continue;
+        }
+        for (size_t i = 0; i < entry.piece_addrs.size(); ++i) {
+            const DAddr piece_addr = entry.piece_addrs[i].second;
+            const DAddr begin = std::max(device_addr, piece_addr);
+            const DAddr end = std::min(device_addr + size, piece_addr + entry.piece_sizes[i]);
+            if (begin < end) {
+                entry.stale.Add(begin, end - begin);
+            }
+        }
+    }
+}
+
+template <class P>
 bool BufferCache<P>::SynchronizeBuffer(Buffer& buffer, DAddr device_addr, u32 size) {
     boost::container::small_vector<BufferCopy, 4> copies;
     u64 total_size_bytes = 0;
@@ -1708,6 +1948,9 @@ bool BufferCache<P>::SynchronizeBuffer(Buffer& buffer, DAddr device_addr, u32 si
 template <class P>
 void BufferCache<P>::UploadMemory(Buffer& buffer, u64 total_size_bytes, u64 largest_copy,
                                   std::span<BufferCopy> copies) {
+    for (const BufferCopy& copy : copies) {
+        MarkScatteredStale(buffer.CpuAddr() + copy.dst_offset, copy.size);
+    }
     if constexpr (USE_MEMORY_MAPS_FOR_UPLOADS) {
         MappedUploadMemory(buffer, total_size_bytes, copies);
     } else {
@@ -1864,6 +2107,7 @@ void BufferCache<P>::InlineMemoryImplementation(DAddr dest_address, size_t copy_
                                                 std::span<const u8> inlined_buffer) {
     ClearDownload(dest_address, copy_size);
     gpu_modified_ranges.Subtract(dest_address, copy_size);
+    MarkScatteredStale(dest_address, copy_size);
 
     BufferId buffer_id = FindBuffer(dest_address, static_cast<u32>(copy_size));
     auto& buffer = slot_buffers[buffer_id];
@@ -2048,6 +2292,14 @@ Binding BufferCache<P>::StorageBufferBinding(GPUVAddr ssbo_addr, u32 cbuf_index,
                       cbuf_index, aligned_gpu_addr);
         }
         return NULL_BINDING;
+    }
+    if (!gpu_memory->IsContinuousRange(aligned_gpu_addr, aligned_size)) {
+        return Binding{
+            .device_addr = *aligned_device_addr,
+            .size = aligned_size,
+            .buffer_id = NULL_BUFFER_ID,
+            .scattered_gpu_addr = aligned_gpu_addr,
+        };
     }
     const std::optional<DAddr> device_addr = gpu_memory->GpuToCpuAddress(gpu_addr);
     assert(device_addr && "Unaligned storage buffer address not found for cbuf index {}" &&

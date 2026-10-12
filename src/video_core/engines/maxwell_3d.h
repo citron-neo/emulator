@@ -2533,6 +2533,14 @@ public:
             return IsShaderConfigEnabled(static_cast<std::size_t>(type));
         }
 
+        /// Raster sample mode: differs from the color mode under target-independent rasterization.
+        Tegra::Texture::MsaaMode RasterMsaaMode() const {
+            if (tir_mode != TIRMode::RasterNTargetM) {
+                return anti_alias_samples_mode;
+            }
+            return static_cast<Tegra::Texture::MsaaMode>(anti_alias_raster);
+        }
+
         struct ConstantBuffer {
             u32 size;
             u32 address_high;

@@ -12,6 +12,7 @@
 #include "video_core/engines/draw_manager.h"
 #include "video_core/renderer_vulkan/fixed_pipeline_state.h"
 #include "video_core/renderer_vulkan/vk_state_tracker.h"
+#include "video_core/texture_cache/samples_helper.h"
 
 namespace Vulkan {
 namespace {
@@ -65,6 +66,13 @@ void FixedPipelineState::Refresh(Tegra::Engines::Maxwell3D& maxwell3d, DynamicFe
     alpha_to_coverage_enabled.Assign(regs.anti_alias_alpha_control.alpha_to_coverage != 0 ? 1 : 0);
     alpha_to_one_enabled.Assign(regs.anti_alias_alpha_control.alpha_to_one != 0 ? 1 : 0);
     app_stage.Assign(maxwell3d.engine_state);
+    // Must match the depth target the texture cache creates (FindDepthBuffer).
+    const auto depth_mode = VideoCommon::DepthMsaaMode(
+        regs.anti_alias_samples_mode, regs.RasterMsaaMode(), features.has_mixed_attachment_samples);
+    if (regs.zeta_enable != 0 && depth_mode != regs.anti_alias_samples_mode) {
+        mixed_samples.Assign(1);
+        depth_msaa_mode.Assign(depth_mode);
+    }
 
     for (size_t i = 0; i < regs.rt.size(); ++i) {
         color_formats[i] = static_cast<u8>(regs.rt[i].format);

@@ -150,6 +150,7 @@ private:
     void ProcessBindMethod(const MethodCall& method_call);
     void ProcessFenceActionMethod();
     void ProcessSemaphoreAcquire();
+    [[nodiscard]] u32 ReadSemaphore(GPUVAddr address) const;
     void ProcessSemaphoreRelease();
     void ProcessSemaphoreTriggerMethod();
     [[nodiscard]] bool ExecuteMethodOnEngine(u32 method);

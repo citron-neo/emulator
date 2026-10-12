@@ -68,6 +68,7 @@ VK_DEFINE_HANDLE(VmaAllocator)
 
 // Define miscellaneous extensions which may be used by the implementation here.
 #define FOR_EACH_VK_EXTENSION(EXTENSION)                                                           \
+    EXTENSION(AMD, MIXED_ATTACHMENT_SAMPLES, mixed_attachment_samples)                             \
     EXTENSION(EXT, CONDITIONAL_RENDERING, conditional_rendering)                                   \
     EXTENSION(EXT, CONSERVATIVE_RASTERIZATION, conservative_rasterization)                         \
     EXTENSION(EXT, DEPTH_RANGE_UNRESTRICTED, depth_range_unrestricted)                             \
@@ -90,6 +91,7 @@ VK_DEFINE_HANDLE(VmaAllocator)
     EXTENSION(KHR, SWAPCHAIN_MUTABLE_FORMAT, swapchain_mutable_format)                             \
     EXTENSION(KHR, IMAGE_FORMAT_LIST, image_format_list)                                           \
     EXTENSION(NV, DEVICE_DIAGNOSTICS_CONFIG, device_diagnostics_config)                            \
+    EXTENSION(NV, FRAMEBUFFER_MIXED_SAMPLES, framebuffer_mixed_samples)                            \
     EXTENSION(NV, GEOMETRY_SHADER_PASSTHROUGH, geometry_shader_passthrough)                        \
     EXTENSION(NV, LOW_LATENCY_2, low_latency2)                                                     \
     EXTENSION(NV, VIEWPORT_ARRAY2, viewport_array2)                                                \
@@ -442,6 +444,11 @@ public:
     /// Returns true when blitting from and to D32S8 images is supported.
     bool IsBlitDepth32Stencil8Supported() const {
         return is_blit_depth32_stencil8_supported;
+    }
+
+    /// Returns true if depth may have more samples than the color attachments of a subpass.
+    bool IsMixedAttachmentSamplesSupported() const {
+        return extensions.framebuffer_mixed_samples || extensions.mixed_attachment_samples;
     }
 
     /// Returns true if the device supports VK_NV_viewport_swizzle.

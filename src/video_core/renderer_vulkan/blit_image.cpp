@@ -13,6 +13,12 @@
 #include "video_core/host_shaders/convert_d32f_to_abgr8_frag_spv.h"
 #include "video_core/host_shaders/convert_depth_to_float_frag_spv.h"
 #include "video_core/host_shaders/convert_float_to_depth_frag_spv.h"
+#include "video_core/host_shaders/convert_msaa_to_non_msaa_depth_frag_spv.h"
+#include "video_core/host_shaders/convert_msaa_to_non_msaa_depth_stencil_frag_spv.h"
+#include "video_core/host_shaders/convert_msaa_to_non_msaa_frag_spv.h"
+#include "video_core/host_shaders/convert_non_msaa_to_msaa_depth_frag_spv.h"
+#include "video_core/host_shaders/convert_non_msaa_to_msaa_depth_stencil_frag_spv.h"
+#include "video_core/host_shaders/convert_non_msaa_to_msaa_frag_spv.h"
 #include "video_core/host_shaders/convert_s8d24_to_abgr8_frag_spv.h"
 #include "video_core/host_shaders/full_screen_triangle_vert_spv.h"
 #include "video_core/host_shaders/vulkan_blit_depth_stencil_frag_spv.h"
@@ -21,11 +27,13 @@
 #include "video_core/host_shaders/vulkan_depthstencil_clear_frag_spv.h"
 #include "video_core/renderer_vulkan/blit_image.h"
 #include "video_core/renderer_vulkan/maxwell_to_vk.h"
+#include "video_core/renderer_vulkan/vk_render_pass_cache.h"
 #include "video_core/renderer_vulkan/vk_scheduler.h"
 #include "video_core/renderer_vulkan/vk_shader_util.h"
 #include "video_core/renderer_vulkan/vk_state_tracker.h"
 #include "video_core/renderer_vulkan/vk_update_descriptor.h"
 #include "video_core/surface.h"
+#include "video_core/texture_cache/samples_helper.h"
 #include "video_core/vulkan_common/vulkan_device.h"
 #include "video_core/vulkan_common/vulkan_wrapper.h"
 
@@ -34,6 +42,48 @@ namespace Vulkan {
 using VideoCommon::ImageViewType;
 
 namespace {
+struct MSAAUploadPushConstants {
+    std::array<s32, 2> dst_offset;
+    std::array<s32, 2> src_offset;
+    std::array<s32, 2> scale;
+};
+
+[[nodiscard]] VkSampleCountFlagBits MSAASampleCount(u32 num_samples) {
+    switch (num_samples) {
+    case 2:
+        return VK_SAMPLE_COUNT_2_BIT;
+    case 4:
+        return VK_SAMPLE_COUNT_4_BIT;
+    case 8:
+        return VK_SAMPLE_COUNT_8_BIT;
+    case 16:
+        return VK_SAMPLE_COUNT_16_BIT;
+    default:
+        return VK_SAMPLE_COUNT_1_BIT;
+    }
+}
+
+[[nodiscard]] vk::ImageView MakeSingleLevelView(const vk::Device& device, VkImage image,
+                                                VkFormat format, u32 level,
+                                                VkImageAspectFlags aspect) {
+    return device.CreateImageView(VkImageViewCreateInfo{
+        .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
+        .pNext = nullptr,
+        .flags = 0,
+        .image = image,
+        .viewType = VK_IMAGE_VIEW_TYPE_2D,
+        .format = format,
+        .components{},
+        .subresourceRange{
+            .aspectMask = aspect,
+            .baseMipLevel = level,
+            .levelCount = 1,
+            .baseArrayLayer = 0,
+            .layerCount = 1,
+        },
+    });
+}
+
 struct BlitPushConstants {
     std::array<float, 2> tex_scale;
     std::array<float, 2> tex_offset;
@@ -426,6 +476,13 @@ BlitImageHelper::BlitImageHelper(const Device& device_, Scheduler& scheduler_,
               PUSH_CONSTANT_RANGE<VK_SHADER_STAGE_VERTEX_BIT, sizeof(BlitPushConstants)>))),
       clear_color_pipeline_layout(device.GetLogical().CreatePipelineLayout(PipelineLayoutCreateInfo(
           nullptr, PUSH_CONSTANT_RANGE<VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(float) * 4>))),
+      msaa_upload_pipeline_layout(device.GetLogical().CreatePipelineLayout(PipelineLayoutCreateInfo(
+          one_texture_set_layout.address(),
+          PUSH_CONSTANT_RANGE<VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(MSAAUploadPushConstants)>))),
+      msaa_depth_stencil_pipeline_layout(
+          device.GetLogical().CreatePipelineLayout(PipelineLayoutCreateInfo(
+              two_textures_set_layout.address(),
+              PUSH_CONSTANT_RANGE<VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(MSAAUploadPushConstants)>))),
       full_screen_vert(BuildShader(device, FULL_SCREEN_TRIANGLE_VERT_SPV)),
       blit_color_to_color_frag(BuildShader(device, BLIT_COLOR_FLOAT_FRAG_SPV)),
       blit_depth_stencil_frag(device.IsExtShaderStencilExportSupported()
@@ -443,6 +500,20 @@ BlitImageHelper::BlitImageHelper(const Device& device_, Scheduler& scheduler_,
       convert_d32f_to_abgr8_frag(BuildShader(device, CONVERT_D32F_TO_ABGR8_FRAG_SPV)),
       convert_d24s8_to_abgr8_frag(BuildShader(device, CONVERT_D24S8_TO_ABGR8_FRAG_SPV)),
       convert_s8d24_to_abgr8_frag(BuildShader(device, CONVERT_S8D24_TO_ABGR8_FRAG_SPV)),
+      convert_non_msaa_to_msaa_frag(BuildShader(device, CONVERT_NON_MSAA_TO_MSAA_FRAG_SPV)),
+      convert_msaa_to_non_msaa_frag(BuildShader(device, CONVERT_MSAA_TO_NON_MSAA_FRAG_SPV)),
+      convert_non_msaa_to_msaa_depth_frag(
+          BuildShader(device, CONVERT_NON_MSAA_TO_MSAA_DEPTH_FRAG_SPV)),
+      convert_msaa_to_non_msaa_depth_frag(
+          BuildShader(device, CONVERT_MSAA_TO_NON_MSAA_DEPTH_FRAG_SPV)),
+      convert_non_msaa_to_msaa_depth_stencil_frag(
+          device.IsExtShaderStencilExportSupported()
+              ? BuildShader(device, CONVERT_NON_MSAA_TO_MSAA_DEPTH_STENCIL_FRAG_SPV)
+              : vk::ShaderModule{}),
+      convert_msaa_to_non_msaa_depth_stencil_frag(
+          device.IsExtShaderStencilExportSupported()
+              ? BuildShader(device, CONVERT_MSAA_TO_NON_MSAA_DEPTH_STENCIL_FRAG_SPV)
+              : vk::ShaderModule{}),
       linear_sampler(device.GetLogical().CreateSampler(SAMPLER_CREATE_INFO<VK_FILTER_LINEAR>)),
       nearest_sampler(device.GetLogical().CreateSampler(SAMPLER_CREATE_INFO<VK_FILTER_NEAREST>)) {}
 
@@ -816,6 +887,257 @@ VkPipeline BlitImageHelper::FindOrEmplaceDepthStencilPipeline(const BlitImagePip
         .basePipelineIndex = 0,
     }));
     return *blit_depth_stencil_pipelines.back();
+}
+
+void BlitImageHelper::CopyMSAA(RenderPassCache& render_pass_cache, VkImage dst_image,
+                               VideoCore::Surface::PixelFormat dst_format, VkImage src_image,
+                               VideoCore::Surface::PixelFormat src_format, u32 num_samples,
+                               std::span<const VideoCommon::ImageCopy> copies,
+                               bool msaa_to_non_msaa) {
+    using VideoCore::Surface::SurfaceType;
+    while (!msaa_copy_resources.empty() && scheduler.IsFree(msaa_copy_resources.front().tick)) {
+        msaa_copy_resources.pop_front();
+    }
+    const SurfaceType surface_type = VideoCore::Surface::GetFormatType(dst_format);
+    const bool is_depth = surface_type != SurfaceType::ColorTexture;
+    const VkImageAspectFlags sample_aspect =
+        is_depth ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT;
+    const VkImageAspectFlags target_aspect =
+        surface_type == SurfaceType::DepthStencil
+            ? VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT
+            : sample_aspect;
+    // Stencil carries per-pixel tags (e.g. deferred lighting classification); copy it too.
+    const bool has_stencil =
+        surface_type == SurfaceType::DepthStencil &&
+        VideoCore::Surface::GetFormatType(src_format) == SurfaceType::DepthStencil &&
+        *convert_msaa_to_non_msaa_depth_stencil_frag != VK_NULL_HANDLE;
+    const VkSampleCountFlagBits samples =
+        msaa_to_non_msaa ? VK_SAMPLE_COUNT_1_BIT : MSAASampleCount(num_samples);
+    RenderPassKey renderpass_key{};
+    renderpass_key.color_formats.fill(VideoCore::Surface::PixelFormat::Invalid);
+    renderpass_key.depth_format = VideoCore::Surface::PixelFormat::Invalid;
+    if (is_depth) {
+        renderpass_key.depth_format = dst_format;
+    } else {
+        renderpass_key.color_formats[0] = dst_format;
+    }
+    renderpass_key.samples = samples;
+    const VkRenderPass renderpass = render_pass_cache.Get(renderpass_key);
+    const VkPipeline pipeline = FindOrEmplaceMSAACopyPipeline(
+        {renderpass, samples, msaa_to_non_msaa, is_depth, has_stencil});
+    const VkPipelineLayout layout =
+        has_stencil ? *msaa_depth_stencil_pipeline_layout : *msaa_upload_pipeline_layout;
+    const VkSampler sampler = *nearest_sampler;
+    const VkFormat src_vk_format =
+        MaxwellToVK::SurfaceFormat(device, FormatType::Optimal, true, src_format).format;
+    const VkFormat dst_vk_format =
+        MaxwellToVK::SurfaceFormat(device, FormatType::Optimal, true, dst_format).format;
+    const auto [samples_x, samples_y] = VideoCommon::SamplesLog2(static_cast<int>(num_samples));
+    const s32 scale_x = 1 << samples_x;
+    const s32 scale_y = 1 << samples_y;
+    for (const VideoCommon::ImageCopy& copy : copies) {
+        vk::ImageView src_view = MakeSingleLevelView(
+            device.GetLogical(), src_image, src_vk_format,
+            static_cast<u32>(copy.src_subresource.base_level), sample_aspect);
+        vk::ImageView src_stencil_view =
+            has_stencil ? MakeSingleLevelView(device.GetLogical(), src_image, src_vk_format,
+                                              static_cast<u32>(copy.src_subresource.base_level),
+                                              VK_IMAGE_ASPECT_STENCIL_BIT)
+                        : vk::ImageView{};
+        vk::ImageView dst_view = MakeSingleLevelView(
+            device.GetLogical(), dst_image, dst_vk_format,
+            static_cast<u32>(copy.dst_subresource.base_level), target_aspect);
+        // Copies are in MSAA texels; the single-sample side and shader source coords are scaled.
+        const VkRect2D render_area{
+            .offset = {msaa_to_non_msaa ? copy.dst_offset.x * scale_x : copy.dst_offset.x,
+                       msaa_to_non_msaa ? copy.dst_offset.y * scale_y : copy.dst_offset.y},
+            .extent{
+                .width = msaa_to_non_msaa ? copy.extent.width * scale_x : copy.extent.width,
+                .height = msaa_to_non_msaa ? copy.extent.height * scale_y : copy.extent.height,
+            },
+        };
+        vk::Framebuffer framebuffer = device.GetLogical().CreateFramebuffer(VkFramebufferCreateInfo{
+            .sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO,
+            .pNext = nullptr,
+            .flags = 0,
+            .renderPass = renderpass,
+            .attachmentCount = 1,
+            .pAttachments = dst_view.address(),
+            .width = static_cast<u32>(render_area.offset.x) + render_area.extent.width,
+            .height = static_cast<u32>(render_area.offset.y) + render_area.extent.height,
+            .layers = 1,
+        });
+        const MSAAUploadPushConstants push_constants{
+            .dst_offset = {render_area.offset.x, render_area.offset.y},
+            .src_offset = {copy.src_offset.x * scale_x, copy.src_offset.y * scale_y},
+            .scale = {scale_x, scale_y},
+        };
+        scheduler.RequestOutsideRenderPassOperationContext();
+        scheduler.Record([this, pipeline, layout, sampler, renderpass, src_image, dst_image,
+                          render_area, push_constants, target_aspect, has_stencil,
+                          framebuffer_handle = *framebuffer, src_view_handle = *src_view,
+                          src_stencil_view_handle = *src_stencil_view](vk::CommandBuffer cmdbuf) {
+            const VkImageSubresourceRange color_range{
+                .aspectMask = target_aspect,
+                .baseMipLevel = 0,
+                .levelCount = VK_REMAINING_MIP_LEVELS,
+                .baseArrayLayer = 0,
+                .layerCount = VK_REMAINING_ARRAY_LAYERS,
+            };
+            const std::array pre_barriers{
+                VkImageMemoryBarrier{
+                    .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+                    .pNext = nullptr,
+                    .srcAccessMask = VK_ACCESS_MEMORY_WRITE_BIT,
+                    .dstAccessMask = VK_ACCESS_SHADER_READ_BIT,
+                    .oldLayout = VK_IMAGE_LAYOUT_GENERAL,
+                    .newLayout = VK_IMAGE_LAYOUT_GENERAL,
+                    .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+                    .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+                    .image = src_image,
+                    .subresourceRange = color_range,
+                },
+                VkImageMemoryBarrier{
+                    .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+                    .pNext = nullptr,
+                    .srcAccessMask = VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_MEMORY_WRITE_BIT,
+                    .dstAccessMask = VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_MEMORY_WRITE_BIT,
+                    .oldLayout = VK_IMAGE_LAYOUT_GENERAL,
+                    .newLayout = VK_IMAGE_LAYOUT_GENERAL,
+                    .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+                    .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+                    .image = dst_image,
+                    .subresourceRange = color_range,
+                },
+            };
+            cmdbuf.PipelineBarrier(VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+                                   VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, 0, nullptr, nullptr,
+                                   pre_barriers);
+            const VkRenderPassBeginInfo renderpass_bi{
+                .sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
+                .pNext = nullptr,
+                .renderPass = renderpass,
+                .framebuffer = framebuffer_handle,
+                .renderArea = render_area,
+                .clearValueCount = 0,
+                .pClearValues = nullptr,
+            };
+            cmdbuf.BeginRenderPass(renderpass_bi, VK_SUBPASS_CONTENTS_INLINE);
+            VkDescriptorSet descriptor_set;
+            if (has_stencil) {
+                descriptor_set = two_textures_descriptor_allocator.Commit();
+                UpdateTwoTexturesDescriptorSet(device, descriptor_set, sampler, src_view_handle,
+                                               src_stencil_view_handle);
+            } else {
+                descriptor_set = one_texture_descriptor_allocator.Commit();
+                UpdateOneTextureDescriptorSet(device, descriptor_set, sampler, src_view_handle);
+            }
+            cmdbuf.BindPipeline(VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
+            cmdbuf.BindDescriptorSets(VK_PIPELINE_BIND_POINT_GRAPHICS, layout, 0, descriptor_set,
+                                      nullptr);
+            const VkViewport viewport{
+                .x = static_cast<float>(render_area.offset.x),
+                .y = static_cast<float>(render_area.offset.y),
+                .width = static_cast<float>(render_area.extent.width),
+                .height = static_cast<float>(render_area.extent.height),
+                .minDepth = 0.0f,
+                .maxDepth = 1.0f,
+            };
+            cmdbuf.SetViewport(0, viewport);
+            cmdbuf.SetScissor(0, render_area);
+            cmdbuf.PushConstants(layout, VK_SHADER_STAGE_FRAGMENT_BIT, push_constants);
+            cmdbuf.Draw(3, 1, 0, 0);
+            cmdbuf.EndRenderPass();
+            const VkImageMemoryBarrier post_barrier{
+                .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+                .pNext = nullptr,
+                .srcAccessMask = VK_ACCESS_MEMORY_WRITE_BIT,
+                .dstAccessMask = VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_MEMORY_WRITE_BIT,
+                .oldLayout = VK_IMAGE_LAYOUT_GENERAL,
+                .newLayout = VK_IMAGE_LAYOUT_GENERAL,
+                .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+                .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+                .image = dst_image,
+                .subresourceRange = color_range,
+            };
+            cmdbuf.PipelineBarrier(VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+                                   VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, 0, post_barrier);
+        });
+        msaa_copy_resources.push_back(MSAACopyResources{
+            .tick = scheduler.CurrentTick(),
+            .src_view = std::move(src_view),
+            .src_stencil_view = std::move(src_stencil_view),
+            .dst_view = std::move(dst_view),
+            .framebuffer = std::move(framebuffer),
+        });
+    }
+    scheduler.InvalidateState();
+}
+
+VkPipeline BlitImageHelper::FindOrEmplaceMSAACopyPipeline(const MSAACopyPipelineKey& key) {
+    const auto it = std::ranges::find(msaa_copy_keys, key);
+    if (it != msaa_copy_keys.end()) {
+        return *msaa_copy_pipelines[std::distance(msaa_copy_keys.begin(), it)];
+    }
+    msaa_copy_keys.push_back(key);
+    const vk::ShaderModule& frag =
+        key.has_stencil ? (key.msaa_to_non_msaa ? convert_msaa_to_non_msaa_depth_stencil_frag
+                                                : convert_non_msaa_to_msaa_depth_stencil_frag)
+        : key.is_depth  ? (key.msaa_to_non_msaa ? convert_msaa_to_non_msaa_depth_frag
+                                                : convert_non_msaa_to_msaa_depth_frag)
+                        : (key.msaa_to_non_msaa ? convert_msaa_to_non_msaa_frag
+                                                : convert_non_msaa_to_msaa_frag);
+    const std::array stages = MakeStages(*clear_color_vert, *frag);
+    static constexpr VkStencilOpState STENCIL_REPLACE{
+        .failOp = VK_STENCIL_OP_REPLACE,
+        .passOp = VK_STENCIL_OP_REPLACE,
+        .depthFailOp = VK_STENCIL_OP_REPLACE,
+        .compareOp = VK_COMPARE_OP_ALWAYS,
+        .compareMask = 0xFF,
+        .writeMask = 0xFF,
+        .reference = 0,
+    };
+    VkPipelineDepthStencilStateCreateInfo depth_stencil_ci = PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
+    if (key.has_stencil) {
+        depth_stencil_ci.stencilTestEnable = VK_TRUE;
+        depth_stencil_ci.front = STENCIL_REPLACE;
+        depth_stencil_ci.back = STENCIL_REPLACE;
+    }
+    const VkPipelineMultisampleStateCreateInfo multisample_ci{
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,
+        .pNext = nullptr,
+        .flags = 0,
+        .rasterizationSamples = key.samples,
+        .sampleShadingEnable = key.msaa_to_non_msaa ? VK_FALSE : VK_TRUE,
+        .minSampleShading = key.msaa_to_non_msaa ? 0.0f : 1.0f,
+        .pSampleMask = nullptr,
+        .alphaToCoverageEnable = VK_FALSE,
+        .alphaToOneEnable = VK_FALSE,
+    };
+    msaa_copy_pipelines.push_back(device.GetLogical().CreateGraphicsPipeline({
+        .sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
+        .pNext = nullptr,
+        .flags = 0,
+        .stageCount = static_cast<u32>(stages.size()),
+        .pStages = stages.data(),
+        .pVertexInputState = &PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
+        .pInputAssemblyState = &PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO,
+        .pTessellationState = nullptr,
+        .pViewportState = &PIPELINE_VIEWPORT_STATE_CREATE_INFO,
+        .pRasterizationState = &PIPELINE_RASTERIZATION_STATE_CREATE_INFO,
+        .pMultisampleState = &multisample_ci,
+        .pDepthStencilState = key.is_depth ? &depth_stencil_ci : nullptr,
+        .pColorBlendState = key.is_depth ? &PIPELINE_COLOR_BLEND_STATE_EMPTY_CREATE_INFO
+                                         : &PIPELINE_COLOR_BLEND_STATE_GENERIC_CREATE_INFO,
+        .pDynamicState = &PIPELINE_DYNAMIC_STATE_CREATE_INFO,
+        .layout = key.has_stencil ? *msaa_depth_stencil_pipeline_layout
+                                  : *msaa_upload_pipeline_layout,
+        .renderPass = key.renderpass,
+        .subpass = 0,
+        .basePipelineHandle = VK_NULL_HANDLE,
+        .basePipelineIndex = 0,
+    }));
+    return *msaa_copy_pipelines.back();
 }
 
 VkPipeline BlitImageHelper::FindOrEmplaceClearColorPipeline(const BlitImagePipelineKey& key) {

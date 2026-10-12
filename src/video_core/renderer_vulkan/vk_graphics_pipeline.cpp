@@ -142,6 +142,19 @@ RenderPassKey MakeRenderPassKey(const FixedPipelineState& state) {
         key.depth_format = PixelFormat::Invalid;
     }
     key.samples = MaxwellToVK::MsaaMode(state.msaa_mode);
+    key.depth_samples = {};
+    if (state.mixed_samples != 0) {
+        // Same split as Framebuffer::CreateFramebuffer: without color, depth sets the samples.
+        const VkSampleCountFlagBits depth_samples = MaxwellToVK::MsaaMode(state.depth_msaa_mode);
+        const bool has_color = std::ranges::any_of(key.color_formats, [](PixelFormat format) {
+            return format != PixelFormat::Invalid;
+        });
+        if (has_color) {
+            key.depth_samples = depth_samples;
+        } else {
+            key.samples = depth_samples;
+        }
+    }
     return key;
 }
 
@@ -859,7 +872,8 @@ void GraphicsPipeline::MakePipeline(VkRenderPass render_pass) {
         .sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,
         .pNext = nullptr,
         .flags = 0,
-        .rasterizationSamples = MaxwellToVK::MsaaMode(key.state.msaa_mode),
+        .rasterizationSamples = MaxwellToVK::MsaaMode(
+            key.state.mixed_samples != 0 ? key.state.depth_msaa_mode : key.state.msaa_mode),
         .sampleShadingEnable = VK_FALSE,
         .minSampleShading = 0.0f,
         .pSampleMask = nullptr,

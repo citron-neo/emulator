@@ -29,6 +29,7 @@
 #include "video_core/control/channel_state_cache.h"
 #include "video_core/delayed_destruction_ring.h"
 #include "video_core/engines/fermi_2d.h"
+#include "video_core/gpu_written_ranges.h"
 #include "video_core/surface.h"
 #include "video_core/texture_cache/descriptor_table.h"
 #include "video_core/texture_cache/image_base.h"
@@ -198,6 +199,11 @@ public:
     void DownloadMemory(DAddr cpu_addr, size_t size);
 
     std::optional<VideoCore::RasterizerDownloadArea> GetFlushArea(DAddr cpu_addr, u64 size);
+
+    /// Lock-free: false means no GPU-modified image can overlap the region.
+    [[nodiscard]] bool MayHaveGpuWrites(DAddr cpu_addr, u64 size) const noexcept {
+        return gpu_written.MayContain(cpu_addr, size);
+    }
 
     /// Remove images in a region
     void UnmapMemory(DAddr cpu_addr, size_t size);
@@ -403,6 +409,9 @@ public:
     /// Mark an image as modified from the GPU
     void MarkModification(ImageBase& image) noexcept;
 
+    /// Record the image's guest range in gpu_written
+    void MarkGpuWritten(const ImageBase& image) noexcept;
+
     /// Synchronize image aliases, copying data if needed
     void SynchronizeAliases(ImageId image_id);
 
@@ -504,6 +513,7 @@ public:
     Common::ScratchBuffer<u8> unswizzle_data_buffer;
 
     u64 modification_tick = 0;
+    GpuWrittenRanges gpu_written;
     u64 frame_tick = 0;
 
     Common::ThreadWorker texture_decode_worker{1, "TextureDecoder"};

@@ -33,6 +33,7 @@
 #include "video_core/engines/draw_manager.h"
 #include "video_core/engines/kepler_compute.h"
 #include "video_core/engines/maxwell_3d.h"
+#include "video_core/gpu_written_ranges.h"
 #include "video_core/memory_manager.h"
 #include "video_core/surface.h"
 #include "video_core/texture_cache/types.h"
@@ -82,6 +83,8 @@ struct Binding {
     DAddr device_addr{};
     u32 size{};
     BufferId buffer_id;
+    /// Non-zero when the GPU range spans device memory that is not contiguous.
+    GPUVAddr scattered_gpu_addr{};
 };
 
 struct TextureBufferBinding : Binding {
@@ -223,6 +226,17 @@ public:
 
     std::optional<VideoCore::RasterizerDownloadArea> GetFlushArea(DAddr device_addr, u64 size);
 
+    /// True if the region holds deferred GPU data; marks it CPU-read so it is written back again.
+    [[nodiscard]] bool IsRegionLazyDownload(DAddr device_addr, u64 size);
+
+    /// Lock-free: false means the region never held a deferred write-back.
+    [[nodiscard]] bool MayHaveLazyDownload(DAddr device_addr, u64 size) const noexcept {
+        return lazy_written.MayContain(device_addr, size);
+    }
+
+    /// Whether a committed GPU-written interval skips the per-fence write-back.
+    [[nodiscard]] bool IsLazyInterval(DAddr device_addr, u64 size) const;
+
     bool InlineMemory(DAddr dest_address, size_t copy_size, std::span<const u8> inlined_buffer);
 
     void BindGraphicsUniformBuffer(size_t stage, u32 index, GPUVAddr gpu_addr, u32 size);
@@ -292,6 +306,10 @@ public:
     bool DMACopy(GPUVAddr src_address, GPUVAddr dest_address, u64 amount);
 
     bool DMAClear(GPUVAddr src_address, u64 amount, u32 value);
+
+    [[nodiscard]] bool IsGpuRangeContinuous(GPUVAddr gpu_addr, u64 size) const {
+        return gpu_memory->IsContinuousRange(gpu_addr, size);
+    }
 
     /// Return true when a CPU region is modified from the GPU
     [[nodiscard]] bool IsRegionGpuModified(DAddr addr, size_t size);
@@ -510,6 +528,15 @@ public:
     [[nodiscard]] Binding StorageBufferBinding(GPUVAddr ssbo_addr, u32 cbuf_index,
                                                bool is_written) const;
 
+    /// Resolves the buffers behind each contiguous piece of a scattered storage buffer.
+    void FindScatteredStorageBuffers(GPUVAddr gpu_addr, u32 size);
+
+    /// Gathers a scattered storage buffer into contiguous scratch memory for binding.
+    [[nodiscard]] Buffer& GatherScatteredStorage(const Binding& binding, bool is_written);
+
+    /// Copies written scattered storage buffers back to the memory they were gathered from.
+    void FlushScatteredStorageWrites();
+
     [[nodiscard]] TextureBufferBinding GetTextureBufferBinding(GPUVAddr gpu_addr, u32 size,
                                                                PixelFormat format);
 
@@ -530,6 +557,23 @@ public:
     static constexpr u64 TICKS_TO_DESTROY = 8;
     DelayedDestructionRing<Buffer, TICKS_TO_DESTROY> delayed_destruction_ring;
 
+    /// Contiguous copy of a scattered storage buffer; only ranges written since are re-copied.
+    struct ScatteredStorage {
+        GPUVAddr gpu_addr{};
+        u32 size{};
+        boost::container::small_vector<std::pair<GPUVAddr, DAddr>, 8> piece_addrs;
+        boost::container::small_vector<size_t, 8> piece_sizes;
+        std::unique_ptr<Buffer> buffer;
+        Common::RangeSet<DAddr> stale;
+        u64 last_use{};
+    };
+    std::vector<ScatteredStorage> scattered_storage;
+    std::vector<size_t> scattered_writes;
+    u64 scattered_use_tick = 0;
+
+    /// Marks cached scattered copies overlapping a write as needing a re-copy.
+    void MarkScatteredStale(DAddr device_addr, u64 size, const ScatteredStorage* except = nullptr);
+
     const Tegra::Engines::DrawManager::IndirectParams* current_draw_indirect{};
 
     u32 last_index_count = 0;
@@ -541,11 +585,19 @@ public:
 
     // Async Buffers
     Common::OverlapRangeSet<DAddr> async_downloads;
+    /// Large GPU-written ranges left out of per-fence write-backs; CPU reads flush them on demand.
+    Common::RangeSet<DAddr> lazy_download_ranges;
+    GpuWrittenRanges lazy_written;
+    /// Lazy ranges the CPU has read; they go back to per-fence write-backs.
+    Common::RangeSet<DAddr> cpu_read_ranges;
+    static constexpr u64 LAZY_DOWNLOAD_THRESHOLD = 1ULL << 20;
     std::deque<std::optional<Async_Buffer>> async_buffers;
     std::deque<boost::container::small_vector<BufferCopy, 4>> pending_downloads;
     std::optional<Async_Buffer> current_buffer;
 
     std::deque<Async_Buffer> async_buffers_death_ring;
+    /// Held while async write-backs copy to guest memory outside `mutex`; ClearDownload waits on it.
+    std::mutex writeback_mutex;
 
     size_t immediate_buffer_capacity = 0;
     Common::ScratchBuffer<u8> immediate_buffer_alloc;

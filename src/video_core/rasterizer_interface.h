@@ -85,6 +85,11 @@ public:
     /// Release all pending fences.
     virtual void ReleaseFences(bool force = true) = 0;
 
+    /// Value a queued GPU semaphore write will store at this address, if one is pending.
+    [[nodiscard]] virtual std::optional<u32> PendingSemaphoreValue(GPUVAddr) {
+        return std::nullopt;
+    }
+
     /// Notify rasterizer that all caches should be flushed to Switch memory
     virtual void FlushAll() = 0;
 

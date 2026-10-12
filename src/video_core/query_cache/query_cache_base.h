@@ -97,6 +97,9 @@ public:
     void CounterReport(GPUVAddr addr, QueryType counter_type, QueryPropertiesFlags flags,
                        u32 payload, u32 subreport);
 
+    /// Value a queued payload write will store at this address before it reaches guest memory.
+    [[nodiscard]] std::optional<u32> PendingPayload(GPUVAddr addr);
+
     void NotifyWFI();
 
     bool AccelerateHostConditionalRendering();
@@ -167,6 +170,14 @@ protected:
 
     std::unordered_map<u64, std::unordered_map<u32, QueryLocation>> cached_queries;
     std::mutex cache_mutex;
+
+    struct PendingPayloadWrite {
+        u32 value;
+        u64 sequence;
+    };
+    std::unordered_map<DAddr, PendingPayloadWrite> pending_payloads;
+    u64 pending_payload_sequence = 0;
+    std::mutex pending_payload_mutex;
 
     struct QueryCacheBaseImpl;
     friend struct QueryCacheBaseImpl;

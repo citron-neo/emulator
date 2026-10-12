@@ -64,7 +64,9 @@ VkRenderPass RenderPassCache::Get(const RenderPassKey& key) {
             .attachment = num_colors,
             .layout = VK_IMAGE_LAYOUT_GENERAL,
         };
-        descriptions.push_back(AttachmentDescription(*device, key.depth_format, key.samples));
+        const VkSampleCountFlagBits depth_samples =
+            key.depth_samples != 0 ? key.depth_samples : key.samples;
+        descriptions.push_back(AttachmentDescription(*device, key.depth_format, depth_samples));
     }
     const VkSubpassDescription subpass{
         .flags = 0,
