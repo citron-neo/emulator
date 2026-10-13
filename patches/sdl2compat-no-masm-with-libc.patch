@@ -1,0 +1,57 @@
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -243,14 +243,26 @@
+     "src/version.rc"
+   )
+ endif()
++# _fltused (defined below via /GL-) is arch-agnostic and required
++# regardless of SDL_LIBC; only the masm reimpl intrinsics are redundant
++# once the real CRT is linked. Guard on MSVC, not COMPILER_ID STREQUAL
++# "MSVC" (SDL3 upstream's check) -- clang-cl reports COMPILER_ID "Clang"
++# with SIMULATE_ID "MSVC", so that check silently skips clang-cl.
+ if(MSVC)
+-  if(SDL_CPU_X64)
++  # selectany _fltused can get discarded by lld-link under full LTO
++  # (/GL); /GL- excludes this one file, same fix SDL3 upstream uses for
++  # its equivalent SDL_mslibc.c.
++  set_property(SOURCE "src/sdl2_mslibc.c" APPEND_STRING PROPERTY COMPILE_FLAGS " /GL-")
++endif()
++option(SDL_LIBC "Use the system C library (skip MASM stdlib reimpl)" ON)
++if(MSVC)
++  if(SDL_CPU_X64 AND NOT SDL_LIBC)
+     list(APPEND SDL2COMPAT_SRCS
+       "src/sdl2_mslibc_x64.masm"
+     )
+     enable_language(ASM_MASM)
+     set_property(SOURCE "src/sdl2_mslibc_x64.masm" PROPERTY LANGUAGE "ASM_MASM")
+-  elseif(SDL_CPU_ARM64)
++  elseif(SDL_CPU_ARM64 AND NOT SDL_LIBC)
+     list(APPEND SDL2COMPAT_SRCS
+       "src/sdl2_mslibc_arm64.masm"
+     )
+@@ -383,13 +395,23 @@
+ endif()
+ if(MSVC)
+   # Don't try to link with the default set of libraries.
+-  target_compile_options(SDL2 PRIVATE "$<$<COMPILE_LANGUAGE:C>:/GS->")
++  if(NOT SDL_LIBC)
++    target_compile_options(SDL2 PRIVATE "$<$<COMPILE_LANGUAGE:C>:/GS->")
++  endif()
+   if(SDL_CPU_X86)  # don't emit SSE2 in x86 builds
+     target_compile_options(SDL2 PRIVATE "$<$<COMPILE_LANGUAGE:C>:/arch:SSE>")
+   endif()
+-  if(NOT MSVC_CLANG AND NOT SDL_CPU_ARM32)
++  if(NOT MSVC_CLANG AND NOT SDL_CPU_ARM32 AND NOT SDL_LIBC)
+     set_property(TARGET SDL2 APPEND_STRING PROPERTY LINK_FLAGS " /NODEFAULTLIB")
+   endif()
++  # Belt and suspenders with /GL- above: force the linker to keep
++  # _fltused regardless of LTO's own liveness analysis. x86 cdecl adds a
++  # leading underscore to C symbol names; x64/ARM64 don't.
++  if(SDL_CPU_X86)
++    set_property(TARGET SDL2 APPEND_STRING PROPERTY LINK_FLAGS " /INCLUDE:__fltused")
++  else()
++    set_property(TARGET SDL2 APPEND_STRING PROPERTY LINK_FLAGS " /INCLUDE:_fltused")
++  endif()
+   # Make sure /RTC1 is disabled: (from SDL2 CMake)
+   foreach(flag_var
+     CMAKE_C_FLAGS CMAKE_C_FLAGS_DEBUG CMAKE_C_FLAGS_RELEASE
