@@ -369,6 +369,56 @@ StagingBufferRef BufferCacheRuntime::UploadStagingBuffer(size_t size) {
     return staging_pool.Request(size, MemoryUsage::Upload);
 }
 
+std::span<u8> BufferCacheRuntime::BindPaddedUniformBuffer(u32 data_size, u32 size) {
+    static constexpr u32 SLOT_SIZE = 64_KiB;
+    static constexpr size_t CHUNK_SLOTS = 256;
+    static constexpr size_t MAX_CHUNKS = 16;
+    if (size <= SLOT_SIZE) {
+        if (padded_uniform_slots.empty() ||
+            !scheduler.IsFree(padded_uniform_slots[padded_uniform_cursor].tick)) {
+            if (padded_uniform_chunks.size() < MAX_CHUNKS) {
+                vk::Buffer chunk = memory_allocator.CreateBuffer(
+                    {
+                        .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+                        .pNext = nullptr,
+                        .flags = 0,
+                        .size = SLOT_SIZE * CHUNK_SLOTS,
+                        .usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+                        .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
+                        .queueFamilyIndexCount = 0,
+                        .pQueueFamilyIndices = nullptr,
+                    },
+                    MemoryUsage::Upload);
+                std::ranges::fill(chunk.Mapped(), u8{0});
+                padded_uniform_cursor = padded_uniform_slots.size();
+                padded_uniform_chunks.push_back(std::move(chunk));
+                padded_uniform_slots.resize(padded_uniform_slots.size() + CHUNK_SLOTS);
+            } else {
+                padded_uniform_cursor = padded_uniform_slots.size();
+            }
+        }
+        if (padded_uniform_cursor < padded_uniform_slots.size()) {
+            PaddedUniformSlot& slot = padded_uniform_slots[padded_uniform_cursor];
+            vk::Buffer& chunk = padded_uniform_chunks[padded_uniform_cursor / CHUNK_SLOTS];
+            const u32 offset = static_cast<u32>(padded_uniform_cursor % CHUNK_SLOTS) * SLOT_SIZE;
+            const std::span<u8> mapped = chunk.Mapped().subspan(offset, SLOT_SIZE);
+            if (slot.dirty_size > data_size) {
+                std::memset(mapped.data() + data_size, 0, slot.dirty_size - data_size);
+            }
+            slot.dirty_size = data_size;
+            slot.tick = scheduler.CurrentTick();
+            padded_uniform_cursor = (padded_uniform_cursor + 1) % padded_uniform_slots.size();
+            BindBuffer(*chunk, offset, size);
+            return mapped.first(data_size);
+        }
+        padded_uniform_cursor = 0;
+    }
+    const StagingBufferRef ref = staging_pool.Request(size, MemoryUsage::Upload);
+    BindBuffer(ref.buffer, static_cast<u32>(ref.offset), size);
+    std::memset(ref.mapped_span.data() + data_size, 0, size - data_size);
+    return ref.mapped_span.first(data_size);
+}
+
 StagingBufferRef BufferCacheRuntime::DownloadStagingBuffer(size_t size, bool deferred) {
     return staging_pool.Request(size, MemoryUsage::Download, deferred);
 }
@@ -420,6 +470,7 @@ bool BufferCacheRuntime::CanReorderUpload(const Buffer& buffer,
     if (Settings::values.disable_buffer_reorder) {
         return false;
     }
+
     const bool can_use_upload_cmdbuf =
         std::ranges::all_of(copies, [&](const VideoCommon::BufferCopy& copy) {
             return !buffer.IsRegionUsed(copy.dst_offset, copy.size, scheduler.CurrentTick());

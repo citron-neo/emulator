@@ -159,6 +159,8 @@ public:
         return ref.mapped_span;
     }
 
+    std::span<u8> BindPaddedUniformBuffer(u32 data_size, u32 size);
+
     bool NeedsPaddedVertexBuffers() const {
         return device.GetDriverID() == VK_DRIVER_ID_MOLTENVK;
     }
@@ -212,6 +214,14 @@ private:
     std::shared_ptr<QuadStripIndexBuffer> quad_strip_index_buffer;
 
     vk::Buffer null_buffer;
+
+    struct PaddedUniformSlot {
+        u64 tick{};
+        u32 dirty_size{};
+    };
+    std::vector<vk::Buffer> padded_uniform_chunks;
+    std::vector<PaddedUniformSlot> padded_uniform_slots;
+    size_t padded_uniform_cursor{};
 
     std::unique_ptr<Uint8Pass> uint8_pass;
     QuadIndexedPass quad_index_pass;
