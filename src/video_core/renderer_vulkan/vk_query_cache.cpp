@@ -2,11 +2,13 @@
 // SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+#include <chrono>
 #include <cstddef>
 #include <limits>
 #include <map>
 #include <memory>
 #include <span>
+#include <thread>
 #include <type_traits>
 #include <unordered_map>
 #include <utility>
@@ -66,9 +68,23 @@ public:
 
     void Sync(size_t start, size_t size) {
         const auto& dev = device.GetLogical();
-        const VkResult query_result = dev.GetQueryResults(
-            *query_pool, static_cast<u32>(start), static_cast<u32>(size), sizeof(u64) * size,
-            &host_results[start], sizeof(u64), VK_QUERY_RESULT_64_BIT | VK_QUERY_RESULT_WAIT_BIT);
+        const auto deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(50);
+        VkResult query_result;
+        while (true) {
+            query_result = dev.GetQueryResults(*query_pool, static_cast<u32>(start),
+                                               static_cast<u32>(size), sizeof(u64) * size,
+                                               &host_results[start], sizeof(u64),
+                                               VK_QUERY_RESULT_64_BIT);
+            if (query_result != VK_NOT_READY) {
+                break;
+            }
+            if (std::chrono::steady_clock::now() >= deadline) {
+                LOG_WARNING(Render_Vulkan, "Query results {}+{} never became available", start,
+                            size);
+                return;
+            }
+            std::this_thread::yield();
+        }
         switch (query_result) {
         case VK_SUCCESS:
             return;
@@ -424,9 +440,11 @@ public:
             current_flush_queries = std::move(pending_flush_sets.front());
             pending_flush_sets.pop_front();
         }
-        ApplyBanksWideOp<false>(
-            current_flush_queries,
-            [](SamplesQueryBank* bank, size_t start, size_t amount) { bank->Sync(start, amount); });
+        for (auto q : current_flush_queries) {
+            ApplyBankOp(GetQuery(q), [](SamplesQueryBank* bank, size_t start, size_t amount) {
+                bank->Sync(start, amount);
+            });
+        }
         for (auto q : current_flush_queries) {
             auto* query = GetQuery(q);
             u64 total = 0;
