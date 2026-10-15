@@ -365,7 +365,6 @@
 
     <!-- Renderer APIs -->
     <string name="renderer_vulkan">Vulkan</string>
-    <string name="renderer_none">لاشيء</string>
 
     <!-- Renderer Accuracy -->
     <string name="renderer_accuracy_normal">عادي</string>

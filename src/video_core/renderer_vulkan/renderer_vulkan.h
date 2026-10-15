@@ -3,7 +3,9 @@
 
 #pragma once
 
+#include <array>
 #include <memory>
+#include <optional>
 #include <string>
 #include <variant>
 
@@ -37,9 +39,12 @@ Device CreateDevice(const vk::Instance& instance, const vk::InstanceDispatch& dl
 
 class RendererVulkan final : public VideoCore::RendererBase {
 public:
+    /// headless: no surface, swapchain or present manager. Frames are rendered and submitted but
+    /// not shown; screenshots and applet captures still work.
     explicit RendererVulkan(Core::Frontend::EmuWindow& emu_window,
                             Tegra::MaxwellDeviceMemoryManager& device_memory_, Tegra::GPU& gpu_,
-                            std::unique_ptr<Core::Frontend::GraphicsContext> context_);
+                            std::unique_ptr<Core::Frontend::GraphicsContext> context_,
+                            bool headless);
     ~RendererVulkan() override;
 
     void Composite(std::span<const Tegra::FramebufferConfig> framebuffers) override;
@@ -62,6 +67,7 @@ private:
                               VkDeviceSize buffer_size);
     void RenderScreenshot(std::span<const Tegra::FramebufferConfig> framebuffers);
     void RenderAppletCaptureLayer(std::span<const Tegra::FramebufferConfig> framebuffers);
+    void CompositeHeadless(std::span<const Tegra::FramebufferConfig> framebuffers);
 
     Tegra::MaxwellDeviceMemoryManager& device_memory;
     Tegra::GPU& gpu;
@@ -71,14 +77,14 @@ private:
 
     vk::Instance instance;
     vk::DebugUtilsMessenger debug_messenger;
-    vk::SurfaceKHR surface;
+    vk::SurfaceKHR surface; ///< Empty when headless
 
     Device device;
     MemoryAllocator memory_allocator;
     StateTracker state_tracker;
     Scheduler scheduler;
-    Swapchain swapchain;
-    PresentManager present_manager;
+    std::optional<Swapchain> swapchain;            ///< Empty when headless
+    std::optional<PresentManager> present_manager; ///< Empty when headless
     BlitScreen blit_swapchain;
     BlitScreen blit_capture;
     BlitScreen blit_applet;
@@ -87,6 +93,13 @@ private:
     VideoCore::FrameSkipping frame_skipping;
 
     Frame applet_frame;
+
+    /// Headless frames in flight. Nothing else paces them without a swapchain, and the caches
+    /// destroy objects 8 frames after their last use (TICKS_TO_DESTROY), so a frame must be done
+    /// on the GPU before 8 more are submitted. 3 is a triple buffered swapchain.
+    static constexpr size_t HEADLESS_FRAMES_IN_FLIGHT = 3;
+    std::array<u64, HEADLESS_FRAMES_IN_FLIGHT> headless_frame_ticks{};
+    size_t headless_frame_index = 0;
 };
 
 } // namespace Vulkan

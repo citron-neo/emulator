@@ -757,7 +757,7 @@
 
     <!-- Renderer APIs -->
     <string name="renderer_vulkan">Vulkan</string>
-    <string name="renderer_none">None</string>
+    <string name="renderer_vulkan_headless">Vulkan (headless)</string>
 
     <!-- Renderer Accuracy -->
     <string name="renderer_accuracy_low">Low</string>

@@ -312,7 +312,6 @@
     <string name="memory_gigabyte">GB</string>
     <!-- Renderer APIs -->
     <string name="renderer_vulkan">Vulkan</string>
-    <string name="renderer_none">Trống</string>
 
     <!-- Renderer Accuracy -->
     <string name="renderer_accuracy_normal">Trung bình</string>

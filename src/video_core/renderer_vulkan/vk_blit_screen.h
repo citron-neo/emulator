@@ -47,8 +47,10 @@ struct FramebufferTextureInfo {
 
 class BlitScreen {
 public:
+    /// present_manager is null when there is no swapchain; frames are then the caller's and come
+    /// to DrawToFrame with their size set.
     explicit BlitScreen(Tegra::MaxwellDeviceMemoryManager& device_memory, const Device& device,
-                        MemoryAllocator& memory_allocator, PresentManager& present_manager,
+                        MemoryAllocator& memory_allocator, PresentManager* present_manager,
                         Scheduler& scheduler, const PresentFilters& filters);
     ~BlitScreen();
 
@@ -70,7 +72,7 @@ private:
     Tegra::MaxwellDeviceMemoryManager& device_memory;
     const Device& device;
     MemoryAllocator& memory_allocator;
-    PresentManager& present_manager;
+    PresentManager* present_manager;
     Scheduler& scheduler;
     const PresentFilters& filters;
     std::size_t image_count{};

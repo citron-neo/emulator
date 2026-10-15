@@ -11,7 +11,6 @@
 #include "video_core/host1x/gpu_device_memory_manager.h"
 #include "video_core/host1x/host1x.h"
 #include "video_core/renderer_base.h"
-#include "video_core/renderer_null/renderer_null.h"
 #include "video_core/renderer_vulkan/renderer_vulkan.h"
 #include "video_core/video_core.h"
 #include "video_core/vulkan_common/vulkan_guest_memory.h"
@@ -21,14 +20,12 @@ namespace {
 
 std::unique_ptr<VideoCore::RendererBase> CreateRenderer(Core::System& system, Core::Frontend::EmuWindow& emu_window, Tegra::GPU& gpu, std::unique_ptr<Core::Frontend::GraphicsContext> context) {
     auto& device_memory = system.Host1x().MemoryManager();
-    switch (Settings::values.renderer_backend.GetValue()) {
-    case Settings::RendererBackend::Vulkan:
-        return std::make_unique<Vulkan::RendererVulkan>(emu_window, device_memory, gpu, std::move(context));
-    case Settings::RendererBackend::Null:
-        return std::make_unique<Null::RendererNull>(emu_window, gpu, std::move(context));
-    default:
-        return nullptr;
-    }
+    // Null runs the Vulkan renderer without a surface or swapchain: the GPU work is done, nothing
+    // is shown.
+    const bool headless =
+        Settings::values.renderer_backend.GetValue() == Settings::RendererBackend::Null;
+    return std::make_unique<Vulkan::RendererVulkan>(emu_window, device_memory, gpu,
+                                                    std::move(context), headless);
 }
 
 } // Anonymous namespace
@@ -59,13 +56,12 @@ GuestMemoryExport ExportGuestMemory([[maybe_unused]] Core::Frontend::EmuWindow& 
                                     [[maybe_unused]] u64 total_size,
                                     [[maybe_unused]] u64 chunk_size) {
 #ifdef __ANDROID__
-    if (Settings::values.renderer_backend.GetValue() == Settings::RendererBackend::Vulkan) {
-        const auto context = emu_window.CreateSharedContext();
-        if (const auto library = Vulkan::OpenLibrary(context.get())) {
-            return Vulkan::ExportGuestMemory(*library, total_size, chunk_size);
-        }
+    // Every backend is Vulkan
+    const auto context = emu_window.CreateSharedContext();
+    if (const auto library = Vulkan::OpenLibrary(context.get())) {
+        return Vulkan::ExportGuestMemory(*library, total_size, chunk_size);
     }
-    // No driver yet, or another backend: both can change before the next game starts
+    // No driver yet: it can be loaded before the next game starts
     return {};
 #else
     return {.fds = {}, .retry = false};

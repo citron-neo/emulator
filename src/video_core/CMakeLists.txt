@@ -112,10 +112,6 @@ add_library(video_core STATIC
     rasterizer_interface.h
     renderer_base.cpp
     renderer_base.h
-    renderer_null/null_rasterizer.cpp
-    renderer_null/null_rasterizer.h
-    renderer_null/renderer_null.cpp
-    renderer_null/renderer_null.h
     renderer_vulkan/present/anti_alias_pass.h
     renderer_vulkan/present/filters.cpp
     renderer_vulkan/present/filters.h

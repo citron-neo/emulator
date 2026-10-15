@@ -65,7 +65,7 @@
 
     <string-array name="rendererApiNames">
         <item>@string/renderer_vulkan</item>
-        <item>@string/renderer_none</item>
+        <item>@string/renderer_vulkan_headless</item>
     </string-array>
 
     <integer-array name="rendererApiValues">

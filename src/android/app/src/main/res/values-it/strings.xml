@@ -430,7 +430,6 @@
 
     <!-- Renderer APIs -->
     <string name="renderer_vulkan">Vulkan</string>
-    <string name="renderer_none">Nessuna</string>
 
     <!-- Renderer Accuracy -->
     <string name="renderer_accuracy_normal">Normale</string>

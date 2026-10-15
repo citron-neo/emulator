@@ -9,7 +9,6 @@
 
 #include "common/logging.h"
 #include "common/scm_rev.h"
-#include "video_core/renderer_null/renderer_null.h"
 #include "citron_cmd/emu_window/emu_window_sdl2_null.h"
 
 #ifdef CITRON_USE_EXTERNAL_SDL2

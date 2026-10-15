@@ -472,7 +472,6 @@
 
     <!-- Renderer APIs -->
     <string name="renderer_vulkan">Vulcan</string>
-    <string name="renderer_none">없음</string>
 
     <!-- Renderer Accuracy -->
     <string name="renderer_accuracy_normal">보통</string>

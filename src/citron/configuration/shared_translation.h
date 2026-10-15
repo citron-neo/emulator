@@ -66,7 +66,8 @@ static const std::map<Settings::GpuAccuracy, QString> gpu_accuracy_texts_map = {
 
 static const std::map<Settings::RendererBackend, QString> renderer_backend_texts_map = {
     {Settings::RendererBackend::Vulkan, QStringLiteral(QT_TRANSLATE_NOOP("GMainWindow", "Vulkan"))},
-    {Settings::RendererBackend::Null, QStringLiteral(QT_TRANSLATE_NOOP("GMainWindow", "Null"))},
+    {Settings::RendererBackend::Null,
+     QStringLiteral(QT_TRANSLATE_NOOP("GMainWindow", "Vulkan (headless)"))},
 };
 
 } // namespace ConfigurationShared

@@ -1290,11 +1290,17 @@ void RasterizerVulkan::FlushWork() {
     // A render pass the guest has left is submitted once this many draws have been recorded
     // since the last submission. 32 draws and a 0.4 ms or 1 ms timer measured the same.
     static constexpr u32 DRAWS_TO_SUBMIT_AT_PASS_END = 96;
+    // A run of draws this long is submitted even inside a pass. In Super Mario Odyssey one
+    // submission per frame carried 512 or more draws; submitting every 256 draws took the wait
+    // for the frame's one GPU-backed fence from 6-7 ms to about 4 ms and the game from 58-59 fps
+    // to its 60 fps cap.
+    static constexpr u32 DRAWS_TO_SUBMIT_INSIDE_PASS = 256;
 #else
     static constexpr u32 DRAWS_TO_DISPATCH = 4096;
     static constexpr u32 DRAWS_TO_HAND_OVER = 8;
     // Only measured on Android so far. 0 turns the pass-end submission off.
     static constexpr u32 DRAWS_TO_SUBMIT_AT_PASS_END = 0;
+    static constexpr u32 DRAWS_TO_SUBMIT_INSIDE_PASS = 0;
 #endif // ANDROID
 
     // The host GPU only starts on what has been submitted to it, and a frame used to be
@@ -1302,14 +1308,20 @@ void RasterizerVulkan::FlushWork() {
     // A game that waits for the GPU before it presents then sits idle while the GPU renders
     // most of the frame after the game's own work is done. When the guest moves to another
     // render target the pass it leaves is complete: submit it, so the GPU renders it while the
-    // guest builds the rest of the frame. Only at a pass boundary, never inside a pass:
-    // splitting a pass costs a tile-based GPU a store and a reload of every attachment.
+    // guest builds the rest of the frame. Splitting a pass costs a tile-based GPU a store and a
+    // reload of every attachment, so inside a pass only a long run of draws is submitted.
     if (DRAWS_TO_SUBMIT_AT_PASS_END != 0 && submit_at_pass_end) {
         if (const u64 tick = scheduler.CurrentTick(); tick != last_submit_tick) {
             last_submit_tick = tick;
             draws_since_submit = 0;
         }
-        if (++draws_since_submit > DRAWS_TO_SUBMIT_AT_PASS_END &&
+        ++draws_since_submit;
+        if (DRAWS_TO_SUBMIT_INSIDE_PASS != 0 && draws_since_submit > DRAWS_TO_SUBMIT_INSIDE_PASS) {
+            scheduler.Flush();
+            draw_counter = 0;
+            return;
+        }
+        if (draws_since_submit > DRAWS_TO_SUBMIT_AT_PASS_END &&
             maxwell3d->dirty.flags[VideoCommon::Dirty::RenderTargets]) {
             scheduler.Flush();
             draw_counter = 0;

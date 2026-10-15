@@ -554,7 +554,6 @@
 
     <!-- Renderer APIs -->
     <string name="renderer_vulkan">Vulkan</string>
-    <string name="renderer_none">无</string>
 
     <!-- Renderer Accuracy -->
     <string name="renderer_accuracy_normal">正常</string>

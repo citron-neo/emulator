@@ -511,21 +511,9 @@ void ConfigureGraphics::ApplyConfiguration() {
     Settings::values.vulkan_device.SetGlobal(true);
     if (Settings::IsConfiguringGlobal() ||
         (!Settings::IsConfiguringGlobal() && api_restore_global_button->isEnabled())) {
-        auto backend = static_cast<Settings::RendererBackend>(
-            combobox_translations
-                .at(Settings::EnumMetadata<
-                    Settings::RendererBackend>::Index())[api_combobox->currentIndex()]
-                .first);
-        switch (backend) {
-        case Settings::RendererBackend::Vulkan:
-            Settings::values.vulkan_device.SetGlobal(Settings::IsConfiguringGlobal());
-            Settings::values.vulkan_device.SetValue(vulkan_device_combobox->currentIndex());
-            break;
-        case Settings::RendererBackend::Null:
-            break;
-        default:
-            break;
-        }
+        // Both backends run on the selected Vulkan device
+        Settings::values.vulkan_device.SetGlobal(Settings::IsConfiguringGlobal());
+        Settings::values.vulkan_device.SetValue(vulkan_device_combobox->currentIndex());
     }
 }
 
@@ -556,10 +544,8 @@ void ConfigureGraphics::UpdateAPILayout() {
     bool need_global = !(Settings::IsConfiguringGlobal() || api_restore_global_button->isEnabled());
     vulkan_device = Settings::values.vulkan_device.GetValue(need_global);
     vulkan_device_widget->setEnabled(!need_global && runtime_lock);
-    const auto current_backend = GetCurrentGraphicsBackend();
-    const bool is_vulkan = current_backend == Settings::RendererBackend::Vulkan;
-    vulkan_device_widget->setVisible(is_vulkan);
-    if (is_vulkan && static_cast<int>(vulkan_device) < vulkan_device_combobox->count()) {
+    // Both backends run on the selected Vulkan device
+    if (static_cast<int>(vulkan_device) < vulkan_device_combobox->count()) {
         vulkan_device_combobox->setCurrentIndex(vulkan_device);
     }
 }

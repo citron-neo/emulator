@@ -2,6 +2,8 @@
 // SPDX-FileCopyrightText: Copyright 2026 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
+#include <cassert>
+
 #include "common/settings.h"
 #include "video_core/framebuffer_config.h"
 #include "video_core/present.h"
@@ -14,7 +16,7 @@
 namespace Vulkan {
 
 BlitScreen::BlitScreen(Tegra::MaxwellDeviceMemoryManager& device_memory_, const Device& device_,
-                       MemoryAllocator& memory_allocator_, PresentManager& present_manager_,
+                       MemoryAllocator& memory_allocator_, PresentManager* present_manager_,
                        Scheduler& scheduler_, const PresentFilters& filters_)
     : device_memory{device_memory_}, device{device_}, memory_allocator{memory_allocator_},
       present_manager{present_manager_}, scheduler{scheduler_}, filters{filters_}, image_count{1},
@@ -23,7 +25,9 @@ BlitScreen::BlitScreen(Tegra::MaxwellDeviceMemoryManager& device_memory_, const 
 BlitScreen::~BlitScreen() = default;
 
 void BlitScreen::WaitIdle() {
-    present_manager.WaitPresent();
+    if (present_manager) {
+        present_manager->WaitPresent();
+    }
     scheduler.Finish();
     // vkDeviceWaitIdle needs every queue externally synchronized; the scheduler worker submits
     // and the present thread presents under submit_mutex.
@@ -114,8 +118,9 @@ void BlitScreen::DrawToFrame(RasterizerVulkan& rasterizer, Frame* frame,
 
         // Update frame format if needed
         if (presentation_recreate_required) {
-            present_manager.RecreateFrame(frame, layout.width, layout.height, swapchain_view_format,
-                                          window_adapt->GetRenderPass());
+            assert(present_manager);
+            present_manager->RecreateFrame(frame, layout.width, layout.height,
+                                           swapchain_view_format, window_adapt->GetRenderPass());
         }
     }
 

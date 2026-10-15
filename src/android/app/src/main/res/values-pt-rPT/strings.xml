@@ -531,7 +531,6 @@ uma tentativa de mapeamento automático</string>
 
     <!-- Renderer APIs -->
     <string name="renderer_vulkan">Vulcano</string>
-    <string name="renderer_none">Nenhum</string>
 
     <!-- Renderer Accuracy -->
     <string name="renderer_accuracy_normal">Normal</string>
