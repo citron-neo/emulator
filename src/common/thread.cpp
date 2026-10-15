@@ -62,12 +62,32 @@ void SetCurrentThreadPriority(ThreadPriority new_priority) {
 #else
 
 void SetCurrentThreadPriority(ThreadPriority new_priority) {
+#ifdef __APPLE__
+    qos_class_t qos_class = QOS_CLASS_DEFAULT;
+    switch (new_priority) {
+    case ThreadPriority::Low:
+        qos_class = QOS_CLASS_UTILITY;
+        break;
+    case ThreadPriority::Normal:
+        qos_class = QOS_CLASS_DEFAULT;
+        break;
+    case ThreadPriority::High:
+        qos_class = QOS_CLASS_USER_INITIATED;
+        break;
+    case ThreadPriority::VeryHigh:
+    case ThreadPriority::Critical:
+        qos_class = QOS_CLASS_USER_INTERACTIVE;
+        break;
+    }
+    pthread_set_qos_class_self_np(qos_class, 0);
+    return;
+#endif
     pthread_t this_thread = pthread_self();
 
     const auto scheduling_type = SCHED_OTHER;
     s32 max_prio = sched_get_priority_max(scheduling_type);
     s32 min_prio = sched_get_priority_min(scheduling_type);
-    u32 level = std::max(static_cast<u32>(new_priority) + 1, 4U);
+    u32 level = std::min(static_cast<u32>(new_priority) + 1, 4U);
 
     struct sched_param params;
     if (max_prio > min_prio) {
