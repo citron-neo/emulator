@@ -13,9 +13,7 @@
 #include <openssl/evp.h>
 #include <openssl/hmac.h>
 #include <openssl/params.h>
-#ifdef ARCHITECTURE_x86_64
 #include "core/crypto/aes_ni.h"
-#endif
 
 #include "common/fs/file.h"
 #include "common/fs/fs.h"
@@ -23,7 +21,7 @@
 #include "common/logging.h"
 #include "core/hle/service/nfc/common/amiibo_crypto.h"
 
-#ifdef ARCHITECTURE_x86_64
+#if CITRON_HAS_AES_NI
 using namespace Core::Crypto;
 #endif
 
@@ -324,7 +322,7 @@ DerivedKeys GenerateKey(const InternalKey& key, const NTAG215File& data) {
 void Cipher(const DerivedKeys& keys, const NTAG215File& in_data, NTAG215File& out_data) {
     constexpr std::size_t encrypted_data_size = HMAC_TAG_START - SETTINGS_START;
 
-#ifdef ARCHITECTURE_x86_64
+#if CITRON_HAS_AES_NI
     // Build the AES-128-CTR key schedule and run the single-pass intrinsic CTR.
     __m128i ks[AesNi::kRoundKeys128];
     AesNi::KeyExpand128Enc(keys.aes_key.data(), ks);
