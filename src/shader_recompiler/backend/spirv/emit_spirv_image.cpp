@@ -354,6 +354,22 @@ Id Emit(MethodPtrType sparse_ptr, MethodPtrType non_sparse_ptr, EmitContext& ctx
     return ctx.OpCompositeExtract(result_type, sample, 1U);
 }
 
+Id FetchAttachment(EmitContext& ctx, IR::Inst* inst, IR::TextureInstInfo info) {
+    if (info.type == TextureType::Buffer || info.descriptor_index >= ctx.textures.size()) {
+        return Id{};
+    }
+    const TextureDefinition& def{ctx.textures[info.descriptor_index]};
+    if (!Sirit::ValidId(def.fetch_id)) {
+        return Id{};
+    }
+    if (IR::Inst* const sparse{inst->GetAssociatedPseudoOperation(IR::Opcode::GetSparseFromOp)}) {
+        sparse->SetDefinition(ctx.true_value);
+        sparse->Invalidate();
+    }
+    const Id image{ctx.OpLoad(def.fetch_type, def.fetch_id)};
+    return ctx.OpImageRead(ctx.F32[4], image, ctx.SConst(0, 0));
+}
+
 Id IsScaled(EmitContext& ctx, const IR::Value& index, Id member_index, u32 base_index) {
     const Id push_constant_u32{ctx.TypePointer(spv::StorageClass::PushConstant, ctx.U32[1])};
     Id bit{};
@@ -550,6 +566,9 @@ Id EmitBoundImageWrite(EmitContext&) {
 Id EmitImageSampleImplicitLod(EmitContext& ctx, IR::Inst* inst, const IR::Value& index, Id coords,
                               Id bias_lc, const IR::Value& offset) {
     const auto info{inst->Flags<IR::TextureInstInfo>()};
+    if (const Id fetched{FetchAttachment(ctx, inst, info)}; Sirit::ValidId(fetched)) {
+        return fetched;
+    }
     const bool is_integer{IsTextureInteger(ctx, info)};
     const Id result_type{TextureResultType(ctx, info)};
     Id color;
@@ -587,6 +606,9 @@ Id EmitImageSampleExplicitLod(EmitContext& ctx, IR::Inst* inst, const IR::Value&
 Id EmitImageSampleDrefImplicitLod(EmitContext& ctx, IR::Inst* inst, const IR::Value& index,
                                   Id coords, Id dref, Id bias_lc, const IR::Value& offset) {
     const auto info{inst->Flags<IR::TextureInstInfo>()};
+    if (const Id fetched{FetchAttachment(ctx, inst, info)}; Sirit::ValidId(fetched)) {
+        return fetched;
+    }
     if (ctx.stage == Stage::Fragment) {
         const ImageOperands operands(ctx, info.has_bias != 0, false, info.has_lod_clamp != 0,
                                      bias_lc, offset);
@@ -608,6 +630,9 @@ Id EmitImageSampleDrefImplicitLod(EmitContext& ctx, IR::Inst* inst, const IR::Va
 Id EmitImageSampleDrefExplicitLod(EmitContext& ctx, IR::Inst* inst, const IR::Value& index,
                                   Id coords, Id dref, Id lod, const IR::Value& offset) {
     const auto info{inst->Flags<IR::TextureInstInfo>()};
+    if (const Id fetched{FetchAttachment(ctx, inst, info)}; Sirit::ValidId(fetched)) {
+        return fetched;
+    }
     const ImageOperands operands(ctx, false, true, false, lod, offset);
     return Emit(&EmitContext::OpImageSparseSampleDrefExplicitLod,
                 &EmitContext::OpImageSampleDrefExplicitLod, ctx, inst, ctx.F32[1],

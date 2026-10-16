@@ -367,6 +367,37 @@ size_t GetTotalPipelineWorkers() {
 #endif
 }
 
+std::unordered_map<u64, std::vector<u64>> LoadFetchVariants(const std::filesystem::path& filename) {
+    std::unordered_map<u64, std::vector<u64>> variants;
+    std::ifstream file(filename, std::ios::binary);
+    u32 version{};
+    if (!file.read(reinterpret_cast<char*>(&version), sizeof(version)) ||
+        version != TRANSFERABLE_CACHE_VERSION) {
+        file.close();
+        Common::FS::RemoveFile(filename);
+        return variants;
+    }
+    std::array<u64, 2> record{};
+    while (file.read(reinterpret_cast<char*>(record.data()), sizeof(record))) {
+        variants[record[0]].push_back(record[1]);
+    }
+    return variants;
+}
+
+void AppendFetchVariant(const std::filesystem::path& filename, u64 key_hash, u64 fetch_key) {
+    const bool is_new = !Common::FS::Exists(filename);
+    std::ofstream file(filename, std::ios::binary | std::ios::app);
+    if (!file.is_open()) {
+        return;
+    }
+    if (is_new) {
+        const u32 version = TRANSFERABLE_CACHE_VERSION;
+        file.write(reinterpret_cast<const char*>(&version), sizeof(version));
+    }
+    const std::array<u64, 2> record{key_hash, fetch_key};
+    file.write(reinterpret_cast<const char*>(record.data()), sizeof(record));
+}
+
 } // Anonymous namespace
 
 size_t ComputePipelineCacheKey::Hash() const noexcept {
@@ -404,6 +435,7 @@ PipelineCache::PipelineCache(Tegra::MaxwellDeviceMemoryManager& device_memory_,
       serialization_thread(1, "VkPipelineSerialization") {
     const auto& float_control{device.FloatControlProperties()};
     const VkDriverId driver_id{device.GetDriverID()};
+    use_framebuffer_fetch = driver_id == VK_DRIVER_ID_MOLTENVK;
     // OPTIMIZED FOR LOW GPU ACCURACY - enable mediump in fragment shaders for better perf
     const bool low_gpu_accuracy = Settings::IsGPULevelLow();
 
@@ -619,6 +651,15 @@ void PipelineCache::LoadDiskResources(u64 title_id, std::stop_token stop_loading
         return;
     }
     pipeline_cache_filename = base_dir / "vulkan.bin";
+    fetch_variant_cache_filename = base_dir / "vulkan_fetch_variants.bin";
+    const auto disk_fetch_variants = use_framebuffer_fetch
+                                         ? LoadFetchVariants(fetch_variant_cache_filename)
+                                         : std::unordered_map<u64, std::vector<u64>>{};
+    for (const auto& [key_hash, fetch_keys] : disk_fetch_variants) {
+        for (const u64 fetch_key : fetch_keys) {
+            stored_fetch_variants.emplace(key_hash, fetch_key);
+        }
+    }
 
     if (use_vulkan_pipeline_cache) {
         vulkan_pipeline_cache_filename = base_dir / "vulkan_pipelines.bin";
@@ -694,7 +735,13 @@ void PipelineCache::LoadDiskResources(u64 title_id, std::stop_token stop_loading
             ++state.feature_mismatch;
             return;
         }
-        workers.QueueWork([this, key, envs_ = std::move(envs), &state, &callback]() mutable {
+        const auto variants_it = disk_fetch_variants.find(key.Hash());
+        std::vector<u64> fetch_keys;
+        if (variants_it != disk_fetch_variants.end()) {
+            fetch_keys = variants_it->second;
+        }
+        workers.QueueWork([this, key, envs_ = std::move(envs), fetch_keys = std::move(fetch_keys),
+                           &state, &callback]() mutable {
             CITRON_PROFILE_SCOPE("Vulkan::PipelineCacheWorker");
             ShaderPools pools;
             boost::container::static_vector<Shader::Environment*, 5> env_ptrs;
@@ -703,9 +750,21 @@ void PipelineCache::LoadDiskResources(u64 title_id, std::stop_token stop_loading
             }
             auto pipeline{CreateGraphicsPipeline(pools, key, MakeSpan(env_ptrs),
                                                  state.statistics.get(), false)};
+            std::vector<std::pair<u64, std::unique_ptr<GraphicsPipeline>>> variants;
+            if (pipeline) {
+                for (const u64 fetch_key : fetch_keys) {
+                    variants.emplace_back(
+                        fetch_key, CreateGraphicsPipeline(pools, key, MakeSpan(env_ptrs),
+                                                          state.statistics.get(), false, fetch_key));
+                }
+            }
 
             std::scoped_lock lock{state.mutex};
             if (pipeline) {
+                auto& base_variants = fetch_variants[pipeline.get()];
+                for (auto& [fetch_key, variant] : variants) {
+                    base_variants.emplace(fetch_key, std::move(variant));
+                }
                 graphics_cache.emplace(key, std::move(pipeline));
             }
             ++state.built;
@@ -796,7 +855,7 @@ GraphicsPipeline* PipelineCache::BuiltPipeline(GraphicsPipeline* pipeline) const
 std::unique_ptr<GraphicsPipeline> PipelineCache::CreateGraphicsPipeline(
     ShaderPools& pools, const GraphicsPipelineCacheKey& key,
     std::span<Shader::Environment* const> envs, PipelineStatistics* statistics,
-    bool build_in_parallel) try {
+    bool build_in_parallel, u64 fetch_key) try {
     auto hash = key.Hash();
     LOG_INFO(Render_Vulkan, "0x{:016x}", hash);
     size_t env_index{0};
@@ -1028,6 +1087,12 @@ std::unique_ptr<GraphicsPipeline> PipelineCache::CreateGraphicsPipeline(
                 runtime_info.output_generic_locations = *geometry_locations;
             }
         }
+        if (program.stage == Shader::Stage::Fragment) {
+            for (size_t d = 0; d < runtime_info.texture_fetch_attachment.size(); ++d) {
+                runtime_info.texture_fetch_attachment[d] =
+                    static_cast<u8>((fetch_key >> (4 * d)) & 0xf);
+            }
+        }
         ConvertLegacyToGeneric(program, runtime_info);
         std::vector<u32> code = EmitSPIRV(profile, runtime_info, program, binding);
         // Reserve space to reduce allocations during shader compilation
@@ -1041,10 +1106,15 @@ std::unique_ptr<GraphicsPipeline> PipelineCache::CreateGraphicsPipeline(
         previous_stage = &program;
     }
     Common::ThreadWorker* const thread_worker{build_in_parallel ? &workers : nullptr};
-    return std::make_unique<GraphicsPipeline>(
+    auto pipeline = std::make_unique<GraphicsPipeline>(
         scheduler, buffer_cache, texture_cache, vulkan_pipeline_cache, &shader_notify, device,
         descriptor_pool, guest_descriptor_queue, thread_worker, statistics, render_pass_cache, key,
         std::move(modules), infos);
+    if (use_framebuffer_fetch && fetch_key == 0) {
+        GraphicsPipeline* const base = pipeline.get();
+        pipeline->SetFetchProvider([this, base](u64 wanted) { return FetchVariant(base, wanted); });
+    }
+    return pipeline;
 
 } catch (const Shader::Exception& exception) {
     auto hash = key.Hash();
@@ -1065,6 +1135,31 @@ std::unique_ptr<GraphicsPipeline> PipelineCache::CreateGraphicsPipeline(
 } catch (const vk::Exception& exception) {
     LOG_ERROR(Render_Vulkan, "{}", exception.what());
     return nullptr;
+}
+
+GraphicsPipeline* PipelineCache::FetchVariant(GraphicsPipeline* base, u64 fetch_key) {
+    if (fetch_key == 0) {
+        return base;
+    }
+    auto& variants = fetch_variants[base];
+    if (const auto it = variants.find(fetch_key); it != variants.end()) {
+        return it->second.get();
+    }
+    GraphicsEnvironments environments;
+    GetGraphicsEnvironments(environments, base->Key().unique_hashes);
+    ShaderPools pools;
+    auto pipeline{CreateGraphicsPipeline(pools, base->Key(), environments.Span(), nullptr, true,
+                                         fetch_key)};
+    GraphicsPipeline* const result = pipeline.get();
+    variants.emplace(fetch_key, std::move(pipeline));
+    const u64 key_hash = base->Key().Hash();
+    if (result && !fetch_variant_cache_filename.empty() &&
+        stored_fetch_variants.emplace(key_hash, fetch_key).second) {
+        serialization_thread.QueueWork([this, key_hash, fetch_key] {
+            AppendFetchVariant(fetch_variant_cache_filename, key_hash, fetch_key);
+        });
+    }
+    return result;
 }
 
 std::unique_ptr<GraphicsPipeline> PipelineCache::CreateGraphicsPipeline() {

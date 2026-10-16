@@ -7,6 +7,7 @@
 #include <array>
 #include <atomic>
 #include <condition_variable>
+#include <functional>
 #include <mutex>
 #include <span>
 #include <type_traits>
@@ -124,6 +125,16 @@ public:
         return [](GraphicsPipeline* pl, bool is_indexed) { pl->ConfigureImpl<Spec>(is_indexed); };
     }
 
+    using FetchProvider = std::function<GraphicsPipeline*(u64)>;
+
+    void SetFetchProvider(FetchProvider provider) {
+        fetch_provider = std::move(provider);
+    }
+
+    [[nodiscard]] const GraphicsPipelineCacheKey& Key() const noexcept {
+        return key;
+    }
+
     void SetEngine(Tegra::Engines::Maxwell3D* maxwell3d_, Tegra::MemoryManager* gpu_memory_) {
         maxwell3d = maxwell3d_;
         gpu_memory = gpu_memory_;
@@ -151,6 +162,9 @@ private:
     GuestDescriptorQueue& guest_descriptor_queue;
 
     void (*configure_func)(GraphicsPipeline*, bool){};
+
+    FetchProvider fetch_provider;
+    GraphicsPipeline* active_variant{};
 
     std::vector<GraphicsPipelineCacheKey> transition_keys;
     std::vector<GraphicsPipeline*> transitions;

@@ -90,6 +90,7 @@ void Scheduler::RequestRenderpass(const Framebuffer* framebuffer) {
     const VkRenderPass renderpass = framebuffer->RenderPass();
     const VkFramebuffer framebuffer_handle = framebuffer->Handle();
     const VkExtent2D render_area = framebuffer->RenderArea();
+    ++renderpass_requests;
     if (renderpass == state.renderpass && framebuffer_handle == state.framebuffer &&
         render_area.width == state.render_area.width &&
         render_area.height == state.render_area.height) {
@@ -119,6 +120,14 @@ void Scheduler::RequestRenderpass(const Framebuffer* framebuffer) {
     num_renderpass_images = framebuffer->NumImages();
     renderpass_images = framebuffer->Images();
     renderpass_image_ranges = framebuffer->ImageRanges();
+}
+
+bool Scheduler::IsRenderpassOpenFor(const Framebuffer* framebuffer) const {
+    const VkExtent2D render_area = framebuffer->RenderArea();
+    return state.renderpass == framebuffer->RenderPass() &&
+           state.framebuffer == framebuffer->Handle() &&
+           state.render_area.width == render_area.width &&
+           state.render_area.height == render_area.height;
 }
 
 void Scheduler::RequestOutsideRenderPassOperationContext() {

@@ -567,7 +567,53 @@ void GraphicsPipeline::ConfigureImpl(bool is_indexed) {
         prepare_stage(4);
     }
     texture_cache.UpdateRenderTargets(false);
-    texture_cache.CheckFeedbackLoop(views);
+    active_variant = nullptr;
+    if constexpr (Spec::enabled_stages[4]) {
+        if (fetch_provider && !stage_infos[4].texture_descriptors.empty()) {
+            size_t offset{};
+            for (size_t stage = 0; stage < 4; ++stage) {
+                const auto& info = stage_infos[stage];
+                offset += Shader::NumDescriptors(info.texture_buffer_descriptors) +
+                          Shader::NumDescriptors(info.image_buffer_descriptors) +
+                          Shader::NumDescriptors(info.texture_descriptors) +
+                          Shader::NumDescriptors(info.image_descriptors);
+            }
+            const auto& fs = stage_infos[4];
+            offset += Shader::NumDescriptors(fs.texture_buffer_descriptors) +
+                      Shader::NumDescriptors(fs.image_buffer_descriptors);
+            const size_t fs_offset = offset;
+            u64 wanted{};
+            for (size_t d = 0; d < fs.texture_descriptors.size() && offset < views.size(); ++d) {
+                const auto& desc = fs.texture_descriptors[d];
+                if (d < 16 && desc.count == 1 && desc.type == Shader::TextureType::Color2D &&
+                    !desc.is_depth && !desc.is_multisample && !desc.is_integer) {
+                    const int target = texture_cache.FetchableTarget(views[offset].id);
+                    if (target >= 0) {
+                        wanted |= static_cast<u64>(target + 1) << (4 * d);
+                    }
+                }
+                offset += desc.count;
+            }
+            if (wanted != 0) {
+                active_variant = fetch_provider(wanted);
+                if (active_variant && (!active_variant->IsBuilt() || active_variant->IsFailed())) {
+                    active_variant = nullptr;
+                }
+            }
+            if (active_variant) {
+                offset = fs_offset;
+                for (size_t d = 0; d < fs.texture_descriptors.size() && offset < views.size(); ++d) {
+                    if (d < 16 && ((wanted >> (4 * d)) & 0xf) != 0) {
+                        views[offset].id = {};
+                    }
+                    offset += fs.texture_descriptors[d].count;
+                }
+            }
+        }
+    }
+    texture_cache.CheckFeedbackLoop(views,
+                                    scheduler.IsRenderpassOpenFor(texture_cache.GetFramebuffer()),
+                                    scheduler.HasForeignRenderpassRequests());
     ConfigureDraw(rescaling, render_area);
 }
 
@@ -578,13 +624,15 @@ void GraphicsPipeline::ConfigureDraw(const RescalingPushConstant& rescaling,
     }
 
     scheduler.RequestRenderpass(texture_cache.GetFramebuffer());
+    scheduler.MarkDrawRenderpassRequest();
 
     const bool is_rescaling{texture_cache.IsRescaling()};
     const bool update_rescaling{scheduler.UpdateRescaling(is_rescaling)};
-    const bool bind_pipeline{scheduler.UpdateGraphicsPipeline(this)};
+    GraphicsPipeline* const bound{active_variant ? active_variant : this};
+    const bool bind_pipeline{scheduler.UpdateGraphicsPipeline(bound)};
     const auto* const descriptor_data{guest_descriptor_queue.UpdateData()};
     const size_t upload_entries{guest_descriptor_queue.GetUploadSize()};
-    scheduler.Record([this, descriptor_data, upload_entries, bind_pipeline,
+    scheduler.Record([this, bound, descriptor_data, upload_entries, bind_pipeline,
                       rescaling_data = rescaling.Data(), is_rescaling, update_rescaling,
                       uses_render_area = render_area.uses_render_area,
                       render_area_data = render_area.words](vk::CommandBuffer cmdbuf) {
@@ -596,7 +644,7 @@ void GraphicsPipeline::ConfigureDraw(const RescalingPushConstant& rescaling,
             return;
         }
         if (bind_pipeline) {
-            cmdbuf.BindPipeline(VK_PIPELINE_BIND_POINT_GRAPHICS, *pipeline);
+            cmdbuf.BindPipeline(VK_PIPELINE_BIND_POINT_GRAPHICS, *bound->pipeline);
         }
         cmdbuf.PushConstants(*pipeline_layout, VK_SHADER_STAGE_ALL_GRAPHICS,
                              RESCALING_LAYOUT_WORDS_OFFSET, sizeof(rescaling_data),

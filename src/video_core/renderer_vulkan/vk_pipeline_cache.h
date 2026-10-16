@@ -9,6 +9,7 @@
 #include <filesystem>
 #include <memory>
 #include <type_traits>
+#include <set>
 #include <unordered_map>
 #include <vector>
 
@@ -122,7 +123,15 @@ private:
     std::unique_ptr<GraphicsPipeline> CreateGraphicsPipeline(
         ShaderPools& pools, const GraphicsPipelineCacheKey& key,
         std::span<Shader::Environment* const> envs, PipelineStatistics* statistics,
-        bool build_in_parallel);
+        bool build_in_parallel, u64 fetch_key = 0);
+
+    GraphicsPipeline* FetchVariant(GraphicsPipeline* base, u64 fetch_key);
+
+    std::unordered_map<GraphicsPipeline*, std::unordered_map<u64, std::unique_ptr<GraphicsPipeline>>>
+        fetch_variants;
+    std::set<std::pair<u64, u64>> stored_fetch_variants;
+    std::filesystem::path fetch_variant_cache_filename;
+    bool use_framebuffer_fetch{};
 
     std::unique_ptr<ComputePipeline> CreateComputePipeline(const ComputePipelineCacheKey& key,
                                                            const ShaderInfo* shader);
