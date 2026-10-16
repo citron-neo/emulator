@@ -3704,6 +3704,16 @@ void GameList::AddGamePopup(QMenu& context_menu, const QModelIndex& index, u64 p
             process.setProgram(exe);
             process.setArguments({path});
             process.setWorkingDirectory(work);
+            // ScarletNX's Windows runtime only tracks which guest pages were written when SNX_WW
+            // is set (scarletnx/ScarletNX#234 makes that the default). Without it, its GPU caches
+            // check textures and render targets by content each time (Super Mario Odyssey: about
+            // 15 FPS without it, 34 with it). The game is started by scarletnx.exe and inherits
+            // this environment. SNX_NO_WW, ScarletNX's switch to turn tracking off, is respected.
+            QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
+            if (!env.contains(QStringLiteral("SNX_NO_WW"))) {
+                env.insert(QStringLiteral("SNX_WW"), QStringLiteral("1"));
+            }
+            process.setProcessEnvironment(env);
             const QString out_log = dir.filePath(QStringLiteral("scarletnx.log"));
             const QString err_log = dir.filePath(QStringLiteral("scarletnx-errors.log"));
             process.setStandardOutputFile(out_log);
