@@ -1,6 +1,8 @@
 // SPDX-FileCopyrightText: Copyright 2021 yuzu Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
+#include <optional>
+
 #include "shader_recompiler/backend/spirv/emit_spirv_instructions.h"
 #include "shader_recompiler/backend/spirv/spirv_emit_context.h"
 
@@ -71,6 +73,30 @@ Id SelectValue(EmitContext& ctx, Id in_range, Id value, Id src_thread_id) {
     return ctx.OpSelect(
         ctx.U32[1], in_range,
         ctx.OpGroupNonUniformShuffle(ctx.U32[1], SubgroupScope(ctx), value, src_thread_id), value);
+}
+
+// SHFL.BFLY by 1, 2 or 3 within a segment of four lanes reads another invocation of the same
+// 2x2 quad. Maxwell numbers a quad's lanes with x in bit 0 and y in bit 1, as Vulkan numbers a
+// quad scope instance, so this is OpGroupNonUniformQuadSwap with direction xor - 1. It has to be
+// a quad operation: Vulkan lets helper invocations be inactive for other group operations, and
+// a shuffle from an inactive invocation is undefined, so the plain shuffle returned garbage from
+// every neighbour that was a helper (pixels of the quad outside the primitive, killed or failing
+// the depth test).
+std::optional<u32> QuadSwapDirection(EmitContext& ctx, const IR::Inst* inst) {
+    if (ctx.stage != Stage::Fragment || !ctx.profile.support_fragment_quad_swap) {
+        return std::nullopt;
+    }
+    const IR::Value index{inst->Arg(1)};
+    const IR::Value clamp{inst->Arg(2)};
+    const IR::Value segmentation_mask{inst->Arg(3)};
+    if (!index.IsImmediate() || !clamp.IsImmediate() || !segmentation_mask.IsImmediate()) {
+        return std::nullopt;
+    }
+    if (clamp.U32() != 3 || segmentation_mask.U32() != 0x1c || index.U32() < 1 ||
+        index.U32() > 3) {
+        return std::nullopt;
+    }
+    return index.U32() - 1;
 }
 
 Id AddPartitionBase(EmitContext& ctx, Id thread_id) {
@@ -207,6 +233,12 @@ Id EmitShuffleDown(EmitContext& ctx, IR::Inst* inst, Id value, Id index, Id clam
 
 Id EmitShuffleButterfly(EmitContext& ctx, IR::Inst* inst, Id value, Id index, Id clamp,
                         Id segmentation_mask) {
+    if (const std::optional<u32> direction{QuadSwapDirection(ctx, inst)}) {
+        // The source lane is always inside the quad
+        SetInBoundsFlag(inst, ctx.true_value);
+        return ctx.OpGroupNonUniformQuadSwap(ctx.U32[1], SubgroupScope(ctx), value,
+                                             ctx.Const(*direction));
+    }
     const Id thread_id{EmitLaneId(ctx)};
     const Id max_thread_id{GetMaxThreadId(ctx, thread_id, clamp, segmentation_mask)};
     Id src_thread_id{ctx.OpBitwiseXor(ctx.U32[1], thread_id, index)};

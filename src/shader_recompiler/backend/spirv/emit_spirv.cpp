@@ -448,6 +448,10 @@ void SetupCapabilities(const Profile& profile, const Info& info, EmitContext& ct
             ctx.AddCapability(spv::Capability::GroupNonUniformVote);
         }
     }
+    if (info.uses_subgroup_shuffles && ctx.stage == Stage::Fragment &&
+        profile.support_fragment_quad_swap) {
+        ctx.AddCapability(spv::Capability::GroupNonUniformQuad);
+    }
     if (info.uses_int64_bit_atomics && profile.support_int64_atomics) {
         ctx.AddCapability(spv::Capability::Int64Atomics);
     }

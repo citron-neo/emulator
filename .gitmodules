@@ -14,9 +14,6 @@
 [submodule "Vulkan-Headers"]
 	path = externals/Vulkan-Headers
 	url = https://github.com/KhronosGroup/Vulkan-Headers.git
-[submodule "sirit"]
-	path = externals/sirit
-	url = https://github.com/yuzu-mirror/sirit.git
 [submodule "mbedtls"]
 	path = externals/mbedtls
 	url = https://github.com/yuzu-mirror/mbedtls.git

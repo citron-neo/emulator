@@ -290,6 +290,7 @@ Profile DefaultToolProfile() {
     p.support_fp64_signed_zero_nan_preserve = true;
     p.support_explicit_workgroup_layout = true;
     p.support_vote = true;
+    p.support_fragment_quad_swap = true;
     p.support_viewport_index_layer_non_geometry = true;
     p.support_typeless_image_loads = true;
     p.support_demote_to_helper_invocation = true;

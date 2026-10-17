@@ -409,6 +409,11 @@ public:
         return properties.subgroup_properties.supportedOperations & feature;
     }
 
+    /// Returns true if subgroup operations are supported in the provided shader stage.
+    bool IsSubgroupSupportedInStage(VkShaderStageFlagBits stage) const {
+        return properties.subgroup_properties.supportedStages & stage;
+    }
+
     /// Returns the maximum number of push descriptors.
     u32 MaxPushDescriptors() const {
         return properties.push_descriptor.maxPushDescriptors;

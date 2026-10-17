@@ -46,6 +46,8 @@ struct Profile {
     bool support_fp64_signed_zero_nan_preserve{};
     bool support_explicit_workgroup_layout{};
     bool support_vote{};
+    /// OpGroupNonUniformQuadSwap is available in fragment shaders
+    bool support_fragment_quad_swap{};
     bool support_viewport_index_layer_non_geometry{};
     bool support_viewport_mask{};
     bool support_typeless_image_loads{};
