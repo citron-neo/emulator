@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <array>
 #include <bit>
+#include <chrono>
 #include <cstring>
 #include <ctime>
 #include <exception>
@@ -1322,6 +1323,15 @@ void RasterizerVulkan::FlushWork() {
     static_assert((DRAWS_TO_HAND_OVER & (DRAWS_TO_HAND_OVER - 1)) == 0);
     if ((++draw_counter & (DRAWS_TO_HAND_OVER - 1)) != DRAWS_TO_HAND_OVER - 1) {
         return;
+    }
+    if (device.GetDriverID() == VK_DRIVER_ID_MOLTENVK && draw_counter >= 16) {
+        const auto now = std::chrono::steady_clock::now();
+        if (now - last_submit_time > std::chrono::microseconds(1500)) {
+            last_submit_time = now;
+            scheduler.Flush();
+            draw_counter = 0;
+            return;
+        }
     }
     if (draw_counter < DRAWS_TO_DISPATCH) {
         // Send recorded tasks to the worker thread
