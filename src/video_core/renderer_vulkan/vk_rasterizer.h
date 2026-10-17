@@ -172,6 +172,8 @@ private:
     /// Once a frame: decides whether finished passes are submitted to the host GPU early.
     void UpdatePassEndSubmit();
 
+    void RecordComputeWriteBarrier();
+
     void UpdateDynamicStates();
 
     void HandleTransformFeedback();

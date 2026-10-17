@@ -816,11 +816,29 @@ void RasterizerVulkan::DispatchCompute() {
                           indirect_offset = offset](vk::CommandBuffer cmdbuf) {
             cmdbuf.DispatchIndirect(indirect_buffer, indirect_offset);
         });
+        RecordComputeWriteBarrier();
         return;
     }
     const std::array<u32, 3> dim{qmd.grid_dim_x, qmd.grid_dim_y, qmd.grid_dim_z};
     scheduler.RequestOutsideRenderPassOperationContext();
     scheduler.Record([dim](vk::CommandBuffer cmdbuf) { cmdbuf.Dispatch(dim[0], dim[1], dim[2]); });
+    RecordComputeWriteBarrier();
+}
+
+void RasterizerVulkan::RecordComputeWriteBarrier() {
+    if (device.GetDriverID() != VK_DRIVER_ID_MOLTENVK) {
+        return;
+    }
+    scheduler.Record([](vk::CommandBuffer cmdbuf) {
+        static constexpr VkMemoryBarrier barrier{
+            .sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER,
+            .pNext = nullptr,
+            .srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT,
+            .dstAccessMask = VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_MEMORY_WRITE_BIT,
+        };
+        cmdbuf.PipelineBarrier(VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+                               VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, 0, barrier);
+    });
 }
 
 void RasterizerVulkan::ResetCounter(VideoCommon::QueryType type) {
