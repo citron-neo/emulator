@@ -369,6 +369,15 @@ StagingBufferRef BufferCacheRuntime::UploadStagingBuffer(size_t size) {
     return staging_pool.Request(size, MemoryUsage::Upload);
 }
 
+std::span<u16> BufferCacheRuntime::BindMappedUint16IndexBuffer(u32 num_indices) {
+    const StagingBufferRef ref =
+        staging_pool.Request(num_indices * sizeof(u16), MemoryUsage::Upload);
+    scheduler.Record([buffer = ref.buffer, offset = ref.offset](vk::CommandBuffer cmdbuf) {
+        cmdbuf.BindIndexBuffer(buffer, offset, VK_INDEX_TYPE_UINT16);
+    });
+    return {reinterpret_cast<u16*>(ref.mapped_span.data()), num_indices};
+}
+
 StagingBufferRef BufferCacheRuntime::DownloadStagingBuffer(size_t size, bool deferred) {
     return staging_pool.Request(size, MemoryUsage::Download, deferred);
 }

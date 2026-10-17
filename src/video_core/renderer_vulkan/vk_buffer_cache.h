@@ -180,6 +180,12 @@ public:
         return ref.mapped_span;
     }
 
+    bool NeedsUint8IndicesWidenedOnCpu() const {
+        return device.GetDriverID() == VK_DRIVER_ID_MOLTENVK;
+    }
+
+    std::span<u16> BindMappedUint16IndexBuffer(u32 num_indices);
+
     void BindUniformBuffer(VkBuffer buffer, u32 offset, u32 size) {
         BindBuffer(buffer, offset, size);
     }

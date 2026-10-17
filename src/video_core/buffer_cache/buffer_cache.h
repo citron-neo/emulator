@@ -825,6 +825,32 @@ void BufferCache<P>::BindHostIndexBuffer() {
     const u32 offset = buffer.Offset(channel_state->index_buffer.device_addr);
     const u32 size = channel_state->index_buffer.size;
     const auto& draw_state = maxwell3d->draw_manager->GetDrawState();
+    if constexpr (!HAS_FULL_INDEX_AND_PRIMITIVE_SUPPORT) {
+        if (draw_state.index_buffer.format == Maxwell::IndexFormat::UnsignedByte &&
+            draw_state.topology != Maxwell::PrimitiveTopology::Quads &&
+            draw_state.topology != Maxwell::PrimitiveTopology::QuadStrip &&
+            runtime.NeedsUint8IndicesWidenedOnCpu() &&
+            (!draw_state.inline_index_draw_indexes.empty() ||
+             !IsRegionGpuModified(channel_state->index_buffer.device_addr, size))) {
+            std::span<const u8> indices;
+            if (!draw_state.inline_index_draw_indexes.empty()) {
+                indices = std::span<const u8>(draw_state.inline_index_draw_indexes).first(
+                    (std::min)(size_t{size}, draw_state.inline_index_draw_indexes.size()));
+            } else {
+                tmp_buffer.resize_destructive(size);
+                device_memory.ReadBlockUnsafe(channel_state->index_buffer.device_addr,
+                                              tmp_buffer.data(), size);
+                indices = std::span<const u8>(tmp_buffer.data(), size);
+            }
+            const bool restart = maxwell3d->regs.primitive_restart.enabled != 0;
+            const std::span<u16> widened =
+                runtime.BindMappedUint16IndexBuffer(static_cast<u32>(indices.size()));
+            for (size_t i = 0; i < indices.size(); ++i) {
+                widened[i] = restart && indices[i] == 0xFF ? u16{0xFFFF} : u16{indices[i]};
+            }
+            return;
+        }
+    }
     if (!draw_state.inline_index_draw_indexes.empty()) [[unlikely]] {
         if constexpr (USE_MEMORY_MAPS_FOR_UPLOADS) {
             auto upload_staging = runtime.UploadStagingBuffer(size);
