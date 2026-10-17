@@ -53,7 +53,21 @@ MasterSemaphore::MasterSemaphore(const Device& device_) : device(device_) {
     });
 }
 
-MasterSemaphore::~MasterSemaphore() = default;
+MasterSemaphore::~MasterSemaphore() {
+    Shutdown();
+}
+
+void MasterSemaphore::Shutdown() {
+    wait_thread.request_stop();
+    debug_thread.request_stop();
+    wait_cv.notify_all();
+    if (wait_thread.joinable()) {
+        wait_thread.join();
+    }
+    if (debug_thread.joinable()) {
+        debug_thread.join();
+    }
+}
 
 void MasterSemaphore::Refresh() {
     if (!semaphore) {

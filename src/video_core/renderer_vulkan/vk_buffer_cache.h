@@ -3,11 +3,18 @@
 
 #pragma once
 
+#include <unordered_set>
+
 #include "video_core/buffer_cache/buffer_cache_base.h"
+#include "video_core/buffer_cache/controlled_transfer.h"
+#include "video_core/buffer_cache/direct_guest_mapping.h"
 #include "video_core/buffer_cache/memory_tracker_base.h"
 #include "video_core/buffer_cache/usage_tracker.h"
 #include "video_core/engines/maxwell_3d.h"
+#include "video_core/host1x/gpu_device_memory_manager.h"
 #include "video_core/renderer_vulkan/vk_compute_pass.h"
+#include "video_core/renderer_vulkan/vk_buffer_payload.h"
+#include "video_core/renderer_vulkan/vk_scheduler.h"
 #include "video_core/renderer_vulkan/vk_staging_buffer_pool.h"
 #include "video_core/renderer_vulkan/vk_update_descriptor.h"
 #include "video_core/surface.h"
@@ -23,6 +30,16 @@ struct HostVertexBinding;
 
 class BufferCacheRuntime;
 
+// Owns the imported payload independently of the guest fd. Buffers retained by the
+// existing delayed-destruction ring retain this allocation too. Member order destroys
+// the buffer before freeing its memory.
+struct DirectGuestMapping {
+    vk::DeviceMemory memory;
+    vk::Handle<VkBuffer, VkDevice, vk::DeviceDispatch> buffer;
+    Common::GuestBackingRange backing;
+    VkMemoryPropertyFlags properties{};
+};
+
 class Buffer : public VideoCommon::BufferBase {
 public:
     explicit Buffer(BufferCacheRuntime&, VideoCommon::NullBufferParams null_params);
@@ -31,12 +48,29 @@ public:
     [[nodiscard]] VkBufferView View(u32 offset, u32 size, VideoCore::Surface::PixelFormat format);
 
     [[nodiscard]] VkBuffer Handle() const noexcept {
-        return *buffer;
+        return direct ? *direct->buffer : payload ? *payload->buffer : VK_NULL_HANDLE;
+    }
+
+    [[nodiscard]] bool IsDirectGuest() const { return direct != nullptr; }
+    void RevokeContentEligibility() noexcept {
+        if (payload) payload->content_eligible.store(false, std::memory_order_release);
+    }
+    [[nodiscard]] const Common::GuestBackingRange* DirectBacking() const {
+        return direct ? &direct->backing : nullptr;
     }
 
     /// Host mapping of a unified memory buffer, empty for staged buffers.
     [[nodiscard]] std::span<u8> Mapped() noexcept {
-        return buffer.Mapped();
+        auto mapped = payload ? payload->buffer.Mapped() : std::span<u8>{};
+        if (!mapped.empty()) payload->host_pointer_exposed.store(true, std::memory_order_release);
+        return mapped;
+    }
+
+    /// Staged DMA resource ownership only, under a live renderer/device/allocator domain.
+    /// The caller must independently prove physical footprint and acquire data admission.
+    [[nodiscard]] std::optional<StagedBufferPin> PinStagedRepresentation(u64 offset,
+                                                                      u64 size) const {
+        return direct ? std::nullopt : StagedBufferPin::Build(payload, offset, size);
     }
 
     /// Whether work recorded for the submission `tick` uses the range. Work of earlier
@@ -59,7 +93,7 @@ public:
     }
 
     operator VkBuffer() const noexcept {
-        return *buffer;
+        return Handle();
     }
 
 private:
@@ -70,8 +104,12 @@ private:
         vk::BufferView handle;
     };
 
+    friend BufferCacheRuntime;
+    std::unique_ptr<DirectGuestMapping> direct;
     const Device* device{};
-    vk::Buffer buffer;
+    std::shared_ptr<StagedBufferPayload> payload;
+    std::shared_ptr<const VideoCommon::PhysicalWriteIdentity> physical_origin;
+    bool physical_origin_attempted{};
     std::vector<BufferView> views;
     VideoCommon::UsageTracker tracker;
     /// Submission the usage in tracker belongs to.
@@ -95,6 +133,19 @@ public:
                                 ComputePassDescriptorQueue& compute_pass_descriptor_queue,
                                 DescriptorPool& descriptor_pool);
 
+    ~BufferCacheRuntime();
+
+    /// Called after renderer producer exclusion, before shutdown drains. No waits/resource frees.
+    void SealStagedPins() noexcept { staged_pin_domain->Seal(); }
+
+    [[nodiscard]] bool SupportsControlledTransfers() const;
+    [[nodiscard]] std::shared_ptr<VideoCommon::ControlledBufferTransfer> PrepareControlledTransfer(
+        const Buffer& buffer);
+    [[nodiscard]] std::shared_ptr<VideoCommon::ControlledAliasTransfer> PrepareAliasTransfer(
+        StagedBufferPin source, StagedBufferPin destination,
+        std::span<const VideoCommon::AliasCopyRange> copies);
+    void RetireControlledTransfersAfterDeviceIdle();
+
     void TickFrame(Common::SlotVector<Buffer>& slot_buffers) noexcept;
 
     /// Tick of the command buffer being recorded; work recorded now completes at this tick.
@@ -103,6 +154,12 @@ public:
     /// Last tick the GPU is known to have completed (MasterSemaphore::KnownGpuTick, a cached
     /// value that can lag behind the GPU, never run ahead of it).
     [[nodiscard]] u64 KnownGpuTick() const noexcept;
+
+    bool TryDirectGuestBuffer(Buffer& buffer, Common::GuestBackingRange backing);
+    void GuestMemoryBarrier(bool to_cpu);
+    [[nodiscard]] bool NeedsGuestCpuAccess(const Buffer& buffer) const;
+    void BeginGuestCpuAccess(const Buffer& buffer);
+    void EndGuestCpuAccess(const Buffer& buffer);
 
     void Finish();
 
@@ -138,6 +195,24 @@ public:
     void PostCopyBarrier();
 
     void ClearBuffer(VkBuffer dest_buffer, u32 offset, size_t size, u32 value);
+    // Isolated write provenance, not ordinary routing or physical content authority.
+    [[nodiscard]] Scheduler::Write ClearBufferChecked(StagedBufferPin pin, u64 intent_revision, u32 value,
+        std::function<bool()> emit = {});
+    void BeginStorageWriteObservation(bool enabled);
+    void SetPhysicalObservationMemory(const Tegra::MaxwellDeviceMemoryManager* memory) {
+        observation_memory = memory;
+    }
+    void CapturePhysicalOrigin(Buffer& buffer) const noexcept;
+    void InvalidatePhysicalOrigin(Buffer& buffer) const noexcept { buffer.physical_origin.reset(); }
+    [[nodiscard]] std::shared_ptr<const VideoCommon::PhysicalWriteIdentity>
+        PhysicalIdentityForBinding(const Buffer& buffer, u64 offset, u64 size) const noexcept;
+    void EndStorageWriteObservation();
+    [[nodiscard]] bool StorageWriteObservationValid() const {
+        return storage_observation_active && storage_observation_valid;
+    }
+    [[nodiscard]] std::span<const Scheduler::WriteFootprint> StorageWriteFootprints() const {
+        return storage_write_footprints;
+    }
 
     void BindIndexBuffer(PrimitiveTopology topology, IndexFormat index_format, u32 num_indices,
                          u32 base_vertex, VkBuffer buffer, u32 offset, u32 size);
@@ -184,10 +259,11 @@ public:
         BindBuffer(buffer, offset, size);
     }
 
-    void BindStorageBuffer(VkBuffer buffer, u32 offset, u32 size,
-                           [[maybe_unused]] bool is_written) {
+    void BindStorageBuffer(VkBuffer buffer, u32 offset, u32 size, bool is_written) {
+        if (storage_observation_active && is_written) storage_observation_valid = false;
         BindBuffer(buffer, offset, size);
     }
+    void BindStorageBuffer(Buffer& buffer, u32 offset, u32 size, bool is_written);
 
     void BindTextureBuffer(Buffer& buffer, u32 offset, u32 size,
                            VideoCore::Surface::PixelFormat format) {
@@ -195,6 +271,14 @@ public:
     }
 
 private:
+    bool storage_observation_active{};
+    const Tegra::MaxwellDeviceMemoryManager* observation_memory{};
+    bool storage_observation_valid{true};
+    std::vector<Scheduler::WriteFootprint> storage_write_footprints;
+    std::vector<std::weak_ptr<VideoCommon::ControlledBufferTransfer>> controlled_transfers;
+    std::vector<std::weak_ptr<VideoCommon::ControlledAliasTransfer>> alias_transfers;
+    std::shared_ptr<StagedBufferPinDomain> staged_pin_domain{
+        std::make_shared<StagedBufferPinDomain>()};
     void BindBuffer(VkBuffer buffer, u32 offset, u32 size) {
         guest_descriptor_queue.AddBuffer(buffer, offset, size);
     }
@@ -206,6 +290,8 @@ private:
     MemoryAllocator& memory_allocator;
     Scheduler& scheduler;
     StagingBufferPool& staging_pool;
+    std::unordered_set<int> guest_cpu_access;
+    bool reported_large_guest_backing{};
     GuestDescriptorQueue& guest_descriptor_queue;
 
     std::shared_ptr<QuadArrayIndexBuffer> quad_array_index_buffer;

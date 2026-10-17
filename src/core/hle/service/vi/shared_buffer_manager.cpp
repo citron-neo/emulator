@@ -40,8 +40,8 @@ Result AllocateSharedBufferMemory(std::unique_ptr<Kernel::KPageGroup>* out_page_
 
     // Fill the output data with red.
     for (auto& block : *pg) {
-        u32* start = system.DeviceMemory().GetPointer<u32>(block.GetAddress());
-        u32* end = system.DeviceMemory().GetPointer<u32>(block.GetAddress() + block.GetSize());
+        u32* start = system.DeviceMemory().GetPointer<u32>(block.GetAddress(), block.GetSize());
+        u32* end = start + block.GetSize() / sizeof(u32);
 
         for (; start < end; start++) {
             *start = 0xFF0000FF;
@@ -407,8 +407,8 @@ Result SharedBufferManager::WriteAppletCaptureBuffer(bool* out_was_written, s32*
     // TODO: this could be optimized
     s64 e = -1280 * 768 * 4;
     for (auto& block : *m_buffer_page_group) {
-        u8* start = m_system.DeviceMemory().GetPointer<u8>(block.GetAddress());
-        u8* end = m_system.DeviceMemory().GetPointer<u8>(block.GetAddress() + block.GetSize());
+        u8* start = m_system.DeviceMemory().GetPointer<u8>(block.GetAddress(), block.GetSize());
+        u8* end = start + block.GetSize();
 
         for (; start < end; start++) {
             *start = 0;

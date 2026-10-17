@@ -4,7 +4,10 @@
 #pragma once
 
 #include <atomic>
+#include <algorithm>
+#include <array>
 #include <condition_variable>
+#include <functional>
 #include <mutex>
 #include <optional>
 #include <thread>
@@ -75,9 +78,19 @@ struct GPUTickCommand final {};
 /// Queue barrier used to wait for commands submitted before it.
 struct SynchronizeCommand final {};
 
+/// A blocking operation whose scheduler work must execute on the GPU thread.
+struct ExecuteCallbackCommand final {
+    std::function<void()> callback;
+};
+
+/// Nonblocking owner continuation. false parks until another normal owner iteration; true
+/// retires this capture. The callback must never wait for a CPU producer or pump the queue.
+struct ContinueCpuWriteCommand final { std::function<bool()> poll; };
+
 using CommandData =
     std::variant<std::monostate, SubmitListCommand, FlushRegionCommand, InvalidateRegionCommand,
-                 FlushAndInvalidateRegionCommand, GPUTickCommand, SynchronizeCommand>;
+                 FlushAndInvalidateRegionCommand, GPUTickCommand, SynchronizeCommand,
+                 ExecuteCallbackCommand, ContinueCpuWriteCommand>;
 
 struct CommandDataContainer {
     CommandDataContainer() = default;
@@ -98,6 +111,9 @@ struct SynchState final {
     u64 last_fence{};
     std::atomic<u64> signaled_fence{};
     std::condition_variable_any cv;
+    // Protected by write_lock. Stop closes admission before requesting thread cancellation.
+    bool accepting{};
+    std::stop_token stop_token;
 };
 
 /// Class used to manage the GPU thread
@@ -109,6 +125,10 @@ public:
     /// Creates and starts the GPU thread.
     void StartThread(VideoCore::RendererBase& renderer, Core::Frontend::GraphicsContext& context,
                      Tegra::Control::Scheduler& scheduler);
+
+    /// Owner-thread teardown: reject new commands, stop/join, then destroy queued captures.
+    /// The renderer, control scheduler and channels must remain alive until this returns.
+    void Stop();
 
     /// Push GPU command entries to be processed
     void SubmitList(s32 channel, Tegra::CommandList&& entries);
@@ -127,6 +147,12 @@ public:
     /// Wait until all commands queued before this call have been processed by the GPU thread.
     void Synchronize();
 
+    bool IsGpuThread() const { return current_manager == this; }
+    void RunOnGpuThread(std::function<void()> callback);
+    /// Single try-lock/queue attempt, including full-queue rejection; never a blocking fence.
+    /// Unsupported synchronous mode and inline GPU-owner submissions refuse before execution.
+    [[nodiscard]] bool TryQueueCpuWrite(std::function<bool()> poll);
+
 private:
     /// Pushes a command to be executed by the GPU thread
     u64 PushCommand(CommandData&& command_data, bool block = false);
@@ -137,6 +163,8 @@ private:
 
     SynchState state;
     std::jthread thread;
+    // Thread identity remains safe to query during join and cannot alias a recycled thread ID.
+    inline static thread_local const ThreadManager* current_manager{};
 };
 
 } // namespace VideoCommon::GPUThread

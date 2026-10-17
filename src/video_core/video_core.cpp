@@ -72,4 +72,15 @@ GuestMemoryExport ExportGuestMemory([[maybe_unused]] Core::Frontend::EmuWindow& 
 #endif
 }
 
+std::shared_ptr<Common::GuestBackingExporter> CreateGuestBackingExporter(
+    [[maybe_unused]] Core::Frontend::EmuWindow& emu_window) {
+#ifdef __ANDROID__
+    if (Settings::values.renderer_backend.GetValue() == Settings::RendererBackend::Vulkan) {
+        const auto context = emu_window.CreateSharedContext();
+        return Vulkan::CreateGuestBackingExporter(Vulkan::OpenLibrary(context.get()));
+    }
+#endif
+    return {};
+}
+
 } // namespace VideoCore

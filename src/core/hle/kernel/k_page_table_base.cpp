@@ -1575,8 +1575,12 @@ KProcessAddress KPageTableBase::FindFreeArea(KProcessAddress region_start, size_
 
                 KMemoryInfo info;
                 Svc::PageInfo page_info;
-                R_ASSERT(this->QueryInfoImpl(std::addressof(info), std::addressof(page_info),
-                                             candidate));
+                const auto query_result = this->QueryInfoImpl(
+                    std::addressof(info), std::addressof(page_info), candidate);
+                R_ASSERT(query_result);
+                if (R_FAILED(query_result)) {
+                    continue;
+                }
 
                 if (info.m_state != KMemoryState::Free) {
                     continue;
@@ -2107,7 +2111,8 @@ Result KPageTableBase::SetProcessMemoryPermission(KProcessAddress addr, size_t s
     // Ensure cache coherency, if we're setting pages as executable.
     if (is_x) {
         for (const auto& block : pg) {
-            StoreDataCache(GetHeapVirtualPointer(m_kernel, block.GetAddress()), block.GetSize());
+            StoreDataCache(GetHeapVirtualPointer(m_kernel, block.GetAddress(), block.GetSize()),
+                           block.GetSize());
         }
         InvalidateInstructionCache(m_kernel, this, addr, size);
     }
@@ -3113,7 +3118,8 @@ Result KPageTableBase::InvalidateProcessDataCache(KProcessAddress address, size_
             // Invalidate the block.
             if (cur_size > 0) {
                 // NOTE: Nintendo does not check the result of invalidation.
-                InvalidateDataCache(GetLinearMappedVirtualPointer(m_kernel, cur_addr), cur_size);
+                InvalidateDataCache(GetLinearMappedVirtualPointer(m_kernel, cur_addr, cur_size),
+                                    cur_size);
             }
 
             // Advance.
@@ -3137,7 +3143,7 @@ Result KPageTableBase::InvalidateProcessDataCache(KProcessAddress address, size_
     // Invalidate the last block.
     if (cur_size > 0) {
         // NOTE: Nintendo does not check the result of invalidation.
-        InvalidateDataCache(GetLinearMappedVirtualPointer(m_kernel, cur_addr), cur_size);
+        InvalidateDataCache(GetLinearMappedVirtualPointer(m_kernel, cur_addr, cur_size), cur_size);
     }
 
     R_SUCCEED();
@@ -3206,7 +3212,7 @@ Result KPageTableBase::ReadDebugMemory(KProcessAddress dst_address, KProcessAddr
         // Copy as much aligned data as we can.
         if (cur_size >= sizeof(u32)) {
             const size_t copy_size = Common::AlignDown(cur_size, sizeof(u32));
-            const void* copy_src = GetLinearMappedVirtualPointer(m_kernel, cur_addr);
+            const void* copy_src = GetLinearMappedVirtualPointer(m_kernel, cur_addr, cur_size);
             FlushDataCache(copy_src, copy_size);
             R_UNLESS(dst_memory.WriteBlock(dst_address, copy_src, copy_size), ResultInvalidPointer);
 
@@ -3217,7 +3223,7 @@ Result KPageTableBase::ReadDebugMemory(KProcessAddress dst_address, KProcessAddr
 
         // Copy remaining data.
         if (cur_size > 0) {
-            const void* copy_src = GetLinearMappedVirtualPointer(m_kernel, cur_addr);
+            const void* copy_src = GetLinearMappedVirtualPointer(m_kernel, cur_addr, cur_size);
             FlushDataCache(copy_src, cur_size);
             R_UNLESS(dst_memory.WriteBlock(dst_address, copy_src, cur_size), ResultInvalidPointer);
         }
@@ -3302,11 +3308,11 @@ Result KPageTableBase::WriteDebugMemory(KProcessAddress dst_address, KProcessAdd
         // Copy as much aligned data as we can.
         if (cur_size >= sizeof(u32)) {
             const size_t copy_size = Common::AlignDown(cur_size, sizeof(u32));
-            void* copy_dst = GetLinearMappedVirtualPointer(m_kernel, cur_addr);
+            void* copy_dst = GetLinearMappedVirtualPointer(m_kernel, cur_addr, cur_size);
             R_UNLESS(src_memory.ReadBlock(src_address, copy_dst, copy_size),
                      ResultInvalidCurrentMemory);
 
-            StoreDataCache(GetLinearMappedVirtualPointer(m_kernel, cur_addr), copy_size);
+            StoreDataCache(GetLinearMappedVirtualPointer(m_kernel, cur_addr, cur_size), copy_size);
 
             src_address += copy_size;
             cur_addr += copy_size;
@@ -3315,11 +3321,11 @@ Result KPageTableBase::WriteDebugMemory(KProcessAddress dst_address, KProcessAdd
 
         // Copy remaining data.
         if (cur_size > 0) {
-            void* copy_dst = GetLinearMappedVirtualPointer(m_kernel, cur_addr);
+            void* copy_dst = GetLinearMappedVirtualPointer(m_kernel, cur_addr, cur_size);
             R_UNLESS(src_memory.ReadBlock(src_address, copy_dst, cur_size),
                      ResultInvalidCurrentMemory);
 
-            StoreDataCache(GetLinearMappedVirtualPointer(m_kernel, cur_addr), cur_size);
+            StoreDataCache(GetLinearMappedVirtualPointer(m_kernel, cur_addr, cur_size), cur_size);
         }
 
         R_SUCCEED();
@@ -3393,7 +3399,7 @@ Result KPageTableBase::ReadIoMemoryImpl(KProcessAddress dst_addr, KPhysicalAddre
 
     // Read the memory.
     const KProcessAddress read_addr = io_addr + (GetInteger(phys_addr) & (PageSize - 1));
-    dst_memory.CopyBlock(dst_addr, read_addr, size);
+    R_UNLESS(dst_memory.CopyBlock(dst_addr, read_addr, size), ResultInvalidPointer);
 
     R_SUCCEED();
 }
@@ -3811,7 +3817,8 @@ Result KPageTableBase::CopyMemoryFromLinearToUser(
             if (cur_size >= sizeof(u32)) {
                 const size_t copy_size = Common::AlignDown(cur_size, sizeof(u32));
                 R_UNLESS(dst_memory.WriteBlock(dst_addr,
-                                               GetLinearMappedVirtualPointer(m_kernel, cur_addr),
+                                               GetLinearMappedVirtualPointer(m_kernel, cur_addr,
+                                                                             cur_size),
                                                copy_size),
                          ResultInvalidCurrentMemory);
 
@@ -3823,7 +3830,8 @@ Result KPageTableBase::CopyMemoryFromLinearToUser(
             // Copy remaining data.
             if (cur_size > 0) {
                 R_UNLESS(dst_memory.WriteBlock(
-                             dst_addr, GetLinearMappedVirtualPointer(m_kernel, cur_addr), cur_size),
+                             dst_addr, GetLinearMappedVirtualPointer(m_kernel, cur_addr, cur_size),
+                             cur_size),
                          ResultInvalidCurrentMemory);
             }
 
@@ -3902,7 +3910,7 @@ Result KPageTableBase::CopyMemoryFromLinearToKernel(
             R_UNLESS(IsLinearMappedPhysicalAddress(cur_addr), ResultInvalidCurrentMemory);
 
             // Copy the data.
-            std::memcpy(buffer, GetLinearMappedVirtualPointer(m_kernel, cur_addr), cur_size);
+            std::memcpy(buffer, GetLinearMappedVirtualPointer(m_kernel, cur_addr, cur_size), cur_size);
 
             R_SUCCEED();
         };
@@ -3985,7 +3993,8 @@ Result KPageTableBase::CopyMemoryFromUserToLinear(
             if (cur_size >= sizeof(u32)) {
                 const size_t copy_size = Common::AlignDown(cur_size, sizeof(u32));
                 R_UNLESS(src_memory.ReadBlock(src_addr,
-                                              GetLinearMappedVirtualPointer(m_kernel, cur_addr),
+                                              GetLinearMappedVirtualPointer(m_kernel, cur_addr,
+                                                                            cur_size),
                                               copy_size),
                          ResultInvalidCurrentMemory);
                 src_addr += copy_size;
@@ -3996,7 +4005,8 @@ Result KPageTableBase::CopyMemoryFromUserToLinear(
             // Copy remaining data.
             if (cur_size > 0) {
                 R_UNLESS(src_memory.ReadBlock(
-                             src_addr, GetLinearMappedVirtualPointer(m_kernel, cur_addr), cur_size),
+                             src_addr, GetLinearMappedVirtualPointer(m_kernel, cur_addr, cur_size),
+                             cur_size),
                          ResultInvalidCurrentMemory);
             }
 
@@ -4077,7 +4087,7 @@ Result KPageTableBase::CopyMemoryFromKernelToLinear(KProcessAddress dst_addr, si
             R_UNLESS(IsLinearMappedPhysicalAddress(cur_addr), ResultInvalidCurrentMemory);
 
             // Copy the data.
-            std::memcpy(GetLinearMappedVirtualPointer(m_kernel, cur_addr), buffer, cur_size);
+            std::memcpy(GetLinearMappedVirtualPointer(m_kernel, cur_addr, cur_size), buffer, cur_size);
 
             R_SUCCEED();
         };
@@ -4228,8 +4238,8 @@ Result KPageTableBase::CopyMemoryFromHeapToHeap(
                 R_UNLESS(IsHeapPhysicalAddress(cur_dst_addr), ResultInvalidCurrentMemory);
 
                 // Copy the data.
-                std::memcpy(GetHeapVirtualPointer(m_kernel, cur_dst_addr),
-                            GetHeapVirtualPointer(m_kernel, cur_src_addr), cur_copy_size);
+                std::memcpy(GetHeapVirtualPointer(m_kernel, cur_dst_addr, cur_copy_size),
+                            GetHeapVirtualPointer(m_kernel, cur_src_addr, cur_copy_size), cur_copy_size);
 
                 // Update.
                 cur_src_block_addr = src_next_entry.phys_addr;
@@ -4362,8 +4372,8 @@ Result KPageTableBase::CopyMemoryFromHeapToHeapWithoutCheckDestination(
                 R_UNLESS(IsHeapPhysicalAddress(cur_dst_addr), ResultInvalidCurrentMemory);
 
                 // Copy the data.
-                std::memcpy(GetHeapVirtualPointer(m_kernel, cur_dst_addr),
-                            GetHeapVirtualPointer(m_kernel, cur_src_addr), cur_copy_size);
+                std::memcpy(GetHeapVirtualPointer(m_kernel, cur_dst_addr, cur_copy_size),
+                            GetHeapVirtualPointer(m_kernel, cur_src_addr, cur_copy_size), cur_copy_size);
 
                 // Update.
                 cur_src_block_addr = src_next_entry.phys_addr;

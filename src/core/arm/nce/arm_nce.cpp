@@ -263,6 +263,37 @@ bool ArmNce::HandleFailedGuestFault(GuestContext* guest_ctx, void* raw_info, voi
     const bool is_prefetch_abort = host_ctx.pc == fault_addr;
 
     if (!is_prefetch_abort) {
+        // Retain the exact guest-wrapper compatibility recovery before the new
+        // generic interpreter fallback. The two have different X0/PC semantics.
+        // Some guest object wrappers guard a pointer with CBZ immediately before loading its
+        // type field. A packed handle can incorrectly reach this path as a non-null pointer. If
+        // this exact sequence faults, follow the wrapper's own null-object return path.
+        u32 fault_instruction{};
+        u32 null_check_instruction{};
+        std::memcpy(&fault_instruction, reinterpret_cast<const void*>(host_ctx.pc),
+                    sizeof(fault_instruction));
+        std::memcpy(&null_check_instruction, reinterpret_cast<const void*>(host_ctx.pc - 4),
+                    sizeof(null_check_instruction));
+        constexpr u32 LoadTypeFromX0 = 0xB9400808; // ldr w8, [x0, #8]
+        constexpr u32 CbzX0Mask = 0xFF00001F;
+        constexpr u32 CbzX0 = 0xB4000000;
+        const s64 fault_delta = static_cast<s64>(reinterpret_cast<u64>(info->si_addr)) -
+                                static_cast<s64>(host_ctx.regs[0]);
+        if (fault_instruction == LoadTypeFromX0 &&
+            (null_check_instruction & CbzX0Mask) == CbzX0 && fault_delta == 8) {
+            const s64 branch_words = static_cast<s32>(null_check_instruction << 8) >> 13;
+            const u64 null_return_pc = host_ctx.pc - 4 + branch_words * 4;
+            if (null_return_pc > host_ctx.pc && null_return_pc - host_ctx.pc <= 0x100) {
+                LOG_WARNING(Core_ARM,
+                            "Recovered invalid NCE object through null guard: pc={:#x}, "
+                            "x0={:#x}, null_return_pc={:#x}",
+                            host_ctx.pc, host_ctx.regs[0], null_return_pc);
+                host_ctx.regs[0] = 0;
+                host_ctx.pc = null_return_pc;
+                return true;
+            }
+        }
+
         // Do what dynarmic does for the same access: it goes through Core::Memory, where an
         // unmapped read returns 0 and an unmapped write is dropped. The one-instruction
         // interpreter used for alignment faults runs the access through Core::Memory too, so

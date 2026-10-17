@@ -772,8 +772,9 @@ public:
 
 public:
     // Linear mapped
-    static u8* GetLinearMappedVirtualPointer(KernelCore& kernel, KPhysicalAddress addr) {
-        return kernel.System().DeviceMemory().GetPointer<u8>(addr);
+    static u8* GetLinearMappedVirtualPointer(KernelCore& kernel, KPhysicalAddress addr,
+                                           size_t size = PageSize) {
+        return kernel.System().DeviceMemory().GetPointer<u8>(addr, size);
     }
 
     static KPhysicalAddress GetLinearMappedPhysicalAddress(KernelCore& kernel,
@@ -787,8 +788,9 @@ public:
     }
 
     // Heap
-    static u8* GetHeapVirtualPointer(KernelCore& kernel, KPhysicalAddress addr) {
-        return kernel.System().DeviceMemory().GetPointer<u8>(addr);
+    static u8* GetHeapVirtualPointer(KernelCore& kernel, KPhysicalAddress addr,
+                                    size_t size = PageSize) {
+        return kernel.System().DeviceMemory().GetPointer<u8>(addr, size);
     }
 
     static KPhysicalAddress GetHeapPhysicalAddress(KernelCore& kernel, KVirtualAddress addr) {

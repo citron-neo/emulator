@@ -7,8 +7,11 @@
 #include <array>
 #include <climits>
 #include <cstdint>
+#include <functional>
 #include <limits>
+#include <tuple>
 #include <type_traits>
+#include <utility>
 #include <vector>
 
 namespace Common {
@@ -90,5 +93,22 @@ template <typename T, typename Allocator>
 std::size_t HashValue(const std::vector<T, Allocator>& v) {
     return HashRange(v.cbegin(), v.cend());
 }
+
+struct TupleHash {
+    template <typename... Ts>
+    std::size_t operator()(const std::tuple<Ts...>& key) const {
+        std::size_t seed = 0;
+        std::apply([&](const auto&... values) {
+            ((seed = detail::HashCombineImpl<sizeof(std::size_t) * CHAR_BIT>::fn(
+                  seed, std::hash<std::decay_t<decltype(values)>>{}(values))), ...);
+        }, key);
+        return seed;
+    }
+
+    template <typename First, typename Second>
+    std::size_t operator()(const std::pair<First, Second>& key) const {
+        return (*this)(std::tie(key.first, key.second));
+    }
+};
 
 } // namespace Common

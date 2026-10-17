@@ -232,6 +232,7 @@ void Load(VkDevice device, DeviceDispatch& dld) noexcept {
     X(vkGetImageMemoryRequirements);
     X(vkGetPipelineCacheData);
     X(vkGetMemoryFdKHR);
+    X(vkGetMemoryFdPropertiesKHR);
 #ifdef _WIN32
     X(vkGetMemoryWin32HandleKHR);
 #endif
@@ -307,6 +308,7 @@ bool Load(VkInstance instance, InstanceDispatch& dld) noexcept {
     X(vkGetPhysicalDeviceFeatures2);
     X(vkGetPhysicalDeviceFormatProperties2);
     X(vkGetPhysicalDeviceProperties2);
+    X(vkGetPhysicalDeviceExternalBufferProperties);
     X(vkGetPhysicalDeviceSurfaceCapabilitiesKHR);
     X(vkGetPhysicalDeviceSurfaceFormatsKHR);
     X(vkGetPhysicalDeviceSurfacePresentModesKHR);
@@ -525,6 +527,15 @@ void Buffer::Invalidate() const {
     if (!is_coherent) {
         vmaInvalidateAllocation(allocator, allocation, 0, VK_WHOLE_SIZE);
     }
+}
+
+VkResult Buffer::FlushChecked() const {
+    return is_coherent ? VK_SUCCESS : vmaFlushAllocation(allocator, allocation, 0, VK_WHOLE_SIZE);
+}
+
+VkResult Buffer::InvalidateChecked() const {
+    return is_coherent ? VK_SUCCESS
+                       : vmaInvalidateAllocation(allocator, allocation, 0, VK_WHOLE_SIZE);
 }
 
 void Buffer::SetObjectNameEXT(const char* name) const {
@@ -884,6 +895,20 @@ std::vector<VkPipelineExecutableStatisticKHR> Device::GetPipelineExecutableStati
 void Device::UpdateDescriptorSets(Span<VkWriteDescriptorSet> writes,
                                   Span<VkCopyDescriptorSet> copies) const noexcept {
     dld->vkUpdateDescriptorSets(handle, writes.size(), writes.data(), copies.size(), copies.data());
+}
+
+VkExternalBufferProperties PhysicalDevice::GetExternalBufferProperties(
+    VkBufferUsageFlags usage, VkExternalMemoryHandleTypeFlagBits handle_type) const noexcept {
+    const VkPhysicalDeviceExternalBufferInfo info{
+        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_EXTERNAL_BUFFER_INFO,
+        .usage = usage,
+        .handleType = handle_type,
+    };
+    VkExternalBufferProperties result{.sType = VK_STRUCTURE_TYPE_EXTERNAL_BUFFER_PROPERTIES};
+    if (dld->vkGetPhysicalDeviceExternalBufferProperties) {
+        dld->vkGetPhysicalDeviceExternalBufferProperties(physical_device, &info, &result);
+    }
+    return result;
 }
 
 VkPhysicalDeviceProperties PhysicalDevice::GetProperties() const noexcept {

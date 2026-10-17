@@ -7,13 +7,17 @@ add_subdirectory(host_shaders)
 if(LIBVA_FOUND)
     set_source_files_properties(host1x/ffmpeg/ffmpeg.cpp
         PROPERTIES COMPILE_DEFINITIONS LIBVA_FOUND=1)
-    list(APPEND FFmpeg_LIBRARIES ${LIBVA_LIBRARIES})
 endif()
 
 add_library(video_core STATIC
     arm64_register_guard.h
     buffer_cache/buffer_base.h
+    buffer_cache/gpu_write_revision.h
     buffer_cache/buffer_cache_base.h
+    buffer_cache/controlled_transfer.h
+    buffer_cache/physical_alias_copy.h
+    buffer_cache/controlled_conflict.h
+    buffer_cache/gather_alias.h
     buffer_cache/buffer_cache.cpp
     buffer_cache/buffer_cache.h
     buffer_cache/memory_tracker_base.h
@@ -21,6 +25,10 @@ add_library(video_core STATIC
     buffer_cache/usage_tracker.h
     buffer_cache/word_manager.h
     cache_types.h
+    physical_memory.h
+    physical_access_plan.h
+    physical_copy_admission.h
+    physical_shadow.h
     capture.h
     cdma_pusher.cpp
     cdma_pusher.h
@@ -56,6 +64,7 @@ add_library(video_core STATIC
     engines/maxwell_3d.cpp
     engines/maxwell_3d.h
     engines/maxwell_dma.cpp
+    engines/dma_source_snapshot.h
     engines/maxwell_dma.h
     engines/puller.cpp
     engines/puller.h
@@ -154,6 +163,10 @@ add_library(video_core STATIC
     renderer_vulkan/vk_buffer_cache_base.cpp
     renderer_vulkan/vk_buffer_cache.cpp
     renderer_vulkan/vk_buffer_cache.h
+    renderer_vulkan/vk_buffer_payload.h
+    renderer_vulkan/guest_chunk_import_cache.h
+    renderer_vulkan/vk_guest_chunk_import.cpp
+    renderer_vulkan/vk_guest_chunk_import.h
     renderer_vulkan/vk_command_pool.cpp
     renderer_vulkan/vk_command_pool.h
     renderer_vulkan/vk_compute_pass.cpp
@@ -291,13 +304,14 @@ elseif (CITRON_CLANGTRON AND DEFINED CLANGTRON_FFMPEG_BUILD_STAMP)
     target_sources(video_core PRIVATE "${CLANGTRON_FFMPEG_BUILD_STAMP}")
 endif()
 
-target_include_directories(video_core PRIVATE ${FFmpeg_INCLUDE_DIR})
-target_link_libraries(video_core PRIVATE ${FFmpeg_LIBRARIES})
-target_link_options(video_core PRIVATE ${FFmpeg_LDFLAGS})
+target_link_libraries(video_core PRIVATE FFmpeg::FFmpeg)
+if (TARGET PkgConfig::LIBVA)
+    target_link_libraries(video_core PRIVATE PkgConfig::LIBVA)
+endif()
 
 add_dependencies(video_core host_shaders)
 target_include_directories(video_core PRIVATE ${HOST_SHADERS_INCLUDE})
-target_link_libraries(video_core PRIVATE sirit Vulkan::Headers Vulkan::UtilityHeaders GPUOpen::VulkanMemoryAllocator)
+target_link_libraries(video_core PRIVATE sirit::sirit Vulkan::Headers Vulkan::UtilityHeaders GPUOpen::VulkanMemoryAllocator)
 
 if (ENABLE_NSIGHT_AFTERMATH)
     if (NOT DEFINED ENV{NSIGHT_AFTERMATH_SDK})
@@ -332,7 +346,7 @@ else()
     )
 
     # VMA
-    set_source_files_properties(vulkan_common/vma.cpp PROPERTIES COMPILE_OPTIONS "-Wno-conversion;-Wno-unused-variable;-Wno-unused-parameter;-Wno-missing-field-initializers")
+    set_source_files_properties(vulkan_common/vma.cpp PROPERTIES COMPILE_OPTIONS "-Wno-conversion;-Wno-unused-variable;-Wno-unused-parameter;-Wno-unused-function;-Wno-missing-field-initializers")
 endif()
 
 if (ARCHITECTURE_x86_64)
@@ -350,7 +364,7 @@ endif()
 citron_configure_lto(video_core)
 
 if (ANDROID AND ARCHITECTURE_arm64)
-    target_link_libraries(video_core PRIVATE adrenotools)
+    target_link_libraries(video_core PRIVATE adrenotools::adrenotools)
 endif()
 
 create_target_directory_groups(video_core)

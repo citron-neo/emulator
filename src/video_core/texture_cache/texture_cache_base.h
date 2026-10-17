@@ -28,6 +28,7 @@
 #include "video_core/compatible_formats.h"
 #include "video_core/control/channel_state_cache.h"
 #include "video_core/delayed_destruction_ring.h"
+#include "video_core/physical_shadow.h"
 #include "video_core/engines/fermi_2d.h"
 #include "video_core/surface.h"
 #include "video_core/texture_cache/descriptor_table.h"
@@ -132,6 +133,8 @@ class TextureCache : public VideoCommon::ChannelSetupCaches<TextureCacheChannelI
 
 public:
     explicit TextureCache(Runtime&, Tegra::MaxwellDeviceMemoryManager&);
+
+    void SetPhysicalShadow(PhysicalShadow* shadow) noexcept { physical_shadow = shadow; }
 
     /// Notify the cache that a new frame has been queued
     void TickFrame(u64 cache_usage, u64 cache_target, std::span<const HeapMemoryBudget> heaps);
@@ -250,9 +253,13 @@ public:
     void CreateChannel(Tegra::Control::ChannelState& channel) final override;
 
     /// Prepare an image to be used
-    void PrepareImage(ImageId image_id, bool is_modification, bool invalidate);
+    void PrepareImage(ImageId image_id, bool is_modification, bool invalidate,
+                      ShadowKind shadow_kind = ShadowKind::Texture);
 
     mutable std::recursive_mutex mutex;
+
+    // Borrowed renderer diagnostic, outlives this cache; GPU-thread confined.
+    PhysicalShadow* physical_shadow{};
 
 private:
     /// Iterate over all page indices in a range
@@ -412,13 +419,14 @@ public:
     void RemoveFramebuffers(std::span<const ImageViewId> removed_views);
 
     /// Mark an image as modified from the GPU
-    void MarkModification(ImageBase& image) noexcept;
+    void MarkModification(ImageBase& image, ShadowKind shadow_kind = ShadowKind::Texture) noexcept;
 
     /// Synchronize image aliases, copying data if needed
     void SynchronizeAliases(ImageId image_id);
 
     /// Prepare an image view to be used
-    void PrepareImageView(ImageViewId image_view_id, bool is_modification, bool invalidate);
+    void PrepareImageView(ImageViewId image_view_id, bool is_modification, bool invalidate,
+                          ShadowKind shadow_kind = ShadowKind::Texture);
 
     /// Execute copies from one image to the other, even if they are incompatible
     void CopyImage(ImageId dst_id, ImageId src_id, std::vector<ImageCopy> copies);

@@ -9,6 +9,7 @@
 #include "common/logging.h"
 #include "common/settings.h"
 #include "core/core.h"
+#include "video_core/engines/dma_source_snapshot.h"
 #include "video_core/engines/maxwell_3d.h"
 #include "video_core/engines/maxwell_dma.h"
 #include "video_core/guest_memory.h"
@@ -37,6 +38,63 @@ void MaxwellDMA::ConsumeSinkImpl() {
         regs.reg_array[method] = value;
     }
     method_sink.clear();
+}
+
+std::optional<std::array<u32, MaxwellDMA::NUM_REGS>> MaxwellDMA::ProjectPendingState() const {
+    return ProjectPendingRegisters(regs.reg_array);
+}
+
+std::optional<MaxwellDMA::SingleLineCopy> MaxwellDMA::DescribeSingleLineCopy(u32 launch_word) const {
+    // Only NON_PIPELINED, virtual, one-dimensional, no-remap/no-semaphore launches with both
+    // layout bits set. Unknown/reserved flags are ineligible rather than silently ignored.
+    constexpr u32 supported_launch = 2U | (1U << 7) | (1U << 8);
+    if (launch_word != supported_launch) {
+        return std::nullopt;
+    }
+    const auto state = ProjectPendingState();
+    if (!state) {
+        return std::nullopt;
+    }
+    const auto& words = *state;
+    constexpr auto source_index = offsetof(Regs, offset_in) / sizeof(u32);
+    constexpr auto destination_index = offsetof(Regs, offset_out) / sizeof(u32);
+    const u32 bytes = words[offsetof(Regs, line_length_in) / sizeof(u32)];
+    constexpr u32 max_bytes = 32U * 1024 * 1024; // Bound the first preflight's page-plan size.
+    if (!bytes || bytes > max_bytes || (words[source_index] & ~0xffU) ||
+        (words[destination_index] & ~0xffU)) {
+        return std::nullopt;
+    }
+    const GPUVAddr source = (u64{words[source_index]} << 32) | words[source_index + 1];
+    const GPUVAddr destination =
+        (u64{words[destination_index]} << 32) | words[destination_index + 1];
+    constexpr GPUVAddr limit = 1ULL << 40;
+    if (bytes > limit - source || bytes > limit - destination) {
+        return std::nullopt;
+    }
+    const auto coverage = [bytes](GPUVAddr address) -> AccessRange {
+        // Launch's pitch/block-linear mismatch permutes bits 4..8 of each 16-byte block.
+        // Cover complete 512-byte groups for either permutation and the plain-copy path.
+        constexpr GPUVAddr mask = 511;
+        const auto begin = address & ~mask;
+        const auto end = (address + bytes + mask) & ~mask;
+        return {begin, end - begin};
+    };
+    return SingleLineCopy{source, destination, bytes, coverage(source), coverage(destination)};
+}
+
+std::optional<MaxwellDMA::SingleLineStoragePlan> MaxwellDMA::PrepareSingleLineStorage(
+    u32 launch_word) const {
+    const auto description = DescribeSingleLineCopy(launch_word);
+    if (!description) {
+        return std::nullopt;
+    }
+    auto storage = memory_manager.PinPhysicalCopyRanges(
+        description->source_coverage.address, description->source_coverage.size,
+        description->destination_coverage.address, description->destination_coverage.size);
+    if (!storage) {
+        return std::nullopt;
+    }
+    return SingleLineStoragePlan{*description, std::move(*storage)};
 }
 
 void MaxwellDMA::CallMethod(u32 method, u32 method_argument, bool is_last_call) {
@@ -157,10 +215,8 @@ void MaxwellDMA::Launch() {
             }
         } else {
             if (!accelerate.BufferCopy(regs.offset_in, regs.offset_out, length)) {
-                Tegra::Memory::GpuGuestMemoryScoped<
-                    u8, Tegra::Memory::GuestMemoryFlags::SafeReadCachedWrite>
-                    tmp_write_buffer(memory_manager, regs.offset_in, length, &read_buffer);
-                tmp_write_buffer.SetAddressAndSize(regs.offset_out, length);
+                CopyDmaSourceSnapshot(memory_manager, regs.offset_in, regs.offset_out,
+                                      length, read_buffer);
             }
         }
     }

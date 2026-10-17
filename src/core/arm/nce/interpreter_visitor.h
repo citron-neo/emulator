@@ -4,6 +4,7 @@
 
 #pragma once
 
+#include <span>
 #include <signal.h>
 #include <unistd.h>
 

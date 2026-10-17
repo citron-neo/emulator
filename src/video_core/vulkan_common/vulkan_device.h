@@ -71,6 +71,8 @@ VK_DEFINE_HANDLE(VmaAllocator)
     EXTENSION(EXT, CONDITIONAL_RENDERING, conditional_rendering)                                   \
     EXTENSION(EXT, CONSERVATIVE_RASTERIZATION, conservative_rasterization)                         \
     EXTENSION(EXT, DEPTH_RANGE_UNRESTRICTED, depth_range_unrestricted)                             \
+    EXTENSION(KHR, EXTERNAL_MEMORY_FD, external_memory_fd)                                      \
+    EXTENSION(EXT, EXTERNAL_MEMORY_DMA_BUF, external_memory_dma_buf)                            \
     EXTENSION(EXT, MEMORY_BUDGET, memory_budget)                                                   \
     EXTENSION(EXT, ROBUSTNESS_2, robustness_2)                                                     \
     EXTENSION(EXT, SAMPLER_FILTER_MINMAX, sampler_filter_minmax)                                   \
@@ -714,6 +716,11 @@ public:
             return 0x00010400U;
         }
         return 0x00010300U;
+    }
+
+    /// Both extensions must be enabled before querying/importing a guest dma-buf.
+    bool CanImportGuestDmaBuf() const {
+        return extensions.external_memory_fd && extensions.external_memory_dma_buf;
     }
 
     /// Returns true when the physical device reports VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU.

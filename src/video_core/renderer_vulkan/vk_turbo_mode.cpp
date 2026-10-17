@@ -40,7 +40,17 @@ TurboMode::TurboMode(const vk::Instance& instance, const vk::InstanceDispatch& d
 }
 
 TurboMode::~TurboMode() {
+    // The desktop worker dereferences resources while Android resets driver state
+    // when it leaves Run. Both must finish before member/resource destruction.
+    m_thread.request_stop();
+    m_submission_cv.notify_all();
+    if (m_thread.joinable()) {
+        m_thread.join();
+    }
 #ifndef ANDROID
+    // Its adaptive fence wait can time out before Run observes stop. Joining the
+    // host thread alone does not retire that separate device's last dispatch.
+    void(m_device.GetLogical().WaitIdle());
     CleanupResources();
 #endif
 }

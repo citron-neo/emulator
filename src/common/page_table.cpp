@@ -48,10 +48,26 @@ bool PageTable::ContinueTraversal(TraversalEntry* out_entry, TraversalContext* c
 }
 
 void PageTable::Resize(std::size_t address_space_width_in_bits, std::size_t page_size_in_bits) {
+    const auto mutation = MutateMappings();
     const std::size_t num_page_table_entries = 1ULL << (address_space_width_in_bits - page_size_in_bits);
     entries.resize(num_page_table_entries);
     current_address_space_width_in_bits = address_space_width_in_bits;
     page_size = 1ULL << page_size_in_bits;
+}
+
+std::optional<PageTable::MappingSnapshot> PageTable::SnapshotMapping(u64 virtual_page) const {
+    const auto domain = mapping.domain;
+    if (!domain) return std::nullopt;
+    std::shared_lock lock{domain->mutex};
+    if (!domain->alive.load(std::memory_order_acquire) || page_size != 4096 ||
+        virtual_page % page_size || virtual_page / page_size >= entries.size()) {
+        return std::nullopt;
+    }
+    const auto& entry = entries[virtual_page / page_size];
+    const auto type = entry.pointer.Type();
+    if (type == PageType::Unmapped) return std::nullopt;
+    return MappingSnapshot{domain, domain->generation.load(std::memory_order_acquire),
+                           virtual_page, entry.backing_addr + virtual_page, type};
 }
 
 } // namespace Common

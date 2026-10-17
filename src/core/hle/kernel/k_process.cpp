@@ -134,6 +134,9 @@ void GenerateRandom(std::span<u64> out_random) {
 } // namespace
 
 void KProcess::Finalize() {
+    // Stop queued controlled CPU stores BEFORE any process memory/PTE finalization. This joins
+    // only an entered bounded store/publication visit, never a GPU completion or CPU producer.
+    m_memory.SealControlledCpuWrites();
     // Delete the process local region.
     this->DeleteThreadLocalRegion(m_plr_address);
 
@@ -191,6 +194,7 @@ void KProcess::Finalize() {
 
     // Perform inherited finalization.
     KSynchronizationObject::Finalize();
+    m_memory.Finalize(); // Slab destruction skips C++ member destructors.
 }
 
 Result KProcess::Initialize(const Svc::CreateProcessParameter& params, KResourceLimit* res_limit,

@@ -18,6 +18,10 @@ RendererBase::RendererBase(Core::Frontend::EmuWindow& window_,
 
 RendererBase::~RendererBase() = default;
 
+void RendererBase::Shutdown() {
+    ReadRasterizer()->Shutdown();
+}
+
 void RendererBase::RefreshBaseSettings() {
     UpdateCurrentFramebufferLayout();
 }

@@ -1205,6 +1205,7 @@ add_library(core STATIC
     loader/xci.cpp
     loader/xci.h
     memory.cpp
+    controlled_cpu_page.h
     memory.h
     memory/cheat_engine.cpp
     memory/cheat_engine.h
@@ -1342,3 +1343,7 @@ endif()
 citron_configure_lto(core)
 
 create_target_directory_groups(core)
+
+if(CITRON_TESTS)
+    target_compile_definitions(core PRIVATE CITRON_SCHEDULER_TESTS)
+endif()

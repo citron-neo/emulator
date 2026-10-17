@@ -18,6 +18,8 @@
 #include "video_core/cache_types.h"
 #include "video_core/host1x/gpu_device_memory_manager.h"
 #include "video_core/pte_kind.h"
+#include "video_core/physical_memory.h"
+#include "video_core/physical_access_plan.h"
 
 namespace VideoCore {
 class RasterizerInterface;
@@ -51,6 +53,21 @@ public:
     void BindRasterizer(VideoCore::RasterizerInterface* rasterizer);
 
     [[nodiscard]] std::optional<DAddr> GpuToCpuAddress(GPUVAddr addr) const;
+
+    // Caller retains this MemoryManager and its device manager during resolution.
+    // Returned stamps can be validated safely after either manager is destroyed.
+    [[nodiscard]] PhysicalResolveResult ResolvePhysicalRanges(
+        GPUVAddr address, u64 size, PhysicalResolveTiming* timing = nullptr) const;
+
+    /// Caller retains GPU/device/HostMemory owners during resolution; call outside cache/PTE
+    /// locks. A remap during pinning rejects the plan. Success retains physical storage only.
+    [[nodiscard]] std::optional<PhysicalAccessPlan> PinPhysicalRanges(GPUVAddr address,
+                                                                   u64 size) const;
+
+    /// Both storage plans must coexist at one mapping validation point. No lock/permission is
+    /// retained after return, and neither plan grants GPU representation or data admission.
+    [[nodiscard]] std::optional<PhysicalCopyPlan> PinPhysicalCopyRanges(
+        GPUVAddr source, u64 source_size, GPUVAddr destination, u64 destination_size) const;
 
     [[nodiscard]] std::optional<DAddr> GpuToCpuAddress(GPUVAddr addr, std::size_t size) const;
 
@@ -145,6 +162,17 @@ public:
 
     size_t MaxContinuousRange(GPUVAddr gpu_addr, size_t size) const;
 
+    /// Incremented on every page table change; lets callers cache layout queries.
+    u64 MapGeneration() const noexcept {
+        return map_generation.load(std::memory_order_acquire);
+    }
+
+    /// Updates never invoke rasterizer callbacks while holding this lock.
+    /// Readers may hold cache locks, but must not submit work under this lock.
+    auto AcquireMappingRead() const {
+        return std::unique_lock{page_table_guard};
+    }
+
     bool IsWithinGPUAddressRange(GPUVAddr gpu_addr) const {
         return gpu_addr < address_space_size;
     }
@@ -223,6 +251,9 @@ private:
     GPUVAddr PageTableOp(GPUVAddr gpu_addr, [[maybe_unused]] DAddr dev_addr, size_t size,
                          PTEKind kind);
 
+    template <bool is_big_page, EntryType entry_type>
+    void NotifyMappingChange(GPUVAddr gpu_addr, size_t size);
+
     template <EntryType entry_type>
     GPUVAddr BigPageTableOp(GPUVAddr gpu_addr, [[maybe_unused]] DAddr dev_addr, size_t size,
                             PTEKind kind);
@@ -242,6 +273,9 @@ private:
     boost::container::small_vector<std::pair<DAddr, std::size_t>, 32> page_stash2{};
 
     mutable std::mutex guard;
+    std::mutex mapping_update_guard;
+    Common::MappingLifetime mapping_lifetime;
+    std::mutex& page_table_guard{mapping_lifetime.Get()->mutex};
 
     static constexpr size_t continuous_bits = 64;
 
@@ -251,6 +285,7 @@ private:
     static std::atomic<size_t> unique_identifier_generator;
 
     Common::ScratchBuffer<u8> tmp_buffer;
+    std::atomic<u64>& map_generation{mapping_lifetime.Get()->generation};
 };
 
 } // namespace Tegra

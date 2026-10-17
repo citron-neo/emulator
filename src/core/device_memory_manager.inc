@@ -26,6 +26,17 @@ public:
     MultiAddressContainer() = default;
     ~MultiAddressContainer() = default;
 
+    bool GatherValuesBounded(u32 entry, std::span<u32> output, size_t& count) const {
+        count = 0;
+        while (entry) {
+            if (count == output.size() || entry > storage.size()) return false;
+            const auto& current = storage[entry - 1];
+            output[count++] = current.value;
+            entry = current.next_entry;
+        }
+        return count != 0;
+    }
+
     void GatherValues(u32 start_entry, Common::ScratchBuffer<u32>& buffer) {
         buffer.resize(8);
         buffer.resize(0);
@@ -166,6 +177,9 @@ DeviceMemoryManager<Traits>::DeviceMemoryManager(const DeviceMemory& device_memo
     , entries(device_as_size >> Memory::CITRON_PAGEBITS)
     , compressed_device_addr(1ULL << ((Settings::values.memory_layout_mode.GetValue() == Settings::MemoryLayout::Memory_4Gb ? physical_min_bits : physical_max_bits) - Memory::CITRON_PAGEBITS))
 {
+    guest_backing = &device_memory_.buffer;
+    backing_epoch = device_memory_.buffer.BackingEpoch();
+    physical_backing_size = device_memory_.buffer.backing_size;
     impl = std::make_unique<DeviceMemoryManagerAllocator<Traits>>();
     cached_pages.resize(num_counter_entries);
 
@@ -176,7 +190,9 @@ DeviceMemoryManager<Traits>::DeviceMemoryManager(const DeviceMemory& device_memo
 }
 
 template <typename Traits>
-DeviceMemoryManager<Traits>::~DeviceMemoryManager() = default;
+DeviceMemoryManager<Traits>::~DeviceMemoryManager() {
+    mapping_lifetime.Invalidate(); // before page tables are destroyed
+}
 
 template <typename Traits>
 void DeviceMemoryManager<Traits>::BindInterface(DeviceInterface* device_inter_) {
@@ -201,10 +217,18 @@ void DeviceMemoryManager<Traits>::Free(DAddr start, size_t size) {
 template <typename Traits>
 void DeviceMemoryManager<Traits>::Map(DAddr address, VAddr virtual_address, size_t size, Asid asid,
                                       bool track) {
+    // Direct VkBuffer views must be retired while the old DAddr translations still exist.
+    if constexpr (requires { device_inter->UnmapMemory(address, size); }) {
+        if (device_inter && Settings::values.use_uma_zero_copy.GetValue()) {
+            device_inter->UnmapMemory(address, size);
+        }
+    }
     Core::Memory::Memory* process_memory = registered_processes[asid.id];
     size_t start_page_d = address >> Memory::CITRON_PAGEBITS;
     size_t num_pages = Common::AlignUp(size, Memory::CITRON_PAGESIZE) >> Memory::CITRON_PAGEBITS;
     std::scoped_lock lk(mapping_guard);
+    mapping_generation.fetch_add(1, std::memory_order_acq_rel);
+    SCOPE_EXIT { mapping_generation.fetch_add(1, std::memory_order_release); };
     size_t missing_pages = 0;
     size_t first_missing_page = 0;
     for (size_t i = 0; i < num_pages; i++) {
@@ -262,8 +286,15 @@ void DeviceMemoryManager<Traits>::Unmap(DAddr address, size_t size) {
     }
     size_t start_page_d = address >> Memory::CITRON_PAGEBITS;
     size_t num_pages = Common::AlignUp(size, Memory::CITRON_PAGESIZE) >> Memory::CITRON_PAGEBITS;
+    if constexpr (requires { device_inter->UnmapMemory(address, size); }) {
+        if (Settings::values.use_uma_zero_copy.GetValue()) {
+            device_inter->UnmapMemory(address, size);
+        }
+    }
     device_inter->InvalidateRegion(address, size);
     std::scoped_lock lk(mapping_guard);
+    mapping_generation.fetch_add(1, std::memory_order_acq_rel);
+    SCOPE_EXIT { mapping_generation.fetch_add(1, std::memory_order_release); };
     for (size_t i = 0; i < num_pages; i++) {
         auto phys_addr = entries[start_page_d + i].compressed_physical_ptr;
         entries[start_page_d + i].compressed_physical_ptr = 0;
@@ -308,6 +339,28 @@ void DeviceMemoryManager<Traits>::TrackContinuityImpl(DAddr address, VAddr virtu
     }
 }
 template <typename Traits>
+std::optional<Common::GuestBackingRange> DeviceMemoryManager<Traits>::GetDriverBackingRange(
+    DAddr address, u64 size) {
+    if (!guest_backing || size == 0 || address >= device_as_size || size > device_as_size - address) {
+        return std::nullopt;
+    }
+    std::scoped_lock lk(mapping_guard);
+    const auto* first = GetPointer<u8>(address);
+    if (!first) {
+        return std::nullopt;
+    }
+    const u64 physical = GetRawPhysicalAddr(first);
+    for (u64 offset = 0; offset < size;) {
+        const auto* ptr = GetPointer<u8>(address + offset);
+        if (!ptr || GetRawPhysicalAddr(ptr) != physical + offset) {
+            return std::nullopt;
+        }
+        offset += std::min<u64>(size - offset, page_size - ((address + offset) & page_mask));
+    }
+    return guest_backing->DriverBackingRange(physical, size);
+}
+
+template <typename Traits>
 u8* DeviceMemoryManager<Traits>::GetSpan(const DAddr src_addr, const std::size_t size) {
     size_t page_index = src_addr >> page_bits;
     size_t subbits = src_addr & page_mask;
@@ -339,6 +392,33 @@ void DeviceMemoryManager<Traits>::InnerGatherDeviceAddresses(Common::ScratchBuff
     }
     buffer.resize(1);
     buffer[0] = backing;
+}
+
+template <typename Traits>
+bool DeviceMemoryManager<Traits>::CollectControlledAliasesLocked(PAddr physical,
+                                                                 std::span<DAddr> output,
+                                                                 size_t& count) const {
+    count = 0;
+    if (physical >= physical_backing_size) return false;
+    const u32 base = compressed_device_addr[physical >> page_bits];
+    if (!base) return false;
+    std::array<u32, 64> pages{};
+    size_t page_count = 1;
+    if (base & MULTI_FLAG) {
+        if (!impl->multi_dev_address.GatherValuesBounded(base & MULTI_MASK, pages, page_count))
+            return false;
+    } else
+        pages[0] = base;
+    if (page_count > output.size()) return false;
+    for (size_t i = 0; i < page_count; ++i) {
+        const DAddr address = (u64{pages[i]} << page_bits) + (physical & page_mask);
+        if (address < page_size || address >= device_as_size ||
+            !entries[address >> page_bits].compressed_physical_ptr ||
+            GetPhysicalRawAddressFromDAddr(address) != physical)
+            return false;
+        output[count++] = address;
+    }
+    return true;
 }
 
 template <typename Traits>

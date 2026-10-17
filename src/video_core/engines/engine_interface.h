@@ -3,8 +3,10 @@
 
 #pragma once
 
+#include <array>
 #include <bitset>
 #include <limits>
+#include <optional>
 #include <vector>
 
 #include "common/common_types.h"
@@ -43,6 +45,23 @@ public:
     GPUVAddr current_dma_segment;
 
 protected:
+    /// GPU-thread-only snapshot of inert pending register writes. Never consumes the sink or
+    /// calls an engine method. Validate the complete queue before constructing the projection.
+    template <std::size_t N>
+    [[nodiscard]] std::optional<std::array<u32, N>> ProjectPendingRegisters(
+        const std::array<u32, N>& committed) const {
+        for (const auto& [method, value] : method_sink) {
+            if (method >= N || method >= execution_mask.size() || execution_mask[method]) {
+                return std::nullopt;
+            }
+        }
+        auto projected = committed;
+        for (const auto& [method, value] : method_sink) {
+            projected[method] = value;
+        }
+        return projected;
+    }
+
     virtual void ConsumeSinkImpl() {
         for (auto [method, value] : method_sink) {
             CallMethod(method, value, true);

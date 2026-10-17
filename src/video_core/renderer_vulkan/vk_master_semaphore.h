@@ -25,6 +25,9 @@ public:
     explicit MasterSemaphore(const Device& device);
     ~MasterSemaphore();
 
+    /// Stop completion helpers after submission sources/waiters stop and device idle.
+    void Shutdown();
+
     /// Returns the current logical tick.
     [[nodiscard]] u64 CurrentTick() const noexcept {
         return current_tick.load(std::memory_order_acquire);
@@ -47,6 +50,19 @@ public:
 
     /// Refresh the known GPU tick
     void Refresh();
+
+    /// Checked, nonblocking timeline query. Unsupported fence fallback is never success.
+    [[nodiscard]] VkResult PollTimeline(u64 tick) const noexcept {
+        if (!semaphore) return VK_ERROR_FEATURE_NOT_PRESENT;
+        u64 counter{};
+        auto result = semaphore.GetCounterChecked(counter);
+        if (result != VK_SUCCESS) return result;
+        if (counter < tick) return VK_NOT_READY;
+        // Host synchronization precedes readback invalidation. Timeout zero never waits or
+        // pumps the sole GPU owner; query/wait failures must not publish successful content.
+        result = semaphore.WaitChecked(tick, 0);
+        return result == VK_TIMEOUT ? VK_NOT_READY : result;
+    }
 
     /// Waits for a tick to be hit on the GPU
     void Wait(u64 tick);

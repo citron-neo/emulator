@@ -38,6 +38,9 @@ void DmaPusher::DispatchCalls() {
 }
 
 bool DmaPusher::Step() {
+    if (method_admission_parked) {
+        return false; // Only a scheduler retry may re-attempt the parked method.
+    }
     if (IsSuspended() && !puller.RetryPendingAcquire(false)) {
         // Still stopped at a semaphore acquire; the GPU thread retries it.
         return false;
@@ -134,16 +137,13 @@ void DmaPusher::ProcessCommands(std::span<const CommandHeader> commands) {
         if (IsSuspended()) [[unlikely]] {
             // The word before stopped the channel at a semaphore acquire. Keep the rest (the span
             // can point at a scratch buffer or guest memory) and continue from it in Step.
-            const auto rest = commands.subspan(index);
-            resume_commands.assign(rest.begin(), rest.end());
-            resume_dma_get = dma_state.dma_get + index * sizeof(u32);
+            SaveContinuation(commands, index);
             return;
         }
         const CommandHeader& command_header = commands[index];
 
         if (dma_state.method_count) {
             // Data word of methods command
-            dma_state.dma_word_offset = static_cast<u32>(index * sizeof(u32));
             if (dma_state.non_incrementing) {
                 // Puller methods one word at a time, so a semaphore acquire can stop the channel
                 // right after its word.
@@ -153,12 +153,28 @@ void DmaPusher::ProcessCommands(std::span<const CommandHeader> commands) {
                         : static_cast<u32>(std::min<std::size_t>(index + dma_state.method_count,
                                                                  commands.size()) -
                                            index);
+                if (method_admission &&
+                    !method_admission(dma_state.subchannel, dma_state.method,
+                                      {&command_header.argument, max_write}, dma_state.method_count)) {
+                    SaveContinuation(commands, index);
+                    method_admission_parked = true;
+                    return;
+                }
+                dma_state.dma_word_offset = static_cast<u32>(index * sizeof(u32));
                 CallMultiMethod(&command_header.argument, max_write);
                 dma_state.method_count -= max_write;
                 dma_state.is_last_call = true;
                 index += max_write;
                 continue;
             } else {
+                if (method_admission &&
+                    !method_admission(dma_state.subchannel, dma_state.method,
+                                      {&command_header.argument, 1}, dma_state.method_count)) {
+                    SaveContinuation(commands, index);
+                    method_admission_parked = true;
+                    return;
+                }
+                dma_state.dma_word_offset = static_cast<u32>(index * sizeof(u32));
                 dma_state.is_last_call = dma_state.method_count <= 1;
                 CallMethod(command_header.argument);
             }
@@ -186,6 +202,15 @@ void DmaPusher::ProcessCommands(std::span<const CommandHeader> commands) {
                 dma_increment_once = false;
                 break;
             case SubmissionMode::Inline:
+                if (method_admission) {
+                    const u32 argument = command_header.arg_count;
+                    if (!method_admission(command_header.subchannel, command_header.method,
+                                          {&argument, 1}, 0)) {
+                        SaveContinuation(commands, index);
+                        method_admission_parked = true;
+                        return;
+                    }
+                }
                 dma_state.method = command_header.method;
                 dma_state.subchannel = command_header.subchannel;
                 dma_state.dma_word_offset = static_cast<u64>(
@@ -205,6 +230,13 @@ void DmaPusher::ProcessCommands(std::span<const CommandHeader> commands) {
         }
         index++;
     }
+}
+
+void DmaPusher::SaveContinuation(std::span<const CommandHeader> commands, std::size_t index) {
+    // Allocate/copy before publishing the parked state. The input can alias guest/scratch memory.
+    const auto rest = commands.subspan(index);
+    resume_commands.assign(rest.begin(), rest.end());
+    resume_dma_get = dma_state.dma_get + index * sizeof(u32);
 }
 
 void DmaPusher::SetState(const CommandHeader& command_header) {
@@ -251,6 +283,10 @@ void DmaPusher::BindRasterizer(VideoCore::RasterizerInterface* rasterizer) {
 }
 
 bool DmaPusher::RetryAcquire(u64 work_generation, bool allow_flush) {
+    if (method_admission_parked) {
+        method_admission_parked = false;
+        return true; // Dispatch retries the saved method before consuming any more words.
+    }
     const bool flush = allow_flush && work_generation != acquire_flush_generation;
     if (flush) {
         acquire_flush_generation = work_generation;

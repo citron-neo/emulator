@@ -36,6 +36,7 @@ struct DebugWatchpoint {
 };
 
 class KProcess final : public KAutoObjectWithSlabHeapAndContainer<KProcess, KWorkerTask> {
+    friend struct Core::SchedulerTestAccess;
     KERNEL_AUTOOBJECT_TRAITS(KProcess, KSynchronizationObject);
 
 public:

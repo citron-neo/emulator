@@ -57,7 +57,7 @@ add_subdirectory(glad)
 # history but no longer built. CMake no longer adds it.
 
 # SPIRV-Headers
-if (NOT TARGET SPIRV-Headers)
+if (NOT TARGET SPIRV-Headers AND NOT TARGET SPIRV-Headers::SPIRV-Headers)
     if (EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/SPIRV-Headers/CMakeLists.txt")
         add_subdirectory(SPIRV-Headers)
     endif()
@@ -65,10 +65,13 @@ endif()
 
 # Sirit
 # Tell sirit to use our target
-if (NOT TARGET sirit)
+if (NOT TARGET sirit::sirit AND NOT TARGET sirit)
+    if (NOT TARGET SPIRV-Headers AND NOT TARGET SPIRV-Headers::SPIRV-Headers)
+        message(FATAL_ERROR "Sirit requires the project SPIRV-Headers target; no provider supplied it")
+    endif()
+    include(${CMAKE_SOURCE_DIR}/CMakeModules/SiritProvider.cmake)
+    citron_prepare_sirit_headers()
     set(SIRIT_USE_SYSTEM_SPIRV_HEADERS ON)
-    set(SPIRV-Headers_DIR "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
-    list(APPEND CMAKE_PREFIX_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
     if (EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/sirit/CMakeLists.txt")
         add_subdirectory(sirit)
     endif()
@@ -141,13 +144,15 @@ endif()
 # longer built.
 
 # Opus
-if (NOT TARGET Opus::opus)
+if (NOT TARGET Opus::opus AND NOT TARGET opus)
     set(OPUS_BUILD_TESTING OFF)
     set(OPUS_BUILD_PROGRAMS OFF)
     set(OPUS_INSTALL_PKG_CONFIG_MODULE OFF)
     set(OPUS_INSTALL_CMAKE_CONFIG_MODULE OFF)
     if (EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/opus/CMakeLists.txt")
         add_subdirectory(opus)
+    else()
+        message(FATAL_ERROR "Opus provider target is missing and externals/opus is unavailable")
     endif()
 endif()
 
@@ -197,10 +202,11 @@ if (NOT TARGET LLVM::Demangle)
     add_library(LLVM::Demangle ALIAS demangle)
 endif()
 
-add_library(stb stb/stb_dxt.cpp)
-target_include_directories(stb PUBLIC ./stb)
-
 if (NOT TARGET stb::headers)
+    if (NOT TARGET stb)
+        add_library(stb stb/stb_dxt.cpp)
+        target_include_directories(stb PUBLIC ./stb)
+    endif()
     add_library(stb::headers ALIAS stb)
 endif()
 
@@ -217,7 +223,7 @@ if (NOT TARGET RenderDoc::API)
 endif()
 
 if (ANDROID)
-   if (ARCHITECTURE_arm64)
+   if (ARCHITECTURE_arm64 AND NOT TARGET adrenotools::adrenotools AND NOT TARGET adrenotools)
        add_subdirectory(libadrenotools)
    endif()
 endif()

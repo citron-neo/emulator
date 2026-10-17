@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include <functional>
 #include <memory>
 
 #include "common/bit_field.h"
@@ -170,6 +171,9 @@ public:
 
     /// Wait until previously queued work has been processed by the GPU emulation thread.
     void SynchronizeGPUThread();
+    bool IsGpuThread() const;
+    void RunOnGpuThread(std::function<void()> callback);
+    [[nodiscard]] bool TryQueueCpuWrite(std::function<bool()> poll);
 
     /// Gets a mutable reference to the Host1x interface
     [[nodiscard]] Host1x::Host1x& Host1x();
@@ -227,6 +231,9 @@ public:
 
     /// Performs any additional necessary steps to shutdown GPU emulation.
     void NotifyShutdown();
+    /// Fencing-worker failure publication without waiting for the command owner to run.
+    void NotifyControlledProducerConflict();
+    [[nodiscard]] bool HasControlledProducerConflict() const;
 
     /// Obtain the CPU Context
     void ObtainContext();
