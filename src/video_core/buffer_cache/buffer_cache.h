@@ -1025,6 +1025,12 @@ void BufferCache<P>::BindHostGraphicsUniformBuffer(size_t stage, u32 index, u32 
         return;
     }
     // Classic cached path
+    if (binding.buffer_id != NULL_BUFFER_ID && StreamReusedUniform(buffer, device_addr, size)) {
+        const std::span<u8> span = runtime.BindMappedUniformBuffer(stage, binding_index, size);
+        device_memory.ReadBlockUnsafe(device_addr, span.data(), size,
+                                      "BufferCache.BindMappedUniformBuffer", false);
+        return;
+    }
     const bool sync_cached = SynchronizeBuffer(buffer, device_addr, size);
     if (sync_cached) {
         ++channel_state->uniform_cache_hits[0];
@@ -1146,6 +1152,22 @@ void BufferCache<P>::BindHostTransformFeedbackBuffers() {
 }
 
 template <class P>
+bool BufferCache<P>::StreamReusedUniform(Buffer& buffer, DAddr device_addr, u32 size) {
+    if constexpr (requires { buffer.IsRegionUsed(u64{}, u64{}); }) {
+        if (memory_tracker.IsRegionGpuModified(device_addr, size) ||
+            !memory_tracker.IsRegionCpuModified(device_addr, size)) {
+            return false;
+        }
+        const u64 offset = buffer.Offset(device_addr);
+        const u64 begin = Common::AlignDown(offset, Core::DEVICE_PAGESIZE);
+        const u64 end = std::min<u64>(Common::AlignUp(offset + size, Core::DEVICE_PAGESIZE),
+                                      buffer.SizeBytes());
+        return buffer.IsRegionUsed(begin, end - begin);
+    }
+    return false;
+}
+
+template <class P>
 void BufferCache<P>::BindHostComputeUniformBuffers() {
     if constexpr (HAS_PERSISTENT_UNIFORM_BUFFER_BINDINGS) {
         // Mark all uniform buffers as dirty
@@ -1159,6 +1181,14 @@ void BufferCache<P>::BindHostComputeUniformBuffers() {
         TouchBuffer(buffer, binding.buffer_id);
         const u32 size =
             std::min(binding.size, (*channel_state->compute_uniform_buffer_sizes)[index]);
+        if (binding.buffer_id != NULL_BUFFER_ID &&
+            StreamReusedUniform(buffer, binding.device_addr, size)) {
+            const std::span<u8> span = runtime.BindMappedUniformBuffer(0, binding_index, size);
+            device_memory.ReadBlockUnsafe(binding.device_addr, span.data(), size,
+                                          "BufferCache.BindMappedUniformBuffer", false);
+            ++binding_index;
+            return;
+        }
         SynchronizeBuffer(buffer, binding.device_addr, size);
 
         const u32 offset = buffer.Offset(binding.device_addr);

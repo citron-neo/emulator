@@ -428,6 +428,8 @@ public:
 
     void BindHostTransformFeedbackBuffers();
 
+    bool StreamReusedUniform(Buffer& buffer, DAddr device_addr, u32 size);
+
     void BindHostComputeUniformBuffers();
 
     void BindHostComputeStorageBuffers();
