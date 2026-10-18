@@ -1942,14 +1942,52 @@ ImageViewId TextureCache<P>::FindDepthBuffer() {
 }
 
 template <class P>
+ImageId TextureCache<P>::FindPaddedRenderTarget(const ImageInfo& info, GPUVAddr gpu_addr) {
+    if (info.type == ImageType::Linear) {
+        return ImageId{};
+    }
+    const std::optional<DAddr> cpu_addr = gpu_memory->GpuToCpuAddress(gpu_addr);
+    if (!cpu_addr) {
+        return ImageId{};
+    }
+    const bool broken_views = runtime.HasBrokenTextureViewFormats();
+    const bool native_bgr = runtime.HasNativeBgr();
+    ImageId result{};
+    const auto lambda = [&](ImageId id, ImageBase& image) {
+        if (True(image.flags & ImageFlagBits::Remapped) || image.info.type == ImageType::Linear ||
+            image.info.format != info.format) {
+            return;
+        }
+        const auto base =
+            FindSubresource(info, image, gpu_addr, RelaxedOptions::Size, broken_views, native_bgr);
+        if (!base) {
+            return;
+        }
+        const u32 width = std::max(1U, image.info.size.width >> base->level);
+        const u32 height = std::max(1U, image.info.size.height >> base->level);
+        if (width > info.size.width || height > info.size.height ||
+            (width == info.size.width && height == info.size.height)) {
+            return;
+        }
+        if (!result || image.modification_tick > slot_images[result].modification_tick) {
+            result = id;
+        }
+    };
+    ForEachImageInRegion(*cpu_addr, CalculateGuestSizeInBytes(info), lambda);
+    return result;
+}
+
+template <class P>
 ImageViewId TextureCache<P>::FindRenderTargetView(const ImageInfo& info, GPUVAddr gpu_addr) {
-    ImageId image_id{};
+    ImageId image_id = FindPaddedRenderTarget(info, gpu_addr);
     bool delete_state = has_deleted_images;
-    do {
-        has_deleted_images = false;
-        image_id = FindOrInsertImage(info, gpu_addr);
-        delete_state |= has_deleted_images;
-    } while (has_deleted_images);
+    if (!image_id) {
+        do {
+            has_deleted_images = false;
+            image_id = FindOrInsertImage(info, gpu_addr);
+            delete_state |= has_deleted_images;
+        } while (has_deleted_images);
+    }
     has_deleted_images = delete_state;
     if (!image_id) {
         return NULL_IMAGE_VIEW_ID;
