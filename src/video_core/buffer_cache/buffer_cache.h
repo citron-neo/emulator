@@ -967,11 +967,17 @@ void BufferCache<P>::BindHostGraphicsUniformBuffer(size_t stage, u32 index, u32 
     if (binding.buffer_id != NULL_BUFFER_ID && shader_size > binding.size &&
         runtime.NeedsPaddedUniformBuffer(binding.size) &&
         !memory_tracker.IsRegionGpuModified(device_addr, size)) {
-        const std::span<u8> span =
-            runtime.BindMappedUniformBuffer(stage, binding_index, shader_size);
-        device_memory.ReadBlockUnsafe(device_addr, span.data(), size,
-                                      "BufferCache.BindPaddedUniformBuffer", false);
-        std::memset(span.data() + size, 0, shader_size - size);
+        if constexpr (requires { runtime.BindPaddedUniformBuffer(size, shader_size); }) {
+            const std::span<u8> span = runtime.BindPaddedUniformBuffer(size, shader_size);
+            device_memory.ReadBlockUnsafe(device_addr, span.data(), size,
+                                          "BufferCache.BindPaddedUniformBuffer", false);
+        } else {
+            const std::span<u8> span =
+                runtime.BindMappedUniformBuffer(stage, binding_index, shader_size);
+            device_memory.ReadBlockUnsafe(device_addr, span.data(), size,
+                                          "BufferCache.BindPaddedUniformBuffer", false);
+            std::memset(span.data() + size, 0, shader_size - size);
+        }
         return;
     }
     // The stream path also takes a uniform buffer the guest rewrote while draws earlier in this
