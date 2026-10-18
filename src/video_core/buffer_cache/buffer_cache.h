@@ -726,18 +726,30 @@ void BufferCache<P>::CommitAsyncFlushesHigh() {
     auto download_staging = runtime.DownloadStagingBuffer(total_size_bytes, true);
     boost::container::small_vector<BufferCopy, 4> normalized_copies;
     runtime.PreCopyBarrier();
+    boost::container::small_vector<BufferCopy, 16> batch;
+    BufferId batch_id{};
+    const auto flush_batch = [&] {
+        if (!batch.empty()) {
+            runtime.CopyBuffer(download_staging.buffer, slot_buffers[batch_id], batch, false);
+            batch.clear();
+        }
+    };
     for (auto& [copy, buffer_id] : downloads) {
         copy.dst_offset += download_staging.offset;
-        const std::array copies{copy};
         BufferCopy second_copy{copy};
         Buffer& buffer = slot_buffers[buffer_id];
         second_copy.src_offset = static_cast<size_t>(buffer.CpuAddr()) + copy.src_offset;
         const DAddr orig_device_addr = static_cast<DAddr>(second_copy.src_offset);
         async_downloads.Add(orig_device_addr, copy.size);
         MarkGpuUse(buffer, copy.src_offset, copy.size);
-        runtime.CopyBuffer(download_staging.buffer, buffer, copies, false);
+        if (buffer_id != batch_id) {
+            flush_batch();
+            batch_id = buffer_id;
+        }
+        batch.push_back(copy);
         normalized_copies.push_back(second_copy);
     }
+    flush_batch();
     runtime.PostCopyBarrier();
     pending_downloads.emplace_back(std::move(normalized_copies));
     async_buffers.emplace_back(download_staging);
