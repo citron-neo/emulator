@@ -1435,10 +1435,14 @@ void QueryCacheRuntime::HostConditionalRenderingCompareBCImpl(DAddr address, boo
     ResumeHostConditionalRendering();
 }
 
+bool QueryCacheRuntime::SkipPendingQueryCondition(bool qc_dirty) const {
+    return qc_dirty && impl->device.GetDriverID() == VK_DRIVER_ID_MOLTENVK;
+}
+
 bool QueryCacheRuntime::HostConditionalRenderingCompareValue(VideoCommon::LookupData object_1,
-                                                             [[maybe_unused]] bool qc_dirty) {
+                                                             bool qc_dirty) {
     if (!impl->device.IsExtConditionalRendering()) {
-        return false;
+        return SkipPendingQueryCondition(qc_dirty);
     }
     HostConditionalRenderingCompareValueImpl(object_1, false);
     return true;
@@ -1448,7 +1452,7 @@ bool QueryCacheRuntime::HostConditionalRenderingCompareValues(VideoCommon::Looku
                                                               VideoCommon::LookupData object_2,
                                                               bool qc_dirty, bool equal_check) {
     if (!impl->device.IsExtConditionalRendering()) {
-        return false;
+        return SkipPendingQueryCondition(qc_dirty);
     }
 
     const auto check_in_bc = [&](DAddr address) {

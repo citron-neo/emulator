@@ -60,6 +60,7 @@ public:
     void View3DRegs(Func&& func);
 
 private:
+    bool SkipPendingQueryCondition(bool qc_dirty) const;
     void HostConditionalRenderingCompareValueImpl(VideoCommon::LookupData object, bool is_equal);
     void HostConditionalRenderingCompareBCImpl(DAddr address, bool is_equal);
     friend struct QueryCacheRuntimeImpl;
