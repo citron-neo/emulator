@@ -498,9 +498,13 @@ void QueriesPrefixScanPass::Run(VkBuffer accumulation_buffer, VkBuffer dst_buffe
         size_t used_offset = offset;
         offset += runs_to_do;
 
+        const VkPipelineStageFlags write_dst_stages =
+            VK_PIPELINE_STAGE_TRANSFER_BIT | (device.IsExtConditionalRendering()
+                                                  ? VK_PIPELINE_STAGE_CONDITIONAL_RENDERING_BIT_EXT
+                                                  : 0);
         scheduler.RequestOutsideRenderPassOperationContext();
         scheduler.Record([this, descriptor_data, min_accumulation_limit, max_accumulation_limit,
-                          runs_to_do, used_offset](vk::CommandBuffer cmdbuf) {
+                          runs_to_do, used_offset, write_dst_stages](vk::CommandBuffer cmdbuf) {
             static constexpr VkMemoryBarrier read_barrier{
                 .sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER,
                 .pNext = nullptr,
@@ -532,8 +536,7 @@ void QueriesPrefixScanPass::Run(VkBuffer accumulation_buffer, VkBuffer dst_buffe
             cmdbuf.BindDescriptorSets(VK_PIPELINE_BIND_POINT_COMPUTE, *layout, 0, set, {});
             cmdbuf.PushConstants(*layout, VK_SHADER_STAGE_COMPUTE_BIT, uniforms);
             cmdbuf.Dispatch(1, 1, 1);
-            cmdbuf.PipelineBarrier(VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-                                   VK_PIPELINE_STAGE_CONDITIONAL_RENDERING_BIT_EXT, 0,
+            cmdbuf.PipelineBarrier(VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, write_dst_stages, 0,
                                    write_barrier);
         });
     }
