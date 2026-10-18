@@ -1866,6 +1866,11 @@ void BufferCache<P>::MappedUploadMemory([[maybe_unused]] Buffer& buffer,
             return;
         }
         const bool can_reorder = runtime.CanReorderUpload(buffer, copies);
+        if (!can_reorder) {
+            for (const BufferCopy& copy : copies) {
+                buffer.MarkUsage(copy.dst_offset, copy.size);
+            }
+        }
         runtime.CopyBuffer(buffer, upload_staging.buffer, copies, true, can_reorder);
         // The GPU copy writes these ranges: a later direct write must wait for it.
         const u64 tick = runtime.CurrentTick();
@@ -1913,6 +1918,9 @@ void BufferCache<P>::InlineMemoryImplementation(DAddr dest_address, size_t copy_
         u8* const src_pointer = upload_staging.mapped_span.data();
         std::memcpy(src_pointer, inlined_buffer.data(), copy_size);
         const bool can_reorder = runtime.CanReorderUpload(buffer, copies);
+        if (!can_reorder) {
+            buffer.MarkUsage(copies[0].dst_offset, copy_size);
+        }
         runtime.CopyBuffer(buffer, upload_staging.buffer, copies, true, can_reorder);
         Uma::StampPages(buffer.page_gpu_tick, buffer.Offset(dest_address), copy_size,
                         runtime.CurrentTick());
