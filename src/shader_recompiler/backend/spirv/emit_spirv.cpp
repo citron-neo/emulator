@@ -2,11 +2,14 @@
 // SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
+#include <algorithm>
 #include <span>
 #include <tuple>
 #include <type_traits>
 #include <utility>
 #include <vector>
+
+#include <boost/container/small_vector.hpp>
 
 #include "common/settings.h"
 
@@ -16,6 +19,7 @@
 #include "shader_recompiler/backend/spirv/emit_spirv_instructions.h"
 #include "shader_recompiler/backend/spirv/spirv_emit_context.h"
 #include "shader_recompiler/frontend/ir/basic_block.h"
+#include "shader_recompiler/frontend/ir/modifiers.h"
 #include "shader_recompiler/frontend/ir/program.h"
 
 namespace Shader::Backend::SPIRV {
@@ -492,9 +496,57 @@ void PatchPhiNodes(IR::Program& program, EmitContext& ctx) {
         return ctx.Def(inst->Arg(phi_arg));
     });
 }
+bool IsContractible(IR::Opcode opcode) {
+    switch (opcode) {
+    case IR::Opcode::FPAdd16:
+    case IR::Opcode::FPAdd32:
+    case IR::Opcode::FPAdd64:
+    case IR::Opcode::FPFma16:
+    case IR::Opcode::FPFma32:
+    case IR::Opcode::FPFma64:
+    case IR::Opcode::FPMul16:
+    case IR::Opcode::FPMul32:
+    case IR::Opcode::FPMul64:
+        return true;
+    default:
+        return false;
+    }
+}
+
+void ReduceFloatPrecision(IR::Program& program) {
+    boost::container::small_vector<const IR::Inst*, 16> keep;
+    if (program.stage == Stage::Fragment) {
+        for (const IR::Block* const block : program.post_order_blocks) {
+            for (const IR::Inst& inst : *block) {
+                if (inst.GetOpcode() != IR::Opcode::FPRecip32 || inst.Arg(0).IsImmediate()) {
+                    continue;
+                }
+                const IR::Inst* const add{inst.ArgInst(0)};
+                if (add->GetOpcode() == IR::Opcode::FPAdd32 &&
+                    (add->Arg(0).IsImmediate() || add->Arg(1).IsImmediate())) {
+                    keep.push_back(add);
+                }
+            }
+        }
+    }
+    for (IR::Block* const block : program.post_order_blocks) {
+        for (IR::Inst& inst : *block) {
+            if (!IsContractible(inst.GetOpcode()) || std::ranges::find(keep, &inst) != keep.end()) {
+                continue;
+            }
+            auto flags{inst.Flags<IR::FpControl>()};
+            flags.no_contraction = false;
+            inst.SetFlags(flags);
+        }
+    }
+}
+
 } // Anonymous namespace
 
 std::vector<u32> EmitSPIRV(const Profile& profile, const RuntimeInfo& runtime_info, IR::Program& program, Bindings& bindings) {
+    if (profile.reduce_float_precision) {
+        ReduceFloatPrecision(program);
+    }
     EmitContext ctx{profile, runtime_info, program, bindings};
     const Id main{DefineMain(ctx, program)};
     DefineEntryPoint(program, ctx, main);

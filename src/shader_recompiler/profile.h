@@ -80,6 +80,7 @@ struct Profile {
     /// architecture. Applying an offset does fix this mismatching rounding behaviour.
     bool need_gather_subpixel_offset{};
 
+    bool reduce_float_precision{};
     /// OpFClamp is broken and OpFMax + OpFMin should be used instead
     bool has_broken_spirv_clamp{};
     /// The Position builtin needs to be wrapped in a struct when used as an input

@@ -1730,6 +1730,9 @@ void EmitContext::DefineOutputs(const IR::Program& program) {
     if (runtime_info.convert_depth_mode || info.stores.AnyComponent(IR::Attribute::PositionX) ||
         stage == Stage::VertexB) {
         output_position = DefineOutput(*this, F32[4], invocations, spv::BuiltIn::Position);
+        if (profile.reduce_float_precision) {
+            Decorate(output_position, spv::Decoration::Invariant);
+        }
     }
     if (info.stores[IR::Attribute::PointSize] || runtime_info.fixed_state_point_size) {
         if (stage == Stage::Fragment) {
