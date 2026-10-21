@@ -40,9 +40,9 @@ constexpr FontRegion EMPTY_REGION{0, 0};
 
 static void DecryptSharedFont(const std::vector<u32>& input, Kernel::PhysicalMemory& output,
                               std::size_t& offset) {
-    ASSERT_MSG(offset + (input.size() * sizeof(u32)) < SHARED_FONT_MEM_SIZE,
-               "Shared fonts exceeds 17mb!");
-    ASSERT_MSG(input[0] == EXPECTED_MAGIC, "Failed to derive key, unexpected magic number");
+    assert(offset + (input.size() * sizeof(u32)) < SHARED_FONT_MEM_SIZE &&
+           "Shared fonts exceeds 17mb!");
+    assert(input[0] == EXPECTED_MAGIC && "Failed to derive key, unexpected magic number");
 
     const u32 KEY = input[0] ^ EXPECTED_RESULT; // Derive key using an inverse xor
     std::vector<u32> transformed_font(input.size());
@@ -56,7 +56,7 @@ static void DecryptSharedFont(const std::vector<u32>& input, Kernel::PhysicalMem
 }
 
 void DecryptSharedFontToTTF(const std::vector<u32>& input, std::vector<u8>& output) {
-    ASSERT_MSG(input[0] == EXPECTED_MAGIC, "Failed to derive key, unexpected magic number");
+    assert(input[0] == EXPECTED_MAGIC && "Failed to derive key, unexpected magic number");
 
     if (input.size() < 2) {
         LOG_ERROR(Service_NS, "Input font is empty");
@@ -74,8 +74,8 @@ void DecryptSharedFontToTTF(const std::vector<u32>& input, std::vector<u8>& outp
 
 void EncryptSharedFont(const std::vector<u32>& input, std::vector<u8>& output,
                        std::size_t& offset) {
-    ASSERT_MSG(offset + (input.size() * sizeof(u32)) < SHARED_FONT_MEM_SIZE,
-               "Shared fonts exceeds 17mb!");
+    assert(offset + (input.size() * sizeof(u32)) < SHARED_FONT_MEM_SIZE &&
+           "Shared fonts exceeds 17mb!");
 
     const auto key = Common::swap32(EXPECTED_RESULT ^ EXPECTED_MAGIC);
     std::vector<u32> transformed_font(input.size() + 2);

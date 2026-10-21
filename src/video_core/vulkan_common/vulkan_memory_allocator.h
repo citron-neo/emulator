@@ -102,6 +102,12 @@ public:
 
     vk::Buffer CreateBuffer(const VkBufferCreateInfo& ci, MemoryUsage usage) const;
 
+    /// Creates a buffer in memory that is device local, host visible and host coherent, mapped
+    /// for its whole life, so the CPU can write it without a staging copy. Only when
+    /// has_unified_memory is set. Returns an empty buffer otherwise or when the allocation
+    /// fails; the caller then falls back to CreateBuffer.
+    vk::Buffer CreateUnifiedBuffer(const VkBufferCreateInfo& ci) const;
+
     /**
      * Commits a memory with the specified requirements.
      *
@@ -145,6 +151,8 @@ private:
                                            // and optimal images
     u32 valid_memory_types{~0u};
     u32 frame_index{};
+    /// Integrated GPU with a DEVICE_LOCAL | HOST_VISIBLE | HOST_COHERENT memory type.
+    bool has_unified_memory{};
 };
 
 } // namespace Vulkan

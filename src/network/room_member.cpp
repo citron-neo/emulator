@@ -192,8 +192,8 @@ void RoomMember::RoomMemberImpl::MemberLoop() {
                 case IdJoinSuccessAsMod:
                     // The join request was successful, we are now in the room.
                     // If we joined successfully, there must be at least one client in the room: us.
-                    ASSERT_MSG(member_information.size() > 0,
-                               "We have not yet received member information.");
+                    assert(member_information.size() > 0 &&
+                           "We have not yet received member information.");
                     HandleJoinPacket(&event); // Get the MAC Address for the client
                     if (event.packet->data[0] == IdJoinSuccessAsMod) {
                         SetState(State::Moderator);
@@ -256,7 +256,7 @@ void RoomMember::RoomMemberImpl::MemberLoop() {
             case ENET_EVENT_TYPE_CONNECT:
                 // The ENET_EVENT_TYPE_CONNECT event can not possibly happen here because we're
                 // already connected
-                ASSERT_MSG(false, "Received unexpected connect event while already connected");
+                assert(false && "Received unexpected connect event while already connected");
                 break;
             }
         }
@@ -546,7 +546,7 @@ RoomMember::CallbackHandle<T> RoomMember::RoomMemberImpl::Bind(
 RoomMember::RoomMember() : room_member_impl{std::make_unique<RoomMemberImpl>()} {}
 
 RoomMember::~RoomMember() {
-    ASSERT_MSG(!IsConnected(), "RoomMember is being destroyed while connected");
+    assert(!IsConnected() && "RoomMember is being destroyed while connected");
     if (room_member_impl->loop_thread) {
         Leave();
     }
@@ -570,7 +570,7 @@ const std::string& RoomMember::GetUsername() const {
 }
 
 const IPv4Address& RoomMember::GetFakeIpAddress() const {
-    ASSERT_MSG(IsConnected(), "Tried to get fake ip address while not connected");
+    assert(IsConnected() && "Tried to get fake ip address while not connected");
     return room_member_impl->fake_ip;
 }
 
@@ -605,7 +605,7 @@ void RoomMember::Join(const std::string& nick, const char* server_addr, u16 serv
     bind_address.port = 0; // Let the system choose an available port
 
     room_member_impl->client = enet_host_create(&bind_address, 1, NumChannels, 0, 0);
-    ASSERT_MSG(room_member_impl->client != nullptr, "Could not create client");
+    assert(room_member_impl->client != nullptr && "Could not create client");
 
     room_member_impl->SetState(State::Joining);
 
@@ -694,8 +694,8 @@ void RoomMember::SendGameInfo(const GameInfo& game_info) {
 }
 
 void RoomMember::SendModerationRequest(RoomMessageTypes type, const std::string& nickname) {
-    ASSERT_MSG(type == IdModKick || type == IdModBan || type == IdModUnban,
-               "type is not a moderation request");
+    assert((type == IdModKick || type == IdModBan || type == IdModUnban) &&
+           "type is not a moderation request");
     if (!IsConnected())
         return;
 

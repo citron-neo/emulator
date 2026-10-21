@@ -101,7 +101,7 @@ struct UniformDefinitions {
         if (member_ptr == &UniformDefinitions::U32x4) {
             return 4;
         }
-        ASSERT(false);
+        assert(false);
         return 1;
     }
 
@@ -168,6 +168,8 @@ public:
                          IR::Program& program, Bindings& binding);
     ~EmitContext();
 
+    /// The instruction a value refers to, looking through Identity instructions, or nullptr
+    [[nodiscard]] IR::Inst* Inst(const IR::Value& value) const;
     [[nodiscard]] Id Def(const IR::Value& value);
 
     [[nodiscard]] Id BitOffset8(const IR::Value& offset);
@@ -219,6 +221,7 @@ public:
     const Profile& profile;
     const RuntimeInfo& runtime_info;
     Stage stage{};
+    IR::InstStorage* inst_storage{};
 
     ankerl::unordered_dense::set<u32> non_uniform_ids;
 

@@ -171,7 +171,7 @@ void ConfigureProfileManager::UpdateCurrentUser() {
     ui->pm_add->setEnabled(profile_manager.GetUserCount() < Service::Account::MAX_USERS);
 
     const auto& current_user = profile_manager.GetUser(Settings::values.current_user.GetValue());
-    ASSERT(current_user);
+    assert(current_user);
     const auto username = GetAccountUsername(profile_manager, *current_user);
 
     scene->clear();
@@ -218,7 +218,7 @@ void ConfigureProfileManager::AddUser() {
 void ConfigureProfileManager::RenameUser() {
     const auto user = tree_view->currentIndex().row();
     const auto uuid = profile_manager.GetUser(user);
-    ASSERT(uuid);
+    assert(uuid);
 
     Service::Account::ProfileBase profile{};
     if (!profile_manager.GetProfileBase(*uuid, profile))
@@ -246,7 +246,7 @@ void ConfigureProfileManager::RenameUser() {
 void ConfigureProfileManager::ConfirmDeleteUser() {
     const auto index = tree_view->currentIndex().row();
     const auto uuid = profile_manager.GetUser(index);
-    ASSERT(uuid);
+    assert(uuid);
     const auto username = GetAccountUsername(profile_manager, *uuid);
 
     confirm_dialog->SetInfo(username, *uuid, [this, uuid]() { DeleteUser(*uuid); });
@@ -275,7 +275,7 @@ void ConfigureProfileManager::DeleteUser(const Common::UUID& uuid) {
 void ConfigureProfileManager::SetUserImage() {
     const auto index = tree_view->currentIndex().row();
     const auto uuid = profile_manager.GetUser(index);
-    ASSERT(uuid);
+    assert(uuid);
 
     const auto file = QFileDialog::getOpenFileName(this, tr("Select User Image"), QString(),
                                                    tr("JPEG Images (*.jpg *.jpeg)"));

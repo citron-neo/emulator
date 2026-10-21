@@ -14,9 +14,10 @@
 namespace Shader::IR {
 
 template <typename Pred>
-auto BreadthFirstSearch(const Value& value, Pred&& pred)
+auto BreadthFirstSearch(const InstStorage& storage, const Value& value, Pred&& pred)
     -> std::invoke_result_t<Pred, const Inst*> {
-    if (value.IsImmediate()) {
+    const Inst* const start{storage.Get(value)};
+    if (!start) {
         // Nothing to do with immediates
         return std::nullopt;
     }
@@ -24,7 +25,7 @@ auto BreadthFirstSearch(const Value& value, Pred&& pred)
     // Small vector has been determined from shaders in Super Smash Bros. Ultimate
     boost::container::small_vector<const Inst*, 2> visited;
     std::queue<const Inst*> queue;
-    queue.push(value.InstRecursive());
+    queue.push(start);
 
     while (!queue.empty()) {
         // Pop one instruction from the queue
@@ -36,12 +37,11 @@ auto BreadthFirstSearch(const Value& value, Pred&& pred)
         }
         // Visit the right most arguments first
         for (size_t arg = inst->NumArgs(); arg--;) {
-            const Value arg_value{inst->Arg(arg)};
-            if (arg_value.IsImmediate()) {
+            const Inst* const arg_inst{inst->ArgInst(arg)};
+            if (!arg_inst) {
                 continue;
             }
             // Queue instruction if it hasn't been visited
-            const Inst* const arg_inst{arg_value.InstRecursive()};
             if (std::ranges::find(visited, arg_inst) == visited.end()) {
                 visited.push_back(arg_inst);
                 queue.push(arg_inst);

@@ -1,0 +1,57 @@
+// SPDX-FileCopyrightText: Copyright 2026 Eden Emulator Project
+// SPDX-License-Identifier: GPL-3.0-or-later
+
+#include "dynarmic/backend/loongarch64/a32_jitstate.h"
+
+#include "dynarmic/mcl/bit.hpp"
+#include "dynarmic/common/common_types.h"
+
+namespace Dynarmic::Backend::LoongArch64 {
+
+u32 A32JitState::Cpsr() const {
+    u32 cpsr = 0;
+    cpsr |= cpsr_nzcv;
+    cpsr |= cpsr_q;
+    cpsr |= mcl::bit::get_bit<31>(cpsr_ge) ? 1 << 19 : 0;
+    cpsr |= mcl::bit::get_bit<23>(cpsr_ge) ? 1 << 18 : 0;
+    cpsr |= mcl::bit::get_bit<15>(cpsr_ge) ? 1 << 17 : 0;
+    cpsr |= mcl::bit::get_bit<7>(cpsr_ge) ? 1 << 16 : 0;
+    cpsr |= mcl::bit::get_bit<1>(upper_location_descriptor) ? 1 << 9 : 0;
+    cpsr |= mcl::bit::get_bit<0>(upper_location_descriptor) ? 1 << 5 : 0;
+    cpsr |= static_cast<u32>(upper_location_descriptor & 0b11111100'00000000);
+    cpsr |= static_cast<u32>(upper_location_descriptor & 0b00000011'00000000) << 17;
+    cpsr |= cpsr_jaifm;
+    return cpsr;
+}
+
+void A32JitState::SetCpsr(u32 cpsr) {
+    cpsr_nzcv = cpsr & 0xF0000000;
+    cpsr_q = cpsr & (1 << 27);
+    cpsr_ge = 0;
+    cpsr_ge |= mcl::bit::get_bit<19>(cpsr) ? 0xFF000000 : 0;
+    cpsr_ge |= mcl::bit::get_bit<18>(cpsr) ? 0x00FF0000 : 0;
+    cpsr_ge |= mcl::bit::get_bit<17>(cpsr) ? 0x0000FF00 : 0;
+    cpsr_ge |= mcl::bit::get_bit<16>(cpsr) ? 0x000000FF : 0;
+
+    upper_location_descriptor &= 0xFFFF0000;
+    upper_location_descriptor |= mcl::bit::get_bit<9>(cpsr) ? 2 : 0;
+    upper_location_descriptor |= mcl::bit::get_bit<5>(cpsr) ? 1 : 0;
+    upper_location_descriptor |= (cpsr >> 0) & 0b11111100'00000000;
+    upper_location_descriptor |= (cpsr >> 17) & 0b00000011'00000000;
+    cpsr_jaifm = cpsr & 0x010001DF;
+}
+
+constexpr u32 FPCR_MASK = A32::LocationDescriptor::FPSCR_MODE_MASK;
+constexpr u32 FPSR_MASK = 0x0800009F;
+
+u32 A32JitState::Fpscr() const {
+    return (upper_location_descriptor & FPCR_MASK) | fpsr | fpsr_nzcv;
+}
+
+void A32JitState::SetFpscr(u32 fpscr) {
+    fpsr = fpscr & FPSR_MASK;
+    fpsr_nzcv = fpscr & 0xF0000000;
+    upper_location_descriptor = (upper_location_descriptor & 0x0000ffff) | (fpscr & FPCR_MASK);
+}
+
+}  // namespace Dynarmic::Backend::LoongArch64

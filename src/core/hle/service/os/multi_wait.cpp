@@ -32,7 +32,7 @@ MultiWaitHolder* MultiWait::TimedWaitImpl(Kernel::KernelCore& kernel, s64 timeou
     s32 num_objects = 0;
 
     for (auto it = m_wait_list.begin(); it != m_wait_list.end(); it++) {
-        ASSERT(num_objects < Kernel::Svc::ArgumentHandleCountMax);
+        assert(num_objects < Kernel::Svc::ArgumentHandleCountMax);
         holders[num_objects] = std::addressof(*it);
         objects[num_objects] = it->GetNativeHandle();
         num_objects++;

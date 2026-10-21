@@ -2,6 +2,8 @@
 // SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
+#include <bit>
+
 #include "common/bit_field.h"
 #include "common/common_types.h"
 #include "shader_recompiler/frontend/maxwell/translate/impl/impl.h"
@@ -142,11 +144,11 @@ enum class SpecialRegister : u64 {
         // W-scale factors for viewport transformation
         // In standard rendering, these are typically 1.0
         // The hardware uses these for perspective-correct interpolation adjustments
-        return ir.Imm32(Common::BitCast<u32>(1.0f));
+        return ir.Imm32(std::bit_cast<u32>(1.0f));
     case SpecialRegister::SR_WSCALEFACTOR_Z:
         // W-scale factor for depth transformation
         // In standard rendering, this is typically 1.0
-        return ir.Imm32(Common::BitCast<u32>(1.0f));
+        return ir.Imm32(std::bit_cast<u32>(1.0f));
     case SpecialRegister::SR_LANEID:
         return ir.LaneId();
     case SpecialRegister::SR_EQMASK:

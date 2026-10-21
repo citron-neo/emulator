@@ -26,7 +26,7 @@ void ConditionalBarrierPass(IR::Program& program) {
             }
             break;
         case IR::AbstractSyntaxNode::Type::Block:
-            for (IR::Inst& inst : node.data.block->Instructions()) {
+            for (IR::Inst& inst : *node.data.block) {
                 if ((conditional_control_flow_count > 0 || conditional_return_count > 0) &&
                     inst.GetOpcode() == IR::Opcode::Barrier) {
                     LOG_WARNING(Shader, "Barrier within conditional control flow");
@@ -38,7 +38,7 @@ void ConditionalBarrierPass(IR::Program& program) {
             break;
         }
     }
-    ASSERT(conditional_control_flow_count == 0);
+    assert(conditional_control_flow_count == 0);
 }
 
 } // namespace Shader::Optimization

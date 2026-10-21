@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <algorithm>
+#include <limits>
 #include <span>
 
 #include <boost/container/small_vector.hpp>
@@ -368,9 +369,12 @@ void GraphicsPipeline::ConfigureImpl(bool is_indexed) {
         const Shader::Info& info{stage_infos[stage]};
         buffer_cache.UnbindGraphicsStorageBuffers(stage);
         if constexpr (Spec::has_storage_buffers) {
+            // Every descriptor below needs a binding slot; a missing slot shifts the descriptor
+            // payload and writes past the binding array.
+            static_assert(Shader::Info::MAX_SSBOS <= VideoCommon::NUM_STORAGE_BUFFERS);
             size_t ssbo_index{};
             for (const auto& desc : info.storage_buffers_descriptors) {
-                ASSERT(desc.count == 1);
+                assert(desc.count == 1);
                 buffer_cache.BindGraphicsStorageBuffer(stage, ssbo_index, desc.cbuf_index,
                                                        desc.cbuf_offset, desc.is_written);
                 ++ssbo_index;
@@ -378,23 +382,35 @@ void GraphicsPipeline::ConfigureImpl(bool is_indexed) {
         }
         const auto& cbufs{maxwell3d->state.shader_stages[stage].const_buffers};
         const auto read_handle{[&](const auto& desc, u32 index) {
-            ASSERT(cbufs[desc.cbuf_index].enabled);
+            assert(cbufs[desc.cbuf_index].enabled);
             const u32 index_offset{index << desc.size_shift};
             const u32 offset{desc.cbuf_offset + index_offset};
             const GPUVAddr addr{cbufs[desc.cbuf_index].address + offset};
             if constexpr (std::is_same_v<decltype(desc), const Shader::TextureDescriptor&> ||
                           std::is_same_v<decltype(desc), const Shader::TextureBufferDescriptor&>) {
+                u32 word{(gpu_memory->Read<u32>(addr) >> desc.shift_right) & desc.mask};
+                if (desc.indirect) {
+                    // The word is an index. The texture number is the 16-bit table entry.
+                    const auto& table{cbufs[desc.table_cbuf_index]};
+                    const u32 entry{(word << desc.table_shift) + desc.table_base};
+                    word = table.enabled && entry + sizeof(u16) <= table.size
+                               ? gpu_memory->Read<u16>(table.address + entry)
+                               : 0;
+                }
                 if (desc.has_secondary) {
-                    ASSERT(cbufs[desc.secondary_cbuf_index].enabled);
+                    assert(cbufs[desc.secondary_cbuf_index].enabled);
                     const u32 second_offset{desc.secondary_cbuf_offset + index_offset};
                     const GPUVAddr separate_addr{cbufs[desc.secondary_cbuf_index].address +
                                                  second_offset};
-                    const u32 lhs_raw{gpu_memory->Read<u32>(addr) << desc.shift_left};
-                    const u32 rhs_raw{gpu_memory->Read<u32>(separate_addr)
+                    const u32 lhs_raw{word << desc.shift_left};
+                    const u32 rhs_raw{((gpu_memory->Read<u32>(separate_addr) >>
+                                        desc.secondary_shift_right) &
+                                       desc.secondary_mask)
                                       << desc.secondary_shift_left};
                     const u32 raw{lhs_raw | rhs_raw};
                     return TexturePair(raw, via_header_index);
                 }
+                return TexturePair(word, via_header_index);
             }
             return TexturePair(gpu_memory->Read<u32>(addr), via_header_index);
         }};
@@ -685,15 +701,21 @@ void GraphicsPipeline::MakePipeline(VkRenderPass render_pass) {
             if (!attribute.enabled || !stage_infos[0].loads.Generic(index)) {
                 continue;
             }
+            // An attribute that runs past its binding's stride is narrowed to fit, as the
+            // dynamic vertex input path does (VUID-vkCmdBindVertexBuffers2-pStrides-06209)
+            const u32 stride{key.state.vertex_strides[attribute.buffer]};
+            const u32 bytes_available{stride > attribute.offset ? stride - attribute.offset
+                                                                : std::numeric_limits<u32>::max()};
             vertex_attributes.push_back({
                 .location = static_cast<u32>(index),
                 .binding = attribute.buffer,
-                .format = MaxwellToVK::VertexFormat(device, attribute.Type(), attribute.Size()),
+                .format = MaxwellToVK::VertexFormat(device, attribute.Type(), attribute.Size(),
+                                                    bytes_available),
                 .offset = attribute.offset,
             });
         }
     }
-    ASSERT(vertex_attributes.size() <= device.GetMaxVertexInputAttributes());
+    assert(vertex_attributes.size() <= device.GetMaxVertexInputAttributes());
 
     VkPipelineVertexInputStateCreateInfo vertex_input_ci{
         .sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,

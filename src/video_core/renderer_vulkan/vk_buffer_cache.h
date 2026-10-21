@@ -34,6 +34,11 @@ public:
         return *buffer;
     }
 
+    /// Host mapping of a unified memory buffer, empty for staged buffers.
+    [[nodiscard]] std::span<u8> Mapped() noexcept {
+        return buffer.Mapped();
+    }
+
     [[nodiscard]] bool IsRegionUsed(u64 offset, u64 size) const noexcept {
         return tracker.IsUsed(offset, size);
     }
@@ -82,6 +87,13 @@ public:
                                 DescriptorPool& descriptor_pool);
 
     void TickFrame(Common::SlotVector<Buffer>& slot_buffers) noexcept;
+
+    /// Tick of the command buffer being recorded; work recorded now completes at this tick.
+    [[nodiscard]] u64 CurrentTick() const noexcept;
+
+    /// Last tick the GPU is known to have completed (MasterSemaphore::KnownGpuTick, a cached
+    /// value that can lag behind the GPU, never run ahead of it).
+    [[nodiscard]] u64 KnownGpuTick() const noexcept;
 
     void Finish();
 
@@ -137,6 +149,17 @@ public:
 
     bool NeedsPaddedVertexBuffers() const {
         return device.GetDriverID() == VK_DRIVER_ID_MOLTENVK;
+    }
+
+    /// A shader may read a constant buffer past the size the guest bound; hardware returns zero
+    /// there. With robustBufferAccess2 the device does the same for reads past the descriptor
+    /// range, so the buffer can be bound at its real size. Without it the cache has to copy the
+    /// data into a zero padded staging buffer on every bind. The device checks the range in
+    /// steps of robustUniformBufferAccessSizeAlignment, so a size that is not a multiple of that
+    /// step is still padded.
+    bool NeedsPaddedUniformBuffer(u32 bound_size) const {
+        return !device.HasRobustBufferAccess2() ||
+               bound_size % device.GetRobustUniformBufferAccessSizeAlignment() != 0;
     }
 
     std::span<u8> BindMappedVertexBuffer(u32 index, u32 size, u32 stride) {

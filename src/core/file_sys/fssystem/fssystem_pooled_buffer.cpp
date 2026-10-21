@@ -28,10 +28,10 @@ size_t PooledBuffer::GetAllocatableSizeMaxCore(bool large) {
 
 void PooledBuffer::AllocateCore(size_t ideal_size, size_t required_size, bool large) {
     // Ensure preconditions.
-    ASSERT(m_buffer == nullptr);
+    assert(m_buffer == nullptr);
 
     // Check that we can allocate this size.
-    ASSERT(required_size <= GetAllocatableSizeMaxCore(large));
+    assert(required_size <= GetAllocatableSizeMaxCore(large));
 
     const size_t target_size =
         std::min(std::max(ideal_size, required_size), GetAllocatableSizeMaxCore(large));
@@ -43,12 +43,12 @@ void PooledBuffer::AllocateCore(size_t ideal_size, size_t required_size, bool la
         m_size = target_size;
 
         // Ensure postconditions.
-        ASSERT(m_buffer != nullptr);
+        assert(m_buffer != nullptr);
     }
 }
 
 void PooledBuffer::Shrink(size_t ideal_size) {
-    ASSERT(ideal_size <= GetAllocatableSizeMaxCore(true));
+    assert(ideal_size <= GetAllocatableSizeMaxCore(true));
 
     // Shrinking to zero means that we have no buffer.
     if (ideal_size == 0) {

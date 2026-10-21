@@ -143,6 +143,10 @@ public:
     u8* GetPointer(Common::ProcessAddress vaddr);
     u8* GetPointerSilent(Common::ProcessAddress vaddr);
 
+    /// Makes the host instruction cache see what is now in [vaddr, vaddr + size) of this
+    /// process's memory, for guest code run in place (NCE). Unmapped pages are skipped.
+    void SyncInstructionCache(Common::ProcessAddress vaddr, std::size_t size);
+
     template <typename T>
     T* GetPointer(Common::ProcessAddress vaddr) {
         return reinterpret_cast<T*>(GetPointer(vaddr));

@@ -33,7 +33,7 @@ public:
     template <typename T>
     void Read(T& val) {
         static_assert(std::is_trivially_copyable_v<T>, "T must be trivially copyable.");
-        ASSERT(read_index + sizeof(T) <= read_buffer.size());
+        assert(read_index + sizeof(T) <= read_buffer.size());
 
         std::memcpy(&val, read_buffer.data() + read_index, sizeof(T));
         read_index += sizeof(T);
@@ -49,8 +49,8 @@ public:
 
     template <typename T>
     void ReadFlattened(T& val) {
-        const auto flattened_size = Read<s64>();
-        ASSERT(sizeof(T) == flattened_size);
+        [[maybe_unused]] const auto flattened_size = Read<s64>();
+        assert(sizeof(T) == flattened_size);
         Read(val);
     }
 
@@ -64,7 +64,7 @@ public:
     template <typename T>
     T ReadUnaligned() {
         static_assert(std::is_trivially_copyable_v<T>, "T must be trivially copyable.");
-        ASSERT(read_index + sizeof(T) <= read_buffer.size());
+        assert(read_index + sizeof(T) <= read_buffer.size());
 
         T val;
         std::memcpy(&val, read_buffer.data() + read_index, sizeof(T));
@@ -104,7 +104,7 @@ public:
     }
 
     void DeserializeHeader() {
-        ASSERT(read_buffer.size() > sizeof(ParcelHeader));
+        assert(read_buffer.size() > sizeof(ParcelHeader));
 
         ParcelHeader header{};
         std::memcpy(&header, read_buffer.data(), sizeof(ParcelHeader));
