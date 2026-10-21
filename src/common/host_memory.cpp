@@ -41,6 +41,7 @@
 #include "common/free_region_manager.h"
 #include "common/host_memory.h"
 #include "common/logging.h"
+#include "common/polyfill_thread.h"
 
 namespace Common {
 
@@ -513,14 +514,14 @@ public:
                                                           : max_map_count;
             LOG_INFO(HW_Memory, "Host VMA limit: max_map_count={}, budget={}, reserve={}",
                      max_map_count, vma_budget, max_map_count - vma_budget);
-            vma_sampler_thread = std::thread([this] { VmaSamplerLoop(); });
+            vma_sampler_thread =
+                std::jthread([this](std::stop_token stop_token) { VmaSamplerLoop(stop_token); });
         }
         good = true;
     }
 
     ~Impl() {
-        vma_sampler_stop.store(true, std::memory_order_release);
-        vma_sampler_cv.notify_one();
+        vma_sampler_thread.request_stop();
         if (vma_sampler_thread.joinable()) {
             vma_sampler_thread.join();
         }
@@ -699,15 +700,14 @@ private:
         vma_sampler_cv.notify_one();
     }
 
-    void VmaSamplerLoop() {
+    void VmaSamplerLoop(std::stop_token stop_token) {
         u64 sampled_map_id = 0;
         while (true) {
             std::unique_lock lock{vma_sampler_mutex};
-            vma_sampler_cv.wait(lock, [this, sampled_map_id] {
-                return vma_sampler_stop.load(std::memory_order_acquire) ||
-                       requested_vma_sample.load(std::memory_order_acquire) != sampled_map_id;
+            Common::CondvarWait(vma_sampler_cv, lock, stop_token, [this, sampled_map_id] {
+                return requested_vma_sample.load(std::memory_order_acquire) != sampled_map_id;
             });
-            if (vma_sampler_stop.load(std::memory_order_acquire)) {
+            if (stop_token.stop_requested()) {
                 return;
             }
 
@@ -804,10 +804,9 @@ private:
     std::atomic<u64> unmap_count{0};
     std::atomic<u64> peak_vma_count{0};
     std::atomic<u64> requested_vma_sample{0};
-    std::atomic<bool> vma_sampler_stop{false};
     std::mutex vma_sampler_mutex;
-    std::condition_variable vma_sampler_cv;
-    std::thread vma_sampler_thread;
+    std::condition_variable_any vma_sampler_cv;
+    std::jthread vma_sampler_thread;
     u64 max_map_count{};
     u64 vma_budget{};
 };
