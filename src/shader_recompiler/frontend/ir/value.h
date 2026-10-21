@@ -4,6 +4,7 @@
 #pragma once
 
 #include <array>
+#include <bit>
 #include <cstring>
 #include <memory>
 #include <type_traits>
@@ -14,7 +15,6 @@
 #include <boost/intrusive/list.hpp>
 
 #include "common/assert.h"
-#include "common/bit_cast.h"
 #include "common/common_types.h"
 #include "shader_recompiler/exception.h"
 #include "shader_recompiler/frontend/ir/attribute.h"
@@ -206,13 +206,13 @@ public:
     /// Intrusively store the host definition of this instruction.
     template <typename DefinitionType>
     void SetDefinition(DefinitionType def) {
-        definition = Common::BitCast<u32>(def);
+        definition = std::bit_cast<u32>(def);
     }
 
     /// Return the intrusively stored host definition of this instruction.
     template <typename DefinitionType>
     [[nodiscard]] DefinitionType Definition() const noexcept {
-        return Common::BitCast<DefinitionType>(definition);
+        return std::bit_cast<DefinitionType>(definition);
     }
 
     /// Destructively remove one reference count from the instruction
@@ -297,12 +297,12 @@ inline bool Value::IsImmediate() const noexcept {
 }
 
 inline IR::Inst* Value::Inst() const {
-    DEBUG_ASSERT(type == Type::Opaque);
+    assert(type == Type::Opaque);
     return inst;
 }
 
 inline IR::Inst* Value::InstRecursive() const {
-    DEBUG_ASSERT(type == Type::Opaque);
+    assert(type == Type::Opaque);
     if (IsIdentity()) {
         return inst->Arg(0).InstRecursive();
     }
@@ -324,22 +324,22 @@ inline IR::Value Value::Resolve() const {
 }
 
 inline IR::Reg Value::Reg() const {
-    DEBUG_ASSERT(type == Type::Reg);
+    assert(type == Type::Reg);
     return reg;
 }
 
 inline IR::Pred Value::Pred() const {
-    DEBUG_ASSERT(type == Type::Pred);
+    assert(type == Type::Pred);
     return pred;
 }
 
 inline IR::Attribute Value::Attribute() const {
-    DEBUG_ASSERT(type == Type::Attribute);
+    assert(type == Type::Attribute);
     return attribute;
 }
 
 inline IR::Patch Value::Patch() const {
-    DEBUG_ASSERT(type == Type::Patch);
+    assert(type == Type::Patch);
     return patch;
 }
 
@@ -347,7 +347,7 @@ inline bool Value::U1() const {
     if (IsIdentity()) {
         return inst->Arg(0).U1();
     }
-    DEBUG_ASSERT(type == Type::U1);
+    assert(type == Type::U1);
     return imm_u1;
 }
 
@@ -355,7 +355,7 @@ inline u8 Value::U8() const {
     if (IsIdentity()) {
         return inst->Arg(0).U8();
     }
-    DEBUG_ASSERT(type == Type::U8);
+    assert(type == Type::U8);
     return imm_u8;
 }
 
@@ -363,7 +363,7 @@ inline u16 Value::U16() const {
     if (IsIdentity()) {
         return inst->Arg(0).U16();
     }
-    DEBUG_ASSERT(type == Type::U16);
+    assert(type == Type::U16);
     return imm_u16;
 }
 
@@ -371,7 +371,7 @@ inline u32 Value::U32() const {
     if (IsIdentity()) {
         return inst->Arg(0).U32();
     }
-    DEBUG_ASSERT(type == Type::U32);
+    assert(type == Type::U32);
     return imm_u32;
 }
 
@@ -379,7 +379,7 @@ inline f32 Value::F32() const {
     if (IsIdentity()) {
         return inst->Arg(0).F32();
     }
-    DEBUG_ASSERT(type == Type::F32);
+    assert(type == Type::F32);
     return imm_f32;
 }
 
@@ -387,7 +387,7 @@ inline u64 Value::U64() const {
     if (IsIdentity()) {
         return inst->Arg(0).U64();
     }
-    DEBUG_ASSERT(type == Type::U64);
+    assert(type == Type::U64);
     return imm_u64;
 }
 
@@ -395,7 +395,7 @@ inline f64 Value::F64() const {
     if (IsIdentity()) {
         return inst->Arg(0).F64();
     }
-    DEBUG_ASSERT(type == Type::F64);
+    assert(type == Type::F64);
     return imm_f64;
 }
 

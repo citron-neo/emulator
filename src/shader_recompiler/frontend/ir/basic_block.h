@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include <bit>
 #include <initializer_list>
 #include <map>
 #include <span>
@@ -10,7 +11,6 @@
 
 #include <boost/intrusive/list.hpp>
 
-#include "common/bit_cast.h"
 #include "common/common_types.h"
 #include "shader_recompiler/frontend/ir/condition.h"
 #include "shader_recompiler/frontend/ir/value.h"
@@ -70,13 +70,13 @@ public:
     /// Intrusively store the host definition of this instruction.
     template <typename DefinitionType>
     void SetDefinition(DefinitionType def) {
-        definition = Common::BitCast<u32>(def);
+        definition = std::bit_cast<u32>(def);
     }
 
     /// Return the intrusively stored host definition of this instruction.
     template <typename DefinitionType>
     [[nodiscard]] DefinitionType Definition() const noexcept {
-        return Common::BitCast<DefinitionType>(definition);
+        return std::bit_cast<DefinitionType>(definition);
     }
 
     void SetSsaRegValue(IR::Reg reg, const Value& value) noexcept {

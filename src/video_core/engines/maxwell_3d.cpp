@@ -255,7 +255,7 @@ bool Maxwell3D::IsMethodExecutable(u32 method) {
 void Maxwell3D::ProcessMacro(u32 method, const u32* base_start, u32 amount, bool is_last_call) {
     if (executing_macro == 0) {
         // A macro call must begin by writing the macro method's register, not its argument.
-        ASSERT((method % 2) == 0 && "Can't start macro execution by writing to the ARGS register");
+        assert((method % 2) == 0 && "Can't start macro execution by writing to the ARGS register");
         executing_macro = method;
     }
 
@@ -363,8 +363,18 @@ void Maxwell3D::ProcessDirtyRegisters(u32 method, u32 argument) {
     constexpr u32 rt_words = sizeof(Regs::RenderTargetConfig) / sizeof(u32);
     constexpr u32 dimension_word =
         offsetof(Regs::RenderTargetConfig, array_pitch) / sizeof(u32) - 1;
+    // Games rewrite most of their state before every draw. A write that changes nothing must not
+    // mark the state dirty, or every draw pays for rebinding all of it. Render target words still
+    // go through the check below: the memory behind a target can be mapped after its registers
+    // were written, and the next identical write is the first chance to see that.
+    const bool changed{regs.reg_array[method] != argument};
+    const bool is_rt_word{method >= rt_start &&
+                          method < rt_start + Regs::NumRenderTargets * rt_words};
+    if (!changed && !is_rt_word) {
+        return;
+    }
     regs.reg_array[method] = argument;
-    if (method >= rt_start && method < rt_start + Regs::NumRenderTargets * rt_words) {
+    if (is_rt_word) {
         const u32 index = (method - rt_start) / rt_words;
         const u32 first_word = rt_start + index * rt_words;
         const std::span<const u32, 10> rt{regs.reg_array.data() + first_word, 10};
@@ -390,6 +400,9 @@ void Maxwell3D::ProcessDirtyRegisters(u32 method, u32 argument) {
                 }
             }
         }
+    }
+    if (!changed) {
+        return;
     }
     for (const auto& table : dirty.tables)
         dirty.flags[table[method]] = true;
@@ -486,7 +499,7 @@ void Maxwell3D::CallMethod(u32 method, u32 method_argument, bool is_last_call) {
     // It is an error to write to a register other than the current macro's ARG register before
     // it has finished execution.
     if (executing_macro != 0) {
-        ASSERT(method == executing_macro + 1);
+        assert(method == executing_macro + 1);
     }
 
     // Methods after 0xE00 are special, they're actually triggers for some microcode that was
@@ -496,7 +509,7 @@ void Maxwell3D::CallMethod(u32 method, u32 method_argument, bool is_last_call) {
         return;
     }
 
-    ASSERT(method < Regs::NUM_REGS && "Invalid Maxwell3D register, increase the size of the Regs structure");
+    assert(method < Regs::NUM_REGS && "Invalid Maxwell3D register, increase the size of the Regs structure");
 
     const u32 argument = ProcessShadowRam(method, method_argument);
     ProcessDirtyRegisters(method, argument);
@@ -531,7 +544,7 @@ void Maxwell3D::CallMultiMethod(u32 method, const u32* base_start, u32 amount,
         ProcessCBMultiData(base_start, amount);
         break;
     case MAXWELL3D_REG_INDEX(inline_data): {
-        ASSERT(methods_pending == amount);
+        assert(methods_pending == amount);
         upload_state.ProcessData(base_start, amount);
         return;
     }
@@ -706,10 +719,10 @@ void Maxwell3D::ProcessCBBind(size_t stage_index) {
 void Maxwell3D::ProcessCBMultiData(const u32* start_base, u32 amount) {
     // Write the input value to the current const buffer at the current position.
     const GPUVAddr buffer_address = regs.const_buffer.Address();
-    ASSERT(buffer_address != 0);
+    assert(buffer_address != 0);
 
     // Don't allow writing past the end of the buffer.
-    ASSERT(regs.const_buffer.offset <= regs.const_buffer.size);
+    assert(regs.const_buffer.offset <= regs.const_buffer.size);
 
     const GPUVAddr address{buffer_address + regs.const_buffer.offset};
     const size_t copy_size = amount * sizeof(u32);
@@ -742,7 +755,7 @@ Texture::TSCEntry Maxwell3D::GetTSCEntry(u32 tsc_index) const {
 }
 
 u32 Maxwell3D::GetRegisterValue(u32 method) const {
-    ASSERT_MSG(method < Regs::NUM_REGS, "Invalid Maxwell3D register");
+    assert(method < Regs::NUM_REGS && "Invalid Maxwell3D register");
     return regs.reg_array[method];
 }
 

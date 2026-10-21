@@ -38,7 +38,7 @@ void ConditionalBarrierPass(IR::Program& program) {
             break;
         }
     }
-    ASSERT(conditional_control_flow_count == 0);
+    assert(conditional_control_flow_count == 0);
 }
 
 } // namespace Shader::Optimization

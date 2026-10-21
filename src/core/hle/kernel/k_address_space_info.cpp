@@ -47,7 +47,7 @@ const KAddressSpaceInfo& GetAddressSpaceInfo(size_t width, KAddressSpaceInfo::Ty
             return info;
         }
     }
-    UNREACHABLE_MSG("Could not find AddressSpaceInfo");
+    std::unreachable(); // Could not find AddressSpaceInfo
 }
 
 } // namespace

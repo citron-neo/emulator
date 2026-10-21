@@ -1265,7 +1265,7 @@ Result NfcDevice::BreakTag(NFP::BreakType break_type) {
 }
 
 Result NfcDevice::HasBackup(const UniqueSerialNumber& uid, std::size_t uuid_size) const {
-    ASSERT_MSG(uuid_size < sizeof(UniqueSerialNumber), "Invalid UUID size");
+    assert(uuid_size < sizeof(UniqueSerialNumber) && "Invalid UUID size");
     constexpr auto backup_dir = "backup";
     const auto citron_amiibo_dir = Common::FS::GetCitronPath(Common::FS::CitronPath::AmiiboDir);
     const auto file_name =
@@ -1286,7 +1286,7 @@ Result NfcDevice::HasBackup(const NFP::TagUuid& tag_uid) const {
 
 Result NfcDevice::ReadBackupData(const UniqueSerialNumber& uid, std::size_t uuid_size,
                                  std::span<u8> data) const {
-    ASSERT_MSG(uuid_size < sizeof(UniqueSerialNumber), "Invalid UUID size");
+    assert(uuid_size < sizeof(UniqueSerialNumber) && "Invalid UUID size");
     constexpr auto backup_dir = "backup";
     const auto citron_amiibo_dir = Common::FS::GetCitronPath(Common::FS::CitronPath::AmiiboDir);
     const auto file_name =
@@ -1317,7 +1317,7 @@ Result NfcDevice::ReadBackupData(const NFP::TagUuid& tag_uid, std::span<u8> data
 
 Result NfcDevice::WriteBackupData(const UniqueSerialNumber& uid, std::size_t uuid_size,
                                   std::span<const u8> data) {
-    ASSERT_MSG(uuid_size < sizeof(UniqueSerialNumber), "Invalid UUID size");
+    assert(uuid_size < sizeof(UniqueSerialNumber) && "Invalid UUID size");
     constexpr auto backup_dir = "backup";
     const auto citron_amiibo_dir = Common::FS::GetCitronPath(Common::FS::CitronPath::AmiiboDir);
     const auto file_name =

@@ -33,21 +33,21 @@ public:
 public:
     virtual size_t Read(u8* buffer, size_t size, size_t offset) const override {
         // Check pre-conditions.
-        ASSERT(m_storage != nullptr);
+        assert(m_storage != nullptr);
 
         return m_storage->Read(buffer, size, offset);
     }
 
     virtual size_t GetSize() const override {
         // Check pre-conditions.
-        ASSERT(m_storage != nullptr);
+        assert(m_storage != nullptr);
 
         return m_storage->GetSize();
     }
 
     virtual size_t Write(const u8* buffer, size_t size, size_t offset) override {
         // Check pre-conditions.
-        ASSERT(m_storage != nullptr);
+        assert(m_storage != nullptr);
 
         return m_storage->Write(buffer, size, offset);
     }

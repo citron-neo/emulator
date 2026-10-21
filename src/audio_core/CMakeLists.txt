@@ -34,7 +34,6 @@ add_library(audio_core STATIC
     audio_system_manager.h
     audio_snoop_manager.cpp
     audio_snoop_manager.h
-    common/audio_helpers.h
     common/audio_renderer_parameter.h
     common/common.h
     common/feature_support.h

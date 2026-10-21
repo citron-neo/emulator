@@ -66,13 +66,13 @@ Result SessionRequestManager::CompleteSyncRequest(Kernel::KServerSession* server
             result = this->SessionHandler().HandleSyncRequest(*server_session, context);
         }
     } else {
-        ASSERT_MSG(false, "Session handler is invalid, stubbing response!");
+        assert(false && "Session handler is invalid, stubbing response!");
         IPC::ResponseBuilder rb(context, 2);
         rb.Push(ResultSuccess);
     }
 
     if (convert_to_domain) {
-        ASSERT_MSG(!IsDomain(), "ServerSession is already a domain instance.");
+        assert(!IsDomain() && "ServerSession is already a domain instance.");
         this->ConvertToDomain();
         convert_to_domain = false;
     }
@@ -87,7 +87,7 @@ Result SessionRequestManager::HandleDomainSyncRequest(Kernel::KServerSession* se
     }
 
     // Set domain handlers in HLE context, used for domain objects (IPC interfaces) as inputs
-    ASSERT(context.GetManager().get() == this);
+    assert(context.GetManager().get() == this);
 
     // If there is a DomainMessageHeader, then this is CommandType "Request"
     const auto& domain_message_header = context.GetDomainMessageHeader();
@@ -99,13 +99,13 @@ Result SessionRequestManager::HandleDomainSyncRequest(Kernel::KServerSession* se
                          "object_id {} is too big! This probably means a recent service call "
                          "needed to return a new interface!",
                          object_id);
-            ASSERT(false);
+            assert(false);
             return ResultSuccess; // Ignore error if asserts are off
         }
         if (auto strong_ptr = this->DomainHandler(object_id - 1).lock()) {
             return strong_ptr->HandleSyncRequest(*server_session, context);
         } else {
-            ASSERT(false);
+            assert(false);
             return ResultSuccess;
         }
 
@@ -121,7 +121,7 @@ Result SessionRequestManager::HandleDomainSyncRequest(Kernel::KServerSession* se
     }
 
     LOG_CRITICAL(IPC, "Unknown domain command={}", domain_message_header.command.Value());
-    ASSERT(false);
+    assert(false);
     return ResultSuccess;
 }
 
@@ -220,9 +220,9 @@ void HLERequestContext::ParseCommandBuffer(u32_le* src_cmdbuf, bool incoming) {
         }
 
         if (incoming) {
-            ASSERT(data_payload_header->magic == Common::MakeMagic('S', 'F', 'C', 'I'));
+            assert(data_payload_header->magic == Common::MakeMagic('S', 'F', 'C', 'I'));
         } else {
-            ASSERT(data_payload_header->magic == Common::MakeMagic('S', 'F', 'C', 'O'));
+            assert(data_payload_header->magic == Common::MakeMagic('S', 'F', 'C', 'O'));
         }
     }
 
@@ -241,7 +241,7 @@ void HLERequestContext::ParseCommandBuffer(u32_le* src_cmdbuf, bool incoming) {
 
             // This is used to detect possible underflows, in case something is broken
             // with the two ifs above and the flags value is == 0 || == 1.
-            ASSERT(num_buf_c_descriptors < 14);
+            assert(num_buf_c_descriptors < 14);
 
             for (u32 i = 0; i < num_buf_c_descriptors; ++i) {
                 buffer_c_descriptors.push_back(rp.PopRaw<IPC::BufferDescriptorC>());
@@ -517,8 +517,10 @@ bool HLERequestContext::CanWriteBuffer(std::size_t buffer_index) const {
 }
 
 void HLERequestContext::AddMoveInterface(SessionRequestHandlerPtr s) {
-    ASSERT(Kernel::GetCurrentProcess(kernel).GetResourceLimit()->Reserve(
-        Kernel::LimitableResource::SessionCountMax, 1));
+    [[maybe_unused]] const auto reserved =
+        Kernel::GetCurrentProcess(kernel).GetResourceLimit()->Reserve(
+            Kernel::LimitableResource::SessionCountMax, 1);
+    assert(reserved);
 
     auto* session = Kernel::KSession::Create(kernel);
     session->Initialize(nullptr, 0);

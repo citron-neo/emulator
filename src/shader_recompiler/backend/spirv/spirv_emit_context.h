@@ -101,7 +101,7 @@ struct UniformDefinitions {
         if (member_ptr == &UniformDefinitions::U32x4) {
             return 4;
         }
-        ASSERT(false);
+        assert(false);
         return 1;
     }
 

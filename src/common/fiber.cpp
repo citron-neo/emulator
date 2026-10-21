@@ -40,23 +40,23 @@ void Fiber::SetRewindPoint(std::function<void()>&& rewind_func) {
 }
 
 void Fiber::Start(boost::context::detail::transfer_t& transfer) {
-    ASSERT(impl->previous_fiber != nullptr);
+    assert(impl->previous_fiber != nullptr);
     impl->previous_fiber->impl->context = transfer.fctx;
     impl->previous_fiber->impl->guard.unlock();
     impl->previous_fiber.reset();
     impl->entry_point();
-    UNREACHABLE();
+    std::unreachable();
 }
 
 void Fiber::OnRewind([[maybe_unused]] boost::context::detail::transfer_t& transfer) {
-    ASSERT(impl->context != nullptr);
+    assert(impl->context != nullptr);
     impl->context = impl->rewind_context;
     impl->rewind_context = nullptr;
     u8* tmp = impl->stack_limit;
     impl->stack_limit = impl->rewind_stack_limit;
     impl->rewind_stack_limit = tmp;
     impl->rewind_point();
-    UNREACHABLE();
+    std::unreachable();
 }
 
 void Fiber::FiberStartFunc(boost::context::detail::transfer_t transfer) {
@@ -86,14 +86,14 @@ Fiber::~Fiber() {
     }
     // Make sure the Fiber is not being used
     const bool locked = impl->guard.try_lock();
-    ASSERT_MSG(locked, "Destroying a fiber that's still running");
+    assert(locked && "Destroying a fiber that's still running");
     if (locked) {
         impl->guard.unlock();
     }
 }
 
 void Fiber::Exit() {
-    ASSERT_MSG(impl->is_thread_fiber, "Exiting non main thread fiber");
+    assert(impl->is_thread_fiber && "Exiting non main thread fiber");
     if (!impl->is_thread_fiber) {
         return;
     }
@@ -105,8 +105,8 @@ void Fiber::Exit() {
 }
 
 void Fiber::Rewind() {
-    ASSERT(impl->rewind_point);
-    ASSERT(impl->rewind_context == nullptr);
+    assert(impl->rewind_point);
+    assert(impl->rewind_context == nullptr);
     u8* stack_base = impl->rewind_stack_limit + DEFAULT_STACK_SIZE;
     impl->rewind_context =
         boost::context::detail::make_fcontext(stack_base, impl->stack.size(), RewindStartFunc);
@@ -125,7 +125,7 @@ void Fiber::YieldTo(std::weak_ptr<Fiber> weak_from, Fiber& to) {
     // "from" might no longer be valid if the thread was killed
     if (auto from = weak_from.lock()) {
         if (from->impl->previous_fiber == nullptr) {
-            ASSERT_MSG(false, "previous_fiber is nullptr!");
+            assert(false && "previous_fiber is nullptr!");
             return;
         }
         from->impl->previous_fiber->impl->context = transfer.fctx;

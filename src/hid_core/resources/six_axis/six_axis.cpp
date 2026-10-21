@@ -117,7 +117,7 @@ void SixAxis::OnUpdate(const Core::Timing::CoreTiming& core_timing) {
 
             switch (controller_type) {
             case Core::HID::NpadStyleIndex::None:
-                ASSERT(false);
+                assert(false);
                 break;
             case Core::HID::NpadStyleIndex::Fullkey:
                 set_motion_state(sixaxis_fullkey_state, motion_state[0]);

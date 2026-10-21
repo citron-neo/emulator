@@ -172,12 +172,12 @@ void KProcess::Finalize() {
     }
 
     // Our thread local page list must be empty at this point.
-    ASSERT(m_partially_used_tlp_tree.empty());
-    ASSERT(m_fully_used_tlp_tree.empty());
+    assert(m_partially_used_tlp_tree.empty());
+    assert(m_fully_used_tlp_tree.empty());
 
     // Release memory to the resource limit.
     if (m_resource_limit != nullptr) {
-        ASSERT(used_memory_size >= m_memory_release_hint);
+        assert(used_memory_size >= m_memory_release_hint);
         m_resource_limit->Release(Svc::LimitableResource::PhysicalMemoryMax, used_memory_size,
                                   used_memory_size - m_memory_release_hint);
         m_resource_limit->Close();
@@ -238,7 +238,7 @@ Result KProcess::Initialize(const Svc::CreateProcessParameter& params, KResource
         m_max_process_memory = m_page_table.GetHeapRegionSize() + m_page_table.GetAliasRegionSize();
         break;
     default:
-        UNREACHABLE();
+        std::unreachable();
     }
 
     // Generate random entropy.
@@ -272,8 +272,8 @@ Result KProcess::Initialize(const Svc::CreateProcessParameter& params, KResource
 Result KProcess::Initialize(const Svc::CreateProcessParameter& params, const KPageGroup& pg,
                             std::span<const u32> caps, KResourceLimit* res_limit,
                             KMemoryManager::Pool pool, bool immortal) {
-    ASSERT(res_limit != nullptr);
-    ASSERT((params.code_num_pages * PageSize) / PageSize ==
+    assert(res_limit != nullptr);
+    assert((params.code_num_pages * PageSize) / PageSize ==
            static_cast<size_t>(params.code_num_pages));
 
     // Set members.
@@ -353,8 +353,8 @@ Result KProcess::Initialize(const Svc::CreateProcessParameter& params, const KPa
 
     // Initialize the process id.
     m_process_id = m_kernel.CreateNewUserProcessID();
-    ASSERT(InitialProcessIdMin <= m_process_id);
-    ASSERT(m_process_id <= InitialProcessIdMax);
+    assert(InitialProcessIdMin <= m_process_id);
+    assert(m_process_id <= InitialProcessIdMax);
 
     // Initialize the rest of the process.
     R_TRY(this->Initialize(params, res_limit, true));
@@ -366,7 +366,7 @@ Result KProcess::Initialize(const Svc::CreateProcessParameter& params, const KPa
 Result KProcess::Initialize(const Svc::CreateProcessParameter& params,
                             std::span<const u32> user_caps, KResourceLimit* res_limit,
                             KMemoryManager::Pool pool, KProcessAddress aslr_space_start) {
-    ASSERT(res_limit != nullptr);
+    assert(res_limit != nullptr);
 
     // Set members.
     m_memory_pool = pool;
@@ -454,8 +454,8 @@ Result KProcess::Initialize(const Svc::CreateProcessParameter& params,
 
     // Initialize the process id.
     m_process_id = m_kernel.CreateNewUserProcessID();
-    ASSERT(ProcessIdMin <= m_process_id);
-    ASSERT(m_process_id <= ProcessIdMax);
+    assert(ProcessIdMin <= m_process_id);
+    assert(m_process_id <= ProcessIdMax);
 
     // If we should optimize memory allocations, do so.
     if (m_system_resource->IsSecureResource() &&
@@ -524,10 +524,10 @@ void KProcess::Exit() {
         KScopedLightLock lk(m_state_lock);
         KScopedSchedulerLock sl(m_kernel);
 
-        ASSERT(m_state != State::Created);
-        ASSERT(m_state != State::CreatedAttached);
-        ASSERT(m_state != State::Crashed);
-        ASSERT(m_state != State::Terminated);
+        assert(m_state != State::Created);
+        assert(m_state != State::CreatedAttached);
+        assert(m_state != State::Crashed);
+        assert(m_state != State::Terminated);
         if (m_state == State::Running || m_state == State::RunningAttached ||
             m_state == State::DebugBreak) {
             this->ChangeState(State::Terminating);
@@ -626,7 +626,7 @@ void KProcess::RemoveSharedMemory(KSharedMemory* shmem, KProcessAddress address,
             break;
         }
     }
-    ASSERT(info != nullptr);
+    assert(info != nullptr);
 
     // Close a reference to the info and its memory.
     if (info->Close()) {
@@ -647,7 +647,7 @@ Result KProcess::CreateThreadLocalRegion(KProcessAddress* out) {
 
         if (auto it = m_partially_used_tlp_tree.begin(); it != m_partially_used_tlp_tree.end()) {
             tlr = it->Reserve();
-            ASSERT(tlr != 0);
+            assert(tlr != 0);
 
             if (it->IsAllUsed()) {
                 tlp = std::addressof(*it);
@@ -672,7 +672,7 @@ Result KProcess::CreateThreadLocalRegion(KProcessAddress* out) {
 
     // Reserve a TLR.
     tlr = tlp->Reserve();
-    ASSERT(tlr != 0);
+    assert(tlr != 0);
 
     // Insert into our tree.
     {
@@ -766,13 +766,13 @@ void KProcess::ReleaseResource(Svc::LimitableResource which, s64 value, s64 hint
 }
 
 void KProcess::IncrementRunningThreadCount() {
-    ASSERT(m_num_running_threads.load() >= 0);
+    assert(m_num_running_threads.load() >= 0);
 
     ++m_num_running_threads;
 }
 
 void KProcess::DecrementRunningThreadCount() {
-    ASSERT(m_num_running_threads.load() > 0);
+    assert(m_num_running_threads.load() > 0);
 
     if (const auto prev = m_num_running_threads--; prev == 1) {
         this->Terminate();
@@ -782,7 +782,7 @@ void KProcess::DecrementRunningThreadCount() {
 bool KProcess::EnterUserException() {
     // Get the current thread.
     KThread* cur_thread = GetCurrentThreadPointer(m_kernel);
-    ASSERT(this == cur_thread->GetOwnerProcess());
+    assert(this == cur_thread->GetOwnerProcess());
 
     // Check that we haven't already claimed the exception thread.
     if (m_exception_thread == cur_thread) {
@@ -938,7 +938,7 @@ Result KProcess::Run(s32 priority, size_t stack_size) {
     R_UNLESS(thread_reservation.Succeeded(), ResultLimitReached);
 
     // Ensure that we haven't already allocated stack.
-    ASSERT(m_main_thread_stack_size == 0);
+    assert(m_main_thread_stack_size == 0);
 
     // Ensure that we're allocating a valid stack.
     stack_size = Common::AlignUp(stack_size, PageSize);
@@ -964,9 +964,10 @@ Result KProcess::Run(s32 priority, size_t stack_size) {
     // Ensure our stack is safe to clean up on exit.
     ON_RESULT_FAILURE {
         if (m_main_thread_stack_size) {
-            ASSERT(R_SUCCEEDED(m_page_table.UnmapPages(stack_top - m_main_thread_stack_size,
-                                                       m_main_thread_stack_size / PageSize,
-                                                       KMemoryState::Stack)));
+            [[maybe_unused]] const auto unmap_pages_result =
+                m_page_table.UnmapPages(stack_top - m_main_thread_stack_size,
+                                        m_main_thread_stack_size / PageSize, KMemoryState::Stack);
+            assert(R_SUCCEEDED(unmap_pages_result));
             m_main_thread_stack_size = 0;
         }
     };
@@ -1068,7 +1069,7 @@ Result KProcess::SetActivity(Svc::ProcessActivity activity) {
         // Set ourselves as suspended.
         this->SetSuspended(true);
     } else {
-        ASSERT(activity == Svc::ProcessActivity::Runnable);
+        assert(activity == Svc::ProcessActivity::Runnable);
 
         // Verify that we're suspended.
         R_UNLESS(m_is_suspended, ResultInvalidState);
@@ -1087,7 +1088,7 @@ Result KProcess::SetActivity(Svc::ProcessActivity activity) {
 }
 
 void KProcess::PinCurrentThread() {
-    ASSERT(KScheduler::IsSchedulerLockedByCurrentThread(m_kernel));
+    assert(KScheduler::IsSchedulerLockedByCurrentThread(m_kernel));
 
     // Get the current thread.
     const s32 core_id = GetCurrentCoreId(m_kernel);
@@ -1105,7 +1106,7 @@ void KProcess::PinCurrentThread() {
 }
 
 void KProcess::UnpinCurrentThread() {
-    ASSERT(KScheduler::IsSchedulerLockedByCurrentThread(m_kernel));
+    assert(KScheduler::IsSchedulerLockedByCurrentThread(m_kernel));
 
     // Get the current thread.
     const s32 core_id = GetCurrentCoreId(m_kernel);
@@ -1120,7 +1121,7 @@ void KProcess::UnpinCurrentThread() {
 }
 
 void KProcess::UnpinThread(KThread* thread) {
-    ASSERT(KScheduler::IsSchedulerLockedByCurrentThread(m_kernel));
+    assert(KScheduler::IsSchedulerLockedByCurrentThread(m_kernel));
 
     // Get the thread's core id.
     const auto core_id = thread->GetActiveCore();

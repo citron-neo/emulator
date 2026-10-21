@@ -22,7 +22,7 @@ RenderdocAPI::RenderdocAPI() {
             reinterpret_cast<pRENDERDOC_GetAPI>(GetProcAddress(mod, "RENDERDOC_GetAPI"));
         [[maybe_unused]] const s32 ret =
             RENDERDOC_GetAPI(eRENDERDOC_API_Version_1_6_0, (void**)&rdoc_api);
-        ASSERT(ret == 1);
+        assert(ret == 1);
     }
 #else
 #ifdef ANDROID
@@ -33,8 +33,8 @@ RenderdocAPI::RenderdocAPI() {
     if (void* mod = dlopen(RENDERDOC_LIB, RTLD_NOW | RTLD_NOLOAD)) {
         const auto RENDERDOC_GetAPI =
             reinterpret_cast<pRENDERDOC_GetAPI>(dlsym(mod, "RENDERDOC_GetAPI"));
-        const s32 ret = RENDERDOC_GetAPI(eRENDERDOC_API_Version_1_6_0, (void**)&rdoc_api);
-        ASSERT(ret == 1);
+        [[maybe_unused]] const s32 ret = RENDERDOC_GetAPI(eRENDERDOC_API_Version_1_6_0, (void**)&rdoc_api);
+        assert(ret == 1);
     }
 #endif
 }

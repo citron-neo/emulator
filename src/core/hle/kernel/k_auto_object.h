@@ -142,7 +142,7 @@ public:
             if (cur_ref_count == 0) {
                 return false;
             }
-            ASSERT(cur_ref_count < cur_ref_count + 1);
+            assert(cur_ref_count < cur_ref_count + 1);
         } while (!m_ref_count.compare_exchange_weak(cur_ref_count, cur_ref_count + 1,
                                                     std::memory_order_relaxed));
 
@@ -153,7 +153,7 @@ public:
         // Atomically decrement the reference count, not allowing it to become negative.
         u32 cur_ref_count = m_ref_count.load(std::memory_order_acquire);
         do {
-            ASSERT(cur_ref_count > 0);
+            assert(cur_ref_count > 0);
         } while (!m_ref_count.compare_exchange_weak(cur_ref_count, cur_ref_count - 1,
                                                     std::memory_order_acq_rel));
 

@@ -39,7 +39,7 @@ void MaxwellDMA::ConsumeSinkImpl() {
 }
 
 void MaxwellDMA::CallMethod(u32 method, u32 method_argument, bool is_last_call) {
-    ASSERT_MSG(method < NUM_REGS, "Invalid MaxwellDMA register");
+    assert(method < NUM_REGS && "Invalid MaxwellDMA register");
 
     regs.reg_array[method] = method_argument;
 
@@ -61,7 +61,7 @@ void MaxwellDMA::Launch() {
 
     // TODO(Subv): Perform more research and implement all features of this engine.
     const LaunchDMA& launch = regs.launch_dma;
-    ASSERT(launch.interrupt_type == LaunchDMA::InterruptType::NONE);
+    assert(launch.interrupt_type == LaunchDMA::InterruptType::NONE);
 
     // Handle pipelined transfers: treat as non-pipelined for now
     // Some games (e.g., Marvel Cosmic Invasion) use pipelined transfers
@@ -400,7 +400,8 @@ void MaxwellDMA::ReleaseSemaphore() {
         break;
     }
     default:
-        ASSERT_MSG(false, "Unknown semaphore type: {}", static_cast<u32>(type.Value()));
+        assert(false && "Unknown semaphore type: {}" &&
+               (void(static_cast<u32>(type.Value())), true));
         break;
     }
 }

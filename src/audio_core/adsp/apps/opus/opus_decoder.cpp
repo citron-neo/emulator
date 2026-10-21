@@ -19,7 +19,7 @@ namespace AudioCore::ADSP::OpusDecoder {
 namespace {
 constexpr size_t OpusStreamCountMax = 255;
 
-bool IsValidChannelCount2(u32 channel_count) {
+[[maybe_unused]] bool IsValidChannelCount2(u32 channel_count) {
     return channel_count == 1 || channel_count == 2;
 }
 
@@ -27,7 +27,7 @@ bool IsValidMultiStreamChannelCount(u32 channel_count) {
     return channel_count <= OpusStreamCountMax;
 }
 
-bool IsValidMultiStreamStreamCounts(s32 total_stream_count, s32 stereo_stream_count) {
+[[maybe_unused]] bool IsValidMultiStreamStreamCounts(s32 total_stream_count, s32 stereo_stream_count) {
     return IsValidMultiStreamChannelCount(total_stream_count) && total_stream_count > 0 &&
            stereo_stream_count >= 0 && stereo_stream_count <= total_stream_count;
 }
@@ -45,9 +45,9 @@ OpusDecoder::~OpusDecoder() {
 
     // Shutdown the thread
     Send(Direction::DSP, Message::Shutdown);
-    auto msg = Receive(Direction::Host);
-    ASSERT_MSG(msg == Message::ShutdownOK, "Expected Opus shutdown code {}, got {}",
-               Message::ShutdownOK, msg);
+    [[maybe_unused]] auto msg = Receive(Direction::Host);
+    assert(msg == Message::ShutdownOK && "Expected Opus shutdown code {}, got {}" &&
+           (void(Message::ShutdownOK), void(msg), true));
     main_thread.request_stop();
     main_thread.join();
     running = false;
@@ -87,7 +87,7 @@ void OpusDecoder::Main(std::stop_token stop_token) {
         case GetWorkBufferSize: {
             auto channel_count = static_cast<s32>(shared_memory->host_send_data[0]);
 
-            ASSERT(IsValidChannelCount2(channel_count));
+            assert(IsValidChannelCount2(channel_count));
 
             shared_memory->dsp_return_data[0] = OpusDecodeObject::GetWorkBufferSize(channel_count);
             Send(Direction::Host, Message::GetWorkBufferSizeOK);
@@ -95,13 +95,13 @@ void OpusDecoder::Main(std::stop_token stop_token) {
 
         case InitializeDecodeObject: {
             auto buffer = shared_memory->host_send_data[0];
-            auto buffer_size = shared_memory->host_send_data[1];
+            [[maybe_unused]] auto buffer_size = shared_memory->host_send_data[1];
             auto sample_rate = static_cast<s32>(shared_memory->host_send_data[2]);
             auto channel_count = static_cast<s32>(shared_memory->host_send_data[3]);
 
-            ASSERT(sample_rate >= 0);
-            ASSERT(IsValidChannelCount2(channel_count));
-            ASSERT(buffer_size >= OpusDecodeObject::GetWorkBufferSize(channel_count));
+            assert(sample_rate >= 0);
+            assert(IsValidChannelCount2(channel_count));
+            assert(buffer_size >= OpusDecodeObject::GetWorkBufferSize(channel_count));
 
             auto& decoder_object = OpusDecodeObject::Initialize(buffer, buffer);
             shared_memory->dsp_return_data[0] =
@@ -174,7 +174,7 @@ void OpusDecoder::Main(std::stop_token stop_token) {
             auto total_stream_count = static_cast<s32>(shared_memory->host_send_data[0]);
             auto stereo_stream_count = static_cast<s32>(shared_memory->host_send_data[1]);
 
-            ASSERT(IsValidMultiStreamStreamCounts(total_stream_count, stereo_stream_count));
+            assert(IsValidMultiStreamStreamCounts(total_stream_count, stereo_stream_count));
 
             shared_memory->dsp_return_data[0] = OpusMultiStreamDecodeObject::GetWorkBufferSize(
                 total_stream_count, stereo_stream_count);
@@ -183,7 +183,7 @@ void OpusDecoder::Main(std::stop_token stop_token) {
 
         case InitializeMultiStreamDecodeObject: {
             auto buffer = shared_memory->host_send_data[0];
-            auto buffer_size = shared_memory->host_send_data[1];
+            [[maybe_unused]] auto buffer_size = shared_memory->host_send_data[1];
             auto sample_rate = static_cast<s32>(shared_memory->host_send_data[2]);
             auto channel_count = static_cast<s32>(shared_memory->host_send_data[3]);
             auto total_stream_count = static_cast<s32>(shared_memory->host_send_data[4]);
@@ -196,9 +196,9 @@ void OpusDecoder::Main(std::stop_token stop_token) {
             // dedicated buffer host side, so let's do as intended.
             auto mappings = shared_memory->channel_mapping.data();
 
-            ASSERT(IsValidMultiStreamStreamCounts(total_stream_count, stereo_stream_count));
-            ASSERT(sample_rate >= 0);
-            ASSERT(buffer_size >= OpusMultiStreamDecodeObject::GetWorkBufferSize(
+            assert(IsValidMultiStreamStreamCounts(total_stream_count, stereo_stream_count));
+            assert(sample_rate >= 0);
+            assert(buffer_size >= OpusMultiStreamDecodeObject::GetWorkBufferSize(
                                       total_stream_count, stereo_stream_count));
 
             auto& decoder_object = OpusMultiStreamDecodeObject::Initialize(buffer, buffer);

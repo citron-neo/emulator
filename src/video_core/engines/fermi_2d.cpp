@@ -35,8 +35,8 @@ void Fermi2D::BindRasterizer(VideoCore::RasterizerInterface* rasterizer_) {
 }
 
 void Fermi2D::CallMethod(u32 method, u32 method_argument, bool is_last_call) {
-    ASSERT_MSG(method < Regs::NUM_REGS,
-               "Invalid Fermi2D register, increase the size of the Regs structure");
+    assert(method < Regs::NUM_REGS &&
+           "Invalid Fermi2D register, increase the size of the Regs structure");
     regs.reg_array[method] = method_argument;
 
     if (method == FERMI2D_REG_INDEX(pixels_from_memory.src_y0) + 1) {

@@ -22,8 +22,8 @@ public:
     constexpr explicit KBlockInfo() : m_next(nullptr) {}
 
     constexpr void Initialize(KPhysicalAddress addr, size_t np) {
-        ASSERT(Common::IsAligned(GetInteger(addr), PageSize));
-        ASSERT(static_cast<u32>(np) == np);
+        assert(Common::IsAligned(GetInteger(addr), PageSize));
+        assert(static_cast<u32>(np) == np);
 
         m_page_index = static_cast<u32>(addr / PageSize);
         m_num_pages = static_cast<u32>(np);

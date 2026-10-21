@@ -235,7 +235,7 @@ void Vic::WriteYUVFrame(std::unique_ptr<FFmpeg::Frame> frame, const VicConfig& c
         break;
     }
     default:
-        ASSERT(false);
+        assert(false);
         break;
     }
     host1x.GMMU().WriteBlock(output_surface_chroma_address, chroma_buffer.data(),

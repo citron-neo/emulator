@@ -189,7 +189,7 @@ private:
     }
 
     u32_le ReadAsU32(const std::vector<u8>& data, std::size_t& offset, std::size_t length) {
-        ASSERT(length == sizeof(u32));
+        assert(length == sizeof(u32));
         u32_le output{};
         std::memcpy(&output, data.data() + offset, sizeof(u32));
         offset += length;
@@ -197,7 +197,7 @@ private:
     }
 
     u64_le ReadAsU64(const std::vector<u8>& data, std::size_t& offset, std::size_t length) {
-        ASSERT(length == sizeof(u64));
+        assert(length == sizeof(u64));
         u64_le output{};
         std::memcpy(&output, data.data() + offset, sizeof(u64));
         offset += length;

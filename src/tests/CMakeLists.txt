@@ -21,6 +21,7 @@ add_executable(tests
     video_core/memory_tracker.cpp
     video_core/image_size.cpp
     video_core/cache_memory_pressure.cpp
+    video_core/uma.cpp
     input_common/calibration_configuration_job.cpp
 )
 
