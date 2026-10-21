@@ -144,7 +144,7 @@ protected:
             old_queries.push_back(query_id);
             return;
         }
-        UNREACHABLE();
+        std::unreachable();
     }
 
     std::mutex guard;

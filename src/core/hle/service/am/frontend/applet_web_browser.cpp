@@ -255,7 +255,7 @@ void WebBrowser::Initialize() {
     web_applet_version = WebAppletVersion{common_args.library_version};
 
     const auto web_arg_storage = PopInData();
-    ASSERT(web_arg_storage != nullptr);
+    assert(web_arg_storage != nullptr);
 
     const auto& web_arg = web_arg_storage->GetData();
     ASSERT_OR_EXECUTE(web_arg.size() >= sizeof(WebArgHeader), { return; });
@@ -293,7 +293,7 @@ void WebBrowser::Initialize() {
         LOG_WARNING(Service_AM, "(STUBBED) called, Unknown8 Applet is not implemented");
         break;
     default:
-        ASSERT_MSG(false, "Invalid ShimKind={}", web_arg_header.shim_kind);
+        assert(false && "Invalid ShimKind={}" && (void(web_arg_header.shim_kind), true));
         break;
     }
 }
@@ -333,7 +333,7 @@ void WebBrowser::Execute() {
         WebBrowserExit(WebExitReason::EndButtonPressed);
         break;
     default:
-        ASSERT_MSG(false, "Invalid ShimKind={}", web_arg_header.shim_kind);
+        assert(false && "Invalid ShimKind={}" && (void(web_arg_header.shim_kind), true));
         WebBrowserExit(WebExitReason::EndButtonPressed);
         break;
     }

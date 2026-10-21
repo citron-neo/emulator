@@ -15,6 +15,8 @@
 namespace Shader::IR {
 
 struct Program {
+    /// Storage of every instruction of the program; shared by the programs of one pipeline.
+    InstStorage* inst_storage{};
     AbstractSyntaxList syntax_list;
     BlockList blocks;
     BlockList post_order_blocks;

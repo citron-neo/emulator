@@ -172,7 +172,7 @@ public:
     }
 
     void AddTicks(u64 ticks) override {
-        ASSERT_MSG(!m_parent.m_uses_wall_clock, "Dynarmic ticking disabled");
+        assert(!m_parent.m_uses_wall_clock && "Dynarmic ticking disabled");
 
         // Divide the number of ticks by the amount of CPU cores. TODO(Subv): This yields only a
         // rough approximation of the amount of executed ticks in the system, it may be thrown off
@@ -187,7 +187,7 @@ public:
     }
 
     u64 GetTicksRemaining() override {
-        ASSERT_MSG(!m_parent.m_uses_wall_clock, "Dynarmic ticking disabled");
+        assert(!m_parent.m_uses_wall_clock && "Dynarmic ticking disabled");
 
         return std::max<s64>(m_parent.m_system.CoreTiming().GetDowncount(), 0);
     }

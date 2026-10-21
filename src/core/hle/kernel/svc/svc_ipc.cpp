@@ -26,7 +26,7 @@ Result SendSyncRequestImpl(KernelCore& kernel, uintptr_t message, size_t buffer_
 
     // Get the parent, and persist a reference to it until we're done.
     KScopedAutoObject parent = session->GetParent();
-    ASSERT(parent.IsNotNull());
+    assert(parent.IsNotNull());
 
     // Send the request.
     R_RETURN(session->SendSyncRequest(message, buffer_size));
@@ -169,7 +169,7 @@ Result SendSyncRequestWithUserBuffer(Core::System& system, uint64_t message, uin
         };
 
         // Send the request.
-        ASSERT(message != 0);
+        assert(message != 0);
         R_TRY(SendSyncRequestImpl(kernel, message, buffer_size, session_handle));
     }
 
@@ -195,7 +195,7 @@ Result SendAsyncRequestWithUserBuffer(Core::System& system, Handle* out_event_ha
 
     // Get the parent, and persist a reference to it until we're done.
     KScopedAutoObject parent = session->GetParent();
-    ASSERT(parent.IsNotNull());
+    assert(parent.IsNotNull());
 
     // Create a new event.
     KEvent* event = KEvent::Create(system.Kernel());
@@ -257,7 +257,7 @@ Result ReplyAndReceiveWithUserBuffer(Core::System& system, int32_t* out_index, u
         };
 
         // Reply/Receive the request.
-        ASSERT(message != 0);
+        assert(message != 0);
         R_TRY(ReplyAndReceiveImpl(system.Kernel(), out_index, message, buffer_size, message_paddr,
                                   handles, num_handles, reply_target, timeout_ns));
     }

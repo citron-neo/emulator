@@ -18,7 +18,7 @@ Result HierarchicalIntegrityVerificationStorage::Initialize(
     HierarchicalStorageInformation storage, int max_data_cache_entries, int max_hash_cache_entries,
     s8 buffer_level) {
     // Validate preconditions.
-    ASSERT(IntegrityMinLayerCount <= info.max_layers && info.max_layers <= IntegrityMaxLayerCount);
+    assert(IntegrityMinLayerCount <= info.max_layers && info.max_layers <= IntegrityMaxLayerCount);
 
     // Set member variables.
     m_max_layers = info.max_layers;
@@ -106,7 +106,7 @@ void HierarchicalIntegrityVerificationStorage::Finalize() {
 size_t HierarchicalIntegrityVerificationStorage::Read(u8* buffer, size_t size,
                                                       size_t offset) const {
     // Validate preconditions.
-    ASSERT(m_data_size >= 0);
+    assert(m_data_size >= 0);
 
     // Succeed if zero-size.
     if (size == 0) {
@@ -114,7 +114,7 @@ size_t HierarchicalIntegrityVerificationStorage::Read(u8* buffer, size_t size,
     }
 
     // Validate arguments.
-    ASSERT(buffer != nullptr);
+    assert(buffer != nullptr);
 
     // Read the data.
     return m_buffer_storages[m_max_layers - 2]->Read(buffer, size, offset);

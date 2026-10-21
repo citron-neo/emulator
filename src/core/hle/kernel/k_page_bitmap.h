@@ -128,7 +128,7 @@ public:
 
         // Calculate the needed bitmap depth.
         m_used_depths = static_cast<size_t>(GetRequiredDepth(size));
-        ASSERT(m_used_depths <= MaxDepth);
+        assert(m_used_depths <= MaxDepth);
 
         // Set the bitmap pointers.
         for (s32 depth = this->GetHighestDepthIndex(); depth >= 0; depth--) {
@@ -151,7 +151,7 @@ public:
                 if (v == 0) {
                     // If depth is bigger than zero, then a previous level indicated a block was
                     // free.
-                    ASSERT(depth == 0);
+                    assert(depth == 0);
                     return -1;
                 }
                 offset = offset * Common::BitSize<u64>() + m_rng.SelectRandomBit(v);
@@ -163,7 +163,7 @@ public:
                 if (v == 0) {
                     // If depth is bigger than zero, then a previous level indicated a block was
                     // free.
-                    ASSERT(depth == 0);
+                    assert(depth == 0);
                     return -1;
                 }
                 offset = offset * Common::BitSize<u64>() + std::countr_zero(v);
@@ -231,7 +231,7 @@ public:
         size_t bit_ind = offset / Common::BitSize<u64>();
         if (count < Common::BitSize<u64>()) [[likely]] {
             const size_t shift = offset % Common::BitSize<u64>();
-            ASSERT(shift + count <= Common::BitSize<u64>());
+            assert(shift + count <= Common::BitSize<u64>());
             // Check that all the bits are set.
             const u64 mask = ((u64(1) << count) - 1) << shift;
             u64 v = bits[bit_ind];
@@ -246,8 +246,8 @@ public:
                 this->ClearBit(depth - 1, bit_ind);
             }
         } else {
-            ASSERT(offset % Common::BitSize<u64>() == 0);
-            ASSERT(count % Common::BitSize<u64>() == 0);
+            assert(offset % Common::BitSize<u64>() == 0);
+            assert(count % Common::BitSize<u64>() == 0);
             // Check that all the bits are set.
             size_t remaining = count;
             size_t i = 0;
@@ -282,7 +282,7 @@ private:
 
             u64* bit = std::addressof(m_bit_storages[depth][ind]);
             u64 v = *bit;
-            ASSERT((v & mask) == 0);
+            assert((v & mask) == 0);
             *bit = v | mask;
             if (v) {
                 break;
@@ -300,7 +300,7 @@ private:
 
             u64* bit = std::addressof(m_bit_storages[depth][ind]);
             u64 v = *bit;
-            ASSERT((v & mask) != 0);
+            assert((v & mask) != 0);
             v &= ~mask;
             *bit = v;
             if (v) {

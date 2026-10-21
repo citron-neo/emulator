@@ -137,7 +137,7 @@ Result AllocateHandleForBuffer(u32* out_handle, Nvidia::Module& nvdrv, Nvidia::D
                                Common::ProcessAddress buffer, u32 size) {
     // Get the nvmap device.
     auto nvmap = nvdrv.GetDevice<Nvidia::Devices::nvmap>(nvmap_fd);
-    ASSERT(nvmap != nullptr);
+    assert(nvmap != nullptr);
 
     // Create a handle.
     R_TRY(CreateNvMapHandle(out_handle, *nvmap, size));
@@ -153,7 +153,7 @@ Result AllocateHandleForBuffer(u32* out_handle, Nvidia::Module& nvdrv, Nvidia::D
 
 void FreeHandle(u32 handle, Nvidia::Module& nvdrv, Nvidia::DeviceFD nvmap_fd) {
     auto nvmap = nvdrv.GetDevice<Nvidia::Devices::nvmap>(nvmap_fd);
-    ASSERT(nvmap != nullptr);
+    assert(nvmap != nullptr);
 
     R_ASSERT(FreeNvMapHandle(*nvmap, handle, nvmap_fd));
 }
@@ -198,7 +198,8 @@ void MakeGraphicBuffer(android::BufferQueueProducer& producer, u32 slot, u32 han
     buffer->external_format = SharedBufferBlockLinearFormat;
     buffer->buffer_id = handle;
     buffer->offset = slot * SharedBufferSlotSize;
-    ASSERT(producer.SetPreallocatedBuffer(slot, buffer) == android::Status::NoError);
+    [[maybe_unused]] const auto set_buffer_result = producer.SetPreallocatedBuffer(slot, buffer);
+    assert(set_buffer_result == android::Status::NoError);
 }
 
 } // namespace

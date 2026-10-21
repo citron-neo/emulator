@@ -27,8 +27,8 @@ template <typename T>
 T GetSettingsItemValue(std::shared_ptr<Service::Set::ISystemSettingsServer>& set_sys,
                        const char* category, const char* name) {
     T v{};
-    auto res = set_sys->GetSettingsItemValueImpl(v, category, name);
-    ASSERT(res == ResultSuccess);
+    [[maybe_unused]] auto res = set_sys->GetSettingsItemValueImpl(v, category, name);
+    assert(res == ResultSuccess);
     return v;
 }
 
@@ -113,24 +113,24 @@ void TimeWorker::Initialize(std::shared_ptr<Service::PSC::Time::StaticService> t
                                                m_timer_file_system_timing_event);
 
     auto res = m_time_sm->GetStandardLocalSystemClock(&m_local_clock);
-    ASSERT(res == ResultSuccess);
+    assert(res == ResultSuccess);
     res = m_time_m->GetStandardLocalClockOperationEvent(&m_local_clock_event);
-    ASSERT(res == ResultSuccess);
+    assert(res == ResultSuccess);
 
     res = m_time_sm->GetStandardNetworkSystemClock(&m_network_clock);
-    ASSERT(res == ResultSuccess);
+    assert(res == ResultSuccess);
     res = m_time_m->GetStandardNetworkClockOperationEventForServiceManager(&m_network_clock_event);
-    ASSERT(res == ResultSuccess);
+    assert(res == ResultSuccess);
 
     res = m_time_sm->GetEphemeralNetworkSystemClock(&m_ephemeral_clock);
-    ASSERT(res == ResultSuccess);
+    assert(res == ResultSuccess);
     res =
         m_time_m->GetEphemeralNetworkClockOperationEventForServiceManager(&m_ephemeral_clock_event);
-    ASSERT(res == ResultSuccess);
+    assert(res == ResultSuccess);
 
     res = m_time_m->GetStandardUserSystemClockAutomaticCorrectionUpdatedEvent(
         &m_standard_user_auto_correct_clock_event);
-    ASSERT(res == ResultSuccess);
+    assert(res == ResultSuccess);
 }
 
 void TimeWorker::StartThread() {
@@ -291,7 +291,7 @@ void TimeWorker::ThreadFunc(std::stop_token stop_token) {
         }
 
         default:
-            UNREACHABLE();
+            std::unreachable();
         }
     }
 }

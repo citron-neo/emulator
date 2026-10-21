@@ -16,8 +16,8 @@ Result KMemoryBlockManager::Initialize(KProcessAddress st, KProcessAddress nd,
     // Set our start and end.
     m_start_address = st;
     m_end_address = nd;
-    ASSERT(Common::IsAligned(GetInteger(m_start_address), PageSize));
-    ASSERT(Common::IsAligned(GetInteger(m_end_address), PageSize));
+    assert(Common::IsAligned(GetInteger(m_start_address), PageSize));
+    assert(Common::IsAligned(GetInteger(m_end_address), PageSize));
 
     // Initialize and insert the block.
     start_block->Initialize(m_start_address, (m_end_address - m_start_address) / PageSize,
@@ -38,7 +38,7 @@ void KMemoryBlockManager::Finalize(KMemoryBlockSlabManager* slab_manager,
         slab_manager->Free(block);
     }
 
-    ASSERT(m_memory_block_tree.empty());
+    assert(m_memory_block_tree.empty());
 }
 
 KProcessAddress KMemoryBlockManager::FindFreeArea(KProcessAddress region_start,
@@ -115,8 +115,8 @@ void KMemoryBlockManager::Update(KMemoryBlockManagerUpdateAllocator* allocator,
                                  KMemoryBlockDisableMergeAttribute clear_disable_attr) {
     // Ensure for auditing that we never end up with an invalid tree.
     KScopedMemoryBlockManagerAuditor auditor(this);
-    ASSERT(Common::IsAligned(GetInteger(address), PageSize));
-    ASSERT((attr & (KMemoryAttribute::IpcLocked | KMemoryAttribute::DeviceShared)) ==
+    assert(Common::IsAligned(GetInteger(address), PageSize));
+    assert((attr & (KMemoryAttribute::IpcLocked | KMemoryAttribute::DeviceShared)) ==
            KMemoryAttribute::None);
 
     KProcessAddress cur_address = address;
@@ -180,8 +180,8 @@ void KMemoryBlockManager::UpdateIfMatch(KMemoryBlockManagerUpdateAllocator* allo
                                         KMemoryBlockDisableMergeAttribute clear_disable_attr) {
     // Ensure for auditing that we never end up with an invalid tree.
     KScopedMemoryBlockManagerAuditor auditor(this);
-    ASSERT(Common::IsAligned(GetInteger(address), PageSize));
-    ASSERT((attr & (KMemoryAttribute::IpcLocked | KMemoryAttribute::DeviceShared)) ==
+    assert(Common::IsAligned(GetInteger(address), PageSize));
+    assert((attr & (KMemoryAttribute::IpcLocked | KMemoryAttribute::DeviceShared)) ==
            KMemoryAttribute::None);
 
     KProcessAddress cur_address = address;
@@ -242,7 +242,7 @@ void KMemoryBlockManager::UpdateLock(KMemoryBlockManagerUpdateAllocator* allocat
                                      MemoryBlockLockFunction lock_func, KMemoryPermission perm) {
     // Ensure for auditing that we never end up with an invalid tree.
     KScopedMemoryBlockManagerAuditor auditor(this);
-    ASSERT(Common::IsAligned(GetInteger(address), PageSize));
+    assert(Common::IsAligned(GetInteger(address), PageSize));
 
     KProcessAddress cur_address = address;
     size_t remaining_pages = num_pages;
@@ -292,7 +292,7 @@ void KMemoryBlockManager::UpdateAttribute(KMemoryBlockManagerUpdateAllocator* al
                                           KMemoryAttribute mask, KMemoryAttribute attr) {
     // Ensure for auditing that we never end up with an invalid tree.
     KScopedMemoryBlockManagerAuditor auditor(this);
-    ASSERT(Common::IsAligned(GetInteger(address), PageSize));
+    assert(Common::IsAligned(GetInteger(address), PageSize));
 
     KProcessAddress cur_address = address;
     size_t remaining_pages = num_pages;

@@ -51,7 +51,7 @@ EmulatedController* HIDCore::GetEmulatedController(NpadIdType npad_id_type) {
         return std::addressof(handheld.value());
     case NpadIdType::Invalid:
     default:
-        ASSERT_MSG(false, "Invalid NpadIdType={}", npad_id_type);
+        assert(false && "Invalid NpadIdType={}" && (void(npad_id_type), true));
         return nullptr;
     }
 }
@@ -80,7 +80,7 @@ const EmulatedController* HIDCore::GetEmulatedController(NpadIdType npad_id_type
         return std::addressof(handheld.value());
     case NpadIdType::Invalid:
     default:
-        ASSERT_MSG(false, "Invalid NpadIdType={}", npad_id_type);
+        assert(false && "Invalid NpadIdType={}" && (void(npad_id_type), true));
         return nullptr;
     }
 }

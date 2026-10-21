@@ -23,7 +23,7 @@ namespace VideoCommon {
     case 16:
         return {2, 2};
     }
-    ASSERT_MSG(false, "Invalid number of samples={}", num_samples);
+    assert(false && "Invalid number of samples={}" && (void(num_samples), true));
     return {0, 0};
 }
 
@@ -47,7 +47,7 @@ namespace VideoCommon {
     case MsaaMode::Msaa4x4:
         return 16;
     }
-    ASSERT_MSG(false, "Invalid MSAA mode={}", static_cast<int>(msaa_mode));
+    assert(false && "Invalid MSAA mode={}" && (void(static_cast<int>(msaa_mode)), true));
     return 1;
 }
 
@@ -69,7 +69,7 @@ namespace VideoCommon {
     case MsaaMode::Msaa4x4:
         return 4;
     }
-    ASSERT_MSG(false, "Invalid MSAA mode={}", static_cast<int>(msaa_mode));
+    assert(false && "Invalid MSAA mode={}" && (void(static_cast<int>(msaa_mode)), true));
     return 1;
 }
 
@@ -91,7 +91,7 @@ namespace VideoCommon {
     case MsaaMode::Msaa4x4:
         return 4;
     }
-    ASSERT_MSG(false, "Invalid MSAA mode={}", static_cast<int>(msaa_mode));
+    assert(false && "Invalid MSAA mode={}" && (void(static_cast<int>(msaa_mode)), true));
     return 1;
 }
 

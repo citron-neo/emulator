@@ -1,11 +1,11 @@
 // SPDX-FileCopyrightText: Copyright 2018 yuzu Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
+#include <concepts>
 #include <memory>
 #include <optional>
 #include <ostream>
 #include <string>
-#include "common/concepts.h"
 #include "common/fs/path_util.h"
 #include "common/logging.h"
 #include "common/string_util.h"
@@ -24,7 +24,7 @@ namespace Loader {
 
 namespace {
 
-template <Common::DerivedFrom<AppLoader> T>
+template <std::derived_from<AppLoader> T>
 std::optional<FileType> IdentifyFileLoader(FileSys::VirtualFile file) {
     const auto file_type = T::IdentifyType(file);
     if (file_type != FileType::Error) {

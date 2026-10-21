@@ -237,7 +237,12 @@ Profile DefaultToolProfile() {
     p.support_descriptor_aliasing = true;
     p.support_int8 = true;
     p.support_int16 = true;
+    p.support_int8_storage = true;
+    p.support_int16_storage = true;
+    p.support_int8_uniform = true;
+    p.support_int16_uniform = true;
     p.support_int64 = true;
+    p.support_storage_image_extended_formats = true;
     p.support_vertex_instance_id = false;
     p.support_float_controls = true;
     p.support_separate_denorm_behavior = true;
@@ -508,7 +513,7 @@ int main(int argc, char** argv) try {
                         std::move(cbuf_overrides)};
 
     Shader::ObjectPool<Shader::Maxwell::Flow::Block> flow_pool(16);
-    Shader::ObjectPool<Shader::IR::Inst> inst_pool(8192);
+    Shader::IR::InstStorage inst_storage;
     Shader::ObjectPool<Shader::IR::Block> block_pool(32);
 
     const HostTranslateInfo host_info = DefaultHostInfo(support_fp64);
@@ -517,7 +522,7 @@ int main(int argc, char** argv) try {
     const u32 cfg_start = base_address + code_offset_in_program;
     Shader::Maxwell::Flow::CFG cfg(env, flow_pool, cfg_start, /*exits_to_dispatcher=*/false);
     Shader::IR::Program program =
-        Shader::Maxwell::TranslateProgram(inst_pool, block_pool, env, cfg, host_info);
+        Shader::Maxwell::TranslateProgram(inst_storage, block_pool, env, cfg, host_info);
 
     Shader::Backend::Bindings binding;
     RuntimeInfo runtime_info = MakeRuntimeInfoForStage(stage);

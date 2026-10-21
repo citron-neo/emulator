@@ -715,7 +715,6 @@ struct Values {
                                     Category::DebuggingGraphics};
     Setting<bool> extended_logging{
         linkage, false, "extended_logging", Category::Debugging, Specialization::Default, false};
-    Setting<bool> use_debug_asserts{linkage, false, "use_debug_asserts", Category::Debugging};
     Setting<bool> use_auto_stub{
         linkage, false, "use_auto_stub", Category::Debugging, Specialization::Default, false};
     Setting<bool> enable_all_controllers{linkage, false, "enable_all_controllers",

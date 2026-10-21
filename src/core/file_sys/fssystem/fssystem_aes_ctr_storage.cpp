@@ -10,9 +10,9 @@
 namespace FileSys {
 
 void AesCtrStorage::MakeIv(void* dst, size_t dst_size, u64 upper, s64 offset) {
-    ASSERT(dst != nullptr);
-    ASSERT(dst_size == IvSize);
-    ASSERT(offset >= 0);
+    assert(dst != nullptr);
+    assert(dst_size == IvSize);
+    assert(offset >= 0);
 
     const uintptr_t out_addr = reinterpret_cast<uintptr_t>(dst);
 
@@ -23,11 +23,11 @@ void AesCtrStorage::MakeIv(void* dst, size_t dst_size, u64 upper, s64 offset) {
 AesCtrStorage::AesCtrStorage(VirtualFile base, const void* key, size_t key_size, const void* iv,
                              size_t iv_size)
     : m_base_storage(std::move(base)) {
-    ASSERT(m_base_storage != nullptr);
-    ASSERT(key != nullptr);
-    ASSERT(iv != nullptr);
-    ASSERT(key_size == KeySize);
-    ASSERT(iv_size == IvSize);
+    assert(m_base_storage != nullptr);
+    assert(key != nullptr);
+    assert(iv != nullptr);
+    assert(key_size == KeySize);
+    assert(iv_size == IvSize);
 
     std::memcpy(m_key.data(), key, KeySize);
     std::memcpy(m_iv.data(), iv, IvSize);
@@ -42,11 +42,11 @@ size_t AesCtrStorage::Read(u8* buffer, size_t size, size_t offset) const {
     }
 
     // Ensure buffer is valid.
-    ASSERT(buffer != nullptr);
+    assert(buffer != nullptr);
 
     // We can only read at block aligned offsets.
-    ASSERT(Common::IsAligned(offset, BlockSize));
-    ASSERT(Common::IsAligned(size, BlockSize));
+    assert(Common::IsAligned(offset, BlockSize));
+    assert(Common::IsAligned(size, BlockSize));
 
     // Read the data.
     m_base_storage->Read(buffer, size, offset);
@@ -70,11 +70,11 @@ size_t AesCtrStorage::Write(const u8* buffer, size_t size, size_t offset) {
     }
 
     // Ensure buffer is valid.
-    ASSERT(buffer != nullptr);
+    assert(buffer != nullptr);
 
     // We can only write at block aligned offsets.
-    ASSERT(Common::IsAligned(offset, BlockSize));
-    ASSERT(Common::IsAligned(size, BlockSize));
+    assert(Common::IsAligned(offset, BlockSize));
+    assert(Common::IsAligned(size, BlockSize));
 
     // Get a pooled buffer.
     PooledBuffer pooled_buffer;

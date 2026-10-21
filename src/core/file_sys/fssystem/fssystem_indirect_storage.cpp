@@ -37,9 +37,9 @@ void IndirectStorage::Finalize() {
 Result IndirectStorage::GetEntryList(Entry* out_entries, s32* out_entry_count, s32 entry_count,
                                      s64 offset, s64 size) {
     // Validate pre-conditions.
-    ASSERT(offset >= 0);
-    ASSERT(size >= 0);
-    ASSERT(this->IsInitialized());
+    assert(offset >= 0);
+    assert(size >= 0);
+    assert(this->IsInitialized());
 
     // Clear the out count.
     R_UNLESS(out_entry_count != nullptr, ResultNullptrArgument);
@@ -98,8 +98,8 @@ Result IndirectStorage::GetEntryList(Entry* out_entries, s32* out_entry_count, s
 
 size_t IndirectStorage::Read(u8* buffer, size_t size, size_t offset) const {
     // Validate pre-conditions.
-    ASSERT(this->IsInitialized());
-    ASSERT(buffer != nullptr);
+    assert(this->IsInitialized());
+    assert(buffer != nullptr);
 
     // Succeed if there's nothing to read.
     if (size == 0) {

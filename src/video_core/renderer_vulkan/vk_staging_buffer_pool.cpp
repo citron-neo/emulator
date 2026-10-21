@@ -62,7 +62,7 @@ StagingBufferPool::StagingBufferPool(const Device& device_, MemoryAllocator& mem
         stream_buffer.SetObjectNameEXT("Stream Buffer");
     }
     stream_pointer = stream_buffer.Mapped();
-    ASSERT_MSG(!stream_pointer.empty(), "Stream buffer must be host visible!");
+    assert(!stream_pointer.empty() && "Stream buffer must be host visible!");
 }
 
 StagingBufferPool::~StagingBufferPool() = default;
@@ -80,8 +80,8 @@ void StagingBufferPool::FreeDeferred(StagingBufferRef& ref) {
         return entry.index == ref.index;
     };
     auto it = std::find_if(entries.begin(), entries.end(), is_this_one);
-    ASSERT(it != entries.end());
-    ASSERT(it->deferred);
+    assert(it != entries.end());
+    assert(it->deferred);
     it->tick = scheduler.CurrentTick();
     it->deferred = false;
 }
@@ -237,7 +237,7 @@ std::optional<StagingBufferRef> StagingBufferPool::TryGetReservedBuffer(size_t s
     }
     cache_level.iterate_index = std::distance(entries.begin(), it) + 1;
     it->tick = deferred ? std::numeric_limits<u64>::max() : scheduler.CurrentTick();
-    ASSERT(!it->deferred);
+    assert(!it->deferred);
     it->deferred = deferred;
     return it->Ref();
 }
@@ -295,7 +295,7 @@ StagingBufferPool::StagingBuffersCache& StagingBufferPool::GetCache(MemoryUsage 
     case MemoryUsage::Download:
         return download_cache;
     default:
-        ASSERT_MSG(false, "Invalid memory usage={}", usage);
+        assert(false && "Invalid memory usage={}" && (void(usage), true));
         return upload_cache;
     }
 }

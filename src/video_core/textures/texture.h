@@ -246,7 +246,7 @@ struct TICEntry {
     }
 
     constexpr u32 Pitch() const {
-        ASSERT(header_version == TICHeaderVersion::Pitch ||
+        assert(header_version == TICHeaderVersion::Pitch ||
                header_version == TICHeaderVersion::PitchColorKey);
         // The pitch value is 21 bits, and is 32B aligned.
         return pitch_high << 5;

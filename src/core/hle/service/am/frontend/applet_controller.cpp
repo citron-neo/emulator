@@ -69,15 +69,15 @@ void Controller::Initialize() {
     controller_applet_version = ControllerAppletVersion{common_args.library_version};
 
     const std::shared_ptr<IStorage> private_arg_storage = PopInData();
-    ASSERT(private_arg_storage != nullptr);
+    assert(private_arg_storage != nullptr);
 
     const auto& private_arg = private_arg_storage->GetData();
-    ASSERT(private_arg.size() == sizeof(ControllerSupportArgPrivate));
+    assert(private_arg.size() == sizeof(ControllerSupportArgPrivate));
 
     std::memcpy(&controller_private_arg, private_arg.data(), private_arg.size());
-    ASSERT_MSG(controller_private_arg.arg_private_size == sizeof(ControllerSupportArgPrivate),
-               "Unknown ControllerSupportArgPrivate revision={} with size={}",
-               controller_applet_version, controller_private_arg.arg_private_size);
+    assert(controller_private_arg.arg_private_size == sizeof(ControllerSupportArgPrivate) &&
+           "Unknown ControllerSupportArgPrivate revision={} with size={}" &&
+           (void(controller_applet_version), void(controller_private_arg.arg_private_size), true));
 
     // Some games such as Cave Story+ set invalid values for the ControllerSupportMode.
     // Defer to arg_size to set the ControllerSupportMode.
@@ -119,25 +119,25 @@ void Controller::Initialize() {
     case ControllerSupportMode::ShowControllerSupport:
     case ControllerSupportMode::ShowControllerStrapGuide: {
         const std::shared_ptr<IStorage> user_arg_storage = PopInData();
-        ASSERT(user_arg_storage != nullptr);
+        assert(user_arg_storage != nullptr);
 
         const auto& user_arg = user_arg_storage->GetData();
         switch (controller_applet_version) {
         case ControllerAppletVersion::Version3:
         case ControllerAppletVersion::Version4:
         case ControllerAppletVersion::Version5:
-            ASSERT(user_arg.size() == sizeof(ControllerSupportArgOld));
+            assert(user_arg.size() == sizeof(ControllerSupportArgOld));
             std::memcpy(&controller_user_arg_old, user_arg.data(), user_arg.size());
             break;
         case ControllerAppletVersion::Version7:
         case ControllerAppletVersion::Version8:
-            ASSERT(user_arg.size() == sizeof(ControllerSupportArgNew));
+            assert(user_arg.size() == sizeof(ControllerSupportArgNew));
             std::memcpy(&controller_user_arg_new, user_arg.data(), user_arg.size());
             break;
         default:
             UNIMPLEMENTED_MSG("Unknown ControllerSupportArg revision={} with size={}",
                               controller_applet_version, controller_private_arg.arg_size);
-            ASSERT(user_arg.size() >= sizeof(ControllerSupportArgNew));
+            assert(user_arg.size() >= sizeof(ControllerSupportArgNew));
             std::memcpy(&controller_user_arg_new, user_arg.data(), sizeof(ControllerSupportArgNew));
             break;
         }
@@ -145,20 +145,20 @@ void Controller::Initialize() {
     }
     case ControllerSupportMode::ShowControllerFirmwareUpdate: {
         const std::shared_ptr<IStorage> update_arg_storage = PopInData();
-        ASSERT(update_arg_storage != nullptr);
+        assert(update_arg_storage != nullptr);
 
         const auto& update_arg = update_arg_storage->GetData();
-        ASSERT(update_arg.size() == sizeof(ControllerUpdateFirmwareArg));
+        assert(update_arg.size() == sizeof(ControllerUpdateFirmwareArg));
 
         std::memcpy(&controller_update_arg, update_arg.data(), update_arg.size());
         break;
     }
     case ControllerSupportMode::ShowControllerKeyRemappingForSystem: {
         const std::shared_ptr<IStorage> remapping_arg_storage = PopInData();
-        ASSERT(remapping_arg_storage != nullptr);
+        assert(remapping_arg_storage != nullptr);
 
         const auto& remapping_arg = remapping_arg_storage->GetData();
-        ASSERT(remapping_arg.size() == sizeof(ControllerKeyRemappingArg));
+        assert(remapping_arg.size() == sizeof(ControllerKeyRemappingArg));
 
         std::memcpy(&controller_key_remapping_arg, remapping_arg.data(), remapping_arg.size());
         break;
@@ -175,7 +175,7 @@ Result Controller::GetStatus() const {
 }
 
 void Controller::ExecuteInteractive() {
-    ASSERT_MSG(false, "Attempted to call interactive execution on non-interactive applet.");
+    assert(false && "Attempted to call interactive execution on non-interactive applet.");
 }
 
 void Controller::Execute() {

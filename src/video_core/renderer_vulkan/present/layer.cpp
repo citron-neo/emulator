@@ -360,8 +360,9 @@ void Layer::UpdateRawImage(const Tegra::FramebufferConfig& framebuffer, size_t i
         write_barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
         write_barrier.newLayout = VK_IMAGE_LAYOUT_GENERAL;
 
-        cmdbuf.PipelineBarrier(VK_PIPELINE_STAGE_HOST_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0,
-                               read_barrier);
+        // ALL_COMMANDS as well: the previous frame may still be reading this image.
+        cmdbuf.PipelineBarrier(VK_PIPELINE_STAGE_HOST_BIT | VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+                               VK_PIPELINE_STAGE_TRANSFER_BIT, 0, read_barrier);
         cmdbuf.CopyBufferToImage(*buffer, image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, copy);
         cmdbuf.PipelineBarrier(VK_PIPELINE_STAGE_TRANSFER_BIT,
                                VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT |

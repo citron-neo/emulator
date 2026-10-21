@@ -59,7 +59,7 @@ struct GPU::Impl {
             return;
         }
         auto it = channels.find(channel_id);
-        ASSERT(it != channels.end());
+        assert(it != channels.end());
         bound_channel = channel_id;
         current_channel = it->second.get();
 
@@ -152,37 +152,37 @@ struct GPU::Impl {
 
     /// Returns a reference to the Maxwell3D GPU engine.
     [[nodiscard]] Engines::Maxwell3D& Maxwell3D() {
-        ASSERT(current_channel);
+        assert(current_channel);
         return *current_channel->maxwell_3d;
     }
 
     /// Returns a const reference to the Maxwell3D GPU engine.
     [[nodiscard]] const Engines::Maxwell3D& Maxwell3D() const {
-        ASSERT(current_channel);
+        assert(current_channel);
         return *current_channel->maxwell_3d;
     }
 
     /// Returns a reference to the KeplerCompute GPU engine.
     [[nodiscard]] Engines::KeplerCompute& KeplerCompute() {
-        ASSERT(current_channel);
+        assert(current_channel);
         return *current_channel->kepler_compute;
     }
 
     /// Returns a reference to the KeplerCompute GPU engine.
     [[nodiscard]] const Engines::KeplerCompute& KeplerCompute() const {
-        ASSERT(current_channel);
+        assert(current_channel);
         return *current_channel->kepler_compute;
     }
 
     /// Returns a reference to the GPU DMA pusher.
     [[nodiscard]] Tegra::DmaPusher& DmaPusher() {
-        ASSERT(current_channel);
+        assert(current_channel);
         return *current_channel->dma_pusher;
     }
 
     /// Returns a const reference to the GPU DMA pusher.
     [[nodiscard]] const Tegra::DmaPusher& DmaPusher() const {
-        ASSERT(current_channel);
+        assert(current_channel);
         return *current_channel->dma_pusher;
     }
 

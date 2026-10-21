@@ -2,29 +2,42 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #version 460 core
-#extension GL_EXT_shader_16bit_storage : require
-#extension GL_EXT_shader_8bit_storage : require
+
+// Turns 8-bit indices into 16-bit ones for devices without VK_EXT_index_type_uint8. Input and
+// output are read and written as 32-bit words, so the shader needs neither
+// storageBuffer8BitAccess nor storageBuffer16BitAccess (Turnip reports no 8-bit storage access).
 
 layout (local_size_x = 1024) in;
 
 layout (std430, set = 0, binding = 0) readonly buffer InputBuffer {
-    uint8_t input_indexes[];
+    uint input_words[];
 };
 
 layout (std430, set = 0, binding = 1) writeonly buffer OutputBuffer {
-    uint16_t output_indexes[];
+    uint output_words[];
 };
 
-uint AssembleIndex(uint id) {
+layout (push_constant) uniform PushConstants {
+    // The input descriptor starts at the last storage-buffer-aligned offset before the first
+    // index; this is the byte of the first index inside it.
+    uint first_byte;
+    uint num_indices;
+};
+
+uint AssembleIndex(uint index_id) {
+    uint byte = first_byte + index_id;
+    uint index = (input_words[byte >> 2] >> ((byte & 3u) * 8u)) & 0xFFu;
     // Most primitive restart indices are 0xFF
     // Hardcode this to 0xFF for now
-    uint index = uint(input_indexes[id]);
-    return index == 0xFF ? 0xFFFF : index;
+    return index == 0xFFu ? 0xFFFFu : index;
 }
 
 void main() {
-    uint id = gl_GlobalInvocationID.x;
-    if (id < input_indexes.length()) {
-        output_indexes[id] = uint16_t(AssembleIndex(id));
+    // One output word holds two indices; an odd count leaves the last high half 0
+    uint word = gl_GlobalInvocationID.x;
+    if (word < output_words.length()) {
+        uint index_id = word * 2u;
+        uint high = index_id + 1u < num_indices ? AssembleIndex(index_id + 1u) : 0u;
+        output_words[word] = AssembleIndex(index_id) | (high << 16u);
     }
 }

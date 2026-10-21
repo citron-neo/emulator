@@ -22,8 +22,8 @@ static Common::Rectangle<T> MaxRectangle(Common::Rectangle<T> window_area,
 }
 
 FramebufferLayout DefaultFrameLayout(u32 width, u32 height) {
-    ASSERT(width > 0);
-    ASSERT(height > 0);
+    assert(width > 0);
+    assert(height > 0);
     // The drawing code needs at least somewhat valid values for both screens
     // so just calculate them both even if the other isn't showing.
     FramebufferLayout res{

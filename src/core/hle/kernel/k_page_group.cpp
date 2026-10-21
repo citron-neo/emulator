@@ -51,7 +51,7 @@ Result KPageGroup::AddBlock(KPhysicalAddress addr, size_t num_pages) {
     R_SUCCEED_IF(num_pages == 0);
 
     // Check for overflow.
-    ASSERT(addr < addr + num_pages * PageSize);
+    assert(addr < addr + num_pages * PageSize);
 
     // Try to just append to the last block.
     if (m_last_block != nullptr) {

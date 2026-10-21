@@ -39,13 +39,10 @@ if (ARCHITECTURE_arm64 AND NOT TARGET merry::oaknut)
     endif()
 endif()
 
-# Dynarmic
+# Dynarmic (part of this tree)
 if ((ARCHITECTURE_x86_64 OR ARCHITECTURE_arm64) AND NOT TARGET dynarmic::dynarmic)
-    if (EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/dynarmic/CMakeLists.txt")
-        set(DYNARMIC_IGNORE_ASSERTS ON)
-        add_subdirectory(dynarmic)
-        add_library(dynarmic::dynarmic ALIAS dynarmic)
-    endif()
+    add_subdirectory(dynarmic)
+    add_library(dynarmic::dynarmic ALIAS dynarmic)
 endif()
 
 # getopt

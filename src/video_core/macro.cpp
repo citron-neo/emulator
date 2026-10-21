@@ -273,7 +273,7 @@ void HLE_DrawArraysIndirect::Fallback(Engines::Maxwell3D& maxwell3d, std::span<c
     const u32 vertex_first = parameters[3];
     const u32 vertex_count = parameters[1];
     if (!IsTopologySafe(topology) && size_t(maxwell3d.GetMaxCurrentVertices()) < size_t(vertex_first) + size_t(vertex_count)) {
-        ASSERT(false && "Faulty draw!");
+        assert(false && "Faulty draw!");
         return;
     }
     const u32 base_instance = parameters[4];
@@ -353,12 +353,12 @@ void HLE_DrawIndexedIndirect::Fallback(Engines::Maxwell3D& maxwell3d, std::span<
 }
 void HLE_MultiLayerClear::Execute(Engines::Maxwell3D& maxwell3d, std::span<const u32> parameters, [[maybe_unused]] u32 method) {
     maxwell3d.RefreshParameters();
-    ASSERT(parameters.size() == 1);
+    assert(parameters.size() == 1);
 
     const Maxwell3D::Regs::ClearSurface clear_params{parameters[0]};
     const u32 rt_index = clear_params.RT;
     const u32 num_layers = maxwell3d.regs.rt[rt_index].depth;
-    ASSERT(clear_params.layer == 0);
+    assert(clear_params.layer == 0);
 
     maxwell3d.regs.clear_surface.raw = clear_params.raw;
     maxwell3d.draw_manager->Clear(num_layers);
@@ -664,7 +664,7 @@ bool MacroInterpreterImpl::Step(Engines::Maxwell3D& maxwell3d, bool is_delay_slo
 
     // Update the program counter if we were delayed
     if (delayed_pc) {
-        ASSERT(is_delay_slot);
+        assert(is_delay_slot);
         pc = *delayed_pc;
         delayed_pc = {};
     }
@@ -848,13 +848,13 @@ bool MacroInterpreterImpl::EvaluateBranchCondition(Macro::BranchCondition cond, 
     case Macro::BranchCondition::NotZero:
         return value != 0;
     }
-    UNREACHABLE();
+    std::unreachable();
 }
 
 /// Reads an opcode at the current program counter location.
 Macro::Opcode MacroInterpreterImpl::GetOpcode() const {
-    ASSERT((pc % sizeof(u32)) == 0);
-    ASSERT(pc < code.size() * sizeof(u32));
+    assert((pc % sizeof(u32)) == 0);
+    assert(pc < code.size() * sizeof(u32));
     return {code[pc / sizeof(u32)]};
 }
 
@@ -1289,7 +1289,7 @@ void MacroJITx64Impl::Compile_Send(Xbyak::Reg32 value) {
 }
 
 void MacroJITx64Impl::Compile_Branch(Macro::Opcode opcode) {
-    ASSERT_MSG(!is_delay_slot, "Executing a branch in a delay slot is not valid");
+    assert(!is_delay_slot && "Executing a branch in a delay slot is not valid");
     const s32 jump_address =
         static_cast<s32>(pc) + static_cast<s32>(opcode.GetBranchTarget() / sizeof(s32));
 
@@ -1566,7 +1566,7 @@ void MacroJITx64Impl::Compile_ProcessResult(Macro::ResultOperation operation, u3
 }
 
 Macro::Opcode MacroJITx64Impl::GetOpCode() const {
-    ASSERT(pc < code.size());
+    assert(pc < code.size());
     return {code[pc]};
 }
 } // Anonymous namespace
@@ -1646,7 +1646,7 @@ void MacroEngine::Execute(Engines::Maxwell3D& maxwell3d, u32 method, std::span<c
                 }
             }
             if (!mid_method.has_value()) {
-                ASSERT_MSG(false, "Macro 0x{0:x} was not uploaded", method);
+                assert(false && "Macro 0x{0:x} was not uploaded" && (void(method), true));
                 return;
             }
         }

@@ -4,9 +4,9 @@
 #pragma once
 
 #include <algorithm>
+#include <bit>
 #include <span>
 
-#include "common/bit_cast.h"
 #include "video_core/texture_cache/types.h"
 
 namespace VideoCommon {
@@ -41,8 +41,8 @@ struct hash<VideoCommon::RenderTargets> {
         for (const ImageViewId color_buffer_id : rt.color_buffer_ids) {
             value ^= std::hash<ImageViewId>{}(color_buffer_id);
         }
-        value ^= Common::BitCast<u64>(rt.draw_buffers);
-        value ^= Common::BitCast<u64>(rt.size);
+        value ^= std::bit_cast<u64>(rt.draw_buffers);
+        value ^= std::bit_cast<u64>(rt.size);
         return value;
     }
 };

@@ -31,7 +31,7 @@ void IAdd64To32(IR::Block& block, IR::Inst& inst) {
     if (inst.HasAssociatedPseudoOperation()) {
         throw NotImplementedException("IAdd64 emulation with pseudo instructions");
     }
-    IR::IREmitter ir(block, IR::Block::InstructionList::s_iterator_to(inst));
+    IR::IREmitter ir(block, block.IteratorTo(inst));
     const auto [a_lo, a_hi]{Unpack(ir, inst.Arg(0))};
     const auto [b_lo, b_hi]{Unpack(ir, inst.Arg(1))};
 
@@ -46,7 +46,7 @@ void ISub64To32(IR::Block& block, IR::Inst& inst) {
     if (inst.HasAssociatedPseudoOperation()) {
         throw NotImplementedException("ISub64 emulation with pseudo instructions");
     }
-    IR::IREmitter ir(block, IR::Block::InstructionList::s_iterator_to(inst));
+    IR::IREmitter ir(block, block.IteratorTo(inst));
     const auto [a_lo, a_hi]{Unpack(ir, inst.Arg(0))};
     const auto [b_lo, b_hi]{Unpack(ir, inst.Arg(1))};
 
@@ -62,7 +62,7 @@ void INeg64To32(IR::Block& block, IR::Inst& inst) {
     if (inst.HasAssociatedPseudoOperation()) {
         throw NotImplementedException("INeg64 emulation with pseudo instructions");
     }
-    IR::IREmitter ir(block, IR::Block::InstructionList::s_iterator_to(inst));
+    IR::IREmitter ir(block, block.IteratorTo(inst));
     auto [lo, hi]{Unpack(ir, inst.Arg(0))};
     lo = ir.BitwiseNot(lo);
     hi = ir.BitwiseNot(hi);
@@ -79,7 +79,7 @@ void ShiftLeftLogical64To32(IR::Block& block, IR::Inst& inst) {
     if (inst.HasAssociatedPseudoOperation()) {
         throw NotImplementedException("ShiftLeftLogical64 emulation with pseudo instructions");
     }
-    IR::IREmitter ir(block, IR::Block::InstructionList::s_iterator_to(inst));
+    IR::IREmitter ir(block, block.IteratorTo(inst));
     const auto [lo, hi]{Unpack(ir, inst.Arg(0))};
     const IR::U32 shift{inst.Arg(1)};
 
@@ -113,7 +113,7 @@ void ShiftRightLogical64To32(IR::Block& block, IR::Inst& inst) {
     if (inst.HasAssociatedPseudoOperation()) {
         throw NotImplementedException("ShiftRightLogical64 emulation with pseudo instructions");
     }
-    IR::IREmitter ir(block, IR::Block::InstructionList::s_iterator_to(inst));
+    IR::IREmitter ir(block, block.IteratorTo(inst));
     const auto [lo, hi]{Unpack(ir, inst.Arg(0))};
     const IR::U32 shift{inst.Arg(1)};
 
@@ -148,7 +148,7 @@ void ShiftRightArithmetic64To32(IR::Block& block, IR::Inst& inst) {
     if (inst.HasAssociatedPseudoOperation()) {
         throw NotImplementedException("ShiftRightArithmetic64 emulation with pseudo instructions");
     }
-    IR::IREmitter ir(block, IR::Block::InstructionList::s_iterator_to(inst));
+    IR::IREmitter ir(block, block.IteratorTo(inst));
     const auto [lo, hi]{Unpack(ir, inst.Arg(0))};
     const IR::U32 shift{inst.Arg(1)};
 
@@ -228,7 +228,7 @@ void LowerInt64ToInt32(IR::Program& program) {
     const auto end{program.post_order_blocks.rend()};
     for (auto it = program.post_order_blocks.rbegin(); it != end; ++it) {
         IR::Block* const block{*it};
-        for (IR::Inst& inst : block->Instructions()) {
+        for (IR::Inst& inst : *block) {
             LowerI64ToI32(*block, inst);
         }
     }

@@ -87,15 +87,18 @@ void DrawManager::ProcessMethodCall(u32 method, u32 argument) {
     case MAXWELL3D_REG_INDEX(index_buffer.count):
         draw_state.draw_indexed = true;
         break;
-    case MAXWELL3D_REG_INDEX(index_buffer32_subsequent):
-    case MAXWELL3D_REG_INDEX(index_buffer16_subsequent):
-    case MAXWELL3D_REG_INDEX(index_buffer8_subsequent):
-        draw_state.instance_count++;
-        [[fallthrough]];
     case MAXWELL3D_REG_INDEX(index_buffer32_first):
+        return DrawIndexSmall(argument, Maxwell3D::Regs::IndexFormat::UnsignedInt, false);
     case MAXWELL3D_REG_INDEX(index_buffer16_first):
+        return DrawIndexSmall(argument, Maxwell3D::Regs::IndexFormat::UnsignedShort, false);
     case MAXWELL3D_REG_INDEX(index_buffer8_first):
-        return DrawIndexSmall(argument);
+        return DrawIndexSmall(argument, Maxwell3D::Regs::IndexFormat::UnsignedByte, false);
+    case MAXWELL3D_REG_INDEX(index_buffer32_subsequent):
+        return DrawIndexSmall(argument, Maxwell3D::Regs::IndexFormat::UnsignedInt, true);
+    case MAXWELL3D_REG_INDEX(index_buffer16_subsequent):
+        return DrawIndexSmall(argument, Maxwell3D::Regs::IndexFormat::UnsignedShort, true);
+    case MAXWELL3D_REG_INDEX(index_buffer8_subsequent):
+        return DrawIndexSmall(argument, Maxwell3D::Regs::IndexFormat::UnsignedByte, true);
     case MAXWELL3D_REG_INDEX(draw_inline_index):
         SetInlineIndexBuffer(argument);
         break;
@@ -256,12 +259,26 @@ void DrawManager::DrawEnd(u32 instance_count, bool force_draw) {
     }
 }
 
-void DrawManager::DrawIndexSmall(u32 argument) {
+// DRAW_INDEX_BUFFER{32,16,8}_BEGIN_END_INSTANCE_{FIRST,SUBSEQUENT} (clb197.h, 0x17e4 to 0x17f8):
+// one whole draw of one instance. The argument carries first, count and topology only, so the
+// index size is the one in the method's name. FIRST and SUBSEQUENT work like BEGIN's INSTANCE_ID:
+// FIRST draws instance 0, each SUBSEQUENT the next one (NVK draws instanced on Maxwell by
+// repeating BEGIN with INSTANCE_ID SUBSEQUENT, nvk_cmd_draw.c).
+void DrawManager::DrawIndexSmall(u32 argument, Maxwell3D::Regs::IndexFormat format,
+                                 bool subsequent) {
     const auto& regs{maxwell3d->regs};
     IndexBufferSmall index_small_params{argument};
-    draw_state.base_instance = regs.global_base_instance_index;
+    if (subsequent) {
+        draw_state.instance_count++;
+    } else {
+        DrawDeferred();
+        draw_state.instance_count = 0;
+        draw_state.draw_mode = DrawMode::General;
+    }
+    draw_state.base_instance = regs.global_base_instance_index + draw_state.instance_count;
     draw_state.base_index = regs.global_base_vertex_index;
     draw_state.index_buffer = regs.index_buffer;
+    draw_state.index_buffer.format = format;
     draw_state.index_buffer.first = index_small_params.first;
     draw_state.index_buffer.count = index_small_params.count;
     draw_state.topology = index_small_params.topology;

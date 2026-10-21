@@ -26,9 +26,9 @@ s64 KResourceLimit::GetLimitValue(LimitableResource which) const {
     {
         KScopedLightLock lk{m_lock};
         value = m_limit_values[index];
-        ASSERT(value >= 0);
-        ASSERT(m_current_values[index] <= m_limit_values[index]);
-        ASSERT(m_current_hints[index] <= m_current_values[index]);
+        assert(value >= 0);
+        assert(m_current_values[index] <= m_limit_values[index]);
+        assert(m_current_hints[index] <= m_current_values[index]);
     }
     return value;
 }
@@ -39,9 +39,9 @@ s64 KResourceLimit::GetCurrentValue(LimitableResource which) const {
     {
         KScopedLightLock lk{m_lock};
         value = m_current_values[index];
-        ASSERT(value >= 0);
-        ASSERT(m_current_values[index] <= m_limit_values[index]);
-        ASSERT(m_current_hints[index] <= m_current_values[index]);
+        assert(value >= 0);
+        assert(m_current_values[index] <= m_limit_values[index]);
+        assert(m_current_hints[index] <= m_current_values[index]);
     }
     return value;
 }
@@ -52,9 +52,9 @@ s64 KResourceLimit::GetPeakValue(LimitableResource which) const {
     {
         KScopedLightLock lk{m_lock};
         value = m_peak_values[index];
-        ASSERT(value >= 0);
-        ASSERT(m_current_values[index] <= m_limit_values[index]);
-        ASSERT(m_current_hints[index] <= m_current_values[index]);
+        assert(value >= 0);
+        assert(m_current_values[index] <= m_limit_values[index]);
+        assert(m_current_hints[index] <= m_current_values[index]);
     }
     return value;
 }
@@ -64,9 +64,9 @@ s64 KResourceLimit::GetFreeValue(LimitableResource which) const {
     s64 value{};
     {
         KScopedLightLock lk(m_lock);
-        ASSERT(m_current_values[index] >= 0);
-        ASSERT(m_current_values[index] <= m_limit_values[index]);
-        ASSERT(m_current_hints[index] <= m_current_values[index]);
+        assert(m_current_values[index] >= 0);
+        assert(m_current_values[index] <= m_limit_values[index]);
+        assert(m_current_hints[index] <= m_current_values[index]);
         value = m_limit_values[index] - m_current_values[index];
     }
 
@@ -89,19 +89,19 @@ bool KResourceLimit::Reserve(LimitableResource which, s64 value) {
 }
 
 bool KResourceLimit::Reserve(LimitableResource which, s64 value, s64 timeout) {
-    ASSERT(value >= 0);
+    assert(value >= 0);
     const auto index = static_cast<std::size_t>(which);
     KScopedLightLock lk(m_lock);
 
-    ASSERT(m_current_hints[index] <= m_current_values[index]);
+    assert(m_current_hints[index] <= m_current_values[index]);
     if (m_current_hints[index] >= m_limit_values[index]) {
         return false;
     }
 
     // Loop until we reserve or run out of time.
     while (true) {
-        ASSERT(m_current_values[index] <= m_limit_values[index]);
-        ASSERT(m_current_hints[index] <= m_current_values[index]);
+        assert(m_current_values[index] <= m_limit_values[index]);
+        assert(m_current_hints[index] <= m_current_values[index]);
 
         // If we would overflow, don't allow to succeed.
         if (Common::WrappingAdd(m_current_values[index], value) <= m_current_values[index]) {
@@ -133,15 +133,15 @@ void KResourceLimit::Release(LimitableResource which, s64 value) {
 }
 
 void KResourceLimit::Release(LimitableResource which, s64 value, s64 hint) {
-    ASSERT(value >= 0);
-    ASSERT(hint >= 0);
+    assert(value >= 0);
+    assert(hint >= 0);
 
     const auto index = static_cast<std::size_t>(which);
     KScopedLightLock lk(m_lock);
-    ASSERT(m_current_values[index] <= m_limit_values[index]);
-    ASSERT(m_current_hints[index] <= m_current_values[index]);
-    ASSERT(value <= m_current_values[index]);
-    ASSERT(hint <= m_current_hints[index]);
+    assert(m_current_values[index] <= m_limit_values[index]);
+    assert(m_current_hints[index] <= m_current_values[index]);
+    assert(value <= m_current_values[index]);
+    assert(hint <= m_current_hints[index]);
 
     m_current_values[index] -= value;
     m_current_hints[index] -= hint;
@@ -159,13 +159,21 @@ KResourceLimit* CreateResourceLimitForProcess(Core::System& system, s64 physical
     // TODO(bunnei): These values are the system defaults, the limits for service processes are
     // lower. These should use the correct limit values.
 
-    ASSERT(resource_limit->SetLimitValue(LimitableResource::PhysicalMemoryMax, physical_memory_size)
-               .IsSuccess());
-    ASSERT(resource_limit->SetLimitValue(LimitableResource::ThreadCountMax, 800).IsSuccess());
-    ASSERT(resource_limit->SetLimitValue(LimitableResource::EventCountMax, 900).IsSuccess());
-    ASSERT(
-        resource_limit->SetLimitValue(LimitableResource::TransferMemoryCountMax, 200).IsSuccess());
-    ASSERT(resource_limit->SetLimitValue(LimitableResource::SessionCountMax, 1133).IsSuccess());
+    [[maybe_unused]] const auto set_limit_value_result =
+        resource_limit->SetLimitValue(LimitableResource::PhysicalMemoryMax, physical_memory_size);
+    assert(set_limit_value_result.IsSuccess());
+    [[maybe_unused]] const auto set_limit_value_result_2 =
+        resource_limit->SetLimitValue(LimitableResource::ThreadCountMax, 800);
+    assert(set_limit_value_result_2.IsSuccess());
+    [[maybe_unused]] const auto set_limit_value_result_3 =
+        resource_limit->SetLimitValue(LimitableResource::EventCountMax, 900);
+    assert(set_limit_value_result_3.IsSuccess());
+    [[maybe_unused]] const auto set_limit_value_result_4 =
+        resource_limit->SetLimitValue(LimitableResource::TransferMemoryCountMax, 200);
+    assert(set_limit_value_result_4.IsSuccess());
+    [[maybe_unused]] const auto set_limit_value_result_5 =
+        resource_limit->SetLimitValue(LimitableResource::SessionCountMax, 1133);
+    assert(set_limit_value_result_5.IsSuccess());
 
     return resource_limit;
 }

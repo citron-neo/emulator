@@ -31,7 +31,7 @@ u32 SyncpointManager::ReserveSyncpoint(u32 id, bool client_managed) {
     auto& syncpoint = syncpoints.at(id);
 
     if (syncpoint.reserved) {
-        ASSERT_MSG(false, "Requested syncpoint is in use");
+        assert(false && "Requested syncpoint is in use");
         return 0;
     }
 
@@ -47,7 +47,7 @@ u32 SyncpointManager::FindFreeSyncpoint() {
             return i;
         }
     }
-    ASSERT_MSG(false, "Failed to find a free syncpoint!");
+    assert(false && "Failed to find a free syncpoint!");
     return 0;
 }
 
@@ -59,7 +59,7 @@ u32 SyncpointManager::AllocateSyncpoint(bool client_managed) {
 void SyncpointManager::FreeSyncpoint(u32 id) {
     std::lock_guard lock(reservation_lock);
     auto& syncpoint = syncpoints.at(id);
-    ASSERT(syncpoint.reserved);
+    assert(syncpoint.reserved);
     syncpoint.reserved = false;
 }
 
@@ -71,7 +71,7 @@ bool SyncpointManager::HasSyncpointExpired(u32 id, u32 threshold) const {
     const SyncpointInfo& syncpoint{syncpoints.at(id)};
 
     if (!syncpoint.reserved) {
-        ASSERT(false);
+        assert(false);
         return false;
     }
 
@@ -88,7 +88,7 @@ u32 SyncpointManager::IncrementSyncpointMaxExt(u32 id, u32 amount) {
     auto& syncpoint = syncpoints.at(id);
 
     if (!syncpoint.reserved) {
-        ASSERT(false);
+        assert(false);
         return 0;
     }
 
@@ -99,7 +99,7 @@ u32 SyncpointManager::ReadSyncpointMinValue(u32 id) {
     auto& syncpoint = syncpoints.at(id);
 
     if (!syncpoint.reserved) {
-        ASSERT(false);
+        assert(false);
         return 0;
     }
 
@@ -110,7 +110,7 @@ u32 SyncpointManager::UpdateMin(u32 id) {
     auto& syncpoint = syncpoints.at(id);
 
     if (!syncpoint.reserved) {
-        ASSERT(false);
+        assert(false);
         return 0;
     }
 
@@ -122,7 +122,7 @@ NvFence SyncpointManager::GetSyncpointFence(u32 id) {
     auto& syncpoint = syncpoints.at(id);
 
     if (!syncpoint.reserved) {
-        ASSERT(false);
+        assert(false);
         return NvFence{};
     }
 

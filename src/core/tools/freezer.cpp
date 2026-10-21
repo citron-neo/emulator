@@ -24,7 +24,7 @@ u64 MemoryReadWidth(Core::Memory::Memory& memory, u32 width, VAddr addr) {
     case 8:
         return memory.Read64(addr);
     default:
-        UNREACHABLE();
+        std::unreachable();
     }
 }
 
@@ -43,7 +43,7 @@ void MemoryWriteWidth(Core::Memory::Memory& memory, u32 width, VAddr addr, u64 v
         memory.Write64(addr, value);
         break;
     default:
-        UNREACHABLE();
+        std::unreachable();
     }
 }
 
