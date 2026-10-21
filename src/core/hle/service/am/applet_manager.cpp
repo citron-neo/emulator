@@ -346,7 +346,7 @@ void AppletManager::SetWindowSystem(WindowSystem* window_system) {
 
         Account::ProfileManager profile_manager{};
         const auto uuid = profile_manager.GetUser(static_cast<s32>(Settings::values.current_user));
-        ASSERT(uuid.has_value() && uuid->IsValid());
+        assert(uuid.has_value() && uuid->IsValid());
         lp.current_user = *uuid;
 
         std::vector<u8> buffer(sizeof(LaunchParameterAccountPreselectedUser));

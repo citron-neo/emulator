@@ -27,7 +27,7 @@ void NpadAbstractPropertiesHandler::SetAppletResource(AppletResourceHolder* appl
 
 void NpadAbstractPropertiesHandler::SetNpadId(Core::HID::NpadIdType npad_id) {
     if (!IsNpadIdValid(npad_id)) {
-        ASSERT_MSG(false, "Invalid npad id");
+        assert(false && "Invalid npad id");
     }
 
     npad_id_type = npad_id;

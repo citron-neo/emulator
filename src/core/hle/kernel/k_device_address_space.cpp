@@ -86,7 +86,9 @@ Result KDeviceAddressSpace::Map(KProcessPageTable* page_table, KProcessAddress p
 
     // Ensure that if we fail, we don't keep unmapped pages locked.
     ON_RESULT_FAILURE {
-        ASSERT(page_table->UnlockForDeviceAddressSpace(process_address, size) == ResultSuccess);
+        [[maybe_unused]] const auto unlock_result =
+            page_table->UnlockForDeviceAddressSpace(process_address, size);
+        assert(unlock_result == ResultSuccess);
     };
 
     // Check that the io status is allowable.
@@ -142,7 +144,9 @@ Result KDeviceAddressSpace::Unmap(KProcessPageTable* page_table, KProcessAddress
     }
 
     // Unlock the pages.
-    ASSERT(page_table->UnlockForDeviceAddressSpace(process_address, size) == ResultSuccess);
+    [[maybe_unused]] const auto unlock_result_2 =
+        page_table->UnlockForDeviceAddressSpace(process_address, size);
+    assert(unlock_result_2 == ResultSuccess);
 
     R_SUCCEED();
 }

@@ -412,7 +412,7 @@ bool ISystemSettingsServer::LoadSettingsFile(std::filesystem::path& path, auto&&
     } else if constexpr (std::is_same_v<SettingsType, SystemSettings>) {
         file.read(reinterpret_cast<char*>(&m_system_settings), sizeof(SettingsType));
     } else {
-        UNREACHABLE();
+        std::unreachable();
     }
     file.close();
 
@@ -450,7 +450,7 @@ bool ISystemSettingsServer::StoreSettingsFile(std::filesystem::path& path, auto&
     } else if constexpr (std::is_same_v<settings_type, SystemSettings>) {
         file.write(reinterpret_cast<const char*>(&m_system_settings), sizeof(settings_type));
     } else {
-        UNREACHABLE();
+        std::unreachable();
     }
     file.close();
 
@@ -561,7 +561,7 @@ Result ISystemSettingsServer::SetEulaVersions(
     InArray<EulaVersion, BufferAttr_HipcMapAlias> eula_versions) {
     LOG_INFO(Service_SET, "called, elements={}", eula_versions.size());
 
-    ASSERT(eula_versions.size() <= m_system_settings.eula_versions.size());
+    assert(eula_versions.size() <= m_system_settings.eula_versions.size());
 
     m_system_settings.eula_version_count = static_cast<s32>(eula_versions.size());
     std::memcpy(m_system_settings.eula_versions.data(), eula_versions.data(),
@@ -630,7 +630,7 @@ Result ISystemSettingsServer::SetAccountNotificationSettings(
     InArray<AccountNotificationSettings, BufferAttr_HipcMapAlias> account_notification_settings) {
     LOG_INFO(Service_SET, "called, elements={}", account_notification_settings.size());
 
-    ASSERT(account_notification_settings.size() <=
+    assert(account_notification_settings.size() <=
            m_system_settings.account_notification_settings.size());
 
     m_system_settings.account_notification_settings_count =
@@ -1343,25 +1343,25 @@ void ISystemSettingsServer::SetupSettings() {
     auto system_dir =
         Common::FS::GetCitronPath(Common::FS::CitronPath::NANDDir) / "system/save/8000000000000050";
     if (!LoadSettingsFile<SystemSettings>(system_dir, DefaultSystemSettings)) {
-        ASSERT(false);
+        assert(false);
     }
 
     auto private_dir =
         Common::FS::GetCitronPath(Common::FS::CitronPath::NANDDir) / "system/save/8000000000000052";
     if (!LoadSettingsFile<PrivateSettings>(private_dir, DefaultPrivateSettings)) {
-        ASSERT(false);
+        assert(false);
     }
 
     auto device_dir =
         Common::FS::GetCitronPath(Common::FS::CitronPath::NANDDir) / "system/save/8000000000000053";
     if (!LoadSettingsFile<DeviceSettings>(device_dir, DefaultDeviceSettings)) {
-        ASSERT(false);
+        assert(false);
     }
 
     auto appln_dir =
         Common::FS::GetCitronPath(Common::FS::CitronPath::NANDDir) / "system/save/8000000000000054";
     if (!LoadSettingsFile<ApplnSettings>(appln_dir, DefaultApplnSettings)) {
-        ASSERT(false);
+        assert(false);
     }
 }
 
@@ -1414,8 +1414,8 @@ Result ISystemSettingsServer::GetSettingsItemValueImpl(std::span<u8> out_value, 
     auto settings{GetSettings()};
     R_UNLESS(settings.contains(category) && settings[category].contains(name), ResultUnknown);
 
-    ASSERT_MSG(out_value.size() >= settings[category][name].size(),
-               "Stored type is bigger than requested type");
+    assert(out_value.size() >= settings[category][name].size() &&
+           "Stored type is bigger than requested type");
     out_size = std::min<u64>(settings[category][name].size(), out_value.size());
     std::memcpy(out_value.data(), settings[category][name].data(), out_size);
     R_SUCCEED();

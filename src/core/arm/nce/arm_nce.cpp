@@ -140,7 +140,7 @@ void* ArmNce::RestoreGuestContext(void* raw_context) {
     // Retrieve the host floating point state.
     auto* fpctx = GetFloatingPointState(host_ctx);
     if (fpctx == nullptr) {
-        UNREACHABLE_MSG("NCE cannot restore guest context without FPSIMD signal state");
+        std::unreachable(); // NCE cannot restore guest context without FPSIMD signal state
     }
 
     // Save host callee-saved registers.
@@ -172,7 +172,7 @@ void ArmNce::SaveGuestContext(GuestContext* guest_ctx, void* raw_context) {
     // Retrieve the host floating point state.
     auto* fpctx = GetFloatingPointState(host_ctx);
     if (fpctx == nullptr) {
-        UNREACHABLE_MSG("NCE cannot save guest context without FPSIMD signal state");
+        std::unreachable(); // NCE cannot save guest context without FPSIMD signal state
     }
 
     // Save all guest registers except tpidr_el0.
@@ -292,7 +292,7 @@ bool ArmNce::HandleGuestAlignmentFault(GuestContext* guest_ctx, void* raw_info, 
     auto& host_ctx = static_cast<ucontext_t*>(raw_context)->uc_mcontext;
     auto* fpctx = GetFloatingPointState(host_ctx);
     if (fpctx == nullptr) {
-        UNREACHABLE_MSG("NCE cannot handle guest alignment fault without FPSIMD signal state");
+        std::unreachable(); // NCE cannot handle guest alignment fault without FPSIMD signal state
     }
     auto& memory = guest_ctx->system->ApplicationMemory();
 

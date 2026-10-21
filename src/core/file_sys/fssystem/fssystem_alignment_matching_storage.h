@@ -42,10 +42,10 @@ public:
         }
 
         // Validate arguments.
-        ASSERT(buffer != nullptr);
+        assert(buffer != nullptr);
 
-        s64 bs_size = this->GetSize();
-        ASSERT(R_SUCCEEDED(IStorage::CheckAccessRange(offset, size, bs_size)));
+        [[maybe_unused]] s64 bs_size = this->GetSize();
+        assert(R_SUCCEEDED(IStorage::CheckAccessRange(offset, size, bs_size)));
 
         return AlignmentMatchingStorageImpl::Read(m_base_storage, work_buf.data(), work_buf.size(),
                                                   DataAlign, BufferAlign, offset, buffer, size);
@@ -61,10 +61,10 @@ public:
         }
 
         // Validate arguments.
-        ASSERT(buffer != nullptr);
+        assert(buffer != nullptr);
 
-        s64 bs_size = this->GetSize();
-        ASSERT(R_SUCCEEDED(IStorage::CheckAccessRange(offset, size, bs_size)));
+        [[maybe_unused]] s64 bs_size = this->GetSize();
+        assert(R_SUCCEEDED(IStorage::CheckAccessRange(offset, size, bs_size)));
 
         return AlignmentMatchingStorageImpl::Write(m_base_storage, work_buf.data(), work_buf.size(),
                                                    DataAlign, BufferAlign, offset, buffer, size);
@@ -93,7 +93,7 @@ private:
 public:
     explicit AlignmentMatchingStoragePooledBuffer(VirtualFile bs, size_t da)
         : m_base_storage(std::move(bs)), m_data_align(da) {
-        ASSERT(Common::IsPowerOfTwo(da));
+        assert(Common::IsPowerOfTwo(da));
     }
 
     virtual size_t Read(u8* buffer, size_t size, size_t offset) const override {
@@ -103,10 +103,10 @@ public:
         }
 
         // Validate arguments.
-        ASSERT(buffer != nullptr);
+        assert(buffer != nullptr);
 
-        s64 bs_size = this->GetSize();
-        ASSERT(R_SUCCEEDED(IStorage::CheckAccessRange(offset, size, bs_size)));
+        [[maybe_unused]] s64 bs_size = this->GetSize();
+        assert(R_SUCCEEDED(IStorage::CheckAccessRange(offset, size, bs_size)));
 
         // Allocate a pooled buffer.
         PooledBuffer pooled_buffer;
@@ -124,10 +124,10 @@ public:
         }
 
         // Validate arguments.
-        ASSERT(buffer != nullptr);
+        assert(buffer != nullptr);
 
-        s64 bs_size = this->GetSize();
-        ASSERT(R_SUCCEEDED(IStorage::CheckAccessRange(offset, size, bs_size)));
+        [[maybe_unused]] s64 bs_size = this->GetSize();
+        assert(R_SUCCEEDED(IStorage::CheckAccessRange(offset, size, bs_size)));
 
         // Allocate a pooled buffer.
         PooledBuffer pooled_buffer;

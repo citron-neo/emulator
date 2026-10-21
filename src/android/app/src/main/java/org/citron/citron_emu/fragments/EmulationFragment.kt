@@ -1463,6 +1463,7 @@ class EmulationFragment : Fragment(), SurfaceHolder.Callback {
             emulationThread.join()
             emulationThread = Thread({
                 Log.debug("[EmulationFragment] Starting emulation thread.")
+                ExternalContentHelper.registerSiblings(gamePath)
                 NativeLibrary.run(gamePath, programIndex, false)
             }, "NativeEmulation")
             emulationThread.start()
@@ -1522,6 +1523,7 @@ class EmulationFragment : Fragment(), SurfaceHolder.Callback {
                 State.STOPPED -> {
                     emulationThread = Thread({
                         Log.debug("[EmulationFragment] Starting emulation thread.")
+                        ExternalContentHelper.registerSiblings(gamePath)
                         NativeLibrary.run(gamePath, programIndex, true)
                     }, "NativeEmulation")
                     emulationThread.start()

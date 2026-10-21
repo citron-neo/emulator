@@ -77,7 +77,7 @@ Values values;
 
 std::string GetTimeZoneString(TimeZone time_zone) {
     const auto time_zone_index = static_cast<std::size_t>(time_zone);
-    ASSERT(time_zone_index < Common::TimeZone::GetTimeZoneStrings().size());
+    assert(time_zone_index < Common::TimeZone::GetTimeZoneStrings().size());
 
     std::string location_name;
     if (time_zone_index == 0) { // Auto
@@ -348,7 +348,7 @@ void TranslateResolutionInfo(ResolutionSetup setup, ResolutionScalingInfo& info)
         info.down_shift = 0;
         break;
     default:
-        ASSERT(false);
+        assert(false);
         info.up_scale = 1;
         info.down_shift = 0;
         break;

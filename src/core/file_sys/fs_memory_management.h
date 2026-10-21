@@ -15,7 +15,7 @@ inline void* AllocateUnsafe(size_t size) {
     void* const ptr = ::operator new(size, std::align_val_t{RequiredAlignment});
 
     // Check alignment
-    ASSERT(Common::IsAligned(reinterpret_cast<uintptr_t>(ptr), RequiredAlignment));
+    assert(Common::IsAligned(reinterpret_cast<uintptr_t>(ptr), RequiredAlignment));
 
     // Return allocated pointer
     return ptr;

@@ -193,7 +193,7 @@ Result KConditionVariable::WaitForAddress(KernelCore& kernel, Handle handle, KPr
 
 void KConditionVariable::SignalImpl(KThread* thread) {
     // Check pre-conditions.
-    ASSERT(KScheduler::IsSchedulerLockedByCurrentThread(m_kernel));
+    assert(KScheduler::IsSchedulerLockedByCurrentThread(m_kernel));
 
     // Update the tag.
     KProcessAddress address = thread->GetAddressKey();

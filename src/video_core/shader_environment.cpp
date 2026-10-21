@@ -122,7 +122,7 @@ static void DumpImpl(u64 pipeline_hash, u64 shader_hash, std::span<const u64> co
     const auto name{base_dir /
                     fmt::format("{:016x}_{}_{:016x}.ash", pipeline_hash, prefix, shader_hash)};
     std::fstream shader_file(name, std::ios::out | std::ios::binary);
-    ASSERT(initial_offset % sizeof(u64) == 0);
+    assert(initial_offset % sizeof(u64) == 0);
     const size_t jump_index = initial_offset / sizeof(u64);
     const size_t code_size = code.size_bytes() - initial_offset;
     shader_file.write(reinterpret_cast<const char*>(&code[jump_index]), code_size);
@@ -383,11 +383,11 @@ GraphicsEnvironment::GraphicsEnvironment(Tegra::Engines::Maxwell3D& maxwell3d_,
         stage_index = 4;
         break;
     default:
-        ASSERT_MSG(false, "Invalid program={}", program);
+        assert(false && "Invalid program={}" && (void(program), true));
         break;
     }
     const u64 local_size{sph.LocalMemorySize()};
-    ASSERT(local_size <= std::numeric_limits<u32>::max());
+    assert(local_size <= std::numeric_limits<u32>::max());
     local_memory_size = static_cast<u32>(local_size) + sph.common3.shader_local_memory_crs_size;
     texture_bound = maxwell3d->regs.bindless_texture_const_buffer_slot;
     is_proprietary_driver = texture_bound == 2;
@@ -407,7 +407,7 @@ GraphicsEnvironment::GraphicsEnvironment(Tegra::Engines::Maxwell3D& maxwell3d_,
 
 u32 GraphicsEnvironment::ReadCbufValue(u32 cbuf_index, u32 cbuf_offset) {
     const auto& cbuf{maxwell3d->state.shader_stages[stage_index].const_buffers[cbuf_index]};
-    ASSERT(cbuf.enabled);
+    assert(cbuf.enabled);
     u32 value{};
     if (cbuf_offset < cbuf.size) {
         value = gpu_memory->Read<u32>(cbuf.address + cbuf_offset);
@@ -441,7 +441,7 @@ std::optional<Shader::ReplaceConstant> GraphicsEnvironment::GetReplaceConstBuffe
         case Tegra::Engines::Maxwell3D::HLEReplacementAttributeType::DrawID:
             return Shader::ReplaceConstant::DrawID;
         default:
-            UNREACHABLE();
+            std::unreachable();
         }
     }(it->second);
     cbuf_replacements.emplace(key, converted_value);
@@ -506,7 +506,7 @@ ComputeEnvironment::ComputeEnvironment(Tegra::Engines::KeplerCompute& kepler_com
 
 u32 ComputeEnvironment::ReadCbufValue(u32 cbuf_index, u32 cbuf_offset) {
     const auto& qmd{kepler_compute->launch_description};
-    ASSERT(((qmd.const_buffer_enable_mask.Value() >> cbuf_index) & 1) != 0);
+    assert(((qmd.const_buffer_enable_mask.Value() >> cbuf_index) & 1) != 0);
     const auto& cbuf{qmd.const_buffer_config[cbuf_index]};
     u32 value{};
     if (cbuf_offset < cbuf.size) {

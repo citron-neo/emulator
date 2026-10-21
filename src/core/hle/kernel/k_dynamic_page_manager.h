@@ -62,7 +62,7 @@ public:
         // Initialize the bitmap.
         const size_t allocatable_region_size =
             (m_address + size - overhead_size) - m_aligned_address;
-        ASSERT(allocatable_region_size >= sizeof(PageBuffer));
+        assert(allocatable_region_size >= sizeof(PageBuffer));
 
         m_page_bitmap.Initialize(management_ptr, allocatable_region_size / sizeof(PageBuffer));
 

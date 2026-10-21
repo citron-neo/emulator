@@ -39,7 +39,7 @@ void VisitMark(IR::Block& block, IR::Inst& inst) {
         if (shfl_arg.IsImmediate()) {
             break;
         }
-        const IR::Inst* const arg_inst{shfl_arg.InstRecursive()};
+        const IR::Inst* const arg_inst{inst.ArgInst(0)};
         if (arg_inst->GetOpcode() != IR::Opcode::BitCastU32F32) {
             break;
         }
@@ -47,7 +47,7 @@ void VisitMark(IR::Block& block, IR::Inst& inst) {
         if (bitcast_arg.IsImmediate()) {
             break;
         }
-        IR::Inst* const bitcast_inst{bitcast_arg.InstRecursive()};
+        IR::Inst* const bitcast_inst{arg_inst->ArgInst(0)};
         bool must_patch_outside = false;
         if (bitcast_inst->GetOpcode() == IR::Opcode::GetAttribute) {
             const IR::Attribute attr{bitcast_inst->Arg(0).Attribute()};
@@ -62,9 +62,9 @@ void VisitMark(IR::Block& block, IR::Inst& inst) {
             }
         }
         if (must_patch_outside) {
-            const auto it{IR::Block::InstructionList::s_iterator_to(inst)};
-            IR::IREmitter ir{block, IR::Block::InstructionList::s_iterator_to(inst)};
-            const IR::F32 new_inst{&*block.PrependNewInst(it, inst)};
+            const auto it{block.IteratorTo(inst)};
+            IR::IREmitter ir{block, block.IteratorTo(inst)};
+            const IR::F32 new_inst{*block.PrependNewInst(it, inst)};
             const IR::F32 up_factor{ir.FPRecip(ir.ResolutionDownFactor())};
             const IR::Value converted{ir.FPMul(new_inst, up_factor)};
             inst.ReplaceUsesWith(converted);
@@ -78,7 +78,7 @@ void VisitMark(IR::Block& block, IR::Inst& inst) {
 }
 
 void PatchFragCoord(IR::Block& block, IR::Inst& inst) {
-    IR::IREmitter ir{block, IR::Block::InstructionList::s_iterator_to(inst)};
+    IR::IREmitter ir{block, block.IteratorTo(inst)};
     const IR::F32 down_factor{ir.ResolutionDownFactor()};
     const IR::F32 frag_coord{ir.GetAttribute(inst.Arg(0).Attribute())};
     const IR::F32 downscaled_frag_coord{ir.FPMul(frag_coord, down_factor)};
@@ -86,7 +86,7 @@ void PatchFragCoord(IR::Block& block, IR::Inst& inst) {
 }
 
 void PatchPointSize(IR::Block& block, IR::Inst& inst) {
-    IR::IREmitter ir{block, IR::Block::InstructionList::s_iterator_to(inst)};
+    IR::IREmitter ir{block, block.IteratorTo(inst)};
     const IR::F32 point_value{inst.Arg(1)};
     const IR::F32 up_factor{ir.FPRecip(ir.ResolutionDownFactor())};
     const IR::F32 upscaled_point_value{ir.FPMul(point_value, up_factor)};
@@ -127,15 +127,15 @@ void PatchPointSize(IR::Block& block, IR::Inst& inst) {
 }
 
 void PatchImageQueryDimensions(IR::Block& block, IR::Inst& inst) {
-    const auto it{IR::Block::InstructionList::s_iterator_to(inst)};
-    IR::IREmitter ir{block, IR::Block::InstructionList::s_iterator_to(inst)};
+    const auto it{block.IteratorTo(inst)};
+    IR::IREmitter ir{block, block.IteratorTo(inst)};
     const auto info{inst.Flags<IR::TextureInstInfo>()};
     const IR::U1 is_scaled{ir.IsTextureScaled(ir.Imm32(info.descriptor_index))};
     switch (info.type) {
     case TextureType::Color2D:
     case TextureType::ColorArray2D:
     case TextureType::Color2DRect: {
-        const IR::Value new_inst{&*block.PrependNewInst(it, inst)};
+        const IR::Value new_inst{*block.PrependNewInst(it, inst)};
         const IR::U32 width{DownScale(ir, is_scaled, IR::U32{ir.CompositeExtract(new_inst, 0)})};
         const IR::U32 height{DownScale(ir, is_scaled, IR::U32{ir.CompositeExtract(new_inst, 1)})};
         const IR::Value replacement{ir.CompositeConstruct(
@@ -240,7 +240,7 @@ void SubScaleCoord(IR::IREmitter& ir, IR::Inst& inst, const IR::U1& is_scaled) {
 }
 
 void SubScaleImageFetch(IR::Block& block, IR::Inst& inst) {
-    IR::IREmitter ir{block, IR::Block::InstructionList::s_iterator_to(inst)};
+    IR::IREmitter ir{block, block.IteratorTo(inst)};
     const auto info{inst.Flags<IR::TextureInstInfo>()};
     if (!IsTextureTypeRescalable(info.type)) {
         return;
@@ -252,7 +252,7 @@ void SubScaleImageFetch(IR::Block& block, IR::Inst& inst) {
 }
 
 void SubScaleImageRead(IR::Block& block, IR::Inst& inst) {
-    IR::IREmitter ir{block, IR::Block::InstructionList::s_iterator_to(inst)};
+    IR::IREmitter ir{block, block.IteratorTo(inst)};
     const auto info{inst.Flags<IR::TextureInstInfo>()};
     if (!IsTextureTypeRescalable(info.type)) {
         return;
@@ -262,7 +262,7 @@ void SubScaleImageRead(IR::Block& block, IR::Inst& inst) {
 }
 
 void PatchImageFetch(IR::Block& block, IR::Inst& inst) {
-    IR::IREmitter ir{block, IR::Block::InstructionList::s_iterator_to(inst)};
+    IR::IREmitter ir{block, block.IteratorTo(inst)};
     const auto info{inst.Flags<IR::TextureInstInfo>()};
     if (!IsTextureTypeRescalable(info.type)) {
         return;
@@ -274,7 +274,7 @@ void PatchImageFetch(IR::Block& block, IR::Inst& inst) {
 }
 
 void PatchImageRead(IR::Block& block, IR::Inst& inst) {
-    IR::IREmitter ir{block, IR::Block::InstructionList::s_iterator_to(inst)};
+    IR::IREmitter ir{block, block.IteratorTo(inst)};
     const auto info{inst.Flags<IR::TextureInstInfo>()};
     if (!IsTextureTypeRescalable(info.type)) {
         return;
@@ -340,13 +340,13 @@ void RescalingPass(IR::Program& program) {
     const bool is_fragment_shader{program.stage == Stage::Fragment};
     if (is_fragment_shader) {
         for (IR::Block* const block : program.post_order_blocks) {
-            for (IR::Inst& inst : block->Instructions()) {
+            for (IR::Inst& inst : *block) {
                 VisitMark(*block, inst);
             }
         }
     }
     for (IR::Block* const block : program.post_order_blocks) {
-        for (IR::Inst& inst : block->Instructions()) {
+        for (IR::Inst& inst : *block) {
             Visit(program, *block, inst);
         }
     }

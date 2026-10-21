@@ -36,8 +36,8 @@ void KeplerCompute::ConsumeSinkImpl() {
 }
 
 void KeplerCompute::CallMethod(u32 method, u32 method_argument, bool is_last_call) {
-    ASSERT_MSG(method < Regs::NUM_REGS,
-               "Invalid KeplerCompute register, increase the size of the Regs structure");
+    assert(method < Regs::NUM_REGS &&
+           "Invalid KeplerCompute register, increase the size of the Regs structure");
 
     regs.reg_array[method] = method_argument;
 

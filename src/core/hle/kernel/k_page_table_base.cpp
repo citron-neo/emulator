@@ -215,9 +215,9 @@ Result KPageTableBase::InitializeForProcess(Svc::CreateProcessFlag as_type, bool
     const KProcessAddress end = (1ULL << as_width);
 
     // Validate the region.
-    ASSERT(start <= code_address);
-    ASSERT(code_address < code_address + code_size);
-    ASSERT(code_address + code_size - 1 <= end - 1);
+    assert(start <= code_address);
+    assert(code_address < code_address + code_size);
+    assert(code_address + code_size - 1 <= end - 1);
 
     // Define helpers.
     auto GetSpaceStart = [&](KAddressSpaceInfo::Type type) {
@@ -418,32 +418,32 @@ Result KPageTableBase::InitializeForProcess(Svc::CreateProcessFlag as_type, bool
                                                      : KMemoryManager::Direction::FromFront);
 
     // Ensure that we regions inside our address space.
-    auto IsInAddressSpace = [&](KProcessAddress addr) {
+    [[maybe_unused]] auto IsInAddressSpace = [&](KProcessAddress addr) {
         return m_address_space_start <= addr && addr <= m_address_space_end;
     };
-    ASSERT(IsInAddressSpace(m_alias_region_start));
-    ASSERT(IsInAddressSpace(m_alias_region_end));
-    ASSERT(IsInAddressSpace(m_heap_region_start));
-    ASSERT(IsInAddressSpace(m_heap_region_end));
-    ASSERT(IsInAddressSpace(m_stack_region_start));
-    ASSERT(IsInAddressSpace(m_stack_region_end));
-    ASSERT(IsInAddressSpace(m_kernel_map_region_start));
-    ASSERT(IsInAddressSpace(m_kernel_map_region_end));
+    assert(IsInAddressSpace(m_alias_region_start));
+    assert(IsInAddressSpace(m_alias_region_end));
+    assert(IsInAddressSpace(m_heap_region_start));
+    assert(IsInAddressSpace(m_heap_region_end));
+    assert(IsInAddressSpace(m_stack_region_start));
+    assert(IsInAddressSpace(m_stack_region_end));
+    assert(IsInAddressSpace(m_kernel_map_region_start));
+    assert(IsInAddressSpace(m_kernel_map_region_end));
 
     // Ensure that we selected regions that don't overlap.
-    const KProcessAddress alias_start = m_alias_region_start;
-    const KProcessAddress alias_last = m_alias_region_end - 1;
-    const KProcessAddress heap_start = m_heap_region_start;
-    const KProcessAddress heap_last = m_heap_region_end - 1;
-    const KProcessAddress stack_start = m_stack_region_start;
-    const KProcessAddress stack_last = m_stack_region_end - 1;
-    const KProcessAddress kmap_start = m_kernel_map_region_start;
-    const KProcessAddress kmap_last = m_kernel_map_region_end - 1;
-    ASSERT(alias_last < heap_start || heap_last < alias_start);
-    ASSERT(alias_last < stack_start || stack_last < alias_start);
-    ASSERT(alias_last < kmap_start || kmap_last < alias_start);
-    ASSERT(heap_last < stack_start || stack_last < heap_start);
-    ASSERT(heap_last < kmap_start || kmap_last < heap_start);
+    [[maybe_unused]] const KProcessAddress alias_start = m_alias_region_start;
+    [[maybe_unused]] const KProcessAddress alias_last = m_alias_region_end - 1;
+    [[maybe_unused]] const KProcessAddress heap_start = m_heap_region_start;
+    [[maybe_unused]] const KProcessAddress heap_last = m_heap_region_end - 1;
+    [[maybe_unused]] const KProcessAddress stack_start = m_stack_region_start;
+    [[maybe_unused]] const KProcessAddress stack_last = m_stack_region_end - 1;
+    [[maybe_unused]] const KProcessAddress kmap_start = m_kernel_map_region_start;
+    [[maybe_unused]] const KProcessAddress kmap_last = m_kernel_map_region_end - 1;
+    assert(alias_last < heap_start || heap_last < alias_start);
+    assert(alias_last < stack_start || stack_last < alias_start);
+    assert(alias_last < kmap_start || kmap_last < alias_start);
+    assert(heap_last < stack_start || stack_last < heap_start);
+    assert(heap_last < kmap_start || kmap_last < heap_start);
 
     // Initialize our implementation.
     m_impl = std::make_unique<Common::PageTable>();
@@ -458,7 +458,7 @@ Result KPageTableBase::InitializeForProcess(Svc::CreateProcessFlag as_type, bool
 }
 
 void KPageTableBase::ReleasePhysicalMapWindow(size_t slot_index) {
-    ASSERT(slot_index < m_physical_map_windows.size());
+    assert(slot_index < m_physical_map_windows.size());
     auto& slot = m_physical_map_windows[slot_index];
     if (slot.remaining_pages != 0) {
         m_kernel.MemoryManager().ReleaseContinuous(slot.next_physical, slot.remaining_pages);
@@ -484,7 +484,7 @@ size_t KPageTableBase::CountActivePhysicalMapWindows() const {
 
 Result KPageTableBase::FinalizeProcess() {
     // Only process tables should be finalized.
-    ASSERT(!this->IsKernel());
+    assert(!this->IsKernel());
 
     KScopedLightLock phys_lk(m_map_physical_memory_lock);
     this->ReleaseAllPhysicalMapWindows();
@@ -589,7 +589,7 @@ KProcessAddress KPageTableBase::GetRegionAddress(Svc::MemoryState state) const {
     case Svc::MemoryState::CodeData:
         return m_code_region_start;
     default:
-        UNREACHABLE();
+        std::unreachable();
     }
 }
 
@@ -625,7 +625,7 @@ size_t KPageTableBase::GetRegionSize(Svc::MemoryState state) const {
     case Svc::MemoryState::CodeData:
         return m_code_region_end - m_code_region_start;
     default:
-        UNREACHABLE();
+        std::unreachable();
     }
 }
 
@@ -664,12 +664,12 @@ bool KPageTableBase::CanContain(KProcessAddress addr, size_t size, Svc::MemorySt
     case Svc::MemoryState::Insecure:
         return is_in_region && !is_in_heap && !is_in_alias;
     case Svc::MemoryState::Normal:
-        ASSERT(is_in_heap);
+        assert(is_in_heap);
         return is_in_region && !is_in_alias;
     case Svc::MemoryState::Ipc:
     case Svc::MemoryState::NonSecureIpc:
     case Svc::MemoryState::NonDeviceIpc:
-        ASSERT(is_in_alias);
+        assert(is_in_alias);
         return is_in_region && !is_in_heap;
     default:
         return false;
@@ -694,7 +694,7 @@ Result KPageTableBase::CheckMemoryStateContiguous(size_t* out_blocks_needed, KPr
                                                   KMemoryPermission perm,
                                                   KMemoryAttribute attr_mask,
                                                   KMemoryAttribute attr) const {
-    ASSERT(this->IsLockedByCurrentThread());
+    assert(this->IsLockedByCurrentThread());
 
     // Get information about the first block.
     const KProcessAddress last_addr = addr + size - 1;
@@ -716,7 +716,7 @@ Result KPageTableBase::CheckMemoryStateContiguous(size_t* out_blocks_needed, KPr
 
         // Advance our iterator.
         it++;
-        ASSERT(it != m_memory_block_manager.cend());
+        assert(it != m_memory_block_manager.cend());
         info = it->GetMemoryInfo();
     }
 
@@ -738,7 +738,7 @@ Result KPageTableBase::CheckMemoryState(KMemoryState* out_state, KMemoryPermissi
                                         KMemoryState state, KMemoryPermission perm_mask,
                                         KMemoryPermission perm, KMemoryAttribute attr_mask,
                                         KMemoryAttribute attr, KMemoryAttribute ignore_attr) const {
-    ASSERT(this->IsLockedByCurrentThread());
+    assert(this->IsLockedByCurrentThread());
 
     // Get information about the first block.
     KMemoryInfo info = it->GetMemoryInfo();
@@ -764,7 +764,7 @@ Result KPageTableBase::CheckMemoryState(KMemoryState* out_state, KMemoryPermissi
 
         // Advance our iterator.
         it++;
-        ASSERT(it != m_memory_block_manager.cend());
+        assert(it != m_memory_block_manager.cend());
         info = it->GetMemoryInfo();
     }
 
@@ -797,7 +797,7 @@ Result KPageTableBase::CheckMemoryState(KMemoryState* out_state, KMemoryPermissi
                                         KMemoryState state, KMemoryPermission perm_mask,
                                         KMemoryPermission perm, KMemoryAttribute attr_mask,
                                         KMemoryAttribute attr, KMemoryAttribute ignore_attr) const {
-    ASSERT(this->IsLockedByCurrentThread());
+    assert(this->IsLockedByCurrentThread());
 
     // Check memory state.
     const KProcessAddress last_addr = addr + size - 1;
@@ -821,8 +821,8 @@ Result KPageTableBase::LockMemoryAndOpen(KPageGroup* out_pg, KPhysicalAddress* o
                                          KMemoryAttribute attr, KMemoryPermission new_perm,
                                          KMemoryAttribute lock_attr) {
     // Validate basic preconditions.
-    ASSERT(False(lock_attr & attr));
-    ASSERT(False(lock_attr & (KMemoryAttribute::IpcLocked | KMemoryAttribute::DeviceShared)));
+    assert(False(lock_attr & attr));
+    assert(False(lock_attr & (KMemoryAttribute::IpcLocked | KMemoryAttribute::DeviceShared)));
 
     // Validate the lock request.
     const size_t num_pages = size / PageSize;
@@ -833,7 +833,7 @@ Result KPageTableBase::LockMemoryAndOpen(KPageGroup* out_pg, KPhysicalAddress* o
 
     // Check that the output page group is empty, if it exists.
     if (out_pg) {
-        ASSERT(out_pg->GetNumPages() == 0);
+        assert(out_pg->GetNumPages() == 0);
     }
 
     // Check the state.
@@ -849,7 +849,9 @@ Result KPageTableBase::LockMemoryAndOpen(KPageGroup* out_pg, KPhysicalAddress* o
 
     // Get the physical address, if we're supposed to.
     if (out_paddr != nullptr) {
-        ASSERT(this->GetPhysicalAddressLocked(out_paddr, addr));
+        [[maybe_unused]] const auto get_physical_address_locked_result =
+            this->GetPhysicalAddressLocked(out_paddr, addr);
+        assert(get_physical_address_locked_result);
     }
 
     // Make the page group, if we're supposed to.
@@ -898,8 +900,8 @@ Result KPageTableBase::UnlockMemory(KProcessAddress addr, size_t size, KMemorySt
                                     KMemoryAttribute attr, KMemoryPermission new_perm,
                                     KMemoryAttribute lock_attr, const KPageGroup* pg) {
     // Validate basic preconditions.
-    ASSERT((attr_mask & lock_attr) == lock_attr);
-    ASSERT((attr & lock_attr) == lock_attr);
+    assert((attr_mask & lock_attr) == lock_attr);
+    assert((attr & lock_attr) == lock_attr);
 
     // Validate the unlock request.
     const size_t num_pages = size / PageSize;
@@ -956,9 +958,9 @@ Result KPageTableBase::UnlockMemory(KProcessAddress addr, size_t size, KMemorySt
 
 Result KPageTableBase::QueryInfoImpl(KMemoryInfo* out_info, Svc::PageInfo* out_page,
                                      KProcessAddress address) const {
-    ASSERT(this->IsLockedByCurrentThread());
-    ASSERT(out_info != nullptr);
-    ASSERT(out_page != nullptr);
+    assert(this->IsLockedByCurrentThread());
+    assert(out_info != nullptr);
+    assert(out_page != nullptr);
 
     const KMemoryBlock* block = m_memory_block_manager.FindBlock(address);
     R_UNLESS(block != nullptr, ResultInvalidCurrentMemory);
@@ -970,8 +972,8 @@ Result KPageTableBase::QueryInfoImpl(KMemoryInfo* out_info, Svc::PageInfo* out_p
 
 Result KPageTableBase::QueryMappingImpl(KProcessAddress* out, KPhysicalAddress address, size_t size,
                                         Svc::MemoryState state) const {
-    ASSERT(!this->IsLockedByCurrentThread());
-    ASSERT(out != nullptr);
+    assert(!this->IsLockedByCurrentThread());
+    assert(out != nullptr);
 
     const KProcessAddress region_start = this->GetRegionAddress(state);
     const size_t region_size = this->GetRegionSize(state);
@@ -1653,7 +1655,7 @@ size_t KPageTableBase::GetAliasCodeDataSize() const {
 
 Result KPageTableBase::AllocateAndMapPagesImpl(PageLinkedList* page_list, KProcessAddress address,
                                                size_t num_pages, KMemoryPermission perm) {
-    ASSERT(this->IsLockedByCurrentThread());
+    assert(this->IsLockedByCurrentThread());
 
     // Create a page group to hold the pages we allocate.
     KPageGroup pg(m_kernel, m_block_info_manager);
@@ -1681,7 +1683,7 @@ Result KPageTableBase::AllocateAndMapPagesImpl(PageLinkedList* page_list, KProce
 Result KPageTableBase::MapPageGroupImpl(PageLinkedList* page_list, KProcessAddress address,
                                         const KPageGroup& pg, const KPageProperties properties,
                                         bool reuse_ll) {
-    ASSERT(this->IsLockedByCurrentThread());
+    assert(this->IsLockedByCurrentThread());
 
     // Note the current address, so that we can iterate.
     const KProcessAddress start_address = address;
@@ -1689,7 +1691,7 @@ Result KPageTableBase::MapPageGroupImpl(PageLinkedList* page_list, KProcessAddre
 
     // Ensure that we clean up on failure.
     ON_RESULT_FAILURE {
-        ASSERT(!reuse_ll);
+        assert(!reuse_ll);
         if (cur_address != start_address) {
             const KPageProperties unmap_properties = {KMemoryPermission::None, false, false,
                                                       DisableMergeAttribute::None};
@@ -1718,7 +1720,7 @@ Result KPageTableBase::MapPageGroupImpl(PageLinkedList* page_list, KProcessAddre
 
 void KPageTableBase::RemapPageGroup(PageLinkedList* page_list, KProcessAddress address, size_t size,
                                     const KPageGroup& pg) {
-    ASSERT(this->IsLockedByCurrentThread());
+    assert(this->IsLockedByCurrentThread());
 
     // Note the current address, so that we can iterate.
     const KProcessAddress start_address = address;
@@ -1727,7 +1729,7 @@ void KPageTableBase::RemapPageGroup(PageLinkedList* page_list, KProcessAddress a
 
     // Iterate over the memory.
     auto pg_it = pg.begin();
-    ASSERT(pg_it != pg.end());
+    assert(pg_it != pg.end());
 
     KPhysicalAddress pg_phys_addr = pg_it->GetAddress();
     size_t pg_pages = pg_it->GetNumPages();
@@ -1735,7 +1737,7 @@ void KPageTableBase::RemapPageGroup(PageLinkedList* page_list, KProcessAddress a
     auto it = m_memory_block_manager.FindIterator(start_address);
     while (true) {
         // Check that the iterator is valid.
-        ASSERT(it != m_memory_block_manager.end());
+        assert(it != m_memory_block_manager.end());
 
         // Get the memory info.
         const KMemoryInfo info = it->GetMemoryInfo();
@@ -1744,7 +1746,7 @@ void KPageTableBase::RemapPageGroup(PageLinkedList* page_list, KProcessAddress a
         KProcessAddress map_address = std::max<u64>(info.GetAddress(), GetInteger(start_address));
         const KProcessAddress map_end_address =
             std::min<u64>(info.GetEndAddress(), GetInteger(end_address));
-        ASSERT(map_end_address != map_address);
+        assert(map_end_address != map_address);
 
         // Determine if we should disable head merge.
         const bool disable_head_merge =
@@ -1760,7 +1762,7 @@ void KPageTableBase::RemapPageGroup(PageLinkedList* page_list, KProcessAddress a
             // Check if we're at the end of the physical block.
             if (pg_pages == 0) {
                 // Ensure there are more pages to map.
-                ASSERT(pg_it != pg.end());
+                assert(pg_it != pg.end());
 
                 // Advance our physical block.
                 ++pg_it;
@@ -1791,11 +1793,12 @@ void KPageTableBase::RemapPageGroup(PageLinkedList* page_list, KProcessAddress a
     }
 
     // Check that we re-mapped precisely the page group.
-    ASSERT((++pg_it) == pg.end());
+    ++pg_it;
+    assert(pg_it == pg.end());
 }
 
 Result KPageTableBase::MakePageGroup(KPageGroup& pg, KProcessAddress addr, size_t num_pages) {
-    ASSERT(this->IsLockedByCurrentThread());
+    assert(this->IsLockedByCurrentThread());
 
     const size_t size = num_pages * PageSize;
 
@@ -1850,7 +1853,7 @@ Result KPageTableBase::MakePageGroup(KPageGroup& pg, KProcessAddress addr, size_
 
 bool KPageTableBase::IsValidPageGroup(const KPageGroup& pg, KProcessAddress addr,
                                       size_t num_pages) {
-    ASSERT(this->IsLockedByCurrentThread());
+    assert(this->IsLockedByCurrentThread());
 
     const size_t size = num_pages * PageSize;
 
@@ -1942,7 +1945,7 @@ Result KPageTableBase::GetContiguousMemoryRangeWithState(
     MemoryRange* out, KProcessAddress address, size_t size, KMemoryState state_mask,
     KMemoryState state, KMemoryPermission perm_mask, KMemoryPermission perm,
     KMemoryAttribute attr_mask, KMemoryAttribute attr) {
-    ASSERT(this->IsLockedByCurrentThread());
+    assert(this->IsLockedByCurrentThread());
 
     auto& impl = this->GetImpl();
 
@@ -2054,7 +2057,7 @@ Result KPageTableBase::SetProcessMemoryPermission(KProcessAddress addr, size_t s
     const bool is_x = (new_perm & KMemoryPermission::UserExecute) == KMemoryPermission::UserExecute;
     const bool was_x =
         (old_perm & KMemoryPermission::UserExecute) == KMemoryPermission::UserExecute;
-    ASSERT(!(is_w && is_x));
+    assert(!(is_w && is_x));
 
     if (is_w) {
         switch (old_state) {
@@ -2065,7 +2068,7 @@ Result KPageTableBase::SetProcessMemoryPermission(KProcessAddress addr, size_t s
             new_state = KMemoryState::AliasCodeData;
             break;
         default:
-            UNREACHABLE();
+            std::unreachable();
         }
     }
 
@@ -2112,7 +2115,7 @@ Result KPageTableBase::SetProcessMemoryPermission(KProcessAddress addr, size_t s
 Result KPageTableBase::SetMemoryAttribute(KProcessAddress addr, size_t size, KMemoryAttribute mask,
                                           KMemoryAttribute attr) {
     const size_t num_pages = size / PageSize;
-    ASSERT((mask | KMemoryAttribute::SetMask) == KMemoryAttribute::SetMask);
+    assert((mask | KMemoryAttribute::SetMask) == KMemoryAttribute::SetMask);
 
     // Lock the table.
     KScopedLightLock lk(m_general_lock);
@@ -2268,7 +2271,7 @@ Result KPageTableBase::SetHeapSize(KProcessAddress* out, size_t size) {
         KScopedLightLock lk(m_general_lock);
 
         // Ensure that the heap hasn't changed since we began executing.
-        ASSERT(cur_address == m_current_heap_end);
+        assert(cur_address == m_current_heap_end);
 
         // Check the memory state.
         size_t num_allocator_blocks;
@@ -2320,7 +2323,7 @@ Result KPageTableBase::SetMaxHeapSize(size_t size) {
     KScopedLightLock lk(m_general_lock);
 
     // Only process page tables are allowed to set heap size.
-    ASSERT(!this->IsKernel());
+    assert(!this->IsKernel());
 
     m_max_heap_size = size;
 
@@ -2423,7 +2426,7 @@ Result KPageTableBase::QueryPhysicalAddress(Svc::lp64::PhysicalMemoryInfo* out,
                 break;
             }
         }
-        ASSERT(virt_addr <= address && address <= virt_addr + phys_size - 1);
+        assert(virt_addr <= address && address <= virt_addr + phys_size - 1);
 
         // Ensure we use the right size.
         if (end_addr < virt_addr + phys_size) {
@@ -2442,10 +2445,10 @@ Result KPageTableBase::MapIoImpl(KProcessAddress* out, PageLinkedList* page_list
                                  KPhysicalAddress phys_addr, size_t size, KMemoryState state,
                                  KMemoryPermission perm) {
     // Check pre-conditions.
-    ASSERT(this->IsLockedByCurrentThread());
-    ASSERT(Common::IsAligned(GetInteger(phys_addr), PageSize));
-    ASSERT(Common::IsAligned(size, PageSize));
-    ASSERT(size > 0);
+    assert(this->IsLockedByCurrentThread());
+    assert(Common::IsAligned(GetInteger(phys_addr), PageSize));
+    assert(Common::IsAligned(size, PageSize));
+    assert(size > 0);
 
     R_UNLESS(phys_addr < phys_addr + size, ResultInvalidAddress);
     const size_t num_pages = size / PageSize;
@@ -2456,13 +2459,13 @@ Result KPageTableBase::MapIoImpl(KProcessAddress* out, PageLinkedList* page_list
     const size_t region_size = m_kernel_map_region_end - m_kernel_map_region_start;
     const size_t region_num_pages = region_size / PageSize;
 
-    ASSERT(this->CanContain(region_start, region_size, state));
+    assert(this->CanContain(region_start, region_size, state));
 
     // Locate the memory region.
     const KMemoryRegion* region = KMemoryLayout::Find(m_kernel.MemoryLayout(), phys_addr);
     R_UNLESS(region != nullptr, ResultInvalidAddress);
 
-    ASSERT(region->Contains(GetInteger(phys_addr)));
+    assert(region->Contains(GetInteger(phys_addr)));
 
     // Ensure that the region is mappable.
     const bool is_rw = perm == KMemoryPermission::UserReadWrite;
@@ -2504,7 +2507,7 @@ Result KPageTableBase::MapIoImpl(KProcessAddress* out, PageLinkedList* page_list
     }
 
     // Check that we can map IO here.
-    ASSERT(this->CanContain(addr, size, state));
+    assert(this->CanContain(addr, size, state));
     R_ASSERT(this->CheckMemoryState(addr, size, KMemoryState::All, KMemoryState::Free,
                                     KMemoryPermission::None, KMemoryPermission::None,
                                     KMemoryAttribute::None, KMemoryAttribute::None));
@@ -2619,8 +2622,9 @@ Result KPageTableBase::UnmapIoRegion(KProcessAddress dst_address, KPhysicalAddre
         // Begin traversal.
         TraversalContext context;
         TraversalEntry next_entry;
-        ASSERT(
-            impl.BeginTraversal(std::addressof(next_entry), std::addressof(context), dst_address));
+        [[maybe_unused]] const auto begin_traversal_result =
+            impl.BeginTraversal(std::addressof(next_entry), std::addressof(context), dst_address);
+        assert(begin_traversal_result);
 
         // Check that the physical region matches.
         R_UNLESS(next_entry.phys_addr == phys_addr, ResultInvalidMemoryRegion);
@@ -2630,7 +2634,9 @@ Result KPageTableBase::UnmapIoRegion(KProcessAddress dst_address, KPhysicalAddre
                  next_entry.block_size - (GetInteger(phys_addr) & (next_entry.block_size - 1));
              checked_size < size; checked_size += next_entry.block_size) {
             // Continue the traversal.
-            ASSERT(impl.ContinueTraversal(std::addressof(next_entry), std::addressof(context)));
+            [[maybe_unused]] const auto continue_traversal_result =
+                impl.ContinueTraversal(std::addressof(next_entry), std::addressof(context));
+            assert(continue_traversal_result);
 
             // Check that the physical region matches.
             R_UNLESS(next_entry.phys_addr == phys_addr + checked_size, ResultInvalidMemoryRegion);
@@ -2680,9 +2686,9 @@ Result KPageTableBase::UnmapIoRegion(KProcessAddress dst_address, KPhysicalAddre
 }
 
 Result KPageTableBase::MapStatic(KPhysicalAddress phys_addr, size_t size, KMemoryPermission perm) {
-    ASSERT(Common::IsAligned(GetInteger(phys_addr), PageSize));
-    ASSERT(Common::IsAligned(size, PageSize));
-    ASSERT(size > 0);
+    assert(Common::IsAligned(GetInteger(phys_addr), PageSize));
+    assert(Common::IsAligned(size, PageSize));
+    assert(size > 0);
     R_UNLESS(phys_addr < phys_addr + size, ResultInvalidAddress);
     const size_t num_pages = size / PageSize;
     const KPhysicalAddress last = phys_addr + size - 1;
@@ -2696,7 +2702,7 @@ Result KPageTableBase::MapStatic(KPhysicalAddress phys_addr, size_t size, KMemor
     const KMemoryRegion* region = KMemoryLayout::Find(m_kernel.MemoryLayout(), phys_addr);
     R_UNLESS(region != nullptr, ResultInvalidAddress);
 
-    ASSERT(region->Contains(GetInteger(phys_addr)));
+    assert(region->Contains(GetInteger(phys_addr)));
     R_UNLESS(GetInteger(last) <= region->GetLastAddress(), ResultInvalidAddress);
 
     // Check the region attributes.
@@ -2728,7 +2734,7 @@ Result KPageTableBase::MapStatic(KPhysicalAddress phys_addr, size_t size, KMemor
     }
 
     // Check that we can map static here.
-    ASSERT(this->CanContain(addr, size, KMemoryState::Static));
+    assert(this->CanContain(addr, size, KMemoryState::Static));
     R_ASSERT(this->CheckMemoryState(addr, size, KMemoryState::All, KMemoryState::Free,
                                     KMemoryPermission::None, KMemoryPermission::None,
                                     KMemoryAttribute::None, KMemoryAttribute::None));
@@ -2764,7 +2770,7 @@ Result KPageTableBase::MapRegion(KMemoryRegionType region_type, KMemoryPermissio
     R_UNLESS(region != nullptr, ResultOutOfRange);
 
     // Check that the region is valid.
-    ASSERT(region->GetEndAddress() != 0);
+    assert(region->GetEndAddress() != 0);
 
     // Map the region.
     R_TRY_CATCH(this->MapStatic(region->GetAddress(), region->GetSize(), perm)){
@@ -2777,7 +2783,7 @@ Result KPageTableBase::MapPages(KProcessAddress* out_addr, size_t num_pages, siz
                                 KPhysicalAddress phys_addr, bool is_pa_valid,
                                 KProcessAddress region_start, size_t region_num_pages,
                                 KMemoryState state, KMemoryPermission perm) {
-    ASSERT(Common::IsAligned(alignment, PageSize) && alignment >= PageSize);
+    assert(Common::IsAligned(alignment, PageSize) && alignment >= PageSize);
 
     // Ensure this is a valid map request.
     R_UNLESS(this->CanContain(region_start, region_num_pages * PageSize, state),
@@ -2791,8 +2797,8 @@ Result KPageTableBase::MapPages(KProcessAddress* out_addr, size_t num_pages, siz
     KProcessAddress addr = this->FindFreeArea(region_start, region_num_pages, num_pages, alignment,
                                               0, this->GetNumGuardPages());
     R_UNLESS(addr != 0, ResultOutOfMemory);
-    ASSERT(Common::IsAligned(GetInteger(addr), alignment));
-    ASSERT(this->CanContain(addr, num_pages * PageSize, state));
+    assert(Common::IsAligned(GetInteger(addr), alignment));
+    assert(this->CanContain(addr, num_pages * PageSize, state));
     R_ASSERT(this->CheckMemoryState(
         addr, num_pages * PageSize, KMemoryState::All, KMemoryState::Free, KMemoryPermission::None,
         KMemoryPermission::None, KMemoryAttribute::None, KMemoryAttribute::None));
@@ -2903,7 +2909,7 @@ Result KPageTableBase::UnmapPages(KProcessAddress address, size_t num_pages, KMe
 Result KPageTableBase::MapPageGroup(KProcessAddress* out_addr, const KPageGroup& pg,
                                     KProcessAddress region_start, size_t region_num_pages,
                                     KMemoryState state, KMemoryPermission perm) {
-    ASSERT(!this->IsLockedByCurrentThread());
+    assert(!this->IsLockedByCurrentThread());
 
     // Ensure this is a valid map request.
     const size_t num_pages = pg.GetNumPages();
@@ -2918,7 +2924,7 @@ Result KPageTableBase::MapPageGroup(KProcessAddress* out_addr, const KPageGroup&
     KProcessAddress addr = this->FindFreeArea(region_start, region_num_pages, num_pages, PageSize,
                                               0, this->GetNumGuardPages());
     R_UNLESS(addr != 0, ResultOutOfMemory);
-    ASSERT(this->CanContain(addr, num_pages * PageSize, state));
+    assert(this->CanContain(addr, num_pages * PageSize, state));
     R_ASSERT(this->CheckMemoryState(
         addr, num_pages * PageSize, KMemoryState::All, KMemoryState::Free, KMemoryPermission::None,
         KMemoryPermission::None, KMemoryAttribute::None, KMemoryAttribute::None));
@@ -2948,7 +2954,7 @@ Result KPageTableBase::MapPageGroup(KProcessAddress* out_addr, const KPageGroup&
 
 Result KPageTableBase::MapPageGroup(KProcessAddress addr, const KPageGroup& pg, KMemoryState state,
                                     KMemoryPermission perm) {
-    ASSERT(!this->IsLockedByCurrentThread());
+    assert(!this->IsLockedByCurrentThread());
 
     // Ensure this is a valid map request.
     const size_t num_pages = pg.GetNumPages();
@@ -2989,7 +2995,7 @@ Result KPageTableBase::MapPageGroup(KProcessAddress addr, const KPageGroup& pg, 
 
 Result KPageTableBase::UnmapPageGroup(KProcessAddress address, const KPageGroup& pg,
                                       KMemoryState state) {
-    ASSERT(!this->IsLockedByCurrentThread());
+    assert(!this->IsLockedByCurrentThread());
 
     // Ensure this is a valid unmap request.
     const size_t num_pages = pg.GetNumPages();
@@ -3039,7 +3045,7 @@ Result KPageTableBase::MakeAndOpenPageGroup(KPageGroup* out, KProcessAddress add
                                             KMemoryPermission perm, KMemoryAttribute attr_mask,
                                             KMemoryAttribute attr) {
     // Ensure that the page group isn't null.
-    ASSERT(out != nullptr);
+    assert(out != nullptr);
 
     // Make sure that the region we're mapping is valid for the table.
     const size_t size = num_pages * PageSize;
@@ -3136,7 +3142,7 @@ Result KPageTableBase::InvalidateProcessDataCache(KProcessAddress address, size_
 
 Result KPageTableBase::InvalidateCurrentProcessDataCache(KProcessAddress address, size_t size) {
     // Check pre-condition: this is being called on the current process.
-    ASSERT(this == std::addressof(GetCurrentProcess(m_kernel).GetPageTable().GetBasePageTable()));
+    assert(this == std::addressof(GetCurrentProcess(m_kernel).GetPageTable().GetBasePageTable()));
 
     // Check that the region is in range.
     R_UNLESS(this->Contains(address, size), ResultInvalidCurrentMemory);
@@ -3221,7 +3227,7 @@ Result KPageTableBase::ReadDebugMemory(KProcessAddress dst_address, KProcessAddr
         // Continue the traversal.
         traverse_valid =
             impl.ContinueTraversal(std::addressof(next_entry), std::addressof(context));
-        ASSERT(traverse_valid);
+        assert(traverse_valid);
 
         if (next_entry.phys_addr != (cur_addr + cur_size)) {
             // Perform copy.
@@ -3321,7 +3327,7 @@ Result KPageTableBase::WriteDebugMemory(KProcessAddress dst_address, KProcessAdd
         // Continue the traversal.
         traverse_valid =
             impl.ContinueTraversal(std::addressof(next_entry), std::addressof(context));
-        ASSERT(traverse_valid);
+        assert(traverse_valid);
 
         if (next_entry.phys_addr != (cur_addr + cur_size)) {
             // Perform copy.
@@ -3356,7 +3362,7 @@ Result KPageTableBase::WriteDebugMemory(KProcessAddress dst_address, KProcessAdd
 Result KPageTableBase::ReadIoMemoryImpl(KProcessAddress dst_addr, KPhysicalAddress phys_addr,
                                         size_t size, KMemoryState state) {
     // Check pre-conditions.
-    ASSERT(this->IsLockedByCurrentThread());
+    assert(this->IsLockedByCurrentThread());
 
     // Determine the mapping extents.
     const KPhysicalAddress map_start = Common::AlignDown(GetInteger(phys_addr), PageSize);
@@ -3392,7 +3398,7 @@ Result KPageTableBase::ReadIoMemoryImpl(KProcessAddress dst_addr, KPhysicalAddre
 Result KPageTableBase::WriteIoMemoryImpl(KPhysicalAddress phys_addr, KProcessAddress src_addr,
                                          size_t size, KMemoryState state) {
     // Check pre-conditions.
-    ASSERT(this->IsLockedByCurrentThread());
+    assert(this->IsLockedByCurrentThread());
 
     // Determine the mapping extents.
     const KPhysicalAddress map_start = Common::AlignDown(GetInteger(phys_addr), PageSize);
@@ -3448,7 +3454,9 @@ Result KPageTableBase::ReadDebugIoMemory(KProcessAddress dst_address, KProcessAd
     while (src_address <= last_address) {
         // Get the current physical address.
         KPhysicalAddress phys_addr;
-        ASSERT(src_page_table.GetPhysicalAddressLocked(std::addressof(phys_addr), src_address));
+        [[maybe_unused]] const auto get_physical_address_locked_result_2 =
+            src_page_table.GetPhysicalAddressLocked(std::addressof(phys_addr), src_address);
+        assert(get_physical_address_locked_result_2);
 
         // Determine the current read size.
         const size_t cur_size =
@@ -3490,7 +3498,9 @@ Result KPageTableBase::WriteDebugIoMemory(KProcessAddress dst_address, KProcessA
     while (dst_address <= last_address) {
         // Get the current physical address.
         KPhysicalAddress phys_addr;
-        ASSERT(src_page_table.GetPhysicalAddressLocked(std::addressof(phys_addr), dst_address));
+        [[maybe_unused]] const auto get_physical_address_locked_result_3 =
+            src_page_table.GetPhysicalAddressLocked(std::addressof(phys_addr), dst_address);
+        assert(get_physical_address_locked_result_3);
 
         // Determine the current read size.
         const size_t cur_size =
@@ -3780,9 +3790,9 @@ Result KPageTableBase::CopyMemoryFromLinearToUser(
         // Begin traversal.
         TraversalContext context;
         TraversalEntry next_entry;
-        bool traverse_valid =
+        [[maybe_unused]] bool traverse_valid =
             impl.BeginTraversal(std::addressof(next_entry), std::addressof(context), src_addr);
-        ASSERT(traverse_valid);
+        assert(traverse_valid);
 
         // Prepare tracking variables.
         KPhysicalAddress cur_addr = next_entry.phys_addr;
@@ -3822,7 +3832,7 @@ Result KPageTableBase::CopyMemoryFromLinearToUser(
             // Continue the traversal.
             traverse_valid =
                 impl.ContinueTraversal(std::addressof(next_entry), std::addressof(context));
-            ASSERT(traverse_valid);
+            assert(traverse_valid);
 
             if (next_entry.phys_addr != (cur_addr + cur_size)) {
                 // Perform copy.
@@ -3874,9 +3884,9 @@ Result KPageTableBase::CopyMemoryFromLinearToKernel(
         // Begin traversal.
         TraversalContext context;
         TraversalEntry next_entry;
-        bool traverse_valid =
+        [[maybe_unused]] bool traverse_valid =
             impl.BeginTraversal(std::addressof(next_entry), std::addressof(context), src_addr);
-        ASSERT(traverse_valid);
+        assert(traverse_valid);
 
         // Prepare tracking variables.
         KPhysicalAddress cur_addr = next_entry.phys_addr;
@@ -3899,7 +3909,7 @@ Result KPageTableBase::CopyMemoryFromLinearToKernel(
             // Continue the traversal.
             traverse_valid =
                 impl.ContinueTraversal(std::addressof(next_entry), std::addressof(context));
-            ASSERT(traverse_valid);
+            assert(traverse_valid);
 
             if (next_entry.phys_addr != (cur_addr + cur_size)) {
                 // Perform copy.
@@ -3954,9 +3964,9 @@ Result KPageTableBase::CopyMemoryFromUserToLinear(
         // Begin traversal.
         TraversalContext context;
         TraversalEntry next_entry;
-        bool traverse_valid =
+        [[maybe_unused]] bool traverse_valid =
             impl.BeginTraversal(std::addressof(next_entry), std::addressof(context), dst_addr);
-        ASSERT(traverse_valid);
+        assert(traverse_valid);
 
         // Prepare tracking variables.
         KPhysicalAddress cur_addr = next_entry.phys_addr;
@@ -3995,7 +4005,7 @@ Result KPageTableBase::CopyMemoryFromUserToLinear(
             // Continue the traversal.
             traverse_valid =
                 impl.ContinueTraversal(std::addressof(next_entry), std::addressof(context));
-            ASSERT(traverse_valid);
+            assert(traverse_valid);
 
             if (next_entry.phys_addr != (cur_addr + cur_size)) {
                 // Perform copy.
@@ -4049,9 +4059,9 @@ Result KPageTableBase::CopyMemoryFromKernelToLinear(KProcessAddress dst_addr, si
         // Begin traversal.
         TraversalContext context;
         TraversalEntry next_entry;
-        bool traverse_valid =
+        [[maybe_unused]] bool traverse_valid =
             impl.BeginTraversal(std::addressof(next_entry), std::addressof(context), dst_addr);
-        ASSERT(traverse_valid);
+        assert(traverse_valid);
 
         // Prepare tracking variables.
         KPhysicalAddress cur_addr = next_entry.phys_addr;
@@ -4074,7 +4084,7 @@ Result KPageTableBase::CopyMemoryFromKernelToLinear(KProcessAddress dst_addr, si
             // Continue the traversal.
             traverse_valid =
                 impl.ContinueTraversal(std::addressof(next_entry), std::addressof(context));
-            ASSERT(traverse_valid);
+            assert(traverse_valid);
 
             if (next_entry.phys_addr != (cur_addr + cur_size)) {
                 // Perform copy.
@@ -4139,15 +4149,15 @@ Result KPageTableBase::CopyMemoryFromHeapToHeap(
         TraversalContext dst_context;
         TraversalEntry src_next_entry;
         TraversalEntry dst_next_entry;
-        bool traverse_valid;
+        [[maybe_unused]] bool traverse_valid;
 
         // Begin traversal.
         traverse_valid = src_impl.BeginTraversal(std::addressof(src_next_entry),
                                                  std::addressof(src_context), src_addr);
-        ASSERT(traverse_valid);
+        assert(traverse_valid);
         traverse_valid = dst_impl.BeginTraversal(std::addressof(dst_next_entry),
                                                  std::addressof(dst_context), dst_addr);
-        ASSERT(traverse_valid);
+        assert(traverse_valid);
 
         // Prepare tracking variables.
         KPhysicalAddress cur_src_block_addr = src_next_entry.phys_addr;
@@ -4182,7 +4192,7 @@ Result KPageTableBase::CopyMemoryFromHeapToHeap(
                     // Continue the src traversal.
                     traverse_valid = src_impl.ContinueTraversal(std::addressof(src_next_entry),
                                                                 std::addressof(src_context));
-                    ASSERT(traverse_valid);
+                    assert(traverse_valid);
 
                     // Update source.
                     updated_src = cur_src_addr + cur_min_size != src_next_entry.phys_addr;
@@ -4193,7 +4203,7 @@ Result KPageTableBase::CopyMemoryFromHeapToHeap(
                     // Continue the dst traversal.
                     traverse_valid = dst_impl.ContinueTraversal(std::addressof(dst_next_entry),
                                                                 std::addressof(dst_context));
-                    ASSERT(traverse_valid);
+                    assert(traverse_valid);
 
                     // Update destination.
                     updated_dst = cur_dst_addr + cur_min_size != dst_next_entry.phys_addr;
@@ -4273,15 +4283,15 @@ Result KPageTableBase::CopyMemoryFromHeapToHeapWithoutCheckDestination(
         TraversalContext dst_context;
         TraversalEntry src_next_entry;
         TraversalEntry dst_next_entry;
-        bool traverse_valid;
+        [[maybe_unused]] bool traverse_valid;
 
         // Begin traversal.
         traverse_valid = src_impl.BeginTraversal(std::addressof(src_next_entry),
                                                  std::addressof(src_context), src_addr);
-        ASSERT(traverse_valid);
+        assert(traverse_valid);
         traverse_valid = dst_impl.BeginTraversal(std::addressof(dst_next_entry),
                                                  std::addressof(dst_context), dst_addr);
-        ASSERT(traverse_valid);
+        assert(traverse_valid);
 
         // Prepare tracking variables.
         KPhysicalAddress cur_src_block_addr = src_next_entry.phys_addr;
@@ -4316,7 +4326,7 @@ Result KPageTableBase::CopyMemoryFromHeapToHeapWithoutCheckDestination(
                     // Continue the src traversal.
                     traverse_valid = src_impl.ContinueTraversal(std::addressof(src_next_entry),
                                                                 std::addressof(src_context));
-                    ASSERT(traverse_valid);
+                    assert(traverse_valid);
 
                     // Update source.
                     updated_src = cur_src_addr + cur_min_size != src_next_entry.phys_addr;
@@ -4327,7 +4337,7 @@ Result KPageTableBase::CopyMemoryFromHeapToHeapWithoutCheckDestination(
                     // Continue the dst traversal.
                     traverse_valid = dst_impl.ContinueTraversal(std::addressof(dst_next_entry),
                                                                 std::addressof(dst_context));
-                    ASSERT(traverse_valid);
+                    assert(traverse_valid);
 
                     // Update destination.
                     updated_dst = cur_dst_addr + cur_min_size != dst_next_entry.phys_addr;
@@ -4377,8 +4387,8 @@ Result KPageTableBase::SetupForIpcClient(PageLinkedList* page_list, size_t* out_
                                          KProcessAddress address, size_t size,
                                          KMemoryPermission test_perm, KMemoryState dst_state) {
     // Validate pre-conditions.
-    ASSERT(this->IsLockedByCurrentThread());
-    ASSERT(test_perm == KMemoryPermission::UserReadWrite ||
+    assert(this->IsLockedByCurrentThread());
+    assert(test_perm == KMemoryPermission::UserReadWrite ||
            test_perm == KMemoryPermission::UserRead);
 
     // Check that the address is in range.
@@ -4485,11 +4495,11 @@ Result KPageTableBase::SetupForIpcClient(PageLinkedList* page_list, size_t* out_
 
         // Advance.
         ++it;
-        ASSERT(it != m_memory_block_manager.end());
+        assert(it != m_memory_block_manager.end());
     }
 
     if (out_blocks_needed != nullptr) {
-        ASSERT(blocks_needed <= KMemoryBlockManagerUpdateAllocator::MaxBlocks);
+        assert(blocks_needed <= KMemoryBlockManagerUpdateAllocator::MaxBlocks);
         *out_blocks_needed = blocks_needed;
     }
 
@@ -4500,8 +4510,8 @@ Result KPageTableBase::SetupForIpcServer(KProcessAddress* out_addr, size_t size,
                                          KProcessAddress src_addr, KMemoryPermission test_perm,
                                          KMemoryState dst_state, KPageTableBase& src_page_table,
                                          bool send) {
-    ASSERT(this->IsLockedByCurrentThread());
-    ASSERT(src_page_table.IsLockedByCurrentThread());
+    assert(this->IsLockedByCurrentThread());
+    assert(src_page_table.IsLockedByCurrentThread());
 
     // Check that we can theoretically map.
     const KProcessAddress region_start = m_alias_region_start;
@@ -4533,7 +4543,7 @@ Result KPageTableBase::SetupForIpcServer(KProcessAddress* out_addr, size_t size,
     }
 
     // Check that we can perform the operation we're about to perform.
-    ASSERT(this->CanContain(dst_addr, aligned_src_size, dst_state));
+    assert(this->CanContain(dst_addr, aligned_src_size, dst_state));
 
     // Create an update allocator.
     Result allocator_result;
@@ -4600,9 +4610,9 @@ Result KPageTableBase::SetupForIpcServer(KProcessAddress* out_addr, size_t size,
     // Begin traversal.
     TraversalContext context;
     TraversalEntry next_entry;
-    bool traverse_valid = src_impl.BeginTraversal(std::addressof(next_entry),
+    [[maybe_unused]] bool traverse_valid = src_impl.BeginTraversal(std::addressof(next_entry),
                                                   std::addressof(context), aligned_src_start);
-    ASSERT(traverse_valid);
+    assert(traverse_valid);
 
     // Prepare tracking variables.
     KPhysicalAddress cur_block_addr = next_entry.phys_addr;
@@ -4651,7 +4661,7 @@ Result KPageTableBase::SetupForIpcServer(KProcessAddress* out_addr, size_t size,
         if (cur_block_size == 0 && aligned_src_size > PageSize) {
             traverse_valid =
                 src_impl.ContinueTraversal(std::addressof(next_entry), std::addressof(context));
-            ASSERT(traverse_valid);
+            assert(traverse_valid);
 
             cur_block_addr = next_entry.phys_addr;
             cur_block_size = next_entry.block_size;
@@ -4664,7 +4674,7 @@ Result KPageTableBase::SetupForIpcServer(KProcessAddress* out_addr, size_t size,
         // Continue the traversal.
         traverse_valid =
             src_impl.ContinueTraversal(std::addressof(next_entry), std::addressof(context));
-        ASSERT(traverse_valid);
+        assert(traverse_valid);
 
         // Process the block.
         if (next_entry.phys_addr != cur_block_addr + cur_block_size) {
@@ -4707,7 +4717,7 @@ Result KPageTableBase::SetupForIpcServer(KProcessAddress* out_addr, size_t size,
             cur_block_size == last_block_size) {
             traverse_valid =
                 src_impl.ContinueTraversal(std::addressof(next_entry), std::addressof(context));
-            ASSERT(traverse_valid);
+            assert(traverse_valid);
 
             cur_block_addr = next_entry.phys_addr;
         }
@@ -4929,7 +4939,7 @@ Result KPageTableBase::CleanupForIpcClient(KProcessAddress address, size_t size,
 
             while ((GetInteger(cur_address) + cur_size - 1) < mapped_last) {
                 // Check that we have a next block.
-                ASSERT(next_it != m_memory_block_manager.end());
+                assert(next_it != m_memory_block_manager.end());
 
                 // Get the next info.
                 const KMemoryInfo next_info = next_it->GetMemoryInfo();
@@ -5005,7 +5015,7 @@ Result KPageTableBase::CleanupForIpcClient(KProcessAddress address, size_t size,
 
         while ((cur_address + cur_size - 1) < mapping_last) {
             // Check that we have a next block.
-            ASSERT(next_it != m_memory_block_manager.end());
+            assert(next_it != m_memory_block_manager.end());
 
             // Get the next info.
             const KMemoryInfo next_info = next_it->GetMemoryInfo();
@@ -5091,9 +5101,9 @@ Result KPageTableBase::CleanupForIpcClient(KProcessAddress address, size_t size,
 void KPageTableBase::CleanupForIpcClientOnServerSetupFailure(PageLinkedList* page_list,
                                                              KProcessAddress address, size_t size,
                                                              KMemoryPermission prot_perm) {
-    ASSERT(this->IsLockedByCurrentThread());
-    ASSERT(Common::IsAligned(GetInteger(address), PageSize));
-    ASSERT(Common::IsAligned(size, PageSize));
+    assert(this->IsLockedByCurrentThread());
+    assert(Common::IsAligned(GetInteger(address), PageSize));
+    assert(Common::IsAligned(size, PageSize));
 
     // Get the mapped extents.
     const KProcessAddress src_map_start = address;
@@ -5101,7 +5111,7 @@ void KPageTableBase::CleanupForIpcClientOnServerSetupFailure(PageLinkedList* pag
     const KProcessAddress src_map_last = src_map_end - 1;
 
     // This function is only invoked when there's something to do.
-    ASSERT(src_map_end > src_map_start);
+    assert(src_map_end > src_map_start);
 
     // Iterate over blocks, fixing permissions.
     KMemoryBlockManager::const_iterator it = m_memory_block_manager.FindIterator(address);
@@ -5162,7 +5172,7 @@ void KPageTableBase::CleanupForIpcClientOnServerSetupFailure(PageLinkedList* pag
 
         // Advance.
         ++it;
-        ASSERT(it != m_memory_block_manager.end());
+        assert(it != m_memory_block_manager.end());
     }
 }
 
@@ -5203,7 +5213,7 @@ Result KPageTableBase::MapPhysicalMemory(KProcessAddress address, size_t size) {
             auto it = m_memory_block_manager.FindIterator(cur_address);
             while (true) {
                 // Check that the iterator is valid.
-                ASSERT(it != m_memory_block_manager.end());
+                assert(it != m_memory_block_manager.end());
 
                 // Get the memory info.
                 const KMemoryInfo info = it->GetMemoryInfo();
@@ -5231,7 +5241,7 @@ Result KPageTableBase::MapPhysicalMemory(KProcessAddress address, size_t size) {
             for (size_t i = 0; i < m_physical_map_windows.size(); ++i) {
                 const auto& slot = m_physical_map_windows[i];
                 if (slot.remaining_pages != 0 && slot.region_key == region_key) {
-                    ASSERT(slot.resource_accounted);
+                    assert(slot.resource_accounted);
                     matching_slot = i;
                     break;
                 }
@@ -5331,9 +5341,9 @@ Result KPageTableBase::MapPhysicalMemory(KProcessAddress address, size_t size) {
                 }
                 if (allocation_slot == PhysicalMapWindowSlots) {
                     allocation_slot = 0;
-                    ASSERT(m_physical_map_windows[allocation_slot].resource_accounted);
+                    assert(m_physical_map_windows[allocation_slot].resource_accounted);
                     for (size_t i = 1; i < m_physical_map_windows.size(); ++i) {
-                        ASSERT(m_physical_map_windows[i].resource_accounted);
+                        assert(m_physical_map_windows[i].resource_accounted);
                         if (m_physical_map_windows[i].last_used_sequence <
                             m_physical_map_windows[allocation_slot].last_used_sequence) {
                             allocation_slot = i;
@@ -5447,7 +5457,7 @@ Result KPageTableBase::MapPhysicalMemory(KProcessAddress address, size_t size) {
                     auto it = m_memory_block_manager.FindIterator(cur_address);
                     while (true) {
                         // Check that the iterator is valid.
-                        ASSERT(it != m_memory_block_manager.end());
+                        assert(it != m_memory_block_manager.end());
 
                         // Get the memory info.
                         const KMemoryInfo info = it->GetMemoryInfo();
@@ -5489,7 +5499,7 @@ Result KPageTableBase::MapPhysicalMemory(KProcessAddress address, size_t size) {
                 }
 
                 // Create an update allocator.
-                ASSERT(num_allocator_blocks <= KMemoryBlockManagerUpdateAllocator::MaxBlocks);
+                assert(num_allocator_blocks <= KMemoryBlockManagerUpdateAllocator::MaxBlocks);
                 Result allocator_result;
                 KMemoryBlockManagerUpdateAllocator allocator(std::addressof(allocator_result),
                                                              m_memory_block_slab_manager,
@@ -5517,7 +5527,7 @@ Result KPageTableBase::MapPhysicalMemory(KProcessAddress address, size_t size) {
                         auto it = m_memory_block_manager.FindIterator(cur_address);
                         while (true) {
                             // Check that the iterator is valid.
-                            ASSERT(it != m_memory_block_manager.end());
+                            assert(it != m_memory_block_manager.end());
 
                             // Get the memory info.
                             const KMemoryInfo info = it->GetMemoryInfo();
@@ -5563,7 +5573,7 @@ Result KPageTableBase::MapPhysicalMemory(KProcessAddress address, size_t size) {
                 auto it = m_memory_block_manager.FindIterator(cur_address);
                 while (true) {
                     // Check that the iterator is valid.
-                    ASSERT(it != m_memory_block_manager.end());
+                    assert(it != m_memory_block_manager.end());
 
                     // Get the memory info.
                     const KMemoryInfo info = it->GetMemoryInfo();
@@ -5596,7 +5606,7 @@ Result KPageTableBase::MapPhysicalMemory(KProcessAddress address, size_t size) {
                                     // Check if we're at the end of the physical block.
                                     if (pg_pages == 0) {
                                         // Ensure there are more pages to map.
-                                        ASSERT(pg_it != pg.end());
+                                        assert(pg_it != pg.end());
 
                                         // Advance our physical block.
                                         ++pg_it;
@@ -5752,7 +5762,7 @@ Result KPageTableBase::UnmapPhysicalMemory(KProcessAddress address, size_t size)
         auto it = m_memory_block_manager.FindIterator(cur_address);
         while (true) {
             // Check that the iterator is valid.
-            ASSERT(it != m_memory_block_manager.end());
+            assert(it != m_memory_block_manager.end());
 
             // Get the memory info.
             const KMemoryInfo info = it->GetMemoryInfo();
@@ -5797,7 +5807,7 @@ Result KPageTableBase::UnmapPhysicalMemory(KProcessAddress address, size_t size)
     }
 
     // Create an update allocator.
-    ASSERT(num_allocator_blocks <= KMemoryBlockManagerUpdateAllocator::MaxBlocks);
+    assert(num_allocator_blocks <= KMemoryBlockManagerUpdateAllocator::MaxBlocks);
     Result allocator_result;
     KMemoryBlockManagerUpdateAllocator allocator(std::addressof(allocator_result),
                                                  m_memory_block_slab_manager, num_allocator_blocks);
@@ -5827,7 +5837,7 @@ Result KPageTableBase::UnmapPhysicalMemory(KProcessAddress address, size_t size)
 
     while (true) {
         // Check that the iterator is valid.
-        ASSERT(it != m_memory_block_manager.end());
+        assert(it != m_memory_block_manager.end());
 
         // Get the memory info.
         const KMemoryInfo info = it->GetMemoryInfo();
@@ -5918,8 +5928,10 @@ Result KPageTableBase::UnmapProcessMemory(KProcessAddress dst_address, size_t si
             ContiguousRangeInfo(KPageTableBase& pt, KProcessAddress address, size_t size)
                 : m_pt(pt), m_remaining_size(size) {
                 // Begin a traversal.
-                ASSERT(m_pt.GetImpl().BeginTraversal(std::addressof(m_entry),
-                                                     std::addressof(m_context), address));
+                [[maybe_unused]] const auto begin_traversal_result_2 =
+                    m_pt.GetImpl().BeginTraversal(std::addressof(m_entry),
+                                                  std::addressof(m_context), address);
+                assert(begin_traversal_result_2);
 
                 // Setup tracking fields.
                 m_phys_addr = m_entry.phys_addr;
@@ -5949,8 +5961,10 @@ Result KPageTableBase::UnmapProcessMemory(KProcessAddress dst_address, size_t si
             void DetermineContiguousBlockExtents() {
                 // Continue traversing until we're not contiguous, or we have enough.
                 while (m_cur_size < m_remaining_size) {
-                    ASSERT(m_pt.GetImpl().ContinueTraversal(std::addressof(m_entry),
-                                                            std::addressof(m_context)));
+                    [[maybe_unused]] const auto continue_traversal_result_2 =
+                        m_pt.GetImpl().ContinueTraversal(std::addressof(m_entry),
+                                                         std::addressof(m_context));
+                    assert(continue_traversal_result_2);
 
                     // If we're not contiguous, we're done.
                     if (m_entry.phys_addr != m_phys_addr + m_cur_size) {
@@ -6009,10 +6023,10 @@ Result KPageTableBase::Operate(PageLinkedList* page_list, KProcessAddress virt_a
                                size_t num_pages, KPhysicalAddress phys_addr, bool is_pa_valid,
                                const KPageProperties properties, OperationType operation,
                                bool reuse_ll) {
-    ASSERT(this->IsLockedByCurrentThread());
-    ASSERT(num_pages > 0);
-    ASSERT(Common::IsAligned(GetInteger(virt_addr), PageSize));
-    ASSERT(this->ContainsPages(virt_addr, num_pages));
+    assert(this->IsLockedByCurrentThread());
+    assert(num_pages > 0);
+    assert(Common::IsAligned(GetInteger(virt_addr), PageSize));
+    assert(this->ContainsPages(virt_addr, num_pages));
 
     // As we don't allocate page entries in guest memory, we don't need to allocate them from
     // or free them to the page list, and so it goes unused (along with page properties).
@@ -6037,8 +6051,8 @@ Result KPageTableBase::Operate(PageLinkedList* page_list, KProcessAddress virt_a
         R_SUCCEED();
     }
     case OperationType::Map: {
-        ASSERT(virt_addr != 0);
-        ASSERT(Common::IsAligned(GetInteger(virt_addr), PageSize));
+        assert(virt_addr != 0);
+        assert(Common::IsAligned(GetInteger(virt_addr), PageSize));
         m_memory->MapMemoryRegion(*m_impl, virt_addr, num_pages * PageSize, phys_addr,
                                   ConvertToMemoryPermission(properties.perm), false);
 
@@ -6061,7 +6075,7 @@ Result KPageTableBase::Operate(PageLinkedList* page_list, KProcessAddress virt_a
         R_SUCCEED();
     }
     default:
-        UNREACHABLE();
+        std::unreachable();
     }
 }
 
@@ -6069,10 +6083,10 @@ Result KPageTableBase::Operate(PageLinkedList* page_list, KProcessAddress virt_a
                                size_t num_pages, const KPageGroup& page_group,
                                const KPageProperties properties, OperationType operation,
                                bool reuse_ll) {
-    ASSERT(this->IsLockedByCurrentThread());
-    ASSERT(Common::IsAligned(GetInteger(virt_addr), PageSize));
-    ASSERT(num_pages > 0);
-    ASSERT(num_pages == page_group.GetNumPages());
+    assert(this->IsLockedByCurrentThread());
+    assert(Common::IsAligned(GetInteger(virt_addr), PageSize));
+    assert(num_pages > 0);
+    assert(num_pages == page_group.GetNumPages());
 
     // As we don't allocate page entries in guest memory, we don't need to allocate them from
     // the page list, and so it goes unused (along with page properties).
@@ -6102,7 +6116,7 @@ Result KPageTableBase::Operate(PageLinkedList* page_list, KProcessAddress virt_a
         R_SUCCEED();
     }
     default:
-        UNREACHABLE();
+        std::unreachable();
     }
 }
 

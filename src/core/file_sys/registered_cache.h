@@ -308,6 +308,10 @@ public:
     void AddDirectory(VirtualDir directory);
     void ClearDirectories();
 
+    /// Replaces the loose files that are loaded besides the directories. For frontends that
+    /// cannot hand over a directory the core can list (Android's storage access framework).
+    void SetFiles(std::vector<VirtualFile> files);
+
     void Refresh() override;
     bool HasEntry(u64 title_id, ContentRecordType type) const override;
     std::optional<u32> GetEntryVersion(u64 title_id) const override;
@@ -328,6 +332,7 @@ private:
     void ProcessXCI(const VirtualFile& file);
 
     std::vector<VirtualDir> load_dirs;
+    std::vector<VirtualFile> load_files;
     std::map<std::tuple<u64, ContentRecordType, TitleType>, VirtualFile> entries;
     std::map<u64, u32> versions;
     std::vector<ExternalUpdateEntry> multi_version_entries;

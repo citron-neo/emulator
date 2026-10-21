@@ -420,6 +420,39 @@ void EmulationSession::SurfaceChanged() {
     m_window->OnSurfaceChanged(m_native_window);
 }
 
+void EmulationSession::ClearExternalContentFiles() {
+    std::scoped_lock lock(m_external_content_mutex);
+    m_external_content_paths.clear();
+}
+
+void EmulationSession::AddExternalContentFile(std::string path) {
+    std::scoped_lock lock(m_external_content_mutex);
+    m_external_content_paths.push_back(std::move(path));
+}
+
+void EmulationSession::ConfigureExternalContent() {
+    auto* provider = m_system.GetFileSystemController().GetExternalContentProvider();
+    if (provider == nullptr) {
+        return;
+    }
+    std::vector<FileSys::VirtualFile> files;
+    std::size_t wanted = 0;
+    {
+        std::scoped_lock lock(m_external_content_mutex);
+        wanted = m_external_content_paths.size();
+        for (const auto& path : m_external_content_paths) {
+            if (auto file = m_system.GetFilesystem()->OpenFile(path, FileSys::OpenMode::Read)) {
+                files.push_back(std::move(file));
+            }
+        }
+    }
+    if (wanted != 0) {
+        LOG_WARNING(Frontend, "External content: {} of {} update and DLC files opened",
+                    files.size(), wanted);
+    }
+    provider->SetFiles(std::move(files));
+}
+
 void EmulationSession::ConfigureFilesystemProvider(const std::string& filepath) {
     const auto file = m_system.GetFilesystem()->OpenFile(filepath, FileSys::OpenMode::Read);
     if (!file) {
@@ -615,6 +648,7 @@ Core::SystemResultStatus EmulationSession::InitializeEmulation(const std::string
 
     // Initialize filesystem.
     ConfigureFilesystemProvider(filepath);
+    ConfigureExternalContent();
 
     // Load the ROM.
     Service::AM::FrontendAppletParameters params{
@@ -1398,7 +1432,7 @@ void Java_org_citron_citron_1emu_NativeLibrary_initializeEmptyUserDirectory(JNIE
 
     const auto user_id = EmulationSession::GetInstance().System().GetProfileManager().GetUser(
         static_cast<std::size_t>(0));
-    ASSERT(user_id);
+    assert(user_id);
 
     const auto user_save_data_path = FileSys::SaveDataFactory::GetFullPath(
         {}, vfs_nand_dir, FileSys::SaveDataSpaceId::User, FileSys::SaveDataType::Account, 1,
@@ -1798,7 +1832,7 @@ jstring Java_org_citron_citron_1emu_NativeLibrary_getSavePath(JNIEnv* env, jobje
     Service::Account::ProfileManager manager;
     // TODO: Pass in a selected user once we get the relevant UI working
     const auto user_id = manager.GetUser(static_cast<std::size_t>(0));
-    ASSERT(user_id);
+    assert(user_id);
 
     const auto nandDir = Common::FS::GetCitronPath(Common::FS::CitronPath::NANDDir);
     auto vfsNandDir = system.GetFilesystem()->OpenDirectory(Common::FS::PathToUTF8String(nandDir),
@@ -1816,7 +1850,7 @@ jstring Java_org_citron_citron_1emu_NativeLibrary_getDefaultProfileSaveDataRoot(
     Service::Account::ProfileManager manager;
     // TODO: Pass in a selected user once we get the relevant UI working
     const auto user_id = manager.GetUser(static_cast<std::size_t>(0));
-    ASSERT(user_id);
+    assert(user_id);
 
     const auto user_save_data_root =
         FileSys::SaveDataFactory::GetUserGameSaveDataRoot(user_id->AsU128(), jfuture);
@@ -1831,6 +1865,17 @@ void Java_org_citron_citron_1emu_NativeLibrary_addFileToFilesystemProvider(JNIEn
 
 void Java_org_citron_citron_1emu_NativeLibrary_clearFilesystemProvider(JNIEnv* env, jobject jobj) {
     EmulationSession::GetInstance().GetContentProvider()->ClearAllEntries();
+}
+
+void Java_org_citron_citron_1emu_NativeLibrary_clearExternalContentFiles(JNIEnv* env,
+                                                                        jobject jobj) {
+    EmulationSession::GetInstance().ClearExternalContentFiles();
+}
+
+void Java_org_citron_citron_1emu_NativeLibrary_addExternalContentFile(JNIEnv* env, jobject jobj,
+                                                                     jstring jpath) {
+    EmulationSession::GetInstance().AddExternalContentFile(
+        Common::Android::GetJString(env, jpath));
 }
 
 jboolean Java_org_citron_citron_1emu_NativeLibrary_areKeysPresent(JNIEnv* env, jobject jobj) {

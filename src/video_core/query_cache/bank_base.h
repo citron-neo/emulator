@@ -47,7 +47,7 @@ public:
 
     void CloseReference(size_t how_many = 1) {
         if (how_many > references.load(std::memory_order_relaxed)) {
-            UNREACHABLE();
+            std::unreachable();
         }
         references.fetch_sub(how_many, std::memory_order_relaxed);
     }

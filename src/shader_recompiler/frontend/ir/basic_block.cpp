@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <algorithm>
+#include <cassert>
 #include <initializer_list>
 #include <map>
 
@@ -11,7 +12,7 @@
 
 namespace Shader::IR {
 
-Block::Block(ObjectPool<Inst>& inst_pool_) : inst_pool{&inst_pool_} {}
+Block::Block(InstStorage& storage_) : storage{&storage_} {}
 
 Block::~Block() = default;
 
@@ -20,23 +21,78 @@ void Block::AppendNewInst(Opcode op, std::initializer_list<Value> args) {
 }
 
 Block::iterator Block::PrependNewInst(iterator insertion_point, const Inst& base_inst) {
-    Inst* const inst{inst_pool->Create(base_inst)};
-    return instructions.insert(insertion_point, *inst);
+    const u32 index{storage->Emplace(base_inst)};
+    Link(index, insertion_point.Index());
+    return iterator{this, index};
 }
 
 Block::iterator Block::PrependNewInst(iterator insertion_point, Opcode op,
                                       std::initializer_list<Value> args, u32 flags) {
-    Inst* const inst{inst_pool->Create(op, flags)};
-    const auto result_it{instructions.insert(insertion_point, *inst)};
+    const u32 index{storage->Emplace(op, flags)};
+    Link(index, insertion_point.Index());
 
+    Inst* const inst{&At(index)};
     if (inst->NumArgs() != args.size()) {
         throw InvalidArgument("Invalid number of arguments {} in {}", args.size(), op);
     }
-    std::ranges::for_each(args, [inst, index = size_t{0}](const Value& arg) mutable {
-        inst->SetArg(index, arg);
-        ++index;
+    std::ranges::for_each(args, [inst, arg_index = size_t{0}](const Value& arg) mutable {
+        inst->SetArg(arg_index, arg);
+        ++arg_index;
     });
-    return result_it;
+    return iterator{this, index};
+}
+
+Block::iterator Block::insert(iterator insertion_point, Inst& inst) {
+    const u32 index{inst.Index()};
+    Link(index, insertion_point.Index());
+    return iterator{this, index};
+}
+
+Block::iterator Block::erase(iterator pos) {
+    Inst& inst{At(pos.Index())};
+    const u32 next_index{inst.next};
+    const u32 prev_index{inst.prev};
+    // Linked in this block: erasing an unlinked instruction twice would empty the list
+    assert(prev_index != npos || head == pos.Index());
+    if (prev_index == npos) {
+        head = next_index;
+    } else {
+        At(prev_index).next = next_index;
+    }
+    if (next_index == npos) {
+        tail = prev_index;
+    } else {
+        At(next_index).prev = prev_index;
+    }
+    inst.next = npos;
+    inst.prev = npos;
+    --count;
+    return iterator{this, next_index};
+}
+
+void Block::Link(u32 index, u32 before) noexcept {
+    Inst& inst{At(index)};
+    if (before == npos) {
+        inst.prev = tail;
+        inst.next = npos;
+        if (tail == npos) {
+            head = index;
+        } else {
+            At(tail).next = index;
+        }
+        tail = index;
+    } else {
+        Inst& next_inst{At(before)};
+        inst.prev = next_inst.prev;
+        inst.next = before;
+        if (next_inst.prev == npos) {
+            head = index;
+        } else {
+            At(next_inst.prev).next = index;
+        }
+        next_inst.prev = index;
+    }
+    ++count;
 }
 
 void Block::AddBranch(Block* block) {
@@ -67,13 +123,13 @@ static size_t InstIndex(std::map<const Inst*, size_t>& inst_to_index, size_t& in
     return it->second;
 }
 
-static std::string ArgToIndex(std::map<const Inst*, size_t>& inst_to_index, size_t& inst_index,
-                              const Value& arg) {
+static std::string ArgToIndex(const Block& block, std::map<const Inst*, size_t>& inst_to_index,
+                              size_t& inst_index, const Value& arg) {
     if (arg.IsEmpty()) {
         return "<null>";
     }
-    if (!arg.IsImmediate() || arg.IsIdentity()) {
-        return fmt::format("%{}", InstIndex(inst_to_index, inst_index, arg.Inst()));
+    if (arg.IsInst()) {
+        return fmt::format("%{}", InstIndex(inst_to_index, inst_index, &block.At(arg.InstIndex())));
     }
     switch (arg.Type()) {
     case Type::U1:
@@ -122,8 +178,8 @@ std::string DumpBlock(const Block& block, const std::map<const Block*, size_t>& 
         }
         const size_t arg_count{inst.NumArgs()};
         for (size_t arg_index = 0; arg_index < arg_count; ++arg_index) {
-            const Value arg{inst.Arg(arg_index)};
-            const std::string arg_str{ArgToIndex(inst_to_index, inst_index, arg)};
+            const Value arg{inst.RawArg(arg_index)};
+            const std::string arg_str{ArgToIndex(block, inst_to_index, inst_index, arg)};
             ret += arg_index != 0 ? ", " : " ";
             if (op == Opcode::Phi) {
                 ret += fmt::format("[ {}, {} ]", arg_str,
@@ -132,7 +188,7 @@ std::string DumpBlock(const Block& block, const std::map<const Block*, size_t>& 
                 ret += arg_str;
             }
             if (op != Opcode::Phi) {
-                const Type actual_type{arg.Type()};
+                const Type actual_type{inst.Arg(arg_index).Type()};
                 const Type expected_type{ArgTypeOf(op, arg_index)};
                 if (!AreTypesCompatible(actual_type, expected_type)) {
                     ret += fmt::format("<type error: {} != {}>", actual_type, expected_type);

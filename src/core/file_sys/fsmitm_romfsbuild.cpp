@@ -15,7 +15,7 @@ namespace FileSys {
 
 namespace RomFSBuilder {
 
-constexpr u64 FS_MAX_PATH = 0x301;
+[[maybe_unused]] constexpr u64 FS_MAX_PATH = 0x301;
 
 constexpr u32 ROMFS_ENTRY_EMPTY = 0xFFFFFFFF;
 constexpr u32 ROMFS_FILEPARTITION_OFS = 0x200;
@@ -125,7 +125,7 @@ void RomFSBuildContext::VisitDirectory(VirtualDir romfs_dir, VirtualDir ext_dir,
         }
 
         // Sanity check on path_len
-        ASSERT(child->path_len < RomFSBuilder::FS_MAX_PATH);
+        assert(child->path_len < RomFSBuilder::FS_MAX_PATH);
 
         child->source = std::move(child_romfs_file);
 
@@ -155,7 +155,7 @@ void RomFSBuildContext::VisitDirectory(VirtualDir romfs_dir, VirtualDir ext_dir,
         }
 
         // Sanity check on path_len
-        ASSERT(child->path_len < RomFSBuilder::FS_MAX_PATH);
+        assert(child->path_len < RomFSBuilder::FS_MAX_PATH);
 
         if (!AddDirectory(parent, child)) {
             continue;

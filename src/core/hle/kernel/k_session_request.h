@@ -122,7 +122,7 @@ public:
                        KMemoryState state, size_t index);
 
         const Mapping& GetSendMapping(size_t i) const {
-            ASSERT(i < m_num_send);
+            assert(i < m_num_send);
 
             const size_t index = i;
             if (index < NumStaticMappings) {
@@ -133,7 +133,7 @@ public:
         }
 
         const Mapping& GetReceiveMapping(size_t i) const {
-            ASSERT(i < m_num_recv);
+            assert(i < m_num_recv);
 
             const size_t index = m_num_send + i;
             if (index < NumStaticMappings) {
@@ -144,7 +144,7 @@ public:
         }
 
         const Mapping& GetExchangeMapping(size_t i) const {
-            ASSERT(i < m_num_exch);
+            assert(i < m_num_exch);
 
             const size_t index = m_num_send + m_num_recv + i;
             if (index < NumStaticMappings) {

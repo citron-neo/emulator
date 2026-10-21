@@ -26,10 +26,10 @@ void MiiEdit::Initialize() {
     //       Do NOT call Applet::Initialize() here.
 
     const std::shared_ptr<IStorage> storage = PopInData();
-    ASSERT(storage != nullptr);
+    assert(storage != nullptr);
 
     const auto applet_input_data = storage->GetData();
-    ASSERT(applet_input_data.size() >= sizeof(MiiEditAppletInputCommon));
+    assert(applet_input_data.size() >= sizeof(MiiEditAppletInputCommon));
 
     std::memcpy(&applet_input_common, applet_input_data.data(), sizeof(MiiEditAppletInputCommon));
 
@@ -39,13 +39,13 @@ void MiiEdit::Initialize() {
 
     switch (applet_input_common.version) {
     case MiiEditAppletVersion::Version3:
-        ASSERT(applet_input_data.size() ==
+        assert(applet_input_data.size() ==
                sizeof(MiiEditAppletInputCommon) + sizeof(MiiEditAppletInputV3));
         std::memcpy(&applet_input_v3, applet_input_data.data() + sizeof(MiiEditAppletInputCommon),
                     sizeof(MiiEditAppletInputV3));
         break;
     case MiiEditAppletVersion::Version4:
-        ASSERT(applet_input_data.size() ==
+        assert(applet_input_data.size() ==
                sizeof(MiiEditAppletInputCommon) + sizeof(MiiEditAppletInputV4));
         std::memcpy(&applet_input_v4, applet_input_data.data() + sizeof(MiiEditAppletInputCommon),
                     sizeof(MiiEditAppletInputV4));
@@ -53,7 +53,7 @@ void MiiEdit::Initialize() {
     default:
         UNIMPLEMENTED_MSG("Unknown MiiEditAppletVersion={} with size={}",
                           applet_input_common.version, applet_input_data.size());
-        ASSERT(applet_input_data.size() >=
+        assert(applet_input_data.size() >=
                sizeof(MiiEditAppletInputCommon) + sizeof(MiiEditAppletInputV4));
         std::memcpy(&applet_input_v4, applet_input_data.data() + sizeof(MiiEditAppletInputCommon),
                     sizeof(MiiEditAppletInputV4));
@@ -72,7 +72,7 @@ Result MiiEdit::GetStatus() const {
 }
 
 void MiiEdit::ExecuteInteractive() {
-    ASSERT_MSG(false, "Attempted to call interactive execution on non-interactive applet.");
+    assert(false && "Attempted to call interactive execution on non-interactive applet.");
 }
 
 void MiiEdit::Execute() {

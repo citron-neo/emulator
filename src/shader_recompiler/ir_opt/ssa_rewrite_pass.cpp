@@ -195,7 +195,7 @@ public:
                     phi->SetFlags(IR::TypeOf(UndefOpcode(variable)));
 
                     incomplete_phis[block].insert_or_assign(variable, phi);
-                    stack.back().result = IR::Value{&*phi};
+                    stack.back().result = IR::Value{*phi};
                 } else if (const std::span imm_preds = block->ImmPredecessors();
                            imm_preds.size() == 1) {
                     // Optimize the common case of one predecessor: no phi needed
@@ -207,7 +207,7 @@ public:
                     IR::Inst* const phi{&*block->PrependNewInst(block->begin(), IR::Opcode::Phi)};
                     phi->SetFlags(IR::TypeOf(UndefOpcode(variable)));
 
-                    WriteVariable(variable, block, IR::Value{phi});
+                    WriteVariable(variable, block, IR::Value{*phi});
 
                     stack.back().phi = phi;
                     stack.back().pred_it = imm_preds.data();
@@ -263,33 +263,32 @@ private:
         IR::Value same;
         const size_t num_args{phi.NumArgs()};
         for (size_t arg_index = 0; arg_index < num_args; ++arg_index) {
-            const IR::Value& op{phi.Arg(arg_index)};
-            if (op.Resolve() == same.Resolve() || op == IR::Value{&phi}) {
+            const IR::Value op{phi.Arg(arg_index)};
+            if (op == same || op == IR::Value{phi}) {
                 // Unique value or self-reference
                 continue;
             }
             if (!same.IsEmpty()) {
                 // The phi merges at least two values: not trivial
-                return IR::Value{&phi};
+                return IR::Value{phi};
             }
             same = op;
         }
         // Remove the phi node from the block, it will be reinserted
-        IR::Block::InstructionList& list{block->Instructions()};
-        list.erase(IR::Block::InstructionList::s_iterator_to(phi));
+        block->erase(block->IteratorTo(phi));
 
         // Find the first non-phi instruction and use it as an insertion point
-        IR::Block::iterator reinsert_point{std::ranges::find_if_not(list, IR::IsPhi)};
+        IR::Block::iterator reinsert_point{std::ranges::find_if_not(*block, IR::IsPhi)};
         if (same.IsEmpty()) {
             // The phi is unreachable or in the start block
             // Insert an undefined instruction and make it the phi node replacement
             // The "phi" node reinsertion point is specified after this instruction
             reinsert_point = block->PrependNewInst(reinsert_point, undef_opcode);
-            same = IR::Value{&*reinsert_point};
+            same = IR::Value{*reinsert_point};
             ++reinsert_point;
         }
         // Reinsert the phi node and reroute all its uses to the "same" value
-        list.insert(reinsert_point, phi);
+        block->insert(reinsert_point, phi);
         phi.ReplaceUsesWith(same);
         // TODO: Try to recursively remove all phi users, which might have become trivial
         return same;
@@ -363,7 +362,7 @@ void VisitInst(Pass& pass, IR::Block* block, IR::Inst& inst) {
 }
 
 void VisitBlock(Pass& pass, IR::Block* block) {
-    for (IR::Inst& inst : block->Instructions()) {
+    for (IR::Inst& inst : *block) {
         VisitInst(pass, block, inst);
     }
     pass.SealBlock(block);
@@ -381,8 +380,8 @@ IR::Type GetConcreteType(IR::Inst* inst) {
             if (set_type != IR::Type::Opaque) {
                 return set_type;
             }
-            if (!current->Arg(i).IsImmediate()) {
-                queue.push_back(current->Arg(i).Inst());
+            if (IR::Inst* const arg_inst{current->ArgInst(i)}) {
+                queue.push_back(arg_inst);
             }
         }
     }
@@ -397,7 +396,7 @@ void SsaRewritePass(IR::Program& program) {
         VisitBlock(pass, *block);
     }
     for (auto block = program.post_order_blocks.rbegin(); block != end; ++block) {
-        for (IR::Inst& inst : (*block)->Instructions()) {
+        for (IR::Inst& inst : **block) {
             if (inst.GetOpcode() == IR::Opcode::Phi) {
                 if (inst.Type() == IR::Type::Opaque) {
                     inst.SetFlags(GetConcreteType(&inst));

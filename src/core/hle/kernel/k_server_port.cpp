@@ -27,9 +27,9 @@ bool KServerPort::IsLight() const {
 void KServerPort::CleanupSessions() {
     // Ensure our preconditions are met.
     if (this->IsLight()) {
-        ASSERT(m_session_list.empty());
+        assert(m_session_list.empty());
     } else {
-        ASSERT(m_light_session_list.empty());
+        assert(m_light_session_list.empty());
     }
 
     // Cleanup the session list.
@@ -93,7 +93,7 @@ bool KServerPort::IsSignaled() const {
 }
 
 void KServerPort::EnqueueSession(KServerSession* session) {
-    ASSERT(!this->IsLight());
+    assert(!this->IsLight());
 
     KScopedSchedulerLock sl{m_kernel};
 
@@ -105,7 +105,7 @@ void KServerPort::EnqueueSession(KServerSession* session) {
 }
 
 void KServerPort::EnqueueSession(KLightServerSession* session) {
-    ASSERT(this->IsLight());
+    assert(this->IsLight());
 
     KScopedSchedulerLock sl{m_kernel};
 
@@ -117,7 +117,7 @@ void KServerPort::EnqueueSession(KLightServerSession* session) {
 }
 
 KServerSession* KServerPort::AcceptSession() {
-    ASSERT(!this->IsLight());
+    assert(!this->IsLight());
 
     KScopedSchedulerLock sl{m_kernel};
 
@@ -132,7 +132,7 @@ KServerSession* KServerPort::AcceptSession() {
 }
 
 KLightServerSession* KServerPort::AcceptLightSession() {
-    ASSERT(this->IsLight());
+    assert(this->IsLight());
 
     KScopedSchedulerLock sl{m_kernel};
 
