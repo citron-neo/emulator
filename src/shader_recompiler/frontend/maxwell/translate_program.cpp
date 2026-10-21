@@ -224,9 +224,9 @@ u32 GetOutputTopologyVertices(OutputTopology output_topology) {
 
 void LowerGeometryPassthrough(const IR::Program& program, const HostTranslateInfo& host_info) {
     for (IR::Block* const block : program.blocks) {
-        for (IR::Inst& inst : block->Instructions()) {
+        for (IR::Inst& inst : *block) {
             if (inst.GetOpcode() == IR::Opcode::Epilogue) {
-                IR::IREmitter ir{*block, IR::Block::InstructionList::s_iterator_to(inst)};
+                IR::IREmitter ir{*block, block->IteratorTo(inst)};
                 EmitGeometryPassthrough(
                     ir, program, program.info.passthrough,
                     program.info.passthrough.AnyComponent(IR::Attribute::PositionX), {});
@@ -237,10 +237,11 @@ void LowerGeometryPassthrough(const IR::Program& program, const HostTranslateInf
 
 } // Anonymous namespace
 
-IR::Program TranslateProgram(ObjectPool<IR::Inst>& inst_pool, ObjectPool<IR::Block>& block_pool,
+IR::Program TranslateProgram(IR::InstStorage& inst_storage, ObjectPool<IR::Block>& block_pool,
                              Environment& env, Flow::CFG& cfg, const HostTranslateInfo& host_info) {
     IR::Program program;
-    program.syntax_list = BuildASL(inst_pool, block_pool, env, cfg, host_info);
+    program.inst_storage = &inst_storage;
+    program.syntax_list = BuildASL(inst_storage, block_pool, env, cfg, host_info);
     program.blocks = GenerateBlocks(program.syntax_list);
     program.post_order_blocks = PostOrder(program.syntax_list.front());
     program.stage = env.ShaderStage();
@@ -320,6 +321,7 @@ IR::Program TranslateProgram(ObjectPool<IR::Inst>& inst_pool, ObjectPool<IR::Blo
 IR::Program MergeDualVertexPrograms(IR::Program& vertex_a, IR::Program& vertex_b,
                                     Environment& env_vertex_b) {
     IR::Program result{};
+    result.inst_storage = vertex_a.inst_storage;
     Optimization::VertexATransformPass(vertex_a);
     Optimization::VertexBTransformPass(vertex_b);
     for (const auto& term : vertex_a.syntax_list) {
@@ -362,7 +364,7 @@ void ConvertLegacyToGeneric(IR::Program& program, const Shader::RuntimeInfo& run
         program.info.legacy_stores_mapping =
             GenerateLegacyToGenericMappings(stores, unused_output_generics, {});
         for (IR::Block* const block : program.post_order_blocks) {
-            for (IR::Inst& inst : block->Instructions()) {
+            for (IR::Inst& inst : *block) {
                 switch (inst.GetOpcode()) {
                 case IR::Opcode::SetAttribute: {
                     const auto attr = inst.Arg(0).Attribute();
@@ -392,7 +394,7 @@ void ConvertLegacyToGeneric(IR::Program& program, const Shader::RuntimeInfo& run
         auto mappings = GenerateLegacyToGenericMappings(
             loads, unused_input_generics, runtime_info.previous_stage_legacy_stores_mapping);
         for (IR::Block* const block : program.post_order_blocks) {
-            for (IR::Inst& inst : block->Instructions()) {
+            for (IR::Inst& inst : *block) {
                 switch (inst.GetOpcode()) {
                 case IR::Opcode::GetAttribute: {
                     const auto attr = inst.Arg(0).Attribute();
@@ -410,12 +412,13 @@ void ConvertLegacyToGeneric(IR::Program& program, const Shader::RuntimeInfo& run
     }
 }
 
-IR::Program GenerateGeometryPassthrough(ObjectPool<IR::Inst>& inst_pool,
+IR::Program GenerateGeometryPassthrough(IR::InstStorage& inst_storage,
                                         ObjectPool<IR::Block>& block_pool,
                                         const HostTranslateInfo& host_info,
                                         IR::Program& source_program,
                                         Shader::OutputTopology output_topology) {
     IR::Program program;
+    program.inst_storage = &inst_storage;
     program.stage = Stage::Geometry;
     program.output_topology = output_topology;
     program.output_vertices = GetOutputTopologyVertices(output_topology);
@@ -426,7 +429,7 @@ IR::Program GenerateGeometryPassthrough(ObjectPool<IR::Inst>& inst_pool,
     program.info.stores.Set(IR::Attribute::Layer, true);
     program.info.stores.Set(source_program.info.emulated_layer, false);
 
-    IR::Block* current_block = block_pool.Create(inst_pool);
+    IR::Block* current_block = block_pool.Create(inst_storage);
     auto& node{program.syntax_list.emplace_back()};
     node.type = IR::AbstractSyntaxNode::Type::Block;
     node.data.block = current_block;
@@ -435,7 +438,7 @@ IR::Program GenerateGeometryPassthrough(ObjectPool<IR::Inst>& inst_pool,
     EmitGeometryPassthrough(ir, program, program.info.stores, true,
                             source_program.info.emulated_layer);
 
-    IR::Block* return_block{block_pool.Create(inst_pool)};
+    IR::Block* return_block{block_pool.Create(inst_storage)};
     IR::IREmitter{*return_block}.Epilogue();
     current_block->AddBranch(return_block);
 

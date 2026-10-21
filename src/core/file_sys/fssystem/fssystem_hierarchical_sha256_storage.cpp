@@ -10,8 +10,8 @@ namespace FileSys {
 namespace {
 
 s32 Log2(s32 value) {
-    ASSERT(value > 0);
-    ASSERT(Common::IsPowerOfTwo(value));
+    assert(value > 0);
+    assert(Common::IsPowerOfTwo(value));
 
     s32 log = 0;
     while ((value >>= 1) > 0) {
@@ -25,9 +25,9 @@ s32 Log2(s32 value) {
 Result HierarchicalSha256Storage::Initialize(VirtualFile* base_storages, s32 layer_count,
                                              size_t htbs, void* hash_buf, size_t hash_buf_size) {
     // Validate preconditions.
-    ASSERT(layer_count == LayerCount);
-    ASSERT(Common::IsPowerOfTwo(htbs));
-    ASSERT(hash_buf != nullptr);
+    assert(layer_count == LayerCount);
+    assert(Common::IsPowerOfTwo(htbs));
+    assert(hash_buf != nullptr);
 
     // Set size tracking members.
     m_hash_target_block_size = static_cast<s32>(htbs);
@@ -56,9 +56,9 @@ Result HierarchicalSha256Storage::Initialize(VirtualFile* base_storages, s32 lay
 
     // Read and validate the data being hashed.
     s64 hash_storage_size = base_storages[1]->GetSize();
-    ASSERT(Common::IsAligned(hash_storage_size, HashSize));
-    ASSERT(hash_storage_size <= m_hash_target_block_size);
-    ASSERT(hash_storage_size <= static_cast<s64>(m_hash_buffer_size));
+    assert(Common::IsAligned(hash_storage_size, HashSize));
+    assert(hash_storage_size <= m_hash_target_block_size);
+    assert(hash_storage_size <= static_cast<s64>(m_hash_buffer_size));
 
     base_storages[1]->Read(reinterpret_cast<u8*>(m_hash_buffer),
                            static_cast<size_t>(hash_storage_size), 0);
@@ -73,7 +73,7 @@ size_t HierarchicalSha256Storage::Read(u8* buffer, size_t size, size_t offset) c
     }
 
     // Validate that we have a buffer to read into.
-    ASSERT(buffer != nullptr);
+    assert(buffer != nullptr);
 
     // Read the data.
     return m_base_storage->Read(buffer, size, offset);

@@ -2,7 +2,6 @@
 // SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
-#include "common/bit_cast.h"
 #include "shader_recompiler/frontend/ir/ir_emitter.h"
 #include "shader_recompiler/frontend/ir/value.h"
 
@@ -70,7 +69,7 @@ void IREmitter::Reference(const Value& value) {
 }
 
 void IREmitter::PhiMove(IR::Inst& phi, const Value& value) {
-    Inst(Opcode::PhiMove, Value{&phi}, value);
+    Inst(Opcode::PhiMove, Value{phi}, value);
 }
 
 void IREmitter::Prologue() {

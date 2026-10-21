@@ -18,9 +18,13 @@ add_executable(tests
     core/exit_callback.cpp
     core/internal_network/network.cpp
     precompiled_headers.h
+    video_core/blit_operation.cpp
     video_core/memory_tracker.cpp
     video_core/image_size.cpp
     video_core/cache_memory_pressure.cpp
+    video_core/dma_remap.cpp
+    video_core/syncpoint_manager.cpp
+    video_core/uma.cpp
     input_common/calibration_configuration_job.cpp
 )
 

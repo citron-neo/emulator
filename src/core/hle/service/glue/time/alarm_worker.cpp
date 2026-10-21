@@ -41,8 +41,8 @@ bool AlarmWorker::GetClosestAlarmInfo(Service::PSC::Time::AlarmInfo& out_alarm_i
     Service::PSC::Time::AlarmInfo alarm_info{};
     s64 closest_time{};
 
-    auto res = m_time_m->GetClosestAlarmInfo(&is_valid, &alarm_info, &closest_time);
-    ASSERT(res == ResultSuccess);
+    [[maybe_unused]] auto res = m_time_m->GetClosestAlarmInfo(&is_valid, &alarm_info, &closest_time);
+    assert(res == ResultSuccess);
 
     if (is_valid) {
         out_alarm_info = alarm_info;

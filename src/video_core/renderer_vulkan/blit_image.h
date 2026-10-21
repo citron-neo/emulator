@@ -27,10 +27,28 @@ struct BlitImagePipelineKey {
     Tegra::Engines::Fermi2D::Operation operation;
 };
 
+/// Numeric type of a colour attachment, which the clear shader's output has to match.
+enum class ClearColorType : u8 {
+    Float,
+    Uint,
+    Sint,
+};
+
+struct ClearColorPipelineKey {
+    constexpr auto operator<=>(const ClearColorPipelineKey&) const noexcept = default;
+
+    VkRenderPass renderpass;
+    u32 num_attachments; ///< Colour attachment slots of the subpass
+    u32 attachment;      ///< The slot that is cleared
+    u8 color_mask;       ///< VkColorComponentFlags written to that slot
+    ClearColorType type;
+};
+
 struct BlitDepthStencilPipelineKey {
     constexpr auto operator<=>(const BlitDepthStencilPipelineKey&) const noexcept = default;
 
     VkRenderPass renderpass;
+    u32 num_attachments; ///< Colour attachment slots of the subpass, all left unwritten
     bool depth_clear;
     u8 stencil_mask;
     u32 stencil_compare_mask;
@@ -75,8 +93,11 @@ public:
 
     void ConvertS8D24ToABGR8(const Framebuffer* dst_framebuffer, ImageView& src_image_view);
 
-    void ClearColor(const Framebuffer* dst_framebuffer, u8 color_mask,
-                    const std::array<f32, 4>& clear_color, const Region2D& dst_region);
+    /// Clears the components in color_mask of colour attachment slot `attachment` to the raw
+    /// 32-bit words of clear_color, inside dst_region.
+    void ClearColor(const Framebuffer* dst_framebuffer, u32 attachment, u8 color_mask,
+                    ClearColorType type, const std::array<u32, 4>& clear_color,
+                    const Region2D& dst_region);
 
     void ClearDepthStencil(const Framebuffer* dst_framebuffer, bool depth_clear, f32 clear_depth,
                            u8 stencil_mask, u32 stencil_ref, u32 stencil_compare_mask,
@@ -93,7 +114,7 @@ private:
 
     [[nodiscard]] VkPipeline FindOrEmplaceDepthStencilPipeline(const BlitImagePipelineKey& key);
 
-    [[nodiscard]] VkPipeline FindOrEmplaceClearColorPipeline(const BlitImagePipelineKey& key);
+    [[nodiscard]] VkPipeline FindOrEmplaceClearColorPipeline(const ClearColorPipelineKey& key);
     [[nodiscard]] VkPipeline FindOrEmplaceClearStencilPipeline(
         const BlitDepthStencilPipelineKey& key);
 
@@ -128,6 +149,8 @@ private:
     vk::ShaderModule blit_depth_stencil_frag;
     vk::ShaderModule clear_color_vert;
     vk::ShaderModule clear_color_frag;
+    vk::ShaderModule clear_color_uint_frag;
+    vk::ShaderModule clear_color_sint_frag;
     vk::ShaderModule clear_stencil_frag;
     vk::ShaderModule convert_depth_to_float_frag;
     vk::ShaderModule convert_float_to_depth_frag;
@@ -143,7 +166,7 @@ private:
     std::vector<vk::Pipeline> blit_color_pipelines;
     std::vector<BlitImagePipelineKey> blit_depth_stencil_keys;
     std::vector<vk::Pipeline> blit_depth_stencil_pipelines;
-    std::vector<BlitImagePipelineKey> clear_color_keys;
+    std::vector<ClearColorPipelineKey> clear_color_keys;
     std::vector<vk::Pipeline> clear_color_pipelines;
     std::vector<BlitDepthStencilPipelineKey> clear_stencil_keys;
     std::vector<vk::Pipeline> clear_stencil_pipelines;

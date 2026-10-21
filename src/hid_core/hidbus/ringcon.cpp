@@ -137,16 +137,16 @@ bool RingController::SetCommand(std::span<const u8> data) {
     case RingConCommands::ReadUserCal:
     case RingConCommands::ReadRepCount:
     case RingConCommands::ReadTotalPushCount:
-        ASSERT_MSG(data.size() == 0x4, "data.size is not 0x4 bytes");
+        assert(data.size() == 0x4 && "data.size is not 0x4 bytes");
         send_command_async_event->Signal();
         return true;
     case RingConCommands::ResetRepCount:
-        ASSERT_MSG(data.size() == 0x4, "data.size is not 0x4 bytes");
+        assert(data.size() == 0x4 && "data.size is not 0x4 bytes");
         total_rep_count = 0;
         send_command_async_event->Signal();
         return true;
     case RingConCommands::SaveCalData: {
-        ASSERT_MSG(data.size() == 0x14, "data.size is not 0x14 bytes");
+        assert(data.size() == 0x14 && "data.size is not 0x14 bytes");
 
         SaveCalData save_info{};
         std::memcpy(&save_info, data.data(), sizeof(SaveCalData));

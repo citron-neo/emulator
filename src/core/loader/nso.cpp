@@ -43,8 +43,8 @@ std::vector<u8> DecompressSegment(const std::vector<u8>& compressed_data,
     std::vector<u8> uncompressed_data =
         Common::Compression::DecompressDataLZ4(compressed_data, header.size);
 
-    ASSERT_MSG(uncompressed_data.size() == header.size, "{} != {}", header.size,
-               uncompressed_data.size());
+    assert(uncompressed_data.size() == header.size && "{} != {}" &&
+           (void(header.size), void(uncompressed_data.size()), true));
 
     return uncompressed_data;
 }
@@ -55,7 +55,7 @@ constexpr u32 PageAlignSizeNSO(u32 size) {
 } // Anonymous namespace
 
 bool NSOHeader::IsSegmentCompressed(size_t segment_num) const {
-    ASSERT_MSG(segment_num < 3, "Invalid segment {}", segment_num);
+    assert(segment_num < 3 && "Invalid segment {}" && (void(segment_num), true));
     return ((flags >> segment_num) & 1) != 0;
 }
 

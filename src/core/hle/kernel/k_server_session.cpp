@@ -789,7 +789,7 @@ Result ProcessSendMessageReceiveMapping(KProcessPageTable& src_page_table,
 
     // If the start of the buffer is unaligned, handle that.
     if (aligned_dst_start != mapping_dst_start) {
-        ASSERT(client_address < mapping_dst_start);
+        assert(client_address < mapping_dst_start);
         const size_t copy_size = std::min<size_t>(size, mapping_dst_start - client_address);
         R_TRY(dst_page_table.CopyMemoryFromUserToLinear(
             client_address, copy_size, test_state, test_state, KMemoryPermission::UserReadWrite,
@@ -981,7 +981,7 @@ Result SendMessage(KernelCore& kernel, uint64_t src_message_buffer, size_t src_b
         offset = dst_msg.Set(src_header);
 
         // Process any special data.
-        ASSERT(GetCurrentThreadPointer(kernel) == std::addressof(src_thread));
+        assert(GetCurrentThreadPointer(kernel) == std::addressof(src_thread));
         processed_special_data = true;
         if (src_header.GetHasSpecialHeader()) {
             R_TRY(ProcessMessageSpecialData<true>(offset, dst_process, src_process, src_thread,
@@ -1166,7 +1166,7 @@ Result KServerSession::ReceiveRequest(uintptr_t server_message, uintptr_t server
         // Clear the current request.
         {
             KScopedSchedulerLock sl(m_kernel);
-            ASSERT(m_current_request == request);
+            assert(m_current_request == request);
             m_current_request = nullptr;
             if (!m_request_list.empty()) {
                 this->NotifyAvailable();
@@ -1362,7 +1362,7 @@ Result KServerSession::OnRequest(KSessionRequest* request) {
 }
 
 bool KServerSession::IsSignaled() const {
-    ASSERT(KScheduler::IsSchedulerLockedByCurrentThread(m_kernel));
+    assert(KScheduler::IsSchedulerLockedByCurrentThread(m_kernel));
 
     // If the client is closed, we're always signaled.
     if (m_parent->IsClientClosed()) {
@@ -1496,7 +1496,7 @@ void KServerSession::OnClientClosed() {
         }
 
         // All requests must have threads.
-        ASSERT(thread != nullptr);
+        assert(thread != nullptr);
 
         // Ensure that we close the request when done.
         SCOPE_EXIT {
@@ -1514,9 +1514,9 @@ void KServerSession::OnClientClosed() {
         // If we need to, reply.
         if (event != nullptr && !cur_request) {
             // There must be no mappings.
-            ASSERT(request->GetSendCount() == 0);
-            ASSERT(request->GetReceiveCount() == 0);
-            ASSERT(request->GetExchangeCount() == 0);
+            assert(request->GetSendCount() == 0);
+            assert(request->GetReceiveCount() == 0);
+            assert(request->GetExchangeCount() == 0);
 
             // Get the process and page table.
             KProcess* client_process = thread->GetOwnerProcess();

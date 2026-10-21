@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <algorithm>
+#include <bit>
 #include <cstddef>
 #include <fstream>
 #include <limits>
@@ -13,7 +14,6 @@
 
 #include <boost/container/small_vector.hpp>
 
-#include "common/bit_cast.h"
 #include "common/cityhash.h"
 #include "common/fs/fs.h"
 #include "common/fs/path_util.h"
@@ -132,7 +132,7 @@ Shader::AttributeType CastAttributeType(const FixedPipelineState::VertexAttribut
     switch (attr.Type()) {
     case Tegra::Engines::Maxwell3D::Regs::VertexAttribute::Type::
         UnusedEnumDoNotUseBecauseItWillGoAway:
-        ASSERT_MSG(false, "Invalid vertex attribute type!");
+        assert(false && "Invalid vertex attribute type!");
         return Shader::AttributeType::Disabled;
     case Tegra::Engines::Maxwell3D::Regs::VertexAttribute::Type::SNorm:
     case Tegra::Engines::Maxwell3D::Regs::VertexAttribute::Type::UNorm:
@@ -195,7 +195,7 @@ Shader::RuntimeInfo MakeRuntimeInfo(std::span<const Shader::IR::Program> program
     const Shader::Stage stage{program.stage};
     const bool has_geometry{key.unique_hashes[4] != 0 && !programs[4].is_geometry_passthrough};
     const bool gl_ndc{key.state.ndc_minus_one_to_one != 0};
-    const float point_size{Common::BitCast<float>(key.state.point_size)};
+    const float point_size{std::bit_cast<float>(key.state.point_size)};
     switch (stage) {
     case Shader::Stage::VertexB:
         if (!has_geometry) {
@@ -232,7 +232,7 @@ Shader::RuntimeInfo MakeRuntimeInfo(std::span<const Shader::IR::Program> program
             case Tegra::Engines::Maxwell3D::Regs::Tessellation::DomainType::Quads:
                 return Shader::TessPrimitive::Quads;
             }
-            ASSERT(false);
+            assert(false);
             return Shader::TessPrimitive::Triangles;
         }();
         info.tess_spacing = [&] {
@@ -245,7 +245,7 @@ Shader::RuntimeInfo MakeRuntimeInfo(std::span<const Shader::IR::Program> program
             case Tegra::Engines::Maxwell3D::Regs::Tessellation::Spacing::FractionalEven:
                 return Shader::TessSpacing::FractionalEven;
             }
-            ASSERT(false);
+            assert(false);
             return Shader::TessSpacing::Equal;
         }();
         break;
@@ -268,7 +268,7 @@ Shader::RuntimeInfo MakeRuntimeInfo(std::span<const Shader::IR::Program> program
         if (!Settings::IsGPULevelLow()) {
             info.alpha_test_func = MaxwellToCompareFunction(
                 key.state.UnpackComparisonOp(key.state.alpha_test_func.Value()));
-            info.alpha_test_reference = Common::BitCast<float>(key.state.alpha_test_ref);
+            info.alpha_test_reference = std::bit_cast<float>(key.state.alpha_test_ref);
         }
         break;
     }
@@ -548,10 +548,12 @@ ComputePipeline* PipelineCache::CurrentComputePipeline() {
     };
     const auto [pair, is_new]{compute_cache.try_emplace(key)};
     auto& pipeline{pair->second};
-    if (!is_new && pipeline) {
-        return pipeline.get();
+    if (is_new) {
+        // Built once per key, as in CurrentGraphicsPipelineSlowPath: a failed build (a
+        // Shader::Exception, a vk::Exception or HasBrokenCompute) stays cached as null instead of
+        // costing a full shader translation on every dispatch.
+        pipeline = CreateComputePipeline(key, shader);
     }
-    pipeline = CreateComputePipeline(key, shader);
     return pipeline.get();
 }
 

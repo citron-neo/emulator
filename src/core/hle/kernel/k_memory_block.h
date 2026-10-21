@@ -430,8 +430,8 @@ public:
     }
 
     constexpr void Add(const KMemoryBlock& added_block) {
-        ASSERT(added_block.GetNumPages() > 0);
-        ASSERT(this->GetAddress() + added_block.GetSize() - 1 <
+        assert(added_block.GetNumPages() > 0);
+        assert(this->GetAddress() + added_block.GetSize() - 1 <
                this->GetEndAddress() + added_block.GetSize() - 1);
 
         m_num_pages += added_block.GetNumPages();
@@ -442,8 +442,8 @@ public:
 
     constexpr void Update(KMemoryState s, KMemoryPermission p, KMemoryAttribute a,
                           bool set_disable_merge_attr, u8 set_mask, u8 clear_mask) {
-        ASSERT(m_original_permission == KMemoryPermission::None);
-        ASSERT((m_attribute & KMemoryAttribute::IpcLocked) == KMemoryAttribute::None);
+        assert(m_original_permission == KMemoryPermission::None);
+        assert((m_attribute & KMemoryAttribute::IpcLocked) == KMemoryAttribute::None);
 
         m_memory_state = s;
         m_permission = p;
@@ -461,16 +461,16 @@ public:
     }
 
     constexpr void UpdateAttribute(KMemoryAttribute mask, KMemoryAttribute attr) {
-        ASSERT(False(mask & KMemoryAttribute::IpcLocked));
-        ASSERT(False(mask & KMemoryAttribute::DeviceShared));
+        assert(False(mask & KMemoryAttribute::IpcLocked));
+        assert(False(mask & KMemoryAttribute::DeviceShared));
 
         m_attribute = (m_attribute & ~mask) | attr;
     }
 
     constexpr void Split(KMemoryBlock* block, KProcessAddress addr) {
-        ASSERT(this->GetAddress() < addr);
-        ASSERT(this->Contains(addr));
-        ASSERT(Common::IsAligned(GetInteger(addr), PageSize));
+        assert(this->GetAddress() < addr);
+        assert(this->Contains(addr));
+        assert(Common::IsAligned(GetInteger(addr), PageSize));
 
         block->m_address = m_address;
         block->m_num_pages = (addr - this->GetAddress()) / PageSize;
@@ -501,8 +501,8 @@ public:
         if (left) {
             m_disable_merge_attribute = static_cast<KMemoryBlockDisableMergeAttribute>(
                 m_disable_merge_attribute | KMemoryBlockDisableMergeAttribute::DeviceLeft);
-            const u16 new_device_disable_merge_left_count = ++m_device_disable_merge_left_count;
-            ASSERT(new_device_disable_merge_left_count > 0);
+            [[maybe_unused]] const u16 new_device_disable_merge_left_count = ++m_device_disable_merge_left_count;
+            assert(new_device_disable_merge_left_count > 0);
         }
     }
 
@@ -512,8 +512,8 @@ public:
         if (right) {
             m_disable_merge_attribute = static_cast<KMemoryBlockDisableMergeAttribute>(
                 m_disable_merge_attribute | KMemoryBlockDisableMergeAttribute::DeviceRight);
-            const u16 new_device_disable_merge_right_count = ++m_device_disable_merge_right_count;
-            ASSERT(new_device_disable_merge_right_count > 0);
+            [[maybe_unused]] const u16 new_device_disable_merge_right_count = ++m_device_disable_merge_right_count;
+            assert(new_device_disable_merge_right_count > 0);
         }
     }
 
@@ -527,12 +527,12 @@ public:
         // New permission isn't used.
 
         // We must either be shared or have a zero lock count.
-        ASSERT((m_attribute & KMemoryAttribute::DeviceShared) == KMemoryAttribute::DeviceShared ||
+        assert((m_attribute & KMemoryAttribute::DeviceShared) == KMemoryAttribute::DeviceShared ||
                m_device_use_count == 0);
 
         // Share.
-        const u16 new_count = ++m_device_use_count;
-        ASSERT(new_count > 0);
+        [[maybe_unused]] const u16 new_count = ++m_device_use_count;
+        assert(new_count > 0);
 
         m_attribute = static_cast<KMemoryAttribute>(m_attribute | KMemoryAttribute::DeviceShared);
 
@@ -565,7 +565,7 @@ public:
 
         if (right) {
             const u16 old_device_disable_merge_right_count = m_device_disable_merge_right_count--;
-            ASSERT(old_device_disable_merge_right_count > 0);
+            assert(old_device_disable_merge_right_count > 0);
             if (old_device_disable_merge_right_count == 1) {
                 m_disable_merge_attribute = static_cast<KMemoryBlockDisableMergeAttribute>(
                     m_disable_merge_attribute & ~KMemoryBlockDisableMergeAttribute::DeviceRight);
@@ -583,11 +583,11 @@ public:
         // New permission isn't used.
 
         // We must be shared.
-        ASSERT((m_attribute & KMemoryAttribute::DeviceShared) == KMemoryAttribute::DeviceShared);
+        assert((m_attribute & KMemoryAttribute::DeviceShared) == KMemoryAttribute::DeviceShared);
 
         // Unhare.
         const u16 old_count = m_device_use_count--;
-        ASSERT(old_count > 0);
+        assert(old_count > 0);
 
         if (old_count == 1) {
             m_attribute =
@@ -601,11 +601,11 @@ public:
         // New permission isn't used.
 
         // We must be shared.
-        ASSERT((m_attribute & KMemoryAttribute::DeviceShared) == KMemoryAttribute::DeviceShared);
+        assert((m_attribute & KMemoryAttribute::DeviceShared) == KMemoryAttribute::DeviceShared);
 
         // Unhare.
         const u16 old_count = m_device_use_count--;
-        ASSERT(old_count > 0);
+        assert(old_count > 0);
 
         if (old_count == 1) {
             m_attribute =
@@ -617,19 +617,19 @@ public:
 
     constexpr void LockForIpc(KMemoryPermission new_perm, bool left, bool right) {
         // We must either be locked or have a zero lock count.
-        ASSERT((m_attribute & KMemoryAttribute::IpcLocked) == KMemoryAttribute::IpcLocked ||
+        assert((m_attribute & KMemoryAttribute::IpcLocked) == KMemoryAttribute::IpcLocked ||
                m_ipc_lock_count == 0);
 
         // Lock.
         const u16 new_lock_count = ++m_ipc_lock_count;
-        ASSERT(new_lock_count > 0);
+        assert(new_lock_count > 0);
 
         // If this is our first lock, update our permissions.
         if (new_lock_count == 1) {
-            ASSERT(m_original_permission == KMemoryPermission::None);
-            ASSERT((m_permission | new_perm | KMemoryPermission::NotMapped) ==
+            assert(m_original_permission == KMemoryPermission::None);
+            assert((m_permission | new_perm | KMemoryPermission::NotMapped) ==
                    (m_permission | KMemoryPermission::NotMapped));
-            ASSERT((m_permission & KMemoryPermission::UserExecute) !=
+            assert((m_permission & KMemoryPermission::UserExecute) !=
                        KMemoryPermission::UserExecute ||
                    (new_perm == KMemoryPermission::UserRead));
             m_original_permission = m_permission;
@@ -642,8 +642,8 @@ public:
         if (left) {
             m_disable_merge_attribute = static_cast<KMemoryBlockDisableMergeAttribute>(
                 m_disable_merge_attribute | KMemoryBlockDisableMergeAttribute::IpcLeft);
-            const u16 new_ipc_disable_merge_count = ++m_ipc_disable_merge_count;
-            ASSERT(new_ipc_disable_merge_count > 0);
+            [[maybe_unused]] const u16 new_ipc_disable_merge_count = ++m_ipc_disable_merge_count;
+            assert(new_ipc_disable_merge_count > 0);
         }
     }
 
@@ -651,15 +651,15 @@ public:
         // New permission isn't used.
 
         // We must be locked.
-        ASSERT((m_attribute & KMemoryAttribute::IpcLocked) == KMemoryAttribute::IpcLocked);
+        assert((m_attribute & KMemoryAttribute::IpcLocked) == KMemoryAttribute::IpcLocked);
 
         // Unlock.
         const u16 old_lock_count = m_ipc_lock_count--;
-        ASSERT(old_lock_count > 0);
+        assert(old_lock_count > 0);
 
         // If this is our last unlock, update our permissions.
         if (old_lock_count == 1) {
-            ASSERT(m_original_permission != KMemoryPermission::None);
+            assert(m_original_permission != KMemoryPermission::None);
             m_permission = m_original_permission;
             m_original_permission = KMemoryPermission::None;
             m_attribute = static_cast<KMemoryAttribute>(m_attribute & ~KMemoryAttribute::IpcLocked);
@@ -667,7 +667,7 @@ public:
 
         if (left) {
             const u16 old_ipc_disable_merge_count = m_ipc_disable_merge_count--;
-            ASSERT(old_ipc_disable_merge_count > 0);
+            assert(old_ipc_disable_merge_count > 0);
             if (old_ipc_disable_merge_count == 1) {
                 m_disable_merge_attribute = static_cast<KMemoryBlockDisableMergeAttribute>(
                     m_disable_merge_attribute & ~KMemoryBlockDisableMergeAttribute::IpcLeft);

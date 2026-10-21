@@ -6,6 +6,7 @@
 #include <memory>
 #include <mutex>
 #include <unordered_map>
+#include <vector>
 
 #include "video_core/dma_pusher.h"
 
@@ -26,8 +27,21 @@ public:
 
     void DeclareChannel(std::shared_ptr<ChannelState> new_channel);
 
+    /// True while a channel is stopped at a semaphore acquire. GPU thread only.
+    [[nodiscard]] bool HasSuspendedChannels() const {
+        return !suspended_channels.empty();
+    }
+
+    /// Re-checks the acquire of every stopped channel and runs the channels whose acquire passed.
+    /// allow_flush lets a retry make writes still held back for a host fence. GPU thread only.
+    void RetrySuspended(bool allow_flush);
+
 private:
     std::unordered_map<s32, std::shared_ptr<ChannelState>> channels;
+    /// Channels stopped at a semaphore acquire. Only Push and RetrySuspended (GPU thread) use it.
+    /// Plain pointers: channels stays the owner and never drops a channel.
+    std::vector<ChannelState*> suspended_channels;
+    u64 work_generation{}; ///< Counts dispatches; a new value lets a retry flush held-back writes
     std::mutex scheduling_guard;
     GPU& gpu;
 };

@@ -966,7 +966,7 @@ void CollectShaderInfoPass(Environment& env, IR::Program& program) {
     info.nvn_buffer_base = base;
 
     for (IR::Block* const block : program.post_order_blocks) {
-        for (IR::Inst& inst : block->Instructions()) {
+        for (IR::Inst& inst : *block) {
             Visit(info, inst);
         }
     }

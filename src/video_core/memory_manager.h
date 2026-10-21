@@ -12,7 +12,6 @@
 #include <boost/container/small_vector.hpp>
 
 #include "common/common_types.h"
-#include "common/multi_level_page_table.h"
 #include "common/range_map.h"
 #include "common/scratch_buffer.h"
 #include "common/virtual_buffer.h"
@@ -234,7 +233,7 @@ private:
     template <bool is_big_page>
     inline void SetEntry(size_t position, EntryType entry);
 
-    Common::MultiLevelPageTable<u32> page_table;
+    Common::VirtualBuffer<u32> page_table;
     Common::RangeMap<GPUVAddr, PTEKind> kind_map;
     Common::VirtualBuffer<u32> big_page_table_dev;
 

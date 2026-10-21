@@ -377,8 +377,10 @@ public:
         return samples;
     }
 
-    [[nodiscard]] u32 NumColorBuffers() const noexcept {
-        return num_color_buffers;
+    /// Colour attachment slots of the render pass's subpass: the highest bound render target plus
+    /// one, since slot i is render target i (vk_render_pass_cache.cpp).
+    [[nodiscard]] u32 NumColorAttachments() const noexcept {
+        return num_color_attachments;
     }
 
     [[nodiscard]] u32 NumImages() const noexcept {
@@ -414,7 +416,7 @@ private:
     VkRenderPass renderpass{};
     VkExtent2D render_area{};
     VkSampleCountFlagBits samples = VK_SAMPLE_COUNT_1_BIT;
-    u32 num_color_buffers = 0;
+    u32 num_color_attachments = 0;
     u32 num_images = 0;
     std::array<VkImage, 9> images{};
     std::array<VkImageSubresourceRange, 9> image_ranges{};

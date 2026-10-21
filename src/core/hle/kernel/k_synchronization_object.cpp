@@ -96,7 +96,7 @@ Result KSynchronizationObject::Wait(KernelCore& kernel, s32* out_index,
 
         // Check if any of the objects are already signaled.
         for (auto i = 0; i < num_objects; ++i) {
-            ASSERT(objects[i] != nullptr);
+            assert(objects[i] != nullptr);
 
             if (objects[i]->IsSignaled()) {
                 *out_index = i;

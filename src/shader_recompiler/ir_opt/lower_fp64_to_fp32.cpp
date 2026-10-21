@@ -157,12 +157,12 @@ IR::Opcode ReplaceFP64ToFP32(IR::Opcode op) {
 void LowerFP64ToFP32(IR::Block& block, IR::Inst& inst) {
     switch (inst.GetOpcode()) {
     case IR::Opcode::PackDouble2x32: {
-        IR::IREmitter ir(block, IR::Block::InstructionList::s_iterator_to(inst));
+        IR::IREmitter ir(block, block.IteratorTo(inst));
         inst.ReplaceUsesWith(PackedF64ToF32(ir, inst.Arg(0)));
         break;
     }
     case IR::Opcode::UnpackDouble2x32: {
-        IR::IREmitter ir(block, IR::Block::InstructionList::s_iterator_to(inst));
+        IR::IREmitter ir(block, block.IteratorTo(inst));
         inst.ReplaceUsesWith(F32ToPackedF64(ir, inst.Arg(0)));
         break;
     }
@@ -176,7 +176,7 @@ void LowerFP64ToFP32(IR::Block& block, IR::Inst& inst) {
 
 void LowerFp64ToFp32(IR::Program& program) {
     for (IR::Block* const block : program.blocks) {
-        for (IR::Inst& inst : block->Instructions()) {
+        for (IR::Inst& inst : *block) {
             LowerFP64ToFP32(*block, inst);
         }
     }

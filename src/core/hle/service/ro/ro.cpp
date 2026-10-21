@@ -52,7 +52,7 @@ struct ProcessContext {
     constexpr ProcessContext() = default;
 
     void Initialize(Kernel::KProcess* process, u64 process_id) {
-        ASSERT(!m_in_use);
+        assert(!m_in_use);
 
         m_nro_in_use = {};
         m_nrr_in_use = {};
@@ -69,7 +69,7 @@ struct ProcessContext {
     }
 
     void Finalize() {
-        ASSERT(m_in_use);
+        assert(m_in_use);
 
         if (m_process) {
             m_process->Close();
@@ -262,14 +262,14 @@ struct ProcessContext {
     }
 
     void SetNrrInfoInUse(const NrrInfo* info, bool in_use) {
-        ASSERT(std::addressof(m_nrr_infos[0]) <= info &&
+        assert(std::addressof(m_nrr_infos[0]) <= info &&
                info <= std::addressof(m_nrr_infos[MaxNrrInfos - 1]));
         const size_t index = info - std::addressof(m_nrr_infos[0]);
         m_nrr_in_use[index] = in_use;
     }
 
     void SetNroInfoInUse(const NroInfo* info, bool in_use) {
-        ASSERT(std::addressof(m_nro_infos[0]) <= info &&
+        assert(std::addressof(m_nro_infos[0]) <= info &&
                info <= std::addressof(m_nro_infos[MaxNroInfos - 1]));
         const size_t index = info - std::addressof(m_nro_infos[0]);
         m_nro_in_use[index] = in_use;
@@ -332,7 +332,7 @@ public:
                               bool enforce_nrr_kind) {
         // Get context.
         ProcessContext* context = this->GetContextById(context_id);
-        ASSERT(context != nullptr);
+        assert(context != nullptr);
 
         // Validate address/size.
         R_TRY(ValidateAddressAndNonZeroSize(nrr_address, nrr_size));
@@ -366,7 +366,7 @@ public:
     Result UnregisterModuleInfo(size_t context_id, u64 nrr_address) {
         // Get context.
         ProcessContext* context = this->GetContextById(context_id);
-        ASSERT(context != nullptr);
+        assert(context != nullptr);
 
         // Validate address.
         R_UNLESS(Common::IsAligned(nrr_address, Core::Memory::CITRON_PAGESIZE),
@@ -387,7 +387,7 @@ public:
                                      u64 nro_size, u64 bss_address, u64 bss_size) {
         // Get context.
         ProcessContext* context = this->GetContextById(context_id);
-        ASSERT(context != nullptr);
+        assert(context != nullptr);
 
         // Validate address/size.
         R_TRY(ValidateAddressAndNonZeroSize(nro_address, nro_size));
@@ -433,7 +433,7 @@ public:
     Result UnmapManualLoadModuleMemory(size_t context_id, u64 nro_address) {
         // Get context.
         ProcessContext* context = this->GetContextById(context_id);
-        ASSERT(context != nullptr);
+        assert(context != nullptr);
 
         // Validate address.
         R_UNLESS(Common::IsAligned(nro_address, Core::Memory::CITRON_PAGESIZE),
@@ -465,7 +465,7 @@ private:
             return nullptr;
         }
 
-        ASSERT(context_id < process_contexts.size());
+        assert(context_id < process_contexts.size());
         return std::addressof(process_contexts[context_id]);
     }
 
@@ -490,7 +490,7 @@ private:
         }
 
         // Failure to find a free context is actually an abort condition.
-        UNREACHABLE();
+        std::unreachable();
     }
 
     void FreeContext(size_t context_id) {

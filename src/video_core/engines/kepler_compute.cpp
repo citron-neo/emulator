@@ -36,8 +36,8 @@ void KeplerCompute::ConsumeSinkImpl() {
 }
 
 void KeplerCompute::CallMethod(u32 method, u32 method_argument, bool is_last_call) {
-    ASSERT_MSG(method < Regs::NUM_REGS,
-               "Invalid KeplerCompute register, increase the size of the Regs structure");
+    assert(method < Regs::NUM_REGS &&
+           "Invalid KeplerCompute register, increase the size of the Regs structure");
 
     regs.reg_array[method] = method_argument;
 
@@ -96,6 +96,35 @@ void KeplerCompute::ProcessLaunch() {
                                    LaunchParams::NUM_LAUNCH_PARAMETERS * sizeof(u32),
                                    "KeplerCompute.launch_description");
     rasterizer->DispatchCompute();
+    ReleaseQmdSemaphores();
+}
+
+// A QMD can ask for up to two semaphore releases when its grid completes (SEMAPHORE_RELEASE_ENABLE0
+// and 1, clb1c0qmd.h). They are queued like the DMA engine queues its semaphore release, after the
+// dispatch, so a guest that waits on one sees it once the work is done.
+void KeplerCompute::ReleaseQmdSemaphores() {
+    const std::array enabled{launch_description.release0_enable.Value() != 0,
+                             launch_description.release1_enable.Value() != 0};
+    for (size_t i = 0; i < enabled.size(); ++i) {
+        if (!enabled[i]) {
+            continue;
+        }
+        const LaunchParams::Release& release = launch_description.releases[i];
+        if (release.reduction_enable != 0) {
+            if (!reduction_reported) {
+                reduction_reported = true;
+                LOG_WARNING(HW_GPU, "QMD semaphore release with reduction op {} is not translated",
+                            release.reduction_op.Value());
+            }
+            continue;
+        }
+        VideoCommon::QueryPropertiesFlags flags{VideoCommon::QueryPropertiesFlags::IsAFence};
+        if (release.one_word == 0) {
+            flags |= VideoCommon::QueryPropertiesFlags::HasTimeout;
+        }
+        rasterizer->Query(release.Address(), VideoCommon::QueryType::Payload, flags,
+                          release.payload, 0);
+    }
 }
 
 Texture::TICEntry KeplerCompute::GetTICEntry(u32 tic_index) const {

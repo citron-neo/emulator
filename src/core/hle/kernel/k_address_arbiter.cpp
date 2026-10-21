@@ -142,7 +142,7 @@ Result KAddressArbiter::Signal(uint64_t addr, s32 count) {
             KThread* target_thread = std::addressof(*it);
             target_thread->EndWait(ResultSuccess);
 
-            ASSERT(target_thread->IsWaitingForAddressArbiter());
+            assert(target_thread->IsWaitingForAddressArbiter());
             target_thread->ClearAddressArbiter();
 
             it = m_tree.erase(it);
@@ -171,7 +171,7 @@ Result KAddressArbiter::SignalAndIncrementIfEqual(uint64_t addr, s32 value, s32 
             KThread* target_thread = std::addressof(*it);
             target_thread->EndWait(ResultSuccess);
 
-            ASSERT(target_thread->IsWaitingForAddressArbiter());
+            assert(target_thread->IsWaitingForAddressArbiter());
             target_thread->ClearAddressArbiter();
 
             it = m_tree.erase(it);
@@ -234,7 +234,7 @@ Result KAddressArbiter::SignalAndModifyByWaitingCountIfEqual(uint64_t addr, s32 
             KThread* target_thread = std::addressof(*it);
             target_thread->EndWait(ResultSuccess);
 
-            ASSERT(target_thread->IsWaitingForAddressArbiter());
+            assert(target_thread->IsWaitingForAddressArbiter());
             target_thread->ClearAddressArbiter();
 
             it = m_tree.erase(it);

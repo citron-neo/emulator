@@ -453,7 +453,7 @@ Result IApplicationFunctions::QueryApplicationPlayStatisticsByUid(
 
 Result IApplicationFunctions::ExecuteProgram(ProgramSpecifyKind kind, u64 value) {
     LOG_WARNING(Service_AM, "(STUBBED) called, kind={}, value={}", kind, value);
-    ASSERT(kind == ProgramSpecifyKind::ExecuteProgram ||
+    assert(kind == ProgramSpecifyKind::ExecuteProgram ||
            kind == ProgramSpecifyKind::RestartProgram);
 
     // Copy user channel ownership into the system so that it will be preserved

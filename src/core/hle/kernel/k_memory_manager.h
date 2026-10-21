@@ -274,8 +274,8 @@ private:
             size_t index = this->GetPageOffset(address);
             const size_t end = index + num_pages;
             while (index < end) {
-                const RefCount ref_count = (++m_page_reference_counts[index]);
-                ASSERT(ref_count == 1);
+                [[maybe_unused]] const RefCount ref_count = (++m_page_reference_counts[index]);
+                assert(ref_count == 1);
 
                 index++;
             }
@@ -285,8 +285,8 @@ private:
             size_t index = this->GetPageOffset(address);
             const size_t end = index + num_pages;
             while (index < end) {
-                const RefCount ref_count = (++m_page_reference_counts[index]);
-                ASSERT(ref_count > 1);
+                [[maybe_unused]] const RefCount ref_count = (++m_page_reference_counts[index]);
+                assert(ref_count > 1);
 
                 index++;
             }
@@ -299,7 +299,7 @@ private:
             size_t free_start = 0;
             size_t free_count = 0;
             while (index < end) {
-                ASSERT(m_page_reference_counts[index] > 0);
+                assert(m_page_reference_counts[index] > 0);
                 const RefCount ref_count = (--m_page_reference_counts[index]);
 
                 // Keep track of how many zero refcounts we see in a row, to minimize calls to free.
