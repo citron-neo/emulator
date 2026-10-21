@@ -28,7 +28,7 @@ std::optional<u8> HexCharToByte(char c) {
     if (c >= 'A' && c <= 'F') {
         return static_cast<u8>(c - 'A' + 10);
     }
-    ASSERT_MSG(false, "{} is not a hexadecimal digit!", c);
+    assert(false && "{} is not a hexadecimal digit!" && (void(c), true));
     return std::nullopt;
 }
 
@@ -132,7 +132,7 @@ std::array<u8, 0x10> ConstructUUID(std::string_view uuid_string) {
         return ConstructFromFormattedString(uuid_string);
     }
 
-    ASSERT_MSG(false, "UUID string has an invalid length of {} characters!", length);
+    assert(false && "UUID string has an invalid length of {} characters!" && (void(length), true));
 
     return {};
 }

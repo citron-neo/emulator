@@ -17,7 +17,7 @@ void KWorkerTask::DoWorkerTask() {
         return thread->DoWorkerTaskImpl();
     } else {
         auto* const process = this->DynamicCast<KProcess*>();
-        ASSERT(process != nullptr);
+        assert(process != nullptr);
 
         return process->DoWorkerTaskImpl();
     }
@@ -26,7 +26,7 @@ void KWorkerTask::DoWorkerTask() {
 KWorkerTaskManager::KWorkerTaskManager() : m_waiting_thread(1, "KWorkerTaskManager") {}
 
 void KWorkerTaskManager::AddTask(KernelCore& kernel, WorkerType type, KWorkerTask* task) {
-    ASSERT(type <= WorkerType::Count);
+    assert(type <= WorkerType::Count);
     kernel.WorkerTaskManager().AddTask(kernel, task);
 }
 

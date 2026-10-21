@@ -169,7 +169,7 @@ void Swizzle(std::span<u8> output, std::span<const u8> input, u32 bytes_per_pixe
         BPP_CASE(16)
 #undef BPP_CASE
     default:
-        ASSERT_MSG(false, "Invalid bytes_per_pixel={}", bytes_per_pixel);
+        assert(false && "Invalid bytes_per_pixel={}" && (void(bytes_per_pixel), true));
         break;
     }
 }
@@ -217,7 +217,7 @@ void SwizzleSubrect(std::span<u8> output, std::span<const u8> input, u32 bytes_p
         BPP_CASE(16)
 #undef BPP_CASE
     default:
-        ASSERT_MSG(false, "Invalid bytes_per_pixel={}", bytes_per_pixel);
+        assert(false && "Invalid bytes_per_pixel={}" && (void(bytes_per_pixel), true));
         break;
     }
 }
@@ -241,7 +241,7 @@ void UnswizzleSubrect(std::span<u8> output, std::span<const u8> input, u32 bytes
         BPP_CASE(16)
 #undef BPP_CASE
     default:
-        ASSERT_MSG(false, "Invalid bytes_per_pixel={}", bytes_per_pixel);
+        assert(false && "Invalid bytes_per_pixel={}" && (void(bytes_per_pixel), true));
         break;
     }
 }

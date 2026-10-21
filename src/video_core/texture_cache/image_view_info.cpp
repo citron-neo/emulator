@@ -20,7 +20,7 @@ constexpr u8 RENDER_TARGET_SWIZZLE = std::numeric_limits<u8>::max();
 
 [[nodiscard]] u8 CastSwizzle(SwizzleSource source) {
     const u8 casted = static_cast<u8>(source);
-    ASSERT(static_cast<SwizzleSource>(casted) == source);
+    assert(static_cast<SwizzleSource>(casted) == source);
     return casted;
 }
 
@@ -38,8 +38,8 @@ ImageViewInfo::ImageViewInfo(const TICEntry& config, s32 base_layer) noexcept
 
     switch (config.texture_type) {
     case TextureType::Texture1D:
-        ASSERT(config.Height() == 1);
-        ASSERT(config.Depth() == 1);
+        assert(config.Height() == 1);
+        assert(config.Depth() == 1);
         type = ImageViewType::e1D;
         break;
     case TextureType::Texture2D:
@@ -50,7 +50,7 @@ ImageViewInfo::ImageViewInfo(const TICEntry& config, s32 base_layer) noexcept
         type = ImageViewType::e3D;
         break;
     case TextureType::TextureCubemap:
-        ASSERT(config.Depth() == 1);
+        assert(config.Depth() == 1);
         type = ImageViewType::Cube;
         range.extent.layers = 6;
         break;
@@ -70,7 +70,8 @@ ImageViewInfo::ImageViewInfo(const TICEntry& config, s32 base_layer) noexcept
         range.extent.layers = config.Depth() * 6;
         break;
     default:
-        ASSERT_MSG(false, "Invalid texture_type={}", static_cast<int>(config.texture_type.Value()));
+        assert(false && "Invalid texture_type={}" &&
+               (void(static_cast<int>(config.texture_type.Value())), true));
         break;
     }
 }

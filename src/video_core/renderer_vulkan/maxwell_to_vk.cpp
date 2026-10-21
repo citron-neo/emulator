@@ -25,7 +25,7 @@ VkFilter Filter(Tegra::Texture::TextureFilter filter) {
     case Tegra::Texture::TextureFilter::Linear:
         return VK_FILTER_LINEAR;
     }
-    ASSERT_MSG(false, "Invalid sampler filter={}", filter);
+    assert(false && "Invalid sampler filter={}" && (void(filter), true));
     return {};
 }
 
@@ -42,7 +42,7 @@ VkSamplerMipmapMode MipmapMode(Tegra::Texture::TextureMipmapFilter mipmap_filter
     case Tegra::Texture::TextureMipmapFilter::Linear:
         return VK_SAMPLER_MIPMAP_MODE_LINEAR;
     }
-    ASSERT_MSG(false, "Invalid sampler mipmap mode={}", mipmap_filter);
+    assert(false && "Invalid sampler mipmap mode={}" && (void(mipmap_filter), true));
     return {};
 }
 
@@ -69,7 +69,7 @@ VkSamplerAddressMode WrapMode(const Device& device, Tegra::Texture::WrapMode wra
         case Tegra::Texture::TextureFilter::Linear:
             return VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER;
         }
-        ASSERT(false);
+        assert(false);
         return VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
     case Tegra::Texture::WrapMode::MirrorOnceClampToEdge:
         return VK_SAMPLER_ADDRESS_MODE_MIRROR_CLAMP_TO_EDGE;
@@ -245,7 +245,7 @@ constexpr bool IsZetaFormat(PixelFormat pixel_format) {
 
 FormatInfo SurfaceFormat(const Device& device, FormatType format_type, bool with_srgb,
                          PixelFormat pixel_format) {
-    ASSERT(static_cast<size_t>(pixel_format) < std::size(tex_format_tuples));
+    assert(static_cast<size_t>(pixel_format) < std::size(tex_format_tuples));
     FormatTuple tuple = tex_format_tuples[static_cast<size_t>(pixel_format)];
     // Transcode on hardware that doesn't support ASTC natively
     if (!device.IsOptimalAstcSupported() && VideoCore::Surface::IsPixelFormatASTC(pixel_format)) {
@@ -396,7 +396,7 @@ VkFormat VertexFormat(const Device& device, Tegra::Engines::Maxwell3D::Regs::Ver
     const VkFormat format{([&]() {
         switch (type) {
         case Tegra::Engines::Maxwell3D::Regs::VertexAttribute::Type::UnusedEnumDoNotUseBecauseItWillGoAway:
-            ASSERT_MSG(false, "Invalid vertex attribute type!");
+            assert(false && "Invalid vertex attribute type!");
             break;
         case Tegra::Engines::Maxwell3D::Regs::VertexAttribute::Type::UNorm:
             switch (size) {
@@ -849,7 +849,7 @@ VkViewportCoordinateSwizzleNV ViewportSwizzle(Tegra::Engines::Maxwell3D::Regs::V
     case Tegra::Engines::Maxwell3D::Regs::ViewportSwizzle::NegativeW:
         return VK_VIEWPORT_COORDINATE_SWIZZLE_NEGATIVE_W_NV;
     }
-    ASSERT_MSG(false, "Invalid swizzle={}", swizzle);
+    assert(false && "Invalid swizzle={}" && (void(swizzle), true));
     return {};
 }
 
@@ -862,7 +862,7 @@ VkSamplerReductionMode SamplerReduction(Tegra::Texture::SamplerReduction reducti
     case Tegra::Texture::SamplerReduction::Max:
         return VK_SAMPLER_REDUCTION_MODE_MAX_EXT;
     }
-    ASSERT_MSG(false, "Invalid sampler mode={}", static_cast<int>(reduction));
+    assert(false && "Invalid sampler mode={}" && (void(static_cast<int>(reduction)), true));
     return VK_SAMPLER_REDUCTION_MODE_WEIGHTED_AVERAGE_EXT;
 }
 
@@ -885,7 +885,7 @@ VkSampleCountFlagBits MsaaMode(Tegra::Texture::MsaaMode msaa_mode) {
     case Tegra::Texture::MsaaMode::Msaa4x4:
         return VK_SAMPLE_COUNT_16_BIT;
     default:
-        ASSERT_MSG(false, "Invalid msaa_mode={}", static_cast<int>(msaa_mode));
+        assert(false && "Invalid msaa_mode={}" && (void(static_cast<int>(msaa_mode)), true));
         return VK_SAMPLE_COUNT_1_BIT;
     }
 }

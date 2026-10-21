@@ -442,13 +442,6 @@
            </property>
           </widget>
          </item>
-         <item row="2" column="0">
-          <widget class="QCheckBox" name="use_debug_asserts">
-           <property name="text">
-            <string>Enable Debug Asserts</string>
-           </property>
-          </widget>
-         </item>
          <item row="7" column="0">
           <spacer name="verticalSpacer_4">
            <property name="orientation">
@@ -569,7 +562,6 @@
   <tabstop>reporting_services</tabstop>
   <tabstop>quest_flag</tabstop>
   <tabstop>enable_cpu_debugging</tabstop>
-  <tabstop>use_debug_asserts</tabstop>
  </tabstops>
  <resources/>
  <connections/>

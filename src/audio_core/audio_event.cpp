@@ -18,7 +18,7 @@ size_t Event::GetManagerIndex(const Type type) const {
     case Type::Max:
         return 3;
     default:
-        UNREACHABLE();
+        std::unreachable();
     }
 }
 

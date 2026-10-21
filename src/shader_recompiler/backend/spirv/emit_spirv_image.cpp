@@ -80,7 +80,7 @@ public:
             Add(spv::ImageOperandsMask::Offset, ctx.Def(offset));
             return;
         }
-        const std::array values{offset.InstRecursive(), offset2.InstRecursive()};
+        const std::array values{ctx.Inst(offset), ctx.Inst(offset2)};
         if (!values[0]->AreAllArgsImmediates() || !values[1]->AreAllArgsImmediates()) {
             LOG_WARNING(Shader_SPIRV, "Not all arguments in PTP are immediate, ignoring");
             return;
@@ -176,7 +176,7 @@ private:
             Add(spv::ImageOperandsMask::ConstOffset, ctx.SConst(static_cast<s32>(offset.U32())));
             return;
         }
-        IR::Inst* const inst{offset.InstRecursive()};
+        IR::Inst* const inst{ctx.Inst(offset)};
         if (inst->AreAllArgsImmediates()) {
             switch (inst->GetOpcode()) {
             case IR::Opcode::CompositeConstructU32x2:

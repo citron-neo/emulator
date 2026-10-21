@@ -266,7 +266,7 @@ int main(int argc, char** argv) {
 
                 std::smatch match;
                 std::regex_search(str_arg, match, re);
-                ASSERT(match.size() == 5);
+                assert(match.size() == 5);
                 nickname = match[1];
                 password = match[2];
                 address = match[3];

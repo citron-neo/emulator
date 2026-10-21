@@ -47,11 +47,11 @@ ImageInfo::ImageInfo(const TICEntry& config) {
     tile_width_spacing = config.tile_width_spacing;
     if (config.texture_type != TextureType::Texture2D &&
         config.texture_type != TextureType::Texture2DNoMipmap) {
-        ASSERT(!config.IsPitchLinear());
+        assert(!config.IsPitchLinear());
     }
     switch (config.texture_type) {
     case TextureType::Texture1D:
-        ASSERT(config.BaseLayer() == 0);
+        assert(config.BaseLayer() == 0);
         type = ImageType::e1D;
         size.width = config.Width();
         resources.layers = 1;
@@ -78,7 +78,7 @@ ImageInfo::ImageInfo(const TICEntry& config) {
         resources.layers = config.BaseLayer() + config.Depth();
         break;
     case TextureType::TextureCubemap:
-        ASSERT(config.Depth() == 1);
+        assert(config.Depth() == 1);
         type = ImageType::e2D;
         size.width = config.Width();
         size.height = config.Height();
@@ -92,7 +92,7 @@ ImageInfo::ImageInfo(const TICEntry& config) {
         resources.layers = config.BaseLayer() + config.Depth() * 6;
         break;
     case TextureType::Texture3D:
-        ASSERT(config.BaseLayer() == 0);
+        assert(config.BaseLayer() == 0);
         type = ImageType::e3D;
         size.width = config.Width();
         size.height = config.Height();
@@ -105,7 +105,8 @@ ImageInfo::ImageInfo(const TICEntry& config) {
         resources.layers = 1;
         break;
     default:
-        ASSERT_MSG(false, "Invalid texture_type={}", static_cast<int>(config.texture_type.Value()));
+        assert(false && "Invalid texture_type={}" &&
+               (void(static_cast<int>(config.texture_type.Value())), true));
         break;
     }
     if (num_samples > 1) {
@@ -133,7 +134,7 @@ ImageInfo::ImageInfo(const Maxwell3D::Regs::RenderTargetConfig& ct,
     format = VideoCore::Surface::PixelFormatFromRenderTargetFormat(ct.format);
     rescaleable = false;
     if (ct.tile_mode.is_pitch_linear) {
-        ASSERT(ct.tile_mode.dim_control ==
+        assert(ct.tile_mode.dim_control ==
                Maxwell3D::Regs::TileMode::DimensionControl::DefineArraySize);
         type = ImageType::Linear;
         pitch = ct.width;
@@ -185,13 +186,13 @@ ImageInfo::ImageInfo(const Maxwell3D::Regs::Zeta& zt, const Maxwell3D::Regs::Zet
         .depth = zt.tile_mode.block_depth,
     };
     if (zt.tile_mode.is_pitch_linear) {
-        ASSERT(zt.tile_mode.dim_control ==
+        assert(zt.tile_mode.dim_control ==
                Maxwell3D::Regs::TileMode::DimensionControl::DefineArraySize);
         type = ImageType::Linear;
         pitch = ImageSize::Narrow(ImageSize::Multiply(size.width, BytesPerBlock(format)));
     } else if (zt.tile_mode.dim_control ==
                Maxwell3D::Regs::TileMode::DimensionControl::DefineDepthSize) {
-        ASSERT(zt_size.dim_control == Maxwell3D::Regs::ZetaSize::DimensionControl::ArraySizeIsOne);
+        assert(zt_size.dim_control == Maxwell3D::Regs::ZetaSize::DimensionControl::ArraySizeIsOne);
         type = ImageType::e3D;
         size.depth = zt_size.depth;
     } else {

@@ -48,10 +48,10 @@ void Cabinet::Initialize() {
               common_args.theme_color);
 
     std::shared_ptr<IStorage> storage = PopInData();
-    ASSERT(storage != nullptr);
+    assert(storage != nullptr);
 
     const auto applet_input_data = storage->GetData();
-    ASSERT(applet_input_data.size() >= sizeof(StartParamForAmiiboSettings));
+    assert(applet_input_data.size() >= sizeof(StartParamForAmiiboSettings));
 
     std::memcpy(&applet_input_common, applet_input_data.data(),
                 sizeof(StartParamForAmiiboSettings));
@@ -62,7 +62,7 @@ Result Cabinet::GetStatus() const {
 }
 
 void Cabinet::ExecuteInteractive() {
-    ASSERT_MSG(false, "Attempted to call interactive execution on non-interactive applet.");
+    assert(false && "Attempted to call interactive execution on non-interactive applet.");
 }
 
 void Cabinet::Execute() {

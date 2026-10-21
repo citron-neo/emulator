@@ -5,13 +5,13 @@
 #include <algorithm>
 #include <array>
 #include <atomic>
+#include <bit>
 #include <cmath>
 #include <span>
 #include <vector>
 #include <boost/container/small_vector.hpp>
 
 #include "common/alignment.h"
-#include "common/bit_cast.h"
 #include "common/bit_util.h"
 #include "common/literals.h"
 #include "common/common_types.h"
@@ -82,7 +82,7 @@ constexpr VkBorderColor ConvertBorderColor(const std::array<float, 4>& color) {
     case ImageType::Buffer:
         break;
     }
-    ASSERT_MSG(false, "Invalid image type={}", type);
+    assert(false && "Invalid image type={}" && (void(type), true));
     return {};
 }
 
@@ -99,7 +99,7 @@ constexpr VkBorderColor ConvertBorderColor(const std::array<float, 4>& color) {
     case 16:
         return VK_SAMPLE_COUNT_16_BIT;
     default:
-        ASSERT_MSG(false, "Invalid number of samples={}", num_samples);
+        assert(false && "Invalid number of samples={}" && (void(num_samples), true));
         return VK_SAMPLE_COUNT_1_BIT;
     }
 }
@@ -119,7 +119,7 @@ constexpr VkBorderColor ConvertBorderColor(const std::array<float, 4>& color) {
             usage |= VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
             break;
         default:
-            ASSERT_MSG(false, "Invalid surface type");
+            assert(false && "Invalid surface type");
             break;
         }
     }
@@ -240,7 +240,7 @@ constexpr VkBorderColor ConvertBorderColor(const std::array<float, 4>& color) {
     case VideoCore::Surface::SurfaceType::DepthStencil:
         return VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
     default:
-        ASSERT_MSG(false, "Invalid surface type");
+        assert(false && "Invalid surface type");
         return VkImageAspectFlags{};
     }
 }
@@ -286,7 +286,7 @@ constexpr VkBorderColor ConvertBorderColor(const std::array<float, 4>& color) {
     case SwizzleSource::OneInt:
         return VK_COMPONENT_SWIZZLE_ONE;
     }
-    ASSERT_MSG(false, "Invalid swizzle={}", swizzle);
+    assert(false && "Invalid swizzle={}" && (void(swizzle), true));
     return VK_COMPONENT_SWIZZLE_ZERO;
 }
 
@@ -308,10 +308,10 @@ constexpr VkBorderColor ConvertBorderColor(const std::array<float, 4>& color) {
     case Shader::TextureType::ColorArrayCube:
         return VK_IMAGE_VIEW_TYPE_CUBE_ARRAY;
     case Shader::TextureType::Buffer:
-        ASSERT_MSG(false, "Texture buffers can't be image views");
+        assert(false && "Texture buffers can't be image views");
         return VK_IMAGE_VIEW_TYPE_1D;
     }
-    ASSERT_MSG(false, "Invalid image view type={}", type);
+    assert(false && "Invalid image view type={}" && (void(type), true));
     return VK_IMAGE_VIEW_TYPE_2D;
 }
 
@@ -333,10 +333,10 @@ constexpr VkBorderColor ConvertBorderColor(const std::array<float, 4>& color) {
     case VideoCommon::ImageViewType::CubeArray:
         return VK_IMAGE_VIEW_TYPE_CUBE_ARRAY;
     case VideoCommon::ImageViewType::Buffer:
-        ASSERT_MSG(false, "Texture buffers can't be image views");
+        assert(false && "Texture buffers can't be image views");
         return VK_IMAGE_VIEW_TYPE_1D;
     }
-    ASSERT_MSG(false, "Invalid image view type={}", type);
+    assert(false && "Invalid image view type={}" && (void(type), true));
     return VK_IMAGE_VIEW_TYPE_2D;
 }
 
@@ -747,7 +747,7 @@ struct RangedBarrierRange {
     case Shader::ImageFormat::R32G32B32A32_SFLOAT:
         return VK_FORMAT_R32G32B32A32_SFLOAT;
     }
-    ASSERT_MSG(false, "Invalid image format={}", format);
+    assert(false && "Invalid image format={}" && (void(format), true));
     return VK_FORMAT_R32_UINT;
 }
 
@@ -1165,7 +1165,7 @@ void TextureCacheRuntime::BlitImage(Framebuffer* dst_framebuffer, ImageView& dst
                                     dst_region, src_region, filter, operation);
         return;
     }
-    ASSERT(src.format == dst.format);
+    assert(src.format == dst.format);
     if (aspect_mask == (VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT)) {
         const auto format = src.format;
         const auto can_blit_depth_stencil = [this, format] {
@@ -1176,7 +1176,7 @@ void TextureCacheRuntime::BlitImage(Framebuffer* dst_framebuffer, ImageView& dst
             case VideoCore::Surface::PixelFormat::D32_FLOAT_S8_UINT:
                 return device.IsBlitDepth32Stencil8Supported();
             default:
-                UNREACHABLE();
+                std::unreachable();
             }
         }();
         if (!can_blit_depth_stencil) {
@@ -1186,8 +1186,8 @@ void TextureCacheRuntime::BlitImage(Framebuffer* dst_framebuffer, ImageView& dst
             return;
         }
     }
-    ASSERT(!(is_dst_msaa && !is_src_msaa));
-    ASSERT(operation == Fermi2D::Operation::SrcCopy);
+    assert(!(is_dst_msaa && !is_src_msaa));
+    assert(operation == Fermi2D::Operation::SrcCopy);
 
     const VkImage dst_image = dst.ImageHandle();
     const VkImage src_image = src.ImageHandle();
@@ -1353,7 +1353,7 @@ void TextureCacheRuntime::CopyImage(Image& dst, Image& src,
                                     std::span<const VideoCommon::ImageCopy> copies) {
     boost::container::small_vector<VkImageCopy, 16> vk_copies(copies.size());
     const VkImageAspectFlags aspect_mask = dst.AspectMask();
-    ASSERT(aspect_mask == src.AspectMask());
+    assert(aspect_mask == src.AspectMask());
 
     std::ranges::transform(copies, vk_copies.begin(), [aspect_mask](const auto& copy) {
         return MakeImageCopy(copy, aspect_mask);
@@ -1668,7 +1668,7 @@ bool Image::ScaleUp(bool ignore) {
     if (True(flags & ImageFlagBits::Rescaled)) {
         return false;
     }
-    ASSERT(info.type != ImageType::Linear);
+    assert(info.type != ImageType::Linear);
     flags |= ImageFlagBits::Rescaled;
     has_scaled = true;
     if (!scaled_image) {
@@ -1705,7 +1705,7 @@ bool Image::ScaleDown(bool ignore) {
     if (False(flags & ImageFlagBits::Rescaled)) {
         return false;
     }
-    ASSERT(info.type != ImageType::Linear);
+    assert(info.type != ImageType::Linear);
     flags &= ~ImageFlagBits::Rescaled;
     current_image = *original_image;
     if (ignore) {
@@ -1901,7 +1901,7 @@ ImageView::ImageView(TextureCacheRuntime& runtime, const VideoCommon::ImageViewI
         create(TextureType::ColorArrayCube, std::nullopt);
         break;
     case VideoCommon::ImageViewType::Buffer:
-        ASSERT(false);
+        assert(false);
         break;
     }
 }
@@ -2087,7 +2087,7 @@ Sampler::Sampler(TextureCacheRuntime& runtime, const Tegra::Texture::TSCEntry& t
         .sType = VK_STRUCTURE_TYPE_SAMPLER_CUSTOM_BORDER_COLOR_CREATE_INFO_EXT,
         .pNext = nullptr,
         // TODO: Make use of std::bit_cast once libc++ supports it.
-        .customBorderColor = Common::BitCast<VkClearColorValue>(color),
+        .customBorderColor = std::bit_cast<VkClearColorValue>(color),
         .format = VK_FORMAT_UNDEFINED,
     };
     const void* pnext = nullptr;
@@ -2251,7 +2251,7 @@ void TextureCacheRuntime::AccelerateImageUpload(
     if (IsPixelFormatASTC(image.info.format)) {
         return astc_decoder_pass->Assemble(image, map, swizzles);
     }
-    ASSERT(false);
+    assert(false);
 }
 
 void TextureCacheRuntime::TransitionImageLayout(Image& image) {

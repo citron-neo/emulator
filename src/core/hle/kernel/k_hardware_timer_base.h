@@ -50,7 +50,7 @@ protected:
     }
 
     bool RegisterAbsoluteTaskImpl(KTimerTask* task, s64 task_time) {
-        ASSERT(task_time > 0);
+        assert(task_time > 0);
 
         // Set the task's time, and insert it into our tree.
         task->SetTime(task_time);
