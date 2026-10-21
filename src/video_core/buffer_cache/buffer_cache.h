@@ -24,6 +24,8 @@ using Core::DEVICE_PAGESIZE;
 template <class P>
 BufferCache<P>::BufferCache(Tegra::MaxwellDeviceMemoryManager& device_memory_, Runtime& runtime_)
     : runtime{runtime_}, device_memory{device_memory_}, memory_tracker{device_memory},
+      write_heat{Tegra::MaxwellDeviceMemoryManager::AS_BITS, PAGE_TABLE_FIRST_LEVEL_BITS,
+                 CACHING_PAGEBITS},
       page_table{Tegra::MaxwellDeviceMemoryManager::AS_BITS, PAGE_TABLE_FIRST_LEVEL_BITS,
                  CACHING_PAGEBITS} {
     // Ensure the first slot is used for the null buffer
@@ -192,11 +194,70 @@ void BufferCache<P>::TickFrame(u64 cache_usage, u64 cache_target,
 
 template <class P>
 void BufferCache<P>::WriteMemory(DAddr device_addr, u64 size) {
+    if (size <= DEVICE_PAGESIZE) {
+        size = WidenHotWrite(device_addr, size);
+    }
     if (memory_tracker.IsRegionGpuModified(device_addr, size)) {
         ClearDownload(device_addr, size);
         gpu_modified_ranges.Subtract(device_addr, size);
     }
     memory_tracker.MarkRegionAsCpuModified(device_addr, size);
+}
+
+template <class P>
+u64 BufferCache<P>::WidenHotWrite(DAddr device_addr, u64 size) {
+    // A write only says something about the guest when it landed on a page being watched
+    if (memory_tracker.IsRegionCpuModified(device_addr, size)) {
+        return size;
+    }
+    const u64 block = device_addr >> CACHING_PAGEBITS;
+    if (block >= CACHING_PAGE_COUNT) {
+        return size;
+    }
+    // Each entry holds the frame of the last write in the upper half and a count in the lower.
+    const u16 now = static_cast<u16>(frame_tick);
+    const auto is_recent = [now](u32 heat) {
+        return static_cast<u16>(now - static_cast<u16>(heat >> 16)) <= WRITE_HEAT_FRAMES;
+    };
+    const auto is_hot = [&is_recent](u32 heat) {
+        return static_cast<u16>(heat) >= HOT_WRITE_COUNT && is_recent(heat);
+    };
+    u32& heat = write_heat.GetOrAllocate(block);
+    u16 count = static_cast<u16>(heat);
+    if (!is_recent(heat)) {
+        count /= 2;
+    }
+    if (count < HOT_WRITE_COUNT) {
+        heat = (u32{now} << 16) | static_cast<u16>(count + 1);
+        return size;
+    }
+    count = std::min<u16>(static_cast<u16>(count + 1), HOT_WRITE_COUNT * 2);
+    heat = (u32{now} << 16) | count;
+
+    // The guest keeps rewriting this caching page. Each write into a watched page costs a fault
+    // on the guest thread, so stop watching the rest of it now, and the busy caching pages that
+    // follow it. Pages that end up unchanged are only uploaded again if something binds them.
+    const u64 last_block =
+        std::min<u64>(CACHING_PAGE_COUNT, block + MAX_WIDENED_WRITE / CACHING_PAGESIZE);
+    u64 end_block = block + 1;
+    while (end_block < last_block) {
+        const u32* const next = write_heat.TryGet(end_block);
+        if (!next || !is_hot(*next)) {
+            break;
+        }
+        ++end_block;
+    }
+    const u64 wide_size = (end_block << CACHING_PAGEBITS) - device_addr;
+    if (wide_size <= size) {
+        // The write runs past the end of the hot caching pages. Never mark less than was written.
+        return size;
+    }
+    // Pages the host GPU wrote hold data guest memory does not have yet. Leave those alone.
+    if (memory_tracker.IsRegionGpuModified(device_addr, wide_size) ||
+        IsRegionGpuModified(device_addr, wide_size)) {
+        return size;
+    }
+    return wide_size;
 }
 
 template <class P>
@@ -798,11 +859,14 @@ void BufferCache<P>::BindHostVertexBuffers() {
     HostBindings<typename P::Buffer> host_bindings;
     bool any_valid{false};
     auto& flags = maxwell3d->dirty.flags;
-    for (u32 index = 0; index < NUM_VERTEX_BUFFERS; ++index) {
+    // Most of the vertex streams are off in any one draw, and those have nothing to upload
+    ForEachEnabledBit(channel_state->enabled_vertex_buffers, [&](u32 index) {
         const Binding& binding = channel_state->vertex_buffers[index];
         Buffer& buffer = slot_buffers[binding.buffer_id];
         TouchBuffer(buffer, binding.buffer_id);
         SynchronizeBuffer(buffer, binding.device_addr, binding.size);
+    });
+    for (u32 index = 0; index < NUM_VERTEX_BUFFERS; ++index) {
         if (!flags[Dirty::VertexBuffer0 + index]) {
             continue;
         }
@@ -903,6 +967,7 @@ void BufferCache<P>::BindHostGraphicsUniformBuffer(size_t stage, u32 index, u32 
     Buffer& buffer = slot_buffers[binding.buffer_id];
     TouchBuffer(buffer, binding.buffer_id);
     if (binding.buffer_id != NULL_BUFFER_ID && shader_size > binding.size &&
+        runtime.NeedsPaddedUniformBuffer(binding.size) &&
         !memory_tracker.IsRegionGpuModified(device_addr, size)) {
         const std::span<u8> span =
             runtime.BindMappedUniformBuffer(stage, binding_index, shader_size);
@@ -1261,6 +1326,7 @@ void BufferCache<P>::UpdateVertexBuffer(u32 index) {
     u32 size = address_size; // TODO: Analyze stride and number of vertices
     if (array.enable == 0 || size == 0 || !device_addr) {
         channel_state->vertex_buffers[index] = NULL_BINDING;
+        channel_state->enabled_vertex_buffers &= ~(1U << index);
         return;
     }
     if (!gpu_memory->IsWithinGPUAddressRange(gpu_addr_end) || size >= 64_MiB) {
@@ -1272,6 +1338,11 @@ void BufferCache<P>::UpdateVertexBuffer(u32 index) {
         .size = size,
         .buffer_id = buffer_id,
     };
+    if (buffer_id != NULL_BUFFER_ID) {
+        channel_state->enabled_vertex_buffers |= 1U << index;
+    } else {
+        channel_state->enabled_vertex_buffers &= ~(1U << index);
+    }
 }
 
 template <class P>
@@ -1869,6 +1940,7 @@ void BufferCache<P>::DeleteBuffer(BufferId buffer_id, bool do_not_mark) {
         auto& binding = channel_state->vertex_buffers[index];
         if (binding.buffer_id == buffer_id) {
             binding.buffer_id = BufferId{};
+            channel_state->enabled_vertex_buffers &= ~(1U << index);
             dirty_vertex_buffers.push_back(index);
         }
     }
