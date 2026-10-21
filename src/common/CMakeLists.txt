@@ -24,7 +24,6 @@ add_library(common STATIC
     announce_multiplayer_room.h
     assert.cpp
     assert.h
-    atomic_helpers.h
     atomic_ops.h
     bit_cast.h
     bit_field.h
@@ -124,7 +123,6 @@ add_library(common STATIC
     swap.h
     thread.cpp
     thread.h
-    thread_queue_list.h
     thread_worker.h
     threadsafe_queue.h
     time_zone.cpp

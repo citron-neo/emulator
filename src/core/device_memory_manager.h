@@ -177,6 +177,13 @@ private:
     Common::VirtualBuffer<GpuCoalescedEntry> entries;
     Common::VirtualBuffer<u32> compressed_device_addr;
 
+    /// Number of pages from this one on that are contiguous in host memory. The table is never
+    /// initialised (see the constructor), so an entry nothing has written yet counts as one page.
+    [[nodiscard]] size_t ContinuityAt(size_t page_index) const {
+        const u32 tracked = entries[page_index].continuity_tracker;
+        return tracked != 0 ? static_cast<size_t>(tracked) : size_t{1};
+    }
+
     // Process memory interfaces
 
     std::deque<size_t> id_pool;

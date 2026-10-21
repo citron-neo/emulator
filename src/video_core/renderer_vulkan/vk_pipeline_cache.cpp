@@ -548,10 +548,12 @@ ComputePipeline* PipelineCache::CurrentComputePipeline() {
     };
     const auto [pair, is_new]{compute_cache.try_emplace(key)};
     auto& pipeline{pair->second};
-    if (!is_new && pipeline) {
-        return pipeline.get();
+    if (is_new) {
+        // Built once per key, as in CurrentGraphicsPipelineSlowPath: a failed build (a
+        // Shader::Exception, a vk::Exception or HasBrokenCompute) stays cached as null instead of
+        // costing a full shader translation on every dispatch.
+        pipeline = CreateComputePipeline(key, shader);
     }
-    pipeline = CreateComputePipeline(key, shader);
     return pipeline.get();
 }
 

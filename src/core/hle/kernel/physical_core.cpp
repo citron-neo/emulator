@@ -4,7 +4,6 @@
 #include "common/profiling.h"
 #include "common/scope_exit.h"
 #include "common/settings.h"
-#include "citron/util/title_ids.h"
 #include "core/core.h"
 #include "core/debugger/debugger.h"
 #include "core/file_sys/common_funcs.h"
