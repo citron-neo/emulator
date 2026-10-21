@@ -169,20 +169,10 @@ DeviceMemoryManager<Traits>::DeviceMemoryManager(const DeviceMemory& device_memo
     impl = std::make_unique<DeviceMemoryManagerAllocator<Traits>>();
     cached_pages.resize(num_counter_entries);
 
-    const size_t total_virtual = device_as_size >> Memory::CITRON_PAGEBITS;
-    for (size_t i = 0; i < total_virtual; i++) {
-        entries[i].compressed_physical_ptr = 0;
-        entries[i].continuity_tracker = 1;
-        entries[i].cpu_backing_address = 0;
-    }
-    const size_t total_phys = 1ULL << ((Settings::values.memory_layout_mode.GetValue() ==
-                                                Settings::MemoryLayout::Memory_4Gb
-                                            ? physical_min_bits
-                                            : physical_max_bits) -
-                                       Memory::CITRON_PAGEBITS);
-    for (size_t i = 0; i < total_phys; i++) {
-        compressed_device_addr[i] = 0;
-    }
+    // Both tables come from the OS zeroed and must stay untouched here. The entry table covers
+    // the whole device address space (16 bytes a page, 2 GB at 39 bits); writing an initial
+    // value into every entry made all of it resident before the game had mapped anything. Zero
+    // is the initial state: no backing, and a continuity of zero reads as one (ContinuityAt).
 }
 
 template <typename Traits>
@@ -321,7 +311,7 @@ template <typename Traits>
 u8* DeviceMemoryManager<Traits>::GetSpan(const DAddr src_addr, const std::size_t size) {
     size_t page_index = src_addr >> page_bits;
     size_t subbits = src_addr & page_mask;
-    if ((static_cast<size_t>(entries[page_index].continuity_tracker) << page_bits) >= size + subbits) {
+    if ((ContinuityAt(page_index) << page_bits) >= size + subbits) {
         return GetPointer<u8>(src_addr);
     }
     return nullptr;
@@ -331,7 +321,7 @@ template <typename Traits>
 const u8* DeviceMemoryManager<Traits>::GetSpan(const DAddr src_addr, const std::size_t size) const {
     size_t page_index = src_addr >> page_bits;
     size_t subbits = src_addr & page_mask;
-    if ((static_cast<size_t>(entries[page_index].continuity_tracker) << page_bits) >= size + subbits) {
+    if ((ContinuityAt(page_index) << page_bits) >= size + subbits) {
         return GetPointer<u8>(src_addr);
     }
     return nullptr;
@@ -407,7 +397,7 @@ void DeviceMemoryManager<Traits>::WalkBlock(DAddr addr, std::size_t size, auto o
     std::size_t page_offset = addr & Memory::CITRON_PAGEMASK;
 
     while (remaining_size) {
-        const size_t next_pages = static_cast<std::size_t>(entries[page_index].continuity_tracker);
+        const size_t next_pages = ContinuityAt(page_index);
         const std::size_t copy_amount =
             std::min((next_pages << Memory::CITRON_PAGEBITS) - page_offset, remaining_size);
         const auto current_vaddr =
