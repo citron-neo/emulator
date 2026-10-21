@@ -45,6 +45,16 @@ if ((ARCHITECTURE_x86_64 OR ARCHITECTURE_arm64) AND NOT TARGET dynarmic::dynarmi
         set(DYNARMIC_IGNORE_ASSERTS ON)
         add_subdirectory(dynarmic)
         add_library(dynarmic::dynarmic ALIAS dynarmic)
+        # This dynarmic defines ASSERT as assert(), and its arm64 backend stores every compiled
+        # block from inside ASSERT(...). A release build defines NDEBUG, which removes those
+        # inserts with the assert: nothing is ever cached, every block is compiled again each
+        # time it is reached, and a 32-bit game sits at 0 fps. Keep assert alive in that file.
+        if (ARCHITECTURE_arm64 AND NOT MSVC)
+            set_source_files_properties(
+                "${CMAKE_CURRENT_SOURCE_DIR}/dynarmic/src/dynarmic/backend/arm64/address_space.cpp"
+                TARGET_DIRECTORY dynarmic
+                PROPERTIES COMPILE_OPTIONS "-UNDEBUG")
+        endif()
     endif()
 endif()
 

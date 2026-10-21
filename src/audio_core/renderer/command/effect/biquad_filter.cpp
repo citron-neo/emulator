@@ -2,10 +2,11 @@
 // SPDX-FileCopyrightText: Copyright 2026 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
+#include <bit>
+
 #include "audio_core/adsp/apps/audio_renderer/command_list_processor.h"
 #include "audio_core/renderer/command/effect/biquad_filter.h"
 #include "audio_core/renderer/voice/voice_state.h"
-#include "common/bit_cast.h"
 
 namespace AudioCore::Renderer {
 /**
@@ -28,8 +29,8 @@ void ApplyBiquadFilterFloat(std::span<s32> output, std::span<const s32> input,
                          Common::FixedPoint<50, 14>::from_base(b_[2]).to_double()};
     std::array<f64, 2> a{Common::FixedPoint<50, 14>::from_base(a_[0]).to_double(),
                          Common::FixedPoint<50, 14>::from_base(a_[1]).to_double()};
-    std::array<f64, 4> s{Common::BitCast<f64>(state.s0), Common::BitCast<f64>(state.s1),
-                         Common::BitCast<f64>(state.s2), Common::BitCast<f64>(state.s3)};
+    std::array<f64, 4> s{std::bit_cast<f64>(state.s0), std::bit_cast<f64>(state.s1),
+                         std::bit_cast<f64>(state.s2), std::bit_cast<f64>(state.s3)};
 
     for (u32 i = 0; i < sample_count; i++) {
         f64 in_sample{static_cast<f64>(input[i])};
@@ -43,10 +44,10 @@ void ApplyBiquadFilterFloat(std::span<s32> output, std::span<const s32> input,
         s[2] = sample;
     }
 
-    state.s0 = Common::BitCast<s64>(s[0]);
-    state.s1 = Common::BitCast<s64>(s[1]);
-    state.s2 = Common::BitCast<s64>(s[2]);
-    state.s3 = Common::BitCast<s64>(s[3]);
+    state.s0 = std::bit_cast<s64>(s[0]);
+    state.s1 = std::bit_cast<s64>(s[1]);
+    state.s2 = std::bit_cast<s64>(s[2]);
+    state.s3 = std::bit_cast<s64>(s[3]);
 }
 
 /**
@@ -60,8 +61,8 @@ void ApplyBiquadFilterFloat2(std::span<s32> output, std::span<const s32> input,
 
     std::array<f64, 3> b_double{static_cast<f64>(b[0]), static_cast<f64>(b[1]), static_cast<f64>(b[2])};
     std::array<f64, 2> a_double{static_cast<f64>(a[0]), static_cast<f64>(a[1])};
-    std::array<f64, 4> s{Common::BitCast<f64>(state.s0), Common::BitCast<f64>(state.s1),
-                         Common::BitCast<f64>(state.s2), Common::BitCast<f64>(state.s3)};
+    std::array<f64, 4> s{std::bit_cast<f64>(state.s0), std::bit_cast<f64>(state.s1),
+                         std::bit_cast<f64>(state.s2), std::bit_cast<f64>(state.s3)};
 
     for (u32 i = 0; i < sample_count; i++) {
         f64 in_sample{static_cast<f64>(input[i])};
@@ -76,10 +77,10 @@ void ApplyBiquadFilterFloat2(std::span<s32> output, std::span<const s32> input,
         s[2] = sample;
     }
 
-    state.s0 = Common::BitCast<s64>(s[0]);
-    state.s1 = Common::BitCast<s64>(s[1]);
-    state.s2 = Common::BitCast<s64>(s[2]);
-    state.s3 = Common::BitCast<s64>(s[3]);
+    state.s0 = std::bit_cast<s64>(s[0]);
+    state.s1 = std::bit_cast<s64>(s[1]);
+    state.s2 = std::bit_cast<s64>(s[2]);
+    state.s3 = std::bit_cast<s64>(s[3]);
 }
 
 /**
@@ -104,8 +105,8 @@ void ApplyBiquadFilterAndMix(std::span<s32> output, std::span<const s32> input,
                          Common::FixedPoint<50, 14>::from_base(b_[2]).to_double()};
     std::array<f64, 2> a{Common::FixedPoint<50, 14>::from_base(a_[0]).to_double(),
                          Common::FixedPoint<50, 14>::from_base(a_[1]).to_double()};
-    std::array<f64, 4> s{Common::BitCast<f64>(state.s0), Common::BitCast<f64>(state.s1),
-                         Common::BitCast<f64>(state.s2), Common::BitCast<f64>(state.s3)};
+    std::array<f64, 4> s{std::bit_cast<f64>(state.s0), std::bit_cast<f64>(state.s1),
+                         std::bit_cast<f64>(state.s2), std::bit_cast<f64>(state.s3)};
 
     for (u32 i = 0; i < sample_count; i++) {
         f64 in_sample{static_cast<f64>(input[i])};
@@ -121,10 +122,10 @@ void ApplyBiquadFilterAndMix(std::span<s32> output, std::span<const s32> input,
         output[i] = static_cast<s32>(std::clamp(mixed, min, max));
     }
 
-    state.s0 = Common::BitCast<s64>(s[0]);
-    state.s1 = Common::BitCast<s64>(s[1]);
-    state.s2 = Common::BitCast<s64>(s[2]);
-    state.s3 = Common::BitCast<s64>(s[3]);
+    state.s0 = std::bit_cast<s64>(s[0]);
+    state.s1 = std::bit_cast<s64>(s[1]);
+    state.s2 = std::bit_cast<s64>(s[2]);
+    state.s3 = std::bit_cast<s64>(s[3]);
 }
 
 /**
@@ -151,8 +152,8 @@ f32 ApplyBiquadFilterAndMixRamp(std::span<s32> output, std::span<const s32> inpu
                          Common::FixedPoint<50, 14>::from_base(b_[2]).to_double()};
     std::array<f64, 2> a{Common::FixedPoint<50, 14>::from_base(a_[0]).to_double(),
                          Common::FixedPoint<50, 14>::from_base(a_[1]).to_double()};
-    std::array<f64, 4> s{Common::BitCast<f64>(state.s0), Common::BitCast<f64>(state.s1),
-                         Common::BitCast<f64>(state.s2), Common::BitCast<f64>(state.s3)};
+    std::array<f64, 4> s{std::bit_cast<f64>(state.s0), std::bit_cast<f64>(state.s1),
+                         std::bit_cast<f64>(state.s2), std::bit_cast<f64>(state.s3)};
 
     f32 current_volume{volume};
     f32 last_mixed{0.0f};
@@ -174,10 +175,10 @@ f32 ApplyBiquadFilterAndMixRamp(std::span<s32> output, std::span<const s32> inpu
         current_volume += ramp;
     }
 
-    state.s0 = Common::BitCast<s64>(s[0]);
-    state.s1 = Common::BitCast<s64>(s[1]);
-    state.s2 = Common::BitCast<s64>(s[2]);
-    state.s3 = Common::BitCast<s64>(s[3]);
+    state.s0 = std::bit_cast<s64>(s[0]);
+    state.s1 = std::bit_cast<s64>(s[1]);
+    state.s2 = std::bit_cast<s64>(s[2]);
+    state.s3 = std::bit_cast<s64>(s[3]);
 
     return last_mixed;
 }
@@ -214,10 +215,10 @@ void ApplyDoubleBiquadFilterAndMix(std::span<s32> output, std::span<const s32> i
                           Common::FixedPoint<50, 14>::from_base(biquads[1].a[1]).to_double()};
 
     // Get states
-    std::array<f64, 4> s0{Common::BitCast<f64>(states[0].s0), Common::BitCast<f64>(states[0].s1),
-                          Common::BitCast<f64>(states[0].s2), Common::BitCast<f64>(states[0].s3)};
-    std::array<f64, 4> s1{Common::BitCast<f64>(states[1].s0), Common::BitCast<f64>(states[1].s1),
-                          Common::BitCast<f64>(states[1].s2), Common::BitCast<f64>(states[1].s3)};
+    std::array<f64, 4> s0{std::bit_cast<f64>(states[0].s0), std::bit_cast<f64>(states[0].s1),
+                          std::bit_cast<f64>(states[0].s2), std::bit_cast<f64>(states[0].s3)};
+    std::array<f64, 4> s1{std::bit_cast<f64>(states[1].s0), std::bit_cast<f64>(states[1].s1),
+                          std::bit_cast<f64>(states[1].s2), std::bit_cast<f64>(states[1].s3)};
 
     for (u32 i = 0; i < sample_count; i++) {
         f64 in_sample{static_cast<f64>(input[i])};
@@ -246,14 +247,14 @@ void ApplyDoubleBiquadFilterAndMix(std::span<s32> output, std::span<const s32> i
     }
 
     // Save states back
-    states[0].s0 = Common::BitCast<s64>(s0[0]);
-    states[0].s1 = Common::BitCast<s64>(s0[1]);
-    states[0].s2 = Common::BitCast<s64>(s0[2]);
-    states[0].s3 = Common::BitCast<s64>(s0[3]);
-    states[1].s0 = Common::BitCast<s64>(s1[0]);
-    states[1].s1 = Common::BitCast<s64>(s1[1]);
-    states[1].s2 = Common::BitCast<s64>(s1[2]);
-    states[1].s3 = Common::BitCast<s64>(s1[3]);
+    states[0].s0 = std::bit_cast<s64>(s0[0]);
+    states[0].s1 = std::bit_cast<s64>(s0[1]);
+    states[0].s2 = std::bit_cast<s64>(s0[2]);
+    states[0].s3 = std::bit_cast<s64>(s0[3]);
+    states[1].s0 = std::bit_cast<s64>(s1[0]);
+    states[1].s1 = std::bit_cast<s64>(s1[1]);
+    states[1].s2 = std::bit_cast<s64>(s1[2]);
+    states[1].s3 = std::bit_cast<s64>(s1[3]);
 }
 
 /**
@@ -290,10 +291,10 @@ f32 ApplyDoubleBiquadFilterAndMixRamp(std::span<s32> output, std::span<const s32
                           Common::FixedPoint<50, 14>::from_base(biquads[1].a[1]).to_double()};
 
     // Get states
-    std::array<f64, 4> s0{Common::BitCast<f64>(states[0].s0), Common::BitCast<f64>(states[0].s1),
-                          Common::BitCast<f64>(states[0].s2), Common::BitCast<f64>(states[0].s3)};
-    std::array<f64, 4> s1{Common::BitCast<f64>(states[1].s0), Common::BitCast<f64>(states[1].s1),
-                          Common::BitCast<f64>(states[1].s2), Common::BitCast<f64>(states[1].s3)};
+    std::array<f64, 4> s0{std::bit_cast<f64>(states[0].s0), std::bit_cast<f64>(states[0].s1),
+                          std::bit_cast<f64>(states[0].s2), std::bit_cast<f64>(states[0].s3)};
+    std::array<f64, 4> s1{std::bit_cast<f64>(states[1].s0), std::bit_cast<f64>(states[1].s1),
+                          std::bit_cast<f64>(states[1].s2), std::bit_cast<f64>(states[1].s3)};
 
     f32 current_volume{volume};
     f32 last_mixed{0.0f};
@@ -328,14 +329,14 @@ f32 ApplyDoubleBiquadFilterAndMixRamp(std::span<s32> output, std::span<const s32
     }
 
     // Save states back
-    states[0].s0 = Common::BitCast<s64>(s0[0]);
-    states[0].s1 = Common::BitCast<s64>(s0[1]);
-    states[0].s2 = Common::BitCast<s64>(s0[2]);
-    states[0].s3 = Common::BitCast<s64>(s0[3]);
-    states[1].s0 = Common::BitCast<s64>(s1[0]);
-    states[1].s1 = Common::BitCast<s64>(s1[1]);
-    states[1].s2 = Common::BitCast<s64>(s1[2]);
-    states[1].s3 = Common::BitCast<s64>(s1[3]);
+    states[0].s0 = std::bit_cast<s64>(s0[0]);
+    states[0].s1 = std::bit_cast<s64>(s0[1]);
+    states[0].s2 = std::bit_cast<s64>(s0[2]);
+    states[0].s3 = std::bit_cast<s64>(s0[3]);
+    states[1].s0 = std::bit_cast<s64>(s1[0]);
+    states[1].s1 = std::bit_cast<s64>(s1[1]);
+    states[1].s2 = std::bit_cast<s64>(s1[2]);
+    states[1].s3 = std::bit_cast<s64>(s1[3]);
 
     return last_mixed;
 }

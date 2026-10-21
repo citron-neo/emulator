@@ -1,8 +1,9 @@
 // SPDX-FileCopyrightText: Copyright 2023 yuzu Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
+#include <bit>
+
 #include "common/arm64/native_clock.h"
-#include "common/bit_cast.h"
 #include "common/literals.h"
 #include "common/logging.h"
 #include "core/arm/nce/arm_nce.h"
@@ -562,7 +563,7 @@ void Patcher::WriteMsrHandler(ModuleDestLabel module_dest, oaknut::XReg src_reg)
 void Patcher::WriteCntpctHandler(ModuleDestLabel module_dest, oaknut::XReg dest_reg) {
     static Common::Arm64::NativeClock clock{};
     const auto factor = clock.GetGuestCNTFRQFactor();
-    const auto raw_factor = Common::BitCast<std::array<u64, 2>>(factor);
+    const auto raw_factor = std::bit_cast<std::array<u64, 2>>(factor);
 
     const auto use_x2_x3 = dest_reg.index() == 0 || dest_reg.index() == 1;
     oaknut::XReg scratch0 = use_x2_x3 ? X2 : X0;

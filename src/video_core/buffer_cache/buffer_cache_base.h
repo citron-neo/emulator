@@ -19,12 +19,13 @@
 #include "common/div_ceil.h"
 #include "common/literals.h"
 #include "common/lru_cache.h"
-#include "common/multi_level_page_table.h"
+#include "common/virtual_buffer.h"
 #include "common/range_sets.h"
 #include "common/scope_exit.h"
 #include "common/settings.h"
 #include "common/slot_vector.h"
 #include "video_core/buffer_cache/buffer_base.h"
+#include "video_core/buffer_cache/uma.h"
 #include "video_core/cache_memory_pressure.h"
 #include "video_core/control/channel_state_cache.h"
 #include "video_core/delayed_destruction_ring.h"
@@ -52,7 +53,9 @@ constexpr u64 MAX_PADDED_VERTEX_BUFFER_SIZE = 1_MiB;
 constexpr u32 NUM_TRANSFORM_FEEDBACK_BUFFERS = 4;
 constexpr u32 NUM_GRAPHICS_UNIFORM_BUFFERS = 18;
 constexpr u32 NUM_COMPUTE_UNIFORM_BUFFERS = 8;
-constexpr u32 NUM_STORAGE_BUFFERS = 16;
+// Must hold every storage buffer a shader can declare (Shader::Info::MAX_SSBOS, checked where
+// pipelines bind them). The enabled and written masks are u32, so 32 is also their limit.
+constexpr u32 NUM_STORAGE_BUFFERS = 32;
 constexpr u32 NUM_TEXTURE_BUFFERS = 32;
 constexpr u32 NUM_STAGES = 5;
 
@@ -124,6 +127,10 @@ public:
     std::array<u32, NUM_STAGES> enabled_uniform_buffer_masks{};
     u32 enabled_compute_uniform_buffer_mask = 0;
 
+    /// One bit per vertex stream that is bound to a real buffer
+    u32 enabled_vertex_buffers = 0;
+    static_assert(NUM_VERTEX_BUFFERS <= 32);
+
     const UniformBufferSizes* uniform_buffer_sizes{};
     const ComputeUniformBufferSizes* compute_uniform_buffer_sizes{};
 
@@ -164,13 +171,6 @@ class BufferCache : public VideoCommon::ChannelSetupCaches<BufferCacheChannelInf
     static constexpr u64 CACHING_PAGE_COUNT =
         1ULL << (Tegra::MaxwellDeviceMemoryManager::AS_BITS - CACHING_PAGEBITS);
     static constexpr u64 CACHING_ADDRESS_SPACE_SIZE = CACHING_PAGE_COUNT * CACHING_PAGESIZE;
-    // A 9-bit first level leaves 14 page-index bits per 64 KiB second-level allocation.
-    static constexpr size_t PAGE_TABLE_FIRST_LEVEL_BITS = 9;
-    static_assert((1ULL << (Tegra::MaxwellDeviceMemoryManager::AS_BITS -
-                            PAGE_TABLE_FIRST_LEVEL_BITS - CACHING_PAGEBITS)) *
-                      sizeof(u32) ==
-                  64_KiB);
-
     static constexpr bool IS_OPENGL = P::IS_OPENGL;
     static constexpr bool HAS_PERSISTENT_UNIFORM_BUFFER_BINDINGS =
         P::HAS_PERSISTENT_UNIFORM_BUFFER_BINDINGS;
@@ -368,11 +368,11 @@ private:
         if (page >= CACHING_PAGE_COUNT) {
             return BufferId{};
         }
-        const u32* const entry = page_table.TryGet(page);
-        if (!entry || *entry == 0) {
+        const u32 entry = page_table[page];
+        if (entry == 0) {
             return BufferId{};
         }
-        const BufferId buffer_id{*entry - 1};
+        const BufferId buffer_id{entry - 1};
         // A damaged page-table entry must not become an unchecked SlotVector index.
         return slot_buffers.contains(buffer_id) ? buffer_id : BufferId{};
     }
@@ -381,13 +381,12 @@ private:
         if (page >= CACHING_PAGE_COUNT) {
             return;
         }
-        if (!buffer_id) {
-            if (u32* const entry = page_table.TryGet(page)) {
-                *entry = 0;
-            }
-            return;
+        // An entry that already holds the value is not written, so table pages nothing was ever
+        // registered in stay untouched.
+        const u32 entry = buffer_id ? buffer_id.index + 1 : 0;
+        if (page_table[page] != entry) {
+            page_table[page] = entry;
         }
-        page_table.GetOrAllocate(page) = buffer_id.index + 1;
     }
 
     bool RunGarbageCollector(bool aggressive_gc);
@@ -465,6 +464,9 @@ public:
 
     void MarkWrittenBuffer(BufferId buffer_id, DAddr device_addr, u32 size);
 
+    /// Grows a guest write over the pages the guest is likely to write next
+    [[nodiscard]] u64 WidenHotWrite(DAddr device_addr, u64 size);
+
     [[nodiscard]] BufferId FindBuffer(DAddr device_addr, u32 size);
 
     [[nodiscard]] OverlapResult ResolveOverlaps(DAddr device_addr, u32 wanted_size);
@@ -481,6 +483,13 @@ public:
     void ChangeRegister(BufferId buffer_id);
 
     void TouchBuffer(Buffer& buffer, BufferId buffer_id) noexcept;
+
+    /// Records that GPU work is about to use [offset, offset + size) of the buffer: marks the
+    /// range for upload reordering and stamps its pages with the current scheduler tick for the
+    /// unified memory rule. Bind, clear, DMA, overlap and download sites use this; staged copies,
+    /// ObtainCPUBuffer and the indirect getters stamp their range with Uma::StampPages, as
+    /// they are not tracked for upload reordering.
+    void MarkGpuUse(Buffer& buffer, u64 offset, u64 size);
 
     bool SynchronizeBuffer(Buffer& buffer, DAddr device_addr, u32 size);
 
@@ -547,6 +556,16 @@ public:
     };
     Common::LeastRecentlyUsedCache<LRUItemParams> lru_cache;
     u64 frame_tick = 0;
+
+    /// How often the guest recently wrote into pages this cache was watching, per caching page:
+    /// frame of the last write in the upper 16 bits, count in the lower 16. One flat table like
+    /// page_table: the host commits its pages when they are first written, so only the parts of
+    /// the address space the guest writes to take memory.
+    static constexpr u16 HOT_WRITE_COUNT = 4;
+    static constexpr u16 WRITE_HEAT_FRAMES = 30;
+    static constexpr u64 MAX_WIDENED_WRITE = 16 * CACHING_PAGESIZE;
+    Common::VirtualBuffer<u32> write_heat;
+
     u64 total_used_memory = 0; // Bytes owned by this cache.
     CacheMemoryPressure memory_pressure;
     BufferId inline_buffer_id;
@@ -556,7 +575,7 @@ public:
     u32 buffer_count = 0;
     u32 large_buffer_count = 0;
 
-    Common::MultiLevelPageTable<u32> page_table;
+    Common::VirtualBuffer<u32> page_table;
     Common::ScratchBuffer<u8> tmp_buffer;
 };
 

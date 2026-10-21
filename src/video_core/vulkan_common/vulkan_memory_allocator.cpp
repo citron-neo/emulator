@@ -241,6 +241,26 @@ MemoryAllocator::MemoryAllocator(const Device& device_)
             }
         });
     }
+
+    // Unified memory: the CPU writes buffer cache buffers directly instead of staging.
+    // The memory types are logged once because which types a driver exposes decides this.
+    constexpr VkMemoryPropertyFlags unified_flags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT |
+                                                    VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+                                                    VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
+    bool has_unified_type = false;
+    for (u32 i = 0; i < properties.memoryTypeCount; ++i) {
+        const VkMemoryType& type = properties.memoryTypes[i];
+        LOG_INFO(Render_Vulkan, "Memory type {}: heap={} flags=0x{:x}", i, type.heapIndex,
+                 static_cast<u32>(type.propertyFlags));
+        if ((valid_memory_types & (1u << i)) != 0 &&
+            (type.propertyFlags & unified_flags) == unified_flags) {
+            has_unified_type = true;
+        }
+    }
+    has_unified_memory = device.IsIntegrated() && has_unified_type;
+    LOG_INFO(Render_Vulkan,
+             "Unified memory buffers: {} (integrated={}, coherent device local type={})",
+             has_unified_memory ? "on" : "off", device.IsIntegrated(), has_unified_type);
 }
 
 MemoryAllocator::~MemoryAllocator() = default;
@@ -297,6 +317,38 @@ vk::Buffer MemoryAllocator::CreateBuffer(const VkBufferCreateInfo& ci, MemoryUsa
     const bool is_coherent = property_flags & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
 
     return vk::Buffer(handle, *device.GetLogical(), allocator, allocation, mapped_data, is_coherent,
+                      device.GetDispatchLoader());
+}
+
+vk::Buffer MemoryAllocator::CreateUnifiedBuffer(const VkBufferCreateInfo& ci) const {
+    if (!has_unified_memory) {
+        return {};
+    }
+    // HOST_ACCESS_SEQUENTIAL_WRITE: the CPU only writes these (guest memory is copied in), never
+    // reads them back. MAPPED keeps the mapping for the buffer's whole life.
+    const VmaAllocationCreateInfo alloc_ci = {
+        .flags = VMA_ALLOCATION_CREATE_WITHIN_BUDGET_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT |
+                 VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT,
+        .usage = VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE,
+        .requiredFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+                         VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+        .preferredFlags = 0,
+        .memoryTypeBits = valid_memory_types,
+        .pool = VK_NULL_HANDLE,
+        .pUserData = nullptr,
+        .priority = 0.f,
+    };
+
+    VkBuffer handle{};
+    VmaAllocationInfo alloc_info{};
+    VmaAllocation allocation{};
+    if (vmaCreateBuffer(allocator, &ci, &alloc_ci, &handle, &allocation, &alloc_info) !=
+        VK_SUCCESS) {
+        return {};
+    }
+    u8* const data = static_cast<u8*>(alloc_info.pMappedData);
+    const std::span<u8> mapped_data = data ? std::span<u8>{data, ci.size} : std::span<u8>{};
+    return vk::Buffer(handle, *device.GetLogical(), allocator, allocation, mapped_data, true,
                       device.GetDispatchLoader());
 }
 
