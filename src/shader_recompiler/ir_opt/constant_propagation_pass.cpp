@@ -2,11 +2,11 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <algorithm>
+#include <bit>
 #include <functional>
 #include <tuple>
 #include <type_traits>
 
-#include "common/bit_cast.h"
 #include "shader_recompiler/environment.h"
 #include "shader_recompiler/exception.h"
 #include "shader_recompiler/frontend/ir/ir_emitter.h"
@@ -57,7 +57,7 @@ bool FoldCommutative(IR::Inst& inst, ImmFn&& imm_fn) {
         return false;
     }
     if (is_lhs_immediate && !is_rhs_immediate) {
-        IR::Inst* const rhs_inst{rhs.InstRecursive()};
+        IR::Inst* const rhs_inst{inst.ArgInst(1)};
         if (rhs_inst->GetOpcode() == inst.GetOpcode() && rhs_inst->Arg(1).IsImmediate()) {
             const auto combined{imm_fn(Arg<T>(lhs), Arg<T>(rhs_inst->Arg(1)))};
             inst.SetArg(0, rhs_inst->Arg(0));
@@ -69,7 +69,7 @@ bool FoldCommutative(IR::Inst& inst, ImmFn&& imm_fn) {
         }
     }
     if (!is_lhs_immediate && is_rhs_immediate) {
-        const IR::Inst* const lhs_inst{lhs.InstRecursive()};
+        const IR::Inst* const lhs_inst{inst.ArgInst(0)};
         if (lhs_inst->GetOpcode() == inst.GetOpcode() && lhs_inst->Arg(1).IsImmediate()) {
             const auto combined{imm_fn(Arg<T>(rhs), Arg<T>(lhs_inst->Arg(1)))};
             inst.SetArg(0, lhs_inst->Arg(0));
@@ -91,22 +91,22 @@ bool FoldWhenAllImmediates(IR::Inst& inst, Func&& func) {
 
 /// Return true when all values in a range are equal
 template <typename Range>
-bool AreEqual(const Range& range) {
-    auto resolver{[](const auto& value) { return value.Resolve(); }};
-    auto equal{[](const IR::Value& lhs, const IR::Value& rhs) {
+bool AreEqual(const IR::InstStorage& storage, const Range& range) {
+    auto equal{[&storage](const IR::Value& lhs, const IR::Value& rhs) {
         if (lhs == rhs) {
             return true;
         }
         // Not equal, but try to match if they read the same constant buffer
-        if (!lhs.IsImmediate() && !rhs.IsImmediate() &&
-            lhs.Inst()->GetOpcode() == IR::Opcode::GetCbufU32 &&
-            rhs.Inst()->GetOpcode() == IR::Opcode::GetCbufU32 &&
-            lhs.Inst()->Arg(0) == rhs.Inst()->Arg(0) && lhs.Inst()->Arg(1) == rhs.Inst()->Arg(1)) {
+        const IR::Inst* const lhs_inst{storage.Get(lhs)};
+        const IR::Inst* const rhs_inst{storage.Get(rhs)};
+        if (lhs_inst && rhs_inst && lhs_inst->GetOpcode() == IR::Opcode::GetCbufU32 &&
+            rhs_inst->GetOpcode() == IR::Opcode::GetCbufU32 &&
+            lhs_inst->Arg(0) == rhs_inst->Arg(0) && lhs_inst->Arg(1) == rhs_inst->Arg(1)) {
             return true;
         }
         return false;
     }};
-    return std::ranges::adjacent_find(range, std::not_fn(equal), resolver) == std::end(range);
+    return std::ranges::adjacent_find(range, std::not_fn(equal)) == std::end(range);
 }
 
 void FoldGetRegister(IR::Inst& inst) {
@@ -151,8 +151,8 @@ bool FoldXmadMultiplyAdd(IR::Block& block, IR::Inst& inst) {
      */
     const IR::Value zero{0u};
     const IR::Value sixteen{16u};
-    IR::Inst* const _25{inst.Arg(0).TryInstRecursive()};
-    IR::Inst* const _27{inst.Arg(1).TryInstRecursive()};
+    IR::Inst* const _25{inst.ArgInst(0)};
+    IR::Inst* const _27{inst.ArgInst(1)};
     if (!_25 || !_27) {
         return false;
     }
@@ -162,12 +162,12 @@ bool FoldXmadMultiplyAdd(IR::Block& block, IR::Inst& inst) {
     if (_25->GetOpcode() != IR::Opcode::ShiftLeftLogical32 || _25->Arg(1) != sixteen) {
         return false;
     }
-    IR::Inst* const _24{_25->Arg(0).TryInstRecursive()};
+    IR::Inst* const _24{_25->ArgInst(0)};
     if (!_24 || _24->GetOpcode() != IR::Opcode::IMul32) {
         return false;
     }
-    IR::Inst* const _22{_24->Arg(0).TryInstRecursive()};
-    IR::Inst* const _23{_24->Arg(1).TryInstRecursive()};
+    IR::Inst* const _22{_24->ArgInst(0)};
+    IR::Inst* const _23{_24->ArgInst(1)};
     if (!_22 || !_23) {
         return false;
     }
@@ -183,15 +183,15 @@ bool FoldXmadMultiplyAdd(IR::Block& block, IR::Inst& inst) {
     if (_23->Arg(1) != sixteen || _23->Arg(2) != sixteen) {
         return false;
     }
-    IR::Inst* const _11{_23->Arg(0).TryInstRecursive()};
+    IR::Inst* const _11{_23->ArgInst(0)};
     if (!_11 || _11->GetOpcode() != IR::Opcode::BitFieldInsert) {
         return false;
     }
     if (_11->Arg(2) != sixteen || _11->Arg(3) != sixteen) {
         return false;
     }
-    IR::Inst* const _8{_11->Arg(0).TryInstRecursive()};
-    IR::Inst* const _10{_11->Arg(1).TryInstRecursive()};
+    IR::Inst* const _8{_11->ArgInst(0)};
+    IR::Inst* const _10{_11->ArgInst(1)};
     if (!_8 || !_10) {
         return false;
     }
@@ -201,8 +201,8 @@ bool FoldXmadMultiplyAdd(IR::Block& block, IR::Inst& inst) {
     if (_10->GetOpcode() != IR::Opcode::BitFieldUExtract) {
         return false;
     }
-    IR::Inst* const _6{_8->Arg(0).TryInstRecursive()};
-    IR::Inst* const _7{_8->Arg(1).TryInstRecursive()};
+    IR::Inst* const _6{_8->ArgInst(0)};
+    IR::Inst* const _7{_8->ArgInst(1)};
     if (!_6 || !_7) {
         return false;
     }
@@ -218,26 +218,26 @@ bool FoldXmadMultiplyAdd(IR::Block& block, IR::Inst& inst) {
     if (_7->Arg(1) != sixteen || _7->Arg(2) != sixteen) {
         return false;
     }
-    IR::Inst* const _26{_27->Arg(0).TryInstRecursive()};
-    IR::Inst* const _18{_27->Arg(1).TryInstRecursive()};
+    IR::Inst* const _26{_27->ArgInst(0)};
+    IR::Inst* const _18{_27->ArgInst(1)};
     if (!_26 || !_18) {
         return false;
     }
     if (_26->GetOpcode() != IR::Opcode::ShiftLeftLogical32 || _26->Arg(1) != sixteen) {
         return false;
     }
-    if (_26->Arg(0).InstRecursive() != _11) {
+    if (_26->ArgInst(0) != _11) {
         return false;
     }
     if (_18->GetOpcode() != IR::Opcode::IAdd32) {
         return false;
     }
-    IR::Inst* const _17{_18->Arg(0).TryInstRecursive()};
+    IR::Inst* const _17{_18->ArgInst(0)};
     if (!_17 || _17->GetOpcode() != IR::Opcode::IMul32) {
         return false;
     }
-    IR::Inst* const _15{_17->Arg(0).TryInstRecursive()};
-    IR::Inst* const _16{_17->Arg(1).TryInstRecursive()};
+    IR::Inst* const _15{_17->ArgInst(0)};
+    IR::Inst* const _16{_17->ArgInst(1)};
     if (!_15 || !_16) {
         return false;
     }
@@ -254,20 +254,20 @@ bool FoldXmadMultiplyAdd(IR::Block& block, IR::Inst& inst) {
         return false;
     }
     const std::array<IR::Value, 3> op_as{
-        _7->Arg(0).Resolve(),
-        _16->Arg(0).Resolve(),
-        _10->Arg(0).Resolve(),
+        _7->Arg(0),
+        _16->Arg(0),
+        _10->Arg(0),
     };
     const std::array<IR::Value, 3> op_bs{
-        _22->Arg(0).Resolve(),
-        _6->Arg(0).Resolve(),
-        _15->Arg(0).Resolve(),
+        _22->Arg(0),
+        _6->Arg(0),
+        _15->Arg(0),
     };
     const IR::U32 op_c{_18->Arg(1)};
-    if (!AreEqual(op_as) || !AreEqual(op_bs)) {
+    if (!AreEqual(inst.Storage(), op_as) || !AreEqual(inst.Storage(), op_bs)) {
         return false;
     }
-    IR::IREmitter ir{block, IR::Block::InstructionList::s_iterator_to(inst)};
+    IR::IREmitter ir{block, block.IteratorTo(inst)};
     inst.ReplaceUsesWith(ir.IAdd(ir.IMul(IR::U32{op_as[0]}, IR::U32{op_bs[1]}), op_c));
     return true;
 }
@@ -288,8 +288,8 @@ bool FoldXmadMultiply(IR::Block& block, IR::Inst& inst) {
      *
      * This optimization has been proven safe by LLVM and MSVC.
      */
-    IR::Inst* const lhs_shl{inst.Arg(0).TryInstRecursive()};
-    IR::Inst* const rhs_mul{inst.Arg(1).TryInstRecursive()};
+    IR::Inst* const lhs_shl{inst.ArgInst(0)};
+    IR::Inst* const rhs_mul{inst.ArgInst(1)};
     if (!lhs_shl || !rhs_mul) {
         return false;
     }
@@ -297,7 +297,7 @@ bool FoldXmadMultiply(IR::Block& block, IR::Inst& inst) {
         lhs_shl->Arg(1) != IR::Value{16U}) {
         return false;
     }
-    IR::Inst* const lhs_mul{lhs_shl->Arg(0).TryInstRecursive()};
+    IR::Inst* const lhs_mul{lhs_shl->ArgInst(0)};
     if (!lhs_mul) {
         return false;
     }
@@ -305,11 +305,11 @@ bool FoldXmadMultiply(IR::Block& block, IR::Inst& inst) {
         return false;
     }
     const IR::U32 factor_b{lhs_mul->Arg(1)};
-    if (factor_b.Resolve() != rhs_mul->Arg(1).Resolve()) {
+    if (factor_b != rhs_mul->Arg(1)) {
         return false;
     }
-    IR::Inst* const lhs_bfe{lhs_mul->Arg(0).TryInstRecursive()};
-    IR::Inst* const rhs_bfe{rhs_mul->Arg(0).TryInstRecursive()};
+    IR::Inst* const lhs_bfe{lhs_mul->ArgInst(0)};
+    IR::Inst* const rhs_bfe{rhs_mul->ArgInst(0)};
     if (!lhs_bfe || !rhs_bfe) {
         return false;
     }
@@ -326,10 +326,10 @@ bool FoldXmadMultiply(IR::Block& block, IR::Inst& inst) {
         return false;
     }
     const IR::U32 factor_a{lhs_bfe->Arg(0)};
-    if (factor_a.Resolve() != rhs_bfe->Arg(0).Resolve()) {
+    if (factor_a != rhs_bfe->Arg(0)) {
         return false;
     }
-    IR::IREmitter ir{block, IR::Block::InstructionList::s_iterator_to(inst)};
+    IR::IREmitter ir{block, block.IteratorTo(inst)};
     inst.ReplaceUsesWith(ir.IMul(factor_a, factor_b));
     return true;
 }
@@ -371,8 +371,8 @@ void FoldISub32(IR::Inst& inst) {
                b->GetOpcode() == IR::Opcode::GetCbufU32 && a->Arg(0) == b->Arg(0) &&
                a->Arg(1) == b->Arg(1);
     }};
-    IR::Inst* op_a{inst.Arg(0).InstRecursive()};
-    IR::Inst* op_b{inst.Arg(1).InstRecursive()};
+    IR::Inst* op_a{inst.ArgInst(0)};
+    IR::Inst* op_b{inst.ArgInst(1)};
     if (equal_cbuf(op_a, op_b)) {
         inst.ReplaceUsesWith(IR::Value{u32{0}});
         return;
@@ -398,7 +398,7 @@ void FoldISub32(IR::Inst& inst) {
     if (add_op_b.IsImmediate()) {
         return;
     }
-    IR::Inst* const add_cbuf{add_op_b.InstRecursive()};
+    IR::Inst* const add_cbuf{inst.Storage().Get(add_op_b)};
     if (equal_cbuf(add_cbuf, inst_cbuf)) {
         inst.ReplaceUsesWith(add_op_a);
     }
@@ -431,8 +431,8 @@ void FoldFPAdd32(IR::Inst& inst) {
 bool FoldDerivativeYFromCorrection(IR::Inst& inst) {
     const IR::Value lhs_value{inst.Arg(0)};
     const IR::Value rhs_value{inst.Arg(1)};
-    IR::Inst* const lhs_op{lhs_value.InstRecursive()};
-    IR::Inst* const rhs_op{rhs_value.InstRecursive()};
+    IR::Inst* const lhs_op{inst.ArgInst(0)};
+    IR::Inst* const rhs_op{inst.ArgInst(1)};
     if (lhs_op->GetOpcode() == IR::Opcode::YDirection) {
         if (rhs_op->GetOpcode() != IR::Opcode::DPdyFine) {
             return false;
@@ -467,19 +467,19 @@ void FoldFPMul32(IR::Inst& inst) {
     if (FoldDerivativeYFromCorrection(inst)) {
         return;
     }
-    IR::Inst* const lhs_op{lhs_value.InstRecursive()};
-    IR::Inst* const rhs_op{rhs_value.InstRecursive()};
+    IR::Inst* const lhs_op{inst.ArgInst(0)};
+    IR::Inst* const rhs_op{inst.ArgInst(1)};
     if (lhs_op->GetOpcode() != IR::Opcode::FPMul32 ||
         rhs_op->GetOpcode() != IR::Opcode::FPRecip32) {
         return;
     }
     const IR::Value recip_source{rhs_op->Arg(0)};
-    const IR::Value lhs_mul_source{lhs_op->Arg(1).Resolve()};
+    const IR::Value lhs_mul_source{lhs_op->Arg(1)};
     if (recip_source.IsImmediate() || lhs_mul_source.IsImmediate()) {
         return;
     }
-    IR::Inst* const attr_a{recip_source.InstRecursive()};
-    IR::Inst* const attr_b{lhs_mul_source.InstRecursive()};
+    IR::Inst* const attr_a{rhs_op->ArgInst(0)};
+    IR::Inst* const attr_b{lhs_op->ArgInst(1)};
     if (attr_a->GetOpcode() != IR::Opcode::GetAttribute ||
         attr_b->GetOpcode() != IR::Opcode::GetAttribute) {
         return;
@@ -523,7 +523,7 @@ void FoldLogicalNot(IR::Inst& inst) {
         inst.ReplaceUsesWith(IR::Value{!value.U1()});
         return;
     }
-    IR::Inst* const arg{value.InstRecursive()};
+    IR::Inst* const arg{inst.ArgInst(0)};
     if (arg->GetOpcode() == IR::Opcode::LogicalNot) {
         inst.ReplaceUsesWith(arg->Arg(0));
     }
@@ -533,10 +533,10 @@ template <IR::Opcode op, typename Dest, typename Source>
 void FoldBitCast(IR::Inst& inst, IR::Opcode reverse) {
     const IR::Value value{inst.Arg(0)};
     if (value.IsImmediate()) {
-        inst.ReplaceUsesWith(IR::Value{Common::BitCast<Dest>(Arg<Source>(value))});
+        inst.ReplaceUsesWith(IR::Value{std::bit_cast<Dest>(Arg<Source>(value))});
         return;
     }
-    IR::Inst* const arg_inst{value.InstRecursive()};
+    IR::Inst* const arg_inst{inst.ArgInst(0)};
     if (arg_inst->GetOpcode() == reverse) {
         inst.ReplaceUsesWith(arg_inst->Arg(0));
         return;
@@ -583,7 +583,7 @@ void FoldInverseFunc(IR::Inst& inst, IR::Opcode reverse) {
     if (value.IsImmediate()) {
         return;
     }
-    IR::Inst* const arg_inst{value.InstRecursive()};
+    IR::Inst* const arg_inst{inst.ArgInst(0)};
     if (arg_inst->GetOpcode() == reverse) {
         inst.ReplaceUsesWith(arg_inst->Arg(0));
         return;
@@ -596,9 +596,10 @@ IR::Value EvalImmediates(const IR::Inst& inst, Func&& func, std::index_sequence<
     return IR::Value{func(Arg<typename Traits::template ArgType<I>>(inst.Arg(I))...)};
 }
 
-std::optional<IR::Value> FoldCompositeExtractImpl(IR::Value inst_value, IR::Opcode insert,
-                                                  IR::Opcode construct, u32 first_index) {
-    IR::Inst* const inst{inst_value.InstRecursive()};
+std::optional<IR::Value> FoldCompositeExtractImpl(IR::InstStorage& storage, IR::Value inst_value,
+                                                  IR::Opcode insert, IR::Opcode construct,
+                                                  u32 first_index) {
+    IR::Inst* const inst{storage.Get(inst_value)};
     if (inst->GetOpcode() == construct) {
         return inst->Arg(first_index);
     }
@@ -615,7 +616,7 @@ std::optional<IR::Value> FoldCompositeExtractImpl(IR::Value inst_value, IR::Opco
         if (value_composite.IsImmediate()) {
             return std::nullopt;
         }
-        return FoldCompositeExtractImpl(value_composite, insert, construct, first_index);
+        return FoldCompositeExtractImpl(storage, value_composite, insert, construct, first_index);
     }
     return inst->Arg(1);
 }
@@ -630,20 +631,21 @@ void FoldCompositeExtract(IR::Inst& inst, IR::Opcode construct, IR::Opcode inser
         return;
     }
     const u32 first_index{value_2.U32()};
-    const std::optional result{FoldCompositeExtractImpl(value_1, insert, construct, first_index)};
+    const std::optional result{
+        FoldCompositeExtractImpl(inst.Storage(), value_1, insert, construct, first_index)};
     if (!result) {
         return;
     }
     inst.ReplaceUsesWith(*result);
 }
 
-IR::Value GetThroughCast(IR::Value value, IR::Opcode expected_cast) {
+IR::Value GetThroughCast(IR::InstStorage& storage, IR::Value value, IR::Opcode expected_cast) {
     if (value.IsImmediate()) {
         return value;
     }
-    IR::Inst* const inst{value.InstRecursive()};
+    IR::Inst* const inst{storage.Get(value)};
     if (inst->GetOpcode() == expected_cast) {
-        return inst->Arg(0).Resolve();
+        return inst->Arg(0);
     }
     return value;
 }
@@ -653,8 +655,9 @@ void FoldFSwizzleAdd(IR::Block& block, IR::Inst& inst) {
     if (!swizzle.IsImmediate()) {
         return;
     }
-    const IR::Value value_1{GetThroughCast(inst.Arg(0).Resolve(), IR::Opcode::BitCastF32U32)};
-    const IR::Value value_2{GetThroughCast(inst.Arg(1).Resolve(), IR::Opcode::BitCastF32U32)};
+    IR::InstStorage& storage{inst.Storage()};
+    const IR::Value value_1{GetThroughCast(storage, inst.Arg(0), IR::Opcode::BitCastF32U32)};
+    const IR::Value value_2{GetThroughCast(storage, inst.Arg(1), IR::Opcode::BitCastF32U32)};
     if (value_1.IsImmediate()) {
         return;
     }
@@ -662,16 +665,16 @@ void FoldFSwizzleAdd(IR::Block& block, IR::Inst& inst) {
     if (swizzle_value != 0x99 && swizzle_value != 0xA5) {
         return;
     }
-    IR::Inst* const inst2{value_1.InstRecursive()};
+    IR::Inst* const inst2{storage.Get(value_1)};
     if (inst2->GetOpcode() != IR::Opcode::ShuffleButterfly) {
         return;
     }
-    const IR::Value value_3{GetThroughCast(inst2->Arg(0).Resolve(), IR::Opcode::BitCastU32F32)};
+    const IR::Value value_3{GetThroughCast(storage, inst2->Arg(0), IR::Opcode::BitCastU32F32)};
     if (value_2 != value_3) {
         if (!value_2.IsImmediate() || !value_3.IsImmediate()) {
             return;
         }
-        if (Common::BitCast<u32>(value_2.F32()) != value_3.U32()) {
+        if (std::bit_cast<u32>(value_2.F32()) != value_3.U32()) {
             return;
         }
     }
@@ -687,48 +690,49 @@ void FoldFSwizzleAdd(IR::Block& block, IR::Inst& inst) {
     if (swizzle_value == 0x99) {
         // DPdxFine
         if (index.U32() == 1) {
-            IR::IREmitter ir{block, IR::Block::InstructionList::s_iterator_to(inst)};
+            IR::IREmitter ir{block, block.IteratorTo(inst)};
             inst.ReplaceUsesWith(ir.DPdxFine(IR::F32{inst.Arg(1)}));
         }
     } else if (swizzle_value == 0xA5) {
         // DPdyFine
         if (index.U32() == 2) {
-            IR::IREmitter ir{block, IR::Block::InstructionList::s_iterator_to(inst)};
+            IR::IREmitter ir{block, block.IteratorTo(inst)};
             inst.ReplaceUsesWith(ir.DPdyFine(IR::F32{inst.Arg(1)}));
         }
     }
 }
 
-bool FindGradient3DDerivatives(std::array<IR::Value, 3>& results, IR::Value coord) {
+bool FindGradient3DDerivatives(IR::InstStorage& storage, std::array<IR::Value, 3>& results,
+                               IR::Value coord) {
     if (coord.IsImmediate()) {
         return false;
     }
-    const auto check_through_shuffle = [](IR::Value input, IR::Value& result) {
-        const IR::Value value_1{GetThroughCast(input.Resolve(), IR::Opcode::BitCastF32U32)};
-        IR::Inst* const inst2{value_1.InstRecursive()};
+    const auto check_through_shuffle = [&storage](IR::Value input, IR::Value& result) {
+        const IR::Value value_1{GetThroughCast(storage, input, IR::Opcode::BitCastF32U32)};
+        IR::Inst* const inst2{storage.Get(value_1)};
         if (inst2->GetOpcode() != IR::Opcode::ShuffleIndex) {
             return false;
         }
-        const IR::Value index{inst2->Arg(1).Resolve()};
-        const IR::Value clamp{inst2->Arg(2).Resolve()};
-        const IR::Value segmentation_mask{inst2->Arg(3).Resolve()};
+        const IR::Value index{inst2->Arg(1)};
+        const IR::Value clamp{inst2->Arg(2)};
+        const IR::Value segmentation_mask{inst2->Arg(3)};
         if (!index.IsImmediate() || !clamp.IsImmediate() || !segmentation_mask.IsImmediate()) {
             return false;
         }
         if (index.U32() != 3 && clamp.U32() != 3) {
             return false;
         }
-        result = GetThroughCast(inst2->Arg(0).Resolve(), IR::Opcode::BitCastU32F32);
+        result = GetThroughCast(storage, inst2->Arg(0), IR::Opcode::BitCastU32F32);
         return true;
     };
-    IR::Inst* const inst = coord.InstRecursive();
+    IR::Inst* const inst = storage.Get(coord);
     if (inst->GetOpcode() != IR::Opcode::FSwizzleAdd) {
         return false;
     }
     std::array<IR::Value, 3> temporary_values;
-    IR::Value value_1 = inst->Arg(0).Resolve();
-    IR::Value value_2 = inst->Arg(1).Resolve();
-    IR::Value value_3 = inst->Arg(2).Resolve();
+    IR::Value value_1 = inst->Arg(0);
+    IR::Value value_2 = inst->Arg(1);
+    IR::Value value_3 = inst->Arg(2);
     std::array<u32, 4> swizzles_mask_a{};
     std::array<u32, 4> swizzles_mask_b{};
     const auto resolve_mask = [](std::array<u32, 4>& mask_results, IR::Value mask) {
@@ -740,17 +744,17 @@ bool FindGradient3DDerivatives(std::array<IR::Value, 3>& results, IR::Value coor
     resolve_mask(swizzles_mask_a, value_3);
     size_t coordinate_index = 0;
     const auto resolve_pending = [&](IR::Value resolve_v) {
-        IR::Inst* const inst_r = resolve_v.InstRecursive();
+        IR::Inst* const inst_r = storage.Get(resolve_v);
         if (inst_r->GetOpcode() != IR::Opcode::FSwizzleAdd) {
             return false;
         }
-        if (!check_through_shuffle(inst_r->Arg(0).Resolve(), temporary_values[1])) {
+        if (!check_through_shuffle(inst_r->Arg(0), temporary_values[1])) {
             return false;
         }
-        if (!check_through_shuffle(inst_r->Arg(1).Resolve(), temporary_values[2])) {
+        if (!check_through_shuffle(inst_r->Arg(1), temporary_values[2])) {
             return false;
         }
-        resolve_mask(swizzles_mask_b, inst_r->Arg(2).Resolve());
+        resolve_mask(swizzles_mask_b, inst_r->Arg(2));
         return true;
     };
     if (value_1.IsImmediate() || value_2.IsImmediate()) {
@@ -818,7 +822,7 @@ bool FindGradient3DDerivatives(std::array<IR::Value, 3>& results, IR::Value coor
 void ConvertDerivatives(std::array<IR::Value, 3>& results, IR::IREmitter& ir) {
     for (size_t i = 0; i < 3; i++) {
         if (results[i].Type() == IR::Type::U32) {
-            results[i] = results[i].IsImmediate() ? ir.Imm32(Common::BitCast<f32>(results[i].U32()))
+            results[i] = results[i].IsImmediate() ? ir.Imm32(std::bit_cast<f32>(results[i].U32()))
                                                   : ir.BitCast<IR::F32>(IR::U32(results[i]));
         }
     }
@@ -834,17 +838,16 @@ void FoldImageSampleImplicitLod(IR::Block& block, IR::Inst& inst) {
         return;
     }
     const IR::Value handle{inst.Arg(0)};
-    const IR::Value coords{inst.Arg(1)};
     const IR::Value bias_lc{inst.Arg(2)};
     const IR::Value offset{inst.Arg(3)};
     if (!offset.IsImmediate()) {
         return;
     }
-    IR::IREmitter ir{block, IR::Block::InstructionList::s_iterator_to(inst)};
-    IR::Inst* const inst2 = coords.InstRecursive();
+    IR::IREmitter ir{block, block.IteratorTo(inst)};
+    IR::Inst* const inst2 = inst.ArgInst(1);
     std::array<std::array<IR::Value, 3>, 3> results_matrix;
     for (size_t i = 0; i < 3; i++) {
-        if (!FindGradient3DDerivatives(results_matrix[i], inst2->Arg(i).Resolve())) {
+        if (!FindGradient3DDerivatives(inst.Storage(), results_matrix[i], inst2->Arg(i))) {
             return;
         }
         ConvertDerivatives(results_matrix[i], ir);
@@ -852,7 +855,7 @@ void FoldImageSampleImplicitLod(IR::Block& block, IR::Inst& inst) {
     IR::F32 lod_clamp{};
     if (info.has_lod_clamp != 0) {
         if (!bias_lc.IsImmediate()) {
-            lod_clamp = IR::F32{bias_lc.InstRecursive()->Arg(1).Resolve()};
+            lod_clamp = IR::F32{inst.ArgInst(2)->Arg(1)};
         } else {
             lod_clamp = IR::F32{bias_lc};
         }
@@ -865,7 +868,7 @@ void FoldImageSampleImplicitLod(IR::Block& block, IR::Inst& inst) {
     info.num_derivatives.Assign(3);
     IR::Value new_gradient_instruction =
         ir.ImageGradient(handle, new_coords, derivatives_1, derivatives_2, lod_clamp, info);
-    IR::Inst* const new_inst = new_gradient_instruction.InstRecursive();
+    IR::Inst* const new_inst = inst.Storage().Get(new_gradient_instruction);
     if (orig_opcode == IR::Opcode::ImageSampleImplicitLod) {
         new_inst->ReplaceOpcode(IR::Opcode::ImageGradient);
     }
@@ -896,7 +899,7 @@ void FoldConstBuffer(Environment& env, IR::Block& block, IR::Inst& inst) {
             throw NotImplementedException("Not implemented replacement variable {}", *replacement);
         }
     }();
-    IR::IREmitter ir{block, IR::Block::InstructionList::s_iterator_to(inst)};
+    IR::IREmitter ir{block, block.IteratorTo(inst)};
     if (inst.GetOpcode() == IR::Opcode::GetCbufU32) {
         inst.ReplaceUsesWith(ir.GetAttributeU32(new_attribute));
     } else {
@@ -919,12 +922,12 @@ void FoldDriverConstBuffer(Environment& env, IR::Block& block, IR::Inst& inst, u
     if (offset_value < offset_start || offset_value >= offset_end) {
         return;
     }
-    IR::IREmitter ir{block, IR::Block::InstructionList::s_iterator_to(inst)};
+    IR::IREmitter ir{block, block.IteratorTo(inst)};
     if (inst.GetOpcode() == IR::Opcode::GetCbufU32) {
         inst.ReplaceUsesWith(IR::Value{env.ReadCbufValue(bank_value, offset_value)});
     } else {
         inst.ReplaceUsesWith(
-            IR::Value{Common::BitCast<f32>(env.ReadCbufValue(bank_value, offset_value))});
+            IR::Value{std::bit_cast<f32>(env.ReadCbufValue(bank_value, offset_value))});
     }
 }
 
@@ -1104,7 +1107,7 @@ void ConstantPropagationPass(Environment& env, IR::Program& program) {
     const auto end{program.post_order_blocks.rend()};
     for (auto it = program.post_order_blocks.rbegin(); it != end; ++it) {
         IR::Block* const block{*it};
-        for (IR::Inst& inst : block->Instructions()) {
+        for (IR::Inst& inst : *block) {
             ConstantPropagation(env, *block, inst);
         }
     }

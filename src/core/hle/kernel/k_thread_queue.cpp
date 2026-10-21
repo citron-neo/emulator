@@ -9,7 +9,7 @@ namespace Kernel {
 
 void KThreadQueue::NotifyAvailable(KThread* waiting_thread, KSynchronizationObject* signaled_object,
                                    Result wait_result) {
-    UNREACHABLE();
+    std::unreachable();
 }
 
 void KThreadQueue::EndWait(KThread* waiting_thread, Result wait_result) {
@@ -45,7 +45,7 @@ void KThreadQueue::CancelWait(KThread* waiting_thread, Result wait_result, bool 
 }
 
 void KThreadQueueWithoutEndWait::EndWait(KThread* waiting_thread, Result wait_result) {
-    UNREACHABLE();
+    std::unreachable();
 }
 
 } // namespace Kernel

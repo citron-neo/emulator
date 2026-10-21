@@ -26,10 +26,8 @@ MemoryManager::MemoryManager(Core::System& system_, MaxwellDeviceMemoryManager& 
                              u64 page_bits_)
     : system{system_}, memory{memory_}, address_space_bits{address_space_bits_},
       split_address{split_address_}, page_bits{page_bits_}, big_page_bits{big_page_bits_},
-      entries{}, big_entries{}, page_table{address_space_bits, address_space_bits + page_bits - 38,
-                                           page_bits != big_page_bits ? page_bits : 0},
-      kind_map{PTEKind::INVALID}, unique_identifier{unique_identifier_generator.fetch_add(
-                                      1, std::memory_order_acq_rel)},
+      entries{}, big_entries{}, kind_map{PTEKind::INVALID},
+      unique_identifier{unique_identifier_generator.fetch_add(1, std::memory_order_acq_rel)},
       accumulator{std::make_unique<VideoCommon::InvalidationAccumulator>()} {
     address_space_size = 1ULL << address_space_bits;
     page_size = 1ULL << page_bits;
@@ -45,6 +43,10 @@ MemoryManager::MemoryManager(Core::System& system_, MaxwellDeviceMemoryManager& 
 
     big_entries.resize(big_page_table_size / 32, 0);
     big_page_table_dev.resize(big_page_table_size);
+    // As before, there is no small page table when both page sizes are the same.
+    if (page_bits != big_page_bits) {
+        page_table.resize(page_table_size);
+    }
     big_page_continuous.resize(big_page_table_size / continuous_bits, 0);
     entries.resize(page_table_size / 32, 0);
 }
@@ -111,7 +113,9 @@ GPUVAddr MemoryManager::PageTableOp(GPUVAddr gpu_addr, [[maybe_unused]] DAddr de
                                     PTEKind kind) {
     [[maybe_unused]] u64 remaining_size{size};
     if constexpr (entry_type == EntryType::Mapped) {
-        if (!page_table.ReserveRange(gpu_addr, size)) {
+        if (size != 0 && (gpu_addr >= address_space_size || size > address_space_size - gpu_addr)) {
+            LOG_ERROR(HW_GPU, "Mapping outside the GPU address space: {:#x} + {:#x}", gpu_addr,
+                      size);
             return 0;
         }
     }
@@ -255,7 +259,7 @@ T MemoryManager::Read(GPUVAddr addr) const {
         return value;
     }
 
-    ASSERT(false);
+    assert(false);
 
     return {};
 }
@@ -268,7 +272,7 @@ void MemoryManager::Write(GPUVAddr addr, T data) {
         return;
     }
 
-    ASSERT(false);
+    assert(false);
 }
 
 template u8 MemoryManager::Read<u8>(GPUVAddr addr) const;

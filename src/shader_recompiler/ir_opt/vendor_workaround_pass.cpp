@@ -24,8 +24,8 @@ void AddingByteSwapsWorkaround(IR::Block& block, IR::Inst& inst) {
      *   %result  = BitwiseOr32 %lhs_shl, %rhs_bfe
      *
      */
-    IR::Inst* const lhs_shl{inst.Arg(0).TryInstRecursive()};
-    IR::Inst* const rhs_bfe{inst.Arg(1).TryInstRecursive()};
+    IR::Inst* const lhs_shl{inst.ArgInst(0)};
+    IR::Inst* const rhs_bfe{inst.ArgInst(1)};
     if (!lhs_shl || !rhs_bfe) {
         return;
     }
@@ -37,7 +37,7 @@ void AddingByteSwapsWorkaround(IR::Block& block, IR::Inst& inst) {
         rhs_bfe->Arg(2) != IR::Value{16U}) {
         return;
     }
-    IR::Inst* const lhs_mul{lhs_shl->Arg(0).TryInstRecursive()};
+    IR::Inst* const lhs_mul{lhs_shl->ArgInst(0)};
     if (!lhs_mul) {
         return;
     }
@@ -46,7 +46,7 @@ void AddingByteSwapsWorkaround(IR::Block& block, IR::Inst& inst) {
         lhs_mul->GetOpcode() != IR::Opcode::BitFieldUExtract) {
         return;
     }
-    IR::Inst* const lhs_bfe{lhs_mul_optional ? lhs_mul : lhs_mul->Arg(0).TryInstRecursive()};
+    IR::Inst* const lhs_bfe{lhs_mul_optional ? lhs_mul : lhs_mul->ArgInst(0)};
     if (!lhs_bfe) {
         return;
     }
@@ -56,7 +56,7 @@ void AddingByteSwapsWorkaround(IR::Block& block, IR::Inst& inst) {
     if (lhs_bfe->Arg(1) != IR::Value{0U} || lhs_bfe->Arg(2) != IR::Value{16U}) {
         return;
     }
-    IR::IREmitter ir{block, IR::Block::InstructionList::s_iterator_to(inst)};
+    IR::IREmitter ir{block, block.IteratorTo(inst)};
     inst.ReplaceUsesWith(ir.BitwiseOr(IR::U32{inst.Arg(0)}, IR::U32{inst.Arg(1)}));
 }
 
@@ -64,7 +64,7 @@ void AddingByteSwapsWorkaround(IR::Block& block, IR::Inst& inst) {
 
 void VendorWorkaroundPass(IR::Program& program) {
     for (IR::Block* const block : program.post_order_blocks) {
-        for (IR::Inst& inst : block->Instructions()) {
+        for (IR::Inst& inst : *block) {
             switch (inst.GetOpcode()) {
             case IR::Opcode::IAdd32:
                 AddingByteSwapsWorkaround(*block, inst);

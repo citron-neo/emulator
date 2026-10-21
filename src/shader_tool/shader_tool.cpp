@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright 2026 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
+#include <algorithm>
 #include <array>
 #include <charconv>
 #include <cstdio>
@@ -64,6 +65,13 @@ public:
             sph = *sph_in;
         }
         is_proprietary_driver = (texture_bound_value == 2);
+    }
+
+    // post_vtg_shader_attrib_skip_mask: a clear bit passes that attribute through a geometry
+    // passthrough shader. Zero (the default) passes everything, including fragment-only
+    // built-ins, so a passthrough shader needs the game's real mask to translate faithfully.
+    void SetGpPassthroughMask(const std::array<u32, 8>& mask) {
+        gp_passthrough_mask = mask;
     }
 
     u64 ReadInstruction(u32 address) override {
@@ -175,6 +183,13 @@ void PrintUsage() {
         "      --cbuf0-file <path>  Load cbuf 0 contents from a raw little-endian binary;\n"
         "                           each 4-byte word is exposed at its natural offset.\n"
         "      --no-fp64            Force lowering of fp64 to fp32 during translation.\n"
+        "      --ir                 Print the optimised IR and the attribute load/store\n"
+        "                           masks to stderr before emitting SPIR-V.\n"
+        "      --gp-mask W0,..,W7   Geometry passthrough skip mask (8 hex words, lowest\n"
+        "                           first); a clear bit passes that attribute through.\n"
+        "                           Default 0 passes every attribute through.\n"
+        "      --in-locations L0,..,L31   Host location of each generic input (hex), as\n"
+        "      --out-locations L0,..,L31  the emulator remaps them around a geometry shader.\n"
         "  -h, --help               Show this help.\n"
         "\n"
         "NVN compatibility caveats:\n"
@@ -195,6 +210,25 @@ bool ParseHexU32(std::string_view sv, u32& out) {
     }
     auto [ptr, ec] = std::from_chars(first, last, out, base);
     return ec == std::errc{} && ptr == last;
+}
+
+/// Exactly out.size() hex words separated by commas
+template <size_t N>
+bool ParseHexList(std::string_view spec, std::array<u32, N>& out) {
+    size_t pos = 0;
+    for (size_t word = 0; word < N; ++word) {
+        const size_t comma = spec.find(',', pos);
+        const bool last = word + 1 == N;
+        if (last != (comma == std::string_view::npos)) {
+            return false;
+        }
+        const size_t end = last ? spec.size() : comma;
+        if (!ParseHexU32(spec.substr(pos, end - pos), out[word])) {
+            return false;
+        }
+        pos = end + 1;
+    }
+    return true;
 }
 
 bool ParseDecU32(std::string_view sv, u32& out) {
@@ -232,12 +266,19 @@ Stage StageFromSphType(u32 sph_type) {
 
 Profile DefaultToolProfile() {
     Profile p{};
-    p.supported_spirv = 0x00010300;
+    // What a Vulkan 1.3 device gets (Device::SupportedSpirvVersion); the profile enables
+    // SPV_KHR_workgroup_memory_explicit_layout, which needs 1.4 or later.
+    p.supported_spirv = 0x00010600;
     p.unified_descriptor_binding = true;
     p.support_descriptor_aliasing = true;
     p.support_int8 = true;
     p.support_int16 = true;
+    p.support_int8_storage = true;
+    p.support_int16_storage = true;
+    p.support_int8_uniform = true;
+    p.support_int16_uniform = true;
     p.support_int64 = true;
+    p.support_storage_image_extended_formats = true;
     p.support_vertex_instance_id = false;
     p.support_float_controls = true;
     p.support_separate_denorm_behavior = true;
@@ -265,12 +306,12 @@ Profile DefaultToolProfile() {
 
 RuntimeInfo MakeRuntimeInfoForStage(Stage stage) {
     RuntimeInfo info{};
-    if (stage == Stage::Fragment) {
-        // Fragment shaders read inputs that the recompiler only emits when the
-        // previous stage is recorded as having stored them. With no real prior
-        // stage available offline, claim every generic + position component is
-        // available so any read the shader performs gets a corresponding input
-        // declaration in the emitted SPIR-V.
+    if (stage != Stage::VertexA && stage != Stage::VertexB) {
+        // Every stage after the vertex shader reads inputs that the recompiler only
+        // emits when the previous stage is recorded as having stored them. With no
+        // real prior stage available offline, claim every generic + position
+        // component is available so any read the shader performs gets a
+        // corresponding input declaration in the emitted SPIR-V.
         for (size_t i = static_cast<size_t>(Shader::IR::Attribute::PositionX);
              i <= static_cast<size_t>(Shader::IR::Attribute::Generic31W); ++i) {
             info.previous_stage_stores.mask.set(i);
@@ -324,6 +365,10 @@ int main(int argc, char** argv) try {
     bool local_mem_was_set = false;
     u32 texture_bound = 1;
     bool support_fp64 = true;
+    bool dump_ir = false;
+    std::optional<std::array<u32, 8>> gp_mask;
+    std::optional<std::array<u8, 32>> in_locations;
+    std::optional<std::array<u8, 32>> out_locations;
     std::unordered_map<u64, u32> cbuf_overrides;
     std::string cbuf0_file;
 
@@ -393,6 +438,29 @@ int main(int argc, char** argv) try {
             cbuf0_file = NextArg(arg);
         } else if (arg == "--no-fp64") {
             support_fp64 = false;
+        } else if (arg == "--ir") {
+            dump_ir = true;
+        } else if (arg == "--gp-mask") {
+            // Eight hex words separated by commas, lowest word first, as the emulator stores
+            // post_vtg_shader_attrib_skip_mask.
+            std::array<u32, 8> mask{};
+            if (!ParseHexList(NextArg(arg), mask)) {
+                std::fprintf(stderr, "shader_tool: --gp-mask expects 8 comma-separated hex words\n");
+                return EXIT_FAILURE;
+            }
+            gp_mask = mask;
+        } else if (arg == "--in-locations" || arg == "--out-locations") {
+            std::array<u32, 32> table{};
+            if (!ParseHexList(NextArg(arg), table) ||
+                std::ranges::any_of(table, [](u32 location) { return location >= 32; })) {
+                std::fprintf(stderr, "shader_tool: %.*s expects 32 comma-separated locations\n",
+                             static_cast<int>(arg.size()), arg.data());
+                return EXIT_FAILURE;
+            }
+            std::array<u8, 32> locations{};
+            std::ranges::transform(table, locations.begin(),
+                                   [](u32 location) { return static_cast<u8>(location); });
+            (arg == "--in-locations" ? in_locations : out_locations) = locations;
         } else if (!arg.empty() && arg[0] == '-') {
             std::fprintf(stderr, "shader_tool: unknown option '%.*s'\n",
                          static_cast<int>(arg.size()), arg.data());
@@ -506,9 +574,12 @@ int main(int argc, char** argv) try {
                         shared_mem,
                         texture_bound,
                         std::move(cbuf_overrides)};
+    if (gp_mask) {
+        env.SetGpPassthroughMask(*gp_mask);
+    }
 
     Shader::ObjectPool<Shader::Maxwell::Flow::Block> flow_pool(16);
-    Shader::ObjectPool<Shader::IR::Inst> inst_pool(8192);
+    Shader::IR::InstStorage inst_storage;
     Shader::ObjectPool<Shader::IR::Block> block_pool(32);
 
     const HostTranslateInfo host_info = DefaultHostInfo(support_fp64);
@@ -517,11 +588,41 @@ int main(int argc, char** argv) try {
     const u32 cfg_start = base_address + code_offset_in_program;
     Shader::Maxwell::Flow::CFG cfg(env, flow_pool, cfg_start, /*exits_to_dispatcher=*/false);
     Shader::IR::Program program =
-        Shader::Maxwell::TranslateProgram(inst_pool, block_pool, env, cfg, host_info);
+        Shader::Maxwell::TranslateProgram(inst_storage, block_pool, env, cfg, host_info);
 
     Shader::Backend::Bindings binding;
     RuntimeInfo runtime_info = MakeRuntimeInfoForStage(stage);
+    if (in_locations) {
+        runtime_info.input_generic_locations = *in_locations;
+    }
+    if (out_locations) {
+        runtime_info.output_generic_locations = *out_locations;
+    }
     Shader::Maxwell::ConvertLegacyToGeneric(program, runtime_info);
+    if (dump_ir) {
+        const std::string ir = Shader::IR::DumpProgram(program);
+        std::fputs(ir.c_str(), stderr);
+        std::fprintf(stderr, "loads_indexed=%d stores_indexed=%d\n",
+                     program.info.loads_indexed_attributes ? 1 : 0,
+                     program.info.stores_indexed_attributes ? 1 : 0);
+        std::string loads_list;
+        std::string stores_list;
+        std::string passthrough_list;
+        for (size_t i = 0; i < program.info.loads.mask.size(); ++i) {
+            const auto attr = static_cast<Shader::IR::Attribute>(i);
+            if (program.info.loads.mask[i]) {
+                loads_list += ' ' + Shader::IR::NameOf(attr);
+            }
+            if (program.info.stores.mask[i]) {
+                stores_list += ' ' + Shader::IR::NameOf(attr);
+            }
+            if (program.info.passthrough.mask[i]) {
+                passthrough_list += ' ' + Shader::IR::NameOf(attr);
+            }
+        }
+        std::fprintf(stderr, "loads:%s\nstores:%s\npassthrough:%s\n", loads_list.c_str(),
+                     stores_list.c_str(), passthrough_list.c_str());
+    }
     const std::vector<u32> spirv =
         Shader::Backend::SPIRV::EmitSPIRV(profile, runtime_info, program, binding);
 

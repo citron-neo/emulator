@@ -144,15 +144,15 @@ Errno ProxySocket::Shutdown(ShutdownHow how) {
 
 std::pair<s32, Errno> ProxySocket::Recv(int flags, std::span<u8> message) {
     LOG_WARNING(Network, "(STUBBED) called");
-    ASSERT(flags == 0);
-    ASSERT(message.size() < static_cast<size_t>(std::numeric_limits<int>::max()));
+    assert(flags == 0);
+    assert(message.size() < static_cast<size_t>(std::numeric_limits<int>::max()));
 
     return {static_cast<s32>(0), Errno::SUCCESS};
 }
 
 std::pair<s32, Errno> ProxySocket::RecvFrom(int flags, std::span<u8> message, SockAddrIn* addr) {
-    ASSERT(flags == 0);
-    ASSERT(message.size() < static_cast<size_t>(std::numeric_limits<int>::max()));
+    assert(flags == 0);
+    assert(message.size() < static_cast<size_t>(std::numeric_limits<int>::max()));
 
     // TODO (flTobi): Verify the timeout behavior and break when connection is lost
     const auto timestamp = std::chrono::steady_clock::now();
@@ -223,8 +223,8 @@ std::pair<s32, Errno> ProxySocket::ReceivePacket(int flags, std::span<u8> messag
 
 std::pair<s32, Errno> ProxySocket::Send(std::span<const u8> message, int flags) {
     LOG_WARNING(Network, "(STUBBED) called");
-    ASSERT(message.size() < static_cast<size_t>(std::numeric_limits<int>::max()));
-    ASSERT(flags == 0);
+    assert(message.size() < static_cast<size_t>(std::numeric_limits<int>::max()));
+    assert(flags == 0);
 
     return {static_cast<s32>(0), Errno::SUCCESS};
 }
@@ -261,7 +261,7 @@ void ProxySocket::SendPacket(ProxyPacket& packet) {
 
 std::pair<s32, Errno> ProxySocket::SendTo(u32 flags, std::span<const u8> message,
                                           const SockAddrIn* addr) {
-    ASSERT(flags == 0);
+    assert(flags == 0);
 
     if (!is_bound) {
         LOG_ERROR(Network, "ProxySocket is not bound!");

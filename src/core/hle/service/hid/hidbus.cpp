@@ -314,8 +314,8 @@ Result Hidbus::GetSharedMemoryHandle(OutCopyHandle<Kernel::KSharedMemory> out_sh
 Result Hidbus::EnableJoyPollingReceiveMode(u32 t_mem_size, JoyPollingMode polling_mode,
                                            BusHandle bus_handle,
                                            InCopyHandle<Kernel::KTransferMemory> t_mem) {
-    ASSERT_MSG(t_mem_size == 0x1000, "t_mem_size is not 0x1000 bytes");
-    ASSERT_MSG(t_mem->GetSize() == t_mem_size, "t_mem has incorrect size");
+    assert(t_mem_size == 0x1000 && "t_mem_size is not 0x1000 bytes");
+    assert(t_mem->GetSize() == t_mem_size && "t_mem has incorrect size");
 
     LOG_INFO(Service_HID,
              "called, polling_mode={}, abstracted_pad_id={}, bus_type={}, "

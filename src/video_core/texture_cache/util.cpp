@@ -264,10 +264,10 @@ template <u32 GOB_EXTENT>
 }
 
 [[nodiscard]] constexpr LevelArray CalculateLevelSizes(const LevelInfo& info, u32 num_levels) {
-    ASSERT_MSG(num_levels <= MAX_MIP_LEVELS,
-               "Requested {} mip levels exceeds maximum of {}. Clamping to prevent crash. "
-               "This may occur with certain mods like CTGP-DX.",
-               num_levels, MAX_MIP_LEVELS);
+    assert(num_levels <= MAX_MIP_LEVELS &&
+           "Requested {} mip levels exceeds maximum of {}. Clamping to prevent crash. "
+           "This may occur with certain mods like CTGP-DX." &&
+           (void(num_levels), void(MAX_MIP_LEVELS), true));
     // Clamp to MAX_MIP_LEVELS to prevent out-of-bounds access
     const u32 clamped_levels = std::min(num_levels, static_cast<u32>(MAX_MIP_LEVELS));
     LevelArray sizes{};
@@ -472,7 +472,7 @@ template <u32 GOB_EXTENT>
 [[nodiscard]] Extent2D PitchLinearAlignedSize(const ImageInfo& info) {
     // https://github.com/Ryujinx/Ryujinx/blob/1c9aba6de1520aea5480c032e0ff5664ac1bb36f/Ryujinx.Graphics.Texture/SizeCalculator.cs#L212
     static constexpr u32 STRIDE_ALIGNMENT = 32;
-    ASSERT(info.type == ImageType::Linear);
+    assert(info.type == ImageType::Linear);
     const Extent2D num_tiles{
         .width = ImageSize::DivCeil32(info.size.width, DefaultBlockWidth(info.format)),
         .height = ImageSize::DivCeil32(info.size.height, DefaultBlockHeight(info.format)),
@@ -486,7 +486,7 @@ template <u32 GOB_EXTENT>
 
 [[nodiscard]] Extent3D BlockLinearAlignedSize(const ImageInfo& info, u32 level) {
     // https://github.com/Ryujinx/Ryujinx/blob/1c9aba6de1520aea5480c032e0ff5664ac1bb36f/Ryujinx.Graphics.Texture/SizeCalculator.cs#L176
-    ASSERT(info.type != ImageType::Linear);
+    assert(info.type != ImageType::Linear);
     const Extent3D size = AdjustMipSize(info.size, level);
     const Extent3D num_tiles{
         .width = ImageSize::DivCeil32(size.width, DefaultBlockWidth(info.format)),
@@ -513,7 +513,7 @@ template <u32 GOB_EXTENT>
 }
 
 [[nodiscard]] u32 NumSlices(const ImageInfo& info) {
-    ASSERT(info.type == ImageType::e3D);
+    assert(info.type == ImageType::e3D);
     u32 num_slices = 0;
     for (s32 level = 0; level < info.resources.levels; ++level) {
         num_slices =
@@ -525,11 +525,11 @@ template <u32 GOB_EXTENT>
 void SwizzlePitchLinearImage(Tegra::MemoryManager& gpu_memory, GPUVAddr gpu_addr,
                              const ImageInfo& info, const BufferImageCopy& copy,
                              std::span<const u8> memory) {
-    ASSERT(copy.image_offset.z == 0);
-    ASSERT(copy.image_extent.depth == 1);
-    ASSERT(copy.image_subresource.base_level == 0);
-    ASSERT(copy.image_subresource.base_layer == 0);
-    ASSERT(copy.image_subresource.num_layers == 1);
+    assert(copy.image_offset.z == 0);
+    assert(copy.image_extent.depth == 1);
+    assert(copy.image_subresource.base_level == 0);
+    assert(copy.image_subresource.base_layer == 0);
+    assert(copy.image_subresource.num_layers == 1);
 
     const u32 bytes_per_block = BytesPerBlock(info.format);
     const u32 row_length =
@@ -594,7 +594,7 @@ void SwizzleBlockLinearImage(Tegra::MemoryManager& gpu_memory, GPUVAddr gpu_addr
         host_offset = ImageSize::Narrow(ImageSize::Add(host_offset, host_bytes_per_layer));
         guest_offset = ImageSize::Add(guest_offset, layer_stride);
     }
-    ASSERT(host_offset - copy.buffer_offset == copy.buffer_size);
+    assert(host_offset - copy.buffer_offset == copy.buffer_size);
 }
 
 } // Anonymous namespace
@@ -609,7 +609,7 @@ u32 CalculateGuestSizeInBytes(const ImageInfo& info) {
             info.pitch, ImageSize::DivCeil(info.size.height, DefaultBlockHeight(info.format))));
     }
     if (info.resources.layers > 1) {
-        ASSERT(info.layer_stride != 0);
+        assert(info.layer_stride != 0);
         return ImageSize::Narrow(ImageSize::Multiply(info.layer_stride, info.resources.layers));
     } else {
         return CalculateLayerSize(info);
@@ -663,7 +663,7 @@ u32 CalculateConvertedSizeBytes(const ImageInfo& info) {
 
 u32 CalculateLayerStride(const ImageInfo& info) {
     ValidateImageSize(info);
-    ASSERT(info.type != ImageType::Linear);
+    assert(info.type != ImageType::Linear);
     const u32 layer_size = CalculateLayerSize(info);
     const Extent3D size = info.size;
     const Extent3D block = info.block;
@@ -673,7 +673,7 @@ u32 CalculateLayerStride(const ImageInfo& info) {
 
 u32 CalculateLayerSize(const ImageInfo& info) {
     ValidateImageSize(info);
-    ASSERT(info.type != ImageType::Linear);
+    assert(info.type != ImageType::Linear);
     return CalculateLevelOffset(info.format, info.size, info.block, info.tile_width_spacing,
                                 info.resources.levels);
 }
@@ -714,7 +714,7 @@ LevelArray CalculateMipLevelSizes(const ImageInfo& info) {
 
 boost::container::small_vector<u32, 16> CalculateSliceOffsets(const ImageInfo& info) {
     ValidateImageSize(info);
-    ASSERT(info.type == ImageType::e3D);
+    assert(info.type == ImageType::e3D);
     boost::container::small_vector<u32, 16> offsets;
     offsets.reserve(NumSlices(info));
 
@@ -743,7 +743,7 @@ boost::container::small_vector<u32, 16> CalculateSliceOffsets(const ImageInfo& i
 
 boost::container::small_vector<SubresourceBase, 16> CalculateSliceSubresources(
     const ImageInfo& info) {
-    ASSERT(info.type == ImageType::e3D);
+    assert(info.type == ImageType::e3D);
     boost::container::small_vector<SubresourceBase, 16> subresources;
     subresources.reserve(NumSlices(info));
     for (s32 level = 0; level < info.resources.levels; ++level) {
@@ -790,12 +790,12 @@ boost::container::small_vector<ImageCopy, 16> MakeShrinkImageCopies(const ImageI
                                                                     const ImageInfo& src,
                                                                     SubresourceBase base,
                                                                     u32 up_scale, u32 down_shift) {
-    ASSERT(dst.resources.levels >= src.resources.levels);
+    assert(dst.resources.levels >= src.resources.levels);
 
     const bool is_dst_3d = dst.type == ImageType::e3D;
     if (is_dst_3d) {
-        ASSERT(src.type == ImageType::e3D);
-        ASSERT(src.resources.levels == 1);
+        assert(src.type == ImageType::e3D);
+        assert(src.resources.levels == 1);
     }
     const bool both_2d{src.type == ImageType::e2D && dst.type == ImageType::e2D};
     boost::container::small_vector<ImageCopy, 16> copies;
@@ -826,6 +826,31 @@ boost::container::small_vector<ImageCopy, 16> MakeShrinkImageCopies(const ImageI
         copy.extent = AdjustSamplesSize(mip_size, dst.num_samples);
         if (is_dst_3d) {
             copy.extent.depth = src.size.depth;
+        }
+        if (src.num_samples == dst.num_samples) {
+            // The overlap was found by address alone, so its mip can be smaller or larger than the
+            // slot it lands in. Copy what both have.
+            const Extent3D src_size =
+                AdjustSamplesSize(AdjustMipSize(src.size, level), src.num_samples);
+            copy.extent.width = std::min(copy.extent.width, src_size.width);
+            copy.extent.height = std::min(copy.extent.height, src_size.height);
+            // A block-compressed region must be whole blocks or reach the end of the subresource,
+            // on both images (vkCmdCopyImage srcImage-01728/01729, dstImage-01732/01733). When the
+            // two mips differ in a way no extent satisfies, the region holds less than one block
+            // of one of them; skip it rather than record an invalid copy.
+            const Extent3D dst_size = AdjustSamplesSize(mip_size, dst.num_samples);
+            const auto fits = [&copy](PixelFormat format, const Extent3D& subresource) {
+                const Extent2D block = DefaultBlockSize(format);
+                const bool width_ok = copy.extent.width % block.width == 0 ||
+                                      copy.extent.width == subresource.width;
+                const bool height_ok = copy.extent.height % block.height == 0 ||
+                                       copy.extent.height == subresource.height;
+                return width_ok && height_ok;
+            };
+            if (!fits(src.format, src_size) || !fits(dst.format, dst_size)) {
+                copies.pop_back();
+                continue;
+            }
         }
         copy.extent.width = std::max<u32>(
             ImageSize::Narrow(ImageSize::Multiply(copy.extent.width, up_scale) >> down_shift), 1);
@@ -906,11 +931,11 @@ boost::container::small_vector<BufferImageCopy, 16> UnswizzleImage(Tegra::Memory
     const Extent3D size = info.size;
 
     if (info.type == ImageType::Linear) {
-        ASSERT(output.size_bytes() >= guest_size_bytes);
+        assert(output.size_bytes() >= guest_size_bytes);
         gpu_memory.ReadBlockUnsafe(gpu_addr, output.data(), guest_size_bytes,
                                    "TextureCache.UnswizzleImage.linear");
 
-        ASSERT((info.pitch >> bpp_log2) << bpp_log2 == info.pitch);
+        assert((info.pitch >> bpp_log2) << bpp_log2 == info.pitch);
         return {{
             .buffer_offset = 0,
             .buffer_size = guest_size_bytes,
@@ -986,11 +1011,11 @@ void ConvertImage(std::span<const u8> input, const ImageInfo& info, std::span<u8
     for (BufferImageCopy& copy : copies) {
         const u32 level = copy.image_subresource.base_level;
         const Extent3D mip_size = AdjustMipSize(info.size, level);
-        ASSERT(copy.image_offset == Offset3D{});
-        ASSERT(copy.image_subresource.base_layer == 0);
-        ASSERT(copy.image_extent == mip_size);
-        ASSERT(copy.buffer_row_length == ImageSize::AlignUp32(mip_size.width, tile_size.width));
-        ASSERT(copy.buffer_image_height == ImageSize::AlignUp32(mip_size.height, tile_size.height));
+        assert(copy.image_offset == Offset3D{});
+        assert(copy.image_subresource.base_layer == 0);
+        assert(copy.image_extent == mip_size);
+        assert(copy.buffer_row_length == ImageSize::AlignUp32(mip_size.width, tile_size.width));
+        assert(copy.buffer_image_height == ImageSize::AlignUp32(mip_size.height, tile_size.height));
 
         const auto input_offset = input.subspan(copy.buffer_offset);
         copy.buffer_offset = output_offset;
@@ -1070,7 +1095,7 @@ boost::container::small_vector<BufferImageCopy, 16> FullDownloadCopies(const Ima
     const Extent3D size = info.size;
     const u32 bytes_per_block = BytesPerBlock(info.format);
     if (info.type == ImageType::Linear) {
-        ASSERT(info.pitch % bytes_per_block == 0);
+        assert(info.pitch % bytes_per_block == 0);
         return {{
             .buffer_offset = 0,
             .buffer_size = static_cast<size_t>(info.pitch) * size.height,
@@ -1179,8 +1204,8 @@ void SwizzleImage(Tegra::MemoryManager& gpu_memory, GPUVAddr gpu_addr, const Ima
 
 bool IsBlockLinearSizeCompatible(const ImageInfo& lhs, const ImageInfo& rhs, u32 lhs_level,
                                  u32 rhs_level, bool strict_size) {
-    ASSERT(lhs.type != ImageType::Linear);
-    ASSERT(rhs.type != ImageType::Linear);
+    assert(lhs.type != ImageType::Linear);
+    assert(rhs.type != ImageType::Linear);
     if (strict_size) {
         const Extent3D lhs_size = AdjustMipSize(lhs.size, lhs_level);
         const Extent3D rhs_size = AdjustMipSize(rhs.size, rhs_level);
@@ -1194,8 +1219,8 @@ bool IsBlockLinearSizeCompatible(const ImageInfo& lhs, const ImageInfo& rhs, u32
 
 bool IsBlockLinearSizeCompatibleBPPRelaxed(const ImageInfo& lhs, const ImageInfo& rhs,
                                            u32 lhs_level, u32 rhs_level) {
-    ASSERT(lhs.type != ImageType::Linear);
-    ASSERT(rhs.type != ImageType::Linear);
+    assert(lhs.type != ImageType::Linear);
+    assert(rhs.type != ImageType::Linear);
     const auto lhs_bpp = BytesPerBlock(lhs.format);
     const auto rhs_bpp = BytesPerBlock(rhs.format);
     const Extent3D lhs_size = AdjustMipSize(lhs.size, lhs_level);
@@ -1208,8 +1233,8 @@ bool IsBlockLinearSizeCompatibleBPPRelaxed(const ImageInfo& lhs, const ImageInfo
 }
 
 bool IsPitchLinearSameSize(const ImageInfo& lhs, const ImageInfo& rhs, bool strict_size) {
-    ASSERT(lhs.type == ImageType::Linear);
-    ASSERT(rhs.type == ImageType::Linear);
+    assert(lhs.type == ImageType::Linear);
+    assert(rhs.type == ImageType::Linear);
     if (strict_size) {
         return lhs.size.width == rhs.size.width && lhs.size.height == rhs.size.height;
     } else {
@@ -1222,8 +1247,8 @@ bool IsPitchLinearSameSize(const ImageInfo& lhs, const ImageInfo& rhs, bool stri
 std::optional<OverlapResult> ResolveOverlap(const ImageInfo& new_info, GPUVAddr gpu_addr,
                                             VAddr cpu_addr, const ImageBase& overlap,
                                             bool strict_size, bool broken_views, bool native_bgr) {
-    ASSERT(new_info.type != ImageType::Linear);
-    ASSERT(overlap.info.type != ImageType::Linear);
+    assert(new_info.type != ImageType::Linear);
+    assert(overlap.info.type != ImageType::Linear);
     if (!IsLayerStrideCompatible(new_info, overlap.info)) {
         return std::nullopt;
     }

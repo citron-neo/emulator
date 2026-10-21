@@ -202,7 +202,7 @@ void NPad::InitNewlyAddedController(u64 aruid, Core::HID::NpadIdType npad_id) {
 
     switch (controller_type) {
     case Core::HID::NpadStyleIndex::None:
-        ASSERT(false);
+        assert(false);
         break;
     case Core::HID::NpadStyleIndex::Fullkey:
         shared_memory->fullkey_color.attribute = ColorAttribute::Ok;
@@ -519,7 +519,7 @@ void NPad::OnUpdate(const Core::Timing::CoreTiming& core_timing) {
             libnx_state.connection_status.is_connected.Assign(1);
             switch (controller_type) {
             case Core::HID::NpadStyleIndex::None:
-                ASSERT(false);
+                assert(false);
                 break;
             case Core::HID::NpadStyleIndex::Fullkey:
             case Core::HID::NpadStyleIndex::NES:

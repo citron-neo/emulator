@@ -16,7 +16,7 @@ void DeadCodeEliminationPass(IR::Program& program) {
             --it;
             if (!it->HasUses() && !it->MayHaveSideEffects()) {
                 it->Invalidate();
-                it = block->Instructions().erase(it);
+                it = block->erase(it);
             }
         }
     }

@@ -107,7 +107,7 @@ void NfcInterface::GetDeviceState(HLERequestContext& ctx) {
     const auto device_state = GetManager()->GetDeviceState(device_handle);
 
     if (device_state > DeviceState::Finalized) {
-        ASSERT_MSG(false, "Invalid device state");
+        assert(false && "Invalid device state");
     }
 
     IPC::ResponseBuilder rb{ctx, 3};
