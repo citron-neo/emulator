@@ -10,7 +10,7 @@
 namespace Common::Compression {
 
 std::vector<u8> CompressDataLZ4(const u8* source, std::size_t source_size) {
-    ASSERT_MSG(source_size <= LZ4_MAX_INPUT_SIZE, "Source size exceeds LZ4 maximum input size");
+    assert(source_size <= LZ4_MAX_INPUT_SIZE && "Source size exceeds LZ4 maximum input size");
 
     const auto source_size_int = static_cast<int>(source_size);
     const auto max_compressed_size = static_cast<std::size_t>(LZ4_compressBound(source_size_int));
@@ -32,7 +32,7 @@ std::vector<u8> CompressDataLZ4(const u8* source, std::size_t source_size) {
 
 std::vector<u8> CompressDataLZ4HC(const u8* source, std::size_t source_size,
                                   s32 compression_level) {
-    ASSERT_MSG(source_size <= LZ4_MAX_INPUT_SIZE, "Source size exceeds LZ4 maximum input size");
+    assert(source_size <= LZ4_MAX_INPUT_SIZE && "Source size exceeds LZ4 maximum input size");
 
     compression_level = std::clamp(compression_level, LZ4HC_CLEVEL_MIN, LZ4HC_CLEVEL_MAX);
 

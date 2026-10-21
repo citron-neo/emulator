@@ -128,7 +128,7 @@ private:
             case StreamType::Render:
                 return oboe::Direction::Output;
             default:
-                ASSERT(false);
+                assert(false);
                 return oboe::Direction::Output;
             }
         }();
@@ -143,7 +143,7 @@ private:
             case 6:
                 return oboe::ChannelMask::CM5Point1;
             default:
-                ASSERT(false);
+                assert(false);
                 return oboe::ChannelMask::Unspecified;
             }
         }();
@@ -156,12 +156,12 @@ private:
                                 ->setDataCallback(this)
                                 ->setErrorCallback(this)
                                 ->openStream(m_stream);
-        ASSERT(result == oboe::Result::OK);
+        assert(result == oboe::Result::OK);
         return result == oboe::Result::OK && this->SetStreamProperties();
     }
 
     bool SetStreamProperties() {
-        ASSERT(m_stream);
+        assert(m_stream);
 
         m_stream->setBufferSizeInFrames(TargetSampleCount * 2);
         device_channels = m_stream->getChannelCount();

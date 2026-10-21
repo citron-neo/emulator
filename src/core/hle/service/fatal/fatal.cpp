@@ -163,7 +163,7 @@ static void ThrowFatalError(Core::System& system, Result error_code, FatalType f
             break;
         }
         // Since we have no fatal:u error screen. We should just kill execution instead
-        ASSERT(false);
+        assert(false);
         break;
         // Should not throw a fatal screen but should generate an error report
     case FatalType::ErrorReport:
@@ -202,7 +202,7 @@ void Module::Interface::ThrowFatalWithCpuContext(HLERequestContext& ctx) {
     const auto fatal_info = ctx.ReadBuffer();
     FatalInfo info{};
 
-    ASSERT(fatal_info.size() == sizeof(FatalInfo) && "Invalid fatal info buffer size!");
+    assert(fatal_info.size() == sizeof(FatalInfo) && "Invalid fatal info buffer size!");
     std::memcpy(&info, fatal_info.data(), sizeof(FatalInfo));
 
     ThrowFatalError(system, error_code, fatal_type, info);

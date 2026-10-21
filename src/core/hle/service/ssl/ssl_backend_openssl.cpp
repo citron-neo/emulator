@@ -182,7 +182,7 @@ public:
             return ResultInternalError;
         }
         int count = sk_X509_num(chain);
-        ASSERT(count >= 0);
+        assert(count >= 0);
         for (int i = 0; i < count; i++) {
             X509* x509 = sk_X509_value(chain, i);
             ASSERT_OR_EXECUTE(x509 != nullptr, { continue; });

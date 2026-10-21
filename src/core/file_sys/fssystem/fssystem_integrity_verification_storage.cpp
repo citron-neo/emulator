@@ -7,14 +7,14 @@
 namespace FileSys {
 
 constexpr inline u32 ILog2(u32 val) {
-    ASSERT(val > 0);
+    assert(val > 0);
     return static_cast<u32>((sizeof(u32) * 8) - 1 - std::countl_zero<u32>(val));
 }
 
 void IntegrityVerificationStorage::Initialize(VirtualFile hs, VirtualFile ds, s64 verif_block_size,
                                               s64 upper_layer_verif_block_size, bool is_real_data) {
     // Validate preconditions.
-    ASSERT(verif_block_size >= HashSize);
+    assert(verif_block_size >= HashSize);
 
     // Set storages.
     m_hash_storage = hs;
@@ -23,19 +23,19 @@ void IntegrityVerificationStorage::Initialize(VirtualFile hs, VirtualFile ds, s6
     // Set verification block sizes.
     m_verification_block_size = verif_block_size;
     m_verification_block_order = ILog2(static_cast<u32>(verif_block_size));
-    ASSERT(m_verification_block_size == 1ll << m_verification_block_order);
+    assert(m_verification_block_size == 1ll << m_verification_block_order);
 
     // Set upper layer block sizes.
     upper_layer_verif_block_size = std::max(upper_layer_verif_block_size, HashSize);
     m_upper_layer_verification_block_size = upper_layer_verif_block_size;
     m_upper_layer_verification_block_order = ILog2(static_cast<u32>(upper_layer_verif_block_size));
-    ASSERT(m_upper_layer_verification_block_size == 1ll << m_upper_layer_verification_block_order);
+    assert(m_upper_layer_verification_block_size == 1ll << m_upper_layer_verification_block_order);
 
     // Validate sizes.
     {
-        s64 hash_size = m_hash_storage->GetSize();
-        s64 data_size = m_data_storage->GetSize();
-        ASSERT(((hash_size / HashSize) * m_verification_block_size) >= data_size);
+        [[maybe_unused]] s64 hash_size = m_hash_storage->GetSize();
+        [[maybe_unused]] s64 data_size = m_data_storage->GetSize();
+        assert(((hash_size / HashSize) * m_verification_block_size) >= data_size);
     }
 
     // Set data.
@@ -54,14 +54,14 @@ size_t IntegrityVerificationStorage::Read(u8* buffer, size_t size, size_t offset
     }
 
     // Validate arguments.
-    ASSERT(buffer != nullptr);
+    assert(buffer != nullptr);
 
     // Validate the offset.
     s64 data_size = m_data_storage->GetSize();
-    ASSERT(offset <= static_cast<size_t>(data_size));
+    assert(offset <= static_cast<size_t>(data_size));
 
     // Validate the access range.
-    ASSERT(R_SUCCEEDED(IStorage::CheckAccessRange(
+    assert(R_SUCCEEDED(IStorage::CheckAccessRange(
         offset, size, Common::AlignUp(data_size, static_cast<size_t>(m_verification_block_size)))));
 
     // Determine the read extents.
@@ -71,7 +71,7 @@ size_t IntegrityVerificationStorage::Read(u8* buffer, size_t size, size_t offset
         s64 padding_offset = data_size - offset;
         size_t padding_size = static_cast<size_t>(
             m_verification_block_size - (padding_offset & (m_verification_block_size - 1)));
-        ASSERT(static_cast<s64>(padding_size) < m_verification_block_size);
+        assert(static_cast<s64>(padding_size) < m_verification_block_size);
 
         // Clear the padding.
         std::memset(static_cast<u8*>(buffer) + padding_offset, 0, padding_size);

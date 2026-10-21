@@ -404,8 +404,8 @@ private:
 
     template <typename T = Value, typename... Args>
     T Inst(Opcode op, Args... args) {
-        auto it{block->PrependNewInst(insertion_point, op, {Value{args}...})};
-        return T{Value{&*it}};
+        const auto it{block->PrependNewInst(insertion_point, op, {Value{args}...})};
+        return T{Value::FromInst(it.Index(), it->Type())};
     }
 
     template <typename T>
@@ -421,8 +421,8 @@ private:
     T Inst(Opcode op, Flags<FlagType> flags, Args... args) {
         u32 raw_flags{};
         std::memcpy(&raw_flags, &flags.proxy, sizeof(flags.proxy));
-        auto it{block->PrependNewInst(insertion_point, op, {Value{args}...}, raw_flags)};
-        return T{Value{&*it}};
+        const auto it{block->PrependNewInst(insertion_point, op, {Value{args}...}, raw_flags)};
+        return T{Value::FromInst(it.Index(), it->Type())};
     }
 };
 

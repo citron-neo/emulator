@@ -25,7 +25,7 @@ T& CommandBuffer::GenerateStart(const s32 node_id) {
         LOG_ERROR(
             Service_Audio,
             "Attempting to write commands beyond the end of allocated command buffer memory!");
-        UNREACHABLE();
+        std::unreachable();
     }
 
     auto& cmd{*std::construct_at<T>(reinterpret_cast<T*>(&command_list[size]))};

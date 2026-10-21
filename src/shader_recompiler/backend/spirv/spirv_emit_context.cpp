@@ -489,7 +489,8 @@ void VectorTypes::Define(Sirit::Module& sirit_ctx, Id base_type, std::string_vie
 EmitContext::EmitContext(const Profile& profile_, const RuntimeInfo& runtime_info_,
                          IR::Program& program, Bindings& bindings)
     : Sirit::Module(profile_.supported_spirv), profile{profile_}, runtime_info{runtime_info_},
-      stage{program.stage}, texture_rescaling_index{bindings.texture_scaling_index},
+      stage{program.stage}, inst_storage{program.inst_storage},
+      texture_rescaling_index{bindings.texture_scaling_index},
       image_rescaling_index{bindings.image_scaling_index} {
     const bool is_unified{profile.unified_descriptor_binding};
     const bool is_split{profile.has_split_descriptor_sets};
@@ -526,9 +527,15 @@ EmitContext::EmitContext(const Profile& profile_, const RuntimeInfo& runtime_inf
 
 EmitContext::~EmitContext() = default;
 
-Id EmitContext::Def(const IR::Value& value) {
-    if (!value.IsImmediate()) {
-        return value.InstRecursive()->Definition<Id>();
+IR::Inst* EmitContext::Inst(const IR::Value& value) const {
+    return inst_storage->Get(value);
+}
+
+Id EmitContext::Def(const IR::Value& raw_value) {
+    // An Identity chain may end in an immediate; read the immediate the chain resolves to
+    const IR::Value value{inst_storage->Resolve(raw_value)};
+    if (value.IsInst()) {
+        return inst_storage->At(value.InstIndex()).Definition<Id>();
     }
     switch (value.Type()) {
     case IR::Type::Void:

@@ -33,7 +33,7 @@ public:
     }
 
     [[nodiscard]] std::pair<Descriptor, bool> Read(u32 index) {
-        DEBUG_ASSERT(index <= current_limit);
+        assert(index <= current_limit);
         const GPUVAddr gpu_addr = current_gpu_addr + index * sizeof(Descriptor);
         std::pair<Descriptor, bool> result;
         gpu_memory.ReadBlockUnsafe(gpu_addr, &result.first, sizeof(Descriptor),

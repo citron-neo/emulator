@@ -43,12 +43,12 @@ public:
 
 private:
     static void SetValidationBit(BlockHash* hash) {
-        ASSERT(hash != nullptr);
+        assert(hash != nullptr);
         hash->hash[HashSize - 1] |= 0x80;
     }
 
     static bool IsValidationBit(const BlockHash* hash) {
-        ASSERT(hash != nullptr);
+        assert(hash != nullptr);
         return (hash->hash[HashSize - 1] & 0x80) != 0;
     }
 

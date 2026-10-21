@@ -30,7 +30,7 @@ size_t AlignmentMatchingStorageImpl::Read(VirtualFile base_storage, char* work_b
                                           size_t buffer_alignment, s64 offset, u8* buffer,
                                           size_t size) {
     // Check preconditions.
-    ASSERT(work_buf_size >= data_alignment);
+    assert(work_buf_size >= data_alignment);
 
     // Succeed if zero size.
     if (size == 0) {
@@ -38,7 +38,7 @@ size_t AlignmentMatchingStorageImpl::Read(VirtualFile base_storage, char* work_b
     }
 
     // Validate arguments.
-    ASSERT(buffer != nullptr);
+    assert(buffer != nullptr);
 
     // Determine extents.
     u8* aligned_core_buffer;
@@ -92,7 +92,7 @@ size_t AlignmentMatchingStorageImpl::Read(VirtualFile base_storage, char* work_b
         const s64 head_offset = Common::AlignDown(offset, data_alignment);
         const size_t head_size = static_cast<size_t>(covered_offset - offset);
 
-        ASSERT(GetRoundDownDifference(offset, data_alignment) + head_size <= work_buf_size);
+        assert(GetRoundDownDifference(offset, data_alignment) + head_size <= work_buf_size);
 
         base_storage->Read(reinterpret_cast<u8*>(work_buf), data_alignment, head_offset);
         std::memcpy(buffer, work_buf + GetRoundDownDifference(offset, data_alignment), head_size);
@@ -108,8 +108,8 @@ size_t AlignmentMatchingStorageImpl::Read(VirtualFile base_storage, char* work_b
                      remaining_tail_size);
         base_storage->Read(reinterpret_cast<u8*>(work_buf), data_alignment, aligned_tail_offset);
 
-        ASSERT((tail_offset - offset) + cur_size <= size);
-        ASSERT((tail_offset - aligned_tail_offset) + cur_size <= data_alignment);
+        assert((tail_offset - offset) + cur_size <= size);
+        assert((tail_offset - aligned_tail_offset) + cur_size <= data_alignment);
         std::memcpy(reinterpret_cast<char*>(buffer) + (tail_offset - offset),
                     work_buf + (tail_offset - aligned_tail_offset), cur_size);
 
@@ -125,7 +125,7 @@ size_t AlignmentMatchingStorageImpl::Write(VirtualFile base_storage, char* work_
                                            size_t buffer_alignment, s64 offset, const u8* buffer,
                                            size_t size) {
     // Check preconditions.
-    ASSERT(work_buf_size >= data_alignment);
+    assert(work_buf_size >= data_alignment);
 
     // Succeed if zero size.
     if (size == 0) {
@@ -133,7 +133,7 @@ size_t AlignmentMatchingStorageImpl::Write(VirtualFile base_storage, char* work_
     }
 
     // Validate arguments.
-    ASSERT(buffer != nullptr);
+    assert(buffer != nullptr);
 
     // Determine extents.
     const u8* aligned_core_buffer;
@@ -171,7 +171,7 @@ size_t AlignmentMatchingStorageImpl::Write(VirtualFile base_storage, char* work_
         const s64 head_offset = Common::AlignDown(offset, data_alignment);
         const size_t head_size = static_cast<size_t>(covered_offset - offset);
 
-        ASSERT((offset - head_offset) + head_size <= data_alignment);
+        assert((offset - head_offset) + head_size <= data_alignment);
 
         base_storage->Read(reinterpret_cast<u8*>(work_buf), data_alignment, head_offset);
         std::memcpy(work_buf + (offset - head_offset), buffer, head_size);
@@ -182,7 +182,7 @@ size_t AlignmentMatchingStorageImpl::Write(VirtualFile base_storage, char* work_
     s64 tail_offset = covered_offset + core_size;
     size_t remaining_tail_size = static_cast<size_t>((offset + size) - tail_offset);
     while (remaining_tail_size > 0) {
-        ASSERT(static_cast<size_t>(tail_offset - offset) < size);
+        assert(static_cast<size_t>(tail_offset - offset) < size);
 
         const auto aligned_tail_offset = Common::AlignDown(tail_offset, data_alignment);
         const auto cur_size =

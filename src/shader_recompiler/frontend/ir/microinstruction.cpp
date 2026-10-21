@@ -11,30 +11,31 @@
 
 namespace Shader::IR {
 namespace {
-void CheckPseudoInstruction(IR::Inst* inst, IR::Opcode opcode) {
-    if (inst && inst->GetOpcode() != opcode) {
+constexpr u32 npos = Inst::npos;
+
+Inst* CheckPseudoInstruction(InstStorage& storage, u32 index, IR::Opcode opcode) {
+    if (index == npos) {
+        return nullptr;
+    }
+    Inst* const inst{&storage.At(index)};
+    if (inst->GetOpcode() != opcode) {
         throw LogicError("Invalid pseudo-instruction");
     }
+    return inst;
 }
 
-void SetPseudoInstruction(IR::Inst*& dest_inst, IR::Inst* pseudo_inst) {
-    if (dest_inst) {
+void SetPseudoInstruction(u32& dest_index, u32 pseudo_index) {
+    if (dest_index != npos) {
         throw LogicError("Only one of each type of pseudo-op allowed");
     }
-    dest_inst = pseudo_inst;
+    dest_index = pseudo_index;
 }
 
-void RemovePseudoInstruction(IR::Inst*& inst, IR::Opcode expected_opcode) {
-    if (inst->GetOpcode() != expected_opcode) {
+void RemovePseudoInstruction(InstStorage& storage, u32& index, IR::Opcode expected_opcode) {
+    if (index == npos || storage.At(index).GetOpcode() != expected_opcode) {
         throw LogicError("Undoing use of invalid pseudo-op");
     }
-    inst = nullptr;
-}
-
-void AllocAssociatedInsts(std::unique_ptr<AssociatedInsts>& associated_insts) {
-    if (!associated_insts) {
-        associated_insts = std::make_unique<AssociatedInsts>();
-    }
+    index = npos;
 }
 } // Anonymous namespace
 
@@ -46,14 +47,14 @@ Inst::Inst(IR::Opcode op_, u32 flags_) noexcept : op{op_}, flags{flags_} {
     }
 }
 
-Inst::Inst(const Inst& base) : op{base.op}, flags{base.flags} {
+Inst::Inst(const Inst& base) : owner{base.owner}, op{base.op}, flags{base.flags} {
     if (base.op == Opcode::Phi) {
         throw NotImplementedException("Copying phi node");
     }
     std::construct_at(&args);
     const size_t num_args{base.NumArgs()};
     for (size_t index = 0; index < num_args; ++index) {
-        SetArg(index, base.Arg(index));
+        SetArg(index, base.RawArg(index));
     }
 }
 
@@ -250,33 +251,27 @@ bool Inst::AreAllArgsImmediates() const {
     if (op == Opcode::Phi) {
         throw LogicError("Testing for all arguments are immediates on phi instruction");
     }
-    return std::all_of(args.begin(), args.begin() + NumArgs(),
-                       [](const IR::Value& value) { return value.IsImmediate(); });
+    const size_t num_args{NumArgs()};
+    for (size_t index = 0; index < num_args; ++index) {
+        if (!Arg(index).IsImmediate()) {
+            return false;
+        }
+    }
+    return true;
 }
 
 Inst* Inst::GetAssociatedPseudoOperation(IR::Opcode opcode) {
-    if (!associated_insts) {
-        return nullptr;
-    }
     switch (opcode) {
     case Opcode::GetZeroFromOp:
-        CheckPseudoInstruction(associated_insts->zero_inst, Opcode::GetZeroFromOp);
-        return associated_insts->zero_inst;
-    case Opcode::GetSignFromOp:
-        CheckPseudoInstruction(associated_insts->sign_inst, Opcode::GetSignFromOp);
-        return associated_insts->sign_inst;
-    case Opcode::GetCarryFromOp:
-        CheckPseudoInstruction(associated_insts->carry_inst, Opcode::GetCarryFromOp);
-        return associated_insts->carry_inst;
-    case Opcode::GetOverflowFromOp:
-        CheckPseudoInstruction(associated_insts->overflow_inst, Opcode::GetOverflowFromOp);
-        return associated_insts->overflow_inst;
     case Opcode::GetSparseFromOp:
-        CheckPseudoInstruction(associated_insts->sparse_inst, Opcode::GetSparseFromOp);
-        return associated_insts->sparse_inst;
     case Opcode::GetInBoundsFromOp:
-        CheckPseudoInstruction(associated_insts->in_bounds_inst, Opcode::GetInBoundsFromOp);
-        return associated_insts->in_bounds_inst;
+        return CheckPseudoInstruction(*owner, pseudo_zero, opcode);
+    case Opcode::GetSignFromOp:
+        return CheckPseudoInstruction(*owner, pseudo_sign, opcode);
+    case Opcode::GetCarryFromOp:
+        return CheckPseudoInstruction(*owner, pseudo_carry, opcode);
+    case Opcode::GetOverflowFromOp:
+        return CheckPseudoInstruction(*owner, pseudo_overflow, opcode);
     default:
         throw InvalidArgument("{} is not a pseudo-instruction", opcode);
     }
@@ -294,11 +289,11 @@ void Inst::SetArg(size_t index, Value value) {
     if (index >= NumArgs()) {
         throw InvalidArgument("Out of bounds argument index {} in opcode {}", index, op);
     }
-    const IR::Value arg{Arg(index)};
-    if (!arg.IsImmediate()) {
+    const IR::Value arg{RawArg(index)};
+    if (arg.IsInst()) {
         UndoUse(arg);
     }
-    if (!value.IsImmediate()) {
+    if (value.IsInst()) {
         Use(value);
     }
     if (op == Opcode::Phi) {
@@ -319,7 +314,7 @@ Block* Inst::PhiBlock(size_t index) const {
 }
 
 void Inst::AddPhiOperand(Block* predecessor, const Value& value) {
-    if (!value.IsImmediate()) {
+    if (value.IsInst()) {
         Use(value);
     }
     phi_args.emplace_back(predecessor, value);
@@ -344,14 +339,14 @@ void Inst::ClearArgs() {
     if (op == Opcode::Phi) {
         for (auto& pair : phi_args) {
             IR::Value& value{pair.second};
-            if (!value.IsImmediate()) {
+            if (value.IsInst()) {
                 UndoUse(value);
             }
         }
         phi_args.clear();
     } else {
         for (auto& value : args) {
-            if (!value.IsImmediate()) {
+            if (value.IsInst()) {
                 UndoUse(value);
             }
         }
@@ -364,7 +359,7 @@ void Inst::ClearArgs() {
 void Inst::ReplaceUsesWith(Value replacement) {
     Invalidate();
     ReplaceOpcode(Opcode::Identity);
-    if (!replacement.IsImmediate()) {
+    if (replacement.IsInst()) {
         Use(replacement);
     }
     args[0] = replacement;
@@ -383,34 +378,23 @@ void Inst::ReplaceOpcode(IR::Opcode opcode) {
 }
 
 void Inst::Use(const Value& value) {
-    Inst* const inst{value.Inst()};
-    ++inst->use_count;
+    Inst& inst{owner->At(value.InstIndex())};
+    ++inst.use_count;
 
-    std::unique_ptr<AssociatedInsts>& assoc_inst{inst->associated_insts};
     switch (op) {
     case Opcode::GetZeroFromOp:
-        AllocAssociatedInsts(assoc_inst);
-        SetPseudoInstruction(assoc_inst->zero_inst, this);
+    case Opcode::GetSparseFromOp:
+    case Opcode::GetInBoundsFromOp:
+        SetPseudoInstruction(inst.pseudo_zero, Index());
         break;
     case Opcode::GetSignFromOp:
-        AllocAssociatedInsts(assoc_inst);
-        SetPseudoInstruction(assoc_inst->sign_inst, this);
+        SetPseudoInstruction(inst.pseudo_sign, Index());
         break;
     case Opcode::GetCarryFromOp:
-        AllocAssociatedInsts(assoc_inst);
-        SetPseudoInstruction(assoc_inst->carry_inst, this);
+        SetPseudoInstruction(inst.pseudo_carry, Index());
         break;
     case Opcode::GetOverflowFromOp:
-        AllocAssociatedInsts(assoc_inst);
-        SetPseudoInstruction(assoc_inst->overflow_inst, this);
-        break;
-    case Opcode::GetSparseFromOp:
-        AllocAssociatedInsts(assoc_inst);
-        SetPseudoInstruction(assoc_inst->sparse_inst, this);
-        break;
-    case Opcode::GetInBoundsFromOp:
-        AllocAssociatedInsts(assoc_inst);
-        SetPseudoInstruction(assoc_inst->in_bounds_inst, this);
+        SetPseudoInstruction(inst.pseudo_overflow, Index());
         break;
     default:
         break;
@@ -418,34 +402,23 @@ void Inst::Use(const Value& value) {
 }
 
 void Inst::UndoUse(const Value& value) {
-    Inst* const inst{value.Inst()};
-    --inst->use_count;
+    Inst& inst{owner->At(value.InstIndex())};
+    --inst.use_count;
 
-    std::unique_ptr<AssociatedInsts>& assoc_inst{inst->associated_insts};
     switch (op) {
     case Opcode::GetZeroFromOp:
-        AllocAssociatedInsts(assoc_inst);
-        RemovePseudoInstruction(assoc_inst->zero_inst, Opcode::GetZeroFromOp);
+    case Opcode::GetSparseFromOp:
+    case Opcode::GetInBoundsFromOp:
+        RemovePseudoInstruction(*owner, inst.pseudo_zero, op);
         break;
     case Opcode::GetSignFromOp:
-        AllocAssociatedInsts(assoc_inst);
-        RemovePseudoInstruction(assoc_inst->sign_inst, Opcode::GetSignFromOp);
+        RemovePseudoInstruction(*owner, inst.pseudo_sign, op);
         break;
     case Opcode::GetCarryFromOp:
-        AllocAssociatedInsts(assoc_inst);
-        RemovePseudoInstruction(assoc_inst->carry_inst, Opcode::GetCarryFromOp);
+        RemovePseudoInstruction(*owner, inst.pseudo_carry, op);
         break;
     case Opcode::GetOverflowFromOp:
-        AllocAssociatedInsts(assoc_inst);
-        RemovePseudoInstruction(assoc_inst->overflow_inst, Opcode::GetOverflowFromOp);
-        break;
-    case Opcode::GetSparseFromOp:
-        AllocAssociatedInsts(assoc_inst);
-        RemovePseudoInstruction(assoc_inst->sparse_inst, Opcode::GetSparseFromOp);
-        break;
-    case Opcode::GetInBoundsFromOp:
-        AllocAssociatedInsts(assoc_inst);
-        RemovePseudoInstruction(assoc_inst->in_bounds_inst, Opcode::GetInBoundsFromOp);
+        RemovePseudoInstruction(*owner, inst.pseudo_overflow, op);
         break;
     default:
         break;

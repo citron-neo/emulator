@@ -94,7 +94,7 @@ union Error::ErrorArguments {
 namespace {
 template <typename T>
 void CopyArgumentData(const std::vector<u8>& data, T& variable) {
-    ASSERT(data.size() >= sizeof(T));
+    assert(data.size() >= sizeof(T));
     std::memcpy(&variable, data.data(), sizeof(T));
 }
 
@@ -116,10 +116,10 @@ void Error::Initialize() {
     complete = false;
 
     const std::shared_ptr<IStorage> storage = PopInData();
-    ASSERT(storage != nullptr);
+    assert(storage != nullptr);
     const auto data = storage->GetData();
 
-    ASSERT(!data.empty());
+    assert(!data.empty());
     std::memcpy(&mode, data.data(), sizeof(ErrorAppletMode));
 
     switch (mode) {
@@ -158,7 +158,7 @@ Result Error::GetStatus() const {
 }
 
 void Error::ExecuteInteractive() {
-    ASSERT_MSG(false, "Unexpected interactive applet data!");
+    assert(false && "Unexpected interactive applet data!");
 }
 
 void Error::Execute() {

@@ -8,7 +8,7 @@ namespace Shader::Optimization {
 
 void VertexATransformPass(IR::Program& program) {
     for (IR::Block* const block : program.blocks) {
-        for (IR::Inst& inst : block->Instructions()) {
+        for (IR::Inst& inst : *block) {
             if (inst.GetOpcode() == IR::Opcode::Epilogue) {
                 return inst.Invalidate();
             }
@@ -18,7 +18,7 @@ void VertexATransformPass(IR::Program& program) {
 
 void VertexBTransformPass(IR::Program& program) {
     for (IR::Block* const block : program.blocks) {
-        for (IR::Inst& inst : block->Instructions()) {
+        for (IR::Inst& inst : *block) {
             if (inst.GetOpcode() == IR::Opcode::Prologue) {
                 return inst.Invalidate();
             }

@@ -87,7 +87,7 @@ public:
         }
 
         constexpr void SetSkipCount(s32 count) {
-            ASSERT(count >= 0);
+            assert(count >= 0);
             m_skip_count = count;
         }
         constexpr s32 GetSkipCount() const {
@@ -129,7 +129,7 @@ private:
         NodeBuffer() : m_header() {}
 
         ~NodeBuffer() {
-            ASSERT(m_header == nullptr);
+            assert(m_header == nullptr);
         }
 
         NodeBuffer(NodeBuffer&& rhs) : m_header(rhs.m_header) {
@@ -138,7 +138,7 @@ private:
 
         NodeBuffer& operator=(NodeBuffer&& rhs) {
             if (this != std::addressof(rhs)) {
-                ASSERT(m_header == nullptr);
+                assert(m_header == nullptr);
 
                 m_header = rhs.m_header;
 
@@ -148,7 +148,7 @@ private:
         }
 
         bool Allocate(size_t node_size) {
-            ASSERT(m_header == nullptr);
+            assert(m_header == nullptr);
 
             m_header = ::operator new(node_size, std::align_val_t{sizeof(s64)});
 
@@ -212,7 +212,7 @@ private:
         }
 
         const s32 node_l2_count = Common::DivideUp(entry_set_count, offset_count_per_node);
-        ASSERT(node_l2_count <= offset_count_per_node);
+        assert(node_l2_count <= offset_count_per_node);
 
         return Common::DivideUp(entry_set_count - (offset_count_per_node - (node_l2_count - 1)),
                                 offset_count_per_node);
@@ -261,11 +261,11 @@ public:
 
     static constexpr s64 QueryNodeStorageSize(size_t node_size, size_t entry_size,
                                               s32 entry_count) {
-        ASSERT(entry_size >= sizeof(s64));
-        ASSERT(node_size >= entry_size + sizeof(NodeHeader));
-        ASSERT(NodeSizeMin <= node_size && node_size <= NodeSizeMax);
-        ASSERT(Common::IsPowerOfTwo(node_size));
-        ASSERT(entry_count >= 0);
+        assert(entry_size >= sizeof(s64));
+        assert(node_size >= entry_size + sizeof(NodeHeader));
+        assert(NodeSizeMin <= node_size && node_size <= NodeSizeMax);
+        assert(Common::IsPowerOfTwo(node_size));
+        assert(entry_count >= 0);
 
         if (entry_count <= 0) {
             return 0;
@@ -276,11 +276,11 @@ public:
 
     static constexpr s64 QueryEntryStorageSize(size_t node_size, size_t entry_size,
                                                s32 entry_count) {
-        ASSERT(entry_size >= sizeof(s64));
-        ASSERT(node_size >= entry_size + sizeof(NodeHeader));
-        ASSERT(NodeSizeMin <= node_size && node_size <= NodeSizeMax);
-        ASSERT(Common::IsPowerOfTwo(node_size));
-        ASSERT(entry_count >= 0);
+        assert(entry_size >= sizeof(s64));
+        assert(node_size >= entry_size + sizeof(NodeHeader));
+        assert(NodeSizeMin <= node_size && node_size <= NodeSizeMax);
+        assert(Common::IsPowerOfTwo(node_size));
+        assert(entry_count >= 0);
 
         if (entry_count <= 0) {
             return 0;
@@ -362,13 +362,13 @@ public:
     Result ScanContinuousReading(ContinuousReadingInfo* out_info, s64 offset, size_t size) const;
 
     const void* Get() const {
-        ASSERT(this->IsValid());
+        assert(this->IsValid());
         return m_entry;
     }
 
     template <typename T>
     const T* Get() const {
-        ASSERT(this->IsValid());
+        assert(this->IsValid());
         return reinterpret_cast<const T*>(m_entry);
     }
 

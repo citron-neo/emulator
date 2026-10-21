@@ -74,7 +74,7 @@ void SoftwareKeyboard::Initialize() {
         InitializePartialForeground(applet_mode);
         break;
     default:
-        ASSERT_MSG(false, "Invalid LibraryAppletMode={}", applet_mode);
+        assert(false && "Invalid LibraryAppletMode={}" && (void(applet_mode), true));
         break;
     }
 }
@@ -184,10 +184,10 @@ void SoftwareKeyboard::InitializeForeground() {
     is_background = false;
 
     const auto swkbd_config_storage = PopInData();
-    ASSERT(swkbd_config_storage != nullptr);
+    assert(swkbd_config_storage != nullptr);
 
     const auto& swkbd_config_data = swkbd_config_storage->GetData();
-    ASSERT(swkbd_config_data.size() >= sizeof(SwkbdConfigCommon));
+    assert(swkbd_config_data.size() >= sizeof(SwkbdConfigCommon));
 
     std::memcpy(&swkbd_config_common, swkbd_config_data.data(), sizeof(SwkbdConfigCommon));
 
@@ -224,7 +224,7 @@ void SoftwareKeyboard::InitializeForeground() {
     }
 
     const auto work_buffer_storage = PopInData();
-    ASSERT(work_buffer_storage != nullptr);
+    assert(work_buffer_storage != nullptr);
 
     if (swkbd_config_common.initial_string_length == 0) {
         InitializeFrontendNormalKeyboard();
@@ -253,7 +253,7 @@ void SoftwareKeyboard::InitializePartialForeground(LibraryAppletMode library_app
     is_background = true;
 
     const auto swkbd_inline_initialize_arg_storage = PopInData();
-    ASSERT(swkbd_inline_initialize_arg_storage != nullptr);
+    assert(swkbd_inline_initialize_arg_storage != nullptr);
 
     const auto& swkbd_inline_initialize_arg = swkbd_inline_initialize_arg_storage->GetData();
     if (swkbd_inline_initialize_arg.size() < sizeof(SwkbdInitializeArg)) {
@@ -281,10 +281,10 @@ void SoftwareKeyboard::InitializePartialForeground(LibraryAppletMode library_app
 
 void SoftwareKeyboard::ProcessTextCheck() {
     const auto text_check_storage = PopInteractiveInData();
-    ASSERT(text_check_storage != nullptr);
+    assert(text_check_storage != nullptr);
 
     const auto& text_check_data = text_check_storage->GetData();
-    ASSERT(text_check_data.size() == sizeof(SwkbdTextCheck));
+    assert(text_check_data.size() == sizeof(SwkbdTextCheck));
 
     SwkbdTextCheck swkbd_text_check;
 
@@ -328,10 +328,10 @@ void SoftwareKeyboard::ProcessTextCheck() {
 
 void SoftwareKeyboard::ProcessInlineKeyboardRequest() {
     const auto request_data_storage = PopInteractiveInData();
-    ASSERT(request_data_storage != nullptr);
+    assert(request_data_storage != nullptr);
 
     const auto& request_data = request_data_storage->GetData();
-    ASSERT(request_data.size() >= sizeof(SwkbdRequestCommand));
+    assert(request_data.size() >= sizeof(SwkbdRequestCommand));
 
     SwkbdRequestCommand request_command;
 
@@ -811,14 +811,14 @@ void SoftwareKeyboard::RequestSetCustomizeDic(const std::vector<u8>& request_dat
 void SoftwareKeyboard::RequestCalc(const std::vector<u8>& request_data) {
     LOG_DEBUG(Service_AM, "Processing Request: Calc");
 
-    ASSERT(request_data.size() >= sizeof(SwkbdRequestCommand) + sizeof(SwkbdCalcArgCommon));
+    assert(request_data.size() >= sizeof(SwkbdRequestCommand) + sizeof(SwkbdCalcArgCommon));
 
     std::memcpy(&swkbd_calc_arg_common, request_data.data() + sizeof(SwkbdRequestCommand),
                 sizeof(SwkbdCalcArgCommon));
 
     switch (swkbd_calc_arg_common.calc_arg_size) {
     case sizeof(SwkbdCalcArgCommon) + sizeof(SwkbdCalcArgOld):
-        ASSERT(request_data.size() ==
+        assert(request_data.size() ==
                sizeof(SwkbdRequestCommand) + sizeof(SwkbdCalcArgCommon) + sizeof(SwkbdCalcArgOld));
         std::memcpy(&swkbd_calc_arg_old,
                     request_data.data() + sizeof(SwkbdRequestCommand) + sizeof(SwkbdCalcArgCommon),
@@ -826,7 +826,7 @@ void SoftwareKeyboard::RequestCalc(const std::vector<u8>& request_data) {
         RequestCalcOld();
         break;
     case sizeof(SwkbdCalcArgCommon) + sizeof(SwkbdCalcArgNew):
-        ASSERT(request_data.size() ==
+        assert(request_data.size() ==
                sizeof(SwkbdRequestCommand) + sizeof(SwkbdCalcArgCommon) + sizeof(SwkbdCalcArgNew));
         std::memcpy(&swkbd_calc_arg_new,
                     request_data.data() + sizeof(SwkbdRequestCommand) + sizeof(SwkbdCalcArgCommon),
@@ -835,7 +835,7 @@ void SoftwareKeyboard::RequestCalc(const std::vector<u8>& request_data) {
         break;
     default:
         UNIMPLEMENTED_MSG("Unknown SwkbdCalcArg size={}", swkbd_calc_arg_common.calc_arg_size);
-        ASSERT(request_data.size() >=
+        assert(request_data.size() >=
                sizeof(SwkbdRequestCommand) + sizeof(SwkbdCalcArgCommon) + sizeof(SwkbdCalcArgNew));
         std::memcpy(&swkbd_calc_arg_new,
                     request_data.data() + sizeof(SwkbdRequestCommand) + sizeof(SwkbdCalcArgCommon),
@@ -958,7 +958,7 @@ void SoftwareKeyboard::RequestUnsetCustomizedDictionaries(const std::vector<u8>&
 void SoftwareKeyboard::RequestSetChangedStringV2Flag(const std::vector<u8>& request_data) {
     LOG_DEBUG(Service_AM, "Processing Request: SetChangedStringV2Flag");
 
-    ASSERT(request_data.size() == sizeof(SwkbdRequestCommand) + 1);
+    assert(request_data.size() == sizeof(SwkbdRequestCommand) + 1);
 
     std::memcpy(&use_changed_string_v2, request_data.data() + sizeof(SwkbdRequestCommand), 1);
 }
@@ -966,7 +966,7 @@ void SoftwareKeyboard::RequestSetChangedStringV2Flag(const std::vector<u8>& requ
 void SoftwareKeyboard::RequestSetMovedCursorV2Flag(const std::vector<u8>& request_data) {
     LOG_DEBUG(Service_AM, "Processing Request: SetMovedCursorV2Flag");
 
-    ASSERT(request_data.size() == sizeof(SwkbdRequestCommand) + 1);
+    assert(request_data.size() == sizeof(SwkbdRequestCommand) + 1);
 
     std::memcpy(&use_moved_cursor_v2, request_data.data() + sizeof(SwkbdRequestCommand), 1);
 }

@@ -15,7 +15,7 @@ T* LookupLibcSymbol(const char* name) {
 #if defined(__BIONIC__)
     Common::DynamicLibrary provider("libc.so");
     if (!provider.IsOpen()) {
-        UNREACHABLE_MSG("Failed to open libc!");
+        std::unreachable(); // Failed to open libc!
     }
 #else
     // For other operating environments, we assume the symbol is not overridden.
@@ -28,7 +28,7 @@ T* LookupLibcSymbol(const char* name) {
         sym = dlsym(RTLD_DEFAULT, name);
     }
     if (sym == nullptr) {
-        UNREACHABLE_MSG("Unable to find symbol {}!", name);
+        std::unreachable(); // Unable to find symbol {}! (name)
     }
 
     return reinterpret_cast<T*>(sym);

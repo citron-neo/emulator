@@ -36,9 +36,10 @@ static void ValidateUses(const IR::Program& program) {
         for (const IR::Inst& inst : *block) {
             const size_t num_args{inst.NumArgs()};
             for (size_t i = 0; i < num_args; ++i) {
-                const IR::Value arg{inst.Arg(i)};
-                if (!arg.IsImmediate()) {
-                    ++actual_uses[arg.Inst()];
+                // Uses are counted on the instruction an argument refers to as stored
+                const IR::Value& arg{inst.RawArg(i)};
+                if (arg.IsInst()) {
+                    ++actual_uses[&block->At(arg.InstIndex())];
                 }
             }
         }
@@ -61,10 +62,11 @@ static void ValidateForwardDeclarations(const IR::Program& program) {
             }
             const size_t num_args{inst.NumArgs()};
             for (size_t arg = 0; arg < num_args; ++arg) {
-                if (inst.Arg(arg).IsImmediate()) {
+                const IR::Inst* const arg_inst{inst.ArgInst(arg)};
+                if (!arg_inst) {
                     continue;
                 }
-                if (!definitions.contains(inst.Arg(arg).Inst())) {
+                if (!definitions.contains(arg_inst)) {
                     throw LogicError("Forward declaration in block: {}", IR::DumpBlock(*block));
                 }
             }

@@ -107,7 +107,7 @@ sockaddr TranslateFromSockAddrIn(SockAddrIn input) {
 }
 
 LINGER MakeLinger(bool enable, u32 linger_value) {
-    ASSERT(linger_value <= std::numeric_limits<u_short>::max());
+    assert(linger_value <= std::numeric_limits<u_short>::max());
 
     LINGER value;
     value.l_onoff = enable ? 1 : 0;
@@ -189,8 +189,9 @@ void Initialize() {
         LOG_ERROR(Network, "Failed to create interrupt pipe!");
     }
     int flags = fcntl(interrupt_pipe_fd[0], F_GETFL);
-    ASSERT_MSG(fcntl(interrupt_pipe_fd[0], F_SETFL, flags | O_NONBLOCK) == 0,
-               "Failed to set nonblocking state for interrupt pipe");
+    [[maybe_unused]] const auto fcntl_result =
+        fcntl(interrupt_pipe_fd[0], F_SETFL, flags | O_NONBLOCK);
+    assert(fcntl_result == 0 && "Failed to set nonblocking state for interrupt pipe");
 }
 
 void Finalize() {
@@ -204,7 +205,8 @@ void Finalize() {
 
 void InterruptSocketOperations() {
     u8 value = 0;
-    ASSERT(write(interrupt_pipe_fd[1], &value, sizeof(value)) == 1);
+    [[maybe_unused]] const auto bytes_written = write(interrupt_pipe_fd[1], &value, sizeof(value));
+    assert(bytes_written == 1);
 }
 
 void AcknowledgeInterrupt() {
@@ -586,7 +588,8 @@ std::optional<IPv4Address> GetHostIPv4Address() {
 
 std::string IPv4AddressToString(IPv4Address ip_addr) {
     std::array<char, INET_ADDRSTRLEN> buf = {};
-    ASSERT(inet_ntop(AF_INET, &ip_addr, buf.data(), sizeof(buf)) == buf.data());
+    [[maybe_unused]] const auto ntop_result = inet_ntop(AF_INET, &ip_addr, buf.data(), sizeof(buf));
+    assert(ntop_result == buf.data());
     return std::string(buf.data());
 }
 
@@ -647,7 +650,7 @@ std::pair<s32, Errno> Poll(std::vector<PollFD>& pollfds, s32 timeout) {
     const int result =
         WSAPoll(host_pollfds.data(), static_cast<ULONG>(host_pollfds.size()), timeout);
     if (result == 0) {
-        ASSERT(std::all_of(host_pollfds.begin(), host_pollfds.end(),
+        assert(std::all_of(host_pollfds.begin(), host_pollfds.end(),
                            [](WSAPOLLFD fd) { return fd.revents == 0; }));
         return {0, Errno::SUCCESS};
     }
@@ -660,7 +663,7 @@ std::pair<s32, Errno> Poll(std::vector<PollFD>& pollfds, s32 timeout) {
         return {result, Errno::SUCCESS};
     }
 
-    ASSERT(result == SOCKET_ERROR);
+    assert(result == SOCKET_ERROR);
 
     return {-1, GetAndLogLastError()};
 }
@@ -683,7 +686,7 @@ std::pair<T, Errno> Socket::GetSockOpt(SOCKET fd_so, int option) {
     socklen_t len = sizeof(value);
     const int result = getsockopt(fd_so, SOL_SOCKET, option, reinterpret_cast<char*>(&value), &len);
     if (result != SOCKET_ERROR) {
-        ASSERT(len == sizeof(value));
+        assert(len == sizeof(value));
         return {value, Errno::SUCCESS};
     }
     return {value, GetAndLogLastError()};
@@ -817,8 +820,8 @@ Errno Socket::Shutdown(ShutdownHow how) {
 }
 
 std::pair<s32, Errno> Socket::Recv(int flags, std::span<u8> message) {
-    ASSERT(flags == 0);
-    ASSERT(message.size() < static_cast<size_t>(std::numeric_limits<int>::max()));
+    assert(flags == 0);
+    assert(message.size() < static_cast<size_t>(std::numeric_limits<int>::max()));
 
     const auto result =
         recv(fd, reinterpret_cast<char*>(message.data()), static_cast<int>(message.size()), 0);
@@ -830,8 +833,8 @@ std::pair<s32, Errno> Socket::Recv(int flags, std::span<u8> message) {
 }
 
 std::pair<s32, Errno> Socket::RecvFrom(int flags, std::span<u8> message, SockAddrIn* addr) {
-    ASSERT(flags == 0);
-    ASSERT(message.size() < static_cast<size_t>(std::numeric_limits<int>::max()));
+    assert(flags == 0);
+    assert(message.size() < static_cast<size_t>(std::numeric_limits<int>::max()));
 
     sockaddr_in addr_in{};
     socklen_t addrlen = sizeof(addr_in);
@@ -851,8 +854,8 @@ std::pair<s32, Errno> Socket::RecvFrom(int flags, std::span<u8> message, SockAdd
 }
 
 std::pair<s32, Errno> Socket::Send(std::span<const u8> message, int flags) {
-    ASSERT(message.size() < static_cast<size_t>(std::numeric_limits<int>::max()));
-    ASSERT(flags == 0);
+    assert(message.size() < static_cast<size_t>(std::numeric_limits<int>::max()));
+    assert(flags == 0);
 
     int native_flags = 0;
 #if defined(__unix__) || defined(__APPLE__)
@@ -869,7 +872,7 @@ std::pair<s32, Errno> Socket::Send(std::span<const u8> message, int flags) {
 
 std::pair<s32, Errno> Socket::SendTo(u32 flags, std::span<const u8> message,
                                      const SockAddrIn* addr) {
-    ASSERT(flags == 0);
+    assert(flags == 0);
 
     const sockaddr* to = nullptr;
     const int to_len = addr ? sizeof(sockaddr) : 0;
@@ -891,7 +894,7 @@ std::pair<s32, Errno> Socket::SendTo(u32 flags, std::span<const u8> message,
 
 Errno Socket::Close() {
     [[maybe_unused]] const int result = closesocket(fd);
-    ASSERT(result == 0);
+    assert(result == 0);
     fd = INVALID_SOCKET;
 
     return Errno::SUCCESS;

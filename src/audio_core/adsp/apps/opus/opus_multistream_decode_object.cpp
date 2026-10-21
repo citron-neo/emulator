@@ -89,7 +89,7 @@ s32 OpusMultiStreamDecodeObject::ResetDecoder() {
 
 s32 OpusMultiStreamDecodeObject::Decode(u32& out_sample_count, u64 output_data,
                                         u64 output_data_size, u64 input_data, u64 input_data_size) {
-    ASSERT(initialized);
+    assert(initialized);
     out_sample_count = 0;
 
     if (!state_valid) {

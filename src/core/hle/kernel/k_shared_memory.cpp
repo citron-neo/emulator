@@ -85,7 +85,7 @@ Result KSharedMemory::Map(KProcess& target_process, KProcessAddress address, std
     const Svc::MemoryPermission test_perm =
         std::addressof(target_process) == m_owner_process ? m_owner_permission : m_user_permission;
     if (test_perm == Svc::MemoryPermission::DontCare) {
-        ASSERT(map_perm == Svc::MemoryPermission::Read || map_perm == Svc::MemoryPermission::Write);
+        assert(map_perm == Svc::MemoryPermission::Read || map_perm == Svc::MemoryPermission::Write);
     } else {
         R_UNLESS(map_perm == test_perm, ResultInvalidNewMemoryPermission);
     }

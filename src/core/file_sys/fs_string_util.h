@@ -9,7 +9,7 @@ namespace FileSys {
 
 template <typename T>
 constexpr int Strlen(const T* str) {
-    ASSERT(str != nullptr);
+    assert(str != nullptr);
 
     int length = 0;
     while (*str++) {
@@ -26,8 +26,8 @@ constexpr int Strnlen(const T* str, std::size_t count) {
 
 template <typename T>
 constexpr int Strnlen(const T* str, int count) {
-    ASSERT(str != nullptr);
-    ASSERT(count >= 0);
+    assert(str != nullptr);
+    assert(count >= 0);
 
     int length = 0;
     while (count-- && *str++) {
@@ -44,9 +44,9 @@ constexpr int Strncmp(const T* lhs, const T* rhs, std::size_t count) {
 
 template <typename T>
 constexpr int Strncmp(const T* lhs, const T* rhs, int count) {
-    ASSERT(lhs != nullptr);
-    ASSERT(rhs != nullptr);
-    ASSERT(count >= 0);
+    assert(lhs != nullptr);
+    assert(rhs != nullptr);
+    assert(count >= 0);
 
     if (count == 0) {
         return 0;
@@ -68,8 +68,8 @@ static constexpr int Strlcpy(T* dst, const T* src, std::size_t count) {
 
 template <typename T>
 static constexpr int Strlcpy(T* dst, const T* src, int count) {
-    ASSERT(dst != nullptr);
-    ASSERT(src != nullptr);
+    assert(dst != nullptr);
+    assert(src != nullptr);
 
     const T* cur = src;
     if (count > 0) {
@@ -117,8 +117,8 @@ public:
 
 constexpr inline CharacterEncodingResult ConvertCharacterUtf8ToUtf32(u32* dst, const char* src) {
     // Check pre-conditions
-    ASSERT(dst != nullptr);
-    ASSERT(src != nullptr);
+    assert(dst != nullptr);
+    assert(src != nullptr);
 
     // Perform the conversion
     const auto* p = src;
@@ -171,9 +171,9 @@ constexpr inline CharacterEncodingResult ConvertCharacterUtf8ToUtf32(u32* dst, c
 constexpr inline CharacterEncodingResult PickOutCharacterFromUtf8String(char* dst,
                                                                         const char** str) {
     // Check pre-conditions
-    ASSERT(dst != nullptr);
-    ASSERT(str != nullptr);
-    ASSERT(*str != nullptr);
+    assert(dst != nullptr);
+    assert(str != nullptr);
+    assert(*str != nullptr);
 
     // Clear the output
     dst[0] = 0;

@@ -628,7 +628,7 @@ public:
                 case Size::Size_B10_G11_R11:
                     return 3;
                 default:
-                    ASSERT(false);
+                    assert(false);
                     return 1;
                 }
             }
@@ -667,7 +667,7 @@ public:
                 case Size::Size_B10_G11_R11:
                     return 4;
                 default:
-                    ASSERT(false);
+                    assert(false);
                     return 1;
                 }
             }
@@ -705,7 +705,7 @@ public:
                 case Size::Size_B10_G11_R11:
                     return "10_11_11";
                 default:
-                    ASSERT(false);
+                    assert(false);
                     return {};
                 }
             }
@@ -729,7 +729,7 @@ public:
                 case Type::Float:
                     return "FLOAT";
                 }
-                ASSERT(false);
+                assert(false);
                 return {};
             }
 
@@ -770,7 +770,7 @@ public:
                 case 3:
                     return {x3, y3};
                 default:
-                    ASSERT(false);
+                    assert(false);
                     return {0, 0};
                 }
             }
@@ -817,7 +817,7 @@ public:
             u32 Map(std::size_t index) const {
                 const std::array<u32, NumRenderTargets> maps{target0, target1, target2, target3,
                                                              target4, target5, target6, target7};
-                ASSERT(index < maps.size());
+                assert(index < maps.size());
                 return maps[index];
             }
         };
@@ -2222,7 +2222,7 @@ public:
                 case IndexFormat::UnsignedInt:
                     return 4;
                 }
-                ASSERT(false);
+                assert(false);
                 return 1;
             }
 
