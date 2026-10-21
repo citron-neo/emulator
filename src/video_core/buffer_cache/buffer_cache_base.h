@@ -124,6 +124,10 @@ public:
     std::array<u32, NUM_STAGES> enabled_uniform_buffer_masks{};
     u32 enabled_compute_uniform_buffer_mask = 0;
 
+    /// One bit per vertex stream that is bound to a real buffer
+    u32 enabled_vertex_buffers = 0;
+    static_assert(NUM_VERTEX_BUFFERS <= 32);
+
     const UniformBufferSizes* uniform_buffer_sizes{};
     const ComputeUniformBufferSizes* compute_uniform_buffer_sizes{};
 
@@ -465,6 +469,9 @@ public:
 
     void MarkWrittenBuffer(BufferId buffer_id, DAddr device_addr, u32 size);
 
+    /// Grows a guest write over the pages the guest is likely to write next
+    [[nodiscard]] u64 WidenHotWrite(DAddr device_addr, u64 size);
+
     [[nodiscard]] BufferId FindBuffer(DAddr device_addr, u32 size);
 
     [[nodiscard]] OverlapResult ResolveOverlaps(DAddr device_addr, u32 wanted_size);
@@ -547,6 +554,15 @@ public:
     };
     Common::LeastRecentlyUsedCache<LRUItemParams> lru_cache;
     u64 frame_tick = 0;
+
+    /// How often the guest recently wrote into pages this cache was watching, per caching page:
+    /// frame of the last write in the upper 16 bits, count in the lower 16. Laid out like
+    /// page_table, so only the parts of the address space the guest writes to take memory.
+    static constexpr u16 HOT_WRITE_COUNT = 4;
+    static constexpr u16 WRITE_HEAT_FRAMES = 30;
+    static constexpr u64 MAX_WIDENED_WRITE = 16 * CACHING_PAGESIZE;
+    Common::MultiLevelPageTable<u32> write_heat;
+
     u64 total_used_memory = 0; // Bytes owned by this cache.
     CacheMemoryPressure memory_pressure;
     BufferId inline_buffer_id;

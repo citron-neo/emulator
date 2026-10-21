@@ -139,6 +139,17 @@ public:
         return device.GetDriverID() == VK_DRIVER_ID_MOLTENVK;
     }
 
+    /// A shader may read a constant buffer past the size the guest bound; hardware returns zero
+    /// there. With robustBufferAccess2 the device does the same for reads past the descriptor
+    /// range, so the buffer can be bound at its real size. Without it the cache has to copy the
+    /// data into a zero padded staging buffer on every bind. The device checks the range in
+    /// steps of robustUniformBufferAccessSizeAlignment, so a size that is not a multiple of that
+    /// step is still padded.
+    bool NeedsPaddedUniformBuffer(u32 bound_size) const {
+        return !device.HasRobustBufferAccess2() ||
+               bound_size % device.GetRobustUniformBufferAccessSizeAlignment() != 0;
+    }
+
     std::span<u8> BindMappedVertexBuffer(u32 index, u32 size, u32 stride) {
         const StagingBufferRef ref = staging_pool.Request(size, MemoryUsage::Upload);
         BindVertexBuffer(index, ref.buffer, static_cast<u32>(ref.offset), size, stride);

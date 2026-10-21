@@ -136,6 +136,17 @@ public:
 
     void BindRasterizer(VideoCore::RasterizerInterface* rasterizer);
 
+    /// True while the channel is stopped at a semaphore acquire. Its queued work waits.
+    [[nodiscard]] bool IsSuspended() const {
+        return puller.HasPendingAcquire();
+    }
+
+    /// Re-checks the acquire the channel is stopped at. Returns true once the channel may run
+    /// again; the caller then runs DispatchCalls. With allow_flush, writes held back for a host
+    /// fence are made first, once per new work_generation, so polling does not create a host
+    /// fence on every call.
+    [[nodiscard]] bool RetryAcquire(u64 work_generation, bool allow_flush);
+
 private:
     static constexpr u32 non_puller_methods = 0x40;
     static constexpr u32 max_subchannels = 8;
@@ -152,6 +163,11 @@ private:
 
     std::queue<CommandList> dma_pushbuffer; ///< Queue of command lists to be processed
     std::size_t dma_pushbuffer_subindex{};  ///< Index within a command list within the pushbuffer
+
+    /// Words after a semaphore acquire the channel stopped at, run once it passes.
+    std::vector<CommandHeader> resume_commands;
+    GPUVAddr resume_dma_get{}; ///< Address of the first word in resume_commands
+    u64 acquire_flush_generation{};
 
     struct DmaState {
         u32 method;            ///< Current method

@@ -1201,6 +1201,11 @@ bool Device::GetSuitability(bool requires_swapchain) {
             VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TRANSFORM_FEEDBACK_PROPERTIES_EXT;
         SetNext(next, properties.transform_feedback);
     }
+    if (extensions.robustness_2) {
+        properties.robustness2.sType =
+            VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ROBUSTNESS_2_PROPERTIES_EXT;
+        SetNext(next, properties.robustness2);
+    }
 
     // Perform the property fetch.
     physical.GetProperties2(properties2);
