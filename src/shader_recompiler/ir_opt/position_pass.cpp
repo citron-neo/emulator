@@ -29,7 +29,7 @@ void PositionPass(Environment& env, IR::Program& program) {
 
     PositionInstVector to_replace;
     for (IR::Block* const block : program.post_order_blocks) {
-        for (IR::Inst& inst : block->Instructions()) {
+        for (IR::Inst& inst : *block) {
             switch (inst.GetOpcode()) {
             case IR::Opcode::SetAttribute: {
                 const IR::Attribute attr{inst.Arg(0).Attribute()};
@@ -52,7 +52,7 @@ void PositionPass(Environment& env, IR::Program& program) {
 
     for (PositionInst& position_inst : to_replace) {
         IR::IREmitter ir{*position_inst.block,
-                         IR::Block::InstructionList::s_iterator_to(*position_inst.inst)};
+                         position_inst.block->IteratorTo(*position_inst.inst)};
         const IR::F32 value(position_inst.inst->Arg(1));
         const IR::F32F64 scale(ir.Imm32(2.f));
         const IR::F32 negative_one{ir.Imm32(-1.f)};

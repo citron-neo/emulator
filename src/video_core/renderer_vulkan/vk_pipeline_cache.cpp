@@ -3,17 +3,19 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <algorithm>
+#include <array>
+#include <bit>
 #include <cstddef>
 #include <fstream>
 #include <limits>
 #include <memory>
+#include <optional>
 #include <span>
 #include <thread>
 #include <vector>
 
 #include <boost/container/small_vector.hpp>
 
-#include "common/bit_cast.h"
 #include "common/cityhash.h"
 #include "common/fs/fs.h"
 #include "common/fs/path_util.h"
@@ -132,7 +134,7 @@ Shader::AttributeType CastAttributeType(const FixedPipelineState::VertexAttribut
     switch (attr.Type()) {
     case Tegra::Engines::Maxwell3D::Regs::VertexAttribute::Type::
         UnusedEnumDoNotUseBecauseItWillGoAway:
-        ASSERT_MSG(false, "Invalid vertex attribute type!");
+        assert(false && "Invalid vertex attribute type!");
         return Shader::AttributeType::Disabled;
     case Tegra::Engines::Maxwell3D::Regs::VertexAttribute::Type::SNorm:
     case Tegra::Engines::Maxwell3D::Regs::VertexAttribute::Type::UNorm:
@@ -178,10 +180,48 @@ Shader::FragmentOutputType GetFragmentOutputType(u8 encoded_format) {
                : Shader::FragmentOutputType::UnsignedInt;
 }
 
+/// Maxwell has 32 generics but a host may give a geometry shader fewer input locations
+/// (Turnip: maxGeometryInputComponents 64, so 16). Generics the geometry shader reads from the
+/// stage before it take the lowest host locations, in order; the rest follow. The table is
+/// used by both sides of that interface and by nothing else. It is built before either stage
+/// has had its legacy varyings converted to generics, so those land in the remainder; the two
+/// stages still agree, which is what matters.
+std::optional<std::array<u8, 32>> MakeGeometryInputLocations(
+    const Shader::IR::Program& geometry, const Shader::IR::Program& previous,
+    u32 max_geometry_input_locations) {
+    if (max_geometry_input_locations >= Shader::IR::NUM_GENERICS) {
+        return std::nullopt;
+    }
+    Shader::VaryingState loads{geometry.info.loads};
+    if (geometry.is_geometry_passthrough) {
+        loads.mask |= geometry.info.passthrough.mask;
+    }
+    std::array<u8, 32> locations{};
+    u8 next_location{0};
+    for (size_t index = 0; index < Shader::IR::NUM_GENERICS; ++index) {
+        if (previous.info.stores.Generic(index) && loads.Generic(index)) {
+            locations[index] = next_location++;
+        }
+    }
+    const u32 used_locations{next_location};
+    for (size_t index = 0; index < Shader::IR::NUM_GENERICS; ++index) {
+        if (!(previous.info.stores.Generic(index) && loads.Generic(index))) {
+            locations[index] = next_location++;
+        }
+    }
+    if (used_locations > max_geometry_input_locations) {
+        LOG_WARNING(Render_Vulkan,
+                    "Geometry shader reads {} generic inputs, host allows {} locations",
+                    used_locations, max_geometry_input_locations);
+    }
+    return locations;
+}
+
 Shader::RuntimeInfo MakeRuntimeInfo(std::span<const Shader::IR::Program> programs,
                                     const GraphicsPipelineCacheKey& key,
                                     const Shader::IR::Program& program,
-                                    const Shader::IR::Program* previous_program) {
+                                    const Shader::IR::Program* previous_program,
+                                    bool host_geometry_passthrough) {
     Shader::RuntimeInfo info;
     if (previous_program) {
         info.previous_stage_stores = previous_program->info.stores;
@@ -193,9 +233,14 @@ Shader::RuntimeInfo MakeRuntimeInfo(std::span<const Shader::IR::Program> program
         info.previous_stage_stores.mask.set();
     }
     const Shader::Stage stage{program.stage};
-    const bool has_geometry{key.unique_hashes[4] != 0 && !programs[4].is_geometry_passthrough};
+    // A guest passthrough geometry shader stays a passthrough one only with
+    // VK_NV_geometry_shader_passthrough; without it TranslateProgram lowers it to a geometry
+    // shader that emits the vertices itself (LowerGeometryPassthrough), which then does the
+    // last-stage work (depth mode, point size, transform feedback) and the vertex stage must not.
+    const bool has_geometry{key.unique_hashes[4] != 0 &&
+                            (!programs[4].is_geometry_passthrough || !host_geometry_passthrough)};
     const bool gl_ndc{key.state.ndc_minus_one_to_one != 0};
-    const float point_size{Common::BitCast<float>(key.state.point_size)};
+    const float point_size{std::bit_cast<float>(key.state.point_size)};
     switch (stage) {
     case Shader::Stage::VertexB:
         if (!has_geometry) {
@@ -232,7 +277,7 @@ Shader::RuntimeInfo MakeRuntimeInfo(std::span<const Shader::IR::Program> program
             case Tegra::Engines::Maxwell3D::Regs::Tessellation::DomainType::Quads:
                 return Shader::TessPrimitive::Quads;
             }
-            ASSERT(false);
+            assert(false);
             return Shader::TessPrimitive::Triangles;
         }();
         info.tess_spacing = [&] {
@@ -245,7 +290,7 @@ Shader::RuntimeInfo MakeRuntimeInfo(std::span<const Shader::IR::Program> program
             case Tegra::Engines::Maxwell3D::Regs::Tessellation::Spacing::FractionalEven:
                 return Shader::TessSpacing::FractionalEven;
             }
-            ASSERT(false);
+            assert(false);
             return Shader::TessSpacing::Equal;
         }();
         break;
@@ -268,7 +313,7 @@ Shader::RuntimeInfo MakeRuntimeInfo(std::span<const Shader::IR::Program> program
         if (!Settings::IsGPULevelLow()) {
             info.alpha_test_func = MaxwellToCompareFunction(
                 key.state.UnpackComparisonOp(key.state.alpha_test_func.Value()));
-            info.alpha_test_reference = Common::BitCast<float>(key.state.alpha_test_ref);
+            info.alpha_test_reference = std::bit_cast<float>(key.state.alpha_test_ref);
         }
         break;
     }
@@ -377,7 +422,12 @@ PipelineCache::PipelineCache(Tegra::MaxwellDeviceMemoryManager& device_memory_,
             device.IsStorageTexelBufferArrayNonUniformIndexingSupported(),
         .support_int8 = device.IsInt8Supported(),
         .support_int16 = device.IsShaderInt16Supported(),
+        .support_int8_storage = device.IsStorageBuffer8BitAccessSupported(),
+        .support_int16_storage = device.IsStorageBuffer16BitAccessSupported(),
+        .support_int8_uniform = device.IsUniformBuffer8BitAccessSupported(),
+        .support_int16_uniform = device.IsUniformBuffer16BitAccessSupported(),
         .support_int64 = device.IsShaderInt64Supported(),
+        .support_storage_image_extended_formats = device.IsStorageImageExtendedFormatsSupported(),
         .support_vertex_instance_id = false,
         .support_float_controls = device.IsKhrShaderFloatControlsSupported(),
         .support_separate_denorm_behavior =
@@ -548,10 +598,12 @@ ComputePipeline* PipelineCache::CurrentComputePipeline() {
     };
     const auto [pair, is_new]{compute_cache.try_emplace(key)};
     auto& pipeline{pair->second};
-    if (!is_new && pipeline) {
-        return pipeline.get();
+    if (is_new) {
+        // Built once per key, as in CurrentGraphicsPipelineSlowPath: a failed build (a
+        // Shader::Exception, a vk::Exception or HasBrokenCompute) stays cached as null instead of
+        // costing a full shader translation on every dispatch.
+        pipeline = CreateComputePipeline(key, shader);
     }
-    pipeline = CreateComputePipeline(key, shader);
     return pipeline.get();
 }
 
@@ -760,6 +812,35 @@ std::unique_ptr<GraphicsPipeline> PipelineCache::CreateGraphicsPipeline(
     // Layer passthrough generation for devices without VK_EXT_shader_viewport_index_layer
     Shader::IR::Program* layer_source_program{};
 
+    // A guest passthrough geometry shader that passes the layer on, on a host without
+    // VK_NV_geometry_shader_passthrough, is lowered to a geometry shader that must write the
+    // layer itself, and Vulkan gives a geometry shader no Layer input. The stages before it then
+    // write the layer to a spare generic, as on hosts without layer output from vertex shaders,
+    // and the lowered geometry shader copies it (LowerGeometryPassthrough).
+    constexpr size_t geometry_program{
+        static_cast<size_t>(Tegra::Engines::Maxwell3D::Regs::ShaderType::Geometry)};
+    const bool lowers_layer_passthrough{[&] {
+        if (key.unique_hashes[geometry_program] == 0 ||
+            graphics_host_info.support_geometry_shader_passthrough) {
+            return false;
+        }
+        size_t geometry_env{0};
+        for (size_t index = 0; index < geometry_program; ++index) {
+            geometry_env += key.unique_hashes[index] != 0 ? 1 : 0;
+        }
+        const Shader::Environment& geometry{*envs[geometry_env]};
+        if (geometry.SPH().common0.geometry_passthrough == 0) {
+            return false;
+        }
+        // A clear bit in post_vtg_shader_attrib_skip_mask passes that attribute through
+        constexpr size_t layer{static_cast<size_t>(Shader::IR::Attribute::Layer)};
+        return ((geometry.GpPassthroughMask()[layer / 32] >> (layer % 32)) & 1) == 0;
+    }()};
+    Shader::HostTranslateInfo before_geometry_host_info{graphics_host_info};
+    if (lowers_layer_passthrough) {
+        before_geometry_host_info.support_viewport_index_layer = false;
+    }
+
     for (size_t index = 0; index < Tegra::Engines::Maxwell3D::Regs::MaxShaderProgram; ++index) {
         const bool is_emulated_stage =
             layer_source_program != nullptr &&
@@ -779,15 +860,21 @@ std::unique_ptr<GraphicsPipeline> PipelineCache::CreateGraphicsPipeline(
 
         const u32 cfg_offset{static_cast<u32>(env.StartAddress() + sizeof(Shader::ProgramHeader))};
         Shader::Maxwell::Flow::CFG cfg(env, pools.flow_block, cfg_offset, index == 0);
+        Shader::HostTranslateInfo stage_host_info{
+            index < geometry_program ? before_geometry_host_info : graphics_host_info};
+        if (index == geometry_program && lowers_layer_passthrough &&
+            layer_source_program != nullptr) {
+            stage_host_info.passthrough_layer_source = layer_source_program->info.emulated_layer;
+        }
         if (!uses_vertex_a || index != 1) {
             // Normal path
             programs[index] =
-                TranslateProgram(pools.inst, pools.block, env, cfg, graphics_host_info);
+                TranslateProgram(pools.inst, pools.block, env, cfg, stage_host_info);
         } else {
             // VertexB path when VertexA is present.
             auto& program_va{programs[0]};
             auto program_vb{
-                TranslateProgram(pools.inst, pools.block, env, cfg, graphics_host_info)};
+                TranslateProgram(pools.inst, pools.block, env, cfg, stage_host_info)};
             programs[index] = MergeDualVertexPrograms(program_va, program_vb, env);
         }
 
@@ -900,11 +987,29 @@ std::unique_ptr<GraphicsPipeline> PipelineCache::CreateGraphicsPipeline(
 
     const Shader::IR::Program* previous_stage{};
     Shader::Backend::Bindings binding;
-    for (size_t index = uses_vertex_a && uses_vertex_b ? 1 : 0;
-         index < Tegra::Engines::Maxwell3D::Regs::MaxShaderProgram; ++index) {
+    const size_t first_index{uses_vertex_a && uses_vertex_b ? size_t{1} : size_t{0}};
+    constexpr size_t geometry_index{
+        static_cast<size_t>(Tegra::Engines::Maxwell3D::Regs::ShaderType::Geometry)};
+    // The stage whose outputs feed the geometry shader, if there is one
+    size_t geometry_source_index{geometry_index};
+    std::optional<std::array<u8, 32>> geometry_locations;
+    if (key.unique_hashes[geometry_index] != 0 || layer_source_program != nullptr) {
+        for (size_t index = first_index; index < geometry_index; ++index) {
+            if (key.unique_hashes[index] != 0) {
+                geometry_source_index = index;
+            }
+        }
+        if (geometry_source_index != geometry_index) {
+            geometry_locations =
+                MakeGeometryInputLocations(programs[geometry_index],
+                                           programs[geometry_source_index],
+                                           device.GetMaxGeometryInputLocations());
+        }
+    }
+    for (size_t index = first_index; index < Tegra::Engines::Maxwell3D::Regs::MaxShaderProgram;
+         ++index) {
         const bool is_emulated_stage =
-            layer_source_program != nullptr &&
-            index == static_cast<u32>(Tegra::Engines::Maxwell3D::Regs::ShaderType::Geometry);
+            layer_source_program != nullptr && index == geometry_index;
         if (key.unique_hashes[index] == 0 && !is_emulated_stage) {
             continue;
         }
@@ -914,7 +1019,15 @@ std::unique_ptr<GraphicsPipeline> PipelineCache::CreateGraphicsPipeline(
         const size_t stage_index{index - 1};
         infos[stage_index] = &program.info;
 
-        const auto runtime_info{MakeRuntimeInfo(programs, key, program, previous_stage)};
+        auto runtime_info{MakeRuntimeInfo(programs, key, program, previous_stage,
+                                          profile.support_geometry_shader_passthrough)};
+        if (geometry_locations) {
+            if (index == geometry_index) {
+                runtime_info.input_generic_locations = *geometry_locations;
+            } else if (index == geometry_source_index) {
+                runtime_info.output_generic_locations = *geometry_locations;
+            }
+        }
         ConvertLegacyToGeneric(program, runtime_info);
         std::vector<u32> code = EmitSPIRV(profile, runtime_info, program, binding);
         // Reserve space to reduce allocations during shader compilation

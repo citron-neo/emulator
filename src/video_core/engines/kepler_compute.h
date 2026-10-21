@@ -125,7 +125,31 @@ public:
     struct LaunchParams {
         static constexpr std::size_t NUM_LAUNCH_PARAMETERS = 0x40;
 
-        INSERT_PADDING_WORDS(0x8);
+        /// RELEASE0/RELEASE1 of the QMD (clb1c0qmd.h QMDV01_07, bits 736 to 927).
+        struct Release {
+            u32 address_low;
+            union {
+                BitField<0, 8, u32> address_high;
+                BitField<20, 3, u32> reduction_op;
+                BitField<24, 2, u32> reduction_format;
+                BitField<26, 1, u32> reduction_enable;
+                BitField<31, 1, u32> one_word; ///< STRUCTURE_SIZE: 0 four words, 1 one word
+            };
+            u32 payload;
+
+            GPUVAddr Address() const {
+                return (GPUVAddr{address_high.Value()} << 32) | GPUVAddr{address_low};
+            }
+        };
+
+        INSERT_PADDING_WORDS(0x6);
+
+        union {
+            BitField<10, 1, u32> release0_enable; ///< SEMAPHORE_RELEASE_ENABLE0, bit 202
+            BitField<11, 1, u32> release1_enable; ///< SEMAPHORE_RELEASE_ENABLE1, bit 203
+        };
+
+        INSERT_PADDING_WORDS(0x1);
 
         u32 program_start;
 
@@ -154,7 +178,9 @@ public:
             BitField<29, 2, u32> cache_layout;
         };
 
-        INSERT_PADDING_WORDS(0x8);
+        INSERT_PADDING_WORDS(0x2);
+
+        std::array<Release, 2> releases;
 
         struct ConstBufferConfig {
             u32 address_low;
@@ -212,6 +238,8 @@ public:
 private:
     void ProcessLaunch();
 
+    void ReleaseQmdSemaphores();
+
     void ConsumeSinkImpl() override;
 
     /// Retrieves information about a specific TIC entry from the TIC buffer.
@@ -233,6 +261,8 @@ private:
     };
     std::vector<UploadInfo> uploads;
     std::optional<GPUVAddr> indirect_compute{};
+    /// The first QMD release with a reduction is logged; later ones are not.
+    bool reduction_reported{};
 };
 
 #define ASSERT_REG_POSITION(field_name, position)                                                  \
@@ -251,12 +281,16 @@ ASSERT_REG_POSITION(tsc, 0x557);
 ASSERT_REG_POSITION(tic, 0x55D);
 ASSERT_REG_POSITION(code_loc, 0x582);
 ASSERT_REG_POSITION(tex_cb_index, 0x982);
+// Word = QMD bit / 32 (clb1c0qmd.h QMDV01_07): enables at bits 202/203, RELEASE0 at 736.
+ASSERT_LAUNCH_PARAM_POSITION(release0_enable, 0x6);
 ASSERT_LAUNCH_PARAM_POSITION(program_start, 0x8);
 ASSERT_LAUNCH_PARAM_POSITION(grid_dim_x, 0xC);
 ASSERT_LAUNCH_PARAM_POSITION(shared_alloc, 0x11);
 ASSERT_LAUNCH_PARAM_POSITION(block_dim_x, 0x12);
 ASSERT_LAUNCH_PARAM_POSITION(const_buffer_enable_mask, 0x14);
+ASSERT_LAUNCH_PARAM_POSITION(releases, 0x17);
 ASSERT_LAUNCH_PARAM_POSITION(const_buffer_config, 0x1D);
+static_assert(sizeof(KeplerCompute::LaunchParams::Release) == 3 * sizeof(u32));
 
 #undef ASSERT_REG_POSITION
 

@@ -4,8 +4,8 @@
 #pragma once
 
 #include <algorithm>
+#include <bit>
 #include <type_traits>
-#include "bit_cast.h"
 
 namespace Common {
 
@@ -14,10 +14,10 @@ template <typename T>
 inline T WrappingAdd(T lhs, T rhs) {
     using U = std::make_unsigned_t<T>;
 
-    U lhs_u = BitCast<U>(lhs);
-    U rhs_u = BitCast<U>(rhs);
+    U lhs_u = std::bit_cast<U>(lhs);
+    U rhs_u = std::bit_cast<U>(rhs);
 
-    return BitCast<T>(lhs_u + rhs_u);
+    return std::bit_cast<T>(lhs_u + rhs_u);
 }
 
 template <typename T>

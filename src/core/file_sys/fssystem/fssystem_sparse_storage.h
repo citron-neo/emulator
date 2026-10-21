@@ -22,7 +22,7 @@ private:
         }
 
         virtual size_t Read(u8* buffer, size_t size, size_t offset) const override {
-            ASSERT(buffer != nullptr || size == 0);
+            assert(buffer != nullptr || size == 0);
 
             if (size > 0) {
                 std::memset(buffer, 0, size);
@@ -44,7 +44,7 @@ public:
     }
 
     void SetDataStorage(VirtualFile storage) {
-        ASSERT(this->IsInitialized());
+        assert(this->IsInitialized());
 
         this->SetStorage(0, storage);
         this->SetZeroStorage();
@@ -52,7 +52,7 @@ public:
 
     template <typename T>
     void SetDataStorage(T storage, s64 offset, s64 size) {
-        ASSERT(this->IsInitialized());
+        assert(this->IsInitialized());
 
         this->SetStorage(0, storage, offset, size);
         this->SetZeroStorage();

@@ -436,7 +436,7 @@ Result ResourceManager::GetVibrationDeviceInfo(Core::HID::VibrationDeviceInfo& d
             break;
         case Core::HID::DeviceIndex::None:
         default:
-            ASSERT_MSG(false, "DeviceIndex should never be None!");
+            assert(false && "DeviceIndex should never be None!");
             break;
         }
     }

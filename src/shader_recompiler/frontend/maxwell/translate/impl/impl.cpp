@@ -1,6 +1,8 @@
 // SPDX-FileCopyrightText: Copyright 2021 yuzu Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
+#include <bit>
+
 #include "common/bit_field.h"
 #include "shader_recompiler/frontend/ir/ir_emitter.h"
 #include "shader_recompiler/frontend/maxwell/translate/impl/impl.h"
@@ -201,7 +203,7 @@ IR::F32 TranslatorVisitor::GetFloatImm20(u64 insn) {
     } const imm{insn};
     const u32 sign_bit{static_cast<u32>(imm.is_negative != 0 ? (1ULL << 31) : 0)};
     const u32 value{static_cast<u32>(imm.value) << 12};
-    return ir.Imm32(Common::BitCast<f32>(value | sign_bit));
+    return ir.Imm32(std::bit_cast<f32>(value | sign_bit));
 }
 
 IR::F64 TranslatorVisitor::GetDoubleImm20(u64 insn) {
@@ -212,7 +214,7 @@ IR::F64 TranslatorVisitor::GetDoubleImm20(u64 insn) {
     } const imm{insn};
     const u64 sign_bit{imm.is_negative != 0 ? (1ULL << 63) : 0};
     const u64 value{imm.value << 44};
-    return ir.Imm64(Common::BitCast<f64>(value | sign_bit));
+    return ir.Imm64(std::bit_cast<f64>(value | sign_bit));
 }
 
 IR::U64 TranslatorVisitor::GetPackedImm20(u64 insn) {
@@ -233,7 +235,7 @@ IR::F32 TranslatorVisitor::GetFloatImm32(u64 insn) {
         u64 raw;
         BitField<20, 32, u64> value;
     } const imm{insn};
-    return ir.Imm32(Common::BitCast<f32>(static_cast<u32>(imm.value)));
+    return ir.Imm32(std::bit_cast<f32>(static_cast<u32>(imm.value)));
 }
 
 void TranslatorVisitor::SetZFlag(const IR::U1& value) {

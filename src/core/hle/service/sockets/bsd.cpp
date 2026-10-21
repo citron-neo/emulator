@@ -718,7 +718,7 @@ std::pair<s32, Errno> BSD::PollImpl(std::vector<u8>& write_buffer, std::span<con
     }
 
     for (PollFD& pollfd : fds) {
-        ASSERT(False(pollfd.revents));
+        assert(False(pollfd.revents));
 
         if (pollfd.fd > static_cast<s32>(MAX_FD) || pollfd.fd < 0) {
             LOG_ERROR(Service, "File descriptor handle={} is invalid", pollfd.fd);
@@ -790,7 +790,7 @@ Errno BSD::BindImpl(s32 fd, std::span<const u8> addr) {
     if (!file_descriptors[fd]->socket)
         return Errno::BADF;
 
-    ASSERT(addr.size() == sizeof(SockAddrIn));
+    assert(addr.size() == sizeof(SockAddrIn));
     auto addr_in = GetValue<SockAddrIn>(addr);
 
     LOG_INFO(Service, "Bind fd={} to {}:{}", fd, Network::IPv4AddressToString(addr_in.ip),
@@ -842,7 +842,7 @@ Errno BSD::GetPeerNameImpl(s32 fd, std::vector<u8>& write_buffer) {
     }
     const SockAddrIn guest_addrin = Translate(addr_in);
 
-    ASSERT(write_buffer.size() >= sizeof(guest_addrin));
+    assert(write_buffer.size() >= sizeof(guest_addrin));
     write_buffer.resize(sizeof(guest_addrin));
     PutValue(write_buffer, guest_addrin);
     return Translate(bsd_errno);
@@ -861,7 +861,7 @@ Errno BSD::GetSockNameImpl(s32 fd, std::vector<u8>& write_buffer) {
     }
     const SockAddrIn guest_addrin = Translate(addr_in);
 
-    ASSERT(write_buffer.size() >= sizeof(guest_addrin));
+    assert(write_buffer.size() >= sizeof(guest_addrin));
     write_buffer.resize(sizeof(guest_addrin));
     PutValue(write_buffer, guest_addrin);
     return Translate(bsd_errno);
@@ -887,7 +887,7 @@ std::pair<s32, Errno> BSD::FcntlImpl(s32 fd, FcntlCmd cmd, s32 arg) {
 
     switch (cmd) {
     case FcntlCmd::GETFL:
-        ASSERT(arg == 0);
+        assert(arg == 0);
         return {descriptor.flags, Errno::SUCCESS};
     case FcntlCmd::SETFL: {
         const bool enable = (arg & Network::FLAG_O_NONBLOCK) != 0;
@@ -1098,7 +1098,7 @@ std::pair<s32, Errno> BSD::RecvFromImpl(s32 fd, u32 flags, std::vector<u8>& mess
         if (ret < 0) {
             addr.clear();
         } else {
-            ASSERT(addr.size() == sizeof(SockAddrIn));
+            assert(addr.size() == sizeof(SockAddrIn));
             const SockAddrIn result = Translate(addr_in);
             PutValue(addr, result);
         }
@@ -1146,7 +1146,7 @@ std::pair<s32, Errno> BSD::SendToImpl(s32 fd, u32 flags, std::span<const u8> mes
     Network::SockAddrIn addr_in;
     Network::SockAddrIn* p_addr_in = nullptr;
     if (!addr.empty()) {
-        ASSERT(addr.size() == sizeof(SockAddrIn));
+        assert(addr.size() == sizeof(SockAddrIn));
         auto guest_addr_in = GetValue<SockAddrIn>(addr);
         addr_in = Translate(guest_addr_in);
         p_addr_in = &addr_in;

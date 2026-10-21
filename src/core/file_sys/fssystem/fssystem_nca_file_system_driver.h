@@ -246,13 +246,13 @@ public:
 
 public:
     NcaFileSystemDriver(std::shared_ptr<NcaReader> reader) : m_original_reader(), m_reader(reader) {
-        ASSERT(m_reader != nullptr);
+        assert(m_reader != nullptr);
     }
 
     NcaFileSystemDriver(std::shared_ptr<NcaReader> original_reader,
                         std::shared_ptr<NcaReader> reader)
         : m_original_reader(original_reader), m_reader(reader) {
-        ASSERT(m_reader != nullptr);
+        assert(m_reader != nullptr);
     }
 
     Result OpenStorageWithContext(VirtualFile* out, NcaFsHeaderReader* out_header_reader,

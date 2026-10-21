@@ -11,9 +11,9 @@
 namespace FileSys {
 
 void AesXtsStorage::MakeAesXtsIv(void* dst, size_t dst_size, s64 offset, size_t block_size) {
-    ASSERT(dst != nullptr);
-    ASSERT(dst_size == IvSize);
-    ASSERT(offset >= 0);
+    assert(dst != nullptr);
+    assert(dst_size == IvSize);
+    assert(offset >= 0);
 
     const uintptr_t out_addr = reinterpret_cast<uintptr_t>(dst);
 
@@ -23,13 +23,13 @@ void AesXtsStorage::MakeAesXtsIv(void* dst, size_t dst_size, s64 offset, size_t 
 AesXtsStorage::AesXtsStorage(VirtualFile base, const void* key1, const void* key2, size_t key_size,
                              const void* iv, size_t iv_size, size_t block_size)
     : m_base_storage(std::move(base)), m_block_size(block_size), m_mutex() {
-    ASSERT(m_base_storage != nullptr);
-    ASSERT(key1 != nullptr);
-    ASSERT(key2 != nullptr);
-    ASSERT(iv != nullptr);
-    ASSERT(key_size == KeySize);
-    ASSERT(iv_size == IvSize);
-    ASSERT(Common::IsAligned(m_block_size, AesBlockSize));
+    assert(m_base_storage != nullptr);
+    assert(key1 != nullptr);
+    assert(key2 != nullptr);
+    assert(iv != nullptr);
+    assert(key_size == KeySize);
+    assert(iv_size == IvSize);
+    assert(Common::IsAligned(m_block_size, AesBlockSize));
 
     std::memcpy(m_key.data() + 0, key1, KeySize / 2);
     std::memcpy(m_key.data() + 0x10, key2, KeySize / 2);
@@ -45,11 +45,11 @@ size_t AesXtsStorage::Read(u8* buffer, size_t size, size_t offset) const {
     }
 
     // Ensure buffer is valid.
-    ASSERT(buffer != nullptr);
+    assert(buffer != nullptr);
 
     // We can only read at block aligned offsets.
-    ASSERT(Common::IsAligned(offset, AesBlockSize));
-    ASSERT(Common::IsAligned(size, AesBlockSize));
+    assert(Common::IsAligned(offset, AesBlockSize));
+    assert(Common::IsAligned(size, AesBlockSize));
 
     // Read the data.
     m_base_storage->Read(buffer, size, offset);
@@ -70,7 +70,7 @@ size_t AesXtsStorage::Read(u8* buffer, size_t size, size_t offset) const {
         // Decrypt into a pooled buffer.
         {
             PooledBuffer tmp_buf(m_block_size, m_block_size);
-            ASSERT(tmp_buf.GetSize() >= m_block_size);
+            assert(tmp_buf.GetSize() >= m_block_size);
 
             std::memset(tmp_buf.GetBuffer(), 0, skip_size);
             std::memcpy(tmp_buf.GetBuffer() + skip_size, buffer, data_size);
@@ -84,7 +84,7 @@ size_t AesXtsStorage::Read(u8* buffer, size_t size, size_t offset) const {
 
         AddCounter(ctr.data(), IvSize, 1);
         processed_size += data_size;
-        ASSERT(processed_size == std::min(size, m_block_size - skip_size));
+        assert(processed_size == std::min(size, m_block_size - skip_size));
     }
 
     // Decrypt aligned chunks.

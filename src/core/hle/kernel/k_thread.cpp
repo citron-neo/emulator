@@ -106,14 +106,14 @@ KThread::~KThread() = default;
 Result KThread::Initialize(KThreadFunction func, uintptr_t arg, KProcessAddress user_stack_top,
                            s32 prio, s32 virt_core, KProcess* owner, ThreadType type) {
     // Assert parameters are valid.
-    ASSERT((type == ThreadType::Main) || (type == ThreadType::Dummy) ||
+    assert((type == ThreadType::Main) || (type == ThreadType::Dummy) ||
            (Svc::HighestThreadPriority <= prio && prio <= Svc::LowestThreadPriority));
-    ASSERT((owner != nullptr) || (type != ThreadType::User));
-    ASSERT(0 <= virt_core && virt_core < static_cast<s32>(Common::BitSize<u64>()));
+    assert((owner != nullptr) || (type != ThreadType::User));
+    assert(0 <= virt_core && virt_core < static_cast<s32>(Common::BitSize<u64>()));
 
     // Convert the virtual core to a physical core.
     const s32 phys_core = Core::Hardware::VirtualToPhysicalCoreMap[virt_core];
-    ASSERT(0 <= phys_core && phys_core < static_cast<s32>(Core::Hardware::NUM_CPU_CORES));
+    assert(0 <= phys_core && phys_core < static_cast<s32>(Core::Hardware::NUM_CPU_CORES));
 
     // First, clear the TLS address.
     m_tls_address = {};
@@ -121,12 +121,12 @@ Result KThread::Initialize(KThreadFunction func, uintptr_t arg, KProcessAddress 
     // Next, assert things based on the type.
     switch (type) {
     case ThreadType::Main:
-        ASSERT(arg == 0);
+        assert(arg == 0);
         [[fallthrough]];
     case ThreadType::User:
-        ASSERT(((owner == nullptr) ||
+        assert(((owner == nullptr) ||
                 (owner->GetCoreMask() | (1ULL << virt_core)) == owner->GetCoreMask()));
-        ASSERT(((owner == nullptr) || (prio > Svc::LowestThreadPriority) ||
+        assert(((owner == nullptr) || (prio > Svc::LowestThreadPriority) ||
                 (owner->GetPriorityMask() | (1ULL << prio)) == owner->GetPriorityMask()));
         break;
     case ThreadType::HighPriority:
@@ -136,7 +136,8 @@ Result KThread::Initialize(KThreadFunction func, uintptr_t arg, KProcessAddress 
         UNIMPLEMENTED();
         break;
     default:
-        ASSERT_MSG(false, "KThread::Initialize: Unknown ThreadType {}", static_cast<u32>(type));
+        assert(false && "KThread::Initialize: Unknown ThreadType {}" &&
+               (void(static_cast<u32>(type)), true));
         break;
     }
     m_thread_type = type;
@@ -339,16 +340,18 @@ void KThread::Finalize() {
 
     // If the thread has a local region, delete it.
     if (m_tls_address != 0) {
-        ASSERT(m_parent->DeleteThreadLocalRegion(m_tls_address).IsSuccess());
+        [[maybe_unused]] const auto delete_thread_local_region_result =
+            m_parent->DeleteThreadLocalRegion(m_tls_address);
+        assert(delete_thread_local_region_result.IsSuccess());
     }
 
     // Release any waiters.
     {
-        ASSERT(m_waiting_lock_info == nullptr);
+        assert(m_waiting_lock_info == nullptr);
         KScopedSchedulerLock sl{m_kernel};
 
         // Check that we have no kernel waiters.
-        ASSERT(m_num_kernel_waiters == 0);
+        assert(m_num_kernel_waiters == 0);
 
         auto it = m_held_lock_info_list.begin();
         while (it != m_held_lock_info_list.end()) {
@@ -356,7 +359,7 @@ void KThread::Finalize() {
             auto* const lock_info = std::addressof(*it);
 
             // The lock shouldn't have a kernel waiter.
-            ASSERT(!lock_info->GetIsKernelAddressKey());
+            assert(!lock_info->GetIsKernelAddressKey());
 
             // Remove all waiters.
             while (lock_info->GetWaiterCount() != 0) {
@@ -365,7 +368,7 @@ void KThread::Finalize() {
 
                 // Remove it from the lock.
                 if (lock_info->RemoveWaiter(waiter)) {
-                    ASSERT(lock_info->GetWaiterCount() == 0);
+                    assert(lock_info->GetWaiterCount() == 0);
                 }
 
                 // Cancel the thread's wait.
@@ -392,7 +395,7 @@ bool KThread::IsSignaled() const {
 }
 
 void KThread::OnTimer() {
-    ASSERT(KScheduler::IsSchedulerLockedByCurrentThread(m_kernel));
+    assert(KScheduler::IsSchedulerLockedByCurrentThread(m_kernel));
 
     // If we're waiting, cancel the wait.
     if (this->GetState() == ThreadState::Waiting) {
@@ -401,7 +404,7 @@ void KThread::OnTimer() {
 }
 
 void KThread::StartTermination() {
-    ASSERT(KScheduler::IsSchedulerLockedByCurrentThread(m_kernel));
+    assert(KScheduler::IsSchedulerLockedByCurrentThread(m_kernel));
 
     // Release user exception and unpin, if relevant.
     if (m_parent != nullptr) {
@@ -454,13 +457,13 @@ void KThread::DoWorkerTaskImpl() {
 }
 
 void KThread::Pin(s32 current_core) {
-    ASSERT(KScheduler::IsSchedulerLockedByCurrentThread(m_kernel));
+    assert(KScheduler::IsSchedulerLockedByCurrentThread(m_kernel));
 
     // Set ourselves as pinned.
     GetStackParameters().is_pinned = true;
 
     // Disable core migration.
-    ASSERT(m_num_core_migration_disables == 0);
+    assert(m_num_core_migration_disables == 0);
     {
         ++m_num_core_migration_disables;
 
@@ -494,17 +497,17 @@ void KThread::Pin(s32 current_core) {
     }
 
     // TODO(bunnei): Update our SVC access permissions.
-    ASSERT(m_parent != nullptr);
+    assert(m_parent != nullptr);
 }
 
 void KThread::Unpin() {
-    ASSERT(KScheduler::IsSchedulerLockedByCurrentThread(m_kernel));
+    assert(KScheduler::IsSchedulerLockedByCurrentThread(m_kernel));
 
     // Set ourselves as unpinned.
     this->GetStackParameters().is_pinned = false;
 
     // Enable core migration.
-    ASSERT(m_num_core_migration_disables == 1);
+    assert(m_num_core_migration_disables == 1);
     {
         m_num_core_migration_disables--;
 
@@ -541,7 +544,7 @@ void KThread::Unpin() {
     }
 
     // TODO(bunnei): Update our SVC access permissions.
-    ASSERT(m_parent != nullptr);
+    assert(m_parent != nullptr);
 
     // Resume any threads that began waiting on us while we were pinned.
     for (auto it = m_pinned_waiter_list.begin(); it != m_pinned_waiter_list.end();
@@ -592,7 +595,7 @@ Result KThread::GetCoreMask(s32* out_ideal_core, u64* out_affinity_mask) {
 
 Result KThread::GetPhysicalCoreMask(s32* out_ideal_core, u64* out_affinity_mask) {
     KScopedSchedulerLock sl{m_kernel};
-    ASSERT(m_num_core_migration_disables >= 0);
+    assert(m_num_core_migration_disables >= 0);
 
     // Select between core mask and original core mask.
     if (m_num_core_migration_disables == 0) {
@@ -607,15 +610,15 @@ Result KThread::GetPhysicalCoreMask(s32* out_ideal_core, u64* out_affinity_mask)
 }
 
 Result KThread::SetCoreMask(s32 core_id, u64 v_affinity_mask) {
-    ASSERT(m_parent != nullptr);
-    ASSERT(v_affinity_mask != 0);
+    assert(m_parent != nullptr);
+    assert(v_affinity_mask != 0);
     KScopedLightLock lk(m_activity_pause_lock);
 
     // Set the core mask.
     u64 p_affinity_mask = 0;
     {
         KScopedSchedulerLock sl(m_kernel);
-        ASSERT(m_num_core_migration_disables >= 0);
+        assert(m_num_core_migration_disables >= 0);
 
         // If we're updating, set our ideal virtual core.
         if (core_id != Svc::IdealCoreNoUpdate) {
@@ -719,7 +722,7 @@ Result KThread::SetCoreMask(s32 core_id, u64 v_affinity_mask) {
 }
 
 void KThread::SetBasePriority(s32 value) {
-    ASSERT(Svc::HighestThreadPriority <= value && value <= Svc::LowestThreadPriority);
+    assert(Svc::HighestThreadPriority <= value && value <= Svc::LowestThreadPriority);
 
     KScopedSchedulerLock sl{m_kernel};
 
@@ -735,9 +738,9 @@ KThread* KThread::GetLockOwner() const {
 }
 
 void KThread::IncreaseBasePriority(s32 priority) {
-    ASSERT(Svc::HighestThreadPriority <= priority && priority <= Svc::LowestThreadPriority);
-    ASSERT(KScheduler::IsSchedulerLockedByCurrentThread(m_kernel));
-    ASSERT(!this->GetStackParameters().is_pinned);
+    assert(Svc::HighestThreadPriority <= priority && priority <= Svc::LowestThreadPriority);
+    assert(KScheduler::IsSchedulerLockedByCurrentThread(m_kernel));
+    assert(!this->GetStackParameters().is_pinned);
 
     // Set our base priority.
     if (m_base_priority > priority) {
@@ -784,21 +787,21 @@ void KThread::WaitCancel() {
 }
 
 void KThread::TrySuspend() {
-    ASSERT(KScheduler::IsSchedulerLockedByCurrentThread(m_kernel));
-    ASSERT(this->IsSuspendRequested());
+    assert(KScheduler::IsSchedulerLockedByCurrentThread(m_kernel));
+    assert(this->IsSuspendRequested());
 
     // Ensure that we have no waiters.
     if (this->GetNumKernelWaiters() > 0) {
         return;
     }
-    ASSERT(this->GetNumKernelWaiters() == 0);
+    assert(this->GetNumKernelWaiters() == 0);
 
     // Perform the suspend.
     this->UpdateState();
 }
 
 void KThread::UpdateState() {
-    ASSERT(KScheduler::IsSchedulerLockedByCurrentThread(m_kernel));
+    assert(KScheduler::IsSchedulerLockedByCurrentThread(m_kernel));
 
     // Set our suspend flags in state.
     const ThreadState old_state = m_thread_state.load(std::memory_order_relaxed);
@@ -813,7 +816,7 @@ void KThread::UpdateState() {
 }
 
 void KThread::Continue() {
-    ASSERT(KScheduler::IsSchedulerLockedByCurrentThread(m_kernel));
+    assert(KScheduler::IsSchedulerLockedByCurrentThread(m_kernel));
 
     // Clear our suspend flags in state.
     const ThreadState old_state = m_thread_state.load(std::memory_order_relaxed);
@@ -825,8 +828,8 @@ void KThread::Continue() {
 
 void KThread::CloneFpuStatus() {
     // We shouldn't reach here when starting kernel threads.
-    ASSERT(this->GetOwnerProcess() != nullptr);
-    ASSERT(this->GetOwnerProcess() == GetCurrentProcessPointer(m_kernel));
+    assert(this->GetOwnerProcess() != nullptr);
+    assert(this->GetOwnerProcess() == GetCurrentProcessPointer(m_kernel));
 
     m_kernel.CurrentPhysicalCore().CloneFpuStatus(this);
 }
@@ -853,7 +856,7 @@ Result KThread::SetActivity(Svc::ThreadActivity activity) {
             // Suspend.
             this->RequestSuspend(SuspendType::Thread);
         } else {
-            ASSERT(activity == Svc::ThreadActivity::Runnable);
+            assert(activity == Svc::ThreadActivity::Runnable);
 
             // Verify that we're suspended.
             R_UNLESS(this->IsSuspendRequested(SuspendType::Thread), ResultInvalidState);
@@ -936,7 +939,7 @@ Result KThread::GetThreadContext3(Svc::ThreadContext* out) {
 }
 
 void KThread::AddHeldLock(LockWithPriorityInheritanceInfo* lock_info) {
-    ASSERT(KScheduler::IsSchedulerLockedByCurrentThread(m_kernel));
+    assert(KScheduler::IsSchedulerLockedByCurrentThread(m_kernel));
 
     // Set ourselves as the lock's owner.
     lock_info->SetOwner(this);
@@ -947,7 +950,7 @@ void KThread::AddHeldLock(LockWithPriorityInheritanceInfo* lock_info) {
 
 KThread::LockWithPriorityInheritanceInfo* KThread::FindHeldLock(KProcessAddress address_key,
                                                                 bool is_kernel_address_key) {
-    ASSERT(KScheduler::IsSchedulerLockedByCurrentThread(m_kernel));
+    assert(KScheduler::IsSchedulerLockedByCurrentThread(m_kernel));
 
     // Try to find an existing held lock.
     for (auto& held_lock : m_held_lock_info_list) {
@@ -961,8 +964,8 @@ KThread::LockWithPriorityInheritanceInfo* KThread::FindHeldLock(KProcessAddress 
 }
 
 void KThread::AddWaiterImpl(KThread* thread) {
-    ASSERT(KScheduler::IsSchedulerLockedByCurrentThread(m_kernel));
-    ASSERT(thread->GetConditionVariableTree() == nullptr);
+    assert(KScheduler::IsSchedulerLockedByCurrentThread(m_kernel));
+    assert(thread->GetConditionVariableTree() == nullptr);
 
     // Get the thread's address key.
     const auto address_key = thread->GetAddressKey();
@@ -970,7 +973,8 @@ void KThread::AddWaiterImpl(KThread* thread) {
 
     // Keep track of how many kernel waiters we have.
     if (is_kernel_address_key) {
-        ASSERT((m_num_kernel_waiters++) >= 0);
+        [[maybe_unused]] const auto old_num_kernel_waiters = m_num_kernel_waiters++;
+        assert(old_num_kernel_waiters >= 0);
         KScheduler::SetSchedulerUpdateNeeded(m_kernel);
     }
 
@@ -990,17 +994,18 @@ void KThread::AddWaiterImpl(KThread* thread) {
 }
 
 void KThread::RemoveWaiterImpl(KThread* thread) {
-    ASSERT(KScheduler::IsSchedulerLockedByCurrentThread(m_kernel));
+    assert(KScheduler::IsSchedulerLockedByCurrentThread(m_kernel));
 
     // Keep track of how many kernel waiters we have.
     if (thread->GetIsKernelAddressKey()) {
-        ASSERT((m_num_kernel_waiters--) > 0);
+        [[maybe_unused]] const auto old_num_kernel_waiters_2 = m_num_kernel_waiters--;
+        assert(old_num_kernel_waiters_2 > 0);
         KScheduler::SetSchedulerUpdateNeeded(m_kernel);
     }
 
     // Get the info for the lock the thread is waiting on.
     auto* lock_info = thread->GetWaitingLockInfo();
-    ASSERT(lock_info->GetOwner() == this);
+    assert(lock_info->GetOwner() == this);
 
     // Remove the waiter.
     if (lock_info->RemoveWaiter(thread)) {
@@ -1010,7 +1015,7 @@ void KThread::RemoveWaiterImpl(KThread* thread) {
 }
 
 void KThread::RestorePriority(KernelCore& kernel, KThread* thread) {
-    ASSERT(KScheduler::IsSchedulerLockedByCurrentThread(kernel));
+    assert(KScheduler::IsSchedulerLockedByCurrentThread(kernel));
 
     while (thread != nullptr) {
         // We want to inherit priority where possible.
@@ -1083,7 +1088,7 @@ void KThread::RemoveWaiter(KThread* thread) {
 
 KThread* KThread::RemoveWaiterByKey(bool* out_has_waiters, KProcessAddress key,
                                     bool is_kernel_address_key_) {
-    ASSERT(KScheduler::IsSchedulerLockedByCurrentThread(m_kernel));
+    assert(KScheduler::IsSchedulerLockedByCurrentThread(m_kernel));
 
     // Get the relevant lock info.
     auto* lock_info = this->FindHeldLock(key, is_kernel_address_key_);
@@ -1098,11 +1103,11 @@ KThread* KThread::RemoveWaiterByKey(bool* out_has_waiters, KProcessAddress key,
     // Keep track of how many kernel waiters we have.
     if (lock_info->GetIsKernelAddressKey()) {
         m_num_kernel_waiters -= lock_info->GetWaiterCount();
-        ASSERT(m_num_kernel_waiters >= 0);
+        assert(m_num_kernel_waiters >= 0);
         KScheduler::SetSchedulerUpdateNeeded(m_kernel);
     }
 
-    ASSERT(lock_info->GetWaiterCount() > 0);
+    assert(lock_info->GetWaiterCount() > 0);
 
     // Remove the highest priority waiter from the lock to be the next owner.
     KThread* next_lock_owner = lock_info->GetHighestPriorityWaiter();
@@ -1122,7 +1127,7 @@ KThread* KThread::RemoveWaiterByKey(bool* out_has_waiters, KProcessAddress key,
         // Keep track of any kernel waiters for the new owner.
         if (lock_info->GetIsKernelAddressKey()) {
             next_lock_owner->m_num_kernel_waiters += lock_info->GetWaiterCount();
-            ASSERT(next_lock_owner->m_num_kernel_waiters > 0);
+            assert(next_lock_owner->m_num_kernel_waiters > 0);
 
             // NOTE: No need to set scheduler update needed, because we will have already done so
             // when removing earlier.
@@ -1178,7 +1183,7 @@ Result KThread::Run() {
 }
 
 void KThread::Exit() {
-    ASSERT(this == GetCurrentThreadPointer(m_kernel));
+    assert(this == GetCurrentThreadPointer(m_kernel));
 
     // Release the thread resource hint, running thread count from parent.
     if (m_parent != nullptr) {
@@ -1205,11 +1210,11 @@ void KThread::Exit() {
         KWorkerTaskManager::AddTask(m_kernel, KWorkerTaskManager::WorkerType::Exit, this);
     }
 
-    UNREACHABLE_MSG("KThread::Exit() would return");
+    std::unreachable(); // KThread::Exit() would return
 }
 
 Result KThread::Terminate() {
-    ASSERT(this != GetCurrentThreadPointer(m_kernel));
+    assert(this != GetCurrentThreadPointer(m_kernel));
 
     // Request the thread terminate if it hasn't already.
     if (const auto new_state = this->RequestTerminate(); new_state != ThreadState::Terminated) {
@@ -1224,7 +1229,7 @@ Result KThread::Terminate() {
 }
 
 ThreadState KThread::RequestTerminate() {
-    ASSERT(this != GetCurrentThreadPointer(m_kernel));
+    assert(this != GetCurrentThreadPointer(m_kernel));
 
     KScopedSchedulerLock sl{m_kernel};
 
@@ -1279,9 +1284,9 @@ ThreadState KThread::RequestTerminate() {
 }
 
 Result KThread::Sleep(s64 timeout) {
-    ASSERT(!KScheduler::IsSchedulerLockedByCurrentThread(m_kernel));
-    ASSERT(this == GetCurrentThreadPointer(m_kernel));
-    ASSERT(timeout > 0);
+    assert(!KScheduler::IsSchedulerLockedByCurrentThread(m_kernel));
+    assert(this == GetCurrentThreadPointer(m_kernel));
+    assert(timeout > 0);
 
     ThreadQueueImplForKThreadSleep wait_queue(m_kernel);
     KHardwareTimer* timer{};
@@ -1305,8 +1310,8 @@ Result KThread::Sleep(s64 timeout) {
 }
 
 void KThread::RequestDummyThreadWait() {
-    ASSERT(KScheduler::IsSchedulerLockedByCurrentThread(m_kernel));
-    ASSERT(this->IsDummyThread());
+    assert(KScheduler::IsSchedulerLockedByCurrentThread(m_kernel));
+    assert(this->IsDummyThread());
 
     // We will block when the scheduler lock is released.
     std::scoped_lock lock{m_dummy_thread_mutex};
@@ -1325,8 +1330,8 @@ void KThread::DummyThreadBeginWait() {
 }
 
 void KThread::DummyThreadEndWait() {
-    ASSERT(KScheduler::IsSchedulerLockedByCurrentThread(m_kernel));
-    ASSERT(this->IsDummyThread());
+    assert(KScheduler::IsSchedulerLockedByCurrentThread(m_kernel));
+    assert(this->IsDummyThread());
 
     // Wake up the waiting thread.
     {

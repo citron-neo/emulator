@@ -35,7 +35,7 @@ namespace {
            layers.base_layer + layers.num_layers <= info.resources.layers;
 }
 
-[[nodiscard]] bool ValidateCopy(const ImageCopy& copy, const ImageInfo& dst, const ImageInfo& src) {
+[[nodiscard, maybe_unused]] bool ValidateCopy(const ImageCopy& copy, const ImageInfo& dst, const ImageInfo& src) {
     const Extent3D src_size = MipSize(src.size, copy.src_subresource.base_level);
     const Extent3D dst_size = MipSize(dst.size, copy.dst_subresource.base_level);
     if (!ValidateLayers(copy.src_subresource, src)) {
@@ -160,7 +160,7 @@ void ImageBase::CheckAliasState() {
 
 bool AddImageAlias(ImageBase& lhs, ImageBase& rhs, ImageId lhs_id, ImageId rhs_id) {
     static constexpr auto OPTIONS = RelaxedOptions::Size | RelaxedOptions::Format;
-    ASSERT(lhs.info.type == rhs.info.type);
+    assert(lhs.info.type == rhs.info.type);
     std::optional<SubresourceBase> base;
     if (lhs.info.type == ImageType::Linear) {
         base = SubresourceBase{.level = 0, .layer = 0};
@@ -246,10 +246,10 @@ bool AddImageAlias(ImageBase& lhs, ImageBase& rhs, ImageId lhs_id, ImageId rhs_i
             .dst_offset = lhs_offset,
             .extent = copy_size,
         });
-        ASSERT_MSG(ValidateCopy(to_lhs_copy, lhs.info, rhs.info), "Invalid RHS to LHS copy");
-        ASSERT_MSG(ValidateCopy(to_rhs_copy, rhs.info, lhs.info), "Invalid LHS to RHS copy");
+        assert(ValidateCopy(to_lhs_copy, lhs.info, rhs.info) && "Invalid RHS to LHS copy");
+        assert(ValidateCopy(to_rhs_copy, rhs.info, lhs.info) && "Invalid LHS to RHS copy");
     }
-    ASSERT(lhs_alias.copies.empty() == rhs_alias.copies.empty());
+    assert(lhs_alias.copies.empty() == rhs_alias.copies.empty());
     if (lhs_alias.copies.empty()) {
         return false;
     }

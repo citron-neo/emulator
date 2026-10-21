@@ -117,7 +117,7 @@ static std::vector<u8> SerializeAddrInfoAsHostEnt(const std::vector<Network::Add
     Append<u16_be>(data, sizeof(Network::IPv4Address));   // h_length
     // h_addr_list:
     size_t count = vec.size();
-    ASSERT(count <= UINT32_MAX);
+    assert(count <= UINT32_MAX);
     Append<u32_be>(data, static_cast<uint32_t>(count));
     for (const Network::AddrInfo& addrinfo : vec) {
         // On the Switch, this is passed through htonl despite already being

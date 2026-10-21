@@ -650,10 +650,10 @@ private:
 
 class TranslatePass {
 public:
-    TranslatePass(ObjectPool<IR::Inst>& inst_pool_, ObjectPool<IR::Block>& block_pool_,
+    TranslatePass(IR::InstStorage& inst_storage_, ObjectPool<IR::Block>& block_pool_,
                   ObjectPool<Statement>& stmt_pool_, Environment& env_, Statement& root_stmt,
                   IR::AbstractSyntaxList& syntax_list_, const HostTranslateInfo& host_info)
-        : stmt_pool{stmt_pool_}, inst_pool{inst_pool_}, block_pool{block_pool_}, env{env_},
+        : stmt_pool{stmt_pool_}, inst_storage{inst_storage_}, block_pool{block_pool_}, env{env_},
           syntax_list{syntax_list_} {
         Visit(root_stmt, nullptr, nullptr);
 
@@ -672,7 +672,7 @@ private:
             if (current_block) {
                 return;
             }
-            current_block = block_pool.Create(inst_pool);
+            current_block = block_pool.Create(inst_storage);
             auto& node{syntax_list.emplace_back()};
             node.type = IR::AbstractSyntaxNode::Type::Block;
             node.data.block = current_block;
@@ -738,7 +738,7 @@ private:
                 break;
             }
             case StatementType::Loop: {
-                IR::Block* const loop_header_block{block_pool.Create(inst_pool)};
+                IR::Block* const loop_header_block{block_pool.Create(inst_storage)};
                 if (current_block) {
                     current_block->AddBranch(loop_header_block);
                 }
@@ -746,7 +746,7 @@ private:
                 header_node.type = IR::AbstractSyntaxNode::Type::Block;
                 header_node.data.block = loop_header_block;
 
-                IR::Block* const continue_block{block_pool.Create(inst_pool)};
+                IR::Block* const continue_block{block_pool.Create(inst_storage)};
                 IR::Block* const merge_block{MergeBlock(parent, stmt)};
 
                 const size_t loop_node_index{syntax_list.size()};
@@ -812,7 +812,7 @@ private:
             }
             case StatementType::Return: {
                 ensure_block();
-                IR::Block* return_block{block_pool.Create(inst_pool)};
+                IR::Block* return_block{block_pool.Create(inst_storage)};
                 IR::IREmitter{*return_block}.Epilogue();
                 current_block->AddBranch(return_block);
 
@@ -863,7 +863,7 @@ private:
             merge_stmt = stmt_pool.Create(&dummy_flow_block, &parent);
             parent.children.insert(std::next(Tree::s_iterator_to(stmt)), *merge_stmt);
         }
-        return block_pool.Create(inst_pool);
+        return block_pool.Create(inst_storage);
     }
 
     void DemoteCombinationPass() {
@@ -886,7 +886,7 @@ private:
                 // Skip reordering nested demote branches.
                 continue;
             }
-            for (const IR::Inst& inst : node.data.block->Instructions()) {
+            for (const IR::Inst& inst : *node.data.block) {
                 const IR::Opcode op{inst.GetOpcode()};
                 if (op == IR::Opcode::DemoteToHelperInvocation) {
                     demote_blocks.push_back(node.data.block);
@@ -935,7 +935,7 @@ private:
             if (asn.type != Type::Block) {
                 return false;
             }
-            for (const auto& inst : asn.data.block->Instructions()) {
+            for (const auto& inst : *asn.data.block) {
                 if (inst.GetOpcode() == IR::Opcode::Epilogue) {
                     return true;
                 }
@@ -950,7 +950,7 @@ private:
         for (const auto& demote_cond : demote_conds) {
             cond = ir.LogicalOr(cond, demote_cond);
         }
-        cond.Inst()->DestructiveAddUsage(1);
+        inst_storage.Get(cond)->DestructiveAddUsage(1);
 
         IR::AbstractSyntaxNode demote_if_node{};
         demote_if_node.type = Type::If;
@@ -972,7 +972,7 @@ private:
     }
 
     ObjectPool<Statement>& stmt_pool;
-    ObjectPool<IR::Inst>& inst_pool;
+    IR::InstStorage& inst_storage;
     ObjectPool<IR::Block>& block_pool;
     Environment& env;
     IR::AbstractSyntaxList& syntax_list;
@@ -981,14 +981,14 @@ private:
 };
 } // Anonymous namespace
 
-IR::AbstractSyntaxList BuildASL(ObjectPool<IR::Inst>& inst_pool, ObjectPool<IR::Block>& block_pool,
+IR::AbstractSyntaxList BuildASL(IR::InstStorage& inst_storage, ObjectPool<IR::Block>& block_pool,
                                 Environment& env, Flow::CFG& cfg,
                                 const HostTranslateInfo& host_info) {
     ObjectPool<Statement> stmt_pool{64};
     GotoPass goto_pass{cfg, stmt_pool};
     Statement& root{goto_pass.RootStatement()};
     IR::AbstractSyntaxList syntax_list;
-    TranslatePass{inst_pool, block_pool, stmt_pool, env, root, syntax_list, host_info};
+    TranslatePass{inst_storage, block_pool, stmt_pool, env, root, syntax_list, host_info};
     stmt_pool.ReleaseContents();
     return syntax_list;
 }

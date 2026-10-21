@@ -29,14 +29,14 @@ public:
         if (this->IsLockedByCurrentThread()) {
             // If we already own the lock, the lock count should be > 0.
             // For debug, ensure this is true.
-            ASSERT(m_lock_count > 0);
+            assert(m_lock_count > 0);
         } else {
             // Otherwise, we want to disable scheduling and acquire the spinlock.
             SchedulerType::DisableScheduling(m_kernel);
             m_spin_lock.Lock();
 
-            ASSERT(m_lock_count == 0);
-            ASSERT(m_owner_thread == nullptr);
+            assert(m_lock_count == 0);
+            assert(m_owner_thread == nullptr);
 
             // Take ownership of the lock.
             m_owner_thread = GetCurrentThreadPointer(m_kernel);
@@ -47,8 +47,8 @@ public:
     }
 
     void Unlock() {
-        ASSERT(this->IsLockedByCurrentThread());
-        ASSERT(m_lock_count > 0);
+        assert(this->IsLockedByCurrentThread());
+        assert(m_lock_count > 0);
 
         // Release an instance of the lock.
         if ((--m_lock_count) == 0) {

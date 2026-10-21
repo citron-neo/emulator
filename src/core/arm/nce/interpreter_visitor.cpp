@@ -2,7 +2,6 @@
 // SPDX-FileCopyrightText: Copyright 2023 merryhime <https://mary.rs>
 // SPDX-License-Identifier: GPL-2.0-or-later
 
-#include "common/bit_cast.h"
 #include "core/arm/nce/interpreter_visitor.h"
 
 namespace Core {
@@ -69,8 +68,8 @@ static u128 VectorGetElement(u128 value, u64 bitsize) {
 }
 
 u64 InterpreterVisitor::ExtendReg(size_t bitsize, Reg reg, Imm<3> option, u8 shift) {
-    ASSERT(shift <= 4);
-    ASSERT(bitsize == 32 || bitsize == 64);
+    assert(shift <= 4);
+    assert(bitsize == 32 || bitsize == 64);
     u64 val = this->GetReg(reg);
     size_t len;
     u64 extended;
@@ -124,7 +123,7 @@ u64 InterpreterVisitor::ExtendReg(size_t bitsize, Reg reg, Imm<3> option, u8 shi
         break;
     }
     default:
-        UNREACHABLE();
+        std::unreachable();
     }
 
     if (len < bitsize && signed_extend) {
@@ -195,7 +194,7 @@ bool InterpreterVisitor::Ordered(size_t size, bool L, bool o0, Reg Rn, Reg Rt) {
         break;
     }
     default:
-        UNREACHABLE();
+        std::unreachable();
     }
 
     return true;
@@ -319,7 +318,7 @@ bool InterpreterVisitor::STP_LDP_gen(Imm<2> opc, bool not_postindex, bool wback,
         break;
     }
     default:
-        UNREACHABLE();
+        std::unreachable();
     }
 
     if (wback) {
@@ -384,7 +383,7 @@ bool InterpreterVisitor::STP_LDP_fpsimd(Imm<2> opc, bool not_postindex, bool wba
         break;
     }
     default:
-        UNREACHABLE();
+        std::unreachable();
     }
 
     if (wback) {
@@ -414,10 +413,10 @@ bool InterpreterVisitor::RegisterImmediate(bool wback, bool postindex, size_t sc
         signed_ = false;
     } else if (size == 0b11) {
         memop = MemOp::Prefetch;
-        ASSERT(!opc.Bit<0>());
+        assert(!opc.Bit<0>());
     } else {
         memop = MemOp::Load;
-        ASSERT(!(size == 0b10 && opc.Bit<0>() == 1));
+        assert(!(size == 0b10 && opc.Bit<0>() == 1));
         regsize = opc.Bit<0>() ? 32 : 64;
         signed_ = true;
     }
@@ -534,7 +533,7 @@ bool InterpreterVisitor::SIMDImmediate(bool wback, bool postindex, size_t scale,
         break;
     }
     default:
-        UNREACHABLE();
+        std::unreachable();
     }
 
     if (wback) {
@@ -755,7 +754,7 @@ bool InterpreterVisitor::SIMDOffset(size_t scale, u8 shift, Imm<1> opc_0, Reg Rm
         break;
     }
     default:
-        UNREACHABLE();
+        std::unreachable();
     }
 
     return true;
