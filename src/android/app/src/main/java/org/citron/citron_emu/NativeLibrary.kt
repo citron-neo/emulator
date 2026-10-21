@@ -598,6 +598,16 @@ object NativeLibrary {
      * Clears all files added to the manual filesystem provider in our EmulationSession instance
      */
     external fun clearFilesystemProvider()
+    /**
+     * Forgets the update and DLC files handed over for the last game.
+     */
+    external fun clearExternalContentFiles()
+
+    /**
+     * Hands the core one update or DLC file to load with the next game, without installing it.
+     * @param path A string representation of a [Uri], or a normal path
+     */
+    external fun addExternalContentFile(path: String)
 
     /**
      * Checks if all necessary keys are present for decryption
