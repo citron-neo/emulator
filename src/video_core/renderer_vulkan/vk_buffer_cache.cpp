@@ -10,6 +10,7 @@
 #include "common/alignment.h"
 #include "common/common_types.h"
 #include "common/literals.h"
+#include "common/logging.h"
 #include "video_core/renderer_vulkan/vk_buffer_cache.h"
 
 
@@ -81,6 +82,11 @@ vk::Buffer CreateBuffer(const Device& device, const MemoryAllocator& memory_allo
         .queueFamilyIndexCount = 0,
         .pQueueFamilyIndices = nullptr,
     };
+    // On unified memory the cache writes guest data straight into the buffer when the GPU is
+    // done with it (BufferCache::MappedUploadMemory); otherwise uploads go through staging.
+    if (vk::Buffer unified = memory_allocator.CreateUnifiedBuffer(buffer_ci)) {
+        return unified;
+    }
     return memory_allocator.CreateBuffer(buffer_ci, MemoryUsage::DeviceLocal);
 }
 
@@ -341,6 +347,14 @@ BufferCacheRuntime::BufferCacheRuntime(const Device& device_, MemoryAllocator& m
       staging_pool{staging_pool_}, guest_descriptor_queue{guest_descriptor_queue_},
       quad_index_pass(device, scheduler, descriptor_pool, staging_pool,
                       compute_pass_descriptor_queue) {
+    if (!device.HasRobustBufferAccess2()) {
+        LOG_WARNING(Render_Vulkan, "Device lacks robustBufferAccess2, constant buffers will be "
+                                   "zero padded on every bind");
+    } else if (device.GetRobustUniformBufferAccessSizeAlignment() > 1) {
+        LOG_WARNING(Render_Vulkan,
+                    "Constant buffers whose size is not a multiple of {} bytes will be zero padded",
+                    device.GetRobustUniformBufferAccessSizeAlignment());
+    }
     if (device.GetDriverID() != VK_DRIVER_ID_QUALCOMM_PROPRIETARY) {
         // TODO: FixMe: Uint8Pass compute shader does not build on some Qualcomm drivers.
         uint8_pass = std::make_unique<Uint8Pass>(device, scheduler, descriptor_pool, staging_pool,
@@ -382,6 +396,14 @@ bool BufferCacheRuntime::CanReportMemoryUsage() const {
 
 u32 BufferCacheRuntime::GetStorageBufferAlignment() const {
     return static_cast<u32>(device.GetStorageBufferAlignment());
+}
+
+u64 BufferCacheRuntime::CurrentTick() const noexcept {
+    return scheduler.CurrentTick();
+}
+
+u64 BufferCacheRuntime::KnownGpuTick() const noexcept {
+    return scheduler.GetMasterSemaphore().KnownGpuTick();
 }
 
 void BufferCacheRuntime::TickFrame(Common::SlotVector<Buffer>& slot_buffers) noexcept {

@@ -4,6 +4,7 @@
 
 #include <array>
 #include <atomic>
+#include <exception>
 #include <fstream>
 #include <memory>
 #include <string>
@@ -53,6 +54,7 @@
 #include "core/file_sys/vfs/vfs_concat.h"
 #include "core/file_sys/vfs/vfs_real.h"
 #include "core/gpu_dirty_memory_manager.h"
+#include "core/hle/kernel/board/nintendo/nx/k_system_control.h"
 #include "core/hle/kernel/k_memory_manager.h"
 #include "core/hle/kernel/k_process.h"
 #include "core/hle/kernel/k_resource_limit.h"
@@ -208,6 +210,8 @@ struct System::Impl {
 
         if (layout_changed) {
             device_memory.reset();
+            guest_memory_from_gpu = false;
+            guest_memory_from_gpu_unavailable = false;
         }
 
         LOG_DEBUG(Kernel, "Re-initializing");
@@ -319,11 +323,43 @@ struct System::Impl {
         debugger.emplace(system, port);
     }
 
-    void InitializeKernel(System& system) {
+    /// Moves guest memory onto memory exported by the GPU driver when the driver can provide it
+    /// (VideoCore::ExportGuestMemory), so that a Vulkan device can import the same memory. Guest
+    /// memory is replaced before the kernel is initialized, as ReinitializeIfNecessary does when
+    /// the memory layout changes. Tried at every game start until it works or the driver says it
+    /// never will: the Android frontend loads the driver after System::Initialize has created
+    /// guest memory.
+    void UseGuestMemoryFromGpu(Frontend::EmuWindow& emu_window) {
+        if (guest_memory_from_gpu || guest_memory_from_gpu_unavailable) {
+            return;
+        }
+        // The size DeviceMemory gives itself (device_memory.cpp).
+        const VideoCore::GuestMemoryExport exported = VideoCore::ExportGuestMemory(
+            emu_window, Kernel::Board::Nintendo::Nx::KSystemControl::Init::GetIntendedMemorySize(),
+            GuestMemoryChunkSize);
+        if (exported.fds.empty()) {
+            guest_memory_from_gpu_unavailable = !exported.retry;
+            return;
+        }
+        device_memory.reset();
+        try {
+            device_memory.emplace(exported.fds);
+        } catch (const std::exception& e) {
+            // HostMemory has closed the descriptors; guest memory comes from the usual place
+            LOG_ERROR(Core, "Guest memory from the GPU driver could not be mapped: {}", e.what());
+            device_memory.emplace();
+            guest_memory_from_gpu_unavailable = true;
+            return;
+        }
+        guest_memory_from_gpu = true;
+    }
+
+    void InitializeKernel(System& system, Frontend::EmuWindow& emu_window) {
         LOG_DEBUG(Core, "initialized OK");
 
         // Setting changes may require a full system reinitialization (e.g., disabling multicore).
         ReinitializeIfNecessary(system);
+        UseGuestMemoryFromGpu(emu_window);
 
         kernel.Initialize();
         cpu_manager.Initialize();
@@ -364,7 +400,7 @@ struct System::Impl {
             exit_result.store(SystemResultStatus::Success);
         }
         build_id = {};
-        InitializeKernel(system);
+        InitializeKernel(system, emu_window);
 
         const auto file = GetGameFileFromPath(virtual_filesystem, filepath);
 
@@ -621,6 +657,8 @@ struct System::Impl {
     bool is_multicore{};
     bool is_async_gpu{};
     bool extended_memory_layout{};
+    bool guest_memory_from_gpu{}; ///< device_memory is backed by memory the GPU driver exported
+    bool guest_memory_from_gpu_unavailable{}; ///< The driver cannot provide it in this process
 
     ExecuteProgramCallback execute_program_callback;
     std::mutex exit_callback_mutex;

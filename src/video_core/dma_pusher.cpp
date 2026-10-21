@@ -23,8 +23,9 @@ DmaPusher::DmaPusher(Core::System& system_, GPU& gpu_, MemoryManager& memory_man
 DmaPusher::~DmaPusher() = default;
 
 void DmaPusher::DispatchCalls() {
-    dma_pushbuffer_subindex = 0;
-
+    // dma_pushbuffer_subindex is not reset here: a channel that stopped at a semaphore acquire can
+    // be in the middle of a command list. Otherwise Step only stops once the queue is empty, and
+    // popping the last list already set the index to 0.
     dma_state.is_last_call = true;
 
     while (system.IsPoweredOn()) {
@@ -37,6 +38,17 @@ void DmaPusher::DispatchCalls() {
 }
 
 bool DmaPusher::Step() {
+    if (IsSuspended() && !puller.RetryPendingAcquire(false)) {
+        // Still stopped at a semaphore acquire; the GPU thread retries it.
+        return false;
+    }
+    if (!resume_commands.empty()) {
+        std::vector<CommandHeader> commands;
+        commands.swap(resume_commands);
+        dma_state.dma_get = resume_dma_get;
+        ProcessCommands(commands);
+        return true;
+    }
     if (!ib_enable || dma_pushbuffer.empty()) {
         // pushbuffer empty and IB empty or nonexistent - nothing to do
         return false;
@@ -119,14 +131,28 @@ bool DmaPusher::Step() {
 
 void DmaPusher::ProcessCommands(std::span<const CommandHeader> commands) {
     for (std::size_t index = 0; index < commands.size();) {
+        if (IsSuspended()) [[unlikely]] {
+            // The word before stopped the channel at a semaphore acquire. Keep the rest (the span
+            // can point at a scratch buffer or guest memory) and continue from it in Step.
+            const auto rest = commands.subspan(index);
+            resume_commands.assign(rest.begin(), rest.end());
+            resume_dma_get = dma_state.dma_get + index * sizeof(u32);
+            return;
+        }
         const CommandHeader& command_header = commands[index];
 
         if (dma_state.method_count) {
             // Data word of methods command
             dma_state.dma_word_offset = static_cast<u32>(index * sizeof(u32));
             if (dma_state.non_incrementing) {
-                const u32 max_write = static_cast<u32>(
-                    std::min<std::size_t>(index + dma_state.method_count, commands.size()) - index);
+                // Puller methods one word at a time, so a semaphore acquire can stop the channel
+                // right after its word.
+                const u32 max_write =
+                    dma_state.method < non_puller_methods
+                        ? 1U
+                        : static_cast<u32>(std::min<std::size_t>(index + dma_state.method_count,
+                                                                 commands.size()) -
+                                           index);
                 CallMultiMethod(&command_header.argument, max_write);
                 dma_state.method_count -= max_write;
                 dma_state.is_last_call = true;
@@ -222,6 +248,14 @@ void DmaPusher::CallMultiMethod(const u32* base_start, u32 num_methods) const {
 
 void DmaPusher::BindRasterizer(VideoCore::RasterizerInterface* rasterizer) {
     puller.BindRasterizer(rasterizer);
+}
+
+bool DmaPusher::RetryAcquire(u64 work_generation, bool allow_flush) {
+    const bool flush = allow_flush && work_generation != acquire_flush_generation;
+    if (flush) {
+        acquire_flush_generation = work_generation;
+    }
+    return puller.RetryPendingAcquire(flush);
 }
 
 } // namespace Tegra
