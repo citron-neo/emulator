@@ -363,8 +363,18 @@ void Maxwell3D::ProcessDirtyRegisters(u32 method, u32 argument) {
     constexpr u32 rt_words = sizeof(Regs::RenderTargetConfig) / sizeof(u32);
     constexpr u32 dimension_word =
         offsetof(Regs::RenderTargetConfig, array_pitch) / sizeof(u32) - 1;
+    // Games rewrite most of their state before every draw. A write that changes nothing must not
+    // mark the state dirty, or every draw pays for rebinding all of it. Render target words still
+    // go through the check below: the memory behind a target can be mapped after its registers
+    // were written, and the next identical write is the first chance to see that.
+    const bool changed{regs.reg_array[method] != argument};
+    const bool is_rt_word{method >= rt_start &&
+                          method < rt_start + Regs::NumRenderTargets * rt_words};
+    if (!changed && !is_rt_word) {
+        return;
+    }
     regs.reg_array[method] = argument;
-    if (method >= rt_start && method < rt_start + Regs::NumRenderTargets * rt_words) {
+    if (is_rt_word) {
         const u32 index = (method - rt_start) / rt_words;
         const u32 first_word = rt_start + index * rt_words;
         const std::span<const u32, 10> rt{regs.reg_array.data() + first_word, 10};
@@ -390,6 +400,9 @@ void Maxwell3D::ProcessDirtyRegisters(u32 method, u32 argument) {
                 }
             }
         }
+    }
+    if (!changed) {
+        return;
     }
     for (const auto& table : dirty.tables)
         dirty.flags[table[method]] = true;
