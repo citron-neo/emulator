@@ -275,8 +275,8 @@ void ReadInArgument(bool is_domain, CallArguments& args, const u8* raw_data, HLE
             constexpr size_t ArgOffset = Common::AlignUp(DataOffset, ArgAlign);
             constexpr size_t ArgEnd = ArgOffset + ArgSize;
 
-            ASSERT(is_domain);
-            ASSERT(ctx.GetDomainMessageHeader().input_object_count > 0);
+            assert(is_domain);
+            assert(ctx.GetDomainMessageHeader().input_object_count > 0);
 
             u32 value{};
             std::memcpy(&value, raw_data + ArgOffset, ArgSize);
@@ -295,7 +295,7 @@ void ReadInArgument(bool is_domain, CallArguments& args, const u8* raw_data, HLE
 
             std::span<const u8> buffer{};
 
-            ASSERT(ctx.CanReadBuffer(InBufferIndex));
+            assert(ctx.CanReadBuffer(InBufferIndex));
             if constexpr (ArgType::Attr & BufferAttr_HipcAutoSelect) {
                 buffer = ctx.ReadBuffer(InBufferIndex);
             } else if constexpr (ArgType::Attr & BufferAttr_HipcMapAlias) {
@@ -401,7 +401,7 @@ void WriteOutArgument(bool is_domain, CallArguments& args, u8* raw_data, HLERequ
         } else if constexpr (ArgumentTraits<ArgType>::Type == ArgumentType::OutLargeData) {
             constexpr size_t BufferSize = sizeof(typename ArgType::Type);
 
-            ASSERT(ctx.CanWriteBuffer(OutBufferIndex));
+            assert(ctx.CanWriteBuffer(OutBufferIndex));
             if constexpr (ArgType::Attr & BufferAttr_HipcAutoSelect) {
                 ctx.WriteBuffer(std::get<ArgIndex>(args), OutBufferIndex);
             } else if constexpr (ArgType::Attr & BufferAttr_HipcMapAlias) {
@@ -436,7 +436,7 @@ template <bool Domain, typename T, typename... A>
 void CmifReplyWrapImpl(HLERequestContext& ctx, T& t, Result (T::*f)(A...)) {
     // Verify domain state.
     if constexpr (!Domain) {
-        ASSERT_MSG(!ctx.GetManager()->IsDomain(), "Non-domain reply used on domain session");
+        assert(!ctx.GetManager()->IsDomain() && "Non-domain reply used on domain session");
     }
     const bool is_domain = Domain ? ctx.GetManager()->IsDomain() : false;
 

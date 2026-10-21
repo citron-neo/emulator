@@ -30,7 +30,7 @@ protected:
 
 public:
     virtual void Destroy() override {
-        UNREACHABLE_MSG("KSystemResource::Destroy() was called");
+        std::unreachable(); // KSystemResource::Destroy() was called
     }
 
     bool IsSecureResource() const {
@@ -38,9 +38,9 @@ public:
     }
 
     void SetManagers(KMemoryBlockSlabManager& mb, KBlockInfoManager& bi, KPageTableManager& pt) {
-        ASSERT(m_p_memory_block_slab_manager == nullptr);
-        ASSERT(m_p_block_info_manager == nullptr);
-        ASSERT(m_p_page_table_manager == nullptr);
+        assert(m_p_memory_block_slab_manager == nullptr);
+        assert(m_p_block_info_manager == nullptr);
+        assert(m_p_page_table_manager == nullptr);
 
         m_p_memory_block_slab_manager = std::addressof(mb);
         m_p_block_info_manager = std::addressof(bi);

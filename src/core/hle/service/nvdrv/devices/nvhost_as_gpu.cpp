@@ -96,7 +96,7 @@ NvResult nvhost_as_gpu::AllocAsEx(IoctlAllocAsEx& params) {
     std::scoped_lock lock(mutex);
 
     if (vm.initialised) {
-        ASSERT_MSG(false, "Cannot initialise an address space twice!");
+        assert(false && "Cannot initialise an address space twice!");
         return NvResult::InvalidState;
     }
 
@@ -174,7 +174,7 @@ NvResult nvhost_as_gpu::AllocateSpace(IoctlAllocSpace& params) {
     } else {
         params.offset = static_cast<u64>(allocator.Allocate(params.pages)) << page_size_bits;
         if (!params.offset) {
-            ASSERT_MSG(false, "Failed to allocate free space in the GPU AS!");
+            assert(false && "Failed to allocate free space in the GPU AS!");
             return NvResult::InsufficientMemory;
         }
     }
@@ -372,7 +372,7 @@ NvResult nvhost_as_gpu::MapBufferEx(IoctlMapBufferEx& params) {
         } else if (Common::IsAligned(handle->align, VM::CITRON_PAGESIZE)) {
             return false;
         } else {
-            ASSERT(false);
+            assert(false);
             return false;
         }
     }()};
@@ -382,7 +382,7 @@ NvResult nvhost_as_gpu::MapBufferEx(IoctlMapBufferEx& params) {
 
         if (alloc-- == allocation_map.begin() ||
             (params.offset - alloc->first) + size > alloc->second.size) {
-            ASSERT_MSG(false, "Cannot perform a fixed mapping into an unallocated region!");
+            assert(false && "Cannot perform a fixed mapping into an unallocated region!");
             return NvResult::BadValue;
         }
 
@@ -402,7 +402,7 @@ NvResult nvhost_as_gpu::MapBufferEx(IoctlMapBufferEx& params) {
                             static_cast<u32>(Common::AlignUp(size, page_size) >> page_size_bits)))
                         << page_size_bits;
         if (!params.offset) {
-            ASSERT_MSG(false, "Failed to allocate free space in the GPU AS!");
+            assert(false && "Failed to allocate free space in the GPU AS!");
             return NvResult::InsufficientMemory;
         }
 

@@ -153,7 +153,7 @@ bool AnnounceMultiplayerSession::IsRunning() const {
 }
 
 void AnnounceMultiplayerSession::UpdateCredentials() {
-    ASSERT_MSG(!IsRunning(), "Credentials can only be updated when session is not running");
+    assert(!IsRunning() && "Credentials can only be updated when session is not running");
 
 #ifdef ENABLE_WEB_SERVICE
     backend = std::make_unique<WebService::RoomJson>(Settings::values.lobby_api_url.GetValue(),

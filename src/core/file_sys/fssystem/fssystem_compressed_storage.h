@@ -63,9 +63,9 @@ private:
                           size_t continuous_reading_size_max,
                           GetDecompressorFunction get_decompressor) {
             // Check pre-conditions.
-            ASSERT(0 < block_size_max);
-            ASSERT(block_size_max <= continuous_reading_size_max);
-            ASSERT(get_decompressor != nullptr);
+            assert(0 < block_size_max);
+            assert(block_size_max <= continuous_reading_size_max);
+            assert(get_decompressor != nullptr);
 
             // Initialize our entry table.
             R_TRY(m_table.Initialize(node_storage, entry_storage, NodeSize, sizeof(Entry),
@@ -93,7 +93,7 @@ private:
 
         Result GetDataStorageSize(s64* out) {
             // Check pre-conditions.
-            ASSERT(out != nullptr);
+            assert(out != nullptr);
 
             // Get size.
             *out = m_data_storage->GetSize();
@@ -108,9 +108,9 @@ private:
         Result GetEntryList(Entry* out_entries, s32* out_read_count, s32 max_entry_count,
                             s64 offset, s64 size) {
             // Check pre-conditions.
-            ASSERT(offset >= 0);
-            ASSERT(size >= 0);
-            ASSERT(this->IsInitialized());
+            assert(offset >= 0);
+            assert(size >= 0);
+            assert(this->IsInitialized());
 
             // Check that we can output the count.
             R_UNLESS(out_read_count != nullptr, ResultNullptrArgument);
@@ -173,7 +173,7 @@ private:
 
         Result GetSize(s64* out) {
             // Check pre-conditions.
-            ASSERT(out != nullptr);
+            assert(out != nullptr);
 
             // Get our table offsets.
             BucketTree::Offsets offsets;
@@ -186,9 +186,9 @@ private:
 
         Result OperatePerEntry(s64 offset, s64 size, auto f) {
             // Check pre-conditions.
-            ASSERT(offset >= 0);
-            ASSERT(size >= 0);
-            ASSERT(this->IsInitialized());
+            assert(offset >= 0);
+            assert(size >= 0);
+            assert(this->IsInitialized());
 
             // Succeed if there's nothing to operate on.
             R_SUCCEED_IF(size == 0);
@@ -236,12 +236,12 @@ private:
                 // Get the offset of the entry in the data we read.
                 const auto data_offset = cur_offset - cur_entry_offset;
                 const auto data_size = (next_entry_offset - cur_entry_offset);
-                ASSERT(data_size > 0);
+                assert(data_size > 0);
 
                 // Determine how much is left.
                 const auto remaining_size = end_offset - cur_offset;
                 const auto cur_size = std::min<s64>(remaining_size, data_size - data_offset);
-                ASSERT(cur_size <= size);
+                assert(cur_size <= size);
 
                 // Get the data storage size.
                 s64 storage_size = m_data_storage->GetSize();
@@ -286,8 +286,8 @@ private:
     public:
         Result Read(s64 offset, s64 size, const ReadFunction& read_func) {
             // Check pre-conditions.
-            ASSERT(offset >= 0);
-            ASSERT(this->IsInitialized());
+            assert(offset >= 0);
+            assert(this->IsInitialized());
 
             // Succeed immediately, if we have nothing to read.
             R_SUCCEED_IF(size == 0);
@@ -365,7 +365,7 @@ private:
                                 return read_size;
                             } else {
                                 // If we don't fit, we must be uncompressed.
-                                ASSERT(entries[entry_idx].compression_type ==
+                                assert(entries[entry_idx].compression_type ==
                                        CompressionType::None);
 
                                 // We can perform the whole of an uncompressed read directly.
@@ -395,7 +395,7 @@ private:
                                 switch (compression_type) {
                                 case CompressionType::None: {
                                     // Check that we can remain within bounds.
-                                    ASSERT(buffer_offset + entries[entry_idx].virtual_size <=
+                                    assert(buffer_offset + entries[entry_idx].virtual_size <=
                                            cur_read_size);
 
                                     // Perform no decompression.
@@ -403,7 +403,7 @@ private:
                                         entries[entry_idx].virtual_size,
                                         [&](void* dst, size_t dst_size) -> Result {
                                             // Check that the size is valid.
-                                            ASSERT(dst_size == entries[entry_idx].virtual_size);
+                                            assert(dst_size == entries[entry_idx].virtual_size);
 
                                             // We have no compression, so just copy the data
                                             // out.
@@ -416,14 +416,14 @@ private:
                                 }
                                 case CompressionType::Zeros: {
                                     // Check that we can remain within bounds.
-                                    ASSERT(buffer_offset <= cur_read_size);
+                                    assert(buffer_offset <= cur_read_size);
 
                                     // Zero the memory.
                                     R_TRY(read_func(
                                         entries[entry_idx].virtual_size,
                                         [&](void* dst, size_t dst_size) -> Result {
                                             // Check that the size is valid.
-                                            ASSERT(dst_size == entries[entry_idx].virtual_size);
+                                            assert(dst_size == entries[entry_idx].virtual_size);
 
                                             // The data is zeroes, so zero the buffer.
                                             std::memset(dst, 0, entries[entry_idx].virtual_size);
@@ -434,7 +434,7 @@ private:
                                 }
                                 default: {
                                     // Check that we can remain within bounds.
-                                    ASSERT(buffer_offset + entries[entry_idx].physical_size <=
+                                    assert(buffer_offset + entries[entry_idx].physical_size <=
                                            cur_read_size);
 
                                     // Get the decompressor.
@@ -447,7 +447,7 @@ private:
                                     R_TRY(read_func(entries[entry_idx].virtual_size,
                                                     [&](void* dst, size_t dst_size) -> Result {
                                                         // Check that the size is valid.
-                                                        ASSERT(dst_size ==
+                                                        assert(dst_size ==
                                                                entries[entry_idx].virtual_size);
 
                                                         // Perform the decompression.
@@ -463,7 +463,7 @@ private:
                             }
 
                             // Check that we processed the correct amount of data.
-                            ASSERT(buffer_offset == cur_read_size);
+                            assert(buffer_offset == cur_read_size);
                         } else {
                             // Account for the gap from the previous entry.
                             required_access_physical_offset += entries[entry_idx].gap_from_prev;
@@ -474,7 +474,7 @@ private:
                             R_TRY(
                                 read_func(cur_read_size, [&](void* dst, size_t dst_size) -> Result {
                                     // Check that the size is valid.
-                                    ASSERT(dst_size == cur_read_size);
+                                    assert(dst_size == cur_read_size);
 
                                     // Perform the read.
                                     m_data_storage->Read(reinterpret_cast<u8*>(dst), cur_read_size,
@@ -490,14 +490,14 @@ private:
                     }
 
                     // Verify that we have nothing remaining to read.
-                    ASSERT(required_access_physical_size == 0);
+                    assert(required_access_physical_size == 0);
 
                     R_SUCCEED();
                 } else {
                     // We don't need a buffer, so just execute the read.
                     R_TRY(read_func(total_required_size, [&](void* dst, size_t dst_size) -> Result {
                         // Check that the size is valid.
-                        ASSERT(dst_size == total_required_size);
+                        assert(dst_size == total_required_size);
 
                         // Perform the read.
                         m_data_storage->Read(reinterpret_cast<u8*>(dst), total_required_size,
@@ -540,7 +540,7 @@ private:
                         if (required_by_gap || required_by_continuous_size ||
                             required_by_entry_count) {
                             // Check that our planned access is sane.
-                            ASSERT(!will_allocate_pooled_buffer ||
+                            assert(!will_allocate_pooled_buffer ||
                                    required_access_physical_size <=
                                        static_cast<s64>(m_continuous_reading_size_max));
 
@@ -559,7 +559,7 @@ private:
                     }
 
                     // Sanity check that we're within bounds on entries.
-                    ASSERT(entry_count < EntriesCountMax);
+                    assert(entry_count < EntriesCountMax);
 
                     // Determine if a buffer allocation is needed.
                     if (entry.compression_type != CompressionType::None ||
@@ -622,7 +622,7 @@ private:
                                 read_func(static_cast<size_t>(read_size),
                                           [&](void* dst, size_t dst_size) -> Result {
                                               // Check the space we should zero is correct.
-                                              ASSERT(dst_size == static_cast<size_t>(read_size));
+                                              assert(dst_size == static_cast<size_t>(read_size));
 
                                               // Zero the memory.
                                               std::memset(dst, 0, read_size);
@@ -828,12 +828,12 @@ private:
                             is_burst_reading = true;
                         }
                     }
-                    ASSERT((is_burst_reading ^ (unaligned_range != nullptr)));
+                    assert((is_burst_reading ^ (unaligned_range != nullptr)));
 
                     // Perform reading by burst, or not.
                     if (is_burst_reading) {
                         // Check that the access is valid for burst reading.
-                        ASSERT(size_buffer_required <= cur_size);
+                        assert(size_buffer_required <= cur_size);
 
                         // Perform the read.
                         Result rc = read_impl(cur_dst, size_buffer_required);
@@ -849,17 +849,17 @@ private:
                         // Determine whether we're going to continue burst reading.
                         const s64 offset_aligned =
                             tail_unaligned ? tail_range.virtual_offset : end_offset;
-                        ASSERT(cur_offset <= offset_aligned);
+                        assert(cur_offset <= offset_aligned);
 
                         if (offset_aligned <= cur_offset) {
                             is_burst_reading = false;
                         }
                     } else {
                         // We're not burst reading, so we have some unaligned range.
-                        ASSERT(unaligned_range != nullptr);
+                        assert(unaligned_range != nullptr);
 
                         // Check that the size is correct.
-                        ASSERT(size_buffer_required ==
+                        assert(size_buffer_required ==
                                static_cast<size_t>(unaligned_range->virtual_size));
 
                         // Get a pooled buffer for our read.

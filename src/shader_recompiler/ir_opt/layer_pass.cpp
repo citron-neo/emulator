@@ -48,7 +48,7 @@ void LayerPass(IR::Program& program, const HostTranslateInfo& host_info) {
     bool requires_layer_emulation = false;
 
     for (auto block = program.post_order_blocks.begin(); block != end; ++block) {
-        for (IR::Inst& inst : (*block)->Instructions()) {
+        for (IR::Inst& inst : **block) {
             if (inst.GetOpcode() == IR::Opcode::SetAttribute &&
                 inst.Arg(0).Attribute() == IR::Attribute::Layer) {
                 requires_layer_emulation = true;

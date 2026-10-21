@@ -7,8 +7,8 @@
 #include <atomic>
 #include <condition_variable>
 #include <functional>
-#include <list>
 #include <mutex>
+#include <vector>
 
 #include "common/common_types.h"
 
@@ -26,13 +26,15 @@ public:
         return syncpoints_host[id].load(std::memory_order_acquire);
     }
 
+    // Waiters are kept sorted by expected value in a vector, so an iterator would go stale on
+    // the next insert or erase. Handles are ids instead; 0 means the action already ran.
+    using ActionHandle = u64;
+
     struct RegisteredAction {
-        explicit RegisteredAction(u32 expected_value_, std::function<void()>&& action_)
-            : expected_value{expected_value_}, action{std::move(action_)} {}
+        ActionHandle id;
         u32 expected_value;
         std::function<void()> action;
     };
-    using ActionHandle = std::vector<RegisteredAction>::iterator;
 
     template <typename Func>
     ActionHandle RegisterGuestAction(u32 syncpoint_id, u32 expected_value, Func&& action) {
@@ -46,9 +48,9 @@ public:
                               expected_value, std::move(action));
     }
 
-    void DeregisterGuestAction(u32 syncpoint_id, const ActionHandle& handle);
+    void DeregisterGuestAction(u32 syncpoint_id, ActionHandle handle);
 
-    void DeregisterHostAction(u32 syncpoint_id, const ActionHandle& handle);
+    void DeregisterHostAction(u32 syncpoint_id, ActionHandle handle);
 
     void IncrementGuest(u32 syncpoint_id);
 
@@ -74,7 +76,7 @@ private:
                                 std::vector<RegisteredAction>& action_storage, u32 expected_value,
                                 std::function<void()>&& action);
 
-    void DeregisterAction(std::vector<RegisteredAction>& action_storage, const ActionHandle& handle);
+    void DeregisterAction(std::vector<RegisteredAction>& action_storage, ActionHandle handle);
 
     void Wait(std::atomic<u32>& syncpoint, std::condition_variable& wait_cv, u32 expected_value);
 
@@ -86,6 +88,7 @@ private:
     std::array<std::vector<RegisteredAction>, NUM_MAX_SYNCPOINTS> guest_action_storage;
     std::array<std::vector<RegisteredAction>, NUM_MAX_SYNCPOINTS> host_action_storage;
 
+    ActionHandle next_action_id{}; // Guarded by guard
     std::mutex guard;
     std::condition_variable wait_guest_cv;
     std::condition_variable wait_host_cv;

@@ -25,7 +25,7 @@ private:
 private:
     Result Initialize(size_t num_blocks) {
         // Check num blocks.
-        ASSERT(num_blocks <= MaxBlocks);
+        assert(num_blocks <= MaxBlocks);
 
         // Set index.
         m_index = MaxBlocks - num_blocks;
@@ -55,16 +55,16 @@ public:
     }
 
     KMemoryBlock* Allocate() {
-        ASSERT(m_index < MaxBlocks);
-        ASSERT(m_blocks[m_index] != nullptr);
+        assert(m_index < MaxBlocks);
+        assert(m_blocks[m_index] != nullptr);
         KMemoryBlock* block = nullptr;
         std::swap(block, m_blocks[m_index++]);
         return block;
     }
 
     void Free(KMemoryBlock* block) {
-        ASSERT(m_index <= MaxBlocks);
-        ASSERT(block != nullptr);
+        assert(m_index <= MaxBlocks);
+        assert(block != nullptr);
         if (m_index == 0) {
             m_slab_manager->Free(block);
         } else {

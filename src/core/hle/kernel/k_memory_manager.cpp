@@ -30,7 +30,7 @@ constexpr KMemoryManager::Pool GetPoolFromMemoryRegionType(u32 type) {
     } else if ((type | KMemoryRegionType_DramSystemNonSecurePool) == type) {
         return KMemoryManager::Pool::SystemNonSecure;
     } else {
-        UNREACHABLE_MSG("InvalidMemoryRegionType for conversion to Pool");
+        std::unreachable(); // InvalidMemoryRegionType for conversion to Pool
     }
 }
 
@@ -75,9 +75,9 @@ void KMemoryManager::Initialize(KVirtualAddress management_region, size_t manage
             const KPhysicalAddress cur_end = it.GetEndAddress();
 
             // Validate the region.
-            ASSERT(cur_end != 0);
-            ASSERT(cur_start != 0);
-            ASSERT(it.GetSize() > 0);
+            assert(cur_end != 0);
+            assert(cur_start != 0);
+            assert(it.GetSize() > 0);
 
             // Update the region's extents.
             if (region_address == 0) {
@@ -85,11 +85,11 @@ void KMemoryManager::Initialize(KVirtualAddress management_region, size_t manage
                 region_size = it.GetSize();
                 region_pool = GetPoolFromMemoryRegionType(it.GetType());
             } else {
-                ASSERT(cur_start == region_address + region_size);
+                assert(cur_start == region_address + region_size);
 
                 // Update the size.
                 region_size = cur_end - region_address;
-                ASSERT(GetPoolFromMemoryRegionType(it.GetType()) == region_pool);
+                assert(GetPoolFromMemoryRegionType(it.GetType()) == region_pool);
             }
         }
 
@@ -100,12 +100,12 @@ void KMemoryManager::Initialize(KVirtualAddress management_region, size_t manage
 
         // Initialize a new manager for the region.
         Impl* manager = std::addressof(m_managers[m_num_managers++]);
-        ASSERT(m_num_managers <= m_managers.size());
+        assert(m_num_managers <= m_managers.size());
 
         const size_t cur_size = manager->Initialize(region_address, region_size, management_region,
                                                     management_region_end, region_pool);
         management_region += cur_size;
-        ASSERT(management_region <= management_region_end);
+        assert(management_region <= management_region_end);
 
         // Insert the manager into the pool list.
         const auto region_pool_index = static_cast<u32>(region_pool);
@@ -145,16 +145,16 @@ void KMemoryManager::Initialize(KVirtualAddress management_region, size_t manage
 
                 // Free memory after the ini to the heap.
                 if (ini_last != cur_last) {
-                    ASSERT(cur_end != 0);
+                    assert(cur_end != 0);
                     manager.Free(ini_end, (cur_end - ini_end) / PageSize);
                 }
             } else {
                 // Ensure there's no partial overlap with the ini image.
                 if (cur_start <= ini_last) {
-                    ASSERT(cur_last < ini_start);
+                    assert(cur_last < ini_start);
                 } else {
                     // Otherwise, check the region for general validity.
-                    ASSERT(cur_end != 0);
+                    assert(cur_end != 0);
                 }
 
                 // Free the memory to the heap.
@@ -300,8 +300,8 @@ Result KMemoryManager::AllocatePageGroupImpl(KPageGroup* out, size_t num_pages, 
 }
 
 Result KMemoryManager::AllocateAndOpen(KPageGroup* out, size_t num_pages, u32 option) {
-    ASSERT(out != nullptr);
-    ASSERT(out->GetNumPages() == 0);
+    assert(out != nullptr);
+    assert(out->GetNumPages() == 0);
 
     // Early return if we're allocating no pages.
     R_SUCCEED_IF(num_pages == 0);
@@ -338,8 +338,8 @@ Result KMemoryManager::AllocateAndOpen(KPageGroup* out, size_t num_pages, u32 op
 
 Result KMemoryManager::AllocateForProcess(KPageGroup* out, size_t num_pages, u32 option,
                                           u64 process_id, u8 fill_pattern) {
-    ASSERT(out != nullptr);
-    ASSERT(out->GetNumPages() == 0);
+    assert(out != nullptr);
+    assert(out->GetNumPages() == 0);
 
     // Decode the option.
     const auto [pool, dir] = DecodeOption(option);
@@ -474,9 +474,9 @@ Result KMemoryManager::AllocateForProcessContinuous(KPageGroup* out,
                                                     size_t* out_tail_pages, size_t num_pages,
                                                     size_t reserve_pages, u32 option,
                                                     u64 process_id, u8 fill_pattern) {
-    ASSERT(out != nullptr && out->GetNumPages() == 0);
-    ASSERT(out_tail_address != nullptr && out_tail_pages != nullptr);
-    ASSERT(num_pages > 0 && reserve_pages >= num_pages);
+    assert(out != nullptr && out->GetNumPages() == 0);
+    assert(out_tail_address != nullptr && out_tail_pages != nullptr);
+    assert(num_pages > 0 && reserve_pages >= num_pages);
 
     *out_tail_address = 0;
     *out_tail_pages = 0;
@@ -523,7 +523,7 @@ void KMemoryManager::ReleaseContinuous(KPhysicalAddress address, size_t num_page
 Result KMemoryManager::ConsumeForProcess(KPageGroup* out, KPhysicalAddress address,
                                          size_t num_pages, u32 option, u64 process_id,
                                          u8 fill_pattern) {
-    ASSERT(out != nullptr && out->GetNumPages() == 0);
+    assert(out != nullptr && out->GetNumPages() == 0);
     const auto [pool, dir] = DecodeOption(option);
     static_cast<void>(dir);
     R_TRY(out->AddBlock(address, num_pages));
@@ -540,16 +540,16 @@ size_t KMemoryManager::Impl::Initialize(KPhysicalAddress address, size_t size,
     const size_t manager_size = Common::AlignUp(optimize_map_size + ref_count_size, PageSize);
     const size_t page_heap_size = KPageHeap::CalculateManagementOverheadSize(size);
     const size_t total_management_size = manager_size + page_heap_size;
-    ASSERT(manager_size <= total_management_size);
-    ASSERT(management + total_management_size <= management_end);
-    ASSERT(Common::IsAligned(total_management_size, PageSize));
+    assert(manager_size <= total_management_size);
+    assert(management + total_management_size <= management_end);
+    assert(Common::IsAligned(total_management_size, PageSize));
 
     // Setup region.
     m_pool = p;
     m_management_region = management;
     // Allocate page reference counts based on actual managed size, not total memory size
     m_page_reference_counts.resize(size / PageSize);
-    ASSERT(Common::IsAligned(GetInteger(m_management_region), PageSize));
+    assert(Common::IsAligned(GetInteger(m_management_region), PageSize));
 
     // Initialize the manager's KPageHeap.
     m_heap.Initialize(address, size, management + manager_size, page_heap_size);

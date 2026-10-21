@@ -130,7 +130,7 @@ IR::Opcode ReplaceFP16ToFP32(IR::Opcode op) {
 
 void LowerFp16ToFp32(IR::Program& program) {
     for (IR::Block* const block : program.blocks) {
-        for (IR::Inst& inst : block->Instructions()) {
+        for (IR::Inst& inst : *block) {
             inst.ReplaceOpcode(ReplaceFP16ToFP32(inst.GetOpcode()));
         }
     }

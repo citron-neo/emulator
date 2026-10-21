@@ -81,7 +81,7 @@ std::pair<std::array<Shader::TransformFeedbackVarying, 256>, u32> MakeTransformF
                 case 3:
                     return locations[index / 4].attribute3.Value();
                 }
-                UNREACHABLE();
+                std::unreachable();
                 return 0;
             };
 

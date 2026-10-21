@@ -478,4 +478,9 @@ constexpr inline Result __TmpCurrentResultReference = ResultSuccess;
 #define R_CONVERT_ALL(convert_type)                                                                \
     R_CATCH_ALL() { R_THROW(static_cast<Result>(convert_type)); }
 
-#define R_ASSERT(res_expr) ASSERT(R_SUCCEEDED(res_expr))
+// The expression is evaluated in every build; only the check is compiled out with NDEBUG.
+#define R_ASSERT(res_expr)                                                                         \
+    do {                                                                                           \
+        [[maybe_unused]] const auto r_assert_result = (res_expr);                                  \
+        assert(R_SUCCEEDED(r_assert_result));                                                      \
+    } while (0)

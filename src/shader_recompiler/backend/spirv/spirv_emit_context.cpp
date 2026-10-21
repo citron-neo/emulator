@@ -87,8 +87,36 @@ spv::ImageFormat GetImageFormat(ImageFormat format) {
     throw InvalidArgument("Invalid image format {}", format);
 }
 
+/// The image format for a storage image or image buffer declaration, with the capability it
+/// needs. Of the formats GetImageFormat returns, the 8-bit, 16-bit and two-component ones need
+/// StorageImageExtendedFormats (SPIR-V core grammar, ImageFormat); without that feature the image
+/// is declared without a format, as a typeless one is.
+spv::ImageFormat StorageImageFormat(EmitContext& ctx, ImageFormat format) {
+    const spv::ImageFormat spv_format{GetImageFormat(format)};
+    switch (spv_format) {
+    case spv::ImageFormat::R8ui:
+    case spv::ImageFormat::R8i:
+    case spv::ImageFormat::R16ui:
+    case spv::ImageFormat::R16i:
+    case spv::ImageFormat::Rg32ui:
+    case spv::ImageFormat::Rg32i:
+    case spv::ImageFormat::Rg32f:
+        if (ctx.profile.support_storage_image_extended_formats) {
+            ctx.AddCapability(spv::Capability::StorageImageExtendedFormats);
+            return spv_format;
+        }
+        ctx.AddCapability(spv::Capability::StorageImageWriteWithoutFormat);
+        if (ctx.profile.support_typeless_image_loads) {
+            ctx.AddCapability(spv::Capability::StorageImageReadWithoutFormat);
+        }
+        return spv::ImageFormat::Unknown;
+    default:
+        return spv_format;
+    }
+}
+
 Id ImageType(EmitContext& ctx, const ImageDescriptor& desc, Id sampled_type) {
-    const spv::ImageFormat format{GetImageFormat(desc.format)};
+    const spv::ImageFormat format{StorageImageFormat(ctx, desc.format)};
     switch (desc.type) {
     case TextureType::Color1D:
         return ctx.TypeImage(sampled_type, spv::Dim::Dim1D, false, false, false, 2, format);
@@ -192,7 +220,8 @@ void DefineGenericOutput(EmitContext& ctx, size_t index, std::optional<u32> invo
         const u32 num_components{xfb_varying ? xfb_varying->components : remainder};
 
         const Id id{DefineOutput(ctx, ctx.F32[num_components], invocations)};
-        ctx.Decorate(id, spv::Decoration::Location, static_cast<u32>(index));
+        ctx.Decorate(id, spv::Decoration::Location,
+                     static_cast<u32>(ctx.runtime_info.output_generic_locations[index]));
         if (element > 0) {
             ctx.Decorate(id, spv::Decoration::Component, element);
         }
@@ -489,7 +518,8 @@ void VectorTypes::Define(Sirit::Module& sirit_ctx, Id base_type, std::string_vie
 EmitContext::EmitContext(const Profile& profile_, const RuntimeInfo& runtime_info_,
                          IR::Program& program, Bindings& bindings)
     : Sirit::Module(profile_.supported_spirv), profile{profile_}, runtime_info{runtime_info_},
-      stage{program.stage}, texture_rescaling_index{bindings.texture_scaling_index},
+      stage{program.stage}, inst_storage{program.inst_storage},
+      texture_rescaling_index{bindings.texture_scaling_index},
       image_rescaling_index{bindings.image_scaling_index} {
     const bool is_unified{profile.unified_descriptor_binding};
     const bool is_split{profile.has_split_descriptor_sets};
@@ -526,9 +556,15 @@ EmitContext::EmitContext(const Profile& profile_, const RuntimeInfo& runtime_inf
 
 EmitContext::~EmitContext() = default;
 
-Id EmitContext::Def(const IR::Value& value) {
-    if (!value.IsImmediate()) {
-        return value.InstRecursive()->Definition<Id>();
+IR::Inst* EmitContext::Inst(const IR::Value& value) const {
+    return inst_storage->Get(value);
+}
+
+Id EmitContext::Def(const IR::Value& raw_value) {
+    // An Identity chain may end in an immediate; read the immediate the chain resolves to
+    const IR::Value value{inst_storage->Resolve(raw_value)};
+    if (value.IsInst()) {
+        return inst_storage->At(value.InstIndex()).Definition<Id>();
     }
     switch (value.Type()) {
     case IR::Type::Void:
@@ -918,7 +954,7 @@ void EmitContext::DefineAttributeMemAccess(const Info& info) {
 }
 
 void EmitContext::DefineWriteStorageCasLoopFunction(const Info& info) {
-    if (profile.support_int8 && profile.support_int16) {
+    if (profile.support_int8_storage && profile.support_int16_storage) {
         return;
     }
     if (!info.uses_int8 && !info.uses_int16) {
@@ -976,18 +1012,27 @@ void EmitContext::DefineGlobalMemoryFunctions(const Info& info) {
     const auto define_body{[&](DefPtr ssbo_member, Id addr, Id element_pointer, u32 shift,
                                auto&& callback) {
         AddLabel();
+        // Every storage buffer of the shader is searched, not only the NVN slots it reads: a
+        // pointer the shader loads from memory can point into a buffer that was tracked from
+        // another constant buffer (DOOM Eternal keeps its table in cbuf 5). nvn_buffer_used is
+        // indexed by NVN slot, not by descriptor, so it could not select descriptors anyway.
         const size_t num_buffers{info.storage_buffers_descriptors.size()};
         for (size_t index = 0; index < num_buffers; ++index) {
-            if (!info.nvn_buffer_used[index]) {
+            const auto& ssbo{info.storage_buffers_descriptors[index]};
+            // The address (a u32x2 at the descriptor) and size (the word after it) are read from
+            // the constant buffer that holds the descriptor, which the shader only declares when
+            // it reads it.
+            const UniformDefinitions& cbuf{cbufs[ssbo.cbuf_index]};
+            if (ssbo.count != 1 || ssbo.cbuf_offset % 8 != 0 || cbuf.U32x2.value == 0 ||
+                cbuf.U32.value == 0) {
                 continue;
             }
-            const auto& ssbo{info.storage_buffers_descriptors[index]};
             const Id ssbo_addr_cbuf_offset{Const(ssbo.cbuf_offset / 8)};
             const Id ssbo_size_cbuf_offset{Const(ssbo.cbuf_offset / 4 + 2)};
-            const Id ssbo_addr_pointer{OpAccessChain(
-                uniform_types.U32x2, cbufs[ssbo.cbuf_index].U32x2, zero, ssbo_addr_cbuf_offset)};
-            const Id ssbo_size_pointer{OpAccessChain(uniform_types.U32, cbufs[ssbo.cbuf_index].U32,
-                                                     zero, ssbo_size_cbuf_offset)};
+            const Id ssbo_addr_pointer{
+                OpAccessChain(uniform_types.U32x2, cbuf.U32x2, zero, ssbo_addr_cbuf_offset)};
+            const Id ssbo_size_pointer{
+                OpAccessChain(uniform_types.U32, cbuf.U32, zero, ssbo_size_cbuf_offset)};
 
             const u64 ssbo_align_mask{~(profile.min_ssbo_alignment - 1U)};
             const Id unaligned_addr{OpBitcast(U64, OpLoad(U32[2], ssbo_addr_pointer))};
@@ -1046,6 +1091,32 @@ void EmitContext::DefineGlobalMemoryFunctions(const Info& info) {
         define(&StorageDefinitions::U32x2, storage_types.U32x2, U32[2], sizeof(u32[2]));
     std::tie(load_global_func_u32x4, write_global_func_u32x4) =
         define(&StorageDefinitions::U32x4, storage_types.U32x4, U32[4], sizeof(u32[4]));
+    if (!info.stores_global_memory) {
+        return;
+    }
+    // Atomics take the same storage buffer search as the loads and writes above and return the
+    // old value (0 when no storage buffer holds the address, as a load returns).
+    using AtomicFunc = Id (Sirit::Module::*)(Id, Id, Id, Id, Id);
+    constexpr std::array<AtomicFunc, static_cast<size_t>(GlobalAtomicOp::Count)> atomic_ops{
+        &Sirit::Module::OpAtomicIAdd, &Sirit::Module::OpAtomicSMin, &Sirit::Module::OpAtomicUMin,
+        &Sirit::Module::OpAtomicSMax, &Sirit::Module::OpAtomicUMax, &Sirit::Module::OpAtomicAnd,
+        &Sirit::Module::OpAtomicOr, &Sirit::Module::OpAtomicXor, &Sirit::Module::OpAtomicExchange,
+    };
+    const Id scope{Const(static_cast<u32>(spv::Scope::Device))};
+    const Id function_type{TypeFunction(U32[1], U64, U32[1])};
+    for (size_t op = 0; op < atomic_ops.size(); ++op) {
+        const Id func_id{OpFunction(U32[1], spv::FunctionControlMask::MaskNone, function_type)};
+        const Id addr{OpFunctionParameter(U64)};
+        const Id value{OpFunctionParameter(U32[1])};
+        define_body(&StorageDefinitions::U32, addr, storage_types.U32.element, 2,
+                    [&](Id ssbo_pointer) {
+                        OpReturnValue(
+                            (this->*atomic_ops[op])(U32[1], ssbo_pointer, scope, zero, value));
+                    });
+        OpReturnValue(zero);
+        OpFunctionEnd();
+        global_atomic_func_u32[op] = func_id;
+    }
 }
 
 void EmitContext::DefineRescalingInput(const Info& info) {
@@ -1159,7 +1230,7 @@ void EmitContext::DefineConstantBuffers(const Info& info, u32& binding) {
     }
     IR::Type types{info.used_constant_buffer_types | info.used_indirect_cbuf_types};
     if (True(types & IR::Type::U8)) {
-        if (profile.support_int8) {
+        if (profile.support_int8_uniform) {
             DefineConstBuffers(*this, info, &UniformDefinitions::U8, binding, U8, 'u', sizeof(u8));
             DefineConstBuffers(*this, info, &UniformDefinitions::S8, binding, S8, 's', sizeof(s8));
         } else {
@@ -1167,7 +1238,7 @@ void EmitContext::DefineConstantBuffers(const Info& info, u32& binding) {
         }
     }
     if (True(types & IR::Type::U16)) {
-        if (profile.support_int16) {
+        if (profile.support_int16_uniform) {
             DefineConstBuffers(*this, info, &UniformDefinitions::U16, binding, U16, 'u',
                                sizeof(u16));
             DefineConstBuffers(*this, info, &UniformDefinitions::S16, binding, S16, 's',
@@ -1256,13 +1327,13 @@ void EmitContext::DefineStorageBuffers(const Info& info, u32& binding) {
 
     const IR::Type used_types{profile.support_descriptor_aliasing ? info.used_storage_buffer_types
                                                                   : IR::Type::U32};
-    if (profile.support_int8 && True(used_types & IR::Type::U8)) {
+    if (profile.support_int8_storage && True(used_types & IR::Type::U8)) {
         DefineSsbos(*this, storage_types.U8, &StorageDefinitions::U8, info, binding, U8,
                     sizeof(u8));
         DefineSsbos(*this, storage_types.S8, &StorageDefinitions::S8, info, binding, S8,
                     sizeof(u8));
     }
-    if (profile.support_int16 && True(used_types & IR::Type::U16)) {
+    if (profile.support_int16_storage && True(used_types & IR::Type::U16)) {
         DefineSsbos(*this, storage_types.U16, &StorageDefinitions::U16, info, binding, U16,
                     sizeof(u16));
         DefineSsbos(*this, storage_types.S16, &StorageDefinitions::S16, info, binding, S16,
@@ -1375,7 +1446,7 @@ void EmitContext::DefineTextureBuffers(const Info& info, u32& binding) {
 void EmitContext::DefineImageBuffers(const Info& info, u32& binding) {
     image_buffers.reserve(info.image_buffer_descriptors.size());
     for (const ImageBufferDescriptor& desc : info.image_buffer_descriptors) {
-        const spv::ImageFormat format{GetImageFormat(desc.format)};
+        const spv::ImageFormat format{StorageImageFormat(*this, desc.format)};
         const Id sampled_type{desc.is_integer ? U32[1] : F32[1]};
         const Id image_type{
             TypeImage(sampled_type, spv::Dim::Buffer, false, false, false, 2, format)};
@@ -1477,6 +1548,13 @@ void EmitContext::DefineImages(const Info& info, u32& binding, u32& scaling_inde
 void EmitContext::DefineInputs(const IR::Program& program) {
     const Info& info{program.info};
     const VaryingState loads{info.loads.mask | info.passthrough.mask};
+    // An integer input of a fragment shader must be Flat, and no input of a vertex shader may be
+    // (VUID-StandaloneSpirv-Flat-04744 and -06202); the other stages do not need it.
+    const auto flat_in_fragment{[&](Id id) {
+        if (stage == Stage::Fragment) {
+            Decorate(id, spv::Decoration::Flat);
+        }
+    }};
 
     if (info.uses_workgroup_id) {
         workgroup_id = DefineInput(*this, U32[3], false, spv::BuiltIn::WorkgroupId);
@@ -1493,6 +1571,7 @@ void EmitContext::DefineInputs(const IR::Program& program) {
     }
     if (info.uses_sample_id) {
         sample_id = DefineInput(*this, U32[1], false, spv::BuiltIn::SampleId);
+        flat_in_fragment(sample_id);
     }
     if (info.uses_is_helper_invocation) {
         is_helper_invocation = DefineInput(*this, U1, false, spv::BuiltIn::HelperInvocation);
@@ -1503,6 +1582,10 @@ void EmitContext::DefineInputs(const IR::Program& program) {
         subgroup_mask_le = DefineInput(*this, U32[4], false, spv::BuiltIn::SubgroupLeMaskKHR);
         subgroup_mask_gt = DefineInput(*this, U32[4], false, spv::BuiltIn::SubgroupGtMaskKHR);
         subgroup_mask_ge = DefineInput(*this, U32[4], false, spv::BuiltIn::SubgroupGeMaskKHR);
+        for (const Id mask : {subgroup_mask_eq, subgroup_mask_lt, subgroup_mask_le,
+                              subgroup_mask_gt, subgroup_mask_ge}) {
+            flat_in_fragment(mask);
+        }
     }
     if (info.uses_fswzadd || info.uses_subgroup_invocation_id || info.uses_subgroup_shuffles ||
         (profile.warp_size_potentially_larger_than_guest &&
@@ -1510,7 +1593,7 @@ void EmitContext::DefineInputs(const IR::Program& program) {
         AddCapability(spv::Capability::GroupNonUniform);
         subgroup_local_invocation_id =
             DefineInput(*this, U32[1], false, spv::BuiltIn::SubgroupLocalInvocationId);
-        Decorate(subgroup_local_invocation_id, spv::Decoration::Flat);
+        flat_in_fragment(subgroup_local_invocation_id);
     }
     if (info.uses_fswzadd) {
         const Id f32_one{Const(1.0f)};
@@ -1522,11 +1605,12 @@ void EmitContext::DefineInputs(const IR::Program& program) {
     }
     if (loads[IR::Attribute::PrimitiveId]) {
         primitive_id = DefineInput(*this, U32[1], false, spv::BuiltIn::PrimitiveId);
+        flat_in_fragment(primitive_id);
     }
     if (loads[IR::Attribute::Layer]) {
         AddCapability(spv::Capability::Geometry);
         layer = DefineInput(*this, U32[1], false, spv::BuiltIn::Layer);
-        Decorate(layer, spv::Decoration::Flat);
+        flat_in_fragment(layer);
     }
     if (loads.AnyComponent(IR::Attribute::PositionX)) {
         const bool is_fragment{stage == Stage::Fragment};
@@ -1603,7 +1687,8 @@ void EmitContext::DefineInputs(const IR::Program& program) {
         }
         const Id type{GetAttributeType(*this, input_type)};
         const Id id{DefineInput(*this, type, true)};
-        Decorate(id, spv::Decoration::Location, static_cast<u32>(index));
+        Decorate(id, spv::Decoration::Location,
+                 static_cast<u32>(runtime_info.input_generic_locations[index]));
         Name(id, fmt::format("in_attr{}", index));
         input_generics[index] = GetAttributeInfo(*this, input_type, id);
 

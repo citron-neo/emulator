@@ -92,7 +92,7 @@ KVirtualAddress KMemoryRegionTree::GetRandomAlignedRegion(size_t size, size_t al
     const auto extents = this->GetDerivedRegionExtents(static_cast<KMemoryRegionType>(type_id));
 
     // Ensure that our alignment is correct.
-    ASSERT(Common::IsAligned(extents.GetAddress(), alignment));
+    assert(Common::IsAligned(extents.GetAddress(), alignment));
 
     const u64 first_address = extents.GetAddress();
     const u64 last_address = extents.GetLastAddress();

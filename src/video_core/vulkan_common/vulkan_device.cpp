@@ -1042,7 +1042,7 @@ bool Device::GetSuitability(bool requires_swapchain) {
     instance_version = properties.properties.apiVersion;
 
     // Minimum of API version 1.1 is required. (This is well-supported.)
-    ASSERT(instance_version >= VK_API_VERSION_1_1);
+    assert(instance_version >= VK_API_VERSION_1_1);
 
     // Get available extensions.
     auto extension_properties = physical.EnumerateDeviceExtensionProperties();
@@ -1200,6 +1200,11 @@ bool Device::GetSuitability(bool requires_swapchain) {
         properties.transform_feedback.sType =
             VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TRANSFORM_FEEDBACK_PROPERTIES_EXT;
         SetNext(next, properties.transform_feedback);
+    }
+    if (extensions.robustness_2) {
+        properties.robustness2.sType =
+            VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ROBUSTNESS_2_PROPERTIES_EXT;
+        SetNext(next, properties.robustness2);
     }
 
     // Perform the property fetch.

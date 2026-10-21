@@ -9,6 +9,7 @@
 
 #include "video_core/renderer_vulkan/vk_texture_cache.h"
 
+#include "common/alignment.h"
 #include "common/assert.h"
 #include "common/common_types.h"
 #include "common/div_ceil.h"
@@ -306,8 +307,8 @@ Uint8Pass::Uint8Pass(const Device& device_, Scheduler& scheduler_, DescriptorPoo
                      StagingBufferPool& staging_buffer_pool_,
                      ComputePassDescriptorQueue& compute_pass_descriptor_queue_)
     : ComputePass(device_, descriptor_pool, INPUT_OUTPUT_DESCRIPTOR_SET_BINDINGS,
-                  INPUT_OUTPUT_DESCRIPTOR_UPDATE_TEMPLATE, INPUT_OUTPUT_BANK_INFO, {},
-                  VULKAN_UINT8_COMP_SPV),
+                  INPUT_OUTPUT_DESCRIPTOR_UPDATE_TEMPLATE, INPUT_OUTPUT_BANK_INFO,
+                  COMPUTE_PUSH_CONSTANT_RANGE<sizeof(u32) * 2>, VULKAN_UINT8_COMP_SPV),
       scheduler{scheduler_}, staging_buffer_pool{staging_buffer_pool_},
       compute_pass_descriptor_queue{compute_pass_descriptor_queue_} {}
 
@@ -315,28 +316,44 @@ Uint8Pass::~Uint8Pass() = default;
 
 std::pair<VkBuffer, VkDeviceSize> Uint8Pass::Assemble(u32 num_vertices, VkBuffer src_buffer,
                                                       u32 src_offset) {
-    const u32 staging_size = static_cast<u32>(num_vertices * sizeof(u16));
+    // The input descriptor starts at the last storage-buffer-aligned offset before the first
+    // index (minStorageBufferOffsetAlignment is 4 on Turnip, 16 on lavapipe and others) and the
+    // shader reads it as 32-bit words from the byte the push constant names, so no offset the
+    // index buffer can have breaks the descriptor; the output is written as words of two indices
+    // (vulkan_uint8.comp). The buffer cache's buffers are CACHING_PAGESIZE aligned, so the
+    // rounded-up input range stays inside the buffer.
+    const u32 alignment = static_cast<u32>(device.GetStorageBufferAlignment());
+    const u32 input_offset = Common::AlignDown(src_offset, alignment);
+    const u32 first_byte = src_offset - input_offset;
+    const u32 input_size = Common::AlignUp(first_byte + num_vertices, sizeof(u32));
+    const u32 num_words = Common::DivCeil(num_vertices, 2u);
+    const u32 staging_size = num_words * static_cast<u32>(sizeof(u32));
     const auto staging = staging_buffer_pool.Request(staging_size, MemoryUsage::DeviceLocal);
 
     compute_pass_descriptor_queue.Acquire();
-    compute_pass_descriptor_queue.AddBuffer(src_buffer, src_offset, num_vertices);
+    compute_pass_descriptor_queue.AddBuffer(src_buffer, input_offset, input_size);
     compute_pass_descriptor_queue.AddBuffer(staging.buffer, staging.offset, staging_size);
     const void* const descriptor_data{compute_pass_descriptor_queue.UpdateData()};
 
     scheduler.RequestOutsideRenderPassOperationContext();
-    scheduler.Record([this, descriptor_data, num_vertices](vk::CommandBuffer cmdbuf) {
+    scheduler.Record([this, descriptor_data, first_byte, num_vertices,
+                      num_words](vk::CommandBuffer cmdbuf) {
         static constexpr u32 DISPATCH_SIZE = 1024;
         static constexpr VkMemoryBarrier WRITE_BARRIER{
             .sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER,
             .pNext = nullptr,
             .srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT,
-            .dstAccessMask = VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT,
+            // The converted indices are bound as the index buffer.
+            .dstAccessMask = VK_ACCESS_INDEX_READ_BIT,
         };
+        const std::array<u32, 2> push_constants{first_byte, num_vertices};
         const VkDescriptorSet set = descriptor_allocator.Commit();
         device.GetLogical().UpdateDescriptorSet(set, *descriptor_template, descriptor_data);
         cmdbuf.BindPipeline(VK_PIPELINE_BIND_POINT_COMPUTE, *pipeline);
         cmdbuf.BindDescriptorSets(VK_PIPELINE_BIND_POINT_COMPUTE, *layout, 0, set, {});
-        cmdbuf.Dispatch(Common::DivCeil(num_vertices, DISPATCH_SIZE), 1, 1);
+        cmdbuf.PushConstants(*layout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(push_constants),
+                             &push_constants);
+        cmdbuf.Dispatch(Common::DivCeil(num_words, DISPATCH_SIZE), 1, 1);
         cmdbuf.PipelineBarrier(VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
                                VK_PIPELINE_STAGE_VERTEX_INPUT_BIT, 0, WRITE_BARRIER);
     });
@@ -367,7 +384,7 @@ std::pair<VkBuffer, VkDeviceSize> QuadIndexedPass::Assemble(
         case Tegra::Engines::Maxwell3D::Regs::IndexFormat::UnsignedInt:
             return 2;
         }
-        ASSERT(false);
+        assert(false);
         return 2;
     }();
     const u32 input_size = num_vertices << index_shift;
@@ -553,7 +570,8 @@ void ASTCDecoderPass::Assemble(Image& image, const StagingBufferRef& map,
         const VkImageMemoryBarrier image_barrier{
             .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
             .pNext = nullptr,
-            .srcAccessMask = static_cast<VkAccessFlags>(is_initialized ? VK_ACCESS_SHADER_WRITE_BIT
+            // Any earlier write to the image (a copy, a render, a shader), not only shader writes.
+            .srcAccessMask = static_cast<VkAccessFlags>(is_initialized ? VK_ACCESS_MEMORY_WRITE_BIT
                                                                        : VK_ACCESS_NONE),
             .dstAccessMask = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT,
             .oldLayout = is_initialized ? VK_IMAGE_LAYOUT_GENERAL : VK_IMAGE_LAYOUT_UNDEFINED,
@@ -588,9 +606,9 @@ void ASTCDecoderPass::Assemble(Image& image, const StagingBufferRef& map,
 
         // To unswizzle the ASTC data
         const auto params = MakeBlockLinearSwizzle2DParams(swizzle, image.info);
-        ASSERT(params.origin == (std::array<u32, 3>{0, 0, 0}));
-        ASSERT(params.destination == (std::array<s32, 3>{0, 0, 0}));
-        ASSERT(params.bytes_per_block_log2 == 4);
+        assert(params.origin == (std::array<u32, 3>{0, 0, 0}));
+        assert(params.destination == (std::array<s32, 3>{0, 0, 0}));
+        assert(params.bytes_per_block_log2 == 4);
         scheduler.Record([this, num_dispatches_x, num_dispatches_y, num_dispatches_z, block_dims,
                           params, descriptor_data](vk::CommandBuffer cmdbuf) {
             const AstcPushConstants uniforms{
@@ -609,11 +627,13 @@ void ASTCDecoderPass::Assemble(Image& image, const StagingBufferRef& map,
         });
     }
     scheduler.Record([vk_image, aspect_mask](vk::CommandBuffer cmdbuf) {
+        // The decoded image is next sampled, copied, blitted or rendered to: make the writes
+        // visible to every kind of access.
         const VkImageMemoryBarrier image_barrier{
             .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
             .pNext = nullptr,
             .srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT,
-            .dstAccessMask = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT,
+            .dstAccessMask = VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_MEMORY_WRITE_BIT,
             .oldLayout = VK_IMAGE_LAYOUT_GENERAL,
             .newLayout = VK_IMAGE_LAYOUT_GENERAL,
             .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
@@ -680,10 +700,10 @@ void MSAACopyPass::CopyImage(Image& dst_image, Image& src_image,
     const VkPipeline msaa_pipeline = *pipelines[msaa_to_non_msaa ? 1 : 0];
     scheduler.RequestOutsideRenderPassOperationContext();
     for (const VideoCommon::ImageCopy& copy : copies) {
-        ASSERT(copy.src_subresource.base_layer == 0);
-        ASSERT(copy.src_subresource.num_layers == 1);
-        ASSERT(copy.dst_subresource.base_layer == 0);
-        ASSERT(copy.dst_subresource.num_layers == 1);
+        assert(copy.src_subresource.base_layer == 0);
+        assert(copy.src_subresource.num_layers == 1);
+        assert(copy.dst_subresource.base_layer == 0);
+        assert(copy.dst_subresource.num_layers == 1);
 
         compute_pass_descriptor_queue.Acquire();
         compute_pass_descriptor_queue.AddImage(
@@ -700,6 +720,16 @@ void MSAACopyPass::CopyImage(Image& dst_image, Image& src_image,
 
         scheduler.Record([this, dst = dst_image.Handle(), msaa_pipeline, num_dispatches,
                           descriptor_data](vk::CommandBuffer cmdbuf) {
+            // The source was usually just rendered to and the destination may still be read:
+            // order both before the shader reads and writes them.
+            static constexpr VkMemoryBarrier READY_BARRIER{
+                .sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER,
+                .pNext = nullptr,
+                .srcAccessMask = VK_ACCESS_MEMORY_WRITE_BIT,
+                .dstAccessMask = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT,
+            };
+            cmdbuf.PipelineBarrier(VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+                                   VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, READY_BARRIER);
             const VkDescriptorSet set = descriptor_allocator.Commit();
             device.GetLogical().UpdateDescriptorSet(set, *descriptor_template, descriptor_data);
             cmdbuf.BindPipeline(VK_PIPELINE_BIND_POINT_COMPUTE, msaa_pipeline);
@@ -709,7 +739,7 @@ void MSAACopyPass::CopyImage(Image& dst_image, Image& src_image,
                 .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
                 .pNext = nullptr,
                 .srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT,
-                .dstAccessMask = VK_ACCESS_SHADER_READ_BIT,
+                .dstAccessMask = VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_MEMORY_WRITE_BIT,
                 .oldLayout = VK_IMAGE_LAYOUT_GENERAL,
                 .newLayout = VK_IMAGE_LAYOUT_GENERAL,
                 .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
@@ -724,7 +754,7 @@ void MSAACopyPass::CopyImage(Image& dst_image, Image& src_image,
                 },
             };
             cmdbuf.PipelineBarrier(VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-                                   VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, write_barrier);
+                                   VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, 0, write_barrier);
         });
     }
 }

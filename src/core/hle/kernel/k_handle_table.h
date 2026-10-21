@@ -97,13 +97,13 @@ public:
         if constexpr (std::derived_from<KProcess, T>) {
             if (handle == Svc::PseudoHandle::CurrentProcess) {
                 auto* const cur_process = GetCurrentProcessPointer(m_kernel);
-                ASSERT(cur_process != nullptr);
+                assert(cur_process != nullptr);
                 return cur_process;
             }
         } else if constexpr (std::derived_from<KThread, T>) {
             if (handle == Svc::PseudoHandle::CurrentThread) {
                 auto* const cur_thread = GetCurrentThreadPointer(m_kernel);
-                ASSERT(cur_thread != nullptr);
+                assert(cur_thread != nullptr);
                 return cur_thread;
             }
         }
@@ -179,7 +179,7 @@ public:
 
 private:
     s32 AllocateEntry() {
-        ASSERT(m_count < m_table_size);
+        assert(m_count < m_table_size);
 
         const auto index = m_free_head_index;
 
@@ -191,7 +191,7 @@ private:
     }
 
     void FreeEntry(s32 index) {
-        ASSERT(m_count > 0);
+        assert(m_count > 0);
 
         m_objects[index] = nullptr;
         m_entry_infos[index].next_free_index = static_cast<s16>(m_free_head_index);
@@ -215,8 +215,8 @@ private:
         const auto raw_value = handle_pack.raw;
         const auto index = handle_pack.index;
         const auto linear_id = handle_pack.linear_id;
-        const auto reserved = handle_pack.reserved;
-        ASSERT(reserved == 0);
+        [[maybe_unused]] const auto reserved = handle_pack.reserved;
+        assert(reserved == 0);
 
         // Validate our indexing information.
         if (raw_value == 0) [[unlikely]] {

@@ -60,6 +60,11 @@ public:
     /// of a renderpass.
     void RequestOutsideRenderPassOperationContext();
 
+    /// True while recorded commands are inside a render pass.
+    [[nodiscard]] bool IsRenderPassActive() const noexcept {
+        return state.renderpass != nullptr;
+    }
+
     /// Update the pipeline to the current execution context.
     bool UpdateGraphicsPipeline(GraphicsPipeline* pipeline);
 
@@ -202,9 +207,18 @@ private:
         Command* first = nullptr;
         Command* last = nullptr;
 
+        // A full chunk is handed to the worker thread, and every hand over wakes the worker.
+        // A busy scene fills a small chunk every twenty draws or so, which is thousands of
+        // wake-ups a second, so Android gets larger chunks.
+#ifdef ANDROID
+        static constexpr size_t CHUNK_SIZE = 0x20000;
+#else
+        static constexpr size_t CHUNK_SIZE = 0x8000;
+#endif
+
         size_t command_offset = 0;
         bool submit = false;
-        alignas(std::max_align_t) std::array<u8, 0x8000> data{};
+        alignas(std::max_align_t) std::array<u8, CHUNK_SIZE> data{};
     };
 
     struct State {

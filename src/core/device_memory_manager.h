@@ -122,7 +122,10 @@ public:
         std::string_view call_site = "DeviceMemoryManager::ReadBlockUnsafe",
         bool report_unmapped = true);
     void WriteBlock(DAddr address, const void* src_pointer, size_t size);
-    void WriteBlockUnsafe(DAddr address, const void* src_pointer, size_t size);
+    /// Writes a device range, skipping unmapped portions. The result describes the skipped holes;
+    /// callers which deliberately handle holes may disable the generic unmapped-write log.
+    DeviceMemoryReadResult WriteBlockUnsafe(DAddr address, const void* src_pointer, size_t size,
+                                            bool report_unmapped = true);
 
     Asid RegisterProcess(Memory::Memory* memory);
     void UnregisterProcess(Asid id);
@@ -176,6 +179,13 @@ private:
     };
     Common::VirtualBuffer<GpuCoalescedEntry> entries;
     Common::VirtualBuffer<u32> compressed_device_addr;
+
+    /// Number of pages from this one on that are contiguous in host memory. The table is never
+    /// initialised (see the constructor), so an entry nothing has written yet counts as one page.
+    [[nodiscard]] size_t ContinuityAt(size_t page_index) const {
+        const u32 tracked = entries[page_index].continuity_tracker;
+        return tracked != 0 ? static_cast<size_t>(tracked) : size_t{1};
+    }
 
     // Process memory interfaces
 

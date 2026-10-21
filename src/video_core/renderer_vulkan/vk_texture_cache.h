@@ -253,6 +253,12 @@ public:
         return supports_depth_comparison;
     }
 
+    /// False when the view's format cannot be sampled with a linear filter (Turnip: the 32-bit
+    /// float formats), in which case a linear sampler must not be paired with it
+    [[nodiscard]] bool SupportsLinearFilter() const noexcept {
+        return supports_linear_filter;
+    }
+
     [[nodiscard]] GPUVAddr GpuAddr() const noexcept {
         return gpu_addr;
     }
@@ -270,9 +276,14 @@ private:
     struct StorageViews {
         std::array<vk::ImageView, Shader::NUM_TEXTURE_TYPES> signeds;
         std::array<vk::ImageView, Shader::NUM_TEXTURE_TYPES> unsigneds;
+        /// Typeless accesses, in the view's own format with the identity swizzle
+        std::array<vk::ImageView, Shader::NUM_TEXTURE_TYPES> typeless;
     };
 
     [[nodiscard]] vk::ImageView MakeView(VkFormat view_format, VkImageAspectFlags aspect);
+
+    /// A storage view in the sampled format, shaped like Handle(texture_type)
+    [[nodiscard]] vk::ImageView MakeTypelessStorageView(Shader::TextureType texture_type);
 
     const Device* device = nullptr;
     const SlotVector<Image>* slot_images = nullptr;
@@ -293,6 +304,7 @@ private:
     u32 buffer_size = 0;
     VideoCommon::ImageType physical_image_type = VideoCommon::ImageType::e2D;
     bool supports_depth_comparison = false;
+    bool supports_linear_filter = true;
 };
 
 class ImageAlloc : public VideoCommon::ImageAllocBase {};
@@ -377,8 +389,10 @@ public:
         return samples;
     }
 
-    [[nodiscard]] u32 NumColorBuffers() const noexcept {
-        return num_color_buffers;
+    /// Colour attachment slots of the render pass's subpass: the highest bound render target plus
+    /// one, since slot i is render target i (vk_render_pass_cache.cpp).
+    [[nodiscard]] u32 NumColorAttachments() const noexcept {
+        return num_color_attachments;
     }
 
     [[nodiscard]] u32 NumImages() const noexcept {
@@ -414,7 +428,7 @@ private:
     VkRenderPass renderpass{};
     VkExtent2D render_area{};
     VkSampleCountFlagBits samples = VK_SAMPLE_COUNT_1_BIT;
-    u32 num_color_buffers = 0;
+    u32 num_color_attachments = 0;
     u32 num_images = 0;
     std::array<VkImage, 9> images{};
     std::array<VkImageSubresourceRange, 9> image_ranges{};

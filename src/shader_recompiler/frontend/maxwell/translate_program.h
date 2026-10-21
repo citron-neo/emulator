@@ -16,7 +16,7 @@ struct HostTranslateInfo;
 
 namespace Shader::Maxwell {
 
-[[nodiscard]] IR::Program TranslateProgram(ObjectPool<IR::Inst>& inst_pool,
+[[nodiscard]] IR::Program TranslateProgram(IR::InstStorage& inst_storage,
                                            ObjectPool<IR::Block>& block_pool, Environment& env,
                                            Flow::CFG& cfg, const HostTranslateInfo& host_info);
 
@@ -28,7 +28,7 @@ void ConvertLegacyToGeneric(IR::Program& program, const RuntimeInfo& runtime_inf
 // Maxwell v1 and older Nvidia cards don't support setting gl_Layer from non-geometry stages.
 // This creates a workaround by setting the layer as a generic output and creating a
 // passthrough geometry shader that reads the generic and sets the layer.
-[[nodiscard]] IR::Program GenerateGeometryPassthrough(ObjectPool<IR::Inst>& inst_pool,
+[[nodiscard]] IR::Program GenerateGeometryPassthrough(IR::InstStorage& inst_storage,
                                                       ObjectPool<IR::Block>& block_pool,
                                                       const HostTranslateInfo& host_info,
                                                       IR::Program& source_program,

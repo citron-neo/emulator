@@ -3,6 +3,8 @@
 
 #pragma once
 
+#include <span>
+
 #include "video_core/engines/fermi_2d.h"
 
 namespace Tegra {
@@ -10,6 +12,12 @@ class MemoryManager;
 }
 
 namespace Tegra::Engines::Blitter {
+
+/// Combines blitted pixels with the destination as SET_OPERATION says, on RGBA floats in [0, 1]
+/// (4 per pixel). `src` holds the blitted pixels, `dst` the destination and receives the result.
+/// SRCCOPY, SRCCOPY_AND, BLEND, SRCCOPY_PREMULT and BLEND_PREMULT; ROP operations copy.
+void ApplyOperation(Fermi2D::Operation operation, u32 beta1, u32 beta4, std::span<const f32> src,
+                    std::span<f32> dst);
 
 class SoftwareBlitEngine {
 public:

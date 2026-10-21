@@ -48,7 +48,7 @@ public:
 
     NrrKind GetNrrKind() const {
         const NrrKind kind = static_cast<NrrKind>(m_nrr_kind);
-        ASSERT(kind < NrrKind::Count);
+        assert(kind < NrrKind::Count);
         return kind;
     }
 
